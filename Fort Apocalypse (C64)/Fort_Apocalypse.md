@@ -491,9 +491,12 @@ Chars $00–$20 are left for
 |-------------|---------|------------------------------------------------|
 | $01–$04,$09 | $A7ED   | energy barrier 1: pattern from $8907/$891F or blanked (timer $3D) |
 | $05–$08,$09 | $A830   | energy barrier 2 (timer $3E, cap pattern $8917) |
-| $0A–$0D     | $A86B   | every 128 frames, random chars get rows of $55 (shimmer) |
+| $0A–$0D     | $A86B   | laser-grid segments: each independently on/off, re-rolled every 128 frames (Part V §8) |
 | $0E–$11     | $A8B8   | 4-phase rotation: one of four chars lit per phase |
 | $20,$3F     | $A8F3   | every frame: `pattern($A927) AND $D41B` — noise flicker: **$20 is the explosion char, $3F the fort core** |
+| $4C–$4F,$47 | $AF54   | two dither patterns alternated every 8 frames (cosmetic shimmer, Part V §8) |
+| $59,$5A     | $8DD3   | reactor gate walls: one randomly solid per life (Part V §8) |
+| $71,$72     | $A904   | missile exhaust rows noise-flickered every frame |
 
 ![Playfield charset](rendered/charset-playfield.png)
 
@@ -663,7 +666,7 @@ $0A refueling).
 - Up/down move 1px/frame; bank auto-centers every 8 frames when
   moving vertically or hovering ($A62F).
 - Gravity: sinks 1px every 16 / 8 / 4 frames for the WEAK / NORMAL /
-  STRONG gravity options (mask $F5 = $0F/$07/$03, see §9).
+  STRONG gravity options (mask $F5 = $0F/$07/$03, see §10).
 - The camera keeps the sprite between x $6E–$82 and scrolls
   2px/frame; the world wraps (Part IV §4).
 - Title attract mode replays 108 recorded joystick values from $AA4F.
@@ -787,7 +790,14 @@ within $30 columns and $13 rows of the camera the sprite is shown at
 the computed position; otherwise it is hidden but **keeps hunting in
 map coordinates** — only the sprite and its gun go live on camera.
 
-**Hunting never times out.** The only exits are death — terrain
+A watchdog ($B268) keeps it relevant: while the player is
+underground (level 0 row ≥ 16, or anywhere on later levels) and the
+enemy has been continuously off-camera, a counter runs down (~6.8 s);
+when it expires the enemy is silently reset to idle with a short
+10-frame delay — i.e. it abandons an unreachable approach and
+re-spawns at a fresh patrol point near the action.
+
+**Hunting never times out on its own otherwise.** The exits are death — terrain
 contact (sprite-background latch $73 bit 1) or being touched by a
 player bullet sprite ($68: bit 1 together with bit 2/3) — giving
 state 4: 20 frames of colour-cycling explosion ($A2FB), then idle
@@ -899,7 +909,82 @@ a direct bullet hit stamps $20 (§2), so prisoners can be shot, by the
 player as well as by the enemy helicopter. Dead or
 rescued, he leaves $EB — and **both level exits require $EB = 0**.
 
-## 8. Collision matrix
+## 8. Gates, moving walls, barriers and laser grids
+
+The fortress architecture itself is dynamic — and none of it uses
+object slots. The map cells never change; their **character glyphs**
+are redefined at runtime (Part IV §2), and because collision is
+pixel-based (§0), redefining one char opens or closes every cell that
+uses it, everywhere on the map, at once.
+
+### The reactor gate walls (chars $59/$5A)
+
+The reactor chamber on level 1 has two 3×8-cell gate walls (char $59
+left, columns 103–105; char $5A right, columns 150–152, rows 26–33).
+At every level/life start ($8DD3) both glyph definitions are cleared
+and **one of the two, chosen by the SID-noise sign bit, is filled
+with solid $55 rows** — so each life, one gate is a solid wall and
+the other is invisible and passable, at random. The fort-destruction
+sequence blanks both ($97E7): once the core is hit, both gates stand
+open for the escape. (In the rendered maps these walls show as "1"
+and "2" digit blocks — the game file's glyphs for $59/$5A are
+leftover right-half font digits, which is also why they are never
+seen in the running game: they are overwritten before play begins.)
+
+### Sweeping walls (chars $0E–$11)
+
+Corridor bands are tiled with repeating 6-column runs of chars
+$0F,$10,$11,$0E (level 0: the rows 20–25 band below the surface;
+level 1: the maze region at columns 3–38). $A8B8 keeps **exactly one
+of the four chars solid** ($55 rows) and the other three blank,
+advancing the phase `$8D = ($8D + $8E) & 3` every $90 frames (62/47/37
+by PILOT SKILL). The effect is a 6-column wall section marching
+through the corridor, jumping one run per phase step. The direction
+$8E (+1/−1) is toggled by — of all things — **every press of the
+fire button** ($A5E2): each shot anywhere on the map reverses the
+sweep.
+
+### Laser grids (chars $0A–$0D)
+
+Laser segments tile the deep-cavern corridors on level 0 (rows
+26–37) and the lattice **around the reactor core itself** on level 1
+(columns 118–137). Every 128 frames ($A86B) all four chars are
+blanked and each is independently re-lit with 50% probability
+($D41B sign bit per char). Adjacent map cells alternate between the
+four chars, so the segments of one grid flicker independently: a lit
+segment is solid/lethal, a dark one is open air. There is no pattern
+to learn — passage through a grid is probabilistic.
+
+### Energy barriers (chars $01–$08, emitter caps $09)
+
+Two independent barrier groups: chars $01–$04 (timer $3D, handler
+$A7ED) and $05–$08 (timer $3E, $A830), used for the cave entry
+shafts on level 0 and the corridor gates of the fortress — including
+one barrier column flanking each reactor gate (char $04 beside the
+left gate, $08 beside the right, with emitter caps $46/$51/$43/$50).
+Every 8 frames the group's timer advances by $EF (4/8/16 by variant);
+the barrier glyphs are **blank except during the single 8-frame
+window in which the timer wraps to zero**, when the patterns from
+$8907/$891F/$8917 are drawn — a brief, periodic lethal flash rather
+than a standing wall (cycle ≈ 10.2/5.1/2.6 s by variant). The two
+groups start half a cycle apart ($3D=0, $3E=$80), so their flashes
+alternate. Two tie-ins: the entry-shaft teleport ($A0CE) only
+triggers when a timer is in its flash window — landing in a shaft is
+a timing exercise — and the fort's destruction sets $EE=1, which
+forces both groups permanently blank for the escape.
+
+### Cosmetic wall animation (chars $4C–$4F, $47)
+
+$AF54 alternates chars $4C–$4F between two dense dither patterns
+($AF80 vs the original data at $B6B9) every 8 frames, and toggles two
+middle rows of the destructible-rock char $47 in step — a shimmering
+"energy field" texture on 44 wall cells of level 0. Both patterns
+have pixels everywhere, so unlike everything above this never changes
+collision; it is pure dressing. (Similarly cosmetic: the missile
+chars $71/$72 get their exhaust-flame rows noise-flickered every
+frame at $A904.)
+
+## 9. Collision matrix
 
 | agent ↓ hits →   | terrain pixels | barrier (lit) | explosion $20 | missile $71/$72 | SPM | tank chars | prisoner | enemy heli (sprite) | player (sprite) |
 |------------------|----------------|---------------|---------------|-----------------|--------------|------------|----------|--------------------|-----------------|
@@ -914,7 +999,7 @@ rescued, he leaves $EB — and **both level exits require $EB = 0**.
 the object's cell and is freed; the object's engine detects the $20,
 dies, and restores its own saved background — see §2.)
 
-## 9. Difficulty variants
+## 10. Difficulty variants
 
 Three options on the title/options screen (their labels are in the
 string table at $9452+):
@@ -933,7 +1018,7 @@ string table at $9452+):
 | $8E0A | $F1 tank period | 4, 3, 2 frames | tank speed |
 | $8E0B | $F3 missile period | 3, 2, 1 frames | missile speed |
 
-## 10. Level progression and victory
+## 11. Level progression and victory
 
 ```
 Level 0 "VAULTS OF DRACONIS" (surface + caverns)
