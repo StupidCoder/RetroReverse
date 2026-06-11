@@ -671,15 +671,23 @@ $0A refueling).
   2px/frame; the world wraps (Part IV §4).
 - Title attract mode replays 108 recorded joystick values from $AA4F.
 
-**Terrain contact ($A066):** on the sprite-background latch, first
-offer boarding to prisoners (§7); then probe the 3 cells under the
-copter:
-- barrier-capped pad on level 0 ($B230 finds barrier chars $01/$02/
-  $05/$06 within 5 rows above, columns $28–$D7) → state $0A:
-  **teleport to one of 4 random cavern drop points** ($9892).
-- otherwise: gentle 1px bounce and mode 6 (landed); the position is
-  saved as the **respawn checkpoint** ($A176) unless on prisoner
-  floor or refueling.
+**Terrain contact ($A066):** on the sprite-background latch,
+boarding is offered to prisoners first (§7); then the player's map
+cell and the two cells below it are probed ($A193):
+- if any of the three holds a **landing char** — the pad/depot char
+  $44, walkway floor $48, or the prisoner glyphs $3B–$3E — it is a
+  landing: gentle 1px bounce, mode 6, and the position is saved as
+  the **respawn checkpoint** ($A176; not on $48 floor or while
+  refueling). Everything legal to land on in the game is built from
+  exactly these chars.
+- any other contact is fatal — **unless** it qualifies as a
+  barrier-gate teleport: level 0, a barrier group currently in its
+  flash window, barrier chars $01/$02/$05/$06 within the 5 cells
+  above the player's cell ($B230), and columns $28–$D7 → state $0A:
+  **teleported to one of 4 random cavern drop points** ($9892), with
+  a crash-grace flag. In practice: touching a lit scissor-gate
+  barrier in the caverns teleports, touching rock kills (§8 has the
+  full barrier rules).
 
 **Crash ($A128):** enemy-sprite or enemy-bullet contact (latch $68),
 or empty-tank landing deep (row ≥ 14). Grace timers: $4D (just
@@ -968,10 +976,44 @@ window in which the timer wraps to zero**, when the patterns from
 $8907/$891F/$8917 are drawn — a brief, periodic lethal flash rather
 than a standing wall (cycle ≈ 10.2/5.1/2.6 s by variant). The two
 groups start half a cycle apart ($3D=0, $3E=$80), so their flashes
-alternate. Two tie-ins: the entry-shaft teleport ($A0CE) only
-triggers when a timer is in its flash window — landing in a shaft is
-a timing exercise — and the fort's destruction sets $EE=1, which
-forces both groups permanently blank for the escape.
+alternate. The fort's destruction sets $EE=1, forcing both groups
+permanently blank for the escape.
+
+**Geometry.** On level 0 the two groups are interleaved as six
+diagonal **scissor gates** across the cavern passages (the X-shaped
+crosshatches on the map render): cols 5–24 and 29–36 (rows 30–37,
+the bottom-left chambers), 44–58 and 199–213 (rows 20–25, the upper
+passages), 96–110 and 145–159 (rows 32–37, the lower passages). Each
+gate is two crossing diagonals — one per group — so its two halves
+flash alternately. On level 1 the barriers are rails along the
+pillar hall (rows 16/19 and 32/35, cols 43–102), two columns
+flanking the entry shaft (cols 121/134, rows 4–11), and the columns
+beside the reactor gates (cols 107/148, rows 27–32).
+
+**Kill or teleport?** A dark barrier has no pixels and no effect at
+all. A lit one triggers the background latch, and the contact
+handler ($A0A1, see §1) then decides:
+
+* on **level 1**, barrier contact always crashes the player — the
+  teleport path requires $5C = 0;
+* on **level 0**, contact while *under or inside* a gate (barrier
+  chars $01/$02/$05/$06 somewhere in the 5 cells above the player's
+  position cell, $B230) is converted into the **teleport**: state
+  $0A → $9892 picks one of the four cavern drop points at random
+  (camera presets $98DA+: two in the upper cavern band, two in the
+  deep band) and sets the $4D grace flag so the arrival cannot
+  crash. Since a barrier can only be touched while it is lit, and
+  lit means its timer is in the wrap window, the $A0CE timer check
+  ($3D or $3E == 0) passes automatically in this case — its real job
+  is to stop *ordinary terrain* contact from ever taking the
+  teleport branch outside a flash window;
+* contact at a gate's top end or from a position where no barrier
+  chars sit above the reference cell fails the $B230 test and
+  crashes like ordinary terrain.
+
+So the cavern gates are the level-0 transport system: fly into a
+funnel, hover, and let the flash take you — the danger there is the
+surrounding rock, not the barrier itself.
 
 ### Cosmetic wall animation (chars $4C–$4F, $47)
 
