@@ -39,7 +39,7 @@ AIReverseEngineering/
 │
 ├── Elite (C64)/
 │   ├── Elite.tap               # raw tape image
-│   ├── TapeFormat.md           # tape container + fastloader writeup
+│   ├── Elite.md                # tape + loader writeup (game parts to follow)
 │   ├── extract/                # module elite/extract — the extraction tool
 │   └── extracted/              # generated .prg files (regenerable; git-ignored)
 │

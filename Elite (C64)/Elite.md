@@ -1,9 +1,29 @@
-# Elite (C64) — Tape Image Format and Fastloader
+# Elite (C64) — tape format, loader, and game analysis
 
-Findings from a purely static analysis of `Elite.tap`. No external tools or
-references were used; everything below was derived from the bytes in the image
-and disassembly of the loader code it contains. The extraction tool in
-`extract/` is built directly on these findings.
+A reverse-engineering reference for `Elite.tap` (the tape carries a single
+autostarting file named "ELITE"). So far it covers the tape image and the
+self-modifying copy-protection loader, with the game-program parts to follow,
+in reading order:
+
+* **Part I** — the TAP container and both tape encodings (standard KERNAL and
+  the custom fastloader), enough to extract every byte from the raw image;
+* **Part II** — the boot chain from the KERNAL autostart trick to the game's
+  first instruction, including the self-modifying loader and its
+  copy-protection tricks;
+* *(Parts III onward — game program, graphics, mechanics — to come.)*
+* **Appendices** — toolchain and reproduction.
+
+Methods: purely static analysis of the image bytes — no external tools or
+references, everything below was derived from the bytes in the image and
+disassembly of the loader code it carries. Because the fastloader rewrites its
+own wire format as it runs, the Go extraction toolchain (`extract/` plus the
+shared `c64tools/`) does not reimplement the protocol; it *runs* the actual
+loader on a small 6502 emulator and logs what it writes (Appendix A). All
+addresses are C64 memory addresses.
+
+---
+
+# Part I — The tape image
 
 ## 1. TAP container
 
@@ -35,6 +55,8 @@ Only five pulse widths matter on this tape:
 | `$5D`| 744    | fastloader *1-bit* |
 | `00 …`| ≥ 10⁶ | pauses between segments |
 
+### Layout of this image
+
 The pauses split the tape into 12 segments:
 
 | seg | TAP offset | content |
@@ -52,7 +74,7 @@ The pauses split the tape into 12 segments:
 | 10 | $0BBEB2 | turbo (kernal LOAD 6): colour data `$6000-$6400` |
 | 11 | $0BFFD4 | turbo (kernal LOAD 7): `$4000-$41EA` + `$6000-$6400` |
 
-## 2. The standard (kernal ROM) part — boot file
+## 2. Standard KERNAL encoding (boot file)
 
 The first two segments are a normal CBM tape file, readable by the kernal
 ROM loader:
@@ -73,43 +95,17 @@ Decoded header block (segment 0):
 └─ type 3 = non-relocatable program
 ```
 
-Segment 1 is the 289-byte program `$029F-$03C0` plus XOR checksum. This load
-address is the whole trick:
+Segment 1 is the 289-byte program `$029F-$03C0` plus XOR checksum — the boot
+code. Its load address is the whole trick that autostarts the loader; that and
+the boot code itself are covered in Part II.
 
-### Autostart
+## 3. The fastloader encoding
 
-The kernal saves the IRQ vector at `$029F/$02A0` while it uses the tape, and
-**restores `$0314/$0315` from there when the load finishes**. The file starts
-at `$029F` and its first two bytes are `A8 02`:
+From segment 2 on, the tape uses a custom turbo encoding. This section
+describes the bytes on the tape; how the loader code that reads them is itself
+patched mid-stream is Part II.
 
-```
-029F  A8 02            ← restored into $0314/$0315 = IRQ vector $02A8
-```
-
-So the first timer IRQ after "FOUND ELITE" jumps straight into the loaded
-code at `$02A8` — no `RUN` needed, and the file also overwrites the BASIC
-vector table at `$0300-$0333` on the way (it keeps almost all default values;
-`$0314/$0315` inside the file is `2C F9` = `$F92C`, a kernal tape-IRQ routine,
-so the machine survives the moment the vector table is overwritten *during*
-the load).
-
-### Boot code (entry $02A8)
-
-```
-02A8  LDA #$20            fill $03C0-$07FF with spaces
-02AE  STA ($AC),Y         ($AC/$AD = end-of-load address $03C0)
-02B0  JSR $FCDB           kernal: increment $AC/$AD
-...
-02B9  LDA $FCD1,Y         fill $0800-$CFFF with kernal ROM garbage
-...
-02C7  LDA #$80  STA $9D   kernal messages off
-02CB  STA $0800, STA $C6  zero BASIC start, clear keyboard buffer
-02D2  JMP $0378           → fastloader
-```
-
-## 3. The fastloader
-
-### 3.1 Bit encoding — CIA timer as pulse discriminator
+### Bit encoding — CIA timer as pulse discriminator
 
 Two pulse widths encode bits: `$30` (384 cycles) = **0**, `$5D` (744 cycles) =
 **1**. The threshold is implemented with CIA 2 timer A, latch `$0243` = 579
@@ -147,7 +143,7 @@ Latch setup at the loader entry point:
 038A  LDA #$07  STA $01              tape motor on, ROMs in
 ```
 
-### 3.2 Byte framing, pilot and sync
+### Byte framing, pilot and sync
 
 A byte is **9 pulses: one start bit (always 1) followed by 8 data bits,
 MSB first** (`ROL` into `$FC`; the ninth shift pushes the start bit out).
@@ -165,7 +161,7 @@ Synchronisation (entry `$038E`):
 2. read byte frames while they decode to `$00`;
 3. the first non-zero byte must be `$16`, otherwise restart at 1.
 
-### 3.3 Block format
+### Block format
 
 After the sync byte comes a sequence of blocks, **back to back, with no
 checksums and no gaps**:
@@ -192,16 +188,58 @@ bytes. The header is stored to `$AF,$AE,$AD,$AC` and the store loop is:
 03BB  BCS $03A3                       then: next block header — forever!
 ```
 
-Note the loop never terminates by itself. That leads to the protection's
-core trick.
+Note the loop never terminates by itself: it always branches back for another
+block header. That non-terminating loop is the hook the copy protection hangs
+on — how the tape stops it (and rewrites the loader between blocks) is Part II.
 
-### 3.4 Self-modification — the loader rewrites itself from the tape
+Net data rate of the turbo format is ≈ 190 bytes/s (9 pulses × ~570 µs
+average), roughly five times the effective rate of the ROM format with its
+duplicated blocks. There is **no checksum** on any turbo data.
 
-**Exit trick.** To end a load, the tape simply sends a block whose address
-range covers the loop itself, e.g. `$03BB-$03EB`. While that block loads, the
-byte at `$03BB` changes from `B0` (`BCS`) to `A9` (`LDA #`), so when the
-block is complete the loop *falls through* into the code that was just
-loaded:
+---
+
+# Part II — Boot chain and loader internals
+
+## 1. Autostart
+
+The kernal saves the IRQ vector at `$029F/$02A0` while it uses the tape, and
+**restores `$0314/$0315` from there when the load finishes**. The boot file
+(segment 1) starts at `$029F` and its first two bytes are `A8 02`:
+
+```
+029F  A8 02            ← restored into $0314/$0315 = IRQ vector $02A8
+```
+
+So the first timer IRQ after "FOUND ELITE" jumps straight into the loaded
+code at `$02A8` — no `RUN` needed, and the file also overwrites the BASIC
+vector table at `$0300-$0333` on the way (it keeps almost all default values;
+`$0314/$0315` inside the file is `2C F9` = `$F92C`, a kernal tape-IRQ routine,
+so the machine survives the moment the vector table is overwritten *during*
+the load).
+
+## 2. Boot code (entry $02A8)
+
+```
+02A8  LDA #$20            fill $03C0-$07FF with spaces
+02AE  STA ($AC),Y         ($AC/$AD = end-of-load address $03C0)
+02B0  JSR $FCDB           kernal: increment $AC/$AD
+...
+02B9  LDA $FCD1,Y         fill $0800-$CFFF with kernal ROM garbage
+...
+02C7  LDA #$80  STA $9D   kernal messages off
+02CB  STA $0800, STA $C6  zero BASIC start, clear keyboard buffer
+02D2  JMP $0378           → fastloader
+```
+
+The jump to `$0378` enters the turbo loader described in Part I §3.
+
+## 3. Self-modification — the loader rewrites itself from the tape
+
+**Exit trick.** The block store loop (Part I §3) never terminates on its own.
+To end a load, the tape simply sends a block whose address range covers the
+loop itself, e.g. `$03BB-$03EB`. While that block loads, the byte at `$03BB`
+changes from `B0` (`BCS`) to `A9` (`LDA #`), so when the block is complete the
+loop *falls through* into the code that was just loaded:
 
 ```
 03BB  A9 E6              was: BCS $03A3 — now falls through
@@ -233,7 +271,7 @@ The main payload of segment 3 (`$4000-$86CC`) is transmitted as ~70 blocks of
 extracting it without executing the patches is hopeless, which is clearly the
 point: it is a copy-protection scheme, not just a fastloader.
 
-### 3.5 Exit-code variants
+## 4. Exit-code variants
 
 Three kinds of exit blocks occur:
 
@@ -246,7 +284,7 @@ Three kinds of exit blocks occur:
    `CLC`, `RTS` — return as a well-behaved `ILOAD` implementation to the
    kernal `LOAD` caller.
 
-### 3.6 The multi-stage load chain
+## 5. The multi-stage load chain
 
 ```
 kernal ROM load  →  boot "ELITE" $029F-$03C0 (autostart via IRQ vector $029F/$02A0)
@@ -276,11 +314,9 @@ each line run once. The 5-byte headers, the bit-order flips and the no-op
 rewrites have no functional purpose other than to frustrate exactly the kind
 of analysis done here.
 
-Net data rate of the turbo format is ≈ 190 bytes/s (9 pulses × ~570 µs
-average), roughly five times the effective rate of the ROM format with its
-duplicated blocks. There is **no checksum** on any turbo data.
+---
 
-## 4. The extractor (`extract/`)
+# Appendix A — Toolchain and reproduction
 
 Because the wire format is rewritten on the fly by code that arrives on the
 wire itself, the extractor does not reimplement the protocol. Instead it
@@ -304,13 +340,33 @@ root `README.md`); only the Elite-specific glue lives in `extract/`:
    `memory_final.bin` (the full 64 KB RAM image at the end) and `report.txt`
    (every block in load order).
 
-Usage:
-
 ```
-cd extract && go build && ./extract -o ../extracted ../Elite.tap
+# Run from this game folder ("Elite (C64)/"). The go.work workspace at the
+# repository root lets the extract module find the shared c64tools packages.
+
+# 1. Summarise the tape (pulse histogram + segment map)
+go run stupidcoder.com/c64tools/cmd/tapdump Elite.tap
+
+# 2. Extract all program files by running the loader under emulation
+( cd extract && go build -o extract . )
+extract/extract -o extracted Elite.tap
+
+# 3. Disassemble anything (shared tool, run by import path) — e.g. the
+#    getbit/getbyte routines at $0334 inside the boot file
+( cd extract && go run stupidcoder.com/c64tools/cmd/disprg -start 0334 -end 0358 \
+    ../extracted/00_cbm_ELITE_029f.prg )
+
+# run this module's tests
+( cd extract && go test ./... )
 ```
 
 The run consumes all 801,536 pulses of the image; the emulated game ends up
-in its idle loop with the tape exhausted. Output files prefixed `loader_`
-are the self-modification blocks aimed at `$0280-$03FF`; the rest are the
-actual program data listed in the segment table above.
+in its idle loop with the tape exhausted. Output files with `loader_` in their
+name are the self-modification blocks aimed at `$0280-$03FF`; the rest are the
+actual program data listed in the segment table in Part I §1.
+
+Package overview — game-specific (`extract/`): `main.go` (write coalescing and
+file output), `driver.go` (the BASIC-stub driver and Elite-specific KERNAL
+hooks). Shared (`c64tools/`): `tap` (TAP container), `cbmtape` (ROM-loader
+decoder), `mos6502` (disassembler + CPU emulator), `c64` (machine model),
+`cmd/disprg`, `cmd/tapdump`.
