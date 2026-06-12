@@ -5,8 +5,8 @@ import (
 	"testing"
 
 	"fortapoc/extract/fastload"
-	"stupidcoder.com/c64tools/cbmtape"
-	"stupidcoder.com/c64tools/tap"
+	"stupidcoder.com/tools/c64/cbmtape"
+	"stupidcoder.com/tools/c64/tap"
 )
 
 // TestFortApocalypse verifies extraction of the real tape image end to end.

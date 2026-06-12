@@ -11,7 +11,7 @@ import (
 	"path/filepath"
 
 	"fortapoc/extract/fortgfx"
-	"stupidcoder.com/c64tools/gfx"
+	"stupidcoder.com/tools/c64/gfx"
 )
 
 func main() {

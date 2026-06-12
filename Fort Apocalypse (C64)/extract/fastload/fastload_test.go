@@ -3,7 +3,7 @@ package fastload
 import (
 	"testing"
 
-	"stupidcoder.com/c64tools/tap"
+	"stupidcoder.com/tools/c64/tap"
 )
 
 const (

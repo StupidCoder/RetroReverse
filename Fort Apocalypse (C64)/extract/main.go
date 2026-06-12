@@ -12,9 +12,9 @@ import (
 	"strings"
 
 	"fortapoc/extract/fastload"
-	"stupidcoder.com/c64tools/cbmtape"
-	"stupidcoder.com/c64tools/mos6502"
-	"stupidcoder.com/c64tools/tap"
+	"stupidcoder.com/tools/c64/cbmtape"
+	"stupidcoder.com/tools/c64/tap"
+	"stupidcoder.com/tools/mos6502"
 )
 
 func main() {

@@ -18,7 +18,7 @@ import (
 	"path/filepath"
 
 	"elite/extract/shipmodel"
-	"stupidcoder.com/c64tools/gfx"
+	"stupidcoder.com/tools/c64/gfx"
 )
 
 var (

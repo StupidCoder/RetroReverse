@@ -17,7 +17,7 @@ package cbmtape
 import (
 	"fmt"
 
-	"stupidcoder.com/c64tools/tap"
+	"stupidcoder.com/tools/c64/tap"
 )
 
 // Pulse classes.

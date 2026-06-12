@@ -23,7 +23,7 @@ Methods: purely static analysis of the image bytes — no external tools or
 references, everything below was derived from the bytes in the image and
 disassembly of the loader and game code it carries. Because the fastloader
 rewrites its own wire format as it runs, the Go extraction toolchain
-(`extract/` plus the shared `c64tools/`) does not reimplement the protocol; it
+(`extract/` plus the shared `tools/`) does not reimplement the protocol; it
 *runs* the actual loader on a small 6502 emulator and logs what it writes
 (Appendix A). The game code is encrypted on tape; the same emulator runs the
 loaded image far enough to decrypt it in memory, which is how the routines in
@@ -761,17 +761,17 @@ GitHub's markdown — and show the first frame as a still everywhere else.)
 Because the wire format is rewritten on the fly by code that arrives on the
 wire itself, the extractor does not reimplement the protocol. Instead it
 **runs the actual loader** from the image. Most of the machinery is shared
-with the other games in this repository via the `c64tools` module (see the
+with the other games in this repository via the `tools` module (see the
 root `README.md`); only the Elite-specific glue lives in `extract/`:
 
-1. `c64tools/tap` parses the TAP container into pulses.
-2. `c64tools/cbmtape` decodes the ROM-format boot file (checksum verified).
-3. `c64tools/mos6502` (CPU) and `c64tools/c64` (machine model) run the boot
+1. `tools/c64/tap` parses the TAP container into pulses.
+2. `tools/c64/cbmtape` decodes the ROM-format boot file (checksum verified).
+3. `tools/mos6502` (CPU) and `tools/c64/c64` (machine model) run the boot
    code on a small 6502 emulator. The only hardware modelled is what the
    loader touches: CIA1 FLAG edges fed from the TAP pulse stream, and CIA2
    timers A/B as pulse-width discriminators against their latches. The
    standard KERNAL tape entry points ($FCDB, $FCD1, $FCCA, $FF90) are
-   provided by `c64tools/c64`; the Elite-specific hooks in `extract/driver.go`
+   provided by `tools/c64/c64`; the Elite-specific hooks in `extract/driver.go`
    add KERNAL LOAD ($FFD5/ILOAD) and the BASIC statement loop $A7EA, which
    drives the loaded `LOAD`/`LOAD`/`SYS` stub.
 4. `extract/main.go` logs every memory write performed while tape pulses are
@@ -782,10 +782,10 @@ root `README.md`); only the Elite-specific glue lives in `extract/`:
 
 ```
 # Run from this game folder ("Elite (C64)/"). The go.work workspace at the
-# repository root lets the extract module find the shared c64tools packages.
+# repository root lets the extract module find the shared tools packages.
 
 # 1. Summarise the tape (pulse histogram + segment map)
-go run stupidcoder.com/c64tools/cmd/tapdump Elite.tap
+go run stupidcoder.com/tools/c64/cmd/tapdump Elite.tap
 
 # 2. Extract all program files by running the loader under emulation
 ( cd extract && go build -o extract . )
@@ -799,7 +799,7 @@ extract/extract -o extracted Elite.tap
 
 # 5. Disassemble anything (shared tool, run by import path) — e.g. the
 #    getbit/getbyte routines at $0334 inside the boot file
-( cd extract && go run stupidcoder.com/c64tools/cmd/disprg -start 0334 -end 0358 \
+( cd extract && go run stupidcoder.com/tools/cmd/disprg -start 0334 -end 0358 \
     ../extracted/00_cbm_ELITE_029f.prg )
 
 # run this module's tests
@@ -815,7 +815,7 @@ Package overview — game-specific (`extract/`): `main.go` (write coalescing and
 file output), `driver.go` (the BASIC-stub driver and Elite-specific KERNAL
 hooks), `shipmodel` (engine reconstruction + blueprint decoding),
 `cmd/loadingscreen` (reassembles and renders the loading picture),
-`cmd/shiprender` (wireframe ship animations). Shared (`c64tools/`): `tap` (TAP
+`cmd/shiprender` (wireframe ship animations). Shared (`tools/`): `tap` (TAP
 container), `cbmtape` (ROM-loader decoder), `mos6502` (disassembler + CPU
 emulator), `c64` (machine model), `gfx` (rendering primitives: multicolor
 bitmap, line drawing, animated-PNG output), `cmd/disprg`, `cmd/tapdump`.

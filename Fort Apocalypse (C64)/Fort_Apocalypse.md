@@ -23,9 +23,9 @@ learned in this analysis session, in reading order:
   strings and easter eggs, key routine/table reference.
 
 Methods: a Go extraction toolchain (`extract/` plus the shared
-`c64tools/`), a table-driven 6502 disassembler (`c64tools/cmd/disprg`),
+`tools/`), a table-driven 6502 disassembler (`tools/cmd/disprg`),
 a graphics renderer (`extract/cmd/gfxrender`), and dynamic verification
-that ran the real init/title/game path under the shared `c64tools/c64`
+that ran the real init/title/game path under the shared `tools/c64/c64`
 machine model, logging all reads/writes to confirm the static analysis.
 All addresses are C64 memory addresses; "frame" means one PAL frame.
 
@@ -1108,14 +1108,14 @@ class = 4 - (rank & 3) -> displayed as "<bird> CLASS <n>"
 # Appendix A — Toolchain and reproduction
 
 The game-specific tools live in the Go module `extract/`; the reusable
-C64 building blocks live in the shared `c64tools` module at the
+C64 building blocks live in the shared `tools` module at the
 repository root (see the root `README.md`). A `go.work` at the root
 ties them together.
 
 ```
 # All commands are run from this game folder ("Fort Apocalypse (C64)/").
 # The go.work workspace at the repository root lets the extract module find
-# the shared c64tools packages.
+# the shared tools packages.
 
 # 1. Extract all program files from the raw tape image
 ( cd extract && go build -o extract . )
@@ -1124,7 +1124,7 @@ extract/extract -o extracted -dis Fort_Apocalypse.tap
 #      FORT-fast-EE00.prg (+ loader disassemblies with -dis)
 
 # 2. Disassemble anything (shared tool, run by import path)
-( cd extract && go run stupidcoder.com/c64tools/cmd/disprg -start 8927 -end 8A40 \
+( cd extract && go run stupidcoder.com/tools/cmd/disprg -start 8927 -end 8A40 \
     ../extracted/FORT-fast-7000.prg )
 
 # 3. Render charsets, level maps (with spawn markers) and sprites
@@ -1137,7 +1137,7 @@ extract/extract -o extracted -dis Fort_Apocalypse.tap
 **Dynamic verification.** Many findings in Parts III–V (which routine
 reads which data table, which writes which video region) were confirmed
 by running the real init/title/game code under emulation and logging its
-memory access. The shared `c64tools/c64` machine model supports exactly
+memory access. The shared `tools/c64/c64` machine model supports exactly
 this: load the game file into its RAM, drive it from an entry point, read
 back the `Writes` log for video/buffer writes and install a read probe
 (`machine.SetReadProbe`) to record, per program counter, which addresses
@@ -1146,7 +1146,7 @@ the capability now lives in the tested shared model.)
 
 Package overview — game-specific (`extract/`): `fastload`
 (fastloader state machine), `fortgfx` (RLE decoder, charset/sprite/map
-extraction and PNG rendering), `cmd/gfxrender`. Shared (`c64tools/`):
+extraction and PNG rendering), `cmd/gfxrender`. Shared (`tools/`):
 `tap` (TAP container), `cbmtape` (ROM-loader decoder), `mos6502`
 (disassembler + CPU emulator), `c64` (machine model with write log and
 read probe), `gfx` (rendering primitives), `cmd/disprg`, `cmd/tapdump`.

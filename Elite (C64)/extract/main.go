@@ -19,9 +19,9 @@ import (
 	"path/filepath"
 	"sort"
 
-	"stupidcoder.com/c64tools/c64"
-	"stupidcoder.com/c64tools/cbmtape"
-	"stupidcoder.com/c64tools/tap"
+	"stupidcoder.com/tools/c64/c64"
+	"stupidcoder.com/tools/c64/cbmtape"
+	"stupidcoder.com/tools/c64/tap"
 )
 
 func main() {

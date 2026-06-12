@@ -16,7 +16,7 @@ import (
 	"image/color"
 	"os"
 
-	"stupidcoder.com/c64tools/gfx"
+	"stupidcoder.com/tools/c64/gfx"
 )
 
 const loadAddr = 0x7000

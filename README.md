@@ -27,22 +27,25 @@ Some of the prompts I used (for reference):
 ## Repository structure
 
 Each game lives in its own `<Game> (<Platform>)/` folder following a common
-contract, and the reusable C64 building blocks live in a shared `c64tools`
-module at the root. A `go.work` ties the modules together.
+contract, and the reusable building blocks live in a shared `tools` module at
+the root. Platform-neutral tools sit directly under `tools/`; platform-specific
+ones live in a per-platform subfolder (`tools/c64/` today; `tools/amiga/`,
+`tools/snes/`, … as other games are added). A `go.work` ties the modules
+together.
 
 ```
 AIReverseEngineering/
-├── go.work                     # Go workspace over c64tools + each game's extract/
+├── go.work                     # Go workspace over tools + each game's extract/
 ├── README.md                   # this file
-├── c64tools/                   # shared C64 tooling (module stupidcoder.com/c64tools)
-│   ├── tap/                    #   TAP container parser + segmentation
-│   ├── cbmtape/                #   standard KERNAL ROM tape-format decoder
-│   ├── mos6502/                #   6502 disassembler + executable CPU core
-│   ├── c64/                    #   machine model for running hostile loaders
-│   ├── gfx/                    #   palette, char/sprite/bitmap rendering, PNG
-│   └── cmd/
-│       ├── disprg/             #   disassemble a .prg file
-│       └── tapdump/            #   pulse histogram + segment listing for a .tap
+├── tools/                      # shared tooling (module stupidcoder.com/tools)
+│   ├── mos6502/                #   6502 disassembler + executable CPU core (any 6502 platform)
+│   ├── cmd/disprg/             #   disassemble a .prg file (6502)
+│   └── c64/                    #   C64-specific tools
+│       ├── tap/                #     TAP container parser + segmentation
+│       ├── cbmtape/            #     standard KERNAL ROM tape-format decoder
+│       ├── c64/                #     machine model for running hostile loaders
+│       ├── gfx/                #     palette, char/sprite/bitmap rendering, lines, PNG/APNG
+│       └── cmd/tapdump/        #     pulse histogram + segment listing for a .tap
 │
 ├── Elite (C64)/
 │   ├── Elite.tap               # raw tape image
@@ -81,40 +84,43 @@ below pin the precise copy, so the work stays reproducible.
 Verify a copy before reusing it, e.g. `md5 "Elite (C64)/Elite.tap"`
 (`md5sum` on Linux).
 
-## Shared tools (`c64tools`)
+## Shared tools (`tools`)
+
+Platform-neutral packages sit at the top level; C64-specific ones live under
+`c64/`.
 
 | Package / command | What it does |
 |-------------------|--------------|
-| `tap` | Parse a TAP v0/v1 image (C64/C16) into a pulse stream; `Segmentize` splits it at pauses. |
-| `cbmtape` | Decode the standard Commodore KERNAL (ROM loader) tape encoding: blocks, headers, and paired header+data files with checksum verification. |
-| `mos6502` | One opcode table driving both a `Disassemble` function and an executable `CPU` core (all documented opcodes, binary + BCD). |
-| `c64` | A minimal C64 machine model — RAM, the `mos6502` CPU, a CIA pulse-feed tape model, a PC-hook registry, a RAM write log and an optional read probe — for *running* a self-modifying loader instead of decoding it, or tracing which game routine touches which memory. Optional standard KERNAL tape hooks included. |
-| `gfx` | Generic rendering: the C64 palette, multicolor characters, hires sprites, multicolor bitmaps, line drawing, marker drawing, and still/animated PNG output. |
+| `mos6502` | One opcode table driving both a `Disassemble` function and an executable `CPU` core (all documented opcodes, binary + BCD) — usable by any 6502 platform. |
 | `cmd/disprg` | Disassemble a `.prg` file (2-byte load address + data), optionally over an address range. |
-| `cmd/tapdump` | Print a pulse-width histogram and the pause-delimited segment map of a `.tap` — the usual first look at an unknown tape. |
+| `c64/tap` | Parse a TAP v0/v1 image (C64/C16) into a pulse stream; `Segmentize` splits it at pauses. |
+| `c64/cbmtape` | Decode the standard Commodore KERNAL (ROM loader) tape encoding: blocks, headers, and paired header+data files with checksum verification. |
+| `c64/c64` | A minimal C64 machine model — RAM, the `mos6502` CPU, a CIA pulse-feed tape model, a PC-hook registry, a RAM write log and an optional read probe — for *running* a self-modifying loader instead of decoding it, or tracing which game routine touches which memory. Optional standard KERNAL tape hooks included. |
+| `c64/gfx` | C64/VIC rendering (palette, multicolor characters, hires sprites, multicolor bitmaps) plus general 2-D helpers (line drawing, markers, still/animated PNG output). |
+| `c64/cmd/tapdump` | Print a pulse-width histogram and the pause-delimited segment map of a `.tap` — the usual first look at an unknown tape. |
 
 ## Building and running
 
-The `go.work` workspace lets the game tools resolve the local `c64tools`
+The `go.work` workspace lets the game tools resolve the local `tools`
 module. Build and test each module from its own directory:
 
 ```sh
-( cd c64tools && go test ./... )
+( cd tools && go test ./... )
 ( cd "Elite (C64)/extract" && go test ./... )
 ( cd "Fort Apocalypse (C64)/extract" && go test ./... )
 ```
 
 (The integration tests skip automatically when the `.tap` image is absent.)
-The shared module's import path is `stupidcoder.com/c64tools`, so its commands
+The shared module's import path is `stupidcoder.com/tools`, so its commands
 are run by that full path from anywhere in the workspace (the `go.work` is
 found by walking up from the current directory), e.g.
-`go run stupidcoder.com/c64tools/cmd/tapdump ...`.
+`go run stupidcoder.com/tools/c64/cmd/tapdump ...`.
 
 `tapdump` is generic — point it at any C64 `.tap` to see its pulse encoding
 and segment layout (the first step when approaching an unfamiliar tape):
 
 ```sh
-go run stupidcoder.com/c64tools/cmd/tapdump path/to/any.tap
+go run stupidcoder.com/tools/c64/cmd/tapdump path/to/any.tap
 ```
 
 The `extract` tools are not generic: each one is written for its game's
@@ -129,12 +135,12 @@ cd "Fort Apocalypse (C64)/extract" && go build && \
 ```
 
 Extracting a *new* game means writing a new per-game `extract` tool on top of
-`c64tools` (see "Two extraction strategies" below), not reusing one of these.
+`tools` (see "Two extraction strategies" below), not reusing one of these.
 
 Disassemble any extracted file with the shared tool:
 
 ```sh
-go run stupidcoder.com/c64tools/cmd/disprg -start 8927 -end 8A40 \
+go run stupidcoder.com/tools/cmd/disprg -start 8927 -end 8A40 \
     "Fort Apocalypse (C64)/extracted/FORT-fast-7000.prg"
 ```
 
@@ -152,10 +158,10 @@ support both:
   format on the fly — bit order, bits-per-byte, header size and sync handling
   all change mid-load, driven by patch blocks that arrive on the tape itself.
   Reimplementing the protocol is hopeless, so the extractor *runs the actual
-  loader* on the `c64/` + `mos6502` machine model, feeding it the tape pulses
-  and logging every memory write the loader performs.
+  loader* on the `c64/c64` + `mos6502` machine model, feeding it the tape
+  pulses and logging every memory write the loader performs.
 
 For a new C64 tape the workflow is: `tapdump` to see the encoding, `cbmtape`
 to read the boot file, `disprg` to disassemble the loader, then choose a
 strategy — a static loader is a new decoder package; a hostile self-modifying
-one is a set of hooks on the `c64` machine model.
+one is a set of hooks on the `c64/c64` machine model.
