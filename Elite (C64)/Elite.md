@@ -1736,7 +1736,7 @@ extract/extract -o extracted Elite.tap
 #    code does not rewrite itself (unlike the loader), so the disassembly is
 #    stable; annotations in disasm/annotations.txt grow as analysis progresses.
 ( cd extract && go run ./cmd/enginedump /tmp/elite-engine.prg )
-go run stupidcoder.com/tools/cmd/codetrace \
+go run stupidcoder.com/tools/cmd/codetrace6502 \
     -entry 1D1F,916F,B3B2,B1FA,B433 -table 2509:21 \
     -annotate disasm/annotations.txt -o disasm/elite.asm /tmp/elite-engine.prg
 

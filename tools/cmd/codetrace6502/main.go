@@ -1,4 +1,4 @@
-// codetrace is a recursive-descent ("code-tracing") 6502 disassembler. Starting
+// codetrace6502 is a recursive-descent ("code-tracing") 6502 disassembler. Starting
 // from one or more entry points it follows every branch, jump and call, marks
 // which bytes are reachable code, and leaves everything else as data — so
 // tables and graphics don't get mis-decoded as instructions. Indirect jumps
@@ -7,7 +7,7 @@
 //
 // Usage:
 //
-//	codetrace [-load HEX] -entry A,B,C [-table ADDR:N ...] [-o out.asm] image.prg
+//	codetrace6502 [-load HEX] -entry A,B,C [-table ADDR:N ...] [-o out.asm] image.prg
 //
 // image.prg is a 2-byte-load-address .prg unless -load is given (raw binary at
 // that hex load address). Addresses are hex.
@@ -34,11 +34,11 @@ func main() {
 	out := flag.String("o", "", "write disassembly to this file (default stdout)")
 	flag.Parse()
 	if flag.NArg() != 1 {
-		fmt.Fprintln(os.Stderr, "usage: codetrace [-load HEX] -entry A,B,C [-table ADDR:N ...] [-annotate FILE] [-o out] image.prg")
+		fmt.Fprintln(os.Stderr, "usage: codetrace6502 [-load HEX] -entry A,B,C [-table ADDR:N ...] [-annotate FILE] [-o out] image.prg")
 		os.Exit(2)
 	}
 	if err := run(flag.Arg(0), *load, *entry, tables, *annotate, *out); err != nil {
-		fmt.Fprintln(os.Stderr, "codetrace:", err)
+		fmt.Fprintln(os.Stderr, "codetrace6502:", err)
 		os.Exit(1)
 	}
 }

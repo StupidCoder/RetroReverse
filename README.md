@@ -58,7 +58,8 @@ AIReverseEngineering/
 │   ├── m68k/                   #   Motorola 68000 disassembler (any 68k platform)
 │   ├── cmd/dis6502/            #   linear disassembler for a .prg file (6502)
 │   ├── cmd/dis68k/             #   linear disassembler for a raw 68000 blob
-│   ├── cmd/codetrace/          #   recursive-descent disassembler (code/data separation)
+│   ├── cmd/codetrace6502/      #   recursive-descent disassembler (6502)
+│   ├── cmd/codetrace68k/       #   recursive-descent disassembler (68000)
 │   ├── c64/                    #   C64-specific tools
 │   │   ├── tap/                #     TAP container parser + segmentation
 │   │   ├── cbmtape/            #     standard KERNAL ROM tape-format decoder
@@ -119,7 +120,8 @@ per-platform subfolder (`c64/`, `amiga/`, …).
 | `m68k` | Motorola 68000 disassembler with the same surface as `mos6502`: a `Decode` returning one classified instruction (length, text, and a `Flow` category for recursive-descent tracing) plus a `Disassemble` helper. Covers the documented 68000 instruction set and all addressing modes; usable by any 68k platform (Amiga, ST, Genesis, …). |
 | `cmd/dis6502` | Linear disassembler for a `.prg` file (2-byte load address + data), optionally over an address range. |
 | `cmd/dis68k` | Linear disassembler for a raw 68000 code blob loaded at a given base address (`-skip` steps past an AmigaDOS hunk header). |
-| `cmd/codetrace` | Recursive-descent disassembler: from given entry points (and seeded jump tables) it follows every branch/jump/call, marks reachable code vs data, lists routines and unresolved indirect jumps — so tables and graphics aren't mis-decoded as instructions. |
+| `cmd/codetrace6502` | Recursive-descent 6502 disassembler: from given entry points (and seeded jump tables) it follows every branch/jump/call, marks reachable code vs data, lists routines and unresolved indirect jumps — so tables and graphics aren't mis-decoded as instructions. |
+| `cmd/codetrace68k` | The 68000 counterpart of `codetrace6502`, built on `m68k`: same recursive trace over a raw blob loaded at `-base` (`-skip` past a hunk header), reporting routines and unresolved register/indexed jumps. |
 | `c64/tap` | Parse a TAP v0/v1 image (C64/C16) into a pulse stream; `Segmentize` splits it at pauses. |
 | `c64/cbmtape` | Decode the standard Commodore KERNAL (ROM loader) tape encoding: blocks, headers, and paired header+data files with checksum verification. |
 | `c64/c64` | A minimal C64 machine model — RAM, the `mos6502` CPU, a CIA pulse-feed tape model, a PC-hook registry, a RAM write log and an optional read probe — for *running* a self-modifying loader instead of decoding it, or tracing which game routine touches which memory. Optional standard KERNAL tape hooks included. |

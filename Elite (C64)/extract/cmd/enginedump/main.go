@@ -2,7 +2,7 @@
 // address $0000, reconstructing the page range the loader hid under the I/O
 // area ($D000-$DFFF) from the decrypted SYS segment (see shipmodel.LoadEngine
 // and Elite.md Part III). The result is the input for static tools such as
-// `codetrace` that need the running game's complete memory image.
+// `codetrace6502` that need the running game's complete memory image.
 //
 // Usage: enginedump [-extracted dir] out.prg
 package main
