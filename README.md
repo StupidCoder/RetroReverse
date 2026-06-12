@@ -55,7 +55,7 @@ AIReverseEngineering/
 ├── README.md                   # this file
 ├── tools/                      # shared tooling (module stupidcoder.com/tools)
 │   ├── mos6502/                #   6502 disassembler + executable CPU core (any 6502 platform)
-│   ├── m68k/                   #   Motorola 68000 disassembler (any 68k platform)
+│   ├── m68k/                   #   Motorola 68000 disassembler + CPU core (any 68k platform)
 │   ├── cmd/dis6502/            #   linear disassembler for a .prg file (6502)
 │   ├── cmd/dis68k/             #   linear disassembler for a raw 68000 blob
 │   ├── cmd/codetrace6502/      #   recursive-descent disassembler (6502)
@@ -117,7 +117,7 @@ per-platform subfolder (`c64/`, `amiga/`, …).
 | Package / command | What it does |
 |-------------------|--------------|
 | `mos6502` | One opcode table driving both a `Disassemble` function and an executable `CPU` core (all documented opcodes, binary + BCD) — usable by any 6502 platform. |
-| `m68k` | Motorola 68000 disassembler with the same surface as `mos6502`: a `Decode` returning one classified instruction (length, text, and a `Flow` category for recursive-descent tracing) plus a `Disassemble` helper. Covers the documented 68000 instruction set and all addressing modes; usable by any 68k platform (Amiga, ST, Genesis, …). |
+| `m68k` | Motorola 68000 toolkit mirroring `mos6502`: a `Decode`/`Disassemble` disassembler (full documented instruction set, all addressing modes) **and** an instruction-level `CPU` execution core over the same `Bus`/`Step()` interface. The core currently runs a minimal-but-correct opcode subset (MOVE/ALU/shift/branch/jump/DBcc/MOVEM/LINK with proper X/N/Z/V/C flags) and halts on anything not yet implemented, so gaps are explicit. Usable by any 68k platform (Amiga, ST, Genesis, …). |
 | `cmd/dis6502` | Linear disassembler for a `.prg` file (2-byte load address + data), optionally over an address range. |
 | `cmd/dis68k` | Linear disassembler for a raw 68000 code blob loaded at a given base address (`-skip` steps past an AmigaDOS hunk header). |
 | `cmd/codetrace6502` | Recursive-descent 6502 disassembler: from given entry points (and seeded jump tables) it follows every branch/jump/call, marks reachable code vs data, lists routines and unresolved indirect jumps — so tables and graphics aren't mis-decoded as instructions. |
