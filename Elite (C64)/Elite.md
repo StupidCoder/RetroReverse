@@ -15,11 +15,12 @@ order:
   relocation of the engine, the hardware and interrupt setup, and the memory
   map after loading;
 * **Part IV** — graphics and data formats: the wireframe ship models (blueprint
-  structure and vector-drawing pipeline) and the procedural generation of the
-  galaxies and planet names;
+  structure and vector-drawing pipeline), the procedural generation of the
+  galaxies and planet names, and the string/token tables behind every in-game
+  name and label;
 * **Part V** — game mechanics: the per-frame game loop, and how the other ships
-  spawn, move, fight, and disappear; the legal-status/bounty system and the
-  game-over conditions;
+  spawn, move, fight, and disappear; the legal-status/bounty system, the combat
+  rating, docking, and the game-over conditions;
 * **Appendices** — toolchain and reproduction.
 
 Methods: purely static analysis of the image bytes — no external tools or
@@ -924,6 +925,42 @@ the seed plus a Fibonacci RNG, with a 90-byte letter-pair table as the only
 stored fragment of any name. The deeper enumeration and per-galaxy transform are
 flagged as open in §2.6.
 
+## 3. String and token tables
+
+Almost every word the game ever prints — commodity names, equipment names, the
+descriptions of governments, economies and alien races, the combat ranks, even
+"GAME OVER" — lives in a single string dictionary at **`$0700`–`$0AC7`**. It is
+stored the same way as the message tokens of §2.1: each entry is EOR-`$23`
+obfuscated and the entries are separated by `$00` bytes, so decoding is just
+"split on `$00`, then XOR each piece with `$23`". Many entries also embed
+references to *other* entries and to the two-letter digram table (§2.2), which is
+why a raw decode shows gaps — the printer (`expand_msgtoken` at `$8111`) expands
+those references recursively, so a long word like "RADIOACTIVES" is stored as a
+few token bytes rather than twelve letters. This is the same compression that
+made the planet names so compact, reused here for fixed strings.
+
+Decoding the table recovers the game's entire vocabulary. The notable lists:
+
+| category | entries (in table order) |
+|----------|--------------------------|
+| **Trade goods** (17) | Food, Textiles, Radioactives, Slaves, Liquor/Wines, Luxuries, Narcotics, Computers, Machinery, Alloys, Firearms, Furs, Minerals, Gold, Platinum, Gem-Stones, Alien Items |
+| **Equipment** | Fuel, Missile, Large Cargo Bay, E.C.M. System, Pulse/Beam/Military/Mining Laser, Fuel Scoops, Escape Pod, Energy Bomb, Energy Unit, Docking Computer, Galactic Hyperdrive |
+| **Government** (8) | Anarchy, Feudal, Multi-Government, Dictatorship, Communist, Confederacy, Democracy, Corporate State |
+| **Economy** | Rich / Average / Poor / Mainly, combined with Industrial / Agricultural |
+| **Alien races** | Slimy, Bug-Eyed, Horned, Bony, Fat, Furry (forms) × Rodents, Frogs, Lizards, Lobsters, Birds, Humanoids, Felines, Insects (kinds) |
+| **Planet colours** | Green, Red, Yellow, Blue, Black (used in the system descriptions) |
+| **Combat rank** (9) | Harmless, Mostly Harmless, Poor, Average, Above Average, Competent, Dangerous, Deadly, `---- E L I T E ----` |
+| **Legal status** (3) | Clean, Offender, Fugitive |
+| **UI labels** | Government, Economy, System, Population, Productivity, Cash, Rating:, Unit, View, "GAME OVER", … |
+
+**What is *not* there is as telling as what is.** Searching the whole image —
+plaintext and EOR-`$23` — for the ship names every Elite player knows (Cobra,
+Viper, Python, Mamba, Krait, Adder, Asp, Anaconda, Sidewinder, Thargoid, …)
+returns nothing. The ships are identified only by their wireframe blueprints
+(§1); their names exist solely in the printed manual and novella that shipped in
+the box, never in the program. The game knows a Cobra by its geometry, not by a
+string.
+
 ---
 
 # Part V — Game mechanics: the other ships
@@ -1240,6 +1277,69 @@ that climbs as you rack up kills and is shown among your status, with "Elite" as
 its top rank — but reaching it only changes a label. Nothing in the loop ever
 checks a progress value and stops the game. The session ends when you die, when
 you save and switch off, or when you simply decide you have flown far enough.
+
+## 9. The combat rating
+
+The "Elite" of the title is the top of a nine-step **combat rating** that the
+game shows on the commander status screen. The nine ranks are stored as tokens
+[136]–[144] in the string dictionary (Part IV §3):
+
+> Harmless → Mostly Harmless → Poor → Average → Above Average → Competent →
+> Dangerous → Deadly → `---- E L I T E ----`
+
+The rating is a running tally of combat success: every ship you destroy pays a
+bounty, awarded by the kill handler at `$7D81`, which adds the dead ship's bounty
+value (taken from its blueprint) into the player's running total. The rank is
+derived from that cumulative score, so it only ever climbs — you cannot be demoted
+from Deadly back to Competent. Reaching the top rank takes thousands of kills,
+which is exactly why "Elite" is the game's nominal goal even though, as §8 showed,
+nothing in the code treats it as a win: it changes the printed rank and the
+status colour, and the game simply continues.
+
+Rating and legal status (§7) are independent axes. The rating measures *how good
+a fighter you are* and only goes up; the legal-status byte `$04CD` measures *how
+wanted you are* and rises and falls with your behaviour. An Elite-rated pilot can
+still be a Fugitive, and a Clean trader can still be Harmless.
+
+## 10. Docking at the station
+
+Docking is the one piece of flight that the AI does not do for you — you fly the
+ship into the station's rotating slot yourself, and getting it wrong is fatal.
+The check lives in the per-ship outcome logic, in the branch taken when the ship
+being processed is the station (type 2) and it has grown large enough on screen
+to be touching you (`$20E0`):
+
+```
+$20E0  LDA $F049 / AND #$04   ; you must be on the slot side of the station …
+       BNE fail               ;   (wrong face → no dock)
+$20E7  LDA $17  / CMP #$D6     ; … pointing roughly straight in (alignment) …
+       BCC fail
+$20ED  JSR $9571               ; project the slot
+$20F0  LDA $6D  / CMP #$59     ; … lined up with the slot opening …
+       BCC fail
+$20F6  LDA $19  / AND #$7F / CMP #$50   ; … and rolled to match the slot’s long axis
+       BCC fail
+$20FE  JSR $9B1E               ; all four conditions met → dock_complete
+$2101  JMP $1D7E               ; arrive: hand off to the docked/station screens
+fail:
+$2104  LDA $96 / CMP #$05      ; missed the slot: was the impact hard?
+       BCC survive             ;   gentle → bounce off and live
+       JMP $90DC               ;   hard   → crash, game over
+```
+
+So a legal dock requires four things at once: approaching the **correct face**
+of the station (the one with the docking bay), pointing **nearly straight in**,
+**laterally lined up** with the slot, and **rolled** so the ship fits the
+rectangular opening — all while slow enough that the contact (`$96`) stays under
+the fatal threshold. Meet them and `dock_complete` (`$9B1E`) runs: it silences
+the SID (clearing `$D400`–`$D418`), sets the docked state, and hands control to
+`$1D7E`, which brings up the station's menus. Miss the slot while moving fast and
+you hit the station hull — the same `$90DC` death path as flying into a planet.
+
+Because the station continuously rotates, the player must roll *with* it to keep
+the slot aligned, which is the whole skill of docking. (A purchasable docking
+computer automates this; it flies the same approach the manual checks above
+require.)
 
 ---
 

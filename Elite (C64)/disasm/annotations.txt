@@ -54,7 +54,11 @@ A3A0  draw_ship         project ship vertices, back-face cull faces, build the l
 2C98  flight_hud        draw the cockpit dashboard / HUD for the flight view
 28A1  slot_ptr_tbl      per-slot pointers to the 37-byte ship records (two bytes per slot)
 
+9B1E  dock_complete     finalise docking: silence the SID, set the docked state, hand off to the station screens ($1D7E)
+73A1  data_on_system    "data on system" screen: print government/economy/population/productivity from the system block $0500
+
 # --- data tables ---
+0700  token_strings     string/name dictionary (EOR-$23, $00-separated, nested token refs): trade goods, equipment, governments, economies, races, combat ranks, legal status, UI labels
 2614  commander_def     default commander block ("JAMESON") + galaxy seed + starting state
 2621  galaxy_seed       galaxy-1 seed $5A4A,$0248,$B753 (6 bytes, inside commander_def)
 254B  digram_table      two-letter (digram) table: the alphabet for message tokens and names

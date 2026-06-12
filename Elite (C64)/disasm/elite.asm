@@ -110,6 +110,8 @@
 06D0  .byte 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 ; ................
 06E0  .byte 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 ; ................
 06F0  .byte 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 ; ................
+
+; --- token_strings  $0700 — string/name dictionary (EOR-$23, $00-separated, nested token refs): trade goods, equipment, governments, economies, races, combat ranks, legal status, UI labels (data) ---
 0700  .byte 4C 32 24 00 03 60 6B A9 77 00 64 6C B5 71 6D 6E ; L2$..`k.w.dl.qmn
 0710  .byte B1 77 00 67 B2 62 32 20 00 AF B5 6D 77 BA 7A 2F ; .w.g.b2 ...mw.z/
 0720  .byte 00 70 7A 70 BF 6E 00 73 BD A6 00 21 03 A8 71 68 ; .pzp.n.s...!..qh
@@ -5343,6 +5345,8 @@
 ; ==== sub_739B (10 callers) ====
 739B  20 7E 80  JSR $807E
 739E  4C C5 7B  JMP $7BC5
+
+; --- data_on_system  $73A1 — "data on system" screen: print government/economy/population/productivity from the system block $0500 ---
 73A1  A9 01     LDA #$01
 73A3  20 2F 73  JSR $732F
 73A6  A9 09     LDA #$09
@@ -10225,7 +10229,7 @@
 9B19  2D 80 04  AND $0480
 9B1C  30 E7     BMI $9B05
 
-; ==== sub_9B1E (3 callers) ====
+; ==== dock_complete  $9B1E  (3 callers) — finalise docking: silence the SID, set the docked state, hand off to the station screens ($1D7E) ====
 9B1E  2C 10 1D  BIT $1D10
 9B21  30 D3     BMI $9AF6
 9B23  2C 03 1D  BIT $1D03
