@@ -55,6 +55,8 @@ A3A0  draw_ship         project ship vertices, back-face cull faces, build the l
 28A1  slot_ptr_tbl      per-slot pointers to the 37-byte ship records (two bytes per slot)
 
 9B1E  dock_complete     finalise docking: silence the SID, set the docked state, hand off to the station screens ($1D7E)
+7C9B  thargoid_spawn    spawn a Thargoid mothership (type $1D) + Thargon (type $1E) pair with full hostile AI
+7CB3  witchspace_ambush after a hyperspace misjump: enter witchspace, scramble the destination, seed up to three Thargoid pairs
 73A1  data_on_system    "data on system" screen: print government/economy/population/productivity from the system block $0500
 
 # --- data tables ---

@@ -6437,7 +6437,7 @@
 7C98  90 CB     BCC $7C65
 7C9A  60        RTS
 
-; ==== sub_7C9B (2 callers) ====
+; ==== thargoid_spawn  $7C9B  (2 callers) — spawn a Thargoid mothership (type $1D) + Thargon (type $1E) pair with full hostile AI ====
 7C9B  20 99 8D  JSR $8D99
 7C9E  A9 FF     LDA #$FF
 7CA0  85 29     STA $29
@@ -6448,6 +6448,8 @@
 7CAC  4E A7 04  LSR $04A7
 7CAF  38        SEC
 7CB0  2E A7 04  ROL $04A7
+
+; --- witchspace_ambush  $7CB3 — after a hyperspace misjump: enter witchspace, scramble the destination, seed up to three Thargoid pairs ---
 7CB3  A9 03     LDA #$03
 7CB5  20 2F B0  JSR $B02F
 7CB8  20 92 37  JSR $3792

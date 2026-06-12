@@ -20,7 +20,7 @@ order:
   name and label;
 * **Part V** — game mechanics: the per-frame game loop, and how the other ships
   spawn, move, fight, and disappear; the legal-status/bounty system, the combat
-  rating, docking, and the game-over conditions;
+  rating, docking, the game-over conditions, and the Thargoid threat;
 * **Appendices** — toolchain and reproduction.
 
 Methods: purely static analysis of the image bytes — no external tools or
@@ -1018,8 +1018,10 @@ and music going underneath it.
 The universe is a small fixed set of object **slots**:
 
 - **`$0452` — the slot array.** One byte per slot holding that slot's *ship
-  type* (1 = planet, 2 = station, higher = the various craft; `$00` terminates
-  the list). At most ten slots are used, so no more than ten objects — planet,
+  type* (positive types are craft — 1 = missile, 2 = station, and so on up
+  through the traders, pirates and aliens; the planet and sun are special
+  objects with *negative* type bytes, handled separately; `$00` terminates the
+  list). At most ten slots are used, so no more than ten objects — planet,
   station/sun, and up to a handful of ships — can exist at once.
 - **`$28A1` — the slot pointer table.** Two bytes per slot pointing at that
   slot's 37-byte **ship record**. `slot_ptr` (`$3E84`) turns a slot index in X
@@ -1340,6 +1342,58 @@ Because the station continuously rotates, the player must roll *with* it to keep
 the slot aligned, which is the whole skill of docking. (A purchasable docking
 computer automates this; it flies the same approach the manual checks above
 require.)
+
+## 11. The Thargoids
+
+The alien Thargoids are a distinct, scripted threat sitting on top of the ordinary
+traffic system. Two ship types implement them:
+
+- **Type `$1D` — the Thargoid** (the large mothership), and
+- **Type `$1E` — the Thargon** (the small drones it launches).
+
+**Where they come from.** Thargoids arrive two ways, both routed through the
+spawner `$7C9B`, which always creates a `$1D`/`$1E` pair with full hostile AI
+(`$29 = $FF`):
+
+- *A misjump into witchspace.* When a hyperspace jump is executed, the code rolls
+  a misjump check (`$7CF8`: a random value masked by the jump state in `$1D08`).
+  On a misjump you are dumped into empty **witchspace** — the destination is
+  scrambled (`$049B EOR #$1F`), the witchspace flag `$045F` is set (which
+  suppresses ordinary traffic), and the ambush loop at `$7CB3` calls `$7C9B`
+  repeatedly to seed up to three Thargoid pairs (it loops while the live-Thargoid
+  count stays at or below 3). This is the classic "pulled out of hyperspace into
+  a nest of Thargoids" encounter.
+- *A random in-system attack.* The spawn director also checks the current
+  system's flags (`$8EA1`: `$0499 AND $0C == $08`) and, on a ~1-in-5 roll, calls
+  the same `$7C9B` to drop a Thargoid pair into normal space.
+
+**How they behave.**
+
+- The **Thargoid** (`$1D`) is tough and aggressive, and its tactics routine
+  (`$33EC`) periodically *manufactures* more Thargons: when it acts it loads
+  `X = $1E` and calls the launch routine `$3707`, so a single mothership keeps
+  spawning drones around it — the swarm grows if you ignore it.
+- The **Thargon** (`$1E`) fights only while a mothership is alive. Its branch in
+  the combat AI (`$3316`) reads `$047A` — and here is the neat part: `$047A` is
+  not a bespoke variable, it is exactly the type-`$1D` slot of the per-type
+  population table (`$045D + $1D = $047A`), so it always equals the number of
+  live Thargoids, maintained automatically by `spawn_ship`/`remove_ship`. While
+  that count is non-zero the Thargon attacks normally; the moment it reaches zero
+  (you destroyed the last mothership) the Thargon clears its active-AI bit and
+  halves its speed (`LSR $29 / ASL $29`, `LSR $24`) — it goes inert and simply
+  drifts. **Kill the mothership and its drones die with it.**
+
+That single shared counter is the whole trick: there is no explicit "deactivate
+my children" code in the Thargoid's death path. Because the Thargons test the
+same population byte that tracks their parent type, removing the last `$1D`
+through the ordinary despawn machinery (§5) is enough to switch the whole swarm
+off.
+
+**Why they are a threat.** Thargoids appear without warning (a misjump can happen
+on any jump), come in groups, carry full combat AI, and continuously replenish
+their own escorts — so a drawn-out fight only makes the swarm bigger. The counter
+to all of it is to ignore the drones and concentrate fire on the motherships,
+after which the surviving Thargons go quiet and can be mopped up or left to drift.
 
 ---
 
