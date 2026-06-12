@@ -14,8 +14,9 @@ order:
 * **Part III** — the game program's startup: the layered decryption, the
   relocation of the engine, the hardware and interrupt setup, and the memory
   map after loading;
-* **Part IV** — graphics and data formats; so far the wireframe ship models
-  (their blueprint structure and the vector-drawing pipeline);
+* **Part IV** — graphics and data formats: the wireframe ship models (blueprint
+  structure and vector-drawing pipeline) and the procedural generation of the
+  galaxies and planet names;
 * *(more of Part IV, and game mechanics, to come.)*
 * **Appendices** — toolchain and reproduction.
 
@@ -753,6 +754,123 @@ the in-game names are stored as encrypted text tokens not yet decoded):
 
 (These are animated PNGs; they spin in any viewer that supports APNG — including
 GitHub's markdown — and show the first frame as a still everywhere else.)
+
+## 2. Planet names and galaxies
+
+Elite's universe — hundreds of star systems with names like Lave, Diso and
+Leesti, each with its own economy, government and position — is **not stored**.
+Searching the whole 64 KB image for those names finds nothing: not in plain
+text, and not under the game's text obfuscation (see §2.1). Every name and every
+system attribute is **generated on demand from a tiny seed**.
+
+### 2.1 Why the names aren't there: the text system
+
+Almost all of Elite's text is stored as **tokens**, not letters. Two layers do
+the compression:
+
+- **Recursive message tokens.** A message is a list of token bytes terminated by
+  `$00`, kept in the relocated low engine at `$0700`. The expander at `$8111`
+  walks to the requested token's string and prints each byte **EOR-encrypted
+  with `$23`** (`$813B: EOR #$23`). That is why a raw search for English never
+  matches.
+- **Two-letter digram tokens.** Common letter pairs are a single token. A token
+  value of `$D7`+ prints a pair from a **digram table at `$254B`**:
+
+  ```
+  $254B: "ABOUSEITILETSTONLONUTHNO" + "ALLEXEGEZACEBISOUSESARMAINDIREA?ERATENBERALAVETIEDORQUANTEISRION"
+         pairs: AB OU SE IT IL ET ST ON LO NU TH NO  AL LE XE GE  ZA CE BI SO  US ES …
+  ```
+
+  (the `"LAVE"` that *does* appear in the image is just the adjacent pair bytes
+  `LA`+`VE` inside this table — coincidence, not a stored planet name).
+
+The same digram table is the alphabet the planet-name generator draws from.
+
+### 2.2 The seed
+
+A whole galaxy is defined by a **6-byte seed** (three 16-bit words). The
+galaxy-1 seed is the only one stored, inside the default commander block
+("JAMESON") at `$2614`:
+
+```
+$2614: 45 2E 4A 41 4D 45 53 4F 4E 0D 00 …   "·.JAMESON"+CR
+$2621: 4A 5A 48 02 53 B7                    seed = $5A4A, $0248, $B753
+$2627: 00 00 03 E8 …                        starting credits $03E8 = 100.0 Cr
+```
+
+That `5A4A / 0248 / B753` is the canonical Elite galaxy-1 seed. From it, the
+generator produces every system in the galaxy; the other galaxies come from
+transforming the same seed, so the entire universe lives in those six bytes plus
+the algorithm.
+
+### 2.3 The generator: a Fibonacci twist
+
+All procedural values come from one routine, the Elite **DORND** generator at
+`$8DBB` (with inline copies at `$824D` and `$8264`). It is a two-word
+Fibonacci-style step over a 4-byte seed at `$02–$05`:
+
+```
+8DBB  LDA $02  ROL A  TAX  ADC $04  STA $02  STX $04   ; word0' = rol(word0)+word1
+      LDA $03         TAX  ADC $05  STA $03  STX $05   ; word1' = word0+word1 (carry)
+      RTS
+```
+
+Each call advances the seed deterministically, so the *same* starting seed
+always yields the *same* stream — which is what makes a system's name and data
+reproducible. To work on a particular system the code loads that system's seed
+into `$02–$05` (the chart routine at `$81F3` does this, copying the stored seed
+bytes **EOR-`$AA`** into `$02–$05`) before calling the generator.
+
+### 2.4 Building a name
+
+The name generator is a text-token handler at `$24CB` (reached through the
+token-handler table at `$2507`, not called directly):
+
+```
+24CB  JSR $24EA          ; select "capitalise first, lower-case rest" output mode
+24CE  JSR $8DBB  AND #$03 ; A = 0..3  -> TAY : number of letter-pairs minus one (1-4 pairs)
+24D4  JSR $8DBB  AND #$3E ; A = even 0..62 -> TAX : 5-bit digram index ×2
+24DA  LDA $254B,X         ; first letter of the pair
+24DD  JSR print
+24E0  LDA $254C,X         ; second letter of the pair
+24E3  JSR print
+24E6  DEY  BPL $24D4      ; repeat for each pair
+```
+
+So a name is **one to four digram pairs** (2–8 letters): one DORND call picks
+the length, then each pair is chosen by five seed-derived bits indexing the
+first 32 pairs of the digram table. "Lave" = pairs `LA` + `VE`; "Diso" =
+`DI` + `SO`; the bits come straight from the system's seed.
+
+### 2.5 The rest of a system
+
+The same seed/generator produces the system's other attributes. The galaxy-chart
+routine at `$81C6` reseeds `$02–$05` from the system seed and derives the map
+coordinates through `$8264` (DORND, then a signed scale via `$39E7` and the
+`$9B/$9C` accumulator), plotting each system as a dot with the `PIXEL` routine
+(`$2937`). Economy, government, tech level, population and productivity are
+extracted the same way — successive bit-fields pulled from the twisting seed —
+so two players on different machines explore byte-for-byte identical galaxies.
+
+### 2.6 Routine and data map (universe generation)
+
+| address | role |
+|---------|------|
+| `$2614` | default commander block ("JAMESON"); holds the galaxy-1 seed and starting state |
+| `$2621` | galaxy-1 seed: `$5A4A, $0248, $B753` (6 bytes) |
+| `$254B` | digram (two-letter) table — alphabet for both message tokens and planet names |
+| `$2507` | text-token handler address table (dispatches the name generator) |
+| `$0700` | message token strings, EOR-`$23` encrypted |
+| `$8DBB` | DORND — the Fibonacci pseudo-random generator (seed at `$02–$05`) |
+| `$824D`, `$8264` | inline DORND copies; `$8264` turns it into a signed coordinate |
+| `$24CB` | planet-name generator (1–4 digram pairs from the seed) |
+| `$8111` | recursive message-token expander (EOR `$23` at `$813B`) |
+| `$8100` | digram-token expander (pairs from `$2563`) |
+| `$81C6` | galaxy chart: reseed per system (`$81F3`), derive coordinates, plot dots |
+
+So the answer to "are the names stored or generated?" is firmly **generated**:
+six seed bytes and a Fibonacci twist, with a 90-byte letter-pair table as the
+only stored fragment of any name.
 
 ---
 
