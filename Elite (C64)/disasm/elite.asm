@@ -226,6 +226,8 @@
 0DD0  .byte 00 00 7E 0C 18 30 7E 00 0C 18 18 70 18 18 0C 00 ; ..~..0~....p....
 0DE0  .byte 18 18 18 00 18 18 18 00 30 18 18 0E 18 18 30 00 ; ........0.....0.
 0DF0  .byte 31 6B 46 00 00 00 00 00 FF FF FF FF FF FF FF FF ; 1kF.............
+
+; --- message_strings  $0E00 — long-message token table (EOR-$57, $00-separated, recursive) read by print_dispatch $238D: the mission briefings and screen prompts (data) ---
 0E00  .byte 57 5E 5C 56 5F 77 49 77 16 14 BE 04 04 77 1A 12 ; W^\V_wIw.....w..
 0E10  .byte B6 80 5D 55 66 79 77 C2 80 65 79 77 04 16 AD 77 ; ..]Ufyw..eyw...w
 0E20  .byte CD 77 53 80 64 79 77 14 1F A8 B0 9E 48 80 63 79 ; .wS.dyw.....H.cy

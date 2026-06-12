@@ -930,7 +930,7 @@ flagged as open in §2.6.
 
 Almost every word the game ever prints — commodity names, equipment names, the
 descriptions of governments, economies and alien races, the combat ranks, even
-"GAME OVER" — lives in a single string dictionary at **`$0700`–`$0AC7`**. It is
+"GAME OVER" — lives in a string dictionary at **`$0700`–`$0AC7`**. It is
 stored the same way as the message tokens of §2.1: each entry is EOR-`$23`
 obfuscated and the entries are separated by `$00` bytes, so decoding is just
 "split on `$00`, then XOR each piece with `$23`". Many entries also embed
@@ -939,6 +939,13 @@ why a raw decode shows gaps — the printer (`expand_msgtoken` at `$8111`) expan
 those references recursively, so a long word like "RADIOACTIVES" is stored as a
 few token bytes rather than twelve letters. This is the same compression that
 made the planet names so compact, reused here for fixed strings.
+
+A *second*, larger token table at **`$0E00`** holds the longer messages — the
+mission briefings, the on-screen prompts — read by a different printer,
+`print_dispatch` (`$238D`), and obfuscated with EOR-`$57` rather than `$23`. It
+works the same recursive way but adds control codes that splice in dynamic text
+(the commander's name, a number, a generated name). Decoding it is what recovers
+the mission briefings shown in Part V §12.
 
 Decoding the table recovers the game's entire vocabulary. The notable lists:
 
@@ -1432,13 +1439,45 @@ mission beats:
   fixed reward and prints the success message.
 
 So the shape of a mission is: dock enough times to trigger a briefing → fly to a
-named system → destroy a unique ship → return and get paid. There are at least
-two such missions (multiple distinct target-coordinate branches), matching the
-structure of the original game. Two honest limits on this analysis: the briefing
-**text** is held in the compressed token form of Part IV §3, so the trigger,
-spawn and reward logic are pinned down exactly but the mission prose is not
-decoded here; and the missions are described by mechanism rather than by plot
-name, since those names live only in that tokenized text and the printed manual.
+named system → carry out the task → return and get paid.
+
+**The briefing text.** The tokens those handlers print (`$0B`, `$C7`, `$DE`,
+`$DF`) are not in the `$0700` dictionary of Part IV §3 but in a *second*,
+larger message-token table at `$0E00` — same idea, but obfuscated with EOR-`$57`
+and read by `print_dispatch` (`$238D`), which expands nested tokens, two-letter
+digrams and control codes (a control code inserts the commander's name, a
+generated captain's name, a number, and so on). Decoding that table recursively
+(the tool `extract/cmd/missiontext` does exactly this against the image) recovers
+the actual messages, and they name the missions outright:
+
+> **`$0B`** (`$3D7A`) — *"ATTENTION COMMANDER ‹cmdr›, I AM CAPTAIN ‹name› OF HER
+> MAJESTY'S SPACE NAVY. WE HAVE NEED OF YOUR SERVICES AGAIN. IF YOU WOULD BE SO
+> GOOD AS TO GO TO **CEERDI** YOU WILL BE BRIEFED. IF SUCCESSFUL, YOU WILL BE WELL
+> REWARDED. MESSAGE ENDS"*
+>
+> **`$DE`** (`$3D8A`) — *"GOOD DAY COMMANDER ‹cmdr›. I AM AGENT **BLAKE** OF NAVAL
+> INTELLEGENCE. … OUR BOYS ARE READY FOR A PUSH RIGHT TO THE HOME SYSTEM OF THOSE
+> MURDERERS. I HAVE OBTAINED THE DEFENCE PLANS FOR THEIR HIVE WORLDS. … IF I
+> TRANSMIT THE PLANS TO OUR BASE ON **BIRERA** THEY'LL INTERCEPT THE TRANSMISSION.
+> I NEED A SHIP TO MAKE THE RUN. YOU'RE ELECTED. … YOU WILL BE PAID. GOOD LUCK
+> COMMANDER. MESSAGE ENDS"*
+>
+> **`$DF`** (`$3D98`) — *"WELL DONE COMMANDER. YOU HAVE SERVED US WELL AND WE SHALL
+> REMEMBER. WE DID NOT EXPECT THE THARGOIDS TO FIND OUT ABOUT YOU. FOR THE MOMENT
+> PLEASE ACCEPT THIS NAVY ‹reward› AS PAYMENT. MESSAGE ENDS"*
+>
+> **`$C7`** (`$3DBD`) — *"GOOD DAY COMMANDER ‹cmdr›, ALLOW ME TO INTRODUCE MYSELF.
+> I AM THE MERCHANT PRINCE OF THRUN … I AM OFFERING YOU, FOR THE PALTRY SUM OF
+> JUST 5000 CR THE RAREST THING IN THE KNOWN UNIVERSE. WILL YOU TAKE IT (Y/N)?"*
+
+So there are three scripted events: a **Navy bounty hunt** (you are sent to Ceerdi
+for a briefing, then hunt down the unique type-`$1F` ship that `$3DDC` spawns), a
+**courier run** for Naval Intelligence (carry stolen Thargoid plans to Birera —
+which is why a run can be jumped by the witchspace Thargoids of §11) with a "well
+done" payoff, and a one-off **trade offer** from a travelling merchant. The
+placeholders `‹cmdr›`/`‹name›`/`‹reward›` are the dynamic control-code inserts;
+the `5000 CR`, `CEERDI`, `BIRERA`, `BLAKE` and the rest are literally in the
+table. (The spelling "INTELLEGENCE" is the game's own.)
 
 ## 13. System character: economy and government
 
@@ -1545,6 +1584,10 @@ extract/extract -o extracted Elite.tap
 #    (used to study the procedural name generator — Part IV §2)
 ( cd extract && go run ./cmd/galaxytrace )
 
+# 6b. Decode the mission-briefing message tokens (Part V §12) from the $0E00
+#     token table in the reconstructed engine
+( cd extract && go run ./cmd/missiontext )
+
 # 7. Reconstruct the full decrypted engine and recursive-descent disassemble it
 #    into disasm/elite.asm: follow every branch/jump/call from the entry points
 #    plus the text-token handler table at $2509, separating code from data, and
@@ -1570,8 +1613,9 @@ file output), `driver.go` (the BASIC-stub driver and Elite-specific KERNAL
 hooks), `shipmodel` (engine reconstruction + blueprint decoding),
 `cmd/loadingscreen` (reassembles and renders the loading picture),
 `cmd/shiprender` (wireframe ship animations), `cmd/galaxytrace` (runs engine
-routines under emulation to study the procedural generator), `cmd/enginedump`
-(writes the reconstructed 64 KB engine for static tools). Shared (`tools/`): `tap` (TAP
+routines under emulation to study the procedural generator), `cmd/missiontext`
+(decodes the mission-briefing message tokens from the `$0E00` table),
+`cmd/enginedump` (writes the reconstructed 64 KB engine for static tools). Shared (`tools/`): `tap` (TAP
 container), `cbmtape` (ROM-loader decoder), `mos6502` (disassembler + CPU
 emulator), `c64` (machine model), `gfx` (rendering primitives: multicolor
 bitmap, line drawing, animated-PNG output), `cmd/disprg`, `cmd/tapdump`.

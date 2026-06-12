@@ -66,6 +66,7 @@ A3A0  draw_ship         project ship vertices, back-face cull faces, build the l
 
 # --- data tables ---
 0700  token_strings     string/name dictionary (EOR-$23, $00-separated, nested token refs): trade goods, equipment, governments, economies, races, combat ranks, legal status, UI labels
+0E00  message_strings   long-message token table (EOR-$57, $00-separated, recursive) read by print_dispatch $238D: the mission briefings and screen prompts
 999D  commodity_table   per-commodity market data (base price, signed economy slope, fluctuation mask), 4 bytes each
 0500  system_block      current system: $0500 economy, $0501 government, $0502 tech level, $0503 productivity
 2614  commander_def     default commander block ("JAMESON") + galaxy seed + starting state
