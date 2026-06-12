@@ -1,11 +1,12 @@
 # AI Reverse Engineering
 
-Are the latest LLMs like Claude Fable smart enough to reverse engineer old
-software purely by static analysis, without access to a debugger? This
+Are the latest LLMs smart enough to reverse engineer old
+software purely by static analysis, without access to a 3rd party debugger? This
 repository contains the results of a few tests, attempting to answer that
-question.
+question. All code and documents contained within (except this introduction) were
+written by Claude Fable 5.
 
-Used prompts:
+Some of the prompts I used (for reference):
 
 > Write a GoLang application that extracts program files from a C64 tape image
 > in TAP format. The image in question might use a non-standard fastloader,
@@ -16,6 +17,12 @@ Used prompts:
 > the fastloader in particular in a markdown file. Use example byte sequences
 > in that documentation where appropriate. The tape image file in question is
 > <GAME.TAP> in the current folder.
+
+> Now that the program has been extracted from the tape, I want to enhance the scope of the project. Using the disassembler you already wrote, analyze the extracted program's startup and document your findings in a markdown file, again using assembly snippets or byte sequences as example where appropriate.
+
+> Next, analyze the actual game code in the same way, again producing a markdown file that describes the initialization of the game until it reaches the main game loop. Put extra focus on the graphical elements like character sets, sprite data and level map. Describe compression or encryption schemes you find and build a memory map.
+
+> Analyze the game code and describe the different types of objects (player, enemies, obstacles) in the game and how they behave in a markdown file. Be as detailed as possible about each object's behavior, movement patterns and collision behaviors.
 
 ## Repository structure
 
