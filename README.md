@@ -57,12 +57,15 @@ AIReverseEngineering/
 │   ├── mos6502/                #   6502 disassembler + executable CPU core (any 6502 platform)
 │   ├── cmd/disprg/             #   linear disassembler for a .prg file (6502)
 │   ├── cmd/codetrace/          #   recursive-descent disassembler (code/data separation)
-│   └── c64/                    #   C64-specific tools
-│       ├── tap/                #     TAP container parser + segmentation
-│       ├── cbmtape/            #     standard KERNAL ROM tape-format decoder
-│       ├── c64/                #     machine model for running hostile loaders
-│       ├── gfx/                #     palette, char/sprite/bitmap rendering, lines, PNG/APNG
-│       └── cmd/tapdump/        #     pulse histogram + segment listing for a .tap
+│   ├── c64/                    #   C64-specific tools
+│   │   ├── tap/                #     TAP container parser + segmentation
+│   │   ├── cbmtape/            #     standard KERNAL ROM tape-format decoder
+│   │   ├── c64/                #     machine model for running hostile loaders
+│   │   ├── gfx/                #     palette, char/sprite/bitmap rendering, lines, PNG/APNG
+│   │   └── cmd/tapdump/        #     pulse histogram + segment listing for a .tap
+│   └── amiga/                  #   Amiga-specific tools
+│       ├── adf/                #     AmigaDOS floppy image (ADF) reader — OFS/FFS
+│       └── cmd/adfdump/        #     list and extract files from an .adf
 │
 ├── Elite (C64)/
 │   ├── Elite.tap               # raw tape image
@@ -104,8 +107,8 @@ Verify a copy before reusing it, e.g. `md5 "Elite (C64)/Elite.tap"`
 
 ## Shared tools (`tools`)
 
-Platform-neutral packages sit at the top level; C64-specific ones live under
-`c64/`.
+Platform-neutral packages sit at the top level; platform-specific ones live in a
+per-platform subfolder (`c64/`, `amiga/`, …).
 
 | Package / command | What it does |
 |-------------------|--------------|
@@ -117,6 +120,8 @@ Platform-neutral packages sit at the top level; C64-specific ones live under
 | `c64/c64` | A minimal C64 machine model — RAM, the `mos6502` CPU, a CIA pulse-feed tape model, a PC-hook registry, a RAM write log and an optional read probe — for *running* a self-modifying loader instead of decoding it, or tracing which game routine touches which memory. Optional standard KERNAL tape hooks included. |
 | `c64/gfx` | C64/VIC rendering (palette, multicolor characters, hires sprites, multicolor bitmaps) plus general 2-D helpers (line drawing, markers, still/animated PNG output). |
 | `c64/cmd/tapdump` | Print a pulse-width histogram and the pause-delimited segment map of a `.tap` — the usual first look at an unknown tape. |
+| `amiga/adf` | Read a standard AmigaDOS floppy image (ADF): detect OFS/FFS, walk the directory tree, and extract file contents (handles hash chains, OFS data-block headers and multi-block file-extension chains). |
+| `amiga/cmd/adfdump` | List an `.adf`'s volume, directory tree and file sizes; `-x outdir` extracts every file preserving the directory structure. |
 
 ## Building and running
 
@@ -140,6 +145,14 @@ and segment layout (the first step when approaching an unfamiliar tape):
 
 ```sh
 go run stupidcoder.com/tools/c64/cmd/tapdump path/to/any.tap
+```
+
+`adfdump` is likewise generic for Amiga disks — it lists and extracts the files
+of any standard AmigaDOS floppy image:
+
+```sh
+go run stupidcoder.com/tools/amiga/cmd/adfdump path/to/disk.adf            # list
+go run stupidcoder.com/tools/amiga/cmd/adfdump -x out path/to/disk.adf     # extract
 ```
 
 The `extract` tools are not generic: each one is written for its game's
