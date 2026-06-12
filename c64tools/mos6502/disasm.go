@@ -1,5 +1,7 @@
-// Package mos6502 is a minimal table-driven 6502 disassembler, used to
-// inspect loader code extracted from tape images.
+// Package mos6502 is a small, generic 6502 toolkit shared across the projects
+// in this repository: a table-driven disassembler (this file) and a minimal
+// but complete executable CPU core (cpu.go). Both operate on raw 6502 code and
+// make no assumptions about where that code came from.
 package mos6502
 
 import "fmt"

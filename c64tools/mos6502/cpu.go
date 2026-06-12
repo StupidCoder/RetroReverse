@@ -1,9 +1,10 @@
 package mos6502
 
-// Minimal 6502 core, sufficient to execute the tape loader code found on this
-// image (all documented opcodes, binary and BCD arithmetic). Timing is
-// approximate (base cycle counts, no page-cross penalties); the tape hardware
-// model only needs ballpark pacing, see machine.go.
+// Minimal but complete 6502 core: every documented opcode, with binary and
+// BCD arithmetic. Memory access goes through the Bus interface, so the caller
+// supplies whatever memory and I/O model it needs. Timing is approximate —
+// base cycle counts only, no page-cross or branch penalties — which suffices
+// for callers that need rough pacing rather than cycle-exact emulation.
 
 import "fmt"
 
@@ -245,7 +246,7 @@ func (c *CPU) Step() {
 		return
 	}
 	c.Instrs++
-	c.Cycles += 4 // crude average; good enough for the tape pacing model
+	c.Cycles += 4 // crude per-instruction average; enough for rough pacing
 	op := c.fetch()
 	switch op {
 	case 0x00:

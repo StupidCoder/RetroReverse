@@ -60,7 +60,7 @@ type Header struct {
 	StartAddr uint16
 	EndAddr   uint16
 	Name      string // 16 chars, PETSCII
-	Extra     []byte // remaining 171 bytes (loaded into the tape buffer at $0351)
+	Extra     []byte // 171 bytes after the name; they sit at $0351 once the KERNAL loads the 192-byte header into its cassette buffer ($033C)
 }
 
 // ParseHeader interprets a 192-byte header payload.

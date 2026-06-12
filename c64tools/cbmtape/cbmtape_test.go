@@ -110,7 +110,7 @@ func TestParseHeader(t *testing.T) {
 	p[0] = 1
 	p[1], p[2] = 0x49, 0xCC
 	p[3], p[4] = 0xF8, 0xCC
-	copy(p[5:21], "FORT            ")
+	copy(p[5:21], "TESTPROG        ")
 	p[21] = 0x48
 	h, err := ParseHeader(p)
 	if err != nil {
@@ -119,7 +119,7 @@ func TestParseHeader(t *testing.T) {
 	if h.Type != 1 || h.StartAddr != 0xCC49 || h.EndAddr != 0xCCF8 {
 		t.Errorf("header fields wrong: %+v", h)
 	}
-	if h.Name != "FORT            " || len(h.Extra) != 171 || h.Extra[0] != 0x48 {
+	if h.Name != "TESTPROG        " || len(h.Extra) != 171 || h.Extra[0] != 0x48 {
 		t.Errorf("name/extra wrong: %q len=%d", h.Name, len(h.Extra))
 	}
 	if _, err := ParseHeader(p[:100]); err == nil {
