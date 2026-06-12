@@ -37,6 +37,7 @@ is under way; Parts III and V are still stubs.
   - [1. The boot block](#1-the-boot-block)
   - [2. AmigaDOS startup and the Workbench launch](#2-amigados-startup-and-the-workbench-launch)
   - [3. The launcher](#3-the-launcher)
+  - [4. The decruncher (`c/zzz`)](#4-the-decruncher-czzz)
 - [Part III — Game program architecture](#part-iii--game-program-architecture)
 - [Part IV — Graphics and data formats](#part-iv--graphics-and-data-formats)
   - [1. The splash (boot) screen](#1-the-splash-boot-screen)
@@ -281,10 +282,50 @@ proper. The main program is `c/MarbleMadness!.dat` — the 175 KB hunk from Part
 with `c/zzz` and `c/xxx` as supporting loader/data pieces. Every loadable element,
 the launcher included, is an ordinary Amiga hunk object brought in through
 `LoadSeg`, which is the same mechanism the running game later uses to stream its
-per-course overlays (Parts III–IV). (The precise hand-off order between the
-launcher, `c/zzz`, `c/xxx` and the main `.dat` is compiled-C loader detail; what
-matters for the boot chain is that it is all stock `LoadSeg`, with the game code
-arriving as the relocatable `MarbleMadness!.dat` hunk.)
+per-course overlays (Parts III–IV).
+
+Tracing the launcher's own code confirms the shape. Loaded into a flat, relocated
+image by `tools/amiga/hunk` (whose symbol-table support labels the library stubs
+the linker left in the file) and traced with `codetrace68k`, the C-runtime
+startup takes the Workbench branch shown above and calls `main`. `main` then
+parses the `WBStartup` message, uses its lock to `CurrentDir` into the program's
+own drawer, creates a reply port, and proceeds to bring the game in. Because the
+game's main file is *crunched* (Part I §3), that load does not go through plain
+`LoadSeg` — it goes through `c/zzz`, the subject of §4.
+
+## 4. The decruncher (`c/zzz`)
+
+`c/MarbleMadness!.dat` and `c/xxx` are not plain hunks — they are crunched
+(Part I §3), so AmigaDOS's own `LoadSeg` cannot read them. `c/zzz` is the small
+program that can: a custom **decrunching, decrypting `LoadSeg` replacement**. It
+is itself a clean hunk, so the hunk loader and `codetrace68k` read it directly,
+and its `HUNK_SYMBOL` table even names the system calls it uses — `_Open`,
+`_Read`, `_Close`, `_AllocMem`, `_FreeMem`, `_FindTask`. Its flow, from the
+disassembly:
+
+- It `_Open`s the packed file and `_AllocMem`s a 512-byte read buffer (it streams
+  the input in `$200`-byte blocks) plus a small work buffer.
+- A buffered longword reader feeds a core loop that treats the *decoded* stream as
+  an ordinary hunk file: it reads a longword, masks off the top two bits
+  (`ANDI.l #$3FFFFFFF`), subtracts `$3E7` (`HUNK_UNIT`, the first hunk-block id),
+  range-checks it against the 16 block types, and dispatches through a jump table
+  — `JMP $2(pc,d0.l)` at `$3DE`. So each `CODE`/`DATA`/`BSS`/`RELOC32`/…/`END`
+  block is handled by its own arm exactly as `LoadSeg` would, producing a normal
+  relocated segment list (the `ANDI.l #$3FFFFFFF` on the hunk sizes at `$B62` is
+  the header pass).
+- The decoding itself is layered and **keyed**. A 0x37-entry lookup table is
+  built from the seed `$57319753` by a ×31 hash (`sub_BEC`); an XOR pass folds the
+  input into it (`sub_D06`); and a further routine (`sub_DAA`) walks the data
+  XOR-ing in a stream whose key is derived through `_FindTask` (via the
+  byte-extractor `sub_D92`). Mixing a task-derived key into the unpack is a
+  copy-protection flourish layered on top of the compression.
+
+So `c/zzz` is where the real game reaches memory: it reads the crunched `.dat`,
+undoes the compression and the keyed XOR, relocates the hunks, and hands the
+loaded segments back to the launcher, which runs them. Reproducing it as a
+standalone unpacker — the prerequisite for disassembling the main game in Part III
+— means re-implementing that keyed decode. The structure is now mapped; the
+byte-exact reproduction is the next step.
 
 ---
 

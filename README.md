@@ -139,7 +139,7 @@ per-platform subfolder (`c64/`, `amiga/`, …).
 | `amiga/adf` | Read a standard AmigaDOS floppy image (ADF): detect OFS/FFS, walk the directory tree, and extract file contents (handles hash chains, OFS data-block headers and multi-block file-extension chains). |
 | `amiga/cmd/adfdump` | List an `.adf`'s volume, directory tree and file sizes; `-x outdir` extracts every file preserving the directory structure. |
 | `amiga/hunk` | Load an AmigaDOS hunk object/executable: place its CODE/DATA/BSS segments from a base, apply the 32-bit relocations, and return a flat image (and each segment's base) ready to disassemble. |
-| `amiga/cmd/hunkload` | Print a hunk file's segment map and, with `-o`, write its flat relocated image for `dis68k`/`codetrace68k`. |
+| `amiga/cmd/hunkload` | Print a hunk file's segment map; `-o` writes its flat relocated image and `-syms` writes its symbol table as a `codetrace68k` annotations file. |
 | `amiga/iff` | Decode an IFF `FORM…ILBM` bitmap (planar BODY, ByteRun1/uncompressed, CMAP palette) into a Go image. |
 | `amiga/icon` | Decode a Workbench `.info` icon (DiskObject + planar Image structs) into images, using the standard Workbench palette. |
 | `amiga/cmd/amigapng` | Render an IFF ILBM or a `.info` icon to PNG (auto-detects the format). |

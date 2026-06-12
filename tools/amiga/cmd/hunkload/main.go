@@ -18,6 +18,7 @@ import (
 func main() {
 	baseF := flag.String("base", "0", "load address of the first segment (hex)")
 	out := flag.String("o", "", "write the flat relocated image here")
+	syms := flag.String("syms", "", "write the symbol table as a codetrace68k annotations file")
 	flag.Parse()
 	if flag.NArg() != 1 {
 		fmt.Fprintln(os.Stderr, "usage: hunkload [-base HEX] [-o image.bin] file")
@@ -48,5 +49,16 @@ func main() {
 			os.Exit(1)
 		}
 		fmt.Printf("wrote %s\n", *out)
+	}
+	if *syms != "" {
+		var b strings.Builder
+		for _, s := range prog.Symbols {
+			fmt.Fprintf(&b, "%X %s\n", s.Addr, s.Name)
+		}
+		if err := os.WriteFile(*syms, []byte(b.String()), 0o644); err != nil {
+			fmt.Fprintln(os.Stderr, "hunkload:", err)
+			os.Exit(1)
+		}
+		fmt.Printf("wrote %d symbols to %s\n", len(prog.Symbols), *syms)
 	}
 }

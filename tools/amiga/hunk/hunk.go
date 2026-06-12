@@ -11,6 +11,7 @@ package hunk
 import (
 	"encoding/binary"
 	"fmt"
+	"strings"
 )
 
 // Hunk block type IDs.
@@ -34,11 +35,18 @@ type Segment struct {
 	Size int    // bytes
 }
 
+// Symbol is a named address from a HUNK_SYMBOL table (when the linker left one).
+type Symbol struct {
+	Name string
+	Addr uint32
+}
+
 // Program is a loaded hunk file.
 type Program struct {
 	Base     uint32    // load address of the first segment
 	Segments []Segment // in file order
 	Image    []byte    // the flat, relocated image (all segments concatenated)
+	Symbols  []Symbol  // named addresses (empty if the file carries no symbols)
 }
 
 type reader struct {
@@ -70,10 +78,26 @@ func (r *reader) u16() uint16 {
 func (r *reader) skip(n int) { r.pos += n }
 func (r *reader) align4()    { r.pos = (r.pos + 3) &^ 3 }
 
+func (r *reader) bytes(n int) []byte {
+	if r.err != nil || r.pos+n > len(r.b) {
+		r.err = fmt.Errorf("hunk: unexpected end of file at %d", r.pos)
+		return nil
+	}
+	v := r.b[r.pos : r.pos+n]
+	r.pos += n
+	return v
+}
+
 type seg struct {
-	kind   string
-	data   []byte
-	relocs []reloc
+	kind    string
+	data    []byte
+	relocs  []reloc
+	symbols []symbol
+}
+
+type symbol struct {
+	name  string
+	value uint32
 }
 
 type reloc struct {
@@ -168,7 +192,11 @@ func Load(data []byte, base uint32) (*Program, error) {
 				if n == 0 {
 					break
 				}
-				r.skip(int(n)*4 + 4) // name + value
+				name := strings.TrimRight(string(r.bytes(int(n)*4)), "\x00")
+				val := r.u32()
+				if cur >= 0 {
+					segs[cur].symbols = append(segs[cur].symbols, symbol{name, val})
+				}
 			}
 		case hunkDebug, hunkName:
 			r.skip(int(r.u32()) * 4)
@@ -189,6 +217,9 @@ func assemble(segs []*seg, base uint32) (*Program, error) {
 	p := &Program{Base: base}
 	addr := base
 	for _, s := range segs {
+		for _, sy := range s.symbols {
+			p.Symbols = append(p.Symbols, Symbol{Name: sy.name, Addr: addr + sy.value})
+		}
 		p.Segments = append(p.Segments, Segment{Kind: s.kind, Base: addr, Size: len(s.data)})
 		addr += uint32(len(s.data))
 	}
