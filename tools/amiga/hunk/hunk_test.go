@@ -11,20 +11,20 @@ func TestLoadRelocates(t *testing.T) {
 	var b []byte
 	put := func(v uint32) { b = binary.BigEndian.AppendUint32(b, v) }
 	put(hunkHeader)
-	put(0)              // no resident libraries
-	put(1)              // table size
-	put(0)              // first hunk
-	put(0)              // last hunk
-	put(2)              // hunk 0 is 2 longs (8 bytes)
-	put(hunkCode)       //
-	put(2)              // 2 longs follow
-	put(0x00000000)     // offset 0: a pointer into hunk 0 (relocated)
-	put(0x4E754E75)     // offset 4: RTS / RTS, just filler
-	put(hunkReloc32)    //
-	put(1)              // one offset…
-	put(0)              // …into hunk 0…
-	put(0)              // …at offset 0
-	put(0)              // end of reloc table
+	put(0)           // no resident libraries
+	put(1)           // table size
+	put(0)           // first hunk
+	put(0)           // last hunk
+	put(2)           // hunk 0 is 2 longs (8 bytes)
+	put(hunkCode)    //
+	put(2)           // 2 longs follow
+	put(0x00000000)  // offset 0: a pointer into hunk 0 (relocated)
+	put(0x4E754E75)  // offset 4: RTS / RTS, just filler
+	put(hunkReloc32) //
+	put(1)           // one offset…
+	put(0)           // …into hunk 0…
+	put(0)           // …at offset 0
+	put(0)           // end of reloc table
 	put(hunkEnd)
 
 	p, err := Load(b, 0x21000)
