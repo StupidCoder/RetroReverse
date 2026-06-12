@@ -1,25 +1,31 @@
 # Elite (C64) — tape format, loader, and game analysis
 
 A reverse-engineering reference for `Elite.tap` (the tape carries a single
-autostarting file named "ELITE"). So far it covers the tape image and the
-self-modifying copy-protection loader, with the game-program parts to follow,
-in reading order:
+autostarting file named "ELITE"). So far it covers the tape image, the
+self-modifying copy-protection loader and the game program's startup, with the
+graphics and mechanics parts to follow, in reading order:
 
 * **Part I** — the TAP container and both tape encodings (standard KERNAL and
   the custom fastloader), enough to extract every byte from the raw image;
 * **Part II** — the boot chain from the KERNAL autostart trick to the game's
   first instruction, including the self-modifying loader and its
   copy-protection tricks;
-* *(Parts III onward — game program, graphics, mechanics — to come.)*
+* **Part III** — the game program's startup: the layered decryption, the
+  relocation of the engine, the hardware and interrupt setup, and the memory
+  map after loading;
+* *(Parts IV onward — graphics and game mechanics — to come.)*
 * **Appendices** — toolchain and reproduction.
 
 Methods: purely static analysis of the image bytes — no external tools or
 references, everything below was derived from the bytes in the image and
-disassembly of the loader code it carries. Because the fastloader rewrites its
-own wire format as it runs, the Go extraction toolchain (`extract/` plus the
-shared `c64tools/`) does not reimplement the protocol; it *runs* the actual
-loader on a small 6502 emulator and logs what it writes (Appendix A). All
-addresses are C64 memory addresses.
+disassembly of the loader and game code it carries. Because the fastloader
+rewrites its own wire format as it runs, the Go extraction toolchain
+(`extract/` plus the shared `c64tools/`) does not reimplement the protocol; it
+*runs* the actual loader on a small 6502 emulator and logs what it writes
+(Appendix A). The game code is encrypted on tape; the same emulator runs the
+loaded image far enough to decrypt it in memory, which is how the routines in
+Part III were recovered for disassembly. All addresses are C64 memory
+addresses.
 
 ---
 
@@ -316,6 +322,221 @@ of analysis done here.
 
 ---
 
+# Part III — Game program architecture
+
+Part II ended at the two hand-off jumps: `SYS 30215` ($7607) and, after the
+seven picture-covered loads, `JMP $1D1F`. This part follows the code from
+there — how the loaded blob decrypts and relocates itself, how the display
+and interrupts are set up, and how the game reaches its first frame.
+
+Everything in the game image arrives **encrypted** and is unpacked in three
+stages by three near-identical rolling-subtraction decryptors. None of the
+game code is ever in plaintext on the tape, and even after loading it is
+decrypted in pieces, at different times, with different keys — one more layer
+of the protection.
+
+## 1. Decryption and relocation (SYS 30215 → $7607)
+
+The 18 KB blob loaded to `$4000–$86CC` (Part II, seg 3) is encrypted. `$7607`
+first decrypts it with the routine at `$7631`: each byte is the previous
+plaintext byte subtracted from the ciphertext (a rolling key), and the loop's
+end address is self-modified at `$7604/$7605`:
+
+```
+7631  STX $1A            key = X
+7633  STA $19            pointer high
+7635  LDA #$00 STA $18   pointer low = 0
+7639  LDA ($18),Y        ciphertext byte
+763B  SEC SBC $1A        minus rolling key
+763E  STA ($18),Y        store plaintext
+7640  STA $1A            key for next byte = this plaintext
+7642  TYA BNE $7647
+7645  DEC $19            cross to previous page when Y wraps
+7647  DEY
+7648  CPY $7604          end-of-range low  (self-modified)
+764B  BNE $7639
+764D  LDA $19 CMP $7605  end-of-range high (self-modified)
+7652  BNE $7639
+7654  RTS
+```
+
+`$7607` calls it twice, walking **downward** through memory:
+
+| pass | range          | initial key |
+|------|----------------|-------------|
+| 1    | `$7655–$86CB`  | `$8E`       |
+| 2    | `$4000–$7600`  | `$6C`       |
+
+The gap `$7601–$7654` is the decryptor itself, left in clear. Concretely, the
+12 bytes at `$7655` go from ciphertext to code:
+
+```
+encrypted:  b8 bf a9 85 9d c1 b0 8c 9e c2 a9 85
+decrypted:  a2 16 a9 00 85 18 a9 07 85 19 a9 00   (LDX #$16 / LDA #$00 / STA $18 …)
+```
+
+The decrypted `$7655` then **relocates** the engine and sets up the loading
+screen. Copies use the page-mover at `$7885` (X pages, source `$1A/$1B` →
+destination `$18/$19`):
+
+```
+7655  copy $16 pages  $4000-$55FF -> $0700        (engine code low)
+7669  $01 = $04                                   bank RAM in under I/O
+7671  copy $20 pages  $5600-$75FF -> $D000-$EFFF   (engine code hidden under I/O)
+7684  $01 = $05                                   I/O back in
+768C  DD02 |= $03, DD00 = (..&$FC)|$02            VIC bank
+76A6  D018=$81, D011=$3B (bitmap), D016=$C0        loading-screen display
+76C4  D025/D026/D029-D02E …                        sprite colours
+```
+
+Relocating `$5600–$75FF` underneath `$D000–$EFFF` hides the bulk of the engine
+as RAM under the I/O area, reached by toggling the `$01` bank bits. After a few
+more copies (character and sprite data) it `JMP`s to `$CE0E`, the multi-load
+routine that pulls in the remaining seven segments behind the bitmap picture
+(Part II §5) and finally jumps to `$1D1F`.
+
+## 2. In-place decrypt and hand-off ($1D1F)
+
+`$1D1F` is the game's real entry. It preserves the loader's zero page, decrypts
+the last two regions in place, initialises the hardware, and starts the game:
+
+```
+1D1F  CLD
+1D20  LDX #$02                  back up zero page $02-$FF
+1D22  LDA $00,X  STA $CE00,X    -> $CE02-$CEFF
+1D27  INX  BNE $1D22
+1D2A  JSR $1D33                 in-place decrypt (below)
+1D2D  JSR $B3B2                 hardware init (§3)
+1D30  JMP $916F                 game start
+```
+
+`$1D33` is the same rolling-subtraction cipher as `$7631` (its end addresses
+self-modify `$0452/$0453`), run over the two regions that arrived encrypted on
+the last loads:
+
+| range          | initial key |
+|----------------|-------------|
+| `$1D7E–$3ECE`  | `$36`       |
+| `$7300–$CA6C`  | `$49`       |
+
+The second region holds the running engine — the IRQ handler, hardware-init
+and SID player all live in `$7300–$CA6C`.
+
+## 3. Hardware init ($B3B2)
+
+```
+B3B2  clear $0400-$06FF
+B3C7  $0318/$0319 = $B433       NMI vector -> CLI/RTI (RESTORE neutralised)
+B3D1  $0326/$0327 = $BA61       BSOUT vector
+B3DB  LDA #$05 JSR $8B8B        bank helper: all-RAM + I/O
+B3E0  SEI; wait for raster $37  sync
+B3ED  DC0D/DD0D = $03           disable CIA interrupts
+B3F5  D418 = $0F                SID volume
+B400  D01A = $01                enable raster IRQ
+B40B  D012 = $28                first IRQ at line $28
+B40D  D011 &= $7F               (clear high raster bit)
+B410  $01 = $04                 KERNAL/BASIC banked out, I/O in
+B41D  $FFFA/$FFFB = $B433       RAM NMI hardware vector
+B427  $FFFE/$FFFF = $B1FA       RAM IRQ hardware vector
+B431  CLI RTS
+```
+
+With the KERNAL ROM banked out (`$01` bit 1 = 0), the CPU takes its IRQ/NMI
+vectors from **RAM** at `$FFFE`/`$FFFA`, so interrupts dispatch straight to the
+game's own handlers with no ROM in the path.
+
+## 4. Interrupt architecture
+
+The IRQ at `$B1FA` is a table-driven raster-split engine. It reads the current
+split index from `$B1D9` and loads that split's register values from seven
+two-entry tables at `$B1DA–$B1E7`:
+
+```
+B20D  LDX $B1D9
+B210  LDA $B1DA,X  STA $D018    char/screen base
+B216  LDA $B1E0,X  STA $D016    mode / x-scroll
+B21C  LDA $B1DE,X  STA $D012    next split's raster line
+B222  LDA $B1E2,X  STA $D01C    sprite multicolour
+B228  LDA $B1E4,X  STA $D028    sprite colour
+B236  LDA $B1E6,X  STA $D021    background
+B23C  LDA $B1DC,X  STA $B1D9    next split index
+B242  BNE $B1ED                 not the last split -> just RTI
+```
+
+There are **two splits per frame**, raster lines `$33` and `$C2`:
+
+| reg    | split 0 (`$33`) | split 1 (`$C2`) |
+|--------|-----------------|-----------------|
+| `$D012` next line | `$C2` | `$33` |
+| `$D018`           | `$81` | `$81` |
+| `$D016`           | `$C0` | `$C0` |
+| `$D01C` spr. MC   | `$FE` | `$FC` |
+| `$D028` spr. col  | `$02` | `$00` |
+| `$D021` bg        | `$00` | `$00` |
+| next index        | `1`   | `0`   |
+
+When the index returns to 0 (the second split completes the frame), the
+handler falls through to the per-frame work instead of exiting early: a
+three-voice SID player driven from the tables at `$B313`, plus an optional
+`JSR $BDDC` when `$1D03` bit 7 is set. The handler restores `$01` from `$8B9A`
+and `RTI`s.
+
+From `$B3B2`'s `CLI` onward the game is interrupt-driven. `$916F` runs the
+one-time game setup — it clears the flag block `$1D01–$1D11`, then builds the
+title/commander screen through a chain of subroutines (`$8CD6`, `$9563`,
+`$9220` text, …) — before the foreground settles into its main loop (left to a
+later part).
+
+## 5. Memory map (after load)
+
+| range         | content                                                       |
+|---------------|---------------------------------------------------------------|
+| `$0002–$00FF` | zero page (backed up to `$CE02` at game start)                |
+| `$0100–$01FF` | stack                                                         |
+| `$0300–$0333` | KERNAL vectors (restored defaults; NMI `$0318`→`$B433`, BSOUT `$0326`→`$BA61`) |
+| `$0400–$06FF` | cleared at init                                               |
+| `$0700–$1CFF` | engine code, relocated from `$4000–$55FF`                     |
+| `$1D00–$1D7D` | game entry + in-place decryptor (plaintext)                   |
+| `$1D7E–$3ECF` | game code/data, decrypted in place (key `$36`)                |
+| `$7300–$CA6C` | game engine, decrypted in place (key `$49`): IRQ `$B1FA`, hardware-init `$B3B2`, game start `$916F`, SID player `$B313`/`$BDDC` |
+| `$CE00–$CF40` | zero-page backup + the multi-load routine                     |
+| `$D000–$EFFF` | engine code under I/O, relocated from `$5600–$75FF` (reached via the `$01` bank bits) |
+| `$FFFA/$FFFE` | RAM NMI/IRQ hardware vectors (`$B433` / `$B1FA`)              |
+
+The character sets, sprite shapes and in-game screen and colour memory are
+graphics data, covered in a later part. The bitmap **loading** picture, which
+also occupies `$4000–$6000` during the load, is covered next.
+
+## 6. The loading screen
+
+While the long segments stream in, Elite shows its title picture — the 3-D
+"ELITE" logo and a Cobra Mk III over a starfield:
+
+![Elite loading screen](rendered/loading-screen.png)
+
+It is a **multicolor bitmap** (160×200 colour pixels), stored **uncompressed**
+and split across three tape segments rather than packed — consistent with the
+rest of the tape, which favours obfuscation over economy. The multi-load
+routine at `$CE0E` (Part II §5) assembles it from those segments:
+
+- seg 7 → `$4000–$5F3F`: the 8000-byte VIC bitmap (the pixel data);
+- seg 6 → `$6000`: the 1000-byte video matrix (colours for bit-pairs 01/10);
+- seg 5 → `$6000`, then copied to colour RAM `$D800` (`$CE3F` loop): the third
+  colour, bit-pair 11. The background (bit-pair 00) is white — `$D021 = $01`,
+  set at `$CE60`.
+
+Multicolor mode is selected at `$CE56` (`$D016` bit 4), and the display is
+switched on at `$CE65` (`$D011` DEN bit) *after* the bitmap and its colours are
+in place but *before* the two largest loads — the game code at `$1D00–$3ECF`
+and `$7300–$CA6D` — so the picture masks the slowest part of the load. When
+those finish, the loader blanks the screen, zeroes `$4000–$5FFF` to reclaim the
+bitmap RAM for the game, restores the KERNAL vectors and jumps to `$1D1F`.
+
+The image above was produced by the `loadingscreen` tool (Appendix A), which
+reassembles the three segments and renders the multicolor bitmap.
+
+---
+
 # Appendix A — Toolchain and reproduction
 
 Because the wire format is rewritten on the fly by code that arrives on the
@@ -351,7 +572,10 @@ go run stupidcoder.com/c64tools/cmd/tapdump Elite.tap
 ( cd extract && go build -o extract . )
 extract/extract -o extracted Elite.tap
 
-# 3. Disassemble anything (shared tool, run by import path) — e.g. the
+# 3. Render the multicolor-bitmap loading screen to rendered/loading-screen.png
+( cd extract && go run ./cmd/loadingscreen -o ../rendered )
+
+# 4. Disassemble anything (shared tool, run by import path) — e.g. the
 #    getbit/getbyte routines at $0334 inside the boot file
 ( cd extract && go run stupidcoder.com/c64tools/cmd/disprg -start 0334 -end 0358 \
     ../extracted/00_cbm_ELITE_029f.prg )
@@ -367,6 +591,8 @@ actual program data listed in the segment table in Part I §1.
 
 Package overview — game-specific (`extract/`): `main.go` (write coalescing and
 file output), `driver.go` (the BASIC-stub driver and Elite-specific KERNAL
-hooks). Shared (`c64tools/`): `tap` (TAP container), `cbmtape` (ROM-loader
-decoder), `mos6502` (disassembler + CPU emulator), `c64` (machine model),
-`cmd/disprg`, `cmd/tapdump`.
+hooks), `cmd/loadingscreen` (reassembles and renders the loading picture).
+Shared (`c64tools/`): `tap` (TAP container), `cbmtape` (ROM-loader decoder),
+`mos6502` (disassembler + CPU emulator), `c64` (machine model), `gfx`
+(rendering primitives, incl. the multicolor-bitmap renderer), `cmd/disprg`,
+`cmd/tapdump`.

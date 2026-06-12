@@ -4,7 +4,7 @@ Are the latest LLMs smart enough to reverse engineer old
 software purely by static analysis, without access to a 3rd party debugger? This
 repository contains the results of a few tests, attempting to answer that
 question. All code and documents contained within (except this introduction) were
-written by Claude Fable 5.
+written by Claude Fable 5 or Opus 4.8. In some cases my Fable session got flagged, probably due to the nature of reverse engineering, and downgraded to Opus. Opus still did a fine job though.
 
 Some of the prompts I used (for reference):
 
@@ -46,9 +46,10 @@ AIReverseEngineering/
 │
 ├── Elite (C64)/
 │   ├── Elite.tap               # raw tape image
-│   ├── Elite.md                # tape + loader writeup (game parts to follow)
-│   ├── extract/                # module elite/extract — the extraction tool
-│   └── extracted/              # generated .prg files (regenerable; git-ignored)
+│   ├── Elite.md                # tape + loader + startup writeup (more to follow)
+│   ├── extract/                # module elite/extract — extraction + loading-screen tools
+│   ├── extracted/              # generated .prg files (regenerable; git-ignored)
+│   └── rendered/               # generated PNGs (loading screen)
 │
 └── Fort Apocalypse (C64)/
     ├── Fort_Apocalypse.tap      # raw tape image
@@ -88,7 +89,7 @@ Verify a copy before reusing it, e.g. `md5 "Elite (C64)/Elite.tap"`
 | `cbmtape` | Decode the standard Commodore KERNAL (ROM loader) tape encoding: blocks, headers, and paired header+data files with checksum verification. |
 | `mos6502` | One opcode table driving both a `Disassemble` function and an executable `CPU` core (all documented opcodes, binary + BCD). |
 | `c64` | A minimal C64 machine model — RAM, the `mos6502` CPU, a CIA pulse-feed tape model, a PC-hook registry, a RAM write log and an optional read probe — for *running* a self-modifying loader instead of decoding it, or tracing which game routine touches which memory. Optional standard KERNAL tape hooks included. |
-| `gfx` | Generic rendering: the C64 palette, multicolor characters, hires sprites, marker drawing and PNG output. |
+| `gfx` | Generic rendering: the C64 palette, multicolor characters, hires sprites, multicolor bitmaps, marker drawing and PNG output. |
 | `cmd/disprg` | Disassemble a `.prg` file (2-byte load address + data), optionally over an address range. |
 | `cmd/tapdump` | Print a pulse-width histogram and the pause-delimited segment map of a `.tap` — the usual first look at an unknown tape. |
 
