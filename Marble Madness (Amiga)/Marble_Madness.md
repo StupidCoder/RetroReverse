@@ -956,8 +956,11 @@ width is constant while the height varies — practice is 36×75, up through ult
 at 36×198. The tilemap is **end-aligned** in the unpacked buffer: most courses
 have it immediately after the four planes, but beginner and silly leave a small
 gap (56 and 50 bytes) there, so the tilemap is taken as the *last* `height×72`
-bytes (reading from the plane end instead shifts every tile — the bug that made
-those two courses look index-shifted). Placing each 8×8 tile by its index
+bytes. Those same two courses also **omit the leading black tile**: every other
+course stores an all-black tile at graphic index 0, but beginner's and silly's
+stored tile 0 is a real tile, so their tile indices run one high — detected by
+testing whether tile 0 is black, and corrected with a −1 index bias (index 0 →
+the implicit black tile). Placing each 8×8 tile by its index
 reproduces each **complete course**: [`extract/cmd/sprites`](extract/cmd/sprites)
 emits the course to [`rendered/`](rendered) as `<course>.png` and the tile set as
 `<course>.tiles.png`. The practice course renders as its grey isometric checkered

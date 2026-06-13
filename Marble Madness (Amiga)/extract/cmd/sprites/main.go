@@ -94,12 +94,31 @@ func blitTile(img *image.Paletted, up []byte, planes [4]int, idx, px, py int) {
 	}
 }
 
-// tileSheet renders all nTiles 8x8 tiles in a cols-wide grid (1px gaps).
-func tileSheet(up []byte, planes [4]int, nTiles, cols int) *image.Paletted {
-	rows := (nTiles + cols - 1) / cols
+// tile0Black reports whether tile 0 is the all-black tile. Most courses store a
+// black tile at index 0; a couple (beginner, silly) omit it, so their stored tile
+// 0 is a real tile and every tilemap index is one too high (bias -1 below).
+func tile0Black(up []byte, planes [4]int) bool {
+	for p := 0; p < 4; p++ {
+		for r := 0; r < 8; r++ {
+			if o := planes[p] + 2*r; o < len(up) && up[o] != 0 {
+				return false
+			}
+		}
+	}
+	return true
+}
+
+// tileSheet renders nTiles 8x8 tiles in a cols-wide grid (1px gaps). bias shifts
+// the stored-tile index so the sheet's positions match the in-game tile indices
+// (position 0 = the implicit black tile when bias is -1).
+func tileSheet(up []byte, planes [4]int, nTiles, cols, bias int) *image.Paletted {
+	n := nTiles - bias
+	rows := (n + cols - 1) / cols
 	img := image.NewPaletted(image.Rect(0, 0, cols*9+1, rows*9+1), pal)
-	for t := 0; t < nTiles; t++ {
-		blitTile(img, up, planes, t, (t%cols)*9+1, (t/cols)*9+1)
+	for t := 0; t < n; t++ {
+		if e := t + bias; e >= 0 {
+			blitTile(img, up, planes, e, (t%cols)*9+1, (t/cols)*9+1)
+		}
 	}
 	return img
 }
@@ -107,15 +126,17 @@ func tileSheet(up []byte, planes [4]int, nTiles, cols int) *image.Paletted {
 // mlbCourse assembles the full course image from the tilemap: a row-major stream
 // of big-endian tile-index words, courseW tiles wide (the game scrolls vertically,
 // so width is fixed and height varies). Returns the image and its tile height.
-func mlbCourse(up []byte, planes [4]int, tilemap []byte, courseW int) (*image.Paletted, int) {
+func mlbCourse(up []byte, planes [4]int, tilemap []byte, courseW, bias int) (*image.Paletted, int) {
 	n := len(tilemap) / 2
 	H := n / courseW
 	img := image.NewPaletted(image.Rect(0, 0, courseW*8, H*8), pal)
 	for ty := 0; ty < H; ty++ {
 		for tx := 0; tx < courseW; tx++ {
 			o := (ty*courseW + tx) * 2
-			idx := int(tilemap[o])<<8 | int(tilemap[o+1])
-			blitTile(img, up, planes, idx, tx*8, ty*8)
+			idx := (int(tilemap[o])<<8 | int(tilemap[o+1])) + bias
+			if idx >= 0 { // idx < 0 is the implicit black tile (leave palette index 0)
+				blitTile(img, up, planes, idx, tx*8, ty*8)
+			}
 		}
 	}
 	return img, H
@@ -276,11 +297,17 @@ func main() {
 			// height*72 bytes instead.
 			ht := (len(up) - planeEnd) / courseW / 2
 			tilemap := up[len(up)-ht*courseW*2:]
-			img, _ := mlbCourse(up, planes, tilemap, courseW)
+			// Courses whose stored tile 0 isn't black omit the implicit black tile,
+			// so every tilemap index is one too high.
+			bias := 0
+			if !tile0Black(up, planes) {
+				bias = -1
+			}
+			img, _ := mlbCourse(up, planes, tilemap, courseW, bias)
 			writePNG(filepath.Join(outdir, course+".png"), scale(img, 2))
-			writePNG(filepath.Join(outdir, course+".tiles.png"), scale(tileSheet(up, planes, nTiles, 40), 3))
-			fmt.Printf("%-14s flag=$%02X  %d tiles, course %dx%d (%dx%d px)  pal=%s\n",
-				base, d[0], nTiles, courseW, ht, courseW*8, ht*8, course)
+			writePNG(filepath.Join(outdir, course+".tiles.png"), scale(tileSheet(up, planes, nTiles, 40, bias), 3))
+			fmt.Printf("%-14s flag=$%02X  %d tiles bias=%d, course %dx%d (%dx%d px)  pal=%s\n",
+				base, d[0], nTiles, bias, courseW, ht, courseW*8, ht*8, course)
 			return nil
 		}
 
