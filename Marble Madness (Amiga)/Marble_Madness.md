@@ -757,9 +757,10 @@ go run stupidcoder.com/tools/cmd/codetrace68k -base 0 -entry <CODE-hunk bases> /
 The boot-time graphics use standard Amiga formats the toolchain already reads end
 to end — the title splash (§1) and the Workbench icons (§2). §3 turns to the
 game's own formats: the sprite banks (`.ilb` course scenery and `.vlb` moving
-objects), whose container and geometry are reversed here but whose bitmap stream
-is compressed. The remaining per-course modules (`.mlb` levels, `Snd`, `Track`)
-are still to be decoded.
+objects), whose container, geometry, and **compression** (ByteRun1/PackBits,
+identified from the decrypted engine — shared with the `.mlb` levels) are all
+reversed here. The remaining per-course modules (`Snd`, `Track`) are still to be
+decoded.
 
 ## 1. The splash (boot) screen
 
@@ -873,23 +874,44 @@ while `birdink.vlb` (45) and `ooze.vlb` (48) are creature animation cycles. So o
 format covers the whole sprite set: 16-wide, 2-bitplane objects, 33 rows tall for
 course scenery and 17 for the things that move.
 
-**The bitmap data is compressed.** It is provably not raw planar bytes: a `.vlb`
-holding 130 sixty-eight-byte cells would need 8 840 bytes of bitmap, but the file
-carries only 6 648 — and 6 648 is not even divisible by 130, so the per-object
-records are *variable length*. The same holds for every `.ilb` (Silly's four
-132-byte slots would need 528 bytes; the data section is 402). The stream is built
-around the byte `$FE` as a control/escape marker (`FE 00 53`, `FE FF E0`, … recur,
-and every object's packed record ends on an `FE FF` group), with literal planar
-ramps in between. But the exact run rule resists a static solve: decoded under a
-plain copy-count it overshoots, and the control arguments are inconsistent with a
-single count semantics. Like the game code, the codec's only specification is the
-program that consumes it — and that lives in the encrypted `.dat` (Part III).
+**The bitmap data is compressed** — provably so: a `.vlb` of 130 sixty-eight-byte
+cells would need 8 840 bytes but the file carries only 6 648; Silly's four
+132-byte `.ilb` slots would need 528 but the data section is 402.
 
-So the container, the per-object slot geometry (132-byte course cells, 68-byte
-moving-object cells), and the file roster (which bank holds the marble, which the
-creatures) are all established; the remaining piece is the exact unpacking rule
-for the compressed stream, which is what would let each sprite be extracted
-pixel-perfect and rendered the way the splash and icons are above.
+**The codec is ByteRun1 / PackBits** — the *same* RLE as IFF ILBM bodies (Part IV
+§1's `_UnPackRow`). This was an open question while the consumer was encrypted; it
+is now answered directly from the decrypted engine. The course-load code indexes
+a per-course filename table (`.mlb` pointers at `$3496`, `.ilb` at `$34EE`, keyed
+by the course global `$5D6`) and calls the shared bank loader (`$80B4` for `.ilb`,
+`$7F38` for `.mlb`). That loader reads the file with plain `dos.library`
+`Open(MODE_OLDFILE)`/`Read`/`Close` — **not** the track loader, and **not** a
+decompression library — then unpacks the bitmap through `$9118`, which is textbook
+ByteRun1:
+
+```
+read a signed control byte n:
+  n in   0..127 : copy the next n+1 bytes literally
+  n in -127..-1 : repeat the next single byte (1 - n) times   (2..128)
+  n == -128      : no-op
+```
+
+My earlier guess of `$FE` as a literal escape was the mistake: `$FE` is signed
+`-2`, i.e. "repeat the next byte 3×", and the planar ramps (`… F8 FC FE FF`) are
+just literal runs — which is exactly why a plain copy-count "overshot." Decoding
+with the signed PackBits rule consumes each bank's bitmap section **exactly** to
+its last byte (`silly.ilb` 402/402, `marbdat.vlb` 6 648/6 648), the unmistakable
+sign of the right codec. And the `.mlb` level modules — a different container
+(flag `$01`, an offset-table header) — go through the **same** `$7E4E`→`$9118`
+load path, so they share the codec; only their wrapper differs.
+
+So the container, the slot geometry (132-byte course cells, 68-byte moving-object
+cells), the file roster, **and the compression** are all established. The one
+remaining mechanical step to pixel-perfect sprites is the post-unpack layout: the
+loader expands each 15-byte file descriptor into a 20-byte in-memory record and
+relocates its source/dest pointers (`$80B4`), and the final cells are assembled by
+`$8026`, which clears a cell then OR-composites planar source blocks into it — so
+a renderer must follow those descriptor offsets rather than slice the unpacked
+stream into fixed cells.
 
 ---
 
