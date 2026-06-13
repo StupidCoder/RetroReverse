@@ -13,6 +13,12 @@ Upstream: **prb28/fs-uae** — an FS-UAE fork (core derived from WinUAE 3300b2)
 that adds a GDB remote-serial-protocol server (`src/remote_debug/`). Built at
 commit `58feb4ccee1d0fa162ab25ef57a4529d433a5b3e`.
 
+The patched + built working tree lives at **`~/Development/fs-uae`** (sibling of
+this repo, kept out of git — it's 144 MB of third-party source + build
+artifacts, and the ROM/ADF are copyrighted). The `fsuae-arm64.patch` here is the
+canonical record of our changes; the build recipe below reproduces it from
+scratch if that tree is ever lost.
+
 ## Build (macOS arm64 / Apple Silicon)
 
 ```sh
