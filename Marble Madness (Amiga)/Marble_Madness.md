@@ -37,7 +37,7 @@ under way; Part V is still a stub.
   - [1. The boot block](#1-the-boot-block)
   - [2. AmigaDOS startup and the Workbench launch](#2-amigados-startup-and-the-workbench-launch)
   - [3. The launcher](#3-the-launcher)
-  - [4. The decruncher (`c/zzz`)](#4-the-decruncher-czzz)
+  - [4. The decryptor (`c/zzz`)](#4-the-decryptor-czzz)
   - [5. The track loader (`c/xxx`)](#5-the-track-loader-cxxx)
 - [Part III — Game program architecture](#part-iii--game-program-architecture)
   - [1. The multi-stage load](#1-the-multi-stage-load)
@@ -118,9 +118,9 @@ same — it lays the segments out from a chosen base, applies the relocations, a
 returns a flat image that `dis68k`/`codetrace68k` can disassemble.
 
 Two files are exceptions. `c/MarbleMadness!.dat` (the main program) and `c/xxx`
-are not plain hunks: after a `$0000_03F3 8F01…` packer header their contents are
-near-random (entropy ≈ 7.95 of 8 bits/byte), i.e. **stored crunched** and
-decompressed at load by the small `c/zzz` helper. Unpacking them — and thereby
+are not plain hunks: after a `$0000_03F3 8F01…` header their contents are
+near-random (entropy ≈ 7.95 of 8 bits/byte), i.e. **stored encrypted** and
+decrypted at load by the small `c/zzz` helper. Decrypting them — and thereby
 reaching the main game code — is a Part II/III concern.
 
 **System and boot files** — an ordinary AmigaDOS boot setup:
@@ -131,8 +131,8 @@ reaching the main game code — is a Part II/III concern.
 | `c/LoadWb`, `c/EndCLI` | the AmigaDOS CLI commands the script runs |
 | `c/splash` | the title/splash screen — an IFF ILBM bitmap (Part IV §1) |
 | `c/bootscr` | the boot-screen program (a 50-hunk overlay) that displays the splash (Part II §3) |
-| `c/zzz` | the decruncher — unpacks the crunched files at load (Part III) |
-| `c/xxx` | crunched data unpacked by `c/zzz` |
+| `c/zzz` | the decryptor — decrypts the encrypted files at load (Part III) |
+| `c/xxx` | encrypted data decrypted by `c/zzz` (the disk fast-loader, Part II §5) |
 | `c/sigfile` | a disk-signature / copy-protection table (`"DOW"`+incrementing bytes) |
 | `libs/icon.library` | bundled so the disk shows icons without the user's Workbench disk |
 | `MarbleMadness!.info`, `Disk.info`, `.info` | Workbench icons (`$E310` magic, not hunks) |
@@ -142,7 +142,7 @@ reaching the main game code — is a Part II/III concern.
 | file | size | role |
 |------|------|------|
 | `MarbleMadness!` | 5,864 | the launcher executable (started from the Workbench icon) |
-| `c/MarbleMadness!.dat` | 175,360 | the main game program — stored crunched, unpacked at load by `c/zzz` |
+| `c/MarbleMadness!.dat` | 175,360 | the main game program — stored encrypted, decrypted at load by `c/zzz` |
 
 **Per-course modules.** The bulk of the disk is six parallel families of files,
 one per Marble Madness course, keyed by a short prefix and a type suffix:
@@ -165,10 +165,11 @@ effects, and `*Track` music.
 
 **Compression and encryption.** Several encodings appear on the disk, decoded in
 this writeup where possible. The two executables that matter most —
-`c/MarbleMadness!.dat` (the main program) and `c/xxx` — are **crunched** by a
-custom packer (a shared `$0000_03F3 8F01…` header, contents at ≈ 7.95 of 8
-bits/byte) and unpacked at load by `c/zzz`; reaching the main code therefore means
-reversing that decruncher (Part III). The title screen `c/splash` is an IFF ILBM
+`c/MarbleMadness!.dat` (the main program) and `c/xxx` — are **encrypted** by a
+custom scheme (a shared `$0000_03F3 8F01…` header, contents at ≈ 7.95 of 8
+bits/byte — high entropy from the cipher, **not** compression: the bodies are
+stored at full size) and decrypted at load by `c/zzz`; reaching the main code
+therefore means reversing that decryptor (Part III). The title screen `c/splash` is an IFF ILBM
 whose pixels are **ByteRun1 (PackBits)** compressed (Part IV §1). The per-course
 sprite banks (`.ilb`) carry their own **run-length sprite packing** (Part IV §3).
 `c/sigfile` is not compression but a copy-protection signature table. The
@@ -295,7 +296,7 @@ the linker left in the file) and traced with `codetrace68k`, the C-runtime
 startup takes the Workbench branch shown above and calls `main`. `main` then
 parses the `WBStartup` message, uses its lock to `CurrentDir` into the program's
 own drawer, creates a reply port, and proceeds to bring the game in. Because the
-game's main file is *crunched* (Part I §3), that load does not go through plain
+game's main file is *encrypted* (Part I §3), that load does not go through plain
 `LoadSeg` — it goes through `c/zzz`, the subject of §4.
 
 The full annotated disassembly is in
@@ -339,11 +340,11 @@ integrity chain. That checksum routine sits in the same linker object module as
 the decrypt engine, so the linker pulled the whole module in even though only the
 checksum is called.
 
-## 4. The decruncher (`c/zzz`)
+## 4. The decryptor (`c/zzz`)
 
-`c/MarbleMadness!.dat` and `c/xxx` are not plain hunks — they are crunched
+`c/MarbleMadness!.dat` and `c/xxx` are not plain hunks — they are encrypted
 (Part I §3), so AmigaDOS's own `LoadSeg` cannot read them. `c/zzz` is the small
-program that can: a custom **decrunching, decrypting `LoadSeg` replacement**. It
+program that can: a custom **decrypting `LoadSeg` replacement**. It
 is itself a clean hunk, so the hunk loader and `codetrace68k` read it directly,
 and its `HUNK_SYMBOL` table even names the system calls it uses — `_Open`,
 `_Read`, `_Close`, `_AllocMem`, `_FreeMem`, `_FindTask`. Its flow, from the
@@ -479,7 +480,8 @@ selective encryption**.
 There is **no compression**. The bodies occupy their full size on disk; the
 apparent size mismatch with the header's hunk table is simply the `BSS` hunks,
 which carry a size but no data. The ≈7.95 bits/byte entropy is the encryption,
-not packing — so "decruncher" is a slight misnomer; it is a decryptor.
+not packing — which is why `c/zzz` is a *decryptor*, not a decruncher, despite
+the packer-like `$0000_03F3 8F01…` header.
 
 The keystream (`sub_$EAC`) is an **additive lagged-Fibonacci generator** over the
 table: two indices `p` (start 0) and `q` (start 27); each call does
@@ -511,9 +513,11 @@ Then from the **running task** (`_FindTask` is called for exactly this — its
 result is *not* unused): it reads the task's `tc_ExceptCode` (`$2A(task)`) and
 `tc_TrapCode` (`$32(task)`) handler pointers, takes `(ptr >> 16) & 0xFF` of each
 (the second further `ASR.l #4`), and XORs them into **table entries 30 and 31**
-(`$78`/`$7C` of the buffer). So 25 of the 55 entries are perturbed — and two of
-them depend on the address of the process's `Task` structure, which is allocated
-at run time.
+(`$78`/`$7C` of the buffer). So 25 of the 55 entries are perturbed — 23 from the
+vector table, and entries 30/31 from the task's two handler pointers. Those
+pointers are *fields read from the running process*, which only exists once
+AmigaDOS has created it — they are not on the disk and not present at ROM
+cold-start.
 
 Because those entries feed the lagged-Fibonacci generator, **the keystream past
 its first stretch depends on the vector table and the task structure**. The
@@ -530,11 +534,22 @@ tied to the 1.x ROM layout. That is both ordinary for a 1986 title and a clean
 explanation of why such games are Kickstart-version-locked: the decryption key
 *is* the ROM page.
 
-But cold-start is not decode time. By the time the launcher runs, AmigaDOS has
-redirected many of those vectors to its own handlers, so the bytes are no longer
-a uniform `$FC`. This is the crux of the protection: the decryption key is not
-the ROM, and not any byte on the disk — it is the **live exception-vector table
-at the instant the game decrypts itself**, a piece of deep runtime state.
+The early guess was that AmigaDOS would have redirected those vectors away from
+the ROM by decode time, making the key a piece of deep runtime state. The live
+capture in §4 shows it does **not**: AmigaDOS leaves the `$8`–`$BC` CPU
+exception/TRAP vectors at their ROM handlers, so at decode time every one of them
+still reads page `$FC` — the same uniform value as cold-start. The vector table
+is therefore **not** the runtime differentiator; it is simply the ROM page, and
+the protection is thereby **Kickstart-1.x-locked** (a 2.0+ ROM at `$F8` would key
+differently).
+
+The part that genuinely is not on the disk — and not available from the ROM
+alone — is entries 30/31: the launcher process's `tc_ExceptCode`/`tc_TrapCode`,
+which exec only fills in when it *creates* the process. For this launcher those
+default handlers are themselves ROM addresses (captured pages `$FC` and `$FF`,
+§4), so the whole key is ultimately ROM-derived — but reading the task fields
+requires a booted AmigaDOS with the process actually constructed, which is the
+state a purely static unpack cannot manufacture.
 
 One could hope the launcher closes that gap by *installing* its own handlers
 before it invokes `c/zzz` — which would put the key values back on the disk. It
@@ -554,7 +569,7 @@ message, `LoadSeg` `c/zzz`, and run it on `c/xxx`. c/zzz streams the whole 6 116
 byte file, decrypts the header, and `AllocMem`s all twenty-two of `c/xxx`'s hunks
 at sizes that match the static decode to the byte (3 296 = 822×4+8, 1 016 =
 252×4+8, …). Then — with the exception vectors sitting at zero, exactly as the
-launcher left them — the body decode loses the stream and the decruncher spins.
+launcher left them — the body decode loses the stream and the decryptor spins.
 The header decodes, the bodies do not: the live OS state is the missing key, and
 nothing on the disk supplies it.
 
@@ -580,25 +595,29 @@ Not recovered — the bodies. Two independent attacks were pushed to their limit
    that are themselves computable from the marker layout. But only ~14 of those
    equations fall in the region with reliable indices, against 25 unknowns —
    underdetermined.
-2. **The ROM vector table.** The cold-start values (uniform `$FC`) decode
-   `c/xxx`'s first three hunks; a different uniform value decodes eleven of the
-   twenty-two; but no uniform or sparsely-corrected table decodes all of it,
-   because the real decode-time table is the post-AmigaDOS one — and two of the
-   25 perturbed entries depend on the running `Task` structure, not the vectors
-   at all. Reproducing the key means emulating the entire boot → AmigaDOS →
-   Workbench → launcher path *and* the runtime allocation of the launcher's
-   process, which the minimal CPU core cannot do.
+2. **The vector table from the ROM alone.** Booting `kick12.rom` on the minimal
+   core supplies the `$8`–`$BC` vector pages (uniform `$FC`), which decode
+   `c/xxx`'s first few hunks — but the decode then loses the stream, because two
+   of the 25 perturbed entries (30/31) come from the launcher process's
+   `tc_ExceptCode`/`tc_TrapCode`, and at ROM cold-start no such process exists
+   yet to read them from. Reproducing the key means booting all the way to a
+   constructed AmigaDOS process, not just running the ROM — which the minimal
+   CPU core cannot do (it has no AmigaDOS). (The vectors themselves were never
+   the obstacle: they stay `$FC` from cold-start through decode time, §3.)
 
 So the protection meets its goal against a static unpack: the payload's
-decryption is bound to live machine state the disk does not contain — the
-Kickstart-1.x exception vectors *and* the running process's handler pointers.
-The mechanism is wholly understood; the bytes stay gated behind a running,
-booted Amiga of the right vintage.
+decryption is bound to machine state the disk does not contain — the Kickstart
+1.x ROM (via the exception-vector pages) *and*, the true wall, the launcher
+process's `tc_ExceptCode`/`tc_TrapCode`, which only exist once AmigaDOS has
+constructed the process. The mechanism is wholly understood; the bytes stay
+gated behind a running, booted Amiga of the right vintage.
 
 **Update — the gate, opened.** Rather than emulate the full boot in the minimal
 core, the missing machine state was read off a real **Kickstart 1.2** under a
-GDB-controllable FS-UAE build (see [`tools/fsuae-debug/`](tools/fsuae-debug)). A
-CLI auto-run disk (`modadf.go` rewrites the `s/startup-sequence` in place and
+GDB-controllable FS-UAE build (the shared Amiga debugger
+[`tools/amiga/fsuae-debug/`](../tools/amiga/fsuae-debug); the game-specific
+capture scripts are in [`tools/fsuae-debug/`](tools/fsuae-debug)). A CLI auto-run
+disk (`modadf.go` rewrites the `s/startup-sequence` in place and
 fixes the OFS block checksum) boots straight to the decrypt, and the launcher
 runs as the `Initial CLI` task — so its `FindTask(0)` `tc_ExceptCode`/`tc_TrapCode`
 read directly off the live task *are* the values `sub_DAA` folds in. The captured

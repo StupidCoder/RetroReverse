@@ -2,7 +2,11 @@
 # Capture c/zzz's key_init key-array: boot full-speed, poll for the launcher
 # (Initial CLI) task, then arm the AllocMem(220) breakpoint and read key_init's
 # args (keyarray ptr + count) + the protection inputs.
-import dbg, json, sys, time
+import json, sys, os, time
+# dbg.py is the shared GDB-RSP client, kept with the reusable FS-UAE toolkit.
+sys.path.insert(0, os.path.join(os.path.dirname(__file__),
+                                "..", "..", "..", "tools", "amiga", "fsuae-debug"))
+import dbg
 
 ALLOC_RET = 0x2C5F4E75
 PROT_LINK = 0x4E56FFEC

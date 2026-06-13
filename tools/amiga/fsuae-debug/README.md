@@ -1,13 +1,22 @@
 # Headless FS-UAE with GDB remote debug stub (macOS arm64)
 
-A debugger-controllable Amiga emulator used to capture the *irreducible runtime
-state* that the c/zzz copy-protection (`sub_DAA`) folds into its decryption
-keystream — the CPU exception/TRAP vector page-bytes and the launcher task's
-`tc_ExceptCode`/`tc_TrapCode` handler pages. These cannot be derived from the
-disk image alone (they are set by booted AmigaDOS), so they are captured live
-and fed to the Go reimplementation (`extract/cmd/runlauncher`) to complete the
-decode. The decoder *algorithm* itself stays fully reimplemented in Go; the
-emulator only supplies ~25 bytes of OS state and verifies the result.
+A debugger-controllable Amiga emulator — shared reverse-engineering
+infrastructure for any Amiga title in this repo, not specific to one game. It
+gives full run control (boot, breakpoints, continue, single-step, register/
+memory read) over a real Kickstart, so the *irreducible runtime state* a program
+depends on — values set by booted AmigaDOS that are absent from the disk image —
+can be captured live and fed to a static Go reimplementation, which keeps the
+*algorithm* in Go and uses the emulator only to supply (and verify against) the
+few bytes of OS state.
+
+Its first use was Marble Madness (`Marble Madness (Amiga)/`): the `c/zzz`
+copy-protection (`sub_DAA`) folds the CPU exception/TRAP vector page-bytes and
+the launcher task's `tc_ExceptCode`/`tc_TrapCode` handler pages into its
+decryption keystream; those ~25 bytes were captured here and baked into the Go
+decoder (`Marble Madness (Amiga)/extract/cmd/decode`). The generic pieces live
+here; per-game capture scripts (e.g. Marble Madness's `modadf.go`, `capdat.py`,
+`capkey.py`) live in that game's own `tools/fsuae-debug/` and import the shared
+`dbg.py` from here.
 
 Upstream: **prb28/fs-uae** — an FS-UAE fork (core derived from WinUAE 3300b2)
 that adds a GDB remote-serial-protocol server (`src/remote_debug/`). Built at
@@ -26,7 +35,7 @@ brew install pkg-config glib sdl2 libpng gettext libmpeg2
 git clone https://github.com/prb28/fs-uae /tmp/fs-uae
 cd /tmp/fs-uae
 git checkout 58feb4c
-git apply "<repo>/Marble Madness (Amiga)/tools/fsuae-debug/fsuae-arm64.patch"
+git apply "<repo>/tools/amiga/fsuae-debug/fsuae-arm64.patch"
 
 export PATH="/opt/homebrew/bin:$PATH"
 export PKG_CONFIG_PATH="/opt/homebrew/lib/pkgconfig"
@@ -196,12 +205,19 @@ a logged-in GUI session.
 `remote_debugger=N` waits `N-1` seconds at startup for a connection; the server
 keeps listening afterwards. The ROM and ADF are copyrighted and not committed.
 
-## Drive it (`rsp.py`)
+## Drive it (`rsp.py` / `dbg.py`)
 
-Minimal GDB remote-serial-protocol client. Connects, interrupts (raw `0x03`),
-reads registers (`g` → 8×D, 8×A, SR, PC as u32), reads memory (`m<addr>,<len>`
-→ hex), sets breakpoints (`Z0,addr,kind`). Example session dumps the exception
-vector table `$0..$BF`.
+Two GDB remote-serial-protocol clients ship here, both stdlib-only and
+game-agnostic:
+
+- **`rsp.py`** — minimal client. Connects, interrupts (raw `0x03`), reads
+  registers (`g` → 8×D, 8×A, SR, PC as u32), reads memory (`m<addr>,<len>` →
+  hex), sets breakpoints (`Z0,addr,kind`). Its example session dumps the
+  exception vector table `$0..$BF`.
+- **`dbg.py`** — the fuller client used by the capture scripts: adds
+  `cont_wait`/`wait_stop` (read until a `T`/`S`/`W`/`X`/`%Stop` reply),
+  `stop_regs` parsing, and Amiga-exec helpers (`sysbase`, `thistask`,
+  `liblist`, `find_lib`, `amiga_str`). Per-game scripts `import dbg` from here.
 
 ```sh
 python3 rsp.py

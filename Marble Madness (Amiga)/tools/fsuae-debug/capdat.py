@@ -2,7 +2,11 @@
 # Capture the .dat key_init: catch each c/zzz AllocMem(220) and read key_init's
 # count; the c/xxx pass is count=0, the .dat pass is count=20 -> read its 20-long
 # key array. Boots auto-run full speed, polls for the launcher, then arms the bp.
-import dbg, json, sys, time
+import json, sys, os, time
+# dbg.py is the shared GDB-RSP client, kept with the reusable FS-UAE toolkit.
+sys.path.insert(0, os.path.join(os.path.dirname(__file__),
+                                "..", "..", "..", "tools", "amiga", "fsuae-debug"))
+import dbg
 
 ALLOC_RET = 0x2C5F4E75
 PROT_LINK = 0x4E56FFEC
