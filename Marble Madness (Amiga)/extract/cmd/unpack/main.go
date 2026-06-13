@@ -90,6 +90,9 @@ func main() {
 	trace := flag.Bool("trace", false, "log every trapped system call")
 	keycount := flag.Int("count", -1, "keyarray longword count (arg0->8); -1 = len(sigfile)/4")
 	dumpks := flag.Int("dumpks", 0, "dump N keystream words to /tmp/ks.bin and exit")
+	vpage := flag.Int("vpage", 0xFC, "exception/TRAP vector page byte (vec>>16)&FF")
+	epage := flag.Int("epage", 0xFC, "launcher tc_ExceptCode page byte")
+	tpage := flag.Int("tpage", 0x00, "launcher tc_TrapCode page byte (entry31 ^= page>>4)")
 	flag.Parse()
 	args := flag.Args()
 	if len(args) < 1 {
@@ -119,6 +122,19 @@ func main() {
 	m := &machine{ram: make([]byte, ramSize), packed: packed, heap: heapStart, trace: *trace}
 	copy(m.ram[base:], prog.Image)
 	m.w32(4, 0x1000) // a plausible ExecBase pointer at $4
+
+	// Decode-time copy-protection inputs, captured live from a booted Kickstart
+	// 1.2 via the FS-UAE GDB stub. sub_DAA folds (x>>16)&0xFF of these into the
+	// key table; with zeroed low memory the bodies decode to garbage past ~hunk 2.
+	//  - every CPU exception/TRAP vector $8..$BC has page byte $FC
+	//  - the launcher (a Workbench process) tc_ExceptCode($2A) page byte = $FC
+	//  - the launcher tc_TrapCode($32) page byte = $FF
+	for a := uint32(0x8); a <= 0xBC; a += 4 {
+		m.w32(a, uint32(*vpage)<<16)
+	}
+	const fakeTask = 0x3000 // matches the FindTask trap return below
+	m.w32(fakeTask+0x2A, uint32(*epage)<<16)
+	m.w32(fakeTask+0x32, uint32(*tpage)<<16)
 
 	cpu := m68k.NewCPU(m)
 
@@ -184,23 +200,33 @@ func (m *machine) call(cpu *m68k.CPU, entry, retAddr uint32, args ...uint32) {
 	cpu.PC = entry
 }
 
+// ksLimit bounds the keystream-advance count. A correct c/xxx decode uses ~1500
+// words; a wrong key table decodes a garbage block size and spins for billions
+// of words, so this lets a bad run (e.g. a wrong protection page byte) bail
+// fast instead of grinding the 40M step budget.
+const ksLimit = 200_000
+
 // run steps the CPU until PC reaches stopAt, servicing trapped syscalls.
 func (m *machine) run(cpu *m68k.CPU, traps map[uint32]func(), stopAt uint32, trace bool) {
-	for steps := 0; steps < 40_000_000; steps++ {
+	for steps := 0; steps < 6_000_000; steps++ {
 		if cpu.PC == stopAt {
 			return
 		}
-		if trace {
-			switch cpu.PC {
-			case base + 0x3DE: // hunk-block dispatch: d0 = (type-$3E7)<<2
+		switch cpu.PC {
+		case base + 0x3DE: // hunk-block dispatch: d0 = (type-$3E7)<<2
+			if trace {
 				fmt.Fprintf(os.Stderr, "dispatch type=$%X at input pos %d\n",
 					(cpu.D[0]>>2)+0x3E7, m.rpos)
-			case base + 0x2C4: // readlong: decrypted structural longword in (a0)
-				if m.ksCalls < 70 {
-					fmt.Fprintf(os.Stderr, "  readlong[%d] = $%08X\n", m.ksCalls, m.r32(m.r32(cpu.A[6]+0xC)))
-				}
-			case base + 0xEAC: // keystream advance
-				m.ksCalls++
+			}
+		case base + 0x2C4: // readlong: decrypted structural longword in (a0)
+			if trace && m.ksCalls < 70 {
+				fmt.Fprintf(os.Stderr, "  readlong[%d] = $%08X\n", m.ksCalls, m.r32(m.r32(cpu.A[6]+0xC)))
+			}
+		case base + 0xEAC: // keystream advance
+			m.ksCalls++
+			if m.ksCalls > ksLimit {
+				fmt.Fprintf(os.Stderr, "runaway: keystream calls exceeded %d (garbage decode)\n", ksLimit)
+				os.Exit(2)
 			}
 		}
 		if t, ok := traps[cpu.PC]; ok {
