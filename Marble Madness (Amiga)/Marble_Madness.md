@@ -417,6 +417,35 @@ back into a clean 22-hunk AmigaDOS object — using the `c/zzz` copy-protection
 inputs captured live from a Kickstart 1.2 machine (the values that defeated a
 purely static unpack in Part III §4; the capture method is noted there).
 
+**It loads by physical position, not by name — and that resolves an apparent
+paradox.** `c/MarbleMadness!.dat` shows up as an ordinary 175 KB file in the
+disk's directory, yet the loader reads tracks, not files. Following the two
+through reconciles them. First, the whole disk is a normal AmigaDOS OFS volume:
+all 1760 blocks belong to the 50 catalogued files (1661 are OFS data blocks; the
+rest are the boot block, 50 file headers, three directories, the root and the
+bitmap). There is **no hidden raw region** — whatever the loader reads, it is
+reading the filesystem's own sectors. Second, the `.dat` is genuinely one of
+those files: following its OFS data-block chain, its 360 data blocks occupy a
+near-contiguous physical band at blocks ~1023–1396, i.e. **physical tracks
+~93–126**, each block a standard 512-byte sector (24-byte OFS header + 488 bytes
+of the encrypted payload; the first block's payload begins `00 00 03 F3 8F 01`,
+the packer signature). Third — the clincher — the launcher's *entire* string
+table names only `c/zzz`, `c/xxx`, `c/bootscr`, `c/splash` and
+`lo-res/paintcan`: **the string `c/MarbleMadness!.dat` does not appear anywhere
+in the launcher.** The main program is never opened by name. It is reached purely
+by *physical track and sector position* by `c/xxx`, which reimplements
+`trackdisk.device`'s read path from scratch — whole-track Paula DMA, find the
+`$4489` sync, MFM-decode, and validate each sector's standard `[$FF, track,
+sector<11, sectors-to-gap]` header (it even carries the `"trackdisk.device"`
+string and an `IORequest` builder as a fallback path). So the loader is *not*
+reading data we haven't seen; it is reading the `.dat`'s own bytes off the
+platter by location. The `.dat` exists as a DOS file so the disk stays a valid,
+bootable AmigaDOS volume and so those blocks are reserved and laid down
+contiguously; it is read by position for speed (whole-track DMA beats per-sector
+OS reads) and as a copy-protection hook (a from-scratch reader can demand
+non-standard formatting, and reading by position bypasses file-level tampering —
+reinforced by the `c/xxx` checksum integrity chain of Part II §3).
+
 ---
 
 # Part III — Game program architecture
@@ -442,15 +471,20 @@ disassembly the sequence is:
    `a0` = a filename — to decrypt **`c/xxx`**. The control block here has its
    key-array count set to **0**.
 3. The decrypted `c/xxx` seglist is then *run as code*: it is the real
-   second-stage loader. Just before that call the launcher mutates the control
-   block's key array — count becomes `$14` (20 longwords), each XORed with a
-   16-bit constant.
-4. `c/xxx`, now running, drives the rest and pulls in `c/MarbleMadness!.dat`
-   (the 175 KB main hunk) using the count-20 key array.
+   second-stage loader — the from-scratch floppy track reader of Part II §5. It
+   pulls the 175 KB main program off the disk by **physical position** (the
+   `.dat` is never opened by name), into a buffer recorded in the shared control
+   block.
+4. The launcher mutates that control block's key array — count becomes `$14`
+   (20 longwords), each XORed with the `c/xxx` checksum (the integrity chain) —
+   and runs **`c/zzz` a second time** to *decrypt* the loaded program with that
+   count-20 key. The two stages cooperate through the shared control block:
+   `c/xxx` is the fast raw reader, `c/zzz` is the decryptor.
 
-So the chain is launcher → (`c/zzz`) → `c/xxx` → (`c/zzz`) → `.dat`, with the
-key array changing between the two decrypt passes. The first pass — `c/xxx`
-with an empty key array — is the one this part can read.
+So the chain is launcher → (`c/zzz` decrypts `c/xxx`) → (`c/xxx` reads the main
+program by track) → (`c/zzz` decrypts it), with the key array changing between
+the two `c/zzz` passes. The first pass — `c/xxx` with an empty key array — is the
+one this part can read; the second needs the count-20 key (§4).
 
 ## 2. The decoder
 

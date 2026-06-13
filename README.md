@@ -40,6 +40,15 @@ To do:
 * Tools
     * Disassembler should be better at segmenting functions; currently jumps within a function are treated as separate sub-routines; try to document parameters of sub-routines (which registers are used?)
 
+## Methodology
+
+[`ANALYSIS-PLAYBOOK.md`](ANALYSIS-PLAYBOOK.md) is a field guide to *how* these
+projects were reverse-engineered — the common five-part arc, the reusable
+toolkit, the end-to-end flows for C64 tape games and Amiga disk games, the
+cross-cutting techniques (entropy triage, known-plaintext attacks, using a
+self-built CPU core as an oracle), and a checklist for tackling a new unknown
+image. Read it first if you're starting a new game or picking up an existing one.
+
 ## Repository structure
 
 Each game lives in its own `<Game> (<Platform>)/` folder following a common
