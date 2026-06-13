@@ -46,7 +46,7 @@ under way; Part V is still a stub.
 - [Part IV — Graphics and data formats](#part-iv--graphics-and-data-formats)
   - [1. The splash (boot) screen](#1-the-splash-boot-screen)
   - [2. The Workbench icons](#2-the-workbench-icons)
-  - [3. The per-course sprite banks (`.ilb`)](#3-the-per-course-sprite-banks-ilb)
+  - [3. The sprite banks (`.ilb` and `.vlb`)](#3-the-sprite-banks-ilb-and-vlb)
 - [Part V — Game mechanics](#part-v--game-mechanics)
 - [Appendix A — Toolchain and reproduction](#appendix-a--toolchain-and-reproduction)
 
@@ -493,9 +493,11 @@ booted Amiga of the right vintage.
 # Part IV — Graphics and data formats
 
 The boot-time graphics use standard Amiga formats the toolchain already reads end
-to end — the title splash (§1) and the Workbench icons (§2). §3 starts on the
-game's own formats with the per-course sprite banks (`.ilb`); the remaining
-per-course modules (`.mlb`, `.vlb`, `Snd`, `Track`) are still to be decoded.
+to end — the title splash (§1) and the Workbench icons (§2). §3 turns to the
+game's own formats: the sprite banks (`.ilb` course scenery and `.vlb` moving
+objects), whose container and geometry are reversed here but whose bitmap stream
+is compressed. The remaining per-course modules (`.mlb` levels, `Snd`, `Track`)
+are still to be decoded.
 
 ## 1. The splash (boot) screen
 
@@ -543,12 +545,14 @@ label.
 
 ![Disk icon](rendered/icon-disk.png)
 
-## 3. The per-course sprite banks (`.ilb`)
+## 3. The sprite banks (`.ilb` and `.vlb`)
 
-Each course carries an `.ilb` (an "image library") holding its sprites — the
-marble and that course's creatures and objects. Their sizes track how much each
-course needs: the Silly and Ultimate courses share a minimal four-sprite set
-(466 bytes), while Aerial packs sixty-three (35 KB).
+Each course carries an `.ilb` (an "image library") holding its static sprites,
+and the moving objects live in matching `.vlb` files — `marbdat.vlb` (the
+marble), `birdink.vlb` and `ooze.vlb` (creatures). Both extensions are the **same
+format**; only the sprite geometry and counts differ. The `.ilb` sizes track how
+much each course needs: the Silly and Ultimate courses share a minimal four-sprite
+set (466 bytes), while Aerial packs sixty-three (35 KB).
 
 **The container.** Every `.ilb` has the same layout, confirmed across all six
 files: a 4-byte header, a table of fixed 15-byte image descriptors, then the
@@ -592,18 +596,33 @@ descriptor's 33/66 favour the taller form.) The remaining descriptor fields — 
 small index that steps `01/05/09…`, a signed `FE 00`, and the trailing flag bytes
 — read provisionally as the sprite's placement and draw flags.
 
-**The bitmap data is run-length packed.** The data section is not raw planar
-bytes: it interleaves the bitmap ramps with `FE`-prefixed escape codes
-(`FE 00 53`, `FE FF E0`, …), so each object is compressed and its packed record is
-variable length — which is why the per-sprite byte cost differs so much between
-courses. Rendering the data at any fixed width shows recognisable sprite fragments
-broken up by those control bytes, confirming it is sprite graphics rather than,
-say, a display list.
+**The `.vlb` moving-object banks** share this container exactly — a `$0D` flag
+(the "heavy" variant), the same big-endian count, and the same 15-byte
+descriptors — but with a smaller cell. Their descriptors carry `$11`=**17** and
+`$22`=**34** in place of 33/66, and the slot stride is **68** (= 17 rows × 2 bytes
+× 2 planes), i.e. a 16×17, 4-colour object. The counts tell the story:
+`marbdat.vlb` holds **130** images — the marble drawn at every rotation step —
+while `birdink.vlb` (45) and `ooze.vlb` (48) are creature animation cycles. So one
+format covers the whole sprite set: 16-wide, 2-bitplane objects, 33 rows tall for
+course scenery and 17 for the things that move.
 
-So the container, the per-sprite 132-byte slot and the object geometry are
-established; the one remaining piece is the exact unpacking rule for the
-run-length stream, which is what would let each sprite be extracted pixel-perfect
-and rendered the way the splash and icons are above.
+**The bitmap data is compressed.** It is provably not raw planar bytes: a `.vlb`
+holding 130 sixty-eight-byte cells would need 8 840 bytes of bitmap, but the file
+carries only 6 648 — and 6 648 is not even divisible by 130, so the per-object
+records are *variable length*. The same holds for every `.ilb` (Silly's four
+132-byte slots would need 528 bytes; the data section is 402). The stream is built
+around the byte `$FE` as a control/escape marker (`FE 00 53`, `FE FF E0`, … recur,
+and every object's packed record ends on an `FE FF` group), with literal planar
+ramps in between. But the exact run rule resists a static solve: decoded under a
+plain copy-count it overshoots, and the control arguments are inconsistent with a
+single count semantics. Like the game code, the codec's only specification is the
+program that consumes it — and that lives in the encrypted `.dat` (Part III).
+
+So the container, the per-object slot geometry (132-byte course cells, 68-byte
+moving-object cells), and the file roster (which bank holds the marble, which the
+creatures) are all established; the remaining piece is the exact unpacking rule
+for the compressed stream, which is what would let each sprite be extracted
+pixel-perfect and rendered the way the splash and icons are above.
 
 ---
 
