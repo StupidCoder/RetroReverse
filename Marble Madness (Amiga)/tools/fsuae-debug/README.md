@@ -130,6 +130,36 @@ Fix: only parse an address when one is actually present —
 address. Verified: breakpoints now **chain** (15/15 continue→re-hit on a 50 Hz
 handler) and manual interrupt→continue→interrupt no longer freezes.
 
+### The breakpoint re-arm "max breakpoints reached" bug — `add_breakpoint`
+
+Symptom (first read as a breakpoint *leak*): across connect/disconnect cycles, a
+`Z0` to re-arm a breakpoint already in the table would intermittently reply
+`E37` (`ERROR_MAX_BREAKPOINTS_REACHED`), as if the table had filled up — yet a
+count probe showed `s_breakpoint_count` never grew past 1. The contradiction
+(per-add logs say count≈1, but E37 means count≥65535) was the clue: **there is
+no leak**; the error came from a return-value mismatch.
+
+`add_breakpoint()` returned two differently-based values — the **0-based** index
+from `find_breakpoint()` when the breakpoint already existed, but the
+**post-increment** `s_breakpoint_count` (1-based) when adding a new one. The
+callers (`set_absolute_address_breakpoint`, `set_offset_seg_breakpoint`) tested
+the result as a plain boolean. So whenever you re-armed the breakpoint that
+happened to occupy **index 0**, `find_breakpoint` returned `0`, `add_breakpoint`
+returned `0`, `if (add_breakpoint(...))` read that as failure, and the stub sent
+`E37`. The table was fine; the *first* breakpoint just couldn't be re-armed. A
+second latent bug: `set_offset_seg_breakpoint` resolved
+`&s_breakpoints[s_breakpoint_count - 1]` (the last slot) instead of the slot the
+add actually returned — wrong target whenever a seg breakpoint was found at any
+index other than the last.
+
+Fix: make `add_breakpoint` return a **consistent 0-based index** (or `-1` when
+full), and have callers test `>= 0` and use the returned index. Verified: 60
+re-arm/remove cycles and 2000 mixed re-add ops → **0 errors**, table stays
+bounded (re-adds dedup correctly, since the static table legitimately persists
+across reconnects). This pairs with the earlier `MAX_BREAKPOINT_COUNT` 512→65536
+raise and the `remove_breakpoint`/`reset_breakpoint` index-0 guard fix
+(`> 0` → `>= 0`, which had made breakpoint index 0 unremovable).
+
 ## What works (macOS arm64, this fork)
 
 - Boots Kickstart 1.2 + the Marble Madness floppy to **Workbench** under the

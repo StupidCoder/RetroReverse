@@ -34,9 +34,18 @@ index 607ff32..c38bd32 100644
  #define CPU_arm 1
  #elif defined(__powerpc__) || defined(__ppc__) || defined(_M_PPC)
 diff --git a/src/remote_debug/remote_debug.cpp b/src/remote_debug/remote_debug.cpp
-index 54f2684..3ed40a3 100644
+index 54f2684..dad8d50 100644
 --- a/src/remote_debug/remote_debug.cpp
 +++ b/src/remote_debug/remote_debug.cpp
+@@ -161,7 +161,7 @@ static int selected_thread_id = THREAD_ID_CPU;
+ // Multi process support act on thread id name : ppid.tid
+ static bool support_multiprocess = true;
+ 
+-#define MAX_BREAKPOINT_COUNT 512
++#define MAX_BREAKPOINT_COUNT 65536
+ 
+ enum DebuggerState
+ {
 @@ -183,6 +183,12 @@ static bool did_step_copper = false;
  static uae_u8 s_last_sent[1024];
  static int s_last_size = 0;
@@ -70,7 +79,57 @@ index 54f2684..3ed40a3 100644
  	// if time_out > 0 we wait that number of seconds for a connection to be made. If
  	// none has been done within the given time-frame we just continue
  
-@@ -1994,10 +2008,16 @@ static bool kill_program () {
+@@ -374,19 +388,24 @@ static int find_breakpoint(uaecptr address, uaecptr offset, uae_u32 kind, uaecpt
+  * @return Index of the new breakpoint or -1
+  */
+ static int add_breakpoint(uaecptr address, uaecptr offset, uae_u32 kind, bool needs_resolve, uaecptr seg_id) {
+-	// search for the breakpoint
++	// search for the breakpoint. Returns a consistent 0-based index of the
++	// breakpoint (existing or newly added), or -1 if the table is full.
++	// NOTE: callers must test the result with `>= 0`, never as a plain bool:
++	// a valid breakpoint can live at index 0, and treating 0 as "failure"
++	// spuriously reports ERROR_MAX_BREAKPOINTS_REACHED when re-arming it.
+ 	int bp_id = find_breakpoint(address, offset, kind, seg_id);
+ 	if (bp_id >= 0) {
+ 		return bp_id;
+ 	} else if (s_breakpoint_count < MAX_BREAKPOINT_COUNT) {
+ 		// New breakpoint
+-		s_breakpoints[s_breakpoint_count].address = address;
+-		s_breakpoints[s_breakpoint_count].offset = offset;
+-		s_breakpoints[s_breakpoint_count].kind = kind;
+-		s_breakpoints[s_breakpoint_count].needs_resolve = needs_resolve;
+-		s_breakpoints[s_breakpoint_count].seg_id = seg_id;
++		int idx = s_breakpoint_count;
++		s_breakpoints[idx].address = address;
++		s_breakpoints[idx].offset = offset;
++		s_breakpoints[idx].kind = kind;
++		s_breakpoints[idx].needs_resolve = needs_resolve;
++		s_breakpoints[idx].seg_id = seg_id;
+ 		s_breakpoint_count++;
+-		return s_breakpoint_count;
++		return idx;
+ 	}
+ 	fs_log("[REMOTE_DEBUGGER] Max number of breakpoints (%d) has been reached. Removed some to add new ones", MAX_BREAKPOINT_COUNT);
+ 	return -1;
+@@ -398,7 +417,7 @@ static int add_breakpoint(uaecptr address, uaecptr offset, uae_u32 kind, bool ne
+  * @param index Index of the breakpoint
+  */
+ static void reset_breakpoint(int index) {
+-	if ((index > 0) && (index < MAX_BREAKPOINT_COUNT)) {
++	if ((index >= 0) && (index < MAX_BREAKPOINT_COUNT)) {
+ 		fs_log("[REMOTE_DEBUGGER] Reset breakpoint position %d", index);
+ 		s_breakpoints[index].address = 0;
+ 		s_breakpoints[index].offset = 0;
+@@ -416,7 +435,7 @@ static void reset_breakpoint(int index) {
+  */
+ static bool remove_breakpoint(int index) 
+ {
+-	if ((index > 0) && (index < MAX_BREAKPOINT_COUNT)) {
++	if ((index >= 0) && (index < MAX_BREAKPOINT_COUNT)) {
+ 		int lastPosition = s_breakpoint_count - 1;
+ 		if (index != lastPosition) {
+ 			// Copy of the last breakpoint to this index
+@@ -1994,10 +2013,16 @@ static bool kill_program () {
  static bool handle_continue_exec (int process_id, int thread_id, char* packet)
  {
  	// 'c [addr] Continue at addr, which is the address to resume. If addr is omitted, resume at current address.
@@ -89,7 +148,28 @@ index 54f2684..3ed40a3 100644
  		{
  			fs_log("[REMOTE_DEBUGGER] Unable to parse continue packet %s\n", packet);
  			return false;
-@@ -2745,8 +2765,13 @@ static void remote_debug_ (void)
+@@ -2061,8 +2086,9 @@ static void resolve_breakpoint_seg_offset (Breakpoint* breakpoint)
+  */
+ static void set_offset_seg_breakpoint (uaecptr offset, uae_u32 kind)
+ {
+-	if(add_breakpoint(0, offset, kind, true, 0)) {
+-		resolve_breakpoint_seg_offset (&s_breakpoints[s_breakpoint_count - 1]);
++	int idx = add_breakpoint(0, offset, kind, true, 0);
++	if (idx >= 0) {
++		resolve_breakpoint_seg_offset (&s_breakpoints[idx]);
+ 	}
+ }
+ 
+@@ -2076,7 +2102,7 @@ static bool set_absolute_address_breakpoint (uaecptr address)
+ 	if (log_remote_protocol_enabled) {
+ 		fs_log("[REMOTE_DEBUGGER] Added absolute address breakpoint at 0x%08x \n", address);
+ 	}
+-	if(add_breakpoint(address, 0, BREAKPOINT_KIND_ABSOLUTE_ADDR, false, 0)) {
++	if (add_breakpoint(address, 0, BREAKPOINT_KIND_ABSOLUTE_ADDR, false, 0) >= 0) {
+ 		return reply_ok ();
+ 	} else {
+ 		send_packet_string (ERROR_MAX_BREAKPOINTS_REACHED);
+@@ -2745,8 +2771,13 @@ static void remote_debug_ (void)
  	{
  		case Running:
  		{
@@ -105,7 +185,7 @@ index 54f2684..3ed40a3 100644
  
  			break;
  		}
-@@ -2776,6 +2801,15 @@ static void remote_debug_ (void)
+@@ -2776,6 +2807,15 @@ static void remote_debug_ (void)
  					break;
  				}
  
@@ -121,7 +201,7 @@ index 54f2684..3ed40a3 100644
  				if (is_quiting())
  				{
  					if (log_remote_protocol_enabled) {
-@@ -2847,7 +2881,19 @@ static void remote_debug_update_ (void)
+@@ -2847,7 +2887,19 @@ static void remote_debug_update_ (void)
      remote_activate_debugger ();
  	//exception_debugging = 0;
  
