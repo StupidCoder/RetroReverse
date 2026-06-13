@@ -75,42 +75,6 @@ func mlbPalette(d []byte) color.Palette {
 	return p
 }
 
-// mlbSheet renders a .mlb course bitmap: 4 bitplanes (16 colours) whose plane
-// data starts at the four big-endian offsets in the header (file bytes 0x07/
-// 0x0b/0x0f/0x13, into the unpacked buffer). The .mlb is a tile-sheet format, so
-// the exact width/tilemap is not yet reversed — this renders the raw planes at a
-// fixed width so the real colours are visible.
-func mlbSheet(up []byte, raw []byte, W int) *image.Paletted {
-	off := func(o int) int {
-		if o+3 < len(raw) {
-			return int(raw[o])<<24 | int(raw[o+1])<<16 | int(raw[o+2])<<8 | int(raw[o+3])
-		}
-		return 0
-	}
-	planes := [4]int{off(0x07), off(0x0b), off(0x0f), off(0x13)}
-	bpr := W / 8
-	rows := (planes[1] - planes[0]) / bpr
-	if rows < 1 || rows > 4000 {
-		rows = 256
-	}
-	img := image.NewPaletted(image.Rect(0, 0, W, rows), pal)
-	for y := 0; y < rows; y++ {
-		for x := 0; x < W; x++ {
-			bi := y*bpr + x/8
-			bit := uint(7 - x%8)
-			v := 0
-			for p := 0; p < 4; p++ {
-				o := planes[p] + bi
-				if o < len(up) && (up[o]>>bit)&1 == 1 {
-					v |= 1 << p
-				}
-			}
-			img.SetColorIndex(x, y, uint8(v))
-		}
-	}
-	return img
-}
-
 // planarCell renders one 16-wide, h-row, 2-plane (row-interleaved) cell starting
 // at byte off in buf into a paletted image. Out-of-range bytes read as 0.
 func planarCell(buf []byte, off, h int) *image.Paletted {
@@ -241,16 +205,11 @@ func main() {
 		out := filepath.Join(outdir, base+".png")
 
 		if ext == ".mlb" {
-			// The .mlb playfield is 4 bitplanes = 16 colours (its own palette at
-			// 0x17). The packed tile bitmap follows the 16-colour palette at 0x37.
-			pal = greys
-			if p, ok := palettes[course]; ok {
-				pal = p // full 16-colour playfield palette
-			}
-			raw := unpackByteRun1(d[0x37:])
-			writePNG(out, scale(mlbSheet(raw, d, 320), 2))
-			fmt.Printf("%-14s flag=$%02X unpacked=%d  4-plane 16-colour  pal=%s -> %s\n",
-				base, d[0], len(raw), course, out)
+			// The .mlb playfield is 4 bitplanes / 16 colours (palette at 0x17), but
+			// its tile-bitmap layout is NOT yet decoded — every plane/width/tilemap
+			// interpretation tried so far renders as noise. So it is intentionally
+			// not emitted rather than shipping a misleading scrambled image.
+			fmt.Printf("%-14s flag=$%02X  .mlb bitmap layout not decoded -> skipped\n", base, d[0])
 			return nil
 		}
 

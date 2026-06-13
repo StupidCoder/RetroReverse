@@ -929,23 +929,26 @@ red). [`extract/cmd/sprites`](extract/cmd/sprites) reads each course palette fro
 the matching `.mlb` and renders every bank with it into [`rendered/`](rendered)
 (`<bank>.png`).
 
-**The bit depth differs by file kind — this is the key to the colours.** The
-`.ilb`/`.vlb` **sprite banks are 2 bitplanes** (4 colours): the loader's compositor
-`$8026` builds 132-byte cells = 16×33×2 planes, and these are *sprite/object
-building blocks* (the marble, creatures, scenery props), so they render in the
-palette's low four colours. But the **colourful course floor and walls are the
-`.mlb` level modules, which are 4 bitplanes (16 colours)** — its header gives four
-plane offsets at a constant `0x1970`-byte stride, and decoding the unpacked tile
-bitmap as 4 planes with the 16-colour palette reproduces the course's true
-colours (the practice course's grey floor with red/orange/yellow tiles). So an
-earlier note that called these 2-plane was wrong: the *sprites* are 2-plane, the
-*playfield* is 4-plane.
+**The bit depth differs by file kind.** The `.ilb`/`.vlb` **sprite banks are 2
+bitplanes** (4 colours): the loader's compositor `$8026` builds 132-byte cells =
+16×33×2 planes, and these are *sprite/object building blocks* (the marble,
+creatures, scenery props), so they render in the palette's low four colours. The
+colourful course floor and walls, by contrast, are the **`.mlb` level modules,
+which are 4 bitplanes (16 colours)** — the `.mlb` loader (`$7F38`) relocates four
+plane pointers and a palette pointer at the head of its work buffer.
 
-Two refinements remain. **The `.mlb` tile layout:** it is a tile-sheet + tilemap
-format — the raw tiles now render in correct colours, but the exact cell width and
-the tilemap that assembles them into the isometric course are not yet reversed
-(the rendered `.mlb` sheets show the tile data, not a finished course image).
-**Exact `.ilb`/`.vlb` cell boundaries:** the loader expands each
+**The `.mlb` tile bitmap is not yet decoded — honestly, not even close.** Its
+header offsets and 16-colour palette are pinned, but every layout tried (the four
+plane offsets as planar or interleaved, packed or raw, across a sweep of widths)
+renders as colour-correct *noise* with no straight or diagonal edges — i.e. the
+real pixel/tile organisation (and likely a tile-index map) is still unknown, and
+"right colours" only means random bytes indexing the right 16-entry palette. So
+only the `.ilb`/`.vlb` sprite sheets are emitted to [`rendered/`](rendered); the
+`.mlb` playfield is deliberately left out rather than ship a misleading scramble.
+Decoding it properly is the open task.
+
+A second `.ilb`/`.vlb` refinement remains. **Exact cell boundaries:** the loader
+expands each
 15-byte file descriptor into a 20-byte in-memory record and relocates its
 source/dest pointers (`$80B4`), and some banks (notably the marble) pair each cell
 with a blitter **mask**, so a frame stride is twice the cell — the current
