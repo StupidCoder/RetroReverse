@@ -1107,10 +1107,66 @@ isometric-transforms it (`$6718`), and stores its `type` at `$6A0` → the marbl
 `+$1B`; the marble physics then reacts to that `type` (a hole, a ramp, a hazard,
 the goal). Naming each `type` 0–7 is the open decode.
 
-## 4. Physics, controls, scoring
+## 4. Physics and controls
 
-*To follow.* The marble's physics and controls, the timer, scoring and
-progression.
+### Controls — the trackball
+
+Input is read straight off the **mouse/trackball quadrature counters**
+`JOY0DAT`/`JOY1DAT` (`$DFF00A`/`$DFF00C`), per player, plus the CIA fire buttons
+(`$BFE001`). `trackball_decode $019390` decodes the Amiga quadrature (XOR of
+adjacent counter bits → direction, `±$20` per step) into an X/Y delta; the control
+update (`$0192EC` → `$18FCC`) accumulates and scales that delta into the marble's
+roll force (`$195EE`/`$195EA`). So the controller is a relative motion device — the
+faster you spin it, the more force — which is exactly the arcade trackball.
+
+### The marble is a 3-D object
+
+The marble isn't a 2-D sprite on a 2-D map — it's a point mass in **3-D world
+space**. Each object carries a position `(x,y,z)` at `obj+$C/+$10/+$14` and a
+velocity `(vx,vy,vz)` at `obj+0/+4/+8`. Every frame `object_draw $14EF0` integrates
+`pos += velocity`, then `set_draw_pos $E872` **iso-projects** `(x,y,z)` to the
+screen (`$E944`). The isometric look is a *projection* of a real 3-D simulation.
+
+### What makes it roll downhill — the invisible region map
+
+The physics **never reads the visual `.mlb` tilemap**. Each course's `*Track`
+carries a separate, invisible **region map** (the block at Track header `+8`,
+`$12F74` → `$9D4`): a list of **5-byte records**
+
+```
++0  byte  region key / column
++1  byte  y0          # region bounds
++2  byte  y1
++3  byte  type_a      # terrain type on one side of the region's diagonal
++4  byte  type_b      # terrain type on the other side
+```
+
+`terrain_lookup $012B9E` tests the marble's tile position (`$6CA/$6CC` plus the
+`$6CE/$6D0` sub-tile) against each region and, for a region split by a **diagonal**,
+assigns `type_a` *or* `type_b` depending on which side of the diagonal the marble is
+on — i.e. an isometric **ramp edge**. The resulting terrain **type** is written to
+the marble's `+$1B`, and that type drives the slope acceleration applied to the
+marble's velocity. The isometric ramps, walls and pits you *see* are `.mlb` tiles
+laid out to match this region map; the *forces* come entirely from the region map.
+So "downhill" is a per-region acceleration vector, not anything read off the
+picture.
+
+### Falling off — death
+
+`terrain_lookup` ends with the giveaway: if the marble lands on **no** region, its
+terrain type comes back `$FF` (`$012D44`), which triggers the off-the-edge state
+(`$5E4`) — the marble falls. (Hazard types and the marble-munchers are other death
+paths, signalled through the same `+$1B` terrain type and the placement-list
+collision query of §3.) The "dizzy" spin we decoded in Part IV §4 is one of these
+death/respawn animations.
+
+### Still open
+
+The exact mapping from terrain `type` (0..7 / the region bytes) to its slope
+acceleration vector, the friction/damping constants, and the full death/respawn and
+scoring state machines are the next decode — but the *architecture* (trackball →
+roll force; 3-D integrate + iso-project; region-map terrain type → slope force;
+off-region → fall) is pinned.
 
 ---
 
