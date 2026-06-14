@@ -61,8 +61,15 @@
 # FS-UAE (= practy.mlb+0x17 byte-for-byte). The engine also programs the blitter
 # ($DFF040-$DFF066) and DMACON ($DFF096) directly and reads JOYxDAT for input.
 
-# --- the per-frame render pipeline (top-down; dispatched via the game's jump-table
-#     state machine, so the top-level callers are indirect) ---
+# --- top level: the game shell and the real-time "Framer" main loop ---
+# main ($243E8, the C entry's argv setup at cstart) calls game ($2B68).
+002B68  game_shell       opens intuition.library, runs init/draw (sub_00CA14, which reaches the render chain) and start_gameplay ($6FC6), then an IDCMP message loop: GetMsg ($249B4) / ReplyMsg ($249C8), dispatch on the message Class field (+$14 == 8/9/10) to the start-course handlers ($3410/$3432) or quit. This is the menu/window front-end, NOT the per-frame loop.
+006FC6  start_gameplay   thin wrapper over $6F20(flag); $6FDC creates the real-time task.
+006FDC  create_framer    create an exec task named "Framer" (name string at $70D8) via $248D4, entry = framer_task $6DA8. Wires up its frame-rate-tracking globals ($7060/$7092/$7096 handler ptrs, $70B8 frame-time histogram).
+006DA8  framer_task      THE real-time main loop (own task). Each iteration: Wait ($24B54) for the vblank signal, then call frame_tick $7596(frame_index); meanwhile it tallies how many vblanks each frame took into the $70B8 histogram (the "Framer" = frame-rate meter) and polls GetMsg ($249B4) for a quit/stop message to exit.
+007596  frame_tick       one frame of work, dispatched by flags: per-subsystem gates $5BCA, $1E20D, and the gameplay flag $5DB; advances the frame counter $230 and latches the scroll position ($D30C -> $7692). The playing branch runs the game logic + render (the sub_00CA14/sub_014EF0 chain). Returns whether a redraw is needed ($86B4).
+
+# --- the per-frame render pipeline (reached from frame_tick's gameplay branch) ---
 00E872  set_draw_pos     set the screen draw position for an object: copy its world pos (obj+$C/+$10/+$14) to $6B8/$6BC/$6C0, the >>$13 tile coords to $6CE/$6D0, then call $E944 to project to the iso screen seed $6C4/$6C6/$6C8. Called before each object draw.
 014EF0  object_draw       per-object update+draw: advance the object's world pos by its velocity (obj+$C += obj+0, +$10 += +4, +$14 += +8), set_draw_pos, then draw the object plus up to three actor passes (a main sprite + shadow/secondary passes) chosen by the object subtype obj+$1B (==1/2/3), each at its own Y offset ($1E8/$238/$210) via actor_update; a per-frame "already drawn" bitmask ($5F6) prevents double-draws.
 # Render leaf routines (annotated elsewhere): mlb_draw_column $9910 + draw_tile $99C0
