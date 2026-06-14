@@ -1279,6 +1279,14 @@ tapering that narrows a slope's influence to a wedge. So the regions are rectang
 tiles for the checkerboard, plus flat rectangles of every aspect ratio — `41×3`, `7×22`,
 `17×16` — for corridors and plateaus.)
 
+This is verified visually by `extract/cmd/regions`, which replays the `$E158` height
+generation (`baseHeight ± profile`, the profile consumed in `$E158`'s exact diagonal
+fill order) and plots each course in iso tile space — `rendered/<course>.regions.png`
+(tiles coloured by slope direction) and `rendered/<course>.height.png` (relief-shaded
+height field). The practice render reproduces the course feature-for-feature from
+nothing but the 66 records: the top checkerboard with its **two holes**, the descending
+**zigzag canyon**, and the flat run-out areas.
+
 ### How regions become contact structs
 
 `$CCA` is a **multi-phase work buffer** — verified by the identical literal `$0CCA`
