@@ -1046,22 +1046,39 @@ in-game "they spawn close together, then walk their own routes." So the engine h
 moving-enemy placement systems sharing one `pathPtr[0/1]<<19` position convention: `+$18`
 black marbles, `+$20` ooze, and `+$1C` slinkies.
 
-**The opening/closing drawbridge: a dynamic region (`+$14`).** The drawbridge is *animated
-terrain* the marble rolls over, so it lives in the scripted dynamic regions, not in any
-creature list. A dynamic-region record is `[x][y][scriptPtr]` (6 bytes) — and, like a
-creature record, its `[x][y]` is **only a trigger cell**, not the region's position: it is
-the grid key `region_activate $F8FC` matches against the marble's cell to switch the region
-on (a single-cell equality/bracket test, not a rectangle). The region's **actual position is
-the script's first keyframe** (`op0`'s `refX,refY` words → `+$C/+$10 = refX<<19,refY<<19`,
-the reference point the marble rolls toward). So a dynamic region has a **position, not a
-size** — contrast the *static* `$9A6` slope regions, which carry an explicit `[xSize][ySize]`
-rectangle. A region's spatial extent is built by **tiling several point-regions**: Beginner
-has 11, and six of them (record cells `(23,44)`, `(34,61)×3`, `(44,61)`; keyframe positions
-marching `(64,78)→(81,86)→(87,86)→(84,94)→(105,107)`) form a **staggered keyframe chain** —
-each region replays the same surface-keyframe sequence (cycling terrain codes 18→19→20→21→22
-→16, the fall/edge codes), phase-offset, alternating each surface state with a low "gap"
-keyframe and ending on a long `dur=260` hold. That marching surface-then-gap animation is the
-bridge opening and closing.
+**Dynamic regions = the named features (drawbridge, funnels, goal).** The animated/active
+terrain the marble interacts with lives in the scripted dynamic regions, not in any creature
+list. A record is `[x][y][scriptPtr]` (6 bytes) — and, like a creature record, its `[x][y]`
+is **only a trigger cell**, not the region's position: it is the grid key `region_activate
+$F8FC` matches against the marble's cell to switch the region on (a single-cell
+equality/bracket test, not a rectangle). The region's **position is the script's first
+keyframe** (`op0`'s `refX,refY` words → `+$C/+$10 = refX<<19,refY<<19`), and its **behaviour
+is the keyframe's terrain code** (the `surface_interaction $16900` jump-table index). So a
+dynamic region has a **position, not a size** — contrast the *static* `$9A6` slope regions,
+which carry an explicit `[xSize][ySize]` rectangle.
+
+Plotting Beginner's 11 regions at their keyframe positions and matching them to live play
+(thanks to the human at the controls) **identifies every one**, and confirms the terrain-code
+semantics decoded from the jump table:
+
+| Region(s) | keyframe pos | terr | jump-table class | Feature (verified in-game) |
+|---|---|---:|---|---|
+| 0,1,2 | (61,56) | 3 | (special; `op8/9/10`, longer scripts) | **drawbridge** (3 co-located regions = the raise/lower mechanism) |
+| 3 | (64,78) | 18 | hard-edge/**fall** | **funnel** entrance |
+| 4 | (67,78) | 21 | wall/edge | **funnel** exit |
+| 5 | (81,86) | 19 | hard-edge/**fall** | **double-funnel** entrance 1 |
+| 6 | (87,86) | 20 | hard-edge/**fall** | **double-funnel** entrance 2 |
+| 7 | (84,94) | 22 | wall/edge | **double-funnel** exit |
+| 8 | (105,107) | 16 | directional **sound** trigger | **ice-bowl bottom** (likely the ice/slide sound or friction tweak) |
+| 9,10 | (110,109),(114,109) | 5 | proximity trigger | the two **goal flags** |
+
+This is a strong cross-check: the *fall* codes (18,19,20) are exactly the funnel **entrances**
+(the marble drops in), the *wall/edge* codes (21,22) are the funnel **exits**, the *proximity
+trigger* (5) is the **goal**, and the *directional sound* code (16) sits at the ice bowl — all
+consistent with the categories the velocity trace assigned blind. (An earlier note here
+claimed regions 3–8 were one "staggered keyframe chain" forming the drawbridge; that was a
+mis-parse — the short per-region scripts are stored contiguously and I had read past each
+region's end into the next. They are eight *separate* features, as the table shows.)
 
 **Per-course counts** ([`extract/cmd/tracks`](extract/cmd/tracks) decodes them all):
 
@@ -1101,7 +1118,8 @@ features must sit on the course, so their fit confirms the `(X,Y)` grid matches 
 mesh. The 2 magenta paths are Beginner's two **black enemy marbles** (their polylines match
 the marbles' idle paths in live play to the pixel); the 3 green paths clustered mid-course
 are the **three slinkies**; the yellow boxes are the **dynamic regions** (drawn at their
-keyframe position, not their trigger cell), among which the opening/closing drawbridge lives.
+keyframe position, not their trigger cell) — every one identified in-game (drawbridge,
+funnels, ice-bowl, the two goal flags), see the table above.
 
 ![Beginner course Track layers — slope wireframe + placement objects (cyan) + black-marble/slinky patrols + dynamic regions](rendered/beginr.wire.png)
 
@@ -1111,9 +1129,9 @@ we mistook that home cell for the spawn position, and the pixel-consistent ~32×
 the eye caught was exactly the record→path split that this corrects.
 
 **Still open.** What each placement `type` *means*, the per-type object/animation definitions
-(`+$C`; `+$24` is Silly's), the waypoint direction bytes and the region-script opcode
-vocabulary (the enemy-AI pass), and pinning exactly which dynamic regions form the drawbridge
-span. The engine side that consumes all of this is Part V.
+(`+$C`; `+$24` is Silly's), the waypoint direction bytes, and the region-script opcode
+vocabulary (the drawbridge's `op8/9/10` raise-lower; the funnel scripts) — the enemy-AI /
+animation pass. The engine side that consumes all of this is Part V.
 
 ---
 

@@ -244,6 +244,14 @@
 #   geometric/border variants (fall to flat): 23,24,45-49,56-59.
 #   Friction (ice/grating) is NOT here: it is the per-region max-speed selector on the
 #   marble +$1A read by $14E7E (picks $40000 vs $50000) in the $14D28 speed cap.
+# GROUND-TRUTH FEATURE MAP (verified in-game by overlaying BegTrack's dynamic regions on the
+#   course, extract/cmd/regions): code 5 (proximity trigger) = the GOAL FLAG (beginr has 2);
+#   codes 18,19,20 (hard-edge/FALL) = FUNNEL/double-funnel ENTRANCES (the marble drops in);
+#   codes 21,22 (wall/edge) = the funnel EXITS; code 16 (directional sound) = the ICE-BOWL
+#   bottom (ice-slide sound / friction effect). The DRAWBRIDGE is 3 co-located regions (first
+#   keyframe terr=3, below the 5..59 range) driven by op8/9/10 in a longer script = the
+#   raise/lower mechanism (region-script opcode vocab still OPEN). So the velocity-trace jump-
+#   table classes (fall / wall / proximity / sound) line up exactly with the named features.
 # THE $CCA SURFACE-REGION STRUCTS: 25 structs, $56 (86) bytes each ($CCA..$CCA+$866;
 #   activator loop $12B02 and producer $F8FC/$F96A both stride $56). Fields: +$C/+$10 =
 #   downhill reference point (refX,refY); +$18 valid; +$1A contact/anim state; +$1E
