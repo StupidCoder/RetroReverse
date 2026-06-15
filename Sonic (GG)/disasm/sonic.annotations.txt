@@ -102,7 +102,21 @@
 0502  nt_load_rle  (see Part IV §3) RLE name-table loader; reimplemented as extract/decomp.LoadRLE. Used by both the title ($0C20, bank5 map) and the world map ($0C7A, bank5 map).
 
 # --- the level-load frontier (Part III §4) ---
-# $0130 gp_vdp_update (gameplay per-frame: CALL $31BC tile-stream + $3282 scroll-draw)
-# has NO call site in bank 0 - gameplay is entered via the bank-3 RST dispatcher and a
-# higher-bank state machine. Reaching the first level needs those banks paged in, then
-# a static decode of a level's compressed map (banks 10-15) like the world map above.
+# Gameplay is launched from INSIDE a scene script (bank-5 data via $185D), NOT from the
+# attract loop - the loop tail $1405 only restarts/advances/re-fades, never exits. So
+# Start -> target scene -> that scene's script loads the level and jumps into gameplay.
+#
+# CROSS-BANK DISPATCH (bank 3, file $0C000 = z80 $4000 with bank3 in slot1):
+#   $4000 jump table: $4000->$423A $4003->$4018 $4006->$412D(RST$20) $4009->$41E5
+#     $400C->$4224 $400F->$4171 $4012->$46EB(RST$18) $4015->$46FF(RST$28).
+#   $46FF RST$28 dispatch: table $4740 indexed A*4 = (word ptr, byte bank); CALL $4171.
+#   $46EB RST$18 dispatch: table $4716 indexed A*2 = word ptr; CALL $4018.
+#   = how the engine calls code in banks not mapped in the home (bank-0) config; a
+#   bank-0-only trace can't follow it (the function tables point into unmapped banks).
+#
+# GAMEPLAY ENGINE + LEVEL VARS in BANK 1: tile-stream src $D289 / count $D28D set at
+#   $4EC4/$4EC9; camera $D2AB at $502C; map base $D2AF at $5050/$73BB/$7B78 (+bank2).
+#   $4EA0 = per-frame scroll/camera update (recomputes the tile-stream source from the
+#   camera each frame -> feeds $31BC tile-stream + $3282 scroll-draw = $0130).
+# REMAINING (Part V): the one-time level loader + Sonic's level format (compressed block
+#   map drawn by scroll_draw, block/chunk defs, 3bpp level tiles via $31BC, objects).

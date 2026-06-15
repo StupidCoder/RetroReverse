@@ -489,20 +489,40 @@ timer — just driven by per-scene position data.
 
 Up to here, **everything was traceable statically**: the attract state machine, the
 Start hand-off, and the world map (rendered above from located data, the same way the
-opening screens were). The level load is where pure bank-0 tracing stops being enough.
-The gameplay per-frame update `$0130` (`gp_vdp_update`, which calls the level tile
-streamer `$31BC` and the scroll drawer `$3282`) has **no `CALL` site anywhere in
-bank 0** — gameplay is entered through the **bank-3 `RST` dispatcher** (Part II §2) and
-a state machine living in the higher banks, so the path from "map confirmed" to "level
-running" runs through code that isn't mapped in the home configuration this disassembly
-uses.
+opening screens were). The level load is where it gets harder, and following the
+launch reveals exactly why.
+
+**Gameplay is launched from inside a scene, not from the loop.** The attract loop
+(§1) never exits: its tail (`$1405`) only ever restarts the demo, advances to the next
+scene, or re-fades the current one. So pressing Start does not "return into the game" —
+it selects a target scene (§2) whose script *itself* loads the level and jumps into the
+gameplay engine, never coming back. The scene scripts are the bank-5 data interpreted
+by `$185D`, so the trigger is a data table, not a call you can read directly.
+
+**The cross-bank calls go through a dispatcher in bank 3.** The `RST $18/$20/$28`
+gateways (Part II §2) land on a jump table at bank 3 `$4000`; `RST $28` (`$46FF`) and
+`RST $18` (`$46EB`) are themselves sub-dispatchers that index a function table by the
+selector in `A` and call into yet another bank. This is how the engine reaches code
+outside the home 64 KB — and it is why a bank-0-only disassembly can't follow the
+thread: the function tables point into banks that aren't mapped in this configuration.
+
+**The gameplay engine and the level variables live in bank 1.** Tracing the level
+RAM gives concrete coordinates: the tile-stream source `$D289` and count `$D28D` are
+set at bank 1 `$4EC4`/`$4EC9`, the camera `$D2AB` at `$502C`, the map base `$D2AF`
+around `$5050`/`$73BB`/`$7B78` (and bank 2). The routine at bank 1 `$4EA0` is the
+per-frame **scroll/camera update** — each frame it recomputes the tile-stream source
+from the camera position, which is what feeds the streamer `$31BC` and `scroll_draw`
+`$3282` (the gameplay update `$0130`, which has no `CALL` site in bank 0 because it is
+reached by jump from this engine, not called from home code).
 
 So the honest verdict on doing it "without cheating": the opening — logo, title, the
-Start wait, and the world map — is fully recoverable by tracing, data and all. Reaching
-the first level needs the next step in kind: trace the bank-3 dispatcher and the
-gameplay banks with those banks paged in, then statically decode a level's compressed
-map (banks 10–15, drawn by `scroll_draw` from RAM) and render it just as the world map
-was. That is Part V's starting point.
+Start wait, and the world map — is **fully** recoverable by tracing, data and all. The
+launch *mechanism* is traced too (scene-script trigger → bank-3 dispatcher → the bank-1
+gameplay engine). What remains for the first level is the largest decode in the game:
+the one-time level loader and **Sonic's level format itself** — the compressed block
+map (drawn by `scroll_draw` from RAM), the block/chunk definitions, the 3-bitplane
+level tiles streamed by `$31BC`, and the object layout. Decoding those and rendering a
+level the way the world map was rendered is Part V's starting point.
 
 # Part IV — Graphics and data formats
 
