@@ -40,7 +40,7 @@
 1356  main_entry   post-init entry: SET (IY+0).0; EI; set the running bank shadows (slot1=bank1/$D22F, slot2=bank2/$D230); RES (IY+2).0/1; CALL subsystem inits $0645/$1CD7/$0AA3; set top-level game mode $D240=3.
 
 # --- graphics load (banks 8/9 hold tiles/tilemaps/palettes; Part IV, in progress) ---
-0130  screen_finalize  page banks 8/9 into slots 1/2; (IY+7).7? CALL $31BC (tile stream); ($D2AC).7? CALL $3282 (companion loader, tilemap? not yet traced); restore banks 1/2; write VDP reg 1 from shadow $D21A (turns the DISPLAY ON); SET (IY+0).0.
+0130  gp_vdp_update  GAMEPLAY per-frame VDP update (NOT the title loader): page banks 8/9; CALL tile_stream $31BC (stream new level tiles); CALL scroll_draw $3282 (draw the newly-revealed map column); re-assert VDP reg 1 from shadow $D21A; SET (IY+0).0.
 0172  palette_dispatch  BIT (IY+6).7: clear -> load_palette $0586 ; set -> palette_special $0185.
 0185  palette_special  if $D2DC is 0/$FF -> load_palette; else load a full 32-colour CRAM palette from a home-bank table ($0216, or $0256 if (IY+7).4) via cram_load32.
 019F  cram_load32   write the whole 32-colour CRAM (64 bytes) from (HL): CRAM addr 0 + $C0 cmd, then 32x (2 bytes -> data port $BE).
@@ -48,7 +48,14 @@
 0256  palette_data_B  hardcoded 32-colour CRAM palette (alternate).
 0586  load_palette  page bank 8 into slot 1; CRAM addr 0 + $C0 cmd; load BG palette [$D22C] (16 colours) then sprite palette [$D22D] (15) via palette_by_index; restore slot 1 <- bank 1. (1 caller: $0178.)
 05C4  palette_by_index  A = palette index -> bank-8 pointer table at $7400: ptr = *($7400+A*2); data = ptr + $7400; then write B colours (2 bytes each) to CRAM ($BE). A=$FF/$FE select the RAM working palettes $D3BD/$D3DF.
-31BC  tile_load_3bpp  stream tiles from a bank-8 source to VRAM $3680: per tile row writes 3 stored bitplanes (OUTI x3) + a zero 4th plane (OUT $BE,0) — i.e. tiles are stored 3bpp (8 colours) and expanded to the VDP's 4bpp. $D289/$D28B = source cursor/end, $D28D = group count.
+31BC  tile_stream  GAMEPLAY tile streamer: copy level tiles (bank 8) to VRAM, expanding 3 stored bitplanes to 4bpp (OUTI x3 + a zero plane per row) = level tiles stored 3bpp/8-colour. $D289/$D28B = source cursor/end, $D28D = count.
+3282  scroll_draw  GAMEPLAY scroll update: when the camera moves >=8 px, draw the newly-revealed name-table column/row at $3800 from the decompressed level map in RAM (source $D2AF); scroll pos $D2AB/$D2AD vs previous $D254/$D257.
+
+# --- the static-screen graphics decompressor + the first (title/logo) screen ---
+0406  decompress  THE graphics decompressor. Source = (bank A in reg A, address HL); NORMALISE so HL can span banks: while HL>=$4000 { HL-=$4000; A++ }, then map bank A into slot1 + bank A+1 into slot2 and HL+=$4000 (a 32 KB source window). Output streams to VRAM (OUT $BE) in 4-BYTE UNITS (= one 4bpp tile row). HEADER at the source: +0 2 bytes(skip), +2 word1, +4 word2, +6 word3=COUNT (units); +8 = CONTROL BITMAP; (source+word1)=MATCH-INFO stream; (source+word2)=LITERAL stream (also the back-ref base). For unit i=0..count-1: if control bit i (byte ctrl[i>>3], mask bitmask_tab[i&7]) is CLEAR -> LITERAL: emit the next 4 bytes from the literal stream (advance). If SET -> MATCH: read a byte b from match-info; if b>=$F0 then hi=b-$F0 and read another byte b2, off=((hi<<8)|b2)*4 else off=b*4; emit the 4 bytes at literal_base+off. So it deduplicates repeated 4-byte tile rows.
+04FA  bitmask_tab  8 single-bit masks: 01 02 04 08 10 20 40 80 (control-bitmap bit select, indexed i&7).
+1CD7  screen_load_title  load the first (title/logo) screen: RST $20 (bank-3 setup); display OFF; decompress BG tiles (A=$0C,HL=$FA74 -> normalised bank 15 $7A74 = file $3FA74) to VRAM $0000; decompress sprite tiles (A=$04,HL=$F600 -> bank 7 = file $1F600) to VRAM $2000; set palette indices $12/$12; clear the name table $3800 to tile $70; display ON; draw text/objects ($1E7C/$1E8A/$1F03/$1EC1). NB the title's name table is BUILT BY CODE (text), not loaded as a tilemap — loaded compressed tilemaps are a LEVEL feature (decompressed to RAM, drawn by scroll_draw).
+0AA3  palette_fade  cross-fade the CRAM palette toward a target index over 16 steps, interpolating the RAM working palette at $D3BD and applying it each vblank (CALL $0327).
 
 # --- RAM landmarks (work RAM $C000-$DFFF; Part II) ---
 # $D21A = VDP reg 1 shadow ; $D22C = BG palette index ; $D22D = sprite palette index

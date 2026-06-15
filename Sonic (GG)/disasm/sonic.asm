@@ -178,7 +178,7 @@
 0129  FD CB 00 4E BIT 1,(IY+0)
 012D  C4 3F 03    CALL NZ,$033F
 
-; --- screen_finalize  $0130 — page banks 8/9 into slots 1/2; (IY+7).7? CALL $31BC (tile stream); ($D2AC).7? CALL $3282 (companion loader, tilemap? not yet traced); restore banks 1/2; write VDP reg 1 from shadow $D21A (turns the DISPLAY ON); SET (IY+0).0. ---
+; --- gp_vdp_update  $0130 — GAMEPLAY per-frame VDP update (NOT the title loader): page banks 8/9; CALL tile_stream $31BC (stream new level tiles); CALL scroll_draw $3282 (draw the newly-revealed map column); re-assert VDP reg 1 from shadow $D21A; SET (IY+0).0. ---
 0130  3E 08       LD A,$08
 0132  32 FE FF    LD ($FFFE),A
 0135  32 2F D2    LD ($D22F),A
@@ -450,7 +450,7 @@
 03E8  .byte BE 1D 00 00 C2 E7 03 23 0B 78 B1 C2 CB 03 F3 D1 ; .......#.x......
 03F8  .byte ED 53 2F D2 7B 32 FE FF 7A 32 FF FF FB C9       ; .S/.{2..z2....
 
-; ==== sub_0406 (21 callers) ====
+; ==== decompress  $0406  (21 callers) — THE graphics decompressor. Source = (bank A in reg A, address HL); NORMALISE so HL can span banks: while HL>=$4000 { HL-=$4000; A++ }, then map bank A into slot1 + bank A+1 into slot2 and HL+=$4000 (a 32 KB source window). Output streams to VRAM (OUT $BE) in 4-BYTE UNITS (= one 4bpp tile row). HEADER at the source: +0 2 bytes(skip), +2 word1, +4 word2, +6 word3=COUNT (units); +8 = CONTROL BITMAP; (source+word1)=MATCH-INFO stream; (source+word2)=LITERAL stream (also the back-ref base). For unit i=0..count-1: if control bit i (byte ctrl[i>>3], mask bitmask_tab[i&7]) is CLEAR -> LITERAL: emit the next 4 bytes from the literal stream (advance). If SET -> MATCH: read a byte b from match-info; if b>=$F0 then hi=b-$F0 and read another byte b2, off=((hi<<8)|b2)*4 else off=b*4; emit the 4 bytes at literal_base+off. So it deduplicates repeated 4-byte tile rows. ====
 0406  F3          DI
 0407  F5          PUSH AF
 0408  7C          LD A,H
@@ -609,6 +609,8 @@
 04F4  FB          EI
 04F5  FD CB 09 8E RES 1,(IY+9)
 04F9  C9          RET
+
+; --- bitmask_tab  $04FA — 8 single-bit masks: 01 02 04 08 10 20 40 80 (control-bitmap bit select, indexed i&7). (data) ---
 04FA  .byte 01 02 04 08 10 20 40 80                         ; ..... @.
 
 ; ==== sub_0502 (10 callers) ====
@@ -1489,7 +1491,7 @@
 0A9F  C2 76 0A    JP NZ,$0A76
 0AA2  C9          RET
 
-; ==== sub_0AA3 (7 callers) ====
+; ==== palette_fade  $0AA3  (7 callers) — cross-fade the CRAM palette toward a target index over 16 steps, interpolating the RAM working palette at $D3BD and applying it each vblank (CALL $0327). ====
 0AA3  21 16 16    LD HL,$1616
 0AA6  CD B7 0A    CALL $0AB7
 0AA9  C9          RET
@@ -3075,7 +3077,7 @@
 1CC5  .byte 45 F1 2F 34 EA 43 47 F9 2A 3A E3 41 49 00 24 3F ; E./4.CG.*:.AI.$?
 1CD5  .byte DC 3F                                           ; .?
 
-; ==== sub_1CD7 (1 caller) ====
+; ==== screen_load_title  $1CD7  (1 caller) — load the first (title/logo) screen: RST $20 (bank-3 setup); display OFF; decompress BG tiles (A=$0C,HL=$FA74 -> normalised bank 15 $7A74 = file $3FA74) to VRAM $0000; decompress sprite tiles (A=$04,HL=$F600 -> bank 7 = file $1F600) to VRAM $2000; set palette indices $12/$12; clear the name table $3800 to tile $70; display ON; draw text/objects ($1E7C/$1E8A/$1F03/$1EC1). NB the title's name table is BUILT BY CODE (text), not loaded as a tilemap — loaded compressed tilemaps are a LEVEL feature (decompressed to RAM, drawn by scroll_draw). ====
 1CD7  E7          RST $20
 1CD8  3A 1A D2    LD A,($D21A)
 1CDB  E6 BF       AND $BF
@@ -4699,7 +4701,7 @@
 31A5  .byte 66 03 09 7D 07 CB 14 07 CB 14 07 CB 14 6C 26 00 ; f..}.........l&.
 31B5  .byte 5C 19 11 00 C0 19 C9                            ; \......
 
-; ==== tile_load_3bpp  $31BC  (1 caller) — stream tiles from a bank-8 source to VRAM $3680: per tile row writes 3 stored bitplanes (OUTI x3) + a zero 4th plane (OUT $BE,0) — i.e. tiles are stored 3bpp (8 colours) and expanded to the VDP's 4bpp. $D289/$D28B = source cursor/end, $D28D = group count. ====
+; ==== tile_stream  $31BC  (1 caller) — GAMEPLAY tile streamer: copy level tiles (bank 8) to VRAM, expanding 3 stored bitplanes to 4bpp (OUTI x3 + a zero plane per row) = level tiles stored 3bpp/8-colour. $D289/$D28B = source cursor/end, $D28D = count. ====
 31BC  ED 5B 89 D2 LD DE,($D289)
 31C0  2A 8B D2    LD HL,($D28B)
 31C3  A7          AND A
@@ -4820,7 +4822,7 @@
 3280  FB          EI
 3281  C9          RET
 
-; ==== sub_3282 (1 caller) ====
+; ==== scroll_draw  $3282  (1 caller) — GAMEPLAY scroll update: when the camera moves >=8 px, draw the newly-revealed name-table column/row at $3800 from the decompressed level map in RAM (source $D2AF); scroll pos $D2AB/$D2AD vs previous $D254/$D257. ====
 3282  2A AB D2    LD HL,($D2AB)
 3285  7D          LD A,L
 3286  E6 F8       AND $F8
