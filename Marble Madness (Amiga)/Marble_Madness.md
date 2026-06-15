@@ -868,6 +868,14 @@ constant and the height varies per course — practice 36×75, up through ultima
 tile set (`<course>.tiles.png`) and the assembled course (`<course>.png`) to
 [`rendered/`](rendered).
 
+The `.mlb` tilemap above is only the *visual* surface. The physics rolls the marble
+on a separate **height field** built from the Track's `$9A6` slope records (Part V §4).
+A 3-D wireframe of that height field for the same practice course — the checkerboard
+slope facets, the two recessed holes, and the zigzag canyon dropping to the GOAL —
+lines up tile-for-tile with the tilemap:
+
+![Practice course height-field wireframe](rendered/practy.wire.png)
+
 ## 4. Obstacles (`.ilb`)
 
 Each course also carries an `.ilb` ("image library") of **obstacle sprites** — the
@@ -1281,14 +1289,14 @@ tiles for the checkerboard, plus flat rectangles of every aspect ratio — `41×
 
 This is verified visually by `extract/cmd/regions`, which replays the `$E158` height
 generation (`baseHeight ± profile`, the profile consumed in `$E158`'s exact diagonal
-fill order) and plots each course three ways: `rendered/<course>.regions.png` (iso tiles
-coloured by slope direction), `rendered/<course>.height.png` (relief-shaded height
-field), and `rendered/<course>.wire.png` (a 3-D wireframe of the height mesh — a
-dimetric projection that lifts height up-screen, with hidden-line removal, drawn with the
-Go standard library and 3× supersampling). The practice render reproduces the course
-feature-for-feature from nothing but the 66 records: the top checkerboard with its **two
-holes**, the descending **zigzag canyon**, and the flat run-out areas; the wireframe
-shows the individual `7×7` slope facets bending up and down.
+fill order) and plots each course two ways: `rendered/<course>.regions.png` (iso tiles
+coloured by slope direction) and `rendered/<course>.wire.png` (a 3-D wireframe of the
+height mesh — a dimetric projection that lifts height up-screen, with hidden-line
+removal, drawn with the Go standard library and 3× supersampling; shown in Part IV §3).
+The practice render reproduces the course feature-for-feature from nothing but the 66
+records: the top checkerboard with its **two holes**, the descending **zigzag canyon**,
+and the flat run-out areas; the wireframe shows the individual `7×7` slope facets bending
+up and down.
 
 ### How regions become contact structs
 

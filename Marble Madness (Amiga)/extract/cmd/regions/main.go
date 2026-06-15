@@ -22,8 +22,8 @@
 //
 // Usage: regions <disk.adf> <outdir>
 //
-//	writes <outdir>/<course>.regions.png (tiles coloured by slope direction)
-//	   and <outdir>/<course>.height.png  (relief-shaded height field)
+//	writes <outdir>/<course>.regions.png (iso tiles coloured by slope direction)
+//	   and <outdir>/<course>.wire.png    (3-D wireframe of the height mesh)
 package main
 
 import (
@@ -237,7 +237,8 @@ func heightRamp(t float64) color.RGBA {
 	return color.RGBA{250, 250, 250, 255}
 }
 
-func render(field map[[2]int]cell, lo, hi int, height bool) *image.RGBA {
+// render draws the iso region map: tiles coloured by slope direction (flat dimmed).
+func render(field map[[2]int]cell) *image.RGBA {
 	minX, minY, maxX, maxY := 1<<30, 1<<30, -(1 << 30), -(1 << 30)
 	for t := range field {
 		x, y := iso(t[0], t[1])
@@ -255,12 +256,6 @@ func render(field map[[2]int]cell, lo, hi int, height bool) *image.RGBA {
 			img.Pix[i] = 12
 		}
 	}
-	hget := func(tx, ty int) int {
-		if c, ok := field[[2]int{tx, ty}]; ok {
-			return c.h
-		}
-		return -1
-	}
 	keys := make([][2]int, 0, len(field)) // deterministic draw order (reproducible output)
 	for t := range field {
 		keys = append(keys, t)
@@ -275,42 +270,13 @@ func render(field map[[2]int]cell, lo, hi int, height bool) *image.RGBA {
 		c := field[t]
 		x, y := iso(t[0], t[1])
 		cx, cy := x-minX+M+tileS, y-minY+M+tileS
-		var col color.RGBA
-		if height {
-			if c.h < 8000 {
-				col = color.RGBA{8, 8, 40, 255} // pit
-			} else {
-				col = heightRamp(float64(c.h-lo) / (float64(hi-lo) + 1e-9))
-				// relief shading from local gradient
-				h := c.h
-				gx := neigh(hget, t[0]+1, t[1], h) - neigh(hget, t[0]-1, t[1], h)
-				gy := neigh(hget, t[0], t[1]+1, h) - neigh(hget, t[0], t[1]-1, h)
-				f := float64(-gx-gy) / 8.0
-				if f > 1 {
-					f = 1
-				}
-				if f < -1 {
-					f = -1
-				}
-				k := 1.0 + 0.5*f
-				col = color.RGBA{clamp8(int(float64(col.R) * k)), clamp8(int(float64(col.G) * k)), clamp8(int(float64(col.B) * k)), 255}
-			}
-		} else {
-			col = dirCol[c.dir]
-			if !c.sloped { // flat region -> dimmed
-				col = color.RGBA{col.R/3 + 30, col.G/3 + 30, col.B/3 + 30, 255}
-			}
+		col := dirCol[c.dir]
+		if !c.sloped { // flat region -> dimmed
+			col = color.RGBA{col.R/3 + 30, col.G/3 + 30, col.B/3 + 30, 255}
 		}
 		fillDiamond(img, cx, cy, col)
 	}
 	return img
-}
-
-func neigh(hget func(int, int) int, tx, ty, def int) int {
-	if h := hget(tx, ty); h >= 0 {
-		return h
-	}
-	return def
 }
 
 func main() {
@@ -344,10 +310,9 @@ func main() {
 		prog, err := hunk.Load(data, 0)
 		chk(err)
 		field, lo, hi := buildField(prog.Image)
-		writePNG(filepath.Join(outdir, c.key+".regions.png"), render(field, lo, hi, false))
-		writePNG(filepath.Join(outdir, c.key+".height.png"), render(field, lo, hi, true))
+		writePNG(filepath.Join(outdir, c.key+".regions.png"), render(field))
 		writePNG(filepath.Join(outdir, c.key+".wire.png"), renderWire(field, lo, hi))
-		fmt.Printf("%s: %d tiles, height %d..%d -> %s.{regions,height,wire}.png\n", c.key, len(field), lo, hi, c.key)
+		fmt.Printf("%s: %d tiles, height %d..%d -> %s.{regions,wire}.png\n", c.key, len(field), lo, hi, c.key)
 	}
 }
 
@@ -441,9 +406,11 @@ func renderWire(field map[[2]int]cell, lo, hi int) *image.RGBA {
 		// hidden-line fill (background colour) covering this quad
 		fillTri(big, x00, y00, x10, y10, x11, y11, bg)
 		fillTri(big, x00, y00, x11, y11, x01, y01, bg)
-		// edges
+		// edges (all four, so the mesh's bottom/right boundary lines are drawn too)
 		line(big, x00, y00, x10, y10, lineCol(c00, c10))
 		line(big, x00, y00, x01, y01, lineCol(c00, c01))
+		line(big, x10, y10, x11, y11, lineCol(c10, c11))
+		line(big, x01, y01, x11, y11, lineCol(c01, c11))
 		line(big, x00, y00, x11, y11, color.RGBA{30, 36, 54, 255}) // faint triangulation diagonal
 	}
 	return downsample(big, ssaa)
