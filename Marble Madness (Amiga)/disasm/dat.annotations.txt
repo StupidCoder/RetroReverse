@@ -186,10 +186,28 @@
 #     +$14=refZ(word<<$10/16), +$1E=duration, +$1F=terrain code(5..59). Plants the ref pt.
 #   op16 MOVE ($1002E): each frame +$C += region.vX(+0), +$10 += region.vY(+4) -> the ref
 #     point DRIFTS = a MOVING slope/seesaw/sliding wall.
-#   op2 ($1007A): set +$1C/+$23/+$1A=2 + sound = state-change keyframe.
+#   op2 ($1007A): set +$1C(sprite/state word)/+$23/+$22, restore +$3E=+$46; if +$1F==$A sound.
 #   So a scripted region's +$C/+$10 = a KEYFRAME STREAM (from the Track anim-script table
-#   $FD2C). Fixed-point <<19 matches the marble position scale so sub_016900 subtracts
-#   directly. OPEN: full 19-opcode vocabulary.
+#   $FD2C). Fixed-point <<19 matches the marble position scale so sub_016900 subtracts directly.
+# THE 19-OPCODE JUMP TABLE $FD96 (op*4; target=$FD96+2+off). Decoded (a5=region, PC=+$36):
+#   op0 $FDE2 KEYFRAME (5 words: refX,refY,refZ,dur,terr) - plant ref pt + hold dur frames.
+#   op1 $FFF0; op2 $1007A state/sprite keyframe (above); op3 $100D2.
+#   op8 $100EC CONDITIONAL on the MARBLE: reads marble obj $236, $5D8 (player), marble state
+#     +$18 - branches on marble presence/state (the DRAWBRIDGE regions 0,1,2 use op8 after op0
+#     = react to the marble: raise/lower when it is/ isn't on the bridge). Full predicate OPEN.
+#   *** CONTROL FLOW (this is how regions LINK to each other): ***
+#   op9  $10238 JUMP  : PC = *(PC)            (absolute goto within the script).
+#   op10 $10244 CALL  : PC = *(PC), save PC+4 -> +$32 (gosub).
+#   op11 $1025C RETURN: PC = +$32.
+#   op12 $10266 LINK  : +$46/+$3E = *(PC), advance PC+4 (switch active script base to a linked
+#     script = chain one region's script to another's).  op13 $10286 similar (loads a ptr).
+#   op16 $1002E MOVE  : when +$1E(dur)==1, drift the ref at +$4E/+$50 by region vX(a5+0)/vY(+4)
+#     each frame = a moving slope/seesaw/sliding wall.
+#   ops 4-7,14,15,17,18 = $101A0/$101C2/$101EC/$1020E/$102A6/$102E6/$10300/$10326 (OPEN).
+# FUNNELS (beginr regions 3/4 terr18->21, 5/6/7 terr19/20->22): the ENTRANCE script is just a
+#   FALL keyframe (terr 18/19/20 = the $16A00 fall codes), no in-script jump to the exit; the
+#   entrance->exit hand-off most likely routes through the marble FALL/reposition path (state
+#   4, reposition_marble $1448E) rather than a script pointer. CONFIRM = OPEN.
 # DATA CHECK (PrcTrack decoded): the practice course has TWO terrain structures:
 #   (1) $9A6 descriptor (Track header+0) = 66 STATIC slope records (8B each: 7x7 blocks,
 #       dir 0/4 = the checkerboard diagonals, descending baseHeight) -> build_region mesh.
@@ -252,6 +270,12 @@
 #   keyframe terr=3, below the 5..59 range) driven by op8/9/10 in a longer script = the
 #   raise/lower mechanism (region-script opcode vocab still OPEN). So the velocity-trace jump-
 #   table classes (fall / wall / proximity / sound) line up exactly with the named features.
+016C0C  proximity_trigger  the code-5/26-31 handler (= the GOAL at the 2 flag regions). Inputs
+#   d5=refX-marbleX, d4=refY-marbleY (region ref minus marble). Computes the OCTAGONAL distance
+#   octd = max(|d5|,|d4|)*16 + 3/8*min(...)*... ; if octd < $38 -> set $6A1=$6A2=1 + sound
+#   $21ADC(7), else no-op ($18024). So the goal is a RADIAL proximity test around EACH flag
+#   region's ref point (threshold $38), NOT a line between the two flags; either flag firing
+#   triggers it. The 2 goal regions are independent code-5 triggers placed at the flag points.
 # THE $CCA SURFACE-REGION STRUCTS: 25 structs, $56 (86) bytes each ($CCA..$CCA+$866;
 #   activator loop $12B02 and producer $F8FC/$F96A both stride $56). Fields: +$C/+$10 =
 #   downhill reference point (refX,refY); +$18 valid; +$1A contact/anim state; +$1E

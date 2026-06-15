@@ -1090,23 +1090,47 @@ claimed regions 3–8 were one "staggered keyframe chain" forming the drawbridge
 mis-parse — the short per-region scripts are stored contiguously and I had read past each
 region's end into the next. They are eight *separate* features, as the table shows.)
 
+**The region-script opcode vocabulary** (`region_script $FD68`, a 19-entry jump table at
+`$FD96`) is now mostly decoded. Besides `op0` KEYFRAME (plant ref point + hold), `op2`
+state/sprite keyframe and `op16` MOVE (drift the ref each frame = a sliding wall/seesaw),
+there is a **control-flow set** — `op9` JUMP (`PC = *PC`), `op10` CALL (+ save return to
+`+$32`), `op11` RETURN, `op12/op13` LINK (switch the active script base to another script).
+*This is the mechanism by which regions reference each other.* The **drawbridge** (regions
+0,1,2) uses `op8`, a **conditional on the marble** (it reads the marble object `$236` and its
+state) — i.e. the bridge raises/lowers in response to where the marble is; the exact
+predicate and the `op4-7/14-18` handlers are still open. The **funnels** are subtler: each
+entrance's script is just a *fall* keyframe (terr 18/19/20) with **no in-script jump to the
+exit**, so the entrance→exit hand-off most likely routes through the marble's fall/reposition
+path (state 4, `reposition_marble $1448E`) rather than a script pointer — still to be confirmed.
+
+**The goal is a radial proximity test, not a finish line.** Each of the two goal-flag regions
+is an independent `terr 5` proximity trigger (`proximity_trigger $16C0C`): it takes the vector
+from the marble to the region's ref point, forms the game's octagonal distance, and fires
+(sound + flags) when that distance is below `$38`. So the marble is "in the goal" when it
+comes within `$38` of **either** flag's trigger point — *not* when it crosses the line between
+them. (Whether that radius reaches slightly in front of the visible flags or only past them
+comes down to the exact `$38` unit scale, which isn't fully pinned — a good thing to measure
+against live play next.)
+
 **Per-course counts** ([`extract/cmd/tracks`](extract/cmd/tracks) decodes them all):
 
-| Course | Track | Objects | Slope regions | Dynamic regions | Coarse zones | Spawns `+$18` | Spawns `+$20` |
-|---|---|---:|---:|---:|---:|---:|---:|
-| Practice | `PrcTrack` | 59 | 66 | 13 | 10 | 0 | 0 |
-| Beginner | `BegTrack` | 79 | 79 | 11 | 16 | 2 | 0 |
-| Intermediate | `IntTrack` | 87 | 71 | 3 | 15 | 0 | 7 |
-| Aerial | `AerTrack` | 159 | 78 | 12 | 22 | 1 | 0 |
-| Silly | `SilTrack` | 104 | 110 | 5 | 12 | 0 | 0 |
-| Ultimate | `UltTrack` | 144 | 53 | 20 | 17 | 1 | 4 |
+| Course | Track | Respawn pts | Slope regions | Dynamic regions | Coarse zones | Marbles | Ooze | Slinkies |
+|---|---|---:|---:|---:|---:|---:|---:|---:|
+| Practice | `PrcTrack` | 59 | 66 | 13 | 10 | 0 | 0 | 0 |
+| Beginner | `BegTrack` | 79 | 79 | 11 | 16 | 2 | 0 | 3 |
+| Intermediate | `IntTrack` | 87 | 71 | 3 | 15 | 0 | 7 | 2 |
+| Aerial | `AerTrack` | 159 | 78 | 12 | 22 | 1 | 0 | 0 |
+| Silly | `SilTrack` | 104 | 110 | 5 | 12 | 0 | 0 | 0 |
+| Ultimate | `UltTrack` | 144 | 53 | 20 | 17 | 1 | 4 | 4 |
 
-The columns are the six Track structures whose record format we've pinned: the
-**objects** (placement table, `+4`), the **slope regions** (the static height field,
-`+0` — Silly has the most warped geometry, Ultimate the least), the **dynamic
-regions** (the scripted seesaws/holes/triggers, `+$14`), the **coarse zones** (`+8`),
-and the two **creature-spawn** lists (`+$18`/`+$20`). Object-placement also breaks down
-by `type` (`tracks` prints the histogram).
+The columns are the Track structures whose record format we've pinned: the **respawn
+points** (placement table, `+4` — the fall-off-edge anchors of the previous section), the
+**slope regions** (the static height field, `+0` — Silly has the most warped geometry,
+Ultimate the least), the **dynamic regions** (the scripted features incl. the drawbridge and
+funnels, `+$14`), the **coarse zones** (`+8`), and the three moving-enemy lists — **marbles**
+(`+$18`), **ooze** (`+$20`), **slinkies** (`+$1C`). (Practice/Silly have no spawned enemies;
+Silly's crushable miniatures are its own `+$24` system.) Respawn-point placement also breaks
+down by `type` (`tracks` prints the histogram).
 
 **Visualising the layers.** `extract/cmd/regions` draws the slope field as a 3-D
 wireframe (Part V §4) and overlays the other Track layers at their **true** `(X,Y)`,

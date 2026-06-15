@@ -85,14 +85,19 @@ func main() {
 		nDyn := countRecs(im, u32(im, u32(im, 0x14)), 6, func(b []byte) bool { return b[0] == 0xFF })
 		nZone := countRecs(im, u32(im, 8), 5, func(b []byte) bool { return b[0] == 0xFF && b[1] == 0xFF })
 		// creature spawns: +$18 / +$20 -> *ptr -> 8-byte [X][Y][animPtr][type] recs, $FF-term
-		nSpawnA := countRecs(im, u32(im, u32(im, 0x18)), 8, func(b []byte) bool { return b[0] == 0xFF })
-		nSpawnB := countRecs(im, u32(im, u32(im, 0x20)), 8, func(b []byte) bool { return b[0] == 0xFF })
+		nMarble := countRecs(im, u32(im, u32(im, 0x18)), 8, func(b []byte) bool { return b[0] == 0xFF }) // +$18 black marbles
+		nOoze := countRecs(im, u32(im, u32(im, 0x20)), 8, func(b []byte) bool { return b[0] == 0xFF })   // +$20 ooze
+		// slinkies: +$1C actor list is a pointer table; entry[0] -> 8-byte records
+		nSlink := 0
+		if tbl := u32(im, 0x1C); tbl != 0 && int(tbl)+4 <= len(im) {
+			nSlink = countRecs(im, u32(im, tbl), 8, func(b []byte) bool { return b[0] == 0xFF })
+		}
 		byType := map[int]int{}
 		for _, r := range recs {
 			byType[r[2]]++
 		}
-		fmt.Printf("\n== %s (%s)  %d objects, %d slope regions, %d dynamic regions, %d coarse zones, %d+%d creature spawns\n",
-			c.key, c.track, len(recs), nSlope, nDyn, nZone, nSpawnA, nSpawnB)
+		fmt.Printf("\n== %s (%s)  %d respawn pts, %d slope regions, %d dynamic regions, %d coarse zones; enemies: %d marbles, %d ooze, %d slinkies\n",
+			c.key, c.track, len(recs), nSlope, nDyn, nZone, nMarble, nOoze, nSlink)
 		fmt.Printf("   per-type counts: %s\n", typeHist(byType))
 		fmt.Printf("   %-4s %-4s %-4s   %-9s\n", "idx", "X", "Y", "type")
 		for i, r := range recs {
