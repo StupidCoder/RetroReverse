@@ -82,7 +82,18 @@ var pal = greys
 // black; filling the black ones with the cycle's initial colour restores the look.
 //   11 ($B774[0]) and 13 ($B794[0]) are cycle_a; 12 ($A86E[0], red/lava) and
 //   14 ($A88E[0], blue/ice) are cycle_b. Values are $0RGB.
-var cycleInitial = map[int]uint16{11: 0x0F00, 12: 0x0F00, 13: 0x000F, 14: 0x000F}
+// Values are a representative MID-cycle frame (not frame-0): the cyclers ramp
+// COLOR11/12 red->white and COLOR13/14 blue->white, so a mid frame ($0F88 / $088F)
+// reads as the hazard red / ice cyan the slot shows most of the time, rather than
+// the pure red/blue endpoints.
+var cycleInitial = map[int]uint16{11: 0x0F88, 12: 0x0F88, 13: 0x088F, 14: 0x088F}
+
+// type1Off is the palette offset added to a type-1 sprite's 2-bit pixel value: the
+// engine draws these sprites with a per-object colour ramp (set by the actor system),
+// not palette 0-3. Index 7 (the course's first object-accent colour) matches the
+// creatures and the goal flags; the marble bank uses the grey ramp (offset 0). It is
+// set per bank in main; this is an approximation of the runtime per-object colour.
+var type1Off uint8 = 6
 
 func mlbPalette(d []byte) color.Palette {
 	buf := unpackByteRun1(d)
@@ -194,6 +205,9 @@ func parseCells(buf []byte, count int) []cell {
 		} else if planes > 6 {
 			planes = 6
 		}
+		if typ == 1 && h > 1 {
+			h-- // type-1 cells carry a trailing sentinel/guard row (heights are 2^n+1)
+		}
 		cs = append(cs, cell{w: ww * 16, h: h, planes: planes, cz: cz, src: src, typ: typ})
 	}
 	return cs
@@ -218,6 +232,9 @@ func drawCell(img *image.Paletted, buf []byte, c cell, ox, oy int) {
 				if o >= 0 && o < len(buf) {
 					v |= (buf[o] >> uint(7-x%8) & 1) << uint(p)
 				}
+			}
+			if c.typ == 1 && v > 0 {
+				v += type1Off // type-1 sprites use a per-object colour ramp, not idx 0-3
 			}
 			img.SetColorIndex(ox+x, oy+y, v)
 		}
@@ -408,6 +425,10 @@ func main() {
 		pal = greys16
 		if p, ok := palettes[course]; ok {
 			pal = p
+		}
+		type1Off = 6 // creatures + goal flags use the object-accent ramp (idx 7)
+		if strings.HasPrefix(base, "marb") {
+			type1Off = 0 // the marble bank (marble + HUD) uses the grey ramp
 		}
 		writePNG(out, scale(ilbSheet(buf, cells), 3))
 		fmt.Printf("%-14s flag=$%02X  %d cells, %s  pal=%s -> %s\n",

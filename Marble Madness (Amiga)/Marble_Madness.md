@@ -850,14 +850,15 @@ accent colours. Beginner's palette is `000 333 444 666 999 BBB DDD 048 06A 0AE 3
 
 **Colour-cycling slots.** Colours 11–14 are driven at runtime by the engine's
 colour-cyclers (`colour_cycle_a $B6DE` / `colour_cycle_b $A7A2`), which step a
-per-object counter and write each frame's `$0RGB` from a table in the `.dat` into the
-copper colour slot — `colour_cycle_b`'s two tables are `$A86E` (`0F00→0FFF`, a
-red↔white hazard pulse on colour 12) and `$A88E` (`000F→0CCF→0FFF`, the **blue↔white
-ice shimmer on colour 14**). A course that is fully cycle-driven leaves those slots
-black (`000`) in its `.mlb` — Beginner's colour 14 is the **ice pit**, blank in the
-table above — so a naïve static render shows the pit as black. `extract/cmd/sprites`
-fills any black cycle slot with the cycle's **frame-0** colour (colour 14 → `000F`,
-the blue below) so the tile sheet and course map show the ice rather than a void:
+per-object counter and write each frame's `$0RGB` from a 16-entry table into the copper
+colour slot. The four tables form two pairs: colours **11+12 ramp `0F00→0FFF`
+(red↔white — the hazard/lava pulse)** and colours **13+14 ramp `000F→0FFF` (blue↔white
+— the ice shimmer)**. A course that is fully cycle-driven leaves those slots black
+(`000`) in its `.mlb` — Beginner's **ice pit** uses colours 13 and 14, of which 13 is
+already a cyan (`CCF`) but 14 is left blank — so a naïve static render shows part of the
+pit as black. `extract/cmd/sprites` fills any black cycle slot with a representative
+**mid-cycle** frame (colour 14 → `088F`, a cyan, *not* the pure-blue endpoint `000F`),
+so the tile sheet and course map show the ice as cyan shades the way it reads in motion:
 
 **Tiles** are **8×8 pixels, 4 bitplanes (16 colours)**. The blitter reads a tile as
 eight 1-byte rows from `plane[(i>>1)*16 + (i&1) + 2*r]` — even/odd tiles are
@@ -928,7 +929,12 @@ is resolved). There are two storage layouts, picked by the type byte:
   combine in pairs. `silly.ilb`'s four cells are the four wave frames of the checkered
   goal flag (below). *(An earlier guess that a 16-colour object was two stacked 2-plane
   cells — "the goal flag is cells 0+1" — was wrong; confirmed in-game and by the fixed
-  decode.)*
+  decode.)* Two details the extractor handles: the stored heights are `2^n+1` — the last
+  **row is a guard/sentinel**, not pixels, so it is dropped; and a type-1 sprite is drawn
+  with a **per-object colour ramp** set by the actor system, *not* palette 0–3, so its
+  2-bit pixel is offset to the course's object-accent colours (index 7 — the creatures
+  come out green/yellow, the flag cyan/black — except the marble bank, which uses the grey
+  ramp). The exact per-object base is a runtime property; the extractor approximates it.
 - **type 0 — "composited" scenery**: sequential `+6`-byte plane blocks, OR-composited
   by `$8026` (the larger isometric obstacle blocks).
 
