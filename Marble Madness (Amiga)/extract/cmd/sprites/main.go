@@ -75,8 +75,21 @@ var pal = greys
 // whole-file-unpacked buffer (Marble_Madness.md Part IV §3). Reading the raw file
 // at 0x17 instead happens to work for most courses but is a PackBits artifact —
 // for beginner it yields a bogus $EE00 where the buffer holds $0000.
+// cycleInitial maps the palette slots the runtime colour-cycling system drives
+// (colour_cycle_a/b, $B6DE/$A7A2) to their frame-0 colour from the game program's
+// cycle tables. A course that is fully cycle-driven (e.g. Beginner's ice pit)
+// leaves those slots black ($000) in the .mlb, so a static render shows the pit as
+// black; filling the black ones with the cycle's initial colour restores the look.
+//   11 ($B774[0]) and 13 ($B794[0]) are cycle_a; 12 ($A86E[0], red/lava) and
+//   14 ($A88E[0], blue/ice) are cycle_b. Values are $0RGB.
+var cycleInitial = map[int]uint16{11: 0x0F00, 12: 0x0F00, 13: 0x000F, 14: 0x000F}
+
 func mlbPalette(d []byte) color.Palette {
 	buf := unpackByteRun1(d)
+	n4 := func(x uint16) uint8 { return uint8(x) * 17 } // 4-bit -> 8-bit
+	rgb := func(w uint16) color.RGBA {
+		return color.RGBA{n4((w >> 8) & 0xF), n4((w >> 4) & 0xF), n4(w & 0xF), 0xFF}
+	}
 	p := make(color.Palette, 16)
 	for i := 0; i < 16; i++ {
 		o := 0x16 + 2*i
@@ -84,8 +97,13 @@ func mlbPalette(d []byte) color.Palette {
 		if o+1 < len(buf) {
 			w = uint16(buf[o])<<8 | uint16(buf[o+1])
 		}
-		n4 := func(x uint16) uint8 { return uint8(x) * 17 } // 4-bit -> 8-bit
-		p[i] = color.RGBA{n4((w >> 8) & 0xF), n4((w >> 4) & 0xF), n4(w & 0xF), 0xFF}
+		// A cycle-driven slot the .mlb left black gets its cycle frame-0 colour.
+		if w == 0 {
+			if init, ok := cycleInitial[i]; ok {
+				w = init
+			}
+		}
+		p[i] = rgb(w)
 	}
 	return p
 }

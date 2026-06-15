@@ -847,8 +847,17 @@ playfield palette (colours 0–15). The per-course palette lives here, not in th
 Colours 0–6 are a shared grey ramp (the isometric shading); 7–15 are the course's
 accent colours. Beginner's palette is `000 333 444 666 999 BBB DDD 048 06A 0AE 336
 558 88B CCF 000 000` — its accents are the blue ramp the course is built from.
-Colours 14–15 are an engine colour-cycling range (animated hazards), here left at
-their base `000`, so a static render shows that rather than the in-game cycling.
+
+**Colour-cycling slots.** Colours 11–14 are driven at runtime by the engine's
+colour-cyclers (`colour_cycle_a $B6DE` / `colour_cycle_b $A7A2`), which step a
+per-object counter and write each frame's `$0RGB` from a table in the `.dat` into the
+copper colour slot — `colour_cycle_b`'s two tables are `$A86E` (`0F00→0FFF`, a
+red↔white hazard pulse on colour 12) and `$A88E` (`000F→0CCF→0FFF`, the **blue↔white
+ice shimmer on colour 14**). A course that is fully cycle-driven leaves those slots
+black (`000`) in its `.mlb` — Beginner's colour 14 is the **ice pit**, blank in the
+table above — so a naïve static render shows the pit as black. `extract/cmd/sprites`
+fills any black cycle slot with the cycle's **frame-0** colour (colour 14 → `000F`,
+the blue below) so the tile sheet and course map show the ice rather than a void:
 
 **Tiles** are **8×8 pixels, 4 bitplanes (16 colours)**. The blitter reads a tile as
 eight 1-byte rows from `plane[(i>>1)*16 + (i&1) + 2*r]` — even/odd tiles are
