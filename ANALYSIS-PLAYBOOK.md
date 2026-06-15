@@ -28,7 +28,7 @@ unlocks the next:
 | **II — Boot chain** | What runs first, and how does it bring in the rest? | autostart → bootstrap → turbo loader → multi-stage load | bootblock → dos.library → startup-sequence → launcher → loaders |
 | **III — Program architecture** | How does the loaded game decrypt/relocate/initialise itself? | decrypt+relocate, hardware init, IRQ architecture, memory map | multi-stage decrypt, the decryptor, copy protection, static limits |
 | **IV — Graphics & data** | What are the asset formats? | charsets, sprites, bitmaps, maps, compression | IFF ILBM, icons, custom sprite banks, level/sound modules |
-| **V — Game mechanics** | How do the objects behave? | object tables, movement/AI, collisions, scoring | (reached once the encrypted program body is open) |
+| **V — Game mechanics** | How do the objects behave? | object tables, movement/AI, collisions, scoring | object/region structs, height-field slope physics, the marble state machine, collisions |
 
 Write it up *as you go*, with byte examples and assembly snippets. The writeup is
 the deliverable; the tools are how you earn it.
@@ -42,13 +42,17 @@ per-game `extract/` module. Platform-neutral tools sit in `tools/`; per-platform
 ones in `tools/<platform>/`. The investment that paid off most was a **CPU core
 you can both disassemble with and execute**, per instruction-set:
 
-- **Disassemblers, two flavours each.** A *linear* sweep (`dis6502`, `dis68k`)
-  for a quick look, and a *recursive-descent* tracer (`codetrace6502`,
-  `codetrace68k`) that follows control flow from entry points, segments
-  functions, and merges an **annotations** sidecar so labels and notes ride
-  along into the listing. Recursive-descent is what makes a 60 KB binary
-  legible; feed it every entry point you discover (vectors, jump tables, library
-  stubs) and it will reach the parts a linear sweep walks straight past as data.
+- **Disassemblers, two flavours each — both still earn their keep.** A *linear*
+  sweep (`dis6502`, `dis68k`) and a *recursive-descent* tracer (`codetrace6502`,
+  `codetrace68k`). Reach for the **tracer** to make a whole 60 KB binary legible: it
+  follows control flow from entry points, segments functions, and merges an
+  **annotations** sidecar so labels and notes ride along into the listing — feed it
+  every entry you find (vectors, jump tables, library stubs). Reach for the **linear**
+  sweep for a quick bounded read of a *known* address range, and — the case that
+  recurs — for code the tracer marks as **data** because it is only reached by
+  computed/indirect jumps (a `JMP (pc,Dn)` dispatch, self-modified vectors). Rather
+  than hunting for an entry point to feed the tracer, just linearly disassemble that
+  byte range; the two are complements, not a hierarchy.
 - **An executable CPU core** (`tools/mos6502`, `tools/m68k`). This is the secret
   weapon. When a loader's bit-framing or a decryptor's key schedule is painful to
   reverse purely on paper, *run it* on your own core with the real input and
@@ -63,8 +67,10 @@ you can both disassemble with and execute**, per instruction-set:
   APNG output. Rendering an asset is how you *prove* you decoded it.
 
 Principle: **make each finding reproducible from the raw image with one
-command**, and keep generated artifacts (`extracted/`, `rendered/`, compiled
-tools) git-ignored.
+command.** Git-ignore the regenerable or copyrighted intermediates (`extracted/`,
+compiled binaries, the ROM/ADF images themselves); but **do commit** the render
+outputs the writeup embeds (`rendered/`) — they are figures *in* the documentation,
+reproducible yet part of the deliverable.
 
 ---
 
