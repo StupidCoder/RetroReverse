@@ -820,49 +820,51 @@ bytes, `-1..-127` repeats the next byte `1−n` times, `-128` is a no-op). The l
 tilemap pointers in its header; the tile blitter (`$9910` → `$99C0`) then paints
 the course.
 
-**Memory map** of the unpacked `practy.mlb` work buffer:
+**Memory map** of the unpacked `beginr.mlb` work buffer:
 
-| Offset | Field | Practice value |
+| Offset | Field | Beginner value |
 |---|---|---|
-| `+0x00` word | course height (tile rows) | `0x004B` (75) |
+| `+0x00` word | course height (tile rows) | `0x0091` (145) |
 | `+0x02` long | plane-0 offset | `0x000036` |
-| `+0x06` long | plane-1 offset | `0x0019A6` |
-| `+0x0A` long | plane-2 offset | `0x003316` |
-| `+0x0E` long | plane-3 offset | `0x004C86` |
-| `+0x12` long | tilemap offset | `0x0065F6` |
+| `+0x06` long | plane-1 offset | `0x001DA6` |
+| `+0x0A` long | plane-2 offset | `0x003B16` |
+| `+0x0E` long | plane-3 offset | `0x005886` |
+| `+0x12` long | tilemap offset | `0x0075F6` |
 | `+0x16 … +0x36` (32 B) | **palette** | 16 `$0RGB` words |
-| `+0x36 … +0x19A6` | **plane 0** (6512 B) | tile bitplane 0 |
-| `+0x19A6 … +0x3316` | plane 1 | tile bitplane 1 |
-| `+0x3316 … +0x4C86` | plane 2 | tile bitplane 2 |
-| `+0x4C86 … +0x65F6` | plane 3 | tile bitplane 3 |
-| `+0x65F6 … +0x7B0E` | **tilemap** (5400 B) | 75 × 36 tile-index words |
+| `+0x36 … +0x1DA6` | **plane 0** (7536 B) | tile bitplane 0 |
+| `+0x1DA6 … +0x3B16` | plane 1 | tile bitplane 1 |
+| `+0x3B16 … +0x5886` | plane 2 | tile bitplane 2 |
+| `+0x5886 … +0x75F6` | plane 3 | tile bitplane 3 |
+| `+0x75F6 … +0x9EBE` | **tilemap** (10440 B) | 145 × 36 tile-index words |
 
 The four plane offsets differ per course, but **plane 0 is always at `$36`** and
 the planes are a constant stride apart — that stride is one plane's byte size, so
-the **tile count = stride ÷ 8** (practice: `$1970 ÷ 8 = 814` tiles).
+the **tile count = stride ÷ 8** (Beginner: `$1D70 ÷ 8 = 942` tiles).
 
 **Palette.** The sixteen big-endian `$0RGB` words at `+0x16` are the course's
 playfield palette (colours 0–15). The per-course palette lives here, not in the
 `.dat` — the engine programs it with `SetRGB4` (`$248FC`), never `LoadRGB4`.
 Colours 0–6 are a shared grey ramp (the isometric shading); 7–15 are the course's
-accent colours. Practice's palette is `000 333 444 666 999 BBB DDD 822 C60 CC0 622
-A22 D33 F88 A22 D33`. Colours 14–15 are an engine colour-cycling range (the
-animated hazard/ice pools), so a static render shows their base value rather than
-the in-game cycling.
+accent colours. Beginner's palette is `000 333 444 666 999 BBB DDD 048 06A 0AE 336
+558 88B CCF 000 000` — its accents are the blue ramp the course is built from.
+Colours 14–15 are an engine colour-cycling range (animated hazards), here left at
+their base `000`, so a static render shows that rather than the in-game cycling.
 
 **Tiles** are **8×8 pixels, 4 bitplanes (16 colours)**. The blitter reads a tile as
 eight 1-byte rows from `plane[(i>>1)*16 + (i&1) + 2*r]` — even/odd tiles are
 byte-interleaved within 16-byte groups. Tile 0 is the all-black tile.
 
-![Practice tile set](rendered/practy.tiles.png)
+![Beginner tile set](rendered/beginr.tiles.png)
 
 **Assembling the course.** The **tilemap** at `+0x12` is a row-major stream of
 big-endian tile-index words, **36 tiles (288 px) wide** (the blitter's 72-byte row
 stride fixes the width). Marble Madness scrolls only vertically, so the width is
-constant and the height varies per course — practice 36×75, up through ultimate's
-36×198. Placing each tile by its index reproduces the complete course:
+constant and the height varies per course — from Practice's 36×75 up to Ultimate's
+36×198 (the Beginner course shown is 36×145). Placing each tile by its index
+reproduces the complete course — here Beginner, with its maze start, the cone bumps,
+the spiral **funnel**, and the **GOAL** at the bottom:
 
-![Practice course](rendered/practy.png)
+![Beginner course](rendered/beginr.png)
 
 [`extract/cmd/sprites`](extract/cmd/sprites) decodes every `.mlb` and writes the
 tile set (`<course>.tiles.png`) and the assembled course (`<course>.png`) to
@@ -1019,11 +1021,13 @@ by `type` (`tracks` prints the histogram).
 **Visualising the layers.** `extract/cmd/regions` draws the slope field as a 3-D
 wireframe (Part V §4) and overlays the other Track layers at their **true** `(X,Y)`,
 never snapped: **placement objects** as cyan dots, **`+$18` spawns** as magenta pins,
-**`+$20` spawns** as orange pins. For Practice (below) the placement dots land squarely
-**on** the course — which doubles as a *calibration*: features must sit on the course, so
-their fit confirms the `(X,Y)` grid matches the slope mesh.
+**`+$20` spawns** as orange pins. For Beginner (below) the 79 placement dots land
+squarely **on** the course — which doubles as a *calibration*: features must sit on the
+course, so their fit confirms the `(X,Y)` grid matches the slope mesh. The 2 magenta
+`+$18` pins are Beginner's creature spawns (it has a black "evil marble" and the
+slinkies); its animated drawbridge and funnel are dynamic regions (`+$14`).
 
-![Practice course Track layers — slope wireframe + placement objects (cyan)](rendered/practy.wire.png)
+![Beginner course Track layers — slope wireframe + placement objects (cyan) + +$18 spawns (magenta)](rendered/beginr.wire.png)
 
 Two honest caveats the markers expose rather than hide:
 
@@ -1247,10 +1251,10 @@ per-cell terrain codes.
 `extract/cmd/regions` replays the `$E158` height generation and plots each course as an
 iso slope-direction map (`rendered/<course>.regions.png`) and a 3-D wireframe of the
 mesh (`rendered/<course>.wire.png` — dimetric, hidden-line, 3× supersampled, Go
-standard library; **shown with the Track's other layers in Part IV §5**). From nothing
-but the 66 records the practice render reproduces the course feature-for-feature — the
-checkerboard of `7×7` slope facets, its two recessed holes, the descending zigzag canyon,
-and the flat run-outs.
+standard library; **shown with the Track's other layers in Part IV §5**). From the
+records alone the renders reproduce each course feature-for-feature — Beginner's maze
+start, cone bumps, descending platforms and GOAL (Part IV §5); Practice's checkerboard
+of `7×7` slope facets, its two recessed holes and the descending zigzag canyon.
 
 ### The scripted dynamic regions — `sub_016900`
 
