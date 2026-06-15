@@ -286,15 +286,32 @@
 #   like per-waypoint direction codes (0..8). Home cell likely a scroll trigger - confirm in
 #   the enemy-AI pass. Per-course recs (8B): practy 0, beginr 2, interm 0, aerial 1, silly 0,
 #   ultima 1. VERIFIED: animPtr[0],[1] positions land ON the course every course; record cells
-#   sit off to the side. NB: the SLINKIES are a DIFFERENT system (silly has slinkies + a
-#   slink.vlb bank but 0 spawn recs in BOTH lists) - likely the +$1C actor list $1ABE0. OPEN.
+#   sit off to the side. THREE moving-enemy placement systems share the pathPtr[0/1]<<19 pos
+#   scheme: +$18 = BLACK MARBLE, +$20 = OOZE (creature_spawn_B), +$1C = SLINKIES (actor_list).
 01B7B0  creature_spawn_B  walk the Track +$20 spawn list (*($1BE48)) near the marble; same
 #   8-byte record but the animPtr (+$2) is usually null -> the spawner picks BOTH position and
 #   animation from a definition table inside the $1BE48 block (+$14/+$18/+$1C/+$34) by record
 #   type +$6 and an RNG variant ($8F96); each def's first 2 bytes = position (<<19). The record
 #   (trigX,trigY) is again the trigger/home cell, not the spawn pos. Per-course recs: interm 7,
-#   ultima 4; others 0. Both +$18 and +$20 spawn BLACK ENEMY MARBLES (patrol-then-hunt), NOT
-#   the slinkies (distinct from the +$1C actor list $1ABE0).
+#   ultima 4; others 0. +$20 spawns OOZE (verified in-game on interm+ultima, the only users).
+#   So magenta(+$18)=black marble, orange(+$20)=ooze in the regions render.
+01A548  actor_spawn_from_list  spawn the Track +$1C actor-list ($1ABE0) creatures = the SLINKIES
+#   (aka marble munchers). $1ABE0 = a 14-POINTER TABLE: [0]->record list, [1]->default sprite/
+#   anim, [2..13]->per-type sprite/anim defs. Each 8-byte record [homeX][homeY][pathPtr:4]
+#   [type @+6][pad]: actor world pos = pathPtr[0]<<19 +$40000 (obj+$C), pathPtr[1]<<19 +$40000
+#   (obj+$10); pathPtr -> $FF-term [X][Y][dir] WAYPOINT list = the slinky patrol path (stored to
+#   obj+$54/$58); record+6 -> obj+$1B type. Range-checks the record home (X,Y) vs the marble
+#   cell args ($B/$F(a6)) before spawning. Beginner = 3 records = the 3 slinkies (type 3,3,4;
+#   spawn pos (51,45)/(45,51)/(61,51), home clustered (8-9,28-30)). SAME pathPtr[0/1]<<19
+#   placement scheme as the +$18 black-marble / +$20 ooze spawners (3rd moving-enemy system).
+01A86C  actor_collide  per-frame scan of the $1ABE0 actor list near the marble (the state-5
+#   OBJECT BUMP source). Only runs on courses $5D6 in {1,2,5} = beginner/interm/ultima (the
+#   courses that have slinkies).
+# +$24 -> $1D334 is SILLY-ONLY (null on the other 5 courses): a 14-pointer table SHAPED like
+#   $1ABE0 but used as an ANIMATION/SPRITE-DEF table, NOT a spawn list — the per-object draw
+#   path $1C428 pulls $1D334+$2C/+$34 into obj+$1C for object subtypes 7/9. It supplies the
+#   graphics for Silly's miniature "crushable" baby creatures (slinky/ooze/marble babies).
+#   Silly's own +$18/+$20/+$1C creature lists are all EMPTY (it uses this instead).
 0353C   t_track_names    table of 6 pointers (indexed by g_course) to the Track filenames at $3506 ("PrcTrack","BegTrack","IntTrack","AerTrack","SilTrack","UltTrack"). NB: *Track is the per-course LEVEL/OBJECT LAYOUT data (actor placements + animation scripts), NOT music — music/SFX is the separate *Snd files.
 03554   g_trackseg       (global) seglist BPTR of the currently loaded course Track file (the per-course object/actor data blob).
 00FD2C  g_animscripts    (global) pointer into the loaded Track segment to its animation-script table (= Track seg header field +$14); the actor loop reads cell-animation scripts from here.

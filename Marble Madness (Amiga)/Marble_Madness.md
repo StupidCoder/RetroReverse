@@ -990,16 +990,19 @@ likely role of the home cell is a **scroll trigger** — "the course has scrolle
 that `(trigX,trigY)` is on screen, so spawn the enemy." Confirming the trigger semantics is
 left for the enemy-AI pass.
 
-**What these spawn: the black "enemy" marbles** (verified in-game). Each record spawns a
-black marble that **patrols a fixed route until the player gets close, then switches to
-hunting the player**. The `animPtr` data is exactly that patrol route: an `$FF`-terminated
-list of 6-byte `[X][Y][·4]` entries whose `[X][Y]` waypoints **trace the marble's idle path
-to the pixel** (confirmed by overlaying the markers on live play — a perfect match). Entry 0
-is the verified spawn position (`obj+$C/$10`); entries 1..n are the looping patrol waypoints;
-the four trailing bytes per entry sit in the `0..8` range and look like per-waypoint
+**What these spawn (verified in-game): `+$18` = the black "enemy" marble, `+$20` = ooze.**
+The two lists are two *different* enemy types, not one. A `+$18` record spawns a **black
+marble** that patrols a fixed route until the player gets close, then **switches to hunting
+the player**; its `animPtr` data is exactly that patrol route — an `$FF`-terminated list of
+6-byte `[X][Y][·4]` entries whose `[X][Y]` waypoints **trace the marble's idle path to the
+pixel** (confirmed by overlaying the markers on live play — a perfect match). Entry 0 is the
+verified spawn position (`obj+$C/$10`); entries 1..n are the looping patrol waypoints; the
+four trailing bytes per entry sit in the `0..8` range and look like per-waypoint
 direction/facing codes (the `+$20` records cycle them cleanly `1..8`), to be pinned in the
-enemy-AI pass. So both `+$18` and `+$20` are the **black-marble enemy** system — not the
-slinkies (see "Where are the slinkies?" below).
+enemy-AI pass. A `+$20` record spawns **ooze** (confirmed on Intermediate and Ultimate, the
+only two courses that use the list); its position/animation come from the RNG definition
+table rather than a per-record route. So in the renderer **magenta (`+$18`) = black marble,
+orange (`+$20`) = ooze**.
 
 The two lists differ only in how the animation/definition is chosen:
 
@@ -1010,28 +1013,49 @@ The two lists differ only in how the animation/definition is chosen:
   first two bytes are its position, same `<<19` scale).
 
 Both are sparse — Beginner 2 (`+$18`), Intermediate 7 (`+$20`), Aerial 1, Ultimate 1+4;
-Practice and Silly use neither. They are distinct from the `+$1C` actor list (the
-collision-scanned enemies, Part V §4).
+Practice and Silly use neither. They are distinct from the `+$1C` actor list, which is a
+*third* enemy type (the slinkies — below).
 
-Both `+$18` and `+$20` are the **black-marble enemy** system: the spawned objects are
-**collision-checked against the marble** every frame (the marble update runs scans against
-the `$19xxx`/`$1Bxxx` clusters that own them) — so they are hazards, not passive scenery —
-and the `+$18` objects run their own behaviour state machine (states 32→37) that switches
-between patrol and hunt. The *animated terrain* obstacles (seesaws, sliding walls, moving
-ramps, drawbridges) are a different, already-documented system: the **dynamic regions**
-(`+$14`, the scripted `$CCA` regions, Part V §4). What separates `+$18` from `+$20` is
-structural — a `+$18` object spawns in state 32 with a 5-slot sub-object array (the marble's
-own trail/secondary passes, *not* a group of distinct creatures: one record = one black
-marble), a `+$20` object in state 0 picking a random visual variant from a shared table.
+Both spawned objects are **collision-checked against the marble** every frame (the marble
+update runs scans against the `$19xxx`/`$1Bxxx` clusters that own them) — so they are
+hazards. The `+$18` (black-marble) objects run a behaviour state machine (states 32→37) that
+switches between patrol and hunt. The *animated terrain* obstacles (seesaws, sliding walls,
+moving ramps, drawbridges) are a different system: the **dynamic regions** (`+$14`, the
+scripted `$CCA` regions, Part V §4 and below). A `+$18` object spawns in state 32 with a
+5-slot sub-object array (the marble's own trail/secondary passes, *not* a group of distinct
+creatures: one record = one black marble); a `+$20` (ooze) object spawns in state 0 picking a
+random visual variant from the shared table.
 
-**Where are the slinkies?** Open. The slinky (the small upright-tube creature that bends in
-the four cardinal directions to move) is **not** in these spawn lists — both lists are black
-marbles, and Silly, which has slinkies, uses **neither** list (0/0) yet ships a dedicated
-`slink.vlb` sprite bank. So the slinkies are placed/animated by a *different* subsystem we
-have not yet pinned. The leading candidate is the `+$1C` **actor list** (`$1ABE0`, the
-collision-scanned enemies of Part V §4); the `+$C` per-type pointer array (`$1ED44`) and the
-placement `type`s are the other unexplored hooks. Identifying the slinky placement system is
-the next enemy-AI item.
+**The slinkies (marble munchers): the `+$1C` actor list (`$1ABE0`).** Found. `$1ABE0` is a
+**pointer table**; entry[0] points to a record list (entry[1] and [2..13] are the default and
+per-type sprite/animation pointers). Each record is **8 bytes** —
+`[homeX][homeY][pathPtr:4][type][·]` — and uses the *same* placement scheme as the spawns:
+the actor's world position is `pathPtr[0]<<19, pathPtr[1]<<19`, and `pathPtr` points to an
+`$FF`-terminated `[X][Y][dir]` waypoint list = the slinky's patrol path. The collision scan
+that consumes it (`$1A86C`) only runs on courses `$5D6 ∈ {1,2,5}` = **Beginner, Intermediate,
+Ultimate**. Beginner's list has **exactly three records** — the three marble munchers:
+
+| # | home | type | spawn pos | patrol |
+|---|---|---|---|---|
+| 1 | (8,28) | 3 | (51,45) | 13-waypoint loop |
+| 2 | (8,28) | 3 | (45,51) | 13-waypoint loop |
+| 3 | (9,30) | 4 | (61,51) | 6-waypoint loop |
+
+They cluster around home `(8–9, 28–30)` and fan out to their patrol loops — matching the
+in-game "they spawn close together, then walk their own routes." So the engine has **three**
+moving-enemy placement systems sharing one `pathPtr[0/1]<<19` position convention: `+$18`
+black marbles, `+$20` ooze, and `+$1C` slinkies.
+
+**The opening/closing drawbridge: a dynamic region (`+$14`).** The drawbridge is *animated
+terrain* the marble rolls over, so it lives in the scripted dynamic regions, not in any
+creature list. Beginner has 11 dynamic regions, and six of them (`region cells (23,44)`,
+`(34,61)×3`, `(44,61)`) form a **staggered keyframe chain**: each region replays the same
+sequence of surface keyframes (cycling terrain codes 18→19→20→21→22→16, the fall/edge codes)
+offset by a phase, alternating each surface state with a low "gap" keyframe and ending on a
+long `dur=260` hold. That staggered surface-then-gap animation marching across the course is
+the bridge opening and closing. Pinning exactly which region indices correspond to the
+visible bridge span is best done by overlaying the dynamic regions on the wireframe and
+eyeballing it (as we did to confirm the marbles and ooze) — next step.
 
 **Per-course counts** ([`extract/cmd/tracks`](extract/cmd/tracks) decodes them all):
 
