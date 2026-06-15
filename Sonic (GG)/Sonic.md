@@ -45,6 +45,7 @@ addresses (16-bit, `$0000`–`$FFFF`) unless a *file offset* is called out; byte
   - [2. The graphics decompressor](#2-the-graphics-decompressor)
   - [3. First decompressed screen — the SEGA logo](#3-first-decompressed-screen--the-sega-logo)
   - [4. The exact screen via emulation (the oracle)](#4-the-exact-screen-via-emulation-the-oracle)
+  - [5. The title screen (tracing forward)](#5-the-title-screen-tracing-forward)
 - [Part V — Game mechanics](#part-v--game-mechanics)
 - [Appendix A — Toolchain and reproduction](#appendix-a--toolchain-and-reproduction)
 
@@ -521,9 +522,43 @@ occupies name-table rows 9–14 (98 non-background cells over the `$70` fill) �
 This differs from the §3 tile-set image in the way that matters: there the patterns
 happened to sit in screen order, so the sheet *looked* like the screen by luck; here
 the pixels are placed by the game's own name-table entries (each carrying its tile
-number, palette select and flip bits), read back after the code ran. The same machine
-will render the title and level screens once the boot reaches them — and, because it
+number, palette select and flip bits), read back after the code ran. And because it
 captures real VRAM, it is the reference any hand-written decoder is checked against.
+
+## 5. The title screen (tracing forward)
+
+The same oracle reaches the **title screen** with no new tooling — just more frames.
+After the SEGA logo, the attract sequence runs on its own (the unmapped controller
+ports read `$FF`, so nothing is "pressed"), and the title loads itself. Following the
+boot frame by frame ([`extract/cmd/screentrace`](extract/cmd/screentrace), which
+fingerprints VRAM each frame so palette fades don't hide the discrete screen loads)
+gives a clean timeline:
+
+| frame | name-table cells | what happened |
+|------:|-----------------:|---------------|
+| 6 | 0 | name table cleared to the `$70` fill |
+| 9–47 | 6 → 98 | the SEGA logo draws in, row by row |
+| 47–335 | 98 | logo holds, then its palette fades out |
+| **335** | **767** | the **title** name table is loaded in one shot |
+| 335–650 | 767 | the title's palette fades in; `PRESS START BUTTON` appears |
+
+At ~650 frames the title is fully lit; `segascreen` now takes a frame count and an
+output name, so `segascreen rom.gg out 650 title` composes it the same way as the logo:
+
+![Sonic title screen — composed from the live name table at frame 650](rendered/title.gg.png)
+
+Two things are worth recording. First, this screen is **767 background cells across
+all 24 visible rows** — a full-screen image (Sonic, the banner, `PRESS START BUTTON`,
+`© 1991 SEGA`), every pixel a background tile placed through the name table; the oracle
+renders it whole. Its tiles are decompressed from the compressed bank (`$0406` called
+with `A=9`, e.g. at `$190F`), confirming bank 9's role from Part I §6.
+
+Second, a correction to earlier notes: **`$D240` is not the top-level "game mode".**
+It holds `$0A` unchanged across this entire logo→title transition, and the
+disassembly shows it used as a name-table scroll/row index (`$0E35`, `$4969`,
+multiplied by 10) and as a frame countdown (`$472E`), not as a screen selector. The
+attract progression is **timed/scripted**, not a single mode byte — mapping that
+script is Part III's job; the oracle reaches the screens regardless.
 
 *Still open.* The sprite (object) tile format, the level map format (decompressed to
 RAM, drawn by `scroll_draw`), and the object data.
@@ -550,7 +585,10 @@ Static analysis only, with the Z80 toolchain in the shared `tools/` module:
 - [`tools/cmd/codetracez80`](../../tools/cmd/codetracez80) — recursive-descent
   disassembler from given entry points: `codetracez80 -load 0 -entry 0000,0038,0066 rom.gg`.
 - [`extract/cmd/segascreen`](extract/cmd/segascreen) — runs the boot on the oracle and
-  composes the exact SEGA logo screen from the live VRAM (Part IV §4).
+  composes an exact attract screen from the live VRAM: `segascreen rom.gg out [frames]
+  [name]` (the SEGA logo by default, the title screen at `650 title`; Part IV §4–§5).
+- [`extract/cmd/screentrace`](extract/cmd/screentrace) — fingerprints VRAM each frame
+  to time the discrete screen loads through the attract sequence (Part IV §5).
 
 Reproduce the boot listing in §5:
 

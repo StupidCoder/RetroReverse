@@ -67,4 +67,14 @@
 # $D200 = game-state block (IY base; IY+0/+2/+6 are flag bytes)
 # $D219 = shadow copy of VDP registers 0-10
 # $D22F = current slot-1 bank number ; $D230 = current slot-2 bank number
-# $D240 = top-level game mode (state-machine selector)
+# $D240 = NOT the top-level game mode (earlier guess was wrong): it stays $0A across
+#   the whole logo->title transition. Used as a name-table scroll/row index (x10 at
+#   $0E35/$4969) and a frame countdown ($472E). The attract sequence is timed/scripted,
+#   not a single mode byte. Writers $137E/$182C(=3)/$339C(INC)/$4735(DEC).
+
+# --- attract sequence: forward to the title screen (Part IV §5) ---
+# The title is reached by free-running the oracle (extract/cmd/screentrace timeline):
+#   frame 6 name table cleared; 9-47 SEGA logo draws in (->98 cells); 47-335 logo
+#   holds+fades; frame 335 the TITLE name table loads in one shot (767 cells, all 24
+#   rows); ->650 title palette fades in + "PRESS START BUTTON" appears.
+190F  title_decompress  decompress a screen's tiles from the COMPRESSED bank (CALL $0406 with A=9, HL=$B354 -> norm bank 11 $3354 = file $2F354) to VRAM $3000; part of a screen-loader at ~$18F0 that also copies an 8-byte descriptor to $D26D and sets $D232/$D234. (Many $0406 call sites exist; this is one screen loader. The title is verified by the oracle render rendered/title.gg.png, not by the trace alone.)

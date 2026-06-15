@@ -1,14 +1,18 @@
-// segascreen renders the EXACT SEGA boot screen of Sonic the Hedgehog (Game Gear)
+// segascreen renders an EXACT boot/attract screen of Sonic the Hedgehog (Game Gear)
 // by running the real cartridge ROM on a Game Gear machine model (the z80 core +
 // the gamegear VDP/mapper) and reading back what the boot code actually drew.
 //
 // Unlike titlegfx — which decompresses the logo tiles and lays them out in VRAM
-// order (the tile SET) — this tool is an *oracle*: the game's own loader at $1CD7
-// decompresses the tiles, programs CRAM, and builds the name table in code; we
-// just let it run for a few frames and then compose the screen from the resulting
-// VRAM name table ($3800) and CRAM. That gives the true tile MAP, pixel for pixel.
+// order (the tile SET) — this tool is an *oracle*: the game's own code decompresses
+// the tiles, programs CRAM, and builds the name table; we just let it run for a
+// number of frames and then compose the screen from the resulting VRAM name table
+// ($3800) and CRAM. That gives the true tile MAP, pixel for pixel.
 //
-// Usage: segascreen <rom.gg> <outdir>
+// Which screen you get depends only on how long you let the attract sequence run:
+// the SEGA logo at the default ~60 frames, and — after its long fade — the title
+// screen at ~650 frames. The game free-runs there on its own (no buttons pressed).
+//
+// Usage: segascreen <rom.gg> <outdir> [frames] [name]
 package main
 
 import (
@@ -41,6 +45,10 @@ func main() {
 	if len(os.Args) > 3 {
 		fmt.Sscanf(os.Args[3], "%d", &frames)
 	}
+	name := "sega"
+	if len(os.Args) > 4 {
+		name = os.Args[4]
+	}
 	for i := 0; i < frames; i++ {
 		if !m.RunFrame() {
 			fmt.Printf("CPU halted at frame %d: %s\n", i, m.CPU.HaltReason)
@@ -72,15 +80,15 @@ func main() {
 	nt := m.VDP.VRAM[ntBase:]
 	tiles := m.VDP.VRAM[:]
 	full := gamegear.RenderNameTable(nt, tiles, 32, 28, pal)
-	writePNG(filepath.Join(outdir, "sega.screen.png"), scale(full, 2))
-	fmt.Printf("wrote sega.screen.png (256x224 full name table)\n")
+	writePNG(filepath.Join(outdir, name+".screen.png"), scale(full, 2))
+	fmt.Printf("wrote %s.screen.png (256x224 full name table)\n", name)
 
 	// Crop the Game Gear's visible 160x144 window (centred in the 256x192 display).
 	gg := full.SubImage(image.Rect(48, 24, 48+160, 24+144)).(*image.Paletted)
-	writePNG(filepath.Join(outdir, "sega.gg.png"), scale(gg, 3))
-	fmt.Printf("wrote sega.gg.png (160x144 Game Gear window)\n")
+	writePNG(filepath.Join(outdir, name+".gg.png"), scale(gg, 3))
+	fmt.Printf("wrote %s.gg.png (160x144 Game Gear window)\n", name)
 
-	// Report the logo's extent in the name table (the rows/columns that aren't the
+	// Report the screen's extent in the name table (the cells that aren't the
 	// $70 background fill), as evidence the screen is the code-built map, not a dump.
 	minR, maxR, cells := 28, -1, 0
 	for row := 0; row < 28; row++ {
@@ -97,7 +105,7 @@ func main() {
 			}
 		}
 	}
-	fmt.Printf("logo occupies name-table rows %d-%d, %d non-background cells\n", minR, maxR, cells)
+	fmt.Printf("screen occupies name-table rows %d-%d, %d non-background cells\n", minR, maxR, cells)
 }
 
 func scale(src *image.Paletted, n int) *image.Paletted {
