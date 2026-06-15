@@ -17,12 +17,17 @@
 // (reset on a $80 marker) — and plots the result in iso tile space.
 //
 // The wireframe also overlays the other Track layers at their TRUE (X,Y), never snapped:
-// placement objects (cyan dots, Track +4), +$18 creature spawns (magenta pins) and +$20
-// spawns (orange pins). The placement dots double as a calibration — course features must
-// sit on the course, so their fit confirms the (X,Y) grid matches the slope mesh. (NB the
-// +$18 record (X,Y) is the verified spawn position; the +$20 record (X,Y) is a secondary
-// field — its spawner positions from a definition table — so those pins mark the record
-// cell, not the verified creature location. The mismatch is left visible, not hidden.)
+// placement objects (cyan dots, Track +4), +$18 creature spawns (magenta) and +$20 spawns
+// (orange). The placement dots double as a calibration — course features must sit on the
+// course, so their fit confirms the (X,Y) grid matches the slope mesh.
+//
+// A creature spawn is NOT positioned by its record (X,Y). The spawner ($197D2) reads the
+// world position from the record's animPtr data (animPtr[0]<<19, animPtr[1]<<19 -> obj+$C/
+// +$10), and stores the record (X,Y) in obj+$80/$82 as a TRIGGER/HOME cell (the scroll
+// position at which the group spawns). So each pin draws the home cell as a hollow diamond,
+// a connector line to the verified spawn position (solid pin head), and the rest of the
+// animPtr list — most likely the patrol route(s) of the spawned group — as small dots.
+// Off-course home diamonds are real (the trigger is beside the path), not snapped away.
 //
 // Usage: regions <disk.adf> <outdir>
 //
@@ -349,9 +354,47 @@ const (
 // tall in the tilemap). Override with -z; -z 0 gives a flat top-down iso map.
 var wZScale = 1.566
 
-// parseSpawns reads a creature-spawn list (Track header +$18 or +$20): the global's
-// pointer -> the list -> 8-byte [X][Y][animPtr][type] records, $FF-terminated.
-func parseSpawns(im []byte, hdrOff uint32) [][2]int { return parseXY(im, u32(im, u32(im, hdrOff)), 8) }
+// spawn is one Track creature-spawn record. home is the record's (X,Y) — a trigger/home
+// cell (the spawner $197D2/$1B7B0 fires it against the marble's cell, i.e. when the scroll
+// reaches it). pos is the creature's position list: the spawner reads the WORLD position
+// from the first two bytes of the record's animPtr data (record +$2), which is a
+// $FF-terminated list of 6-byte [X][Y][...] entries. pos[0] is the verified spawn position;
+// the rest is most likely the patrol route(s) of the spawned group (e.g. 3 slinkies walking
+// independently) — to be decoded with the enemy AI, not yet traced.
+type spawn struct {
+	home [2]int
+	pos  [][2]int
+}
+
+// parseSpawns reads a creature-spawn list (Track header +$18 or +$20).
+func parseSpawns(im []byte, hdrOff uint32) []spawn {
+	block := u32(im, hdrOff)
+	defs := func() [][2]int { // +$20 RNG definition table (used when a record's animPtr is null)
+		var d [][2]int
+		for _, doff := range []uint32{0x14, 0x18, 0x1C, 0x34} {
+			if dp := u32(im, block+doff); dp != 0 && int(dp)+2 <= len(im) {
+				d = append(d, [2]int{int(im[dp]), int(im[dp+1])})
+			}
+		}
+		return d
+	}
+	var out []spawn
+	for o := u32(im, block); int(o)+8 <= len(im) && len(out) < 200; o += 8 {
+		if im[o] == 0xFF {
+			break
+		}
+		s := spawn{home: [2]int{int(im[o]), int(im[o+1])}}
+		if ap := u32(im, o+2); ap != 0 && int(ap) < len(im) {
+			for p := ap; int(p)+2 <= len(im) && im[p] != 0xFF && len(s.pos) < 24; p += 6 {
+				s.pos = append(s.pos, [2]int{int(im[p]), int(im[p+1])})
+			}
+		} else {
+			s.pos = defs()
+		}
+		out = append(out, s)
+	}
+	return out
+}
 
 // parsePlacement reads the object-placement table (Track header +4 -> +0): 3-byte
 // [X][Y][type] records, $FF-terminated.
@@ -382,7 +425,7 @@ func dot(img *image.RGBA, cx, cy, r int, c color.RGBA) {
 	}
 }
 
-func renderWire(field map[[2]int]cell, lo, hi int, objects, spawnsA, spawnsB [][2]int) *image.RGBA {
+func renderWire(field map[[2]int]cell, lo, hi int, objects [][2]int, spawnsA, spawnsB []spawn) *image.RGBA {
 	base := float64(lo)
 	dz := func(c cell) float64 {
 		if c.h < 8000 {
@@ -411,9 +454,15 @@ func renderWire(field map[[2]int]cell, lo, hi int, objects, spawnsA, spawnsB [][
 	for t, c := range field {
 		upd(t[0], t[1], c)
 	}
-	for _, layer := range [][][2]int{objects, spawnsA, spawnsB} {
+	for _, s := range objects {
+		upd(s[0], s[1], cellAt(s[0], s[1]))
+	}
+	for _, layer := range [][]spawn{spawnsA, spawnsB} {
 		for _, s := range layer {
-			upd(s[0], s[1], cellAt(s[0], s[1]))
+			upd(s.home[0], s.home[1], cellAt(s.home[0], s.home[1]))
+			for _, p := range s.pos {
+				upd(p[0], p[1], cellAt(p[0], p[1]))
+			}
 		}
 	}
 	const M = 30
@@ -486,17 +535,39 @@ func renderWire(field map[[2]int]cell, lo, hi int, objects, spawnsA, spawnsB [][
 		bx, by := sp(s[0], s[1], cellAt(s[0], s[1]))
 		dot(big, bx, by, 2*ssaa, color.RGBA{90, 230, 235, 255})
 	}
-	// creature-spawn pins, drawn on top: +$18 magenta, +$20 orange
-	pins := func(spawns [][2]int, col color.RGBA) {
+	// Creature spawns, on top (+$18 magenta, +$20 orange). For each: a hollow diamond at
+	// the home/trigger cell, a line from it to the spawn position, small dots for the rest
+	// of the animPtr position list (the creature's group/path), and a solid pin at pos[0]
+	// (the verified spawn position the spawner uses).
+	pins := func(spawns []spawn, col color.RGBA) {
+		dim := color.RGBA{col.R / 3, col.G / 3, col.B / 3, 255}
 		for _, s := range spawns {
-			bx, by := sp(s[0], s[1], cellAt(s[0], s[1]))
-			topY := by - spawnStem*ssaa
-			for w := -1; w <= 1; w++ { // a few-px stem
-				line(big, bx+w, by, bx+w, topY, col)
+			hx, hy := sp(s.home[0], s.home[1], cellAt(s.home[0], s.home[1]))
+			if len(s.pos) == 0 {
+				continue
 			}
-			dot(big, bx, topY, spawnR*ssaa, col)
-			dot(big, bx, topY, spawnR*ssaa-2, color.RGBA{255, 255, 255, 255}) // white core for contrast
-			dot(big, bx, topY, spawnR*ssaa-4, col)
+			px0, py0 := sp(s.pos[0][0], s.pos[0][1], cellAt(s.pos[0][0], s.pos[0][1]))
+			// home cell: hollow diamond outline
+			for k := 0; k < 4; k++ {
+				dx, dy := []int{0, spawnR, 0, -spawnR}[k], []int{-spawnR, 0, spawnR, 0}[k]
+				nx, ny := []int{spawnR, 0, -spawnR, 0}[k], []int{0, spawnR, 0, -spawnR}[k]
+				line(big, hx+dx*ssaa, hy+dy*ssaa, hx+nx*ssaa, hy+ny*ssaa, dim)
+			}
+			// connector home -> spawn position
+			line(big, hx, hy, px0, py0, dim)
+			// the rest of the position list: small dots
+			for _, p := range s.pos[1:] {
+				bx, by := sp(p[0], p[1], cellAt(p[0], p[1]))
+				dot(big, bx, by, 2*ssaa, col)
+			}
+			// the verified spawn position: solid pin
+			topY := py0 - spawnStem*ssaa
+			for w := -1; w <= 1; w++ {
+				line(big, px0+w, py0, px0+w, topY, col)
+			}
+			dot(big, px0, topY, spawnR*ssaa, col)
+			dot(big, px0, topY, spawnR*ssaa-2, color.RGBA{255, 255, 255, 255}) // white core
+			dot(big, px0, topY, spawnR*ssaa-4, col)
 		}
 	}
 	pins(spawnsA, color.RGBA{255, 60, 210, 255}) // +$18 = magenta

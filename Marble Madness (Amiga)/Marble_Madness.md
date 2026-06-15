@@ -950,7 +950,7 @@ actor-system globals — each one a different structure:
 | `+$C` | `$1ED44` | per-type pointer array (object/anim definitions) | open |
 | `+$10` | `$89C2` | per-course block incl. a copper-style colour table (`$DFF180…`) | open |
 | `+$14` | `$FD2C` | **animation scripts** + the **dynamic-region** source list | Part V §4 |
-| `+$18` | `$19CD0` | **creature spawn list A** — `[X,Y,animPtr,type]` records (below) | here |
+| `+$18` | `$19CD0` | **creature spawn list A** — `[trigX,trigY,animPtr,type]` records (below) | here |
 | `+$1C` | `$1ABE0` | **actor list** — the per-course enemies (the state-5 collision scan) | Part V §4 |
 | `+$20` | `$1BE48` | **creature spawn list B** — spawns + a shared animation-variant table (below) | here |
 | `+$24` | `$1D334` | — (null for Practice) | open |
@@ -972,16 +972,38 @@ field, Part V §4) and from the moving objects (the actor system, Part V §2). W
 `type` denotes and exactly how `+$1B` is consumed is still partly open.
 
 **Creature spawns** (`+$18` and `+$20`). Two near-identical systems place the course's
-moving creatures as the marble approaches. Each is a list of **8-byte records**
-`[X][Y][animPtr:4][type][·]` at iso cell `(X,Y)`; a spawner walks the list near the
-marble and creates an object there (position `+$80/$82`, `type → +$1B`, animation). They
-differ in how the animation is chosen:
+moving creatures as the marble approaches. Each is a list of **8-byte records**:
 
-- **`+$18`** (`$19CD0`, spawner `$197D2`) — each record carries its own animation pointer
-  (`+$2`, a relocated Track pointer).
-- **`+$20`** (`$1BE48`, spawner `$1B7B0`) — the record's pointer is usually null; the
-  spawner instead picks the animation from a definition table inside the `+$20` block
-  (`+$14/+$18/+$1C/+$34`) by the record's `type` and an RNG variant roll.
+```
++0  byte  trigX  (iso grid cell — the TRIGGER/home cell, not the spawn position)
++1  byte  trigY
++2  long  animPtr (relocated Track pointer; null on most +$20 records)
++6  byte  type
++7  byte  ·
+```
+
+The record `(trigX,trigY)` is **not** where the creature appears — it is a **trigger/home
+cell**. The spawner (`$197D2`) stores it in `obj+$80/$82` and takes the actual world
+position from the `animPtr` data instead: its first two bytes give `obj+$C = animPtr[0]<<19`,
+`obj+$10 = animPtr[1]<<19` (the same `<<19` fixed-point as the marble position). The most
+likely role of the home cell is a **scroll trigger** — "the course has scrolled far enough
+that `(trigX,trigY)` is on screen, so spawn this group" — which fits one record yielding a
+*group* of creatures (Beginner's lower `+$18` record spawns **three slinkies** that then
+walk independently). Confirming the trigger semantics is left for the enemy-AI pass.
+
+The `animPtr` data is an `$FF`-terminated list of 6-byte `[X][Y][·4]` entries. Entry 0 is
+the verified spawn position; the remainder is **most likely the patrol route(s)** the group
+walks (the slinky is a small upright-tube creature that bends in the four cardinal
+directions to move — not a multi-segment body). How the list partitions into the three
+slinkies' independent routes is deferred to the enemy-AI analysis.
+
+The two lists differ only in how the animation/definition is chosen:
+
+- **`+$18`** (`$19CD0`, spawner `$197D2`) — each record carries its own `animPtr`.
+- **`+$20`** (`$1BE48`, spawner `$1B7B0`) — the record's `animPtr` is usually null; the
+  spawner instead picks the position and animation from a definition table inside the `+$20`
+  block (`+$14/+$18/+$1C/+$34`) by the record's `type` and an RNG variant roll (each def's
+  first two bytes are its position, same `<<19` scale).
 
 Both are sparse — Beginner 2 (`+$18`), Intermediate 7 (`+$20`), Aerial 1, Ultimate 1+4;
 Practice and Silly use neither. They are distinct from the `+$1C` actor list (the
@@ -995,10 +1017,11 @@ objects run their own behaviour state machine (states 32→37). The *animated te
 obstacles (seesaws, sliding walls, moving ramps, drawbridges) are a different,
 already-documented system: the **dynamic regions** (`+$14`, the scripted `$CCA` regions,
 Part V §4). What separates `+$18` from `+$20` is structural — a `+$18` object spawns in
-state 32 with a 5-slot sub-object array (a compound/segmented creature?), a `+$20` object
-in state 0 picking a random visual variant from a shared table — but *which* specific
-creature each represents (the muncher, the bird, the slinky/ooze) needs following the
-animation pointers into the `.vlb` banks, which is open.
+state 32 with a 5-slot sub-object array (the members of the spawned **group**, e.g. the
+three slinkies that walk independently), a `+$20` object in state 0 picking a random visual
+variant from a shared table — but *which* specific creature each represents (the muncher,
+the bird, the slinky), and how the `animPtr` route list partitions across the group, needs
+following the animation pointers into the `.vlb` banks and the enemy-AI pass, which is open.
 
 **Per-course counts** ([`extract/cmd/tracks`](extract/cmd/tracks) decodes them all):
 
@@ -1020,25 +1043,27 @@ by `type` (`tracks` prints the histogram).
 
 **Visualising the layers.** `extract/cmd/regions` draws the slope field as a 3-D
 wireframe (Part V §4) and overlays the other Track layers at their **true** `(X,Y)`,
-never snapped: **placement objects** as cyan dots, **`+$18` spawns** as magenta pins,
-**`+$20` spawns** as orange pins. For Beginner (below) the 79 placement dots land
-squarely **on** the course — which doubles as a *calibration*: features must sit on the
-course, so their fit confirms the `(X,Y)` grid matches the slope mesh. The 2 magenta
-`+$18` pins are Beginner's creature spawns (it has a black "evil marble" and the
-slinkies); its animated drawbridge and funnel are dynamic regions (`+$14`).
+never snapped: **placement objects** as cyan dots, and each **creature spawn** (`+$18`
+magenta, `+$20` orange) as a three-part marker — a hollow **diamond** at the trigger/home
+cell, a **connector line** to the verified spawn position, and a solid **pin** at that
+position, with the rest of the `animPtr` list (the likely patrol route) as small dots. For
+Beginner (below) the 79 placement dots land squarely **on** the course — which doubles as a
+*calibration*: features must sit on the course, so their fit confirms the `(X,Y)` grid
+matches the slope mesh. The 2 magenta `+$18` spawns are Beginner's creatures (a black "evil
+marble" and a group of slinkies); its animated drawbridge and funnel are dynamic regions
+(`+$14`).
 
 ![Beginner course Track layers — slope wireframe + placement objects (cyan) + +$18 spawns (magenta)](rendered/beginr.wire.png)
 
-Two honest caveats the markers expose rather than hide:
+What the markers expose rather than hide:
 
-- On courses *with* creature spawns, the spawn pins land **off** the slope band (in the
-  gaps beside the course). Since the placement objects calibrate, that is real — the
-  creatures are placed off the path — not a coordinate error.
-- The `+$18` record's `(X,Y)` **is** the spawn position (verified: the spawner writes
-  `obj+$C/$10` from it). The `+$20` record's `(X,Y)` is **not** — the `+$20` spawner takes
-  its position from a randomised definition table and stores the record's `(X,Y)` in a
-  separate field (`obj+$34/$36`). So the orange pins mark the `+$20` record cell, *not* the
-  verified creature location; that gap is left visible for the eye to interpret.
+- The spawn **pins** (verified positions, from the `animPtr`) land **on** the course; the
+  **home diamonds** (the record `(trigX,trigY)`) often sit **off** to the side, connected by
+  the line. That offset is real data, not a coordinate error — the placement dots calibrate
+  the grid, so an off-course home cell means the trigger genuinely lives beside the path
+  (consistent with the scroll-trigger reading: the marble reaches that cell, the group
+  spawns onto the course). Earlier we mistook the home cell for the spawn position; the
+  pixel-consistent ~32×8-tile offset the eye caught is exactly this record→`animPtr` split.
 
 **Still open.** What each placement `type` 0–7 *means*, the per-type object/animation
 definitions (`+$C`/`+$10`), the enemy/marble start positions, and the last unidentified
