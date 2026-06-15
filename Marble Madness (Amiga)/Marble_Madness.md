@@ -929,20 +929,31 @@ pinned down; they are deliberately left out here.)
 ## 5. Course layout (`*Track`)
 
 Where the tiles (§3) are a course's *appearance* and the obstacle cells (§4) are
-its *art*, the **`*Track`** file is its *layout*: where every obstacle and terrain
-feature sits, plus the animation data for the moving objects. There is one per
-course — `PrcTrack`, `BegTrack`, `IntTrack`, `AerTrack`, `SilTrack`, `UltTrack`.
-(Despite the name these are **not** music — that is `*Snd`.)
+its *art*, the **`*Track`** file holds everything else a course needs — it is the
+container for *all* of its per-course gameplay data, not just object positions.
+There is one per course: `PrcTrack`, `BegTrack`, `IntTrack`, `AerTrack`, `SilTrack`,
+`UltTrack`. (Despite the name these are **not** music — that is `*Snd`.)
 
 **Loading.** A `*Track` is a plain AmigaDOS hunk module (not encrypted). At course
 init (`load_track_data $003176`) the engine indexes the per-course name table
-(`$353C`) by the course number and **`LoadSeg`s** the file. The loaded module opens
-with a header of ten relocated pointers that the engine fans out to the
-actor-system globals — for example the placement table to `$129FC` and the
-animation scripts to `$FD2C`.
+(`$353C`) by the course number and **`LoadSeg`s** the file. Its first segment opens
+with a header of **ten relocated pointers** that the engine fans out to the
+actor-system globals — each one a different structure:
 
-**Object-placement table.** Header field `+4` (`$129FC`) points to the
-**object-placement list**: an array of **3-byte records**, terminated by a leading
+| Header | Global | What it points to | Detailed in |
+|---|---|---|---|
+| `+0` | `$9A6` | **static slope field** — the region records baked into the corner-height mesh | Part V §4 |
+| `+4` | `$129FC` | **placement table** — `[X][Y][type]` feature list (below) | here |
+| `+8` | `$12F74` | **coarse-zone partition** (`$9D4`) — diagonal-boundary records (`terrain_lookup $12B9E`) | Part V §4 |
+| `+$C` | `$1ED44` | per-type pointer array (object/anim definitions) | open |
+| `+$10` | `$89C2` | per-course block incl. a copper-style colour table (`$DFF180…`) | open |
+| `+$14` | `$FD2C` | **animation scripts** + the **dynamic-region** source list | Part V §4 |
+| `+$18` | `$19CD0` | — | open |
+| `+$1C` | `$1ABE0` | **actor list** — the per-course enemies (the state-5 collision scan) | Part V §4 |
+| `+$20` | `$1BE48` | — | open |
+| `+$24` | `$1D334` | — (null for Practice) | open |
+
+**Placement table** (`+4`). An array of **3-byte records**, terminated by a leading
 `$FF`:
 
 ```
@@ -951,26 +962,33 @@ animation scripts to `$FD2C`.
 +2  byte  type  (0..7 — the feature kind)
 ```
 
-The engine finds the record nearest the marble (`$012600`), isometric-transforms it
-(`$6718`) and uses its `type` to drive the interaction — so `type` is the
-**terrain/obstacle kind** the marble reacts to (a hole, a ramp, a hazard, the
-goal), not a free-standing sprite index. [`extract/cmd/tracks`](extract/cmd/tracks)
-decodes the table for every course:
+Each record marks a feature of kind `type` at iso grid cell `(X,Y)`. The engine's
+proximity query (`$012600`) finds the record nearest the marble, isometric-transforms
+it (`$6718`), and writes its `type` to the marble's `+$1B`. So this is the coarse
+**feature/interaction map** — distinct from the slope/wall geometry (the `$9A6` height
+field, Part V §4) and from the moving objects (the actor system, Part V §2). What each
+`type` denotes and exactly how `+$1B` is consumed is still partly open.
 
-| Course | Track | Objects |
-|---|---|---|
-| Practice | `PrcTrack` | 59 |
-| Beginner | `BegTrack` | 79 |
-| Intermediate | `IntTrack` | 87 |
-| Aerial | `AerTrack` | 159 |
-| Silly | `SilTrack` | 104 |
-| Ultimate | `UltTrack` | 144 |
+**Per-course counts** ([`extract/cmd/tracks`](extract/cmd/tracks) decodes them all):
 
-**Still open.** What each `type` 0–7 *means* (the marble's reaction), the per-type
-sprite/animation definitions, and the enemy/marble start positions live in the
-other Track header pointers — the animation scripts at `$FD2C`, the pointer tables
-at `$1ED44`/`$89C2`, plus a per-course colour table embedded in the module.
-Decoding those is the next step; the engine side that consumes them is Part V.
+| Course | Track | Objects | Slope regions | Dynamic regions | Coarse zones |
+|---|---|---:|---:|---:|---:|
+| Practice | `PrcTrack` | 59 | 66 | 13 | 10 |
+| Beginner | `BegTrack` | 79 | 79 | 11 | 16 |
+| Intermediate | `IntTrack` | 87 | 71 | 3 | 15 |
+| Aerial | `AerTrack` | 159 | 78 | 12 | 22 |
+| Silly | `SilTrack` | 104 | 110 | 5 | 12 |
+| Ultimate | `UltTrack` | 144 | 53 | 20 | 17 |
+
+The columns are the four Track structures whose record format we've pinned: the
+**objects** (placement table, `+4`), the **slope regions** (the static height field,
+`+0` — Silly has the most warped geometry, Ultimate the least), the **dynamic
+regions** (the scripted seesaws/holes/triggers, `+$14`), and the **coarse zones**
+(`+8`). Object-placement also breaks down by `type` (`tracks` prints the histogram).
+
+**Still open.** What each placement `type` 0–7 *means*, the per-type object/animation
+definitions (`+$C`/`+$10`), the enemy/marble start positions, and the two unidentified
+header pointers (`+$18`/`+$20`). The engine side that consumes all of this is Part V.
 
 ---
 
@@ -1099,10 +1117,11 @@ grouping the obstacle render still needs (Part IV §4).
 
 ## 3. Terrain interaction
 
-The `[X][Y][type]` placement table (Part IV §5) only spawns visible **objects** — it is
-*not* the terrain map. The marble's terrain response comes from two other structures
-(both detailed in §4): the **`$9A6` static slope field** (the ramps, walls and pits) and
-a few **scripted `$CCA` regions** (seesaws, holes, triggers).
+The `[X][Y][type]` placement table (Part IV §5) is a coarse **feature map**: a proximity
+query exposes the nearest feature's `type` to the marble as `+$1B`. It is *not* the
+slope/wall terrain — that comes from two other Track structures, both detailed in §4:
+the **`$9A6` static slope field** (the ramps, walls and pits, baked into the corner-height
+mesh) and a few **scripted `$CCA` regions** (seesaws, holes, triggers).
 
 ## 4. Physics and controls
 
