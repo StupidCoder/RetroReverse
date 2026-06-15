@@ -4,11 +4,12 @@
 // header of ten relocated pointers, each fanned out to a different actor-system global
 // (see Marble_Madness.md Part IV §5 for the full map).
 //
-// This tool prints, per course, the counts of the four Track structures whose record
+// This tool prints, per course, the counts of the six Track structures whose record
 // format is pinned — objects (placement table, header +4: 3-byte [X][Y][type] records,
 // $FF-terminated), slope regions (the static height field, +0/$9A6), dynamic regions
-// (the scripted seesaws/holes/triggers, +$14/$FD2C) and coarse zones (+8/$9D4) — plus
-// the full placement table with its per-type histogram.
+// (the scripted seesaws/holes/triggers, +$14/$FD2C), coarse zones (+8/$9D4), and the two
+// creature-spawn lists (+$18/$19CD0 and +$20/$1BE48: 8-byte [X][Y][animPtr][type] recs)
+// — plus the full placement table with its per-type histogram.
 //
 // Usage: tracks <disk.adf>
 package main
@@ -83,12 +84,15 @@ func main() {
 		nSlope := u16(im, u32(im, 0)+0x1A)
 		nDyn := countRecs(im, u32(im, u32(im, 0x14)), 6, func(b []byte) bool { return b[0] == 0xFF })
 		nZone := countRecs(im, u32(im, 8), 5, func(b []byte) bool { return b[0] == 0xFF && b[1] == 0xFF })
+		// creature spawns: +$18 / +$20 -> *ptr -> 8-byte [X][Y][animPtr][type] recs, $FF-term
+		nSpawnA := countRecs(im, u32(im, u32(im, 0x18)), 8, func(b []byte) bool { return b[0] == 0xFF })
+		nSpawnB := countRecs(im, u32(im, u32(im, 0x20)), 8, func(b []byte) bool { return b[0] == 0xFF })
 		byType := map[int]int{}
 		for _, r := range recs {
 			byType[r[2]]++
 		}
-		fmt.Printf("\n== %s (%s)  %d objects, %d slope regions, %d dynamic regions, %d coarse zones\n",
-			c.key, c.track, len(recs), nSlope, nDyn, nZone)
+		fmt.Printf("\n== %s (%s)  %d objects, %d slope regions, %d dynamic regions, %d coarse zones, %d+%d creature spawns\n",
+			c.key, c.track, len(recs), nSlope, nDyn, nZone, nSpawnA, nSpawnB)
 		fmt.Printf("   per-type counts: %s\n", typeHist(byType))
 		fmt.Printf("   %-4s %-4s %-4s   %-9s\n", "idx", "X", "Y", "type")
 		for i, r := range recs {

@@ -985,22 +985,36 @@ Both are sparse — Beginner 2 (`+$18`), Intermediate 7 (`+$20`), Aerial 1, Ulti
 Practice and Silly use neither. They are distinct from the `+$1C` actor list (the
 collision-scanned enemies, Part V §4).
 
+Both `+$18` and `+$20` appear to be **moving creature/enemy** systems rather than a
+creature-vs-obstacle split: the spawned objects are **collision-checked against the
+marble** every frame (the marble update runs scans against the `$19xxx`/`$1Bxxx`
+clusters that own them) — so they are hazards, not passive scenery — and the `+$18`
+objects run their own behaviour state machine (states 32→37). The *animated terrain*
+obstacles (seesaws, sliding walls, moving ramps, drawbridges) are a different,
+already-documented system: the **dynamic regions** (`+$14`, the scripted `$CCA` regions,
+Part V §4). What separates `+$18` from `+$20` is structural — a `+$18` object spawns in
+state 32 with a 5-slot sub-object array (a compound/segmented creature?), a `+$20` object
+in state 0 picking a random visual variant from a shared table — but *which* specific
+creature each represents (the muncher, the bird, the slinky/ooze) needs following the
+animation pointers into the `.vlb` banks, which is open.
+
 **Per-course counts** ([`extract/cmd/tracks`](extract/cmd/tracks) decodes them all):
 
-| Course | Track | Objects | Slope regions | Dynamic regions | Coarse zones |
-|---|---|---:|---:|---:|---:|
-| Practice | `PrcTrack` | 59 | 66 | 13 | 10 |
-| Beginner | `BegTrack` | 79 | 79 | 11 | 16 |
-| Intermediate | `IntTrack` | 87 | 71 | 3 | 15 |
-| Aerial | `AerTrack` | 159 | 78 | 12 | 22 |
-| Silly | `SilTrack` | 104 | 110 | 5 | 12 |
-| Ultimate | `UltTrack` | 144 | 53 | 20 | 17 |
+| Course | Track | Objects | Slope regions | Dynamic regions | Coarse zones | Spawns `+$18` | Spawns `+$20` |
+|---|---|---:|---:|---:|---:|---:|---:|
+| Practice | `PrcTrack` | 59 | 66 | 13 | 10 | 0 | 0 |
+| Beginner | `BegTrack` | 79 | 79 | 11 | 16 | 2 | 0 |
+| Intermediate | `IntTrack` | 87 | 71 | 3 | 15 | 0 | 7 |
+| Aerial | `AerTrack` | 159 | 78 | 12 | 22 | 1 | 0 |
+| Silly | `SilTrack` | 104 | 110 | 5 | 12 | 0 | 0 |
+| Ultimate | `UltTrack` | 144 | 53 | 20 | 17 | 1 | 4 |
 
-The columns are the four Track structures whose record format we've pinned: the
+The columns are the six Track structures whose record format we've pinned: the
 **objects** (placement table, `+4`), the **slope regions** (the static height field,
 `+0` — Silly has the most warped geometry, Ultimate the least), the **dynamic
-regions** (the scripted seesaws/holes/triggers, `+$14`), and the **coarse zones**
-(`+8`). Object-placement also breaks down by `type` (`tracks` prints the histogram).
+regions** (the scripted seesaws/holes/triggers, `+$14`), the **coarse zones** (`+8`),
+and the two **creature-spawn** lists (`+$18`/`+$20`). Object-placement also breaks down
+by `type` (`tracks` prints the histogram).
 
 **Still open.** What each placement `type` 0–7 *means*, the per-type object/animation
 definitions (`+$C`/`+$10`), the enemy/marble start positions, and the last unidentified
