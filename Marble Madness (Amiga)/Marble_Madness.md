@@ -948,9 +948,9 @@ actor-system globals — each one a different structure:
 | `+$C` | `$1ED44` | per-type pointer array (object/anim definitions) | open |
 | `+$10` | `$89C2` | per-course block incl. a copper-style colour table (`$DFF180…`) | open |
 | `+$14` | `$FD2C` | **animation scripts** + the **dynamic-region** source list | Part V §4 |
-| `+$18` | `$19CD0` | — | open |
+| `+$18` | `$19CD0` | **creature spawn list A** — `[X,Y,animPtr,type]` records (below) | here |
 | `+$1C` | `$1ABE0` | **actor list** — the per-course enemies (the state-5 collision scan) | Part V §4 |
-| `+$20` | `$1BE48` | — | open |
+| `+$20` | `$1BE48` | **creature spawn list B** — spawns + a shared animation-variant table (below) | here |
 | `+$24` | `$1D334` | — (null for Practice) | open |
 
 **Placement table** (`+4`). An array of **3-byte records**, terminated by a leading
@@ -968,6 +968,22 @@ it (`$6718`), and writes its `type` to the marble's `+$1B`. So this is the coars
 **feature/interaction map** — distinct from the slope/wall geometry (the `$9A6` height
 field, Part V §4) and from the moving objects (the actor system, Part V §2). What each
 `type` denotes and exactly how `+$1B` is consumed is still partly open.
+
+**Creature spawns** (`+$18` and `+$20`). Two near-identical systems place the course's
+moving creatures as the marble approaches. Each is a list of **8-byte records**
+`[X][Y][animPtr:4][type][·]` at iso cell `(X,Y)`; a spawner walks the list near the
+marble and creates an object there (position `+$80/$82`, `type → +$1B`, animation). They
+differ in how the animation is chosen:
+
+- **`+$18`** (`$19CD0`, spawner `$197D2`) — each record carries its own animation pointer
+  (`+$2`, a relocated Track pointer).
+- **`+$20`** (`$1BE48`, spawner `$1B7B0`) — the record's pointer is usually null; the
+  spawner instead picks the animation from a definition table inside the `+$20` block
+  (`+$14/+$18/+$1C/+$34`) by the record's `type` and an RNG variant roll.
+
+Both are sparse — Beginner 2 (`+$18`), Intermediate 7 (`+$20`), Aerial 1, Ultimate 1+4;
+Practice and Silly use neither. They are distinct from the `+$1C` actor list (the
+collision-scanned enemies, Part V §4).
 
 **Per-course counts** ([`extract/cmd/tracks`](extract/cmd/tracks) decodes them all):
 
@@ -987,8 +1003,9 @@ regions** (the scripted seesaws/holes/triggers, `+$14`), and the **coarse zones*
 (`+8`). Object-placement also breaks down by `type` (`tracks` prints the histogram).
 
 **Still open.** What each placement `type` 0–7 *means*, the per-type object/animation
-definitions (`+$C`/`+$10`), the enemy/marble start positions, and the two unidentified
-header pointers (`+$18`/`+$20`). The engine side that consumes all of this is Part V.
+definitions (`+$C`/`+$10`), the enemy/marble start positions, and the last unidentified
+header pointer (`+$18` and `+$20` are now the creature spawns above; only `+$24` — null
+on Practice — remains blank). The engine side that consumes all of this is Part V.
 
 ---
 
