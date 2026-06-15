@@ -31,35 +31,48 @@ func main() {
 	outdir := os.Args[2]
 	chk(os.MkdirAll(outdir, 0o755))
 
-	// Background tiles: $0C7A does CALL $0406 with A=$0C, HL=$171A -> VRAM $0000.
-	tileSrc := decomp.SourceOffset(0x0C, 0x171A)
-	tiles := decomp.Decompress(rom, tileSrc)
-	fmt.Printf("BG tiles: file $%05X -> %d bytes = %d tiles\n", tileSrc, len(tiles), len(tiles)/32)
+	// The two world maps. The engine selects between them by the upcoming-level
+	// countdown $D279 (decremented after each level at bank 1 $4700): the map loaders
+	// branch on `LD A,($D279) / CP $06 / JR C` ($2006, $466A, $BF0D), so a high count
+	// (early game, >=6) shows the WIDE island and a low count (late game, <6) zooms in
+	// on the mountain-top goal. Each variant has its own tile set and name-table map.
 
-	// Name table: two $0502 RLE layers from bank 5, both to VRAM $3800.
-	//   $0CAA  HL=$6C6D BC=$0156 $D20F=$10   (priority base)
-	//   $0CBD  HL=$6DC3 BC=$0198 $D20F=$00   (overlay)
-	// Bank 5 in slot 1: z80 $6C6D -> file 5*$4000 + ($6C6D-$4000).
+	// Wide island ($D279 >= 6): base tiles (bank $0C,$0000) + bank-5 map $6F86 then
+	// $716A; palette bg $0A / spr $0B.
+	renderMap(rom, outdir, "worldmap_wide", 0x0000, 0x0A, 0x0B,
+		layer{0x6F86, 0x01E4, 0x00}, layer{0x716A, 0x01C0, 0x00})
+
+	// Zoomed mountain top ($D279 < 6): tiles (bank $0C,$171A) + bank-5 map $6C6D (hi
+	// $10) then $6DC3; palette bg $0C / spr $0D.
+	renderMap(rom, outdir, "worldmap_zoom", 0x171A, 0x0C, 0x0D,
+		layer{0x6C6D, 0x0156, 0x10}, layer{0x6DC3, 0x0198, 0x00})
+}
+
+// layer is one $0502 RLE name-table layer: a bank-5 source address, a source-byte
+// count, and the high byte ($D20F) applied to every entry.
+type layer struct {
+	addr, count int
+	hi          byte
+}
+
+// renderMap decompresses the background tiles from (bank $0C, tileAddr), composes the
+// name table by applying the given bank-5 RLE layers in order (later layers overwrite
+// from cell 0, as the engine's repeated $0502 calls do), resolves the palette from
+// the bank-8 table, and writes <name>.screen.png and <name>.gg.png.
+func renderMap(rom []byte, outdir, name string, tileAddr, bg, spr int, layers ...layer) {
 	const bank5 = 5 * 0x4000
-	l1 := decomp.LoadRLE(rom, bank5+(0x6C6D-0x4000), 0x0156, 0x10)
-	l2 := decomp.LoadRLE(rom, bank5+(0x6DC3-0x4000), 0x0198, 0x00)
-	fmt.Printf("name table: layer1 %d cells (hi $10), layer2 %d cells (hi $00)\n", len(l1)/2, len(l2)/2)
-
-	// Compose the 32x28 name table: layer 1 from cell 0, then layer 2 overwrites
-	// from cell 0 (both $0502 calls reset the VRAM address to $3800).
+	tileSrc := decomp.SourceOffset(0x0C, uint16(tileAddr))
+	tiles := decomp.Decompress(rom, tileSrc)
 	nt := make([]byte, 32*28*2)
-	copy(nt, l1)
-	copy(nt, l2)
-
-	// Palette: $0AAB loads a black start (index $16) then fades toward the real
-	// targets — background index $0C and sprite index $0D (the $0B3F fade loader).
-	pal := bankPalette(rom, 0x0C, 0x0D)
-
+	for _, l := range layers {
+		copy(nt, decomp.LoadRLE(rom, bank5+(l.addr-0x4000), l.count, l.hi))
+	}
+	pal := bankPalette(rom, bg, spr)
 	full := gamegear.RenderNameTable(nt, tiles, 32, 28, pal)
-	writePNG(filepath.Join(outdir, "worldmap.screen.png"), scale(full, 2))
+	writePNG(filepath.Join(outdir, name+".screen.png"), scale(full, 2))
 	gg := full.SubImage(image.Rect(48, 24, 48+160, 24+144)).(*image.Paletted)
-	writePNG(filepath.Join(outdir, "worldmap.gg.png"), scale(gg, 3))
-	fmt.Printf("wrote worldmap.screen.png + worldmap.gg.png\n")
+	writePNG(filepath.Join(outdir, name+".gg.png"), scale(gg, 3))
+	fmt.Printf("wrote %s.{screen,gg}.png (tiles file $%05X)\n", name, tileSrc)
 }
 
 // bankPalette resolves a 32-colour palette from the bank-8 pointer table at file

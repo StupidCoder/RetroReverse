@@ -95,8 +95,17 @@
 0BDD  scene_dispatch  scene -> SCREEN TYPE loader: scenes 0-8 = type 1 (title bg, loader ~$0C1C/$0C20); scenes 9-$11 = type 2 (world map, $0C7A); scene>=$12 RET. Only RELOADS the bg when the type changes ($0C0E: CP prev-type $D217, skip if equal) - so the title bg persists across scenes 0-8 (only sprites/text animate) and the map persists across 9-11.
 0602  read_input  (also Part IV §3) controller -> (IY+3): Start = GG port $00 bit7, D-pad = port $DC. Pressing Start: a handler ($53C4 bank1 / $017FE) sets the LAUNCH flag (IY+6).4 and a TARGET scene in $D2D4; the attract loop then jumps to $D2D4 (out of the demo) instead of free-running. (IY+3).7 also checked at $1D47 to skip the logo.
 
-# --- the world map screen (Part III §3; decoded statically, rendered/worldmap.gg.png) ---
-0C7A  worldmap_load  load the type-2 WORLD MAP (the island): decompress bg tiles (A=$0C HL=$171A -> file $3171A) to VRAM $0000 + two bank-9 blocks to $2000/$3000; load the name table from a STORED RLE map in bank5 via $0502 ($6C6D count $156 hi=$10, then $6DC3 count $198 hi=$00) -> $3800; palette via $0AAB. Tail $0CD9+: draw the per-scene route/zone overlay with $0612 from the $1163 table; map marker positions from $0EA8 -> $D211. Each map scene 9-11 lights a different zone; the blink is the overlay repainted on a timer (same $0612 path as PRESS START).
+# --- the world map screens (Part III §3; decoded statically) ---
+# TWO maps switched by the upcoming-level COUNTDOWN $D279 (decremented at bank1 $46F9:
+# DEC A / LD ($D279),A). Every map loader branches `LD A,($D279) / CP $06 / JR C`:
+# >=6 (early) = WIDE island (tiles bank12 $0000, bank5 map $6F86+$716A, pal $0A/$0B);
+# <6 (late) = ZOOMED mountain top (tiles bank12 $171A, bank5 map $6C6D+$6DC3, pal $0C/$0D).
+# Branch sites: $2006 (bank0 loader $1FB0, >=6 path renders the wide island), bank1 $466A,
+# bank2 $BF0D. Rendered: rendered/worldmap_wide.gg.png + rendered/worldmap_zoom.gg.png.
+2006  worldmap_zoom_branch  LD A,($D279); CP $06; JP C,$20B0 - the wide/zoom map switch (the $1FB0 loader's >=6 path = the wide island map $716A).
+4700  dec_d279  bank1: DEC A; LD ($D279),A - decrement the upcoming-level countdown after a level (so the map zooms in as you near the final stage).
+0C7A  worldmap_load  load the ZOOMED WORLD MAP (mountain top): decompress bg tiles (A=$0C HL=$171A -> file $3171A) to VRAM $0000 + two bank-9 blocks to $2000/$3000; load the name table from a STORED RLE map in bank5 via $0502 ($6C6D count $156 hi=$10, then $6DC3 count $198 hi=$00) -> $3800; palette via $0AAB (bg $0C/spr $0D). Tail $0CD9+: draw the per-scene route/zone overlay with $0612 from the $1163 table; map marker positions from $0EA8 -> $D211. Each map scene lights a different zone; the blink is the overlay repainted on a timer (same $0612 path as PRESS START).
+1FB0  worldmap_ingame  in-game map loader: common base tiles (bank12 $0000) + bank5 base map $6F86; display on; then branch $2006 on $D279 - >=6 loads the WIDE island overlay $716A (pal $0A/$0B).
 0AAB  palette_fade_to  load a black START palette (bank8 index $16, all zero) then FADE the working palette ($D3BD) toward the real targets - bg index $0C, sprite index $0D - via $0B3F. (So a screen's true palette is the fade target, not the index loaded first.)
 0B1E  palette_copy  copy 32 bytes of a palette from the bank8 table $7400 (ptr=*($7400+A*2), data=ptr+$7400) to (DE). $0B3F = the same lookup but fade one step toward it.
 0502  nt_load_rle  (see Part IV §3) RLE name-table loader; reimplemented as extract/decomp.LoadRLE. Used by both the title ($0C20, bank5 map) and the world map ($0C7A, bank5 map).

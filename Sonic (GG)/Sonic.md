@@ -462,28 +462,54 @@ very same Start bit during the logo.
 
 ## 3. The world map (decoded by tracing, not the oracle)
 
-The type-2 screen the dispatcher loads at `$0C7A` is the **island world map**. It is
-reconstructed here entirely from reading that loader — no emulator:
+The world map is reconstructed here entirely from reading the loader code — no
+emulator. A map loader (e.g. `$0C7A`) does three things, each traceable:
 
-- background tiles: `$0406`-decompressed from `(bank $0C, $171A)`;
-- name table: a **stored RLE map** in bank 5, loaded by `$0502` (`$6C6D`, the codec of
-  Part IV §3) — `extract/decomp.LoadRLE` reimplements it;
+- background tiles: `$0406`-decompressed from a `(bank $0C, addr)` block;
+- name table: a **stored RLE map** in bank 5, loaded by `$0502` (the codec of Part IV
+  §3) — `extract/decomp.LoadRLE` reimplements it;
 - palette: `$0AAB` loads a black start (index `$16`) and **fades toward** the real
-  targets — background index `$0C`, sprite index `$0D` — from the bank-8 table.
+  targets from the bank-8 table.
 
-[`extract/cmd/scenemap`](extract/cmd/scenemap) replays exactly those steps and composes
-the screen:
+[`extract/cmd/scenemap`](extract/cmd/scenemap) replays exactly those steps.
 
-![Sonic world map — decoded statically from the $0C7A loader (tiles, the $0502 RLE name table, palette $0C/$0D)](rendered/worldmap.gg.png)
+### Two maps, switched by an upcoming-level countdown
 
-The island, the ruined city on the peak, the lake and cliffs are the shared background;
-the **route and the zone name** are *not* in that map — they are a per-scene overlay.
-`$0C7A`'s tail calls the string blitter `$0612` with per-scene data from the table at
-`$1163`, and reads map marker positions from `$0EA8` into `$D211`; each map scene
-(9–11) lights a different zone. The blink is a periodic redraw of that overlay (the
-prompt and the route share the `$0612` path of Part IV §3). So the "blinking route" is
-the same mechanism as the blinking `PRESS START` — a name-table run repainted on a
-timer — just driven by per-scene position data.
+There are **two** world-map screens — a different tile set *and* a different stored
+map for each — and the engine picks between them by the level you are heading into.
+The selector is the byte `$D279`, which is **decremented after each level** (bank 1
+`$46F9`: `DEC A / LD ($D279),A`), so it is a *countdown* toward the final stage. Every
+map loader branches on it the same way:
+
+```
+LD A,($D279) / CP $06 / JR C,zoomed      ; <6 left -> zoom in; >=6 -> wide
+```
+
+This exact test appears at `$2006`, bank 1 `$466A`, and bank 2 `$BF0D`. Because
+`$D279` counts down, **early** levels (count ≥ 6) show the **wide** island and **late**
+levels (count < 6) **zoom in** on the mountain-top goal — which is the progression you
+see in play. The two variants compose like this (both rendered statically by `scenemap`):
+
+| variant | branch | tiles | bank-5 map | palette |
+|---------|--------|-------|------------|---------|
+| wide island | `$D279 ≥ 6` | `(bank $0C,$0000)` | `$6F86` + `$716A` | bg `$0A` / spr `$0B` |
+| zoomed peak | `$D279 < 6` | `(bank $0C,$171A)` | `$6C6D` + `$6DC3` | bg `$0C` / spr `$0D` |
+
+![Wide-angle island map — shown for the early levels ($D279 >= 6)](rendered/worldmap_wide.gg.png)
+
+![Zoomed mountain-top map — shown for the late levels ($D279 < 6)](rendered/worldmap_zoom.gg.png)
+
+It is the same island both times: the castle/ruin on the peak of the wide shot is the
+detailed city that fills the zoomed shot. Decoding each from its own tile set and
+`$0502` map confirms the switch is a genuine two-asset branch, not a camera move.
+
+### The blinking route
+
+On either map the **route and the zone name** are not in the stored map — they are a
+per-scene overlay. A map loader's tail calls the string blitter `$0612` with per-scene
+data (the `$1163`/`$0EA8` tables → `$D211`), so each stop lights a different zone. The
+blink is that overlay repainted on a timer — the same `$0612` name-table-run mechanism
+as the blinking `PRESS START` (Part IV §3), just driven by per-scene position data.
 
 ## 4. How far pure tracing reaches — and the level-load frontier
 
