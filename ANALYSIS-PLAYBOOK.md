@@ -209,7 +209,59 @@ for on any unknown format:
 
 ---
 
-## 5. When static analysis legitimately stops — and what then
+## 5. Reversing behaviour, not just formats
+
+Decoding a *format* (entropy → crib → emulate → round-trip, §4) and understanding
+what the code *does* (physics, state machines, game logic) are different modes — and
+the second one bit hardest here. The Marble Madness slope/physics trace took many
+wrong turns before it converged. What those wrong turns taught, in order of how much
+time each would have saved:
+
+- **Trace from the effect backwards; never infer behaviour from the shape of data.**
+  The move that finally worked for "what makes the marble roll" was to find the exact
+  instruction that *writes the velocity*, then walk backward to its inputs and forward
+  to where that data is built. Staring at a byte array and guessing ("this looks like
+  a heightmap / these must be the slopes") produced a string of confident, wrong
+  stories. If you cannot name the instruction and address that causes the effect, you
+  are guessing — say so, or go find it.
+- **Decode a concrete instance's real data early; it settles arguments code-reading
+  can't.** Hours of reasoning about "the structure" went in circles; decoding one
+  actual course's bytes (66 static slope records vs 13 dynamic scripts) settled the
+  whole static-vs-scripted question in minutes. Look at the data the code actually
+  consumes, for a real instance, not just the code that consumes it.
+- **Don't generalise one proven path to the whole system.** A mechanism proven for one
+  case (the scripted/dynamic regions, pulling toward a reference point) got written up
+  as *the* answer for all slopes — but the static slopes ran an entirely separate code
+  path (a height-field gradient). Always ask: does the case I care about actually flow
+  through the path I just proved? A plain user question — "is a static slope just a
+  one-frame animation?" — exposed the over-reach. Re-derive for each case.
+- **Same address/offset ≠ same thing.** One work buffer (`$CCA`) was reused across
+  phases at three different strides; one struct offset (`+$1A`) meant different things
+  on the marble vs a region vs an enemy. A raw "who writes offset N" scan is therefore
+  contaminated — confirm the *base register's identity* (is this pointer really the
+  marble?) before trusting a hit.
+- **Count from the bound, not by eye.** A dispatch's range check *is* the table size:
+  `CMPI.l #$C` ⇒ 12 entries (states 0–11). Reading one slot past the table invented a
+  phantom "13th state."
+- **A visualisation is a hypothesis test — check it against ground truth.** The
+  height-field render became trustworthy only once it reproduced a *known* image (the
+  course tilemap) feature-for-feature; doing that comparison caught a real
+  horizontal-mirror bug and a profile-indexing error (visible as speckle) that
+  code-reading alone had missed.
+- **The user's hands-on knowledge outranks a plausible code reading.** "Dizzy" was
+  asserted as a death/respawn animation straight from the code; the user, from
+  *playing the game*, knew it is a recoverable stun. State game behaviour as fact only
+  once it is traced; otherwise flag it as inference and defer to the domain expert in
+  the loop.
+- **Keep generated tools deterministic, and verify the artefact, not the run.**
+  Map-iteration order made PNG output change run-to-run; a `head` on a regenerate
+  SIGPIPE-killed it mid-way and left stale files. `git diff`/`status` on the *committed
+  output* caught both — sort before emitting, and check what actually changed, not just
+  that the command exited 0.
+
+---
+
+## 6. When static analysis legitimately stops — and what then
 
 Some state is simply not on the medium: it is produced by the booted machine.
 Marble Madness binds its decryption key to the host **Kickstart ROM** exception-
@@ -239,7 +291,7 @@ effort to fix, because it turns a one-shot guess into repeatable measurement.
 
 ---
 
-## 6. A starting checklist for a new, unknown image
+## 7. A starting checklist for a new, unknown image
 
 1. `file`/`hexdump` the image; measure size; compute an entropy profile across
    it (flat high-entropy regions = packed/encrypted; structured low-entropy =
@@ -256,6 +308,11 @@ effort to fix, because it turns a one-shot guess into repeatable measurement.
    you can't fully reason about, and to validate every reimplementation.
 7. Only when a value is provably not on the medium, escalate to ROM-boot, then
    known-plaintext, then a self-built debugger — capturing the minimum.
-8. Write each part up with byte/asm examples as you confirm it. Keep raw images
+8. When the question turns from *format* to *behaviour* (what does this code do?),
+   switch modes (§5): trace from the effect — the write to the field that matters —
+   backward to its inputs and forward to its data source; anchor every claim to an
+   instruction + address; decode one concrete instance's data to check the story; and
+   don't assume one proven path covers every case.
+9. Write each part up with byte/asm examples as you confirm it. Keep raw images
    and copyrighted ROMs out of git; keep every result one command from
    reproducible.
