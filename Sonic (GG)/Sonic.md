@@ -50,6 +50,7 @@ addresses (16-bit, `$0000`–`$FFFF`) unless a *file offset* is called out; byte
   - [3. The opening screens: how they are built](#3-the-opening-screens-how-they-are-built)
   - [4. Level maps: how a zone is stored and drawn](#4-level-maps-how-a-zone-is-stored-and-drawn)
 - [Part V — Game mechanics](#part-v--game-mechanics)
+  - [1. Objects](#1-objects)
 - [Appendix A — Toolchain and reproduction](#appendix-a--toolchain-and-reproduction)
 
 ---
@@ -937,6 +938,8 @@ indexes a **bounding-box** table at `$2560` by `type` (8 bytes each, valid types
 for each type's *size*; the **behaviour** is dispatched by a separate table at `$24B2`
 (below).
 
+## 1. Objects
+
 ### Object types — the master dispatch
 
 The behaviour dispatch is now found, and the earlier lead (`$4740`) was a red herring.
@@ -983,6 +986,24 @@ slot:
 Unnamed but present (handlers confirmed, behaviour not yet identified): `$05` b1 `$5FD7`,
 `$0A`–`$0D` b1, `$0B` b1 `$69ED`, `$11` b1 `$6F61`, `$13`–`$24` (mostly bank 2),
 `$27`–`$2B`, `$2E`–`$4C`, `$52`–`$56`. The full table is dumped by inspecting `$24B2`.
+
+### Horizontal moving platform (`$0F`)
+
+The handler (bank 1 `$6DCA`) is a tidy worked example of how a behaviour reads off the
+code. The platform keeps a 16-bit **phase counter** (`IX+18/19`) and a **direction byte**
+(`IX+20`) in its object record. Each frame it increments the counter and adds `±1` to its
+integer X (`IX+2/3`) — so it glides at **exactly 1 pixel per frame**, with no sub-pixel
+fraction. When the counter reaches **`$A0` = 160**, it resets to zero and toggles bit 0 of
+the direction byte, flipping the sign. The result is a symmetric oscillation about the
+placed position: **160 px (5 macro-blocks) out and back**, reversing every **160 frames
+(~2.7 s at 60 Hz)**, starting rightward (the record is zero-cleared at spawn). Sonic is
+carried along explicitly: the handler runs a contact test (`($D215) = $0806`, `CALL
+$3328`); if he is standing on top it glues him on (`CALL $7CF5`) and then adds the
+platform's per-frame `±1` *directly to Sonic's X* — which is `($D3FF)`, because Sonic is
+object 0 at `$D3FD` and `+2` is his X word — so he slides 1:1 with the platform. The whole
+ride is skipped when `($D409)` is negative (Sonic not in a standable state, e.g.
+mid-jump). The platform's artwork is chosen by zone (`$D2D5`): zone 0 → `$6910`, zone 1 →
+`$6930`, else `$6922` — same motion, different sprite per zone.
 
 ### Sonic's spawn and respawn
 
