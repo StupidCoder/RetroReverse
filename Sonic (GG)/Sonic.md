@@ -718,9 +718,11 @@ This was the one part the oracle could **not** brute-force. The machine model lo
 draws a level, but it is not cycle-accurate enough to play one: holding Right+Jump makes
 Sonic run, yet he stalls roughly a quarter of the way in, so no amount of scrolling
 reveals the whole map. The only way to the full level was to decode the storage formats
-and expand them statically — which is what follows. (Each format was still *checked*
-against the oracle: the decompressed map is asserted byte-for-byte against the live
-machine's output, and the tiles/palette are the real ones the level loaded.)
+and expand them statically — which is what follows. **Everything below comes from ROM**:
+the map, the block→tile table, the tile graphics and the palette. The oracle is kept only
+to *validate* — booting each level and checking the from-ROM tiles and palette against the
+loader's live VRAM/CRAM. They match except for a handful of animated water tiles and a
+three-colour palette cycle, which a static frame cannot represent.
 
 ### The pipeline
 
@@ -795,11 +797,14 @@ loaded tile set.
 
 ### The tile graphics and palette
 
-The actual 8×8 tile patterns are compressed with the `$0406` codec (§2) and
-`$0406`-decompressed into **VRAM `$0000`** at level load (a second block goes to `$2000`
-for sprites). The block tile table indexes them as plain 0…255 tile numbers. The
-**palette** is the standard 16-colour background set in CRAM 0–15 (§1) — light blue sky,
-greens, the orange/brown ground.
+The actual 8×8 tile patterns are compressed with the `$0406` codec (§2). The descriptor's
+tile-set pointer locates the compressed set (file `$30000` + word, banks `$0C`–`$0F`);
+`decomp.Decompress` inflates it to the **256 background tiles** the block table indexes as
+plain 0…255 tile numbers. The **palette** is loaded by index: the descriptor's BG palette
+index (byte +29 → `$D22C`) is resolved by `load_palette` (`$0586`) through a per-index
+offset table at bank 8 `$7400` to a 32-byte (16-colour) palette; `romPalette` reads the
+same. So both the tiles and the palette come straight from ROM — light blue sky, greens,
+the orange/brown ground.
 
 ### Where it all lives (Zone 0, Green Hills Act 1)
 
@@ -810,14 +815,15 @@ greens, the orange/brown ground.
 | Decompressed map | — | RAM `$C000`, 4096 B | 16 rows × 256 cols, row-major, stride 256 |
 | Block tile table | bank 4 `$10000` (z80 `$4000`) | base in `$D249` | 16 B/block = 4×4 tile indices, row-major |
 | Block attribute table | bank 4, via `$343D[zone]` | base in `$D211` | 1 B/block, bit 7 = priority |
-| BG tile graphics | compressed in a level bank | VRAM `$0000` | 4-byte-unit LZ, `$0406` (§2) |
-| BG palette | a palette bank | CRAM 0–15 | 12-bit BGR (§1) |
+| BG tile graphics | bank `$0C` `$32ED5` (file `$30000` + word) | → 256 tiles | 4-byte-unit LZ, `$0406` (§2) → `decomp.Decompress` |
+| BG palette | bank 8, via `$7400`[index] (index = descriptor +29) | CRAM 0–15 | 12-bit BGR (§1) → `romPalette` |
 
 A block is 32×32 px (4×4 tiles). The decompressed map is always a fixed **16×256-block**
 grid, but only the first columns are reachable in-game — the **played width** is the
 right scroll bound `$D26F`/32 (198 blocks = 6336 px for Act 1); the columns beyond it are
-off-level filler. Clipped to the played width and expanded through the table above, with
-the real tile set and palette, the render reproduces the level exactly:
+off-level storage padding, cropped (no content trimming — legitimate empty space within
+the width is kept). Expanded through the table above — every byte from ROM — the render
+reproduces the level exactly:
 
 ![Green Hills Act 1 — the full level, reconstructed from the ROM block-index map, block tile table and tile graphics](rendered/level_greenhills_act1_overview.png)
 
@@ -853,12 +859,12 @@ by the same table, the other zones) is reachable from the ROM alone.
 ### Every zone — and a surprise: the map isn't always 16×256
 
 The same table has 18 entries (6 zones × 3 acts), and `cmd/levelmap` renders them all (to
-`rendered/level_<zone>_act<N>.png`). The zones — Green Hills, Bridge, Jungle, Labyrinth,
-Scrap Brain, Sky Base — each have their own tile set, block table and palette (shared by
-the zone's three acts, exactly as for Green Hills); only the per-zone tile set differs. The
-machine model loads each zone's graphics by forcing the act number `$D238` during the
-level load (injecting a *later* act of a zone doesn't bring its graphics up cleanly, but
-because a zone shares one tile set, loading its first act suffices).
+`rendered/level_<zone>_act<N>.png`), entirely from ROM. The zones — Green Hills, Bridge,
+Jungle, Labyrinth, Scrap Brain, Sky Base — each have their own tile set and block table,
+shared by the zone's three acts; the palette is usually shared too, except **Sky Base**,
+whose three acts use the same tile set with three *different* palettes. The validation
+oracle is loaded once per distinct (tile set, palette) combination, forcing the act number
+`$D238` during the load.
 
 The surprise is the map **shape**. The decompressed map is always 4096 bytes, but it is
 *not* always 16×256: the expander reads a **stride** from `$D232` (`$0938` selects 256 /
