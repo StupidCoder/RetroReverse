@@ -819,11 +819,12 @@ the orange/brown ground.
 | BG palette | bank 8, via `$7400`[index] (index = descriptor +29) | CRAM 0–15 | 12-bit BGR (§1) → `romPalette` |
 
 A block is 32×32 px (4×4 tiles). The decompressed map is always a fixed **16×256-block**
-grid, but only the first columns are reachable in-game — the **played width** is the
-right scroll bound `$D26F`/32 (198 blocks = 6336 px for Act 1); the columns beyond it are
-off-level storage padding, cropped (no content trimming — legitimate empty space within
+grid, but only the level's own width is reached in-game. `$D26F` is the **maximum camera
+position** (the screen's top-left), so the level is visible up to **one screen (160 px = 5
+blocks) past it** — the width is `$D26F/32 + 5` (203 blocks for Act 1). Columns beyond that
+are off-level storage padding, cropped (no content trimming — legitimate empty space within
 the width is kept). Expanded through the table above — every byte from ROM — the render
-reproduces the level exactly:
+reproduces the level:
 
 ![Green Hills Act 1 — the full level, reconstructed from the ROM block-index map, block tile table and tile graphics](rendered/level_greenhills_act1_overview.png)
 
@@ -887,17 +888,28 @@ array at RAM `$D3FD` — 32 records of 26 bytes, type at `+0` and the world posi
 spawn pointer `($D217)`.
 
 For Green Hills Act 1 this reads out cleanly: **Sonic spawns at block (5, 8)** — the left
-edge, on the surface — and there are 26 placed objects. Eight are type `$50` and one `$51`
-(rings/items, scattered along the ground); the rest are enemies and level features. The
-earliest enemies sit at **block 18** (type `$10`, on a ledge) and **block 29** (type `$01`,
-on the ground) — the latter is the walking **crab**. Overlaying the object positions on the
-render shows exactly where each sits ([`rendered/level_greenhills_act1_objects.png`](rendered/level_greenhills_act1_objects.png)).
+edge, on the surface — and there are 26 placed objects. The known types: `$08` = **crab**
+(an enemy, 4 of them), `$10` = **beetle**, `$01`/`$02`/`$03` = bonus items, `$09` =
+swinging platform, `$0F` = horizontal moving platform. Eight `$50` and one `$51` (here
+labelled `?`) are *not* rings — the rings are baked into the block map (below). Overlaying
+the positions on the render shows where each sits, with a marker at the spawn
+([`rendered/level_greenhills_act1_objects.png`](rendered/level_greenhills_act1_objects.png)).
 
-*Still open.* Mapping each **type** to its behaviour and sprite (the object handlers), and
-the live engine state. The machine model can place the objects but isn't cycle-accurate
-enough to *run* them — Sonic falls through the floor instead of running the level — so
-watching an enemy walk, and confirming a type by its on-screen sprite, needs the handler
-decode rather than the oracle. That is the body of Part V.
+Each object **type** indexes an 8-byte sprite descriptor at `$2560` (the per-frame update
+`$2BFB` reads it; valid types are `< $57`). That gives the sprite *class* — `$50` shares
+the beetle's descriptor and `$51` the bonus-item descriptor — but not yet the behaviour.
+
+*A note on the rings.* The fully-static render does **not** show rings, because the rings
+are baked into the block map as blocks (121–123) that reference tiles **252–255**, and
+those tile slots are *empty in the base tile set* — the game loads the spinning-ring
+animation frames into them at runtime (the same is true of the water-surface tiles 12–15).
+A static frame uses the base tiles, so the ring/water slots render blank. This is the same
+animation that the validation flags (a handful of cycling tiles + a 3-colour palette cycle).
+
+*Still open.* Mapping each **type** to its behaviour (the object handlers). The machine
+model can place the objects but isn't cycle-accurate enough to *run* them — Sonic falls
+through the floor instead of running the level — so watching an enemy walk needs the
+handler decode rather than the oracle. That is the body of Part V.
 
 # Part V — Game mechanics
 

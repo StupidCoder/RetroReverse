@@ -134,10 +134,12 @@ func main() {
 		palSame := matchColors(pal, v.cram, 16)
 
 		// --- render, all from ROM. The map is a (4096/stride) x stride grid; small stride =
-		// a tall vertical level. block(row,col) = map[row*stride + col]. The level is width
-		// (= $D26F/32) columns wide x the full grid height (4096/stride) rows; the columns
-		// beyond width are off-level storage padding and are cropped (no content trimming). ---
-		cols := clampi(a.widthBlk, 1, a.stride)
+		// a tall vertical level. block(row,col) = map[row*stride + col]. $D26F is the max
+		// camera position (the screen's top-left), so the level is visible up to one screen
+		// (160 px = 5 blocks) PAST it; the level width is therefore $D26F/32 + 5 columns. The
+		// full grid height (4096/stride) already spans the camera's vertical range + a screen. ---
+		const screenBlk = 5 // GG visible width 160 px / 32 px-per-block
+		cols := clampi(a.widthBlk+screenBlk, 1, a.stride)
 		rows := 4096 / a.stride
 		img := renderMap(rom, mp, tiles, pal, a.stride, cols, rows, a.blkTable)
 		writePNG(filepath.Join(outdir, "level_"+a.name+".png"), img)
