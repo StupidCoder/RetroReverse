@@ -761,9 +761,13 @@ for a raw byte stream:
 
 It is reimplemented as [`extract/decomp.LoadMapRLE`](extract/decomp/nametable.go) and
 verified byte-perfect against the live decompressor's `$C000` output. At 1926 → 4096
-bytes it is a modest 2.1×, because the map is mostly long runs of sky (block 0) and
-ground (block 1) — the design is sparse on purpose; trees, rings and flowers are *objects*
-laid on top, not blocks.
+bytes it is a modest 2.1×, because most of the map is long runs of sky (block 0) and
+ground fill (block 1). The **scenery is part of the block map**, though: the hills, palm
+trees, flowers and ring graphics in the render below are all drawn from blocks — that
+surface detail is exactly what the run-length coding can't collapse, and why the ratio is
+2.1× rather than higher. The block map *is* the whole static scene. What it does **not**
+contain is the **object** layer — the moving, interactive entities (Sonic, enemies, and
+whatever the game tracks for collection and collision); see the note after the render.
 
 ### Blocks → tiles (bank 4, `$10000`)
 
@@ -818,11 +822,13 @@ and palette, reproduces the entire level:
 *(Scaled to fit; the full-resolution 8192×512 render is
 [`rendered/level_greenhills_full.png`](rendered/level_greenhills_full.png).)*
 
-*Still open.* The **object** layer — rings, the spring-loaded palm trees, flowers,
-enemies and Sonic himself are sprites/objects placed over the terrain, with their own tile
+*Still open.* The **object** layer. The scenery above (trees, flowers, rings) is baked
+into the block map, but the *interactive* world is not: Sonic, the enemies, and whatever
+the game tracks for ring collection and collision are sprites/objects with their own tile
 format and per-act data (the `$3282` `scroll_draw` path and the descriptor's per-act
-pointers), not part of the block map above. That, and the other zones' descriptors, are
-Part V.
+pointers). A ring's graphic is in the blocks; whether a collectible ring is *also* an
+object placed at the same spot is part of decoding that layer. That, and the other zones'
+descriptors, are Part V.
 
 # Part V — Game mechanics
 

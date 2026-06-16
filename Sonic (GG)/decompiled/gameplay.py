@@ -152,8 +152,11 @@ def block_addr(index):
 # whole Green Hills Act 1 (sky/clouds, palms, flowers, rings, checkered ground, pits).
 #
 # So the ROM map is the COMPRESSED source in bank 5; the live, decoded map is the
-# row-major $C000 window streamed as you scroll — confirming the sparse design (sky is
-# block 0 and dominates; trees/flowers/rings are objects, not blocks).
+# row-major $C000 window streamed as you scroll. Most of it is sky (block 0) + ground
+# (block 1) runs, but the SCENERY is baked into blocks too: the palm trees, flowers and
+# ring graphics in the render all come from the block map (the render uses no object
+# layer). The separate OBJECT layer is the interactive world — Sonic, enemies, and
+# whatever tracks ring collection/collision — not the static scenery.
 
 MAP_WINDOW = 0xC000     # decompressed block-index map (row-major, stride 256)
 
