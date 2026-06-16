@@ -61,5 +61,37 @@ def scroll_draw():                              # $3282 — draw one revealed 2x
         addr += 0x40                             # next name-table row
 
 
+def advance_draw_x():                           # $29AC-$2A1D — horizontal scroll catch-up
+    """Move the 'drawn-up-to' X ($D254) toward the camera ($D3FF) by <= 8 px this frame.
+
+    This is what answers "why every 8 px, not 16?": the engine doesn't step block by
+    block. Each frame it nudges the drawn position toward the camera by at most one tile
+    (8 px) — clamped to 8 unless a fine-scroll flag asks for 1 — and scroll_draw then
+    blits the 2x2 block straddling the freshly-exposed tile edge. So the *draw cadence*
+    is the 8-px catch-up step (tile resolution, capped to bound per-frame VRAM work),
+    while the 16-px macro-block is just the *source unit* $D2AF points at. A given block
+    is therefore touched at both of its tile edges — a small redundancy traded for not
+    having to track block parity against the camera.
+    """
+    camera = memw(0xD3FF)
+    drawn = memw(0xD254)
+    fine = mem.iy_bit(5, 5)                      # BIT 5,(IY+5): step 1 px instead of 8
+    if drawn + memw(0xD259) < camera:            # camera is ahead -> scroll right
+        gap = camera - (drawn + memw(0xD25B))
+        if gap <= 0:
+            return
+        step = 1 if fine else min(gap, 0x08)
+        mem_setw(0xD254, drawn + step)           # catch up by <= 8 px
+    elif drawn > camera:                         # camera is behind -> scroll left
+        gap = drawn - camera
+        step = 1 if fine else min(gap, 0x08)
+        mem_setw(0xD254, drawn - step)
+
+
+def mem_setw(a, v):
+    mem[a] = v & 0xFF
+    mem[a + 1] = (v >> 8) & 0xFF
+
+
 def tile_stream():
     pass    # $31BC — stream level tiles (3bpp -> 4bpp); separate from the map draw
