@@ -121,6 +121,11 @@ type Machine struct {
 	// Start; port $DC is the D-pad/buttons (the game masks $7F). Set bits low to press.
 	Pad00, PadDC byte
 
+	// When Sample is set, RunFrame tallies the PC after every instruction into PCHist —
+	// a cheap profiler to see what code the machine is actually executing.
+	Sample bool
+	PCHist map[uint16]int
+
 	// VRAM write watchpoint: when WatchHi > WatchLo, every VRAM write whose address
 	// falls in [WatchLo,WatchHi) records the CPU's PC in WatchPCs (a histogram of how
 	// many bytes each routine wrote there). It answers "which code drew this part of
@@ -232,6 +237,9 @@ func (m *Machine) RunFrame() bool {
 			m.VDP.status |= 0x80
 		}
 		m.CPU.Step()
+		if m.Sample {
+			m.PCHist[m.CPU.PC]++
+		}
 		if m.CPU.Halted {
 			return false
 		}
@@ -245,6 +253,9 @@ func (m *Machine) RunFrame() bool {
 	// Give the interrupt handler room to run and ack (it clears the IRQ via IN $BF).
 	for i := 0; i < budget/2; i++ {
 		m.CPU.Step()
+		if m.Sample {
+			m.PCHist[m.CPU.PC]++
+		}
 		if m.CPU.Halted {
 			return false
 		}

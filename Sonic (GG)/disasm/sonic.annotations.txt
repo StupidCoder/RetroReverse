@@ -174,3 +174,16 @@
 #   bg, $73BB/$8432 objects) + the descriptor +13..+19 pointers lead to sub-systems or
 #   dense data, not a sparse block-index grid. Blocked: the one oracle capture is sky-heavy
 #   (correlation fails) and the simplified machine can't scroll (player physics frozen).
+
+# --- LEVEL MAP: fully decoded (oracle scrolled; rendered/level_map.png) ---
+# Made the oracle scroll (hold Right+Jump -> the player runs, $D3FF advances). The
+# real terrain draw is bank0 $0760/$0860 (NOT scroll_draw $3282 = objects only).
+0760  map_expand  read one column of the RAM block-index map, expand each block's 4 tiles, write name-table cells into the column buffer at RAM $D180. Map column address via $0938.
+0860  map_upload  upload the $D180 column buffer to the VDP name table via OUTI during vblank.
+0938  map_addr  compute a block-index map cell address: HL = $C000 + (row=$D252+B)*stride + (col=$D251+C). Stride chosen from $D232's top bits (16/32/64/128) or default 256.
+09C9  map_decompress  page bank 4 (+5) and fill the RAM map window at $C000 from the COMPRESSED level map in bank 4.
+# THE MAP = a RAM WINDOW at $C000, ROW-MAJOR stride 256: block = mem[$C000 + row*256 + col];
+# row vertical (0 top sky .. ~15 ground), col horizontal. Decompressed from bank 4 at load
+# and streamed as you scroll. block-defs = bank1 $7B99 (8-byte 2x2 name-table cells).
+# Verified by rendering the RAM map: sky / Green Hills surface / solid ground. So the
+# ROM map is the COMPRESSED source (bank 4); the live decoded map is this $C000 window.

@@ -20,6 +20,7 @@ import (
 	"image/png"
 	"os"
 	"path/filepath"
+	"sort"
 
 	"stupidcoder.com/tools/gamegear"
 )
@@ -79,14 +80,63 @@ func main() {
 	dump("inlevel")
 	chk(os.WriteFile(filepath.Join(outdir, "vram.bin"), m.VDP.VRAM[:], 0o644))
 	chk(os.WriteFile(filepath.Join(outdir, "cram.bin"), m.VDP.CRAM[:], 0o644))
+	ram := make([]byte, 0x2000)
+	for i := range ram {
+		ram[i] = m.Read(uint16(0xC000 + i))
+	}
+	chk(os.WriteFile(filepath.Join(outdir, "ram.bin"), ram, 0o644))
 
-	// Now hold Right (D-pad only, no Start) and watch the camera and map pointer.
-	m.PadDC = 0xF7 // Right pressed (bit 3 low)
-	for round := 0; round < 12; round++ {
-		run(30)
-		dump(fmt.Sprintf("%04d_right", frame))
+	// Hold Right + Jump and watch whether the scroll position EVER moves over a long run.
+	m.PadDC = 0xE7 // Right (bit3) + Button 1 (bit4) low
+	fmt.Printf("\nholding Right+Jump; watching scroll $D3FF / drawn $D254:\n")
+	for round := 0; round < 20; round++ {
+		run(100)
+		fmt.Printf("  frame %4d: D3FF=$%04X D254=$%04X cam=$%04X in(D203)=$%02X\n",
+			frame, word(0xD3FF), word(0xD254), word(0xD2AB), m.Read(0xD203))
+		if round == 3 { // a varied surface view, before Sonic sinks into the fill
+			snap(fmt.Sprintf("%04d_surface", frame))
+			chk(os.WriteFile(filepath.Join(outdir, "vram_scroll.bin"), m.VDP.VRAM[:], 0o644))
+			chk(os.WriteFile(filepath.Join(outdir, "cram_scroll.bin"), m.VDP.CRAM[:], 0o644))
+			// Which code writes the name table while actively scrolling?
+			m.Watch(0x3800, 0x3F00)
+			run(3)
+			type pc2 struct {
+				a uint16
+				n int
+			}
+			var h []pc2
+			for a, n := range m.WatchPCs {
+				h = append(h, pc2{a, n})
+			}
+			sort.Slice(h, func(i, j int) bool { return h[i].n > h[j].n })
+			fmt.Printf("  name-table writers while scrolling: ")
+			for i := 0; i < 14 && i < len(h); i++ {
+				fmt.Printf("$%04X(%d) ", h[i].a, h[i].n)
+			}
+			fmt.Println()
+			m.WatchPCs = nil
+		}
 	}
 	snap(fmt.Sprintf("%04d_right", frame))
+
+	// Profile one frame: what code is the machine actually running in the level?
+	m.PCHist = map[uint16]int{}
+	m.Sample = true
+	m.RunFrame()
+	m.Sample = false
+	type pc struct {
+		a uint16
+		n int
+	}
+	var hot []pc
+	for a, n := range m.PCHist {
+		hot = append(hot, pc{a, n})
+	}
+	sort.Slice(hot, func(i, j int) bool { return hot[i].n > hot[j].n })
+	fmt.Printf("\nhottest PCs in one in-level frame (where the CPU spends time):\n")
+	for i := 0; i < 16 && i < len(hot); i++ {
+		fmt.Printf("  $%04X x%d\n", hot[i].a, hot[i].n)
+	}
 }
 
 func scale(src *image.Paletted, n int) *image.Paletted {

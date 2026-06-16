@@ -115,21 +115,29 @@ def block_addr(index):
 
 
 # ===========================================================================
-# WALL — the terrain block-index MAP encoding (Part III/IV frontier)
+# THE LEVEL MAP — fully cracked (rendered/level_map.png)
 # ---------------------------------------------------------------------------
-# Decoded so far (verified): the 16-wide 4bpp tile sheet; the block-def table above
-# (and a compact 4-byte/block copy at bank 4 $10000); scroll_draw blitting one block;
-# the 8-px catch-up cadence (advance_draw_x); and that the map is SPARSE (block 0 sky
-# dominates) with objects (trees/flowers) drawn separately and a fixed parallax bg
-# pattern ($7BC1).
+# (Making the oracle scroll — hold Right+Jump so the player actually runs — unblocked
+# this: with a real ground-heavy capture and the VRAM watchpoint, the true terrain draw
+# turned out to be at bank 0 $0760/$0860, NOT scroll_draw $3282, which only draws
+# OBJECTS. The pipeline:)
 #
-# NOT cracked: where the per-position terrain block INDICES are stored in ROM and how a
-# column is addressed. Every $D2AF-setter traced ($7B42 bg pattern, $73BB/$8432 objects)
-# and the level-descriptor pointers (+13..+19) lead to sub-systems or dense tile/def
-# data, not a sparse block-index grid. The two ways to finish are blocked: the one oracle
-# capture is sky-heavy (sky runs match everywhere, defeating correlation), and the
-# simplified machine can't scroll to get a ground-heavy capture (player physics don't
-# advance). So this last layer needs either a higher-fidelity oracle or a deep trace of
-# the level-load full-screen terrain draw — a genuine wall for the static+single-capture
-# method used here.
-# ===========================================================================
+#   1. The block-index MAP is decompressed from bank 4 into a RAM WINDOW at $C000 at
+#      level load ($09C9 pages bank 4, fills $C000). It is ROW-MAJOR, stride 256:
+#         block_index = mem[$C000 + row*256 + col]
+#      (the address routine $0938 picks the stride from $D232; default = 256.) Row is
+#      vertical (0 = top sky, ~15 = bottom ground), col horizontal. Verified by
+#      rendering it: sky on top, Green Hills surface terrain, solid ground below.
+#   2. The expander $0760 reads the RAM map column, looks up each block's 4 tiles, and
+#      writes the name-table cells into a column buffer at RAM $D180.
+#   3. $0860 uploads the $D180 buffer to the VDP name table (OUTI) during vblank.
+#   4. block_addr/$7B99 is the block-def table (8-byte name-table-ready 2x2 blocks).
+#
+# So the ROM map is the COMPRESSED source in bank 4; the live, decoded map is the
+# row-major $C000 window streamed as you scroll — confirming the sparse design (sky is
+# block 0 and dominates; trees/flowers/rings are objects, not blocks).
+
+MAP_WINDOW = 0xC000     # decompressed block-index map (row-major, stride 256)
+
+def map_block(col, row):
+    return mem[MAP_WINDOW + row * 256 + col]
