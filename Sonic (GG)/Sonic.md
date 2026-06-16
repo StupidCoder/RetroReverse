@@ -1265,33 +1265,58 @@ action `$02`), and — the nice touch — when the count rolls past 100 grants a
 collecting one is a single byte-write back into the `$C000` window; there is no separate
 ring object array.
 
-### Jumping and gravity (in progress)
+### Jumping and gravity
 
-The vertical motion runs in a parallel path (around `$4D60`) that writes Sonic's Y velocity
-`($D407…)`. Pressing jump on the ground calls **`$5300`**, which seeds a hold-timer
-`($D288) = $10` and plays the jump sound — the **variable jump height** mechanism: while
-the button stays held and `$D288` counts down, the upward impulse `($D23C)` keeps being
-applied; once it's released or the timer expires, the path switches to applying the downward
-constant `($D23E)` — gravity — instead. (This is also why the on-ground vs ball constant
-sets carry different `$D23C`/`$D23E`: a roll-jump pushes off differently.) The exact timer
-decay and the gravity/terminal numbers are still being read.
+Walking the **`$4D60` vertical path** in full: it is the **Y-velocity integrator** — gravity
+and jumping, writing Sonic's Y velocity `($D407…)`. Pressing jump on the ground calls
+**`$5300`**, which seeds a hold-timer `($D288) = $10` and plays the jump sound — the
+**variable jump height** mechanism: while the button stays held and `$D288` counts down, the
+upward impulse `($D23C)` keeps being added (`$4D9D`); once released or the timer expires, the
+path applies the downward constant `($D23E)` — **gravity** — each frame instead (`$4DCF` →
+`$4DED ADD HL,DE` → store). That is the whole vertical force model. What this pass settles is
+a negative: **the floor probe is *not* in this path** — `$4D60` only changes the *velocity*;
+nothing here samples terrain or snaps Y.
 
-### The solid-ground sensor — still the frontier
+### Springs, spikes and conveyors — the special-terrain dispatch
 
-This was the target of this pass, and the honest result is that it is **not** one of the
-tidy routines the rest of the section enjoys. What's now known: the shared sampler `$30D5`
-is called from only a handful of sites in the player code, and they are *not* the floor —
-they are ring pickup (`$4E45`→`$5000`) and a stateful-block gimmick (`$5B0D`/`$5B4A`, which
-toggles a block between `$89`/`$8A` and spawns a type-`$2E` object — a Bridge-zone plank or
-similar). The **on-ground state is a bit in `IX+24`** (the roll handler requires it), set
-via read-modify-write masks rather than a `SET`/`RES` instruction, which is why it doesn't
-grep out. So the per-frame *floor probe and Y-snap* lives in the flag-gated vertical
-sub-handlers (the `$4D60` path and the routines it calls), and isolating it — plus slopes,
-ground-rotation and the fixed-point scale — is the next focused step. I'd rather flag it
-open than name a wrong routine.
+The terrain *interaction*, though, is now decoded. Each frame the handler samples the block
+at Sonic's feet (`$30D5`, offset `(8, 16)`), and — after paging **bank 5** into slot 2
+(`$4BEF`) — maps that block index through a **per-zone table** to a *collision type*: a word
+pointer at bank 5 `$A200 + zone×2` gives the zone's table, indexed by the block index, giving
+a type `$00`–`$1C`; types `≥ $1D` mean "nothing special". The type then indexes a **29-entry
+handler table at `$5BE1`** and the handler runs (with bank 2 paged into slot 2 for its data).
+Decoding the Green Hills (zone 0) map and the handlers gives a clear picture — this is the
+springs/spikes/conveyor layer:
 
-Still to do: the floor probe / Y-snap, slopes and gravity numbers (above); the remaining
-unidentified handler slots in `$24B2`; scoring and the timer.
+| Type | Handler | Effect |
+|---|---|---|
+| `$00` | `$5759` | ordinary block — just clears the jump-recharge flag (`IX+24` bit 4) |
+| `$01` | `$5763` | **hurt** — calls `$2FD9` (spikes / hazard) |
+| `$02` | `$576B` | bounce (recomputes Y velocity, sound `$05`) |
+| `$03`/`$05` | `$57AC`/`$57F3` | **horizontal spring** — sets X velocity to ∓8 px/frame, sound `$04` |
+| `$04` | `$57CA` | **vertical spring** — sets Y velocity to **−12 px/frame** (up), sound `$04` |
+| `$06`/`$07` | `$5815`/`$582D` | **conveyor / slope drift** — adds a steady ±X to the sub-pixel position |
+
+Each spring/hazard is gated on which 16-px sub-cell of the 32-px block Sonic is in (e.g.
+`(IX+2)+8 AND $1F, CP …`), so only the active part of the block triggers. The `RST $28`
+values are the sound effects. This is a genuinely useful subsystem on its own — and it's the
+real terrain probe — but note it is keyed to *special* blocks: in Green Hills almost every
+block is type `$00`, which does **not** snap Y.
+
+### The plain solid-ground floor — still open
+
+So the honest bottom line of this pass: the vertical path is gravity/jump only, and the
+*special*-terrain probe (above) handles springs/spikes/conveyors — but the **plain
+solid-ground Y-snap** (stand on any ordinary ground block) is *still* not isolated, and I've
+now ruled out the obvious candidates: it is not the `$30D5` sample sites (rings, the special
+dispatch, a Bridge plank gimmick at `$5B0D`), and not the `$5BE1` type-`$00` handler (a
+no-op for Y). The **on-ground state is a bit in `IX+24`**, set via read-modify-write masks
+(not `SET`/`RES`, so it doesn't grep). The plain floor must therefore resolve through the
+block-definition attributes or a separate per-column mechanism I haven't pinned. I'd rather
+leave it open than name a wrong routine.
+
+Still to do: the plain floor probe / Y-snap and slopes; the remaining unidentified handler
+slots in `$24B2`; scoring and the timer.
 
 ---
 
