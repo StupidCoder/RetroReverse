@@ -1337,6 +1337,20 @@ object-update. It is generic over `IX`, so it serves every object, Sonic include
 So the model is precisely the one predicted: a per-block solidity/shape, a per-column height
 array for smooth slopes, and a per-shape angle for ground movement.
 
+The shape field is 6 bits, but the floor pointer table at `$3E7A` has only **48 entries**
+(`$00`–`$2F`) — shape 1's profile sits at `$3E7A + 48×2`, so the table ends there; values
+`$30`+ would read into the profile data. Rendering all 48 profiles as solid/empty block
+silhouettes (one column per byte, surface = the signed height, `$80` = no surface) makes the
+vocabulary obvious:
+
+![Collision height profiles](rendered/block_collision_profiles.png)
+
+Shape `$00` and `$18`–`$26` are empty (non-solid placeholders, marked `-`); `$01`–`$0A` are
+straight slopes of increasing steepness (½, full and double gradients, both directions);
+`$0B`–`$17` are gently curved surfaces (bumps and valleys — note the U-shaped dip at `$11`);
+`$27`–`$2C` are flats at various heights plus a peaked hill (`$2B`); and `$2D`–`$2F` are
+half/edge blocks. The figure is built by reading the profiles straight from `$3E7A` in ROM.
+
 > **Toolchain fix — `LD (IX+d),n` operand swap.** Chasing this floor snap, a value-capturing
 > write trace showed an instruction at `$4C75` (`LD (IX+20),$05`) writing the *wrong* address
 > and value. The cause was in `tools/z80`: `case 6 /*LD r,n*/ { c.setR(y, c.fetch()) }` — Go
