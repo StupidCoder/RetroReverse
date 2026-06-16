@@ -48,6 +48,7 @@ addresses (16-bit, `$0000`–`$FFFF`) unless a *file offset* is called out; byte
   - [1. The VDP formats](#1-the-vdp-formats)
   - [2. The graphics decompressor](#2-the-graphics-decompressor)
   - [3. The opening screens: how they are built](#3-the-opening-screens-how-they-are-built)
+  - [4. Level maps: how a zone is stored and drawn](#4-level-maps-how-a-zone-is-stored-and-drawn)
 - [Part V — Game mechanics](#part-v--game-mechanics)
 - [Appendix A — Toolchain and reproduction](#appendix-a--toolchain-and-reproduction)
 
@@ -227,8 +228,8 @@ there are both in this ROM).
 | 1 | `$04000` | 6.72 | game code (the default slot-1 bank; the most-paged of all) | traced (called) |
 | 2 | `$08000` | 6.43 | code / data (the default slot-2 bank) | paged ×9 |
 | 3 | `$0C000` | 5.50 | the **`RST` dispatcher** — opens with a `JP` table (`C3 …`) | traced (Part II §2) |
-| 4 | `$10000` | 5.96 | data (sparse, leading zeros) | inferred |
-| 5 | `$14000` | 5.89 | data | inferred |
+| 4 | `$10000` | 5.96 | the **block → tiles table** (16 B/block = 4×4 tile indices) + block attributes | traced (Part IV §4) |
+| 5 | `$14000` | 5.89 | **level data** — the act-descriptor table (`$5600`) + compressed block-index maps | traced (Part IV §4) |
 | 6 | `$18000` | 6.18 | a pointer / resource **table** (4-byte records) + data | inferred |
 | 7 | `$1C000` | 6.23 | data | inferred |
 | 8 | `$20000` | 5.58 | **graphics** — tile patterns + the palette pointer table (`$7400`) | traced (Part IV) |
@@ -544,11 +545,14 @@ reached by jump from this engine, not called from home code).
 So the honest verdict on doing it "without cheating": the opening — logo, title, the
 Start wait, and the world map — is **fully** recoverable by tracing, data and all. The
 launch *mechanism* is traced too (scene-script trigger → bank-3 dispatcher → the bank-1
-gameplay engine). What remains for the first level is the largest decode in the game:
-the one-time level loader and **Sonic's level format itself** — the compressed block
-map (drawn by `scroll_draw` from RAM), the block/chunk definitions, the 3-bitplane
-level tiles streamed by `$31BC`, and the object layout. Decoding those and rendering a
-level the way the world map was rendered is Part V's starting point.
+gameplay engine). What pure bank-0 tracing could not finish was the **level format**
+itself, because the engine that draws it runs from banked code the home disassembly
+can't follow. That decode is done in **Part IV §4**, with the Game Gear machine model
+as an oracle to pin the banked routines and tables: the compressed block-index map, the
+block → tiles table, and the tile graphics — enough to reconstruct a whole zone from the
+ROM. (One correction lands there: the terrain is drawn by the column expander `$0760`,
+*not* `scroll_draw` `$3282`, which handles objects.) The **object layout** is what is
+left for Part V.
 
 # Part IV — Graphics and data formats
 
@@ -556,7 +560,7 @@ Graphics on the Game Gear are two layers of problem: the fixed **VDP hardware
 formats** the data ends up in (§1), and the game-specific **compression** it is
 stored under in the ROM (§2). With both decoded we can take a routine that loads a
 screen and reproduce its pixels exactly — §3 does this for the first screen the
-console shows, as an end-to-end check.
+console shows, and §4 does it for a whole scrolling level, both as end-to-end checks.
 
 ## 1. The VDP formats
 
@@ -700,8 +704,125 @@ name-table scroll index (`$0E35`/`$4969`, ×10) and a frame countdown (`$472E`),
 screen selector. Mapping the actual attract script is Part III's job; the point here
 is the drawing, and the drawing is fully accounted for above.
 
-*Still open.* The sprite (object) tile format, the level map format (decompressed to
-RAM, drawn by `scroll_draw`), and the object data.
+## 4. Level maps: how a zone is stored and drawn
+
+The opening screens (§3) are single static pictures. A *level* is different: it is far
+wider than the screen, it scrolls, and it is built from a small alphabet of reusable
+**blocks** rather than per-cell tile numbers. Sonic stores a level as three nested
+layers — a compressed **block-index map**, a **block → tiles** table, and the **tile
+graphics** — plus a palette. Decoding all three lets us reproduce a whole level from the
+ROM alone; the result for Zone 0 (Green Hills Act 1) is the image at the end of this
+section, rendered by [`extract/cmd/levelmap`](extract/cmd/levelmap).
+
+This was the one part the oracle could **not** brute-force. The machine model loads and
+draws a level, but it is not cycle-accurate enough to play one: holding Right+Jump makes
+Sonic run, yet he stalls roughly a quarter of the way in, so no amount of scrolling
+reveals the whole map. The only way to the full level was to decode the storage formats
+and expand them statically — which is what follows. (Each format was still *checked*
+against the oracle: the decompressed map is asserted byte-for-byte against the live
+machine's output, and the tiles/palette are the real ones the level loaded.)
+
+### The pipeline
+
+```
+bank 5 compressed map ──$0A73 RLE──▶ RAM $C000 window ──$0760 expand──▶ name table ──$0860──▶ VRAM
+ (block indices)                      (16×256 block grid)   │ block→16 tiles               (one column
+                                                            ▼   (bank 4 table)               at a time)
+                                                       tile graphics in VRAM (bank-stored, $0406-decompressed)
+```
+
+A level is loaded by the resource loader at **`$199D`**, driven by a 40-byte
+**descriptor** for the act (the descriptor table is at bank 5 `$5600`, indexed by act
+number; see Part III). The loader reads a chain of `(address, length)` records out of
+the descriptor and, for each, pages the right bank and decompresses it: the **map** to
+RAM `$C000` (`$0A73`), then it records the **block tile table** address in `$D249`, then
+it `$0406`-decompresses the **tile graphics** into VRAM. So everything below is reachable
+from one descriptor.
+
+### The block-index map (`$0A73`)
+
+The map itself is a **run-length-compressed list of block indices**. For Zone 0 it lives
+in **bank 5, file `$17430`** (z80 `$7430`), is `$0786` = 1926 bytes, and decompresses to
+exactly **4096 bytes** — a **16-row × 256-column** grid, row-major with a 256-byte stride
+(`block = map[row*256 + col]`; the stride comes from `$D232`). Row is vertical (row 0 =
+top of the sky, row 15 = the bottom ground fill), column is horizontal. The decompressor
+`$0A73` writes this grid to the RAM window at **`$C000`**, where the engine reads it as it
+scrolls.
+
+`$0A73` is a small RLE codec, the same family as the `$0502` name-table loader (§3) but
+for a raw byte stream:
+
+- it keeps the previously written byte; a source byte **equal** to it triggers a **run**
+  — the duplicate is followed by a **count** byte and the value is emitted *count* more
+  times (the count is a `DJNZ` counter, so `$00` means **256**);
+- any other byte is a **literal**;
+- after a run the "previous byte" is re-armed so the next byte always starts fresh;
+- there is **no terminator** — decoding is bounded purely by the length (`BC`).
+
+It is reimplemented as [`extract/decomp.LoadMapRLE`](extract/decomp/nametable.go) and
+verified byte-perfect against the live decompressor's `$C000` output. At 1926 → 4096
+bytes it is a modest 2.1×, because the map is mostly long runs of sky (block 0) and
+ground (block 1) — the design is sparse on purpose; trees, rings and flowers are *objects*
+laid on top, not blocks.
+
+### Blocks → tiles (bank 4, `$10000`)
+
+Each block index expands to a **4×4 grid of 8×8 tiles** — a 32×32-pixel chunk — through a
+**block tile table** at **bank 4, file `$10000`** (z80 `$4000`, read with bank 4 paged
+into slot 1, which the expander's prologue at `$0726` arranges; the loader pointed `$D249`
+here). Each block is **16 bytes**, row-major 4 wide, so
+
+```
+tile(r, c) = rom[$10000 + index*16 + r*4 + c]      r, c ∈ 0…3
+```
+
+For example block `$01` (ground) is `02 03 02 03 / 03 02 03 02 / …` — the checkerboard;
+block `$00` (sky) is sixteen `00`s. The expander `$0760` reads one map column, looks up
+each block's tiles and writes name-table cells into a column buffer at RAM `$D180`, which
+`$0860` uploads to VRAM a column at a time as the camera crosses each 8-pixel boundary.
+(The index→offset arithmetic in `$0760` — `RLCA`×4 then `XOR` the high nibble — *looks*
+like a scramble but works out to exactly `index*16`.)
+
+A second per-block table, the **attribute** table (`$D211`, found via `$343D[zone]`, also
+in bank 4), gives one byte per block, of which only **bit 7** is used — a name-table
+**priority** bit. There is no per-block flip or palette select, so all terrain draws from
+the **background palette** and the pixels come entirely from the tile indices plus the
+loaded tile set.
+
+### The tile graphics and palette
+
+The actual 8×8 tile patterns are compressed with the `$0406` codec (§2) and
+`$0406`-decompressed into **VRAM `$0000`** at level load (a second block goes to `$2000`
+for sprites). The block tile table indexes them as plain 0…255 tile numbers. The
+**palette** is the standard 16-colour background set in CRAM 0–15 (§1) — light blue sky,
+greens, the orange/brown ground.
+
+### Where it all lives (Zone 0, Green Hills Act 1)
+
+| Data | Stored at | Runtime | Format |
+|---|---|---|---|
+| Act descriptor table | bank 5 `$15600` (z80 `$5600`) | — | 18 word-pointers → 40-byte descriptors (Part III) |
+| Compressed block-index map | bank 5 `$17430` (z80 `$7430`), 1926 B | → RAM `$C000` | `$0A73` RLE → 4096 B |
+| Decompressed map | — | RAM `$C000`, 4096 B | 16 rows × 256 cols, row-major, stride 256 |
+| Block tile table | bank 4 `$10000` (z80 `$4000`) | base in `$D249` | 16 B/block = 4×4 tile indices, row-major |
+| Block attribute table | bank 4, via `$343D[zone]` | base in `$D211` | 1 B/block, bit 7 = priority |
+| BG tile graphics | compressed in a level bank | VRAM `$0000` | 4-byte-unit LZ, `$0406` (§2) |
+| BG palette | a palette bank | CRAM 0–15 | 12-bit BGR (§1) |
+
+A block is 32×32 px (4×4 tiles), so the full **256×16-block** map is **1024×64 tiles =
+8192×512 pixels**. Expanding every block through the table above, with the real tile set
+and palette, reproduces the entire level:
+
+![Green Hills Act 1 — the full level, reconstructed from the ROM block-index map, block tile table and tile graphics](rendered/level_greenhills_overview.png)
+
+*(Scaled to fit; the full-resolution 8192×512 render is
+[`rendered/level_greenhills_full.png`](rendered/level_greenhills_full.png).)*
+
+*Still open.* The **object** layer — rings, the spring-loaded palm trees, flowers,
+enemies and Sonic himself are sprites/objects placed over the terrain, with their own tile
+format and per-act data (the `$3282` `scroll_draw` path and the descriptor's per-act
+pointers), not part of the block map above. That, and the other zones' descriptors, are
+Part V.
 
 # Part V — Game mechanics
 
