@@ -107,6 +107,13 @@ func (v *VDP) readStatus() byte {
 	return s
 }
 
+// CapEntry is one observed call of CapturePC: the argument registers and the bank
+// paged into slot 1 at that moment.
+type CapEntry struct {
+	HL, BC, DE uint16
+	Slot1      int
+}
+
 // Machine is a Game Gear: CPU + RAM + cartridge + VDP, implementing z80.Bus.
 type Machine struct {
 	CPU *z80.CPU
@@ -125,6 +132,32 @@ type Machine struct {
 	// a cheap profiler to see what code the machine is actually executing.
 	Sample bool
 	PCHist map[uint16]int
+
+	// RAM write watchpoint: when RAMWatchPCs != nil, every work-RAM write in
+	// [RAMWatchLo,RAMWatchHi) records the CPU's PC — "which code wrote this RAM?"
+	RAMWatchLo, RAMWatchHi uint16
+	RAMWatchPCs            map[uint16]int
+
+	// Register capture: when CapturePC != 0, the first time execution reaches it the
+	// CPU's HL and BC are saved (CapHL/CapBC) and Captured set — for reading a routine's
+	// arguments (e.g. the source pointer + length at a decompressor entry).
+	CapturePC    uint16
+	CapHL, CapBC uint16
+	CapSlot1     int
+	Captured     bool
+
+	// CapLog records (HL,BC,DE,slot1) at EVERY reach of CapturePC — for routines called
+	// multiple times where we must pick the call with a particular destination (DE).
+	CapLog []CapEntry
+
+	// Return-time RAM snapshot: after CapturePC has fired, the first time PC leaves the
+	// routine body [CapLo,CapHi] the 4 KB at CapOutBase is copied into CapOut (CapOutDone
+	// set). This grabs a decompressor's output the instant it RETs to its caller, before
+	// any other code can mutate it — regardless of which RET it exits through.
+	CapLo, CapHi uint16
+	CapOutBase   uint16
+	CapOut       [0x1000]byte
+	CapOutDone   bool
 
 	// VRAM write watchpoint: when WatchHi > WatchLo, every VRAM write whose address
 	// falls in [WatchLo,WatchHi) records the CPU's PC in WatchPCs (a histogram of how
@@ -169,6 +202,9 @@ func (m *Machine) Read(a uint16) byte {
 func (m *Machine) Write(a uint16, v byte) {
 	if a < 0xC000 {
 		return // ROM
+	}
+	if m.RAMWatchPCs != nil && a >= m.RAMWatchLo && a < m.RAMWatchHi {
+		m.RAMWatchPCs[m.CPU.PC]++
 	}
 	m.ram[a&0x1FFF] = v
 	switch a {
@@ -239,6 +275,21 @@ func (m *Machine) RunFrame() bool {
 		m.CPU.Step()
 		if m.Sample {
 			m.PCHist[m.CPU.PC]++
+		}
+		if m.CapturePC != 0 && m.CPU.PC == m.CapturePC {
+			hl := uint16(m.CPU.H)<<8 | uint16(m.CPU.L)
+			bc := uint16(m.CPU.B)<<8 | uint16(m.CPU.C)
+			de := uint16(m.CPU.D)<<8 | uint16(m.CPU.E)
+			m.CapLog = append(m.CapLog, CapEntry{HL: hl, BC: bc, DE: de, Slot1: m.slot[1]})
+			if !m.Captured {
+				m.CapHL, m.CapBC, m.CapSlot1, m.Captured = hl, bc, m.slot[1], true
+			}
+		}
+		if m.CapHi != 0 && m.Captured && !m.CapOutDone && (m.CPU.PC < m.CapLo || m.CPU.PC > m.CapHi) {
+			for j := 0; j < 0x1000; j++ {
+				m.CapOut[j] = m.ram[(m.CapOutBase+uint16(j))&0x1FFF]
+			}
+			m.CapOutDone = true
 		}
 		if m.CPU.Halted {
 			return false

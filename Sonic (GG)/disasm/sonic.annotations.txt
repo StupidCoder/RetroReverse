@@ -181,9 +181,14 @@
 0760  map_expand  read one column of the RAM block-index map, expand each block's 4 tiles, write name-table cells into the column buffer at RAM $D180. Map column address via $0938.
 0860  map_upload  upload the $D180 column buffer to the VDP name table via OUTI during vblank.
 0938  map_addr  compute a block-index map cell address: HL = $C000 + (row=$D252+B)*stride + (col=$D251+C). Stride chosen from $D232's top bits (16/32/64/128) or default 256.
-09C9  map_decompress  page bank 4 (+5) and fill the RAM map window at $C000 from the COMPRESSED level map in bank 4.
+0A73  map_decompress  THE level-map RLE decompressor. DE=$C000 (dest); HL=source, BC=length (set by caller $19D8, which normalises the source bank). Codec (same family as $0502): prev=~(HL); compare each src byte to prev — if EQUAL it's a run (the duplicate + a COUNT byte repeat the byte COUNT more times, DJNZ so count $00 = 256), else a literal; after a run prev is re-armed (CPL) so the next byte starts fresh. NO $FF terminator — bounded purely by BC. Reimplemented BYTE-PERFECT as extract/decomp.LoadMapRLE; verified vs the live $C000 output (cmd/levelmap). Zone 0: source bank 5 z80 $7430 = file $17430, len $0786 (1926B) -> 4096B = 16 rows x 256 cols (2.13x).
+# (Earlier this entry blamed "$09C9 / bank 4" — WRONG: $09C9 is a full-screen draw, and
+#  bank 4 $10000 is a 4-byte-per-block table, not the map. The decompressor is $0A73 and
+#  the COMPRESSED MAP lives in BANK 5.)
 # THE MAP = a RAM WINDOW at $C000, ROW-MAJOR stride 256: block = mem[$C000 + row*256 + col];
-# row vertical (0 top sky .. ~15 ground), col horizontal. Decompressed from bank 4 at load
-# and streamed as you scroll. block-defs = bank1 $7B99 (8-byte 2x2 name-table cells).
-# Verified by rendering the RAM map: sky / Green Hills surface / solid ground. So the
-# ROM map is the COMPRESSED source (bank 4); the live decoded map is this $C000 window.
+# row vertical (0 top sky .. ~15 ground), col horizontal. Decompressed from BANK 5 at load
+# and streamed as you scroll. The terrain block-table is dynamic ($D211 base + nibble-swap/
+# XOR index transform in $0760) — DISTINCT from the object table bank1 $7B99.
+# Verified by decoding straight from ROM and rendering: sky / surface line / solid ground
+# (rendered/level_map_codec.png). So the ROM map is the COMPRESSED source (bank 5 $17430);
+# the live decoded map is this $C000 window, reproduced byte-perfect by decomp.LoadMapRLE.
