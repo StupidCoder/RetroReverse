@@ -112,17 +112,14 @@ export class MarbleViewer {
     this.el.appendChild(renderer.domElement);
     const scene = new THREE.Scene();
     scene.background = new THREE.Color(0x0a0e16);
-    const camera = new THREE.PerspectiveCamera(45, 1, 0.1, 100000);
+    // Orthographic = no perspective distortion (the isometric look of the wire
+    // PNGs). OrbitControls still lets you swing the angle around.
+    const camera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0.01, 1);
     const controls = new OrbitControls(camera, renderer.domElement);
     controls.enableDamping = true;
     controls.dampingFactor = 0.08;
     controls.rotateSpeed = 0.9;
-    controls.zoomSpeed = 1.2;
-    scene.add(new THREE.AmbientLight(0xffffff, 0.55));
-    const dir = new THREE.DirectionalLight(0xffffff, 0.9);
-    dir.position.set(0.6, 1, 0.4);
-    scene.add(dir);
-    this.three = { renderer, scene, camera, controls, mesh: null };
+    this.three = { renderer, scene, camera, controls, group: null, frustumH: 1 };
     new ResizeObserver(() => this._resizeThree()).observe(this.el);
     const tick = () => {
       if (this.mode === 'slopes' && this.three) {
@@ -139,61 +136,93 @@ export class MarbleViewer {
     const w = this.el.clientWidth, h = this.el.clientHeight;
     if (!w || !h) return;
     this.three.renderer.setSize(w, h, false);
-    this.three.camera.aspect = w / h;
-    this.three.camera.updateProjectionMatrix();
+    const cam = this.three.camera, hh = this.three.frustumH, aspect = w / h;
+    cam.left = -hh * aspect; cam.right = hh * aspect; cam.top = hh; cam.bottom = -hh;
+    cam.updateProjectionMatrix();
   }
 
-  // Build the height mesh: a vertex per rolling-surface tile, quads between the
-  // four-neighbour groups that all exist (pits leave holes). Coloured by height.
+  // Build the slope as a wireframe with hidden-line removal, like the offline
+  // *.wire.png: each rolling-surface tile is a vertex at (tx, height, ty); the
+  // grid edges to the (+1,0) and (0,+1) neighbours are drawn as height-coloured
+  // lines, and an invisible fill of the same quads writes depth so lines behind
+  // the surface are hidden. Pits (no surface) leave holes.
   _buildMesh() {
     const t = this.three;
-    if (t.mesh) { t.scene.remove(t.mesh); t.mesh.geometry.dispose(); t.mesh.material.dispose(); }
+    if (t.group) {
+      t.scene.remove(t.group);
+      t.group.traverse((o) => { if (o.geometry) o.geometry.dispose(); if (o.material) o.material.dispose(); });
+    }
     const s = this.slope;
     const { w, h, heights } = s;
     const range = Math.max(1, s.hi - s.lo);
     const cx = (w - 1) / 2, cz = (h - 1) / 2;
+    const present = (gx, gy) => heights[gy * w + gx] > 0;
+    const yOf = (gx, gy) => (heights[gy * w + gx] - 1) * HEIGHT_SCALE;
+
+    // Invisible depth fill (triangulated quads) for hidden-line removal.
     const vidx = new Int32Array(w * h).fill(-1);
-    const pos = [], col = [];
+    const fpos = [];
     for (let gy = 0; gy < h; gy++) {
       for (let gx = 0; gx < w; gx++) {
-        const v = heights[gy * w + gx];
-        if (v <= 0) continue;
-        const hv = v - 1; // height above lo
-        vidx[gy * w + gx] = pos.length / 3;
-        pos.push(gx - cx, hv * HEIGHT_SCALE, gy - cz);
-        const c = heightRamp(hv / range);
-        col.push(c[0], c[1], c[2]);
+        if (!present(gx, gy)) continue;
+        vidx[gy * w + gx] = fpos.length / 3;
+        fpos.push(gx - cx, yOf(gx, gy), gy - cz);
       }
     }
     const idx = [];
-    const at = (gx, gy) => vidx[gy * w + gx];
     for (let gy = 0; gy < h - 1; gy++) {
       for (let gx = 0; gx < w - 1; gx++) {
-        const a = at(gx, gy), b = at(gx + 1, gy), c = at(gx, gy + 1), d = at(gx + 1, gy + 1);
+        const a = vidx[gy * w + gx], b = vidx[gy * w + gx + 1], c = vidx[(gy + 1) * w + gx], d = vidx[(gy + 1) * w + gx + 1];
         if (a >= 0 && b >= 0 && c >= 0 && d >= 0) idx.push(a, c, b, b, c, d);
       }
     }
-    const geom = new THREE.BufferGeometry();
-    geom.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
-    geom.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
-    geom.setIndex(idx);
-    geom.computeVertexNormals();
-    const mat = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.9, metalness: 0, side: THREE.DoubleSide });
-    t.mesh = new THREE.Mesh(geom, mat);
-    t.scene.add(t.mesh);
+    const fgeom = new THREE.BufferGeometry();
+    fgeom.setAttribute('position', new THREE.Float32BufferAttribute(fpos, 3));
+    fgeom.setIndex(idx);
+    const fmat = new THREE.MeshBasicMaterial({
+      colorWrite: false, side: THREE.DoubleSide,
+      polygonOffset: true, polygonOffsetFactor: 1, polygonOffsetUnits: 1,
+    });
+    const fill = new THREE.Mesh(fgeom, fmat);
 
-    // Frame the mesh from a 3/4 elevated angle.
-    geom.computeBoundingBox();
-    const bb = geom.boundingBox, ctr = new THREE.Vector3();
-    bb.getCenter(ctr);
+    // Height-coloured grid edges.
+    const epos = [], ecol = [];
+    const pushV = (gx, gy) => {
+      epos.push(gx - cx, yOf(gx, gy), gy - cz);
+      const c = heightRamp((heights[gy * w + gx] - 1) / range);
+      ecol.push(c[0], c[1], c[2]);
+    };
+    for (let gy = 0; gy < h; gy++) {
+      for (let gx = 0; gx < w; gx++) {
+        if (!present(gx, gy)) continue;
+        if (gx + 1 < w && present(gx + 1, gy)) { pushV(gx, gy); pushV(gx + 1, gy); }
+        if (gy + 1 < h && present(gx, gy + 1)) { pushV(gx, gy); pushV(gx, gy + 1); }
+      }
+    }
+    const egeom = new THREE.BufferGeometry();
+    egeom.setAttribute('position', new THREE.Float32BufferAttribute(epos, 3));
+    egeom.setAttribute('color', new THREE.Float32BufferAttribute(ecol, 3));
+    const lines = new THREE.LineSegments(egeom, new THREE.LineBasicMaterial({ vertexColors: true }));
+
+    const group = new THREE.Group();
+    group.add(fill, lines);
+    t.scene.add(group);
+    t.group = group;
+
+    // Frame it isometrically (orthographic), looking down a 2:1 dimetric angle.
     const span = Math.max(w, h);
+    const ctr = new THREE.Vector3(0, (range * HEIGHT_SCALE) / 2, 0);
+    // The iso mesh is ~1.4·span wide on screen; in the portrait (3:4) viewport
+    // width binds, so size the half-height to fit that width with a little margin.
+    t.frustumH = span;
+    const dir = new THREE.Vector3(0.632, 0.447, 0.632); // azimuth 45°, elevation ~26.6°
+    t.camera.position.copy(ctr).addScaledVector(dir, span * 2);
+    t.camera.near = 0.01; t.camera.far = span * 8;
+    t.camera.zoom = 1;
     t.controls.target.copy(ctr);
-    t.camera.position.set(ctr.x + span * 0.9, ctr.y + span * 0.8, ctr.z + span * 0.9);
-    t.camera.near = span / 100; t.camera.far = span * 20;
-    t.camera.updateProjectionMatrix();
-    t.controls.minDistance = span * 0.25;
-    t.controls.maxDistance = span * 4;
+    t.controls.minZoom = 0.4; t.controls.maxZoom = 6;
     t.controls.update();
+    this._resizeThree();
   }
 
   // --- PixiJS tilemap camera (shared pattern; only active in tilemap mode) -
