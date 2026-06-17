@@ -26,7 +26,8 @@ func TestParseEuler(t *testing.T) {
 	// here we also confirm the referenced faces were decoded).
 	for _, s := range ships {
 		for i, e := range s.Edges {
-			if e.FaceA >= len(s.Faces) || e.FaceB >= len(s.Faces) {
+			if (e.FaceA != FaceNone && e.FaceA >= len(s.Faces)) ||
+				(e.FaceB != FaceNone && e.FaceB >= len(s.Faces)) {
 				t.Errorf("type %d edge %d references face out of range", s.Type, i)
 			}
 		}

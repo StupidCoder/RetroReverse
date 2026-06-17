@@ -120,10 +120,10 @@ func run(extracted, outDir string) error {
 			faceVert[i] = -1
 		}
 		for _, e := range s.Edges {
-			if faceVert[e.FaceA] < 0 {
+			if e.FaceA != shipmodel.FaceNone && faceVert[e.FaceA] < 0 {
 				faceVert[e.FaceA] = e.V1
 			}
-			if faceVert[e.FaceB] < 0 {
+			if e.FaceB != shipmodel.FaceNone && faceVert[e.FaceB] < 0 {
 				faceVert[e.FaceB] = e.V1
 			}
 		}

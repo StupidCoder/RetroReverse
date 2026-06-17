@@ -708,6 +708,13 @@ are stored 4 bytes per vertex (x and y as 16-bit words) in a work buffer, so the
 stored value indexes that buffer directly. An edge is drawn only if at least one
 of its two faces is currently visible.
 
+A face nibble of **`$F` (15) is a sentinel meaning "no face on this side"** — an
+edge with an `$F` face is always drawn, never back-face culled. It appears on flat
+models that have no enclosing solid: the **alloy plate** (type 4) is a single face
+whose four boundary edges all carry `$F`, so its outline is drawn from any angle.
+The sentinel is not a real face and must be excluded when counting faces (so the
+plate has **1** face, not 16).
+
 **Face record — 4 bytes:**
 
 ```

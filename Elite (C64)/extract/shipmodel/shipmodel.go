@@ -19,6 +19,10 @@ const (
 	tableBase  = 0xCFFE // XX21: word per ship type*2
 	numTypes   = 33
 	headerSize = 20
+	// FaceNone ($F) is the sentinel a vertex or edge uses in a face nibble to
+	// mean "no face here"; an edge with a FaceNone side is always drawn.
+	FaceNone = 15
+	faceNone = FaceNone
 )
 
 // Vertex is a 3-D model vertex with its level-of-detail visibility distance
@@ -157,16 +161,21 @@ func Parse(mem []byte, typ int) (*Ship, error) {
 		if e.V1 >= nv || e.V2 >= nv {
 			return nil, fmt.Errorf("type %d: edge %d references vertex out of range", typ, i)
 		}
-		if e.FaceA > maxFace {
+		// Face nibble $F (15) is a sentinel meaning "no face on this side" — the
+		// edge is then always drawn, never back-face culled (it shows up on flat
+		// models such as the alloy plate). It is not a real face, so it must not
+		// count toward the face total.
+		if e.FaceA != faceNone && e.FaceA > maxFace {
 			maxFace = e.FaceA
 		}
-		if e.FaceB > maxFace {
+		if e.FaceB != faceNone && e.FaceB > maxFace {
 			maxFace = e.FaceB
 		}
 		s.Edges = append(s.Edges, e)
 	}
-	// The face count is not stored; it is one more than the highest face index
-	// any edge refers to (every face of a closed hull bounds at least one edge).
+	// The face count is not stored; it is one more than the highest (real) face
+	// index any edge refers to — every face of a closed hull bounds at least one
+	// edge — matching NF = (blueprint_length − FACES_offset)/4 (Elite.md Part IV §1.2).
 	nf := maxFace + 1
 	for i := 0; i < nf; i++ {
 		r := b[facesOff+i*4:]

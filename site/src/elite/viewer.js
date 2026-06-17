@@ -8,6 +8,7 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 
 const WHITE = 0xffffff;
+const FACE_NONE = 15; // face nibble sentinel: "no face this side" — edge always drawn
 
 // ShipMesh holds one ship's geometry plus the per-frame visible-edge buffer.
 // The blueprint is flat typed arrays for a tight HSR loop; verts/normals are
@@ -16,6 +17,10 @@ class ShipMesh {
   constructor(ship) {
     this.ship = ship;
     this.radius = ship.radius || 1;
+    // Distance the back-face test is evaluated from; set by the viewer to the
+    // ship's default framing distance so HSR is fixed while zooming. The default
+    // is a sane fallback (a few radii out) until then.
+    this.refDist = this.radius * 4;
 
     this.verts = new Float32Array(ship.verts.length * 3);
     for (let i = 0; i < ship.verts.length; i++) {
@@ -51,29 +56,38 @@ class ShipMesh {
     this.object.frustumCulled = false;
   }
 
-  // updateForCamera rebuilds the visible-edge list for an eye at camPos
+  // updateForCamera rebuilds the visible-edge list for a camera at camPos
   // (THREE.Vector3, model space). A face is visible when the eye lies on the
   // outward side of its plane — dot(normal, eye - P) > 0 for a point P on the
   // face — the game's own perspective-correct back-face test (Elite.md Part IV
-  // §1). This is exact and stable as long as the eye stays outside the hull,
-  // which the caller guarantees by clamping the orbit minDistance to the
-  // bounding-sphere radius (the model is wholly inside that sphere).
-  // Returns the number of edges drawn.
+  // §1). We evaluate it from a fixed reference distance (refDist) along the
+  // current view direction rather than the real camera distance: it is the same
+  // test the game runs with the ship at a typical viewing range, but because the
+  // reference eye does not move when you dolly, visibility depends only on the
+  // viewing *angle*. That keeps the wireframe stable while zooming (no grazing
+  // face popping in or out) while still culling each face by the true line of
+  // sight to it. An edge whose face is FaceNone ($F) has no face on that side
+  // and is always drawn. Returns the number of edges drawn.
   updateForCamera(camPos) {
     const { verts, faceN, faceV, faceVis } = this;
+    const len = Math.hypot(camPos.x, camPos.y, camPos.z) || 1;
+    const s = this.refDist / len; // place the reference eye at refDist along the view dir
+    const ex = camPos.x * s, ey = camPos.y * s, ez = camPos.z * s;
     for (let i = 0; i < faceVis.length; i++) {
       const pv = faceV[i];
       let px = 0, py = 0, pz = 0;
       if (pv >= 0) { px = verts[pv * 3]; py = verts[pv * 3 + 1]; pz = verts[pv * 3 + 2]; }
-      const dot = faceN[i * 3] * (camPos.x - px)
-        + faceN[i * 3 + 1] * (camPos.y - py)
-        + faceN[i * 3 + 2] * (camPos.z - pz);
+      const dot = faceN[i * 3] * (ex - px)
+        + faceN[i * 3 + 1] * (ey - py)
+        + faceN[i * 3 + 2] * (ez - pz);
       faceVis[i] = dot > 0 ? 1 : 0;
     }
     const pos = this.positions;
     let n = 0;
     for (const e of this.edges) {
-      if (!(faceVis[e[2]] || faceVis[e[3]])) continue;
+      const va = e[2] === FACE_NONE ? 1 : faceVis[e[2]];
+      const vb = e[3] === FACE_NONE ? 1 : faceVis[e[3]];
+      if (!(va || vb)) continue;
       const a = e[0] * 3, b = e[1] * 3;
       pos[n++] = verts[a]; pos[n++] = verts[a + 1]; pos[n++] = verts[a + 2];
       pos[n++] = verts[b]; pos[n++] = verts[b + 1]; pos[n++] = verts[b + 2];
@@ -164,12 +178,12 @@ export class ShipViewer {
     this.currentIndex = index;
 
     const dist = fitDistance(mesh.radius, this.camera.fov);
+    mesh.refDist = dist; // evaluate HSR from the default framing distance
     this.camera.position.copy(VIEW_DIR).multiplyScalar(dist);
     this.controls.target.set(0, 0, 0);
-    // Keep the eye just outside the model's bounding sphere so it never enters
-    // the hull — the back-face HSR stays exact and faces don't pop (the sphere
-    // already fills the view at this distance, so it's close enough to inspect).
-    this.controls.minDistance = mesh.radius * 1.02;
+    // HSR is zoom-invariant now (evaluated from refDist), so zoom can range
+    // freely — get right up to the hull without faces popping.
+    this.controls.minDistance = mesh.radius * 0.2;
     this.controls.maxDistance = dist * 3;
     this.controls.autoRotate = true;
     this.controls.update();
@@ -194,6 +208,7 @@ export class ShipViewer {
     }
     const mesh = new ShipMesh(this.ships[index]);
     const dist = fitDistance(mesh.radius, this._thumbCam.fov);
+    mesh.refDist = dist; // match the main view's HSR reference distance
     this._thumbCam.position.copy(VIEW_DIR).multiplyScalar(dist);
     this._thumbCam.lookAt(0, 0, 0);
     mesh.updateForCamera(this._thumbCam.position);
