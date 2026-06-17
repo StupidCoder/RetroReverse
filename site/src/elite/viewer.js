@@ -1,11 +1,12 @@
 // Elite ship viewer: renders one decoded wireframe blueprint with three.js and
 // reproduces the game's own hidden-surface removal. The ship sits at the origin
 // and the camera orbits it (OrbitControls), so model space is world space. Each
-// frame we back-face test every face's stored normal against the ship→eye
-// direction — exactly as the C64 game dots each normal with the vector from the
-// ship to the viewer (Elite.md Part IV §1) — and draw an edge only when one of
-// its two adjacent faces is visible. The test uses the eye *direction*, so it is
-// independent of zoom: getting closer never changes which faces face you.
+// frame we back-face test every face by the sign of dot(normal, eye - faceCenter)
+// — the face is visible when it points toward the eye from where the face sits —
+// and draw an edge only when one of its two adjacent faces is visible (Elite.md
+// Part IV §1). Using the face's own centre (not the ship's) is what correctly
+// hides faces on the far side; the eye is kept outside the hull so faces never
+// flip abruptly.
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 
@@ -29,10 +30,14 @@ class ShipMesh {
 
     this.edges = ship.edges; // [v1, v2, faceA, faceB]
     this.faceN = new Float32Array(ship.faces.length * 3); // outward normal per face
+    this.faceC = new Float32Array(ship.faces.length * 3); // a point on each face
     for (let i = 0; i < ship.faces.length; i++) {
       this.faceN[i * 3] = ship.faces[i][0];
       this.faceN[i * 3 + 1] = ship.faces[i][1];
       this.faceN[i * 3 + 2] = ship.faces[i][2];
+      this.faceC[i * 3] = ship.faceC[i][0];
+      this.faceC[i * 3 + 1] = ship.faceC[i][1];
+      this.faceC[i * 3 + 2] = ship.faceC[i][2];
     }
     this.faceVis = new Uint8Array(ship.faces.length);
 
@@ -50,15 +55,15 @@ class ShipMesh {
 
   // updateForCamera rebuilds the visible-edge list for a camera at camPos
   // (THREE.Vector3). A face is visible when its outward normal points toward the
-  // eye: dot(normal, camPos) > 0, with the ship centred at the origin so camPos
-  // is the ship→eye direction. This is the game's single ship→viewer back-face
-  // test; its sign depends only on direction, so zoom does not change it.
+  // eye from the face's own position: dot(normal, camPos - faceCenter) > 0.
+  // Testing from the face centre (not the origin) is what correctly culls faces
+  // on the far side instead of leaving them showing "below the horizon".
   updateForCamera(camPos) {
-    const { verts, faceN, faceVis, edges } = this;
+    const { verts, faceN, faceC, faceVis, edges } = this;
     for (let i = 0; i < faceVis.length; i++) {
-      const dot = faceN[i * 3] * camPos.x
-        + faceN[i * 3 + 1] * camPos.y
-        + faceN[i * 3 + 2] * camPos.z;
+      const dot = faceN[i * 3] * (camPos.x - faceC[i * 3])
+        + faceN[i * 3 + 1] * (camPos.y - faceC[i * 3 + 1])
+        + faceN[i * 3 + 2] * (camPos.z - faceC[i * 3 + 2]);
       faceVis[i] = dot > 0 ? 1 : 0;
     }
     const pos = this.positions;
@@ -183,7 +188,10 @@ export class ShipViewer {
     const dist = fitDistance(mesh.radius, this.camera.fov);
     this.camera.position.copy(VIEW_DIR).multiplyScalar(dist);
     this.controls.target.set(0, 0, 0);
-    this.controls.minDistance = mesh.radius * 0.2;
+    // Keep the eye just outside the bounding sphere: with the per-face test,
+    // entering the hull is what makes faces flip abruptly. At this distance the
+    // ship already overfills the view, so it's still close enough to inspect.
+    this.controls.minDistance = mesh.radius * 1.1;
     this.controls.maxDistance = dist * 3;
     this.controls.autoRotate = true;
     this.controls.update();

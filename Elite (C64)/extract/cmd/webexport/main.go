@@ -64,11 +64,12 @@ var shipNames = map[int]string{
 
 // jsonShip is one ship for the three.js viewer. It carries the raw blueprint
 // the viewer needs to reproduce Elite's own wireframe hidden-surface removal:
-// each face's outward normal, and each edge with the two faces beside it. The
-// viewer back-face tests every normal against the ship→eye direction and draws
-// an edge only when one of its faces is visible — exactly the game's algorithm
-// (Elite.md Part IV §1). Face nibble $F (15) on an edge means "no face here";
-// such an edge is always drawn.
+// each face's outward normal and a point on it, and each edge with the two
+// faces beside it. The viewer back-face tests every face by the sign of
+// dot(normal, eye - faceCenter) — the face is visible when it points toward the
+// eye from where the face actually sits — and draws an edge only when one of its
+// faces is visible (Elite.md Part IV §1). Face nibble $F (15) on an edge means
+// "no face here"; such an edge is always drawn.
 type jsonShip struct {
 	Type   int      `json:"type"`
 	Name   string   `json:"name"`
@@ -76,10 +77,51 @@ type jsonShip struct {
 	Verts  [][3]int `json:"verts"`
 	Edges  [][4]int `json:"edges"` // v1, v2, faceA, faceB
 	Faces  [][3]int `json:"faces"` // outward normal nx, ny, nz
+	FaceC  [][3]int `json:"faceC"` // a point on each face (its vertex centroid)
 }
 
 type jsonDoc struct {
 	Ships []jsonShip `json:"ships"`
+}
+
+// faceCentroid returns a representative point on face f — the average of its
+// candidate vertices (the union of the edge endpoints that border f and the
+// vertices whose own face list names f; either source alone is incomplete). For
+// the back-face test only the point's position relative to the face plane
+// matters, and the centroid sits squarely on (planar) or within (non-planar) the
+// face. Faces named by nothing (the all-$F alloy plate) return the origin; their
+// edges are drawn unconditionally anyway.
+func faceCentroid(s *shipmodel.Ship, f int) [3]int {
+	seen := map[int]bool{}
+	var sx, sy, sz, n int
+	add := func(v int) {
+		if !seen[v] {
+			seen[v] = true
+			sx += s.Vertices[v].X
+			sy += s.Vertices[v].Y
+			sz += s.Vertices[v].Z
+			n++
+		}
+	}
+	for _, e := range s.Edges {
+		if e.FaceA == f || e.FaceB == f {
+			add(e.V1)
+			add(e.V2)
+		}
+	}
+	for v, vert := range s.Vertices {
+		for _, vf := range vert.Faces {
+			if vf == f {
+				add(v)
+				break
+			}
+		}
+	}
+	if n == 0 {
+		return [3]int{0, 0, 0}
+	}
+	round := func(t int) int { return int(math.Round(float64(t) / float64(n))) }
+	return [3]int{round(sx), round(sy), round(sz)}
 }
 
 func main() {
@@ -119,8 +161,9 @@ func run(extracted, outDir string) error {
 		for _, e := range s.Edges {
 			js.Edges = append(js.Edges, [4]int{e.V1, e.V2, e.FaceA, e.FaceB})
 		}
-		for _, f := range s.Faces {
+		for fi, f := range s.Faces {
 			js.Faces = append(js.Faces, [3]int{f.NX, f.NY, f.NZ})
+			js.FaceC = append(js.FaceC, faceCentroid(s, fi))
 		}
 		doc.Ships = append(doc.Ships, js)
 	}

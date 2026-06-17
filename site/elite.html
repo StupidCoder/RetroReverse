@@ -30,11 +30,10 @@
       Each model is a real wireframe blueprint decoded from the game's engine block — the
       same vertex, edge and face tables the C64 draws from. <b>Drag</b> to rotate, <b>scroll or
       pinch</b> to zoom; the ship spins on its own until you grab it. The hidden-surface removal
-      is Elite's own: every frame each face's stored normal is dotted with the direction from the
-      ship to your eye, and an edge is drawn only when one of the two faces beside it points
-      toward you — the same back-face test the 6502 game runs. It depends only on the viewing
-      angle, so zooming never changes which faces show. The thumbnails below are rendered from the
-      same geometry — click one to load it. Ship <em>names</em> come from the documented C64
+      is Elite's own: every frame each face's stored normal is dotted with the direction from that
+      face to your eye, and an edge is drawn only when one of the two faces beside it points
+      toward you — the same back-face test the 6502 game runs. The thumbnails below are rendered
+      from the same geometry — click one to load it. Ship <em>names</em> come from the documented C64
       blueprint table; they live only in the manual, never in the program — the game knows a
       Cobra by its geometry, not by a name. See the
       <a href="https://github.com/StupidCoder/AIReverseEngineering/blob/main/Elite%20(C64)/Elite.md">write-up</a>
