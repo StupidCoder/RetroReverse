@@ -137,7 +137,7 @@ export class FortViewer {
   _advanceAnim() {
     if (!this.animOn || !this.anim || !this.anim.length) return;
     this.animAccum += this.app.ticker.deltaMS;
-    const step = 1000 / 60;
+    const step = 1000 / 50; // PAL frame — the soft-char periods are in game frames
     while (this.animAccum >= step) { this.animAccum -= step; this.animFrame++; }
     for (const a of this.anim) {
       const idx = Math.floor(this.animFrame / a.period) % a.frames.length;

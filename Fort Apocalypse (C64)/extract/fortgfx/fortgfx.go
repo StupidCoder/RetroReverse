@@ -341,9 +341,10 @@ const cosmWallAlt = 0xAF80 // $4C-$4F alternate dither pattern ($AF54)
 // SoftCharAnim returns the in-place character animations for the playfield,
 // reconstructed from the same patterns the game's IRQ routines use. The static
 // charset (PlayfieldCharset) holds each char's lit/base state; here we add the
-// alternate states so the web viewer can reproduce the blinking. Behaviour that
-// the game drives from live SID noise (the water/exhaust flicker) is rendered as
-// a short two-state cycle.
+// alternate states so the web viewer can reproduce the blinking. Periods are in
+// PAL frames at base (NOVICE) difficulty, matching the game's IRQ timers exactly.
+// Behaviour the game drives from live SID noise (the fort-core flicker) is
+// rendered as a short noise cycle.
 func (g *Game) SoftCharAnim() []AnimChar {
 	cs := g.PlayfieldCharset()
 	bm := func(ch byte) [8]byte { var b [8]byte; copy(b[:], cs[int(ch)*8:]); return b }
@@ -351,45 +352,53 @@ func (g *Game) SoftCharAnim() []AnimChar {
 	lit := [8]byte{0x55, 0x55, 0x55, 0x55, 0x55, 0x55, 0x55, 0x55}
 	var out []AnimChar
 
-	// Energy barriers ($A7ED/$A830): the two halves flash half a cycle apart —
-	// group A ($01-$04) lit then off, group B ($05-$08) off then lit.
+	// flashAt returns an n-step cycle that is `pat` at step `at`, blank otherwise.
+	flashAt := func(pat [8]byte, n, at int) [][8]byte {
+		fr := make([][8]byte, n)
+		for i := range fr {
+			fr[i] = blank
+		}
+		fr[at] = pat
+		return fr
+	}
+
+	// Energy barriers ($A7ED/$A830): every 8 frames the timer advances by 4
+	// (NOVICE), and the glyph is lit only in the single step where it wraps to 0
+	// — 256/4 = 64 steps, so a 64-step cycle (×8 frames = 512f ≈ 10.2s) lit for
+	// one step. Group B ($05-$08) starts half a cycle behind ($3E = $80).
+	const barSteps = 64
 	for _, ch := range []byte{0x01, 0x02, 0x03, 0x04} {
-		out = append(out, AnimChar{ch, 45, [][8]byte{bm(ch), blank}})
+		out = append(out, AnimChar{ch, 8, flashAt(bm(ch), barSteps, 0)})
 	}
 	for _, ch := range []byte{0x05, 0x06, 0x07, 0x08} {
-		out = append(out, AnimChar{ch, 45, [][8]byte{blank, bm(ch)}})
+		out = append(out, AnimChar{ch, 8, flashAt(bm(ch), barSteps, barSteps/2)})
 	}
-	// Laser-grid segments ($A86B): blink on/off, alternating phase per segment.
+	// Laser grid ($A86B): every 128 frames the four chars are re-rolled, each lit
+	// with 50% probability. Approximated as a 50%-duty 128-frame blink, phased per
+	// segment so they flicker independently.
+	laser := [][][8]byte{
+		{lit, blank, blank, lit}, {blank, lit, lit, blank},
+		{lit, lit, blank, blank}, {blank, blank, lit, lit},
+	}
 	for i, ch := range []byte{0x0A, 0x0B, 0x0C, 0x0D} {
-		if i%2 == 0 {
-			out = append(out, AnimChar{ch, 24, [][8]byte{lit, blank}})
-		} else {
-			out = append(out, AnimChar{ch, 24, [][8]byte{blank, lit}})
-		}
+		out = append(out, AnimChar{ch, 128, laser[i]})
 	}
-	// Rotating beacon ($A8B8): one of the four chars lit per phase.
+	// Sweeping walls ($A8B8): exactly one of the four chars lit, the phase
+	// advancing one step every 62 frames (NOVICE).
 	for i, ch := range []byte{0x0E, 0x0F, 0x10, 0x11} {
-		fr := make([][8]byte, 4)
-		for j := range fr {
-			fr[j] = blank
-		}
-		fr[i] = lit
-		out = append(out, AnimChar{ch, 11, fr})
+		out = append(out, AnimChar{ch, 62, flashAt(lit, 4, i)})
 	}
-	// Fort core ($3F, $A8F3): noise flicker, as a two-state cycle.
-	fc := bm(0x3F)
-	dim := fc
-	for j := range dim {
-		dim[j] &= 0x66
-	}
-	out = append(out, AnimChar{0x3F, 5, [][8]byte{fc, dim}})
-	// Cosmetic destructible-rock shimmer ($47, $AF54): two middle rows toggled.
+	// Fort core ($3F, $A8F3): SID-noise flicker every frame (pattern AND noise).
+	out = append(out, AnimChar{0x3F, 1, noiseFrames(bm(0x3F))})
+	// Cosmetic destructible-rock shimmer ($47, $AF54): two middle rows toggled
+	// every 8 frames.
 	rk := bm(0x47)
 	rkAlt := rk
 	rkAlt[3] ^= 0xFF
 	rkAlt[4] ^= 0xFF
 	out = append(out, AnimChar{0x47, 8, [][8]byte{rk, rkAlt}})
-	// Cosmetic wall shimmer ($4C-$4F, $AF54): base dither vs the $AF80 pattern.
+	// Cosmetic wall shimmer ($4C-$4F, $AF54): base dither vs the $AF80 pattern,
+	// every 8 frames.
 	for i := 0; i < 4; i++ {
 		ch := byte(0x4C + i)
 		var alt [8]byte
@@ -397,6 +406,26 @@ func (g *Game) SoftCharAnim() []AnimChar {
 		out = append(out, AnimChar{ch, 8, [][8]byte{bm(ch), alt}})
 	}
 	return out
+}
+
+// noiseFrames returns four flicker states of pat (pat ANDed with rotating sparse
+// masks), standing in for the per-frame SID-noise masking the game applies.
+func noiseFrames(pat [8]byte) [][8]byte {
+	masks := [4][8]byte{
+		{0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF},
+		{0xDB, 0x6D, 0xB6, 0xDB, 0x6D, 0xB6, 0xDB, 0x6D},
+		{0x6D, 0xB6, 0xDB, 0x6D, 0xB6, 0xDB, 0x6D, 0xB6},
+		{0xB6, 0xDB, 0x6D, 0xB6, 0xDB, 0x6D, 0xB6, 0xDB},
+	}
+	fr := make([][8]byte, len(masks))
+	for i, m := range masks {
+		var f [8]byte
+		for j := range f {
+			f[j] = pat[j] & m[j]
+		}
+		fr[i] = f
+	}
+	return fr
 }
 
 // multicolor pixel-pair palette indices for the playfield:
