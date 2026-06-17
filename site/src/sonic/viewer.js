@@ -150,6 +150,10 @@ export class LevelViewer {
   }
 
   // --- collision overlay --------------------------------------------------
+  // Each block's collision shape is drawn as a semi-transparent red FILL of its solid
+  // region: per pixel-column the surface height (signed; <0 = solid from top, >=32 or
+  // -128 = no solid here) marks the top of the fill, which runs down to the block bottom.
+  // Adjacent equal-height columns are merged into one rect to keep the geometry light.
   _buildCollision(level) {
     this.collisionLayer.removeChildren();
     const g = new Graphics();
@@ -157,34 +161,23 @@ export class LevelViewer {
     const profiles = this.shapes.profiles;
     for (let r = 0; r < H; r++) {
       for (let c = 0; c < W; c++) {
-        const shape = blockShape[blocks[r * W + c]];
-        const prof = profiles[shape];
-        const solid = prof.some((h) => h !== -128);
+        const prof = profiles[blockShape[blocks[r * W + c]]];
         const ox = c * BLOCK, oy = r * BLOCK;
-        if (!solid) continue; // non-solid: leave clear
-        // surface polyline across the 32 columns, clamped into the cell
-        let started = false;
+        let runStart = -1, runTop = 0;
+        const flush = (xEnd) => { if (runStart >= 0) g.rect(ox + runStart, oy + runTop, xEnd - runStart, BLOCK - runTop); runStart = -1; };
         for (let x = 0; x < BLOCK; x++) {
           const h = prof[x];
-          if (h === -128) { started = false; continue; }
-          const y = oy + Math.max(0, Math.min(BLOCK - 1, h));
-          if (!started) { g.moveTo(ox + x, y); started = true; }
-          else g.lineTo(ox + x, y);
+          let top = null;
+          if (h !== -128) { const s = Math.max(0, Math.min(BLOCK, h)); if (s < BLOCK) top = s; }
+          if (top === null) { flush(x); }
+          else if (runStart < 0) { runStart = x; runTop = top; }
+          else if (top !== runTop) { flush(x); runStart = x; runTop = top; }
         }
+        flush(BLOCK);
       }
     }
-    g.stroke({ width: 1, color: 0xff4040, alpha: 0.85 });
-    // faint tint for non-solid blocks so "you fall through here" reads at a glance
-    const t = new Graphics();
-    for (let r = 0; r < H; r++) {
-      for (let c = 0; c < W; c++) {
-        const shape = blockShape[blocks[r * W + c]];
-        if (shape !== 0 && this.shapes.profiles[shape].some((h) => h !== -128)) continue;
-        t.rect(c * BLOCK, r * BLOCK, BLOCK, BLOCK);
-      }
-    }
-    t.fill({ color: 0x3a7bd5, alpha: 0.10 });
-    this.collisionLayer.addChild(t, g);
+    g.fill({ color: 0xff2020, alpha: 0.4 });
+    this.collisionLayer.addChild(g);
     this.collisionLayer.visible = false;
   }
 
