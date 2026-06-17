@@ -158,11 +158,12 @@ export class FortViewer {
     // [{ code, col, row }] cell placements, decided once then drawn per copy.
     const place = [];
     const rnd = Math.random;
-    // Prisoner: torso $49/$4A over legs ($3B/$3C right, $3D/$3E left), at (col,row-1..row).
+    // Prisoner: 1 wide, 2 tall — torso $49 over legs (right $3B / left $3D); the
+    // paired codes ($49/$4A, $3B/$3C, $3D/$3E) are leg-phase animation frames, not
+    // separate columns. Random facing per prisoner.
     for (const [c, r] of shuffle(level.prisoners || []).slice(0, 8)) {
-      const right = rnd() < 0.5;
-      place.push({ code: 0x49, col: c, row: r - 1 }, { code: 0x4A, col: c + 1, row: r - 1 });
-      place.push({ code: right ? 0x3B : 0x3D, col: c, row: r }, { code: right ? 0x3C : 0x3E, col: c + 1, row: r });
+      place.push({ code: 0x49, col: c, row: r - 1 });
+      place.push({ code: rnd() < 0.5 ? 0x3B : 0x3D, col: c, row: r });
     }
     // Tank: body $6C $6D $6E with a turret ($6F left / $70 right) above the centre.
     for (const [c, r] of level.tanks || []) {
