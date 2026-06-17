@@ -5,8 +5,10 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Sonic the Hedgehog (Game Gear) — level viewer</title>
   <link rel="stylesheet" href="src/style.css" />
+  <!-- Single prebuilt ESM bundle: esm.sh's module-split build registers the PixiJS
+       'batcher' extension twice ("already has a handler"); the dist bundle is one module. -->
   <script type="importmap">
-  { "imports": { "pixi.js": "https://esm.sh/pixi.js@8" } }
+  { "imports": { "pixi.js": "https://cdn.jsdelivr.net/npm/pixi.js@8/dist/pixi.min.mjs" } }
   </script>
 </head>
 <body>
