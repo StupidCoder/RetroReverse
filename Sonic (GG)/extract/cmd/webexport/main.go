@@ -211,6 +211,34 @@ type PaletteCycle struct {
 	Slots        []int      `json:"slots"`        // BG palette slots that cycle
 	Steps        [][]string `json:"steps"`        // per step: hex colour for each slot
 	PeriodFrames int        `json:"periodFrames"` // game frames per step
+	Tiles        []int      `json:"tiles"`        // tile indices that actually USE a cycling slot
+}
+
+// cyclingTiles lists the tile indices (0-255) whose pixels use one of the cycling palette
+// slots. The cycle must be limited to these — other tiles may share a colour with the
+// cycling slots at rest (e.g. sky in Bridge) but use a different, static palette index.
+func cyclingTiles(tiles []byte, slots []int) []int {
+	slot := map[int]bool{}
+	for _, s := range slots {
+		slot[s] = true
+	}
+	var out []int
+	for t := 0; t < 256; t++ {
+		px := gamegear.DecodeTile(tiles[t*32:])
+		found := false
+		for y := 0; y < 8 && !found; y++ {
+			for x := 0; x < 8; x++ {
+				if slot[int(px[y][x])] {
+					found = true
+					break
+				}
+			}
+		}
+		if found {
+			out = append(out, t)
+		}
+	}
+	return out
 }
 
 // capturePaletteCycle boots the act and watches CRAM for a BG-palette cycle, returning the
@@ -458,7 +486,11 @@ func main() {
 			pc = capturePaletteCycle(rom, a.num, pal)
 			cycleCache[a.bgPal] = pc
 		}
-		af.PaletteCycle = pc
+		if pc != nil {
+			actPC := *pc // per-act copy: the cycling tiles depend on this act's tile set
+			actPC.Tiles = cyclingTiles(tiles, pc.Slots)
+			af.PaletteCycle = &actPC
+		}
 		file := fmt.Sprintf("act%02d.json", a.num+1)
 		writeJSON(filepath.Join(outdir, file), af)
 		meta.Acts = append(meta.Acts, ActIndex{File: file, Zone: a.zone, Name: a.name, Atlas: atlas})

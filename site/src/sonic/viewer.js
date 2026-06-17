@@ -40,6 +40,7 @@ export class LevelViewer {
     this.collisionLayer.visible = false; // toggled by the control bar; persists across acts
     this.objectLayer.visible = false;
     this.zoom = 1; this.minZoom = 0.1; this.maxZoom = 12;
+    this._texMode = 'nearest';
     this.atlasCache = new Map();   // atlas name -> HTMLImageElement
     this.shapes = null;
     this.level = null;
@@ -109,40 +110,45 @@ export class LevelViewer {
       this.blockCanvas[idx] = cv;
       this._drawBlock(idx, 0);
       const tx = Texture.from(cv);
-      tx.source.scaleMode = 'nearest';
+      tx.source.autoGenerateMipmaps = true;           // mipmaps: no moiré when zoomed out
+      tx.source.scaleMode = this._texMode || 'nearest';
       this.blockTex[idx] = tx;
       if (level.blockTiles[idx].some((t) => animSet.has(t))) this.animBlocks.push(idx);
-      // a "cycle block" is any block whose pixels include one of the cycling colours
+      // a "cycle block" contains a tile that genuinely uses a cycling palette slot (not just
+      // a tile that shares the colour at rest — that's the sky/fruit, which must not blink)
       if (this.cycleColors) {
-        const data = cv.getContext('2d').getImageData(0, 0, BLOCK, BLOCK);
-        if (this._hasCycleColor(data)) { this.cycleBlocks.push(idx); this.blockClean[idx] = data; }
+        const cells = [];
+        for (let cell = 0; cell < 16; cell++) if (this.waterTiles.has(level.blockTiles[idx][cell])) cells.push(cell);
+        if (cells.length) {
+          this.cycleBlocks.push(idx);
+          this.blockWaterCells[idx] = cells;
+          this.blockClean[idx] = cv.getContext('2d').getImageData(0, 0, BLOCK, BLOCK);
+        }
       }
     }
   }
 
-  _hasCycleColor(img) {
-    const d = img.data;
-    for (let p = 0; p < d.length; p += 4) {
-      for (const f of this.cycleFrom) if (d[p] === f[0] && d[p + 1] === f[1] && d[p + 2] === f[2]) return true;
-    }
-    return false;
-  }
-
-  // Recolour every cycle block to palette step `s` by remapping the cycling colours from
-  // its clean (step-0) pixels — a faithful re-creation of the runtime BG-palette rotation.
+  // Recolour each cycle block to palette step `s`, but only within its cycling-tile cells
+  // (8x8), remapping the cycling colours from the clean step-0 pixels. Other cells stay put.
   _applyCycleStep(s) {
     for (const idx of this.cycleBlocks) {
       const clean = this.blockClean[idx].data;
       const ctx = this.blockCanvas[idx].getContext('2d');
       const out = ctx.createImageData(BLOCK, BLOCK);
       const dst = out.data;
-      for (let p = 0; p < clean.length; p += 4) {
-        let r = clean[p], g = clean[p + 1], b = clean[p + 2];
-        for (let i = 0; i < this.cycleFrom.length; i++) {
-          const f = this.cycleFrom[i];
-          if (r === f[0] && g === f[1] && b === f[2]) { const t = this.cycleColors[s][i]; r = t[0]; g = t[1]; b = t[2]; break; }
+      dst.set(clean);
+      for (const cell of this.blockWaterCells[idx]) {
+        const cx = (cell % 4) * 8, cy = (cell >> 2) * 8;
+        for (let y = 0; y < 8; y++) {
+          for (let x = 0; x < 8; x++) {
+            const p = ((cy + y) * BLOCK + (cx + x)) * 4;
+            const r = dst[p], g = dst[p + 1], b = dst[p + 2];
+            for (let i = 0; i < this.cycleFrom.length; i++) {
+              const f = this.cycleFrom[i];
+              if (r === f[0] && g === f[1] && b === f[2]) { const t = this.cycleColors[s][i]; dst[p] = t[0]; dst[p + 1] = t[1]; dst[p + 2] = t[2]; break; }
+            }
+          }
         }
-        dst[p] = r; dst[p + 1] = g; dst[p + 2] = b; dst[p + 3] = clean[p + 3];
       }
       ctx.putImageData(out, 0, 0);
       this.blockTex[idx].source.update();
@@ -182,12 +188,13 @@ export class LevelViewer {
     this.animTick = 0; this.animAccum = 0;
 
     // palette cycle (water/lava): per-step colours for the cycling slots; step 0 = atlas.
-    this.cycleColors = null; this.cycleBlocks = []; this.blockClean = {};
+    this.cycleColors = null; this.cycleBlocks = []; this.blockClean = {}; this.blockWaterCells = {};
     this.cycleStep = 0; this.cycleAccum = 0;
     if (level.paletteCycle) {
       this.cycleColors = level.paletteCycle.steps.map((step) => step.map(hexToRgb));
       this.cycleFrom = this.cycleColors[0];
       this.cyclePeriod = level.paletteCycle.periodFrames;
+      this.waterTiles = new Set(level.paletteCycle.tiles); // tiles that actually use a cycling slot
     }
 
     // base tilemap
@@ -302,7 +309,17 @@ export class LevelViewer {
   _apply() {
     this.world.scale.set(this.zoom);
     this._clampPan();
+    this._updateTexFilter();
     if (this.hud) this.hud.textContent = `${(this.zoom).toFixed(2)}x  ${this.levelW / BLOCK}x${this.levelH / BLOCK} blocks`;
+  }
+
+  // Crisp nearest-neighbour when magnifying (zoom >= 1), but linear + mipmaps when minifying
+  // (zoomed out) so the downscaled tiles don't moiré/shimmer.
+  _updateTexFilter() {
+    const mode = this.zoom < 1 ? 'linear' : 'nearest';
+    if (mode === this._texMode) return;
+    this._texMode = mode;
+    for (const idx in this.blockTex) this.blockTex[idx].source.scaleMode = mode;
   }
   _wireCamera() {
     const c = this.el;
