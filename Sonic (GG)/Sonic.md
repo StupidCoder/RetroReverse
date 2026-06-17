@@ -1460,6 +1460,39 @@ past `$0300` (768 frames ≈ 12.8 s), fires the warning/countdown effect (`RST $
 and eventually drowns Sonic. (So the 8-bit game *does* have drowning, contrary to a common
 belief that only the 16-bit version does.)
 
+## 4. Bonus stages (the special stage)
+
+Clearing Act 1 or 2 of a zone **with 50 or more rings** sends you to a bonus stage instead
+of the next act. The trigger is in the **goal-sign handler `$61F8`**: when you reach the
+sign it saves the ring count (`$D2AA`) and, at the act-complete branch, checks
+`LD A,($D2AA) / CP $50` — 50 in BCD — and on `>=` selects completion type `$D282 = 4`. The
+`$D282` state machine entry for 4 (`$17E3`) **sets the bonus flag `(IY+7) bit 0`**.
+
+The next time a scene loads, the attract/level loop (`$178A`) sees that flag and, instead of
+the normal `INC ($D238)`, runs the bonus path: it swaps in **`$D239`** as the scene index,
+plays it, then restores the real progression. `$D239` is the **bonus-stage cursor** —
+initialised to **`$1C` (28)** at boot (`$1386`) and **incremented after each bonus**, so each
+visit plays the next one in sequence.
+
+So the bonus stages are simply **scene-table entries 28–35** — eight more descriptors in the
+same `$5600` table, in a seventh "zone" (descriptor `+0 = 6`). They are reached through the
+exact same loader as the normal acts (`scene_run $1414`: `descriptor = $5600 + word($5600 +
+index*2)`).
+
+A surprise about their data: **all eight share one tilemap, one tile set, one block table and
+one palette** (map file `$1EE30`, tiles `$3C7F5`, blocks `$149B0`, BG palette index 7 — the
+pink-checkered starfield). What differs per round is the **spawn**, the **camera bounds**
+(descriptor `+9/+10` top, `+11/+12` bottom) and the **object layout** — the rings (`type
+$21`), the collectible goal (`type $52`) and assorted items. The eight rounds cycle through
+four spawn/bounds configurations (top corridor, middle staircase, bottom corridor, right
+column) in two object variants each, so although the ROM stores one map, each round plays as
+a distinct section of it.
+
+The export adds all eight as a **"Special Stage"** zone (`extract/cmd/webexport`; rendered
+straight from ROM with `cmd/bonusshot` for verification). Note their tiles `252–255` are real
+graphics, not the runtime ring animation that fills those slots in the normal zones, so the
+ring-tile animation is skipped for this zone.
+
 ---
 
 # Appendix A — Toolchain and reproduction

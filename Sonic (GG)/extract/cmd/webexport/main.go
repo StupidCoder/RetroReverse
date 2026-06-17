@@ -41,7 +41,13 @@ const (
 	numShapes = 48      // collision shapes $00-$2F (the table ends where profile data begins)
 )
 
-var zoneNames = []string{"Green Hills", "Bridge", "Jungle", "Labyrinth", "Scrap Brain", "Sky Base"}
+var zoneNames = []string{"Green Hills", "Bridge", "Jungle", "Labyrinth", "Scrap Brain", "Sky Base", "Special Stage"}
+
+// Bonus/special stages: descriptor indices 28-35 ($1C-$23), reached when an act is
+// cleared with >=50 rings (goal handler $61F8 -> $D282=4 -> sets bonus flag IY+7 bit0;
+// $D239 counts from $1C and selects the next descriptor each time). All 8 share one zone-6
+// tilemap/tileset/palette; they differ in spawn, camera bounds and object (ring) layout.
+const bonusFirst, bonusCount = 28, 8
 
 // objNames maps the object type bytes we have identified (Part V §1) to display names.
 var objNames = map[byte]string{
@@ -51,6 +57,7 @@ var objNames = map[byte]string{
 	0x25: "capsule", 0x26: "fish", 0x2C: "world 3 boss", 0x2D: "porcupine",
 	0x48: "world 2 boss", 0x49: "world 4 boss", 0x4E: "seesaw",
 	0x50: "scroll lock", 0x51: "checkpoint",
+	0x21: "ring", 0x52: "emerald", // special-stage objects ($21 floating ring, $52 collect-to-finish)
 }
 
 type Act struct {
@@ -77,6 +84,24 @@ func parseActs(rom []byte) []Act {
 		acts = append(acts, Act{
 			num: i, zone: i / 3,
 			name:     fmt.Sprintf("%s Act %d", zoneNames[i/3], i%3+1),
+			mapFile:  0x14000 + w(rom, d+15),
+			mapLen:   w(rom, d+17),
+			widthBlk: w(rom, d+7) / 32,
+			stride:   w(rom, d+1),
+			blkTable: blockBase + w(rom, d+19),
+			tileFile: tileBase + w(rom, d+21),
+			bgPal:    int(rom[d+29]),
+			spawnX:   int(rom[d+13]),
+			spawnY:   int(rom[d+14]) - 1,
+		})
+	}
+	// Bonus/special stages (zone 6): same descriptor layout, one shared map.
+	for n := 0; n < bonusCount; n++ {
+		i := bonusFirst + n
+		d := descTable + w(rom, descTable+i*2)
+		acts = append(acts, Act{
+			num: i, zone: 6,
+			name:     fmt.Sprintf("Special Stage %d", n+1),
 			mapFile:  0x14000 + w(rom, d+15),
 			mapLen:   w(rom, d+17),
 			widthBlk: w(rom, d+7) / 32,
@@ -142,7 +167,12 @@ func applyAnimFrame(rom, tiles []byte, zone int) {
 			copy(tiles[a.vramTile*32:], rom[a.fileOff:a.fileOff+n])
 		}
 	}
-	apply(ringAnim)
+	// Zones 0-5 leave tiles 252-255 empty and the engine fills them with the spinning
+	// ring frames at runtime. The special stage (zone 6) instead uses 252-255 for real
+	// graphics and has no baked ring-tile animation (its rings are objects), so skip it.
+	if zone < 6 {
+		apply(ringAnim)
+	}
 	for _, a := range zoneAnims[zone] {
 		apply(a)
 	}
@@ -197,7 +227,10 @@ func renderAtlas(rom, tiles []byte, pal color.Palette, zone int) (*image.RGBA, [
 		}
 		return g
 	}
-	groups := []AnimGroup{appendGroup("rings", []int{252, 253, 254, 255}, ringSrc, ringFrames)}
+	var groups []AnimGroup
+	if zone < 6 { // the special stage uses tiles 252-255 statically (no ring-tile animation)
+		groups = append(groups, appendGroup("rings", []int{252, 253, 254, 255}, ringSrc, ringFrames))
+	}
 	if zone == 0 {
 		groups = append(groups, appendGroup("flowers", []int{12, 13, 14, 15}, flowerSrc, flowerFrames))
 	}
@@ -505,18 +538,29 @@ func main() {
 		spawn := [2]int{a.spawnX, a.spawnY}
 		objs := objectTable(rom, a.num)
 
+		actNo := a.num%3 + 1
+		if a.zone == 6 {
+			actNo = a.num - bonusFirst + 1 // Special Stage round number
+		}
 		af := ActFile{
-			Zone: a.zone, Act: a.num%3 + 1, Name: a.name, Atlas: atlas,
+			Zone: a.zone, Act: actNo, Name: a.name, Atlas: atlas,
 			TileSize: 8, Stride: a.stride, WidthBlocks: cols, HeightBlocks: rows,
 			Palette:    paletteHex(pal),
 			BlockTiles: bt, BlockShape: blockShapes(rom, a.zone),
 			Blocks: blocks, Spawn: spawn, Objects: objs,
 			Anim: atlasAnim[atlas],
 		}
-		pc, seen := cycleCache[a.bgPal]
-		if !seen {
-			pc = capturePaletteCycle(rom, a.num, pal)
-			cycleCache[a.bgPal] = pc
+		// The palette cycle is oracle-captured by booting the act; only do it for the real
+		// zones (the bonus stages can't be reached by forcing $D238 and have no water/lava
+		// cycle anyway).
+		var pc *PaletteCycle
+		if a.zone < 6 {
+			var seen bool
+			pc, seen = cycleCache[a.bgPal]
+			if !seen {
+				pc = capturePaletteCycle(rom, a.num, pal)
+				cycleCache[a.bgPal] = pc
+			}
 		}
 		if pc != nil {
 			actPC := *pc // per-act copy: the cycling tiles depend on this act's tile set
