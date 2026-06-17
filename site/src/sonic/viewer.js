@@ -46,7 +46,11 @@ export class LevelViewer {
     this.app.stage.addChild(this.world);
     this.shapes = await fetch(DATA + 'shapes.json').then((r) => r.json());
     this._wireCamera();
-    return fetch(DATA + 'meta.json').then((r) => r.json());
+    this.animOn = true; this.animTick = 0; this.animAccum = 0;
+    this.app.ticker.add(() => this._advanceAnim());
+    const meta = await fetch(DATA + 'meta.json').then((r) => r.json());
+    this.framesPerTick = (meta.anim && meta.anim.framesPerTick) || 10;
+    return meta;
   }
 
   // --- data loading -------------------------------------------------------
@@ -60,42 +64,75 @@ export class LevelViewer {
     return img;
   }
 
-  // Bake one 32x32 texture per distinct block index used in the map.
-  _bakeBlocks(level, atlasImg) {
-    const used = new Set(level.blocks);
-    const tex = {};
-    for (const idx of used) {
+  // tileFrames[srcTile] = [atlasIndex per animation frame]; built from level.anim.
+  _buildAnim(level) {
+    this.tileFrames = {};
+    for (const g of level.anim || []) {
+      for (let i = 0; i < 4; i++) {
+        const src = g.frames[0][i];
+        this.tileFrames[src] = g.frames.map((fr) => fr[i]);
+      }
+    }
+  }
+
+  // Draw block `idx` into its canvas at animation tick `t` (animated tiles pick the
+  // current frame's atlas tile; others use their static index), then flag the texture.
+  _drawBlock(idx, t) {
+    const ctx = this.blockCanvas[idx].getContext('2d');
+    ctx.imageSmoothingEnabled = false;
+    const tiles = this.level.blockTiles[idx];
+    for (let r = 0; r < 4; r++) {
+      for (let c = 0; c < 4; c++) {
+        let tile = tiles[r * 4 + c];
+        const fr = this.tileFrames[tile];
+        if (fr) tile = fr[t % fr.length];
+        const sx = (tile % 16) * TILE, sy = ((tile / 16) | 0) * TILE;
+        ctx.drawImage(this.atlasImg, sx, sy, TILE, TILE, c * TILE, r * TILE, TILE, TILE);
+      }
+    }
+    if (this.blockTex[idx]) this.blockTex[idx].source.update();
+  }
+
+  // Bake one 32x32 texture per distinct block index used in the map (frame 0).
+  _bakeBlocks(level) {
+    this.blockCanvas = {}; this.blockTex = {}; this.animBlocks = [];
+    const animSet = new Set(Object.keys(this.tileFrames).map(Number));
+    for (const idx of new Set(level.blocks)) {
       const cv = document.createElement('canvas');
       cv.width = cv.height = BLOCK;
-      const ctx = cv.getContext('2d');
-      ctx.imageSmoothingEnabled = false;
-      const tiles = level.blockTiles[idx];
-      for (let r = 0; r < 4; r++) {
-        for (let c = 0; c < 4; c++) {
-          const t = tiles[r * 4 + c];
-          const sx = (t % 16) * TILE, sy = ((t / 16) | 0) * TILE;
-          ctx.drawImage(atlasImg, sx, sy, TILE, TILE, c * TILE, r * TILE, TILE, TILE);
-        }
-      }
+      this.blockCanvas[idx] = cv;
+      this._drawBlock(idx, 0);
       const tx = Texture.from(cv);
       tx.source.scaleMode = 'nearest';
-      tex[idx] = tx;
+      this.blockTex[idx] = tx;
+      if (level.blockTiles[idx].some((t) => animSet.has(t))) this.animBlocks.push(idx);
     }
-    return tex;
+  }
+
+  _advanceAnim() {
+    if (!this.animOn || !this.animBlocks || !this.animBlocks.length) return;
+    this.animAccum += this.app.ticker.deltaMS;
+    const period = 1000 * (this.framesPerTick || 10) / 60;
+    if (this.animAccum < period) return;
+    this.animAccum = 0;
+    this.animTick = (this.animTick + 1) | 0;
+    for (const idx of this.animBlocks) this._drawBlock(idx, this.animTick);
   }
 
   async loadAct(actMeta) {
     const level = await fetch(DATA + actMeta.file).then((r) => r.json());
-    const atlasImg = await this._atlas(actMeta.atlas);
+    this.atlasImg = await this._atlas(actMeta.atlas);
     this.level = level;
+    this._buildAnim(level);
+    this.animTick = 0; this.animAccum = 0;
 
     // base tilemap
     this.tileLayer.removeChildren();
-    const blockTex = this._bakeBlocks(level, atlasImg);
+    this._bakeBlocks(level);
     const { widthBlocks: W, heightBlocks: H, blocks } = level;
     for (let r = 0; r < H; r++) {
       for (let c = 0; c < W; c++) {
-        const tx = blockTex[blocks[r * W + c]];
+        const tx = this.blockTex[blocks[r * W + c]];
         if (!tx) continue;
         const s = new Sprite(tx);
         s.x = c * BLOCK; s.y = r * BLOCK;
@@ -176,6 +213,10 @@ export class LevelViewer {
   setLayer(name, on) {
     if (name === 'collision') this.collisionLayer.visible = on;
     if (name === 'objects') this.objectLayer.visible = on;
+    if (name === 'animation') {
+      this.animOn = on;
+      if (!on && this.animBlocks) { this.animTick = 0; for (const i of this.animBlocks) this._drawBlock(i, 0); }
+    }
   }
 
   // --- camera -------------------------------------------------------------

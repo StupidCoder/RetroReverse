@@ -41,11 +41,13 @@ The map is a real tilemap rebuilt from the cartridge — each 32×32 block is ba
 the zone's tile atlas, then placed as one sprite per cell (so PixiJS batches the whole level
 and zoom is cheap). Drag to pan, scroll to zoom. Toggle layers:
 
+- **Animation** — the rings (6 frames) and Green Hills flowers (2 frames) cycle at the
+  Game Gear's cadence by re-baking only the animated block textures.
 - **Collision shapes** — each block's surface height-profile (red) over the real tiles;
   non-solid blocks tinted blue (where Sonic falls through).
 - **Objects** — enemies/items/bosses and Sonic's spawn marker.
 
 > Note: the frontend was written in an environment without a browser or JS runtime, so it is
 > verified at the data-contract level (the exporter output is checked against the
-> `cmd/levelmap` render) but not yet run in a browser. Animation (M3) is pending the
-> multi-frame atlas export.
+> `cmd/levelmap` render pixel-for-pixel, and the JSON/atlas indices are validated) but not
+> yet run in a browser — please try it and report anything that needs fixing.

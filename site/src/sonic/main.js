@@ -18,6 +18,7 @@ meta.acts.forEach((a, i) => {
 sel.addEventListener('change', () => viewer.loadAct(meta.acts[+sel.value]));
 
 // layer toggles
+document.getElementById('animation').addEventListener('change', (e) => viewer.setLayer('animation', e.target.checked));
 document.getElementById('collision').addEventListener('change', (e) => viewer.setLayer('collision', e.target.checked));
 document.getElementById('objects').addEventListener('change', (e) => viewer.setLayer('objects', e.target.checked));
 

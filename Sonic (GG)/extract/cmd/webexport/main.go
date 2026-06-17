@@ -3,11 +3,11 @@
 // path as cmd/levelmap, then written as small block-indexed JSON plus a per-(tileset,
 // palette) tile-atlas PNG:
 //
-//   meta.json            zone names, the 18-act index, animation cadence
-//   shapes.json          the 48 collision height profiles ($3E7A) + angles ($3978)
-//   atlas_<k>.png        256 tiles (8x8) at a zone palette, 16 wide; reused across acts
-//   act<NN>.json         per act: block map, block->tile table, block->collision shape,
-//                        palette, spawn, objects, atlas reference
+//	meta.json            zone names, the 18-act index, animation cadence
+//	shapes.json          the 48 collision height profiles ($3E7A) + angles ($3978)
+//	atlas_<k>.png        256 tiles (8x8) at a zone palette, 16 wide; reused across acts
+//	act<NN>.json         per act: block map, block->tile table, block->collision shape,
+//	                     palette, spawn, objects, atlas reference
 //
 // The client expands blocks -> tiles into a tilemap. Output defaults to
 // site/public/sonic (relative to the repo root).
@@ -35,10 +35,10 @@ const (
 	tileBase  = 0x30000 // compressed tile sets: file $30000 + descriptor word
 	palTable  = 0x23400 // bank 8 $7400: per-index palette offset table
 	objTable  = 0x15600 // object tables: $15600 + descriptor word +30
-	attrPtrs  = 0x343D   // per-zone block-attribute table pointers (bit7 priority, bits0-5 shape)
-	shapeTbl  = 0x3E7A   // floor height-profile pointer table (shape*2 -> 32-byte profile)
-	angleTbl  = 0x3978   // per-shape surface angle (signed)
-	numShapes = 48       // collision shapes $00-$2F (the table ends where profile data begins)
+	attrPtrs  = 0x343D  // per-zone block-attribute table pointers (bit7 priority, bits0-5 shape)
+	shapeTbl  = 0x3E7A  // floor height-profile pointer table (shape*2 -> 32-byte profile)
+	angleTbl  = 0x3978  // per-shape surface angle (signed)
+	numShapes = 48      // collision shapes $00-$2F (the table ends where profile data begins)
 )
 
 var zoneNames = []string{"Green Hills", "Bridge", "Jungle", "Labyrinth", "Scrap Brain", "Sky Base"}
@@ -148,21 +148,60 @@ func applyAnimFrame(rom, tiles []byte, zone int) {
 	}
 }
 
-// renderAtlas paints the 256 tiles into a 16-wide RGBA atlas (128x128) at the palette.
-func renderAtlas(tiles []byte, pal color.Palette) *image.RGBA {
-	const cols = 16
-	rows := 256 / cols
-	img := image.NewRGBA(image.Rect(0, 0, cols*8, rows*8))
-	for ti := 0; ti < 256; ti++ {
-		t := gamegear.DecodeTile(tiles[ti*32:])
-		ox, oy := (ti%cols)*8, (ti/cols)*8
-		for y := 0; y < 8; y++ {
-			for x := 0; x < 8; x++ {
-				img.Set(ox+x, oy+y, pal[t[y][x]])
-			}
+// Animated tile sources (bank 11, contiguous): the rings spin through 6 frames, the
+// Green Hills flowers through 2, each frame being 4 tiles (16x16). Frame 0 is the one
+// already baked into the base tile set; frames 1+ are appended to the atlas.
+const (
+	ringSrc      = 0x2F73D
+	ringFrames   = 6
+	flowerSrc    = 0x2FA3D
+	flowerFrames = 2
+)
+
+// AnimGroup describes one animated tile group: per frame, the 4 atlas tile indices that
+// replace the group's base tiles (frame 0 = the base tiles themselves).
+type AnimGroup struct {
+	Name   string  `json:"name"`
+	Frames [][]int `json:"frames"`
+}
+
+func drawTile(img *image.RGBA, pal color.Palette, data []byte, atlasIdx int) {
+	t := gamegear.DecodeTile(data)
+	ox, oy := (atlasIdx%16)*8, (atlasIdx/16)*8
+	for y := 0; y < 8; y++ {
+		for x := 0; x < 8; x++ {
+			img.Set(ox+x, oy+y, pal[t[y][x]])
 		}
 	}
-	return img
+}
+
+// renderAtlas paints the 256 base tiles into a 16-wide RGBA atlas, then appends the
+// animation frames (frames 1+) below them, returning the per-group frame->atlas-index
+// metadata. Atlas height is 18 rows (the appended frames fit in rows 16-17).
+func renderAtlas(rom, tiles []byte, pal color.Palette, zone int) (*image.RGBA, []AnimGroup) {
+	const cols, rows = 16, 18
+	img := image.NewRGBA(image.Rect(0, 0, cols*8, rows*8))
+	for ti := 0; ti < 256; ti++ {
+		drawTile(img, pal, tiles[ti*32:], ti)
+	}
+	next := 256
+	appendGroup := func(name string, base []int, src, nframes int) AnimGroup {
+		g := AnimGroup{Name: name, Frames: [][]int{base}} // frame 0 = base tiles
+		for f := 1; f < nframes; f++ {
+			idx := []int{next, next + 1, next + 2, next + 3}
+			for i := 0; i < 4; i++ {
+				drawTile(img, pal, rom[src+f*128+i*32:], idx[i])
+			}
+			g.Frames = append(g.Frames, idx)
+			next += 4
+		}
+		return g
+	}
+	groups := []AnimGroup{appendGroup("rings", []int{252, 253, 254, 255}, ringSrc, ringFrames)}
+	if zone == 0 {
+		groups = append(groups, appendGroup("flowers", []int{12, 13, 14, 15}, flowerSrc, flowerFrames))
+	}
+	return img, groups
 }
 
 // JSON shapes ----------------------------------------------------------------
@@ -189,20 +228,21 @@ type Shapes struct {
 }
 
 type ActFile struct {
-	Zone         int      `json:"zone"`
-	Act          int      `json:"act"`
-	Name         string   `json:"name"`
-	Atlas        string   `json:"atlas"`
-	TileSize     int      `json:"tileSize"`
-	Stride       int      `json:"stride"`
-	WidthBlocks  int      `json:"widthBlocks"`
-	HeightBlocks int      `json:"heightBlocks"`
-	Palette      []string `json:"palette"`
-	BlockTiles   [][]int  `json:"blockTiles"` // block -> 16 tile indices (4x4)
-	BlockShape   []int    `json:"blockShape"` // block -> collision shape 0-47
-	Blocks       []int    `json:"blocks"`     // block-index map, row-major, len = w*h
-	Spawn        [2]int   `json:"spawn"`      // [bx, by]
-	Objects      []Obj    `json:"objects"`
+	Zone         int         `json:"zone"`
+	Act          int         `json:"act"`
+	Name         string      `json:"name"`
+	Atlas        string      `json:"atlas"`
+	TileSize     int         `json:"tileSize"`
+	Stride       int         `json:"stride"`
+	WidthBlocks  int         `json:"widthBlocks"`
+	HeightBlocks int         `json:"heightBlocks"`
+	Palette      []string    `json:"palette"`
+	BlockTiles   [][]int     `json:"blockTiles"` // block -> 16 tile indices (4x4)
+	BlockShape   []int       `json:"blockShape"` // block -> collision shape 0-47
+	Blocks       []int       `json:"blocks"`     // block-index map, row-major, len = w*h
+	Spawn        [2]int      `json:"spawn"`      // [bx, by]
+	Objects      []Obj       `json:"objects"`
+	Anim         []AnimGroup `json:"anim"` // animated tile groups (atlas indices per frame)
 }
 
 func main() {
@@ -234,6 +274,7 @@ func main() {
 	acts := parseActs(rom)
 	// Dedup atlases by (tileFile, bgPal): same tiles + palette -> one PNG.
 	atlasName := map[[2]int]string{}
+	atlasAnim := map[string][]AnimGroup{}
 	meta := Meta{Zones: zoneNames, Anim: AnimMeta{FramesPerTick: 10}}
 
 	const screenBlk = 5
@@ -248,7 +289,9 @@ func main() {
 		if !ok {
 			atlas = fmt.Sprintf("atlas_%d.png", len(atlasName))
 			atlasName[key] = atlas
-			writePNG(filepath.Join(outdir, atlas), renderAtlas(tiles, pal))
+			img, groups := renderAtlas(rom, tiles, pal, a.zone)
+			atlasAnim[atlas] = groups
+			writePNG(filepath.Join(outdir, atlas), img)
 		}
 
 		// map + geometry
@@ -284,6 +327,7 @@ func main() {
 			Palette:    paletteHex(pal),
 			BlockTiles: bt, BlockShape: blockShapes(rom, a.zone),
 			Blocks: blocks, Spawn: spawn, Objects: objs,
+			Anim: atlasAnim[atlas],
 		}
 		file := fmt.Sprintf("act%02d.json", a.num+1)
 		writeJSON(filepath.Join(outdir, file), af)
