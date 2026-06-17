@@ -52,7 +52,16 @@ export class FortViewer {
     this.app.stage.addChild(this.world);
     this._wireCamera();
     this.app.ticker.add(() => this._advanceAnim());
+    // Helicopter sprites (white on transparent → tinted per side when placed).
+    this.chopperFwd = await this._loadTex('chopper-fwd.png');
+    this.chopperSide = await this._loadTex('chopper-side.png');
     return fetch(DATA + 'meta.json').then((r) => r.json());
+  }
+
+  async _loadTex(name) {
+    const tx = Texture.from(await this._loadImage(DATA + name));
+    tx.source.scaleMode = 'nearest';
+    return tx;
   }
 
   _loadImage(src) {
@@ -165,6 +174,11 @@ export class FortViewer {
       place.push({ code: 0x5B, col: c, row: r }, { code: 0x5C, col: c + 1, row: r });
     }
 
+    // Helicopters (sprites, not chars): the player's at its spawn (yellow,
+    // facing ahead) and one enemy at a random open spot (blue, facing sideways).
+    const [psx, psy] = level.spawn;
+    const enemy = this._enemyPos(level);
+
     for (let copy = 0; copy < WRAP_COPIES; copy++) {
       const ox = copy * this.cyl;
       for (const p of place) {
@@ -174,7 +188,32 @@ export class FortViewer {
         s.x = ox + p.col * CHAR; s.y = p.row * CHAR;
         this.objectLayer.addChild(s);
       }
+      if (this.chopperFwd) this._chopper(this.chopperFwd, 0xb8c76f, psx, psy, ox);
+      if (enemy && this.chopperSide) this._chopper(this.chopperSide, 0x352879, enemy[0], enemy[1], ox);
     }
+  }
+
+  _chopper(tex, tint, col, row, ox) {
+    const s = new Sprite(tex);
+    s.tint = tint;
+    s.x = ox + col * CHAR; s.y = row * CHAR;
+    this.objectLayer.addChild(s);
+  }
+
+  // A random open spot (4×2 empty cells) for the enemy helicopter.
+  _enemyPos(level) {
+    const { width: W, height: H, cells } = level;
+    const clear = (c, r) => {
+      for (let dy = 0; dy < 2; dy++) for (let dx = 0; dx < 4; dx++) if (cells[(r + dy) * W + (c + dx)] !== 0) return false;
+      return true;
+    };
+    const hi = Math.min(SPM_MAX, W - 4);
+    for (let tries = 0; tries < 3000; tries++) {
+      const c = SPM_MIN + Math.floor(Math.random() * (hi - SPM_MIN + 1));
+      const r = Math.floor(Math.random() * (H - 1));
+      if (clear(c, r)) return [c, r];
+    }
+    return null;
   }
 
   // SPM spawn: random positions whose two cells are both empty ($00), in the
@@ -208,9 +247,9 @@ export class FortViewer {
   // --- camera (shared pattern with the Sonic viewer) ----------------------
   _fitDefault(level) {
     const W = this.app.screen.width, H = this.app.screen.height;
-    // Don't zoom out past two cylinder periods (so the 3 copies always cover the
-    // view); the repetition makes the wrap visible. Fit height by default.
-    this.minZoom = W / (2 * this.cyl);
+    // Don't zoom out past one cylinder period: the whole course is one loop, and
+    // showing more would repeat the objects (e.g. all 8 prisoners twice).
+    this.minZoom = W / this.cyl;
     this.maxZoom = (W / NATIVE_W) * 3;
     this.zoom = Math.max(this.minZoom, Math.min(this.maxZoom, H / this.levelH));
     const [sx, sy] = level.spawn;

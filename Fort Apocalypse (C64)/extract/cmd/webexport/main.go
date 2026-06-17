@@ -73,8 +73,23 @@ func run(prgPath, outDir string) error {
 	cs := game.PlayfieldCharset()
 	anim := game.SoftCharAnim()
 
+	// Helicopter sprites (shared by both levels): the level-flight pose for the
+	// player and a banked pose for the enemy, white on transparent so the viewer
+	// can tint them (yellow / blue). The poses come in tilt order full-left ..
+	// level .. full-right; [0] is the sprite block of each pose's first rotor frame.
+	poses := game.HelicopterPoses()
+	shapes := game.SpriteShapes()
+	if err := gfx.WritePNG(filepath.Join(outDir, "chopper-fwd.png"),
+		chopperImg(shapes[poses[len(poses)/2][0]-1])); err != nil {
+		return err
+	}
+	if err := gfx.WritePNG(filepath.Join(outDir, "chopper-side.png"),
+		chopperImg(shapes[poses[0][0]-1])); err != nil {
+		return err
+	}
+
 	meta := jsonMeta{}
-	names := []string{"Level 1", "Level 2"}
+	names := []string{"Vaults of Draconis", "Crystalline Caves"}
 	for level := 0; level <= 1; level++ {
 		lm, err := game.LevelMap(level)
 		if err != nil {
@@ -155,6 +170,27 @@ func run(prgPath, outDir string) error {
 // 10=white, 11=colour-RAM green (Part IV §2).
 func palette(d022 byte) [4]color.RGBA {
 	return [4]color.RGBA{gfx.Palette[0], gfx.Palette[d022&0x0F], gfx.Palette[1], gfx.Palette[5]}
+}
+
+// chopperImg renders one helicopter sprite block (the [left][right][$00] rows
+// the game expands, 16x18 used pixels) into a 32x18 RGBA image — white where set,
+// transparent elsewhere, X-expanded (the sprites are drawn double-wide in game).
+func chopperImg(block []byte) *image.RGBA {
+	img := image.NewRGBA(image.Rect(0, 0, 32, 18))
+	white := color.RGBA{255, 255, 255, 255}
+	for r := 0; r < 18; r++ {
+		for bi := 0; bi < 2; bi++ {
+			b := block[r*3+bi]
+			for bit := 0; bit < 8; bit++ {
+				if b&(0x80>>bit) != 0 {
+					x := (bi*8 + bit) * 2
+					img.SetRGBA(x, r, white)
+					img.SetRGBA(x+1, r, white)
+				}
+			}
+		}
+	}
+	return img
 }
 
 // writeAtlas renders the tiles as a 16-wide grid of 8x8 multicolor chars.
