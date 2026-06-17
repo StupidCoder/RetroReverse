@@ -11,6 +11,8 @@ import { Application, Container, Sprite, Texture, Graphics, Text } from 'pixi.js
 const TILE = 8;
 const BLOCK = 32;       // 4x4 tiles
 const DATA = 'public/sonic/';
+const GG_W = 160;                       // Game Gear visible width (px); max zoom-in = GG 1:1
+const ZOOM_STEP = Math.pow(1.15, 0.25); // per wheel notch — a quarter of the old 1.15 in log space
 
 const OBJ_COLORS = {     // category tint by object name
   default: 0xaaaaaa,
@@ -223,8 +225,8 @@ export class LevelViewer {
   _fitDefault(level) {
     const W = this.app.screen.width;
     this.minZoom = Math.min(W / this.levelW, this.app.screen.height / this.levelH) * 0.95;
-    this.maxZoom = Math.max(12, (W / 160) * 2);
-    this.zoom = Math.min(this.maxZoom, Math.max(this.minZoom, W / 160)); // ≈ one GG screen wide
+    this.maxZoom = W / GG_W;                                  // GG 1:1 — never magnify past the original viewport
+    this.zoom = Math.min(this.maxZoom, Math.max(this.minZoom, W / GG_W)); // start at the GG screen
     // centre on Sonic's spawn
     const [sx, sy] = level.spawn;
     this._panTo((sx * BLOCK + 8), (sy * BLOCK + 16));
@@ -264,7 +266,7 @@ export class LevelViewer {
       const px = (e.clientX - rect.left) * (this.app.screen.width / rect.width);
       const py = (e.clientY - rect.top) * (this.app.screen.height / rect.height);
       const wx = (px - this.world.position.x) / this.zoom, wy = (py - this.world.position.y) / this.zoom;
-      const f = e.deltaY < 0 ? 1.15 : 1 / 1.15;
+      const f = e.deltaY < 0 ? ZOOM_STEP : 1 / ZOOM_STEP;
       this.zoom = Math.min(this.maxZoom, Math.max(this.minZoom, this.zoom * f));
       this.world.scale.set(this.zoom);
       this.world.position.set(px - wx * this.zoom, py - wy * this.zoom);
