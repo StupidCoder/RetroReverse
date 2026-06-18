@@ -8,12 +8,21 @@
 //	mdat  $1CFF4  the "TFMX-SONG" song/pattern/macro data
 //	smpl  $20E90  raw 8-bit signed PCM sample data (to the overlay's end)
 //
-// The mdat header carries the song table (start/end/tempo of each sub-song at
-// +$100/+$140/+$180, indexed by song number); the pattern/macro pointer tables and
-// their data follow (the standard TFMX header pointers are zeroed — this build
-// packs the data after a gap, the first pointer table starting at +$402). This
-// command writes mdat.bin + smpl.bin and prints the song table; the player (next
-// stage) reimplements the driver over these to render PCM.
+// The mdat layout (verified against the driver's trackstep processor $1BED6):
+//
+//	+$100/+$140/+$180  song table: start/end/tempo word per sub-song (3 real)
+//	+$400              pattern pointer table: 128 longs (offset from mdat to a pattern)
+//	+$600              macro pointer table:   128 longs (offset from mdat to a macro)
+//	+$800              trackstep table: 16 bytes/entry = 8 channel words. A word's
+//	                   bit15 = channel off; else pattern# = (w>>8)&$7F, transpose =
+//	                   w&$FF. A first word of $EFFE marks a command step.
+//
+// A pattern is a stream of 4-byte entries (note/instrument + $F0-$FF commands); a
+// macro is a stream of 4-byte instrument commands ($00-$22) that set the sample,
+// volume, period, vibrato/portamento/envelope etc. Samples are raw signed 8-bit.
+//
+// This command writes mdat.bin + smpl.bin and prints the song table; the synthesis
+// player (next stage) reimplements the driver over these to render PCM.
 //
 // Usage: music [-o dir] [Turrican.adf]
 package main

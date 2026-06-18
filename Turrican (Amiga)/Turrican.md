@@ -1166,22 +1166,33 @@ sound overlay** (streamed off ADF `$26000` at `game_init` and three-pass-decoded
 every other module). The overlay carries Hülsbeck's in-game player and, handed to its
 `api_init` (`$1CB62`), two data pointers:
 
-* **mdat** `$1CFF4` — the `TFMX-SONG` data: a song table (`start/end/tempo` per
-  sub-song at `+$100/+$140/+$180`) and, after the header, the pattern/macro pointer
-  tables and their data (the standard TFMX header pointers are zeroed; the first
-  pointer table starts at `+$402`). Three real sub-songs (the rest are empty filler).
-* **smpl** `$20E90` — 50 644 bytes of raw 8-bit signed PCM, the instruments.
+* **mdat** `$1CFF4` — the `TFMX-SONG` data; **smpl** `$20E90` — 50 644 bytes of raw
+  signed 8-bit PCM, the instruments.
 
-The player itself is fully disassembled: `sound_tick` (`$1BB78`) → the song sequencer
-(`$1C868`) and pattern reader (`$1BC54`) → per-voice `update_voice` (`$1C118`) with
-`voice_vibrato`/`voice_portamento`/`voice_envelope` (`$1C646`/`$1C684`/`$1C6D2`) and an
-instrument-macro step, all driving Paula (`AUDxPER`/`AUDxVOL`, 8-bit samples). The
-mdat + smpl are extracted off the disk by `extract/cmd/music`.
+The mdat layout was pinned exactly from the driver's trackstep processor (`$1BED6`),
+since the standard TFMX header pointers (`+$1D0`) are zeroed in this build:
 
-> **Next.** Reimplement that player over the extracted data (Paula 4-channel mixing
-> at PAL rate, the macro/effect logic translated from the driver), render to PCM and
-> encode an MP3 up to the loop point — the remaining audio work. Also: the player
-> composite (`$56AC` and its part tables).
+| offset | table |
+|--------|-------|
+| `+$100/+$140/+$180` | song table — `start`/`end`/`tempo` word per sub-song (3 real) |
+| `+$400` | **pattern** pointer table — 128 longs (offset from mdat to a pattern) |
+| `+$600` | **macro** pointer table — 128 longs |
+| `+$800` | **trackstep** table — 16 bytes/entry = 8 channel words; a word's bit 15 = off, else pattern `= (w>>8)&$7F`, transpose `= w&$FF`; first word `$EFFE` = a command step |
+
+A pattern is a stream of 4-byte entries (a note + macro number, or an `$F0`–`$FF`
+command); a macro is a stream of 4-byte instrument commands (`$00`–`$22`: set sample,
+volume, period, vibrato/portamento/envelope, DMA, wait, loop…). `extract/cmd/music`
+pulls mdat + smpl off the disk and reports the song table. The whole player chain is
+disassembled in `disasm/overlay_1bb00.asm`: `sound_tick` (`$1BB78`) → song sequencer
+(`$1C868`) / trackstep processor (`$1BED6`) / pattern reader (`$1BC54`) → per-voice
+`update_voice` (`$1C118`) with the macro VM (jump table `$1C5B2`) and
+`voice_vibrato`/`voice_portamento`/`voice_envelope` (`$1C646`/`$1C684`/`$1C6D2`),
+driving Paula (`AUDxPER`/`AUDxVOL`).
+
+> **Next.** The format is fully mapped; the remaining work is the **synthesis engine**
+> — reimplement the macro VM + pattern/sequencer + Paula 4-channel mixing (PAL rate,
+> period-pitched 8-bit samples), render to PCM and encode an MP3 to the loop point.
+> Also: the player composite (`$56AC` and its part tables).
 
 # Appendix A — Toolchain and reproduction
 
