@@ -67,6 +67,11 @@ type voice struct {
 	portTarget, portRate                   int
 	envOn                                  bool
 	envTarget, envSpeed, envCnt, envReload int
+	// macro loop (cmd $05): byte1 = count (0 = infinite), byte2-3 = target macPos.
+	// Wrapped around cmd $11 (advance sample) this is the wavetable scan / sustain.
+	mLoopOn  bool
+	mLoopInf bool
+	mLoopCnt int
 }
 
 type paulaCh struct {
@@ -313,6 +318,7 @@ func (p *player) trigger(ch, note, macroNum, detune int, porta bool) {
 	v.macWait = 0
 	v.keyOn = true
 	v.addNote = 0
+	v.mLoopOn = false
 	if porta {
 		// keep current period as portamento source (approximate)
 		v.portOn = true
@@ -369,7 +375,24 @@ func (p *player) runMacro(ch int) {
 		case 0x04: // wait w ticks
 			v.macWait = w
 			stop = true
-		case 0x05: // loop / key-wait — approximate as a 1-tick wait
+		case 0x05: // macro loop: byte1 = count (0 = infinite), byte2-3 = target macPos.
+			// Loops the body (which advances the sample via $11) for the scan/sustain.
+			if !v.mLoopOn {
+				v.mLoopOn = true
+				v.mLoopInf = b1 == 0
+				v.mLoopCnt = int(b1)
+			}
+			if v.mLoopInf || v.mLoopCnt > 0 {
+				if !v.mLoopInf {
+					v.mLoopCnt--
+				}
+				v.macPos = w
+			} else {
+				v.mLoopOn = false
+			}
+		case 0x13: // DMA off (the macro turns the channel off, e.g. to restart it)
+			v.dma = false
+		case 0x1A: // key off + 1-tick wait
 			stop = true
 		case 0x06: // set new macro (instrument)
 			v.macro = be32(p.mdat, macTable+(int(b1)&0x7F)*4)
@@ -419,10 +442,10 @@ func (p *player) runMacro(ch int) {
 			v.envTarget = int(p.mdat[o+3]) & 0x7F
 		case 0x10: // reset effects
 			v.vibOn, v.envOn, v.portOn = false, false, false
-		case 0x11: // add to sample start
-			v.regStart += w
-		case 0x12: // add to sample length
-			v.regLen += w * 2
+		case 0x11: // add a SIGNED delta to the sample start (drives the wavetable scan)
+			v.regStart += int(int16(w))
+		case 0x12: // add a signed delta to the sample length
+			v.regLen += int(int16(w)) * 2
 		case 0x18: // set loop point: advance the sample start by w bytes and shrink the
 			// length by w — the loop reg becomes the sustain portion (the note holds)
 			v.regStart += w
@@ -510,12 +533,12 @@ func (p *player) toPaula(ch int) {
 	if v.retrigger {
 		pc.curStart, pc.curLen = pc.loopStart, pc.loopLen
 		pc.pos = 0
-		pc.playing = v.dma && pc.curLen > 0
+		pc.playing = pc.curLen > 0
 		v.retrigger = false
 	}
-	if !v.dma {
-		pc.playing = false
-	}
+	// A transient DMA-off (cmd $13/$00, immediately followed by $01) must NOT silence
+	// the channel — real Paula holds the current sample. The note ends only when the
+	// macro repoints the loop at the 2-byte silence (cmd $19) or the volume hits 0.
 	pc.period = v.period
 	if pc.period < 100 {
 		pc.period = 100
