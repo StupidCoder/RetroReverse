@@ -244,18 +244,16 @@ $50022  …relocate the $34C-byte decrunch core $50040–$5038C → $7F000…
 $5003A  JMP    $7F000
 ```
 
-The relocated core is a **backward, byte-dispatched decruncher** (the backward
-copy-then-decode is the usual "in-place" trick, but the byte-indexed jump table
-below is its own scheme — not a bit-reader like ByteKiller/PowerPacker):
-
-* it copies the packed stream up to the top of memory — `MOVE.b -(a0),-(a1)`
-  from `$72C98` down into `$7EB00` going **downwards** — then decrunches from
-  there back down into low memory, so source and destination can overlap;
-* decoding is **byte-dispatched**: it builds a 256-entry jump table at `$90`
-  (default handler `$5012E`, with a few control values overridden to the
-  literal/match copiers `$50134`/`$5014E`/`$50170`), then the main loop reads a
-  control byte, **writes it to `$DFF180`** (the flashing border bars you see
-  while a cracked game "decrunches"), and `JMP`s through the table:
+The relocated core is **three decoders chained back-to-back**, not one. The
+driver at `$50050` runs them in sequence — a canonical **Huffman** bit-reader
+(`$502C2`), then an **LZ77** copier (`$5019A`), then an **RLE** expander
+(`$500CA`) — relocating the intermediate result to the top of memory before each
+pass and decoding it back down into low memory. Two of the three (LZ and RLE) are
+**byte-dispatched**: each builds a 256-entry jump table at `$90` whose default
+handler is a literal copier and whose few escape control values are overridden to
+the match/run handlers, then the main loop reads a control byte, **writes it to
+`$DFF180`** (the flashing border bars you see while a cracked game "decrunches"),
+and `JMP`s through the table:
 
 ```
 $50110  CMPA.l a1,a0
@@ -267,7 +265,10 @@ $50128  MOVEA.l $0(a6,d0.w),a5
 $5012C  JMP    (a5)                    ; dispatch
 ```
 
-When it finishes it `RTS`es back to `$7F806`.
+The Huffman pass is the exception — a 32-bit MSB-first bit-reader, no jump table.
+Part III §1 documents all three passes and the pure-Go reimplementation that
+reproduces the decrunched image exactly. When the last pass finishes the core
+`RTS`es back to `$7F806`.
 
 ## 5. The trainer and the game entry
 
@@ -279,18 +280,163 @@ entry addresses (`$5F500`, `$5F700`, `$600CA`) place the decrunched program in
 roughly `$400`…`$60000+` of chip RAM.
 
 That decrunched image — the actual Turrican program — is what Part III
-disassembles. It is recovered by **re-implementing the `$50008` backward
-byte-dispatch decoder in Go** (the "declarative" route, as for Marble Madness's
-`c/zzz`), run on the crunched main part read straight from the disk; the FS-UAE/
-GDB oracle (`tools/amiga/fsuae-debug`) is used only to *guide* the
-reimplementation (single-stepping the handlers) and to *verify* it (diffing the
-Go output against the emulator's). Producing that Go decruncher is the first
-task of Part III.
+disassembles. It is recovered by **re-implementing the `$50008` three-pass
+decoder in Go** (the "declarative" route, as for Marble Madness's `c/zzz`), run
+on the crunched main part read straight from the disk; the FS-UAE/GDB oracle
+(`tools/amiga/fsuae-debug`) is used only to *guide* the reimplementation
+(single-stepping the handlers) and to *verify* it (diffing the Go output against
+the emulator's). That decoder — `Turrican (Amiga)/extract/decrunch` — is done and
+documented in Part III §1; its output matches the oracle byte-for-byte.
 
-# Part III — Game program architecture
+# Part III — The decruncher, reimplemented
 
-> **Stub.** The 68000 startup of the unpacked program: interrupt and copper
-> setup, the main loop, and the memory map.
+## 1. The three-pass `$50008` decoder
+
+The crunched main part is not a single packed stream — it is the output of three
+compressors applied in series. Decompression therefore runs the three decoders in
+the opposite order: **Huffman → LZ77 → RLE**. Reading the disassembly of the
+relocated core (`$50040`–`$5038C`) gives the whole algorithm; it is reimplemented
+verbatim in Go in `Turrican (Amiga)/extract/decrunch`, and the result is verified
+against the FS-UAE oracle (below) — **not** scraped from it.
+
+### The blob and the parameter block
+
+The boot loader's main read places this blob at `$50000` (disk `$2C00`):
+
+| offset | bytes | meaning |
+|--------|-------|---------|
+| `$000` | long | `packedLen` = `$22C98` (whole blob length) |
+| `$004` | long | `0` |
+| `$008` | `$38` | bootstrap: disable DMA/INT, relocate the core to `$7F000`, `JMP` |
+| `$040` | `$34C` | the decruncher core (relocated to `$7F000` at runtime) |
+| `$38C` | `$12` | parameter block (below) |
+| `$39E` | … | the packed stream, up to `packedLen` |
+
+The 18-byte parameter block at `$38C` is copied to zero-page `$A4`:
+
+```
++$00 word  $0000      unused
++$02 long  $00043880  output base   — where the final image loads
++$06 long  $0005F500  entry point   — where the game is entered
++$0A long  $00034580  (scratch: overwritten by escape-byte reads; also = final size)
++$0E long  $000228FA  (scratch)
+```
+
+The `$43880` base and `$5F500` entry drive the loader; the `$34580` at `+$0A` is a
+neat cross-check — it is exactly the size of the fully decoded image (see below).
+
+### The driver
+
+`$50050` lays out five scratch pointers in zero page (`$90`…`$A0`), copies the
+packed stream **backward** to end at `$7EB00`, then calls the three passes,
+each writing into the output buffer at `$43880` and then being relocated back up
+to `$7EB00` to feed the next pass:
+
+```
+$5008C  BSR $502C2     ; pass 1 — Huffman   (packed stream → LZ stream)
+$5009E  BSR $5019A     ; pass 2 — LZ77      (LZ stream     → RLE stream)
+$500B0  BSR $500CA     ; pass 3 — RLE       (RLE stream    → final image)
+$500B2  MOVEA.l $AA.w,a0 ; a0 = $5F500 (entry), then RTS
+```
+
+### Pass 1 — Huffman (`$502C2`)
+
+A canonical, threshold-table Huffman decoder over a **32-bit MSB-first**
+bitstream. The pass header is, in order:
+
+```
+long            decodedLen          ; output length (= LZ-stream length)
+256 bytes       symVal[256]         ; the byte values codes resolve to
+long            levels              ; number of code-length classes
+levels × long   thr[levels]         ; first-codeword thresholds, left-justified to 32 bits
+levels × byte   symBase[levels]     ; base index into symVal for each class
+levels × byte   codeLen[levels]     ; codeword bit length for each class
+… bitstream …
+```
+
+For each output byte the decoder takes the 32-bit window at the current bit
+position, finds the **smallest class `L` with `window ≥ thr[L]`** (the thresholds
+decrease, so short/frequent codes sit in class 0 — the code special-cases it for
+speed at `$50332`), then:
+
+```
+rem    = window − thr[L]
+value  = rem >> (32 − codeLen[L])          ; the top codeLen[L] bits
+emit     symVal[(symBase[L] + value) & 0xFF]
+bitpos += codeLen[L]
+```
+
+This is the textbook "compare against left-justified first codewords" scheme; the
+low bits of the window beyond the current codeword are the next code and never
+affect class selection. Decoding stops after exactly `decodedLen` bytes.
+
+### Pass 2 — LZ77 (`$5019A`)
+
+Six **escape bytes** head the stream. The pass builds a 256-entry dispatch table:
+every byte is a literal except the six escapes, each of which introduces a
+back-reference (`copy length bytes from offset behind the cursor`). A `0` directly
+after an escape emits that escape byte as a literal (the escape-the-escape case).
+Later escapes overwrite earlier ones in the table, matching the 68000.
+
+| escape | following bytes | offset | length |
+|--------|-----------------|--------|--------|
+| `esc0` `$5021A` | len, off-hi, off-lo | 16-bit | `len` |
+| `esc1` `$50232` | len, off | 8-bit | `len` |
+| `esc2` `$50248` | off | 8-bit | `3` |
+| `esc3` `$5025C` | off-hi, off-lo | 16-bit | `4` |
+| `esc4` `$50274` | `b` | `(b & $F) + 1` | `(b >> 4) + 3` |
+| `esc5` `$50296` | `b`, `c` | `((b & $F) << 8) \| c` | `(b >> 4) + 4` |
+
+Copies are byte-by-byte, so an offset smaller than the length produces a repeating
+run (true LZ77 overlap).
+
+### Pass 3 — RLE (`$500CA`)
+
+Three escape bytes, same dispatch idea, expanding runs:
+
+| escape | first byte `n`/`b` | emits |
+|--------|--------------------|-------|
+| `esc0` `$50134` | `n == 0` | 16-bit count + fill byte → count copies of fill |
+| | `n == 1` | literal `esc0` |
+| | `n ≥ 2` | fill byte → `n` copies of fill |
+| `esc1` `$5014E` | `n == 0` | 16-bit count → that many `$00` |
+| | `n == 1` | literal `esc1` |
+| | `n ≥ 2` | `n` × `$00` |
+| `esc2` `$50170` | `b == 0` | literal `esc2` |
+| | `b ≠ 0` | three copies of `b` |
+
+After RLE the image is complete: **`$34580` bytes (214,400) at `$43880`**,
+ending at `$77E00`, with the game entered `$1BC80` into it at `$5F500`.
+
+### The Go reimplementation and verification
+
+`extract/decrunch` is a dependency-free package implementing the three passes
+exactly as above; `extract/cmd/decrunch` runs it on the disk image:
+
+```sh
+cd "Turrican (Amiga)"
+go run turrican/extract/cmd/decrunch -o /tmp/turrican.bin Turrican.adf
+# base  = $43880
+# entry = $5F500 (offset $1BC80 into image)
+# size  = $34580 (214400 bytes), ends at $77E00
+# md5   = 94327d996cc03f8d9039d81ba880642e
+```
+
+Per the project rule, the oracle confirms — it does not supply — the result. The
+real `$50008` decruncher was run in isolation under FS-UAE/GDB: write the crunched
+blob to `$50000`, set `PC = $50008` and `SP = $80000`, breakpoint the core's final
+`RTS` (relocated to `$7F076`), and read `$43880`…`$77E00`. The emulator's output
+is **byte-identical** to the Go decoder — same `$34580` bytes, same MD5
+`94327d996cc03f8d9039d81ba880642e`. That `$34580` also equals the size field the
+compressor left at parameter-block `+$0A`, an independent confirmation that all
+three passes consume and produce the right counts.
+
+## 2. Game program architecture
+
+> **Stub.** The 68000 startup of the unpacked program (now disassemblable from
+> the verified `$43880` image): interrupt and copper setup, the main loop, and
+> the memory map. The image disassembles with
+> `dis68k -base 0x43880` over the decoder's output.
 
 # Part IV — Graphics and data formats
 
@@ -324,5 +470,13 @@ go run stupidcoder.com/tools/cmd/dis68k -skip 0x2c08 -base 0x50008 "$A"   # decr
 ```
 
 The `$50008` decruncher's input is the crunched main part at disk `$2C00`
-(`$22C98` bytes, blocks 22–301); a Go re-implementation of it (verified against
-the FS-UAE oracle) yields the decrunched program disassembled in Part III.
+(`$22C98` bytes, blocks 22–301). The Go re-implementation (Part III §1, verified
+byte-identical against the FS-UAE oracle) produces the decrunched program:
+
+```sh
+# decode the main part to a flat image ($43880 base, $5F500 entry)
+go run turrican/extract/cmd/decrunch -o /tmp/turrican.bin "Turrican (Amiga)/Turrican.adf"
+
+# then disassemble the unpacked game from its load address
+go run stupidcoder.com/tools/cmd/dis68k -base 0x43880 /tmp/turrican.bin
+```

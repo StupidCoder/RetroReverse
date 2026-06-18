@@ -38,10 +38,11 @@ To do:
 * Marble Madness (Amiga)
     * Kick off project by writing ADF extractor, disassembler and emulator for 86k code
 * Turrican (Amiga)
-    * Parts I-II done (custom non-DOS boot disk; TRSI crack loader + backward
-      byte-dispatch decruncher). Next (Part III): reimplement the `$50008`
-      decruncher in Go (oracle only to guide/verify, not to scrape) and
-      disassemble the decrunched game
+    * Parts I-III done: custom non-DOS boot disk; TRSI crack loader; the `$50008`
+      decruncher reverse-engineered and reimplemented in pure Go
+      (`extract/decrunch`, a 3-pass Huffman→LZ77→RLE decoder) — output verified
+      byte-identical against the FS-UAE oracle. Next (Part III §2 / IV–V):
+      disassemble and document the decrunched game (`$43880` base, `$5F500` entry)
 * Tools
     * Disassembler should be better at segmenting functions; currently jumps within a function are treated as separate sub-routines; try to document parameters of sub-routines (which registers are used?)
 
@@ -120,7 +121,8 @@ AIReverseEngineering/
 │
 └── Turrican (Amiga)/
     ├── Turrican.adf             # raw disk image (pinned by MD5 in Image files)
-    └── Turrican.md              # disk-format writeup (Parts I-II done; rest stubbed)
+    ├── Turrican.md              # writeup (Parts I-III done; IV-V stubbed)
+    └── extract/                 # pure-Go decruncher (3-pass Huffman/LZ/RLE), cmd/decrunch
 ```
 
 Per-game folder contract: `<Game>.<ext>` raw image, a markdown writeup of the
