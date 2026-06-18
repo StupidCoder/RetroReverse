@@ -188,7 +188,7 @@ func decodeGroup4(op uint16, mode, reg, reg2, size int,
 			return movem(op, false, mode, reg, ea, rd16, mk, ill)
 		}
 	case 0x4C00:
-		if op&0xFB80 == 0x4C80 { // MOVEM <ea>,regs (memory -> register)
+		if op&0xFF80 == 0x4C80 { // MOVEM <ea>,regs (memory -> register)
 			return movem(op, true, mode, reg, ea, rd16, mk, ill)
 		}
 		return ill()
