@@ -7,11 +7,11 @@
 // tile (index value-128). The map is one sprite per cell, drag to pan, scroll to
 // zoom from the whole level down to a single tile.
 //
-// An optional object layer overlays the scene's enemies: each placement (read off
-// the disk by the scroll-triggered spawner's lists) is drawn at its pixel position
+// An optional object layer overlays the scene's objects: each placement (read off
+// the disk by the scroll-triggered spawner's grid) is drawn at its pixel position
 // using the first animation frame of the sprite its AI handler installs — packed
 // into the world's object atlas (objSprites gives each sprite's rect, objects the
-// per-enemy position + sprite index).
+// per-object position + sprite index).
 
 import { Application, Container, Rectangle, Sprite, Texture } from 'pixi.js';
 
@@ -170,7 +170,7 @@ export class TurricanViewer {
     this._clampPan();
     if (this.hud && this.level) {
       const n = this.level.objects?.length || 0;
-      this.hud.textContent = `${this.level.width}×${this.level.height} tiles` + (n ? ` · ${n} enemies` : '');
+      this.hud.textContent = `${this.level.width}×${this.level.height} tiles` + (n ? ` · ${n} objects` : '');
     }
   }
   _wireCamera() {

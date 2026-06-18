@@ -930,123 +930,205 @@ mechanics — every world uses the same engine, object system and sound interfac
 
 ## 5. Enemy placement
 
-The **placement** — which enemy is seeded where — is read by the scroll-triggered
+The **placement** — which object is seeded where — is read by the scroll-triggered
 spawner `enemy_spawner` (`$1710`, called twice per frame). It builds a spawn window
-from the camera (the visible screen plus a margin) and spawns any placement entry
-inside it — which is why enemies appear *just* as the screen reaches them. Each
-scene's placement list lives in its scene block: a grid at the descriptor's `+$28`
-(indexed by camera column) points into a **sorted-by-x stream of 6-byte entries** —
-`type.w, x.w, y.w` (x/y in 8-pixel units) — with `$00` ending a column run and
-`$D3` the list. The type's low nibble selects the scene's enemy-AI handler (`+$20`
-table), so an entry carries both a position and which enemy (so which sprite).
+from the camera (the visible screen plus a margin) and spawns any entry inside it —
+which is why things appear *just* as the screen reaches them. The layout in the scene
+block is a **2D bucket grid**, not a flat list: the descriptor holds a per-camera-row
+offset table (`+$24`) and the grid itself (`+$28`); for a given camera row/column the
+grid yields a pointer into the entry data. Many grid cells share a pointer, and each
+distinct pointer heads a **per-column run of 6-byte entries** — `type.w, x.w, y.w`
+(x/y in 8-pixel units) — terminated by a `$00D3` word (a `$0000` word is a skipped
+hole). Walking every distinct column pointer to its terminator yields each entry
+exactly once; `extract/scene` does this off the disk, and the grid bounds itself (no
+heuristics), so narrow/tall scenes extract as cleanly as wide ones.
 
-`extract/cmd/placements` reads this straight off the disk. Overlaying world 1's 226
-scene-0 placements on the decoded map confirms it — ground enemies on the ledges,
-flyers in the diagonal wave-lines across the sky, clusters guarding the structures:
+Two details matter for getting it right. First, **the type is the high byte** of the
+type word, and it selects the handler in two tiers: `type < 3` indexes the *resident*
+handler table `$1A60` (`type-1` — engine-wide objects like the little rotating mine),
+and `type >= 3` indexes the scene descriptor's `+$20` table (`type-3`). Second, the
+spawner writes the object's world position as `entry.x*8 - 32` / `entry.y*8` (the
+camera terms cancel out), and that pixel is the BOB's **top-left** — so once the type
+and grid walk are right, objects land exactly where the game puts them. Overlaying
+world 1's scene-0 objects on the decoded map, drawn with each one's real sprite,
+confirms it — mines and turrets seated on the floating ledges, flyers in the diagonal
+wave-lines across the sky, ground enemies on the terrain:
 
-![World 1 enemy placements over the map](rendered/world0_placements.png)
+![World 1 object placements over the map](rendered/world0_placements.png)
 
 The spawner was *located* with help from the FS-UAE oracle, but every byte of the
-placement data is extracted from the ADF. The wide horizontal scenes extract
-cleanly; the tall/vertical ones (worlds 3–5) currently over-read because the exact
-grid extent the spawner derives from the level dimensions still needs pinning down
-— the last detail before the full set drives a viewer object layer.
+placement data is extracted from the ADF. This same data drives the companion
+[site](https://stupidcoder.github.io/AIReverseEngineering/turrican.html)'s object
+layer.
 
-## 6. The enemy AI → sprite table
+## 6. The object → AI → sprite table
 
-A placement entry's `type & $F` is an index into the scene's `+$20` AI-handler
-table, and the handler installs its sprite by writing a frame table into the
-object node — `MOVE.l #frametable,$12(a5)` (`2B 7C <imm32> 00 12`). So the lookup
-a viewer needs is **`type → handler → sprite sheet`**, and it is fully static:
-`extract/cmd/placements` resolves it per object (each carries its `sprite` frame
-table in the JSON), and `extract/cmd/sprites` is *driven* by the same set, so every
-handler-installed frame table has a matching `world<N>_sprite_<addr>.png` sheet.
+An entry's type resolves to an AI handler (resident `$1A60[type-1]` for `type < 3`,
+the scene's `+$20[type-3]` otherwise), and the handler installs the object's sprite by
+writing a frame table into the node — `MOVE.l #frametable,$12(a5)` (`2B 7C <imm32> 00
+12`). So the lookup a viewer needs is **`type → handler → sprite sheet`**, fully
+static: `extract/scene` resolves it per object (the JSON carries each object's `sprite`
+frame table and a `resident` flag), and `extract/cmd/sprites` is *driven* by the same
+set, so every used frame table has a matching sheet — `world<N>_sprite_<addr>.png` for
+scene objects, `sprite_<addr>.png` for resident ones.
 
-The table below is that map for every scene that has an AI table (handler address
-and the sheet it installs). Some handlers reuse the same sprite (e.g. the world-0
-walker `$1E042 → 1E23E` recurs in every scene); a few scenes carry no `+$20` table
-at all and so seed no placement enemies.
+The table below lists, per scene, each object type that occurs and the handler/sheet
+it resolves to (resident sprites are flagged). Many types recur across scenes, and
+each scene's `+$20` table is its own, so the `(world, scene, type)` key is what
+disambiguates a sprite.
 
 | World | Scene | Type | AI handler | Sprite sheet |
 |------:|------:|-----:|------------|--------------|
-| 0 | 0 | 0 | `$1E042` | `world0_sprite_1E23E.png` |
-| 0 | 0 | 1 | `$1F152` | `world0_sprite_1F30C.png` |
-| 0 | 0 | 2 | `$206AA` | `world0_sprite_20884.png` |
-| 0 | 0 | 3 | `$1EB54` | `world0_sprite_1ED90.png` |
-| 0 | 0 | 4 | `$1DE68` | `world0_sprite_1DF80.png` |
-| 0 | 0 | 5 | `$1EEB4` | `world0_sprite_1F0D0.png` |
-| 0 | 0 | 6 | `$1E6FC` | `world0_sprite_1E8D0.png` |
-| 0 | 0 | 7 | `$1E356` | `world0_sprite_1E694.png` |
-| 0 | 0 | 8 | `$1E8EA` | `world0_sprite_1EAEE.png` |
-| 0 | 1 | 0 | `$1E042` | `world0_sprite_1E23E.png` |
-| 0 | 1 | 1 | `$1F374` | `world0_sprite_1F4C8.png` |
-| 0 | 1 | 2 | `$1FECA` | `world0_sprite_1FFD6.png` |
-| 0 | 1 | 3 | `$1E8EA` | `world0_sprite_1EAEE.png` |
-| 0 | 1 | 4 | `$1F564` | `world0_sprite_1F754.png` |
-| 0 | 1 | 5 | `$1FD88` | `world0_sprite_1FEB0.png` |
-| 0 | 1 | 6 | `$1F89C` | `world0_sprite_1FB22.png` |
-| 0 | 1 | 7 | `$1EEB4` | `world0_sprite_1F0D0.png` |
-| 0 | 1 | 8 | `$20102` | `world0_sprite_201F4.png` |
-| 0 | 1 | 9 | `$1E356` | `world0_sprite_1E694.png` |
-| 0 | 2 | 0 | `$1E042` | `world0_sprite_1E23E.png` |
-| 0 | 2 | 1 | `$1DE68` | `world0_sprite_1DF80.png` |
-| 0 | 2 | 2 | `$1F564` | `world0_sprite_1F754.png` |
-| 0 | 2 | 3 | `$1E8EA` | `world0_sprite_1EAEE.png` |
-| 0 | 2 | 4 | `$20102` | `world0_sprite_201F4.png` |
-| 0 | 2 | 5 | `$2094A` | `world0_sprite_20BC4.png` |
-| 0 | 2 | 6 | `$20EA8` | `world0_sprite_20FBA.png` |
-| 0 | 2 | 7 | `$1FECA` | `world0_sprite_1FFD6.png` |
-| 0 | 2 | 8 | `$21474` | `world0_sprite_21524.png` |
-| 1 | 0 | 0 | `$1D3EA` | `world1_sprite_1D682.png` |
-| 1 | 0 | 1 | `$1D79A` | `world1_sprite_1D926.png` |
-| 1 | 0 | 2 | `$1D98E` | `world1_sprite_1DB3E.png` |
-| 1 | 1 | 0 | `$1E07A` | `world1_sprite_1E16E.png` |
-| 1 | 1 | 1 | `$1E586` | `world1_sprite_1E6D8.png` |
-| 1 | 1 | 2 | `$1E188` | `world1_sprite_1E3CC.png` |
-| 1 | 1 | 3 | `$1F3F4` | `world1_sprite_1F548.png` |
-| 1 | 1 | 4 | `$1F618` | `world1_sprite_1F736.png` |
-| 1 | 1 | 5 | `$1D79A` | `world1_sprite_1D926.png` |
-| 1 | 1 | 6 | `$1D98E` | `world1_sprite_1DB3E.png` |
-| 1 | 1 | 7 | `$1E75A` | `world1_sprite_1E8E0.png` |
-| 2 | 1 | 0 | `$1EFAC` | `world2_sprite_1F1F2.png` |
-| 2 | 1 | 1 | `$1EADA` | `world2_sprite_1EC38.png` |
-| 2 | 1 | 2 | `$1FB56` | `world2_sprite_1FC6A.png` |
-| 2 | 1 | 3 | `$2005E` | `world2_sprite_202A6.png` |
-| 2 | 1 | 4 | `$1F21E` | `world2_sprite_1F47C.png` |
-| 2 | 1 | 5 | `$1FC84` | `world2_sprite_1FF5A.png` |
-| 2 | 1 | 6 | `$1F6F2` | `world2_sprite_1F7E0.png` |
-| 2 | 1 | 7 | `$1F4FE` | `world2_sprite_1F68A.png` |
-| 2 | 1 | 8 | `$1F7FA` | `world2_sprite_1F9A4.png` |
-| 2 | 2 | 0 | `$1EA82` | `world2_sprite_1E8F6.png` |
-| 2 | 2 | 1 | `$1E598` | `world2_sprite_1E726.png` |
-| 2 | 2 | 2 | `$1E740` | `world2_sprite_1E8F6.png` |
-| 2 | 2 | 3 | `$1EAE0` | `world2_sprite_1EC38.png` |
-| 2 | 2 | 4 | `$20B68` | `world2_sprite_20E4A.png` |
-| 2 | 2 | 5 | `$207A6` | `world2_sprite_20A7A.png` |
-| 3 | 0 | 0 | `$1DCBC` | `world3_sprite_1DE3A.png` |
-| 3 | 0 | 1 | `$1E86E` | `world3_sprite_1EA26.png` |
-| 3 | 0 | 2 | `$1DF40` | `world3_sprite_1E26A.png` |
-| 3 | 0 | 3 | `$1E5D8` | `world3_sprite_1E7D2.png` |
-| 3 | 0 | 4 | `$1E36E` | `world3_sprite_1E572.png` |
-| 3 | 0 | 5 | `$1EC34` | `world3_sprite_1EDCE.png` |
-| 3 | 1 | 0 | `$1DCBC` | `world3_sprite_1DE3A.png` |
-| 3 | 1 | 1 | `$1EC34` | `world3_sprite_1EDCE.png` |
-| 3 | 1 | 2 | `$1E36E` | `world3_sprite_1E572.png` |
-| 3 | 1 | 3 | `$1E5D8` | `world3_sprite_1E7D2.png` |
-| 3 | 1 | 4 | `$1F4DE` | `world3_sprite_1F728.png` |
-| 3 | 2 | 0 | `$1DCBC` | `world3_sprite_1DE3A.png` |
-| 3 | 2 | 1 | `$1F4DE` | `world3_sprite_1F728.png` |
-| 4 | 0 | 0 | `$1CD24` | `world4_sprite_1CFB6.png` |
-| 4 | 0 | 1 | `$1D0CE` | `world4_sprite_1D278.png` |
-| 4 | 0 | 2 | `$1D988` | `world4_sprite_1DB8C.png` |
-| 4 | 0 | 3 | `$1D42A` | `world4_sprite_1D6A4.png` |
-| 4 | 0 | 4 | `$1DBF2` | `world4_sprite_1DE36.png` |
-| 4 | 0 | 5 | `$1E4EC` | `world4_sprite_1E63E.png` |
-| 4 | 1 | 0 | `$1D988` | `world4_sprite_1DB8C.png` |
+| 0 | 0 | 1 | `$07D0E` | `sprite_07E7E.png` (resident) |
+| 0 | 0 | 2 | `$07EFC` | `sprite_080E8.png` (resident) |
+| 0 | 0 | 3 | `$1E042` | `world0_sprite_1E23E.png` |
+| 0 | 0 | 4 | `$1F152` | `world0_sprite_1F30C.png` |
+| 0 | 0 | 5 | `$206AA` | `world0_sprite_20884.png` |
+| 0 | 0 | 6 | `$1EB54` | `world0_sprite_1ED90.png` |
+| 0 | 0 | 7 | `$1DE68` | `world0_sprite_1DF80.png` |
+| 0 | 0 | 8 | `$1EEB4` | `world0_sprite_1F0D0.png` |
+| 0 | 0 | 9 | `$1E6FC` | `world0_sprite_1E8D0.png` |
+| 0 | 0 | 10 | `$1E356` | `world0_sprite_1E694.png` |
+| 0 | 0 | 11 | `$1E8EA` | `world0_sprite_1EAEE.png` |
+| 0 | 0 | 12 | `$00000` | — |
+| 0 | 1 | 1 | `$07D0E` | `sprite_07E7E.png` (resident) |
+| 0 | 1 | 2 | `$07EFC` | `sprite_080E8.png` (resident) |
+| 0 | 1 | 3 | `$1E042` | `world0_sprite_1E23E.png` |
+| 0 | 1 | 4 | `$1F374` | `world0_sprite_1F4C8.png` |
+| 0 | 1 | 5 | `$1FECA` | `world0_sprite_1FFD6.png` |
+| 0 | 1 | 6 | `$1E8EA` | `world0_sprite_1EAEE.png` |
+| 0 | 1 | 7 | `$1F564` | `world0_sprite_1F754.png` |
+| 0 | 1 | 8 | `$1FD88` | `world0_sprite_1FEB0.png` |
+| 0 | 1 | 9 | `$1F89C` | `world0_sprite_1FB22.png` |
+| 0 | 1 | 10 | `$1EEB4` | `world0_sprite_1F0D0.png` |
+| 0 | 1 | 11 | `$20102` | `world0_sprite_201F4.png` |
+| 0 | 1 | 12 | `$1E356` | `world0_sprite_1E694.png` |
+| 0 | 1 | 15 | `$2020E` | — |
+| 0 | 2 | 1 | `$07D0E` | `sprite_07E7E.png` (resident) |
+| 0 | 2 | 2 | `$07EFC` | `sprite_080E8.png` (resident) |
+| 0 | 2 | 3 | `$1E042` | `world0_sprite_1E23E.png` |
+| 0 | 2 | 4 | `$1DE68` | `world0_sprite_1DF80.png` |
+| 0 | 2 | 5 | `$1F564` | `world0_sprite_1F754.png` |
+| 0 | 2 | 6 | `$1E8EA` | `world0_sprite_1EAEE.png` |
+| 0 | 2 | 7 | `$20102` | `world0_sprite_201F4.png` |
+| 0 | 2 | 8 | `$2094A` | `world0_sprite_20BC4.png` |
+| 0 | 2 | 9 | `$20EA8` | `world0_sprite_20FBA.png` |
+| 0 | 2 | 10 | `$1FECA` | `world0_sprite_1FFD6.png` |
+| 0 | 2 | 11 | `$21474` | `world0_sprite_21524.png` |
+| 0 | 2 | 15 | `$20FD4` | — |
+| 1 | 0 | 1 | `$07D0E` | `sprite_07E7E.png` (resident) |
+| 1 | 0 | 2 | `$07EFC` | `sprite_080E8.png` (resident) |
+| 1 | 0 | 3 | `$1D3EA` | `world1_sprite_1D682.png` |
+| 1 | 0 | 4 | `$1D79A` | `world1_sprite_1D926.png` |
+| 1 | 0 | 5 | `$1D98E` | `world1_sprite_1DB3E.png` |
+| 1 | 0 | 7 | `$1E188` | `world1_sprite_1E3CC.png` |
+| 1 | 0 | 8 | `$1E3F8` | `world1_sprite_1E6D8.png` |
+| 1 | 0 | 9 | `$1DCF0` | `world1_sprite_1DF76.png` |
+| 1 | 0 | 10 | `$1E75A` | `world1_sprite_1E8E0.png` |
+| 1 | 0 | 15 | `$1E93A` | — |
+| 1 | 1 | 1 | `$07D0E` | `sprite_07E7E.png` (resident) |
+| 1 | 1 | 2 | `$07EFC` | `sprite_080E8.png` (resident) |
+| 1 | 1 | 3 | `$1E07A` | `world1_sprite_1E16E.png` |
+| 1 | 1 | 4 | `$1E586` | `world1_sprite_1E6D8.png` |
+| 1 | 1 | 5 | `$1E188` | `world1_sprite_1E3CC.png` |
+| 1 | 1 | 6 | `$1F3F4` | `world1_sprite_1F548.png` |
+| 1 | 1 | 7 | `$1F618` | `world1_sprite_1F736.png` |
+| 1 | 1 | 8 | `$1D79A` | `world1_sprite_1D926.png` |
+| 1 | 1 | 9 | `$1D98E` | `world1_sprite_1DB3E.png` |
+| 1 | 1 | 10 | `$1E75A` | `world1_sprite_1E8E0.png` |
+| 2 | 0 | 1 | `$07D0E` | `sprite_07E7E.png` (resident) |
+| 2 | 0 | 4 | `$1E598` | `world2_sprite_1E726.png` |
+| 2 | 0 | 5 | `$1E740` | `world2_sprite_1E8F6.png` |
+| 2 | 0 | 6 | `$1EAE0` | `world2_sprite_1EC38.png` |
+| 2 | 0 | 7 | `$1EE66` | `world2_sprite_1EF92.png` |
+| 2 | 0 | 8 | `$207A6` | `world2_sprite_20A7A.png` |
+| 2 | 0 | 9 | `$1EA82` | `world2_sprite_1E8F6.png` |
+| 2 | 0 | 14 | `$1DA36` | `world2_sprite_1DD3A.png` |
+| 2 | 1 | 1 | `$07D0E` | `sprite_07E7E.png` (resident) |
+| 2 | 1 | 3 | `$1EFAC` | `world2_sprite_1F1F2.png` |
+| 2 | 1 | 4 | `$1EADA` | `world2_sprite_1EC38.png` |
+| 2 | 1 | 5 | `$1FB56` | `world2_sprite_1FC6A.png` |
+| 2 | 1 | 6 | `$2005E` | `world2_sprite_202A6.png` |
+| 2 | 1 | 7 | `$1F21E` | `world2_sprite_1F47C.png` |
+| 2 | 1 | 8 | `$1FC84` | `world2_sprite_1FF5A.png` |
+| 2 | 1 | 9 | `$1F6F2` | `world2_sprite_1F7E0.png` |
+| 2 | 1 | 10 | `$1F4FE` | `world2_sprite_1F68A.png` |
+| 2 | 1 | 11 | `$1F7FA` | `world2_sprite_1F9A4.png` |
+| 2 | 1 | 14 | `$00000` | — |
+| 2 | 2 | 1 | `$07D0E` | `sprite_07E7E.png` (resident) |
+| 2 | 2 | 3 | `$1EA82` | `world2_sprite_1E8F6.png` |
+| 2 | 2 | 4 | `$1E598` | `world2_sprite_1E726.png` |
+| 2 | 2 | 5 | `$1E740` | `world2_sprite_1E8F6.png` |
+| 2 | 2 | 6 | `$1EAE0` | `world2_sprite_1EC38.png` |
+| 2 | 2 | 8 | `$207A6` | `world2_sprite_20A7A.png` |
+| 2 | 2 | 14 | `$1DA36` | `world2_sprite_1DD3A.png` |
+| 3 | 0 | 1 | `$07D0E` | `sprite_07E7E.png` (resident) |
+| 3 | 0 | 2 | `$07EFC` | `sprite_080E8.png` (resident) |
+| 3 | 0 | 3 | `$1DCBC` | `world3_sprite_1DE3A.png` |
+| 3 | 0 | 4 | `$1E86E` | `world3_sprite_1EA26.png` |
+| 3 | 0 | 5 | `$1DF40` | `world3_sprite_1E26A.png` |
+| 3 | 0 | 6 | `$1E5D8` | `world3_sprite_1E7D2.png` |
+| 3 | 0 | 7 | `$1E36E` | `world3_sprite_1E572.png` |
+| 3 | 0 | 8 | `$1EC34` | `world3_sprite_1EDCE.png` |
+| 3 | 0 | 14 | `$00000` | — |
+| 3 | 0 | 15 | `$1EEB4` | — |
+| 3 | 1 | 1 | `$07D0E` | `sprite_07E7E.png` (resident) |
+| 3 | 1 | 2 | `$07EFC` | `sprite_080E8.png` (resident) |
+| 3 | 1 | 3 | `$1DCBC` | `world3_sprite_1DE3A.png` |
+| 3 | 1 | 4 | `$1EC34` | `world3_sprite_1EDCE.png` |
+| 3 | 1 | 5 | `$1E36E` | `world3_sprite_1E572.png` |
+| 3 | 1 | 6 | `$1E5D8` | `world3_sprite_1E7D2.png` |
+| 3 | 1 | 7 | `$1F4DE` | `world3_sprite_1F728.png` |
+| 3 | 2 | 0 | `$00000` | — |
+| 3 | 2 | 1 | `$07D0E` | `sprite_07E7E.png` (resident) |
+| 3 | 2 | 2 | `$07EFC` | `sprite_080E8.png` (resident) |
+| 3 | 2 | 3 | `$1DCBC` | `world3_sprite_1DE3A.png` |
+| 3 | 2 | 4 | `$1F4DE` | `world3_sprite_1F728.png` |
+| 3 | 2 | 5 | `$00000` | — |
+| 3 | 2 | 6 | `$00000` | — |
+| 3 | 2 | 7 | `$00000` | — |
+| 3 | 2 | 8 | `$00000` | — |
+| 3 | 2 | 9 | `$00000` | — |
+| 3 | 2 | 10 | `$00000` | — |
+| 3 | 2 | 14 | `$00000` | — |
+| 3 | 2 | 15 | `$1F860` | — |
+| 3 | 2 | 16 | `$00000` | — |
+| 3 | 2 | 48 | `$00000` | — |
+| 3 | 2 | 56 | `$00000` | — |
+| 3 | 2 | 60 | `$00000` | — |
+| 3 | 2 | 64 | `$00000` | — |
+| 3 | 2 | 128 | `$00000` | — |
+| 3 | 2 | 135 | `$00000` | — |
+| 3 | 2 | 144 | `$00000` | — |
+| 3 | 2 | 160 | `$00000` | — |
+| 3 | 2 | 186 | `$00000` | — |
+| 3 | 2 | 191 | `$00000` | — |
+| 3 | 2 | 192 | `$00000` | — |
+| 3 | 2 | 195 | `$00000` | — |
+| 3 | 2 | 206 | `$00000` | — |
+| 3 | 2 | 208 | `$00000` | — |
+| 3 | 2 | 236 | `$00000` | — |
+| 3 | 2 | 240 | `$00000` | — |
+| 3 | 2 | 248 | `$00000` | — |
+| 3 | 2 | 252 | `$00000` | — |
+| 3 | 2 | 255 | `$00000` | — |
+| 4 | 0 | 1 | `$07D0E` | `sprite_07E7E.png` (resident) |
+| 4 | 0 | 2 | `$07EFC` | `sprite_080E8.png` (resident) |
+| 4 | 0 | 3 | `$1CD24` | `world4_sprite_1CFB6.png` |
+| 4 | 0 | 4 | `$1D0CE` | `world4_sprite_1D278.png` |
+| 4 | 0 | 5 | `$1D988` | `world4_sprite_1DB8C.png` |
+| 4 | 0 | 6 | `$1D42A` | `world4_sprite_1D6A4.png` |
+| 4 | 0 | 7 | `$1DBF2` | `world4_sprite_1DE36.png` |
+| 4 | 0 | 8 | `$1E4EC` | `world4_sprite_1E63E.png` |
+| 4 | 1 | 1 | `$07D0E` | `sprite_07E7E.png` (resident) |
+| 4 | 1 | 2 | `$07EFC` | `sprite_080E8.png` (resident) |
+| 4 | 1 | 3 | `$1D988` | `world4_sprite_1DB8C.png` |
+| 4 | 1 | 15 | `$1E6C0` | — |
+| 4 | 1 | 16 | `$1EFE2` | `world4_sprite_1F282.png` |
 
-> **Next.** Pin the per-scene grid extent (for the vertical levels), wire the
-> object layer into the level viewer using this table, and the collision check
-> that reads `$3C1C4`.
+> **Next.** Extract the player composite (`$56AC` and its part tables), decode the
+> `$3C1C4` collision layer via the collision check, and reimplement the TFMX music
+> (`$58076`).
 
 # Appendix A — Toolchain and reproduction
 

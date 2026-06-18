@@ -39,6 +39,7 @@ import (
 	"sort"
 
 	"turrican/extract/decrunch"
+	"turrican/extract/scene"
 )
 
 const (
@@ -87,19 +88,56 @@ func main() {
 	if err != nil {
 		fail(err)
 	}
+	game, err := scene.Load(adf)
+	if err != nil {
+		fail(err)
+	}
 	if err := os.MkdirAll(*out, 0o755); err != nil {
 		fail(err)
 	}
 
-	// Resident shared sprites (weapons/effects), in world 0's palette.
+	// The authoritative sprite set is every frame table the placements actually use
+	// (resolved via the shared spawner reimplementation): resident handlers ($1A60,
+	// types 1-2) install resident sprites; scene handlers (+$20) install scene-block
+	// sprites. Collect them so every placement-referenced sheet is produced.
+	residentObjFT := map[int]bool{}
+	worldObjFT := make([]map[int]bool, numWorlds)
+	for w := 0; w < numWorlds; w++ {
+		worldObjFT[w] = map[int]bool{}
+		for _, sc := range game.Scenes(w) {
+			for _, o := range sc.Objects {
+				if o.FT == 0 {
+					continue
+				}
+				if o.Resident {
+					residentObjFT[o.FT] = true
+				} else {
+					worldObjFT[w][o.FT] = true
+				}
+			}
+		}
+	}
+
+	// Resident shared sprites (weapons/effects + the placement-used resident
+	// objects), in world 0's palette.
 	resident := space{data: res.Data, base: 0} // addr == file offset
 	pal0 := worldPalette(adf, 0)
-	emit(*out, "sprite_%05X.png", resident, pal0,
-		findTables(resident, residentLo, residentHi, gfxLo, residentHi))
+	residTables := map[int]table{}
+	for _, t := range findTables(resident, residentLo, residentHi, gfxLo, residentHi) {
+		residTables[t.addr] = t
+	}
+	for ft := range residentObjFT {
+		if _, ok := residTables[ft]; ok {
+			continue
+		}
+		if t, ok := tableAt(resident, ft, gfxLo, residentHi); ok {
+			residTables[ft] = t
+		}
+	}
+	emit(*out, "sprite_%05X.png", resident, pal0, sortTables(residTables))
 
-	// Per-world enemy sprites from each scene block, in the world's own palette.
-	// The set is every frame table any scene's AI handlers install, unioned with a
-	// blind descriptor-pointer scan, keyed by frame-table address.
+	// Per-world enemy sprites from each scene block, in the world's own palette:
+	// a blind descriptor-pointer scan unioned with the placement-used frame tables.
 	for w := 0; w < numWorlds; w++ {
 		block := worldBlock(adf, res.Data, w)
 		sp := space{data: block, base: blockBase}
@@ -109,7 +147,7 @@ func main() {
 		for _, t := range findTables(sp, blockBase, hi, blockBase, hi) {
 			tables[t.addr] = t
 		}
-		for _, ft := range aiFrameTables(sp, hi) {
+		for ft := range worldObjFT[w] {
 			if _, ok := tables[ft]; ok {
 				continue
 			}
@@ -119,46 +157,6 @@ func main() {
 		}
 		emit(*out, fmt.Sprintf("world%d_sprite_%%05X.png", w), sp, worldPalette(adf, w), sortTables(tables))
 	}
-}
-
-// aiFrameTables returns every frame table installed by a scene's enemy-AI handlers.
-// For each scene it reads the +$20 handler table and, per handler, scans the routine
-// for `MOVE.l #frametable,$12(a5)` (opcode 2B 7C imm32 00 12).
-func aiFrameTables(sp space, hi int) []int {
-	var out []int
-	seen := map[int]bool{}
-	nScenes := sp.be16(blockBase + 0x14)
-	for s := 0; s < nScenes; s++ {
-		if !sp.has(blockBase+0x16+s*4, 4) {
-			break
-		}
-		desc := sp.be32(blockBase + 0x16 + s*4)
-		if desc < blockBase || desc >= hi {
-			continue
-		}
-		aiTbl := sp.be32(desc + 0x20)
-		for i := 0; i < 16; i++ {
-			if !sp.has(aiTbl+i*4, 4) {
-				break
-			}
-			h := sp.be32(aiTbl + i*4)
-			if h < blockBase || h >= hi {
-				break
-			}
-			o := h - sp.base
-			for j := o; j < o+260 && j+8 <= len(sp.data); j++ {
-				if sp.data[j] == 0x2B && sp.data[j+1] == 0x7C && sp.data[j+6] == 0x00 && sp.data[j+7] == 0x12 {
-					ft := int(binary.BigEndian.Uint32(sp.data[j+2:]))
-					if ft >= blockBase && ft < hi && !seen[ft] {
-						seen[ft] = true
-						out = append(out, ft)
-					}
-					break
-				}
-			}
-		}
-	}
-	return out
 }
 
 // tableAt reads the frame table at addr: descriptor pointers until one fails to
