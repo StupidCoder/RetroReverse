@@ -9777,7 +9777,7 @@
 01A288  .dc.b 00 00 00 01 00 00 00 00 00 00 00 00 00 00 05 01 ; ................
 01A298  .dc.b 00 00 03 E9 00 00 05 01 60 00 0F 90 60 00 00 52 ; ........`...`..R
 
-; ==== sub_01A2A8 (3 callers) ====
+; ==== sound_api  $01A2A8  (3 callers) — BRA jump table = the resident sound driver's public API (init / play / stop / config). level_setup JSRs $1A2A8/$1A2AC/$1A2B4/$1A2DC to set it up; inactive slots BRA sound_silence ($1B232). ====
 01A2A8  60 00 0F 88                   BRA $01B232
 
 ; ==== sub_01A2AC (4 callers) ====
@@ -9798,111 +9798,349 @@
 ; ==== sub_01A2DC (21 callers) ====
 01A2DC  60 00 0E 96                   BRA $01B174
 01A2E0  .dc.b 60 00 0F 3A 60 00 0F 4C 60 00 0F 48 60 00 0F 44 ; `..:`..L`..H`..D
-01A2F0  .dc.b 60 00 0F 40 60 00 0F 3C 48 E7 FF FE 4D FA 0F DA ; `..@`..<H...M...
-01A300  .dc.b 4A 2E 00 3D 6B 06 61 00 0C CE 60 1E 4A 6E 00 08 ; J..=k.a...`.Jn..
-01A310  .dc.b 67 06 4A 2E 00 2E 66 0C 41 FA 12 D4 42 68 00 00 ; g.J...f.A...Bh..
-01A320  .dc.b 60 00 00 08 61 0A 61 00 05 4E 4C DF 7F FF 4E 75 ; `...a.a..NL...Nu
-01A330  .dc.b 4B FA 11 74 28 6E 00 00 4A 6E 00 2C 67 08 04 6E ; K..t(n..Jn.,g..n
-01A340  .dc.b 00 01 00 2C 4E 75 3D 6D 00 06 00 2C 4A 6E 00 3E ; ...,Nu=m...,Jn.>
-01A350  .dc.b 67 00 00 1A 4A 6E 00 0A 67 00 00 12 42 6E 00 2C ; g...Jn..g...Bn.,
-01A360  .dc.b 42 6E 00 0A 3D 7C 00 01 00 44 4E 75 20 4D 42 2E ; Bn..=|...DNu MB.
-01A370  .dc.b 00 0A 61 4E 4A 2E 00 0A 66 D2 58 88 61 44 4A 2E ; ..aNJ...f.X.aDJ.
-01A380  .dc.b 00 0A 66 C8 58 88 61 3A 4A 2E 00 0A 66 BE 58 88 ; ..f.X.a:J...f.X.
-01A390  .dc.b 61 30 4A 2E 00 0A 66 B4 58 88 61 26 4A 2E 00 0A ; a0J...f.X.a&J...
-01A3A0  .dc.b 66 AA 58 88 61 1C 4A 2E 00 0A 66 A0 58 88 61 12 ; f.X.a.J...f.X.a.
-01A3B0  .dc.b 4A 2E 00 0A 66 96 58 88 61 08 4A 2E 00 0A 66 8C ; J...f.X.a.J...f.
-01A3C0  .dc.b 4E 75 0C 28 00 90 00 48 65 1C 0C 28 00 FE 00 48 ; Nu.(...He..(...H
-01A3D0  .dc.b 66 20 11 7C 00 FF 00 48 10 28 00 49 4A 68 00 08 ; f .|...H.(.IJh..
-01A3E0  .dc.b 67 00 0B CE 4E 75 4A 68 00 6A 67 08 04 68 00 01 ; g...NuJh.jg..h..
-01A3F0  .dc.b 00 6A 4E 75 30 28 00 68 E5 48 22 68 00 28 2D 71 ; .jNu0(.h.H"h.(-q
-01A400  .dc.b 00 00 00 28 0C 2E 00 F0 00 28 64 4A 0C 2E 00 C0 ; ...(.....(dJ....
-01A410  .dc.b 00 28 64 14 0C 2E 00 7F 00 28 65 0C 11 6E 00 2B ; .(d......(e..n.+
-01A420  .dc.b 00 6B 02 6E FF 00 00 2A 10 28 00 49 D1 2E 00 28 ; .k.n...*.(.I...(
-01A430  .dc.b 20 2E 00 28 4A 68 00 08 66 04 61 00 0A 58 0C 2E ;  ..(Jh..f.a..X..
-01A440  .dc.b 00 C0 00 28 64 2A 0C 2E 00 7F 00 28 65 22 06 68 ; ...(d*.....(e".h
-01A450  .dc.b 00 01 00 68 4E 75 10 2E 00 28 02 40 00 0F E5 48 ; ...hNu...(.@...H
-01A460  .dc.b 43 FA 01 A2 22 31 00 00 43 FA FE 36 D3 C1 4E D1 ; C..."1..C..6..N.
-01A470  .dc.b 06 68 00 01 00 68 60 00 FF 7C 0C 28 00 81 00 48 ; .h...h`..|.(...H
-01A480  .dc.b 67 00 00 8E 30 2D 00 04 B0 6D 00 02 66 08 3B 6D ; g...0-...m..f.;m
-01A490  .dc.b 00 00 00 04 60 06 06 6D 00 01 00 04 61 00 01 A6 ; ....`..m....a...
-01A4A0  .dc.b 3D 7C FF FF 00 0A 4E 75 4A 28 00 4A 67 10 0C 28 ; =|....NuJ(.Jg..(
-01A4B0  .dc.b 00 FF 00 4A 67 10 04 28 00 01 00 4A 60 14 11 7C ; ...Jg..(...J`..|
-01A4C0  .dc.b 00 FF 00 4A 60 AA 10 2E 00 29 04 00 00 01 11 40 ; ...J`....).....@
-01A4D0  .dc.b 00 4A 31 6E 00 2A 00 68 60 00 FF 1A 10 2E 00 29 ; .J1n.*.h`......)
-01A4E0  .dc.b 02 40 00 7F 11 40 00 48 E5 48 22 4C D3 FC 00 00 ; .@...@.H.H"L....
-01A4F0  .dc.b 04 00 20 31 00 00 D0 8C 21 40 00 28 31 6E 00 2A ; .. 1....!@.(1n.*
-01A500  .dc.b 00 68 60 00 FE F0 11 6E 00 29 00 6B 60 00 FF 40 ; .h`....n.).k`..@
-01A510  .dc.b 11 7C 00 FF 00 48 4E 75 20 2E 00 28 4A 68 00 08 ; .|...HNu ..(Jh..
-01A520  .dc.b 66 04 61 00 09 70 60 00 FF 48 21 68 00 28 00 88 ; f.a..p`..H!h.(..
-01A530  .dc.b 31 68 00 68 00 A8 10 2E 00 29 02 40 00 7F 11 40 ; 1h.h.....).@...@
-01A540  .dc.b 00 48 E5 48 22 4C D3 FC 00 00 04 00 20 31 00 00 ; .H.H"L...... 1..
-01A550  .dc.b D0 8C 21 40 00 28 31 6E 00 2A 00 68 60 00 FE 96 ; ..!@.(1n.*.h`...
-01A560  .dc.b 2B 6D 00 88 00 28 3B 6D 00 A8 00 68 60 00 FF 02 ; +m...(;m...h`...
-01A570  .dc.b 43 FA 10 7C 4A 69 00 00 66 00 FE F6 33 7C 00 01 ; C..|Ji..f...3|..
-01A580  .dc.b 00 00 1D 6E 00 2B 00 51 1D 6E 00 29 00 52 1D 6E ; ...n.+.Q.n.).R.n
-01A590  .dc.b 00 29 00 53 67 1C 1D 7C 00 01 00 1C 10 2E 00 50 ; .).Sg..|.......P
-01A5A0  .dc.b B0 2E 00 51 67 12 65 00 FE C8 44 2E 00 1C 60 00 ; ...Qg.e...D...`.
-01A5B0  .dc.b FE C0 1D 6E 00 51 00 50 1D 7C 00 00 00 1C 42 69 ; ...n.Q.P.|....Bi
-01A5C0  .dc.b 00 00 60 00 FE AC 12 2E 00 2A 02 41 00 07 E5 49 ; ..`......*.A...I
-01A5D0  .dc.b 10 2E 00 29 1B 80 10 48 1B AE 00 2B 10 49 02 40 ; ...)...H...+.I.@
-01A5E0  .dc.b 00 7F E5 48 22 4C D3 FC 00 00 04 00 20 31 00 00 ; ...H"L...... 1..
-01A5F0  .dc.b D0 8C 2B 80 10 28 42 B5 10 68 3B BC FF FF 10 4A ; ..+..(B..h;....J
-01A600  .dc.b 60 00 FE 6E 00 00 01 DA 00 00 02 08 00 00 02 3C ; `..n...........<
-01A610  .dc.b 00 00 02 66 00 00 02 70 00 00 02 78 00 00 02 78 ; ...f...p...x...x
-01A620  .dc.b 00 00 02 78 00 00 02 8A 00 00 02 C0 00 00 02 D0 ; ...x............
-01A630  .dc.b 00 00 03 26 00 00 01 AE 00 00 01 AE 00 00 02 70 ; ...&...........p
-01A640  .dc.b 00 00 01 D0 48 E7 80 C0 70 00 30 2D 00 04 E9 48 ; ....H...p.0-...H
-01A650  .dc.b D0 8C 06 80 00 00 08 00 20 40 22 4C D3 FC 00 00 ; ........ @"L....
-01A660  .dc.b 04 00 30 18 B0 7C EF FE 66 1C 30 18 B0 7C 00 05 ; ..0..|..f.0..|..
-01A670  .dc.b 65 02 70 00 E5 48 43 FA 01 EA 20 31 00 00 43 FA ; e.p..HC... 1..C.
-01A680  .dc.b FC 20 D3 C0 4E D1 3B 40 00 48 6B 1A 02 40 7F 00 ; . ..N.;@.Hk..@..
-01A690  .dc.b EC 48 20 31 00 00 D0 8C 2B 40 00 28 42 AD 00 68 ; .H 1....+@.(B..h
-01A6A0  .dc.b 3B 7C FF FF 00 4A 30 18 3B 40 00 4C 6B 1A 02 40 ; ;|...J0.;@.Lk..@
-01A6B0  .dc.b 7F 00 EC 48 20 31 00 00 D0 8C 2B 40 00 2C 42 AD ; ...H 1....+@.,B.
-01A6C0  .dc.b 00 6C 3B 7C FF FF 00 4E 30 18 3B 40 00 50 6B 1A ; .l;|...N0.;@.Pk.
-01A6D0  .dc.b 02 40 7F 00 EC 48 20 31 00 00 D0 8C 2B 40 00 30 ; .@...H 1....+@.0
-01A6E0  .dc.b 42 AD 00 70 3B 7C FF FF 00 52 30 18 3B 40 00 54 ; B..p;|...R0.;@.T
-01A6F0  .dc.b 6B 1A 02 40 7F 00 EC 48 20 31 00 00 D0 8C 2B 40 ; k..@...H 1....+@
-01A700  .dc.b 00 34 42 AD 00 74 3B 7C FF FF 00 56 30 18 3B 40 ; .4B..t;|...V0.;@
-01A710  .dc.b 00 58 6B 1A 02 40 7F 00 EC 48 20 31 00 00 D0 8C ; .Xk..@...H 1....
-01A720  .dc.b 2B 40 00 38 42 AD 00 78 3B 7C FF FF 00 5A 30 18 ; +@.8B..x;|...Z0.
-01A730  .dc.b 3B 40 00 5C 6B 1A 02 40 7F 00 EC 48 20 31 00 00 ; ;@.\k..@...H 1..
-01A740  .dc.b D0 8C 2B 40 00 3C 42 AD 00 7C 3B 7C FF FF 00 5E ; ..+@.<B..|;|...^
-01A750  .dc.b 30 18 3B 40 00 60 6B 1A 02 40 7F 00 EC 48 20 31 ; 0.;@.`k..@...H 1
-01A760  .dc.b 00 00 D0 8C 2B 40 00 40 42 AD 00 80 3B 7C FF FF ; ....+@.@B...;|..
-01A770  .dc.b 00 62 30 18 3B 40 00 64 6B 1A 02 40 7F 00 EC 48 ; .b0.;@.dk..@...H
-01A780  .dc.b 20 31 00 00 D0 8C 2B 40 00 44 42 AD 00 84 3B 7C ;  1....+@.DB...;|
-01A790  .dc.b FF FF 00 66 4C DF 03 01 4E 75 61 00 09 C0 42 2E ; ...fL...Nua...B.
-01A7A0  .dc.b 00 2E 43 FA 0E 4A 33 7C 00 02 00 02 4C DF 03 01 ; ..C..J3|....L...
-01A7B0  .dc.b 4E 75 3B 50 00 04 60 00 FE 90 3B 50 00 06 3D 50 ; Nu;P..`...;P..=P
-01A7C0  .dc.b 00 2C 1D 6E 00 5C 00 4A 30 28 00 02 6B 00 00 20 ; .,.n.\.J0(..k.. 
-01A7D0  .dc.b 02 40 01 FF 4A 40 67 00 00 16 22 3C 00 00 1C 00 ; .@..J@g..."<....
-01A7E0  .dc.b 82 C0 13 C1 00 BF D7 00 1D 7C 00 01 00 4A 06 6D ; .........|...J.m
-01A7F0  .dc.b 00 01 00 04 60 00 FE 52 3D 50 00 3E 06 6D 00 01 ; ....`..R=P.>.m..
-01A800  .dc.b 00 04 60 00 FE 44 06 6D 00 01 00 04 43 FA 0D E0 ; ..`..D.m....C...
-01A810  .dc.b 4A 69 00 00 66 00 FE 32 33 7C 00 01 00 00 1D 68 ; Ji..f..23|.....h
-01A820  .dc.b 00 03 00 51 1D 68 00 01 00 52 1D 68 00 01 00 53 ; ...Q.h...R.h...S
-01A830  .dc.b 67 1C 1D 7C 00 01 00 1C 10 2E 00 50 B0 2E 00 51 ; g..|.......P...Q
-01A840  .dc.b 67 12 65 00 FE 04 44 2E 00 1C 60 00 FD FC 1D 6E ; g.e...D...`....n
-01A850  .dc.b 00 51 00 50 1D 7C 00 00 00 1C 42 69 00 00 60 00 ; .Q.P.|....Bi..`.
-01A860  .dc.b FD E8 00 00 04 FE 00 00 05 12 00 00 05 1A 00 00 ; ................
-01A870  .dc.b 05 58 00 00 05 66 4D FA 0A 60 4B FA 0A B6 61 06 ; .X...fM..`K...a.
-01A880  .dc.b 61 04 61 00 00 02 DB FC 00 00 00 04 28 6D 01 60 ; a.a.........(m.`
-01A890  .dc.b 4A 6D 00 02 67 02 6A 70 4A 6D 01 00 6B 08 04 6D ; Jm..g.jpJm..k..m
-01A8A0  .dc.b 00 01 01 00 60 04 42 2D 01 03 61 00 05 08 61 00 ; ....`.B-..a...a.
-01A8B0  .dc.b 05 42 61 00 05 8C 4A 2E 00 1C 67 2C 04 2E 00 01 ; .Ba...J...g,....
-01A8C0  .dc.b 00 52 66 24 1D 6E 00 53 00 52 10 2E 00 1C D1 2E ; .Rf$.n.S.R......
-01A8D0  .dc.b 00 50 10 2E 00 51 B0 2E 00 50 66 0C 42 2E 00 1C ; .P...Q...Pf.B...
-01A8E0  .dc.b 41 FA 0D 0C 42 68 00 00 72 00 12 2E 00 50 70 00 ; A...Bh..r....Pp.
-01A8F0  .dc.b 10 2D 00 60 B2 7C 00 40 67 0A E5 48 C0 C1 E0 48 ; .-.`.|.@g..H...H
-01A900  .dc.b 02 40 00 7F 39 40 00 08 4A 6D 00 02 67 34 6B 26 ; .@..9@..Jm..g4k&
-01A910  .dc.b 42 6D 00 40 3B 6E 00 44 00 42 3B 7C FF FF 00 02 ; Bm.@;n.D.B;|....
-01A920  .dc.b 3B 7C FF FF 00 62 33 ED 01 12 00 DF F0 9A 33 ED ; ;|...b3.......3.
-01A930  .dc.b 01 12 00 DF F0 9C 4A 6D 00 42 67 08 04 6D 00 01 ; ......Jm.Bg..m..
-01A940  .dc.b 00 42 4E 75 20 6D 00 30 30 2D 00 40 E5 48 2D 70 ; .BNu m.00-.@.H-p
-01A950  .dc.b 00 00 00 28 10 2E 00 28 42 2E 00 28 02 40 00 FF ; ...(...(B..(.@..
-01A960  .dc.b B0 7C 00 23 64 12 E5 48 41 FA 03 B6 22 30 00 00 ; .|.#d..HA..."0..
-01A970  .dc.b 41 FA F9 2E D1 C1 4E D0 06 6D 00 01 00 40 4E 75 ; A.....N..m...@Nu
+01A2F0  .dc.b 60 00 0F 40 60 00 0F 3C                         ; `..@`..<
+
+; --- sound_update  $01A2F8 — Per-frame update of the resident player (same shape as the overlay's sound_tick): a6 = sound_state ($1B2D8); steps the sequencer/voices and calls sound_update_voices. ---
+01A2F8  48 E7 FF FE                   MOVEM.l d0-d7/a0-a6,-(a7)
+01A2FC  4D FA 0F DA                   LEA $01B2D8(pc),a6
+01A300  4A 2E 00 3D                   TST.b $3D(a6)
+01A304  6B 06                         BMI $01A30C
+01A306  61 00 0C CE                   BSR $01AFD6
+01A30A  60 1E                         BRA $01A32A
+01A30C  4A 6E 00 08                   TST.w $8(a6)
+01A310  67 06                         BEQ $01A318
+01A312  4A 2E 00 2E                   TST.b $2E(a6)
+01A316  66 0C                         BNE $01A324
+01A318  41 FA 12 D4                   LEA $01B5EE(pc),a0
+01A31C  42 68 00 00                   CLR.w $0(a0)
+01A320  60 00 00 08                   BRA $01A32A
+01A324  61 0A                         BSR $01A330
+01A326  61 00 05 4E                   BSR $01A876
+01A32A  4C DF                         .dc.w $4CDF
+01A32C  .dc.b 7F FF 4E 75                                     ; ..Nu
+
+; ==== sub_01A330 (1 caller) ====
+01A330  4B FA 11 74                   LEA $01B4A6(pc),a5
+01A334  28 6E 00 00                   MOVEA.l $0(a6),a4
+01A338  4A 6E 00 2C                   TST.w $2C(a6)
+01A33C  67 08                         BEQ $01A346
+01A33E  04 6E 00 01 00 2C             SUBI.w #$1,$2C(a6)
+01A344  4E 75                         RTS
+01A346  3D 6D 00 06 00 2C             MOVE.w $6(a5),$2C(a6)
+01A34C  4A 6E 00 3E                   TST.w $3E(a6)
+01A350  67 00 00 1A                   BEQ $01A36C
+01A354  4A 6E 00 0A                   TST.w $A(a6)
+01A358  67 00 00 12                   BEQ $01A36C
+01A35C  42 6E 00 2C                   CLR.w $2C(a6)
+01A360  42 6E 00 0A                   CLR.w $A(a6)
+01A364  3D 7C 00 01 00 44             MOVE.w #$1,$44(a6)
+01A36A  4E 75                         RTS
+01A36C  20 4D                         MOVEA.l a5,a0
+01A36E  42 2E 00 0A                   CLR.b $A(a6)
+01A372  61 4E                         BSR $01A3C2
+01A374  4A 2E 00 0A                   TST.b $A(a6)
+01A378  66 D2                         BNE $01A34C
+01A37A  58 88                         ADDQ.l #4,a0
+01A37C  61 44                         BSR $01A3C2
+01A37E  4A 2E 00 0A                   TST.b $A(a6)
+01A382  66 C8                         BNE $01A34C
+01A384  58 88                         ADDQ.l #4,a0
+01A386  61 3A                         BSR $01A3C2
+01A388  4A 2E 00 0A                   TST.b $A(a6)
+01A38C  66 BE                         BNE $01A34C
+01A38E  58 88                         ADDQ.l #4,a0
+01A390  61 30                         BSR $01A3C2
+01A392  4A 2E 00 0A                   TST.b $A(a6)
+01A396  66 B4                         BNE $01A34C
+01A398  58 88                         ADDQ.l #4,a0
+01A39A  61 26                         BSR $01A3C2
+01A39C  4A 2E 00 0A                   TST.b $A(a6)
+01A3A0  66 AA                         BNE $01A34C
+01A3A2  58 88                         ADDQ.l #4,a0
+01A3A4  61 1C                         BSR $01A3C2
+01A3A6  4A 2E 00 0A                   TST.b $A(a6)
+01A3AA  66 A0                         BNE $01A34C
+01A3AC  58 88                         ADDQ.l #4,a0
+01A3AE  61 12                         BSR $01A3C2
+01A3B0  4A 2E 00 0A                   TST.b $A(a6)
+01A3B4  66 96                         BNE $01A34C
+01A3B6  58 88                         ADDQ.l #4,a0
+01A3B8  61 08                         BSR $01A3C2
+01A3BA  4A 2E 00 0A                   TST.b $A(a6)
+01A3BE  66 8C                         BNE $01A34C
+01A3C0  4E 75                         RTS
+
+; ==== sub_01A3C2 (8 callers) ====
+01A3C2  0C 28 00 90 00 48             CMPI.b #$90,$48(a0)
+01A3C8  65 1C                         BCS $01A3E6
+01A3CA  0C 28 00 FE 00 48             CMPI.b #$FE,$48(a0)
+01A3D0  66 20                         BNE $01A3F2
+01A3D2  11 7C 00 FF 00 48             MOVE.b #$FF,$48(a0)
+01A3D8  10 28 00 49                   MOVE.b $49(a0),d0
+01A3DC  4A 68 00 08                   TST.w $8(a0)
+01A3E0  67 00 0B CE                   BEQ $01AFB0
+01A3E4  4E 75                         RTS
+01A3E6  4A 68 00 6A                   TST.w $6A(a0)
+01A3EA  67 08                         BEQ $01A3F4
+01A3EC  04 68 00 01 00 6A             SUBI.w #$1,$6A(a0)
+01A3F2  4E 75                         RTS
+01A3F4  30 28 00 68                   MOVE.w $68(a0),d0
+01A3F8  E5 48                         LSL.w #2,d0
+01A3FA  22 68 00 28                   MOVEA.l $28(a0),a1
+01A3FE  2D 71 00 00 00 28             MOVE.l $0(a1,d0.w),$28(a6)
+01A404  0C 2E 00 F0 00 28             CMPI.b #$F0,$28(a6)
+01A40A  64 4A                         BCC $01A456
+01A40C  0C 2E 00 C0 00 28             CMPI.b #$C0,$28(a6)
+01A412  64 14                         BCC $01A428
+01A414  0C 2E 00 7F 00 28             CMPI.b #$7F,$28(a6)
+01A41A  65 0C                         BCS $01A428
+01A41C  11 6E 00 2B 00 6B             MOVE.b $2B(a6),$6B(a0)
+01A422  02 6E FF 00 00 2A             ANDI.w #$FF00,$2A(a6)
+01A428  10 28 00 49                   MOVE.b $49(a0),d0
+01A42C  D1 2E 00 28                   ADD.b d0,$28(a6)
+01A430  20 2E 00 28                   MOVE.l $28(a6),d0
+01A434  4A 68 00 08                   TST.w $8(a0)
+01A438  66 04                         BNE $01A43E
+01A43A  61 00 0A 58                   BSR $01AE94
+01A43E  0C 2E 00 C0 00 28             CMPI.b #$C0,$28(a6)
+01A444  64 2A                         BCC $01A470
+01A446  0C 2E 00 7F 00 28             CMPI.b #$7F,$28(a6)
+01A44C  65 22                         BCS $01A470
+01A44E  06 68 00 01 00 68             ADDI.w #$1,$68(a0)
+01A454  4E 75                         RTS
+01A456  10 2E 00 28                   MOVE.b $28(a6),d0
+01A45A  02 40 00 0F                   ANDI.w #$F,d0
+01A45E  E5 48                         LSL.w #2,d0
+01A460  43 FA 01 A2                   LEA $01A604(pc),a1
+01A464  22 31 00 00                   MOVE.l $0(a1,d0.w),d1
+01A468  43 FA FE 36                   LEA $01A2A0(pc),a1
+01A46C  D3 C1                         ADDA.l d1,a1
+01A46E  4E D1                         JMP (a1)
+01A470  06 68 00 01 00 68             ADDI.w #$1,$68(a0)
+01A476  60 00 FF 7C                   BRA $01A3F4
+01A47A  .dc.b 0C 28 00 81 00 48 67 00 00 8E 30 2D 00 04 B0 6D ; .(...Hg...0-...m
+01A48A  .dc.b 00 02 66 08 3B 6D 00 00 00 04 60 06 06 6D 00 01 ; ..f.;m....`..m..
+01A49A  .dc.b 00 04 61 00 01 A6 3D 7C FF FF 00 0A 4E 75 4A 28 ; ..a...=|....NuJ(
+01A4AA  .dc.b 00 4A 67 10 0C 28 00 FF 00 4A 67 10 04 28 00 01 ; .Jg..(...Jg..(..
+01A4BA  .dc.b 00 4A 60 14 11 7C 00 FF 00 4A 60 AA 10 2E 00 29 ; .J`..|...J`....)
+01A4CA  .dc.b 04 00 00 01 11 40 00 4A 31 6E 00 2A 00 68 60 00 ; .....@.J1n.*.h`.
+01A4DA  .dc.b FF 1A 10 2E 00 29 02 40 00 7F 11 40 00 48 E5 48 ; .....).@...@.H.H
+01A4EA  .dc.b 22 4C D3 FC 00 00 04 00 20 31 00 00 D0 8C 21 40 ; "L...... 1....!@
+01A4FA  .dc.b 00 28 31 6E 00 2A 00 68 60 00 FE F0 11 6E 00 29 ; .(1n.*.h`....n.)
+01A50A  .dc.b 00 6B 60 00 FF 40 11 7C 00 FF 00 48 4E 75 20 2E ; .k`..@.|...HNu .
+01A51A  .dc.b 00 28 4A 68 00 08 66 04 61 00 09 70 60 00 FF 48 ; .(Jh..f.a..p`..H
+01A52A  .dc.b 21 68 00 28 00 88 31 68 00 68 00 A8 10 2E 00 29 ; !h.(..1h.h.....)
+01A53A  .dc.b 02 40 00 7F 11 40 00 48 E5 48 22 4C D3 FC 00 00 ; .@...@.H.H"L....
+01A54A  .dc.b 04 00 20 31 00 00 D0 8C 21 40 00 28 31 6E 00 2A ; .. 1....!@.(1n.*
+01A55A  .dc.b 00 68 60 00 FE 96 2B 6D 00 88 00 28 3B 6D 00 A8 ; .h`...+m...(;m..
+01A56A  .dc.b 00 68 60 00 FF 02 43 FA 10 7C 4A 69 00 00 66 00 ; .h`...C..|Ji..f.
+01A57A  .dc.b FE F6 33 7C 00 01 00 00 1D 6E 00 2B 00 51 1D 6E ; ..3|.....n.+.Q.n
+01A58A  .dc.b 00 29 00 52 1D 6E 00 29 00 53 67 1C 1D 7C 00 01 ; .).R.n.).Sg..|..
+01A59A  .dc.b 00 1C 10 2E 00 50 B0 2E 00 51 67 12 65 00 FE C8 ; .....P...Qg.e...
+01A5AA  .dc.b 44 2E 00 1C 60 00 FE C0 1D 6E 00 51 00 50 1D 7C ; D...`....n.Q.P.|
+01A5BA  .dc.b 00 00 00 1C 42 69 00 00 60 00 FE AC 12 2E 00 2A ; ....Bi..`......*
+01A5CA  .dc.b 02 41 00 07 E5 49 10 2E 00 29 1B 80 10 48 1B AE ; .A...I...)...H..
+01A5DA  .dc.b 00 2B 10 49 02 40 00 7F E5 48 22 4C D3 FC 00 00 ; .+.I.@...H"L....
+01A5EA  .dc.b 04 00 20 31 00 00 D0 8C 2B 80 10 28 42 B5 10 68 ; .. 1....+..(B..h
+01A5FA  .dc.b 3B BC FF FF 10 4A 60 00 FE 6E 00 00 01 DA 00 00 ; ;....J`..n......
+01A60A  .dc.b 02 08 00 00 02 3C 00 00 02 66 00 00 02 70 00 00 ; .....<...f...p..
+01A61A  .dc.b 02 78 00 00 02 78 00 00 02 78 00 00 02 8A 00 00 ; .x...x...x......
+01A62A  .dc.b 02 C0 00 00 02 D0 00 00 03 26 00 00 01 AE 00 00 ; .........&......
+01A63A  .dc.b 01 AE 00 00 02 70 00 00 01 D0                   ; .....p....
+
+; ==== sub_01A644 (1 caller) ====
+01A644  48 E7 80 C0                   MOVEM.l d0/a0-a1,-(a7)
+01A648  70 00                         MOVEQ #$0,d0
+01A64A  30 2D 00 04                   MOVE.w $4(a5),d0
+01A64E  E9 48                         LSL.w #4,d0
+01A650  D0 8C                         ADD.l a4,d0
+01A652  06 80 00 00 08 00             ADDI.l #$800,d0
+01A658  20 40                         MOVEA.l d0,a0
+01A65A  22 4C                         MOVEA.l a4,a1
+01A65C  D3 FC 00 00 04 00             ADDA.l #$400,a1
+01A662  30 18                         MOVE.w (a0)+,d0
+01A664  B0 7C EF FE                   CMP.w #$EFFE,d0
+01A668  66 1C                         BNE $01A686
+01A66A  30 18                         MOVE.w (a0)+,d0
+01A66C  B0 7C 00 05                   CMP.w #$5,d0
+01A670  65 02                         BCS $01A674
+01A672  70 00                         MOVEQ #$0,d0
+01A674  E5 48                         LSL.w #2,d0
+01A676  43 FA 01 EA                   LEA $01A862(pc),a1
+01A67A  20 31 00 00                   MOVE.l $0(a1,d0.w),d0
+01A67E  43 FA FC 20                   LEA $01A2A0(pc),a1
+01A682  D3 C0                         ADDA.l d0,a1
+01A684  4E D1                         JMP (a1)
+01A686  3B 40 00 48                   MOVE.w d0,$48(a5)
+01A68A  6B 1A                         BMI $01A6A6
+01A68C  02 40 7F 00                   ANDI.w #$7F00,d0
+01A690  EC 48                         LSR.w #6,d0
+01A692  20 31 00 00                   MOVE.l $0(a1,d0.w),d0
+01A696  D0 8C                         ADD.l a4,d0
+01A698  2B 40 00 28                   MOVE.l d0,$28(a5)
+01A69C  42 AD 00 68                   CLR.l $68(a5)
+01A6A0  3B 7C FF FF 00 4A             MOVE.w #$FFFF,$4A(a5)
+01A6A6  30 18                         MOVE.w (a0)+,d0
+01A6A8  3B 40 00 4C                   MOVE.w d0,$4C(a5)
+01A6AC  6B 1A                         BMI $01A6C8
+01A6AE  02 40 7F 00                   ANDI.w #$7F00,d0
+01A6B2  EC 48                         LSR.w #6,d0
+01A6B4  20 31 00 00                   MOVE.l $0(a1,d0.w),d0
+01A6B8  D0 8C                         ADD.l a4,d0
+01A6BA  2B 40 00 2C                   MOVE.l d0,$2C(a5)
+01A6BE  42 AD 00 6C                   CLR.l $6C(a5)
+01A6C2  3B 7C FF FF 00 4E             MOVE.w #$FFFF,$4E(a5)
+01A6C8  30 18                         MOVE.w (a0)+,d0
+01A6CA  3B 40 00 50                   MOVE.w d0,$50(a5)
+01A6CE  6B 1A                         BMI $01A6EA
+01A6D0  02 40 7F 00                   ANDI.w #$7F00,d0
+01A6D4  EC 48                         LSR.w #6,d0
+01A6D6  20 31 00 00                   MOVE.l $0(a1,d0.w),d0
+01A6DA  D0 8C                         ADD.l a4,d0
+01A6DC  2B 40 00 30                   MOVE.l d0,$30(a5)
+01A6E0  42 AD 00 70                   CLR.l $70(a5)
+01A6E4  3B 7C FF FF 00 52             MOVE.w #$FFFF,$52(a5)
+01A6EA  30 18                         MOVE.w (a0)+,d0
+01A6EC  3B 40 00 54                   MOVE.w d0,$54(a5)
+01A6F0  6B 1A                         BMI $01A70C
+01A6F2  02 40 7F 00                   ANDI.w #$7F00,d0
+01A6F6  EC 48                         LSR.w #6,d0
+01A6F8  20 31 00 00                   MOVE.l $0(a1,d0.w),d0
+01A6FC  D0 8C                         ADD.l a4,d0
+01A6FE  2B 40 00 34                   MOVE.l d0,$34(a5)
+01A702  42 AD 00 74                   CLR.l $74(a5)
+01A706  3B 7C FF FF 00 56             MOVE.w #$FFFF,$56(a5)
+01A70C  30 18                         MOVE.w (a0)+,d0
+01A70E  3B 40 00 58                   MOVE.w d0,$58(a5)
+01A712  6B 1A                         BMI $01A72E
+01A714  02 40 7F 00                   ANDI.w #$7F00,d0
+01A718  EC 48                         LSR.w #6,d0
+01A71A  20 31 00 00                   MOVE.l $0(a1,d0.w),d0
+01A71E  D0 8C                         ADD.l a4,d0
+01A720  2B 40 00 38                   MOVE.l d0,$38(a5)
+01A724  42 AD 00 78                   CLR.l $78(a5)
+01A728  3B 7C FF FF 00 5A             MOVE.w #$FFFF,$5A(a5)
+01A72E  30 18                         MOVE.w (a0)+,d0
+01A730  3B 40 00 5C                   MOVE.w d0,$5C(a5)
+01A734  6B 1A                         BMI $01A750
+01A736  02 40 7F 00                   ANDI.w #$7F00,d0
+01A73A  EC 48                         LSR.w #6,d0
+01A73C  20 31 00 00                   MOVE.l $0(a1,d0.w),d0
+01A740  D0 8C                         ADD.l a4,d0
+01A742  2B 40 00 3C                   MOVE.l d0,$3C(a5)
+01A746  42 AD 00 7C                   CLR.l $7C(a5)
+01A74A  3B 7C FF FF 00 5E             MOVE.w #$FFFF,$5E(a5)
+01A750  30 18                         MOVE.w (a0)+,d0
+01A752  3B 40 00 60                   MOVE.w d0,$60(a5)
+01A756  6B 1A                         BMI $01A772
+01A758  02 40 7F 00                   ANDI.w #$7F00,d0
+01A75C  EC 48                         LSR.w #6,d0
+01A75E  20 31 00 00                   MOVE.l $0(a1,d0.w),d0
+01A762  D0 8C                         ADD.l a4,d0
+01A764  2B 40 00 40                   MOVE.l d0,$40(a5)
+01A768  42 AD 00 80                   CLR.l $80(a5)
+01A76C  3B 7C FF FF 00 62             MOVE.w #$FFFF,$62(a5)
+01A772  30 18                         MOVE.w (a0)+,d0
+01A774  3B 40 00 64                   MOVE.w d0,$64(a5)
+01A778  6B 1A                         BMI $01A794
+01A77A  02 40 7F 00                   ANDI.w #$7F00,d0
+01A77E  EC 48                         LSR.w #6,d0
+01A780  20 31 00 00                   MOVE.l $0(a1,d0.w),d0
+01A784  D0 8C                         ADD.l a4,d0
+01A786  2B 40 00 44                   MOVE.l d0,$44(a5)
+01A78A  42 AD 00 84                   CLR.l $84(a5)
+01A78E  3B 7C FF FF 00 66             MOVE.w #$FFFF,$66(a5)
+01A794  4C DF                         .dc.w $4CDF
+01A796  .dc.b 03 01 4E 75 61 00 09 C0 42 2E 00 2E 43 FA 0E 4A ; ..Nua...B...C..J
+01A7A6  .dc.b 33 7C 00 02 00 02 4C DF 03 01 4E 75 3B 50 00 04 ; 3|....L...Nu;P..
+01A7B6  .dc.b 60 00 FE 90 3B 50 00 06 3D 50 00 2C 1D 6E 00 5C ; `...;P..=P.,.n.\
+01A7C6  .dc.b 00 4A 30 28 00 02 6B 00 00 20 02 40 01 FF 4A 40 ; .J0(..k.. .@..J@
+01A7D6  .dc.b 67 00 00 16 22 3C 00 00 1C 00 82 C0 13 C1 00 BF ; g..."<..........
+01A7E6  .dc.b D7 00 1D 7C 00 01 00 4A 06 6D 00 01 00 04 60 00 ; ...|...J.m....`.
+01A7F6  .dc.b FE 52 3D 50 00 3E 06 6D 00 01 00 04 60 00 FE 44 ; .R=P.>.m....`..D
+01A806  .dc.b 06 6D 00 01 00 04 43 FA 0D E0 4A 69 00 00 66 00 ; .m....C...Ji..f.
+01A816  .dc.b FE 32 33 7C 00 01 00 00 1D 68 00 03 00 51 1D 68 ; .23|.....h...Q.h
+01A826  .dc.b 00 01 00 52 1D 68 00 01 00 53 67 1C 1D 7C 00 01 ; ...R.h...Sg..|..
+01A836  .dc.b 00 1C 10 2E 00 50 B0 2E 00 51 67 12 65 00 FE 04 ; .....P...Qg.e...
+01A846  .dc.b 44 2E 00 1C 60 00 FD FC 1D 6E 00 51 00 50 1D 7C ; D...`....n.Q.P.|
+01A856  .dc.b 00 00 00 1C 42 69 00 00 60 00 FD E8 00 00 04 FE ; ....Bi..`.......
+01A866  .dc.b 00 00 05 12 00 00 05 1A 00 00 05 58 00 00 05 66 ; ...........X...f
+
+; ==== sound_update_voices  $01A876  (1 caller) — Update the three voices (sound_update_voice x3, a5 walks voice_table $1B332). ====
+01A876  4D FA 0A 60                   LEA $01B2D8(pc),a6
+01A87A  4B FA 0A B6                   LEA $01B332(pc),a5
+01A87E  61 06                         BSR $01A886
+01A880  61 04                         BSR $01A886
+01A882  61 00 00 02                   BSR $01A886
+
+; ==== sound_update_voice  $01A886  (3 callers) — Update one voice: a4 = voice.$160 (its $DFF0Ax hardware channel), then the vibrato/portamento/envelope steps — identical to the overlay's update_voice. ====
+01A886  DB FC 00 00 00 04             ADDA.l #$4,a5
+01A88C  28 6D 01 60                   MOVEA.l $160(a5),a4
+01A890  4A 6D 00 02                   TST.w $2(a5)
+01A894  67 02                         BEQ $01A898
+01A896  6A 70                         BPL $01A908
+01A898  4A 6D 01 00                   TST.w $100(a5)
+01A89C  6B 08                         BMI $01A8A6
+01A89E  04 6D 00 01 01 00             SUBI.w #$1,$100(a5)
+01A8A4  60 04                         BRA $01A8AA
+01A8A6  42 2D 01 03                   CLR.b $103(a5)
+01A8AA  61 00 05 08                   BSR $01ADB4
+01A8AE  61 00 05 42                   BSR $01ADF2
+01A8B2  61 00 05 8C                   BSR $01AE40
+01A8B6  4A 2E 00 1C                   TST.b $1C(a6)
+01A8BA  67 2C                         BEQ $01A8E8
+01A8BC  04 2E 00 01 00 52             SUBI.b #$1,$52(a6)
+01A8C2  66 24                         BNE $01A8E8
+01A8C4  1D 6E 00 53 00 52             MOVE.b $53(a6),$52(a6)
+01A8CA  10 2E 00 1C                   MOVE.b $1C(a6),d0
+01A8CE  D1 2E 00 50                   ADD.b d0,$50(a6)
+01A8D2  10 2E 00 51                   MOVE.b $51(a6),d0
+01A8D6  B0 2E 00 50                   CMP.b $50(a6),d0
+01A8DA  66 0C                         BNE $01A8E8
+01A8DC  42 2E 00 1C                   CLR.b $1C(a6)
+01A8E0  41 FA 0D 0C                   LEA $01B5EE(pc),a0
+01A8E4  42 68 00 00                   CLR.w $0(a0)
+01A8E8  72 00                         MOVEQ #$0,d1
+01A8EA  12 2E 00 50                   MOVE.b $50(a6),d1
+01A8EE  70 00                         MOVEQ #$0,d0
+01A8F0  10 2D 00 60                   MOVE.b $60(a5),d0
+01A8F4  B2 7C 00 40                   CMP.w #$40,d1
+01A8F8  67 0A                         BEQ $01A904
+01A8FA  E5 48                         LSL.w #2,d0
+01A8FC  C0 C1                         MULU.W d1,d0
+01A8FE  E0 48                         LSR.w #8,d0
+01A900  02 40 00 7F                   ANDI.w #$7F,d0
+01A904  39 40 00 08                   MOVE.w d0,$8(a4)
+01A908  4A 6D 00 02                   TST.w $2(a5)
+01A90C  67 34                         BEQ $01A942
+01A90E  6B 26                         BMI $01A936
+01A910  42 6D 00 40                   CLR.w $40(a5)
+01A914  3B 6E 00 44 00 42             MOVE.w $44(a6),$42(a5)
+01A91A  3B 7C FF FF 00 02             MOVE.w #$FFFF,$2(a5)
+01A920  3B 7C FF FF 00 62             MOVE.w #$FFFF,$62(a5)
+01A926  33 ED 01 12 00 DF F0 9A       MOVE.w $112(a5),$DFF09A.l
+01A92E  33 ED 01 12 00 DF F0 9C       MOVE.w $112(a5),$DFF09C.l
+01A936  4A 6D 00 42                   TST.w $42(a5)
+01A93A  67 08                         BEQ $01A944
+01A93C  04 6D 00 01 00 42             SUBI.w #$1,$42(a5)
+01A942  4E 75                         RTS
+01A944  20 6D 00 30                   MOVEA.l $30(a5),a0
+01A948  30 2D 00 40                   MOVE.w $40(a5),d0
+01A94C  E5 48                         LSL.w #2,d0
+01A94E  2D 70 00 00 00 28             MOVE.l $0(a0,d0.w),$28(a6)
+01A954  10 2E 00 28                   MOVE.b $28(a6),d0
+01A958  42 2E 00 28                   CLR.b $28(a6)
+01A95C  02 40 00 FF                   ANDI.w #$FF,d0
+01A960  B0 7C 00 23                   CMP.w #$23,d0
+01A964  64 12                         BCC $01A978
+01A966  E5 48                         LSL.w #2,d0
+01A968  41 FA 03 B6                   LEA $01AD20(pc),a0
+01A96C  22 30 00 00                   MOVE.l $0(a0,d0.w),d1
+01A970  41 FA F9 2E                   LEA $01A2A0(pc),a0
+01A974  D1 C1                         ADDA.l d1,a0
+01A976  4E D0                         JMP (a0)
+01A978  06 6D 00 01 00 40             ADDI.w #$1,$40(a5)
+01A97E  4E 75                         RTS
 01A980  .dc.b 06 6D 00 01 00 40 60 BC 42 2D 00 70 42 2D 00 92 ; .m...@`.B-.pB-..
 01A990  .dc.b 42 6D 00 C0 33 ED 01 12 00 DF F0 9A 33 ED 01 12 ; Bm..3.......3...
 01A9A0  .dc.b 00 DF F0 9C 33 ED 00 52 00 DF F0 96 60 D2 33 ED ; ....3..R....`.3.
@@ -9970,23 +10208,80 @@
 01AD80  .dc.b 00 00 0A 40 00 00 0A 62 00 00 07 7A 00 00 08 0A ; ...@...b...z....
 01AD90  .dc.b 00 00 07 DE 00 00 07 F4 00 00 0A 7C 00 00 0A 7C ; ...........|...|
 01ADA0  .dc.b 00 00 07 62 00 00 07 6A 00 00 07 6E 00 00 07 72 ; ...b...j...n...r
-01ADB0  .dc.b 00 00 07 76 4A 2D 00 92 67 36 10 2D 00 80 48 80 ; ...vJ-..g6.-..H.
-01ADC0  .dc.b D1 6D 00 90 30 2D 00 90 D0 6D 00 A0 4A 6D 00 C0 ; .m..0-...m..Jm..
-01ADD0  .dc.b 66 04 39 40 00 06 04 2D 00 01 00 93 66 12 1B 6D ; f.9@...-....f..m
-01ADE0  .dc.b 00 92 00 93 0A 2D 00 FF 00 80 06 2D 00 01 00 80 ; .....-.....-....
-01ADF0  .dc.b 4E 75 4A 6D 00 C0 67 F8 04 2D 00 01 00 83 66 F0 ; NuJm..g..-....f.
-01AE00  .dc.b 1B 6D 00 82 00 83 32 2D 00 A0 30 2D 00 C2 B0 41 ; .m....2-..0-...A
-01AE10  .dc.b 67 DE 65 20 90 6D 00 C0 B0 41 67 02 64 08 42 6D ; g.e .m...Ag.d.Bm
-01AE20  .dc.b 00 C0 30 2D 00 A0 02 40 07 FF 3B 40 00 C2 39 40 ; ..0-...@..;@..9@
-01AE30  .dc.b 00 06 4E 75 D0 6D 00 C0 B0 41 67 E2 64 E0 60 E6 ; ..Nu.m...Ag.d.`.
-01AE40  .dc.b 4A 2D 00 70 67 0C 4A 2D 00 71 67 08 04 2D 00 01 ; J-.pg.J-.qg..-..
-01AE50  .dc.b 00 71 4E 75 1B 6D 00 70 00 71 10 2D 00 72 B0 2D ; .qNu.m.p.q.-.r.-
-01AE60  .dc.b 00 60 6E 20 12 2D 00 73 93 2D 00 60 6B 00 00 0A ; .`n .-.s.-.`k...
-01AE70  .dc.b B0 2D 00 60 6C 02 4E 75 1B 6D 00 72 00 60 42 2D ; .-.`l.Nu.m.r.`B-
-01AE80  .dc.b 00 70 4E 75 12 2D 00 73 D3 2D 00 60 B0 2D 00 60 ; .pNu.-.s.-.`.-.`
-01AE90  .dc.b 6F E6 4E 75                                     ; o.Nu
+01ADB0  .dc.b 00 00 07 76                                     ; ...v
 
-; ==== sub_01AE94 (1 caller) ====
+; ==== sub_01ADB4 (1 caller) ====
+01ADB4  4A 2D 00 92                   TST.b $92(a5)
+01ADB8  67 36                         BEQ $01ADF0
+01ADBA  10 2D 00 80                   MOVE.b $80(a5),d0
+01ADBE  48 80                         EXT.W d0
+01ADC0  D1 6D 00 90                   ADD.w d0,$90(a5)
+01ADC4  30 2D 00 90                   MOVE.w $90(a5),d0
+01ADC8  D0 6D 00 A0                   ADD.w $A0(a5),d0
+01ADCC  4A 6D 00 C0                   TST.w $C0(a5)
+01ADD0  66 04                         BNE $01ADD6
+01ADD2  39 40 00 06                   MOVE.w d0,$6(a4)
+01ADD6  04 2D 00 01 00 93             SUBI.b #$1,$93(a5)
+01ADDC  66 12                         BNE $01ADF0
+01ADDE  1B 6D 00 92 00 93             MOVE.b $92(a5),$93(a5)
+01ADE4  0A 2D 00 FF 00 80             EORI.b #$FF,$80(a5)
+01ADEA  06 2D 00 01 00 80             ADDI.b #$1,$80(a5)
+01ADF0  4E 75                         RTS
+
+; ==== sub_01ADF2 (1 caller) ====
+01ADF2  4A 6D 00 C0                   TST.w $C0(a5)
+01ADF6  67 F8                         BEQ $01ADF0
+01ADF8  04 2D 00 01 00 83             SUBI.b #$1,$83(a5)
+01ADFE  66 F0                         BNE $01ADF0
+01AE00  1B 6D 00 82 00 83             MOVE.b $82(a5),$83(a5)
+01AE06  32 2D 00 A0                   MOVE.w $A0(a5),d1
+01AE0A  30 2D 00 C2                   MOVE.w $C2(a5),d0
+01AE0E  B0 41                         CMP.w d1,d0
+01AE10  67 DE                         BEQ $01ADF0
+01AE12  65 20                         BCS $01AE34
+01AE14  90 6D 00 C0                   SUB.w $C0(a5),d0
+01AE18  B0 41                         CMP.w d1,d0
+01AE1A  67 02                         BEQ $01AE1E
+01AE1C  64 08                         BCC $01AE26
+01AE1E  42 6D 00 C0                   CLR.w $C0(a5)
+01AE22  30 2D 00 A0                   MOVE.w $A0(a5),d0
+01AE26  02 40 07 FF                   ANDI.w #$7FF,d0
+01AE2A  3B 40 00 C2                   MOVE.w d0,$C2(a5)
+01AE2E  39 40 00 06                   MOVE.w d0,$6(a4)
+01AE32  4E 75                         RTS
+01AE34  D0 6D 00 C0                   ADD.w $C0(a5),d0
+01AE38  B0 41                         CMP.w d1,d0
+01AE3A  67 E2                         BEQ $01AE1E
+01AE3C  64 E0                         BCC $01AE1E
+01AE3E  60 E6                         BRA $01AE26
+
+; ==== sub_01AE40 (1 caller) ====
+01AE40  4A 2D 00 70                   TST.b $70(a5)
+01AE44  67 0C                         BEQ $01AE52
+01AE46  4A 2D 00 71                   TST.b $71(a5)
+01AE4A  67 08                         BEQ $01AE54
+01AE4C  04 2D 00 01 00 71             SUBI.b #$1,$71(a5)
+01AE52  4E 75                         RTS
+01AE54  1B 6D 00 70 00 71             MOVE.b $70(a5),$71(a5)
+01AE5A  10 2D 00 72                   MOVE.b $72(a5),d0
+01AE5E  B0 2D 00 60                   CMP.b $60(a5),d0
+01AE62  6E 20                         BGT $01AE84
+01AE64  12 2D 00 73                   MOVE.b $73(a5),d1
+01AE68  93 2D 00 60                   SUB.b d1,$60(a5)
+01AE6C  6B 00 00 0A                   BMI $01AE78
+01AE70  B0 2D 00 60                   CMP.b $60(a5),d0
+01AE74  6C 02                         BGE $01AE78
+01AE76  4E 75                         RTS
+01AE78  1B 6D 00 72 00 60             MOVE.b $72(a5),$60(a5)
+01AE7E  42 2D 00 70                   CLR.b $70(a5)
+01AE82  4E 75                         RTS
+01AE84  12 2D 00 73                   MOVE.b $73(a5),d1
+01AE88  D3 2D 00 60                   ADD.b d1,$60(a5)
+01AE8C  B0 2D 00 60                   CMP.b $60(a5),d0
+01AE90  6F E6                         BLE $01AE78
+01AE92  4E 75                         RTS
+
+; ==== sub_01AE94 (2 callers) ====
 01AE94  48 E7 80 0E                   MOVEM.l d0/a4-a6,-(a7)
 01AE98  4D FA 04 3E                   LEA $01B2D8(pc),a6
 01AE9C  2F 2E 00 28                   MOVE.l $28(a6),-(a7)
@@ -10056,28 +10351,85 @@
 01AFA6  3B 74 00 00 00 A0             MOVE.w $0(a4,d0.w),$A0(a5)
 01AFAC  22 1F                         MOVE.l (a7)+,d1
 01AFAE  60 BC                         BRA $01AF6C
-01AFB0  .dc.b 48 E7 00 04 4B FA 03 80 02 40 00 03 E5 48 DA C0 ; H...K....@...H..
-01AFC0  .dc.b 33 ED 00 52 00 DF F0 96 42 6D 00 02 42 2D 01 23 ; 3..R....Bm..B-.#
-01AFD0  .dc.b 4C DF 20 00 4E 75 08 2E 00 05 00 3D 66 04 61 00 ; L. .Nu.....=f.a.
-01AFE0  .dc.b 02 52 42 2E 00 2E 3D 7C 00 01 00 44 28 6E 00 04 ; .RB...=|...D(n..
-01AFF0  .dc.b 42 94 28 6E 00 00 30 2E 00 3C 02 80 00 00 00 1F ; B.(n..0..<......
-01B000  .dc.b E3 88 D9 C0 4B FA 04 A0 41 FA 05 64 32 2E 00 0C ; ....K...A..d2...
-01B010  .dc.b 02 41 00 1F E3 49 31 AD 00 04 10 00 11 AE 00 3F ; .A...I1........?
-01B020  .dc.b 10 40 11 AD 00 07 10 41 42 6E 00 3E 3B 6C 01 00 ; .@.....ABn.>;l..
-01B030  .dc.b 00 04 3B 6C 01 00 00 00 3B 6C 01 40 00 02 3B 6C ; ..;l....;l.@..;l
-01B040  .dc.b 01 80 00 06 32 3C 00 1C 08 2E 00 06 00 3D 67 12 ; ....2<.......=g.
-01B050  .dc.b 3B 70 00 00 00 04 1D 70 00 40 00 3F 1B 70 00 41 ; ;p.....p.@.?.p.A
-01B060  .dc.b 00 07 1D 6E 00 5C 00 4A 0C 6D 00 0F 00 06 63 12 ; ...n.\.J.m....c.
-01B070  .dc.b 3D 7C 00 01 00 3E 04 6D 00 10 00 06 3D 7C 00 02 ; =|...>.m....=|..
-01B080  .dc.b 00 44 2B BA 05 80 10 28 3B BC FF 00 10 48 42 B5 ; .D+....(;....HB.
-01B090  .dc.b 10 68 04 41 00 04 6A CA 0C 6D 01 FF 00 00 67 08 ; .h.A..j..m....g.
-01B0A0  .dc.b 28 6E 00 00 61 00 F5 9E 42 6E 00 0A 42 6E 00 2C ; (n..a...Bn..Bn.,
-01B0B0  .dc.b 08 F9 00 01 00 BF E0 01 33 FC 00 FF 00 DF F0 9E ; ........3.......
-01B0C0  .dc.b 30 2E 00 3C 02 40 00 1F 3D 40 00 0C 1D 7C 00 FF ; 0..<.@..=@...|..
-01B0D0  .dc.b 00 3D 49 FA 05 1A 42 6C 00 02 4B FA 02 5A 42 2D ; .=I...Bl..K..ZB-
-01B0E0  .dc.b 01 03 42 2D 01 07 42 2D 01 0B 42 2D 01 0F 42 6D ; ..B-..B-..B-..Bm
-01B0F0  .dc.b 01 00 42 6D 01 04 42 6D 01 08 42 6D 01 0C 1D 7C ; ..Bm..Bm..Bm...|
-01B100  .dc.b 00 01 00 2E 4E 75                               ; ....Nu
+01AFB0  48 E7 00 04                   MOVEM.l a5,-(a7)
+01AFB4  4B FA 03 80                   LEA $01B336(pc),a5
+01AFB8  02 40 00 03                   ANDI.w #$3,d0
+01AFBC  E5 48                         LSL.w #2,d0
+01AFBE  DA C0                         ADDA.w d0,a5
+01AFC0  33 ED 00 52 00 DF F0 96       MOVE.w $52(a5),$DFF096.l
+01AFC8  42 6D 00 02                   CLR.w $2(a5)
+01AFCC  42 2D 01 23                   CLR.b $123(a5)
+01AFD0  4C DF                         .dc.w $4CDF
+01AFD2  .dc.b 20 00 4E 75                                     ;  .Nu
+
+; ==== sub_01AFD6 (1 caller) ====
+01AFD6  08 2E 00 05 00 3D             BTST.b #$5,$3D(a6)
+01AFDC  66 04                         BNE $01AFE2
+01AFDE  61 00 02 52                   BSR $01B232
+01AFE2  42 2E 00 2E                   CLR.b $2E(a6)
+01AFE6  3D 7C 00 01 00 44             MOVE.w #$1,$44(a6)
+01AFEC  28 6E 00 04                   MOVEA.l $4(a6),a4
+01AFF0  42 94                         CLR.l (a4)
+01AFF2  28 6E 00 00                   MOVEA.l $0(a6),a4
+01AFF6  30 2E 00 3C                   MOVE.w $3C(a6),d0
+01AFFA  02 80 00 00 00 1F             ANDI.l #$1F,d0
+01B000  E3 88                         LSL.l #1,d0
+01B002  D9 C0                         ADDA.l d0,a4
+01B004  4B FA 04 A0                   LEA $01B4A6(pc),a5
+01B008  41 FA 05 64                   LEA $01B56E(pc),a0
+01B00C  32 2E 00 0C                   MOVE.w $C(a6),d1
+01B010  02 41 00 1F                   ANDI.w #$1F,d1
+01B014  E3 49                         LSL.w #1,d1
+01B016  31 AD 00 04 10 00             MOVE.w $4(a5),$0(a0,d1.w)
+01B01C  11 AE 00 3F 10 40             MOVE.b $3F(a6),$40(a0,d1.w)
+01B022  11 AD 00 07 10 41             MOVE.b $7(a5),$41(a0,d1.w)
+01B028  42 6E 00 3E                   CLR.w $3E(a6)
+01B02C  3B 6C 01 00 00 04             MOVE.w $100(a4),$4(a5)
+01B032  3B 6C 01 00 00 00             MOVE.w $100(a4),$0(a5)
+01B038  3B 6C 01 40 00 02             MOVE.w $140(a4),$2(a5)
+01B03E  3B 6C 01 80 00 06             MOVE.w $180(a4),$6(a5)
+01B044  32 3C 00 1C                   MOVE.w #$1C,d1
+01B048  08 2E 00 06 00 3D             BTST.b #$6,$3D(a6)
+01B04E  67 12                         BEQ $01B062
+01B050  3B 70 00 00 00 04             MOVE.w $0(a0,d0.w),$4(a5)
+01B056  1D 70 00 40 00 3F             MOVE.b $40(a0,d0.w),$3F(a6)
+01B05C  1B 70 00 41 00 07             MOVE.b $41(a0,d0.w),$7(a5)
+01B062  1D 6E 00 5C 00 4A             MOVE.b $5C(a6),$4A(a6)
+01B068  0C 6D 00 0F 00 06             CMPI.w #$F,$6(a5)
+01B06E  63 12                         BLS $01B082
+01B070  3D 7C 00 01 00 3E             MOVE.w #$1,$3E(a6)
+01B076  04 6D 00 10 00 06             SUBI.w #$10,$6(a5)
+01B07C  3D 7C 00 02 00 44             MOVE.w #$2,$44(a6)
+01B082  2B BA 05 80 10 28             MOVE.l $01B604(pc),$28(a5,d1.w)
+01B088  3B BC FF 00 10 48             MOVE.w #$FF00,$48(a5,d1.w)
+01B08E  42 B5 10 68                   CLR.l $68(a5,d1.w)
+01B092  04 41 00 04                   SUBI.w #$4,d1
+01B096  6A CA                         BPL $01B062
+01B098  0C 6D 01 FF 00 00             CMPI.w #$1FF,$0(a5)
+01B09E  67 08                         BEQ $01B0A8
+01B0A0  28 6E 00 00                   MOVEA.l $0(a6),a4
+01B0A4  61 00 F5 9E                   BSR $01A644
+01B0A8  42 6E 00 0A                   CLR.w $A(a6)
+01B0AC  42 6E 00 2C                   CLR.w $2C(a6)
+01B0B0  08 F9 00 01 00 BF E0 01       BSET.b #$1,$BFE001.l
+01B0B8  33 FC 00 FF 00 DF F0 9E       MOVE.w #$FF,$DFF09E.l
+01B0C0  30 2E 00 3C                   MOVE.w $3C(a6),d0
+01B0C4  02 40 00 1F                   ANDI.w #$1F,d0
+01B0C8  3D 40 00 0C                   MOVE.w d0,$C(a6)
+01B0CC  1D 7C 00 FF 00 3D             MOVE.b #$FF,$3D(a6)
+01B0D2  49 FA 05 1A                   LEA $01B5EE(pc),a4
+01B0D6  42 6C 00 02                   CLR.w $2(a4)
+01B0DA  4B FA 02 5A                   LEA $01B336(pc),a5
+01B0DE  42 2D 01 03                   CLR.b $103(a5)
+01B0E2  42 2D 01 07                   CLR.b $107(a5)
+01B0E6  42 2D 01 0B                   CLR.b $10B(a5)
+01B0EA  42 2D 01 0F                   CLR.b $10F(a5)
+01B0EE  42 6D 01 00                   CLR.w $100(a5)
+01B0F2  42 6D 01 04                   CLR.w $104(a5)
+01B0F6  42 6D 01 08                   CLR.w $108(a5)
+01B0FA  42 6D 01 0C                   CLR.w $10C(a5)
+01B0FE  1D 7C 00 01 00 2E             MOVE.b #$1,$2E(a6)
+01B104  4E 75                         RTS
 01B106  48 E7 00 06                   MOVEM.l a5-a6,-(a7)
 01B10A  4D FA 01 CC                   LEA $01B2D8(pc),a6
 01B10E  4B FA 04 DE                   LEA $01B5EE(pc),a5
@@ -10149,6 +10501,8 @@
 01B216  4C DF                         .dc.w $4CDF
 01B218  .dc.b 60 00 4E 75 48 E7 00 06 4D FA 00 B6 08 C0 00 06 ; `.NuH...M.......
 01B228  .dc.b 3D 40 00 3C 4C DF 60 00 4E 75                   ; =@.<L.`.Nu
+
+; ==== sound_silence  $01B232  (1 caller) — Zero the four AUDxVOL registers ($DFF0A8/B8/C8/D8); the default sound_api slot. ====
 01B232  48 E7 80 0E                   MOVEM.l d0/a4-a6,-(a7)
 01B236  4D FA 00 A0                   LEA $01B2D8(pc),a6
 01B23A  42 2E 00 2E                   CLR.b $2E(a6)
@@ -10186,78 +10540,83 @@
 01B2C8  49 FA F7 60                   LEA $01AA2A(pc),a4
 01B2CC  23 CC 00 00 00 70             MOVE.l a4,$70.l
 01B2D2  4C DF                         .dc.w $4CDF
-01B2D4  .dc.b 70 00 4E 75 00 00 00 00 00 00 00 00 00 00 00 00 ; p.Nu............
-01B2E4  .dc.b 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 ; ................
-01B2F4  .dc.b 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 ; ................
-01B304  .dc.b 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 ; ................
-01B314  .dc.b FF FF 00 00 00 00 00 00 00 01 00 00 00 00 00 00 ; ................
-01B324  .dc.b 00 00 00 00 40 40 00 00 00 00 00 00 00 00 00 00 ; ....@@..........
-01B334  .dc.b 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 ; ................
-01B344  .dc.b 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 ; ................
-01B354  .dc.b 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 ; ................
-01B364  .dc.b 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 ; ................
-01B374  .dc.b 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 ; ................
-01B384  .dc.b 00 00 82 01 00 01 82 02 00 02 82 04 00 04 82 08 ; ................
-01B394  .dc.b 00 08 00 00 00 00 00 00 00 00 00 00 00 00 00 00 ; ................
-01B3A4  .dc.b 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 ; ................
-01B3B4  .dc.b 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 ; ................
-01B3C4  .dc.b 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 ; ................
-01B3D4  .dc.b 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 ; ................
-01B3E4  .dc.b 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 ; ................
-01B3F4  .dc.b 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 ; ................
-01B404  .dc.b 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 ; ................
-01B414  .dc.b 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 ; ................
-01B424  .dc.b 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 ; ................
-01B434  .dc.b 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 ; ................
-01B444  .dc.b 00 00 C0 80 00 80 C1 00 01 00 C2 00 02 00 C4 00 ; ................
-01B454  .dc.b 04 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 ; ................
-01B464  .dc.b 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 ; ................
-01B474  .dc.b 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 ; ................
-01B484  .dc.b 00 00 00 00 00 04 00 00 00 04 00 00 00 04 FF FF ; ................
-01B494  .dc.b FF F4 00 DF F0 A0 00 DF F0 B0 00 DF F0 C0 00 DF ; ................
-01B4A4  .dc.b F0 D0 00 00 00 00 00 00 00 00 00 00 00 00 00 00 ; ................
-01B4B4  .dc.b 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 ; ................
-01B4C4  .dc.b 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 ; ................
-01B4D4  .dc.b 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 ; ................
-01B4E4  .dc.b 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 ; ................
-01B4F4  .dc.b 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 ; ................
-01B504  .dc.b 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 ; ................
-01B514  .dc.b 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 ; ................
-01B524  .dc.b 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 ; ................
-01B534  .dc.b 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 ; ................
-01B544  .dc.b 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 ; ................
-01B554  .dc.b 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 ; ................
-01B564  .dc.b 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 ; ................
-01B574  .dc.b 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 ; ................
-01B584  .dc.b 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 ; ................
-01B594  .dc.b 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 ; ................
-01B5A4  .dc.b 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 ; ................
-01B5B4  .dc.b 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 ; ................
-01B5C4  .dc.b 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 ; ................
-01B5D4  .dc.b 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 ; ................
-01B5E4  .dc.b 00 00 00 00 00 00 00 00 00 00 00 00 00 02 00 00 ; ................
-01B5F4  .dc.b 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 ; ................
-01B604  .dc.b F4 00 00 00 F0 00 00 00 0D 5C 0C 9C 0B E8 0B 3C ; .........\.....<
-01B614  .dc.b 0A 9A 0A 02 09 72 08 EA 08 6A 07 F2 07 80 07 18 ; .....r...j......
-01B624  .dc.b 06 AE 06 4E 05 F4 05 9E 05 4D 05 01 04 B9 04 75 ; ...N.....M.....u
-01B634  .dc.b 04 35 03 F9 03 C0 03 8C 03 58 03 2A 02 FC 02 D0 ; .5.......X.*....
-01B644  .dc.b 02 A8 02 82 02 5E 02 3B 02 1B 01 FD 01 E0 01 C6 ; .....^.;........
-01B654  .dc.b 01 AC 01 94 01 7D 01 68 01 54 01 40 01 2F 01 1E ; .....}.h.T.@./..
-01B664  .dc.b 01 0E 00 FE 00 F0 00 E3 00 D6 00 CA 00 BF 00 B4 ; ................
-01B674  .dc.b 00 AA 00 A0 00 97 00 8F 00 87 00 7F 00 78 00 71 ; .............x.q
-01B684  .dc.b 00 D6 00 CA 00 BF 00 B4 00 AA 00 A0 00 97 00 8F ; ................
-01B694  .dc.b 00 87 00 7F 00 78 00 71 00 D6 00 CA 00 BF 00 B4 ; .....x.q........
-01B6A4  .dc.b 00 00 03 F2 00 00 00 00 00 00 00 00 00 00 00 00 ; ................
-01B6B4  .dc.b 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 ; ................
-01B6C4  .dc.b 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 ; ................
-01B6D4  .dc.b 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 ; ................
-01B6E4  .dc.b 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 ; ................
-01B6F4  .dc.b 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 ; ................
-01B704  .dc.b 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 ; ................
-01B714  .dc.b 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 ; ................
-01B724  .dc.b 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 ; ................
-01B734  .dc.b 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 ; ................
-01B744  .dc.b 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 ; ................
-01B754  .dc.b 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 ; ................
-01B764  .dc.b 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 ; ................
-01B774  .dc.b 00 00 00 00 00 00 00 00 00 00 00 00             ; ............
+01B2D4  .dc.b 70 00 4E 75                                     ; p.Nu
+
+; --- sound_state  $01B2D8 — Resident sound-driver state struct (counterpart of the overlay's player_state $1CC22). (data) ---
+01B2D8  .dc.b 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 ; ................
+01B2E8  .dc.b 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 ; ................
+01B2F8  .dc.b 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 ; ................
+01B308  .dc.b 00 00 00 00 00 00 00 00 00 00 00 00 FF FF 00 00 ; ................
+01B318  .dc.b 00 00 00 00 00 01 00 00 00 00 00 00 00 00 00 00 ; ................
+01B328  .dc.b 40 40 00 00 00 00 00 00 00 00                   ; @@........
+
+; --- voice_table2  $01B332 — Resident per-voice state array (counterpart of the overlay's voice_table $1CC7C); $160 per voice = its hardware channel pointer. (data) ---
+01B332  .dc.b 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 ; ................
+01B342  .dc.b 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 ; ................
+01B352  .dc.b 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 ; ................
+01B362  .dc.b 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 ; ................
+01B372  .dc.b 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 ; ................
+01B382  .dc.b 00 00 00 00 82 01 00 01 82 02 00 02 82 04 00 04 ; ................
+01B392  .dc.b 82 08 00 08 00 00 00 00 00 00 00 00 00 00 00 00 ; ................
+01B3A2  .dc.b 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 ; ................
+01B3B2  .dc.b 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 ; ................
+01B3C2  .dc.b 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 ; ................
+01B3D2  .dc.b 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 ; ................
+01B3E2  .dc.b 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 ; ................
+01B3F2  .dc.b 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 ; ................
+01B402  .dc.b 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 ; ................
+01B412  .dc.b 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 ; ................
+01B422  .dc.b 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 ; ................
+01B432  .dc.b 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 ; ................
+01B442  .dc.b 00 00 00 00 C0 80 00 80 C1 00 01 00 C2 00 02 00 ; ................
+01B452  .dc.b C4 00 04 00 00 00 00 00 00 00 00 00 00 00 00 00 ; ................
+01B462  .dc.b 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 ; ................
+01B472  .dc.b 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 ; ................
+01B482  .dc.b 00 00 00 00 00 00 00 04 00 00 00 04 00 00 00 04 ; ................
+01B492  .dc.b FF FF FF F4 00 DF F0 A0 00 DF F0 B0 00 DF F0 C0 ; ................
+01B4A2  .dc.b 00 DF F0 D0 00 00 00 00 00 00 00 00 00 00 00 00 ; ................
+01B4B2  .dc.b 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 ; ................
+01B4C2  .dc.b 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 ; ................
+01B4D2  .dc.b 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 ; ................
+01B4E2  .dc.b 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 ; ................
+01B4F2  .dc.b 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 ; ................
+01B502  .dc.b 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 ; ................
+01B512  .dc.b 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 ; ................
+01B522  .dc.b 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 ; ................
+01B532  .dc.b 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 ; ................
+01B542  .dc.b 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 ; ................
+01B552  .dc.b 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 ; ................
+01B562  .dc.b 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 ; ................
+01B572  .dc.b 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 ; ................
+01B582  .dc.b 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 ; ................
+01B592  .dc.b 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 ; ................
+01B5A2  .dc.b 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 ; ................
+01B5B2  .dc.b 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 ; ................
+01B5C2  .dc.b 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 ; ................
+01B5D2  .dc.b 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 ; ................
+01B5E2  .dc.b 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 02 ; ................
+01B5F2  .dc.b 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 ; ................
+01B602  .dc.b 00 00 F4 00 00 00 F0 00 00 00 0D 5C 0C 9C 0B E8 ; ...........\....
+01B612  .dc.b 0B 3C 0A 9A 0A 02 09 72 08 EA 08 6A 07 F2 07 80 ; .<.....r...j....
+01B622  .dc.b 07 18 06 AE 06 4E 05 F4 05 9E 05 4D 05 01 04 B9 ; .....N.....M....
+01B632  .dc.b 04 75 04 35 03 F9 03 C0 03 8C 03 58 03 2A 02 FC ; .u.5.......X.*..
+01B642  .dc.b 02 D0 02 A8 02 82 02 5E 02 3B 02 1B 01 FD 01 E0 ; .......^.;......
+01B652  .dc.b 01 C6 01 AC 01 94 01 7D 01 68 01 54 01 40 01 2F ; .......}.h.T.@./
+01B662  .dc.b 01 1E 01 0E 00 FE 00 F0 00 E3 00 D6 00 CA 00 BF ; ................
+01B672  .dc.b 00 B4 00 AA 00 A0 00 97 00 8F 00 87 00 7F 00 78 ; ...............x
+01B682  .dc.b 00 71 00 D6 00 CA 00 BF 00 B4 00 AA 00 A0 00 97 ; .q..............
+01B692  .dc.b 00 8F 00 87 00 7F 00 78 00 71 00 D6 00 CA 00 BF ; .......x.q......
+01B6A2  .dc.b 00 B4 00 00 03 F2 00 00 00 00 00 00 00 00 00 00 ; ................
+01B6B2  .dc.b 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 ; ................
+01B6C2  .dc.b 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 ; ................
+01B6D2  .dc.b 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 ; ................
+01B6E2  .dc.b 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 ; ................
+01B6F2  .dc.b 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 ; ................
+01B702  .dc.b 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 ; ................
+01B712  .dc.b 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 ; ................
+01B722  .dc.b 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 ; ................
+01B732  .dc.b 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 ; ................
+01B742  .dc.b 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 ; ................
+01B752  .dc.b 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 ; ................
+01B762  .dc.b 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 ; ................
+01B772  .dc.b 00 00 00 00 00 00 00 00 00 00 00 00 00 00       ; ..............

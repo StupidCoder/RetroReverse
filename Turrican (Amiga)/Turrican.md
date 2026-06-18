@@ -642,8 +642,14 @@ Two things define the engine's shape:
 The fixed pipeline around the mode call is the renderer/updaters: `blit_playfield`
 and `blit_objects` (`$1BB4`/`$5E40`) are blitter copies (`BLTCON0 = $9F0`) that
 draw the playfield and object layers from the draw-list at `$1C2`, alongside a
-dozen further per-frame subsystems. This is disassembled (~118 routines so far)
-in `disasm/resident_core.{asm,annotations.txt}`.
+dozen further per-frame subsystems.
+
+The engine also carries its **own copy of the sound driver** (`sound_update`
+`$1A2F8`, state at `$1B2D8`, API table at `$1A2A8`) — byte-for-byte the same
+Hülsbeck player as the `$1BB00` overlay, on resident state. With two player
+instances the game runs music and sound effects independently; `level_setup`
+sets up this resident one through the `$1A2A8` API. All of this is disassembled
+(~128 routines so far) in `disasm/resident_core.{asm,annotations.txt}`.
 
 > **Next.** Dump the scene descriptors at run time (via the FS-UAE oracle, for
 > *guidance* — the addresses they point to are static engine code) to enumerate

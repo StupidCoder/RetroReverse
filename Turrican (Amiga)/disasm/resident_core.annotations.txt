@@ -16,11 +16,12 @@
 #   go run turrican/extract/cmd/decrunch -o /tmp/turrican.bin "Turrican (Amiga)/Turrican.adf"
 #   python3 -c "open('/tmp/lowseg.bin','wb').write(open('/tmp/turrican.bin','rb').read()[0x10:0x1B780])"
 #   go run stupidcoder.com/tools/cmd/codetrace68k -base 0x10 \
-#     -entry 0xCB4,0xD4C,0xEBC,0x1404,0x147E,0x1710,0x1850,0x189E,0x18BA,0x1B94,0x1BB4,0x1C0C,0x234C,0x2F56,0x35AE,0x3A56,0x438C,0x5576,0x5E40,0x64B8,0x68AC,0x7728,0x78CC,0x7EFC,0x1ABA,0x1AEC,0x1B14,0x1B38 \
+#     -entry 0xCB4,0xD4C,0xEBC,0x1404,0x147E,0x1710,0x1850,0x189E,0x18BA,0x1B94,0x1BB4,0x1C0C,0x234C,0x2F56,0x35AE,0x3A56,0x438C,0x5576,0x5E40,0x64B8,0x68AC,0x7728,0x78CC,0x7EFC,0x1ABA,0x1AEC,0x1B14,0x1B38,0x1A2F8,0x1A876,0x1A886,0x1B232 \
 #     -annotate "Turrican (Amiga)/disasm/resident_core.annotations.txt" \
 #     -o "Turrican (Amiga)/disasm/resident_core.asm" /tmp/lowseg.bin
-# Coverage is partial (~118 routines) — the per-frame pipeline is mapped, but the
-# game-mode handlers reached only through the $1942 pointer are not yet followed.
+# Coverage is partial (~128 routines) — the per-frame pipeline, scene state machine
+# and resident sound driver are mapped, but the game-mode handlers reached only
+# through the $1942 pointer (the in-game logic) are not yet followed.
 # a6 is usually the $DFF000 custom-chip base. Names are from observed behaviour.
 
 10   cpu_vectors        68000 exception vector table (runtime $0-$FF; reset SSP/PC at $0/$4 set by game_entry, the rest filled during init). Not code.
@@ -49,6 +50,18 @@ EBC  game_loop          The per-frame game loop. Each frame it runs a fixed rend
 
 1BB4 blit_playfield     Blitter copy into a screen buffer: sets BLTCON0 $40(a6)=$9F0 (D = A, copy) and BLTAFWM/ALWM $44(a6)=-1, then blits the spans described by the draw-list at $1C2. One of the per-frame render steps.
 5E40 blit_objects       Sibling blit routine (same BLTCON0=$9F0 setup, a different list slot $10(a1) of the $1C2 structure) — draws the object/sprite layer.
+
+# --- resident sound driver (a 2nd instance of the $1BB00 overlay's player) ---
+# The engine carries its own copy of the same Chris Hülsbeck player as the $1BB00
+# overlay, on resident state. With two instances the game runs music and sound
+# effects independently. level_setup drives this one through the sound_api table.
+1A2A8 sound_api          BRA jump table = the resident sound driver's public API (init / play / stop / config). level_setup JSRs $1A2A8/$1A2AC/$1A2B4/$1A2DC to set it up; inactive slots BRA sound_silence ($1B232).
+1A2F8 sound_update       Per-frame update of the resident player (same shape as the overlay's sound_tick): a6 = sound_state ($1B2D8); steps the sequencer/voices and calls sound_update_voices.
+1A876 sound_update_voices Update the three voices (sound_update_voice x3, a5 walks voice_table $1B332).
+1A886 sound_update_voice Update one voice: a4 = voice.$160 (its $DFF0Ax hardware channel), then the vibrato/portamento/envelope steps — identical to the overlay's update_voice.
+1B232 sound_silence      Zero the four AUDxVOL registers ($DFF0A8/B8/C8/D8); the default sound_api slot.
+1B2D8 sound_state        Resident sound-driver state struct (counterpart of the overlay's player_state $1CC22).
+1B332 voice_table2       Resident per-voice state array (counterpart of the overlay's voice_table $1CC7C); $160 per voice = its hardware channel pointer.
 
 9D0  init_early         Early init: BSR chain ($8BE, $910, $AF2) then reads packed/interleaved data from the streamed region ($74002+) and deinterleaves it (AND #$55555555 — even/odd bitplane split).
 748A init_object_table  Zero-fill the object tables pointed to by $20A/$20E, laying out per-object slots on a $C0-byte stride.
