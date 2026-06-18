@@ -23,6 +23,11 @@ const DATA = 'public/turrican/';
 const NATIVE_W = 320; // Amiga playfield width (~10 tiles) — the 1:1 reference
 const ZOOM_STEP = Math.pow(1.15, 0.25);
 
+// Collision byte -> overlay colour. $01 solid; the specials are decoded from the
+// player/shot handlers: $7F solid-but-reacts-to-shots, $80 breakable (contact
+// spawns an effect then clears), $D3 hazard (contact drains energy). 0 = passable.
+const COLLISION_COLOR = { 0x01: 0xff3030, 0x7f: 0x33ddff, 0x80: 0xffe020, 0xd3: 0xff33cc };
+
 export class TurricanViewer {
   constructor(viewportEl, hudEl) {
     this.el = viewportEl;
@@ -155,7 +160,7 @@ export class TurricanViewer {
           if (v !== runVal) {
             if (runVal !== 0) {
               g.rect(runStart * 8, br * 8, (bc - runStart) * 8, 8)
-                .fill({ color: runVal === 1 ? 0xff3030 : 0x3399ff, alpha: 0.45 });
+                .fill({ color: COLLISION_COLOR[runVal] ?? 0x33ddff, alpha: 0.5 });
             }
             runStart = bc;
             runVal = v;

@@ -42,10 +42,14 @@
       <b>object placements</b> — read straight off the disk from the spawner's own lists, each
       drawn with the first animation frame of the sprite its AI handler installs, at the
       position the game seeds it. Tick <b>Collision</b> to overlay the <b>solid map</b> —
-      Turrican stores a 4×4 grid of 8×8-pixel solidity bytes per tile, so the red mask follows
-      the terrain at sub-tile resolution (blue marks the rare special blocks). Each scene opens
-      framed on the <b>Amiga's on-screen view at the player spawn</b> (the green crosshair), the
-      same start the game shows. Drag to pan, scroll to zoom from the whole level to
+      Turrican stores a 4×4 grid of 8×8-pixel solidity bytes per tile, so the mask follows the
+      terrain at sub-tile resolution. The bytes' values, decoded from the player/shot handlers,
+      are coloured: <b style="color:#ff3030">red</b> solid wall,
+      <b style="color:#33ddff">cyan</b> solid that sparks/blocks shots,
+      <b style="color:#d9c000">yellow</b> breakable block, and
+      <b style="color:#ff33cc">magenta</b> hazard (drains energy). Each scene opens framed on the
+      <b>Amiga's on-screen view at the player spawn</b> (the green crosshair), the same start the
+      game shows. Drag to pan, scroll to zoom from the whole level to
       a single tile. See the
       <a href="https://github.com/StupidCoder/AIReverseEngineering/blob/main/Turrican%20(Amiga)/Turrican.md">write-up</a>
       (Part IV) for how it was decoded.

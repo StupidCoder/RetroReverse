@@ -778,8 +778,18 @@ world.
 
 Solidity isn't per-tile or a parallel grid — it's a **per-tile-type collision shape**.
 The block header's `+$04` section (`$3C1C4`) is an array of **16 bytes per tile**: a
-**4×4 grid of 8×8-pixel-block solidity** (`0` = passable, `1` = solid, with a rare
-`$7F`/`$D3` for special blocks), so a 32×32 tile carries sub-tile collision. At scene
+**4×4 grid of 8×8-pixel-block solidity**, so a 32×32 tile carries sub-tile collision.
+The byte values aren't just solid/empty — the player and shot handlers decode four:
+
+| value | meaning | how it's read |
+|------:|---------|---------------|
+| `$00` | passable | empty |
+| `$01` | solid wall/ground | blocks movement |
+| `$7F` | solid, reacts to shots | a shot sparks (`$63AE`) and stops, snapped to a 16px grid |
+| `$80` | breakable / trigger | contact spawns an effect + sound, then the cell clears |
+| `$D3` | hazard | contact calls `$7728`, which drains the player's energy (`$7B0B`) |
+
+At scene
 load `select_scene` (`$160E`) calls the playfield builder (`$2994`) which, for each map
 tile, copies `section + tileIndex*16` into a screen-sized collision buffer (`$212`) as
 4 rows of 4 bytes; the player check (`$35AE`) then reads one byte at the player's
