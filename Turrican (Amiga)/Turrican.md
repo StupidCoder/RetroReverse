@@ -928,15 +928,32 @@ mechanics — every world uses the same engine, object system and sound interfac
 (code sizes 3.5–8.8 KB). The handlers wire each enemy to a sprite from
 `rendered/sprites/world<N>_sprite_*.png`.
 
-Two threads remain on the gameplay side. The **player** is its own multi-part
-composite drawn by `$56AC` (§2). The enemy **placement** — which AI handler is
-seeded at which level position — is issued by the resident spawn from per-scene
-data not yet pinned to a flat list; capturing the live `$236` object list from the
-oracle (node `+$18/$1A` = position, `+$12` = sprite) is the practical way to feed a
-viewer object layer.
+## 5. Enemy placement
 
-> **Next.** The enemy placement data (for a viewer object layer) and the collision
-> check that reads `$3C1C4`.
+The **placement** — which enemy is seeded where — is read by the scroll-triggered
+spawner `enemy_spawner` (`$1710`, called twice per frame). It builds a spawn window
+from the camera (the visible screen plus a margin) and spawns any placement entry
+inside it — which is why enemies appear *just* as the screen reaches them. Each
+scene's placement list lives in its scene block: a grid at the descriptor's `+$28`
+(indexed by camera column) points into a **sorted-by-x stream of 6-byte entries** —
+`type.w, x.w, y.w` (x/y in 8-pixel units) — with `$00` ending a column run and
+`$D3` the list. The type's low nibble selects the scene's enemy-AI handler (`+$20`
+table), so an entry carries both a position and which enemy (so which sprite).
+
+`extract/cmd/placements` reads this straight off the disk. Overlaying world 1's 226
+scene-0 placements on the decoded map confirms it — ground enemies on the ledges,
+flyers in the diagonal wave-lines across the sky, clusters guarding the structures:
+
+![World 1 enemy placements over the map](rendered/world0_placements.png)
+
+The spawner was *located* with help from the FS-UAE oracle, but every byte of the
+placement data is extracted from the ADF. The wide horizontal scenes extract
+cleanly; the tall/vertical ones (worlds 3–5) currently over-read because the exact
+grid extent the spawner derives from the level dimensions still needs pinning down
+— the last detail before the full set drives a viewer object layer.
+
+> **Next.** Pin the per-scene grid extent (for the vertical levels), wire the
+> object layer into the level viewer, and the collision check that reads `$3C1C4`.
 
 # Appendix A — Toolchain and reproduction
 

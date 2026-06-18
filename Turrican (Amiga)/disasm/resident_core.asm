@@ -1219,7 +1219,7 @@
 00170A  6D 04                         BLT $001710
 00170C  42 78 19 36                   CLR.w $1936.w
 
-; ==== sub_001710 (2 callers) ====
+; ==== enemy_spawner  $001710  (2 callers) — The scroll-triggered enemy spawner (called twice per frame from game_loop). Computes the spawn window from the camera ($1F6/$172) — the visible screen plus a margin ($2C x $1C tiles) — and walks the scene's placement list for the camera column; any entry inside the window is allocated (obj_alloc_checked), positioned ($18/$1A from the entry's x/y), typed ($1E from the entry), given its AI handler ($22 from the type), linked active and marked spawned. This is why enemies appear just as the screen reaches them. The placement list lives in the scene block: a grid at descriptor +$28 (indexed by camera column, with the per-row offsets at +$24) points into a sorted-by-x stream of 6-byte entries — `type.w, x.w, y.w` (x/y in 8-pixel units), `$00` ends a column run and `$D3` ends the list. The type's low nibble selects the scene's enemy-AI handler (descriptor +$20 table), wiring each placement to one of the world's sprites. extract/cmd/placements pulls these from the disk. ====
 001710  4C B8 00 03 01 F6             MOVEM.w $1F6.w,d0-d1
 001716  E6 48                         LSR.w #3,d0
 001718  E6 49                         LSR.w #3,d1
