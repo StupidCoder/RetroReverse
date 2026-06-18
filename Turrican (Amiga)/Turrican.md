@@ -880,6 +880,15 @@ Each world yields its own enemy set (the rotating eyeball, saucers, turrets,
 mechs, …) — 45 sprite sheets across the five worlds plus the five shared resident
 ones, all in `rendered/sprites/`.
 
+The **player** is *not* in any of these tables (the auto-scan only finds the
+flat-pointer frame tables). He is drawn by a dedicated routine, `$56AC`, inside the
+player update (`$5576`): it indexes per-animation-state tables (`$4D56` hot-spot
+offsets, `$4E56` part dimensions, `$4FD6` part lists) by the player's animation
+state (`$594B & $1F`) and draws him as a **multi-part composite** (three body parts
+at `$5950/$5954/$5958`) plus the orbiting spinning weapon (`$4CCA`). So extracting
+the player means following that composite — the param tables, not a simple sprite
+sheet — which is a separate task from the BOB tables above.
+
 ## 3. The object system
 
 Active enemies and effects are a **doubly-linked list** (`object_list $236`) of
@@ -900,15 +909,34 @@ node through its frame table (`+$12`) at frame (`+$C`) and position (`+$18/$1A`)
 link is complete: a spawn just sets a node's `+$12` to one of the frame tables the
 extractor reads.
 
-What's *not* yet pinned is the **placement** — which enemy is seeded where in a
-level. The spawns are issued by per-world scene code (in the scene block, around
-the scene handler `$1D0AC`), not from a flat list in the resident image, so
-recovering placements means following that per-world code (or capturing the live
-object list from the oracle, since node `+$18/$1A/+$12` is exactly position +
-sprite). That is the input an **object layer** in the level viewer would need.
+## 4. Per-world code
 
-> **Next.** The per-world placement/spawn data (to drive a viewer object layer),
-> plus the collision check that reads `$3C1C4`.
+Each world's scene block carries its own game code in two parts (see
+`disasm/scenes/README.md`):
+
+* **Scene handlers** (descriptor `+$18`, 2–3 per world) run the **animated parallax
+  backdrop** and trigger **ambient sounds** — they call only the resident sound API
+  (`$1A2AC`/`$1A2DC`/…), never the spawn routines. World 1's drives the waterfall
+  blit (`$1D2DA`); worlds differ here only in which backdrop they animate.
+* **Enemy AI handlers** (descriptor `+$20`, 6–18 per world) are the enemy roster:
+  each is a complete behaviour on an object node, e.g. `$1DE68` sets its frame
+  table `+$12 = $1DF80` (one of the extracted world-0 sprites) and health `+$26`,
+  animates an 8-frame loop, applies damage (`+$1D → +$26`) and on death `JSR $130`.
+
+So the per-world differences are the **enemies and the backdrop**, not new
+mechanics — every world uses the same engine, object system and sound interface
+(code sizes 3.5–8.8 KB). The handlers wire each enemy to a sprite from
+`rendered/sprites/world<N>_sprite_*.png`.
+
+Two threads remain on the gameplay side. The **player** is its own multi-part
+composite drawn by `$56AC` (§2). The enemy **placement** — which AI handler is
+seeded at which level position — is issued by the resident spawn from per-scene
+data not yet pinned to a flat list; capturing the live `$236` object list from the
+oracle (node `+$18/$1A` = position, `+$12` = sprite) is the practical way to feed a
+viewer object layer.
+
+> **Next.** The enemy placement data (for a viewer object layer) and the collision
+> check that reads `$3C1C4`.
 
 # Appendix A — Toolchain and reproduction
 
