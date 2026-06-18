@@ -22,8 +22,9 @@ python3 -m http.server 8000
 - `sonic.html` — the Sonic level viewer.
 - `elite.html` — the Elite 3D ship viewer (three.js).
 - `fort.html` — the Fort Apocalypse map viewer (PixiJS).
+- `turrican.html` — the Turrican map viewer (PixiJS).
 - `marble.html` — the Marble Madness course viewer (PixiJS).
-- `src/` — `style.css` and the viewer modules (`src/sonic/`, `src/elite/`, `src/fort/`, `src/marble/`).
+- `src/` — `style.css` and the viewer modules (`src/sonic/`, `src/elite/`, `src/fort/`, `src/turrican/`, `src/marble/`).
 - `public/marble/` — per-course `<course>.png` + `meta.json`. Regenerate from the disk with:
 
   ```sh
@@ -36,6 +37,13 @@ python3 -m http.server 8000
   ```sh
   cd "Fort Apocalypse (C64)/extract"
   go run ./cmd/webexport
+  ```
+- `public/turrican/` — per-world `atlas<N>.png` tile sheets + per-scene `world<W>_scene<S>.json`
+  (row-major tile-index `cells`, `ntiles` for the flip threshold) + `meta.json`. Regenerate
+  from the disk image with:
+
+  ```sh
+  go run turrican/extract/cmd/webexport   # run from the repo root
   ```
 - `public/elite/ships.json` — decoded ship blueprints (vertices, edges, face normals).
   Regenerate from the extracted engine block with:

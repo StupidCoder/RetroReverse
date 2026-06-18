@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Turrican (Amiga) — map viewer</title>
+  <link rel="stylesheet" href="src/style.css" />
+  <script type="importmap">
+  { "imports": { "pixi.js": "https://cdn.jsdelivr.net/npm/pixi.js@8/dist/pixi.min.mjs" } }
+  </script>
+</head>
+<body>
+  <header class="site">
+    <h1>AI Reverse Engineering</h1>
+    <nav><a href="index.html">Home</a><a href="sonic.html">Sonic (GG)</a><a href="elite.html">Elite (C64)</a><a href="fort.html">Fort Apocalypse (C64)</a><a href="turrican.html">Turrican (Amiga)</a><a href="marble.html">Marble Madness (Amiga)</a></nav>
+  </header>
+
+  <div class="viewer-wrap">
+    <h2 style="margin:6px 0 12px">Turrican (Amiga) — map viewer</h2>
+    <div id="viewport" class="viewport viewport-43">
+      <div id="hud" class="hud"></div>
+    </div>
+    <div class="controls">
+      <label>Scene
+        <select id="level"></select>
+      </label>
+      <span class="hint">drag to pan · scroll or pinch to zoom</span>
+    </div>
+    <p class="legend">
+      These are Turrican's actual playfields, rebuilt straight from the disk image. Each world
+      is <b>streamed off the floppy</b> as a packed block and decompressed by the game's own
+      three-pass decoder (Huffman → LZ77 → RLE) — reimplemented in Go, byte-verified against the
+      emulator. A decoded block is a little directory: a <b>16-colour palette</b>, a table of
+      <b>32×32 four-bitplane tiles</b>, and one or more <b>scenes</b>, each a column-major grid
+      of tile indices (the high values are horizontally flipped tiles). The viewer draws every
+      cell as a real tile through the world's palette — so this is the same image the Amiga's
+      blitter assembles, not a screenshot. Pick a scene to jump between the worlds; the first is
+      the opening of World 1, with its floating platforms, the waterfall, the red tower and the
+      <b>“1989”</b> spelled out in the rock. Drag to pan, scroll to zoom from the whole level to
+      a single tile. See the
+      <a href="https://github.com/StupidCoder/AIReverseEngineering/blob/main/Turrican%20(Amiga)/Turrican.md">write-up</a>
+      (Part IV) for how it was decoded.
+    </p>
+  </div>
+
+  <script type="module" src="src/turrican/main.js"></script>
+</body>
+</html>
