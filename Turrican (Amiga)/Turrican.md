@@ -712,9 +712,41 @@ scene state machine, its handlers and the level data are all recovered **purely
 by reimplementing the decoder** — the FS-UAE oracle was used only to confirm the
 boot reaches the streamer, never to read the data out.
 
-> **Next.** Decode the world block's structure beyond the scene table: the tile
-> map / parallax layers, the object/enemy spawn lists and the graphics, and the
-> three per-world scene handlers (level intro / play / outro) — Part V mechanics.
+## 4. Tiles and palette
+
+The decoded block is a small **section directory** followed by its data. The
+scene_manager header doubles as that directory:
+
+| header | points at | section |
+|--------|-----------|---------|
+| `+$00` | `$21C80` | tile offset table |
+| `+$04` | `$3C1C4` | a 1-bit map (collision / tile-type) |
+| `+$08` | `$1BA38` | **palette** — 16 big-endian 12-bit RGB words |
+| `+$0C` | `$51F80` | sprite/object graphics |
+| `+$10` | `$58076` | **`"TFMX-SONG"`** — the world's TFMX music module |
+
+The **tile offset table** is `N` longwords, each a byte offset (from the table
+base) to a tile; entry 0 equals the table's own size, so `N = entry[0] / 4` and
+the pixels begin right after it. Each tile is **32×32, four bitplanes, interleaved
+per row** (4 bytes per plane per row → 512 bytes), drawn through the 16-colour
+palette. World 0 has 209 tiles, world 1 has 215, etc.
+
+`extract/cmd/tiles` parses this directory generically and renders a world's tile
+sheet — no hard-coded offsets, just the header:
+
+```sh
+go run turrican/extract/cmd/tiles -world 0 -o rendered/world0_tiles.png Turrican.adf
+# world 0: 209 tiles (32x32x4), palette @ block+$B8 -> rendered/world0_tiles.png
+```
+
+The five sheets (`rendered/world0_tiles.png` … `world4_tiles.png`) come out as the
+recognisable Turrican worlds — the cave/planet surface, the machine/factory world,
+and so on — confirming the tile format, the palette and the per-world block layout
+end to end.
+
+> **Next.** The tile **map** (the `$3C1C4` 1-bit layer and the arrangement of tile
+> indices into the scrolling playfield), the sprite sheet at `$51F80`, and the
+> three per-world scene handlers (intro / play / outro) — Part V mechanics.
 
 # Part V — Game mechanics
 
