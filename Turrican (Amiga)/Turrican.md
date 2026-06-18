@@ -1157,9 +1157,31 @@ disambiguates a sprite.
 | 4 | 1 | 15 | `$1E6C0` | — |
 | 4 | 1 | 16 | `$1EFE2` | `world4_sprite_1F282.png` |
 
-> **Next.** Extract the player composite (`$56AC` and its part tables), decode the
-> `$3C1C4` collision layer via the collision check, and reimplement the TFMX music
-> (`$58076`).
+## 7. The music — TFMX, located
+
+The score is Chris Hülsbeck's, in his own **TFMX** format (Turrican is *the*
+canonical TFMX game). It is **not** played from the scene block — that block's `+$10`
+"`TFMX-SONG`" slot (`$58076`) is an empty stub. The real music lives in the **`$1BB00`
+sound overlay** (streamed off ADF `$26000` at `game_init` and three-pass-decoded like
+every other module). The overlay carries Hülsbeck's in-game player and, handed to its
+`api_init` (`$1CB62`), two data pointers:
+
+* **mdat** `$1CFF4` — the `TFMX-SONG` data: a song table (`start/end/tempo` per
+  sub-song at `+$100/+$140/+$180`) and, after the header, the pattern/macro pointer
+  tables and their data (the standard TFMX header pointers are zeroed; the first
+  pointer table starts at `+$402`). Three real sub-songs (the rest are empty filler).
+* **smpl** `$20E90` — 50 644 bytes of raw 8-bit signed PCM, the instruments.
+
+The player itself is fully disassembled: `sound_tick` (`$1BB78`) → the song sequencer
+(`$1C868`) and pattern reader (`$1BC54`) → per-voice `update_voice` (`$1C118`) with
+`voice_vibrato`/`voice_portamento`/`voice_envelope` (`$1C646`/`$1C684`/`$1C6D2`) and an
+instrument-macro step, all driving Paula (`AUDxPER`/`AUDxVOL`, 8-bit samples). The
+mdat + smpl are extracted off the disk by `extract/cmd/music`.
+
+> **Next.** Reimplement that player over the extracted data (Paula 4-channel mixing
+> at PAL rate, the macro/effect logic translated from the driver), render to PCM and
+> encode an MP3 up to the loop point — the remaining audio work. Also: the player
+> composite (`$56AC` and its part tables).
 
 # Appendix A — Toolchain and reproduction
 
