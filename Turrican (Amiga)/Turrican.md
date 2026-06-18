@@ -822,10 +822,8 @@ fully decoding each needs the corresponding engine routine disassembled.
   `EORI.w #$4,d6` for a two-frame loop), then falls into `draw_object_bob`. So the
   full chain is **object type → frame group (`d3`) → frame (`d6`) → 14-byte BOB
   descriptor → bitmap + mask + size**. The descriptor records start at `$5156`
-  (stride `$E`); the player/shot bitmaps are resident (`~$12xxx`), world-enemy ones
-  point into the scene block. *Rendering* the BOB pixels still needs the exact
-  bitplane interleave worked out from the blitter source modulo (`BLTBMOD = -2`) —
-  the one remaining detail before the sprites can be drawn.
+  (stride `$E`); the player/shot/effect bitmaps are resident (`~$12xxx`),
+  world-enemy ones point into the scene block. The pixel format is in §2.
 
 * **Object behaviour.** Each scene descriptor's `+$20` field points at a small
   **table of object-AI handler routines** (world 0 scene 0: nine handlers from
@@ -843,10 +841,46 @@ fully decoding each needs the corresponding engine routine disassembled.
   over the tile map (correlating it against tile solidity is chance-level), so its
   exact cell mapping awaits the collision-check routine.
 
-> **Next.** Disassemble the object renderer / spawn subsystem (`blit_objects` and
-> the per-frame pipeline) to pin the BOB shape table and the spawn-list format, and
-> the collision check that reads `$3C1C4` — then the player, weapons and enemies
-> proper.
+## 2. The BOB pixel format, and extracting the sprites
+
+`draw_object_bob` runs the cookie-cut blit **four times** (once per bitplane),
+each advancing the destination by one plane while `BLTBPT` (the source) carries on
+through memory — so a BOB's pixels are **four bitplanes stored plane-major**
+(plane 0's rows, then plane 1's, …). The data is one word narrower than `BLTSIZE`'s
+width (the shifted blit reads an extra word, with `BLTBMOD = -2` rewinding it), so:
+
+```
+frame = 4 planes × height × (width-1) words ,   plane-major
+```
+
+The frame strides confirm it exactly: successive descriptors' bitmaps differ by
+`$E0`/`$120`/`$160`/`$190` = `4 × height × 4 bytes` for heights `14/18/22/25`.
+Plane 3 is also the cookie-cut mask, so opaque pixels carry bit 3 (colours 8–15);
+colour 0 is transparent. The BOBs draw through the playfield's 16-colour palette.
+
+`extract/cmd/sprites` scans the resident engine for frame tables (runs of pointers
+that all resolve to a valid descriptor) and writes **one PNG sheet per sprite**,
+all its frames laid out in a grid:
+
+```sh
+go run turrican/extract/cmd/sprites -o rendered/sprites Turrican.adf
+# $04CCA: 35 frames -> sprite_04CCA.png   (the spinning weapon + its burst)
+# $02904: 8 frames, $0138C / $080E8 …     (explosions and effects)
+```
+
+`$04CCA` is Turrican's signature **spinning energy weapon** — 32 frames of a full
+rotation, then a three-frame burst:
+
+![Turrican spinning-weapon sprite, all frames](rendered/sprites/sprite_04CCA.png)
+
+These resident tables hold the weapons and effects; the **player and the
+world-specific enemies** are loaded at run time into tables that are empty in the
+static image (their bitmaps point into the scene block), so pulling those needs
+the spawn/loader code that fills them — the next step.
+
+> **Next.** The spawn subsystem that fills the runtime object/frame tables (for the
+> player and per-world enemies) and the placement list, plus the collision check
+> that reads `$3C1C4`.
 
 # Appendix A — Toolchain and reproduction
 
