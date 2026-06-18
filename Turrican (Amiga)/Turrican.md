@@ -190,8 +190,8 @@ ROM strap
        ├─ take over (SR=$2000, sp=$80000), copy tail→$7F800
        └─ JMP $7F800                                       the hand-off (§4)
             ├─ JSR $50008                                  decrunch the main part (§4)
-            ├─ patch $600CA/$600CE with BSR.W              the trainer (§5)
-            └─ JMP $5F500                                  enter the decrunched game (§5)
+            ├─ patch $600CA/$600CE with BSR.W              the trainer (§6)
+            └─ JMP $5F500                                  enter the decrunched game (§6)
 ```
 
 ## 3. The first-stage intro (`$30000`)
@@ -266,31 +266,11 @@ $5012C  JMP    (a5)                    ; dispatch
 ```
 
 The Huffman pass is the exception — a 32-bit MSB-first bit-reader, no jump table.
-Part III §1 documents all three passes and the pure-Go reimplementation that
+Section 5 documents all three passes and the pure-Go reimplementation that
 reproduces the decrunched image exactly. When the last pass finishes the core
 `RTS`es back to `$7F806`.
 
-## 5. The trainer and the game entry
-
-With the main part decrunched into low memory, the tail applies the trainer by
-overwriting two longwords of the game with `BSR.w` instructions
-(`$600CA`/`$600CE`) that divert into the cheat code (the "99 lives"), builds a
-small launch stub at `$5F700`, and `JMP $5F500` to start the game. The patch and
-entry addresses (`$5F500`, `$5F700`, `$600CA`) place the decrunched program in
-roughly `$400`…`$60000+` of chip RAM.
-
-That decrunched image — the actual Turrican program — is what Part III
-disassembles. It is recovered by **re-implementing the `$50008` three-pass
-decoder in Go** (the "declarative" route, as for Marble Madness's `c/zzz`), run
-on the crunched main part read straight from the disk; the FS-UAE/GDB oracle
-(`tools/amiga/fsuae-debug`) is used only to *guide* the reimplementation
-(single-stepping the handlers) and to *verify* it (diffing the Go output against
-the emulator's). That decoder — `Turrican (Amiga)/extract/decrunch` — is done and
-documented in Part III §1; its output matches the oracle byte-for-byte.
-
-# Part III — The decruncher, reimplemented
-
-## 1. The three-pass `$50008` decoder
+## 5. The three passes, reimplemented
 
 The crunched main part is not a single packed stream — it is the output of three
 compressors applied in series. Decompression therefore runs the three decoders in
@@ -431,12 +411,52 @@ is **byte-identical** to the Go decoder — same `$34580` bytes, same MD5
 compressor left at parameter-block `+$0A`, an independent confirmation that all
 three passes consume and produce the right counts.
 
-## 2. Game program architecture
+## 6. The trainer and the game entry
 
-> **Stub.** The 68000 startup of the unpacked program (now disassemblable from
-> the verified `$43880` image): interrupt and copper setup, the main loop, and
-> the memory map. The image disassembles with
-> `dis68k -base 0x43880` over the decoder's output.
+With the main part decrunched into low memory, the tail applies the trainer by
+overwriting two longwords of the game with `BSR.w` instructions
+(`$600CA`/`$600CE`) that divert into the cheat code (the "99 lives"), builds a
+small launch stub at `$5F700`, and `JMP $5F500` to start the game. The patch and
+entry addresses (`$5F500`, `$5F700`, `$600CA`) place the decrunched program in
+roughly `$400`…`$60000+` of chip RAM.
+
+That decrunched image — the actual Turrican program, base `$43880`, entry
+`$5F500` — is what Part III analyses. It is produced by the `extract/decrunch`
+decoder above (verified byte-identical against the oracle), so the rest of the
+work needs no emulator: a flat binary at a known load address.
+
+# Part III — Game program architecture
+
+> **Stub.** The 68000 program that the decruncher hands control to (`$5F500`).
+> This part grows as the decrunched image is disassembled and annotated.
+
+## 1. Disassembly and the `disasm/` annotation store
+
+Following the repo's per-game convention (see Marble Madness's `disasm/`), the
+unpacked program is disassembled into a committed, annotated source that is the
+long-term home for everything learned about the code. Two files live in
+`Turrican (Amiga)/disasm/`:
+
+* `turrican.asm` — the generated 68000 disassembly of the `$43880` image;
+* `turrican.annotations.txt` — the hand-maintained annotations (`ADDR  name
+  description`, `#` comments), consumed by `codetrace68k -annotate` to label
+  routines and inject notes. This is where analysis accumulates; the `.asm` is
+  regenerated from it.
+
+Regeneration (from the repo root):
+
+```sh
+# decode the main part to a flat image (base $43880, entry $5F500)
+go run turrican/extract/cmd/decrunch -o /tmp/turrican.bin "Turrican (Amiga)/Turrican.adf"
+
+# recursive-descent trace from the game entry, applying the annotations
+go run stupidcoder.com/tools/cmd/codetrace68k -base 0x43880 -entry 0x5F500 \
+  -annotate "Turrican (Amiga)/disasm/turrican.annotations.txt" \
+  -o "Turrican (Amiga)/disasm/turrican.asm" /tmp/turrican.bin
+```
+
+> **Stub.** The 68000 startup at `$5F500`: interrupt/copper setup, the main loop,
+> and the memory map — documented here as the annotations grow.
 
 # Part IV — Graphics and data formats
 
@@ -470,7 +490,7 @@ go run stupidcoder.com/tools/cmd/dis68k -skip 0x2c08 -base 0x50008 "$A"   # decr
 ```
 
 The `$50008` decruncher's input is the crunched main part at disk `$2C00`
-(`$22C98` bytes, blocks 22–301). The Go re-implementation (Part III §1, verified
+(`$22C98` bytes, blocks 22–301). The Go re-implementation (Part II §5, verified
 byte-identical against the FS-UAE oracle) produces the decrunched program:
 
 ```sh
