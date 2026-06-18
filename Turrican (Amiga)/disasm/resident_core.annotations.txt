@@ -16,7 +16,7 @@
 #   go run turrican/extract/cmd/decrunch -o /tmp/turrican.bin "Turrican (Amiga)/Turrican.adf"
 #   python3 -c "open('/tmp/lowseg.bin','wb').write(open('/tmp/turrican.bin','rb').read()[0x10:0x1B780])"
 #   go run stupidcoder.com/tools/cmd/codetrace68k -base 0x10 \
-#     -entry 0xCB4,0xD4C,0xEBC,0x1404,0x147E,0x1710,0x1850,0x189E,0x18BA,0x1B94,0x1BB4,0x1C0C,0x234C,0x2F56,0x35AE,0x3A56,0x438C,0x5576,0x5E40,0x64B8,0x68AC,0x7728,0x78CC,0x7EFC,0x1ABA,0x1AEC,0x1B14,0x1B38,0x1A2F8,0x1A876,0x1A886,0x1B232,0x4A0,0x71C,0xBF4,0xC12 \
+#     -entry 0xCB4,0xD4C,0xEBC,0x1404,0x147E,0x1710,0x1850,0x189E,0x18BA,0x1B94,0x1BB4,0x1C0C,0x234C,0x2F56,0x35AE,0x3A56,0x438C,0x5576,0x5E40,0x64B8,0x68AC,0x7728,0x78CC,0x7EFC,0x1ABA,0x1AEC,0x1B14,0x1B38,0x1A2F8,0x1A876,0x1A886,0x1B232,0x4A0,0x71C,0xBF4,0xC12,0x5E9C,0x5F22,0x603A,0x6202,0x63AE \
 #     -annotate "Turrican (Amiga)/disasm/resident_core.annotations.txt" \
 #     -o "Turrican (Amiga)/disasm/resident_core.asm" /tmp/lowseg.bin
 # Coverage is partial (~128 routines) — the per-frame pipeline, scene state machine
@@ -56,7 +56,27 @@ C12  load_decoder       Load the huff_decode routine itself from ADF $25C00 ($40
 1938 level_number       Current level/world number (read during level_setup and by mode handlers).
 
 1BB4 blit_playfield     Blitter copy into a screen buffer: sets BLTCON0 $40(a6)=$9F0 (D = A, copy) and BLTAFWM/ALWM $44(a6)=-1, then blits the spans described by the draw-list at $1C2. One of the per-frame render steps.
-5E40 blit_objects       Sibling blit routine (same BLTCON0=$9F0 setup, a different list slot $10(a1) of the $1C2 structure) — draws the object/sprite layer.
+
+# --- object (enemy/BOB) rendering ---
+# Each frame draw_objects cookie-cuts the active objects into the back buffer and
+# records what it touched in a restore queue; the next frame blit_obj_restore copies
+# the saved background back over those rectangles before the new draw. Camera at
+# $172 (x) / $174 (y), object table at $20E, the object draw-list/queue at $1C2.
+5E40 blit_obj_restore   Erase pass: drains the restore queue (list.$10 of the $1C2 structure, entries written by draw_object_bob as dest/modulo/BLTSIZE) with a straight BLTCON0=$9F0 copy (A->D) — blits the saved background back over last frame's BOB rectangles. Clears the queue's count ($4 of the slot) when done.
+5E9C draw_objects       Per-frame object draw. Walks up to ($5452 & 7) active objects in the $20E table; double-buffers the restore queue between $4BEC/$4BFA by the sign of $5456 (the two screen buffers); calls object_draw_dispatch per object, appending restore entries via a3 = list.$14.
+5F22 object_draw_dispatch  Per-object: read the object's type byte ($1 of its slot); type 0 -> draw_object_bob; type $7F -> a multi-part / linked sub-object draw (via $63AE), decrementing the sub counters $5455. Saves regs to the $5FA8 scratch around the call.
+603A draw_object_bob    The BOB renderer (cookie-cut blit). Transforms the object position to screen space (x-$172+$40, y-$174-$1C0, both masked), rejects off-screen, looks up the destination word via a per-row screen-offset table (a1), and sets BLTCON0 = (x&15)<<12 | $FCA (cookie-cut: A=mask, B=bitmap, C/D=dest, minterm $CA) and BLTCON1 = the shift. It then reads the BOB DESCRIPTOR at a0 and runs the blit, and appends {dest, modulo, BLTSIZE} to the restore queue (a3) for blit_obj_restore.
+6202 draw_object_bob_alt  Alternate BOB path taken when the descriptor's $D flag is set (a wider/clipped or pre-shifted variant).
+
+# BOB descriptor layout (a0 in draw_object_bob):
+#   +$0  long  bitmap data ptr  -> BLTBPT (B = the pixel planes)
+#   +$4  long  mask ptr         -> BLTAPT (A = the 1-plane cookie-cut mask)
+#   +$8  word  modulo           -> BLTCMOD / BLTDMOD
+#   +$A  word  BLTSIZE          = height<<6 | width-in-words  (the BOB's pixel size)
+#   +$C  byte  y adjust
+#   +$D  byte  flag (-> draw_object_bob_alt)
+# The bitmap+mask live in the world block's BOB graphics ($51F80 section + the area
+# after the maps); a descriptor per animation frame points into them.
 
 # --- resident sound driver (a 2nd instance of the $1BB00 overlay's player) ---
 # The engine carries its own copy of the same Chris Hülsbeck player as the $1BB00

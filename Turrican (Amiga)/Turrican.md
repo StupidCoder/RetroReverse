@@ -793,8 +793,29 @@ fully decoding each needs the corresponding engine routine disassembled.
   the region right after the three maps in the `+$00`-area section are **bitplane
   BOB graphics** — the byte histogram is dominated by mask edges (`$F8`, `$07`,
   `$FC`, `$03`), the signature of planar sprite data rather than the PCM of the
-  adjacent TFMX samples. The exact shape table (per-BOB dimensions / offsets) is
-  set up by `blit_objects` and the object renderer; decoding it is the next step.
+  adjacent TFMX samples.
+
+  Disassembling the **object renderer** (`draw_object_bob $603A`, in
+  `disasm/resident_core`) gives the format. Enemies are **BOBs cookie-cut** into the
+  back buffer: `BLTCON0 = (x&15)<<12 | $FCA` (minterm `$CA` — `A`=mask, `B`=bitmap,
+  `C`/`D`=destination), the object position transformed by the camera (`$172`/`$174`)
+  and the destination word looked up through a per-row screen-offset table. Each BOB
+  is described by a small **descriptor**:
+
+  | off | field |
+  |-----|-------|
+  | `+$0` | bitmap data pointer → `BLTBPT` (the pixel planes) |
+  | `+$4` | mask pointer → `BLTAPT` (the 1-plane cookie-cut mask) |
+  | `+$8` | modulo → `BLTCMOD`/`BLTDMOD` |
+  | `+$A` | `BLTSIZE` = `height<<6 \| width-in-words` (the BOB's pixel size) |
+  | `+$C` | y adjust  ·  `+$D` flag (selects a clipped variant) |
+
+  So a BOB's *dimensions* come from `+$A`, and its pixels + mask are at `+$0`/`+$4`
+  into the BOB graphics. `draw_objects` (`$5E9C`) walks the active objects (`$20E`,
+  up to `$5452 & 7` of them) drawing each, and queues every rectangle it touches so
+  `blit_obj_restore` (`$5E40`) can copy the saved background back next frame. The
+  remaining piece is the **descriptor table** (which frame each object/animation
+  uses) — a per-object-type lookup the spawn code fills.
 
 * **Object behaviour.** Each scene descriptor's `+$20` field points at a small
   **table of object-AI handler routines** (world 0 scene 0: nine handlers from

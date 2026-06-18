@@ -2639,7 +2639,7 @@
 0035A8  21 4A 00 02                   MOVE.l a2,$2(a0)
 0035AC  4E 75                         RTS
 
-; ==== sub_0035AE (4 callers) ====
+; ==== sub_0035AE (5 callers) ====
 0035AE  90 78 01 72                   SUB.w $172.w,d0
 0035B2  92 78 01 74                   SUB.w $174.w,d1
 0035B6  24 78 02 12                   MOVEA.l $212.w,a2
@@ -3629,7 +3629,7 @@
 005E2C  .dc.b B2 7C 00 D4 6C 08 48 B8 00 03 54 58 4E 75 51 F8 ; .|..l.H...TXNuQ.
 005E3C  .dc.b 54 53 4E 75                                     ; TSNu
 
-; ==== blit_objects  $005E40  (4 callers) — Sibling blit routine (same BLTCON0=$9F0 setup, a different list slot $10(a1) of the $1C2 structure) — draws the object/sprite layer. ====
+; ==== blit_obj_restore  $005E40  (4 callers) — Erase pass: drains the restore queue (list.$10 of the $1C2 structure, entries written by draw_object_bob as dest/modulo/BLTSIZE) with a straight BLTCON0=$9F0 copy (A->D) — blits the saved background back over last frame's BOB rectangles. Clears the queue's count ($4 of the slot) when done. ====
 005E40  3D 7C 09 F0 00 40             MOVE.w #$9F0,$40(a6)
 005E46  42 6E 00 42                   CLR.w $42(a6)
 005E4A  2D 7C FF FF FF FF 00 44       MOVE.l #$FFFFFFFF,$44(a6)
@@ -3651,7 +3651,7 @@
 005E96  42 6A 00 04                   CLR.w $4(a2)
 005E9A  4E 75                         RTS
 
-; ==== sub_005E9C (1 caller) ====
+; ==== draw_objects  $005E9C  (1 caller) — Per-frame object draw. Walks up to ($5452 & 7) active objects in the $20E table; double-buffers the restore queue between $4BEC/$4BFA by the sign of $5456 (the two screen buffers); calls object_draw_dispatch per object, appending restore entries via a3 = list.$14. ====
 005E9C  4A 38 54 53                   TST.b $5453.w
 005EA0  66 02                         BNE $005EA4
 005EA2  4E 75                         RTS
@@ -3676,13 +3676,32 @@
 005EEC  .dc.b 00 03 54 58 61 00 00 30 41 F8 4B DE 53 47 6B 00 ; ..TXa..0A.K.SGk.
 005EFC  .dc.b 00 14 D0 46 6B 1E B0 7C 01 50 6C 18 61 00 00 18 ; ...Fk..|.Pl.a...
 005F0C  .dc.b 51 CF FF F0 20 4D D0 46 6B 0A B0 7C 01 50 6C 04 ; Q... M.Fk..|.Pl.
-005F1C  .dc.b 60 00 00 04 4E 75 48 A7 C0 00 58 41 61 00 D6 84 ; `...NuH...XAa...
-005F2C  .dc.b 66 1C 10 32 10 01 66 4A 4C 97 00 03 24 78 01 C2 ; f..2..fJL...$x..
-005F3C  .dc.b 61 00 00 FC 51 F8 54 54 4C 9F 00 03 4E 75 B0 3C ; a...Q.TTL...Nu.<
-005F4C  .dc.b 00 7F 66 22 48 F8 3F FE 5F A8 4C 97 00 06 4A 38 ; ..f"H.?._.L...J8
-005F5C  .dc.b 54 55 67 16 53 38 54 55 58 42 61 00 04 46 4C F8 ; TUg.S8TUXBa..FL.
-005F6C  .dc.b 3F FE 5F A8 60 BC 4A 38 54 54 57 F8 54 53 50 4F ; ?._.`.J8TTW.TSPO
-005F7C  .dc.b 4E 75 B0 3C 00 7F 66 EE 48 F8 3F FE 5F A8 4C 97 ; Nu.<..f.H.?._.L.
+005F1C  .dc.b 60 00 00 04 4E 75                               ; `...Nu
+
+; --- object_draw_dispatch  $005F22 — Per-object: read the object's type byte ($1 of its slot); type 0 -> draw_object_bob; type $7F -> a multi-part / linked sub-object draw (via $63AE), decrementing the sub counters $5455. Saves regs to the $5FA8 scratch around the call. ---
+005F22  48 A7 C0 00                   MOVEM.w d0-d1,-(a7)
+005F26  58 41                         ADDQ.w #4,d1
+005F28  61 00 D6 84                   BSR $0035AE
+005F2C  66 1C                         BNE $005F4A
+005F2E  10 32 10 01                   MOVE.b $1(a2,d1.w),d0
+005F32  66 4A                         BNE $005F7E
+005F34  4C 97                         .dc.w $4C97
+005F36  .dc.b 00 03 24 78 01 C2 61 00 00 FC 51 F8 54 54 4C 9F ; ..$x..a...Q.TTL.
+005F46  .dc.b 00 03 4E 75                                     ; ..Nu
+005F4A  B0 3C 00 7F                   CMP.b #$7F,d0
+005F4E  66 22                         BNE $005F72
+005F50  48 F8 3F FE 5F A8             MOVEM.l d1-d7/a0-a5,$5FA8.w
+005F56  4C 97                         .dc.w $4C97
+005F58  .dc.b 00 06 4A 38 54 55 67 16 53 38 54 55 58 42 61 00 ; ..J8TUg.S8TUXBa.
+005F68  .dc.b 04 46 4C F8 3F FE 5F A8 60 BC                   ; .FL.?._.`.
+005F72  4A 38 54 54                   TST.b $5454.w
+005F76  57 F8 54 53                   SEQ $5453.w
+005F7A  50 4F                         ADDQ.w #8,a7
+005F7C  4E 75                         RTS
+005F7E  B0 3C 00 7F                   CMP.b #$7F,d0
+005F82  66 EE                         BNE $005F72
+005F84  48 F8 3F FE 5F A8             MOVEM.l d1-d7/a0-a5,$5FA8.w
+005F8A  4C 97                         .dc.w $4C97
 005F8C  .dc.b 00 06 50 41 4A 38 54 55 67 E0 53 38 54 55 58 42 ; ..PAJ8TUg.S8TUXB
 005F9C  .dc.b 61 00 04 10 4C F8 3F FE 5F A8 60 8C 00 00 00 00 ; a...L.?._.`.....
 005FAC  .dc.b 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 ; ................
@@ -3711,79 +3730,306 @@
 006024  41 F8 49 8C                   LEA $498C.w,a0
 006028  D0 C2                         ADDA.w d2,a0
 00602A  4C AD                         .dc.w $4CAD
-00602C  .dc.b 00 03 00 02 61 08 5C 4D 51 CF FF E4 4E 75 90 78 ; ....a.\MQ...Nu.x
-00603C  .dc.b 01 72 D0 7C 00 40 48 C0 6B F2 92 78 01 74 C2 7C ; .r.|.@H.k..x.t.|
-00604C  .dc.b 00 FF 92 78 01 C0 C2 7C 00 FF E8 98 34 01 D4 42 ; ...x...|....4..B
-00605C  .dc.b D0 71 20 00 59 40 6B D4 38 02 48 40 3D 40 00 42 ; .q .Y@k.8.H@=@.B
-00606C  .dc.b 80 7C 0F CA 3D 40 00 40 42 40 48 40 D0 40 D0 AA ; .|..=@.@B@H@.@..
-00607C  .dc.b 00 04 4A 28 00 0D 66 00 01 7E 34 28 00 08 3D 42 ; ..J(..f..~4(..=B
-00608C  .dc.b 00 60 3D 42 00 66 36 28 00 0A D2 28 00 0C 65 70 ; .`=B.f6(...(..ep
-00609C  .dc.b 26 C0 36 C2 36 C3 24 00 2D 50 00 4C 22 28 00 04 ; &.6.6.$.-P.L"(..
-0060AC  .dc.b 48 EE 00 06 00 50 2D 42 00 48 3D 43 00 58 08 2E ; H....P-B.H=C.X..
-0060BC  .dc.b 00 0E 00 02 66 F8 D4 85 48 EE 00 06 00 50 2D 42 ; ....f...H....P-B
-0060CC  .dc.b 00 48 3D 43 00 58 08 2E 00 0E 00 02 66 F8 D4 85 ; .H=C.X......f...
-0060DC  .dc.b 48 EE 00 06 00 50 2D 42 00 48 3D 43 00 58 08 2E ; H....P-B.H=C.X..
-0060EC  .dc.b 00 0E 00 02 66 F8 D4 85 48 EE 00 06 00 50 2D 42 ; ....f...H....P-B
-0060FC  .dc.b 00 48 3D 43 00 58 25 4B 00 14 42 6B 00 04 4E 75 ; .H=C.X%K..Bk..Nu
-00610C  .dc.b 67 8E 37 42 00 04 37 42 00 0C 48 C4 38 31 40 00 ; g.7B..7B..H.81@.
-00611C  .dc.b D8 44 24 00 90 84 D2 41 32 34 10 00 96 41 38 03 ; .D$....A24...A8.
-00612C  .dc.b C8 7C 00 3F 88 41 26 82 37 43 00 06 27 40 00 08 ; .|.?.A&.7C..'@..
-00613C  .dc.b 37 44 00 0E D6 FC 00 10 2D 50 00 4C 22 28 00 04 ; 7D......-P.L"(..
-00614C  .dc.b 48 EE 00 06 00 50 2D 42 00 48 3D 43 00 58 08 2E ; H....P-B.H=C.X..
-00615C  .dc.b 00 0E 00 02 66 F8 2D 40 00 48 2D 40 00 54 3D 44 ; ....f.-@.H-@.T=D
-00616C  .dc.b 00 58 08 2E 00 0E 00 02 66 F8 D0 85 D4 85 48 EE ; .X......f.....H.
-00617C  .dc.b 00 06 00 50 2D 42 00 48 3D 43 00 58 08 2E 00 0E ; ...P-B.H=C.X....
-00618C  .dc.b 00 02 66 F8 2D 40 00 48 2D 40 00 54 3D 44 00 58 ; ..f.-@.H-@.T=D.X
-00619C  .dc.b 08 2E 00 0E 00 02 66 F8 D0 85 D4 85 48 EE 00 06 ; ......f.....H...
-0061AC  .dc.b 00 50 2D 42 00 48 3D 43 00 58 08 2E 00 0E 00 02 ; .P-B.H=C.X......
-0061BC  .dc.b 66 F8 2D 40 00 48 2D 40 00 54 3D 44 00 58 08 2E ; f.-@.H-@.T=D.X..
-0061CC  .dc.b 00 0E 00 02 66 F8 D0 85 D4 85 48 EE 00 06 00 50 ; ....f.....H....P
-0061DC  .dc.b 2D 42 00 48 3D 43 00 58 08 2E 00 0E 00 02 66 F8 ; -B.H=C.X......f.
-0061EC  .dc.b 2D 40 00 48 2D 40 00 54 3D 44 00 58 25 4B 00 14 ; -@.H-@.T=D.X%K..
-0061FC  .dc.b 42 6B 00 04 4E 75 34 28 00 08 3D 42 00 60 3D 42 ; Bk..Nu4(..=B.`=B
-00620C  .dc.b 00 66 36 28 00 0E 3D 43 00 62 3D 43 00 64 36 28 ; .f6(..=C.b=C.d6(
-00621C  .dc.b 00 0A D2 28 00 0C 65 7E 26 C0 36 C2 36 C3 D0 BC ; ...(..e~&.6.6...
-00622C  .dc.b 00 00 00 90 24 00 22 28 00 10 2D 41 00 4C 48 EE ; ....$."(..-A.LH.
-00623C  .dc.b 00 06 00 50 2D 42 00 48 3D 43 00 58 08 2E 00 0E ; ...P-B.H=C.X....
-00624C  .dc.b 00 02 66 F8 94 85 48 EE 00 06 00 50 2D 42 00 48 ; ..f...H....P-B.H
-00625C  .dc.b 3D 43 00 58 08 2E 00 0E 00 02 66 F8 94 85 48 EE ; =C.X......f...H.
-00626C  .dc.b 00 06 00 50 2D 42 00 48 3D 43 00 58 08 2E 00 0E ; ...P-B.H=C.X....
-00627C  .dc.b 00 02 66 F8 94 85 48 EE 00 06 00 50 2D 42 00 48 ; ..f...H....P-B.H
-00628C  .dc.b 3D 43 00 58 25 4B 00 14 42 6B 00 04 2D 7C FF FE ; =C.X%K..Bk..-|..
-00629C  .dc.b FF FE 00 62 4E 75 67 80 37 42 00 04 37 42 00 0C ; ...bNug.7B..7B..
-0062AC  .dc.b 48 C4 38 31 40 00 D8 44 24 00 90 84 D2 41 32 34 ; H.81@..D$....A24
-0062BC  .dc.b 10 00 96 41 38 03 C8 7C 00 3F 88 41 26 82 37 43 ; ...A8..|.?.A&.7C
-0062CC  .dc.b 00 06 27 40 00 08 37 44 00 0E D6 FC 00 10 D0 BC ; ..'@..7D........
-0062DC  .dc.b 00 00 00 90 D4 BC 00 00 00 90 22 28 00 10 2D 41 ; .........."(..-A
-0062EC  .dc.b 00 4C 48 EE 00 06 00 50 2D 42 00 48 3D 43 00 58 ; .LH....P-B.H=C.X
-0062FC  .dc.b 08 2E 00 0E 00 02 66 F8 2D 40 00 48 2D 40 00 54 ; ......f.-@.H-@.T
-00630C  .dc.b 3D 44 00 58 08 2E 00 0E 00 02 66 F8 90 85 94 85 ; =D.X......f.....
-00631C  .dc.b 48 EE 00 06 00 50 2D 42 00 48 3D 43 00 58 08 2E ; H....P-B.H=C.X..
-00632C  .dc.b 00 0E 00 02 66 F8 2D 40 00 48 2D 40 00 54 3D 44 ; ....f.-@.H-@.T=D
-00633C  .dc.b 00 58 08 2E 00 0E 00 02 66 F8 90 85 94 85 48 EE ; .X......f.....H.
-00634C  .dc.b 00 06 00 50 2D 42 00 48 3D 43 00 58 08 2E 00 0E ; ...P-B.H=C.X....
-00635C  .dc.b 00 02 66 F8 2D 40 00 48 2D 40 00 54 3D 44 00 58 ; ..f.-@.H-@.T=D.X
-00636C  .dc.b 08 2E 00 0E 00 02 66 F8 90 85 94 85 48 EE 00 06 ; ......f.....H...
-00637C  .dc.b 00 50 2D 42 00 48 3D 43 00 58 08 2E 00 0E 00 02 ; .P-B.H=C.X......
-00638C  .dc.b 66 F8 2D 40 00 48 2D 40 00 54 3D 44 00 58 25 4B ; f.-@.H-@.T=D.X%K
-00639C  .dc.b 00 14 42 6B 00 04 2D 7C FF FE FF FE 00 62 4E 75 ; ..Bk..-|.....bNu
-0063AC  .dc.b 4E 75 92 78 01 72 6B F8 94 78 01 74 6B F2 C2 BC ; Nu.x.rk..x.tk...
-0063BC  .dc.b 00 00 FF F0 C4 7C 00 F0 48 A7 60 00 94 78 01 C0 ; .....|..H.`..x..
-0063CC  .dc.b C4 7C 00 F0 D4 42 48 A7 60 00 E8 49 20 78 02 0E ; .|...BH.`..I x..
-0063DC  .dc.b D2 70 20 00 D2 81 D2 B8 01 7A 20 78 35 D8 24 10 ; .p ......z x5.$.
-0063EC  .dc.b 30 2F 00 04 08 00 00 04 67 02 54 82 30 2F 00 06 ; 0/......g.T.0/..
-0063FC  .dc.b 08 00 00 04 67 06 D4 BC 00 00 01 00 3D 7C 09 F0 ; ....g.......=|..
-00640C  .dc.b 00 40 42 6E 00 42 2D 7C FF FF FF FF 00 44 3D 7C ; .@Bn.B-|.....D=|
-00641C  .dc.b 00 2E 00 66 3D 7C 00 02 00 64 2D 42 00 50 2D 41 ; ...f=|...d-B.P-A
-00642C  .dc.b 00 54 3D 7C 10 01 00 58 D2 BC 00 00 C0 00 08 2E ; .T=|...X........
-00643C  .dc.b 00 0E 00 02 66 F8 2D 42 00 50 2D 41 00 54 3D 7C ; ....f.-B.P-A.T=|
-00644C  .dc.b 10 01 00 58 D2 BC 00 00 C0 00 08 2E 00 0E 00 02 ; ...X............
-00645C  .dc.b 66 F8 2D 42 00 50 2D 41 00 54 3D 7C 10 01 00 58 ; f.-B.P-A.T=|...X
-00646C  .dc.b 4C 9F 00 03 34 01 D4 42 D2 42 E6 48 D2 40 20 78 ; L...4..B.B.H.@ x
-00647C  .dc.b 02 12 42 30 10 00 42 30 10 01 42 30 10 30 42 30 ; ..B0..B0..B0.0B0
-00648C  .dc.b 10 31 4C 9F 00 03 EA 48 D0 78 01 F6 D0 40 EA 49 ; .1L....H.x...@.I
-00649C  .dc.b D2 78 01 F8 20 78 02 2E D2 70 00 00 20 78 02 2A ; .x.. x...p.. x.*
-0064AC  .dc.b 42 30 10 00 70 19 4E F9 00 01 A2 DC             ; B0..p.N.....
+00602C  .dc.b 00 03 00 02 61 08 5C 4D 51 CF FF E4             ; ....a.\MQ...
+006038  4E 75                         RTS
+
+; --- draw_object_bob  $00603A — The BOB renderer (cookie-cut blit). Transforms the object position to screen space (x-$172+$40, y-$174-$1C0, both masked), rejects off-screen, looks up the destination word via a per-row screen-offset table (a1), and sets BLTCON0 = (x&15)<<12 | $FCA (cookie-cut: A=mask, B=bitmap, C/D=dest, minterm $CA) and BLTCON1 = the shift. It then reads the BOB DESCRIPTOR at a0 and runs the blit, and appends {dest, modulo, BLTSIZE} to the restore queue (a3) for blit_obj_restore. ---
+00603A  90 78 01 72                   SUB.w $172.w,d0
+00603E  D0 7C 00 40                   ADD.w #$40,d0
+006042  48 C0                         EXT.L d0
+006044  6B F2                         BMI $006038
+006046  92 78 01 74                   SUB.w $174.w,d1
+00604A  C2 7C 00 FF                   AND.w #$FF,d1
+00604E  92 78 01 C0                   SUB.w $1C0.w,d1
+006052  C2 7C 00 FF                   AND.w #$FF,d1
+006056  E8 98                         ROR.l #4,d0
+006058  34 01                         MOVE.w d1,d2
+00605A  D4 42                         ADD.w d2,d2
+00605C  D0 71 20 00                   ADD.w $0(a1,d2.w),d0
+006060  59 40                         SUBQ.w #4,d0
+006062  6B D4                         BMI $006038
+006064  38 02                         MOVE.w d2,d4
+006066  48 40                         SWAP d0
+006068  3D 40 00 42                   MOVE.w d0,$42(a6)
+00606C  80 7C 0F CA                   OR.w #$FCA,d0
+006070  3D 40 00 40                   MOVE.w d0,$40(a6)
+006074  42 40                         CLR.w d0
+006076  48 40                         SWAP d0
+006078  D0 40                         ADD.w d0,d0
+00607A  D0 AA 00 04                   ADD.l $4(a2),d0
+00607E  4A 28 00 0D                   TST.b $D(a0)
+006082  66 00 01 7E                   BNE $006202
+006086  34 28 00 08                   MOVE.w $8(a0),d2
+00608A  3D 42 00 60                   MOVE.w d2,$60(a6)
+00608E  3D 42 00 66                   MOVE.w d2,$66(a6)
+006092  36 28 00 0A                   MOVE.w $A(a0),d3
+006096  D2 28 00 0C                   ADD.b $C(a0),d1
+00609A  65 70                         BCS $00610C
+00609C  26 C0                         MOVE.l d0,(a3)+
+00609E  36 C2                         MOVE.w d2,(a3)+
+0060A0  36 C3                         MOVE.w d3,(a3)+
+0060A2  24 00                         MOVE.l d0,d2
+0060A4  2D 50 00 4C                   MOVE.l (a0),$4C(a6)
+0060A8  22 28 00 04                   MOVE.l $4(a0),d1
+0060AC  48 EE 00 06 00 50             MOVEM.l d1-d2,$50(a6)
+0060B2  2D 42 00 48                   MOVE.l d2,$48(a6)
+0060B6  3D 43 00 58                   MOVE.w d3,$58(a6)
+0060BA  08 2E 00 0E 00 02             BTST.b #$E,$2(a6)
+0060C0  66 F8                         BNE $0060BA
+0060C2  D4 85                         ADD.l d5,d2
+0060C4  48 EE 00 06 00 50             MOVEM.l d1-d2,$50(a6)
+0060CA  2D 42 00 48                   MOVE.l d2,$48(a6)
+0060CE  3D 43 00 58                   MOVE.w d3,$58(a6)
+0060D2  08 2E 00 0E 00 02             BTST.b #$E,$2(a6)
+0060D8  66 F8                         BNE $0060D2
+0060DA  D4 85                         ADD.l d5,d2
+0060DC  48 EE 00 06 00 50             MOVEM.l d1-d2,$50(a6)
+0060E2  2D 42 00 48                   MOVE.l d2,$48(a6)
+0060E6  3D 43 00 58                   MOVE.w d3,$58(a6)
+0060EA  08 2E 00 0E 00 02             BTST.b #$E,$2(a6)
+0060F0  66 F8                         BNE $0060EA
+0060F2  D4 85                         ADD.l d5,d2
+0060F4  48 EE 00 06 00 50             MOVEM.l d1-d2,$50(a6)
+0060FA  2D 42 00 48                   MOVE.l d2,$48(a6)
+0060FE  3D 43 00 58                   MOVE.w d3,$58(a6)
+006102  25 4B 00 14                   MOVE.l a3,$14(a2)
+006106  42 6B 00 04                   CLR.w $4(a3)
+00610A  4E 75                         RTS
+00610C  67 8E                         BEQ $00609C
+00610E  37 42 00 04                   MOVE.w d2,$4(a3)
+006112  37 42 00 0C                   MOVE.w d2,$C(a3)
+006116  48 C4                         EXT.L d4
+006118  38 31 40 00                   MOVE.w $0(a1,d4.w),d4
+00611C  D8 44                         ADD.w d4,d4
+00611E  24 00                         MOVE.l d0,d2
+006120  90 84                         SUB.l d4,d0
+006122  D2 41                         ADD.w d1,d1
+006124  32 34 10 00                   MOVE.w $0(a4,d1.w),d1
+006128  96 41                         SUB.w d1,d3
+00612A  38 03                         MOVE.w d3,d4
+00612C  C8 7C 00 3F                   AND.w #$3F,d4
+006130  88 41                         OR.w d1,d4
+006132  26 82                         MOVE.l d2,(a3)
+006134  37 43 00 06                   MOVE.w d3,$6(a3)
+006138  27 40 00 08                   MOVE.l d0,$8(a3)
+00613C  37 44 00 0E                   MOVE.w d4,$E(a3)
+006140  D6 FC 00 10                   ADDA.w #$10,a3
+006144  2D 50 00 4C                   MOVE.l (a0),$4C(a6)
+006148  22 28 00 04                   MOVE.l $4(a0),d1
+00614C  48 EE 00 06 00 50             MOVEM.l d1-d2,$50(a6)
+006152  2D 42 00 48                   MOVE.l d2,$48(a6)
+006156  3D 43 00 58                   MOVE.w d3,$58(a6)
+00615A  08 2E 00 0E 00 02             BTST.b #$E,$2(a6)
+006160  66 F8                         BNE $00615A
+006162  2D 40 00 48                   MOVE.l d0,$48(a6)
+006166  2D 40 00 54                   MOVE.l d0,$54(a6)
+00616A  3D 44 00 58                   MOVE.w d4,$58(a6)
+00616E  08 2E 00 0E 00 02             BTST.b #$E,$2(a6)
+006174  66 F8                         BNE $00616E
+006176  D0 85                         ADD.l d5,d0
+006178  D4 85                         ADD.l d5,d2
+00617A  48 EE 00 06 00 50             MOVEM.l d1-d2,$50(a6)
+006180  2D 42 00 48                   MOVE.l d2,$48(a6)
+006184  3D 43 00 58                   MOVE.w d3,$58(a6)
+006188  08 2E 00 0E 00 02             BTST.b #$E,$2(a6)
+00618E  66 F8                         BNE $006188
+006190  2D 40 00 48                   MOVE.l d0,$48(a6)
+006194  2D 40 00 54                   MOVE.l d0,$54(a6)
+006198  3D 44 00 58                   MOVE.w d4,$58(a6)
+00619C  08 2E 00 0E 00 02             BTST.b #$E,$2(a6)
+0061A2  66 F8                         BNE $00619C
+0061A4  D0 85                         ADD.l d5,d0
+0061A6  D4 85                         ADD.l d5,d2
+0061A8  48 EE 00 06 00 50             MOVEM.l d1-d2,$50(a6)
+0061AE  2D 42 00 48                   MOVE.l d2,$48(a6)
+0061B2  3D 43 00 58                   MOVE.w d3,$58(a6)
+0061B6  08 2E 00 0E 00 02             BTST.b #$E,$2(a6)
+0061BC  66 F8                         BNE $0061B6
+0061BE  2D 40 00 48                   MOVE.l d0,$48(a6)
+0061C2  2D 40 00 54                   MOVE.l d0,$54(a6)
+0061C6  3D 44 00 58                   MOVE.w d4,$58(a6)
+0061CA  08 2E 00 0E 00 02             BTST.b #$E,$2(a6)
+0061D0  66 F8                         BNE $0061CA
+0061D2  D0 85                         ADD.l d5,d0
+0061D4  D4 85                         ADD.l d5,d2
+0061D6  48 EE 00 06 00 50             MOVEM.l d1-d2,$50(a6)
+0061DC  2D 42 00 48                   MOVE.l d2,$48(a6)
+0061E0  3D 43 00 58                   MOVE.w d3,$58(a6)
+0061E4  08 2E 00 0E 00 02             BTST.b #$E,$2(a6)
+0061EA  66 F8                         BNE $0061E4
+0061EC  2D 40 00 48                   MOVE.l d0,$48(a6)
+0061F0  2D 40 00 54                   MOVE.l d0,$54(a6)
+0061F4  3D 44 00 58                   MOVE.w d4,$58(a6)
+0061F8  25 4B 00 14                   MOVE.l a3,$14(a2)
+0061FC  42 6B 00 04                   CLR.w $4(a3)
+006200  4E 75                         RTS
+
+; --- draw_object_bob_alt  $006202 — Alternate BOB path taken when the descriptor's $D flag is set (a wider/clipped or pre-shifted variant). ---
+006202  34 28 00 08                   MOVE.w $8(a0),d2
+006206  3D 42 00 60                   MOVE.w d2,$60(a6)
+00620A  3D 42 00 66                   MOVE.w d2,$66(a6)
+00620E  36 28 00 0E                   MOVE.w $E(a0),d3
+006212  3D 43 00 62                   MOVE.w d3,$62(a6)
+006216  3D 43 00 64                   MOVE.w d3,$64(a6)
+00621A  36 28 00 0A                   MOVE.w $A(a0),d3
+00621E  D2 28 00 0C                   ADD.b $C(a0),d1
+006222  65 7E                         BCS $0062A2
+006224  26 C0                         MOVE.l d0,(a3)+
+006226  36 C2                         MOVE.w d2,(a3)+
+006228  36 C3                         MOVE.w d3,(a3)+
+00622A  D0 BC 00 00 00 90             ADD.l #$90,d0
+006230  24 00                         MOVE.l d0,d2
+006232  22 28 00 10                   MOVE.l $10(a0),d1
+006236  2D 41 00 4C                   MOVE.l d1,$4C(a6)
+00623A  48 EE 00 06 00 50             MOVEM.l d1-d2,$50(a6)
+006240  2D 42 00 48                   MOVE.l d2,$48(a6)
+006244  3D 43 00 58                   MOVE.w d3,$58(a6)
+006248  08 2E 00 0E 00 02             BTST.b #$E,$2(a6)
+00624E  66 F8                         BNE $006248
+006250  94 85                         SUB.l d5,d2
+006252  48 EE 00 06 00 50             MOVEM.l d1-d2,$50(a6)
+006258  2D 42 00 48                   MOVE.l d2,$48(a6)
+00625C  3D 43 00 58                   MOVE.w d3,$58(a6)
+006260  08 2E 00 0E 00 02             BTST.b #$E,$2(a6)
+006266  66 F8                         BNE $006260
+006268  94 85                         SUB.l d5,d2
+00626A  48 EE 00 06 00 50             MOVEM.l d1-d2,$50(a6)
+006270  2D 42 00 48                   MOVE.l d2,$48(a6)
+006274  3D 43 00 58                   MOVE.w d3,$58(a6)
+006278  08 2E 00 0E 00 02             BTST.b #$E,$2(a6)
+00627E  66 F8                         BNE $006278
+006280  94 85                         SUB.l d5,d2
+006282  48 EE 00 06 00 50             MOVEM.l d1-d2,$50(a6)
+006288  2D 42 00 48                   MOVE.l d2,$48(a6)
+00628C  3D 43 00 58                   MOVE.w d3,$58(a6)
+006290  25 4B 00 14                   MOVE.l a3,$14(a2)
+006294  42 6B 00 04                   CLR.w $4(a3)
+006298  2D 7C FF FE FF FE 00 62       MOVE.l #$FFFEFFFE,$62(a6)
+0062A0  4E 75                         RTS
+0062A2  67 80                         BEQ $006224
+0062A4  37 42 00 04                   MOVE.w d2,$4(a3)
+0062A8  37 42 00 0C                   MOVE.w d2,$C(a3)
+0062AC  48 C4                         EXT.L d4
+0062AE  38 31 40 00                   MOVE.w $0(a1,d4.w),d4
+0062B2  D8 44                         ADD.w d4,d4
+0062B4  24 00                         MOVE.l d0,d2
+0062B6  90 84                         SUB.l d4,d0
+0062B8  D2 41                         ADD.w d1,d1
+0062BA  32 34 10 00                   MOVE.w $0(a4,d1.w),d1
+0062BE  96 41                         SUB.w d1,d3
+0062C0  38 03                         MOVE.w d3,d4
+0062C2  C8 7C 00 3F                   AND.w #$3F,d4
+0062C6  88 41                         OR.w d1,d4
+0062C8  26 82                         MOVE.l d2,(a3)
+0062CA  37 43 00 06                   MOVE.w d3,$6(a3)
+0062CE  27 40 00 08                   MOVE.l d0,$8(a3)
+0062D2  37 44 00 0E                   MOVE.w d4,$E(a3)
+0062D6  D6 FC 00 10                   ADDA.w #$10,a3
+0062DA  D0 BC 00 00 00 90             ADD.l #$90,d0
+0062E0  D4 BC 00 00 00 90             ADD.l #$90,d2
+0062E6  22 28 00 10                   MOVE.l $10(a0),d1
+0062EA  2D 41 00 4C                   MOVE.l d1,$4C(a6)
+0062EE  48 EE 00 06 00 50             MOVEM.l d1-d2,$50(a6)
+0062F4  2D 42 00 48                   MOVE.l d2,$48(a6)
+0062F8  3D 43 00 58                   MOVE.w d3,$58(a6)
+0062FC  08 2E 00 0E 00 02             BTST.b #$E,$2(a6)
+006302  66 F8                         BNE $0062FC
+006304  2D 40 00 48                   MOVE.l d0,$48(a6)
+006308  2D 40 00 54                   MOVE.l d0,$54(a6)
+00630C  3D 44 00 58                   MOVE.w d4,$58(a6)
+006310  08 2E 00 0E 00 02             BTST.b #$E,$2(a6)
+006316  66 F8                         BNE $006310
+006318  90 85                         SUB.l d5,d0
+00631A  94 85                         SUB.l d5,d2
+00631C  48 EE 00 06 00 50             MOVEM.l d1-d2,$50(a6)
+006322  2D 42 00 48                   MOVE.l d2,$48(a6)
+006326  3D 43 00 58                   MOVE.w d3,$58(a6)
+00632A  08 2E 00 0E 00 02             BTST.b #$E,$2(a6)
+006330  66 F8                         BNE $00632A
+006332  2D 40 00 48                   MOVE.l d0,$48(a6)
+006336  2D 40 00 54                   MOVE.l d0,$54(a6)
+00633A  3D 44 00 58                   MOVE.w d4,$58(a6)
+00633E  08 2E 00 0E 00 02             BTST.b #$E,$2(a6)
+006344  66 F8                         BNE $00633E
+006346  90 85                         SUB.l d5,d0
+006348  94 85                         SUB.l d5,d2
+00634A  48 EE 00 06 00 50             MOVEM.l d1-d2,$50(a6)
+006350  2D 42 00 48                   MOVE.l d2,$48(a6)
+006354  3D 43 00 58                   MOVE.w d3,$58(a6)
+006358  08 2E 00 0E 00 02             BTST.b #$E,$2(a6)
+00635E  66 F8                         BNE $006358
+006360  2D 40 00 48                   MOVE.l d0,$48(a6)
+006364  2D 40 00 54                   MOVE.l d0,$54(a6)
+006368  3D 44 00 58                   MOVE.w d4,$58(a6)
+00636C  08 2E 00 0E 00 02             BTST.b #$E,$2(a6)
+006372  66 F8                         BNE $00636C
+006374  90 85                         SUB.l d5,d0
+006376  94 85                         SUB.l d5,d2
+006378  48 EE 00 06 00 50             MOVEM.l d1-d2,$50(a6)
+00637E  2D 42 00 48                   MOVE.l d2,$48(a6)
+006382  3D 43 00 58                   MOVE.w d3,$58(a6)
+006386  08 2E 00 0E 00 02             BTST.b #$E,$2(a6)
+00638C  66 F8                         BNE $006386
+00638E  2D 40 00 48                   MOVE.l d0,$48(a6)
+006392  2D 40 00 54                   MOVE.l d0,$54(a6)
+006396  3D 44 00 58                   MOVE.w d4,$58(a6)
+00639A  25 4B 00 14                   MOVE.l a3,$14(a2)
+00639E  42 6B 00 04                   CLR.w $4(a3)
+0063A2  2D 7C FF FE FF FE 00 62       MOVE.l #$FFFEFFFE,$62(a6)
+0063AA  4E 75                         RTS
+0063AC  4E 75                         RTS
+0063AE  92 78 01 72                   SUB.w $172.w,d1
+0063B2  6B F8                         BMI $0063AC
+0063B4  94 78 01 74                   SUB.w $174.w,d2
+0063B8  6B F2                         BMI $0063AC
+0063BA  C2 BC 00 00 FF F0             AND.l #$FFF0,d1
+0063C0  C4 7C 00 F0                   AND.w #$F0,d2
+0063C4  48 A7 60 00                   MOVEM.w d1-d2,-(a7)
+0063C8  94 78 01 C0                   SUB.w $1C0.w,d2
+0063CC  C4 7C 00 F0                   AND.w #$F0,d2
+0063D0  D4 42                         ADD.w d2,d2
+0063D2  48 A7 60 00                   MOVEM.w d1-d2,-(a7)
+0063D6  E8 49                         LSR.w #4,d1
+0063D8  20 78 02 0E                   MOVEA.l $20E.w,a0
+0063DC  D2 70 20 00                   ADD.w $0(a0,d2.w),d1
+0063E0  D2 81                         ADD.l d1,d1
+0063E2  D2 B8 01 7A                   ADD.l $17A.w,d1
+0063E6  20 78 35 D8                   MOVEA.l $35D8.w,a0
+0063EA  24 10                         MOVE.l (a0),d2
+0063EC  30 2F 00 04                   MOVE.w $4(a7),d0
+0063F0  08 00 00 04                   BTST.l #$4,d0
+0063F4  67 02                         BEQ $0063F8
+0063F6  54 82                         ADDQ.l #2,d2
+0063F8  30 2F 00 06                   MOVE.w $6(a7),d0
+0063FC  08 00 00 04                   BTST.l #$4,d0
+006400  67 06                         BEQ $006408
+006402  D4 BC 00 00 01 00             ADD.l #$100,d2
+006408  3D 7C 09 F0 00 40             MOVE.w #$9F0,$40(a6)
+00640E  42 6E 00 42                   CLR.w $42(a6)
+006412  2D 7C FF FF FF FF 00 44       MOVE.l #$FFFFFFFF,$44(a6)
+00641A  3D 7C 00 2E 00 66             MOVE.w #$2E,$66(a6)
+006420  3D 7C 00 02 00 64             MOVE.w #$2,$64(a6)
+006426  2D 42 00 50                   MOVE.l d2,$50(a6)
+00642A  2D 41 00 54                   MOVE.l d1,$54(a6)
+00642E  3D 7C 10 01 00 58             MOVE.w #$1001,$58(a6)
+006434  D2 BC 00 00 C0 00             ADD.l #$C000,d1
+00643A  08 2E 00 0E 00 02             BTST.b #$E,$2(a6)
+006440  66 F8                         BNE $00643A
+006442  2D 42 00 50                   MOVE.l d2,$50(a6)
+006446  2D 41 00 54                   MOVE.l d1,$54(a6)
+00644A  3D 7C 10 01 00 58             MOVE.w #$1001,$58(a6)
+006450  D2 BC 00 00 C0 00             ADD.l #$C000,d1
+006456  08 2E 00 0E 00 02             BTST.b #$E,$2(a6)
+00645C  66 F8                         BNE $006456
+00645E  2D 42 00 50                   MOVE.l d2,$50(a6)
+006462  2D 41 00 54                   MOVE.l d1,$54(a6)
+006466  3D 7C 10 01 00 58             MOVE.w #$1001,$58(a6)
+00646C  4C 9F                         .dc.w $4C9F
+00646E  .dc.b 00 03 34 01 D4 42 D2 42 E6 48 D2 40 20 78 02 12 ; ..4..B.B.H.@ x..
+00647E  .dc.b 42 30 10 00 42 30 10 01 42 30 10 30 42 30 10 31 ; B0..B0..B0.0B0.1
+00648E  .dc.b 4C 9F 00 03 EA 48 D0 78 01 F6 D0 40 EA 49 D2 78 ; L....H.x...@.I.x
+00649E  .dc.b 01 F8 20 78 02 2E D2 70 00 00 20 78 02 2A 42 30 ; .. x...p.. x.*B0
+0064AE  .dc.b 10 00 70 19 4E F9 00 01 A2 DC                   ; ..p.N.....
 
 ; ==== sub_0064B8 (4 callers) ====
 0064B8  4A B8 02 36                   TST.l $236.w
