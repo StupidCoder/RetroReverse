@@ -37,6 +37,9 @@ To do:
         * Visualize radar map and objects (tank, SPM, etc.)
 * Marble Madness (Amiga)
     * Kick off project by writing ADF extractor, disassembler and emulator for 86k code
+* Turrican (Amiga)
+    * Part I done (custom non-DOS boot disk + raw-sector loader); next: trace the
+      boot block's load/decrypt chain (Part II) — the payload is packed/encrypted
 * Tools
     * Disassembler should be better at segmenting functions; currently jumps within a function are treated as separate sub-routines; try to document parameters of sub-routines (which registers are used?)
 
@@ -107,11 +110,15 @@ AIReverseEngineering/
 │   ├── Marble_Madness.adf       # raw disk image (not committed; see Image files)
 │   └── Marble_Madness.md        # disk-format writeup (Part I done; rest stubbed)
 │
-└── Sonic (GG)/
-    ├── Sonic The Hedgehog (Japan, USA).gg   # raw Game Gear cartridge ROM
-    ├── Sonic.md                 # cartridge + game writeup (Parts I-II done; rest stubbed)
-    ├── disasm/                  # annotated recursive-descent disassembly + annotations.txt
-    └── rendered/                # generated PNGs (graphics — once located)
+├── Sonic (GG)/
+│   ├── Sonic The Hedgehog (Japan, USA).gg   # raw Game Gear cartridge ROM
+│   ├── Sonic.md                 # cartridge + game writeup (Parts I-II done; rest stubbed)
+│   ├── disasm/                  # annotated recursive-descent disassembly + annotations.txt
+│   └── rendered/                # generated PNGs (graphics — once located)
+│
+└── Turrican (Amiga)/
+    ├── Turrican.adf             # raw disk image (pinned by MD5 in Image files)
+    └── Turrican.md              # disk-format writeup (Part I done; rest stubbed)
 ```
 
 Per-game folder contract: `<Game>.<ext>` raw image, a markdown writeup of the
@@ -134,6 +141,7 @@ below pin the precise copy, so the work stays reproducible.
 | `Fort Apocalypse (C64)/Fort_Apocalypse.tap` | 225,817 | `bec7409816865f3ad160af9984f127cd` |
 | `Marble Madness (Amiga)/Marble_Madness.adf` | 901,120 | `735dc697d64b3eeaa000778eb0b1153a` |
 | `Sonic (GG)/Sonic The Hedgehog (Japan, USA).gg` | 262,144 | `8a95b36139206a5ba13a38bb626aee25` |
+| `Turrican (Amiga)/Turrican.adf` | 901,120 | `6677ce6cea38dc66be40e9211576a149` |
 
 Verify a copy before reusing it, e.g. `md5 "Elite (C64)/Elite.tap"`
 (`md5sum` on Linux).
