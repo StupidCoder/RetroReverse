@@ -10,7 +10,13 @@ package main
 // @ +$800 (8 channel-words/entry; a word's bit15 = off, pattern=(w>>8)&$7F,
 // transpose=w&$FF; first word $EFFE = a command step). Samples are raw signed 8-bit.
 
-import "encoding/binary"
+import (
+	"encoding/binary"
+	"fmt"
+	"os"
+)
+
+var dbg = os.Getenv("DBG") != ""
 
 const (
 	patTable   = 0x400
@@ -140,6 +146,9 @@ func (p *player) processTrack() {
 			p.v[ch].active = p.v[ch].patData != 0
 			p.v[ch].transpose = int8(w & 0xFF)
 			p.v[ch].loopCnt = -1
+			if dbg {
+				fmt.Fprintf(os.Stderr, "trackstep $%X: ch%d = pat $%X (data $%X) transpose %d\n", p.trackPos, ch, pn, p.v[ch].patData, int8(w&0xFF))
+			}
 		}
 		return
 	}
@@ -149,15 +158,10 @@ func (p *player) processTrack() {
 // itself (caller must not advance).
 func (p *player) trackCommand(sub, o int) bool {
 	switch sub {
-	case 4: // set CIA tick rate (word3); the row-speed stays the song tempo (verified
-		// against the real driver's work struct, which keeps $6=tempo=3)
-		if t := be16(p.mdat, o+6) & 0x1FF; t != 0 {
-			// CIA timer B reload = (0x1C00/t)<<8 ; tick rate = E_CLOCK / reload.
-			reload := (0x1C00 / t) << 8
-			if reload > 0 {
-				p.tickHz = 709379.0 / float64(reload)
-			}
-		}
+	case 4: // word2 = row-speed (kept = song tempo, verified vs the real driver's work
+		// struct $6=3), word3 = CIA tempo. The driver's sound_tick is called from the
+		// 50 Hz vblank ISR, so that's the tick rate the captured ground truth used.
+		p.tickHz = 50.0
 		return false
 	case 0: // loop song to the position in word2
 		p.trackPos = be16(p.mdat, o+2)
@@ -206,6 +210,14 @@ func (p *player) stepTick() {
 			}
 		}
 		p.Trace = append(p.Trace, row)
+		if dbg {
+			fmt.Fprintf(os.Stderr, "t%d:", p.tick)
+			for c := 0; c < 4; c++ {
+				v := &p.v[c]
+				fmt.Fprintf(os.Stderr, " ch%d[mac$%X p%d n%d per%d dma%v pl%v act%v]", c, v.macro, v.macPos, v.note, v.period, v.dma, p.p[c].playing, v.active)
+			}
+			fmt.Fprintln(os.Stderr)
+		}
 	}
 	p.tick++
 }
