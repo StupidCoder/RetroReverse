@@ -228,8 +228,42 @@ func (c *CPU) execAddSub(op uint16, isAdd bool) {
 func (c *CPU) execLogic(op uint16, kind byte) {
 	mode, reg, reg2, size := fields(op)
 	opm := int(op>>6) & 7
-	if opm == 3 || opm == 7 { // MUL/DIV
-		c.Halt("unimplemented MUL/DIV $%04X at $%06X", op, c.PC-2)
+	if opm == 3 || opm == 7 { // MUL/DIV (word source -> Dn); size index: 1=word, 2=long
+		ea := c.resolveEA(mode, reg, 1)
+		src := c.load(ea, 1) & 0xFFFF
+		if kind == '&' { // group $C = MUL
+			var res uint32
+			if opm == 3 { // MULU
+				res = (c.D[reg2] & 0xFFFF) * src
+			} else { // MULS
+				res = uint32(int32(int16(uint16(c.D[reg2]))) * int32(int16(uint16(src))))
+			}
+			c.D[reg2] = res
+			c.setLogic(res, 2)
+		} else { // group $8 = DIV
+			if src == 0 {
+				c.Halt("division by zero at $%06X", c.PC-2)
+				return
+			}
+			var q, r uint32
+			if opm == 3 { // DIVU
+				q, r = c.D[reg2]/src, c.D[reg2]%src
+				if q > 0xFFFF { // overflow: set V, leave Dn unchanged
+					c.V = true
+					return
+				}
+			} else { // DIVS
+				dv, sv := int32(c.D[reg2]), int32(int16(uint16(src)))
+				qq, rr := dv/sv, dv%sv
+				if qq > 32767 || qq < -32768 {
+					c.V = true
+					return
+				}
+				q, r = uint32(uint16(int16(qq))), uint32(uint16(int16(rr)))
+			}
+			c.D[reg2] = (r << 16) | (q & 0xFFFF)
+			c.setLogic(q, 1)
+		}
 		return
 	}
 	if op&0x0130 == 0x0100 && (op&0x00C0) != 0x00C0 { // ABCD/SBCD/EXG region

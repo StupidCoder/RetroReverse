@@ -143,7 +143,10 @@ func Load(data []byte, base uint32) (*Program, error) {
 	var segs []*seg
 	cur := -1
 	for r.pos < len(data) {
-		t := r.u32()
+		// The block type's top two bits can carry memory-attribute flags on
+		// CODE/DATA/BSS blocks (e.g. $40000000 = MEMF_CHIP, used by the *Snd sample
+		// banks so AmigaDOS loads them into chip RAM for Paula DMA). Mask them off.
+		t := r.u32() & 0x3FFFFFFF
 		if r.err != nil {
 			return nil, r.err
 		}
