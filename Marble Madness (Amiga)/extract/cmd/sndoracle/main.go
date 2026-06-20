@@ -280,6 +280,15 @@ func main() {
 		// run the dual clock for a while so the score plays out
 		m.runClock(cpu, traps, m.clock+*secs)
 		m.logf("=== soundID %d: %d notes ===", sid, len(m.notes)-before)
+		if os.Getenv("DBG") != "" {
+			for ch := uint32(0); ch < 4; ch++ {
+				pd := m.r32(datBase + 0x21148 + ch*4)
+				vd := m.r32(datBase + 0x21138 + ch*4)
+				m.logf("  ch%d: 20FAC(baseP)=%d 20FC4(vol)=%d 20FCC(per)=%d perDesc=$%X(+E=$%X) volDesc=$%X(+E=$%X) 21010=%d",
+					ch, m.r16(datBase+0x20FAC+ch*2), m.r16(datBase+0x20FC4+ch*2), m.r16(datBase+0x20FCC+ch*2),
+					pd, m.r32(pd+0xE), vd, m.r32(vd+0xE), m.ram[datBase+0x21010+ch])
+			}
+		}
 	}
 
 	fmt.Println("=== call log ===")
@@ -369,6 +378,12 @@ func (m *machine) runCtx(cpu *m68k.CPU, traps map[uint32]func() bool) bool {
 		}
 		if dbg && i < 2000 {
 			fmt.Fprintf(os.Stderr, "%s %3d PC=$%06X op=$%04X a7=$%X\n", m.cur.name, i, cpu.PC, m.r16(cpu.PC), cpu.A[7])
+		}
+		if dbg && cpu.PC == datBase+0x21ADC {
+			fmt.Fprintf(os.Stderr, ">>> play_sfx(%d) caller=$%X [%s]\n", m.r32(cpu.A[7]+4), m.r32(cpu.A[7])-datBase, m.cur.name)
+		}
+		if dbg && cpu.PC == datBase+0x20D96 {
+			fmt.Fprintf(os.Stderr, ">>> snd_play ev=$%X vol=$%X per=$%X [%s]\n", m.r32(cpu.A[7]+4), m.r32(cpu.A[7]+8), m.r32(cpu.A[7]+12), m.cur.name)
 		}
 		if f, ok := traps[cpu.PC]; ok {
 			if f() { // blocked inside the trap (WaitPort on empty)
