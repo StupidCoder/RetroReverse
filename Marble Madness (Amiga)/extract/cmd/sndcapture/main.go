@@ -72,6 +72,7 @@ type machine struct {
 	log    []string
 	frame  int
 	cmds   []audioCmd
+	course string // *snd filename to force when the game's course global is unset
 }
 
 func (m *machine) Read(a uint32) byte {
@@ -126,9 +127,10 @@ func (m *machine) alloc(size uint32) uint32 {
 }
 
 func main() {
-	entry := flag.Uint("entry", 0x1FF34, "offset (in the base-0 image) of the routine to call")
+	entry := flag.Uint("entry", 0x21DC0, "offset (in the base-0 image) of the routine to call after sound_init")
 	steps := flag.Int("steps", 80_000_000, "instruction budget")
 	trace := flag.Bool("trace", false, "log every trapped call")
+	course := flag.String("course", "prcsnd", "*snd file to force-load")
 	flag.Parse()
 	if flag.NArg() < 2 {
 		fmt.Fprintln(os.Stderr, "usage: sndcapture disk.adf decrypted.dat.hunk [-entry 0xADDR]")
@@ -148,9 +150,10 @@ func main() {
 		vol:   vol,
 		heap:  heap0,
 		seg:   seg0,
-		files: map[uint32]*file{},
-		nextH: 0x9000,
-		trace: *trace,
+		files:  map[uint32]*file{},
+		nextH:  0x9000,
+		trace:  *trace,
+		course: *course,
 	}
 	copy(m.ram[datBase:], prog.Image)
 	m.w32(4, execBase) // AbsExecBase
@@ -160,34 +163,12 @@ func main() {
 
 	cpu := m68k.NewCPU(m)
 	cpu.A[7] = stackTop
-	cpu.PC = datBase + uint32(*entry)
-	// push sentinel return address
-	cpu.A[7] -= 4
-	m.w32(cpu.A[7], sentinel)
-
 	traps := m.buildTraps(cpu)
-	reason := "returned"
-	itrace := os.Getenv("ITRACE") != ""
-	for i := 0; i < *steps; i++ {
-		if cpu.PC == sentinel {
-			break
-		}
-		if itrace && i < 400 {
-			fmt.Fprintf(os.Stderr, "%3d PC=$%06X op=$%04X a7=$%X\n", i, cpu.PC, m.r16(cpu.PC), cpu.A[7])
-		}
-		if t, ok := traps[cpu.PC]; ok {
-			t()
-			continue
-		}
-		if cpu.Halted {
-			reason = "halted at $" + fmt.Sprintf("%06X: %s", cpu.PC, cpu.HaltReason)
-			break
-		}
-		cpu.Step()
-		if i == *steps-1 {
-			reason = fmt.Sprintf("step budget exhausted at $%06X", cpu.PC)
-		}
-	}
+
+	// Call sound_init, then the requested routine (default: load+play $21DC0).
+	m.callRoutine(cpu, traps, 0x1FF34, *steps)
+	m.logf("--- sound_init done; calling $%X ---", *entry)
+	m.callRoutine(cpu, traps, uint32(*entry), *steps)
 
 	fmt.Println("=== call log ===")
 	for _, l := range m.log {
@@ -198,7 +179,32 @@ func main() {
 		fmt.Printf("f%-4d cmd=$%X ch%d data=$%X len=%d per=%d vol=%d cyc=%d\n",
 			c.frame, c.cmd, c.chan_, c.data, c.length, c.period, c.vol, c.cyc)
 	}
-	fmt.Println("\nend:", reason)
+}
+
+// callRoutine runs a subroutine at datBase+off until it RTSs to the sentinel.
+func (m *machine) callRoutine(cpu *m68k.CPU, traps map[uint32]func(), off uint32, steps int) {
+	cpu.A[7] = stackTop - 4
+	m.w32(cpu.A[7], sentinel)
+	cpu.PC = datBase + off
+	itrace := os.Getenv("ITRACE") != ""
+	for i := 0; i < steps; i++ {
+		if cpu.PC == sentinel {
+			return
+		}
+		if itrace && i < 600 {
+			fmt.Fprintf(os.Stderr, "%3d PC=$%06X op=$%04X\n", i, cpu.PC, m.r16(cpu.PC))
+		}
+		if t, ok := traps[cpu.PC]; ok {
+			t()
+			continue
+		}
+		if cpu.Halted {
+			m.logf("HALTED at $%06X: %s", cpu.PC, cpu.HaltReason)
+			return
+		}
+		cpu.Step()
+	}
+	m.logf("step budget exhausted at $%06X", cpu.PC)
 }
 
 func (m *machine) buildTraps(cpu *m68k.CPU) map[uint32]func() {
@@ -270,6 +276,9 @@ func (m *machine) audioIO(cpu *m68k.CPU, req uint32) {
 		m.logf("audio cmd $%X on req $%X (unit $%X)", cmd, req, m.r16(req+0x18))
 	}
 	m.ram[req+ioError] = 0
+	// The engine spins on a relocated reply flag ($211E6) after the allocate; set it
+	// so the handshake completes (we run synchronously, no real device interrupt).
+	m.w16(datBase+0x211E6, 1)
 }
 
 func libByName(name string) uint32 {
@@ -323,6 +332,9 @@ func (m *machine) read(cpu *m68k.CPU) {
 
 func (m *machine) loadSeg(cpu *m68k.CPU) {
 	name := m.cstr(cpu.D[1])
+	if name == "" && m.course != "" { // game init bypassed: force the chosen course
+		name = m.course
+	}
 	data, err := m.vol.ReadFile(name)
 	if err != nil {
 		m.logf("LoadSeg(%q) = 0 (missing)", name)
