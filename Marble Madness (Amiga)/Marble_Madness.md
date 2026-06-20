@@ -55,7 +55,8 @@ under way; Part V is still a stub.
 - [Part VI — Music and sound](#part-vi--music-and-sound)
   - [1. Where the music lives — the `*Snd` files](#1-where-the-music-lives--the-snd-files)
   - [2. The playback path — `audio.device`](#2-the-playback-path--audiodevice)
-  - [3. Reversing the sequencer](#3-reversing-the-sequencer)
+  - [3. The sequencer](#3-the-sequencer)
+  - [4. The music — a Soundtracker player, reimplemented in Go](#4-the-music--a-soundtracker-player-reimplemented-in-go)
 - [Appendix A — Toolchain and reproduction](#appendix-a--toolchain-and-reproduction)
 
 ---
@@ -1552,22 +1553,22 @@ region-struct layout, and the scoring machine.
 
 # Part VI — Music and sound
 
-Every course has its own theme — six tunes in all. The interesting finding is
-*how* they are played. Unlike the bare-metal C64 drivers (or the Amiga Turrican's
-hand-written TFMX driver, which bangs Paula's registers directly), Marble Madness
-plays its music through the operating system's **`audio.device`**. The game never
-touches `$DFF0A0`–`$DFF0DF` for music; instead it *sequences* the song and, for
-each voice, hands the OS a sample pointer, a period (pitch) and a volume, and lets
-`audio.device` perform the actual Paula DMA. The consequence is that the "player"
-is much simpler than a TFMX-class engine: there is no macro virtual machine, no
-software mixing — just *"play this sample at this pitch and volume."*
+Each course has its own theme — and, as it turns out, **two** of them per course
+(fourteen tunes in all). The interesting finding is *how* they are played. Unlike the
+bare-metal C64 drivers (or the Amiga Turrican's hand-written TFMX driver, which bangs
+Paula's registers directly), Marble Madness plays its music through the operating
+system's **`audio.device`**. The game never touches `$DFF0A0`–`$DFF0DF` for music;
+instead it *sequences* the song and, for each voice, hands the OS a sample pointer, a
+period (pitch) and a volume, and lets `audio.device` perform the actual Paula DMA. The
+consequence is that the "player" is much simpler than a TFMX-class engine: there is no
+macro virtual machine, no software mixing — just *"play this sample at this pitch and
+volume."*
 
-This part documents the music **container** (§1), the **playback path** (§2) and
-the **sequencer** (§3) — the event-list interpreter and its two envelope clocks —
-all recovered by static analysis of the decrypted game body and cross-checked in a
-68000 core. The remaining unknowns (the in-file score layout and a few helper
-routines, called out at the end of §3) are what stands between this map and the Go
-reimplementation that renders each course to audio.
+This part documents the music **container** (§1), the **playback path** (§2), the
+sound **engine** (§3 — the SfxTask, its per-voice sequencer and envelope clock), and
+finally the **music format and a from-scratch Go reimplementation** (§4 — the
+Soundtracker-style order-table/pattern arrangement and the one-waveform ProTracker
+synth, rendered straight from the disk image to audio).
 
 > Addresses below are offsets into the **flat, base-0 relocated image** of the
 > decrypted game (`hunkload -o` of `extract/c_MarbleMadness.dat.decrypted.hunk`).
@@ -1776,27 +1777,77 @@ a short update `IOAudio` (`io_Command = $C`) and submits it via `$24A3C` — so 
 slides and envelopes are audible between note triggers. `$20FFC[ch]` counts the
 note's remaining ticks and releases the voice (`$2015E`) at zero.
 
-**What this means for the Go port.** Given a course's per-voice `(eventList,
-volEnv, periodEnv, repeat)` set, the reimplementation runs the two clocks: the
-audio-reply clock fires `$2057A`-equivalent note advances (the next note triggers
-once the current sample has played `Cycles` times at its period), and the 60 Hz
-timer clock fires `$21740`-equivalent envelope updates. Each voice is mixed
-Paula-style (8-bit sample resampled by `ioa_Period`, scaled by `ioa_Volume`) and
-summed; one full pass per course is rendered with loop detection.
+§1–§3 describe the *engine* — the OS-driven SfxTask, the per-voice sequencer and the
+envelope clock — recovered partly by static disassembly and partly by a single-task
+`tools/m68k` harness (`extract/cmd/sndoracle`) that runs the real driver under stubbed
+`exec`/`timer.device`/`audio.device`. That harness was a *scaffold for understanding*,
+not the deliverable; it proved the control flow but is too slow to record a whole song.
+The next section is the payoff: the music format, fully decoded, and a from-scratch Go
+reimplementation that renders it.
 
-The chosen way to lock this down is the **capture oracle**: on `tools/m68k`, load a
-course `*Snd`, point `$21DD4` at its directory, bring up the SfxTask (`$20CAC`), and
-call `play_sfx` (`$21ADC`) for the music entry — with `timer.device` and
-`audio.device` emulated as a discrete-event reply queue feeding the task's one
-`GetMsg` loop — recording the exact `CMD_WRITE` + envelope-update stream it emits.
-That stream is the ground truth the Go port must reproduce, and it runs the real
-directory walk so we don't have to statically decode every `*Snd` byte up front.
-Still to pin down for the Go port: which directory soundID is the looping course
-theme (enumerable by triggering each entry and watching which yields a long score),
-the exact opcode set of the 8-byte records, and the voice/envelope helper routines
-`$020458`/`$02012C`/`$02070A`. (All of the above was traced with recursive-descent
-`codetrace68k`; a flat linear sweep misaligns across the module's code/data islands —
-which is what produced the earlier mis-identifications.)
+## 4. The music — a Soundtracker player, reimplemented in Go
+
+Music is just a particular use of the sound engine. A course's theme is a directory
+record with **opcode 0** (`play_sfx`'s `op0` arm, `$21B54`): triggering it runs the
+bank channel-init `$21D1E` and `$1F6D0`, which stores the song pointer in the global
+`$1FA1A`, and from then on a **per-frame music tick `$1F286`** advances it (≈50 Hz),
+emitting notes through the same voice path as §3. Every course's `*Snd` actually holds
+**two** distinct op0 tunes (`id25` and the main `id30`), and Aerial and Ultimate carry
+a third (`id31`/`id32`); Silly's `id33` is a duplicate pointer to its `id30`.
+
+**The song is a Soundtracker-style arrangement.** The structure is the classic
+*order-table + patterns* design:
+
+```
+song ($1FA1A)        8-byte channel slots; slot+0 -> the order table for that channel
+order table          6-byte entries: [repeat: word][pattern: long]
+                       play the pattern `repeat` times, then advance; a repeat of 0
+                       terminates the table -> loop back to entry 0
+pattern              a byte-stream of note commands ($1F162 / $1EE8A):
+                       bit7 set, nibble != 0  -> select note-length class (-> $1FA26)
+                       $80 (bit7, nibble 0)   -> end of this pattern instance
+                       $7F                    -> rest / note-off
+                       $00..$6B               -> a note (octave = n/12, semitone = n%12)
+```
+
+The **repeat counts** are essential: a course's order table has dozens of entries that
+reuse a handful of patterns with repeats of 4/8/24, so ignoring them makes the song
+race through its sections and jump around (the symptom that first exposed the
+order-table structure).
+
+**The synth — one waveform, ProTracker pitches (`$1EE8A`).** Each note is voiced from
+the bank's single shared **`h4` waveform**. The note splits into an octave (`n/12`) and
+a semitone (`n%12`); the pitch is the standard Amiga/ProTracker period table
+`$1F902` = `428,404,381,360,339,320,302,285,269,254,240,226` indexed by semitone, and
+the octave selects the *length* of the looped `h4` slice (`length = base << (8−octave)`)
+— the classic one-sample-many-octaves trick. Period gives the fine pitch within the
+octave; slice length gives the octave.
+
+**Per-note volume envelope.** The note-on routes through `snd_play` (`$20D96`) carrying
+the bank's **volume envelope** (`$1FE82`, at the `*Snd` sub-table `+$8`): a list of
+`[rate, target]` 16.16 segments that the `$21954` VM ramps one step per frame. For the
+Practice/Beginner bank that is a *pluck* — `+$4000→$10000` (fast attack to full),
+`−$1000→$8000` (decay to half), `−$28F→$2000` (slow decay to ⅛), then sustain — which
+is what gives each note its shape rather than a flat tone. (The pitch envelope `$1FEA2`
+is null for these banks, so there is no vibrato/glide.)
+
+**The reimplementation — `extract/cmd/musicrender`.** This is a pure-Go player: its only
+input is the `.adf` (the `*Snd` banks are not encrypted, so they are read straight from
+the disk filesystem). It parses the directory → op0 record → song; walks the order
+table (honouring repeats and the loop terminator) and the pattern byte-streams; voices
+each note from `h4` with the ProTracker period + octave slice; ramps the volume
+envelope per frame; mixes the channels and writes a WAV (→ MP3). No emulation and no
+captured audio are involved — the only values transcribed from the game code are fixed
+*algorithm* constants (the period table, the note-length table `$1FA26`, the frame
+delta `$1FA68`, the PAL Paula clock). All fourteen tunes across the six courses are
+rendered this way and embedded in the interactive
+[course viewer](https://stupidcoder.github.io/AIReverseEngineering/marble.html).
+
+```sh
+# render a course theme straight from the disk image
+go run marblemad/extract/cmd/musicrender -id 30 -out beginner.wav \
+    "Marble Madness (Amiga)/Marble_Madness.adf" begsnd
+```
 
 ---
 
