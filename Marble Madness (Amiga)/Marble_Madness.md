@@ -52,6 +52,10 @@ under way; Part V is still a stub.
   - [4. Obstacles (`.ilb`)](#4-obstacles-ilb)
   - [5. Course layout (`*Track`)](#5-course-layout-track)
 - [Part V — Game mechanics](#part-v--game-mechanics)
+- [Part VI — Music and sound](#part-vi--music-and-sound)
+  - [1. Where the music lives — the `*Snd` files](#1-where-the-music-lives--the-snd-files)
+  - [2. The playback path — `audio.device`](#2-the-playback-path--audiodevice)
+  - [3. Reversing the sequencer](#3-reversing-the-sequencer)
 - [Appendix A — Toolchain and reproduction](#appendix-a--toolchain-and-reproduction)
 
 ---
@@ -1543,6 +1547,117 @@ which plays out and returns to rolling.
 
 The full 19-opcode region-script vocabulary (0/2/16 characterised), the exact 86-byte
 region-struct layout, and the scoring machine.
+
+---
+
+# Part VI — Music and sound
+
+Every course has its own theme — six tunes in all. The interesting finding is
+*how* they are played. Unlike the bare-metal C64 drivers (or the Amiga Turrican's
+hand-written TFMX driver, which bangs Paula's registers directly), Marble Madness
+plays its music through the operating system's **`audio.device`**. The game never
+touches `$DFF0A0`–`$DFF0DF` for music; instead it *sequences* the song and, for
+each voice, hands the OS a sample pointer, a period (pitch) and a volume, and lets
+`audio.device` perform the actual Paula DMA. The consequence is that the "player"
+is much simpler than a TFMX-class engine: there is no macro virtual machine, no
+software mixing — just *"play this sample at this pitch and volume."*
+
+This part documents the music **container** and the **playback path**, both
+recovered by static analysis of the decrypted game body. The **sequencer** — how
+the song bytes are interpreted into those per-frame audio commands — is the active
+reversing target (§3); the plan is to recover it against a ground-truth capture of
+the real commands the engine issues, and then reimplement it in Go.
+
+> Addresses below are offsets into the **flat, base-0 relocated image** of the
+> decrypted game (`hunkload -o` of `extract/c_MarbleMadness.dat.decrypted.hunk`).
+
+## 1. Where the music lives — the `*Snd` files
+
+The six per-course sound banks are `PrcSnd`, `BegSnd`, `IntSnd`, `AerSnd`,
+`SilSnd`, `UltSnd`. The engine opens them lower-cased (`prcsnd` … `ultsnd`, the
+names sit in a six-pointer table at `$21E00`; AmigaDOS filenames are
+case-insensitive). Note that the **`*Track` files are *not* music** — those are
+the per-course gameplay data (Part IV §5); the audio is entirely in `*Snd`.
+
+Each `*Snd` is an ordinary AmigaDOS **HUNK module of pure data**: every
+`HUNK_CODE` block is zero-length, so there is *no player code in the file* — the
+player lives in the main program. The payload is in the `HUNK_DATA` blocks, and
+each of those carries the **`MEMF_CHIP`** memory flag — the block type reads
+`$400003EA` ( `HUNK_DATA` `$3EA` OR `MEMF_CHIP` `$40000000`) — so AmigaDOS loads
+them into chip RAM, the only memory Paula can DMA from. (A generic hunk loader
+must mask the type with `& $3FFFFFFF`; the flag is why a naïve loader trips here.)
+
+`PrcSnd` decodes to **sixteen data objects** (48 hunks = 16 × {empty `CODE`,
+`DATA`, empty `BSS`}), cross-linked by ~180 `RELOC32` relocations:
+
+| object | bytes | likely role |
+|-------:|------:|-------------|
+| 0 | 520 | song header / sequence (embedded relocated pointers to the samples) |
+| 1 | 560 | table |
+| 2–8 | 164, 92, 404, 124, 772, 396, 412 | instrument / envelope / short-sample tables |
+| 9 | **3116** | 8-bit PCM sample |
+| 10 | **1512** | 8-bit PCM sample |
+| 11–13 | 556, 500, **3264** | tables + a large 8-bit PCM sample |
+| 14–15 | 316, 244 | tables |
+
+The large objects (≈1.5–3 KB) are **8-bit signed PCM** — one-shot instrument
+waveforms (verified by their smooth, full-range −128…127 byte statistics). The
+small objects are instrument/envelope parameter tables. Object 0 is the song; its
+relocations resolve to the sample objects, so the score names its instruments by
+pointer rather than by index.
+
+## 2. The playback path — `audio.device`
+
+**Opening the device — `sound_init` (`$1FF34`).** Run once at startup. It
+allocates a 68-byte (`$44`) **`IOAudio`** request from a template at `$2120C`,
+calls `OpenDevice("audio.device", …)` (the string is at `$211EA`; the C wrapper is
+`$249F0`), builds a reply `MsgPort` (`$214C8`), and initialises a four-entry
+**channel array** at `$21250` (one `IOAudio`-style request per voice). `IOAudio`
+is the standard Exec layout, which is why the request is exactly `$44` bytes:
+
+```
+IOAudio (68 bytes):
+  +$1C io_Command   (the audio command)        +$2A ioa_Period  (Paula period = pitch)
+  +$20 ioa_AllocKey                            +$2C ioa_Volume  (0..64)
+  +$22 ioa_Data     (-> 8-bit sample in chip)  +$2E ioa_Cycles  (repeat count; 0 = loop)
+  +$26 ioa_Length   (sample length, bytes)     +$30 ioa_WriteMsg
+```
+
+**Grabbing the voices — per course (`$20CAC`).** When a course starts, the engine
+issues an **`ADCMD_ALLOCATE`** through `BeginIO` (`$24A10`) on the `$2120C`
+request to reserve all four Paula channels, then spins on a reply flag (`TST.w
+$211E6 / BEQ`) until `audio.device` replies — the standard allocate handshake. It
+sets a default volume (`$21224 = 15`) and primes the channels.
+
+**Playing notes.** Per voice, the sequencer fills that voice's request — sample
+(`ioa_Data`/`ioa_Length`), pitch (`ioa_Period`) and `ioa_Volume` — sets
+`io_Command` to a write/per-vol command, and submits it with `BeginIO`/`DoIO`
+(`$24A10` / the device-I/O wrappers at `$24C1C` `DoIO`, `$24C2C` `SendIO`,
+`OpenDevice` at `$24A06`). `audio.device` then streams the sample to Paula at the
+requested period and volume. **This `CMD_WRITE` stream — which sample, at what
+period and volume, on which frame — *is* the music**; capturing it is exactly the
+ground truth a reimplementation must reproduce.
+
+## 3. Reversing the sequencer
+
+What remains is the **score interpreter**: the routine that walks object 0 of a
+`*Snd` (the song bytes), advances it once per frame, and decides when to issue the
+`audio.device` writes above. Because the output path is so thin, the reimplementation
+strategy is:
+
+1. **Capture ground truth.** Run the real player code in the `tools/m68k` 68000
+   core inside an OS-stub harness (the same technique as `cmd/runlauncher`), with
+   `audio.device` emulated so that every `CMD_WRITE` is logged with its sample,
+   period, volume and frame. That yields the exact per-frame "score" for each course.
+2. **Decode the song format** of object 0 by aligning the captured score against
+   the song bytes (a Rosetta stone: the score says *when* each note fires and *what*
+   it plays; the bytes say *how* that is encoded).
+3. **Reimplement the sequencer in Go** and render each course's theme by mixing
+   `sample @ period × volume` exactly as Paula would, with automatic loop detection
+   for a full single pass.
+
+Steps 2–3 are in progress; this section will be extended with the song grammar and
+the period/volume model once they are pinned against the capture.
 
 ---
 
