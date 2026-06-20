@@ -1638,26 +1638,53 @@ requested period and volume. **This `CMD_WRITE` stream — which sample, at what
 period and volume, on which frame — *is* the music**; capturing it is exactly the
 ground truth a reimplementation must reproduce.
 
-## 3. Reversing the sequencer
+## 3. The sequencer
 
-What remains is the **score interpreter**: the routine that walks object 0 of a
-`*Snd` (the song bytes), advances it once per frame, and decides when to issue the
-`audio.device` writes above. Because the output path is so thin, the reimplementation
-strategy is:
+The score interpreter was recovered by running the real sound code in a 68000
+core (`extract/cmd/sndcapture`, over the shared `tools/m68k` machine) with the OS
+and `audio.device` stubbed — the same dynamic technique used to drive the loader
+in Part III. The key finding: **the music is reply-driven, not frame-driven.**
+There is no per-frame tick. A small player loop (`$20A52`) opens the device,
+allocates the four channels, and then blocks on the reply port, looping forever
+(`$20ABA`). Each channel plays a sample; when `audio.device` finishes it and
+replies, the handler works out *which* channel's request came back (by its address
+in the channel array `$21250…$2142C`, stride `$44`) and calls the sequencer to
+write that channel's **next** note.
 
-1. **Capture ground truth.** Run the real player code in the `tools/m68k` 68000
-   core inside an OS-stub harness (the same technique as `cmd/runlauncher`), with
-   `audio.device` emulated so that every `CMD_WRITE` is logged with its sample,
-   period, volume and frame. That yields the exact per-frame "score" for each course.
-2. **Decode the song format** of object 0 by aligning the captured score against
-   the song bytes (a Rosetta stone: the score says *when* each note fires and *what*
-   it plays; the bytes say *how* that is encoded).
-3. **Reimplement the sequencer in Go** and render each course's theme by mixing
-   `sample @ period × volume` exactly as Paula would, with automatic loop detection
-   for a full single pass.
+**The sequencer (`$2057A`).** Each channel has a 14-byte **cursor** at
+`$21490 + ch·$E` that walks a per-channel **linked list of note events**:
 
-Steps 2–3 are in progress; this section will be extended with the song grammar and
-the period/volume model once they are pinned against the capture.
+```
+cursor / event (14 bytes):
+  +$0  long   -> next event (the list link)
+  +$4  word    duration counter
+  +$6  long    condition / hold flag
+  +$A  long   -> instrument descriptor
+
+instrument descriptor:
+  +$0  word    sample length (in words)
+  +$4  word    -> volume parameter
+  +$6  word    -> period (pitch) parameter
+  +$8  long   -> 8-bit PCM sample (in a *Snd chip-RAM hunk)
+```
+
+On each call it counts the duration down; when it expires it copies the next
+14-byte event over the cursor (following the `+$0` link) and emits a note. Emitting
+a note fills the channel's `IOAudio` straight from the instrument: `ioa_Data` ←
+sample, `ioa_Length` ← length·2, `ioa_Period` ← a per-channel pitch
+(`$21708`), `ioa_Volume` ← a per-channel volume (`$21850`), `ioa_Cycles` ←
+duration + 1, `io_Command` ← `CMD_WRITE` (3) — and submits it. The device plays
+the sample `Cycles` times, then replies, and the cycle repeats.
+
+So a Marble song is, per voice, simply a **list of (instrument, duration)** events,
+where the instrument names a one-shot PCM sample and a base pitch/volume — about as
+simple as a sampled-sound sequencer gets, and a world away from a TFMX macro engine.
+What remains to fully pin down (in progress) is the `$21708`/`$21850` pitch and
+volume helpers (per-channel state at `$20FCC`/`$20FC4` plus the instrument's `+$6`/
+`+$4` — most likely a pitch slide and a volume envelope), and the exact `*Snd` hunk
+that holds each voice's event list. The reimplementation then walks the linked
+lists in Go and mixes `sample @ period × volume` as Paula would, rendering one full
+pass per course with loop detection.
 
 ---
 
