@@ -181,6 +181,7 @@ func main() {
 	id := flag.Int("id", -1, "soundID to trigger (-1 = enumerate all)")
 	secs := flag.Float64("secs", 12, "virtual seconds to render after the trigger")
 	trace := flag.Bool("trace", false, "log every trapped call")
+	music := flag.Bool("music", false, "after triggering, drive the per-frame music sequencer $1F286")
 	flag.Parse()
 	if flag.NArg() < 2 {
 		fmt.Fprintln(os.Stderr, "usage: sndoracle disk.adf decrypted.dat.hunk [-course prcsnd] [-id N] [-secs S]")
@@ -283,8 +284,27 @@ func main() {
 		m.game.blocked = 0
 		m.game.alive = true
 		m.schedule(cpu, traps)
-		// run the dual clock for a while so the score plays out
-		m.runClock(cpu, traps, m.clock+*secs)
+		// run the dual clock for a while so the score plays out. For music (op0/op2),
+		// also drive the per-frame music sequencer $1F286 at 50Hz, which advances the
+		// h1 arrangement and issues play commands to the SfxTask.
+		end := m.clock + *secs
+		if *music {
+			for frame := 0; m.clock < end; frame++ {
+				if m.cur != nil {
+					m.save(cpu, &m.cur.regs)
+				}
+				m.cur = nil
+				m.game.regs.PC = datBase + 0x1F286
+				m.game.regs.A[7] = gameStack - 4
+				m.w32(gameStack-4, sentinel)
+				m.game.blocked = 0
+				m.game.alive = true
+				m.schedule(cpu, traps)        // run one music tick + resulting task work
+				m.runClock(cpu, traps, m.clock+1.0/50.0) // advance ~one frame of device time
+			}
+		} else {
+			m.runClock(cpu, traps, end)
+		}
 		m.logf("=== soundID %d: %d notes ===", sid, len(m.notes)-before)
 		if os.Getenv("DBG") != "" {
 			for ch := uint32(0); ch < 4; ch++ {
