@@ -34,6 +34,64 @@ const FLICKER_RATE = 0.37;
 const OLD_FPS = 12;
 const LORES_H = 168;
 
+// CRT post-process. In old-school mode the scene is rendered into a small
+// (LORES_H-tall) texture, then this shader draws that texture to the full-res
+// canvas with the tube's character: barrel curvature + bezel, scanlines, an
+// aperture-grille RGB mask (needs the full output resolution to resolve), a cheap
+// phosphor bloom, and a vignette. Sampling the small texture with NEAREST keeps
+// the chunky C64 pixels; the mask/scanlines then live in the high-res output.
+const CRT_VERT = /* glsl */`
+  varying vec2 vUv;
+  void main() { vUv = uv; gl_Position = vec4(position.xy, 0.0, 1.0); }
+`;
+const CRT_FRAG = /* glsl */`
+  varying vec2 vUv;
+  uniform sampler2D tScene;
+  uniform vec2 uOutRes;   // output size in CSS px (DPI-independent mask)
+  uniform vec2 uSceneRes; // low-res scene texture size
+  const float PI = 3.14159265;
+
+  vec2 curve(vec2 uv) {            // barrel screen curvature
+    uv = uv * 2.0 - 1.0;
+    vec2 off = abs(uv.yx) * vec2(0.045, 0.060);
+    uv += uv * off * off;
+    return uv * 0.5 + 0.5;
+  }
+
+  void main() {
+    vec2 uv = curve(vUv);
+    if (uv.x < 0.0 || uv.x > 1.0 || uv.y < 0.0 || uv.y > 1.0) {
+      gl_FragColor = vec4(0.0, 0.0, 0.0, 1.0); return; // black bezel off the tube
+    }
+    vec3 col = texture2D(tScene, uv).rgb;
+    // cheap phosphor bloom: a few taps of the small source texture
+    vec2 g = 1.4 / uSceneRes;
+    vec3 glow = texture2D(tScene, uv + vec2(g.x, 0.0)).rgb
+              + texture2D(tScene, uv - vec2(g.x, 0.0)).rgb
+              + texture2D(tScene, uv + vec2(0.0, g.y)).rgb
+              + texture2D(tScene, uv - vec2(0.0, g.y)).rgb
+              + texture2D(tScene, uv + g).rgb
+              + texture2D(tScene, uv - g).rgb;
+    col += glow * 0.10;
+    // scanlines: one dark gap per source row
+    float scan = 0.5 + 0.5 * cos(uv.y * uSceneRes.y * 2.0 * PI);
+    col *= mix(1.0, scan, 0.35);
+    // aperture-grille RGB mask, 3 CSS px per triad
+    float tri = mod(floor(vUv.x * uOutRes.x), 3.0);
+    vec3 mask = (tri < 1.0) ? vec3(1.0, 0.55, 0.55)
+              : (tri < 2.0) ? vec3(0.55, 1.0, 0.55)
+                            : vec3(0.55, 0.55, 1.0);
+    col *= mask;
+    col *= 1.7; // compensate for the mask/scanline darkening
+    vec2 vd = vUv * 2.0 - 1.0; // vignette
+    col *= clamp(1.0 - 0.25 * dot(vd, vd), 0.0, 1.0);
+    // the scene texture is linear; this is a raw ShaderMaterial (no auto output
+    // encode), so encode to sRGB ourselves for correct midtone brightness
+    col = pow(clamp(col, 0.0, 1.0), vec3(1.0 / 2.2));
+    gl_FragColor = vec4(col, 1.0);
+  }
+`;
+
 // ShipMesh holds one ship's geometry and the per-frame visible-edge buffer.
 // Flat typed arrays keep the HSR loop tight; verts/normals stay in model space
 // (the ship never moves — the camera orbits). Elite's +Y is up, matching
@@ -167,7 +225,32 @@ export class ShipViewer {
     this.flickerPhase = 0;
   }
 
-  setOldSchool(on) { this.oldSchool = on; this._applyResolution(); }
+  setOldSchool(on) {
+    this.oldSchool = on;
+    if (this.hud) this.hud.style.display = on ? 'none' : ''; // hide the overlay text on a real CRT
+    this._applyResolution();
+  }
+
+  // _buildCRT sets up the low-res scene render target and the full-screen quad
+  // that runs the CRT shader over it (only used when old-school is on).
+  _buildCRT() {
+    this.crtTarget = new THREE.WebGLRenderTarget(320, LORES_H, {
+      minFilter: THREE.NearestFilter, magFilter: THREE.NearestFilter,
+    });
+    this.crtMaterial = new THREE.ShaderMaterial({
+      uniforms: {
+        tScene: { value: this.crtTarget.texture },
+        uOutRes: { value: new THREE.Vector2(1, 1) },
+        uSceneRes: { value: new THREE.Vector2(320, LORES_H) },
+      },
+      vertexShader: CRT_VERT,
+      fragmentShader: CRT_FRAG,
+      depthTest: false, depthWrite: false,
+    });
+    this.crtCam = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
+    this.crtScene = new THREE.Scene();
+    this.crtScene.add(new THREE.Mesh(new THREE.PlaneGeometry(2, 2), this.crtMaterial));
+  }
 
   async init() {
     const res = await fetch('public/elite/ships.json');
@@ -196,6 +279,7 @@ export class ShipViewer {
     // Once the user grabs the ship, stop the idle spin for good.
     this.controls.addEventListener('start', () => { this.controls.autoRotate = false; });
 
+    this._buildCRT();
     this._resize();
     new ResizeObserver(() => this._resize()).observe(this.viewport);
 
@@ -210,7 +294,15 @@ export class ShipViewer {
       if (this.current) {
         this.current.updateForCamera(this.camera.position, this.oldSchool ? this.flickerPhase : -1);
       }
-      this.renderer.render(this.scene, this.camera);
+      if (this.oldSchool) {
+        // render the scene into the low-res tube texture, then the CRT shader to the canvas
+        this.renderer.setRenderTarget(this.crtTarget);
+        this.renderer.render(this.scene, this.camera);
+        this.renderer.setRenderTarget(null);
+        this.renderer.render(this.crtScene, this.crtCam);
+      } else {
+        this.renderer.render(this.scene, this.camera);
+      }
     };
     requestAnimationFrame(tick);
     return this.ships;
@@ -218,26 +310,22 @@ export class ShipViewer {
 
   _resize() { this._applyResolution(); }
 
-  // _applyResolution sizes the drawing buffer: full viewport resolution normally,
-  // or a low internal resolution (LORES_H tall) in old-school mode, which the CSS
-  // canvas (100% of the viewport) then upscales with nearest-neighbour for a
-  // chunky C64-multicolor look. The camera aspect always tracks the real viewport.
+  // _applyResolution keeps the canvas at full viewport resolution (so the CRT
+  // mask/scanlines have pixels to live in) and sizes the low-res scene texture
+  // (LORES_H tall, aspect-matched) that the CRT pass upscales in old-school mode.
   _applyResolution() {
     const w = this.viewport.clientWidth, h = this.viewport.clientHeight;
     if (!w || !h) return;
-    const cv = this.renderer.domElement;
-    if (this.oldSchool) {
-      const s = Math.min(1, LORES_H / h);
-      this.renderer.setPixelRatio(1);
-      this.renderer.setSize(Math.max(2, Math.round(w * s)), Math.max(2, Math.round(h * s)), false);
-      cv.style.imageRendering = 'pixelated';
-    } else {
-      this.renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
-      this.renderer.setSize(w, h, false);
-      cv.style.imageRendering = ''; // revert to the smooth .viewport-3d rule
-    }
+    this.renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+    this.renderer.setSize(w, h, false);
     this.camera.aspect = w / h;
     this.camera.updateProjectionMatrix();
+    if (this.crtTarget) {
+      const lw = Math.max(2, Math.round(LORES_H * w / h));
+      this.crtTarget.setSize(lw, LORES_H);
+      this.crtMaterial.uniforms.uSceneRes.value.set(lw, LORES_H);
+      this.crtMaterial.uniforms.uOutRes.value.set(w, h); // CSS px → DPI-independent mask
+    }
   }
 
   loadShip(index) {
