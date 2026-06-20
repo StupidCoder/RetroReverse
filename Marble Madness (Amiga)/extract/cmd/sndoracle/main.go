@@ -305,7 +305,8 @@ func main() {
 		} else {
 			m.runClock(cpu, traps, end)
 		}
-		m.logf("=== soundID %d: %d notes ===", sid, len(m.notes)-before)
+		m.logf("=== soundID %d: %d notes (song $1FA1A=$%X $1FA68=$%X) ===", sid, len(m.notes)-before,
+			m.r32(datBase+0x1FA1A), m.r32(datBase+0x1FA68))
 		if os.Getenv("DBG") != "" {
 			for ch := uint32(0); ch < 4; ch++ {
 				pd := m.r32(datBase + 0x21148 + ch*4)
@@ -567,7 +568,7 @@ func (m *machine) putMsg(port, msg uint32) {
 		}
 	}
 	if m.trace {
-		m.logf("PutMsg port=$%X msg=$%X cmd=%d", port, msg, m.r16(msg+ioCommand))
+		m.logf("PutMsg port=$%X msg=$%X taskcmd=%d(+$1A) id=%d(+$14)", port, msg, m.ram[msg+0x1A], m.r32(msg+0x14))
 	}
 }
 
