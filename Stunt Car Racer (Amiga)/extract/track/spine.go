@@ -27,32 +27,13 @@ func (im *Image) u16(a int) int { return int(im.b[a-Base])<<8 | int(im.b[a-Base+
 func handle(w int) int { return ((((w<<8|w>>8)&0xFFFF)-bias)&0xFFFF)+dataBase }
 
 // Node is one section's data: the loader's internal base position (X,Z — verified
-// coordinate-exact vs the oracle, but an internal layout, not the visible plan), the
-// reconstructed world plan position (PlanX, PlanY — the actual circuit, see Plan), and
-// the raw section fields.
+// coordinate-exact vs the oracle, but a per-piece extent, not the visible plan), the
+// section's plan-view grid cell (PlanX, PlanY — the actual circuit footprint), and the
+// raw section fields.
 type Node struct {
 	X, Z         int16
 	PlanX, PlanY int
 	Type, P1, P2, Attr int
-}
-
-// planStep turns a section's heading (its type-quadrant + the fine direction packed in
-// p1's nibbles, the $5FF94 routine) into a plan-view displacement. The intra-quadrant
-// vector is (p1.lo-8, p1.hi-8); the section's quadrant (type & $C0) rotates/reflects it
-// into world space. The quadrant transform was fixed by the constraint that every
-// circuit must close into a loop (see Stunt_Car_Racer.md Part IV §6).
-func planStep(typ, p1 int) (int, int) {
-	dx, dy := (p1&0x0F)-8, (p1>>4)-8
-	switch (typ >> 6) & 3 {
-	case 0:
-		return dx, dy
-	case 1:
-		return dy, dx
-	case 2:
-		return -dx, dy
-	default:
-		return -dy, dx
-	}
 }
 
 // Track is a decoded circuit: its sections' plan-view nodes plus the header.
@@ -164,13 +145,13 @@ func (im *Image) Spine(id int) Track {
 		nodes = append(nodes, Node{X: nodeX, Z: nodeZ, Type: typ, P1: p1, P2: p2, Attr: attr})
 	}
 
-	// Second pass: walk the world plan by accumulating each section's heading step.
-	px, py := 0, 0
+	// Plan footprint: each section's cell on the 16x16 track grid. The engine's
+	// section lookup ($5FE04) indexes the table $1C280 — built by $64304 as
+	// $1C280[p1] = section — by (y<<4)|x, so p1's low nibble is the grid X and its
+	// high nibble the grid Y. Consecutive sections are always adjacent cells.
 	for i := range nodes {
-		nodes[i].PlanX, nodes[i].PlanY = px, py
-		dx, dy := planStep(nodes[i].Type, nodes[i].P1)
-		px += dx
-		py += dy
+		nodes[i].PlanX = nodes[i].P1 & 0x0F
+		nodes[i].PlanY = nodes[i].P1 >> 4
 	}
 
 	return Track{Sections: count, FinishIdx: off(1), Nodes: nodes}

@@ -8,7 +8,7 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 
-const WIDTH = 2.5; // nominal half-width of the track ribbon, in plan units
+const WIDTH = 0.32; // nominal half-width of the track ribbon, in grid-cell units
 
 export class TrackViewer {
   constructor(el) {

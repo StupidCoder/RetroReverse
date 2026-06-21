@@ -35,16 +35,17 @@
       filesystem; a table of handles at <code>$1F0A2</code> locates each track's byte
       stream, which is a run-length-encoded list of sections that the loader
       (<code>$5AE46</code>) walks to lay out the circuit. This viewer re-runs that walk
-      (package <code>track</code>) and lays each circuit out in plan by accumulating each
-      section's <em>heading</em> — its <code>type</code>'s quadrant plus the fine
-      direction packed into the section parameter — then draws the track as a
-      <b>hidden-line wireframe</b> ribbon: the two rails plus a rung per section,
-      coloured along the lap (blue → red) with the green marker at the start/finish
-      line. The underlying section decode (types, parameters, segment lengths) is
-      verified <b>coordinate-exact</b> against the original loader executed on our Go
-      68000 core, for all eight tracks; the heading layout is a reconstruction, pinned by
-      the constraint that every circuit must close into a loop — and it does, into the
-      figure-eights, crossovers and weaves of the real tracks.
+      (package <code>track</code>) and lays each circuit out on its <b>16×16 plan grid</b>
+      — each section's cell is read straight from the section parameter the engine itself
+      uses to look sections up (<code>$5FE04</code>/<code>$64304</code>): the parameter's
+      low nibble is the grid X, its high nibble the grid Y. Consecutive sections are
+      always adjacent cells, so the footprints are smooth closed loops — a diamond
+      (Little Ramp), a rectangle (Stepping Stones), the two inner prongs of the
+      drawbridge (Draw Bridge). The track is drawn as a <b>hidden-line wireframe</b>
+      ribbon: two rails plus a rung per section, coloured along the lap (blue → red) with
+      the green marker at the start/finish line. The whole decode is from the disk in Go,
+      with the section parse verified <b>coordinate-exact</b> against the original loader
+      on our Go 68000 core.
       <br /><br />
       <b>Work in progress:</b> the ribbon is flat — the per-section <em>elevation</em>
       (the ramps, jumps and famous over-passes) is a separate vertical profile still

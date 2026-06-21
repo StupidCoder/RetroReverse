@@ -53,7 +53,7 @@ way (the eight tracks located and extracted, section grammar in progress); Part 
   - [3. The section stream and spine builder](#3-the-section-stream-rle-and-the-spine-builder)
   - [4. A verified Go decoder](#4-a-verified-go-decoder)
   - [5. The spine geometry and re-drawing the circuits](#5-the-spine-geometry-and-re-drawing-the-circuits)
-  - [6. The world plan (heading layout)](#6-the-world-plan-heading-layout)
+  - [6. The plan footprint (the 16×16 track grid)](#6-the-plan-footprint-the-1616-track-grid)
 - [Part V — The physics simulation](#part-v--the-physics-simulation)
 - [Appendix A — Toolchain and reproduction](#appendix-a--toolchain-and-reproduction)
 
@@ -507,48 +507,62 @@ evidence that one of `$1C650`/`$1C718` is the **vertical** (the `a4`/`a5` pair r
 horizontal/vertical cross-sections), so the raw plot is closer to a side profile than
 a plan.
 
-So `$1C650/$1C718` are *base positions*, and the visible circuit is composed from them
-plus a per-section **heading**. That heading is what §6 recovers.
+So `$1C650/$1C718` are per-piece *extents*, not the plan. The plan footprint is held
+elsewhere — and reading the renderer, not guessing, finds it (§6).
 
-## 6. The world plan (heading layout)
+## 6. The plan footprint (the 16×16 track grid)
 
-The renderer turns a section into a world direction in `$5FF94`: it splits the section
-parameter `p1` into its two nibbles, forms the intra-quadrant vector
-`(p1.lo − 8, p1.hi − 8)`, and rotates/reflects it by a **quadrant**. For the static
-track the quadrant is the section's own `type & $C0`. Accumulating that displacement
-section by section lays out the circuit:
+The engine renders the track by walking from the player's section outward, and to find
+the next section it consults a lookup table. `$5FE04` is that lookup: it forms a byte
+index `(y << 4) | x` from a grid coordinate and reads the **256-entry table `$1C280`**,
+returning the section sitting in that cell (or `$FF` for empty). That table is built by
+`$64304`:
 
 ```
-plan = (0,0)
-for each section i:
-    node[i].plan = plan
-    (dx,dy) = (p1.lo − 8, p1.hi − 8)
-    plan += quadrant_rotate(dx, dy, type & $C0)
+for each section i:  $1C280[ p1[i] ] = i        ; p1 indexes the 16×16 grid
 ```
 
-The four quadrant transforms (`$00 → (dx,dy)`, `$40 → (dy,dx)`, `$80 → (−dx,dy)`,
-`$C0 → (−dy,dx)`) were pinned by a hard constraint: **every one of the eight circuits
-must close into a loop.** Under that constraint the layout falls out unambiguously and
-produces the real tracks — the figure-eights, crossovers and weaves that *Stunt Car
-Racer* is known for (Roller Coaster and Draw Bridge cross themselves repeatedly; Ski
-Jump is a tight loop with its jump straight). `package track` computes this in its
-second pass (`planStep`), and `cmd/trackjson` exports it.
+So **`p1` is the section's cell on a 16×16 grid** — its low nibble the grid X, its high
+nibble the grid Y. That is the track's plan footprint, read straight from the data:
 
-This is a *reconstruction*, not (yet) a coordinate-exact match: it reproduces the
-circuit topology and shape, but the exact per-section step magnitudes and the vertical
-profile still come from the render path. The plan tightens to a clean closed loop for
-every track, which — together with matching the known track shapes — is strong
-evidence the heading model is right.
+```
+node[i].planX = p1 & $0F
+node[i].planY = p1 >> 4
+```
+
+No heading accumulation, no quadrant transforms, no fitting — and it is unambiguous:
+**every consecutive section is an adjacent grid cell** (0 non-adjacent steps across all
+eight tracks), so the plans are smooth closed loops with no sharp corners and no
+spurious self-crossings. The footprints are the real circuits — *Little Ramp* a
+diamond, *Stepping Stones* a rectangle, and *Draw Bridge* a loop with the two inner
+prongs that are literally its drawbridge:
+
+```
+.##..........##.        .##....########.
+#..#........#..#        #..#..#........#
+#..#........#..#        #..#..#........#   Roller Coaster (right):
+#..#........S..#        #..#..#........S   an outer lap with an
+#..#........#..#  ...   #..#..#........#   inner peninsula the
+#...########...#        #...##.........#   track doubles back along
+#..............#        #..............#
+.##############.        .##############.
+  Draw Bridge             Roller Coaster
+```
+
+`package track` sets `PlanX/PlanY` from `p1`; `cmd/trackjson` exports them; the viewer
+draws them. (An earlier attempt reconstructed the plan by accumulating a per-section
+heading from `p1`'s nibbles and a `type` quadrant — it was wrong: it forced closure with
+a fitted quadrant table and produced sharp corners and false crossings. Reading
+`$5FE04`/`$64304` replaced it with the actual grid.)
 
 **The web viewer** (`extract/cmd/trackjson` → `site/public/stuntcar/tracks.json`,
-`site/stuntcar.html` + `site/src/stuntcar/`) draws the reconstructed plan of each
-circuit as a hidden-line wireframe ribbon. It is flat for now; the per-section
-**elevation** (the ramps, jumps and over-passes) is the remaining vertical profile —
-the `$5A1A6` renderer reads two offset shapes per vertex (one horizontal, one
-vertical), so the elevation is carried by the second (`attr`-indexed) shape and the
-type's high bits, still to be decoded.
+`site/stuntcar.html` + `site/src/stuntcar/`) draws each grid footprint as a hidden-line
+wireframe ribbon. It is flat for now; the per-section **elevation** (the ramps, jumps
+and over-passes) is the remaining vertical profile — the `$5A1A6` renderer reads two
+offset shapes per vertex (one horizontal, one vertical), so the elevation is carried by
+the second (`attr`-indexed) shape and the type's high bits, still to be decoded.
 
-*Elevation (vertical profile) + exact step magnitudes: next.*
+*Elevation (vertical profile): next.*
 
 ---
 
