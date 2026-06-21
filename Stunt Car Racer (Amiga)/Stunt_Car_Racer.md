@@ -491,21 +491,39 @@ depend on any 68000 quirk):
 takes only `d1` = track id and self-initialises) and reads the `$1C650`/`$1C718`
 arrays back out; `extract/cmd/spineverify` checks `package track` against it.
 **All eight tracks match coordinate-exact** — the Go decoder is the source of truth,
-the oracle only confirms it. The spines are unmistakably the real circuits (all eight
-close into loops, 40–78 sections, world extents ~7 k–19 k units).
+the oracle only confirms it.
 
-**The web viewer.** `extract/cmd/trackjson` exports the eight decoded spines (via
-`package track`) to `site/public/stuntcar/tracks.json`, and `site/stuntcar.html` +
-`site/src/stuntcar/` draw each circuit as a hidden-line wireframe ribbon (the two
-rails plus a rung per section, the same depth-fill technique as the Marble Madness
-slope viewer), coloured along the lap with the start/finish marked. The ribbon is
-currently **flat**: the per-section **elevation** (the ramps, jumps and the famous
-over-passes) is a separate render-time computation — the `$65BEC` builder branches on
-the type's high bits (`type & $C0`/`$10`) and the per-type shape's `a0[1]` (`$1BB4D`)
-to raise/lower the ribbon — still to be reverse-engineered. Once it (and the exact
-per-section **width**) are decoded, the tracks will stand up in 3-D.
+**These arrays are not (yet) the world centre-line.** Plotted directly, `$1C650`/
+`$1C718` form thin slivers (plan aspect 6:1 to 23:1 — Ski Jump is almost a straight
+line), which are *not* the shapes of the real circuits. Tracing the renderer shows
+why: the per-section vertex builder `$5C0AA` returns `shape_offset + $1BC0E/$1BC10`,
+where `$1BC0E/$1BC10` are exactly `$1C650[i]`/`$1C718[i]` — so these arrays are the
+section *base positions*, but the renderer (`$5A1A6`) also reads **two** offset shapes
+per vertex (`a4` from `p2`, `a5` from `attr`, alternating), and rotates everything by a
+per-section **heading** (`$1BBF2 = $1BC30 − $1BC4A`, with `$1BC4A = type & $C0` the
+section's quadrant and `p1` the intra-quadrant fine direction via `$5FF94`). Strong
+evidence that one of `$1C650`/`$1C718` is the **vertical** (the `a4`/`a5` pair reads as
+horizontal/vertical cross-sections), so the raw plot is closer to a side profile than
+a plan.
 
-*Elevation (vertical profile) + width: next.*
+**Open problem.** The visible 3-D circuit is composed from `(base position, heading,
+elevation)` in the render path, which is heavy view-space code (and hangs in the
+oracle without a full race/camera setup). Recovering that world transform faithfully —
+the heading accumulation and the vertical axis — is the active next step. Several
+direct reconstructions (treating `p1` as a 256-step angle, as a packed `(dx,dy)`
+vector, with `type&$C0` quadrants) were tried and rejected: none close the circuits.
+The plan is to drive the pre-race **3-D track-preview renderer** (which draws the whole
+circuit from outside) on the `tools/m68k` core with the correct entry state, read out
+the true per-section world vertices to *guide* the work, and reimplement that in Go
+(verified against it) — the same oracle-guided method that pinned the section format.
+
+**The web viewer** (`extract/cmd/trackjson` → `site/public/stuntcar/tracks.json`,
+`site/stuntcar.html` + `site/src/stuntcar/`) draws each section's node array as a
+hidden-line wireframe ribbon, and is **honestly labelled work-in-progress**: it shows
+the verified internal layout, not the final 3-D circuit, pending the world transform
+above.
+
+*World centre-line (heading + elevation) via the preview renderer: next.*
 
 ---
 

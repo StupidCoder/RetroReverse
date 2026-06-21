@@ -50,8 +50,10 @@ export class TrackViewer {
     if (t.group) { t.scene.remove(t.group); disposeGroup(t.group); }
     const group = new THREE.Group();
 
-    // Nodes -> centre-line points. Normalise to a unit-ish scale centred on origin.
-    const pts = track.nodes.map(n => ({ x: n[0], z: n[1], y: 0 }));
+    // Nodes -> centre-line points. The decoder's X,Z are a 45°-rotated pair (straight
+    // sections advance X and Z equally), so the true world axes are (X+Z, X−Z); without
+    // this the whole circuit collapses onto the X=Z diagonal and reads as a line.
+    const pts = track.nodes.map(n => ({ x: n[0] + n[1], z: n[0] - n[1], y: 0 }));
     const n = pts.length;
     let minX = Infinity, maxX = -Infinity, minZ = Infinity, maxZ = -Infinity;
     for (const p of pts) { minX = Math.min(minX, p.x); maxX = Math.max(maxX, p.x); minZ = Math.min(minZ, p.z); maxZ = Math.max(maxZ, p.z); }
@@ -114,10 +116,11 @@ export class TrackViewer {
     t.scene.add(group);
     t.group = group;
 
-    // Frame it down a dimetric angle.
+    // Frame it from a high, near-top-down angle so the (flat) circuit reads as a plan
+    // rather than edge-on. Pull back to fit the longest axis of the ribbon.
     const cam = t.camera, ctrl = t.controls;
     ctrl.target.set(0, 0, 0);
-    cam.position.set(5.5, 6.5, 7.5);
+    cam.position.set(0.5, 9, 5);
     cam.near = 0.1; cam.far = 100; cam.updateProjectionMatrix();
     ctrl.update();
   }
