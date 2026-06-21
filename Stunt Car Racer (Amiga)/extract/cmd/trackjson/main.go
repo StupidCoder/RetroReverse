@@ -24,8 +24,8 @@ type outTrack struct {
 	Name      string  `json:"name"`
 	Sections  int     `json:"sections"`
 	FinishIdx int     `json:"finishIdx"`
-	// [planX, planY, bank, type, p1, p2, attr] per section. planX/planY = the 16x16
-	// grid footprint (the circuit the viewer draws); bank = road camber ($1C650-$1C718).
+	// [planX, planY, height, bank, type, p1, p2, attr] per section. planX/planY = the
+	// 16x16 grid footprint; height = surface elevation; bank = camber.
 	Nodes [][]int `json:"nodes"`
 }
 
@@ -47,7 +47,7 @@ func main() {
 		t := im.Spine(id)
 		ns := make([][]int, len(t.Nodes))
 		for i, n := range t.Nodes {
-			ns[i] = []int{n.PlanX, n.PlanY, n.Bank, n.Type, n.P1, n.P2, n.Attr}
+			ns[i] = []int{n.PlanX, n.PlanY, n.Height, n.Bank, n.Type, n.P1, n.P2, n.Attr}
 		}
 		tracks = append(tracks, outTrack{name, t.Sections, t.FinishIdx, ns})
 	}

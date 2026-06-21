@@ -33,7 +33,8 @@ func handle(w int) int { return ((((w<<8|w>>8)&0xFFFF)-bias)&0xFFFF)+dataBase }
 type Node struct {
 	X, Z         int16
 	PlanX, PlanY int
-	Bank         int // road camber: $1C650-$1C718 (diverges on curves), not elevation
+	Height       int // surface elevation: ($1C650+$1C718)/2 (left+right rail heights)
+	Bank         int // road camber: $1C650-$1C718 (rail height difference)
 	Type, P1, P2, Attr int
 }
 
@@ -153,11 +154,15 @@ func (im *Image) Spine(id int) Track {
 	for i := range nodes {
 		nodes[i].PlanX = nodes[i].P1 & 0x0F
 		nodes[i].PlanY = nodes[i].P1 >> 4
-		// Camber: the two per-section extent arrays ($1C650 from p2, $1C718 from attr)
-		// are the ribbon's left/right edges; on a straight p2==attr and they agree, on a
-		// curve they diverge by how much the road banks. So this is the banking, not the
-		// elevation (the column height is a separate profile, still being traced).
-		nodes[i].Bank = int(nodes[i].X) - int(nodes[i].Z)
+		// The two extent arrays $1C650 (p2) and $1C718 (attr) are the ribbon's left and
+		// right rail heights — the vertex builder $5C0AA adds them un-rotated (>>5),
+		// unlike the heading-rotated plan footprint in $5C6C4. So their mean is the
+		// surface elevation and their difference is the banking (camber). The elevation
+		// profile matches the in-game preview: flat with one ramp (Big Ramp), gentle
+		// (Stepping Stones), a run of hills (Roller Coaster); every track closes.
+		l, r := int(nodes[i].X), int(nodes[i].Z)
+		nodes[i].Height = (l + r) / 2
+		nodes[i].Bank = l - r
 	}
 
 	return Track{Sections: count, FinishIdx: off(1), Nodes: nodes}

@@ -50,10 +50,14 @@ export class TrackViewer {
     if (t.group) { t.scene.remove(t.group); disposeGroup(t.group); }
     const group = new THREE.Group();
 
-    // Nodes -> centre-line points. n[0],n[1] = grid plan cell. Flat for now: the real
-    // per-section elevation lives in the per-type piece-shapes (still being decoded);
-    // n[2] is left in the data but not used as height (it was curvature, not height).
-    const pts = track.nodes.map(n => ({ x: n[0], z: n[1], y: 0 }));
+    // Nodes -> centre-line points. n[0],n[1] = grid plan cell; n[2] = surface elevation
+    // (mean of the two rail heights). Sit each track on the ground (subtract its min)
+    // and scale into grid-cell units so the relief reads against the plan.
+    const EY = 1 / 3600; // elevation units -> grid cells
+    let minH = Infinity;
+    for (const n of track.nodes) minH = Math.min(minH, n[2]);
+    // y = surface height; bankY = rail-height difference (camber), applied ± per rail.
+    const pts = track.nodes.map(n => ({ x: n[0], z: n[1], y: (n[2] - minH) * EY, bankY: n[3] * EY }));
     const n = pts.length;
     let minX = Infinity, maxX = -Infinity, minZ = Infinity, maxZ = -Infinity;
     for (const p of pts) { minX = Math.min(minX, p.x); maxX = Math.max(maxX, p.x); minZ = Math.min(minZ, p.z); maxZ = Math.max(maxZ, p.z); }
@@ -68,8 +72,8 @@ export class TrackViewer {
       let dx = b.x - a.x, dz = b.z - a.z;
       const len = Math.hypot(dx, dz) || 1; dx /= len; dz /= len;
       const nx = -dz, nz = dx; // left normal
-      left.push(new THREE.Vector3((c.x + nx * WIDTH - cx) * S, c.y * S, (c.z + nz * WIDTH - cz) * S));
-      right.push(new THREE.Vector3((c.x - nx * WIDTH - cx) * S, c.y * S, (c.z - nz * WIDTH - cz) * S));
+      left.push(new THREE.Vector3((c.x + nx * WIDTH - cx) * S, (c.y + c.bankY * 0.5) * S, (c.z + nz * WIDTH - cz) * S));
+      right.push(new THREE.Vector3((c.x - nx * WIDTH - cx) * S, (c.y - c.bankY * 0.5) * S, (c.z - nz * WIDTH - cz) * S));
     }
 
     // Invisible depth fill (the ribbon surface) for hidden-line removal.
@@ -108,6 +112,19 @@ export class TrackViewer {
     lgeom.setAttribute('color', new THREE.Float32BufferAttribute(lcol, 3));
     group.add(new THREE.LineSegments(lgeom, new THREE.LineBasicMaterial({ vertexColors: true })));
 
+    // Support columns down to the ground (y=0), like the game's preview, so the
+    // elevation reads. One per section, from the ribbon centre.
+    const cpos = [];
+    for (let i = 0; i < n; i++) {
+      const mx = (left[i].x + right[i].x) / 2, mz = (left[i].z + right[i].z) / 2, my = (left[i].y + right[i].y) / 2;
+      if (my > 0.02) cpos.push(mx, my, mz, mx, 0, mz);
+    }
+    if (cpos.length) {
+      const cg = new THREE.BufferGeometry();
+      cg.setAttribute('position', new THREE.Float32BufferAttribute(cpos, 3));
+      group.add(new THREE.LineSegments(cg, new THREE.LineBasicMaterial({ color: 0x6b4a3a })));
+    }
+
     // Start/finish marker (green) at section 0.
     const sm = new THREE.Mesh(new THREE.SphereGeometry(0.12, 12, 12), new THREE.MeshBasicMaterial({ color: 0x35d07f }));
     sm.position.copy(left[0]).add(right[0]).multiplyScalar(0.5);
@@ -116,11 +133,10 @@ export class TrackViewer {
     t.scene.add(group);
     t.group = group;
 
-    // Frame it from a high, near-top-down angle so the (flat) circuit reads as a plan
-    // rather than edge-on. Pull back to fit the longest axis of the ribbon.
+    // Frame it from a raised 3/4 angle so both the circuit plan and the elevation read.
     const cam = t.camera, ctrl = t.controls;
-    ctrl.target.set(0, 0, 0);
-    cam.position.set(0.5, 6.5, 8);
+    ctrl.target.set(0, 0.5, 0);
+    cam.position.set(2.5, 5, 8.5);
     cam.near = 0.1; cam.far = 100; cam.updateProjectionMatrix();
     ctrl.update();
   }

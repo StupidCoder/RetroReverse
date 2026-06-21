@@ -54,7 +54,7 @@ way (the eight tracks located and extracted, section grammar in progress); Part 
   - [4. A verified Go decoder](#4-a-verified-go-decoder)
   - [5. The spine geometry and re-drawing the circuits](#5-the-spine-geometry-and-re-drawing-the-circuits)
   - [6. The plan footprint (the 16×16 track grid)](#6-the-plan-footprint-the-1616-track-grid)
-  - [7. Banking and elevation (in progress)](#7-banking-and-elevation-in-progress)
+  - [7. Banking and elevation](#7-banking-and-elevation)
 - [Part V — The physics simulation](#part-v--the-physics-simulation)
 - [Appendix A — Toolchain and reproduction](#appendix-a--toolchain-and-reproduction)
 
@@ -556,31 +556,43 @@ heading from `p1`'s nibbles and a `type` quadrant — it was wrong: it forced cl
 a fitted quadrant table and produced sharp corners and false crossings. Reading
 `$5FE04`/`$64304` replaced it with the actual grid.)
 
-## 7. Banking and elevation (in progress)
+## 7. Banking and elevation
 
 The game's pre-race **preview** (the "steer to rotate view" screen) draws each circuit
-as an *elevated ribbon on support columns*, so the track has two distinct vertical
-quantities: the **banking** (the ribbon tilts on the curves) and the **elevation** (the
-column height — how high the ribbon floats, the ramps and Roller-Coaster hills).
+as an *elevated ribbon on support columns*, which makes the two vertical quantities
+plain: the ribbon **banks** on the curves, and it **rises and falls** (the ramps, the
+Roller-Coaster hills) on columns of varying height. Both come, cleanly, from the
+loader's two per-section extent arrays.
 
-* **Banking.** The loader's two per-section extent arrays — the `p2`-indexed `$1C650`
-  and the `attr`-indexed `$1C718` — are the left/right edges of the ribbon. On a
-  straight `p2 == attr` so they agree; on a curve they diverge, by the amount the road
-  banks. So `$1C650 − $1C718` is the **camber**, not the height (an earlier draft
-  used it as elevation, which was wrong — its bumps sit on the corners, where roads
-  bank, not on the ramps).
-* **Elevation.** The column height is a separate vertical profile. The projection
-  `$5C6C4` builds each vertex's screen position from the section's per-type
-  **piece-shape** (`$1EF82 + (type&$F)*2`) plus the `type & $10` "raised" bit, so the
-  rise lives there — but the exact decode is not yet pinned, and won't be guessed.
+Tracing the two vertex builders settles which is which:
 
-The plan to finish it is to trace the **preview renderer** itself (it computes absolute
-world `(x, height, z)` for every section to draw the whole track from outside, unlike
-the camera-relative in-race renderer), read out the per-section column height, and
-reimplement that — validated against the preview screenshots (Big Ramp's single ramp,
-Stepping Stones nearly flat, Roller Coaster's run of hills).
+* `$5C6C4` reads the section's per-type **piece-shape** and rotates *both* its
+  components by the section's orientation (its four quadrant cases are a 2-D rotation).
+  A quantity that rotates with heading is **in-plane** — so this builds the plan
+  footprint, not the height.
+* `$5C0AA` reads the two extent arrays `$1C650` (from `p2`) and `$1C718` (from `attr`),
+  adds them **un-rotated** (and `>>5`), and *those* are the heights of the ribbon's
+  **left and right rails** — a vertical doesn't turn with the heading.
 
-*Elevation from the preview renderer; then Part V — the physics.*
+So the two rail heights give both quantities directly:
+
+```
+elevation = ($1C650 + $1C718) / 2      (the surface height)
+banking   =  $1C650 − $1C718           (the camber: rail-height difference)
+```
+
+On a straight the section's `p2 == attr`, the two rails are level, banking is zero;
+on a curve they diverge and the road tilts. The elevation profile **matches the
+preview screenshots**: Big Ramp is flat with a single ramp, Stepping Stones gently
+undulates, Roller Coaster is a run of hills — and every circuit's height **closes**
+over the lap (Hump Back exactly). (An earlier draft mis-used `$1C650 − $1C718` as the
+height; its bumps fell on the corners, where roads bank — caught and corrected.)
+
+`package track` sets `Height` and `Bank`, `cmd/trackjson` exports them, and the viewer
+lifts each rail by its height and draws support columns to the ground — the circuits
+now stand up in 3-D as the preview shows them.
+
+*Part V — the physics.*
 
 ---
 
