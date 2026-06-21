@@ -588,16 +588,21 @@ undulates, Roller Coaster is a run of hills — and every circuit's height **clo
 over the lap (Hump Back exactly). (An earlier draft mis-used `$1C650 − $1C718` as the
 height; its bumps fell on the corners, where roads bank — caught and corrected.)
 
-The height belongs to the **section (segment)**, not the vertex: each section is a flat
-platform and the changes are **vertical steps** at the boundaries. *Stepping Stones*
-makes this unmistakable — its middle sections alternate `1152, 3552, 1152, 3552, …`
-(steps of ±2400), i.e. flat stones with square gaps between them. So the viewer draws
-each segment as a flat top with a vertical riser to the next (not an interpolation,
-which would round the square steps into bumps).
+**Smooth or stepped** is decided per section the way the renderer does it (`$65D3C`):
+a vertex whose height deviates from the mean of its two neighbours by more than a
+threshold is a **sharp feature** (a step); otherwise the surface is **interpolated**.
+That single test separates drivable relief from hard edges cleanly across all eight
+circuits — *Stepping Stones* alternates `1152, 3552, 1152, …` (deviation 2400 → flat
+stones with square gaps), *Ski Jump* has its one jump, *Draw Bridge* its gap, *Big
+Ramp* its ramp lip, while *Hump Back*'s humps and *Roller Coaster*'s hills stay smooth
+(deviation ≤ 1776, below the threshold). So the viewer interpolates smooth runs and
+draws flat tops + vertical risers only where the data is sharp — not steps everywhere,
+which no car could drive.
 
 `package track` sets `Height` and `Bank`, `cmd/trackjson` exports them, and the viewer
-lifts each rail by its height, steps between segments, and draws support columns to the
-ground — the circuits now stand up in 3-D as the preview shows them.
+interpolates the smooth sections, steps the sharp ones, lifts each rail by its height,
+and draws support columns to the ground — the circuits now stand up in 3-D as the
+preview shows them.
 
 *Part V — the physics.*
 

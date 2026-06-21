@@ -83,13 +83,27 @@ export class TrackViewer {
     }
     const V = (p, y) => new THREE.Vector3(p.x, y, p.z);
 
-    // Invisible depth fill: each segment's flat top + the vertical riser at its far end.
+    // Smooth vs stepped, the way the renderer decides it ($65D3C): a vertex whose height
+    // deviates from the mean of its neighbours by more than a threshold is a sharp
+    // feature (a step); otherwise the surface is interpolated. So ramps and hills stay
+    // smooth and drivable, and only the genuine steps (the Stepping Stones, ramp lips)
+    // get flat tops with vertical risers. The threshold is on the raw height units.
+    const TH = 2000;
+    const hr = track.nodes.map(nn => nn[2]);
+    const sharp = hr.map((_, i) => Math.abs(hr[i] - (hr[(i - 1 + n) % n] + hr[(i + 1) % n]) / 2) >= TH);
+
+    // Invisible depth fill: a sloped top across smooth segments, or a flat top + riser
+    // where the segment is between two sharp (stepped) sections.
     const fpos = [];
     const quad = (a, b, c, d) => fpos.push(a.x, a.y, a.z, b.x, b.y, b.z, c.x, c.y, c.z, b.x, b.y, b.z, d.x, d.y, d.z, c.x, c.y, c.z);
     for (let i = 0; i < n; i++) {
       const j = (i + 1) % n;
-      quad(V(pL[i], hL[i]), V(pR[i], hR[i]), V(pL[j], hL[i]), V(pR[j], hR[i]));   // flat top at segment i's height
-      quad(V(pL[j], hL[i]), V(pR[j], hR[i]), V(pL[j], hL[j]), V(pR[j], hR[j]));   // riser to segment j's height
+      if (sharp[i] && sharp[j]) {
+        quad(V(pL[i], hL[i]), V(pR[i], hR[i]), V(pL[j], hL[i]), V(pR[j], hR[i]));   // flat top at segment i's height
+        quad(V(pL[j], hL[i]), V(pR[j], hR[i]), V(pL[j], hL[j]), V(pR[j], hR[j]));   // riser to segment j's height
+      } else {
+        quad(V(pL[i], hL[i]), V(pR[i], hR[i]), V(pL[j], hL[j]), V(pR[j], hR[j]));   // sloped (interpolated)
+      }
     }
     const fgeom = new THREE.BufferGeometry();
     fgeom.setAttribute('position', new THREE.Float32BufferAttribute(fpos, 3));
@@ -109,11 +123,16 @@ export class TrackViewer {
     };
     for (let i = 0; i < n; i++) {
       const j = (i + 1) % n, f = i / n;
-      edge(V(pL[i], hL[i]), V(pL[j], hL[i]), f); // flat left rail
-      edge(V(pR[i], hR[i]), V(pR[j], hR[i]), f); // flat right rail
       edge(V(pL[i], hL[i]), V(pR[i], hR[i]), f); // rung
-      edge(V(pL[j], hL[i]), V(pL[j], hL[j]), f); // left riser
-      edge(V(pR[j], hR[i]), V(pR[j], hR[j]), f); // right riser
+      if (sharp[i] && sharp[j]) {
+        edge(V(pL[i], hL[i]), V(pL[j], hL[i]), f); // flat left rail
+        edge(V(pR[i], hR[i]), V(pR[j], hR[i]), f); // flat right rail
+        edge(V(pL[j], hL[i]), V(pL[j], hL[j]), f); // left riser
+        edge(V(pR[j], hR[i]), V(pR[j], hR[j]), f); // right riser
+      } else {
+        edge(V(pL[i], hL[i]), V(pL[j], hL[j]), f); // sloped left rail
+        edge(V(pR[i], hR[i]), V(pR[j], hR[j]), f); // sloped right rail
+      }
     }
     const lgeom = new THREE.BufferGeometry();
     lgeom.setAttribute('position', new THREE.Float32BufferAttribute(lpos, 3));
