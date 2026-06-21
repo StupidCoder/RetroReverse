@@ -9,6 +9,10 @@
 //   game   : sectors 110..914 (offset $DC00, 805 sectors)  — the whole engine, which
 //            the loader reads to $E700 and enters there.
 //
+// The engine init ($ED56, Stunt_Car_Racer.md Part III) XOR-$80 decrypts the run-time
+// range $F4B8..$1AA4A in place before the main entry. We reproduce that here and also
+// emit game.dec.bin, so the encrypted region disassembles to real code/data statically.
+//
 // Usage: extract disk.adf [-out dir]   (defaults to ./extracted, beside the .adf)
 package main
 
@@ -36,6 +40,15 @@ var regions = []region{
 	{"game.bin", 110, 805, 0xE700, "the game engine + data (loader reads to $E700, entry $E700)"},
 }
 
+// The engine's anti-tamper pass ($ED56): EOR.b #$80 over the run-time range
+// [encStart,encEnd) of the $E700-based game image. We emit a decrypted copy so the
+// region disassembles statically.
+const (
+	gameBase = 0xE700
+	encStart = 0xF4B8
+	encEnd   = 0x1AA4A
+)
+
 func main() {
 	out := flag.String("out", "", "output directory (default: <adf dir>/extracted)")
 	flag.Parse()
@@ -60,9 +73,23 @@ func main() {
 			os.Exit(1)
 		}
 		p := filepath.Join(dir, r.name)
-		must(os.WriteFile(p, adf[off:off+n], 0o644))
+		blob := adf[off : off+n]
+		must(os.WriteFile(p, blob, 0o644))
 		fmt.Printf("%-10s sectors %d..%d  offset $%X  %d bytes  load $%X  — %s\n",
 			r.name, r.start, r.start+r.count-1, off, n, r.loadAt, r.desc)
+
+		// Emit a decrypted copy of the game image (the engine's $ED56 EOR-$80 pass).
+		if r.loadAt == gameBase {
+			dec := make([]byte, len(blob))
+			copy(dec, blob)
+			for a := encStart; a < encEnd; a++ {
+				dec[a-gameBase] ^= 0x80
+			}
+			dp := filepath.Join(dir, "game.dec.bin")
+			must(os.WriteFile(dp, dec, 0o644))
+			fmt.Printf("%-10s                          %d bytes  load $%X  — EOR-$80 decrypt of $%X..$%X (engine $ED56)\n",
+				"game.dec.bin", len(dec), r.loadAt, encStart, encEnd)
+		}
 	}
 }
 

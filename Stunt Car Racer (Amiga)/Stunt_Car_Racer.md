@@ -29,7 +29,8 @@ the shared `tools/` module — the AmigaDOS reader (`tools/amiga/adf`), the
 disassemblers (`tools/cmd/dis68k`, `tools/cmd/codetrace68k`) and an
 instruction-level 68000 execution core (`tools/m68k`) for dynamic verification.
 All addresses are 68000 addresses; sizes are `.b`/`.w`/`.l` (8/16/32-bit).
-**Status: Part I is an initial recon; Parts II–V are stubs / in progress.**
+**Status: Parts I–III done (disk format, loader, engine architecture); Parts IV–V
+(tracks, physics) in progress.**
 
 ---
 
@@ -42,6 +43,9 @@ All addresses are 68000 addresses; sizes are `.b`/`.w`/`.l` (8/16/32-bit).
   - [1. The boot block](#1-the-boot-block)
   - [2. The custom track loader](#2-the-custom-track-loader)
 - [Part III — Game program architecture](#part-iii--game-program-architecture)
+  - [1. Entry, self-check and supervisor setup](#1-entry-self-check-and-supervisor-setup-e700)
+  - [2. Hardware bring-up](#2-hardware-bring-up-ed56)
+  - [3. Game bootstrap and top-level loop](#3-game-bootstrap-and-top-level-loop-1ba08--5c890)
 - [Part IV — The tracks (vector circuits)](#part-iv--the-tracks-vector-circuits)
 - [Part V — The physics simulation](#part-v--the-physics-simulation)
 - [Appendix A — Toolchain and reproduction](#appendix-a--toolchain-and-reproduction)
@@ -173,11 +177,102 @@ Parts III–V.
 
 # Part III — Game program architecture
 
-*To be analysed.* The 68000 engine: startup, the Copper/blitter/interrupt setup
-for the vector display (the filled-polygon horizon, track ribbon and car), the
-main loop's structure (render ↔ simulate), and the memory map. Expected to be a
-single-buffered or double-buffered filled-vector renderer driving Paula/sound
-and reading the joystick.
+The game image (`game.bin`, `$E700`-based) is the 412 KB engine the loader streams
+in. Its first bytes are not code that's reached by falling through — they are the
+entry, a small trampoline, and an embedded Copper list — so the engine is best read
+by following the three transfers out of the entry.
+
+## 1. Entry, self-check and supervisor setup (`$E700`)
+
+```
+$E700  MOVEA.l #$E730,a0          ; a0 = start of the checksummed image
+       MOVE.l  #$63BA8,d3         ; byte count ($63BA8 = 408 488)
+$E70E  ADD.w   (a0)+,d0           ; 16-bit running sum over the whole image …
+       SUBQ.l  #2,d3
+       BNE     $E70E              ; … d0 = checksum
+       MOVE.w  #$5834,d0          ; (expected value; a mismatch path exists)
+$E730  MOVE.l  #$E73C,$80.l       ; install a TRAP #0 handler at vector $80…
+       TRAP    #0                 ; … to drop into supervisor mode
+$E73C  MOVEA.l #$EAD2,a7          ; set the supervisor stack
+       JSR     $ED56              ; hardware init (below)
+       JMP     $1BA08             ; main bootstrap (below)
+```
+
+So the image **checksums itself** ($63BA8 bytes summed as words), enters supervisor
+mode through a self-installed `TRAP #0`, sets `a7`, and then does two things: the
+hardware bring-up at `$ED56` and the game bootstrap at `$1BA08`. The bytes at
+`$E74E` immediately after the trampoline are an **embedded Copper list** (bitplane
+pointers `$078000…`, then the colour registers from `COLOR00` at `$180`), which
+`$ED56` installs.
+
+## 2. Hardware bring-up (`$ED56`)
+
+`$ED56` is a textbook bare-metal Amiga take-over:
+
+```
+MOVE    #$2700,sr                 ; ints off, supervisor
+MOVE.w  #$7FFF,$DFF09A / $DFF09C  ; INTENA / INTREQ: clear all
+MOVE.w  #$E839,$DFF09A            ; INTENA = master|VERTB|… enable
+MOVE.w  #$7CDF,$DFF096            ; DMACON  = master|bitplane|copper|blitter|sprite|disk|audio
+MOVE.l  #$EEC8,$64 … #$F000,$7C   ; level-1…7 autovector table (handlers $EEC8/$EF0A/$EF1A/$EF5A/$EFC4/$EFF0/$F000)
+…
+MOVE.l  #$E74E,$DFF080            ; COP1LC = the embedded Copper list
+MOVE.w  #$8380,$DFF096            ; DMACON: enable copper DMA
+JSR     $EE8A                     ; CIA setup (timers/keyboard at $BFExxx/$BFDxxx)
+;  ── anti-tamper ──
+MOVEA.l #$F4B8,a0 ; MOVEA.l #$1AA4A,a2
+EORI.b  #$80,(a0)+ ; CMPA.l a2,a0 ; BLT      ; XOR-$80 the range $F4B8..$1AA4A in place
+JSR     $F402
+RTS
+```
+
+Two details matter for the rest of the analysis:
+
+* **The autovector table** at `$64..$7C` wires the seven 68000 interrupt levels to
+  the engine's own handlers. The level-3 (VBlank, `$6C`) handler is `$EF1A`; the
+  audio handler set lives alongside the sound-buffer pointers initialised just above
+  (`$6A584/$6A588/$6A58C = $6A594` and `+$7D00`).
+* **The XOR-`$80` decryptor** rewrites `$F4B8..$1AA4A` (≈ 46 KB) in place before the
+  game runs. On disk that whole region is obfuscated, so a static disassembly of it
+  is garbage until decrypted. `extract/cmd/extract` reproduces this pass and writes
+  `extracted/game.dec.bin`; **all addresses in `$F4B8..$1AA4A` must be read from the
+  decrypted image.** (Everything `≥ $1AA4A`, including the main bootstrap `$1BA08`
+  and the top-level loop, is plaintext on disk.)
+
+## 3. Game bootstrap and top-level loop (`$1BA08` → `$5C890`)
+
+```
+$1BA08 clear $EAD6[$80]                     ; small state table
+       clear $7A01A..$7B6FA                 ; a screen / work region
+       (conditional) fill palette at $E770
+       JSR  $69CFC                          ; table init (per-entry loop over $6490…)
+       JMP  $5C890                          ; top level
+```
+
+`$5C890` sets up the working screen and palette buffers and enters the game's outer
+structure:
+
+```
+$5C890 MOVE.w #0,$23C32                     ; a mode/state word
+       copy $1ECAA[256]  -> $7A91A          ; a 256-byte table (LUT)
+       copy $5CF30[…]    -> $7A61A / $7A71A ; two parallel buffers (double-buffered colour/Copper)
+       TST.b $64AF0 ; BNE …                 ; a "skip intro" flag
+       JSR  $62D0A                          ; …
+       BRA  $5C960                          ; the main loop body
+```
+
+From here the engine is a conventional VBlank-paced loop: a state word
+(`$23C32`) selects the current screen (title / menu / track-select / race), the
+double-buffered colour/Copper buffers (`$7A61A`/`$7A71A`) are swapped each frame,
+and the level-3 handler (`$EF1A`) drives timing. The filled-vector race renderer,
+the track interpreter (Part IV) and the car simulation (Part V) hang off the race
+state of this loop.
+
+*Memory map (run-time, so far):* engine code/data from `$E700`; the encrypted
+`$F4B8..$1AA4A` block; sound buffers at `$6A594`; the working screen/Copper at
+`$78000`+ and double-buffered colour tables at `$7A61A`/`$7A71A`; assorted state
+words around `$23C32`/`$64AF0`. The track and physics tables are located in
+Parts IV–V.
 
 ---
 
@@ -229,8 +324,12 @@ All work is reproducible from the image with the shared `tools/` module:
 # Inspect the boot block / a raw region (disk offset maps 1:1 to bytes)
 go run stupidcoder.com/tools/cmd/dis68k -base 0 -skip 12 "Stunt Car Racer (Amiga)/Stunt Car Racer.adf"
 
-# Recursive-descent trace of a located code blob (once the loader's base is known)
-go run stupidcoder.com/tools/cmd/codetrace68k -base <addr> -entry <addr> blob.bin
+# Slice the disk into loader.bin, game.bin and the decrypted game.dec.bin
+cd "Stunt Car Racer (Amiga)/extract" && go run ./cmd/extract "../Stunt Car Racer.adf"
+
+# Disassemble / trace the engine. Use game.dec.bin for anything in $F4B8..$1AA4A.
+go run stupidcoder.com/tools/cmd/dis68k     -base 0xE700 -start <addr> -end <addr> extracted/game.dec.bin
+go run stupidcoder.com/tools/cmd/codetrace68k -base 0xE700 -entry <addr>            extracted/game.dec.bin
 ```
 
 Dynamic verification uses the instruction-level 68000 core in `tools/m68k`
