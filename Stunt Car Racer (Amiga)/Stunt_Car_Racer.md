@@ -52,6 +52,7 @@ way (the eight tracks located and extracted, section grammar in progress); Part 
   - [2. The record header](#2-the-record-header)
   - [3. The section stream and spine builder](#3-the-section-stream-rle-and-the-spine-builder)
   - [4. A verified Go decoder](#4-a-verified-go-decoder)
+  - [5. The spine geometry and re-drawing the circuits](#5-the-spine-geometry-and-re-drawing-the-circuits)
 - [Part V — The physics simulation](#part-v--the-physics-simulation)
 - [Appendix A — Toolchain and reproduction](#appendix-a--toolchain-and-reproduction)
 
@@ -446,13 +447,50 @@ sections are a single `$A0` run: a fresh `type $A0, p1 $CF, p2 $6A` section, the
 marker byte `$9F` (run = 9) followed by nine `p2` bytes, with `p1` stepping `−$10`
 each section — exactly the bytes on disk.
 
-What remains for the circuits is geometric, not structural: decode the per-section
-piece-shape sub-tables that `$5B2D2` follows (the handle in `$1BC8C`), then walk the
-spine (`$1C650`/`$1C718` start nodes + the shape profiles) to **re-draw each track**
-in plan/3-D — the Part IV goal — and verify the layout against the `tools/m68k`
-oracle running `$5AE46` on the same data.
+What remains for the circuits is geometric, not structural — covered in §5.
 
-*Piece-shape tables + spine re-draw: next.*
+## 5. The spine geometry, and re-drawing the circuits
+
+The section loop also lays the track out in plan view as it parses. Per section,
+given its decoded `(type, p1, p2, attr)`, the per-section setup `$5FE56`/`$5FEFA`
+resolves the geometry from three data tables — all reached by the same
+byte-swap/`−$B100`/`+$1EF82` handle decode as the track-pointer table:
+
+* **`$1EF82 + ((type & $F) << 8)`** → a per-type *piece-shape* table. Its layout
+  yields the section's **segment length** (`$1BB6A = $1BB97/2 − 1`, where
+  `$1BB97 = shape[shape[0]]`) and related step counts.
+* **`$1EFA2[p2*2]`** → the **X-offset shape** handle (`$1BC8C`); **`$1EFA2[attr*2]`**
+  → the **Z-offset shape** handle (`$1BC90`). `p2` also sets the sign mode `$1BB79`.
+
+The shape readers `$5B2D2` (X) and `$5B2C8` (Z) return the piece's offset at a given
+distance along it, and the loop walks the spine by
+
+```
+node.X = cur.X − shapeX(0) ;  cur.X = node.X + shapeX(len)
+node.Z = cur.Z − shapeZ(0) ;  cur.Z = node.Z + shapeZ(len)
+```
+
+storing each node in `$1C650[]` (X) / `$1C718[]` (Z) and accumulating the heading in
+`$1BC2A`. So a straight piece (where `p2 == attr`, common in the runs) advances X and
+Z equally — the world axes are the 45°-rotated `(x±z)` pair — and curves bend them
+apart.
+
+**Recovering the geometry.** `extract/cmd/spineoracle` executes the real `$5AE46`
+on the `tools/m68k` core over a flat image (it takes only `d1` = track id and
+self-initialises), then reads the `$1C650`/`$1C718` arrays back out. This is the
+project's *guide-and-verify* oracle — not a source of shipped data; the Go re-draw is
+reimplemented independently from the tables above and checked against it. The spines
+it produces are unmistakably the real circuits — all eight close into loops, 40–78
+sections, world extents ~7 k–19 k units (the commit's ASCII plot shows LITTLE RAMP
+and DRAW BRIDGE as recognisable closed tracks).
+
+**Remaining:** reimplement the spine walk in Go from the data tables (verified
+coordinate-exact against `spineoracle`), recover the per-section **elevation** (the
+ramps/jumps — not in the plan-view loop, so a separate vertical profile to locate)
+and **track width**, then build a hidden-line **wireframe level viewer** for the
+website (a 3-D track ribbon, in the spirit of the Marble Madness slope viewer).
+
+*Go spine re-draw + elevation + web viewer: next.*
 
 ---
 
@@ -493,6 +531,9 @@ go run ./cmd/tracks ../extracted/game.dec.bin    # -> extracted/tracks/<id>_<nam
 
 # Decode + verify the section streams (byte-exact against each track's length)
 go run ./cmd/sections ../extracted/game.dec.bin [-v]
+
+# Run the real $5AE46 on the m68k core and read out the spine (X,Z) per section
+go run ./cmd/spineoracle ../extracted/game.dec.bin [trackid]   # -> extracted/spine_<id>.csv
 
 # Disassemble / trace the engine. Use game.dec.bin for anything in $F4B8..$1AA4A.
 go run stupidcoder.com/tools/cmd/dis68k     -base 0xE700 -start <addr> -end <addr> extracted/game.dec.bin
