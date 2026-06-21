@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Stunt Car Racer (Amiga) — track viewer</title>
+  <link rel="stylesheet" href="src/style.css" />
+  <script type="importmap">
+  {
+    "imports": {
+      "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+      "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+    }
+  }
+  </script>
+</head>
+<body>
+  <header class="site">
+    <h1>AI Reverse Engineering</h1>
+    <nav><a href="index.html">Home</a><a href="sonic.html">Sonic (GG)</a><a href="elite.html">Elite (C64)</a><a href="fort.html">Fort Apocalypse (C64)</a><a href="turrican.html">Turrican (Amiga)</a><a href="marble.html">Marble Madness (Amiga)</a><a href="stuntcar.html">Stunt Car Racer (Amiga)</a></nav>
+  </header>
+
+  <div class="viewer-wrap">
+    <h2 style="margin:6px 0 12px">Stunt Car Racer (Amiga) — track viewer</h2>
+    <div id="viewport" class="viewport viewport-3d"></div>
+    <div class="controls">
+      <label>Track
+        <select id="track"></select>
+      </label>
+      <span class="hint">drag to rotate · scroll to zoom</span>
+    </div>
+    <p class="legend">
+      Each of the eight league circuits is the game's own track data, decoded
+      <em>purely in Go</em> from the disk image — no emulation. The disk has no
+      filesystem; a table of handles at <code>$1F0A2</code> locates each track's byte
+      stream, which is a run-length-encoded list of sections that the loader
+      (<code>$5AE46</code>) walks to lay out the circuit. This viewer re-runs that walk
+      (package <code>track</code>) to place each section's centre-line node, then draws
+      the track as a <b>hidden-line wireframe</b> ribbon — the two rails plus a rung per
+      section, coloured along the lap (blue → red) with the green marker at the
+      start/finish line. The reimplementation is verified <b>coordinate-exact</b> against
+      the original loader executed on our Go 68000 core, for all eight tracks.
+      <br /><br />
+      <b>Note:</b> the ribbon is currently flat — the per-section <em>elevation</em> (the
+      ramps, jumps and the famous over-passes) is a separate render-time computation
+      still being reverse-engineered, after which the tracks will stand up in 3-D. See
+      the
+      <a href="https://github.com/StupidCoder/AIReverseEngineering/blob/main/Stunt%20Car%20Racer%20(Amiga)/Stunt_Car_Racer.md">write-up</a>
+      (Part IV) for how the track format was decoded.
+    </p>
+  </div>
+
+  <script type="module" src="src/stuntcar/main.js"></script>
+</body>
+</html>

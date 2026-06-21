@@ -9,7 +9,7 @@
 <body>
   <header class="site">
     <h1>AI Reverse Engineering</h1>
-    <nav><a href="index.html">Home</a><a href="sonic.html">Sonic (GG)</a><a href="elite.html">Elite (C64)</a><a href="fort.html">Fort Apocalypse (C64)</a><a href="turrican.html">Turrican (Amiga)</a><a href="marble.html">Marble Madness (Amiga)</a></nav>
+    <nav><a href="index.html">Home</a><a href="sonic.html">Sonic (GG)</a><a href="elite.html">Elite (C64)</a><a href="fort.html">Fort Apocalypse (C64)</a><a href="turrican.html">Turrican (Amiga)</a><a href="marble.html">Marble Madness (Amiga)</a><a href="stuntcar.html">Stunt Car Racer (Amiga)</a></nav>
   </header>
 
   <main>
@@ -54,6 +54,15 @@
         68000 / Amiga. A course viewer: all six race courses rebuilt tile-by-tile from their
         <code>.mlb</code> map files exactly as the game's blitter assembles them. Drag to pan,
         scroll to zoom. (The height field the marble rolls on is a separate layer, coming later.)
+      </p>
+    </div>
+    <div class="card">
+      <h2><a href="stuntcar.html">Stunt Car Racer — Amiga</a></h2>
+      <p class="muted">
+        68000 / Amiga. A track viewer: all eight league circuits decoded purely in Go from the
+        disk's run-length-encoded section streams and re-drawn as hidden-line wireframe ribbons —
+        verified coordinate-exact against the original loader on our Go 68000 core. Drag to rotate,
+        scroll to zoom. (Elevation — the ramps and over-passes — is coming next.)
       </p>
     </div>
     <div class="card">

@@ -494,12 +494,18 @@ arrays back out; `extract/cmd/spineverify` checks `package track` against it.
 the oracle only confirms it. The spines are unmistakably the real circuits (all eight
 close into loops, 40–78 sections, world extents ~7 k–19 k units).
 
-**Remaining:** recover the per-section **elevation** (the ramps/jumps — not in the
-plan-view loop) and **track width**, then build a hidden-line **wireframe level
-viewer** for the website (a 3-D track ribbon, in the spirit of the Marble Madness
-slope viewer).
+**The web viewer.** `extract/cmd/trackjson` exports the eight decoded spines (via
+`package track`) to `site/public/stuntcar/tracks.json`, and `site/stuntcar.html` +
+`site/src/stuntcar/` draw each circuit as a hidden-line wireframe ribbon (the two
+rails plus a rung per section, the same depth-fill technique as the Marble Madness
+slope viewer), coloured along the lap with the start/finish marked. The ribbon is
+currently **flat**: the per-section **elevation** (the ramps, jumps and the famous
+over-passes) is a separate render-time computation — the `$65BEC` builder branches on
+the type's high bits (`type & $C0`/`$10`) and the per-type shape's `a0[1]` (`$1BB4D`)
+to raise/lower the ribbon — still to be reverse-engineered. Once it (and the exact
+per-section **width**) are decoded, the tracks will stand up in 3-D.
 
-*Elevation + web viewer: next.*
+*Elevation (vertical profile) + width: next.*
 
 ---
 
@@ -543,6 +549,12 @@ go run ./cmd/sections ../extracted/game.dec.bin [-v]
 
 # Run the real $5AE46 on the m68k core and read out the spine (X,Z) per section
 go run ./cmd/spineoracle ../extracted/game.dec.bin [trackid]   # -> extracted/spine_<id>.csv
+
+# Verify the pure-Go spine (package track) against the oracle, coordinate-exact
+go run ./cmd/spineverify ../extracted/game.dec.bin
+
+# Export the eight decoded circuits to JSON for the web track viewer
+go run ./cmd/trackjson ../extracted/game.dec.bin   # -> site/public/stuntcar/tracks.json
 
 # Disassemble / trace the engine. Use game.dec.bin for anything in $F4B8..$1AA4A.
 go run stupidcoder.com/tools/cmd/dis68k     -base 0xE700 -start <addr> -end <addr> extracted/game.dec.bin

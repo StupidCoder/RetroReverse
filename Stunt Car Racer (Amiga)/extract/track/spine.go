@@ -26,8 +26,13 @@ func (im *Image) u16(a int) int { return int(im.b[a-Base])<<8 | int(im.b[a-Base+
 // handle decodes a 16-bit table word to a run-time address: byte-swap, -$B100, +base.
 func handle(w int) int { return ((((w<<8|w>>8)&0xFFFF)-bias)&0xFFFF)+dataBase }
 
-// Node is one section's plan-view spine point (signed 16-bit world units).
-type Node struct{ X, Z int16 }
+// Node is one section's plan-view spine point (signed 16-bit world units), plus the
+// raw section fields, so callers can study the still-unresolved elevation (P1 and the
+// type's high bits are the candidates).
+type Node struct {
+	X, Z int16
+	Type, P1, P2, Attr int
+}
 
 // Track is a decoded circuit: its sections' plan-view nodes plus the header.
 type Track struct {
@@ -135,7 +140,7 @@ func (im *Image) Spine(id int) Track {
 		curX = nodeX + im.shapeDelta(xH, segLen, p2neg)
 		nodeZ := curZ - im.shapeDelta(zH, 0, p2neg)
 		curZ = nodeZ + im.shapeDelta(zH, segLen, p2neg)
-		nodes = append(nodes, Node{nodeX, nodeZ})
+		nodes = append(nodes, Node{nodeX, nodeZ, typ, p1, p2, attr})
 	}
 
 	return Track{Sections: count, FinishIdx: off(1), Nodes: nodes}
