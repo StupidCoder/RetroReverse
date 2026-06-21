@@ -104,18 +104,42 @@ export class TrackViewer {
     const cliff = hr.map((_, i) => Math.abs(at(i + 1) - hr[i]) >= CLIFF);
     const step = i => plat[i] || plat[(i + 1) % n] || cliff[i];
 
-    // Invisible depth fill: a sloped top across smooth segments, or a flat top + riser
-    // at a step.
-    const fpos = [];
-    const quad = (a, b, c, d) => fpos.push(a.x, a.y, a.z, b.x, b.y, b.z, c.x, c.y, c.z, b.x, b.y, b.z, d.x, d.y, d.z, c.x, c.y, c.z);
+    // Tessellate non-step segments with a Catmull-Rom spline so the curves round out —
+    // the curve pieces carry ~12 outline points in the data (vs 4 for a straight), which
+    // is exactly that rounding. Step sections stay as a flat top + a vertical riser.
+    // Build a continuous strip of cross-section "rings"; consecutive rings form a quad.
+    const SUB = 6;
+    const Li = i => pL[((i % n) + n) % n], Ri = i => pR[((i % n) + n) % n];
+    const HLi = i => hL[((i % n) + n) % n], HRi = i => hR[((i % n) + n) % n];
+    const cm = (a, b, c, d, t) => { const u = t * t, w = u * t; return 0.5 * (2 * b + (-a + c) * t + (2 * a - 5 * b + 4 * c - d) * u + (-a + 3 * b - 3 * c + d) * w); };
+    const cmPt = (A, B, C, D, t) => ({ x: cm(A.x, B.x, C.x, D.x, t), z: cm(A.z, B.z, C.z, D.z, t) });
+    const rings = [];
     for (let i = 0; i < n; i++) {
       const j = (i + 1) % n;
       if (step(i)) {
-        quad(V(pL[i], hL[i]), V(pR[i], hR[i]), V(pL[j], hL[i]), V(pR[j], hR[i]));   // flat top at segment i's height
-        quad(V(pL[j], hL[i]), V(pR[j], hR[i]), V(pL[j], hL[j]), V(pR[j], hR[j]));   // riser to segment j's height
+        rings.push({ l: Li(i), r: Ri(i), hl: HLi(i), hr: HRi(i) }); // flat-top start
+        rings.push({ l: Li(j), r: Ri(j), hl: HLi(i), hr: HRi(i) }); // flat-top end
+        rings.push({ l: Li(j), r: Ri(j), hl: HLi(j), hr: HRi(j) }); // vertical riser (same plan)
       } else {
-        quad(V(pL[i], hL[i]), V(pR[i], hR[i]), V(pL[j], hL[j]), V(pR[j], hR[j]));   // sloped (interpolated)
+        for (let s = 0; s < SUB; s++) {
+          const t = s / SUB;
+          rings.push({
+            l: cmPt(Li(i - 1), Li(i), Li(j), Li(j + 1), t),
+            r: cmPt(Ri(i - 1), Ri(i), Ri(j), Ri(j + 1), t),
+            hl: HLi(i) + (HLi(j) - HLi(i)) * t,
+            hr: HRi(i) + (HRi(j) - HRi(i)) * t,
+          });
+        }
       }
+    }
+    const m = rings.length;
+
+    // Invisible depth fill (the ribbon surface) for hidden-line removal.
+    const fpos = [];
+    const quad = (a, b, c, d) => fpos.push(a.x, a.y, a.z, b.x, b.y, b.z, c.x, c.y, c.z, b.x, b.y, b.z, d.x, d.y, d.z, c.x, c.y, c.z);
+    for (let k = 0; k < m; k++) {
+      const a = rings[k], b = rings[(k + 1) % m];
+      quad(V(a.l, a.hl), V(a.r, a.hr), V(b.l, b.hl), V(b.r, b.hr));
     }
     const fgeom = new THREE.BufferGeometry();
     fgeom.setAttribute('position', new THREE.Float32BufferAttribute(fpos, 3));
@@ -125,7 +149,7 @@ export class TrackViewer {
     }));
     group.add(fill);
 
-    // Wireframe: flat rails + rung per segment, and the vertical risers between them.
+    // Wireframe: the two rails (coloured along the lap) + a rung every few rings.
     const lpos = [], lcol = [];
     const col = new THREE.Color();
     const edge = (p, q, f) => {
@@ -133,18 +157,11 @@ export class TrackViewer {
       lpos.push(p.x, p.y, p.z, q.x, q.y, q.z);
       lcol.push(col.r, col.g, col.b, col.r, col.g, col.b);
     };
-    for (let i = 0; i < n; i++) {
-      const j = (i + 1) % n, f = i / n;
-      edge(V(pL[i], hL[i]), V(pR[i], hR[i]), f); // rung
-      if (step(i)) {
-        edge(V(pL[i], hL[i]), V(pL[j], hL[i]), f); // flat left rail
-        edge(V(pR[i], hR[i]), V(pR[j], hR[i]), f); // flat right rail
-        edge(V(pL[j], hL[i]), V(pL[j], hL[j]), f); // left riser
-        edge(V(pR[j], hR[i]), V(pR[j], hR[j]), f); // right riser
-      } else {
-        edge(V(pL[i], hL[i]), V(pL[j], hL[j]), f); // sloped left rail
-        edge(V(pR[i], hR[i]), V(pR[j], hR[j]), f); // sloped right rail
-      }
+    for (let k = 0; k < m; k++) {
+      const a = rings[k], b = rings[(k + 1) % m], f = k / m;
+      edge(V(a.l, a.hl), V(b.l, b.hl), f); // left rail
+      edge(V(a.r, a.hr), V(b.r, b.hr), f); // right rail
+      if (k % 2 === 0) edge(V(a.l, a.hl), V(a.r, a.hr), f); // rung
     }
     const lgeom = new THREE.BufferGeometry();
     lgeom.setAttribute('position', new THREE.Float32BufferAttribute(lpos, 3));
@@ -153,8 +170,9 @@ export class TrackViewer {
 
     // Support columns down to the ground (y=0), like the game's preview.
     const cpos = [];
-    for (let i = 0; i < n; i++) {
-      const mx = (pL[i].x + pR[i].x) / 2, mz = (pL[i].z + pR[i].z) / 2, my = (hL[i] + hR[i]) / 2;
+    for (let k = 0; k < m; k += 3) {
+      const a = rings[k];
+      const mx = (a.l.x + a.r.x) / 2, mz = (a.l.z + a.r.z) / 2, my = (a.hl + a.hr) / 2;
       if (my > 0.02) cpos.push(mx, my, mz, mx, 0, mz);
     }
     if (cpos.length) {
@@ -163,9 +181,10 @@ export class TrackViewer {
       group.add(new THREE.LineSegments(cg, new THREE.LineBasicMaterial({ color: 0x6b4a3a })));
     }
 
-    // Start/finish marker (green) at section 0.
+    // Start/finish marker (green) at ring 0.
+    const r0 = rings[0];
     const sm = new THREE.Mesh(new THREE.SphereGeometry(0.12, 12, 12), new THREE.MeshBasicMaterial({ color: 0x35d07f }));
-    sm.position.set((pL[0].x + pR[0].x) / 2, (hL[0] + hR[0]) / 2, (pL[0].z + pR[0].z) / 2);
+    sm.position.set((r0.l.x + r0.r.x) / 2, (r0.hl + r0.hr) / 2, (r0.l.z + r0.r.z) / 2);
     group.add(sm);
 
     t.scene.add(group);
