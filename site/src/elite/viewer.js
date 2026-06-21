@@ -47,7 +47,6 @@ const CRT_VERT = /* glsl */`
 const CRT_FRAG = /* glsl */`
   varying vec2 vUv;
   uniform sampler2D tScene;
-  uniform vec2 uOutRes;   // output size in CSS px (DPI-independent mask)
   uniform vec2 uSceneRes; // low-res scene texture size
   const float PI = 3.14159265;
 
@@ -63,16 +62,22 @@ const CRT_FRAG = /* glsl */`
     if (uv.x < 0.0 || uv.x > 1.0 || uv.y < 0.0 || uv.y > 1.0) {
       gl_FragColor = vec4(0.0, 0.0, 0.0, 1.0); return; // black bezel off the tube
     }
-    vec3 col = texture2D(tScene, uv).rgb;
-    // cheap phosphor bloom: a few taps of the small source texture
-    vec2 g = 1.4 / uSceneRes;
-    vec3 glow = texture2D(tScene, uv + vec2(g.x, 0.0)).rgb
-              + texture2D(tScene, uv - vec2(g.x, 0.0)).rgb
-              + texture2D(tScene, uv + vec2(0.0, g.y)).rgb
-              + texture2D(tScene, uv - vec2(0.0, g.y)).rgb
-              + texture2D(tScene, uv + g).rgb
-              + texture2D(tScene, uv - g).rgb;
-    col += glow * 0.10;
+    // Crisp main image: snap to source texel centres so the low-res pixels stay
+    // blocky even though the texture is sampled LINEAR (which lets the glow taps
+    // below interpolate smoothly).
+    vec3 col = texture2D(tScene, (floor(uv * uSceneRes) + 0.5) / uSceneRes).rgb;
+    // Phosphor glow: a smooth, linearly-sampled blur of the source (a soft halo,
+    // not the chunky pixels). A ring of taps at ~2.3 source texels, interpolated.
+    vec2 r = 2.3 / uSceneRes;
+    vec3 glow = texture2D(tScene, uv + vec2( r.x, 0.0)).rgb
+              + texture2D(tScene, uv + vec2(-r.x, 0.0)).rgb
+              + texture2D(tScene, uv + vec2(0.0,  r.y)).rgb
+              + texture2D(tScene, uv + vec2(0.0, -r.y)).rgb
+              + texture2D(tScene, uv + vec2( r.x,  r.y) * 0.7).rgb
+              + texture2D(tScene, uv + vec2(-r.x,  r.y) * 0.7).rgb
+              + texture2D(tScene, uv + vec2( r.x, -r.y) * 0.7).rgb
+              + texture2D(tScene, uv + vec2(-r.x, -r.y) * 0.7).rgb;
+    col += glow * 0.13;
     // Scanlines and the RGB mask live at the OUTPUT pixel level (gl_FragCoord, in
     // device px), so they are a genuinely fine CRT structure over the chunky
     // low-res image — not tied to the source pixel size (which is what made them
@@ -236,13 +241,14 @@ export class ShipViewer {
   // _buildCRT sets up the low-res scene render target and the full-screen quad
   // that runs the CRT shader over it (only used when old-school is on).
   _buildCRT() {
+    // LINEAR so the glow taps interpolate smoothly; the main image is kept blocky
+    // by snapping to texel centres in the shader.
     this.crtTarget = new THREE.WebGLRenderTarget(320, LORES_H, {
-      minFilter: THREE.NearestFilter, magFilter: THREE.NearestFilter,
+      minFilter: THREE.LinearFilter, magFilter: THREE.LinearFilter,
     });
     this.crtMaterial = new THREE.ShaderMaterial({
       uniforms: {
         tScene: { value: this.crtTarget.texture },
-        uOutRes: { value: new THREE.Vector2(1, 1) },
         uSceneRes: { value: new THREE.Vector2(320, LORES_H) },
       },
       vertexShader: CRT_VERT,
@@ -326,7 +332,6 @@ export class ShipViewer {
       const lw = Math.max(2, Math.round(LORES_H * w / h));
       this.crtTarget.setSize(lw, LORES_H);
       this.crtMaterial.uniforms.uSceneRes.value.set(lw, LORES_H);
-      this.crtMaterial.uniforms.uOutRes.value.set(w, h); // CSS px → DPI-independent mask
     }
   }
 
