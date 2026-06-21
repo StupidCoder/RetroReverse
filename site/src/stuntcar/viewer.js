@@ -65,24 +65,31 @@ export class TrackViewer {
     const span = Math.max(maxX - minX, maxZ - minZ) || 1;
     const S = 8 / span; // fit into ~8 units
 
-    // Left/right ribbon edges, perpendicular to the local direction (closed loop).
-    const left = [], right = [];
+    // Rail plan positions (x,z) and per-section rail heights, kept separate. The height
+    // belongs to the SEGMENT, not the vertex: each section is a flat platform and the
+    // changes are vertical steps at the boundaries (the Stepping Stones are literally
+    // flat stones with square gaps), so we draw flat tops + vertical risers rather than
+    // interpolating between node heights (which would round the steps into bumps).
+    const pL = [], pR = [], hL = [], hR = [];
     for (let i = 0; i < n; i++) {
       const a = pts[(i - 1 + n) % n], b = pts[(i + 1) % n], c = pts[i];
       let dx = b.x - a.x, dz = b.z - a.z;
       const len = Math.hypot(dx, dz) || 1; dx /= len; dz /= len;
       const nx = -dz, nz = dx; // left normal
-      left.push(new THREE.Vector3((c.x + nx * WIDTH - cx) * S, (c.y + c.bankY * 0.5) * S, (c.z + nz * WIDTH - cz) * S));
-      right.push(new THREE.Vector3((c.x - nx * WIDTH - cx) * S, (c.y - c.bankY * 0.5) * S, (c.z - nz * WIDTH - cz) * S));
+      pL.push({ x: (c.x + nx * WIDTH - cx) * S, z: (c.z + nz * WIDTH - cz) * S });
+      pR.push({ x: (c.x - nx * WIDTH - cx) * S, z: (c.z - nz * WIDTH - cz) * S });
+      hL.push((c.y + c.bankY * 0.5) * S);
+      hR.push((c.y - c.bankY * 0.5) * S);
     }
+    const V = (p, y) => new THREE.Vector3(p.x, y, p.z);
 
-    // Invisible depth fill (the ribbon surface) for hidden-line removal.
+    // Invisible depth fill: each segment's flat top + the vertical riser at its far end.
     const fpos = [];
+    const quad = (a, b, c, d) => fpos.push(a.x, a.y, a.z, b.x, b.y, b.z, c.x, c.y, c.z, b.x, b.y, b.z, d.x, d.y, d.z, c.x, c.y, c.z);
     for (let i = 0; i < n; i++) {
       const j = (i + 1) % n;
-      const a = left[i], b = right[i], c = left[j], d = right[j];
-      fpos.push(a.x, a.y, a.z, b.x, b.y, b.z, c.x, c.y, c.z);
-      fpos.push(b.x, b.y, b.z, d.x, d.y, d.z, c.x, c.y, c.z);
+      quad(V(pL[i], hL[i]), V(pR[i], hR[i]), V(pL[j], hL[i]), V(pR[j], hR[i]));   // flat top at segment i's height
+      quad(V(pL[j], hL[i]), V(pR[j], hR[i]), V(pL[j], hL[j]), V(pR[j], hR[j]));   // riser to segment j's height
     }
     const fgeom = new THREE.BufferGeometry();
     fgeom.setAttribute('position', new THREE.Float32BufferAttribute(fpos, 3));
@@ -92,8 +99,7 @@ export class TrackViewer {
     }));
     group.add(fill);
 
-    // Wireframe: the two rails (closed) + a rung at every section, coloured along
-    // the lap so direction reads.
+    // Wireframe: flat rails + rung per segment, and the vertical risers between them.
     const lpos = [], lcol = [];
     const col = new THREE.Color();
     const edge = (p, q, f) => {
@@ -103,20 +109,21 @@ export class TrackViewer {
     };
     for (let i = 0; i < n; i++) {
       const j = (i + 1) % n, f = i / n;
-      edge(left[i], left[j], f);
-      edge(right[i], right[j], f);
-      edge(left[i], right[i], f); // rung
+      edge(V(pL[i], hL[i]), V(pL[j], hL[i]), f); // flat left rail
+      edge(V(pR[i], hR[i]), V(pR[j], hR[i]), f); // flat right rail
+      edge(V(pL[i], hL[i]), V(pR[i], hR[i]), f); // rung
+      edge(V(pL[j], hL[i]), V(pL[j], hL[j]), f); // left riser
+      edge(V(pR[j], hR[i]), V(pR[j], hR[j]), f); // right riser
     }
     const lgeom = new THREE.BufferGeometry();
     lgeom.setAttribute('position', new THREE.Float32BufferAttribute(lpos, 3));
     lgeom.setAttribute('color', new THREE.Float32BufferAttribute(lcol, 3));
     group.add(new THREE.LineSegments(lgeom, new THREE.LineBasicMaterial({ vertexColors: true })));
 
-    // Support columns down to the ground (y=0), like the game's preview, so the
-    // elevation reads. One per section, from the ribbon centre.
+    // Support columns down to the ground (y=0), like the game's preview.
     const cpos = [];
     for (let i = 0; i < n; i++) {
-      const mx = (left[i].x + right[i].x) / 2, mz = (left[i].z + right[i].z) / 2, my = (left[i].y + right[i].y) / 2;
+      const mx = (pL[i].x + pR[i].x) / 2, mz = (pL[i].z + pR[i].z) / 2, my = (hL[i] + hR[i]) / 2;
       if (my > 0.02) cpos.push(mx, my, mz, mx, 0, mz);
     }
     if (cpos.length) {
@@ -127,7 +134,7 @@ export class TrackViewer {
 
     // Start/finish marker (green) at section 0.
     const sm = new THREE.Mesh(new THREE.SphereGeometry(0.12, 12, 12), new THREE.MeshBasicMaterial({ color: 0x35d07f }));
-    sm.position.copy(left[0]).add(right[0]).multiplyScalar(0.5);
+    sm.position.set((pL[0].x + pR[0].x) / 2, (hL[0] + hR[0]) / 2, (pL[0].z + pR[0].z) / 2);
     group.add(sm);
 
     t.scene.add(group);
