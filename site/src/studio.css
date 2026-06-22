@@ -190,7 +190,10 @@ html, body {
   display: flex;
   flex-direction: column;
   gap: 6px;
+  min-height: 0;
 }
+/* never let a section collapse to absorb overflow -- the panel body scrolls instead */
+.panel-body > * { flex-shrink: 0; }
 .group-label {
   font-family: var(--mono);
   font-size: 10.5px;
