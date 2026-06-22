@@ -11,6 +11,7 @@
 // the Marble Madness slope-viewer technique).
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { Physics } from './physics.js';
 
 export class TrackViewer {
   constructor(el) {
@@ -27,15 +28,22 @@ export class TrackViewer {
     controls.dampingFactor = 0.08;
 
     this.three = { renderer, scene, camera, controls, group: null };
+    this.drive = null; // set while driving
+    this.keys = {};
+    window.addEventListener('keydown', (e) => { if (this.drive) { this.keys[e.key.toLowerCase()] = true; if ('wasd '.includes(e.key.toLowerCase())) e.preventDefault(); } });
+    window.addEventListener('keyup', (e) => { this.keys[e.key.toLowerCase()] = false; });
     this._resize();
     window.addEventListener('resize', () => this._resize());
 
-    const tick = () => {
+    let last = performance.now();
+    const tick = (now) => {
       requestAnimationFrame(tick);
-      controls.update();
+      const dt = Math.min(0.05, (now - last) / 1000); last = now;
+      if (this.drive) this._driveStep(dt);
+      else controls.update();
       renderer.render(scene, camera);
     };
-    tick();
+    tick(last);
   }
 
   _resize() {
@@ -46,8 +54,10 @@ export class TrackViewer {
     camera.updateProjectionMatrix();
   }
 
-  // track: { name, nodes:[[x,z,type,p1,p2,attr],...] }
-  show(track) {
+  // track: { name, nodes:[[x,z,type,p1,p2,attr],...] }; id = 0..7
+  show(track, id) {
+    if (this.drive) this.exitDrive();
+    this.trackId = id;
     const t = this.three;
     if (t.group) { t.scene.remove(t.group); disposeGroup(t.group); }
     const group = new THREE.Group();
@@ -110,10 +120,12 @@ export class TrackViewer {
         rings.push({
           l: { x: SX(wl), z: SZ(wl) }, r: { x: SX(wright), z: SZ(wright) },
           hl: (HL[j] - minH) * HK * S, hr: (HR[j] - minH) * HK * S,
+          sec: i, // the game section this ring belongs to
         });
       }
     }
     const m = rings.length;
+    this.ribbon = { rings, m }; // for the drive mode
     const V = (p, y) => new THREE.Vector3(p.x, y, p.z);
 
     // Invisible depth fill (the ribbon surface) for hidden-line removal.
@@ -178,6 +190,108 @@ export class TrackViewer {
     cam.position.set(2.5, 5, 8.5);
     cam.near = 0.1; cam.far = 100; cam.updateProjectionMatrix();
     ctrl.update();
+  }
+
+  // --- drive mode: run the verified physics (package physics, ported to physics.js) and
+  // steer the car along the rendered ribbon with WASD. The physics provides the speed,
+  // suspension bounce and roll/pitch; progress maps it onto the decoded track. ---
+  async enterDrive(hud) {
+    if (!this.ribbon || this.drive) return;
+    const id = this.trackId;
+    const [stat, init, traceR] = await Promise.all([
+      fetch('public/stuntcar/phys/static.bin').then(r => r.arrayBuffer()),
+      fetch(`public/stuntcar/phys/${id}.bin`).then(r => r.arrayBuffer()),
+      fetch(`public/stuntcar/phys/${id}.trace.json`).then(r => r.json()),
+    ]);
+    // verify the JS port against the Go golden trace on a throwaway copy.
+    const check = new Physics(); check.loadTrack(init, stat);
+    const fail = check.selfTest(traceR);
+    const phys = new Physics(); phys.loadTrack(init, stat);
+
+    const car = this._buildCar();
+    this.three.scene.add(car);
+    this.drive = {
+      phys, car, rings: this.ribbon.rings, m: this.ribbon.m,
+      progress: 0, lateral: 0, throttle: 0, acc: 0,
+      baseY: phys.w(0x1BCDC), hud,
+      verdict: fail < 0 ? `physics verified exact (${traceR.frames.length} frames)` : `selftest diverged at frame ${fail}`,
+    };
+    if (hud) hud.style.display = 'block';
+  }
+
+  exitDrive() {
+    if (!this.drive) return;
+    this.three.scene.remove(this.drive.car); disposeGroup(this.drive.car);
+    if (this.drive.hud) this.drive.hud.style.display = 'none';
+    this.drive = null;
+    const { camera, controls } = this.three;
+    controls.target.set(0, 0.5, 0); camera.position.set(2.5, 5, 8.5); controls.update();
+  }
+
+  _buildCar() {
+    const g = new THREE.Group();
+    const body = new THREE.Mesh(new THREE.BoxGeometry(0.34, 0.12, 0.6),
+      new THREE.MeshBasicMaterial({ color: 0xe23b3b }));
+    body.position.y = 0.1; g.add(body);
+    const cab = new THREE.Mesh(new THREE.BoxGeometry(0.26, 0.1, 0.26),
+      new THREE.MeshBasicMaterial({ color: 0xffd23b }));
+    cab.position.set(0, 0.19, -0.04); g.add(cab);
+    const wheelGeo = new THREE.CylinderGeometry(0.07, 0.07, 0.06, 10);
+    const wheelMat = new THREE.MeshBasicMaterial({ color: 0x222428 });
+    for (const [x, z] of [[-0.18, 0.2], [0.18, 0.2], [-0.18, -0.2], [0.18, -0.2]]) {
+      const wm = new THREE.Mesh(wheelGeo, wheelMat);
+      wm.rotation.z = Math.PI / 2; wm.position.set(x, 0.04, z); g.add(wm);
+    }
+    return g;
+  }
+
+  _driveStep(dt) {
+    const d = this.drive, k = this.keys;
+    const STEP = 1 / 50;
+    d.acc = Math.min(d.acc + dt, 0.2);
+    while (d.acc >= STEP) {
+      d.acc -= STEP;
+      if (k['w']) d.throttle = Math.min(0x3800, d.throttle + 0x300);
+      else if (k['s']) d.throttle = Math.max(-0x2000, d.throttle - 0x400);
+      else d.throttle = Math.trunc(d.throttle * 0.9);
+      d.phys.setW(0x1BD2A, d.throttle | 0); // $1BD2A drive force
+      const ring = d.rings[((Math.floor(d.progress) % d.m) + d.m) % d.m];
+      d.phys.B[0x1BB1C] = ring.sec & 0xFF; // sample the surface of the section we're on
+      d.phys.frame6185C();
+      d.progress += d.phys.w(0x1BD2C) * 2e-5; // advance by body forward speed
+      const steer = (k['d'] ? 1 : 0) - (k['a'] ? 1 : 0);
+      d.lateral = Math.max(-1, Math.min(1, d.lateral * 0.85 + steer * 0.06));
+    }
+    this._placeCar();
+    if (d.hud) {
+      const spd = Math.abs(d.phys.w(0x1BD2C));
+      const dmg = Math.max(d.phys.u8(0x1BB4F), d.phys.u8(0x1BB50), d.phys.u8(0x1BB51));
+      d.hud.textContent = `${d.verdict}  ·  speed ${spd}  ·  damage ${(dmg / 255 * 100).toFixed(0)}%  ·  WASD to drive`;
+    }
+  }
+
+  _placeCar() {
+    const d = this.drive, rings = d.rings, m = d.m;
+    const ctr = (r) => ({ x: (r.l.x + r.r.x) / 2, y: (r.hl + r.hr) / 2, z: (r.l.z + r.r.z) / 2 });
+    const p = ((d.progress % m) + m) % m;
+    const i0 = Math.floor(p), frac = p - i0;
+    const a = rings[i0 % m], b = rings[(i0 + 1) % m];
+    const ca = ctr(a), cb = ctr(b);
+    const cx = ca.x + (cb.x - ca.x) * frac, cy = ca.y + (cb.y - ca.y) * frac, cz = ca.z + (cb.z - ca.z) * frac;
+    let tx = cb.x - ca.x, tz = cb.z - ca.z; const tl = Math.hypot(tx, tz) || 1; tx /= tl; tz /= tl;
+    const nx = -tz, nz = tx;
+    const halfW = Math.hypot(a.r.x - a.l.x, a.r.z - a.l.z) / 2;
+    const ox = cx + nx * d.lateral * halfW, oz = cz + nz * d.lateral * halfW;
+    const bounce = Math.max(-0.3, Math.min(0.6, (d.baseY - d.phys.w(0x1BCDC)) * 0.002));
+    d.car.position.set(ox, cy + 0.06 + bounce, oz);
+    const yaw = Math.atan2(tx, tz) + d.lateral * 0.3;
+    const roll = d.phys.w(0x1BCE4) * (Math.PI * 2 / 65536);
+    const pit = d.phys.w(0x1BCE8) * (Math.PI * 2 / 65536);
+    d.car.rotation.set(0, 0, 0);
+    d.car.rotateY(yaw); d.car.rotateX(-pit * 0.5); d.car.rotateZ(-roll * 0.5);
+    const cam = this.three.camera;
+    cam.position.set(ox - tx * 1.7, cy + 0.95 + bounce * 0.5, oz - tz * 1.7);
+    cam.lookAt(ox + tx * 0.6, cy + 0.18, oz + tz * 0.6);
   }
 }
 
