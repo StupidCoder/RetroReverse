@@ -305,6 +305,45 @@ func main() {
 		report(fmt.Sprintf("Surface5C1D0 track %d", id), bad)
 	}
 
+	// --- $61012 track-following auto-steer over a loaded track ---
+	locCheck := []uint32{0x1BCE6, 0x1BCFE, 0x1BC2A, 0x1BBF6, 0x1BC3C, 0x1BB5D, 0x1BB1B,
+		0x1BBC6, 0x1BB1A, 0x1BB85}
+	for _, id := range []int{1, 3, 7} {
+		m0 := baseMem()
+		m0[0x1CA33] = byte(id)
+		loaded, _ := runEngine(m0, 0x5AE46, map[int]uint32{1: uint32(id)})
+		n := int(loaded[0x1CA1A])
+		bad := 0
+		for iter := 0; iter < 1500; iter++ {
+			m := append([]byte(nil), loaded...)
+			m[0x1BB1C] = byte(rng.Intn(n))
+			wW(m, 0x1BD5A, int16(rng.Intn(0x10000)))
+			wW(m, 0x1BCE6, int16(rng.Intn(0x10000)))
+			wW(m, 0x1BD30, int16(rng.Intn(0x10000)))
+			wW(m, 0x1BCF2, int16(rng.Intn(0x10000)))
+			m[0x1BBC6] = byte(rng.Intn(256))
+			m[0x1BB0A] = byte(rng.Intn(256))
+			m[0x1BB7E] = byte(rng.Intn(2) * 0x80)
+			if rng.Intn(2) == 0 { // "genuine disk": patch the protection slot so the check passes
+				m[0x64AEC], m[0x64AED], m[0x64AEE], m[0x64AEF] = 0x9C, 0xED, 0xCD, 0x02
+			}
+			eng, _ := runEngine(m, 0x61012, nil)
+			gm := physics.New(img)
+			copy(gm.B, m)
+			gm.SectionLocate61012()
+			for _, a := range locCheck {
+				if gm.B[a] != eng[a] || gm.B[a+1] != eng[a+1] {
+					bad++
+					if bad <= 3 {
+						fmt.Printf("  SectionLocate t%d @%X: go=%02x%02x eng=%02x%02x\n", id, a, gm.B[a], gm.B[a+1], eng[a], eng[a+1])
+					}
+					break
+				}
+			}
+		}
+		report(fmt.Sprintf("SectionLocate61012 track %d", id), bad)
+	}
+
 	if fails == 0 {
 		fmt.Println("ALL OK")
 	} else {

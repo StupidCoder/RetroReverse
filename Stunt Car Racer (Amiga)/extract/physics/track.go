@@ -222,6 +222,137 @@ func (m *Mem) store5C5F2(d1 int) {
 	m.SetL(0x1BCA4+off, int32((carry<<31)|(sum>>1))) // ROXR.l #1 after ADD.l
 }
 
+// SectionLocate61012 ($61012) is the track-following auto-steer: it finds the car's
+// section, measures the heading error against the section's centreline, nudges the car's
+// heading ($1BCE6) to follow the track, and computes the body pitch torque ($1BCFE).
+// Control flow mirrors the engine's (goto labels match the asm). NB the $611E8 check is
+// the disk copy-protection: $64AEC is patched from the physical disk's protection tracks,
+// and on mismatch the pitch torque is zeroed -- reproduced exactly (over our blob the
+// slot holds the unpatched value, so it zeroes, matching the oracle).
+func (m *Mem) SectionLocate61012() {
+	var d0, d4, dd0 int
+	sec := m.U8(0x1BB1C)
+	m.B[0x1BB85] = byte(sec)
+	m.Setup5FE56(sec)
+	d3w := int(m.W(0x1BC32))
+	d4 = int(int16(uint16(int(m.W(0x1BD5A))-int(m.W(0x1BCE6))) ^ uint16(d3w)))
+	d2 := 0
+	if int8(m.U8(0x1BB4D)) < 0 {
+		d2 += 2
+		if int16(uint16(m.W(0x1BC44))^uint16(d3w)) < 0 {
+			d2 += 2
+		}
+	}
+	d4 = int(int16(d4 + int(m.W(0x6125A+uint32(d2)))))
+	d0 = d4
+	if int16(d0) < 0 {
+		d0 = -int(int16(d0))
+	}
+	m.SetW(0x1BC2A, int16(d0))
+	m.SetW(0x1BBF6, int16(d4))
+	if uint16(d0) >= 0x800 {
+		d0 = 0x7FFF
+	} else {
+		d0 = int(int16(d0) << 4)
+	}
+	m.SetW(0x1BC3C, int16(d0))
+	if uint8(m.U8(0x1BB6A)-m.U8(0x1BB0A)) < 2 {
+		m.SecAdvance5C51A()
+		m.Setup5FE56(m.U8(0x1BB85))
+	}
+	m.B[0x1BB5D] = byte(m.U8(0x1BC44) ^ m.U8(0x1BC32))
+	if m.U8(0x1BBC6) == 0 {
+		goto branch3C
+	}
+	m.B[0x1BB1B] = byte(m.U8(0x1BBC6) ^ m.U8(0x1BBF6))
+	if int8(m.U8(0x1BB4D)) < 0 {
+		if int8(byte(m.U8(0x1BBC6)^m.U8(0x1BB5D))) < 0 {
+			m.B[0x1BBC6] = byte(m.U8(0x1BB5D))
+			dd0 = int(byte(m.U8(0x1BBD4) - 0x23))
+			goto label21C
+		}
+		dd0 = int(byte(m.U8(0x1BBD4) + 0x2D))
+		goto label126
+	}
+	dd0 = m.U8(0x1BBD4)
+label126:
+	if int8(m.U8(0x1BB1B)) >= 0 {
+		dd0 = int(byte(dd0 + m.U8(0x1BC3C)))
+	}
+	goto label21C
+branch3C:
+	d4 = 0
+	if int8(m.U8(0x1BB4D)) < 0 {
+		m.B[0x1BBC6] = byte(m.U8(0x1BB5D))
+		dd0 = m.U8(0x1BBD4)
+		goto label21C
+	}
+label160:
+	m.B[0x1BBC6] = byte(m.U8(0x1BBF6))
+	{
+		d2b := int(m.W(0x1BC2A)) & 0xFF // MOVE.b d0,d2 = low byte of the value
+		dv := int(m.W(0x1BC2A))
+		if m.U8(0x1BC2A) != 0 { // MOVE.b $1BC2A = high byte (big-endian memory)
+			dv -= 0x1E00
+			if int16(dv) >= 0 {
+				dd0 = dv // $611C2 applies d0 = $1BC2A-$1E00 directly
+				goto label1C2
+			}
+			d2b = 0xFF
+		}
+		m.B[0x1BB1A] = byte(d2b)
+	}
+	{
+		v := int(m.W(0x1BD30))
+		if int16(v) < 0 {
+			v = -int(int16(v))
+		}
+		v += 0xA00
+		if int16(v) < 0 {
+			v = 0x7F00
+		}
+		d3b := (m.U8(0x1BB1A) << 7) & 0x7FFF
+		v = int(int16(int32(int16(v))*int32(int16(d3b))<<1>>16))
+		v = int(uint16(v) >> 7) // LSR.w #7
+		if byte(v) == 0 {
+			v++
+		}
+		dd0 = v
+	}
+label1C2:
+	if int8(m.U8(0x1BBF6)) < 0 {
+		dd0 = int(int16(-int16(dd0)))
+	}
+	m.SetW(0x1BCE6, m.W(0x1BCE6)+int16(dd0))
+	d4 = int(int16(d4 - int(m.W(0x1BCF2)))) // d2&$F = 0, so no shift
+	// $611E8 disk copy-protection check
+	if uint32(m.L(0x64AEC)) != (0x667B379F + 0x36729563) || m.U8(0x1BB7E) == 0 {
+		d4 = 0
+	}
+	m.SetW(0x1BCFE, int16(d4))
+	return
+label21C:
+	m.B[0x1BB1A] = byte(dd0)
+	{
+		v := int(int16(int32(int16(m.W(0x1BD30)))*int32(int16((m.U8(0x1BB1A)<<7)&0x7FFF))<<1>>16))
+		if int8(m.U8(0x1BBC6)) < 0 {
+			v = int(int16(-int16(v)))
+		}
+		d4 = int(int16(v) >> 3) // ASR.w #3
+		if uint8(m.U8(0x1BC2A)) < 0x1E { // CMPI.b #$1E,$1BC2A (high byte)
+			goto label1C2done
+		}
+		goto label160
+	}
+label1C2done:
+	// $6121C with d0 small -> jumps to $611D4 (skips the heading apply at $611CE)
+	d4 = int(int16(d4 - int(m.W(0x1BCF2))))
+	if uint32(m.L(0x64AEC)) != (0x667B379F + 0x36729563) || m.U8(0x1BB7E) == 0 {
+		d4 = 0
+	}
+	m.SetW(0x1BCFE, int16(d4))
+}
+
 // mtxAlong is the engine's "MULS.W d3,d0 ; ASL.l #1 ; SWAP" used for the along/across
 // fraction scaling in $5C1D0: d3 = (base.b << 7) with bit15 cleared.
 func mulSwap(d0, d3 int) int {
