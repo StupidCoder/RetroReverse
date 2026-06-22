@@ -10,6 +10,7 @@
 // viewer is active and re-renders it through a physical CRT pipeline.
 
 import { CRT } from './crt.js';
+import { KeyboardCamera } from './camera.js';
 
 const GAMES = [
   {
@@ -384,6 +385,12 @@ async function loadGameMusic(game) {
   renderMusicList();
   updateMusicUI();
 }
+
+// ---- keyboard camera: cursor keys scroll (with momentum), +/- zoom the active viewer ----
+new KeyboardCamera(() => {
+  const m = activeId && mounts.get(activeId);
+  return m ? m.viewer : null;
+});
 
 // ---- boot ----
 buildGameList();
