@@ -777,6 +777,50 @@ as the correction — all subtle enough to pass a careful read.
 verified coordinate-exact against the original, frame by frame.** Combined with Part IV, a
 car can now be driven over the decoded tracks.
 
+### 7. The render coupling — placing the car on the track
+
+The `$6185C` frame is exact, but it is only half of what makes the car drive. The other
+half lives in the engine's **render pass**: each frame, before the physics runs, the game
+recomputes *where the car sits on the track* — the section it is over, the surface height
+under each wheel, and the heading the orientation matrix is measured against. The physics
+reads that coupling state (`$1BC5E`, `$1BB10`, `$1BD5A`, the section `$1BB1C`) and the
+suspension samples the surface there. Run the physics *without* the coupling and the car
+floats in a mismatched frame and tumbles — which is exactly what a standalone port does.
+
+Mapping the coupling turned up several concrete facts:
+
+- **The per-frame loop is `$5D402` → `$5D608` (a `JMP` back to the top).** Its body runs the
+  coupling, the player controls, and **two** `$6185C` ticks (player car and opponent), then
+  the lap timer and the 3-D draw. Two physics ticks per displayed frame — consistent with the
+  fixed 50 Hz (PAL VBlank) timestep noted earlier.
+- **Placement uses a local coordinate frame, not world coordinates.** `$605B6` seats the car
+  at `grid×128 + 64` in X/Z, runs the coupling (`$60190` camera/projection, `$5BE44`, `$60246`)
+  and one physics tick, then *forces* `posY` to **`$10` = 16.0**. So the car rests at a height
+  of ~16 in a frame whose surface sits near zero — it does **not** live at the world height
+  (~1000) the standalone sim drifts to. That mismatch was the "flies up at the start" symptom.
+- **The controls are a decoded joystick byte at `$1BB47`** (`$5D8A2`): bits 0–1 throttle/brake
+  (up/down), bits 2–3 steer (left/right), bit 4 fire — not raw hardware, so a port can inject
+  it directly.
+
+Getting this to *execute* on the m68k oracle (so it can be ground truth, per the
+[reimplement rule](#)) needed two additions to the shared core, both independently useful and
+regression-clean against `physverify`:
+
+- **`ORI`/`ANDI`/`EORI` to `CCR`/`SR`** — the render hit `ORI #$1,CCR` and the core had been
+  treating the special `$3C`/`$7C` effective-address field as an immediate destination.
+- **`ABCD`/`SBCD`** — the lap timer keeps its score in packed BCD.
+
+With those in place the **coupling routines run to completion on the oracle**, and running
+them around a placed car reproduces a grounded, upright, stable equilibrium — the physics no
+longer tumbles. What does **not** run in software is the *drawing*: the per-frame 3-D render
+(`$66xxx`–`$69xxx`) walks the whole visible scene and, without the Amiga's blitter/copper and
+a vertical-blank interrupt, never terminates. So the faithful path is **not** to run the whole
+loop, but to reimplement the handful of coupling routines (`$5BE44`, `$60190`, the section
+update, the `$1BB47` control decode) in Go — each verifiable in isolation against the now-working
+oracle — and compose them around the verified `$6185C` frame. That is the remaining work for a
+fully faithful in-browser drive; until it lands, the viewer uses a provisional coupling
+(flat ground under the wheels, attitude held) with the **exact** throttle/grip/drag dynamics.
+
 ---
 
 # Appendix A — Toolchain and reproduction
