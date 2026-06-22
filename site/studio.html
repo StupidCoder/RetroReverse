@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
+  <title>AI Reverse Engineering — Studio</title>
+  <link rel="stylesheet" href="src/studio.css" />
+  <script type="importmap">
+  {
+    "imports": {
+      "pixi.js": "https://cdn.jsdelivr.net/npm/pixi.js@8/dist/pixi.min.mjs",
+      "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+      "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+    }
+  }
+  </script>
+</head>
+<body>
+  <!-- the active viewer renders full-bleed here -->
+  <div id="stage"></div>
+
+  <!-- shown until the first viewer paints -->
+  <div id="titlecard">
+    <div class="kicker">Reconstructed from the original binaries</div>
+    <h1>AI Reverse Engineering</h1>
+    <p>Assets decoded from six retro games — pick a game and level from the menu.</p>
+    <div id="spinner" class="spinner"></div>
+  </div>
+
+  <!-- top-left: open the control window -->
+  <button id="menuBtn" class="fab" aria-label="Menu" title="Menu">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+      <path d="M4 7h16M4 12h16M4 17h16" />
+    </svg>
+  </button>
+
+  <!-- bottom-right: fullscreen toggle (icon injected by main.js) -->
+  <button id="fsBtn" class="fab" aria-label="Fullscreen" title="Fullscreen"></button>
+
+  <!-- the floating control window -->
+  <aside id="panel" class="panel">
+    <header class="panel-bar">
+      <span class="panel-title">AI Reverse Engineering <span class="dot">·</span> Studio</span>
+      <button id="panelClose" class="panel-x" aria-label="Close" title="Close">✕</button>
+    </header>
+    <div class="panel-body">
+      <div class="group-label">Game</div>
+      <div id="gameList" class="list"></div>
+      <div class="group-label">Level</div>
+      <div id="levelList" class="list list-scroll"></div>
+    </div>
+  </aside>
+
+  <!-- bottom-left caption -->
+  <div id="hud" class="hud"></div>
+
+  <script type="module" src="src/studio/main.js"></script>
+</body>
+</html>
