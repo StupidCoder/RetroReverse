@@ -191,7 +191,7 @@ void main() {
 const DEFAULTS = {
   noise: 0.12, lumaSmear: 0.7, iqBlur: 1.5, saturation: 1.1, phaseSpeed: 0.5,
   beamFocus: 0.55, beamBloom: 2.2, maskType: 1.0, maskStrength: 0.3, tvLines: 400,
-  curvature: 3.0, glow: 0.15,
+  curvature: 0.3, glow: 0.15,
 };
 
 export class CRT {

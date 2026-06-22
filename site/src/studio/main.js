@@ -18,6 +18,7 @@ const GAMES = [
     make: (V, el, hud) => new V(el, hud),
     list: async (v) => (await v.init()).acts,
     show: (v, lvl, i) => v.loadAct(lvl),
+    setup: (v) => v.setLayer('objects', true),
   },
   {
     id: 'fort', name: 'Fort Apocalypse', system: 'Commodore 64',
@@ -25,6 +26,7 @@ const GAMES = [
     make: (V, el, hud) => new V(el, hud),
     list: async (v) => (await v.init()).levels,
     show: (v, lvl, i) => v.loadLevel(lvl),
+    setup: (v) => v.setLayer('objects', true),
   },
   {
     id: 'turrican', name: 'Turrican', system: 'Amiga',
@@ -131,6 +133,7 @@ async function selectGame(id) {
       m = { game, el, viewer, levels, current: 0 };
       mounts.set(id, m);
       await game.show(viewer, levels[0], 0);
+      game.setup?.(viewer);
     }
     m.el.style.display = 'block';
     activeId = id;
@@ -154,6 +157,7 @@ async function selectLevel(id, i) {
     m.current = i;
     markActiveLevel(i);
     await m.game.show(m.viewer, m.levels[i], i);
+    m.game.setup?.(m.viewer);
     updateHud(m);
   } catch (err) {
     console.error('studio: failed to show level', id, i, err);
