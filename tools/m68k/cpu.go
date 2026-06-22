@@ -100,6 +100,15 @@ func (c *CPU) CCR() byte {
 	return r
 }
 
+// setCCR writes the condition codes from the low byte of the status register.
+func (c *CPU) setCCR(v byte) {
+	c.C = v&0x01 != 0
+	c.V = v&0x02 != 0
+	c.Z = v&0x04 != 0
+	c.N = v&0x08 != 0
+	c.X = v&0x10 != 0
+}
+
 // --- size helpers ---
 
 func sizeBytes(s int) uint32 { return []uint32{1, 2, 4}[s] }

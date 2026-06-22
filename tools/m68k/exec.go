@@ -146,6 +146,22 @@ func (c *CPU) execImmediate(op uint16) {
 		c.Halt("unimplemented opcode $%04X at $%06X", op, c.PC-2)
 		return
 	}
+	// ORI/ANDI/EORI to CCR ($003C/$023C/$0A3C) and to SR ($007C/$027C/$0A7C):
+	// the EA field 111/100 is the CCR (byte) or SR (word) target, not an immediate.
+	if (kind == '|' || kind == '&' || kind == '^') && mode == 7 && reg == 4 && (size == 0 || size == 1) {
+		imm := byte(c.fetch16()) // word operand; CCR/SR low byte holds the condition codes
+		ccr := c.CCR()
+		switch kind {
+		case '|':
+			ccr |= imm
+		case '&':
+			ccr &= imm
+		case '^':
+			ccr ^= imm
+		}
+		c.setCCR(ccr)
+		return
+	}
 	var imm uint32
 	if size == 2 {
 		imm = c.fetch32()
