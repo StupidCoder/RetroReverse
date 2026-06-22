@@ -71,12 +71,18 @@
       from the Go reimplementation (the HUD reports the check) — runs live: the
       <b>acceleration, grip and drag are the original's exact model</b>
       (<kbd>W</kbd>/<kbd>S</kbd> throttle and brake, <kbd>A</kbd>/<kbd>D</kbd> steer; the
-      car banks with the road). One honest caveat: the original computes <em>where the car
-      sits on the track</em> in its render pass (the surface under each wheel, the section
-      it's on), which isn't reverse-engineered yet — so for now the wheels ride a provided
-      ground and the chassis is held upright, while the throttle/grip/drag dynamics are the
-      verified physics. Reconstructing that render coupling (the remaining piece of Part V)
-      would let the exact attitude and track-following run free.
+      car banks with the road). The <b>render coupling</b> — the routines the original runs
+      each frame to place the car on the track (the camera-follow <code>$60190</code>, the
+      section lookup <code>$5FE04</code>, and the placement <code>$5BE44</code>) — is now
+      reverse-engineered too (Part V §7) and <b>reproduced exactly</b> (verified routine by
+      routine against the original on the 68000 core): the car is <b>seated in the game's own
+      local track frame</b> and the suspension <b>samples the real surface under the wheels</b>
+      for the section it's on, so it rides the actual ramps and bumps rather than a flat
+      stand-in. Two honest caveats remain: the grounded drive block can punt a near-rest car
+      vertically when run outside the original's full render state, so the car is kept seated
+      in its resting band; and the curved-ramp coupling branch (<code>$5BF50</code>) isn't
+      ported yet, so curves use the flat case. The throttle, grip, drag and surface response
+      are the verified physics.
       <br /><br />
       Drag to rotate, scroll to zoom. See the
       <a href="https://github.com/StupidCoder/AIReverseEngineering/blob/main/Stunt%20Car%20Racer%20(Amiga)/Stunt_Car_Racer.md">write-up</a>

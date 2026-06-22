@@ -207,6 +207,8 @@ export class TrackViewer {
     const check = new Physics(); check.loadTrack(init, stat);
     const fail = check.selfTest(traceR);
     const phys = new Physics(); phys.loadTrack(init, stat);
+    phys.B[0x1BB72] = 0x80;                       // arm the race (grounded drive block)
+    phys.placeCar605B6(this.ribbon.rings[0].sec); // real start placement (local frame, posY=16)
 
     const car = this._buildCar();
     this.three.scene.add(car);
@@ -259,9 +261,13 @@ export class TrackViewer {
       if (k['w']) d.throttle = Math.min(0x3800, d.throttle + 0x300);
       else if (k['s']) d.throttle = Math.max(-0x2000, d.throttle - 0x400);
       else d.throttle = Math.trunc(d.throttle * 0.92);
-      // the exact drive/grip/drag/suspension model (provisional ground coupling); returns
-      // the throttle-responsive world speed used to advance progress along the ribbon.
-      d.speed = d.phys.driveTick(d.throttle | 0);
+      // The exact drive/grip/drag/suspension model with the REAL render coupling: the car
+      // is placed in the local track frame and the suspension samples the real surface under
+      // the wheels for the section it's on (fed from the ribbon), so it rides the actual
+      // ramps and bumps. Returns the throttle-responsive world speed to advance the ribbon.
+      const p = ((d.progress % d.m) + d.m) % d.m;
+      const sec = d.rings[Math.floor(p) % d.m].sec;
+      d.speed = d.phys.driveTickCoupled(d.throttle | 0, sec);
       d.progress += d.speed * 1e-5;
       const steer = (k['d'] ? 1 : 0) - (k['a'] ? 1 : 0);
       d.lateral = Math.max(-1, Math.min(1, d.lateral * 0.86 + steer * 0.05));

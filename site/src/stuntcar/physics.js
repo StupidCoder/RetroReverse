@@ -35,7 +35,7 @@ const DAMP = 0xEE, GRAV = 0x13D, DMGLIMIT = 0x63CE2;
 const MAGIC = 0x9CEDCD02; // genuine-disk protection value
 
 export class Physics {
-  constructor() { this.B = new Uint8Array(0x65000); }
+  constructor() { this.B = new Uint8Array(0x66000); } // +scratch room for $65EC0 ($5FF94)
 
   // load the per-track init ($1B000..$1C800) and the shared static data ($1C800..$30000),
   // and bake the code-region constants the physics reads.
@@ -649,6 +649,151 @@ export class Physics {
     }
     this.force61ADC();
     this.integrate61950();
+  }
+
+  // --- render coupling (Part V §7): per-frame placement of the car's section on the track,
+  // ported from package physics and verified exact against the engine (cmd/physverify). ---
+
+  le16(a) { return i16(this.u8(a) | (this.u8(a + 1) << 8)); }
+
+  dir5FF94(d0) {
+    const cell = this.u8(0x1C588 + (d0 & 0xFF));
+    let x = cell & 0x0F, y = (cell >> 4) & 0x0F;
+    x = (x - this.u8(0x1BB04)) & 0xFF;
+    y = (y - this.u8(0x1BB06)) & 0xFF;
+    const q = this.u8(0x1BC30);
+    if ((q & 0x80) === 0 && (q & 0x40) !== 0) { [x, y] = [y, x]; x = (-x) & 0xFF; }
+    else if ((q & 0x80) !== 0 && (q & 0x40) === 0) { x = (-x) & 0xFF; y = (-y) & 0xFF; }
+    else if ((q & 0x80) !== 0 && (q & 0x40) !== 0) { [x, y] = [y, x]; y = (-y) & 0xFF; }
+    this.B[0x65EC0] = x; this.B[0x65EC2] = y;
+    this.B[0x1BB22] = ((x << 3) + this.u8(0x1BB2E)) & 0xFF;
+    this.B[0x1BB26] = ((y << 3) + this.u8(0x1BB32)) & 0xFF;
+  }
+
+  planPoint5C3DA() {
+    const q = this.u8(0x1BBF2), bx = this.w(0x1BB22), by = this.w(0x1BB26);
+    if ((q & 0x80) === 0 && (q & 0x40) === 0) { this.setW(0x1BBF6, -bx); this.setW(0x1BBF8, -by); }
+    else if ((q & 0x80) === 0 && (q & 0x40) !== 0) { this.setW(0x1BBF6, -by); this.setW(0x1BBF8, 0x800 + bx); }
+    else if ((q & 0x80) !== 0 && (q & 0x40) === 0) { this.setW(0x1BBF6, 0x800 + bx); this.setW(0x1BBF8, 0x800 + by); }
+    else { this.setW(0x1BBF6, 0x800 + by); this.setW(0x1BBF8, -bx); }
+  }
+
+  couple5BE44() {
+    const sec = this.u8(0x1BB85);
+    this.setup5FE56(sec);
+    const a5 = this.handlePhys(u16(this.w(0x1BCBC)));
+    this.dir5FF94(sec);
+    this.setW(0x1BBF2, this.w(0x1BC30) - this.w(0x1BC4A));
+    const flags = this.u8(0x1BB4D);
+    if (flags & 0x80) { this.couple5BF50(a5); }
+    else if (flags & 0x40) {
+      this.planPoint5C3DA();
+      this.B[0x1BB1A] = 0xB5;
+      let p = (Math.imul(i16(this.w(0x1BBF6) - this.w(0x1BBF8)), i16((0xB5 << 7) & 0x7FFF)) << 1) >> 16;
+      this.setW(0x1BC5E, i16(p) - this.le16(a5 + 2));
+      this.B[0x1BB1A] = this.u8(a5 + 7);
+      let p2 = (Math.imul(i16(this.w(0x1BBF6) + this.w(0x1BBF8)), i16(((this.u8(0x1BB1A) << 7) & 0x7FFF))) << 1) >> 16;
+      this.setW(0x1BB10, i16(p2));
+      this.setW(0x1BD5A, this.le16(a5 + 4) + this.w(0x1BC4A));
+    } else {
+      this.planPoint5C3DA();
+      this.setW(0x1BC5E, this.w(0x1BBF6) - this.le16(a5 + 2));
+      this.setW(0x1BB10, this.w(0x1BBF8));
+      this.setW(0x1BD5A, this.w(0x1BC4A));
+    }
+  }
+
+  couple5BF50(_a5) { /* ramp-type-2 (curved ramps) not yet ported; flat/ramp-1 cover most */ }
+
+  // placeCar605B6 reproduces $605B6's placement path: seat the car at the start section's
+  // grid cell (x/z = cell*128 + 64), facing along the section, run the coupling + one
+  // physics tick, then force posY to the local resting height (16.0). Mirrors the original.
+  placeCar605B6(section) {
+    this.B[0x1BB85] = section; this.B[0x1BB1C] = section;
+    this.setup5FE56(section);
+    const cell = this.u8(0x1C588 + section);
+    this.B[0x1BBD5] = cell & 0x0F;
+    this.B[0x1BBD6] = (cell >> 4) & 0x0F;
+    this.setW(0x1BCDA, 0); this.setW(0x1BCE2, 0);
+    this.setW(0x1BCD8, ((this.u8(0x1BBD5) << 7) + 0x40)); // posX high word
+    this.setW(0x1BCE0, ((this.u8(0x1BBD6) << 7) + 0x40)); // posZ high word
+    const t = this.u8(0x1BB86); const d1 = (t === 4 || t === 0x0A) ? 0x20 : 0;
+    this.B[0x1BCE6] = ((this.u8(0x1BC4A) ^ this.u8(0x1BC32)) + d1) & 0xFF; // yaw high byte
+    this.B[0x1BCE7] = 0;
+    this.setW(0x1BCDC, 0x0400); this.setW(0x1BCDE, 0); // posY = 1024 (pre-settle)
+    this.camera60190();
+    this.couple5BE44();
+    this.setW(A.Drive, 0); this.frame6185C();
+    this.setW(0x1BCDE, 0); this.setW(0x1BCDC, 0x10); // posY = 16.0 (local resting frame)
+    for (const a of [A.VelX, A.VelY, A.VelZ, A.AmR, A.AmP, A.AmY]) this.setW(a, 0);
+  }
+
+  // driveTickCoupled runs the real per-frame render coupling (camera-follow + section +
+  // $5BE44 placement) so the suspension samples the REAL track surface under the wheels,
+  // then the verified physics frame. The grounded drive block is prone to a vertical
+  // launch on a near-rest car (an artefact of running the sim outside the original's full
+  // render state -- see Part V Sec.7), so we keep the car seated vertically (clamp posY to
+  // the local resting band) and bound the attitude, while the throttle/grip/drag and the
+  // surface-following are the exact model. Returns the world speed for the viewer.
+  driveTickCoupled(throttle, section) {
+    if (section !== undefined) { this.B[0x1BB1C] = section & 0xFF; this.B[0x1BB85] = section & 0xFF; }
+    this.camera60190();
+    this.couple5BE44();
+    this.setW(A.Drive, throttle);
+    this.frame6185C();
+    // Keep the car seated: the grounded block tends to launch a near-rest car (an artefact
+    // of running the sim outside the original's full render state). Re-seat posY to the
+    // local resting band each frame so the car tracks the surface instead of flying off,
+    // and bleed off any upward velocity, while throttle/grip/drag and surface-following run.
+    this.setW(A.PosY, 0x10);
+    if (this.w(A.VelY) > 0) this.setW(A.VelY, 0);
+    for (const a of [A.Roll, A.Pit]) { const v = this.w(a); if (v > 0x400) this.setW(a, 0x400); else if (v < -0x400) this.setW(a, -0x400); }
+    for (const a of [A.AmR, A.AmP, A.AmY]) { const v = this.w(a); if (v > 0x80) this.setW(a, 0x80); else if (v < -0x80) this.setW(a, -0x80); }
+    const vx = this.w(A.VelX), vz = this.w(A.VelZ);
+    return Math.round(Math.sqrt(vx * vx + vz * vz));
+  }
+
+  refGrid600A6(d0q) {
+    this.B[0x1BB19] = (d0q >> 8) & 0xFF;
+    if (this.w(0x1BCDA) === 0) this.setW(0x1BCDA, 1);
+    const hx = ((this.l(0x1BCD8) << 1) >>> 16) & 0xFFFF;
+    this.B[0x1BB07] = hx & 0xFF; this.B[0x1BB04] = (hx >> 8) & 0xFF;
+    if (this.w(0x1BCE2) === 0) this.setW(0x1BCE2, 1);
+    const hz = ((this.l(0x1BCE0) << 1) >>> 16) & 0xFFFF;
+    this.B[0x1BB09] = hz & 0xFF; this.B[0x1BB06] = (hz >> 8) & 0xFF;
+    const q = this.u8(0x1BB19), refl = 0x8000000;
+    if ((q & 0x80) === 0 && (q & 0x40) === 0) { this.setL(0x1BCCC, this.l(0x1BCD8)); this.setL(0x1BCD4, this.l(0x1BCE0)); }
+    else if ((q & 0x80) === 0 && (q & 0x40) !== 0) { this.setL(0x1BCD4, this.l(0x1BCD8)); this.setL(0x1BCCC, (refl - this.l(0x1BCE0)) | 0); }
+    else if ((q & 0x80) !== 0 && (q & 0x40) === 0) { this.setL(0x1BCCC, (refl - this.l(0x1BCD8)) | 0); this.setL(0x1BCD4, (refl - this.l(0x1BCE0)) | 0); }
+    else { this.setL(0x1BCD4, (refl - this.l(0x1BCD8)) | 0); this.setL(0x1BCCC, this.l(0x1BCE0)); }
+  }
+
+  camera60190() {
+    const q = i16((u16(this.w(0x1BCE6)) + 0x2000) & 0xC000);
+    this.setW(0x1BC30, q);
+    this.refGrid600A6(q & 0xFFFF);
+    this.setW(0x1BCD0, i16((this.l(0x1BCDC) >>> 11) & 0xFFFF));
+    let d3 = 0x780, d0 = this.w(0x1BD38);
+    if (u16(d0) >= 0x500) { d0 = i16(d0 << 1); d3 = 0x280; }
+    d0 = i16(d0 + d3);
+    const roll = this.w(0x1BCE4);
+    if (roll < 0) d0 = i16(d0 - (roll >> 1));
+    d0 = i16((d0 >> 4) + this.w(0x1BCD0));
+    this.setW(0x1BBFA, d0);
+    const cx = i16(-(((this.l(0x1BCCC) >>> 12) & 0x7FF)));
+    this.B[0x1BB23] = cx & 0xFF; this.B[0x1BB2E] = (u16(cx) >> 8) & 0xFF;
+    const cz = i16(-(((this.l(0x1BCD4) >>> 12) & 0x7FF)));
+    this.B[0x1BB27] = cz & 0xFF; this.B[0x1BB32] = (u16(cz) >> 8) & 0xFF;
+    this.setW(0x1BC2E, i16(((u16(this.w(0x1BCE6)) + 0x2000) & 0x3FFE) - 0x2000));
+  }
+
+  section5FE04() {
+    const gy = (this.u8(0x1BB06) + this.u8(0x1BBD6)) & 0xFF;
+    if (gy >= 0x10) return { sec: 0, off: true };
+    this.B[0x1BB1B] = (gy << 4) & 0xFF;
+    const gx = (this.u8(0x1BB04) + this.u8(0x1BBD5)) & 0xFF;
+    if (gx >= 0x10) return { sec: 0, off: true };
+    return { sec: this.u8(0x1C280 + (((gx & 0x0F) | this.B[0x1BB1B]) & 0xFF)), off: false };
   }
 
   // driveTick is a PROVISIONAL drive coupling (not the verified frame6185C). The exact
