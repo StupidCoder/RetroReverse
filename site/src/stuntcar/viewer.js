@@ -212,8 +212,7 @@ export class TrackViewer {
     this.three.scene.add(car);
     this.drive = {
       phys, car, rings: this.ribbon.rings, m: this.ribbon.m,
-      progress: 0, lateral: 0, throttle: 0, acc: 0,
-      baseY: phys.w(0x1BCDC), hud,
+      progress: 0, lateral: 0, throttle: 0, acc: 0, speed: 0, hud,
       verdict: fail < 0 ? `physics verified exact (${traceR.frames.length} frames)` : `selftest diverged at frame ${fail}`,
     };
     if (hud) hud.style.display = 'block';
@@ -259,20 +258,18 @@ export class TrackViewer {
       d.acc -= STEP;
       if (k['w']) d.throttle = Math.min(0x3800, d.throttle + 0x300);
       else if (k['s']) d.throttle = Math.max(-0x2000, d.throttle - 0x400);
-      else d.throttle = Math.trunc(d.throttle * 0.9);
-      d.phys.setW(0x1BD2A, d.throttle | 0); // $1BD2A drive force
-      const ring = d.rings[((Math.floor(d.progress) % d.m) + d.m) % d.m];
-      d.phys.B[0x1BB1C] = ring.sec & 0xFF; // sample the surface of the section we're on
-      d.phys.frame6185C();
-      d.progress += d.phys.w(0x1BD2C) * 2e-5; // advance by body forward speed
+      else d.throttle = Math.trunc(d.throttle * 0.92);
+      // the exact drive/grip/drag/suspension model (provisional ground coupling); returns
+      // the throttle-responsive world speed used to advance progress along the ribbon.
+      d.speed = d.phys.driveTick(d.throttle | 0);
+      d.progress += d.speed * 1e-5;
       const steer = (k['d'] ? 1 : 0) - (k['a'] ? 1 : 0);
-      d.lateral = Math.max(-1, Math.min(1, d.lateral * 0.85 + steer * 0.06));
+      d.lateral = Math.max(-1, Math.min(1, d.lateral * 0.86 + steer * 0.05));
     }
     this._placeCar();
     if (d.hud) {
-      const spd = Math.abs(d.phys.w(0x1BD2C));
       const dmg = Math.max(d.phys.u8(0x1BB4F), d.phys.u8(0x1BB50), d.phys.u8(0x1BB51));
-      d.hud.textContent = `${d.verdict}  ·  speed ${spd}  ·  damage ${(dmg / 255 * 100).toFixed(0)}%  ·  WASD to drive`;
+      d.hud.textContent = `${d.verdict}  ·  speed ${d.speed | 0}  ·  damage ${(dmg / 255 * 100) | 0}%  ·  W/S throttle, A/D steer`;
     }
   }
 
@@ -286,17 +283,17 @@ export class TrackViewer {
     const cx = ca.x + (cb.x - ca.x) * frac, cy = ca.y + (cb.y - ca.y) * frac, cz = ca.z + (cb.z - ca.z) * frac;
     let tx = cb.x - ca.x, tz = cb.z - ca.z; const tl = Math.hypot(tx, tz) || 1; tx /= tl; tz /= tl;
     const nx = -tz, nz = tx;
-    const halfW = Math.hypot(a.r.x - a.l.x, a.r.z - a.l.z) / 2;
+    const halfW = Math.hypot(a.r.x - a.l.x, a.r.z - a.l.z) / 2 || 0.2;
     const ox = cx + nx * d.lateral * halfW, oz = cz + nz * d.lateral * halfW;
-    const bounce = Math.max(-0.3, Math.min(0.6, (d.baseY - d.phys.w(0x1BCDC)) * 0.002));
-    d.car.position.set(ox, cy + 0.06 + bounce, oz);
-    const yaw = Math.atan2(tx, tz) + d.lateral * 0.3;
-    const roll = d.phys.w(0x1BCE4) * (Math.PI * 2 / 65536);
+    d.car.position.set(ox, cy + 0.06, oz);
+    // bank with the road (rail-height difference) + a little into the turn; subtle pitch.
+    const bank = Math.atan2(a.hr - a.hl, halfW * 2 || 1);
     const pit = d.phys.w(0x1BCE8) * (Math.PI * 2 / 65536);
+    const yaw = Math.atan2(tx, tz) + d.lateral * 0.25;
     d.car.rotation.set(0, 0, 0);
-    d.car.rotateY(yaw); d.car.rotateX(-pit * 0.5); d.car.rotateZ(-roll * 0.5);
+    d.car.rotateY(yaw); d.car.rotateX(-pit * 0.4); d.car.rotateZ(-bank - d.lateral * 0.15);
     const cam = this.three.camera;
-    cam.position.set(ox - tx * 1.7, cy + 0.95 + bounce * 0.5, oz - tz * 1.7);
+    cam.position.set(ox - tx * 1.7, cy + 0.95, oz - tz * 1.7);
     cam.lookAt(ox + tx * 0.6, cy + 0.18, oz + tz * 0.6);
   }
 }

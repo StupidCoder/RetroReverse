@@ -651,6 +651,47 @@ export class Physics {
     this.integrate61950();
   }
 
+  // driveTick is a PROVISIONAL drive coupling (not the verified frame6185C). The exact
+  // physics needs per-frame state the original computes in its render pass -- where the
+  // car sits on the track, the surface under each wheel, the section heading -- which
+  // isn't reimplemented yet (a "Part VI"). Without it the isolated physics floats in a
+  // mismatched frame and tumbles. So here we (1) inject a flat ground just under the
+  // wheels so the verified suspension/grip/drive engage -- the throttle/acceleration/drag
+  // are the real model -- and (2) keep the chassis roughly upright, since the render
+  // coupling that would balance the drive->roll torque against the banked track is the
+  // missing piece. Returns the body-frame world speed magnitude for the viewer.
+  driveTick(throttle) {
+    this.matrix61368();
+    this.corners618CE();
+    this.contactHeights61B70();
+    const off = 0x800 << 8; // mid-range compression so the springs hold the car
+    this.setL(0x1BCA4, (this.l(0x1BC94) + this.l(A.Rest) + off) | 0);
+    this.setL(0x1BCA8, (this.l(0x1BC98) + this.l(A.Rest) + off) | 0);
+    this.setL(0x1BCAC, (this.l(0x1BC9C) + this.l(A.Rest) + off) | 0);
+    this.velToBody6158C();
+    this.sound60FBE();
+    this.gravToBody615E6();
+    this.suspension61BCC();
+    this.loadProject622DC();
+    this.setW(0x1BD46, this.w(0x1BD44));
+    this.tail63E2E();
+    if (this.u8(0x1BB72) !== 0) {
+      this.setW(A.Drive, throttle);
+      this.drive620B8();   // exact drive force + grip clamp
+      this.forceToWorld61618();
+      this.drag621F4();    // exact velocity drag
+      this.torqueApply62138();
+      this.torque61B26();
+      this.torqueToWorld61672();
+    }
+    this.force61ADC();
+    this.integrate61950();
+    for (const a of [A.Roll, A.Pit]) { const v = this.w(a); if (v > 0x400) this.setW(a, 0x400); else if (v < -0x400) this.setW(a, -0x400); }
+    for (const a of [A.AmR, A.AmP, A.AmY]) { const v = this.w(a); if (v > 0x80) this.setW(a, 0x80); else if (v < -0x80) this.setW(a, -0x80); }
+    const vx = this.w(A.VelX), vz = this.w(A.VelZ);
+    return Math.round(Math.sqrt(vx * vx + vz * vz));
+  }
+
   // self-check against the Go golden trace; returns the first mismatching frame or -1.
   selfTest(trace) {
     const L = ['Drive', 'PosX', 'PosY', 'PosZ', 'Roll', 'Yaw', 'Pit', 'VelX', 'VelY', 'VelZ'];
