@@ -269,6 +269,7 @@ async function selectGame(id) {
       const Viewer = await game.load();
       const viewer = game.make(Viewer, el, hud);
       const levels = await game.list(viewer);
+      if (viewer.app && viewer.app.ticker) viewer.app.ticker.maxFPS = 60; // cap Pixi at 60fps
       m = { game, el, viewer, levels, currentIdx: 0, currentName: '' };
       mounts.set(id, m);
     }
