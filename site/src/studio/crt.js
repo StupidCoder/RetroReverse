@@ -188,8 +188,6 @@ void main() {
   gl_FragColor = vec4(finalCRT, 1.0);
 }`;
 
-const CAP_MS = 1000 / 60 - 2; // ~60fps cap (slack keeps 60Hz displays at full rate)
-
 const DEFAULTS = {
   noise: 0.12, lumaSmear: 0.7, iqBlur: 1.5, saturation: 1.1, phaseSpeed: 0.5,
   beamFocus: 0.55, beamBloom: 2.2, maskType: 1.0, maskStrength: 0.3, tvLines: 400,
@@ -248,7 +246,6 @@ export class CRT {
     this.sctx.imageSmoothingEnabled = false;
 
     this._raf = null;
-    this._lastFrame = 0;
     this._loop = this._loop.bind(this);
     window.addEventListener('resize', () => this._resize());
     this._resize();
@@ -276,10 +273,8 @@ export class CRT {
   }
 
   _loop(t) {
-    if (this.enabled) this._raf = requestAnimationFrame(this._loop);
-    if (t - this._lastFrame < CAP_MS) return; // cap at ~60fps (don't waste GPU on 120/144Hz)
-    this._lastFrame = t;
     this._render(t * 0.001);
+    if (this.enabled) this._raf = requestAnimationFrame(this._loop);
   }
 
   _render(time) {

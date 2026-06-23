@@ -39,7 +39,6 @@ export class TrackViewer {
     const tick = (now) => {
       requestAnimationFrame(tick);
       if (this.active === false) { last = now; return; } // paused while another viewer is shown
-      if (now - last < 1000 / 60 - 2) return;            // cap at ~60fps
       const dt = Math.min(0.05, (now - last) / 1000); last = now;
       if (this.drive) this._driveStep(dt);
       else controls.update();

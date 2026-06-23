@@ -139,14 +139,12 @@ export class MarbleViewer {
       if (hit) this.three.controls.target.copy(hit.point);
     });
     new ResizeObserver(() => this._resizeThree()).observe(this.el);
-    let lastRender = 0;
-    const tick = (now) => {
+    const tick = () => {
+      if (this.active !== false && this.mode === 'slopes' && this.three) {
+        this.three.controls.update();
+        this.three.renderer.render(this.three.scene, this.three.camera);
+      }
       requestAnimationFrame(tick);
-      if (this.active === false || this.mode !== 'slopes' || !this.three) return;
-      if (now - lastRender < 1000 / 60 - 2) return; // cap at ~60fps
-      lastRender = now;
-      this.three.controls.update();
-      this.three.renderer.render(this.three.scene, this.three.camera);
     };
     requestAnimationFrame(tick);
   }
