@@ -20,6 +20,14 @@ const GAMES = [
     make: (V, el, hud) => new V(el, hud),
     list: async (v) => (await v.init()).acts,
     show: (v, lvl, i) => v.loadAct(lvl),
+    // zone -> act accordion: "Green Hills Act 1" -> {Green Hills, Act 1}; "Special Stage 3" -> {Special Stage, Stage 3}
+    group: (lvl) => {
+      let mm = lvl.name.match(/^(.*?) (Act .+)$/);
+      if (mm) return { section: mm[1], label: mm[2] };
+      mm = lvl.name.match(/^(Special Stage) (\d+)$/);
+      if (mm) return { section: mm[1], label: `Stage ${mm[2]}` };
+      return { section: lvl.name, label: lvl.name };
+    },
     layers: [
       { id: 'objects', label: 'Objects & enemies', default: true },
       { id: 'collision', label: 'Collision layer', default: false },
@@ -42,6 +50,11 @@ const GAMES = [
     make: (V, el, hud) => new V(el, hud),
     list: async (v) => (await v.init()).levels,
     show: (v, lvl, i) => v.loadLevel(lvl),
+    // world -> scene accordion from "World N · Scene M"
+    group: (lvl) => {
+      const [section, ...rest] = lvl.name.split(' · ');
+      return { section, label: rest.join(' · ') || lvl.name };
+    },
     layers: [
       { id: 'objects', label: 'Objects & enemies', default: true },
       { id: 'collision', label: 'Collision layer', default: false },
@@ -152,8 +165,9 @@ function markActiveGame(id) {
   if (game) openSystem(game.system); // unfold the active game's system
 }
 
-// ---- asset list (per game). Most games are a flat list; Marble Madness is a two-level
-//      accordion: course -> { Map, Slopes }. Each leaf has { name, hud, run }. ----
+// ---- asset list (per game). Most games are a flat list. Marble Madness is a two-level
+//      accordion (course -> { Map, Slopes }); games with a `group(lvl,i)` adapter become a
+//      world/zone -> act/scene accordion. Each leaf has { name, hud, run }. ----
 function assetEntries(m) {
   const { game, viewer, levels } = m;
   if (game.id === 'marble') {
@@ -165,11 +179,27 @@ function assetEntries(m) {
       ],
     }));
   }
-  return levels.map((lvl, i) => ({
-    name: lvl.name || `Asset ${i + 1}`,
+
+  const leaf = (lvl, i, name) => ({
+    name,
     hud: lvl.name || `Asset ${i + 1}`,
     run: async () => { await game.show(viewer, lvl, i); applyLayers(m); },
-  }));
+  });
+
+  // grouped: fold the flat level list into section accordions via the adapter's group()
+  if (game.group) {
+    const groups = [];
+    const byKey = new Map();
+    levels.forEach((lvl, i) => {
+      const { section, label } = game.group(lvl, i);
+      let g = byKey.get(section);
+      if (!g) { g = { name: section, children: [] }; byKey.set(section, g); groups.push(g); }
+      g.children.push(leaf(lvl, i, label));
+    });
+    return groups;
+  }
+
+  return levels.map((lvl, i) => leaf(lvl, i, lvl.name || `Asset ${i + 1}`));
 }
 
 function addLeaf(m, leaf, parent) {
