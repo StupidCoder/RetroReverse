@@ -942,7 +942,234 @@ plus burst — rather than a per-world enemy graphic, so it is available in ever
   },
   marble: {},
   stuntcar: {},
-  elite: {},
+  elite: {
+    loader: `
+<div class="info-eyebrow">Elite · Image &amp; Loader</div>
+<p>Elite for the C64 loads from cassette, and the tape is as much a <strong>copy-protection device</strong>
+as a loader. The game is split across a dozen tape segments in a custom turbo format with no checksums, and
+the loader rewrites its own wire format between blocks — so the bytes can only be read by running the loader
+the tape itself carries.</p>
+
+<h2>The tape image</h2>
+<p>A TAP file records the length of every pulse the datasette delivers. The tape opens with two ordinary
+CBM ROM-format segments — a header naming the file <code>ELITE</code> and a 289-byte boot program — then
+switches to a custom turbo encoding for the dozen segments that carry the game, its graphics and its data.
+The ROM-format part is the bootstrap; the turbo part is everything else.</p>
+
+<h2>The bootstrap and autostart</h2>
+<p>The first two segments load through the C64's own ROM tape loader. The trick is the boot program's
+<strong>load address</strong>: the KERNAL saves the IRQ vector while it uses the tape and restores it from a
+fixed pair of bytes when the load finishes — and the boot file is positioned so that those two bytes become
+the IRQ vector, pointing into the just-loaded code. So the first timer interrupt after "FOUND ELITE" jumps
+straight into the boot code, with no <code>RUN</code> needed. The boot code fills memory, turns off the
+KERNAL messages, and jumps into the turbo loader.</p>
+
+<h2>The turbo loader</h2>
+<p>From there the tape uses a custom one-bit-per-pulse encoding — a short pulse is 0, a long pulse is 1,
+told apart by a CIA timer restarted on every cassette edge. A byte is nine pulses (a start bit and eight data
+bits), and the stream is a pilot tone, a sync byte, then blocks <strong>back to back with no checksums and no
+gaps</strong>. Each block is a four-byte header (its end and start address) followed by its data, stored
+straight into memory. The store loop deliberately <em>never terminates on its own</em> — it always branches
+back for another block header.</p>
+
+<h2>A self-rewriting loader</h2>
+<p>That non-terminating loop is the hook the protection hangs on. To end a load, the tape simply sends a block
+whose address range <strong>covers the loop itself</strong>: as it loads, the branch instruction at the loop's
+tail is overwritten, so when the block completes the loop falls through into freshly loaded code. Between
+payload blocks the tape sends tiny one-to-three-byte blocks aimed at single instructions of the loader,
+<strong>changing the wire format on the fly</strong> — flipping the bit order between MSB-first and LSB-first,
+changing how many bits make a byte frame, growing the header with a decoy byte, and rewriting the whole loader
+tail (sometimes byte-identical, a decoy that has to race the executing loop). The main payload is sent as many
+small blocks with patch blocks interleaved between almost every page, so the data cannot be read off the tape
+without executing the patches. It is a copy-protection scheme, not just a fastloader.</p>
+
+<h2>The multi-stage load</h2>
+<p>The chain runs through a short BASIC stub (a tape <code>LOAD</code> from inside a running BASIC program
+restarts it afterwards, so a flag variable makes each line run once) into the game's own multi-load routine,
+which pulls in the remaining segments — the engine, the in-game code, the colour data and the bitmap loading
+picture — behind the loading screen, then jumps into the game.</p>
+`,
+    engine: `
+<div class="info-eyebrow">Elite · Game Engine</div>
+<p>Everything in the game image arrives <strong>encrypted</strong> and is unpacked in stages, then relocated —
+much of the engine hidden as RAM under the I/O area — before the game brings up its own interrupt-driven
+display and reaches its first frame.</p>
+
+<h2>Layered decryption</h2>
+<p>None of the game code is ever in plaintext on the tape, and even after loading it is decrypted in pieces,
+at different times, with different keys. Three near-identical decryptors do the work, each a
+<strong>rolling-subtraction cipher</strong>: every byte is the previous plaintext byte subtracted from the
+ciphertext, so the key rolls forward as it goes, and the loop's address range is self-modified. The first
+stage decrypts the loaded blob in two downward passes with different keys; a later stage decrypts the rest in
+place once it has loaded.</p>
+
+<h2>Relocation under I/O</h2>
+<p>The decrypted engine relocates itself. Part of it is copied into low memory; the bulk — about 8&nbsp;KB —
+is copied <strong>underneath the I/O area</strong> at <code>$D000–$EFFF</code>, hidden as RAM the routines
+reach by toggling the processor port's bank bits (banking I/O out, reading or writing, then banking it back
+in). The ship-model data and much of the engine live there, out of the way of the normal memory map.</p>
+
+<h2>Hardware init and interrupts</h2>
+<p>Hardware init neutralises RUN/STOP–RESTORE, banks the KERNAL and BASIC ROMs out, and points the CPU's IRQ
+and NMI hardware vectors at <strong>RAM</strong> — so with no ROM in the path, interrupts dispatch straight
+into the game's own handlers. The interrupt is a <strong>table-driven raster-split engine</strong>: it reads
+the current split index and loads that split's VIC register values from a set of two-entry tables, giving two
+splits per frame (the bitmap space view and the dashboard). When the second split completes the frame, the
+handler falls through to its per-frame work — a three-voice SID player — before returning.</p>
+
+<h2>Reaching the first frame</h2>
+<p>From the init onward the game is interrupt-driven: the game start runs its one-time setup, builds the
+title / commander screen, and settles into the main loop. The picture shown during the long loads is a
+multicolor bitmap — the 3-D "ELITE" logo and a Cobra over a starfield — stored uncompressed and assembled
+from three tape segments, displayed before the two largest loads so it masks the slowest part. Once flight
+begins, two control flows cooperate: the <strong>raster interrupt</strong> only swaps VIC registers between
+the bitmap and dashboard and ticks the music, with no game logic, while a <strong>foreground loop</strong>
+does everything else — moving and drawing every object, spawning, combat, scoring and reading the controls.</p>
+`,
+    graphics: `
+<div class="info-eyebrow">Elite · Graphics</div>
+<p>Elite's graphics are <strong>vector, not bitmap</strong>: ships are wireframe models drawn line by line,
+and the whole universe of star systems is generated from a tiny seed rather than stored. Even the text is held
+as compressed tokens, not letters.</p>
+
+<h2>Ship models</h2>
+<p>Each ship is a filled-edge wireframe — a list of 3-D vertices joined by edges, with face normals used to
+hide the back. The models live in the engine block hidden under the I/O area, reached through a blueprint
+pointer table of 33 ship types. A blueprint is a 20-byte header followed by three packed arrays — vertices,
+edges and faces — with <strong>no explicit counts</strong>: each array's length falls out of the offsets,
+because every record is a fixed size. A vertex is six bytes (its three coordinate magnitudes, a byte packing
+the three signs and a visibility distance, and the numbers of up to four faces it belongs to); an edge is four
+bytes (a visibility distance, the two faces on either side, and its two vertex numbers); a face is four bytes
+(the signed normal plus an illumination field). A face number of 15 is a <strong>sentinel</strong> meaning "no
+face on this side" — an edge carrying it is always drawn, never culled, which is how flat models like the alloy
+plate show their outline from any angle.</p>
+
+<h2>Drawing a ship</h2>
+<p>Drawing runs a fixed pipeline: copy the ship's state into a zero-page workspace and point at its blueprint;
+rotate the model and drop or simplify it by distance (level of detail); project each vertex into view space
+with a perspective divide; back-face-test each face with its normal and append every visible edge to a per-ship
+<strong>line heap</strong> as endpoint records; then walk the heap drawing each as a Bresenham line into the
+multicolor space-view bitmap. Because lines are plotted with EOR, the previous frame's ship is erased by drawing
+its old line heap again before the new one is built — the standard flicker-free Elite redraw. Distant ships and
+stars are single dots of one, two or four pixels by distance.</p>
+
+<h2>A universe from a seed</h2>
+<p>Elite's universe — hundreds of star systems, each with a name, an economy, a government and a position — is
+<strong>not stored</strong> anywhere; a search of the image for names like Lave or Diso finds nothing. Every
+name and attribute is generated on demand from a tiny seed. A whole galaxy is defined by a <strong>six-byte
+seed</strong> (the only one stored sits in the default commander block), and a single Fibonacci-style
+pseudo-random generator — a two-word lagged sum over a four-byte seed — advances it deterministically, so the
+same starting seed always yields the same stream and a system's name and data are reproducible. To work on a
+system, the code loads that system's seed and runs the generator. A name is one to four two-letter
+<strong>digram</strong> pairs drawn from a small letter-pair table — the only stored fragment of any name —
+and coordinates and the star/dust field come from the same seed and generator. The other galaxies are
+transforms of the same seed, so the entire universe lives in those six bytes plus the algorithm.</p>
+
+<h2>Text as tokens</h2>
+<p>Almost every word the game prints — commodity names, government and economy descriptions, combat ranks,
+mission briefings, even "GAME OVER" — is stored not as letters but as compressed, EOR-obfuscated
+<strong>tokens</strong>: recursive tokens that expand to other tokens, two-letter digrams from the same table
+the names use, and control codes that insert the commander's name, a generated captain's name or a number. A
+raw search for any in-game phrase finds nothing, because the letters are never there in sequence.</p>
+`,
+    gameplay: `
+<div class="info-eyebrow">Elite · Gameplay</div>
+<p>Once flight begins, the game is about the <strong>other ships</strong> — how traffic appears, moves and
+fights, and when it vanishes again. It runs in a foreground loop over a small, fixed set of object slots.</p>
+
+<h2>The universe of slots</h2>
+<p>The universe is at most ten object <strong>slots</strong> — the planet, the station or sun, and up to a
+handful of ships — held in a slot array of ship-type bytes and a table of pointers to each slot's 37-byte
+record (position, orientation, speed, AI and state flags). The update pass copies one slot's record into a
+zero-page workspace, works on it there (so the same fast code serves every slot), and copies it back. The
+<strong>player's ship never moves</strong>: the universe is rotated and translated around a stationary camera,
+so flying forward makes everything stream toward you.</p>
+
+<h2>Spawning</h2>
+<p>New ships go through one routine that finds a free slot (ten full means nothing spawns), looks up the
+blueprint, and places ordinary traffic far away so it approaches from a distance. A <strong>spawn
+director</strong> runs periodically — never while docked — and makes weighted random rolls: a chance of lone
+trader traffic; law-enforcement ships scaled by how many police are already present and by the player's
+accumulated bounty; and pirates gated by the system's government and the commander's danger rating, as either a
+single ship or a pack of up to four. So traffic is a mix of traders, police scaled to your record, and pirates
+scaled to the system's lawlessness — plus the station and any escorts the AI launches itself.</p>
+
+<h2>Movement and AI</h2>
+<p>Each ship is moved forward along its nose vector, rotated by its angular velocity, then re-orthonormalised so
+rounding errors do not accumulate, and handed to the wireframe renderer. Ships with hostile AI run a tactics
+routine, but only <strong>every eighth frame</strong> — the expensive AI is time-sliced across ships and
+frames. The station does not fly; its "AI" is a launch controller that sends an enforcement ship after a wanted
+player, and mothership-class ships launch escorts the same way. Ordinary combat ships track their target
+(normally the player), accelerate toward their speed limit, steer to point at or away, and — by their
+aggression and the player's bounty — fire lasers or break into evasive manoeuvres; a ship that takes enough
+damage can flip from attacking to fleeing.</p>
+
+<h2>Despawning</h2>
+<p>After a ship is moved, its fate is decided three ways, all funnelling into one removal routine: marked for
+removal (it finished what it was doing), <strong>killed</strong> (the reward is banked first — and killing a
+police ship adds to your bounty rather than your bank, which is where a clean trader becomes a fugitive), or
+<strong>out of range</strong> (drifted too far on any axis — which is why traffic quietly thins out behind you).
+Removal decrements the population counters and compacts the slot and pointer arrays so the list stays
+contiguous.</p>
+
+<h2>Legal status and bounty</h2>
+<p>One byte holds your standing with the law, shown as <strong>Clean</strong>, <strong>Offender</strong> or
+<strong>Fugitive</strong>. Every ship carries an offence value that is OR-ed into the byte when you destroy it,
+so offences ratchet upward; lawful ships carry the largest value, so shooting a police ship turns a clean pilot
+into a Fugitive in a single act. Each hyperspace jump halves the byte, so minor offences cool off over a few
+quiet jumps. It both follows your behaviour and drives the game: a dirty record spawns more police, and past a
+threshold ships engage you on sight.</p>
+
+<h2>Combat rating, and winning</h2>
+<p>Separately, every kill pays a bounty into a cumulative score that drives a nine-step <strong>combat
+rating</strong> from Harmless up to Elite — it only ever climbs, and reaching the top takes thousands of kills.
+Rating and legal status are independent axes: an Elite pilot can still be a Fugitive. There is <strong>no
+victory state</strong> in the game at all — the only way the main loop is left is the death sequence (energy
+gone under fire, a hard collision, or flying into a planet or sun), after which you resume from your last saved
+commander. Elite is deliberately open-ended; "Elite" is the nominal goal, but reaching it only changes a
+label.</p>
+
+<h2>Docking</h2>
+<p>Docking is the one piece of flight the game does not do for you. A legal dock requires four things at once:
+approaching the station's <strong>correct face</strong>, pointing <strong>nearly straight in</strong>,
+<strong>laterally lined up</strong> with the slot, and <strong>rolled</strong> to fit the rectangular opening —
+all while slow enough that the contact stays under the fatal threshold. Because the station continuously
+rotates, you must roll with it to keep aligned, which is the whole skill. Miss the slot at speed and you hit the
+hull — the same death path as crashing into a planet. (A purchasable docking computer flies the same approach
+automatically.)</p>
+
+<h2>Thargoids</h2>
+<p>The alien <strong>Thargoids</strong> sit on top of the ordinary traffic: a tough, aggressive mothership and
+the small drones it launches. They arrive either through a <strong>misjump into witchspace</strong> — a random
+check on a hyperspace jump that dumps you into a nest of them — or, rarely, as a random in-system attack. The
+mothership keeps manufacturing fresh drones while it lives, so a drawn-out fight only grows the swarm. The neat
+trick is that the drones read the same population counter that tracks live motherships: while it is non-zero
+they attack, but the moment the last mothership dies the drones go inert and drift — there is no explicit
+"deactivate my children" code. Kill the motherships and the swarm switches off.</p>
+
+<h2>Missions, economy and government</h2>
+<p>On top of the open-ended trading and combat is a small <strong>scripted mission chain</strong>, gated by how
+many times you have docked and by specific destination systems: a briefing on docking sends you to a named
+system to hunt a unique, tougher enemy or to carry stolen Thargoid plans, with a large fixed reward on return.
+Each system's character comes from its <strong>seed</strong>: an economy and a government (each three bits),
+with tech level and productivity derived from them and coupled — lawless systems are poor and backward,
+well-governed wealthy ones high-tech. Economy drives prices through a signed per-commodity slope, so the same
+good is cheap in one economy and dear in another — the whole basis of trade routes; government drives danger,
+gating how freely pirates spawn; and tech level decides what equipment is for sale. So the risk and reward of
+where to fly fall out of a few bytes per system.</p>
+`,
+    music: `
+<div class="info-eyebrow">Elite · Music</div>
+<p>Elite's audio is a <strong>three-voice SID</strong> score and sound effects, driven from the raster
+interrupt rather than a separate sound thread.</p>
+
+<h2>The SID player</h2>
+<p>When the last screen split of a frame completes, the raster-interrupt handler falls through to a three-voice
+SID player that advances the music and sound effects from a set of tables and writes the SID's registers — so
+the audio is updated a fixed once per frame, underneath the foreground loop that runs the flight model. Docking
+clears the SID registers to silence the music before the station menus appear.</p>
+`,
+  },
 };
 
 // HTML for a game/tab, or null if nothing has been written for it yet.
