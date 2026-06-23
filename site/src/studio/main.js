@@ -20,7 +20,7 @@ const GAMES = [
     make: (V, el, hud) => new V(el, hud),
     list: async (v) => (await v.init()).acts,
     show: (v, lvl, i) => v.loadAct(lvl),
-    setup: (v) => v.setLayer('objects', true),
+    layers: [{ id: 'objects', label: 'Objects', default: true }],
     music: async () => ['Green Hills:greenhills', 'Bridge:bridge', 'Jungle:jungle',
       'Labyrinth:labyrinth', 'Scrap Brain:scrapbrain', 'Sky Base:skybase', 'Special Stage:special']
       .map(s => { const [name, f] = s.split(':'); return { name, url: `public/sonic/music/${f}.mp3` }; }),
@@ -31,7 +31,7 @@ const GAMES = [
     make: (V, el, hud) => new V(el, hud),
     list: async (v) => (await v.init()).levels,
     show: (v, lvl, i) => v.loadLevel(lvl),
-    setup: (v) => v.setLayer('objects', true),
+    layers: [{ id: 'objects', label: 'Objects & enemies', default: true }],
   },
   {
     id: 'turrican', name: 'Turrican', system: 'Amiga',
@@ -159,7 +159,7 @@ function assetEntries(m) {
   return levels.map((lvl, i) => ({
     name: lvl.name || `Asset ${i + 1}`,
     hud: lvl.name || `Asset ${i + 1}`,
-    run: async () => { await game.show(viewer, lvl, i); game.setup?.(viewer); },
+    run: async () => { await game.show(viewer, lvl, i); applyLayers(m); },
   }));
 }
 
@@ -278,6 +278,7 @@ async function selectGame(id) {
     m.el.style.display = 'block';
     setMountActive(m, true);
     activeId = id;
+    buildLayerToggles(m);
     buildAssetList(m);
     if (firstMount) await runAsset(m, 0); // load the first asset on first visit
     else markActiveAsset(m);              // returning to a cached viewer: keep its asset
@@ -378,6 +379,59 @@ document.addEventListener('fullscreenchange', () => {
   fsBtn.classList.toggle('on', on);
   fsBtn.innerHTML = on ? COLLAPSE : EXPAND;
 });
+
+// ---- per-game display layers (e.g. Fort's objects/enemies overlay) ----
+// Not universal: each game adapter declares its own `layers` ([{id,label,default}]); games without
+// one show no toggles. State is per game, persisted, and re-applied every time an asset (re)loads.
+const displayLayers = document.getElementById('displayLayers');
+const savedLayers = JSON.parse(localStorage.getItem('studio.layers') || '{}');
+
+function layerState(m) {
+  if (!m.layerState) {
+    m.layerState = {};
+    const saved = savedLayers[m.game.id] || {};
+    for (const l of m.game.layers || []) m.layerState[l.id] = (l.id in saved) ? saved[l.id] : !!l.default;
+  }
+  return m.layerState;
+}
+
+function applyLayers(m) {
+  const st = layerState(m);
+  for (const l of m.game.layers || []) m.viewer.setLayer(l.id, st[l.id]);
+}
+
+function persistLayers(m) {
+  savedLayers[m.game.id] = { ...layerState(m) };
+  localStorage.setItem('studio.layers', JSON.stringify(savedLayers));
+}
+
+function buildLayerToggles(m) {
+  const layers = m && m.game.layers || [];
+  displayLayers.innerHTML = '';
+  displayLayers.style.display = layers.length ? '' : 'none';
+  if (!m) return;
+  const st = layerState(m);
+  for (const l of layers) {
+    const label = document.createElement('label');
+    label.className = 'switch';
+    const input = document.createElement('input');
+    input.type = 'checkbox';
+    input.checked = st[l.id];
+    const track = document.createElement('span');
+    track.className = 'track';
+    track.innerHTML = '<span class="knob"></span>';
+    const text = document.createElement('span');
+    text.className = 'switch-label';
+    text.textContent = l.label;
+    label.append(input, track, text);
+    input.addEventListener('change', () => {
+      st[l.id] = input.checked;
+      m.viewer.setLayer(l.id, input.checked);
+      persistLayers(m);
+    });
+    displayLayers.appendChild(label);
+  }
+}
 
 // ---- CRT filter (global post-process over the active viewer) ----
 const crt = new CRT(stage);
@@ -546,6 +600,7 @@ new KeyboardCamera(() => {
 // ---- boot ----
 buildGameList();
 wireCrt();
+displayLayers.style.display = 'none'; // per-game display toggles appear once a game is picked
 assetLabel.style.display = 'none';    // the Asset + Music sections stay hidden until a game
 updateMusicUI();                      // is picked (the splash is up meanwhile)
 setMenu(true);                        // start with the control window open (discoverable)

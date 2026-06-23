@@ -300,6 +300,7 @@ html, body {
 .switch input:disabled + .track { opacity: .4; }
 .switch-label { font-size: 13.5px; color: var(--text); }
 
+.layer-toggles { display: flex; flex-direction: column; }
 .crt-row { display: flex; align-items: center; justify-content: space-between; }
 .gear-btn {
   width: 28px; height: 28px;
