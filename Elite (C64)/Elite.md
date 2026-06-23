@@ -22,6 +22,8 @@ order:
   spawn, move, fight, and disappear; the legal-status/bounty system, the combat
   rating, docking, the game-over conditions, the Thargoid threat, the scripted
   missions, and how a system's economy and government shape play;
+* **Part VI** — sound and music: the table-driven sound-effects player, and the
+  nibble-bytecode music sequencer that plays the long docking medley;
 * **Appendices** — toolchain and reproduction.
 
 Methods: purely static analysis of the image bytes — no external tools or
@@ -99,6 +101,12 @@ addresses.
   - [11. The Thargoids](#11-the-thargoids)
   - [12. Scripted missions](#12-scripted-missions)
   - [13. System character: economy and government](#13-system-character-economy-and-government)
+- [Part VI — Sound and music](#part-vi--sound-and-music)
+  - [1. Two engines, one IRQ tail](#1-two-engines-one-irq-tail)
+  - [2. Sound effects — the table-driven player (`$B256`)](#2-sound-effects--the-table-driven-player-b256)
+  - [3. The music sequencer (`$BDDC`)](#3-the-music-sequencer-bddc)
+  - [4. The music — one long docking medley](#4-the-music--one-long-docking-medley)
+  - [5. Routine and data map (sound)](#5-routine-and-data-map-sound)
 - [Appendix A — Toolchain and reproduction](#appendix-a--toolchain-and-reproduction)
 
 ---
@@ -1679,6 +1687,193 @@ better lasers, the docking computer, the galactic hyperdrive — only appears fo
 sale at high-tech (rich, well-governed) systems. Productivity and population fill
 out the "data on system" screen (`data_on_system $73A1`) and the system
 descriptions, completing the picture a trader reads before deciding where to jump.
+
+---
+
+# Part VI — Sound and music
+
+Elite carries **two completely independent sound systems**, both ticked once per
+frame from the tail of the raster IRQ (Part III §4): a small **table-driven
+sound-effects player** for the in-flight blips and explosions, and a separate
+**music sequencer** that plays one long piece — the docking medley. They are gated
+by their own flags, so effects can play with the music off and vice versa.
+
+## 1. Two engines, one IRQ tail
+
+After the IRQ's second raster split completes the frame (Part III §4), the handler
+falls through at `$B244` and decides what sound work to do:
+
+```
+B244  TYA / PHA
+B246  BIT $1D03            ; music enabled?
+B249  BPL $B256            ;   no  -> straight to the effects player
+B24B  JSR $BDDC            ;   yes -> run the music sequencer first  (§3)
+B24E  BIT $1D11            ; effects enabled?
+B251  BMI $B256            ;   yes -> fall into the effects player   (§2)
+B253  JMP $B304            ;   no  -> skip it, just finish the IRQ
+```
+
+So `$1D03` bit 7 is the **music-on** flag and `$1D11` bit 7 the **effects-on** flag.
+A third flag, `$1D05`, *suppresses* the triggering of new effects (`$B159`: `LDA
+$1D05 / BNE …`), set on the screens that want silence. Both engines write the SID at
+`$D400`; the music engine owns it whenever it runs, and the effects engine layers its
+voices on top through the same per-voice slots.
+
+## 2. Sound effects — the table-driven player (`$B256`)
+
+The effects player at `$B256` is a three-voice state machine over a set of **parallel
+tables at `$B313`–`$B331`** (one byte per voice, the three SID voices selected by the
+base-offset table `$B32F` = `$00`/`$07`/`$0E`):
+
+| table | per-voice field |
+|-------|-----------------|
+| `$B313` | current sound id / state (bit 7 = release phase) |
+| `$B316` | duration counter |
+| `$B319` | priority / retrigger guard |
+| `$B320` | **frequency accumulator** (a per-frame pitch sweep) |
+| `$B323`/`$B326`/`$B329` | control (waveform+gate) / attack-decay / sustain-release |
+| `$B32C` | duration mask (how fast the sweep steps) |
+| `$B32F` | SID voice base (`$00`/`$07`/`$0E`) |
+
+Each frame, for every active voice (`$B258`–`$B2F9`), it advances the **frequency
+accumulator** — `ADC $B320,Y / STA $B320,Y`, then the value is shifted into the voice's
+`$D400/$D401` — so an effect is a *pitch slide* rather than a fixed note (the laser
+zap, the rising hyperspace whine). On a new trigger it zeroes the voice's seven SID
+registers, writes the control/AD/SR bytes from the tables, and counts the duration down;
+when the duration's masked bits expire it drops the sustain and finally clears the gate.
+
+Sounds are fired by **`play_sfx` (`$B158`)**, called with a sound id in `Y`; it finds a
+free/lower-priority voice (`$B16A`: scan the `$B313` states, honouring `$1D05`) and
+loads that id into the voice tables. The call sites cover the in-flight effect set —
+`Y` = `$01`, `$04` (the most common — laser/impact), `$06`, `$09`, `$0D`, `$0F`, … —
+fired from the flight loop, the combat code, hyperspace (`$BA00`) and collisions. A
+compound routine `$B139` layers two of them for a richer event. The whole effects
+engine is data-light: a dozen-odd parameter sets in the bytes from `$B332` on, played
+through these tables.
+
+## 3. The music sequencer (`$BDDC`)
+
+The music is a far more capable engine: a compact **nibble-packed bytecode**
+interpreter. A 16-bit play pointer at `$C2/$C3` walks a command stream; the byte reader
+`$BF16` pre-increments it and returns `($C2),Y`. The init `$BF6E` (called from
+`start_music`, §4) points the pointer — and the loop-restart copy `$C4/$C5` — at
+**`$C034`**, clears all 25 SID registers and sets full volume.
+
+**Dispatch.** Commands are 4-bit opcodes packed two to a byte, buffered in zero-page
+`$D1` (low nibble first). The dispatcher at `$BDE7` peels one nibble, indexes the
+**16-entry jump tables at `$C016` (low) / `$C025` (high — overlapping the low table's
+last byte by one)**, and reaches the handler by **self-modifying the `JMP` operand at
+`$BE0D`**:
+
+```
+BDE7  LDA $D1 / CMP #$10 / BCS $BDF5   ; nibbles still queued?
+      (else) JSR $BF16 / STA $D1       ; refill from the stream
+BDF5  AND #$0F / TAX                   ; X = opcode (low nibble)
+BDF8  LDA $D1 / LSR×4 / STA $D1        ; shift the queue down
+BE00  LDA $C016,X / STA $BE0D          ; patch the JMP low byte
+BE06  LDA $C025,X / STA $BE0E          ; patch the JMP high byte
+BE0C  JMP $BDE7  (→ patched → handler) ; dispatch
+```
+
+The sixteen opcodes:
+
+| op | handler | effect |
+|---:|---------|--------|
+| 1 / 2 / 3 | `$BE0F`/`$BE18`/`$BE21` | **note on voice 1 / 2 / 3** — a 16-bit SID frequency (2 bytes) plus the voice's gate from `$BDD8`/`$BDD9`/`$BDDA` |
+| 4 | `$BE2A` | note on **voices 1+2** (4 bytes) |
+| 5 | `$BE39` | **chord** — a note on all three voices (6 bytes) |
+| 6 | `$BE4E` | `INC $BDD7` (a section counter) |
+| 7 | `$BE65` | set **ADSR** (attack-decay + sustain-release) for all three voices (6 bytes) |
+| 8 | `$BE5D` | **step time** — set the frame counter `$C6` to the default note length `$BDDB`, then yield to the next frame |
+| 0 / 15 | `$BE60`/`$BE54` | step time, short form (op 15 re-packs the nibble queue so one stream byte carries a wait *and* the next opcode) |
+| 9 / 11 | `$BE8C`/`$BEC2` | **loop** — reset the play pointer to `$C4/$C5` (the start) |
+| 10 | `$BE9B` | set **pulse widths** for all three voices (6 bytes) |
+| 12 | `$BEC5` | set the **default note length** `$BDDB` — the tempo (1 byte) |
+| 13 | `$BECE` | set the three voices' **waveform/control** bytes (3 bytes) |
+| 14 | `$BEE3` | set **filter** cutoff/resonance and the master volume register (3 bytes) |
+
+**Timing.** The note steps (op 8/0/15) load a frame counter `$C6` and `JMP $BDDC`
+(yield). While `$C6` counts down, the per-frame work at `$BFEA` runs; when it reaches
+`2` the handler clears the three voices' gate bits (`$BFFE`: `STX $D404/$D40B/$D412`),
+starting the ADSR **release** so notes decay before the next step. So the stream reads
+as: *set timbre → play notes → wait N frames → repeat*, with op 12 changing N (the
+tempo) per section.
+
+**The two-oscillator "Elite" shimmer.** Voices 2 and 3 are detuned against themselves.
+When a note is set, `$BF2C`/`$BF4D` store not just the frequency (`$C9/$CA`, `$CD/$CE`)
+but a **copy `+$20` higher** (`$CB/$CC`, `$CF/$D0`). The per-frame updater alternates
+which copy is live — voice 2 swaps on a 5-frame cycle (`$BFF2`: `INC $C7 / CMP #$05`),
+voice 3 on a 6-frame cycle (`$BFEA`: `INC $C8 / CMP #$06`) — so the two upper voices
+beat against a slightly sharp copy of themselves at two different rates, the phased,
+chorused texture the music is known for. Voice 1 plays clean, carrying the bass line.
+
+## 4. The music — one long docking medley
+
+Walking the `$C034` stream to its first loop opcode (a Go/Python reimplementation of the
+dispatcher above) shows the engine plays **one continuous piece**: `$C034`–`$CA6A`,
+about **2.6 KB**, **916 notes** across the three voices, ending in a single op-9 loop
+back to the start. It is not a short jingle but a **medley** — the tempo (op 12) and the
+waveforms (op 13) change repeatedly, carving the stream into roughly ten movements:
+
+```
+offset  control change
+   22   tempo 8,  waveforms 21 21 41  (saw/saw/pulse)        ← movement 1
+  183   tempo 9 → 10
+  242   waveforms 21 11 21  (saw/tri/saw)
+  360   tempo 12, then 11
+  377   waveforms 11 11 11  (all triangle)
+  750   tempo 12 → 10, waveforms 21 21 21
+  943   tempo 13 → 9
+ 1110   waveforms 11 11 11
+ 1118   tempo 18                                              ← a fast movement
+ 1382   tempo 9,  waveforms 21 21 21 / 21 11 21
+ 1887   tempo 19
+ 2150   tempo 9
+ 2612   tempo 48 → 9, then LOOP
+```
+
+(`$21` is sawtooth + gate, `$11` triangle, `$41` pulse — the SID control byte.) The
+distinct tempos (note lengths from 8 up to 48 frames) and timbre switches are what make
+it read as several tunes strung together — the perception of "multiple tracks" is this
+one medley's movements.
+
+**When it plays.** The music-on flag `$1D03` is set in exactly one place —
+`start_music` (`$9AF6`), reached from the per-frame **game-event handler** at `$1FCF`
+when the docking condition trips — and cleared in one place, **`dock_complete`
+(`$9B1E`)**, which silences the SID (`$9B35`: zero `$D400`–`$D418`) and hands off to the
+station screens (`$1D7E`, Part III §2). So the medley is the **docking music**: it
+starts as the docking sequence begins and stops the instant you are docked, leaving the
+station menus silent. The title/commander screen is silent too — its builder explicitly
+stops the music (`$8CEB`: `JSR $9B1E`). In flight there is no music, only the effects
+engine of §2; the long medley belongs entirely to the approach to the station.
+
+## 5. Routine and data map (sound)
+
+| address | role |
+|---------|------|
+| `$B244` | IRQ sound tail — gate on `$1D03` (music) / `$1D11` (effects) |
+| `$1D03` / `$1D11` / `$1D05` | music-on / effects-on / suppress-new-effects flags |
+| `$B256` | effects player — three-voice, table-driven, per-frame |
+| `$B158` | `play_sfx(Y)` — trigger sound id `Y` into a free voice |
+| `$B139` | layered two-effect trigger |
+| `$B313`–`$B331` | effects per-voice tables (state, duration, freq accumulator, control/AD/SR, voice base) |
+| `$BDDC` | music sequencer — the nibble-bytecode interpreter |
+| `$BDE7` | opcode dispatch (self-modified `JMP`, tables at `$C016`/`$C025`) |
+| `$BE0F`–`$BEE3`, `$BE54` | the 16 opcode handlers |
+| `$BF16` | stream byte reader (pre-increment `$C2/$C3`) |
+| `$BF1F`/`$BF2C`/`$BF4D` | per-voice frequency setters (voices 2/3 build the `+$20` detune copy) |
+| `$BFEA`–`$C015` | per-frame note update: detune swap (voices 2/3) and gate-release at `$C6==2` |
+| `$BF6E` | music init — point `$C2/$C3` and `$C4/$C5` at `$C034`, clear the SID |
+| `$9AF6` / `$9B1E` | `start_music` / `dock_complete` (stop + silence) |
+| `$BDD7`/`$BDD8`–`$BDDA`/`$BDDB` | music state: section counter / three voice control bytes / default note length |
+| `$C016`/`$C025` | opcode jump tables (16 entries, overlapping by one byte) |
+| `$C034`–`$CA6A` | the docking-medley command stream (~2.6 KB, 916 notes, single loop) |
+
+The music format is fully understood — a from-scratch interpreter of the `$BDDC`
+bytecode reproduces the note/timbre/tempo stream from the `$C034` data exactly — so
+rendering the medley to audio is a matter of running the opcode list above against a
+SID model (PAL `$D400` clock, the `+$20` two-oscillator detune on voices 2–3, and the
+ADSR release timed to `$C6`).
 
 ---
 
