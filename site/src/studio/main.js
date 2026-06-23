@@ -312,30 +312,6 @@ function setMenu(open) {
 menuBtn.addEventListener('click', () => setMenu(true));
 document.getElementById('panelClose').addEventListener('click', () => setMenu(false));
 
-// make the floating window draggable by its title bar
-(function makeDraggable() {
-  const bar = panel.querySelector('.panel-bar');
-  let sx, sy, ox, oy, dragging = false;
-  bar.addEventListener('pointerdown', (e) => {
-    if (e.target.closest('.panel-x')) return;
-    dragging = true; bar.classList.add('dragging');
-    const r = panel.getBoundingClientRect();
-    panel.style.left = r.left + 'px'; panel.style.top = r.top + 'px';
-    panel.style.right = 'auto'; panel.style.bottom = 'auto';
-    sx = e.clientX; sy = e.clientY; ox = r.left; oy = r.top;
-    bar.setPointerCapture(e.pointerId);
-  });
-  bar.addEventListener('pointermove', (e) => {
-    if (!dragging) return;
-    const nx = Math.max(6, Math.min(window.innerWidth - 60, ox + e.clientX - sx));
-    const ny = Math.max(6, Math.min(window.innerHeight - 40, oy + e.clientY - sy));
-    panel.style.left = nx + 'px'; panel.style.top = ny + 'px';
-  });
-  const end = () => { dragging = false; bar.classList.remove('dragging'); };
-  bar.addEventListener('pointerup', end);
-  bar.addEventListener('pointercancel', end);
-})();
-
 // ---- info panel (technical details, tabbed) ----
 // A second window, top-right, that fills the space the control window leaves. Its header is a
 // fixed row of tabs (folded from the games' Markdown parts); the body scrolls. Content is keyed

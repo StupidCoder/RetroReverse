@@ -171,10 +171,8 @@ html, body {
   align-items: center;
   justify-content: space-between;
   padding: 8px 8px 4px 16px;
-  cursor: grab;
   user-select: none;
 }
-.panel-bar.dragging { cursor: grabbing; }
 .panel-bar .group-label { margin: 0; }
 .panel-x {
   width: 32px; height: 32px;
