@@ -263,10 +263,9 @@ Parts II–IV, using the new `cmd/dissm83` disassembler.
 
 *Stubbed.* The cold-start path `$0100 → $0150 → $0185`: `DI`, set `IF`/`IE`, bring up
 the LCD and audio registers, clear VRAM/WRAM, load the initial tiles and palette,
-enable interrupts, and fall into the main loop. The `tools/sm83` disassembler
-(`cmd/dissm83`) now exists, so this can be traced directly; a recursive-descent
-`codetracesm83` (and a `tools/gameboy` emulation oracle) would speed up the deeper
-cross-bank work.
+enable interrupts, and fall into the main loop. The full toolchain is now in place —
+`cmd/dissm83`, `cmd/codetracesm83`, and the `tools/gameboy` emulation oracle (see the
+appendix) — so this can be traced statically and confirmed against a live run.
 
 # Part III — Engine architecture
 
@@ -311,8 +310,18 @@ go run stupidcoder.com/tools/cmd/dissm83 -bank 3 -start 0x7FF0 -end 0x8000 \
     "Super Mario Land (GB)/Super Mario Land (World).gb"
 ```
 
-The `sm83` package (`Decode`/`Disassemble`, with the same `Flow`/`Inst` interface as
-`tools/z80`) is unit-tested against the main and CB opcode pages, the Game-Boy-only
-ops, the illegal opcodes, and Super Mario Land's own vectors. Still to build for the
-deeper parts: a recursive-descent `codetracesm83` and a `tools/gameboy` machine model
-to run the ROM as an emulation oracle (mirroring `tools/gamegear`).
+The full Game Boy toolchain now exists, mirroring the Game Gear set:
+
+- **`tools/sm83`** — the `Decode`/`Disassemble` disassembler **and** an instruction-level
+  `CPU` execution core (the LR35902's four-flag behaviour and Game-Boy-specific ops;
+  `Step` returns T-cycles), unit-tested against the opcode pages, the GB-only and
+  illegal opcodes, flags, interrupts, and Super Mario Land's vectors.
+- **`cmd/dissm83`** — linear disassembler (flat or MBC1-bank mode).
+- **`cmd/codetracesm83`** — recursive-descent disassembler over a 32 KB bank view.
+- **`tools/gameboy`** — a DMG machine model (MBC1 + the memory map + the timer and LCD
+  scanline interrupts) that drives the `sm83` core as an **emulation oracle**: it boots
+  the real ROM and runs its per-frame loop, after which VRAM/OAM can be read back to see
+  exactly what the game drew (the same technique as the Game Gear oracle). Verified by
+  booting Super Mario Land and confirming it populates VRAM and enables VBlank.
+
+So Parts II–V can now proceed with both static tracing and a live oracle.
