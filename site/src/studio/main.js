@@ -55,7 +55,8 @@ const GAMES = [
     make: (V, el, hud) => new V(el, hud),
     list: async (v) => (await v.init()).levels,
     show: (v, lvl, i) => v.loadLevel(lvl),
-    layers: [{ id: 'markers', label: 'Markers', default: false }], // slope view only
+    // the Track markers only exist in the slope view, so only show the toggle there
+    layers: [{ id: 'markers', label: 'Markers', default: false, when: (m) => m.leaves?.[m.currentIdx]?.name === 'Slopes' }],
     music: async () => (await fetch('public/marble/music/manifest.json').then(r => r.json()))
       .map(m => ({ name: m.course, url: `public/marble/music/${m.file}` })),
   },
@@ -226,6 +227,7 @@ async function runAsset(m, idx) {
   m.currentIdx = idx;
   m.currentName = leaf.hud;
   markActiveAsset(m);
+  buildLayerToggles(m); // some toggles are asset-specific (e.g. Marble's Markers = Slopes only)
   await leaf.run();
 }
 
@@ -414,7 +416,8 @@ function persistLayers(m) {
 }
 
 function buildLayerToggles(m) {
-  const layers = m && m.game.layers || [];
+  // a layer may be asset-specific (l.when) -- only show toggles that apply to the current asset
+  const layers = (m && m.game.layers || []).filter(l => !l.when || l.when(m));
   displayLayers.innerHTML = '';
   displayLayers.style.display = layers.length ? '' : 'none';
   if (!m) return;
