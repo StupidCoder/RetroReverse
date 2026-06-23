@@ -105,8 +105,13 @@ func (s *SID) Write(reg uint8, val uint8) {
 		if val&1 != 0 && gateBefore == 0 {
 			v.state = stAttack // gate rising edge -> (re)start attack
 			v.holdZero = false
+			// reset the rate/exponential counters: the envelope rate changes with the
+			// state, and a stale counter left above the new (smaller) period would never
+			// match again (the counters only test for equality), freezing the envelope.
+			v.rateCnt, v.expCnt = 0, 0
 		} else if val&1 == 0 && gateBefore != 0 {
 			v.state = stRelease // gate falling edge -> release
+			v.rateCnt, v.expCnt = 0, 0
 		}
 		if val&8 != 0 { // test bit resets the oscillator
 			v.acc = 0
@@ -138,6 +143,7 @@ func (v *voice) clockEnv() {
 		v.env++
 		if v.env == 0xFF {
 			v.state = stDecay
+			v.expPer, v.expCnt = 1, 0 // env is at max: start decay on the fast exp period
 		}
 		return
 	}
@@ -296,6 +302,12 @@ func (s *SID) output() float64 {
 	vol := float64(s.mode&0x0F) / 15.0
 	return (direct + filtered) / 3.0 * vol
 }
+
+// Env returns voice v's current envelope level (0..255) — for diagnostics.
+func (s *SID) Env(v int) uint8 { return s.v[v].env }
+
+// Gate reports whether voice v's gate bit is set — for diagnostics.
+func (s *SID) Gate(v int) bool { return s.v[v].ctrl&1 != 0 }
 
 // Sample advances the chip by one output-sample period and returns the sample.
 func (s *SID) Sample() int16 {

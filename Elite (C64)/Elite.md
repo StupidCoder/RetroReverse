@@ -1839,11 +1839,12 @@ too under this engine — its builder explicitly stops the music (`$8CEB`: `JSR 
 but it is **not** in this engine: the decrypted image contains exactly one music engine
 (`$BDDC`) with one stream (`$C034`, the waltz) and one entry point — an exhaustive search
 of the 64 KB image finds no second song-data block, no second SID-writing routine, and no
-code that re-points the player or copies a different stream over `$C034`. The title music
-is therefore **load-time music**, played by loader-stage code that is overwritten before
-the game proper runs (so it is absent from the post-load engine image analysed here).
-Recovering it means decoding the tape's loader/loading-screen code as it executes during
-the load, not the resident engine — left as an open thread.
+code that re-points the player or copies a different stream over `$C034`. The likely
+explanation is that **the intro tune was cut from this cassette release** to save space and
+shorten the (long) tape load — the disk version is reported to stream the intro music with
+the multicolor loading bitmap, so on disk it is loader-stage music, but on this tape image
+it is simply absent. Either way it is not in the resident engine and there is nothing here
+to recover: this image plays only the docking waltz.
 
 ### Rendering it
 

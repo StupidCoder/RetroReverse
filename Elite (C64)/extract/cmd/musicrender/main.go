@@ -235,6 +235,12 @@ func main() {
 		dur:  8,
 		chip: sid.New(sid.PAL, srate),
 	}
+	debug := false
+	for _, a := range os.Args {
+		if a == "-debug" {
+			debug = true
+		}
+	}
 	samplesPerFrame := srate / frameHz
 	var sAcc float64
 	var pcm []int16
@@ -246,6 +252,19 @@ func main() {
 			break
 		}
 		frames++
+		if debug && frames <= 70 {
+			g := func(b bool) byte {
+				if b {
+					return '#'
+				}
+				return '.'
+			}
+			fmt.Printf("f%-3d c6=%2d  v1[%c]env=%3d  v2[%c]env=%3d  v3[%c]env=%3d\n",
+				frames, p.c6,
+				g(p.chip.Gate(0)), p.chip.Env(0),
+				g(p.chip.Gate(1)), p.chip.Env(1),
+				g(p.chip.Gate(2)), p.chip.Env(2))
+		}
 		sAcc += samplesPerFrame
 		n := int(sAcc)
 		sAcc -= float64(n)
