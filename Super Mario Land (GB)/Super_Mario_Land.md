@@ -786,17 +786,20 @@ enemies, Mario poses and HUD glyphs:
 
 ![World 1 object metasprite frames](rendered/world1-metasprites.png)
 
-There is no flat *type→frame* table (each type's handler animates its own frames), so the
-mapping is recovered empirically: `extract/cmd/objsprites` plays every level in the oracle
-and tallies, per type (`slot+0`), the frame it uses (`slot+6`) — yielding `level.TypeFrame`
-for the enemies that appear early in levels. `cmd/levelmap -id NN` overlays each placement
-with its real metasprite (markers for the still-unmapped types), and the Studio viewer does
-the same from a per-world object-icon atlas:
+Object **behaviour** is script-driven: the runner `$263F` looks up each object's per-type
+script through the table at **`$3495`** (indexed by type id) and interprets it (`$26AC`).
+The script bytecode includes movement, waits, child spawns — and command **`$F8 xx` sets the
+animation frame**. So a type's base frame is simply the first `$F8` in its script, and every
+object type can be mapped without guessing: `level.TypeBaseFrame` reimplements that scan.
+This covers all ~74 object types and matches the frames observed by playing the game
+(`extract/cmd/objsprites`, which tallies `slot+0`→`slot+6` in the oracle — a cross-check,
+not the source). `cmd/levelmap -id NN` overlays each placement with its real metasprite, and
+the Studio viewer does the same from a per-world object-icon atlas:
 
 ![Level 1-1 with decoded objects](rendered/level-1-1-objects.png)
 
-*Still stubbed for Part V:* Mario's physics, the deeper-level object types (whose frames the
-auto-play never reaches), scoring and progression.
+*Still stubbed for Part V:* Mario's physics, the full object-script semantics (the other
+`$F1`–`$FF` commands: velocity, gravity, collision response), scoring and progression.
 
 ---
 

@@ -60,6 +60,10 @@ FFB6 oam_dma            HRAM OAM-DMA routine (DMA $C000 shadow -> OAM); copied f
 2CEE work_to_slot       copy the HRAM working copy $FFC0 -> a $D100 slot (type write at $2CFB)
 27B7 obj_script_spawn   object-behaviour script (cmd codes $F1-$FF) -> spawn child via $2CB2
 2A13 obj_transform      $317D[type*4+n] tables: what an object turns into (child/score/popup)
+263F obj_behave_all     run each object's behaviour: $3495[type] -> script, interpret $26AC
+26AC obj_script_interp  object script interpreter; PC=$FFC4; $F8 xx = set frame ($FFC6),
+#                       $Ex = wait count, $FF = loop, $F1-$F7/$F9-$FF = cmd dispatch ($2784)
+3495 obj_script_table   per-type object script pointer table (type*2 -> script); bank-0 fixed
 255F obj_draw_all       loop the 10 slots; for each on-screen object draw its metasprite
 25B7 obj_draw_meta      draw one object's metasprite: frame = slot+6 -> $2FD9[frame] stream
 #                       (control bytes move the 8x16 cursor + set OAM attr; bit7 bytes stamp
