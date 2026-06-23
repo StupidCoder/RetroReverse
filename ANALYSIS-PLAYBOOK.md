@@ -201,6 +201,22 @@ for on any unknown format:
   the real code on your own CPU core with real input and *observe*. This both
   answers the question and gives you a golden reference to test the
   reimplementation against. It is the single highest-leverage tool in the kit.
+  But the oracle is a *guide and a verifier, not the data*: read the structure
+  out of the **code**, then use the oracle to confirm it — don't scrape decoded
+  bytes out of its RAM and call that the format.
+- **Follow the game's own pointers — do NOT identify data heuristically.** The
+  game does not guess where its data is; it reads a pointer from a table, indexed
+  by a level/stage/object number. **That table, that index, and the bank/segment
+  it lives in are all somewhere in the code — find them.** So when you need "where
+  is level *N*'s map / the tileset / the palette," do not eyeball the ROM for
+  plausible-looking data and infer offsets by shape: set a watch on the load,
+  capture the *PC* that reads or computes the pointer, and disassemble *backwards*
+  from there to the literal table. A render that "looks coherent" is not proof you
+  found the right table — Super Mario Land's level maps decoded into a believable
+  level from the *wrong* start index and a *mis-located* order table, twice, before
+  tracing `level-id → $0470 index → $0D64 bank → $4000[idx]` gave the real one. The
+  only time data is found heuristically is when *the game itself* does so (rare);
+  otherwise heuristic offset-hunting is a smell that you skipped the lookup.
 - **Round-trip verification.** You haven't decoded something until you've
   re-emitted it and checked: relocations apply cleanly, checksums hold, the image
   renders to a recognisable picture, the extractor's output matches a golden
