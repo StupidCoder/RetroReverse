@@ -135,8 +135,10 @@ literal row or a back-reference to an earlier one.</p>
 <h2>The opening screens</h2>
 <p>The two screens before the menu reach the same VRAM by opposite routes. The <strong>SEGA logo</strong>'s
 tile map is computed in code — there is no stored map: a loop lays down a plain identity grid one vertical
-column at a time, left to right, so the logo wipes in (render it mid-build and you get "SEG" before the
-"A"), with an animated sprite shine sweeping the letters. The <strong>title</strong> takes the other
+column at a time, left to right, so the logo wipes in column by column behind <strong>Sonic</strong> as he
+jumps across the screen. He leaps from the left, the logo drawing in behind him as he goes, then jumps back
+to the left and comes to rest beside the finished logo — his parabolic arc comes from a symmetric offset
+table the frame interrupt flushes to the sprite list each vblank. The <strong>title</strong> takes the other
 approach, loading its name table wholesale from a stored, compressed map (a tiny RLE name-table loader runs
 twice, composing a priority base layer drawn in front of sprites and a plain overlay).
 <code>PRESS START BUTTON</code> is painted on afterwards by a string blitter and blinks — repainted every
@@ -205,8 +207,9 @@ per frame and is active-low (a pressed button reads <code>0</code>). Each frame 
 whether he is on the ground, then accelerates him while a direction is held and decelerates by friction when
 nothing is; the resulting speed integrates into his world position. Pressing <strong>Down</strong> sets the
 rolling/ball flag (and, only if he is moving, plays the roll sound — standing still and pressing Down is a
-crouch); rolling selects low-acceleration, high-friction constants, so a roll coasts and decays rather than
-accelerating. <strong>Jumping</strong> gives variable height: a hold timer is seeded, and while the button
+crouch); rolling selects low-acceleration, <strong>low-friction</strong> constants, so a roll holds its
+momentum — you steer only a little and mostly coast, carrying farther than Sonic would slide to a stop on
+foot. <strong>Jumping</strong> gives variable height: a hold timer is seeded, and while the button
 stays held and the timer counts down the upward impulse keeps being added; once released or expired, gravity
 is applied each frame instead.</p>
 
@@ -253,7 +256,8 @@ driven by one underwater flag: the <strong>palette</strong> swaps via a mid-fram
 interrupt rewrites the 16 background colours to a static underwater set below the line, restored at vblank
 above it); the <strong>physics</strong> load a slower constant set (roughly quarter acceleration and gravity
 and a weaker jump, so Sonic drifts down slowly); and an <strong>air timer</strong> starts that, past about 13
-seconds, triggers the drowning countdown — so the 8-bit game does have drowning.</p>
+seconds, triggers the drowning countdown. Drowning is often assumed to be a feature only of the 16-bit
+Mega Drive games, but this 8-bit version has it too.</p>
 
 <h2>Bonus stages</h2>
 <p>Clearing Act 1 or 2 of a zone with 50 or more rings sends you to a <strong>bonus stage</strong> instead of
