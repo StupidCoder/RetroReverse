@@ -25,8 +25,8 @@ export const INFO_CONTENT = {
   sonic: {
     loader: `
 <div class="info-eyebrow">Sonic the Hedgehog · Image &amp; Loader</div>
-<p>Sonic runs from a Game Gear cartridge — the simplest image in this collection: a verbatim copy of
-the mask-ROM chip, with <strong>no container, filesystem or loader</strong>. The only structure the
+<p>Sonic runs from a Game Gear cartridge, and a cartridge image is far simpler than a disk or tape image: it is
+a verbatim copy of the mask-ROM chip, with <strong>no container, filesystem or loader</strong>. The only structure the
 console imposes is a memory map (the ROM is larger than the Z80 can address) and a small Sega header,
 so there is nothing to unpack — boot is a short reset routine that brings the hardware up and hands
 off to the game.</p>
@@ -943,8 +943,8 @@ plus burst — rather than a per-world enemy graphic, so it is available in ever
   marble: {
     loader: `
 <div class="info-eyebrow">Marble Madness · Image &amp; Loader</div>
-<p>Marble Madness ships on a single Amiga floppy that boots through entirely <strong>stock AmigaDOS</strong> —
-where a C64 tape hides a custom fastloader, here the disk is an ordinary bootable filesystem. The protection
+<p>Marble Madness ships on a single Amiga floppy that boots through entirely <strong>stock AmigaDOS</strong>:
+the disk is an ordinary bootable filesystem, with no custom fastloader on the boot path. The protection
 is elsewhere: the main program is encrypted, and a from-scratch track loader reads it off the platter by
 physical position.</p>
 
@@ -1066,8 +1066,7 @@ playfield. The moving creatures and the marble itself live in separate banks tha
 <p>A third per-course file holds everything else a course needs — not just object positions but all of its
 gameplay data. It is a plain hunk module loaded at course init, opening with a header of relocated pointers the
 engine fans out to the actor-system globals: the static slope field, a placement/feature table, the coarse-zone
-partition, the animation scripts, the creature spawn lists and the actor list. (Despite the suffix on some
-filenames, these are not music — the audio is in separate sound banks.)</p>
+partition, the animation scripts, the creature spawn lists and the actor list.</p>
 `,
     gameplay: `
 <div class="info-eyebrow">Marble Madness · Gameplay</div>
@@ -1150,7 +1149,9 @@ a note-length class, an end marker). Each note is voiced from the bank's <strong
 the semitone indexes the standard Amiga/ProTracker period table for the fine pitch, and the octave selects the
 length of the looped waveform slice — the classic one-sample-many-octaves trick. A per-note volume envelope (a
 list of rate/target segments ramped one step per frame) gives each note its pluck shape rather than a flat tone.
-A per-frame music tick advances the song at about 50&nbsp;Hz, emitting notes through the same voice path.</p>
+Advancing the score is a third, separate clock: a per-frame music tick driven by the video frame at about
+50&nbsp;Hz steps through the patterns, emitting notes into the same voice path — distinct from the driver's
+60&nbsp;Hz envelope timer and its sample-reply note clock, each doing its own job.</p>
 `,
   },
   stuntcar: {},
