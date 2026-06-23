@@ -33,10 +33,11 @@ var courses = []struct{ key, track, name string }{
 
 type metaLevel struct {
 	Name  string `json:"name"`
-	File  string `json:"file"`
+	File  string `json:"file"`  // per-course tilemap JSON (cells + dims)
+	Atlas string `json:"atlas"` // the course's tile-atlas PNG
 	Slope string `json:"slope"`
-	W     int    `json:"w"`
-	H     int    `json:"h"`
+	W     int    `json:"w"` // px
+	H     int    `json:"h"` // px
 }
 
 // slopeJSON is the per-course height field for the 3-D view: a dense grid (w×h,
@@ -141,11 +142,22 @@ func run(adfPath, outDir string) error {
 		if err != nil {
 			return err
 		}
-		img, h := mlb.RenderCourse(d)
-		file := c.key + ".png"
-		if err := gfx.WritePNG(filepath.Join(outDir, file), img); err != nil {
+		// Atlas + tilemap: the course is a row-major grid of 8x8 tile indices drawn
+		// from the course's own tile atlas (the same atlas+tilemap form the SML viewer
+		// uses), not a pre-composited image.
+		co := mlb.Decode(d)
+		atlasFile := c.key + ".atlas.png"
+		if err := gfx.WritePNG(filepath.Join(outDir, atlasFile), co.Atlas(16)); err != nil {
 			return err
 		}
+		file := c.key + ".json"
+		if err := writeJSON(filepath.Join(outDir, file), map[string]any{
+			"width": mlb.CourseW, "height": co.H, "ntiles": co.NTiles,
+			"atlas": atlasFile, "cells": co.Cells,
+		}); err != nil {
+			return err
+		}
+		h := co.H
 
 		// Slope field (the 3-D rolling surface) from the course Track file.
 		tp, ok := paths[strings.ToLower(c.track)]
@@ -167,9 +179,9 @@ func run(adfPath, outDir string) error {
 			return err
 		}
 
-		levels = append(levels, metaLevel{Name: c.name, File: file, Slope: slopeFile, W: mlb.CourseW * 8, H: h * 8})
-		fmt.Printf("%-12s %s  %dx%d px (%d rows); slope %dx%d, h %d..%d\n",
-			c.name, file, mlb.CourseW*8, h*8, h, sj.W, sj.H, sj.Lo, sj.Hi)
+		levels = append(levels, metaLevel{Name: c.name, File: file, Atlas: atlasFile, Slope: slopeFile, W: mlb.CourseW * 8, H: h * 8})
+		fmt.Printf("%-12s %s  %d×%d tiles, %d tiles; slope %dx%d, h %d..%d\n",
+			c.name, file, mlb.CourseW, h, co.NTiles, sj.W, sj.H, sj.Lo, sj.Hi)
 	}
 
 	return writeJSON(filepath.Join(outDir, "meta.json"), struct {

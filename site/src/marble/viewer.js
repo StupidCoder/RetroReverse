@@ -7,8 +7,9 @@
 //    from the Track file) as a 3-D height-mesh you drag to rotate (three.js).
 // A toggle switches engines; only the active canvas is shown and handles input.
 
-import { Application, Container, Sprite, Texture } from 'pixi.js';
+import { Application, Container } from 'pixi.js';
 import * as THREE from 'three';
+import { composeTilemap } from '../tilemap-compose.js';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 
 const DATA = 'public/marble/';
@@ -43,7 +44,7 @@ export class MarbleViewer {
     this.world = new Container();
     this.zoom = 1; this.minZoom = 0.1; this.maxZoom = 12;
     this._texMode = 'nearest';
-    this.sprite = null;
+    this.layer = null;
     this.three = null;
     this.objectsOn = false;
   }
@@ -77,16 +78,17 @@ export class MarbleViewer {
 
   async loadLevel(metaLevel) {
     this.name = metaLevel.name;
-    // Tilemap sprite.
-    const img = await this._loadImage(DATA + metaLevel.file);
-    const tx = Texture.from(img);
-    tx.source.autoGenerateMipmaps = true;
-    tx.source.scaleMode = this._texMode;
-    if (this.sprite) { this.world.removeChild(this.sprite); this.sprite.destroy(); }
-    this.sprite = new Sprite(tx);
-    this.world.addChild(this.sprite);
-    this.tex = tx;
-    this.levelW = img.width; this.levelH = img.height;
+    // Tilemap: compose the course from its tile atlas + row-major index grid (the
+    // same atlas+tilemap form the SML viewer uses), not a pre-composited image.
+    const level = await fetch(DATA + metaLevel.file).then((r) => r.json());
+    const atlas = await this._loadImage(DATA + level.atlas);
+    if (this.layer) { this.world.removeChild(this.layer); this.layer.destroy({ children: true }); }
+    const { container, src } = composeTilemap(atlas, level.cells, level.width, level.height,
+      { tileSize: 8, atlasCols: 16, ntiles: level.ntiles });
+    this.layer = container;
+    this.atlasSrc = src;
+    this.world.addChild(this.layer);
+    this.levelW = level.width * 8; this.levelH = level.height * 8;
     this._fitDefault();
     // Slope field (lazy: only meshed when the 3-D view is active).
     this.slope = await fetch(DATA + metaLevel.slope).then((r) => r.json());
@@ -349,7 +351,7 @@ export class MarbleViewer {
     const mode = this.zoom < 1 ? 'linear' : 'nearest';
     if (mode === this._texMode) return;
     this._texMode = mode;
-    if (this.tex) this.tex.source.scaleMode = mode;
+    if (this.atlasSrc) this.atlasSrc.scaleMode = mode;
   }
   _wireCamera() {
     const c = this.el;

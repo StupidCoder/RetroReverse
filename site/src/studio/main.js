@@ -74,6 +74,15 @@ const GAMES = [
       .map(m => ({ name: m.course, url: `public/marble/music/${m.file}` })),
   },
   {
+    id: 'sml', name: 'Super Mario Land', system: 'Nintendo Game Boy',
+    load: () => import('../sml/viewer.js').then(m => m.SMLViewer),
+    make: (V, el, hud) => new V(el, hud),
+    list: async (v) => await v.init(), // returns the 12 level metas
+    show: (v, lvl, i) => v.loadLevel(lvl),
+    // world -> level accordion: "2-1" -> { World 2, 2-1 }
+    group: (lvl) => ({ section: `World ${lvl.world}`, label: lvl.name }),
+  },
+  {
     id: 'stuntcar', name: 'Stunt Car Racer', system: 'Amiga', render: '3d',
     load: () => import('../stuntcar/viewer.js').then(m => m.TrackViewer),
     make: (V, el, hud) => new V(el),
