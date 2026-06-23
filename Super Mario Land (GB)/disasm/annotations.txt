@@ -1,0 +1,68 @@
+# Super Mario Land (Game Boy) — annotations for cmd/codetracesm83.
+#
+# Format: "ADDR name description" (hex address, no $); # starts a comment.
+# These are BANK 0 ($0000-$3FFF, always mapped) routines — unambiguous. The banked
+# data tables in banks 1-3 (which share the $4000-$7FFF window) are listed as comments
+# at the bottom, since their addresses are only meaningful with that bank paged in.
+#
+#   go run stupidcoder.com/tools/cmd/codetracesm83 -bank 2 \
+#       -entry 100,40,48,50,60 -annotate "Super Mario Land (GB)/disasm/annotations.txt" \
+#       "Super Mario Land (GB)/Super Mario Land (World).gb"
+
+# --- vectors & boot (Part II) ---
+0100 entry              header entry: NOP ; JP $0150
+0150 entry2             JP $0185 into cold start
+0185 cold_start         DI; seed IF/IE=$03; LCD safe-off; palettes; sound on; clear RAM
+0020 rst20_dispatch     RST $20 gateway: jump via inline word table indexed by A
+0028 rst28_dispatch     RST $28 gateway: jump via inline word table indexed by A
+0040 vblank_vec         VBlank vector -> JP $0060
+0048 stat_vec           LCD STAT vector -> JP $0095
+0050 timer_isr          Timer ISR: page bank 3, CALL sound $7FF0, restore bank
+0060 vblank_handler     VBlank: update chain + OAM DMA + frame counter + set $FF85
+0095 stat_handler       LCD STAT: wait H-blank, reload SCX from $FFA4 (status-bar split)
+
+# --- main loop & state machine (Part III) ---
+0226 main_loop_body     per-frame body: bank housekeeping, input, then state dispatch
+02A3 state_dispatch     LDH ($FFB3) ; RST $28  -> the current state handler
+02A6 state_table        the 62-entry RST $28 state jump table
+0296 main_halt          HALT ; wait for $FF85 (VBlank done) ; loop to $0226
+0420 finish_init        state handler tail: clear IF, LCDC=$C3 (LCD on), EI, advance state
+04C3 title_state        state $0F: title screen, polls $FF81 (newly-pressed) for Start
+0610 gameplay_state     state $00: in-level per-frame logic (calls $218F, $0837, ...)
+0470 levelid_to_ffe4    level id ($11..$43) -> flat index ffe4 (world-1)*3+(level-1)
+0D64 level_loader       master level loader: world (hi nibble of $FFB4) -> data bank + tiles
+0D30 world1_tiles       world-1 tile-load path ($05D0: $5032 -> $9000)
+05C7 memcpy             generic copy: (HL+) -> (DE), BC bytes
+FFB6 oam_dma            HRAM OAM-DMA routine (DMA $C000 shadow -> OAM); copied from $3F7D
+3F7D oam_dma_src        ROM source of the HRAM OAM-DMA routine
+
+# --- level map decode (Part IV) ---
+218F level_col_decode   screen-column RLE decoder: $4000[ffe4]->P1, P1[ffe5]->screen data
+2260 col_blit           copy the decoded 16-tile column buffer $C0B0 -> BG map $9800
+22A0 block_qmark        $70 map tile -> ?-block/coin placement (reads bank-3 $651C[ffe4])
+2318 block_break        $80/$5F map tile -> breakable-block placement (bank-3 $6536[ffe4])
+
+# --- object / enemy system (Part V, in progress) ---
+0837 object_update      loop over the 10 active object slots ($D100-$D19F), run each handler
+2520 object_gc          scan slots; free off-screen objects
+2CB2 object_create      build an object's slot fields from its type via the $336C table
+336C object_type_table  per-object-type init data (3 bytes/type)
+2CDC slot_to_work       copy a $D100 slot -> HRAM working copy at $FFC0 (13 bytes)
+2CEE work_to_slot       copy the HRAM working copy $FFC0 -> a $D100 slot
+
+# --- key RAM (for reference, not code) ---
+# $C000        OAM shadow buffer (DMA source)
+# $C0B0        decoded column buffer (16 tiles), drawn by $2260
+# $D100-$D19F  10 active object slots, 16 bytes each; +0 = type ($FF = empty)
+# $FFB3        game state (RST $28 selector)   $FFB4 level id (hi=world, lo=level)
+# $FFE4 ffe4 (flat level index)   $FFE5 screen index (main path starts at 3)
+# $FFE6 column-in-screen (0-19)   $FF85 VBlank-done flag   $FFFD current-bank shadow
+
+# --- banked data tables (bank-relative; only valid with that bank paged) ---
+# bank 2: $4000 level-order-table pointers (ffe4 0-2 = world 1: $6192/$61B7/$61DA)
+# bank 1: $4000 ... (ffe4 3-5 = world 2: $55BB/$55E2/$5605; 9-11 = world 4: $5630/$5665/$5694)
+# bank 3: $4000 ... (ffe4 6-8 = world 3: $503F/$5074/$509B)
+# bank 3: $651C[ffe4] -> ?-block/coin placement table (6-byte entries, $FF-separated by screen)
+# bank 3: $6536[ffe4] -> breakable-block placement table
+# bank 3: $7FF0 sound engine jump table; $7FF3 sound init
+# per-world tile sources: $0DE4 table (-> $8A00 obj tiles), $0DEA table (-> $9310 BG tiles)
