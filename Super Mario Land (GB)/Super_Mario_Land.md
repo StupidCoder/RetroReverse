@@ -713,10 +713,10 @@ $FE                 : end of the column
 ```
 
 The tiles are 8×8 background indices; ids like `$70`/`$80` are normal tiles that the
-engine *also* tracks as interactive **blocks** — `?`-blocks, coins and breakable bricks.
-That bookkeeping lives in separate bank-3 tables at `$651C`/`$6536` (indexed by `ffe4`),
-read by the column decoder when it lays down a `$70`/`$80`/`$5F` tile (`$22A0`/`$2318`).
-These are *blocks*, not moving enemies — the enemy/object placement list is a different
+engine *also* hangs metadata on, in two bank-3 tables indexed by `ffe4` and read by the
+column decoder as it lays the tile down: `$70` (`$22A0`) → the **warp/pipe** table `$651C`
+(Part V §4), `$80`/`$5F` (`$2318`) → the **breakable/`?`-block** table `$6536`.
+These are tiles, not moving enemies — the enemy/object placement list is a different
 table entirely (Part V §1). Decoding World 1‑1's main path (`P1[3..]`) yields **300
 columns** (15 screens) that match the game's own decoded columns; rendered with the
 world's tiles it is the level start-to-flag:
@@ -845,6 +845,51 @@ The full opcode set:
 the language understood, the moving platforms and lifts read naturally too — type `$0A` (the
 1‑1 end lift) is `set frame $12; face right; move; coast ~60 frames; face left; coast ~60;
 restart` — a slow shuttle back and forth.
+
+## 4. Pipes and the bonus rooms
+
+Part IV §6 left one loose end: the **bonus rooms** are screens 1 and 2 of a level's
+screen-order table, reached "via pipes" — but how? The answer ties together the screen
+indirection, a parallel metadata map, and a per-level pipe table.
+
+**A parallel metadata map.** Alongside the visible background map at VRAM `$9800` the engine
+keeps a second 32×32 map at `$C800` (VRAM + `$3000`), one byte per cell. As the column
+builder `$2260` draws each tile it clears the matching `$C800` cell, so the map is blank by
+default. Special tiles fill it in: the `$70`-tile handler `$22A0` looks the column up in the
+**pipe table `$651C[ffe4]`** (a pointer table in bank 3 — the handler pages bank 3 to read
+it) whose entries are `[screen, col, dest, returnScreen, returnX, returnY]` (6 bytes,
+`$FF`-terminated), and `$22F4` stamps the four destination bytes into the `$C800` cells just
+above the pipe tile.
+
+**Entering.** Each frame `$17B3` reads the BG tile under Mario's feet (`$0153`, an HBlank-safe
+VRAM read returning the tile id and its `$9800` address). Tile `$70` is a pipe mouth; if
+**Down** is held (`$FF80` bit 7), `$175C` reads the four bytes back out of the `$C800` map
+(at the tile and the three cells above it, stride `$20`) into `$FFF4`–`$FFF7` =
+{dest screen, return screen, return X, return Y}. Mario then slides into the pipe (`$1612`
+animates his position to the target) and the state machine advances to `$0A`.
+
+**The warp.** State `$0A` (`$1626`) is the screen swap. It clears the maps and calls the same
+screen loader the main path uses, but with **`$FFE5 = $FFF4`** — the destination screen
+index. Since the bonus rooms are screens 1 and 2 of the order table, a `dest` of `$01`/`$02`
+*is* the bonus room. It reloads that screen's columns and its object list (`$2453`) and drops
+Mario at a fixed spot. Leaving the room runs `$1679`: **`$FFE5 = $FFF5`** (the return screen
+on the main path), Mario is repositioned from `$FFF6`/`$FFF7`, and the camera column `$C0AB`
+is recomputed from the screen index. So a pipe is nothing more exotic than *temporarily
+pointing `$FFE5` at a different entry of the order table and back* — the indirection Part IV
+already set up.
+
+`level.DecodePipes` reimplements the `$651C` decode; `extract/cmd/pipes` lists every level's
+pipes. 1‑1's two pipes match the game exactly:
+
+```
+1-1: on screen $05 col $01 -> bonus screen 1, return to screen $05 at (24,136)
+     on screen $0A col $01 -> bonus screen 2, return to screen $0A at (24,136)
+```
+
+Ten of the twelve levels carry two pipes (to bonus rooms 1 and 2); the auto-scroll/boss
+stages 1‑2, 2‑3 and 4‑3 have none. (The sibling table `$6536`, read by the `$80`/`$5F`-tile
+handler `$2318`, is the same idea for the breakable/`?`-block contents — not pipes; an earlier
+note here had `$651C` and `$6536` mislabelled.)
 
 *Still stubbed for Part V:* Mario's own physics, the per-opcode movement maths (`$266D`/
 `$2870` velocity→position, gravity), collision/score handling, and progression.

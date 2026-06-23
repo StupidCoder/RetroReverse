@@ -39,8 +39,17 @@ FFB6 oam_dma            HRAM OAM-DMA routine (DMA $C000 shadow -> OAM); copied f
 # --- level map decode (Part IV) ---
 218F level_col_decode   screen-column RLE decoder: $4000[ffe4]->P1, P1[ffe5]->screen data
 2260 col_blit           copy the decoded 16-tile column buffer $C0B0 -> BG map $9800
-22A0 block_qmark        $70 map tile -> ?-block/coin placement (reads bank-3 $651C[ffe4])
-2318 block_break        $80/$5F map tile -> breakable-block placement (bank-3 $6536[ffe4])
+22A0 tile70_meta        $70 map tile -> read pipe/warp table $651C[ffe4] (bank 3); stamp the
+#                       4 dest bytes into the $C800 parallel map (via $22F4) above the tile
+2318 tile80_meta        $80/$5F map tile -> breakable/?-block table $6536[ffe4] (bank 3)
+2260 col_blit           copy decoded column $C0B0 -> BG $9800; clear parallel map $C800 cell
+0153 get_tile_at        HBlank-safe read of the BG tile at ($FFAD,$FFAE); ret A=tile, HL=$98xx
+17B3 mario_foot_check   tile under Mario's feet: $70=pipe (->$175C), $E1/$60+ solid, etc.
+175C pipe_enter         Down on a $70 pipe: read $C800[above] -> $FFF4-7 (dest/ret screen,X,Y)
+1612 pipe_descend       animate Mario into the pipe to $FFF8, then state $0A
+1626 pipe_warp_in       state $0A: $FFE5=$FFF4 (bonus screen 1/2), reload screen+objects
+1679 pipe_warp_out      leave bonus room: $FFE5=$FFF5 (return screen), reposition from $FFF6/7
+# $C800 = parallel metadata map (VRAM BG $9800 + $3000), 32x32; holds pipe destinations
 
 # --- object / enemy system (Part V, in progress) ---
 0837 object_update      loop over the 10 active object slots ($D100-$D19F), run each handler

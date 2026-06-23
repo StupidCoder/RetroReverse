@@ -125,6 +125,45 @@ func TypeFrames(rom []byte) map[byte]byte {
 	return m
 }
 
+// Pipe is one warp pipe: standing on the pipe tile ($70) at (Screen,Col) of the main path
+// and pressing Down sends Mario to screen Dest (the bonus rooms are screens 1 and 2 of the
+// order table); leaving the bonus room returns him to screen RetScreen at pixel (RetX,RetY).
+type Pipe struct {
+	Screen, Col         int
+	Dest, RetScreen     int
+	RetX, RetY          int
+}
+
+// DecodePipes decodes a level's warp-pipe table. The $70-tile handler ($22A0) reads this
+// from $651C[ffe4] — a pointer table in bank 3 (the handler always pages bank 3) to a list
+// of 6-byte entries [screen, col, dest, retScreen, retX, retY], terminated by screen=$FF.
+// The handler stamps the 4 data bytes into the parallel metadata map at VRAM+$3000 above
+// the pipe tile; at runtime the pipe-entry code ($175C) reads them back as the destination.
+func DecodePipes(rom []byte, id byte) []Pipe {
+	world := int(id >> 4)
+	ffe4 := (world-1)*3 + int(id&0x0F) - 1
+	const bank = 3 // the warp table is always in bank 3
+	list := bankWord(rom, bank, 0x651C+uint16(ffe4)*2)
+	var out []Pipe
+	ptr := list
+	for i := 0; i < 64; i++ {
+		scr := bankByte(rom, bank, ptr)
+		if scr == 0xFF {
+			break
+		}
+		out = append(out, Pipe{
+			Screen:    int(scr),
+			Col:       int(bankByte(rom, bank, ptr+1)),
+			Dest:      int(bankByte(rom, bank, ptr+2)),
+			RetScreen: int(bankByte(rom, bank, ptr+3)),
+			RetX:      int(bankByte(rom, bank, ptr+4)),
+			RetY:      int(bankByte(rom, bank, ptr+5)),
+		})
+		ptr += 6
+	}
+	return out
+}
+
 // DecodeObjects decodes the placement list for global level index ffe4 (0-11) from the
 // pointer table at $401A in the given bank.
 func DecodeObjects(rom []byte, bank int, ffe4 byte) []Object {
