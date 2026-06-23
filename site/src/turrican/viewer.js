@@ -211,7 +211,7 @@ export class TurricanViewer {
     const W = this.app.screen.width, H = this.app.screen.height;
     const fitAll = Math.min(W / this.levelW, H / this.levelH);
     const v = view || { x: 0, y: 0, w: this.levelW, h: this.levelH };
-    const z = Math.min(W / v.w, H / v.h); // contain the visible area in the viewport
+    const z = H / v.h; // fit the Amiga screen height (native vertical resolution, 256px)
     this.minZoom = Math.min(fitAll * 0.9, z);
     this.maxZoom = Math.max((W / NATIVE_W) * 4, z);
     this.zoom = Math.max(this.minZoom, Math.min(this.maxZoom, z));
