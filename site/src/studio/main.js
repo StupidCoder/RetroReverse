@@ -11,6 +11,7 @@
 
 import { CRT } from './crt.js';
 import { KeyboardCamera } from './camera.js';
+import { INFO_TABS, infoHtml } from './info-content.js';
 
 const GAMES = [
   {
@@ -282,6 +283,7 @@ async function selectGame(id) {
     else markActiveAsset(m);              // returning to a cached viewer: keep its asset
     await loadGameMusic(game);
     updateHud(m);
+    if (infoPanel.classList.contains('open')) renderInfo(); // refresh the details for the new game
     hideTitlecard();
   } catch (err) {
     console.error('studio: failed to load', id, err);
@@ -333,6 +335,58 @@ document.getElementById('panelClose').addEventListener('click', () => setMenu(fa
   bar.addEventListener('pointerup', end);
   bar.addEventListener('pointercancel', end);
 })();
+
+// ---- info panel (technical details, tabbed) ----
+// A second window, top-right, that fills the space the control window leaves. Its header is a
+// fixed row of tabs (folded from the games' Markdown parts); the body scrolls. Content is keyed
+// by the active game and the selected tab and re-rendered whenever either changes.
+const infoBtn = document.getElementById('infoBtn');
+const infoPanel = document.getElementById('info');
+const infoTabsEl = document.getElementById('infoTabs');
+const infoBody = document.getElementById('infoBody');
+let infoTab = INFO_TABS[0].id;
+
+function buildInfoTabs() {
+  infoTabsEl.innerHTML = '';
+  for (const t of INFO_TABS) {
+    const b = document.createElement('button');
+    b.className = 'info-tab' + (t.id === infoTab ? ' active' : '');
+    b.dataset.tab = t.id;
+    b.textContent = t.label;
+    b.addEventListener('click', () => selectInfoTab(t.id));
+    infoTabsEl.appendChild(b);
+  }
+}
+
+function selectInfoTab(id) {
+  infoTab = id;
+  for (const b of infoTabsEl.querySelectorAll('.info-tab')) b.classList.toggle('active', b.dataset.tab === id);
+  renderInfo();
+}
+
+function renderInfo() {
+  const game = activeId && GAMES.find(g => g.id === activeId);
+  if (!game) {
+    infoBody.innerHTML = `<div class="info-doc info-empty">Pick a game from the menu to read its technical notes.</div>`;
+    infoBody.scrollTop = 0;
+    return;
+  }
+  const tab = INFO_TABS.find(t => t.id === infoTab);
+  const html = infoHtml(game.id, infoTab);
+  infoBody.innerHTML = `<div class="info-doc">` + (html ||
+    `<div class="info-eyebrow">${game.name} · ${tab.label}</div>
+     <p class="info-todo">This section hasn't been written yet.</p>`) + `</div>`;
+  infoBody.scrollTop = 0;
+}
+
+function setInfo(open) {
+  infoPanel.classList.toggle('open', open);
+  infoBtn.classList.toggle('hidden', open); // the panel grows out of the button; hide it while open
+  if (open) renderInfo();
+}
+infoBtn.addEventListener('click', () => setInfo(true));
+document.getElementById('infoClose').addEventListener('click', () => setInfo(false));
+buildInfoTabs();
 
 // ---- fullscreen ----
 const fsBtn = document.getElementById('fsBtn');
