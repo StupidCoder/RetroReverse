@@ -53,6 +53,11 @@ export class MarbleViewer {
     if (this.three && this.three.markers) this.three.markers.visible = on;
   }
 
+  // Unified layer toggle (matches the other viewers, used by the Studio display options).
+  setLayer(name, on) {
+    if (name === 'markers' || name === 'objects') this.setObjects(on);
+  }
+
   async init() {
     await this.app.init({ background: 0x000000, antialias: false, resizeTo: this.el, preserveDrawingBuffer: true });
     this.app.canvas.classList.add('mm-pixi');

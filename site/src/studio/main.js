@@ -21,7 +21,7 @@ const GAMES = [
     list: async (v) => (await v.init()).acts,
     show: (v, lvl, i) => v.loadAct(lvl),
     layers: [
-      { id: 'objects', label: 'Objects', default: true },
+      { id: 'objects', label: 'Objects & enemies', default: true },
       { id: 'collision', label: 'Collision layer', default: false },
     ],
     music: async () => ['Green Hills:greenhills', 'Bridge:bridge', 'Jungle:jungle',
@@ -55,6 +55,7 @@ const GAMES = [
     make: (V, el, hud) => new V(el, hud),
     list: async (v) => (await v.init()).levels,
     show: (v, lvl, i) => v.loadLevel(lvl),
+    layers: [{ id: 'markers', label: 'Markers', default: false }], // slope view only
     music: async () => (await fetch('public/marble/music/manifest.json').then(r => r.json()))
       .map(m => ({ name: m.course, url: `public/marble/music/${m.file}` })),
   },
@@ -158,8 +159,8 @@ function assetEntries(m) {
     return levels.map((course, ci) => ({
       name: course.name,
       children: [
-        { name: 'Map', hud: `${course.name} · Map`, run: async () => { await game.show(viewer, course, ci); viewer.setMode('tilemap'); } },
-        { name: 'Slopes', hud: `${course.name} · Slopes`, run: async () => { await game.show(viewer, course, ci); viewer.setMode('slopes'); } },
+        { name: 'Map', hud: `${course.name} · Map`, run: async () => { await game.show(viewer, course, ci); viewer.setMode('tilemap'); applyLayers(m); } },
+        { name: 'Slopes', hud: `${course.name} · Slopes`, run: async () => { await game.show(viewer, course, ci); viewer.setMode('slopes'); applyLayers(m); } },
       ],
     }));
   }
