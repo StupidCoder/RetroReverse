@@ -183,6 +183,7 @@ export class TurricanViewer {
       g.circle(x, y, 2.5).fill(0x33ff66);
       this.markerLayer.addChild(g);
     }
+    this.markerLayer.visible = this.showObjects; // the spawn marker rides with the objects layer
 
     this.levelW = W * TILE;
     this.levelH = H * TILE;
@@ -196,6 +197,7 @@ export class TurricanViewer {
   setObjects(on) {
     this.showObjects = on;
     this.objLayer.visible = on;
+    this.markerLayer.visible = on; // the player spawn marker is part of the objects layer
   }
 
   // Toggle the collision (solid-tile) overlay.
