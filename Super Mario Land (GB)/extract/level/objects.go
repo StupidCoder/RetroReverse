@@ -37,6 +37,65 @@ func DecodeObjectsByID(rom []byte, id byte) []Object {
 	return DecodeObjects(rom, worldBank[world], ffe4)
 }
 
+// --- object metasprites (the sprite graphics an object draws) ---
+//
+// The object sprite draw ($25B7) renders a slot's metasprite using the slot's frame field
+// (slot+6) as an index into the pointer table at $2FD9 (bank-0 fixed). The pointed-at
+// stream is "turtle graphics": a byte with bit7 clear moves the 8x16 cursor (low nibble:
+// bit3 up / bit2 down / bit1 left / bit0 right, 8 px each) and carries the OAM attribute;
+// a byte with bit7 set stamps an 8x16 OBJ sprite of that tile id at the cursor. ($FF ends.)
+// SML runs sprites in 8x16 mode, so each emitted tile is a vertical pair (tile&$FE, |1).
+
+const msTable = 0x2FD9 // object metasprite pointer table (bank-0 fixed)
+
+// Sprite is one 8x16 OBJ sprite of a metasprite: the (even) base tile id and its pixel
+// offset from the metasprite origin.
+type Sprite struct {
+	Tile   byte
+	DX, DY int
+}
+
+// DecodeMetasprite decodes object metasprite frame `f` from the $2FD9 table into its 8x16
+// sprites (reimplements the $25B7 stream walker; data is bank-0 fixed so no bank needed).
+func DecodeMetasprite(rom []byte, f int) []Sprite {
+	p := int(rom[msTable+f*2]) | int(rom[msTable+f*2+1])<<8
+	var out []Sprite
+	cx, cy := 0, 0
+	for i := 0; i < 64 && p >= 0 && p < len(rom); i++ {
+		b := rom[p]
+		p++
+		if b == 0xFF {
+			break
+		}
+		if b&0x80 != 0 {
+			out = append(out, Sprite{b & 0xFE, cx, cy})
+			continue
+		}
+		if b&0x08 != 0 {
+			cy -= 8
+		}
+		if b&0x04 != 0 {
+			cy += 8
+		}
+		if b&0x02 != 0 {
+			cx -= 8
+		}
+		if b&0x01 != 0 {
+			cx += 8
+		}
+	}
+	return out
+}
+
+// TypeFrame maps an object type id to a representative metasprite frame (slot+6), observed
+// by playing every level in the oracle (extract/cmd/objsprites). It covers the enemies that
+// appear early in levels; types not seen fall back to a plain marker in the viewer.
+var TypeFrame = map[byte]byte{
+	0x00: 0x01, 0x01: 0x02, 0x04: 0x06, 0x05: 0x08, 0x0D: 0x35,
+	0x28: 0x16, 0x29: 0x16, 0x42: 0x30, 0x43: 0x34, 0x44: 0x34,
+	0x45: 0x44, 0x46: 0x0F,
+}
+
 // DecodeObjects decodes the placement list for global level index ffe4 (0-11) from the
 // pointer table at $401A in the given bank.
 func DecodeObjects(rom []byte, bank int, ffe4 byte) []Object {
