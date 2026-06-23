@@ -12,6 +12,7 @@ const TILE = 8;
 const BLOCK = 32;       // 4x4 tiles
 const DATA = 'public/sonic/';
 const GG_W = 160;                       // Game Gear visible width (px); max zoom-in = GG 1:1
+const GG_H = 144;                       // Game Gear visible height (px); default view fits this
 const ZOOM_STEP = Math.pow(1.15, 0.25); // per wheel notch — a quarter of the old 1.15 in log space
 
 const hexToRgb = (h) => { const n = parseInt(h.slice(1), 16); return [(n >> 16) & 255, (n >> 8) & 255, n & 255]; };
@@ -399,10 +400,10 @@ export class LevelViewer {
 
   // --- camera -------------------------------------------------------------
   _fitDefault(level) {
-    const W = this.app.screen.width;
-    this.minZoom = Math.min(W / this.levelW, this.app.screen.height / this.levelH) * 0.95;
+    const W = this.app.screen.width, H = this.app.screen.height;
+    this.minZoom = Math.min(W / this.levelW, H / this.levelH) * 0.95;
     this.maxZoom = W / GG_W;                                  // GG 1:1 — never magnify past the original viewport
-    this.zoom = Math.min(this.maxZoom, Math.max(this.minZoom, W / GG_W)); // start at the GG screen
+    this.zoom = Math.min(this.maxZoom, Math.max(this.minZoom, H / GG_H)); // start showing the full GG screen height (144px)
     // centre on Sonic's spawn
     const [sx, sy] = level.spawn;
     this._panTo((sx * BLOCK + 8), (sy * BLOCK + 16));

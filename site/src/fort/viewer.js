@@ -13,6 +13,7 @@ const CHAR = 8;            // character cell size (px)
 const ATLAS_COLS = 16;     // atlas is 16 chars wide
 const DATA = 'public/fort/';
 const NATIVE_W = 320;      // C64 screen width (40 chars) — 1:1 reference
+const NATIVE_H = 200;      // C64 screen height (25 chars) — default view fits this
 const ZOOM_STEP = Math.pow(1.15, 0.25);
 const WRAP_COPIES = 3;     // cylinder is drawn as 3 copies; min zoom shows ≤2 periods
 
@@ -252,10 +253,9 @@ export class FortViewer {
     // showing more would repeat the objects (e.g. all 8 prisoners twice).
     this.minZoom = W / this.cyl;
     this.maxZoom = (W / NATIVE_W) * 3;
-    // Default view: the top half of the level fills the viewport vertically
-    // (height = levelH/2 worth of world px), its top edge at the top, and the
-    // player spawn centred horizontally.
-    this.zoom = (2 * H) / this.levelH;
+    // Default view: show one C64 screen height (200px) of the level vertically,
+    // top edge at the top, the player spawn centred horizontally.
+    this.zoom = H / NATIVE_H;
     const [sx] = level.spawn;
     const centreX = (sx + 2) * CHAR; // centre of the 4-char-wide copter
     this.world.position.set(W / 2 - centreX * this.zoom, 0);
