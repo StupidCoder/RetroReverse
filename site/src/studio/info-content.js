@@ -133,6 +133,76 @@ and takes the patched jump into the game. If a tape error stalls the loader — 
 byte counter — stage 2 instead <strong>wipes all RAM except its own page and jumps through the reset
 vector</strong>, a response that is as much anti-tamper as error recovery.</p>
 `,
+    engine: `
+<div class="info-eyebrow">Fort Apocalypse · Game Engine</div>
+<p>Once loaded, Fort Apocalypse is an almost entirely <strong>interrupt-driven</strong> program. A
+brief setup routine builds the world in memory and arms a raster interrupt, then deliberately parks
+the processor in a tight infinite loop — every frame of the game is produced by the raster handlers
+and a main loop that they release.</p>
+
+<h2>Initialization ($8600)</h2>
+<p>Entry at <code>$8600</code> jumps straight to the init routine at <code>$8927</code>. It runs once:</p>
+<ul>
+  <li><code>SEI</code>, <code>CLD</code>, clear zero page, and set <code>$01 = $2E</code> — <strong>BASIC
+  ROM banked out, KERNAL left in</strong>, so the game's own code in the <code>$A000–$B8FF</code> region
+  is called directly underneath where BASIC used to be.</li>
+  <li>Point the VIC at bank 1 (<code>$4000–$7FFF</code>) through CIA2, with the screen at
+  <code>$4400</code>.</li>
+  <li>Reset the SID — and set voice 3 to noise, whose output at <code>$D41B</code> becomes the game's
+  <strong>random-number source</strong>.</li>
+  <li>Zero <code>$0380–$6FFF</code>, then build both character sets and expand all sprite shapes
+  (see Graphics).</li>
+  <li>Draw the HUD frame and title text with a double-width font renderer: each glyph is drawn as
+  character <code>n</code> alongside character <code>n+$20</code>.</li>
+  <li>Install the title raster interrupt at line <code>$F9</code> and finish with
+  <code>$8A9F: JMP $8A9F</code> — a one-instruction halt. Everything after this point happens inside
+  interrupts.</li>
+</ul>
+
+<h2>The raster architecture</h2>
+<p>The display is split into two horizontal bands, each served by its own interrupt handler that
+reprograms the VIC mid-frame and chains to the next split:</p>
+<ul>
+  <li><strong>Line <code>$F9</code> — the HUD handler (<code>$9BD4</code>).</strong> Selects the HUD
+  character set (<code>$D018 = $14</code>, charset <code>$5000</code>), sets the scroll registers,
+  latches the sprite-collision registers, increments the frame counter, reads keyboard and joystick,
+  updates the player sprite, bullets and the enemy sprite, drives sound, and schedules the next
+  interrupt for line <code>$76</code>.</li>
+  <li><strong>Line <code>$76</code> — the playfield handler (<code>$AE19</code>).</strong> Selects the
+  playfield character set (<code>$D018 = $16</code>, charset <code>$5800</code>), applies fine
+  scrolling, sets the per-level colours, runs the in-place charset animations, copies the scrolling
+  playfield window, applies SID effects, and schedules the next interrupt back at line
+  <code>$F9</code>.</li>
+</ul>
+<p>The consequence of the split is that screen rows 0–6 (the HUD and scanner) and rows 7–24 (the
+playfield) are drawn from <strong>two different character sets</strong>, swapped partway down every
+frame.</p>
+
+<h2>The main loop and game state</h2>
+<p>The main game loop lives at <code>$8BB1</code>. It is entered from the title interrupt by a
+stack-resetting jump the moment fire is pressed, and from then on it waits for the frame counter to
+change, runs the per-frame logic chain — the object engines, zone checks and state dispatch — and
+loops. Because it is gated on the frame counter, the loop runs in lock-step with the raster handlers
+that drive the screen.</p>
+<p>A single byte at <code>$9D</code> holds the overall game state and selects what that chain does:
+<code>1</code> title / attract, <code>9</code> demo game, <code>3</code> new game, <code>4</code> "get
+ready", <code>5</code> life lost, <code>2</code> playing, <code>6</code> game over and debrief,
+<code>7</code> a transition lock, and <code>$0A</code> the cavern teleport.</p>
+
+<h2>Memory layout in play</h2>
+<p>With the ROMs banked the way they are, the 64&nbsp;KB address space is densely packed. Zero page
+holds the live state — game state, frame counter, the camera position, the player block and a set of
+pointers. The VIC's bank 1 contains the screen at <code>$4400</code>, the sprite shape blocks at
+<code>$4000</code> (blocks 1–14 are the enemy helicopter's animation frames), and the two character
+sets at <code>$5000</code> (HUD) and <code>$5800</code> (playfield).</p>
+<p>The current level is held as a <strong>decompressed map</strong> from <code>$0503</code> — 40 rows
+of one page each — beside a soft <strong>scanner bitmap</strong> that backs the radar display, and
+small per-object coordinate and state tables for the char-based actors (tanks, prisoners, mines). The
+loaded game file itself occupies <code>$7000–$B8FF</code>: the two level maps and their RLE-packed
+scanner bitmaps, the HUD screen image, the packed sprite shapes, then the bulk of the code and its
+data tables, and finally the raw character-set data. The stage-2 loader and loading screen are left
+as dead remnants higher in memory, never referenced again.</p>
+`,
   },
   turrican: {},
   marble: {},
