@@ -192,6 +192,10 @@ const DEFAULTS = {
   noise: 0.12, lumaSmear: 0.7, iqBlur: 1.5, saturation: 1.1, phaseSpeed: 0.5,
   beamFocus: 0.55, beamBloom: 2.2, maskType: 1.0, maskStrength: 0.3, tvLines: 400,
   curvature: 0.7, glow: 0.15,
+  // line counts (decoupled): signalLines = the vertical resolution of the simulated
+  // source signal (drives the NTSC/dot-crawl artefact scale); scanLines = the number
+  // of beam scanlines the simulated CRT draws.
+  signalLines: 240, scanLines: 240,
 };
 
 export class CRT {
@@ -291,7 +295,7 @@ export class CRT {
     gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, this.scratch);
 
     const p = this.params;
-    const sigH = 240, sigW = Math.round(sigH * (w / h));
+    const sigH = p.signalLines, sigW = Math.round(sigH * (w / h));
     gl.uniform2f(this.u.u_resolution, w, h);
     gl.uniform2f(this.u.u_texResolution, sigW, sigH);
     gl.uniform1f(this.u.u_time, time);
@@ -300,7 +304,7 @@ export class CRT {
     gl.uniform1f(this.u.u_iqBlur, p.iqBlur);
     gl.uniform1f(this.u.u_saturation, p.saturation);
     gl.uniform1f(this.u.u_phaseSpeed, p.phaseSpeed);
-    gl.uniform1f(this.u.u_scanlineCount, sigH);
+    gl.uniform1f(this.u.u_scanlineCount, p.scanLines);
     gl.uniform1f(this.u.u_verticalScale, 1.0);
     gl.uniform1f(this.u.u_beamFocus, p.beamFocus * 0.2);
     gl.uniform1f(this.u.u_beamBloom, p.beamBloom);

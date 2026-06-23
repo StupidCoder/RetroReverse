@@ -546,6 +546,8 @@ html, body {
   line-height: 1.4;
 }
 .hud b { color: var(--text); font-weight: 600; }
+.hud-detail { color: var(--muted); opacity: .72; font-size: 10.5px; margin-top: 2px; }
+.hud-detail:empty { display: none; }
 
 @media (max-width: 520px) {
   .panel { width: calc(100vw - 36px); }

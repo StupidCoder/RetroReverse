@@ -103,6 +103,12 @@ function turricanTrackName(m) {
 
 const stage = document.getElementById('stage');
 const hud = document.getElementById('hud');
+// The HUD is two stacked lines: a caption the Studio owns (game · system — asset)
+// and a detail line the active viewer owns (dimensions / zoom info). They no longer
+// clobber each other, so the caption stays put while the viewer updates its detail.
+const hudCaption = document.createElement('div'); hudCaption.className = 'hud-caption';
+const hudDetail = document.createElement('div'); hudDetail.className = 'hud-detail';
+hud.append(hudCaption, hudDetail);
 const panel = document.getElementById('panel');
 const gameList = document.getElementById('gameList');
 const assetList = document.getElementById('assetList');
@@ -321,7 +327,7 @@ async function selectGame(id) {
       el.dataset.render = game.render || '2d';
       stage.appendChild(el);
       const Viewer = await game.load();
-      const viewer = game.make(Viewer, el, hud);
+      const viewer = game.make(Viewer, el, hudDetail);
       const levels = await game.list(viewer);
       m = { game, el, viewer, levels, currentIdx: 0, currentName: '' };
       mounts.set(id, m);
@@ -339,14 +345,14 @@ async function selectGame(id) {
     hideTitlecard();
   } catch (err) {
     console.error('studio: failed to load', id, err);
-    hud.innerHTML = `<b>${game.name}</b> — failed to load (${err.message})`;
+    hudCaption.innerHTML = `<b>${game.name}</b> — failed to load (${err.message})`;
   } finally {
     setBusy(false);
   }
 }
 
 function updateHud(m) {
-  hud.innerHTML = `<b>${m.game.name}</b> · ${m.game.system} &nbsp;—&nbsp; ${m.currentName}`;
+  hudCaption.innerHTML = `<b>${m.game.name}</b> · ${m.game.system} &nbsp;—&nbsp; ${m.currentName}`;
 }
 
 function hideTitlecard() {
@@ -493,8 +499,9 @@ crt.source = () => {
   return [...m.el.querySelectorAll('canvas')].filter(c => getComputedStyle(c).display !== 'none');
 };
 
-const CRT_KEYS = ['curvature', 'beamFocus', 'maskStrength', 'glow', 'iqBlur', 'noise', 'maskType'];
-const fmtCrt = (k, v) => k === 'maskType' ? (v < 0.5 ? 'Trinitron' : 'Shadow') : v.toFixed(2);
+const CRT_KEYS = ['curvature', 'beamFocus', 'maskStrength', 'glow', 'iqBlur', 'noise', 'maskType', 'signalLines', 'scanLines'];
+const INT_CRT = new Set(['signalLines', 'scanLines']);
+const fmtCrt = (k, v) => k === 'maskType' ? (v < 0.5 ? 'Trinitron' : 'Shadow') : INT_CRT.has(k) ? String(Math.round(v)) : v.toFixed(2);
 
 function syncCrtControls() {
   for (const k of CRT_KEYS) {
