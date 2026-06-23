@@ -71,6 +71,76 @@ type SID struct {
 	resScale           float64    // resonance->damping scale (tunable)
 	wlpA               float64    // per-voice waveform-rounding low-pass coefficient (the 6581 DAC)
 	vlp                [3]float64 // per-voice waveform low-pass state
+	dcA                float64    // per-voice DC-blocker coefficient (the output AC-coupling)
+	vdc                [3]float64 // per-voice DC estimate
+	// reSID-style DAC non-linearity tables (the 6581's R-2R ladder is not perfectly
+	// linear; high codes compress, which darkens the bright voices). dacWave maps the
+	// 12-bit waveform code, dacEnv the 8-bit envelope code, both to a 0..1 analog level.
+	dacWave  [4096]float64
+	dacEnv   [256]float64
+	dacWZero float64 // dacWave at mid-code 2048, the AC centre
+	envDAC   bool    // apply DAC non-linearity to the envelope (else linear)
+	waveDAC  bool    // apply DAC non-linearity to the waveform (else linear)
+	fcScale  float64 // multiplies the filter cutoff curve (tuning)
+}
+
+// buildDAC reimplements reSID's build_dac_table: the analog output of an N-bit R-2R
+// ladder DAC computed by superposition of each bit's voltage contribution. The 6581's
+// ladder has 2R/R = 2.20 (not the ideal 2.0) and no termination resistor, which makes it
+// measurably non-linear — the source of the chip's characteristic timbre. Returned values
+// are normalised so the full-scale code maps to 1.0.
+func buildDAC(bits int, r2rDivR float64, term bool) []float64 {
+	inf := math.Inf(1)
+	vbit := make([]float64, bits)
+	for setBit := 0; setBit < bits; setBit++ {
+		Vn := 1.0      // normalised bit voltage
+		R := 1.0       // normalised R
+		_2R := r2rDivR // 2R
+		Rn := inf      // ladder "tail" resistance; INF = missing termination
+		if term {
+			Rn = _2R
+		}
+		bit := 0
+		for ; bit < setBit; bit++ { // collapse the tail below this bit
+			if math.IsInf(Rn, 1) {
+				Rn = R + _2R
+			} else {
+				Rn = R + _2R*Rn/(_2R+Rn)
+			}
+		}
+		if math.IsInf(Rn, 1) { // source transformation for this bit
+			Rn = _2R
+		} else {
+			Rn = _2R * Rn / (_2R + Rn)
+			Vn = Vn * Rn / _2R
+		}
+		for bit++; bit < bits; bit++ { // propagate to the output
+			Rn += R
+			I := Vn / Rn
+			Rn = _2R * Rn / (_2R + Rn)
+			Vn = Rn * I
+		}
+		vbit[setBit] = Vn
+	}
+	n := 1 << bits
+	dac := make([]float64, n)
+	var max float64
+	for i := 0; i < n; i++ {
+		var vsum float64
+		for sb := 0; sb < bits; sb++ {
+			if i&(1<<sb) != 0 {
+				vsum += vbit[sb]
+			}
+		}
+		dac[i] = vsum
+		if vsum > max {
+			max = vsum
+		}
+	}
+	for i := range dac {
+		dac[i] /= max
+	}
+	return dac
 }
 
 // envF reads a float from an env var (for tuning sweeps); 0 if unset/invalid.
@@ -87,16 +157,32 @@ func New(clock, sampleRate float64) *SID {
 	if v := envF("SID_AA"); v > 0 {
 		aaHz = v
 	}
-	s.resScale = 0.72
+	s.resScale = 0.42 // gentle resonance: the 6581 filter peak is weak (verified vs reSID)
 	if v := envF("SID_RES"); v > 0 {
 		s.resScale = v
 	}
-	wlpHz := 5500.0 // the 6581's waveform DAC rounds the edges; model as a per-voice low-pass
+	wlpHz := 9000.0 // the 6581's waveform DAC rounds the edges; model as a per-voice low-pass
 	if v := envF("SID_WLP"); v > 0 {
 		wlpHz = v
 	}
 	s.wlpA = 1.0 - math.Exp(-2.0*3.14159265358979*wlpHz/clock)
 	s.aaA = 1.0 - math.Exp(-2.0*3.14159265358979*aaHz/clock)
+	dcHz := 110.0 // per-voice DC blocker / output AC-coupling; tames the bass voice's fundamental
+	if v := envF("SID_DC"); v > 0 {
+		dcHz = v
+	}
+	s.dcA = 1.0 - math.Exp(-2.0*3.14159265358979*dcHz/clock)
+	// 6581 DAC non-linearity (R-2R ladder, 2R/R = 2.20, no termination).
+	const r2r6581 = 2.20
+	copy(s.dacWave[:], buildDAC(12, r2r6581, false))
+	copy(s.dacEnv[:], buildDAC(8, r2r6581, false))
+	s.dacWZero = s.dacWave[2048]
+	s.envDAC = envF("SID_ENVDAC") != 0  // default 0 => linear envelope; set 1 to enable
+	s.waveDAC = envF("SID_NOWAVEDAC") == 0 // default on; set 1 to bypass waveform DAC
+	s.fcScale = 1.0
+	if v := envF("SID_FC"); v > 0 {
+		s.fcScale = v
+	}
 	for i := range s.v {
 		s.v[i].noise = 0x7FFFF8
 		s.v[i].expPer = 1
@@ -290,7 +376,7 @@ func (s *SID) cutoffW() float64 {
 	// 6581 cutoff curve: rises quickly off the floor, so a mostly-linear map (gently
 	// shaped) rather than a steep quadratic — the latter buries mid-range cutoffs too low.
 	n := fc / 2047.0
-	hz := 100.0 + (12000.0-100.0)*(0.35*n*n+0.65*n)
+	hz := (100.0 + (12000.0-100.0)*(0.35*n*n+0.65*n)) * s.fcScale
 	w := 2.0 * 3.14159265358979 * hz / s.clock
 	if w > 1.0 {
 		w = 1.0
@@ -307,9 +393,22 @@ func (s *SID) output() float64 {
 		if i == 2 && s.mode&0x80 != 0 && route&4 == 0 {
 			continue
 		}
-		raw := (float64(s.wave(i)) - 2048.0) / 2048.0
+		// pass the 12-bit waveform code through the non-linear DAC and AC-centre it,
+		// then scale by the (also non-linear) envelope DAC — the analog multiply.
+		var raw float64
+		if s.waveDAC {
+			raw = (s.dacWave[s.wave(i)] - s.dacWZero) * 2.0
+		} else {
+			raw = (float64(s.wave(i)) - 2048.0) / 2048.0
+		}
+		s.vdc[i] += s.dcA * (raw - s.vdc[i]) // track DC; subtract it (AC-couple the voice)
+		raw -= s.vdc[i]
 		s.vlp[i] += s.wlpA * (raw - s.vlp[i]) // DAC edge-rounding (per-voice low-pass)
-		samp := s.vlp[i] * (float64(s.v[i].env) / 255.0)
+		envLvl := float64(s.v[i].env) / 255.0
+		if s.envDAC {
+			envLvl = s.dacEnv[s.v[i].env]
+		}
+		samp := s.vlp[i] * envLvl
 		if route&(1<<i) != 0 {
 			filtIn += samp
 		} else {

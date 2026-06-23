@@ -318,7 +318,14 @@ func main() {
 	}
 	fmt.Printf("raw RMS=%.1f peak=%.0f (solo=%d)\n", rms, rawPeak, solo)
 	if solo >= 0 {
-		return // diagnostic run: don't write audio
+		// solo diagnostic: write the raw (un-normalised) audio so relative voice levels
+		// are preserved for stem comparison against reSID.
+		raw := fmt.Sprintf("/tmp/mine_v%d.raw", solo)
+		f, _ := os.Create(raw)
+		binary.Write(f, binary.LittleEndian, pcm)
+		f.Close()
+		fmt.Println("wrote", raw)
+		return
 	}
 
 	// peak-normalise to a comfortable level (the raw mix sits low because of envelopes/rests)
