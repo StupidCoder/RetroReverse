@@ -22,7 +22,292 @@ export const INFO_TABS = [
 ];
 
 export const INFO_CONTENT = {
-  sonic: {},
+  sonic: {
+    loader: `
+<div class="info-eyebrow">Sonic the Hedgehog · Image &amp; Loader</div>
+<p>Sonic runs from a Game Gear cartridge — the simplest image in this collection: a verbatim copy of
+the mask-ROM chip, with <strong>no container, filesystem or loader</strong>. The only structure the
+console imposes is a memory map (the ROM is larger than the Z80 can address) and a small Sega header,
+so there is nothing to unpack — boot is a short reset routine that brings the hardware up and hands
+off to the game.</p>
+
+<h2>The cartridge and its memory map</h2>
+<p>The ROM is 256&nbsp;KB. The Z80's address bus is 16-bit, so it can only see 64&nbsp;KB at once —
+a quarter of the cartridge. The ROM is divided into sixteen 16&nbsp;KB <strong>banks</strong>, and the
+standard Sega mapper pages a chosen bank into one of three 16&nbsp;KB <strong>slots</strong> in the low
+48&nbsp;KB; the top 16&nbsp;KB is work RAM. Four mapper registers at the very top of the address space
+select which bank shows in each slot — and they physically <em>are</em> the top four bytes of RAM
+(mirrored there), so a write both stores the byte and reprograms the mapper. At reset the slots default
+to banks 0/1/2, which is why the engine and boot code sit in the first 48&nbsp;KB. One subtlety: the
+first 1&nbsp;KB is <strong>hard-wired to bank 0</strong> and never paged, so the CPU vectors and the
+mapper-setup code stay reachable however slot 0 is paged. The graphics and sound hardware are not in the
+memory map at all — the Z80 reaches the VDP and PSG through I/O ports.</p>
+
+<h2>The header and vectors</h2>
+<p>Sega stamps a 16-byte <code>"TMR SEGA"</code> header near the front: a magic string, a product code
+and version, and a region / ROM-size nibble (here Game Gear export, 256&nbsp;KB). On the Master System
+that field gates a BIOS check; the Game Gear has no such gate, so it is informational. The Z80's fixed
+entry points all sit at the bottom of the always-present bank 0 — the reset address, eight one-byte
+<code>RST</code> call targets, and the interrupt vectors. Sonic routes its hottest common subroutines
+through the <code>RST</code> slots (each is a one-byte call), and the maskable-interrupt vector jumps to
+the per-frame VDP handler.</p>
+
+<h2>Reset and cold start</h2>
+<p>The reset code is the textbook Master System / Game Gear opening: disable interrupts, select interrupt
+mode 1, busy-wait on the VDP until the raster reaches a known line, then jump to the real cold start. The
+cold start re-asserts the default bank layout, clears the 8&nbsp;KB of work RAM with the classic
+overlapping <code>LDIR</code> fill (stopping 16 bytes short so it does not clobber the mapper-register
+mirror) and parks the stack at the top, brings the VDP up in <strong>Mode 4</strong> from a register table
+(keeping a RAM shadow the interrupt handler reads back), and <strong>hides all 64 sprites</strong> by
+setting their Y off-screen before the display comes on. It then calls a setup routine in another bank
+through the banked-call gateway and hands off to the main entry.</p>
+
+<h2>Cross-bank calls</h2>
+<p>Because most of the game lives outside the 64&nbsp;KB the CPU can see at once, the engine reaches it
+through <strong>banked-call thunks</strong> that are the <code>RST $18/$20/$28</code> vectors: each pages
+a fixed bank into a slot, calls a fixed entry in it, then restores the previous bank — read back from a
+RAM shadow that tracks the current slot banks so the calls can nest. <code>RST $20</code> lands in bank 3,
+which holds a dispatcher the engine reaches through these one-byte calls. The main entry enables
+interrupts, sets the bank shadows to the running configuration, runs the subsystem initialisers, and sets
+the top-level game-mode variable — and from there control is in the main loop.</p>
+`,
+    engine: `
+<div class="info-eyebrow">Sonic the Hedgehog · Game Engine</div>
+<p>After boot, Sonic runs an attract sequence over a small <strong>state machine</strong>: a scene system
+that loads the logo, the title, the world map and the levels in turn, driven by a one-byte scene counter
+and a function-table dispatcher that reaches across the ROM's banks.</p>
+
+<h2>The attract loop and scene state machine</h2>
+<p>The main entry loads the SEGA logo and enters an <strong>attract loop</strong> driven by a one-byte
+scene counter: each pass loads a screen, fades it in, runs it, and advances; when the counter passes the
+last scene it restarts from the logo. Each scene is described by a roughly 40-byte <strong>descriptor</strong>
+in a table (18 entries), which the dispatcher copies into RAM to run and maps to a screen type — the
+early scenes are the title background, the later ones the world map. It only reloads the background when
+the type changes, so the title stays up across its scenes while the foreground animates, and the map
+likewise persists across its scenes.</p>
+
+<h2>Title and Start</h2>
+<p>While the title is up, the scene scripts animate Sonic (the finger-tapping pose) and blink
+<code>PRESS START BUTTON</code>. The wait for Start is not a poll loop — it is folded into the attract
+loop through two flags: the controller is read every frame, and when Start is pressed a handler raises a
+<strong>launch flag</strong> and writes a target scene. On the next pass the loop sees the flag, skips the
+idle wait, and uses the target scene instead of the counter — so Start jumps the sequence out of the demo
+and into the post-title flow rather than letting it free-run. The same Start bit is checked during the
+logo, which is why the logo and title are skippable.</p>
+
+<h2>The world map</h2>
+<p>There are <strong>two</strong> world-map screens — a different tile set and a different stored map for
+each — and the engine picks between them by the level you are heading into. A countdown byte, decremented
+after each level, selects the wide island for early levels and zooms in on the mountain-top goal for late
+ones. It is the same island both times: the castle on the peak of the wide shot is the city that fills the
+zoomed shot. On either map the route and the zone name are not in the stored map — they are a per-scene
+overlay drawn by the string blitter, and the blink is that overlay repainted on a timer.</p>
+
+<h2>Reaching a level</h2>
+<p>Pressing Start does not "return into the game" — the attract loop never exits. Instead Start selects a
+target scene whose script <em>itself</em> loads the level and jumps into the gameplay engine, which runs
+from banked code (the gameplay engine and the level variables live in bank 1, reached through the bank-3
+dispatcher). Once in play, a per-frame <strong>scroll / camera update</strong> recomputes the tile-stream
+source from the camera position each frame, feeding the streamer that draws the level a column at a time.</p>
+`,
+    graphics: `
+<div class="info-eyebrow">Sonic the Hedgehog · Graphics</div>
+<p>Game Gear graphics are two layers: the fixed <strong>VDP hardware formats</strong> the data ends up in,
+and the game-specific <strong>compression</strong> it is stored under in the ROM. Almost all of Sonic's
+art is compressed, and levels are built from a small alphabet of reusable blocks.</p>
+
+<h2>VDP formats</h2>
+<p>These are standard Mode 4 formats. A <strong>tile</strong> is 8&times;8 pixels in four bitplanes (16
+colours), 32 bytes, stored row-interleaved. The <strong>palette</strong> is 32 entries of 12-bit colour in
+BGR order — 16 background, 16 sprite. The <strong>name table</strong> is the 32&times;28 background map in
+VRAM; each cell is a two-byte word giving a 9-bit tile number plus per-cell flip, palette-select and
+priority bits.</p>
+
+<h2>Compression</h2>
+<p>A single codec compresses almost all of Sonic's art — a <strong>four-byte-unit LZ</strong> whose unit is
+one tile row (four bitplane bytes), so a repeated row (a blank row, a flat fill) costs a single bit. A
+compressed block is addressed as a <code>(bank, address)</code> pair, and its prologue normalises the
+address and maps two consecutive banks into the slots, so a block can span banks. The block holds a control
+bitmap (one bit per output unit), a literal stream of the distinct four-byte rows in first-appearance order,
+and a match-info stream of back-reference offsets; decoding walks the units, emitting either the next
+literal row or a back-reference to an earlier one.</p>
+
+<h2>The opening screens</h2>
+<p>The two screens before the menu reach the same VRAM by opposite routes. The <strong>SEGA logo</strong>'s
+tile map is computed in code — there is no stored map: a loop lays down a plain identity grid one vertical
+column at a time, left to right, so the logo wipes in (render it mid-build and you get "SEG" before the
+"A"), with an animated sprite shine sweeping the letters. The <strong>title</strong> takes the other
+approach, loading its name table wholesale from a stored, compressed map (a tiny RLE name-table loader runs
+twice, composing a priority base layer drawn in front of sprites and a plain overlay).
+<code>PRESS START BUTTON</code> is painted on afterwards by a string blitter and blinks — repainted every
+time it toggles.</p>
+
+<h2>Level maps</h2>
+<p>A level is far wider than the screen, scrolls, and is built from reusable <strong>blocks</strong> rather
+than per-cell tile numbers. Sonic stores it as three nested layers plus a palette:</p>
+<ul>
+  <li>a compressed <strong>block-index map</strong> — an RLE list of block indices that decompresses to a
+  fixed 4096-byte grid in a RAM window the engine reads as it scrolls. The scenery — hills, palms, flowers,
+  even the ring graphics — is part of this block map; what it does <em>not</em> contain is the object layer.</li>
+  <li>a <strong>block → tiles table</strong> — each block index expands to a 4&times;4 grid of 8&times;8
+  tiles (a 32&times;32-pixel chunk), 16 bytes per block. A column expander reads one map column, looks up
+  each block's tiles, and uploads a column to VRAM as the camera crosses each 8-pixel boundary.</li>
+  <li>the <strong>tile graphics</strong> — 256 background tiles, compressed with the same codec, plus a
+  palette loaded by index through a table.</li>
+</ul>
+<p>Each act is driven by a 37-byte <strong>descriptor</strong> — the zone, scroll bounds, spawn block, the
+offsets of the map, block table and tile set, the object table, the music id and flags. Because that table
+is static, every act of a zone follows from it: the three acts of a zone share their tile set, block table
+and palette, differing only in the block-index map and the width.</p>
+
+<h2>A map that isn't always wide</h2>
+<p>The decompressed map is always 4096 bytes but not always 16&times;256: the descriptor carries a
+<strong>stride</strong> that sets the column count, so the grid is <code>(4096 / stride)</code> rows tall.
+Most acts are wide (stride 256 → 16&times;256), but a small stride is a tall, narrow level — Jungle Act 2
+is a 256-row &times; 16-column vertical waterfall climb. The grid is always 4096 cells; how they are laid
+out is data-driven per act.</p>
+
+<h2>Animated tiles</h2>
+<p>Some graphics animate by swapping tile data in place. The <strong>rings</strong> (a 16&times;16 graphic
+is four 8&times;8 tiles) spin through about six frames, copied from a fixed source for every zone; the Green
+Hills <strong>flowers</strong> are a two-frame toggle gated on the zone. Both tile sets are empty in the base
+set — a per-frame update copies a fresh frame into them each cycle. There is no generic animation table; each
+animation is hardcoded.</p>
+
+<h2>Sprites</h2>
+<p>Objects — Sonic, the enemies, items — are drawn as <strong>hardware sprites</strong> (8&times;16 mode),
+not from the tilemap. A per-zone sprite tile set is decompressed into VRAM, and the sprite-attribute table
+lists each active sprite's position and tile; the per-object draw builds a display list in RAM that is
+flushed to the attribute table each vblank. Sonic's animation is <strong>data-driven and streamed</strong>:
+his pose indexes an animation table to a frame sequence (a byte stream with loop/jump controls), and when the
+frame changes its 16 tiles are streamed into the sprite VRAM — so only the live frame (and its neighbours) is
+resident, not a full sheet.</p>
+`,
+    gameplay: `
+<div class="info-eyebrow">Sonic the Hedgehog · Gameplay</div>
+<p>Sonic himself is just object type <code>$00</code>, and everything interactive in a level — the player,
+the enemies, the platforms, the springs — runs through one <strong>object system</strong> and one master
+dispatch.</p>
+
+<h2>The object system</h2>
+<p>Each act's descriptor points to an <strong>object table</strong> — a count followed by three-byte entries
+(type, block X, block Y) — expanded at load into an array of fixed-size records; record 0 is Sonic, placed
+from the spawn pointer. Every live object is processed once per frame by a <strong>master dispatch</strong>:
+a word-pointer table indexed by the type byte selects the object's behaviour handler, which runs and then
+falls through to common "apply velocity to position" code. The type also indexes a bounding-box table for
+the object's size and a descriptor for its sprite class. So a single type byte ties an object to its
+behaviour, its size and its sprite.</p>
+
+<h2>Sonic's movement</h2>
+<p>Sonic's handler is the largest in the game, turning the controller into motion. The pad is sampled once
+per frame and is active-low (a pressed button reads <code>0</code>). Each frame the handler picks a
+<strong>physics parameter set</strong> — acceleration, friction and a top-speed cap — by Sonic's state and
+whether he is on the ground, then accelerates him while a direction is held and decelerates by friction when
+nothing is; the resulting speed integrates into his world position. Pressing <strong>Down</strong> sets the
+rolling/ball flag (and, only if he is moving, plays the roll sound — standing still and pressing Down is a
+crouch); rolling selects low-acceleration, high-friction constants, so a roll coasts and decays rather than
+accelerating. <strong>Jumping</strong> gives variable height: a hold timer is seeded, and while the button
+stays held and the timer counts down the upward impulse keeps being added; once released or expired, gravity
+is applied each frame instead.</p>
+
+<h2>Terrain and rings</h2>
+<p>Collision reads the same block map the level is built from, through a shared sampler that returns the
+block at a world point (it accounts for the level's stride, so a sampled point lands on the right block
+whatever the level's shape). The plain <strong>solid floor</strong> is a generic per-object routine: it
+samples the block at the feet, reads a collision shape from a per-zone attribute table (shape 0 means
+non-solid — Sonic passes through), and uses a per-column <strong>height profile</strong> so he lands on
+slopes at the right height and angle. Special blocks are a separate interaction layer — springs, spikes and
+conveyors mapped through a per-zone table to handlers (a vertical spring sets an upward velocity, a
+horizontal spring an X velocity, spikes hurt, conveyors add a steady drift), each gated on which 16-pixel
+sub-cell of the block Sonic is in. <strong>Rings</strong> are baked into the block map, not objects: certain
+block indices mark a left/right pair of rings, and the low bits of the index say which halves still hold one.
+Collecting one is a single byte-write back into the map (the graphic downgrades two → one → none), a sparkle,
+and a bump to the BCD ring count — which grants an extra life every time it passes 100.</p>
+
+<h2>Enemies and platforms</h2>
+<p>Each object type is a self-contained behaviour on its record. The <strong>platforms</strong> carry Sonic
+explicitly — a horizontal platform glides one pixel per frame 160&nbsp;px out and back; a swinging platform
+reads an arc table to trace a semicircle below its pivot — and when Sonic stands on one, the handler glues
+him on and adds the platform's per-frame motion directly to his position. The <strong>enemies</strong> share
+a small script engine — a counter into a state table, one entry per state for a fixed run of frames: the crab
+walks, stops and fires a projectile to each side; the beetle marches faster with no attack; the fish hides
+underwater and leaps straight up; the porcupine is a slow spiky walker whose spikes are the threat. The
+<strong>seesaw</strong> is simulated rather than scripted: a tilt angle with a weight that falls under
+gravity, and Sonic's landing impact is transferred into the tilt — so a harder landing flings whatever is on
+the other end higher, with no fixed launch height. Each <strong>boss</strong> sets itself up as a
+self-contained set-piece, decompressing its own graphics and running a small bytecode script; the world-1
+boss takes eight hits, scored only when Sonic touches it while rolling or jumping.</p>
+
+<h2>Checkpoints and the camera</h2>
+<p>Some "objects" are not enemies at all. A <strong>camera / scroll-lock</strong> writes the camera position
+from its own position each frame, pinning or limiting how far the view scrolls. A <strong>checkpoint</strong>,
+on contact, writes its own block position into a per-act respawn table — so a death returns Sonic to the
+checkpoint, one block above it.</p>
+
+<h2>Underwater</h2>
+<p>Labyrinth is the only zone with water, and its acts are half-flooded, split by a horizontal water line.
+The <strong>water surface is itself an object</strong> — the first one placed in each Labyrinth act, its
+block-Y the water level — and each frame it writes the current surface Y (with a sine bob, so the line
+ripples) and derives the scanline where the split falls. Crossing the line changes three things at once, all
+driven by one underwater flag: the <strong>palette</strong> swaps via a mid-frame raster split (a line
+interrupt rewrites the 16 background colours to a static underwater set below the line, restored at vblank
+above it); the <strong>physics</strong> load a slower constant set (roughly quarter acceleration and gravity
+and a weaker jump, so Sonic drifts down slowly); and an <strong>air timer</strong> starts that, past about 13
+seconds, triggers the drowning countdown — so the 8-bit game does have drowning.</p>
+
+<h2>Bonus stages</h2>
+<p>Clearing Act 1 or 2 of a zone with 50 or more rings sends you to a <strong>bonus stage</strong> instead of
+the next act. The goal sign checks the ring count and sets a bonus flag; the next scene load runs the bonus
+path, swapping in a separate bonus-stage cursor that advances each visit. The bonus stages are eight more
+descriptors in the same scene table, in a seventh "zone", and they all share one tilemap, tile set, block
+table and palette — what differs per round is the spawn, the camera bounds and the object layout: the rings,
+a collectible, and bumpers that reverse Sonic's velocity on contact.</p>
+
+<h2>The hidden Scrap Brain maze</h2>
+<p>An invisible <strong>teleporter</strong> object converts its own position to a key, looks it up in a small
+table, and launches the matched destination scene — the very mechanism Start uses on the title. Because each
+teleporter's destination is hardwired to where it sits, the placements expose something the act list hides:
+<strong>Scrap Brain Act 2 is not one level but seven</strong> — the listed act plus six sub-scenes reachable
+only through teleporters, wired into a maze with deliberate loops so a wrong choice sends you in circles. A
+second teleporter, in Sky Base, warps to a hidden fortress room holding a goal sign and a Chaos Emerald,
+outside the normal act flow entirely.</p>
+`,
+    music: `
+<div class="info-eyebrow">Sonic the Hedgehog · Music</div>
+<p>The Game Gear's audio is the <strong>SN76489 PSG</strong> — three square-wave tone channels and one noise
+channel, programmed through a single write port. There is no FM on the Game Gear; the music is square waves,
+reprogrammed once per video frame.</p>
+
+<h2>The sound driver</h2>
+<p>A sound is started by a one-byte <code>RST</code> call with a sound id; the gateway pages in the sound
+bank and indexes a song-pointer table. A song begins with a header of <strong>five relative channel
+offsets</strong> — three square tones, the noise channel, and a sound-effect channel that stays idle during
+music — which the loader resolves to absolute pointers in RAM. A per-frame <strong>sequencer</strong>
+advances each channel and renders it to the PSG.</p>
+
+<h2>The channel format</h2>
+<p>Each channel is a byte stream with a duration counter decremented each frame; when it runs out the decoder
+reads the next bytes:</p>
+<ul>
+  <li>a <strong>note</strong> is two bytes — an octave/note value (the pitch is a base period from a
+  one-octave table, shifted down by the octave) plus a duration;</li>
+  <li>a <strong>rest</strong> silences the channel for a duration;</li>
+  <li>a <strong>voice</strong> command picks an instrument (a noise mode plus an ADSR envelope) — and on the
+  noise channel the "notes" are voice commands, each a drum hit, which is the zone's percussion;</li>
+  <li>a <strong>command</strong> byte (tempo, volume, instrument envelope, vibrato, detune, block-repeat with
+  a nested loop stack, a loop-point mark and an end/loop) carries no time of its own.</li>
+</ul>
+<p>The loop is <strong>in the data</strong>: a loop-point mark and a loop command bracket the repeating
+section, which is why each track loops seamlessly. Per frame the render forms the pitch as base + detune +
+vibrato, shifted by the octave, and scales the volume with the ADSR envelope before writing the PSG.</p>
+
+<h2>Which track plays</h2>
+<p>The track for an act is its descriptor's <strong>music id</strong>, indexing the song table. The ids
+resolve to about fifteen distinct tunes — the six zone themes (Sky Base acts 1 and 3 reuse Scrap Brain's),
+the special-stage theme, the world map, act-clear, a shared boss theme, and assorted jingles — so, for
+example, Sky Base Act 1 correctly plays the Scrap Brain music.</p>
+`,
+  },
   fort: {
     loader: `
 <div class="info-eyebrow">Fort Apocalypse · Image &amp; Loader</div>
