@@ -40,9 +40,8 @@ func main() {
 		ox := (f%cols)*cell + cell/2
 		oy := (f/cols)*cell + 4
 		for _, s := range level.DecodeMetasprite(data, f) {
-			// 8x16: top tile = tile (even), bottom = tile|1, at $8000 unsigned.
+			// 8x8 OBJ tile at the cursor (objects run in 8x8 mode).
 			drawTile(img, vram, s.Tile, obp0, ox+s.DX, oy+s.DY, pal)
-			drawTile(img, vram, s.Tile|1, obp0, ox+s.DX, oy+s.DY+8, pal)
 		}
 	}
 	f, err := os.Create(*out)

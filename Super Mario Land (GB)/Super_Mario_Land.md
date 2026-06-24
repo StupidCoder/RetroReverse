@@ -742,8 +742,10 @@ each entry is 3 bytes, sorted ascending by trigger column:
   byte0  col   : the scroll column ($C0AB) at which the object spawns. $C0AB advances
                  once per 16 px of scroll (it counts SCX bit-3 1->0 in the column
                  decoder), so the object's map column (8 px tiles) is col*2.
-  byte1  pos   : bits 0-4 -> map row ((pos&$1F); the +$10/-OAM-offset cancel out);
-                 bits 6-7 -> a fine sub-column X nudge.
+  byte1  pos   : bits 0-4 -> the object's screen tile-row (Y=((pos&$1F)<<3)+$10, drawn as
+                 OAM Y, so screen row = pos&$1F). The level columns are blitted to BG rows
+                 2-17 (rows 0-1 are the HUD), so the matching row in the 16-row map is
+                 (pos&$1F)-2. bits 6-7 -> a fine sub-column X nudge.
   byte2  type  : bits 0-6 -> object type id (indexes the $336C init table); bit 7 is a
                  "second quest" flag — those objects are gated by $FF9A.
 L is terminated by an entry whose col byte is $FF.
@@ -771,12 +773,15 @@ routine `$25B7` takes the slot's frame field (`slot+6`, seen as `$FFC6`) as an i
 the pointer table at `$2FD9` (bank-0 fixed). The pointed-at stream is *turtle graphics*:
 
 ```
-byte, bit7 = 0 : control — low nibble moves the 8x16 cursor (bit3 up / bit2 down /
+byte, bit7 = 0 : control — low nibble moves the cursor (bit3 up / bit2 down /
                  bit1 left / bit0 right, 8 px each); the byte also carries the OAM attribute
-byte, bit7 = 1 : stamp an 8x16 OBJ sprite of this tile id at the cursor (SML runs sprites
-                 in 8x16 mode, so each is a vertical tile pair: tile&$FE, tile|1)
+byte, bit7 = 1 : stamp an 8x8 OBJ sprite of this tile id (the byte itself) at the cursor
 $FF            : end of the metasprite
 ```
+
+Objects run in **8x8 sprite mode** (LCDC bit 2 = 0): each stamped byte is one 8x8 tile, so
+e.g. the Goomba (frame `$01`) is the single tile `$90`, while Mario is a 2×2 of 8x8 tiles.
+The stamped tile id is the byte verbatim (bit 7 stays set — object tiles live at `$80`+).
 
 The object tile art itself is bulk-loaded per world to VRAM `$8A00` from the `$0DE4` source
 table (World 1 via `$0D30`/`$05D0`), so the same frame id renders the world's own creatures.

@@ -112,22 +112,20 @@ func main() {
 	fmt.Println("wrote", *out)
 }
 
-// drawSprite composites an object metasprite (8x16 sprites) at map position (ox,oy). The
-// metasprite origin is the object's feet/centre; bias up so the sprite sits on its tile.
+// drawSprite composites an object metasprite (8x8 sprites) with its origin at map pixel
+// (ox,oy) — the same point the engine sets as the object's position.
 func drawSprite(img *image.RGBA, vram []byte, sprs []level.Sprite, obp0 byte, ox, oy int) {
 	for _, s := range sprs {
-		for half := 0; half < 2; half++ { // 8x16: top tile, then tile|1
-			t := gameboy.DecodeTile(vram[int(s.Tile|byte(half))*16:])
-			for py := 0; py < 8; py++ {
-				for px := 0; px < 8; px++ {
-					v := t[py][px]
-					if v == 0 {
-						continue // OBJ colour 0 = transparent
-					}
-					sh := (obp0 >> (2 * v)) & 3
-					g := []uint8{0xff, 0xaa, 0x55, 0x00}[sh]
-					img.Set(ox+s.DX+px, oy-8+s.DY+half*8+py, color.RGBA{g, g, g, 0xff})
+		t := gameboy.DecodeTile(vram[int(s.Tile)*16:])
+		for py := 0; py < 8; py++ {
+			for px := 0; px < 8; px++ {
+				v := t[py][px]
+				if v == 0 {
+					continue // OBJ colour 0 = transparent
 				}
+				sh := (obp0 >> (2 * v)) & 3
+				g := []uint8{0xff, 0xaa, 0x55, 0x00}[sh]
+				img.Set(ox+s.DX+px, oy+s.DY+py, color.RGBA{g, g, g, 0xff})
 			}
 		}
 	}

@@ -18,9 +18,10 @@ package level
 //	                 differently, on a second quest; $FF9A gates it at $24E6).
 //	the list is terminated by an entry whose col byte is $FF.
 
-// Object is one placed object: Col/Row are map-tile coordinates (8x8 tiles), Type is
-// the object type id, Hard is the bit-7 second-quest flag, and FineX is the 0-3
-// sub-column nudge from the position byte's top two bits.
+// Object is one placed object. Col/Row are the map-tile coordinates (8x8 tiles) of the
+// object's metasprite origin (where the engine puts $FFC3/$FFC2). Type is the object type
+// id, Hard is the bit-7 second-quest flag, and FineX is the 0-3 sub-column nudge from the
+// position byte's top two bits.
 type Object struct {
 	Col, Row int
 	Type     byte
@@ -41,21 +42,22 @@ func DecodeObjectsByID(rom []byte, id byte) []Object {
 //
 // The object sprite draw ($25B7) renders a slot's metasprite using the slot's frame field
 // (slot+6) as an index into the pointer table at $2FD9 (bank-0 fixed). The pointed-at
-// stream is "turtle graphics": a byte with bit7 clear moves the 8x16 cursor (low nibble:
+// stream is "turtle graphics": a byte with bit7 clear moves the cursor (low nibble:
 // bit3 up / bit2 down / bit1 left / bit0 right, 8 px each) and carries the OAM attribute;
-// a byte with bit7 set stamps an 8x16 OBJ sprite of that tile id at the cursor. ($FF ends.)
-// SML runs sprites in 8x16 mode, so each emitted tile is a vertical pair (tile&$FE, |1).
+// a byte with bit7 set stamps an 8x8 OBJ sprite of that tile id (the byte itself, bit7 and
+// all) at the cursor. ($FF ends.) SML runs sprites in 8x8 mode (LCDC bit2 = 0), so each
+// emitted byte is one 8x8 tile — e.g. the Goomba (frame $01) is the single tile $90.
 
 const msTable = 0x2FD9 // object metasprite pointer table (bank-0 fixed)
 
-// Sprite is one 8x16 OBJ sprite of a metasprite: the (even) base tile id and its pixel
-// offset from the metasprite origin.
+// Sprite is one 8x8 OBJ sprite of a metasprite: the tile id and its pixel offset from the
+// metasprite origin (DY negative = above the origin).
 type Sprite struct {
 	Tile   byte
 	DX, DY int
 }
 
-// DecodeMetasprite decodes object metasprite frame `f` from the $2FD9 table into its 8x16
+// DecodeMetasprite decodes object metasprite frame `f` from the $2FD9 table into its 8x8
 // sprites (reimplements the $25B7 stream walker; data is bank-0 fixed so no bank needed).
 func DecodeMetasprite(rom []byte, f int) []Sprite {
 	p := int(rom[msTable+f*2]) | int(rom[msTable+f*2+1])<<8
@@ -68,7 +70,7 @@ func DecodeMetasprite(rom []byte, f int) []Sprite {
 			break
 		}
 		if b&0x80 != 0 {
-			out = append(out, Sprite{b & 0xFE, cx, cy})
+			out = append(out, Sprite{b, cx, cy})
 			continue
 		}
 		if b&0x08 != 0 {
@@ -178,9 +180,14 @@ func DecodeObjects(rom []byte, bank int, ffe4 byte) []Object {
 		pos := bankByte(rom, bank, ptr+1)
 		typ := bankByte(rom, bank, ptr+2)
 		ptr += 3
+		// pos&$1F is the object's SCREEN tile-row: the engine sets Y=((pos&$1F)<<3)+$10,
+		// drawn as OAM Y (so screen pixel Y = Y-16, screen row = pos&$1F). The level's
+		// column data is blitted to BG rows 2-17 (rows 0-1 are the HUD), so the matching
+		// row in the 16-row map is pos&$1F - 2. (Verified against the oracle: the first
+		// 1-1 Goomba has slot Y=$88 = screen row 15 = map row 13.)
 		objs = append(objs, Object{
 			Col:   int(col) * 2,
-			Row:   int(pos & 0x1F),
+			Row:   int(pos&0x1F) - 2,
 			Type:  typ & 0x7F,
 			Hard:  typ&0x80 != 0,
 			FineX: int(pos&0xC0) >> 6,

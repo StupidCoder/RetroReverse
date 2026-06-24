@@ -122,17 +122,15 @@ func saveObjIcons(rom []byte, path string, vram []byte, obp0 byte) map[string]in
 		ox := objOrigin[0]
 		oy := i*objCell + objOrigin[1]
 		for _, s := range level.DecodeMetasprite(rom, int(typeFrame[byte(t)])) {
-			for half := 0; half < 2; half++ { // 8x16: top tile, then tile|1
-				tl := gameboy.DecodeTile(vram[int(s.Tile|byte(half))*16:])
-				for py := 0; py < 8; py++ {
-					for px := 0; px < 8; px++ {
-						v := tl[py][px]
-						if v == 0 {
-							continue // OBJ colour 0 = transparent
-						}
-						g := []uint8{0xff, 0xaa, 0x55, 0x00}[(obp0>>(2*v))&3]
-						img.Set(ox+s.DX+px, oy+s.DY+half*8+py, color.NRGBA{g, g, g, 0xff})
+			tl := gameboy.DecodeTile(vram[int(s.Tile)*16:]) // 8x8 OBJ tile at the cursor
+			for py := 0; py < 8; py++ {
+				for px := 0; px < 8; px++ {
+					v := tl[py][px]
+					if v == 0 {
+						continue // OBJ colour 0 = transparent
 					}
+					g := []uint8{0xff, 0xaa, 0x55, 0x00}[(obp0>>(2*v))&3]
+					img.Set(ox+s.DX+px, oy+s.DY+py, color.NRGBA{g, g, g, 0xff})
 				}
 			}
 		}

@@ -98,10 +98,11 @@ export class SMLViewer {
     for (const o of objects) {
       const idx = types[o.type];
       if (iconSrc && idx !== undefined) {
-        // world anchor matches the offline render: (col*8, row*8 - 8)
+        // place the icon so its metasprite origin (objOrigin in the cell) lands on the
+        // object's map-tile origin (col,row) — same as the offline render.
         const tex = new Texture({ source: iconSrc, frame: new Rectangle(0, idx * cell, cell, cell) });
         const sp = new Sprite(tex);
-        sp.position.set(o.col * TILE - orgX, (o.row * TILE - 8) - orgY);
+        sp.position.set(o.col * TILE - orgX, o.row * TILE - orgY);
         layer.addChild(sp);
         continue;
       }
