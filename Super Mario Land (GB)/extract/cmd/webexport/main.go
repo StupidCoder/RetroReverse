@@ -98,10 +98,12 @@ func main() {
 // Object-icon atlas geometry: each known type's metasprite is composited into one
 // objCell-square cell (stacked vertically). objOrigin is the cell pixel where the
 // metasprite's cursor origin (0,0) sits, so the viewer can line an icon up with a
-// placement: it blits the cell so objOrigin lands on the object's world anchor.
-const objCell = 24
+// placement: it blits the cell so objOrigin lands on the object's world anchor. The cell
+// must hold the largest metasprite: across all base frames the tiles span DX -8..+32,
+// DY -24..+16, so a 40x40 cell with the origin at (8,24) fits every sprite without clipping.
+const objCell = 40
 
-var objOrigin = [2]int{12, 12}
+var objOrigin = [2]int{8, 24}
 
 // saveObjIcons composites one metasprite per known object type into a vertical atlas (in
 // this world's OBJ tiles + sprite palette) and returns type id -> icon index. Types not in
