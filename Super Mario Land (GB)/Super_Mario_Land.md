@@ -1146,10 +1146,13 @@ a **loop-target address** back into the list — patterns before the target are 
 intro, the rest is the looping body. A pattern is a byte stream:
 
 ```
-$9D a b c : set the channel's voice (NRx2 envelope, NRx1 duty/length, a 3rd byte)
+$9D a b c : set the channel's voice — on the squares (a,b,c) are the NRx2 envelope, NRx1
+            duty/length and a 3rd byte; on the WAVE channel (a|b<<8) is a pointer to 16 bytes
+            of wave-RAM data and c is the NR32 volume.
 $A0-$AF   : set the note duration to durtable[low nibble]  (ticks; 1 tick = 1/64 s)
 note N    : play a note — pitch is the GB frequency freqtable[$6F70 + N] (2 bytes/semitone;
-            e.g. $52 = E5). On the noise channel N indexes a polynomial table instead.
+            e.g. $52 = E5). The NOISE channel has no $9D; its note N indexes the table at
+            $7002 for the envelope and polynomial-counter (NR42/NR43) of a drum hit.
 $01       : repeat the previous note (retrigger same pitch)
 $00       : end of pattern (advance to the next order entry)
 ```

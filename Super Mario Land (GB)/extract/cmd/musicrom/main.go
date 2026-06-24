@@ -171,6 +171,12 @@ func render(chs [4]channel) []int16 {
 	if loop > 5000 {
 		loop = lcm(chs[0:2]) // squares only
 	}
+	if os.Getenv("MUSDBG") != "" {
+		for i, c := range chs {
+			fmt.Fprintf(os.Stderr, "ch%d: %d events, loop %d ticks\n", i, len(c.events), c.loopTicks)
+		}
+		fmt.Fprintf(os.Stderr, "song loop %d ticks\n", loop)
+	}
 	var ev []gameboy.RegWrite
 	at := func(tick int, reg uint16, v byte) {
 		ev = append(ev, gameboy.RegWrite{Cycle: int64(tick) * cycPerTick, Reg: reg, Val: v})
@@ -181,9 +187,16 @@ func render(chs [4]channel) []int16 {
 	at(0, 0xFF24, 0x77)
 	at(0, 0xFF1A, 0x80) // wave DAC on
 
+	solo := os.Getenv("MUSSOLO")
 	for ci, c := range chs {
 		if c.loopTicks == 0 {
 			continue
+		}
+		if solo != "" && solo != fmt.Sprint(ci) {
+			continue
+		}
+		if os.Getenv("MUSDBG") != "" && len(c.events) > 0 {
+			fmt.Fprintf(os.Stderr, "ch%d first note: freq=%d env=$%02X duty=$%02X\n", ci, c.events[0].freq, c.events[0].inst.env, c.events[0].inst.duty)
 		}
 		base := regBase[ci]
 		// repeat the channel's own loop to fill the song loop
@@ -212,13 +225,26 @@ func emitNote(ev *[]gameboy.RegWrite, at func(int, uint16, byte), ci int, base u
 		at(e.tick, base+1, e.inst.env) // NRx2 envelope
 		at(e.tick, base+2, byte(e.freq))
 		at(e.tick, base+3, byte(e.freq>>8)|0x80) // trigger
-	case 2: // wave
-		at(e.tick, 0xFF1C, 0x20) // volume 100%
+	case 2: // wave — the instrument's first two bytes are a pointer to 16 bytes of wave RAM
+		wp := int(e.inst.env) | int(e.inst.duty)<<8
+		if wp >= 0x6000 && wp < 0x8000 {
+			at(e.tick, 0xFF1A, 0x00) // DAC off while loading wave RAM
+			for k := 0; k < 16; k++ {
+				at(e.tick, 0xFF30+uint16(k), rb(wp+k))
+			}
+			at(e.tick, 0xFF1A, 0x80) // DAC on
+		}
+		at(e.tick, 0xFF1C, e.inst.x) // NR32 volume (3rd $9D byte)
 		at(e.tick, 0xFF1D, byte(e.freq))
 		at(e.tick, 0xFF1E, byte(e.freq>>8)|0x80)
-	case 3: // noise
-		at(e.tick, 0xFF21, e.inst.env)
-		at(e.tick, 0xFF22, byte(e.freq))
+	case 3: // noise — the note byte indexes the $7002 envelope/poly table
+		env := rb(0x7002 + e.freq)
+		poly := rb(0x7002 + e.freq + 2)
+		if env&0xF0 == 0 {
+			env = 0xA1 // fallback drum envelope
+		}
+		at(e.tick, 0xFF21, env)
+		at(e.tick, 0xFF22, poly)
 		at(e.tick, 0xFF23, 0x80)
 	}
 }
