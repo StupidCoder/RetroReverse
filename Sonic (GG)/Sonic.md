@@ -1044,6 +1044,42 @@ Unnamed but present (handlers confirmed, behaviour not yet identified): `$05` b1
 `$0A`–`$0D` b1, `$0B` b1 `$69ED`, `$11` b1 `$6F61`, `$13`–`$24` (mostly bank 2),
 `$27`–`$2B`, `$2E`–`$4C`, `$52`–`$56`. The full table is dumped by inspecting `$24B2`.
 
+### Object sprites — the metasprite format
+
+An object's graphic is a **metasprite**: a small grid of hardware-sprite tiles, drawn at
+the object's screen position. Each object record holds a pointer to its current layout in
+**`IX+15/16`**, and the per-object draw (`~$2EE0`, which calls the sprite writer `$2F07`
+when that pointer is non-zero) interprets it as a **3-row × 6-column grid of 8×16-sprite
+tile indices** — 18 bytes. The writer walks the grid emitting one sprite record per cell,
+advancing **+8 px per column** and **+16 px per row**; a cell value of `$FE` is a *skip*
+(a hole in the shape) and a `$FF` at the start of a row *ends* the sprite. Because the VDP
+runs in 8×16 mode, a layout byte `b` draws tile `b` on top of tile `b+1`.
+
+The referenced tiles come from the **per-zone sprite tile set** that the level loader
+decompresses (the `$0406` codec) into sprite VRAM `$2000`. That source is named by three
+descriptor fields decoded here: **+23** = bank, **+24/25** = address, and **+26** = the
+sprite **palette** index (stored to `$D22D`, resolved through the bank-8 `$7400` table to
+15 colours plus a transparent index 0). So an object sprite is simply *that zone's tile
+sheet* plus an *18-byte layout* held in the handler's bank.
+
+Most animated enemies don't set `IX+15/16` directly; they go through the **shared
+animation routine `$7C75`**. It takes the object's *frame-layout base* in `DE` and an
+*animation sequence* in `BC` (pairs of `frameId, duration`, looping on `$FF`), and sets
+`IX+15/16 = base + frameId × 18` — so an enemy's frames are consecutive 18-byte layouts,
+and frame 0 (the base) is the idle pose. Platforms, items and bosses instead load an
+explicit layout pointer (e.g. the swing platform picks `$6910`/`$6922` by zone; the World 1
+boss, which decompresses its *own* graphics, points at `$7359`).
+
+This is enough to extract every object's sprite **straight from the ROM**, with no
+emulator. `cmd/spriterip` reads each `$24B2` handler for its layout pointer (the `DE` base
+fed to `$7C75`, or a direct `IX+15/16` load), decompresses each zone's sprite tile set and
+palette, and renders the metasprite — **68 sprites across the seven zones**: the crab,
+beetle, bird, fish, porcupine, the moving/swinging platforms (the jungle's are *logs*), the
+item boxes, and all four world bosses, each in its own zone's colours. The few that stay
+markers are invisible triggers (`$03`, the camera lock `$50`), the passive checkpoint, and
+objects that load their own graphics on demand (the goal sign). The Studio viewer draws
+these in its **Objects** layer, replacing the three oracle-captured placeholders.
+
 ### Horizontal moving platform (`$0F`)
 
 The handler (bank 1 `$6DCA`) is a tidy worked example of how a behaviour reads off the

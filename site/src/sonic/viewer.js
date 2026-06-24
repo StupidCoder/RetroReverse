@@ -263,6 +263,7 @@ export class LevelViewer {
     this.levelW = W * BLOCK; this.levelH = H * BLOCK;
 
     this._buildCollision(level);
+    this.zoneSprites = await this._loadZoneSprites(level.zone);
     this._buildObjects(level);
     this._setMusicTrack(level.music);
     this._fitDefault(level);
@@ -320,21 +321,45 @@ export class LevelViewer {
     else this.audio.pause();
   }
 
-  // Sprites lifted from the running game (oracle): Sonic's spawn frame + a few enemies.
-  // Each is a tight-cropped, native-resolution PNG drawn at nearest-neighbour.
+  // Sprites extracted straight from the ROM (cmd/spriterip): every placed object type's
+  // idle metasprite, rendered per zone with that zone's sprite tile set + palette. The
+  // index maps zone -> type(hex) -> {w,h}; the PNGs live at sprites/<zone>/<hex>.png.
+  // Sonic's spawn frame is the one separate PNG (sprites/sonic.png).
   async _loadSprites() {
     this.spriteTex = {};
-    for (const n of ['sonic', 'crab', 'beetle']) {
+    this.zoneSpriteTex = {};   // zone -> { typeNumber -> Texture }, lazily loaded
+    this.spriteIndex = {};
+    const load = (src) => new Promise((res, rej) => {
+      const i = new Image();
+      i.onload = () => res(i); i.onerror = rej; i.src = src;
+    });
+    const tex = async (src) => {
+      const tx = Texture.from(await load(src));
+      tx.source.scaleMode = 'nearest';
+      return tx;
+    };
+    try { this.spriteTex.sonic = await tex(DATA + 'sprites/sonic.png'); } catch { /* optional */ }
+    try { this.spriteIndex = await fetch(DATA + 'sprites/index.json').then((r) => r.json()); } catch { /* optional */ }
+  }
+
+  // Lazily load (and cache) every object sprite for one zone.
+  async _loadZoneSprites(zone) {
+    if (this.zoneSpriteTex[zone]) return this.zoneSpriteTex[zone];
+    const out = {};
+    const types = this.spriteIndex[zone] || {};
+    await Promise.all(Object.keys(types).map(async (hex) => {
       try {
-        const img = await new Promise((res, rej) => {
+        const tx = Texture.from(await new Promise((res, rej) => {
           const i = new Image();
-          i.onload = () => res(i); i.onerror = rej; i.src = DATA + 'sprites/' + n + '.png';
-        });
-        const tx = Texture.from(img);
+          i.onload = () => res(i); i.onerror = rej;
+          i.src = DATA + 'sprites/' + zone + '/' + hex + '.png';
+        }));
         tx.source.scaleMode = 'nearest';
-        this.spriteTex[n] = tx;
-      } catch { /* sprite optional */ }
-    }
+        out[parseInt(hex, 16)] = tx;
+      } catch { /* skip */ }
+    }));
+    this.zoneSpriteTex[zone] = out;
+    return out;
   }
 
   // --- object markers -----------------------------------------------------
@@ -357,12 +382,12 @@ export class LevelViewer {
       s.y = Math.round(by * BLOCK + (BLOCK - tex.height) / 2);
       this.objectLayer.addChild(s);
     };
-    // The captured enemy sprites carry the Green Hills sprite palette, so only use them in
-    // the overworld zones where those enemies actually appear (not the special stage).
-    const enemySprites = level.zone <= 2;
+    // Each placed object draws its ROM-extracted sprite (this zone's set); types without
+    // an extractable metasprite (invisible triggers, own-gfx loaders) fall back to a marker.
+    const zoneSprites = this.zoneSprites || {};
     for (const o of level.objects) {
       if (o.type === 0) continue; // Sonic handled as the spawn marker
-      const tex = enemySprites ? this.spriteTex[o.name] : null;
+      const tex = zoneSprites[o.type];
       if (tex) { sprite(tex, o.bx, o.by); continue; }
       const cat = OBJ_CAT[o.name] || 'default';
       mk(o.bx, o.by, BLOCK, BLOCK, OBJ_COLORS[cat], o.name || '?' + o.type.toString(16));
