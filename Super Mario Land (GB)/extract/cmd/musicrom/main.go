@@ -1,19 +1,29 @@
-// musicrom renders Super Mario Land's music and sound to MP3. The SML sound engine (bank 3,
-// entered from the timer ISR at $7FF0 -> $6762; see Super_Mario_Land.md Part VI) is a
-// sophisticated multi-channel SFX/sequence driver; rather than reimplement it byte for byte
-// we run the real engine in our Game Boy emulator (tools/gameboy) and capture the writes it
-// makes to the APU registers ($FF10-$FF3F), then synthesise those through our DMG APU
-// emulator (tools/gameboy/apu.go) — the same "decode the structure, render the raw hardware
-// output" split this project uses for graphics. ffmpeg (libmp3lame) encodes the MP3.
+// musicrom synthesises Super Mario Land's music ENTIRELY FROM THE ROM song data — a Go port
+// of the bank-3 sound engine (Super_Mario_Land.md Part VI), no emulator in the render loop.
 //
-// A song is selected by writing its id to the music request slot $DFE8 and letting the engine
-// play; we capture a fixed window and trim to a whole number of seconds.
+// Format (all bank-3 addresses):
+//   - The song table $673C maps a music id to a song header; $07B7[ffe4] selects which song
+//     each of the twelve levels uses, so the tracks are named by that.
+//   - A song header is: master byte, a 16-bit pointer to the song's DURATION TABLE, then four
+//     16-bit channel-header pointers (square1, square2, wave, noise).
+//   - A channel header is an ORDER LIST of 16-bit pattern pointers; lo byte $FF is the LOOP
+//     point, $00 ends the song.
+//   - A pattern is a byte stream: $9D a b c = set instrument (envelope, duty/len, 3rd byte);
+//     $A0-$AF = set note duration to durtable[low nibble]; $00 ends the pattern; note $01 = tie
+//     (hold, no retrigger); any other byte N is a note whose pitch is the GB frequency
+//     freqtable[$6F70 + N] (two bytes per semitone). The noise channel's N indexes a
+//     polynomial-counter table at $7002 instead of a pitch.
+//   - The engine ticks at 64 Hz (one durtable unit = 1/64 s).
 //
-//	go run ./cmd/musicrom [-rom PATH] [-o DIR]
+// The decoded notes are rendered through our DMG APU (tools/gameboy/apu.go). Each channel
+// loops at its $FF, so the render is trimmed to exactly one loop for a seamless file. ffmpeg
+// (libmp3lame) encodes the MP3. -verify boots the real engine in the emulator and prints both
+// the decoded and the engine's note streams so the port can be checked.
 package main
 
 import (
 	"encoding/binary"
+	"flag"
 	"fmt"
 	"os"
 	"os/exec"
@@ -22,90 +32,185 @@ import (
 	"stupidcoder.com/tools/gameboy"
 )
 
-// songs to render: each music id (written to the song-request slot $DFE8) and an output
-// name. Id $07 is the overworld/main theme (verified by its melody); the rest keep id-based
-// names — they are clearly distinct songs but naming every one needs a listen-comparison.
-var songs = []struct {
-	id   byte
-	name string
-}{
-	{0x01, "music-01"}, {0x02, "music-02"}, {0x03, "music-03"}, {0x04, "music-04"},
-	{0x05, "music-05"}, {0x06, "music-06"}, {0x07, "overworld"}, {0x08, "music-08"},
-	{0x09, "music-09"}, {0x0A, "music-10"}, {0x0B, "music-11"}, {0x0C, "music-12"},
+const cycPerTick = 65536 // 4194304 Hz / 64 Hz tick
+
+var rom []byte
+
+func b3(a int) int  { return 3*0x4000 + (a - 0x4000) }
+func rb(a int) byte { return rom[b3(a)] }
+func rw(a int) int  { return int(rom[b3(a)]) | int(rom[b3(a)+1])<<8 }
+
+type instrument struct{ env, duty, x byte }
+
+// chanEvent is one note on a channel timeline.
+type chanEvent struct {
+	tick, dur int
+	freq      int // GB 11-bit frequency (square/wave) or noise poly byte
+	tie, rest bool
+	inst      instrument
 }
 
-func main() {
-	rom := flagStr("-rom", "../Super Mario Land (World).gb")
-	out := flagStr("-o", "../rendered/music")
-	data, err := os.ReadFile(rom)
-	ck(err)
-	ck(os.MkdirAll(out, 0o755))
+type channel struct {
+	events    []chanEvent
+	loopTicks int
+}
 
-	for _, s := range songs {
-		pcm := renderSong(data, s.id, 16.0)
-		wav := filepath.Join(out, s.name+".wav")
-		writeWAV(wav, pcm)
-		mp3 := filepath.Join(out, s.name+".mp3")
-		c := exec.Command("ffmpeg", "-y", "-loglevel", "error", "-i", wav,
-			"-c:a", "libmp3lame", "-b:a", "96k", "-ac", "1", mp3)
-		if e := c.Run(); e != nil {
-			fmt.Printf("  ffmpeg failed for %s: %v\n", s.name, e)
+// decodeChannel walks a channel's order list and patterns into note events, stopping at the
+// $FF loop marker (one full loop). isNoise selects the noise vs pitch interpretation.
+func decodeChannel(hdr, durTbl int, isNoise bool) channel {
+	// The order list is a run of 2-byte pattern pointers ending in an $FF entry followed by a
+	// 2-byte LOOP TARGET (an address back into the list). Patterns before the target are a
+	// one-shot intro; the seamless loop is the patterns from the target to the $FF, so we
+	// decode only those.
+	start := hdr
+	end := hdr
+	for guard := 0; guard < 512; guard++ {
+		if rb(end) == 0xFF {
+			start = rw(end + 2) // loop target
+			break
+		}
+		if rb(end) == 0x00 {
+			break
+		}
+		end += 2
+	}
+
+	var ch channel
+	var inst instrument
+	dur, tick, order, prev := 1, 0, start, 0
+	for order < end {
+		pat := rw(order)
+		order += 2
+		for g2 := 0; g2 < 4096; g2++ {
+			c := rb(pat)
+			if c == 0x00 {
+				break
+			}
+			switch {
+			case c == 0x9D:
+				inst = instrument{rb(pat + 1), rb(pat + 2), rb(pat + 3)}
+				pat += 4
+			case c >= 0xA0 && c <= 0xAF:
+				dur = int(rb(durTbl + int(c&0x0F)))
+				pat++
+			default:
+				ev := chanEvent{tick: tick, dur: dur, inst: inst}
+				switch {
+				case c == 0x01: // repeat previous note (retrigger same pitch)
+					ev.freq = prev
+				case isNoise:
+					ev.freq = int(c)
+					prev = ev.freq
+				default:
+					ev.freq = rw(0x6F70 + int(c))
+					prev = ev.freq
+				}
+				ch.events = append(ch.events, ev)
+				tick += dur
+				pat++
+			}
+		}
+	}
+	ch.loopTicks = tick
+	return ch
+}
+
+// song decodes a music id into its four channels. A channel whose header pointer is not in
+// bank 3 ($6000-$7FFF) is unused (e.g. the bonus theme has no wave channel) and stays empty.
+func song(id int) [4]channel {
+	hdr := rw(0x673C + (id-1)*2)
+	durTbl := rw(hdr + 1)
+	var chs [4]channel
+	for i := 0; i < 4; i++ {
+		if p := rw(hdr + 3 + i*2); p >= 0x6000 && p < 0x8000 {
+			chs[i] = decodeChannel(p, durTbl, i == 3)
+		}
+	}
+	return chs
+}
+
+func gcd(a, b int) int {
+	for b != 0 {
+		a, b = b, a%b
+	}
+	return a
+}
+
+// regBase is the first APU register of each channel (NR_1).
+var regBase = [4]uint16{0xFF11, 0xFF16, 0xFF1B, 0xFF20}
+
+// render turns the four decoded channels into an APU register-write stream and PCM, trimmed
+// to one loop (the longest channel's loop length).
+func render(chs [4]channel) []int16 {
+	// The channels loop at different lengths (e.g. a short noise drum under a long melody);
+	// the song repeats seamlessly at the least common multiple, where they all realign. If a
+	// secondary channel makes that unreasonably long, fall back to the square channels (the
+	// melody/harmony that define the song) and let the others tile with a tiny seam.
+	lcm := func(chans []channel) int {
+		l := 1
+		for _, c := range chans {
+			if c.loopTicks > 0 {
+				l = l / gcd(l, c.loopTicks) * c.loopTicks
+			}
+		}
+		return l
+	}
+	loop := lcm(chs[:])
+	if loop > 5000 {
+		loop = lcm(chs[0:2]) // squares only
+	}
+	var ev []gameboy.RegWrite
+	at := func(tick int, reg uint16, v byte) {
+		ev = append(ev, gameboy.RegWrite{Cycle: int64(tick) * cycPerTick, Reg: reg, Val: v})
+	}
+	// power on, full panning, master volume.
+	at(0, 0xFF26, 0x80)
+	at(0, 0xFF25, 0xFF)
+	at(0, 0xFF24, 0x77)
+	at(0, 0xFF1A, 0x80) // wave DAC on
+
+	for ci, c := range chs {
+		if c.loopTicks == 0 {
 			continue
 		}
-		os.Remove(wav)
-		fi, _ := os.Stat(mp3)
-		fmt.Printf("%-12s id $%02X -> %s (%d KB)\n", s.name, s.id, s.name+".mp3", fi.Size()/1024)
-	}
-}
-
-// renderSong boots into gameplay, triggers song `id`, and captures APU writes for `secs`.
-func renderSong(rom []byte, id byte, secs float64) []int16 {
-	m := gameboy.NewMachine(rom)
-	m.RunFrames(120)
-	for f := 0; f < 6; f++ {
-		m.Buttons = gameboy.BtnStart
-		m.RunFrame()
-	}
-	m.Buttons = 0
-	m.RunFrames(60) // settle into gameplay
-
-	// Select the song: write its id to the request slot and let the engine switch to it.
-	for f := 0; f < 4; f++ {
-		m.Write(0xDFE8, id)
-		m.RunFrame()
-	}
-
-	// Seed the APU with the current register state (master volume/panning, wave RAM and the
-	// channel config were set before our capture window, so the renderer must start from
-	// them). The trigger bit (7) of the freq-hi registers is cleared so the seed doesn't
-	// spuriously re-trigger a note; the song's own writes do the triggering.
-	var events []gameboy.RegWrite
-	for reg := uint16(0xFF10); reg <= 0xFF3F; reg++ {
-		v := m.Read(reg)
-		if reg == 0xFF14 || reg == 0xFF19 || reg == 0xFF1E || reg == 0xFF23 {
-			v &= 0x7F
-		}
-		events = append(events, gameboy.RegWrite{Cycle: 0, Reg: reg, Val: v})
-	}
-
-	// Capture APU writes from now on.
-	base := m.Cycles
-	m.OnWrite = func(pc, addr uint16, v byte) {
-		if addr >= 0xFF10 && addr <= 0xFF3F {
-			events = append(events, gameboy.RegWrite{Cycle: m.Cycles - base, Reg: addr, Val: v})
+		base := regBase[ci]
+		// repeat the channel's own loop to fill the song loop
+		for rep := 0; rep*c.loopTicks < loop; rep++ {
+			off := rep * c.loopTicks
+			for _, e := range c.events {
+				tk := e.tick + off
+				if tk >= loop {
+					break
+				}
+				e := e
+				e.tick = tk
+				emitNote(&ev, at, ci, base, e)
+			}
 		}
 	}
-	frames := int(secs * 59.7275)
-	for f := 0; f < frames; f++ {
-		m.RunFrame()
-	}
-	total := m.Cycles - base
-
 	apu := gameboy.NewAPU()
-	return normalize(apu.Render(events, total))
+	return normalize(apu.Render(ev, int64(loop)*cycPerTick))
 }
 
-// normalize peak-scales the PCM to ~90% full scale so every track is comfortably audible.
+// emitNote appends the APU register writes for one note event on channel ci.
+func emitNote(ev *[]gameboy.RegWrite, at func(int, uint16, byte), ci int, base uint16, e chanEvent) {
+	switch ci {
+	case 0, 1: // square
+		at(e.tick, base, e.inst.duty)  // NRx1 duty/length
+		at(e.tick, base+1, e.inst.env) // NRx2 envelope
+		at(e.tick, base+2, byte(e.freq))
+		at(e.tick, base+3, byte(e.freq>>8)|0x80) // trigger
+	case 2: // wave
+		at(e.tick, 0xFF1C, 0x20) // volume 100%
+		at(e.tick, 0xFF1D, byte(e.freq))
+		at(e.tick, 0xFF1E, byte(e.freq>>8)|0x80)
+	case 3: // noise
+		at(e.tick, 0xFF21, e.inst.env)
+		at(e.tick, 0xFF22, byte(e.freq))
+		at(e.tick, 0xFF23, 0x80)
+	}
+}
+
 func normalize(pcm []int16) []int16 {
 	peak := 1
 	for _, s := range pcm {
@@ -128,35 +233,70 @@ func normalize(pcm []int16) []int16 {
 	return pcm
 }
 
+// tracks: the level music (named by which levels use it via $07B7) plus the bonus theme.
+var tracks = []struct {
+	id   int
+	name string
+}{
+	{0x07, "level-1-1"}, // 1-1, 1-2, 3-1
+	{0x03, "level-1-3"}, // 1-3, 3-2, 3-3
+	{0x08, "level-2-1"}, // 2-1, 2-2 (Muda)
+	{0x06, "level-4-1"}, // 4-1, 4-2 (Chai)
+	{0x05, "level-2-3"}, // 2-3, 4-3 (boss/vehicle stages)
+	{0x04, "bonus"},     // pipe bonus rooms
+}
+
+func main() {
+	romPath := flag.String("rom", "../Super Mario Land (World).gb", "ROM path")
+	out := flag.String("o", "../rendered/music", "output dir")
+	verify := flag.Int("verify", 0, "print decoded vs engine notes for this music id, then exit")
+	flag.Parse()
+	var err error
+	rom, err = os.ReadFile(*romPath)
+	ck(err)
+	if *verify != 0 {
+		verifyMelody(*verify)
+		return
+	}
+	ck(os.MkdirAll(*out, 0o755))
+	for _, t := range tracks {
+		pcm := render(song(t.id))
+		wav := filepath.Join(*out, t.name+".wav")
+		writeWAV(wav, pcm)
+		mp3 := filepath.Join(*out, t.name+".mp3")
+		c := exec.Command("ffmpeg", "-y", "-loglevel", "error", "-i", wav,
+			"-c:a", "libmp3lame", "-b:a", "96k", "-ac", "1", mp3)
+		if e := c.Run(); e != nil {
+			fmt.Printf("  ffmpeg failed for %s: %v\n", t.name, e)
+			continue
+		}
+		os.Remove(wav)
+		fi, _ := os.Stat(mp3)
+		fmt.Printf("%-12s id $%02X -> %s (%d KB, loop %.1fs)\n", t.name, t.id, t.name+".mp3",
+			fi.Size()/1024, float64(len(pcm))/gameboy.APURate)
+	}
+}
+
 func writeWAV(path string, pcm []int16) {
 	f, err := os.Create(path)
 	ck(err)
 	defer f.Close()
-	n := len(pcm)
-	dataLen := n * 2
+	dataLen := len(pcm) * 2
 	f.Write([]byte("RIFF"))
 	binary.Write(f, binary.LittleEndian, uint32(36+dataLen))
 	f.Write([]byte("WAVEfmt "))
 	binary.Write(f, binary.LittleEndian, uint32(16))
-	binary.Write(f, binary.LittleEndian, uint16(1))                  // PCM
-	binary.Write(f, binary.LittleEndian, uint16(1))                  // mono
-	binary.Write(f, binary.LittleEndian, uint32(gameboy.APURate))    // sample rate
-	binary.Write(f, binary.LittleEndian, uint32(gameboy.APURate*2))  // byte rate
-	binary.Write(f, binary.LittleEndian, uint16(2))                  // block align
-	binary.Write(f, binary.LittleEndian, uint16(16))                 // bits
+	binary.Write(f, binary.LittleEndian, uint16(1))
+	binary.Write(f, binary.LittleEndian, uint16(1))
+	binary.Write(f, binary.LittleEndian, uint32(gameboy.APURate))
+	binary.Write(f, binary.LittleEndian, uint32(gameboy.APURate*2))
+	binary.Write(f, binary.LittleEndian, uint16(2))
+	binary.Write(f, binary.LittleEndian, uint16(16))
 	f.Write([]byte("data"))
 	binary.Write(f, binary.LittleEndian, uint32(dataLen))
 	binary.Write(f, binary.LittleEndian, pcm)
 }
 
-func flagStr(name, def string) string {
-	for i, a := range os.Args {
-		if a == name && i+1 < len(os.Args) {
-			return os.Args[i+1]
-		}
-	}
-	return def
-}
 func ck(err error) {
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "musicrom:", err)

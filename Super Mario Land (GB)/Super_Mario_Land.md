@@ -1137,26 +1137,54 @@ silences/stops it.
 
 ## 2. Rendering to MP3
 
-The engine is intricate enough that reimplementing it byte-for-byte would be a project in
-itself, so — exactly as Part IV renders graphics by reading the running game's VRAM — we
-**run the real engine and synthesise the hardware it drives**. A new **Game Boy APU
-emulator** (`tools/gameboy/apu.go`) models the four channels with their length, envelope and
-sweep units (stepped from a 512 Hz frame sequencer) and per-channel phase accumulators. The
-machine (`tools/gameboy`) executes the real ROM; `extract/cmd/musicrom`:
+### The song-data format
 
-1. boots into gameplay (so the engine is initialised and the timer is ticking),
-2. writes a song id to `$DFE8`, then captures every APU register write with a CPU-cycle
-   timestamp (the machine now exposes a free-running `Cycles` counter),
-3. seeds the APU with the master volume / panning / wave-RAM that were set before the capture
-   window, replays the timed writes through it to 44.1 kHz PCM, peak-normalises, and lets
-   **ffmpeg** (libmp3lame) encode the MP3.
+A song header (from `$673C[id-1]`) is a master byte, a pointer to the song's **duration
+table**, then four 16-bit channel pointers (square 1, square 2, wave, noise). Each channel
+pointer is an **order list** of 2-byte pattern pointers, ending in an `$FF` entry followed by
+a **loop-target address** back into the list — patterns before the target are a one-shot
+intro, the rest is the looping body. A pattern is a byte stream:
 
-The square-channel pitch checks out against the chip formula (fundamental
-`131072 / (2048 − freq)` Hz): the overworld theme's melody reads **E5 D♯5 D♯5 D5 C5 …** — the
-familiar Birabuto/main theme. Twelve songs (`$DFE8` ids `$01`–`$0C`) render under
-`rendered/music/`; `id $07` is the overworld theme (named; the rest keep id-based names
-pending a listen-by-listen identification). The same harness renders sound effects by writing
-to the `$DFE0`/`$DFF0`/`$DFF8` slots instead.
+```
+$9D a b c : set the channel's voice (NRx2 envelope, NRx1 duty/length, a 3rd byte)
+$A0-$AF   : set the note duration to durtable[low nibble]  (ticks; 1 tick = 1/64 s)
+note N    : play a note — pitch is the GB frequency freqtable[$6F70 + N] (2 bytes/semitone;
+            e.g. $52 = E5). On the noise channel N indexes a polynomial table instead.
+$01       : repeat the previous note (retrigger same pitch)
+$00       : end of pattern (advance to the next order entry)
+```
+
+### A Go port of the player
+
+Rather than run the engine, `extract/cmd/musicrom` is a **Go reimplementation** of it (like
+the Sonic and Elite music tools): it decodes the four channels straight from the ROM bytes
+into note events and renders them through a small **DMG APU emulator** (`tools/gameboy/apu.go`
+— two squares + wave + noise with length/envelope/sweep off a 512 Hz frame sequencer). The
+decode is checked against ground truth with `musicrom -verify <id>`, which boots the real
+engine and prints its note stream beside the port's — they match (the overworld melody
+**E5 E5 D5 C5 C5 E5 …** lines up exactly from the loop point).
+
+Because the player follows the data's own loop (the `$FF` target), each track is **trimmed to
+exactly one loop** and so loops seamlessly; channels of unequal loop length tile to their
+least common multiple. ffmpeg (libmp3lame) encodes the MP3.
+
+### Naming the tracks
+
+The music isn't an "overworld/underground" set — it is chosen **per level** by the table at
+**`$07B7`** (indexed by `ffe4`): `07 07 03 08 08 05 07 03 03 06 06 05`. So:
+
+| Music id | Levels that use it | File |
+|---|---|---|
+| `$07` | 1-1, 1-2, 3-1 | `level-1-1.mp3` |
+| `$03` | 1-3, 3-2, 3-3 | `level-1-3.mp3` |
+| `$08` | 2-1, 2-2 (Muda) | `level-2-1.mp3` |
+| `$06` | 4-1, 4-2 (Chai) | `level-4-1.mp3` |
+| `$05` | 2-3, 4-3 (the boss/vehicle stages) | `level-2-3.mp3` |
+| `$04` | the pipe bonus rooms | `bonus.mp3` |
+
+(Other ids drive the title, level-clear, game-over and ending jingles, triggered outside the
+level table.) The six tracks render under `rendered/music/`; the same player renders the
+sound effects from the `$DFE0`/`$DFF0`/`$DFF8` tables.
 
 ---
 

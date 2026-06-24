@@ -71,6 +71,14 @@ FFB6 oam_dma            HRAM OAM-DMA routine (DMA $C000 shadow -> OAM); copied f
 6AFD snd_select         id-1 *2 -> pointer from the given table (HL)
 6B19 snd_load_wave      copy 16 bytes (HL) -> wave RAM $FF30-$FF3F
 # $673C[id-1] = song header; write song id to $DFE8 to start a piece of music
+6C88 snd_load_song      parse song header (master, dur-table ptr, 4 channel ptrs) -> $DF blocks
+6DB8 snd_chan_update    advance one channel's note stream (dur counter, read $6D43 / adv $6D2E)
+6D7D snd_pat_next       pattern $00 end -> next order entry; $FF -> loop to target
+# song header: master, dur-table-ptr, ch1/ch2/ch3/ch4 hdr ptrs
+# channel hdr: list of 2-byte pattern ptrs, $FF + 2-byte loop-target, $00=song end
+# pattern: $9D abc=instrument, $A0-AF=dur from table, $01=repeat note, note=freq $6F70[N], $00=end
+# $6F70 = note->GB-freq table (2 bytes/semitone); engine ticks at 64 Hz
+0790 level_music_sel    level music: $DFE8 = $07B7[ffe4] (07 07 03 08 08 05 07 03 03 06 06 05)
 175C pipe_enter         Down on a $70 pipe: read $C800[above] -> $FFF4-7 (dest/ret screen,X,Y)
 1612 pipe_descend       animate Mario into the pipe to $FFF8, then state $0A
 1626 pipe_warp_in       state $0A: $FFE5=$FFF4 (bonus screen 1/2), reload screen+objects
