@@ -49,6 +49,16 @@ FFB6 oam_dma            HRAM OAM-DMA routine (DMA $C000 shadow -> OAM); copied f
 1815 mario_on_solid     stand on a solid tile (snap Y to tile top, set on-ground)
 2B7B enemy_solid_side   enemy collision probe: read tile, solid iff in [$5F,$F0) (carry=clear)
 2B91 enemy_solid_v      (sibling probes $2BB2/$2BDB/$2BF5/$2C18 = feet/side/slope, same rule)
+
+# --- Mario physics & movement (Part V §7; player block $C200) ---
+# $C201=Y $C202=X $C203=state/facing $C205=facing $C207=vstate(0 grnd/1 rise/2 fall)
+# $C20A=on-ground $C20C=jump-hold-timer $C20E=move speed (2 walk / 4 run w/ B)
+2870 move_apply_h       horizontal velocity->position (shared w/ objects); $FFCB=Mario(+cam)
+296C move_apply_v       vertical velocity->position; rise checks ceiling, fall checks floor
+498B mario_jump_ctrl    A while grounded -> jump (var height via $C20C hold); B = run
+1983 mario_head_check   rising: tile above Mario; solid stops jump, bonks ?-block/brick
+0AE1 mario_stomp        Mario vs objects: drop onto enemy from above -> stomp ($29F8)
+4B6F mario_pit_death    Mario Y >= $B4 (below playfield) -> death state $FFB3=1
 175C pipe_enter         Down on a $70 pipe: read $C800[above] -> $FFF4-7 (dest/ret screen,X,Y)
 1612 pipe_descend       animate Mario into the pipe to $FFF8, then state $0A
 1626 pipe_warp_in       state $0A: $FFE5=$FFF4 (bonus screen 1/2), reload screen+objects

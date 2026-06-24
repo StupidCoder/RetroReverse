@@ -27,7 +27,8 @@ and adds Game-Boy-specific opcodes (`LDH`, `LD (C),A`, `LD (a16),A`, `STOP`, `SW
 **`cmd/dissm83`** CLI — has been built for this game (mirroring `tools/z80`); the
 hand decodes below were confirmed against it. All addresses are CPU addresses
 (16-bit, `$0000`–`$FFFF`) unless a *file offset* is called out; bytes are 8-bit.
-Parts I–IV are complete; Part V is in progress (object/enemy placement done).
+Parts I–IV are complete; Part V covers the game mechanics (objects, sprites, scripts,
+pipes, collision and Mario's physics) — only scoring/progression bookkeeping is left.
 
 ---
 
@@ -1044,8 +1045,57 @@ The Studio viewer exposes this as a **Collision layer** toggle: it fills every s
 The `?`/brick blocks and pipes carry extra per-tile behaviour through the `$C800` metadata
 map (§4 / the `$651C`/`$6536` tables), but for *standing on* it is purely the id threshold.
 
-*Still stubbed for Part V:* Mario's own physics, the per-opcode movement maths (`$266D`/
-`$2870` velocity→position, gravity), score handling, and progression.
+## 7. Mario's physics and movement
+
+Mario is, structurally, a *special object*. His state lives in the **player block at
+`$C200`** and he is moved by the very same velocity→position integrator as the enemies
+(`$2870` horizontal, `$296C` vertical — §2/§3): velocity low-nibble = X speed, high-nibble
+= Y speed, direction from the facing flags. The one twist is the `$FFCB` flag — when it is
+set the integrator also moves the camera and writes `$C201`/`$C202`, which is how *Mario*
+(rather than an enemy) drags the world with him. Everything specific to Mario is input + a
+small vertical state machine layered on that shared core.
+
+Player block fields that matter here: `$C201` = screen Y, `$C202` = screen X, `$C203` =
+state/facing, `$C205` = facing flags, **`$C207` = vertical state** (0 grounded, 1 rising,
+2 falling), `$C20A` = on-ground flag, `$C20C` = jump-hold timer, `$C20E` = move speed.
+
+**Horizontal.** Holding Left/Right accelerates Mario over a few frames to a top speed of
+about **1 px/frame**; holding **B runs** (~**1.5 px/frame**; the speed field `$C20E` goes
+2 → 4). His screen X (`$C202`) advances until he reaches the camera's push line, past which
+the world scrolls (SCX `$FFA4`) instead — the integrator advances `$C202` and the camera
+together (`$FFF3` keeps the last scroll). Walls stop him through the side collision
+`$2B7B` (the `[$5F,$F0)` solid rule of §6).
+
+**Jump — variable height.** Pressing A while grounded starts a jump (`$498B`: `$C207`=1,
+hold timer `$C20C`=`$30`). While A stays held Mario keeps thrusting upward (~3 px the first
+frame, then ~2 px/frame); the moment A is released — or the timer runs out — gravity takes
+over, decelerating the rise and then accelerating the fall (**1 → 2 → 3 px/frame**, terminal
+~3–4). Measured live: a *tap* peaks at ~10 px (1¼ tiles), *holding* at ~24 px (3 tiles). At
+the apex `$C207` flips 1 → 2.
+
+```
+hold A:  Y 134 →110 (peak), dY -3 -3 -2 -2 … then +1 +2 +2 … +3 → land   (24 px)
+tap  A:  Y 134 →124 (peak), rise decelerates as gravity resumes          (10 px)
+```
+
+**Vertical collision.** *Rising*, the head check `$1983` reads the tile above Mario; a solid
+tile ends the jump (`$C207`→2) and, for `?`-blocks (`$82`) and bricks (`$80`/`$81`), bumps
+the block — popping its contents or breaking it via the `$C800` metadata (§4/§6) — with a
+bonk. *Falling*, the foot check `$17B3` reads the tile under each foot; a solid one snaps
+Mario onto it (`$1815`, `$C207`→0) and otherwise he keeps falling. Dropping onto an enemy
+from above (`$0AE1`, only while not rising) stomps it.
+
+**Death.** Falling into a pit — Mario's Y passing **`$B4`** (below the playfield) — triggers
+the death state (`$4B6F`: `$FFB3`=1, death jingle); time-up and enemy contact reach the same
+state from elsewhere.
+
+So "Mario physics" reuses the engine pieces Parts V §2–§6 already established (the velocity
+integrator, the tile-id collision rule, the block metadata); what's genuinely Mario-specific
+is the A-button jump state machine and the camera coupling. The numbers above come from
+both the disassembly and a live capture in the oracle (`tools/gameboy`).
+
+*Still stubbed for Part V:* the fine sub-pixel accel/friction constants, scoring, and level
+progression — the remaining bookkeeping rather than new mechanisms.
 
 ---
 
