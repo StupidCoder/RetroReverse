@@ -322,9 +322,9 @@ export class LevelViewer {
   }
 
   // Sprites extracted straight from the ROM (cmd/spriterip): every placed object type's
-  // idle metasprite, rendered per zone with that zone's sprite tile set + palette. The
-  // index maps zone -> type(hex) -> {w,h}; the PNGs live at sprites/<zone>/<hex>.png.
-  // Sonic's spawn frame is the one separate PNG (sprites/sonic.png).
+  // idle metasprite (Sonic = type 00, his standing frame from the bank-8 stream source),
+  // rendered per zone with that zone's sprite tile set + palette. The index maps
+  // zone -> type(hex) -> true; the PNGs live at sprites/<zone>/<hex>.png.
   async _loadSprites() {
     this.spriteTex = {};
     this.zoneSpriteTex = {};   // zone -> { typeNumber -> Texture }, lazily loaded
@@ -338,7 +338,6 @@ export class LevelViewer {
       tx.source.scaleMode = 'nearest';
       return tx;
     };
-    try { this.spriteTex.sonic = await tex(DATA + 'sprites/sonic.png'); } catch { /* optional */ }
     try { this.spriteIndex = await fetch(DATA + 'sprites/index.json').then((r) => r.json()); } catch { /* optional */ }
   }
 
@@ -376,33 +375,35 @@ export class LevelViewer {
       }
     };
     // Each sprite PNG is the full 48x48 metasprite grid; the engine draws that grid with
-    // its top-left at the object's world position, so we place it there directly. The
-    // grid's transparent padding positions the visible tiles — no offset or centring.
-    const sprite = (tex, bx, by) => {
+    // its top-left at the object's world position ($2CD4 tail: screen = world - camera,
+    // then $2F07 walks the grid from there). Each object's (x, y) is its engine REST
+    // position: spawn + the pickup handlers' one-time adjust ($6089) + the shared floor
+    // snap ($2CD4), reimplemented in objplace and verified live by cmd/objsettle. So the
+    // sprite goes at (x, y) directly — the grid's transparent padding does the rest.
+    const sprite = (tex, x, y) => {
       const s = new Sprite(tex);
-      s.x = bx * BLOCK;
-      s.y = by * BLOCK;
+      s.x = x;
+      s.y = y;
       this.objectLayer.addChild(s);
     };
     // Each placed object draws its ROM-extracted sprite (this zone's set); types without
     // an extractable metasprite (invisible triggers, own-gfx loaders) fall back to a marker.
     const zoneSprites = this.zoneSprites || {};
     for (const o of level.objects) {
-      if (o.type === 0) continue; // Sonic handled as the spawn marker
       const tex = zoneSprites[o.type];
-      if (tex) { sprite(tex, o.bx, o.by); continue; }
+      if (tex) { sprite(tex, o.x, o.y); continue; }
       const cat = OBJ_CAT[o.name] || 'default';
       mk(o.bx, o.by, BLOCK, BLOCK, OBJ_COLORS[cat], o.name || '?' + o.type.toString(16));
     }
-    // Sonic spawn: his actual first frame, replacing the old box.
-    const [sx, sy] = level.spawn;
-    if (this.spriteTex.sonic) {
-      const s = new Sprite(this.spriteTex.sonic);
-      s.x = Math.round(sx * BLOCK + (16 - s.texture.width) / 2);
-      s.y = Math.round((sy + 1) * BLOCK - s.texture.height); // feet near the block's bottom
-      this.objectLayer.addChild(s);
+    // Sonic: type-00 sprite at his rest position — the spawn (descriptor +13/+14)
+    // dropped to the first floor line, exactly where he stands when the fade-in ends.
+    // In the acts where he spawns over a pit (spawnPx[2] = 0) this is the spawn itself,
+    // mid-air: he really does fall into those levels.
+    const [sx, sy] = level.spawnPx || [level.spawn[0] * BLOCK, level.spawn[1] * BLOCK];
+    if (zoneSprites[0]) {
+      sprite(zoneSprites[0], sx, sy);
     } else {
-      mk(sx, sy, 16, 32, 0x3cb4ff, 'SONIC');
+      mk(sx / BLOCK, sy / BLOCK, 16, 32, 0x3cb4ff, 'SONIC');
     }
   }
 

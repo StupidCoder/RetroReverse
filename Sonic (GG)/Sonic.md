@@ -1048,8 +1048,8 @@ Unnamed but present (handlers confirmed, behaviour not yet identified): `$05` b1
 
 An object's graphic is a **metasprite**: a small grid of hardware-sprite tiles, drawn at
 the object's screen position. Each object record holds a pointer to its current layout in
-**`IX+15/16`**, and the per-object draw (`~$2EE0`, which calls the sprite writer `$2F07`
-when that pointer is non-zero) interprets it as a **3-row × 6-column grid of 8×16-sprite
+**`IX+15/16`**, and the per-object draw (the `$2CD4` tail at `$2EDE`, which calls the
+sprite writer `$2F07` when that pointer is non-zero) interprets it as a **3-row × 6-column grid of 8×16-sprite
 tile indices** — 18 bytes. The writer walks the grid emitting one sprite record per cell,
 advancing **+8 px per column** and **+16 px per row**; a cell value of `$FE` is a *skip*
 (a hole in the shape) and a `$FF` at the start of a row *ends* the sprite. Because the VDP
@@ -1073,17 +1073,36 @@ Hills else `$6922`, the horizontal platform `$6910`/`$6930`/`$6922` for zones 0/
 (in the jungle it is a *log*). The World 1 boss decompresses its *own* graphics and points
 at `$7359`.
 
-**Where the sprite is drawn.** The object draw (`$2EE0`) reads the object's world position
-(`IX+2/3`, `IX+5/6`), subtracts the camera, and the metasprite grid's **top-left lands at
-that position** — no origin offset. An object is spawned (`$1AB3`) with its position at
-exactly `(blockX×32, blockY×32)`, and — verified on the live ROM — a ground enemy then
-*stays* there (its `Y` doesn't move): the engine does **not** snap it onto the ground. The
-placement block is itself solid terrain, and the metasprite is authored to sit correctly
-when its grid top is the block's top. So the faithful placement is simply the grid top at
-`(blockX×32, blockY×32)`. The extractor keeps each sprite as the **whole 48×48 metasprite
-grid** (transparent where the layout has no tile) and the viewer draws it with its top-left
-at `(blockX×32, blockY×32)` — no cropping, no offsets — so the visible tiles land exactly
-where the engine puts them. The crab then stands on the grass, as it does in play.
+**Where the sprite is drawn.** The draw is the tail of the shared move code (`$2CD4`, at
+`$2EDE`): it reads the object's world position (`IX+2/3`, `IX+5/6`), subtracts the camera
+(`$D254`/`$D257`), and calls `$2F07` — the metasprite grid's **top-left lands exactly at
+the world position**, with no origin offset of any kind. Where the art sits *inside* the
+48×48 grid is authored into the layout (Sonic's standing frame fills cells (0,0)–(1,1), so
+his visible sprite is exactly his 16×32 hitbox at the grid origin).
+
+**Where the object *is*, though, is not the spawn.** An object is spawned (`$1AB3`) at
+`(blockX×32, blockY×32)`, but that is the top-left of its **hitbox** (width `IX+13`,
+height `IX+14`, stored by each handler as its first act — crab 16×31, beetle 10×16, item
+box 20×24), and the same shared move code runs the **floor snap** (§2) on the object's
+first live frame: if the hitbox's bottom centre is inside a block with a floor profile,
+`Y := rowBase + profile − height` — the object pops **up** to stand on the surface. A crab
+placed *as* the ground block at `(42,13)` (y = 416) rests at **y = 401** = surface 432 −
+height 31 the moment the camera gets near (objects are dormant until the `$2BD8` cull pass
+activates them — margins from the per-type table at `$2560`). The pickup family (item
+boxes `$01`–`$05`, emerald, checkpoint, continue) additionally applies a one-shot spawn
+adjust first (`$6089`): **X += 4** (centring the monitor on its totem block), or
+**(+22,+22)** if the block at its position is `$B0` — an item socketed into a Green Hills
+slope. All of this is reimplemented in `extract/objplace` and **verified against the live
+engine** by `cmd/objsettle`, which watches the `$D3FD` array as the camera sweeps Green
+Hills Act 1: every stationary object's live rest position matches the static prediction
+exactly (walkers/flyers differ only by their own first step). The extractor keeps each
+sprite as the **whole 48×48 metasprite grid** (transparent where the layout has no tile)
+and the viewer draws it with its top-left at the object's **rest position** — so the crab
+stands on the grass, the item box sits on its pillar, and the beetle (whose 16-px height
+happens to equal its block's surface offset, `352 = 368 − 16`) doesn't move at all.
+`cmd/placeshot` renders a level strip with everything placed this way for a by-eye check:
+
+![Green Hills Act 1 with engine-placed objects](rendered/placement_greenhills1.png)
 
 This is enough to extract every object's sprite **straight from the ROM**, with no
 emulator. `cmd/spriterip` reads each `$24B2` handler for its layout pointer (the `DE` base
@@ -1227,16 +1246,31 @@ defeat sequence (`$787D`) runs and the captured animals are freed. (Read statica
 ### Sonic's spawn
 
 Sonic is object 0; the loader places him at the position the spawn pointer `($D217)`
-points to (block coordinate × 32). Across all 18 acts the placed position is `blockX×32`
-horizontally but `blockY×32 + 9` vertically — a constant **+9 px Y offset** (Sonic's
-sprite origin). He is *not* dropped to the ground: the original spawn can be in mid-air
-(e.g. Green Hills Act 1 spawns up in the clouds and Sonic falls in; Labyrinth Act 1 spawns
-*above* the level), and a vertical act spawns at the **bottom** (Jungle Act 2 at block
-~248 of 256 — the start of the climb). The camera starts 3 blocks left of him
+points to, × 32 — **exactly** `(blockX×32, blockY×32)`, no offset (earlier readings of a
+"+9" origin offset and a clouds-height spawn were capture artifacts of a dormant-slot
+probe). On a fresh act start the pointer targets the level descriptor's RAM copy at its
+spawn field (`$D355+13` = `$D362`, i.e. **descriptor bytes +13/+14**; Green Hills Act 1 =
+block (5,11) → (160, 352), oracle-verified). After a death, `$1959` re-points it at the
+act's checkpoint entry (`$D32F + act×2`, written by the checkpoint object via `$6034`) —
+same mechanism, different table.
+
+The spawn is deliberately placed a little *above* the floor: his handler's gravity pulls
+him down until the shared floor snap (§2) grounds him, all within the level fade-in. The
+pattern across the acts is strikingly consistent — the drop is **16 px** almost everywhere
+(the spawn block sits one half-block surface offset above the rest position; GH1:
+352 → 368, feet on the floor line at 400). The exceptions are real gameplay: Bridge Act 1
+has **no terrain floor** below the spawn (he drops onto the log-bridge platforms — the one
+act where you visibly fall in), Bridge 2 and Sky Base 3 drop 48 px, and the Special Stages
+drop him 208–368 px — their trademark long fall. A vertical act spawns at the **bottom**
+(Jungle Act 2 — the start of the climb). The camera starts 3 blocks left of him
 (`$D251 = blockX − 3`, `$1959`).
 
-`cmd/objprobe` reads each act's spawn and `cmd/levelmap`'s overlays mark it (a 2×4-tile
-box at the original position) — see `rendered/level_<zone>_act<N>_objects.png`.
+The Studio viewer places Sonic's standing sprite at the settled position
+(`objplace.DropToFloor`); his standing frame itself is ripped from ROM — the player state
+code (`$4E9A`) computes the tile-stream source as *bank 8 + frame×192* (8 tiles × 24
+bytes, **3bpp**, streamed into the dynamic sprite slots `$B4`–`$BB` at VRAM `$3680`
+whenever his pose changes), and frame 0 at file `$20000` is the standing pose, verified
+byte-identical to live VRAM.
 
 ### Checkpoint (`$51`)
 
@@ -1504,6 +1538,22 @@ object-update. It is generic over `IX`, so it serves every object, Sonic include
 
 So the model is precisely the one predicted: a per-block solidity/shape, a per-column height
 array for smooth slopes, and a per-shape angle for ground movement.
+
+Reading the whole of the surrounding move code (`$2CD4` — the routine every `$24B2` handler
+returns into; it had to be seeded as a disassembly entry because it is only ever reached as
+a *pushed return address*) pins the exact geometry. "The feet" is the **hitbox's bottom
+centre**: the probe point is `(X + width/2, Y + height)` with the per-type width in `IX+13`
+and height in `IX+14` — so the object's world position is its hitbox **top-left**, and the
+landing condition is `(bottom & $1F) + bias ≥ profile` with a per-shape **landing-bias
+table at `$39DA`**; the snap is `Y := bottomRowBase + profile − height`. The same code runs
+a **wall pass** first (`$2D15`): probe `(X + width, Y + height/2)` when moving right (or
+`X` when moving left) against separate per-shape **wall profiles** (pointer tables `$3B0A`
+right / `$3A0A` left, indexed by the *row* within the block; `$3BDA` is the ceiling
+counterpart for rising objects), push out to `blockBase + profile − width`, zero the X
+velocity, and add a per-shape **slope kick** (`$39A8`) to the Y velocity. Velocity and
+position are 24-bit (sub-pixel byte + 16-bit integer: X `IX+1..3`/`IX+7..9`, Y
+`IX+4..6`/`IX+10..12`). The placement corollary — objects rest at *surface − height*, not
+at their spawn block — is what fixed the Studio viewer's object layer (see §1).
 
 The shape field is 6 bits, but the floor pointer table at `$3E7A` has only **48 entries**
 (`$00`–`$2F`) — shape 1's profile sits at `$3E7A + 48×2`, so the table ends there; values

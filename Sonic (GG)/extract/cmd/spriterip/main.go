@@ -22,6 +22,7 @@ import (
 	"sort"
 
 	"sonicgg/extract/decomp"
+	"sonicgg/extract/objplace"
 	"stupidcoder.com/tools/gamegear"
 )
 
@@ -54,6 +55,31 @@ func spriteTiles(rom []byte, act int) ([]byte, color.Palette) {
 	tiles := decomp.Decompress(rom, off)
 	pal := romPalette(rom, int(rom[d+26]))
 	return tiles, pal
+}
+
+// Sonic's sprite is not in the zone sheets: his animation frames are streamed into
+// the dynamic VRAM slots $B4.. each time his pose changes. The player state code
+// computes the frame source as bank 8 + frame*192 ($4E9A: 8 tiles x 24 bytes, 3
+// bitplanes per row, the fourth plane zero) and points IX+15/16 at the layout base
+// $5C1B; frame 0 is the standing pose (oracle-verified byte-identical to live VRAM).
+const (
+	sonicLayout    = 0x5C1B  // standing metasprite layout (2x2 cells = his 16x32 hitbox)
+	sonicTilesFile = 0x20000 // bank 8 + frame 0 * 192
+	sonicTileBase  = 0xB4    // the dynamic VRAM tile slot his layouts reference
+)
+
+// sonicTiles expands Sonic's standing frame into a 256-tile sheet at the $B4.. slots
+// his layout indexes, so renderMeta can treat him like any other metasprite.
+func sonicTiles(rom []byte) []byte {
+	tiles := make([]byte, 256*32)
+	for t := 0; t < 8; t++ {
+		for r := 0; r < 8; r++ {
+			src := sonicTilesFile + t*24 + r*3
+			dst := (sonicTileBase+t)*32 + r*4
+			copy(tiles[dst:dst+3], rom[src:src+3]) // planes 0-2; plane 3 stays zero
+		}
+	}
+	return tiles
 }
 
 // renderMeta renders one 18-byte metasprite layout (3 rows x 6 cols of 8x16 sprites)
@@ -264,12 +290,20 @@ func main() {
 		index[fmt.Sprint(z)] = map[string]bool{}
 		var cells []*image.RGBA
 		var labels []int
+		// Sonic (type $00): his own ROM tiles, this zone's sprite palette.
+		sonic := renderMeta(rom[sonicLayout:sonicLayout+18], sonicTiles(rom), pal)
+		save(sonic, zdir+"/00.png")
+		index[fmt.Sprint(z)]["00"] = true
+		total++
 		for _, t := range placed[z] {
-			r := analyzeSprite(rom, t, z)
-			if r.kind == "" || r.layout == 0 || r.layout+18 > len(rom) {
+			if t == 0 {
 				continue
 			}
-			full := renderMeta(rom[r.layout:r.layout+18], tiles, pal) // full 48x48 grid
+			r := objplace.AnalyzeSprite(rom, t, z)
+			if r.Kind == "" || r.Layout == 0 || r.Layout+18 > len(rom) {
+				continue
+			}
+			full := renderMeta(rom[r.Layout:r.Layout+18], tiles, pal) // full 48x48 grid
 			if _, _, bb := trimBBox(full); bb.Rect.Dx() <= 1 && bb.Rect.Dy() <= 1 {
 				continue // empty layout
 			}
@@ -277,7 +311,7 @@ func main() {
 			index[fmt.Sprint(z)][fmt.Sprintf("%02x", t)] = true
 			total++
 			if montages {
-				cells = append(cells, renderMeta(rom[r.layout:r.layout+18], tiles, pal))
+				cells = append(cells, renderMeta(rom[r.Layout:r.Layout+18], tiles, pal))
 				labels = append(labels, t)
 			}
 		}

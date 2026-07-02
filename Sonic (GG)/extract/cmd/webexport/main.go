@@ -25,6 +25,7 @@ import (
 	"path/filepath"
 
 	"sonicgg/extract/decomp"
+	"sonicgg/extract/objplace"
 
 	"stupidcoder.com/tools/gamegear"
 )
@@ -72,8 +73,8 @@ type Act struct {
 	blkTable int
 	tileFile int
 	bgPal    int
-	spawnX   int // descriptor +13
-	spawnY   int // descriptor +14 - 1 (verified against the oracle's pristine spawn)
+	spawnX   int // descriptor +13 (blockX; the loader stores +13/+14 at ($D217)->$D362)
+	spawnY   int // descriptor +14 (blockY, verbatim — no adjustment)
 }
 
 func w(rom []byte, o int) int { return int(rom[o]) | int(rom[o+1])<<8 }
@@ -91,7 +92,7 @@ func mkAct(rom []byte, idx, zone int, name string) Act {
 		tileFile: tileBase + w(rom, d+21),
 		bgPal:    int(rom[d+29]),
 		spawnX:   int(rom[d+13]),
-		spawnY:   int(rom[d+14]) - 1,
+		spawnY:   int(rom[d+14]),
 	}
 }
 
@@ -133,6 +134,8 @@ type Obj struct {
 	Type byte   `json:"type"`
 	Bx   int    `json:"bx"`
 	By   int    `json:"by"`
+	X    int    `json:"x"` // rest position (world px): spawn + the engine's placement
+	Y    int    `json:"y"` // ($6089 pickup adjust + $2CD4 floor snap), objplace.Settle
 	Name string `json:"name"`
 }
 
@@ -144,9 +147,19 @@ func objectTable(rom []byte, act int) []Obj {
 	for i := 0; i < count; i++ {
 		p := t + 1 + i*3
 		typ := rom[p]
-		objs = append(objs, Obj{typ, int(rom[p+1]), int(rom[p+2]), objNames[typ]})
+		bx, by := int(rom[p+1]), int(rom[p+2])
+		objs = append(objs, Obj{typ, bx, by, bx * 32, by * 32, objNames[typ]})
 	}
 	return objs
+}
+
+// settleObjects replaces each object's raw spawn (blockX*32, blockY*32) with its rest
+// position on its first live frame, exactly as the engine computes it (objplace,
+// verified against the running game by cmd/objsettle).
+func settleObjects(objs []Obj, lvl *objplace.Level) {
+	for i := range objs {
+		objs[i].X, objs[i].Y, _ = lvl.Settle(int(objs[i].Type), objs[i].Bx*32, objs[i].By*32)
+	}
 }
 
 // blockShapes returns block index -> collision shape (0-47) for a zone, from the $343D
@@ -425,7 +438,8 @@ type ActFile struct {
 	BlockTiles   [][]int       `json:"blockTiles"` // block -> 16 tile indices (4x4)
 	BlockShape   []int         `json:"blockShape"` // block -> collision shape 0-47
 	Blocks       []int         `json:"blocks"`     // block-index map, row-major, len = w*h
-	Spawn        [2]int        `json:"spawn"`      // [bx, by]
+	Spawn        [2]int        `json:"spawn"`      // [bx, by] raw spawn blocks (view centring)
+	SpawnPx      [3]int        `json:"spawnPx"`    // Sonic's rest [x, y, grounded]: spawn dropped to the first floor line (objplace.DropToFloor)
 	Objects      []Obj         `json:"objects"`
 	Anim         []AnimGroup   `json:"anim"`                   // animated tile groups (atlas indices per frame)
 	PaletteCycle *PaletteCycle `json:"paletteCycle,omitempty"` // runtime BG-palette rotation (water/waterfall)
@@ -547,11 +561,20 @@ func main() {
 			bt[b] = row
 		}
 
-		// Sonic's spawn is not in the object table; the loader places him from the spawn
-		// pointer. It is stored in the descriptor as (+13, +14-1) = (blockX, blockY),
-		// verified block-exact against the oracle's pristine slot-0 capture (objprobe).
+		// Sonic's spawn is not in the object table: the loader stores descriptor +13/+14
+		// at $D362 (pointed to by $D217) and $1AB3 spawns slot 0 at (blockX*32, blockY*32).
+		// His handler then pulls him down onto the first floor line (gravity + the $2CD4
+		// snap), so his visible start is the dropped rest position. Objects likewise rest
+		// where the engine's first live frame puts them (objplace, verified by objsettle).
 		spawn := [2]int{a.spawnX, a.spawnY}
 		objs := objectTable(rom, a.num)
+		lvl := objplace.NewLevel(rom, mp, a.stride, a.zone)
+		settleObjects(objs, lvl)
+		sx, sy, grounded := lvl.DropToFloor(0, a.spawnX*32, a.spawnY*32)
+		spawnPx := [3]int{sx, sy, 0}
+		if grounded {
+			spawnPx[2] = 1
+		}
 
 		actNo := a.num%3 + 1
 		if a.zone == 6 {
@@ -562,7 +585,7 @@ func main() {
 			TileSize: 8, Stride: a.stride, WidthBlocks: cols, HeightBlocks: rows,
 			Palette:    paletteHex(pal),
 			BlockTiles: bt, BlockShape: blockShapes(rom, a.zone),
-			Blocks: blocks, Spawn: spawn, Objects: objs,
+			Blocks: blocks, Spawn: spawn, SpawnPx: spawnPx, Objects: objs,
 			Anim: atlasAnim[atlas], Music: musicTrack(rom, a.num),
 		}
 		// The palette cycle is oracle-captured by booting the act; only do it for the real

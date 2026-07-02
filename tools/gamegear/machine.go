@@ -292,27 +292,7 @@ func (m *Machine) RunFrame() bool {
 		if m.VDP.line >= 192 {
 			m.VDP.status |= 0x80
 		}
-		m.stepPC = m.CPU.PC
-		m.CPU.Step()
-		if m.Sample {
-			m.PCHist[m.CPU.PC]++
-		}
-		if m.CapturePC != 0 && m.CPU.PC == m.CapturePC {
-			hl := uint16(m.CPU.H)<<8 | uint16(m.CPU.L)
-			bc := uint16(m.CPU.B)<<8 | uint16(m.CPU.C)
-			de := uint16(m.CPU.D)<<8 | uint16(m.CPU.E)
-			m.CapLog = append(m.CapLog, CapEntry{HL: hl, BC: bc, DE: de, Slot1: m.slot[1]})
-			if !m.Captured {
-				m.CapHL, m.CapBC, m.CapSlot1, m.Captured = hl, bc, m.slot[1], true
-			}
-		}
-		if m.CapHi != 0 && m.Captured && !m.CapOutDone && (m.CPU.PC < m.CapLo || m.CPU.PC > m.CapHi) {
-			for j := 0; j < 0x1000; j++ {
-				m.CapOut[j] = m.ram[(m.CapOutBase+uint16(j))&0x1FFF]
-			}
-			m.CapOutDone = true
-		}
-		if m.CPU.Halted {
+		if !m.step() {
 			return false
 		}
 	}
@@ -323,16 +303,40 @@ func (m *Machine) RunFrame() bool {
 		m.CPU.RequestIRQ(true)
 	}
 	// Give the interrupt handler room to run and ack (it clears the IRQ via IN $BF).
+	// The game's whole per-frame update (the object dispatch included) runs in this
+	// window, so it gets the same instrumentation as the pre-vblank loop.
 	for i := 0; i < budget/2; i++ {
-		m.stepPC = m.CPU.PC
-		m.CPU.Step()
-		if m.Sample {
-			m.PCHist[m.CPU.PC]++
-		}
-		if m.CPU.Halted {
+		if !m.step() {
 			return false
 		}
 	}
 	m.CPU.RequestIRQ(false)
 	return true
+}
+
+// step executes one instruction with the full instrumentation (PC sampling, the
+// CapturePC register/log capture, and the return-time RAM snapshot). It reports
+// false when the CPU has fatally halted.
+func (m *Machine) step() bool {
+	m.stepPC = m.CPU.PC
+	m.CPU.Step()
+	if m.Sample {
+		m.PCHist[m.CPU.PC]++
+	}
+	if m.CapturePC != 0 && m.CPU.PC == m.CapturePC {
+		hl := uint16(m.CPU.H)<<8 | uint16(m.CPU.L)
+		bc := uint16(m.CPU.B)<<8 | uint16(m.CPU.C)
+		de := uint16(m.CPU.D)<<8 | uint16(m.CPU.E)
+		m.CapLog = append(m.CapLog, CapEntry{HL: hl, BC: bc, DE: de, Slot1: m.slot[1]})
+		if !m.Captured {
+			m.CapHL, m.CapBC, m.CapSlot1, m.Captured = hl, bc, m.slot[1], true
+		}
+	}
+	if m.CapHi != 0 && m.Captured && !m.CapOutDone && (m.CPU.PC < m.CapLo || m.CPU.PC > m.CapHi) {
+		for j := 0; j < 0x1000; j++ {
+			m.CapOut[j] = m.ram[(m.CapOutBase+uint16(j))&0x1FFF]
+		}
+		m.CapOutDone = true
+	}
+	return !m.CPU.Halted
 }

@@ -1,19 +1,17 @@
-package main
+package objplace
 
 import "sort"
 
-const dispatch = 0x24B2 // bank0: per-type word handler table ($00..$56)
-
-// spriteRef is where a type's idle metasprite layout lives in the ROM.
-type spriteRef struct {
-	kind   string // "anim" (base+frame*18), "direct" (explicit ptr), "" (none/invisible)
-	layout int    // file offset of the 18-byte layout (handlers are in banks 1/2 -> file = z80 addr)
-	frame  int    // frame id used (for "anim")
+// SpriteRef is where a type's idle metasprite layout lives in the ROM.
+type SpriteRef struct {
+	Kind   string // "anim" (base+frame*18), "direct" (explicit ptr), "" (none/invisible)
+	Layout int    // file offset of the 18-byte layout (handlers are in banks 1/2 -> file = z80 addr)
+	Frame  int    // frame id used (for "anim")
 }
 
 // handlerAddr returns the z80 handler address for an object type, or 0 if unused.
 func handlerAddr(rom []byte, t int) uint16 {
-	return uint16(w(rom, dispatch+t*2))
+	return uint16(word(rom, dispatch+t*2))
 }
 
 // handlerBounds returns, for each handler address, the address of the next handler in
@@ -52,10 +50,10 @@ func handlerBounds(rom []byte) map[uint16]uint16 {
 //
 // The scan is raw bytes (not a decoded stream) so it is immune to the data tables
 // many handlers embed; the idioms are distinctive enough to match directly.
-func analyzeSprite(rom []byte, t, zone int) spriteRef {
+func AnalyzeSprite(rom []byte, t, zone int) SpriteRef {
 	a := handlerAddr(rom, t)
 	if a == 0 {
-		return spriteRef{}
+		return SpriteRef{}
 	}
 	end := int(handlerBounds(rom)[a])
 	// nearestBefore finds the closest occurrence of LD <rr>,nn (opcode op, 3 bytes)
@@ -97,12 +95,12 @@ func analyzeSprite(rom []byte, t, zone int) spriteRef {
 				continue
 			}
 			// Frame 0 is the layout base = the idle pose (verified on crab/beetle).
-			return spriteRef{"anim", de, 0}
+			return SpriteRef{"anim", de, 0}
 		}
 		// LD (IX+15),imm ; LD (IX+16),imm  (DD 36 0F i0  DD 36 10 i1)
 		if b[0] == 0xDD && b[1] == 0x36 && b[2] == 0x0F &&
 			b[4] == 0xDD && b[5] == 0x36 && b[6] == 0x10 {
-			return spriteRef{"direct", int(b[3]) | int(b[7])<<8, 0}
+			return SpriteRef{"direct", int(b[3]) | int(b[7])<<8, 0}
 		}
 		// LD (IX+15),L ; LD (IX+16),H  (DD 75 0F  DD 74 10) with a nearby LD HL,nn.
 		// When the handler selects the layout by zone, pick this zone's pointer.
@@ -115,9 +113,9 @@ func analyzeSprite(rom []byte, t, zone int) spriteRef {
 						ptr = hls[zone] // [zone0, zone1, .., else]; clamp below
 					}
 				}
-				return spriteRef{"direct", ptr, 0}
+				return SpriteRef{"direct", ptr, 0}
 			}
 		}
 	}
-	return spriteRef{}
+	return SpriteRef{}
 }
