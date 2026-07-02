@@ -1,8 +1,9 @@
 // webexport decodes every Super Mario Land level map from the ROM and writes the
-// assets the Studio viewer loads: a per-world 256-tile atlas PNG, a per-level
-// tile-index JSON (row-major cells), and a meta.json index. The maps are decoded from
-// the cartridge (extract/level); the tile graphics come from a short oracle run nudged
-// into each world (the oracle supplies only the pixels, not the map).
+// Studio's common level format (site/FORMAT.md): a per-world 256-tile atlas PNG, a
+// per-level JSON (grid + objects + collision), a sprites/index.json of composited
+// metasprite icons, and a meta.json index. The maps are decoded from the cartridge
+// (extract/level); the tile graphics come from a short oracle run nudged into each
+// world (the oracle supplies only the pixels, not the map).
 //
 //	go run ./cmd/webexport [-rom PATH] [-o DIR]
 package main
@@ -30,13 +31,16 @@ const (
 )
 
 type levelMeta struct {
-	World  int    `json:"world"`
-	Level  int    `json:"level"`
-	Name   string `json:"name"`
-	File   string `json:"file"`
-	Width  int    `json:"width"`
-	Height int    `json:"height"`
+	Name    string `json:"name"`
+	Section string `json:"section"`
+	File    string `json:"file"`
+	Atlas   string `json:"atlas"`
 }
+
+// isSolid is the tile-id solidity rule (the walkable/blocking BG tiles occupy one id
+// range in every world's tile set) — previously hardcoded in the viewer, now exported
+// as collision data (kind "grid", sub 1).
+func isSolid(id int) bool { return id >= 0x60 && id < 0xF0 }
 
 func main() {
 	rom := stringFlag("-rom", "../Super Mario Land (World).gb")
@@ -46,16 +50,37 @@ func main() {
 	must(err)
 	must(os.MkdirAll(out, 0o755))
 
+	must(os.MkdirAll(filepath.Join(out, "sprites"), 0o755))
+	// per-tile solidity: one byte per tile id (kind "grid", sub 1)
+	solid := make([]int, nTile)
+	for t := range solid {
+		if isSolid(t) {
+			solid[t] = 1
+		}
+	}
+
 	var metas []levelMeta
+	spriteIndex := map[string]any{}
 	for world := 1; world <= 4; world++ {
 		// Tiles: warp the oracle into this world and read back VRAM + palettes.
 		vram, lcdc, bgp := worldTiles(data, byte(world))
 		obp0 := objPalette(data, byte(world))
 		saveAtlas(filepath.Join(out, fmt.Sprintf("world%d.png", world)), vram, lcdc, bgp)
 		// Object sprite icons: one composited metasprite per known type, in this world's
-		// OBJ tiles, packed into an atlas the viewer blits at each placement.
-		objAtlas := fmt.Sprintf("world%d-obj.png", world)
+		// OBJ tiles, stacked into an atlas referenced by world-scoped sprite keys.
+		objAtlas := fmt.Sprintf("sprites/world%d-obj.png", world)
 		objTypes, marioIcon := saveObjIcons(data, filepath.Join(out, objAtlas), vram, obp0)
+		icon := func(idx int) map[string]any {
+			return map[string]any{
+				"src":    objAtlas,
+				"frames": [][4]int{{0, idx * objCell, objCell, objCell}},
+				"anchor": objOrigin, // the metasprite origin within the cell
+			}
+		}
+		for t, idx := range objTypes {
+			spriteIndex[fmt.Sprintf("w%d/%s", world, t)] = icon(idx)
+		}
+		spriteIndex[fmt.Sprintf("w%d/mario", world)] = icon(marioIcon)
 
 		for lv := 1; lv <= 3; lv++ {
 			id := byte(world<<4 | lv)
@@ -67,35 +92,49 @@ func main() {
 					cells[r*w+x] = int(col[r])
 				}
 			}
-			// Object/enemy placements (decoded from the ROM list at $401A[ffe4]).
+			// Object/enemy placements (decoded from the ROM list at $401A[ffe4]),
+			// world px: tile origin plus the position byte's 2px sub-column nudge.
 			objs := level.DecodeObjectsByID(data, id)
 			ojson := make([]map[string]any, len(objs))
 			for i, o := range objs {
-				ojson[i] = map[string]any{
-					"col": o.Col, "row": o.Row, "type": o.Type, "hard": o.Hard, "fineX": o.FineX,
+				e := map[string]any{
+					"type": o.Type, "x": o.Col*8 + o.FineX*2, "y": o.Row * 8, "hard": o.Hard,
 				}
+				if _, known := objTypes[fmt.Sprintf("%d", o.Type)]; known {
+					e["sprite"] = fmt.Sprintf("w%d/%d", world, o.Type)
+				}
+				ojson[i] = e
 			}
 			name := fmt.Sprintf("%d-%d", world, lv)
 			file := "level-" + name + ".json"
+			atlas := fmt.Sprintf("world%d.png", world)
 			writeJSON(filepath.Join(out, file), map[string]any{
-				"world": world, "level": lv,
-				"width": w, "height": 16,
-				"atlas":     fmt.Sprintf("world%d.png", world),
-				"cells":     cells,
-				"objects":   ojson,
-				"objAtlas":  objAtlas,
-				"objCell":   objCell,
-				"objOrigin": objOrigin, // sprite-origin offset within a cell (x,y)
-				"objTypes":  objTypes,  // type id -> icon index in the atlas (row of cells)
-				// Mario's fixed start (his sprite top-left, in map pixels) + its atlas icon.
-				// The engine spawns him at screen (50,134); minus the 16px HUD that is map px.
-				"player": map[string]any{"x": 35, "y": 96, "icon": marioIcon},
+				"format": 1,
+				"name":   name,
+				"grid": map[string]any{
+					"tileSize": tile, "atlas": atlas, "atlasCols": cols, "atlasGutter": gut,
+					"width": w, "height": 16, "cells": cells,
+				},
+				// Frame the first Game Boy screen (the level is 128px tall inside the
+				// 144px screen; the 16px HUD sits above the map).
+				"view":    map[string]any{"x": 0, "y": -8, "w": 160, "h": 144},
+				"objects": ojson,
+				// Mario's fixed start (his sprite top-left, in map pixels): the engine
+				// spawns him at screen (50,134); minus the 16px HUD that is map px.
+				"spawn":     map[string]any{"x": 35, "y": 96, "sprite": fmt.Sprintf("w%d/mario", world)},
+				"collision": map[string]any{"kind": "grid", "sub": 1, "solid": solid},
 			})
-			metas = append(metas, levelMeta{world, lv, name, file, w, 16})
+			metas = append(metas, levelMeta{name, fmt.Sprintf("World %d", world), file, atlas})
 		}
 	}
-	writeJSON(filepath.Join(out, "meta.json"), map[string]any{"levels": metas})
-	fmt.Printf("wrote %d levels + 4 world atlases to %s\n", len(metas), out)
+	writeJSON(filepath.Join(out, "sprites", "index.json"), spriteIndex)
+	writeJSON(filepath.Join(out, "meta.json"), map[string]any{
+		"format": 1, "game": "sml",
+		"native": map[string]int{"w": 160, "h": 144},
+		"tickHz": 60,
+		"levels": metas,
+	})
+	fmt.Printf("wrote %d levels + 4 world atlases + sprite index to %s\n", len(metas), out)
 }
 
 // Object-icon atlas geometry: each known type's metasprite is composited into one

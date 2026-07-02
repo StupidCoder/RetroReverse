@@ -33,11 +33,9 @@ var courses = []struct{ key, track, name string }{
 
 type metaLevel struct {
 	Name  string `json:"name"`
-	File  string `json:"file"`  // per-course tilemap JSON (cells + dims)
+	File  string `json:"file"`  // per-course tilemap JSON (common format, site/FORMAT.md)
 	Atlas string `json:"atlas"` // the course's tile-atlas PNG
-	Slope string `json:"slope"`
-	W     int    `json:"w"` // px
-	H     int    `json:"h"` // px
+	Slope string `json:"slope"` // the 3-D height field (outside the common format)
 }
 
 // slopeJSON is the per-course height field for the 3-D view: a dense grid (w×h,
@@ -152,8 +150,14 @@ func run(adfPath, outDir string) error {
 		}
 		file := c.key + ".json"
 		if err := writeJSON(filepath.Join(outDir, file), map[string]any{
-			"width": mlb.CourseW, "height": co.H, "ntiles": co.NTiles,
-			"atlas": atlasFile, "cells": co.Cells,
+			"format": 1,
+			"name":   c.name,
+			"grid": map[string]any{
+				"tileSize": 8, "atlas": atlasFile, "atlasCols": 16, "atlasGutter": 1,
+				"width": mlb.CourseW, "height": co.H, "cells": co.Cells,
+			},
+			// Frame the Amiga's on-screen view (288x200 playfield) at the course top.
+			"view": map[string]any{"x": (mlb.CourseW*8 - 288) / 2, "y": 0, "w": 288, "h": 200},
 		}); err != nil {
 			return err
 		}
@@ -179,14 +183,17 @@ func run(adfPath, outDir string) error {
 			return err
 		}
 
-		levels = append(levels, metaLevel{Name: c.name, File: file, Atlas: atlasFile, Slope: slopeFile, W: mlb.CourseW * 8, H: h * 8})
+		levels = append(levels, metaLevel{Name: c.name, File: file, Atlas: atlasFile, Slope: slopeFile})
 		fmt.Printf("%-12s %s  %d×%d tiles, %d tiles; slope %dx%d, h %d..%d\n",
 			c.name, file, mlb.CourseW, h, co.NTiles, sj.W, sj.H, sj.Lo, sj.Hi)
 	}
 
-	return writeJSON(filepath.Join(outDir, "meta.json"), struct {
-		Levels []metaLevel `json:"levels"`
-	}{levels})
+	return writeJSON(filepath.Join(outDir, "meta.json"), map[string]any{
+		"format": 1, "game": "marble",
+		"native": map[string]int{"w": 288, "h": 200},
+		"tickHz": 50,
+		"levels": levels,
+	})
 }
 
 // buildSlope flattens a slope field into the dense grid the viewer meshes:

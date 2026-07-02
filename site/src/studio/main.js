@@ -46,15 +46,16 @@ const GAMES = [
   },
   {
     id: 'turrican', name: 'Turrican', system: 'Amiga',
-    load: () => import('../turrican/viewer.js').then(m => m.TurricanViewer),
+    load: () => Promise.all([
+      import('../shared/viewer.js'), import('../turrican/config.js'),
+    ]).then(([m, c]) => class extends m.LevelViewer {
+      constructor(el, hud) { super(el, hud, c.default); }
+    }),
     make: (V, el, hud) => new V(el, hud),
     list: async (v) => (await v.init()).levels,
     show: (v, lvl, i) => v.loadLevel(lvl),
-    // world -> scene accordion from "World N · Scene M"
-    group: (lvl) => {
-      const [section, ...rest] = lvl.name.split(' · ');
-      return { section, label: rest.join(' · ') || lvl.name };
-    },
+    // world -> scene accordion from the meta's section field
+    group: (lvl) => ({ section: lvl.section || lvl.name, label: lvl.name }),
     layers: [
       { id: 'objects', label: 'Objects & enemies', default: true },
       { id: 'collision', label: 'Collision layer', default: false },
@@ -75,16 +76,20 @@ const GAMES = [
   },
   {
     id: 'sml', name: 'Super Mario Land', system: 'Nintendo Game Boy',
-    load: () => import('../sml/viewer.js').then(m => m.SMLViewer),
+    load: () => Promise.all([
+      import('../shared/viewer.js'), import('../sml/config.js'),
+    ]).then(([m, c]) => class extends m.LevelViewer {
+      constructor(el, hud) { super(el, hud, c.default); }
+    }),
     make: (V, el, hud) => new V(el, hud),
-    list: async (v) => await v.init(), // returns the 12 level metas
+    list: async (v) => (await v.init()).levels,
     show: (v, lvl, i) => v.loadLevel(lvl),
     layers: [
       { id: 'objects', label: 'Objects & enemies', default: true },
       { id: 'collision', label: 'Collision layer', default: false },
     ],
-    // world -> level accordion: "2-1" -> { World 2, 2-1 }
-    group: (lvl) => ({ section: `World ${lvl.world}`, label: lvl.name }),
+    // world -> level accordion from the meta's section field
+    group: (lvl) => ({ section: lvl.section || lvl.name, label: lvl.name }),
     music: async () => [
       { name: 'Levels 1-1, 1-2, 3-1', url: 'public/sml/music/level-1-1.mp3' },
       { name: 'Levels 1-3, 3-2, 3-3', url: 'public/sml/music/level-1-3.mp3' },

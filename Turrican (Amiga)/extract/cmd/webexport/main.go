@@ -32,7 +32,7 @@ import (
 )
 
 const (
-	blockBase = 0x1B980
+	blockBase  = 0x1B980
 	tileSide   = 32
 	tileBytes  = tileSide * 4 * (tileSide / 8) // 512
 	atlasCols  = 16
@@ -47,11 +47,6 @@ type objSprite struct {
 	W int `json:"w"`
 	H int `json:"h"`
 }
-type objInst struct {
-	X int `json:"x"` // top-left pixel position on the map
-	Y int `json:"y"`
-	S int `json:"s"` // index into the scene's objSprites
-}
 
 type point struct {
 	X int `json:"x"`
@@ -64,29 +59,52 @@ type rect struct {
 	H int `json:"h"`
 }
 
+// hflipMask re-encodes the map's flip convention (raw byte >= ntiles = tile-128,
+// h-flipped) as an explicit cell flag bit per the common format (site/FORMAT.md).
+const hflipMask = 0x8000
+
+type jsonGrid struct {
+	TileSize    int    `json:"tileSize"`
+	Atlas       string `json:"atlas"`
+	AtlasCols   int    `json:"atlasCols"`
+	AtlasGutter int    `json:"atlasGutter"`
+	Width       int    `json:"width"`
+	Height      int    `json:"height"`
+	Cells       []int  `json:"cells"`
+	HflipMask   int    `json:"hflipMask"`
+}
+
+type jsonCollision struct {
+	Kind   string            `json:"kind"`
+	Sub    int               `json:"sub"`
+	Solid  []int             `json:"solid"`
+	Legend map[string]string `json:"legend"`
+}
+
+type jsonObject struct {
+	X      int    `json:"x"`
+	Y      int    `json:"y"`
+	Sprite string `json:"sprite"`
+}
+
 type jsonLevel struct {
-	World      int         `json:"world"`
-	Scene      int         `json:"scene"`
-	Width      int         `json:"width"`
-	Height     int         `json:"height"`
-	NTiles     int         `json:"ntiles"`
-	Atlas      string      `json:"atlas"`
-	Cells      []int       `json:"cells"`     // row-major, raw map bytes (>=ntiles = flipped tile-128)
-	Collision  []int       `json:"collision"` // per tile: 16 bytes (4x4 of 8x8-block solidity), index t*16+r*4+c
-	Spawn      point       `json:"spawn"`     // player spawn, world pixels
-	View       rect        `json:"view"`  // the Amiga on-screen viewport at the spawn, world pixels
-	ObjAtlas   string      `json:"objAtlas,omitempty"`
-	ObjSprites []objSprite `json:"objSprites,omitempty"`
-	Objects    []objInst   `json:"objects,omitempty"`
+	Format    int           `json:"format"`
+	Name      string        `json:"name"`
+	Grid      jsonGrid      `json:"grid"`
+	Collision jsonCollision `json:"collision"`
+	Spawn     point         `json:"spawn"` // player spawn, world pixels (no sprite -> crosshair)
+	View      rect          `json:"view"`  // the Amiga on-screen viewport at the spawn, world pixels
+	Objects   []jsonObject  `json:"objects,omitempty"`
 }
 
 // amigaView is Turrican's visible playfield in pixels (one screen).
 const amigaViewW, amigaViewH = 320, 256
 
 type metaLevel struct {
-	Name  string `json:"name"`
-	File  string `json:"file"`
-	Atlas string `json:"atlas"`
+	Name    string `json:"name"`
+	Section string `json:"section"`
+	File    string `json:"file"`
+	Atlas   string `json:"atlas"`
 }
 
 // spriteKey identifies a frame table within a world (resident and scene tables share
@@ -122,7 +140,11 @@ func run(adfPath, outDir string) error {
 		return err
 	}
 
+	if err := os.MkdirAll(filepath.Join(outDir, "sprites"), 0o755); err != nil {
+		return err
+	}
 	var meta []metaLevel
+	spriteIndex := map[string]any{}
 	for w := 0; w < scene.NumWorlds; w++ {
 		block := game.Block(w).Data
 		be32 := func(o int) int { return int(binary.BigEndian.Uint32(block[o:])) }
@@ -156,10 +178,21 @@ func run(adfPath, outDir string) error {
 				}
 			}
 		}
-		objAtlasName := fmt.Sprintf("objatlas%d.png", w)
+		objAtlasName := fmt.Sprintf("sprites/objatlas%d.png", w)
 		rectOf, err := writeObjAtlas(filepath.Join(outDir, objAtlasName), game, w, used)
 		if err != nil {
 			return err
+		}
+		// world-scoped sprite keys -> single-frame entries in sprites/index.json
+		for k, r := range rectOf {
+			key := fmt.Sprintf("w%d/ft%X", w, k.ft)
+			if k.resident {
+				key += "r"
+			}
+			spriteIndex[key] = map[string]any{
+				"src":    objAtlasName,
+				"frames": [][4]int{{r.X, r.Y, r.W, r.H}},
+			}
 		}
 
 		for _, sc := range scenes {
@@ -171,52 +204,63 @@ func run(adfPath, outDir string) error {
 			cells := make([]int, sc.Width*sc.Height)
 			for col := 0; col < sc.Width; col++ {
 				for row := 0; row < sc.Height; row++ {
-					cells[row*sc.Width+col] = int(block[mapOff+col*sc.Height+row]) // col-major -> row-major
+					v := int(block[mapOff+col*sc.Height+row]) // col-major -> row-major
+					if v >= nTiles {                          // raw flip convention -> explicit flag bit
+						v = (v - 128) | hflipMask
+					}
+					cells[row*sc.Width+col] = v
 				}
 			}
 
-			// Index each object into a per-scene objSprites rect list.
-			var sprites []objSprite
-			spriteIdx := map[spriteKey]int{}
-			var objects []objInst
+			var objects []jsonObject
 			for _, o := range sc.Objects {
-				r, ok := rectOf[spriteKey{o.FT, o.Resident}]
-				if !ok {
+				k := spriteKey{o.FT, o.Resident}
+				if _, ok := rectOf[k]; !ok {
 					continue // no sprite resolved (unhandled type) — skip
 				}
-				k := spriteKey{o.FT, o.Resident}
-				si, seen := spriteIdx[k]
-				if !seen {
-					si = len(sprites)
-					spriteIdx[k] = si
-					sprites = append(sprites, r)
+				key := fmt.Sprintf("w%d/ft%X", w, k.ft)
+				if k.resident {
+					key += "r"
 				}
-				objects = append(objects, objInst{X: o.X, Y: o.Y, S: si})
+				objects = append(objects, jsonObject{X: o.X, Y: o.Y, Sprite: key})
 			}
 
 			file := fmt.Sprintf("world%d_scene%d.json", w, sc.Index)
 			lvl := jsonLevel{
-				World: w, Scene: sc.Index, Width: sc.Width, Height: sc.Height,
-				NTiles: nTiles, Atlas: atlasName, Cells: cells, Collision: collision,
-				Spawn: point{sc.SpawnX, sc.SpawnY},
-				View:  rect{sc.CamX, sc.CamY, amigaViewW, amigaViewH},
-			}
-			if len(objects) > 0 {
-				lvl.ObjAtlas = objAtlasName
-				lvl.ObjSprites = sprites
-				lvl.Objects = objects
+				Format: 1,
+				Name:   fmt.Sprintf("World %d · Scene %d", w+1, sc.Index+1),
+				Grid: jsonGrid{
+					TileSize: tileSide, Atlas: atlasName, AtlasCols: atlasCols, AtlasGutter: tileGutter,
+					Width: sc.Width, Height: sc.Height, Cells: cells, HflipMask: hflipMask,
+				},
+				Collision: jsonCollision{
+					Kind: "grid", Sub: 4, Solid: collision,
+					Legend: map[string]string{"1": "#ff3030", "127": "#33ddff", "128": "#ffe020", "211": "#ff33cc"},
+				},
+				Spawn:   point{sc.SpawnX, sc.SpawnY},
+				View:    rect{sc.CamX, sc.CamY, amigaViewW, amigaViewH},
+				Objects: objects,
 			}
 			if err := writeJSON(filepath.Join(outDir, file), lvl); err != nil {
 				return err
 			}
 			meta = append(meta, metaLevel{
-				Name: fmt.Sprintf("World %d · Scene %d", w+1, sc.Index+1),
-				File: file, Atlas: atlasName,
+				Name:    fmt.Sprintf("Scene %d", sc.Index+1),
+				Section: fmt.Sprintf("World %d", w+1),
+				File:    file, Atlas: atlasName,
 			})
 			fmt.Printf("world %d scene %d: %dx%d, %d tiles, %d objects -> %s\n", w, sc.Index, sc.Width, sc.Height, nTiles, len(objects), file)
 		}
 	}
-	return writeJSON(filepath.Join(outDir, "meta.json"), map[string]any{"levels": meta})
+	if err := writeJSON(filepath.Join(outDir, "sprites", "index.json"), spriteIndex); err != nil {
+		return err
+	}
+	return writeJSON(filepath.Join(outDir, "meta.json"), map[string]any{
+		"format": 1, "game": "turrican",
+		"native": map[string]int{"w": amigaViewW, "h": amigaViewH},
+		"tickHz": 50,
+		"levels": meta,
+	})
 }
 
 // writeObjAtlas shelf-packs the first frame of each used sprite into one paletted PNG
