@@ -39,7 +39,7 @@ to host all four games from the start, but the other three get their pages later
 Everything the Sonic viewer needs is already decoded in the Go tools (`Sonic (GG)/extract`):
 per-act block maps (`decomp.LoadMapRLE`), block→tile tables (bank 4 `$10000`), zone tilesets
 (`decomp.Decompress`) + palettes (`romPalette`), animation sources (rings `$2F73D`, flowers
-`$2FA3D`/`$2FABD`), object placements (`cmd/objprobe`), and the collision data (48 profiles at
+`$2FA3D`/`$2FABD`), object placements (`extract/objplace`, verified by `cmd/objsettle`), and the collision data (48 profiles at
 `$3E7A`, per-zone block→shape at `$343D`, angles at `$3978`). The new work is an **exporter**
 that serializes this and a **PixiJS frontend** that draws it.
 
@@ -186,7 +186,7 @@ as stubs describing what's coming, filled in later.
 - The exporter's atlas + expanded block map must match the existing `cmd/levelmap` render
   pixel-for-pixel (reuse that as ground truth — it's already validated against the oracle).
 - `shapes.json` must round-trip the `rendered/block_collision_profiles.png` figure.
-- Spot-check a few acts in the viewer against the committed `rendered/level_*_objects.png`.
+- Spot-check a few acts in the viewer against the engine-exact `rendered/placement_greenhills1.png` (cmd/placeshot).
 
 ## Milestones
 

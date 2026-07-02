@@ -915,25 +915,25 @@ wide platformer vs. vertical climb — is data-driven per act.
 ### The object layer (the start of Part V)
 
 The terrain above is the static block map. The **interactive** world — Sonic, the enemies,
-items — is a separate **object** layer, and its placement is now decoded
-([`extract/cmd/objprobe`](extract/cmd/objprobe)). Each act's descriptor points (word at
-`+30`) to a per-act **object table** in bank 5: a count byte followed by 3-byte entries
+items — is a separate **object** layer. Each act's descriptor points (word at `+30`) to a
+per-act **object table** in bank 5: a count byte followed by 3-byte entries
 `[type, blockX, blockY]`. At level load `$1A80`/`$1AB3` expands the table into the object
 array at RAM `$D3FD` — 32 records of 26 bytes, type at `+0` and the world position
-`X = blockX×32` (`+2`), `Y = blockY×32` (`+5`). Record 0 is **Sonic**, placed from the
-spawn pointer `($D217)`.
+`X = blockX×32` (`+2/3`), `Y = blockY×32` (`+5/6`). Record 0 is **Sonic**, placed from the
+spawn pointer `($D217)` — on a fresh act start that is the descriptor's own spawn field
+(`+13/+14`; Green Hills 1 = block **(5, 11)**, oracle-verified — see Part V).
 
-For Green Hills Act 1 this reads out cleanly: **Sonic spawns at block (5, 8)** — the left
-edge, on the surface — and there are 26 placed objects. The types (all now named, below):
+For Green Hills Act 1 there are 26 placed objects. The types (all now named, below):
 `$08` = **crab** (4 of them), `$10` = **beetle**, `$01`/`$02`/`$03` = bonus items, `$09` =
-swinging platform, `$0F` = horizontal moving platform, plus eight `$50` (camera/scroll
-locks) and one `$51` (a **checkpoint**). None are rings — the rings are baked into the
-block map (below). Overlaying the positions on the render shows where each sits, with a
-marker at the spawn
-([`rendered/level_greenhills_act1_objects.png`](rendered/level_greenhills_act1_objects.png)).
+swinging platform, `$0F` = horizontal moving platform, plus eight `$50` (**background
+animators** — the twinkling sea waves and clouds) and one `$51` (a **checkpoint**). None
+are rings — the rings are baked into the block map (below). Note the table position is the
+*spawn*, not where an object is seen in play: the engine settles each object on activation
+(Part V §1), and the engine-exact scene is rendered by `cmd/placeshot`
+([`rendered/placement_greenhills1.png`](rendered/placement_greenhills1.png)).
 
-Each object **type** indexes an 8-byte sprite descriptor at `$2560` (the per-frame update
-`$2BFB` reads it; valid types are `< $57`) for its sprite *class*, and a behaviour handler
+Each object **type** indexes an 8-byte record at `$2560` — its per-frame **culling
+margins** (the `$2BD8` pre-pass; valid types are `< $57`) — and a behaviour handler
 at `$24B2` (below) for what it *does*.
 
 ### Animated tiles (rings and flowers)
