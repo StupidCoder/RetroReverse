@@ -52,29 +52,49 @@ func spriteTiles(rom []byte, act int) ([]byte, color.Palette) {
 	return objplace.SpriteSheet(rom, act), romPalette(rom, int(rom[d+26]))
 }
 
-// Sonic's sprite is not in the zone sheets: his animation frames are streamed into
-// the dynamic VRAM slots $B4.. each time his pose changes. The player state code
-// computes the frame source as bank 8 + frame*192 ($4E9A: 8 tiles x 24 bytes, 3
-// bitplanes per row, the fourth plane zero) and points IX+15/16 at the layout base
-// $5C1B; frame 0 is the standing pose (oracle-verified byte-identical to live VRAM).
-const (
-	sonicLayout    = 0x5C1B  // standing metasprite layout (2x2 cells = his 16x32 hitbox)
-	sonicTilesFile = 0x20000 // bank 8 + frame 0 * 192
-	sonicTileBase  = 0xB4    // the dynamic VRAM tile slot his layouts reference
-)
+// Sonic's sprite is not in the zone sheets: his handler keeps one layout ($5C1B, his
+// 16x32 box) and re-streams the tile GRAPHICS per pose (bank 8 + frame*192, 3bpp —
+// $4E9A). His animations are per-frame byte sequences in the $5C5B table ($4E6D
+// sequencer); the exported strip plays the idle -> bored program: standing (anim $05,
+// frame 0) held ~6 seconds like the game's idle timeout, then the bored foot-tap
+// (anim $0D: 2x16, 1x18, then the 2/3 tap loop, here a few cycles before looping
+// back to standing). objplace.SonicSeq/SonicFrameTiles supply both.
+const sonicLayout = 0x5C1B
 
-// sonicTiles expands Sonic's standing frame into a 256-tile sheet at the $B4.. slots
-// his layout indexes, so renderMeta can treat him like any other metasprite.
-func sonicTiles(rom []byte) []byte {
-	tiles := make([]byte, 256*32)
-	for t := 0; t < 8; t++ {
-		for r := 0; r < 8; r++ {
-			src := sonicTilesFile + t*24 + r*3
-			dst := (sonicTileBase+t)*32 + r*4
-			copy(tiles[dst:dst+3], rom[src:src+3]) // planes 0-2; plane 3 stays zero
+// sonicStrip renders Sonic's idle/bored strip: unique graphic frames plus the play
+// sequence (strip-frame index, hold frames).
+func sonicStrip(rom []byte, pal color.Palette) (*image.RGBA, [][2]int) {
+	bored, loopStep := objplace.SonicSeq(rom, 0x0D)
+	// unique graphic frames used: standing (0) + the bored frames
+	gfx := []int{0}
+	idxOf := map[int]int{0: 0}
+	for _, st := range bored {
+		if _, ok := idxOf[st.Layout]; !ok {
+			idxOf[st.Layout] = len(gfx)
+			gfx = append(gfx, st.Layout)
 		}
 	}
-	return tiles
+	strip := image.NewRGBA(image.Rect(0, 0, len(gfx)*48, 48))
+	for i, f := range gfx {
+		cell := renderMeta(rom[sonicLayout:sonicLayout+18], objplace.SonicFrameTiles(rom, f), pal)
+		for y := 0; y < 48; y++ {
+			for x := 0; x < 48; x++ {
+				strip.Set(i*48+x, y, cell.At(x, y))
+			}
+		}
+	}
+	// play sequence: stand ~6s (the game's idle timeout), the bored intro, then a few
+	// tap cycles before the strip loops back to standing.
+	seq := [][2]int{{0, 360}}
+	for _, st := range bored {
+		seq = append(seq, [2]int{idxOf[st.Layout], st.Frames})
+	}
+	for cycle := 0; cycle < 4; cycle++ {
+		for _, st := range bored[loopStep:] {
+			seq = append(seq, [2]int{idxOf[st.Layout], st.Frames})
+		}
+	}
+	return strip, seq
 }
 
 // renderMeta renders one 18-byte metasprite layout (3 rows x 6 cols of 8x16 sprites)
@@ -347,8 +367,9 @@ func main() {
 	// object's world position (blockX*32, blockY*32) -- exactly where the engine draws it,
 	// with the grid's transparent padding placing the visible tiles. No cropping/offsets.
 	type sprMeta struct {
-		F int   `json:"f"`
-		D []int `json:"d"`
+		F int      `json:"f"`
+		D []int    `json:"d"`
+		S [][2]int `json:"s,omitempty"` // explicit play sequence: (strip frame, hold frames)
 	}
 	index := map[string]map[string]sprMeta{}
 	montages := os.Getenv("MONTAGE") != ""
@@ -362,9 +383,9 @@ func main() {
 		var cells []*image.RGBA
 		var labels []int
 		// Sonic (type $00): his own ROM tiles, this zone's sprite palette.
-		sonic := renderMeta(rom[sonicLayout:sonicLayout+18], sonicTiles(rom), pal)
+		sonic, seq := sonicStrip(rom, pal)
 		save(sonic, zdir+"/00.png")
-		index[fmt.Sprint(z)]["00"] = sprMeta{F: 1, D: []int{0}}
+		index[fmt.Sprint(z)]["00"] = sprMeta{F: sonic.Rect.Dx() / 48, D: []int{0}, S: seq}
 		total++
 		for _, t := range placed[z] {
 			if t == 0 {
@@ -395,9 +416,15 @@ func main() {
 		}
 		fmt.Printf("%-11s act%2d: %d sprites\n", zoneName[z], act, len(index[fmt.Sprint(z)]))
 	}
+	// movement paths for the moving platforms: per-frame (dx,dy) offsets from the
+	// placement, sampled from the handlers' own tables (objplace.PlatformPaths).
+	full := map[string]any{"paths": objplace.PlatformPaths(rom)}
+	for k, v := range index {
+		full[k] = v
+	}
 	f, err := os.Create(out + "/index.json")
 	chk(err)
-	chk(json.NewEncoder(f).Encode(index))
+	chk(json.NewEncoder(f).Encode(full))
 	f.Close()
 	fmt.Printf("wrote %d sprites + index.json to %s\n", total, out)
 }

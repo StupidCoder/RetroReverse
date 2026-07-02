@@ -54,7 +54,7 @@ const bonusFirst, bonusCount = 28, 8
 var objNames = map[byte]string{
 	0x00: "Sonic", 0x01: "bonus", 0x02: "bonus", 0x03: "bonus", 0x04: "shield",
 	0x06: "emerald", 0x07: "goal", 0x08: "crab", 0x09: "swing platform",
-	0x0E: "bird", 0x0F: "moving platform", 0x10: "beetle", 0x12: "world 1 boss",
+	0x0B: "sinking platform", 0x0E: "bird", 0x0F: "moving platform", 0x10: "beetle", 0x12: "world 1 boss",
 	0x25: "capsule", 0x26: "fish", 0x2C: "world 3 boss", 0x2D: "porcupine",
 	0x48: "world 2 boss", 0x49: "world 4 boss", 0x4E: "seesaw",
 	0x50: "bg animator", 0x51: "checkpoint", 0x13: "teleporter",

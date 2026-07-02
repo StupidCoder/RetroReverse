@@ -1037,11 +1037,12 @@ slot:
 | `$48` | **world 2 boss** | b2 `$84AB` | |
 | `$49` | **world 4 boss** | b2 `$9271` | |
 | `$4E` | seesaw | b2 `$8681` | tilt-arm catapult; launch height scales with Sonic's landing impact (momentum transfer) |
+| `$0B` | sinking platform | b1 `$69ED` | gives under Sonic's weight: sinks 16 px at ½ px/frame while stood on, floats back up when left |
 | `$50` | background animator | b1 `$7B29` | repaints its *own* map cell each frame through the scroll-draw request (`$D2AB/$D2AD` target, `$D2AF` source): a 4-phase sequence of block pairs (`$7BC1` patterns → `$7B99` blocks) — the growing flowers and twinkling sea. Steady-state timing: bare and full-grown hold ~240 frames, the transitions 16 (`webexport` emits each placement as a `cellAnims` entry and the Studio viewer runs them). Not a camera lock: `$D2AB` is the blit request, the camera is `$D254` |
 | `$51` | **checkpoint** | b1 `$6010` | on contact, writes the *checkpoint's own* block position into the respawn table `$D32F + act×2` (the `$6034` respawn-save code) |
 
 Unnamed but present (handlers confirmed, behaviour not yet identified): `$05` b1 `$5FD7`,
-`$0A`–`$0D` b1, `$0B` b1 `$69ED`, `$11` b1 `$6F61`, `$13`–`$24` (mostly bank 2),
+`$0A`/`$0C`/`$0D` b1, `$11` b1 `$6F61`, `$13`–`$24` (mostly bank 2),
 `$27`–`$2B`, `$2E`–`$4C`, `$52`–`$56`. The full table is dumped by inspecting `$24B2`.
 
 ### Object sprites — the metasprite format
@@ -1173,6 +1174,41 @@ rides it the same way as the horizontal platform: the handler keeps the frame's 
 displacement in `($D20F)`, runs the standing test (`$3328`), and on contact adds that
 delta to Sonic's X (`($D3FF)`) while `$7CF5` keeps him glued on top — so he follows the
 arc both horizontally and vertically. Artwork by zone: zone 0 → `$6910`, else `$6922`.
+
+Both moving platforms' cycles are exported for the Studio viewer as **movement paths** —
+per-frame `(dx, dy)` offsets from the placement, sampled straight from the handlers'
+own tables (`objplace.PlatformPaths` → `sprites/index.json` `paths`): the swing's
+224-frame arc sweep and the horizontal platform's 320-frame triangle. The viewer moves
+the sprites along them at engine timing.
+
+### Sinking platform (`$0B`)
+
+The third platform type (bank 1 `$69ED`, same zone artwork as the other two) doesn't move
+on its own: when Sonic stands on it (`$3328`), it takes on a downward velocity of ½ px per
+frame until it has sunk **16 px** into its block (`Y & $1F ≥ $10`); with no rider it
+floats back up to its resting height. A platform that gives under his weight.
+
+### Sonic's animations (`$5C5B`)
+
+Sonic is not animated through `$7C75` like the enemies: his handler keeps **one**
+metasprite layout (`$5C1B` — his 16×32 box at the grid origin) and instead re-streams
+the tile **graphics** each time his pose changes (`$4E9A`: source = bank 8 +
+graphicFrame × 192, 3bpp, into the dynamic sprite tiles `$B4`–`$BB`). The animation
+sequencer (`$4E6D`) maps the anim id (`IX+20`) through a **word table at `$5C5B`** to a
+sequence that is simply **one byte per engine frame** — the graphic frame to show — with
+a bit-7 byte as the control *set cursor* (the loop point). Decoded and oracle-verified:
+
+| anim | sequence | meaning |
+|---|---|---|
+| `$01` | frames 4–9, 8 frames each, loop | the 6-frame **run cycle** |
+| `$02` | frames 11–14 × 4, loop | **rolling** |
+| `$05` | frame 0, loop | **standing** |
+| `$0A` | 25 × 6, 26 × 6, loop | skid |
+| `$0D` | 2 × 16, 1 × 18, then loop (2 × 16, 3 × 16) | **bored** — he turns to the camera and taps his foot (set by the idle timeout, `$5379`) |
+
+The Studio viewer plays the idle → bored program for the placed Sonic: standing for the
+game's ~6-second idle timeout, then the foot-tap (the strip and the explicit play
+sequence are exported by `cmd/spriterip`; `objplace.SonicSeq` reads the table).
 
 ### Seesaw (`$4E`)
 

@@ -311,3 +311,103 @@ func BgAnim(rom []byte) []BgPhase {
 	}
 	return out
 }
+
+// --- Sonic's own animation system ($4E6D sequencer) --------------------------------
+//
+// Sonic is not animated by $7C75: his handler keeps ONE metasprite layout ($5C1B, his
+// 16x32 box at the grid origin) and instead re-streams the tile GRAPHICS per pose.
+// The anim id (IX+20) indexes a word table at $5C5B; the sequence is one byte per
+// engine frame = the graphic frame id (tiles at bank 8 + frame*192, 3bpp — see
+// $4E9A), and a byte with bit 7 set is a control: the next byte is the new cursor
+// (the loop point). Anim $05 = standing (frame 0), $01 = the walk (4-9, 8 frames
+// each), $02 = rolling (11-14), $0D = BORED (2x16, 1x18, then a 2/3 foot-tap loop),
+// set by the idle timeout at $5379.
+
+const (
+	sonicAnimTable = 0x5C5B
+	sonicGfxBase   = 0x20000 // bank 8: graphic frame id * 192 (8 tiles x 24 bytes, 3bpp)
+)
+
+// SonicSeq returns one anim id's sequence as (graphic frame, hold frames) steps plus
+// the loop-back step index.
+func SonicSeq(rom []byte, anim int) (steps []AnimFrame, loopStep int) {
+	p := word(rom, sonicAnimTable+anim*2)
+	var perFrame []int
+	loopByte := 0
+	for q := p; q < p+256; q++ {
+		if rom[q]&0x80 != 0 {
+			loopByte = int(rom[q+1])
+			break
+		}
+		perFrame = append(perFrame, int(rom[q]))
+	}
+	// run-length collapse, tracking which step the loop byte-offset falls into
+	for i := 0; i < len(perFrame); {
+		j := i
+		for j < len(perFrame) && perFrame[j] == perFrame[i] {
+			j++
+		}
+		if loopByte >= i && loopByte < j {
+			loopStep = len(steps)
+		}
+		steps = append(steps, AnimFrame{Layout: perFrame[i], Frames: j - i}) // Layout = graphic frame id here
+		i = j
+	}
+	return steps, loopStep
+}
+
+// SonicFrameTiles expands graphic frame f into the 256-tile sheet slots $B4-$BB his
+// layout references (the same expansion the tile streamer performs).
+func SonicFrameTiles(rom []byte, f int) []byte {
+	tiles := make([]byte, 256*32)
+	for t := 0; t < 8; t++ {
+		for r := 0; r < 8; r++ {
+			src := sonicGfxBase + f*192 + t*24 + r*3
+			dst := (0xB4+t)*32 + r*4
+			copy(tiles[dst:dst+3], rom[src:src+3])
+		}
+	}
+	return tiles
+}
+
+// --- platform movement paths -------------------------------------------------------
+
+// PlatformPaths samples each moving platform type's positional cycle as per-frame
+// (dx,dy) offsets from its placement, exactly as the handlers compute them:
+//
+//   - $09 swing ($6747): anchor + the 113-pair arc table at $682E (a radius-51
+//     pendulum), phase cursor +/-2 per frame ping-ponging between the ends —
+//     start at the RIGHT end (phase $E0), 224 frames per period.
+//   - $0F horizontal ($6DCA): X += +/-1 per frame, direction toggling every 160
+//     frames, starting right — a 320-frame triangle.
+//
+// (Type $0B, the same platform sprite, only sinks under Sonic's weight — it has no
+// idle motion, so no path.)
+func PlatformPaths(rom []byte) map[string][][2]int {
+	const arcTable = 0x682E
+	sgn := func(b byte) int {
+		if b >= 0x80 {
+			return int(b) - 256
+		}
+		return int(b)
+	}
+	pair := func(i int) [2]int {
+		return [2]int{sgn(rom[arcTable+i*2]), sgn(rom[arcTable+i*2+1])}
+	}
+	var swing [][2]int
+	for i := 112; i >= 0; i-- { // right end -> left end
+		swing = append(swing, pair(i))
+	}
+	for i := 1; i < 112; i++ { // and back
+		swing = append(swing, pair(i))
+	}
+	var horiz [][2]int
+	for t := 0; t < 320; t++ {
+		off := t
+		if t >= 160 {
+			off = 320 - t
+		}
+		horiz = append(horiz, [2]int{off, 0})
+	}
+	return map[string][][2]int{"09": swing, "0f": horiz}
+}

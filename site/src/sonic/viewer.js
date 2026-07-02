@@ -220,14 +220,30 @@ export class LevelViewer {
     if (!this.animOn) return;
     const dt = this.app.ticker.deltaMS;
     const df = dt * 60 / 1000; // elapsed engine frames (60 Hz)
-    // background-cell animators + animated object sprites: per-frame durations
-    for (const c of [...(this.cellAnims || []), ...(this.animObjs || [])]) {
+    // background-cell animators: per-phase durations
+    for (const c of this.cellAnims || []) {
       c.acc += df;
       while (c.acc >= c.durs[c.idx]) {
         c.acc -= c.durs[c.idx];
         c.idx = (c.idx + 1) % c.texs.length;
         c.sprite.texture = c.texs[c.idx];
       }
+    }
+    // animated object sprites: (texture, hold) steps (enemy walks, Sonic idle/bored)
+    for (const o of this.animObjs || []) {
+      o.acc += df;
+      while (o.acc >= o.steps[o.idx].frames) {
+        o.acc -= o.steps[o.idx].frames;
+        o.idx = (o.idx + 1) % o.steps.length;
+        o.sprite.texture = o.steps[o.idx].tex;
+      }
+    }
+    // moving platforms: per-frame (dx,dy) offsets from the placement
+    for (const o of this.pathObjs || []) {
+      o.t = (o.t + df) % o.path.length;
+      const [dx, dy] = o.path[o.t | 0];
+      o.sprite.x = o.baseX + dx;
+      o.sprite.y = o.baseY + dy;
     }
     // tile animation (rings, flowers)
     if (this.animBlocks && this.animBlocks.length) {
@@ -377,6 +393,10 @@ export class LevelViewer {
       return tx;
     };
     try { this.spriteIndex = await fetch(DATA + 'sprites/index.json').then((r) => r.json()); } catch { /* optional */ }
+    // per-type movement paths (moving platforms): per-frame [dx,dy] offsets from the
+    // placement, sampled from the handlers' own tables (swing arc $682E, the
+    // horizontal platform's 160px triangle).
+    this.spritePaths = (this.spriteIndex && this.spriteIndex.paths) || {};
   }
 
   // Lazily load (and cache) every object sprite for one zone.
@@ -401,7 +421,15 @@ export class LevelViewer {
         for (let i = 0; i < n; i++) {
           texs.push(new Texture({ source: base.source, frame: new Rectangle(i * 48, 0, 48, 48) }));
         }
-        out[parseInt(hex, 16)] = { texs, durs: (meta && meta.d) || [0] };
+        // play steps: an explicit sequence (meta.s: Sonic's idle -> bored program), or
+        // the strip frames in order with their durations.
+        let steps = null;
+        if (meta && meta.s) {
+          steps = meta.s.map(([f, d]) => ({ tex: texs[f], frames: Math.max(1, d) }));
+        } else if (n > 1) {
+          steps = texs.map((t, i) => ({ tex: t, frames: Math.max(1, (meta.d || [])[i] || 1) }));
+        }
+        out[parseInt(hex, 16)] = { texs, steps, path: this.spritePaths[hex] };
       } catch { /* skip */ }
     }));
     this.zoneSpriteTex[zone] = out;
@@ -428,13 +456,17 @@ export class LevelViewer {
     // snap ($2CD4), reimplemented in objplace and verified live by cmd/objsettle. So the
     // sprite goes at (x, y) directly — the grid's transparent padding does the rest.
     this.animObjs = [];
+    this.pathObjs = [];
     const sprite = (spr, x, y) => {
-      const s = new Sprite(spr.texs[0]);
+      const s = new Sprite(spr.steps ? spr.steps[0].tex : spr.texs[0]);
       s.x = x;
       s.y = y;
       this.objectLayer.addChild(s);
-      if (spr.texs.length > 1) {
-        this.animObjs.push({ sprite: s, texs: spr.texs, durs: spr.durs.map((d) => Math.max(1, d)), idx: 0, acc: 0 });
+      if (spr.steps) {
+        this.animObjs.push({ sprite: s, steps: spr.steps, idx: 0, acc: 0 });
+      }
+      if (spr.path) {
+        this.pathObjs.push({ sprite: s, baseX: x, baseY: y, path: spr.path, t: 0 });
       }
     };
     // Each placed object draws its ROM-extracted sprite (this zone's set), animated when

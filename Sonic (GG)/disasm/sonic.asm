@@ -3759,7 +3759,7 @@
 2495  .byte 3E AE 3E 7F AF 3E 2F FE 13 0E 1F DE FE 12 10 AE ; >.>..>/.........
 24A5  .byte 3E 4E 1E FD 96 00 FE 16 13 3E 7F 2F FF          ; >N.......>./.
 
-; --- obj_dispatch  $24B2 — MASTER per-object behaviour table (bank0), WORD pointers indexed type*2, valid types $00-$56 ($4D/$4F null = unused; $57=end). $2CBA dispatches every live $D3FD object through it each frame (JP (HL), returns to common move code $2CD4). Handlers run in HOME banking (banks 0/1/2): addr $4000-$7FFF=bank1, $8000-$BFFF=bank2 (the loop pages b1/b2 into slots 1/2, then restores level gfx banks 4/5). Named (play-tested + confirmed vs handler): $00 Sonic($4AD0 b1), $01-$03 bonus($5DE1/$5EB1/$5EDD b1), $04 shield($5FAF b1), $06 emerald($6183 b1), $07 goal($61F8 b1), $08 CRAB($65F9 b1), $09 swingPlat($6747 b1), $0E bird($6BD9 b1), $0F horizPlat($6DCA b1), $10 BEETLE($6E65 b1), $12 world1-boss($7065 b1), $25 capsule($736B b1), $26 fish($7D25 b1), $2C world3-boss($806B b2), $2D porcupine($82FB b2), $48 world2-boss($84AB b2), $49 world4-boss($9271 b2), $4E seesaw($8681 b2), $50 BG ANIMATOR($7B29 b1, repaints its own map cell via the $D2AB/$D2AF blit request - NOT a camera lock), $51 CHECKPOINT($6010 b1, writes respawn table $D32F via $6034). (data) ---
+; --- obj_dispatch  $24B2 — MASTER per-object behaviour table (bank0), WORD pointers indexed type*2, valid types $00-$56 ($4D/$4F null = unused; $57=end). $2CBA dispatches every live $D3FD object through it each frame (JP (HL), returns to common move code $2CD4). Handlers run in HOME banking (banks 0/1/2): addr $4000-$7FFF=bank1, $8000-$BFFF=bank2 (the loop pages b1/b2 into slots 1/2, then restores level gfx banks 4/5). Named (play-tested + confirmed vs handler): $00 Sonic($4AD0 b1), $01-$03 bonus($5DE1/$5EB1/$5EDD b1), $04 shield($5FAF b1), $06 emerald($6183 b1), $07 goal($61F8 b1), $08 CRAB($65F9 b1), $09 swingPlat($6747 b1), $0B sinkPlat($69ED b1), $0E bird($6BD9 b1), $0F horizPlat($6DCA b1), $10 BEETLE($6E65 b1), $12 world1-boss($7065 b1), $25 capsule($736B b1), $26 fish($7D25 b1), $2C world3-boss($806B b2), $2D porcupine($82FB b2), $48 world2-boss($84AB b2), $49 world4-boss($9271 b2), $4E seesaw($8681 b2), $50 BG ANIMATOR($7B29 b1, repaints its own map cell via the $D2AB/$D2AF blit request - NOT a camera lock), $51 CHECKPOINT($6010 b1, writes respawn table $D32F via $6034). (data) ---
 24B2  .byte D0 4A E1 5D B1 5E DD 5E AF 5F D7 5F 83 61 F8 61 ; .J.].^.^._._.a.a
 24C2  .byte F9 65 47 67 3E 69 ED 69 55 6A 26 6B D9 6B CA 6D ; .eGg>i.iUj&k.k.m
 24D2  .byte 65 6E 61 6F 65 70 4A 9B BD 9B 45 9C 63 9C C3 9D ; enaoepJ...E.c...
@@ -7104,9 +7104,12 @@
 4E3A  .byte 04 DD 36 14 01 01 08 00 11 08 00 CD D5 30 7E E6 ; ..6..........0~.
 4E4A  .byte 7F FE 79 D4 00 50 3A 86 D2 A7 C4 34 54 FD CB 06 ; ..y..P:....4T...
 4E5A  .byte 76 C4 3D 54 FD CB 08 56 C4 5E 54 3A 11 D4 FE 0A ; v.=T...V.^T:....
-4E6A  .byte CC 74 54 DD 6E 14 4D 26 00 29 11 5B 5C 19 5E 23 ; .tT.n.M&.).[\.^#
-4E7A  .byte 56 ED 53 0E D4 3A E0 D2 91 C4 9E 54 3A 10 D4 26 ; V.S..:.....T:..&
-4E8A  .byte 00 6F 19 7E A7 F2 9A 4E 23 7E 32 10 D4 C3 89 4E ; .o.~...N#~2....N
+4E6A  .byte CC 74 54                                        ; .tT
+
+; --- sonic_anim_seq  $4E6D — (bank1, part of the handler tail) the animation sequencer: HL = $5C5B + (IX+20)*2 -> sequence ptr ($D40E); cursor ($D410) picks this frame's byte; bit-7 bytes redirect the cursor (loop). The frame id then feeds sonic_frame_gfx $4E9A. (data) ---
+4E6D  .byte DD 6E 14 4D 26 00 29 11 5B 5C 19 5E 23 56 ED 53 ; .n.M&.).[\.^#V.S
+4E7D  .byte 0E D4 3A E0 D2 91 C4 9E 54 3A 10 D4 26 00 6F 19 ; ..:.....T:..&.o.
+4E8D  .byte 7E A7 F2 9A 4E 23 7E 32 10 D4 C3 89 4E          ; ~...N#~2....N
 
 ; --- sonic_frame_gfx  $4E9A — (bank1) Sonic's animation frame -> tile stream: source = slot-1 base $4000 (or $5800) + frame*192 -> ($D289), count $10 -> ($D28D), layout base $5C1B -> ($D40C) (overridable per state via $5499/$505F). 192 bytes = 8 tiles x 24 bytes = 3bpp (3 stored bitplanes/row, 4th plane zero), streamed into the dynamic sprite tiles $B4-$BB (VRAM $3680). Frame 0 in bank 8 (file $20000) = the STANDING pose - verified byte-identical to live VRAM; cmd/spriterip rips it as the type-$00 sprite. (data) ---
 4E9A  .byte 57 01 00 40 DD CB 18 4E 28 03 01 00 58 FD CB 06 ; W..@...N(...X...
@@ -7201,45 +7204,47 @@
 
 ; --- sonic_underwater_check  $535C — (bank1) called from the Sonic handler ($4C6E, gated by IY+6 bit7 = water zone) each frame: HL=($D2DD) waterY, DE=($D402) Sonic Y, SBC; if Sonic below the surface JP $5845 (underwater); else clear air timer ($D296=0) and RES 4,(IX+24). (data) ---
 535C  .byte 2A DD D2 ED 5B 02 D4 A7 ED 52 DA 45 58 21 00 00 ; *...[....R.EX!..
-536C  .byte 22 96 D2 DD CB 18 A6 C9 DD CB 18 D6 C9 DD 36 14 ; ".............6.
-537C  .byte 0D C9 FD 36 03 FF 3A 15 D4 E6 FA 32 15 D4 C9 3D ; ...6..:....2...=
-538C  .byte 32 84 D2 28 25 FE 14 38 16 AF 6F 67 32 04 D4 22 ; 2..(%..8..og2.."
-539C  .byte 05 D4 32 07 D4 22 08 D4 DD 36 14 0F C3 50 4E DD ; ..2.."...6...PN.
-53AC  .byte CB 18 8E DD 36 14 0E C3 50 4E 2A D6 D2 46 23 4E ; ....6...PN*..F#N
-53BC  .byte 23 7E A7 28 21 FA CD 53 32 D4 D2 FD CB 06 E6 18 ; #~.(!..S2.......
-53CC  .byte 04 FD CB 0D D6 3E 01 32 83 D2 21 00 00 22 FF D3 ; .....>.2..!.."..
-53DC  .byte 22 02 D4 C3 50 4E 78 26 00 06 05 87 CB 14 10 FB ; "...PNx&........
-53EC  .byte 6F 11 08 00 19 22 FF D3 79 26 00 87 CB 14 87 CB ; o...."..y&......
-53FC  .byte 14 87 CB 14 87 CB 14 87 CB 14 6F 22 02 D4 AF 32 ; ..........o"...2
-540C  .byte FE D3 32 01 D4 C3 50 4E AF 6F 67 22 07 D4 32 09 ; ..2...PN.og"..2.
-541C  .byte D4 DD 36 14 16 3A 10 D4 FE 12 DA 50 4E FD CB 08 ; ..6..:.....PN...
-542C  .byte B6 DD CB 18 D6 C3 50 4E 3D 32 86 D2 DD 36 14 11 ; ......PN=2...6..
-543C  .byte C9 DD 36 0D 14 DD 36 14 10 DD CB 0C 7E C0 DD CB ; ..6...6.....~...
-544C  .byte 18 7E C8 FD CB 06 B6 AF 32 04 D4 32 05 D4 32 06 ; .~......2..2..2.
-545C  .byte D4 C9 3A 15 D4 E6 FA 32 15 D4 DD 36 14 14 21 F6 ; ..:....2...6..!.
-546C  .byte D2 35 C0 FD CB 08 96 C9 3A 13 D4 A7 C0 DD CB 18 ; .5......:.......
-547C  .byte 7E C8 3E 03 EF 3E 3C 32 13 D4 C9 3A 24 D2 0F D8 ; ~.>..><2...:$...
-548C  .byte 01 00 58 16 23 3A 15 D4 E6 05 C8 14 C9 11 0E 00 ; ..X.#:..........
-549C  .byte 19 C9 DD 36 13 00 C9 DD CB 18 66 C8 3A 24 D2 A7 ; ...6......f.:$..
-54AC  .byte CC F5 91 C9 3D 32 E2 D2 FD 4E 0A 2A 36 D2 C5 E5 ; ....=2...N.*6...
-54BC  .byte 21 00 D0 22 36 D2 ED 5B 57 D2 2A E5 D2 22 11 D2 ; !.."6..[W.*.."..
-54CC  .byte A7 ED 52 EB ED 4B 54 D2 2A E3 D2 22 0F D2 A7 ED ; ..R..KT.*.."....
-54DC  .byte 42 FE 06 38 04 FE 0A 38 08 F5 01 0B 55 CD 07 2F ; B..8...8....U../
-54EC  .byte F1 21 0C 00 22 13 D2 4F 06 00 21 F0 FF 09 22 15 ; .!.."..O..!...".
-54FC  .byte D2 3E 50 CD 5D 2F E1 C1 22 36 D2 FD 71 0A C9 00 ; .>P.]/.."6..q...
-550C  .byte 02 04 06 FF FF 20 22 24 26 FF FF FF FF FF FF FF ; ..... "$&.......
-551C  .byte FF DD 36 14 09 C9 3D 32 85 D2 C0 3A F7 D2 DF FD ; ..6...=2...:....
-552C  .byte 4E 0A FD CB 00 86 CD 27 03 FD 71 0A C9 FD 36 03 ; N......'..q...6.
-553C  .byte FB 2A FF D3 11 60 1B A7 ED 52 D0 FD 36 03 FF 2A ; .*...`...R..6..*
-554C  .byte 04 D4 7D B4 C0 DD CB 18 8E E1 DD CB 18 CE DD 36 ; ..}............6
-555C  .byte 14 18 21 F9 D2 FD CB 0D 46 20 3D 36 50 CD AF 7C ; ..!.....F =6P..|
-556C  .byte DA 50 4E DD E5 E5 DD E1 AF DD 36 00 54 DD 77 11 ; .PN.......6.T.w.
-557C  .byte DD 77 18 DD 77 01 2A FF D3 DD 75 02 DD 74 03 DD ; .w..w.*...u..t..
-558C  .byte 77 04 2A 02 D4 11 0E 00 19 DD 75 05 DD 74 06 DD ; w.*.......u..t..
-559C  .byte E1 FD CB 0D C6 C3 50 4E FD CB 0D 4E 20 0A 35 C2 ; ......PN...N .5.
-55AC  .byte 50 4E FD CB 0D CE 36 8C DD 36 14 17 7E A7 28 04 ; PN....6..6..~.(.
-55BC  .byte 35 C3 50 4E DD 36 14 19 C3 50 4E DD 7E 0E FE 15 ; 5.PN.6...PN.~...
-55CC  .byte 28 0A                                           ; (.
+536C  .byte 22 96 D2 DD CB 18 A6 C9 DD CB 18 D6 C9          ; "............
+
+; --- sonic_set_bored  $5379 — (bank1) the idle-timeout action: LD (IX+20),$0D = switch Sonic to the BORED animation. (data) ---
+5379  .byte DD 36 14 0D C9 FD 36 03 FF 3A 15 D4 E6 FA 32 15 ; .6....6..:....2.
+5389  .byte D4 C9 3D 32 84 D2 28 25 FE 14 38 16 AF 6F 67 32 ; ..=2..(%..8..og2
+5399  .byte 04 D4 22 05 D4 32 07 D4 22 08 D4 DD 36 14 0F C3 ; .."..2.."...6...
+53A9  .byte 50 4E DD CB 18 8E DD 36 14 0E C3 50 4E 2A D6 D2 ; PN.....6...PN*..
+53B9  .byte 46 23 4E 23 7E A7 28 21 FA CD 53 32 D4 D2 FD CB ; F#N#~.(!..S2....
+53C9  .byte 06 E6 18 04 FD CB 0D D6 3E 01 32 83 D2 21 00 00 ; ........>.2..!..
+53D9  .byte 22 FF D3 22 02 D4 C3 50 4E 78 26 00 06 05 87 CB ; ".."...PNx&.....
+53E9  .byte 14 10 FB 6F 11 08 00 19 22 FF D3 79 26 00 87 CB ; ...o...."..y&...
+53F9  .byte 14 87 CB 14 87 CB 14 87 CB 14 87 CB 14 6F 22 02 ; .............o".
+5409  .byte D4 AF 32 FE D3 32 01 D4 C3 50 4E AF 6F 67 22 07 ; ..2..2...PN.og".
+5419  .byte D4 32 09 D4 DD 36 14 16 3A 10 D4 FE 12 DA 50 4E ; .2...6..:.....PN
+5429  .byte FD CB 08 B6 DD CB 18 D6 C3 50 4E 3D 32 86 D2 DD ; .........PN=2...
+5439  .byte 36 14 11 C9 DD 36 0D 14 DD 36 14 10 DD CB 0C 7E ; 6....6...6.....~
+5449  .byte C0 DD CB 18 7E C8 FD CB 06 B6 AF 32 04 D4 32 05 ; ....~......2..2.
+5459  .byte D4 32 06 D4 C9 3A 15 D4 E6 FA 32 15 D4 DD 36 14 ; .2...:....2...6.
+5469  .byte 14 21 F6 D2 35 C0 FD CB 08 96 C9 3A 13 D4 A7 C0 ; .!..5......:....
+5479  .byte DD CB 18 7E C8 3E 03 EF 3E 3C 32 13 D4 C9 3A 24 ; ...~.>..><2...:$
+5489  .byte D2 0F D8 01 00 58 16 23 3A 15 D4 E6 05 C8 14 C9 ; .....X.#:.......
+5499  .byte 11 0E 00 19 C9 DD 36 13 00 C9 DD CB 18 66 C8 3A ; ......6......f.:
+54A9  .byte 24 D2 A7 CC F5 91 C9 3D 32 E2 D2 FD 4E 0A 2A 36 ; $......=2...N.*6
+54B9  .byte D2 C5 E5 21 00 D0 22 36 D2 ED 5B 57 D2 2A E5 D2 ; ...!.."6..[W.*..
+54C9  .byte 22 11 D2 A7 ED 52 EB ED 4B 54 D2 2A E3 D2 22 0F ; "....R..KT.*..".
+54D9  .byte D2 A7 ED 42 FE 06 38 04 FE 0A 38 08 F5 01 0B 55 ; ...B..8...8....U
+54E9  .byte CD 07 2F F1 21 0C 00 22 13 D2 4F 06 00 21 F0 FF ; ../.!.."..O..!..
+54F9  .byte 09 22 15 D2 3E 50 CD 5D 2F E1 C1 22 36 D2 FD 71 ; ."..>P.]/.."6..q
+5509  .byte 0A C9 00 02 04 06 FF FF 20 22 24 26 FF FF FF FF ; ........ "$&....
+5519  .byte FF FF FF FF DD 36 14 09 C9 3D 32 85 D2 C0 3A F7 ; .....6...=2...:.
+5529  .byte D2 DF FD 4E 0A FD CB 00 86 CD 27 03 FD 71 0A C9 ; ...N......'..q..
+5539  .byte FD 36 03 FB 2A FF D3 11 60 1B A7 ED 52 D0 FD 36 ; .6..*...`...R..6
+5549  .byte 03 FF 2A 04 D4 7D B4 C0 DD CB 18 8E E1 DD CB 18 ; ..*..}..........
+5559  .byte CE DD 36 14 18 21 F9 D2 FD CB 0D 46 20 3D 36 50 ; ..6..!.....F =6P
+5569  .byte CD AF 7C DA 50 4E DD E5 E5 DD E1 AF DD 36 00 54 ; ..|.PN.......6.T
+5579  .byte DD 77 11 DD 77 18 DD 77 01 2A FF D3 DD 75 02 DD ; .w..w..w.*...u..
+5589  .byte 74 03 DD 77 04 2A 02 D4 11 0E 00 19 DD 75 05 DD ; t..w.*.......u..
+5599  .byte 74 06 DD E1 FD CB 0D C6 C3 50 4E FD CB 0D 4E 20 ; t........PN...N 
+55A9  .byte 0A 35 C2 50 4E FD CB 0D CE 36 8C DD 36 14 17 7E ; .5.PN....6..6..~
+55B9  .byte A7 28 04 35 C3 50 4E DD 36 14 19 C3 50 4E DD 7E ; .(.5.PN.6...PN.~
+55C9  .byte 0E FE 15 28 0A                                  ; ...(.
 
 ; --- sonic_box_short  $55CE — (bank1) stand->short transition: Y += 11 then box 16x21 ($55D8/$55DC) - same feet-preserving switch; this short box is also his handler's INITIAL state, so his FIRST floor probe runs with feet at spawnY+21 (why Bridge 1/Labyrinth 1 snap UP onto a floor line inside the spawn block itself). (data) ---
 55CE  .byte 2A 02 D4 11 0B 00 19 22 02 D4 DD 36 0D 10 DD 36 ; *......"...6...6
@@ -7355,6 +7360,8 @@
 5C2B  .byte FF FF FF FF BA B8 FF FF FF FF FF FF B4 B6 B8 FF ; ................
 5C3B  .byte FF FF BA BC BE FF FF FF FF FF B8 B6 B4 FF FF FF ; ................
 5C4B  .byte BE BC BA FF FF FF FF FF 00 00 00 00 00 00 00 00 ; ................
+
+; --- sonic_anim_table  $5C5B — (bank1, data) Sonic's anim-id -> sequence-pointer word table (IX+20 indexes it at $4E6D). A sequence = ONE BYTE PER ENGINE FRAME (the graphic frame id, tiles = bank8 + id*192 via $4E9A); a bit-7 byte = control, next byte = new cursor (loop point). Decoded (oracle-verified by cmd/sonicanim): $01 run = 4-9 x8 loop; $02 roll = 11-14 x4; $05 stand = 0; $0A skid = 25/26 x6; $0D BORED = 2x16, 1x18, then loop(2x16, 3x16) - Sonic turns to the camera and taps his foot. objplace.SonicSeq reads it; spriterip exports the idle->bored strip. (data) ---
 5C5B  .byte 8F 5C 8F 5C C1 5C D3 5C D5 5C D8 5C DB 5C DD 5C ; .\.\.\.\.\.\.\.\
 5C6B  .byte E0 5C E3 5C 2B 5D 39 5D 3C 5D 3F 5D 83 5D 99 5D ; .\.\+]9]<]?].].]
 5C7B  .byte A5 5D A8 5D B6 5D B9 5D BC 5D BF 5D C2 5D D8 5D ; .].].].].].].].]
@@ -7557,97 +7564,101 @@
 67F7  .byte 7C 21 10 69 3A D5 D2 A7 28 03 21 22 69 DD 75 0F ; |!.i:...(.!"i.u.
 6807  .byte DD 74 10 DD CB 18 4E 20 10 DD 7E 11 3C 3C DD 77 ; .t....N ..~.<<.w
 6817  .byte 11 FE E0 D8 DD CB 18 CE C9 DD 7E 11 3D 3D DD 77 ; ..........~.==.w
-6827  .byte 11 C0 DD CB 18 8E C9 CD 00 CD 01 CD 01 CD 02 CD ; ................
-6837  .byte 02 CD 03 CD 04 CD 04 CD 05 CD 06 CD 06 CD 07 CD ; ................
-6847  .byte 08 CE 09 CE 09 CE 0A CE 0B CE 0C CE 0D CF 0E CF ; ................
-6857  .byte 0F CF 10 D0 11 D0 12 D0 13 D1 14 D1 15 D2 16 D3 ; ................
-6867  .byte 18 D3 19 D4 1A D5 1B D6 1D D6 1E D7 1F D8 20 D9 ; .............. .
-6877  .byte 22 DB 23 DC 24 DD 25 DE 27 E0 28 E1 29 E3 2A E5 ; ".#.$.%.'.(.).*.
-6887  .byte 2B E6 2C E8 2D EA 2E EC 2F EE 30 F0 31 F2 31 F5 ; +.,.-.../.0.1.1.
-6897  .byte 32 F7 32 F9 33 FB 33 FE 33 00 33 02 33 05 33 07 ; 2.2.3.3.3.3.3.3.
-68A7  .byte 33 09 32 0B 32 0E 31 10 31 12 30 14 2F 16 2E 18 ; 3.2.2.1.1.0./...
-68B7  .byte 2D 1A 2C 1C 2B 1D 2A 1F 29 20 28 22 26 23 25 25 ; -.,.+.*.) ("&#%%
-68C7  .byte 24 26 23 27 21 28 20 29 1F 2A 1D 2B 1C 2C 1B 2C ; $&#'!( ).*.+.,.,
-68D7  .byte 1A 2D 18 2E 17 2E 16 2F 15 2F 13 30 12 30 11 31 ; .-....././.0.0.1
-68E7  .byte 10 31 0F 31 0E 31 0D 32 0C 32 0B 32 0A 32 09 32 ; .1.1.1.2.2.2.2.2
-68F7  .byte 09 33 08 33 07 33 06 33 05 33 05 33 04 33 03 33 ; .3.3.3.3.3.3.3.3
-6907  .byte 03 33 02 33 01 33 01 33 00 FE FF FF FF FF FF 18 ; .3.3.3.3........
-6917  .byte 1A 18 1A FF FF FF FF FF FF FF FF FE FF FF FF FF ; ................
-6927  .byte FF 6C 6E 6E 48 FF FF FF FF FE FF FF FF FF FF 6C ; .lnnH..........l
-6937  .byte 6E 6C 6E FF FF FF FF DD CB 18 EE DD 7E 15 FE AA ; nln.........~...
-6947  .byte 28 20 AF DD 77 11 DD 36 15 AA DD 77 16 DD 77 17 ; ( ..w..6...w..w.
-6957  .byte DD 77 07 DD 77 08 DD 77 09 DD 77 0A DD 77 0B DD ; .w..w..w..w..w..
-6967  .byte 77 0C DD 7E 11 3D 20 35 FD CB 00 6E 28 2F 3A 38 ; w..~.= 5...n(/:8
-6977  .byte D2 FE 12 28 28 3A 15 D4 07 38 22 3A E9 D2 ED 5B ; ...((:...8":...[
-6987  .byte E7 D2 13 4F 2A 07 D4 7D 2F 6F 7C 2F 67 3A 09 D4 ; ...O*..}/o|/g:..
-6997  .byte A7 FA A4 69 2F 19 89 22 07 D4 32 09 D4 11 C2 69 ; ...i/.."..2....i
-69A7  .byte 01 BB 69 CD 75 7C DD 34 11 DD 7E 11 FE 18 D8 DD ; ..i.u|.4..~.....
-69B7  .byte 36 00 FF C9 00 08 01 08 02 08 FF 74 76 FF FF FF ; 6..........tv...
-69C7  .byte FF FF FF FF FF FF FF FF FF FF FF FF FF 78 7A FF ; .............xz.
-69D7  .byte FF FF FF FF FF FF FF FF FF FF FF FF FF FF FF 7C ; ...............|
-69E7  .byte 7E FF FF FF FF FF DD CB 18 EE DD 36 0D 1A DD 36 ; ~..........6...6
-69F7  .byte 0E 10 21 10 69 3A D5 D2 A7 28 03 21 22 69 DD 75 ; ..!.i:...(.!"i.u
-6A07  .byte 0F DD 74 10 3A 09 D4 A7 FA 3C 6A 21 06 08 22 15 ; ..t.:....<j!..".
-6A17  .byte D2 CD 28 33 38 1F 11 00 00 DD 7E 05 E6 1F FE 10 ; ..(38.....~.....
-6A27  .byte 30 02 1E 80 DD 73 0A DD 72 0B DD 36 0C 00 01 10 ; 0....s..r..6....
-6A37  .byte 00 CD F5 7C C9 0E 00 69 61 DD 7E 05 E6 1F 28 04 ; ...|...ia.~...(.
-6A47  .byte 21 C0 FF 0D DD 75 0A DD 74 0B DD 71 0C C9 DD CB ; !....u..t..q....
-6A57  .byte 18 EE DD CB 18 46 20 10 DD 7E 05 DD 77 11 DD 7E ; .....F ..~..w..~
-6A67  .byte 06 DD 77 12 DD CB 18 C6 DD CB 18 4E 28 1D 2A 57 ; ..w........N(.*W
-6A77  .byte D2 01 F0 FF 09 DD 5E 05 DD 56 06 AF ED 52 30 07 ; ......^..V...R0.
-6A87  .byte DD 77 0F DD 77 10 C9 DD CB 18 8E DD 7E 16 DD 86 ; .w..w.......~...
-6A97  .byte 17 DD 77 17 FE 18 38 17 DD 6E 0A DD 66 0B DD 7E ; ..w...8..n..f..~
-6AA7  .byte 0C 11 40 00 19 8A DD 75 0A DD 74 0B DD 77 0C DD ; ..@....u..t..w..
-6AB7  .byte 36 0D 1A DD 36 0E 10 3A 09 D4 A7 FA E0 6A 21 06 ; 6...6..:.....j!.
-6AC7  .byte 08 22 15 D2 CD 28 33 38 10 DD 36 16 01 01 10 00 ; ."...(38..6.....
-6AD7  .byte DD 5E 0A DD 56 0B CD F5 7C 21 10 69 3A D5 D2 A7 ; .^..V...|!.i:...
-6AE7  .byte 28 03 21 22 69 DD 75 0F DD 74 10 2A 57 D2 11 A8 ; (.!"i.u..t.*W...
-6AF7  .byte 00 19 DD 5E 05 DD 56 06 AF ED 52 D0 DD 77 0A DD ; ...^..V...R..w..
-6B07  .byte 77 0B DD 77 0C DD 77 16 DD 77 17 DD 77 04 DD 7E ; w..w..w..w..w..~
-6B17  .byte 11 DD 77 05 DD 7E 12 DD 77 06 DD CB 18 CE C9 DD ; ..w..~..w.......
-6B27  .byte CB 18 EE DD 36 0D 02 DD 36 0E 02 21 03 03 22 15 ; ....6...6..!..".
-6B37  .byte D2 CD 28 33 D4 D9 2F DD 6E 0A DD 66 0B DD 7E 0C ; ..(3../.n..f..~.
-6B47  .byte DD 5E 13 DD 56 14 19 CE 00 DD 75 0A DD 74 0B DD ; .^..V.....u..t..
-6B57  .byte 77 0C DD 6E 02 DD 66 03 22 0F D2 DD 6E 05 DD 66 ; w..n..f."...n..f
-6B67  .byte 06 22 11 D2 21 00 00 22 13 D2 22 15 D2 DD 75 0F ; ."..!..".."...u.
-6B77  .byte DD 74 10 21 D7 6B 3A 38 D2 FE 05 28 07 FE 0B 28 ; .t.!.k:8...(...(
-6B87  .byte 03 21 D5 6B 3A 24 D2 E6 01 5F 16 00 19 7E CD 5D ; .!.k:$..._...~.]
-6B97  .byte 2F DD 4E 02 DD 46 03 69 60 11 F8 FF 19 ED 5B 54 ; /.N..F.i`.....[T
-6BA7  .byte D2 A7 ED 52 38 23 14 EB ED 42 38 1D DD 4E 05 DD ; ...R8#...B8..N..
-6BB7  .byte 46 06 69 60 11 10 00 19 ED 5B 57 D2 A7 ED 52 38 ; F.i`.....[W...R8
-6BC7  .byte 08 21 C0 00 19 A7 ED 42 D0 DD 36 00 FF C9 06 08 ; .!.....B..6.....
-6BD7  .byte 34 36 DD CB 18 EE DD CB 18 46 20 2D DD 5E 02 DD ; 46.......F -.^..
-6BE7  .byte 56 03 DD 73 14 DD 72 15 AF DD 77 0F DD 77 10 DD ; V..s..r...w..w..
-6BF7  .byte 77 12 DD 77 07 DD 77 08 DD 77 09 2A 54 D2 01 00 ; w..w..w..w.*T...
-6C07  .byte 01 09 ED 52 D0 DD CB 18 C6 DD 36 0D 14 DD 36 0E ; ...R......6...6.
-6C17  .byte 20 DD 6E 02 DD 66 03 ED 5B FF D3 A7 ED 52 38 12 ;  .n..f..[....R8.
-6C27  .byte 11 40 00 ED 52 30 0B DD 7E 12 FE 05 30 04 DD 36 ; .@..R0..~...0..6
-6C37  .byte 12 05 DD 5E 12 16 00 21 3C 6D 19 22 15 D2 7E A7 ; ...^...!<m."..~.
-6C47  .byte 20 07 DD 77 12 5F C3 3E 6C 3D 20 32 DD 6E 02 DD ;  ..w._.>l= 2.n..
-6C57  .byte 66 03 11 30 00 19 ED 5B 54 D2 AF ED 52 30 17 DD ; f..0...[T...R0..
-6C67  .byte 77 0F DD 77 10 DD 7E 14 DD 77 02 DD 7E 15 DD 77 ; w..w..~..w..~..w
-6C77  .byte 03 DD CB 18 86 C9 0E FF 21 00 FE C3 FD 6C 3D 20 ; ........!....l= 
-6C87  .byte 07 0E 00 69 61 C3 FD 6C DD 7E 11 FE 20 C2 06 6D ; ...ia..l.~.. ..m
-6C97  .byte CD AF 7C DA 06 6D C5 DD 5E 02 DD 56 03 DD 4E 05 ; ..|..m..^..V..N.
-6CA7  .byte DD 46 06 DD E5 E5 DD E1 AF DD 36 00 0D DD 77 01 ; .F........6...w.
-6CB7  .byte DD 73 02 DD 72 03 DD 77 04 21 20 00 09 DD 75 05 ; .s..r..w.! ...u.
-6CC7  .byte DD 74 06 DD 77 11 DD 77 13 DD 77 14 DD 77 15 DD ; .t..w..w..w..w..
-6CD7  .byte 77 16 DD 77 17 DD 36 07 00 DD 36 08 FF DD 36 09 ; w..w..6...6...6.
-6CE7  .byte FF DD 36 0A 80 DD 36 0B 01 DD 77 0C DD E1 C1 3E ; ..6...6...w....>
-6CF7  .byte 0A EF 0E 00 69 61 DD 75 07 DD 74 08 DD 71 09 DD ; ....ia.u..t..q..
-6D07  .byte 6E 11 DD 66 12 11 08 00 19 DD 75 11 DD 74 12 2A ; n..f......u..t.*
-6D17  .byte 15 D2 7E 87 5F 21 47 6D 19 4E 23 46 11 5E 6D CD ; ..~._!Gm.N#F.^m.
-6D27  .byte 75 7C 21 00 10 22 15 D2 CD 28 33 21 04 10 22 0F ; u|!.."...(3!..".
-6D37  .byte D2 D4 C1 2F C9 01 01 01 01 00 02 02 03 01 01 00 ; .../............
-6D47  .byte 4F 6D 4F 6D 54 6D 59 6D 00 02 01 02 FF 02 02 03 ; OmOmTmYm........
-6D57  .byte 02 FF 04 02 05 02 FF FE 0A FF FF FF FF 0C 0E 10 ; ................
-6D67  .byte FF FF FF FF FF FF FF FF FF FE FF FF FF FF FF 0C ; ................
-6D77  .byte 0E 2C FF FF FF FF FF FF FF FF FF FE 0A FF FF FF ; .,..............
-6D87  .byte FF 12 14 16 FF FF FF 32 34 FF FF FF FF FE FF FF ; .......24.......
-6D97  .byte FF FF FF 12 14 16 FF FF FF 32 34 FF FF FF FF FE ; .........24.....
-6DA7  .byte 0A FF FF FF FF 12 14 16 FF FF FF 30 34 FF FF FF ; ...........04...
-6DB7  .byte FF FE FF FF FF FF FF 12 14 16 FF FF FF 30 34 FF ; .............04.
-6DC7  .byte FF FF FF                                        ; ...
+6827  .byte 11 C0 DD CB 18 8E C9                            ; .......
+
+; --- swing_arc_table  $682E — (bank1, data) the swing platform's 113 signed (dx,dy) pairs - a radius-51 semicircle below the pivot, (-51,0)..(0,51)..(+51,0). Phase IX+17 ping-pongs 0<->$E0 at +/-2 per frame (224-frame period), position = anchor(IX+18..21, the spawn) + pair. Exported as a viewer movement path (objplace.PlatformPaths). (data) ---
+682E  .byte CD 00 CD 01 CD 01 CD 02 CD 02 CD 03 CD 04 CD 04 ; ................
+683E  .byte CD 05 CD 06 CD 06 CD 07 CD 08 CE 09 CE 09 CE 0A ; ................
+684E  .byte CE 0B CE 0C CE 0D CF 0E CF 0F CF 10 D0 11 D0 12 ; ................
+685E  .byte D0 13 D1 14 D1 15 D2 16 D3 18 D3 19 D4 1A D5 1B ; ................
+686E  .byte D6 1D D6 1E D7 1F D8 20 D9 22 DB 23 DC 24 DD 25 ; ....... .".#.$.%
+687E  .byte DE 27 E0 28 E1 29 E3 2A E5 2B E6 2C E8 2D EA 2E ; .'.(.).*.+.,.-..
+688E  .byte EC 2F EE 30 F0 31 F2 31 F5 32 F7 32 F9 33 FB 33 ; ./.0.1.1.2.2.3.3
+689E  .byte FE 33 00 33 02 33 05 33 07 33 09 32 0B 32 0E 31 ; .3.3.3.3.3.2.2.1
+68AE  .byte 10 31 12 30 14 2F 16 2E 18 2D 1A 2C 1C 2B 1D 2A ; .1.0./...-.,.+.*
+68BE  .byte 1F 29 20 28 22 26 23 25 25 24 26 23 27 21 28 20 ; .) ("&#%%$&#'!( 
+68CE  .byte 29 1F 2A 1D 2B 1C 2C 1B 2C 1A 2D 18 2E 17 2E 16 ; ).*.+.,.,.-.....
+68DE  .byte 2F 15 2F 13 30 12 30 11 31 10 31 0F 31 0E 31 0D ; /./.0.0.1.1.1.1.
+68EE  .byte 32 0C 32 0B 32 0A 32 09 32 09 33 08 33 07 33 06 ; 2.2.2.2.2.3.3.3.
+68FE  .byte 33 05 33 05 33 04 33 03 33 03 33 02 33 01 33 01 ; 3.3.3.3.3.3.3.3.
+690E  .byte 33 00 FE FF FF FF FF FF 18 1A 18 1A FF FF FF FF ; 3...............
+691E  .byte FF FF FF FF FE FF FF FF FF FF 6C 6E 6E 48 FF FF ; ..........lnnH..
+692E  .byte FF FF FE FF FF FF FF FF 6C 6E 6C 6E FF FF FF FF ; ........lnln....
+693E  .byte DD CB 18 EE DD 7E 15 FE AA 28 20 AF DD 77 11 DD ; .....~...( ..w..
+694E  .byte 36 15 AA DD 77 16 DD 77 17 DD 77 07 DD 77 08 DD ; 6...w..w..w..w..
+695E  .byte 77 09 DD 77 0A DD 77 0B DD 77 0C DD 7E 11 3D 20 ; w..w..w..w..~.= 
+696E  .byte 35 FD CB 00 6E 28 2F 3A 38 D2 FE 12 28 28 3A 15 ; 5...n(/:8...((:.
+697E  .byte D4 07 38 22 3A E9 D2 ED 5B E7 D2 13 4F 2A 07 D4 ; ..8":...[...O*..
+698E  .byte 7D 2F 6F 7C 2F 67 3A 09 D4 A7 FA A4 69 2F 19 89 ; }/o|/g:.....i/..
+699E  .byte 22 07 D4 32 09 D4 11 C2 69 01 BB 69 CD 75 7C DD ; "..2....i..i.u|.
+69AE  .byte 34 11 DD 7E 11 FE 18 D8 DD 36 00 FF C9 00 08 01 ; 4..~.....6......
+69BE  .byte 08 02 08 FF 74 76 FF FF FF FF FF FF FF FF FF FF ; ....tv..........
+69CE  .byte FF FF FF FF FF FF 78 7A FF FF FF FF FF FF FF FF ; ......xz........
+69DE  .byte FF FF FF FF FF FF FF FF 7C 7E FF FF FF FF FF    ; ........|~.....
+
+; --- obj_sinking_platform  $69ED — (bank1) type $0B = SINKING PLATFORM (same zone artwork $6910/$6922 as $09/$0F). No idle motion: while Sonic stands on it ($3328, box $0806) it takes Yvel +$80 sub (1/2 px/frame) until sunk 16px into its block (Y&$1F >= $10); with no rider it climbs back to the block top. Rides via $7CF5 like the other platforms. (data) ---
+69ED  .byte DD CB 18 EE DD 36 0D 1A DD 36 0E 10 21 10 69 3A ; .....6...6..!.i:
+69FD  .byte D5 D2 A7 28 03 21 22 69 DD 75 0F DD 74 10 3A 09 ; ...(.!"i.u..t.:.
+6A0D  .byte D4 A7 FA 3C 6A 21 06 08 22 15 D2 CD 28 33 38 1F ; ...<j!.."...(38.
+6A1D  .byte 11 00 00 DD 7E 05 E6 1F FE 10 30 02 1E 80 DD 73 ; ....~.....0....s
+6A2D  .byte 0A DD 72 0B DD 36 0C 00 01 10 00 CD F5 7C C9 0E ; ..r..6.......|..
+6A3D  .byte 00 69 61 DD 7E 05 E6 1F 28 04 21 C0 FF 0D DD 75 ; .ia.~...(.!....u
+6A4D  .byte 0A DD 74 0B DD 71 0C C9 DD CB 18 EE DD CB 18 46 ; ..t..q.........F
+6A5D  .byte 20 10 DD 7E 05 DD 77 11 DD 7E 06 DD 77 12 DD CB ;  ..~..w..~..w...
+6A6D  .byte 18 C6 DD CB 18 4E 28 1D 2A 57 D2 01 F0 FF 09 DD ; .....N(.*W......
+6A7D  .byte 5E 05 DD 56 06 AF ED 52 30 07 DD 77 0F DD 77 10 ; ^..V...R0..w..w.
+6A8D  .byte C9 DD CB 18 8E DD 7E 16 DD 86 17 DD 77 17 FE 18 ; ......~.....w...
+6A9D  .byte 38 17 DD 6E 0A DD 66 0B DD 7E 0C 11 40 00 19 8A ; 8..n..f..~..@...
+6AAD  .byte DD 75 0A DD 74 0B DD 77 0C DD 36 0D 1A DD 36 0E ; .u..t..w..6...6.
+6ABD  .byte 10 3A 09 D4 A7 FA E0 6A 21 06 08 22 15 D2 CD 28 ; .:.....j!.."...(
+6ACD  .byte 33 38 10 DD 36 16 01 01 10 00 DD 5E 0A DD 56 0B ; 38..6......^..V.
+6ADD  .byte CD F5 7C 21 10 69 3A D5 D2 A7 28 03 21 22 69 DD ; ..|!.i:...(.!"i.
+6AED  .byte 75 0F DD 74 10 2A 57 D2 11 A8 00 19 DD 5E 05 DD ; u..t.*W......^..
+6AFD  .byte 56 06 AF ED 52 D0 DD 77 0A DD 77 0B DD 77 0C DD ; V...R..w..w..w..
+6B0D  .byte 77 16 DD 77 17 DD 77 04 DD 7E 11 DD 77 05 DD 7E ; w..w..w..~..w..~
+6B1D  .byte 12 DD 77 06 DD CB 18 CE C9 DD CB 18 EE DD 36 0D ; ..w...........6.
+6B2D  .byte 02 DD 36 0E 02 21 03 03 22 15 D2 CD 28 33 D4 D9 ; ..6..!.."...(3..
+6B3D  .byte 2F DD 6E 0A DD 66 0B DD 7E 0C DD 5E 13 DD 56 14 ; /.n..f..~..^..V.
+6B4D  .byte 19 CE 00 DD 75 0A DD 74 0B DD 77 0C DD 6E 02 DD ; ....u..t..w..n..
+6B5D  .byte 66 03 22 0F D2 DD 6E 05 DD 66 06 22 11 D2 21 00 ; f."...n..f."..!.
+6B6D  .byte 00 22 13 D2 22 15 D2 DD 75 0F DD 74 10 21 D7 6B ; .".."...u..t.!.k
+6B7D  .byte 3A 38 D2 FE 05 28 07 FE 0B 28 03 21 D5 6B 3A 24 ; :8...(...(.!.k:$
+6B8D  .byte D2 E6 01 5F 16 00 19 7E CD 5D 2F DD 4E 02 DD 46 ; ..._...~.]/.N..F
+6B9D  .byte 03 69 60 11 F8 FF 19 ED 5B 54 D2 A7 ED 52 38 23 ; .i`.....[T...R8#
+6BAD  .byte 14 EB ED 42 38 1D DD 4E 05 DD 46 06 69 60 11 10 ; ...B8..N..F.i`..
+6BBD  .byte 00 19 ED 5B 57 D2 A7 ED 52 38 08 21 C0 00 19 A7 ; ...[W...R8.!....
+6BCD  .byte ED 42 D0 DD 36 00 FF C9 06 08 34 36 DD CB 18 EE ; .B..6.....46....
+6BDD  .byte DD CB 18 46 20 2D DD 5E 02 DD 56 03 DD 73 14 DD ; ...F -.^..V..s..
+6BED  .byte 72 15 AF DD 77 0F DD 77 10 DD 77 12 DD 77 07 DD ; r...w..w..w..w..
+6BFD  .byte 77 08 DD 77 09 2A 54 D2 01 00 01 09 ED 52 D0 DD ; w..w.*T......R..
+6C0D  .byte CB 18 C6 DD 36 0D 14 DD 36 0E 20 DD 6E 02 DD 66 ; ....6...6. .n..f
+6C1D  .byte 03 ED 5B FF D3 A7 ED 52 38 12 11 40 00 ED 52 30 ; ..[....R8..@..R0
+6C2D  .byte 0B DD 7E 12 FE 05 30 04 DD 36 12 05 DD 5E 12 16 ; ..~...0..6...^..
+6C3D  .byte 00 21 3C 6D 19 22 15 D2 7E A7 20 07 DD 77 12 5F ; .!<m."..~. ..w._
+6C4D  .byte C3 3E 6C 3D 20 32 DD 6E 02 DD 66 03 11 30 00 19 ; .>l= 2.n..f..0..
+6C5D  .byte ED 5B 54 D2 AF ED 52 30 17 DD 77 0F DD 77 10 DD ; .[T...R0..w..w..
+6C6D  .byte 7E 14 DD 77 02 DD 7E 15 DD 77 03 DD CB 18 86 C9 ; ~..w..~..w......
+6C7D  .byte 0E FF 21 00 FE C3 FD 6C 3D 20 07 0E 00 69 61 C3 ; ..!....l= ...ia.
+6C8D  .byte FD 6C DD 7E 11 FE 20 C2 06 6D CD AF 7C DA 06 6D ; .l.~.. ..m..|..m
+6C9D  .byte C5 DD 5E 02 DD 56 03 DD 4E 05 DD 46 06 DD E5 E5 ; ..^..V..N..F....
+6CAD  .byte DD E1 AF DD 36 00 0D DD 77 01 DD 73 02 DD 72 03 ; ....6...w..s..r.
+6CBD  .byte DD 77 04 21 20 00 09 DD 75 05 DD 74 06 DD 77 11 ; .w.! ...u..t..w.
+6CCD  .byte DD 77 13 DD 77 14 DD 77 15 DD 77 16 DD 77 17 DD ; .w..w..w..w..w..
+6CDD  .byte 36 07 00 DD 36 08 FF DD 36 09 FF DD 36 0A 80 DD ; 6...6...6...6...
+6CED  .byte 36 0B 01 DD 77 0C DD E1 C1 3E 0A EF 0E 00 69 61 ; 6...w....>....ia
+6CFD  .byte DD 75 07 DD 74 08 DD 71 09 DD 6E 11 DD 66 12 11 ; .u..t..q..n..f..
+6D0D  .byte 08 00 19 DD 75 11 DD 74 12 2A 15 D2 7E 87 5F 21 ; ....u..t.*..~._!
+6D1D  .byte 47 6D 19 4E 23 46 11 5E 6D CD 75 7C 21 00 10 22 ; Gm.N#F.^m.u|!.."
+6D2D  .byte 15 D2 CD 28 33 21 04 10 22 0F D2 D4 C1 2F C9 01 ; ...(3!.."..../..
+6D3D  .byte 01 01 01 00 02 02 03 01 01 00 4F 6D 4F 6D 54 6D ; ..........OmOmTm
+6D4D  .byte 59 6D 00 02 01 02 FF 02 02 03 02 FF 04 02 05 02 ; Ym..............
+6D5D  .byte FF FE 0A FF FF FF FF 0C 0E 10 FF FF FF FF FF FF ; ................
+6D6D  .byte FF FF FF FE FF FF FF FF FF 0C 0E 2C FF FF FF FF ; ...........,....
+6D7D  .byte FF FF FF FF FF FE 0A FF FF FF FF 12 14 16 FF FF ; ................
+6D8D  .byte FF 32 34 FF FF FF FF FE FF FF FF FF FF 12 14 16 ; .24.............
+6D9D  .byte FF FF FF 32 34 FF FF FF FF FE 0A FF FF FF FF 12 ; ...24...........
+6DAD  .byte 14 16 FF FF FF 30 34 FF FF FF FF FE FF FF FF FF ; .....04.........
+6DBD  .byte FF 12 14 16 FF FF FF 30 34 FF FF FF FF          ; .......04....
 
 ; --- obj_horiz_platform  $6DCA — (bank1) type $0F HORIZONTAL MOVING PLATFORM handler. Private fields: IX+18/19 = phase counter, IX+20 = direction byte. Each frame: counter++; X (IX+2/3) += (BIT0(IX+20) ? -1 : +1) = 1 px/frame. When counter reaches $A0=160: counter=0, INC IX+20 (toggles direction). So it oscillates 160px (5 macroblocks = 10 tiles) out-and-back, reversing every 160 frames (~2.7s @60Hz), starting RIGHT (record zero-cleared at spawn). RIDE: ($D215)=$0806 then CALL $3328 (standing test); if standing, CALL $7CF5 (glue Sonic on top) and add the platform delta directly to Sonic's X = ($D3FF) (Sonic = object 0 @ $D3FD, +2 = X word), so he slides 1:1. Whole ride skipped if ($D409)<0 (Sonic not standable, e.g. mid-jump). Sprite ptr (IX+15/16) by zone ($D2D5): 0->$6910, 1->$6930, else $6922. Sonic.md Part V 1. Documented from static decode (oracle can't run the object loop). (data) ---
 6DCA  .byte DD CB 18 EE 3A 38 D2 FE 07 28 0C 21 40 00 22 65 ; ....:8...(.!@."e
