@@ -243,15 +243,8 @@
 # to VRAM $2000 from descriptor +23 (bank) / +24,25 (addr); coloured by the sprite palette,
 # descriptor +26 -> $D22D -> bank-8 $7400 table (15 colours + transparent index 0). So a
 # sprite = a zone tile sheet (resident) + an 18-byte layout (in the handler's bank).
-7C75  obj_animate  SHARED object animation routine. In: BC = animation-sequence ptr (pairs
-#  [frameId, durationThreshold], $FF = loop to start), DE = the object's FRAME-LAYOUT BASE.
-#  Reads the current frame id (cursor IX+23), sets IX+15/16 = DE + frameId*18 (18 = 3x6
-#  metasprite), then advances the cursor when the frame timer IX+22 reaches the threshold.
-#  So every animated enemy's sprite = base + frame*18; frame 0 = the idle pose. Examples
-#  (base passed in DE at the CALL site): crab $6704, type$0A $69C2, bird $6D5E, beetle $6F24,
-#  fish $7E10, porcupine $83B7. Platforms/items/bosses set IX+15/16 directly instead (e.g.
-#  swing $09 -> $6910/$6922 by zone; boss $12 -> $7359). cmd/spriterip traces each $24B2
-#  handler for its layout pointer and renders 68 object sprites per zone from ROM.
+7C75  obj_animate  SHARED object animation routine. In: BC = animation-sequence ptr (byte pairs (frameId, duration); a step shows for duration+1 frames; $FF rewinds = loop), DE = frame-layout base; out: IX+15/16 = base + frameId*18. Per-object cursor IX+23 (sequence offset), counter IX+22. Callers either LD BC,nn directly, or - the common enemy idiom - fetch BC = entry of a per-state SEQUENCE-POINTER TABLE right before the CALL (LD HL,table / ADD HL,DE / LD C,(HL) / INC HL / LD B,(HL)): crab table $66EB -> seq $66F5 = (0,12)(1,12)(2,12)(1,12) claw-walk, beetle $6F0A -> (0,8)(1,8) walk + entry 2 = the facing variant (2,8)(3,8), bird $6D47 -> (0,2)(1,2) flap. objplace.Anim extracts these statically; cmd/spriterip exports each type's frames as a 48x48 strip + durations for the Studio viewer.
+5E97  item_layout_full  (bank1, data) the pickup TV metasprite WITH the screen cell (54 56 58 / AA AC AE): shown 3 of 8 frames (rotor $D224&7 >= 5, $5E17). The alternate $5EA4 drops the middle top cell (54 FE 58). The blink is VISUALLY INVISIBLE - the opaque 16x16 icon sprites ($5C/$5E at +4/+12, drawn first = on top) fully cover the alternated cell - it is a SPRITE-PER-SCANLINE BUDGET trick: the GG draws at most 8 sprites per line, and dropping the covered cell 5 of 8 frames frees a slot on those lines.
 # RINGS: baked in the BLOCK MAP as blocks 121-123 (tiles 252-255). FLOWERS: separate, tiles 12-15. (Each is 4 tiles = 16x16.), ~60 in GH act1 - NOT the type$50 objects. Tiles 252-255 (and water 12-15) are EMPTY in the base tile set; the ANIMATION update fills them at runtime, so a static render must load a frame to show them (cmd/levelmap applyAnimFrame does).
 15FF  anim_update  per-frame tile-ANIMATION update. RINGS (tiles 252-255 @ VRAM $1F80): $161E copies a frame when ($D28E) advances; source is a FIXED bank-11 ptr ($D28E=$773D=file $2F73D) for ALL zones, copied via $3257. FLOWERS (tiles 12-15 @ VRAM $0180, the spinning yellow flowers - GH has no water): $163F, zone 0 only ($D2D5==0), 2 frames toggled by ($D292) bit0 at bank11 $7A3D/$7ABD (=file $2FA3D/$2FABD), on timer ($D293==5). RINGS=252-255 and FLOWERS=12-15 are SEPARATE 4-tile (16x16) graphics, not shared. No generic table - each animation is hardcoded. ~10-frame cycle.
 3257  copy_tile  copy 32 bytes (HL) -> VRAM (DE|$40 = write cmd), NOP-padded for VDP write timing. Used by the animation update to load a tile frame.

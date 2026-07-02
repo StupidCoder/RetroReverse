@@ -168,3 +168,146 @@ func ApplyIconUpload(rom, tiles []byte, typ int) []byte {
 	}
 	return tiles
 }
+
+// AnimFrame is one step of a metasprite animation: the 18-byte layout's file offset
+// and how many engine frames it is shown ($7C75 shows a step for duration+1 frames).
+type AnimFrame struct {
+	Layout int
+	Frames int
+}
+
+// Anim returns the object type's idle/walk animation as layout+duration steps.
+//
+//   - Handlers driven by the shared animator $7C75 (frameBase in DE, sequence in BC:
+//     (frameId, duration) byte pairs, $FF loops; layout = base + frameId*18) yield the
+//     full parsed sequence of their FIRST $7C75 site (the default/idle animation).
+//   - The pickup family blinks between two direct layouts on the $D224 rotor
+//     ($5E17: rotor&7 < 5 shows the second): the base TV with its "static" screen
+//     cell for 3 frames, the open-screen variant (the icon shows through) for 5.
+//   - Anything else with a single direct layout is one static frame.
+func Anim(rom []byte, typ, zone int) []AnimFrame {
+	a, end := HandlerRange(rom, typ)
+	if a == 0 {
+		return nil
+	}
+	imm16 := func(op byte, pos int) int { // nearest LD rr,nn before pos
+		for i := pos - 3; i >= pos-20 && i >= a; i-- {
+			if rom[i] == op {
+				return int(rom[i+1]) | int(rom[i+2])<<8
+			}
+		}
+		return -1
+	}
+	// Shared animator: parse the (frameId, duration) sequence. The sequence pointer
+	// is either a direct LD BC,nn, or — the common enemy idiom — entry 0 of a
+	// per-state pointer table: LD HL,table / ADD HL,DE / LD C,(HL) / INC HL /
+	// LD B,(HL) (bytes 19 4E 23 46) before the CALL.
+	for o := a; o+2 < end; o++ {
+		if rom[o] == 0xCD && rom[o+1] == 0x75 && rom[o+2] == 0x7C { // CALL $7C75
+			base, seq := imm16(0x11, o), imm16(0x01, o)
+			if base < 0 {
+				break
+			}
+			if seq < 0 {
+				for i := o - 24; i > a && i < o-6; i++ {
+					if rom[i] == 0x21 && rom[i+3] == 0x19 && rom[i+4] == 0x4E &&
+						rom[i+5] == 0x23 && rom[i+6] == 0x46 {
+						tab := int(rom[i+1]) | int(rom[i+2])<<8
+						seq = int(rom[tab]) | int(rom[tab+1])<<8
+						break
+					}
+				}
+			}
+			if seq < 0 { // no sequence found: the idle pose alone
+				return []AnimFrame{{base, 0}}
+			}
+			var out []AnimFrame
+			for p := seq; p+1 < len(rom) && len(out) < 16; p += 2 {
+				if rom[p] == 0xFF {
+					break
+				}
+				out = append(out, AnimFrame{base + int(rom[p])*18, int(rom[p+1]) + 1})
+			}
+			if len(out) > 0 {
+				return out
+			}
+			return []AnimFrame{{base, 0}}
+		}
+	}
+	// Direct layouts: collect every LD (IX+15),imm / LD (IX+16),imm pair.
+	var direct []int
+	for o := a; o+7 < end; o++ {
+		if rom[o] == 0xDD && rom[o+1] == 0x36 && rom[o+2] == 0x0F &&
+			rom[o+4] == 0xDD && rom[o+5] == 0x36 && rom[o+6] == 0x10 {
+			direct = append(direct, int(rom[o+3])|int(rom[o+7])<<8)
+		}
+	}
+	if len(direct) >= 2 && HasSpawnAdjust(rom, typ) {
+		return []AnimFrame{{direct[0], 3}, {direct[1], 5}} // the TV blink
+	}
+	r := AnalyzeSprite(rom, typ, zone)
+	if r.Kind == "" || r.Layout == 0 {
+		return nil
+	}
+	return []AnimFrame{{r.Layout, 0}}
+}
+
+// The pickup handlers overlay their 16x16 screen icon as two 8x16 hardware sprites
+// (tiles $5C and $5E) at (X+4, Y) and (X+12, Y) — emitted via $2F5D before the
+// metasprite, so the icon sits on top and the blinking screen cell shows through
+// its transparent pixels ($5E5D-$5E76).
+type IconOverlay struct{ X, Y, Tile int }
+
+func IconOverlays(rom []byte, typ int) []IconOverlay {
+	if !HasSpawnAdjust(rom, typ) {
+		return nil
+	}
+	// only the types that actually upload an icon show one
+	patched := ApplyIconUpload(rom, make([]byte, 256*32), typ)
+	if len(patched) == 256*32 {
+		blank := true
+		for _, b := range patched[0x5C*32 : 0x60*32] {
+			if b != 0 {
+				blank = false
+				break
+			}
+		}
+		if blank {
+			return nil
+		}
+	}
+	return []IconOverlay{{4, 0, 0x5C}, {12, 0, 0x5E}}
+}
+
+// BgPhase is one phase of the type-$50 background-cell animator: the two 16x16
+// blocks painted over the object's 16x32 strip (top/bottom, each 2x2 BG tiles,
+// row-major) and how many frames the phase holds.
+type BgPhase struct {
+	Tiles  [8]int // top 2x2 then bottom 2x2
+	Frames int
+}
+
+// BgAnim parses the animator's pattern table ($7BC1: 4 phases x (top block, bottom
+// block, next-duration, pad)) and block defs ($7B99: 8 bytes = 2x2 name-table cells).
+// The countdown decrements every second frame, so a phase lasts count*2 frames; the
+// count for phase i+1 is phase i's third byte (steady state — the initial phase-0
+// count of 50 only applies once at spawn).
+func BgAnim(rom []byte) []BgPhase {
+	const patterns, defs = 0x7BC1, 0x7B99
+	blockTiles := func(id int) [4]int {
+		var t [4]int
+		for i := 0; i < 4; i++ {
+			t[i] = int(rom[defs+id*8+i*2]) // tile bytes; attrs (odd bytes) are 0
+		}
+		return t
+	}
+	out := make([]BgPhase, 4)
+	for ph := 0; ph < 4; ph++ {
+		top := blockTiles(int(rom[patterns+ph*4]))
+		bot := blockTiles(int(rom[patterns+ph*4+1]))
+		copy(out[ph].Tiles[0:], top[:])
+		copy(out[ph].Tiles[4:], bot[:])
+		out[ph].Frames = int(rom[patterns+((ph+3)&3)*4+2]) * 2
+	}
+	return out
+}

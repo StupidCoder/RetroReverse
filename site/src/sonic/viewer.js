@@ -6,7 +6,7 @@
 // batches them — whole-map zoom is cheap). Two further layers, toggled from the control
 // bar, overlay the collision height-profiles and the object placements.
 
-import { Application, Container, Sprite, Texture, Graphics, Text } from 'pixi.js';
+import { Application, Container, Sprite, Texture, Graphics, Text, Rectangle } from 'pixi.js';
 
 const TILE = 8;
 const BLOCK = 32;       // 4x4 tiles
@@ -189,9 +189,46 @@ export class LevelViewer {
     }
   }
 
+  // Background-cell animators (object type $50, Part V §1): each repaints its own
+  // 16x32 strip with a 4-phase block sequence — the growing flowers / sea twinkle.
+  // One sprite per placement in the tile layer; phase textures baked from the atlas,
+  // advanced with the engine's own per-phase frame counts.
+  _buildCellAnims(level) {
+    this.cellAnims = [];
+    for (const ca of level.cellAnims || []) {
+      const texs = ca.phases.map((ph) => {
+        const cv = document.createElement('canvas');
+        cv.width = 2 * TILE; cv.height = 4 * TILE;
+        const ctx = cv.getContext('2d');
+        ctx.imageSmoothingEnabled = false;
+        ph.tiles.forEach((tile, i) => {
+          const sx = (tile % 16) * TILE, sy = ((tile / 16) | 0) * TILE;
+          ctx.drawImage(this.atlasImg, sx, sy, TILE, TILE, (i % 2) * TILE, ((i / 2) | 0) * TILE, TILE, TILE);
+        });
+        const tx = Texture.from(cv);
+        tx.source.scaleMode = 'nearest';
+        return tx;
+      });
+      const s = new Sprite(texs[0]);
+      s.x = ca.tx * TILE; s.y = ca.ty * TILE;
+      this.tileLayer.addChild(s);
+      this.cellAnims.push({ sprite: s, texs, durs: ca.phases.map((p) => Math.max(1, p.frames)), idx: 0, acc: 0 });
+    }
+  }
+
   _advanceAnim() {
     if (!this.animOn) return;
     const dt = this.app.ticker.deltaMS;
+    const df = dt * 60 / 1000; // elapsed engine frames (60 Hz)
+    // background-cell animators + animated object sprites: per-frame durations
+    for (const c of [...(this.cellAnims || []), ...(this.animObjs || [])]) {
+      c.acc += df;
+      while (c.acc >= c.durs[c.idx]) {
+        c.acc -= c.durs[c.idx];
+        c.idx = (c.idx + 1) % c.texs.length;
+        c.sprite.texture = c.texs[c.idx];
+      }
+    }
     // tile animation (rings, flowers)
     if (this.animBlocks && this.animBlocks.length) {
       this.animAccum += dt;
@@ -261,6 +298,7 @@ export class LevelViewer {
       }
     }
     this.levelW = W * BLOCK; this.levelH = H * BLOCK;
+    this._buildCellAnims(level);
 
     this._buildCollision(level);
     this.zoneSprites = await this._loadZoneSprites(level.zone);
@@ -348,13 +386,22 @@ export class LevelViewer {
     const types = this.spriteIndex[zone] || {};
     await Promise.all(Object.keys(types).map(async (hex) => {
       try {
-        const tx = Texture.from(await new Promise((res, rej) => {
+        const base = Texture.from(await new Promise((res, rej) => {
           const i = new Image();
           i.onload = () => res(i); i.onerror = rej;
           i.src = DATA + 'sprites/' + zone + '/' + hex + '.png';
         }));
-        tx.source.scaleMode = 'nearest';
-        out[parseInt(hex, 16)] = tx;
+        base.source.scaleMode = 'nearest';
+        // The PNG is a horizontal strip of 48x48 frames; the index carries the
+        // per-frame durations (engine frames) extracted from the handler ($7C75
+        // sequences / the pickup blink).
+        const meta = types[hex];
+        const n = (meta && meta.f) || 1;
+        const texs = [];
+        for (let i = 0; i < n; i++) {
+          texs.push(new Texture({ source: base.source, frame: new Rectangle(i * 48, 0, 48, 48) }));
+        }
+        out[parseInt(hex, 16)] = { texs, durs: (meta && meta.d) || [0] };
       } catch { /* skip */ }
     }));
     this.zoneSpriteTex[zone] = out;
@@ -380,18 +427,24 @@ export class LevelViewer {
     // position: spawn + the pickup handlers' one-time adjust ($6089) + the shared floor
     // snap ($2CD4), reimplemented in objplace and verified live by cmd/objsettle. So the
     // sprite goes at (x, y) directly — the grid's transparent padding does the rest.
-    const sprite = (tex, x, y) => {
-      const s = new Sprite(tex);
+    this.animObjs = [];
+    const sprite = (spr, x, y) => {
+      const s = new Sprite(spr.texs[0]);
       s.x = x;
       s.y = y;
       this.objectLayer.addChild(s);
+      if (spr.texs.length > 1) {
+        this.animObjs.push({ sprite: s, texs: spr.texs, durs: spr.durs.map((d) => Math.max(1, d)), idx: 0, acc: 0 });
+      }
     };
-    // Each placed object draws its ROM-extracted sprite (this zone's set); types without
-    // an extractable metasprite (invisible triggers, own-gfx loaders) fall back to a marker.
+    // Each placed object draws its ROM-extracted sprite (this zone's set), animated when
+    // the handler's $7C75 sequence gave multiple frames; types without an extractable
+    // metasprite (invisible triggers, own-gfx loaders) fall back to a marker.
     const zoneSprites = this.zoneSprites || {};
     for (const o of level.objects) {
-      const tex = zoneSprites[o.type];
-      if (tex) { sprite(tex, o.x, o.y); continue; }
+      if (o.type === 0x50) continue; // bg animators: their effect runs in the tile layer
+      const spr = zoneSprites[o.type];
+      if (spr) { sprite(spr, o.x, o.y); continue; }
       const cat = OBJ_CAT[o.name] || 'default';
       mk(o.bx, o.by, BLOCK, BLOCK, OBJ_COLORS[cat], o.name || '?' + o.type.toString(16));
     }
@@ -405,6 +458,8 @@ export class LevelViewer {
     } else {
       mk(sx / BLOCK, sy / BLOCK, 16, 32, 0x3cb4ff, 'SONIC');
     }
+    // (Sonic stays on his standing frame: his animation system streams tiles per pose
+    // from bank 8 — decoding the walk/idle sequences is Part V follow-up work.)
   }
 
   setLayer(name, on) {

@@ -241,11 +241,13 @@ the other end higher, with no fixed launch height. Each <strong>boss</strong> se
 self-contained set-piece, decompressing its own graphics and running a small bytecode script; the world-1
 boss takes eight hits, scored only when Sonic touches it while rolling or jumping.</p>
 
-<h2>Checkpoints and the camera</h2>
-<p>Some "objects" are not enemies at all. A <strong>camera / scroll-lock</strong> writes the camera position
-from its own position each frame, pinning or limiting how far the view scrolls. A <strong>checkpoint</strong>,
-on contact, writes its own block position into a per-act respawn table — so a death returns Sonic to the
-checkpoint, one block above it.</p>
+<h2>Checkpoints and scenery that lives</h2>
+<p>Some "objects" are not enemies at all. A <strong>background animator</strong> repaints its own map cell
+every frame through the same request registers the scrolling engine uses, cycling a four-phase block
+sequence — these are Green Hills' growing flowers and twinkling sea. (It was long mislabelled a "camera
+lock": the register it writes is the scroll-draw <em>request</em>, not the camera.) A
+<strong>checkpoint</strong>, on contact, writes its own block position into a per-act respawn table — so a
+death returns Sonic to the checkpoint, one block above it.</p>
 
 <h2>Underwater</h2>
 <p>Labyrinth is the only zone with water, and its acts are half-flooded, split by a horizontal water line.

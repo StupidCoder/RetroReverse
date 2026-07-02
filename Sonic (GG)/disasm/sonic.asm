@@ -7390,33 +7390,35 @@
 5E5B  .byte 11 D2 21 04 00 22 13 D2 21 00 00 22 15 D2 3E 5C ; ..!.."..!.."..>\
 5E6B  .byte CD 5D 2F 21 0C 00 22 13 D2 3E 5E CD 5D 2F DD CB ; .]/!.."..>^.]/..
 5E7B  .byte 18 4E C8 DD 6E 0A DD 66 0B DD 7E 0C 11 40 00 19 ; .N..n..f..~..@..
-5E8B  .byte CE 00 DD 75 0A DD 74 0B DD 77 0C C9 54 56 58 FF ; ...u..t..w..TVX.
-5E9B  .byte FF FF AA AC AE FF FF FF FF 54 FE 58 FF FF FF AA ; .........T.X....
-5EAB  .byte AC AE FF FF FF FF DD 36 0D 14 DD 36 0E 18 CD 89 ; .......6...6....
-5EBB  .byte 60 21 03 00 22 15 D2 CD 28 33 38 10 CD CC 60 38 ; `!.."...(38...`8
-5ECB  .byte 0B 3E F0 32 12 D4 3E 02 EF C3 01 5E 21 80 52 C3 ; .>.2..>....^!.R.
-5EDB  .byte 0C 5E DD 36 0D 14 DD 36 0E 18 CD 89 60 21 06 D3 ; .^.6...6....`!..
-5EEB  .byte CD 8D 0B 7E A1 28 07 DD 36 00 FF C3 01 5E 21 03 ; ...~.(..6....^!.
-5EFB  .byte 00 22 15 D2 CD 28 33 38 2E CD CC 60 38 29 DD CB ; ."...(38...`8)..
-5F0B  .byte 18 56 C2 FC 5D 21 40 D2 34 21 06 D3 CD 8D 0B 7E ; .V..]!@.4!.....~
-5F1B  .byte B1 77 AF DD 77 0F DD 77 10 3E 09 EF 3A 38 D2 FE ; .w..w..w.>..:8..
-5F2B  .byte 1C D0 21 7A D2 34 C9 3A 38 D2 FE 04 28 12 FE 09 ; ..!z.4.:8...(...
-5F3B  .byte 28 37 FE 0C 28 4F FE 11 28 5D 21 00 53 C3 0C 5E ; (7..(O..(]!.S..^
-5F4B  .byte 0E 00 11 40 00 DD 7E 13 FE 3C 38 04 0D 11 C0 FF ; ...@..~..<8.....
-5F5B  .byte DD 73 0A DD 72 0B DD 71 0C DD 34 13 DD 7E 13 FE ; .s..r..q..4..~..
-5F6B  .byte 50 38 D7 DD 36 13 28 18 D1 DD CB 18 D6 21 18 D3 ; P8..6.(......!..
-5F7B  .byte CD 8D 0B 7E 21 00 52 A1 CA 0C 5E DD CB 18 96 21 ; ...~!.R...^....!
-5F8B  .byte 00 53 C3 0C 5E DD CB 18 CE DD 36 07 80 DD 36 08 ; .S..^.....6...6.
-5F9B  .byte 00 DD 36 09 00 18 A3 3A 7A D2 FE 11 30 9C DD 36 ; ..6....:z...0..6
-5FAB  .byte 00 FF 18 96 DD 36 0D 14 DD 36 0E 18 CD 89 60 21 ; .....6...6....`!
-5FBB  .byte 03 00 22 15 D2 CD 28 33 38 0C CD CC 60 38 07 FD ; .."...(38...`8..
-5FCB  .byte CB 06 EE C3 01 5E 21 80 53 C3 0C 5E DD 36 0D 14 ; .....^!.S..^.6..
-5FDB  .byte DD 36 0E 18 CD 89 60 21 03 00 22 15 D2 CD 28 33 ; .6....`!.."...(3
-5FEB  .byte 38 1D CD CC 60 38 18 FD CB 08 C6 3E F0 32 87 D2 ; 8...`8.....>.2..
-5FFB  .byte 3E 18 32 F4 D2 AF 32 F5 D2 3E 08 DF C3 01 5E 21 ; >.2...2..>....^!
-600B  .byte 00 54 C3 0C 5E DD 36 0D 14 DD 36 0E 18 CD 89 60 ; .T..^.6...6....`
-601B  .byte 21 03 00 22 15 D2 CD 28 33 38 35 CD CC 60 38 30 ; !.."...(385..`80
-602B  .byte 21 12 D3 CD 8D 0B 7E B1 77                      ; !.....~.w
+5E8B  .byte CE 00 DD 75 0A DD 74 0B DD 77 0C C9             ; ...u..t..w..
+
+; --- item_layout_full  $5E97 — (bank1, data) the pickup TV metasprite WITH the screen cell (54 56 58 / AA AC AE): shown 3 of 8 frames (rotor $D224&7 >= 5, $5E17). The alternate $5EA4 drops the middle top cell (54 FE 58). The blink is VISUALLY INVISIBLE - the opaque 16x16 icon sprites ($5C/$5E at +4/+12, drawn first = on top) fully cover the alternated cell - it is a SPRITE-PER-SCANLINE BUDGET trick: the GG draws at most 8 sprites per line, and dropping the covered cell 5 of 8 frames frees a slot on those lines. (data) ---
+5E97  .byte 54 56 58 FF FF FF AA AC AE FF FF FF FF 54 FE 58 ; TVX..........T.X
+5EA7  .byte FF FF FF AA AC AE FF FF FF FF DD 36 0D 14 DD 36 ; ...........6...6
+5EB7  .byte 0E 18 CD 89 60 21 03 00 22 15 D2 CD 28 33 38 10 ; ....`!.."...(38.
+5EC7  .byte CD CC 60 38 0B 3E F0 32 12 D4 3E 02 EF C3 01 5E ; ..`8.>.2..>....^
+5ED7  .byte 21 80 52 C3 0C 5E DD 36 0D 14 DD 36 0E 18 CD 89 ; !.R..^.6...6....
+5EE7  .byte 60 21 06 D3 CD 8D 0B 7E A1 28 07 DD 36 00 FF C3 ; `!.....~.(..6...
+5EF7  .byte 01 5E 21 03 00 22 15 D2 CD 28 33 38 2E CD CC 60 ; .^!.."...(38...`
+5F07  .byte 38 29 DD CB 18 56 C2 FC 5D 21 40 D2 34 21 06 D3 ; 8)...V..]!@.4!..
+5F17  .byte CD 8D 0B 7E B1 77 AF DD 77 0F DD 77 10 3E 09 EF ; ...~.w..w..w.>..
+5F27  .byte 3A 38 D2 FE 1C D0 21 7A D2 34 C9 3A 38 D2 FE 04 ; :8....!z.4.:8...
+5F37  .byte 28 12 FE 09 28 37 FE 0C 28 4F FE 11 28 5D 21 00 ; (...(7..(O..(]!.
+5F47  .byte 53 C3 0C 5E 0E 00 11 40 00 DD 7E 13 FE 3C 38 04 ; S..^...@..~..<8.
+5F57  .byte 0D 11 C0 FF DD 73 0A DD 72 0B DD 71 0C DD 34 13 ; .....s..r..q..4.
+5F67  .byte DD 7E 13 FE 50 38 D7 DD 36 13 28 18 D1 DD CB 18 ; .~..P8..6.(.....
+5F77  .byte D6 21 18 D3 CD 8D 0B 7E 21 00 52 A1 CA 0C 5E DD ; .!.....~!.R...^.
+5F87  .byte CB 18 96 21 00 53 C3 0C 5E DD CB 18 CE DD 36 07 ; ...!.S..^.....6.
+5F97  .byte 80 DD 36 08 00 DD 36 09 00 18 A3 3A 7A D2 FE 11 ; ..6...6....:z...
+5FA7  .byte 30 9C DD 36 00 FF 18 96 DD 36 0D 14 DD 36 0E 18 ; 0..6.....6...6..
+5FB7  .byte CD 89 60 21 03 00 22 15 D2 CD 28 33 38 0C CD CC ; ..`!.."...(38...
+5FC7  .byte 60 38 07 FD CB 06 EE C3 01 5E 21 80 53 C3 0C 5E ; `8.......^!.S..^
+5FD7  .byte DD 36 0D 14 DD 36 0E 18 CD 89 60 21 03 00 22 15 ; .6...6....`!..".
+5FE7  .byte D2 CD 28 33 38 1D CD CC 60 38 18 FD CB 08 C6 3E ; ..(38...`8.....>
+5FF7  .byte F0 32 87 D2 3E 18 32 F4 D2 AF 32 F5 D2 3E 08 DF ; .2..>.2...2..>..
+6007  .byte C3 01 5E 21 00 54 C3 0C 5E DD 36 0D 14 DD 36 0E ; ..^!.T..^.6...6.
+6017  .byte 18 CD 89 60 21 03 00 22 15 D2 CD 28 33 38 35 CD ; ...`!.."...(385.
+6027  .byte CC 60 38 30 21 12 D3 CD 8D 0B 7E B1 77          ; .`80!.....~.w
 
 ; --- respawn_save  $6034 — (bank1) writes the RESPAWN table $D32F+act*2 = where Sonic reappears after death. Stores the CHECKPOINT OBJECT's OWN position (IX+2/3, IX+5/6 *8, high byte -> blockX, blockY-1) - NOT Sonic's pos (corrects earlier note). This code is INSIDE the CHECKPOINT handler (type $51 @ $6010): on first contact ($3328 + $60CC proximity) it saves the respawn point + sets a per-act bit in the $D312 bitmask ($0B8D picks the bit) so it fires once. (Earlier guessed type$50; off by one - $50 is the background animator.) (data) ---
 6034  .byte 3A 38 D2 87 5F 16 00 21 2F D3 19 EB DD 6E 02 DD ; :8.._..!/....n..
@@ -8373,7 +8375,7 @@
 7C63  .byte 7C 03 B4 B6 FF FF FF FF FF FF B8 BA FF FF FF FF ; |...............
 7C73  .byte FF FF                                           ; ..
 
-; ==== obj_animate  $7C75  (3 callers) — SHARED object animation routine. In: BC = animation-sequence ptr (pairs ====
+; ==== obj_animate  $7C75  (3 callers) — SHARED object animation routine. In: BC = animation-sequence ptr (byte pairs (frameId, duration); a step shows for duration+1 frames; $FF rewinds = loop), DE = frame-layout base; out: IX+15/16 = base + frameId*18. Per-object cursor IX+23 (sequence offset), counter IX+22. Callers either LD BC,nn directly, or - the common enemy idiom - fetch BC = entry of a per-state SEQUENCE-POINTER TABLE right before the CALL (LD HL,table / ADD HL,DE / LD C,(HL) / INC HL / LD B,(HL)): crab table $66EB -> seq $66F5 = (0,12)(1,12)(2,12)(1,12) claw-walk, beetle $6F0A -> (0,8)(1,8) walk + entry 2 = the facing variant (2,8)(3,8), bird $6D47 -> (0,2)(1,2) flap. objplace.Anim extracts these statically; cmd/spriterip exports each type's frames as a 48x48 strip + durations for the Studio viewer. ====
 7C75  DD 6E 17    LD L,(IX+23)
 7C78  26 00       LD H,$00
 7C7A  09          ADD HL,BC

@@ -112,6 +112,78 @@ func renderMeta(layout, tiles []byte, pal color.Palette) *image.RGBA {
 	return img
 }
 
+// drawCell blits one 8x16 sprite cell (tiles t, t+1) into img at (ox, oy).
+func drawCell(img *image.RGBA, tiles []byte, pal color.Palette, t, ox, oy int) {
+	for half := 0; half < 2; half++ {
+		ti := (t + half) * 32
+		if ti+32 > len(tiles) {
+			continue
+		}
+		cell := gamegear.DecodeTile(tiles[ti:])
+		for y := 0; y < 8; y++ {
+			for x := 0; x < 8; x++ {
+				if v := cell[y][x]; v != 0 {
+					img.Set(ox+x, oy+half*8+y, pal[v])
+				}
+			}
+		}
+	}
+}
+
+// renderAnimStrip renders a type's full animation as a horizontal strip of 48x48
+// frames (objplace.Anim), compositing the pickup family's screen-icon overlay
+// (sprites $5C/$5E at (+4,0)/(+12,0), drawn before the metasprite = on top).
+func renderAnimStrip(rom, tiles []byte, pal color.Palette, typ, zone int) (*image.RGBA, []int) {
+	frames := objplace.Anim(rom, typ, zone)
+	if len(frames) == 0 {
+		return nil, nil
+	}
+	icons := objplace.IconOverlays(rom, typ)
+	strip := image.NewRGBA(image.Rect(0, 0, len(frames)*48, 48))
+	durs := make([]int, len(frames))
+	for i, f := range frames {
+		if f.Layout <= 0 || f.Layout+18 > len(rom) {
+			return nil, nil
+		}
+		cell := renderMeta(rom[f.Layout:f.Layout+18], tiles, pal)
+		for _, ic := range icons {
+			drawCell(cell, tiles, pal, ic.Tile, ic.X, ic.Y)
+		}
+		for y := 0; y < 48; y++ {
+			for x := 0; x < 48; x++ {
+				strip.Set(i*48+x, y, cell.At(x, y))
+			}
+		}
+		durs[i] = f.Frames
+	}
+	// Collapse animations whose frames are all pixel-identical: the pickup TV's
+	// layout blink alternates a screen cell that the opaque icon fully covers -
+	// a sprite-per-scanline budget trick, not a visible animation.
+	if len(frames) > 1 {
+		same := true
+		for i := 1; same && i < len(frames); i++ {
+			for y := 0; same && y < 48; y++ {
+				for x := 0; x < 48; x++ {
+					if strip.RGBAAt(i*48+x, y) != strip.RGBAAt(x, y) {
+						same = false
+						break
+					}
+				}
+			}
+		}
+		if same {
+			one := image.NewRGBA(image.Rect(0, 0, 48, 48))
+			for y := 0; y < 48; y++ {
+				for x := 0; x < 48; x++ {
+					one.Set(x, y, strip.At(x, y))
+				}
+			}
+			return one, []int{0}
+		}
+	}
+	return strip, durs
+}
+
 // trimBBox crops an RGBA to its non-transparent bounding box and returns the box's
 // top-left offset (minX, minY) within the source so callers can keep the sprite's
 // position relative to the original (untrimmed) metasprite grid.
@@ -274,7 +346,11 @@ func main() {
 	// grid; the viewer loads sprites/<zone>/<hex>.png and draws it with its top-left at the
 	// object's world position (blockX*32, blockY*32) -- exactly where the engine draws it,
 	// with the grid's transparent padding placing the visible tiles. No cropping/offsets.
-	index := map[string]map[string]bool{}
+	type sprMeta struct {
+		F int   `json:"f"`
+		D []int `json:"d"`
+	}
+	index := map[string]map[string]sprMeta{}
 	montages := os.Getenv("MONTAGE") != ""
 	placed := placedTypesByZone(rom)
 	total := 0
@@ -282,13 +358,13 @@ func main() {
 		tiles, pal := spriteTiles(rom, act)
 		zdir := fmt.Sprintf("%s/%d", out, z)
 		chk(os.MkdirAll(zdir, 0o755))
-		index[fmt.Sprint(z)] = map[string]bool{}
+		index[fmt.Sprint(z)] = map[string]sprMeta{}
 		var cells []*image.RGBA
 		var labels []int
 		// Sonic (type $00): his own ROM tiles, this zone's sprite palette.
 		sonic := renderMeta(rom[sonicLayout:sonicLayout+18], sonicTiles(rom), pal)
 		save(sonic, zdir+"/00.png")
-		index[fmt.Sprint(z)]["00"] = true
+		index[fmt.Sprint(z)]["00"] = sprMeta{F: 1, D: []int{0}}
 		total++
 		for _, t := range placed[z] {
 			if t == 0 {
@@ -299,12 +375,15 @@ func main() {
 				continue
 			}
 			tt := objplace.ApplyIconUpload(rom, tiles, t)
-			full := renderMeta(rom[r.Layout:r.Layout+18], tt, pal) // full 48x48 grid
-			if _, _, bb := trimBBox(full); bb.Rect.Dx() <= 1 && bb.Rect.Dy() <= 1 {
+			strip, durs := renderAnimStrip(rom, tt, pal, t, z)
+			if strip == nil {
+				continue
+			}
+			if _, _, bb := trimBBox(strip); bb.Rect.Dx() <= 1 && bb.Rect.Dy() <= 1 {
 				continue // empty layout
 			}
-			save(full, fmt.Sprintf("%s/%02x.png", zdir, t))
-			index[fmt.Sprint(z)][fmt.Sprintf("%02x", t)] = true
+			save(strip, fmt.Sprintf("%s/%02x.png", zdir, t))
+			index[fmt.Sprint(z)][fmt.Sprintf("%02x", t)] = sprMeta{F: strip.Rect.Dx() / 48, D: durs}
 			total++
 			if montages {
 				cells = append(cells, renderMeta(rom[r.Layout:r.Layout+18], tiles, pal))

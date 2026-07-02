@@ -1037,7 +1037,7 @@ slot:
 | `$48` | **world 2 boss** | b2 `$84AB` | |
 | `$49` | **world 4 boss** | b2 `$9271` | |
 | `$4E` | seesaw | b2 `$8681` | tilt-arm catapult; launch height scales with Sonic's landing impact (momentum transfer) |
-| `$50` | background animator | b1 `$7B29` | repaints its *own* map cell each frame through the scroll-draw request (`$D2AB/$D2AD` target, `$D2AF` source): a 4-phase sequence of block pairs (`$7BC1` patterns → `$7B99` blocks) — the twinkling sea waves and clouds. Not a camera lock: `$D2AB` is the blit request, the camera is `$D254` |
+| `$50` | background animator | b1 `$7B29` | repaints its *own* map cell each frame through the scroll-draw request (`$D2AB/$D2AD` target, `$D2AF` source): a 4-phase sequence of block pairs (`$7BC1` patterns → `$7B99` blocks) — the growing flowers and twinkling sea. Steady-state timing: bare and full-grown hold ~240 frames, the transitions 16 (`webexport` emits each placement as a `cellAnims` entry and the Studio viewer runs them). Not a camera lock: `$D2AB` is the blit request, the camera is `$D254` |
 | `$51` | **checkpoint** | b1 `$6010` | on contact, writes the *checkpoint's own* block position into the respawn table `$D32F + act×2` (the `$6034` respawn-save code) |
 
 Unnamed but present (handlers confirmed, behaviour not yet identified): `$05` b1 `$5FD7`,
@@ -1072,9 +1072,27 @@ handler's bank — all reproduced by `objplace.SpriteSheet`/`ApplyIconUpload`.
 
 Most animated enemies don't set `IX+15/16` directly; they go through the **shared
 animation routine `$7C75`**. It takes the object's *frame-layout base* in `DE` and an
-*animation sequence* in `BC` (pairs of `frameId, duration`, looping on `$FF`), and sets
-`IX+15/16 = base + frameId × 18` — so an enemy's frames are consecutive 18-byte layouts,
-and frame 0 (the base) is the idle pose. Platforms, items and bosses instead load an
+*animation sequence* in `BC` (pairs of `frameId, duration` — a step shows for
+duration+1 frames — looping on `$FF`), and sets `IX+15/16 = base + frameId × 18` — so an
+enemy's frames are consecutive 18-byte layouts, and frame 0 (the base) is the idle pose.
+The sequence pointer itself usually comes from a small **per-state pointer table** read
+just before the call (`LD HL,table / ADD HL,DE / LD C,(HL) / INC HL / LD B,(HL)`); entry
+0 is the default walk. Reading those tables gives each enemy's full animation: the crab's
+four-step claw walk (`$66F5`: frames 0,1,2,1 × 13), the beetle's two-frame walk
+(`$6F14`: 0,1 × 9, with entry 2 the facing variant) and the bird's fast two-frame flap
+(`$6D4F`: 0,1 × 3). `objplace.Anim` extracts these statically and `cmd/spriterip`
+exports every type as a horizontal strip of 48×48 frames with the engine durations in
+`sprites/index.json` — the Studio viewer plays them in its object layer.
+
+One "animation" turned out not to be one. The pickup TV alternates two layouts on the
+frame rotor (`$5E17`): the full metasprite (`$5E97`, 3 of 8 frames) and a variant that
+*drops the middle top cell* (`$5EA4`, 5 of 8). Composited with the icon overlay the two
+frames are **pixel-identical** — the opaque 16×16 icon (sprites `$5C`/`$5E` at +4/+12,
+emitted before the metasprite and therefore on top) fully covers the alternated cell. The
+blink is a **sprite-per-scanline budget trick**: the VDP draws at most 8 sprites per
+line, so the game drops the invisible covered cell most frames to free a slot on the
+TV's lines. The extractor detects the identical frames and exports the TV as static —
+which is also exactly how it looks in play. Platforms, items and bosses instead load an
 explicit layout pointer; some pick it **by zone** (`LD HL, zone0-ptr` then `LD A,($D2D5)`
 overwriting `HL` with the zone-1.. variants), e.g. the swing platform is `$6910` in Green
 Hills else `$6922`, the horizontal platform `$6910`/`$6930`/`$6922` for zones 0/1/else

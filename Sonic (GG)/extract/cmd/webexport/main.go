@@ -165,6 +165,40 @@ func settleObjects(objs []Obj, lvl *objplace.Level) {
 	}
 }
 
+// CellAnim is one type-$50 background-cell animator placement (Part V §1): the
+// object repaints its own 16px-wide, 32px-tall strip every frame through the
+// scroll-draw request, cycling 4 phases of (top, bottom) 16x16 blocks from the
+// pattern table $7BC1 with per-phase hold times. Exported per placement so the
+// viewer can run the growing-flower / sea-twinkle cells like the engine does.
+type CellAnim struct {
+	Tx     int         `json:"tx"` // strip top-left, in 8px tile coords
+	Ty     int         `json:"ty"`
+	Phases []CellPhase `json:"phases"`
+}
+
+// CellPhase holds the strip's 2x4 tile grid (atlas indices, row-major: the top
+// 16x16 block's 2x2 then the bottom's) and its duration in engine frames.
+type CellPhase struct {
+	Tiles  [8]int `json:"tiles"`
+	Frames int    `json:"frames"`
+}
+
+// cellAnims emits one CellAnim per type-$50 object, all sharing the engine's
+// global phase table (objplace.BgAnim).
+func cellAnims(rom []byte, objs []Obj) []CellAnim {
+	var phases []CellPhase
+	for _, p := range objplace.BgAnim(rom) {
+		phases = append(phases, CellPhase{Tiles: p.Tiles, Frames: p.Frames})
+	}
+	var out []CellAnim
+	for _, o := range objs {
+		if o.Type == 0x50 {
+			out = append(out, CellAnim{Tx: o.Bx * 4, Ty: o.By * 4, Phases: phases})
+		}
+	}
+	return out
+}
+
 // blockShapes returns block index -> collision shape (0-47) for a zone, from the $343D
 // per-zone attribute table (low 6 bits of each block's attribute byte). Home-config
 // addresses map 1:1 to file offsets, so the pointer is read directly.
@@ -445,6 +479,7 @@ type ActFile struct {
 	SpawnPx      [3]int        `json:"spawnPx"`    // Sonic's rest [x, y, grounded]: spawn dropped to the first floor line (objplace.DropToFloor)
 	Objects      []Obj         `json:"objects"`
 	Anim         []AnimGroup   `json:"anim"`                   // animated tile groups (atlas indices per frame)
+	CellAnims    []CellAnim    `json:"cellAnims,omitempty"`    // type-$50 background animators (growing flowers / sea twinkle)
 	PaletteCycle *PaletteCycle `json:"paletteCycle,omitempty"` // runtime BG-palette rotation (water/waterfall)
 	Water        *Water        `json:"water,omitempty"`        // Labyrinth flooded-act underwater split (Part V §3)
 	Music        string        `json:"music,omitempty"`        // background-music track name (descriptor +36 -> id)
@@ -589,7 +624,7 @@ func main() {
 			Palette:    paletteHex(pal),
 			BlockTiles: bt, BlockShape: blockShapes(rom, a.engZone),
 			Blocks: blocks, Spawn: spawn, SpawnPx: spawnPx, Objects: objs,
-			Anim: atlasAnim[atlas], Music: musicTrack(rom, a.num),
+			Anim: atlasAnim[atlas], CellAnims: cellAnims(rom, objs), Music: musicTrack(rom, a.num),
 		}
 		// The palette cycle is oracle-captured by booting the act; only do it for the real
 		// zones (the bonus stages can't be reached by forcing $D238 and have no water/lava
