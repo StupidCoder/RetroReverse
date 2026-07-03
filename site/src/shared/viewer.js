@@ -179,6 +179,9 @@ export class LevelViewer {
   }
 
   async _rebuildPools() {
+    // patrol records are pool-only: drop the stale ones before the re-roll
+    // (pools rebuild on every objects-layer-on toggle, not just level loads)
+    this.anim.patrols.length = 0;
     this.poolLayer.removeChildren();
     const level = this.level;
     if (!level || !(level.objectPools || []).length) return;
@@ -186,12 +189,14 @@ export class LevelViewer {
     const random = rng(seed);
     const copies = this.meta.wrap === 'x' ? 3 : 1;
     const stampTex = (tileId) => this.tilemap.tileTexture(tileId);
-    const pool = await buildPools(level, this.data, { random, stampTex });
     for (let i = 0; i < copies; i++) {
-      if (i === 0) { this.poolLayer.addChild(pool); continue; }
-      const dup = await buildPools(level, this.data, { random: rng(seed), stampTex });
-      dup.x = i * this.levelW;
-      this.poolLayer.addChild(dup);
+      // each wrap copy re-seeds so seeded runs place (and move) identically;
+      // group positions are container-local, so the copy offset composes
+      const { container, patrols } = await buildPools(level, this.data,
+        { random: i === 0 ? random : rng(seed), stampTex });
+      container.x = i * this.levelW;
+      this.poolLayer.addChild(container);
+      this.anim.patrols.push(...patrols);
     }
   }
 

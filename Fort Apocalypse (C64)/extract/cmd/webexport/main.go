@@ -35,18 +35,41 @@ type jsonStamp struct {
 	Tile int `json:"tile"`
 }
 
+// dirStamps: direction-dependent art for patrolling placements — one stamps
+// array per animation phase, per facing; the viewer swaps facing when the
+// patrol reverses and advances the phase each update.
+type jsonDirStamps struct {
+	Right [][]jsonStamp `json:"right"`
+	Left  [][]jsonStamp `json:"left"`
+}
+
 type jsonVariant struct {
-	Stamps []jsonStamp `json:"stamps,omitempty"`
-	Sprite string      `json:"sprite,omitempty"`
-	Tint   string      `json:"tint,omitempty"`
+	Stamps    []jsonStamp    `json:"stamps,omitempty"`
+	DirStamps *jsonDirStamps `json:"dirStamps,omitempty"`
+	Sprite    string         `json:"sprite,omitempty"`
+	Tint      string         `json:"tint,omitempty"`
+}
+
+// patrol: back-and-forth movement, played by the viewer (site/FORMAT.md):
+// every stepFrames engine frames one update fires (phase +1); every
+// updatesPerStep-th update the placement moves stepPx in its current
+// direction, reversing at the candidate's [minDx,maxDx] span.
+type jsonPatrol struct {
+	StepPx         int     `json:"stepPx"`
+	StepFrames     float64 `json:"stepFrames"`
+	UpdatesPerStep int     `json:"updatesPerStep,omitempty"` // default 1
+	Start          string  `json:"start"`                    // "random" | "right" | "left"
 }
 
 // objectPools: the game seeds prisoners/tanks/mines at level load — the viewer
 // re-rolls `count` picks from the exported candidate list each time the objects
-// layer is shown, choosing a random variant per placement (leg/turret facing).
+// layer is shown, choosing a random variant per placement. Candidates are
+// [x, y] world px, or [x, y, minDx, maxDx] when the pool has a patrol block
+// (the span precomputed from the engine's own turn-around rule).
 type jsonPool struct {
 	Count      int           `json:"count"`
-	Candidates [][2]int      `json:"candidates"` // world px
+	Candidates [][]int       `json:"candidates"`
+	Patrol     *jsonPatrol   `json:"patrol,omitempty"`
 	Variants   []jsonVariant `json:"variants"`
 }
 
@@ -198,51 +221,90 @@ func run(prgPath, outDir string) error {
 		jl.View = jsonRect{X: sx + 16 - 160, Y: 0, W: 320, H: 200}
 
 		// Object pools — the game's load-time seeding rules, as candidates the
-		// viewer re-rolls (Part V; previously hardcoded in the viewer):
-		//  - prisoners: 8 of the $90A4 floor-with-rock candidates; torso $49 over
-		//    legs $3B (facing right) or $3D (left), random per prisoner.
-		//  - tanks: every fixed home; body $6C $6D $6E, turret $6F/$70 random.
-		//  - SPMs: spmCount mines ($5B $5C) at empty 2-cell spots in the column
-		//    band $2D..$C8 (the game re-rolls until both cells are empty).
-		//  - one enemy helicopter at a random 4x2-clear spot in the same band.
-		var prisoners [][2]int
+		// viewer re-rolls (Part V; previously hardcoded in the viewer). Movers
+		// carry a patrol block with per-candidate spans from the engines' own
+		// turn-around rules; cadences are the engines' at base difficulty:
+		//  - prisoners: 8 of the $90A4 floor-with-rock candidates. Run back and
+		//    forth along the $48 walkway ($AB9A), one of 8 slots serviced per
+		//    frame ($EA cursor) = 8px every 8 frames, legs alternating per step;
+		//    torso $49 + legs $3B/$3C facing right, torso $4A + legs $3E/$3D
+		//    facing left (draw tables $AC12).
+		//  - tanks: every fixed home; body $6C $6D $6E, turret $6F/$70 random
+		//    (the game aims it at the player). One global countdown ($F0,
+		//    reload 4) steps all six in lockstep, 8px every 4 frames, reversing
+		//    on the $A45D obstacle chars ($9A8F).
+		//  - SPMs: spmCount mines at empty 2-cell spots in the column band
+		//    $2D..$C8. 15 of 39 slots serviced per frame = one update per
+		//    2.6 frames; 4 draw phases per cell of travel ($963C pairs), so
+		//    8px every 4 updates, reversing unless both destination cells stay
+		//    empty inside the band ($9617).
+		//  - one enemy helicopter at a random 4x2-clear spot in the same band
+		//    (a player-pursuit AI, not a patroller — left static).
+		obst := game.ObstacleChars()
+		var prisoners [][]int
 		for _, p := range lm.PrisonerSpawns {
-			prisoners = append(prisoners, [2]int{p.Col * 8, p.Row * 8})
+			l, r := lm.PrisonerRange(p.Col, p.Row)
+			prisoners = append(prisoners, []int{p.Col * 8, p.Row * 8, l * 8, r * 8})
 		}
 		jl.ObjectPools = append(jl.ObjectPools, jsonPool{
 			Count: 8, Candidates: prisoners,
+			Patrol: &jsonPatrol{StepPx: 8, StepFrames: 8, Start: "random"},
 			Variants: []jsonVariant{
-				{Stamps: []jsonStamp{{0, -8, 0x49}, {0, 0, 0x3B}}},
-				{Stamps: []jsonStamp{{0, -8, 0x49}, {0, 0, 0x3D}}},
+				{DirStamps: &jsonDirStamps{
+					Right: [][]jsonStamp{
+						{{0, -8, 0x49}, {0, 0, 0x3B}},
+						{{0, -8, 0x49}, {0, 0, 0x3C}},
+					},
+					Left: [][]jsonStamp{
+						{{0, -8, 0x4A}, {0, 0, 0x3E}},
+						{{0, -8, 0x4A}, {0, 0, 0x3D}},
+					},
+				}},
 			},
 		})
-		var tanks [][2]int
+		var tanks [][]int
 		for _, p := range lm.TankHomes {
-			tanks = append(tanks, [2]int{p.Col * 8, p.Row * 8})
+			l, r := lm.TankRange(obst, p.Col, p.Row)
+			tanks = append(tanks, []int{p.Col * 8, p.Row * 8, l * 8, r * 8})
 		}
 		jl.ObjectPools = append(jl.ObjectPools, jsonPool{
 			Count: len(tanks), Candidates: tanks,
+			Patrol: &jsonPatrol{StepPx: 8, StepFrames: 4, Start: "random"},
 			Variants: []jsonVariant{
 				{Stamps: []jsonStamp{{0, 0, 0x6C}, {8, 0, 0x6D}, {16, 0, 0x6E}, {8, -8, 0x6F}}},
 				{Stamps: []jsonStamp{{0, 0, 0x6C}, {8, 0, 0x6D}, {16, 0, 0x6E}, {8, -8, 0x70}}},
 			},
 		})
-		const bandMin, bandMax = 0x32 - 5, 0xCD - 5
-		var spmSpots [][2]int
+		// SPM slide phases, the $963C char pairs as a cycle rotated to start at
+		// the full craft ($5B $5C) so the static frame shows the recognisable
+		// mine; moving left plays the same cycle backwards.
+		spmPhases := [][]jsonStamp{
+			{{0, 0, 0x5B}, {8, 0, 0x5C}},
+			{{0, 0, 0x5D}, {8, 0, 0x5E}},
+			{{8, 0, 0x5F}},
+			{{0, 0, 0x40}},
+		}
+		const bandMin, bandMax = fortgfx.SPMBandMin, fortgfx.SPMBandMax
+		var spmSpots [][]int
 		for r := 0; r < fortgfx.MapHeight; r++ {
 			for c := bandMin; c <= bandMax && c+1 < w; c++ {
 				if cellAt(c, r) == 0 && cellAt(c+1, r) == 0 {
-					spmSpots = append(spmSpots, [2]int{c * 8, r * 8})
+					l, rr := lm.SPMRange(c, r)
+					spmSpots = append(spmSpots, []int{c * 8, r * 8, l * 8, rr * 8})
 				}
 			}
 		}
 		jl.ObjectPools = append(jl.ObjectPools, jsonPool{
 			Count: 13, Candidates: spmSpots, // base difficulty (13 / 26 / 39 by variant)
+			Patrol: &jsonPatrol{StepPx: 8, StepFrames: 2.6, UpdatesPerStep: 4, Start: "right"},
 			Variants: []jsonVariant{
-				{Stamps: []jsonStamp{{0, 0, 0x5B}, {8, 0, 0x5C}}},
+				{DirStamps: &jsonDirStamps{
+					Right: spmPhases,
+					Left:  [][]jsonStamp{spmPhases[0], spmPhases[3], spmPhases[2], spmPhases[1]},
+				}},
 			},
 		})
-		var heliSpots [][2]int
+		var heliSpots [][]int
 		for r := 0; r+1 < fortgfx.MapHeight; r++ {
 			for c := bandMin; c <= bandMax && c+3 < w; c++ {
 				clear := true
@@ -255,7 +317,7 @@ func run(prgPath, outDir string) error {
 					}
 				}
 				if clear {
-					heliSpots = append(heliSpots, [2]int{c * 8, r * 8})
+					heliSpots = append(heliSpots, []int{c * 8, r * 8})
 				}
 			}
 		}

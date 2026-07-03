@@ -41,6 +41,8 @@ const (
 	spritePtrTable  = 0x86F3 // 14 words: packed sprite shape locations
 	bulletPattern   = 0xB0C2 // 9 bytes: bullet sprite rows ($B0B0)
 	heliAnimTable   = 0xA320 // 18 bytes: tilt -> sprite block (player & enemy)
+	obstacleTable   = 0xA45D // 22 chars a tank reverses on ($9A8F: LDX #$15)
+	obstacleLen     = 22
 )
 
 // NumShapes is the number of packed sprite shapes ($870F-$8906).
@@ -269,6 +271,88 @@ func (g *Game) LevelMap(level int) (*LevelMap, error) {
 // MulticolorValue returns the level's $D022 colour register value.
 func (g *Game) MulticolorValue(level int) byte {
 	return g.mem[colorTable+level] & 0x0F
+}
+
+// ObstacleChars returns the tank engine's 22-entry obstacle table at $A45D:
+// the characters a tank refuses to drive onto — walls, the movers (mines,
+// prisoners, other tanks, missiles), and notably $00 and $20, so a tank
+// reverses at empty air and water while driving *through* every other
+// background char (which it saves and restores).
+func (g *Game) ObstacleChars() []byte {
+	return g.mem[obstacleTable : obstacleTable+obstacleLen]
+}
+
+// SPM column band: the mine engine clamps its column to game cols $32-$CD
+// ($9620: CMP #$32 / CMP #$CE), i.e. buffer columns $2D-$C8.
+const (
+	SPMBandMin = 0x32 - 5
+	SPMBandMax = 0xCD - 5
+)
+
+// The patrol-range walkers below mirror the engines' turn-around rules
+// against the static decoded map, giving each spawn candidate the column
+// span it can patrol (inclusive offsets, left <= 0 <= right, in map
+// columns). Mover-vs-mover reversal (tank meets tank) is not modelled —
+// the ranges describe the terrain, as the level was authored.
+
+// TankRange mirrors the tank engine's destination probe ($99DF/$99E6 via
+// $9A8F): a move to newCol is allowed iff neither cell (newCol, row) nor
+// (newCol+2, row) holds an obstacle-table char. col is the leftmost cell
+// of the 3-cell body.
+func (lm *LevelMap) TankRange(obst []byte, col, row int) (left, right int) {
+	isObst := func(b byte) bool {
+		for _, o := range obst {
+			if b == o {
+				return true
+			}
+		}
+		return false
+	}
+	can := func(newCol int) bool {
+		return newCol >= 0 && newCol+2 < MapWidth &&
+			!isObst(lm.Cells[row][newCol]) && !isObst(lm.Cells[row][newCol+2])
+	}
+	l, r := col, col
+	for can(l - 1) {
+		l--
+	}
+	for can(r + 1) {
+		r++
+	}
+	return l - col, r - col
+}
+
+// PrisonerRange mirrors the prisoner engine's floor probe ($AB9A): he
+// reverses when the next cell at his leg row isn't the $48 walkway, so the
+// range is the contiguous $48 run around his spawn cell.
+func (lm *LevelMap) PrisonerRange(col, row int) (left, right int) {
+	l, r := col, col
+	for l > 0 && lm.Cells[row][l-1] == 0x48 {
+		l--
+	}
+	for r+1 < MapWidth && lm.Cells[row][r+1] == 0x48 {
+		r++
+	}
+	return l - col, r - col
+}
+
+// SPMRange mirrors the mine engine's destination probe ($9617-$9629): a
+// move to newCol is allowed iff both destination cells (newCol, row) and
+// (newCol+1, row) are $00 AND newCol stays inside the column band. col is
+// the left cell of the 2-cell craft.
+func (lm *LevelMap) SPMRange(col, row int) (left, right int) {
+	can := func(newCol int) bool {
+		return newCol >= SPMBandMin && newCol <= SPMBandMax &&
+			lm.Cells[row][newCol] == 0 && lm.Cells[row][newCol+1] == 0
+	}
+	l, r := col, col
+	for can(l - 1) {
+		l--
+	}
+	for can(r + 1) {
+		r++
+	}
+	return l - col, r - col
 }
 
 // SpriteShapes expands the 14 packed shapes (36 bytes each: two

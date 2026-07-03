@@ -266,3 +266,87 @@ func TestRenderPNG(t *testing.T) {
 		t.Fatalf("charset image bounds %v", cimg.Bounds())
 	}
 }
+
+func TestObstacleChars(t *testing.T) {
+	g := loadTestGame(t)
+	got := g.ObstacleChars()
+	// The 22-byte table at $A45D ($9A8F loops LDX #$15). It includes $00 and
+	// $20: tanks reverse at empty air and water.
+	want := []byte{
+		0x40, 0x5B, 0x5C, 0x5D, 0x5E, 0x5F, 0x3B, 0x3C, 0x3D, 0x3E, 0x49,
+		0x4A, 0x6C, 0x6D, 0x6E, 0x6F, 0x70, 0x71, 0x72, 0x61, 0x00, 0x20,
+	}
+	if len(got) != len(want) {
+		t.Fatalf("obstacle table length %d, want %d", len(got), len(want))
+	}
+	for i := range want {
+		if got[i] != want[i] {
+			t.Fatalf("obstacle[%d] = $%02X, want $%02X", i, got[i], want[i])
+		}
+	}
+}
+
+func TestPatrolRanges(t *testing.T) {
+	g := loadTestGame(t)
+	obst := g.ObstacleChars()
+	lm, err := g.LevelMap(0)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Pinned level-0 values (verified against the decoded map): the two
+	// surface tanks at row 18 share the corridor cols 63..117; the landing-pad
+	// tank at (84,38) can only shuttle across its pad; the leftmost prisoner
+	// walkway at row 29 is the $48 run 84..93.
+	tank := func(col, row, wantL, wantR int) {
+		t.Helper()
+		l, r := lm.TankRange(obst, col, row)
+		if col+l != wantL || col+r != wantR {
+			t.Errorf("tank (%d,%d): range cols %d..%d, want %d..%d", col, row, col+l, col+r, wantL, wantR)
+		}
+	}
+	tank(78, 18, 63, 117)
+	tank(84, 38, 83, 89)
+	if l, r := lm.PrisonerRange(84, 29); 84+l != 84 || 84+r != 93 {
+		t.Errorf("prisoner (84,29): run %d..%d, want 84..93", 84+l, 84+r)
+	}
+
+	// Invariants across both levels: every candidate's span stays inside the
+	// content columns (nothing may patrol across the cylinder seam), tank and
+	// prisoner ranges contain the spawn, and SPM ranges obey the column band.
+	for level := 0; level <= 1; level++ {
+		lm, err := g.LevelMap(level)
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, p := range lm.TankHomes {
+			l, r := lm.TankRange(obst, p.Col, p.Row)
+			if l > 0 || r < 0 {
+				t.Errorf("L%d tank %+v: span %d..%d excludes home", level, p, l, r)
+			}
+			if p.Col+l < 0 || p.Col+r+2 >= ContentWidth {
+				t.Errorf("L%d tank %+v: cols %d..%d leave the content area", level, p, p.Col+l, p.Col+r+2)
+			}
+		}
+		for _, p := range lm.PrisonerSpawns {
+			l, r := lm.PrisonerRange(p.Col, p.Row)
+			if r-l < 1 {
+				t.Errorf("L%d prisoner %+v: run shorter than the 2-cell spawn pattern", level, p)
+			}
+			if p.Col+l < 0 || p.Col+r >= ContentWidth {
+				t.Errorf("L%d prisoner %+v: run %d..%d leaves the content area", level, p, p.Col+l, p.Col+r)
+			}
+		}
+		for r := 0; r < MapHeight; r++ {
+			for c := SPMBandMin; c <= SPMBandMax; c++ {
+				if lm.Cells[r][c] != 0 || lm.Cells[r][c+1] != 0 {
+					continue
+				}
+				lo, hi := lm.SPMRange(c, r)
+				if c+lo < SPMBandMin || c+hi > SPMBandMax {
+					t.Fatalf("L%d SPM (%d,%d): cols %d..%d leave the band", level, c, r, c+lo, c+hi)
+				}
+			}
+		}
+	}
+}

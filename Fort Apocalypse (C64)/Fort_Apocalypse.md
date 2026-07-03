@@ -886,9 +886,25 @@ index with one homing missile, §5):
 | $F0/$F1    | engine step countdown / reload (4/3/2 by variant)    |
 
 A tank is **3 cells $6C $6D $6E plus a turret char
-one row up: $6F/$70 always aiming at the player**. Patrols
-horizontally (step every 4/3/2 frames by variant), reversing on any
-obstacle-table char. Dies (→ three $20 cells for 10 ticks) when a
+one row up: $6F/$70 always aiming at the player** ($99F7: the turret
+char is picked per step by comparing the player's column). Patrols
+horizontally — and in lockstep: the step countdown $F0 is **global**,
+so all six tanks step together, one cell every 4/3/2 frames by
+variant. Before a step the engine probes the two end cells of the
+destination footprint — (newCol, row) and (newCol+2, row) — against
+the **22-entry obstacle table at $A45D** ($9A8F loops `LDX #$15`;
+$99DF/$99E6 probe both ends); a hit reverses ($D0,X `EOR #$FE`) and
+the move retries the other way in the same step. The table is
+
+```
+$A45D: 40 5B 5C 5D 5E 5F 3B 3C 3D 3E 49 4A 6C 6D 6E 6F 70 71 72 61 00 20
+```
+
+— the movers (mines, prisoners, other tanks, missiles) plus,
+notably, **$00 and $20**: a tank reverses at empty air and water,
+and drives *through* every other background char (fences, pads,
+rubble), saving the 3 cells it covers in $D6+3X and restoring them
+behind itself. Dies (→ three $20 cells for 10 ticks) when a
 cell it occupies/enters contains $20/$71/$72 — i.e. explosions and
 missiles — and direct bullet hits, which stamp $20 onto a body
 cell (§2). Respawns at home once no tank-body
@@ -941,8 +957,14 @@ until the next level start.
 
 **Behavior:** a 2-cell craft that flies horizontally, animating
 through 4 phases per cell of travel (state += $10 mod $40, char pairs
-from $963C: `$40 —`, `$5B $5C`, `$5D $5E`, `— $5F`); the 2 destination
-cells must be exactly $00 or it reverses (columns clamped $32–$CD).
+from $963C: `$40 —`, `$5B $5C`, `$5D $5E`, `— $5F`); the column
+advances one cell when the phase wraps ($9603/$9607). With 15 of the
+39 slots serviced per frame, each mine updates every 39/15 = **2.6
+frames** — a phase change per update, a cell of travel per 4 updates
+≈ 10.4 frames. The initial direction is always right ($9573
+`LDA #$01`). Per update the 2 destination cells must be exactly $00
+and the new column inside $32–$CD ($9617–$9629), or it reverses
+($3727,X `EOR #$FE`) and retries the other way in the same update.
 
 **Death** ($957B): its own cells containing $20/$71/$72 — i.e.
 explosions (including those stamped by a direct bullet hit, see §2)
@@ -965,9 +987,16 @@ per frame via cursor $EA):
 Placed at level build by scanning the map for **floor $48 with rock
 $1F directly above**; up to 8 random pattern cells ($90A4 — all
 candidate cells are marked yellow on the map renders in Part IV §4). A
-prisoner is 2 chars tall (torso $49/$4A over legs $3B/$3C right,
-$3D/$3E left) and **runs back and forth along the $48 walkway**,
-reversing when the next floor cell isn't $48. One slot per frame.
+prisoner is 2 chars tall and **runs back and forth along the $48
+walkway**: with one of the 8 slots serviced per frame he moves one
+cell every **8 frames**, the leg phase (bit 0 of $3618,X) toggling
+each step. The draw tables at $AC12 pair the art per facing — torso
+**$49 running right, $4A running left**, legs $3B/$3C (right) and
+$3E/$3D (left) alternating on the leg phase. After each move the new
+cell at his leg row must be $48 ($AB9A), or the direction flips
+(`EOR #$E0`) and the move retries the other way in the same update —
+he replaces the walkway char and restores $48 (and the $1F above)
+behind himself ($AB62).
 Rescue: terrain contact within ±3 cells → he boards (player held in
 mode $0B), rescued count $EC++, "MEN TO RESCUE n" reprinted. Death:
 his cell becomes $00 (floor shot away), $20, or $71/$72 — note that

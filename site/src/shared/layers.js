@@ -187,27 +187,64 @@ export async function buildObjects(level, data, { markerCat = () => 'default' } 
 
 // Build randomized pool placements (Fort): `count` picks from `candidates`, each a
 // random variant of tile stamps and/or a sprite. Rebuilt every time the objects
-// layer is switched on. `stampTex(tileId)` supplies the tile textures.
+// layer is switched on. `stampTex(tileId)` supplies the tile textures. Returns
+// { container, patrols } — the patrol records feed AnimRunner.patrols.
 export async function buildPools(level, data, { random = Math.random, stampTex } = {}) {
   const container = new Container();
+  const patrols = [];
+  const stampInto = (parent, stamps) => {
+    for (const st of stamps || []) {
+      const tex = stampTex && stampTex(st.tile);
+      if (!tex) continue;
+      const s = new Sprite(tex);
+      s.x = st.dx; s.y = st.dy;
+      parent.addChild(s);
+    }
+  };
   for (const pool of level.objectPools || []) {
     const picks = shuffle([...(pool.candidates || [])], random).slice(0, pool.count);
-    for (const [x, y] of picks) {
+    for (const [x, y, minDx = 0, maxDx = 0] of picks) {
       const v = pool.variants[(random() * pool.variants.length) | 0];
-      for (const st of v.stamps || []) {
-        const tex = stampTex && stampTex(st.tile);
-        if (!tex) continue;
-        const s = new Sprite(tex);
-        s.x = x + st.dx; s.y = y + st.dy;
-        container.addChild(s);
-      }
+      // Each placement is one group at its candidate position; the patrol moves
+      // the group. Plain stamps go straight into the group; dirStamps become one
+      // hidden sub-container per phase per facing, phase 0 of the start facing shown.
+      const group = new Container();
+      group.x = x; group.y = y;
+      container.addChild(group);
+      stampInto(group, v.stamps);
       if (v.sprite) {
         const rec = await data.sprite(v.sprite);
-        if (rec) placeSprite(container, rec, x, y, v.tint);
+        if (rec) placeSprite(group, rec, 0, 0, v.tint);
+      }
+      const p = pool.patrol;
+      const dir0 = !p || p.start === 'random' ? (random() < 0.5 ? 1 : -1)
+        : (p.start === 'left' ? -1 : 1);
+      let phases = null;
+      if (v.dirStamps) {
+        phases = { 1: [], '-1': [] };
+        for (const [dir, key] of [[1, 'right'], [-1, 'left']]) {
+          for (const stamps of v.dirStamps[key] || []) {
+            const ph = new Container();
+            ph.visible = false;
+            stampInto(ph, stamps);
+            group.addChild(ph);
+            phases[dir].push(ph);
+          }
+        }
+        (phases[dir0][0] || {}).visible = true;
+      }
+      if (p) {
+        patrols.push({
+          group, baseX: x, minDx, maxDx,
+          stepPx: p.stepPx || 8,
+          stepFrames: p.stepFrames || 1,
+          updatesPerStep: p.updatesPerStep || 1,
+          dir0, dir: dir0, dx: 0, acc: 0, upd: 0, phase: 0, phases,
+        });
       }
     }
   }
-  return container;
+  return { container, patrols };
 }
 
 function shuffle(a, random) {

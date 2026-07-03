@@ -64,10 +64,27 @@ colours are `#rrggbb` strings; grids are row-major.
   // time the objects layer is enabled (Math.random, or mulberry32(?seed=N)).
   "objectPools": [
     { "count": 8,
-      "candidates": [[x, y], ...],
+      "candidates": [[x, y], ...],        // [x, y, minDx, maxDx] when the pool patrols
+      // Optional back-and-forth patrol (Fort's tanks/prisoners/mines): every
+      // `stepFrames` engine frames one update fires; each update advances the
+      // dirStamps phase, and every `updatesPerStep`-th update (default 1) moves the
+      // placement `stepPx` in its current direction. A move that would leave the
+      // candidate's inclusive [minDx, maxDx] span flips the direction (and the
+      // facing) and moves the other way in the same update — mirroring the game
+      // engines' probe-reverse-retry loops. minDx == maxDx == 0 stands still.
+      // Spans are precomputed against the static map from the engine's own
+      // turn-around rule; mover-vs-mover reversal (tank meets tank) isn't modelled.
+      "patrol": { "stepPx": 8, "stepFrames": 8, "updatesPerStep": 1,
+                  "start": "random" },    // initial direction: "random"|"right"|"left"
       "variants": [                       // one variant per placement, picked at random
         { "stamps": [{ "dx": 0, "dy": -8, "tile": 73 }, ...],   // atlas tiles stamped at offsets
-          "sprite": "chopper-side", "tint": "#352879" }         // or/and a sprite
+          "sprite": "chopper-side", "tint": "#352879" },        // or/and a sprite
+        // Patrolling art may be direction-dependent: one stamps array per animation
+        // phase per facing (right.length == left.length; phases may differ in stamp
+        // count). Facing swaps when the patrol reverses; anim-off shows right[0]
+        // (or left[0] if the placement started leftward).
+        { "dirStamps": { "right": [[{ "dx": 0, "dy": 0, "tile": 91 }, ...], ...],
+                         "left":  [[...], ...] } }
       ] }
   ],
 
@@ -134,7 +151,7 @@ names (`"chopper-fwd"`, `"tank"`, SML type ids).
 | tileAnims | ✓ | ✓ | – | – | – |
 | cellAnims | ✓ | – | – | – | – |
 | objects | ✓ | – | ✓ | – | ✓ |
-| objectPools | – | ✓ | – | – | – |
+| objectPools | – | ✓ (patrol) | – | – | – |
 | sprites index | ✓ (anims, paths) | ✓ (tinted) | ✓ | – | ✓ (anchored) |
 | collision | profiles | – | grid sub 4 | – | grid sub 1 |
 | paletteFx | ✓ | – | – | – | – |
