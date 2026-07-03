@@ -372,13 +372,13 @@ func trackOverlays(im []byte, nCells, mapRows int) ([]overlay, []swapAnim) {
 		anchor := [2]int{os16(im, r.script+12), os16(im, r.script+14)}
 		var sc uint32
 		switch terr {
-		// terr 11 -> the +$58 hood set, 13 -> +$54 (the facing pairing,
-		// calibrated in game — the code-11/13 handlers pull in opposite
-		// directions and each hood set faces one of them)
+		// the pairing is the region loader's ($12B32): a region with terr
+		// byte $B (11) gets block+$54 stored at region+$36, terr $D (13)
+		// gets block+$58 — traced, not calibrated
 		case 11:
-			sc = ou32(im, dyn+0x58)
-		case 13:
 			sc = ou32(im, dyn+0x54)
+		case 13:
+			sc = ou32(im, dyn+0x58)
 		default:
 			continue
 		}
@@ -411,9 +411,11 @@ func trackOverlays(im []byte, nCells, mapRows int) ([]overlay, []swapAnim) {
 	// 16-byte sprite record][+$A x][+$C y] in world px (the actor draw is the
 	// blitter path: draw_object_wrap(rec, +$A, +$C - scroll), so +$C maps to
 	// world Y directly); anim variants (8-byte [recordPtr][0] lists, one step
-	// per frame, holds encoded as repeated pointers) at block +$278..+$284,
-	// picked by RNG per activation ($1D48A) — the export assigns variant i to
-	// actor i. Idle: the base record shows for an RNG (0..3)<<4 frame pause.
+	// per frame, holds encoded as repeated pointers) at block +$278..+$284.
+	// The engine picks a variant by RNG per activation ($1D48A) and idles the
+	// base record for an RNG (0..3)<<4 frame pause; the export replays that as
+	// a deterministic cycle through all four patterns (actor i starts at
+	// variant i, so the three actors desync).
 	for i := 0; i < 3; i++ {
 		rec := dyn + 0x23C + uint32(i)*0x14
 		if int(rec)+0x14 > len(im) {
@@ -428,15 +430,21 @@ func trackOverlays(im []byte, nCells, mapRows int) ([]overlay, []swapAnim) {
 		baseCell := ou16(im, basePtr+10)
 		baseDX, baseDY := s8(im[basePtr]), -s8(im[basePtr+1])
 		o := overlay{Region: 91 + i, Cell: baseCell, X: x, Y: y}
-		variant := ou32(im, dyn+0x278+uint32(i)*4)
-		for _, r := range spriteList(im, variant, nCells) {
-			if r != 0 {
-				o.Steps = append(o.Steps, step{Cell: int(ou32(im, r+8)), Hold: 1,
-					OX: s8(im[r]) - baseDX, OY: -s8(im[r+1]) - baseDY})
+		for v := 0; v < 4; v++ {
+			variant := ou32(im, dyn+0x278+uint32((i+v)%4)*4)
+			if variant == 0 {
+				continue
 			}
-		}
-		if len(o.Steps) > 0 {
-			o.Steps = append(o.Steps, step{Cell: baseCell, Hold: 48}) // idle between pop-ups
+			n := len(o.Steps)
+			for _, r := range spriteList(im, variant, nCells) {
+				if r != 0 {
+					o.Steps = append(o.Steps, step{Cell: int(ou32(im, r+8)), Hold: 1,
+						OX: s8(im[r]) - baseDX, OY: -s8(im[r+1]) - baseDY})
+				}
+			}
+			if len(o.Steps) > n {
+				o.Steps = append(o.Steps, step{Cell: baseCell, Hold: 32}) // idle pause between pop-ups
+			}
 		}
 		out = append(out, o)
 	}

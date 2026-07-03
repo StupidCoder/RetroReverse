@@ -1336,7 +1336,10 @@ pick one of **four animation variants** (block `+$278..$284` — cells 44–47,
 48–51, 52–55, 56–59, each an extend–hold×7–retract list stepped one entry per
 frame), and once for an **isometric cell offset** (`(+$10−+$E)·8,
 (+$10++$E)·4`) — the piston group pops up at a *random spot along its row*
-each time, then idles for an RNG `(0..3)<<4`-frame pause.
+each time, then idles for an RNG `(0..3)<<4`-frame pause. (The site's map view
+replays the four patterns as a deterministic cycle, each actor starting one
+variant later so the three groups desync; the roaming offset stays at the
+anchor.)
 
 **The vacuums (Aerial) — suction is just a slope.** The six hoods are the
 terr-11/13 **fall regions** (anchors in a 2×3 grid at tiles (14,30), (6,34),
@@ -1347,7 +1350,9 @@ reference point. On Beginner that force is a slope; on Aerial the same code
 `+$4C..$58` hold four **trigger scripts** (open the hood — `aerial.ilb` cells
 4–7 or 8–13 via 8-byte anim lists — loop an `op18` marble-test that
 branches into the close subroutine, hide via an empty list, stop) that the code-11/13
-handlers run on the region when the marble is drawn in; the fall itself is the
+handlers run on the region when the marble is drawn in. The facing pairing is
+the region loader's (`$12B32`): terr-11 regions get the `+$54` script (the
+cells-4–8 hood facing), terr-13 the `+$58` one (cells 9–13); the fall itself is the
 regions' `op17 FALL-STOP` codes 30–35 (per-hole teleport destinations, exactly
 like Beginner's funnels).
 

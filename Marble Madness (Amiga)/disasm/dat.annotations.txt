@@ -535,7 +535,8 @@
 # block extension slots *($FD2C)+$4C..$58 = 4 TRIGGER SCRIPTS (close-A $1C78, close-B $1CBE,
 # open-A $1C8C cells 4-8, open-B $1CD2 cells 9-13 — the two hood FACINGS) the code-11/13
 # handlers ($17AA8/$17C88 compare region +$46 vs block +$60/+$64) run on the
-# region: open the hood (8-byte anim lists, aerial.ilb cells 4-7 / 8-13, e.g.
+# region. PAIRING (region loader $12B32): terr $B (11) -> region+$36 = block+$54
+# (open cells 4-8 facing), terr $D (13) -> block+$58 (cells 9-13). The script: open the hood (8-byte anim lists, aerial.ilb cells 4-7 / 8-13, e.g.
 # $1AC2 = 4,5,6,6,7*4), op18 marble-test loop, branch to the close subroutine
 # (op11 RETURN at $1C6A), hide via the empty list $1A2E, stop. The fall = the
 # regions' op17 FALL-STOP codes 30-35 (per-hole teleports, like the funnels).
