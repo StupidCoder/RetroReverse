@@ -589,6 +589,14 @@ screen.source = () => {
   if (!m) return [];
   return [...m.el.querySelectorAll('canvas')].filter(c => getComputedStyle(c).display !== 'none');
 };
+// The active 2-D viewer's pixel grid (zoom + pan in app-screen px), so the LCD shaders can lock
+// their cell grid to the game's own pixels. null for 3-D viewers (which use the CRT profile anyway).
+screen.pixelGrid = () => {
+  const m = activeId && mounts.get(activeId);
+  const cam = m && m.viewer && m.viewer.cam;
+  if (!cam || !cam.isMapCamera) return null;
+  return { zoom: cam.zoom, ox: cam.world.position.x, oy: cam.world.position.y, screenW: cam.app.screen.width };
+};
 
 // Which shader profile each system uses (CRT tube vs handheld LCD).
 const SYSTEM_PROFILE = {
@@ -611,15 +619,16 @@ const PROFILE_CONTROLS = {
     { key: 'scanLines', label: 'CRT scanlines', min: 60, max: 600, step: 2, int: true },
   ],
   gb: [
-    { key: 'cellSize', label: 'Pixel size', min: 2, max: 12, step: 1, int: true },
+    { key: 'pixelsPerCell', label: 'Dot size', min: 1, max: 4, step: 1, fmt: (v) => Math.round(v) + '× px' },
     { key: 'tint', label: 'Green tint', min: 0, max: 1, step: 0.01 },
     { key: 'gridStrength', label: 'Grid gap', min: 0, max: 0.8, step: 0.01 },
     { key: 'shadowOpacity', label: 'Pixel shadow', min: 0, max: 1, step: 0.01 },
+    { key: 'shadowOffset', label: 'Shadow offset', min: 0, max: 1, step: 0.05, fmt: (v) => v.toFixed(2) + ' px' },
     { key: 'contrast', label: 'Contrast', min: 0.5, max: 2.5, step: 0.05 },
     { key: 'ghost', label: 'Ghosting', min: 0, max: 0.9, step: 0.01 },
   ],
   gg: [
-    { key: 'cellSize', label: 'Pixel size', min: 2, max: 12, step: 1, int: true },
+    { key: 'pixelsPerCell', label: 'Dot size', min: 1, max: 4, step: 1, fmt: (v) => Math.round(v) + '× px' },
     { key: 'gridStrength', label: 'Grid gap', min: 0, max: 0.8, step: 0.01 },
     { key: 'subpixel', label: 'Subpixels', min: 0, max: 1, step: 0.01 },
     { key: 'saturation', label: 'Saturation', min: 0, max: 1.5, step: 0.01 },

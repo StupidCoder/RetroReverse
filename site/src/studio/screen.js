@@ -197,14 +197,17 @@ void main() {
   gl_FragColor = vec4(finalCRT, 1.0);
 }`;
 
-// Game Boy DMG: reflective 4-shade green dot-matrix. The content is quantised into a screen-space
-// cell grid; each cell's luminance is posterised onto the classic pea-green ramp, dark cells cast a
-// soft drop shadow down-and-right (the "hovering pixels" effect), and thin gaps separate the cells.
+// Game Boy DMG: reflective 4-shade green dot-matrix. The content is quantised into a cell grid that
+// tracks the game's own pixels (u_cellSize = one game pixel in overlay px, u_gridOrigin phases the
+// grid to the camera pan), so gaps + shadow stay locked to the pixels as you zoom. Each cell's
+// luminance is posterised onto the classic pea-green ramp, dark cells cast a soft drop shadow
+// down-and-right (the "hovering pixels" effect), and thin gaps separate the cells.
 const FRAG_GB = `
 precision highp float;
 uniform sampler2D u_texture;
 uniform vec2 u_resolution;
-uniform float u_cellSize;
+uniform float u_cellSize;    // one game pixel, in overlay device px
+uniform vec2 u_gridOrigin;   // game-pixel (0,0) position, in overlay device px
 uniform float u_tint;
 uniform float u_gridStrength;
 uniform float u_shadowOpacity;
@@ -220,9 +223,10 @@ const vec3 G3 = vec3(0.608, 0.737, 0.059); // #9bbc0f
 
 float luma(vec3 c) { return dot(c, vec3(0.299, 0.587, 0.114)); }
 
-vec3 sampleCell(vec2 uv) {
-  vec2 cell = floor(uv * u_resolution / u_cellSize);
-  vec2 cUv = (cell + 0.5) * u_cellSize / u_resolution;
+// sample the source at the centre of the grid cell that contains fragment position p (overlay px)
+vec3 sampleAt(vec2 p) {
+  vec2 cell = floor((p - u_gridOrigin) / u_cellSize);
+  vec2 cUv = (u_gridOrigin + (cell + 0.5) * u_cellSize) / u_resolution;
   return texture2D(u_texture, cUv).rgb;
 }
 
@@ -234,37 +238,41 @@ vec3 greenRamp(float L) {
 }
 
 void main() {
-  vec2 uv = vUv;
-  vec3 src = sampleCell(uv);
+  vec2 p = vUv * u_resolution;
+  // fade grid/shadow out once cells are too small to resolve (zoomed below native)
+  float vis = smoothstep(2.0, 5.0, u_cellSize);
+
+  vec3 src = sampleAt(p);
   float L = clamp((luma(src) - 0.5) * u_contrast + 0.5, 0.0, 1.0);
   vec3 col = mix(src, greenRamp(L), u_tint);
 
   // drop shadow: a dark cell up-and-left casts a shadow onto this (lighter) cell
-  vec2 off = vec2(u_shadowOffset) * u_cellSize / u_resolution;
-  float nbL = luma(sampleCell(uv - off));
-  float shadow = u_shadowOpacity * (1.0 - nbL) * L;
+  float nbL = luma(sampleAt(p - vec2(u_shadowOffset) * u_cellSize));
+  float shadow = u_shadowOpacity * vis * (1.0 - nbL) * L;
   col *= (1.0 - shadow);
 
-  // dot-matrix grid gaps
-  vec2 f = fract(uv * u_resolution / u_cellSize);
+  // dot-matrix grid gaps, phased to the game-pixel grid
+  vec2 f = fract((p - u_gridOrigin) / u_cellSize);
   float gx = smoothstep(0.0, 0.12, f.x) * smoothstep(0.0, 0.12, 1.0 - f.x);
   float gy = smoothstep(0.0, 0.12, f.y) * smoothstep(0.0, 0.12, 1.0 - f.y);
-  col *= mix(1.0 - u_gridStrength, 1.0, gx * gy);
+  col *= mix(1.0 - u_gridStrength * vis, 1.0, gx * gy);
 
   // faint ambient vignette (reflective panel, no backlight)
-  float vig = 16.0 * uv.x * uv.y * (1.0 - uv.x) * (1.0 - uv.y);
+  float vig = 16.0 * vUv.x * vUv.y * (1.0 - vUv.x) * (1.0 - vUv.y);
   col *= mix(0.9, 1.0, pow(clamp(vig, 0.0, 1.0), 0.3));
 
   gl_FragColor = vec4(col, 1.0);
 }`;
 
-// Game Gear: backlit colour LCD. Same cell grid, but colour is kept (slightly desaturated/gamma'd),
-// with faint RGB subpixel stripes, grid gaps, and a soft backlight bloom. No curvature/shadow.
+// Game Gear: backlit colour LCD. Same game-pixel-aligned cell grid as the GB profile, but colour is
+// kept (slightly desaturated/gamma'd), with faint RGB subpixel stripes, grid gaps, and a soft
+// backlight bloom. No curvature/shadow.
 const FRAG_GG = `
 precision highp float;
 uniform sampler2D u_texture;
 uniform vec2 u_resolution;
-uniform float u_cellSize;
+uniform float u_cellSize;    // one game pixel, in overlay device px
+uniform vec2 u_gridOrigin;   // game-pixel (0,0) position, in overlay device px
 uniform float u_gridStrength;
 uniform float u_subpixel;
 uniform float u_saturation;
@@ -273,39 +281,40 @@ varying vec2 vUv;
 
 float luma(vec3 c) { return dot(c, vec3(0.299, 0.587, 0.114)); }
 
-vec3 sampleCell(vec2 uv) {
-  vec2 cell = floor(uv * u_resolution / u_cellSize);
-  vec2 cUv = (cell + 0.5) * u_cellSize / u_resolution;
+vec3 sampleAt(vec2 p) {
+  vec2 cell = floor((p - u_gridOrigin) / u_cellSize);
+  vec2 cUv = (u_gridOrigin + (cell + 0.5) * u_cellSize) / u_resolution;
   return texture2D(u_texture, cUv).rgb;
 }
 
 void main() {
-  vec2 uv = vUv;
-  vec3 col = sampleCell(uv);
+  vec2 p = vUv * u_resolution;
+  float vis = smoothstep(2.0, 5.0, u_cellSize);
+  vec3 col = sampleAt(p);
 
   // colour response: desaturate a touch and darken mids (the washed LCD look)
   col = mix(vec3(luma(col)), col, u_saturation);
   col = pow(col, vec3(1.15));
 
-  vec2 f = fract(uv * u_resolution / u_cellSize);
+  vec2 f = fract((p - u_gridOrigin) / u_cellSize);
 
   // RGB subpixel stripes: three columns per cell
   float seg = floor(f.x * 3.0);
   vec3 sp = vec3(0.6);
   if (seg < 0.5) sp.r = 1.0; else if (seg < 1.5) sp.g = 1.0; else sp.b = 1.0;
-  col *= mix(vec3(1.0), sp, u_subpixel);
+  col *= mix(vec3(1.0), sp, u_subpixel * vis);
 
-  // grid gaps
+  // grid gaps, phased to the game-pixel grid
   float gx = smoothstep(0.0, 0.1, f.x) * smoothstep(0.0, 0.1, 1.0 - f.x);
   float gy = smoothstep(0.0, 0.1, f.y) * smoothstep(0.0, 0.1, 1.0 - f.y);
-  col *= mix(1.0 - u_gridStrength, 1.0, gx * gy);
+  col *= mix(1.0 - u_gridStrength * vis, 1.0, gx * gy);
 
   // backlight bloom
   vec3 bloom = vec3(0.0);
   float stride = 4.0 / u_resolution.x;
   for (float x = -2.0; x <= 2.0; x++)
     for (float y = -2.0; y <= 2.0; y++)
-      bloom += texture2D(u_texture, uv + vec2(x, y) * stride).rgb;
+      bloom += texture2D(u_texture, vUv + vec2(x, y) * stride).rgb;
   col += (bloom / 25.0) * u_glow;
 
   gl_FragColor = vec4(col, 1.0);
@@ -322,8 +331,10 @@ const PROFILE_DEFAULTS = {
     // signal (drives the NTSC/dot-crawl artefact scale); scanLines = the number of beam scanlines.
     signalLines: 240, scanLines: 240,
   },
-  gb: { cellSize: 6, tint: 1.0, gridStrength: 0.35, shadowOpacity: 0.55, shadowOffset: 1.0, contrast: 1.15, ghost: 0.35 },
-  gg: { cellSize: 6, gridStrength: 0.28, subpixel: 0.35, saturation: 0.85, glow: 0.18, ghost: 0.45 },
+  // pixelsPerCell = how many native game pixels make one LCD dot (1 = one dot per pixel, authentic).
+  // The actual on-screen cell size is derived per frame from the camera zoom (see _render).
+  gb: { pixelsPerCell: 1, tint: 1.0, gridStrength: 0.2, shadowOpacity: 0.25, shadowOffset: 0.5, contrast: 1.15, ghost: 0.0 },
+  gg: { pixelsPerCell: 1, gridStrength: 0.2, subpixel: 0.75, saturation: 0.5, glow: 0.18, ghost: 0.0 },
 };
 
 // The uniforms each profile's fragment shader declares (cached at link time, uploaded per frame).
@@ -331,8 +342,8 @@ const PROFILE_UNIFORMS = {
   crt: ['u_resolution', 'u_texResolution', 'u_time', 'u_noise', 'u_lumaSmear', 'u_iqBlur',
     'u_saturation', 'u_phaseSpeed', 'u_scanlineCount', 'u_verticalScale', 'u_beamFocus',
     'u_beamBloom', 'u_maskType', 'u_maskStrength', 'u_tvLines', 'u_curvature', 'u_glow'],
-  gb: ['u_resolution', 'u_cellSize', 'u_tint', 'u_gridStrength', 'u_shadowOpacity', 'u_shadowOffset', 'u_contrast'],
-  gg: ['u_resolution', 'u_cellSize', 'u_gridStrength', 'u_subpixel', 'u_saturation', 'u_glow'],
+  gb: ['u_resolution', 'u_cellSize', 'u_gridOrigin', 'u_tint', 'u_gridStrength', 'u_shadowOpacity', 'u_shadowOffset', 'u_contrast'],
+  gg: ['u_resolution', 'u_cellSize', 'u_gridOrigin', 'u_gridStrength', 'u_subpixel', 'u_saturation', 'u_glow'],
 };
 
 const FRAG = { crt: FRAG_CRT, gb: FRAG_GB, gg: FRAG_GG };
@@ -343,6 +354,9 @@ export class ScreenFilter {
     this.enabled = false;
     this.profile = 'crt';
     this.source = () => []; // set by the host: returns the canvases to capture (front-to-back)
+    // set by the host: the active 2-D viewer's pixel grid { zoom, ox, oy, screenW } (app-screen px),
+    // used to lock the LCD cell grid to the game's own pixels; null when not a map viewer.
+    this.pixelGrid = () => null;
     this.paramsByProfile = {};
     for (const k of Object.keys(PROFILE_DEFAULTS)) this.paramsByProfile[k] = { ...PROFILE_DEFAULTS[k] };
 
@@ -468,9 +482,13 @@ export class ScreenFilter {
     gl.enableVertexAttribArray(P.pos);
     gl.vertexAttribPointer(P.pos, 2, gl.FLOAT, false, 0, 0);
 
-    if (this.profile === 'crt') this._uploadCrt(P.u, w, h, time, p);
-    else if (this.profile === 'gb') this._uploadGb(P.u, w, h, p);
-    else this._uploadGg(P.u, w, h, p);
+    if (this.profile === 'crt') {
+      this._uploadCrt(P.u, w, h, time, p);
+    } else {
+      const g = this._cellGrid(w, p); // cell size + grid origin locked to the game's pixels
+      if (this.profile === 'gb') this._uploadGb(P.u, w, h, g);
+      else this._uploadGg(P.u, w, h, g);
+    }
 
     gl.drawArrays(gl.TRIANGLES, 0, 6);
   }
@@ -497,10 +515,23 @@ export class ScreenFilter {
     gl.uniform1f(u.u_glow, p.glow);
   }
 
-  _uploadGb(u, w, h, p) {
-    const gl = this.gl;
+  // Size of one game pixel (and the grid origin) in overlay device px, from the active viewer's
+  // camera. drawImage maps the whole viewer canvas onto the overlay, so app-screen px scale by
+  // (overlay width / app-screen width); one game pixel is `zoom` app-screen px. Falls back to a
+  // fixed cell when there's no map camera (shouldn't happen for the LCD profiles).
+  _cellGrid(w, p) {
+    const g = this.pixelGrid && this.pixelGrid();
+    const mult = p.pixelsPerCell || 1;
+    if (!g || !(g.screenW > 0) || !(g.zoom > 0)) return { cell: 6 * mult, ox: 0, oy: 0 };
+    const ratio = w / g.screenW;
+    return { cell: g.zoom * ratio * mult, ox: g.ox * ratio, oy: g.oy * ratio };
+  }
+
+  _uploadGb(u, w, h, g) {
+    const gl = this.gl, p = this.params;
     gl.uniform2f(u.u_resolution, w, h);
-    gl.uniform1f(u.u_cellSize, p.cellSize);
+    gl.uniform1f(u.u_cellSize, g.cell);
+    gl.uniform2f(u.u_gridOrigin, g.ox, g.oy);
     gl.uniform1f(u.u_tint, p.tint);
     gl.uniform1f(u.u_gridStrength, p.gridStrength);
     gl.uniform1f(u.u_shadowOpacity, p.shadowOpacity);
@@ -508,10 +539,11 @@ export class ScreenFilter {
     gl.uniform1f(u.u_contrast, p.contrast);
   }
 
-  _uploadGg(u, w, h, p) {
-    const gl = this.gl;
+  _uploadGg(u, w, h, g) {
+    const gl = this.gl, p = this.params;
     gl.uniform2f(u.u_resolution, w, h);
-    gl.uniform1f(u.u_cellSize, p.cellSize);
+    gl.uniform1f(u.u_cellSize, g.cell);
+    gl.uniform2f(u.u_gridOrigin, g.ox, g.oy);
     gl.uniform1f(u.u_gridStrength, p.gridStrength);
     gl.uniform1f(u.u_subpixel, p.subpixel);
     gl.uniform1f(u.u_saturation, p.saturation);
