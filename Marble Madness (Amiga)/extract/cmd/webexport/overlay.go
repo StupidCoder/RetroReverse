@@ -29,6 +29,7 @@ package main
 
 import (
 	"fmt"
+	"image"
 	"path/filepath"
 	"sort"
 
@@ -64,7 +65,12 @@ func exportOverlays(vol *adf.Volume, paths map[string]string, key string, track 
 			done[o.Cell] = true
 			pngName := fmt.Sprintf("%s-c%d.png", key, o.Cell)
 			cl := cells[o.Cell]
-			img := ilb.Render(buf, cl, co.Palette, 6)
+			var img *image.RGBA
+			if o.HasRamp && cl.Typ == 1 {
+				img = ilb.RenderRamp(buf, cl, o.Ramp) // the record's own sprite colours
+			} else {
+				img = ilb.Render(buf, cl, co.Palette, 6)
+			}
 			if err := gfx.WritePNG(filepath.Join(spritesDir, pngName), img); err != nil {
 				return nil, err
 			}
@@ -87,9 +93,11 @@ func exportOverlays(vol *adf.Volume, paths map[string]string, key string, track 
 type overlay struct {
 	Region  int // dynamic-region index
 	Cell    int // .ilb cell index
-	X, Y    int // world px (top-left of the blit)
+	X, Y    int // world px (top-left of the draw)
 	KX, KY  int // keyframe grid pos (for reference/debug)
 	Selects int // op2 operand (list entry index)
+	HasRamp bool
+	Ramp    [3]uint16 // record +$C -> the sprite pair's 3 $0RGB colours (type-1 cells)
 }
 
 func ou16(b []byte, o uint32) int {
@@ -225,6 +233,14 @@ func scanScript(im []byte, idx int, pc, stop uint32, base, nCells int) []overlay
 		cell := int(ou32(im, rec+8))
 		dx, dy := s8(im[rec]), s8(im[rec+1])
 		o := overlay{Region: idx, Cell: cell, Selects: sel, KX: kx, KY: ky}
+		// record +$C -> the sprite's 3-colour ramp (loaded into COLOR17+4n by
+		// the engine's copper fragments) for the hardware-sprite (type-1) cells
+		if rp := ou32(im, rec+12); rp != 0 && int(rp)+6 <= len(im) {
+			r := [3]uint16{uint16(ou16(im, rp)), uint16(ou16(im, rp+2)), uint16(ou16(im, rp+4))}
+			if r[0] <= 0xFFF && r[1] <= 0xFFF && r[2] <= 0xFFF {
+				o.HasRamp, o.Ramp = true, r
+			}
+		}
 		if kdur == 1 {
 			// dur==1 keyframes carry the piece's draw anchor directly, as
 			// course-tile coords in +$26/+$28 (the $105FE/$D868 draw path —

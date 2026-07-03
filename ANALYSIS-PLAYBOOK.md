@@ -230,6 +230,18 @@ for on any unknown format:
   hardware directly, ask *where on the medium* it reads, and whether that maps to
   a catalogued file — the answer is often "the same bytes, reached a faster/
   sneakier way," not "secret data."
+- **Register-write greps miss coprocessor-written state.** "The CPU never writes
+  `$DFF0A0–$DFF0DC`" does *not* mean "no hardware sprites" — on the Amiga the
+  copper writes chip registers from a list the CPU builds as *data* (Marble
+  Madness sets all eight sprite pointers, the sprite colours, and `BPLCON2` that
+  way; the same trap exists for any DMA-list-driven hardware). When a register
+  scan comes up empty, read the **live copper/DMA list** out of emulator RAM —
+  it is the ground truth for the display architecture, and one dump settles
+  bitplane count, playfield mode, priorities and sprite usage at once. Corollary:
+  a mechanism that "explains" the visuals (a depth-sorted list ⇒ painter's
+  algorithm) is not proof; trace the draw path to the hardware before writing it
+  up — the sort turned out to order *sprite-channel assignment*, and the
+  occlusion was a per-frame software mask punched out of sprite DMA data.
 
 ---
 

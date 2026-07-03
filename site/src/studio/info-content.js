@@ -1073,9 +1073,11 @@ colour-cyclers — two ramps for the hazard/lava pulse and the ice shimmer — s
 <p>Each course also carries a bank of <strong>obstacle sprites</strong> — the goal flag, moving barriers,
 drawbridges and the like — also one PackBits stream, holding a count and a table of cell descriptors over
 contiguous planar pixel data. Each cell is one complete animation frame, in one of two layouts chosen by a type
-byte: "stored" free sprites (the flag, the marble, the creatures) keep their bitplanes row-interleaved and are
-drawn with a per-object colour ramp, while "composited" scenery is sequential plane blocks OR-composited into the
-playfield. The moving creatures and the marble itself live in separate banks that share this container.</p>
+byte: "stored" free sprites (the flag, the marble, the creatures) keep their bitplanes row-interleaved — the
+Amiga hardware-sprite data layout — and carry a per-object colour ramp, while "composited" scenery is sequential
+plane blocks whose bitplanes the loader ORs together into a <strong>silhouette mask</strong>, a black-and-white
+image of that piece of level geometry used to occlude sprites behind it. The moving creatures and the marble
+itself live in separate banks that share this container.</p>
 
 <h2>The course layout</h2>
 <p>A third per-course file holds everything else a course needs — not just object positions but all of its
@@ -1130,21 +1132,30 @@ and the marble-munchers.</p>
 <p>The moving things — the goal flag, the enemies, the munchers — are <strong>actors</strong> fed by the
 course-layout data. Each frame the engine walks an array of actor records, each holding a sprite-cell pointer,
 an animation-script pointer (a cell list advanced when a frame timer expires, with randomised durations) and a
-position. There are <strong>no hardware sprites</strong> — everything is blitted. The display is a fixed
-512-pixel-tall bitmap used as a <strong>circular scroll buffer</strong>: as the course scrolls vertically the
-visible window wraps around that buffer, so an object straddling the wrap point is drawn with two blits, one for
-each side of the seam. (The course itself does not wrap — only the scroll buffer does.)</p>
+position. The whole moving cast rides the Amiga's <strong>hardware sprites</strong>: the "stored" cell format —
+16 pixels wide, two bitplanes, row-interleaved — <em>is</em> the sprite-DMA data layout, copied into a sprite
+channel's buffer each frame, and every piece carries its own three sprite colours that the copper loads
+mid-screen. Eight channels cover everything by <strong>copper multiplexing</strong> down the screen; wider
+pieces use several 16-pixel columns. The display is a fixed 512-pixel-tall bitmap used as a <strong>circular
+scroll buffer</strong>: as the course scrolls vertically the visible window wraps around that buffer. (The
+course itself does not wrap — only the scroll buffer does.)</p>
 
-<h2>The display list — hiding behind the level</h2>
-<p>The marble can roll <em>behind</em> parts of the course — under the raised drawbridge, behind the goal
-flags — yet the tilemap is a flat background that is never repainted over sprites. The trick: everything that
-moves or layers lives in <strong>one display list, depth-sorted every frame</strong>. Each entry — marble,
-enemy, scenery piece — carries a 3-D bounding box in isometric space, a separating-axis comparator bubble-sorts
-the list (the classic isometric painter's algorithm), and entries are blitted in order, so whatever sorts nearer
-simply lands on top. The "level" pieces that occlude are not tilemap at all but <strong>sprite cells from the
-obstacle bank</strong>, anchored by the course-layout data — the bridge plank, the flag poles, Practice's pop-up
-start ramp. The map view's <strong>scenery overlays</strong> toggle draws exactly these pieces, placed by
-replaying the same data: the goal flags land on the GOAL banner of every course.</p>
+<h2>Hiding behind the level — the mask punch</h2>
+<p>The marble can roll <em>behind</em> parts of the course — under the raised drawbridge, into holes — yet the
+tiles are plain 8&times;8 squares that can hold background and foreground in one tile, and the hardware priority
+is fixed with every sprite <em>in front of</em> the playfield. The engine's answer is beautifully direct:
+<strong>it erases the occluded pixels from the sprite itself</strong>. Every scenery piece is a cell from the
+obstacle bank, and at load the engine builds each cell's <strong>silhouette mask</strong> — a black-and-white
+image of that chunk of level geometry. Each frame, after the marble's sprite data is queued, the engine checks
+the marble's position against the course's occluding features (the drawbridge, the holes, the funnels); if the
+marble is behind one, it takes the piece's mask for its <em>current</em> animation state, shifts it to the exact
+pixel offset, inverts it, and ANDs it into the marble's sprite words — punching the scenery's shape out of the
+marble so the playfield shows through, pixel-perfectly. Sprite-versus-sprite layering falls out of the hardware
+(lower channels appear in front), ordered by an isometric depth sort. The "level" pieces themselves — the bridge
+plank, the flag poles, Practice's pop-up start ramp — are cells from the obstacle bank anchored by the
+course-layout data; the map view's <strong>scenery overlays</strong> toggle draws exactly these pieces, placed by
+replaying the same data: the goal flags land on the GOAL banner of every course, in their record's own sprite
+colours.</p>
 `,
     music: `
 <div class="info-eyebrow">Marble Madness · Music</div>

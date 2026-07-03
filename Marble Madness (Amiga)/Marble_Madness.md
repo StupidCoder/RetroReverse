@@ -53,7 +53,7 @@ under way; Part V is still a stub.
   - [5. Course layout (`*Track`)](#5-course-layout-track)
 - [Part V — Game mechanics](#part-v--game-mechanics)
   - [1. The game loop](#1-the-game-loop)
-  - [2. The object/actor system](#2-the-objectactor-system) (incl. the depth-sorted display list / occlusion)
+  - [2. The object/actor system](#2-the-objectactor-system) (hardware sprites, the display list, the occlusion masks)
   - [3. Terrain interaction](#3-terrain-interaction)
   - [4. Physics and controls](#4-physics-and-controls)
 - [Part VI — Music and sound](#part-vi--music-and-sound)
@@ -934,18 +934,24 @@ is resolved). There are two storage layouts, picked by the type byte:
 
 - **type 1 — "stored" free sprites** (the goal flag, marble, creatures): the planes
   are **row-interleaved** — each pixel row holds all of the cell's bitplanes back to
-  back (`row stride = planes·(w/8)`). Each cell is a standalone frame; cells do **not**
-  combine in pairs. `silly.ilb`'s four cells are the four wave frames of the checkered
-  goal flag (below). *(An earlier guess that a 16-colour object was two stacked 2-plane
-  cells — "the goal flag is cells 0+1" — was wrong; confirmed in-game and by the fixed
-  decode.)* Two details the extractor handles: the stored heights are `2^n+1` — the last
-  **row is a guard/sentinel**, not pixels, so it is dropped; and a type-1 sprite is drawn
-  with a **per-object colour ramp** set by the actor system, *not* palette 0–3, so its
-  2-bit pixel is offset to the course's object-accent colours (index 7 — the creatures
-  come out green/yellow, the flag cyan/black — except the marble bank, which uses the grey
-  ramp). The exact per-object base is a runtime property; the extractor approximates it.
-- **type 0 — "composited" scenery**: sequential `+6`-byte plane blocks, OR-composited
-  by `$8026` (the larger isometric obstacle blocks).
+  back (`row stride = planes·(w/8)`). This is not an arbitrary choice: for a 16-px
+  2-plane cell it is **exactly the Amiga hardware-sprite DMA data layout** — these
+  cells are `memcpy`'d straight into sprite channel buffers at draw time (Part V §2).
+  Each cell is a standalone frame; cells do **not** combine in pairs. `silly.ilb`'s
+  four cells are the four wave frames of the checkered goal flag (below). *(An
+  earlier guess that a 16-colour object was two stacked 2-plane cells — "the goal
+  flag is cells 0+1" — was wrong; confirmed in-game and by the fixed decode.)* Two
+  details: the stored heights are `2^n+1` — the last **row is a guard/sentinel**,
+  not pixels, so it is dropped; and a type-1 sprite's 2-bit pixels are coloured by a
+  **3-colour sprite ramp** its 16-byte draw record points at (`+$C` → three `$0RGB`
+  words, loaded into the sprite pair's `COLOR` registers by the copper — Part V §2),
+  not by the playfield palette. Where the record is known (the Track overlay pieces)
+  the exact ramp is used; the bank-sheet renders approximate with the course accent
+  colours.
+- **type 0 — "composited" scenery**: sequential `+6`-byte plane blocks; at load
+  `$8026` ORs the planes into a 1-plane **silhouette mask** (descriptor `+$C`) — the
+  black-and-white level-geometry images the occlusion system punches out of sprites
+  (Part V §2).
 
 [`extract/cmd/sprites`](extract/cmd/sprites) branches on the type byte and renders both
 layouts correctly, flow-packing the cells into one sheet per bank in
@@ -1384,76 +1390,96 @@ A cell is grouped into an animation by its **script** (a cell-pointer list in th
 Track segment, selected per actor state from `$FD2C`), and the actor carries the
 **position**; frame durations are randomised through the engine RNG (`$8F96`).
 
-**Drawing.** There are **no hardware sprites** — `$DFF0A0–$DFF0DC` are never
-touched, everything is blitted. The playfield is **4 bitplanes**; `blit_object
-$011D1C` loops the screen's plane-pointer table and `draw_object_wrap $0104C4` adds
-the vertical scroll wraparound (two blits across the 512-px seam). The free-sprite
-(type-1) cells store their planes **row-interleaved**, and **each cell is a single
-animation frame** (Part IV §3) — they are *not* combined in pairs. The actor's
-animation script (above) selects which cell to draw each frame.
+**Drawing — the marble and the creatures are hardware sprites.** The CPU never
+touches `$DFF0A0–$DFF0DC`, which long suggested "everything is blitted" — wrong:
+the **copper** writes the sprite registers, so the sprite setup lives in the
+copper list as *data*, invisible to a register-write scan. Reading the live
+copper list under FS-UAE settles it: eight `SPRxPT` writes into a dedicated
+sprite-DMA arena, `COLOR17+`-block writes per object, and the whole moving cast
+riding Denise's sprite hardware. The type-1 "stored" cell format — 16 px wide,
+2 bitplanes, **row-interleaved** (Part IV §3) — *is* the Amiga sprite-DMA data
+layout, byte for byte; each frame the engine `memcpy`s the current cell into a
+sprite channel buffer (`draw_sprite_record $122AC` → the per-row channel
+allocator `$3BB2`). A piece's 16-byte sprite record points (at `+$C`) to its
+**three `$0RGB` sprite colours**, which a copper fragment (`$3558`) loads into
+the pair's `COLOR17+4n` slots per scanline band — that is also why the two
+players' marbles are just two ramps (`$6750`/`$6756`, red/blue swapped). Eight
+sprite channels cover the whole cast by **copper multiplexing**: the `$5B30`
+row-band structure re-assigns channels down the screen, patching `SPRxPT`
+rewrites and colour fragments into the copper slack. Wide 4-plane pieces use
+several 16-px columns. The **blitter** (`blit_object $011D1C`,
+`draw_object_wrap $0104C4`) serves the other drawing paths; `mlb_draw_column`
+(the "Painter" task, created `$9450`, loop `$91C0`) is the only tilemap drawer
+— course paint, scroll rows, and the drawbridge-style **tile animations**.
 
-### The depth-sorted display list — how the marble hides behind the level
+### How the marble hides behind the level — sprite masks, not draw order
 
-Watch the marble roll behind the raised drawbridge or between the goal flags and
-part of it disappears — yet the `.mlb` tilemap is a flat background bitmap, and
-nothing in the engine repaints tiles over sprites mid-frame (the only tilemap
-drawers are the course paint, the scroll rows and the drawbridge-style tile
-animations, all funnelled through a dedicated **"Painter" exec task**: `$9450`
-creates it, `$91C0` is its message loop). The occlusion comes from somewhere
-else entirely: **one global display list, painter's-algorithm sorted in
-isometric space every frame.**
+The tiles are plain squares, so a single 8×8 tile can hold background *and*
+foreground pixels — no draw order over square tiles could produce the per-pixel
+occlusion you see when the marble rolls under the Beginner drawbridge. And the
+hardware won't do it either: `BPLCON2` is the constant `$0024` (in the engine's
+copper template), which puts **every sprite in front of the playfield**,
+always. The engine instead does the most direct thing possible: **it punches
+the scenery's silhouette out of the marble's sprite data, every frame.**
 
-Every drawable is an entry: the two marbles, every creature, the HUD pieces —
-and, crucially, the **scenery pieces** a marble can pass behind. Each entry owns
-a 14-byte depth record (`$41E` table, order array `$5F7`, slot pointers `$21CC`):
+After a marble/creature sprite is queued, `$5BE0` runs the per-course occlusion
+checks: it compares the object's iso position against the terrain-registered
+scenery regions (the drawbridge region pointer `$FD38`, Silly's hole list
+`$FD3C`, the `$FD54`/`$FD58` feature lists — the same self-registration the
+region scripts perform through their terrain codes). If the object is
+*behind/under* a piece, `$11678` resolves the piece's current on-screen
+position (its tile anchor `+$26/+$28` ×8, plus drift, minus scroll) and its
+**current animation record** (the `+$3E` list cursor), and `$112DA` does the
+punch: for every overlapping sprite row it takes the piece's **mask** — the
+cell's OR-of-planes silhouette that `composite_planes $8026` builds at load
+into descriptor `+$C`, a 1-bitplane black/white image of that chunk of level
+geometry — shifts it to the sub-pixel offset, inverts it, and `AND`s it into
+both data words of the sprite row:
 
 ```
-+0  type      (1/2 marble, 4/$E creatures, 7/8/9 region scenery, $2C spawn gate, …)
-+1  index     (into the type's object table)
-+2/+4/+6      3-D box min  (iso world x, y, z)
-+8/+A/+C      3-D box size
+sprite_plane0 &= ~(mask << dx)
+sprite_plane1 &= ~(mask << dx)      ($11500/$11510, per overlapping row)
 ```
 
-Each frame `displaylist_render $11704` rebuilds every entry's box
-(`displaylist_box $1085C`, per-type), runs three bubble passes with the
-**separating-axis comparator** `displaylist_cmp $10F4C` — compare corner sums,
-then per-axis overlap, the classic *Knight Lore*-style iso sort — and then draws
-the list **in order** through a per-type dispatch, each leaf ending in
-`draw_sprite_record $122AC` → `blit_object`. A marble whose box sorts *behind* a
-scenery piece's box is simply blitted first; the scenery lands on top of it.
-That is the whole occlusion system.
+Where the mask covers the sprite, the sprite becomes transparent and the
+playfield — including the scenery painted there by the tile animation — shows
+through: the marble is pixel-precisely *behind* the level. Sprite-vs-sprite
+layering falls out of the hardware (lower channels appear in front), which is
+what the engine's **depth-sorted display list** feeds: every drawable owns a
+14-byte record (`$41E` table, order `$5F7`) with an iso 3-D bounding box,
+rebuilt per frame (`$1085C`), bubble-sorted with a separating-axis comparator
+(`$10F4C`, the classic iso sort), and walked in order by `$11704` — the order
+in which pieces claim sprite channels.
 
-**The scenery pieces are `.ilb` cells owned by the Track's dynamic regions**
-(display types 7/8/9). A 16-byte **sprite record** in the Track file describes
-each piece:
+**The scenery pieces are `.ilb` cells owned by the Track's dynamic regions.**
+A 16-byte sprite record describes each piece:
 
 ```
 +0/+1  dx/dy draw nudge          +4..+7  iso-box extents
 +2..3  state bytes               +8      .ilb cell index (long)
-                                 +C      aux pointer (long)
+                                 +C      colour-ramp pointer (3 × $0RGB words)
 ```
 
 Records live in `$FFFFFFFF`-terminated pointer lists — flat (the goal flag's 4
-wave frames = `beginr.ilb` cells 0–3) or `[record, composite-list]` pairs (the
-Beginner drawbridge: cells 4–7 = four 64×63 lift stages, one list forward and
-one reversed = raise and lower). The region **script** wires them up: an `op0`
-keyframe with `dur==1` carries the piece's **draw anchor in course-tile
-coordinates** (region `+$26/+$28`) plus the sprite-list link; `op12/op13`
-re-link the list, `op2 SPRITE` selects the entry (region `+$1C` becomes the
-list cursor the display list draws through). Free-standing pieces like the
-flags anchor at their keyframe reference point through the engine's projection
-(`$6918`: `screenX = y·8−x·8+$88`, `screenY = z + $9BA + $6C − (x·8+y·8)/2`,
-with `$9BA` seeded from the course descriptor's `+$10` word).
+wave frames = `beginr.ilb` cells 0–3, ramp `$0000/$008A/$00CF`) or
+`[record, composite-list]` pairs (the Beginner drawbridge: cells 4–7 = four
+64×63 lift stages, one list forward and one reversed = raise and lower; the
+composite element drives the Painter's tile redraw for that stage, while the
+record's cell supplies the occlusion mask). The region **script** wires them
+up: an `op0` keyframe with `dur==1` carries the piece's **draw anchor in
+course-tile coordinates** (region `+$26/+$28`) plus the sprite-list link;
+`op12/op13` re-link the list, `op2 SPRITE` selects the entry (region `+$1C`
+becomes the list cursor). Free-standing pieces like the flags anchor at their
+keyframe reference point through the engine's projection (`$6918`:
+`screenX = y·8−x·8+$88`, `screenY = z + $9BA + $6C − (x·8+y·8)/2`, with `$9BA`
+seeded from the course descriptor's `+$10` word).
 
-So "the level occludes the marble" is an illusion with a precise mechanism: the
-occluding art *looks like* tilemap but is a sprite — the bridge plank, the flag
-poles, Practice's pop-up start ramp — each carrying its own 3-D box so the sort
-can put the marble behind it. The companion site's course maps draw these
-pieces as a toggleable **scenery-overlay layer** (`extract/cmd/webexport`,
-`overlay.go`), placed by replaying exactly this data chain; the goal flags land
-pixel-perfect on the GOAL banners of all six courses and the drawbridge merges
-seamlessly into the Beginner plateau, verifying the record format and both
-anchor paths.
+The companion site's course maps draw these pieces as a toggleable
+**scenery-overlay layer** (`extract/cmd/webexport`, `overlay.go`), placed by
+replaying exactly this data chain — type-1 pieces in their record's own sprite
+colours; the goal flags land pixel-perfect on the GOAL banners of all six
+courses and the drawbridge merges seamlessly into the Beginner plateau,
+verifying the record format and both anchor paths.
 
 ## 3. Terrain interaction
 

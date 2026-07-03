@@ -85,10 +85,25 @@ func Decode(file []byte) (buf []byte, cells []Cell) {
 	return buf, cells
 }
 
+// RenderRamp draws a type-1 (hardware-sprite) cell with its own 3-colour ramp —
+// the three $0RGB words the piece's 16-byte sprite record points at via +$C,
+// which the engine loads into the sprite pair's COLOR registers through the
+// copper list. Pixel value 0 is transparent (sprite colour 0).
+func RenderRamp(buf []byte, c Cell, ramp [3]uint16) *image.RGBA {
+	n4 := func(x uint16) uint8 { return uint8(x) * 17 }
+	pal := make(color.Palette, 4)
+	pal[0] = color.RGBA{}
+	for i, w := range ramp {
+		pal[i+1] = color.RGBA{n4((w >> 8) & 0xF), n4((w >> 4) & 0xF), n4(w & 0xF), 0xFF}
+	}
+	return Render(buf, c, pal, 0)
+}
+
 // Render draws one cell as an RGBA image with pixel value 0 transparent — the
-// engine blits cells cookie-cut through a mask built from the OR of the planes,
-// so 0 pixels never reach the screen. type-1 sprites add type1Off to non-zero
-// pixels (the per-object colour ramp; 6 = the course object-accent ramp).
+// engine masks cells through the OR-of-planes silhouette built at load (the
+// cookie-cut mask at descriptor +$C), so 0 pixels never reach the screen.
+// type-1 sprites add type1Off to non-zero pixels when no per-record ramp is
+// supplied (6 = the course object-accent ramp approximation).
 func Render(buf []byte, c Cell, pal color.Palette, type1Off int) *image.RGBA {
 	img := image.NewRGBA(image.Rect(0, 0, c.W, c.H))
 	bpr := c.W / 8

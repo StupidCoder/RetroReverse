@@ -337,10 +337,16 @@
 012B9E  terrain_lookup   a COARSE zone/edge lookup (NOT the per-location slope field). Walks the small Track block at header+8 ($12F74 -> $9D4): 5-byte records [+0 dx signed][+1 dy signed][+2 length][+3 type_a][+4 type_b], $FFFF-terminated (practy has only 10) = a 2-D diagonal-boundary partition classifying a few large zones and the off-course edge. Tests the marble's iso-cell ($6CA/$6CC + $6CE/$6D0) vs each boundary, writing a type to +$1B; type $FF ($012D44) = off-course -> fall/death ($5E4). OPEN: the type->slope-acceleration table.
 
 # --- the object / actor (sprite-animation) system (Part V) ---
-# The .ilb/.vlb cells are drawn as BLITTER objects (no hardware sprites: no
-# $DFF0A0-$DFF0DC anywhere). The playfield is 4 bitplanes; type-0 composited
-# scenery cells hold 4 sequential plane blocks, type-1 stored sprites are
-# row-interleaved single frames (Part IV §3).
+# CORRECTED 2026-07-03: the moving cast (marble, creatures, flags, overlay
+# pieces) rides HARDWARE SPRITES — the CPU never writes $DFF0A0-$DFF0DC (which
+# earlier read as "no hw sprites"), because the COPPER writes them: 8 SPRxPT
+# writes + per-band COLOR17+ blocks in the live copper list (verified under
+# FS-UAE; BPLCON0 $4200 single playfield, BPLCON2 constant $0024 = all sprites
+# in front of the playfield). The type-1 cell format (16 px, 2 planes,
+# row-interleaved) IS the sprite-DMA data layout. type-0 composited scenery
+# cells hold 4 sequential plane blocks; composite_planes $8026 builds their
+# OR-of-planes silhouette MASK into desc+$C at load (the occlusion masks).
+# The blitter (blit_object below) serves the remaining draw paths.
 011D1C  blit_object      blit one object into the 4-plane playfield. Arg $8(a6) = a cell descriptor (the unpacked-.ilb 20-byte record); $E/$12/$16/$1A = x/screen-offset/word-x/y. Reads $2(a0)=width words, $6(a2)=one-plane size, $8(a0)=source. Loops over the screen bitmap's plane-pointer table at $7B30+8 for FOUR planes ($011E4C ADDA.w #$10 = 4 longs), advancing the source by one-plane-size each plane. Blitter channel map: B ($DFF04C) = pixel source desc+$8; A ($DFF050) = cookie-cut mask desc+$C when desc+1 bit0 set (BLTCON0 $FCA, LF $CA = A·B + ~A·C), else plain copy ($5CC); C ($DFF048) = the CLEAN-BACKGROUND aux buffer desc+$10 when set (restore-around-sprite in the same blit), else the screen; D ($DFF054) = screen.
 0104C4  draw_object_wrap draw an object at (x,y) with vertical wraparound: clips to the $200 (512) tall scroll buffer and calls blit_object once or twice (top/bottom halves) so objects straddling the scroll seam render whole. Reads scroll offset via $7B28.
 01D3B2  actor_update     the per-frame actor update+draw loop. Walks an array of 20-byte actor records (stride $14): +0 = pointer to the current sprite CELL to draw (passed to draw_object_wrap), +4 = animation-script pointer (8-byte entries: cell ptr + timing; advanced when the +8 frame timer expires, $FFFFFFFF-terminated -> loop), +8 = frame timer, +A/+C = x/y position (y biased by scroll $D30C), +E/+10 = anim/wrap state. Pulls anim scripts from the per-course Track blob via $FD2C (e.g. $280(a0)/$284(a0)); per-actor sub-records live at $18A6 (stride $10). Frame durations randomised via rng $8F96.
@@ -402,7 +408,9 @@
 # extract/cmd/tracks: practy 59, beginr 79, interm 87, aerial 159, silly 104,
 # ultima 144 objects.
 000690  g_respawn_x      (global) RESPAWN X tile, computed by respawn_pick $1279C/$1288C from the placement table; reposition_marble $1448E does $690<<16 -> marble obj+$C. ($694 = respawn Y -> obj+$10; $6A0 = the picked placement type, $FF = none.)
-0122AC  draw_sprite_record  emit the blit(s) for one 16-byte SPRITE RECORD (a0 = record; args x, y screen coords, y up-positive, flipped $108-y). Record: [+0 dx nudge][+1 dy nudge][+2 state byte][+4..+7 iso-box extents][+8 long .ilb cell index][+C long aux ptr]. Looks the cell up via $825E, builds a draw request via $3BB2 (untraced leaf), copies the cell's plane pointers in, and queues follow-on cells (request +4 = count) — the draw path every display-list type dispatches into ($650A regions, $6562 spawn gate, $64B6, ...). Increments the per-frame draw counter $638. (An earlier note named this address place_objects and described the placement-table proximity query — that behaviour lives at $012600/$1288C; the label was misattributed.)
+0122AC  draw_sprite_record  queue one 16-byte SPRITE RECORD as a HARDWARE SPRITE (a0 = record; args x, y screen coords, y up-positive, flipped $108-y). Record: [+0 dx nudge][+1 dy nudge][+2 state byte][+4..+7 iso-box extents][+8 long .ilb cell index][+C long -> the sprite's 3 $0RGB COLOURS (loaded into COLOR17+4n by the $3558 copper fragment; e.g. the marble ramps $6750/$6756 = blue/red player, the beginr flag ramp $0000/$008A/$00CF)]. Looks the cell up via $825E, allocates sprite channel rows via $3BB2 (the per-scanline-band channel allocator over the $5B30 arena), memcpys the cell's row-interleaved 2-plane data into the channel's sprite-DMA buffer (skipping the POS/CTL words), and queues follow-on cells for wide multi-column pieces (request +4 = count) — the path every display-list type dispatches into ($650A regions, $6562 spawn gate, $5DFC/$60F6 marbles, ...). Increments the per-frame draw counter $638. Returns the request ptr (0 = off-screen/out of channels). (An earlier note named this address place_objects — that behaviour lives at $012600/$1288C; a second earlier note called it a blit emitter — it is the sprite queue.)
+003BB2  sprite_queue     allocate sprite-channel rows for one piece: clips y to the screen, grabs a request node ($3A0E from the $5B30 pool), then per pixel row finds/creates a row-band node ($119D8 find, $11A92/$11B00 match by colour-ramp + x-overlap, $3AC6 alloc; nodes stride $12, channel index & 6 = the sprite pair) and stores the per-row sprite-buffer pointers into the request (+8 array). The $5B30 row-band structure IS the sprite MULTIPLEXER: it reuses the 8 hardware channels down the screen, emitting copper SPRxPT/colour fragments per band.
+003558  copper_fragment  build one per-band copper fragment into the $5B30 arena (max $1E/frame): [WAIT vpos][MOVE COLOR17+4n = ramp0][COLOR18+4n = ramp1][COLOR19+4n = ramp2][end], n = the sprite pair — how each queued piece's record+$C colours reach the hardware mid-frame.
 # THE PLACEMENT TABLE IS ALSO THE RESPAWN-ANCHOR MAP (the cyan overlay dots line the fall-off
 # edges). When the marble rolls off an edge it goes airborne and the state-transition routine
 # (case $F(a6)==4 at $14814) enters state 4 FALLING/SETTLING via BSR reposition_marble $1448E.
@@ -421,15 +429,13 @@
 #   gap). CONFIRMS the user's read: the cyan placement dots are the fall-off-edge respawn points.
 01D3EC  actor_setup      sets up the dynamic actors (enemies / animated obstacles): the 3-record actor array at $FD2C+$23C (stride $14, end +$3C); pulls templates/anim scripts from the Track segment (anim table at $FD2C+$280). Course-gated ($5D6==3 path tests $78E). The type(0..7)->object/anim definition tables are the other Track header pointers ($1ED44 ptr array @+$C, $89C2 @+$10, anim $FD2C @+$14) + a per-course copper-style colour table inside the +$10 block ($DFF180..$DFF192) — decode TODO.
 
-# --- THE DEPTH-SORTED DISPLAY LIST = the occlusion system (Part V §2) ---
+# --- THE DEPTH-SORTED DISPLAY LIST (sprite ordering; see also the occlusion
+#     mask punch $5BE0/$11678/$112DA below — Part V §2) ---
 # Every drawable — the marbles, the enemies, the region scenery pieces, the spawn
-# gate — is an entry in ONE display list, painter's-algorithm sorted in iso space
-# each frame. This is how the marble disappears BEHIND "parts of the level": the
-# static .mlb tilemap is pure background and never occludes; anything the marble
-# can pass behind (drawbridge, goal flags, the start ramp, tube/arch fronts) is an
-# .ilb scenery cell owned by a Track dynamic region, sitting in this list with a
-# 3-D bounding box — when the marble's box sorts behind it, the scenery piece is
-# blitted after the marble and covers it.
+# gate — is an entry in ONE display list, iso-sorted each frame. The walk order =
+# the order pieces claim HARDWARE SPRITE channels (lower channel = in front, so
+# sprite-vs-sprite layering is per-pixel in Denise). Sprite-vs-LEVEL occlusion is
+# NOT this list: it is the software mask punch ($5BE0 -> $11678 -> $112DA below).
 # Structures: $5F7..$615 = the draw ORDER (byte indices, $FF-terminated, ~31 max);
 # $21CC = per-slot pointer table -> 14-byte DEPTH RECORDS at $41E..$5D0 (stride $E):
 # [+0 type byte][+1 index byte][+2/+4/+6 box min x/y/z][+8/+A/+C box size x/y/z].
@@ -451,18 +457,29 @@
 006562  draw_spawn_gate  display-list draw leaf for type $2C: reads $CCA+idx*10 (+0/+2 = x,y <<4, +8 = state), picks the gate cell from table $67B0[state] into record $6850's cell slot, draws at (x>>4, y>>4).
 # THE 16-BYTE SPRITE RECORD (what region+$1C points at, and what $122AC consumes):
 # [+0 dx][+1 dy][+2..3 state bytes][+4..+7 iso-box extent bytes][+8 long .ilb cell
-# index][+C long aux ptr]. Records live in $FFFFFFFF-terminated pointer LISTS in
-# the Track file — flat (goal flags: 4 records = 4 wave frames) or [record,
-# composite-list] PAIRS (the beginr drawbridge: cells 4-7 = 4 lift stages, forward
-# and reversed lists = raise/lower). The region script wires them up: op0 KEYFRAME
-# dur==1 carries [w26 w28 link] = the piece's draw anchor in course-tile coords
-# (+$26/+$28, the $105FE/$D868 tile-area draw path) + the sprite list; op12/op13
-# re-link; op2 SPRITE selects the list entry. dur!=1 pieces (the flags) anchor at
-# the keyframe ref point through the iso projection ($6918: screenX = y8-x8+$88,
-# screenY = z + $9BA + $6C - (x8+y8)/2, y up-positive, flipped $108-y at draw;
-# $9BA seeded from course descriptor +$10 by $E6B2, +$12 added on course 4).
-# extract/cmd/webexport (overlay.go) replays exactly this to place the scenery
-# overlay layer on the site's course maps.
+# index][+C long -> 3 $0RGB sprite colours]. Records live in $FFFFFFFF-terminated
+# pointer LISTS in the Track file — flat (goal flags: 4 records = 4 wave frames,
+# ramp $0000/$008A/$00CF) or [record, composite-list] PAIRS (the beginr drawbridge:
+# cells 4-7 = 4 lift stages, forward and reversed lists = raise/lower; the
+# composite element = the Painter tile-redraw commands for that stage, the record's
+# cell mask = the occlusion silhouette). The region script wires them up: op0
+# KEYFRAME dur==1 carries [w26 w28 link] = the piece's draw anchor in course-tile
+# coords (+$26/+$28, the $105FE/$D868 tile-area draw path) + the sprite list;
+# op12/op13 re-link; op2 SPRITE selects the list entry. dur!=1 pieces (the flags)
+# anchor at the keyframe ref point through the iso projection ($6918: screenX =
+# y8-x8+$88, screenY = z + $9BA + $6C - (x8+y8)/2, y up-positive, flipped $108-y
+# at draw; $9BA seeded from course descriptor +$10 by $E6B2, +$12 added on
+# course 4). extract/cmd/webexport (overlay.go) replays exactly this to place the
+# scenery overlay layer on the site's course maps.
+
+# --- THE OCCLUSION MASK PUNCH = how the marble hides behind the level (Part V §2) ---
+# BPLCON2 is the constant $0024 (engine copper template, flat $8A62-ish; verified
+# live) = ALL sprites in front of the playfield, always — the tilemap can never
+# cover a sprite, and the square 8x8 tiles mix background and foreground pixels
+# anyway. Instead the engine clears the occluded pixels OUT of the sprite data:
+005BE0  occlude_checks   per-course occlusion tests, run right after the marble's sprite is queued ($5DFC tail; args obj, x, y, request). Course 1/beginner: if the DRAWBRIDGE region ($FD38, terr-3 self-registration) exists and the marble's iso pos (obj+$C/+$10 words) is behind/level with its ref (+$C/+$10) -> $11678. Course 3/silly: walk the $FD3C hole-region list (6 slots) comparing Y; then the $FD54 (terr-10) region; then $1DBF8 and the $FD58 funnel list — each hit calls $11678(region, x, $108-y-9, request).
+011678  occlude_piece    resolve one scenery piece's occlusion: a2 = *(*(region+$3E)) = the region's CURRENT animation record (the +$3E redraw-list cursor — the mask always matches the lift stage on screen); piece screen pos = region+$26*8 + drift(+$4E) / region+$28*8 - drift(+$50) - ($9BA - descriptor+$10) (scroll-corrected); calls $112DA(record, pieceX, pieceY, marbleX, marbleY, request).
+0112DA  mask_punch       THE MASKING ALGORITHM: $825E(record+$8) -> cell descriptor; REQUIRES desc+$C != 0 = the cell's 1-plane OR-of-planes silhouette MASK (built at load by composite_planes $8026 — the black/white level-geometry images). Clips the row overlap between the piece (pieceY, desc+4 rows) and the queued sprite (marbleY, request+6 rows) and the word-column/sub-pixel x offset; then per overlapping row: d0 = NOT(maskword << dx) and ANDs d0 into BOTH data words of the sprite row ($11500/$11510) — clearing the sprite's pixels wherever the scenery silhouette covers them, so the playfield (with the scenery tile-painted into it) shows through. Pixel-precise "marble behind the level" on square tiles, per frame, in software, on hardware-sprite DMA data.
 
 # --- the "Painter" task: all tilemap drawing is message-driven ---
 009450  painter_create   create the "Painter" exec task (name $951C, entry $91C0, port $990C); wires the request globals $94F2/$94F6/$94FA.
