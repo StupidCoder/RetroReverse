@@ -12,7 +12,7 @@
 # that bank paged in; cross-bank CALLs (e.g. CALL $4006) decode the wrong bank here.
 #
 # Regenerate (from the repo root; the .gg is committed):
-#   go run stupidcoder.com/tools/cmd/codetracez80 -load 0 -entry 0000,0038,0066,2CD4 \
+#   go run retroreverse.com/tools/cmd/codetracez80 -load 0 -entry 0000,0038,0066,2CD4 \
 #   (2CD4 = the shared object move code: it is only ever reached as a PUSHed return
 #   address from obj_run_one $2CBA, so recursive descent needs it seeded.)
 #       -annotate "Sonic (GG)/disasm/sonic.annotations.txt" \

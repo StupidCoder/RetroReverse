@@ -14,7 +14,7 @@ import (
 	"os"
 	"strconv"
 
-	"stupidcoder.com/tools/gamegear"
+	"retroreverse.com/tools/gamegear"
 )
 
 func main() {

@@ -10,7 +10,7 @@ import (
 	"strconv"
 	"strings"
 
-	"stupidcoder.com/tools/mos6502"
+	"retroreverse.com/tools/mos6502"
 )
 
 func parseAddr(s string) (uint16, error) {

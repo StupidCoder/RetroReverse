@@ -15,7 +15,7 @@ import (
 	"strings"
 
 	"elite/extract/shipmodel"
-	"stupidcoder.com/tools/mos6502"
+	"retroreverse.com/tools/mos6502"
 )
 
 const (

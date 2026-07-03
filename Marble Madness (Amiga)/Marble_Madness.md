@@ -742,12 +742,12 @@ starting point for the mechanics analysis of Part V.
 
 ```sh
 # split + first-pass disassembly of the decrypted engine
-go run stupidcoder.com/tools/amiga/cmd/hunkload -base 0 \
+go run retroreverse.com/tools/amiga/cmd/hunkload -base 0 \
     extracted/c_MarbleMadness.dat.decrypted.hunk            # the hunk/code-data map
-go run stupidcoder.com/tools/amiga/cmd/hunkload -base 0 -o /tmp/dat.bin \
+go run retroreverse.com/tools/amiga/cmd/hunkload -base 0 -o /tmp/dat.bin \
     extracted/c_MarbleMadness.dat.decrypted.hunk            # flat relocated image
 # -entry = every CODE-hunk base from the map above
-go run stupidcoder.com/tools/cmd/codetrace68k -base 0 -entry <CODE-hunk bases> /tmp/dat.bin
+go run retroreverse.com/tools/cmd/codetrace68k -base 0 -entry <CODE-hunk bases> /tmp/dat.bin
 ```
 
 ---
@@ -1844,7 +1844,7 @@ captured audio are involved — the only values transcribed from the game code a
 *algorithm* constants (the period table, the note-length table `$1FA26`, the frame
 delta `$1FA68`, the PAL Paula clock). All fourteen tunes across the six courses are
 rendered this way and embedded in the interactive
-[course viewer](https://stupidcoder.github.io/AIReverseEngineering/) (pick Marble Madness from the menu).
+[course viewer](https://stupidcoder.github.io/RetroReverse/) (pick Marble Madness from the menu).
 
 ```sh
 # render a course theme straight from the disk image
@@ -1861,17 +1861,17 @@ the repository root:
 
 ```sh
 # 1. List the disk's filesystem and files
-go run stupidcoder.com/tools/amiga/cmd/adfdump "Marble Madness (Amiga)/Marble_Madness.adf"
+go run retroreverse.com/tools/amiga/cmd/adfdump "Marble Madness (Amiga)/Marble_Madness.adf"
 
 # 2. Extract every file (preserving the directory tree)
-go run stupidcoder.com/tools/amiga/cmd/adfdump -x mm-files \
+go run retroreverse.com/tools/amiga/cmd/adfdump -x mm-files \
     "Marble Madness (Amiga)/Marble_Madness.adf"
 
 # 3. Disassemble a 68000 code hunk (-skip steps past the HUNK_HEADER to the code)
-go run stupidcoder.com/tools/cmd/dis68k -skip 36 mm-files/c/EndCLI
+go run retroreverse.com/tools/cmd/dis68k -skip 36 mm-files/c/EndCLI
 
 # 4. Recursive-descent trace from an entry point
-go run stupidcoder.com/tools/cmd/codetrace68k -base 0 -skip 36 -entry 0 mm-files/c/EndCLI
+go run retroreverse.com/tools/cmd/codetrace68k -base 0 -skip 36 -entry 0 mm-files/c/EndCLI
 ```
 
 Dynamic verification uses the instruction-level 68000 core in `tools/m68k`

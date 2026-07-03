@@ -28,8 +28,8 @@ import (
 	"sort"
 	"strings"
 
-	"stupidcoder.com/tools/amiga/adf"
-	"stupidcoder.com/tools/amiga/hunk"
+	"retroreverse.com/tools/amiga/adf"
+	"retroreverse.com/tools/amiga/hunk"
 )
 
 func u32(b []byte, o uint32) uint32 {

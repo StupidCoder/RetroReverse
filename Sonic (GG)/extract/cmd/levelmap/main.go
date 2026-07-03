@@ -34,7 +34,7 @@ import (
 
 	"sonicgg/extract/decomp"
 
-	"stupidcoder.com/tools/gamegear"
+	"retroreverse.com/tools/gamegear"
 )
 
 const (

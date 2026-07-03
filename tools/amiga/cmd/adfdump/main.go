@@ -15,7 +15,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"stupidcoder.com/tools/amiga/adf"
+	"retroreverse.com/tools/amiga/adf"
 )
 
 func main() {

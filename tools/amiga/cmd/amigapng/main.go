@@ -14,8 +14,8 @@ import (
 	"os"
 	"strings"
 
-	"stupidcoder.com/tools/amiga/icon"
-	"stupidcoder.com/tools/amiga/iff"
+	"retroreverse.com/tools/amiga/icon"
+	"retroreverse.com/tools/amiga/iff"
 )
 
 func main() {

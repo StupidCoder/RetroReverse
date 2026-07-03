@@ -13,7 +13,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"stupidcoder.com/tools/gamegear"
+	"retroreverse.com/tools/gamegear"
 )
 
 var enemyName = map[byte]string{0x08: "crab", 0x10: "beetle", 0x0E: "bird", 0x26: "fish", 0x2D: "porcupine", 0x0F: "platform", 0x07: "goal"}

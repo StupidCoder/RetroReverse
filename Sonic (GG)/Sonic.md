@@ -1928,6 +1928,6 @@ Static analysis only, with the Z80 toolchain in the shared `tools/` module:
 Reproduce the boot listing in Part I §5:
 
 ```sh
-go run stupidcoder.com/tools/cmd/disz80 -off 0 -len 0x0C -base 0 \
+go run retroreverse.com/tools/cmd/disz80 -off 0 -len 0x0C -base 0 \
     "Sonic (GG)/Sonic The Hedgehog (Japan, USA).gg"
 ```

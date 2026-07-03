@@ -15,7 +15,7 @@ package main
 import (
 	"fmt"
 
-	"stupidcoder.com/tools/c64/c64"
+	"retroreverse.com/tools/c64/c64"
 )
 
 // loadReturnPC is a synthetic return address pushed when the driver calls the

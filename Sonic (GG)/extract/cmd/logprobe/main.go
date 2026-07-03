@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"os"
 
-	"stupidcoder.com/tools/gamegear"
+	"retroreverse.com/tools/gamegear"
 )
 
 func main() {

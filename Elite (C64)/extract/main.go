@@ -19,9 +19,9 @@ import (
 	"path/filepath"
 	"sort"
 
-	"stupidcoder.com/tools/c64/c64"
-	"stupidcoder.com/tools/c64/cbmtape"
-	"stupidcoder.com/tools/c64/tap"
+	"retroreverse.com/tools/c64/c64"
+	"retroreverse.com/tools/c64/cbmtape"
+	"retroreverse.com/tools/c64/tap"
 )
 
 func main() {

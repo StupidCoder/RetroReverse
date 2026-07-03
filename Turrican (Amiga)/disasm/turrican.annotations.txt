@@ -5,7 +5,7 @@
 #
 # Regenerate turrican.asm (run from the repo root):
 #   go run turrican/extract/cmd/decrunch -o /tmp/turrican.bin "Turrican (Amiga)/Turrican.adf"
-#   go run stupidcoder.com/tools/cmd/codetrace68k -base 0x43880 \
+#   go run retroreverse.com/tools/cmd/codetrace68k -base 0x43880 \
 #     -entry 0x5F500,0x60000,0x602D0 \
 #     -annotate "Turrican (Amiga)/disasm/turrican.annotations.txt" \
 #     -o "Turrican (Amiga)/disasm/turrican.asm" /tmp/turrican.bin

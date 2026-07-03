@@ -1,4 +1,4 @@
-# AI Reverse Engineering
+# RetroReverse
 
 Are the latest LLMs smart enough to reverse engineer old
 software purely by static analysis, without access to a 3rd party debugger? This
@@ -93,10 +93,10 @@ ones live in a per-platform subfolder (`tools/c64/` today; `tools/amiga/`,
 together.
 
 ```
-AIReverseEngineering/
+RetroReverse/
 ├── go.work                     # Go workspace over tools + each game's extract/
 ├── README.md                   # this file
-├── tools/                      # shared tooling (module stupidcoder.com/tools)
+├── tools/                      # shared tooling (module retroreverse.com/tools)
 │   ├── mos6502/                #   6502 disassembler + executable CPU core (any 6502 platform)
 │   ├── m68k/                   #   Motorola 68000 disassembler + CPU core (any 68k platform)
 │   ├── z80/                    #   Zilog Z80 disassembler + executable CPU core (any Z80 platform)
@@ -243,24 +243,24 @@ module. Build and test each module from its own directory:
 ```
 
 (The integration tests skip automatically when the `.tap` image is absent.)
-The shared module's import path is `stupidcoder.com/tools`, so its commands
+The shared module's import path is `retroreverse.com/tools`, so its commands
 are run by that full path from anywhere in the workspace (the `go.work` is
 found by walking up from the current directory), e.g.
-`go run stupidcoder.com/tools/c64/cmd/tapdump ...`.
+`go run retroreverse.com/tools/c64/cmd/tapdump ...`.
 
 `tapdump` is generic — point it at any C64 `.tap` to see its pulse encoding
 and segment layout (the first step when approaching an unfamiliar tape):
 
 ```sh
-go run stupidcoder.com/tools/c64/cmd/tapdump path/to/any.tap
+go run retroreverse.com/tools/c64/cmd/tapdump path/to/any.tap
 ```
 
 `adfdump` is likewise generic for Amiga disks — it lists and extracts the files
 of any standard AmigaDOS floppy image:
 
 ```sh
-go run stupidcoder.com/tools/amiga/cmd/adfdump path/to/disk.adf            # list
-go run stupidcoder.com/tools/amiga/cmd/adfdump -x out path/to/disk.adf     # extract
+go run retroreverse.com/tools/amiga/cmd/adfdump path/to/disk.adf            # list
+go run retroreverse.com/tools/amiga/cmd/adfdump -x out path/to/disk.adf     # extract
 ```
 
 The `extract` tools are not generic: each one is written for its game's
@@ -281,10 +281,10 @@ Disassemble any extracted file with the shared tools — `dis6502` for 6502,
 `dis68k` for 68000 (`-skip` steps past an Amiga hunk header):
 
 ```sh
-go run stupidcoder.com/tools/cmd/dis6502 -start 8927 -end 8A40 \
+go run retroreverse.com/tools/cmd/dis6502 -start 8927 -end 8A40 \
     "Fort Apocalypse (C64)/extracted/FORT-fast-7000.prg"
 
-go run stupidcoder.com/tools/cmd/dis68k -skip 36 amiga-code-hunk.bin
+go run retroreverse.com/tools/cmd/dis68k -skip 36 amiga-code-hunk.bin
 ```
 
 ## Two extraction strategies

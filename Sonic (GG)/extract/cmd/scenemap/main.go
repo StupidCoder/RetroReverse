@@ -18,7 +18,7 @@ import (
 	"path/filepath"
 
 	"sonicgg/extract/decomp"
-	"stupidcoder.com/tools/gamegear"
+	"retroreverse.com/tools/gamegear"
 )
 
 func main() {

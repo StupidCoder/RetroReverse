@@ -11,7 +11,7 @@ import (
 	"os"
 
 	"sonicgg/extract/decomp"
-	"stupidcoder.com/tools/gamegear"
+	"retroreverse.com/tools/gamegear"
 )
 
 func w(rom []byte, o int) int { return int(rom[o]) | int(rom[o+1])<<8 }

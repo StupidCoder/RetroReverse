@@ -17,7 +17,7 @@ import (
 	"os"
 	"strconv"
 
-	"stupidcoder.com/tools/gameboy"
+	"retroreverse.com/tools/gameboy"
 )
 
 type romRead struct {

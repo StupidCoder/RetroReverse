@@ -51,8 +51,8 @@ import (
 	"sort"
 	"strings"
 
-	"stupidcoder.com/tools/amiga/adf"
-	"stupidcoder.com/tools/amiga/hunk"
+	"retroreverse.com/tools/amiga/adf"
+	"retroreverse.com/tools/amiga/hunk"
 )
 
 var courses = []struct{ key, track string }{

@@ -18,9 +18,9 @@ import (
 	"fmt"
 	"os"
 
-	"stupidcoder.com/tools/amiga/adf"
-	"stupidcoder.com/tools/amiga/hunk"
-	"stupidcoder.com/tools/m68k"
+	"retroreverse.com/tools/amiga/adf"
+	"retroreverse.com/tools/amiga/hunk"
+	"retroreverse.com/tools/m68k"
 )
 
 const (

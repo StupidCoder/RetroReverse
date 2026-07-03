@@ -22,7 +22,7 @@ import (
 	"strconv"
 	"strings"
 
-	"stupidcoder.com/tools/mos6502"
+	"retroreverse.com/tools/mos6502"
 )
 
 func main() {

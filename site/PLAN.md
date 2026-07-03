@@ -55,7 +55,7 @@ site/
   PLAN.md                 ← this file
   index.html              site shell / landing page
   package.json
-  vite.config.js          base path = "/AIReverseEngineering/"
+  vite.config.js          base path = "/RetroReverse/"
   src/
     main.js               shell + simple router (landing ↔ game pages)
     shared/
@@ -182,7 +182,7 @@ as stubs describing what's coming, filled in later.
 ## Build & deploy
 
 - `npm create vite`, add `pixi.js`, `@pixi/tilemap`, `pixi-viewport`.
-- `vite.config.js` `base: '/AIReverseEngineering/'` for project Pages.
+- `vite.config.js` `base: '/RetroReverse/'` for project Pages.
 - `.github/workflows/pages.yml`: on push to `main`, `npm ci && npm run build`, upload `dist/`,
   deploy to Pages.
 

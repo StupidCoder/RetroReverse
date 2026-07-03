@@ -16,9 +16,9 @@ import (
 
 	"marblemad/extract/mlb"
 	"marblemad/extract/slope"
-	"stupidcoder.com/tools/amiga/adf"
-	"stupidcoder.com/tools/amiga/hunk"
-	"stupidcoder.com/tools/c64/gfx"
+	"retroreverse.com/tools/amiga/adf"
+	"retroreverse.com/tools/amiga/hunk"
+	"retroreverse.com/tools/c64/gfx"
 )
 
 // courses in play order: key (.mlb basename), Track filename, display name.

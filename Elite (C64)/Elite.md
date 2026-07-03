@@ -1914,7 +1914,7 @@ root `README.md`); only the Elite-specific glue lives in `extract/`:
 # repository root lets the extract module find the shared tools packages.
 
 # 1. Summarise the tape (pulse histogram + segment map)
-go run stupidcoder.com/tools/c64/cmd/tapdump Elite.tap
+go run retroreverse.com/tools/c64/cmd/tapdump Elite.tap
 
 # 2. Extract all program files by running the loader under emulation
 ( cd extract && go build -o extract . )
@@ -1928,7 +1928,7 @@ extract/extract -o extracted Elite.tap
 
 # 5. Disassemble anything (shared tool, run by import path) — e.g. the
 #    getbit/getbyte routines at $0334 inside the boot file
-( cd extract && go run stupidcoder.com/tools/cmd/dis6502 -start 0334 -end 0358 \
+( cd extract && go run retroreverse.com/tools/cmd/dis6502 -start 0334 -end 0358 \
     ../extracted/00_cbm_ELITE_029f.prg )
 
 # 6. Dynamic tracing: run real engine routines under emulation and watch output
@@ -1946,7 +1946,7 @@ extract/extract -o extracted Elite.tap
 #    code does not rewrite itself (unlike the loader), so the disassembly is
 #    stable; annotations in disasm/annotations.txt grow as analysis progresses.
 ( cd extract && go run ./cmd/enginedump /tmp/elite-engine.prg )
-go run stupidcoder.com/tools/cmd/codetrace6502 \
+go run retroreverse.com/tools/cmd/codetrace6502 \
     -entry 1D1F,916F,B3B2,B1FA,B433 -table 2509:21 \
     -annotate disasm/annotations.txt -o disasm/elite.asm /tmp/elite-engine.prg
 

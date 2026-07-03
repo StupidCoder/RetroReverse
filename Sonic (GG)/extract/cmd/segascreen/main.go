@@ -22,7 +22,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"stupidcoder.com/tools/gamegear"
+	"retroreverse.com/tools/gamegear"
 )
 
 func main() {

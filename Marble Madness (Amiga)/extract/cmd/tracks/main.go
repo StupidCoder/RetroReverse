@@ -20,8 +20,8 @@ import (
 	"sort"
 	"strings"
 
-	"stupidcoder.com/tools/amiga/adf"
-	"stupidcoder.com/tools/amiga/hunk"
+	"retroreverse.com/tools/amiga/adf"
+	"retroreverse.com/tools/amiga/hunk"
 )
 
 // courses maps the course key to its Track filename (case-insensitive lookup).

@@ -829,7 +829,7 @@ All work is reproducible from the image with the shared `tools/` module:
 
 ```sh
 # Inspect the boot block / a raw region (disk offset maps 1:1 to bytes)
-go run stupidcoder.com/tools/cmd/dis68k -base 0 -skip 12 "Stunt Car Racer (Amiga)/Stunt Car Racer.adf"
+go run retroreverse.com/tools/cmd/dis68k -base 0 -skip 12 "Stunt Car Racer (Amiga)/Stunt Car Racer.adf"
 
 # Slice the disk into loader.bin, game.bin and the decrypted game.dec.bin
 cd "Stunt Car Racer (Amiga)/extract" && go run ./cmd/extract "../Stunt Car Racer.adf"
@@ -854,8 +854,8 @@ go run ./cmd/trackjson ../extracted/game.dec.bin   # -> site/public/stuntcar/tra
 go run ./cmd/physverify ../extracted/game.dec.bin
 
 # Disassemble / trace the engine. Use game.dec.bin for anything in $F4B8..$1AA4A.
-go run stupidcoder.com/tools/cmd/dis68k     -base 0xE700 -start <addr> -end <addr> extracted/game.dec.bin
-go run stupidcoder.com/tools/cmd/codetrace68k -base 0xE700 -entry <addr>            extracted/game.dec.bin
+go run retroreverse.com/tools/cmd/dis68k     -base 0xE700 -start <addr> -end <addr> extracted/game.dec.bin
+go run retroreverse.com/tools/cmd/codetrace68k -base 0xE700 -entry <addr>            extracted/game.dec.bin
 ```
 
 Dynamic verification uses the instruction-level 68000 core in `tools/m68k`

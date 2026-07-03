@@ -450,7 +450,7 @@ Regeneration (from the repo root):
 go run turrican/extract/cmd/decrunch -o /tmp/turrican.bin "Turrican (Amiga)/Turrican.adf"
 
 # recursive-descent trace from the game's in-place segment, applying the annotations
-go run stupidcoder.com/tools/cmd/codetrace68k -base 0x43880 \
+go run retroreverse.com/tools/cmd/codetrace68k -base 0x43880 \
   -entry 0x5F500,0x60000,0x602D0 \
   -annotate "Turrican (Amiga)/disasm/turrican.annotations.txt" \
   -o "Turrican (Amiga)/disasm/turrican.asm" /tmp/turrican.bin
@@ -555,7 +555,7 @@ The engine doesn't ship complete in the resident image — `game_init` and
   ```sh
   go run turrican/extract/cmd/decrunch -o /tmp/turrican.bin "Turrican (Amiga)/Turrican.adf"
   # the PP20 block sits at image $6C186..$703EA = file offset $28906, length $42E4
-  go run stupidcoder.com/tools/amiga/cmd/ppdecrunch \
+  go run retroreverse.com/tools/amiga/cmd/ppdecrunch \
     -off 0x28906 -len 0x42E4 -o /tmp/mod_30000.bin /tmp/turrican.bin
   # decrunched 31272 bytes, md5 3c249c100bb1a00792e6fa92016e9900
   ```
@@ -985,7 +985,7 @@ wave-lines across the sky, ground enemies on the terrain:
 
 The spawner was *located* with help from the FS-UAE oracle, but every byte of the
 placement data is extracted from the ADF. This same data drives the companion
-[site](https://stupidcoder.github.io/AIReverseEngineering/)'s object
+[site](https://stupidcoder.github.io/RetroReverse/)'s object
 layer, which also frames each scene on the **player spawn**: `select_scene`
 (`$160E`) reads the descriptor's initial camera tile (`+$08/+$0A`, ×32 → the
 viewport's world-pixel origin) and the player's on-screen offset (`+$0C/+$0E`,
@@ -1203,16 +1203,16 @@ The disk facts above reproduce with the shared tools:
 md5 "Turrican (Amiga)/Turrican.adf"
 
 # confirm it is not an AmigaDOS volume
-go run stupidcoder.com/tools/amiga/cmd/adfdump "Turrican (Amiga)/Turrican.adf"
+go run retroreverse.com/tools/amiga/cmd/adfdump "Turrican (Amiga)/Turrican.adf"
 
 # disassemble the boot block (code starts at +12)
-go run stupidcoder.com/tools/cmd/dis68k -skip 12 -base 0xc "Turrican (Amiga)/Turrican.adf"
+go run retroreverse.com/tools/cmd/dis68k -skip 12 -base 0xc "Turrican (Amiga)/Turrican.adf"
 
 # the loader stages on the disk (skip = disk byte, base = the address it runs at)
 A=Turrican.adf
-go run stupidcoder.com/tools/cmd/dis68k -skip 0x400  -base 0x30000 "$A"   # first-stage intro -> $30000
-go run stupidcoder.com/tools/cmd/dis68k -skip 0xf8   -base 0x7f800 "$A"   # tail/hand-off       -> $7F800
-go run stupidcoder.com/tools/cmd/dis68k -skip 0x2c08 -base 0x50008 "$A"   # decruncher          -> $50008
+go run retroreverse.com/tools/cmd/dis68k -skip 0x400  -base 0x30000 "$A"   # first-stage intro -> $30000
+go run retroreverse.com/tools/cmd/dis68k -skip 0xf8   -base 0x7f800 "$A"   # tail/hand-off       -> $7F800
+go run retroreverse.com/tools/cmd/dis68k -skip 0x2c08 -base 0x50008 "$A"   # decruncher          -> $50008
 ```
 
 The `$50008` decruncher's input is the crunched main part at disk `$2C00`
@@ -1224,5 +1224,5 @@ byte-identical against the FS-UAE oracle) produces the decrunched program:
 go run turrican/extract/cmd/decrunch -o /tmp/turrican.bin "Turrican (Amiga)/Turrican.adf"
 
 # then disassemble the unpacked game from its load address
-go run stupidcoder.com/tools/cmd/dis68k -base 0x43880 /tmp/turrican.bin
+go run retroreverse.com/tools/cmd/dis68k -base 0x43880 /tmp/turrican.bin
 ```

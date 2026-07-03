@@ -14,7 +14,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"stupidcoder.com/tools/gameboy"
+	"retroreverse.com/tools/gameboy"
 )
 
 const (

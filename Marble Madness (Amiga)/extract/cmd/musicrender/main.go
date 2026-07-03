@@ -27,8 +27,8 @@ import (
 	"math"
 	"os"
 
-	"stupidcoder.com/tools/amiga/adf"
-	"stupidcoder.com/tools/amiga/hunk"
+	"retroreverse.com/tools/amiga/adf"
+	"retroreverse.com/tools/amiga/hunk"
 )
 
 const base = 0x800000

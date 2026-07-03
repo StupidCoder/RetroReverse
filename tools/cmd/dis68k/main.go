@@ -14,7 +14,7 @@ import (
 	"strconv"
 	"strings"
 
-	"stupidcoder.com/tools/m68k"
+	"retroreverse.com/tools/m68k"
 )
 
 func parseAddr(s string) (uint32, error) {

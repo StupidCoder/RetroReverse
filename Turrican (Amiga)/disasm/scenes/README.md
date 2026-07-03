@@ -36,7 +36,7 @@ go run turrican/extract/cmd/decrunch -o /tmp/turrican.bin "Turrican (Amiga)/Turr
 # decode a world's scene block (offsets from the $46A level table; world 0 shown):
 go run turrican/extract/cmd/block -off 0x3F000 -len 0x1EAAC -base 0x1B980 -o /tmp/w0.bin "Turrican (Amiga)/Turrican.adf"
 # trace its scene + AI handlers (handlers = descriptor +$18 and the +$20 table):
-go run stupidcoder.com/tools/cmd/codetrace68k -base 0x1B980 \
+go run retroreverse.com/tools/cmd/codetrace68k -base 0x1B980 \
   -entry 0x1D0AC,0x1D15E,0x1D28E,<the +$20 AI handlers> -o /tmp/world0.asm /tmp/w0.bin
 ```
 

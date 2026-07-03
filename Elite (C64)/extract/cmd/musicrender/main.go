@@ -21,7 +21,7 @@ import (
 	"os/exec"
 	"path/filepath"
 
-	"stupidcoder.com/tools/c64/sid"
+	"retroreverse.com/tools/c64/sid"
 )
 
 const (

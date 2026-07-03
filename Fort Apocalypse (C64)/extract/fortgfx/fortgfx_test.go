@@ -5,7 +5,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"stupidcoder.com/tools/c64/gfx"
+	"retroreverse.com/tools/c64/gfx"
 )
 
 func loadTestGame(t *testing.T) *Game {

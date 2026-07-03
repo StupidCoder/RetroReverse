@@ -26,7 +26,7 @@ import (
 	"strconv"
 	"strings"
 
-	"stupidcoder.com/tools/sm83"
+	"retroreverse.com/tools/sm83"
 )
 
 const bankSize = 0x4000 // 16 KB

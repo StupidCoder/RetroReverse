@@ -12,7 +12,7 @@
 // the memory it produces.
 package gameboy
 
-import "stupidcoder.com/tools/sm83"
+import "retroreverse.com/tools/sm83"
 
 // I/O register addresses we model specially (the rest are plain bytes in io[]).
 const (

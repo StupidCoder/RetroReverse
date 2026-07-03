@@ -19,7 +19,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"stupidcoder.com/tools/c64/gfx"
+	"retroreverse.com/tools/c64/gfx"
 )
 
 const background = 0x01 // $D021 set at $CE60

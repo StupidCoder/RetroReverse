@@ -23,7 +23,7 @@ import (
 	"path/filepath"
 	"sort"
 
-	"stupidcoder.com/tools/gamegear"
+	"retroreverse.com/tools/gamegear"
 )
 
 func main() {

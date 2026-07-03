@@ -16,7 +16,7 @@ import (
 	"os"
 	"strconv"
 
-	"stupidcoder.com/tools/m68k"
+	"retroreverse.com/tools/m68k"
 )
 
 const (

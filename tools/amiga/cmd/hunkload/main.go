@@ -12,7 +12,7 @@ import (
 	"strconv"
 	"strings"
 
-	"stupidcoder.com/tools/amiga/hunk"
+	"retroreverse.com/tools/amiga/hunk"
 )
 
 func main() {

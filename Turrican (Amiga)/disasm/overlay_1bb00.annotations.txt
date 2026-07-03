@@ -20,7 +20,7 @@
 # Regenerate overlay_1bb00.asm (run from the repo root):
 #   go run turrican/extract/cmd/block -off 0x26000 -len 0xC268 -base 0x1BB00 \
 #     -o /tmp/block_1BB00.bin "Turrican (Amiga)/Turrican.adf"
-#   go run stupidcoder.com/tools/cmd/codetrace68k -base 0x1BB00 \
+#   go run retroreverse.com/tools/cmd/codetrace68k -base 0x1BB00 \
 #     -entry 0x1BB24,0x1BB2C,0x1BB34,0x1BB48,0x1BB30,0x1BB40,0x1BB4C,0x1BB5C,0x1BB60,0x1BB74 \
 #     -annotate "Turrican (Amiga)/disasm/overlay_1bb00.annotations.txt" \
 #     -o "Turrican (Amiga)/disasm/overlay_1bb00.asm" /tmp/block_1BB00.bin

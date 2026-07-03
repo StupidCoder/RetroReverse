@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"math"
 
-	"stupidcoder.com/tools/gameboy"
+	"retroreverse.com/tools/gameboy"
 )
 
 var noteNames = []string{"C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"}

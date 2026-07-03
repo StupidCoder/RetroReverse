@@ -12,7 +12,7 @@ import (
 	"os"
 
 	"stuntcar/extract/physics"
-	"stupidcoder.com/tools/m68k"
+	"retroreverse.com/tools/m68k"
 )
 
 const (

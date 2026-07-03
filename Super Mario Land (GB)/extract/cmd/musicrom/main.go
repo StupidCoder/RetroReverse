@@ -31,7 +31,7 @@ import (
 	"path/filepath"
 	"sort"
 
-	"stupidcoder.com/tools/gameboy"
+	"retroreverse.com/tools/gameboy"
 )
 
 const cycPerTick = 65536 // 4194304 Hz / 64 Hz tick

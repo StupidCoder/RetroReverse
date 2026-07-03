@@ -12,7 +12,7 @@ import (
 	"os"
 	"sort"
 
-	"stupidcoder.com/tools/c64/tap"
+	"retroreverse.com/tools/c64/tap"
 )
 
 func main() {

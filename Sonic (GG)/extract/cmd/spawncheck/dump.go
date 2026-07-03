@@ -5,7 +5,7 @@ import (
 
 	"sonicgg/extract/decomp"
 
-	"stupidcoder.com/tools/gamegear"
+	"retroreverse.com/tools/gamegear"
 )
 
 // dumpCells prints my decoded map + collision lookup vs the live $C000 window for the

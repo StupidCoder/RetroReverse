@@ -24,7 +24,7 @@ import (
 	"strconv"
 	"strings"
 
-	"stupidcoder.com/tools/m68k"
+	"retroreverse.com/tools/m68k"
 )
 
 type multiFlag []string

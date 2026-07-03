@@ -13,7 +13,7 @@ import (
 	"fmt"
 	"os"
 
-	"stupidcoder.com/tools/amiga/powerpacker"
+	"retroreverse.com/tools/amiga/powerpacker"
 )
 
 func main() {

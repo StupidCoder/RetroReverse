@@ -25,8 +25,8 @@
 package c64
 
 import (
-	"stupidcoder.com/tools/c64/tap"
-	"stupidcoder.com/tools/mos6502"
+	"retroreverse.com/tools/c64/tap"
+	"retroreverse.com/tools/mos6502"
 )
 
 // WriteEvent records a RAM write performed by emulated code, tagged with how

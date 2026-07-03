@@ -15,7 +15,7 @@ import (
 	"os/exec"
 	"path/filepath"
 
-	"stupidcoder.com/tools/gamegear"
+	"retroreverse.com/tools/gamegear"
 )
 
 const (

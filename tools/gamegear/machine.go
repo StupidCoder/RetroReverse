@@ -10,7 +10,7 @@ package gamegear
 // This is why the work belongs here and not in a game's extract: the mapper and
 // VDP port protocol are Game Gear hardware, identical across cartridges.
 
-import "stupidcoder.com/tools/z80"
+import "retroreverse.com/tools/z80"
 
 // VDP holds the captured video state: 16 KB VRAM (tiles + name table + SAT),
 // 32-entry CRAM (64 bytes), and the 16 registers. The fields are exported so a

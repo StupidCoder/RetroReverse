@@ -17,7 +17,7 @@ import (
 	"sonicgg/extract/decomp"
 	"sonicgg/extract/objplace"
 
-	"stupidcoder.com/tools/gamegear"
+	"retroreverse.com/tools/gamegear"
 )
 
 const (

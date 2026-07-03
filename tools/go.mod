@@ -1,3 +1,3 @@
-module stupidcoder.com/tools
+module retroreverse.com/tools
 
 go 1.23

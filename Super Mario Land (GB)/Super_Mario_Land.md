@@ -1212,11 +1212,11 @@ was built for it, with the **`cmd/dissm83`** CLI:
 
 ```sh
 # flat: a file slice mapped at a CPU address
-go run stupidcoder.com/tools/cmd/dissm83 -off 0x185 -len 0x14 -base 0x185 \
+go run retroreverse.com/tools/cmd/dissm83 -off 0x185 -len 0x14 -base 0x185 \
     "Super Mario Land (GB)/Super Mario Land (World).gb"
 
 # MBC1 bank view: bank 0 fixed at $0000-$3FFF, bank N in $4000-$7FFF
-go run stupidcoder.com/tools/cmd/dissm83 -bank 3 -start 0x7FF0 -end 0x8000 \
+go run retroreverse.com/tools/cmd/dissm83 -bank 3 -start 0x7FF0 -end 0x8000 \
     "Super Mario Land (GB)/Super Mario Land (World).gb"
 ```
 

@@ -20,7 +20,7 @@ import (
 	"path/filepath"
 
 	"fortapoc/extract/fortgfx"
-	"stupidcoder.com/tools/c64/gfx"
+	"retroreverse.com/tools/c64/gfx"
 )
 
 type jsonAnim struct {

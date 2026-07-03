@@ -20,7 +20,7 @@ import (
 	"fmt"
 	"os"
 
-	"stupidcoder.com/tools/m68k"
+	"retroreverse.com/tools/m68k"
 )
 
 // bus maps the ROM at $FC0000 (and mirrored at $F80000 for 512K images) over a

@@ -17,7 +17,7 @@ import (
 	"sort"
 	"strconv"
 
-	"stupidcoder.com/tools/gameboy"
+	"retroreverse.com/tools/gameboy"
 )
 
 func main() {

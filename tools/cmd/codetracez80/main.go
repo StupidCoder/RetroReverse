@@ -24,7 +24,7 @@ import (
 	"strconv"
 	"strings"
 
-	"stupidcoder.com/tools/z80"
+	"retroreverse.com/tools/z80"
 )
 
 func main() {

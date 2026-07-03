@@ -1,6 +1,6 @@
 # FS-UAE helper: robust cont-to-breakpoint that handles the %Stop:T05 notification.
 import socket, re, sys
-sys.path.insert(0,"/Users/dennis/Development/AIReverseEngineering/tools/amiga/fsuae-debug")
+sys.path.insert(0,"/Users/dennis/Development/RetroReverse/tools/amiga/fsuae-debug")
 from dbg import Dbg
 class FS(Dbg):
     def setreg(self, **kw):

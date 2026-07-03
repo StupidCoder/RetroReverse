@@ -17,7 +17,7 @@ import (
 	"image/png"
 	"os"
 
-	"stupidcoder.com/tools/gameboy"
+	"retroreverse.com/tools/gameboy"
 	"supermarioland/extract/level"
 )
 
