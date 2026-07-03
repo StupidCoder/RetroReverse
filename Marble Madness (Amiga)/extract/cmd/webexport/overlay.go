@@ -113,9 +113,29 @@ func exportOverlays(vol *adf.Volume, paths map[string]string, key string, track 
 				if err := gfx.WritePNG(filepath.Join(spritesDir, pngName), strip); err != nil {
 					return nil, nil, err
 				}
-				spriteIndex[sprite] = map[string]any{
+				entry := map[string]any{
 					"src": "sprites/" + pngName, "frames": frames, "steps": prog,
 				}
+				// op16 drift (the wave's sweep) -> a per-engine-frame movement path
+				hasMove := false
+				for _, st := range steps {
+					if st.DX != 0 || st.DY != 0 {
+						hasMove = true
+					}
+				}
+				if hasMove {
+					var path [][2]int
+					ox, oy := 0, 0
+					for _, st := range steps {
+						for f := 0; f < st.Hold && len(path) < 2048; f++ {
+							path = append(path, [2]int{ox, oy})
+						}
+						ox += st.DX
+						oy += st.DY
+					}
+					entry["path"] = path
+				}
+				spriteIndex[sprite] = entry
 			}
 		} else {
 			sprite = fmt.Sprintf("%s/c%d", key, o.Cell)
@@ -165,13 +185,14 @@ func exportOverlays(vol *adf.Volume, paths map[string]string, key string, track 
 	return objects, anims, nil
 }
 
-// step is one frame of a piece's play program: show cell for hold engine frames.
-type step struct{ Cell, Hold int }
+// step is one frame of a piece's play program: show cell for hold engine frames,
+// then drift the piece by (DX,DY) px (op16 MOVE — the Intermediate wave sweep).
+type step struct{ Cell, Hold, DX, DY int }
 
 type overlay struct {
 	Region  int    // dynamic-region index
 	Cell    int    // .ilb cell index of the resting state (first list record)
-	Steps   []step // the piece's play program, composed from its script's op2/op3 events
+	Steps   []step // the piece's play program, composed from its script's op2/op3/op16 events
 	X, Y    int    // world px (top-left of the draw)
 	KX, KY  int    // keyframe grid pos (for reference/debug)
 	HasRamp bool
@@ -323,14 +344,93 @@ func trackOverlays(im []byte, nCells, mapRows int) ([]overlay, []swapAnim) {
 
 	var out []overlay
 	var swaps []swapAnim
+	covered := map[int]bool{}
 	for _, r := range regs {
-		ovl, swap := scanScript(im, r.idx, r.script, end(r.script), base, nCells, mapRows)
+		ovl, swap := scanScript(im, r.idx, r.script, end(r.script), base, nCells, mapRows, nil)
 		if ovl != nil {
 			out = append(out, *ovl)
+			covered[r.idx] = true
 		}
 		if swap != nil {
 			swaps = append(swaps, *swap)
 		}
+	}
+
+	// The VACUUM hoods (Aerial): the terr-11/13 fall regions carry only an
+	// anchor + an empty sprite list — their hood open/close animation lives in
+	// the block's trigger-script slots (+$54 for the terr-11 group, +$58 for
+	// terr-13; the code-11/13 "pull toward ref" handlers $17AA8/$17C88 run them
+	// on the region when the marble is drawn in). Scan the hood script with the
+	// region's own anchor.
+	for _, r := range regs {
+		if covered[r.idx] || int(r.script)+16 > len(im) ||
+			ou16(im, r.script) != 0 || os16(im, r.script+8) != 1 {
+			continue
+		}
+		terr := os16(im, r.script+10)
+		anchor := [2]int{os16(im, r.script+12), os16(im, r.script+14)}
+		var sc uint32
+		switch terr {
+		case 11:
+			sc = ou32(im, dyn+0x54)
+		case 13:
+			sc = ou32(im, dyn+0x58)
+		default:
+			continue
+		}
+		if sc == 0 || int(sc)+8 > len(im) {
+			continue
+		}
+		if ovl, _ := scanScript(im, r.idx, sc, sc+0x80, base, nCells, mapRows, &anchor); ovl != nil && len(ovl.Steps) > 0 {
+			ovl.Steps = append(ovl.Steps, step{Cell: ovl.Steps[len(ovl.Steps)-1].Cell, Hold: 60})
+			out = append(out, *ovl)
+		}
+	}
+
+	// The hazard script at block+8 — a region SPAWNED BY CODE, not by the record
+	// list: when a marble enters placement-zone type 9/$A, $FCE6 allocates a
+	// $CCA region struct and runs this script on it ($F6F4 -> region_update).
+	// Only Intermediate carries one (THE WAVE: rise, set velocity, sweep loop
+	// x19 with op16 MOVE, collapse); the other courses keep unrelated data in
+	// the slot, so accept it only when it opens with an op0 dur==1 keyframe.
+	if p8 := ou32(im, dyn+8); p8 != 0 && int(p8)+20 < len(im) &&
+		ou16(im, p8) == 0 && os16(im, p8+8) == 1 {
+		if ovl, _ := scanScript(im, 90, p8, p8+0x180, base, nCells, mapRows, nil); ovl != nil && len(ovl.Steps) >= 3 {
+			out = append(out, *ovl)
+		}
+	}
+
+	// The 3-slot obstacle-actor array at block+$23C (populated only by Aerial —
+	// the pop-up pistons/vacuums): each $14-byte record = [+0 ptr to its base
+	// 16-byte sprite record][+$A x][+$C y] in world px (the actor draw is the
+	// blitter path: draw_object_wrap(rec, +$A, +$C - scroll), so +$C maps to
+	// world Y directly); anim variants (8-byte [recordPtr][0] lists, one step
+	// per frame, holds encoded as repeated pointers) at block +$278..+$284,
+	// picked by RNG per activation ($1D48A) — the export assigns variant i to
+	// actor i. Idle: the base record shows for an RNG (0..3)<<4 frame pause.
+	for i := 0; i < 3; i++ {
+		rec := dyn + 0x23C + uint32(i)*0x14
+		if int(rec)+0x14 > len(im) {
+			break
+		}
+		basePtr := ou32(im, rec)
+		x, y := ou16(im, rec+0xA), ou16(im, rec+0xC)
+		if basePtr == 0 || int(basePtr)+16 > len(im) || ou16(im, basePtr+8) != 0 ||
+			ou16(im, basePtr+10) >= nCells || y == 0 || y >= mapRows*8 {
+			continue
+		}
+		baseCell := ou16(im, basePtr+10)
+		o := overlay{Region: 91 + i, Cell: baseCell, X: x, Y: y}
+		variant := ou32(im, dyn+0x278+uint32(i)*4)
+		for _, r := range spriteList(im, variant, nCells) {
+			if r != 0 {
+				o.Steps = append(o.Steps, step{Cell: int(ou32(im, r+8)), Hold: 1})
+			}
+		}
+		if len(o.Steps) > 0 {
+			o.Steps = append(o.Steps, step{Cell: baseCell, Hold: 48}) // idle between pop-ups
+		}
+		out = append(out, o)
 	}
 	return out, swaps
 }
@@ -339,16 +439,21 @@ func trackOverlays(im []byte, nCells, mapRows int) ([]overlay, []swapAnim) {
 // conditional/jump targets — the Practice ramp's animation lives at its op8
 // target), tracking the current keyframe anchor and sprite-list link. Each
 // op2 SPRITE starts a play-through of the current record list (word1 = wrap
-// count, word2 = hold frames/step); each op3 holds the last frame. The events
-// compose the region's play program. A terr-$19 registration (op0 dur==1
-// whose link is a [row, ptr] pair list) comes back as a swapAnim instead.
-func scanScript(im []byte, idx int, pc, stop uint32, base, nCells, mapRows int) (*overlay, *swapAnim) {
+// count, word2 = hold frames/step); each op3 holds the last frame; op14/op16
+// drift the anchor (the wave). The events compose the region's play program.
+// A terr-$19 registration (op0 dur==1 whose link is a [row, ptr] pair list)
+// comes back as a swapAnim instead. anchor overrides the tile anchor for
+// scripts run ON a region from elsewhere (the vacuum hood triggers).
+func scanScript(im []byte, idx int, pc, stop uint32, base, nCells, mapRows int, anchor *[2]int) (*overlay, *swapAnim) {
 	var out *overlay
 	var swap *swapAnim
 	var kx, ky, kz, kdur, kw26, kw28 int
 	var link uint32
 	linkFresh := false
 	lastHold := 1
+	if anchor != nil {
+		kdur, kw26, kw28 = 1, anchor[0], anchor[1]
+	}
 
 	// place the region's (single) overlay from the current anchor context
 	place := func(recs []uint32) {
@@ -415,9 +520,21 @@ func scanScript(im []byte, idx int, pc, stop uint32, base, nCells, mapRows int) 
 		last := out.Steps[len(out.Steps)-1]
 		out.Steps = append(out.Steps, step{Cell: last.Cell, Hold: count * lastHold})
 	}
+	// op16: drift the anchor by the op14 velocity (the wave sweep)
+	var velX, velY int
+	move := func() {
+		if out == nil || len(out.Steps) == 0 || (velX == 0 && velY == 0) {
+			return
+		}
+		// drawX adds the drift, drawY subtracts it ($11678: x = w26*8 + drift,
+		// y = w28*8 - drift) — screen-down is -velY
+		out.Steps[len(out.Steps)-1].DX += velX
+		out.Steps[len(out.Steps)-1].DY -= velY
+	}
 
 	queue := []uint32{pc}
 	visited := map[uint32]bool{}
+	loopTop, loopN := uint32(0), 0
 	for len(queue) > 0 && len(visited) < 6 {
 		pc = queue[0]
 		queue = queue[1:]
@@ -425,7 +542,7 @@ func scanScript(im []byte, idx int, pc, stop uint32, base, nCells, mapRows int) 
 			continue
 		}
 		visited[pc] = true
-		end := pc + 0x100
+		end := pc + 0x180
 		if stop > pc && stop < end {
 			end = stop
 		}
@@ -479,12 +596,27 @@ func scanScript(im []byte, idx int, pc, stop uint32, base, nCells, mapRows int) 
 				if t > 0 && int(t) < len(im) {
 					queue = append(queue, t)
 				}
-			case 4, 6, 17:
+			case 4: // LOOP-A count: expand the loop (the wave's 19-step sweep)
+				loopN = os16(im, pc)
+				pc += 2
+				loopTop = pc
+				if loopN <= 0 || loopN > 40 {
+					loopN = 0 // infinite loops just play once (the program loops anyway)
+				}
+			case 5: // NEXT-A
+				if loopN > 1 && loopTop != 0 {
+					loopN--
+					pc = loopTop
+				}
+			case 6, 17:
 				pc += 2
 			case 10:
 				pc += 4
-			case 5, 7, 11, 16:
-			case 14:
+			case 7, 11:
+			case 16: // MOVE: drift the anchor by the op14 velocity
+				move()
+			case 14: // SET-VEL
+				velX, velY = os16(im, pc), os16(im, pc+2)
 				pc += 4
 			case 15:
 				pc = end

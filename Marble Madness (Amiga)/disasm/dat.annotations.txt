@@ -438,7 +438,7 @@
 #   $34 to the record (X,Y); keep the NEAREST within a $300 cap -> $690/$694/$6A0. So you respawn
 #   on the nearest edge anchor of the SAME region you fell from (the correct ledge, not across a
 #   gap). CONFIRMS the user's read: the cyan placement dots are the fall-off-edge respawn points.
-01D3EC  actor_setup      sets up the dynamic actors (enemies / animated obstacles): the 3-record actor array at $FD2C+$23C (stride $14, end +$3C); pulls templates/anim scripts from the Track segment (anim table at $FD2C+$280). Course-gated ($5D6==3 path tests $78E). The type(0..7)->object/anim definition tables are the other Track header pointers ($1ED44 ptr array @+$C, $89C2 @+$10, anim $FD2C @+$14) + a per-course copper-style colour table inside the +$10 block ($DFF180..$DFF192) — decode TODO.
+01D3EC  actor_tick       THE OBSTACLE-ACTOR SYSTEM (course 3 = AERIAL only, gate $5D6==3 && $78E — an earlier note said "silly": wrong, silly is index 4): per-frame update+draw of the 3-slot array at *($FD2C)+$23C (stride $14). Record: [+0 ptr to its 16-byte BASE sprite record (aerial.ilb cells 60-62 = walkway sections with piston holes)][+4 anim cursor][+8 timer][+$A x][+$C y — WORLD px directly, the actors draw via the BLITTER path draw_object_wrap(rec, +$A, +$C−scroll)][+$E/+$10 RNG iso offset][+$12 variant]. Activation: timer 0 -> RNG(4) picks one of the 4 ANIM VARIANTS (*($FD2C)+$278..$284 = 8-byte [recordPtr][0] lists, one entry per FRAME, holds encoded as repeated pointers: aerial = piston groups cells 44-47/48-51/52-55/56-59, extend-hold*7-retract) + RNG picks the iso CELL OFFSET (+$E/+$10; the 3rd draw pass lands at x+(+$10−+$E)*8, y+(+$10++$E)*4 = THE PISTONS POP UP AT A RANDOM SPOT ALONG THEIR ROW); clears $18A6 sub-record lanes (stride = variant-specific 1/3/4/2 *$10). Anim end ($FFFFFFFF) -> draw the base record + idle RNG(0..3)<<4 frames.
 
 # --- THE DEPTH-SORTED DISPLAY LIST (sprite ordering; see also the occlusion
 #     mask punch $5BE0/$11678/$112DA below — Part V §2) ---
@@ -450,14 +450,18 @@
 # Structures: $5F7..$615 = the draw ORDER (byte indices, $FF-terminated, ~31 max);
 # $21CC = per-slot pointer table -> 14-byte DEPTH RECORDS at $41E..$5D0 (stride $E):
 # [+0 type byte][+1 index byte][+2/+4/+6 box min x/y/z][+8/+A/+C box size x/y/z].
-# Types: 0 = sentinel (infinite box), 1/2 = marble P1/P2 (obj tables $2158/$2160,
-# box = tile pos ±3, z +1, size 6), 4/$E = creature systems A/B ($2248/$2258 = the
-# black-marble / ooze spawn objects), 5 = region drift sprite ($2168), 7/8/9 =
-# REGION SCENERY sprites ($2274; box centre = the region ref point words +$C/+$10/
-# +$14, extents from the sprite record bytes +4..+7 via the region's +$1C list
-# cursor), $F = $2298, $29/$2A = HUD/score pieces, $2C = the SPAWN GATE (zero box =
-# always drawn first; game_state 1 inserts it once, position $CCA+0/+2 = marble
-# start <<4, cell table $67B0, record $6850).
+# Types: 0 = sentinel (infinite box), 1/2 = marble P1/P2 (obj tables $2158/$2160 =
+# the marble objects $236/$32A and $BBE/$C44, box = tile pos ±3, z +1, size 6),
+# 4/$E = creature systems A/B ($2248/$2258 = the black-marble / ooze spawn
+# objects), 5 = the first 8 $CCA REGION structs ($2168, stride $56 — region
+# pieces insert with type = their TERRAIN code via the op0 tail $FEF2, so the
+# flags (terr 5) land here; box centre = ref words +$C/+$10/+$14, extents from
+# the sprite record +4..+7 via the +$1C list cursor), 7/8/9 = the $1AE6 40-byte
+# spawnable-object pool ($2274, 9 slots, +$25 = 7/8/9 assigned per 3 by $1C074),
+# $F = silly's baby structs ($2298 -> $1C4E stride $3E + $27AE), $29/$2A =
+# HUD/score pieces, $2C = the SPAWN GATE (zero box = always drawn first;
+# game_state 1 inserts it once, position $CCA+0/+2 = marble start <<4, cell
+# table $67B0, record $6850).
 011B34  displaylist_insert  insert entry (type, index): build its depth box ($1085C via $10F4C ordering), find the sorted position in $5F7, claim a free $41E slot, shift the order array. game_state 1 calls it with ($2C,0) = the spawn gate; object/creature/region code inserts the rest ($14696/$15414/$15492/$15510 marble states, $19972 black marble, $1A6B4, $1B95C/$1BA34 ooze, $1C15C, $1E35C region pieces).
 011C24  displaylist_remove  remove entry (type, index) from $5F7/$41E (8 callers).
 01085C  displaylist_box  per-TYPE depth-box builder (dispatch on record +0 as listed above); fills the 14-byte record's min/size triples.
@@ -509,3 +513,27 @@
 01E0D0  anim_redraw_done  on Painter reply: take the region's current data record [idx word][count word][count words...] and memcpy ($21908) the words into the INDIRECT HEIGHT TABLE $798 + idx*2 — the mesh build reads height values through $798 when a cell's value word has the indirect flag ($DC7A ANDI #$7FE -> $798 lookup), so the drawbridge's collision heights change in lockstep with its redrawn tiles.
 000798  g_anim_heights   (global word table) the indirect height slots for ANIMATED terrain: mesh-build values with the indirect flag read $798[idx] instead of a literal; region scripts/anim replies rewrite the slots (via $D868/$1E0D0 record copies).
 00D8FC  mesh_to_tiles    corner-height -> TILE INDEX converter: walks 22 mesh columns, packs each cell's 4 corner heights, binary-searches the course's height-pattern table ($9AE..$9B2, $400 stride) and writes the tile-index word back into the cell — how terrain-height changes become tilemap changes for the Painter to repaint.
+
+# --- THE OBSTACLE SYSTEMS (Part IV §5 "One game, eight obstacle systems") ---
+00825E  cell_lookup      resolve a sprite-record cell reference: the record's +$8 LONG is a (BANK word, INDEX word) pair — a4 = *($8328 + bank*4) = the bank's unpacked buffer (6 slots), descriptor = buf+2+index*20. Bank 0 = the course .ilb; 3 = ooze.vlb (loaded for interm+ultima by $1B64C), 4 = birdink.vlb (silly, $1CDB8), 5 = <course>obsc.vlb ($1E478, name table $1EE0E->$1EDC6). Buffer sizes per (course, bank) from the tables at $82E0/$82F8/$8310.
+01E478  obsc_load        load the per-course obsc.vlb into bank 5: name = *($1EE0E + $5D6*4).
+01E49A  wallcover_build  THE STATIC-WALL OCCLUSION ASSIST ("obsc" = OBSCURE, not obstacle): fills a marble object's sub-draw slot array (+$38 = 5 slots for the marble modes <2, +$2C, or +$26 = 3 slots) with per-16px-column WALL-COVER STRIPS (the obsc.vlb 16x64 wall-face slivers, bank 5) so the marble's own draw ($5DFC -> $10FDC over the slots) is covered where a static wall edge rises in front of it. Column heights come from the course descriptor's per-column delta stream ($9A6+$2E indexed by the scroll global $68C) + the PER-PLACEMENT-TYPE records at *(Track hdr+$C = $1ED44); $DD80 samples the tile pattern. Gated off while the marble state is 4/6/$A or its terrain says no cover.
+00FCE6  wave_trigger     (inside the region tick loop) scan the marble objects (stride $F4; 2 when $5D8==2): if a marble's placement-zone type +$1B == 9 or $A -> $F6F4(*($FD2C)+8) = SPAWN THE HAZARD SCRIPT as a region.
+00F6F4  hazard_spawn     allocate a free $CCA region struct ($F6B2) and region_update $F96A(region, 0, scriptPtr) — runs a LOOSE script (not in the course's dynamic-region record list) on a fresh region. Only INTERMEDIATE stores a real script in block+8 = THE WAVE: op0 anchor tiles (9,98) z=16148 terr 6, op14 SET-VEL (+8,-4), play interm.ilb cells 4-8 @4 (rise), 9-10 @2 (crest), op4 LOOP 19 { cells 11-14 @1 ; op16 MOVE } (the sweep — 8px right/4px down per step), cells 16-22 @1 (collapse), op15 stop. Other courses keep unrelated data in the slot (beginner: a drawbridge anim list).
+# THE VACUUMS (aerial): the six terr-11/13 FALL regions (anchors 2x3 grid, tiles
+# (14,30)(6,34)(14,41)(26,30)(18,34)(26,41)) reuse the SCRIPTED-SLOPE codes 11/13 —
+# the "pull toward the ref point" force IS the suction. Their hood art is in the
+# block extension slots *($FD2C)+$4C..$58 = 4 TRIGGER SCRIPTS the code-11/13
+# handlers ($17AA8/$17C88 compare region +$46 vs block +$60/+$64) run on the
+# region: open the hood (8-byte anim lists, aerial.ilb cells 4-7 / 8-13, e.g.
+# $1AC2 = 4,5,6,6,7*4), op18 marble-test loop, branch to the close subroutine
+# (op11 RETURN at $1C6A), hide via the empty list $1A2E, stop. The fall = the
+# regions' op17 FALL-STOP codes 30-35 (per-hole teleports, like the funnels).
+# SILLY'S BABIES (course 4): $1CDD6 lane spawner over the 10 62-byte structs at
+# $1C4E (+2 at $27AE) = display type $F ($2298 table, draw leaf $6350 with the
+# 5x8-byte sub-piece array at struct+$26); spawn lanes from the [colA][colB]
+# table $1D344, pos = lane<<19+$40000 (marble-scale world coords), velocity
+# -4<<16 (they march), graphics from *($1D334) fed by birdink.vlb (bank 4);
+# spawned every 8 frames ($230&7) up to 2/pass, sound per lane from $1D34E.
+# The $1AE6 40-byte structs (9 slots) = display types 7/8/9 by slot index
+# ($1C074 assigns +$25 = 7/8/9 per 3) — the spawnable-object display pool.

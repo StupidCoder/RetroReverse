@@ -992,13 +992,13 @@ actor-system globals — each one a different structure:
 | `+0` | `$9A6` | **static slope field** — the region records baked into the corner-height mesh | Part V §4 |
 | `+4` | `$129FC` | **placement table** — `[X][Y][type]` feature list (below) | here |
 | `+8` | `$12F74` | **coarse-zone partition** (`$9D4`) — diagonal-boundary records (`terrain_lookup $12B9E`) | Part V §4 |
-| `+$C` | `$1ED44` | per-type pointer array (object/anim definitions) | open |
-| `+$10` | `$89C2` | per-course block incl. a copper-style colour table (`$DFF180…`) | open |
-| `+$14` | `$FD2C` | **animation scripts** + the **dynamic-region** source list | Part V §4 |
+| `+$C` | `$1ED44` | **per-placement-type records** driving the `obsc.vlb` **wall-cover strips** (`$1E49A` — the static-wall occlusion assist on the marble's own draw; see "One game, eight obstacle systems") | here |
+| `+$10` | `$89C2` | display block: per-band copper colour splits (`$F180…` reg encoding) | Part IV §3 |
+| `+$14` | `$FD2C` | **animation scripts** + the **dynamic-region** source list; block extensions: `+8` = a loose hazard-script slot (Intermediate's **wave**), `+$23C`/`+$278` = the 3-slot **obstacle-actor** array + its 4 anim variants (Aerial's **pistons**), `+$4C..$58` = the **vacuum hood** trigger scripts | here |
 | `+$18` | `$19CD0` | **creature spawn list A** — `[trigX,trigY,animPtr,type]` records (below) | here |
 | `+$1C` | `$1ABE0` | **actor list** — the per-course enemies (the state-5 collision scan) | Part V §4 |
 | `+$20` | `$1BE48` | **creature spawn list B** — spawns + a shared animation-variant table (below) | here |
-| `+$24` | `$1D334` | — (null for Practice) | open |
+| `+$24` | `$1D334` | Silly-only: the baby-creature display defs (fed by `birdink.vlb`, bank 4) | here |
 
 **Placement table** (`+4`). An array of **3-byte records**, terminated by a leading
 `$FF`:
@@ -1222,6 +1222,76 @@ code 18 has its own handler. The teleport targets land exactly on the exit regio
 a clean cross-check. (The link being hardcoded per terrain code, rather than data-driven, is
 why these specific codes 18–22 appear only on Beginner: each course's bespoke features get
 their own codes and handlers.)
+
+#### One game, eight obstacle systems
+
+Ask "how does Marble Madness place an obstacle?" and the honest answer is: *which
+obstacle?* Almost every hazard family got its own bespoke mechanism — the code
+mirrors the data, where each course's features also get their own hardcoded
+terrain-code handlers. The full map, now that all of them are traced:
+
+| # | System | Data | Examples |
+|---|---|---|---|
+| 1 | static slope field | header `+0` region records → corner-height mesh | every ramp, wall, pit |
+| 2 | dynamic regions | header `+$14` record list → bytecode scripts | drawbridge, flags, funnels, start ramp |
+| 3 | **code-spawned region** | `+$14` block`+8` = a loose script slot | **Intermediate's wave** |
+| 4 | **obstacle-actor array** | `+$14` block`+$23C` (3 slots + 4 anim variants) | **Aerial's pistons** |
+| 5 | **fall-region + trigger scripts** | terr-11/13 regions + block`+$4C..$58` | **Aerial's vacuums** |
+| 6 | creature spawners | headers `+$18`/`+$20`/`+$1C` | black marbles, ooze, slinkies |
+| 7 | lane spawner | `$1C4E` structs + `$1D344` lanes (course 4 only) | Silly's crushable babies |
+| 8 | screen-swap engine | terr-`$19` region + `[row, height-patch]` pairs | Ultimate's flickering finale |
+
+**The wave (Intermediate) — a region spawned by code.** The `+$14` block's `+8`
+slot holds a loose, unlisted **region script**. When a marble's placement-zone
+type reaches 9 or 10 (`$FCE6` scans the marble objects each tick), `$F6F4`
+allocates a free `$CCA` region struct and runs that script on it — so the wave
+never appears in the course's dynamic-region list; it exists only while
+triggered. The script itself is a beauty: `op0` plants the anchor at tiles
+(9, 98) with `terr 6`; `op14` sets a velocity of `(+8, −4)` px; then it plays
+`interm.ilb` cells 4–8 at 4 frames each (the wave **rising** out of the
+channel), cells 9–10 (the crest), a **19× loop of { cells 11–14 at 1 frame;
+op16 MOVE }** — the wave *sweeping* 8 px right and 4 px down the channel per
+step — and cells 16–22 (the collapse), then stops until the next trigger. The
+other courses keep unrelated data in the `+8` slot (Beginner: one of the
+drawbridge's animation lists), which is why the wave is Intermediate-only.
+
+**The pistons (Aerial) — the obstacle-actor array.** Block `+$23C` holds three
+`$14`-byte actor records — populated only by AerTrack, and `actor_setup
+$1D3EC` is gated on course 3. Each record carries its own base sprite record
+(`aerial.ilb` cells 60–62, the walkway sections with piston holes) and a fixed
+position (`+$A/+$C` = (0, 486), (64, 538), (96, 610) — **world pixels
+directly**, because actors draw through the blitter path `draw_object_wrap`,
+not the sprite queue). Per activation the engine rolls the RNG twice: once to
+pick one of **four animation variants** (block `+$278..$284` — cells 44–47,
+48–51, 52–55, 56–59, each an extend–hold×7–retract list stepped one entry per
+frame), and once for an **isometric cell offset** (`(+$10−+$E)·8,
+(+$10++$E)·4`) — the piston group pops up at a *random spot along its row*
+each time, then idles for an RNG `(0..3)<<4`-frame pause.
+
+**The vacuums (Aerial) — suction is just a slope.** The six hoods are the
+terr-11/13 **fall regions** (anchors in a 2×3 grid at tiles (14,30), (6,34),
+(14,41), (26,30), (18,34), (26,41)) — and terrain codes 11/13 are the *scripted
+slope* codes, whose handlers accelerate the marble toward the region's
+reference point. On Beginner that force is a slope; on Aerial the same code
+**is the suction**. The hood art hangs off yet another block extension: slots
+`+$4C..$58` hold four **trigger scripts** (open the hood — `aerial.ilb` cells
+4–7 or 8–13 via 8-byte anim lists — loop an `op18` marble-test that
+branches into the close subroutine, hide via an empty list, stop) that the code-11/13
+handlers run on the region when the marble is drawn in; the fall itself is the
+regions' `op17 FALL-STOP` codes 30–35 (per-hole teleport destinations, exactly
+like Beginner's funnels).
+
+Two supporting discoveries round the picture off. First, sprite-record cell
+references are **(bank, index) pairs**: `$825E` reads the record's `+$8` long
+as a bank word (a 6-slot table at `$8328`) plus a cell word. Bank 0 is the
+course `.ilb`; bank 3 loads `ooze.vlb` (Intermediate/Ultimate), bank 4
+`birdink.vlb` (Silly), bank 5 the per-course **`<course>obsc.vlb`**. Second,
+those `obsc` banks — 45–49 cells of 16×64 wall-face slivers each — are not
+obstacles at all: they are **wall-cover strips** (`obsc` = *obscure*) that
+`$1E49A` attaches to the marble's own draw record (the `+$38/+$2C/+$26`
+sub-slots, up to five 16-px columns) using the per-placement-type records at
+header **`+$C`** — the system that hides the marble behind *static* wall edges,
+completing the occlusion story from Part V §2.
 
 #### The Ultimate finale — a whole screen on a flip-book
 
