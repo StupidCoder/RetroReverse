@@ -32,7 +32,10 @@ const FLICKER_RATE = 0.37;
 // renders the scene into a low internal resolution that CSS upscales with nearest
 // -neighbour (LORES_H = internal height in pixels; width follows the aspect).
 const OLD_FPS = 12;
-const LORES_H = 168;
+// Low-res internal height = the C64's vertical resolution, so the ship renders in chunky C64-sized
+// pixels (width follows the viewport aspect, keeping the pixels square). The Studio's global CRT
+// filter sizes its scanlines/mask to this via pixelGrid().
+const LORES_H = 200;
 const AUTO_ROTATE_SPEED = 1.1; // idle spin (made frame-rate independent in the tick)
 // Glow buffer height (fixed, so the blur radius is a constant fraction of the
 // screen regardless of the main render resolution). Width follows the aspect.
@@ -239,8 +242,8 @@ export class ShipViewer {
     this.ships = [];
     this.current = null;
     // Four independent "old school" effects (see setEffect):
-    this.crt = false;     // CRT filter (curvature, scanlines, RGB mask, glow)
-    this.lowRes = false;  // chunky low internal resolution
+    this.crt = false;     // internal CRT filter — off in the Studio (the global filter does the tube)
+    this.lowRes = true;   // render chunky at the C64's resolution (LORES_H) by default
     this.flicker = false; // single-buffer XOR line flicker
     this.lowFps = false;  // ~12 fps throttle
     this.flickerPhase = 0;
@@ -320,6 +323,7 @@ export class ShipViewer {
 
     // Stars on a sphere well beyond any ship; a calm vector-graphics backdrop.
     this.stars = makeStarfield(500, 60000);
+    this.stars.material.size = this.lowRes ? 1 : 2; // one chunky pixel in lo-res, not a blob
     this.scene.add(this.stars);
 
     this.controls = new OrbitControls(this.camera, this.renderer.domElement);
@@ -369,6 +373,17 @@ export class ShipViewer {
   }
 
   _resize() { this._applyResolution(); }
+
+  // The native C64-resolution pixel grid the low-res render presents, for the Studio's global CRT
+  // filter to match its scanlines/mask to. The chunky render fills the viewport height with LORES_H
+  // rows of square pixels, so one native pixel = clientHeight / LORES_H CSS px (no pan). null at full
+  // resolution. Shape matches the host's pixelGrid() contract: { cell, ox, oy, ref } in CSS px.
+  pixelGrid() {
+    if (!this.lowRes) return null;
+    const w = this.viewport.clientWidth, h = this.viewport.clientHeight;
+    if (!w || !h) return null;
+    return { cell: h / LORES_H, ox: 0, oy: 0, ref: w };
+  }
 
   // _applyResolution keeps the canvas at full viewport resolution and sizes the
   // off-screen render target: low (LORES_H tall) when lo-res is on for chunky

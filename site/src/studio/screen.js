@@ -50,7 +50,8 @@ uniform float u_beamBloom;
 
 uniform float u_maskType;
 uniform float u_maskStrength;
-uniform float u_tvLines;
+uniform float u_maskPeriod;   // overlay px per RGB triad
+uniform vec2 u_maskOrigin;    // triad phase (overlay px) — scales/locks the mask to the pixel grid
 uniform float u_curvature;
 uniform float u_glow;
 
@@ -122,9 +123,9 @@ vec3 applyBeam(vec2 uv, vec3 inputLinear) {
 
 // Domain C: phosphor mask
 vec3 calculateMaskSample(vec2 uv, float luma) {
-  float x_pixel = uv.x * u_resolution.x;
-  float y_pixel = uv.y * u_resolution.y;
-  float P = u_resolution.x / u_tvLines * 1.5;
+  float x_pixel = uv.x * u_resolution.x - u_maskOrigin.x;
+  float y_pixel = uv.y * u_resolution.y - u_maskOrigin.y;
+  float P = u_maskPeriod;
 
   float stagger = 0.0;
   if (u_maskType > 0.5) {
@@ -346,7 +347,7 @@ const PROFILE_DEFAULTS = {
 const PROFILE_UNIFORMS = {
   crt: ['u_resolution', 'u_texResolution', 'u_time', 'u_noise', 'u_lumaSmear', 'u_iqBlur',
     'u_saturation', 'u_phaseSpeed', 'u_beamPeriod', 'u_beamOrigin', 'u_verticalScale', 'u_beamFocus',
-    'u_beamBloom', 'u_maskType', 'u_maskStrength', 'u_tvLines', 'u_curvature', 'u_glow'],
+    'u_beamBloom', 'u_maskType', 'u_maskStrength', 'u_maskPeriod', 'u_maskOrigin', 'u_curvature', 'u_glow'],
   gb: ['u_resolution', 'u_cellSize', 'u_gridOrigin', 'u_tint', 'u_gridStrength', 'u_shadowOpacity', 'u_shadowOffset', 'u_contrast'],
   gg: ['u_resolution', 'u_cellSize', 'u_gridOrigin', 'u_gridStrength', 'u_subpixel', 'u_saturation', 'u_glow'],
 };
@@ -500,17 +501,18 @@ export class ScreenFilter {
 
   _uploadCrt(u, w, h, time, p) {
     const gl = this.gl;
-    // scanline period + NTSC signal resolution. With trackPixels on and a map camera present,
-    // derive them from the on-screen game pixels (one scanline per pixel row, phase-locked to the
-    // pan); otherwise fall back to the fixed slider counts.
+    // scanline/mask period + NTSC signal resolution. With trackPixels on and a pixel grid present
+    // (2-D map camera, or a fixed-native viewer like low-res Elite), derive them from the on-screen
+    // game pixels — one scanline per pixel row and one RGB triad per pixel, phase-locked to the pan,
+    // so both scale with the pixels as you zoom. Otherwise fall back to the fixed slider counts.
     let sigH = p.signalLines;
     let beamPeriod = h / Math.max(1, p.scanLines), beamOrigin = 0;
-    const g = (p.trackPixels > 0.5 && this.pixelGrid) ? this.pixelGrid() : null;
-    if (g && g.screenW > 0 && g.zoom > 0) {
-      const ratio = w / g.screenW;
-      const cell = Math.max(2, g.zoom * ratio); // one game pixel in overlay px (>=2 so scanlines resolve)
-      beamPeriod = cell;
-      beamOrigin = g.oy * ratio;
+    let maskPeriod = w / Math.max(1, p.tvLines) * 1.5, maskOx = 0, maskOy = 0;
+    const pc = (p.trackPixels > 0.5) ? this._pixelCell(w) : null;
+    if (pc) {
+      const cell = Math.max(2, pc.cell); // one game pixel in overlay px (>=2 so structure resolves)
+      beamPeriod = cell; beamOrigin = pc.oy;
+      maskPeriod = cell; maskOx = pc.ox; maskOy = pc.oy;
       sigH = h / cell; // visible game-pixel rows
     }
     const sigW = Math.round(sigH * (w / h));
@@ -529,21 +531,30 @@ export class ScreenFilter {
     gl.uniform1f(u.u_beamBloom, p.beamBloom);
     gl.uniform1f(u.u_maskType, p.maskType);
     gl.uniform1f(u.u_maskStrength, p.maskStrength);
-    gl.uniform1f(u.u_tvLines, p.tvLines);
+    gl.uniform1f(u.u_maskPeriod, maskPeriod);
+    gl.uniform2f(u.u_maskOrigin, maskOx, maskOy);
     gl.uniform1f(u.u_curvature, p.curvature);
     gl.uniform1f(u.u_glow, p.glow);
   }
 
-  // Size of one game pixel (and the grid origin) in overlay device px, from the active viewer's
-  // camera. drawImage maps the whole viewer canvas onto the overlay, so app-screen px scale by
-  // (overlay width / app-screen width); one game pixel is `zoom` app-screen px. Falls back to a
-  // fixed cell when there's no map camera (shouldn't happen for the LCD profiles).
-  _cellGrid(w, p) {
+  // One game pixel (and the grid origin) in overlay device px, from the active viewer's pixel grid:
+  // pixelGrid() returns { cell, ox, oy, ref } in the viewer's CSS px, and drawImage maps the whole
+  // viewer canvas onto the overlay, so CSS px scale by (overlay width / ref). null when the active
+  // viewer has no pixel grid (a 3-D viewer at display resolution).
+  _pixelCell(w) {
     const g = this.pixelGrid && this.pixelGrid();
+    if (!g || !(g.ref > 0) || !(g.cell > 0)) return null;
+    const ratio = w / g.ref;
+    return { cell: g.cell * ratio, ox: g.ox * ratio, oy: g.oy * ratio };
+  }
+
+  // The LCD cell grid: one game pixel scaled by pixelsPerCell, or a fixed fallback when there's no
+  // pixel grid (shouldn't happen for the LCD profiles).
+  _cellGrid(w, p) {
     const mult = p.pixelsPerCell || 1;
-    if (!g || !(g.screenW > 0) || !(g.zoom > 0)) return { cell: 6 * mult, ox: 0, oy: 0 };
-    const ratio = w / g.screenW;
-    return { cell: g.zoom * ratio * mult, ox: g.ox * ratio, oy: g.oy * ratio };
+    const pc = this._pixelCell(w);
+    if (!pc) return { cell: 6 * mult, ox: 0, oy: 0 };
+    return { cell: pc.cell * mult, ox: pc.ox, oy: pc.oy };
   }
 
   _uploadGb(u, w, h, g) {

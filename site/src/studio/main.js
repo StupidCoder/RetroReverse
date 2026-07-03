@@ -589,13 +589,20 @@ screen.source = () => {
   if (!m) return [];
   return [...m.el.querySelectorAll('canvas')].filter(c => getComputedStyle(c).display !== 'none');
 };
-// The active 2-D viewer's pixel grid (zoom + pan in app-screen px), so the LCD shaders can lock
-// their cell grid to the game's own pixels. null for 3-D viewers (which use the CRT profile anyway).
+// The active viewer's pixel grid { cell, ox, oy, ref } in the viewer's CSS px, so the shaders can
+// lock their cell grid / scanlines / phosphor mask to the game's own pixels. A 2-D map camera gives
+// one game pixel = `zoom` CSS px at the pan offset; a viewer may also expose its own pixelGrid()
+// (e.g. low-res Elite's fixed C64 resolution). null when neither applies (a 3-D viewer at full res).
 screen.pixelGrid = () => {
   const m = activeId && mounts.get(activeId);
-  const cam = m && m.viewer && m.viewer.cam;
-  if (!cam || !cam.isMapCamera) return null;
-  return { zoom: cam.zoom, ox: cam.world.position.x, oy: cam.world.position.y, screenW: cam.app.screen.width };
+  const v = m && m.viewer;
+  if (!v) return null;
+  const cam = v.cam;
+  if (cam && cam.isMapCamera) {
+    return { cell: cam.zoom, ox: cam.world.position.x, oy: cam.world.position.y, ref: cam.app.screen.width };
+  }
+  if (typeof v.pixelGrid === 'function') return v.pixelGrid();
+  return null;
 };
 
 // Which shader profile each system uses (CRT tube vs handheld LCD).
