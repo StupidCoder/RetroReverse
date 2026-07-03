@@ -828,10 +828,15 @@ pointed-at stream is *turtle graphics*:
 
 ```
 byte, bit7 = 0 : control — low nibble moves the cursor (bit3 up / bit2 down /
-                 bit1 left / bit0 right, 8 px each); the byte also carries the OAM attribute
+                 bit1 left / bit0 right, 8 px each); the byte also carries the OAM
+                 attribute: $25F0 rotates it left into $D000 (RES 4 masks the up-move
+                 bit), so control bit4 = X flip, bit5 = Y flip for later stamps
 byte, bit7 = 1 : stamp an 8x8 OBJ sprite of this tile id (the byte itself) at the cursor
 $FF            : end of the metasprite
 ```
+
+The flips matter: the Goomba's two walk poses are the *same tile* — frame `$00` is
+`90` and frame `$01` is `10 90`, "X-flip on, stamp `$90`". The waddle is a mirror.
 
 Objects run in **8x8 sprite mode** (LCDC bit 2 = 0): each stamped byte is one 8x8 tile, so
 e.g. the Goomba (frame `$01`) is the single tile `$90`, while Mario is a 2×2 of 8x8 tiles.
@@ -869,12 +874,12 @@ The two opening Goombas of 1‑1 (type `$00`) are the whole language in miniatur
 
 ```
 $F8 $00   set frame $00
-$F4 $02   set the sub-pixel step
+$F4 $02   set the sub-step divider: each duration unit now lasts 2+1 = 3 frames
 $01       move (velocity $01) for…
-$E2       …2 more frames
+$E2       …2 more units
 $F8 $01   set frame $01  (the second walk pose)
-$E3       coast 3 frames
-$FF       restart  ->  a two-frame walk cycle, forever
+$E3       coast 3 units
+$FF       restart  ->  a two-frame walk cycle, forever (9 real frames per pose)
 ```
 
 The full opcode set:
@@ -887,7 +892,7 @@ The full opcode set:
 | `$F1` | tt | **Spawn** a child object of type `tt`. |
 | `$F2` | xx | Set the object's **behaviour flags** (`$FFC7` — e.g. gravity/solidity bits read by `$266D`). |
 | `$F3` | tt | **Become type `tt`**: replace own type, re-init, and reload that type's script (`tt = $FF` despawns the object). |
-| `$F4` | xx | Set the **sub-pixel movement accumulator** (`$FFC9`). |
+| `$F4` | xx | Set the **sub-step divider** (`$FFC9` low nibble): while a duration is pending, the runner (`$2689`) counts the high nibble up to it and only then decrements `$FFC8` and moves — so one duration unit lasts `(xx&$0F)+1` real frames. It throttles speed *and* the animation clock (spawn clears it: default 1 frame/unit). |
 | `$F5` | tt | **Random spawn**: 1-in-4 (DIV `$FF04 & 3 == 0`) spawn a child of type `tt`, else continue. |
 | `$F6` | xx | **Wait for the player**: re-run this command (stall) until the player is within/past a horizontal window; `xx` picks the side. |
 | `$F7` | — | Spawn the fixed **projectile object** (type `$27`) in slot 0, then end this frame. |
@@ -906,9 +911,12 @@ the language understood, the moving platforms and lifts read naturally too — t
 restart` — a slow shuttle back and forth.
 
 Because the interpreter runs once per 60 Hz frame, a script is also its own **animation
-timeline**: a move opcode is one frame, a coast is `op&$0F` more, `$F8` switches the pose,
-and `$FF` closes the loop. `level.TypeTimeline` extracts that cycle per type (the Goomba is
-`frame $00 ×3, frame $01 ×3` — the two-frame waddle), skipping the side-effect commands.
+timeline**: a move opcode is one duration unit, a coast is `op&$0F` more, `$F8` switches the
+pose, `$FF` closes the loop — and the `$F4` sub-step divider stretches every unit to
+`(xx&$0F)+1` real frames. `level.TypeTimeline` extracts that cycle per type (the Goomba is
+`frame $00 ×9, frame $01 ×9` real frames, oracle-measured on the live slot — and the two
+poses are one mirrored tile, so the decoder keeps the stream's flip attribute), skipping the
+side-effect commands.
 Types that *become* another type (`$F3`) are transients and stay static; for player-gated
 types (`$F6` wait / `$FB` proximity) the timeline keeps only the action segment after the
 gate — the piranha plant's exported cycle is its chomp. The Studio's webexport composites

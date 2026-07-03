@@ -58,11 +58,16 @@ func DecodeObjectsByID(rom []byte, id byte) []Object {
 // $04,$05), which is $30AB; $2FD9 reverses the columns.
 const msTable = 0x30AB // object metasprite pointer table (natural facing; bank-0 fixed)
 
-// Sprite is one 8x8 OBJ sprite of a metasprite: the tile id and its pixel offset from the
-// metasprite origin (DY negative = above the origin).
+// Sprite is one 8x8 OBJ sprite of a metasprite: the tile id, its pixel offset from
+// the metasprite origin (DY negative = above the origin), and its flips. A control
+// byte carries the OAM attribute alongside the cursor movement: the draw routine
+// ($25F0) rotates it left into the attr ($D000; RES 4 masks the up-move bit), so
+// control bit 4 -> OAM bit 5 = X flip and bit 5 -> bit 6 = Y flip — the Goomba's
+// second walk pose is just "attr $10, tile $90": the same tile mirrored.
 type Sprite struct {
-	Tile   byte
-	DX, DY int
+	Tile         byte
+	DX, DY       int
+	XFlip, YFlip bool
 }
 
 // DecodeMetasprite decodes object metasprite frame `f` from the $2FD9 table into its 8x8
@@ -71,6 +76,7 @@ func DecodeMetasprite(rom []byte, f int) []Sprite {
 	p := int(rom[msTable+f*2]) | int(rom[msTable+f*2+1])<<8
 	var out []Sprite
 	cx, cy := 0, 0
+	xf, yf := false, false // current attr, replaced by each control byte
 	for i := 0; i < 64 && p >= 0 && p < len(rom); i++ {
 		b := rom[p]
 		p++
@@ -78,9 +84,10 @@ func DecodeMetasprite(rom []byte, f int) []Sprite {
 			break
 		}
 		if b&0x80 != 0 {
-			out = append(out, Sprite{b, cx, cy})
+			out = append(out, Sprite{Tile: b, DX: cx, DY: cy, XFlip: xf, YFlip: yf})
 			continue
 		}
+		xf, yf = b&0x10 != 0, b&0x20 != 0
 		if b&0x08 != 0 {
 			cy -= 8
 		}
@@ -157,13 +164,16 @@ func nextScriptStart(rom []byte, p int) int {
 }
 
 // TypeTimeline extracts an object type's looping animation from its behaviour
-// script: the script runs once per frame, so a move op (<$E0) is 1 frame, a coast
-// $E0-$EF is op&$0F more frames, $F8 xx switches the pose, and $FF restarts (the
-// loop). Side-effect commands are skipped. A $F3 (become another type) means the
-// script is a transient — nil (static icon). A player gate ($F6 wait / $FB
-// proximity restart) discards what came before it: the exported loop is the action
-// segment the gate triggers (the piranha plant's chomp), with the gate itself
-// ignored. Returns nil unless the result is a real cycle (>= 2 distinct poses).
+// script: a move op (<$E0) is 1 duration unit, a coast $E0-$EF is op&$0F more,
+// $F8 xx switches the pose, and $FF restarts (the loop). One duration unit is NOT
+// one frame: the runner's sub-step counter ($2689, the $FFC9 nibble pair set by
+// $F4 xx) only ticks the duration every (step&$0F)+1 frames — the Goomba's $F4 02
+// makes its 3-unit poses last 9 real frames (oracle-measured). Side-effect commands
+// are skipped. A $F3 (become another type) means the script is a transient — nil
+// (static icon). A player gate ($F6 wait / $FB proximity restart) discards what
+// came before it: the exported loop is the action segment the gate triggers (the
+// piranha plant's chomp), with the gate itself ignored. Returns nil unless the
+// result is a real cycle (>= 2 distinct poses).
 func TypeTimeline(rom []byte, typ byte) []FrameStep {
 	p := int(rom[scriptTable+int(typ)*2]) | int(rom[scriptTable+int(typ)*2+1])<<8
 	if p < 0x3500 || p >= 0x3D00 {
@@ -172,6 +182,7 @@ func TypeTimeline(rom []byte, typ byte) []FrameStep {
 	end := nextScriptStart(rom, p)
 	var steps []FrameStep
 	cur, dur := -1, 0
+	scale := 1 // frames per duration unit: ($F4 arg & $0F)+1, cleared to 1 at spawn
 	flush := func() {
 		if cur < 0 || dur == 0 {
 			dur = 0
@@ -201,15 +212,18 @@ func TypeTimeline(rom []byte, typ byte) []FrameStep {
 				cur = int(rom[p+1])
 			}
 			p += 2
+		case op == 0xF4: // set sub-step divider: units now last (arg&$0F)+1 frames
+			scale = int(rom[p+1]&0x0F) + 1
+			p += 2
 		case op == 0xF7 || op == 0xFE: // argless commands
 			p++
 		case op >= 0xF0: // other commands: side effects, one arg byte
 			p += 2
-		case op >= 0xE0: // coast op&$0F more frames
-			dur += int(op & 0x0F)
+		case op >= 0xE0: // coast op&$0F more units
+			dur += int(op&0x0F) * scale
 			p++
-		default: // move: one frame
-			dur++
+		default: // move: one unit
+			dur += scale
 			p++
 		}
 	}

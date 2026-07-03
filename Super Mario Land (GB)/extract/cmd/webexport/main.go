@@ -178,7 +178,9 @@ var objOrigin = [2]int{8, 24}
 
 // marioFrame is Mario's idle standing sprite: a 2x2 of OBJ tiles, each {tile, dx, dy}
 // from the sprite top-left (read from the running game's OAM at spawn).
-var marioFrame = []level.Sprite{{0x00, 0, 0}, {0x01, 8, 0}, {0x10, 0, 8}, {0x11, 8, 8}}
+var marioFrame = []level.Sprite{
+	{Tile: 0x00}, {Tile: 0x01, DX: 8}, {Tile: 0x10, DY: 8}, {Tile: 0x11, DX: 8, DY: 8},
+}
 
 // objIcon describes one type's strip in the object-icon atlas: its row, how many
 // pose cells it has, and the per-pose durations (60 Hz frames) when it animates.
@@ -225,7 +227,14 @@ func saveObjIcons(rom []byte, path string, vram []byte, obp0 byte) (map[string]o
 		tl := gameboy.DecodeTile(vram[int(s.Tile)*16:]) // 8x8 OBJ tile
 		for py := 0; py < 8; py++ {
 			for px := 0; px < 8; px++ {
-				if v := tl[py][px]; v != 0 { // OBJ colour 0 = transparent
+				sx, sy := px, py // the sprite's flip attrs mirror the tile
+				if s.XFlip {
+					sx = 7 - px
+				}
+				if s.YFlip {
+					sy = 7 - py
+				}
+				if v := tl[sy][sx]; v != 0 { // OBJ colour 0 = transparent
 					g := []uint8{0xff, 0xaa, 0x55, 0x00}[(obp0>>(2*v))&3]
 					img.Set(ox+s.DX+px, oy+s.DY+py, color.NRGBA{g, g, g, 0xff})
 				}
