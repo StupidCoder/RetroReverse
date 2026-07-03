@@ -729,6 +729,40 @@ world's tiles it is the level start-to-flag:
 lookup and renders it. All four worlds' maps are committed under `rendered/`. Still to
 do: the **bonus rooms** (screens 1 and 2 of each level) — Part V.
 
+## 7. Animated background tiles
+
+The flickering 1‑3 wall torches, the world‑2 water ripple and the 3‑2/3‑3 waterfall
+are all one mechanism: **`$23F8`**, the last call in the VBlank chain (Part III §5),
+animates **a single BG tile — `$5D`** — by rewriting its **high bitplane** (the 8 odd
+bytes `$95D1`, `$95D3` … `$95DF`; the low plane never changes):
+
+```
+$23F8: only if $D014 (per-level enable) and game state $FFB3 < $0D
+$2402: act every 8th frame ($FFAC & 7 == 0)
+$2409: $FFAC bit 3 chooses the source:
+         0 -> $3FAF + (world-1)*8   the per-world 8-byte "accent"  (phase A)
+         1 -> $C600                 the tile's resting high plane  (phase B)
+$2420: copy 8 bytes to $95D1, stride 2
+```
+
+Each phase is shown for 8 frames — a **16-frame full cycle** (~3.75 Hz). The enable
+flag `$D014` is loaded at level init (`$2445`) from the table at **`$242D`**`[ffe4]` =
+`00 00 01 01 01 00 00 01 01 00 01 00`: the animation runs in **1‑3, 2‑1, 2‑2, 3‑2,
+3‑3 and 4‑2** only. `$C600` is filled at tile-load time with the odd bytes of tile
+`$5D` as it sits in the world's BG tileset (world 1: `$05E8` reads bank2:`$5603`;
+worlds 2‑4: `$0DBE` reads source+`$2C1` from the `$0DEA` overlay table — w2
+bank1:`$4402`, w3 bank3:`$4402`, w4 bank1:`$4BC2`, tile `$5D` at +`$2C0`). So phase B
+is the tile as drawn in the map, and phase A is a per-world variant: world 1's torch
+flips between tall and short flame, world 3's waterfall pattern is the same bit
+pattern shifted four rows — a scrolling stream.
+
+`level.DecodeTileAnim` reimplements the chain from the cartridge;
+`extract/cmd/tileanimverify -id NN` boots the level and asserts the live VRAM
+patterns and the 8-frame phase period match the decode (all twelve levels pass —
+six animated, six static). The Studio exports the two frames as atlas tiles and the
+viewer flips them at the game's cadence; the enemies' walk cycles come from their
+behaviour scripts (Part V §3).
+
 # Part V — Game mechanics
 
 ## 1. Object and enemy placement
@@ -870,6 +904,16 @@ The full opcode set:
 the language understood, the moving platforms and lifts read naturally too — type `$0A` (the
 1‑1 end lift) is `set frame $12; face right; move; coast ~60 frames; face left; coast ~60;
 restart` — a slow shuttle back and forth.
+
+Because the interpreter runs once per 60 Hz frame, a script is also its own **animation
+timeline**: a move opcode is one frame, a coast is `op&$0F` more, `$F8` switches the pose,
+and `$FF` closes the loop. `level.TypeTimeline` extracts that cycle per type (the Goomba is
+`frame $00 ×3, frame $01 ×3` — the two-frame waddle), skipping the side-effect commands.
+Types that *become* another type (`$F3`) are transients and stay static; for player-gated
+types (`$F6` wait / `$FB` proximity) the timeline keeps only the action segment after the
+gate — the piranha plant's exported cycle is its chomp. The Studio's webexport composites
+each pose's metasprite into a strip and ships the durations, so the **Objects & enemies**
+layer plays the games' own gaits (31 of the 99 types have a real cycle).
 
 ## 4. Pipes and the bonus rooms
 

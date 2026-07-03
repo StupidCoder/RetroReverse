@@ -135,6 +135,102 @@ func TypeFrames(rom []byte) map[byte]byte {
 	return m
 }
 
+// FrameStep is one pose of an object's animation timeline: metasprite frame Frame
+// shown for Frames game frames (60 Hz).
+type FrameStep struct {
+	Frame  byte
+	Frames int
+}
+
+// nextScriptStart returns the smallest script start > p within the script block —
+// the boundary at which a script without an $FF must stop (same rule as
+// cmd/objscript).
+func nextScriptStart(rom []byte, p int) int {
+	end := 0x3D00
+	for t := 0; t < 0x80; t++ {
+		s := int(rom[scriptTable+t*2]) | int(rom[scriptTable+t*2+1])<<8
+		if s > p && s < end {
+			end = s
+		}
+	}
+	return end
+}
+
+// TypeTimeline extracts an object type's looping animation from its behaviour
+// script: the script runs once per frame, so a move op (<$E0) is 1 frame, a coast
+// $E0-$EF is op&$0F more frames, $F8 xx switches the pose, and $FF restarts (the
+// loop). Side-effect commands are skipped. A $F3 (become another type) means the
+// script is a transient — nil (static icon). A player gate ($F6 wait / $FB
+// proximity restart) discards what came before it: the exported loop is the action
+// segment the gate triggers (the piranha plant's chomp), with the gate itself
+// ignored. Returns nil unless the result is a real cycle (>= 2 distinct poses).
+func TypeTimeline(rom []byte, typ byte) []FrameStep {
+	p := int(rom[scriptTable+int(typ)*2]) | int(rom[scriptTable+int(typ)*2+1])<<8
+	if p < 0x3500 || p >= 0x3D00 {
+		return nil
+	}
+	end := nextScriptStart(rom, p)
+	var steps []FrameStep
+	cur, dur := -1, 0
+	flush := func() {
+		if cur < 0 || dur == 0 {
+			dur = 0
+			return
+		}
+		if n := len(steps); n > 0 && steps[n-1].Frame == byte(cur) {
+			steps[n-1].Frames += dur
+		} else {
+			steps = append(steps, FrameStep{byte(cur), dur})
+		}
+		dur = 0
+	}
+	for i := 0; i < 96 && p < end; i++ {
+		op := rom[p]
+		switch {
+		case op == 0xFF: // restart: the loop closes here
+			flush()
+			p = end // done
+		case op == 0xF3: // become another type: transient spawn-in, not a cycle
+			return nil
+		case op == 0xF6 || op == 0xFB: // player gate: keep only what follows
+			steps, dur = steps[:0], 0
+			p += 2
+		case op == 0xF8: // set pose
+			if int(rom[p+1]) != cur {
+				flush()
+				cur = int(rom[p+1])
+			}
+			p += 2
+		case op == 0xF7 || op == 0xFE: // argless commands
+			p++
+		case op >= 0xF0: // other commands: side effects, one arg byte
+			p += 2
+		case op >= 0xE0: // coast op&$0F more frames
+			dur += int(op & 0x0F)
+			p++
+		default: // move: one frame
+			dur++
+			p++
+		}
+	}
+	flush()
+	// Merge the wrap-around (last pose == first pose reads as one hold).
+	if n := len(steps); n > 1 && steps[0].Frame == steps[n-1].Frame {
+		steps[0].Frames += steps[n-1].Frames
+		steps = steps[:n-1]
+	}
+	distinct := map[byte]bool{}
+	total := 0
+	for _, s := range steps {
+		distinct[s.Frame] = true
+		total += s.Frames
+	}
+	if len(distinct) < 2 || total < 2 {
+		return nil
+	}
+	return steps
+}
+
 // SolidTile reports whether a background tile id is solid ground — something Mario and
 // enemies stand on (as opposed to passable scenery). Solidity is decided purely by the
 // tile id: the engine's foot/side checks read the BG tile under the actor ($0153) and
@@ -147,9 +243,9 @@ func SolidTile(id byte) bool { return id >= 0x60 && id < 0xF0 }
 // and pressing Down sends Mario to screen Dest (the bonus rooms are screens 1 and 2 of the
 // order table); leaving the bonus room returns him to screen RetScreen at pixel (RetX,RetY).
 type Pipe struct {
-	Screen, Col         int
-	Dest, RetScreen     int
-	RetX, RetY          int
+	Screen, Col     int
+	Dest, RetScreen int
+	RetX, RetY      int
 }
 
 // DecodePipes decodes a level's warp-pipe table. The $70-tile handler ($22A0) reads this

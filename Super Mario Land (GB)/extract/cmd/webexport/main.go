@@ -65,22 +65,39 @@ func main() {
 		// Tiles: warp the oracle into this world and read back VRAM + palettes.
 		vram, lcdc, bgp := worldTiles(data, byte(world))
 		obp0 := objPalette(data, byte(world))
-		saveAtlas(filepath.Join(out, fmt.Sprintf("world%d.png", world)), vram, lcdc, bgp)
-		// Object sprite icons: one composited metasprite per known type, in this world's
-		// OBJ tiles, stacked into an atlas referenced by world-scoped sprite keys.
+		// The world's animated-tile frames ($23F8 rewrites tile $5D's high plane;
+		// decoded from ROM, per-world). Frame data is deterministic where the oracle
+		// VRAM snapshot could be caught mid-phase, so the atlas paints tile $5D and
+		// the appended frame cell (tile 256) from the decode, not the snapshot.
+		anim := level.DecodeTileAnim(data, byte(world<<4|3)) // any enabled level; every world has one
+		for lv := 1; anim == nil && lv <= 3; lv++ {
+			anim = level.DecodeTileAnim(data, byte(world<<4|lv))
+		}
+		saveAtlas(filepath.Join(out, fmt.Sprintf("world%d.png", world)), vram, lcdc, bgp, anim)
+		// Object sprite icons: per known type, its script animation poses (or the one
+		// base metasprite) composited into a strip of objCell cells, rows stacked into
+		// an atlas referenced by world-scoped sprite keys.
 		objAtlas := fmt.Sprintf("sprites/world%d-obj.png", world)
 		objTypes, marioIcon := saveObjIcons(data, filepath.Join(out, objAtlas), vram, obp0)
-		icon := func(idx int) map[string]any {
-			return map[string]any{
+		icon := func(t objIcon) map[string]any {
+			e := map[string]any{
 				"src":    objAtlas,
-				"frames": [][4]int{{0, idx * objCell, objCell, objCell}},
-				"anchor": objOrigin, // the metasprite origin within the cell
+				"anchor": objOrigin, // the metasprite origin within each cell
 			}
+			frames := make([][4]int, t.frames)
+			for f := range frames {
+				frames[f] = [4]int{f * objCell, t.row * objCell, objCell, objCell}
+			}
+			e["frames"] = frames
+			if len(t.durations) > 1 {
+				e["durations"] = t.durations // 60 Hz frames per pose (script-derived)
+			}
+			return e
 		}
-		for t, idx := range objTypes {
-			spriteIndex[fmt.Sprintf("w%d/%s", world, t)] = icon(idx)
+		for t, ic := range objTypes {
+			spriteIndex[fmt.Sprintf("w%d/%s", world, t)] = icon(ic)
 		}
-		spriteIndex[fmt.Sprintf("w%d/mario", world)] = icon(marioIcon)
+		spriteIndex[fmt.Sprintf("w%d/mario", world)] = icon(objIcon{row: marioIcon, frames: 1})
 
 		for lv := 1; lv <= 3; lv++ {
 			id := byte(world<<4 | lv)
@@ -110,7 +127,7 @@ func main() {
 			name := fmt.Sprintf("%d-%d", world, lv)
 			file := "level-" + name + ".json"
 			atlas := fmt.Sprintf("world%d.png", world)
-			writeJSON(filepath.Join(out, file), map[string]any{
+			lj := map[string]any{
 				"format": 1,
 				"name":   name,
 				"grid": map[string]any{
@@ -125,7 +142,17 @@ func main() {
 				// spawns him at screen (50,134); minus the 16px HUD that is map px.
 				"spawn":     map[string]any{"x": 35, "y": 96, "sprite": fmt.Sprintf("w%d/mario", world)},
 				"collision": map[string]any{"kind": "grid", "sub": 1, "solid": solid},
-			})
+			}
+			// Tile animation ($23F8): in enabled levels tile $5D alternates between
+			// the accent frame (appended as atlas tile 256) and its resting shape,
+			// 8 frames per phase.
+			if level.DecodeTileAnim(data, id) != nil {
+				lj["tileAnims"] = []map[string]any{{
+					"tiles": []int{level.AnimTile}, "frames": [][]int{{nTile}, {level.AnimTile}},
+					"periodFrames": level.AnimPeriod,
+				}}
+			}
+			writeJSON(filepath.Join(out, file), lj)
 			metas = append(metas, levelMeta{name, fmt.Sprintf("World %d", world), file, atlas})
 		}
 	}
@@ -153,11 +180,21 @@ var objOrigin = [2]int{8, 24}
 // from the sprite top-left (read from the running game's OAM at spawn).
 var marioFrame = []level.Sprite{{0x00, 0, 0}, {0x01, 8, 0}, {0x10, 0, 8}, {0x11, 8, 8}}
 
-// saveObjIcons composites one metasprite per known object type into a vertical atlas (in
-// this world's OBJ tiles + sprite palette), plus one extra cell for Mario's idle sprite at
-// the end. It returns the type id -> icon index map and Mario's icon index. Types not in
-// level.TypeFrame are omitted (the viewer falls back to a marker for them).
-func saveObjIcons(rom []byte, path string, vram []byte, obp0 byte) (map[string]int, int) {
+// objIcon describes one type's strip in the object-icon atlas: its row, how many
+// pose cells it has, and the per-pose durations (60 Hz frames) when it animates.
+type objIcon struct {
+	row       int
+	frames    int
+	durations []int
+}
+
+// saveObjIcons composites each known object type's animation poses (from its script
+// timeline, level.TypeTimeline; fallback: the single base metasprite) into a strip of
+// objCell cells, one row per type, in this world's OBJ tiles + sprite palette, plus
+// one extra row for Mario's idle sprite. It returns the type id -> icon map and
+// Mario's row. Types not in level.TypeFrames are omitted (the viewer falls back to a
+// marker for them).
+func saveObjIcons(rom []byte, path string, vram []byte, obp0 byte) (map[string]objIcon, int) {
 	// Stable order so the atlas is deterministic.
 	typeFrame := level.TypeFrames(rom)
 	var types []int
@@ -166,8 +203,24 @@ func saveObjIcons(rom []byte, path string, vram []byte, obp0 byte) (map[string]i
 	}
 	sort.Ints(types)
 
-	marioIdx := len(types) // Mario gets the last cell
-	img := image.NewNRGBA(image.Rect(0, 0, objCell, objCell*(len(types)+1)))
+	out := map[string]objIcon{}
+	maxFrames := 1
+	for i, t := range types {
+		ic := objIcon{row: i, frames: 1}
+		if tl := level.TypeTimeline(rom, byte(t)); tl != nil {
+			ic.frames = len(tl)
+			for _, st := range tl {
+				ic.durations = append(ic.durations, st.Frames)
+			}
+		}
+		if ic.frames > maxFrames {
+			maxFrames = ic.frames
+		}
+		out[fmt.Sprintf("%d", t)] = ic
+	}
+
+	marioIdx := len(types) // Mario gets the last row
+	img := image.NewNRGBA(image.Rect(0, 0, objCell*maxFrames, objCell*(len(types)+1)))
 	stamp := func(s level.Sprite, ox, oy int) {
 		tl := gameboy.DecodeTile(vram[int(s.Tile)*16:]) // 8x8 OBJ tile
 		for py := 0; py < 8; py++ {
@@ -179,11 +232,18 @@ func saveObjIcons(rom []byte, path string, vram []byte, obp0 byte) (map[string]i
 			}
 		}
 	}
-	out := map[string]int{}
+	pose := func(frame byte, cellX, cellY int) {
+		for _, s := range level.DecodeMetasprite(rom, int(frame)) {
+			stamp(s, cellX*objCell+objOrigin[0], cellY*objCell+objOrigin[1])
+		}
+	}
 	for i, t := range types {
-		out[fmt.Sprintf("%d", t)] = i
-		for _, s := range level.DecodeMetasprite(rom, int(typeFrame[byte(t)])) {
-			stamp(s, objOrigin[0], i*objCell+objOrigin[1])
+		if tl := level.TypeTimeline(rom, byte(t)); tl != nil {
+			for f, st := range tl {
+				pose(st.Frame, f, i)
+			}
+		} else {
+			pose(typeFrame[byte(t)], 0, i)
 		}
 	}
 	for _, s := range marioFrame { // Mario's 2x2, top-left at the cell origin
@@ -233,12 +293,18 @@ func worldTiles(rom []byte, world byte) (vram []byte, lcdc, bgp byte) {
 
 // saveAtlas writes the 256 background tiles (indexed by the map's tile value, signed
 // $8800 addressing) into a 16-wide atlas with a 1px extruded gutter, in the BG palette.
-func saveAtlas(path string, vram []byte, lcdc, bgp byte) {
-	rows := nTile / cols
+// When the world animates tile $5D (anim != nil), that cell and the appended frame
+// cell (atlas tile 256, a 17th row) are painted from the ROM-decoded frames — the
+// oracle VRAM snapshot could be caught in either phase.
+func saveAtlas(path string, vram []byte, lcdc, bgp byte, anim *level.TileAnim) {
+	total := nTile
+	if anim != nil {
+		total = nTile + 1
+	}
+	rows := (total + cols - 1) / cols
 	img := image.NewPaletted(image.Rect(0, 0, cols*cell, rows*cell), gameboy.GreyPalette())
 	shade := func(v uint8) uint8 { return (bgp >> (2 * v)) & 3 }
-	for n := 0; n < nTile; n++ {
-		t := gameboy.DecodeTile(vram[tileOffset(lcdc, byte(n)):])
+	paint := func(n int, t [8][8]uint8) {
 		ox, oy := (n%cols)*cell+gut, (n/cols)*cell+gut
 		for y := -gut; y < tile+gut; y++ {
 			for x := -gut; x < tile+gut; x++ {
@@ -246,6 +312,13 @@ func saveAtlas(path string, vram []byte, lcdc, bgp byte) {
 				img.SetColorIndex(ox+x, oy+y, shade(t[sy][sx]))
 			}
 		}
+	}
+	for n := 0; n < nTile; n++ {
+		paint(n, gameboy.DecodeTile(vram[tileOffset(lcdc, byte(n)):]))
+	}
+	if anim != nil {
+		paint(level.AnimTile, gameboy.DecodeTile(anim.Frames[1][:])) // resting shape
+		paint(nTile, gameboy.DecodeTile(anim.Frames[0][:]))          // accent frame
 	}
 	f, err := os.Create(path)
 	must(err)

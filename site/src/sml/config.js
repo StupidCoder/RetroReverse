@@ -3,7 +3,8 @@
 // exported by "Super Mario Land (GB)/extract/cmd/webexport".
 export default {
   base: 'public/sml/',
-  strategy: 'sliced',
+  strategy: 'baked', // per-tile canvas textures so tileAnims (torch/waterfall) repaint
+
   maxNativeFactor: 6,
   minFitFactor: 0.9,
   markerCat: () => 'enemy',
