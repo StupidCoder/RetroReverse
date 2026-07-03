@@ -56,7 +56,7 @@ func exportOverlays(vol *adf.Volume, paths map[string]string, key string, track 
 		return nil, nil, err
 	}
 	buf, cells := ilb.Decode(id)
-	ovls, swaps := trackOverlays(track, len(cells), co.H, key == "aerial")
+	ovls, swaps := trackOverlays(track, len(cells), co.H)
 	done := map[string]bool{}
 	for _, o := range ovls {
 		if o.Cell < 0 || o.Cell >= len(cells) || cells[o.Cell].W == 0 {
@@ -127,19 +127,21 @@ func exportOverlays(vol *adf.Volume, paths map[string]string, key string, track 
 	}
 
 	// screen-swap tile animations (Ultimate's final screen): the engine cycles
-	// the fixed 30-row band through the variant blocks, one block per Painter
-	// pipeline pass (job -> reply -> vblank flip ≈ 4 display frames — content
-	// and order are exact, the per-variant hold is that pipeline estimate)
+	// the fixed 30-row band through the variant blocks. Content and order are
+	// exact from the Track data; the per-variant hold is in-game calibrated
+	// (~one second per variant — the Painter pipeline repaints the band one
+	// column job at a time across many world frames)
 	var anims []map[string]any
 	for _, sw := range swaps {
-		const bandRows = 30 // the engine's Painter job height ($1E038 sends $1E rows)
+		const bandRows = 30   // the engine's Painter job height ($1E038 sends $1E rows)
+		const holdFrames = 50 // ~1 s per variant at 50 Hz, measured in-game
 		phases := make([]map[string]any, len(sw.Rows))
 		for i, row := range sw.Rows {
 			tiles := make([]int, 0, bandRows*mlb.CourseW)
 			for y := row; y < row+bandRows && y < co.H; y++ {
 				tiles = append(tiles, co.Cells[y*mlb.CourseW:(y+1)*mlb.CourseW]...)
 			}
-			phases[i] = map[string]any{"tiles": tiles, "frames": 4}
+			phases[i] = map[string]any{"tiles": tiles, "frames": holdFrames}
 		}
 		anims = append(anims, map[string]any{
 			"tx": 0, "ty": sw.Ty, "tw": mlb.CourseW, "th": bandRows, "phases": phases,
@@ -262,14 +264,17 @@ func rowPairList(im []byte, off uint32, maxRow int) []int {
 
 // trackOverlays walks every dynamic region's script and returns the scenery
 // sprite pieces it places plus any screen-swap tile animations. nCells bounds
-// the course .ilb bank, mapRows the course tilemap data rows; aerial selects
-// the course-4 base correction ($E6B2 adds descriptor +$12 only there).
-func trackOverlays(im []byte, nCells, mapRows int, aerial bool) ([]overlay, []swapAnim) {
+// the course .ilb bank, mapRows the course tilemap data rows.
+//
+// The course descriptor's +$12 word (the final-screen scroll offset; Silly's
+// max scroll) is NOT part of the world mapping: $E6B2 adds it to $9BA only on
+// course 4 (Silly) to seed the scroll for its bottom-of-course start, and the
+// scroll terms cancel out of the world-space form — so no course gets a base
+// correction here. (An earlier build added it for Aerial — wrong course AND
+// wrong term; it pushed Aerial's goal flags ~784 px up the map.)
+func trackOverlays(im []byte, nCells, mapRows int) ([]overlay, []swapAnim) {
 	hdr0 := ou32(im, 0)
 	base := os16(im, hdr0+0x10)
-	if aerial {
-		base += os16(im, hdr0+0x12)
-	}
 	dyn := ou32(im, 0x14)
 	if dyn == 0 || int(dyn)+4 > len(im) {
 		return nil, nil
@@ -350,14 +355,18 @@ func scanScript(im []byte, idx int, pc, stop uint32, base, nCells, mapRows int) 
 		if kdur == 1 {
 			// dur==1 keyframes carry the piece's draw anchor directly, as
 			// course-tile coords in +$26/+$28 (the $105FE/$D868 draw path —
-			// the drawbridge and the other tile-area pieces)
-			o.X, o.Y = kw26*8+dx, kw28*8+dy
+			// the drawbridge and the other tile-area pieces); the record dy
+			// nudge raises the piece ($122AC flips y, so +dy moves it UP)
+			o.X, o.Y = kw26*8+dx, kw28*8-dy
 		} else {
 			// free-standing pieces (the goal flags) anchor at the keyframe
-			// ref point through the engine's iso projection ($6918/$122AC)
+			// ref point through the engine's iso projection ($6918/$122AC).
+			// The +$90 flip constant is in-game calibrated (the hardware
+			// sprites sit 12 px above the raw $108-y buffer arithmetic —
+			// the sprite-vs-playfield-band vertical offset).
 			x8, y8 := kx*8+4, ky*8+4
 			o.X = (y8 - x8) + 0x88 + dx
-			o.Y = (x8+y8)/2 - kz - base + 0x9C - dy
+			o.Y = (x8+y8)/2 - kz - base + 0x90 - dy
 		}
 		// a script that re-selects at the same anchor is animating one piece
 		// (the drawbridge's lift states); keep the first state only

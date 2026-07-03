@@ -1243,8 +1243,8 @@ tilemap rows into the off-screen buffer, `memcpy`s that variant's **`$798` heigh
 (so the *collision* mesh switches with the pixels — the vanished path really is gone), and
 flips the buffer into the scroll bitmap on the next vblank (`frame_tick $75DA` →
 `$1DE10`/`$1DDD8`). Content and order are exact from the data — 78 → 108 → 138 → 168, wrap;
-the per-variant hold is the pipeline latency (job → reply → vblank flip, ≈ 3–4 display
-frames — the strobe you race against).
+the per-variant hold is the pipeline's repaint latency, **about one second per variant**
+(measured in play — the paths hold long enough to dash across, not a strobe).
 
 Two smaller corollaries of the header-vs-data row count: **Silly stores 144 rows but plays
 143** — its one hidden row is a fully-drawn extra wall row (real art, unique tiles) that the
@@ -1473,8 +1473,8 @@ the scenery's silhouette out of the marble's sprite data, every frame.**
 
 After a marble/creature sprite is queued, `$5BE0` runs the per-course occlusion
 checks: it compares the object's iso position against the terrain-registered
-scenery regions (the drawbridge region pointer `$FD38`, Silly's hole list
-`$FD3C`, the `$FD54`/`$FD58` feature lists — the same self-registration the
+scenery regions (the drawbridge region pointer `$FD38`, Aerial's hole/fall list
+`$FD3C` (course index 3 is Aerial, 4 Silly), the `$FD54`/`$FD58` feature lists — the same self-registration the
 region scripts perform through their terrain codes). If the object is
 *behind/under* a piece, `$11678` resolves the piece's current on-screen
 position (its tile anchor `+$26/+$28` ×8, plus drift, minus scroll) and its
@@ -1521,7 +1521,12 @@ course-tile coordinates** (region `+$26/+$28`) plus the sprite-list link;
 becomes the list cursor). Free-standing pieces like the flags anchor at their
 keyframe reference point through the engine's projection (`$6918`:
 `screenX = y·8−x·8+$88`, `screenY = z + $9BA + $6C − (x·8+y·8)/2`, with `$9BA`
-seeded from the course descriptor's `+$10` word).
+seeded from the course descriptor's `+$10` word; the `+$12` word — the
+final-screen scroll offset — is added only on **Silly** to seed its
+bottom-of-course start, and cancels out of the world mapping). The record's
+`dy` nudge raises a piece on both anchor paths (`$122AC` flips y up-positive),
+and hardware sprites sit 12 px above the raw buffer arithmetic (the
+sprite-vs-playfield-band offset, calibrated in play).
 
 The companion site's course maps draw these pieces as a toggleable
 **scenery-overlay layer** (`extract/cmd/webexport`, `overlay.go`), placed by
