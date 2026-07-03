@@ -42,7 +42,8 @@ uniform float u_iqBlur;
 uniform float u_saturation;
 uniform float u_phaseSpeed;
 
-uniform float u_scanlineCount;
+uniform float u_beamPeriod;   // overlay px per scanline
+uniform float u_beamOrigin;   // scanline phase (overlay px) — locks scanlines to game-pixel rows
 uniform float u_verticalScale;
 uniform float u_beamFocus;
 uniform float u_beamBloom;
@@ -112,7 +113,9 @@ vec3 sampleNTSC(vec2 uv) {
 // Domain B: electron beam
 vec3 applyBeam(vec2 uv, vec3 inputLinear) {
   float L = dot(inputLinear, vec3(0.2126, 0.7152, 0.0722));
-  float y_dist = fract(uv.y * u_scanlineCount) - 0.5;
+  // scanline position measured in the sampled (texture) space, so a period equal to one game
+  // pixel row lands one scanline on each pixel row; u_beamOrigin carries the camera pan phase.
+  float y_dist = fract((uv.y * u_resolution.y - u_beamOrigin) / u_beamPeriod) - 0.5;
   float sigma = u_beamFocus + u_beamBloom * L * 0.15;
   return inputLinear * gaussian(y_dist, sigma);
 }
@@ -329,7 +332,9 @@ const PROFILE_DEFAULTS = {
     curvature: 0.7, glow: 0.15,
     // line counts (decoupled): signalLines = the vertical resolution of the simulated source
     // signal (drives the NTSC/dot-crawl artefact scale); scanLines = the number of beam scanlines.
-    signalLines: 240, scanLines: 240,
+    // trackPixels (1) auto-derives both from the on-screen game-pixel rows when a map camera is
+    // present (2-D games), phase-locking scanlines to the pixels; the sliders are the manual fallback.
+    signalLines: 240, scanLines: 240, trackPixels: 1,
   },
   // pixelsPerCell = how many native game pixels make one LCD dot (1 = one dot per pixel, authentic).
   // The actual on-screen cell size is derived per frame from the camera zoom (see _render).
@@ -340,7 +345,7 @@ const PROFILE_DEFAULTS = {
 // The uniforms each profile's fragment shader declares (cached at link time, uploaded per frame).
 const PROFILE_UNIFORMS = {
   crt: ['u_resolution', 'u_texResolution', 'u_time', 'u_noise', 'u_lumaSmear', 'u_iqBlur',
-    'u_saturation', 'u_phaseSpeed', 'u_scanlineCount', 'u_verticalScale', 'u_beamFocus',
+    'u_saturation', 'u_phaseSpeed', 'u_beamPeriod', 'u_beamOrigin', 'u_verticalScale', 'u_beamFocus',
     'u_beamBloom', 'u_maskType', 'u_maskStrength', 'u_tvLines', 'u_curvature', 'u_glow'],
   gb: ['u_resolution', 'u_cellSize', 'u_gridOrigin', 'u_tint', 'u_gridStrength', 'u_shadowOpacity', 'u_shadowOffset', 'u_contrast'],
   gg: ['u_resolution', 'u_cellSize', 'u_gridOrigin', 'u_gridStrength', 'u_subpixel', 'u_saturation', 'u_glow'],
@@ -495,16 +500,30 @@ export class ScreenFilter {
 
   _uploadCrt(u, w, h, time, p) {
     const gl = this.gl;
-    const sigH = p.signalLines, sigW = Math.round(sigH * (w / h));
+    // scanline period + NTSC signal resolution. With trackPixels on and a map camera present,
+    // derive them from the on-screen game pixels (one scanline per pixel row, phase-locked to the
+    // pan); otherwise fall back to the fixed slider counts.
+    let sigH = p.signalLines;
+    let beamPeriod = h / Math.max(1, p.scanLines), beamOrigin = 0;
+    const g = (p.trackPixels > 0.5 && this.pixelGrid) ? this.pixelGrid() : null;
+    if (g && g.screenW > 0 && g.zoom > 0) {
+      const ratio = w / g.screenW;
+      const cell = Math.max(2, g.zoom * ratio); // one game pixel in overlay px (>=2 so scanlines resolve)
+      beamPeriod = cell;
+      beamOrigin = g.oy * ratio;
+      sigH = h / cell; // visible game-pixel rows
+    }
+    const sigW = Math.round(sigH * (w / h));
     gl.uniform2f(u.u_resolution, w, h);
-    gl.uniform2f(u.u_texResolution, sigW, sigH);
+    gl.uniform2f(u.u_texResolution, sigW, Math.round(sigH));
     gl.uniform1f(u.u_time, time);
     gl.uniform1f(u.u_noise, p.noise);
     gl.uniform1f(u.u_lumaSmear, p.lumaSmear);
     gl.uniform1f(u.u_iqBlur, p.iqBlur);
     gl.uniform1f(u.u_saturation, p.saturation);
     gl.uniform1f(u.u_phaseSpeed, p.phaseSpeed);
-    gl.uniform1f(u.u_scanlineCount, p.scanLines);
+    gl.uniform1f(u.u_beamPeriod, beamPeriod);
+    gl.uniform1f(u.u_beamOrigin, beamOrigin);
     gl.uniform1f(u.u_verticalScale, 1.0);
     gl.uniform1f(u.u_beamFocus, p.beamFocus * 0.2);
     gl.uniform1f(u.u_beamBloom, p.beamBloom);

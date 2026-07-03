@@ -615,8 +615,11 @@ const PROFILE_CONTROLS = {
     { key: 'iqBlur', label: 'Chroma blur', min: 0, max: 5.0, step: 0.1 },
     { key: 'noise', label: 'Signal noise', min: 0, max: 0.5, step: 0.01 },
     { key: 'maskType', label: 'Mask type', min: 0, max: 1, step: 1, fmt: (v) => v < 0.5 ? 'Trinitron' : 'Shadow' },
-    { key: 'signalLines', label: 'Signal lines', min: 60, max: 600, step: 2, int: true },
-    { key: 'scanLines', label: 'CRT scanlines', min: 60, max: 600, step: 2, int: true },
+    // Track pixels only applies to 2-D games (a map camera); hidden for the 3-D CRT games. When on,
+    // the two line-count sliders are auto-driven from the on-screen pixels, so they're hidden.
+    { key: 'trackPixels', label: 'Track pixels', min: 0, max: 1, step: 1, fmt: (v) => v < 0.5 ? 'Off' : 'On', rebuild: true, hidden: () => !screen.pixelGrid() },
+    { key: 'signalLines', label: 'Signal lines', min: 60, max: 600, step: 2, int: true, hidden: (p) => p.trackPixels > 0.5 && !!screen.pixelGrid() },
+    { key: 'scanLines', label: 'CRT scanlines', min: 60, max: 600, step: 2, int: true, hidden: (p) => p.trackPixels > 0.5 && !!screen.pixelGrid() },
   ],
   gb: [
     { key: 'pixelsPerCell', label: 'Dot size', min: 1, max: 4, step: 1, fmt: (v) => Math.round(v) + '× px' },
@@ -645,6 +648,7 @@ function buildScreenControls() {
   const list = PROFILE_CONTROLS[screen.profile] || [];
   screenSliders.innerHTML = '';
   for (const c of list) {
+    if (c.hidden && c.hidden(screen.params)) continue;
     const row = document.createElement('div'); row.className = 'ctl';
     const label = document.createElement('label');
     const val = document.createElement('span');
@@ -658,6 +662,7 @@ function buildScreenControls() {
       screen.set(c.key, v);
       val.textContent = fmtCtl(c, v);
       persistScreen();
+      if (c.rebuild) buildScreenControls(); // this control shows/hides others (e.g. Track pixels)
     });
     row.append(label, input);
     screenSliders.append(row);
