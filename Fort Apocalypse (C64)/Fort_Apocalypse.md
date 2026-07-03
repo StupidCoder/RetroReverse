@@ -438,9 +438,18 @@ So screen rows 0–6 (HUD + scanner) and rows 7–24 (playfield) use
 *different character sets*, switched mid-frame.
 
 The **main game loop** at $8BB1 (entered from the title IRQ by a
-stack-reset `JMP` when fire is pressed) waits for the frame counter
-to change, then calls the per-frame game-logic chain (object engines,
-zone checks, state dispatch) and loops. Game state lives in `$9D`:
+stack-reset `JMP` when fire is pressed) calls the game-logic chain
+(object engines, zone checks, state dispatch) and loops. It waits for
+the frame counter to change **only outside gameplay** — the mode-2
+check at $8BB3 branches *past* the wait, so during play the loop
+free-runs, paced purely by how long a pass through the engines plus
+the interleaved IRQs takes. Running the real code under emulation
+(`extract/cmd/paceprobe`: the mos6502 core with a PAL raster-IRQ
+model, joysticked from the title into play) measures **≈2.3 frames
+per pass** (median; ≈2.5 on real hardware once the VIC's badline and
+sprite DMA, which the model omits, slow the CPU) — so every enemy
+cadence counted in "loop passes" runs ~2½× slower than a naive
+passes-are-frames reading suggests. Game state lives in `$9D`:
 1 title/attract, 9 demo-game, 3 new game, 4 get ready ("GET READY
 PILOT", "PILOTS LEFT"), 5 life lost, 2 playing, 6 game over/debrief,
 7 transition lock, $0A cavern teleport.
@@ -703,11 +712,12 @@ are drawn with leading-zero blanking ($A9D3).
    the explosion char $20 into the map on impact; char actors die
    from touching it.
 
-Engine scheduling per frame: SPM engine 15 of 39 slots
+Engine scheduling per **main-loop pass** (≈2.3–2.5 frames each — the
+loop free-runs in mode 2, Part III §2): SPM engine 15 of 39 slots
 ($94D2), one prisoner slot ($AABA), tank and missile engines on
 difficulty countdowns ($992A/$9644), zone/fuel checks — all from the
 main loop; player control, bullets, enemy chopper, camera and HUD run
-in the IRQ chain.
+in the IRQ chain, which really is per-frame.
 
 ## 1. The player — Rocket Copter (sprite 0)
 
@@ -889,8 +899,9 @@ A tank is **3 cells $6C $6D $6E plus a turret char
 one row up: $6F/$70 always aiming at the player** ($99F7: the turret
 char is picked per step by comparing the player's column). Patrols
 horizontally — and in lockstep: the step countdown $F0 is **global**,
-so all six tanks step together, one cell every 4/3/2 frames by
-variant. Before a step the engine probes the two end cells of the
+so all six tanks step together, one cell every 4/3/2 main-loop passes
+by variant ≈ every 10 frames at base difficulty (the loop free-runs
+at ≈2.5 frames per pass, Part III §2). Before a step the engine probes the two end cells of the
 destination footprint — (newCol, row) and (newCol+2, row) — against
 the **22-entry obstacle table at $A45D** ($9A8F loops `LDX #$15`;
 $99DF/$99E6 probe both ends); a hit reverses ($D0,X `EOR #$FE`) and
@@ -924,8 +935,8 @@ Six slots X=0–5, indexed by the owning tank's slot number:
 | $F2/$F3 | engine step countdown / reload (3/2/1 by variant)        |
 
 Launch when the player is within ±9 columns and 0–14 rows above the
-tank; spawn above the tank with 20 fuel. Per step (every 3/2/1 frames
-by variant): one cell horizontally in facing direction ($71 left /
+tank; spawn above the tank with 20 fuel. Per step (every 3/2/1
+main-loop passes by variant): one cell horizontally in facing direction ($71 left /
 $72 right), vertically steered toward the player's row; if the player
 gets behind it, or it leaves columns $2D–$D7, or fuel runs out, it
 stops homing and falls. Detonates on any solid char (pixel test of
@@ -936,8 +947,9 @@ can be lured into them.
 ## 6. SPMs — Self-Propelled Mines (13/26/39 by difficulty)
 
 The manual's name for the small drones patrolling the corridors. The
-engine at $94D2 keeps **39 slots**, stepping 15 per frame round-robin
-(slot cursor $E8); the armed count $FC is the difficulty dial. Slot
+engine at $94D2 keeps **39 slots**, stepping 15 per main-loop pass
+round-robin (slot cursor $E8); the armed count $FC is the difficulty
+dial. Slot
 data is held in parallel 39-byte arrays:
 
 | array         | content                                          |
@@ -959,9 +971,10 @@ until the next level start.
 through 4 phases per cell of travel (state += $10 mod $40, char pairs
 from $963C: `$40 —`, `$5B $5C`, `$5D $5E`, `— $5F`); the column
 advances one cell when the phase wraps ($9603/$9607). With 15 of the
-39 slots serviced per frame, each mine updates every 39/15 = **2.6
-frames** — a phase change per update, a cell of travel per 4 updates
-≈ 10.4 frames. The initial direction is always right ($9573
+39 slots serviced per main-loop pass, each mine updates every 39/15 =
+**2.6 passes ≈ 6.5 frames** — a phase change per update, a cell of
+travel per 4 updates ≈ 26 frames (the loop free-runs at ≈2.5 frames
+per pass, Part III §2). The initial direction is always right ($9573
 `LDA #$01`). Per update the 2 destination cells must be exactly $00
 and the new column inside $32–$CD ($9617–$9629), or it reverses
 ($3727,X `EOR #$FE`) and retries the other way in the same update.
@@ -973,7 +986,7 @@ and homing missiles passing through.
 ## 7. Prisoners — "MEN TO RESCUE" (8 per level)
 
 Eight slots X=0–7 in parallel 8-byte arrays (engine $AABA, one slot
-per frame via cursor $EA):
+per main-loop pass via cursor $EA):
 
 | array   | content                                                  |
 |---------|----------------------------------------------------------|
@@ -988,9 +1001,10 @@ Placed at level build by scanning the map for **floor $48 with rock
 $1F directly above**; up to 8 random pattern cells ($90A4 — all
 candidate cells are marked yellow on the map renders in Part IV §4). A
 prisoner is 2 chars tall and **runs back and forth along the $48
-walkway**: with one of the 8 slots serviced per frame he moves one
-cell every **8 frames**, the leg phase (bit 0 of $3618,X) toggling
-each step. The draw tables at $AC12 pair the art per facing — torso
+walkway**: with one of the 8 slots serviced per main-loop pass he
+moves one cell every **8 passes ≈ 20 frames** (the loop free-runs at
+≈2.5 frames per pass, Part III §2), the leg phase (bit 0 of $3618,X)
+toggling each step. The draw tables at $AC12 pair the art per facing — torso
 **$49 running right, $4A running left**, legs $3B/$3C (right) and
 $3E/$3D (left) alternating on the leg phase. After each move the new
 cell at his leg row must be $48 ($AB9A), or the direction flips
@@ -1232,7 +1246,9 @@ the capability now lives in the tested shared model.)
 
 Package overview — game-specific (`extract/`): `fastload`
 (fastloader state machine), `fortgfx` (RLE decoder, charset/sprite/map
-extraction and PNG rendering), `cmd/gfxrender`. Shared (`tools/`):
+extraction and PNG rendering), `cmd/gfxrender`, `cmd/paceprobe` (runs
+the game from $8927 under the mos6502 core with a PAL raster-IRQ
+model and measures the free-running main loop's real pace). Shared (`tools/`):
 `tap` (TAP container), `cbmtape` (ROM-loader decoder), `mos6502`
 (disassembler + CPU emulator), `c64` (machine model with write log and
 read probe), `gfx` (rendering primitives), `cmd/dis6502`, `cmd/tapdump`.

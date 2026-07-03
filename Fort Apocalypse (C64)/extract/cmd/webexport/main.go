@@ -223,21 +223,25 @@ func run(prgPath, outDir string) error {
 		// Object pools — the game's load-time seeding rules, as candidates the
 		// viewer re-rolls (Part V; previously hardcoded in the viewer). Movers
 		// carry a patrol block with per-candidate spans from the engines' own
-		// turn-around rules; cadences are the engines' at base difficulty:
+		// turn-around rules. CADENCE: the engines count main-loop PASSES, and
+		// in gameplay the loop free-runs (no frame wait, $8BB1) at a measured
+		// ~2.3 frames per pass under cmd/paceprobe — exported as 2.5 frames
+		// per pass to cover the VIC's badline/sprite DMA the oracle doesn't
+		// model. At base difficulty:
 		//  - prisoners: 8 of the $90A4 floor-with-rock candidates. Run back and
 		//    forth along the $48 walkway ($AB9A), one of 8 slots serviced per
-		//    frame ($EA cursor) = 8px every 8 frames, legs alternating per step;
-		//    torso $49 + legs $3B/$3C facing right, torso $4A + legs $3E/$3D
-		//    facing left (draw tables $AC12).
+		//    pass ($EA cursor) = 8px every 8 passes = 20 frames, legs
+		//    alternating per step; torso $49 + legs $3B/$3C facing right,
+		//    torso $4A + legs $3E/$3D facing left (draw tables $AC12).
 		//  - tanks: every fixed home; body $6C $6D $6E, turret $6F/$70 random
 		//    (the game aims it at the player). One global countdown ($F0,
-		//    reload 4) steps all six in lockstep, 8px every 4 frames, reversing
-		//    on the $A45D obstacle chars ($9A8F).
+		//    reload 4) steps all six in lockstep, 8px every 4 passes =
+		//    10 frames, reversing on the $A45D obstacle chars ($9A8F).
 		//  - SPMs: spmCount mines at empty 2-cell spots in the column band
-		//    $2D..$C8. 15 of 39 slots serviced per frame = one update per
-		//    2.6 frames; 4 draw phases per cell of travel ($963C pairs), so
-		//    8px every 4 updates, reversing unless both destination cells stay
-		//    empty inside the band ($9617).
+		//    $2D..$C8. 15 of 39 slots serviced per pass = one update per
+		//    2.6 passes = 6.5 frames; 4 draw phases per cell of travel ($963C
+		//    pairs), so 8px every 4 updates, reversing unless both destination
+		//    cells stay empty inside the band ($9617).
 		//  - one enemy helicopter at a random 4x2-clear spot in the same band
 		//    (a player-pursuit AI, not a patroller — left static).
 		obst := game.ObstacleChars()
@@ -248,7 +252,7 @@ func run(prgPath, outDir string) error {
 		}
 		jl.ObjectPools = append(jl.ObjectPools, jsonPool{
 			Count: 8, Candidates: prisoners,
-			Patrol: &jsonPatrol{StepPx: 8, StepFrames: 8, Start: "random"},
+			Patrol: &jsonPatrol{StepPx: 8, StepFrames: 20, Start: "random"},
 			Variants: []jsonVariant{
 				{DirStamps: &jsonDirStamps{
 					Right: [][]jsonStamp{
@@ -269,20 +273,33 @@ func run(prgPath, outDir string) error {
 		}
 		jl.ObjectPools = append(jl.ObjectPools, jsonPool{
 			Count: len(tanks), Candidates: tanks,
-			Patrol: &jsonPatrol{StepPx: 8, StepFrames: 4, Start: "random"},
+			Patrol: &jsonPatrol{StepPx: 8, StepFrames: 10, Start: "random"},
 			Variants: []jsonVariant{
 				{Stamps: []jsonStamp{{0, 0, 0x6C}, {8, 0, 0x6D}, {16, 0, 0x6E}, {8, -8, 0x6F}}},
 				{Stamps: []jsonStamp{{0, 0, 0x6C}, {8, 0, 0x6D}, {16, 0, 0x6E}, {8, -8, 0x70}}},
 			},
 		})
-		// SPM slide phases, the $963C char pairs as a cycle rotated to start at
-		// the full craft ($5B $5C) so the static frame shows the recognisable
-		// mine; moving left plays the same cycle backwards.
-		spmPhases := [][]jsonStamp{
+		// SPM slide phases: the $963C char pairs depict the mine creeping
+		// across its 2-cell pair — $5B $5C straddling, $5D $5E leaning, $5F
+		// fully in the right cell, $40 fully in the left cell. The engine
+		// commits the column move when the phase wraps, so in the viewer
+		// (which moves at the END of each 4-update cycle) the stamps of the
+		// late phases carry the destination cell's offset — otherwise the
+		// mine snaps back a cell mid-slide. Cycle rotated to start at the
+		// full craft so the static frame shows the recognisable mine; the
+		// left cycle is the same art played backwards, offsets relative to
+		// the pre-move column.
+		spmRight := [][]jsonStamp{
 			{{0, 0, 0x5B}, {8, 0, 0x5C}},
 			{{0, 0, 0x5D}, {8, 0, 0x5E}},
 			{{8, 0, 0x5F}},
+			{{8, 0, 0x40}},
+		}
+		spmLeft := [][]jsonStamp{
+			{{0, 0, 0x5B}, {8, 0, 0x5C}},
 			{{0, 0, 0x40}},
+			{{0, 0, 0x5F}},
+			{{-8, 0, 0x5D}, {0, 0, 0x5E}},
 		}
 		const bandMin, bandMax = fortgfx.SPMBandMin, fortgfx.SPMBandMax
 		var spmSpots [][]int
@@ -296,12 +313,9 @@ func run(prgPath, outDir string) error {
 		}
 		jl.ObjectPools = append(jl.ObjectPools, jsonPool{
 			Count: 13, Candidates: spmSpots, // base difficulty (13 / 26 / 39 by variant)
-			Patrol: &jsonPatrol{StepPx: 8, StepFrames: 2.6, UpdatesPerStep: 4, Start: "right"},
+			Patrol: &jsonPatrol{StepPx: 8, StepFrames: 6.5, UpdatesPerStep: 4, Start: "right"},
 			Variants: []jsonVariant{
-				{DirStamps: &jsonDirStamps{
-					Right: spmPhases,
-					Left:  [][]jsonStamp{spmPhases[0], spmPhases[3], spmPhases[2], spmPhases[1]},
-				}},
+				{DirStamps: &jsonDirStamps{Right: spmRight, Left: spmLeft}},
 			},
 		})
 		var heliSpots [][]int
