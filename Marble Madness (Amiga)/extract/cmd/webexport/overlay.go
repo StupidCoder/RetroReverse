@@ -29,6 +29,7 @@ package main
 import (
 	"fmt"
 	"image"
+	"image/color"
 	"image/draw"
 	"path/filepath"
 	"sort"
@@ -39,12 +40,20 @@ import (
 	"retroreverse.com/tools/c64/gfx"
 )
 
+// worldTick is the engine's world-update period in vblanks: every region
+// script, actor and colour tick runs from the per-world-frame chain ($AF9E,
+// posts $5DB for the Framer), and the world runs at the classic 2-vblanks-per-
+// frame cadence (~25 world frames/s measured live in the emulator). Script
+// holds count world frames, so the 50Hz viewer doubles them.
+const worldTick = 2
+
 // exportOverlays extracts the course's scenery-overlay pieces, renders each
 // referenced .ilb cell once into spritesDir (recorded in spriteIndex, keyed
 // "<course>/c<cell>" or "<course>/a<region>" for animated strips), and returns
 // the level's objects entries plus its screen-swap cellAnims.
 func exportOverlays(vol *adf.Volume, paths map[string]string, key string, track []byte,
-	co *mlb.Course, spritesDir string, spriteIndex map[string]any) ([]map[string]any, []map[string]any, error) {
+	co *mlb.Course, palAt func(row int) color.Palette,
+	spritesDir string, spriteIndex map[string]any) ([]map[string]any, []map[string]any, error) {
 	objects := []map[string]any{}
 	ip, ok := paths[key+".ilb"]
 	if !ok {
@@ -65,7 +74,7 @@ func exportOverlays(vol *adf.Volume, paths map[string]string, key string, track 
 			if o.HasRamp && c.Typ == 1 {
 				return ilb.RenderRamp(buf, c, o.Ramp) // the record's own sprite colours
 			}
-			return ilb.Render(buf, c, co.Palette, 6)
+			return ilb.Render(buf, c, palAt(o.Y/8), 6)
 		}
 		// a piece whose script composed a multi-frame play program ANIMATES:
 		// the strip holds each distinct cell once, and the steps replay the
@@ -106,7 +115,7 @@ func exportOverlays(vol *adf.Volume, paths map[string]string, key string, track 
 				}
 				prog := make([][2]int, len(steps))
 				for i, st := range steps {
-					prog[i] = [2]int{distinct[st.Cell], st.Hold}
+					prog[i] = [2]int{distinct[st.Cell], st.Hold * worldTick}
 				}
 				pngName := fmt.Sprintf("%s-a%d.png", key, o.Region)
 				if err := gfx.WritePNG(filepath.Join(spritesDir, pngName), strip); err != nil {
@@ -126,7 +135,7 @@ func exportOverlays(vol *adf.Volume, paths map[string]string, key string, track 
 					var path [][2]int
 					ox, oy := 0, 0
 					for _, st := range steps {
-						for f := 0; f < st.Hold && len(path) < 2048; f++ {
+						for f := 0; f < st.Hold*worldTick && len(path) < 4096; f++ {
 							path = append(path, [2]int{ox + st.OX, oy + st.OY})
 						}
 						ox += st.DX
@@ -402,6 +411,12 @@ func trackOverlays(im []byte, nCells, mapRows int) ([]overlay, []swapAnim) {
 	if p8 := ou32(im, dyn+8); p8 != 0 && int(p8)+20 < len(im) &&
 		ou16(im, p8) == 0 && os16(im, p8+8) == 1 {
 		if ovl, _ := scanScript(im, 90, p8, p8+0x180, base, nCells, mapRows, nil); ovl != nil && len(ovl.Steps) >= 3 {
+			// the engine frees the region after op15 (the wave is gone until
+			// the next marble triggers it); the viewer loops, so rest on the
+			// final calm-water frame before replaying
+			last := ovl.Steps[len(ovl.Steps)-1]
+			last.Hold, last.DX, last.DY = 60, 0, 0
+			ovl.Steps = append(ovl.Steps, last)
 			out = append(out, *ovl)
 		}
 	}

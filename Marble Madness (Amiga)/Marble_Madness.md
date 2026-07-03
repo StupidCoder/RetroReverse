@@ -1321,9 +1321,16 @@ triggered. The script itself is a beauty: `op0` plants the anchor at tiles
 `interm.ilb` cells 4–8 at 4 frames each (the wave **rising** out of the
 channel), cells 9–10 (the crest), a **19× loop of { cells 11–14 at 1 frame;
 op16 MOVE }** — the wave *sweeping* 8 px right and 4 px down the channel per
-step — and cells 16–22 (the collapse), then stops until the next trigger. The
-other courses keep unrelated data in the `+8` slot (Beginner: one of the
-drawbridge's animation lists), which is why the wave is Intermediate-only.
+step — and cells 16–22 (the collapse), then stops until the next trigger. All
+holds count 2-vblank **world frames** (above), so the full ride is rise ≈0.8 s,
+sweep ≈3 s (20 moves of 8 px — one before the loop plus 19 in it — 160 px down
+the channel), collapse ≈0.3 s. The wave draws through the playfield palette, so
+on its rows it wears the emerald of colour band 1 (Part IV §5) — the site's
+strips are rendered with the band palette at each piece's row for that reason,
+and its viewer replays the ride in a loop with a rest on the calm-water frame
+where the engine would free the region. The other courses keep unrelated data
+in the `+8` slot (Beginner: one of the drawbridge's animation lists), which is
+why the wave is Intermediate-only.
 
 **The pistons (Aerial) — the obstacle-actor array.** Block `+$23C` holds three
 `$14`-byte actor records — populated only by AerTrack, and `actor_setup
@@ -1540,6 +1547,16 @@ into the copper colour slots `$B954/$B960` and `$B95A/$B966` while the marble
 dissolves in a pool. (The ambient palette animation — the scroll colour bands and
 Ultimate's gold glitter — is data-driven from the Track's display block instead;
 Part IV §5.)
+
+**The world ticks at half the display rate.** The Framer consumes a `$5DB`
+"fresh world frame" flag that the game task's per-world-frame chain (`$AF9E`:
+object updates, actor ticks, region scripts, the colour ticks `$AF7A`, ending in
+the display-list render + `$5DB`) posts when a world update completes — and a
+world update takes **two vblanks** in normal play (~25 world frames/s measured
+live; the `$70B8` histogram exists precisely to tally vblanks-per-frame). Every
+region-script hold, actor step and glitter phase therefore counts **world**
+frames, not vblanks — the site's 50 Hz viewer doubles them. Only the Painter's
+tile drawer (the screen-swap cadence) counts real vblanks (`$24B54` waits).
 
 **The game-state machine and the world update.** The gameplay proper is a state
 machine, `sub_00CA14`, dispatched on `$CDAC` (1 = set up the course, 2 = …, 3 =

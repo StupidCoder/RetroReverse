@@ -69,10 +69,11 @@ type pathJSON struct {
 	Pts [][2]int `json:"pts"`
 }
 
-// shimmerPeriod is the engine frames each gold-rotation phase holds: the
-// stepper $84DC (per-frame via $AF7A) adds 2 to the sub-counter $68F and steps
-// the phase $68E when it passes 6 — every 4th frame.
-const shimmerPeriod = 4
+// shimmerPeriod is the vblank frames each gold-rotation phase holds: the
+// stepper $84DC runs per WORLD frame (from the $AF7A world-update tick, 2
+// vblanks each), adding 2 to the sub-counter $68F and stepping the phase $68E
+// past 6 — every 4th world frame = 8 vblanks.
+const shimmerPeriod = 8
 
 // marker colours, matching the offline *.wire.png overlays.
 const (
@@ -171,18 +172,19 @@ func run(adfPath, outDir string) error {
 			return fmt.Errorf("%s: hunk load: %w", c.track, err)
 		}
 
-		// The scenery overlays (sprite pieces + their animations) and the
-		// screen-swap tile animations, from the Track's dynamic-region scripts.
-		objects, cellAnims, err := exportOverlays(vol, paths, c.key, prog.Image, co, spritesDir, spriteIndex)
-		if err != nil {
-			return err
-		}
-
 		// Bake the display block's colour bands (Part IV §6) into the atlas:
 		// rows past a band boundary swap to recoloured variant tiles, so the
 		// map fades exactly as the game's scroll-following copper list does.
 		fx := parseDisplayFx(prog.Image)
 		bake := newBandBake(co, fx)
+
+		// The scenery overlays (sprite pieces + their animations) and the
+		// screen-swap tile animations, from the Track's dynamic-region scripts.
+		// Strips render with the colour-band palette at each piece's row.
+		objects, cellAnims, err := exportOverlays(vol, paths, c.key, prog.Image, co, bake.paletteAt, spritesDir, spriteIndex)
+		if err != nil {
+			return err
+		}
 		cells := make([]int, mlb.CourseW*co.PlayableH)
 		tilesInBand := map[int]map[int]bool{}
 		note := func(band, t int) {

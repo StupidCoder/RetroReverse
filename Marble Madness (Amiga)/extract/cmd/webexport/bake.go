@@ -131,6 +131,24 @@ func (b *bandBake) variant(t, band, phase int, remap map[uint8]uint8) int {
 	return id
 }
 
+// paletteAt returns the 16-colour playfield palette as the copper shows it at
+// a given tile row: the base palette with the row's colour-band overrides —
+// overlay sprite strips must be rendered with it (the Intermediate wave sits
+// on the emerald band; the stored palette would paint it band-0 orange).
+func (b *bandBake) paletteAt(row int) color.Palette {
+	words := b.base16
+	if b.fx != nil {
+		for slot, w := range b.fx.Bands[b.bandAt(row)].Cols {
+			words[slot] = w
+		}
+	}
+	p := make(color.Palette, 16)
+	for i, w := range words {
+		p[i] = rgb4(w)
+	}
+	return p
+}
+
 // shimmerAnims emits the gold-rotation tileAnims: for each shimmer destination
 // (a band's slots Slot..Slot+2), every tile of that band using one of the three
 // slots cycles through the rotation lists — phase p writes Phases[p][0..2] over
