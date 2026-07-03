@@ -229,9 +229,16 @@ and a bump to the BCD ring count — which grants an extra life every time it pa
 
 <h2>Enemies and platforms</h2>
 <p>Each object type is a self-contained behaviour on its record. The <strong>platforms</strong> carry Sonic
-explicitly — a horizontal platform glides one pixel per frame 160&nbsp;px out and back; a swinging platform
-reads an arc table to trace a semicircle below its pivot — and when Sonic stands on one, the handler glues
-him on and adds the platform's per-frame motion directly to his position. The <strong>enemies</strong> share
+explicitly: when he stands on one, the handler glues him on and adds the platform's per-frame motion directly
+to his position. There are five kinds. A <strong>horizontal platform</strong> glides one pixel per frame
+160&nbsp;px out and back; a <strong>swinging platform</strong> reads an arc table to trace a semicircle below
+its pivot. A <strong>sinking platform</strong> holds still until Sonic steps on, then gives under his weight —
+settling about half a pixel per frame until it has dropped 16&nbsp;px, and floating back up once he leaves.
+Two more ride the water: a <strong>bobbing platform</strong> (Bridge's floating logs) drifts down from where
+it spawns and then bobs gently on a fixed cycle with no terrain contact of its own, while the Jungle's
+<strong>floating log</strong> is rideable in a second way — pushing left or right rolls it, and it carries
+Sonic along at half his speed, its end-grain turning as it goes, until it fetches up against solid ground. The
+<strong>enemies</strong> share
 a small script engine — a counter into a state table, one entry per state for a fixed run of frames: the crab
 walks, stops and fires a projectile to each side; the beetle marches faster with no attack; the fish hides
 underwater and leaps straight up; the porcupine is a slow spiky walker whose spikes are the threat. The
@@ -471,10 +478,15 @@ frame.</p>
 
 <h2>The main loop and game state</h2>
 <p>The main game loop lives at <code>$8BB1</code>. It is entered from the title interrupt by a
-stack-resetting jump the moment fire is pressed, and from then on it waits for the frame counter to
-change, runs the per-frame logic chain — the object engines, zone checks and state dispatch — and
-loops. Because it is gated on the frame counter, the loop runs in lock-step with the raster handlers
-that drive the screen.</p>
+stack-resetting jump the moment fire is pressed, and from then on it runs the game-logic chain — the
+object engines, zone checks and state dispatch — and loops. Outside gameplay it waits for the frame
+counter to change each time around, but <strong>during play the loop free-runs</strong>: the game-state
+check branches straight past that wait, so its pace is set purely by how long one trip through the
+engines plus the interleaved raster interrupts takes — roughly <strong>2½ frames per pass</strong>. The
+raster handlers themselves stay locked to the frame; only this main loop runs untied to it. That
+distinction matters because the character-based actors (tanks, mines, prisoners) are stepped from the
+main loop, so their patrol speeds are measured in loop passes, not frames — a tank advances a cell
+about every ten frames, not every four.</p>
 <p>A single byte at <code>$9D</code> holds the overall game state and selects what that chain does:
 <code>1</code> title / attract, <code>9</code> demo game, <code>3</code> new game, <code>4</code> "get
 ready", <code>5</code> life lost, <code>2</code> playing, <code>6</code> game over and debrief,
@@ -639,8 +651,9 @@ clips going up.</p>
 
 <h2>Tanks, missiles and mines</h2>
 <p>These are the character-based enemies. <strong>Tanks</strong> — six per level — are three body cells
-plus a turret that always aims at the player; they patrol horizontally, reverse at obstacles, and
-respawn at fixed home positions once cleared. Each tank can launch one <strong>homing missile</strong>
+plus a turret that always aims at the player; they patrol horizontally <strong>in lockstep</strong> —
+one shared timer steps all six together — turning back only at open air or water while driving straight
+through every other kind of terrain, and respawn at fixed home positions once cleared. Each tank can launch one <strong>homing missile</strong>
 when the player passes within range above it: the missile flies in its facing direction, steering toward
 the player's row, and falls once its fuel runs out, the player slips behind it, or it leaves its column
 range — detonating on anything solid. <strong>Self-Propelled Mines</strong> (the manual's name for the
