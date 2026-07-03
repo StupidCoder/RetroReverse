@@ -68,38 +68,53 @@ func exportOverlays(vol *adf.Volume, paths map[string]string, key string, track 
 			}
 			return ilb.Render(buf, c, co.Palette, 6)
 		}
-		// hardware-sprite pieces whose record list holds several same-size
-		// type-1 frames ANIMATE: the engine's region tick walks the list every
-		// `hold` frames (region +$22/+$23, cursor advance $F778) — the goal
-		// flags' 4 wave frames at 5 frames each, on every course
-		anim := o.Hold > 0 && len(o.Frames) > 1
-		for _, f := range o.Frames {
-			if f < 0 || f >= len(cells) || cells[f].Typ != 1 ||
-				cells[f].W != cells[o.Cell].W || cells[f].H != cells[o.Cell].H {
-				anim = false
+		// a piece whose script composed a multi-frame play program ANIMATES:
+		// the strip holds each distinct cell once, and the steps replay the
+		// program (op2 list play-throughs + op3 holds) at engine rate
+		var steps []step
+		distinct := map[int]int{}
+		var order []int
+		for _, st := range o.Steps {
+			if st.Cell < 0 || st.Cell >= len(cells) || cells[st.Cell].W == 0 {
+				continue
 			}
+			if _, ok := distinct[st.Cell]; !ok {
+				distinct[st.Cell] = len(order)
+				order = append(order, st.Cell)
+			}
+			steps = append(steps, st)
 		}
 		var sprite string
-		if anim {
+		if len(steps) > 1 && len(order) > 1 {
 			sprite = fmt.Sprintf("%s/a%d", key, o.Region)
 			if !done[sprite] {
 				done[sprite] = true
-				cl := cells[o.Cell]
-				strip := image.NewRGBA(image.Rect(0, 0, cl.W*len(o.Frames), cl.H))
-				frames := make([][4]int, len(o.Frames))
-				durs := make([]int, len(o.Frames))
-				for i, f := range o.Frames {
-					img := render(cells[f])
-					draw.Draw(strip, image.Rect(i*cl.W, 0, (i+1)*cl.W, cl.H), img, image.Point{}, draw.Src)
-					frames[i] = [4]int{i * cl.W, 0, cl.W, cl.H}
-					durs[i] = o.Hold
+				w, h := 0, 0
+				for _, c := range order {
+					w += cells[c].W
+					if cells[c].H > h {
+						h = cells[c].H
+					}
+				}
+				strip := image.NewRGBA(image.Rect(0, 0, w, h))
+				frames := make([][4]int, len(order))
+				x := 0
+				for i, c := range order {
+					img := render(cells[c])
+					draw.Draw(strip, image.Rect(x, 0, x+cells[c].W, cells[c].H), img, image.Point{}, draw.Src)
+					frames[i] = [4]int{x, 0, cells[c].W, cells[c].H}
+					x += cells[c].W
+				}
+				prog := make([][2]int, len(steps))
+				for i, st := range steps {
+					prog[i] = [2]int{distinct[st.Cell], st.Hold}
 				}
 				pngName := fmt.Sprintf("%s-a%d.png", key, o.Region)
 				if err := gfx.WritePNG(filepath.Join(spritesDir, pngName), strip); err != nil {
 					return nil, nil, err
 				}
 				spriteIndex[sprite] = map[string]any{
-					"src": "sprites/" + pngName, "frames": frames, "durations": durs,
+					"src": "sprites/" + pngName, "frames": frames, "steps": prog,
 				}
 			}
 		} else {
@@ -128,13 +143,13 @@ func exportOverlays(vol *adf.Volume, paths map[string]string, key string, track 
 
 	// screen-swap tile animations (Ultimate's final screen): the engine cycles
 	// the fixed 30-row band through the variant blocks. Content and order are
-	// exact from the Track data; the per-variant hold is in-game calibrated
-	// (~one second per variant — the Painter pipeline repaints the band one
-	// column job at a time across many world frames)
+	// exact from the Track data; the cadence is the Painter's repaint time —
+	// the tile drawer yields to the vblank every 16 tiles (mlb_draw_column
+	// $99A4), so one 30x36-tile band takes ceil(1080/16) = 68 PAL frames
 	var anims []map[string]any
 	for _, sw := range swaps {
 		const bandRows = 30   // the engine's Painter job height ($1E038 sends $1E rows)
-		const holdFrames = 50 // ~1 s per variant at 50 Hz, measured in-game
+		const holdFrames = 68 // 1080 tiles at 16 tiles per vblank ≈ 1.36 s
 		phases := make([]map[string]any, len(sw.Rows))
 		for i, row := range sw.Rows {
 			tiles := make([]int, 0, bandRows*mlb.CourseW)
@@ -150,14 +165,15 @@ func exportOverlays(vol *adf.Volume, paths map[string]string, key string, track 
 	return objects, anims, nil
 }
 
+// step is one frame of a piece's play program: show cell for hold engine frames.
+type step struct{ Cell, Hold int }
+
 type overlay struct {
-	Region  int   // dynamic-region index
-	Cell    int   // .ilb cell index (the op2-selected state)
-	Frames  []int // all cell indices of the piece's record list, in list order
-	Hold    int   // op2 +$23 = engine frames per animation step (0 = no anim)
-	X, Y    int   // world px (top-left of the draw)
-	KX, KY  int   // keyframe grid pos (for reference/debug)
-	Selects int   // op2 operand (list entry index)
+	Region  int    // dynamic-region index
+	Cell    int    // .ilb cell index of the resting state (first list record)
+	Steps   []step // the piece's play program, composed from its script's op2/op3 events
+	X, Y    int    // world px (top-left of the draw)
+	KX, KY  int    // keyframe grid pos (for reference/debug)
 	HasRamp bool
 	Ramp    [3]uint16 // record +$C -> the sprite pair's 3 $0RGB colours (type-1 cells)
 }
@@ -308,8 +324,10 @@ func trackOverlays(im []byte, nCells, mapRows int) ([]overlay, []swapAnim) {
 	var out []overlay
 	var swaps []swapAnim
 	for _, r := range regs {
-		ovls, swap := scanScript(im, r.idx, r.script, end(r.script), base, nCells, mapRows)
-		out = append(out, ovls...)
+		ovl, swap := scanScript(im, r.idx, r.script, end(r.script), base, nCells, mapRows)
+		if ovl != nil {
+			out = append(out, *ovl)
+		}
 		if swap != nil {
 			swaps = append(swaps, *swap)
 		}
@@ -317,33 +335,30 @@ func trackOverlays(im []byte, nCells, mapRows int) ([]overlay, []swapAnim) {
 	return out, swaps
 }
 
-// scanScript linearly decodes one region's opcode stream, tracking the current
-// keyframe anchor and sprite-list link, and emits an overlay for every op2
-// SPRITE selection (or the list head when a linked script never issues op2).
-// A terr-$19 registration (op0 dur==1 whose link is a [row, ptr] pair list)
-// comes back as a swapAnim instead.
-func scanScript(im []byte, idx int, pc, stop uint32, base, nCells, mapRows int) ([]overlay, *swapAnim) {
-	var out []overlay
+// scanScript decodes one region's opcode stream (following one level of
+// conditional/jump targets — the Practice ramp's animation lives at its op8
+// target), tracking the current keyframe anchor and sprite-list link. Each
+// op2 SPRITE starts a play-through of the current record list (word1 = wrap
+// count, word2 = hold frames/step); each op3 holds the last frame. The events
+// compose the region's play program. A terr-$19 registration (op0 dur==1
+// whose link is a [row, ptr] pair list) comes back as a swapAnim instead.
+func scanScript(im []byte, idx int, pc, stop uint32, base, nCells, mapRows int) (*overlay, *swapAnim) {
+	var out *overlay
 	var swap *swapAnim
-	seen := map[[2]int]bool{}
 	var kx, ky, kz, kdur, kw26, kw28 int
 	var link uint32
 	linkFresh := false
+	lastHold := 1
 
-	emit := func(sel, hold int) {
-		recs := spriteList(im, link, nCells)
-		if sel < 0 || sel >= len(recs) || recs[sel] == 0 {
+	// place the region's (single) overlay from the current anchor context
+	place := func(recs []uint32) {
+		if out != nil || len(recs) == 0 || recs[0] == 0 {
 			return
 		}
-		rec := recs[sel]
+		rec := recs[0]
 		cell := int(ou32(im, rec+8))
 		dx, dy := s8(im[rec]), s8(im[rec+1])
-		o := overlay{Region: idx, Cell: cell, Selects: sel, Hold: hold, KX: kx, KY: ky}
-		for _, r := range recs {
-			if r != 0 {
-				o.Frames = append(o.Frames, int(ou32(im, r+8)))
-			}
-		}
+		o := &overlay{Region: idx, Cell: cell, KX: kx, KY: ky}
 		// record +$C -> the sprite's 3-colour ramp (loaded into COLOR17+4n by
 		// the engine's copper fragments) for the hardware-sprite (type-1) cells
 		if rp := ou32(im, rec+12); rp != 0 && int(rp)+6 <= len(im) {
@@ -368,68 +383,124 @@ func scanScript(im []byte, idx int, pc, stop uint32, base, nCells, mapRows int) 
 			o.X = (y8 - x8) + 0x88 + dx
 			o.Y = (x8+y8)/2 - kz - base + 0x90 - dy
 		}
-		// a script that re-selects at the same anchor is animating one piece
-		// (the drawbridge's lift states); keep the first state only
-		key := [2]int{o.X, o.Y}
-		if !seen[key] {
-			seen[key] = true
-			out = append(out, o)
-		}
+		out = o
 	}
 
-	sawOp2 := false
-	for pc < stop && int(pc)+2 <= len(im) {
-		op := ou16(im, pc)
-		pc += 2
-		switch op {
-		case 0: // KEYFRAME x,y,z,dur,terr (+ w26,w28,link long when dur==1)
-			kx, ky, kz = os16(im, pc), os16(im, pc+2), os16(im, pc+4)
-			kdur = os16(im, pc+6)
-			pc += 10
-			if kdur == 1 {
-				kw26, kw28 = os16(im, pc), os16(im, pc+2)
-				link = ou32(im, pc+4)
-				linkFresh = true
-				pc += 8
-				// a [tilemap row, height patch] pair list = a terr-$19
-				// SCREEN-SWAP registration (Ultimate's final screen), not
-				// sprite records — the $1E212 Painter engine cycles it
-				if rows := rowPairList(im, link, mapRows); len(rows) >= 2 && rows[0] == kw28 {
-					swap = &swapAnim{Ty: kw28, Rows: rows}
-					linkFresh = false
-				}
+	// op2: play the current list through (once per wrap count; 0 = forever =
+	// once through the loop, since the whole program loops)
+	anim := func(hold int) {
+		recs := spriteList(im, link, nCells)
+		if len(recs) == 0 {
+			return
+		}
+		place(recs)
+		if out == nil {
+			return
+		}
+		if hold < 1 {
+			hold = 1
+		}
+		lastHold = hold
+		for _, r := range recs {
+			if r != 0 {
+				out.Steps = append(out.Steps, step{Cell: int(ou32(im, r+8)), Hold: hold})
 			}
-		case 2: // SPRITE: select list entry, second word = hold frames/step
-			emit(os16(im, pc), os16(im, pc+2))
-			sawOp2 = true
-			linkFresh = false
-			pc += 4
-		case 12, 13: // LINK: swap the sprite list
-			link = ou32(im, pc)
-			linkFresh = true
-			pc += 4
-		case 1, 8:
-			if op == 1 {
-				pc += 4
-			} else {
-				pc += 6
-			}
-		case 3, 4, 6, 17:
-			pc += 2
-		case 9, 10:
-			pc += 4
-		case 18:
-			pc += 6
-		case 5, 7, 11, 15, 16:
-		case 14:
-			pc += 4
-		default: // >= $13: end of script data
-			pc = stop
 		}
 	}
-	// a region that links a sprite list but never op2-selects shows entry 0
-	if !sawOp2 && linkFresh {
-		emit(0, 0)
+	// op3: hold the last shown frame for count list-replays' worth of frames
+	pause := func(count int) {
+		if out == nil || count <= 0 || len(out.Steps) == 0 {
+			return
+		}
+		last := out.Steps[len(out.Steps)-1]
+		out.Steps = append(out.Steps, step{Cell: last.Cell, Hold: count * lastHold})
+	}
+
+	queue := []uint32{pc}
+	visited := map[uint32]bool{}
+	for len(queue) > 0 && len(visited) < 6 {
+		pc = queue[0]
+		queue = queue[1:]
+		if visited[pc] {
+			continue
+		}
+		visited[pc] = true
+		end := pc + 0x100
+		if stop > pc && stop < end {
+			end = stop
+		}
+		for pc < end && int(pc)+2 <= len(im) {
+			op := ou16(im, pc)
+			pc += 2
+			switch op {
+			case 0: // KEYFRAME x,y,z,dur,terr (+ w26,w28,link long when dur==1)
+				kx, ky, kz = os16(im, pc), os16(im, pc+2), os16(im, pc+4)
+				kdur = os16(im, pc+6)
+				pc += 10
+				if kdur == 1 {
+					kw26, kw28 = os16(im, pc), os16(im, pc+2)
+					link = ou32(im, pc+4)
+					linkFresh = true
+					pc += 8
+					// a [tilemap row, height patch] pair list = a terr-$19
+					// SCREEN-SWAP registration (Ultimate's final screen), not
+					// sprite records — the $1E212 Painter engine cycles it
+					if rows := rowPairList(im, link, mapRows); len(rows) >= 2 && rows[0] == kw28 {
+						swap = &swapAnim{Ty: kw28, Rows: rows}
+						linkFresh = false
+					}
+				}
+			case 2: // SPRITE count,hold: play the current list
+				anim(os16(im, pc+2))
+				linkFresh = false
+				pc += 4
+			case 3: // STATE0-STOP count: hold the pose
+				pause(os16(im, pc))
+				pc += 2
+			case 12, 13: // LINK: swap the record list
+				link = ou32(im, pc)
+				linkFresh = true
+				pc += 4
+			case 8, 18: // conditionals: scan the target too (the ramp's grow anim)
+				var t uint32
+				if op == 8 {
+					t = ou32(im, pc+2)
+					pc += 6
+				} else {
+					t = ou32(im, pc+2)
+					pc += 6
+				}
+				if t > 0 && int(t) < len(im) {
+					queue = append(queue, t)
+				}
+			case 9: // JUMP
+				t := ou32(im, pc)
+				pc += 4
+				if t > 0 && int(t) < len(im) {
+					queue = append(queue, t)
+				}
+			case 4, 6, 17:
+				pc += 2
+			case 10:
+				pc += 4
+			case 5, 7, 11, 16:
+			case 14:
+				pc += 4
+			case 15:
+				pc = end
+			case 1:
+				pc += 4
+			default: // >= $13: end of script data
+				pc = end
+			}
+		}
+	}
+	// a region that links a record list but never op2-selects shows entry 0
+	if out == nil && linkFresh {
+		place(spriteList(im, link, nCells))
+	}
+	if out == nil {
+		return nil, swap
 	}
 	return out, swap
 }

@@ -1242,9 +1242,11 @@ fixed **30-row band** (the `$1E038` job is hard-coded to `$1E` rows) from the ne
 tilemap rows into the off-screen buffer, `memcpy`s that variant's **`$798` height patch** in
 (so the *collision* mesh switches with the pixels — the vanished path really is gone), and
 flips the buffer into the scroll bitmap on the next vblank (`frame_tick $75DA` →
-`$1DE10`/`$1DDD8`). Content and order are exact from the data — 78 → 108 → 138 → 168, wrap;
-the per-variant hold is the pipeline's repaint latency, **about one second per variant**
-(measured in play — the paths hold long enough to dash across, not a strobe).
+`$1DE10`/`$1DDD8`). Content and order are exact from the data — 78 → 108 → 138 → 168, wrap.
+The cadence is the Painter's own repaint time: the tile drawer **yields to the vblank
+every 16 tiles** (`mlb_draw_column $99A4`), so one 30×36-tile band takes
+`⌈1080/16⌉ = 68` PAL frames — **≈1.36 s per variant**, matching the measured
+once-a-second-ish swap in play.
 
 Two smaller corollaries of the header-vs-data row count: **Silly stores 144 rows but plays
 143** — its one hidden row is a fully-drawn extra wall row (real art, unique tiles) that the
@@ -1517,8 +1519,8 @@ composite element drives the Painter's tile redraw for that stage, while the
 record's cell supplies the occlusion mask). The region **script** wires them
 up: an `op0` keyframe with `dur==1` carries the piece's **draw anchor in
 course-tile coordinates** (region `+$26/+$28`) plus the sprite-list link;
-`op12/op13` re-link the list, `op2 SPRITE` selects the entry (region `+$1C`
-becomes the list cursor). Free-standing pieces like the flags anchor at their
+`op12/op13` re-link the list, `op2 SPRITE` starts a play-through of the current list
+(wrap count + hold — the animation, not an index). Free-standing pieces like the flags anchor at their
 keyframe reference point through the engine's projection (`$6918`:
 `screenX = y·8−x·8+$88`, `screenY = z + $9BA + $6C − (x·8+y·8)/2`, with `$9BA`
 seeded from the course descriptor's `+$10` word; the `+$12` word — the
