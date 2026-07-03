@@ -52,6 +52,10 @@ under way; Part V is still a stub.
   - [4. Obstacles (`.ilb`)](#4-obstacles-ilb)
   - [5. Course layout (`*Track`)](#5-course-layout-track)
 - [Part V — Game mechanics](#part-v--game-mechanics)
+  - [1. The game loop](#1-the-game-loop)
+  - [2. The object/actor system](#2-the-objectactor-system) (incl. the depth-sorted display list / occlusion)
+  - [3. Terrain interaction](#3-terrain-interaction)
+  - [4. Physics and controls](#4-physics-and-controls)
 - [Part VI — Music and sound](#part-vi--music-and-sound)
   - [1. Where the music lives — the `*Snd` files](#1-where-the-music-lives--the-snd-files)
   - [2. The playback path — `audio.device`](#2-the-playback-path--audiodevice)
@@ -1387,6 +1391,69 @@ the vertical scroll wraparound (two blits across the 512-px seam). The free-spri
 (type-1) cells store their planes **row-interleaved**, and **each cell is a single
 animation frame** (Part IV §3) — they are *not* combined in pairs. The actor's
 animation script (above) selects which cell to draw each frame.
+
+### The depth-sorted display list — how the marble hides behind the level
+
+Watch the marble roll behind the raised drawbridge or between the goal flags and
+part of it disappears — yet the `.mlb` tilemap is a flat background bitmap, and
+nothing in the engine repaints tiles over sprites mid-frame (the only tilemap
+drawers are the course paint, the scroll rows and the drawbridge-style tile
+animations, all funnelled through a dedicated **"Painter" exec task**: `$9450`
+creates it, `$91C0` is its message loop). The occlusion comes from somewhere
+else entirely: **one global display list, painter's-algorithm sorted in
+isometric space every frame.**
+
+Every drawable is an entry: the two marbles, every creature, the HUD pieces —
+and, crucially, the **scenery pieces** a marble can pass behind. Each entry owns
+a 14-byte depth record (`$41E` table, order array `$5F7`, slot pointers `$21CC`):
+
+```
++0  type      (1/2 marble, 4/$E creatures, 7/8/9 region scenery, $2C spawn gate, …)
++1  index     (into the type's object table)
++2/+4/+6      3-D box min  (iso world x, y, z)
++8/+A/+C      3-D box size
+```
+
+Each frame `displaylist_render $11704` rebuilds every entry's box
+(`displaylist_box $1085C`, per-type), runs three bubble passes with the
+**separating-axis comparator** `displaylist_cmp $10F4C` — compare corner sums,
+then per-axis overlap, the classic *Knight Lore*-style iso sort — and then draws
+the list **in order** through a per-type dispatch, each leaf ending in
+`draw_sprite_record $122AC` → `blit_object`. A marble whose box sorts *behind* a
+scenery piece's box is simply blitted first; the scenery lands on top of it.
+That is the whole occlusion system.
+
+**The scenery pieces are `.ilb` cells owned by the Track's dynamic regions**
+(display types 7/8/9). A 16-byte **sprite record** in the Track file describes
+each piece:
+
+```
++0/+1  dx/dy draw nudge          +4..+7  iso-box extents
++2..3  state bytes               +8      .ilb cell index (long)
+                                 +C      aux pointer (long)
+```
+
+Records live in `$FFFFFFFF`-terminated pointer lists — flat (the goal flag's 4
+wave frames = `beginr.ilb` cells 0–3) or `[record, composite-list]` pairs (the
+Beginner drawbridge: cells 4–7 = four 64×63 lift stages, one list forward and
+one reversed = raise and lower). The region **script** wires them up: an `op0`
+keyframe with `dur==1` carries the piece's **draw anchor in course-tile
+coordinates** (region `+$26/+$28`) plus the sprite-list link; `op12/op13`
+re-link the list, `op2 SPRITE` selects the entry (region `+$1C` becomes the
+list cursor the display list draws through). Free-standing pieces like the
+flags anchor at their keyframe reference point through the engine's projection
+(`$6918`: `screenX = y·8−x·8+$88`, `screenY = z + $9BA + $6C − (x·8+y·8)/2`,
+with `$9BA` seeded from the course descriptor's `+$10` word).
+
+So "the level occludes the marble" is an illusion with a precise mechanism: the
+occluding art *looks like* tilemap but is a sprite — the bridge plank, the flag
+poles, Practice's pop-up start ramp — each carrying its own 3-D box so the sort
+can put the marble behind it. The companion site's course maps draw these
+pieces as a toggleable **scenery-overlay layer** (`extract/cmd/webexport`,
+`overlay.go`), placed by replaying exactly this data chain; the goal flags land
+pixel-perfect on the GOAL banners of all six courses and the drawbridge merges
+seamlessly into the Beginner plateau, verifying the record format and both
+anchor paths.
 
 ## 3. Terrain interaction
 

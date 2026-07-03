@@ -1134,6 +1134,17 @@ position. There are <strong>no hardware sprites</strong> — everything is blitt
 512-pixel-tall bitmap used as a <strong>circular scroll buffer</strong>: as the course scrolls vertically the
 visible window wraps around that buffer, so an object straddling the wrap point is drawn with two blits, one for
 each side of the seam. (The course itself does not wrap — only the scroll buffer does.)</p>
+
+<h2>The display list — hiding behind the level</h2>
+<p>The marble can roll <em>behind</em> parts of the course — under the raised drawbridge, behind the goal
+flags — yet the tilemap is a flat background that is never repainted over sprites. The trick: everything that
+moves or layers lives in <strong>one display list, depth-sorted every frame</strong>. Each entry — marble,
+enemy, scenery piece — carries a 3-D bounding box in isometric space, a separating-axis comparator bubble-sorts
+the list (the classic isometric painter's algorithm), and entries are blitted in order, so whatever sorts nearer
+simply lands on top. The "level" pieces that occlude are not tilemap at all but <strong>sprite cells from the
+obstacle bank</strong>, anchored by the course-layout data — the bridge plank, the flag poles, Practice's pop-up
+start ramp. The map view's <strong>scenery overlays</strong> toggle draws exactly these pieces, placed by
+replaying the same data: the goal flags land on the GOAL banner of every course.</p>
 `,
     music: `
 <div class="info-eyebrow">Marble Madness · Music</div>

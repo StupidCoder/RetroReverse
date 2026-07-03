@@ -52,9 +52,9 @@ export class MarbleViewer {
   }
 
   setLayer(name, on) {
-    // 'markers' (the studio toggle) and 'objects' (the generic id) both drive the
-    // slope view's Track markers; everything else goes to the map viewer.
-    if (name === 'markers' || name === 'objects') this.slopes.setMarkers(on);
+    // 'markers' drives the slope view's Track pins; 'objects' (the scenery
+    // overlay sprites) and the rest go to the 2-D map viewer.
+    if (name === 'markers') this.slopes.setMarkers(on);
     else this.map.setLayer(name, on);
   }
 

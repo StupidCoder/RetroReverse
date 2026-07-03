@@ -130,6 +130,12 @@ func run(adfPath, outDir string) error {
 		return err
 	}
 
+	spritesDir := filepath.Join(outDir, "sprites")
+	if err := os.MkdirAll(spritesDir, 0o755); err != nil {
+		return err
+	}
+	spriteIndex := map[string]any{}
+
 	var levels []metaLevel
 	for _, c := range courses {
 		p, ok := paths[c.key+".mlb"]
@@ -148,22 +154,8 @@ func run(adfPath, outDir string) error {
 		if err := gfx.WritePNG(filepath.Join(outDir, atlasFile), co.Atlas(16)); err != nil {
 			return err
 		}
-		file := c.key + ".json"
-		if err := writeJSON(filepath.Join(outDir, file), map[string]any{
-			"format": 1,
-			"name":   c.name,
-			"grid": map[string]any{
-				"tileSize": 8, "atlas": atlasFile, "atlasCols": 16, "atlasGutter": 1,
-				"width": mlb.CourseW, "height": co.H, "cells": co.Cells,
-			},
-			// Frame the Amiga's on-screen view (288x200 playfield) at the course top.
-			"view": map[string]any{"x": (mlb.CourseW*8 - 288) / 2, "y": 0, "w": 288, "h": 200},
-		}); err != nil {
-			return err
-		}
-		h := co.H
 
-		// Slope field (the 3-D rolling surface) from the course Track file.
+		// Track file: the slope field, markers, and the scenery-overlay pieces.
 		tp, ok := paths[strings.ToLower(c.track)]
 		if !ok {
 			return fmt.Errorf("%s not found on disk", c.track)
@@ -176,6 +168,31 @@ func run(adfPath, outDir string) error {
 		if err != nil {
 			return fmt.Errorf("%s: hunk load: %w", c.track, err)
 		}
+
+		// The occlusion layer: .ilb scenery cells the engine's depth-sorted
+		// display list draws over the tilemap (and over the marble when it is
+		// behind them) — placed by the Track's dynamic-region scripts.
+		objects, err := exportOverlays(vol, paths, c.key, prog.Image, co, spritesDir, spriteIndex)
+		if err != nil {
+			return err
+		}
+
+		file := c.key + ".json"
+		if err := writeJSON(filepath.Join(outDir, file), map[string]any{
+			"format": 1,
+			"name":   c.name,
+			"grid": map[string]any{
+				"tileSize": 8, "atlas": atlasFile, "atlasCols": 16, "atlasGutter": 1,
+				"width": mlb.CourseW, "height": co.H, "cells": co.Cells,
+			},
+			"objects": objects,
+			// Frame the Amiga's on-screen view (288x200 playfield) at the course top.
+			"view": map[string]any{"x": (mlb.CourseW*8 - 288) / 2, "y": 0, "w": 288, "h": 200},
+		}); err != nil {
+			return err
+		}
+		h := co.H
+
 		sj := buildSlope(slope.Build(prog.Image))
 		sj.Markers = buildMarkers(slope.Markers(prog.Image))
 		slopeFile := c.key + ".slope.json"
@@ -184,8 +201,12 @@ func run(adfPath, outDir string) error {
 		}
 
 		levels = append(levels, metaLevel{Name: c.name, File: file, Atlas: atlasFile, Slope: slopeFile})
-		fmt.Printf("%-12s %s  %d×%d tiles, %d tiles; slope %dx%d, h %d..%d\n",
-			c.name, file, mlb.CourseW, h, co.NTiles, sj.W, sj.H, sj.Lo, sj.Hi)
+		fmt.Printf("%-12s %s  %d×%d tiles, %d tiles; slope %dx%d, h %d..%d; %d overlay sprites\n",
+			c.name, file, mlb.CourseW, h, co.NTiles, sj.W, sj.H, sj.Lo, sj.Hi, len(objects))
+	}
+
+	if err := writeJSON(filepath.Join(spritesDir, "index.json"), spriteIndex); err != nil {
+		return err
 	}
 
 	return writeJSON(filepath.Join(outDir, "meta.json"), map[string]any{

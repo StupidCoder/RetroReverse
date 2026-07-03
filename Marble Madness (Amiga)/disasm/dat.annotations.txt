@@ -77,9 +77,11 @@
 00E872  set_draw_pos     set the screen draw position for an object: copy its world pos (obj+$C/+$10/+$14) to $6B8/$6BC/$6C0, the >>$13 tile coords to $6CE/$6D0, then call $E944 to project to the iso screen seed $6C4/$6C6/$6C8. Called before each object draw.
 014EF0  object_draw       per-object update+draw: advance the object's world pos by its velocity (obj+$C += obj+0, +$10 += +4, +$14 += +8), set_draw_pos, then draw the object plus up to three actor passes (a main sprite + shadow/secondary passes) chosen by the object subtype obj+$1B (==1/2/3), each at its own Y offset ($1E8/$238/$210) via actor_update; a per-frame "already drawn" bitmask ($5F6) prevents double-draws.
 # Render leaf routines (annotated elsewhere): mlb_draw_column $9910 + draw_tile $99C0
-# draw the .mlb tilemap background; place_objects $0122AC walks the Track placement
-# list; actor_update $01D3B2 -> draw_object_wrap $0104C4 -> blit_object $011D1C draw
-# the sprites. The .ilb cell ENCODING is selected by the descriptor type byte (+0):
+# draw the .mlb tilemap background (only ever called by the Painter task $91C0 and
+# course-init/scroll); everything that moves or layers is drawn through the
+# DEPTH-SORTED DISPLAY LIST (see its own section below) -> draw_sprite_record
+# $122AC / draw_object_wrap $0104C4 -> blit_object $011D1C.
+# The .ilb cell ENCODING is selected by the descriptor type byte (+0):
 # type-0 (+0=00) = composited scenery, span=4*cz, 4 plane-blocks (mask built by
 # composite_planes $8026); type-1 (+0=01) = free sprites, span=2*cz, row-interleaved
 # 4-plane at half height (the flag/marble/creatures).
@@ -336,11 +338,10 @@
 
 # --- the object / actor (sprite-animation) system (Part V) ---
 # The .ilb/.vlb cells are drawn as BLITTER objects (no hardware sprites: no
-# $DFF0A0-$DFF0DC anywhere). The playfield is 4 bitplanes, so each on-screen object
-# is 16-colour = 4 planes. A 4-plane object is built from TWO consecutive 2-plane
-# descriptor cells (e.g. the goal flag = cells 0+1; the marble = an image pair),
-# while the composited scenery cells (+0=00) already hold 4 planes in one cell.
-011D1C  blit_object      blit one object into the 4-plane playfield. Arg $8(a6) = a cell descriptor (the unpacked-.ilb 20-byte record); $E/$12/$16/$1A = x/screen-offset/word-x/y. Reads $2(a0)=width words, $6(a2)=one-plane size, $8(a0)=source. Loops over the screen bitmap's plane-pointer table at $7B30+8 for FOUR planes ($011E4C ADDA.w #$10 = 4 longs), advancing the source by one-plane-size each plane -> reads 4 sequential one-plane blocks from the cell source = 2 descriptor cells. Optional cookie-cut mask path when desc+1 bit0 set and desc+$C (mask) != 0 (minterm $FCA), else plain copy (minterm $5CC).
+# $DFF0A0-$DFF0DC anywhere). The playfield is 4 bitplanes; type-0 composited
+# scenery cells hold 4 sequential plane blocks, type-1 stored sprites are
+# row-interleaved single frames (Part IV §3).
+011D1C  blit_object      blit one object into the 4-plane playfield. Arg $8(a6) = a cell descriptor (the unpacked-.ilb 20-byte record); $E/$12/$16/$1A = x/screen-offset/word-x/y. Reads $2(a0)=width words, $6(a2)=one-plane size, $8(a0)=source. Loops over the screen bitmap's plane-pointer table at $7B30+8 for FOUR planes ($011E4C ADDA.w #$10 = 4 longs), advancing the source by one-plane-size each plane. Blitter channel map: B ($DFF04C) = pixel source desc+$8; A ($DFF050) = cookie-cut mask desc+$C when desc+1 bit0 set (BLTCON0 $FCA, LF $CA = A·B + ~A·C), else plain copy ($5CC); C ($DFF048) = the CLEAN-BACKGROUND aux buffer desc+$10 when set (restore-around-sprite in the same blit), else the screen; D ($DFF054) = screen.
 0104C4  draw_object_wrap draw an object at (x,y) with vertical wraparound: clips to the $200 (512) tall scroll buffer and calls blit_object once or twice (top/bottom halves) so objects straddling the scroll seam render whole. Reads scroll offset via $7B28.
 01D3B2  actor_update     the per-frame actor update+draw loop. Walks an array of 20-byte actor records (stride $14): +0 = pointer to the current sprite CELL to draw (passed to draw_object_wrap), +4 = animation-script pointer (8-byte entries: cell ptr + timing; advanced when the +8 frame timer expires, $FFFFFFFF-terminated -> loop), +8 = frame timer, +A/+C = x/y position (y biased by scroll $D30C), +E/+10 = anim/wrap state. Pulls anim scripts from the per-course Track blob via $FD2C (e.g. $280(a0)/$284(a0)); per-actor sub-records live at $18A6 (stride $10). Frame durations randomised via rng $8F96.
 
@@ -401,7 +402,7 @@
 # extract/cmd/tracks: practy 59, beginr 79, interm 87, aerial 159, silly 104,
 # ultima 144 objects.
 000690  g_respawn_x      (global) RESPAWN X tile, computed by respawn_pick $1279C/$1288C from the placement table; reposition_marble $1448E does $690<<16 -> marble obj+$C. ($694 = respawn Y -> obj+$10; $6A0 = the picked placement type, $FF = none.)
-0122AC  place_objects    walk the placement list filtered by type byte (+2) == the request's $1B (proximity/picking helper). The placement `type` (beginr uses 0..12) is the marble's REGION/TERRAIN-interaction kind (collision query $012600 finds the nearest record within a radius, isometric-transforms it $6718, and stores type->$6A0 = marble +$1B = which region the marble is in), NOT a free sprite index — static scenery is in the .mlb tilemap. The marble's reaction per type is the physics dispatch on $6A0 (Part V §3, TODO).
+0122AC  draw_sprite_record  emit the blit(s) for one 16-byte SPRITE RECORD (a0 = record; args x, y screen coords, y up-positive, flipped $108-y). Record: [+0 dx nudge][+1 dy nudge][+2 state byte][+4..+7 iso-box extents][+8 long .ilb cell index][+C long aux ptr]. Looks the cell up via $825E, builds a draw request via $3BB2 (untraced leaf), copies the cell's plane pointers in, and queues follow-on cells (request +4 = count) — the draw path every display-list type dispatches into ($650A regions, $6562 spawn gate, $64B6, ...). Increments the per-frame draw counter $638. (An earlier note named this address place_objects and described the placement-table proximity query — that behaviour lives at $012600/$1288C; the label was misattributed.)
 # THE PLACEMENT TABLE IS ALSO THE RESPAWN-ANCHOR MAP (the cyan overlay dots line the fall-off
 # edges). When the marble rolls off an edge it goes airborne and the state-transition routine
 # (case $F(a6)==4 at $14814) enters state 4 FALLING/SETTLING via BSR reposition_marble $1448E.
@@ -419,3 +420,56 @@
 #   on the nearest edge anchor of the SAME region you fell from (the correct ledge, not across a
 #   gap). CONFIRMS the user's read: the cyan placement dots are the fall-off-edge respawn points.
 01D3EC  actor_setup      sets up the dynamic actors (enemies / animated obstacles): the 3-record actor array at $FD2C+$23C (stride $14, end +$3C); pulls templates/anim scripts from the Track segment (anim table at $FD2C+$280). Course-gated ($5D6==3 path tests $78E). The type(0..7)->object/anim definition tables are the other Track header pointers ($1ED44 ptr array @+$C, $89C2 @+$10, anim $FD2C @+$14) + a per-course copper-style colour table inside the +$10 block ($DFF180..$DFF192) — decode TODO.
+
+# --- THE DEPTH-SORTED DISPLAY LIST = the occlusion system (Part V §2) ---
+# Every drawable — the marbles, the enemies, the region scenery pieces, the spawn
+# gate — is an entry in ONE display list, painter's-algorithm sorted in iso space
+# each frame. This is how the marble disappears BEHIND "parts of the level": the
+# static .mlb tilemap is pure background and never occludes; anything the marble
+# can pass behind (drawbridge, goal flags, the start ramp, tube/arch fronts) is an
+# .ilb scenery cell owned by a Track dynamic region, sitting in this list with a
+# 3-D bounding box — when the marble's box sorts behind it, the scenery piece is
+# blitted after the marble and covers it.
+# Structures: $5F7..$615 = the draw ORDER (byte indices, $FF-terminated, ~31 max);
+# $21CC = per-slot pointer table -> 14-byte DEPTH RECORDS at $41E..$5D0 (stride $E):
+# [+0 type byte][+1 index byte][+2/+4/+6 box min x/y/z][+8/+A/+C box size x/y/z].
+# Types: 0 = sentinel (infinite box), 1/2 = marble P1/P2 (obj tables $2158/$2160,
+# box = tile pos ±3, z +1, size 6), 4/$E = creature systems A/B ($2248/$2258 = the
+# black-marble / ooze spawn objects), 5 = region drift sprite ($2168), 7/8/9 =
+# REGION SCENERY sprites ($2274; box centre = the region ref point words +$C/+$10/
+# +$14, extents from the sprite record bytes +4..+7 via the region's +$1C list
+# cursor), $F = $2298, $29/$2A = HUD/score pieces, $2C = the SPAWN GATE (zero box =
+# always drawn first; game_state 1 inserts it once, position $CCA+0/+2 = marble
+# start <<4, cell table $67B0, record $6850).
+011B34  displaylist_insert  insert entry (type, index): build its depth box ($1085C via $10F4C ordering), find the sorted position in $5F7, claim a free $41E slot, shift the order array. game_state 1 calls it with ($2C,0) = the spawn gate; object/creature/region code inserts the rest ($14696/$15414/$15492/$15510 marble states, $19972 black marble, $1A6B4, $1B95C/$1BA34 ooze, $1C15C, $1E35C region pieces).
+011C24  displaylist_remove  remove entry (type, index) from $5F7/$41E (8 callers).
+01085C  displaylist_box  per-TYPE depth-box builder (dispatch on record +0 as listed above); fills the 14-byte record's min/size triples.
+010F4C  displaylist_cmp  the iso separating-axis comparator (Filmation-style): compare two records' (min+size) corner sums, then per-axis overlap, then per-axis mins; returns 1 = should swap. Decides the painter order.
+00DD1C  displaylist_sortpass  one bubble pass over $5F7 with stride arg (compare entry i vs i+stride, swap on $10F4C); the renderer runs strides 1,2,3 each frame (moving boxes re-sort incrementally).
+011704  displaylist_render  THE FRAME RENDERER: pass 1 rebuild every entry's box ($1085C); 3 sort passes ($DD1C 1/2/3, skipped while $61B set); then walk $5F7 IN ORDER (draw budget $638 < $3C) dispatching each entry's type -> draw leaf: type 1->$5DFC, 2->$60F6, 4->$621C, 5->$64B6, $E->$645E, 7/8/9->$650A, $F->$6350, $2A->$62C6, $2C->$6562 — each resolves its object's current sprite record + screen pos and calls draw_sprite_record $122AC. (The leaves live behind the jump table = outside the default codetrace; regenerate with -entry 0x5DFC,0x60F6,0x62C6,0x621C,0x645E,0x64B6,0x650A,0x6350,0x6562 to disassemble them.)
+00650A  draw_region_piece  display-list draw leaf for types 7/8/9: a0 = the REGION struct; reads its projected screen pos (+$20/+$22, y range-checked -$10..$100), takes the CURRENT sprite record ptr = *(region+$1C) (the +$1C list cursor the region script's op2 sets and region_update advances = sprite animation), calls draw_sprite_record $122AC.
+006562  draw_spawn_gate  display-list draw leaf for type $2C: reads $CCA+idx*10 (+0/+2 = x,y <<4, +8 = state), picks the gate cell from table $67B0[state] into record $6850's cell slot, draws at (x>>4, y>>4).
+# THE 16-BYTE SPRITE RECORD (what region+$1C points at, and what $122AC consumes):
+# [+0 dx][+1 dy][+2..3 state bytes][+4..+7 iso-box extent bytes][+8 long .ilb cell
+# index][+C long aux ptr]. Records live in $FFFFFFFF-terminated pointer LISTS in
+# the Track file — flat (goal flags: 4 records = 4 wave frames) or [record,
+# composite-list] PAIRS (the beginr drawbridge: cells 4-7 = 4 lift stages, forward
+# and reversed lists = raise/lower). The region script wires them up: op0 KEYFRAME
+# dur==1 carries [w26 w28 link] = the piece's draw anchor in course-tile coords
+# (+$26/+$28, the $105FE/$D868 tile-area draw path) + the sprite list; op12/op13
+# re-link; op2 SPRITE selects the list entry. dur!=1 pieces (the flags) anchor at
+# the keyframe ref point through the iso projection ($6918: screenX = y8-x8+$88,
+# screenY = z + $9BA + $6C - (x8+y8)/2, y up-positive, flipped $108-y at draw;
+# $9BA seeded from course descriptor +$10 by $E6B2, +$12 added on course 4).
+# extract/cmd/webexport (overlay.go) replays exactly this to place the scenery
+# overlay layer on the site's course maps.
+
+# --- the "Painter" task: all tilemap drawing is message-driven ---
+009450  painter_create   create the "Painter" exec task (name $951C, entry $91C0, port $990C); wires the request globals $94F2/$94F6/$94FA.
+0091C0  painter_task     the Painter server loop: WaitPort/GetMsg on $990C, per message call mlb_draw_column(msg+$18, +$20, +$1C, planes ptr +$24), then ReplyMsg (msg+$14 = reply port set) or FreeMem. The ONLY consumers of mlb_draw_column/draw_tile: course-init paint + scroll rows ($92D6 callers $D052/$D146) and the region tile-animation redraws ($9312 caller $1E038) — sprites are never overpainted by tiles mid-frame.
+00934C  painter_send     allocate a $28-byte request, fill [+$E reply port][+$14 flag][+$18/+$1C/+$20 x/rows/y][+$24 plane table], PutMsg to the Painter.
+01DE10  anim_buffer_flip  double-buffer flip for the region tile-animation redraw: $1E204/$1E208 swap between $1E1B4 (plane ptrs INTO the screen scroll buffer, row $70) and $1E1DC (a pool-allocated $8700-byte off-screen 36-byte-wide 240-row 4-plane buffer, built by $1DE72). The drawbridge-style tile updates render off-screen, then flip.
+01E038  anim_redraw_next  walk a region's tile-redraw pointer list (cursor +$3E, base +$46, $FFFFFFFF-terminated, reset on wrap): send the next column entry to the Painter ($9312, plane table $1E204) — one step per frame/reply.
+01E0D0  anim_redraw_done  on Painter reply: take the region's current data record [idx word][count word][count words...] and memcpy ($21908) the words into the INDIRECT HEIGHT TABLE $798 + idx*2 — the mesh build reads height values through $798 when a cell's value word has the indirect flag ($DC7A ANDI #$7FE -> $798 lookup), so the drawbridge's collision heights change in lockstep with its redrawn tiles.
+000798  g_anim_heights   (global word table) the indirect height slots for ANIMATED terrain: mesh-build values with the indirect flag read $798[idx] instead of a literal; region scripts/anim replies rewrite the slots (via $D868/$1E0D0 record copies).
+00D8FC  mesh_to_tiles    corner-height -> TILE INDEX converter: walks 22 mesh columns, packs each cell's 4 corner heights, binary-searches the course's height-pattern table ($9AE..$9B2, $400 stride) and writes the tile-index word back into the cell — how terrain-height changes become tilemap changes for the Painter to repaint.

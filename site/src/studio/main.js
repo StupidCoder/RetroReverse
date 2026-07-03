@@ -86,8 +86,12 @@ const GAMES = [
     make: (V, el, hud) => new V(el, hud),
     list: async (v) => (await v.init()).levels,
     show: (v, lvl, i) => v.loadLevel(lvl),
-    // the Track markers only exist in the slope view, so only show the toggle there
-    layers: [{ id: 'markers', label: 'Markers', default: false, when: (m) => m.leaves?.[m.currentIdx]?.name === 'Slopes' }],
+    // per-view toggles: the scenery-overlay sprites live in the 2-D map, the
+    // Track markers only in the slope view
+    layers: [
+      { id: 'objects', label: 'Scenery overlays', default: true, when: (m) => m.leaves?.[m.currentIdx]?.name === 'Map' },
+      { id: 'markers', label: 'Markers', default: false, when: (m) => m.leaves?.[m.currentIdx]?.name === 'Slopes' },
+    ],
     music: async () => (await fetch('public/marble/music/manifest.json').then(r => r.json()))
       .map(m => ({ name: m.course, url: `public/marble/music/${m.file}` })),
   },
