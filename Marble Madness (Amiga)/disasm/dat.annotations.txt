@@ -228,7 +228,9 @@
 #   op15 $102E6 ACTIVATE-STOP 0w: JSR region_update $F96A(region,1,0); STOP.
 #   op16 $1002E MOVE 0w     : when +$1E==1, drift +$4E/+$50 by vX/vY = a moving slope/wall.
 #   op17 $10300 FALL-STOP 1w(+$1B): marble-capture state +$1A=4 + code +$1B, save PC; STOP.
-#   op18 $10326 IF-MARBLE-TERRAIN LONG: if marble terrain +$1B matches region +$1B(range>=$1E)
+#   op18 $10326 IF-MARBLE-TERRAIN LONG (4 operand bytes — the handler REPLACES the script PC
+#     with the long or skips it; earlier tools assumed 6 and misparsed what follows): if
+#     marble terrain +$1B matches region +$1B(range>=$1E)
 #     JUMP target + JSR $21CD0(table $20A4[code-$1E]).
 # THE DRAWBRIDGE (beginr region 0, script $1C1E) decompiled by rgnscript: op0 KEYFRAME(61,56)
 #   terr3 (registers as $FD38) -> op4 LOOP-A 0 (forever) { op2 SPRITE; op12 LINK $1A8A; op3
@@ -523,7 +525,8 @@
 # THE VACUUMS (aerial): the six terr-11/13 FALL regions (anchors 2x3 grid, tiles
 # (14,30)(6,34)(14,41)(26,30)(18,34)(26,41)) reuse the SCRIPTED-SLOPE codes 11/13 —
 # the "pull toward the ref point" force IS the suction. Their hood art is in the
-# block extension slots *($FD2C)+$4C..$58 = 4 TRIGGER SCRIPTS the code-11/13
+# block extension slots *($FD2C)+$4C..$58 = 4 TRIGGER SCRIPTS (close-A $1C78, close-B $1CBE,
+# open-A $1C8C cells 4-8, open-B $1CD2 cells 9-13 — the two hood FACINGS) the code-11/13
 # handlers ($17AA8/$17C88 compare region +$46 vs block +$60/+$64) run on the
 # region: open the hood (8-byte anim lists, aerial.ilb cells 4-7 / 8-13, e.g.
 # $1AC2 = 4,5,6,6,7*4), op18 marble-test loop, branch to the close subroutine

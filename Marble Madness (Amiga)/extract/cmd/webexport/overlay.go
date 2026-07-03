@@ -1,30 +1,29 @@
-// Overlay extraction: the scenery sprite pieces the engine layers OVER the
-// tilemap — the course's "occlusion layer".
+// Overlay extraction: the scenery/hazard pieces the engine layers over the
+// tilemap, replayed for the site's course maps (Marble_Madness.md Part IV §5
+// "One game, eight obstacle systems" + Part V §2).
 //
-// Marble Madness draws every moving or layered thing through one depth-sorted
-// display list (painter's algorithm; insert $11B34, iso-box builder $1085C,
-// separating-axis comparator $10F4C, renderer $11704 in the decrypted .dat).
-// The static .mlb tilemap is pure background; anything the marble can roll
-// BEHIND is an .ilb scenery cell attached to a dynamic Track region (display
-// types 7/8/9), placed at the region's keyframe reference point and drawn in
-// depth order — nearer pieces blit over the marble, which is the occlusion the
-// player sees.
+// Sources handled here, all from the course Track file:
+//  - dynamic-region scripts (header +$14 record list): drawbridge, goal flags,
+//    Practice's start ramp, Aerial's duct muncher — op0 KEYFRAME carries the
+//    anchor (tile coords +$26/+$28 when dur==1, else the iso-projected ref
+//    point); op2 [wrap count][hold] plays the current record list; op3 holds;
+//    op12/op13 relink; op14/op16 drift the anchor (the wave sweep); op4/op5
+//    loops are expanded; op8/op18 conditional targets are scanned too.
+//  - the loose hazard script at block+8, spawned by code on marbles entering
+//    placement-zone 9/$A (Intermediate's WAVE).
+//  - the 3-slot obstacle-actor array at block+$23C (Aerial's pistons, world-px
+//    positions, RNG anim variants at +$278).
+//  - the vacuum hood trigger scripts at block +$54/+$58, run on the terr-11/13
+//    fall regions (anchor taken from the region's op0).
+// A record list is a $FFFFFFFF-terminated pointer array (flat, [record,
+// composite] pairs, or 8-byte [record][0] anim entries) of 16-byte sprite
+// records: [+0 dx][+1 dy nudge (dy raises)][+2..3 state][+4..7 iso-box extents]
+// [+8 (bank,cell) words][+C colour-ramp ptr].
 //
-// Data chain (all in the course Track file): header +$14 -> 6-byte
-// [x][y][scriptPtr] region records -> region script: op0 KEYFRAME carries the
-// anchor (X,Y,z) and (when dur==1) the sprite-list link; op12/op13 re-link;
-// op2 SPRITE selects a list entry. A list is a $FFFFFFFF-terminated array of
-// pointers (single, or [record, composite-list] pairs) to 16-byte sprite
-// records: [+0 dx][+1 dy][+2..3 state bytes][+4..7 iso-box extents]
-// [+8 long .ilb cell index][+C long aux ptr].
-//
-// Screen projection (the engine's own math, $6918 + $122AC + $E6B2):
-//   x8 = X*8+4, y8 = Y*8+4                     (eighth-cell seeds $6C4/$6C6)
-//   worldX = (y8 - x8) + $88 + dx
-//   worldY = (x8 + y8)/2 - z - base + $9C - dy (top of the blit)
-// where base = the course descriptor's word +$10 (Track header+0 -> $9A6;
-// course 4/aerial adds word +$12), the value the engine seeds the world-Y
-// base $9BA with; the scroll terms cancel out of the world-space form.
+// Iso projection for free-standing pieces ($6918/$122AC): x8 = X*8+4,
+// y8 = Y*8+4; worldX = (y8-x8)+$88+dx; worldY = (x8+y8)/2 - z - base + $90 - dy
+// with base = descriptor word +$10 (the +$12 word is Silly's initial-scroll
+// seed and cancels out of the world mapping).
 package main
 
 import (
@@ -116,10 +115,10 @@ func exportOverlays(vol *adf.Volume, paths map[string]string, key string, track 
 				entry := map[string]any{
 					"src": "sprites/" + pngName, "frames": frames, "steps": prog,
 				}
-				// op16 drift (the wave's sweep) -> a per-engine-frame movement path
+				// per-frame offsets (record nudges + op16 drift) -> a movement path
 				hasMove := false
 				for _, st := range steps {
-					if st.DX != 0 || st.DY != 0 {
+					if st.DX != 0 || st.DY != 0 || st.OX != 0 || st.OY != 0 {
 						hasMove = true
 					}
 				}
@@ -128,7 +127,7 @@ func exportOverlays(vol *adf.Volume, paths map[string]string, key string, track 
 					ox, oy := 0, 0
 					for _, st := range steps {
 						for f := 0; f < st.Hold && len(path) < 2048; f++ {
-							path = append(path, [2]int{ox, oy})
+							path = append(path, [2]int{ox + st.OX, oy + st.OY})
 						}
 						ox += st.DX
 						oy += st.DY
@@ -185,9 +184,11 @@ func exportOverlays(vol *adf.Volume, paths map[string]string, key string, track 
 	return objects, anims, nil
 }
 
-// step is one frame of a piece's play program: show cell for hold engine frames,
-// then drift the piece by (DX,DY) px (op16 MOVE — the Intermediate wave sweep).
-type step struct{ Cell, Hold, DX, DY int }
+// step is one frame of a piece's play program: show cell for hold engine frames
+// at offset (OX,OY) from the anchor (the record dx/dy nudge relative to record
+// 0's — the wave's frames each sit differently), then drift the piece by
+// (DX,DY) px (op16 MOVE — the wave sweep).
+type step struct{ Cell, Hold, OX, OY, DX, DY int }
 
 type overlay struct {
 	Region  int    // dynamic-region index
@@ -371,10 +372,13 @@ func trackOverlays(im []byte, nCells, mapRows int) ([]overlay, []swapAnim) {
 		anchor := [2]int{os16(im, r.script+12), os16(im, r.script+14)}
 		var sc uint32
 		switch terr {
+		// terr 11 -> the +$58 hood set, 13 -> +$54 (the facing pairing,
+		// calibrated in game — the code-11/13 handlers pull in opposite
+		// directions and each hood set faces one of them)
 		case 11:
-			sc = ou32(im, dyn+0x54)
-		case 13:
 			sc = ou32(im, dyn+0x58)
+		case 13:
+			sc = ou32(im, dyn+0x54)
 		default:
 			continue
 		}
@@ -382,7 +386,9 @@ func trackOverlays(im []byte, nCells, mapRows int) ([]overlay, []swapAnim) {
 			continue
 		}
 		if ovl, _ := scanScript(im, r.idx, sc, sc+0x80, base, nCells, mapRows, &anchor); ovl != nil && len(ovl.Steps) > 0 {
-			ovl.Steps = append(ovl.Steps, step{Cell: ovl.Steps[len(ovl.Steps)-1].Cell, Hold: 60})
+			idle := ovl.Steps[len(ovl.Steps)-1]
+			idle.Hold, idle.DX, idle.DY = 60, 0, 0
+			ovl.Steps = append(ovl.Steps, idle)
 			out = append(out, *ovl)
 		}
 	}
@@ -420,11 +426,13 @@ func trackOverlays(im []byte, nCells, mapRows int) ([]overlay, []swapAnim) {
 			continue
 		}
 		baseCell := ou16(im, basePtr+10)
+		baseDX, baseDY := s8(im[basePtr]), -s8(im[basePtr+1])
 		o := overlay{Region: 91 + i, Cell: baseCell, X: x, Y: y}
 		variant := ou32(im, dyn+0x278+uint32(i)*4)
 		for _, r := range spriteList(im, variant, nCells) {
 			if r != 0 {
-				o.Steps = append(o.Steps, step{Cell: int(ou32(im, r+8)), Hold: 1})
+				o.Steps = append(o.Steps, step{Cell: int(ou32(im, r+8)), Hold: 1,
+					OX: s8(im[r]) - baseDX, OY: -s8(im[r+1]) - baseDY})
 			}
 		}
 		if len(o.Steps) > 0 {
@@ -492,7 +500,12 @@ func scanScript(im []byte, idx int, pc, stop uint32, base, nCells, mapRows int, 
 	}
 
 	// op2: play the current list through (once per wrap count; 0 = forever =
-	// once through the loop, since the whole program loops)
+	// once through the loop, since the whole program loops). Each record's
+	// dx/dy nudge is kept per frame, relative to the anchor record's — the
+	// wave's frames each sit at their own offset ($122AC applies rec+0/+1
+	// per draw; dy raises).
+	var anchorDX, anchorDY int
+	anchorSet := false
 	anim := func(hold int) {
 		recs := spriteList(im, link, nCells)
 		if len(recs) == 0 {
@@ -507,9 +520,18 @@ func scanScript(im []byte, idx int, pc, stop uint32, base, nCells, mapRows int, 
 		}
 		lastHold = hold
 		for _, r := range recs {
-			if r != 0 {
-				out.Steps = append(out.Steps, step{Cell: int(ou32(im, r+8)), Hold: hold})
+			if r == 0 {
+				continue
 			}
+			dx, dy := s8(im[r]), -s8(im[r+1])
+			if !anchorSet {
+				anchorSet = true
+				anchorDX, anchorDY = dx, dy
+			}
+			out.Steps = append(out.Steps, step{
+				Cell: int(ou32(im, r+8)), Hold: hold,
+				OX: dx - anchorDX, OY: dy - anchorDY,
+			})
 		}
 	}
 	// op3: hold the last shown frame for count list-replays' worth of frames
@@ -518,7 +540,9 @@ func scanScript(im []byte, idx int, pc, stop uint32, base, nCells, mapRows int, 
 			return
 		}
 		last := out.Steps[len(out.Steps)-1]
-		out.Steps = append(out.Steps, step{Cell: last.Cell, Hold: count * lastHold})
+		last.Hold = count * lastHold
+		last.DX, last.DY = 0, 0
+		out.Steps = append(out.Steps, last)
 	}
 	// op16: drift the anchor by the op14 velocity (the wave sweep)
 	var velX, velY int
@@ -578,18 +602,18 @@ func scanScript(im []byte, idx int, pc, stop uint32, base, nCells, mapRows int, 
 				link = ou32(im, pc)
 				linkFresh = true
 				pc += 4
-			case 8, 18: // conditionals: scan the target too (the ramp's grow anim)
-				var t uint32
-				if op == 8 {
-					t = ou32(im, pc+2)
-					pc += 6
-				} else {
-					t = ou32(im, pc+2)
-					pc += 6
-				}
-				if t > 0 && int(t) < len(im) {
+			case 8: // IF-MARBLE-ON [arg word][target long]: scan the target too
+				if t := ou32(im, pc+2); t > 0 && int(t) < len(im) {
 					queue = append(queue, t)
 				}
+				pc += 6
+			case 18: // IF-MARBLE-TERRAIN [target long] — 4 operand bytes (the
+				// handler $10326 swaps the script PC for the long or skips it);
+				// the vacuum hoods branch to their close subroutine here
+				if t := ou32(im, pc); t > 0 && int(t) < len(im) {
+					queue = append(queue, t)
+				}
+				pc += 4
 			case 9: // JUMP
 				t := ou32(im, pc)
 				pc += 4
@@ -603,16 +627,21 @@ func scanScript(im []byte, idx int, pc, stop uint32, base, nCells, mapRows int, 
 				if loopN <= 0 || loopN > 40 {
 					loopN = 0 // infinite loops just play once (the program loops anyway)
 				}
-			case 5: // NEXT-A
+			case 5: // NEXT-A: count 0 loops forever in the engine — nothing
+				// past op5 is reachable then, so end the segment after one pass
 				if loopN > 1 && loopTop != 0 {
 					loopN--
 					pc = loopTop
+				} else if loopN == 0 {
+					pc = end
 				}
 			case 6, 17:
 				pc += 2
 			case 10:
 				pc += 4
-			case 7, 11:
+			case 7:
+			case 11: // RETURN = subroutine boundary — end this segment
+				pc = end
 			case 16: // MOVE: drift the anchor by the op14 velocity
 				move()
 			case 14: // SET-VEL

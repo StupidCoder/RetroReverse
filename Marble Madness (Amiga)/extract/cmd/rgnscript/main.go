@@ -185,9 +185,9 @@ func disasm(im []byte, pc, stop uint32) {
 		case 17:
 			fmt.Printf("  $%05X  op17 FALL-STOP code=%d\n", at, s16(im, pc))
 			pc += 2
-		case 18:
+		case 18: // 4 operand bytes: the handler swaps the script PC for the long
 			fmt.Printf("  $%05X  op18 IF-MARBLE-TERRAIN JUMP $%05X\n", at, u32(im, pc))
-			pc += 6
+			pc += 4
 		default:
 			fmt.Printf("  $%05X  .word $%X  (>= $13: end/data)\n", at, op)
 			return
