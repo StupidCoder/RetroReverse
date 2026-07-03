@@ -866,17 +866,17 @@ Colours 0–6 are a shared grey ramp (the isometric shading); 7–15 are the cou
 accent colours. Beginner's palette is `000 333 444 666 999 BBB DDD 048 06A 0AE 336
 558 88B CCF 000 000` — its accents are the blue ramp the course is built from.
 
-**Colour-cycling slots.** Colours 11–14 are driven at runtime by the engine's
-colour-cyclers (`colour_cycle_a $B6DE` / `colour_cycle_b $A7A2`), which step a
-per-object counter and write each frame's `$0RGB` from a 16-entry table into the copper
-colour slot. The four tables form two pairs: colours **11+12 ramp `0F00→0FFF`
-(red↔white — the hazard/lava pulse)** and colours **13+14 ramp `000F→0FFF` (blue↔white
-— the ice shimmer)**. A course that is fully cycle-driven leaves those slots black
-(`000`) in its `.mlb` — Beginner's **ice pit** uses colours 13 and 14, of which 13 is
-already a cyan (`CCF`) but 14 is left blank — so a naïve static render shows part of the
-pit as black. `extract/cmd/sprites` fills any black cycle slot with a representative
-**mid-cycle** frame (colour 14 → `088F`, a cyan, *not* the pure-blue endpoint `000F`),
-so the tile sheet and course map show the ice as cyan shades the way it reads in motion:
+**Colour slots 10–15 are display-driven.** The stored words are only the values for
+the course's *top screen band*: the Track's **display block** (header `+$10`,
+Part IV §5) recolours colours 10–15 per vertical scroll band as the marble descends,
+and three runtime effects write over them (the pool colour flip, the sink-death
+red/blue pulse from `colour_cycle_a $B6DE`/`_b $A7A2`, and Ultimate's gold glitter —
+all detailed there). So a black (`000`) slot in the `.mlb` is not "unused": its real
+colour arrives from the display block. Beginner leaves colours 14/15 black — its
+band 0 sets them to `0BA/0DD`, the emeralds of the **ice pit**. (An earlier note here
+read the black slots as colour-*cycler* placeholders and `extract/cmd/sprites` still
+fills them with a representative cyan for the standalone renders; the web export now
+bakes the true band colours.)
 
 **Tiles** are **8×8 pixels, 4 bitplanes (16 colours)**. The blitter reads a tile as
 eight 1-byte rows from `plane[(i>>1)*16 + (i&1) + 2*r]` — even/odd tiles are
@@ -993,7 +993,7 @@ actor-system globals — each one a different structure:
 | `+4` | `$129FC` | **placement table** — `[X][Y][type]` feature list (below) | here |
 | `+8` | `$12F74` | **coarse-zone partition** (`$9D4`) — diagonal-boundary records (`terrain_lookup $12B9E`) | Part V §4 |
 | `+$C` | `$1ED44` | **per-placement-type records** driving the `obsc.vlb` **wall-cover strips** (`$1E49A` — the static-wall occlusion assist on the marble's own draw; see "One game, eight obstacle systems") | here |
-| `+$10` | `$89C2` | display block: per-band copper colour splits (`$F180…` reg encoding) | Part IV §3 |
+| `+$10` | `$89C2` | **display block** — scroll colour bands, pool colour flip, Ultimate's finale glitter + swap splice (below) | here |
 | `+$14` | `$FD2C` | **animation scripts** + the **dynamic-region** source list; block extensions: `+8` = a loose hazard-script slot (Intermediate's **wave**), `+$23C`/`+$278` = the 3-slot **obstacle-actor** array + its 4 anim variants (Aerial's **pistons**), `+$4C..$58` = the **vacuum hood** trigger scripts | here |
 | `+$18` | `$19CD0` | **creature spawn list A** — `[trigX,trigY,animPtr,type]` records (below) | here |
 | `+$1C` | `$1ABE0` | **actor list** — the per-course enemies (the state-5 collision scan) | Part V §4 |
@@ -1138,6 +1138,76 @@ consistent with the categories the velocity trace assigned blind. (An earlier no
 claimed regions 3–8 were one "staggered keyframe chain" forming the drawbridge; that was a
 mis-parse — the short per-region scripts are stored contiguously and I had read past each
 region's end into the next. They are eight *separate* features, as the table shows.)
+
+#### The display block — scroll bands, pool flips, and the finale glitter
+
+The header's `+$10` pointer (`$89C2`) is the course's **display block**: the data
+that drives every *palette* effect in the game. Its head is a small pointer table;
+everything below it is **copper fragments** — runs of 6-byte entries
+`[0000][$F1xx reg][$0RGB value]` that the per-frame copper rebuild
+(`rebuild_display $86B4`) links into the live copper list:
+
+```
++0   ptr   head fragment: COLOR0-9 (greys + wall colours, whole course)
++4   word  colour-band count
++6   ptr   band list: count × 12-byte entries [map px row][copper h-pos][end][start]
++$A  word  pool-flip entry count
++$C  ptr   pool-flip destination (first of count consecutive colour entries)
++$10 ptr   flip word list A (hazard: reds 700/900/B00…)
++$14 ptr   flip word list B (ice: blues 007/009/00B…)
+--- Ultimate only (a short head continues straight into fragment data) ---
++$18 ptr   glitter destination 1 (band 1's COLOR13 entry)
++$1C ptr   glitter destination 2 (finale band's COLOR13 entry)
++$20/$24/$28  the three glitter phase lists (3 words each)
++$2C ptr   swap-band list (the finale's alternate copper tail)
+```
+
+**Scroll bands.** Every course fades its accent palette as the marble descends.
+Each band entry names a **map pixel row**; the copper splitter (`$8852`) emits the
+band's colour fragment at screen line `band.row − vscroll ($7692)` with a `WAIT`,
+so several bands can be visible at once and the boundary rides the map, not the
+screen. The fragments recolour **COLOR10–15 only** (the `$F194…$F19E` entries);
+COLOR0–9 stay course-global. The decoded tables:
+
+| course | bands (map px row → COLOR10–15) |
+|---|---|
+| Practice | 0: `622 A22 D33 F88 622 A22` · 497: `333 555 777 999 622 A22` (the stone goal area) |
+| Beginner | 0: `336 558 88B CCF 0BA 0DD` · 592: `137 249 35A 46C 8AE 0DD` · 928: `054 076 087 098 0BA 0DD` (the emerald **ice pit**) · 1056: greys |
+| Intermediate | 0: `530 741 952 B63 555 666` · 768: `132 254 375 497 5B9 6CA` · 1000: greys |
+| Aerial | 0: tans `853…EB7` · 192: ambers `970…FF0` · 448: **pure reds `600…F00`** · 574 (h-split `$E0`): golds `860 B90 FF0` + tans · 944: golds + greys |
+| Silly | 0: `222 444 666 C6C 503 722` · 104: `722 822 A22 C50 C6C 503` |
+| Ultimate | 0: golds `630 850 A60 D90 000 000` · 232: **teals + gold** `065 098 0DC C93 ECC EB3` · 528: deep teals · **624 (h-split `$D0`): no colours — eight `BPL1PTH…BPL4PTL` writes, the finale's back-buffer splice** · 640: golds + gold accents · 736: darkest teals |
+
+A "black" slot in the `.mlb` palette is therefore not unused — its real colour
+arrives from band 0 of this block (Beginner stores `000` for colours 14/15; the
+display block sets `0BA/0DD`, the ice-pit emeralds).
+
+**The pool flip (`$8588`).** When a marble rolls into an acid/ice pool (its zone
+byte `+$1B` hits `$FF`, latched via `$5E4` at `$12D44`), the engine overwrites the
+flip destination's consecutive colour entries with list A or B — picked by the
+marble's `+$19` hazard/ice flag — and plays the per-course sizzle (`$A622`). The
+pool's band snaps from its scenery ramp to pure reds (or blues). The marble's
+**sink-death pulse** then runs on top: `colour_cycle_a $B6DE`/`_b $A7A2` (armed
+only during death phases 4–5, `$B5F0`) step 16-entry `red↔white`/`blue↔white`
+tables into four fixed copper slots each frame — the screen-flash as the marble
+dissolves. Both are *marble-context* effects, not ambient animation.
+
+**The finale glitter (`$84DC`).** Ultimate's one ambient palette animation. Armed
+at course setup **only when `$5D6 == 5`** (`$3148` clears the gate byte `$68F`;
+everything else sets it to `$FF`). Once per frame (from the `$AF7A` tick) the
+stepper adds 2 to `$68F` and, every time it passes 6 — **every 4th frame** — it
+advances the phase counter `$68E` through `0,1,2` and copies the current 3-word
+phase list over **three consecutive colour entries at each destination**: COLOR13,
+14 and 15 of *both* gold bands. The three lists are cyclic rotations of the same
+gold triple (`C96/C83/CAA` · `C83/CAA/C96` · `CAA/C96/C83`), so the three gold
+shades chase each other through the checker pattern — a classic copper
+colour-rotation sparkle, at 240 ms per revolution, running over the very band the
+screen-swap animation is flipping.
+
+The web export bakes all of this: band recolours become variant tiles substituted
+per map row (`webexport/bands.go`/`bake.go`), and the glitter becomes the three
+recoloured phase sets cycled 4 frames per step (`tileAnims`), including inside the
+swap band's repaints.
 
 #### The region-script bytecode
 
@@ -1312,7 +1382,12 @@ fixed **30-row band** (the `$1E038` job is hard-coded to `$1E` rows) from the ne
 tilemap rows into the off-screen buffer, `memcpy`s that variant's **`$798` height patch** in
 (so the *collision* mesh switches with the pixels — the vanished path really is gone), and
 flips the buffer into the scroll bitmap on the next vblank (`frame_tick $75DA` →
-`$1DE10`/`$1DDD8`). Content and order are exact from the data — 78 → 108 → 138 → 168, wrap.
+`$1DE10`/`$1DDD8`). The "flip" is a copper trick: the display block's row-624 band
+entry is not a colour fragment but **eight `BPLxPT` writes** — mid-frame the copper
+re-points all four bitplanes at the finale's own back buffer (`$1DDD8` → `$8400`
+fills the pointers; the head's `+$2C` swap-band list is the alternate copper tail),
+so the swap never touches the scrolling playfield above it. Content and order are
+exact from the data — 78 → 108 → 138 → 168, wrap.
 The cadence is the Painter's own repaint time: the tile drawer **yields to the vblank
 every 16 tiles** (`mlb_draw_column $99A4`), so one 30×36-tile band takes
 `⌈1080/16⌉ = 68` PAL frames — **≈1.36 s per variant**, matching the measured
@@ -1454,9 +1529,12 @@ frame_tick(f):                            # $7596 — one displayed frame
         rebuild_display(scroll=$7692)     # $86B4 — rebuild the copper/display list
 ```
 
-The two `colour_cycle` passes drive the animated ice/hazard palette entries
-(`$0RGB` tables → the copper colour slots `$B954/$B960` and `$B95A/$B966`) — the
-cycling that a static `.mlb` palette can't show (Part IV §3).
+The two `colour_cycle` passes are the marble's **sink-death pulse**: armed only
+during death phases 4–5 (`$B5F0`), they step `red↔white`/`blue↔white` tables
+into the copper colour slots `$B954/$B960` and `$B95A/$B966` while the marble
+dissolves in a pool. (The ambient palette animation — the scroll colour bands and
+Ultimate's gold glitter — is data-driven from the Track's display block instead;
+Part IV §5.)
 
 **The game-state machine and the world update.** The gameplay proper is a state
 machine, `sub_00CA14`, dispatched on `$CDAC` (1 = set up the course, 2 = …, 3 =

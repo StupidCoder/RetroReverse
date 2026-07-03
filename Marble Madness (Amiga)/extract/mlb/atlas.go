@@ -20,6 +20,7 @@ type Course struct {
 	PlayableH int
 	NTiles    int
 	Palette   color.Palette
+	PalWords  [16]uint16 // the stored $0RGB palette words, before any fill-in
 	buf       []byte
 	planes    [4]int
 }
@@ -53,7 +54,13 @@ func Decode(file []byte) *Course {
 	if playable <= 0 || playable > h {
 		playable = h
 	}
-	return &Course{Cells: cells, H: h, PlayableH: playable, NTiles: maxIdx + 1, Palette: palette(buf), buf: buf, planes: planes}
+	co := &Course{Cells: cells, H: h, PlayableH: playable, NTiles: maxIdx + 1, Palette: palette(buf), buf: buf, planes: planes}
+	for i := 0; i < 16; i++ {
+		if o := 0x16 + 2*i; o+1 < len(buf) {
+			co.PalWords[i] = uint16(buf[o])<<8 | uint16(buf[o+1])
+		}
+	}
+	return co
 }
 
 // tile decodes one 8x8 tile (index n) from the bitplane data.
@@ -78,10 +85,40 @@ func (c *Course) tile(n int) [8][8]uint8 {
 // Atlas renders the course's NTiles tiles into a cols-wide sheet with a 1px extruded
 // gutter, matching the format the web composer slices (8x8 tiles, gutter 1).
 func (c *Course) Atlas(cols int) *image.Paletted {
+	return c.AtlasVariants(cols, c.Palette, nil)
+}
+
+// TileMask returns a bitmask of the palette indices (bit i = index i) that tile
+// n's pixels use — how the exporter finds tiles touched by the display list's
+// per-band COLOR10-15 overrides.
+func (c *Course) TileMask(n int) uint16 {
+	t := c.tile(n)
+	var m uint16
+	for _, row := range t {
+		for _, v := range row {
+			m |= 1 << v
+		}
+	}
+	return m
+}
+
+// Variant is an extra atlas tile: source tile Src re-rendered with its palette
+// indices remapped (band recolours / shimmer phases). Remap targets index into
+// the extended palette passed to AtlasVariants.
+type Variant struct {
+	Src   int
+	Remap map[uint8]uint8
+}
+
+// AtlasVariants renders the base tiles followed by the variant tiles into a
+// cols-wide gutter-extruded sheet. pal[0:16] must equal the course palette
+// (base tiles keep their raw indices); variants may reference appended colours.
+func (c *Course) AtlasVariants(cols int, pal color.Palette, variants []Variant) *image.Paletted {
 	const tile, gut = 8, 1
 	const cell = tile + 2*gut
-	rows := (c.NTiles + cols - 1) / cols
-	img := image.NewPaletted(image.Rect(0, 0, cols*cell, rows*cell), c.Palette)
+	n := c.NTiles + len(variants)
+	rows := (n + cols - 1) / cols
+	img := image.NewPaletted(image.Rect(0, 0, cols*cell, rows*cell), pal)
 	clamp := func(v int) int {
 		if v < 0 {
 			return 0
@@ -91,14 +128,23 @@ func (c *Course) Atlas(cols int) *image.Paletted {
 		}
 		return v
 	}
-	for n := 0; n < c.NTiles; n++ {
-		t := c.tile(n)
-		ox, oy := (n%cols)*cell+gut, (n/cols)*cell+gut
+	put := func(slot int, t [8][8]uint8, remap map[uint8]uint8) {
+		ox, oy := (slot%cols)*cell+gut, (slot/cols)*cell+gut
 		for y := -gut; y < tile+gut; y++ {
 			for x := -gut; x < tile+gut; x++ {
-				img.SetColorIndex(ox+x, oy+y, t[clamp(y)][clamp(x)])
+				v := t[clamp(y)][clamp(x)]
+				if r, ok := remap[v]; ok {
+					v = r
+				}
+				img.SetColorIndex(ox+x, oy+y, v)
 			}
 		}
+	}
+	for i := 0; i < c.NTiles; i++ {
+		put(i, c.tile(i), nil)
+	}
+	for i, v := range variants {
+		put(c.NTiles+i, c.tile(v.Src), v.Remap)
 	}
 	return img
 }

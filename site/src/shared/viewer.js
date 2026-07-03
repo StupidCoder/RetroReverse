@@ -104,6 +104,9 @@ export class LevelViewer {
         paint: (tileId, atlasTile) => {
           this.tilemap.paintTile(tileId, atlasTile);
           for (const m of this._extraMaps || []) m.paintTile(tileId, atlasTile);
+          // cellAnim phase canvases showing this tile follow too (Ultimate's
+          // screen-swap band contains shimmering gold tiles)
+          for (const c of this.anim.cellAnims) c.paintTile && c.paintTile(tileId, atlasTile);
         },
       });
     }
@@ -113,19 +116,20 @@ export class LevelViewer {
     for (const ca of level.cellAnims || []) {
       const ts = level.grid.tileSize;
       const tw = ca.tw ?? 2, th = ca.th ?? 4;
+      const cols = level.grid.atlasCols ?? 16;
+      const cell = ts + 2 * (level.grid.atlasGutter ?? 0);
+      const drawTile = (ctx, tile, i) => ctx.drawImage(atlasImg,
+        (tile % cols) * cell + (level.grid.atlasGutter ?? 0),
+        ((tile / cols) | 0) * cell + (level.grid.atlasGutter ?? 0),
+        ts, ts, (i % tw) * ts, ((i / tw) | 0) * ts, ts, ts);
+      const ctxs = [];
       const texs = ca.phases.map((ph) => {
         const cv = document.createElement('canvas');
         cv.width = tw * ts; cv.height = th * ts;
         const ctx = cv.getContext('2d');
         ctx.imageSmoothingEnabled = false;
-        ph.tiles.forEach((tile, i) => {
-          const cols = level.grid.atlasCols ?? 16;
-          const cell = ts + 2 * (level.grid.atlasGutter ?? 0);
-          ctx.drawImage(atlasImg,
-            (tile % cols) * cell + (level.grid.atlasGutter ?? 0),
-            ((tile / cols) | 0) * cell + (level.grid.atlasGutter ?? 0),
-            ts, ts, (i % tw) * ts, ((i / tw) | 0) * ts, ts, ts);
-        });
+        ctxs.push(ctx);
+        ph.tiles.forEach((tile, i) => drawTile(ctx, tile, i));
         const tx = Texture.from(cv);
         tx.source.scaleMode = 'nearest';
         return tx;
@@ -138,6 +142,13 @@ export class LevelViewer {
         sprite: sp, texs,
         durs: ca.phases.map((p) => Math.max(1, p.frames)),
         idx: 0, acc: 0,
+        paintTile: (tileId, atlasTile) => {
+          let hit = false;
+          ca.phases.forEach((ph, p) => ph.tiles.forEach((t, i) => {
+            if (t === tileId) { drawTile(ctxs[p], atlasTile, i); hit = true; }
+          }));
+          if (hit) texs.forEach((t) => t.source.update());
+        },
       });
     }
     // palette cycle (water/lava shimmer), an AnimRunner fx

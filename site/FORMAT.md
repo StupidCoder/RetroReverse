@@ -158,7 +158,7 @@ names (`"chopper-fwd"`, `"tank"`, SML type ids).
 |---|---|---|---|---|---|
 | grid | ✓ (via blocks) | ✓ | ✓ + hflipMask | ✓ | ✓ |
 | blocks | ✓ | – | – | – | – |
-| tileAnims | ✓ | ✓ | – | – | – |
+| tileAnims | ✓ | ✓ | – | ✓ (gold glitter) | – |
 | cellAnims | ✓ | – | – | ✓ (36x30 swap) | – |
 | objects | ✓ | – | ✓ | ✓ (overlays) | ✓ |
 | objectPools | – | ✓ (patrol) | – | – | – |

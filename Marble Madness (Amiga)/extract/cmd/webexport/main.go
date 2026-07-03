@@ -68,6 +68,11 @@ type pathJSON struct {
 	Pts [][2]int `json:"pts"`
 }
 
+// shimmerPeriod is the engine frames each gold-rotation phase holds: the
+// stepper $84DC (per-frame via $AF7A) adds 2 to the sub-counter $68F and steps
+// the phase $68E when it passes 6 — every 4th frame.
+const shimmerPeriod = 4
+
 // marker colours, matching the offline *.wire.png overlays.
 const (
 	colPlacement = 0x46d4ff // cyan
@@ -150,10 +155,6 @@ func run(adfPath, outDir string) error {
 		// from the course's own tile atlas (the same atlas+tilemap form the SML viewer
 		// uses), not a pre-composited image.
 		co := mlb.Decode(d)
-		atlasFile := c.key + ".atlas.png"
-		if err := gfx.WritePNG(filepath.Join(outDir, atlasFile), co.Atlas(16)); err != nil {
-			return err
-		}
 
 		// Track file: the slope field, markers, and the scenery-overlay pieces.
 		tp, ok := paths[strings.ToLower(c.track)]
@@ -176,6 +177,47 @@ func run(adfPath, outDir string) error {
 			return err
 		}
 
+		// Bake the display block's colour bands (Part IV §6) into the atlas:
+		// rows past a band boundary swap to recoloured variant tiles, so the
+		// map fades exactly as the game's scroll-following copper list does.
+		fx := parseDisplayFx(prog.Image)
+		bake := newBandBake(co, fx)
+		cells := make([]int, mlb.CourseW*co.PlayableH)
+		tilesInBand := map[int]map[int]bool{}
+		note := func(band, t int) {
+			if tilesInBand[band] == nil {
+				tilesInBand[band] = map[int]bool{}
+			}
+			tilesInBand[band][t] = true
+		}
+		for r := 0; r < co.PlayableH; r++ {
+			band := bake.bandAt(r)
+			for x := 0; x < mlb.CourseW; x++ {
+				t := co.Cells[r*mlb.CourseW+x]
+				note(band, t)
+				cells[r*mlb.CourseW+x] = bake.tileFor(t, band)
+			}
+		}
+		// swap-variant rows repaint into the finale band: substitute per
+		// destination row, and count their tiles toward that band's shimmer.
+		for _, ca := range cellAnims {
+			ty, tw := ca["ty"].(int), ca["tw"].(int)
+			for _, ph := range ca["phases"].([]map[string]any) {
+				tiles := ph["tiles"].([]int)
+				for i, t := range tiles {
+					band := bake.bandAt(ty + i/tw)
+					note(band, t)
+					tiles[i] = bake.tileFor(t, band)
+				}
+			}
+		}
+		tileAnims := bake.shimmerAnims(tilesInBand, shimmerPeriod)
+
+		atlasFile := c.key + ".atlas.png"
+		if err := gfx.WritePNG(filepath.Join(outDir, atlasFile), co.AtlasVariants(16, bake.ext, bake.varList)); err != nil {
+			return err
+		}
+
 		// The map shows the PLAYABLE rows (the .mlb header count = the engine's
 		// scroll clamp). Data rows beyond it are off-screen variant storage
 		// (Ultimate's three hidden final-screen variants, Silly's cropped wall
@@ -186,7 +228,7 @@ func run(adfPath, outDir string) error {
 			"grid": map[string]any{
 				"tileSize": 8, "atlas": atlasFile, "atlasCols": 16, "atlasGutter": 1,
 				"width": mlb.CourseW, "height": co.PlayableH,
-				"cells": co.Cells[:mlb.CourseW*co.PlayableH],
+				"cells": cells,
 			},
 			"objects": objects,
 			// Frame the Amiga's on-screen view (288x200 playfield) at the course top.
@@ -194,6 +236,9 @@ func run(adfPath, outDir string) error {
 		}
 		if len(cellAnims) > 0 {
 			level["cellAnims"] = cellAnims
+		}
+		if len(tileAnims) > 0 {
+			level["tileAnims"] = tileAnims
 		}
 		file := c.key + ".json"
 		if err := writeJSON(filepath.Join(outDir, file), level); err != nil {

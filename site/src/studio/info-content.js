@@ -1068,10 +1068,13 @@ is fixed and the height varies per course. Placing each tile by index reproduces
 leading word is the <strong>playable</strong> height; rows stored beyond it can never scroll on screen and serve
 as hidden storage — Ultimate keeps <strong>three extra variants of its final screen</strong> there, which the
 engine's tile-repaint machinery cycles through in play so the narrow paths to the goal appear and disappear
-(the map view replays this as a tile animation, collision heights and all in the real game). Four palette slots
-are driven at runtime by colour-cyclers — two ramps for the hazard/lava pulse and the ice shimmer — so a static
-palette can't show them. (The tilemap is only the visual surface; the physics rolls the marble on a separate
-height field.)</p>
+(the map view replays this as a tile animation, collision heights and all in the real game). The stored palette
+is only the top of the course: each Track carries a <strong>display block</strong> of copper colour bands that
+recolour six palette slots per vertical stretch of the map — the courses fade as the marble descends (Aerial
+turns from tan to pure red to yellow; Beginner's ice pit is emerald). The map view bakes these bands in as
+recoloured tiles. On Ultimate the same block also drives a three-phase <strong>gold glitter</strong> — the copper
+rotates three gold shades through the checker pattern every four frames — which the map view plays too. (The
+tilemap is only the visual surface; the physics rolls the marble on a separate height field.)</p>
 
 <h2>Obstacle cells</h2>
 <p>Each course also carries a bank of <strong>obstacle sprites</strong> — the goal flag, moving barriers,

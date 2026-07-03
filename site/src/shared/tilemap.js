@@ -59,10 +59,17 @@ export class Tilemap {
       : null;
     this.sliced = sliced;
     if (sliced) this.sources.push(sliced.src);
+    // Tile ids driven by tileAnims need repaintable textures even under the
+    // sliced strategy (Marble's gold shimmer): bake just those.
+    const animated = new Set();
+    for (const a of this.level.tileAnims || []) for (const t of a.tiles) animated.add(t);
+    if (animated.size && !this.baked) this.baked = new Map();
     for (let r = 0; r < g.height; r++) {
       for (let c = 0; c < g.width; c++) {
         const { tile, flip } = cellTile(g, g.cells[r * g.width + c]);
-        const tex = sliced ? sliced.tiles[tile] : (this.baked.get(tile) || this._bakeTile(tile)).tex;
+        const tex = sliced && !animated.has(tile)
+          ? sliced.tiles[tile]
+          : (this.baked.get(tile) || this._bakeTile(tile)).tex;
         if (!tex) continue;
         const s = new Sprite(tex);
         if (flip) { s.scale.x = -1; s.x = c * ts + ts; } else { s.x = c * ts; }
