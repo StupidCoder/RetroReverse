@@ -196,11 +196,22 @@
 # tool extract/cmd/rgnscript (disassembles any course's region scripts). Operand bytes shown:
 #   op0  $FDE2  KEYFRAME  5w: refX,refY,refZ,dur,terr -> +$C=refX<<19/+$10/+$14, +$1E dur,
 #     +$1F terr.  IF dur==1 also reads +$26,+$28 (2w) and a LINK long -> +$46/+$3E (a sprite-
-#     anim ptr). Plus terrain self-REGISTRATION: terr3->$FD38 (THE drawbridge), terr12->$FD58
-#     funnel list, terr11/13->$FD3C slope list, terr10->$FD54, terr6/25 special. (not a STOP)
-#   op1  $FFF0  STATE-STOP   2w(+$1C,+$21): state +$1A=1; STOP.
-#   op2  $1007A SPRITE       2w(+$1C,+$23): set sprite/state, base=+$46. (not a stop)
-#   op3  $100D2 STATE0-STOP  1w(+$1C): state 0; STOP.
+#     anim ptr). Plus terrain self-REGISTRATION (dispatch table $FF1C): terr3->$FD38 (THE
+#     drawbridge), terr12->$FD58 funnel list, terr11/13->$FD3C slope list, terr10->$FD54,
+#     terr6->counter $78C++ (the auto-start ramp), terr$19(25)->$1DF6C = the SCREEN-SWAP
+#     engine (Ultimate's flickering final screen). (not a STOP)
+#   op1  $FFF0  STATE-STOP   2w(count->+$1C, +$21 byte): cursor +$3E = op13 list +$4A; state +$1A=1; STOP.
+#   op2  $1007A SPRITE       2w(count->+$1C, hold->+$23): START AN ANIMATION — cursor +$3E =
+#     list base +$46, anim counter +$22=0, state +$1A=2. count = list WRAPS before the script
+#     resumes (0 = loop forever), hold = engine frames per cursor step. (not a stop)
+#   op3  $100D2 STATE0-STOP  1w(count->+$1C): state 0; STOP.
+#   *** the ANIM TICK: region_update's $FBE0 block counts +$22 up to the hold +$23 every
+#   frame (hold 0 = every frame); each expiry runs $103E8 (refresh: for +$1E==1 tile-anim
+#   regions -> $D868 = draw $105FE + memcpy the pair's [idx][count][words] $798 height patch;
+#   project +$C/+$10/+$14 -> +$20/+$22) and cursor_step $F778 (+$3E += 4, or 8 when +$1E!=0 =
+#   [record,data] PAIR lists; at $FFFFFFFF wrap to +$46 (state 2) / +$4A and count down +$1C;
+#   0 -> resume the script $FD68). THE GOAL FLAGS (every course) = op2 count=0 hold=5 over a
+#   flat 4-record list = the 4 wave frames at 5 engine frames each, forever. ***
 #   op4  $101A0 LOOP-A       1w(count->+$24); mark loop top +$2A.
 #   op5  $101C2 NEXT-A       0w: dec +$24, branch to +$2A while !=0 (count 0 = infinite loop).
 #   op6  $101EC LOOP-B       1w(count->+$25); top +$2E.    op7 $1020E NEXT-B (2nd dbra).
@@ -486,7 +497,9 @@
 0091C0  painter_task     the Painter server loop: WaitPort/GetMsg on $990C, per message call mlb_draw_column(msg+$18, +$20, +$1C, planes ptr +$24), then ReplyMsg (msg+$14 = reply port set) or FreeMem. The ONLY consumers of mlb_draw_column/draw_tile: course-init paint + scroll rows ($92D6 callers $D052/$D146) and the region tile-animation redraws ($9312 caller $1E038) — sprites are never overpainted by tiles mid-frame.
 00934C  painter_send     allocate a $28-byte request, fill [+$E reply port][+$14 flag][+$18/+$1C/+$20 x/rows/y][+$24 plane table], PutMsg to the Painter.
 01DE10  anim_buffer_flip  double-buffer flip for the region tile-animation redraw: $1E204/$1E208 swap between $1E1B4 (plane ptrs INTO the screen scroll buffer, row $70) and $1E1DC (a pool-allocated $8700-byte off-screen 36-byte-wide 240-row 4-plane buffer, built by $1DE72). The drawbridge-style tile updates render off-screen, then flip.
-01E038  anim_redraw_next  walk a region's tile-redraw pointer list (cursor +$3E, base +$46, $FFFFFFFF-terminated, reset on wrap): send the next column entry to the Painter ($9312, plane table $1E204) — one step per frame/reply.
+01E038  anim_redraw_next  walk a region's tile-redraw pair list (cursor +$3E, base +$46, $FFFFFFFF-terminated, reset on wrap): entry = [TILEMAP ROW, data ptr]; send the Painter a 30-row job (msg rows=$1E) drawing tilemap rows row..row+29 into the $1E204 buffer — the SCREEN-SWAP engine's step. THE ULTIMATE FINALE: its region 12 (op0 dur=1 terr=$19, tile anchor row 78) registers here via $1DF6C with the pair list [78,$288E][108,$2972][138,$2A56][168,$2B3A] = the four 30-row variants of the final screen (rows 108+ are HIDDEN — the .mlb header says 108 playable rows but stores 198; the scroll clamp (rows-25)*8 keeps them off screen). Each cycle repaints the fixed band (tilemap rows 78-107 = circular-buffer rows $70+, the $1DE72-computed fixed window) from the next variant and swaps its $798 height patch, so collision follows the pixels. Cycle order 78->108->138->168, wrap; per-variant hold = the pipeline latency (job -> reply -> vblank flip, ~3-4 display frames).
+01DF6C  swap_register    terr-$19 registration (from the op0 keyframe dispatch $FF1C table): $1E212 = the region, $1E20E = 1 — arms the screen-swap/tile-anim redraw engine.
+01DF90  swap_service     one redraw-engine step, called per world frame from the $B118 tick when $1E210 is armed: wait the $1E20D frame gate, then per phase either send the next Painter job ($1E038) + WaitPort the reply + apply heights/advance ($1E0D0), or drain the reply and rewind; the vblank flip (frame_tick $75DA -> $1DE10 + $1DDD8 repoints the copper BPL pointers) completes each variant.
 01E0D0  anim_redraw_done  on Painter reply: take the region's current data record [idx word][count word][count words...] and memcpy ($21908) the words into the INDIRECT HEIGHT TABLE $798 + idx*2 — the mesh build reads height values through $798 when a cell's value word has the indirect flag ($DC7A ANDI #$7FE -> $798 lookup), so the drawbridge's collision heights change in lockstep with its redrawn tiles.
 000798  g_anim_heights   (global word table) the indirect height slots for ANIMATED terrain: mesh-build values with the indirect flag read $798[idx] instead of a literal; region scripts/anim replies rewrite the slots (via $D868/$1E0D0 record copies).
 00D8FC  mesh_to_tiles    corner-height -> TILE INDEX converter: walks 22 mesh columns, packs each cell's 4 corner heights, binary-searches the course's height-pattern table ($9AE..$9B2, $400 stride) and writes the tile-index word back into the cell — how terrain-height changes become tilemap changes for the Painter to repaint.

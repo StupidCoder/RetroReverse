@@ -1064,10 +1064,14 @@ logo animate. A small boot-screen overlay loads the image and puts it up while t
 its own file, a single PackBits stream. Unpacked, it holds a 16-colour palette, four bitplanes of tile graphics,
 and a tilemap. Tiles are 8&times;8 pixels in four bitplanes; the tilemap is a row-major stream of tile-index
 words, a constant <strong>36 tiles (288 px) wide</strong> — Marble Madness scrolls only vertically, so the width
-is fixed and the height varies per course, from Practice's 75 rows up to Ultimate's 198. Placing each tile by
-index reproduces the whole course. Four palette slots are not fixed colours but are driven at runtime by
-colour-cyclers — two ramps for the hazard/lava pulse and the ice shimmer — so a static palette can't show them.
-(The tilemap is only the visual surface; the physics rolls the marble on a separate height field.)</p>
+is fixed and the height varies per course. Placing each tile by index reproduces the whole course. The map's
+leading word is the <strong>playable</strong> height; rows stored beyond it can never scroll on screen and serve
+as hidden storage — Ultimate keeps <strong>three extra variants of its final screen</strong> there, which the
+engine's tile-repaint machinery cycles through in play so the narrow paths to the goal appear and disappear
+(the map view replays this as a tile animation, collision heights and all in the real game). Four palette slots
+are driven at runtime by colour-cyclers — two ramps for the hazard/lava pulse and the ice shimmer — so a static
+palette can't show them. (The tilemap is only the visual surface; the physics rolls the marble on a separate
+height field.)</p>
 
 <h2>Obstacle cells</h2>
 <p>Each course also carries a bank of <strong>obstacle sprites</strong> — the goal flag, moving barriers,

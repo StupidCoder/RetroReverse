@@ -169,29 +169,37 @@ func run(adfPath, outDir string) error {
 			return fmt.Errorf("%s: hunk load: %w", c.track, err)
 		}
 
-		// The occlusion layer: .ilb scenery cells the engine's depth-sorted
-		// display list draws over the tilemap (and over the marble when it is
-		// behind them) — placed by the Track's dynamic-region scripts.
-		objects, err := exportOverlays(vol, paths, c.key, prog.Image, co, spritesDir, spriteIndex)
+		// The scenery overlays (sprite pieces + their animations) and the
+		// screen-swap tile animations, from the Track's dynamic-region scripts.
+		objects, cellAnims, err := exportOverlays(vol, paths, c.key, prog.Image, co, spritesDir, spriteIndex)
 		if err != nil {
 			return err
 		}
 
-		file := c.key + ".json"
-		if err := writeJSON(filepath.Join(outDir, file), map[string]any{
+		// The map shows the PLAYABLE rows (the .mlb header count = the engine's
+		// scroll clamp). Data rows beyond it are off-screen variant storage
+		// (Ultimate's three hidden final-screen variants, Silly's cropped wall
+		// row) — the swap animation replays them from the full cell array.
+		level := map[string]any{
 			"format": 1,
 			"name":   c.name,
 			"grid": map[string]any{
 				"tileSize": 8, "atlas": atlasFile, "atlasCols": 16, "atlasGutter": 1,
-				"width": mlb.CourseW, "height": co.H, "cells": co.Cells,
+				"width": mlb.CourseW, "height": co.PlayableH,
+				"cells": co.Cells[:mlb.CourseW*co.PlayableH],
 			},
 			"objects": objects,
 			// Frame the Amiga's on-screen view (288x200 playfield) at the course top.
 			"view": map[string]any{"x": (mlb.CourseW*8 - 288) / 2, "y": 0, "w": 288, "h": 200},
-		}); err != nil {
+		}
+		if len(cellAnims) > 0 {
+			level["cellAnims"] = cellAnims
+		}
+		file := c.key + ".json"
+		if err := writeJSON(filepath.Join(outDir, file), level); err != nil {
 			return err
 		}
-		h := co.H
+		h := co.PlayableH
 
 		sj := buildSlope(slope.Build(prog.Image))
 		sj.Markers = buildMarkers(slope.Markers(prog.Image))

@@ -30,6 +30,7 @@ package main
 import (
 	"fmt"
 	"image"
+	"image/draw"
 	"path/filepath"
 	"sort"
 
@@ -41,42 +42,79 @@ import (
 
 // exportOverlays extracts the course's scenery-overlay pieces, renders each
 // referenced .ilb cell once into spritesDir (recorded in spriteIndex, keyed
-// "<course>/c<cell>"), and returns the level's objects entries.
+// "<course>/c<cell>" or "<course>/a<region>" for animated strips), and returns
+// the level's objects entries plus its screen-swap cellAnims.
 func exportOverlays(vol *adf.Volume, paths map[string]string, key string, track []byte,
-	co *mlb.Course, spritesDir string, spriteIndex map[string]any) ([]map[string]any, error) {
+	co *mlb.Course, spritesDir string, spriteIndex map[string]any) ([]map[string]any, []map[string]any, error) {
 	objects := []map[string]any{}
 	ip, ok := paths[key+".ilb"]
 	if !ok {
-		return objects, nil
+		return objects, nil, nil
 	}
 	id, err := vol.ReadFile(ip)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	buf, cells := ilb.Decode(id)
-	ovls := trackOverlays(track, len(cells), key == "aerial")
-	done := map[int]bool{}
+	ovls, swaps := trackOverlays(track, len(cells), co.H, key == "aerial")
+	done := map[string]bool{}
 	for _, o := range ovls {
 		if o.Cell < 0 || o.Cell >= len(cells) || cells[o.Cell].W == 0 {
 			continue
 		}
-		sprite := fmt.Sprintf("%s/c%d", key, o.Cell)
-		if !done[o.Cell] {
-			done[o.Cell] = true
-			pngName := fmt.Sprintf("%s-c%d.png", key, o.Cell)
-			cl := cells[o.Cell]
-			var img *image.RGBA
-			if o.HasRamp && cl.Typ == 1 {
-				img = ilb.RenderRamp(buf, cl, o.Ramp) // the record's own sprite colours
-			} else {
-				img = ilb.Render(buf, cl, co.Palette, 6)
+		render := func(c ilb.Cell) *image.RGBA {
+			if o.HasRamp && c.Typ == 1 {
+				return ilb.RenderRamp(buf, c, o.Ramp) // the record's own sprite colours
 			}
-			if err := gfx.WritePNG(filepath.Join(spritesDir, pngName), img); err != nil {
-				return nil, err
+			return ilb.Render(buf, c, co.Palette, 6)
+		}
+		// hardware-sprite pieces whose record list holds several same-size
+		// type-1 frames ANIMATE: the engine's region tick walks the list every
+		// `hold` frames (region +$22/+$23, cursor advance $F778) — the goal
+		// flags' 4 wave frames at 5 frames each, on every course
+		anim := o.Hold > 0 && len(o.Frames) > 1
+		for _, f := range o.Frames {
+			if f < 0 || f >= len(cells) || cells[f].Typ != 1 ||
+				cells[f].W != cells[o.Cell].W || cells[f].H != cells[o.Cell].H {
+				anim = false
 			}
-			spriteIndex[sprite] = map[string]any{
-				"src":    "sprites/" + pngName,
-				"frames": [][4]int{{0, 0, cl.W, cl.H}},
+		}
+		var sprite string
+		if anim {
+			sprite = fmt.Sprintf("%s/a%d", key, o.Region)
+			if !done[sprite] {
+				done[sprite] = true
+				cl := cells[o.Cell]
+				strip := image.NewRGBA(image.Rect(0, 0, cl.W*len(o.Frames), cl.H))
+				frames := make([][4]int, len(o.Frames))
+				durs := make([]int, len(o.Frames))
+				for i, f := range o.Frames {
+					img := render(cells[f])
+					draw.Draw(strip, image.Rect(i*cl.W, 0, (i+1)*cl.W, cl.H), img, image.Point{}, draw.Src)
+					frames[i] = [4]int{i * cl.W, 0, cl.W, cl.H}
+					durs[i] = o.Hold
+				}
+				pngName := fmt.Sprintf("%s-a%d.png", key, o.Region)
+				if err := gfx.WritePNG(filepath.Join(spritesDir, pngName), strip); err != nil {
+					return nil, nil, err
+				}
+				spriteIndex[sprite] = map[string]any{
+					"src": "sprites/" + pngName, "frames": frames, "durations": durs,
+				}
+			}
+		} else {
+			sprite = fmt.Sprintf("%s/c%d", key, o.Cell)
+			if !done[sprite] {
+				done[sprite] = true
+				pngName := fmt.Sprintf("%s-c%d.png", key, o.Cell)
+				cl := cells[o.Cell]
+				if err := gfx.WritePNG(filepath.Join(spritesDir, pngName), render(cl)); err != nil {
+					return nil, nil, err
+				}
+				spriteIndex[sprite] = map[string]any{
+					"src":    "sprites/" + pngName,
+					"frames": [][4]int{{0, 0, cl.W, cl.H}},
+				}
 			}
 		}
 		objects = append(objects, map[string]any{
@@ -87,17 +125,49 @@ func exportOverlays(vol *adf.Volume, paths map[string]string, key string, track 
 			"sprite": sprite,
 		})
 	}
-	return objects, nil
+
+	// screen-swap tile animations (Ultimate's final screen): the engine cycles
+	// the fixed 30-row band through the variant blocks, one block per Painter
+	// pipeline pass (job -> reply -> vblank flip ≈ 4 display frames — content
+	// and order are exact, the per-variant hold is that pipeline estimate)
+	var anims []map[string]any
+	for _, sw := range swaps {
+		const bandRows = 30 // the engine's Painter job height ($1E038 sends $1E rows)
+		phases := make([]map[string]any, len(sw.Rows))
+		for i, row := range sw.Rows {
+			tiles := make([]int, 0, bandRows*mlb.CourseW)
+			for y := row; y < row+bandRows && y < co.H; y++ {
+				tiles = append(tiles, co.Cells[y*mlb.CourseW:(y+1)*mlb.CourseW]...)
+			}
+			phases[i] = map[string]any{"tiles": tiles, "frames": 4}
+		}
+		anims = append(anims, map[string]any{
+			"tx": 0, "ty": sw.Ty, "tw": mlb.CourseW, "th": bandRows, "phases": phases,
+		})
+	}
+	return objects, anims, nil
 }
 
 type overlay struct {
-	Region  int // dynamic-region index
-	Cell    int // .ilb cell index
-	X, Y    int // world px (top-left of the draw)
-	KX, KY  int // keyframe grid pos (for reference/debug)
-	Selects int // op2 operand (list entry index)
+	Region  int   // dynamic-region index
+	Cell    int   // .ilb cell index (the op2-selected state)
+	Frames  []int // all cell indices of the piece's record list, in list order
+	Hold    int   // op2 +$23 = engine frames per animation step (0 = no anim)
+	X, Y    int   // world px (top-left of the draw)
+	KX, KY  int   // keyframe grid pos (for reference/debug)
+	Selects int   // op2 operand (list entry index)
 	HasRamp bool
 	Ramp    [3]uint16 // record +$C -> the sprite pair's 3 $0RGB colours (type-1 cells)
+}
+
+// swapAnim is a screen-swap tile animation (Ultimate's final screen): the engine
+// region registered with terr $19 hands the $1E212 Painter engine a list of
+// [tilemap row, $798 height patch] pairs; each cycle repaints the fixed 30-row
+// screen band (engine constant, the $1E038 Painter job) from the next variant's
+// rows and swaps the collision heights to match.
+type swapAnim struct {
+	Ty   int   // the band's top tile row (region +$28, also the first variant row)
+	Rows []int // variant base rows, in cycle order
 }
 
 func ou16(b []byte, o uint32) int {
@@ -168,10 +238,33 @@ func spriteList(im []byte, off uint32, nCells int) []uint32 {
 	return recs
 }
 
+// rowPairList tries to read the list at off as the screen-swap form: [tilemap
+// row, data ptr] pairs, $FFFFFFFF-terminated. Returns the rows, or nil if the
+// list doesn't have that shape.
+func rowPairList(im []byte, off uint32, maxRow int) []int {
+	if off == 0 || int(off)+4 > len(im) {
+		return nil
+	}
+	var rows []int
+	for o := off; int(o)+8 <= len(im) && len(rows) < 16; o += 8 {
+		row := ou32(im, o)
+		if row == 0xFFFFFFFF {
+			return rows
+		}
+		ptr := ou32(im, o+4)
+		if row >= uint32(maxRow) || ptr == 0 || int(ptr)+4 > len(im) || ptr < 0x100 {
+			return nil
+		}
+		rows = append(rows, int(row))
+	}
+	return nil
+}
+
 // trackOverlays walks every dynamic region's script and returns the scenery
-// sprite pieces it places. nCells bounds the course .ilb bank; aerial selects
+// sprite pieces it places plus any screen-swap tile animations. nCells bounds
+// the course .ilb bank, mapRows the course tilemap data rows; aerial selects
 // the course-4 base correction ($E6B2 adds descriptor +$12 only there).
-func trackOverlays(im []byte, nCells int, aerial bool) []overlay {
+func trackOverlays(im []byte, nCells, mapRows int, aerial bool) ([]overlay, []swapAnim) {
 	hdr0 := ou32(im, 0)
 	base := os16(im, hdr0+0x10)
 	if aerial {
@@ -179,7 +272,7 @@ func trackOverlays(im []byte, nCells int, aerial bool) []overlay {
 	}
 	dyn := ou32(im, 0x14)
 	if dyn == 0 || int(dyn)+4 > len(im) {
-		return nil
+		return nil, nil
 	}
 	list := ou32(im, dyn)
 
@@ -208,23 +301,31 @@ func trackOverlays(im []byte, nCells int, aerial bool) []overlay {
 	}
 
 	var out []overlay
+	var swaps []swapAnim
 	for _, r := range regs {
-		out = append(out, scanScript(im, r.idx, r.script, end(r.script), base, nCells)...)
+		ovls, swap := scanScript(im, r.idx, r.script, end(r.script), base, nCells, mapRows)
+		out = append(out, ovls...)
+		if swap != nil {
+			swaps = append(swaps, *swap)
+		}
 	}
-	return out
+	return out, swaps
 }
 
 // scanScript linearly decodes one region's opcode stream, tracking the current
 // keyframe anchor and sprite-list link, and emits an overlay for every op2
 // SPRITE selection (or the list head when a linked script never issues op2).
-func scanScript(im []byte, idx int, pc, stop uint32, base, nCells int) []overlay {
+// A terr-$19 registration (op0 dur==1 whose link is a [row, ptr] pair list)
+// comes back as a swapAnim instead.
+func scanScript(im []byte, idx int, pc, stop uint32, base, nCells, mapRows int) ([]overlay, *swapAnim) {
 	var out []overlay
+	var swap *swapAnim
 	seen := map[[2]int]bool{}
 	var kx, ky, kz, kdur, kw26, kw28 int
 	var link uint32
 	linkFresh := false
 
-	emit := func(sel int) {
+	emit := func(sel, hold int) {
 		recs := spriteList(im, link, nCells)
 		if sel < 0 || sel >= len(recs) || recs[sel] == 0 {
 			return
@@ -232,7 +333,12 @@ func scanScript(im []byte, idx int, pc, stop uint32, base, nCells int) []overlay
 		rec := recs[sel]
 		cell := int(ou32(im, rec+8))
 		dx, dy := s8(im[rec]), s8(im[rec+1])
-		o := overlay{Region: idx, Cell: cell, Selects: sel, KX: kx, KY: ky}
+		o := overlay{Region: idx, Cell: cell, Selects: sel, Hold: hold, KX: kx, KY: ky}
+		for _, r := range recs {
+			if r != 0 {
+				o.Frames = append(o.Frames, int(ou32(im, r+8)))
+			}
+		}
 		// record +$C -> the sprite's 3-colour ramp (loaded into COLOR17+4n by
 		// the engine's copper fragments) for the hardware-sprite (type-1) cells
 		if rp := ou32(im, rec+12); rp != 0 && int(rp)+6 <= len(im) {
@@ -276,9 +382,16 @@ func scanScript(im []byte, idx int, pc, stop uint32, base, nCells int) []overlay
 				link = ou32(im, pc+4)
 				linkFresh = true
 				pc += 8
+				// a [tilemap row, height patch] pair list = a terr-$19
+				// SCREEN-SWAP registration (Ultimate's final screen), not
+				// sprite records — the $1E212 Painter engine cycles it
+				if rows := rowPairList(im, link, mapRows); len(rows) >= 2 && rows[0] == kw28 {
+					swap = &swapAnim{Ty: kw28, Rows: rows}
+					linkFresh = false
+				}
 			}
-		case 2: // SPRITE: select list entry
-			emit(os16(im, pc))
+		case 2: // SPRITE: select list entry, second word = hold frames/step
+			emit(os16(im, pc), os16(im, pc+2))
 			sawOp2 = true
 			linkFresh = false
 			pc += 4
@@ -307,7 +420,7 @@ func scanScript(im []byte, idx int, pc, stop uint32, base, nCells int) []overlay
 	}
 	// a region that links a sprite list but never op2-selects shows entry 0
 	if !sawOp2 && linkFresh {
-		emit(0)
+		emit(0, 0)
 	}
-	return out
+	return out, swap
 }

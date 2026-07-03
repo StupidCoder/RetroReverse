@@ -833,7 +833,7 @@ the course.
 
 | Offset | Field | Beginner value |
 |---|---|---|
-| `+0x00` word | course height (tile rows) | `0x0091` (145) |
+| `+0x00` word | **playable** height (tile rows) | `0x0091` (145) |
 | `+0x02` long | plane-0 offset | `0x000036` |
 | `+0x06` long | plane-1 offset | `0x001DA6` |
 | `+0x0A` long | plane-2 offset | `0x003B16` |
@@ -849,6 +849,15 @@ the course.
 The four plane offsets differ per course, but **plane 0 is always at `$36`** and
 the planes are a constant stride apart — that stride is one plane's byte size, so
 the **tile count = stride ÷ 8** (Beginner: `$1D70 ÷ 8 = 942` tiles).
+
+**The header height is the *playable* height, not the data height.** The engine
+clamps the scroll to `(header rows − 25)·8`, so tilemap rows beyond the header
+count can never appear on screen — they are **off-screen storage**. Two courses
+use it: **Ultimate** declares 108 rows but stores **198** — the 90 hidden rows are
+three extra variants of its final screen for the path-swap animation (Part IV §5);
+**Silly** declares 143 and stores 144 — one fully-drawn extra wall row the clamp
+crops (authored content the playable height excludes; nothing references it). The
+other four courses store exactly their playable height.
 
 **Palette.** The sixteen big-endian `$0RGB` words at `+0x16` are the course's
 playfield palette (colours 0–15). The per-course palette lives here, not in the
@@ -1142,9 +1151,9 @@ small **control-flow** set chains scripts together. All 19 are decoded (the disa
 | op | name | operands | effect |
 |---:|---|---|---|
 | 0 | KEYFRAME | `refX,refY,refZ,dur,terr` (+`,_,_,link` if `dur==1`) | plant ref point + duration + terrain code; `dur==1` keyframes also carry a linked-animation ptr; the terrain code self-**registers** the region (terr 3 → the drawbridge `$FD38`, terr 12 → funnel list, terr 11/13 → slope list) |
-| 1 | STATE-STOP | `+$1C,+$21` | set state, **stop** |
-| 2 | SPRITE | `+$1C,+$23` | set sprite/visual frame |
-| 3 | STATE0-STOP | `+$1C` | set state 0, **stop** |
+| 1 | STATE-STOP | `count,state` | wrap count → `+$1C`, state byte → `+$21`, cursor = the op13 list, **stop** |
+| 2 | SPRITE | `count,hold` | start the piece's animation: cursor `+$3E` = list base `+$46`; `count` → `+$1C` = list **wraps** before the script resumes (0 = loop forever); `hold` → `+$23` = engine frames per step |
+| 3 | STATE0-STOP | `count` | set state 0, store the wrap count, **stop** |
 | 4 / 5 | LOOP-A / NEXT-A | `count` / — | `dbra`-style loop (count 0 = infinite) |
 | 6 / 7 | LOOP-B / NEXT-B | `count` / — | a second, independent loop |
 | 8 | IF-MARBLE-ON | `arg`,`target` | if a marble is within 3 tiles of the region (state 1), JUMP `target` |
@@ -1160,17 +1169,27 @@ small **control-flow** set chains scripts together. All 19 are decoded (the disa
 `op14`/`op16` (moving slopes/seesaws) are *defined* but unused by these six courses' top-level
 scripts — only keyframe/loop/link/stop/conditional ops actually appear in the data.
 
+**How the animations tick.** A region with a running animation re-ticks every `+$23`
+frames (`region_update` counts `+$22` up to the hold, `$FBE0`); each tick refreshes the
+display state (`$103E8`) and **steps the record-list cursor** (`$F778`: `+$3E += 4`, or
+`+8` for `[record, data]` pair lists — regions with `+$1E != 0`). At the `$FFFFFFFF`
+terminator the cursor wraps to the list base (`+$46`, or the op13 list `+$4A`) and the
+wrap count `+$1C` ticks down; when it hits zero the script resumes at the next opcode
+(count 0 loops forever). The **goal flags** on every course are exactly
+`op2 count=0 hold=5` over a flat 4-record list — the four wave frames at five engine
+frames each, looping forever.
+
 **Worked example — the drawbridge** (Beginner region 0, `rgnscript beginr -region 0`):
 
 ```
 op0   KEYFRAME pos=(61,56) z=16264 dur=1 terr=3  link=$1A4E   ; plant the bridge; terr 3 = "I am the drawbridge"
 op4   LOOP-A count=0                                          ; forever:
-op2     SPRITE +$1C=1 +$23=2                                  ;   show a bridge frame
-op12    LINK-46 $1A8A                                         ;   select bridge animation A
-op3     STATE0-STOP +$1C=15                                   ;   hold ~15 ticks, then resume
-op2     SPRITE +$1C=1 +$23=2                                  ;   show a bridge frame
-op12    LINK-46 $1A4E                                         ;   select bridge animation B
-op3     STATE0-STOP +$1C=30                                   ;   hold ~30 ticks, then resume
+op2     SPRITE count=1 hold=2                                 ;   play the linked list through once, 2 frames/step
+op12    LINK-46 $1A8A                                         ;   select bridge animation A (the raise sequence)
+op3     STATE0-STOP count=15                                  ;   hold, then resume
+op2     SPRITE count=1 hold=2                                 ;   play through once
+op12    LINK-46 $1A4E                                         ;   select bridge animation B (the lower sequence)
+op3     STATE0-STOP count=30                                  ;   hold, then resume
 op5   NEXT-A                                                  ; loop back
 ```
 
@@ -1203,6 +1222,36 @@ code 18 has its own handler. The teleport targets land exactly on the exit regio
 a clean cross-check. (The link being hardcoded per terrain code, rather than data-driven, is
 why these specific codes 18–22 appear only on Beginner: each course's bespoke features get
 their own codes and handlers.)
+
+#### The Ultimate finale — a whole screen on a flip-book
+
+Ultimate's last screen strobes: narrow paths through the goal maze appear and disappear in
+sequence. The `.mlb` betrays the trick immediately once you know that the tilemap's leading
+word is the **playable row count** (the engine's scroll clamp is `(rows−25)·8`, so rows past
+it can never scroll on screen): Ultimate's header says **108 rows, but the file stores 198**
+— the 90 hidden rows are **three extra 30-row variants of the final screen**, stacked below
+the course (the visible final screen at rows 78–107 is the fourth). The three hidden blocks
+and the live block differ exactly in which path segments exist.
+
+The animator is dynamic region 12: `op0 KEYFRAME dur=1 terr=$19` with its tile anchor at
+**row 78** and a linked list that is not sprite records but **`[tilemap row, height patch]`
+pairs** — `[78, $288E] [108, $2972] [138, $2A56] [168, $2B3A]`. Terrain code `$19` registers
+the region with a dedicated engine (`$1DF6C` → `$1E212`), the same double-buffered Painter
+machinery the drawbridge's tile animation uses: each cycle it has the Painter repaint the
+fixed **30-row band** (the `$1E038` job is hard-coded to `$1E` rows) from the next variant's
+tilemap rows into the off-screen buffer, `memcpy`s that variant's **`$798` height patch** in
+(so the *collision* mesh switches with the pixels — the vanished path really is gone), and
+flips the buffer into the scroll bitmap on the next vblank (`frame_tick $75DA` →
+`$1DE10`/`$1DDD8`). Content and order are exact from the data — 78 → 108 → 138 → 168, wrap;
+the per-variant hold is the pipeline latency (job → reply → vblank flip, ≈ 3–4 display
+frames — the strobe you race against).
+
+Two smaller corollaries of the header-vs-data row count: **Silly stores 144 rows but plays
+143** — its one hidden row is a fully-drawn extra wall row (real art, unique tiles) that the
+scroll clamp crops; nothing in the Track or the engine references it, so it reads as authored
+map content the playable height simply excludes. The other four courses store exactly their
+playable height. The site's course maps show the playable rows, replay the screen-swap as a
+tile animation, and play the goal flags' wave (both from this data).
 
 **The goal flags are bump obstacles; the goal *area* is a coarse zone.** (Corrects an earlier
 claim here that the goal was radial proximity to the flags — wrong on two counts, as live play

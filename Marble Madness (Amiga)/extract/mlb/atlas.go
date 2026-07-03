@@ -8,13 +8,20 @@ import (
 // Course is a decoded .mlb ready to emit as an atlas + tilemap (the form the web
 // viewer composes): the row-major tilemap of 16-bit tile indices (CourseW wide), the
 // height in tiles, the number of distinct tiles, and the 16-colour palette.
+//
+// H counts the tilemap DATA rows; PlayableH is the unpacked buffer's leading word —
+// the row count the engine actually plays (the scroll clamp is (PlayableH-25)*8, so
+// rows beyond it can never scroll on screen). Rows past PlayableH are off-screen
+// storage: Ultimate carries 90 (three hidden 30-row variants of its final screen for
+// the path-swap animation), Silly one cropped wall row.
 type Course struct {
-	Cells   []int // row-major, CourseW wide; len = CourseW*H
-	H       int
-	NTiles  int
-	Palette color.Palette
-	buf     []byte
-	planes  [4]int
+	Cells     []int // row-major, CourseW wide; len = CourseW*H
+	H         int
+	PlayableH int
+	NTiles    int
+	Palette   color.Palette
+	buf       []byte
+	planes    [4]int
 }
 
 // Decode unpacks a .mlb into its tilemap, tile count and palette (without compositing
@@ -39,7 +46,14 @@ func Decode(file []byte) *Course {
 			maxIdx = idx
 		}
 	}
-	return &Course{Cells: cells, H: h, NTiles: maxIdx + 1, Palette: palette(buf), buf: buf, planes: planes}
+	playable := 0
+	if len(buf) >= 2 {
+		playable = int(buf[0])<<8 | int(buf[1])
+	}
+	if playable <= 0 || playable > h {
+		playable = h
+	}
+	return &Course{Cells: cells, H: h, PlayableH: playable, NTiles: maxIdx + 1, Palette: palette(buf), buf: buf, planes: planes}
 }
 
 // tile decodes one 8x8 tile (index n) from the bitplane data.

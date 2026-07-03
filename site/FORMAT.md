@@ -99,10 +99,14 @@ colours are `#rrggbb` strings; grids are row-major.
   "tileAnims": [
     { "tiles": [252, 253, 254, 255], "frames": [[...4 ids], ...], "periodFrames": 10 }
   ],
-  // Placement-anchored cell animators (Sonic's $50 objects): a 2x4-tile strip at
-  // (tx,ty) [8px tile coords] repainted through phases with per-phase hold times.
+  // Placement-anchored cell animators: a tw x th tile strip at (tx,ty) [8px tile
+  // coords] repainted through phases with per-phase hold times. tw/th default to
+  // 2x4 (Sonic's $50 objects); Marble's Ultimate screen-swap uses 36x30 (the
+  // engine repaints its final screen from hidden variant rows stored past the
+  // playable map).
   "cellAnims": [
-    { "tx": 36, "ty": 44, "phases": [{ "tiles": [8 ids], "frames": 240 }, ...] }
+    { "tx": 36, "ty": 44, "tw": 2, "th": 4,
+      "phases": [{ "tiles": [tw*th ids], "frames": 240 }, ...] }
   ],
 
   // --- collision --------------------------------------------------------------------
@@ -155,10 +159,10 @@ names (`"chopper-fwd"`, `"tank"`, SML type ids).
 | grid | ✓ (via blocks) | ✓ | ✓ + hflipMask | ✓ | ✓ |
 | blocks | ✓ | – | – | – | – |
 | tileAnims | ✓ | ✓ | – | – | – |
-| cellAnims | ✓ | – | – | – | – |
-| objects | ✓ | – | ✓ | – | ✓ |
+| cellAnims | ✓ | – | – | ✓ (36x30 swap) | – |
+| objects | ✓ | – | ✓ | ✓ (overlays) | ✓ |
 | objectPools | – | ✓ (patrol) | – | – | – |
-| sprites index | ✓ (anims, paths) | ✓ (tinted) | ✓ | – | ✓ (anchored) |
+| sprites index | ✓ (anims, paths) | ✓ (tinted) | ✓ | ✓ (flag anims) | ✓ (anchored) |
 | collision | profiles | – | grid sub 4 | – | grid sub 1 |
 | paletteFx | ✓ | – | – | – | – |
 | wrap | – | ✓ | – | – | – |

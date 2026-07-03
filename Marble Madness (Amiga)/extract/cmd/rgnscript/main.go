@@ -142,11 +142,11 @@ func disasm(im []byte, pc, stop uint32) {
 		case 1:
 			fmt.Printf("  $%05X  op1  STATE-STOP +$1C=%d +$21=%d\n", at, s16(im, pc), s16(im, pc+2))
 			pc += 4
-		case 2:
-			fmt.Printf("  $%05X  op2  SPRITE +$1C=%d +$23=%d\n", at, s16(im, pc), s16(im, pc+2))
+		case 2: // word1 -> +$1C wrap count (0 = loop forever), word2 -> +$23 hold frames/step
+			fmt.Printf("  $%05X  op2  SPRITE count=%d hold=%d\n", at, s16(im, pc), s16(im, pc+2))
 			pc += 4
-		case 3:
-			fmt.Printf("  $%05X  op3  STATE0-STOP +$1C=%d\n", at, s16(im, pc))
+		case 3: // word -> +$1C wrap count
+			fmt.Printf("  $%05X  op3  STATE0-STOP count=%d\n", at, s16(im, pc))
 			pc += 2
 		case 4:
 			fmt.Printf("  $%05X  op4  LOOP-A count=%d (top=here)\n", at, s16(im, pc))

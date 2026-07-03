@@ -107,13 +107,15 @@ export class LevelViewer {
         },
       });
     }
-    // placement-anchored cell animators (Sonic $50): 2x4-tile strips baked from
-    // the atlas, one sprite each in the tile layer, per-phase hold times
+    // placement-anchored cell animators: tw x th tile strips (default 2x4, the
+    // Sonic $50 shape; Marble's screen-swap uses 36x30) baked from the atlas,
+    // one sprite each in the tile layer, per-phase hold times
     for (const ca of level.cellAnims || []) {
       const ts = level.grid.tileSize;
+      const tw = ca.tw ?? 2, th = ca.th ?? 4;
       const texs = ca.phases.map((ph) => {
         const cv = document.createElement('canvas');
-        cv.width = 2 * ts; cv.height = 4 * ts;
+        cv.width = tw * ts; cv.height = th * ts;
         const ctx = cv.getContext('2d');
         ctx.imageSmoothingEnabled = false;
         ph.tiles.forEach((tile, i) => {
@@ -122,7 +124,7 @@ export class LevelViewer {
           ctx.drawImage(atlasImg,
             (tile % cols) * cell + (level.grid.atlasGutter ?? 0),
             ((tile / cols) | 0) * cell + (level.grid.atlasGutter ?? 0),
-            ts, ts, (i % 2) * ts, ((i / 2) | 0) * ts, ts, ts);
+            ts, ts, (i % tw) * ts, ((i / tw) | 0) * ts, ts, ts);
         });
         const tx = Texture.from(cv);
         tx.source.scaleMode = 'nearest';
