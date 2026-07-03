@@ -10,6 +10,7 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
+	"hash/fnv"
 	"os"
 	"path/filepath"
 	"strings"
@@ -213,8 +214,15 @@ func run(adfPath, outDir string) error {
 		}
 		tileAnims := bake.shimmerAnims(tilesInBand, shimmerPeriod)
 
+		// The tilemap's cells reference variant tiles appended to the atlas, so
+		// the level JSON and the PNG must never mix versions in a client cache:
+		// reference the atlas by a content-hashed URL.
 		atlasFile := c.key + ".atlas.png"
 		if err := gfx.WritePNG(filepath.Join(outDir, atlasFile), co.AtlasVariants(16, bake.ext, bake.varList)); err != nil {
+			return err
+		}
+		atlasRef, err := hashedRef(filepath.Join(outDir, atlasFile), atlasFile)
+		if err != nil {
 			return err
 		}
 
@@ -226,7 +234,7 @@ func run(adfPath, outDir string) error {
 			"format": 1,
 			"name":   c.name,
 			"grid": map[string]any{
-				"tileSize": 8, "atlas": atlasFile, "atlasCols": 16, "atlasGutter": 1,
+				"tileSize": 8, "atlas": atlasRef, "atlasCols": 16, "atlasGutter": 1,
 				"width": mlb.CourseW, "height": co.PlayableH,
 				"cells": cells,
 			},
@@ -253,7 +261,7 @@ func run(adfPath, outDir string) error {
 			return err
 		}
 
-		levels = append(levels, metaLevel{Name: c.name, File: file, Atlas: atlasFile, Slope: slopeFile})
+		levels = append(levels, metaLevel{Name: c.name, File: file, Atlas: atlasRef, Slope: slopeFile})
 		fmt.Printf("%-12s %s  %d×%d tiles, %d tiles; slope %dx%d, h %d..%d; %d overlay sprites\n",
 			c.name, file, mlb.CourseW, h, co.NTiles, sj.W, sj.H, sj.Lo, sj.Hi, len(objects))
 	}
@@ -283,6 +291,18 @@ func buildSlope(f slope.Field) slopeJSON {
 		}
 	}
 	return slopeJSON{X0: f.MinX, Y0: f.MinY, W: w, H: h, Lo: f.Lo, Hi: f.Hi, Heights: heights}
+}
+
+// hashedRef returns "<name>?v=<fnv32 of the file>" — a cache-busting URL that
+// changes whenever the file's content does.
+func hashedRef(path, name string) (string, error) {
+	b, err := os.ReadFile(path)
+	if err != nil {
+		return "", err
+	}
+	h := fnv.New32a()
+	h.Write(b)
+	return fmt.Sprintf("%s?v=%08x", name, h.Sum32()), nil
 }
 
 func writeJSON(path string, v any) error {

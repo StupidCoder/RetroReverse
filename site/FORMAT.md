@@ -39,7 +39,9 @@ colours are `#rrggbb` strings; grids are row-major.
   // --- the tilemap -------------------------------------------------------------
   "grid": {
     "tileSize": 8,                      // px per tile (8 or 32)
-    "atlas": "atlas_0.png",             // tile sheet PNG
+    "atlas": "atlas_0.png",             // tile sheet PNG; may carry a content-hash query
+                                        // (?v=xxxxxxxx) so a level JSON never pairs with a
+                                        // stale cached atlas (Marble's variant tiles)
     "atlasCols": 16,                    // tiles per atlas row
     "atlasGutter": 0,                   // 1 = each tile extruded by 1px (bleed guard)
     "width": 203, "height": 16,         // map size in CELLS
