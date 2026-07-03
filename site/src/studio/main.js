@@ -6,15 +6,16 @@
 // "create a viewer", "list the levels (named)", and "show level i". Viewers are created lazily
 // on first visit and cached (kept mounted but hidden) so switching back is instant.
 //
-// A global CRT filter (crt.js) overlays all of them: a post-process that captures whichever
-// viewer is active and re-renders it through a physical CRT pipeline.
+// A global screen filter (screen.js) overlays all of them: a post-process that captures whichever
+// viewer is active and re-renders it through a display-appropriate shader (CRT for the tube systems,
+// a Game Boy / Game Gear LCD shader for the handhelds), picked from the game's system.
 
-import { CRT } from './crt.js';
+import { ScreenFilter } from './screen.js';
 import { KeyboardCamera } from './camera.js';
 import { INFO_TABS, infoHtml } from './info-content.js';
 
 // The inbound deep-link state, parsed once at load: ?game=<id>&level=<slug|index> selects a
-// game and one of its levels; ?objects=0/1 and ?crt=0/1 force those display flags; ?seed / ?debug
+// game and one of its levels; ?objects=0/1 and ?filter=0/1 force those display flags; ?seed / ?debug
 // are dev knobs. As the user navigates, syncUrl() writes this same shape back so every view is a
 // copyable link. `level` accepts a stable per-level slug (preferred) or a numeric index; `asset`
 // is the old index-only param name, still honoured.
@@ -385,6 +386,8 @@ async function selectGame(id) {
     m.el.style.display = 'block';
     setMountActive(m, true);
     activeId = id;
+    screen.setProfile(SYSTEM_PROFILE[game.system] || 'crt'); // pick CRT vs LCD shader by system
+    buildScreenControls();
     buildLayerToggles(m);
     buildAssetList(m);
     if (firstMount) await runAsset(m, defaultLeaf(m)); // load the default asset on first visit
@@ -416,9 +419,9 @@ function resolveLevel(m, val) {
   return Number.isInteger(n) && n >= 0 && n < m.leaves.length ? n : -1;
 }
 
-// Mirror the current game/level and the objects/CRT flags into the address bar so any view is a
+// Mirror the current game/level and the objects/filter flags into the address bar so any view is a
 // copyable deep link. replaceState (not push): we reflect state, we don't stack history entries.
-// Only non-default flags are emitted, keeping links clean (absent objects/crt = the defaults).
+// Only non-default flags are emitted, keeping links clean (absent objects/filter = the defaults).
 function syncUrl() {
   const params = new URLSearchParams();
   const m = activeId && mounts.get(activeId);
@@ -432,7 +435,7 @@ function syncUrl() {
       if (on !== !!objLayer.default) params.set('objects', on ? '1' : '0');
     }
   }
-  if (crt.ok && !crt.enabled) params.set('crt', '0'); // CRT defaults on; only note the deviation
+  if (screen.ok && !screen.enabled) params.set('filter', '0'); // filter defaults on; only note the deviation
   for (const k of ['seed', 'debug']) { const v = BOOT.get(k); if (v != null) params.set(k, v); }
   const qs = params.toString();
   history.replaceState(null, '', qs ? '?' + qs : location.pathname);
@@ -579,63 +582,119 @@ function buildLayerToggles(m) {
   }
 }
 
-// ---- CRT filter (global post-process over the active viewer) ----
-const crt = new CRT(stage);
-crt.source = () => {
+// ---- Screen filter (global post-process over the active viewer; shader picked per game) ----
+const screen = new ScreenFilter(stage);
+screen.source = () => {
   const m = activeId && mounts.get(activeId);
   if (!m) return [];
   return [...m.el.querySelectorAll('canvas')].filter(c => getComputedStyle(c).display !== 'none');
 };
 
-const CRT_KEYS = ['curvature', 'beamFocus', 'maskStrength', 'glow', 'iqBlur', 'noise', 'maskType', 'signalLines', 'scanLines'];
-const INT_CRT = new Set(['signalLines', 'scanLines']);
-const fmtCrt = (k, v) => k === 'maskType' ? (v < 0.5 ? 'Trinitron' : 'Shadow') : INT_CRT.has(k) ? String(Math.round(v)) : v.toFixed(2);
+// Which shader profile each system uses (CRT tube vs handheld LCD).
+const SYSTEM_PROFILE = {
+  'Commodore 64': 'crt', 'Amiga': 'crt',
+  'Sega Game Gear': 'gg', 'Nintendo Game Boy': 'gb',
+};
 
-function syncCrtControls() {
-  for (const k of CRT_KEYS) {
-    document.getElementById('c_' + k).value = crt.params[k];
-    document.getElementById('v_' + k).textContent = fmtCrt(k, crt.params[k]);
+// The sliders shown in the settings panel, per profile. The rows are (re)built in JS whenever the
+// active profile changes, so each display type exposes its own knobs.
+const PROFILE_CONTROLS = {
+  crt: [
+    { key: 'curvature', label: 'Curvature', min: 0, max: 10, step: 0.1 },
+    { key: 'beamFocus', label: 'Scanline focus', min: 0.2, max: 1.0, step: 0.01 },
+    { key: 'maskStrength', label: 'Mask intensity', min: 0, max: 1.0, step: 0.01 },
+    { key: 'glow', label: 'Halation', min: 0, max: 1.0, step: 0.01 },
+    { key: 'iqBlur', label: 'Chroma blur', min: 0, max: 5.0, step: 0.1 },
+    { key: 'noise', label: 'Signal noise', min: 0, max: 0.5, step: 0.01 },
+    { key: 'maskType', label: 'Mask type', min: 0, max: 1, step: 1, fmt: (v) => v < 0.5 ? 'Trinitron' : 'Shadow' },
+    { key: 'signalLines', label: 'Signal lines', min: 60, max: 600, step: 2, int: true },
+    { key: 'scanLines', label: 'CRT scanlines', min: 60, max: 600, step: 2, int: true },
+  ],
+  gb: [
+    { key: 'cellSize', label: 'Pixel size', min: 2, max: 12, step: 1, int: true },
+    { key: 'tint', label: 'Green tint', min: 0, max: 1, step: 0.01 },
+    { key: 'gridStrength', label: 'Grid gap', min: 0, max: 0.8, step: 0.01 },
+    { key: 'shadowOpacity', label: 'Pixel shadow', min: 0, max: 1, step: 0.01 },
+    { key: 'contrast', label: 'Contrast', min: 0.5, max: 2.5, step: 0.05 },
+    { key: 'ghost', label: 'Ghosting', min: 0, max: 0.9, step: 0.01 },
+  ],
+  gg: [
+    { key: 'cellSize', label: 'Pixel size', min: 2, max: 12, step: 1, int: true },
+    { key: 'gridStrength', label: 'Grid gap', min: 0, max: 0.8, step: 0.01 },
+    { key: 'subpixel', label: 'Subpixels', min: 0, max: 1, step: 0.01 },
+    { key: 'saturation', label: 'Saturation', min: 0, max: 1.5, step: 0.01 },
+    { key: 'glow', label: 'Backlight', min: 0, max: 0.6, step: 0.01 },
+    { key: 'ghost', label: 'Ghosting', min: 0, max: 0.9, step: 0.01 },
+  ],
+};
+
+const screenSliders = document.getElementById('screenSliders');
+const fmtCtl = (c, v) => c.fmt ? c.fmt(v) : c.int ? String(Math.round(v)) : v.toFixed(2);
+
+// Rebuild the slider rows for the active profile from its current param values.
+function buildScreenControls() {
+  const list = PROFILE_CONTROLS[screen.profile] || [];
+  screenSliders.innerHTML = '';
+  for (const c of list) {
+    const row = document.createElement('div'); row.className = 'ctl';
+    const label = document.createElement('label');
+    const val = document.createElement('span');
+    label.append(document.createTextNode(c.label), val);
+    const input = document.createElement('input');
+    input.type = 'range'; input.min = c.min; input.max = c.max; input.step = c.step;
+    input.value = screen.params[c.key];
+    val.textContent = fmtCtl(c, screen.params[c.key]);
+    input.addEventListener('input', () => {
+      const v = parseFloat(input.value);
+      screen.set(c.key, v);
+      val.textContent = fmtCtl(c, v);
+      persistScreen();
+    });
+    row.append(label, input);
+    screenSliders.append(row);
   }
 }
 
-function wireCrt() {
-  const saved = JSON.parse(localStorage.getItem('studio.crt') || '{}');
-  for (const k of CRT_KEYS) {
-    const el = document.getElementById('c_' + k);
-    const valEl = document.getElementById('v_' + k);
-    if (saved.params && saved.params[k] !== undefined) crt.set(k, saved.params[k]);
-    el.addEventListener('input', () => {
-      const v = parseFloat(el.value);
-      crt.set(k, v);
-      valEl.textContent = fmtCrt(k, v);
-      persistCrt();
-    });
+function wireScreen() {
+  const saved = JSON.parse(localStorage.getItem('studio.screen') || '{}');
+  if (saved.byProfile) {
+    for (const prof of Object.keys(PROFILE_CONTROLS)) {
+      const sp = saved.byProfile[prof];
+      if (!sp) continue;
+      for (const c of PROFILE_CONTROLS[prof]) {
+        if (sp[c.key] !== undefined) screen.paramsByProfile[prof][c.key] = sp[c.key];
+      }
+    }
   }
-  syncCrtControls();
-  document.getElementById('crtReset').addEventListener('click', () => {
-    crt.reset();
-    syncCrtControls();
-    persistCrt();
+  buildScreenControls();
+  document.getElementById('screenReset').addEventListener('click', () => {
+    screen.reset();
+    buildScreenControls();
+    persistScreen();
   });
-  const toggle = document.getElementById('crtToggle');
-  const controls = document.getElementById('crtControls');
-  const gear = document.getElementById('crtSettings');
-  toggle.addEventListener('change', () => { crt.setEnabled(toggle.checked); persistCrt(); syncUrl(); });
+  const toggle = document.getElementById('screenToggle');
+  const controls = document.getElementById('screenControls');
+  const gear = document.getElementById('screenSettings');
+  toggle.addEventListener('change', () => { screen.setEnabled(toggle.checked); persistScreen(); syncUrl(); });
   gear.addEventListener('click', () => gear.classList.toggle('on', controls.classList.toggle('shown')));
 
-  // enabled by default; only an explicit prior "off" (or ?crt=0) turns it off.
-  const forced = BOOT.get('crt');
-  const startOn = (forced === '1' || (forced !== '0' && saved.enabled !== false)) && crt.ok;
+  // enabled by default; only an explicit prior "off" (or ?filter=0, legacy ?crt=0) turns it off.
+  const forced = BOOT.get('filter') ?? BOOT.get('crt');
+  const startOn = (forced === '1' || (forced !== '0' && saved.enabled !== false)) && screen.ok;
   toggle.checked = startOn;
-  if (!crt.ok) toggle.disabled = true;
-  if (startOn) crt.setEnabled(true);
+  if (!screen.ok) toggle.disabled = true;
+  if (startOn) screen.setEnabled(true);
   // the settings panel stays folded until the gear is clicked
 }
 
-function persistCrt() {
-  const params = {};
-  for (const k of CRT_KEYS) params[k] = crt.params[k];
-  localStorage.setItem('studio.crt', JSON.stringify({ enabled: crt.enabled, params }));
+// Persist the on/off state and every profile's slider values independently.
+function persistScreen() {
+  const byProfile = {};
+  for (const prof of Object.keys(PROFILE_CONTROLS)) {
+    byProfile[prof] = {};
+    for (const c of PROFILE_CONTROLS[prof]) byProfile[prof][c.key] = screen.paramsByProfile[prof][c.key];
+  }
+  localStorage.setItem('studio.screen', JSON.stringify({ enabled: screen.enabled, byProfile }));
 }
 
 // ---- Music player (per-game song list + transport). Switching games stops the music;
@@ -746,7 +805,7 @@ new KeyboardCamera(() => {
 
 // ---- boot ----
 buildGameList();
-wireCrt();
+wireScreen();
 displayLayers.style.display = 'none'; // per-game display toggles appear once a game is picked
 assetLabel.style.display = 'none';    // the Asset + Music sections stay hidden until a game
 updateMusicUI();                      // is picked (the splash is up meanwhile)

@@ -83,27 +83,19 @@
 
       <div class="group-label">Display</div>
       <div id="displayLayers" class="layer-toggles"></div>
-      <div class="crt-row">
+      <div class="screen-row">
         <label class="switch">
-          <input type="checkbox" id="crtToggle" />
+          <input type="checkbox" id="screenToggle" />
           <span class="track"><span class="knob"></span></span>
-          <span class="switch-label">CRT filter</span>
+          <span class="switch-label">Screen filter</span>
         </label>
-        <button id="crtSettings" class="gear-btn" title="CRT settings" aria-label="CRT settings">
+        <button id="screenSettings" class="gear-btn" title="Screen settings" aria-label="Screen settings">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
         </button>
       </div>
-      <div id="crtControls" class="crt-controls">
-        <div class="ctl"><label>Curvature<span id="v_curvature"></span></label><input type="range" id="c_curvature" min="0" max="10" step="0.1" /></div>
-        <div class="ctl"><label>Scanline focus<span id="v_beamFocus"></span></label><input type="range" id="c_beamFocus" min="0.2" max="1.0" step="0.01" /></div>
-        <div class="ctl"><label>Mask intensity<span id="v_maskStrength"></span></label><input type="range" id="c_maskStrength" min="0" max="1.0" step="0.01" /></div>
-        <div class="ctl"><label>Halation<span id="v_glow"></span></label><input type="range" id="c_glow" min="0" max="1.0" step="0.01" /></div>
-        <div class="ctl"><label>Chroma blur<span id="v_iqBlur"></span></label><input type="range" id="c_iqBlur" min="0" max="5.0" step="0.1" /></div>
-        <div class="ctl"><label>Signal noise<span id="v_noise"></span></label><input type="range" id="c_noise" min="0" max="0.5" step="0.01" /></div>
-        <div class="ctl"><label>Mask type<span id="v_maskType"></span></label><input type="range" id="c_maskType" min="0" max="1" step="1" /></div>
-        <div class="ctl"><label>Signal lines<span id="v_signalLines"></span></label><input type="range" id="c_signalLines" min="60" max="600" step="2" /></div>
-        <div class="ctl"><label>CRT scanlines<span id="v_scanLines"></span></label><input type="range" id="c_scanLines" min="60" max="600" step="2" /></div>
-        <button id="crtReset" class="reset-btn">Restore defaults</button>
+      <div id="screenControls" class="screen-controls">
+        <div id="screenSliders"></div>
+        <button id="screenReset" class="reset-btn">Restore defaults</button>
       </div>
     </div>
   </aside>

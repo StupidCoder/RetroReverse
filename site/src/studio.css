@@ -50,9 +50,9 @@ html, body {
 #stage [data-render="3d"] canvas,
 #stage canvas.mm-three { image-rendering: auto; }
 
-/* the global CRT post-process overlay sits on top of the viewers; pointer-events pass
+/* the global screen post-process overlay sits on top of the viewers; pointer-events pass
    through so the viewer's own drag/zoom/rotate still work underneath */
-#crt {
+#screenfx {
   position: absolute;
   inset: 0;
   width: 100% !important;
@@ -268,7 +268,7 @@ html, body {
 .sys-group.open > .sys-games,
 .asset-group.open > .asset-children { display: flex; }
 
-/* ---- CRT toggle switch + controls ---- */
+/* ---- Screen-filter toggle switch + controls ---- */
 .switch {
   display: flex;
   align-items: center;
@@ -301,7 +301,7 @@ html, body {
 .switch-label { font-size: 13.5px; color: var(--text); }
 
 .layer-toggles { display: flex; flex-direction: column; }
-.crt-row { display: flex; align-items: center; justify-content: space-between; }
+.screen-row { display: flex; align-items: center; justify-content: space-between; }
 .gear-btn {
   width: 28px; height: 28px;
   flex: 0 0 auto;
@@ -316,13 +316,14 @@ html, body {
 .gear-btn.on { color: var(--accent); transform: rotate(40deg); }
 .gear-btn svg { width: 16px; height: 16px; display: block; }
 
-.crt-controls {
+.screen-controls {
   display: none;
   flex-direction: column;
   gap: 7px;
   padding: 4px 4px 2px;
 }
-.crt-controls.shown { display: flex; }
+.screen-controls.shown { display: flex; }
+#screenSliders { display: flex; flex-direction: column; gap: 7px; }
 .ctl { display: flex; flex-direction: column; gap: 4px; }
 .ctl label {
   display: flex;
