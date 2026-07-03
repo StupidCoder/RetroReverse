@@ -742,12 +742,14 @@ above). They come from a separate per-level **placement list**, walked by the sp
 $401A[ffe4]   (in the world's data bank) -> L, the level's placement list
 each entry is 3 bytes, sorted ascending by trigger column:
   byte0  col   : the scroll column ($C0AB) at which the object spawns. $C0AB advances
-                 once per 16 px of scroll (it counts SCX bit-3 1->0 in the column
-                 decoder), so the object's map column (8 px tiles) is col*2.
+                 once per 16 px of scroll (the column decoder counts the camera's bit 3
+                 going 0->1, i.e. at camera = 8 mod 16), so the object's map column
+                 (8 px tiles) is col*2.
   byte1  pos   : bits 0-4 -> the object's screen tile-row (Y=((pos&$1F)<<3)+$10, drawn as
                  OAM Y, so screen row = pos&$1F). The level columns are blitted to BG rows
                  2-17 (rows 0-1 are the HUD), so the matching row in the 16-row map is
-                 (pos&$1F)-2. bits 6-7 -> a fine sub-column X nudge.
+                 (pos&$1F)-2. bits 6-7 -> a fine X nudge of 4 px per unit (the spawner
+                 adds (pos&$C0)>>4 = 0/4/8/12 to the spawn X).
   byte2  type  : bits 0-6 -> object type id (indexes the $336C init table); bit 7 is a
                  "second quest" flag — those objects are gated by $FF9A.
 L is terminated by an entry whose col byte is $FF.
@@ -760,6 +762,19 @@ in each world's own data bank (W1→2, W2→1, W3→3, W4→1 — the same banki
 global `ffe4` of 0–11 selects the list. All twelve lists decode cleanly (37–81 objects;
 World 4's levels are the longest). The Goombas that open 1‑1 are the first two entries
 (`type $00` at columns `$0C`/`$0F`); the level-end fixtures are the last (`type $0A`/`$0B`).
+
+The exact world X works out neatly: an entry spawns the frame `$C0AB` passes its `col`, at
+screen X `$D0` (minus 16 px per column already scrolled past — the `SWAP C` catch-up in
+`$2492`). `$C0AB` is initialised to **12** at level load (`$2439`) and ticks when the
+camera crosses 8 (mod 16) (`$2194`–`$21A7`), so the camera at spawn is `(col-12)*16 + 8`
+and every constant cancels: **world X = col·16 + fine·4, exactly** — the placement grid is
+16 px with a 4 px fine adjust. `extract/cmd/spawnverify` proves this live: it hooks the
+spawner's own X/Y writes (`$24B9`/`$24AF`), reads the camera at that instant, and compares
+each spawn against the decoded list — every entry reached in 1‑1 and 1‑3 (fine values
+0–3, including the fine=3 piranha plants) matches with zero error. Note some entries
+place an enemy in mid-air on purpose: the engine spawns it there and gravity drops it
+onto its platform within a few frames (the 1‑1 plateau Goombas spawn at row 2 and settle
+two tiles lower), so the Studio's placement layer shows spawn points, not resting spots.
 
 `level.DecodeObjects`/`DecodeObjectsByID` reimplements this; `extract/cmd/levelmap -id NN`
 overlays the placements on the rendered map (red boxes; amber = second-quest), and they

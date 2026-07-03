@@ -93,12 +93,14 @@ func main() {
 				}
 			}
 			// Object/enemy placements (decoded from the ROM list at $401A[ffe4]),
-			// world px: tile origin plus the position byte's 2px sub-column nudge.
+			// world px: tile origin plus the position byte's 4px-per-unit fine X
+			// nudge — the spawner computes X = $D0 + ((pos&$C0)>>4) - 16*catchup,
+			// which lands on col*16 + fine*4 (oracle-verified by cmd/spawnverify).
 			objs := level.DecodeObjectsByID(data, id)
 			ojson := make([]map[string]any, len(objs))
 			for i, o := range objs {
 				e := map[string]any{
-					"type": o.Type, "x": o.Col*8 + o.FineX*2, "y": o.Row * 8, "hard": o.Hard,
+					"type": o.Type, "x": o.Col*8 + o.FineX*4, "y": o.Row * 8, "hard": o.Hard,
 				}
 				if _, known := objTypes[fmt.Sprintf("%d", o.Type)]; known {
 					e["sprite"] = fmt.Sprintf("w%d/%d", world, o.Type)

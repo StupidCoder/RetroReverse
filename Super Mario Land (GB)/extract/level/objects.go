@@ -12,7 +12,8 @@ package level
 //	  byte0  col   : the scroll column ($C0AB) at which the object spawns. $C0AB
 //	                 advances once per 16 px of scroll, so the object's map column
 //	                 (8 px tiles) is col*2.
-//	  byte1  pos   : bits 0-4 -> map row (packed&$1F); bits 6-7 -> fine X (sub-column).
+//	  byte1  pos   : bits 0-4 -> map row (packed&$1F); bits 6-7 -> fine X, 4px per
+//	                 unit (the spawner adds (pos&$C0)>>4 to the spawn X).
 //	  byte2  type  : bits 0-6 -> object type (indexes the $336C init table);
 //	                 bit 7 -> "hard mode" flag (the object is only spawned, or spawned
 //	                 differently, on a second quest; $FF9A gates it at $24E6).
@@ -20,8 +21,10 @@ package level
 
 // Object is one placed object. Col/Row are the map-tile coordinates (8x8 tiles) of the
 // object's metasprite origin (where the engine puts $FFC3/$FFC2). Type is the object type
-// id, Hard is the bit-7 second-quest flag, and FineX is the 0-3 sub-column nudge from the
-// position byte's top two bits.
+// id, Hard is the bit-7 second-quest flag, and FineX is the 0-3 nudge from the position
+// byte's top two bits, worth 4px each: world X = Col*8 + FineX*4 (exact — the spawner's
+// $D0 screen offset, the $C0AB start value of 12 and its camera%16==8 tick phase cancel;
+// oracle-verified per spawn by cmd/spawnverify).
 type Object struct {
 	Col, Row int
 	Type     byte
