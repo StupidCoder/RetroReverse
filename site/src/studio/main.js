@@ -13,6 +13,17 @@ import { CRT } from './crt.js';
 import { KeyboardCamera } from './camera.js';
 import { INFO_TABS, infoHtml } from './info-content.js';
 
+// The inbound deep-link state, parsed once at load: ?game=<id>&level=<slug|index> selects a
+// game and one of its levels; ?objects=0/1 and ?crt=0/1 force those display flags; ?seed / ?debug
+// are dev knobs. As the user navigates, syncUrl() writes this same shape back so every view is a
+// copyable link. `level` accepts a stable per-level slug (preferred) or a numeric index; `asset`
+// is the old index-only param name, still honoured.
+const BOOT = new URLSearchParams(location.search);
+
+// A URL-safe slug from a level's display name; used as its stable deep-link id.
+const slugify = (s) => String(s).toLowerCase().normalize('NFKD')
+  .replace(/[^\w]+/g, '-').replace(/^-+|-+$/g, '') || 'x';
+
 const GAMES = [
   {
     id: 'sonic', name: 'Sonic the Hedgehog', system: 'Sega Game Gear',
@@ -246,6 +257,12 @@ function assetEntries(m) {
 
 function addLeaf(m, leaf, parent) {
   const idx = m.leaves.length;
+  // give the leaf a stable, readable deep-link slug (deduped within the game)
+  const base = slugify(leaf.hud || leaf.name || `asset-${idx + 1}`);
+  let slug = base, n = 2;
+  while (m.slugSeen.has(slug)) slug = `${base}-${n++}`;
+  m.slugSeen.add(slug);
+  leaf.slug = slug;
   m.leaves.push(leaf);
   const b = document.createElement('button');
   b.className = 'item asset-item';
@@ -259,6 +276,7 @@ function buildAssetList(m) {
   assetLabel.style.display = ''; // reveal the Asset section once a game is chosen
   assetList.innerHTML = '';
   m.leaves = [];
+  m.slugSeen = new Set();
   for (const entry of assetEntries(m)) {
     if (entry.children) {
       const group = document.createElement('div');
@@ -385,6 +403,39 @@ async function selectGame(id) {
 
 function updateHud(m) {
   hudCaption.innerHTML = `<b>${m.game.name}</b> · ${m.game.system} &nbsp;—&nbsp; ${m.currentName}`;
+  syncUrl();
+}
+
+// Resolve a deep-link `level` value (slug preferred, numeric index as fallback) to a leaf index,
+// or -1 if it doesn't name a level of this game.
+function resolveLevel(m, val) {
+  if (val == null || val === '') return -1;
+  const bySlug = m.leaves.findIndex(l => l.slug === val);
+  if (bySlug >= 0) return bySlug;
+  const n = parseInt(val, 10);
+  return Number.isInteger(n) && n >= 0 && n < m.leaves.length ? n : -1;
+}
+
+// Mirror the current game/level and the objects/CRT flags into the address bar so any view is a
+// copyable deep link. replaceState (not push): we reflect state, we don't stack history entries.
+// Only non-default flags are emitted, keeping links clean (absent objects/crt = the defaults).
+function syncUrl() {
+  const params = new URLSearchParams();
+  const m = activeId && mounts.get(activeId);
+  if (m) {
+    params.set('game', m.game.id);
+    const leaf = m.leaves && m.leaves[m.currentIdx];
+    if (leaf && leaf.slug) params.set('level', leaf.slug);
+    const objLayer = (m.game.layers || []).find(l => l.id === 'objects');
+    if (objLayer) {
+      const on = layerState(m).objects;
+      if (on !== !!objLayer.default) params.set('objects', on ? '1' : '0');
+    }
+  }
+  if (crt.ok && !crt.enabled) params.set('crt', '0'); // CRT defaults on; only note the deviation
+  for (const k of ['seed', 'debug']) { const v = BOOT.get(k); if (v != null) params.set(k, v); }
+  const qs = params.toString();
+  history.replaceState(null, '', qs ? '?' + qs : location.pathname);
 }
 
 function hideTitlecard() {
@@ -480,6 +531,10 @@ function layerState(m) {
     m.layerState = {};
     const saved = savedLayers[m.game.id] || {};
     for (const l of m.game.layers || []) m.layerState[l.id] = (l.id in saved) ? saved[l.id] : !!l.default;
+    // a ?objects=0/1 deep link overrides the objects/enemies layer for the linked game on load
+    if (m.game.id === BOOT.get('game') && BOOT.get('objects') != null && 'objects' in m.layerState) {
+      m.layerState.objects = BOOT.get('objects') === '1';
+    }
   }
   return m.layerState;
 }
@@ -518,6 +573,7 @@ function buildLayerToggles(m) {
       st[l.id] = input.checked;
       m.viewer.setLayer(l.id, input.checked);
       persistLayers(m);
+      syncUrl(); // reflect the objects/enemies (etc.) flag in the deep link
     });
     displayLayers.appendChild(label);
   }
@@ -564,11 +620,11 @@ function wireCrt() {
   const toggle = document.getElementById('crtToggle');
   const controls = document.getElementById('crtControls');
   const gear = document.getElementById('crtSettings');
-  toggle.addEventListener('change', () => { crt.setEnabled(toggle.checked); persistCrt(); });
+  toggle.addEventListener('change', () => { crt.setEnabled(toggle.checked); persistCrt(); syncUrl(); });
   gear.addEventListener('click', () => gear.classList.toggle('on', controls.classList.toggle('shown')));
 
   // enabled by default; only an explicit prior "off" (or ?crt=0) turns it off.
-  const forced = new URLSearchParams(location.search).get('crt');
+  const forced = BOOT.get('crt');
   const startOn = (forced === '1' || (forced !== '0' && saved.enabled !== false)) && crt.ok;
   toggle.checked = startOn;
   if (!crt.ok) toggle.disabled = true;
@@ -695,18 +751,19 @@ displayLayers.style.display = 'none'; // per-game display toggles appear once a 
 assetLabel.style.display = 'none';    // the Asset + Music sections stay hidden until a game
 updateMusicUI();                      // is picked (the splash is up meanwhile)
 setMenu(true);                        // start with the control window open (discoverable)
-// Keep the title card up until the user picks a game -- unless a ?game= deep link asks for
-// one (?game=sonic&asset=3, asset = leaf index in the list), in which case load it straight.
-const params = new URLSearchParams(location.search);
-const startGame = GAMES.find(g => g.id === params.get('game'));
-const startAsset = parseInt(params.get('asset') ?? params.get('level'), 10);
+// Keep the title card up until the user picks a game -- unless a ?game= deep link asks for one
+// (e.g. ?game=sonic&level=green-hills-act-1), in which case load it straight. `level` takes a
+// stable slug or a numeric index; `asset` is the legacy index-only alias.
+const startGame = GAMES.find(g => g.id === BOOT.get('game'));
 // ?debug=1 exposes the mount table for the headless screenshot driver; ?seed=N makes
 // randomized object placement (Fort) reproducible (consumed by the shared layers code).
-if (params.get('debug')) window.__studio = { mounts, get activeId() { return activeId; } };
-window.__studioSeed = params.get('seed') ? parseInt(params.get('seed'), 10) : null;
+if (BOOT.get('debug')) window.__studio = { mounts, get activeId() { return activeId; } };
+window.__studioSeed = BOOT.get('seed') ? parseInt(BOOT.get('seed'), 10) : null;
 if (startGame) {
   selectGame(startGame.id).then(() => {
     const m = mounts.get(startGame.id);
-    if (m && Number.isInteger(startAsset) && startAsset > 0 && startAsset < m.leaves.length) selectAsset(m, startAsset);
+    if (!m) return;
+    const idx = resolveLevel(m, BOOT.get('level') ?? BOOT.get('asset'));
+    if (idx >= 0) selectAsset(m, idx); // no-op if it's already the default-loaded leaf
   });
 }

@@ -16,6 +16,22 @@ python3 -m http.server 8000
 # open http://localhost:8000/
 ```
 
+## Deep links
+
+The Studio mirrors its state into the URL, so every view is a copyable link and any game/level
+opens directly:
+
+- `?game=<id>` — the game (`sonic`, `fort`, `turrican`, `marble`, `sml`, `stuntcar`, `elite`).
+- `?level=<slug>` — the level/asset, by a stable readable slug shown in the address bar
+  (e.g. `?game=sonic&level=sky-base-act-3`, `?game=elite&level=cobra-mk-iii`). A numeric index
+  is also accepted (and rewritten to the slug); `?asset=<n>` is the legacy index-only alias.
+- `?objects=0|1` — force the **objects & enemies** overlay off/on (default on for games that
+  have it).
+- `?crt=0|1` — force the CRT filter off/on (default on).
+
+The address bar updates as you switch games, levels, and toggles, so you can just copy the
+current URL to share exactly what you're looking at.
+
 ## Layout
 
 - `index.html` — the **Studio**: a single full-screen front-end for all games. A floating menu
