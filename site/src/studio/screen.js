@@ -329,7 +329,7 @@ void main() {
 const PROFILE_DEFAULTS = {
   crt: {
     noise: 0.12, lumaSmear: 0.7, iqBlur: 1.5, saturation: 1.1, phaseSpeed: 0.5,
-    beamFocus: 0.55, beamBloom: 2.2, maskType: 1.0, maskStrength: 0.3, tvLines: 400,
+    beamFocus: 0.55, beamBloom: 2.2, maskType: 1.0, maskStrength: 0.65, tvLines: 400,
     curvature: 0.7, glow: 0.15,
     // line counts (decoupled): signalLines = the vertical resolution of the simulated source
     // signal (drives the NTSC/dot-crawl artefact scale); scanLines = the number of beam scanlines.
