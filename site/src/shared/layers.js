@@ -219,6 +219,7 @@ export async function buildPools(level, data, { random = Math.random, stampTex }
       const p = pool.patrol;
       const dir0 = !p || p.start === 'random' ? (random() < 0.5 ? 1 : -1)
         : (p.start === 'left' ? -1 : 1);
+      const phase0 = (p && p.startPhase) || 0;
       let phases = null;
       if (v.dirStamps) {
         phases = { 1: [], '-1': [] };
@@ -231,7 +232,7 @@ export async function buildPools(level, data, { random = Math.random, stampTex }
             phases[dir].push(ph);
           }
         }
-        (phases[dir0][0] || {}).visible = true;
+        (phases[dir0][phase0] || {}).visible = true;
       }
       if (p) {
         patrols.push({
@@ -239,7 +240,8 @@ export async function buildPools(level, data, { random = Math.random, stampTex }
           stepPx: p.stepPx || 8,
           stepFrames: p.stepFrames || 1,
           updatesPerStep: p.updatesPerStep || 1,
-          dir0, dir: dir0, dx: 0, acc: 0, upd: 0, phase: 0, phases,
+          slide: !!p.slide, startPhase: phase0,
+          dir0, dir: dir0, dx: 0, acc: 0, upd: 0, phase: phase0, phases,
         });
       }
     }

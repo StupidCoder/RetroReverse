@@ -72,9 +72,15 @@ colours are `#rrggbb` strings; grids are row-major.
       // candidate's inclusive [minDx, maxDx] span flips the direction (and the
       // facing) and moves the other way in the same update — mirroring the game
       // engines' probe-reverse-retry loops. minDx == maxDx == 0 stands still.
+      // With `slide` the phase is the object's SUB-CELL POSITION instead: it
+      // walks up with the direction and down again after a reversal, the stepPx
+      // move commits when it wraps, and a span edge turns the walk around in
+      // place (Fort's mines creep 2px per update this way; their dirStamps are
+      // the same art at four sub-cell offsets). `startPhase` is the rest phase.
       // Spans are precomputed against the static map from the engine's own
       // turn-around rule; mover-vs-mover reversal (tank meets tank) isn't modelled.
       "patrol": { "stepPx": 8, "stepFrames": 8, "updatesPerStep": 1,
+                  "slide": false, "startPhase": 0,
                   "start": "random" },    // initial direction: "random"|"right"|"left"
       "variants": [                       // one variant per placement, picked at random
         { "stamps": [{ "dx": 0, "dy": -8, "tile": 73 }, ...],   // atlas tiles stamped at offsets

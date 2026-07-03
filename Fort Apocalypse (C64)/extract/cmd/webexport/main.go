@@ -53,12 +53,17 @@ type jsonVariant struct {
 // patrol: back-and-forth movement, played by the viewer (site/FORMAT.md):
 // every stepFrames engine frames one update fires (phase +1); every
 // updatesPerStep-th update the placement moves stepPx in its current
-// direction, reversing at the candidate's [minDx,maxDx] span.
+// direction, reversing at the candidate's [minDx,maxDx] span. In slide mode
+// the phase is the object's sub-cell position instead: it walks up/down with
+// the direction, the stepPx move commits when it wraps, and a span edge
+// turns the walk around without a jump (Fort's mines).
 type jsonPatrol struct {
 	StepPx         int     `json:"stepPx"`
 	StepFrames     float64 `json:"stepFrames"`
 	UpdatesPerStep int     `json:"updatesPerStep,omitempty"` // default 1
-	Start          string  `json:"start"`                    // "random" | "right" | "left"
+	Slide          bool    `json:"slide,omitempty"`
+	StartPhase     int     `json:"startPhase,omitempty"` // rest/reset phase
+	Start          string  `json:"start"`                // "random" | "right" | "left"
 }
 
 // objectPools: the game seeds prisoners/tanks/mines at level load — the viewer
@@ -279,27 +284,18 @@ func run(prgPath, outDir string) error {
 				{Stamps: []jsonStamp{{0, 0, 0x6C}, {8, 0, 0x6D}, {16, 0, 0x6E}, {8, -8, 0x70}}},
 			},
 		})
-		// SPM slide phases: the $963C char pairs depict the mine creeping
-		// across its 2-cell pair — $5B $5C straddling, $5D $5E leaning, $5F
-		// fully in the right cell, $40 fully in the left cell. The engine
-		// commits the column move when the phase wraps, so in the viewer
-		// (which moves at the END of each 4-update cycle) the stamps of the
-		// late phases carry the destination cell's offset — otherwise the
-		// mine snaps back a cell mid-slide. Cycle rotated to start at the
-		// full craft so the static frame shows the recognisable mine; the
-		// left cycle is the same art played backwards, offsets relative to
-		// the pre-move column.
-		spmRight := [][]jsonStamp{
+		// SPM slide phases: the $963C char pairs are the SAME 26-pixel mine at
+		// four sub-cell positions — blob centres 4.5 / 6.5 / 8.5 / 10.5 px
+		// within the 2-cell pair, i.e. a 2px step per phase. The phase counter
+		// IS the mine's sub-cell position (it walks down again moving left, and
+		// the column commits on wrap), so the viewer plays these in slide mode:
+		// phase-coupled position, identical art both directions, resting on
+		// phase 1 (the classic straddling mine).
+		spmPhases := [][]jsonStamp{
+			{{0, 0, 0x40}},
 			{{0, 0, 0x5B}, {8, 0, 0x5C}},
 			{{0, 0, 0x5D}, {8, 0, 0x5E}},
 			{{8, 0, 0x5F}},
-			{{8, 0, 0x40}},
-		}
-		spmLeft := [][]jsonStamp{
-			{{0, 0, 0x5B}, {8, 0, 0x5C}},
-			{{0, 0, 0x40}},
-			{{0, 0, 0x5F}},
-			{{-8, 0, 0x5D}, {0, 0, 0x5E}},
 		}
 		const bandMin, bandMax = fortgfx.SPMBandMin, fortgfx.SPMBandMax
 		var spmSpots [][]int
@@ -313,9 +309,9 @@ func run(prgPath, outDir string) error {
 		}
 		jl.ObjectPools = append(jl.ObjectPools, jsonPool{
 			Count: 13, Candidates: spmSpots, // base difficulty (13 / 26 / 39 by variant)
-			Patrol: &jsonPatrol{StepPx: 8, StepFrames: 6.5, UpdatesPerStep: 4, Start: "right"},
+			Patrol: &jsonPatrol{StepPx: 8, StepFrames: 6.5, Slide: true, StartPhase: 1, Start: "right"},
 			Variants: []jsonVariant{
-				{DirStamps: &jsonDirStamps{Right: spmRight, Left: spmLeft}},
+				{DirStamps: &jsonDirStamps{Right: spmPhases, Left: spmPhases}},
 			},
 		})
 		var heliSpots [][]int

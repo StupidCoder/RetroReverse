@@ -30,7 +30,8 @@ export class AnimRunner {
     this.spriteSteps = [];  // { sprite, steps:[{tex,frames}], idx, acc }
     this.movePaths = [];    // { sprite, baseX, baseY, path, t }
     this.patrols = [];      // { group, baseX, dx, dir, dir0, minDx, maxDx, stepPx,
-                            //   stepFrames, updatesPerStep, acc, upd, phase, phases }
+                            //   stepFrames, updatesPerStep, slide, startPhase,
+                            //   acc, upd, phase, phases }
     this.fx = [];           // { tick(frames), reset() }
   }
 
@@ -55,9 +56,9 @@ export class AnimRunner {
       o.t = 0; o.sprite.x = o.baseX + o.path[0][0]; o.sprite.y = o.baseY + o.path[0][1];
     }
     for (const o of this.patrols) {
-      o.acc = 0; o.upd = 0; o.phase = 0; o.dx = 0; o.dir = o.dir0;
+      o.acc = 0; o.upd = 0; o.phase = o.startPhase || 0; o.dx = 0; o.dir = o.dir0;
       o.group.x = o.baseX;
-      this._patrolShow(o, o.dir, 0);
+      this._patrolShow(o, o.dir, o.phase);
     }
     for (const f of this.fx) f.reset();
   }
@@ -114,18 +115,42 @@ export class AnimRunner {
         o.acc -= o.stepFrames;
         o.upd++;
         if (o.maxDx <= o.minDx) continue; // boxed in: stands still, no walk phases
-        o.phase++;
-        if (o.upd % o.updatesPerStep === 0) {
-          // step stepPx in the current direction; at the span edge flip the
-          // direction (and the facing) and move the other way in the same
-          // update, like the engines' probe-reverse-retry loops
-          let nd = o.dx + o.dir * o.stepPx;
-          if (nd < o.minDx || nd > o.maxDx) {
+        if (o.slide) {
+          // phase-coupled creep (Fort's mines): the phase IS the sub-cell
+          // position — it walks up/down with the direction, the cell commits
+          // when it wraps, and a span edge just turns the walk around (the
+          // engine's probe-reverse-retry never moves a whole cell at once)
+          const n = o.phases[1].length;
+          const step = (dir) => {
+            let m = o.phase + dir;
+            let nd = o.dx;
+            if (m >= n) { m = 0; nd += o.stepPx; }
+            else if (m < 0) { m = n - 1; nd -= o.stepPx; }
+            return { m, nd };
+          };
+          let s = step(o.dir);
+          if (s.nd < o.minDx || s.nd > o.maxDx) {
             o.dir = -o.dir;
-            nd = o.dx + o.dir * o.stepPx;
+            s = step(o.dir);
           }
-          if (nd >= o.minDx && nd <= o.maxDx) o.dx = nd;
-          o.group.x = o.baseX + o.dx;
+          if (s.nd >= o.minDx && s.nd <= o.maxDx) {
+            o.dx = s.nd; o.phase = s.m;
+            o.group.x = o.baseX + o.dx;
+          }
+        } else {
+          o.phase++;
+          if (o.upd % o.updatesPerStep === 0) {
+            // step stepPx in the current direction; at the span edge flip the
+            // direction (and the facing) and move the other way in the same
+            // update, like the engines' probe-reverse-retry loops
+            let nd = o.dx + o.dir * o.stepPx;
+            if (nd < o.minDx || nd > o.maxDx) {
+              o.dir = -o.dir;
+              nd = o.dx + o.dir * o.stepPx;
+            }
+            if (nd >= o.minDx && nd <= o.maxDx) o.dx = nd;
+            o.group.x = o.baseX + o.dx;
+          }
         }
         this._patrolShow(o, o.dir, o.phase);
       }

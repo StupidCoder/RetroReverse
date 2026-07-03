@@ -185,15 +185,18 @@ export class LevelViewer {
     this.poolLayer.removeChildren();
     const level = this.level;
     if (!level || !(level.objectPools || []).length) return;
-    const seed = typeof window !== 'undefined' ? window.__studioSeed : null;
-    const random = rng(seed);
+    // One seed per re-roll: every wrap copy replays the same rng stream, so
+    // the three cylinder copies are identical — panning across the seam must
+    // never show an object "teleporting". Without ?seed= a fresh random seed
+    // is drawn per re-roll (placements still re-randomize per toggle).
+    const fixed = typeof window !== 'undefined' ? window.__studioSeed : null;
+    const seed = fixed != null && !Number.isNaN(fixed) ? fixed : (Math.random() * 0x7fffffff) | 0;
     const copies = this.meta.wrap === 'x' ? 3 : 1;
     const stampTex = (tileId) => this.tilemap.tileTexture(tileId);
     for (let i = 0; i < copies; i++) {
-      // each wrap copy re-seeds so seeded runs place (and move) identically;
       // group positions are container-local, so the copy offset composes
       const { container, patrols } = await buildPools(level, this.data,
-        { random: i === 0 ? random : rng(seed), stampTex });
+        { random: rng(seed), stampTex });
       container.x = i * this.levelW;
       this.poolLayer.addChild(container);
       this.anim.patrols.push(...patrols);

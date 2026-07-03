@@ -970,7 +970,13 @@ until the next level start.
 **Behavior:** a 2-cell craft that flies horizontally, animating
 through 4 phases per cell of travel (state += $10 mod $40, char pairs
 from $963C: `$40 —`, `$5B $5C`, `$5D $5E`, `— $5F`); the column
-advances one cell when the phase wraps ($9603/$9607). With 15 of the
+advances one cell when the phase wraps ($9603/$9607). The four pairs
+are **the same 26-pixel mine drawn at four sub-cell positions** (blob
+centres 4.5/6.5/8.5/10.5 px within the pair) — the phase counter *is*
+the mine's position in 2px micro-steps, walking down again when it
+flies left. So mines glide in 2px increments while every other char
+actor moves whole cells, and a reversal simply turns the phase walk
+around — no jump. With 15 of the
 39 slots serviced per main-loop pass, each mine updates every 39/15 =
 **2.6 passes ≈ 6.5 frames** — a phase change per update, a cell of
 travel per 4 updates ≈ 26 frames (the loop free-runs at ≈2.5 frames
