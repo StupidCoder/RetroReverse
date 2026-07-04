@@ -95,12 +95,13 @@ func DecodeDL(dl []byte, stack []Mat43, cur Mat43, mat int) []Tri {
 					tris = append(tris, Tri{V: [3]Vertex{b, a, c}, Mat: mat})
 				}
 			}
-		case 3: // quad strip: every second vertex completes a quad
+		case 3: // quad strip: vertices v0 v1 v2 v3… form quads (v0,v1,v3,v2) — the last
+			// two swap, so the spatial cycle is a→b→c→d with c the NEWEST vertex.
 			if n >= 4 && n%2 == 0 {
 				a, b, c, d := verts[n-4], verts[n-3], verts[n-1], verts[n-2]
 				tris = append(tris,
-					Tri{V: [3]Vertex{a, b, d}, Mat: mat},
-					Tri{V: [3]Vertex{a, d, c}, Mat: mat})
+					Tri{V: [3]Vertex{a, b, c}, Mat: mat},
+					Tri{V: [3]Vertex{a, c, d}, Mat: mat})
 			}
 		}
 	}

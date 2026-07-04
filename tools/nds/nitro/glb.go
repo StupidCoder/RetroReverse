@@ -179,11 +179,15 @@ func ExportGLB(m Model, texs map[string]Texture) ([]byte, error) {
 		tris := byMat[mi]
 		var pos, uv, col []float32
 		dims, hasTex := texDims[mi]
+		us, vs := 1.0, 1.0
+		if mi < len(m.Materials) {
+			us, vs = m.Materials[mi].UVScale()
+		}
 		for _, t := range tris {
 			for _, v := range t.V {
 				pos = append(pos, float32(v.X), float32(v.Y), float32(v.Z))
 				if hasTex {
-					uv = append(uv, float32(v.U/float64(dims[0])), float32(v.V/float64(dims[1])))
+					uv = append(uv, float32(v.U*us/float64(dims[0])), float32(v.V*vs/float64(dims[1])))
 				}
 				col = append(col, float32(v.C.R)/255, float32(v.C.G)/255, float32(v.C.B)/255)
 			}
