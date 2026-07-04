@@ -147,6 +147,13 @@ const GAMES = [
     group: (lvl) => ({ section: lvl.section, label: lvl.name }),
     // open on Mario's B-Dasher rather than the first list item
     defaultAsset: (models) => models.findIndex(m => m.file === 'kart_MR_a.glb'),
+    // course-only toggles: the "_V" backdrop (camera-locked skybox) and a fly-along
+    // of the CPU racers' drive line. `when` keys off the current manifest entry so
+    // they show only for tracks that ship those pieces.
+    layers: [
+      { id: 'skybox', label: 'Skybox', default: true, when: (m) => !!m.leaves?.[m.currentIdx]?.level?.skybox },
+      { id: 'drive', label: 'Drive the CPU line', default: false, when: (m) => !!m.leaves?.[m.currentIdx]?.level?.path },
+    ],
   },
 ];
 
@@ -252,6 +259,7 @@ function assetEntries(m) {
   const leaf = (lvl, i, name) => ({
     name,
     hud: lvl.name || `Asset ${i + 1}`,
+    level: lvl, // the manifest entry, so asset-specific layer toggles can inspect it
     run: async () => { await game.show(viewer, lvl, i); applyLayers(m); },
   });
 

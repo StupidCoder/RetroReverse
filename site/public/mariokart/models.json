@@ -187,317 +187,377 @@
  {
   "name": "Award ceremony scene",
   "file": "Award-cross_course.glb",
-  "section": "Courses"
- },
- {
-  "name": "Award ceremony scene — skybox",
-  "file": "Award-cross_course_V.glb",
-  "section": "Courses"
+  "section": "Courses",
+  "skybox": "Award-cross_course_V.glb",
+  "path": "Award.path.json"
  },
  {
   "name": "MR_stage1",
   "file": "MR_stage1-MR_stage1.glb",
-  "section": "Battle \u0026 mission stages"
- },
- {
-  "name": "MR_stage1 — skybox",
-  "file": "MR_stage1-MR_stage1_V.glb",
-  "section": "Battle \u0026 mission stages"
+  "section": "Battle \u0026 mission stages",
+  "skybox": "MR_stage1-MR_stage1_V.glb"
  },
  {
   "name": "MR_stage2",
   "file": "MR_stage2-MR_stage2.glb",
-  "section": "Battle \u0026 mission stages"
- },
- {
-  "name": "MR_stage2 — skybox",
-  "file": "MR_stage2-MR_stage2_V.glb",
-  "section": "Battle \u0026 mission stages"
+  "section": "Battle \u0026 mission stages",
+  "skybox": "MR_stage2-MR_stage2_V.glb"
  },
  {
   "name": "MR_stage3",
   "file": "MR_stage3-MR_stage3.glb",
-  "section": "Battle \u0026 mission stages"
- },
- {
-  "name": "MR_stage3 — skybox",
-  "file": "MR_stage3-MR_stage3_V.glb",
-  "section": "Battle \u0026 mission stages"
+  "section": "Battle \u0026 mission stages",
+  "skybox": "MR_stage3-MR_stage3_V.glb"
  },
  {
   "name": "Airship Fortress",
   "file": "airship_course-airship_course.glb",
-  "section": "Courses"
- },
- {
-  "name": "Airship Fortress — skybox",
-  "file": "airship_course-airship_course_V.glb",
-  "section": "Courses"
+  "section": "Courses",
+  "skybox": "airship_course-airship_course_V.glb",
+  "path": "airship_course.path.json"
  },
  {
   "name": "Yoshi Falls",
   "file": "bank_course-bank_course.glb",
-  "section": "Courses"
- },
- {
-  "name": "Yoshi Falls — skybox",
-  "file": "bank_course-bank_course_V.glb",
-  "section": "Courses"
+  "section": "Courses",
+  "skybox": "bank_course-bank_course_V.glb",
+  "path": "bank_course.path.json"
  },
  {
   "name": "Cheep Cheep Beach",
   "file": "beach_course-beach_course.glb",
-  "section": "Courses"
- },
- {
-  "name": "Cheep Cheep Beach — skybox",
-  "file": "beach_course-beach_course_V.glb",
-  "section": "Courses"
+  "section": "Courses",
+  "skybox": "beach_course-beach_course_V.glb",
+  "path": "beach_course.path.json"
  },
  {
   "name": "Cheep Cheep Beach (multiplayer)",
   "file": "beach_courseD-beach_courseD.glb",
-  "section": "Courses"
- },
- {
-  "name": "Cheep Cheep Beach (multiplayer) — skybox",
-  "file": "beach_courseD-beach_courseD_V.glb",
-  "section": "Courses"
+  "section": "Courses",
+  "skybox": "beach_courseD-beach_courseD_V.glb",
+  "path": "beach_courseD.path.json"
  },
  {
   "name": "Tick-Tock Clock",
   "file": "clock_course-clock_course.glb",
-  "section": "Courses"
- },
- {
-  "name": "Tick-Tock Clock — skybox",
-  "file": "clock_course-clock_course_V.glb",
-  "section": "Courses"
+  "section": "Courses",
+  "skybox": "clock_course-clock_course_V.glb",
+  "path": "clock_course.path.json"
  },
  {
   "name": "Figure-8 Circuit",
   "file": "cross_course-cross_course.glb",
-  "section": "Courses"
- },
- {
-  "name": "Figure-8 Circuit — skybox",
-  "file": "cross_course-cross_course_V.glb",
-  "section": "Courses"
+  "section": "Courses",
+  "skybox": "cross_course-cross_course_V.glb",
+  "path": "cross_course.path.json"
  },
  {
   "name": "Figure-8 Circuit (multiplayer)",
   "file": "cross_courseD-cross_courseD.glb",
-  "section": "Courses"
- },
- {
-  "name": "Figure-8 Circuit (multiplayer) — skybox",
-  "file": "cross_courseD-cross_courseD_V.glb",
-  "section": "Courses"
+  "section": "Courses",
+  "skybox": "cross_courseD-cross_courseD_V.glb",
+  "path": "cross_courseD.path.json"
  },
  {
   "name": "Desert Hills",
   "file": "desert_course-desert_course.glb",
-  "section": "Courses"
- },
- {
-  "name": "Desert Hills — skybox",
-  "file": "desert_course-desert_course_V.glb",
-  "section": "Courses"
+  "section": "Courses",
+  "skybox": "desert_course-desert_course_V.glb",
+  "path": "desert_course.path.json"
  },
  {
   "name": "dokan_course (unused)",
   "file": "dokan_course.glb",
-  "section": "Courses"
+  "section": "Courses",
+  "path": "dokan_course.path.json"
  },
  {
   "name": "donkey_course (unused)",
   "file": "donkey_course-donkey_course.glb",
-  "section": "Courses"
- },
- {
-  "name": "donkey_course (unused) — skybox",
-  "file": "donkey_course-donkey_course_V.glb",
-  "section": "Courses"
+  "section": "Courses",
+  "skybox": "donkey_course-donkey_course_V.glb",
+  "path": "donkey_course.path.json"
  },
  {
   "name": "Peach Gardens",
   "file": "garden_course-garden_course.glb",
-  "section": "Courses"
- },
- {
-  "name": "Peach Gardens — skybox",
-  "file": "garden_course-garden_course_V.glb",
-  "section": "Courses"
+  "section": "Courses",
+  "skybox": "garden_course-garden_course_V.glb",
+  "path": "garden_course.path.json"
  },
  {
   "name": "Bowser Castle",
   "file": "koopa_course-koopa_course.glb",
-  "section": "Courses"
- },
- {
-  "name": "Bowser Castle — skybox",
-  "file": "koopa_course-koopa_course_V.glb",
-  "section": "Courses"
+  "section": "Courses",
+  "skybox": "koopa_course-koopa_course_V.glb",
+  "path": "koopa_course.path.json"
  },
  {
   "name": "luigi_course (unused)",
   "file": "luigi_course-luigi_course.glb",
-  "section": "Courses"
- },
- {
-  "name": "luigi_course (unused) — skybox",
-  "file": "luigi_course-luigi_course_V.glb",
-  "section": "Courses"
+  "section": "Courses",
+  "skybox": "luigi_course-luigi_course_V.glb",
+  "path": "luigi_course.path.json"
  },
  {
   "name": "Luigi's Mansion",
   "file": "mansion_course-mansion_course.glb",
-  "section": "Courses"
- },
- {
-  "name": "Luigi's Mansion — skybox",
-  "file": "mansion_course-mansion_course_V.glb",
-  "section": "Courses"
+  "section": "Courses",
+  "skybox": "mansion_course-mansion_course_V.glb",
+  "path": "mansion_course.path.json"
  },
  {
   "name": "Luigi's Mansion (multiplayer)",
   "file": "mansion_courseD-mansion_courseD.glb",
-  "section": "Courses"
+  "section": "Courses",
+  "path": "mansion_courseD.path.json"
  },
  {
   "name": "Mario Circuit",
   "file": "mario_course-mario_course.glb",
-  "section": "Courses"
+  "section": "Courses",
+  "skybox": "mario_course-mario_course_V.glb",
+  "path": "mario_course.path.json"
  },
  {
-  "name": "Mario Circuit — skybox",
-  "file": "mario_course-mario_course_V.glb",
-  "section": "Courses"
+  "name": "mini_block_64",
+  "file": "mini_block_64-mini_block_64.glb",
+  "section": "Battle \u0026 mission stages",
+  "skybox": "mini_block_64-mini_block_64_V.glb"
+ },
+ {
+  "name": "mini_dokan_gc",
+  "file": "mini_dokan_gc-mini_dokan_gc.glb",
+  "section": "Battle \u0026 mission stages",
+  "skybox": "mini_dokan_gc-mini_dokan_gc_V.glb"
  },
  {
   "name": "mini_stage1",
   "file": "mini_stage1-mini_stage1.glb",
-  "section": "Battle \u0026 mission stages"
- },
- {
-  "name": "mini_stage1 — skybox",
-  "file": "mini_stage1-mini_stage1_V.glb",
-  "section": "Battle \u0026 mission stages"
+  "section": "Battle \u0026 mission stages",
+  "skybox": "mini_stage1-mini_stage1_V.glb"
  },
  {
   "name": "mini_stage2",
   "file": "mini_stage2-mini_stage2.glb",
-  "section": "Battle \u0026 mission stages"
- },
- {
-  "name": "mini_stage2 — skybox",
-  "file": "mini_stage2-mini_stage2_V.glb",
-  "section": "Battle \u0026 mission stages"
+  "section": "Battle \u0026 mission stages",
+  "skybox": "mini_stage2-mini_stage2_V.glb"
  },
  {
   "name": "mini_stage3",
   "file": "mini_stage3-mini_stage3.glb",
-  "section": "Battle \u0026 mission stages"
- },
- {
-  "name": "mini_stage3 — skybox",
-  "file": "mini_stage3-mini_stage3_V.glb",
-  "section": "Battle \u0026 mission stages"
+  "section": "Battle \u0026 mission stages",
+  "skybox": "mini_stage3-mini_stage3_V.glb"
  },
  {
   "name": "mini_stage3",
   "file": "mini_stage3-mini_stage3_wate.glb",
-  "section": "Battle \u0026 mission stages"
+  "section": "Battle \u0026 mission stages",
+  "skybox": "mini_stage3-mini_stage3_V.glb"
  },
  {
   "name": "mini_stage4",
   "file": "mini_stage4-mini_stage4.glb",
-  "section": "Battle \u0026 mission stages"
- },
- {
-  "name": "mini_stage4 — skybox",
-  "file": "mini_stage4-mini_stage4_V.glb",
-  "section": "Battle \u0026 mission stages"
+  "section": "Battle \u0026 mission stages",
+  "skybox": "mini_stage4-mini_stage4_V.glb"
  },
  {
   "name": "nokonoko_course (unused)",
   "file": "nokonoko_course-nokonoko_course.glb",
-  "section": "Courses"
+  "section": "Courses",
+  "path": "nokonoko_course.path.json"
+ },
+ {
+  "name": "GCN Baby Park",
+  "file": "old_baby_gc-old_baby_gc.glb",
+  "section": "Retro courses",
+  "skybox": "old_baby_gc-old_baby_gc_V.glb",
+  "path": "old_baby_gc.path.json"
+ },
+ {
+  "name": "N64 Choco Mountain",
+  "file": "old_choco_64-old_choco_64.glb",
+  "section": "Retro courses",
+  "skybox": "old_choco_64-old_choco_64_V.glb",
+  "path": "old_choco_64.path.json"
+ },
+ {
+  "name": "SNES Choco Island 2",
+  "file": "old_choco_sfc-old_choco_sfc.glb",
+  "section": "Retro courses",
+  "skybox": "old_choco_sfc-old_choco_sfc_V.glb",
+  "path": "old_choco_sfc.path.json"
+ },
+ {
+  "name": "SNES Donut Plains 1",
+  "file": "old_donut_sfc-old_donut_sfc.glb",
+  "section": "Retro courses",
+  "skybox": "old_donut_sfc-old_donut_sfc_V.glb",
+  "path": "old_donut_sfc.path.json"
+ },
+ {
+  "name": "N64 Frappe Snowland",
+  "file": "old_frappe_64-old_frappe_64.glb",
+  "section": "Retro courses",
+  "skybox": "old_frappe_64-old_frappe_64_V.glb",
+  "path": "old_frappe_64.path.json"
+ },
+ {
+  "name": "N64 Banshee Boardwalk",
+  "file": "old_hyudoro_64-old_hyudoro_64.glb",
+  "section": "Retro courses",
+  "skybox": "old_hyudoro_64-old_hyudoro_64_V.glb",
+  "path": "old_hyudoro_64.path.json"
+ },
+ {
+  "name": "GCN Mushroom Bridge",
+  "file": "old_kinoko_gc-old_kinoko_gc.glb",
+  "section": "Retro courses",
+  "skybox": "old_kinoko_gc-old_kinoko_gc_V.glb",
+  "path": "old_kinoko_gc.path.json"
+ },
+ {
+  "name": "GBA Bowser Castle 2",
+  "file": "old_koopa_agb-old_koopa_agb.glb",
+  "section": "Retro courses",
+  "skybox": "old_koopa_agb-old_koopa_agb_V.glb",
+  "path": "old_koopa_agb.path.json"
+ },
+ {
+  "name": "GBA Luigi Circuit",
+  "file": "old_luigi_agb-old_luigi_agb.glb",
+  "section": "Retro courses",
+  "skybox": "old_luigi_agb-old_luigi_agb_V.glb",
+  "path": "old_luigi_agb.path.json"
+ },
+ {
+  "name": "GCN Luigi Circuit",
+  "file": "old_luigi_gc-old_luigi_gc.glb",
+  "section": "Retro courses",
+  "skybox": "old_luigi_gc-old_luigi_gc_V.glb",
+  "path": "old_luigi_gc.path.json"
+ },
+ {
+  "name": "GCN Luigi Circuit (multiplayer)",
+  "file": "old_luigi_gcD-old_luigi_gcD.glb",
+  "section": "Retro courses",
+  "skybox": "old_luigi_gcD-old_luigi_gcD_V.glb",
+  "path": "old_luigi_gcD.path.json"
+ },
+ {
+  "name": "old_mario_gc (unused)",
+  "file": "old_mario_gc-old_mario_gc.glb",
+  "section": "Retro courses",
+  "path": "old_mario_gc.path.json"
+ },
+ {
+  "name": "SNES Mario Circuit 1",
+  "file": "old_mario_sfc-old_mario_sfc.glb",
+  "section": "Retro courses",
+  "skybox": "old_mario_sfc-old_mario_sfc_V.glb",
+  "path": "old_mario_sfc.path.json"
+ },
+ {
+  "name": "N64 Moo Moo Farm",
+  "file": "old_momo_64-old_momo_64.glb",
+  "section": "Retro courses",
+  "skybox": "old_momo_64-old_momo_64_V.glb",
+  "path": "old_momo_64.path.json"
+ },
+ {
+  "name": "N64 Moo Moo Farm (multiplayer)",
+  "file": "old_momo_64D-old_momo_64D.glb",
+  "section": "Retro courses",
+  "skybox": "old_momo_64D-old_momo_64D_V.glb",
+  "path": "old_momo_64D.path.json"
+ },
+ {
+  "name": "SNES Koopa Beach 2",
+  "file": "old_noko_sfc-old_noko_sfc.glb",
+  "section": "Retro courses",
+  "skybox": "old_noko_sfc-old_noko_sfc_V.glb",
+  "path": "old_noko_sfc.path.json"
+ },
+ {
+  "name": "GBA Peach Circuit",
+  "file": "old_peach_agb-old_peach_agb.glb",
+  "section": "Retro courses",
+  "skybox": "old_peach_agb-old_peach_agb_V.glb",
+  "path": "old_peach_agb.path.json"
+ },
+ {
+  "name": "GBA Sky Garden",
+  "file": "old_sky_agb-old_sky_agb.glb",
+  "section": "Retro courses",
+  "skybox": "old_sky_agb-old_sky_agb_V.glb",
+  "path": "old_sky_agb.path.json"
+ },
+ {
+  "name": "GCN Yoshi Circuit",
+  "file": "old_yoshi_gc-old_yoshi_gc.glb",
+  "section": "Retro courses",
+  "skybox": "old_yoshi_gc-old_yoshi_gc_V.glb",
+  "path": "old_yoshi_gc.path.json"
  },
  {
   "name": "Waluigi Pinball",
   "file": "pinball_course-pinball_course.glb",
-  "section": "Courses"
- },
- {
-  "name": "Waluigi Pinball — skybox",
-  "file": "pinball_course-pinball_course_V.glb",
-  "section": "Courses"
+  "section": "Courses",
+  "skybox": "pinball_course-pinball_course_V.glb",
+  "path": "pinball_course.path.json"
  },
  {
   "name": "Rainbow Road",
   "file": "rainbow_course-rainbow_course.glb",
-  "section": "Courses"
- },
- {
-  "name": "Rainbow Road — skybox",
-  "file": "rainbow_course-rainbow_course_V.glb",
-  "section": "Courses"
+  "section": "Courses",
+  "skybox": "rainbow_course-rainbow_course_V.glb",
+  "path": "rainbow_course.path.json"
  },
  {
   "name": "Shroom Ridge",
   "file": "ridge_course-ridge_course.glb",
-  "section": "Courses"
- },
- {
-  "name": "Shroom Ridge — skybox",
-  "file": "ridge_course-ridge_course_V.glb",
-  "section": "Courses"
+  "section": "Courses",
+  "skybox": "ridge_course-ridge_course_V.glb",
+  "path": "ridge_course.path.json"
  },
  {
   "name": "DK Pass",
   "file": "snow_course-snow_course.glb",
-  "section": "Courses"
- },
- {
-  "name": "DK Pass — skybox",
-  "file": "snow_course-snow_course_V.glb",
-  "section": "Courses"
+  "section": "Courses",
+  "skybox": "snow_course-snow_course_V.glb",
+  "path": "snow_course.path.json"
  },
  {
   "name": "Wario Stadium",
   "file": "stadium_course-stadium_course.glb",
-  "section": "Courses"
- },
- {
-  "name": "Wario Stadium — skybox",
-  "file": "stadium_course-stadium_course_V.glb",
-  "section": "Courses"
+  "section": "Courses",
+  "skybox": "stadium_course-stadium_course_V.glb",
+  "path": "stadium_course.path.json"
  },
  {
   "name": "test1_course (unused)",
   "file": "test1_course-test1_course.glb",
-  "section": "Courses"
+  "section": "Courses",
+  "path": "test1_course.path.json"
  },
  {
   "name": "Delfino Square",
   "file": "town_course-town_course.glb",
-  "section": "Courses"
- },
- {
-  "name": "Delfino Square — skybox",
-  "file": "town_course-town_course_V.glb",
-  "section": "Courses"
+  "section": "Courses",
+  "skybox": "town_course-town_course_V.glb",
+  "path": "town_course.path.json"
  },
  {
   "name": "wario_course",
   "file": "wario_course-stadium_course.glb",
-  "section": "Courses"
+  "section": "Courses",
+  "skybox": "wario_course-stadium_course_V.glb",
+  "path": "wario_course.path.json"
  },
  {
-  "name": "wario_course — skybox",
-  "file": "wario_course-stadium_course_V.glb",
-  "section": "Courses"
+  "name": "StaffRoll",
+  "file": "StaffRoll.glb",
+  "section": "Other"
  },
  {
   "name": "kart_tire_L",
@@ -517,6 +577,11 @@
  {
   "name": "select",
   "file": "select.glb",
+  "section": "Other"
+ },
+ {
+  "name": "test_circle",
+  "file": "test_circle.glb",
   "section": "Other"
  }
 ]
