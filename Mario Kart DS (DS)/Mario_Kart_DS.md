@@ -6,7 +6,7 @@ A reverse-engineering reference for `Mario Kart DS (Europe) (En,Fr,De,Es,It).nds
 * **Part II** — the boot chain: the cartridge header's entry points, the secure area, and how the ARM9 and ARM7 come up and hand off;
 * **Part III** — program architecture: the runtime memory map, how the game initialises through the OS layer, its interrupt and IPC-FIFO setup, and the ARM9↔ARM7 rendezvous — pinned by running the boot on the `tools/arm` core as an oracle;
 * **Part IV** — graphics and data formats: peeling the asset layers (`.carc` → LZ77 → `NARC` archive → NITRO resources), decoding all seven `NSBTX` texture formats, the `NCLR`/`NCGR`/`NSCR` 2D tile pipeline, and the `NSBMD` 3D models (nodes, scene bytecode, GX display lists) — every track texture and UI screen rendered, every menu kart and character exported to GLB;
-* **Part V** — game mechanics: the NKM course map (checkpoints and the lap graph, the CPU drive line, item routes, spawns, objects — the full track layout), with collision and kart physics ahead;
+* **Part V** — game mechanics: the NKM course map (checkpoints and the lap graph, the CPU drive line, item routes, spawns, objects — the full track layout), the engine's object-spawn chain (the NKM loader, its 17 positional section parsers, and the 124-entry map-object descriptor table) and the route-follower that moves objects along their paths, with collision and kart physics ahead;
 * **Appendix A** — toolchain and reproduction.
 
 Methods: purely static analysis of the `.nds` image. The DS needed a new toolchain — the shared 6502/68000/Z80/LR35902 decoders do not apply — so this project is built on the new `tools/nds` cartridge reader (header, FNT/FAT, overlays, BLZ decompression) and the new `tools/arm` ARM/Thumb disassembler and CPU core, with `tools/nds/cmd/ndsinfo` for the container catalog, the game's `mariokartds/extract` `ndsextract` to pull the CPU binaries, and `retroreverse.com/tools/cmd/disarm` / `codetracearm` for the code. All addresses are 32-bit ARM addresses (`$02000000`-style main-RAM addresses, or the ARM9/ARM7 BIOS and I/O regions) unless a *file offset* into the ROM image is explicitly called out; bytes are little-endian. **Parts I–IV are essentially complete (IV: every 2D format, every texture and screen, and the `NSBMD` models — karts, characters and all course scenes with their skyboxes — rendered and exported to GLB in the viewer site; `NCER` cells and `SDAT` remain). Part V has begun: the NKM course map — the full track layout — is decoded and figure-verified for all 59 courses; collision and physics are its frontier.**
@@ -555,9 +555,33 @@ How a lap actually works, read straight from the data: the 52 `CPOI` gates are c
 
 The `rendered/tracks/` figures (59 courses, `extract/cmd/trackmap`) draw it all in one frame: the course geometry top-down, the CPU line (cyan), item line (yellow), every checkpoint gate (red; key checkpoints gold, the lap line white), respawns (magenta), objects (white) and the start (green). That the drive line sits pixel-on-the-asphalt for every course is the joint verification of the model decoder, the NKM decoder and the ×16 world scale.
 
-## 2. Frontier: collision, physics, ghosts
+## 2. How the engine spawns the course objects
 
-*(frontier)* The collision file (Part IV §7: vertices/normals/prisms/octree — the format the kart actually drives on), kart physics, item behaviour, the CPU racers' use of the drive line, and the staff-ghost replay format in `data/Ghost`.
+§1 described the `OBJI` records as data; this section traces, in the ARM9 code, how they become live objects. The chain was found by the pointer-table method: start from the path string the loader uses, follow the literal pools.
+
+**Loading the course map.** The engine addresses the NKM *by name inside the mounted course archive* — the format strings sit together in `.data` (`$021647D8`ff) and their single referrer is the loader at **`$02042064`** (Thumb). It picks the file by game mode: `/course_map.nkm` for a race, `/MissionRun/%s_tool.nkm` for missions, `/Net/net_course_map.nkm` (falling back to `/course_map.nkm`) for download play. (The course NARC's own file table names its members — `course_model.nsbmd`, `course_map.nkm`, **`course_collision.kcl`** — pinning the collision format's name.) The loader allocates a **0x110-byte runtime CourseMap struct**, pointer in the global **`$02175620`**, NKM version word at `+0x10C`.
+
+**17 positional section parsers.** The loader walks the header's 17 offsets in order, calling a **function table at `$0215407C`** — one parser per section, in exactly the OBJI…CAME order §1 assumed, which *proves* the sections are identified by position (no parser checks its magic; each just skips 4 bytes, reads the u16 count, and stores `{ptr, count}` into the CourseMap struct at `8×index`: `OBJI` at `+0x00/+0x04`, `PATH` at `+0x08/+0x0C`, `POIT` at `+0x10/+0x14`, … `CAME` at `+0x80/+0x84`).
+
+**The map-object descriptor table.** Placed objects dispatch through a static table in `.data` at **`$0216B288`**: zero-terminated records of `{u32 objectID, u32 descriptor, u32 auxFn}` — **124 entries**, IDs `0x001`–`0x200`. The map-object manager (`$020D3xxx`, whose literal pools are how the table was found) matches each placed object's ID by **linear scan** (`$020D3452`: compare, step `+0xC`). Every descriptor starts with the **instance size** at `+0x04` and callback slots filled at boot by tiny registration trampolines (e.g. the cow's at `$020918A8`) through registrar thunks (`$0209BEF0`ff) that allocate a 0x2C-byte runtime record: `{+0x08 loadResources, +0x0C unload, +0x10 createInstance, +0x18 category}`.
+
+One chain, verified end to end — object ID **0x134 = the Moo Moo Farm cow**: table entry `{0x134, $021665C4}` → trampoline `$020918A8` → *load* `$0209196C` (literal pool names `cow.nsbmd` + `cow.nsbtp`, stores the model in a global) → *create* `$020918CC`, which reads the instance's back-pointer to its OBJI record (instance`+0x9C`) and consumes the OBJI *settings* field (`LDRH +0x28` — the u16s after position/rotation/scale/ID/route are per-object parameters). `extract/cmd/objtable` dumps the whole table with each descriptor's resources recovered from its callbacks' literal pools: trees per course theme (`BeachTree1`, `Snow_Tree1`…), `teresa` (Boo), `bakubaku` (Cheep Chomp), `flipper` (0x1A9, the Waluigi Pinball flippers, instance size 0xEF4 — the biggest), `PakkunBody/ZHead` (Piranha Plants), `crab`, `sun`, `NsKiller1/2` (Bullet Bills), `IronBall`, `sanbo` (Pokey)…
+
+Three details round out the picture. **(a)** The itembox (`0x65`, 852 placements — the most-placed object in the game) keeps its assets not in course archives but in the shared **`data/Main/MapObj.carc`** (`itembox.nsbmd`, its `.nsbca` bob animation, the shattered `itembox_hahen`); the same archive holds **`grpconf.tbl`**, 91 × 16-byte records `{u16 id, u16 flag, u16 params[5]}` of per-object config (the values pattern as visibility/clip ranges), whose path string sits in `.data` immediately before the descriptor table. **(b)** Descriptors at `$021A7xxx` (IDs `0x159`, `0x1F5`–`0x200`, …) point into the **overlay bank** — battle/mission objects whose code pages in with their mode. **(c)** A handful of simple IDs (`0x1`, `0x3`, `0x6`, `0x9`, `0xC`) share one generic descriptor (`$021580A4`) and differ only in the per-ID `auxFn` — parameterised variants of one water-effect object.
+
+## 3. How route objects move
+
+Objects with a route ID (`OBJI+0x26`) follow the `PATH`/`POIT` sections through a shared route-follower engine — and its point accessors are the code that proves how the raw data binds together.
+
+**The derived path table.** Raw `PATH` entries are 4 bytes (`{u8 index, u8 loop, u16 numPoints}`) with *no start offset* — so which `POIT` points belong to which path is implicit. Immediately after parsing, **`$02042FD8`** builds a derived table (CourseMap`+0x94`) of 8-byte records `{rawPathEntry*, firstPoint*}` by walking the paths **in order, advancing a cursor through `POIT` by `numPoints × 0x14`** — the game's own code executing exactly the accumulation rule `mkds.ParseNKM` implements, upgrading that from inference to fact. The point accessor everything uses is `$02042044`: `point(path, j) = derived[path].points + j*0x14`.
+
+**The follower.** A route-follower state block keeps `{+0x08 path index, +0x0C point index, +0x14 progress t, +0x1C previous point, +0x20 current point}`, with `t` a **fx24 fraction** (1.0 = `0x1000000`) of the current segment. The advance routine (`$020D8D30`ff, the accessor's main caller cluster) steps `t` each frame; on `t ≥ 1.0` it subtracts 1.0, advances the point index, and fetches the next point — wrapping to point 0 **iff the raw `PATH` entry's loop byte is set** (read through the derived record), otherwise reversing/stopping per object. Each object's expanded per-point records (0x54 bytes, factors at `+0x30/+0x34` applied by `SMULL…LSR #12` fixed-point multiplies) rescale the per-frame step per segment — i.e. **constant world speed across segments of different lengths**, with the position interpolated between previous and current points by `t`.
+
+So the answer to "how do objects move" is layered: the *placement* (`OBJI`) names a route; the *route* is a `PATH`-ordered slice of `POIT`; the *follower* advances a normalised fx24 parameter with per-segment speed compensation; and what the object *does* along the way (a Goomba walking, the Airship's Bullet Bills firing) is its descriptor's per-type update callback.
+
+## 4. Frontier: collision, physics, ghosts
+
+*(frontier)* The collision file (`course_collision.kcl` — vertices/normals/prisms/octree, the format the kart actually drives on), kart physics, item behaviour, the CPU racers' use of the drive line, and the staff-ghost replay format in `data/Ghost`. On the object side: the generic factory that allocates instances (descriptor size `+0x04`) and fills the common header before the per-type `create` runs, and the per-type update callbacks themselves.
 
 ---
 
@@ -602,6 +626,10 @@ go run retroreverse.com/tools/cmd/codetracearm -base 0x02380000 -entry 0x0238000
 # Part V — the full track layout: course geometry + NKM overlay (checkpoints, CPU
 # line, item line, spawns, objects) for one course or all of rendered/tracks/
 ( cd extract && go run ./cmd/trackmap ../extracted/files/data/Course/mario_course.carc )
+
+# Part V §2 — the map-object descriptor table ($0216B288): 124 object IDs with their
+# instance sizes and the NSBMD/NSBCA resources recovered from the callbacks' literal pools
+( cd extract && go run ./cmd/objtable )
 ```
 
 Toolchain (all under the `retroreverse.com/tools` module unless noted, this repository):
@@ -622,5 +650,6 @@ Toolchain (all under the `retroreverse.com/tools` module unless noted, this repo
 - **`mariokartds/extract/cmd/modeldump` / `rendermodel` / `exportglb`** — model structure dump; z-buffered software render to PNG (`rendered/models/`); GLB export of all 147 models (characters, karts, every course scene + skybox, including the retro tracks) plus each course's `<name>.path.json` drive line and the `models.json` manifest that `site/public/mariokart/` serves. The Studio site (`site/`) carries them under the "Nintendo DS" system (`site/src/mariokart/viewer.js`), with camera-locked skyboxes and a drive-the-CPU-line fly-through.
 - **`mariokartds/extract/mkds`** — the game-specific plumbing: `LoadModels`/`LoadTextures` (loose files, NARC-embedded models, the cross-archive `<name>Tex.carc` convention) and `ParseNKM`, the course-map decoder.
 - **`mariokartds/extract/cmd/trackmap`** — the track-layout figure generator (`rendered/tracks/`, 59 courses): top-down course geometry at the ×16 world scale, overlaid with every NKM element.
+- **`mariokartds/extract/cmd/objtable`** — dumps the Part V §2 map-object descriptor table from the ARM9 image: 124 `{id, descriptor, auxFn}` records at `$0216B288`, each with its instance size and the resource names recovered from the callbacks' literal pools.
 
 Rendered figures go in `Mario Kart DS (DS)/rendered/`; annotated disassembly in `disasm/`.
