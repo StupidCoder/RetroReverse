@@ -138,6 +138,16 @@ const GAMES = [
     // the docking music (The Blue Danube), rendered from the $BDDC engine through our SID emulator
     music: async () => [{ name: 'Docking — The Blue Danube', url: 'public/elite/music/docking.mp3' }],
   },
+  {
+    id: 'mariokart', name: 'Mario Kart DS', system: 'Nintendo DS', render: '3d',
+    load: () => import('../mariokart/viewer.js').then(m => m.ModelViewer),
+    make: (V, el, hud) => new V(el, hud),
+    list: async (v) => await v.init(), // returns the model list from models.json
+    show: (v, lvl, i) => v.loadModel(i),
+    group: (lvl) => ({ section: lvl.section, label: lvl.name }),
+    // open on Mario's B-Dasher rather than the first list item
+    defaultAsset: (models) => models.findIndex(m => m.file === 'kart_MR_a.glb'),
+  },
 ];
 
 // Turrican's manifest labels worlds 0-based with hex start offsets; make them readable.
@@ -173,6 +183,7 @@ const SYSTEMS = [
   { full: 'Commodore 64', short: 'C64' },
   { full: 'Sega Game Gear', short: 'Game Gear' },
   { full: 'Nintendo Game Boy', short: 'Game Boy' },
+  { full: 'Nintendo DS', short: 'DS' },
 ];
 const CHEVRON = '<svg class="chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg>';
 

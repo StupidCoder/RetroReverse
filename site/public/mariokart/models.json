@@ -1,0 +1,207 @@
+[
+ {
+  "name": "Mario",
+  "file": "P_MR.glb",
+  "section": "Characters"
+ },
+ {
+  "name": "Luigi",
+  "file": "P_LG.glb",
+  "section": "Characters"
+ },
+ {
+  "name": "Peach",
+  "file": "P_PC.glb",
+  "section": "Characters"
+ },
+ {
+  "name": "Daisy",
+  "file": "P_DS.glb",
+  "section": "Characters"
+ },
+ {
+  "name": "Yoshi",
+  "file": "P_YS.glb",
+  "section": "Characters"
+ },
+ {
+  "name": "Toad",
+  "file": "P_KO.glb",
+  "section": "Characters"
+ },
+ {
+  "name": "Bowser",
+  "file": "P_KP.glb",
+  "section": "Characters"
+ },
+ {
+  "name": "Donkey Kong",
+  "file": "P_DK.glb",
+  "section": "Characters"
+ },
+ {
+  "name": "Wario",
+  "file": "P_WR.glb",
+  "section": "Characters"
+ },
+ {
+  "name": "Waluigi",
+  "file": "P_WL.glb",
+  "section": "Characters"
+ },
+ {
+  "name": "Dry Bones",
+  "file": "P_KA.glb",
+  "section": "Characters"
+ },
+ {
+  "name": "R.O.B.",
+  "file": "P_RB.glb",
+  "section": "Characters"
+ },
+ {
+  "name": "Mario — kart A",
+  "file": "kart_MR_a.glb",
+  "section": "Karts"
+ },
+ {
+  "name": "Mario — kart B",
+  "file": "kart_MR_b.glb",
+  "section": "Karts"
+ },
+ {
+  "name": "Mario — kart C",
+  "file": "kart_MR_c.glb",
+  "section": "Karts"
+ },
+ {
+  "name": "Luigi — kart B",
+  "file": "kart_LG_b.glb",
+  "section": "Karts"
+ },
+ {
+  "name": "Luigi — kart C",
+  "file": "kart_LG_c.glb",
+  "section": "Karts"
+ },
+ {
+  "name": "Peach — kart B",
+  "file": "kart_PC_b.glb",
+  "section": "Karts"
+ },
+ {
+  "name": "Peach — kart C",
+  "file": "kart_PC_c.glb",
+  "section": "Karts"
+ },
+ {
+  "name": "Daisy — kart B",
+  "file": "kart_DS_b.glb",
+  "section": "Karts"
+ },
+ {
+  "name": "Daisy — kart C",
+  "file": "kart_DS_c.glb",
+  "section": "Karts"
+ },
+ {
+  "name": "Yoshi — kart B",
+  "file": "kart_YS_b.glb",
+  "section": "Karts"
+ },
+ {
+  "name": "Yoshi — kart C",
+  "file": "kart_YS_c.glb",
+  "section": "Karts"
+ },
+ {
+  "name": "Toad — kart B",
+  "file": "kart_KO_b.glb",
+  "section": "Karts"
+ },
+ {
+  "name": "Toad — kart C",
+  "file": "kart_KO_c.glb",
+  "section": "Karts"
+ },
+ {
+  "name": "Bowser — kart B",
+  "file": "kart_KP_b.glb",
+  "section": "Karts"
+ },
+ {
+  "name": "Bowser — kart C",
+  "file": "kart_KP_c.glb",
+  "section": "Karts"
+ },
+ {
+  "name": "Donkey Kong — kart B",
+  "file": "kart_DK_b.glb",
+  "section": "Karts"
+ },
+ {
+  "name": "Donkey Kong — kart C",
+  "file": "kart_DK_c.glb",
+  "section": "Karts"
+ },
+ {
+  "name": "Wario — kart B",
+  "file": "kart_WR_b.glb",
+  "section": "Karts"
+ },
+ {
+  "name": "Wario — kart C",
+  "file": "kart_WR_c.glb",
+  "section": "Karts"
+ },
+ {
+  "name": "Waluigi — kart B",
+  "file": "kart_WL_b.glb",
+  "section": "Karts"
+ },
+ {
+  "name": "Waluigi — kart C",
+  "file": "kart_WL_c.glb",
+  "section": "Karts"
+ },
+ {
+  "name": "Dry Bones — kart B",
+  "file": "kart_KA_b.glb",
+  "section": "Karts"
+ },
+ {
+  "name": "Dry Bones — kart C",
+  "file": "kart_KA_c.glb",
+  "section": "Karts"
+ },
+ {
+  "name": "R.O.B. — kart B",
+  "file": "kart_RB_b.glb",
+  "section": "Karts"
+ },
+ {
+  "name": "R.O.B. — kart C",
+  "file": "kart_RB_c.glb",
+  "section": "Karts"
+ },
+ {
+  "name": "kart_tire_L",
+  "file": "kart_tire_L.glb",
+  "section": "Other"
+ },
+ {
+  "name": "kart_tire_M",
+  "file": "kart_tire_M.glb",
+  "section": "Other"
+ },
+ {
+  "name": "kart_tire_S",
+  "file": "kart_tire_S.glb",
+  "section": "Other"
+ },
+ {
+  "name": "select",
+  "file": "select.glb",
+  "section": "Other"
+ }
+]

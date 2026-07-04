@@ -1369,6 +1369,7 @@ on-screen position, which is the point this viewer frames every level on.</p>
 `,
   },
   stuntcar: {},
+  mariokart: {},
   elite: {
     loader: `
 <div class="info-eyebrow">Elite · Image &amp; Loader</div>
