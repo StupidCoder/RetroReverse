@@ -469,7 +469,7 @@ function setMenu(open) {
   menuBtn.classList.toggle('hidden', open); // the panel grows out of the button; hide it while open
 }
 menuBtn.addEventListener('click', () => setMenu(true));
-document.getElementById('panelClose').addEventListener('click', () => setMenu(false));
+document.getElementById('panelBar').addEventListener('click', () => setMenu(false));
 
 // ---- info panel (technical details, tabbed) ----
 // A second window, top-right, that fills the space the control window leaves. Its header is a
@@ -520,7 +520,12 @@ function setInfo(open) {
   if (open) renderInfo();
 }
 infoBtn.addEventListener('click', () => setInfo(true));
-document.getElementById('infoClose').addEventListener('click', () => setInfo(false));
+// the bar also hosts the tab buttons -- clicking one of those switches tabs (its own
+// listener above) rather than closing the panel; anywhere else in the bar closes it
+document.getElementById('infoBar').addEventListener('click', (e) => {
+  if (e.target.closest('.info-tab')) return;
+  setInfo(false);
+});
 buildInfoTabs();
 
 // ---- fullscreen ----

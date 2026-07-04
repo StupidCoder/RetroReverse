@@ -166,24 +166,30 @@ html, body {
 }
 .panel.open { opacity: 1; transform: none; pointer-events: auto; }
 
+/* the header stays put while .panel-body scrolls beneath it; clicking it closes the panel */
 .panel-bar {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 8px 8px 4px 16px;
+  padding: 8px 12px 4px 16px;
   user-select: none;
-}
-.panel-bar .group-label { margin: 0; }
-.panel-x {
-  width: 32px; height: 32px;
-  display: grid; place-content: center;
-  border: none; border-radius: 10px;
-  background: transparent; color: var(--muted);
   cursor: pointer;
-  transition: background .15s, color .15s;
+  border-radius: 16px 16px 0 0;
+  transition: background .15s;
 }
-.panel-x:hover { background: rgba(255, 255, 255, .07); color: var(--text); }
-.panel-x svg { width: 16px; height: 16px; display: block; }
+.panel-bar:hover { background: rgba(255, 255, 255, .045); }
+.panel-bar:hover .collapse-hint { color: var(--text); }
+.panel-bar .group-label { margin: 0; }
+
+/* a small up-chevron hints that the (now button-less) header collapses the panel */
+.collapse-hint {
+  width: 28px; height: 28px;
+  display: grid; place-content: center;
+  color: var(--muted);
+  pointer-events: none;
+  transition: color .15s;
+}
+.collapse-hint svg { width: 16px; height: 16px; display: block; }
 
 .panel-body {
   padding: 4px 12px 12px;
@@ -455,7 +461,8 @@ html, body {
 }
 .info-panel.open { opacity: 1; transform: none; pointer-events: auto; }
 
-/* fixed header: a scrollable row of tabs + a close button */
+/* fixed header: a scrollable row of tabs, plus its own background is clickable to close
+   the panel (the tabs stop that click from propagating -- see main.js) */
 .info-bar {
   display: flex;
   align-items: center;
@@ -463,7 +470,11 @@ html, body {
   flex: 0 0 auto;
   padding: 9px 9px 9px 14px;
   border-bottom: 1px solid var(--line);
+  cursor: pointer;
+  transition: background .15s;
 }
+.info-bar:hover { background: rgba(255, 255, 255, .03); }
+.info-bar:hover .collapse-hint { color: var(--text); }
 .info-tabs {
   display: flex;
   gap: 4px;

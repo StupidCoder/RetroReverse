@@ -49,11 +49,11 @@
 
   <!-- the floating control window -->
   <aside id="panel" class="panel">
-    <header class="panel-bar">
+    <header id="panelBar" class="panel-bar" title="Click to close">
       <span class="group-label">Game</span>
-      <button id="panelClose" class="panel-x" aria-label="Close menu" title="Close menu">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18" /></svg>
-      </button>
+      <span class="collapse-hint" aria-hidden="true">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 15l6-6 6 6" /></svg>
+      </span>
     </header>
     <div class="panel-body">
       <div id="gameList" class="list"></div>
@@ -102,11 +102,11 @@
 
   <!-- the technical-details window: fills the space beside the control window -->
   <aside id="info" class="info-panel">
-    <header class="info-bar">
+    <header id="infoBar" class="info-bar" title="Click to close">
       <div id="infoTabs" class="info-tabs"></div>
-      <button id="infoClose" class="panel-x" aria-label="Close details" title="Close">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18" /></svg>
-      </button>
+      <span class="collapse-hint" aria-hidden="true">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 15l6-6 6 6" /></svg>
+      </span>
     </header>
     <div id="infoBody" class="info-body"></div>
   </aside>
