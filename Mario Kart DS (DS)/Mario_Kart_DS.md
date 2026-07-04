@@ -9,7 +9,7 @@ A reverse-engineering reference for `Mario Kart DS (Europe) (En,Fr,De,Es,It).nds
 * **Part V** — game mechanics: track data, kart physics and item behaviour;
 * **Appendix A** — toolchain and reproduction.
 
-Methods: purely static analysis of the `.nds` image. The DS needed a new toolchain — the shared 6502/68000/Z80/LR35902 decoders do not apply — so this project is built on the new `tools/nds` cartridge reader (header, FNT/FAT, overlays) and the new `tools/arm` ARM/Thumb disassembler and CPU core, with `tools/nds/cmd/ndsinfo` for the container catalog and `retroreverse.com/tools/cmd/disarm` / `codetracearm` for the code. All addresses are 32-bit ARM addresses (`$02000000`-style main-RAM addresses, or the ARM9/ARM7 BIOS and I/O regions) unless a *file offset* into the ROM image is explicitly called out; bytes are little-endian. **Part I is complete; Parts II–V are stubs.**
+Methods: purely static analysis of the `.nds` image. The DS needed a new toolchain — the shared 6502/68000/Z80/LR35902 decoders do not apply — so this project is built on the new `tools/nds` cartridge reader (header, FNT/FAT, overlays, BLZ decompression) and the new `tools/arm` ARM/Thumb disassembler and CPU core, with `tools/nds/cmd/ndsinfo` for the container catalog, the game's `mariokartds/extract` `ndsextract` to pull the CPU binaries, and `retroreverse.com/tools/cmd/disarm` / `codetracearm` for the code. All addresses are 32-bit ARM addresses (`$02000000`-style main-RAM addresses, or the ARM9/ARM7 BIOS and I/O regions) unless a *file offset* into the ROM image is explicitly called out; bytes are little-endian. **Parts I–II are complete (the ARM9↔ARM7 IPC protocol is Part II's frontier); Parts III–V are stubs.**
 
 ---
 
@@ -23,6 +23,12 @@ Methods: purely static analysis of the `.nds` image. The DS needed a new toolcha
   - [5. The filesystem: FNT and FAT](#5-the-filesystem-fnt-and-fat)
   - [6. The file catalog](#6-the-file-catalog)
 - [Part II — The boot chain](#part-ii--the-boot-chain)
+  - [1. Two CPUs, two entry points](#1-two-cpus-two-entry-points)
+  - [2. The ARM9 startup stub: CP15, the TCMs and the stacks](#2-the-arm9-startup-stub-cp15-the-tcms-and-the-stacks)
+  - [3. The ARM9 self-decompression (BLZ)](#3-the-arm9-self-decompression-blz)
+  - [4. Autoload, `.bss`, and the handoff to `main`](#4-autoload-bss-and-the-handoff-to-main)
+  - [5. The ARM7 startup](#5-the-arm7-startup)
+  - [6. The two processors meet: shared RAM and the IPC FIFO](#6-the-two-processors-meet-shared-ram-and-the-ipc-fifo)
 - [Part III — Program architecture](#part-iii--program-architecture)
 - [Part IV — Graphics and data formats](#part-iv--graphics-and-data-formats)
 - [Part V — Game mechanics](#part-v--game-mechanics)
@@ -174,7 +180,135 @@ The top-level directories tell the same story: `data/Course` (118 files — the 
 
 # Part II — The boot chain
 
-*(frontier)* How the two CPUs come up: the BIOS's encrypted KEY1 handshake and the **secure area** at `$4000` (the first 16 KiB of the ARM9 binary, secure-CRC `$DE47` at header `$06C`); the ARM9 boot stub at entry `$02000800` and its auto-load list at `$02000A58`; the ARM7 boot at `$02380000`; and the IPC/FIFO synchronisation by which the ARM9 hands the ARM7 its work. Traced with `codetracearm` over the ARM binaries extracted by `ndsinfo`, confirmed on the `tools/arm` core.
+Part I read the header the DS BIOS reads; Part II follows what runs after it. Both CPU images are extracted with the game's `ndsextract` (which also decompresses them — see §3), and traced from the header's entry points with `codetracearm`. What comes out is a pair of near-textbook **NitroSDK** startup stubs (the compiler runtime `crt0`): the ARM9's is the interesting one — it decompresses the whole game in place before jumping to `main` — while the ARM7's is a smaller, uncompressed sibling.
+
+## 1. Two CPUs, two entry points
+
+On power-up each CPU runs its on-chip **BIOS**, which validates the header (the logo and header checksums from Part I), copies each CPU's binary to the RAM address the header names, and jumps to its entry point:
+
+| CPU | ROM offset | → RAM load | Entry | Size (stored) |
+|---|---|---|---|---:|
+| ARM9 | `$004000` | `$02000000` | `$02000800` | `$0E751C` (compressed) |
+| ARM7 | `$141600` | `$02380000` | `$02380000` | `$0289A4` |
+
+The ARM9 binary's first 16 KiB (`$02000000`–`$02003FFF`) is the **secure area** — on a real cartridge it is KEY1/Blowfish-encrypted and the BIOS decrypts it during a challenge/response handshake with the cartridge (the `port 40001A4h` settings and secure-CRC `$DE47` from the header drive that). In this dump the secure area is already decrypted: its first eight bytes read `FF DE FF E7  FF DE FF E7` — the two `$E7FFDEFF` marker words the SDK writes over the encrypted "secure-area ID" once decryption succeeds — so the startup code below is plain ARM. The ARM9 entry sits at `$02000800`, `$800` past the load base, stepping over that ID/marker region.
+
+The ARM9 comes up first; it is the CPU that owns the cartridge and main RAM, and (§6) releases the ARM7.
+
+## 2. The ARM9 startup stub: CP15, the TCMs and the stacks
+
+The entry does two things immediately — kill interrupts, then configure the CP15 system-control coprocessor — before it can even use a stack:
+
+```
+02000800  MOV  r12, #0x04000000        ; I/O base
+02000804  STR  r12, [r12, #0x208]      ; IME = 0x04000000 (bit0 clear) → interrupts off
+02000808  BL   0x02000A5C              ; CP15 / MPU / TCM setup
+```
+
+`sub_02000A5C` is the CP15 sequence (all `MRC`/`MCR p15` — the ARM9's caches, MPU regions and tightly-coupled memories):
+
+```
+02000A5C  MRC  p15, 0, r0, c1, c0, 0   ; read control register
+02000A64  BIC  r0, r0, r1              ; clear cache/MPU enables
+02000A68  MCR  p15, 0, r0, c1, c0, 0
+02000A70  MCR  p15, 0, r0, c7, c5, 0   ; invalidate I-cache
+02000A74  MCR  p15, 0, r0, c7, c6, 0   ; invalidate D-cache
+02000A78  MCR  p15, 0, r0, c7, c10, 4  ; drain write buffer
+02000A80  MCR  p15, 0, r0, c6, c0, 0   ; MPU protection region 0
+02000A88  MCR  p15, 0, r0, c6, c1, 0   ; MPU protection region 1  …
+```
+
+It programs the MPU protection regions and enables the two **tightly-coupled memories** the ARM9 relies on: **ITCM** at `$01FF8000` (fast code, just below main RAM) and **DTCM** at `$027E0000` (fast data — and, crucially, the stacks). With the TCMs live, the stub sets up a stack per CPU mode by switching mode with `MSR CPSR_c` and pointing `sp` into the top of DTCM:
+
+```
+0200080C  MOV r0,#0x13 ; MSR CPSR_c,r0   ; Supervisor mode
+02000814  LDR r0,=0x027E0000 ; ADD r0,#0x3FC0 ; MOV sp,r0   ; SVC stack at DTCM+0x3FC0
+02000820  MOV r0,#0x12 ; MSR CPSR_c,r0   ; IRQ mode  → its own stack
+02000840  MOV r0,#0x1F ; MSR CPSR_c,r0   ; System mode (the mode main runs in)
+```
+
+DTCM (`$027E0000`, 16 KiB) holds all three exception stacks, packed down from its top (`+$3FC0`). The word-fill helper `sub_02000920` (`ADD r12,r1,r2; STMLTIA r1!,{r0}; …`) is then used to clear/seed a few regions before the heavy lifting.
+
+## 3. The ARM9 self-decompression (BLZ)
+
+The header's "ARM9 size" (`$0E751C`) is a *compressed* size: the bulk of the ARM9 image is packed with Nintendo's **BLZ** — an LZSS variant that decodes **backward**, expanding the image in place. The stub decompresses itself:
+
+```
+0200087C  LDR  r1, =0x02000B4C         ; the NitroSDK "module params" struct
+02000880  LDR  r0, [r1, #0x14]         ; r0 = compressedStaticEnd = 0x020E751C
+02000884  BL   0x02000934              ; MIi_UncompressBackward (BLZ)
+```
+
+`sub_02000934` is the BLZ decompressor itself — it reads the footer at the end of the compressed image and decodes downward:
+
+```
+02000940  LDMDB r0, {r1, r2}           ; r1 = footer[-8] (enc_len | hdr<<24), r2 = footer[-4] (inc_len)
+02000944  ADD   r2, r0, r2             ; r2 = decompressed end
+02000948  SUB   r3, r0, r1, LSR #24    ; r3 = start of control stream (skip hdr_len footer)
+0200094C  BIC   r1, r1, #0xFF000000    ; r1 = enc_len
+02000950  SUB   r1, r0, r1             ; r1 = start of compressed region
+02000960  LDRB  r5, [r3, #-1]!         ; …read flag/data bytes backward, copy back-refs…
+```
+
+The **module-params** struct at `$02000B4C` is the map the runtime uses; decoded:
+
+```
+$02000B4C +0x00  0x021773C0   autoload list start
+          +0x04  0x021773D8   autoload list end        (= end of the decompressed ARM9)
+          +0x08  0x0216F340   autoload data start
+          +0x0C  0x0216F340   static .bss start
+          +0x10  0x021804E0   static .bss end          (= the overlay load base, Part I §4)
+          +0x14  0x020E751C   compressed-static end     → passed to the BLZ decompressor
+          +0x1C  0xDEC00621   NitroSDK signature
+```
+
+The footer values (`enc_len $E351C`, `hdr_len $08`, `inc_len $8FEBC`) put the compressed region at ARM9 offset `$4000` upward (the secure-area/startup stub below it stays verbatim), and give a decompressed size of `$E751C + $8FEBC = $1773D8`. The ARM9 therefore expands from `$02000000`–`$020E751C` to `$02000000`–`$021773D8`, which is exactly why the far calls that follow (e.g. `BL 0x02133DA8`) land in valid code only *after* this step.
+
+BLZ is reimplemented from scratch in Go (`tools/nds`, `DecompressBLZ`) — reversing the compressed stream, running a forward LZSS, and reversing the result. Verified per the decode-reimplement rule: the output is exactly `$1773D8` bytes, its far-call targets disassemble as coherent ARM code, and the tiny 20-byte fourth overlay round-trips to its 32 known bytes (a unit-test golden vector). The game never ships decompressed; `ndsextract` regenerates `arm9_dec.bin` on demand.
+
+## 4. Autoload, `.bss`, and the handoff to `main`
+
+With the image expanded, the stub finishes the C runtime:
+
+- **Autoload** (`sub_020009E0`) walks the `$021773C0`–`$021773D8` list, copying each autoload block from its packed location (`$0216F340`) to its run address — this is how the ITCM/DTCM-resident code and initialised data reach their fast memories.
+- **`.bss` clear** zeroes `$0216F340`–`$021804E0` (`STRCC r0,[r1],#4` loop) — the static zero-initialised data, ending exactly at the overlay base.
+- a **cache clean/invalidate** loop (`MCR p15, c7, …` over 32-byte lines) makes the freshly-written code visible to the instruction side.
+- two far initialisers run (`BL 0x02133DA8`, `BL 0x02142540` — SDK/OS init in the now-decompressed image).
+
+Then the handoff, `main` and the exit vector loaded from the literal pool:
+
+```
+020008F0  LDR r1, =0x02003000          ; main
+020008F4  LDR lr, =0xFFFF0000          ; return address = ARM9 BIOS (halt on return)
+020008F8  BX  r1
+```
+
+`main` at `$02003000` is a thin wrapper — `STMDB sp!,{lr}; BL 0x020365F0; …; BL 0x020365BC; BX lr` — so the real game entry is `$020365F0`, the subject of Part III. If it ever returns, `lr = $FFFF0000` drops the ARM9 into its BIOS.
+
+## 5. The ARM7 startup
+
+The ARM7 binary is **not** compressed (its body disassembles coherently end to end; there is no module-params decompression call), so its `crt0` is shorter. From entry `$02380000`:
+
+```
+02380000  MOV r12,#0x04000000 ; STR r12,[r12,#0x208]   ; IME = 0 (interrupts off)
+02380008  LDR r1,=…  ; MOV r0,#0x03800000 ; CMP;MOVPL   ; clear range in ARM7-private WRAM
+02380020  …STMLTIA r1!,{r0}…                            ; zero ARM7 WRAM
+0238002C  MOV r0,#0x13 ; MSR CPSR_c,r0 ; LDR sp,=0x0380FF00   ; SVC stack (ARM7 WRAM top)
+02380038  MOV r0,#0x12 ; MSR CPSR_c,r0 ; …                    ; IRQ stack (0x0380FFC0)
+02380050  MOV r0,#0x1F ; MSR CPSR_c,r0 ; …                    ; System stack (0x0380FF80)
+02380068  …LDR r3,[r0],#4 ; STR r3,[r1],#4…                   ; copy IRQ vectors / fixed sections
+02380090  BL  0x02380100                                      ; autoload
+02380094  …STRCC r0,[r1],#4…                                  ; .bss clear
+023800C0  LDR r1,=0x037F8534 ; LDR lr,=0xFFFF0000 ; BX r1     ; jump to ARM7 main
+```
+
+The ARM7's stacks live at the top of its private 64 KiB WRAM (`$03800000`–`$0380FFFF`). Its autoload (`sub_02380100`) copies its resident code up into shared WRAM, and — notably — the entry point it finally branches to, `$037F8534`, is *in WRAM*, not in the `$02380000` load region: the ARM7 relocates its hot code to WRAM and runs it there. As with the ARM9, `lr = $FFFF0000` returns to the ARM7 BIOS.
+
+## 6. The two processors meet: shared RAM and the IPC FIFO
+
+Both binaries load into the same 4 MiB main RAM (`$02000000`; ARM9 at the base, ARM7 near the top at `$02380000`), and both reach `main` independently after the sequences above. From there they coordinate through the DS's **inter-processor communication** hardware in the `$04000000` I/O block — the `IPCSYNC` register (`$04000180`, a 4-bit mailbox each way plus an IRQ line) and the `IPCFIFO` (control at `$04000184`, the 64-byte send/receive FIFO at `$04100000`) — with main RAM used for the bulk payloads (input state, sound commands, DMA lists). The ARM9, owning the cartridge, streams the filesystem (Part I) and drives the game; the ARM7 services sound (the single `SDAT` bank), the touchscreen, buttons and wireless, reporting back over the FIFO.
+
+*(frontier)* Mapping the exact IPCSYNC/FIFO handshake and the command protocol between the two `main` routines (`$020365F0` on the ARM9, `$037F8534` on the ARM7) is the next trace — it runs into the per-CPU main loops, so it is picked up alongside Part III.
 
 # Part III — Program architecture
 
@@ -192,28 +326,32 @@ The top-level directories tell the same story: `data/Course` (118 files — the 
 
 # Appendix A — Toolchain and reproduction
 
-Everything in Part I is derived by pure static inspection of the `.nds` image; no emulator, debugger, or third-party tool was used, and nothing was read from released source. Verify the image, then reproduce the catalog:
+Everything in Parts I–II is derived by pure static inspection of the `.nds` image; no emulator, debugger, or third-party tool was used, and nothing was read from released source. Verify the image, then reproduce the catalog and the boot trace:
 
 ```sh
 # identity (size + MD5 pinned in ../README.md#image-files)
 md5 "Mario Kart DS (Europe) (En,Fr,De,Es,It).nds"
 
-# header, integrity checks, overlay/filesystem summary
+# Part I — header, integrity checks, overlay/filesystem summary (and -files / -tree)
 go run retroreverse.com/tools/nds/cmd/ndsinfo "Mario Kart DS (Europe) (En,Fr,De,Es,It).nds"
 
-# full file catalog (ID, byte range, size, path)
-go run retroreverse.com/tools/nds/cmd/ndsinfo -files "Mario Kart DS (Europe) (En,Fr,De,Es,It).nds"
+# Part II — extract + BLZ-decompress the ARM9/ARM7 binaries and overlays into extracted/
+( cd extract && go run ./cmd/ndsextract "../Mario Kart DS (Europe) (En,Fr,De,Es,It).nds" )
 
-# directory tree with per-directory file counts
-go run retroreverse.com/tools/nds/cmd/ndsinfo -tree "Mario Kart DS (Europe) (En,Fr,De,Es,It).nds"
+# trace the ARM9 boot chain from its entry (ARM state) over the decompressed image
+go run retroreverse.com/tools/cmd/codetracearm -base 0x02000000 -entry 0x02000800 extracted/arm9_dec.bin
+
+# trace the ARM7 boot chain from its entry
+go run retroreverse.com/tools/cmd/codetracearm -base 0x02380000 -entry 0x02380000 extracted/arm7.bin
 ```
 
-Toolchain (all under the `retroreverse.com/tools` module, this repository):
+Toolchain (all under the `retroreverse.com/tools` module unless noted, this repository):
 
-- **`tools/nds`** — the Nintendo DS cartridge container reader: header parse + CRC-16 verification, the FAT, and the FNT directory-tree walk that names every file. New for this project.
-- **`tools/nds/cmd/ndsinfo`** — the container inspector used throughout Part I (`-files`, `-tree`, `-grep`).
-- **`tools/arm`** — the ARM9/ARM7 disassembler and CPU core (ARMv5TE + ARMv4T; ARM + Thumb, interworking-aware), for Parts II–V. New for this project.
+- **`tools/nds`** — the Nintendo DS cartridge container reader: header parse + CRC-16 verification, the FAT, the FNT directory-tree walk, the ARM9 overlay table, and the **BLZ** (backward-LZSS) decompressor used by the ARM9 and its overlays. New for this project.
+- **`tools/nds/cmd/ndsinfo`** — the container inspector for Part I (`-files`, `-tree`, `-grep`).
+- **`tools/arm`** — the ARM9/ARM7 disassembler and CPU core (ARMv5TE + ARMv4T; ARM + Thumb, interworking-aware). New for this project.
 - **`tools/cmd/disarm`** — linear ARM/Thumb disassembler.
-- **`tools/cmd/codetracearm`** — recursive-descent code-tracer that follows ARM↔Thumb interworking, for tracing the extracted ARM9/ARM7 binaries and overlays.
+- **`tools/cmd/codetracearm`** — recursive-descent code-tracer that follows ARM↔Thumb interworking; used to trace both boot chains.
+- **`mariokartds/extract/cmd/ndsextract`** — the game's extractor: writes `arm9.bin`/`arm7.bin` and the overlays, and their BLZ-decompressed forms (`arm9_dec.bin`, `ovl9_00N_dec.bin`), into `extracted/` (regenerable, git-ignored).
 
-Game-specific extraction tools live in the `mariokartds/extract` module (`Mario Kart DS (DS)/extract`); rendered figures go in `Mario Kart DS (DS)/rendered/`.
+Rendered figures go in `Mario Kart DS (DS)/rendered/`; annotated disassembly in `disasm/`.

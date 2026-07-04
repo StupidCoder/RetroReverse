@@ -9,6 +9,7 @@
 */extract/placeshot
 */extract/objsettle
 */extract/spawncheck
+*/extract/ndsextract
 
 # regenerable extraction output
 */extracted/
