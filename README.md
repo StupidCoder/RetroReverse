@@ -131,8 +131,13 @@ To do:
       setup (IE bit 18 = IPC recv), and the ARM9↔ARM7 **IPCSYNC rendezvous** at
       `$0205BB54` — which this game reaches **before `main`** (unlike Mario Kart DS).
       Overlay-load path traced (`FS_StartOverlay` `$0205DD9C`: BLZ-decompress-if-flagged
-      + run constructors, sharing the crt0's decompressor). Next: dual-core oracle for
-      the overlay-to-state map (which of the 103 overlays backs which world/minigame).
+      + run constructors, sharing the crt0's decompressor). Part III §6: built a reusable
+      **dual-core oracle** (`tools/nds/dsmachine` + `extract/cmd/dualoracle`) — both CPUs
+      on shared RAM wired by IPCSYNC + the IPC FIFOs. It **clears the rendezvous** (both
+      sync nibbles ratchet to 0; the key was honouring `WaitByLoop` so the cores' echo
+      handshake converges) and runs the ARM9 into the post-sync **PXI FIFO exchange**,
+      where it waits on the ARM7's boot message. Next: model the ARM7's SPI/firmware init
+      so it replies → the frame loop and the overlay-to-state map.
 * Tools
     * Disassembler should be better at segmenting functions; currently jumps within a function are treated as separate sub-routines; try to document parameters of sub-routines (which registers are used?)
 
@@ -233,7 +238,7 @@ RetroReverse/
 ├── Super Mario 64 DS (DS)/
 │   ├── Super Mario 64 DS (Europe) ….nds   # raw DS cartridge image (pinned by MD5 in Image files)
 │   ├── Super_Mario_64_DS.md     # cartridge + game writeup (Parts I-III done; rest stubbed)
-│   ├── extract/                 # module supermario64ds/extract — ndsextract, bootoracle
+│   ├── extract/                 # module supermario64ds/extract — ndsextract, bootoracle, dualoracle
 │   ├── disasm/                  # annotated ARM9/ARM7 disassembly
 │   └── rendered/                # generated PNGs
 │
@@ -319,6 +324,7 @@ per-platform subfolder (`c64/`, `amiga/`, …).
 | `gameboy` | Game Boy (DMG) machine model driving the `sm83` core as an *emulation oracle*: the MBC1 mapper, the full memory map (VRAM/WRAM/OAM/HRAM/IO), and the timer and LCD scanline counter with their VBlank/STAT/timer interrupts — enough to run a real ROM through its boot and per-frame loop, then read back VRAM/OAM (`RunFrame`/`RunFrames`, plus a PC histogram and a VRAM write-watch). Also the fixed DMG **graphics decoders** (`gb.go`): the 2bpp tile, the `BGP`/`OBP` palette registers, tile-sheet and 32×32 background-map composition (`$8000`/signed-`$8800` addressing), and an OAM/sprite screen compositor (`RenderScreen`). Usable by any Game Boy game; MBC1 today. |
 | `nds` | Nintendo DS cartridge (`.nds`) container reader: the ROM header (with CRC-16 verification), the ARM9/ARM7 binaries and their overlay tables, the on-cartridge filesystem — the **FAT** (flat start/end offset table) joined to the **FNT** directory tree to resolve every file's full path and ID — and the **BLZ** backward-LZSS decompressor the SDK applies to the ARM9 static module and overlays (`DecompressBLZ`/`IsBLZ`). The DS counterpart of `amiga/adf`; makes no assumptions about the game inside. Usable by any DS title. |
 | `nds/cmd/ndsinfo` | DS container inspector built on `nds`: prints the header, integrity checks (header/logo CRC), the ARM9/ARM7/overlay layout and the filesystem catalog (`-files` lists every file's ID/range/size/path, `-tree` groups by directory, `-grep` filters). |
+| `nds/dsmachine` | Reusable **dual-core DS machine**: the ARM9 and ARM7 on two `arm` cores over one shared main RAM + WRAM, each with private TCM/WRAM/BIOS, wired by the cross-wired **IPCSYNC** mailbox and the two **IPC FIFOs**, a per-core interrupt controller and the BIOS `SWI`s. Enough of the "full machine" to co-run both boot chains and clear the ARM9↔ARM7 rendezvous a single core cannot — the frontier both DS games' single-core oracles stop at. Game-neutral; IPC cross-wiring unit-tested. |
 | `nds` LZ77 + NARC | The DS filesystem's compression and bundling: `DecompressLZ77` (forward LZ10/LZ11, distinct from the boot `BLZ`), `Decompress` (transparent), and `ParseNARC` (splits a Nintendo ARChive, decompressing a `.carc` wrapper first). Unit-tested. |
 | `nds/nitro` | NITRO-System resource decoders. 3D textures: `DecodeNSBTX` turns a `BTX0`/`TEX0` set into Go images — the shared resource-dictionary parse, the `texImageParam`, **all seven** DS texture formats (paletted 2/3/4, A3I5, A5I3, direct, and the 4x4-block-compressed format with its two dedicated `TEX0` regions), BGR555 palettes and name-similarity texture↔palette pairing. 2D tile art: `ParseNCLR`/`ParseNCGR`/`ParseNSCR` + `ComposeScreen`/`TileSheet` decode the palette/character/screen files (incl. the `RPCN` palette variant) and compose full screens. **3D models**: `ParseNSBMD` (nodes/TRS incl. pivot-compressed rotations, SBC scene bytecode, materials with the authoritative tex↔pal binding, shape display lists), `RunSBC` + `DecodeDL` (the GX geometry-command interpreter: all vertex forms, tri/quad strips, joint matrix stack), and `ExportGLB` (standard binary glTF 2.0, textures embedded as PNG, GX wrap modes mapped). (`NCER` sprite cells pending.) |
 

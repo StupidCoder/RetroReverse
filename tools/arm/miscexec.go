@@ -183,6 +183,16 @@ func (c *CPU) exception(mode, vector, returnAddr uint32) {
 	c.branched = true
 }
 
+// Exception enters an exception mode at an arbitrary vector: bank the mode's
+// registers, save the return address in LR and CPSR in SPSR, disable IRQs, switch
+// to ARM state and jump. Exported so a machine model can dispatch a BIOS-style
+// interrupt to a handler address of its choosing — the DS BIOS IRQ path reads the
+// user handler pointer from a fixed location and jumps to it, which the host models
+// with c.Exception(ModeIRQ, handlerPtr, returnAddr).
+func (c *CPU) Exception(mode, vector, returnAddr uint32) {
+	c.exception(mode, vector, returnAddr)
+}
+
 // IRQ raises a normal interrupt, if enabled (I bit clear). Returns whether it was
 // taken. The machine model calls this when its interrupt controller has a pending,
 // unmasked request.

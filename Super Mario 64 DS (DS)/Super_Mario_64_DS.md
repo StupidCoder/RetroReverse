@@ -301,7 +301,15 @@ The defining feature of this game's architecture is its **103 ARM9 overlays** (P
 
 So loading an overlay is: card-DMA its file into its slot, **BLZ-decompress in place if its flag bit is set** — using the *same* backward-LZSS decompressor (`$020048D8`) the `crt0` used on the whole ARM9, its only two callers being the self-decompression and this — then run the record's constructor list to register the module. The overlay *records* are read 32 bytes at a time from the ROM overlay table on demand rather than held in a resident array, so there is no static in-RAM table to read off; the choice of *which* overlay to load is made by the caller.
 
-Which of the 103 overlays backs which part of the game — the castle hub, each painting-world, each of the minigames, the menus — is the natural next question, and it is a genuine **frontier**. That dispatch runs in the frame loop, *past* the IPC rendezvous the single-CPU oracle stops at, so reaching it needs a **dual-core oracle** (ARM9 + ARM7 sharing main RAM, stepping through the `IPCSYNC`/FIFO exchange so the ARM9 gets past `$0205BB54`). Standing that up — the same tool Mario Kart DS's analysis defers — and then watching the scene manager choose overlays is the bridge into Part IV's asset decoding.
+Which of the 103 overlays backs which part of the game — the castle hub, each painting-world, each minigame, the menus — is the natural next question, and reaching it means getting the ARM9 *past* the rendezvous the single-CPU oracle stops at.
+
+## 6. The dual-core oracle: past the rendezvous
+
+The rendezvous only blocks a *lone* ARM9, so the next tool is a **dual-core oracle** — both processors on `tools/arm` cores over one shared main RAM, wired by the DS's IPC hardware. It lives in `tools/nds/dsmachine` (game-neutral, for any DS title) and models the "full machine" the bare CPU core leaves to its caller: the shared 4 MiB main RAM and 32 KiB WRAM, each core's private TCM/WRAM and BIOS vectors, the cross-wired **IPCSYNC** mailbox and the two directional **IPC FIFOs**, a per-core interrupt controller, and the BIOS `SWI`s. `bootoracle` was single-core; `dualoracle` co-executes the two.
+
+Watching the two cores run the handshake together resolves it. The routine is a mutual echo-and-count: the ARM7 posts a nibble that counts down `8,7,…,1,0`, reloading to 8 whenever the ARM9's echo lags; the ARM9 (at `$0205BB54`) echoes whatever the ARM7 posts and exits only when it reads a **0** after five or more rounds. The catch is timing — between each post the ARM7 spins in a BIOS `WaitByLoop`, and that delay is exactly what lets the other core's echo catch up, so the model has to *honour* `WaitByLoop` (yield to the other core) rather than skip it as a single-core trace would. With that, **both sync nibbles ratchet cleanly to 0 and the ARM9 clears `$0205BB54`** — the frontier the single-core oracle could not pass — and runs on into the post-sync **PXI** exchange (`$02059E48`), where it waits to *receive* the ARM7's boot message over the FIFO.
+
+That is where the current model settles: the ARM7 reaches its idle loop, but the boot message it should send depends on its firmware/user-settings init read over **SPI**, which the machine stubs to zero. Modelling that ARM7 hardware (SPI, the RTC, the sound/power management the ARM7 owns) is what remains between here and the frame loop — and, with it, the overlay-to-state map. The dual-core scaffold that gets across the rendezvous is the reusable part; the rest is per-subsystem stubbing, and carries straight over to future DS titles.
 
 # Appendix A — Toolchain and reproduction
 
@@ -329,14 +337,20 @@ go run retroreverse.com/tools/cmd/codetracearm -base 0x02380000 -entry 0x0238000
 # Part III — run the ARM9 boot on the tools/arm core as an oracle: BLZ cross-check,
 # the I/O registers it programs, and the ARM9↔ARM7 IPCSYNC rendezvous it stops at
 ( cd extract && go run ./cmd/bootoracle -io "../Super Mario 64 DS (Europe) (En,Fr,De,Es,It).nds" )
+
+# Part III §6 — the dual-core oracle: both CPUs on shared RAM + IPC, clearing the
+# rendezvous the single core stops at (into the post-sync PXI FIFO exchange)
+( cd extract && go run ./cmd/dualoracle "../Super Mario 64 DS (Europe) (En,Fr,De,Es,It).nds" )
 ```
 
 Toolchain (shared `retroreverse.com/tools`, this repository):
 
 - **`tools/nds`** — the Nintendo DS Game Card container reader: header parse + CRC-16 verification, the FAT, the FNT directory-tree walk, the ARM9 overlay table, and the **BLZ** (backward-LZSS) decompressor the SDK applies to the ARM9 static module and every overlay. Shared with the [[Mario Kart DS]] analysis; makes no assumptions about the game inside.
+- **`tools/nds/dsmachine`** — the reusable **dual-core DS machine**: two `tools/arm` cores over one shared main RAM + WRAM, per-core private TCM/WRAM/BIOS, the cross-wired IPCSYNC mailbox and the two IPC FIFOs, a per-core interrupt controller, and the BIOS `SWI`s. Game-neutral; the model any DS title's dual-core oracle builds on. (`arm.CPU.Exception`, added for the BIOS-style IRQ dispatch, is its one addition to the core.)
 - **`tools/nds/cmd/ndsinfo`** — the container inspector for Part I (`-files`, `-tree`, `-grep`).
 - **`tools/arm`** — the ARM9/ARM7 disassembler and CPU core (ARMv5TE + ARMv4T; ARM + Thumb, interworking-aware), with `tools/cmd/disarm` (linear) and `tools/cmd/codetracearm` (recursive-descent, follows ARM↔Thumb interworking) as CLIs.
 - **`supermario64ds/extract/cmd/ndsextract`** — this game's extractor: writes `arm9.bin`/`arm7.bin` and the 103 overlays, and their BLZ-decompressed forms (`arm9_dec.bin`, `ovl9_NNN_dec.bin`), into `extracted/` (regenerable, git-ignored).
 - **`supermario64ds/extract/cmd/bootoracle`** — runs the ARM9 boot on the `tools/arm` core over a flat DS memory (with the BIOS `SWI`s the startup needs): cross-checks BLZ against the game's own decompressor, logs the I/O registers programmed, and stops at the ARM9↔ARM7 `IPCSYNC` rendezvous. The DS analogue of the Amiga per-game oracles; the counterpart of Mario Kart DS's `bootoracle`.
+- **`supermario64ds/extract/cmd/dualoracle`** — co-executes both boot binaries on the `tools/nds/dsmachine` dual-core model, clearing the rendezvous the single-core oracle stops at and running the ARM9 into the post-sync PXI exchange (Part III §6).
 
 Rendered figures will go in `Super Mario 64 DS (DS)/rendered/`; annotated disassembly in `disasm/`.
