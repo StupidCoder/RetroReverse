@@ -1369,7 +1369,252 @@ on-screen position, which is the point this viewer frames every level on.</p>
 `,
   },
   stuntcar: {},
-  mariokart: {},
+  mariokart: {
+    loader: `
+<div class="info-eyebrow">Mario Kart DS &middot; Image &amp; Loader</div>
+<p>Mario Kart DS runs from a 32&nbsp;MiB Nintendo&nbsp;DS Game Card. A DS card is not a memory-mapped
+cartridge like the Game&nbsp;Boy or Game&nbsp;Gear: it is a serial device behind a controller, and its
+contents are an on-card <strong>filesystem</strong> read on demand. And the DS is a <strong>two-processor
+machine</strong> &mdash; an <code>ARM9</code> and an <code>ARM7</code> that share one main memory &mdash; so
+the card carries two independent code images that boot side by side.</p>
+
+<h2>Two processors, one memory</h2>
+<p>The card hands the two CPUs <em>different</em> load and entry addresses. The <strong>ARM9</strong>
+(an ARMv5TE core) loads to <code>$02000000</code> at the base of main RAM and starts at <code>$02000800</code>;
+the <strong>ARM7</strong> (an ARMv4T core) loads to <code>$02380000</code>, also inside main RAM but near its
+top. Both share the single 4&nbsp;MiB main memory <code>$02000000</code>&ndash;<code>$023FFFFF</code>: the
+ARM7's code simply occupies a region the ARM9 agrees to leave alone. Each CPU also has fast private
+tightly-coupled memory, its own BIOS, and its own view of the DS I/O block at <code>$04000000</code>. The
+ARM9 owns the card and drives the game and both screens; the ARM7 services sound, the touchscreen, buttons
+and wireless. Both cores run 32-bit <strong>ARM</strong> and 16-bit <strong>Thumb</strong> code, switched with
+<code>BX</code>/<code>BLX</code> &mdash; boot is ARM, but much of the game is Thumb to fit the 32&nbsp;MiB.</p>
+
+<h2>The card header</h2>
+<p>The first 512 bytes are the header the DS BIOS reads. It stamps the title <code>"MARIOKARTDS"</code>, the
+game code <code>"AMCP"</code> (DS card, Mario&nbsp;Kart, PAL region) and a device-capacity code of
+<code>$08</code> that decodes to 32&nbsp;MiB. It then fully describes where each processor starts: ARM9 image
+at card offset <code>$4000</code> (loading to <code>$02000000</code>, entry <code>$02000800</code>), ARM7 at
+<code>$141600</code> (loading to and starting at <code>$02380000</code>), plus the filesystem tables, an
+overlay table, and three independent checksums (a header CRC over <code>$000</code>&ndash;<code>$15D</code>, a
+secure-area CRC, and the Nintendo-logo CRC the BIOS validates before it runs any code).</p>
+
+<h2>The filesystem</h2>
+<p>Everything that is not boot code &mdash; models, textures, tracks, UI, the sound bank &mdash; lives in a
+card filesystem addressed by two tables. The <strong>FAT</strong> is a flat array of <code>{start, end}</code>
+offset pairs, one per file; the <strong>FNT</strong> is the directory tree that gives those numbered files
+names like <code>data/Course/airship_course.carc</code>. Of the 610 file slots the first four are the ARM9
+overlays (referenced directly, with no name); the remaining 606 are named files. A file is <em>not</em> the
+asset, though: a single path is three nested layers &mdash; <strong>FAT slice &rarr; LZ77 stream &rarr; NARC
+archive &rarr; NITRO resource</strong> &mdash; each unpacked in turn (the graphics chapter picks this up).</p>
+
+<h2>Booting the ARM9</h2>
+<p>The ARM9 comes up first. Its startup stub kills interrupts (<code>IME&nbsp;=&nbsp;0</code>), then programs
+the <strong>CP15</strong> system coprocessor: invalidate caches, set the MPU regions, and enable the two
+tightly-coupled memories the core relies on &mdash; <strong>ITCM</strong> at <code>$01FF8000</code> for fast
+code and <strong>DTCM</strong> at <code>$027E0000</code> for fast data and the stacks. The image on the card
+is <em>compressed</em>: the bulk of the ARM9 is packed with Nintendo's <strong>BLZ</strong>, an LZSS variant
+that decodes <strong>backward</strong> and expands the image <em>in place</em> &mdash; the stub decompresses
+itself, growing from <code>$020E751C</code> to <code>$021773D8</code> before it can even reach the code it is
+about to call. It then runs the autoload list (copying initialised data and the ITCM/DTCM-resident code into
+place), zeroes <code>.bss</code>, cleans the caches, and jumps to <code>main</code>, whose real entry is the
+game init at <code>$020365F0</code>.</p>
+
+<h2>Booting the ARM7</h2>
+<p>The ARM7 image is <em>not</em> compressed, so its startup is shorter: interrupts off, clear its private
+64&nbsp;KiB WRAM at <code>$03800000</code>, park the exception stacks at the top of that WRAM, run its own
+autoload and <code>.bss</code> clear. Notably, the address it finally branches to &mdash; <code>$037F8534</code>
+&mdash; is <em>in WRAM</em>, not in the <code>$02380000</code> load region: the ARM7 <strong>relocates its hot
+code into WRAM</strong> and runs it from there, close to the sound and input hardware it drives.</p>
+`,
+    engine: `
+<div class="info-eyebrow">Mario Kart DS &middot; Game Engine</div>
+<p>Past boot, the game is a large C++ program that dispatches almost everything through function pointers and
+virtual tables. It lays out the 4&nbsp;MiB main memory, brings up the NitroSDK operating-system layer, and
+then &mdash; before it does anything else &mdash; reaches for the second processor.</p>
+
+<h2>The runtime memory map</h2>
+<p>The ARM9 partitions main RAM by convention: its decompressed static code and data occupy
+<code>$02000000</code>&ndash;<code>$0216F340</code> (with <code>main</code> at <code>$02003000</code> and the
+game init at <code>$020365F0</code>), its zero-initialised <code>.bss</code> runs up to
+<code>$021804E0</code>, and the four code <strong>overlays</strong> bank in at
+<code>$021804E0</code> onward, with the heap growing above them. The ARM7 image sits near the top at
+<code>$02380000</code>. Each core keeps its working set in fast private memory &mdash; the ARM9's stacks and
+hot data in <strong>DTCM</strong> (<code>$027E0000</code>), fast code in ITCM &mdash; and a small
+system-reserved block at <code>$027FF000</code> holds the configuration both processors share.</p>
+
+<h2>Initialisation</h2>
+<p>The game init at <code>$020365F0</code> is a compact sequence of framework brings-up: an OS/system
+initialiser that walks a list of subsystem constructors, then two routines that each program a contiguous
+block of 16-bit hardware registers with <code>STRH</code> bursts &mdash; the 2D-graphics-engine and DMA/timer
+register banks. Tick and system-config readers in the <code>$0200Exxx</code>/<code>$0200Fxxx</code> range are
+the game's copy of the NitroSDK OS layer; one of them computes an address into the shared
+<code>$027FFxxx</code> config block and reads the value both CPUs agreed on.</p>
+
+<h2>Interrupts and the IPC FIFO</h2>
+<p>The most telling thing about early boot is how <em>few</em> hardware registers it touches before it needs
+the second CPU &mdash; only five, and every one is about inter-processor communication. It clears its
+<code>IPCSYNC</code> mailbox (<code>$04000180</code>), enables the 64-bit <code>IPCFIFO</code> hardware
+queue (<code>$04000184&nbsp;=&nbsp;$C408</code>), and enables <strong>exactly one interrupt source</strong>:
+bit&nbsp;18, <em>"IPC receive FIFO not empty."</em> The ARM9's entire initial interrupt architecture exists to
+hear the ARM7. The model underneath is standard DS: <code>IME</code> the master switch, <code>IE</code> the
+per-source mask, <code>IF</code> the write-1-to-clear request latch, with the BIOS vectoring an IRQ through a
+handler pointer the runtime installs in DTCM.</p>
+
+<h2>The two processors meet</h2>
+<p>Having enabled that one interrupt, the game init calls an OS routine that <strong>blocks on
+<code>IPCSYNC</code> waiting for the ARM7</strong>. The spin loop reads the four-bit value the <em>other</em>
+CPU posted, compares it to an expected step number, and polls until they match &mdash; the
+<code>OS_SyncWithOtherProc</code> handshake, in which each CPU ratchets a short sequence of step numbers so
+neither races ahead during boot. The ARM9 has done its half and waits; the ARM7, meanwhile, is booting from
+<code>$02380000</code> and relocating into WRAM. Only once they meet do the two <code>main</code> routines
+begin exchanging FIFO commands &mdash; input and touch state up from the ARM7, sound and DMA requests down
+from the ARM9.</p>
+
+<h2>Overlays and the frame loop</h2>
+<p>Past the rendezvous the ARM9 enters its frame loop and streams the code <strong>overlays</strong>: each is
+a BLZ-compressed blob named by a file ID, loaded to a fixed RAM address with its <code>.bss</code> zeroed and
+its constructors run. Because they all load to the same address they are mutually exclusive banks &mdash; only
+one resident at a time &mdash; so switching game mode is card-DMA the overlay in, decompress, clear, construct,
+jump. The battle- and mission-mode objects, for instance, live in an overlay that pages in with those
+modes.</p>
+`,
+    graphics: `
+<div class="info-eyebrow">Mario Kart DS &middot; Graphics</div>
+<p>The DS renders the tracks on dedicated 2D and 3D graphics engines, and the card stores their art in the
+NitroSDK's family of <strong>NITRO</strong> formats. Reaching the pixels means peeling three layers &mdash;
+compression, archive, then the resource itself.</p>
+
+<h2>Asset layers</h2>
+<p>A <code>.carc</code> file is a Nintendo <strong>LZ77</strong> stream (a length/distance back-reference
+format, distinct from the backward-BLZ used for the boot code) wrapping a <strong>NARC</strong> archive, and
+the NARC in turn holds the individual NITRO resources: models, texture sets, animations, collision. A single
+track archive therefore expands into its course model, its far-backdrop model, its map-object models, its
+texture animation and its collision, all as sibling sub-files.</p>
+
+<h2>Textures and palettes</h2>
+<p>A texture set is a <code>TEX0</code> block: two dictionaries &mdash; one naming textures, one naming
+palettes &mdash; over packed image and colour data. The DS supports <strong>seven texture formats</strong>:
+paletted 4/16/256-colour, two alpha-plus-index formats (A3I5, A5I3), 16-bit direct colour, and a
+<strong>4&times;4 block-compressed</strong> mode whose texel indices and per-block palette selectors live in
+two separate regions that tile the block back-to-back. Palettes are 15-bit <strong>BGR555</strong>. The
+DS's texture units are tiny &mdash; often 32&times;32 texels &mdash; so this viewer keeps them
+nearest-filtered to preserve the original pixel art.</p>
+
+<h2>Tiled 2D graphics</h2>
+<p>The menus and HUD use the classic tile pipeline: an <code>NCLR</code> palette, an <code>NCGR</code> tile
+sheet (4- or 8-bit), and an <code>NSCR</code> screen map whose entries pick a tile, a palette row and
+horizontal/vertical flips. Screens and their tiles are split across a base archive and a per-language archive,
+so a composed picture is the union of both.</p>
+
+<h2>3D models</h2>
+<p>A model is an <code>NSBMD</code> file: a tree of joint <strong>nodes</strong> (each with a
+translate/rotate/scale, rotations sometimes stored as a compact pivot form), a stream of scene bytecode that
+walks the nodes and binds materials, and per-shape <strong>GX display lists</strong> &mdash; the same command
+stream the DS's geometry engine consumes. The display-list interpreter handles every vertex form the hardware
+offers, including <em>delta</em> vertices (small signed offsets from the previous vertex) and
+<strong>quad strips</strong>, whose winding pairs each new vertex against the one two back. Materials carry
+the texture's repeat/mirror/flip flags and, when present, a texture <strong>scale/rotate/translate</strong>
+that maps a shared texture onto part of a surface &mdash; a kart tyre's single strip texture, say, stretched
+across the tread.</p>
+
+<h2>Track scenes</h2>
+<p>Course geometry is stored small and scaled up: vertices are divided by a power-of-two at authoring time and
+the scene bytecode re-applies it, and the whole model lives at <strong>one-sixteenth of world scale</strong>
+&mdash; the size the physics and course-map data use. Each track ships a companion far model that is its
+<strong>skybox</strong>: a backdrop dome drawn <em>relative to the camera</em> so it turns as you look around
+but never gets closer. The archive also carries the track's <strong>map objects</strong> &mdash; item boxes,
+trees, pipes, Chain&nbsp;Chomps, Piantas &mdash; which the engine spawns onto the course; some of them are
+two-triangle <strong>billboards</strong>, flat sprites kept turned to face the camera, exactly as sprites in a
+3D world are drawn.</p>
+
+<h2>Scrolling and rippling surfaces</h2>
+<p>The moving water, waterfalls and boost-panel arrows are <strong>texture animation</strong>, stored as a
+<code>BTA0</code> resource: per material, five tracks &mdash; two scale, one rotation, two translation &mdash;
+each either a constant or a series of samples taken every fourth frame. Driving those tracks into the texture
+matrix each frame is what scrolls a river downstream and sweeps the arrows across a dash panel; nothing about
+the geometry moves.</p>
+`,
+    music: `
+<div class="info-eyebrow">Mario Kart DS &middot; Music</div>
+<p>All of the game's sound lives in one 3.3&nbsp;MiB file, <code>sound_data.sdat</code> &mdash; the NitroSDK
+sound archive. Every note of music is <strong>sequenced</strong>, MIDI-style: there is no streamed audio at
+all. The retail archive is also shipped with its <em>symbol block stripped</em>, so nothing on the card names
+its own tracks; they are known only by number.</p>
+
+<h2>The sound archive</h2>
+<p>The archive holds 284 files, bound together by an information block: <strong>76 sequences</strong>
+(<code>SSEQ</code> &mdash; the music and jingles), <strong>99 instrument banks</strong> (<code>SBNK</code>),
+<strong>104 wave archives</strong> (<code>SWAR</code>), and a handful of sound-effect archives. An info record
+gives each sequence its bank and master volume; each bank names up to four wave archives its instruments draw
+samples from.</p>
+
+<h2>Sequences</h2>
+<p>A sequence is a compact bytecode stream, MIDI-like: a byte below <code>$80</code> is a note-on carrying a
+key, a velocity and a duration; other opcodes rest, change program (instrument), set pan, volume, expression,
+transpose, pitch bend and vibrato, or set the tempo. A sequence opens by declaring its tracks and can
+<strong>call, return and jump</strong>; a backward jump is the loop point that makes a 40-second race theme
+play forever. Multiple tracks advance in parallel off the one stream.</p>
+
+<h2>Instruments and waves</h2>
+<p>An instrument is either a <strong>sampled wave</strong> (a reference into a wave archive, with a base note,
+an attack/decay/sustain/release envelope and a pan), one of the DS's two <strong>PSG</strong> channels &mdash;
+a Game&nbsp;Boy-style pulse wave with selectable duty, or an LFSR noise generator &mdash; or a composite: a
+<em>drum kit</em> mapping each key to its own instrument, or an eight-way <em>key split</em>. The waves
+themselves are stored as 8- or 16-bit PCM or as <strong>IMA-ADPCM</strong> (four-bit deltas expanded from a
+seed), each with its own sample rate and loop point.</p>
+
+<h2>Playback</h2>
+<p>Playing a sequence means running its bytecode against a clock of <strong>48 ticks per quarter note</strong>
+(so tempo is real beats-per-minute), stepping every voice's envelope at the sound driver's 192&nbsp;Hz frame
+rate, resampling each instrument's wave for the note's pitch, and mixing the voices with constant-power pan.
+The envelopes work in decibels &mdash; attack curves the level up toward full, decay falls to the sustain
+level, release fades to a silence floor that is exactly the noise floor of 16-bit audio. This viewer plays the
+rendered sequences directly.</p>
+`,
+    gameplay: `
+<div class="info-eyebrow">Mario Kart DS &middot; Gameplay</div>
+<p>Everything about a track that is not its geometry &mdash; where a lap begins and ends, the line the
+computer racers drive, where items steer, where Lakitu drops you, and every object placed on the course &mdash;
+is one data file, the <strong>course map</strong> (<code>NKM</code>). The engine reads it at load and builds
+the live race from it.</p>
+
+<h2>The course map</h2>
+<p>The map is a header followed by seventeen sections, identified purely by position, each a fixed-size record
+list: object placements, routes, start and respawn points, checkpoints, the lap graph, the item line, the
+computer drive line, trigger areas and cameras. Coordinates are world units &mdash; sixteen times the scale of
+the display model, which is why the drive line, laid over the track, sits exactly on the asphalt.</p>
+
+<h2>Laps and checkpoints</h2>
+<p>A lap is read from a chain of <strong>checkpoint gates</strong>. Crossing gates advances your position; the
+gate keyed as the lap line closes a lap, and gates keyed above it are <strong>key checkpoints</strong> you must
+cross <em>in order</em> for the lap to count &mdash; which is precisely the game's shortcut protection, and why
+cutting the course does not register a lap. Each checkpoint also names the respawn point Lakitu uses if you
+fall out along its stretch.</p>
+
+<h2>Computer racers and items</h2>
+<p>The computer karts follow the <strong>enemy drive line</strong> &mdash; a polyline of points, each with a
+lateral radius saying how far a racer may wander from it and a drift hint for corners. Item routing (red
+shells) steers along a parallel <em>item line</em>. Both, and the lap graph, can <strong>branch</strong>: a
+section can name several successors, which is how alternate routes are encoded &mdash; a plain circuit is one
+section end to end, while Waluigi&nbsp;Pinball's line splits into ten around the bumpers.</p>
+
+<h2>Placing the objects</h2>
+<p>Each object placement names an object by ID plus a position, rotation and scale. The engine matches the ID
+against a table that binds it to a model and the callbacks that build it, then spawns the instance &mdash; and
+the spawn transform is <em>per type</em>: an object's setup code may adjust it. The <strong>item boxes</strong>
+are the clear example: they are placed at road height, and it is the item box's own setup that lifts each one a
+fixed <strong>twelve world units</strong> into the air, which is why they float. Ground objects &mdash; trees,
+crates, pipes &mdash; sit as placed. A handful of placements are logic-only markers with no model (sound
+emitters, effect points) and are silent in the scene.</p>
+
+<h2>Moving objects</h2>
+<p>An object whose placement names a route walks that route &mdash; a stored polyline of points &mdash; at a
+steady speed, facing the way it travels, wrapping on a closed loop or reversing on an open path. This is what
+sends the Cheep&nbsp;Cheep&nbsp;Beach crabs scuttling across the sand, circles Desert&nbsp;Hills' sun over the
+course, drives Airship&nbsp;Fortress's Bullet&nbsp;Bills along their track, and swings Waluigi&nbsp;Pinball's
+iron balls through the table.</p>
+`,
+  },
   elite: {
     loader: `
 <div class="info-eyebrow">Elite · Image &amp; Loader</div>
