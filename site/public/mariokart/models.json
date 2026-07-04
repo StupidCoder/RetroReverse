@@ -185,6 +185,321 @@
   "section": "Karts"
  },
  {
+  "name": "Award ceremony scene",
+  "file": "Award-cross_course.glb",
+  "section": "Courses"
+ },
+ {
+  "name": "Award ceremony scene — far model",
+  "file": "Award-cross_course_V.glb",
+  "section": "Courses"
+ },
+ {
+  "name": "MR_stage1",
+  "file": "MR_stage1-MR_stage1.glb",
+  "section": "Battle \u0026 mission stages"
+ },
+ {
+  "name": "MR_stage1 — far model",
+  "file": "MR_stage1-MR_stage1_V.glb",
+  "section": "Battle \u0026 mission stages"
+ },
+ {
+  "name": "MR_stage2",
+  "file": "MR_stage2-MR_stage2.glb",
+  "section": "Battle \u0026 mission stages"
+ },
+ {
+  "name": "MR_stage2 — far model",
+  "file": "MR_stage2-MR_stage2_V.glb",
+  "section": "Battle \u0026 mission stages"
+ },
+ {
+  "name": "MR_stage3",
+  "file": "MR_stage3-MR_stage3.glb",
+  "section": "Battle \u0026 mission stages"
+ },
+ {
+  "name": "MR_stage3 — far model",
+  "file": "MR_stage3-MR_stage3_V.glb",
+  "section": "Battle \u0026 mission stages"
+ },
+ {
+  "name": "Airship Fortress",
+  "file": "airship_course-airship_course.glb",
+  "section": "Courses"
+ },
+ {
+  "name": "Airship Fortress — far model",
+  "file": "airship_course-airship_course_V.glb",
+  "section": "Courses"
+ },
+ {
+  "name": "Yoshi Falls",
+  "file": "bank_course-bank_course.glb",
+  "section": "Courses"
+ },
+ {
+  "name": "Yoshi Falls — far model",
+  "file": "bank_course-bank_course_V.glb",
+  "section": "Courses"
+ },
+ {
+  "name": "Cheep Cheep Beach",
+  "file": "beach_course-beach_course.glb",
+  "section": "Courses"
+ },
+ {
+  "name": "Cheep Cheep Beach — far model",
+  "file": "beach_course-beach_course_V.glb",
+  "section": "Courses"
+ },
+ {
+  "name": "Cheep Cheep Beach (multiplayer)",
+  "file": "beach_courseD-beach_courseD.glb",
+  "section": "Courses"
+ },
+ {
+  "name": "Cheep Cheep Beach (multiplayer) — far model",
+  "file": "beach_courseD-beach_courseD_V.glb",
+  "section": "Courses"
+ },
+ {
+  "name": "Tick-Tock Clock",
+  "file": "clock_course-clock_course.glb",
+  "section": "Courses"
+ },
+ {
+  "name": "Tick-Tock Clock — far model",
+  "file": "clock_course-clock_course_V.glb",
+  "section": "Courses"
+ },
+ {
+  "name": "Figure-8 Circuit",
+  "file": "cross_course-cross_course.glb",
+  "section": "Courses"
+ },
+ {
+  "name": "Figure-8 Circuit — far model",
+  "file": "cross_course-cross_course_V.glb",
+  "section": "Courses"
+ },
+ {
+  "name": "Figure-8 Circuit (multiplayer)",
+  "file": "cross_courseD-cross_courseD.glb",
+  "section": "Courses"
+ },
+ {
+  "name": "Figure-8 Circuit (multiplayer) — far model",
+  "file": "cross_courseD-cross_courseD_V.glb",
+  "section": "Courses"
+ },
+ {
+  "name": "Desert Hills",
+  "file": "desert_course-desert_course.glb",
+  "section": "Courses"
+ },
+ {
+  "name": "Desert Hills — far model",
+  "file": "desert_course-desert_course_V.glb",
+  "section": "Courses"
+ },
+ {
+  "name": "dokan_course (unused)",
+  "file": "dokan_course.glb",
+  "section": "Courses"
+ },
+ {
+  "name": "donkey_course (unused)",
+  "file": "donkey_course-donkey_course.glb",
+  "section": "Courses"
+ },
+ {
+  "name": "donkey_course (unused) — far model",
+  "file": "donkey_course-donkey_course_V.glb",
+  "section": "Courses"
+ },
+ {
+  "name": "Peach Gardens",
+  "file": "garden_course-garden_course.glb",
+  "section": "Courses"
+ },
+ {
+  "name": "Peach Gardens — far model",
+  "file": "garden_course-garden_course_V.glb",
+  "section": "Courses"
+ },
+ {
+  "name": "Bowser Castle",
+  "file": "koopa_course-koopa_course.glb",
+  "section": "Courses"
+ },
+ {
+  "name": "Bowser Castle — far model",
+  "file": "koopa_course-koopa_course_V.glb",
+  "section": "Courses"
+ },
+ {
+  "name": "luigi_course (unused)",
+  "file": "luigi_course-luigi_course.glb",
+  "section": "Courses"
+ },
+ {
+  "name": "luigi_course (unused) — far model",
+  "file": "luigi_course-luigi_course_V.glb",
+  "section": "Courses"
+ },
+ {
+  "name": "Luigi's Mansion",
+  "file": "mansion_course-mansion_course.glb",
+  "section": "Courses"
+ },
+ {
+  "name": "Luigi's Mansion — far model",
+  "file": "mansion_course-mansion_course_V.glb",
+  "section": "Courses"
+ },
+ {
+  "name": "Luigi's Mansion (multiplayer)",
+  "file": "mansion_courseD-mansion_courseD.glb",
+  "section": "Courses"
+ },
+ {
+  "name": "Mario Circuit",
+  "file": "mario_course-mario_course.glb",
+  "section": "Courses"
+ },
+ {
+  "name": "Mario Circuit — far model",
+  "file": "mario_course-mario_course_V.glb",
+  "section": "Courses"
+ },
+ {
+  "name": "mini_stage1",
+  "file": "mini_stage1-mini_stage1.glb",
+  "section": "Battle \u0026 mission stages"
+ },
+ {
+  "name": "mini_stage1 — far model",
+  "file": "mini_stage1-mini_stage1_V.glb",
+  "section": "Battle \u0026 mission stages"
+ },
+ {
+  "name": "mini_stage2",
+  "file": "mini_stage2-mini_stage2.glb",
+  "section": "Battle \u0026 mission stages"
+ },
+ {
+  "name": "mini_stage2 — far model",
+  "file": "mini_stage2-mini_stage2_V.glb",
+  "section": "Battle \u0026 mission stages"
+ },
+ {
+  "name": "mini_stage3",
+  "file": "mini_stage3-mini_stage3.glb",
+  "section": "Battle \u0026 mission stages"
+ },
+ {
+  "name": "mini_stage3 — far model",
+  "file": "mini_stage3-mini_stage3_V.glb",
+  "section": "Battle \u0026 mission stages"
+ },
+ {
+  "name": "mini_stage3",
+  "file": "mini_stage3-mini_stage3_wate.glb",
+  "section": "Battle \u0026 mission stages"
+ },
+ {
+  "name": "mini_stage4",
+  "file": "mini_stage4-mini_stage4.glb",
+  "section": "Battle \u0026 mission stages"
+ },
+ {
+  "name": "mini_stage4 — far model",
+  "file": "mini_stage4-mini_stage4_V.glb",
+  "section": "Battle \u0026 mission stages"
+ },
+ {
+  "name": "nokonoko_course (unused)",
+  "file": "nokonoko_course-nokonoko_course.glb",
+  "section": "Courses"
+ },
+ {
+  "name": "Waluigi Pinball",
+  "file": "pinball_course-pinball_course.glb",
+  "section": "Courses"
+ },
+ {
+  "name": "Waluigi Pinball — far model",
+  "file": "pinball_course-pinball_course_V.glb",
+  "section": "Courses"
+ },
+ {
+  "name": "Rainbow Road",
+  "file": "rainbow_course-rainbow_course.glb",
+  "section": "Courses"
+ },
+ {
+  "name": "Rainbow Road — far model",
+  "file": "rainbow_course-rainbow_course_V.glb",
+  "section": "Courses"
+ },
+ {
+  "name": "Shroom Ridge",
+  "file": "ridge_course-ridge_course.glb",
+  "section": "Courses"
+ },
+ {
+  "name": "Shroom Ridge — far model",
+  "file": "ridge_course-ridge_course_V.glb",
+  "section": "Courses"
+ },
+ {
+  "name": "DK Pass",
+  "file": "snow_course-snow_course.glb",
+  "section": "Courses"
+ },
+ {
+  "name": "DK Pass — far model",
+  "file": "snow_course-snow_course_V.glb",
+  "section": "Courses"
+ },
+ {
+  "name": "Wario Stadium",
+  "file": "stadium_course-stadium_course.glb",
+  "section": "Courses"
+ },
+ {
+  "name": "Wario Stadium — far model",
+  "file": "stadium_course-stadium_course_V.glb",
+  "section": "Courses"
+ },
+ {
+  "name": "test1_course (unused)",
+  "file": "test1_course-test1_course.glb",
+  "section": "Courses"
+ },
+ {
+  "name": "Delfino Square",
+  "file": "town_course-town_course.glb",
+  "section": "Courses"
+ },
+ {
+  "name": "Delfino Square — far model",
+  "file": "town_course-town_course_V.glb",
+  "section": "Courses"
+ },
+ {
+  "name": "wario_course",
+  "file": "wario_course-stadium_course.glb",
+  "section": "Courses"
+ },
+ {
+  "name": "wario_course — far model",
+  "file": "wario_course-stadium_course_V.glb",
+  "section": "Courses"
+ },
+ {
   "name": "kart_tire_L",
   "file": "kart_tire_L.glb",
   "section": "Other"
