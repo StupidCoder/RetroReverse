@@ -284,7 +284,17 @@ func RunSBC(m Model) []ShapeDraw {
 			} else {
 				p = len(sbc)
 			}
-		case 0x0B: // POSSCALE (up/down flag in opt) — geometry pre-scaled; no operands
+		case 0x0B: // POSSCALE: scale the current matrix by the model's up/down scale
+			// (courses store vertices divided by a power-of-two "posScale" to fit the
+			// fx16 vertex range; the SBC re-applies it before drawing). opt bit 0
+			// selects the inverse (down) scale.
+			s := m.UpScale
+			if opt&1 != 0 && s != 0 {
+				s = 1 / s
+			}
+			for i := 0; i < 9; i++ {
+				cur[i] *= s
+			}
 		case 0x0C: // ENVMAP / 0x0D PRJMAP
 			p += 2
 		case 0x0D:
