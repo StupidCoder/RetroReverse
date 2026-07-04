@@ -58,17 +58,20 @@ func main() {
 		os.Exit(2)
 	}
 
-	var written []string
+	var written, pathFiles []string
 	for _, p := range paths {
-		names, err := export(p, *outDir)
+		names, pf, err := export(p, *outDir)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "  %s: %v\n", filepath.Base(p), err)
 			continue
 		}
 		written = append(written, names...)
+		if pf != "" {
+			pathFiles = append(pathFiles, pf)
+		}
 	}
 	if *all {
-		if err := writeManifest(*outDir, written); err != nil {
+		if err := writeManifest(*outDir, written, pathFiles); err != nil {
 			die(err)
 		}
 	}
@@ -119,6 +122,9 @@ var courseNames = map[string]string{
 	"old_hyudoro_64":  "N64 Banshee Boardwalk",
 	"old_sky_agb":     "GBA Sky Garden",
 	"old_yoshi_gc":    "GCN Yoshi Circuit",
+	"old_luigi_gcD":   "GCN Luigi Circuit (multiplayer)",
+	"old_momo_64D":    "N64 Moo Moo Farm (multiplayer)",
+	"old_mario_gc":    "old_mario_gc (unused)", // no shipped GCN Mario Circuit retro; leftover (no skybox)
 }
 
 // charNames maps the two-letter character codes in model file names.
@@ -128,12 +134,17 @@ var charNames = map[string]string{
 	"WR": "Wario", "WL": "Waluigi", "KA": "Dry Bones", "RB": "R.O.B.",
 }
 
-// writeManifest emits models.json for the viewer site: [{name, file, section}].
-func writeManifest(outDir string, files []string) error {
+// writeManifest emits models.json for the viewer site. Each course entry links its
+// far "_V" model as a camera-locked skybox and its enemy drive line as a fly-along
+// path, so the viewer shows a track inside its backdrop rather than listing the
+// pieces separately.
+func writeManifest(outDir string, files, pathFiles []string) error {
 	type entry struct {
 		Name    string `json:"name"`
 		File    string `json:"file"`
 		Section string `json:"section"`
+		Skybox  string `json:"skybox,omitempty"` // "_V" backdrop GLB, camera-locked
+		Path    string `json:"path,omitempty"`   // enemy drive-line JSON
 	}
 	var out []entry
 	sort.Strings(files)
@@ -157,31 +168,57 @@ func writeManifest(outDir string, files []string) error {
 			}
 		}
 	}
-	// Courses: the main scene and its far "_V" companion.
+	// Courses: the main scene, with its far "_V" model folded in as a camera-locked
+	// skybox and its enemy drive line as a fly-along path (both keyed by archive
+	// stem), so a track lists as one entry that shows inside its backdrop.
 	known := map[string]bool{}
 	for _, e := range out {
 		known[e.File] = true
 	}
+	// archive stem of a course file: "<archive>-<model>.glb" → archive (or the whole
+	// stem for single-model archives), and whether this file is the "_V" skybox.
+	courseKey := func(f string) (archive string, isV bool) {
+		s := strings.TrimSuffix(f, ".glb")
+		model := s
+		if i := strings.Index(s, "-"); i >= 0 {
+			archive, model = s[:i], s[i+1:]
+		} else {
+			archive = s
+		}
+		return archive, strings.HasSuffix(model, "_V")
+	}
+	isCourseFile := func(f string) bool {
+		if strings.Contains(f, "course") || strings.Contains(f, "stage") || strings.Contains(f, "mini_") {
+			return true
+		}
+		// Retro ("old_") tracks name their archive after the track (old_baby_gc), so
+		// they carry no "course"/"stage" substring; match the prefix and known stems.
+		a, _ := courseKey(f)
+		_, known := courseNames[a]
+		return known || strings.HasPrefix(a, "old_")
+	}
+	skyboxOf := map[string]string{} // archive stem -> "_V" GLB file
 	for _, f := range files {
-		if known[f] || !strings.Contains(f, "course") && !strings.Contains(f, "stage") && !strings.Contains(f, "mini_") {
+		if a, v := courseKey(f); v && isCourseFile(f) {
+			skyboxOf[a] = f
+		}
+	}
+	pathOf := map[string]bool{}
+	for _, p := range pathFiles {
+		pathOf[strings.TrimSuffix(p, ".path.json")] = true
+	}
+	for _, f := range files {
+		if known[f] || !isCourseFile(f) {
 			continue
 		}
-		stem := strings.TrimSuffix(f, ".glb")
-		base := stem
-		far := false
-		if strings.HasSuffix(base, "_V") {
-			base, far = strings.TrimSuffix(base, "_V"), true
-		}
-		// "<archive>-<model>" → archive stem
-		if i := strings.Index(base, "-"); i >= 0 {
-			base = base[:i]
+		base, isV := courseKey(f)
+		if isV {
+			known[f] = true // shown as a skybox on its course entry, not on its own
+			continue
 		}
 		name := courseNames[base]
 		if name == "" {
 			name = base
-		}
-		if far {
-			name += " — skybox"
 		}
 		sec := "Courses"
 		if strings.HasPrefix(base, "mini_") || strings.HasPrefix(base, "MR_") {
@@ -189,7 +226,11 @@ func writeManifest(outDir string, files []string) error {
 		} else if strings.HasPrefix(base, "old_") {
 			sec = "Retro courses"
 		}
-		add(entry{Name: name, File: f, Section: sec})
+		e := entry{Name: name, File: f, Section: sec, Skybox: skyboxOf[base]}
+		if pathOf[base] {
+			e.Path = base + ".path.json"
+		}
+		add(e)
 		known[f] = true
 	}
 	for _, f := range files {
@@ -206,10 +247,10 @@ func writeManifest(outDir string, files []string) error {
 	return os.WriteFile(p, buf, 0o644)
 }
 
-func export(path, outDir string) ([]string, error) {
+func export(path, outDir string) ([]string, string, error) {
 	models, err := mkds.LoadModels(path)
 	if err != nil {
-		return nil, err
+		return nil, "", err
 	}
 	texs := mkds.LoadTextures(path)
 	stem := strings.TrimSuffix(filepath.Base(path), filepath.Ext(path))
@@ -217,9 +258,14 @@ func export(path, outDir string) ([]string, error) {
 	var written []string
 	for _, m := range models {
 		if isCourse {
-			// Courses: export only the course scene itself — the main model and its
-			// low-detail "_V" companion; the small archive-mates are map objects.
-			if !strings.Contains(m.Name, "_course") && !strings.Contains(m.Name, "_stage") {
+			// Courses: export only the course scene itself — the main model plus its
+			// "_V" skybox and "_wate" water companions; the small archive-mates are
+			// map objects. The retro ("old_") tracks name their scene after the
+			// archive stem (old_baby_gc, old_baby_gc_V) rather than "_course", so
+			// match the stem too or they'd be dropped.
+			keep := strings.Contains(m.Name, "_course") || strings.Contains(m.Name, "_stage") ||
+				m.Name == stem || strings.HasPrefix(m.Name, stem+"_")
+			if !keep {
 				continue
 			}
 		}
@@ -232,12 +278,63 @@ func export(path, outDir string) ([]string, error) {
 			name = stem + "-" + m.Name + ".glb"
 		}
 		if err := os.WriteFile(filepath.Join(outDir, name), glb, 0o644); err != nil {
-			return written, err
+			return written, "", err
 		}
 		written = append(written, name)
 		fmt.Printf("  %-40s %7d bytes\n", name, len(glb))
 	}
-	return written, nil
+
+	// Courses carry an NKM course map: export the CPU drive line (EPOI) as a
+	// side-car polyline the viewer can fly the camera along. glTF has no notion of
+	// a camera path, so it rides alongside the GLB as JSON in the same space.
+	var pathFile string
+	if isCourse && len(written) > 0 {
+		if pf, err := exportPath(path, stem, outDir); err != nil {
+			fmt.Fprintf(os.Stderr, "  %s: path: %v\n", stem, err)
+		} else {
+			pathFile = pf
+		}
+	}
+	return written, pathFile, nil
+}
+
+// worldPerGLBUnit is the engine's course scale: NKM/collision coordinates are kart-
+// world units and the renderer scales course geometry down by this when building the
+// model, so a GLB-space coordinate is world/16 (see mkds.NKM and cmd/trackmap).
+const worldPerGLBUnit = 16.0
+
+// exportPath writes "<stem>.path.json": the enemy drive line converted to GLB space
+// (world/16), the coordinate frame the exported course GLB lives in. Returns "" (no
+// file) when the course has no enemy line.
+func exportPath(archive, stem, outDir string) (string, error) {
+	nkm, err := mkds.LoadNKM(archive)
+	if err != nil || nkm == nil {
+		return "", err
+	}
+	pts, loop := nkm.EnemyLoop()
+	if len(pts) < 2 {
+		return "", nil
+	}
+	out := make([][3]float64, len(pts))
+	for i, p := range pts {
+		out[i] = [3]float64{p.X / worldPerGLBUnit, p.Y / worldPerGLBUnit, p.Z / worldPerGLBUnit}
+	}
+	doc := map[string]interface{}{
+		"course": stem,
+		"space":  "glb", // same coordinate frame/scale as the course .glb
+		"loop":   loop,
+		"points": out,
+	}
+	buf, err := json.MarshalIndent(doc, "", " ")
+	if err != nil {
+		return "", err
+	}
+	name := stem + ".path.json"
+	if err := os.WriteFile(filepath.Join(outDir, name), buf, 0o644); err != nil {
+		return "", err
+	}
+	fmt.Printf("  %-40s %7d pts%s\n", name, len(out), map[bool]string{true: " (loop)", false: ""}[loop])
+	return name, nil
 }
 
 func die(err error) {

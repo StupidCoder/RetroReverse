@@ -184,6 +184,33 @@ func ParseNKM(data []byte) (*NKM, error) {
 	return nkm, nil
 }
 
+// EnemyLoop flattens the CPU drive line (EPOI/EPAT) into a single ordered lap:
+// start at section 0 and always follow the first successor (Next[0]) until a
+// section repeats. Real courses chain their sections into one loop, so this is the
+// primary racing line the camera can fly along; branches (alternate routes) are
+// ignored. Returns the ordered points in world units and whether the line closes
+// back on itself. Empty when the map has no enemy line (some battle/mission stages).
+func (n *NKM) EnemyLoop() (pts []Vec3, loop bool) {
+	if len(n.EnemyPaths) == 0 || len(n.EnemyPoints) == 0 {
+		return nil, false
+	}
+	seen := make([]bool, len(n.EnemyPaths))
+	cur := 0
+	for cur >= 0 && cur < len(n.EnemyPaths) && !seen[cur] {
+		seen[cur] = true
+		sp := n.EnemyPaths[cur]
+		for i := sp.Start; i < sp.Start+sp.Len && i < len(n.EnemyPoints); i++ {
+			pts = append(pts, n.EnemyPoints[i].Pos)
+		}
+		nx := sp.Next[0]
+		if nx >= 0 && nx < len(n.EnemyPaths) && seen[nx] {
+			loop = true // successor already visited: the line closes
+		}
+		cur = nx
+	}
+	return pts, loop
+}
+
 func vec3(b []byte, off int) Vec3 {
 	return Vec3{fx(le.Uint32(b[off:])), fx(le.Uint32(b[off+4:])), fx(le.Uint32(b[off+8:]))}
 }

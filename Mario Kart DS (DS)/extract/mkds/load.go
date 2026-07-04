@@ -42,6 +42,27 @@ func LoadModels(path string) ([]nitro.Model, error) {
 	return out, nil
 }
 
+// LoadNKM returns a course archive's single-player course map — the first NKMD
+// sub-file of the .carc/NARC — or (nil, nil) if the archive has none (menu models,
+// some battle stages). Coordinates are world units (see ParseNKM).
+func LoadNKM(path string) (*NKM, error) {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return nil, err
+	}
+	data = nds.Decompress(data)
+	files, err := nds.ParseNARC(data)
+	if err != nil {
+		return nil, nil // not an archive (e.g. a bare .nsbmd): no map
+	}
+	for _, f := range files {
+		if len(f) >= 4 && string(f[:4]) == "NKMD" {
+			return ParseNKM(f)
+		}
+	}
+	return nil, nil
+}
+
 // LoadTextures gathers the texture set for the models at path: BTX0 blocks in the
 // file/archive itself, the same-stem .nsbtx, every sibling .nsbtx, and — the course
 // convention — the sibling "<stem>Tex.carc" archive.

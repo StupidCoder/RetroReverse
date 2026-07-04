@@ -517,7 +517,14 @@ Three findings pin the geometry to the world:
 
 And a cartridge archaeology bonus: `data/Course` still contains **unused development courses** — `donkey_course`, `luigi_course`, `nokonoko_course`, `dokan_course`, `test1_course`, `test_circle`, plus `wario_course` (an earlier Wario Stadium with only 3 placed objects) and the `StaffRoll` credits fly-through — all complete with geometry and course maps, all decoded by the same pipeline.
 
-All course scenes are exported to GLB alongside the karts (`exportglb -all` emits 104 models: characters, karts, every course + its skybox) and browsable in the Studio's Nintendo DS section under **Courses / Retro courses / Battle & mission stages**.
+All course scenes are exported to GLB alongside the karts (`exportglb -all` emits **147 models**: characters, karts, and every course — the nitro tracks, the **16 retro tracks** brought forward from the SNES/N64/GBA/GameCube games plus their multiplayer variants, and the battle/mission stages — each with its `_V` skybox) and browsable in the Studio's Nintendo DS section under **Courses / Retro courses / Battle & mission stages**. The retro archives name their scene after the archive (`old_baby_gc`, not `*_course`), so the exporter keys off the archive stem to pick the main model and its `_V` companion.
+
+Two extras ride alongside each course GLB for the viewer:
+
+- **Skybox in the round.** glTF has no notion of a skybox, so the `_V` backdrop stays an ordinary GLB; the viewer (`site/src/mariokart/viewer.js`) loads it, pins *its own centre* to the camera every frame and draws it depth-test-off behind the scene — exactly the DS's camera-relative backdrop that turns with you but never gets closer. (Pinning the model *origin* is wrong: these domes are modelled around their centre, e.g. `old_peach_agb_V` sits at y≈92.)
+- **Drive the CPU line.** `exportglb` also writes `<course>.path.json` — the enemy drive line (`EPOI`/`EPAT`, §V.1) flattened into one lap (start at section 0, follow `next[0]`) and converted to the GLB's own frame (world ÷ 16). A "Drive the CPU line" toggle flies the camera along a Catmull-Rom through it, at kart eye-height, looking ahead — a first-person lap of the track inside its skybox. 47 of the courses ship an enemy line.
+
+(GLB export is deterministic — materials, buffer views and primitives are emitted in sorted material order — so re-exporting a model reproduces it byte-for-byte and the committed assets don't churn.)
 
 ## 8. Frontier: sprite cells and sound
 
@@ -587,7 +594,7 @@ go run retroreverse.com/tools/cmd/codetracearm -base 0x02380000 -entry 0x0238000
 ( cd extract && go run ./cmd/rendertex -o ../rendered/course ../extracted/files/data/Course/beach_courseTex.carc )
 ( cd extract && go run ./cmd/render2d  -o ../rendered/ui     ../extracted/files/data/CupPicture )
 
-# 3D models: inspect structure, software-render to PNG, export all 104 to GLB (+manifest)
+# 3D models: inspect structure, software-render to PNG, export all 147 to GLB (+manifest + drive-line JSON)
 ( cd extract && go run ./cmd/modeldump   ../extracted/files/data/KartModelMenu/kart/mario/kart_MR_a.nsbmd )
 ( cd extract && go run ./cmd/rendermodel ../extracted/files/data/Course/mario_course.carc )
 ( cd extract && go run ./cmd/exportglb -all )   # → extracted/glb/, copied to site/public/mariokart/
@@ -612,7 +619,7 @@ Toolchain (all under the `retroreverse.com/tools` module unless noted, this repo
 - **`mariokartds/extract/cmd/render2d`** — composes the NSCR screens of a directory or `.carc` through their NCGR/NCLR (name-paired, `_b` background banks preferred).
 - **`mariokartds/extract/cmd/renderall`** — the whole-filesystem sweep: every texture, every screen (merging language-variant archives with their base), every leftover tile sheet, and the raw `.nbfc`/`.nbfp` banner — regenerates all 2,300+ figures in `rendered/`.
 - **`tools/nds/nitro` models** — `ParseNSBMD` (nodes/TRS + pivot rotations, SBC, materials with the authoritative tex↔pal binding, shapes), `RunSBC` (joint matrices → matrix stack → draw list), `DecodeDL` (the GX display-list interpreter: all vertex forms, strips), and `ExportGLB` (standard binary glTF 2.0 with embedded PNG textures).
-- **`mariokartds/extract/cmd/modeldump` / `rendermodel` / `exportglb`** — model structure dump; z-buffered software render to PNG (`rendered/models/`); GLB export of all 104 models (characters, karts, every course scene + skybox) plus the `models.json` manifest that `site/public/mariokart/` serves. The Studio site (`site/`) carries them under the "Nintendo DS" system (`site/src/mariokart/viewer.js`).
+- **`mariokartds/extract/cmd/modeldump` / `rendermodel` / `exportglb`** — model structure dump; z-buffered software render to PNG (`rendered/models/`); GLB export of all 147 models (characters, karts, every course scene + skybox, including the retro tracks) plus each course's `<name>.path.json` drive line and the `models.json` manifest that `site/public/mariokart/` serves. The Studio site (`site/`) carries them under the "Nintendo DS" system (`site/src/mariokart/viewer.js`), with camera-locked skyboxes and a drive-the-CPU-line fly-through.
 - **`mariokartds/extract/mkds`** — the game-specific plumbing: `LoadModels`/`LoadTextures` (loose files, NARC-embedded models, the cross-archive `<name>Tex.carc` convention) and `ParseNKM`, the course-map decoder.
 - **`mariokartds/extract/cmd/trackmap`** — the track-layout figure generator (`rendered/tracks/`, 59 courses): top-down course geometry at the ×16 world scale, overlaid with every NKM element.
 
