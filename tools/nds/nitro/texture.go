@@ -80,6 +80,25 @@ func DecodeNSBTX(data []byte) ([]Texture, error) {
 	return decodeTEX0(data, tex0)
 }
 
+// DecodeContainerTextures decodes the textures of any NITRO container that
+// carries a TEX0 block. Besides the dedicated BTX0 file this covers BMD0 models
+// with embedded textures — a second block after the MDL0 — which is how
+// self-contained map-object models (Chain Chomps, Goombas, crates …) ship inside
+// the course archives. Returns (nil, nil) if the container has no TEX0.
+func DecodeContainerTextures(data []byte) ([]Texture, error) {
+	if len(data) < 0x14 {
+		return nil, fmt.Errorf("nitro: short container")
+	}
+	nblocks := int(le.Uint16(data[0x0E:]))
+	for i := 0; i < nblocks && 0x10+i*4+4 <= len(data); i++ {
+		off := int(le.Uint32(data[0x10+i*4:]))
+		if off+0x3C <= len(data) && string(data[off:off+4]) == "TEX0" {
+			return decodeTEX0(data, off)
+		}
+	}
+	return nil, nil
+}
+
 func decodeTEX0(data []byte, base int) ([]Texture, error) {
 	texInfoOff := base + int(le.Uint16(data[base+0x0E:]))
 	texDataOff := base + int(le.Uint32(data[base+0x14:]))

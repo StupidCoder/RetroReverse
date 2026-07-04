@@ -92,11 +92,14 @@ func LoadTextures(path string) map[string]nitro.Texture {
 	return texs
 }
 
-// addBlob collects the textures of every BTX0 in data (a bare NSBTX or a NARC).
+// addBlob collects the textures of every TEX0 in data (a bare NSBTX, a NARC's
+// BTX0 sub-files, and the TEX0 blocks embedded in BMD0 models — self-contained
+// map objects like the Chain Chomp carry their textures inside their own model
+// file rather than in the course's Tex archive).
 func addBlob(texs map[string]nitro.Texture, data []byte) {
 	data = nds.Decompress(data)
 	add := func(b []byte) {
-		ts, err := nitro.DecodeNSBTX(b)
+		ts, err := nitro.DecodeContainerTextures(b)
 		if err != nil {
 			return
 		}
@@ -106,13 +109,13 @@ func addBlob(texs map[string]nitro.Texture, data []byte) {
 			}
 		}
 	}
-	if len(data) >= 4 && string(data[:4]) == "BTX0" {
+	if len(data) >= 4 && (string(data[:4]) == "BTX0" || string(data[:4]) == "BMD0") {
 		add(data)
 		return
 	}
 	if files, err := nds.ParseNARC(data); err == nil {
 		for _, f := range files {
-			if len(f) >= 4 && string(f[:4]) == "BTX0" {
+			if len(f) >= 4 && (string(f[:4]) == "BTX0" || string(f[:4]) == "BMD0") {
 				add(f)
 			}
 		}

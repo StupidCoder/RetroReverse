@@ -144,7 +144,10 @@ const GAMES = [
     make: (V, el, hud) => new V(el, hud),
     list: async (v) => await v.init(), // returns the model list from models.json
     show: (v, lvl, i) => v.loadModel(i),
-    group: (lvl) => ({ section: lvl.section, label: lvl.name }),
+    // Tracks are sections of their own: "Track" plus the course's map objects.
+    // The manifest's short label names the item inside its section; the full
+    // name (e.g. "Delfino Square · bridge") stays on the HUD and deep link.
+    group: (lvl) => ({ section: lvl.section, label: lvl.label || lvl.name }),
     // open on Mario's B-Dasher rather than the first list item
     defaultAsset: (models) => models.findIndex(m => m.file === 'kart_MR_a.glb'),
     // course-only toggles: the "_V" backdrop (camera-locked skybox) and a fly-along
