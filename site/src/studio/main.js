@@ -576,7 +576,11 @@ function layerState(m) {
 
 function applyLayers(m) {
   const st = layerState(m);
-  for (const l of m.game.layers || []) m.viewer.setLayer(l.id, st[l.id]);
+  // Optional-call setLayer: a viewer served stale (an older cached mariokart/viewer.js
+  // against this newer main.js -- the site ships no cache headers) may predate the
+  // layer support. Skip it rather than throw, which would reject the asset load and
+  // leave the splash up. Its toggles just won't do anything until the cache refreshes.
+  for (const l of m.game.layers || []) m.viewer.setLayer?.(l.id, st[l.id]);
 }
 
 function persistLayers(m) {
@@ -606,7 +610,7 @@ function buildLayerToggles(m) {
     label.append(input, track, text);
     input.addEventListener('change', () => {
       st[l.id] = input.checked;
-      m.viewer.setLayer(l.id, input.checked);
+      m.viewer.setLayer?.(l.id, input.checked);
       persistLayers(m);
       syncUrl(); // reflect the objects/enemies (etc.) flag in the deep link
     });
