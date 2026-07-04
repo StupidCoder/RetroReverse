@@ -71,6 +71,15 @@ To do:
       so `DecodeLevelByID` decodes all 12 levels; each renders in its own world's tiles
       (`extract/cmd/levelmap -id NN`, rendered/ has all 12). Verified column-exact vs the
       oracle. Next: bonus rooms + object/enemy spawn lists (bank-3 tables) and Part V
+* Mario Kart DS (DS)
+    * First **Nintendo DS** / **ARM** project. Toolchain built: `tools/arm` (ARMv5TE +
+      ARMv4T disassembler + CPU core, ARM + Thumb, interworking-aware), `cmd/disarm`,
+      `cmd/codetracearm`, and `tools/nds` (cartridge reader — header + FNT/FAT filesystem
+      + overlays) with `cmd/ndsinfo`. Part I done: the `.nds` container mapped — 32 MB
+      image, header + logo/header CRCs verified, dual-CPU load map (ARM9 `$02000000`,
+      ARM7 `$02380000`), 4 ARM9 overlays, and the 606-file FNT/FAT catalog (`data/Course`
+      tracks, NITRO `nsbmd`/`nsbtx` assets, LZ77-wrapped `NARC` archives). Next (Part II):
+      extract the ARM9/ARM7 binaries and trace the boot chain with `codetracearm`
 * Tools
     * Disassembler should be better at segmenting functions; currently jumps within a function are treated as separate sub-routines; try to document parameters of sub-routines (which registers are used?)
 
@@ -127,7 +136,9 @@ RetroReverse/
 │   │   ├── cmd/amigapng/       #     render an IFF ILBM or .info icon to PNG
 │   │   └── cmd/hunkload/       #     segment map + flat relocated image of a hunk file
 │   ├── gamegear/               #   Game Gear VDP decoders + machine model (z80 oracle)
-│   └── gameboy/                #   Game Boy machine model — MBC1 + timer/LCD interrupts (sm83 oracle)
+│   ├── gameboy/                #   Game Boy machine model — MBC1 + timer/LCD interrupts (sm83 oracle)
+│   └── nds/                    #   Nintendo DS cartridge reader — header, FNT/FAT filesystem, overlays
+│       └── cmd/ndsinfo/        #     header + integrity + filesystem catalog inspector
 │
 ├── Elite (C64)/
 │   ├── Elite.tap               # raw tape image
@@ -147,6 +158,13 @@ RetroReverse/
 ├── Marble Madness (Amiga)/
 │   ├── Marble_Madness.adf       # raw disk image (not committed; see Image files)
 │   └── Marble_Madness.md        # disk-format writeup (Part I done; rest stubbed)
+│
+├── Mario Kart DS (DS)/
+│   ├── Mario Kart DS (Europe) ….nds   # raw DS cartridge image (pinned by MD5 in Image files)
+│   ├── Mario_Kart_DS.md         # cartridge + game writeup (Part I done; rest stubbed)
+│   ├── extract/                 # module mariokartds/extract — DS extraction tools
+│   ├── disasm/                  # annotated ARM9/ARM7 disassembly (Part II onward)
+│   └── rendered/                # generated PNGs (assets — once decoded)
 │
 ├── Sonic (GG)/
 │   ├── Sonic The Hedgehog (Japan, USA).gg   # raw Game Gear cartridge ROM
@@ -190,6 +208,7 @@ below pin the precise copy, so the work stays reproducible.
 | `Elite (C64)/Elite.tap` | 801,592 | `d51b7f84fd1bec6eb24f4bf210c8cc74` |
 | `Fort Apocalypse (C64)/Fort_Apocalypse.tap` | 225,817 | `bec7409816865f3ad160af9984f127cd` |
 | `Marble Madness (Amiga)/Marble_Madness.adf` | 901,120 | `735dc697d64b3eeaa000778eb0b1153a` |
+| `Mario Kart DS (DS)/Mario Kart DS (Europe) (En,Fr,De,Es,It).nds` | 33,554,432 | `18635a82108149b46fe276c6fac44ee6` |
 | `Sonic (GG)/Sonic The Hedgehog (Japan, USA).gg` | 262,144 | `8a95b36139206a5ba13a38bb626aee25` |
 | `Stunt Car Racer (Amiga)/Stunt Car Racer.adf` | 901,120 | `b6d3751e6aa636f203f3c6a8de81ebfc` |
 | `Super Mario Land (GB)/Super Mario Land (World).gb` | 65,536 | `b48161623f12f86fec88320166a21fce` |
@@ -236,6 +255,8 @@ per-platform subfolder (`c64/`, `amiga/`, …).
 | `amiga/cmd/ppdecrunch` | Decompress a `PP20` file, or a `PP20` block embedded at a `-off`/`-len` slice of a larger file. |
 | `gamegear/gamegear` | Sega Game Gear VDP graphics: the 4-bitplane tile, 12-bit CRAM palette and name-table decoders, plus a minimal `Machine` (8 KB RAM + Sega cartridge mapper + VDP ports) that drives the `z80` core as an *emulation oracle* — run a real ROM, then read back VRAM/CRAM to compose the exact screen the code drew. Usable by any Game Gear (and, for the tiles, Master System) game. |
 | `gameboy` | Game Boy (DMG) machine model driving the `sm83` core as an *emulation oracle*: the MBC1 mapper, the full memory map (VRAM/WRAM/OAM/HRAM/IO), and the timer and LCD scanline counter with their VBlank/STAT/timer interrupts — enough to run a real ROM through its boot and per-frame loop, then read back VRAM/OAM (`RunFrame`/`RunFrames`, plus a PC histogram and a VRAM write-watch). Also the fixed DMG **graphics decoders** (`gb.go`): the 2bpp tile, the `BGP`/`OBP` palette registers, tile-sheet and 32×32 background-map composition (`$8000`/signed-`$8800` addressing), and an OAM/sprite screen compositor (`RenderScreen`). Usable by any Game Boy game; MBC1 today. |
+| `nds` | Nintendo DS cartridge (`.nds`) container reader: the ROM header (with CRC-16 verification), the ARM9/ARM7 binaries and their overlay tables, and the on-cartridge filesystem — the **FAT** (flat start/end offset table) joined to the **FNT** directory tree to resolve every file's full path and ID. The DS counterpart of `amiga/adf`; makes no assumptions about the game inside. Usable by any DS title. |
+| `nds/cmd/ndsinfo` | DS container inspector built on `nds`: prints the header, integrity checks (header/logo CRC), the ARM9/ARM7/overlay layout and the filesystem catalog (`-files` lists every file's ID/range/size/path, `-tree` groups by directory, `-grep` filters). |
 
 ## Building and running
 
