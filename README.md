@@ -125,7 +125,14 @@ To do:
       **self-decompresses via BLZ** (`$02061504`→`.bss` end `$020AA420`; all 103 overlays
       BLZ too), autoload + `.bss` clear, then `BX` to `main` **`$02007000`** (the real
       entry, not a wrapper). ARM7 uncompressed, relocates and runs `main` from WRAM
-      (`$037F8300`). Next: Part III (program architecture / overlay-to-state map).
+      (`$037F8300`). Part III done via an **oracle** (`extract/cmd/bootoracle`): BLZ
+      cross-checked bit-for-bit against the game's own decompressor, runtime memory
+      map (DTCM `$023C0000`, overlays `$020AA420`–`$02148A80`), the interrupt/IPC-FIFO
+      setup (IE bit 18 = IPC recv), and the ARM9↔ARM7 **IPCSYNC rendezvous** at
+      `$0205BB54` — which this game reaches **before `main`** (unlike Mario Kart DS).
+      Overlay-load path traced (`FS_StartOverlay` `$0205DD9C`: BLZ-decompress-if-flagged
+      + run constructors, sharing the crt0's decompressor). Next: dual-core oracle for
+      the overlay-to-state map (which of the 103 overlays backs which world/minigame).
 * Tools
     * Disassembler should be better at segmenting functions; currently jumps within a function are treated as separate sub-routines; try to document parameters of sub-routines (which registers are used?)
 
@@ -225,8 +232,8 @@ RetroReverse/
 │
 ├── Super Mario 64 DS (DS)/
 │   ├── Super Mario 64 DS (Europe) ….nds   # raw DS cartridge image (pinned by MD5 in Image files)
-│   ├── Super_Mario_64_DS.md     # cartridge + game writeup (Parts I-II done; rest stubbed)
-│   ├── extract/                 # module supermario64ds/extract — ndsextract
+│   ├── Super_Mario_64_DS.md     # cartridge + game writeup (Parts I-III done; rest stubbed)
+│   ├── extract/                 # module supermario64ds/extract — ndsextract, bootoracle
 │   ├── disasm/                  # annotated ARM9/ARM7 disassembly
 │   └── rendered/                # generated PNGs
 │

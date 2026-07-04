@@ -9,9 +9,10 @@ Image: `Super Mario 64 DS (Europe) (En,Fr,De,Es,It).nds`, 16 MiB, game code **AS
 ## Contents
 
 * **Part I** — the cartridge image: the ROM header and its integrity checks, the two CPU binaries and the unusually large **overlay table**, the FNT/FAT filesystem, and the asset catalog;
-* **Part II** — the boot chain: both NitroSDK `crt0` startup stubs, the ARM9's in-place BLZ self-decompression, and the handoff to each processor's `main`.
+* **Part II** — the boot chain: both NitroSDK `crt0` startup stubs, the ARM9's in-place BLZ self-decompression, and the handoff to each processor's `main`;
+* **Part III** — program architecture: the boot re-run on our own CPU core as an *oracle* (BLZ cross-check, the runtime memory map, the interrupt/IPC setup, the ARM9↔ARM7 rendezvous), and the overlay system that carries the game's 103 code modules.
 
-Parts III onward (program architecture, the NITRO asset formats, the game's mechanics and its SDAT music) are future work; the toolchain and container decoding carry straight over from the Mario Kart DS analysis.
+Parts IV onward (the NITRO asset formats, the game's mechanics and its SDAT music) are future work; the toolchain and container decoding carry straight over from the Mario Kart DS analysis.
 
 Methods: purely static analysis of the `.nds` image. All addresses are 32-bit ARM addresses (`$02000000`-style main-RAM addresses, or the BIOS and I/O regions) unless a *file offset* into the ROM image is explicitly called out; bytes are little-endian.
 
@@ -222,7 +223,85 @@ The ARM7's stacks live at the top of its private 64 KiB WRAM (`$03800000`–`$03
 
 ## 6. The two processors meet
 
-Both binaries load into the same 4 MiB main RAM (the ARM9 at `$02004000`, the ARM7 near the top at `$02380000`) and both reach `main` independently. From there they coordinate through the DS's **inter-processor communication** hardware in the `$04000000` I/O block — the `IPCSYNC` mailbox and the `IPCFIFO` queue — with main RAM carrying the bulk payloads: input and touch state up from the ARM7, sound commands and DMA lists down from the ARM9. Pinning the exact IPC handshake, the runtime memory map the game builds, and the overlay-to-state mapping (which of the 103 overlays backs which world or minigame) is the work of a future Part III, following the oracle-driven approach used for Mario Kart DS.
+Both binaries load into the same 4 MiB main RAM (the ARM9 at `$02004000`, the ARM7 near the top at `$02380000`) and coordinate through the DS's **inter-processor communication** hardware in the `$04000000` I/O block — the `IPCSYNC` mailbox and the `IPCFIFO` queue — with main RAM carrying the bulk payloads: input and touch state up from the ARM7, sound commands and DMA lists down from the ARM9. Part III picks up exactly here, pinning where and how they first synchronise.
+
+# Part III — Program architecture
+
+Part II followed the boot to each processor's `main`; Part III is about the machine that `main` builds — the runtime memory layout, the OS/interrupt scaffolding, the point where the ARM9 first has to talk to the ARM7, and the overlay system that pages the game's code in and out. A retail DS game is a large C++ program that dispatches almost everything through function pointers and virtual tables, so a purely static trace fans out into hundreds of unreachable indirect calls. This Part therefore leans on the repository's standard technique — an **oracle**, the game's own code run on our own CPU core — to establish structure from behaviour.
+
+## 1. The oracle: running the boot on our own core
+
+`supermario64ds/extract`'s `bootoracle` loads the *compressed* ARM9 binary to `$02004000` exactly as the BIOS would, points the `tools/arm` core at the entry `$02004800`, and lets it run: a flat memory for RAM/TCM/WRAM, the handful of BIOS `SWI`s the startup needs (`CpuSet`/`CpuFastSet` moves, `WaitByLoop`), CP15 accepted and ignored, and every write to the `$04000000` I/O block logged. It runs the real startup and reports what the code *did*.
+
+Two things fall out immediately, each a verification rather than a guess:
+
+- **The BLZ decompression is confirmed by the game itself.** After boot, the bytes the game's own `crt0` decompressor wrote into `$02004000`… are **identical** to what `tools/nds`' independent `DecompressBLZ` produces (`bootoracle` diffs them) over all code and data — the two agree bit-for-bit through `.bss` start, above which the `crt0` zero-fills. The Part II reimplementation and the real decompressor match exactly.
+- **The startup runs cleanly on our core** — the decoder, CPU core, mode/bank handling and memory model execute millions of instructions of real ARM9 code (self-decompression, autoload, OS init) without a wrong turn.
+
+## 2. The runtime memory map
+
+Combining the module-params/overlay tables (Parts I–II) with what the oracle observes, the ARM9's runtime layout of the 4 MiB main RAM (`$02000000`–`$023FFFFF`) plus its tightly-coupled memories is:
+
+| Region | Range | Contents |
+|---|---|---|
+| *(system-reserved)* | `$02000000`–`$02003FFF` | the low 16 KiB the ARM9 image is loaded *above* |
+| ITCM | ~`$01FF8000` window | fast code, filled from the autoload list |
+| ARM9 static code+data | `$02004000`–`$0209B000` | the decompressed ARM9 (`crt0`, `main` `$02007000`) |
+| ARM9 `.bss` | `$0209B000`–`$020AA420` | zero-initialised statics (module-params `+0x0C`/`+0x10`) |
+| ARM9 overlays | `$020AA420`–`$02148A80` | the 103 §I.4 overlays, banked into 22 address slots |
+| ARM9 heap | above the overlays | dynamic allocation, up to the ARM7 region |
+| ARM7 binary | `$02380000`–`$023A4B24` | the ARM7 image (its hot code runs from WRAM, Part II §5) |
+| DTCM | `$023C0000`–`$023C3FFF` | fast data + the SVC/IRQ/System stacks (top-down from `+$3FC0`) |
+| system-config | `$027FF000`… | the ARM9/ARM7 shared config block |
+
+Against Mario Kart DS the shape is the same but the coordinates differ throughout: that game bases its ARM9 at `$02000000` and its DTCM at `$027E0000`; Super Mario 64 DS bases the ARM9 at `$02004000` and pulls DTCM down to `$023C0000`, just above the ARM7 image — a per-title arrangement, not a platform constant.
+
+## 3. Initialisation and the interrupt/IPC setup
+
+The single most useful thing the oracle extracts is the *exact* set of hardware registers the boot programs before it needs the second CPU — only **four**, and every one is about interrupts and inter-processor communication:
+
+```
+0x04000180 = 0x00000000   IPCSYNC     — clear our sync nibble / enable IPC-sync IRQ
+0x04000184 = 0x0000C408   IPCFIFOCNT  — enable the IPC FIFO (send-clear, error-ack, enable)
+0x04000208 = 0x04000000   IME         — master interrupt enable touched
+0x04000210 = 0x00040000   IE          — enable exactly bit 18: IPC recv-FIFO-not-empty
+```
+
+The ARM9 enables **one** interrupt source before anything else: **bit 18, "IPC receive FIFO not empty"** — its entire early interrupt architecture exists to hear the ARM7, exactly as in Mario Kart DS (which additionally writes `IF` to acknowledge). The model underneath is standard DS: `IME` the master switch, `IE` the per-source mask, `IF` the write-1-to-clear latch, with the BIOS vectoring an IRQ through a handler pointer the runtime installs in DTCM.
+
+## 4. The ARM9↔ARM7 rendezvous — before `main`
+
+Here Super Mario 64 DS diverges sharply from Mario Kart DS. That game reaches `main` and its game-init and *then* blocks on the ARM7; Super Mario 64 DS **blocks during `crt0`'s SDK initialisers, before `main` (`$02007000`) is ever reached.** After ≈6.47 million instructions the oracle settles into a tight loop at `$0205BB54`:
+
+```
+0205BB48  LDR  r3, =0x04000180   ; IPCSYNC
+0205BB54  LDRH r0, [r3]          ; read the sync register
+0205BB58  ANDS lr, r0, #0x0F     ; the 4-bit value the *other* CPU posted
+   …
+0205BB9C  CMP  r0, lr            ; == the expected step value?
+0205BBA0  BEQ  0x0205BB84        ; …keep polling…
+```
+
+This is `OS_SyncWithOtherProc` handshaking: the routine enables the IPC-receive interrupt (the `IE = 0x40000` above), writes the ARM9's outgoing `IPCSYNC` nibble, then spins until it reads the matching step number back from the ARM7's incoming nibble — ratcheting a short sequence so neither CPU races ahead during boot. The ARM9 has done its half and waits; the ARM7, per Part II §5, is meanwhile booting from `$02380000` and relocating into WRAM. With no ARM7, the single-CPU oracle stops here — the game's two boot halves meet at this point, and only past it do the `main` routines begin exchanging FIFO traffic.
+
+## 5. The overlay system
+
+The defining feature of this game's architecture is its **103 ARM9 overlays** (Part I §4) — where Mario Kart DS has four. They are the game's code, split into modules paged into main RAM on demand and banked into just 22 address slots, so at most a couple of dozen are resident at once. The load path is a NitroSDK filesystem routine the boot leaves in place, `FS_StartOverlay` (`$0205DD9C`), and tracing it confirms the overlay-record layout decoded in Part I and reveals how a module comes alive:
+
+```
+0205DE3C  LDRB r0, [r5, #0x1F]   ; the record's flag byte
+0205DE40  ANDS r0, r0, #1        ; compressed?
+0205DE48  LDR  r0, [r5, #0x04]   ; the overlay's RAM address
+0205DE50  BL   0x020048D8        ; → BLZ-decompress it in place (same decompressor as the crt0)
+0205DE54  LDR  r6, [r5, #0x10]   ; static-init (constructor) list start
+0205DE58  LDR  r4, [r5, #0x14]   ; …list end
+0205DE68  LDR  r0, [r6]          ; walk the list…
+0205DE74  BLX  r0                ; …calling each constructor
+```
+
+So loading an overlay is: card-DMA its file into its slot, **BLZ-decompress in place if its flag bit is set** — using the *same* backward-LZSS decompressor (`$020048D8`) the `crt0` used on the whole ARM9, its only two callers being the self-decompression and this — then run the record's constructor list to register the module. The overlay *records* are read 32 bytes at a time from the ROM overlay table on demand rather than held in a resident array, so there is no static in-RAM table to read off; the choice of *which* overlay to load is made by the caller.
+
+Which of the 103 overlays backs which part of the game — the castle hub, each painting-world, each of the minigames, the menus — is the natural next question, and it is a genuine **frontier**. That dispatch runs in the frame loop, *past* the IPC rendezvous the single-CPU oracle stops at, so reaching it needs a **dual-core oracle** (ARM9 + ARM7 sharing main RAM, stepping through the `IPCSYNC`/FIFO exchange so the ARM9 gets past `$0205BB54`). Standing that up — the same tool Mario Kart DS's analysis defers — and then watching the scene manager choose overlays is the bridge into Part IV's asset decoding.
 
 # Appendix A — Toolchain and reproduction
 
@@ -246,6 +325,10 @@ go run retroreverse.com/tools/cmd/codetracearm -base 0x02004000 -entry 0x0200480
 
 # trace the ARM7 boot chain from its entry
 go run retroreverse.com/tools/cmd/codetracearm -base 0x02380000 -entry 0x02380000 extracted/arm7.bin
+
+# Part III — run the ARM9 boot on the tools/arm core as an oracle: BLZ cross-check,
+# the I/O registers it programs, and the ARM9↔ARM7 IPCSYNC rendezvous it stops at
+( cd extract && go run ./cmd/bootoracle -io "../Super Mario 64 DS (Europe) (En,Fr,De,Es,It).nds" )
 ```
 
 Toolchain (shared `retroreverse.com/tools`, this repository):
@@ -254,5 +337,6 @@ Toolchain (shared `retroreverse.com/tools`, this repository):
 - **`tools/nds/cmd/ndsinfo`** — the container inspector for Part I (`-files`, `-tree`, `-grep`).
 - **`tools/arm`** — the ARM9/ARM7 disassembler and CPU core (ARMv5TE + ARMv4T; ARM + Thumb, interworking-aware), with `tools/cmd/disarm` (linear) and `tools/cmd/codetracearm` (recursive-descent, follows ARM↔Thumb interworking) as CLIs.
 - **`supermario64ds/extract/cmd/ndsextract`** — this game's extractor: writes `arm9.bin`/`arm7.bin` and the 103 overlays, and their BLZ-decompressed forms (`arm9_dec.bin`, `ovl9_NNN_dec.bin`), into `extracted/` (regenerable, git-ignored).
+- **`supermario64ds/extract/cmd/bootoracle`** — runs the ARM9 boot on the `tools/arm` core over a flat DS memory (with the BIOS `SWI`s the startup needs): cross-checks BLZ against the game's own decompressor, logs the I/O registers programmed, and stops at the ARM9↔ARM7 `IPCSYNC` rendezvous. The DS analogue of the Amiga per-game oracles; the counterpart of Mario Kart DS's `bootoracle`.
 
 Rendered figures will go in `Super Mario 64 DS (DS)/rendered/`; annotated disassembly in `disasm/`.
