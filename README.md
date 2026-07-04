@@ -111,6 +111,21 @@ To do:
       `cmd/trackmap` overlays for all 59 courses (`rendered/tracks/`) — drive line
       pixel-on-asphalt everywhere. 104 GLBs on the site (courses incl. skyboxes).
       Next: collision format + kart physics; `NCER` cells + `SDAT`
+* Super Mario 64 DS (DS)
+    * Second **Nintendo DS** title, on the same `tools/nds` + `tools/arm` toolchain as
+      Mario Kart DS — an instructive contrast in NitroSDK choices. Parts I & II done.
+      Part I: the `.nds` container mapped — 16 MB image (game code **ASMP**), header +
+      logo/header CRCs verified, dual-CPU load map with the ARM9 based at **`$02004000`**
+      (16 KB higher than Mario Kart DS, leaving the low 16 KB free), **103 ARM9 overlays**
+      (vs 4) banked across 22 RAM addresses, and the 2,072-file FNT/FAT catalog — the
+      older NITRO extensions `.bmd`/`.bca` (textures embedded), 241 `.kcl` collision
+      meshes, `.btp` texture-pattern anims, one 4.4 MB `.sdat`, a big `data/enemy/<name>/`
+      subtree and 549 minigame files under `MG/`. Part II: both NitroSDK `crt0` boot
+      chains traced. ARM9 = CP15/MPU + TCM setup, DTCM stacks (`$023C0000`),
+      **self-decompresses via BLZ** (`$02061504`→`.bss` end `$020AA420`; all 103 overlays
+      BLZ too), autoload + `.bss` clear, then `BX` to `main` **`$02007000`** (the real
+      entry, not a wrapper). ARM7 uncompressed, relocates and runs `main` from WRAM
+      (`$037F8300`). Next: Part III (program architecture / overlay-to-state map).
 * Tools
     * Disassembler should be better at segmenting functions; currently jumps within a function are treated as separate sub-routines; try to document parameters of sub-routines (which registers are used?)
 
@@ -208,6 +223,13 @@ RetroReverse/
 │   ├── Stunt Car Racer.adf      # raw disk image (custom format; not committed; see Image files)
 │   └── Stunt_Car_Racer.md       # writeup (Part I recon; tracks + physics the goal)
 │
+├── Super Mario 64 DS (DS)/
+│   ├── Super Mario 64 DS (Europe) ….nds   # raw DS cartridge image (pinned by MD5 in Image files)
+│   ├── Super_Mario_64_DS.md     # cartridge + game writeup (Parts I-II done; rest stubbed)
+│   ├── extract/                 # module supermario64ds/extract — ndsextract
+│   ├── disasm/                  # annotated ARM9/ARM7 disassembly
+│   └── rendered/                # generated PNGs
+│
 ├── Super Mario Land (GB)/
 │   ├── Super Mario Land (World).gb   # raw Game Boy cartridge ROM
 │   ├── Super_Mario_Land.md      # cartridge + game writeup (Parts I-IV done; V stubbed)
@@ -243,6 +265,7 @@ below pin the precise copy, so the work stays reproducible.
 | `Mario Kart DS (DS)/Mario Kart DS (Europe) (En,Fr,De,Es,It).nds` | 33,554,432 | `18635a82108149b46fe276c6fac44ee6` |
 | `Sonic (GG)/Sonic The Hedgehog (Japan, USA).gg` | 262,144 | `8a95b36139206a5ba13a38bb626aee25` |
 | `Stunt Car Racer (Amiga)/Stunt Car Racer.adf` | 901,120 | `b6d3751e6aa636f203f3c6a8de81ebfc` |
+| `Super Mario 64 DS (DS)/Super Mario 64 DS (Europe) (En,Fr,De,Es,It).nds` | 16,777,216 | `867b3d17ad268e10357c9754a77147e5` |
 | `Super Mario Land (GB)/Super Mario Land (World).gb` | 65,536 | `b48161623f12f86fec88320166a21fce` |
 | `Turrican (Amiga)/Turrican.adf` | 901,120 | `6677ce6cea38dc66be40e9211576a149` |
 
