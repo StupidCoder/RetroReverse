@@ -5,11 +5,11 @@ A reverse-engineering reference for `Mario Kart DS (Europe) (En,Fr,De,Es,It).nds
 * **Part I** — the cartridge image: the `.nds` container, its header, the ARM9/ARM7 binaries and overlays, and the FNT/FAT filesystem that names ~600 asset files;
 * **Part II** — the boot chain: the cartridge header's entry points, the secure area, and how the ARM9 and ARM7 come up and hand off;
 * **Part III** — program architecture: the runtime memory map, how the game initialises through the OS layer, its interrupt and IPC-FIFO setup, and the ARM9↔ARM7 rendezvous — pinned by running the boot on the `tools/arm` core as an oracle;
-* **Part IV** — graphics and data formats: peeling the asset layers (`.carc` → LZ77 → `NARC` archive → NITRO resources), decoding all seven `NSBTX` texture formats and the `NCLR`/`NCGR`/`NSCR` 2D tile pipeline, and rendering every track texture and UI screen; the `NSBMD` 3D models remain;
+* **Part IV** — graphics and data formats: peeling the asset layers (`.carc` → LZ77 → `NARC` archive → NITRO resources), decoding all seven `NSBTX` texture formats, the `NCLR`/`NCGR`/`NSCR` 2D tile pipeline, and the `NSBMD` 3D models (nodes, scene bytecode, GX display lists) — every track texture and UI screen rendered, every menu kart and character exported to GLB;
 * **Part V** — game mechanics: track data, kart physics and item behaviour;
 * **Appendix A** — toolchain and reproduction.
 
-Methods: purely static analysis of the `.nds` image. The DS needed a new toolchain — the shared 6502/68000/Z80/LR35902 decoders do not apply — so this project is built on the new `tools/nds` cartridge reader (header, FNT/FAT, overlays, BLZ decompression) and the new `tools/arm` ARM/Thumb disassembler and CPU core, with `tools/nds/cmd/ndsinfo` for the container catalog, the game's `mariokartds/extract` `ndsextract` to pull the CPU binaries, and `retroreverse.com/tools/cmd/disarm` / `codetracearm` for the code. All addresses are 32-bit ARM addresses (`$02000000`-style main-RAM addresses, or the ARM9/ARM7 BIOS and I/O regions) unless a *file offset* into the ROM image is explicitly called out; bytes are little-endian. **Parts I–IV are in progress: I–III complete; IV has every 2D format decoded and every texture and UI screen rendered — all seven texture formats including the 4x4-compressed one, and the NCLR/NCGR/NSCR tile pipeline (2,300+ figures in `rendered/`); the `NSBMD` 3D models and `NCER` sprite cells are IV's frontier. Part V is a stub.**
+Methods: purely static analysis of the `.nds` image. The DS needed a new toolchain — the shared 6502/68000/Z80/LR35902 decoders do not apply — so this project is built on the new `tools/nds` cartridge reader (header, FNT/FAT, overlays, BLZ decompression) and the new `tools/arm` ARM/Thumb disassembler and CPU core, with `tools/nds/cmd/ndsinfo` for the container catalog, the game's `mariokartds/extract` `ndsextract` to pull the CPU binaries, and `retroreverse.com/tools/cmd/disarm` / `codetracearm` for the code. All addresses are 32-bit ARM addresses (`$02000000`-style main-RAM addresses, or the ARM9/ARM7 BIOS and I/O regions) unless a *file offset* into the ROM image is explicitly called out; bytes are little-endian. **Parts I–IV are in progress: I–III complete; IV has every 2D format decoded and rendered (all seven texture formats, the NCLR/NCGR/NSCR tile pipeline; 2,300+ figures in `rendered/`) and the `NSBMD` 3D models decoded end to end — all 41 menu kart/character models render and export as GLB, published in the repository's viewer site. Course-scale scenes, `NCER` sprite cells and `SDAT` sound are IV's frontier. Part V is a stub.**
 
 ---
 
@@ -42,7 +42,8 @@ Methods: purely static analysis of the `.nds` image. The DS needed a new toolcha
   - [3. Texture formats and palettes](#3-texture-formats-and-palettes)
   - [4. The 4x4-compressed format](#4-the-4x4-compressed-format)
   - [5. The 2D tile pipeline: NCLR, NCGR, NSCR](#5-the-2d-tile-pipeline-nclr-ncgr-nscr)
-  - [6. Frontier: models, sprite cells, sound](#6-frontier-models-sprite-cells-sound)
+  - [6. NSBMD models: nodes, scene bytecode, display lists](#6-nsbmd-models-nodes-scene-bytecode-display-lists)
+  - [7. Frontier: course scenes, sprite cells, sound](#7-frontier-course-scenes-sprite-cells-sound)
 - [Part V — Game mechanics](#part-v--game-mechanics)
 - [Appendix A — Toolchain and reproduction](#appendix-a--toolchain-and-reproduction)
 
@@ -476,12 +477,25 @@ Composing screen→tiles→palette reproduces what the 2D engine displays. Two g
 
 `extract/cmd/renderall` sweeps the whole filesystem through every decoder above and renders **every texture and every screen in the game** into `rendered/` — 1,360 textures (all 45+ course sets and every kart/character model texture), 596 composed screens and 376 tile sheets, zero archives skipped. Among the verified figures: the boot **Nintendo logo**, the **MARIO KART DS title screen**, all 32 **cup-select course previews**, the race HUD and menu backdrops, the full **debug font** (`data/Boot/dbgfont`), and the 32×32 cartridge **banner icon** — Shy Guy in a kart — from the raw `.nbfc`/`.nbfp` pair. (`data/Boot/builddate.bin`, incidentally, dates the build: *"Build: 2005 10/8 (Sat) 23:05:54"*.)
 
-## 6. Frontier: models, sprite cells, sound
+## 6. NSBMD models: nodes, scene bytecode, display lists
+
+An `NSBMD` (`BMD0`, block `MDL0`) is a small named *scene*, not just a mesh, decoded in `tools/nds/nitro/model.go` + `displaylist.go` and pinned structure-by-structure against the game's own files (the 476-byte shadow-quad model was the Rosetta stone — small enough to hand-verify every field):
+
+- the **model header** carries section offsets (`+$04` SBC, `+$08` materials, `+$0C` shapes) and counts; then a resource dictionary of **nodes** (joints), each a packed TRS record — a flags word (bit 0 no-T, 1 no-R, 2 no-S, 3 *pivot*), fx32 translation, and either a full fx16 3x3 or a **pivot-compressed rotation**: one matrix element is ±1 (its index in flags bits 4–7, sign bit 8) and the 2x2 remainder is `{A,B;±B,±A}` (bits 9–10) from just two fx16 values;
+- the **SBC scene bytecode** walks the scene: `NODEDESC` (node × parent → the joint's world matrix, optionally stored to a GX matrix-stack slot — opcode bits `$20/$40` add store/restore operands), `MTX` (restore a slot), `MAT` (bind material), `SHP` (draw shape). Mario's menu model is seven `NODEDESC`s (root→body→arms→head) then four draw commands;
+- the **material section**'s tex/pal-to-material lists give the *authoritative* texture↔palette binding (`kart_body`←`kart_MR_a`+`kart_MR_a_pl`, …) that §3's name heuristics approximate — each list entry points (relative to the material section) at the index bytes of the materials using that texture. The material record carries the GX `TEXIMAGE_PARAM` (`+$14`: repeat/flip addressing) and the texture size (`+$20`);
+- a **shape** is `{u16 itemTag, u16 recSize, u32 flags, u32 dlOffset (record-relative), u32 dlSize}` → a raw **display list**: the DS geometry engine's own command stream, four packed command IDs per word. The decoder executes it: `MTX_RESTORE` (joint binding), `COLOR`, `TEXCOORD` (12.4 texel units), and the vertex forms `VTX_16`, `VTX_10`, `VTX_XY/XZ/YZ` (two coords + one kept) and `VTX_DIFF` (10-bit deltas in *raw fx12* units — ±0.125; the scale that, wrong, explodes every character model into spikes). Primitives 0–3 are triangles/quads/tri-strips/quad-strips, quads split on emit.
+
+Verified by rendering (`extract/cmd/rendermodel`, a z-buffered software rasteriser): Mario's **B-Dasher** with the "M" emblem on the hood and gold-hubbed tires, the **Mario menu character** (cap logo, moustache, gloves), Yoshi, Bowser's kart with his emblem on the tail — all 12 characters and all 29 menu karts, `rendered/models/`. Sanity anchor: the shadow model decodes to exactly the 6 quads its header declares.
+
+**GLB export.** `nitro.ExportGLB` serialises any decoded model as a standard **binary glTF 2.0** — per-material primitives with positions, normalised UVs and vertex colours, the NSBTX textures embedded as PNGs, GX repeat/flip mapped to glTF sampler wrap modes. `extract/cmd/exportglb -all` emits all 41 menu models plus a `models.json` manifest, and the set is published on the repository's viewer site: **Mario Kart DS is in the Studio** (`site/`, "Nintendo DS" system) with a three.js GLB viewer (`site/src/mariokart/viewer.js`) — orbit controls, nearest-filtered textures, characters and karts selectable per section.
+
+## 7. Frontier: course scenes, sprite cells, sound
 
 *(frontier)* What remains of Part IV:
 
-- **`NSBMD` / `BMD0` 3D models** — the karts, characters and course geometry: the same resource-dictionary scaffolding over a display-list of packed GPU commands, plus the material block that authoritatively binds texture↔palette names. The biggest remaining piece.
-- **`NCER` sprite cells** (with `NANR` animations) — the layouts that assemble the "scattered" sprite `NCGR`s into objects (character portraits, kart previews). Their tile banks are already decoded and sheeted; the cell assembly is not.
+- **Course scenes** — the `BMD0` models inside `<course>.carc` (track geometry): the same format, but at course scale (multi-hundred-KB display lists, textures resolved from the sibling `…Tex.carc`, `POSSCALE`), plus the map objects. The decoder should extend directly; the batch plumbing (NARC-embedded models + cross-archive textures) is the work.
+- **`NCER` sprite cells** (with `NANR` animations) — the layouts that assemble the "scattered" sprite `NCGR`s into objects. Their tile banks are already decoded and sheeted; the cell assembly is not.
 - **The `SDAT` sound bank** — the single `sound_data.sdat` holding every sequence, bank and wave archive.
 
 # Part V — Game mechanics
@@ -522,6 +536,11 @@ go run retroreverse.com/tools/cmd/codetracearm -base 0x02380000 -entry 0x0238000
 # or individually: one texture set / one UI archive
 ( cd extract && go run ./cmd/rendertex -o ../rendered/course ../extracted/files/data/Course/beach_courseTex.carc )
 ( cd extract && go run ./cmd/render2d  -o ../rendered/ui     ../extracted/files/data/CupPicture )
+
+# 3D models: inspect structure, software-render to PNG, export all 41 to GLB (+manifest)
+( cd extract && go run ./cmd/modeldump   ../extracted/files/data/KartModelMenu/kart/mario/kart_MR_a.nsbmd )
+( cd extract && go run ./cmd/rendermodel ../extracted/files/data/KartModelMenu/character/mario/P_MR.nsbmd )
+( cd extract && go run ./cmd/exportglb -all )   # → extracted/glb/, copied to site/public/mariokart/
 ```
 
 Toolchain (all under the `retroreverse.com/tools` module unless noted, this repository):
@@ -538,5 +557,7 @@ Toolchain (all under the `retroreverse.com/tools` module unless noted, this repo
 - **`mariokartds/extract/cmd/rendertex`** — renders every texture in an NSBTX, or in a `.carc`/NARC's `BTX0` blocks, to PNG.
 - **`mariokartds/extract/cmd/render2d`** — composes the NSCR screens of a directory or `.carc` through their NCGR/NCLR (name-paired, `_b` background banks preferred).
 - **`mariokartds/extract/cmd/renderall`** — the whole-filesystem sweep: every texture, every screen (merging language-variant archives with their base), every leftover tile sheet, and the raw `.nbfc`/`.nbfp` banner — regenerates all 2,300+ figures in `rendered/`.
+- **`tools/nds/nitro` models** — `ParseNSBMD` (nodes/TRS + pivot rotations, SBC, materials with the authoritative tex↔pal binding, shapes), `RunSBC` (joint matrices → matrix stack → draw list), `DecodeDL` (the GX display-list interpreter: all vertex forms, strips), and `ExportGLB` (standard binary glTF 2.0 with embedded PNG textures).
+- **`mariokartds/extract/cmd/modeldump` / `rendermodel` / `exportglb`** — model structure dump; z-buffered software render to PNG (`rendered/models/`); GLB export of the 41 menu kart/character models plus the `models.json` manifest that `site/public/mariokart/` serves. The Studio site (`site/`) gains the "Nintendo DS" system and a three.js GLB viewer (`site/src/mariokart/viewer.js`).
 
 Rendered figures go in `Mario Kart DS (DS)/rendered/`; annotated disassembly in `disasm/`.

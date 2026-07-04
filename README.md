@@ -95,8 +95,12 @@ To do:
       language-variant archive merging). `extract/cmd/renderall` sweeps the filesystem:
       **1,360 textures + 596 screens + 376 sheets, 0 archives skipped** (`rendered/`) —
       title screen, Nintendo logo, all cup pictures, Rainbow Road, the Shy Guy banner
-      icon, the debug font. Next: `NSBMD` 3D models + `NCER` sprite cells; then Part V
-      (`NKMD` map data, kart physics)
+      icon, the debug font. **`NSBMD` 3D models decoded end to end** (nodes + pivot
+      rotations, SBC scene bytecode, GX display lists, material tex↔pal binding):
+      all 41 menu kart/character models software-render to PNG (`rendered/models/`)
+      and **export as GLB** (`nitro.ExportGLB`), served by the Studio site — new
+      "Nintendo DS" system + three.js viewer (`site/src/mariokart/`). Next: course
+      scenes + `NCER` sprite cells; then Part V (`NKMD` map data, kart physics)
 * Tools
     * Disassembler should be better at segmenting functions; currently jumps within a function are treated as separate sub-routines; try to document parameters of sub-routines (which registers are used?)
 
@@ -180,9 +184,9 @@ RetroReverse/
 ├── Mario Kart DS (DS)/
 │   ├── Mario Kart DS (Europe) ….nds   # raw DS cartridge image (pinned by MD5 in Image files)
 │   ├── Mario_Kart_DS.md         # cartridge + game writeup (Parts I-III done; rest stubbed)
-│   ├── extract/                 # module mariokartds/extract — ndsextract, bootoracle, rendertex/render2d/renderall
+│   ├── extract/                 # module mariokartds/extract — ndsextract, bootoracle, render*/exportglb tools
 │   ├── disasm/                  # annotated ARM9/ARM7 disassembly (Part II onward)
-│   └── rendered/                # generated PNGs — every texture + UI screen (course/, tex/, ui/, emblems/)
+│   └── rendered/                # generated PNGs — every texture + UI screen + 3D models (models/)
 │
 ├── Sonic (GG)/
 │   ├── Sonic The Hedgehog (Japan, USA).gg   # raw Game Gear cartridge ROM
@@ -276,7 +280,7 @@ per-platform subfolder (`c64/`, `amiga/`, …).
 | `nds` | Nintendo DS cartridge (`.nds`) container reader: the ROM header (with CRC-16 verification), the ARM9/ARM7 binaries and their overlay tables, the on-cartridge filesystem — the **FAT** (flat start/end offset table) joined to the **FNT** directory tree to resolve every file's full path and ID — and the **BLZ** backward-LZSS decompressor the SDK applies to the ARM9 static module and overlays (`DecompressBLZ`/`IsBLZ`). The DS counterpart of `amiga/adf`; makes no assumptions about the game inside. Usable by any DS title. |
 | `nds/cmd/ndsinfo` | DS container inspector built on `nds`: prints the header, integrity checks (header/logo CRC), the ARM9/ARM7/overlay layout and the filesystem catalog (`-files` lists every file's ID/range/size/path, `-tree` groups by directory, `-grep` filters). |
 | `nds` LZ77 + NARC | The DS filesystem's compression and bundling: `DecompressLZ77` (forward LZ10/LZ11, distinct from the boot `BLZ`), `Decompress` (transparent), and `ParseNARC` (splits a Nintendo ARChive, decompressing a `.carc` wrapper first). Unit-tested. |
-| `nds/nitro` | NITRO-System resource decoders. 3D textures: `DecodeNSBTX` turns a `BTX0`/`TEX0` set into Go images — the shared resource-dictionary parse, the `texImageParam`, **all seven** DS texture formats (paletted 2/3/4, A3I5, A5I3, direct, and the 4x4-block-compressed format with its two dedicated `TEX0` regions), BGR555 palettes and name-similarity texture↔palette pairing. 2D tile art: `ParseNCLR`/`ParseNCGR`/`ParseNSCR` + `ComposeScreen`/`TileSheet` decode the palette/character/screen files (incl. the `RPCN` palette variant) and compose full screens. (`NSBMD` models and `NCER` sprite cells pending.) |
+| `nds/nitro` | NITRO-System resource decoders. 3D textures: `DecodeNSBTX` turns a `BTX0`/`TEX0` set into Go images — the shared resource-dictionary parse, the `texImageParam`, **all seven** DS texture formats (paletted 2/3/4, A3I5, A5I3, direct, and the 4x4-block-compressed format with its two dedicated `TEX0` regions), BGR555 palettes and name-similarity texture↔palette pairing. 2D tile art: `ParseNCLR`/`ParseNCGR`/`ParseNSCR` + `ComposeScreen`/`TileSheet` decode the palette/character/screen files (incl. the `RPCN` palette variant) and compose full screens. **3D models**: `ParseNSBMD` (nodes/TRS incl. pivot-compressed rotations, SBC scene bytecode, materials with the authoritative tex↔pal binding, shape display lists), `RunSBC` + `DecodeDL` (the GX geometry-command interpreter: all vertex forms, tri/quad strips, joint matrix stack), and `ExportGLB` (standard binary glTF 2.0, textures embedded as PNG, GX wrap modes mapped). (`NCER` sprite cells pending.) |
 
 ## Building and running
 
