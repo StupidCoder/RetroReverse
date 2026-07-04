@@ -99,6 +99,28 @@ func DecodeContainerTextures(data []byte) ([]Texture, error) {
 	return nil, nil
 }
 
+// DecodeTexture decodes one DS texture from raw offsets and a texImageParam word,
+// for containers other than TEX0 (e.g. Super Mario 64 DS's own BMD model format).
+// texelOff is the texel data; palIdxOff the 4x4-format palette-index data (used
+// only for format 5); palOff the palette base. Format, width and height come from
+// param (the standard DS texImageParam; its low 16 offset bits are ignored here).
+func DecodeTexture(data []byte, texelOff, palIdxOff, palOff int, param uint32) (Texture, error) {
+	fmtID := int(param>>26) & 7
+	w := 8 << (int(param>>20) & 7)
+	h := 8 << (int(param>>23) & 7)
+	color0 := param&(1<<29) != 0
+	var img *image.NRGBA
+	if fmtID == 5 {
+		img = decode4x4(data, texelOff, palIdxOff, palOff, w, h)
+	} else {
+		var err error
+		if img, err = decodeTexture(data, texelOff, palOff, fmtID, w, h, color0); err != nil {
+			return Texture{}, err
+		}
+	}
+	return Texture{Img: img, Format: fmtID, Width: w, Height: h}, nil
+}
+
 func decodeTEX0(data []byte, base int) ([]Texture, error) {
 	texInfoOff := base + int(le.Uint16(data[base+0x0E:]))
 	texDataOff := base + int(le.Uint32(data[base+0x14:]))

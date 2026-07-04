@@ -162,6 +162,17 @@ const GAMES = [
     // (the retail SDAT ships no symbol block, so tracks are numbered, not named)
     music: async () => (await fetch('public/mariokart/music/tracks.json').then(r => r.json())),
   },
+  {
+    id: 'sm64ds', name: 'Super Mario 64 DS', system: 'Nintendo DS', render: '3d',
+    load: () => import('../sm64ds/viewer.js').then(m => m.ModelViewer),
+    make: (V, el, hud) => new V(el, hud),
+    list: async (v) => await v.init(), // model list from models.json (its own BMD format)
+    show: (v, lvl, i) => v.loadModel(i),
+    // Levels / Characters / Enemies / Objects sections, from the manifest's section field
+    group: (lvl) => ({ section: lvl.section, label: lvl.name }),
+    // open on Bob-omb Battlefield — course 1, the game's front door
+    defaultAsset: (models) => models.findIndex(m => m.name === 'Bob-omb Battlefield'),
+  },
 ];
 
 // Turrican's manifest labels worlds 0-based with hex start offsets; make them readable.

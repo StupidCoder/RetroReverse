@@ -1868,6 +1868,110 @@ the envelope generator and the multimode filter — clocked at the C64's rate an
 chip's output is. No recording of the original is used; it is played from the bytes.</p>
 `,
   },
+  sm64ds: {
+    loader: `
+<div class="info-eyebrow">Super Mario 64 DS &middot; Image &amp; Loader</div>
+<p>Super Mario 64 DS ships on a 16&nbsp;MiB Nintendo DS Game Card. A DS card is not a memory-mapped cartridge
+like the Game Boy's: it is a serial device whose contents are an on-card <strong>filesystem</strong> the console
+reads on demand. The DS is also a <strong>two-processor machine</strong> &mdash; an ARM9 and an ARM7 sharing one
+4&nbsp;MiB main memory &mdash; so the card carries two code images that boot side by side, described by a
+512-byte header at the front of the image.</p>
+
+<h2>Two CPUs, one memory</h2>
+<p>The header hands each CPU a different load and entry address. The <strong>ARM9</strong> (an ARMv5TE core that
+owns the card, the game and both screens) loads to <code>$02004000</code> and starts at <code>$02004800</code>,
+over its secure-area landing. The <strong>ARM7</strong> (an ARMv4T core servicing sound, the touchscreen,
+buttons and wireless) loads near the top of the same RAM at <code>$02380000</code>. Both see the single main
+memory <code>$02000000</code>&ndash;<code>$023FFFFF</code> and coordinate through the DS's <strong>IPC</strong>
+hardware in the <code>$04000000</code> I/O block. Unlike Mario Kart DS, which bases its ARM9 at the very bottom
+<code>$02000000</code>, this game starts <code>$4000</code> bytes higher, leaving the low 16&nbsp;KiB of main
+RAM free for the system. Both cores run 32-bit <strong>ARM</strong> and 16-bit <strong>Thumb</strong> code,
+switched by <code>BX</code>/<code>BLX</code>.</p>
+
+<h2>Overlays: code paged in on demand</h2>
+<p>The ARM9 static binary is only the spine. The game is really a tree of <strong>code overlays</strong> &mdash;
+separately loadable code+data blobs swapped into fixed RAM regions as the player moves between the castle, a
+painting-world, a minigame or a menu. Its overlay table at <code>$061510</code> lists <strong>103 overlays</strong>
+(32-byte records) that occupy just <strong>22 distinct RAM addresses</strong>: overlays sharing an address are
+mutually-exclusive banks, only one resident at a time. Each record names the file holding its bytes, a
+<code>.bss</code> range to zero and a static-initialiser range to run after loading, and every overlay is
+individually <strong>BLZ-compressed</strong> (a backward-decompressing LZ variant the boot code also uses on the
+main binaries). The ARM7 has no overlays.</p>
+
+<h2>The filesystem</h2>
+<p>Everything that is not boot code &mdash; models, animation, collision, textures, the sound bank, the 2D UI
+&mdash; lives in an on-card filesystem addressed by two tables. The <strong>FAT</strong> is a flat array of
+start/end offset pairs, one per file (2175 files); the <strong>FNT</strong> is the directory tree that gives
+those numbered files names and a hierarchy. File IDs <code>0</code>&ndash;<code>102</code> are the ARM9 overlays
+(referenced directly, unnamed); IDs <code>103</code> onward are the named files, yielding paths like
+<code>data/stage/castle_1f/castle_1f_all.bmd</code> and <code>ARCHIVE/arc0.narc</code>. A filesystem file is
+rarely the raw asset: it is usually a compressed stream, and the top-level <code>ARCHIVE/</code> holds
+<strong>NARC</strong> archives that bundle further sub-files.</p>
+`,
+    engine: `
+<div class="info-eyebrow">Super Mario 64 DS &middot; Game Engine</div>
+<p>Once the two boot chains meet, the game runs as a dual-core program: the ARM9 drives simulation and rendering
+while the ARM7 handles sound and input, the two exchanging messages over dedicated hardware. On top of that base
+sits an <strong>overlay tree</strong> that reshapes the ARM9's code map to match wherever the player is.</p>
+
+<h2>The two cores meet</h2>
+<p>Each CPU boots from its own entry: an ARM9 startup stub programs the <strong>CP15</strong> system control
+coprocessor, sets up the tightly-coupled memories and stacks, then self-decompresses the BLZ-packed body, zeroes
+<code>.bss</code>, runs the static initialisers and calls <code>main</code>. The ARM7 comes up in parallel. Before
+either reaches its real work they <strong>rendezvous</strong> through the <code>IPCSYNC</code> register &mdash; a
+handshake where each core waits to see the other's agreed value &mdash; and then settle into a steady exchange
+over the <strong>PXI FIFO</strong>, the message pipe that carries sound commands and input state between them for
+the rest of the session.</p>
+
+<h2>Overlays as a state machine</h2>
+<p>Because the 103 overlays collapse onto only 22 RAM addresses, the resident set of code <em>is</em> the game's
+current state. Entering a world's painting loads that world's overlay bank into a shared region, displacing
+whatever was there; returning to the castle swaps it back. The engine is thus organised as a large tree of
+on-demand modules keyed to place &mdash; the castle hub, each course, the minigame suite, the menus &mdash;
+rather than one monolithic binary, which is how a Nintendo&nbsp;64-scale game fits inside 4&nbsp;MiB of DS RAM.</p>
+`,
+    graphics: `
+<div class="info-eyebrow">Super Mario 64 DS &middot; Graphics</div>
+<p>The DS renders in 3D on a dedicated geometry engine, and this game stores its 3D art in a
+<strong>bespoke model format</strong> with the extension <code>.bmd</code>. Despite the name it is <em>not</em>
+the NitroSDK's <code>BMD0</code> container that Mario Kart DS uses &mdash; the low-level primitives are the same DS
+silicon, but the file that wraps them is the game's own.</p>
+
+<h2>The container</h2>
+<p>A <code>.bmd</code> file begins with an <code>LZ77</code> magic tag over a standard <strong>LZ10</strong>
+compressed stream; decompressed, it opens with a fixed header of <strong>(count, offset)</strong> pairs pointing
+at arrays of <strong>bones</strong>, <strong>display lists</strong>, <strong>materials</strong>,
+<strong>textures</strong> and <strong>palettes</strong>, plus a single model-wide scale stored as a
+power-of-two shift. There is no <code>BMD0</code> stamp and no NITRO resource dictionary; the indices that bind
+the pieces together are explicit fields, not named lookups.</p>
+
+<h2>Bones draw the geometry</h2>
+<p>Each <strong>bone</strong> carries a transform and a small <strong>render list</strong>: pairs of
+(material index, display-list index) telling the engine to draw a given shape with a given material. A
+<strong>display list</strong> is a stream of <strong>GX commands</strong> &mdash; the exact command language the
+DS's geometry engine consumes &mdash; so that decoder is shared with the NITRO models. It handles every vertex
+form the hardware offers, including <em>delta</em> vertices (small signed offsets from the previous vertex) and
+the full <strong>matrix pipeline</strong> the display lists drive directly: push/pop of a matrix stack, load,
+multiply, scale and translate, which is how the more elaborate stages position their parts. A model's two
+sub-display-lists are one continuous command stream and must be decoded together, or a chunk that opens on a
+delta vertex snaps back to the origin and flings triangles off into spikes.</p>
+
+<h2>Textures and palettes</h2>
+<p>The textures are embedded in the model, not in loose files. Each material names an explicit texture and
+palette index; a texture is decoded through the DS's <strong>seven texture formats</strong> &mdash; paletted
+4/16/256-colour, two alpha-plus-index formats, 16-bit direct colour, and a <strong>4&times;4 block-compressed</strong>
+mode whose texel indices and per-block palette selectors sit in two separate regions. Palettes are 15-bit
+<strong>BGR555</strong>. DS texture units are tiny &mdash; often 32&times;32 texels &mdash; so this viewer keeps
+them nearest-filtered to preserve the original pixel art. Level textures tile, so their materials repeat on both
+axes unless the GX flags say otherwise.</p>
+
+<h2>From cartridge to viewer</h2>
+<p>The models on display are the game's own stage and object files, decoded straight from these structures and
+converted to glTF with their textures baked in &mdash; the castle floors, each course's terrain, and the
+creatures and props that populate them. Course geometry is authored small and scaled up by the model's
+power-of-two shift, the size the physics and collision meshes use.</p>
+`,
+  },
 };
 
 // HTML for a game/tab, or null if nothing has been written for it yet.

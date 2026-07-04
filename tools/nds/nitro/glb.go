@@ -26,9 +26,18 @@ func ExportGLB(m Model, texs map[string]Texture) ([]byte, error) {
 			byMat[t.Mat] = append(byMat[t.Mat], t)
 		}
 	}
+	return ExportTrisGLB(m.Name, byMat, m.Materials, texs)
+}
+
+// ExportTrisGLB serialises pre-decoded triangles (grouped by material index) as a
+// binary glTF, for model formats that carry their own scene structure instead of
+// NITRO's SBC bytecode — e.g. Super Mario 64 DS's BMD, whose bones and display
+// lists are decoded elsewhere into this same (byMat, materials, textures) shape.
+func ExportTrisGLB(name string, byMat map[int][]Tri, mats []Material, texs map[string]Texture) ([]byte, error) {
 	if len(byMat) == 0 {
-		return nil, fmt.Errorf("nitro: model %q has no geometry", m.Name)
+		return nil, fmt.Errorf("nitro: model %q has no geometry", name)
 	}
+	m := Model{Name: name, Materials: mats}
 
 	var bin bytes.Buffer
 	type accessor struct {

@@ -113,13 +113,13 @@ The 2072 named files group cleanly by extension, and the histogram sketches the 
 |---|---:|---|
 | `.bin` | 763 | raw/engine-specific data (2D UI tile maps, tables) |
 | `.bca` | 493 | NITRO character (joint) animation — the shorter-named sibling of Mario Kart DS's `.nsbca` |
-| `.bmd` | 455 | NITRO 3D model (`BMD0`: geometry + material, textures embedded) |
+| `.bmd` | 455 | 3D model — the game's *own* container (NOT NITRO `BMD0`; see Part IV), textures embedded |
 | `.kcl` | 241 | **collision mesh** — the `KCL` triangle-soup/octree format the physics runs on |
 | `.btp` | 105 | NITRO texture-pattern animation (frame-swapped textures) |
 | `.narc` | 13 | `NARC` archive (bundles of the above) |
 | `.sdat` | 1 | the entire SDAT sound bank (SSEQ/SBNK/SWAR), 4.4 MiB |
 
-Two things distinguish this catalog from Mario Kart DS's. First, the **naming**: Super Mario 64 DS uses the terse early-NitroSDK extensions `.bmd`/`.bca` where the later Mario Kart DS writes `.nsbmd`/`.nsbca` — the same underlying `BMD0`/`BCA0` NITRO formats under an older suffix. Second, there is **no separate texture-set extension** (`.nsbtx`): with 455 models and no loose texture files, the models carry their textures **embedded** in their own `BMD0` (a `TEX0` block after the geometry), which the later graphics Part decodes. The abundance of `.kcl` (241 collision meshes — one per world, object and platform) foreshadows a game that is, at heart, a physics playground.
+Two things distinguish this catalog from Mario Kart DS's. First, the **naming**: Super Mario 64 DS uses the terse extensions `.bmd`/`.bca` where the later Mario Kart DS writes `.nsbmd`/`.nsbca`. The suffixes *look* like an older spelling of the same NITRO formats — and `.bca` animation is — but the `.bmd` model is **not** NITRO `BMD0` at all: it is the game's own bespoke container (an `LZ77`-tagged LZ10 stream over a fixed header of bone/display-list/material/texture/palette arrays), decoded in Part IV. Only the low-level pieces inside — the GX display lists and the DS texture formats — are the shared NITRO silicon. Second, there is **no separate texture-set extension** (`.nsbtx`): with 455 models and no loose texture files, the models carry their textures **embedded**, which the later graphics Part decodes. The abundance of `.kcl` (241 collision meshes — one per world, object and platform) foreshadows a game that is, at heart, a physics playground.
 
 The top-level directories tell the same story: `data/` (1509 files — the bulk, with a large `data/enemy/<name>/` subtree per creature: `wanwan`, `basabasa`, `bakubaku`, `battan_king`, `big_snowman`…, plus `data/2D_cad` UI graphics and `data/DSMT` map data), `MG/` (549 files — the minigame assets) and `ARCHIVE/` (13 `NARC` bundles). The full catalog is reproducible with `ndsinfo -files` (Appendix).
 

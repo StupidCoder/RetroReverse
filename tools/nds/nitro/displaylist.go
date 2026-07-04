@@ -71,6 +71,23 @@ func DecodeDL(dl []byte, stack []Mat43, cur Mat43, mat int) []Tri {
 	var curColor = color.NRGBA{R: 0xFF, G: 0xFF, B: 0xFF, A: 0xFF}
 	var u, v float64
 
+	// GX matrix pipeline: a current position matrix (cur), a push/pop stack, and the
+	// 32 addressable slots (stack, passed in). Models that build transforms inside
+	// the display list (SM64DS stages such as Big Boo's Haunt, the cave) rely on
+	// these; simpler models (the castle floors) only ever MTX_RESTORE slot 0.
+	var mstack []Mat43 // push/pop stack
+	mtxMode := 2        // 0 proj, 1 position, 2 position+vector, 3 texture
+	fx := func(v uint32) float64 { return float64(int32(v)) / 4096 }
+	load43 := func(p []uint32) Mat43 {
+		return Mat43{fx(p[0]), fx(p[1]), fx(p[2]), fx(p[3]), fx(p[4]), fx(p[5]),
+			fx(p[6]), fx(p[7]), fx(p[8]), fx(p[9]), fx(p[10]), fx(p[11])}
+	}
+	load44 := func(p []uint32) Mat43 { // 4×4: drop each column's w component
+		return Mat43{fx(p[0]), fx(p[1]), fx(p[2]), fx(p[4]), fx(p[5]), fx(p[6]),
+			fx(p[8]), fx(p[9]), fx(p[10]), fx(p[12]), fx(p[13]), fx(p[14])}
+	}
+	isPos := func() bool { return mtxMode != 3 } // apply to cur unless in texture mode
+
 	emit := func() {
 		n := len(verts)
 		switch prim {
@@ -135,10 +152,66 @@ func DecodeDL(dl []byte, stack []Mat43, cur Mat43, mat int) []Tri {
 				params[i] = next()
 			}
 			switch cmd {
+			case 0x10: // MTX_MODE
+				mtxMode = int(params[0] & 3)
+			case 0x11: // MTX_PUSH
+				if isPos() {
+					mstack = append(mstack, cur)
+				}
+			case 0x12: // MTX_POP (signed 6-bit level count)
+				if isPos() {
+					n := int(int8(params[0]<<2) >> 2)
+					if n < 0 {
+						n = -n
+					}
+					if n > 0 && n <= len(mstack) {
+						cur = mstack[len(mstack)-n]
+						mstack = mstack[:len(mstack)-n]
+					}
+				}
+			case 0x13: // MTX_STORE
+				if isPos() {
+					if idx := int(params[0] & 0x1F); idx < len(stack) {
+						stack[idx] = cur
+					}
+				}
 			case 0x14: // MTX_RESTORE
 				idx := int(params[0] & 0x1F)
-				if idx < len(stack) {
+				if isPos() && idx < len(stack) {
 					cur = stack[idx]
+				}
+			case 0x15: // MTX_IDENTITY
+				if isPos() {
+					cur = Identity43()
+				}
+			case 0x16: // MTX_LOAD_4x4
+				if isPos() {
+					cur = load44(params)
+				}
+			case 0x17: // MTX_LOAD_4x3
+				if isPos() {
+					cur = load43(params)
+				}
+			case 0x18: // MTX_MULT_4x4
+				if isPos() {
+					cur = cur.Mul(load44(params))
+				}
+			case 0x19: // MTX_MULT_4x3
+				if isPos() {
+					cur = cur.Mul(load43(params))
+				}
+			case 0x1A: // MTX_MULT_3x3 (rotation only)
+				if isPos() {
+					p := params
+					cur = cur.Mul(Mat43{fx(p[0]), fx(p[1]), fx(p[2]), fx(p[3]), fx(p[4]), fx(p[5]), fx(p[6]), fx(p[7]), fx(p[8]), 0, 0, 0})
+				}
+			case 0x1B: // MTX_SCALE
+				if isPos() {
+					cur = cur.Mul(Mat43{fx(params[0]), 0, 0, 0, fx(params[1]), 0, 0, 0, fx(params[2]), 0, 0, 0})
+				}
+			case 0x1C: // MTX_TRANS
+				if isPos() {
+					cur = cur.Mul(Mat43{1, 0, 0, 0, 1, 0, 0, 0, 1, fx(params[0]), fx(params[1]), fx(params[2])})
 				}
 			case 0x20: // COLOR (BGR555)
 				c := uint16(params[0])
