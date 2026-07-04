@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"image/png"
 	"math"
+	"sort"
 )
 
 // ExportGLB serialises a decoded model as a self-contained binary glTF 2.0 (.glb):
@@ -128,7 +129,15 @@ func ExportGLB(m Model, texs map[string]Texture) ([]byte, error) {
 		}
 	}
 
+	// Stable material order: iterate the material keys sorted, so the emitted
+	// materials, images, buffer views and primitives are deterministic — the same
+	// model re-exports byte-for-byte (no map-iteration churn in the committed GLBs).
+	var order []int
 	for mi := range byMat {
+		order = append(order, mi)
+	}
+	sort.Ints(order)
+	for _, mi := range order {
 		gm := gMaterial{PBR: pbr{MetallicFactor: 0, RoughnessFactor: 1}, DoubleSided: true}
 		gm.Name = fmt.Sprintf("mat%d", mi)
 		if mi < len(m.Materials) {
@@ -163,19 +172,7 @@ func ExportGLB(m Model, texs map[string]Texture) ([]byte, error) {
 		Mode       int            `json:"mode"`
 	}
 	var prims []primitive
-	// stable material order
-	var order []int
-	for mi := range byMat {
-		order = append(order, mi)
-	}
-	for i := 0; i < len(order); i++ {
-		for j := i + 1; j < len(order); j++ {
-			if order[j] < order[i] {
-				order[i], order[j] = order[j], order[i]
-			}
-		}
-	}
-	for _, mi := range order {
+	for _, mi := range order { // same sorted order as the materials above
 		tris := byMat[mi]
 		var pos, uv, col []float32
 		dims, hasTex := texDims[mi]
