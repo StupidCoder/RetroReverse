@@ -83,7 +83,12 @@ To do:
       DTCM stacks (`$027E0000`), **self-decompresses via BLZ** (reimplemented in `tools/nds`
       `DecompressBLZ`, verified: `$0E751C`→`$1773D8`), autoload + `.bss` clear, then `BX` to
       `main` `$02003000` (real entry `$020365F0`). ARM7 uncompressed, runs `main` from WRAM
-      (`$037F8534`). Next: the ARM9↔ARM7 IPC/FIFO protocol and Part III (`$020365F0` game init)
+      (`$037F8534`). Part III done via an **oracle** (`extract/cmd/bootoracle` runs the ARM9
+      boot on the `tools/arm` core): BLZ cross-checked bit-for-bit against the game's own
+      decompressor, runtime memory map, OS-layer init (`$020365F0`), the interrupt/IPC-FIFO
+      setup (IE bit 18 = IPC recv), and the ARM9↔ARM7 **IPCSYNC rendezvous** it blocks on.
+      Next: a dual-core (ARM9+ARM7) oracle to cross the rendezvous → frame loop + overlay
+      streaming, then Part IV (NITRO asset decode)
 * Tools
     * Disassembler should be better at segmenting functions; currently jumps within a function are treated as separate sub-routines; try to document parameters of sub-routines (which registers are used?)
 
@@ -165,8 +170,8 @@ RetroReverse/
 │
 ├── Mario Kart DS (DS)/
 │   ├── Mario Kart DS (Europe) ….nds   # raw DS cartridge image (pinned by MD5 in Image files)
-│   ├── Mario_Kart_DS.md         # cartridge + game writeup (Parts I-II done; rest stubbed)
-│   ├── extract/                 # module mariokartds/extract — cmd/ndsextract (CPU binaries + BLZ)
+│   ├── Mario_Kart_DS.md         # cartridge + game writeup (Parts I-III done; rest stubbed)
+│   ├── extract/                 # module mariokartds/extract — cmd/ndsextract, cmd/bootoracle (ARM9 oracle)
 │   ├── disasm/                  # annotated ARM9/ARM7 disassembly (Part II onward)
 │   └── rendered/                # generated PNGs (assets — once decoded)
 │

@@ -10,6 +10,7 @@
 */extract/objsettle
 */extract/spawncheck
 */extract/ndsextract
+*/extract/bootoracle
 
 # regenerable extraction output
 */extracted/
