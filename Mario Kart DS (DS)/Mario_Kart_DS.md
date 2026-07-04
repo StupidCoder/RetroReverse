@@ -536,9 +536,21 @@ Two extras ride alongside each course GLB for the viewer:
 
 (GLB export is deterministic — materials, buffer views and primitives are emitted in sorted material order — so re-exporting a model reproduces it byte-for-byte and the committed assets don't churn.)
 
-## 8. Frontier: sprite cells and sound
+## 8. The music system: SDAT → SSEQ/SBNK/SWAR, rendered
 
-*(frontier)* Remaining in Part IV: **`NCER` sprite cells** (with `NANR` animations) — the layouts assembling the "scattered" sprite `NCGR`s; and the **`SDAT` sound bank** (`sound_data.sdat`: sequences, banks, wave archives).
+All sound lives in one file: `data/Sound/sound_data.sdat` (3.3 MB), the NitroSDK sound archive. The retail build ships it with **three blocks — `INFO`, `FAT `, `FILE` — and no `SYMB`**: the symbol (name) block was stripped, so nothing on the cartridge names its own music. The `FAT` holds 284 files: **76 `SSEQ`** sequences (the music and jingles), **99 `SBNK`** instrument banks, **104 `SWAR`** wave archives and 5 `SSAR` effect archives (no streamed `STRM` audio at all — every note is sequenced). `INFO` binds them: a SEQ record `{u32 fileID, u16 bank, u8 vol, …}` names each sequence's bank and volume; a BANK record `{u32 fileID, u16 swar[4]}` gives each bank up to four wave archives.
+
+The three formats, decoded in `tools/nds/sdat` (the DS analogue of `tools/c64/sid`):
+
+- **`SSEQ`** — MIDI-like bytecode, one stream, multiple tracks (`0xFE` track mask + `0x93` open-track at the start): `0x00–0x7F` note-on `{key, u8 velocity, varint ticks}`, `0x80` rest, `0x81` program change, `0x94/0x95/0xFD` jump/call/return (a backward `0x94` is the music's loop point), `0xC0–0xE1` controllers (pan, volume, expression, transpose, pitch bend ± range, vibrato, tempo), `0xD4/0xFC` counted loops, `0xFF` end.
+- **`SBNK`** — instruments: type 1 = a sampled wave `{u16 swav, u16 swar, base note, A, D, S, R, pan}`, types 2/3 = the DS's PSG pulse (duty in the wave field) and LFSR noise channels, type 16 = drumset (per-key instrument map), type 17 = eight-region keysplit.
+- **`SWAR`/`SWAV`** — samples: PCM8, PCM16 or **IMA-ADPCM** (4-byte `{predictor, index}` seed then nibbles), each with rate and loop point. The header's units pin themselves: `(loopStart + loopLen) × 4` equals the sample data size exactly, so both count 32-bit words.
+
+The renderer follows the sound driver's semantics: **48 ticks per quarter** (tempo is real BPM), envelopes stepped at the driver's **192 Hz** frame rate in **decibel units of dB×1024** — the silence floor `-92544` is exactly -90.4 dB, the 16-bit noise floor — with the driver's rate laws (attack multiplies the envelope by `table[a]/255` per frame; decay and release subtract `0x1E00/(126-d)`; sustain holds at a dB level mapped from its 0–127 value). Voices resample waves by `2^(Δsemitones/12)`, pan constant-power, and mix at the DS's 32768 Hz. `extract/cmd/musicrender` plays every sequence to two loops (or 3 minutes) and encodes MP3s — **all 76 render**: the race themes (35–75 s), the result-fanfare jingles (5–9 s) and two 3-minute credits pieces, all served in the Studio's music panel. Honest caveats: with `SYMB` stripped the tracks are numbered, not named — the per-course music binding is a table in ARM9 not yet traced — and the envelope tables/PSG mixing are the driver's documented behavior reimplemented, not bit-exact traces of the ARM7 driver.
+
+## 9. Frontier: sprite cells
+
+*(frontier)* Remaining in Part IV: **`NCER` sprite cells** (with `NANR` animations) — the layouts assembling the "scattered" sprite `NCGR`s; and, on the music side, the course→sequence table in ARM9 and the `SSAR` effect archives.
 
 # Part V — Game mechanics
 
@@ -633,6 +645,9 @@ go run retroreverse.com/tools/cmd/codetracearm -base 0x02380000 -entry 0x0238000
 ( cd extract && go run ./cmd/rendermodel ../extracted/files/data/Course/mario_course.carc )
 ( cd extract && go run ./cmd/exportglb -all )   # → extracted/glb/, copied to site/public/mariokart/
 
+# Music: render all 76 SSEQ sequences through the SDAT sequencer+synth to MP3 (needs ffmpeg)
+( cd extract && go run ./cmd/musicrender )      # → rendered/music/, copied to site/public/mariokart/music/
+
 # Part V — the full track layout: course geometry + NKM overlay (checkpoints, CPU
 # line, item line, spawns, objects) for one course or all of rendered/tracks/
 ( cd extract && go run ./cmd/trackmap ../extracted/files/data/Course/mario_course.carc )
@@ -657,6 +672,7 @@ Toolchain (all under the `retroreverse.com/tools` module unless noted, this repo
 - **`mariokartds/extract/cmd/render2d`** — composes the NSCR screens of a directory or `.carc` through their NCGR/NCLR (name-paired, `_b` background banks preferred).
 - **`mariokartds/extract/cmd/renderall`** — the whole-filesystem sweep: every texture, every screen (merging language-variant archives with their base), every leftover tile sheet, and the raw `.nbfc`/`.nbfp` banner — regenerates all 2,300+ figures in `rendered/`.
 - **`tools/nds/nitro` models** — `ParseNSBMD` (nodes/TRS + pivot rotations, SBC, materials with the authoritative tex↔pal binding, shapes), `RunSBC` (joint matrices → matrix stack → draw list), `DecodeDL` (the GX display-list interpreter: all vertex forms, strips), `ExportGLB` (standard binary glTF 2.0 with embedded PNG textures), `DecodeContainerTextures` (the TEX0 of any NITRO container, incl. BMD0-embedded), and `DecodeNSBTA` (BTA0 texture-SRT animation: per-material scale/rotation/translation tracks, constant or sampled every 4th frame).
+- **`tools/nds/sdat`** — the SDAT sound archive: container/INFO/FAT parse, SBNK instruments, SWAR/SWAV waves (PCM8/16, IMA-ADPCM), and the SSEQ sequencer + synth (driver-faithful timing and envelopes) rendering to stereo PCM.
 - **`mariokartds/extract/cmd/modeldump` / `rendermodel` / `exportglb`** — model structure dump; z-buffered software render to PNG (`rendered/models/`); GLB export of all 377 models (characters, karts, every course scene + skybox + map objects, including the retro tracks) plus each course's `<name>.path.json` drive line and the `models.json` manifest that `site/public/mariokart/` serves. The Studio site (`site/`) carries them under the "Nintendo DS" system (`site/src/mariokart/viewer.js`), one section per track (the track plus its map objects), with camera-locked skyboxes and a drive-the-CPU-line fly-through.
 - **`mariokartds/extract/mkds`** — the game-specific plumbing: `LoadModels`/`LoadTextures` (loose files, NARC-embedded models, the cross-archive `<name>Tex.carc` convention) and `ParseNKM`, the course-map decoder.
 - **`mariokartds/extract/cmd/trackmap`** — the track-layout figure generator (`rendered/tracks/`, 59 courses): top-down course geometry at the ×16 world scale, overlaid with every NKM element.

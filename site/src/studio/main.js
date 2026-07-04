@@ -158,6 +158,9 @@ const GAMES = [
       { id: 'objects', label: 'Objects', default: true, when: (m) => !!m.leaves?.[m.currentIdx]?.level?.objects },
       { id: 'drive', label: 'Drive the CPU line', default: false, when: (m) => !!m.leaves?.[m.currentIdx]?.level?.path },
     ],
+    // the cartridge's 76 SSEQ sequences, rendered through our SDAT sequencer+synth
+    // (the retail SDAT ships no symbol block, so tracks are numbered, not named)
+    music: async () => (await fetch('public/mariokart/music/tracks.json').then(r => r.json())),
   },
 ];
 
