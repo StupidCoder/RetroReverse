@@ -261,6 +261,50 @@ func (r *ROM) FileByPath(path string) []byte {
 	return r.File(id)
 }
 
+// Overlay is one entry of an ARM9/ARM7 overlay table: a separately-loadable code+data
+// module swapped into a fixed RAM region on demand. Its bytes are the FAT file FileID.
+type Overlay struct {
+	ID              uint32 // overlay number
+	RAMAddr         uint32 // load address
+	RAMSize         uint32 // loaded size
+	BSSSize         uint32 // trailing zero-fill
+	StaticInitStart uint32 // constructor list (run after load)
+	StaticInitEnd   uint32
+	FileID          uint32 // FAT id holding the overlay data
+	CompressedSize  uint32 // size of the compressed data (bits 0..23 of the flags word)
+	Compressed      bool   // bit 24: the overlay is BLZ-compressed
+}
+
+// ARM9Overlays parses the ARM9 overlay table (32-byte records at ARM9OverlayOff).
+func (r *ROM) ARM9Overlays() []Overlay {
+	return r.overlays(r.Header.ARM9OverlayOff, r.Header.ARM9OverlaySize)
+}
+
+func (r *ROM) overlays(off, size uint32) []Overlay {
+	if size == 0 || int(off)+int(size) > len(r.Data) {
+		return nil
+	}
+	le := binary.LittleEndian
+	n := int(size) / 32
+	out := make([]Overlay, n)
+	for i := 0; i < n; i++ {
+		b := r.Data[int(off)+i*32:]
+		flags := le.Uint32(b[28:])
+		out[i] = Overlay{
+			ID:              le.Uint32(b[0:]),
+			RAMAddr:         le.Uint32(b[4:]),
+			RAMSize:         le.Uint32(b[8:]),
+			BSSSize:         le.Uint32(b[12:]),
+			StaticInitStart: le.Uint32(b[16:]),
+			StaticInitEnd:   le.Uint32(b[20:]),
+			FileID:          le.Uint32(b[24:]),
+			CompressedSize:  flags & 0x00FFFFFF,
+			Compressed:      flags&0x01000000 != 0,
+		}
+	}
+	return out
+}
+
 // ARM9 returns the ARM9 boot binary as stored in the image.
 func (r *ROM) ARM9() []byte { return r.slice(r.Header.ARM9ROMOff, r.Header.ARM9Size) }
 
