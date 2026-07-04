@@ -1,0 +1,35 @@
+{
+ "anims": [
+  {
+   "model": "stadium_course",
+   "material": "dash",
+   "frames": 121,
+   "scaleS": {
+    "const": 1
+   },
+   "scaleT": {
+    "const": 1
+   },
+   "transS": {},
+   "transT": {
+    "const": 0.0390625
+   }
+  },
+  {
+   "model": "stadium_course",
+   "material": "lambert327",
+   "frames": 121,
+   "scaleS": {
+    "const": 1
+   },
+   "scaleT": {
+    "const": 1
+   },
+   "transS": {
+    "const": 0.1015625
+   },
+   "transT": {}
+  }
+ ],
+ "course": "stadium_course"
+}

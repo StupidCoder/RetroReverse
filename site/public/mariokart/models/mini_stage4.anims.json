@@ -1,0 +1,35 @@
+{
+ "anims": [
+  {
+   "model": "mini_stage4",
+   "material": "Dash",
+   "frames": 100,
+   "scaleS": {
+    "const": 1
+   },
+   "scaleT": {
+    "const": 1
+   },
+   "transS": {},
+   "transT": {
+    "const": 0.0390625
+   }
+  },
+  {
+   "model": "mini_stage4",
+   "material": "LDashJ",
+   "frames": 100,
+   "scaleS": {
+    "const": 1
+   },
+   "scaleT": {
+    "const": 1
+   },
+   "transS": {},
+   "transT": {
+    "const": 0.091796875
+   }
+  }
+ ],
+ "course": "mini_stage4"
+}

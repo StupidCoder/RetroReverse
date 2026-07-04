@@ -1,0 +1,65 @@
+{
+ "anims": [
+  {
+   "model": "MR_stage3",
+   "material": "ShdwOff1",
+   "frames": 960,
+   "scaleS": {
+    "const": 1
+   },
+   "scaleT": {
+    "const": 1
+   },
+   "transS": {},
+   "transT": {
+    "const": 0.068359375
+   }
+  },
+  {
+   "model": "MR_stage3",
+   "material": "ShdwOff",
+   "frames": 960,
+   "scaleS": {
+    "const": 1
+   },
+   "scaleT": {
+    "const": 1
+   },
+   "transS": {},
+   "transT": {
+    "const": 1.009765625
+   }
+  },
+  {
+   "model": "MR_stage3",
+   "material": "lambert359",
+   "frames": 960,
+   "scaleS": {
+    "const": 1
+   },
+   "scaleT": {
+    "const": 1
+   },
+   "transS": {},
+   "transT": {
+    "const": 1.951171875
+   }
+  },
+  {
+   "model": "MR_stage3",
+   "material": "lambert321",
+   "frames": 960,
+   "scaleS": {
+    "const": 1
+   },
+   "scaleT": {
+    "const": 1
+   },
+   "transS": {},
+   "transT": {
+    "const": 2.423828125
+   }
+  }
+ ],
+ "course": "MR_stage3"
+}

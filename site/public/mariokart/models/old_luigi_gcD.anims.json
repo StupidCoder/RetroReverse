@@ -1,0 +1,20 @@
+{
+ "anims": [
+  {
+   "model": "old_luigi_gcD",
+   "material": "dash1",
+   "frames": 120,
+   "scaleS": {
+    "const": 3
+   },
+   "scaleT": {
+    "const": 1
+   },
+   "transS": {},
+   "transT": {
+    "const": 0.0244140625
+   }
+  }
+ ],
+ "course": "old_luigi_gcD"
+}

@@ -1,0 +1,20 @@
+{
+ "anims": [
+  {
+   "model": "mansion_course",
+   "material": "doro",
+   "frames": 361,
+   "scaleS": {
+    "const": 1
+   },
+   "scaleT": {
+    "const": 1
+   },
+   "transS": {
+    "const": 0.0234375
+   },
+   "transT": {}
+  }
+ ],
+ "course": "mansion_course"
+}

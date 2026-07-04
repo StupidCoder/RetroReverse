@@ -1,0 +1,52 @@
+{
+ "anims": [
+  {
+   "model": "airship_course",
+   "material": "dash",
+   "frames": 120,
+   "scaleS": {
+    "const": 1
+   },
+   "scaleT": {
+    "const": 1
+   },
+   "transS": {},
+   "transT": {
+    "const": 0.0244140625
+   }
+  },
+  {
+   "model": "airship_course_V",
+   "material": "lambert242",
+   "frames": 1600,
+   "scaleS": {
+    "const": 1
+   },
+   "scaleT": {
+    "const": 1
+   },
+   "transS": {
+    "const": 0.0234375
+   },
+   "transT": {}
+  },
+  {
+   "model": "mkd_ef_burner",
+   "material": "lamb_burn1",
+   "frames": 60,
+   "scaleS": {
+    "const": 0.0205078125
+   },
+   "scaleT": {
+    "const": 1
+   },
+   "transS": {
+    "const": 0.0517578125
+   },
+   "transT": {
+    "const": 0.0810546875
+   }
+  }
+ ],
+ "course": "airship_course"
+}

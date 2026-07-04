@@ -1,0 +1,35 @@
+{
+ "anims": [
+  {
+   "model": "desert_course",
+   "material": "lambert261",
+   "frames": 720,
+   "scaleS": {
+    "const": 1
+   },
+   "scaleT": {
+    "const": 1
+   },
+   "transS": {},
+   "transT": {
+    "const": 0.0244140625
+   }
+  },
+  {
+   "model": "desert_course_V",
+   "material": "test02_vr_sky_tx",
+   "frames": 4800,
+   "scaleS": {
+    "const": 1
+   },
+   "scaleT": {
+    "const": 1
+   },
+   "transS": {
+    "const": 0.0234375
+   },
+   "transT": {}
+  }
+ ],
+ "course": "desert_course"
+}

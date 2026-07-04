@@ -1,0 +1,20 @@
+{
+ "anims": [
+  {
+   "model": "cross_course_V",
+   "material": "sky_tx",
+   "frames": 4800,
+   "scaleS": {
+    "const": 1
+   },
+   "scaleT": {
+    "const": 1
+   },
+   "transS": {
+    "const": 0.0234375
+   },
+   "transT": {}
+  }
+ ],
+ "course": "cross_course"
+}

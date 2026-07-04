@@ -5,11 +5,12 @@
    "file": "MapObj-itembox.glb",
    "pos": [
     19.375,
-    12.65972900390625,
+    13.40972900390625,
     0
    ]
   }
  ],
+ "routes": null,
  "skipped": {},
  "space": "glb"
 }

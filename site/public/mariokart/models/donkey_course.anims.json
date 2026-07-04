@@ -1,0 +1,80 @@
+{
+ "anims": [
+  {
+   "model": "donkey_course",
+   "material": "pin_cannon1",
+   "frames": 60,
+   "scaleS": {
+    "const": 1
+   },
+   "scaleT": {
+    "const": 1
+   },
+   "transS": {
+    "const": 0.08203125
+   },
+   "transT": {}
+  },
+  {
+   "model": "donkey_course",
+   "material": "pin_cannon2",
+   "frames": 60,
+   "scaleS": {
+    "const": 1
+   },
+   "scaleT": {
+    "const": 2
+   },
+   "transS": {
+    "const": 0.115234375
+   },
+   "transT": {}
+  },
+  {
+   "model": "donkey_course",
+   "material": "pin_DASHJ",
+   "frames": 60,
+   "scaleS": {
+    "const": 1
+   },
+   "scaleT": {
+    "const": 1
+   },
+   "transS": {},
+   "transT": {
+    "const": 0.1494140625
+   }
+  },
+  {
+   "model": "donkey_course",
+   "material": "pin_warp1",
+   "frames": 60,
+   "scaleS": {
+    "const": 1
+   },
+   "scaleT": {
+    "const": 1
+   },
+   "transS": {
+    "const": 0.181640625
+   },
+   "transT": {}
+  },
+  {
+   "model": "donkey_course",
+   "material": "pin_arrow1",
+   "frames": 60,
+   "scaleS": {
+    "const": 1
+   },
+   "scaleT": {
+    "const": 2
+   },
+   "transS": {
+    "const": 0.21484375
+   },
+   "transT": {}
+  }
+ ],
+ "course": "donkey_course"
+}

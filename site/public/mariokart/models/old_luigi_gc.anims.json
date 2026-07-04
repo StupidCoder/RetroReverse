@@ -1,0 +1,35 @@
+{
+ "anims": [
+  {
+   "model": "old_luigi_gc",
+   "material": "dash1",
+   "frames": 120,
+   "scaleS": {
+    "const": 3
+   },
+   "scaleT": {
+    "const": 1
+   },
+   "transS": {},
+   "transT": {
+    "const": 0.0244140625
+   }
+  },
+  {
+   "model": "old_luigi_gc_V",
+   "material": "VRD_sky_tx",
+   "frames": 2400,
+   "scaleS": {
+    "const": 1
+   },
+   "scaleT": {
+    "const": 1
+   },
+   "transS": {
+    "const": 0.0234375
+   },
+   "transT": {}
+  }
+ ],
+ "course": "old_luigi_gc"
+}

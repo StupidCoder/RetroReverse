@@ -22,6 +22,39 @@ import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 
 const MODELS = 'public/mariokart/models/';
 
+// makeMover precomputes a route follower: the polyline's segments and total
+// length (closing segment appended on loops), a shared plausible speed, and a
+// random start offset so co-routed objects don't stack.
+function makeMover(inst, route, billboard) {
+  const pts = route.points;
+  const segs = [];
+  let total = 0;
+  const n = route.loop ? pts.length : pts.length - 1;
+  for (let i = 0; i < n; i++) {
+    const a = pts[i], b = pts[(i + 1) % pts.length];
+    const len = Math.hypot(b[0] - a[0], b[1] - a[1], b[2] - a[2]);
+    segs.push({ a, b, len });
+    total += len;
+  }
+  return {
+    inst, segs, total, billboard,
+    loop: !!route.loop,
+    speed: 7.5, // GLB units/s (~120 world units/s); per-type speeds live in engine code
+    dist: Math.random() * total,
+  };
+}
+
+// trackAt samples a BTA0 component track at a (fractional) frame: a constant, or
+// per-frame samples (one per `step` frames) with linear interpolation.
+function trackAt(tr, frame) {
+  if (!tr.samples || !tr.samples.length) return tr.const || 0;
+  const pos = frame / tr.step;
+  const i = Math.floor(pos);
+  if (i >= tr.samples.length - 1) return tr.samples[tr.samples.length - 1];
+  const f = pos - i;
+  return tr.samples[i] * (1 - f) + tr.samples[i + 1] * f;
+}
+
 export class ModelViewer {
   constructor(el, hud) {
     this.el = el;
@@ -63,6 +96,10 @@ export class ModelViewer {
     this.objectsGroup = null;  // placed map objects (OBJI)
     this.wantObjects = true;   // Objects toggle
     this.billboards = [];      // placed sprites to yaw toward the camera
+    this.movers = [];          // placed objects following a PATH/POIT route
+    this.animDefs = [];        // BTA0 texture-SRT tracks (per material name)
+    this.liveAnims = [];       // { def, materials[] } bound to loaded meshes
+    this.animClock = 0;        // frames (60/s) into the texture animations
     this.driveU = 0;           // position along the curve (0..1)
     this.driveDir = 1;         // travel direction (open paths ping-pong)
     // Kart-eye height above the drive line, GLB units (world/16). Constant, NOT
@@ -86,9 +123,22 @@ export class ModelViewer {
       // Backdrop rides the camera: keep the dome's own centre on the camera so it
       // always encloses us (parallax-free), like the DS drawing it camera-relative.
       if (this.skybox) this.skybox.position.copy(camera.position).sub(this.skyboxCenter);
+      // Route followers walk their PATH polyline at constant world speed (the
+      // engine's follower semantics, Part V §3), facing their travel direction.
+      for (const mv of this.movers) this._advanceMover(mv, dt);
       // Billboards yaw around world-up toward the camera; their up stays vertical.
       for (const b of this.billboards) {
         b.rotation.y = Math.atan2(camera.position.x - b.position.x, camera.position.z - b.position.z);
+      }
+      // Texture-SRT animations (BTA0): scrolling water and boost-panel arrows.
+      // The DS steps these at 60 fps; values are normalized texture space.
+      if (this.liveAnims.length) {
+        this.animClock += dt * 60;
+        for (const la of this.liveAnims) {
+          const f = this.animClock % la.def.frames;
+          const s = trackAt(la.def.transS, f), t = trackAt(la.def.transT, f);
+          for (const m of la.materials) m.map.offset.set(s, t);
+        }
       }
       renderer.clear();
       renderer.render(scene, camera);
@@ -134,6 +184,7 @@ export class ModelViewer {
     // async load resolves — otherwise a still-running drive would follow stale data.
     this.curve = null; this.curveLoop = false;
     this._setDrive(false);
+    this.animDefs = []; this.liveAnims = []; this.animClock = 0;
 
     this.loader.load(MODELS + m.file, (gltf) => {
       if (gen !== this.gen) return; // superseded by a newer selection
@@ -169,10 +220,52 @@ export class ModelViewer {
       this.hudBase = `${m.name} — ${tris.toLocaleString()} triangles, textures as shipped on cartridge`;
       if (this.hud) this.hud.textContent = this.hudBase;
 
+      this._bindAnims(group); // anims may already be loaded (fetch races the GLB)
       if (m.skybox) this._loadSkybox(m.skybox, gen);
       if (m.path) this._loadPath(m.path, gen);
       if (m.objects) this._loadObjects(m.objects, gen);
+      if (m.anims) this._loadAnims(m.anims, gen);
     });
+  }
+
+  // Load the course's BTA0 texture-SRT tracks and bind them to every material of
+  // that name currently in the scene (track, skybox, placed objects — whichever
+  // have loaded; later loads bind themselves via _bindAnims).
+  async _loadAnims(file, gen) {
+    let doc;
+    try {
+      doc = await fetch(MODELS + file).then(r => r.json());
+    } catch { return; }
+    if (gen !== this.gen || !doc.anims) return;
+    this.animDefs = doc.anims;
+    for (const root of [this.three.group, this.skybox, this.objectsGroup]) {
+      if (root) this._bindAnims(root);
+    }
+  }
+
+  // Attach texture animations to a freshly loaded subtree: any mesh material
+  // whose name matches an animated material joins that animation's update list.
+  // Clones share material instances, so one binding animates every placement.
+  _bindAnims(root) {
+    if (!this.animDefs.length || !root) return;
+    const byName = new Map();
+    for (const def of this.animDefs) {
+      let la = this.liveAnims.find(x => x.def === def);
+      if (!la) { la = { def, materials: [] }; this.liveAnims.push(la); }
+      byName.set(def.material, la);
+    }
+    root.traverse(o => {
+      if (!o.isMesh || !o.material || !o.material.map) return;
+      const la = byName.get(o.material.name);
+      if (la && !la.materials.includes(o.material)) {
+        // scrolling needs wrap; the DS materials in question are repeat-flagged,
+        // but make sure a clamped sampler doesn't pin the scroll at the edge
+        o.material.map.wrapS = o.material.map.wrapT = THREE.RepeatWrapping;
+        o.material.map.needsUpdate = true;
+        la.materials.push(o.material);
+      }
+    });
+    this.liveAnims = this.liveAnims.filter(x => x.materials.length);
   }
 
   // Place the course's map objects (the NKM OBJI placements, bound to object GLBs
@@ -205,7 +298,7 @@ export class ModelViewer {
     if (gen !== this.gen) return;
 
     const group = new THREE.Group();
-    const bills = [];
+    const bills = [], movers = [];
     for (const o of doc.objects) {
       const proto = await protos.get(o.file);
       if (!proto) continue;
@@ -218,13 +311,49 @@ export class ModelViewer {
         inst.rotation.order = 'YXZ'; // Y-dominant Euler degrees from the OBJI entry
         inst.rotation.set(o.rot[0] * Math.PI / 180, o.rot[1] * Math.PI / 180, o.rot[2] * Math.PI / 180);
       }
+      // Route followers: walk the PATH polyline at constant world speed. The
+      // per-object speed lives in engine code we haven't traced, so a plausible
+      // shared speed stands in for now.
+      const route = o.route != null && doc.routes && doc.routes[o.route];
+      if (route && route.points.length >= 2) {
+        movers.push(makeMover(inst, route, !!o.billboard));
+      }
       group.add(inst);
     }
     group.visible = this.wantObjects;
     this.three.scene.add(group);
     this.objectsGroup = group;
     this.billboards = bills;
+    this.movers = movers;
+    this._bindAnims(group);
     if (this.hud && this.hudBase) this.hud.textContent = `${this.hudBase} · ${doc.objects.length} objects placed`;
+  }
+
+  // Advance a route follower by dt seconds: constant speed along the polyline,
+  // wrapping on looped paths and ping-ponging on open ones (the engine's
+  // follower semantics), facing the direction of travel.
+  _advanceMover(mv, dt) {
+    mv.dist += mv.speed * dt;
+    let d, dir = 1;
+    if (mv.loop) {
+      d = mv.dist % mv.total;
+    } else {
+      d = mv.dist % (2 * mv.total); // out and back
+      if (d > mv.total) { d = 2 * mv.total - d; dir = -1; }
+    }
+    let i = 0;
+    while (i < mv.segs.length - 1 && d > mv.segs[i].len) { d -= mv.segs[i].len; i++; }
+    const s = mv.segs[i];
+    const f = s.len > 0 ? Math.min(d / s.len, 1) : 0;
+    mv.inst.position.set(
+      s.a[0] + (s.b[0] - s.a[0]) * f,
+      s.a[1] + (s.b[1] - s.a[1]) * f,
+      s.a[2] + (s.b[2] - s.a[2]) * f,
+    );
+    if (!mv.billboard) {
+      const dx = (s.b[0] - s.a[0]) * dir, dz = (s.b[2] - s.a[2]) * dir;
+      if (dx * dx + dz * dz > 1e-8) mv.inst.rotation.y = Math.atan2(dx, dz);
+    }
   }
 
   // Load the "_V" far model as a camera-locked backdrop: full-bright (unlit) so it
@@ -353,6 +482,7 @@ export class ModelViewer {
 
   _disposeObjects() {
     this.billboards = [];
+    this.movers = [];
     if (!this.objectsGroup) return;
     this.three.scene.remove(this.objectsGroup);
     // clones share geometry/materials with their prototype; disposing per node is

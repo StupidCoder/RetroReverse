@@ -23,6 +23,7 @@ import (
 
 	"mariokartds/extract/mkds"
 
+	"retroreverse.com/tools/nds"
 	"retroreverse.com/tools/nds/nitro"
 )
 
@@ -188,6 +189,7 @@ func writeManifest(outDir string, items []item, pathFiles []string) error {
 		Skybox  string `json:"skybox,omitempty"`  // "_V" backdrop GLB, camera-locked
 		Path    string `json:"path,omitempty"`    // enemy drive-line JSON
 		Objects string `json:"objects,omitempty"` // OBJI placements JSON
+		Anims   string `json:"anims,omitempty"`   // BTA0 texture-animation JSON
 	}
 	var out []entry
 	add := func(e entry) { out = append(out, e) }
@@ -261,6 +263,7 @@ func writeManifest(outDir string, items []item, pathFiles []string) error {
 				e.Path = stem + ".path.json"
 			}
 			e.Objects = objectFiles[stem]
+			e.Anims = animFiles[stem]
 			add(e)
 			known[scene.File] = true
 		}
@@ -371,9 +374,79 @@ func export(path, outDir string) ([]item, string, error) {
 		if err := exportObjects(path, stem, outDir, items); err != nil {
 			fmt.Fprintf(os.Stderr, "  %s: objects: %v\n", stem, err)
 		}
+		if err := exportAnims(path, stem, outDir); err != nil {
+			fmt.Fprintf(os.Stderr, "  %s: anims: %v\n", stem, err)
+		}
 	}
 	return items, pathFile, nil
 }
+
+// exportAnims writes "<stem>.anims.json": the course's BTA0 texture-SRT
+// animations (scrolling water, waterfalls, boost-panel arrows) as per-material
+// tracks the viewer replays at 60 fps. Values are normalized texture space
+// (1.0 = one wrap), straight from the fx12 data.
+func exportAnims(archive, stem, outDir string) error {
+	raw, err := os.ReadFile(archive)
+	if err != nil {
+		return err
+	}
+	files, err := nds.ParseNARC(nds.Decompress(raw))
+	if err != nil {
+		return nil
+	}
+	type track struct {
+		Const   float64   `json:"const,omitempty"`
+		Samples []float64 `json:"samples,omitempty"`
+		Step    int       `json:"step,omitempty"`
+	}
+	type anim struct {
+		Model    string  `json:"model"`
+		Material string  `json:"material"`
+		Frames   int     `json:"frames"`
+		ScaleS   track   `json:"scaleS,omitempty"`
+		ScaleT   track   `json:"scaleT,omitempty"`
+		Rot      float64 `json:"rot,omitempty"` // radians, constant
+		TransS   track   `json:"transS"`
+		TransT   track   `json:"transT"`
+	}
+	conv := func(t nitro.Track) track { return track{Const: t.Const, Samples: t.Samples, Step: t.Step} }
+	var out []anim
+	for _, f := range files {
+		if len(f) < 4 || string(f[:4]) != "BTA0" {
+			continue
+		}
+		anims, err := nitro.DecodeNSBTA(f)
+		if err != nil {
+			return err
+		}
+		for _, a := range anims {
+			e := anim{
+				Model: a.Model, Material: a.Material, Frames: a.Frames,
+				ScaleS: conv(a.ScaleS), ScaleT: conv(a.ScaleT),
+				TransS: conv(a.TransS), TransT: conv(a.TransT),
+				Rot: math.Atan2(a.RotSin, a.RotCos),
+			}
+			out = append(out, e)
+		}
+	}
+	if len(out) == 0 {
+		return nil
+	}
+	buf, err := json.MarshalIndent(map[string]interface{}{"course": stem, "anims": out}, "", " ")
+	if err != nil {
+		return err
+	}
+	name := stem + ".anims.json"
+	if err := os.WriteFile(filepath.Join(outDir, name), buf, 0o644); err != nil {
+		return err
+	}
+	fmt.Printf("  %-40s %d material anims\n", name, len(out))
+	animFiles[stem] = name
+	return nil
+}
+
+// animFiles records which courses got a texture-animation file, for the manifest.
+var animFiles = map[string]string{}
 
 // isBillboard reports whether a model is a camera-facing sprite: a handful of
 // triangles authored flat in Z (facing +Z), like the Goomba and the Pianta. The
@@ -438,8 +511,19 @@ func exportObjects(archive, stem, outDir string, items []item) error {
 		Rot       []float64  `json:"rot,omitempty"`   // Euler degrees, Y-dominant
 		Scale     []float64  `json:"scale,omitempty"` // omitted when 1,1,1
 		Billboard bool       `json:"billboard,omitempty"`
+		Route     *int       `json:"route,omitempty"` // index into "routes"
 	}
+	type route struct {
+		Loop   bool         `json:"loop"`
+		Points [][3]float64 `json:"points"`
+	}
+	// The itembox spawns 12.0 world units above its OBJI position — its init
+	// ($020DE6B0) adds the fx32 constant 0xC000 to Y before anything else. That
+	// is why the boxes float; other ground objects place as-authored.
+	const itemboxHover = 12.0 / worldPerGLBUnit
 	var placed []placement
+	var routes []route
+	routeIdx := map[int]int{} // NKM path index -> routes[] index
 	skipped := map[string]int{}
 	for _, o := range nkm.Objects {
 		var file string
@@ -460,11 +544,29 @@ func exportObjects(archive, stem, outDir string, items []item) error {
 			Pos:       [3]float64{o.Pos.X / worldPerGLBUnit, o.Pos.Y / worldPerGLBUnit, o.Pos.Z / worldPerGLBUnit},
 			Billboard: billboard,
 		}
+		if o.ID == 0x65 {
+			p.Pos[1] += itemboxHover
+		}
 		if o.Rot.X != 0 || o.Rot.Y != 0 || o.Rot.Z != 0 {
 			p.Rot = []float64{o.Rot.X, o.Rot.Y, o.Rot.Z}
 		}
 		if o.Scale.X != 1 || o.Scale.Y != 1 || o.Scale.Z != 1 {
 			p.Scale = []float64{o.Scale.X, o.Scale.Y, o.Scale.Z}
+		}
+		// Route-following objects: attach their PATH/POIT polyline (GLB space).
+		if o.RouteID >= 0 && o.RouteID < len(nkm.Paths) && len(nkm.Paths[o.RouteID].Points) >= 2 {
+			ri, ok := routeIdx[o.RouteID]
+			if !ok {
+				pth := nkm.Paths[o.RouteID]
+				r := route{Loop: pth.Loop, Points: make([][3]float64, len(pth.Points))}
+				for i, pt := range pth.Points {
+					r.Points[i] = [3]float64{pt.X / worldPerGLBUnit, pt.Y / worldPerGLBUnit, pt.Z / worldPerGLBUnit}
+				}
+				ri = len(routes)
+				routes = append(routes, r)
+				routeIdx[o.RouteID] = ri
+			}
+			p.Route = &ri
 		}
 		placed = append(placed, p)
 	}
@@ -475,6 +577,7 @@ func exportObjects(archive, stem, outDir string, items []item) error {
 		"course":  stem,
 		"space":   "glb",
 		"objects": placed,
+		"routes":  routes,
 		"skipped": skipped,
 	}
 	buf, err := json.MarshalIndent(doc, "", " ")

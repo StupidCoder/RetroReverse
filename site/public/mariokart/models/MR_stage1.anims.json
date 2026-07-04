@@ -1,0 +1,80 @@
+{
+ "anims": [
+  {
+   "model": "MR_stage1",
+   "material": "ShdwOff1",
+   "frames": 480,
+   "scaleS": {
+    "const": 1
+   },
+   "scaleT": {
+    "const": 1
+   },
+   "transS": {},
+   "transT": {
+    "const": 0.068359375
+   }
+  },
+  {
+   "model": "MR_stage1",
+   "material": "ShdwOff",
+   "frames": 480,
+   "scaleS": {
+    "const": 1
+   },
+   "scaleT": {
+    "const": 1
+   },
+   "transS": {},
+   "transT": {
+    "const": 0.541015625
+   }
+  },
+  {
+   "model": "MR_stage1",
+   "material": "lambert359",
+   "frames": 480,
+   "scaleS": {
+    "const": 1
+   },
+   "scaleT": {
+    "const": 1
+   },
+   "transS": {},
+   "transT": {
+    "const": 1.013671875
+   }
+  },
+  {
+   "model": "MR_stage1",
+   "material": "lambert321",
+   "frames": 480,
+   "scaleS": {
+    "const": 1
+   },
+   "scaleT": {
+    "const": 1
+   },
+   "transS": {},
+   "transT": {
+    "const": 1.251953125
+   }
+  },
+  {
+   "model": "MR_stage1_V",
+   "material": "test02_vr_sky_tx",
+   "frames": 4800,
+   "scaleS": {
+    "const": 1
+   },
+   "scaleT": {
+    "const": 1
+   },
+   "transS": {
+    "const": 0.0234375
+   },
+   "transT": {}
+  }
+ ],
+ "course": "MR_stage1"
+}

@@ -1,0 +1,65 @@
+{
+ "anims": [
+  {
+   "model": "bank_course",
+   "material": "lambert292",
+   "frames": 480,
+   "scaleS": {
+    "const": 2
+   },
+   "scaleT": {
+    "const": 2
+   },
+   "transS": {},
+   "transT": {
+    "const": 0.068359375
+   }
+  },
+  {
+   "model": "bank_course",
+   "material": "lambert20",
+   "frames": 480,
+   "scaleS": {
+    "const": 3
+   },
+   "scaleT": {
+    "const": 1
+   },
+   "transS": {},
+   "transT": {
+    "const": 0.306640625
+   }
+  },
+  {
+   "model": "bank_course",
+   "material": "falls_02",
+   "frames": 480,
+   "scaleS": {
+    "const": 8
+   },
+   "scaleT": {
+    "const": 2
+   },
+   "transS": {},
+   "transT": {
+    "const": 0.544921875
+   }
+  },
+  {
+   "model": "bank_course",
+   "material": "falls_01",
+   "frames": 480,
+   "scaleS": {
+    "const": 8
+   },
+   "scaleT": {
+    "const": 2
+   },
+   "transS": {},
+   "transT": {
+    "const": 0.783203125
+   }
+  }
+ ],
+ "course": "bank_course"
+}

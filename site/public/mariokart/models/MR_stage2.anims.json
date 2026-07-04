@@ -1,0 +1,50 @@
+{
+ "anims": [
+  {
+   "model": "MR_stage2",
+   "material": "test_lambert353",
+   "frames": 480,
+   "scaleS": {
+    "const": 1
+   },
+   "scaleT": {
+    "const": 1
+   },
+   "transS": {},
+   "transT": {
+    "const": 0.0390625
+   }
+  },
+  {
+   "model": "MR_stage2",
+   "material": "lambert363",
+   "frames": 480,
+   "scaleS": {
+    "const": 1
+   },
+   "scaleT": {
+    "const": 1
+   },
+   "transS": {},
+   "transT": {
+    "const": 0.51171875
+   }
+  },
+  {
+   "model": "MR_stage2_V",
+   "material": "test_lambert242",
+   "frames": 1600,
+   "scaleS": {
+    "const": 1
+   },
+   "scaleT": {
+    "const": 1
+   },
+   "transS": {
+    "const": 0.0234375
+   },
+   "transT": {}
+  }
+ ],
+ "course": "MR_stage2"
+}

@@ -1,0 +1,20 @@
+{
+ "anims": [
+  {
+   "model": "old_frappe_64",
+   "material": "water0_HIG",
+   "frames": 240,
+   "scaleS": {
+    "const": 40
+   },
+   "scaleT": {
+    "const": 40
+   },
+   "transS": {
+    "const": 0.0234375
+   },
+   "transT": {}
+  }
+ ],
+ "course": "old_frappe_64"
+}
