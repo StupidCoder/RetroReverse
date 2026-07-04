@@ -147,6 +147,7 @@ func render(m nitro.Model, texs map[string]nitro.Texture, nkm *mkds.NKM, size in
 		}
 		var tex *nitro.Texture
 		repS, repT, flipS, flipT := false, false, false, false
+		us, vsc := 1.0, 1.0
 		if t.Mat < len(m.Materials) {
 			mat := m.Materials[t.Mat]
 			if tx, ok := texs[mat.Texture]; ok && mat.Texture != "" {
@@ -156,8 +157,9 @@ func render(m nitro.Model, texs map[string]nitro.Texture, nkm *mkds.NKM, size in
 			repT = mat.TexParam&(1<<17) != 0
 			flipS = mat.TexParam&(1<<18) != 0
 			flipT = mat.TexParam&(1<<19) != 0
+			us, vsc = mat.UVScale()
 		}
-		raster(img, zbuf, size, xs, ys, hs, t, tex, repS, repT, flipS, flipT)
+		raster(img, zbuf, size, xs, ys, hs, t, tex, repS, repT, flipS, flipT, us, vsc)
 	}
 
 	// Overlay: item line (yellow), enemy line (cyan), checkpoints (red; key gold),
@@ -221,7 +223,7 @@ func drawSections(img *image.NRGBA, paths []mkds.SectPath, at func(i int) (float
 	}
 }
 
-func raster(img *image.NRGBA, zbuf []float64, size int, xs, ys, hs [3]float64, t nitro.Tri, tex *nitro.Texture, repS, repT, flipS, flipT bool) {
+func raster(img *image.NRGBA, zbuf []float64, size int, xs, ys, hs [3]float64, t nitro.Tri, tex *nitro.Texture, repS, repT, flipS, flipT bool, us, vsc float64) {
 	minx := int(math.Max(0, math.Floor(min3(xs))))
 	maxx := int(math.Min(float64(size-1), math.Ceil(max3(xs))))
 	miny := int(math.Max(0, math.Floor(min3(ys))))
@@ -247,8 +249,8 @@ func raster(img *image.NRGBA, zbuf []float64, size int, xs, ys, hs [3]float64, t
 				R: t.V[0].C.R, G: t.V[0].C.G, B: t.V[0].C.B, A: 0xFF,
 			}
 			if tex != nil {
-				u := w0*t.V[0].U + w1*t.V[1].U + w2*t.V[2].U
-				v := w0*t.V[0].V + w1*t.V[1].V + w2*t.V[2].V
+				u := (w0*t.V[0].U + w1*t.V[1].U + w2*t.V[2].U) * us
+				v := (w0*t.V[0].V + w1*t.V[1].V + w2*t.V[2].V) * vsc
 				tc := sample(tex, u, v, repS, repT, flipS, flipT)
 				if tc.A == 0 {
 					continue

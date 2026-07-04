@@ -132,6 +132,7 @@ func render(m nitro.Model, texs map[string]nitro.Texture, size int, yawDeg, pitc
 
 		var tex *nitro.Texture
 		repS, repT, flipS, flipT := false, false, false, false
+		us, vsc := 1.0, 1.0
 		if t.Mat < len(m.Materials) {
 			mat := m.Materials[t.Mat]
 			if tx, ok := texs[mat.Texture]; ok && mat.Texture != "" {
@@ -141,13 +142,14 @@ func render(m nitro.Model, texs map[string]nitro.Texture, size int, yawDeg, pitc
 			repT = mat.TexParam&(1<<17) != 0
 			flipS = mat.TexParam&(1<<18) != 0
 			flipT = mat.TexParam&(1<<19) != 0
+			us, vsc = mat.UVScale()
 		}
-		rasterise(img, zbuf, size, sxs, sys, szs, t, tex, shade, repS, repT, flipS, flipT)
+		rasterise(img, zbuf, size, sxs, sys, szs, t, tex, shade, repS, repT, flipS, flipT, us, vsc)
 	}
 	return img, len(tris)
 }
 
-func rasterise(img *image.NRGBA, zbuf []float64, size int, xs, ys, zs [3]float64, t nitro.Tri, tex *nitro.Texture, shade float64, repS, repT, flipS, flipT bool) {
+func rasterise(img *image.NRGBA, zbuf []float64, size int, xs, ys, zs [3]float64, t nitro.Tri, tex *nitro.Texture, shade float64, repS, repT, flipS, flipT bool, us, vsc float64) {
 	minx := int(math.Max(0, math.Floor(min3(xs))))
 	maxx := int(math.Min(float64(size-1), math.Ceil(max3(xs))))
 	miny := int(math.Max(0, math.Floor(min3(ys))))
@@ -176,8 +178,8 @@ func rasterise(img *image.NRGBA, zbuf []float64, size int, xs, ys, zs [3]float64
 				A: 0xFF,
 			}
 			if tex != nil {
-				u := w0*t.V[0].U + w1*t.V[1].U + w2*t.V[2].U
-				v := w0*t.V[0].V + w1*t.V[1].V + w2*t.V[2].V
+				u := (w0*t.V[0].U + w1*t.V[1].U + w2*t.V[2].U) * us
+				v := (w0*t.V[0].V + w1*t.V[1].V + w2*t.V[2].V) * vsc
 				tc := sample(tex, u, v, repS, repT, flipS, flipT)
 				if tc.A == 0 {
 					continue // transparent texel

@@ -181,7 +181,7 @@ func writeManifest(outDir string, files []string) error {
 			name = base
 		}
 		if far {
-			name += " — far model"
+			name += " — skybox"
 		}
 		sec := "Courses"
 		if strings.HasPrefix(base, "mini_") || strings.HasPrefix(base, "MR_") {

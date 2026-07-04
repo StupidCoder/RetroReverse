@@ -190,7 +190,7 @@
   "section": "Courses"
  },
  {
-  "name": "Award ceremony scene — far model",
+  "name": "Award ceremony scene — skybox",
   "file": "Award-cross_course_V.glb",
   "section": "Courses"
  },
@@ -200,7 +200,7 @@
   "section": "Battle \u0026 mission stages"
  },
  {
-  "name": "MR_stage1 — far model",
+  "name": "MR_stage1 — skybox",
   "file": "MR_stage1-MR_stage1_V.glb",
   "section": "Battle \u0026 mission stages"
  },
@@ -210,7 +210,7 @@
   "section": "Battle \u0026 mission stages"
  },
  {
-  "name": "MR_stage2 — far model",
+  "name": "MR_stage2 — skybox",
   "file": "MR_stage2-MR_stage2_V.glb",
   "section": "Battle \u0026 mission stages"
  },
@@ -220,7 +220,7 @@
   "section": "Battle \u0026 mission stages"
  },
  {
-  "name": "MR_stage3 — far model",
+  "name": "MR_stage3 — skybox",
   "file": "MR_stage3-MR_stage3_V.glb",
   "section": "Battle \u0026 mission stages"
  },
@@ -230,7 +230,7 @@
   "section": "Courses"
  },
  {
-  "name": "Airship Fortress — far model",
+  "name": "Airship Fortress — skybox",
   "file": "airship_course-airship_course_V.glb",
   "section": "Courses"
  },
@@ -240,7 +240,7 @@
   "section": "Courses"
  },
  {
-  "name": "Yoshi Falls — far model",
+  "name": "Yoshi Falls — skybox",
   "file": "bank_course-bank_course_V.glb",
   "section": "Courses"
  },
@@ -250,7 +250,7 @@
   "section": "Courses"
  },
  {
-  "name": "Cheep Cheep Beach — far model",
+  "name": "Cheep Cheep Beach — skybox",
   "file": "beach_course-beach_course_V.glb",
   "section": "Courses"
  },
@@ -260,7 +260,7 @@
   "section": "Courses"
  },
  {
-  "name": "Cheep Cheep Beach (multiplayer) — far model",
+  "name": "Cheep Cheep Beach (multiplayer) — skybox",
   "file": "beach_courseD-beach_courseD_V.glb",
   "section": "Courses"
  },
@@ -270,7 +270,7 @@
   "section": "Courses"
  },
  {
-  "name": "Tick-Tock Clock — far model",
+  "name": "Tick-Tock Clock — skybox",
   "file": "clock_course-clock_course_V.glb",
   "section": "Courses"
  },
@@ -280,7 +280,7 @@
   "section": "Courses"
  },
  {
-  "name": "Figure-8 Circuit — far model",
+  "name": "Figure-8 Circuit — skybox",
   "file": "cross_course-cross_course_V.glb",
   "section": "Courses"
  },
@@ -290,7 +290,7 @@
   "section": "Courses"
  },
  {
-  "name": "Figure-8 Circuit (multiplayer) — far model",
+  "name": "Figure-8 Circuit (multiplayer) — skybox",
   "file": "cross_courseD-cross_courseD_V.glb",
   "section": "Courses"
  },
@@ -300,7 +300,7 @@
   "section": "Courses"
  },
  {
-  "name": "Desert Hills — far model",
+  "name": "Desert Hills — skybox",
   "file": "desert_course-desert_course_V.glb",
   "section": "Courses"
  },
@@ -315,7 +315,7 @@
   "section": "Courses"
  },
  {
-  "name": "donkey_course (unused) — far model",
+  "name": "donkey_course (unused) — skybox",
   "file": "donkey_course-donkey_course_V.glb",
   "section": "Courses"
  },
@@ -325,7 +325,7 @@
   "section": "Courses"
  },
  {
-  "name": "Peach Gardens — far model",
+  "name": "Peach Gardens — skybox",
   "file": "garden_course-garden_course_V.glb",
   "section": "Courses"
  },
@@ -335,7 +335,7 @@
   "section": "Courses"
  },
  {
-  "name": "Bowser Castle — far model",
+  "name": "Bowser Castle — skybox",
   "file": "koopa_course-koopa_course_V.glb",
   "section": "Courses"
  },
@@ -345,7 +345,7 @@
   "section": "Courses"
  },
  {
-  "name": "luigi_course (unused) — far model",
+  "name": "luigi_course (unused) — skybox",
   "file": "luigi_course-luigi_course_V.glb",
   "section": "Courses"
  },
@@ -355,7 +355,7 @@
   "section": "Courses"
  },
  {
-  "name": "Luigi's Mansion — far model",
+  "name": "Luigi's Mansion — skybox",
   "file": "mansion_course-mansion_course_V.glb",
   "section": "Courses"
  },
@@ -370,7 +370,7 @@
   "section": "Courses"
  },
  {
-  "name": "Mario Circuit — far model",
+  "name": "Mario Circuit — skybox",
   "file": "mario_course-mario_course_V.glb",
   "section": "Courses"
  },
@@ -380,7 +380,7 @@
   "section": "Battle \u0026 mission stages"
  },
  {
-  "name": "mini_stage1 — far model",
+  "name": "mini_stage1 — skybox",
   "file": "mini_stage1-mini_stage1_V.glb",
   "section": "Battle \u0026 mission stages"
  },
@@ -390,7 +390,7 @@
   "section": "Battle \u0026 mission stages"
  },
  {
-  "name": "mini_stage2 — far model",
+  "name": "mini_stage2 — skybox",
   "file": "mini_stage2-mini_stage2_V.glb",
   "section": "Battle \u0026 mission stages"
  },
@@ -400,7 +400,7 @@
   "section": "Battle \u0026 mission stages"
  },
  {
-  "name": "mini_stage3 — far model",
+  "name": "mini_stage3 — skybox",
   "file": "mini_stage3-mini_stage3_V.glb",
   "section": "Battle \u0026 mission stages"
  },
@@ -415,7 +415,7 @@
   "section": "Battle \u0026 mission stages"
  },
  {
-  "name": "mini_stage4 — far model",
+  "name": "mini_stage4 — skybox",
   "file": "mini_stage4-mini_stage4_V.glb",
   "section": "Battle \u0026 mission stages"
  },
@@ -430,7 +430,7 @@
   "section": "Courses"
  },
  {
-  "name": "Waluigi Pinball — far model",
+  "name": "Waluigi Pinball — skybox",
   "file": "pinball_course-pinball_course_V.glb",
   "section": "Courses"
  },
@@ -440,7 +440,7 @@
   "section": "Courses"
  },
  {
-  "name": "Rainbow Road — far model",
+  "name": "Rainbow Road — skybox",
   "file": "rainbow_course-rainbow_course_V.glb",
   "section": "Courses"
  },
@@ -450,7 +450,7 @@
   "section": "Courses"
  },
  {
-  "name": "Shroom Ridge — far model",
+  "name": "Shroom Ridge — skybox",
   "file": "ridge_course-ridge_course_V.glb",
   "section": "Courses"
  },
@@ -460,7 +460,7 @@
   "section": "Courses"
  },
  {
-  "name": "DK Pass — far model",
+  "name": "DK Pass — skybox",
   "file": "snow_course-snow_course_V.glb",
   "section": "Courses"
  },
@@ -470,7 +470,7 @@
   "section": "Courses"
  },
  {
-  "name": "Wario Stadium — far model",
+  "name": "Wario Stadium — skybox",
   "file": "stadium_course-stadium_course_V.glb",
   "section": "Courses"
  },
@@ -485,7 +485,7 @@
   "section": "Courses"
  },
  {
-  "name": "Delfino Square — far model",
+  "name": "Delfino Square — skybox",
   "file": "town_course-town_course_V.glb",
   "section": "Courses"
  },
@@ -495,7 +495,7 @@
   "section": "Courses"
  },
  {
-  "name": "wario_course — far model",
+  "name": "wario_course — skybox",
   "file": "wario_course-stadium_course_V.glb",
   "section": "Courses"
  },
