@@ -57,7 +57,10 @@ export class ModelViewer {
     this.driveOn = false;      // whether we are actually driving right now
     this.driveU = 0;           // position along the curve (0..1)
     this.driveDir = 1;         // travel direction (open paths ping-pong)
-    this.eyeH = 3;             // camera height above the drive line, GLB units
+    // Kart-eye height above the drive line, GLB units (world/16). Constant, NOT
+    // course-scaled: karts are the same size on every course, and scaling this with
+    // the course put the camera through tunnel ceilings on the big tracks.
+    this.eyeH = 1.4;
     this.frame = null;         // { center, size } of the main model, for re-framing
     this._look = new THREE.Vector3();
     this._clock = new THREE.Clock();
@@ -141,7 +144,6 @@ export class ModelViewer {
       const c = box.getCenter(new THREE.Vector3());
       const size = box.getSize(new THREE.Vector3()).length() || 1;
       this.frame = { center: c.clone(), size };
-      this.eyeH = Math.min(Math.max(size * 0.01, 1), 12);
       camera.near = size / 100;
       camera.far = size * 20;
       camera.updateProjectionMatrix();
@@ -203,15 +205,23 @@ export class ModelViewer {
   _setDrive(on) {
     if (on === this.driveOn) return;
     this.driveOn = on && !!this.curve;
-    const { controls } = this.three;
+    const { camera, controls } = this.three;
     if (this.driveOn) {
       controls.enabled = false;
       controls.autoRotate = false;
       this.driveU = 0; this.driveDir = 1;
+      // At kart eye height the orbit near plane (size/100 ≈ several GLB units on a
+      // big course) would clip the road and tunnel walls right in front of us.
+      camera.near = 0.1;
+      camera.updateProjectionMatrix();
     } else {
       controls.enabled = true;
       controls.autoRotate = true;
-      if (this.frame) this._orbitFrame();
+      if (this.frame) {
+        camera.near = this.frame.size / 100;
+        camera.updateProjectionMatrix();
+        this._orbitFrame();
+      }
     }
   }
 
