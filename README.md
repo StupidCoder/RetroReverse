@@ -99,8 +99,17 @@ To do:
       rotations, SBC scene bytecode, GX display lists, material tex↔pal binding):
       all 41 menu kart/character models software-render to PNG (`rendered/models/`)
       and **export as GLB** (`nitro.ExportGLB`), served by the Studio site — new
-      "Nintendo DS" system + three.js viewer (`site/src/mariokart/`). Next: course
-      scenes + `NCER` sprite cells; then Part V (`NKMD` map data, kart physics)
+      "Nintendo DS" system + three.js viewer (`site/src/mariokart/`). **Course scenes
+      decoded**: one model per course + a simplified `_V` far model (24 vs 1,625 tris
+      for Mario Circuit), POSSCALE + the ×16 world scale pinned, textures cross-
+      resolved from `<name>Tex.carc`; unused dev courses found on cartridge
+      (donkey/luigi/nokonoko/dokan/test1). **Part V started — the NKM course map
+      decoded** (`extract/mkds`): 17 sections (OBJI objects, CPOI checkpoints + CPAT
+      lap graph with key-checkpoint shortcut protection, EPOI/EPAT branching CPU
+      drive line, IPOI item line, KTPS/KTPJ start/respawns, cameras); verified by
+      `cmd/trackmap` overlays for all 59 courses (`rendered/tracks/`) — drive line
+      pixel-on-asphalt everywhere. 104 GLBs on the site (courses incl. far models).
+      Next: collision format + kart physics; `NCER` cells + `SDAT`
 * Tools
     * Disassembler should be better at segmenting functions; currently jumps within a function are treated as separate sub-routines; try to document parameters of sub-routines (which registers are used?)
 

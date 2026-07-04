@@ -21,6 +21,8 @@ import (
 	"path/filepath"
 	"strings"
 
+	"mariokartds/extract/mkds"
+
 	"retroreverse.com/tools/nds"
 	"retroreverse.com/tools/nds/nitro"
 )
@@ -37,16 +39,21 @@ func main() {
 		os.Exit(2)
 	}
 	path := flag.Arg(0)
-	data, err := os.ReadFile(path)
-	if err != nil {
-		die(err)
-	}
-	models, err := nitro.ParseNSBMD(nds.Decompress(data))
+	models, err := mkds.LoadModels(path)
 	if err != nil {
 		die(err)
 	}
 
-	texs := loadTextures(path, *texFile)
+	texs := mkds.LoadTextures(path)
+	if *texFile != "" {
+		if data, err := os.ReadFile(*texFile); err == nil {
+			if ts, err := nitro.DecodeNSBTX(nds.Decompress(data)); err == nil {
+				for _, t := range ts {
+					texs[t.Name] = t
+				}
+			}
+		}
+	}
 
 	if err := os.MkdirAll(*outDir, 0o755); err != nil {
 		die(err)
@@ -63,41 +70,6 @@ func main() {
 		}
 		fmt.Printf("  %-24s %4d tris  → %s\n", m.Name, ntris, name)
 	}
-}
-
-// loadTextures reads the texture set for a model: an explicit -tex, the same-stem
-// .nsbtx, or any .nsbtx in the model's directory.
-func loadTextures(modelPath, explicit string) map[string]nitro.Texture {
-	texs := map[string]nitro.Texture{}
-	cands := []string{explicit}
-	stem := strings.TrimSuffix(modelPath, filepath.Ext(modelPath))
-	cands = append(cands, stem+".nsbtx")
-	if ents, err := os.ReadDir(filepath.Dir(modelPath)); err == nil {
-		for _, e := range ents {
-			if strings.HasSuffix(strings.ToLower(e.Name()), ".nsbtx") {
-				cands = append(cands, filepath.Join(filepath.Dir(modelPath), e.Name()))
-			}
-		}
-	}
-	for _, c := range cands {
-		if c == "" {
-			continue
-		}
-		data, err := os.ReadFile(c)
-		if err != nil {
-			continue
-		}
-		ts, err := nitro.DecodeNSBTX(nds.Decompress(data))
-		if err != nil {
-			continue
-		}
-		for _, t := range ts {
-			if _, dup := texs[t.Name]; !dup {
-				texs[t.Name] = t
-			}
-		}
-	}
-	return texs
 }
 
 func render(m nitro.Model, texs map[string]nitro.Texture, size int, yawDeg, pitchDeg float64) (*image.NRGBA, int) {

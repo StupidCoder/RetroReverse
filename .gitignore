@@ -12,6 +12,10 @@
 */extract/ndsextract
 */extract/bootoracle
 */extract/rendertex
+*/extract/trackmap
+*/extract/exportglb
+*/extract/rendermodel
+*/extract/modeldump
 
 # regenerable extraction output
 */extracted/

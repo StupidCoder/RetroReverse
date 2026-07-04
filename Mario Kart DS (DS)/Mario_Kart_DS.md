@@ -6,10 +6,10 @@ A reverse-engineering reference for `Mario Kart DS (Europe) (En,Fr,De,Es,It).nds
 * **Part II** — the boot chain: the cartridge header's entry points, the secure area, and how the ARM9 and ARM7 come up and hand off;
 * **Part III** — program architecture: the runtime memory map, how the game initialises through the OS layer, its interrupt and IPC-FIFO setup, and the ARM9↔ARM7 rendezvous — pinned by running the boot on the `tools/arm` core as an oracle;
 * **Part IV** — graphics and data formats: peeling the asset layers (`.carc` → LZ77 → `NARC` archive → NITRO resources), decoding all seven `NSBTX` texture formats, the `NCLR`/`NCGR`/`NSCR` 2D tile pipeline, and the `NSBMD` 3D models (nodes, scene bytecode, GX display lists) — every track texture and UI screen rendered, every menu kart and character exported to GLB;
-* **Part V** — game mechanics: track data, kart physics and item behaviour;
+* **Part V** — game mechanics: the NKM course map (checkpoints and the lap graph, the CPU drive line, item routes, spawns, objects — the full track layout), with collision and kart physics ahead;
 * **Appendix A** — toolchain and reproduction.
 
-Methods: purely static analysis of the `.nds` image. The DS needed a new toolchain — the shared 6502/68000/Z80/LR35902 decoders do not apply — so this project is built on the new `tools/nds` cartridge reader (header, FNT/FAT, overlays, BLZ decompression) and the new `tools/arm` ARM/Thumb disassembler and CPU core, with `tools/nds/cmd/ndsinfo` for the container catalog, the game's `mariokartds/extract` `ndsextract` to pull the CPU binaries, and `retroreverse.com/tools/cmd/disarm` / `codetracearm` for the code. All addresses are 32-bit ARM addresses (`$02000000`-style main-RAM addresses, or the ARM9/ARM7 BIOS and I/O regions) unless a *file offset* into the ROM image is explicitly called out; bytes are little-endian. **Parts I–IV are in progress: I–III complete; IV has every 2D format decoded and rendered (all seven texture formats, the NCLR/NCGR/NSCR tile pipeline; 2,300+ figures in `rendered/`) and the `NSBMD` 3D models decoded end to end — all 41 menu kart/character models render and export as GLB, published in the repository's viewer site. Course-scale scenes, `NCER` sprite cells and `SDAT` sound are IV's frontier. Part V is a stub.**
+Methods: purely static analysis of the `.nds` image. The DS needed a new toolchain — the shared 6502/68000/Z80/LR35902 decoders do not apply — so this project is built on the new `tools/nds` cartridge reader (header, FNT/FAT, overlays, BLZ decompression) and the new `tools/arm` ARM/Thumb disassembler and CPU core, with `tools/nds/cmd/ndsinfo` for the container catalog, the game's `mariokartds/extract` `ndsextract` to pull the CPU binaries, and `retroreverse.com/tools/cmd/disarm` / `codetracearm` for the code. All addresses are 32-bit ARM addresses (`$02000000`-style main-RAM addresses, or the ARM9/ARM7 BIOS and I/O regions) unless a *file offset* into the ROM image is explicitly called out; bytes are little-endian. **Parts I–IV are essentially complete (IV: every 2D format, every texture and screen, and the `NSBMD` models — karts, characters and all course scenes with their far models — rendered and exported to GLB in the viewer site; `NCER` cells and `SDAT` remain). Part V has begun: the NKM course map — the full track layout — is decoded and figure-verified for all 59 courses; collision and physics are its frontier.**
 
 ---
 
@@ -43,8 +43,11 @@ Methods: purely static analysis of the `.nds` image. The DS needed a new toolcha
   - [4. The 4x4-compressed format](#4-the-4x4-compressed-format)
   - [5. The 2D tile pipeline: NCLR, NCGR, NSCR](#5-the-2d-tile-pipeline-nclr-ncgr-nscr)
   - [6. NSBMD models: nodes, scene bytecode, display lists](#6-nsbmd-models-nodes-scene-bytecode-display-lists)
-  - [7. Frontier: course scenes, sprite cells, sound](#7-frontier-course-scenes-sprite-cells-sound)
+  - [7. Course scenes: the track, its far model, and the world scale](#7-course-scenes-the-track-its-far-model-and-the-world-scale)
+  - [8. Frontier: sprite cells and sound](#8-frontier-sprite-cells-and-sound)
 - [Part V — Game mechanics](#part-v--game-mechanics)
+  - [1. The NKM course map: the full track layout](#1-the-nkm-course-map-the-full-track-layout)
+  - [2. Frontier: collision, physics, ghosts](#2-frontier-collision-physics-ghosts)
 - [Appendix A — Toolchain and reproduction](#appendix-a--toolchain-and-reproduction)
 
 ---
@@ -490,17 +493,63 @@ Verified by rendering (`extract/cmd/rendermodel`, a z-buffered software rasteris
 
 **GLB export.** `nitro.ExportGLB` serialises any decoded model as a standard **binary glTF 2.0** — per-material primitives with positions, normalised UVs and vertex colours, the NSBTX textures embedded as PNGs, GX repeat/flip mapped to glTF sampler wrap modes. `extract/cmd/exportglb -all` emits all 41 menu models plus a `models.json` manifest, and the set is published on the repository's viewer site: **Mario Kart DS is in the Studio** (`site/`, "Nintendo DS" system) with a three.js GLB viewer (`site/src/mariokart/viewer.js`) — orbit controls, nearest-filtered textures, characters and karts selectable per section.
 
-## 7. Frontier: course scenes, sprite cells, sound
+## 7. Course scenes: the track, its far model, and the world scale
 
-*(frontier)* What remains of Part IV:
+A course archive (`data/Course/<name>.carc`, nameless NARC) is the whole racing scene. Decoded for Mario Circuit:
 
-- **Course scenes** — the `BMD0` models inside `<course>.carc` (track geometry): the same format, but at course scale (multi-hundred-KB display lists, textures resolved from the sibling `…Tex.carc`, `POSSCALE`), plus the map objects. The decoder should extend directly; the batch plumbing (NARC-embedded models + cross-archive textures) is the work.
-- **`NCER` sprite cells** (with `NANR` animations) — the layouts that assemble the "scattered" sprite `NCGR`s into objects. Their tile banks are already decoded and sheeted; the cell assembly is not.
-- **The `SDAT` sound bank** — the single `sound_data.sdat` holding every sequence, bank and wave archive.
+| Sub-file | Type | Contents |
+|---|---|---|
+| 0 | `BMD0` | **`mario_course`** — the drivable course (1,625 tris, 22 materials/shapes, `POSSCALE` 64) |
+| 1 | `BMD0` | **`mario_course_V`** — the *far model* (24 tris): a radically simplified copy |
+| 2 | `BTA0` | texture animation (the water) |
+| 3 | *(raw)* | **collision** — vertex/normal/prism/octree sections at `$3C/$FC0/$596C/$9DCC` (Part V) |
+| 4, 19, 20 | `NKMD` | the **course maps** — single-player, plus variants (Part V §1) |
+| 5–18 | `BMD0`+anims | the **map objects**: `MarioTree3`, `kuribo` (Goomba), the `Pakkun*` Piranha-Plant parts, `FireBall`, `water_efct`, with `BTP0`/`BCA0`/`BMA0` animations |
+
+So the segmentation is real, but not quite LOD-per-segment: the course body is **one model** whose 20-odd shapes are its material batches (road, grass, water, castle walls…), and the level-of-detail split is the **`_V` companion model** — `mario_course_V` is 24 triangles to the main model's 1,625, `rainbow_course_V` 146 to 2,026 (at its own `POSSCALE` 128) — the version the engine draws where detail can't be seen. Multiplayer gets the same treatment one level up: `beach_courseD`/`cross_courseD`/`mansion_courseD` are whole simplified *course archives* for the DS's download-play/multiplayer mode.
+
+Three findings pin the geometry to the world:
+
+- **`POSSCALE`**: course vertices are stored divided by a power-of-two scale (`$40` for Mario Circuit — the fx16 vertex range is only ±8) and the SBC re-applies it (`$0B` between `NODEDESC` and the draws) — implemented in `RunSBC`.
+- **The ×16 world scale**: even after `POSSCALE`, the model spans ±250 units while the course-map data (§V.1) spans ±2,900 — the render model lives at **1/16 of kart-world scale**. Overlaying the two at ×16 puts the CPU drive line exactly on the asphalt (the `rendered/tracks/` figures), which is the proof.
+- **Textures cross archives**: the course model's textures live in the sibling `<name>Tex.carc` (two `BTX0` sets — the main model's and the `_V` model's), resolved through the model's own material bindings.
+
+And a cartridge archaeology bonus: `data/Course` still contains **unused development courses** — `donkey_course`, `luigi_course`, `nokonoko_course`, `dokan_course`, `test1_course`, `test_circle`, plus `wario_course` (an earlier Wario Stadium with only 3 placed objects) and the `StaffRoll` credits fly-through — all complete with geometry and course maps, all decoded by the same pipeline.
+
+All course scenes are exported to GLB alongside the karts (`exportglb -all` now emits 104 models: characters, karts, every course + its far model) and browsable in the Studio's Nintendo DS section under **Courses / Retro courses / Battle & mission stages**.
+
+## 8. Frontier: sprite cells and sound
+
+*(frontier)* Remaining in Part IV: **`NCER` sprite cells** (with `NANR` animations) — the layouts assembling the "scattered" sprite `NCGR`s; and the **`SDAT` sound bank** (`sound_data.sdat`: sequences, banks, wave archives).
 
 # Part V — Game mechanics
 
-*(frontier)* Track collision and route data, kart physics, item behaviour, the CPU racers, and the staff-ghost replay format in `data/Ghost`.
+## 1. The NKM course map: the full track layout
+
+Everything about a track that is not geometry lives in its **NKM** file (`NKMD`, up to three per course — single-player, plus mode variants). The format, decoded in `mariokartds/extract/mkds` and verified by overlay: a header (u16 version `37`, u16 header size `$4C`) followed by **17 section offsets**; each section is a 4-char magic, a u16 entry count, and fixed-size entries (sizes pinned by the offset deltas). Mario Circuit's map:
+
+| Section | Count | Entry | Contents |
+|---|---:|---:|---|
+| `OBJI` | 41 | `$3C` | placed objects: position/rotation/scale (fx32), object ID, route, time-trial flag |
+| `PATH`/`POIT` | 20/102 | `$04`/`$14` | routes — point lists that moving objects and cameras follow |
+| `STAG` | — | `$2C` | stage settings (course ID, laps, fog) |
+| `KTPS` | 1 | `$1C` | the grid start position + facing |
+| `KTPJ` | 7 | `$20` | respawn points — where Lakitu drops you, one per track sector |
+| `KTP2/KTPC/KTPM` | 1/0/0 | `$1C` | cannon/mission variants of the same |
+| `CPOI` | 52 | `$24` | **checkpoints**: a gate line (x1,z1)–(x2,z2) on the track plane, key ID, respawn link |
+| `CPAT` | 1 | `$0C` | checkpoint *sections*: `{start, len, next[3], prev[3]}` — the lap graph |
+| `IPOI`/`IPAT` | 64/4 | `$14`/`$0C` | the **item-probe line** (what red shells steer along), same section scheme |
+| `EPOI`/`EPAT` | 60/1 | `$18`/`$0C` | the **CPU drive line**: points with a lateral radius and a drift hint |
+| `AREA` | 14 | `$48` | trigger volumes (camera/effect zones) |
+| `CAME` | 19 | `$48` | cameras (intro fly-by, race cams) |
+
+How a lap actually works, read straight from the data: the 52 `CPOI` gates are chained by `CPAT` into sections; crossing gates advances your position, the gate with **key ID 0 is the lap line**, and higher key IDs are *key checkpoints* — you must cross them in order for a lap to count, which is exactly the game's shortcut protection. Each checkpoint names the `KTPJ` respawn to use if you fall out inside its stretch. The CPU racers follow `EPOI` — a polyline with a per-point **radius** (how far they may wander from it) and a **drift** hint; item routing uses the parallel `IPOI` line. All three share the section scheme with up to three `next[]` links, and that is how **alternate routes** are encoded: Mario Circuit is one section end-to-end, but Waluigi Pinball's drive line splits into **10 sections** branching around the bumper field, Delfino Square has 6, DK Pass 4.
+
+The `rendered/tracks/` figures (59 courses, `extract/cmd/trackmap`) draw it all in one frame: the course geometry top-down, the CPU line (cyan), item line (yellow), every checkpoint gate (red; key checkpoints gold, the lap line white), respawns (magenta), objects (white) and the start (green). That the drive line sits pixel-on-the-asphalt for every course is the joint verification of the model decoder, the NKM decoder and the ×16 world scale.
+
+## 2. Frontier: collision, physics, ghosts
+
+*(frontier)* The collision file (Part IV §7: vertices/normals/prisms/octree — the format the kart actually drives on), kart physics, item behaviour, the CPU racers' use of the drive line, and the staff-ghost replay format in `data/Ghost`.
 
 ---
 
@@ -537,10 +586,14 @@ go run retroreverse.com/tools/cmd/codetracearm -base 0x02380000 -entry 0x0238000
 ( cd extract && go run ./cmd/rendertex -o ../rendered/course ../extracted/files/data/Course/beach_courseTex.carc )
 ( cd extract && go run ./cmd/render2d  -o ../rendered/ui     ../extracted/files/data/CupPicture )
 
-# 3D models: inspect structure, software-render to PNG, export all 41 to GLB (+manifest)
+# 3D models: inspect structure, software-render to PNG, export all 104 to GLB (+manifest)
 ( cd extract && go run ./cmd/modeldump   ../extracted/files/data/KartModelMenu/kart/mario/kart_MR_a.nsbmd )
-( cd extract && go run ./cmd/rendermodel ../extracted/files/data/KartModelMenu/character/mario/P_MR.nsbmd )
+( cd extract && go run ./cmd/rendermodel ../extracted/files/data/Course/mario_course.carc )
 ( cd extract && go run ./cmd/exportglb -all )   # → extracted/glb/, copied to site/public/mariokart/
+
+# Part V — the full track layout: course geometry + NKM overlay (checkpoints, CPU
+# line, item line, spawns, objects) for one course or all of rendered/tracks/
+( cd extract && go run ./cmd/trackmap ../extracted/files/data/Course/mario_course.carc )
 ```
 
 Toolchain (all under the `retroreverse.com/tools` module unless noted, this repository):
@@ -558,6 +611,8 @@ Toolchain (all under the `retroreverse.com/tools` module unless noted, this repo
 - **`mariokartds/extract/cmd/render2d`** — composes the NSCR screens of a directory or `.carc` through their NCGR/NCLR (name-paired, `_b` background banks preferred).
 - **`mariokartds/extract/cmd/renderall`** — the whole-filesystem sweep: every texture, every screen (merging language-variant archives with their base), every leftover tile sheet, and the raw `.nbfc`/`.nbfp` banner — regenerates all 2,300+ figures in `rendered/`.
 - **`tools/nds/nitro` models** — `ParseNSBMD` (nodes/TRS + pivot rotations, SBC, materials with the authoritative tex↔pal binding, shapes), `RunSBC` (joint matrices → matrix stack → draw list), `DecodeDL` (the GX display-list interpreter: all vertex forms, strips), and `ExportGLB` (standard binary glTF 2.0 with embedded PNG textures).
-- **`mariokartds/extract/cmd/modeldump` / `rendermodel` / `exportglb`** — model structure dump; z-buffered software render to PNG (`rendered/models/`); GLB export of the 41 menu kart/character models plus the `models.json` manifest that `site/public/mariokart/` serves. The Studio site (`site/`) gains the "Nintendo DS" system and a three.js GLB viewer (`site/src/mariokart/viewer.js`).
+- **`mariokartds/extract/cmd/modeldump` / `rendermodel` / `exportglb`** — model structure dump; z-buffered software render to PNG (`rendered/models/`); GLB export of all 104 models (characters, karts, every course scene + far model) plus the `models.json` manifest that `site/public/mariokart/` serves. The Studio site (`site/`) carries them under the "Nintendo DS" system (`site/src/mariokart/viewer.js`).
+- **`mariokartds/extract/mkds`** — the game-specific plumbing: `LoadModels`/`LoadTextures` (loose files, NARC-embedded models, the cross-archive `<name>Tex.carc` convention) and `ParseNKM`, the course-map decoder.
+- **`mariokartds/extract/cmd/trackmap`** — the track-layout figure generator (`rendered/tracks/`, 59 courses): top-down course geometry at the ×16 world scale, overlaid with every NKM element.
 
 Rendered figures go in `Mario Kart DS (DS)/rendered/`; annotated disassembly in `disasm/`.

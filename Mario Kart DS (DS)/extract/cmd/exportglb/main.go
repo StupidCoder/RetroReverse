@@ -17,7 +17,8 @@ import (
 	"sort"
 	"strings"
 
-	"retroreverse.com/tools/nds"
+	"mariokartds/extract/mkds"
+
 	"retroreverse.com/tools/nds/nitro"
 )
 
@@ -37,6 +38,15 @@ func main() {
 				!strings.Contains(p, "shadow") {
 				paths = append(paths, p)
 			}
+			return nil
+		})
+		// course archives: those with a "<x>_course"/"_stage" model inside
+		filepath.Walk(filepath.Join(*root, "data", "Course"), func(p string, info os.FileInfo, err error) error {
+			if err != nil || info.IsDir() || !strings.HasSuffix(p, ".carc") ||
+				strings.Contains(p, "Tex") {
+				return nil
+			}
+			paths = append(paths, p)
 			return nil
 		})
 		sort.Strings(paths)
@@ -62,6 +72,53 @@ func main() {
 			die(err)
 		}
 	}
+}
+
+// courseNames maps course-archive stems to the tracks' English names (confident
+// ones only; unknown stems keep their internal name).
+var courseNames = map[string]string{
+	"cross_course":   "Figure-8 Circuit",
+	"bank_course":    "Yoshi Falls",
+	"beach_course":   "Cheep Cheep Beach",
+	"mansion_course": "Luigi's Mansion",
+	"desert_course":  "Desert Hills",
+	"town_course":    "Delfino Square",
+	"pinball_course": "Waluigi Pinball",
+	"ridge_course":   "Shroom Ridge",
+	"snow_course":    "DK Pass",
+	// development leftovers still on the retail cartridge:
+	"donkey_course":   "donkey_course (unused)",
+	"luigi_course":    "luigi_course (unused)",
+	"nokonoko_course": "nokonoko_course (unused)",
+	"dokan_course":    "dokan_course (unused)",
+	"test1_course":    "test1_course (unused)",
+	"Award":           "Award ceremony scene",
+	"beach_courseD":   "Cheep Cheep Beach (multiplayer)",
+	"cross_courseD":   "Figure-8 Circuit (multiplayer)",
+	"mansion_courseD": "Luigi's Mansion (multiplayer)",
+	"clock_course":    "Tick-Tock Clock",
+	"mario_course":    "Mario Circuit",
+	"airship_course":  "Airship Fortress",
+	"stadium_course":  "Wario Stadium",
+	"garden_course":   "Peach Gardens",
+	"koopa_course":    "Bowser Castle",
+	"rainbow_course":  "Rainbow Road",
+	"old_mario_sfc":   "SNES Mario Circuit 1",
+	"old_momo_64":     "N64 Moo Moo Farm",
+	"old_peach_agb":   "GBA Peach Circuit",
+	"old_luigi_gc":    "GCN Luigi Circuit",
+	"old_donut_sfc":   "SNES Donut Plains 1",
+	"old_frappe_64":   "N64 Frappe Snowland",
+	"old_koopa_agb":   "GBA Bowser Castle 2",
+	"old_baby_gc":     "GCN Baby Park",
+	"old_noko_sfc":    "SNES Koopa Beach 2",
+	"old_choco_64":    "N64 Choco Mountain",
+	"old_luigi_agb":   "GBA Luigi Circuit",
+	"old_kinoko_gc":   "GCN Mushroom Bridge",
+	"old_choco_sfc":   "SNES Choco Island 2",
+	"old_hyudoro_64":  "N64 Banshee Boardwalk",
+	"old_sky_agb":     "GBA Sky Garden",
+	"old_yoshi_gc":    "GCN Yoshi Circuit",
 }
 
 // charNames maps the two-letter character codes in model file names.
@@ -100,10 +157,40 @@ func writeManifest(outDir string, files []string) error {
 			}
 		}
 	}
-	// Anything else (e.g. the select scene) at the end.
+	// Courses: the main scene and its far "_V" companion.
 	known := map[string]bool{}
 	for _, e := range out {
 		known[e.File] = true
+	}
+	for _, f := range files {
+		if known[f] || !strings.Contains(f, "course") && !strings.Contains(f, "stage") && !strings.Contains(f, "mini_") {
+			continue
+		}
+		stem := strings.TrimSuffix(f, ".glb")
+		base := stem
+		far := false
+		if strings.HasSuffix(base, "_V") {
+			base, far = strings.TrimSuffix(base, "_V"), true
+		}
+		// "<archive>-<model>" → archive stem
+		if i := strings.Index(base, "-"); i >= 0 {
+			base = base[:i]
+		}
+		name := courseNames[base]
+		if name == "" {
+			name = base
+		}
+		if far {
+			name += " — far model"
+		}
+		sec := "Courses"
+		if strings.HasPrefix(base, "mini_") || strings.HasPrefix(base, "MR_") {
+			sec = "Battle & mission stages"
+		} else if strings.HasPrefix(base, "old_") {
+			sec = "Retro courses"
+		}
+		add(entry{Name: name, File: f, Section: sec})
+		known[f] = true
 	}
 	for _, f := range files {
 		if !known[f] {
@@ -120,22 +207,26 @@ func writeManifest(outDir string, files []string) error {
 }
 
 func export(path, outDir string) ([]string, error) {
-	data, err := os.ReadFile(path)
+	models, err := mkds.LoadModels(path)
 	if err != nil {
 		return nil, err
 	}
-	models, err := nitro.ParseNSBMD(nds.Decompress(data))
-	if err != nil {
-		return nil, err
-	}
-	texs := loadTextures(path)
+	texs := mkds.LoadTextures(path)
+	stem := strings.TrimSuffix(filepath.Base(path), filepath.Ext(path))
+	isCourse := strings.Contains(path, "/Course/")
 	var written []string
 	for _, m := range models {
+		if isCourse {
+			// Courses: export only the course scene itself — the main model and its
+			// low-detail "_V" companion; the small archive-mates are map objects.
+			if !strings.Contains(m.Name, "_course") && !strings.Contains(m.Name, "_stage") {
+				continue
+			}
+		}
 		glb, err := nitro.ExportGLB(m, texs)
 		if err != nil {
-			return written, err
+			continue
 		}
-		stem := strings.TrimSuffix(filepath.Base(path), filepath.Ext(path))
 		name := stem + ".glb"
 		if len(models) > 1 {
 			name = stem + "-" + m.Name + ".glb"
@@ -144,37 +235,9 @@ func export(path, outDir string) ([]string, error) {
 			return written, err
 		}
 		written = append(written, name)
-		fmt.Printf("  %-28s %7d bytes\n", name, len(glb))
+		fmt.Printf("  %-40s %7d bytes\n", name, len(glb))
 	}
 	return written, nil
-}
-
-func loadTextures(modelPath string) map[string]nitro.Texture {
-	texs := map[string]nitro.Texture{}
-	cands := []string{strings.TrimSuffix(modelPath, filepath.Ext(modelPath)) + ".nsbtx"}
-	if ents, err := os.ReadDir(filepath.Dir(modelPath)); err == nil {
-		for _, e := range ents {
-			if strings.HasSuffix(strings.ToLower(e.Name()), ".nsbtx") {
-				cands = append(cands, filepath.Join(filepath.Dir(modelPath), e.Name()))
-			}
-		}
-	}
-	for _, c := range cands {
-		data, err := os.ReadFile(c)
-		if err != nil {
-			continue
-		}
-		ts, err := nitro.DecodeNSBTX(nds.Decompress(data))
-		if err != nil {
-			continue
-		}
-		for _, t := range ts {
-			if _, dup := texs[t.Name]; !dup {
-				texs[t.Name] = t
-			}
-		}
-	}
-	return texs
 }
 
 func die(err error) {
