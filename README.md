@@ -87,8 +87,12 @@ To do:
       boot on the `tools/arm` core): BLZ cross-checked bit-for-bit against the game's own
       decompressor, runtime memory map, OS-layer init (`$020365F0`), the interrupt/IPC-FIFO
       setup (IE bit 18 = IPC recv), and the ARM9↔ARM7 **IPCSYNC rendezvous** it blocks on.
-      Next: a dual-core (ARM9+ARM7) oracle to cross the rendezvous → frame loop + overlay
-      streaming, then Part IV (NITRO asset decode)
+      Part IV in progress: asset layers peeled — `tools/nds` LZ77 (forward LZ10/11) + `NARC`
+      archive (both tested), and `tools/nds/nitro` decodes `NSBTX`/`TEX0` textures to PNG
+      (resource dict, `texImageParam`, paletted/A3I5/A5I3/direct formats, name-matched
+      palettes). Rendered all 15 character emblems + course textures through the full
+      `.carc`→LZ77→`NARC`→`BTX0` chain (`extract/cmd/rendertex`, `rendered/`). Next: 4x4-
+      compressed textures, `NSBMD` 3D models, 2D UI graphics; then Part V (`NKMD` map data)
 * Tools
     * Disassembler should be better at segmenting functions; currently jumps within a function are treated as separate sub-routines; try to document parameters of sub-routines (which registers are used?)
 
@@ -146,7 +150,8 @@ RetroReverse/
 │   │   └── cmd/hunkload/       #     segment map + flat relocated image of a hunk file
 │   ├── gamegear/               #   Game Gear VDP decoders + machine model (z80 oracle)
 │   ├── gameboy/                #   Game Boy machine model — MBC1 + timer/LCD interrupts (sm83 oracle)
-│   └── nds/                    #   Nintendo DS cartridge reader — header, FNT/FAT filesystem, overlays
+│   └── nds/                    #   Nintendo DS cartridge reader — header, FNT/FAT, overlays, BLZ/LZ77, NARC
+│       ├── nitro/              #     NITRO 3D resource decoders (NSBTX/TEX0 textures → images)
 │       └── cmd/ndsinfo/        #     header + integrity + filesystem catalog inspector
 │
 ├── Elite (C64)/
@@ -171,9 +176,9 @@ RetroReverse/
 ├── Mario Kart DS (DS)/
 │   ├── Mario Kart DS (Europe) ….nds   # raw DS cartridge image (pinned by MD5 in Image files)
 │   ├── Mario_Kart_DS.md         # cartridge + game writeup (Parts I-III done; rest stubbed)
-│   ├── extract/                 # module mariokartds/extract — cmd/ndsextract, cmd/bootoracle (ARM9 oracle)
+│   ├── extract/                 # module mariokartds/extract — ndsextract, bootoracle (ARM9 oracle), rendertex
 │   ├── disasm/                  # annotated ARM9/ARM7 disassembly (Part II onward)
-│   └── rendered/                # generated PNGs (assets — once decoded)
+│   └── rendered/                # generated PNGs — emblems/ (15 characters), course/ textures
 │
 ├── Sonic (GG)/
 │   ├── Sonic The Hedgehog (Japan, USA).gg   # raw Game Gear cartridge ROM
@@ -266,6 +271,8 @@ per-platform subfolder (`c64/`, `amiga/`, …).
 | `gameboy` | Game Boy (DMG) machine model driving the `sm83` core as an *emulation oracle*: the MBC1 mapper, the full memory map (VRAM/WRAM/OAM/HRAM/IO), and the timer and LCD scanline counter with their VBlank/STAT/timer interrupts — enough to run a real ROM through its boot and per-frame loop, then read back VRAM/OAM (`RunFrame`/`RunFrames`, plus a PC histogram and a VRAM write-watch). Also the fixed DMG **graphics decoders** (`gb.go`): the 2bpp tile, the `BGP`/`OBP` palette registers, tile-sheet and 32×32 background-map composition (`$8000`/signed-`$8800` addressing), and an OAM/sprite screen compositor (`RenderScreen`). Usable by any Game Boy game; MBC1 today. |
 | `nds` | Nintendo DS cartridge (`.nds`) container reader: the ROM header (with CRC-16 verification), the ARM9/ARM7 binaries and their overlay tables, the on-cartridge filesystem — the **FAT** (flat start/end offset table) joined to the **FNT** directory tree to resolve every file's full path and ID — and the **BLZ** backward-LZSS decompressor the SDK applies to the ARM9 static module and overlays (`DecompressBLZ`/`IsBLZ`). The DS counterpart of `amiga/adf`; makes no assumptions about the game inside. Usable by any DS title. |
 | `nds/cmd/ndsinfo` | DS container inspector built on `nds`: prints the header, integrity checks (header/logo CRC), the ARM9/ARM7/overlay layout and the filesystem catalog (`-files` lists every file's ID/range/size/path, `-tree` groups by directory, `-grep` filters). |
+| `nds` LZ77 + NARC | The DS filesystem's compression and bundling: `DecompressLZ77` (forward LZ10/LZ11, distinct from the boot `BLZ`), `Decompress` (transparent), and `ParseNARC` (splits a Nintendo ARChive, decompressing a `.carc` wrapper first). Unit-tested. |
+| `nds/nitro` | NITRO-System 3D resource decoders: `DecodeNSBTX` turns a `BTX0`/`TEX0` texture set into Go images — the shared resource-dictionary parse, the `texImageParam`, the paletted (2/3/4)/A3I5/A5I3/direct texture formats, BGR555 palettes, and texture↔palette matching by name. (4x4-compressed format and `NSBMD` models pending.) |
 
 ## Building and running
 

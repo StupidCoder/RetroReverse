@@ -11,6 +11,7 @@
 */extract/spawncheck
 */extract/ndsextract
 */extract/bootoracle
+*/extract/rendertex
 
 # regenerable extraction output
 */extracted/
