@@ -101,14 +101,17 @@ RetroReverse/
 │   ├── m68k/                   #   Motorola 68000 disassembler + CPU core (any 68k platform)
 │   ├── z80/                    #   Zilog Z80 disassembler + executable CPU core (any Z80 platform)
 │   ├── sm83/                   #   Sharp LR35902 (Game Boy "GBZ80") disassembler + CPU core — Z80 relative, not a Z80
+│   ├── arm/                    #   ARM (ARMv5TE/ARMv4T) disassembler + CPU core — Nintendo DS ARM9/ARM7, ARM + Thumb
 │   ├── cmd/dis6502/            #   linear disassembler for a .prg file (6502)
 │   ├── cmd/dis68k/             #   linear disassembler for a raw 68000 blob
 │   ├── cmd/disz80/             #   linear disassembler for a raw Z80 slice
 │   ├── cmd/dissm83/            #   linear disassembler for a Game Boy ROM (flat or MBC1-bank mode)
+│   ├── cmd/disarm/             #   linear disassembler for a raw ARM/Thumb blob (Nintendo DS)
 │   ├── cmd/codetrace6502/      #   recursive-descent disassembler (6502)
 │   ├── cmd/codetrace68k/       #   recursive-descent disassembler (68000)
 │   ├── cmd/codetracez80/       #   recursive-descent disassembler (Z80)
 │   ├── cmd/codetracesm83/      #   recursive-descent disassembler (Game Boy LR35902, bank-view)
+│   ├── cmd/codetracearm/       #   recursive-descent disassembler (ARM/Thumb, interworking-aware)
 │   ├── c64/                    #   C64-specific tools
 │   │   ├── tap/                #     TAP container parser + segmentation
 │   │   ├── cbmtape/            #     standard KERNAL ROM tape-format decoder
@@ -206,6 +209,7 @@ per-platform subfolder (`c64/`, `amiga/`, …).
 | `m68k` | Motorola 68000 toolkit mirroring `mos6502`: a `Decode`/`Disassemble` disassembler (full documented instruction set, all addressing modes) **and** an instruction-level `CPU` execution core over the same `Bus`/`Step()` interface. The core currently runs a minimal-but-correct opcode subset (MOVE/ALU/shift/branch/jump/DBcc/MOVEM/LINK with proper X/N/Z/V/C flags) and halts on anything not yet implemented, so gaps are explicit. Usable by any 68k platform (Amiga, ST, Genesis, …). |
 | `z80` | Zilog Z80 toolkit mirroring `mos6502`/`m68k`: a `Decode`/`Disassemble` disassembler over the CPU's x/y/z/p/q opcode bit-fields (all `CB`/`ED`/`DD`/`FD` prefix pages, including `DDCB` and the undocumented `IXH`/`IXL`/`SLL`) **and** a practically complete instruction-level `CPU` execution core (block moves, IM-1 interrupts, documented flags) over the same `Bus`/`Step()` interface. Usable by any Z80 platform (Game Gear, Master System, ZX, MSX, …). |
 | `sm83` | Sharp **LR35902** (Game Boy CPU; "GBZ80"/SM83) toolkit: a `Decode`/`Disassemble` disassembler **and** an instruction-level `CPU` execution core over a `Bus`, with `Step` returning T-cycles for the machine to drive timing. A Z80 relative but **not** a Z80, so it is its own package: only four flags (Z/N/H/C), no `IX`/`IY` or `DD`/`FD`/`ED` prefixes (only `CB`), no `IN`/`OUT` (the Game-Boy-only `LDH ($FF00+n)`/`(C)` high-page ops instead), the `LD (HL±)` auto-inc/dec loads, `LD ($nnnn),SP`, `ADD SP,e`, `LD HL,SP+e`, `RETI`, `STOP`, CB-page `SWAP`, and eleven illegal opcodes. Same `Flow`/`Inst` interface as `z80`. Unit-tested (flags, GB ops, interrupts) and verified end-to-end booting Super Mario Land. |
+| `arm` | **ARM** toolkit for the two Nintendo DS CPUs — the ARM9 (ARM946E-S, ARMv5TE) and ARM7 (ARM7TDMI, ARMv4T): a `Decode`/`Disassemble` disassembler **and** an instruction-level `CPU` execution core over a `Bus`. It handles **both** of the DS's instruction sets — 32-bit ARM (conditional execution on every instruction, the barrel-shifter operand, multiply/long-multiply, LDR/STR/LDM/STM, the ARMv5 `BLX`/`CLZ`/`BKPT`, saturating `QADD…` and signed `SMLA…` DSP ops) and 16-bit `Thumb` — and the `BX`/`BLX` interworking between them, tracked per address (`Inst.Thumb`/`TargetThumb`). The core models the CPSR flags, banked register file and mode switching (SWI/IRQ via caller hooks; CP15 routed to a `Coproc` hook), and halts on anything unmodelled so gaps are explicit; caches, the MPU, cycle-accurate timing and the 2D/3D video hardware are the caller's "full machine" to layer on top. Adds an eighth `Flow` category, `FlowIndCall`, for ARM's return-after indirect calls. Unit-tested (decode + execution, incl. ARM↔Thumb interworking). |
 | `cmd/dis6502` | Linear disassembler for a `.prg` file (2-byte load address + data), optionally over an address range. |
 | `cmd/dis68k` | Linear disassembler for a raw 68000 code blob loaded at a given base address (`-skip` steps past an AmigaDOS hunk header). |
 | `cmd/codetrace6502` | Recursive-descent 6502 disassembler: from given entry points (and seeded jump tables) it follows every branch/jump/call, marks reachable code vs data, lists routines and unresolved indirect jumps — so tables and graphics aren't mis-decoded as instructions. |
@@ -214,6 +218,8 @@ per-platform subfolder (`c64/`, `amiga/`, …).
 | `cmd/dissm83` | Linear disassembler for a Game Boy ROM, built on `sm83`: a flat file slice (`-off`/`-len`/`-base`) or an MBC1 bank view (`-bank N -start A -end A`, with bank 0 fixed at `$0000`–`$3FFF` and bank *N* in `$4000`–`$7FFF`). |
 | `cmd/codetracesm83` | The Game Boy counterpart of `codetracez80`, built on `sm83`: recursive trace from given entry points over a 32 KB bank view (`-bank N`; bank 0 fixed, bank *N* in `$4000`–`$7FFF`), with `-table` jump-table seeding and an `-annotate` file for naming routines. |
 | `cmd/codetracez80` | The Z80 counterpart of `codetrace6502`, built on `z80`: recursive trace from given entry points over a banked ROM (`-load` selects the resident bank), with an `-annotate` file for naming routines. |
+| `cmd/disarm` | Linear disassembler for a raw ARM/Thumb blob mapped at a given address (`-off`/`-len`/`-base`, `-thumb` selects Thumb), built on `arm`. |
+| `cmd/codetracearm` | The ARM counterpart of `codetrace68k`, built on `arm`: recursive trace from given entry points over a flat image (`-base`/`-skip`), tracking ARM/Thumb state through `BX`/`BLX` interworking (entries suffixed `t`/`a`, or bit 0 of a pointer, select the state). `-table` seeds pointer tables and `-annotate` names routines; reports routines and unresolved indirect transfers. |
 | `c64/tap` | Parse a TAP v0/v1 image (C64/C16) into a pulse stream; `Segmentize` splits it at pauses. |
 | `c64/cbmtape` | Decode the standard Commodore KERNAL (ROM loader) tape encoding: blocks, headers, and paired header+data files with checksum verification. |
 | `c64/c64` | A minimal C64 machine model — RAM, the `mos6502` CPU, a CIA pulse-feed tape model, a PC-hook registry, a RAM write log and an optional read probe — for *running* a self-modifying loader instead of decoding it, or tracing which game routine touches which memory. Optional standard KERNAL tape hooks included. |
