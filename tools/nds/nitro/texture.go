@@ -83,6 +83,8 @@ func DecodeNSBTX(data []byte) ([]Texture, error) {
 func decodeTEX0(data []byte, base int) ([]Texture, error) {
 	texInfoOff := base + int(le.Uint16(data[base+0x0E:]))
 	texDataOff := base + int(le.Uint32(data[base+0x14:]))
+	tex4x4Off := base + int(le.Uint32(data[base+0x24:])) // 4x4-format texel data
+	palIdxOff := base + int(le.Uint32(data[base+0x28:])) // 4x4-format palette-index data
 	palInfoOff := base + int(le.Uint32(data[base+0x34:]))
 	palDataOff := base + int(le.Uint32(data[base+0x38:]))
 
@@ -105,51 +107,100 @@ func decodeTEX0(data []byte, base int) ([]Texture, error) {
 		color0 := param&(1<<29) != 0 // colour index 0 is transparent
 
 		// Textures and palettes are named separately and in different orders (a texture
-		// "X" uses the palette named "X_pl"), so pair them by name, not index.
+		// "X" uses the palette named "X_pl"), so pair them by name, not index. The
+		// dictionary's offset word is in 8-byte units (<<3) — pinned by the last
+		// palettes of a real set landing exactly inside the palette region.
 		palBase := palDataOff
 		if pi := matchPalette(t.name, pals); pi >= 0 {
-			po := int(le.Uint32(padded(pals[pi].data)))
-			if fmtID == 2 { // 4-colour palettes are addressed in 8-byte units
-				palBase += (po & 0x1FFF) << 3
-			} else {
-				palBase += (po & 0x1FFF) << 4
-			}
+			palBase += (int(le.Uint16(padded(pals[pi].data))) & 0x1FFF) << 3
 		} else if i < len(pals) {
-			palBase += (int(le.Uint32(padded(pals[i].data))) & 0x1FFF) << 4
+			palBase += (int(le.Uint16(padded(pals[i].data))) & 0x1FFF) << 3
 		}
 
+		var img *image.NRGBA
 		if fmtID == 5 {
-			// 4x4-block-compressed: recognised, but its two-slot (texel / palette-index)
-			// region layout is not yet reliably reversed, so skip rather than emit noise.
-			continue
-		}
-		img, derr := decodeTexture(data, texDataOff+addr, palBase, fmtID, w, h, color0)
-		if derr != nil {
-			return out, fmt.Errorf("texture %q: %w", t.name, derr)
+			// 4x4-block-compressed: the texture's address indexes the dedicated 4x4 texel
+			// region (TEX0+$24); its per-block palette words live at half that offset in
+			// the palette-index region (TEX0+$28). Verified: in a real TEX0 the regions
+			// tile exactly — texels, 4x4 texels, 4x4 indices (half size), palettes.
+			img = decode4x4(data, tex4x4Off+addr, palIdxOff+addr/2, palBase, w, h)
+		} else {
+			var derr error
+			if img, derr = decodeTexture(data, texDataOff+addr, palBase, fmtID, w, h, color0); derr != nil {
+				return out, fmt.Errorf("texture %q: %w", t.name, derr)
+			}
 		}
 		out = append(out, Texture{Name: t.name, Img: img, Format: fmtID, Width: w, Height: h})
 	}
 	return out, nil
 }
 
-// matchPalette finds the palette for a texture by name — "<tex>_pl", exact, or the
-// same name with a trailing digit dropped, then a prefix match — returning its index
-// in pals, or -1.
+// matchPalette finds the palette for a texture by name. Real sets are erratic —
+// "X"↔"X_pl", but also dropped prefixes ("nr_road5"↔"road5_pl"), moved underscores
+// ("nr_dash_02"↔"nr_dash2") and renames ("nr_start_line2"↔"nr_line_pl") — so this
+// scores each candidate: exact match, then containment, then a common-suffix /
+// common-substring measure. (The authoritative binding is the material block of the
+// NSBMD model that consumes the texture; this is the best a texture set alone gives.)
 func matchPalette(texName string, pals []dictEntry) int {
-	stripped := strings.TrimRight(texName, "0123456789")
-	for _, cand := range []string{texName + "_pl", texName, stripped + "_pl", stripped + "1_pl"} {
-		for i, p := range pals {
-			if p.name == cand {
-				return i
+	t := paletteCore(texName)
+	best, bestScore := -1, 2 // require a minimal similarity
+	for i, p := range pals {
+		c := paletteCore(p.name)
+		var s int
+		switch {
+		case c == t:
+			s = 1000
+		case strings.Contains(t, c):
+			s = 500 + len(c)
+		case strings.Contains(c, t):
+			s = 500 + len(t)
+		default:
+			suf := commonSuffix(strings.TrimRight(t, "0123456789"), strings.TrimRight(c, "0123456789"))
+			sub := commonSubstring(t, c)
+			s = sub
+			if 2*suf > s {
+				s = 2 * suf
 			}
 		}
-	}
-	for i, p := range pals {
-		if strings.HasPrefix(p.name, stripped) {
-			return i
+		if s > bestScore {
+			best, bestScore = i, s
 		}
 	}
-	return -1
+	return best
+}
+
+// paletteCore normalises a dictionary name for matching: lower-case, "_pl" dropped.
+func paletteCore(s string) string {
+	s = strings.ToLower(s)
+	s = strings.TrimSuffix(s, "_pl")
+	return strings.TrimRight(s, "_")
+}
+
+func commonSuffix(a, b string) int {
+	n := 0
+	for n < len(a) && n < len(b) && a[len(a)-1-n] == b[len(b)-1-n] {
+		n++
+	}
+	return n
+}
+
+// commonSubstring returns the length of the longest common substring.
+func commonSubstring(a, b string) int {
+	best := 0
+	prev := make([]int, len(b)+1)
+	for i := 1; i <= len(a); i++ {
+		cur := make([]int, len(b)+1)
+		for j := 1; j <= len(b); j++ {
+			if a[i-1] == b[j-1] {
+				cur[j] = prev[j-1] + 1
+				if cur[j] > best {
+					best = cur[j]
+				}
+			}
+		}
+		prev = cur
+	}
+	return best
 }
 
 // padded left-justifies a possibly-short dict entry into 4 bytes for a uint32 read.
@@ -160,6 +211,61 @@ func padded(b []byte) []byte {
 	p := make([]byte, 4)
 	copy(p, b)
 	return p
+}
+
+// decode4x4 decodes a format-5 (4x4-block-compressed) texture: a grid of 4x4-pixel
+// blocks, each with 16 two-bit texel indices (one 32-bit word) and a 16-bit palette
+// word — bits 0-13 a sub-palette offset (in 4-byte steps, relative to the texture's
+// palette), bits 14-15 a mode selecting how the four 2-bit values map to colours
+// (two of them may be interpolations, one may be transparent).
+func decode4x4(data []byte, texel, palIdx, palBase, w, h int) *image.NRGBA {
+	img := image.NewNRGBA(image.Rect(0, 0, w, h))
+	bw := w / 4
+	for by := 0; by < h/4; by++ {
+		for bx := 0; bx < bw; bx++ {
+			blk := by*bw + bx
+			if texel+blk*4+4 > len(data) || palIdx+blk*2+2 > len(data) {
+				continue
+			}
+			texels := le.Uint32(data[texel+blk*4:])
+			info := le.Uint16(data[palIdx+blk*2:])
+			cbase := palBase + int(info&0x3FFF)*4
+			cols := blockColors(data, cbase, info>>14)
+			for py := 0; py < 4; py++ {
+				for px := 0; px < 4; px++ {
+					v := (texels >> uint((py*4+px)*2)) & 3
+					img.SetNRGBA(bx*4+px, by*4+py, cols[v])
+				}
+			}
+		}
+	}
+	return img
+}
+
+// blockColors builds the four colours a 4x4 block's 2-bit values select, per its mode.
+func blockColors(data []byte, cbase int, mode uint16) [4]color.NRGBA {
+	c0, c1 := pal(data, cbase, 0), pal(data, cbase, 1)
+	switch mode {
+	case 0: // c0, c1, c2, transparent
+		return [4]color.NRGBA{c0, c1, pal(data, cbase, 2), {}}
+	case 1: // c0, c1, (c0+c1)/2, transparent
+		return [4]color.NRGBA{c0, c1, mix(c0, c1, 1, 1), {}}
+	case 2: // c0, c1, c2, c3
+		return [4]color.NRGBA{c0, c1, pal(data, cbase, 2), pal(data, cbase, 3)}
+	default: // 3: c0, c1, (5c0+3c1)/8, (3c0+5c1)/8
+		return [4]color.NRGBA{c0, c1, mix(c0, c1, 5, 3), mix(c0, c1, 3, 5)}
+	}
+}
+
+// mix blends two colours with integer weights (result opaque).
+func mix(a, b color.NRGBA, wa, wb int) color.NRGBA {
+	t := wa + wb
+	return color.NRGBA{
+		R: uint8((int(a.R)*wa + int(b.R)*wb) / t),
+		G: uint8((int(a.G)*wa + int(b.G)*wb) / t),
+		B: uint8((int(a.B)*wa + int(b.B)*wb) / t),
+		A: 0xFF,
+	}
 }
 
 // bgr555 converts a 15-bit BGR colour word to 8-bit-per-channel RGBA (opaque).

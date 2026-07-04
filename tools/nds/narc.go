@@ -18,6 +18,62 @@ import (
 //
 // Offsets in BTAF are relative to the start of the GMIF data.
 
+// NARCFile is one named sub-file of a NARC.
+type NARCFile struct {
+	Name string // empty when the archive is nameless
+	Data []byte
+}
+
+// ParseNARCFiles returns the sub-files of a NARC with their BTNF names (asset NARCs
+// usually carry a flat root directory of real file names). Files the name table
+// doesn't cover keep an empty name. Accepts a raw `.carc` (LZ77) directly.
+func ParseNARCFiles(data []byte) ([]NARCFile, error) {
+	data = Decompress(data)
+	raw, err := ParseNARC(data)
+	if err != nil {
+		return nil, err
+	}
+	out := make([]NARCFile, len(raw))
+	for i, d := range raw {
+		out[i].Data = d
+	}
+	// Locate BTNF and walk its (flat) root sub-table, assigning sequential file IDs —
+	// the same FNT structure the cartridge filesystem uses.
+	le := binary.LittleEndian
+	off := int(le.Uint16(data[0x0C:]))
+	n := int(le.Uint16(data[0x0E:]))
+	for i := 0; i < n && off+8 <= len(data); i++ {
+		magic := string(data[off : off+4])
+		size := int(le.Uint32(data[off+4:]))
+		if magic == "BTNF" && size >= 16 {
+			base := off + 8
+			sub := base + int(le.Uint32(data[base:]))
+			id := int(le.Uint16(data[base+4:]))
+			for p := sub; p < len(data); {
+				ctrl := int(data[p])
+				p++
+				if ctrl == 0 || ctrl >= 0x80 { // end, or a subdirectory (not used by asset NARCs)
+					break
+				}
+				if p+ctrl > len(data) {
+					break
+				}
+				if id >= 0 && id < len(out) {
+					out[id].Name = string(data[p : p+ctrl])
+				}
+				p += ctrl
+				id++
+			}
+			break
+		}
+		if size <= 0 {
+			break
+		}
+		off += size
+	}
+	return out, nil
+}
+
 // ParseNARC returns the sub-files of a NARC archive, in FAT order. It transparently
 // LZ77-decompresses the input first, so a raw `.carc` may be passed directly.
 func ParseNARC(data []byte) ([][]byte, error) {
