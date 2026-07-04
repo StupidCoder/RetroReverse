@@ -87,12 +87,16 @@ To do:
       boot on the `tools/arm` core): BLZ cross-checked bit-for-bit against the game's own
       decompressor, runtime memory map, OS-layer init (`$020365F0`), the interrupt/IPC-FIFO
       setup (IE bit 18 = IPC recv), and the ARM9↔ARM7 **IPCSYNC rendezvous** it blocks on.
-      Part IV in progress: asset layers peeled — `tools/nds` LZ77 (forward LZ10/11) + `NARC`
-      archive (both tested), and `tools/nds/nitro` decodes `NSBTX`/`TEX0` textures to PNG
-      (resource dict, `texImageParam`, paletted/A3I5/A5I3/direct formats, name-matched
-      palettes). Rendered all 15 character emblems + course textures through the full
-      `.carc`→LZ77→`NARC`→`BTX0` chain (`extract/cmd/rendertex`, `rendered/`). Next: 4x4-
-      compressed textures, `NSBMD` 3D models, 2D UI graphics; then Part V (`NKMD` map data)
+      Part IV: ALL 2D graphics decoded and rendered — asset layers (`tools/nds` LZ77 +
+      `NARC`, tested), all **seven texture formats** incl. the 4x4-compressed one (its
+      two extra `TEX0` regions pinned by region arithmetic; palette offsets are `<<3`;
+      erratic texture↔palette names matched by similarity), and the **2D tile pipeline**
+      (`NCLR`/`NCGR`/`NSCR` decode + screen composition, `_b`/`_o` bank convention,
+      language-variant archive merging). `extract/cmd/renderall` sweeps the filesystem:
+      **1,360 textures + 596 screens + 376 sheets, 0 archives skipped** (`rendered/`) —
+      title screen, Nintendo logo, all cup pictures, Rainbow Road, the Shy Guy banner
+      icon, the debug font. Next: `NSBMD` 3D models + `NCER` sprite cells; then Part V
+      (`NKMD` map data, kart physics)
 * Tools
     * Disassembler should be better at segmenting functions; currently jumps within a function are treated as separate sub-routines; try to document parameters of sub-routines (which registers are used?)
 
@@ -176,9 +180,9 @@ RetroReverse/
 ├── Mario Kart DS (DS)/
 │   ├── Mario Kart DS (Europe) ….nds   # raw DS cartridge image (pinned by MD5 in Image files)
 │   ├── Mario_Kart_DS.md         # cartridge + game writeup (Parts I-III done; rest stubbed)
-│   ├── extract/                 # module mariokartds/extract — ndsextract, bootoracle (ARM9 oracle), rendertex
+│   ├── extract/                 # module mariokartds/extract — ndsextract, bootoracle, rendertex/render2d/renderall
 │   ├── disasm/                  # annotated ARM9/ARM7 disassembly (Part II onward)
-│   └── rendered/                # generated PNGs — emblems/ (15 characters), course/ textures
+│   └── rendered/                # generated PNGs — every texture + UI screen (course/, tex/, ui/, emblems/)
 │
 ├── Sonic (GG)/
 │   ├── Sonic The Hedgehog (Japan, USA).gg   # raw Game Gear cartridge ROM
@@ -272,7 +276,7 @@ per-platform subfolder (`c64/`, `amiga/`, …).
 | `nds` | Nintendo DS cartridge (`.nds`) container reader: the ROM header (with CRC-16 verification), the ARM9/ARM7 binaries and their overlay tables, the on-cartridge filesystem — the **FAT** (flat start/end offset table) joined to the **FNT** directory tree to resolve every file's full path and ID — and the **BLZ** backward-LZSS decompressor the SDK applies to the ARM9 static module and overlays (`DecompressBLZ`/`IsBLZ`). The DS counterpart of `amiga/adf`; makes no assumptions about the game inside. Usable by any DS title. |
 | `nds/cmd/ndsinfo` | DS container inspector built on `nds`: prints the header, integrity checks (header/logo CRC), the ARM9/ARM7/overlay layout and the filesystem catalog (`-files` lists every file's ID/range/size/path, `-tree` groups by directory, `-grep` filters). |
 | `nds` LZ77 + NARC | The DS filesystem's compression and bundling: `DecompressLZ77` (forward LZ10/LZ11, distinct from the boot `BLZ`), `Decompress` (transparent), and `ParseNARC` (splits a Nintendo ARChive, decompressing a `.carc` wrapper first). Unit-tested. |
-| `nds/nitro` | NITRO-System 3D resource decoders: `DecodeNSBTX` turns a `BTX0`/`TEX0` texture set into Go images — the shared resource-dictionary parse, the `texImageParam`, the paletted (2/3/4)/A3I5/A5I3/direct texture formats, BGR555 palettes, and texture↔palette matching by name. (4x4-compressed format and `NSBMD` models pending.) |
+| `nds/nitro` | NITRO-System resource decoders. 3D textures: `DecodeNSBTX` turns a `BTX0`/`TEX0` set into Go images — the shared resource-dictionary parse, the `texImageParam`, **all seven** DS texture formats (paletted 2/3/4, A3I5, A5I3, direct, and the 4x4-block-compressed format with its two dedicated `TEX0` regions), BGR555 palettes and name-similarity texture↔palette pairing. 2D tile art: `ParseNCLR`/`ParseNCGR`/`ParseNSCR` + `ComposeScreen`/`TileSheet` decode the palette/character/screen files (incl. the `RPCN` palette variant) and compose full screens. (`NSBMD` models and `NCER` sprite cells pending.) |
 
 ## Building and running
 

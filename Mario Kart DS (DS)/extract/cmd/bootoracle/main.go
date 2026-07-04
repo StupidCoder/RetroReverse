@@ -25,10 +25,10 @@ import (
 // bus is a flat little-endian memory covering ITCM/main-RAM/DTCM/WRAM (0..0x03FFFFFF),
 // with the I/O block at 0x04000000 logged rather than modelled.
 type bus struct {
-	mem   []byte
-	io    map[uint32]uint32 // last value written to each I/O register
-	ioseq []uint32          // I/O addresses in first-write order
-	vcount uint32           // a fake, ever-advancing VCOUNT so simple poll loops progress
+	mem    []byte
+	io     map[uint32]uint32 // last value written to each I/O register
+	ioseq  []uint32          // I/O addresses in first-write order
+	vcount uint32            // a fake, ever-advancing VCOUNT so simple poll loops progress
 }
 
 func newBus() *bus { return &bus{mem: make([]byte, 0x04000000), io: map[uint32]uint32{}} }

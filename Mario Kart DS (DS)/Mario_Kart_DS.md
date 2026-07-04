@@ -5,11 +5,11 @@ A reverse-engineering reference for `Mario Kart DS (Europe) (En,Fr,De,Es,It).nds
 * **Part I** — the cartridge image: the `.nds` container, its header, the ARM9/ARM7 binaries and overlays, and the FNT/FAT filesystem that names ~600 asset files;
 * **Part II** — the boot chain: the cartridge header's entry points, the secure area, and how the ARM9 and ARM7 come up and hand off;
 * **Part III** — program architecture: the runtime memory map, how the game initialises through the OS layer, its interrupt and IPC-FIFO setup, and the ARM9↔ARM7 rendezvous — pinned by running the boot on the `tools/arm` core as an oracle;
-* **Part IV** — graphics and data formats: peeling the asset layers (`.carc` → LZ77 → `NARC` archive → NITRO resources) and decoding the `NSBTX` textures to pixels, with the 4x4-compressed textures and the `NSBMD` 3D models still ahead;
+* **Part IV** — graphics and data formats: peeling the asset layers (`.carc` → LZ77 → `NARC` archive → NITRO resources), decoding all seven `NSBTX` texture formats and the `NCLR`/`NCGR`/`NSCR` 2D tile pipeline, and rendering every track texture and UI screen; the `NSBMD` 3D models remain;
 * **Part V** — game mechanics: track data, kart physics and item behaviour;
 * **Appendix A** — toolchain and reproduction.
 
-Methods: purely static analysis of the `.nds` image. The DS needed a new toolchain — the shared 6502/68000/Z80/LR35902 decoders do not apply — so this project is built on the new `tools/nds` cartridge reader (header, FNT/FAT, overlays, BLZ decompression) and the new `tools/arm` ARM/Thumb disassembler and CPU core, with `tools/nds/cmd/ndsinfo` for the container catalog, the game's `mariokartds/extract` `ndsextract` to pull the CPU binaries, and `retroreverse.com/tools/cmd/disarm` / `codetracearm` for the code. All addresses are 32-bit ARM addresses (`$02000000`-style main-RAM addresses, or the ARM9/ARM7 BIOS and I/O regions) unless a *file offset* into the ROM image is explicitly called out; bytes are little-endian. **Parts I–IV are in progress: I–III complete, IV has the compression/archive layers and the NITRO textures decoded (the 4x4-compressed texture format and the 3D models are IV's frontier); Part V is a stub.**
+Methods: purely static analysis of the `.nds` image. The DS needed a new toolchain — the shared 6502/68000/Z80/LR35902 decoders do not apply — so this project is built on the new `tools/nds` cartridge reader (header, FNT/FAT, overlays, BLZ decompression) and the new `tools/arm` ARM/Thumb disassembler and CPU core, with `tools/nds/cmd/ndsinfo` for the container catalog, the game's `mariokartds/extract` `ndsextract` to pull the CPU binaries, and `retroreverse.com/tools/cmd/disarm` / `codetracearm` for the code. All addresses are 32-bit ARM addresses (`$02000000`-style main-RAM addresses, or the ARM9/ARM7 BIOS and I/O regions) unless a *file offset* into the ROM image is explicitly called out; bytes are little-endian. **Parts I–IV are in progress: I–III complete; IV has every 2D format decoded and every texture and UI screen rendered — all seven texture formats including the 4x4-compressed one, and the NCLR/NCGR/NSCR tile pipeline (2,300+ figures in `rendered/`); the `NSBMD` 3D models and `NCER` sprite cells are IV's frontier. Part V is a stub.**
 
 ---
 
@@ -40,7 +40,9 @@ Methods: purely static analysis of the `.nds` image. The DS needed a new toolcha
   - [1. Peeling the asset layers: LZ77 and NARC](#1-peeling-the-asset-layers-lz77-and-narc)
   - [2. NITRO textures: the `TEX0` block](#2-nitro-textures-the-tex0-block)
   - [3. Texture formats and palettes](#3-texture-formats-and-palettes)
-  - [4. Frontier: 4x4 textures, models and 2D graphics](#4-frontier-4x4-textures-models-and-2d-graphics)
+  - [4. The 4x4-compressed format](#4-the-4x4-compressed-format)
+  - [5. The 2D tile pipeline: NCLR, NCGR, NSCR](#5-the-2d-tile-pipeline-nclr-ncgr-nscr)
+  - [6. Frontier: models, sprite cells, sound](#6-frontier-models-sprite-cells-sound)
 - [Part V — Game mechanics](#part-v--game-mechanics)
 - [Appendix A — Toolchain and reproduction](#appendix-a--toolchain-and-reproduction)
 
@@ -442,22 +444,45 @@ DK_emblem "emblem": param = $2D200000
 
 ## 3. Texture formats and palettes
 
-Palette colours are 15-bit **BGR555** words (`tools/nds/nitro` expands each 5-bit channel to 8-bit); colour index 0 is transparent when the texture's flag says so. The DS's non-compressed texture formats are all decoded: 2 (4-colour, 2bpp), 3 (16-colour, 4bpp), 4 (256-colour, 8bpp), 1 (**A3I5**: 3-bit alpha + 5-bit index) and 6 (**A5I3**: 5-bit alpha + 3-bit index) for translucency, and 7 (direct 16bpp).
+Palette colours are 15-bit **BGR555** words (`tools/nds/nitro` expands each 5-bit channel to 8-bit); colour index 0 is transparent when the texture's flag says so. All seven DS texture formats are decoded: 2 (4-colour, 2bpp), 3 (16-colour, 4bpp), 4 (256-colour, 8bpp), 1 (**A3I5**: 3-bit alpha + 5-bit index) and 6 (**A5I3**: 5-bit alpha + 3-bit index) for translucency, 7 (direct 16bpp), and 5 (4x4-compressed, §4). Two facts had to be pinned empirically against real sets:
 
-One wrinkle a single texture doesn't show: in a multi-texture set the textures and palettes are named *and ordered independently* — a texture `X` is coloured by the palette named `X_pl`, which sits at a different dictionary index — so `nitro.DecodeNSBTX` pairs them by **name**, not position.
+- the palette dictionary's offset word is in **8-byte units** (`<<3`, like the `TEX0` size fields) — proved by the last palettes of a full course set landing exactly inside the palette region, where a `<<4` read overshoots it;
+- textures and palettes are named *and ordered independently*, and the naming is erratic — `emblem`↔`emblem_pl`, but also `nr_road5`↔`road5_pl` (prefix dropped), `nr_dash_02`↔`nr_dash2`, `nr_start_line2`↔`nr_line_pl` — so `DecodeNSBTX` pairs them by **name similarity** (exact → containment → common suffix/substring). The authoritative binding lives in the material block of the `NSBMD` model that consumes the texture (§6); a texture set alone doesn't carry it.
 
-The decoder is verified by rendering (`mariokartds/extract/cmd/rendertex`):
+## 4. The 4x4-compressed format
 
-- all **15 character/kart emblems** (`rendered/emblems/`) — Mario's red **M**, Donkey Kong's fiery **DK**, and the rest — each a 32×32 format-3 standalone NSBTX (`rendered/emblems/MR_emblem-emblem.png`, `DK_emblem-emblem.png`, …);
-- **course textures pulled through the whole chain** `.carc → LZ77 → NARC → BTX0` (`rendered/course/`): the format-4 water banner `nb_flag1`, the format-6 translucent foliage `nb_TreeKage`, the format-1 rock-grass `nb_iwakusa`, the format-3 lighthouse `nb_toudai1` — proving the layers of §1–§2 join up on real in-game art.
+Format 5, the DS's only compressed texture format, carries most course art (a course's `…Tex.carc` is typically 80% format 5). The texture is a grid of **4x4-pixel blocks**: per block, one 32-bit word of sixteen 2-bit values, plus one 16-bit palette word — bits 0–13 a sub-palette offset (4-byte steps, relative to the texture's palette), bits 14–15 a mode: the four 2-bit values select `{c0, c1, c2, transparent}`, `{c0, c1, (c0+c1)/2, transparent}`, `{c0, c1, c2, c3}` or `{c0, c1, (5·c0+3·c1)/8, (3·c0+5·c1)/8}`.
 
-## 4. Frontier: 4x4 textures, models and 2D graphics
+The subtlety that initially broke the decode is *where* the two block streams live: format-5 texel words go in a **dedicated region** at `TEX0+$24` (not the ordinary texel region), and the palette words in a third region at `TEX0+$28`, indexed at **half** the texture's address. The proof is in the region arithmetic of a real file — in `beach_courseTex` the four regions tile the block exactly, back to back:
 
-*(frontier)* Three things remain in Part IV:
+```
+$0404  ordinary texels   ($0F00 bytes = size field $01E0 << 3)
+$1304  4x4 texel words   ($5BC0 bytes = size field $0B78 << 3)
+$6EC4  4x4 palette words ($2DE0 bytes — exactly half the texel words)
+$9CA4  palette colours   ($4300 bytes = size field $0860 << 3)  → end of block ✓
+```
 
-- **Format 5, the 4x4-block-compressed texture** — the dominant format for course art (most of a `…Tex.carc`). It splits into two parallel data slots (2-bit texels, and per-4x4-block words selecting a sub-palette and an interpolation mode). The mode/interpolation maths is known, but the exact in-file layout of the two slots is not yet reliably reversed (the offsets computed from the obvious header fields run past the block), so it is recognised and skipped rather than mis-decoded — the next texture task.
-- **`NSBMD` / `BMD0` 3D models** — the karts, characters and the course geometry itself: the NITRO model format (the same resource-dictionary scaffolding, over a display-list of packed GPU commands). The biggest Part IV piece.
-- **The 2D UI pipeline** (`NCGR` tiles + `NCLR` palettes + `NSCR` screens) behind the menus and HUD, and the `SDAT` sound bank.
+With that layout every format-5 texture in the game decodes cleanly — Rainbow Road's rainbow-gradient roadway, Cheep Cheep Beach's palm-jungle skyline, Mario Circuit's trackside billboards (`rendered/course/`).
+
+## 5. The 2D tile pipeline: NCLR, NCGR, NSCR
+
+The menus, HUD and every flat screen use the DS's 2D tile engines, and ship in three NITRO files that mirror the hardware's three memories — decoded in `tools/nds/nitro/g2d.go`:
+
+- **`NCLR`** (`RLCN`, block `TTLP`; the SDK also emits an `RPCN` variant, seen on the debug font) — palette RAM: BGR555 colours, 4bpp (16×16) or 8bpp (256);
+- **`NCGR`** (`RGCN`, block `RAHC`) — tile VRAM: 8x8-pixel characters at 4bpp or 8bpp (sprite-destined ones mark their dimensions `$FFFF` — "scattered", laid out by a cell file, §6);
+- **`NSCR`** (`RCSN`, block `NRCS`) — map VRAM: 16-bit entries packing tile number (bits 0–9), H/V flip (10–11) and a palette row (12–15); index 0 is the transparent backdrop.
+
+Composing screen→tiles→palette reproduces what the 2D engine displays. Two game conventions matter: names suffixed **`_b`** are the background bank and **`_o`**/`.nce` the sprite bank (a screen must pair with `_b` — the composer prefers it); and a scene's screens may sit in the *base* archive while their tiles ship in the **language variants** (`Title.carc` holds `title_m1_EU.NSCR`; the 8bpp title-logo tiles are in `Title_us.carc`…`_it.carc`), so composition merges each language archive with its base — the same join the game performs at load time.
+
+`extract/cmd/renderall` sweeps the whole filesystem through every decoder above and renders **every texture and every screen in the game** into `rendered/` — 1,360 textures (all 45+ course sets and every kart/character model texture), 596 composed screens and 376 tile sheets, zero archives skipped. Among the verified figures: the boot **Nintendo logo**, the **MARIO KART DS title screen**, all 32 **cup-select course previews**, the race HUD and menu backdrops, the full **debug font** (`data/Boot/dbgfont`), and the 32×32 cartridge **banner icon** — Shy Guy in a kart — from the raw `.nbfc`/`.nbfp` pair. (`data/Boot/builddate.bin`, incidentally, dates the build: *"Build: 2005 10/8 (Sat) 23:05:54"*.)
+
+## 6. Frontier: models, sprite cells, sound
+
+*(frontier)* What remains of Part IV:
+
+- **`NSBMD` / `BMD0` 3D models** — the karts, characters and course geometry: the same resource-dictionary scaffolding over a display-list of packed GPU commands, plus the material block that authoritatively binds texture↔palette names. The biggest remaining piece.
+- **`NCER` sprite cells** (with `NANR` animations) — the layouts that assemble the "scattered" sprite `NCGR`s into objects (character portraits, kart previews). Their tile banks are already decoded and sheeted; the cell assembly is not.
+- **The `SDAT` sound bank** — the single `sound_data.sdat` holding every sequence, bank and wave archive.
 
 # Part V — Game mechanics
 
@@ -489,11 +514,14 @@ go run retroreverse.com/tools/cmd/codetracearm -base 0x02380000 -entry 0x0238000
 # the I/O registers it programs, and the ARM9↔ARM7 IPCSYNC rendezvous it stops at
 ( cd extract && go run ./cmd/bootoracle -io "../Mario Kart DS (Europe) (En,Fr,De,Es,It).nds" )
 
-# Part IV — extract the filesystem, then render textures to PNG (both a standalone
-# emblem NSBTX and a course texture set through the full .carc → NARC → BTX0 chain)
+# Part IV — extract the filesystem, then render EVERY texture and 2D screen in the
+# game (rendered/course, rendered/tex, rendered/ui) with one sweep
 ( cd extract && go run ./cmd/ndsextract -fs "../Mario Kart DS (Europe) (En,Fr,De,Es,It).nds" )
-( cd extract && go run ./cmd/rendertex -o ../rendered/emblems extracted/files/data/KartModelMenu/emblem/MR_emblem.nsbtx )
-( cd extract && go run ./cmd/rendertex -o ../rendered/course  extracted/files/data/Course/beach_courseTex.carc )
+( cd extract && go run ./cmd/renderall )
+
+# or individually: one texture set / one UI archive
+( cd extract && go run ./cmd/rendertex -o ../rendered/course ../extracted/files/data/Course/beach_courseTex.carc )
+( cd extract && go run ./cmd/render2d  -o ../rendered/ui     ../extracted/files/data/CupPicture )
 ```
 
 Toolchain (all under the `retroreverse.com/tools` module unless noted, this repository):
@@ -506,7 +534,9 @@ Toolchain (all under the `retroreverse.com/tools` module unless noted, this repo
 - **`mariokartds/extract/cmd/ndsextract`** — the game's extractor: writes `arm9.bin`/`arm7.bin` and the overlays, and their BLZ-decompressed forms (`arm9_dec.bin`, `ovl9_00N_dec.bin`), into `extracted/` (regenerable, git-ignored).
 - **`mariokartds/extract/cmd/bootoracle`** — runs the ARM9 boot on the `tools/arm` core over a flat DS memory (with the BIOS `SWI`s the startup needs): cross-checks BLZ against the game's own decompressor, logs the I/O registers programmed, and stops at the ARM9↔ARM7 IPCSYNC rendezvous. The DS analogue of the Amiga per-game oracles.
 - **`tools/nds` LZ77 + NARC** — `DecompressLZ77`/`Decompress` (the forward LZ10/LZ11 the filesystem uses) and `ParseNARC` (splits a NARC, transparently decompressing a `.carc` first). Both unit-tested.
-- **`tools/nds/nitro`** — the NITRO 3D resource decoders; `DecodeNSBTX` turns a `BTX0`/`TEX0` texture set into Go images (resource-dictionary parse, `texImageParam`, the paletted/A3I5/A5I3/direct formats, BGR555, name-matched palettes).
+- **`tools/nds/nitro`** — the NITRO resource decoders. `DecodeNSBTX` turns a `BTX0`/`TEX0` texture set into Go images (resource-dictionary parse, `texImageParam`, all seven texture formats including 4x4-compressed, BGR555, name-matched palettes); `ParseNCLR`/`ParseNCGR`/`ParseNSCR` + `ComposeScreen`/`TileSheet` decode and compose the 2D tile pipeline.
 - **`mariokartds/extract/cmd/rendertex`** — renders every texture in an NSBTX, or in a `.carc`/NARC's `BTX0` blocks, to PNG.
+- **`mariokartds/extract/cmd/render2d`** — composes the NSCR screens of a directory or `.carc` through their NCGR/NCLR (name-paired, `_b` background banks preferred).
+- **`mariokartds/extract/cmd/renderall`** — the whole-filesystem sweep: every texture, every screen (merging language-variant archives with their base), every leftover tile sheet, and the raw `.nbfc`/`.nbfp` banner — regenerates all 2,300+ figures in `rendered/`.
 
 Rendered figures go in `Mario Kart DS (DS)/rendered/`; annotated disassembly in `disasm/`.
