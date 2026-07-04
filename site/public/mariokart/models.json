@@ -190,7 +190,8 @@
   "file": "airship_course-airship_course.glb",
   "section": "Airship Fortress",
   "skybox": "airship_course-airship_course_V.glb",
-  "path": "airship_course.path.json"
+  "path": "airship_course.path.json",
+  "objects": "airship_course.objects.json"
  },
  {
   "name": "Airship Fortress · NsCannon1",
@@ -252,7 +253,8 @@
   "file": "Award-cross_course.glb",
   "section": "Award ceremony scene",
   "skybox": "Award-cross_course_V.glb",
-  "path": "Award.path.json"
+  "path": "Award.path.json",
+  "objects": "Award.objects.json"
  },
  {
   "name": "Award ceremony scene · CrossTree1",
@@ -266,7 +268,8 @@
   "file": "koopa_course-koopa_course.glb",
   "section": "Bowser Castle",
   "skybox": "koopa_course-koopa_course_V.glb",
-  "path": "koopa_course.path.json"
+  "path": "koopa_course.path.json",
+  "objects": "koopa_course.objects.json"
  },
  {
   "name": "Bowser Castle · dossun",
@@ -310,7 +313,8 @@
   "file": "beach_course-beach_course.glb",
   "section": "Cheep Cheep Beach",
   "skybox": "beach_course-beach_course_V.glb",
-  "path": "beach_course.path.json"
+  "path": "beach_course.path.json",
+  "objects": "beach_course.objects.json"
  },
  {
   "name": "Cheep Cheep Beach · BeachTree1",
@@ -360,7 +364,8 @@
   "file": "beach_courseD-beach_courseD.glb",
   "section": "Cheep Cheep Beach (multiplayer)",
   "skybox": "beach_courseD-beach_courseD_V.glb",
-  "path": "beach_courseD.path.json"
+  "path": "beach_courseD.path.json",
+  "objects": "beach_courseD.objects.json"
  },
  {
   "name": "Cheep Cheep Beach (multiplayer) · BeachTree1",
@@ -410,7 +415,8 @@
   "file": "snow_course-snow_course.glb",
   "section": "DK Pass",
   "skybox": "snow_course-snow_course_V.glb",
-  "path": "snow_course.path.json"
+  "path": "snow_course.path.json",
+  "objects": "snow_course.objects.json"
  },
  {
   "name": "DK Pass · Snow_Tree1",
@@ -442,7 +448,8 @@
   "file": "town_course-town_course.glb",
   "section": "Delfino Square",
   "skybox": "town_course-town_course_V.glb",
-  "path": "town_course.path.json"
+  "path": "town_course.path.json",
+  "objects": "town_course.objects.json"
  },
  {
   "name": "Delfino Square · TownMonte",
@@ -492,7 +499,8 @@
   "file": "desert_course-desert_course.glb",
   "section": "Desert Hills",
   "skybox": "desert_course-desert_course_V.glb",
-  "path": "desert_course.path.json"
+  "path": "desert_course.path.json",
+  "objects": "desert_course.objects.json"
  },
  {
   "name": "Desert Hills · DeTree1",
@@ -536,7 +544,8 @@
   "file": "cross_course-cross_course.glb",
   "section": "Figure-8 Circuit",
   "skybox": "cross_course-cross_course_V.glb",
-  "path": "cross_course.path.json"
+  "path": "cross_course.path.json",
+  "objects": "cross_course.objects.json"
  },
  {
   "name": "Figure-8 Circuit · CrossTree1",
@@ -550,7 +559,8 @@
   "file": "cross_courseD-cross_courseD.glb",
   "section": "Figure-8 Circuit (multiplayer)",
   "skybox": "cross_courseD-cross_courseD_V.glb",
-  "path": "cross_courseD.path.json"
+  "path": "cross_courseD.path.json",
+  "objects": "cross_courseD.objects.json"
  },
  {
   "name": "Figure-8 Circuit (multiplayer) · CrossTree1",
@@ -564,7 +574,8 @@
   "file": "mansion_course-mansion_course.glb",
   "section": "Luigi's Mansion",
   "skybox": "mansion_course-mansion_course_V.glb",
-  "path": "mansion_course.path.json"
+  "path": "mansion_course.path.json",
+  "objects": "mansion_course.objects.json"
  },
  {
   "name": "Luigi's Mansion · chandelier",
@@ -601,7 +612,8 @@
   "label": "Track",
   "file": "mansion_courseD-mansion_courseD.glb",
   "section": "Luigi's Mansion (multiplayer)",
-  "path": "mansion_courseD.path.json"
+  "path": "mansion_courseD.path.json",
+  "objects": "mansion_courseD.objects.json"
  },
  {
   "name": "Luigi's Mansion (multiplayer) · chandelier",
@@ -639,7 +651,8 @@
   "file": "mario_course-mario_course.glb",
   "section": "Mario Circuit",
   "skybox": "mario_course-mario_course_V.glb",
-  "path": "mario_course.path.json"
+  "path": "mario_course.path.json",
+  "objects": "mario_course.objects.json"
  },
  {
   "name": "Mario Circuit · FireBall",
@@ -695,7 +708,8 @@
   "file": "garden_course-garden_course.glb",
   "section": "Peach Gardens",
   "skybox": "garden_course-garden_course_V.glb",
-  "path": "garden_course.path.json"
+  "path": "garden_course.path.json",
+  "objects": "garden_course.objects.json"
  },
  {
   "name": "Peach Gardens · GardenTree1",
@@ -733,7 +747,8 @@
   "file": "rainbow_course-rainbow_course.glb",
   "section": "Rainbow Road",
   "skybox": "rainbow_course-rainbow_course_V.glb",
-  "path": "rainbow_course.path.json"
+  "path": "rainbow_course.path.json",
+  "objects": "rainbow_course.objects.json"
  },
  {
   "name": "Rainbow Road · RainStar",
@@ -747,7 +762,8 @@
   "file": "ridge_course-ridge_course.glb",
   "section": "Shroom Ridge",
   "skybox": "ridge_course-ridge_course_V.glb",
-  "path": "ridge_course.path.json"
+  "path": "ridge_course.path.json",
+  "objects": "ridge_course.objects.json"
  },
  {
   "name": "Shroom Ridge · bus_a",
@@ -779,7 +795,8 @@
   "file": "clock_course-clock_course.glb",
   "section": "Tick-Tock Clock",
   "skybox": "clock_course-clock_course_V.glb",
-  "path": "clock_course.path.json"
+  "path": "clock_course.path.json",
+  "objects": "clock_course.objects.json"
  },
  {
   "name": "Tick-Tock Clock · gear_black",
@@ -817,7 +834,8 @@
   "file": "pinball_course-pinball_course.glb",
   "section": "Waluigi Pinball",
   "skybox": "pinball_course-pinball_course_V.glb",
-  "path": "pinball_course.path.json"
+  "path": "pinball_course.path.json",
+  "objects": "pinball_course.objects.json"
  },
  {
   "name": "Waluigi Pinball · IronBall",
@@ -849,7 +867,8 @@
   "file": "stadium_course-stadium_course.glb",
   "section": "Wario Stadium",
   "skybox": "stadium_course-stadium_course_V.glb",
-  "path": "stadium_course.path.json"
+  "path": "stadium_course.path.json",
+  "objects": "stadium_course.objects.json"
  },
  {
   "name": "Wario Stadium · fireball2",
@@ -863,7 +882,8 @@
   "file": "bank_course-bank_course.glb",
   "section": "Yoshi Falls",
   "skybox": "bank_course-bank_course_V.glb",
-  "path": "bank_course.path.json"
+  "path": "bank_course.path.json",
+  "objects": "bank_course.objects.json"
  },
  {
   "name": "Yoshi Falls · BankEgg1",
@@ -882,7 +902,8 @@
   "label": "Track",
   "file": "dokan_course.glb",
   "section": "dokan_course (unused)",
-  "path": "dokan_course.path.json"
+  "path": "dokan_course.path.json",
+  "objects": "dokan_course.objects.json"
  },
  {
   "name": "donkey_course (unused)",
@@ -890,7 +911,8 @@
   "file": "donkey_course-donkey_course.glb",
   "section": "donkey_course (unused)",
   "skybox": "donkey_course-donkey_course_V.glb",
-  "path": "donkey_course.path.json"
+  "path": "donkey_course.path.json",
+  "objects": "donkey_course.objects.json"
  },
  {
   "name": "donkey_course (unused) · bound",
@@ -940,7 +962,8 @@
   "file": "luigi_course-luigi_course.glb",
   "section": "luigi_course (unused)",
   "skybox": "luigi_course-luigi_course_V.glb",
-  "path": "luigi_course.path.json"
+  "path": "luigi_course.path.json",
+  "objects": "luigi_course.objects.json"
  },
  {
   "name": "luigi_course (unused) · bound",
@@ -989,7 +1012,8 @@
   "label": "Track",
   "file": "nokonoko_course-nokonoko_course.glb",
   "section": "nokonoko_course (unused)",
-  "path": "nokonoko_course.path.json"
+  "path": "nokonoko_course.path.json",
+  "objects": "nokonoko_course.objects.json"
  },
  {
   "name": "nokonoko_course (unused) · BeachTree1",
@@ -1063,7 +1087,8 @@
   "file": "wario_course-stadium_course.glb",
   "section": "wario_course",
   "skybox": "wario_course-stadium_course_V.glb",
-  "path": "wario_course.path.json"
+  "path": "wario_course.path.json",
+  "objects": "wario_course.objects.json"
  },
  {
   "name": "wario_course · FireBall",
@@ -1077,7 +1102,8 @@
   "file": "old_koopa_agb-old_koopa_agb.glb",
   "section": "GBA Bowser Castle 2",
   "skybox": "old_koopa_agb-old_koopa_agb_V.glb",
-  "path": "old_koopa_agb.path.json"
+  "path": "old_koopa_agb.path.json",
+  "objects": "old_koopa_agb.objects.json"
  },
  {
   "name": "GBA Bowser Castle 2 · dossun",
@@ -1103,7 +1129,8 @@
   "file": "old_luigi_agb-old_luigi_agb.glb",
   "section": "GBA Luigi Circuit",
   "skybox": "old_luigi_agb-old_luigi_agb_V.glb",
-  "path": "old_luigi_agb.path.json"
+  "path": "old_luigi_agb.path.json",
+  "objects": "old_luigi_agb.objects.json"
  },
  {
   "name": "GBA Luigi Circuit · airship",
@@ -1129,7 +1156,8 @@
   "file": "old_peach_agb-old_peach_agb.glb",
   "section": "GBA Peach Circuit",
   "skybox": "old_peach_agb-old_peach_agb_V.glb",
-  "path": "old_peach_agb.path.json"
+  "path": "old_peach_agb.path.json",
+  "objects": "old_peach_agb.objects.json"
  },
  {
   "name": "GBA Peach Circuit · opa_tree1",
@@ -1143,7 +1171,8 @@
   "file": "old_sky_agb-old_sky_agb.glb",
   "section": "GBA Sky Garden",
   "skybox": "old_sky_agb-old_sky_agb_V.glb",
-  "path": "old_sky_agb.path.json"
+  "path": "old_sky_agb.path.json",
+  "objects": "old_sky_agb.objects.json"
  },
  {
   "name": "GBA Sky Garden · airship",
@@ -1163,7 +1192,8 @@
   "file": "old_baby_gc-old_baby_gc.glb",
   "section": "GCN Baby Park",
   "skybox": "old_baby_gc-old_baby_gc_V.glb",
-  "path": "old_baby_gc.path.json"
+  "path": "old_baby_gc.path.json",
+  "objects": "old_baby_gc.objects.json"
  },
  {
   "name": "GCN Baby Park · balloon",
@@ -1183,7 +1213,8 @@
   "file": "old_luigi_gc-old_luigi_gc.glb",
   "section": "GCN Luigi Circuit",
   "skybox": "old_luigi_gc-old_luigi_gc_V.glb",
-  "path": "old_luigi_gc.path.json"
+  "path": "old_luigi_gc.path.json",
+  "objects": "old_luigi_gc.objects.json"
  },
  {
   "name": "GCN Luigi Circuit · OlgMush1",
@@ -1221,7 +1252,8 @@
   "file": "old_luigi_gcD-old_luigi_gcD.glb",
   "section": "GCN Luigi Circuit (multiplayer)",
   "skybox": "old_luigi_gcD-old_luigi_gcD_V.glb",
-  "path": "old_luigi_gcD.path.json"
+  "path": "old_luigi_gcD.path.json",
+  "objects": "old_luigi_gcD.objects.json"
  },
  {
   "name": "GCN Luigi Circuit (multiplayer) · OlgMush1",
@@ -1259,7 +1291,8 @@
   "file": "old_kinoko_gc-old_kinoko_gc.glb",
   "section": "GCN Mushroom Bridge",
   "skybox": "old_kinoko_gc-old_kinoko_gc_V.glb",
-  "path": "old_kinoko_gc.path.json"
+  "path": "old_kinoko_gc.path.json",
+  "objects": "old_kinoko_gc.objects.json"
  },
  {
   "name": "GCN Mushroom Bridge · KinoHouse1",
@@ -1321,7 +1354,8 @@
   "file": "old_yoshi_gc-old_yoshi_gc.glb",
   "section": "GCN Yoshi Circuit",
   "skybox": "old_yoshi_gc-old_yoshi_gc_V.glb",
-  "path": "old_yoshi_gc.path.json"
+  "path": "old_yoshi_gc.path.json",
+  "objects": "old_yoshi_gc.objects.json"
  },
  {
   "name": "GCN Yoshi Circuit · kamome",
@@ -1353,7 +1387,8 @@
   "file": "old_hyudoro_64-old_hyudoro_64.glb",
   "section": "N64 Banshee Boardwalk",
   "skybox": "old_hyudoro_64-old_hyudoro_64_V.glb",
-  "path": "old_hyudoro_64.path.json"
+  "path": "old_hyudoro_64.path.json",
+  "objects": "old_hyudoro_64.objects.json"
  },
  {
   "name": "N64 Banshee Boardwalk · bakubaku",
@@ -1403,7 +1438,8 @@
   "file": "old_choco_64-old_choco_64.glb",
   "section": "N64 Choco Mountain",
   "skybox": "old_choco_64-old_choco_64_V.glb",
-  "path": "old_choco_64.path.json"
+  "path": "old_choco_64.path.json",
+  "objects": "old_choco_64.objects.json"
  },
  {
   "name": "N64 Choco Mountain · rock2",
@@ -1423,7 +1459,8 @@
   "file": "old_frappe_64-old_frappe_64.glb",
   "section": "N64 Frappe Snowland",
   "skybox": "old_frappe_64-old_frappe_64_V.glb",
-  "path": "old_frappe_64.path.json"
+  "path": "old_frappe_64.path.json",
+  "objects": "old_frappe_64.objects.json"
  },
  {
   "name": "N64 Frappe Snowland · Of6Tree1",
@@ -1461,7 +1498,8 @@
   "file": "old_momo_64-old_momo_64.glb",
   "section": "N64 Moo Moo Farm",
   "skybox": "old_momo_64-old_momo_64_V.glb",
-  "path": "old_momo_64.path.json"
+  "path": "old_momo_64.path.json",
+  "objects": "old_momo_64.objects.json"
  },
  {
   "name": "N64 Moo Moo Farm · choropu",
@@ -1487,7 +1525,8 @@
   "file": "old_momo_64D-old_momo_64D.glb",
   "section": "N64 Moo Moo Farm (multiplayer)",
   "skybox": "old_momo_64D-old_momo_64D_V.glb",
-  "path": "old_momo_64D.path.json"
+  "path": "old_momo_64D.path.json",
+  "objects": "old_momo_64D.objects.json"
  },
  {
   "name": "N64 Moo Moo Farm (multiplayer) · choropu",
@@ -1513,7 +1552,8 @@
   "file": "old_choco_sfc-old_choco_sfc.glb",
   "section": "SNES Choco Island 2",
   "skybox": "old_choco_sfc-old_choco_sfc_V.glb",
-  "path": "old_choco_sfc.path.json"
+  "path": "old_choco_sfc.path.json",
+  "objects": "old_choco_sfc.objects.json"
  },
  {
   "name": "SNES Choco Island 2 · ob_pakkun_sf",
@@ -1527,7 +1567,8 @@
   "file": "old_donut_sfc-old_donut_sfc.glb",
   "section": "SNES Donut Plains 1",
   "skybox": "old_donut_sfc-old_donut_sfc_V.glb",
-  "path": "old_donut_sfc.path.json"
+  "path": "old_donut_sfc.path.json",
+  "objects": "old_donut_sfc.objects.json"
  },
  {
   "name": "SNES Donut Plains 1 · earthen_pipe1",
@@ -1553,7 +1594,8 @@
   "file": "old_noko_sfc-old_noko_sfc.glb",
   "section": "SNES Koopa Beach 2",
   "skybox": "old_noko_sfc-old_noko_sfc_V.glb",
-  "path": "old_noko_sfc.path.json"
+  "path": "old_noko_sfc.path.json",
+  "objects": "old_noko_sfc.objects.json"
  },
  {
   "name": "SNES Koopa Beach 2 · pukupuku",
@@ -1573,7 +1615,8 @@
   "file": "old_mario_sfc-old_mario_sfc.glb",
   "section": "SNES Mario Circuit 1",
   "skybox": "old_mario_sfc-old_mario_sfc_V.glb",
-  "path": "old_mario_sfc.path.json"
+  "path": "old_mario_sfc.path.json",
+  "objects": "old_mario_sfc.objects.json"
  },
  {
   "name": "SNES Mario Circuit 1 · earthen_pipe1",
@@ -1592,7 +1635,8 @@
   "label": "Track",
   "file": "old_mario_gc-old_mario_gc.glb",
   "section": "old_mario_gc (unused)",
-  "path": "old_mario_gc.path.json"
+  "path": "old_mario_gc.path.json",
+  "objects": "old_mario_gc.objects.json"
  },
  {
   "name": "old_mario_gc (unused) · BeachTree1",
@@ -1741,7 +1785,8 @@
   "label": "Track",
   "file": "mini_block_64-mini_block_64.glb",
   "section": "mini_block_64",
-  "skybox": "mini_block_64-mini_block_64_V.glb"
+  "skybox": "mini_block_64-mini_block_64_V.glb",
+  "objects": "mini_block_64.objects.json"
  },
  {
   "name": "mini_block_64 · balloon",
@@ -1784,7 +1829,8 @@
   "label": "Track",
   "file": "mini_dokan_gc-mini_dokan_gc.glb",
   "section": "mini_dokan_gc",
-  "skybox": "mini_dokan_gc-mini_dokan_gc_V.glb"
+  "skybox": "mini_dokan_gc-mini_dokan_gc_V.glb",
+  "objects": "mini_dokan_gc.objects.json"
  },
  {
   "name": "mini_dokan_gc · balloon",
@@ -1815,7 +1861,8 @@
   "label": "Track",
   "file": "mini_stage1-mini_stage1.glb",
   "section": "mini_stage1",
-  "skybox": "mini_stage1-mini_stage1_V.glb"
+  "skybox": "mini_stage1-mini_stage1_V.glb",
+  "objects": "mini_stage1.objects.json"
  },
  {
   "name": "mini_stage1 · balloon",
@@ -1840,7 +1887,8 @@
   "label": "Track",
   "file": "mini_stage2-mini_stage2.glb",
   "section": "mini_stage2",
-  "skybox": "mini_stage2-mini_stage2_V.glb"
+  "skybox": "mini_stage2-mini_stage2_V.glb",
+  "objects": "mini_stage2.objects.json"
  },
  {
   "name": "mini_stage2 · balloon",
@@ -1865,7 +1913,8 @@
   "label": "Track",
   "file": "mini_stage3-mini_stage3.glb",
   "section": "mini_stage3",
-  "skybox": "mini_stage3-mini_stage3_V.glb"
+  "skybox": "mini_stage3-mini_stage3_V.glb",
+  "objects": "mini_stage3.objects.json"
  },
  {
   "name": "mini_stage3 · balloon",
@@ -1920,7 +1969,8 @@
   "label": "Track",
   "file": "mini_stage4-mini_stage4.glb",
   "section": "mini_stage4",
-  "skybox": "mini_stage4-mini_stage4_V.glb"
+  "skybox": "mini_stage4-mini_stage4_V.glb",
+  "objects": "mini_stage4.objects.json"
  },
  {
   "name": "mini_stage4 · balloon",
@@ -1963,7 +2013,8 @@
   "label": "Track",
   "file": "test1_course-test1_course.glb",
   "section": "test1_course (unused)",
-  "path": "test1_course.path.json"
+  "path": "test1_course.path.json",
+  "objects": "test1_course.objects.json"
  },
  {
   "name": "test1_course (unused) · bridge",
@@ -2000,7 +2051,13 @@
   "label": "Track",
   "file": "test_circle.glb",
   "section": "test_circle",
-  "path": "test_circle.path.json"
+  "path": "test_circle.path.json",
+  "objects": "test_circle.objects.json"
+ },
+ {
+  "name": "Item box",
+  "file": "MapObj-itembox.glb",
+  "section": "Shared objects"
  },
  {
   "name": "kart_tire_L",

@@ -1,0 +1,186 @@
+{
+ "course": "mini_block_course",
+ "objects": [
+  {
+   "file": "MapObj-itembox.glb",
+   "pos": [
+    16.718032836914062,
+    31.25,
+    32.05949401855469
+   ]
+  },
+  {
+   "file": "MapObj-itembox.glb",
+   "pos": [
+    -18.4375,
+    31.25,
+    3.125
+   ]
+  },
+  {
+   "file": "MapObj-itembox.glb",
+   "pos": [
+    -21.5625,
+    31.25,
+    0
+   ]
+  },
+  {
+   "file": "MapObj-itembox.glb",
+   "pos": [
+    -12.1875,
+    31.25,
+    3.125
+   ]
+  },
+  {
+   "file": "MapObj-itembox.glb",
+   "pos": [
+    -9.0625,
+    31.25,
+    0
+   ]
+  },
+  {
+   "file": "MapObj-itembox.glb",
+   "pos": [
+    -47.5,
+    33.21647644042969,
+    31.25
+   ]
+  },
+  {
+   "file": "MapObj-itembox.glb",
+   "pos": [
+    -53.75,
+    33.21647644042969,
+    37.5
+   ]
+  },
+  {
+   "file": "MapObj-itembox.glb",
+   "pos": [
+    -47.5,
+    33.21647644042969,
+    37.5
+   ]
+  },
+  {
+   "file": "MapObj-itembox.glb",
+   "pos": [
+    -53.75,
+    33.21647644042969,
+    31.25
+   ]
+  },
+  {
+   "file": "MapObj-itembox.glb",
+   "pos": [
+    -12.1875,
+    31.25,
+    -3.125
+   ]
+  },
+  {
+   "file": "MapObj-itembox.glb",
+   "pos": [
+    -15.3125,
+    31.25,
+    -6.25
+   ]
+  },
+  {
+   "file": "MapObj-itembox.glb",
+   "pos": [
+    -18.4375,
+    31.25,
+    -3.125
+   ]
+  },
+  {
+   "file": "MapObj-itembox.glb",
+   "pos": [
+    -42.10569763183594,
+    31.25,
+    -26.886428833007812
+   ]
+  },
+  {
+   "file": "MapObj-itembox.glb",
+   "pos": [
+    -15.3125,
+    31.25,
+    6.25
+   ]
+  },
+  {
+   "file": "MapObj-itembox.glb",
+   "pos": [
+    22.8125,
+    29.8729248046875,
+    -37.5
+   ]
+  },
+  {
+   "file": "MapObj-itembox.glb",
+   "pos": [
+    16.5625,
+    29.8729248046875,
+    -31.25
+   ]
+  },
+  {
+   "file": "MapObj-itembox.glb",
+   "pos": [
+    22.8125,
+    29.8729248046875,
+    -31.25
+   ]
+  },
+  {
+   "file": "MapObj-itembox.glb",
+   "pos": [
+    16.5625,
+    29.8729248046875,
+    -37.5
+   ]
+  },
+  {
+   "file": "MapObj-itembox.glb",
+   "pos": [
+    25.9375,
+    29.8729248046875,
+    -34.375
+   ]
+  },
+  {
+   "file": "MapObj-itembox.glb",
+   "pos": [
+    13.4375,
+    29.8729248046875,
+    -34.375
+   ]
+  },
+  {
+   "file": "MapObj-itembox.glb",
+   "pos": [
+    -2.405670166015625,
+    31.25,
+    12.874221801757812
+   ]
+  },
+  {
+   "file": "MapObj-itembox.glb",
+   "pos": [
+    2.126922607421875,
+    31.25,
+    20.08709716796875
+   ]
+  }
+ ],
+ "skipped": {
+  "0x069": 1,
+  "0x06B": 5
+ },
+ "space": "glb"
+}

@@ -1,0 +1,86 @@
+{
+ "course": "clock_course",
+ "objects": [
+  {
+   "file": "MapObj-itembox.glb",
+   "pos": [
+    -5.625,
+    45.344879150390625,
+    125
+   ]
+  },
+  {
+   "file": "MapObj-itembox.glb",
+   "pos": [
+    -1.875,
+    45.344879150390625,
+    125
+   ]
+  },
+  {
+   "file": "MapObj-itembox.glb",
+   "pos": [
+    5.625,
+    45.344879150390625,
+    125
+   ]
+  },
+  {
+   "file": "MapObj-itembox.glb",
+   "pos": [
+    1.875,
+    45.344879150390625,
+    125
+   ]
+  },
+  {
+   "file": "MapObj-itembox.glb",
+   "pos": [
+    65.625,
+    34.375,
+    -171.875
+   ]
+  },
+  {
+   "file": "MapObj-itembox.glb",
+   "pos": [
+    68.75,
+    34.375,
+    -168.75
+   ]
+  },
+  {
+   "file": "MapObj-itembox.glb",
+   "pos": [
+    65.625,
+    34.375,
+    -165.625
+   ]
+  },
+  {
+   "file": "MapObj-itembox.glb",
+   "pos": [
+    68.75,
+    34.375,
+    -162.5
+   ]
+  },
+  {
+   "file": "MapObj-itembox.glb",
+   "pos": [
+    65.625,
+    34.375,
+    -159.375
+   ]
+  }
+ ],
+ "skipped": {
+  "0x008": 1,
+  "0x0C9": 6,
+  "0x0CB": 4,
+  "0x0CD": 3,
+  "0x0CE": 2,
+  "0x0CF": 1
+ },
+ "space": "glb"
+}

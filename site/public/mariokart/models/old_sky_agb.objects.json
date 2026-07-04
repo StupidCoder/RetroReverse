@@ -1,0 +1,292 @@
+{
+ "course": "old_sky_agb",
+ "objects": [
+  {
+   "file": "MapObj-itembox.glb",
+   "pos": [
+    65.625,
+    31.25,
+    -105.3125
+   ]
+  },
+  {
+   "file": "MapObj-itembox.glb",
+   "pos": [
+    65.625,
+    31.25,
+    -102.1875
+   ]
+  },
+  {
+   "file": "MapObj-itembox.glb",
+   "pos": [
+    65.625,
+    31.25,
+    -95.9375
+   ]
+  },
+  {
+   "file": "MapObj-itembox.glb",
+   "pos": [
+    -78.75,
+    33.4375,
+    16.279251098632812
+   ]
+  },
+  {
+   "file": "MapObj-itembox.glb",
+   "pos": [
+    19.128890991210938,
+    31.25,
+    75.67495727539062
+   ]
+  },
+  {
+   "file": "MapObj-itembox.glb",
+   "pos": [
+    21.603408813476562,
+    31.25,
+    75.69081115722656
+   ]
+  },
+  {
+   "file": "MapObj-itembox.glb",
+   "pos": [
+    26.741470336914062,
+    31.25,
+    75.65238952636719
+   ]
+  },
+  {
+   "file": "MapObj-itembox.glb",
+   "pos": [
+    65.625,
+    31.25,
+    -99.0625
+   ]
+  },
+  {
+   "file": "MapObj-itembox.glb",
+   "pos": [
+    24.18017578125,
+    31.25,
+    75.61955261230469
+   ]
+  },
+  {
+   "file": "old_sky_agb-airship.glb",
+   "pos": [
+    191.5462646484375,
+    37.5,
+    -122.97732543945312
+   ],
+   "scale": [
+    0.75,
+    0.75,
+    0.75
+   ]
+  },
+  {
+   "file": "old_sky_agb-osaTree1c.glb",
+   "pos": [
+    18.75,
+    31.25,
+    -85.625
+   ],
+   "billboard": true
+  },
+  {
+   "file": "old_sky_agb-osaTree1c.glb",
+   "pos": [
+    -23.75,
+    31.25,
+    -84.375
+   ],
+   "billboard": true
+  },
+  {
+   "file": "old_sky_agb-osaTree1c.glb",
+   "pos": [
+    -46.875,
+    31.25,
+    -81.25
+   ],
+   "billboard": true
+  },
+  {
+   "file": "old_sky_agb-osaTree1c.glb",
+   "pos": [
+    -74.375,
+    31.25,
+    -103.75
+   ],
+   "billboard": true
+  },
+  {
+   "file": "old_sky_agb-osaTree1c.glb",
+   "pos": [
+    -80.625,
+    31.25,
+    -95
+   ],
+   "billboard": true
+  },
+  {
+   "file": "old_sky_agb-osaTree1c.glb",
+   "pos": [
+    -98.75,
+    31.25,
+    -73.75
+   ],
+   "billboard": true
+  },
+  {
+   "file": "old_sky_agb-osaTree1c.glb",
+   "pos": [
+    -80.625,
+    31.25,
+    -21.875
+   ],
+   "billboard": true
+  },
+  {
+   "file": "old_sky_agb-osaTree1c.glb",
+   "pos": [
+    -70,
+    31.25,
+    -3.75
+   ],
+   "billboard": true
+  },
+  {
+   "file": "old_sky_agb-osaTree1c.glb",
+   "pos": [
+    -85,
+    31.25,
+    23.4375
+   ],
+   "billboard": true
+  },
+  {
+   "file": "old_sky_agb-osaTree1c.glb",
+   "pos": [
+    -105,
+    31.25,
+    117.5
+   ],
+   "billboard": true
+  },
+  {
+   "file": "old_sky_agb-osaTree1c.glb",
+   "pos": [
+    -56.25,
+    31.25,
+    80.625
+   ],
+   "billboard": true
+  },
+  {
+   "file": "old_sky_agb-osaTree1c.glb",
+   "pos": [
+    -34.375,
+    31.25,
+    63.125
+   ],
+   "billboard": true
+  },
+  {
+   "file": "old_sky_agb-osaTree1c.glb",
+   "pos": [
+    -20.625,
+    31.25,
+    59.375
+   ],
+   "billboard": true
+  },
+  {
+   "file": "old_sky_agb-osaTree1c.glb",
+   "pos": [
+    -0.3125,
+    31.25,
+    21.5625
+   ],
+   "billboard": true
+  },
+  {
+   "file": "old_sky_agb-osaTree1c.glb",
+   "pos": [
+    30,
+    31.25,
+    9.375
+   ],
+   "billboard": true
+  },
+  {
+   "file": "old_sky_agb-osaTree1c.glb",
+   "pos": [
+    61.25,
+    31.25,
+    2.5
+   ],
+   "billboard": true
+  },
+  {
+   "file": "old_sky_agb-osaTree1c.glb",
+   "pos": [
+    38.125,
+    31.25,
+    27.5
+   ],
+   "billboard": true
+  },
+  {
+   "file": "old_sky_agb-osaTree1c.glb",
+   "pos": [
+    33.125,
+    31.25,
+    119.0625
+   ],
+   "billboard": true
+  },
+  {
+   "file": "old_sky_agb-osaTree1c.glb",
+   "pos": [
+    61.875,
+    31.25,
+    109.375
+   ],
+   "billboard": true
+  },
+  {
+   "file": "old_sky_agb-osaTree1c.glb",
+   "pos": [
+    86.875,
+    31.25,
+    73.125
+   ],
+   "billboard": true
+  },
+  {
+   "file": "old_sky_agb-osaTree1c.glb",
+   "pos": [
+    102.5,
+    31.25,
+    61.875
+   ],
+   "billboard": true
+  },
+  {
+   "file": "old_sky_agb-osaTree1c.glb",
+   "pos": [
+    109.375,
+    31.25,
+    30.3125
+   ],
+   "billboard": true
+  }
+ ],
+ "skipped": {
+  "0x008": 1
+ },
+ "space": "glb"
+}

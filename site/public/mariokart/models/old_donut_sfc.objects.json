@@ -1,0 +1,241 @@
+{
+ "course": "old_donut_sfc",
+ "objects": [
+  {
+   "file": "MapObj-itembox.glb",
+   "pos": [
+    -68.93624877929688,
+    6.25,
+    -61.951324462890625
+   ]
+  },
+  {
+   "file": "MapObj-itembox.glb",
+   "pos": [
+    -55.26824951171875,
+    6.25,
+    -66.84014892578125
+   ]
+  },
+  {
+   "file": "MapObj-itembox.glb",
+   "pos": [
+    -62.2266845703125,
+    6.25,
+    -63.16410827636719
+   ]
+  },
+  {
+   "file": "MapObj-itembox.glb",
+   "pos": [
+    -60.074005126953125,
+    6.25,
+    -56.3441162109375
+   ]
+  },
+  {
+   "file": "MapObj-itembox.glb",
+   "pos": [
+    -66.82792663574219,
+    6.25,
+    -54.59812927246094
+   ]
+  },
+  {
+   "file": "MapObj-itembox.glb",
+   "pos": [
+    -59.11332702636719,
+    6.25,
+    -73.00558471679688
+   ]
+  },
+  {
+   "file": "old_donut_sfc-earthen_pipe1.glb",
+   "pos": [
+    22.445571899414062,
+    6.25,
+    -76.52864074707031
+   ],
+   "billboard": true
+  },
+  {
+   "file": "old_donut_sfc-earthen_pipe1.glb",
+   "pos": [
+    -22.156829833984375,
+    6.25,
+    -75.01744079589844
+   ],
+   "billboard": true
+  },
+  {
+   "file": "old_donut_sfc-earthen_pipe1.glb",
+   "pos": [
+    22.676254272460938,
+    6.25,
+    -90.51724243164062
+   ],
+   "billboard": true
+  },
+  {
+   "file": "old_donut_sfc-earthen_pipe1.glb",
+   "pos": [
+    -22.426925659179688,
+    6.25,
+    -90.77165222167969
+   ],
+   "billboard": true
+  },
+  {
+   "file": "old_donut_sfc-earthen_pipe1.glb",
+   "pos": [
+    48.577789306640625,
+    6.25,
+    -16.091201782226562
+   ],
+   "billboard": true
+  },
+  {
+   "file": "old_donut_sfc-earthen_pipe1.glb",
+   "pos": [
+    67.89724731445312,
+    6.25,
+    -12.547409057617188
+   ],
+   "billboard": true
+  },
+  {
+   "file": "old_donut_sfc-earthen_pipe1.glb",
+   "pos": [
+    50.24150085449219,
+    6.25,
+    6.3291473388671875
+   ],
+   "billboard": true
+  },
+  {
+   "file": "old_donut_sfc-earthen_pipe1.glb",
+   "pos": [
+    69.71522521972656,
+    6.25,
+    3.5091400146484375
+   ],
+   "billboard": true
+  },
+  {
+   "file": "MapObj-itembox.glb",
+   "pos": [
+    35.25384521484375,
+    6.25,
+    51.93641662597656
+   ]
+  },
+  {
+   "file": "MapObj-itembox.glb",
+   "pos": [
+    38.37884521484375,
+    6.25,
+    50.37391662597656
+   ]
+  },
+  {
+   "file": "MapObj-itembox.glb",
+   "pos": [
+    41.50384521484375,
+    6.25,
+    48.81141662597656
+   ]
+  },
+  {
+   "file": "MapObj-itembox.glb",
+   "pos": [
+    44.62884521484375,
+    6.25,
+    47.24891662597656
+   ]
+  },
+  {
+   "file": "old_donut_sfc-earthen_pipe1.glb",
+   "pos": [
+    -54.93128967285156,
+    6.25,
+    98.41465759277344
+   ],
+   "billboard": true
+  },
+  {
+   "file": "old_donut_sfc-earthen_pipe1.glb",
+   "pos": [
+    -67.40199279785156,
+    6.25,
+    95.06982421875
+   ],
+   "billboard": true
+  },
+  {
+   "file": "old_donut_sfc-earthen_pipe1.glb",
+   "pos": [
+    -77.40632629394531,
+    6.25,
+    87.00245666503906
+   ],
+   "billboard": true
+  },
+  {
+   "file": "old_donut_sfc-earthen_pipe1.glb",
+   "pos": [
+    -83.26066589355469,
+    6.25,
+    75.67323303222656
+   ],
+   "billboard": true
+  },
+  {
+   "file": "old_donut_sfc-earthen_pipe1.glb",
+   "pos": [
+    -10.1441650390625,
+    6.25,
+    -17.656707763671875
+   ],
+   "billboard": true
+  },
+  {
+   "file": "old_donut_sfc-earthen_pipe1.glb",
+   "pos": [
+    -15.079925537109375,
+    6.25,
+    -42.6551513671875
+   ],
+   "billboard": true
+  },
+  {
+   "file": "old_donut_sfc-earthen_pipe1.glb",
+   "pos": [
+    -32.599090576171875,
+    6.25,
+    -36.142120361328125
+   ],
+   "billboard": true
+  },
+  {
+   "file": "old_donut_sfc-earthen_pipe1.glb",
+   "pos": [
+    5.0376434326171875,
+    6.25,
+    -40.243743896484375
+   ],
+   "billboard": true
+  },
+  {
+   "file": "old_donut_sfc-water_efct.glb",
+   "pos": [
+    14.710006713867188,
+    6.25,
+    -51.466522216796875
+   ]
+  }
+ ],
+ "skipped": {
+  "0x008": 1
+ },
+ "space": "glb"
+}

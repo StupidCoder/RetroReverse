@@ -1,0 +1,207 @@
+{
+ "course": "nokonoko_course",
+ "objects": [
+  {
+   "file": "MapObj-itembox.glb",
+   "pos": [
+    123.936279296875,
+    9.0625,
+    38.213287353515625
+   ]
+  },
+  {
+   "file": "MapObj-itembox.glb",
+   "pos": [
+    129.2854461669922,
+    9.0625,
+    38.61155700683594
+   ]
+  },
+  {
+   "file": "MapObj-itembox.glb",
+   "pos": [
+    134.8334503173828,
+    9.0625,
+    39.26939392089844
+   ]
+  },
+  {
+   "file": "MapObj-itembox.glb",
+   "pos": [
+    140.49655151367188,
+    9.0625,
+    39.87261962890625
+   ]
+  },
+  {
+   "file": "MapObj-itembox.glb",
+   "pos": [
+    -105.05314636230469,
+    9.0625,
+    -71.88563537597656
+   ]
+  },
+  {
+   "file": "MapObj-itembox.glb",
+   "pos": [
+    -93.802001953125,
+    9.0625,
+    -75.6036376953125
+   ]
+  },
+  {
+   "file": "MapObj-itembox.glb",
+   "pos": [
+    -93.18208312988281,
+    9.0625,
+    -91.47587585449219
+   ]
+  },
+  {
+   "file": "MapObj-itembox.glb",
+   "pos": [
+    -106.37840270996094,
+    9.0625,
+    -91.3172607421875
+   ]
+  },
+  {
+   "file": "MapObj-itembox.glb",
+   "pos": [
+    -102.49887084960938,
+    9.0625,
+    -82.32498168945312
+   ]
+  },
+  {
+   "file": "MapObj-itembox.glb",
+   "pos": [
+    -113.251220703125,
+    9.0625,
+    -79.40512084960938
+   ]
+  },
+  {
+   "file": "nokonoko_course-BeachTree1.glb",
+   "pos": [
+    109.3717041015625,
+    8.7320556640625,
+    77.88337707519531
+   ],
+   "billboard": true
+  },
+  {
+   "file": "nokonoko_course-BeachTree1.glb",
+   "pos": [
+    116.30621337890625,
+    8.7320556640625,
+    56.141357421875
+   ],
+   "billboard": true
+  },
+  {
+   "file": "nokonoko_course-BeachTree1.glb",
+   "pos": [
+    137.64183044433594,
+    8.7320556640625,
+    50.986328125
+   ],
+   "billboard": true
+  },
+  {
+   "file": "nokonoko_course-BeachTree1.glb",
+   "pos": [
+    129.1795196533203,
+    8.7320556640625,
+    -138.30230712890625
+   ],
+   "billboard": true
+  },
+  {
+   "file": "nokonoko_course-BeachTree1.glb",
+   "pos": [
+    111.60438537597656,
+    8.7320556640625,
+    -144.2198028564453
+   ],
+   "billboard": true
+  },
+  {
+   "file": "nokonoko_course-BeachTree1.glb",
+   "pos": [
+    103.38883972167969,
+    8.7320556640625,
+    -150.77105712890625
+   ],
+   "billboard": true
+  },
+  {
+   "file": "nokonoko_course-BeachTree1.glb",
+   "pos": [
+    91.66746520996094,
+    8.7320556640625,
+    -144.2669219970703
+   ],
+   "billboard": true
+  },
+  {
+   "file": "nokonoko_course-BeachTree1.glb",
+   "pos": [
+    91.66746520996094,
+    8.7320556640625,
+    -170.2511749267578
+   ],
+   "billboard": true
+  },
+  {
+   "file": "nokonoko_course-BeachTree1.glb",
+   "pos": [
+    -157.01580810546875,
+    8.7320556640625,
+    67.57232666015625
+   ],
+   "billboard": true
+  },
+  {
+   "file": "nokonoko_course-BeachTree1.glb",
+   "pos": [
+    -155.638916015625,
+    8.7320556640625,
+    81.67587280273438
+   ],
+   "billboard": true
+  },
+  {
+   "file": "nokonoko_course-BeachTree1.glb",
+   "pos": [
+    -143.60076904296875,
+    8.7320556640625,
+    111.60000610351562
+   ],
+   "billboard": true
+  },
+  {
+   "file": "nokonoko_course-BeachTree1.glb",
+   "pos": [
+    -98.91609191894531,
+    8.7320556640625,
+    124.18486022949219
+   ],
+   "billboard": true
+  },
+  {
+   "file": "nokonoko_course-BeachTree1.glb",
+   "pos": [
+    -72.23727416992188,
+    8.7320556640625,
+    106.10537719726562
+   ],
+   "billboard": true
+  }
+ ],
+ "skipped": {
+  "0x001": 1,
+  "0x191": 1
+ },
+ "space": "glb"
+}

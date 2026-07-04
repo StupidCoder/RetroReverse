@@ -1,0 +1,166 @@
+{
+ "course": "mini_dokan_gc",
+ "objects": [
+  {
+   "file": "MapObj-itembox.glb",
+   "pos": [
+    22.21875,
+    18.75,
+    23.71875
+   ]
+  },
+  {
+   "file": "MapObj-itembox.glb",
+   "pos": [
+    19.48748779296875,
+    20.350616455078125,
+    -17.28125
+   ]
+  },
+  {
+   "file": "MapObj-itembox.glb",
+   "pos": [
+    -12.9375,
+    18.75,
+    -13.875
+   ]
+  },
+  {
+   "file": "MapObj-itembox.glb",
+   "pos": [
+    32.09375,
+    18.75,
+    -32.09375
+   ]
+  },
+  {
+   "file": "MapObj-itembox.glb",
+   "pos": [
+    -22.21875,
+    18.75,
+    23.71875
+   ]
+  },
+  {
+   "file": "MapObj-itembox.glb",
+   "pos": [
+    -32.09375,
+    18.75,
+    -32.09375
+   ]
+  },
+  {
+   "file": "MapObj-itembox.glb",
+   "pos": [
+    12.9375,
+    18.75,
+    -13.875
+   ]
+  },
+  {
+   "file": "MapObj-itembox.glb",
+   "pos": [
+    3.75,
+    22.8125,
+    -4.0625
+   ]
+  },
+  {
+   "file": "MapObj-itembox.glb",
+   "pos": [
+    -4.0625,
+    22.8125,
+    -0.9375
+   ]
+  },
+  {
+   "file": "MapObj-itembox.glb",
+   "pos": [
+    -19.48748779296875,
+    20.350616455078125,
+    -17.28125
+   ]
+  },
+  {
+   "file": "MapObj-itembox.glb",
+   "pos": [
+    -3.09375,
+    18.75,
+    34.28125
+   ]
+  },
+  {
+   "file": "MapObj-itembox.glb",
+   "pos": [
+    3.09375,
+    18.75,
+    34.28125
+   ]
+  },
+  {
+   "file": "MapObj-itembox.glb",
+   "pos": [
+    2.1875,
+    22.8125,
+    4.375
+   ]
+  },
+  {
+   "file": "MapObj-itembox.glb",
+   "pos": [
+    19.48748779296875,
+    22.8125,
+    12.34375
+   ]
+  },
+  {
+   "file": "MapObj-itembox.glb",
+   "pos": [
+    -19.48748779296875,
+    22.8125,
+    12.34375
+   ]
+  },
+  {
+   "file": "mini_dokan_gc-mini_dokan.glb",
+   "pos": [
+    -56.269134521484375,
+    4.91009521484375,
+    20.0047607421875
+   ],
+   "billboard": true
+  },
+  {
+   "file": "mini_dokan_gc-mini_dokan.glb",
+   "pos": [
+    -10.787933349609375,
+    1.0406036376953125,
+    -47.3341064453125
+   ],
+   "billboard": true
+  },
+  {
+   "file": "mini_dokan_gc-mini_dokan.glb",
+   "pos": [
+    53.38728332519531,
+    5.8535614013671875,
+    -1.3261871337890625
+   ],
+   "billboard": true
+  },
+  {
+   "file": "mini_dokan_gc-mini_dokan.glb",
+   "pos": [
+    64.57550048828125,
+    3.1530914306640625,
+    8.030715942382812
+   ],
+   "billboard": true
+  }
+ ],
+ "skipped": {
+  "0x069": 1,
+  "0x06B": 9
+ },
+ "space": "glb"
+}

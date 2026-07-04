@@ -1,0 +1,138 @@
+{
+ "course": "mini_stage2",
+ "objects": [
+  {
+   "file": "MapObj-itembox.glb",
+   "pos": [
+    -23.375,
+    12.5,
+    0
+   ]
+  },
+  {
+   "file": "MapObj-itembox.glb",
+   "pos": [
+    -40.375,
+    12.5,
+    -7.4375
+   ]
+  },
+  {
+   "file": "MapObj-itembox.glb",
+   "pos": [
+    40.375,
+    12.5,
+    7.4375
+   ]
+  },
+  {
+   "file": "MapObj-itembox.glb",
+   "pos": [
+    26.34375,
+    12.5,
+    0
+   ]
+  },
+  {
+   "file": "MapObj-itembox.glb",
+   "pos": [
+    0,
+    12.5,
+    23.375
+   ]
+  },
+  {
+   "file": "MapObj-itembox.glb",
+   "pos": [
+    -56.25,
+    12.5,
+    56.25
+   ]
+  },
+  {
+   "file": "MapObj-itembox.glb",
+   "pos": [
+    -7.4375,
+    12.5,
+    40.375
+   ]
+  },
+  {
+   "file": "MapObj-itembox.glb",
+   "pos": [
+    7.4375,
+    12.5,
+    40.375
+   ]
+  },
+  {
+   "file": "MapObj-itembox.glb",
+   "pos": [
+    40.375,
+    12.5,
+    -7.4375
+   ]
+  },
+  {
+   "file": "MapObj-itembox.glb",
+   "pos": [
+    0,
+    12.5,
+    -23.375
+   ]
+  },
+  {
+   "file": "MapObj-itembox.glb",
+   "pos": [
+    7.4375,
+    12.5,
+    -40.375
+   ]
+  },
+  {
+   "file": "MapObj-itembox.glb",
+   "pos": [
+    -7.4375,
+    12.5,
+    -40.375
+   ]
+  },
+  {
+   "file": "MapObj-itembox.glb",
+   "pos": [
+    56.25,
+    12.5,
+    -56.25
+   ]
+  },
+  {
+   "file": "MapObj-itembox.glb",
+   "pos": [
+    -56.25,
+    12.5,
+    -56.25
+   ]
+  },
+  {
+   "file": "MapObj-itembox.glb",
+   "pos": [
+    56.25,
+    12.5,
+    56.25
+   ]
+  },
+  {
+   "file": "MapObj-itembox.glb",
+   "pos": [
+    -40.375,
+    12.5,
+    7.4375
+   ]
+  }
+ ],
+ "skipped": {
+  "0x069": 1,
+  "0x06B": 8
+ },
+ "space": "glb"
+}

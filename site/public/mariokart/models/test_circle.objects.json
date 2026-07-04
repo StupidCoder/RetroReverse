@@ -1,0 +1,15 @@
+{
+ "course": "test_circle",
+ "objects": [
+  {
+   "file": "MapObj-itembox.glb",
+   "pos": [
+    19.375,
+    12.65972900390625,
+    0
+   ]
+  }
+ ],
+ "skipped": {},
+ "space": "glb"
+}

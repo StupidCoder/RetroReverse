@@ -155,6 +155,7 @@ const GAMES = [
     // they show only for tracks that ship those pieces.
     layers: [
       { id: 'skybox', label: 'Skybox', default: true, when: (m) => !!m.leaves?.[m.currentIdx]?.level?.skybox },
+      { id: 'objects', label: 'Objects', default: true, when: (m) => !!m.leaves?.[m.currentIdx]?.level?.objects },
       { id: 'drive', label: 'Drive the CPU line', default: false, when: (m) => !!m.leaves?.[m.currentIdx]?.level?.path },
     ],
   },

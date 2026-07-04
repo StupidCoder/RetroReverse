@@ -1,0 +1,399 @@
+{
+ "course": "old_luigi_agb",
+ "objects": [
+  {
+   "file": "MapObj-itembox.glb",
+   "pos": [
+    -9.6875,
+    31.25,
+    -78.4375
+   ]
+  },
+  {
+   "file": "MapObj-itembox.glb",
+   "pos": [
+    -7.1875,
+    31.25,
+    -78.125
+   ]
+  },
+  {
+   "file": "MapObj-itembox.glb",
+   "pos": [
+    -4.6875,
+    31.25,
+    -77.8125
+   ]
+  },
+  {
+   "file": "MapObj-itembox.glb",
+   "pos": [
+    -21.5625,
+    31.25,
+    57.5
+   ]
+  },
+  {
+   "file": "MapObj-itembox.glb",
+   "pos": [
+    -20.3125,
+    31.25,
+    55.3125
+   ]
+  },
+  {
+   "file": "MapObj-itembox.glb",
+   "pos": [
+    -19.0625,
+    31.25,
+    53.125
+   ]
+  },
+  {
+   "file": "MapObj-itembox.glb",
+   "pos": [
+    -2.1875,
+    31.25,
+    -77.5
+   ]
+  },
+  {
+   "file": "MapObj-itembox.glb",
+   "pos": [
+    -17.8125,
+    31.25,
+    50.9375
+   ]
+  },
+  {
+   "file": "old_luigi_agb-airship.glb",
+   "pos": [
+    -59.375,
+    31.25,
+    -212.5
+   ]
+  },
+  {
+   "file": "MapObj-itembox.glb",
+   "pos": [
+    91.94363403320312,
+    31.25,
+    79.3905029296875
+   ]
+  },
+  {
+   "file": "old_luigi_agb-olaTree1c.glb",
+   "pos": [
+    -102.5,
+    31.25,
+    -38.75
+   ],
+   "billboard": true
+  },
+  {
+   "file": "old_luigi_agb-olaTree1c.glb",
+   "pos": [
+    -59.375,
+    31.25,
+    -57.5
+   ],
+   "billboard": true
+  },
+  {
+   "file": "old_luigi_agb-olaTree1c.glb",
+   "pos": [
+    -12.5,
+    31.25,
+    -28.125
+   ],
+   "billboard": true
+  },
+  {
+   "file": "old_luigi_agb-olaTree1c.glb",
+   "pos": [
+    -3.75,
+    31.25,
+    -28.125
+   ],
+   "billboard": true
+  },
+  {
+   "file": "old_luigi_agb-olaTree1c.glb",
+   "pos": [
+    43.75,
+    31.25,
+    -50
+   ],
+   "billboard": true
+  },
+  {
+   "file": "old_luigi_agb-olaTree1c.glb",
+   "pos": [
+    91.875,
+    31.25,
+    -42.5
+   ],
+   "billboard": true
+  },
+  {
+   "file": "old_luigi_agb-olaTree1c.glb",
+   "pos": [
+    96.875,
+    31.25,
+    -18.125
+   ],
+   "billboard": true
+  },
+  {
+   "file": "old_luigi_agb-olaTree1c.glb",
+   "pos": [
+    95,
+    31.25,
+    -23.125
+   ],
+   "billboard": true
+  },
+  {
+   "file": "old_luigi_agb-olaTree1c.glb",
+   "pos": [
+    65.625,
+    31.25,
+    -8.4375
+   ],
+   "billboard": true
+  },
+  {
+   "file": "old_luigi_agb-olaTree1c.glb",
+   "pos": [
+    32.8125,
+    31.25,
+    13.75
+   ],
+   "billboard": true
+  },
+  {
+   "file": "old_luigi_agb-olaTree1c.glb",
+   "pos": [
+    63.125,
+    31.25,
+    47.5
+   ],
+   "billboard": true
+  },
+  {
+   "file": "old_luigi_agb-olaTree1c.glb",
+   "pos": [
+    76.25,
+    31.25,
+    81.875
+   ],
+   "billboard": true
+  },
+  {
+   "file": "old_luigi_agb-olaTree1c.glb",
+   "pos": [
+    95.625,
+    31.25,
+    108.125
+   ],
+   "billboard": true
+  },
+  {
+   "file": "old_luigi_agb-olaTree1c.glb",
+   "pos": [
+    91.875,
+    31.25,
+    112.5
+   ],
+   "billboard": true
+  },
+  {
+   "file": "old_luigi_agb-olaTree1c.glb",
+   "pos": [
+    52.5,
+    31.25,
+    90.9375
+   ],
+   "billboard": true
+  },
+  {
+   "file": "old_luigi_agb-olaTree1c.glb",
+   "pos": [
+    23.125,
+    31.25,
+    81.25
+   ],
+   "billboard": true
+  },
+  {
+   "file": "old_luigi_agb-olaTree1c.glb",
+   "pos": [
+    -50,
+    31.25,
+    30.625
+   ],
+   "billboard": true
+  },
+  {
+   "file": "old_luigi_agb-olaTree1c.glb",
+   "pos": [
+    -55,
+    31.25,
+    27.5
+   ],
+   "billboard": true
+  },
+  {
+   "file": "old_luigi_agb-olaTree1c.glb",
+   "pos": [
+    -90,
+    31.25,
+    99.375
+   ],
+   "billboard": true
+  },
+  {
+   "file": "old_luigi_agb-olaTree1c.glb",
+   "pos": [
+    -100,
+    31.25,
+    96.25
+   ],
+   "billboard": true
+  },
+  {
+   "file": "old_luigi_agb-olaTree1c.glb",
+   "pos": [
+    -123.125,
+    31.25,
+    70.625
+   ],
+   "billboard": true
+  },
+  {
+   "file": "old_luigi_agb-olaTree1c.glb",
+   "pos": [
+    -105.625,
+    31.25,
+    44.375
+   ],
+   "billboard": true
+  },
+  {
+   "file": "old_luigi_agb-puddle.glb",
+   "pos": [
+    -59.375,
+    31.25,
+    -50.625
+   ]
+  },
+  {
+   "file": "old_luigi_agb-puddle.glb",
+   "pos": [
+    -49.375,
+    31.25,
+    -60.625
+   ]
+  },
+  {
+   "file": "old_luigi_agb-puddle.glb",
+   "pos": [
+    -7.5,
+    31.25,
+    -59.375
+   ]
+  },
+  {
+   "file": "old_luigi_agb-puddle.glb",
+   "pos": [
+    35,
+    31.25,
+    -62.5
+   ]
+  },
+  {
+   "file": "old_luigi_agb-puddle.glb",
+   "pos": [
+    83.75,
+    31.25,
+    -39.375
+   ]
+  },
+  {
+   "file": "old_luigi_agb-puddle.glb",
+   "pos": [
+    86.875,
+    31.25,
+    4.375
+   ]
+  },
+  {
+   "file": "old_luigi_agb-puddle.glb",
+   "pos": [
+    51.875,
+    31.25,
+    49.375
+   ]
+  },
+  {
+   "file": "old_luigi_agb-puddle.glb",
+   "pos": [
+    93.125,
+    31.25,
+    82.5
+   ]
+  },
+  {
+   "file": "old_luigi_agb-puddle.glb",
+   "pos": [
+    63.75,
+    31.25,
+    102.5
+   ]
+  },
+  {
+   "file": "old_luigi_agb-puddle.glb",
+   "pos": [
+    16.25,
+    31.25,
+    66.25
+   ]
+  },
+  {
+   "file": "old_luigi_agb-puddle.glb",
+   "pos": [
+    -46.875,
+    31.25,
+    12.5
+   ]
+  },
+  {
+   "file": "old_luigi_agb-puddle.glb",
+   "pos": [
+    -115.625,
+    31.25,
+    73.125
+   ]
+  },
+  {
+   "file": "old_luigi_agb-puddle.glb",
+   "pos": [
+    -116.25,
+    31.25,
+    54.375
+   ]
+  },
+  {
+   "file": "old_luigi_agb-puddle.glb",
+   "pos": [
+    -109.375,
+    31.25,
+    38.75
+   ]
+  }
+ ],
+ "skipped": {
+  "0x008": 1
+ },
+ "space": "glb"
+}

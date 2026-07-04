@@ -11,6 +11,11 @@
 //     that turns with you but never gets closer.
 //   • path — the CPU racers' drive line (NKM EPOI) as a polyline in the GLB's own
 //     space. "Drive" mode flies the camera along a Catmull-Rom through it.
+//   • objects — the NKM OBJI placements bound to the course's object GLBs
+//     (Part V §2): item boxes, trees, Piantas, pipes… placed into the scene.
+//     Billboard objects (flat camera-facing sprites like the Goomba) yaw around
+//     world-up toward the camera each frame — their up axis stays world-aligned,
+//     matching how the DS draws them.
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
@@ -55,6 +60,9 @@ export class ModelViewer {
     this.curve = null;         // CatmullRomCurve3 of the CPU drive line
     this.wantDrive = false;    // desired Drive state (survives track switches)
     this.driveOn = false;      // whether we are actually driving right now
+    this.objectsGroup = null;  // placed map objects (OBJI)
+    this.wantObjects = true;   // Objects toggle
+    this.billboards = [];      // placed sprites to yaw toward the camera
     this.driveU = 0;           // position along the curve (0..1)
     this.driveDir = 1;         // travel direction (open paths ping-pong)
     // Kart-eye height above the drive line, GLB units (world/16). Constant, NOT
@@ -78,6 +86,10 @@ export class ModelViewer {
       // Backdrop rides the camera: keep the dome's own centre on the camera so it
       // always encloses us (parallax-free), like the DS drawing it camera-relative.
       if (this.skybox) this.skybox.position.copy(camera.position).sub(this.skyboxCenter);
+      // Billboards yaw around world-up toward the camera; their up stays vertical.
+      for (const b of this.billboards) {
+        b.rotation.y = Math.atan2(camera.position.x - b.position.x, camera.position.z - b.position.z);
+      }
       renderer.clear();
       renderer.render(scene, camera);
     };
@@ -99,7 +111,8 @@ export class ModelViewer {
   }
 
   // The studio drives these: "skybox" shows/hides the backdrop, "drive" enters/exits
-  // the fly-along. Both no-op for models (karts, characters) that lack the piece.
+  // the fly-along, "objects" shows/hides the placed map objects. All no-op for
+  // models (karts, characters) that lack the piece.
   setLayer(id, on) {
     if (id === 'skybox') {
       this.wantSkybox = on;
@@ -107,6 +120,9 @@ export class ModelViewer {
     } else if (id === 'drive') {
       this.wantDrive = on;
       this._setDrive(on);
+    } else if (id === 'objects') {
+      this.wantObjects = on;
+      if (this.objectsGroup) this.objectsGroup.visible = on;
     }
   }
 
@@ -124,6 +140,7 @@ export class ModelViewer {
       const { scene, camera, controls } = this.three;
       this._disposeGroup();
       this._disposeSkybox();
+      this._disposeObjects();
 
       const group = gltf.scene;
       let tris = 0;
@@ -149,12 +166,65 @@ export class ModelViewer {
       camera.updateProjectionMatrix();
       this._orbitFrame();
 
-      let detail = `${m.name} — ${tris.toLocaleString()} triangles, textures as shipped on cartridge`;
-      if (this.hud) this.hud.textContent = detail;
+      this.hudBase = `${m.name} — ${tris.toLocaleString()} triangles, textures as shipped on cartridge`;
+      if (this.hud) this.hud.textContent = this.hudBase;
 
       if (m.skybox) this._loadSkybox(m.skybox, gen);
       if (m.path) this._loadPath(m.path, gen);
+      if (m.objects) this._loadObjects(m.objects, gen);
     });
+  }
+
+  // Place the course's map objects (the NKM OBJI placements, bound to object GLBs
+  // at export time). Each distinct GLB loads once; placements are cheap clones
+  // sharing its geometry and materials. Billboards join the per-frame yaw list.
+  async _loadObjects(file, gen) {
+    let doc;
+    try {
+      doc = await fetch(MODELS + file).then(r => r.json());
+    } catch { return; }
+    if (gen !== this.gen || !doc.objects) return;
+
+    // one load per distinct GLB
+    const protos = new Map();
+    for (const o of doc.objects) {
+      if (!protos.has(o.file)) {
+        protos.set(o.file, new Promise(res =>
+          this.loader.load(MODELS + o.file, g => {
+            g.scene.traverse(n => {
+              if (n.isMesh && n.material && n.material.map) {
+                n.material.map.magFilter = THREE.NearestFilter;
+                n.material.map.needsUpdate = true;
+              }
+            });
+            res(g.scene);
+          }, undefined, () => res(null))));
+      }
+    }
+    await Promise.all(protos.values());
+    if (gen !== this.gen) return;
+
+    const group = new THREE.Group();
+    const bills = [];
+    for (const o of doc.objects) {
+      const proto = await protos.get(o.file);
+      if (!proto) continue;
+      const inst = proto.clone();
+      inst.position.set(o.pos[0], o.pos[1], o.pos[2]);
+      if (o.scale) inst.scale.set(o.scale[0], o.scale[1], o.scale[2]);
+      if (o.billboard) {
+        bills.push(inst); // yawed toward the camera each frame, up stays world-up
+      } else if (o.rot) {
+        inst.rotation.order = 'YXZ'; // Y-dominant Euler degrees from the OBJI entry
+        inst.rotation.set(o.rot[0] * Math.PI / 180, o.rot[1] * Math.PI / 180, o.rot[2] * Math.PI / 180);
+      }
+      group.add(inst);
+    }
+    group.visible = this.wantObjects;
+    this.three.scene.add(group);
+    this.objectsGroup = group;
+    this.billboards = bills;
+    if (this.hud && this.hudBase) this.hud.textContent = `${this.hudBase} · ${doc.objects.length} objects placed`;
   }
 
   // Load the "_V" far model as a camera-locked backdrop: full-bright (unlit) so it
@@ -279,5 +349,21 @@ export class ModelViewer {
       }
     });
     this.skybox = null;
+  }
+
+  _disposeObjects() {
+    this.billboards = [];
+    if (!this.objectsGroup) return;
+    this.three.scene.remove(this.objectsGroup);
+    // clones share geometry/materials with their prototype; disposing per node is
+    // safe (three.js tolerates repeat dispose) and frees everything once
+    this.objectsGroup.traverse(o => {
+      if (o.geometry) o.geometry.dispose();
+      if (o.material) {
+        if (o.material.map) o.material.map.dispose();
+        o.material.dispose();
+      }
+    });
+    this.objectsGroup = null;
   }
 }

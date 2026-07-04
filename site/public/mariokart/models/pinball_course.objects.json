@@ -1,0 +1,393 @@
+{
+ "course": "pinball_course",
+ "objects": [
+  {
+   "file": "MapObj-itembox.glb",
+   "pos": [
+    43.125,
+    171.5625,
+    -195.9375
+   ]
+  },
+  {
+   "file": "MapObj-itembox.glb",
+   "pos": [
+    43.125,
+    171.5625,
+    -199.0625
+   ]
+  },
+  {
+   "file": "MapObj-itembox.glb",
+   "pos": [
+    43.125,
+    171.5625,
+    -202.1875
+   ]
+  },
+  {
+   "file": "MapObj-itembox.glb",
+   "pos": [
+    43.125,
+    171.5625,
+    -205.3125
+   ]
+  },
+  {
+   "file": "MapObj-itembox.glb",
+   "pos": [
+    -7.1875,
+    84.64649963378906,
+    84.375
+   ]
+  },
+  {
+   "file": "MapObj-itembox.glb",
+   "pos": [
+    -2.3125,
+    85.30772399902344,
+    80.625
+   ]
+  },
+  {
+   "file": "MapObj-itembox.glb",
+   "pos": [
+    2.3125,
+    85.30772399902344,
+    80.625
+   ]
+  },
+  {
+   "file": "MapObj-itembox.glb",
+   "pos": [
+    7.1875,
+    84.64649963378906,
+    84.375
+   ]
+  },
+  {
+   "file": "MapObj-itembox.glb",
+   "pos": [
+    -10,
+    69.54849243164062,
+    170
+   ]
+  },
+  {
+   "file": "MapObj-itembox.glb",
+   "pos": [
+    -6.25,
+    69.107666015625,
+    172.5
+   ]
+  },
+  {
+   "file": "MapObj-itembox.glb",
+   "pos": [
+    6.25,
+    69.107666015625,
+    172.5
+   ]
+  },
+  {
+   "file": "MapObj-itembox.glb",
+   "pos": [
+    10,
+    69.54849243164062,
+    170
+   ]
+  },
+  {
+   "file": "pinball_course-bound.glb",
+   "pos": [
+    -14.875,
+    86.94976806640625,
+    71.3125
+   ],
+   "scale": [
+    6,
+    4.5,
+    6
+   ]
+  },
+  {
+   "file": "pinball_course-bound.glb",
+   "pos": [
+    14.875,
+    86.94976806640625,
+    71.3125
+   ],
+   "scale": [
+    6,
+    4.5,
+    6
+   ]
+  },
+  {
+   "file": "pinball_course-bound.glb",
+   "pos": [
+    -16.25,
+    79.35667419433594,
+    114.375
+   ],
+   "scale": [
+    6,
+    4.5,
+    6
+   ]
+  },
+  {
+   "file": "pinball_course-bound.glb",
+   "pos": [
+    15.625,
+    79.35667419433594,
+    114.375
+   ],
+   "scale": [
+    6,
+    4.5,
+    6
+   ]
+  },
+  {
+   "file": "pinball_course-bound.glb",
+   "pos": [
+    0,
+    73.13014221191406,
+    149.6875
+   ],
+   "scale": [
+    6,
+    4.5,
+    6
+   ]
+  },
+  {
+   "file": "pinball_course-bound.glb",
+   "pos": [
+    -18.125,
+    69.9342041015625,
+    167.8125
+   ],
+   "scale": [
+    6,
+    4.5,
+    6
+   ]
+  },
+  {
+   "file": "pinball_course-bound.glb",
+   "pos": [
+    18.125,
+    69.9342041015625,
+    167.8125
+   ],
+   "scale": [
+    6,
+    4.5,
+    6
+   ]
+  },
+  {
+   "file": "pinball_course-bound.glb",
+   "pos": [
+    0.3125,
+    69.9342041015625,
+    167.8125
+   ],
+   "scale": [
+    6,
+    6,
+    6
+   ]
+  },
+  {
+   "file": "pinball_course-flipper.glb",
+   "pos": [
+    -18.75,
+    61,
+    218.4375
+   ],
+   "rot": [
+    10,
+    0,
+    0
+   ]
+  },
+  {
+   "file": "pinball_course-flipper.glb",
+   "pos": [
+    18.75,
+    61,
+    218.4375
+   ],
+   "rot": [
+    10,
+    0,
+    0
+   ]
+  },
+  {
+   "file": "pinball_course-bound.glb",
+   "pos": [
+    0,
+    66.73828125,
+    185.9375
+   ],
+   "scale": [
+    6,
+    4.5,
+    6
+   ]
+  },
+  {
+   "file": "pinball_course-IronBall.glb",
+   "pos": [
+    -55.14910888671875,
+    124.86161804199219,
+    36.08428955078125
+   ],
+   "billboard": true
+  },
+  {
+   "file": "pinball_course-bound.glb",
+   "pos": [
+    45.3125,
+    68.17092895507812,
+    177.8125
+   ],
+   "scale": [
+    10,
+    5,
+    10
+   ]
+  },
+  {
+   "file": "pinball_course-bound.glb",
+   "pos": [
+    -45.3125,
+    68.17092895507812,
+    177.8125
+   ],
+   "scale": [
+    10,
+    5,
+    10
+   ]
+  },
+  {
+   "file": "pinball_course-IronBall.glb",
+   "pos": [
+    14.12548828125,
+    148.2835693359375,
+    -96.61886596679688
+   ],
+   "billboard": true
+  },
+  {
+   "file": "pinball_course-dram.glb",
+   "pos": [
+    10,
+    83.125,
+    265.625
+   ]
+  },
+  {
+   "file": "pinball_course-dram.glb",
+   "pos": [
+    0,
+    83.125,
+    265.625
+   ]
+  },
+  {
+   "file": "pinball_course-dram.glb",
+   "pos": [
+    -10,
+    83.125,
+    265.625
+   ]
+  },
+  {
+   "file": "pinball_course-IronBall.glb",
+   "pos": [
+    94.375,
+    61.25,
+    233.125
+   ],
+   "billboard": true
+  },
+  {
+   "file": "pinball_course-IronBall.glb",
+   "pos": [
+    94.375,
+    61.25,
+    244.375
+   ],
+   "billboard": true
+  },
+  {
+   "file": "pinball_course-IronBall.glb",
+   "pos": [
+    94.375,
+    61.25,
+    255.625
+   ],
+   "billboard": true
+  },
+  {
+   "file": "pinball_course-IronBall.glb",
+   "pos": [
+    94.375,
+    61.25,
+    271.25
+   ],
+   "billboard": true
+  },
+  {
+   "file": "pinball_course-IronBall.glb",
+   "pos": [
+    -53.394927978515625,
+    124.86161804199219,
+    36.08428955078125
+   ],
+   "billboard": true
+  },
+  {
+   "file": "MapObj-itembox.glb",
+   "pos": [
+    -63.6375732421875,
+    132.04747009277344,
+    84.21282958984375
+   ]
+  },
+  {
+   "file": "MapObj-itembox.glb",
+   "pos": [
+    -63.6375732421875,
+    131.6641845703125,
+    81.08782958984375
+   ]
+  },
+  {
+   "file": "MapObj-itembox.glb",
+   "pos": [
+    -63.6375732421875,
+    131.234130859375,
+    77.33782958984375
+   ]
+  },
+  {
+   "file": "MapObj-itembox.glb",
+   "pos": [
+    -63.6375732421875,
+    130.83126831054688,
+    74.21282958984375
+   ]
+  }
+ ],
+ "skipped": {
+  "0x008": 1
+ },
+ "space": "glb"
+}
