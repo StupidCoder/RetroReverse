@@ -111,6 +111,21 @@ func main() {
 		}
 	}
 	if *all {
+		// The playable Mario: the 16-bone minigame model (MG/, outside the data/
+		// sweep) with the standard clips from data/player (same 16-bone skeleton).
+		if m, err := sm64ds.LoadBMD(filepath.Join(*root, "MG/mario_model_mg.bmd")); err == nil {
+			var clips []sm64ds.NamedBCA
+			for _, cn := range []string{"su_wait", "su_walk", "su_run"} {
+				if a, err := sm64ds.LoadBCA(filepath.Join(*root, "data/player", cn+".bca")); err == nil && a.NumBones == m.NumBones {
+					clips = append(clips, sm64ds.NamedBCA{Name: cn, Anim: a})
+				}
+			}
+			if glb, err := m.SkinnedGLB(clips); err == nil {
+				os.WriteFile(filepath.Join(*outDir, "mario_model_mg.glb"), glb, 0o644)
+				manifest = append(manifest, entry{Name: "Mario (in-game)", File: "mario_model_mg.glb", Section: "Characters"})
+				ok++
+			}
+		}
 		sort.Slice(manifest, func(i, j int) bool {
 			if manifest[i].Section != manifest[j].Section {
 				return sectionRank(manifest[i].Section) < sectionRank(manifest[j].Section)

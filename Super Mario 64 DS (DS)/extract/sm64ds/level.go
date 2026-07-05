@@ -81,6 +81,7 @@ type Level struct {
 	KCLPath  string
 	NumAreas int
 	Objects  []LevelObject
+	Entrances []LevelObject // type-1 entries (level entrances: Mario's spawn is the first)
 }
 
 // LevelSet gives access to all levels of the cartridge image.
@@ -233,6 +234,22 @@ func (ls *LevelSet) Level(id int) (*Level, error) {
 							int(le.Uint16(b[q+8:])),  // par2 (+$8)
 							int(le.Uint16(b[q+12:])), // par3 (+$C)
 						},
+					})
+				}
+			case 1: // entrances, 16-byte stride (handler $020FE6C8: pos shorts
+				// at +2/+4/+6 shifted <<12 exactly like type 0; yaw at +$A)
+				for j := 0; j < cnt; j++ {
+					q := lo + j*16
+					if q+16 > len(b) {
+						break
+					}
+					lv.Entrances = append(lv.Entrances, LevelObject{
+						ID:    j,
+						Layer: layer,
+						X:     float64(int16(le.Uint16(b[q+2:]))),
+						Y:     float64(int16(le.Uint16(b[q+4:]))),
+						Z:     float64(int16(le.Uint16(b[q+6:]))),
+						RotY:  float64(int16(le.Uint16(b[q+10:]))) * 360 / 0x10000,
 					})
 				}
 			case 5: // simple, 8-byte stride

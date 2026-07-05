@@ -34,7 +34,7 @@ var treeModels = []string{"bomb_tree", "toge_tree", "yuki_tree", "yashi_tree", "
 // embedded star strings, arc0[25] "mat_star_silver", ar1[16] "mat_main_tree"):
 // extracted from the NARCs via the traced descriptor table and bound to the
 // coin/star actors pending a full code trace of their load path.
-var archiveModels = []int{0x8005, 0x8007, 0x8015, 0x8019, 0x9C10, 0x9C0F}
+var archiveModels = []int{0x8005, 0x8007, 0x8015, 0x8019, 0x9C10, 0x9C0F, 0x9C01, 0x9C02}
 
 // actor -> archive model (content-identified; the actors are the object->actor
 // translations of the coin/red-coin/blue-coin/star placements)
@@ -43,6 +43,7 @@ var collectibleModels = map[int]string{
 	289: "arc0_7",  // red coin
 	290: "arc0_5",  // blue coin (same mesh; blue palette variant not yet separated)
 	178: "arc0_21", // power star
+	337: "ar1_2",   // chain chomp (daWanwan2_c loads ar1 members 1-4: body $9C02, chain $9C01)
 }
 
 // billboard models: flat quads/discs the game keeps camera-facing
@@ -59,7 +60,7 @@ var billboardStems = map[string]bool{
 // 239 daJango -> a flower). Dropped until traced properly.
 var falseBind = map[int]bool{
 	177: true, 178: true, 179: true, 180: true,
-	190: true, 239: true, 318: true, 337: true, 358: true,
+	190: true, 239: true, 318: true, 358: true,
 }
 
 type jsonObj struct {
@@ -222,7 +223,20 @@ func main() {
 		if len(objs) == 0 {
 			continue
 		}
-		buf, _ := json.Marshal(map[string]any{"objects": objs})
+		// Mario's spawn: the level's first type-1 entrance.
+		var mario map[string]interface{}
+		if len(lv.Entrances) > 0 {
+			e := lv.Entrances[0]
+			mario = map[string]interface{}{
+				"p":  []float64{r3(e.X * toStage), r3(e.Y * toStage), r3(e.Z * toStage)},
+				"ry": r3(e.RotY),
+			}
+		}
+		out := map[string]any{"objects": objs}
+		if mario != nil {
+			out["mario"] = mario
+		}
+		buf, _ := json.Marshal(out)
 		if err := os.WriteFile(filepath.Join(*outDir, stem+".json"), buf, 0o644); err != nil {
 			die(err)
 		}

@@ -52,6 +52,17 @@ const PATROL = {
   },
 };
 PATROL.red_bombhei = PATROL.bombhei;
+
+// Chain Chomp (daWanwan2_c, overlay 100): anchored to its stake by a 250-unit
+// chain (the chain drawer builds from a (0,0,-250) vector, $021437D4) and
+// lunges at $17000 = 23.0 world-units/frame ($02143E4C). The chain renders as
+// links (ar1_1) strung from the stake to the body. Lunge cadence approximated;
+// radius and speed are the traced values.
+const CHOMP = {
+  radius: 250 / 1000,                       // stage units
+  lunge: (0x17000 / 4096) * 30 / 1000,      // stage units/s
+  links: 5,
+};
 const SIGN_TEXT = 'This signpost is readable in the game: stand in range (the engine flags the ' +
   'actor at +$B0) and press A — the sign starts its dialog (traced at $020BB060). ' +
   'The message text lives in the per-language archives, not yet extracted.';
@@ -92,6 +103,7 @@ export class ModelViewer {
     this.signposts = [];    // clickable obj_tatefuda instances
     this.mixers = [];       // skinned enemies playing their .bca walk clips
     this.patrollers = [];   // goombas wandering per their traced AI
+    this.chomps = [];       // chain chomps lunging on their chains
     this.bbBones = [];      // billboard bones (bmd flag +$3C bit 0): face the camera
     this.wantObjects = true;
     // Levels are explored with free-flight controls (WASD/arrows, or virtual
@@ -125,6 +137,35 @@ export class ModelViewer {
         for (const b of this.bbBones) {
           b.parent.getWorldQuaternion(pq).invert();
           b.quaternion.copy(pq).multiply(this._camQ);
+        }
+      }
+      for (const c of this.chomps) {
+        c.t -= dt;
+        if (c.t <= 0) {
+          // pick a lunge target on the chain circle, burst toward it
+          c.t = 2.5 + Math.random() * 3;
+          const a = Math.random() * 2 * Math.PI;
+          c.tx = c.home.x + Math.sin(a) * CHOMP.radius;
+          c.tz = c.home.z + Math.cos(a) * CHOMP.radius;
+          c.lunging = 0.35;
+        }
+        const dx = c.tx - c.obj.position.x, dz = c.tz - c.obj.position.z;
+        const dist = Math.hypot(dx, dz);
+        const sp = c.lunging > 0 ? CHOMP.lunge : CHOMP.lunge * 0.12;
+        if (c.lunging > 0) c.lunging -= dt;
+        if (dist > 1e-4) {
+          const step = Math.min(sp * dt, dist);
+          c.obj.position.x += dx / dist * step;
+          c.obj.position.z += dz / dist * step;
+          c.obj.rotation.y = Math.atan2(dx, dz);
+        }
+        // chain: string the links from the stake to the body
+        for (let i = 0; i < c.links.length; i++) {
+          const f = (i + 1) / (c.links.length + 1);
+          c.links[i].position.set(
+            c.home.x + (c.obj.position.x - c.home.x) * f,
+            c.home.y + (c.obj.position.y - c.home.y) * f + Math.sin(Math.PI * f) * -0.004,
+            c.home.z + (c.obj.position.z - c.home.z) * f);
         }
       }
       for (const g of this.patrollers) {
@@ -289,7 +330,9 @@ export class ModelViewer {
     if (gen !== this.gen || !doc.objects) return;
 
     const protos = new Map();
-    for (const o of doc.objects) {
+    const wantProto = new Set(doc.objects.map(o => o.m).filter(Boolean));
+    if (wantProto.has('ar1_2')) wantProto.add('ar1_1'); // chomp brings its chain
+    for (const o of [...wantProto].map(m => ({ m }))) {
       if (o.m && !protos.has(o.m)) {
         protos.set(o.m, new Promise(res =>
           this.loader.load(MODELS + o.m + '.glb', g => {
@@ -337,6 +380,23 @@ export class ModelViewer {
           else if (o.ry) inst.rotation.y = o.ry * Math.PI / 180;
           if (COIN_MODELS.has(o.m)) spinners.push(inst);
           if (o.m === SIGN_MODEL) signs.push(inst);
+          if (o.m === 'ar1_2') { // chain chomp: anchored, with chain links
+            const links = [];
+            const linkProto = await protos.get('ar1_1');
+            if (linkProto) {
+              for (let i = 0; i < CHOMP.links; i++) {
+                const l = linkProto.scene.clone();
+                l.scale.setScalar(o.s || 1 / 125);
+                group.add(l);
+                links.push(l);
+              }
+            }
+            this.chomps.push({
+              obj: inst, links, t: Math.random() * 2,
+              tx: o.p[0], tz: o.p[2],
+              home: { x: o.p[0], y: o.p[1], z: o.p[2] },
+            });
+          }
           if (PATROL[o.m]) {
             const yaw = (o.ry || 0) * Math.PI / 180;
             this.patrollers.push({
@@ -358,6 +418,32 @@ export class ModelViewer {
     group.visible = this.wantObjects;
     this.three.scene.add(group);
     this.objectsGroup = group;
+
+    // Mario at the level's first entrance (type-1 entry), idling (su_wait).
+    if (doc.mario) {
+      this.loader.load(MODELS + 'mario_model_mg.glb', g => {
+        if (gen !== this.gen) return;
+        g.scene.traverse(n => {
+          if (n.isMesh && n.material && n.material.map) {
+            n.material.map.magFilter = THREE.NearestFilter;
+            n.material.map.needsUpdate = true;
+          }
+          if (n.isSkinnedMesh) n.frustumCulled = false;
+        });
+        const inst = cloneSkinned(g.scene);
+        inst.scale.setScalar(1 / 125);
+        inst.position.set(doc.mario.p[0], doc.mario.p[1], doc.mario.p[2]);
+        inst.rotation.y = (doc.mario.ry || 0) * Math.PI / 180;
+        const clip = g.animations.find(a => a.name === 'su_wait') || g.animations[0];
+        if (clip) {
+          const mx = new THREE.AnimationMixer(inst);
+          mx.clipAction(clip).play();
+          this.mixers.push(mx);
+        }
+        group.add(inst);
+      });
+    }
+
     this.billboards = bills;
     this.spinners = spinners;
     this.signposts = signs;
@@ -373,6 +459,7 @@ export class ModelViewer {
     this.signposts = [];
     this.mixers = [];
     this.patrollers = [];
+    this.chomps = [];
     this.bbBones = [];
     this._hideSign();
     if (!this.objectsGroup) return;

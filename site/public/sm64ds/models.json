@@ -303,6 +303,11 @@
   "section": "Characters"
  },
  {
+  "name": "Mario (in-game)",
+  "file": "mario_model_mg.glb",
+  "section": "Characters"
+ },
+ {
   "name": "Wario metal model",
   "file": "wario_metal_model.glb",
   "section": "Characters"
