@@ -19,6 +19,7 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { FlyCam, flyHint } from '../shared/flycam.js';
 
 const MODELS = 'public/mariokart/models/';
 
@@ -84,6 +85,10 @@ export class ModelViewer {
     this.three = { renderer, scene, camera, controls, group: null };
     this.loader = new GLTFLoader();
     this.models = [];
+    // Tracks are explored with free-flight controls (WASD/arrows, or virtual
+    // sticks on touch); karts, characters and map objects keep the orbit.
+    this.fly = new FlyCam(camera, controls, el);
+    this.flyWanted = false; // current model is a track (fly instead of auto-rotate)
 
     // per-course state
     this.gen = 0;              // load generation, to drop stale async results
@@ -118,8 +123,12 @@ export class ModelViewer {
       requestAnimationFrame(tick);
       const dt = Math.min(this._clock.getDelta(), 0.1);
       if (this.active === false) return; // paused while another viewer is shown
-      if (this.driveOn && this.curve) this._drive(dt);
-      else controls.update();
+      if (this.driveOn && this.curve) {
+        this._drive(dt);
+      } else {
+        this.fly.update(dt);
+        controls.update();
+      }
       // Backdrop rides the camera: keep the dome's own centre on the camera so it
       // always encloses us (parallax-free), like the DS drawing it camera-relative.
       if (this.skybox) this.skybox.position.copy(camera.position).sub(this.skyboxCenter);
@@ -217,7 +226,14 @@ export class ModelViewer {
       camera.updateProjectionMatrix();
       this._orbitFrame();
 
-      this.hudBase = `${m.name} — ${tris.toLocaleString()} triangles, textures as shipped on cartridge`;
+      // Tracks get fly controls (no auto-rotation); everything else keeps the orbit.
+      this.flyWanted = m.label === 'Track';
+      controls.autoRotate = !this.flyWanted;
+      this.fly.setScale(size);
+      this.fly.setEnabled(this.flyWanted && !this.driveOn);
+
+      this.hudBase = `${m.name} — ${tris.toLocaleString()} triangles, textures as shipped on cartridge` +
+        (this.flyWanted ? ` · ${flyHint}` : '');
       if (this.hud) this.hud.textContent = this.hudBase;
 
       this._bindAnims(group); // anims may already be loaded (fetch races the GLB)
@@ -408,6 +424,7 @@ export class ModelViewer {
     if (this.driveOn) {
       controls.enabled = false;
       controls.autoRotate = false;
+      this.fly.setEnabled(false); // the drive line owns the camera
       this.driveU = 0; this.driveDir = 1;
       // At kart eye height the orbit near plane (size/100 ≈ several GLB units on a
       // big course) would clip the road and tunnel walls right in front of us.
@@ -415,7 +432,8 @@ export class ModelViewer {
       camera.updateProjectionMatrix();
     } else {
       controls.enabled = true;
-      controls.autoRotate = true;
+      controls.autoRotate = !this.flyWanted;
+      this.fly.setEnabled(this.flyWanted);
       if (this.frame) {
         camera.near = this.frame.size / 100;
         camera.updateProjectionMatrix();

@@ -80,6 +80,12 @@ export class KeyboardCamera {
   _onKey(e, down) {
     const tag = (document.activeElement && document.activeElement.tagName) || '';
     if (tag === 'INPUT' || tag === 'TEXTAREA') return; // leave sliders/seek bar to the keyboard
+    // Free-flight viewers (levels/tracks) own the arrow keys — their FlyCam turns the
+    // view; panning on top of that would fight it. Keyups still clear held state.
+    if (down) {
+      const v = this.getViewer();
+      if (v && v.fly && v.fly.enabled) return;
+    }
     let hit = true;
     switch (e.key) {
       case 'ArrowLeft': this.keys.left = down; break;

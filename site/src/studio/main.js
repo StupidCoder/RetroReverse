@@ -170,8 +170,8 @@ const GAMES = [
     show: (v, lvl, i) => v.loadModel(i),
     // Levels / Characters / Enemies / Objects sections, from the manifest's section field
     group: (lvl) => ({ section: lvl.section, label: lvl.name }),
-    // open on Bob-omb Battlefield — course 1, the game's front door
-    defaultAsset: (models) => models.findIndex(m => m.name === 'Bob-omb Battlefield'),
+    // open on Peach's Castle — the game's establishing shot
+    defaultAsset: (models) => models.findIndex(m => m.name === "Peach's Castle (exterior)"),
   },
 ];
 

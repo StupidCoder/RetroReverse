@@ -7,6 +7,7 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { FlyCam, flyHint } from '../shared/flycam.js';
 
 const MODELS = 'public/sm64ds/models/';
 
@@ -39,6 +40,10 @@ export class ModelViewer {
     this.loader = new GLTFLoader();
     this.models = [];
     this.gen = 0;
+    // Levels are explored with free-flight controls (WASD/arrows, or virtual
+    // sticks on touch); objects and characters keep the slow auto-rotating orbit.
+    this.fly = new FlyCam(camera, controls, el);
+    this._clock = new THREE.Clock();
 
     this._resize();
     window.addEventListener('resize', () => this._resize());
@@ -46,7 +51,9 @@ export class ModelViewer {
 
     const tick = () => {
       requestAnimationFrame(tick);
+      const dt = Math.min(this._clock.getDelta(), 0.1);
       if (this.active === false) return; // paused while another viewer is shown
+      this.fly.update(dt);
       controls.update();
       renderer.render(scene, camera);
     };
@@ -100,7 +107,16 @@ export class ModelViewer {
       camera.updateProjectionMatrix();
       controls.update();
 
-      if (this.hud) this.hud.textContent = `${m.name} — ${tris.toLocaleString()} triangles, textures as shipped on cartridge`;
+      // Levels get fly controls (no auto-rotation); everything else keeps the orbit.
+      const isLevel = m.section === 'Levels';
+      controls.autoRotate = !isLevel;
+      this.fly.setScale(size);
+      this.fly.setEnabled(isLevel);
+
+      if (this.hud) {
+        this.hud.textContent = `${m.name} — ${tris.toLocaleString()} triangles, textures as shipped on cartridge` +
+          (isLevel ? ` · ${flyHint}` : '');
+      }
     });
   }
 
