@@ -37,6 +37,7 @@ import (
 	"fmt"
 	"math"
 	"os"
+	"strings"
 
 	"retroreverse.com/tools/nds"
 	"retroreverse.com/tools/nds/nitro"
@@ -85,11 +86,17 @@ func LoadBMD(path string) (*Model, error) {
 	} else {
 		data = nds.Decompress(raw)
 	}
-	return Decode(data, baseName(path))
+	// Stage models get their single-sided format-5 surfaces solidified (see Decode);
+	// object/character models keep every cut-out, so their billboards (palm fronds,
+	// bushes) stay see-through.
+	return Decode(data, baseName(path), strings.Contains(path, "/stage/"))
 }
 
-// Decode parses a decompressed .bmd blob.
-func Decode(data []byte, name string) (*Model, error) {
+// Decode parses a decompressed .bmd blob. isStage enables solidifying single-sided
+// format-5 ground/wall surfaces (a stage's grass and walls are solid, its
+// double-sided details — nets, fences — keep their holes); leave it false for
+// standalone object and character models, whose billboards are genuine cut-outs.
+func Decode(data []byte, name string, isStage bool) (*Model, error) {
 	if len(data) < 0x3C {
 		return nil, fmt.Errorf("sm64ds: short BMD")
 	}
@@ -121,7 +128,7 @@ func Decode(data []byte, name string) (*Model, error) {
 	}
 
 	texs := map[string]nitro.Texture{}
-	decodeTex := func(ti, pi int) (string, int, int, error) {
+	decodeTex := func(ti, pi int, solid bool) (string, int, int, error) {
 		if ti < 0 || ti >= numTex {
 			return "", 0, 0, nil
 		}
@@ -132,7 +139,7 @@ func Decode(data []byte, name string) (*Model, error) {
 		}
 		palIdxOff := tr.dataOff + tr.sz // format-5 per-block palette-select data
 		if _, done := texs[tr.name]; !done {
-			t, err := nitro.DecodeTexture(data, tr.dataOff, palIdxOff, palOff, tr.param)
+			t, err := nitro.DecodeTexture(data, tr.dataOff, palIdxOff, palOff, tr.param, solid)
 			if err != nil {
 				return tr.name, 0, 0, err
 			}
@@ -149,7 +156,15 @@ func Decode(data []byte, name string) (*Model, error) {
 		r := oMat + i*0x30
 		m := nitro.Material{Name: b.name(int(b.u32(r))), ScaleS: 1, ScaleT: 1}
 		ti, pi := int(int32(b.u32(r + 4))), int(int32(b.u32(r + 8)))
-		if name, w, h, err := decodeTex(ti, pi); err == nil && name != "" {
+		// In a stage, the GX polygon attribute (+0x24) tells solid ground from thin
+		// detail: single-sided surfaces (bit 6 clear = no back face) are the grass and
+		// wall panels whose format-5 "transparent" texels are really part of the
+		// material, so decode them opaque; double-sided polygons are the see-through
+		// details (nets, fences) whose holes are genuine. Object/character models are
+		// never solidified — their single-sided billboards are true cut-outs.
+		polyAttr := b.u32(r + 0x24)
+		solid := isStage && polyAttr&0x40 == 0
+		if name, w, h, err := decodeTex(ti, pi, solid); err == nil && name != "" {
 			m.Texture, m.Width, m.Height = name, w, h
 			// Wrap: level textures tile, so repeat both axes unless the texgen bits
 			// say otherwise; the GX repeat/flip live in bits 16-19 of the param.

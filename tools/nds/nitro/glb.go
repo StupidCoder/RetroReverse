@@ -5,6 +5,7 @@ import (
 	"encoding/binary"
 	"encoding/json"
 	"fmt"
+	"image"
 	"image/png"
 	"math"
 	"sort"
@@ -165,8 +166,13 @@ func ExportTrisGLB(name string, byMat map[int][]Tri, mats []Material, texs map[s
 				})
 				gtexs = append(gtexs, gTexture{Sampler: len(samplers) - 1, Source: len(images) - 1})
 				gm.PBR.BaseColorTexture = &texRef{Index: len(gtexs) - 1}
-				gm.AlphaMode = "MASK"
-				gm.AlphaCutoff = 0.5
+				// Alpha-test only textures that actually have transparent texels — a
+				// blanket MASK makes opaque surfaces do a needless cut-off and can nibble
+				// edges. Opaque textures stay OPAQUE.
+				if hasTransparency(tex.Img) {
+					gm.AlphaMode = "MASK"
+					gm.AlphaCutoff = 0.5
+				}
 				texDims[mi] = [2]int{tex.Width, tex.Height}
 			}
 		}
@@ -252,4 +258,18 @@ func ExportTrisGLB(name string, byMat map[int][]Tri, mats []Material, texs map[s
 	out.Write(chunk)
 	out.Write(binBytes)
 	return out.Bytes(), nil
+}
+
+// hasTransparency reports whether an image has any fully-transparent texel — the
+// signal that its material needs alpha testing rather than opaque rendering.
+func hasTransparency(img *image.NRGBA) bool {
+	if img == nil {
+		return false
+	}
+	for i := 3; i < len(img.Pix); i += 4 {
+		if img.Pix[i] == 0 {
+			return true
+		}
+	}
+	return false
 }
