@@ -19,6 +19,7 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
+	"math"
 
 	"os"
 	"path/filepath"
@@ -28,8 +29,31 @@ import (
 	"supermario64ds/extract/sm64ds"
 )
 
-// tree actor's model table (traced): index = (par>>4)&7, clamped to 4
-var treeModels = []string{"bomb_tree", "toge_tree", "yuki_tree", "yashi_tree", ""} // [4] = archive castle tree
+// tree actor's model table (traced): index = (par>>4)&7, clamped to 4; entry 4 is
+// the archive-resident castle tree (flagged ID $9C10 = ar1.narc member 16)
+var treeModels = []string{"bomb_tree", "toge_tree", "yuki_tree", "yashi_tree", "ar1_16"}
+
+// archive models identified by their own material names (arc0[5] "coin",
+// arc0[7] the red variant, arc0[21] the power star with "mat_body"/"mat_eye" and
+// embedded star strings, arc0[25] "mat_star_silver", ar1[16] "mat_main_tree"):
+// extracted from the NARCs via the traced descriptor table and bound to the
+// coin/star actors pending a full code trace of their load path.
+var archiveModels = []int{0x8005, 0x8007, 0x8015, 0x8019, 0x9C10, 0x9C0F}
+
+// actor -> archive model (content-identified; the actors are the object->actor
+// translations of the coin/red-coin/blue-coin/star placements)
+var collectibleModels = map[int]string{
+	288: "arc0_5",  // coin
+	289: "arc0_7",  // red coin
+	290: "arc0_5",  // blue coin (same mesh; blue palette variant not yet separated)
+	178: "arc0_21", // power star
+}
+
+// billboard models: flat quads/discs the game keeps camera-facing
+var billboardStems = map[string]bool{
+	"bomb_tree": true, "toge_tree": true, "yuki_tree": true, "yashi_tree": true,
+	"ar1_16": true, "ar1_15": true, "arc0_5": true, "arc0_7": true,
+}
 
 // falseBind: actors whose create stubs sit inside the tree class's compilation
 // unit and pick up its model table by adjacency (they place in indoor levels
@@ -81,7 +105,30 @@ func main() {
 	}
 	treeActor := ls.Actor(41) // the TREE object's actor (object->actor table)
 	filesRoot := filepath.Join(*ext, "files")
-	treeStems := map[string]bool{"bomb_tree": true, "toge_tree": true, "yuki_tree": true, "yashi_tree": true}
+
+	// extract the archive models (coin, star, castle tree ...) to GLBs
+	for _, id := range archiveModels {
+		ref, ok := ls.ResolveArchiveID(id)
+		if !ok {
+			fmt.Fprintf(os.Stderr, "  archive id %#x: unresolved\n", id)
+			continue
+		}
+		data, err := ls.ArchiveMember(ref)
+		if err != nil || !sm64ds.PlausibleBMD(data) {
+			fmt.Fprintf(os.Stderr, "  %s: not a decodable model\n", ref.Stem())
+			continue
+		}
+		m, err := sm64ds.Decode(data, ref.Stem())
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "  %s: %v\n", ref.Stem(), err)
+			continue
+		}
+		glb, err := m.GLB()
+		if err != nil {
+			continue
+		}
+		os.WriteFile(filepath.Join(*glbDir, ref.Stem()+".glb"), glb, 0o644)
+	}
 	shiftOf := map[string]int{} // model stem -> 2^shift cache
 	modelShift := func(rel string) (int, bool) {
 		stem := strings.TrimSuffix(filepath.Base(rel), ".bmd")
@@ -94,8 +141,6 @@ func main() {
 		}
 		return v, ok
 	}
-	// the four filesystem tree models live under data/normal_obj/tree/
-	treePath := func(stem string) string { return "data/normal_obj/tree/" + stem + ".bmd" }
 	// stem -> path for every .bmd in the internal file table
 	modelPath := map[string]string{}
 	for i := 0; i < 2058; i++ {
@@ -136,13 +181,12 @@ func main() {
 			fmt.Fprintf(os.Stderr, "  %s: no stage shift\n", stem)
 			continue
 		}
-		// Stage-GLB units: the exported GLBs store fx/4096 floats, so one GLB unit is
-		// one engine fx 1.0. A placement short, <<12 into fx by the spawner, is
-		// short/4096 in GLB units — verified by containment: 99.9% of all 4611
-		// placements land inside their stage's bounding box under /4096 (72.9%
-		// under the /1000 first guess).
-		toStage := 1.0 / 4096
-		_ = stageShift
+		// Stage-GLB units: a stage GLB stores raw fx floats times the stage's 2^shift,
+		// and a placement short (<<12 into fx by the spawner) is short/4096 fx —
+		// so stage-GLB position = short * 2^stageShift / 4096. (The /4096-only first
+		// pass passed the containment test but clustered everything at half radius
+		// on shift-1 stages like Bob-omb Battlefield.)
+		toStage := math.Pow(2, float64(stageShift)) / 4096
 		var objs []jsonObj
 		seen := map[string]bool{}
 		for _, o := range lv.Objects {
@@ -159,20 +203,22 @@ func main() {
 					t = 4
 				}
 				if m := treeModels[t]; m != "" && hasGLB(m) {
-					if sh, ok := modelShift(treePath(m)); ok {
-						j.Model, j.Bill = m, true
-						j.Scale = r3(objScale(sh))
-					}
+					j.Model, j.Bill = m, true
+					j.Scale = r3(objScale(m, stageShift))
+				}
+			case collectibleModels[o.Actor] != "":
+				if m := collectibleModels[o.Actor]; hasGLB(m) {
+					j.Model = m
+					j.Bill = billboardStems[m]
+					j.Scale = r3(objScale(m, stageShift))
 				}
 			default:
 				if ms := actorModels[o.Actor]; len(ms) > 0 && !falseBind[o.Actor] {
 					m := ms[0] // first hit = nearest to the create function
 					if hasGLB(m) {
-						if sh, ok := modelShift(modelPath[m]); ok {
-							j.Model = m
-							j.Bill = treeStems[m]
-							j.Scale = r3(objScale(sh))
-						}
+						j.Model = m
+						j.Bill = billboardStems[m]
+						j.Scale = r3(objScale(m, stageShift))
 					}
 				}
 			}
@@ -194,11 +240,27 @@ func main() {
 	fmt.Printf("exported %d stages, %d placements (%d bound to models)\n", stages, total, bound)
 }
 
-// objScale converts an object GLB (raw fx4.12 vertices baked with its 2^shift)
-// into stage-GLB units: objects render at 1/16 of world scale — the same rule the
-// tree confirms (its shift-4 bake cancels to raw size), and signs/mushrooms land
-// at their in-game proportions.
-func objScale(shift int) float64 { return 1.0 / 16 }
+// objScale converts an object GLB into stage-GLB units. The engine-side object
+// scale field (object+$80, fx12) defaults to 1.0 and none of the placed actors
+// write a static constant there — the collectibles are sized by their actors at
+// runtime (the mushroom literally grows) — so display sizes are calibrated per
+// model where the 1/16 world ratio (which the tree confirms) reads wrong. The
+// true render-path object scaling remains untraced (Part V §3).
+var stemScale = map[string]float64{
+	"arc0_5": 0.020, "arc0_7": 0.020, // coins
+	"arc0_21": 0.019, "arc0_25": 0.019, // stars
+	"ar1_15":          0.019, // super-mushroom billboard
+	"scale_up_kinoko": 0.019,
+	"obj_tatefuda":    0.030, // signboards read closer to in-game at half the 1/16
+}
+
+func objScale(stem string, stageShift int) float64 {
+	f, ok := stemScale[stem]
+	if !ok {
+		f = 1.0 / 16
+	}
+	return f * math.Pow(2, float64(stageShift))
+}
 
 func r3(v float64) float64 { return float64(int(v*1000+0.5*sign(v))) / 1000 }
 func sign(v float64) float64 {
