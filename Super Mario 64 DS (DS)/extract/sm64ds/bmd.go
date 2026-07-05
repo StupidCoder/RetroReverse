@@ -187,6 +187,29 @@ func Decode(data []byte, name string) (*Model, error) {
 	// 2^shift bake for every such model (a shift-1 stage exported at half size,
 	// the shift-4 trees at 1/16).
 	worlds := boneWorlds(b, oBone, numBone, scale)
+	// The matrix-slot map: a display list's MTX_RESTORE indices are SLOTS, and
+	// slot k belongs to bone u16map[byteList[k]] — the byte list lives in the
+	// sub-header words we previously ignored ({u32 count @+0, u32 listOff @+4}),
+	// the u16 map at header +$2C (the engine reads both in its multi-matrix
+	// path, $02044534/$020445E8). The goomba's list is [1,0,2]: slot 1 is the
+	// body, slots 0/2 the feet — identity seeding put the body on a leg matrix.
+	mapOff := int(b.u32(0x2C))
+	boneOfSlot := func(sub int, k int) int {
+		cnt, listOff := int(b.u32(sub)), int(b.u32(sub+4))
+		if k >= cnt || listOff <= 0 || listOff+cnt > len(data) {
+			return -1
+		}
+		mi := int(data[listOff+k])
+		o := mapOff + mi*2
+		if mapOff <= 0 || o+2 > len(data) {
+			return -1
+		}
+		bone := int(le.Uint16(data[o:]))
+		if bone >= numBone {
+			return -1
+		}
+		return bone
+	}
 	skel := make([]SkelJoint, numBone)
 	for i := 0; i < numBone; i++ {
 		r := oBone + i*0x40
@@ -226,6 +249,18 @@ func Decode(data []byte, name string) (*Model, error) {
 		// and halved the index space — scrambling which material drew which geometry.)
 		rec := oDL + dlIdx*0x08
 		subCount, subPtr := int(b.u32(rec)), int(b.u32(rec+4))
+		// Seed the matrix slots from the first sub-header's slot->bone list and
+		// remember it to remap vertex joints below. (The record's chunks share
+		// one command stream and, in the shipped models, one matrix list.)
+		slotBone := map[int]int{}
+		if subCount > 0 && subPtr > 0 && subPtr+0x10 <= len(data) {
+			for k := 0; k < 32; k++ {
+				if bone := boneOfSlot(subPtr, k); bone >= 0 {
+					stack[k] = worlds[bone]
+					slotBone[k] = bone
+				}
+			}
+		}
 		var gx []byte
 		for k := 0; k < subCount; k++ {
 			sub := subPtr + k*0x10
@@ -238,7 +273,16 @@ func Decode(data []byte, name string) (*Model, error) {
 			}
 			gx = append(gx, data[ptr:ptr+sz]...)
 		}
-		return nitro.DecodeDL(gx, stack, world, 0)
+		tris := nitro.DecodeDL(gx, stack, world, 0)
+		// vertex joints: slot -> bone (skinned export skins by bone index)
+		for i := range tris {
+			for vi := range tris[i].V {
+				if bone, ok := slotBone[tris[i].V[vi].J]; ok {
+					tris[i].V[vi].J = bone
+				}
+			}
+		}
+		return tris
 	}
 	for bi := 0; bi < numBone; bi++ {
 		bone := oBone + bi*0x40
