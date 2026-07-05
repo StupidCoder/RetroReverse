@@ -34,7 +34,54 @@ func ExportGLB(m Model, texs map[string]Texture) ([]byte, error) {
 // binary glTF, for model formats that carry their own scene structure instead of
 // NITRO's SBC bytecode — e.g. Super Mario 64 DS's BMD, whose bones and display
 // lists are decoded elsewhere into this same (byMat, materials, textures) shape.
+// Joint is one skeleton node for skinned export: a local bind TRS (glTF
+// conventions: quaternion xyzw, column composition T·R·S) plus the
+// inverse-bind matrix (column-major 4x4) of the joint's bind world transform.
+type Joint struct {
+	Name      string
+	Parent    int // -1 for the root
+	T         [3]float64
+	R         [4]float64 // quaternion xyzw
+	S         [3]float64
+	IBM       [16]float64
+	Billboard bool // camera-facing bone (exported as node extras)
+}
+
+// SkinAnim is one clip: per-joint, per-frame local TRS, sampled at FPS.
+type SkinAnim struct {
+	Name string
+	FPS  float64
+	T    [][][3]float64 // [joint][frame]
+	R    [][][4]float64 // [joint][frame] quaternion xyzw
+	S    [][][3]float64
+}
+
+// Skin carries a skeleton and its clips; vertices reference joints via
+// Vertex.J (the DS matrix-stack slot they were emitted under).
+type Skin struct {
+	Joints []Joint
+	Anims  []SkinAnim
+}
+
+// ExportTrisGLB writes a static GLB from pre-transformed triangles.
 func ExportTrisGLB(name string, byMat map[int][]Tri, mats []Material, texs map[string]Texture) ([]byte, error) {
+	return exportGLB(name, byMat, mats, texs, nil)
+}
+
+// ExportSkinnedGLB writes a GLB whose vertices are skinned to skin.Joints and
+// which carries skin.Anims as glTF animations.
+func ExportSkinnedGLB(name string, byMat map[int][]Tri, mats []Material, texs map[string]Texture, skin *Skin) ([]byte, error) {
+	return exportGLB(name, byMat, mats, texs, skin)
+}
+
+func toInts(v interface{}) []int {
+	if v == nil {
+		return nil
+	}
+	return v.([]int)
+}
+
+func exportGLB(name string, byMat map[int][]Tri, mats []Material, texs map[string]Texture, skin *Skin) ([]byte, error) {
 	if len(byMat) == 0 {
 		return nil, fmt.Errorf("nitro: model %q has no geometry", name)
 	}
@@ -189,7 +236,8 @@ func ExportTrisGLB(name string, byMat map[int][]Tri, mats []Material, texs map[s
 	var prims []primitive
 	for _, mi := range order { // same sorted order as the materials above
 		tris := byMat[mi]
-		var pos, uv, col []float32
+		var pos, uv, col, weights []float32
+		var joints []byte
 		dims, hasTex := texDims[mi]
 		us, vs := 1.0, 1.0
 		if mi < len(m.Materials) {
@@ -202,6 +250,14 @@ func ExportTrisGLB(name string, byMat map[int][]Tri, mats []Material, texs map[s
 					uv = append(uv, float32(v.U*us/float64(dims[0])), float32(v.V*vs/float64(dims[1])))
 				}
 				col = append(col, float32(v.C.R)/255, float32(v.C.G)/255, float32(v.C.B)/255)
+				if skin != nil {
+					j := v.J
+					if j >= len(skin.Joints) {
+						j = 0
+					}
+					joints = append(joints, byte(j), 0, 0, 0)
+					weights = append(weights, 1, 0, 0, 0)
+				}
 			}
 		}
 		attrs := map[string]int{"POSITION": addFloats(pos, "VEC3", true, 3)}
@@ -209,14 +265,23 @@ func ExportTrisGLB(name string, byMat map[int][]Tri, mats []Material, texs map[s
 			attrs["TEXCOORD_0"] = addFloats(uv, "VEC2", false, 2)
 		}
 		attrs["COLOR_0"] = addFloats(col, "VEC3", false, 3)
+		if skin != nil {
+			vi := addView(joints)
+			accessors = append(accessors, accessor{BufferView: vi, ComponentType: 5121, Count: len(joints) / 4, Type: "VEC4"})
+			attrs["JOINTS_0"] = len(accessors) - 1
+			attrs["WEIGHTS_0"] = addFloats(weights, "VEC4", false, 4)
+		}
 		prims = append(prims, primitive{Attributes: attrs, Material: matIndex[mi], Mode: 4})
 	}
 
+	meshNode := map[string]interface{}{"mesh": 0, "name": m.Name}
+	nodes := []map[string]interface{}{meshNode}
+	sceneRoots := []int{0}
 	doc := map[string]interface{}{
 		"asset":       map[string]string{"version": "2.0", "generator": "retroreverse tools/nds/nitro"},
 		"scene":       0,
-		"scenes":      []map[string]interface{}{{"nodes": []int{0}, "name": m.Name}},
-		"nodes":       []map[string]interface{}{{"mesh": 0, "name": m.Name}},
+		"scenes":      []map[string]interface{}{{"nodes": sceneRoots, "name": m.Name}},
+		"nodes":       nodes,
 		"meshes":      []map[string]interface{}{{"primitives": prims, "name": m.Name}},
 		"materials":   gmats,
 		"accessors":   accessors,
@@ -227,6 +292,81 @@ func ExportTrisGLB(name string, byMat map[int][]Tri, mats []Material, texs map[s
 		doc["images"] = images
 		doc["samplers"] = samplers
 		doc["textures"] = gtexs
+	}
+	if skin != nil {
+		base := len(nodes) // joint node indices start here
+		for ji, j := range skin.Joints {
+			n := map[string]interface{}{
+				"name":        j.Name,
+				"translation": j.T[:],
+				"rotation":    j.R[:],
+				"scale":       j.S[:],
+			}
+			if j.Billboard {
+				n["extras"] = map[string]bool{"billboard": true}
+			}
+			nodes = append(nodes, n)
+			if j.Parent >= 0 {
+				pn := nodes[base+j.Parent]
+				pn["children"] = append(toInts(pn["children"]), base+ji)
+			} else {
+				sceneRoots = append(sceneRoots, base+ji)
+			}
+		}
+		var ibm []float32
+		for _, j := range skin.Joints {
+			for _, v := range j.IBM {
+				ibm = append(ibm, float32(v))
+			}
+		}
+		ibmAcc := addFloats(ibm, "MAT4", false, 16)
+		jointIdx := make([]int, len(skin.Joints))
+		for i := range jointIdx {
+			jointIdx[i] = base + i
+		}
+		meshNode["skin"] = 0
+		doc["skins"] = []map[string]interface{}{{"joints": jointIdx, "inverseBindMatrices": ibmAcc, "skeleton": base}}
+		var anims []map[string]interface{}
+		for _, a := range skin.Anims {
+			frames := 0
+			if len(a.T) > 0 {
+				frames = len(a.T[0])
+			}
+			times := make([]float32, frames)
+			for f := range times {
+				times[f] = float32(float64(f) / a.FPS)
+			}
+			input := addFloats(times, "SCALAR", true, 1)
+			var samplers []map[string]interface{}
+			var channels []map[string]interface{}
+			addChan := func(joint int, path string, out int) {
+				samplers = append(samplers, map[string]interface{}{"input": input, "output": out, "interpolation": "LINEAR"})
+				channels = append(channels, map[string]interface{}{
+					"sampler": len(samplers) - 1,
+					"target":  map[string]interface{}{"node": base + joint, "path": path},
+				})
+			}
+			for ji := range skin.Joints {
+				var tv, rv, sv []float32
+				for f := 0; f < frames; f++ {
+					tv = append(tv, float32(a.T[ji][f][0]), float32(a.T[ji][f][1]), float32(a.T[ji][f][2]))
+					rv = append(rv, float32(a.R[ji][f][0]), float32(a.R[ji][f][1]), float32(a.R[ji][f][2]), float32(a.R[ji][f][3]))
+					sv = append(sv, float32(a.S[ji][f][0]), float32(a.S[ji][f][1]), float32(a.S[ji][f][2]))
+				}
+				addChan(ji, "translation", addFloats(tv, "VEC3", false, 3))
+				addChan(ji, "rotation", addFloats(rv, "VEC4", false, 4))
+				addChan(ji, "scale", addFloats(sv, "VEC3", false, 3))
+			}
+			anims = append(anims, map[string]interface{}{"name": a.Name, "samplers": samplers, "channels": channels})
+		}
+		if len(anims) > 0 {
+			doc["animations"] = anims
+		}
+		doc["nodes"] = nodes
+		doc["scenes"] = []map[string]interface{}{{"nodes": sceneRoots, "name": m.Name}}
+		doc["accessors"] = accessors
+		doc["bufferViews"] = views
+		doc["buffers"] = []map[string]int{{"byteLength": bin.Len()}}
 	}
 
 	jsonBytes, err := json.Marshal(doc)

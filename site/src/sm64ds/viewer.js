@@ -76,6 +76,7 @@ export class ModelViewer {
     this.signposts = [];    // clickable obj_tatefuda instances
     this.mixers = [];       // skinned enemies playing their .bca walk clips
     this.patrollers = [];   // goombas wandering per their traced AI
+    this.bbBones = [];      // billboard bones (bmd flag +$3C bit 0): face the camera
     this.wantObjects = true;
     // Levels are explored with free-flight controls (WASD/arrows, or virtual
     // sticks on touch); objects and characters keep the slow auto-rotating orbit.
@@ -99,6 +100,17 @@ export class ModelViewer {
       }
       for (const s of this.spinners) s.rotation.y += COIN_SPIN * dt;
       for (const mx of this.mixers) mx.update(dt);
+      // Billboard bones (the bob-omb's body, the tree quads): after the clip
+      // updates, override the bone's world orientation to face the camera —
+      // the engine does the same to its billboard-flagged bones.
+      if (this.bbBones.length) {
+        camera.getWorldQuaternion(this._camQ || (this._camQ = new THREE.Quaternion()));
+        const pq = this._parQ || (this._parQ = new THREE.Quaternion());
+        for (const b of this.bbBones) {
+          b.parent.getWorldQuaternion(pq).invert();
+          b.quaternion.copy(pq).multiply(this._camQ);
+        }
+      }
       for (const g of this.patrollers) {
         g.timer -= dt;
         if (g.timer <= 0) {
@@ -206,6 +218,7 @@ export class ModelViewer {
         }
       });
       // Animated models (the enemies) play their first .bca clip in the gallery.
+      group.traverse(o => { if (o.userData && o.userData.billboard) this.bbBones.push(o); });
       if (gltf.animations && gltf.animations.length) {
         const mx = new THREE.AnimationMixer(group);
         const clip = gltf.animations.find(a => a.name.endsWith('_walk')) || gltf.animations[0];
@@ -283,6 +296,7 @@ export class ModelViewer {
           // their .bca walk cycle (decoded from the cartridge, 30 fps).
           if (proto.animations.length) {
             inst = cloneSkinned(proto.scene);
+            inst.traverse(n => { if (n.userData && n.userData.billboard) this.bbBones.push(n); });
             const clip = proto.animations.find(a => a.name.endsWith('_walk') || a.name.endsWith('_run'))
               || proto.animations.find(a => a.name.endsWith('_wait')) || proto.animations[0];
             const mx = new THREE.AnimationMixer(inst);
@@ -334,6 +348,7 @@ export class ModelViewer {
     this.signposts = [];
     this.mixers = [];
     this.patrollers = [];
+    this.bbBones = [];
     this._hideSign();
     if (!this.objectsGroup) return;
     this.three.scene.remove(this.objectsGroup);

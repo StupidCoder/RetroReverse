@@ -26,6 +26,7 @@ type Vertex struct {
 	X, Y, Z float64
 	U, V    float64 // texels (12.4 → texel units)
 	C       color.NRGBA
+	J    int // source matrix-stack slot (joint index for skinned export)
 }
 
 // Tri is one triangle.
@@ -60,6 +61,18 @@ func dlParamCount(cmd byte) int {
 	}
 }
 
+// jointOf finds the matrix-stack slot the starting matrix came from, so each
+// vertex can be tagged with its source joint for skinned export (MTX_RESTORE
+// switches it; other matrix ops keep the last slot).
+func jointOf(cur Mat43, stack []Mat43) int {
+	for i, m := range stack {
+		if m == cur {
+			return i
+		}
+	}
+	return 0
+}
+
 // DecodeDL runs a display list, emitting triangles. stack is the joint-matrix
 // stack (from RunSBC); cur is the starting current matrix; mat the active material
 // index (both as the SBC left them before the shape's draw call).
@@ -76,7 +89,8 @@ func DecodeDL(dl []byte, stack []Mat43, cur Mat43, mat int) []Tri {
 	// the display list (SM64DS stages such as Big Boo's Haunt, the cave) rely on
 	// these; simpler models (the castle floors) only ever MTX_RESTORE slot 0.
 	var mstack []Mat43 // push/pop stack
-	mtxMode := 2        // 0 proj, 1 position, 2 position+vector, 3 texture
+	joint := jointOf(cur, stack)
+	mtxMode := 2 // 0 proj, 1 position, 2 position+vector, 3 texture
 	fx := func(v uint32) float64 { return float64(int32(v)) / 4096 }
 	load43 := func(p []uint32) Mat43 {
 		return Mat43{fx(p[0]), fx(p[1]), fx(p[2]), fx(p[3]), fx(p[4]), fx(p[5]),
@@ -126,7 +140,7 @@ func DecodeDL(dl []byte, stack []Mat43, cur Mat43, mat int) []Tri {
 	addVertex := func(x, y, z float64) {
 		wx, wy, wz := cur.Apply(x, y, z)
 		last = Vertex{X: x, Y: y, Z: z} // model-space memory for VTX_XY/DIFF forms
-		vv := Vertex{X: wx, Y: wy, Z: wz, U: u, V: v, C: curColor}
+		vv := Vertex{X: wx, Y: wy, Z: wz, U: u, V: v, C: curColor, J: joint}
 		verts = append(verts, vv)
 		emit()
 	}
@@ -179,6 +193,7 @@ func DecodeDL(dl []byte, stack []Mat43, cur Mat43, mat int) []Tri {
 				idx := int(params[0] & 0x1F)
 				if isPos() && idx < len(stack) {
 					cur = stack[idx]
+					joint = idx
 				}
 			case 0x15: // MTX_IDENTITY
 				if isPos() {

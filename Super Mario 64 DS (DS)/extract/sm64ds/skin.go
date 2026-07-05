@@ -15,10 +15,11 @@ import (
 
 // SkelJoint is one .bmd bone's bind-pose local transform.
 type SkelJoint struct {
-	Name    string
-	Parent  int // absolute index, -1 for roots
-	S, T    [3]float64
-	R       [3]float64 // radians, engine Rx·Ry·Rz order
+	Name      string
+	Parent    int // absolute index, -1 for roots
+	S, T      [3]float64
+	R         [3]float64 // radians, engine Rx·Ry·Rz order
+	Billboard bool       // bone flag word +$3C bit 0: camera-facing part
 }
 
 // NamedBCA pairs a decoded animation with its clip name.
@@ -136,12 +137,13 @@ func (m *Model) BuildSkin(anims []NamedBCA) *nitro.Skin {
 		ibm[2], ibm[6], ibm[10], ibm[14] = inv[2], inv[5], inv[8], inv[11]
 		ibm[15] = 1
 		sk.Joints = append(sk.Joints, nitro.Joint{
-			Name:   j.Name,
-			Parent: j.Parent,
-			T:      j.T,
-			R:      quatFromEuler(j.R[0], j.R[1], j.R[2]),
-			S:      j.S,
-			IBM:    ibm,
+			Name:      j.Name,
+			Parent:    j.Parent,
+			T:         j.T,
+			R:         quatFromEuler(j.R[0], j.R[1], j.R[2]),
+			S:         j.S,
+			IBM:       ibm,
+			Billboard: j.Billboard,
 		})
 	}
 	for _, na := range anims {

@@ -116,9 +116,9 @@ func Decode(data []byte, name string) (*Model, error) {
 		pals[i] = int(b.u32(r + 4))
 	}
 	type texRec struct {
-		name         string
-		dataOff, sz  int
-		param        uint32
+		name        string
+		dataOff, sz int
+		param       uint32
 	}
 	texRecs := make([]texRec, numTex)
 	for i := 0; i < numTex; i++ {
@@ -161,7 +161,7 @@ func Decode(data []byte, name string) (*Model, error) {
 		if ss, st := int32(b.u32(r+0xC)), int32(b.u32(r+0x10)); ss != 0 && st != 0 {
 			m.ScaleS, m.ScaleT = float64(ss)/4096, float64(st)/4096
 		}
-		ti, pi := int(int32(b.u32(r + 4))), int(int32(b.u32(r + 8)))
+		ti, pi := int(int32(b.u32(r+4))), int(int32(b.u32(r+8)))
 		if name, w, h, err := decodeTex(ti, pi); err == nil && name != "" {
 			m.Texture, m.Width, m.Height = name, w, h
 			// The GX TEXIMAGE_PARAM the engine sends is the material's addressing
@@ -224,9 +224,13 @@ func Decode(data []byte, name string) (*Model, error) {
 		skel[i] = SkelJoint{
 			Name:   b.name(int(b.u32(r + 4))),
 			Parent: par,
-			S:      [3]float64{fxv(r + 0x10), fxv(r + 0x14), fxv(r + 0x18)},
-			R:      [3]float64{angv(r + 0x1C), angv(r + 0x1E), angv(r + 0x20)},
-			T:      [3]float64{fxv(r + 0x24), fxv(r + 0x28), fxv(r + 0x2C)},
+			// +$3C bit 0 marks a camera-facing bone: set on the bob-omb's
+			// "body_bill" and the tree quads, clear on roots and feet — the
+			// flag the engine's bone compose treats as the billboard bit.
+			Billboard: b.u32(r+0x3C)&1 != 0,
+			S:         [3]float64{fxv(r + 0x10), fxv(r + 0x14), fxv(r + 0x18)},
+			R:         [3]float64{angv(r + 0x1C), angv(r + 0x1E), angv(r + 0x20)},
+			T:         [3]float64{fxv(r + 0x24), fxv(r + 0x28), fxv(r + 0x2C)},
 		}
 	}
 	stack := make([]nitro.Mat43, 32)
@@ -389,4 +393,3 @@ func baseName(p string) string {
 	}
 	return s
 }
-

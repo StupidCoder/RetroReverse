@@ -52,13 +52,13 @@ import (
 )
 
 const (
-	levelOvlTable  = 0x718C8 // ARM9 file offset: level -> overlay ID (u32 x52)
-	settingsTable  = 0x8E208 // ARM9 file offset: level -> settings-block RAM addr (u32 x52)
-	fileTableOff   = 0x13098 // overlay-0 offset: internal file ID -> name pointer
-	fileTableLen   = 2058    // loop bound in overlay 0's initializer ($080A)
-	objActorTable  = 0x5F594 // overlay-2 offset of the object->actor u16 table ($0210CBF4)
-	arm9Base       = 0x02004000
-	NumLevels      = 52
+	levelOvlTable = 0x718C8 // ARM9 file offset: level -> overlay ID (u32 x52)
+	settingsTable = 0x8E208 // ARM9 file offset: level -> settings-block RAM addr (u32 x52)
+	fileTableOff  = 0x13098 // overlay-0 offset: internal file ID -> name pointer
+	fileTableLen  = 2058    // loop bound in overlay 0's initializer ($080A)
+	objActorTable = 0x5F594 // overlay-2 offset of the object->actor u16 table ($0210CBF4)
+	arm9Base      = 0x02004000
+	NumLevels     = 52
 )
 
 // LevelObject is one placed object, in world units (the fx20.12 integer part;
