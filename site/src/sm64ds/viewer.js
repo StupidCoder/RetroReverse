@@ -257,7 +257,7 @@ export class ModelViewer {
             mx.setTime(Math.random() * clip.duration);
             this.mixers.push(mx);
           } else {
-            inst = proto.clone();
+            inst = proto.scene.clone();
           }
           if (o.s) inst.scale.setScalar(o.s);
           if (o.b) bills.push(inst);
