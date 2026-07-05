@@ -59,6 +59,12 @@ func main() {
 			fail++
 			continue
 		}
+		// billboard quads (the trees) overflow their texture in texel space; the
+		// engine's billboard path remaps them — normalize so the texture fills the quad
+		switch m.Name {
+		case "bomb_tree", "toge_tree", "yuki_tree", "yashi_tree":
+			m.NormalizeUV()
+		}
 		glb, err := m.GLB()
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "  %s: %v\n", filepath.Base(p), err)

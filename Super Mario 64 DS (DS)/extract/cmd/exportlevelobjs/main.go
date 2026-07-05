@@ -52,7 +52,7 @@ var collectibleModels = map[int]string{
 // billboard models: flat quads/discs the game keeps camera-facing
 var billboardStems = map[string]bool{
 	"bomb_tree": true, "toge_tree": true, "yuki_tree": true, "yashi_tree": true,
-	"ar1_16": true, "ar1_15": true, "arc0_5": true, "arc0_7": true,
+	"ar1_16": true, "ar1_15": true,
 }
 
 // falseBind: actors whose create stubs sit inside the tree class's compilation
@@ -122,6 +122,9 @@ func main() {
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "  %s: %v\n", ref.Stem(), err)
 			continue
+		}
+		if billboardStems[ref.Stem()] {
+			m.NormalizeUV() // billboard quads overflow their texture in texel space
 		}
 		glb, err := m.GLB()
 		if err != nil {

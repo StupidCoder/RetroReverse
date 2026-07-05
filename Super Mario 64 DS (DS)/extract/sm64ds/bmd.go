@@ -254,3 +254,40 @@ func baseName(p string) string {
 	}
 	return s
 }
+
+// NormalizeUV remaps each material's texture coordinates to span exactly its
+// texture — for the two-triangle billboard models (trees, the super-mushroom),
+// whose GX texcoords overflow the texture in texel space (e.g. the tree quad
+// spans t=-14.75..64 on a 64-texel texture) and are remapped by the engine's
+// billboard draw path rather than sampled raw.
+func (m *Model) NormalizeUV() {
+	for mi, tris := range m.ByMat {
+		if mi >= len(m.Mats) {
+			continue
+		}
+		mat := m.Mats[mi]
+		if mat.Texture == "" {
+			continue
+		}
+		w, h := float64(mat.Width), float64(mat.Height)
+		minU, maxU := math.Inf(1), math.Inf(-1)
+		minV, maxV := math.Inf(1), math.Inf(-1)
+		for _, t := range tris {
+			for _, v := range t.V {
+				minU, maxU = math.Min(minU, v.U), math.Max(maxU, v.U)
+				minV, maxV = math.Min(minV, v.V), math.Max(maxV, v.V)
+			}
+		}
+		du, dv := maxU-minU, maxV-minV
+		if du <= 0 || dv <= 0 {
+			continue
+		}
+		for ti := range tris {
+			for vi := range tris[ti].V {
+				v := &tris[ti].V[vi]
+				v.U = (v.U - minU) / du * w
+				v.V = (v.V - minV) / dv * h
+			}
+		}
+	}
+}
