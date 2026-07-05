@@ -172,6 +172,10 @@ const GAMES = [
     group: (lvl) => ({ section: lvl.section, label: lvl.name }),
     // open on Peach's Castle — the game's establishing shot
     defaultAsset: (models) => models.findIndex(m => m.name === "Peach's Castle (exterior)"),
+    // level-only toggle: the object placements decoded from the level overlays
+    layers: [
+      { id: 'objects', label: 'Objects', default: true, when: (m) => !!m.leaves?.[m.currentIdx]?.level?.objects },
+    ],
   },
 ];
 

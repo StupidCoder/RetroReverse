@@ -40,6 +40,10 @@ export class ModelViewer {
     this.loader = new GLTFLoader();
     this.models = [];
     this.gen = 0;
+    // level object placements (decoded from the level overlays' object tables)
+    this.objectsGroup = null;
+    this.billboards = [];   // flat tree quads, yawed toward the camera each frame
+    this.wantObjects = true;
     // Levels are explored with free-flight controls (WASD/arrows, or virtual
     // sticks on touch); objects and characters keep the slow auto-rotating orbit.
     this.fly = new FlyCam(camera, controls, el);
@@ -55,6 +59,11 @@ export class ModelViewer {
       if (this.active === false) return; // paused while another viewer is shown
       this.fly.update(dt);
       controls.update();
+      // Billboard trees yaw around world-up toward the camera; up stays vertical
+      // (the DS renders these flat quads camera-facing).
+      for (const b of this.billboards) {
+        b.rotation.y = Math.atan2(camera.position.x - b.position.x, camera.position.z - b.position.z);
+      }
       renderer.render(scene, camera);
     };
     tick();
@@ -74,6 +83,14 @@ export class ModelViewer {
     return this.models;
   }
 
+  // The studio drives this: "objects" shows/hides the placed level objects.
+  setLayer(id, on) {
+    if (id === 'objects') {
+      this.wantObjects = on;
+      if (this.objectsGroup) this.objectsGroup.visible = on;
+    }
+  }
+
   loadModel(i) {
     const m = this.models[i];
     if (!m) return;
@@ -82,6 +99,7 @@ export class ModelViewer {
       if (gen !== this.gen) return; // superseded
       const { scene, camera, controls } = this.three;
       this._dispose();
+      this._disposeObjects();
 
       const group = gltf.scene;
       let tris = 0;
@@ -117,7 +135,82 @@ export class ModelViewer {
         this.hud.textContent = `${m.name} — ${tris.toLocaleString()} triangles, textures as shipped on cartridge` +
           (isLevel ? ` · ${flyHint}` : '');
       }
+
+      if (m.objects) this._loadObjects(m.objects, gen, size);
     });
+  }
+
+  // Place the level's objects (decoded from the level overlay's object tables).
+  // Placements bound to an extracted model load it once and clone per instance;
+  // the rest show as small markers — their models aren't extracted yet.
+  async _loadObjects(file, gen, size) {
+    let doc;
+    try {
+      doc = await fetch('public/sm64ds/' + file).then(r => r.json());
+    } catch { return; }
+    if (gen !== this.gen || !doc.objects) return;
+
+    const protos = new Map();
+    for (const o of doc.objects) {
+      if (o.m && !protos.has(o.m)) {
+        protos.set(o.m, new Promise(res =>
+          this.loader.load(MODELS + o.m + '.glb', g => {
+            g.scene.traverse(n => {
+              if (n.isMesh && n.material && n.material.map) {
+                n.material.map.magFilter = THREE.NearestFilter;
+                n.material.map.needsUpdate = true;
+              }
+            });
+            res(g.scene);
+          }, undefined, () => res(null))));
+      }
+    }
+    await Promise.all(protos.values());
+    if (gen !== this.gen) return;
+
+    const group = new THREE.Group();
+    const bills = [];
+    const markerGeo = new THREE.SphereGeometry(size / 260, 8, 6);
+    const markerMat = new THREE.MeshBasicMaterial({ color: 0xffd75e, transparent: true, opacity: 0.75 });
+    let placed = 0, markers = 0;
+    for (const o of doc.objects) {
+      let inst;
+      if (o.m) {
+        const proto = await protos.get(o.m);
+        if (proto) {
+          inst = proto.clone();
+          if (o.s) inst.scale.setScalar(o.s);
+          if (o.b) bills.push(inst);
+          else if (o.ry) inst.rotation.y = o.ry * Math.PI / 180;
+          placed++;
+        }
+      }
+      if (!inst) {
+        inst = new THREE.Mesh(markerGeo, markerMat);
+        markers++;
+      }
+      inst.position.set(o.p[0], o.p[1], o.p[2]);
+      group.add(inst);
+    }
+    group.visible = this.wantObjects;
+    this.three.scene.add(group);
+    this.objectsGroup = group;
+    this.billboards = bills;
+    if (this.hud) this.hud.textContent += ` · ${placed + markers} objects placed (${markers} as markers)`;
+  }
+
+  _disposeObjects() {
+    this.billboards = [];
+    if (!this.objectsGroup) return;
+    this.three.scene.remove(this.objectsGroup);
+    this.objectsGroup.traverse(o => {
+      if (o.geometry) o.geometry.dispose();
+      if (o.material) {
+        if (o.material.map) o.material.map.dispose();
+        o.material.dispose();
+      }
+    });
+    this.objectsGroup = null;
   }
 
   _dispose() {
