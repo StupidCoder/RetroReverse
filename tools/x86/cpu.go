@@ -62,9 +62,10 @@ const (
 // CPU is a real-mode x86 execution core. Registers are exported so a machine
 // model and tests can seed and inspect them.
 type CPU struct {
-	Regs [8]uint32 // EAX ECX EDX EBX ESP EBP ESI EDI (16-bit access = low word)
-	Seg  [8]uint16 // ES CS SS DS FS GS (indices 6,7 unused, padded so a bad sreg field can't panic)
-	IP   uint32    // instruction pointer (16-bit in real mode)
+	Regs    [8]uint32 // EAX ECX EDX EBX ESP EBP ESI EDI (16-bit access = low word)
+	Seg     [8]uint16 // ES CS SS DS FS GS (indices 6,7 unused, padded so a bad sreg field can't panic)
+	IP      uint32    // instruction pointer (16-bit in real mode)
+	instrIP uint32    // IP at the start of the instruction being executed (for fault push)
 
 	// arithmetic + control flags
 	CF, PF, AF, ZF, SF, TF, IF, DF, OF bool

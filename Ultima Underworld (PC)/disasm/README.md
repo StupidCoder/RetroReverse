@@ -26,6 +26,12 @@ following the repository's annotation-store convention.
   divide-error handler) documented with the runtime addresses the execution-core
   oracle pinned. See `../Ultima_Underworld.md` Part II §3 and Part III.
 
+- **`uw-render.asm` / `uw-render.annotations.txt`** — the 3D renderer (Part V,
+  in progress), captured from the oracle's **live** overlay memory in the
+  dungeon: the camera/view-matrix setup (segment `07F7`, data `499D`), the shared
+  `isqrt` math (`214A`), and the renderer's own divide-error handler. See
+  `../Ultima_Underworld.md` Part V.
+
 ## Extending the store
 
 The static trace stops at the C-runtime's indirect handoff into the game — the

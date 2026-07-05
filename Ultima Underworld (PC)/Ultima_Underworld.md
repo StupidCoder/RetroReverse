@@ -38,8 +38,9 @@ their tests and the rendered outputs live in the repository.
 * **Part IV** — asset formats: the palettes (`PALS.DAT` / `ALLPALS.DAT`), the `.GR` image
   banks, the `.TR` wall/floor textures, the `.BYT` full-screen images, the fonts, and the packed
   string table (`STRINGS.PAK`). *(planned — static decode)*
-* **Part V** — the world: the level archive (`LEV.ARK`) — the tile map, the object list, and the
-  dungeon geometry that the engine renders. *(planned)*
+* **Part V** — the world and the **3D renderer**: the level archive (`LEV.ARK`) plus the
+  first-person engine read from the oracle's live memory. *(started — the camera/view-matrix
+  transform and the renderer's divide-error mechanism are mapped; `disasm/uw-render.*`)*
 * **Part VI** — audio and cutscenes: the digitized voices (`.VOC`), the sequenced music
   (`.XMI`) and its Miles driver files, and the `CUTS` cutscene animation format. *(planned)*
 
@@ -481,10 +482,57 @@ Static decode, no oracle required: the palettes (`PALS.DAT`/`ALLPALS.DAT`), the 
 banks, the `.TR` textures, the `.BYT` full-screen images, the `FONT*.SYS` fonts, and
 `STRINGS.PAK`. Each will be reimplemented in the game's `extract` module and rendered to `rendered/`.
 
-# Part V — The world (planned)
+# Part V — The world and the 3D renderer
 
 `LEV.ARK` — the dungeon: the per-level tile map, the object placement lists, and the geometry the
-first-person engine renders. `CNV.ARK` — the conversation scripts.
+first-person engine renders. `CNV.ARK` — the conversation scripts. *(the level archive is still
+planned static decode)*
+
+## 1. Reverse-engineering the 3D renderer — the camera transform *(started)*
+
+Now that the oracle plays into the dungeon, the renderer can be read from **live memory** — it is
+overlay-paged code, so static tracing of the raw `UW.EXE` can't reach it, but `bootoracle -dis`
+disassembles the relocated, paged-in image directly, and a breakpoint on the perspective divide
+catches it mid-render. The renderer's code overlay is segment **`07F7`** and its data segment is
+**`499D`**; the disassembly and full commentary are in `disasm/uw-render.asm` +
+`disasm/uw-render.annotations.txt`. What's mapped so far:
+
+- **The view matrix** at `[499D:1600..1618]` — the camera orientation basis in 1.15 fixed point
+  (`0x8000` = 1.0). A live capture at dungeon entry: `[1602]=0x64F2`, `[160A]=0x7FFD`≈1.0,
+  `[1612]=0x61A4`, `[1616]=0x4D03`, the rest zero (sparse because the player spawns facing a
+  cardinal direction).
+- **Basis orthonormalisation** (`07F7`, from `4B90`): it scales the matrix rows by reciprocal
+  lengths, then normalises each basis vector — length via an integer `isqrt` (`CALLF 214A:0A30`,
+  Newton's method), then `component = (c<<15) / length`, saturated to ≈1.0.
+- **Shared math** in segment `214A`: `0A30` = `isqrt32(CX:BX)`; `0A34` = a linear interpolation of
+  two tables (use not yet confirmed — left unclaimed rather than guessed).
+
+## 2. A divide-by-design — and a CPU-generation bug it exposed
+
+The renderer never guards its normalisation divides. When a basis vector is axis-aligned the
+normalised component is exactly 1.0, i.e. quotient `32768` — one past the signed-16 maximum — so
+the `IDIV` overflows. Instead of testing for that every time, the renderer **arms its own
+divide-error handler** (`MOV [SS:04D5],$5BD1` at `07F7:4D85`, so `IVT[0] = 589E:04D0 → JMPF → 07F7:5BD1`)
+and lets the `#DE` fire; the handler skips the faulting `IDIV` and returns the saturated `0x7FFF`.
+It is the classic fixed-point-renderer trick, done through the interrupt vector.
+
+Reading that handler pinned a real oracle bug. It advances the pushed return IP by 2 to step over
+the 2-byte `IDIV` — which only lands correctly if the pushed IP is the **faulting** instruction's,
+the **286-and-later** `#DE` behaviour. `tools/x86` was pushing the *following* instruction's
+address (the 8086/8088 quirk), so the handler returned one byte into the next instruction and
+transiently corrupted the view matrix at setup. Since this core models a 386-class machine (UW's
+target), it now pushes the faulting address (`divErr` + `CPU.instrIP` in `tools/x86/exec.go`); the
+8088 differential harness skips the divide-*exception* cases as the documented generational
+difference (the same class as the already-skipped `PUSHF` reserved bits). The `SingleStepTests/8088`
+suite still passes.
+
+## 3. Still open
+
+The per-frame render entry (from the main loop `2252:0410`), the perspective projection, the
+wall/floor/texture span rasteriser and its texture mapper, object/billboard sprites, and the
+off-screen-buffer → `A000` blit (a copy loop was seen at `231D:0070`). These are the next targets;
+the peripheral-panel noise in `rendered/dungeon.png` is expected to resolve as the UI/HUD draw path
+is mapped.
 
 # Part VI — Audio and cutscenes (planned)
 

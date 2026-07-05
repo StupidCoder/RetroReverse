@@ -1,0 +1,104 @@
+============================================================================
+uw-render.annotations.txt — Ultima Underworld 3D renderer (Part V, in progress)
+============================================================================
+
+Companion to uw-render.asm. This is the START of the 3D-renderer reverse
+engineering: the camera/view-transform setup, plus the divide-error mechanism
+the fixed-point math relies on. The wall/floor/texture rasteriser and object
+sprites are not mapped yet (see "Open" below). All addresses are runtime
+SEG:OFF captured from the oracle in the dungeon; see ../Ultima_Underworld.md
+Part V.
+
+How this was found: with the oracle in the dungeon, breakpoint the perspective
+divide at 07F7:4DCA; its instruction ring shows the call chain, and -dis / -dump
+read the live overlay code and data. The renderer overlay's code segment is
+07F7 and its data segment is 499D.
+
+----------------------------------------------------------------------------
+1. The view matrix — [499D:1600 .. 1618], 1.15 fixed point
+----------------------------------------------------------------------------
+
+A block of 16-bit fixed-point values (1.15: 0x8000 = 1.0) holding the camera
+orientation basis. A live capture just after character start (player facing a
+cardinal direction, so the matrix is near-axis-aligned and sparse):
+
+  [1602]=0x64F2  [160A]=0x7FFD(~1.0)  [1612]=0x61A4  [1616]=0x4D03   rest 0
+
+The routine in uw-render.asm reads/writes elements at 1602,1604,1606,1608,160A,
+160E,1610,1612,1616,1618 — a 3x3-plus rotation basis. It is rebuilt whenever the
+view direction changes.
+
+----------------------------------------------------------------------------
+2. Orthonormalising the basis — 07F7 (uw-render.asm, from 4B90)
+----------------------------------------------------------------------------
+
+The routine normalises the camera basis so the rotation stays orthonormal:
+
+  - 4B90..4BE4 / 4BE6..: scale each matrix row by a reciprocal-length factor
+    (CX = [7C00]<<15 / row-length via IDIV; then IMUL each element, SHL/RCL to
+    keep the 1.15 scale). The factors are cached in [2728]/[272A].
+  - 4D85  MOV WORD [SS:04D5],$5BD1 — ARM the divide-error trampoline: point the
+    IVT[0] handler's JMPF vector at this overlay's own #DE handler (§4) before
+    doing divides that are expected to overflow.
+  - 4D8C..4DA4  BX:CX = [1606]^2 + [1612]^2 (32-bit sum of squares).
+  - 4DA6  CALLF 214A:0A30 — DI = isqrt(BX:CX) = |(1606,1612)| (§3).
+  - 4DAB..4DD2  normalise: [26CC] = ([1606]<<15)/DI, [26CE] = ([1612]<<15)/DI.
+    Each divide can produce exactly 32768 when the vector is axis-aligned (the
+    normalised component is 1.0), which overflows signed IDIV -> #DE -> the
+    handler returns the saturated 0x7FFF. The `CMP AX,$8000 / INC AX` right after
+    each divide handles the other near-1.0 encoding.
+  - 4DD7.. onward: the same sqrt+divide normalisation for the next basis vector
+    ([1604],[1610]) and so on.
+
+So [26CC]/[26CE] (and siblings) are the normalised unit basis vectors the
+perspective projection uses.
+
+----------------------------------------------------------------------------
+3. Shared math helpers — 214A (uw-render.asm)
+----------------------------------------------------------------------------
+
+214A:0A30 (far) -> 214A:0A78  isqrt32(CX:BX) -> DI. Newton's method: initial
+    guess DI=0x4000 (or 0xFFFF if CX>=0x4000), then DI = (DI + (CX:BX)/DI)/2
+    unrolled 5 times. Used for vector magnitude in §2.
+214A:0A34 (far) -> 214A:0A38  linear interpolation of two DS-relative tables at
+    [BX+04E0] and [BX+0560] by fraction CX, returning AX and BX. In the renderer
+    DS (499D) those tables read as zero on the captured path, so their content /
+    purpose is not yet confirmed — do not assume sin/cos without tracing a use.
+
+----------------------------------------------------------------------------
+4. The divide-error handler — 07F7:5BD1 (uw-render.asm)
+----------------------------------------------------------------------------
+
+The renderer deliberately lets its normalisation divides overflow and catches
+the #DE (INT 0) to clamp the result, instead of guarding every divide:
+
+  IVT[0] = 589E:04D0  ->  JMPF [589E:04D5]  ->  07F7:5BD1   (armed at 4D85)
+
+  5BD1  MOV [CS:5BCD],BP        ; save BP
+  5BD6  MOV BP,SP               ; BP -> #DE frame; [BP] = pushed return IP
+  5BD8  INC WORD [BP] (x2)      ; skip the 2-byte faulting IDIV
+  5BDE  MOV AX,$7FFF / XOR DX   ; saturate quotient to +max (~+1.0), remainder 0
+  5BE8  INC WORD [CS:5BCF]      ; saturation counter
+  5BED  IRET
+
+This works ONLY under 286-and-later #DE semantics, where the CPU pushes the
+FAULTING instruction's address (so +2 lands on the instruction's own result
+check). The 8086/8088 pushes the FOLLOWING instruction's address, for which
++2 would land one byte into the next instruction. tools/x86 was corrected to
+the 286 behaviour to match (an oracle bug this RE surfaced): see divErr() /
+c.instrIP in tools/x86/exec.go, and the harte harness note that skips the
+divide-exception cases as a documented 8086-vs-286 difference.
+
+----------------------------------------------------------------------------
+Open (next steps for Part V)
+----------------------------------------------------------------------------
+
+- The per-frame render entry called from the main loop (2252:0410) — the top of
+  "draw the 3D view".
+- The perspective projection that consumes the normalised basis (§2) to map
+  world points to screen columns/rows.
+- The wall/floor/ceiling span rasteriser and the texture mapper (likely another
+  fixed-point divide per span — a candidate for the same #DE-saturation trick).
+- Object/billboard sprite drawing.
+- The off-screen buffer -> A000 blit (a memory copy loop was seen at 231D:0070).
+- Confirm the 214A:0A34 table interpolation's use and table contents.

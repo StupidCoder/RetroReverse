@@ -286,6 +286,19 @@ func runHarteCase(tc *harteCase, ram *harteRAM) (bool, string) {
 		return true, "" // treat halts (unimplemented) as skipped-pass
 	}
 
+	// A DIV/IDIV whose divisor is zero or whose quotient overflows raises the
+	// divide-error exception (#DE, INT 0). This core pushes the FAULTING
+	// instruction's address (286-and-later behaviour, which UW's own #DE handler
+	// depends on); the 8088 pushes the FOLLOWING instruction's address. That is a
+	// documented CPU-generation difference — the same class as PUSHF's reserved
+	// flag bits handled above — so skip a case once we can see #DE was actually
+	// dispatched (CS:IP landed on the IVT[0] vector the case set up).
+	if op := opcodeOf(tc.Bytes); (op == 0xF6 || op == 0xF7) &&
+		c.Seg[CS] == uint16(ram.mem[2])|uint16(ram.mem[3])<<8 &&
+		(c.IP&0xFFFF) == uint32(ram.mem[0])|uint32(ram.mem[1])<<8 {
+		return true, ""
+	}
+
 	// Expected register state = initial overlaid with the final deltas.
 	exp := map[string]int{}
 	for k, v := range tc.Initial.Regs {

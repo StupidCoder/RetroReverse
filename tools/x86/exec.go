@@ -173,6 +173,7 @@ func (c *CPU) Step() {
 	}
 	c.ssShadow = false // the shadow blocks only the single boundary above
 	c.Steps++
+	c.instrIP = c.IP & 0xFFFF // start of this instruction, for a fault's pushed CS:IP
 	c.dSeg, c.dOpsize, c.dAddrsize = -1, 16, 16
 	var rep byte
 	var op byte
@@ -716,13 +717,17 @@ func (c *CPU) doInt(n byte) {
 }
 
 // divErr raises the divide-error exception (#DE) by vectoring through IVT[0],
-// exactly as a real CPU does on a zero divisor or overflowing quotient. c.IP
-// already points past the DIV/IDIV when this runs, matching the 8086 (which
-// pushes the address following the instruction), so a handler that IRETs
-// resumes at the next instruction. Programs that install their own #DE handler —
-// UW's fixed-point renderer relies on this to saturate overflowing divides —
-// then run as intended instead of the core stopping.
-func (c *CPU) divErr() { c.dispatchIVT(0) }
+// as a real CPU does on a zero divisor or overflowing quotient. It pushes the
+// address of the FAULTING instruction (the 286-and-later behaviour), not the
+// following one (the 8086/8088 quirk) — this core models a 386-class machine.
+// The distinction is load-bearing: a #DE handler that restarts or adjusts the
+// faulting instruction (UW's fixed-point renderer skips the 2-byte IDIV by
+// adding 2 to the pushed IP, so it lands on the instruction's own result-check)
+// only lands correctly when the pushed IP points at the IDIV itself.
+func (c *CPU) divErr() {
+	c.IP = c.instrIP
+	c.dispatchIVT(0)
+}
 
 // dispatchIVT performs the real-mode interrupt sequence: push FLAGS/CS/IP,
 // clear IF/TF, and vector through IVT[n].
