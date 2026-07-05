@@ -63,15 +63,14 @@ var falseBind = map[int]bool{177: true, 178: true, 179: true, 180: true}
 type jsonObj struct {
 	Actor int       `json:"a"`
 	Model string    `json:"m,omitempty"`
-	Scale float64   `json:"s,omitempty"` // model scale in stage units (2^objShift / 2^stageShift)
+	Scale float64   `json:"s,omitempty"` // display scale: 2^-objShift (authored-fx convention)
 	Bill  bool      `json:"b,omitempty"` // billboard (flat tree quads yaw to camera)
 	Pos   []float64 `json:"p"`
 	RotY  float64   `json:"ry,omitempty"`
 	Layer int       `json:"l,omitempty"`
 }
 
-// bmdShift reads a model's power-of-two scale shift (header u32 at +0): its raw
-// fx4.12 vertex space times 2^shift is world units.
+// bmdShift reads a model's power-of-two scale shift (header u32 at +0).
 func bmdShift(path string) (int, bool) {
 	raw, err := os.ReadFile(path)
 	if err != nil {
@@ -89,6 +88,9 @@ func bmdShift(path string) (int, bool) {
 	return int(binary.LittleEndian.Uint32(data)), true
 }
 
+// archiveShift records each extracted archive model's header shift.
+var archiveShift = map[string]int{}
+
 func main() {
 	rom := flag.String("rom", "../Super Mario 64 DS (Europe) (En,Fr,De,Es,It).nds", "cartridge image")
 	ext := flag.String("extracted", "../extracted", "extracted binaries dir")
@@ -105,6 +107,18 @@ func main() {
 	}
 	treeActor := ls.Actor(41) // the TREE object's actor (object->actor table)
 	filesRoot := filepath.Join(*ext, "files")
+	shiftOf := map[string]int{}
+	modelShift := func(rel string) (int, bool) {
+		stem := strings.TrimSuffix(filepath.Base(rel), ".bmd")
+		if v, ok := shiftOf[stem]; ok {
+			return v, true
+		}
+		v, ok := bmdShift(filepath.Join(filesRoot, rel))
+		if ok {
+			shiftOf[stem] = v
+		}
+		return v, ok
+	}
 
 	// extract the archive models (coin, star, castle tree ...) to GLBs
 	for _, id := range archiveModels {
@@ -123,6 +137,7 @@ func main() {
 			fmt.Fprintf(os.Stderr, "  %s: %v\n", ref.Stem(), err)
 			continue
 		}
+		archiveShift[ref.Stem()] = int(binary.LittleEndian.Uint32(data))
 		if billboardStems[ref.Stem()] {
 			m.NormalizeUV() // billboard quads overflow their texture in texel space
 		}
@@ -131,18 +146,6 @@ func main() {
 			continue
 		}
 		os.WriteFile(filepath.Join(*glbDir, ref.Stem()+".glb"), glb, 0o644)
-	}
-	shiftOf := map[string]int{} // model stem -> 2^shift cache
-	modelShift := func(rel string) (int, bool) {
-		stem := strings.TrimSuffix(filepath.Base(rel), ".bmd")
-		if v, ok := shiftOf[stem]; ok {
-			return v, true
-		}
-		v, ok := bmdShift(filepath.Join(filesRoot, rel))
-		if ok {
-			shiftOf[stem] = v
-		}
-		return v, ok
 	}
 	// stem -> path for every .bmd in the internal file table
 	modelPath := map[string]string{}
@@ -154,6 +157,21 @@ func main() {
 				modelPath[stem] = n
 			}
 		}
+	}
+
+	// shiftScale is the display scale for an object instance: 2^-objShift, undoing
+	// the exporter's bake so the model shows at its authored fx size (see the
+	// placement-loop comment; deliberately incomplete for runtime-scaled actors).
+	shiftScale := func(stem string) float64 {
+		if sh, ok := archiveShift[stem]; ok {
+			return r3(math.Pow(2, -float64(sh)))
+		}
+		if p, ok := modelPath[stem]; ok {
+			if sh, ok2 := modelShift(p); ok2 {
+				return r3(math.Pow(2, -float64(sh)))
+			}
+		}
+		return 0
 	}
 
 	hasGLB := func(name string) bool {
@@ -179,16 +197,16 @@ func main() {
 		if err != nil {
 			die(err)
 		}
+		// Placement shorts are fx world coordinates (the spawner shifts them <<12 —
+		// traced at $020FE8AC/$020FE960). The exported stage GLBs bake the header's
+		// 2^shift onto the raw fx vertices (an exporter convention), so the mapping
+		// into stage-GLB units is short * 2^stageShift / 4096. How the ENGINE maps
+		// model space into the world is the open trace (Part V §5); this convention
+		// is provisional until that lands.
 		stageShift, ok := modelShift(lv.BMDPath)
 		if !ok {
-			fmt.Fprintf(os.Stderr, "  %s: no stage shift\n", stem)
 			continue
 		}
-		// Stage-GLB units: a stage GLB stores raw fx floats times the stage's 2^shift,
-		// and a placement short (<<12 into fx by the spawner) is short/4096 fx —
-		// so stage-GLB position = short * 2^stageShift / 4096. (The /4096-only first
-		// pass passed the containment test but clustered everything at half radius
-		// on shift-1 stages like Bob-omb Battlefield.)
 		toStage := math.Pow(2, float64(stageShift)) / 4096
 		var objs []jsonObj
 		seen := map[string]bool{}
@@ -199,6 +217,12 @@ func main() {
 			}
 			seen[key] = true
 			j := jsonObj{Actor: o.Actor, Pos: []float64{r3(o.X * toStage), r3(o.Y * toStage), r3(o.Z * toStage)}, RotY: r3(o.RotY), Layer: o.Layer}
+			// Object instances display at their authored fx size: the GLB bake of
+			// 2^shift is reversed (scale 2^-shift). The cartridge specifies no other
+			// static size for these models (the engine's object scale field at +$80
+			// defaults to 1.0 fx and no placed actor writes it statically); actors
+			// that resize themselves at runtime render at authored size until their
+			// code is traced — deliberately incomplete rather than calibrated.
 			switch {
 			case o.Actor == treeActor:
 				t := (o.Params[0] >> 4) & 7
@@ -207,13 +231,13 @@ func main() {
 				}
 				if m := treeModels[t]; m != "" && hasGLB(m) {
 					j.Model, j.Bill = m, true
-					j.Scale = r3(objScale(m, stageShift))
+					j.Scale = shiftScale(m)
 				}
 			case collectibleModels[o.Actor] != "":
 				if m := collectibleModels[o.Actor]; hasGLB(m) {
 					j.Model = m
 					j.Bill = billboardStems[m]
-					j.Scale = r3(objScale(m, stageShift))
+					j.Scale = shiftScale(m)
 				}
 			default:
 				if ms := actorModels[o.Actor]; len(ms) > 0 && !falseBind[o.Actor] {
@@ -221,7 +245,7 @@ func main() {
 					if hasGLB(m) {
 						j.Model = m
 						j.Bill = billboardStems[m]
-						j.Scale = r3(objScale(m, stageShift))
+						j.Scale = shiftScale(m)
 					}
 				}
 			}
@@ -241,28 +265,6 @@ func main() {
 		stages++
 	}
 	fmt.Printf("exported %d stages, %d placements (%d bound to models)\n", stages, total, bound)
-}
-
-// objScale converts an object GLB into stage-GLB units. The engine-side object
-// scale field (object+$80, fx12) defaults to 1.0 and none of the placed actors
-// write a static constant there — the collectibles are sized by their actors at
-// runtime (the mushroom literally grows) — so display sizes are calibrated per
-// model where the 1/16 world ratio (which the tree confirms) reads wrong. The
-// true render-path object scaling remains untraced (Part V §3).
-var stemScale = map[string]float64{
-	"arc0_5": 0.020, "arc0_7": 0.020, // coins
-	"arc0_21": 0.019, "arc0_25": 0.019, // stars
-	"ar1_15":          0.019, // super-mushroom billboard
-	"scale_up_kinoko": 0.019,
-	"obj_tatefuda":    0.030, // signboards read closer to in-game at half the 1/16
-}
-
-func objScale(stem string, stageShift int) float64 {
-	f, ok := stemScale[stem]
-	if !ok {
-		f = 1.0 / 16
-	}
-	return f * math.Pow(2, float64(stageShift))
 }
 
 func r3(v float64) float64 { return float64(int(v*1000+0.5*sign(v))) / 1000 }
