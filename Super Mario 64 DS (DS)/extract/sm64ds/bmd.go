@@ -185,12 +185,13 @@ func Decode(data []byte, name string) (*Model, error) {
 	// from that scaled matrix; slots initialised to identity silently drop the
 	// 2^shift bake for every such model (a shift-1 stage exported at half size,
 	// the shift-4 trees at 1/16).
+	worlds := boneWorlds(b, oBone, numBone, scale)
 	stack := make([]nitro.Mat43, 32)
 	for i := range stack {
 		if i < numBone {
-			stack[i] = boneWorld(b, oBone+i*0x40, scale)
-		} else {
-			stack[i] = boneWorld(b, oBone, scale)
+			stack[i] = worlds[i]
+		} else if numBone > 0 {
+			stack[i] = worlds[0]
 		}
 	}
 	byMat := map[int][]nitro.Tri{}
@@ -221,7 +222,7 @@ func Decode(data []byte, name string) (*Model, error) {
 	}
 	for bi := 0; bi < numBone; bi++ {
 		bone := oBone + bi*0x40
-		world := boneWorld(b, bone, scale)
+		world := worlds[bi]
 		cnt := int(b.u32(bone + 0x30))
 		moff, doff := int(b.u32(bone+0x34)), int(b.u32(bone+0x38))
 		for i := 0; i < cnt; i++ {
@@ -244,11 +245,55 @@ func Decode(data []byte, name string) (*Model, error) {
 	return &Model{Name: name, ByMat: byMat, Mats: mats, Texs: texs, NumBones: numBone}, nil
 }
 
-// boneWorld builds a bone's world transform. The stage/object geometry tested so
-// far is authored in model space with identity bones, so this applies only the
-// model-wide 2^scale; per-bone translate/rotate is layered in once a model needs it.
-func boneWorld(b bmd, bone int, scale float64) nitro.Mat43 {
-	return nitro.Mat43{scale, 0, 0, 0, scale, 0, 0, 0, scale, 0, 0, 0}
+// boneWorlds builds every bone's world transform from the bind pose. A bone
+// record carries a full local TRS — scale at +$10 (fx12), rotation at
+// +$1C/+$1E/+$20 (u16, <<4 = DS angle units; traced through the runtime copy at
+// $020462D0), translation at +$24 (fx12) — and RELATIVE links at +$08/+$0A/+$0C
+// (parent/sibling/child, in records; the walker $02045074 recurses over them).
+// The engine's rotation builder $02045178 composes R = Rx·Ry·Rz (row-vector
+// order: a vertex sees X first, then Y, then Z — its rows read
+// (cy·cz, cy·sz, -sy) / (sx·sy·cz - cx·sz, ...) exactly). A vertex is
+// transformed by the model-wide 2^shift first (the engine's trailing
+// MTX_SCALE), then S, Rx, Ry, Rz, T, then the parent chain.
+func boneWorlds(b bmd, oBone, n int, scale float64) []nitro.Mat43 {
+	rot := func(rx, ry, rz float64) nitro.Mat43 {
+		cx, sx := math.Cos(rx), math.Sin(rx)
+		cy, sy := math.Cos(ry), math.Sin(ry)
+		cz, sz := math.Cos(rz), math.Sin(rz)
+		return nitro.Mat43{
+			cy * cz, cy * sz, -sy,
+			sx*sy*cz - cx*sz, cx*cz + sx*sy*sz, sx * cy,
+			cx*sy*cz + sx*sz, cx*sy*sz - sx*cz, cx * cy,
+			0, 0, 0,
+		}
+	}
+	ang := func(o int) float64 {
+		raw := uint16(le.Uint16(b.d[o:])) << 4 // runtime stores u16<<4 (STRH truncates)
+		return float64(raw) / 65536 * 2 * math.Pi
+	}
+	fx := func(o int) float64 { return float64(int32(b.u32(o))) / 4096 }
+	ws := make([]nitro.Mat43, n)
+	for i := 0; i < n; i++ {
+		r := oBone + i*0x40
+		local := rot(ang(r+0x1C), ang(r+0x1E), ang(r+0x20))
+		sx, sy, sz := fx(r+0x10), fx(r+0x14), fx(r+0x18)
+		if sx != 1 || sy != 1 || sz != 1 {
+			local = local.Mul(nitro.Mat43{sx, 0, 0, 0, sy, 0, 0, 0, sz, 0, 0, 0})
+		}
+		local[9], local[10], local[11] = fx(r+0x24), fx(r+0x28), fx(r+0x2C)
+		par := i + int(int16(le.Uint16(b.d[r+8:])))
+		if par != i && par >= 0 && par < i {
+			ws[i] = ws[par].Mul(local)
+		} else {
+			ws[i] = local
+		}
+	}
+	sc := nitro.Mat43{scale, 0, 0, 0, scale, 0, 0, 0, scale, 0, 0, 0}
+	out := make([]nitro.Mat43, n)
+	for i := range ws {
+		out[i] = ws[i].Mul(sc)
+	}
+	return out
 }
 
 // GLB exports the model to binary glTF via the shared nitro exporter.
