@@ -1,17 +1,14 @@
 // exportlevelobjs decodes every level's object placements (Part V §1: the level
 // overlay's settings block, object tables and the object->actor table, all located
 // by tracing the game's code — see sm64ds/level.go) and writes per-stage JSON for
-// the web viewer, binding placements to extracted models where the binding itself
-// was traced from the game:
+// the web viewer.
 //
-//   - the tree actor's model table at overlay-2 $0210ABB8 (u16 internal file IDs,
-//     indexed by (par>>4)&7 clamped to 4 — the clamp and index shift are read at
-//     $020EC240): types 0-3 are the four filesystem tree models; type 4 is an
-//     archive-resident model (bit-15-flagged ID) we don't extract yet.
-//   - actors whose C++ typeinfo class name (embedded in the overlay binaries,
-//     e.g. "daObjMc_Metalnet") names their model file directly.
-//
-// Everything else is exported as an unbound placement; the viewer shows a marker.
+// Placements bind to models through the ACTOR-BINDING ORACLE's table
+// (extracted/actorbind.json, written by cmd/actororacle — see sm64ds/oracle.go):
+// each actor's create/init code was RUN on the tools/arm CPU with the game's
+// loader trapped, so a binding is what the actor's own code loaded or built its
+// render object on, per parameter set. No pattern matching, no special cases:
+// an actor without a binding provably loads nothing in create/init.
 package main
 
 import (
@@ -25,52 +22,20 @@ import (
 	"supermario64ds/extract/sm64ds"
 )
 
-// tree actor's model table (traced): index = (par>>4)&7, clamped to 4; entry 4 is
-// the archive-resident castle tree (flagged ID $9C10 = ar1.narc member 16)
-var treeModels = []string{"bomb_tree", "toge_tree", "yuki_tree", "yashi_tree", "ar1_16"}
-
-// archive models identified by their own material names (arc0[5] "coin",
-// arc0[7] the red variant, arc0[21] the power star with "mat_body"/"mat_eye" and
-// embedded star strings, arc0[25] "mat_star_silver", ar1[16] "mat_main_tree"):
-// extracted from the NARCs via the traced descriptor table and bound to the
-// coin/star actors pending a full code trace of their load path.
-var archiveModels = []int{0x8005, 0x8007, 0x8015, 0x8019, 0x9C10, 0x9C0F, 0x9C01, 0x9C02}
-
-// actor -> archive model (content-identified; the actors are the object->actor
-// translations of the coin/red-coin/blue-coin/star placements)
-var collectibleModels = map[int]string{
-	288: "arc0_5",  // coin
-	289: "arc0_7",  // red coin
-	290: "arc0_5",  // blue coin (same mesh; blue palette variant not yet separated)
-	178: "arc0_21", // power star
-	337: "ar1_2",   // chain chomp (daWanwan2_c loads ar1 members 1-4: body $9C02, chain $9C01)
-}
-
-// billboard models: flat quads/discs the game keeps camera-facing
-var billboardStems = map[string]bool{
-	"bomb_tree": true, "toge_tree": true, "yuki_tree": true, "yashi_tree": true,
-	"ar1_16": true, "ar1_15": true,
-}
-
-// falseBind: actors whose scan picks up a neighbouring unit's model by
-// adjacency rather than their own — the tree-table stubs (177-180, placing
-// indoors), engine actors 11/12 whose scan lands on the Eyerok hand
-// (iwante_lhand — the pyramid boss's files, registered nearby; a stone hand
-// under Bob-omb Battlefield's bridge is clearly wrong), and bank actors whose
-// nearest literal is a stage prop instead of their body (190 daHolhei -> a
-// bird, 358 daECreate_c the enemy spawner, 318 daObjFlamethrower -> a ?-box,
-// 239 daJango -> a flower). Dropped until traced properly.
-var falseBind = map[int]bool{
-	11: true, 12: true,
-	177: true, 178: true, 179: true, 180: true,
-	190: true, 239: true, 318: true, 358: true,
+// Binding mirrors cmd/actororacle's table entry.
+type Binding struct {
+	Params [3]int   `json:"params"`
+	Config int      `json:"config"`
+	Models []string `json:"models,omitempty"`
+	Clips  []string `json:"clips,omitempty"`
+	Notes  []string `json:"notes,omitempty"`
 }
 
 type jsonObj struct {
 	Actor int       `json:"a"`
 	Model string    `json:"m,omitempty"`
 	Scale float64   `json:"s,omitempty"` // display scale: 1/125 (engine NULL-scale-vector size, Part V §5)
-	Bill  bool      `json:"b,omitempty"` // billboard (flat tree quads yaw to camera)
+	Bill  bool      `json:"b,omitempty"` // billboard (bone flag +$3C bit 0 set on the model's bones)
 	Pos   []float64 `json:"p"`
 	RotY  float64   `json:"ry,omitempty"`
 	Layer int       `json:"l,omitempty"`
@@ -80,6 +45,7 @@ func main() {
 	rom := flag.String("rom", "../Super Mario 64 DS (Europe) (En,Fr,De,Es,It).nds", "cartridge image")
 	ext := flag.String("extracted", "../extracted", "extracted binaries dir")
 	glbDir := flag.String("glb", "../extracted/glb", "exported models dir (to check bindings)")
+	bindPath := flag.String("bind", "../extracted/actorbind.json", "oracle binding table (cmd/actororacle)")
 	outDir := flag.String("o", "../extracted/objects", "output dir for per-stage object JSON")
 	flag.Parse()
 
@@ -90,60 +56,38 @@ func main() {
 	if err := os.MkdirAll(*outDir, 0o755); err != nil {
 		die(err)
 	}
-	treeActor := ls.Actor(41) // the TREE object's actor (object->actor table)
-
-	// Enemy-bank bindings: the bank overlays (60-102) carry RTTI actor profiles
-	// and register their models in their static initialisers; actor IDs defined
-	// by two banks with different classes are skipped, not guessed (the
-	// per-level bank set — untraced — decides which is loaded).
-	bankModels, err := ls.TraceBankActorModels()
+	var bindings map[int][]Binding
+	buf, err := os.ReadFile(*bindPath)
 	if err != nil {
+		die(fmt.Errorf("%w (run cmd/actororacle first)", err))
+	}
+	if err := json.Unmarshal(buf, &bindings); err != nil {
 		die(err)
 	}
 
-	// extract the archive models (coin, star, castle tree ...) to GLBs
-	for _, id := range archiveModels {
-		ref, ok := ls.ResolveArchiveID(id)
-		if !ok {
-			fmt.Fprintf(os.Stderr, "  archive id %#x: unresolved\n", id)
-			continue
-		}
-		data, err := ls.ArchiveMember(ref)
-		if err != nil || !sm64ds.PlausibleBMD(data) {
-			fmt.Fprintf(os.Stderr, "  %s: not a decodable model\n", ref.Stem())
-			continue
-		}
-		m, err := sm64ds.Decode(data, ref.Stem())
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "  %s: %v\n", ref.Stem(), err)
-			continue
-		}
-		glb, err := m.GLB()
-		if err != nil {
-			continue
-		}
-		os.WriteFile(filepath.Join(*glbDir, ref.Stem()+".glb"), glb, 0o644)
-	}
-	// stem -> path for every .bmd in the internal file table
-	modelPath := map[string]string{}
-	for i := 0; i < 2058; i++ {
-		n := ls.InternalName(i)
-		if strings.HasSuffix(n, ".bmd") {
-			stem := strings.TrimSuffix(filepath.Base(n), ".bmd")
-			if _, dup := modelPath[stem]; !dup {
-				modelPath[stem] = n
+	// modelFor picks a placement's model: the oracle ran every distinct
+	// parameter combination the levels place, so an exact match exists for any
+	// bound actor; the first model of the matching run is the actor's own
+	// display binding (see Oracle.Models).
+	modelFor := func(actor int, par [3]int) string {
+		var loose string
+		for _, b := range bindings[actor] {
+			if len(b.Models) == 0 {
+				continue
+			}
+			if b.Params == par {
+				return b.Models[0]
+			}
+			if loose == "" && b.Params[0] == par[0] {
+				loose = b.Models[0]
 			}
 		}
+		return loose
 	}
 
-	// objScale is the display scale for an object instance, from the traced engine
-	// transform (Part V §5): the engine draws an object model under
-	// MTX_SCALE(2^shift) — already baked into the exported GLB — while the stage
-	// draws under an extra uniform 125.0 ($020755D4), so in stage-GLB units an
-	// object drawn with a NULL scale vector (the common case; the coin's draw
-	// passes NULL) shows at its baked GLB size / 125. Actors that pass a runtime
-	// scale vector still render at this base size until their code is traced.
-	const objScale = 1.0 / 125
+	// extract archive-member models the bindings reference (arcN_M stems have
+	// no filesystem file; decode straight from the NARC)
+	extractArchiveGLBs(ls, bindings, *glbDir)
 
 	hasGLB := func(name string) bool {
 		if name == "" {
@@ -152,6 +96,16 @@ func main() {
 		_, err := os.Stat(filepath.Join(*glbDir, name+".glb"))
 		return err == nil
 	}
+	// billboard = the model's own bone flag (+$3C bit 0, commit 13ec351): a
+	// camera-facing quad (trees, coins' flat variants) yaws to the camera
+	bill := billboardChecker(ls, *ext)
+
+	// objScale is the display scale for an object instance, from the traced engine
+	// transform (Part V §5): object models draw under MTX_SCALE(2^shift) — already
+	// baked into the exported GLB — while the stage draws under an extra uniform
+	// 125.0 ($020755D4), so in stage-GLB units an object drawn with a NULL scale
+	// vector (the common case) shows at its baked GLB size / 125.
+	const objScale = 1.0 / 125
 
 	total, bound, stages := 0, 0, 0
 	for i := 0; i < sm64ds.NumLevels; i++ {
@@ -163,10 +117,6 @@ func main() {
 		stem := strings.TrimSuffix(filepath.Base(lv.BMDPath), ".bmd")
 		if !hasGLB(stem) {
 			continue // no stage model exported (shouldn't happen)
-		}
-		actorModels, err := ls.TraceActorModels(lv.Overlay)
-		if err != nil {
-			die(err)
 		}
 		// Placement shorts are fx world coordinates (the spawner shifts them <<12 —
 		// traced at $020FE8AC/$020FE960). The engine renders in world/8 units
@@ -185,37 +135,10 @@ func main() {
 			}
 			seen[key] = true
 			j := jsonObj{Actor: o.Actor, Pos: []float64{r3(o.X * toStage), r3(o.Y * toStage), r3(o.Z * toStage)}, RotY: r3(o.RotY), Layer: o.Layer}
-			// Object instances display at the engine's NULL-scale-vector size:
-			// baked GLB / 125 (see objScale above).
-			switch {
-			case o.Actor == treeActor:
-				t := (o.Params[0] >> 4) & 7
-				if t > 4 {
-					t = 4
-				}
-				if m := treeModels[t]; m != "" && hasGLB(m) {
-					j.Model, j.Bill = m, true
-					j.Scale = objScale
-				}
-			case collectibleModels[o.Actor] != "":
-				if m := collectibleModels[o.Actor]; hasGLB(m) {
-					j.Model = m
-					j.Bill = billboardStems[m]
-					j.Scale = objScale
-				}
-			default:
-				ms := actorModels[o.Actor]
-				if len(ms) == 0 {
-					ms = bankModels[o.Actor]
-				}
-				if len(ms) > 0 && !falseBind[o.Actor] {
-					m := ms[0] // first hit = nearest to the create function
-					if hasGLB(m) {
-						j.Model = m
-						j.Bill = billboardStems[m]
-						j.Scale = objScale
-					}
-				}
+			if m := modelFor(o.Actor, o.Params); m != "" && hasGLB(m) {
+				j.Model = m
+				j.Bill = bill(m)
+				j.Scale = objScale
 			}
 			if j.Model != "" {
 				bound++
@@ -246,6 +169,102 @@ func main() {
 		stages++
 	}
 	fmt.Printf("exported %d stages, %d placements (%d bound to models)\n", stages, total, bound)
+}
+
+// extractArchiveGLBs decodes every archive member the bindings name (arcN_M)
+// into a GLB next to the filesystem models.
+func extractArchiveGLBs(ls *sm64ds.LevelSet, bindings map[int][]Binding, glbDir string) {
+	done := map[string]bool{}
+	for _, bs := range bindings {
+		for _, b := range bs {
+			for _, stem := range b.Models {
+				i := strings.LastIndexByte(stem, '_')
+				if i < 0 || done[stem] {
+					continue
+				}
+				done[stem] = true
+				ref, ok := archiveRefByStem(ls, stem)
+				if !ok {
+					continue
+				}
+				data, err := ls.ArchiveMember(ref)
+				if err != nil || !sm64ds.PlausibleBMD(data) {
+					continue
+				}
+				m, err := sm64ds.Decode(data, stem)
+				if err != nil {
+					continue
+				}
+				glb, err := m.GLB()
+				if err != nil {
+					continue
+				}
+				os.WriteFile(filepath.Join(glbDir, stem+".glb"), glb, 0o644)
+			}
+		}
+	}
+}
+
+// archiveRefByStem parses "arc0_5" back into an archive reference.
+func archiveRefByStem(ls *sm64ds.LevelSet, stem string) (sm64ds.ArchiveRef, bool) {
+	i := strings.LastIndexByte(stem, '_')
+	if i < 0 {
+		return sm64ds.ArchiveRef{}, false
+	}
+	var member int
+	if _, err := fmt.Sscanf(stem[i+1:], "%d", &member); err != nil {
+		return sm64ds.ArchiveRef{}, false
+	}
+	name := stem[:i]
+	// only names that are actually archives resolve (filesystem stems with
+	// underscores fall through)
+	for _, arc := range []string{"arc0", "ar1", "c2d", "cee", "cef", "ceg", "cei", "ces", "en1", "vs1", "vs2", "vs3", "vs4"} {
+		if name == arc {
+			return sm64ds.ArchiveRef{Archive: name, Member: member}, true
+		}
+	}
+	return sm64ds.ArchiveRef{}, false
+}
+
+// billboardChecker reports whether a model's bones carry the camera-facing
+// flag, decoding each stem once (filesystem or archive member).
+func billboardChecker(ls *sm64ds.LevelSet, extDir string) func(stem string) bool {
+	// stem -> path for every .bmd in the internal file table
+	path := map[string]string{}
+	for i := 0; i < 2058; i++ {
+		n := ls.InternalName(i)
+		if strings.HasSuffix(n, ".bmd") {
+			s := strings.TrimSuffix(filepath.Base(n), ".bmd")
+			if _, dup := path[s]; !dup {
+				path[s] = n
+			}
+		}
+	}
+	cache := map[string]bool{}
+	return func(stem string) bool {
+		if v, ok := cache[stem]; ok {
+			return v
+		}
+		var m *sm64ds.Model
+		if p, ok := path[stem]; ok {
+			m, _ = sm64ds.LoadBMD(filepath.Join(extDir, "files", filepath.FromSlash(strings.TrimPrefix(p, "/"))))
+		} else if ref, ok := archiveRefByStem(ls, stem); ok {
+			if data, err := ls.ArchiveMember(ref); err == nil && sm64ds.PlausibleBMD(data) {
+				m, _ = sm64ds.Decode(data, stem)
+			}
+		}
+		v := false
+		if m != nil {
+			for _, j := range m.Skel {
+				if j.Billboard {
+					v = true
+					break
+				}
+			}
+		}
+		cache[stem] = v
+		return v
+	}
 }
 
 func r3(v float64) float64 { return float64(int(v*1000+0.5*sign(v))) / 1000 }

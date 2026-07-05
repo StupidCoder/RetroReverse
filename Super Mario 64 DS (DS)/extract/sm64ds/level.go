@@ -75,12 +75,12 @@ type LevelObject struct {
 
 // Level is one decoded level: its stage files and every placed object.
 type Level struct {
-	ID       int
-	Overlay  int
-	BMDPath  string
-	KCLPath  string
-	NumAreas int
-	Objects  []LevelObject
+	ID        int
+	Overlay   int
+	BMDPath   string
+	KCLPath   string
+	NumAreas  int
+	Objects   []LevelObject
 	Entrances []LevelObject // type-1 entries (level entrances: Mario's spawn is the first)
 }
 
