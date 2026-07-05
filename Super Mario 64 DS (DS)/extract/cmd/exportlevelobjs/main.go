@@ -15,17 +15,13 @@
 package main
 
 import (
-	"encoding/binary"
 	"encoding/json"
 	"flag"
 	"fmt"
-	"math"
-
 	"os"
 	"path/filepath"
 	"strings"
 
-	"retroreverse.com/tools/nds"
 	"supermario64ds/extract/sm64ds"
 )
 
@@ -63,33 +59,12 @@ var falseBind = map[int]bool{177: true, 178: true, 179: true, 180: true}
 type jsonObj struct {
 	Actor int       `json:"a"`
 	Model string    `json:"m,omitempty"`
-	Scale float64   `json:"s,omitempty"` // display scale: 2^-objShift (authored-fx convention)
+	Scale float64   `json:"s,omitempty"` // display scale: 1/125 (engine NULL-scale-vector size, Part V §5)
 	Bill  bool      `json:"b,omitempty"` // billboard (flat tree quads yaw to camera)
 	Pos   []float64 `json:"p"`
 	RotY  float64   `json:"ry,omitempty"`
 	Layer int       `json:"l,omitempty"`
 }
-
-// bmdShift reads a model's power-of-two scale shift (header u32 at +0).
-func bmdShift(path string) (int, bool) {
-	raw, err := os.ReadFile(path)
-	if err != nil {
-		return 0, false
-	}
-	var data []byte
-	if len(raw) >= 4 && string(raw[:4]) == "LZ77" {
-		data = nds.Decompress(raw[4:])
-	} else {
-		data = nds.Decompress(raw)
-	}
-	if len(data) < 4 {
-		return 0, false
-	}
-	return int(binary.LittleEndian.Uint32(data)), true
-}
-
-// archiveShift records each extracted archive model's header shift.
-var archiveShift = map[string]int{}
 
 func main() {
 	rom := flag.String("rom", "../Super Mario 64 DS (Europe) (En,Fr,De,Es,It).nds", "cartridge image")
@@ -106,19 +81,6 @@ func main() {
 		die(err)
 	}
 	treeActor := ls.Actor(41) // the TREE object's actor (object->actor table)
-	filesRoot := filepath.Join(*ext, "files")
-	shiftOf := map[string]int{}
-	modelShift := func(rel string) (int, bool) {
-		stem := strings.TrimSuffix(filepath.Base(rel), ".bmd")
-		if v, ok := shiftOf[stem]; ok {
-			return v, true
-		}
-		v, ok := bmdShift(filepath.Join(filesRoot, rel))
-		if ok {
-			shiftOf[stem] = v
-		}
-		return v, ok
-	}
 
 	// extract the archive models (coin, star, castle tree ...) to GLBs
 	for _, id := range archiveModels {
@@ -137,7 +99,6 @@ func main() {
 			fmt.Fprintf(os.Stderr, "  %s: %v\n", ref.Stem(), err)
 			continue
 		}
-		archiveShift[ref.Stem()] = int(binary.LittleEndian.Uint32(data))
 		if billboardStems[ref.Stem()] {
 			m.NormalizeUV() // billboard quads overflow their texture in texel space
 		}
@@ -159,20 +120,14 @@ func main() {
 		}
 	}
 
-	// shiftScale is the display scale for an object instance: 2^-objShift, undoing
-	// the exporter's bake so the model shows at its authored fx size (see the
-	// placement-loop comment; deliberately incomplete for runtime-scaled actors).
-	shiftScale := func(stem string) float64 {
-		if sh, ok := archiveShift[stem]; ok {
-			return r3(math.Pow(2, -float64(sh)))
-		}
-		if p, ok := modelPath[stem]; ok {
-			if sh, ok2 := modelShift(p); ok2 {
-				return r3(math.Pow(2, -float64(sh)))
-			}
-		}
-		return 0
-	}
+	// objScale is the display scale for an object instance, from the traced engine
+	// transform (Part V §5): the engine draws an object model under
+	// MTX_SCALE(2^shift) — already baked into the exported GLB — while the stage
+	// draws under an extra uniform 125.0 ($020755D4), so in stage-GLB units an
+	// object drawn with a NULL scale vector (the common case; the coin's draw
+	// passes NULL) shows at its baked GLB size / 125. Actors that pass a runtime
+	// scale vector still render at this base size until their code is traced.
+	const objScale = 1.0 / 125
 
 	hasGLB := func(name string) bool {
 		if name == "" {
@@ -198,16 +153,13 @@ func main() {
 			die(err)
 		}
 		// Placement shorts are fx world coordinates (the spawner shifts them <<12 —
-		// traced at $020FE8AC/$020FE960). The exported stage GLBs bake the header's
-		// 2^shift onto the raw fx vertices (an exporter convention), so the mapping
-		// into stage-GLB units is short * 2^stageShift / 4096. How the ENGINE maps
-		// model space into the world is the open trace (Part V §5); this convention
-		// is provisional until that lands.
-		stageShift, ok := modelShift(lv.BMDPath)
-		if !ok {
-			continue
-		}
-		toStage := math.Pow(2, float64(stageShift)) / 4096
+		// traced at $020FE8AC/$020FE960). The engine renders in world/8 units
+		// (ASR #3 at every world->render seam) and draws the stage under
+		// MTX_SCALE(2^stageShift) * MTX_SCALE(125.0), so one stage-vertex unit is
+		// 2^stageShift * 1000 world-fx units. In stage-GLB units (the export bakes
+		// 2^stageShift onto the vertices) a placement is short / 1000, independent
+		// of the stage shift (Part V §5).
+		const toStage = 1.0 / 1000
 		var objs []jsonObj
 		seen := map[string]bool{}
 		for _, o := range lv.Objects {
@@ -217,12 +169,8 @@ func main() {
 			}
 			seen[key] = true
 			j := jsonObj{Actor: o.Actor, Pos: []float64{r3(o.X * toStage), r3(o.Y * toStage), r3(o.Z * toStage)}, RotY: r3(o.RotY), Layer: o.Layer}
-			// Object instances display at their authored fx size: the GLB bake of
-			// 2^shift is reversed (scale 2^-shift). The cartridge specifies no other
-			// static size for these models (the engine's object scale field at +$80
-			// defaults to 1.0 fx and no placed actor writes it statically); actors
-			// that resize themselves at runtime render at authored size until their
-			// code is traced — deliberately incomplete rather than calibrated.
+			// Object instances display at the engine's NULL-scale-vector size:
+			// baked GLB / 125 (see objScale above).
 			switch {
 			case o.Actor == treeActor:
 				t := (o.Params[0] >> 4) & 7
@@ -231,13 +179,13 @@ func main() {
 				}
 				if m := treeModels[t]; m != "" && hasGLB(m) {
 					j.Model, j.Bill = m, true
-					j.Scale = shiftScale(m)
+					j.Scale = objScale
 				}
 			case collectibleModels[o.Actor] != "":
 				if m := collectibleModels[o.Actor]; hasGLB(m) {
 					j.Model = m
 					j.Bill = billboardStems[m]
-					j.Scale = shiftScale(m)
+					j.Scale = objScale
 				}
 			default:
 				if ms := actorModels[o.Actor]; len(ms) > 0 && !falseBind[o.Actor] {
@@ -245,7 +193,7 @@ func main() {
 					if hasGLB(m) {
 						j.Model = m
 						j.Bill = billboardStems[m]
-						j.Scale = shiftScale(m)
+						j.Scale = objScale
 					}
 				}
 			}
