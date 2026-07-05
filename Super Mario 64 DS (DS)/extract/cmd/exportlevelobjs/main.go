@@ -51,10 +51,16 @@ var billboardStems = map[string]bool{
 	"ar1_16": true, "ar1_15": true,
 }
 
-// falseBind: actors whose create stubs sit inside the tree class's compilation
-// unit and pick up its model table by adjacency (they place in indoor levels
-// where trees make no sense) — dropped until traced properly.
-var falseBind = map[int]bool{177: true, 178: true, 179: true, 180: true}
+// falseBind: actors whose scan picks up a neighbouring unit's model by
+// adjacency rather than their own — the tree-table stubs (177-180, placing
+// indoors), and bank actors whose nearest literal is a stage prop instead of
+// their body (337 daWanwan2 -> a water plane, 190 daHolhei -> a bird,
+// 358 daECreate_c the enemy spawner, 318 daObjFlamethrower -> a ?-box,
+// 239 daJango -> a flower). Dropped until traced properly.
+var falseBind = map[int]bool{
+	177: true, 178: true, 179: true, 180: true,
+	190: true, 239: true, 318: true, 337: true, 358: true,
+}
 
 type jsonObj struct {
 	Actor int       `json:"a"`
@@ -81,6 +87,15 @@ func main() {
 		die(err)
 	}
 	treeActor := ls.Actor(41) // the TREE object's actor (object->actor table)
+
+	// Enemy-bank bindings: the bank overlays (60-102) carry RTTI actor profiles
+	// and register their models in their static initialisers; actor IDs defined
+	// by two banks with different classes are skipped, not guessed (the
+	// per-level bank set — untraced — decides which is loaded).
+	bankModels, err := ls.TraceBankActorModels()
+	if err != nil {
+		die(err)
+	}
 
 	// extract the archive models (coin, star, castle tree ...) to GLBs
 	for _, id := range archiveModels {
@@ -185,7 +200,11 @@ func main() {
 					j.Scale = objScale
 				}
 			default:
-				if ms := actorModels[o.Actor]; len(ms) > 0 && !falseBind[o.Actor] {
+				ms := actorModels[o.Actor]
+				if len(ms) == 0 {
+					ms = bankModels[o.Actor]
+				}
+				if len(ms) > 0 && !falseBind[o.Actor] {
 					m := ms[0] // first hit = nearest to the create function
 					if hasGLB(m) {
 						j.Model = m

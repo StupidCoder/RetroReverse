@@ -112,7 +112,8 @@ export class ModelViewer {
       'background:rgba(10,13,18,.92);border:1px solid #3a4a5c;border-radius:8px;' +
       'padding:10px 12px;font:12px/1.5 system-ui;color:#dfe6f0;pointer-events:none;z-index:5';
     d.textContent = SIGN_TEXT;
-    this.el.style.position = 'relative';
+    // this.el is the studio's .mount (position:absolute, inset:0) — already a
+    // positioning context; never touch its position or the canvas collapses.
     this.el.appendChild(d);
     this._signBox = d;
     clearTimeout(this._signTimer);

@@ -19,6 +19,11 @@ func main() {
 	}
 	am, err := ls.TraceActorModels(9)
 	if err != nil { sm64ds.Die(err) }
+	bm, err := ls.TraceBankActorModels()
+	if err != nil { sm64ds.Die(err) }
+	for id, stems := range bm {
+		if _, dup := am[id]; !dup { am[id] = stems }
+	}
 	var ids []int
 	for id := range am { if used[id] > 0 { ids = append(ids, id) } }
 	sort.Slice(ids, func(i, j int) bool { return used[ids[i]] > used[ids[j]] })

@@ -43,6 +43,21 @@ type abin struct {
 func (b *abin) has(p uint32) bool   { return p >= b.base && p+4 <= b.base+uint32(len(b.data)) }
 func (b *abin) u32(p uint32) uint32 { return le.Uint32(b.data[p-b.base:]) }
 
+// cstr reads a NUL-terminated string at p (empty if out of range/unterminated).
+func (b *abin) cstr(p uint32) string {
+	// (has() alone can pass on p near 0xFFFFFFFF via uint32 wrap of p+4)
+	if p < b.base || uint64(p)+4 > uint64(b.base)+uint64(len(b.data)) {
+		return ""
+	}
+	d := b.data[p-b.base:]
+	for i := 0; i < len(d) && i < 64; i++ {
+		if d[i] == 0 {
+			return string(d[:i])
+		}
+	}
+	return ""
+}
+
 // blTarget decodes a BL instruction's destination, or 0.
 func blTarget(w, addr uint32) uint32 {
 	if w&0x0F000000 != 0x0B000000 || w>>28 != 0xE {
@@ -70,6 +85,179 @@ func (ls *LevelSet) TraceActorModels(levelOverlay int) (ActorModels, error) {
 		}
 		bins = append(bins, &abin{d, ls.ovls[id].RAMAddr})
 	}
+	// actor -> create fn: the ARM9 profile array, plus RTTI profiles in the
+	// loaded overlays for bank-resident actors.
+	creates := map[int]uint32{}
+	for id := 0; id < numActors; id++ {
+		pp := le.Uint32(ls.arm9[profArrayOff+id*4:])
+		for _, b := range bins {
+			if b.has(pp) {
+				creates[id] = b.u32(pp)
+			}
+		}
+	}
+	for _, b := range bins[1:] {
+		for id, create := range rttiProfiles(b) {
+			if _, dup := creates[id]; !dup {
+				creates[id] = create.fn
+			}
+		}
+	}
+	return ls.traceModels(bins, creates), nil
+}
+
+// rttiProfile is an actor profile located by its C++ typeinfo pointer.
+type rttiProfile struct {
+	fn   uint32 // create function
+	name string // demangled-ish class name (as embedded, e.g. "7daKrb_c")
+}
+
+// rttiProfiles scans one binary for actor profiles carrying RTTI: the record
+// holds the create function at +0, the u16 actor ID at +4, and a typeinfo
+// pointer at +$20 whose +4 points at the mangled class name. (The engine-actor
+// profiles in the ARM9 array have no typeinfo; only overlay actors do. The
+// second u16 at +6 is NOT a duplicate of the ID in the enemy banks — the
+// goomba's profile at $02130924 carries $1A there — so the ID is validated by
+// the typeinfo alone.)
+func rttiProfiles(b *abin) map[int]rttiProfile {
+	out := map[int]rttiProfile{}
+	for i := 0; i+0x24 <= len(b.data); i += 4 {
+		ti := le.Uint32(b.data[i+0x20:])
+		if !b.has(ti) || !b.has(ti+4) {
+			continue
+		}
+		id := int(le.Uint16(b.data[i+4:]))
+		if id >= 1024 {
+			continue
+		}
+		create := le.Uint32(b.data[i:])
+		if !isCodeAddr(create) {
+			continue
+		}
+		np := b.u32(ti + 4)
+		if !b.has(np) {
+			continue
+		}
+		name := b.cstr(np)
+		if !plausibleClass(name) {
+			continue
+		}
+		if _, dup := out[id]; !dup {
+			out[id] = rttiProfile{fn: create, name: name}
+		}
+	}
+	return out
+}
+
+// plausibleClass accepts the game's actor class-name shape: an optional length
+// prefix, then "da..._c" / "dSc...", as embedded by the compiler's RTTI.
+func plausibleClass(n string) bool {
+	if len(n) < 4 || len(n) > 40 {
+		return false
+	}
+	i := 0
+	for i < len(n) && n[i] >= '0' && n[i] <= '9' {
+		i++
+	}
+	rest := n[i:]
+	if !strings.HasPrefix(rest, "da") && !strings.HasPrefix(rest, "dSc") && !strings.HasPrefix(rest, "dBg") && !strings.HasPrefix(rest, "dEn") {
+		return false
+	}
+	return strings.HasSuffix(rest, "_c")
+}
+
+func isCodeAddr(p uint32) bool {
+	return (p >= 0x02004000 && p < 0x020AA420) || (p >= 0x020AA420 && p < 0x02150000) || (p >= 0x01FF8000 && p < 0x02000000)
+}
+
+// TraceBankActorModels harvests actor -> model bindings from the enemy-bank
+// overlays (60-102): each bank carries RTTI actor profiles and registers its
+// model files in its static initialisers. The same actor ID can be provided by
+// different banks with different classes (the per-level bank set decides which
+// is loaded); those ambiguous IDs are skipped rather than guessed.
+func (ls *LevelSet) TraceBankActorModels() (ActorModels, error) {
+	arm9 := &abin{ls.arm9, 0x02004000}
+	shared := []*abin{arm9}
+	for _, id := range []int{0, 1, 2} {
+		d, err := ls.overlayData(id)
+		if err != nil {
+			return nil, err
+		}
+		shared = append(shared, &abin{d, ls.ovls[id].RAMAddr})
+	}
+	classOf := map[int]string{}
+	ambiguous := map[int]bool{}
+	merged := ActorModels{}
+	// The ARM9 profile array itself points into bank space for bank actors (the
+	// entry is only meaningful when that bank is loaded — actor 200's entry
+	// $021308EC lands in overlay 84, three records before the goomba's). Since
+	// banks share RAM slots, a pointer can fall inside several banks; each
+	// candidate is tried and conflicting resolutions are dropped.
+	arrayProf := map[int]uint32{} // actor -> overlay-space profile address
+	for id := 0; id < numActors; id++ {
+		pp := le.Uint32(ls.arm9[profArrayOff+id*4:])
+		if pp >= 0x020AA420 && pp < 0x02150000 {
+			arrayProf[id] = pp
+		}
+	}
+	for ovl := 60; ovl <= 102; ovl++ {
+		if _, ok := ls.ovls[ovl]; !ok {
+			continue
+		}
+		d, err := ls.overlayData(ovl)
+		if err != nil {
+			continue
+		}
+		bank := &abin{d, ls.ovls[ovl].RAMAddr}
+		profs := rttiProfiles(bank)
+		if len(profs) == 0 {
+			continue
+		}
+		creates := map[int]uint32{}
+		for id, pr := range profs {
+			if seen, ok := classOf[id]; ok && seen != pr.name {
+				ambiguous[id] = true
+				continue
+			}
+			classOf[id] = pr.name
+			creates[id] = pr.fn
+		}
+		for id, pp := range arrayProf {
+			if _, have := creates[id]; have {
+				continue
+			}
+			if !bank.has(pp) || !bank.has(pp+4) {
+				continue
+			}
+			fn := bank.u32(pp)
+			if !isCodeAddr(fn) || int(le.Uint16(bank.data[pp+4-bank.base:])) != id {
+				continue
+			}
+			if seen, ok := classOf[id]; ok && seen != "" {
+				_ = seen
+			}
+			creates[id] = fn
+		}
+		bins := append(append([]*abin{}, shared...), bank)
+		for id, stems := range ls.traceModels(bins, creates) {
+			if prev, dup := merged[id]; dup {
+				if len(prev) > 0 && len(stems) > 0 && prev[0] != stems[0] {
+					ambiguous[id] = true
+				}
+				continue
+			}
+			merged[id] = stems
+		}
+	}
+	for id := range ambiguous {
+		delete(merged, id)
+	}
+	return merged, nil
+}
+
+// traceModels runs the two binding passes over one bin set: the file-handle
+// slot registrations, then each create function's body/callee/vtable scan.
+func (ls *LevelSet) traceModels(bins []*abin, creates map[int]uint32) ActorModels {
 	find := func(p uint32) *abin {
 		// later bins win (the level overlay shadows the shared bank base)
 		var r *abin
@@ -128,9 +316,7 @@ func (ls *LevelSet) TraceActorModels(levelOverlay int) (ActorModels, error) {
 
 	// scanFn collects model files referenced by one function body (create fn or
 	// callee): slot literals and direct file-ID literals.
-	isCode := func(p uint32) bool {
-		return (p >= 0x02004000 && p < 0x020AA420) || (p >= 0x020AA420 && p < 0x02150000) || (p >= 0x01FF8000 && p < 0x02000000)
-	}
+	isCode := isCodeAddr
 	budget := 0
 	var scanFn func(b *abin, fn uint32, depth int, out *[]uint32, seen map[uint32]bool)
 	scanFn = func(b *abin, fn uint32, depth int, out *[]uint32, seen map[uint32]bool) {
@@ -206,34 +392,6 @@ func (ls *LevelSet) TraceActorModels(levelOverlay int) (ActorModels, error) {
 			}
 		}
 	}
-	// actor -> create fn: the ARM9 profile array, plus RTTI profiles in the
-	// loaded overlays for bank-resident actors ({createFn, id, id, typeinfo}).
-	creates := map[int]uint32{}
-	for id := 0; id < numActors; id++ {
-		pp := le.Uint32(ls.arm9[profArrayOff+id*4:])
-		if pb := find(pp); pb != nil && pb.has(pp) {
-			creates[id] = pb.u32(pp)
-		}
-	}
-	for _, b := range bins[1:] {
-		for i := 0; i+0x24 <= len(b.data); i += 4 {
-			create := le.Uint32(b.data[i:])
-			if !isCode(create) {
-				continue
-			}
-			id1, id2 := le.Uint16(b.data[i+4:]), le.Uint16(b.data[i+6:])
-			if id1 != id2 || id1 < numActors || id1 >= 1024 {
-				continue
-			}
-			ti := le.Uint32(b.data[i+0x20:])
-			if b.has(ti) && b.has(b.u32(ti)+4) {
-				if _, dup := creates[int(id1)]; !dup {
-					creates[int(id1)] = create
-				}
-			}
-		}
-	}
-
 	out := ActorModels{}
 	for id, create := range creates {
 		cb := find(create)
@@ -252,7 +410,7 @@ func (ls *LevelSet) TraceActorModels(levelOverlay int) (ActorModels, error) {
 		}
 		out[id] = stems
 	}
-	return out, nil
+	return out
 }
 
 // die helper for commands

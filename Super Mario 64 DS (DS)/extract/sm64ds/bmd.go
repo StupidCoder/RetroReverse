@@ -153,6 +153,13 @@ func Decode(data []byte, name string) (*Model, error) {
 	for i := 0; i < numMat; i++ {
 		r := oMat + i*0x30
 		m := nitro.Material{Name: b.name(int(b.u32(r))), ScaleS: 1, ScaleT: 1}
+		// Texture-matrix scale at +$0C/+$10 (fx12) — applied by the hardware
+		// when the addressing word's texgen mode (bits 30-31) is 1. The coin
+		// (arc0[5]) maps its 16x64 texture with scaleS=2 onto mirrored-S
+		// addressing; without it the face is stretched 2x horizontally.
+		if ss, st := int32(b.u32(r+0xC)), int32(b.u32(r+0x10)); ss != 0 && st != 0 {
+			m.ScaleS, m.ScaleT = float64(ss)/4096, float64(st)/4096
+		}
 		ti, pi := int(int32(b.u32(r + 4))), int(int32(b.u32(r + 8)))
 		if name, w, h, err := decodeTex(ti, pi); err == nil && name != "" {
 			m.Texture, m.Width, m.Height = name, w, h
