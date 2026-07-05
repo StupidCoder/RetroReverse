@@ -104,14 +104,14 @@ func DecodeContainerTextures(data []byte) ([]Texture, error) {
 // texelOff is the texel data; palIdxOff the 4x4-format palette-index data (used
 // only for format 5); palOff the palette base. Format, width and height come from
 // param (the standard DS texImageParam; its low 16 offset bits are ignored here).
-func DecodeTexture(data []byte, texelOff, palIdxOff, palOff int, param uint32, solid bool) (Texture, error) {
+func DecodeTexture(data []byte, texelOff, palIdxOff, palOff int, param uint32) (Texture, error) {
 	fmtID := int(param>>26) & 7
 	w := 8 << (int(param>>20) & 7)
 	h := 8 << (int(param>>23) & 7)
 	color0 := param&(1<<29) != 0
 	var img *image.NRGBA
 	if fmtID == 5 {
-		img = decode4x4(data, texelOff, palIdxOff, palOff, w, h, solid)
+		img = decode4x4(data, texelOff, palIdxOff, palOff, w, h)
 	} else {
 		var err error
 		if img, err = decodeTexture(data, texelOff, palOff, fmtID, w, h, color0); err != nil {
@@ -164,9 +164,7 @@ func decodeTEX0(data []byte, base int) ([]Texture, error) {
 			// region (TEX0+$24); its per-block palette words live at half that offset in
 			// the palette-index region (TEX0+$28). Verified: in a real TEX0 the regions
 			// tile exactly — texels, 4x4 texels, 4x4 indices (half size), palettes.
-			// TEX0 (Mario Kart DS) keeps the spec-exact transparent value 3; SM64DS's
-			// per-material solidify decision is made in its own BMD decoder.
-			img = decode4x4(data, tex4x4Off+addr, palIdxOff+addr/2, palBase, w, h, false)
+			img = decode4x4(data, tex4x4Off+addr, palIdxOff+addr/2, palBase, w, h)
 		} else {
 			var derr error
 			if img, derr = decodeTexture(data, texDataOff+addr, palBase, fmtID, w, h, color0); derr != nil {
@@ -261,7 +259,7 @@ func padded(b []byte) []byte {
 // word — bits 0-13 a sub-palette offset (in 4-byte steps, relative to the texture's
 // palette), bits 14-15 a mode selecting how the four 2-bit values map to colours
 // (two of them may be interpolations, one may be transparent).
-func decode4x4(data []byte, texel, palIdx, palBase, w, h int, solid bool) *image.NRGBA {
+func decode4x4(data []byte, texel, palIdx, palBase, w, h int) *image.NRGBA {
 	img := image.NewNRGBA(image.Rect(0, 0, w, h))
 	bw := w / 4
 	for by := 0; by < h/4; by++ {
@@ -273,7 +271,7 @@ func decode4x4(data []byte, texel, palIdx, palBase, w, h int, solid bool) *image
 			texels := le.Uint32(data[texel+blk*4:])
 			info := le.Uint16(data[palIdx+blk*2:])
 			cbase := palBase + int(info&0x3FFF)*4
-			cols := blockColors(data, cbase, info>>14, solid)
+			cols := blockColors(data, cbase, info>>14)
 			for py := 0; py < 4; py++ {
 				for px := 0; px < 4; px++ {
 					v := (texels >> uint((py*4+px)*2)) & 3
@@ -285,27 +283,14 @@ func decode4x4(data []byte, texel, palIdx, palBase, w, h int, solid bool) *image
 	return img
 }
 
-// blockColors builds the four colours a 4x4 block's 2-bit values select, per its
-// mode. Modes 0 and 1 make texel value 3 transparent; when solid is set the block is
-// forced opaque instead, giving value 3 the 4th palette colour (mode 0) or the far
-// interpolation (mode 1). Solid is used for single-sided surfaces where the "hole"
-// is really part of the material (a flower field's grass, a wall panel) rather than a
-// genuine cut-out — only double-sided details (nets, fences, foliage) keep the hole.
-func blockColors(data []byte, cbase int, mode uint16, solid bool) [4]color.NRGBA {
+// blockColors builds the four colours a 4x4 block's 2-bit values select, per its mode.
+func blockColors(data []byte, cbase int, mode uint16) [4]color.NRGBA {
 	c0, c1 := pal(data, cbase, 0), pal(data, cbase, 1)
 	switch mode {
-	case 0: // c0, c1, c2, transparent (opaque: c3)
-		v3 := color.NRGBA{}
-		if solid {
-			v3 = pal(data, cbase, 3)
-		}
-		return [4]color.NRGBA{c0, c1, pal(data, cbase, 2), v3}
-	case 1: // c0, c1, (c0+c1)/2, transparent (opaque: far interpolation)
-		v3 := color.NRGBA{}
-		if solid {
-			v3 = mix(c0, c1, 3, 5)
-		}
-		return [4]color.NRGBA{c0, c1, mix(c0, c1, 1, 1), v3}
+	case 0: // c0, c1, c2, transparent
+		return [4]color.NRGBA{c0, c1, pal(data, cbase, 2), {}}
+	case 1: // c0, c1, (c0+c1)/2, transparent
+		return [4]color.NRGBA{c0, c1, mix(c0, c1, 1, 1), {}}
 	case 2: // c0, c1, c2, c3
 		return [4]color.NRGBA{c0, c1, pal(data, cbase, 2), pal(data, cbase, 3)}
 	default: // 3: c0, c1, (5c0+3c1)/8, (3c0+5c1)/8
@@ -405,4 +390,3 @@ func decodeTexture(data []byte, texel, palBase, fmtID, w, h int, color0 bool) (*
 	}
 	return img, nil
 }
-

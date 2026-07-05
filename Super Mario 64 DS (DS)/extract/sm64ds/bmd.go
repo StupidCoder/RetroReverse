@@ -14,15 +14,18 @@
 //	Header (0x3C+):
 //	  0x00 u32 scale        model scale as a power-of-two shift (vertices ×2^scale)
 //	  0x04 u32 numBones     0x08 u32 bonesOffset      (bone stride 0x40)
-//	  0x0C u32 numDisplists 0x10 u32 displistsOffset  (stride 0x10)
+//	  0x0C u32 numDisplists 0x10 u32 displistsOffset  (stride 0x08)
 //	  0x14 u32 numTextures  0x18 u32 texturesOffset   (stride 0x14)
 //	  0x1C u32 numPalettes  0x20 u32 palettesOffset   (stride 0x10)
 //	  0x24 u32 numMaterials 0x28 u32 materialsOffset  (stride 0x30)
 //	Bone (0x40): translate/scale transform + a render list at +0x30 (count),
 //	  +0x34 (byte array of material indices), +0x38 (byte array of displist
 //	  indices) — the bone draws displist[dl[i]] with material[mat[i]].
-//	Displist (0x10): +0x04 and +0x0C each point at a sub-header
-//	  {count, _, u32 gxSize@0x08, u32 gxDataPtr@0x0C} of GX display-list commands.
+//	Displist (0x08): {u32 subCount, u32 subHeaderPtr}. subHeaderPtr points at
+//	  subCount sub-headers of 0x10 bytes; each locates a GX display-list command
+//	  chunk (u32 gxSize@0x08, u32 gxDataPtr@0x0C). (Stride is 0x08, not 0x10 — a
+//	  0x10 read merges pairs of adjacent display lists and halves the index space,
+//	  scrambling which material draws which geometry.)
 //	Material (0x30): +0x00 nameOff, +0x04 textureIndex, +0x08 paletteIndex,
 //	  +0x0C/+0x10 texture-matrix scale (fx12), +0x24 GX polygon attribute.
 //	Texture (0x14): +0x00 nameOff, +0x04 dataOff, +0x08 size, +0x0C dims,
@@ -37,7 +40,6 @@ import (
 	"fmt"
 	"math"
 	"os"
-	"strings"
 
 	"retroreverse.com/tools/nds"
 	"retroreverse.com/tools/nds/nitro"
@@ -86,17 +88,11 @@ func LoadBMD(path string) (*Model, error) {
 	} else {
 		data = nds.Decompress(raw)
 	}
-	// Stage models get their single-sided format-5 surfaces solidified (see Decode);
-	// object/character models keep every cut-out, so their billboards (palm fronds,
-	// bushes) stay see-through.
-	return Decode(data, baseName(path), strings.Contains(path, "/stage/"))
+	return Decode(data, baseName(path))
 }
 
-// Decode parses a decompressed .bmd blob. isStage enables solidifying single-sided
-// format-5 ground/wall surfaces (a stage's grass and walls are solid, its
-// double-sided details — nets, fences — keep their holes); leave it false for
-// standalone object and character models, whose billboards are genuine cut-outs.
-func Decode(data []byte, name string, isStage bool) (*Model, error) {
+// Decode parses a decompressed .bmd blob.
+func Decode(data []byte, name string) (*Model, error) {
 	if len(data) < 0x3C {
 		return nil, fmt.Errorf("sm64ds: short BMD")
 	}
@@ -128,7 +124,7 @@ func Decode(data []byte, name string, isStage bool) (*Model, error) {
 	}
 
 	texs := map[string]nitro.Texture{}
-	decodeTex := func(ti, pi int, solid bool) (string, int, int, error) {
+	decodeTex := func(ti, pi int) (string, int, int, error) {
 		if ti < 0 || ti >= numTex {
 			return "", 0, 0, nil
 		}
@@ -139,7 +135,7 @@ func Decode(data []byte, name string, isStage bool) (*Model, error) {
 		}
 		palIdxOff := tr.dataOff + tr.sz // format-5 per-block palette-select data
 		if _, done := texs[tr.name]; !done {
-			t, err := nitro.DecodeTexture(data, tr.dataOff, palIdxOff, palOff, tr.param, solid)
+			t, err := nitro.DecodeTexture(data, tr.dataOff, palIdxOff, palOff, tr.param)
 			if err != nil {
 				return tr.name, 0, 0, err
 			}
@@ -156,15 +152,7 @@ func Decode(data []byte, name string, isStage bool) (*Model, error) {
 		r := oMat + i*0x30
 		m := nitro.Material{Name: b.name(int(b.u32(r))), ScaleS: 1, ScaleT: 1}
 		ti, pi := int(int32(b.u32(r + 4))), int(int32(b.u32(r + 8)))
-		// In a stage, the GX polygon attribute (+0x24) tells solid ground from thin
-		// detail: single-sided surfaces (bit 6 clear = no back face) are the grass and
-		// wall panels whose format-5 "transparent" texels are really part of the
-		// material, so decode them opaque; double-sided polygons are the see-through
-		// details (nets, fences) whose holes are genuine. Object/character models are
-		// never solidified — their single-sided billboards are true cut-outs.
-		polyAttr := b.u32(r + 0x24)
-		solid := isStage && polyAttr&0x40 == 0
-		if name, w, h, err := decodeTex(ti, pi, solid); err == nil && name != "" {
+		if name, w, h, err := decodeTex(ti, pi); err == nil && name != "" {
 			m.Texture, m.Width, m.Height = name, w, h
 			// Wrap: level textures tile, so repeat both axes unless the texgen bits
 			// say otherwise; the GX repeat/flip live in bits 16-19 of the param.
@@ -184,14 +172,16 @@ func Decode(data []byte, name string, isStage bool) (*Model, error) {
 		if dlIdx < 0 || dlIdx >= numDL {
 			return nil
 		}
-		rec := oDL + dlIdx*0x10
-		// The two sub-headers are consecutive chunks of ONE continuous GX command
-		// stream — a chunk may begin with VTX_DIFF (a vertex relative to the last
-		// vertex of the previous chunk), so they must be decoded together, not
-		// separately (separately, chunk 2's relative vertices reset to the origin
-		// and fly off into spikes).
+		// A display list is an 8-byte record {count, subHeaderPtr}: `count`
+		// sub-headers of 0x10 bytes at subHeaderPtr, each locating a GX command chunk
+		// (gxSize at +8, gxPtr at +0xC). (An earlier read used a 0x10 stride with two
+		// sub-headers per record, which silently merged pairs of adjacent display lists
+		// and halved the index space — scrambling which material drew which geometry.)
+		rec := oDL + dlIdx*0x08
+		subCount, subPtr := int(b.u32(rec)), int(b.u32(rec+4))
 		var gx []byte
-		for _, sub := range []int{int(b.u32(rec + 4)), int(b.u32(rec + 0xC))} {
+		for k := 0; k < subCount; k++ {
+			sub := subPtr + k*0x10
 			if sub <= 0 || sub+0x10 > len(data) {
 				continue
 			}
