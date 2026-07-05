@@ -163,9 +163,22 @@ func Decode(data []byte, name string) (*Model, error) {
 
 	// Bones position and draw the display lists. Walk each bone's render list,
 	// decoding the referenced display list into triangles under its material.
+	//
+	// The 32 addressable matrix slots must hold each bone's world transform —
+	// INCLUDING the model-wide 2^shift — because that is what the engine keeps
+	// there: its bone compose ($0204488C) MTX_STOREs the composed matrix, whose
+	// command stream ends with MTX_SCALE(1 << (header.shift + 12)), into the
+	// bone's slot. A display list that begins with MTX_RESTORE (most do) starts
+	// from that scaled matrix; slots initialised to identity silently drop the
+	// 2^shift bake for every such model (a shift-1 stage exported at half size,
+	// the shift-4 trees at 1/16).
 	stack := make([]nitro.Mat43, 32)
 	for i := range stack {
-		stack[i] = nitro.Identity43()
+		if i < numBone {
+			stack[i] = boneWorld(b, oBone+i*0x40, scale)
+		} else {
+			stack[i] = boneWorld(b, oBone, scale)
+		}
 	}
 	byMat := map[int][]nitro.Tri{}
 	decodeDL := func(dlIdx int, world nitro.Mat43) []nitro.Tri {
