@@ -1,4 +1,4 @@
-package uw
+package dos
 
 // Microsoft-compatible mouse driver (INT 33h). Ultima Underworld's whole UI —
 // the menus, character creation, and in-world interaction — is mouse-driven. It

@@ -16,7 +16,7 @@ import (
 	"sort"
 	"strings"
 
-	"ultimaunderworld/extract/uw"
+	"retroreverse.com/tools/dos"
 )
 
 func main() {
@@ -35,7 +35,7 @@ func main() {
 	fmt.Printf("size   %d bytes\n", len(data))
 	fmt.Printf("md5    %x\n\n", md5.Sum(data))
 
-	m, err := uw.ParseMZ(data)
+	m, err := dos.ParseMZ(data)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "uwinfo:", err)
 		os.Exit(1)

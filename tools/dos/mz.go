@@ -1,10 +1,8 @@
-// Package uw holds the Ultima Underworld (MS-DOS) container and asset decoders.
-//
-// The starting point is UW.EXE, a plain 16-bit real-mode DOS "MZ" executable
-// (no protected-mode extender). This file parses the MZ header so Part I can
-// report the load layout, entry point and relocation table, and so a later x86
+// MZ container parsing. An "MZ" executable is a plain 16-bit real-mode DOS
+// program (no protected-mode extender). This file parses the header so a caller
+// can report the load layout, entry point and relocation table, and so the x86
 // oracle can place the load module at a chosen segment and apply the fixups.
-package uw
+package dos
 
 import (
 	"encoding/binary"

@@ -147,13 +147,14 @@ To do:
       (12,800-byte header, a 407,856-byte load module, entry `CS:IP = 0EC5:0000`, 3,176
       relocations) and, tellingly, **141 KiB of data sits past the load image** — a self-managed
       code-overlay region (Part III). The `game/` data folders (`DATA`/`CRIT`/`CUTS`/`SOUND`,
-      ~11 MB) are catalogued by `extract/cmd/uwinfo` (`extract/uw` reimplements the MZ parse,
-      unit-tested). **Part II underway — the `tools/x86` toolchain built**: a 16-bit real-mode
-      x86 disassembler + **execution core** (`tools/x86`: prefixes, ModR/M+SIB in 16/32-bit
-      addressing, the 8086/186/286 integer set + common 386 ops + x87 escapes; a `CPU`/`Bus`/`Step`
-      core with real-mode flags, REP strings and INT/IRET), a linear `cmd/disx86`, a recursive
-      `cmd/codetracex86`, and a minimal real-mode **DOS machine** (`extract/uw`: MZ loader that
-      applies the relocations, `INT 21h`/BIOS services, file I/O) driven by `cmd/bootoracle`.
+      ~11 MB) are catalogued by `extract/cmd/uwinfo` (the MZ parse lives in the reusable
+      `tools/dos`, unit-tested). **Part II underway — the `tools/x86` toolchain built**: a 16-bit
+      real-mode x86 disassembler + **execution core** (`tools/x86`: prefixes, ModR/M+SIB in
+      16/32-bit addressing, the 8086/186/286 integer set + common 386 ops + x87 escapes; a
+      `CPU`/`Bus`/`Step` core with real-mode flags, REP strings and INT/IRET), a linear
+      `cmd/disx86`, a recursive `cmd/codetracex86`, and a **reusable real-mode DOS/PC machine**
+      (`tools/dos`: MZ loader that applies the relocations, `INT 21h`/BIOS services, file I/O —
+      game-agnostic) driven by UW's `extract/cmd/bootoracle`.
       **Part III done — the oracle RUNS THE GAME.** It executes UW's *own* `INT 3Fh` overlay
       handler (the MS-C overlay scheme, store at file `$66B30`), so overlays page in from UW.EXE on
       demand; around it a faithful DOS/PC: **MCB-chain memory manager**, **LIM EMS 4.0** (incl.

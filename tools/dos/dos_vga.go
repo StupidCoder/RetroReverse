@@ -1,4 +1,4 @@
-package uw
+package dos
 
 // True VGA memory: four 64 KiB planes behind the A000 window, with the
 // sequencer / graphics-controller / CRTC registers that steer it. This is what

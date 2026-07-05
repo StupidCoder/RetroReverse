@@ -1,4 +1,4 @@
-package uw
+package dos
 
 // A minimal LIM EMS (Expanded Memory) emulation. Ultima Underworld requires an
 // EMS driver — without one it prints "Out of EMS Memory" and quits — so the

@@ -1,17 +1,20 @@
-package uw
-
-// A minimal real-mode DOS machine: it loads UW.EXE the way DOS would (place a
-// PSP and environment, copy the load module, apply the MZ relocations, seed the
-// entry registers) and drives the tools/x86 execution core, servicing the
-// INT 21h / BIOS calls the program makes. It is the "oracle" for Ultima
-// Underworld — it runs the real code so we can watch where the C runtime hands
-// off to the game and how the overlay manager is reached (Part III), the same
-// technique the DS titles needed.
+// Package dos is a reusable real-mode DOS/PC machine for running vintage
+// MS-DOS games under the tools/x86 execution core as an oracle. It loads an MZ
+// executable the way DOS would (place a PSP and environment, copy the load
+// module, apply the relocations, seed the entry registers) and services the
+// INT 21h / BIOS calls the program makes, so the game's real code runs and we
+// can watch it. It is game-agnostic — game-specific setup (which save/work
+// directories to seed, etc.) is configured by the caller — and was first proven
+// on Ultima Underworld (see "Ultima Underworld (PC)/Ultima_Underworld.md"), but
+// nothing here is UW-specific.
 //
-// Scope: enough DOS to boot — get-version, the memory-block calls, the
-// interrupt-vector calls, the DTA calls, and real file open/read/seek/close
-// against the game directory, plus program termination. Unhandled functions are
-// logged (so the next one to implement is obvious) and returned as success.
+// The machine models: the MCB memory-control-block chain, LIM EMS 4.0
+// (dos_ems.go), a VGA video BIOS and true planar VGA (dos_video.go/dos_vga.go),
+// the INT 33h mouse (dos_mouse.go), the PC I/O ports and timer IRQ (dos_io.go),
+// and scripted keyboard/mouse input injection (dos_keyboard.go). Unhandled INT
+// functions are logged (so the next one to implement is obvious) and returned as
+// success. It depends only on retroreverse.com/tools/x86.
+package dos
 
 import (
 	"encoding/binary"
@@ -31,7 +34,7 @@ type findState struct {
 	idx     int
 }
 
-// Machine is a loaded UW.EXE ready to run.
+// Machine is a loaded MZ program ready to run.
 type Machine struct {
 	Mem []byte // 1 MiB real-mode address space
 	CPU *x86.CPU
@@ -116,8 +119,7 @@ func LoadEXE(exePath, gameDir string) (*Machine, error) {
 	m.setupEnv(exePath)
 	m.setupMCB() // the DOS memory-control-block chain (program owns all free memory)
 	m.setupEMS()
-	m.scratchDir, _ = os.MkdirTemp("", "uwrun-scratch-")
-	m.seedSaveDir()
+	m.scratchDir, _ = os.MkdirTemp("", "dosrun-scratch-")
 
 	c := x86.NewCPU(m)
 	c.Seg[x86.CS] = m.loadSeg + mz.InitCS
@@ -205,7 +207,9 @@ func (m *Machine) setupPSP() {
 }
 
 // setupEnv writes a minimal DOS environment block: a couple of variables, the
-// double-zero terminator, a string count, then the program's full path.
+// double-zero terminator, a string count, then the program's full path (argv[0],
+// which the MS-C overlay manager reopens to page overlays — resolveFile maps its
+// basename back to the real executable, so the fabricated drive/dir is harmless).
 func (m *Machine) setupEnv(exePath string) {
 	base := uint32(m.envSeg) << 4
 	var b []byte
@@ -213,7 +217,7 @@ func (m *Machine) setupEnv(exePath string) {
 	b = append(b, []byte("COMSPEC=C:\\COMMAND.COM\x00")...)
 	b = append(b, 0x00)       // end of variables
 	b = append(b, 0x01, 0x00) // one string follows
-	b = append(b, []byte("C:\\UW\\UW.EXE\x00")...)
+	b = append(b, []byte("C:\\"+strings.ToUpper(filepath.Base(exePath))+"\x00")...)
 	copy(m.Mem[base:], b)
 }
 
@@ -305,15 +309,15 @@ func walkRoot(root, dosPath string) (string, bool) {
 	return cur, true
 }
 
-// seedSaveDir gives the game an empty SAVE0 working directory in the scratch
-// overlay — matching a fresh retail install (whose SAVE0 folder ships empty).
-// The game aborts if SAVE0 is missing entirely, but it must handle an empty one
-// (that is the first-run state); the game itself populates it.
-func (m *Machine) seedSaveDir() {
-	if m.scratchDir == "" {
-		return
+// SeedDir creates an empty working directory (given as a DOS-style relative
+// path) in the writable scratch overlay. Games that expect a save/work folder to
+// exist on first run use this — e.g. Ultima Underworld aborts if SAVE0 is
+// missing but must handle it empty, which is the fresh-install state; the game
+// then populates it itself. Call it after LoadEXE, before running.
+func (m *Machine) SeedDir(rel string) {
+	if sp := m.scratchPath(rel); sp != "" {
+		os.MkdirAll(sp, 0o755)
 	}
-	os.MkdirAll(filepath.Join(m.scratchDir, "SAVE0"), 0o755)
 }
 
 // allocFH returns the lowest free DOS file handle, exactly as real DOS does

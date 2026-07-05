@@ -1,4 +1,4 @@
-package uw
+package dos
 
 // A faithful DOS conventional-memory manager built on the Memory Control Block
 // (MCB) chain. DOS memory is a linked list of blocks; each block is preceded by

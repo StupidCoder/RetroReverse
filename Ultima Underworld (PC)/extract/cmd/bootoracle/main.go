@@ -16,8 +16,8 @@ import (
 	"os"
 	"path/filepath"
 
+	"retroreverse.com/tools/dos"
 	"retroreverse.com/tools/x86"
-	"ultimaunderworld/extract/uw"
 )
 
 func main() {
@@ -44,14 +44,15 @@ func main() {
 	}
 
 	exe := filepath.Join(*game, "UW.EXE")
-	m, err := uw.LoadEXE(exe, *game)
+	m, err := dos.LoadEXE(exe, *game)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "bootoracle:", err)
 		os.Exit(1)
 	}
+	m.SeedDir("SAVE0") // UW aborts without a SAVE0 working dir (empty on first run)
 	m.EnableIRQ = *irq
 	if *keys != "" {
-		ev, err := uw.ParseKeys(*keys)
+		ev, err := dos.ParseKeys(*keys)
 		if err != nil {
 			fmt.Fprintln(os.Stderr, "bootoracle:", err)
 			os.Exit(1)

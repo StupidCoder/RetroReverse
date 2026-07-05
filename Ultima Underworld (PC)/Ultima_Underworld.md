@@ -68,7 +68,7 @@ image DOS loads, implying a **code-overlay** scheme it manages itself.
 ## 2. The MZ header
 
 Decoding the 28-byte MZ header at file offset 0 (verified by `extract/cmd/uwinfo`, which
-reimplements the parse in `extract/uw/mz.go`):
+reimplements the parse in `tools/dos/mz.go`):
 
 ```
 $00  4D 5A            signature        "MZ"
@@ -101,7 +101,7 @@ Two things stand out:
 
 - **3,176 relocations.** Every far pointer baked into the image must be fixed up at load time by
   adding the runtime load segment. The first few point into segment `$0EC5` (the same segment as
-  the entry point), i.e. the fix-ups begin right where execution begins. Our `uw.ParseMZ` reads
+  the entry point), i.e. the fix-ups begin right where execution begins. Our `ParseMZ` reads
   the whole table (entries are `{offset u16, segment u16}` at file offset `$3E`); a future x86
   oracle will apply them when it places the module at a chosen load segment.
 - **141 KiB of data past the load image.** DOS only loads the 408 KiB module described by the
@@ -221,7 +221,7 @@ with real-mode flags. Unimplemented opcodes (notably the x87 FPU) halt with the 
 gaps are explicit. It is unit-tested with small programs (a `LOOP` sum, `CALL`/`RET`, conditional
 branches, `SUB` flags, memory round-trips, `REP STOSB`, `MUL`, and an `IntHook`).
 
-Around it, `extract/uw` (`dos.go`/`dos_int.go`) is a **minimal real-mode DOS**: it loads UW.EXE the
+Around it, `tools/dos` (`dos.go`/`dos_int.go`) is a **reusable minimal real-mode DOS**: it loads UW.EXE the
 way DOS would — place a PSP and environment, copy the load module, **apply the 3,176 relocations**
 (this is what turns the entry's link-time `MOV DX,$5C0F` into the correct runtime data segment),
 seed `CS:IP`/`SS:SP`/`DS`/`ES` — then services the `INT 21h`/BIOS calls the program makes
@@ -283,7 +283,7 @@ overlay's code into a fresh segment — exactly as it would on a real DOS machin
 ## 2. What the boot needs — a minimal DOS/PC around the CPU
 
 Running the real engine surfaced each thing UW depends on, and the oracle grew a faithful-enough
-model of each (all in `extract/uw`):
+model of each (all now in the reusable `tools/dos`):
 
 - **LIM EMS (expanded memory), `INT 67h`** — UW *requires* an EMS driver (without one it prints
   "Out of EMS Memory" and quits). `dos_ems.go` provides a 64 KiB page frame + an 8 MiB expanded
@@ -336,7 +336,7 @@ way to its **root cause** — a DOS memory-management fidelity gap. The chain, f
   the registry **is** empty.
 
 So the game manages memory by repeatedly **resizing its own program block** (`INT 21h/4Ah`, growing
-to ~35,200 paragraphs) plus a 928 KiB EMS allocation, then sub-allocating internally. `extract/uw`
+to ~35,200 paragraphs) plus a 928 KiB EMS allocation, then sub-allocating internally. `tools/dos`
 now carries a **faithful DOS memory manager** (`dos_mem.go`) — a real **MCB chain** with correct
 `INT 21h/48h/49h/4Ah/52h` block, free, resize (grow-by-absorbing-free-neighbours) and coalesce
 semantics, replacing the earlier bump stub. That is the right foundation and matters for the deeper
@@ -479,7 +479,7 @@ instruction **ring buffer** printed on stop, and spin/runaway detectors.
 
 Static decode, no oracle required: the palettes (`PALS.DAT`/`ALLPALS.DAT`), the `.GR` image
 banks, the `.TR` textures, the `.BYT` full-screen images, the `FONT*.SYS` fonts, and
-`STRINGS.PAK`. Each will be reimplemented in `extract/uw` and rendered to `rendered/`.
+`STRINGS.PAK`. Each will be reimplemented in the game's `extract` module and rendered to `rendered/`.
 
 # Part V — The world (planned)
 
@@ -495,18 +495,23 @@ page-file cutscene format.
 
 ## Appendix A — Tools
 
-- `extract/uw/mz.go` — MZ (real-mode DOS executable) header + relocation parser (`ParseMZ`).
-- `extract/cmd/uwinfo` — Part I recon: decode the UW.EXE header/layout and inventory `game/`.
 - `tools/x86` — the shared 16-bit real-mode x86 disassembler (`Decode`/`Disassemble`) **and**
   execution core (`CPU`/`Bus`/`Step`).
 - `tools/cmd/disx86` — linear disassembler; `tools/cmd/codetracex86` — recursive code-tracer.
-- `extract/uw/dos.go` + `dos_int.go` — the real-mode DOS machine (MZ loader with relocation +
-  `INT 21h` services: file I/O, FindFirst/Next, memory, vectors, scratch filesystem).
-- `extract/uw/dos_ems.go` — LIM EMS (`INT 67h`); `extract/uw/dos_io.go` — PC I/O ports
-  (keyboard/VGA/PIT/Sound-Blaster) + the injected timer IRQ.
-- `extract/cmd/bootoracle` — loads and runs UW.EXE on the oracle (`-trace`, `-log`, `-dump`,
-  `-irq`; prints a decoded instruction ring and detects spins/runaways).
-- `disasm/` — the long-term annotation store, fed by `codetracex86 -annotate` (see its README).
+- `tools/dos` — the **reusable real-mode DOS/PC machine** (the oracle) built on `tools/x86`:
+  `mz.go` (MZ loader + relocations, `ParseMZ`/`LoadEXE`), `dos.go`/`dos_int.go` (`INT 21h`
+  services: file I/O, FindFirst/Next, MCB memory, vectors, scratch filesystem), `dos_mem.go`
+  (MCB chain), `dos_ems.go` (LIM EMS `INT 67h`), `dos_video.go`/`dos_vga.go` (VGA BIOS + planar
+  VGA), `dos_mouse.go` (`INT 33h`), `dos_io.go` (PC ports + timer IRQ), `dos_keyboard.go`
+  (keyboard/mouse input injection). Game-agnostic — first proven on UW but nothing here is
+  UW-specific.
+- `extract/cmd/bootoracle` — the UW driver: loads `game/UW.EXE` on `tools/dos`, seeds `SAVE0`,
+  and exposes `-trace`/`-log`/`-dump`/`-dis`/`-shot`/`-keys`/`-irq` with a decoded instruction
+  ring and spin/runaway detectors.
+- `extract/cmd/uwinfo` — Part I recon: decode the UW.EXE header/layout (via `tools/dos.ParseMZ`)
+  and inventory `game/`.
+- `disasm/` — the code-knowledge store: `uw.asm` (code-traced C-runtime startup) +
+  `uw.annotations.txt` (the startup chain annotated with oracle-pinned addresses); see its README.
 
 All addresses in this document are real-mode `segment:offset` or explicit file offsets; bytes are
 little-endian. The `game/` data is copyrighted and not committed; verify a local copy of

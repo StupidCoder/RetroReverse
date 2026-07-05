@@ -1,4 +1,4 @@
-package uw
+package dos
 
 // Scripted input injection — keyboard and mouse. Ultima Underworld installs its
 // own INT 9 (IRQ1) handler at 214A:062E: it does `IN AL,60h`, stores the raw

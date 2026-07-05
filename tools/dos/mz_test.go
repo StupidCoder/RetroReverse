@@ -1,4 +1,4 @@
-package uw
+package dos
 
 import (
 	"encoding/binary"

@@ -1,4 +1,4 @@
-package uw
+package dos
 
 // A minimal VGA video BIOS (INT 10h). Ultima Underworld detects the display
 // adapter through the BIOS before it will set its video mode — and it gates the

@@ -1,0 +1,132 @@
+============================================================================
+uw.annotations.txt — knowledge store for Ultima Underworld's startup code
+============================================================================
+
+Companion to uw.asm. uw.asm is the statically code-traced Microsoft-C run-time
+startup (10 routines, 1011 bytes, from the DOS entry $EC50). This file annotates
+those routines and — because the static trace stops at the C-runtime's indirect
+handoff into the game — documents the rest of the startup chain using the
+addresses the execution-core oracle (extract/cmd/bootoracle) pinned at run time.
+
+All "module offsets" are load-segment-0 offsets (file offset minus the 0x3200
+MZ header). "Runtime SEG:OFF" are addresses after DOS loads the image at segment
+0x110 and applies the 3176 relocations, i.e. runtime_seg = module_seg + 0x110.
+Narrative and evidence live in ../Ultima_Underworld.md (Part II §3, Part III).
+
+Regenerate uw.asm: see its header comment.
+
+----------------------------------------------------------------------------
+1. The C run-time startup (what uw.asm shows) — module offsets
+----------------------------------------------------------------------------
+
+$EC50  __astart — the DOS entry point (CS:IP = 0EC5:0000, runtime 0FD5:0000).
+       MOV DX,$5C0F      link-time DGROUP; the loader's relocation adds 0x110,
+                         so at run time DX = 5D1F (the data segment).
+       MOV [CS:$023C],DX  stash DGROUP in the code segment.
+       MOV AH,$30 / INT 21  DOS get-version. The oracle answers 5.00.
+       MOV BP,[$0002]    PSP[2]  = segment of the first byte past the program
+                         (top of the block DOS allocated to it).
+       MOV BX,[$002C]    PSP[2C] = environment segment.
+       MOV DS,DX         switch DS to DGROUP.
+       [$0090]=AX, [$008E]=ES(PSP), [$008A]=BX(env), [$00A6]=BP(memtop) — the
+       runtime's saved-startup-state block in DGROUP.
+       CALL $EDBB        (see below) then an env/argv scan:
+       LES DI,[$0088] ; REPNE SCASB over the environment to find its end, then
+       walk past the argv[0] program path — the classic MSC argument setup.
+       The path the oracle advertises is "C:\UW.EXE"; the overlay manager later
+       reopens it (its basename resolves back to game/UW.EXE).
+
+$EDBB  sub — early DGROUP/stack fixup helper called from __astart before the
+       env scan (sets up the near-heap boundary words at [$0088]/[$008C]).
+$ED63, $ED83, $EDFE, $EE2B, $EE6E
+       small run-time helpers (segment/paragraph arithmetic for the memory
+       setup; two of them have two callers each — shared math).
+$EF73  sub (1 caller) — the largest early routine; the MSC memory-model setup
+       (compute the near-heap and far-heap extents from PSP[2]/memtop).
+$1030A, $1094B
+       later startup helpers reached from the memory setup.
+$5B3F3 sub (1 caller) — a far C-library routine (high in the module) pulled in
+       by the startup; reached by a far call from the memory setup.
+
+The run then resizes its memory block (INT 21h/4A, three times in the oracle
+log), installs the divide-error / overflow interrupt vectors (INT 21h/25h),
+and makes its first indirect/far call into the game — where the static trace
+ends (6 unresolved indirect calls). Everything below is from the oracle.
+
+----------------------------------------------------------------------------
+2. The C-runtime -> game handoff, and the overlay manager
+----------------------------------------------------------------------------
+
+The startup installs the Microsoft-C overlay manager on INT 3Fh (IVT[0x3F] ->
+runtime 3AB0:04E4) and thereafter every inter-overlay call goes through a 5-byte
+thunk `CD 3F | DW entry | DB overlay`. The manager reopens UW.EXE and pages
+overlays from the store at file $66B30 (the "FBOV" directory, 159 overlays).
+The oracle runs the game's OWN handler rather than reimplementing it. See
+../Ultima_Underworld.md Part III §1.
+
+----------------------------------------------------------------------------
+3. Game startup phases (runtime SEG:OFF, from the oracle)
+----------------------------------------------------------------------------
+
+Hardware / driver detection (INT 21h + port I/O), in order the oracle sees:
+  - DOS get-version, get/set vectors, get-DTA, FindFirst on DATA/CRIT/CUTS to
+    confirm the data tree exists.
+  - LIM EMS (INT 67h): "EMMXXXX0" driver probe, allocate + map pages. UW aborts
+    ("Out of EMS Memory") without it.
+  - Sound Blaster Pro: DSP reset/version at ports 0x226/0x22A/0x22C, OPL timer
+    detect at 0x228, mixer at 0x224/5. UW aborts on total failure.
+  - VGA: INT 10h AX=1A00 (get display combination) at runtime 01A0:3400. This
+    is the gate — the game only sets its video mode once it detects a VGA.
+
+Video mode + memory arena (the boot-abort root cause, Part III §4):
+  01A0:3400   INT 10h AX=1A00 VGA detection.
+  01A0:3421   INT 10h AX=0013 set mode 13h.
+  01A0:342E   OUT to seq[4]=F7 — turn chain-4 OFF (unchained "Mode X").
+  01A0:32B3   the video-memory arena init (pitch=(w+1)/4, page sizes, the arena
+              descriptor at [3BDD:4104/4106/4108]). It lives INSIDE the mode-set
+              path, so with INT 10h stubbed the arena stayed zero and the
+              resource loader died with "Could not read data (D004)".
+
+Asset load: strings, fonts, ALLPALS.DAT, the .GR image banks, sbpfm.adv +
+SOUNDS.DAT, the presentation screens — hundreds of file/overlay ops — then the
+main menu.
+
+Main loop:
+  2252:0410   the top of the game's main/event loop (where the oracle idles at
+              the menu and in the world, polling input each frame).
+
+Input (resident ISRs the game installs; see extract/uw/... now tools/dos):
+  214A:062E   INT 9 (IRQ1) keyboard ISR — IN AL,60h; store the raw scancode in
+              a 64-byte ring [0x300..0x340), write pointer at [CS:0590]; ack the
+              keyboard (port 61h) and PIC (OUT 20h,20h); IRET. (Installed via
+              INT 21h/25h, which writes the vector through the DOS handler, so a
+              -watch on the IVT does not see it.)
+  214A:06E7   INT 33h mouse poll: AH=0Bh read motion counters, then AH=03h
+              read position+buttons. The scaling `raw * 100 / 200` (a halving,
+              at 214A:06F8) is what pins the injector's 2-mickeys-per-pixel.
+  214A:0703   the button read (AH=0003, mask AND 3 — two buttons).
+
+Character creation -> world init -> dungeon:
+  After the menu, the mouse-driven character creation runs, then confirming the
+  character launches world setup and the intro, which enters the fixed-point
+  renderer. That renderer installs its OWN divide-error handler and relies on
+  IDIV overflow to saturate:
+  IVT[0] = 589E:04D0  ->  JMPF [CS:04D5]  ->  07F7:5BD1   (#DE handler, in the
+              renderer's own overlay). The faulting divide is 07F7:4DCA,
+              `IDIV DI` computing ([1612]<<15)/DI; when [1612]==DI the quotient
+              is exactly 32768 (one past the signed-16 max) and traps. The x86
+              core therefore raises #DE through IVT[0] (tools/x86 divErr) instead
+              of halting — after which the game runs its handler and drops into
+              the first-person dungeon (rendered/dungeon.png).
+
+----------------------------------------------------------------------------
+4. Notes on extending uw.asm
+----------------------------------------------------------------------------
+
+The game's resident code (the segments above: 01A0, 214A, 2252, 3AB0) and the
+renderer overlay (07F7) can be disassembled correctly from the ORACLE's live,
+relocated, post-paging memory with `bootoracle -dis SEG:OFF:LEN` — static
+tracing of the raw file cannot, because relocations are unapplied and overlay
+regions hold their pre-paging bytes. Any future resident_core.asm / overlay
+listings for UW should be captured that way and their regen command recorded
+here, following the Turrican disasm/ store's resident-vs-overlay split.

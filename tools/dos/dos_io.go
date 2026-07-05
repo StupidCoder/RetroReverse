@@ -1,4 +1,4 @@
-package uw
+package dos
 
 // Minimal PC I/O-port models, enough to get UW past its hardware initialisation
 // (it takes over the keyboard, VGA and timer directly). None of this produces
