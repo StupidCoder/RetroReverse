@@ -149,6 +149,7 @@ export class ModelViewer {
           c.tz = c.home.z + Math.cos(a) * CHOMP.radius;
           c.lunging = 0.35;
         }
+        c.obj.position.y = c.home.y + c.lift;
         const dx = c.tx - c.obj.position.x, dz = c.tz - c.obj.position.z;
         const dist = Math.hypot(dx, dz);
         const sp = c.lunging > 0 ? CHOMP.lunge : CHOMP.lunge * 0.12;
@@ -164,7 +165,7 @@ export class ModelViewer {
           const f = (i + 1) / (c.links.length + 1);
           c.links[i].position.set(
             c.home.x + (c.obj.position.x - c.home.x) * f,
-            c.home.y + (c.obj.position.y - c.home.y) * f + Math.sin(Math.PI * f) * -0.004,
+            c.home.y + c.lift * f + Math.sin(Math.PI * f) * -0.004,
             c.home.z + (c.obj.position.z - c.home.z) * f);
         }
       }
@@ -391,8 +392,12 @@ export class ModelViewer {
                 links.push(l);
               }
             }
+            // The body model's pivot is its centre; the engine's gravity rests
+            // it on the ground, so lift by the model's half-depth.
+            const cbox = new THREE.Box3().setFromObject(proto.scene);
+            const lift = -cbox.min.y * (o.s || 1 / 125);
             this.chomps.push({
-              obj: inst, links, t: Math.random() * 2,
+              obj: inst, links, lift, t: Math.random() * 2,
               tx: o.p[0], tz: o.p[2],
               home: { x: o.p[0], y: o.p[1], z: o.p[2] },
             });
