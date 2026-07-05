@@ -63,9 +63,22 @@ const CHOMP = {
   lunge: (0x17000 / 4096) * 30 / 1000,      // stage units/s
   links: 5,
 };
-const SIGN_TEXT = 'This signpost is readable in the game: stand in range (the engine flags the ' +
-  'actor at +$B0) and press A — the sign starts its dialog (traced at $020BB060). ' +
-  'The message text lives in the per-language archives, not yet extracted.';
+const ACTOR_INFO = {
+  kuribo_model: { title: 'Goomba — daKrb_c, actor 202 (trio spawners: actors 200/201)', text:
+    'Wander AI (overlay 84): forward speed at +$98 eases toward the per-state table at $02130248 — 2.0 world-units/frame wandering, 8.0 chasing — by $500 per frame. Yaw eases toward a target heading at $200 angle-units/frame ($10000 = 360°). A 100-frame timer repicks: the shared RNG ($0203B990) turns it by a random signed 16-bit angle three times out of four and pauses it the fourth. Wall contact reflects the heading, a 1000-unit leash around the spawn point (+$41C) steers it home, and falling out teleports it back. Chase (state 3) triggers from the profile\u2019s 100-unit sight radius. Walk clip: kuribo_walk.bca — 3 bones, 30 frames, 16-key rotation tracks.' },
+  bombhei: { title: 'Bob-omb — daBmb_c, actor 206', text:
+    'Wander AI (overlay 102): each heading pick ($0214BEB4) aims AT its home anchor (+$3C4) plus a random signed 16-bit offset — erratic but home-biased — and beyond 1280 units the randomness is dropped and it walks straight back. Every pick sets forward speed to $5000 (5.0 units/frame). It repicks when the yaw reaches the target or a 512-frame fallback timer (+$3E8) expires; yaw eases at $400 angle-units/frame, doubled to $800 when chasing (speed goal $10000 = 16.0 — the lit-fuse sprint). The walk-clip rate (+$35C) is speed/8, so the feet match the ground. The round body is a billboard bone (flag +$3C bit 0, \u201cbody_bill\u201d).' },
+  red_bombhei: { title: 'Bob-omb Buddy — daRedBombhei_c, actor 181', text:
+    'Shares the bob-omb wander mechanics (its bank sits in overlay 84): home-biased random headings, 5.0 units/frame walk, $400/frame turning, billboarded body. The buddies never arm a fuse chase.' },
+  ar1_2: { title: 'Chain Chomp — daWanwan2_c, actor 337', text:
+    'Overlay 100; the model comes from the castle-grounds archive (ar1 member 2 — a_mat_body / a_mat_eye / a_mat_mouth; member 1 is the chain link). Its step ($02143D64) runs under \u2212$3C000 (\u221215.0/frame) gravity — it hops rather than walks — eases the actor scale vector at +$80 toward 1.0 (the pre-bark inflate), and the lunge drives forward speed to $17000 = 23.0 units/frame, the fastest traced motion in the game. The chain drawer ($021437D4) strings the links from a (0, 0, \u2212250) anchor vector rotated by the body\u2019s yaw: a 250-unit chain to the stake. The viewer\u2019s lunge cadence is approximated; radius and speed are the traced values.' },
+  arc0_5: { title: 'Coin — actors 288/289/290 (also item actor 276, subtypes $B/$C)', text:
+    'The step at $020B2324 adds $C00 to the yaw at +$8E every frame — $10000 is a full turn, so about 1.4 revolutions per second at the 30 fps actor tick. The spin is geometry, not a texture animation: a flat quad yawing in 3D, its 16\u00d764 texture mapped at texScaleS 2.0 over mirrored-S addressing. The blob shadow joins the draw list only within 100 render units of the camera.' },
+  arc0_7: { title: 'Red Coin — actor 289', text:
+    'Same spin and pickup path as the yellow coin ($C00 yaw per frame at +$8E); the model is arc0 member 7, the red-paletted variant of member 5.' },
+  obj_tatefuda: { title: 'Signpost — daObjTatefuda_c, actor 184', text:
+    'A proximity dialog: at init ($020BC240) it snaps to the ground with a collision ray cast from y+$64000 downward, then registers an interaction cylinder. Its step ($020BBEA4) watches the engine-set flags at +$B0 — bit $4000 means the player is in range — and a button press starts its message through $020BB060. The message text lives in the per-language archives, not yet extracted.' },
+};
 
 export class ModelViewer {
   constructor(el, hud) {
@@ -101,6 +114,7 @@ export class ModelViewer {
     this.billboards = [];   // flat tree quads, yawed toward the camera each frame
     this.spinners = [];     // coins: yaw at the traced $C00/frame
     this.signposts = [];    // clickable obj_tatefuda instances
+    this.clickables = [];   // placed actors with traced-behavior notes (click to open)
     this.mixers = [];       // skinned enemies playing their .bca walk clips
     this.patrollers = [];   // goombas wandering per their traced AI
     this.chomps = [];       // chain chomps lunging on their chains
@@ -215,25 +229,36 @@ export class ModelViewer {
 
   _clickSign(e) {
     this._hideSign();
-    if (!this.signposts.length || this.wantObjects === false) return;
+    if (!this.clickables || !this.clickables.length || this.wantObjects === false) return;
     const r = this.three.renderer.domElement.getBoundingClientRect();
     const p = new THREE.Vector2(
       ((e.clientX - r.left) / r.width) * 2 - 1,
       -((e.clientY - r.top) / r.height) * 2 + 1);
     this._ray.setFromCamera(p, this.three.camera);
-    const hits = this._ray.intersectObjects(this.signposts, true);
+    const hits = this._ray.intersectObjects(this.clickables.map(c => c.obj), true);
     if (!hits.length) return;
+    let node = hits[0].object, hit = null;
+    while (node && !hit) {
+      hit = this.clickables.find(c => c.obj === node) || null;
+      node = node.parent;
+    }
+    if (!hit) return;
     const d = document.createElement('div');
-    d.style.cssText = 'position:absolute;left:12px;bottom:12px;max-width:min(440px,80%);' +
-      'background:rgba(10,13,18,.92);border:1px solid #3a4a5c;border-radius:8px;' +
-      'padding:10px 12px;font:12px/1.5 system-ui;color:#dfe6f0;pointer-events:none;z-index:5';
-    d.textContent = SIGN_TEXT;
+    d.style.cssText = 'position:absolute;left:12px;bottom:12px;max-width:min(480px,85%);' +
+      'background:rgba(10,13,18,.94);border:1px solid #3a4a5c;border-radius:8px;' +
+      'padding:10px 12px;font:12px/1.55 system-ui;color:#dfe6f0;z-index:5';
+    const h = document.createElement('div');
+    h.style.cssText = 'font-weight:600;margin-bottom:4px;color:#ffd75e';
+    h.textContent = hit.info.title;
+    const body = document.createElement('div');
+    body.textContent = hit.info.text;
+    d.append(h, body);
     // this.el is the studio's .mount (position:absolute, inset:0) — already a
     // positioning context; never touch its position or the canvas collapses.
     this.el.appendChild(d);
     this._signBox = d;
     clearTimeout(this._signTimer);
-    this._signTimer = setTimeout(() => this._hideSign(), 9000);
+    this._signTimer = setTimeout(() => this._hideSign(), 15000);
   }
 
   _hideSign() {
@@ -381,6 +406,7 @@ export class ModelViewer {
           else if (o.ry) inst.rotation.y = o.ry * Math.PI / 180;
           if (COIN_MODELS.has(o.m)) spinners.push(inst);
           if (o.m === SIGN_MODEL) signs.push(inst);
+          if (ACTOR_INFO[o.m]) this.clickables.push({ obj: inst, info: ACTOR_INFO[o.m] });
           if (o.m === 'ar1_2') { // chain chomp: anchored, with chain links
             const links = [];
             const linkProto = await protos.get('ar1_1');
@@ -454,7 +480,7 @@ export class ModelViewer {
     this.signposts = signs;
     if (this.hud) {
       this.hud.textContent += ` · ${placed + markers} objects placed (${markers} as markers)` +
-        (signs.length ? ' · signposts are clickable' : '');
+        (this.clickables.length ? ' · click an enemy or sign for its traced behavior' : '');
     }
   }
 
@@ -462,6 +488,7 @@ export class ModelViewer {
     this.billboards = [];
     this.spinners = [];
     this.signposts = [];
+    this.clickables = [];
     this.mixers = [];
     this.patrollers = [];
     this.chomps = [];
