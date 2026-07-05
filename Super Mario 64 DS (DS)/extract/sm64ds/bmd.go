@@ -27,7 +27,9 @@
 //	  0x10 read merges pairs of adjacent display lists and halves the index space,
 //	  scrambling which material draws which geometry.)
 //	Material (0x30): +0x00 nameOff, +0x04 textureIndex, +0x08 paletteIndex,
-//	  +0x0C/+0x10 texture-matrix scale (fx12), +0x24 GX polygon attribute.
+//	  +0x0C/+0x10 texture-matrix scale (fx12), +0x20 GX texture addressing
+//	  (repeat bits 16/17, flip bits 18/19 — ORed onto the texture's param at
+//	  runtime), +0x24 GX polygon attribute.
 //	Texture (0x14): +0x00 nameOff, +0x04 dataOff, +0x08 size, +0x0C dims,
 //	  +0x10 texImageParam (format/width/height). Format 5 (4x4): the 2-bit index
 //	  data is at dataOff (size bytes), the per-block palette-select data follows
@@ -154,9 +156,13 @@ func Decode(data []byte, name string) (*Model, error) {
 		ti, pi := int(int32(b.u32(r + 4))), int(int32(b.u32(r + 8)))
 		if name, w, h, err := decodeTex(ti, pi); err == nil && name != "" {
 			m.Texture, m.Width, m.Height = name, w, h
-			// Wrap: level textures tile, so repeat both axes unless the texgen bits
-			// say otherwise; the GX repeat/flip live in bits 16-19 of the param.
-			m.TexParam = texRecs[ti].param | (3 << 16)
+			// The GX TEXIMAGE_PARAM the engine sends is the material's addressing
+			// word at +$20 (repeat bits 16/17, flip bits 18/19) ORed onto the
+			// texture record's format/size param — traced in the render-object
+			// init at $02046374, which ORs [material+$20] with [texture+$10].
+			// The castle hall's sun emblem (mat_sun, flip S+T) mirrors its four
+			// quarters this way; clamp materials (mat_kuppa) keep all bits clear.
+			m.TexParam = texRecs[ti].param | b.u32(r+0x20)
 		}
 		mats[i] = m
 	}
@@ -268,39 +274,3 @@ func baseName(p string) string {
 	return s
 }
 
-// NormalizeUV remaps each material's texture coordinates to span exactly its
-// texture — for the two-triangle billboard models (trees, the super-mushroom),
-// whose GX texcoords overflow the texture in texel space (e.g. the tree quad
-// spans t=-14.75..64 on a 64-texel texture) and are remapped by the engine's
-// billboard draw path rather than sampled raw.
-func (m *Model) NormalizeUV() {
-	for mi, tris := range m.ByMat {
-		if mi >= len(m.Mats) {
-			continue
-		}
-		mat := m.Mats[mi]
-		if mat.Texture == "" {
-			continue
-		}
-		w, h := float64(mat.Width), float64(mat.Height)
-		minU, maxU := math.Inf(1), math.Inf(-1)
-		minV, maxV := math.Inf(1), math.Inf(-1)
-		for _, t := range tris {
-			for _, v := range t.V {
-				minU, maxU = math.Min(minU, v.U), math.Max(maxU, v.U)
-				minV, maxV = math.Min(minV, v.V), math.Max(maxV, v.V)
-			}
-		}
-		du, dv := maxU-minU, maxV-minV
-		if du <= 0 || dv <= 0 {
-			continue
-		}
-		for ti := range tris {
-			for vi := range tris[ti].V {
-				v := &tris[ti].V[vi]
-				v.U = (v.U - minU) / du * w
-				v.V = (v.V - minV) / dv * h
-			}
-		}
-	}
-}

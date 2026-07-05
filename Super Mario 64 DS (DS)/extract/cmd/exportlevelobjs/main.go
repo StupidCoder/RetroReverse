@@ -99,9 +99,6 @@ func main() {
 			fmt.Fprintf(os.Stderr, "  %s: %v\n", ref.Stem(), err)
 			continue
 		}
-		if billboardStems[ref.Stem()] {
-			m.NormalizeUV() // billboard quads overflow their texture in texel space
-		}
 		glb, err := m.GLB()
 		if err != nil {
 			continue

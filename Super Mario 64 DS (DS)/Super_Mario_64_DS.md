@@ -325,9 +325,11 @@ The catalog's 455 `.bmd` files *look* like the NitroSDK's `BMD0` models under an
 | display lists `+$0C/+$10` | **$08** | `{u32 subCount, u32 subHeaderPtr}` → subCount 16-byte sub-headers, each locating a GX command chunk (size `+$08`, data `+$0C`) |
 | textures `+$14/+$18` | $14 | name, data offset, size, `texImageParam`; format-5 palette-select data follows the texels |
 | palettes `+$1C/+$20` | $10 | name, data offset, size (BGR555) |
-| materials `+$24/+$28` | $30 | name, **explicit texture and palette indices** (`+$04`/`+$08`), texture-matrix scale, GX polygon attribute (`+$24`) |
+| materials `+$24/+$28` | $30 | name, **explicit texture and palette indices** (`+$04`/`+$08`), texture-matrix scale, GX texture addressing (`+$20`), GX polygon attribute (`+$24`) |
 
 Only the low-level pieces are the shared DS silicon — the GX geometry display lists (including the full in-list matrix stack: push/pop/load/mult/scale/translate, which the larger stages drive) and the seven hardware texture formats — so those decoders carry over from the Mario Kart DS work unchanged (`tools/nds/nitro`); the container parser is this game's own (`extract/sm64ds/bmd.go`). Two traps mattered in practice: the display-list stride is **8 bytes, not 16** (a 16-byte read merges adjacent lists and scrambles which material draws what), and a display list's two GX chunks are one *continuous* command stream (a chunk may open with a delta vertex relative to the previous chunk's last).
+
+Texture *addressing* is per material, not per texture: the render-object initialiser at `$02046374` ORs the material's `+$20` word — GX repeat bits 16/17 and **flip (mirror) bits 18/19** — onto the texture record's format/size param to form the `TEXIMAGE_PARAM` the hardware sees. The castle hall's sun emblem is the visible proof: its `mat_sun` sets flip on both axes, so the floor quad's four quarters mirror into one complete emblem. The same word also settles the tree-billboard texcoord puzzle: the tree materials clear all four bits — hardware **clamp** — so their famously overflowing quad texcoords (t = −14.75..64 on a 64-texel texture) simply pin to the texture's edge rows (transparent, on a cut-out), no engine-side remap involved. The exporter's earlier UV-normalise convention for billboards is deleted; the addressing bits are exported as glTF sampler wrap modes instead.
 
 # Part V — Level data and object placements
 

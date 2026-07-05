@@ -48,6 +48,9 @@ func main() {
 		Name    string `json:"name"`
 		File    string `json:"file"`
 		Section string `json:"section"`
+		// Objects references the per-stage placement JSON (written by
+		// cmd/exportlevelobjs) that the viewer overlays on a level.
+		Objects string `json:"objects,omitempty"`
 	}
 	var manifest []entry
 	seen := map[string]bool{}
@@ -58,12 +61,6 @@ func main() {
 			fmt.Fprintf(os.Stderr, "  %s: %v\n", filepath.Base(p), err)
 			fail++
 			continue
-		}
-		// billboard quads (the trees) overflow their texture in texel space; the
-		// engine's billboard path remaps them — normalize so the texture fills the quad
-		switch m.Name {
-		case "bomb_tree", "toge_tree", "yuki_tree", "yashi_tree":
-			m.NormalizeUV()
 		}
 		glb, err := m.GLB()
 		if err != nil {
@@ -83,7 +80,11 @@ func main() {
 		ok++
 		if *all && !seen[file] {
 			if name, sec := classify(p, m.Name); sec != "" {
-				manifest = append(manifest, entry{Name: name, File: file, Section: sec})
+				e := entry{Name: name, File: file, Section: sec}
+				if sec == "Levels" {
+					e.Objects = "objects/" + m.Name + ".json"
+				}
+				manifest = append(manifest, e)
 				seen[file] = true
 			}
 		}
