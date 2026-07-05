@@ -54,11 +54,14 @@ var billboardStems = map[string]bool{
 
 // falseBind: actors whose scan picks up a neighbouring unit's model by
 // adjacency rather than their own — the tree-table stubs (177-180, placing
-// indoors), and bank actors whose nearest literal is a stage prop instead of
-// their body (337 daWanwan2 -> a water plane, 190 daHolhei -> a bird,
-// 358 daECreate_c the enemy spawner, 318 daObjFlamethrower -> a ?-box,
+// indoors), engine actors 11/12 whose scan lands on the Eyerok hand
+// (iwante_lhand — the pyramid boss's files, registered nearby; a stone hand
+// under Bob-omb Battlefield's bridge is clearly wrong), and bank actors whose
+// nearest literal is a stage prop instead of their body (190 daHolhei -> a
+// bird, 358 daECreate_c the enemy spawner, 318 daObjFlamethrower -> a ?-box,
 // 239 daJango -> a flower). Dropped until traced properly.
 var falseBind = map[int]bool{
+	11: true, 12: true,
 	177: true, 178: true, 179: true, 180: true,
 	190: true, 239: true, 318: true, 358: true,
 }
