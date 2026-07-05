@@ -1970,6 +1970,18 @@ axes unless the GX flags say otherwise.</p>
 converted to glTF with their textures baked in &mdash; the castle floors, each course's terrain, and the
 creatures and props that populate them. Course geometry is authored small and scaled up by the model's
 power-of-two shift, the size the physics and collision meshes use.</p>
+
+<h2>How the engine places everything</h2>
+<p>The render transform is traced end to end in the ARM9 draw code. The engine renders in <strong>world &divide; 8</strong>
+units &mdash; an arithmetic shift right by 3 at every seam between simulation and rendering &mdash; and every model
+draws under a hardware matrix scale of its header's 2<sup>shift</sup>. The stage alone is drawn with one extra
+hard-coded uniform scale of <strong>125.0</strong>, which makes a stage vertex unit exactly
+2<sup>shift</sup>&nbsp;&times;&nbsp;1000 world units: the courses are authored in kilo-units. That single constant fixes
+where every object stands &mdash; a placement's 16-bit coordinate divided by 1000 lands it on the stage model with no
+per-course tuning. Object behavior is C++ virtual methods, not scripts; the traces so far give the viewer its
+moving parts: the coin's step adds <code>$C00</code> to its yaw every frame &mdash; a flat quad revolving about 1.4
+times a second &mdash; and the signposts are proximity dialogs that snap themselves to the ground with a collision
+ray when they spawn. Click one in a course view.</p>
 `,
   },
 };

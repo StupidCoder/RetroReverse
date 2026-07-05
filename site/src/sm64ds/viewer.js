@@ -11,6 +11,21 @@ import { FlyCam, flyHint } from '../shared/flycam.js';
 
 const MODELS = 'public/sm64ds/models/';
 
+// Coin spin, from the coin actor's step at $020B23A4: yaw += $C00 angle units
+// per frame ($10000 = 360°), at the game's 30 fps actor tick.
+const COIN_SPIN = (0xC00 / 0x10000) * 30 * 2 * Math.PI; // rad/s
+const COIN_MODELS = new Set(['arc0_5', 'arc0_7']);
+
+// Signposts (obj_tatefuda, actor 184): the traced behavior is a proximity
+// dialog — the engine sets an in-range flag in the actor's +$B0 word and a
+// button press starts the sign's message ($020BB060). The message text lives
+// in the per-language archives and isn't extracted yet, so the viewer shows
+// the traced mechanics instead.
+const SIGN_MODEL = 'obj_tatefuda';
+const SIGN_TEXT = 'This signpost is readable in the game: stand in range (the engine flags the ' +
+  'actor at +$B0) and press A — the sign starts its dialog (traced at $020BB060). ' +
+  'The message text lives in the per-language archives, not yet extracted.';
+
 export class ModelViewer {
   constructor(el, hud) {
     this.el = el;
@@ -43,6 +58,8 @@ export class ModelViewer {
     // level object placements (decoded from the level overlays' object tables)
     this.objectsGroup = null;
     this.billboards = [];   // flat tree quads, yawed toward the camera each frame
+    this.spinners = [];     // coins: yaw at the traced $C00/frame
+    this.signposts = [];    // clickable obj_tatefuda instances
     this.wantObjects = true;
     // Levels are explored with free-flight controls (WASD/arrows, or virtual
     // sticks on touch); objects and characters keep the slow auto-rotating orbit.
@@ -64,9 +81,46 @@ export class ModelViewer {
       for (const b of this.billboards) {
         b.rotation.y = Math.atan2(camera.position.x - b.position.x, camera.position.z - b.position.z);
       }
+      for (const s of this.spinners) s.rotation.y += COIN_SPIN * dt;
       renderer.render(scene, camera);
     };
     tick();
+
+    // Signpost interaction: a click (not a drag) raycasts the placed signposts.
+    this._ray = new THREE.Raycaster();
+    let downAt = null;
+    renderer.domElement.addEventListener('pointerdown', e => { downAt = [e.clientX, e.clientY]; });
+    renderer.domElement.addEventListener('pointerup', e => {
+      if (!downAt || Math.hypot(e.clientX - downAt[0], e.clientY - downAt[1]) > 5) return;
+      downAt = null;
+      this._clickSign(e);
+    });
+  }
+
+  _clickSign(e) {
+    this._hideSign();
+    if (!this.signposts.length || this.wantObjects === false) return;
+    const r = this.three.renderer.domElement.getBoundingClientRect();
+    const p = new THREE.Vector2(
+      ((e.clientX - r.left) / r.width) * 2 - 1,
+      -((e.clientY - r.top) / r.height) * 2 + 1);
+    this._ray.setFromCamera(p, this.three.camera);
+    const hits = this._ray.intersectObjects(this.signposts, true);
+    if (!hits.length) return;
+    const d = document.createElement('div');
+    d.style.cssText = 'position:absolute;left:12px;bottom:12px;max-width:min(440px,80%);' +
+      'background:rgba(10,13,18,.92);border:1px solid #3a4a5c;border-radius:8px;' +
+      'padding:10px 12px;font:12px/1.5 system-ui;color:#dfe6f0;pointer-events:none;z-index:5';
+    d.textContent = SIGN_TEXT;
+    this.el.style.position = 'relative';
+    this.el.appendChild(d);
+    this._signBox = d;
+    clearTimeout(this._signTimer);
+    this._signTimer = setTimeout(() => this._hideSign(), 9000);
+  }
+
+  _hideSign() {
+    if (this._signBox) { this._signBox.remove(); this._signBox = null; }
   }
 
   _resize() {
@@ -169,7 +223,7 @@ export class ModelViewer {
     if (gen !== this.gen) return;
 
     const group = new THREE.Group();
-    const bills = [];
+    const bills = [], spinners = [], signs = [];
     const markerGeo = new THREE.SphereGeometry(size / 260, 8, 6);
     const markerMat = new THREE.MeshBasicMaterial({ color: 0xffd75e, transparent: true, opacity: 0.75 });
     let placed = 0, markers = 0;
@@ -182,6 +236,8 @@ export class ModelViewer {
           if (o.s) inst.scale.setScalar(o.s);
           if (o.b) bills.push(inst);
           else if (o.ry) inst.rotation.y = o.ry * Math.PI / 180;
+          if (COIN_MODELS.has(o.m)) spinners.push(inst);
+          if (o.m === SIGN_MODEL) signs.push(inst);
           placed++;
         }
       }
@@ -196,11 +252,19 @@ export class ModelViewer {
     this.three.scene.add(group);
     this.objectsGroup = group;
     this.billboards = bills;
-    if (this.hud) this.hud.textContent += ` · ${placed + markers} objects placed (${markers} as markers)`;
+    this.spinners = spinners;
+    this.signposts = signs;
+    if (this.hud) {
+      this.hud.textContent += ` · ${placed + markers} objects placed (${markers} as markers)` +
+        (signs.length ? ' · signposts are clickable' : '');
+    }
   }
 
   _disposeObjects() {
     this.billboards = [];
+    this.spinners = [];
+    this.signposts = [];
+    this._hideSign();
     if (!this.objectsGroup) return;
     this.three.scene.remove(this.objectsGroup);
     this.objectsGroup.traverse(o => {
