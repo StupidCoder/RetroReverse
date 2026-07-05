@@ -138,6 +138,47 @@ To do:
       handshake converges) and runs the ARM9 into the post-sync **PXI FIFO exchange**,
       where it waits on the ARM7's boot message. Next: model the ARM7's SPI/firmware init
       so it replies → the frame loop and the overlay-to-state map.
+* Ultima Underworld (PC)
+    * First **MS-DOS / x86** title — a texture-mapped 3D dungeon crawler (1992). Unlike every
+      prior game, its CPU (Intel x86, 16-bit real mode) has **no tooling in `tools/` yet**, so a
+      major goal is building an x86 disassembler + code-tracer + execution-core oracle
+      (`tools/x86`, planned — mirrors `tools/arm`/`tools/m68k`). Part I done: `UW.EXE` is a plain
+      real-mode **MZ** executable (no DOS extender) — the header and load layout are decoded
+      (12,800-byte header, a 407,856-byte load module, entry `CS:IP = 0EC5:0000`, 3,176
+      relocations) and, tellingly, **141 KiB of data sits past the load image** — a self-managed
+      code-overlay region (Part III). The `game/` data folders (`DATA`/`CRIT`/`CUTS`/`SOUND`,
+      ~11 MB) are catalogued by `extract/cmd/uwinfo` (`extract/uw` reimplements the MZ parse,
+      unit-tested). **Part II underway — the `tools/x86` toolchain built**: a 16-bit real-mode
+      x86 disassembler + **execution core** (`tools/x86`: prefixes, ModR/M+SIB in 16/32-bit
+      addressing, the 8086/186/286 integer set + common 386 ops + x87 escapes; a `CPU`/`Bus`/`Step`
+      core with real-mode flags, REP strings and INT/IRET), a linear `cmd/disx86`, a recursive
+      `cmd/codetracex86`, and a minimal real-mode **DOS machine** (`extract/uw`: MZ loader that
+      applies the relocations, `INT 21h`/BIOS services, file I/O) driven by `cmd/bootoracle`.
+      **Part III done — the oracle RUNS THE GAME.** It executes UW's *own* `INT 3Fh` overlay
+      handler (the MS-C overlay scheme, store at file `$66B30`), so overlays page in from UW.EXE on
+      demand; around it a faithful DOS/PC: **MCB-chain memory manager**, **LIM EMS 4.0** (incl.
+      map-multiple), lowest-free **DOS handle reuse** (the MS-C runtime indexes its file-flags
+      table by handle — monotonic handles broke `fread` after ~180 opens), signed `lseek`,
+      FindFirst/Next + a scratch filesystem, a **VGA video BIOS** (`INT 10h` — UW gates its whole
+      video-memory arena on BIOS VGA detection; that was the boot-abort root cause), an 8042
+      keyboard / VGA / **Sound Blaster Pro** port model, DAC-palette capture, and injected timer
+      IRQs. The CPU core is differentially validated against the **SingleStepTests/8088** suite
+      (~155 opcodes; caught a real segment-wrap bug). Result: **600M+ deterministic instructions**
+      — the game detects VGA, sets mode 13h then **unchains into Mode X** (proven by the captured
+      `seq[4]` write), plays the animated intro cutscene, initialises a new game (writes
+      `SAVE0\LEV.ARK` itself), and sits at its **main menu**. True **planar VGA emulation**
+      (4 planes, sequencer/GC/CRTC, write modes 0/1/2, latches) makes `bootoracle -shot`
+      **pixel-perfect**. **Input injection then drives the game into the dungeon**: keyboard via
+      the game's own `INT 9` ring (IRQ1 + port 60h, phase-offset from the timer so `IF` is set),
+      mouse via a Microsoft `INT 33h` driver (motion scale pinned from UW's own `×100/200`
+      halving; corner-homing for exact absolute clicks). `bootoracle -keys` scripts key/`at:X,Y`/
+      `lclick` sequences — enough to walk all of character creation, type the hero's name, and
+      *Journey Onward*. The final gate was a **divide-error** the fixed-point renderer relies on:
+      `IDIV` overflow now vectors `#DE` through the game's own IVT[0] handler (which saturates the
+      quotient) instead of halting — after which UW drops into the **first-person, texture-mapped
+      Stygian Abyss** (`rendered/dungeon.png`). Next: the asset formats (Part IV: `.GR` images,
+      `.TR` textures, `LEV.ARK` levels, `STRINGS.PAK`, `.XMI`/`.VOC` audio) and object behaviour
+      (Part V), now that the oracle can be driven to any point in the game.
 * Tools
     * Disassembler should be better at segmenting functions; currently jumps within a function are treated as separate sub-routines; try to document parameters of sub-routines (which registers are used?)
 
@@ -248,11 +289,17 @@ RetroReverse/
 │   ├── extract/                 # module supermarioland/extract — level decoder; cmd/render, cmd/levelmap
 │   └── rendered/                # generated PNGs (tile sheet, title screen, level maps)
 │
-└── Turrican (Amiga)/
-    ├── Turrican.adf             # raw disk image (pinned by MD5 in Image files)
-    ├── Turrican.md              # writeup (Parts I-IV; V stubbed) — loader, engine, disk-streamed levels
-    ├── extract/                 # pure-Go 3-pass decoder; cmd/decrunch (main part), cmd/block (disk overlays)
-    └── disasm/                  # annotated 68000 disasm: resident engine, in-place setup, $1BB00 sound driver
+├── Turrican (Amiga)/
+│   ├── Turrican.adf             # raw disk image (pinned by MD5 in Image files)
+│   ├── Turrican.md              # writeup (Parts I-IV; V stubbed) — loader, engine, disk-streamed levels
+│   ├── extract/                 # pure-Go 3-pass decoder; cmd/decrunch (main part), cmd/block (disk overlays)
+│   └── disasm/                  # annotated 68000 disasm: resident engine, in-place setup, $1BB00 sound driver
+│
+└── Ultima Underworld (PC)/
+    ├── game/                    # copyrighted MS-DOS game files (UW.EXE + data); NOT committed (.gitignore)
+    ├── Ultima_Underworld.md     # writeup (Part I done: MZ header/layout; Parts II-VI stubbed)
+    ├── extract/                 # module ultimaunderworld/extract — uw.ParseMZ; cmd/uwinfo recon
+    └── disasm/                  # code store (awaits the tools/x86 disassembler + codetracex86)
 ```
 
 Per-game folder contract: `<Game>.<ext>` raw image, a markdown writeup of the
@@ -280,6 +327,11 @@ below pin the precise copy, so the work stays reproducible.
 | `Super Mario 64 DS (DS)/Super Mario 64 DS (Europe) (En,Fr,De,Es,It).nds` | 16,777,216 | `867b3d17ad268e10357c9754a77147e5` |
 | `Super Mario Land (GB)/Super Mario Land (World).gb` | 65,536 | `b48161623f12f86fec88320166a21fce` |
 | `Turrican (Amiga)/Turrican.adf` | 901,120 | `6677ce6cea38dc66be40e9211576a149` |
+| `Ultima Underworld (PC)/game/UW.EXE` | 561,744 | `0f58c92a45b8d8d5bba498c59eb111c2` |
+
+The Ultima Underworld `game/` folder (the executable plus ~11 MB of data) is a
+copyrighted commercial release and is **not committed** (`.gitignore`d); only
+`UW.EXE` is pinned above, as the offsets in its writeup depend on it.
 
 Verify a copy before reusing it, e.g. `md5 "Elite (C64)/Elite.tap"`
 (`md5sum` on Linux).
@@ -296,6 +348,7 @@ per-platform subfolder (`c64/`, `amiga/`, …).
 | `z80` | Zilog Z80 toolkit mirroring `mos6502`/`m68k`: a `Decode`/`Disassemble` disassembler over the CPU's x/y/z/p/q opcode bit-fields (all `CB`/`ED`/`DD`/`FD` prefix pages, including `DDCB` and the undocumented `IXH`/`IXL`/`SLL`) **and** a practically complete instruction-level `CPU` execution core (block moves, IM-1 interrupts, documented flags) over the same `Bus`/`Step()` interface. Usable by any Z80 platform (Game Gear, Master System, ZX, MSX, …). |
 | `sm83` | Sharp **LR35902** (Game Boy CPU; "GBZ80"/SM83) toolkit: a `Decode`/`Disassemble` disassembler **and** an instruction-level `CPU` execution core over a `Bus`, with `Step` returning T-cycles for the machine to drive timing. A Z80 relative but **not** a Z80, so it is its own package: only four flags (Z/N/H/C), no `IX`/`IY` or `DD`/`FD`/`ED` prefixes (only `CB`), no `IN`/`OUT` (the Game-Boy-only `LDH ($FF00+n)`/`(C)` high-page ops instead), the `LD (HL±)` auto-inc/dec loads, `LD ($nnnn),SP`, `ADD SP,e`, `LD HL,SP+e`, `RETI`, `STOP`, CB-page `SWAP`, and eleven illegal opcodes. Same `Flow`/`Inst` interface as `z80`. Unit-tested (flags, GB ops, interrupts) and verified end-to-end booting Super Mario Land. |
 | `arm` | **ARM** toolkit for the two Nintendo DS CPUs — the ARM9 (ARM946E-S, ARMv5TE) and ARM7 (ARM7TDMI, ARMv4T): a `Decode`/`Disassemble` disassembler **and** an instruction-level `CPU` execution core over a `Bus`. It handles **both** of the DS's instruction sets — 32-bit ARM (conditional execution on every instruction, the barrel-shifter operand, multiply/long-multiply, LDR/STR/LDM/STM, the ARMv5 `BLX`/`CLZ`/`BKPT`, saturating `QADD…` and signed `SMLA…` DSP ops) and 16-bit `Thumb` — and the `BX`/`BLX` interworking between them, tracked per address (`Inst.Thumb`/`TargetThumb`). The core models the CPSR flags, banked register file and mode switching (SWI/IRQ via caller hooks; CP15 routed to a `Coproc` hook), and halts on anything unmodelled so gaps are explicit; caches, the MPU, cycle-accurate timing and the 2D/3D video hardware are the caller's "full machine" to layer on top. Adds an eighth `Flow` category, `FlowIndCall`, for ARM's return-after indirect calls. Unit-tested (decode + execution, incl. ARM↔Thumb interworking). |
+| `x86` | **Intel x86** toolkit for 16-bit real-mode code (the repository's first MS-DOS CPU, for Ultima Underworld's `UW.EXE`): a `Decode`/`Disassemble` disassembler over the variable-length x86 encoding — prefix runs (segment overrides, the `0x66`/`0x67` operand/address-size toggles, `LOCK`, `REP`), ModR/M + SIB + displacement in both 16- and 32-bit addressing, the 8086/186/286 integer set plus the common 386 additions (`MOVZX`/`MOVSX`, `SHLD`/`SHRD`, `BT`/`BSF`/…, `SETcc`, near `Jcc`), and the x87 `D8`–`DF` escapes (always length-correct) — **and** an instruction-level `CPU` execution core over a `Bus` (real-mode segmentation, the integer instruction set with correct flags, REP string ops, IN/OUT via port hooks, software INT/IRET via an `IntHook`, and maskable hardware-IRQ injection via `Interrupt` with a `MOV SS` interrupt-shadow), the counterpart to the m68k/z80/sm83 cores. Same `Flow`/`Inst` interface (a direct far pointer folds `seg:off` to a linear target; indirect `JMP`/`CALL` distinguished). Unimplemented opcodes (notably x87) halt with the offending byte so gaps are explicit. Intel syntax, `$`-hex. Unit-tested (decode + execution), **differentially validated against the SingleStepTests/8088 real-CPU suite** (`harte_test.go`, ~155 opcodes — which caught a real 8086 segment-wrap bug), and driven by the Ultima Underworld DOS oracle, which **boots the real game through its entire initialisation** (~1M instructions). |
 | `cmd/dis6502` | Linear disassembler for a `.prg` file (2-byte load address + data), optionally over an address range. |
 | `cmd/dis68k` | Linear disassembler for a raw 68000 code blob loaded at a given base address (`-skip` steps past an AmigaDOS hunk header). |
 | `cmd/codetrace6502` | Recursive-descent 6502 disassembler: from given entry points (and seeded jump tables) it follows every branch/jump/call, marks reachable code vs data, lists routines and unresolved indirect jumps — so tables and graphics aren't mis-decoded as instructions. |
@@ -306,6 +359,8 @@ per-platform subfolder (`c64/`, `amiga/`, …).
 | `cmd/codetracez80` | The Z80 counterpart of `codetrace6502`, built on `z80`: recursive trace from given entry points over a banked ROM (`-load` selects the resident bank), with an `-annotate` file for naming routines. |
 | `cmd/disarm` | Linear disassembler for a raw ARM/Thumb blob mapped at a given address (`-off`/`-len`/`-base`, `-thumb` selects Thumb), built on `arm`. |
 | `cmd/codetracearm` | The ARM counterpart of `codetrace68k`, built on `arm`: recursive trace from given entry points over a flat image (`-base`/`-skip`), tracking ARM/Thumb state through `BX`/`BLX` interworking (entries suffixed `t`/`a`, or bit 0 of a pointer, select the state). `-table` seeds pointer tables and `-annotate` names routines; reports routines and unresolved indirect transfers. |
+| `cmd/disx86` | Linear disassembler for a raw 16-bit real-mode x86 blob loaded at a base (`-base`/`-skip`/`-start`/`-end`), built on `x86`; `-skip 0x3200` steps past UW.EXE's MZ header. |
+| `cmd/codetracex86` | The x86 counterpart of `codetrace68k`, built on `x86`: recursive trace from given entry points over the MZ load module (`-base`/`-skip`), with `-table` (16-bit LE near-offset jump tables) and `-annotate`; reports routines and unresolved indirect jumps/calls. |
 | `c64/tap` | Parse a TAP v0/v1 image (C64/C16) into a pulse stream; `Segmentize` splits it at pauses. |
 | `c64/cbmtape` | Decode the standard Commodore KERNAL (ROM loader) tape encoding: blocks, headers, and paired header+data files with checksum verification. |
 | `c64/c64` | A minimal C64 machine model — RAM, the `mos6502` CPU, a CIA pulse-feed tape model, a PC-hook registry, a RAM write log and an optional read probe — for *running* a self-modifying loader instead of decoding it, or tracing which game routine touches which memory. Optional standard KERNAL tape hooks included. |

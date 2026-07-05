@@ -11,4 +11,5 @@ use (
 	"./Super Mario 64 DS (DS)/extract"
 	"./Super Mario Land (GB)/extract"
 	"./Turrican (Amiga)/extract"
+	"./Ultima Underworld (PC)/extract"
 )

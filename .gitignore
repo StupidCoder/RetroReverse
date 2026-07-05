@@ -1,5 +1,8 @@
 .DS_Store
 
+# copyrighted commercial game data — pinned by MD5 in README, never committed
+Ultima Underworld (PC)/game/
+
 # compiled extraction tools (build with: cd "<Game>/extract" && go build)
 */extract/extract
 # stray per-command binaries from `go build ./cmd/<tool>` runs
