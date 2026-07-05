@@ -30,12 +30,28 @@ const SIGN_MODEL = 'obj_tatefuda';
 // repicks — 75% turn by a random signed 16-bit angle, 25% pause — and a
 // 1000-unit leash around the spawn point steers it home. Stage-GLB units are
 // world/1000 and the actor tick is 30 fps.
-const KRB = {
-  speed: (0x8000 / 4096) * 30 / 1000,           // stage units/s
-  turn: (0x200 / 0x10000) * 2 * Math.PI * 30,   // rad/s
-  repick: 100 / 30,                              // s
-  leash: 1.0,                                    // stage units
+// Bob-omb wander, traced from daBmb_c (overlay 102, $0214BE1C/$0214BEB4/
+// $0214C0B8): walk 5.0 world-units/frame (set on each heading pick), turn
+// $400 angle-units/frame, target heading = angle-to-home + a random signed
+// 16-bit offset (home-biased, erratic), straight home beyond 1280 units,
+// repick on reaching the heading or a 512-frame fallback timer.
+const PATROL = {
+  kuribo_model: {
+    speed: (0x8000 / 4096) * 30 / 1000,          // stage units/s
+    turn: (0x200 / 0x10000) * 2 * Math.PI * 30,  // rad/s
+    repick: 100 / 30,                             // s
+    leash: 1.0,                                   // stage units
+    pauseChance: 0.25, homeBias: false, repickOnArrive: false,
+  },
+  bombhei: {
+    speed: (0x5000 / 4096) * 30 / 1000,
+    turn: (0x400 / 0x10000) * 2 * Math.PI * 30,
+    repick: 512 / 30,
+    leash: 1.28,
+    pauseChance: 0, homeBias: true, repickOnArrive: true,
+  },
 };
+PATROL.red_bombhei = PATROL.bombhei;
 const SIGN_TEXT = 'This signpost is readable in the game: stand in range (the engine flags the ' +
   'actor at +$B0) and press A — the sign starts its dialog (traced at $020BB060). ' +
   'The message text lives in the per-language archives, not yet extracted.';
@@ -112,23 +128,32 @@ export class ModelViewer {
         }
       }
       for (const g of this.patrollers) {
-        g.timer -= dt;
-        if (g.timer <= 0) {
-          g.timer = KRB.repick;
-          if (Math.random() < 0.25) g.paused = true;
-          else { g.paused = false; g.target += (Math.random() * 2 - 1) * Math.PI; }
-        }
-        // leash: outside the home radius, head back
+        const P = g.cfg;
         const hx = g.home.x - g.obj.position.x, hz = g.home.z - g.obj.position.z;
-        if (hx * hx + hz * hz > KRB.leash * KRB.leash) g.target = Math.atan2(hx, hz);
-        // ease yaw the short way around, walk forward
+        g.timer -= dt;
         let d = ((g.target - g.yaw + 3 * Math.PI) % (2 * Math.PI)) - Math.PI;
-        const step = KRB.turn * dt;
+        const arrived = P.repickOnArrive && Math.abs(d) < 0.02;
+        if (g.timer <= 0 || arrived) {
+          g.timer = P.repick;
+          if (Math.random() < P.pauseChance) g.paused = true;
+          else {
+            g.paused = false;
+            const spread = (Math.random() * 2 - 1) * Math.PI;
+            g.target = P.homeBias ? Math.atan2(hx, hz) + spread : g.target + spread;
+          }
+          d = ((g.target - g.yaw + 3 * Math.PI) % (2 * Math.PI)) - Math.PI;
+        }
+        // leash: outside the home radius, head straight back
+        if (hx * hx + hz * hz > P.leash * P.leash) {
+          g.target = Math.atan2(hx, hz);
+          d = ((g.target - g.yaw + 3 * Math.PI) % (2 * Math.PI)) - Math.PI;
+        }
+        const step = P.turn * dt;
         g.yaw += Math.abs(d) <= step ? d : Math.sign(d) * step;
         g.obj.rotation.y = g.yaw;
         if (!g.paused) {
-          g.obj.position.x += Math.sin(g.yaw) * KRB.speed * dt;
-          g.obj.position.z += Math.cos(g.yaw) * KRB.speed * dt;
+          g.obj.position.x += Math.sin(g.yaw) * P.speed * dt;
+          g.obj.position.z += Math.cos(g.yaw) * P.speed * dt;
         }
       }
       renderer.render(scene, camera);
@@ -312,11 +337,11 @@ export class ModelViewer {
           else if (o.ry) inst.rotation.y = o.ry * Math.PI / 180;
           if (COIN_MODELS.has(o.m)) spinners.push(inst);
           if (o.m === SIGN_MODEL) signs.push(inst);
-          if (o.m === 'kuribo_model') {
+          if (PATROL[o.m]) {
             const yaw = (o.ry || 0) * Math.PI / 180;
             this.patrollers.push({
-              obj: inst, yaw, target: yaw, paused: false,
-              timer: Math.random() * KRB.repick,
+              obj: inst, yaw, target: yaw, paused: false, cfg: PATROL[o.m],
+              timer: Math.random() * PATROL[o.m].repick,
               home: { x: o.p[0], z: o.p[2] },
             });
           }
