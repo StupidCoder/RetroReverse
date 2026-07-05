@@ -11,8 +11,10 @@ Image: `Super Mario 64 DS (Europe) (En,Fr,De,Es,It).nds`, 16 MiB, game code **AS
 * **Part I** — the cartridge image: the ROM header and its integrity checks, the two CPU binaries and the unusually large **overlay table**, the FNT/FAT filesystem, and the asset catalog;
 * **Part II** — the boot chain: both NitroSDK `crt0` startup stubs, the ARM9's in-place BLZ self-decompression, and the handoff to each processor's `main`;
 * **Part III** — program architecture: the boot re-run on our own CPU core as an *oracle* (BLZ cross-check, the runtime memory map, the interrupt/IPC setup, the ARM9↔ARM7 rendezvous), and the overlay system that carries the game's 103 code modules.
+* **Part IV** — the 3D model format: the game's *own* `.bmd` container (not the NITRO `BMD0` its extension suggests) and how its display lists and textures decode;
+* **Part V** — level data and object placements: the level→overlay and settings-block tables, the object-table format and its spawner, the actor system, and the trace from each actor's create function to the model it draws.
 
-Parts IV onward (the NITRO asset formats, the game's mechanics and its SDAT music) are future work; the toolchain and container decoding carry straight over from the Mario Kart DS analysis.
+Part VI (the SDAT music) is future work; the toolchain and container decoding carry straight over from the Mario Kart DS analysis.
 
 Methods: purely static analysis of the `.nds` image. All addresses are 32-bit ARM addresses (`$02000000`-style main-RAM addresses, or the BIOS and I/O regions) unless a *file offset* into the ROM image is explicitly called out; bytes are little-endian.
 
@@ -311,6 +313,61 @@ Watching the two cores run the handshake together resolves it. The routine is a 
 
 That is where the current model settles: the ARM7 reaches its idle loop, but the boot message it should send depends on its firmware/user-settings init read over **SPI**, which the machine stubs to zero. Modelling that ARM7 hardware (SPI, the RTC, the sound/power management the ARM7 owns) is what remains between here and the frame loop — and, with it, the overlay-to-state map. The dual-core scaffold that gets across the rendezvous is the reusable part; the rest is per-subsystem stubbing, and carries straight over to future DS titles.
 
+
+# Part IV — The 3D model format
+
+The catalog's 455 `.bmd` files *look* like the NitroSDK's `BMD0` models under an older file suffix — that is what Part I's first read assumed — but they are nothing of the sort: Super Mario 64 DS ships its **own model container**. A `.bmd` opens with an `LZ77` magic tag over a standard LZ10 stream; decompressed, there is no `BMD0` stamp and no NITRO resource dictionary, just a fixed header of `(count, offset)` pairs pointing at flat arrays:
+
+| Section | Stride | Contents |
+|---|---|---|
+| header `+$00` | — | u32 scale: a power-of-two shift; raw fx4.12 vertices × 2^shift = world size |
+| bones `+$04/+$08` | $40 | transform + a render list: count at `+$30`, material-index bytes at `+$34`, display-list-index bytes at `+$38` |
+| display lists `+$0C/+$10` | **$08** | `{u32 subCount, u32 subHeaderPtr}` → subCount 16-byte sub-headers, each locating a GX command chunk (size `+$08`, data `+$0C`) |
+| textures `+$14/+$18` | $14 | name, data offset, size, `texImageParam`; format-5 palette-select data follows the texels |
+| palettes `+$1C/+$20` | $10 | name, data offset, size (BGR555) |
+| materials `+$24/+$28` | $30 | name, **explicit texture and palette indices** (`+$04`/`+$08`), texture-matrix scale, GX polygon attribute (`+$24`) |
+
+Only the low-level pieces are the shared DS silicon — the GX geometry display lists (including the full in-list matrix stack: push/pop/load/mult/scale/translate, which the larger stages drive) and the seven hardware texture formats — so those decoders carry over from the Mario Kart DS work unchanged (`tools/nds/nitro`); the container parser is this game's own (`extract/sm64ds/bmd.go`). Two traps mattered in practice: the display-list stride is **8 bytes, not 16** (a 16-byte read merges adjacent lists and scrambles which material draws what), and a display list's two GX chunks are one *continuous* command stream (a chunk may open with a delta vertex relative to the previous chunk's last).
+
+# Part V — Level data and object placements
+
+## 1. From level number to level data
+
+Everything in this part was located by tracing the ARM9's own pointer tables — no signature scanning.
+
+Two 52-entry tables in the ARM9 static data drive level loading:
+
+* **level → overlay** at `$020758C8` (file `$718C8`): the loader at `$0202DED4` does `LDR r5, [$020758C8 + level*4]`, compares the entry against `-1`, and hands it to the overlay loader at `$02018028`. The shipped table is the identity mapping `[8, 9, …, 59]` — one overlay per level, which is *why* levels live in overlays 8–59.
+* **level → settings block** at `$02092208` (file `$8E208`): the level-start code at `$0202D274` does `LDRSB r3, [currentLevel]; LDR r2, [$02092208 + r3*4]`, stores the pointer in a global and calls the level-data processor at `$020FE190` (overlay 2 — the always-resident engine overlay). The blocks sit at a different offset in every overlay; this table is how the engine finds them.
+
+The **settings block** is 28 bytes. The processor at `$020FE190` consumes it field by field: `+$04` the *misc* objects table, `+$08`/`+$0A` the level model and collision map as u16 **internal file IDs**, `+$10` the area table (12-byte entries, `+$00` = that area's objects table) with the area count at `+$14`.
+
+Internal file IDs are the game's own file namespace: a 2058-entry array of filename pointers at overlay-0 `+$13098` (`$020BD4B8`). Overlay 0's initializer at `$020AA420` loops over exactly `$80A` entries — the bound is a literal in its pool — resolving each path against the filesystem and registering *index → file*. Every file reference in the level data goes through this table.
+
+## 2. Object tables and the spawner
+
+An objects table is `{u16 count, u32 entries}`; each 8-byte entry is `{u8 type|layer<<5, u8 count, u16 pad, u32 list}`. The walker at `$020FE33C` decodes `type = b & $1F` and `layer = (b >> 5) & 7`, **skips entries whose layer differs from the current star** (layer 0 = every star), and dispatches through a 15-entry handler table at `$0210CBB8` — one handler per object type.
+
+Two types carry the placements this analysis extracts:
+
+* **Type 0 — standard objects** (handler `$020FE8AC`, 16 bytes each): u16 object ID at `+$00`, signed 16-bit x/y/z at `+$02/$04/$06` — each shifted `LSL #12` into fx20.12, so the short *is* the world coordinate — a parameter at `+$08`, the y-rotation at `+$0A` (standard DS angle-index units, `$10000` = 360°), another parameter at `+$0C` and the primary parameter at `+$0E`.
+* **Type 5 — simple objects** (handler `$020FE960`, 8 bytes each): u16 at `+$00` packing `id & $1FF` (the mask is a literal in the handler) with a 7-bit parameter above it, then the same three position shorts. Trees, coins and other set-dressing use this compact form.
+
+Both handlers translate the object ID through the **object → actor table** at `$0210CBF4` (u16 entries; 326 objects) before spawning — the object namespace in the level data is not the actor namespace the engine runs.
+
+Across the 52 levels this decodes **4,350 distinct placements** (types 0 and 5, all star layers).
+
+## 3. The actor system and its model bindings
+
+The spawn call lands in the factory at `$02043098`: `LDR r0, [[profileTable] + actor*4]; BLX [r0]`. The boot code at `$0201A128` assigns that global its value — a static 326-entry **profile-pointer array at `$02090864`**. A profile begins with its *create function*; `+$04` carries the actor ID. Profiles for the always-loaded engine actors live in overlay 2; level-specific actors (IDs past the array) carry C++ RTTI in their overlay, whose typeinfo names the class — `daObjMc_Metalnet`, `daSBird`, `daMcFlag` — the only object *names* the cartridge contains.
+
+Models reach actors through two statically visible mechanisms, and tracing them from each placed actor's create function (its body, its callees, and the methods of the vtable it installs) yields the model bindings:
+
+* **File-handle slots**: `$02017ACC(slot, fileID)` — 26 call sites in the ARM9/engine overlay plus more in each level overlay's constructors — bind a BSS slot to an internal file ID at registration time; actor code then references its slot as an `LDR` literal. The metalnet constructor, for instance, registers its slot with file 1681 (`mc_metalnet.bmd`) and a second slot with the companion file 1682.
+* **Direct loads**: a file ID (or a table of them) materializes as a literal and feeds a load call. The tree actor is the exemplar: its code at `$020EC240` computes `type = (par >> 4) & 7`, clamps it to 4, and indexes a **five-entry model table at `$0210ABB8`** — `bomb_tree`, `toge_tree`, `yuki_tree`, `yashi_tree`, and an archive-resident fifth entry (a bit-15-flagged ID) for the castle-grounds tree, which lives inside a NARC and is not yet extracted.
+
+The static trace (`extract/sm64ds/actors.go`, report via `cmd/actortrace`) currently binds ~24 placed actors to their models — trees, signboards, mushrooms, switches, sea-weed, push-blocks and the level-local set-dressing — covering ~580 placements; the rest render as markers in the viewer until their create functions are traced further. Two calibrations tie placements to the exported GLBs: positions divide by 4096 (the exported GLBs store fx/4096 floats, so one GLB unit is one engine fx 1.0 — confirmed by 99.9% of all placements landing inside their stage's bounding box, against 72.9% for the initial /1000 guess), and object models place at **1/16 scale** — the same object-to-world ratio Mario Kart DS uses, and the size the tree's shift-4 bake cancels out to exactly.
+
 # Appendix A — Toolchain and reproduction
 
 Everything here is derived from the `.nds` image with this repository's own tools: the shared `tools/nds` container reader and the `tools/arm` disassembler/tracer, plus this game's `extract` module. No third-party emulator, debugger or disassembler was used, and nothing was read from released source.
@@ -337,6 +394,14 @@ go run retroreverse.com/tools/cmd/codetracearm -base 0x02380000 -entry 0x0238000
 # Part III — run the ARM9 boot on the tools/arm core as an oracle: BLZ cross-check,
 # the I/O registers it programs, and the ARM9↔ARM7 IPCSYNC rendezvous it stops at
 ( cd extract && go run ./cmd/bootoracle -io "../Super Mario 64 DS (Europe) (En,Fr,De,Es,It).nds" )
+
+# Part IV — decode every .bmd model and export GLBs (+ the viewer manifest)
+go run ./cmd/exportbmd -all
+
+# Part V — decode all 52 levels' object placements into per-stage JSON
+go run ./cmd/exportlevelobjs
+# and report the traced actor -> model bindings
+go run ./cmd/actortrace
 
 # Part III §6 — the dual-core oracle: both CPUs on shared RAM + IPC, clearing the
 # rendezvous the single core stops at (into the post-sync PXI FIFO exchange)

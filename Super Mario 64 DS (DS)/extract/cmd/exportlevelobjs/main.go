@@ -19,7 +19,7 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
-	"math"
+
 	"os"
 	"path/filepath"
 	"strings"
@@ -31,15 +31,10 @@ import (
 // tree actor's model table (traced): index = (par>>4)&7, clamped to 4
 var treeModels = []string{"bomb_tree", "toge_tree", "yuki_tree", "yashi_tree", ""} // [4] = archive castle tree
 
-// actors whose swept class names match an extracted model (daObjMc_Metalnet ->
-// mc_metalnet.bmd etc.); the class-name strings are the cartridge's own.
-var namedActorModels = map[int]string{
-	339: "mc_metalnet", // daObjMc_Metalnet
-	338: "mc_water",    // daObjMcWater
-	342: "mc_flag",     // daMcFlag
-	326: "chair",       // daChair
-	343: "bird",        // daSBird
-}
+// falseBind: actors whose create stubs sit inside the tree class's compilation
+// unit and pick up its model table by adjacency (they place in indoor levels
+// where trees make no sense) — dropped until traced properly.
+var falseBind = map[int]bool{177: true, 178: true, 179: true, 180: true}
 
 type jsonObj struct {
 	Actor int       `json:"a"`
@@ -86,6 +81,7 @@ func main() {
 	}
 	treeActor := ls.Actor(41) // the TREE object's actor (object->actor table)
 	filesRoot := filepath.Join(*ext, "files")
+	treeStems := map[string]bool{"bomb_tree": true, "toge_tree": true, "yuki_tree": true, "yashi_tree": true}
 	shiftOf := map[string]int{} // model stem -> 2^shift cache
 	modelShift := func(rel string) (int, bool) {
 		stem := strings.TrimSuffix(filepath.Base(rel), ".bmd")
@@ -100,12 +96,16 @@ func main() {
 	}
 	// the four filesystem tree models live under data/normal_obj/tree/
 	treePath := func(stem string) string { return "data/normal_obj/tree/" + stem + ".bmd" }
-	namedPaths := map[string]string{
-		"mc_metalnet": "data/special_obj/mc_metalnet/mc_metalnet.bmd",
-		"mc_water":    "data/special_obj/mc_water/mc_water.bmd",
-		"mc_flag":     "data/special_obj/mc_flag/mc_flag.bmd",
-		"chair":       "data/enemy/chair/chair.bmd",
-		"bird":        "data/normal_obj/bird/bird.bmd",
+	// stem -> path for every .bmd in the internal file table
+	modelPath := map[string]string{}
+	for i := 0; i < 2058; i++ {
+		n := ls.InternalName(i)
+		if strings.HasSuffix(n, ".bmd") {
+			stem := strings.TrimSuffix(filepath.Base(n), ".bmd")
+			if _, dup := modelPath[stem]; !dup {
+				modelPath[stem] = n
+			}
+		}
 	}
 
 	hasGLB := func(name string) bool {
@@ -126,6 +126,10 @@ func main() {
 		stem := strings.TrimSuffix(filepath.Base(lv.BMDPath), ".bmd")
 		if !hasGLB(stem) {
 			continue // no stage model exported (shouldn't happen)
+		}
+		actorModels, err := ls.TraceActorModels(lv.Overlay)
+		if err != nil {
+			die(err)
 		}
 		stageShift, ok := modelShift(lv.BMDPath)
 		if !ok {
@@ -156,17 +160,19 @@ func main() {
 				}
 				if m := treeModels[t]; m != "" && hasGLB(m) {
 					if sh, ok := modelShift(treePath(m)); ok {
-						// object GLBs bake their 2^shift; placements sit in raw fx space,
-						// so undo it (scale = 2^-shift), same normalization as the stage
 						j.Model, j.Bill = m, true
-						j.Scale = r3(math.Pow(2, -float64(sh)))
+						j.Scale = r3(objScale(sh))
 					}
 				}
 			default:
-				if m := namedActorModels[o.Actor]; m != "" && hasGLB(m) {
-					if sh, ok := modelShift(namedPaths[m]); ok {
-						j.Model = m
-						j.Scale = r3(math.Pow(2, -float64(sh)))
+				if ms := actorModels[o.Actor]; len(ms) > 0 && !falseBind[o.Actor] {
+					m := ms[0] // first hit = nearest to the create function
+					if hasGLB(m) {
+						if sh, ok := modelShift(modelPath[m]); ok {
+							j.Model = m
+							j.Bill = treeStems[m]
+							j.Scale = r3(objScale(sh))
+						}
 					}
 				}
 			}
@@ -187,6 +193,12 @@ func main() {
 	}
 	fmt.Printf("exported %d stages, %d placements (%d bound to models)\n", stages, total, bound)
 }
+
+// objScale converts an object GLB (raw fx4.12 vertices baked with its 2^shift)
+// into stage-GLB units: objects render at 1/16 of world scale — the same rule the
+// tree confirms (its shift-4 bake cancels to raw size), and signs/mushrooms land
+// at their in-game proportions.
+func objScale(shift int) float64 { return 1.0 / 16 }
 
 func r3(v float64) float64 { return float64(int(v*1000+0.5*sign(v))) / 1000 }
 func sign(v float64) float64 {

@@ -29,15 +29,17 @@ export class FlyCam {
     this.scale = 10;      // world size of the current model, set by the viewer
     this.keys = new Set();
 
+    this.shift = false; // Shift doubles movement speed (not look speed)
     this._onKeyDown = (e) => {
+      this.shift = e.shiftKey;
       if (!this.enabled || e.altKey || e.ctrlKey || e.metaKey) return;
       if (HANDLED_KEYS.has(e.code)) {
         this.keys.add(e.code);
         e.preventDefault(); // arrows scroll the page otherwise
       }
     };
-    this._onKeyUp = (e) => this.keys.delete(e.code);
-    this._onBlur = () => this.keys.clear();
+    this._onKeyUp = (e) => { this.shift = e.shiftKey; this.keys.delete(e.code); };
+    this._onBlur = () => { this.keys.clear(); this.shift = false; };
     window.addEventListener('keydown', this._onKeyDown);
     window.addEventListener('keyup', this._onKeyUp);
     window.addEventListener('blur', this._onBlur);
@@ -95,7 +97,7 @@ export class FlyCam {
 
     // move: translate camera and orbit pivot together, view-relative
     if (mf || ms) {
-      const v = this.scale * MOVE * dt;
+      const v = this.scale * MOVE * dt * (this.shift ? 2 : 1);
       this._fwd.copy(off).normalize();
       this._right.copy(this._fwd).cross(UP).normalize();
       pos.addScaledVector(this._fwd, mf * v).addScaledVector(this._right, ms * v);
