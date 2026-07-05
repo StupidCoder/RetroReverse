@@ -23,6 +23,19 @@ const COIN_MODELS = new Set(['arc0_5', 'arc0_7']);
 // in the per-language archives and isn't extracted yet, so the viewer shows
 // the traced mechanics instead.
 const SIGN_MODEL = 'obj_tatefuda';
+
+// Goomba wander AI, traced from daKrb_c's state-0 handler ($0212ABD4/$0212AE98,
+// overlay 84): walk speed 2.0 world-units/frame (state table $02130248), yaw
+// eases toward a target heading at $200 angle-units/frame, a 100-frame timer
+// repicks — 75% turn by a random signed 16-bit angle, 25% pause — and a
+// 1000-unit leash around the spawn point steers it home. Stage-GLB units are
+// world/1000 and the actor tick is 30 fps.
+const KRB = {
+  speed: (0x8000 / 4096) * 30 / 1000,           // stage units/s
+  turn: (0x200 / 0x10000) * 2 * Math.PI * 30,   // rad/s
+  repick: 100 / 30,                              // s
+  leash: 1.0,                                    // stage units
+};
 const SIGN_TEXT = 'This signpost is readable in the game: stand in range (the engine flags the ' +
   'actor at +$B0) and press A — the sign starts its dialog (traced at $020BB060). ' +
   'The message text lives in the per-language archives, not yet extracted.';
@@ -62,6 +75,7 @@ export class ModelViewer {
     this.spinners = [];     // coins: yaw at the traced $C00/frame
     this.signposts = [];    // clickable obj_tatefuda instances
     this.mixers = [];       // skinned enemies playing their .bca walk clips
+    this.patrollers = [];   // goombas wandering per their traced AI
     this.wantObjects = true;
     // Levels are explored with free-flight controls (WASD/arrows, or virtual
     // sticks on touch); objects and characters keep the slow auto-rotating orbit.
@@ -85,6 +99,26 @@ export class ModelViewer {
       }
       for (const s of this.spinners) s.rotation.y += COIN_SPIN * dt;
       for (const mx of this.mixers) mx.update(dt);
+      for (const g of this.patrollers) {
+        g.timer -= dt;
+        if (g.timer <= 0) {
+          g.timer = KRB.repick;
+          if (Math.random() < 0.25) g.paused = true;
+          else { g.paused = false; g.target += (Math.random() * 2 - 1) * Math.PI; }
+        }
+        // leash: outside the home radius, head back
+        const hx = g.home.x - g.obj.position.x, hz = g.home.z - g.obj.position.z;
+        if (hx * hx + hz * hz > KRB.leash * KRB.leash) g.target = Math.atan2(hx, hz);
+        // ease yaw the short way around, walk forward
+        let d = ((g.target - g.yaw + 3 * Math.PI) % (2 * Math.PI)) - Math.PI;
+        const step = KRB.turn * dt;
+        g.yaw += Math.abs(d) <= step ? d : Math.sign(d) * step;
+        g.obj.rotation.y = g.yaw;
+        if (!g.paused) {
+          g.obj.position.x += Math.sin(g.yaw) * KRB.speed * dt;
+          g.obj.position.z += Math.cos(g.yaw) * KRB.speed * dt;
+        }
+      }
       renderer.render(scene, camera);
     };
     tick();
@@ -264,6 +298,14 @@ export class ModelViewer {
           else if (o.ry) inst.rotation.y = o.ry * Math.PI / 180;
           if (COIN_MODELS.has(o.m)) spinners.push(inst);
           if (o.m === SIGN_MODEL) signs.push(inst);
+          if (o.m === 'kuribo_model') {
+            const yaw = (o.ry || 0) * Math.PI / 180;
+            this.patrollers.push({
+              obj: inst, yaw, target: yaw, paused: false,
+              timer: Math.random() * KRB.repick,
+              home: { x: o.p[0], z: o.p[2] },
+            });
+          }
           placed++;
         }
       }
@@ -291,6 +333,7 @@ export class ModelViewer {
     this.spinners = [];
     this.signposts = [];
     this.mixers = [];
+    this.patrollers = [];
     this._hideSign();
     if (!this.objectsGroup) return;
     this.three.scene.remove(this.objectsGroup);
