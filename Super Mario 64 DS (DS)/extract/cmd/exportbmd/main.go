@@ -62,9 +62,26 @@ func main() {
 			fail++
 			continue
 		}
-		glb, err := m.GLB()
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "  %s: %v\n", filepath.Base(p), err)
+		// Sibling .bca clips whose bone count matches the model become glTF
+		// animations on a skinned export (the goomba's walk, the bob-omb's run).
+		var clips []sm64ds.NamedBCA
+		if sib, _ := filepath.Glob(filepath.Join(filepath.Dir(p), "*.bca")); len(sib) > 0 {
+			for _, ap := range sib {
+				if a, err := sm64ds.LoadBCA(ap); err == nil && a.NumBones == m.NumBones {
+					stem := strings.TrimSuffix(filepath.Base(ap), ".bca")
+					clips = append(clips, sm64ds.NamedBCA{Name: stem, Anim: a})
+				}
+			}
+		}
+		var glb []byte
+		var err2 error
+		if len(clips) > 0 {
+			glb, err2 = m.SkinnedGLB(clips)
+		} else {
+			glb, err2 = m.GLB()
+		}
+		if err2 != nil {
+			fmt.Fprintf(os.Stderr, "  %s: %v\n", filepath.Base(p), err2)
 			fail++
 			continue
 		}

@@ -57,6 +57,7 @@ type Model struct {
 	Mats     []nitro.Material
 	Texs     map[string]nitro.Texture
 	NumBones int
+	Skel     []SkelJoint // bind-pose skeleton (for skinned export)
 }
 
 type bmd struct{ d []byte }
@@ -186,6 +187,25 @@ func Decode(data []byte, name string) (*Model, error) {
 	// 2^shift bake for every such model (a shift-1 stage exported at half size,
 	// the shift-4 trees at 1/16).
 	worlds := boneWorlds(b, oBone, numBone, scale)
+	skel := make([]SkelJoint, numBone)
+	for i := 0; i < numBone; i++ {
+		r := oBone + i*0x40
+		fxv := func(o int) float64 { return float64(int32(b.u32(o))) / 4096 }
+		angv := func(o int) float64 {
+			return float64(uint16(le.Uint16(b.d[o:]))<<4) / 65536 * 2 * math.Pi
+		}
+		par := i + int(int16(le.Uint16(b.d[r+8:])))
+		if par == i || par < 0 || par >= i {
+			par = -1
+		}
+		skel[i] = SkelJoint{
+			Name:   b.name(int(b.u32(r + 4))),
+			Parent: par,
+			S:      [3]float64{fxv(r + 0x10), fxv(r + 0x14), fxv(r + 0x18)},
+			R:      [3]float64{angv(r + 0x1C), angv(r + 0x1E), angv(r + 0x20)},
+			T:      [3]float64{fxv(r + 0x24), fxv(r + 0x28), fxv(r + 0x2C)},
+		}
+	}
 	stack := make([]nitro.Mat43, 32)
 	for i := range stack {
 		if i < numBone {
@@ -242,7 +262,7 @@ func Decode(data []byte, name string) (*Model, error) {
 	if len(byMat) == 0 {
 		return nil, fmt.Errorf("sm64ds: %s has no geometry", name)
 	}
-	return &Model{Name: name, ByMat: byMat, Mats: mats, Texs: texs, NumBones: numBone}, nil
+	return &Model{Name: name, ByMat: byMat, Mats: mats, Texs: texs, NumBones: numBone, Skel: skel}, nil
 }
 
 // boneWorlds builds every bone's world transform from the bind pose. A bone

@@ -8,6 +8,7 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { FlyCam, flyHint } from '../shared/flycam.js';
+import { clone as cloneSkinned } from 'three/addons/utils/SkeletonUtils.js';
 
 const MODELS = 'public/sm64ds/models/';
 
@@ -60,6 +61,7 @@ export class ModelViewer {
     this.billboards = [];   // flat tree quads, yawed toward the camera each frame
     this.spinners = [];     // coins: yaw at the traced $C00/frame
     this.signposts = [];    // clickable obj_tatefuda instances
+    this.mixers = [];       // skinned enemies playing their .bca walk clips
     this.wantObjects = true;
     // Levels are explored with free-flight controls (WASD/arrows, or virtual
     // sticks on touch); objects and characters keep the slow auto-rotating orbit.
@@ -82,6 +84,7 @@ export class ModelViewer {
         b.rotation.y = Math.atan2(camera.position.x - b.position.x, camera.position.z - b.position.z);
       }
       for (const s of this.spinners) s.rotation.y += COIN_SPIN * dt;
+      for (const mx of this.mixers) mx.update(dt);
       renderer.render(scene, camera);
     };
     tick();
@@ -165,8 +168,16 @@ export class ModelViewer {
             o.material.map.magFilter = THREE.NearestFilter; // DS textures are tiny: keep crisp
             o.material.map.needsUpdate = true;
           }
+          if (o.isSkinnedMesh) o.frustumCulled = false;
         }
       });
+      // Animated models (the enemies) play their first .bca clip in the gallery.
+      if (gltf.animations && gltf.animations.length) {
+        const mx = new THREE.AnimationMixer(group);
+        const clip = gltf.animations.find(a => a.name.endsWith('_walk')) || gltf.animations[0];
+        mx.clipAction(clip).play();
+        this.mixers.push(mx);
+      }
       scene.add(group);
       this.three.group = group;
 
@@ -215,8 +226,9 @@ export class ModelViewer {
                 n.material.map.magFilter = THREE.NearestFilter;
                 n.material.map.needsUpdate = true;
               }
+              if (n.isSkinnedMesh) n.frustumCulled = false; // skinned bounds don't track the pose
             });
-            res(g.scene);
+            res({ scene: g.scene, animations: g.animations || [] });
           }, undefined, () => res(null))));
       }
     }
@@ -233,7 +245,20 @@ export class ModelViewer {
       if (o.m) {
         const proto = await protos.get(o.m);
         if (proto) {
-          inst = proto.clone();
+          // Skinned models (the enemies) clone with their skeletons and play
+          // their .bca walk cycle (decoded from the cartridge, 30 fps).
+          if (proto.animations.length) {
+            inst = cloneSkinned(proto.scene);
+            const clip = proto.animations.find(a => a.name.endsWith('_walk') || a.name.endsWith('_run'))
+              || proto.animations.find(a => a.name.endsWith('_wait')) || proto.animations[0];
+            const mx = new THREE.AnimationMixer(inst);
+            mx.clipAction(clip).play();
+            // desync instances so a troop doesn't march in lockstep
+            mx.setTime(Math.random() * clip.duration);
+            this.mixers.push(mx);
+          } else {
+            inst = proto.clone();
+          }
           if (o.s) inst.scale.setScalar(o.s);
           if (o.b) bills.push(inst);
           else if (o.ry) inst.rotation.y = o.ry * Math.PI / 180;
@@ -265,6 +290,7 @@ export class ModelViewer {
     this.billboards = [];
     this.spinners = [];
     this.signposts = [];
+    this.mixers = [];
     this._hideSign();
     if (!this.objectsGroup) return;
     this.three.scene.remove(this.objectsGroup);
