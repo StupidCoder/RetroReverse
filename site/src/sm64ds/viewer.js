@@ -84,6 +84,7 @@ export class ModelViewer {
   constructor(el, hud) {
     this.el = el;
     this.hud = hud;
+    window.__smv = this; // debug handle for the headless-probe workflow
     const renderer = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true });
     renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
     renderer.setClearColor(0x0a0d12, 1);
@@ -114,7 +115,7 @@ export class ModelViewer {
     this.billboards = [];   // flat tree quads, yawed toward the camera each frame
     this.spinners = [];     // coins: yaw at the traced $C00/frame
     this.signposts = [];    // clickable obj_tatefuda instances
-    this.clickables = [];   // placed actors with traced-behavior notes (click to open)
+    this.placed = [];       // every placed object {obj, actor, model} (click for its card)
     this.mixers = [];       // skinned enemies playing their .bca walk clips
     this.patrollers = [];   // goombas wandering per their traced AI
     this.chomps = [];       // chain chomps lunging on their chains
@@ -227,32 +228,50 @@ export class ModelViewer {
     });
   }
 
+  // Every placed object (model instance or marker) is clickable: the popup
+  // names the actor ID and its bound model — the ID is the handle for talking
+  // about a specific placement — plus the traced behavior notes when we have
+  // them for that model.
   _clickSign(e) {
     this._hideSign();
-    if (!this.clickables || !this.clickables.length || this.wantObjects === false) return;
+    if (!this.placed || !this.placed.length || this.wantObjects === false) return;
     const r = this.three.renderer.domElement.getBoundingClientRect();
     const p = new THREE.Vector2(
       ((e.clientX - r.left) / r.width) * 2 - 1,
       -((e.clientY - r.top) / r.height) * 2 + 1);
     this._ray.setFromCamera(p, this.three.camera);
-    const hits = this._ray.intersectObjects(this.clickables.map(c => c.obj), true);
+    const hits = this._ray.intersectObjects(this.placed.map(c => c.obj), true);
     if (!hits.length) return;
     let node = hits[0].object, hit = null;
     while (node && !hit) {
-      hit = this.clickables.find(c => c.obj === node) || null;
+      hit = this.placed.find(c => c.obj === node) || null;
       node = node.parent;
     }
     if (!hit) return;
     const d = document.createElement('div');
-    d.style.cssText = 'position:absolute;left:12px;bottom:12px;max-width:min(480px,85%);' +
+    d.style.cssText = 'position:absolute;right:12px;bottom:64px;max-width:min(480px,70%);' +
       'background:rgba(10,13,18,.94);border:1px solid #3a4a5c;border-radius:8px;' +
       'padding:10px 12px;font:12px/1.55 system-ui;color:#dfe6f0;z-index:5';
     const h = document.createElement('div');
     h.style.cssText = 'font-weight:600;margin-bottom:4px;color:#ffd75e';
-    h.textContent = hit.info.title;
-    const body = document.createElement('div');
-    body.textContent = hit.info.text;
-    d.append(h, body);
+    h.textContent = `Actor ${hit.actor}` + (hit.model ? ` — ${hit.model}` : ' — no model bound');
+    d.append(h);
+    const info = hit.model && ACTOR_INFO[hit.model];
+    if (info) {
+      const sub = document.createElement('div');
+      sub.style.cssText = 'font-weight:600;margin-bottom:2px';
+      sub.textContent = info.title;
+      const body = document.createElement('div');
+      body.textContent = info.text;
+      d.append(sub, body);
+    } else {
+      const body = document.createElement('div');
+      body.style.cssText = 'color:#9aa7b8';
+      body.textContent = hit.model
+        ? 'Placement decoded from the level overlay; model bound by the actor oracle.'
+        : 'The actor oracle recorded no model load in this actor’s create/init.';
+      d.append(body);
+    }
     // this.el is the studio's .mount (position:absolute, inset:0) — already a
     // positioning context; never touch its position or the canvas collapses.
     this.el.appendChild(d);
@@ -406,7 +425,6 @@ export class ModelViewer {
           else if (o.ry) inst.rotation.y = o.ry * Math.PI / 180;
           if (COIN_MODELS.has(o.m)) spinners.push(inst);
           if (o.m === SIGN_MODEL) signs.push(inst);
-          if (ACTOR_INFO[o.m]) this.clickables.push({ obj: inst, info: ACTOR_INFO[o.m] });
           if (o.m === 'ar1_2') { // chain chomp: anchored, with chain links
             const links = [];
             const linkProto = await protos.get('ar1_1');
@@ -445,6 +463,7 @@ export class ModelViewer {
       }
       inst.position.set(o.p[0], o.p[1], o.p[2]);
       group.add(inst);
+      this.placed.push({ obj: inst, actor: o.a, model: o.m || null });
     }
     group.visible = this.wantObjects;
     this.three.scene.add(group);
@@ -480,7 +499,7 @@ export class ModelViewer {
     this.signposts = signs;
     if (this.hud) {
       this.hud.textContent += ` · ${placed + markers} objects placed (${markers} as markers)` +
-        (this.clickables.length ? ' · click an enemy or sign for its traced behavior' : '');
+        ' · click any object for its actor ID (markers = actors the oracle bound no model to)';
     }
   }
 
@@ -488,7 +507,7 @@ export class ModelViewer {
     this.billboards = [];
     this.spinners = [];
     this.signposts = [];
-    this.clickables = [];
+    this.placed = [];
     this.mixers = [];
     this.patrollers = [];
     this.chomps = [];
