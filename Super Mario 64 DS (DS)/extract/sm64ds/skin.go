@@ -118,8 +118,14 @@ func invertAffine(m nitro.Mat43) nitro.Mat43 {
 
 // BuildSkin assembles the glTF skin from the model's skeleton and clips.
 func (m *Model) BuildSkin(anims []NamedBCA) *nitro.Skin {
+	sk, _ := m.buildSkin(anims)
+	return sk
+}
+
+// buildSkin also returns the billboard-split vertex remap (see below).
+func (m *Model) buildSkin(anims []NamedBCA) (*nitro.Skin, map[int]int) {
 	if len(m.Skel) == 0 {
-		return nil
+		return nil, nil
 	}
 	sk := &nitro.Skin{}
 	worlds := make([]nitro.Mat43, len(m.Skel))
@@ -146,6 +152,37 @@ func (m *Model) BuildSkin(anims []NamedBCA) *nitro.Skin {
 			Billboard: j.Billboard,
 		})
 	}
+	// The engine substitutes the camera rotation only when drawing a billboard
+	// bone's OWN geometry ($0204488C mode 2); child bones compose from the
+	// unbillboarded hierarchy. glTF/three.js rotations propagate to children,
+	// so a billboarded bone that has children (King Bob-omb's `body` carries
+	// the eye, crown, mustache and both legs) is split: a leaf joint
+	// "<name>_bill" (identity local, same inverse-bind) takes the geometry and
+	// the flag, and the original keeps the hierarchy. Childless billboard
+	// bones (the bob-omb's body_bill) stay as they are.
+	remap := map[int]int{}
+	hasChild := make([]bool, len(m.Skel))
+	for _, j := range m.Skel {
+		if j.Parent >= 0 {
+			hasChild[j.Parent] = true
+		}
+	}
+	for ji, j := range m.Skel {
+		if !j.Billboard || !hasChild[ji] {
+			continue
+		}
+		sk.Joints[ji].Billboard = false
+		remap[ji] = len(sk.Joints)
+		sk.Joints = append(sk.Joints, nitro.Joint{
+			Name:      j.Name + "_bill",
+			Parent:    ji,
+			T:         [3]float64{0, 0, 0},
+			R:         [4]float64{0, 0, 0, 1},
+			S:         [3]float64{1, 1, 1},
+			IBM:       sk.Joints[ji].IBM,
+			Billboard: true,
+		})
+	}
 	for _, na := range anims {
 		if na.Anim.NumBones != len(m.Skel) {
 			continue
@@ -166,12 +203,45 @@ func (m *Model) BuildSkin(anims []NamedBCA) *nitro.Skin {
 			a.R = append(a.R, rs)
 			a.S = append(a.S, ss)
 		}
+		// split-off billboard leaves hold identity tracks (their orientation is
+		// the viewer's per-frame camera override; translation rides the parent)
+		for range remap {
+			var ts [][3]float64
+			var rs [][4]float64
+			var ss [][3]float64
+			for f := 0; f < nf; f++ {
+				ts = append(ts, [3]float64{0, 0, 0})
+				rs = append(rs, [4]float64{0, 0, 0, 1})
+				ss = append(ss, [3]float64{1, 1, 1})
+			}
+			a.T = append(a.T, ts)
+			a.R = append(a.R, rs)
+			a.S = append(a.S, ss)
+		}
 		sk.Anims = append(sk.Anims, a)
 	}
-	return sk
+	return sk, remap
 }
 
 // SkinnedGLB exports the model with its skeleton and the given clips.
 func (m *Model) SkinnedGLB(anims []NamedBCA) ([]byte, error) {
-	return nitro.ExportSkinnedGLB(m.Name, m.ByMat, m.Mats, m.Texs, m.BuildSkin(anims))
+	skin, remap := m.buildSkin(anims)
+	byMat := m.ByMat
+	if len(remap) > 0 {
+		// retarget the vertices of split billboard bones onto their leaf joint
+		byMat = make(map[int][]nitro.Tri, len(m.ByMat))
+		for mi, tris := range m.ByMat {
+			out := make([]nitro.Tri, len(tris))
+			for ti, t := range tris {
+				for vi := range t.V {
+					if leaf, ok := remap[t.V[vi].J]; ok {
+						t.V[vi].J = leaf
+					}
+				}
+				out[ti] = t
+			}
+			byMat[mi] = out
+		}
+	}
+	return nitro.ExportSkinnedGLB(m.Name, byMat, m.Mats, m.Texs, skin)
 }

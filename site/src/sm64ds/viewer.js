@@ -12,6 +12,17 @@ import { clone as cloneSkinned } from 'three/addons/utils/SkeletonUtils.js';
 
 const MODELS = 'public/sm64ds/models/';
 
+// Clip choice: clip names end in walk/wait/run + an optional number
+// (bombking_walk1, kuribo_wait). Patrolling actors lead with their walk;
+// stationary ones with their idle.
+const pickClip = (anims, prefer) => {
+  for (const kind of prefer) {
+    const hit = anims.find(a => new RegExp('_' + kind + '\\d*$').test(a.name));
+    if (hit) return hit;
+  }
+  return anims[0];
+};
+
 // Coin spin, from the coin actor's step at $020B23A4: yaw += $C00 angle units
 // per frame ($10000 = 360°), at the game's 30 fps actor tick.
 const COIN_SPIN = (0xC00 / 0x10000) * 30 * 2 * Math.PI; // rad/s
@@ -334,7 +345,7 @@ export class ModelViewer {
       group.traverse(o => { if (o.userData && o.userData.billboard) this.bbBones.push(o); });
       if (gltf.animations && gltf.animations.length) {
         const mx = new THREE.AnimationMixer(group);
-        const clip = gltf.animations.find(a => a.name.endsWith('_walk')) || gltf.animations[0];
+        const clip = pickClip(gltf.animations, ['walk', 'run', 'wait']);
         mx.clipAction(clip).play();
         this.mixers.push(mx);
       }
@@ -412,8 +423,8 @@ export class ModelViewer {
           if (proto.animations.length) {
             inst = cloneSkinned(proto.scene);
             inst.traverse(n => { if (n.userData && n.userData.billboard) this.bbBones.push(n); });
-            const clip = proto.animations.find(a => a.name.endsWith('_walk') || a.name.endsWith('_run'))
-              || proto.animations.find(a => a.name.endsWith('_wait')) || proto.animations[0];
+            const clip = pickClip(proto.animations,
+              PATROL[o.m] ? ['walk', 'run', 'wait'] : ['wait', 'walk', 'run']);
             const mx = new THREE.AnimationMixer(inst);
             mx.clipAction(clip).play();
             // desync instances so a troop doesn't march in lockstep
