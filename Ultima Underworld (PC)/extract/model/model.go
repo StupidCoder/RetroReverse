@@ -42,6 +42,7 @@ import (
 	"bytes"
 	"encoding/binary"
 	"fmt"
+	"math"
 )
 
 const (
@@ -112,6 +113,7 @@ type decoder struct {
 	color   uint16   // current colour (op 0xBC)
 	gather  []uint16 // pending N-gon pool slots (op 0x22)
 	written map[uint16]bool
+	swing   float64 // door-swing angle (radians) applied to 0xBA rotation scopes
 }
 
 // wr marks a pool slot written; rd flags an environment slot (read before any
@@ -137,6 +139,14 @@ func Decode(exe []byte) ([]*Model, error) { return DecodeWithEnv(exe, nil) }
 // the vector the emitter would plant there — for ceiling-adaptive models the
 // tile's floor-to-ceiling vector. With env nil those slots read as zero.
 func DecodeWithEnv(exe []byte, env map[uint16]Vertex) ([]*Model, error) {
+	return DecodeWithEnvSwing(exe, env, 0)
+}
+
+// DecodeWithEnvSwing additionally swings the door leaf: swingRad (radians) is
+// applied to every 0xBA scoped-rotation sub-program (the game rotates its
+// vertices about the vertical Y axis by the angle at [292A], 0 = closed). Pass
+// π/2 to render doors fully open.
+func DecodeWithEnvSwing(exe []byte, env map[uint16]Vertex, swingRad float64) ([]*Model, error) {
 	i := bytes.Index(exe, magic)
 	if i < 0 {
 		return nil, fmt.Errorf("model: magic not found")
@@ -159,7 +169,7 @@ func DecodeWithEnv(exe []byte, env map[uint16]Vertex) ([]*Model, error) {
 		for slot, v := range env {
 			m.Pool[slot] = v
 		}
-		d := &decoder{data: exe, m: m, seen: map[int]bool{}, written: map[uint16]bool{}}
+		d := &decoder{data: exe, m: m, seen: map[int]bool{}, written: map[uint16]bool{}, swing: swingRad}
 		d.run(s+10, 0)
 		models = append(models, m)
 	}
@@ -376,7 +386,27 @@ func (d *decoder) run(p int, depth int) {
 		case 0xBA, 0xC2, 0xC4: // scoped rotation, angle from memory: addr, rel -> sub
 			addr, rel := d.w(p+2), int(int16(d.w(p+4)))
 			d.log("%04X: %02X rotate(angle=[%04X]) sub@%04X", p, op, addr, p+6+rel)
+			// The door leaf ([292A] via 0xBA) swings about the vertical Y axis
+			// (routine 5426 mixes matrix X/Z). Rotate the sub-program's own
+			// vertices by the swing angle so a door can be rendered open. Only
+			// 0xBA (the door) is swung; 0xC2/0xC4 are other axes left as-is.
+			before := map[uint16]bool{}
+			if op == 0xBA && d.swing != 0 {
+				for k := range d.m.Pool {
+					before[k] = true
+				}
+			}
 			d.run(p+6+rel, depth+1)
+			if op == 0xBA && d.swing != 0 {
+				s, c := math.Sin(d.swing), math.Cos(d.swing)
+				for k, v := range d.m.Pool {
+					if before[k] {
+						continue
+					}
+					x, z := float64(v.X), float64(v.Z)
+					d.m.Pool[k] = Vertex{X: int16(x*c + z*s), Y: v.Y, Z: int16(-x*s + z*c)}
+				}
+			}
 			p += 6
 		case 0xBE: // copy word: src, ptr
 			d.log("%04X: BE *[%04X]=*[%04X]", p, d.w(p+4), d.w(p+2))

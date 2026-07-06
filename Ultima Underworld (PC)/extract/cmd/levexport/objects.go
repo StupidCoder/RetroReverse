@@ -24,6 +24,7 @@ import (
 	"fmt"
 	"image"
 	"image/color"
+	"math"
 
 	"ultimaunderworld/extract/lev"
 	"ultimaunderworld/extract/model"
@@ -206,21 +207,28 @@ func appendObjects(o *outMesh, grid *lev.Grid, block []byte, exeBytes []byte,
 	}
 
 	// Models are re-decoded per distinct env height (the floor-to-ceiling
-	// vector differs by object Z); cache the runs.
-	decoded := map[int16][]*model.Model{}
-	modelsFor := func(envH int16) []*model.Model {
-		if ms, ok := decoded[envH]; ok {
+	// vector differs by object Z) and swing angle (doors are rendered open);
+	// cache the runs.
+	type decKey struct {
+		envH  int16
+		swing float64
+	}
+	decoded := map[decKey][]*model.Model{}
+	modelsForSwing := func(envH int16, swing float64) []*model.Model {
+		k := decKey{envH, swing}
+		if ms, ok := decoded[k]; ok {
 			return ms
 		}
 		env := map[uint16]model.Vertex{
 			128: {Y: envH},
 			256: {Y: envH},
 		}
-		ms, err := model.DecodeWithEnv(exeBytes, env)
+		ms, err := model.DecodeWithEnvSwing(exeBytes, env, swing)
 		must(err)
-		decoded[envH] = ms
+		decoded[k] = ms
 		return ms
 	}
+	modelsFor := func(envH int16) []*model.Model { return modelsForSwing(envH, 0) }
 
 	var placed []placedModel
 	for _, obj := range lev.Objects(grid, block) {
@@ -310,7 +318,13 @@ func appendObjects(o *outMesh, grid *lev.Grid, block []byte, exeBytes []byte,
 			if variant == 7 { // secret door leaf: force the wall texture
 				leafMat = mats.wallMat(wallIdx)
 			}
-			place(ms, leaf, leafMat, true)
+			// Swing the wooden leaf fully open (portcullis raises via a bar count,
+			// not a rotation, so it is left un-swung).
+			leafModels := ms
+			if leaf == doorLeafModel {
+				leafModels = modelsForSwing(envH, math.Pi/2)
+			}
+			place(leafModels, leaf, leafMat, true)
 			continue
 		}
 		mn := itemModel[low6-0x10]
