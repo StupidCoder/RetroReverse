@@ -65,6 +65,7 @@ type Machine struct {
 	keyEvents    []injEvent     // scripted keyboard/mouse injection schedule (see dos_keyboard.go)
 	keyWait      int            // timer-ticks left before the next scheduled event
 	keyHits      int            // input events delivered so far (for first-N logging)
+	keyRetry     bool           // a pending key couldn't deliver (IF masked); retry each step
 	EnableIRQ    bool           // inject periodic timer IRQ0 (drives frame waits, cutscenes, menus)
 	WatchAddr    uint32         // if WatchLen>0, log writes to [WatchAddr, WatchAddr+WatchLen) (debugging)
 	WatchLen     uint32
@@ -319,6 +320,21 @@ func (m *Machine) scratchPath(dosPath string) string {
 		return ""
 	}
 	return filepath.Join(m.scratchDir, strings.ToUpper(p))
+}
+
+// SeedSaveFile writes data at dosPath in the writable scratch overlay (creating
+// parent directories), so the game finds it as if it had written it itself.
+// Used to pre-place a save game (e.g. SAVE0\PLAYER.DAT) and boot straight into a
+// loaded state instead of running character creation.
+func (m *Machine) SeedSaveFile(dosPath string, data []byte) error {
+	sp := m.scratchPath(dosPath)
+	if sp == "" {
+		return fmt.Errorf("dos: no scratch path for %q", dosPath)
+	}
+	if err := os.MkdirAll(filepath.Dir(sp), 0o755); err != nil {
+		return err
+	}
+	return os.WriteFile(sp, data, 0o644)
 }
 
 // walkPath resolves a DOS path case-insensitively, trying the writable scratch

@@ -38,6 +38,9 @@ func main() {
 	profrange := flag.String("profrange", "", "with -vgaprof, profile writes to SEG:OFF:LEN (hex) instead of the A000 framebuffer")
 	rdprof := flag.Uint64("rdprof", 0, "after this many instructions, tally code addrs READING -rdrange; print the hottest on stop")
 	rdrange := flag.String("rdrange", "", "with -rdprof, the SEG:OFF:LEN (hex) range to profile reads of")
+	loadSave := flag.Bool("loadsave", false, "pre-seed SAVE0 with the shipped save templates (test booting into a loaded game)")
+	loadState := flag.String("loadstate", "", "restore a machine snapshot before running (see -savestate)")
+	saveState := flag.String("savestate", "", "after the run, dump the full machine snapshot to this file")
 	flag.Parse()
 
 	var bpSeg, bpOff uint32
@@ -54,6 +57,24 @@ func main() {
 		os.Exit(1)
 	}
 	m.SeedDir("SAVE0") // UW aborts without a SAVE0 working dir (empty on first run)
+	if *loadSave {
+		// Pre-place the shipped save templates into SAVE0 so the game may boot into
+		// a loaded game (Journey Onward) rather than character creation.
+		for src, dst := range map[string]string{
+			"PLAYER.DAT": `SAVE0\PLAYER.DAT`, "BABGLOBS.DAT": `SAVE0\BGLOBALS.DAT`,
+			"LEV.ARK": `SAVE0\LEV.ARK`,
+		} {
+			b, err := os.ReadFile(filepath.Join(*game, "DATA", src))
+			if err != nil {
+				fmt.Fprintln(os.Stderr, "bootoracle: -loadsave:", err)
+				os.Exit(1)
+			}
+			if err := m.SeedSaveFile(dst, b); err != nil {
+				fmt.Fprintln(os.Stderr, "bootoracle: -loadsave:", err)
+				os.Exit(1)
+			}
+		}
+	}
 	m.EnableIRQ = *irq
 	m.VGAProfileAt = *vgaprof
 	if *profrange != "" {
@@ -68,6 +89,14 @@ func main() {
 		fmt.Sscanf(*rdrange, "%x:%x:%x", &s, &o, &l)
 		m.RdLo = (s<<4 + o) & 0xFFFFF
 		m.RdHi = m.RdLo + l
+	}
+	if *loadState != "" {
+		if err := m.LoadState(*loadState); err != nil {
+			fmt.Fprintln(os.Stderr, "bootoracle: -loadstate:", err)
+			os.Exit(1)
+		}
+		m.EnableIRQ = *irq // hooks were reset by the fresh load; re-apply run options
+		fmt.Printf("restored snapshot %s (at %d instructions)\n", *loadState, m.CPU.Steps)
 	}
 	if *keys != "" {
 		ev, err := dos.ParseKeys(*keys)
@@ -136,6 +165,14 @@ func main() {
 	}
 
 	c.Run(*steps)
+
+	if *saveState != "" {
+		if err := m.SaveState(*saveState); err != nil {
+			fmt.Fprintln(os.Stderr, "bootoracle: -savestate:", err)
+		} else {
+			fmt.Printf("\nsnapshot written to %s (%d instructions)\n", *saveState, m.CPU.Steps)
+		}
+	}
 
 	// Print the tail of the execution ring (deduplicated consecutive repeats).
 	fmt.Printf("\n== last instructions ==\n")

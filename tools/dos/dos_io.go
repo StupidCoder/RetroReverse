@@ -178,6 +178,21 @@ func (m *Machine) onStep(c *x86.CPU) {
 		return
 	}
 	io := m.io
+	// A key that couldn't be delivered on its tick (IF masked at that instant)
+	// retries every step until interrupts open — Interrupt(9) itself no-ops while
+	// IF is clear or shadowed, so this simply lands the key at the first opening.
+	if m.keyRetry && len(m.keyEvents) > 0 && m.keyEvents[0].kind == injKey {
+		ev := m.keyEvents[0]
+		m.io.kbdOut, m.io.kbdOutFull = ev.code, true
+		if c.Interrupt(9) {
+			m.keyRetry = false
+			m.logInject("KEY scancode %02X (retry)", ev.code)
+			m.keyEvents = m.keyEvents[1:]
+			m.keyWait = ev.delay
+		} else {
+			m.io.kbdOutFull = false
+		}
+	}
 	io.tick++
 	// Keyboard injection rides a HALF-tick phase offset from the timer. Delivering
 	// it here — not at the tick wrap below — matters: the timer's Interrupt(8)

@@ -55,6 +55,7 @@ var makeScancodes = map[string]byte{
 	"k": 0x25, "l": 0x26, ";": 0x27, "z": 0x2C, "x": 0x2D, "c": 0x2E, "v": 0x2F,
 	"b": 0x30, "n": 0x31, "m": 0x32, ",": 0x33, ".": 0x34, "/": 0x35,
 	"space": 0x39, "sp": 0x39,
+	"lshift": 0x2A, "shift": 0x2A, "rshift": 0x36, "ctrl": 0x1D, "alt": 0x38,
 	"up": 0x48, "left": 0x4B, "right": 0x4D, "down": 0x50,
 	"home": 0x47, "end": 0x4F, "pgup": 0x49, "pgdn": 0x51, "ins": 0x52, "del": 0x53,
 	"f1": 0x3B, "f2": 0x3C, "f3": 0x3D, "f4": 0x3E, "f5": 0x3F, "f6": 0x40,
@@ -65,12 +66,19 @@ var makeScancodes = map[string]byte{
 // Tokens:
 //
 //	<key>          a key name/character — "down", "enter", "a" (make + break)
+//	kdown:<key>    press a key WITHOUT releasing it (send only the make code) —
+//	               the game sees the key held down until a matching kup
+//	kup:<key>      release a held key (send the break code)
 //	wait:N         pause N timer-ticks
 //	at:X,Y         move the mouse to screen pixel (X, Y)
 //	lclick/rclick  press then release the left/right mouse button
 //	ldown/lup      hold/release the left button (rdown/rup for the right)
 //
-// Example: "at:120,140,lclick,wait:60,d,a,e,enter" clicks a button then types.
+// A held key (kdown/…/kup) is how continuous actions like walking are expressed:
+// UW tracks make/break from its scancode ring, so a key stays "down" between a
+// kdown and its kup. Shift is a real key too, so "kdown:shift,kdown:w,wait:20,
+// kup:w,kup:shift" walks with shift held. Example:
+// "at:120,140,lclick,wait:60,d,a,e,enter" clicks a button then types.
 func ParseKeys(spec string) ([]injEvent, error) {
 	const (
 		makeBreakGap = 2  // ticks between a key's make and break codes
@@ -124,6 +132,16 @@ func ParseKeys(spec string) ([]injEvent, error) {
 			out = append(out, injEvent{kind: injButton, code: 2, delay: makeBreakGap})
 		case tok == "lup", tok == "rup":
 			out = append(out, injEvent{kind: injButton, code: 0, delay: interKeyGap})
+		case strings.HasPrefix(tok, "kdown:"), strings.HasPrefix(tok, "kup:"):
+			name := tok[strings.IndexByte(tok, ':')+1:]
+			sc, ok := makeScancodes[name]
+			if !ok {
+				return nil, fmt.Errorf("keys: unknown key %q in %q", name, tok)
+			}
+			if strings.HasPrefix(tok, "kup:") {
+				sc |= 0x80 // break code
+			}
+			out = append(out, injEvent{kind: injKey, code: sc, delay: makeBreakGap})
 		default:
 			sc, ok := makeScancodes[tok]
 			if !ok {
@@ -171,9 +189,11 @@ func (m *Machine) pumpKeys() {
 	case injKey:
 		m.io.kbdOut, m.io.kbdOutFull = ev.code, true
 		if !m.CPU.Interrupt(9) {
-			m.io.kbdOutFull = false // interrupts masked — retry next tick
-			return
+			m.io.kbdOutFull = false // interrupts masked now — keep retrying every
+			m.keyRetry = true       // step (not just next tick) until IF is set, so
+			return                  // key delivery can't be starved by a bad phase
 		}
+		m.keyRetry = false
 		m.logInject("KEY scancode %02X (IVT9=%04X:%04X)", ev.code, m.r16(9*4+2), m.r16(9*4))
 	case injHome:
 		m.HomeMouse()
