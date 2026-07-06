@@ -98,6 +98,27 @@ export class LevelViewer {
     this.three.group = mesh;
     this._materials = materials;
 
+    // Billboard objects (items, creatures): OBJECTS.GR sprites drawn as
+    // camera-facing THREE.Sprites. Their exported position is the base on the
+    // floor, so lift each by half its height; they share the level's centring.
+    const spriteGroup = new THREE.Group();
+    spriteGroup.position.set(-c.x, -c.y, -c.z);
+    const spriteMats = (data.spriteTex || []).map((png) => {
+      const t = this._texLoader.load(png);
+      t.magFilter = THREE.NearestFilter;
+      t.colorSpace = THREE.SRGBColorSpace;
+      return new THREE.SpriteMaterial({ map: t, transparent: true, alphaTest: 0.5, depthWrite: true });
+    });
+    for (const s of data.sprites || []) {
+      const spr = new THREE.Sprite(spriteMats[s.tex]);
+      spr.position.set(s.pos[0], s.pos[1] + s.h / 2, s.pos[2]);
+      spr.scale.set(s.w, s.h, 1);
+      spriteGroup.add(spr);
+    }
+    scene.add(spriteGroup);
+    this._spriteGroup = spriteGroup;
+    this._spriteMats = spriteMats;
+
     // Start inside the dungeon (it's now ceiling-enclosed): the exported spawn
     // is an interior point at eye height; place the camera there looking ahead.
     // Fall back to an angled overview if no spawn was exported.
@@ -135,5 +156,11 @@ export class LevelViewer {
     for (const m of this._materials || []) { m.map?.dispose(); m.dispose(); }
     this._materials = null;
     this.three.group = null;
+    if (this._spriteGroup) {
+      this.three.scene.remove(this._spriteGroup);
+      this._spriteGroup = null;
+    }
+    for (const m of this._spriteMats || []) { m.map?.dispose(); m.dispose(); }
+    this._spriteMats = null;
   }
 }

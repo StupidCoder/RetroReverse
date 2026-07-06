@@ -42,8 +42,19 @@ type outMesh struct {
 	UVs       []float32    `json:"uvs"`
 	Groups    []outGroup   `json:"groups"`
 	Textures  []outTexture `json:"textures"`
-	Spawn     []float32    `json:"spawn"`    // [x,y,z] interior start (Y-up), eye height above a floor
-	SpawnDir  []float32    `json:"spawnDir"` // [x,y,z] initial look direction (Y-up)
+	Spawn     []float32    `json:"spawn"`     // [x,y,z] interior start (Y-up), eye height above a floor
+	SpawnDir  []float32    `json:"spawnDir"`  // [x,y,z] initial look direction (Y-up)
+	Sprites   []outSprite  `json:"sprites"`   // billboard objects (camera-facing)
+	SpriteTex []string     `json:"spriteTex"` // PNG data URIs, indexed by outSprite.Tex
+}
+
+// outSprite is one camera-facing billboard: its base sits at Pos (Y-up), it is
+// W×H world units, and Tex indexes SpriteTex.
+type outSprite struct {
+	Pos [3]float32 `json:"pos"`
+	W   float32    `json:"w"`
+	H   float32    `json:"h"`
+	Tex int        `json:"tex"`
 }
 
 func main() {
@@ -154,6 +165,11 @@ func main() {
 	doorGR, err := tex.ParseGR(data("DOORS.GR"))
 	must(err)
 	appendObjects(o, grid, block, exeBytes, comObj, tm, doorGR, wallTR, pal)
+
+	// Billboard sprites (class-0/1 objects: items, creatures) from OBJECTS.GR.
+	objGR, err := tex.ParseGR(data("OBJECTS.GR"))
+	must(err)
+	appendBillboards(o, grid, block, comObj, objGR, data("ALLPALS.DAT"), pal)
 
 	buf, err := json.Marshal(o)
 	must(err)

@@ -137,6 +137,56 @@ type placedModel struct {
 	texMat  int     // material for textured polys (desc-bound), -1 = none
 }
 
+// spriteWorldPerTexel scales an object sprite's texels to world (tile) units.
+// UW object sprites are ~16 texels; 1/32 tile per texel makes a 16-texel sprite
+// half a tile — a reasonable size for floor items and creatures.
+const spriteWorldPerTexel = 1.0 / 32
+
+// appendBillboards emits the level's class-0/1 objects as camera-facing sprites
+// (OBJECTS.GR frame [item_id]). The base of each sprite sits on the object's
+// floor position.
+func appendBillboards(o *outMesh, grid *lev.Grid, block []byte, comObj *lev.ComObj,
+	objGR *tex.GR, allPals []byte, pal tex.Palette) {
+
+	texOf := map[int]int{} // OBJECTS.GR frame -> SpriteTex index
+	for _, obj := range lev.Objects(grid, block) {
+		cls := comObj.RenderClass(obj.ItemID)
+		if cls != lev.RenderNone && cls != lev.RenderBillboard {
+			continue // 3D models and specials handled elsewhere
+		}
+		// Sprite frame = item_id (the emitter's [BP-4]); objects flagged 7 in
+		// w0 bits 6-8 override with their own quality-derived frame, but for a
+		// static export the item's base frame is the right still.
+		frame := int(obj.ItemID)
+		if frame >= objGR.Count() {
+			continue
+		}
+		ti, ok := texOf[frame]
+		var img *image.RGBA
+		if !ok {
+			var err error
+			img, err = objGR.Sprite(frame, pal, allPals)
+			if err != nil {
+				continue
+			}
+			ti = len(o.SpriteTex)
+			o.SpriteTex = append(o.SpriteTex, toDataURI(img))
+			texOf[frame] = ti
+		}
+		if img == nil {
+			img, _ = objGR.Sprite(frame, pal, allPals)
+		}
+		w := float32(img.Bounds().Dx()) * spriteWorldPerTexel
+		h := float32(img.Bounds().Dy()) * spriteWorldPerTexel
+		tx := float32(obj.TileX) + (float32(obj.FineX)+0.5)/8
+		ty := float32(obj.TileY) + (float32(obj.FineY)+0.5)/8
+		base := float32(obj.Z) / 32 // floor height in tile units (Z*8/256)
+		o.Sprites = append(o.Sprites, outSprite{
+			Pos: [3]float32{tx, base, -ty}, W: w, H: h, Tex: ti,
+		})
+	}
+}
+
 // appendObjects decodes the level's 3D-class objects and bakes their models
 // into the mesh as extra triangle groups.
 func appendObjects(o *outMesh, grid *lev.Grid, block []byte, exeBytes []byte,
