@@ -531,7 +531,12 @@ export class ModelViewer {
             }
           }
         });
-        g.scene.scale.setScalar(1 / 125);
+        // The dome only provides direction (camera-centred, drawn behind
+        // everything with depth off), so its absolute size is free — the
+        // engine's GLB/125 would cross our far plane on small stages. Fit it
+        // well inside the frustum instead.
+        const r = new THREE.Box3().setFromObject(g.scene).getSize(new THREE.Vector3()).length() / 2;
+        g.scene.scale.setScalar((this.three.camera.far * 0.45) / (r || 1));
         this.three.scene.add(g.scene);
         this.sky = g.scene;
       });

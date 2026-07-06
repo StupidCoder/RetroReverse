@@ -1,5 +1,6 @@
 package nitro
 
+import "math"
 import "image/color"
 
 // A shape's geometry is a display list: the raw command stream of the DS geometry
@@ -23,10 +24,13 @@ import "image/color"
 
 // Vertex is one emitted vertex in model space (after matrix application).
 type Vertex struct {
-	X, Y, Z float64
-	U, V    float64 // texels (12.4 → texel units)
-	C       color.NRGBA
-	J    int // source matrix-stack slot (joint index for skinned export)
+	X, Y, Z    float64
+	U, V       float64 // texels (12.4 → texel units)
+	C          color.NRGBA
+	J          int // source matrix-stack slot (joint index for skinned export)
+	NX, NY, NZ float64
+	HasN       bool // a NORMAL command was in effect: the DS LIGHTS this vertex
+	// (its color comes from the light calc, not the color register)
 }
 
 // Tri is one triangle.
@@ -137,10 +141,13 @@ func DecodeDL(dl []byte, stack []Mat43, cur Mat43, mat int) []Tri {
 		}
 	}
 
+	var curNX, curNY, curNZ float64 = 0, 1, 0
+	normalOn := false
 	addVertex := func(x, y, z float64) {
 		wx, wy, wz := cur.Apply(x, y, z)
 		last = Vertex{X: x, Y: y, Z: z} // model-space memory for VTX_XY/DIFF forms
-		vv := Vertex{X: wx, Y: wy, Z: wz, U: u, V: v, C: curColor, J: joint}
+		vv := Vertex{X: wx, Y: wy, Z: wz, U: u, V: v, C: curColor, J: joint,
+			NX: curNX, NY: curNY, NZ: curNZ, HasN: normalOn}
 		verts = append(verts, vv)
 		emit()
 	}
@@ -228,10 +235,25 @@ func DecodeDL(dl []byte, stack []Mat43, cur Mat43, mat int) []Tri {
 				if isPos() {
 					cur = cur.Mul(Mat43{1, 0, 0, 0, 1, 0, 0, 0, 1, fx(params[0]), fx(params[1]), fx(params[2])})
 				}
-			case 0x20: // COLOR (BGR555)
+			case 0x20: // COLOR (BGR555) — overrides the light calc until the next NORMAL
 				c := uint16(params[0])
 				curColor = bgr555(c)
-			case 0x21: // NORMAL — ignored (no lighting model)
+				normalOn = false
+			case 0x21: // NORMAL: packed 10-bit fx0.9 components; the DS runs its
+				// light equation at this point, so vertices under a NORMAL are
+				// lit ones. Rotate by the current matrix (its 3x3, normalised —
+				// the hardware uses the separately-kept vector matrix).
+				w := params[0]
+				nx := float64(int16(w<<6)>>6) / 512
+				ny := float64(int16((w>>10)<<6)>>6) / 512
+				nz := float64(int16((w>>20)<<6)>>6) / 512
+				rx := nx*cur[0] + ny*cur[3] + nz*cur[6]
+				ry := nx*cur[1] + ny*cur[4] + nz*cur[7]
+				rz := nx*cur[2] + ny*cur[5] + nz*cur[8]
+				if l := math.Sqrt(rx*rx + ry*ry + rz*rz); l > 1e-9 {
+					curNX, curNY, curNZ = rx/l, ry/l, rz/l
+				}
+				normalOn = true
 			case 0x22: // TEXCOORD, 12.4 fixed, texel units
 				u = float64(int16(params[0]&0xFFFF)) / 16
 				v = float64(int16(params[0]>>16)) / 16

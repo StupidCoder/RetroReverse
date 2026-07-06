@@ -149,11 +149,12 @@ func exportGLB(name string, byMat map[int][]Tri, mats []Material, texs map[strin
 		RoughnessFactor  float64   `json:"roughnessFactor"`
 	}
 	type gMaterial struct {
-		Name        string  `json:"name"`
-		PBR         pbr     `json:"pbrMetallicRoughness"`
-		AlphaMode   string  `json:"alphaMode,omitempty"`
-		AlphaCutoff float64 `json:"alphaCutoff,omitempty"`
-		DoubleSided bool    `json:"doubleSided"`
+		Name        string         `json:"name"`
+		PBR         pbr            `json:"pbrMetallicRoughness"`
+		Extensions  map[string]any `json:"extensions,omitempty"`
+		AlphaMode   string         `json:"alphaMode,omitempty"`
+		AlphaCutoff float64        `json:"alphaCutoff,omitempty"`
+		DoubleSided bool           `json:"doubleSided"`
 	}
 	type gSampler struct {
 		WrapS int `json:"wrapS"`
@@ -168,6 +169,23 @@ func exportGLB(name string, byMat map[int][]Tri, mats []Material, texs map[strin
 		Sampler int `json:"sampler"`
 		Source  int `json:"source"`
 	}
+	// The DS lights a vertex only where the display list issued a NORMAL
+	// ($21); everything else renders texture x vertex color with the shading
+	// BAKED into the colors. Materials whose geometry carries no normals are
+	// therefore exported unlit (KHR_materials_unlit) — stages, enemies, the
+	// skyboxes; the moving set-pieces (lifts, rotating bars) keep normals and
+	// real lighting.
+	litMat := map[int]bool{}
+	for mi, tris := range byMat {
+		for _, t := range tris {
+			for _, v := range t.V {
+				if v.HasN {
+					litMat[mi] = true
+				}
+			}
+		}
+	}
+	usedUnlit := false
 	var gmats []gMaterial
 	var samplers []gSampler
 	var images []gImage
@@ -236,6 +254,10 @@ func exportGLB(name string, byMat map[int][]Tri, mats []Material, texs map[strin
 			gm.AlphaCutoff = 0
 			gm.PBR.BaseColorFactor = []float64{1, 1, 1, float64(mat[mi].Alpha) / 31}
 		}
+		if !litMat[mi] {
+			gm.Extensions = map[string]any{"KHR_materials_unlit": struct{}{}}
+			usedUnlit = true
+		}
 		matIndex[mi] = len(gmats)
 		gmats = append(gmats, gm)
 	}
@@ -256,13 +278,18 @@ func exportGLB(name string, byMat map[int][]Tri, mats []Material, texs map[strin
 		if mi < len(m.Materials) {
 			us, vs = m.Materials[mi].UVScale()
 		}
+		var norm []float32
 		for _, t := range tris {
 			for _, v := range t.V {
 				pos = append(pos, float32(v.X), float32(v.Y), float32(v.Z))
 				if hasTex {
 					uv = append(uv, float32(v.U*us/float64(dims[0])), float32(v.V*vs/float64(dims[1])))
 				}
-				col = append(col, float32(v.C.R)/255, float32(v.C.G)/255, float32(v.C.B)/255)
+				if litMat[mi] {
+					norm = append(norm, float32(v.NX), float32(v.NY), float32(v.NZ))
+				} else {
+					col = append(col, float32(v.C.R)/255, float32(v.C.G)/255, float32(v.C.B)/255)
+				}
 				if skin != nil {
 					j := v.J
 					if j >= len(skin.Joints) {
@@ -277,7 +304,13 @@ func exportGLB(name string, byMat map[int][]Tri, mats []Material, texs map[strin
 		if hasTex {
 			attrs["TEXCOORD_0"] = addFloats(uv, "VEC2", false, 2)
 		}
-		attrs["COLOR_0"] = addFloats(col, "VEC3", false, 3)
+		if litMat[mi] {
+			// lit vertices: the DS computes the color from the light equation;
+			// export the real normals and no baked colors
+			attrs["NORMAL"] = addFloats(norm, "VEC3", false, 3)
+		} else {
+			attrs["COLOR_0"] = addFloats(col, "VEC3", false, 3)
+		}
 		if skin != nil {
 			vi := addView(joints)
 			accessors = append(accessors, accessor{BufferView: vi, ComponentType: 5121, Count: len(joints) / 4, Type: "VEC4"})
@@ -300,6 +333,9 @@ func exportGLB(name string, byMat map[int][]Tri, mats []Material, texs map[strin
 		"accessors":   accessors,
 		"bufferViews": views,
 		"buffers":     []map[string]int{{"byteLength": bin.Len()}},
+	}
+	if usedUnlit {
+		doc["extensionsUsed"] = []string{"KHR_materials_unlit"}
 	}
 	if len(images) > 0 {
 		doc["images"] = images
