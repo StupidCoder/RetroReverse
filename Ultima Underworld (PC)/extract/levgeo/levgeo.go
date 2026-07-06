@@ -14,10 +14,12 @@
 // texture, walls its wall texture, mapped to global W64.TR/F32.TR numbers
 // through the per-level texture list.
 //
-// One tile is a 1x1 cell in XY; heights are scaled by HeightScale because the
-// game's vertex transform (07F7:50BE) halves Z relative to X/Y (SAR CX,1 after a
-// shared doubling), so a height unit is half a tile width. Coordinates: +X east,
-// +Y north, +Z up.
+// One tile is a 1x1 cell in XY; heights are scaled by HeightScale, proven from
+// the game's own vertex path: the display-list builder 1FF9:0006 stores tile X/Y
+// scaled by 8 (SHL 3) and the height field scaled by 2 (SHL 1), then the vertex
+// transform 07F7:5096 scales all three equally (SHL 5 then SHL 1 = x64). So a
+// tile spans 8x64 and a height-field unit 2x64 -> a height unit is 2/8 = 1/4 of a
+// tile width. Coordinates: +X east, +Y north, +Z up.
 package levgeo
 
 import (
@@ -30,9 +32,9 @@ import (
 const Ceiling = 16
 
 // HeightScale converts a tile-height unit into world units where a tile is 1x1.
-// The game's vertex transform scales Z to half of X/Y, so one height unit is
-// half a tile.
-const HeightScale = 0.5
+// The game scales tile X/Y by 8 and the height field by 2 before the shared
+// transform, so one height unit is 2/8 = a quarter of a tile width.
+const HeightScale = 0.25
 
 const ceilingZ = Ceiling * HeightScale
 

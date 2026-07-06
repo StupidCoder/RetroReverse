@@ -108,7 +108,10 @@ func main() {
 			matIndex[matKey{mesh.Quads[j].Wall, mesh.Quads[j].Tex}]
 	})
 
-	// Emit triangles (two per quad), Y-up: position = (tileX, height, tileY).
+	// Emit triangles (two per quad), Y-up. The game world is (X=east, Y=north,
+	// Z=up); three.js is Y-up, so map to (tileX, height, -tileY). Negating tileY
+	// (rather than a plain axis swap) keeps the handedness right — a bare
+	// (tileX, height, tileY) swap reflects the level and renders it mirrored.
 	o := &outMesh{Level: *level, Spawn: spawn}
 	tri := [6]int{0, 1, 2, 0, 2, 3}
 	groupStart := map[int]int{}
@@ -120,7 +123,7 @@ func main() {
 		}
 		for _, ci := range tri {
 			p := q.P[ci]
-			o.Positions = append(o.Positions, p[0], p[2], p[1])
+			o.Positions = append(o.Positions, p[0], p[2], -p[1])
 			o.UVs = append(o.UVs, q.UV[ci][0], q.UV[ci][1])
 			groupCount[mat]++
 		}
@@ -149,8 +152,9 @@ func main() {
 		*out, len(o.Positions)/9, len(mats), len(buf)/1024)
 }
 
-// spawnPoint returns an interior start position (Y-up: x, height, y) at eye
-// height above the open floor tile nearest the map centre.
+// spawnPoint returns an interior start position (Y-up: x, height, -y, matching
+// the mirrored-safe mapping above) at eye height above the open floor tile
+// nearest the map centre.
 func spawnPoint(g *lev.Grid) []float32 {
 	cx, cy := g.W/2, g.H/2
 	bx, by, best := cx, cy, 1<<30
@@ -167,10 +171,10 @@ func spawnPoint(g *lev.Grid) []float32 {
 		}
 	}
 	if !found {
-		return []float32{float32(cx) + 0.5, 1, float32(cy) + 0.5}
+		return []float32{float32(cx) + 0.5, 1, -(float32(cy) + 0.5)}
 	}
 	floorZ := float32(g.At(bx, by).Height) * levgeo.HeightScale
-	return []float32{float32(bx) + 0.5, floorZ + 0.6, float32(by) + 0.5}
+	return []float32{float32(bx) + 0.5, floorZ + 0.6, -(float32(by) + 0.5)}
 }
 
 func toDataURI(im *image.RGBA) string {

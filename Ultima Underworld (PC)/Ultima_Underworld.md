@@ -708,15 +708,22 @@ rebuilt as a **textured 3D mesh** — reimplemented in Go and hooked into the St
   diagonal is *solid rock along the two edges bordering its solid corner*, so a neighbouring tile
   facing one of those closed edges also gets a wall — this filled the gaps in the ankh room, where
   the loop's diagonal tiles meet the crossbar.
-  **Heights** use the ratio the vertex transform proves at `07F7:50BE` — X/Y and Z share a `×2`, then
-  Z alone gets `SAR CX,1`, so a height unit is exactly **half** a tile width (`HeightScale = 0.5`).
+  **Heights** are scaled by the ratio the game's own vertex path proves: the display-list builder
+  `1FF9:0006` stores tile X/Y with `SHL 3` (×8) and the height field with `SHL 1` (×2), then the
+  vertex transform `07F7:5096` scales all three equally (`SHL 5` then `SHL 1` = ×64). So a tile spans
+  `8×64` and a height-field unit `2×64`, i.e. a height unit is `2/8 = ` **a quarter** of a tile width
+  (`HeightScale = 0.25`). (An earlier `0.5` was wrong — it read the shared transform but missed the
+  unequal `×8`/`×2` in `1FF9:0006`; the symptom was walls twice too tall, doubling the door texture.)
   `cmd/levexport` groups the mesh by material and writes a self-contained JSON
   (positions, UVs, groups, and each texture as a data-URI PNG); `cmd/levrender` is a Go software
   renderer that verified the result is a coherent dungeon before any browser was involved
   (`rendered/level1-3d.png` — Level 1 with its rooms, water channels and the ankh room, in 3D).
 - **Viewer.** `site/src/uw/viewer.js` loads that JSON into a three.js `BufferGeometry` with one
   textured material per group (nearest-filtered) and a fly-camera; all eight levels are
-  registered in the Studio under a new **MS-DOS** system. Since the dungeon is now ceiling-enclosed,
+  registered in the Studio under a new **MS-DOS** system. The game world is `(X=east, Y=north, Z=up)`;
+  the export maps it to three.js Y-up as `(tileX, height, -tileY)` — the `-tileY` (not a plain
+  `tileY` swap) keeps the handedness, since a bare axis swap reflects the level and renders it
+  mirrored (a step that is on the left in the game appeared on the right). Since the dungeon is now ceiling-enclosed,
   the export also carries a **spawn point** (the open tile nearest the map centre, at eye height) and
   the viewer starts the camera there, inside the level, rather than on an outside overview.
 
