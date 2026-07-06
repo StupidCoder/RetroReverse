@@ -322,3 +322,32 @@ Object pipeline:
 STILL TO PIN: item id -> model program address; each opcode's exact byte layout;
 how the door model's frame is sized to span its tile floor->ceiling (geometry
 adaptation). All in the 18FC draw pass and the model data it reads.
+
+§10b. MODEL PROGRAM BYTE LAYOUT (decoded from the interpreter)
+--------------------------------------------------------------
+Draw record: 6-byte header, then the model program at record+6 (07F7:190C
+SI=record; SI+=6). Program header words at +6..+E -> BP/[2886]/[2888]/[288A]/
+[289A] (bounds/anchor). Then the opcode stream.
+
+Opcode stream: each opcode = a WORD equal to the byte offset into 499D:2738
+(36 entries); fetch/decode LODSW; XCHG AX,BX; JMP [BX+2738]. Operands follow
+inline.
+
+Coords are int32 (2 words LE) per axis -> a VERTEX = 12 bytes (X,Y,Z). Transform:
+view = (vertex - cameraPos) per axis (32-bit; cam at [26BA]/[26BE]/[26C2]),
+scaled by a per-record power-of-two shift, then object matrix, then project.
+Two vertex encodings: polygon opcode reads fixed offsets [SI]..[SI+A] then
+ADD SI,0x0C (07F7:1A8D/1B63); opcode 28 (07F7:1BE4) reads the same via LODSW.
+
+Chaining: relative link word, DI = SI + link. Per-record metadata at NEGATIVE
+offsets from the link target: shift [DI-8]; bound deltas [DI-6]/[DI-4]/[DI-2];
+sub-list (polygon vertex indices) pointer [DI-A].
+
+Cull = skip: a failed plane/off-screen test does ADD SI,0x0C (07F7:1BCD) to step
+past the 12-byte record, then dispatches next. When a face IS drawn, a 256-byte
+table at [01E2] maps a projected coord to an octant/gradient index.
+
+NOT yet done: enumerate all 36 opcodes' operand bytes (only vertex/polygon/cull
+decoded); capture a concrete door model's bytes to validate (via the object-
+emission pass that WRITES the program, or a runtime capture); item->model map;
+door-frame floor->ceiling sizing.

@@ -785,13 +785,38 @@ objects).
 
 So a door renders as: its object record → registered by opcode 15 into the sorted list → in the draw
 pass, oriented by its heading and drawn by its model's opcode program, whose polygon opcodes are
-culled-by-skip when they face away. Full disassembly of these routines is in `disasm/uw-render.asm`
-(PART 7) with commentary in `uw-render.annotations.txt` (§10).
+culled-by-skip when they face away.
 
-**Still to pin (located, not yet decoded):** the map from item id to a model program address; each
-model opcode's exact byte layout (vertex/polygon/texture records); and how the door model's frame is
-sized to span its tile from floor to ceiling (the geometry-adaptation). These live in the same draw
-pass and the model data it reads, and are the next step toward rendering objects in the viewer.
+**The model program byte layout** (read straight off the interpreter — it *is* the ground truth for
+the layout, since the interpreter is what consumes the bytes):
+
+- A draw record starts with a **6-byte header**; the model program begins at record `+6`
+  (`07F7:190C`: `SI = record; SI += 6`). The first few program words are a **program header** —
+  bounds / anchor read into `BP`, `[2886]`, `[2888]`, `[288A]`, `[289A]` (words at `+6…+E`).
+- The body is a **stream of opcode words**. Each opcode word is the *byte offset* into the
+  `499D:2738` jump table (36 entries); the shared fetch/decode is `LODSW; XCHG AX,BX; JMP [BX+2738]`.
+  So opcodes are the even values `0,2,4,…`, and the operands of each opcode follow it inline.
+- **Coordinates are `int32`** (two little-endian words) per axis, so a **vertex is 12 bytes**
+  (`X,Y,Z`). The interpreter forms `view = (vertex − cameraPos)` per axis (32-bit; camera at
+  `[26BA]/[26BE]/[26C2]`), scales by a **per-record power-of-two shift**, applies the object rotation
+  matrix, and projects. There are two vertex encodings: the polygon opcode reads a vertex at fixed
+  offsets `[SI]…[SI+A]` then `ADD SI,0x0C`; other opcodes (e.g. opcode 28, `07F7:1BE4`) read the same
+  fields with sequential `LODSW`.
+- **Records chain by a relative link word** — `DI = SI + link` — and per-record metadata sits at
+  *negative* offsets from that link target: the shift at `[DI-8]`, bound deltas at `[DI-6]/[DI-4]/
+  [DI-2]`, and a sub-list pointer (the polygon's vertex indices) at `[DI-A]`.
+- **Culling is a program skip.** A failed plane / off-screen test executes `ADD SI,0x0C`
+  (`07F7:1BCD`) to step the program pointer past the 12-byte culled record, then dispatches the next
+  opcode. A 256-byte table at `[01E2]` maps a projected coordinate to an octant/gradient index used
+  when a face *is* drawn.
+
+Full disassembly of these routines is in `disasm/uw-render.asm` (PART 7) with commentary in
+`uw-render.annotations.txt` (§10).
+
+**Still to pin:** enumerating every one of the 36 opcodes with its exact operand bytes (only the
+vertex/polygon/cull opcodes above are decoded so far); capturing a concrete door model's bytes to
+validate (the object-emission pass that writes the program, or a runtime capture, would give a real
+sample); the item-id → model map; and how the door frame is sized to span its tile floor-to-ceiling.
 
 ## 9. Still open
 
