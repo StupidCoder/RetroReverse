@@ -105,8 +105,9 @@ export class LevelViewer {
     const r = geo.boundingBox.getSize(new THREE.Vector3()).length() || 40;
     if (data.spawn) {
       const [sx, sy, sz] = data.spawn;
+      const [dx, dy, dz] = data.spawnDir || [1, 0, 0]; // initial look direction
       camera.position.set(sx - c.x, sy - c.y, sz - c.z);
-      controls.target.set(sx - c.x + 1, sy - c.y, sz - c.z); // look along +X
+      controls.target.set(sx - c.x + dx, sy - c.y + dy, sz - c.z + dz);
     } else {
       camera.position.set(0, r * 0.42, r * 0.62);
       controls.target.set(0, 0, 0);

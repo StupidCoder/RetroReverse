@@ -42,7 +42,8 @@ type outMesh struct {
 	UVs       []float32    `json:"uvs"`
 	Groups    []outGroup   `json:"groups"`
 	Textures  []outTexture `json:"textures"`
-	Spawn     []float32    `json:"spawn"` // [x,y,z] interior start (Y-up), eye height above a floor
+	Spawn     []float32    `json:"spawn"`    // [x,y,z] interior start (Y-up), eye height above a floor
+	SpawnDir  []float32    `json:"spawnDir"` // [x,y,z] initial look direction (Y-up)
 }
 
 func main() {
@@ -84,9 +85,8 @@ func main() {
 	mesh := levgeo.Build(grid, tm, *ceil)
 
 	// An interior start point so the (now ceiling-enclosed) level opens with the
-	// fly-camera already inside it: the open tile nearest the map centre, at eye
-	// height above its floor. Y-up, matching the position layout below.
-	spawn := spawnPoint(grid)
+	// fly-camera already inside it. Y-up, matching the position layout below.
+	spawn, spawnDir := spawnPoint(grid, *level)
 
 	// Assign a material index per (wall, texture-number) used, and sort the quads
 	// by material so each material's triangles form one contiguous group.
@@ -112,7 +112,7 @@ func main() {
 	// Z=up); three.js is Y-up, so map to (tileX, height, -tileY). Negating tileY
 	// (rather than a plain axis swap) keeps the handedness right — a bare
 	// (tileX, height, tileY) swap reflects the level and renders it mirrored.
-	o := &outMesh{Level: *level, Spawn: spawn}
+	o := &outMesh{Level: *level, Spawn: spawn, SpawnDir: spawnDir}
 	tri := [6]int{0, 1, 2, 0, 2, 3}
 	groupStart := map[int]int{}
 	groupCount := map[int]int{}
@@ -152,10 +152,21 @@ func main() {
 		*out, len(o.Positions)/9, len(mats), len(buf)/1024)
 }
 
-// spawnPoint returns an interior start position (Y-up: x, height, -y, matching
-// the mirrored-safe mapping above) at eye height above the open floor tile
-// nearest the map centre.
-func spawnPoint(g *lev.Grid) []float32 {
+// spawnPoint returns an interior start position and initial look direction
+// (Y-up: x, height, -y — the mirror-safe mapping used above). Level 1 (index 0)
+// starts where the game drops a new character: the ceremonial-door room, facing
+// NORTH into the level (the big door is behind you). That room and orientation
+// are derived from the level geometry and the described start; the exact stored
+// sub-tile coordinate isn't read from the game's player state. Other levels have
+// no fixed entry, so they start at the open tile nearest the map centre.
+func spawnPoint(g *lev.Grid, level int) (pos, dir []float32) {
+	if level == 0 {
+		tx, ty := 31.5, 2.5 // in the start room, a couple tiles in front of the door
+		floorZ := float32(g.At(31, 2).Height) * levgeo.HeightScale
+		pos = []float32{float32(tx), floorZ + 0.55, -float32(ty)}
+		dir = []float32{0, 0, -1} // +tileY (north) maps to -Z
+		return
+	}
 	cx, cy := g.W/2, g.H/2
 	bx, by, best := cx, cy, 1<<30
 	found := false
@@ -170,11 +181,14 @@ func spawnPoint(g *lev.Grid) []float32 {
 			}
 		}
 	}
+	dir = []float32{1, 0, 0}
 	if !found {
-		return []float32{float32(cx) + 0.5, 1, -(float32(cy) + 0.5)}
+		pos = []float32{float32(cx) + 0.5, 1, -(float32(cy) + 0.5)}
+		return
 	}
 	floorZ := float32(g.At(bx, by).Height) * levgeo.HeightScale
-	return []float32{float32(bx) + 0.5, floorZ + 0.6, -(float32(by) + 0.5)}
+	pos = []float32{float32(bx) + 0.5, floorZ + 0.6, -(float32(by) + 0.5)}
+	return
 }
 
 func toDataURI(im *image.RGBA) string {
