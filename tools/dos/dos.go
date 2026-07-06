@@ -73,6 +73,9 @@ type Machine struct {
 	ProfLo       uint32 // profiled linear write range (default: the A000 window)
 	ProfHi       uint32
 	vgaProfile   map[uint32]int // CS<<16|IP -> write count into the profiled range (renderer hunting)
+	RdProfileAt  uint64         // if >0, tally code addrs READING [RdLo,RdHi) once Steps >= this
+	RdLo, RdHi   uint32         // profiled linear read range
+	rdProfile    map[uint32]int // CS<<16|IP -> read count (finds consumers of a data structure)
 	Terminated   bool
 	ExitCode     byte
 }
@@ -148,10 +151,29 @@ func LoadEXE(exePath, gameDir string) (*Machine, error) {
 
 func (m *Machine) Read(a uint32) byte {
 	a &= 0xFFFFF
+	if m.RdProfileAt > 0 && m.CPU != nil && m.CPU.Steps >= m.RdProfileAt &&
+		a >= m.RdLo && a < m.RdHi {
+		if m.rdProfile == nil {
+			m.rdProfile = map[uint32]int{}
+		}
+		m.rdProfile[uint32(m.CPU.Seg[1])<<16|(m.CPU.IP&0xFFFF)]++
+	}
 	if a >= 0xA0000 && a < 0xB0000 {
 		return m.vgaRead(a) // planar VGA window (see dos_vga.go)
 	}
 	return m.Mem[a]
+}
+
+// ReadProfile returns the code addresses that read the [RdLo,RdHi) range since
+// RdProfileAt, most-frequent first — the mirror of VGAProfile, for finding the
+// CONSUMERS of a data structure (e.g. which code walks a loaded level's tiles).
+func (m *Machine) ReadProfile() []VGAWriter {
+	out := make([]VGAWriter, 0, len(m.rdProfile))
+	for pc, n := range m.rdProfile {
+		out = append(out, VGAWriter{Seg: uint16(pc >> 16), Off: uint16(pc), Count: n})
+	}
+	sort.Slice(out, func(i, j int) bool { return out[i].Count > out[j].Count })
+	return out
 }
 func (m *Machine) Write(a uint32, v byte) {
 	a &= 0xFFFFF

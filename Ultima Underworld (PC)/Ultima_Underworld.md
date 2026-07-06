@@ -39,8 +39,9 @@ their tests and the rendered outputs live in the repository.
   banks, the `.TR` wall/floor textures, the `.BYT` full-screen images, the fonts, and the packed
   string table (`STRINGS.PAK`). *(planned — static decode)*
 * **Part V** — the world and the **3D renderer**: the level archive (`LEV.ARK`) plus the
-  first-person engine read from the oracle's live memory. *(started — the camera/view-matrix
-  transform and the renderer's divide-error mechanism are mapped; `disasm/uw-render.*`)*
+  first-person engine read from the oracle's live memory. *(the renderer is mapped world-to-pixels
+  (`disasm/uw-render.*`); the `LEV.ARK` archive + tile-map format are decoded and rendered
+  (`extract/lev`))*
 * **Part VI** — audio and cutscenes: the digitized voices (`.VOC`), the sequenced music
   (`.XMI`) and its Miles driver files, and the `CUTS` cutscene animation format. *(planned)*
 
@@ -605,14 +606,43 @@ That closes the loop. The whole first-person renderer, world to pixels:
 Full disassembly in `disasm/uw-render.asm` (PART 4 = the projection) with commentary in
 `uw-render.annotations.txt` (§7).
 
-## 6. Still open
+## 6. The level archive and the tile map
 
-The renderer is now mapped world-to-pixels. The remaining links are on the *data* side: what walks
-the level's tile/wall geometry and multiplies each corner by the camera basis to build the
-view-space point list at `[0307]` (the bridge from `LEV.ARK` to §5), the `1FF9` object/sprite path,
-and the `01A0` display-list command set. The render *entry* is a callback of the `2252:0410` IRQ0
-timer table. The peripheral-panel noise in `rendered/dungeon.png` should resolve as the HUD draw
-path (a separate consumer of `01A0`) is mapped.
+The renderer's geometry ultimately comes from `LEV.ARK`. Its outer format falls straight out of the
+file: a `uint16` block count (135) followed by that many `uint32` block offsets, each block running
+to the next offset. The first **nine** blocks are exactly **31,752 bytes** — the nine dungeon
+levels; the rest are per-level texture-mapping, automap and animation blocks. The load trace
+confirms it: the game copies `DATA\LEV.ARK` to `SAVE0\LEV.ARK`, reads the 2-byte count and the
+540-byte offset table, then `seek $21E; read 31752 bytes` pulls block 0 (level 1) into memory at
+`798D:0004`.
+
+Inside a level block, the first `64×64×4` bytes are the **tile map** — two little-endian words per
+tile. The field layout was read from the game's *own* decode code (via the oracle's new read
+profiler, `-rdprof`, pointed at the loaded tile map to find its consumers):
+
+| Field | Bits | Where it was derived |
+|---|---|---|
+| tile **type** | word0 `0-3` | `2CD3:0740` — `MOV AX,[tile]; AND AX,000F`, indexes a per-type geometry table |
+| floor **height** | word0 `4-7` | `2CD3:0835` — `SHR AX,4; AND AX,000F` |
+| textures | word0 `8-15` | (floor/wall indices — exact split still to pin) |
+| flags | word1 `0-5` | — |
+| first **object** | word1 `6-15` | `28B3:08F9` — `MOV AX,[tile+2]; SHR 6; AND 03FF` (0 = empty) |
+
+Type `0` is solid rock, `1` open floor, `2-5` the four diagonal (half-solid) corners, `6-9` the four
+sloping floors. Reimplemented in Go (`extract/lev`, `cmd/levinfo`) and **verified by rendering**: the
+type histogram matches the raw data, and drawing the map (`rendered/level1-map.png`) reproduces a
+coherent Level 1 — rooms, corridors, the central cavern, and the unmistakable **ankh room** — which
+is the proof the tile stride and fields are right. Each of the 329 non-empty tiles carries an object
+list head, the bridge into the object/item system (still to decode).
+
+## 7. Still open
+
+On the render side: what walks these tiles and multiplies each corner by the camera basis to build
+the view-space point list at `[0307]` (the last bridge from the tile map to the projection, §5), the
+`1FF9` object/sprite path, and the `01A0` display-list command set. On the data side: the tile
+texture split, the per-level texture-mapping block, and the object lists the tile heads point into.
+The render *entry* is a callback of the `2252:0410` IRQ0 timer table. The peripheral-panel noise in
+`rendered/dungeon.png` should resolve as the HUD draw path (a separate consumer of `01A0`) is mapped.
 
 # Part VI — Audio and cutscenes (planned)
 
@@ -638,6 +668,9 @@ page-file cutscene format.
   ring and spin/runaway detectors.
 - `extract/cmd/uwinfo` — Part I recon: decode the UW.EXE header/layout (via `tools/dos.ParseMZ`)
   and inventory `game/`.
+- `extract/lev` + `extract/cmd/levinfo` — Part V: decode `LEV.ARK` (archive blocks + the 64×64
+  tile map) and render a level; the tile fields were derived from the game's own decode code via
+  the oracle's `-rdprof` read profiler.
 - `disasm/` — the code-knowledge store: `uw.asm` (code-traced C-runtime startup) +
   `uw.annotations.txt` (the startup chain annotated with oracle-pinned addresses); see its README.
 

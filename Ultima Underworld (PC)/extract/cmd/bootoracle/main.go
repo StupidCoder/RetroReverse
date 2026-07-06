@@ -36,6 +36,8 @@ func main() {
 	keys := flag.String("keys", "", "script keyboard input via IRQ1, e.g. \"down,down,enter,wait:40,enter\" (implies -irq)")
 	vgaprof := flag.Uint64("vgaprof", 0, "after this many instructions, tally code addrs writing to the profiled range; print the hottest on stop")
 	profrange := flag.String("profrange", "", "with -vgaprof, profile writes to SEG:OFF:LEN (hex) instead of the A000 framebuffer")
+	rdprof := flag.Uint64("rdprof", 0, "after this many instructions, tally code addrs READING -rdrange; print the hottest on stop")
+	rdrange := flag.String("rdrange", "", "with -rdprof, the SEG:OFF:LEN (hex) range to profile reads of")
 	flag.Parse()
 
 	var bpSeg, bpOff uint32
@@ -59,6 +61,13 @@ func main() {
 		fmt.Sscanf(*profrange, "%x:%x:%x", &s, &o, &l)
 		m.ProfLo = (s<<4 + o) & 0xFFFFF
 		m.ProfHi = m.ProfLo + l
+	}
+	m.RdProfileAt = *rdprof
+	if *rdrange != "" {
+		var s, o, l uint32
+		fmt.Sscanf(*rdrange, "%x:%x:%x", &s, &o, &l)
+		m.RdLo = (s<<4 + o) & 0xFFFFF
+		m.RdHi = m.RdLo + l
 	}
 	if *keys != "" {
 		ev, err := dos.ParseKeys(*keys)
@@ -180,6 +189,17 @@ func main() {
 				break
 			}
 			fmt.Printf("  %04X:%04X  %d writes\n", w.Seg, w.Off, w.Count)
+		}
+	}
+
+	if *rdprof > 0 {
+		prof := m.ReadProfile()
+		fmt.Printf("\n== readers of the range since step %d (hottest 20 of %d) ==\n", *rdprof, len(prof))
+		for i, w := range prof {
+			if i >= 20 {
+				break
+			}
+			fmt.Printf("  %04X:%04X  %d reads\n", w.Seg, w.Off, w.Count)
 		}
 	}
 
