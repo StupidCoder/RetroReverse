@@ -163,7 +163,10 @@ func main() {
 		ri++
 		if bpSet && uint32(cpu.Seg[x86.CS]) == bpSeg && (cpu.IP&0xFFFF) == bpOff &&
 			(*bpal < 0 || cpu.Reg8(x86.AL) == byte(*bpal)) {
-			cpu.Halt("breakpoint at %04X:%04X (AX=%04X BX=%04X)", cpu.Seg[x86.CS], cpu.IP, cpu.Reg16(x86.AX), cpu.Reg16(x86.BX))
+			cpu.Halt("breakpoint at %04X:%04X (AX=%04X BX=%04X CX=%04X DX=%04X SI=%04X DI=%04X BP=%04X SP=%04X DS=%04X ES=%04X SS=%04X)",
+				cpu.Seg[x86.CS], cpu.IP, cpu.Reg16(x86.AX), cpu.Reg16(x86.BX), cpu.Reg16(x86.CX), cpu.Reg16(x86.DX),
+				cpu.Reg16(x86.SI), cpu.Reg16(x86.DI), cpu.Reg16(x86.BP), cpu.Reg16(x86.SP),
+				cpu.Seg[x86.DS], cpu.Seg[x86.ES], cpu.Seg[x86.SS])
 		}
 		// Runaway detector: executing a run of 00 00 bytes means the CPU jumped
 		// into zero-filled memory — halt so the ring shows the culprit transfer.

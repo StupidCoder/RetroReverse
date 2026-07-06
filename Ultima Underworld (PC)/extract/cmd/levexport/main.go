@@ -145,6 +145,16 @@ func main() {
 		o.Textures = append(o.Textures, outTexture{Wall: k.wall, Num: int(k.num), PNG: toDataURI(im)})
 	}
 
+	// Bake the 3D-class objects (doors, pillars, bridges...) into the mesh as
+	// extra groups; their materials append after the level's.
+	exeBytes, err := os.ReadFile(filepath.Join(*game, "UW.EXE"))
+	must(err)
+	comObj, err := lev.ParseComObj(data("COMOBJ.DAT"))
+	must(err)
+	doorGR, err := tex.ParseGR(data("DOORS.GR"))
+	must(err)
+	appendObjects(o, grid, block, exeBytes, comObj, tm, doorGR, wallTR, pal)
+
 	buf, err := json.Marshal(o)
 	must(err)
 	must(os.WriteFile(*out, buf, 0o644))

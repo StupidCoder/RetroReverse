@@ -496,3 +496,48 @@ jamb posts +-64 beyond the sides, lintel top = openingTop + v256 — "the frame
 goes from the floor to the ceiling of its tile". Op 0x8C's middle operand,
 previously "unknown" in old community notes, is simply a pool slot index that
 happens to be one of these emitter-loaded slots.
+
+--------------------------------------------------------------------------------
+§10f  THE OBJECT-EMISSION PASS (overlay 2DFE) — item → model, traced live
+--------------------------------------------------------------------------------
+Traced from the door-view savestate (door on screen). The display list the VM
+runs is built per frame; the object records live at 499D:78xx and are written
+through the far cursor [DGROUP:7250] (DGROUP = 5D1F).
+
+Dungeon-time VM: the fetch/dispatch (LODSW; XCHG AX,BX; JMP/CALL [BX+2738]) is
+INLINED per handler — ~28 dispatch sites (hottest 07F7:2C41). Model programs run
+IN PLACE from the 499D:292E block.
+
+2DFE:0005  per-object dispatch(objptr far):
+  w0 bit14 set -> skip (invisible)
+  render class = [BX+5975]&3, BX = item_id*11   ; DGROUP:5975 = COMOBJ.DAT image
+                                                ; (file: 11-byte hdr + 512*11)
+  jump table CS:5D0: class 0 -> 0351, 1 -> 0221 (billboard), 2 -> 01CB (model),
+                     3 -> 03F4
+  class 2 at 01CB: low6 = id & 0x3F
+    low6 >= 0x10 -> model = word [DGROUP:056C + (low6-0x10)*2]  (32 entries,
+                    UW.EXE file 0x5F85C, -1 = none):
+                    {3,8,8,7,7,6,5,11,24,9,23,27,28,25,26,4,10,16,17,-1,2,19,18,-1,...}
+                    -> CALLF 2DFE:05E0(model, obj, heading*2, tileWallTex)
+    low6 <  0x10 -> door family CALLF 2DFE:0CBA: hardcoded emits
+                    model 1 frame @1171, 12 portcullis @11C4, 15 @128F, 14 leaf @12BB
+
+2DFE:05E0  emit-model(model, objptr, hd, tex):
+  angle [BP-2] = ((w1>>7&7) + 8 - 2*[2B1A 'camera facing']) & 7 << 13
+  emits: [0x18 posX32 posY32 posZ32] then [0x50 angle rel] (rotating) or
+         [0x12 rel] (static); rel written by 3A79:011B(model+0x60) via table
+         [DGROUP:7654]: word[0x60+m] = ModelOffsets[m]/2 (built at startup from
+         499D:28A0 — why 28A0 is never read per frame)
+  DI flag bits: 0x08 -> emit 0x4C (0,0,0x400-Z) = floor-to-ceiling vector into
+                 pool slot 0x800/8=256 (v256) — the ceiling adaptation
+                0x20 -> texture from arg4+0x3A (wall-texture space, 1C28:03B2)
+                0x40&&!0x10 -> mobile-only anim block (reads obj+0x14)
+
+TEXTURE BANKS: 1FF9 sets [2F5A] per tile: floor=0+[0437], wall=2+[0437],
+door=4+[0437]; sizes [2F5C]=0x10/0x20/0x40. Banks resolve via [499D:B000]+bank*8.
+Door images: the LAST 6 BYTES of the 122-byte per-level texture list (48 wall
+words + 10 floor words + 6 door bytes) index DATA/DOORS.GR (13 images 32x64;
+file: 01, u16 count, u32 offs; image: 04, W, H, u16 size, raw 8bpp).
+
+Door object verified at 798D:72B4 (item 320, tile 33,8); static array 798D:5B04,
+mobile 7B33:798D, tile ptr ctx [2F54].

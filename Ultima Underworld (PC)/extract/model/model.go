@@ -82,6 +82,7 @@ type Model struct {
 	Index    int
 	Offset   uint16 // table offset
 	Extents  [3]int16
+	Shift    [3]int16          // anchor shift (op 0x4A): add to every vertex when placing
 	Pool     map[uint16]Vertex // pool slot -> model-space vertex
 	Quads    []Quad
 	Polys    []Poly
@@ -121,7 +122,13 @@ func (d *decoder) rd(slot uint16) {
 }
 
 // Decode parses UW.EXE and returns all 64 models.
-func Decode(exe []byte) ([]*Model, error) {
+func Decode(exe []byte) ([]*Model, error) { return DecodeWithEnv(exe, nil) }
+
+// DecodeWithEnv decodes the models with environment slots pre-loaded, the way
+// the object-emission pass runs them: env maps a pool slot (e.g. 256, 128) to
+// the vector the emitter would plant there — for ceiling-adaptive models the
+// tile's floor-to-ceiling vector. With env nil those slots read as zero.
+func DecodeWithEnv(exe []byte, env map[uint16]Vertex) ([]*Model, error) {
 	i := bytes.Index(exe, magic)
 	if i < 0 {
 		return nil, fmt.Errorf("model: magic not found")
@@ -140,6 +147,9 @@ func Decode(exe []byte) ([]*Model, error) {
 		}
 		for k := 0; k < 3; k++ {
 			m.Extents[k] = int16(binary.LittleEndian.Uint16(exe[s+4+2*k:]))
+		}
+		for slot, v := range env {
+			m.Pool[slot] = v
 		}
 		d := &decoder{data: exe, m: m, seen: map[int]bool{}, written: map[uint16]bool{}}
 		d.run(s+10, 0)
@@ -253,7 +263,13 @@ func (d *decoder) run(p int, depth int) {
 			d.m.Pool[dst/8] = Vertex{x, y, z}
 			d.log("%04X: 20 vertex32 (%d,%d,%d) -> v%d", p, x, y, z, dst/8)
 			p += 16
-		case 0x4A: // adjust current deltas by 3 words
+		case 0x4A: // adjust current deltas by 3 words: shifts the model's anchor
+			// relative to the object position. The door leaf uses (-48,0,0),
+			// which puts its 0..128 span exactly onto the doorframe's opening
+			// (frame model 1 builds the opening at X -48..+80).
+			d.m.Shift[0] += d.sw(p + 2)
+			d.m.Shift[1] += d.sw(p + 4)
+			d.m.Shift[2] += d.sw(p + 6)
 			d.log("%04X: 4A delta -= (%d,%d,%d)", p, d.sw(p+2), d.sw(p+4), d.sw(p+6))
 			p += 8
 		case 0x5E, 0x60, 0x62: // two-term plane-side conditional skip (3F00/3F29/3F52)

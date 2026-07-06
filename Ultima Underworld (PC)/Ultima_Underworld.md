@@ -909,9 +909,59 @@ leaf), jamb posts extending ±64 beyond the sides, and a lintel whose top corner
 `openingTop + v256` — the frame *stretches from the floor to the ceiling of its tile*, exactly the
 observed behaviour. The decoder reports these as `EnvSlots` (ceiling-adaptive).
 
-**Still to pin:** the item-id → model-index map and the descriptor/texture binding (both live in the
-object-emission pass, still not located — the same pass that loads the environment slots and the
-`[292A]`-family per-object animation state); and model 10's `0x30` LOD-indirect path.
+### The item → model map — the object-emission pass, caught live
+
+With the oracle able to play the game (Part III §6), finding the emission pass stopped being an
+archaeology problem: restore the `door-view` savestate (the avatar standing in front of the wooden
+door), and *watch the machine render it*. Three facts fell out quickly:
+
+- **In the dungeon the VM has no single fetch loop.** The dispatch sequence
+  (`LODSW; XCHG AX,BX; JMP/CALL [BX+2738]`) is *inlined at the end of every handler* — profiling
+  reads of the jump table during a walk lit up ~28 dispatch sites (the busiest at `07F7:2C41`).
+  Breakpoints on the menu-era fetch loop simply never fire.
+- **Model programs execute in place.** A breakpoint inside a shade opcode halted with `SI` pointing
+  into model 1's program bytes at `499D:693E` — the doorframe, running straight out of the model
+  block that `extract/model` decodes from the EXE.
+- **The emitter is overlay segment `2DFE`.** Write-profiling the per-frame object records (found at
+  `499D:78xx` by breaking on the rotate-and-call handler and reading `SI`) named the writer. The
+  door's record reads exactly as decoded: *select door texture bank* (`0xB2`), *poke light state*,
+  *position* (`0x18` + three 32-bit coords), *rotate and call* (`0x50`, angle, relative offset) —
+  the offset landing on the doorframe program.
+
+From `2DFE:0005` (the per-object dispatch) the whole mapping is plain compiled C:
+
+1. Word 0 bit 14 set → invisible, skip.
+2. **Render class = `COMOBJ.DAT[item_id·11] & 3`** — the game loads DATA/COMOBJ.DAT (11 bytes per
+   item) to `DGROUP:5975`; class 1 = billboard sprite, **class 2 = 3D model**, 0/3 = special.
+3. Class 2 splits on the item's low 6 bits: **`low6 ≥ 0x10` → model number from a 32-entry word
+   table at `DGROUP:056C`** (UW.EXE file `0x5F85C`; `-1` = none) — pillars (10), the bridge (2),
+   levers, gravestones…; **`low6 < 0x10` → the door family**, dedicated code with the models
+   hardcoded: doorframe **1** always, plus a leaf — the wooden door **14** closed, the portcullis
+   **12**, the open-door leaf **15** — chosen by variant (`id&7`: 0-5 doors, 6 portcullis,
+   7 secret; +8 = standing open).
+4. The relative call target is resolved through a startup-built table (`DGROUP:7654`:
+   `word[0x60+model] = ModelOffsets[model]/2`) — which is why the 64-word table at `499D:28A0` is
+   never read at render time.
+5. The angle for `0x50` is the object's heading (word 1 bits 7-9) in 45° steps, camera-relative;
+   the environment vector for ceiling-adaptive models is emitted as literally `0x400 − Z` — the
+   floor-to-ceiling vector in fine height units (ceiling = 16 heights × 64 = 1024).
+
+**Textures:** `1FF9` keeps a *texture bank* register (`[2F5A]`): floors are bank 0, walls 2, doors
+4 (+1 page fold). The door's actual image comes from a place we had been carrying around unparsed
+all along: **the last 6 bytes of the 122-byte per-level texture list** (48 wall words + 10 floor
+words + **6 door bytes**) select images in **DATA/DOORS.GR** — 13 door pictures, 32×64, raw 8-bit
+(format: `01`, count, offsets; image = `04`, W, H, size, pixels). Level 1's list is `0 3 5 6 7 9`,
+and image 0 is the brown planked door standing at tile (33,8).
+
+`cmd/levexport` now replays this pipeline: COMOBJ render class → model table / door family →
+`DecodeWithEnv` (pool slots 128/256 pre-loaded with the floor-to-ceiling vector, so frames and
+pillars stretch to the real ceiling) → transform at 256 model units per tile, heading in 45° steps
+→ baked into the level JSON with DOORS.GR door textures. The wooden door — leaf, frame, jambs and
+lintel — stands in the viewer where the game puts it.
+
+**Still to pin:** the flat-poly shade table (`CS:696E`, light-banked — the viewer approximates the
+wood/iron tones); the door-family anchor adjustment (the exporter snaps the frame to its doorway);
+open-door leaf placement; and model 10's `0x30` LOD-indirect path.
 
 ## 9. Still open
 

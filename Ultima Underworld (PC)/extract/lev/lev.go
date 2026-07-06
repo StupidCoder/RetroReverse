@@ -135,13 +135,15 @@ const (
 	texMapBase  = 18 // block index of level 0's texture list
 	numWallTex  = 48 // wall entries in a texture list (into W64.TR)
 	numFloorTex = 10 // floor entries (into F32.TR)
+	numDoorTex  = 6  // door entries (into DOORS.GR), bytes after the words
 )
 
 // TexMap is a level's texture list: the global W64.TR/F32.TR texture numbers its
-// tiles' 6-bit/4-bit texture indices select.
+// tiles' 6-bit/4-bit texture indices select, plus the level's six door textures.
 type TexMap struct {
 	Wall  []uint16 // WallTex index -> W64.TR texture number
 	Floor []uint16 // FloorTex index -> F32.TR texture number
+	Door  []uint8  // door variant slot -> DOORS.GR image number (6 entries)
 }
 
 // TexMapForLevel decodes the texture list for level (0-based).
@@ -160,7 +162,21 @@ func (a *Ark) TexMapForLevel(level int) (*TexMap, error) {
 	for i := range tm.Floor {
 		tm.Floor[i] = binary.LittleEndian.Uint16(b[(numWallTex+i)*2:])
 	}
+	// The six bytes after the wall/floor words are the level's door textures:
+	// door variant slot -> DOORS.GR image. (48+10 words + 6 bytes = the block's
+	// full 122 bytes.)
+	if rest := b[(numWallTex+numFloorTex)*2:]; len(rest) >= numDoorTex {
+		tm.Door = append([]uint8{}, rest[:numDoorTex]...)
+	}
 	return tm, nil
+}
+
+// DoorTexture maps a door variant slot to a DOORS.GR image number.
+func (m *TexMap) DoorTexture(slot uint8) uint8 {
+	if int(slot) < len(m.Door) {
+		return m.Door[slot]
+	}
+	return 0
 }
 
 // WallTexture maps a tile's WallTex index to a W64.TR texture number.

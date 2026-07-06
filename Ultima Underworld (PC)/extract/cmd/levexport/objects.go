@@ -1,0 +1,353 @@
+package main
+
+// 3D object placement — doors, pillars, bridges, levers — baked into the level
+// mesh. The pipeline mirrors the game's object-emission pass (overlay 2DFE,
+// traced in the oracle):
+//
+//   - An object is 3D when its COMOBJ.DAT render class (byte0 & 3) is 2.
+//   - Items whose low 6 bits are >= 0x10 map to a model number through a
+//     32-entry word table at DGROUP:056C (UW.EXE file offset 0x5F85C).
+//   - Items with low6 < 0x10 are the door family, emitted by dedicated code
+//     (2DFE:0CBA): a doorframe (model 1) plus a leaf — the wooden door
+//     (model 14) for the closed variants, the portcullis (model 12), or the
+//     open-door leaf (model 15).
+//   - The model program runs with pool slots 128/256 pre-loaded with the
+//     floor-to-ceiling vector (0, 1024-z, 0) — model Y units are the level's
+//     fine height units where the ceiling sits at 16*64 = 1024 (the emitter
+//     writes exactly 0x400 - Z). That is how frames and pillars stretch.
+//   - World scale: one tile = 256 model units on every axis; the object's
+//     heading (w1 bits 7-9) turns the model in 45° steps.
+//   - Door textures: the level texture list's trailing 6 bytes pick DOORS.GR
+//     images for door variants 0-5.
+
+import (
+	"fmt"
+	"image"
+	"image/color"
+
+	"ultimaunderworld/extract/lev"
+	"ultimaunderworld/extract/model"
+	"ultimaunderworld/extract/tex"
+)
+
+// modelTableFileOff is the 32-entry item->model word table (DGROUP:056C) in
+// UW.EXE; -1 entries have no model. Verified equal to live memory.
+const modelTableFileOff = 0x5F85C
+
+const modelUnitsPerTile = 256.0
+
+// Door-family variants (item id & 0xF): 0-5 are the six leveled door types,
+// 6 the portcullis, 7 the secret door; +8 = the same doors standing open.
+const (
+	doorLeafModel   = 14
+	doorFrameModel  = 1
+	portcullisModel = 12
+	openLeafModel   = 15
+)
+
+// flat-poly colours: the VM shades these through a light-banked table
+// (CS:696E); the viewer approximates with fixed wood/metal tones per shade
+// base until that table is extracted.
+var polyShades = map[uint16]color.RGBA{
+	0: {58, 34, 20, 255},
+	1: {96, 58, 32, 255},
+	2: {130, 82, 44, 255},
+}
+
+type objMaterials struct {
+	o       *outMesh
+	matOf   map[string]int // material key -> index in o.Textures
+	doorGR  *tex.GR
+	pal     tex.Palette
+	wallTR  *tex.TR
+	texMap  *lev.TexMap
+	nextMat int
+}
+
+func (m *objMaterials) doorMat(img int) int {
+	key := fmt.Sprintf("door:%d", img)
+	if i, ok := m.matOf[key]; ok {
+		return i
+	}
+	im, err := m.doorGR.Image(img, m.pal)
+	must(err)
+	i := len(m.o.Textures)
+	m.o.Textures = append(m.o.Textures, outTexture{Num: 3000 + img, PNG: toDataURI(im)})
+	m.matOf[key] = i
+	return i
+}
+
+func (m *objMaterials) colorMat(c color.RGBA) int {
+	key := fmt.Sprintf("rgb:%d,%d,%d", c.R, c.G, c.B)
+	if i, ok := m.matOf[key]; ok {
+		return i
+	}
+	im := image.NewRGBA(image.Rect(0, 0, 2, 2))
+	for p := 0; p < 4; p++ {
+		im.Pix[p*4+0], im.Pix[p*4+1], im.Pix[p*4+2], im.Pix[p*4+3] = c.R, c.G, c.B, 255
+	}
+	i := len(m.o.Textures)
+	m.o.Textures = append(m.o.Textures, outTexture{Num: 4000 + i, PNG: toDataURI(im)})
+	m.matOf[key] = i
+	return i
+}
+
+// wallMat reuses the tile's wall texture for models the game binds it to.
+func (m *objMaterials) wallMat(idx uint8) int {
+	num := int(m.texMap.WallTexture(idx))
+	key := fmt.Sprintf("wall:%d", num)
+	if i, ok := m.matOf[key]; ok {
+		return i
+	}
+	im, err := m.wallTR.Image(num%m.wallTR.Count(), m.pal)
+	must(err)
+	i := len(m.o.Textures)
+	m.o.Textures = append(m.o.Textures, outTexture{Wall: true, Num: num, PNG: toDataURI(im)})
+	m.matOf[key] = i
+	return i
+}
+
+// placedModel positions one decoded model in the level.
+type placedModel struct {
+	m       *model.Model
+	tileX   float32 // world position, tile units
+	tileY   float32
+	height  float32 // fine height units (z*8)
+	heading uint8   // 0-7, 45° steps
+	texMat  int     // material for textured polys (desc-bound), -1 = none
+}
+
+// appendObjects decodes the level's 3D-class objects and bakes their models
+// into the mesh as extra triangle groups.
+func appendObjects(o *outMesh, grid *lev.Grid, block []byte, exeBytes []byte,
+	comObj *lev.ComObj, tm *lev.TexMap, doorGR *tex.GR, wallTR *tex.TR, pal tex.Palette) {
+
+	mats := &objMaterials{o: o, matOf: map[string]int{}, doorGR: doorGR, pal: pal, wallTR: wallTR, texMap: tm}
+
+	// item->model table (DGROUP:056C image).
+	var itemModel [32]int16
+	for i := range itemModel {
+		itemModel[i] = int16(uint16(exeBytes[modelTableFileOff+2*i]) | uint16(exeBytes[modelTableFileOff+2*i+1])<<8)
+	}
+
+	// Models are re-decoded per distinct env height (the floor-to-ceiling
+	// vector differs by object Z); cache the runs.
+	decoded := map[int16][]*model.Model{}
+	modelsFor := func(envH int16) []*model.Model {
+		if ms, ok := decoded[envH]; ok {
+			return ms
+		}
+		env := map[uint16]model.Vertex{
+			128: {Y: envH},
+			256: {Y: envH},
+		}
+		ms, err := model.DecodeWithEnv(exeBytes, env)
+		must(err)
+		decoded[envH] = ms
+		return ms
+	}
+
+	var placed []placedModel
+	for _, obj := range lev.Objects(grid, block) {
+		if comObj.RenderClass(obj.ItemID) != lev.RenderModel {
+			continue
+		}
+		fineH := int16(obj.Z) * 8 // object Z in fine height units (z<<3)
+		envH := int16(1024) - fineH
+		ms := modelsFor(envH)
+		low6 := obj.ItemID & 0x3F
+
+		place := func(n int, texMat int, snap bool) {
+			if n < 0 || n >= len(ms) || ms[n] == nil || ms[n].Offset == 0 {
+				return
+			}
+			pm := placedModel{
+				m:      ms[n],
+				tileX:  float32(obj.TileX) + (float32(obj.FineX)+0.5)/8,
+				tileY:  float32(obj.TileY) + (float32(obj.FineY)+0.5)/8,
+				height: float32(fineH), heading: obj.Heading, texMat: texMat,
+			}
+			if snap {
+				// Doors fill their doorway: the frame spans a full tile
+				// (-112..+144 model units: opening -48..+80 with 64-unit jambs),
+				// so anchor it on the tile edge along the leaf axis. (The game's
+				// door path applies its own anchor adjustment; this reproduces
+				// the visible result.)
+				sin, cos := headingSinCos(pm.heading)
+				lo := float32(-112) / modelUnitsPerTile
+				if cos > 0.5 || cos < -0.5 { // leaf axis = world X
+					pm.tileX = float32(obj.TileX) - lo*cos
+					if cos < 0 {
+						pm.tileX = float32(obj.TileX) + 1 + lo*(-cos)
+					}
+				} else { // leaf axis = world Y
+					pm.tileY = float32(obj.TileY) - lo*sin
+					if sin < 0 {
+						pm.tileY = float32(obj.TileY) + 1 + lo*(-sin)
+					}
+				}
+			}
+			placed = append(placed, pm)
+		}
+
+		if low6 < 0x10 { // door family: frame + leaf
+			variant := low6 & 7
+			leaf, texMat := doorLeafModel, -1
+			switch {
+			case variant == 6:
+				leaf = portcullisModel
+				texMat = mats.colorMat(color.RGBA{70, 70, 78, 255}) // iron grate
+			case variant == 7: // secret door: rendered with the tile's wall texture
+				texMat = mats.wallMat(grid.At(obj.TileX, obj.TileY).WallTex)
+			default:
+				texMat = mats.doorMat(int(tm.DoorTexture(uint8(variant))))
+			}
+			if low6 >= 8 { // standing open
+				leaf = openLeafModel
+			}
+			place(doorFrameModel, texMat, true)
+			place(leaf, texMat, true)
+			continue
+		}
+		mn := itemModel[low6-0x10]
+		if mn < 0 {
+			continue
+		}
+		// Non-door models bind the tile's wall texture for their textured faces
+		// (the emitter passes wallTex+0x3A); flat faces use their shade colour.
+		place(int(mn), mats.wallMat(grid.At(obj.TileX, obj.TileY).WallTex), false)
+	}
+
+	for _, pm := range placed {
+		bakeModel(o, mats, pm)
+	}
+}
+
+// bakeModel appends one placed model's triangles.
+func bakeModel(o *outMesh, mats *objMaterials, pm placedModel) {
+	sin, cos := headingSinCos(pm.heading)
+	// model (X width, Y up, Z thickness) -> world tile units, rotated about the
+	// vertical, then to the viewer's Y-up frame (x, up, -y) like the level mesh.
+	xf := func(v model.Vertex) [3]float32 {
+		mx := float32(v.X+pm.m.Shift[0]) / modelUnitsPerTile
+		my := float32(v.Y+pm.m.Shift[1]) / modelUnitsPerTile
+		mz := float32(v.Z+pm.m.Shift[2]) / modelUnitsPerTile
+		wx := pm.tileX + mx*cos - mz*sin
+		wy := pm.tileY + mx*sin + mz*cos
+		wup := pm.height/modelUnitsPerTile + my
+		return [3]float32{wx, wup, -wy}
+	}
+
+	appendTri := func(mat int, a, b, c [3]float32, uv [3][2]float32) {
+		// winding doesn't matter: the viewer renders every material DoubleSide
+		g := findGroup(o, mat)
+		for _, p := range [][3]float32{a, b, c} {
+			o.Positions = append(o.Positions, p[0], p[1], p[2])
+		}
+		for _, t := range uv {
+			o.UVs = append(o.UVs, t[0], t[1])
+		}
+		g.Count += 3
+	}
+
+	fan := func(mat int, slots []uint16, textured bool) {
+		if len(slots) < 3 {
+			return
+		}
+		vs := make([]model.Vertex, len(slots))
+		for i, s := range slots {
+			vs[i] = pm.m.Pool[s]
+		}
+		// Planar UVs over the polygon's own extent: one texture copy per face,
+		// matching the compact quad ops' implicit corner UVs. U/V span the two
+		// widest model axes; V runs downward from the top (paint-order match).
+		lo := [3]int16{vs[0].X, vs[0].Y, vs[0].Z}
+		hi := lo
+		for _, v := range vs {
+			for k, c := range [3]int16{v.X, v.Y, v.Z} {
+				if c < lo[k] {
+					lo[k] = c
+				}
+				if c > hi[k] {
+					hi[k] = c
+				}
+			}
+		}
+		span := [3]int{int(hi[0] - lo[0]), int(hi[1] - lo[1]), int(hi[2] - lo[2])}
+		// smallest span = the face's flat axis; the other two carry U (width)
+		// and V (height: model Y if it is in play).
+		flat := 0
+		for k := 1; k < 3; k++ {
+			if span[k] < span[flat] {
+				flat = k
+			}
+		}
+		ua, va := 0, 1
+		switch flat {
+		case 0:
+			ua, va = 2, 1
+		case 1:
+			ua, va = 0, 2
+		case 2:
+			ua, va = 0, 1
+		}
+		uvOf := func(v model.Vertex) [2]float32 {
+			c := [3]int16{v.X, v.Y, v.Z}
+			var u, w float32
+			if span[ua] > 0 {
+				u = float32(c[ua]-lo[ua]) / float32(span[ua])
+			}
+			if span[va] > 0 {
+				w = float32(c[va]-lo[va]) / float32(span[va])
+			}
+			return [2]float32{u, w}
+		}
+		for i := 1; i+1 < len(vs); i++ {
+			appendTri(mat,
+				xf(vs[0]), xf(vs[i]), xf(vs[i+1]),
+				[3][2]float32{uvOf(vs[0]), uvOf(vs[i]), uvOf(vs[i+1])})
+		}
+	}
+
+	for _, q := range pm.m.Quads {
+		mat := pm.texMat
+		if mat < 0 || !q.Textured {
+			mat = mats.colorMat(shadeColor(q.Desc))
+		}
+		fan(mat, q.V[:], true)
+	}
+	for _, pl := range pm.m.Polys {
+		if pl.Color&0xF000 != 0 && pm.texMat >= 0 { // textured n-gon
+			fan(pm.texMat, pl.V, true)
+			continue
+		}
+		fan(mats.colorMat(shadeColor(pl.Color&0xFFF)), pl.V, false)
+	}
+}
+
+func shadeColor(base uint16) color.RGBA {
+	if c, ok := polyShades[base]; ok {
+		return c
+	}
+	return color.RGBA{100, 100, 100, 255}
+}
+
+func headingSinCos(h uint8) (sin, cos float32) {
+	// 45° steps; exact values for the multiples keep the math clean
+	tab := [8][2]float32{
+		{0, 1}, {0.7071068, 0.7071068}, {1, 0}, {0.7071068, -0.7071068},
+		{0, -1}, {-0.7071068, -0.7071068}, {-1, 0}, {-0.7071068, 0.7071068},
+	}
+	return tab[h&7][0], tab[h&7][1]
+}
+
+// findGroup returns (creating if needed) the trailing group for material mat;
+// object groups are appended after the level's groups.
+func findGroup(o *outMesh, mat int) *outGroup {
+	if n := len(o.Groups); n > 0 && o.Groups[n-1].Material == mat &&
+		o.Groups[n-1].Start+o.Groups[n-1].Count == len(o.Positions)/3 {
+		return &o.Groups[n-1]
+	}
+	o.Groups = append(o.Groups, outGroup{Start: len(o.Positions) / 3, Material: mat})
+	return &o.Groups[len(o.Groups)-1]
+}
