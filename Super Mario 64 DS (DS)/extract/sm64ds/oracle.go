@@ -1021,6 +1021,8 @@ func (o *Oracle) StepActor(run *ActorRun) {
 		return
 	}
 	o.phase = "step"
+	o.cur = run // record files the step itself loads (lazy loaders)
+	defer func() { o.cur = nil }()
 	if _, note := o.call(step, run.Obj, 0, 0, 0, 3_000_000); note != "" {
 		run.Notes = append(run.Notes, "step: "+note)
 	}
