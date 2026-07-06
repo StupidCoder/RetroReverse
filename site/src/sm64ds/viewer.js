@@ -143,17 +143,6 @@ export class ModelViewer {
       }
       for (const s of this.spinners) s.rotation.y += COIN_SPIN * dt;
       for (const mx of this.mixers) mx.update(dt);
-      // Billboard bones (the bob-omb's body, the tree quads): after the clip
-      // updates, override the bone's world orientation to face the camera —
-      // the engine does the same to its billboard-flagged bones.
-      if (this.bbBones.length) {
-        camera.getWorldQuaternion(this._camQ || (this._camQ = new THREE.Quaternion()));
-        const pq = this._parQ || (this._parQ = new THREE.Quaternion());
-        for (const b of this.bbBones) {
-          b.parent.getWorldQuaternion(pq).invert();
-          b.quaternion.copy(pq).multiply(this._camQ);
-        }
-      }
       for (const c of this.chomps) {
         c.t -= dt;
         if (c.t <= 0) {
@@ -211,6 +200,19 @@ export class ModelViewer {
         if (!g.paused) {
           g.obj.position.x += Math.sin(g.yaw) * P.speed * dt;
           g.obj.position.z += Math.cos(g.yaw) * P.speed * dt;
+        }
+      }
+      // Billboard bones (the bob-omb's body): after the clips AND the behavior
+      // rotations settle, override the bone's world orientation to face the
+      // camera — the engine does the same to its billboard-flagged bones at
+      // draw time. getWorldQuaternion refreshes the ancestor matrices, so the
+      // compensation composes against this frame's final pose.
+      if (this.bbBones.length) {
+        camera.getWorldQuaternion(this._camQ || (this._camQ = new THREE.Quaternion()));
+        const pq = this._parQ || (this._parQ = new THREE.Quaternion());
+        for (const b of this.bbBones) {
+          b.parent.getWorldQuaternion(pq).invert();
+          b.quaternion.copy(pq).multiply(this._camQ);
         }
       }
       renderer.render(scene, camera);
@@ -434,6 +436,7 @@ export class ModelViewer {
                 l.scale.setScalar(o.s || 1 / 125);
                 group.add(l);
                 links.push(l);
+                bills.push(l); // the link disc is a single billboard-flagged bone
               }
             }
             // The body model's pivot is its centre; the engine's gravity rests

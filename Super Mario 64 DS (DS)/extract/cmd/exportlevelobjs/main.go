@@ -96,8 +96,12 @@ func main() {
 		_, err := os.Stat(filepath.Join(*glbDir, name+".glb"))
 		return err == nil
 	}
-	// billboard = the model's own bone flag (+$3C bit 0, commit 13ec351): a
-	// camera-facing quad (trees, coins' flat variants) yaws to the camera
+	// billboard = the model's own bone flag (+$3C bit 0): the engine billboards
+	// per BONE, so the whole-model flag applies only to models that ARE a single
+	// flagged bone (tree quads, clouds, number sprites, the chain link).
+	// Multi-bone models with a flagged part (the bob-omb's body_bill) carry the
+	// flag as glTF node extras in their skinned export and the viewer orients
+	// just that bone.
 	bill := billboardChecker(ls, *ext)
 
 	// objScale is the display scale for an object instance, from the traced engine
@@ -253,15 +257,7 @@ func billboardChecker(ls *sm64ds.LevelSet, extDir string) func(stem string) bool
 				m, _ = sm64ds.Decode(data, stem)
 			}
 		}
-		v := false
-		if m != nil {
-			for _, j := range m.Skel {
-				if j.Billboard {
-					v = true
-					break
-				}
-			}
-		}
+		v := m != nil && len(m.Skel) == 1 && m.Skel[0].Billboard
 		cache[stem] = v
 		return v
 	}
