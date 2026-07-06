@@ -30,6 +30,10 @@ func main() {
 	level := flag.Int("level", 0, "level index")
 	palN := flag.Int("pal", 0, "palette index")
 	out := flag.String("o", "level.png", "output PNG")
+	top := flag.Bool("top", false, "top-down camera (verify walls/layout)")
+	zoom := flag.Float64("zoom", 0, "half-extent to frame in top view (0=whole level)")
+	cxf := flag.Float64("cx", -1, "top-view centre X (-1=level centre)")
+	cyf := flag.Float64("cy", -1, "top-view centre Y (-1=level centre)")
 	flag.Parse()
 	rd := func(n ...string) []byte {
 		b, err := os.ReadFile(filepath.Join(append([]string{*game, "DATA"}, n...)...))
@@ -69,11 +73,28 @@ func main() {
 		return color.RGBA{byte(r / n), byte(g / n), byte(b / n), 255}
 	}
 
-	// Camera: an angled bird's-eye over the level centre.
+	// Camera: an angled bird's-eye over the level centre, or straight-down.
 	cx, cy := float64(grid.W)/2, float64(grid.H)/2
+	if *cxf >= 0 {
+		cx = *cxf
+	}
+	if *cyf >= 0 {
+		cy = *cyf
+	}
 	eye := vec3{cx - 18, cy - 34, 20}
 	target := vec3{cx, cy, 0}
-	view := lookAt(eye, target, vec3{0, 0, 1})
+	up := vec3{0, 0, 1}
+	if *top {
+		ext := float64(grid.W) / 2
+		if *zoom > 0 {
+			ext = *zoom
+		}
+		// Steep oblique from the south so wall faces stay visible.
+		eye = vec3{cx, cy - ext*0.85, ext * 2.0}
+		target = vec3{cx, cy, 0}
+		up = vec3{0, 0, 1}
+	}
+	view := lookAt(eye, target, up)
 	proj := perspective(50*math.Pi/180, float64(W)/H, 0.1, 400)
 	light := norm(vec3{0.4, 0.5, 0.8})
 

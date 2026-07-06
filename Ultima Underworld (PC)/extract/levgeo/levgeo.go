@@ -69,8 +69,10 @@ func cornerHeight(t, h uint8, cx, cy int) float32 {
 	return z * HeightScale
 }
 
-// The four tile edges, each with its neighbour offset and the two shared corners.
+// The four tile edges, each with its index (0=S,1=E,2=N,3=W), neighbour offset
+// and the two shared corners.
 type edge struct {
+	idx      int
 	nx, ny   int
 	c0x, c0y int
 	c1x, c1y int
@@ -78,10 +80,10 @@ type edge struct {
 
 func tileEdges(x, y int) [4]edge {
 	return [4]edge{
-		{x, y - 1, 0, 0, 1, 0}, // 0 south (-Y)
-		{x + 1, y, 1, 0, 1, 1}, // 1 east
-		{x, y + 1, 1, 1, 0, 1}, // 2 north
-		{x - 1, y, 0, 1, 0, 0}, // 3 west
+		{0, x, y - 1, 0, 0, 1, 0}, // south (-Y)
+		{1, x + 1, y, 1, 0, 1, 1}, // east
+		{2, x, y + 1, 1, 1, 0, 1}, // north
+		{3, x - 1, y, 0, 1, 0, 0}, // west
 	}
 }
 
@@ -191,13 +193,32 @@ func buildDiagonal(m *Mesh, g *lev.Grid, x, y int, t lev.Tile, ftex, wtex uint16
 	}
 }
 
+// diagSolidEdge reports whether edge e (0=S,1=E,2=N,3=W) of a diagonal tile of
+// the given type is a closed (solid-rock) edge — the two edges bordering its
+// solid corner. The other two are open.
+func diagSolidEdge(dt uint8, e int) bool {
+	d := diagonals[dt-lev.TileDiagSE]
+	for _, oe := range d.openEdges {
+		if oe == e {
+			return false
+		}
+	}
+	return true
+}
+
 // addWall emits a wall quad on one edge if it is exposed (neighbour solid or
 // higher-floored).
 func addWall(m *Mesh, g *lev.Grid, x, y int, t lev.Tile, e edge, wtex uint16) {
 	nfloor := float32(ceilingZ) // out-of-bounds / solid -> full wall
 	solid := true
 	if e.nx >= 0 && e.nx < g.W && e.ny >= 0 && e.ny < g.H {
-		if nt := g.At(e.nx, e.ny); nt.Type != lev.TileSolid {
+		nt := g.At(e.nx, e.ny)
+		// A diagonal neighbour is solid rock along the two edges by its solid
+		// corner: the edge facing us (the opposite of ours, idx^2) may be closed
+		// even though the tile isn't fully solid — then it still needs a wall.
+		diagClosed := nt.Type >= lev.TileDiagSE && nt.Type <= lev.TileDiagNW &&
+			diagSolidEdge(nt.Type, e.idx^2)
+		if nt.Type != lev.TileSolid && !diagClosed {
 			solid = false
 			nfloor = cornerHeight(nt.Type, nt.Height, 0, 0)
 		}

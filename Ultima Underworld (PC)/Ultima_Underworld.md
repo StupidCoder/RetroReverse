@@ -696,7 +696,10 @@ rebuilt as a **textured 3D mesh** — reimplemented in Go and hooked into the St
   (full height to the ceiling) or higher (a step up) — floors textured `F32`, walls `W64`, through
   the texture list. **Diagonal tiles (types 2-5)** are emitted exactly: the solid corner
   (NW/NE/SW/SE, derived from neighbour solidity in the real levels) is cut off, leaving a *triangular*
-  floor, a diagonal wall across the hypotenuse, and normal walls on only the two open edges.
+  floor, a diagonal wall across the hypotenuse, and normal walls on only the two open edges. A
+  diagonal is *solid rock along the two edges bordering its solid corner*, so a neighbouring tile
+  facing one of those closed edges also gets a wall — this filled the gaps in the ankh room, where
+  the loop's diagonal tiles meet the crossbar.
   **Heights** use the ratio the vertex transform proves at `07F7:50BE` — X/Y and Z share a `×2`, then
   Z alone gets `SAR CX,1`, so a height unit is exactly **half** a tile width (`HeightScale = 0.5`).
   `cmd/levexport` groups the mesh by material and writes a self-contained JSON
