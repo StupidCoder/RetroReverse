@@ -118,7 +118,7 @@ func Build(g *lev.Grid, tm *lev.TexMap, ceilings bool) *Mesh {
 			corner := func(cx, cy int) [3]float32 { return [3]float32{fx + float32(cx), fy + float32(cy), z(cx, cy)} }
 
 			if t.Type >= lev.TileDiagSE && t.Type <= lev.TileDiagNW {
-				buildDiagonal(m, g, x, y, t, ftex, wtex)
+				buildDiagonal(m, g, x, y, t, ftex, wtex, ceilings)
 				continue
 			}
 
@@ -143,9 +143,9 @@ func Build(g *lev.Grid, tm *lev.TexMap, ceilings bool) *Mesh {
 	return m
 }
 
-// buildDiagonal emits a diagonal tile: a triangular floor, the diagonal wall
-// across the hypotenuse, and walls on the two open edges.
-func buildDiagonal(m *Mesh, g *lev.Grid, x, y int, t lev.Tile, ftex, wtex uint16) {
+// buildDiagonal emits a diagonal tile: a triangular floor (and ceiling), the
+// diagonal wall across the hypotenuse, and walls on the two open edges.
+func buildDiagonal(m *Mesh, g *lev.Grid, x, y int, t lev.Tile, ftex, wtex uint16, ceilings bool) {
 	d := diagonals[t.Type-lev.TileDiagSE]
 	fx, fy := float32(x), float32(y)
 	z := func(cx, cy int) float32 { return cornerHeight(t.Type, t.Height, cx, cy) }
@@ -170,18 +170,24 @@ func buildDiagonal(m *Mesh, g *lev.Grid, x, y int, t lev.Tile, ftex, wtex uint16
 		UV:  [4][2]float32{tuv[0], tuv[1], tuv[2], tuv[2]},
 		Tex: ftex, Tri: true,
 	})
+	if ceilings {
+		m.Quads = append(m.Quads, Quad{
+			P:   [4][3]float32{{tp[0][0], tp[0][1], ceilingZ}, {tp[2][0], tp[2][1], ceilingZ}, {tp[1][0], tp[1][1], ceilingZ}, {tp[1][0], tp[1][1], ceilingZ}},
+			UV:  [4][2]float32{tuv[0], tuv[2], tuv[1], tuv[1]},
+			Tex: ftex, Tri: true,
+		})
+	}
 
-	// Diagonal wall along the hypotenuse, floor up to the ceiling.
+	// Diagonal wall along the hypotenuse, floor up to the ceiling (one texture).
 	a, b := d.hyp[0], d.hyp[1]
 	za, zb := z(a[0], a[1]), z(b[0], b[1])
 	pa := [3]float32{fx + float32(a[0]), fy + float32(a[1]), za}
 	pb := [3]float32{fx + float32(b[0]), fy + float32(b[1]), zb}
-	hyplen := hyp32(pb[0]-pa[0], pb[1]-pa[1])
 	m.Quads = append(m.Quads, Quad{
 		P: [4][3]float32{
 			{pa[0], pa[1], za}, {pb[0], pb[1], zb}, {pb[0], pb[1], ceilingZ}, {pa[0], pa[1], ceilingZ},
 		},
-		UV:   [4][2]float32{{0, ceilingZ - min32(za, zb)}, {hyplen, ceilingZ - min32(za, zb)}, {hyplen, 0}, {0, 0}},
+		UV:   [4][2]float32{{0, 1}, {1, 1}, {1, 0}, {0, 0}},
 		Tex:  wtex,
 		Wall: true,
 	})
@@ -206,11 +212,17 @@ func diagSolidEdge(dt uint8, e int) bool {
 	return true
 }
 
-// addWall emits a wall quad on one edge if it is exposed (neighbour solid or
-// higher-floored).
+// addWall emits a wall quad on one edge wherever the neighbour rises above this
+// tile's floor — up to the neighbour's own floor (a step) or the ceiling (solid
+// rock). The neighbour's height is sampled at BOTH shared corners so a ramp
+// meets a flush neighbour with no wall and produces a triangular side wall
+// instead of a spurious full-width vertical segment. One texture spans the wall
+// face (UV 0..1), so a door doesn't tile into repeated copies.
 func addWall(m *Mesh, g *lev.Grid, x, y int, t lev.Tile, e edge, wtex uint16) {
-	nfloor := float32(ceilingZ) // out-of-bounds / solid -> full wall
-	solid := true
+	z0 := cornerHeight(t.Type, t.Height, e.c0x, e.c0y)
+	z1 := cornerHeight(t.Type, t.Height, e.c1x, e.c1y)
+
+	top0, top1 := float32(ceilingZ), float32(ceilingZ) // out-of-bounds / solid -> full wall
 	if e.nx >= 0 && e.nx < g.W && e.ny >= 0 && e.ny < g.H {
 		nt := g.At(e.nx, e.ny)
 		// A diagonal neighbour is solid rock along the two edges by its solid
@@ -219,49 +231,28 @@ func addWall(m *Mesh, g *lev.Grid, x, y int, t lev.Tile, e edge, wtex uint16) {
 		diagClosed := nt.Type >= lev.TileDiagSE && nt.Type <= lev.TileDiagNW &&
 			diagSolidEdge(nt.Type, e.idx^2)
 		if nt.Type != lev.TileSolid && !diagClosed {
-			solid = false
-			nfloor = cornerHeight(nt.Type, nt.Height, 0, 0)
+			// neighbour floor sampled at the SAME two shared world corners
+			top0 = cornerHeight(nt.Type, nt.Height, x+e.c0x-e.nx, y+e.c0y-e.ny)
+			top1 = cornerHeight(nt.Type, nt.Height, x+e.c1x-e.nx, y+e.c1y-e.ny)
 		}
 	}
-	z0 := cornerHeight(t.Type, t.Height, e.c0x, e.c0y)
-	z1 := cornerHeight(t.Type, t.Height, e.c1x, e.c1y)
-	top := nfloor
-	if !solid && nfloor <= z0 && nfloor <= z1 {
-		return // neighbour is level or lower: no wall here
+	if top0 <= z0 && top1 <= z1 {
+		return // neighbour level or lower along this edge: it owns any wall
 	}
-	p0 := [3]float32{float32(x + e.c0x), float32(y + e.c0y), z0}
-	p1 := [3]float32{float32(x + e.c1x), float32(y + e.c1y), z1}
-	hgt := top - min32(z0, z1)
+	if top0 < z0 { // clamp so the wall never inverts where the neighbour dips below us
+		top0 = z0
+	}
+	if top1 < z1 {
+		top1 = z1
+	}
+	fx0, fy0 := float32(x+e.c0x), float32(y+e.c0y)
+	fx1, fy1 := float32(x+e.c1x), float32(y+e.c1y)
 	m.Quads = append(m.Quads, Quad{
 		P: [4][3]float32{
-			{p0[0], p0[1], z0}, {p1[0], p1[1], z1}, {p1[0], p1[1], top}, {p0[0], p0[1], top},
+			{fx0, fy0, z0}, {fx1, fy1, z1}, {fx1, fy1, top1}, {fx0, fy0, top0},
 		},
-		UV:   [4][2]float32{{0, hgt}, {1, hgt}, {1, 0}, {0, 0}},
+		UV:   [4][2]float32{{0, 1}, {1, 1}, {1, 0}, {0, 0}},
 		Tex:  wtex,
 		Wall: true,
 	})
-}
-
-func min32(a, b float32) float32 {
-	if a < b {
-		return a
-	}
-	return b
-}
-
-func hyp32(a, b float32) float32 {
-	if a < 0 {
-		a = -a
-	}
-	if b < 0 {
-		b = -b
-	}
-	// exact for axis pairs; diagonals are ~1.414
-	if a == 0 {
-		return b
-	}
-	if b == 0 {
-		return a
-	}
-	return 1.4142135
 }

@@ -98,11 +98,19 @@ export class LevelViewer {
     this.three.group = mesh;
     this._materials = materials;
 
-    // An angled overview of the whole level to start; fly in with WASD.
+    // Start inside the dungeon (it's now ceiling-enclosed): the exported spawn
+    // is an interior point at eye height; place the camera there looking ahead.
+    // Fall back to an angled overview if no spawn was exported.
     const { camera, controls } = this.three;
     const r = geo.boundingBox.getSize(new THREE.Vector3()).length() || 40;
-    camera.position.set(0, r * 0.42, r * 0.62);
-    controls.target.set(0, 0, 0);
+    if (data.spawn) {
+      const [sx, sy, sz] = data.spawn;
+      camera.position.set(sx - c.x, sy - c.y, sz - c.z);
+      controls.target.set(sx - c.x + 1, sy - c.y, sz - c.z); // look along +X
+    } else {
+      camera.position.set(0, r * 0.42, r * 0.62);
+      controls.target.set(0, 0, 0);
+    }
     controls.update();
 
     // Levels are explored with free-flight controls (WASD/arrows, or the touch

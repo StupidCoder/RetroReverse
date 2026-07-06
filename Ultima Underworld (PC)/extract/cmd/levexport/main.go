@@ -42,13 +42,14 @@ type outMesh struct {
 	UVs       []float32    `json:"uvs"`
 	Groups    []outGroup   `json:"groups"`
 	Textures  []outTexture `json:"textures"`
+	Spawn     []float32    `json:"spawn"` // [x,y,z] interior start (Y-up), eye height above a floor
 }
 
 func main() {
 	game := flag.String("game", "../game", "path to the game/ folder")
 	level := flag.Int("level", 0, "level index (0-7)")
 	palN := flag.Int("pal", 0, "PALS.DAT palette index")
-	ceil := flag.Bool("ceilings", false, "include ceiling faces (enclosed dungeon)")
+	ceil := flag.Bool("ceilings", true, "include ceiling faces (enclosed dungeon)")
 	out := flag.String("o", "", "output JSON path")
 	flag.Parse()
 	if *out == "" {
@@ -82,6 +83,11 @@ func main() {
 
 	mesh := levgeo.Build(grid, tm, *ceil)
 
+	// An interior start point so the (now ceiling-enclosed) level opens with the
+	// fly-camera already inside it: the open tile nearest the map centre, at eye
+	// height above its floor. Y-up, matching the position layout below.
+	spawn := spawnPoint(grid)
+
 	// Assign a material index per (wall, texture-number) used, and sort the quads
 	// by material so each material's triangles form one contiguous group.
 	type matKey struct {
@@ -103,7 +109,7 @@ func main() {
 	})
 
 	// Emit triangles (two per quad), Y-up: position = (tileX, height, tileY).
-	o := &outMesh{Level: *level}
+	o := &outMesh{Level: *level, Spawn: spawn}
 	tri := [6]int{0, 1, 2, 0, 2, 3}
 	groupStart := map[int]int{}
 	groupCount := map[int]int{}
@@ -141,6 +147,30 @@ func main() {
 	must(os.WriteFile(*out, buf, 0o644))
 	fmt.Printf("wrote %s: %d triangles, %d materials, %d KB\n",
 		*out, len(o.Positions)/9, len(mats), len(buf)/1024)
+}
+
+// spawnPoint returns an interior start position (Y-up: x, height, y) at eye
+// height above the open floor tile nearest the map centre.
+func spawnPoint(g *lev.Grid) []float32 {
+	cx, cy := g.W/2, g.H/2
+	bx, by, best := cx, cy, 1<<30
+	found := false
+	for y := 0; y < g.H; y++ {
+		for x := 0; x < g.W; x++ {
+			if g.At(x, y).Type != lev.TileOpen {
+				continue
+			}
+			d := (x-cx)*(x-cx) + (y-cy)*(y-cy)
+			if d < best {
+				best, bx, by, found = d, x, y, true
+			}
+		}
+	}
+	if !found {
+		return []float32{float32(cx) + 0.5, 1, float32(cy) + 0.5}
+	}
+	floorZ := float32(g.At(bx, by).Height) * levgeo.HeightScale
+	return []float32{float32(bx) + 0.5, floorZ + 0.6, float32(by) + 0.5}
 }
 
 func toDataURI(im *image.RGBA) string {

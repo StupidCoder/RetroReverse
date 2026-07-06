@@ -34,6 +34,8 @@ func main() {
 	zoom := flag.Float64("zoom", 0, "half-extent to frame in top view (0=whole level)")
 	cxf := flag.Float64("cx", -1, "top-view centre X (-1=level centre)")
 	cyf := flag.Float64("cy", -1, "top-view centre Y (-1=level centre)")
+	ceil := flag.Bool("ceilings", false, "include ceiling faces")
+	pitch := flag.Float64("pitch", 2.0, "top-view camera height multiplier (lower=more side-on)")
 	flag.Parse()
 	rd := func(n ...string) []byte {
 		b, err := os.ReadFile(filepath.Join(append([]string{*game, "DATA"}, n...)...))
@@ -50,7 +52,7 @@ func main() {
 	pal, _ := tex.LoadPalette(rd("PALS.DAT"), *palN)
 	wallTR, _ := tex.ParseTR(rd("W64.TR"))
 	floorTR, _ := tex.ParseTR(rd("F32.TR"))
-	mesh := levgeo.Build(grid, tm, false)
+	mesh := levgeo.Build(grid, tm, *ceil)
 
 	avg := func(wall bool, num uint16) color.RGBA {
 		var t *tex.TR
@@ -89,9 +91,9 @@ func main() {
 		if *zoom > 0 {
 			ext = *zoom
 		}
-		// Steep oblique from the south so wall faces stay visible.
-		eye = vec3{cx, cy - ext*0.85, ext * 2.0}
-		target = vec3{cx, cy, 0}
+		// Oblique from the south so wall faces stay visible; -pitch lowers it.
+		eye = vec3{cx, cy - ext*1.3, ext * (*pitch)}
+		target = vec3{cx, cy, 2}
 		up = vec3{0, 0, 1}
 	}
 	view := lookAt(eye, target, up)

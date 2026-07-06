@@ -692,9 +692,13 @@ rebuilt as a **textured 3D mesh** — reimplemented in Go and hooked into the St
   **48 wall texture numbers (into `W64.TR`) then 10 floor numbers (into `F32.TR`)**, which a tile's
   `WallTex`/`FloorTex` index selects.
 - **Geometry.** `extract/levgeo` walks the tile map and emits, per non-solid tile, a floor quad (its
-  corners carrying the sloped heights), and a wall quad on each edge where the neighbour is solid
+  corners carrying the sloped heights), a **ceiling** quad at the level ceiling height (on by
+  default — an enclosed dungeon), and a wall quad on each edge where the neighbour is solid
   (full height to the ceiling) or higher (a step up) — floors textured `F32`, walls `W64`, through
-  the texture list. **Diagonal tiles (types 2-5)** are emitted exactly: the solid corner
+  the texture list. The wall's top is sampled at **both shared corners** of the edge (not one), so a
+  ramp meets a flush neighbour with no wall and produces a *triangular* side wall instead of a
+  spurious vertical segment; each wall face carries **one** texture (UV 0..1), so a door isn't tiled
+  into repeated copies. **Diagonal tiles (types 2-5)** are emitted exactly: the solid corner
   (NW/NE/SW/SE, derived from neighbour solidity in the real levels) is cut off, leaving a *triangular*
   floor, a diagonal wall across the hypotenuse, and normal walls on only the two open edges. A
   diagonal is *solid rock along the two edges bordering its solid corner*, so a neighbouring tile
@@ -707,14 +711,17 @@ rebuilt as a **textured 3D mesh** — reimplemented in Go and hooked into the St
   renderer that verified the result is a coherent dungeon before any browser was involved
   (`rendered/level1-3d.png` — Level 1 with its rooms, water channels and the ankh room, in 3D).
 - **Viewer.** `site/src/uw/viewer.js` loads that JSON into a three.js `BufferGeometry` with one
-  textured material per group (nearest-filtered, tiling walls) and a fly-camera; all eight levels are
-  registered in the Studio under a new **MS-DOS** system.
+  textured material per group (nearest-filtered) and a fly-camera; all eight levels are
+  registered in the Studio under a new **MS-DOS** system. Since the dungeon is now ceiling-enclosed,
+  the export also carries a **spawn point** (the open tile nearest the map centre, at eye height) and
+  the viewer starts the camera there, inside the level, rather than on an outside overview.
 
 This is a faithful *reimplementation* grounded in the reverse-engineered format, not a byte-exact
 replay of `1FF9`: the wall-adjacency rule and slope corners follow the derived tile semantics, the
-diagonal cut and per-edge walls follow the derived diagonal orientations, the height scale is the
-transform-proven 0.5 (a height unit = half a tile), and ceilings are omitted for a clear overview.
-The layout, heights, diagonals and textures are all the game's own.
+diagonal cut and per-edge walls follow the derived diagonal orientations, and the height scale is the
+transform-proven 0.5 (a height unit = half a tile). The layout, heights, diagonals and textures are
+all the game's own; the ceiling texture (reusing the floor texture, for now) is the one piece not yet
+read from the game.
 
 ## 9. Still open
 
