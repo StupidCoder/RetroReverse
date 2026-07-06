@@ -61,11 +61,15 @@ colours are `#rrggbb` strings; grids are row-major.
   "objects": [
     { "type": 8, "name": "crab", "x": 1344, "y": 401,   // engine REST position
       "sprite": "0/08", "tint": "#ffffff", "hard": true }  // sprite/tint/hard optional
+    // `name` (or `type`) also keys the viewer's click-to-inspect info card, if the
+    // game's config supplies `objectInfo` (see below).
   ],
   // Randomized placements (Fort): the viewer picks `count` candidates per pool each
   // time the objects layer is enabled (Math.random, or mulberry32(?seed=N)).
   "objectPools": [
     { "count": 8,
+      "name": "prisoner",                 // optional: object kind. Keys the viewer's info
+                                          // card (config.objectInfo[name]) on a click.
       "candidates": [[x, y], ...],        // [x, y, minDx, maxDx] when the pool patrols
       // Optional back-and-forth patrol (Fort's tanks/prisoners/mines): every
       // `stepFrames` engine frames one update fires; each update advances the

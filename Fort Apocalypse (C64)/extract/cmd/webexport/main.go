@@ -72,7 +72,11 @@ type jsonPatrol struct {
 // [x, y] world px, or [x, y, minDx, maxDx] when the pool has a patrol block
 // (the span precomputed from the engine's own turn-around rule).
 type jsonPool struct {
-	Count      int           `json:"count"`
+	Count int `json:"count"`
+	// Name identifies the pool's object kind for the viewer's info cards: the
+	// shared viewer keys site/src/fort/config.js objectInfo[name] off it when the
+	// player clicks a placement (site/FORMAT.md).
+	Name       string        `json:"name,omitempty"`
 	Candidates [][]int       `json:"candidates"`
 	Patrol     *jsonPatrol   `json:"patrol,omitempty"`
 	Variants   []jsonVariant `json:"variants"`
@@ -256,7 +260,7 @@ func run(prgPath, outDir string) error {
 			prisoners = append(prisoners, []int{p.Col * 8, p.Row * 8, l * 8, r * 8})
 		}
 		jl.ObjectPools = append(jl.ObjectPools, jsonPool{
-			Count: 8, Candidates: prisoners,
+			Count: 8, Name: "prisoner", Candidates: prisoners,
 			Patrol: &jsonPatrol{StepPx: 8, StepFrames: 20, Start: "random"},
 			Variants: []jsonVariant{
 				{DirStamps: &jsonDirStamps{
@@ -277,7 +281,7 @@ func run(prgPath, outDir string) error {
 			tanks = append(tanks, []int{p.Col * 8, p.Row * 8, l * 8, r * 8})
 		}
 		jl.ObjectPools = append(jl.ObjectPools, jsonPool{
-			Count: len(tanks), Candidates: tanks,
+			Count: len(tanks), Name: "tank", Candidates: tanks,
 			Patrol: &jsonPatrol{StepPx: 8, StepFrames: 10, Start: "random"},
 			Variants: []jsonVariant{
 				{Stamps: []jsonStamp{{0, 0, 0x6C}, {8, 0, 0x6D}, {16, 0, 0x6E}, {8, -8, 0x6F}}},
@@ -308,7 +312,7 @@ func run(prgPath, outDir string) error {
 			}
 		}
 		jl.ObjectPools = append(jl.ObjectPools, jsonPool{
-			Count: 13, Candidates: spmSpots, // base difficulty (13 / 26 / 39 by variant)
+			Count: 13, Name: "mine", Candidates: spmSpots, // base difficulty (13 / 26 / 39 by variant)
 			Patrol: &jsonPatrol{StepPx: 8, StepFrames: 6.5, Slide: true, StartPhase: 1, Start: "right"},
 			Variants: []jsonVariant{
 				{DirStamps: &jsonDirStamps{Right: spmPhases, Left: spmPhases}},
@@ -332,7 +336,7 @@ func run(prgPath, outDir string) error {
 			}
 		}
 		jl.ObjectPools = append(jl.ObjectPools, jsonPool{
-			Count: 1, Candidates: heliSpots,
+			Count: 1, Name: "enemy-helicopter", Candidates: heliSpots,
 			Variants: []jsonVariant{
 				{Sprite: "chopper-side", Tint: "#352879"},
 			},

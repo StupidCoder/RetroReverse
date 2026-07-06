@@ -111,6 +111,7 @@ function marker(layer, x, y, w, h, color, label) {
     t.x = x; t.y = y - 11;
     layer.addChild(t);
   }
+  return g;
 }
 
 function spawnCross(layer, x, y) {
@@ -121,6 +122,7 @@ function spawnCross(layer, x, y) {
     .moveTo(x, y - r - 7).lineTo(x, y + r + 7).stroke({ width: 2, color: 0x33ff66 });
   g.circle(x, y, 2.5).fill(0x33ff66);
   layer.addChild(g);
+  return g;
 }
 
 // Place one sprite (frame 0) at its anchored position; returns records the anim
@@ -152,8 +154,10 @@ function placeSprite(layer, rec, x, y, tint) {
 }
 
 // Build the object layer: fixed placements + spawn. Returns { container, animObjs,
-// pathObjs } — the anim/path records feed the shared AnimRunner (M3+).
-export async function buildObjects(level, data, { markerCat = () => 'default' } = {}) {
+// pathObjs } — the anim/path records feed the shared AnimRunner (M3+). When a `picks`
+// array is supplied, each placement (and the spawn, keyed "player") registers a
+// clickable node for the viewer's info-card raycast (site/FORMAT.md `objectInfo`).
+export async function buildObjects(level, data, { markerCat = () => 'default', picks } = {}) {
   const container = new Container();
   const animObjs = [], pathObjs = [];
   const put = async (o) => {
@@ -162,13 +166,19 @@ export async function buildObjects(level, data, { markerCat = () => 'default' } 
       const placed = placeSprite(container, rec, o.x, o.y, o.tint);
       if (placed.anim) animObjs.push(placed.anim);
       if (placed.path) pathObjs.push(placed.path);
+      if (picks && (o.name || o.type != null)) {
+        picks.push({ node: placed.sprite, name: o.name || ('type-' + o.type) });
+      }
     } else {
       const cat = markerCat(o);
       const size = level.blocks ? level.grid.tileSize * level.blocks.size : level.grid.tileSize * 2;
       const bx = Math.floor(o.x / size) * size, by = Math.floor(o.y / size) * size;
-      marker(container, bx, by, size, size,
+      const g = marker(container, bx, by, size, size,
         MARKER_COLORS[cat] || MARKER_COLORS.default,
         o.name || (o.type != null ? '?' + o.type.toString(16) : ''));
+      if (picks && (o.name || o.type != null)) {
+        picks.push({ node: g, name: o.name || ('type-' + o.type) });
+      }
     }
   };
   for (const o of level.objects || []) await put(o);
@@ -178,8 +188,10 @@ export async function buildObjects(level, data, { markerCat = () => 'default' } 
     if (rec) {
       const placed = placeSprite(container, rec, x, y, tint);
       if (placed.anim) animObjs.push(placed.anim);
+      if (picks) picks.push({ node: placed.sprite, name: 'player' });
     } else {
-      spawnCross(container, x, y);
+      const g = spawnCross(container, x, y);
+      if (picks) picks.push({ node: g, name: 'player' });
     }
   }
   return { container, animObjs, pathObjs };
@@ -187,9 +199,11 @@ export async function buildObjects(level, data, { markerCat = () => 'default' } 
 
 // Build randomized pool placements (Fort): `count` picks from `candidates`, each a
 // random variant of tile stamps and/or a sprite. Rebuilt every time the objects
-// layer is switched on. `stampTex(tileId)` supplies the tile textures. Returns
-// { container, patrols } — the patrol records feed AnimRunner.patrols.
-export async function buildPools(level, data, { random = Math.random, stampTex } = {}) {
+// layer is switched on. `stampTex(tileId)` supplies the tile textures. When a `picks`
+// array is supplied, each placement group registers a clickable node keyed by the
+// pool's `name` for the viewer's info-card raycast (site/FORMAT.md `objectInfo`).
+// Returns { container, patrols } — the patrol records feed AnimRunner.patrols.
+export async function buildPools(level, data, { random = Math.random, stampTex, picks } = {}) {
   const container = new Container();
   const patrols = [];
   const stampInto = (parent, stamps) => {
@@ -202,8 +216,8 @@ export async function buildPools(level, data, { random = Math.random, stampTex }
     }
   };
   for (const pool of level.objectPools || []) {
-    const picks = shuffle([...(pool.candidates || [])], random).slice(0, pool.count);
-    for (const [x, y, minDx = 0, maxDx = 0] of picks) {
+    const chosen = shuffle([...(pool.candidates || [])], random).slice(0, pool.count);
+    for (const [x, y, minDx = 0, maxDx = 0] of chosen) {
       const v = pool.variants[(random() * pool.variants.length) | 0];
       // Each placement is one group at its candidate position; the patrol moves
       // the group. Plain stamps go straight into the group; dirStamps become one
@@ -211,6 +225,7 @@ export async function buildPools(level, data, { random = Math.random, stampTex }
       const group = new Container();
       group.x = x; group.y = y;
       container.addChild(group);
+      if (picks && pool.name) picks.push({ node: group, name: pool.name });
       stampInto(group, v.stamps);
       if (v.sprite) {
         const rec = await data.sprite(v.sprite);
