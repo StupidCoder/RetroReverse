@@ -147,6 +147,10 @@ export class ModelViewer {
       if (this.active === false) return; // paused while another viewer is shown
       this.fly.update(dt);
       controls.update();
+      // The skybox rides the camera: the engine's frame draw copies the camera
+      // position into the sky wrapper's matrix translation every frame
+      // ($0202B940) and never rotates it.
+      if (this.sky) this.sky.position.copy(camera.position);
       // Billboard trees yaw around world-up toward the camera; up stays vertical
       // (the DS renders these flat quads camera-facing).
       for (const b of this.billboards) {
@@ -508,6 +512,31 @@ export class ModelViewer {
       });
     }
 
+    // Skybox (settings +$18 -> vrbox table $02075620): camera-centred, drawn
+    // behind everything at the engine's NULL-scale object size (GLB/125).
+    if (doc.sky) {
+      this.loader.load(MODELS + doc.sky + '.glb', g => {
+        if (gen !== this.gen) return;
+        g.scene.traverse(n => {
+          if (n.isMesh) {
+            n.frustumCulled = false;
+            n.renderOrder = -1000;
+            if (n.material) {
+              n.material.depthWrite = false;
+              n.material.depthTest = false;
+              if (n.material.map) {
+                n.material.map.magFilter = THREE.NearestFilter;
+                n.material.map.needsUpdate = true;
+              }
+            }
+          }
+        });
+        g.scene.scale.setScalar(1 / 125);
+        this.three.scene.add(g.scene);
+        this.sky = g.scene;
+      });
+    }
+
     this.billboards = bills;
     this.spinners = spinners;
     this.signposts = signs;
@@ -518,6 +547,10 @@ export class ModelViewer {
   }
 
   _disposeObjects() {
+    if (this.sky) {
+      this.three.scene.remove(this.sky);
+      this.sky = null;
+    }
     this.billboards = [];
     this.spinners = [];
     this.signposts = [];

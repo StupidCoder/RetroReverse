@@ -166,6 +166,11 @@ func main() {
 		if mario != nil {
 			out["mario"] = mario
 		}
+		// the level's skybox (drawn camera-centred at the engine's NULL-scale
+		// object size, GLB/125 — see sm64ds/level.go)
+		if sky := strings.TrimSuffix(filepath.Base(lv.SkyPath), ".bmd"); lv.SkyPath != "" && hasGLB(sky) {
+			out["sky"] = sky
+		}
 		buf, _ := json.Marshal(out)
 		if err := os.WriteFile(filepath.Join(*outDir, stem+".json"), buf, 0o644); err != nil {
 			die(err)

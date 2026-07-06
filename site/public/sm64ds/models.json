@@ -2001,5 +2001,60 @@
   "name": "Yuki tree",
   "file": "yuki_tree.glb",
   "section": "Objects"
+ },
+ {
+  "name": "Skybox 01",
+  "file": "vr01.glb",
+  "section": "Skyboxes"
+ },
+ {
+  "name": "Skybox 02",
+  "file": "vr02.glb",
+  "section": "Skyboxes"
+ },
+ {
+  "name": "Skybox 03",
+  "file": "vr03.glb",
+  "section": "Skyboxes"
+ },
+ {
+  "name": "Skybox 04",
+  "file": "vr04.glb",
+  "section": "Skyboxes"
+ },
+ {
+  "name": "Skybox 05",
+  "file": "vr05.glb",
+  "section": "Skyboxes"
+ },
+ {
+  "name": "Skybox 06",
+  "file": "vr06.glb",
+  "section": "Skyboxes"
+ },
+ {
+  "name": "Skybox 07",
+  "file": "vr07.glb",
+  "section": "Skyboxes"
+ },
+ {
+  "name": "Skybox 08",
+  "file": "vr08.glb",
+  "section": "Skyboxes"
+ },
+ {
+  "name": "Skybox 09",
+  "file": "vr09.glb",
+  "section": "Skyboxes"
+ },
+ {
+  "name": "Skybox 10",
+  "file": "vr10.glb",
+  "section": "Skyboxes"
+ },
+ {
+  "name": "Skybox 11",
+  "file": "vr11.glb",
+  "section": "Skyboxes"
  }
 ]

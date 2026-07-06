@@ -53,6 +53,7 @@ import (
 
 const (
 	levelOvlTable = 0x718C8 // ARM9 file offset: level -> overlay ID (u32 x52)
+	skyboxTable   = 0x71620 // ARM9 file offset: skybox u16 file-ID table ($02075620, 11 entries)
 	settingsTable = 0x8E208 // ARM9 file offset: level -> settings-block RAM addr (u32 x52)
 	fileTableOff  = 0x13098 // overlay-0 offset: internal file ID -> name pointer
 	fileTableLen  = 2058    // loop bound in overlay 0's initializer ($080A)
@@ -78,6 +79,7 @@ type Level struct {
 	ID        int
 	Overlay   int
 	BMDPath   string
+	SkyPath   string // skybox .bmd (data/vrbox/vrNN), "" when the level has none
 	KCLPath   string
 	NumAreas  int
 	Objects   []LevelObject
@@ -194,6 +196,14 @@ func (ls *LevelSet) Level(id int) (*Level, error) {
 	nArea := int(b[hdr+0x14])
 
 	lv := &Level{ID: id, Overlay: oid, BMDPath: ls.InternalName(bmdI), KCLPath: ls.InternalName(kclI), NumAreas: nArea}
+	// Skybox: settings +$18 bits 4-8 hold a 1-BASED index into the u16 file-ID
+	// table at ARM9 $02075620 (the loader $0202B0FC does `SUB r1, idx, #1` and
+	// returns before creating the wrapper when the index is 0 — the indoor
+	// levels). The frame draw $0202B8A4 keeps the skybox's wrapper matrix
+	// translation at the camera position and draws it with a NULL scale vector.
+	if sky := int(b[hdr+0x18]>>4) & 0x1F; sky > 0 && sky <= 11 {
+		lv.SkyPath = ls.InternalName(int(le.Uint16(ls.arm9[skyboxTable+(sky-1)*2:])))
+	}
 
 	// walk one {count, entries} objects table, keeping standard + simple objects
 	parse := func(t int) {

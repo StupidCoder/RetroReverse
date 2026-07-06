@@ -176,6 +176,8 @@ func classify(path, stem string) (name, section string) {
 		return title(stem), "Enemies"
 	case strings.Contains(path, "/normal_obj/"), strings.Contains(path, "/special_obj/"):
 		return title(stem), "Objects"
+	case strings.Contains(path, "/vrbox/"):
+		return "Skybox " + strings.TrimPrefix(stem, "vr"), "Skyboxes"
 	}
 	return "", "" // skip UI, effects, texture banks, etc.
 }
@@ -190,6 +192,8 @@ func sectionRank(s string) int {
 		return 2
 	case "Objects":
 		return 3
+	case "Skyboxes":
+		return 4
 	}
 	return 9
 }

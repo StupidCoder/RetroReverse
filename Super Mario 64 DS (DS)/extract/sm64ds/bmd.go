@@ -192,6 +192,11 @@ func Decode(data []byte, name string) (*Model, error) {
 	// 2^shift bake for every such model (a shift-1 stage exported at half size,
 	// the shift-4 trees at 1/16).
 	worlds := boneWorlds(b, oBone, numBone, scale)
+	// Artifact guard bound: vertices are fx4.12 (±8) baked x2^shift, but bone
+	// translations legitimately push geometry further, so keep the historical
+	// ±10000 floor and only widen it for high-shift models (the shift-13
+	// skyboxes reach ±65536).
+	bound := math.Max(1e4, 16*scale)
 	// The matrix-slot map: a display list's MTX_RESTORE indices are SLOTS, and
 	// slot k belongs to bone u16map[byteList[k]] — the byte list lives in the
 	// sub-header words we previously ignored ({u32 count @+0, u32 listOff @+4}),
@@ -305,7 +310,7 @@ func Decode(data []byte, name string) (*Model, error) {
 			matIdx := int(data[moff+i])
 			dlIdx := int(data[doff+i])
 			for _, t := range decodeDL(dlIdx, world) {
-				if !finiteTri(t) {
+				if !finiteTri(t, bound) {
 					continue // guard: drop any triangle a bad matrix flung out of range
 				}
 				byMat[matIdx] = append(byMat[matIdx], t)
@@ -374,12 +379,15 @@ func (m *Model) GLB() ([]byte, error) {
 	return nitro.ExportTrisGLB(m.Name, m.ByMat, m.Mats, m.Texs)
 }
 
-// finiteTri reports whether every vertex is finite and within a sane bound (DS
-// model space is roughly ±8 pre-scale; anything past ±10000 is a decode artifact).
-func finiteTri(t nitro.Tri) bool {
+// finiteTri reports whether every vertex is finite and within the model's own
+// legitimate range: DS vertices are fx4.12 (±8) and the exporter bakes 2^shift
+// onto them, so anything past ~16 x 2^shift is a decode artifact (a bad matrix
+// flinging a vertex out). The old fixed 1e4 bound silently discarded the
+// skyboxes, which are authored at shift 13 (vertices to ±8 x 8192 = ±65536).
+func finiteTri(t nitro.Tri, bound float64) bool {
 	for _, v := range t.V {
 		for _, c := range []float64{v.X, v.Y, v.Z} {
-			if math.IsNaN(c) || math.IsInf(c, 0) || c > 1e4 || c < -1e4 {
+			if math.IsNaN(c) || math.IsInf(c, 0) || c > bound || c < -bound {
 				return false
 			}
 		}
