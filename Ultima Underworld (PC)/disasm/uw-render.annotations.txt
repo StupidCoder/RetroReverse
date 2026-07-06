@@ -199,6 +199,47 @@ raw axis +8 (scratch), +A, Z +C.
     -> pixels
 
 ----------------------------------------------------------------------------
+8. How tiles become polygons, and how textures are referenced (PART 5)
+----------------------------------------------------------------------------
+
+The visible geometry is a DISPLAY LIST, built from the tile map once per view
+change and re-rendered each frame (it is cached: profiling its buffer at
+499D:065D and the vertex pool at 499D:1620 shows 0 writers while the player
+stands still — only the transform re-runs). The list is a command stream:
+
+  07F7:2BF0  the interpreter: LODSW a command word, JMP [BX+2738] through a
+             ~24-entry jump table at 499D:2738. The geometry commands transform a
+             vertex and append it to the pool; command 15 (07F7:15AC) is an
+             object/billboard positioned relative to the camera at [26BA/26BC].
+  07F7:5096  per vertex: read (tileX, tileY, height) bytes, scale each by 32
+             (SHL 5 = world units per tile), subtract the camera position, then
+             (at 50D8) multiply by the camera matrix -> a view-space vertex,
+             stored in the pool at 499D:1620 (8 bytes/vertex: X, Y, Z, W). So a
+             vertex is stored in TILE coordinates and transformed on the fly.
+  07F7:5E2A  per polygon: LODSW vertex indices, copy each vertex out of the pool
+             (by index) into the projection input list at 499D:0309, attaching
+             texture coords -> the projection (§7).
+
+**The texture reference** (01A0:0210): each polygon descriptor (at ES:[B07C])
+carries its texture inline. The draw setup reads the texture SEGMENT straight
+into [07AF] — the very pointer the texture span (§5) samples — plus a texture
+parameter patched into the span at [CS:02E3]. That segment is the loaded .TR
+bitmap the display-list builder chose from the tile's texture index (word0 10-15
+floor / word1 0-5 wall) via the per-level texture list. So the texture travels
+tile index -> per-level list -> .TR segment -> polygon descriptor -> [07AF] ->
+span, and the coordinates travel projection -> gather -> the affine DDA (§6).
+
+So "how a tile becomes polygons": each tile contributes floor/wall/diagonal
+quads whose corners are tile-space vertices (integer tileX/tileY + a height) and
+whose texture is its floor/wall index — assembled into the display list, then
+transformed, projected and rasterised by the pipeline above. The one part still
+to trace is the display-list BUILDER itself (which tile edges emit walls, at
+what heights): it runs only on a view change, so catching it needs the injected
+player to actually cross a tile boundary (the short mouse-hold walk here did
+not). The static tile->geometry RULES are already decoded in extract/lev (Part V
+§6): solid/open/4 diagonals/4 slopes, floor height, floor+wall texture.
+
+----------------------------------------------------------------------------
 Open (next steps for Part V)
 ----------------------------------------------------------------------------
 

@@ -645,14 +645,40 @@ coherent regions — rooms share a wall colour, and the ankh is drawn in its own
 exactly as the game renders it. Both are the proof the fields are right. Each of the 329 non-empty
 tiles also carries an object-list head, the bridge into the object/item system (still to decode).
 
-## 7. Still open
+## 7. How tiles become polygons — and how textures are referenced
 
-On the render side: what walks these tiles and multiplies each corner by the camera basis to build
-the view-space point list at `[0307]` (the last bridge from the tile map to the projection, §5), the
-`1FF9` object/sprite path, and the `01A0` display-list command set. On the data side: the tile
-texture split, the per-level texture-mapping block, and the object lists the tile heads point into.
-The render *entry* is a callback of the `2252:0410` IRQ0 timer table. The peripheral-panel noise in
-`rendered/dungeon.png` should resolve as the HUD draw path (a separate consumer of `01A0`) is mapped.
+Tracing the geometry-prep pass joins the level data (§6) to the renderer (§1–5). The visible
+geometry is a **display list** — built from the tile map once per view change, then re-rendered each
+frame (it is *cached*: profiling its buffer and the vertex pool shows zero writers while the player
+stands still — only the transform re-runs). The list is a command stream interpreted at `07F7:2BF0`
+(`LODSW` a command, `JMP [BX+2738]` through a ~24-entry jump table). For each vertex, `07F7:5096`
+reads it as **tile-space bytes** — `(tileX, tileY, height)` — scales each by 32 (`SHL 5`, the world
+units per tile), subtracts the camera position, and multiplies by the camera matrix (§1) into a
+view-space vertex pool at `499D:1620` (8 bytes/vertex). A per-polygon gather (`07F7:5E2A`) then
+copies a polygon's vertices out of the pool by index, attaches texture coordinates, and feeds the
+projection (§5). So a level vertex is stored in *tile coordinates* and transformed on the fly.
+
+**The texture reference** falls out at the rasteriser (`01A0:0210`): each polygon descriptor carries
+its texture *inline* — the draw setup reads the texture **segment** straight into `[07AF]`, the very
+pointer the texture span (§3) samples, plus a texture parameter it patches into the span. That
+segment is the loaded `.TR` bitmap the display-list builder chose from the tile's texture index
+(§6). So the texture travels *tile index → per-level list → `.TR` segment → polygon descriptor →
+`[07AF]` → span*, while the coordinates travel *projection → gather → affine DDA*.
+
+That is "how a tile becomes polygons," from actual code: each tile contributes floor/wall/diagonal
+quads whose corners are tile-space vertices and whose texture is its floor/wall index, assembled
+into the display list and then transformed, projected and rasterised by §1–5. Full disassembly in
+`disasm/uw-render.asm` (PART 5) with commentary in `uw-render.annotations.txt` (§8).
+
+## 8. Still open
+
+The one untraced link is the display-list **builder** itself — which tile edges emit walls, at what
+heights — because it runs only on a view change; catching it needs the injected player to cross a
+tile boundary (a short mouse-hold walk here didn't). The static tile→geometry *rules* are already
+decoded (§6). Also open: the `1FF9` object/sprite path, the per-level texture-mapping block, and the
+object lists the tile heads point into. The render *entry* is a callback of the `2252:0410` IRQ0
+timer table; the peripheral-panel noise in `rendered/dungeon.png` should resolve as the HUD draw
+path (a separate `01A0` consumer) is mapped.
 
 # Part VI — Audio and cutscenes (planned)
 

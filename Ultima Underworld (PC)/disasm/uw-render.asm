@@ -570,3 +570,82 @@
   00006184  83 C7 06            ADD DI, $0006
   00006187  41                  INC CX
   00006188  3B 36 05 03         CMP SI, [$0305]
+
+
+; ============================================================================
+; PART 5 — the geometry-prep pipeline: how tiles become drawn polygons.
+; ============================================================================
+; The visible geometry is a DISPLAY LIST (built once per view change from the
+; tile map, then re-rendered each frame; it is cached — 0 writers while the
+; player stands still). It is interpreted at 07F7:2BF0 (LODSW a command word;
+; JMP [BX+2738] through a ~24-entry jump table at 499D:2738), which for each
+; vertex calls 07F7:5096 to turn a tile-space vertex into a view-space one and
+; stores it in a pool at 499D:1620 (8 bytes/vertex: X,Y,Z,W). A per-polygon
+; gather (07F7:5E2A) then copies a polygon's vertices by index out of that pool,
+; attaches texture coords, and hands them to the projection (PART 4). So:
+;   tile map -> display list -> [per vertex] 5096 tile->view -> pool 1620
+;            -> [per polygon] 5E2A gather -> projection 6148 -> 01A0 raster.
+
+; ==== 07F7:5096 — tile-space vertex -> world (then camera transform) =========
+; Reads a vertex as bytes (tileX, tileY, height) from the display list, scales
+; each by 32 (SHL 5 = the world units per tile), subtracts the camera position
+; (the 0078/0080/03AE offsets), and doubles; 50BE is the same for word coords.
+; The result falls through to the camera-matrix multiply (at 50D8).
+  00005096  B1 01               MOV CL, $01
+  00005098  AC                  LODSB
+  00005099  98                  CBW
+  0000509A  C1 E0 05            SHL AX, $05
+  0000509D  2D 78 00            SUB AX, $0078
+  000050A0  D3 E0               SHL AX, CL
+  000050A2  8B D8               MOV BX, AX
+  000050A4  AC                  LODSB
+  000050A5  98                  CBW
+  000050A6  C1 E0 05            SHL AX, $05
+  000050A9  2D 80 00            SUB AX, $0080
+  000050AC  D3 E0               SHL AX, CL
+  000050AE  8B E8               MOV BP, AX
+  000050B0  AC                  LODSB
+  000050B1  98                  CBW
+  000050B2  C1 E0 05            SHL AX, $05
+  000050B5  2D AE 03            SUB AX, $03AE
+  000050B8  D3 E0               SHL AX, CL
+  000050BA  8B C8               MOV CX, AX
+  000050BC  EB 1A               JMP $000050D8
+  000050BE  B1 01               MOV CL, $01
+
+; ==== 01A0:0210 — per-polygon draw setup: THE TEXTURE REFERENCE =============
+; The polygon descriptor (at ES:[B07C]) carries, inline, its texture: this reads
+; the vertex count, then the texture SEGMENT into [07AF] (which the texture span
+; 01A0:02CE samples) and a texture parameter patched into the span at [CS:02E3].
+; The texture segment traces back to the tile texture index (word0 10-15 floor /
+; word1 0-5 wall) -> the per-level texture list -> the loaded .TR bitmap. It then
+; scans the screen vertices at 3BDD:0659 for the polygon's Y extent.
+  00000210  41                  INC CX
+  00000211  89 0E D1 07         MOV [$07D1], CX
+  00000215  26 8B 36 7C B0      MOV SI, [ES:$B07C]
+  0000021A  26 AD               LODSW
+  0000021C  48                  DEC AX
+  0000021D  A3 AD 07            MOV [$07AD], AX
+  00000220  83 C6 02            ADD SI, $0002
+  00000223  26 AD               LODSW
+  00000225  A3 AF 07            MOV [$07AF], AX
+  00000228  26 AD               LODSW
+  0000022A  2E A3 E3 02         MOV [CS:$02E3], AX
+  0000022E  BB F0 D8            MOV BX, $D8F0
+  00000231  BD 10 27            MOV BP, $2710
+  00000234  BE 59 06            MOV SI, $0659
+  00000237  8B FE               MOV DI, SI
+  00000239  49                  DEC CX
+  0000023A  AD                  LODSW
+  0000023B  3B D8               CMP BX, AX
+  0000023D  7D 02               JGE $00000241
+  0000023F  8B D8               MOV BX, AX
+  00000241  3B E8               CMP BP, AX
+  00000243  7E 02               JLE $00000247
+  00000245  8B E8               MOV BP, AX
+  00000247  AD                  LODSW
+  00000248  3B 45 02            CMP AX, [DI+$2]
+  0000024B  7E 03               JLE $00000250
+  0000024D  8D 7C FC            LEA DI, [SI-$4]
+  00000250  83 C6 0A            ADD SI, $000A
+  00000253  E2 E5               LOOP $0000023A
