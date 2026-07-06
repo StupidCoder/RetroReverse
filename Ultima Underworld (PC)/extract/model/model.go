@@ -62,12 +62,20 @@ type Quad struct {
 	Textured bool      // opcode 0x36 (vs 0x34 flat)
 }
 
-// Poly is a flat-shaded N-gon: gathered pool slots (op 0x22) drawn by op 0x80
-// with the current colour (set by op 0xBC through the light-shade table).
+// Poly is an N-gon: gathered pool slots and, for textured n-gons (ops
+// 0xA8/0xB4), the per-vertex texture-coordinate codes. Color's top nibble
+// (0xF000) marks a textured poly; otherwise it is a flat-shade colour set by op
+// 0xBC through the light-shade table. UV, when present, is parallel to V: the
+// raw U,V code words the draw handler (07F7:5C5E) scales into the texture
+// (U = code*texW>>8, V = code*texH>>16), so a normalised UV is code/65536.
 type Poly struct {
 	Color uint16
 	V     []uint16
+	UV    [][2]uint16 // per-vertex (U,V) code words; nil for flat polys
 }
+
+// UVScale is the divisor that normalises a Poly.UV code word to 0..1.
+const UVScale = 65536.0
 
 // Face is a plane-checked group: the anchor (plane point) and the quads its
 // draw sub-program emits.
@@ -319,6 +327,7 @@ func (d *decoder) run(p int, depth int) {
 			pp := p + 6
 			for k := 0; k < n; k++ {
 				pl.V = append(pl.V, d.w(pp)/8)
+				pl.UV = append(pl.UV, [2]uint16{d.w(pp + 2), d.w(pp + 4)})
 				pp += 6
 			}
 			d.m.Polys = append(d.m.Polys, pl)
@@ -330,6 +339,7 @@ func (d *decoder) run(p int, depth int) {
 			pp := p + 4
 			for k := 0; k < n; k++ {
 				pl.V = append(pl.V, d.w(pp)/8)
+				pl.UV = append(pl.UV, [2]uint16{d.w(pp + 2), d.w(pp + 4)})
 				pp += 6
 			}
 			d.m.Polys = append(d.m.Polys, pl)

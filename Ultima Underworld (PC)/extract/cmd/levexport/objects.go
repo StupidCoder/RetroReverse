@@ -411,6 +411,30 @@ func bakeModel(o *outMesh, mats *objMaterials, pm placedModel) {
 		}
 	}
 
+	// fanUV triangulates a polygon using the model's own per-vertex texture
+	// coordinates (op 0xA8/0xB4). The stream stores U,V as code words the draw
+	// handler scales by texW>>8 / texH>>16, so a normalised coordinate is
+	// code/65536; V is flipped for three.js's bottom-left texture origin.
+	fanUV := func(mat int, slots []uint16, uv [][2]uint16) {
+		if len(slots) < 3 {
+			return
+		}
+		vs := make([]model.Vertex, len(slots))
+		for i, s := range slots {
+			vs[i] = pm.m.Pool[s]
+		}
+		tc := func(i int) [2]float32 {
+			return [2]float32{
+				float32(uv[i][0]) / model.UVScale,
+				1 - float32(uv[i][1])/model.UVScale,
+			}
+		}
+		for i := 1; i+1 < len(vs); i++ {
+			appendTri(mat, xf(vs[0]), xf(vs[i]), xf(vs[i+1]),
+				[3][2]float32{tc(0), tc(i), tc(i + 1)})
+		}
+	}
+
 	for _, q := range pm.m.Quads {
 		mat := pm.texMat
 		if mat < 0 || !q.Textured {
@@ -420,7 +444,11 @@ func bakeModel(o *outMesh, mats *objMaterials, pm placedModel) {
 	}
 	for _, pl := range pm.m.Polys {
 		if pl.Color&0xF000 != 0 && pm.texMat >= 0 { // textured n-gon
-			fan(pm.texMat, pl.V, true)
+			if len(pl.UV) == len(pl.V) {
+				fanUV(pm.texMat, pl.V, pl.UV) // real per-vertex UVs
+			} else {
+				fan(pm.texMat, pl.V, true)
+			}
 			continue
 		}
 		fan(mats.colorMat(shadeColor(pl.Color&0xFFF)), pl.V, false)
