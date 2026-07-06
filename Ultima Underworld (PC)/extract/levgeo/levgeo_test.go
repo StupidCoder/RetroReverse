@@ -16,7 +16,7 @@ func TestBuildSlopeFlushNoWall(t *testing.T) {
 		g.Tiles[i] = lev.Tile{Type: lev.TileSolid}
 	}
 	g.Tiles[1*3+1] = lev.Tile{Type: lev.TileSlopeS, Height: 4} // south corners raised to 5, north edge = 4
-	g.Tiles[2*3+1] = lev.Tile{Type: lev.TileOpen, Height: 4}    // flat, north of the slope, flush at 4
+	g.Tiles[2*3+1] = lev.Tile{Type: lev.TileOpen, Height: 4}   // flat, north of the slope, flush at 4
 	tm := &lev.TexMap{Wall: make([]uint16, 48), Floor: make([]uint16, 10)}
 
 	m := Build(g, tm, false)
@@ -32,9 +32,11 @@ func TestBuildSlopeFlushNoWall(t *testing.T) {
 	}
 }
 
-// Wall textures map a single copy across the face (UV 0..1), never tiling into
-// repeated/flipped copies (the door-in-the-start-room bug).
-func TestBuildWallUVNotTiled(t *testing.T) {
+// Wall textures use a uniform texel scale: one copy per tile width horizontally
+// (U in 0..1) and per WallTexUnitsPerCopy vertically, so a full-height wall tiles
+// the texture instead of stretching one copy over floor-to-ceiling. V starts at
+// 0 at the foot (upright, not upside-down).
+func TestBuildWallUVUniform(t *testing.T) {
 	g := &lev.Grid{W: 3, H: 3, Tiles: make([]lev.Tile, 9)}
 	for i := range g.Tiles {
 		g.Tiles[i] = lev.Tile{Type: lev.TileSolid}
@@ -43,14 +45,28 @@ func TestBuildWallUVNotTiled(t *testing.T) {
 	tm := &lev.TexMap{Wall: make([]uint16, 48), Floor: make([]uint16, 10)}
 
 	m := Build(g, tm, false)
+	wantTop := float32(ceilingZ / WallTexUnitsPerCopy)
 	for _, q := range m.Quads {
 		if !q.Wall {
 			continue
 		}
+		var minV, maxV float32 = 1e9, -1e9
 		for _, uv := range q.UV {
-			if uv[0] < 0 || uv[0] > 1 || uv[1] < 0 || uv[1] > 1 {
-				t.Errorf("wall UV outside 0..1 (tiling): %v", uv)
+			if uv[0] < 0 || uv[0] > 1 {
+				t.Errorf("wall U outside 0..1: %v", uv)
 			}
+			if uv[1] < minV {
+				minV = uv[1]
+			}
+			if uv[1] > maxV {
+				maxV = uv[1]
+			}
+		}
+		if minV != 0 {
+			t.Errorf("wall V foot = %v, want 0 (upright, non-stretched)", minV)
+		}
+		if maxV != wantTop {
+			t.Errorf("wall V top = %v, want %v (uniform tiling to the ceiling)", maxV, wantTop)
 		}
 	}
 }

@@ -697,8 +697,12 @@ rebuilt as a **textured 3D mesh** — reimplemented in Go and hooked into the St
   (full height to the ceiling) or higher (a step up) — floors textured `F32`, walls `W64`, through
   the texture list. The wall's top is sampled at **both shared corners** of the edge (not one), so a
   ramp meets a flush neighbour with no wall and produces a *triangular* side wall instead of a
-  spurious vertical segment; each wall face carries **one** texture (UV 0..1), so a door isn't tiled
-  into repeated copies. **Diagonal tiles (types 2-5)** are emitted exactly: the solid corner
+  spurious vertical segment. Wall textures use a **uniform texel scale** (`WallTexUnitsPerCopy` — one
+  copy per tile width horizontally and per tile-width vertically), so a tall wall *tiles* the texture
+  rather than stretching one copy floor-to-ceiling, and the UVs are oriented upright and un-mirrored
+  (V=0 at the foot, U reading left-to-right for a viewer on the open side) — verified with
+  `levrender -uvtest` (colour-by-UV) and a first-person textured render of the game's arched door.
+  **Diagonal tiles (types 2-5)** are emitted exactly: the solid corner
   (NW/NE/SW/SE, derived from neighbour solidity in the real levels) is cut off, leaving a *triangular*
   floor, a diagonal wall across the hypotenuse, and normal walls on only the two open edges. A
   diagonal is *solid rock along the two edges bordering its solid corner*, so a neighbouring tile
