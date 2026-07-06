@@ -1,1 +1,1 @@
-{"mario":{"p":[0,1,1.35],"ry":-180},"objects":[{"a":198,"m":"scale_up_kinoko","s":0.008,"b":true,"p":[0,0.3,0]}],"sky":"vr09"}
+{"col":"ex_mario","mario":{"p":[0,1,1.35],"ry":-180},"objects":[{"a":198,"m":"scale_up_kinoko","s":0.008,"b":true,"p":[0,0.3,0]}],"sky":"vr09"}

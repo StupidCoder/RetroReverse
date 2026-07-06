@@ -86,16 +86,21 @@ func dump(o *sm64ds.Oracle, run *sm64ds.ActorRun) {
 	for _, n := range run.Notes {
 		fmt.Printf("  note: %s\n", n)
 	}
-	fmt.Printf("  models: %v  clips: %v\n", o.Models(run), o.Clips(run))
+	fmt.Printf("  models: %v  clips: %v  kcl: %v\n", o.Models(run), o.Clips(run), o.KCLs(run))
+	for _, c := range run.Colliders {
+		fmt.Printf("  collider: %s (%s) mtx=%v scaleY=%d\n", c.KCL, c.Class, c.Mtx, c.ScaleY)
+	}
 }
 
 // Binding is the oracle's answer for one actor under one parameter set.
 type Binding struct {
-	Params [3]int   `json:"params"`
-	Config int      `json:"config"`
-	Models []string `json:"models,omitempty"`
-	Clips  []string `json:"clips,omitempty"`
-	Notes  []string `json:"notes,omitempty"`
+	Params    [3]int            `json:"params"`
+	Config    int               `json:"config"`
+	Models    []string          `json:"models,omitempty"`
+	Clips     []string          `json:"clips,omitempty"`
+	KCL       []string          `json:"kcl,omitempty"`
+	Colliders []sm64ds.Collider `json:"colliders,omitempty"`
+	Notes     []string          `json:"notes,omitempty"`
 }
 
 // sweep runs every distinct (actor, params) the levels place.
@@ -128,7 +133,7 @@ func sweep(ls *sm64ds.LevelSet, o *sm64ds.Oracle, verbose bool) map[int][]Bindin
 		if len(run.Files) == 0 && run.Obj == 0 {
 			return
 		}
-		b := Binding{Params: run.Params, Config: run.Config, Models: o.Models(run), Clips: o.Clips(run), Notes: run.Notes}
+		b := Binding{Params: run.Params, Config: run.Config, Models: o.Models(run), Clips: o.Clips(run), KCL: o.KCLs(run), Colliders: run.Colliders, Notes: run.Notes}
 		// identical result under another config/params: keep one per distinct model list
 		for _, e := range table[run.Actor] {
 			if fmt.Sprint(e.Models, e.Params) == fmt.Sprint(b.Models, b.Params) {

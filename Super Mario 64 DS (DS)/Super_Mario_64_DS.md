@@ -510,6 +510,14 @@ The name `.kcl` also appears in [[Mario Kart DS]]'s course archives (`course_col
 
 Is it a NitroSDK format, then? The evidence in the images says **no — it is a Nintendo EAD engine format**, carried between that studio's games rather than shipped in the SDK: it wears no NitroSDK container magic (the SDK's formats — `NARC`, `SDAT`, `BMD0` — all tag themselves), and the walkers are not in a library section but woven into the game's own `dBgW` class framework, RTTI names and all, in the same `d`-prefix hierarchy as the actors (`daObjMc_…`). Consistent with that: Super Mario 64 DS pairs its KCL with a *bespoke* model container (Part IV), while Mario Kart DS pairs its KCL with genuine SDK `NSBMD` models — the collision format is the constant, the SDK usage the variable, which is the signature of studio middleware, not of the platform kit.
 
+## 7. The collision layer in the viewer
+
+The Studio viewer gets a **Collision** toggle (like the 2D games' overlays): the level's collision world in red, shaded by face normal so slopes read, over — usually *instead of*, since collision covers every walkable surface — the render mesh. What doesn't turn red is telling: bridge rails, flags and window glass have no prisms at all.
+
+**Triangles from prisms.** A prism stores no corner points, but the walker's own tests define the triangle exactly — it is the region of the face plane cut by the three edge half-planes (`eA·d ≤ 0`, `eB·d ≤ 0`, `eC·d ≤ length`). The corners are therefore the pairwise plane intersections: the anchor vertex itself, plus two solutions of `{fn·d = 0, e·d = 0, eC·d = length}`, by Cramer's rule `d = length·(fn × e) / (eC·(fn × e))` (`sm64ds/kcl.go Corners`). `cmd/exportkcl` converts every level map and every actor-bound collider this way and validates itself against the walker: **every reconstructed centroid must pass the walker's own inequalities — 0 failures across all 225 meshes** (a handful of genuinely degenerate slivers with parallel edge planes are skipped per file).
+
+**Object colliders come from the oracle, transforms included.** Which `.kcl` belongs to which placement is not name-matching: the actor oracle records every `.kcl` an actor's own code loads (147 actors, 177 files), and reads back the collider it registers in the 24-slot table — platform actors register on their **first step**, not in init, so the oracle runs one step frame when a `.kcl` was loaded but no collider appeared. The registered object is one of the `dBgW_Kc` subclasses, and the moving ones carry their own transform: a **local→world `MtxFx43` at `+$134`** (inverse at `+$168` — the Mbg wrappers at `$02039CB8`/`$02039E48` transform the query into collider-local space before calling the same ITCM walkers) and, for `dBgW_KcMbgSclY`, an extra **fx12 local-Y scale at `+$1C8`**. Reading that matrix explained the sizes: object `.kcl` are authored ~10× large and the actors scale them down by `$199/$1000 ≈ 0.1` (fixed-point precision headroom). The oracle spawns at the origin with no yaw, so the captured matrix is the actor's *own* collider transform; the viewer composes the placement pose on top — the gate shutters land exactly inside their arches.
+
 # Appendix A — Toolchain and reproduction
 
 Everything here is derived from the `.nds` image with this repository's own tools: the shared `tools/nds` container reader and the `tools/arm` disassembler/tracer, plus this game's `extract` module. No third-party emulator, debugger or disassembler was used, and nothing was read from released source.
@@ -559,6 +567,12 @@ go run ./cmd/kcltrace -level 1
 go run ./cmd/kcltrace -level 30 -verify 300
 # dump the ITCM image (the collision walkers live there) for disassembly
 go run ./cmd/kcltrace -itcm ../extracted/itcm.bin
+
+# Part VI §7 — reconstruct every collision mesh as a red viewer GLB (level maps +
+# the 177 actor-bound object colliders), self-validated against the walker's tests
+go run ./cmd/exportkcl
+# the actor sweep also records .kcl loads and registered collider transforms
+# (actorbind.json "kcl"/"colliders"), consumed by exportlevelobjs
 ```
 
 Toolchain (shared `retroreverse.com/tools`, this repository):
@@ -571,5 +585,6 @@ Toolchain (shared `retroreverse.com/tools`, this repository):
 - **`supermario64ds/extract/cmd/bootoracle`** — runs the ARM9 boot on the `tools/arm` core over a flat DS memory (with the BIOS `SWI`s the startup needs): cross-checks BLZ against the game's own decompressor, logs the I/O registers programmed, and stops at the ARM9↔ARM7 `IPCSYNC` rendezvous. The DS analogue of the Amiga per-game oracles; the counterpart of Mario Kart DS's `bootoracle`.
 - **`supermario64ds/extract/cmd/dualoracle`** — co-executes both boot binaries on the `tools/nds/dsmachine` dual-core model, clearing the rendezvous the single-core oracle stops at and running the ARM9 into the post-sync PXI exchange (Part III §6).
 - **`supermario64ds/extract/cmd/kcltrace`** — the Part VI instrument: has the game itself load, fix up and register a level's `.kcl` collider in the oracle, casts ground rays through the game's own dispatcher with a **read watch** over the served file (every byte the walker touches, with the touching PC), and cross-checks `sm64ds/kcl.go`'s bit-exact reimplementation against the running original (`-verify`).
+- **`supermario64ds/extract/cmd/exportkcl`** — Part VI §7: reconstructs every prism's triangle from the walker's own half-plane definition and writes the red collision GLBs for the Studio's Collision toggle (level maps + the object colliders the binding oracle saw actors load), self-validated centroid-by-centroid against the walker's inequalities.
 
 Rendered figures will go in `Super Mario 64 DS (DS)/rendered/`; annotated disassembly in `disasm/`.

@@ -111,15 +111,27 @@ func (f FileReq) Stem() string {
 	return strings.TrimSuffix(filepath.Base(f.Name), filepath.Ext(f.Name))
 }
 
+// Collider is one dBgW collider the actor registered in the 24-slot table at
+// $020A0C80 during create/init (Part VI). The oracle spawns actors at the
+// origin with no yaw, so Mtx is the actor's OWN collider transform — its
+// authored scale/rotation/offset — with the placement pose still to compose.
+type Collider struct {
+	KCL    string    `json:"kcl"`              // .kcl stem the collider walks
+	Class  string    `json:"class"`            // "Kc", "KcMbg", "KcMbgSclY"
+	Mtx    [12]int32 `json:"mtx,omitempty"`    // local->world MtxFx43 at +$134 (fx12), Mbg classes
+	ScaleY int32     `json:"scaleY,omitempty"` // fx12 local-Y scale at +$1C8 (SclY class)
+}
+
 // ActorRun is the record of one create+init execution.
 type ActorRun struct {
-	Actor  int       `json:"actor"`
-	Config int       `json:"config"` // extra overlay loaded (-1 = engine only)
-	Params [3]int    `json:"params"` // par1, par2, par3 as placed
-	Create uint32    `json:"create"`
-	Obj    uint32    `json:"obj"` // create's return (0 = refused)
-	Files  []FileReq `json:"files,omitempty"`
-	Notes  []string  `json:"notes,omitempty"`
+	Actor     int        `json:"actor"`
+	Config    int        `json:"config"` // extra overlay loaded (-1 = engine only)
+	Params    [3]int     `json:"params"` // par1, par2, par3 as placed
+	Create    uint32     `json:"create"`
+	Obj       uint32     `json:"obj"` // create's return (0 = refused)
+	Files     []FileReq  `json:"files,omitempty"`
+	Colliders []Collider `json:"colliders,omitempty"`
+	Notes     []string   `json:"notes,omitempty"`
 }
 
 // obus is the oracle's machine model: flat RAM with logged I/O, an advancing
@@ -986,7 +998,76 @@ func (o *Oracle) RunActor(actor, cfg int, par [3]int) *ActorRun {
 	for _, note := range o.drainAsync() {
 		run.Notes = append(run.Notes, "async: "+note)
 	}
+	run.Colliders = o.colliders()
+	// platform actors register their collider on the first step, not in init:
+	// when the actor loaded a .kcl but no collider is in the table yet, run
+	// one step frame and read the table again
+	if len(run.Colliders) == 0 && len(o.KCLs(run)) > 0 {
+		o.StepActor(run)
+	}
 	return run
+}
+
+// StepActor runs one frame of an actor's step (vtable +$18) — some actors
+// (platforms) register their collider on the first step, not in init. Returns
+// the collider table contents afterwards.
+func (o *Oracle) StepActor(run *ActorRun) {
+	if run.Obj == 0 {
+		return
+	}
+	vt := o.bus.r32(run.Obj)
+	step := o.bus.r32(vt + 0x18)
+	if step == 0 {
+		return
+	}
+	o.phase = "step"
+	if _, note := o.call(step, run.Obj, 0, 0, 0, 3_000_000); note != "" {
+		run.Notes = append(run.Notes, "step: "+note)
+	}
+	run.Colliders = o.colliders()
+}
+
+// dBgW collider vtables (Part VI): the class of a registered collider is its
+// vtable pointer; Mbg classes carry the local->world MtxFx43 at +$134 and the
+// SclY variant a local-Y fx12 scale at +$1C8.
+const (
+	colSlots    = 0x020A0C80 // the 24-slot collider table $02039184 fills
+	vtKc        = 0x020993DC
+	vtKcMbg     = 0x02099434
+	vtKcMbgSclY = 0x02099490
+)
+
+// colliders reads back every collider the run registered: which .kcl it
+// walks (the buffer at ctx+$20 identifies the served file) and its transform.
+func (o *Oracle) colliders() []Collider {
+	var out []Collider
+	for i := uint32(0); i < 24; i++ {
+		ctx := o.bus.r32(colSlots + i*4)
+		if ctx == 0 {
+			continue
+		}
+		c := Collider{}
+		if s := o.servedBy(o.bus.r32(ctx + 0x20)); s != nil {
+			c.KCL = strings.TrimSuffix(filepath.Base(s.name), ".kcl")
+		}
+		switch o.bus.r32(ctx) {
+		case vtKc:
+			c.Class = "Kc"
+		case vtKcMbg, vtKcMbgSclY:
+			c.Class = "KcMbg"
+			for j := 0; j < 12; j++ {
+				c.Mtx[j] = int32(o.bus.r32(ctx + 0x134 + uint32(j)*4))
+			}
+			if o.bus.r32(ctx) == vtKcMbgSclY {
+				c.Class = "KcMbgSclY"
+				c.ScaleY = int32(o.bus.r32(ctx + 0x1C8))
+			}
+		default:
+			c.Class = fmt.Sprintf("vt%08X", o.bus.r32(ctx))
+		}
+		out = append(out, c)
+	}
+	return out
 }
 
 // drainAsync pops the async-load queue the way the game's pump at $02072F44
@@ -1027,6 +1108,10 @@ func (o *Oracle) Models(r *ActorRun) []string { return o.stems(r, "bmd") }
 
 // Clips lists a run's animation bindings, in the same order.
 func (o *Oracle) Clips(r *ActorRun) []string { return o.stems(r, "bca") }
+
+// KCLs lists a run's collision-mesh bindings (the .kcl files the actor's own
+// code loaded — platform/mechanism actors registering dBgW_Kc colliders).
+func (o *Oracle) KCLs(r *ActorRun) []string { return o.stems(r, "kcl") }
 
 func (o *Oracle) stems(r *ActorRun, kind string) []string {
 	var out []string

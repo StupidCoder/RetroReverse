@@ -140,6 +140,59 @@ func (k *KCL) normalRaw(i int) [3]int32 {
 	}
 }
 
+// Corners reconstructs prism i's triangle corners, in fx20.12 world units.
+//
+// The walker's own tests define the triangle exactly: a surface point p (with
+// d = p − v in world>>6 units, normals raw s16) satisfies
+//
+//	fn·d = 0   (the face plane)
+//	eA·d ≤ 0, eB·d ≤ 0, eC·d ≤ length   (the three edge half-planes)
+//
+// so the corners are the pairwise edge intersections within the plane: the
+// anchor vertex itself (eA = eB = 0), and for the two far corners the solution
+// of {fn·d = 0, e·d = 0, eC·d = length}, which by Cramer's rule is
+// d = length·(fn × e) / (eC·(fn × e)). Degenerate prisms (parallel edges)
+// return ok = false.
+func (k *KCL) Corners(i int) (c [3][3]float64, ok bool) {
+	p := k.PrismAt(i)
+	v := k.vertexRaw(p.Vertex)
+	fn := k.normalRaw(p.FaceNormal)
+	eA := k.normalRaw(p.EdgeA)
+	eB := k.normalRaw(p.EdgeB)
+	eC := k.normalRaw(p.EdgeC)
+	L := float64(p.Length)
+
+	corner := func(e [3]int32) ([3]float64, bool) {
+		cx := float64(fn[1])*float64(e[2]) - float64(fn[2])*float64(e[1])
+		cy := float64(fn[2])*float64(e[0]) - float64(fn[0])*float64(e[2])
+		cz := float64(fn[0])*float64(e[1]) - float64(fn[1])*float64(e[0])
+		den := float64(eC[0])*cx + float64(eC[1])*cy + float64(eC[2])*cz
+		if den == 0 {
+			return [3]float64{}, false
+		}
+		s := L / den
+		return [3]float64{
+			(float64(v[0]) + cx*s) * 64,
+			(float64(v[1]) + cy*s) * 64,
+			(float64(v[2]) + cz*s) * 64,
+		}, true
+	}
+	c[0] = [3]float64{float64(v[0]) * 64, float64(v[1]) * 64, float64(v[2]) * 64}
+	var okB, okA bool
+	c[1], okA = corner(eA)
+	c[2], okB = corner(eB)
+	if !okA || !okB {
+		return c, false
+	}
+	// consistent winding: the corner order must give the face normal
+	ux, uy, uz := c[1][0]-c[0][0], c[1][1]-c[0][1], c[1][2]-c[0][2]
+	wx, wy, wz := c[2][0]-c[0][0], c[2][1]-c[0][1], c[2][2]-c[0][2]
+	if (uy*wz-uz*wy)*float64(fn[0])+(uz*wx-ux*wz)*float64(fn[1])+(ux*wy-uy*wx)*float64(fn[2]) < 0 {
+		c[1], c[2] = c[2], c[1]
+	}
+	return c, true
+}
+
 // fxDiv32 replicates the game's divider helper at $02053258: numerator<<32
 // over a 32-bit denominator on the hardware divider, then rounded down to
 // fx.12 — result = low 32 bits of (((n<<32)/d) + 0x80000) >> 20.

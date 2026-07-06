@@ -24,16 +24,26 @@ import (
 
 // Binding mirrors cmd/actororacle's table entry.
 type Binding struct {
-	Params [3]int   `json:"params"`
-	Config int      `json:"config"`
-	Models []string `json:"models,omitempty"`
-	Clips  []string `json:"clips,omitempty"`
-	Notes  []string `json:"notes,omitempty"`
+	Params    [3]int            `json:"params"`
+	Config    int               `json:"config"`
+	Models    []string          `json:"models,omitempty"`
+	Clips     []string          `json:"clips,omitempty"`
+	KCL       []string          `json:"kcl,omitempty"`
+	Colliders []sm64ds.Collider `json:"colliders,omitempty"`
+	Notes     []string          `json:"notes,omitempty"`
 }
 
 type jsonObj struct {
-	Actor int       `json:"a"`
-	Model string    `json:"m,omitempty"`
+	Actor int    `json:"a"`
+	Model string `json:"m,omitempty"`
+	// collision: the .kcl the actor's own collider walks (collision/<stem>.glb)
+	// plus its registered transform — 9 unitless rotation/scale entries (the
+	// MtxFx43's 3x3, row-vector order) and a stage-unit translation, captured
+	// from the collider object at +$134 by the oracle (origin spawn, so the
+	// placement pose composes on top). cy = the SclY class's local-Y scale.
+	Col   string    `json:"c,omitempty"`
+	ColM  []float64 `json:"cm,omitempty"`
+	ColSY float64   `json:"cy,omitempty"`
 	Scale float64   `json:"s,omitempty"` // display scale: 1/125 (engine NULL-scale-vector size, Part V §5)
 	Bill  bool      `json:"b,omitempty"` // billboard (bone flag +$3C bit 0 set on the model's bones)
 	Pos   []float64 `json:"p"`
@@ -85,6 +95,25 @@ func main() {
 		return loose
 	}
 
+	// colFor picks a placement's collider the same way: the first collider the
+	// actor's own create/init/first-step registered under these parameters.
+	colFor := func(actor int, par [3]int) *sm64ds.Collider {
+		var loose *sm64ds.Collider
+		for i := range bindings[actor] {
+			b := &bindings[actor][i]
+			if len(b.Colliders) == 0 || b.Colliders[0].KCL == "" {
+				continue
+			}
+			if b.Params == par {
+				return &b.Colliders[0]
+			}
+			if loose == nil && b.Params[0] == par[0] {
+				loose = &b.Colliders[0]
+			}
+		}
+		return loose
+	}
+
 	// extract archive-member models the bindings reference (arcN_M stems have
 	// no filesystem file; decode straight from the NARC)
 	extractArchiveGLBs(ls, bindings, *glbDir)
@@ -94,6 +123,14 @@ func main() {
 			return false
 		}
 		_, err := os.Stat(filepath.Join(*glbDir, name+".glb"))
+		return err == nil
+	}
+	colDir := filepath.Join(filepath.Dir(*glbDir), "collision")
+	hasCol := func(name string) bool {
+		if name == "" {
+			return false
+		}
+		_, err := os.Stat(filepath.Join(colDir, name+".glb"))
 		return err == nil
 	}
 	// billboard = the model's own bone flag (+$3C bit 0): the engine billboards
@@ -144,6 +181,35 @@ func main() {
 				j.Bill = bill(m)
 				j.Scale = objScale
 			}
+			if c := colFor(o.Actor, o.Params); c != nil && hasCol(c.KCL) {
+				j.Col = c.KCL
+				if c.Class != "Kc" { // Mbg classes carry their own transform
+					cm := make([]float64, 12)
+					identity := true
+					for k := 0; k < 9; k++ {
+						cm[k] = r5(float64(c.Mtx[k]) / 4096)
+						want := 0.0
+						if k%4 == 0 {
+							want = 1
+						}
+						if cm[k] != want {
+							identity = false
+						}
+					}
+					for k := 0; k < 3; k++ {
+						cm[9+k] = r5(float64(c.Mtx[9+k]) / 4096 * toStage)
+						if cm[9+k] != 0 {
+							identity = false
+						}
+					}
+					if !identity {
+						j.ColM = cm
+					}
+					if c.ScaleY != 0 && c.ScaleY != 0x1000 {
+						j.ColSY = r5(float64(c.ScaleY) / 4096)
+					}
+				}
+			}
 			if j.Model != "" {
 				bound++
 			}
@@ -163,6 +229,10 @@ func main() {
 			}
 		}
 		out := map[string]any{"objects": objs}
+		// the level's own collision map (Part VI), for the viewer's red overlay
+		if kstem := strings.TrimSuffix(filepath.Base(lv.KCLPath), ".kcl"); hasCol(kstem) {
+			out["col"] = kstem
+		}
 		if mario != nil {
 			out["mario"] = mario
 		}
@@ -269,6 +339,7 @@ func billboardChecker(ls *sm64ds.LevelSet, extDir string) func(stem string) bool
 }
 
 func r3(v float64) float64 { return float64(int(v*1000+0.5*sign(v))) / 1000 }
+func r5(v float64) float64 { return float64(int(v*100000+0.5*sign(v))) / 100000 }
 func sign(v float64) float64 {
 	if v < 0 {
 		return -1

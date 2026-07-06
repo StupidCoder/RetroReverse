@@ -172,9 +172,12 @@ const GAMES = [
     group: (lvl) => ({ section: lvl.section, label: lvl.name }),
     // open on Peach's Castle — the game's establishing shot
     defaultAsset: (models) => models.findIndex(m => m.name === "Peach's Castle (exterior)"),
-    // level-only toggle: the object placements decoded from the level overlays
+    // level-only toggles: the object placements decoded from the level overlays,
+    // and the .kcl collision meshes (level map + the colliders each placed
+    // actor's own code loaded — Part VI), shown as a red overlay
     layers: [
       { id: 'objects', label: 'Objects', default: true, when: (m) => !!m.leaves?.[m.currentIdx]?.level?.objects },
+      { id: 'collision', label: 'Collision', default: false, when: (m) => !!m.leaves?.[m.currentIdx]?.level?.objects },
     ],
   },
   {

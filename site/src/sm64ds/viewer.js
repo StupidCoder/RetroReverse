@@ -11,6 +11,7 @@ import { FlyCam, flyHint } from '../shared/flycam.js';
 import { clone as cloneSkinned } from 'three/addons/utils/SkeletonUtils.js';
 
 const MODELS = 'public/sm64ds/models/';
+const COLLISION = 'public/sm64ds/collision/';
 
 // Clip choice: clip names end in walk/wait/run + an optional number
 // (bombking_walk1, kuribo_wait). Patrolling actors lead with their walk;
@@ -132,6 +133,10 @@ export class ModelViewer {
     this.chomps = [];       // chain chomps lunging on their chains
     this.bbBones = [];      // billboard bones (bmd flag +$3C bit 0): face the camera
     this.wantObjects = true;
+    // collision overlay: the level's .kcl mesh + each placed actor's own
+    // collider (Part VI), reconstructed from the prism records
+    this.collisionGroup = null;
+    this.wantCollision = false;
     // Levels are explored with free-flight controls (WASD/arrows, or virtual
     // sticks on touch); objects and characters keep the slow auto-rotating orbit.
     this.fly = new FlyCam(camera, controls, el);
@@ -315,11 +320,16 @@ export class ModelViewer {
     return this.models;
   }
 
-  // The studio drives this: "objects" shows/hides the placed level objects.
+  // The studio drives this: "objects" shows/hides the placed level objects,
+  // "collision" the red .kcl overlay.
   setLayer(id, on) {
     if (id === 'objects') {
       this.wantObjects = on;
       if (this.objectsGroup) this.objectsGroup.visible = on;
+    }
+    if (id === 'collision') {
+      this.wantCollision = on;
+      if (this.collisionGroup) this.collisionGroup.visible = on;
     }
   }
 
@@ -486,6 +496,7 @@ export class ModelViewer {
     group.visible = this.wantObjects;
     this.three.scene.add(group);
     this.objectsGroup = group;
+    this._loadCollision(doc, gen);
 
     // Mario at the level's first entrance (type-1 entry), idling (su_wait).
     if (doc.mario) {
@@ -551,10 +562,77 @@ export class ModelViewer {
     }
   }
 
+  // Collision overlay (Part VI): the level's .kcl mesh plus each placed
+  // actor's own collider (the .kcl file that actor's init loaded, per the
+  // binding oracle), reconstructed from the prism records and baked red.
+  // Exported in stage-GLB units: the level map sits at the origin, object
+  // colliders at their placement with only the placement yaw.
+  async _loadCollision(doc, gen) {
+    const stems = new Set();
+    if (doc.col) stems.add(doc.col);
+    for (const o of doc.objects) if (o.c) stems.add(o.c);
+    if (!stems.size) return;
+    const protos = new Map();
+    await Promise.all([...stems].map(s => new Promise(res =>
+      this.loader.load(COLLISION + s + '.glb', g => {
+        g.scene.traverse(n => {
+          if (n.isMesh && n.material) {
+            // walls are seen from both sides, and collision faces are often
+            // coplanar with the render mesh — draw double-sided and pull the
+            // overlay toward the camera so it wins the depth test
+            n.material.side = THREE.DoubleSide;
+            n.material.polygonOffset = true;
+            n.material.polygonOffsetFactor = -1;
+            n.material.polygonOffsetUnits = -1;
+          }
+        });
+        protos.set(s, g.scene);
+        res();
+      }, undefined, () => res()))));
+    if (gen !== this.gen) return;
+    const group = new THREE.Group();
+    if (doc.col && protos.has(doc.col)) group.add(protos.get(doc.col).clone());
+    for (const o of doc.objects) {
+      if (!o.c || !protos.has(o.c)) continue;
+      // outer node = the placement pose; inner node = the collider's own
+      // registered transform (the MtxFx43 the oracle read at +$134 — a
+      // row-vector matrix, so its 3x3 transposes into three.js's column
+      // convention; object .kcl are authored ~10x and scaled down here)
+      const outer = new THREE.Group();
+      outer.position.set(o.p[0], o.p[1], o.p[2]);
+      if (o.ry) outer.rotation.y = o.ry * Math.PI / 180;
+      const inst = protos.get(o.c).clone();
+      if (o.cm) {
+        const a = o.cm;
+        const m = new THREE.Matrix4().set(
+          a[0], a[3], a[6], a[9],
+          a[1], a[4], a[7], a[10],
+          a[2], a[5], a[8], a[11],
+          0, 0, 0, 1);
+        if (o.cy) m.multiply(new THREE.Matrix4().makeScale(1, o.cy, 1));
+        inst.matrixAutoUpdate = false;
+        inst.matrix.copy(m);
+      }
+      outer.add(inst);
+      group.add(outer);
+    }
+    group.visible = this.wantCollision;
+    this.three.scene.add(group);
+    this.collisionGroup = group;
+  }
+
   _disposeObjects() {
     if (this.sky) {
       this.three.scene.remove(this.sky);
       this.sky = null;
+    }
+    if (this.collisionGroup) {
+      this.three.scene.remove(this.collisionGroup);
+      this.collisionGroup.traverse(o => {
+        if (o.geometry) o.geometry.dispose();
+        if (o.material) o.material.dispose();
+      });
+      this.collisionGroup = null;
     }
     this.billboards = [];
     this.spinners = [];
