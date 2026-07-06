@@ -59,6 +59,11 @@ const (
 	openLeafModel   = 15
 )
 
+// doorOpeningHeight is the door opening / leaf height in model units (leaf model
+// 14 is 208 tall). The frame's lintel env vector is measured from the opening
+// top, so the frame is decoded with env reduced by this amount.
+const doorOpeningHeight = 208
+
 // flat-poly colours. A flat face's opcode (0xBC) carries a shade LEVEL (0,1,2…);
 // the VM resolves the final palette index through a runtime-built light table
 // (CS:696E, generated from the palette — not in the EXE) as
@@ -227,12 +232,12 @@ func appendObjects(o *outMesh, grid *lev.Grid, block []byte, exeBytes []byte,
 		ms := modelsFor(envH)
 		low6 := obj.ItemID & 0x3F
 
-		place := func(n int, texMat int, snap bool) {
-			if n < 0 || n >= len(ms) || ms[n] == nil || ms[n].Offset == 0 {
+		place := func(mm []*model.Model, n int, texMat int, snap bool) {
+			if n < 0 || n >= len(mm) || mm[n] == nil || mm[n].Offset == 0 {
 				return
 			}
 			pm := placedModel{
-				m:      ms[n],
+				m:      mm[n],
 				tileX:  float32(obj.TileX) + (float32(obj.FineX)+0.5)/8,
 				tileY:  float32(obj.TileY) + (float32(obj.FineY)+0.5)/8,
 				height: float32(fineH), heading: obj.Heading, texMat: texMat,
@@ -293,19 +298,26 @@ func appendObjects(o *outMesh, grid *lev.Grid, block []byte, exeBytes []byte,
 			if low6 >= 8 { // standing open
 				leaf = openLeafModel
 			}
-			place(doorFrameModel, modelTex(doorFrameModel, -1), true) // model 1 -> wall
+			// The doorframe's ceiling-adaptive lintel (op 0x8C adds the env vector
+			// to the opening-top vertices at y=208) needs env measured from the
+			// OPENING TOP, not the floor: the game raises [3322] by the opening
+			// height before computing 0x400-[3322] (captured pool slot 256 = 176,
+			// not 384). Decode the frame with env reduced by that opening height
+			// so its lintel lands exactly on the ceiling instead of overshooting.
+			frameModels := modelsFor(envH - doorOpeningHeight)
+			place(frameModels, doorFrameModel, modelTex(doorFrameModel, -1), true) // model 1 -> wall
 			leafMat := modelTex(leaf, doorImg)
 			if variant == 7 { // secret door leaf: force the wall texture
 				leafMat = mats.wallMat(wallIdx)
 			}
-			place(leaf, leafMat, true)
+			place(ms, leaf, leafMat, true)
 			continue
 		}
 		mn := itemModel[low6-0x10]
 		if mn < 0 {
 			continue
 		}
-		place(int(mn), modelTex(int(mn), -1), false)
+		place(ms, int(mn), modelTex(int(mn), -1), false)
 	}
 
 	for _, pm := range placed {
