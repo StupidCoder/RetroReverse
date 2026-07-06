@@ -39,9 +39,9 @@ their tests and the rendered outputs live in the repository.
   banks, the `.TR` wall/floor textures, the `.BYT` full-screen images, the fonts, and the packed
   string table (`STRINGS.PAK`). *(planned — static decode)*
 * **Part V** — the world and the **3D renderer**: the level archive (`LEV.ARK`) plus the
-  first-person engine read from the oracle's live memory. *(the renderer is mapped world-to-pixels
-  (`disasm/uw-render.*`); the `LEV.ARK` archive + tile-map format are decoded and rendered
-  (`extract/lev`))*
+  first-person engine read from the oracle's live memory. *(the renderer is mapped world-to-pixels;
+  the `LEV.ARK` tile map + textures are decoded and the static level geometry is rebuilt as a
+  textured 3D mesh (`extract/lev`+`levgeo`+`tex`) shown in the Studio viewer)*
 * **Part VI** — audio and cutscenes: the digitized voices (`.VOC`), the sequenced music
   (`.XMI`) and its Miles driver files, and the `CUTS` cutscene animation format. *(planned)*
 
@@ -680,15 +680,41 @@ texture is its floor/wall index; `07F7` transforms and projects them and `01A0` 
 Full disassembly in `disasm/uw-render.asm` (PART 5 = the 07F7 interpret/transform + texture ref,
 PART 6 = the 1FF9 builder) with commentary in `uw-render.annotations.txt` (§8–9).
 
-## 8. Still open
+## 8. Exporting the static level geometry, with textures, into the viewer
 
-The builder loop is pinned; what remains inside `1FF9` is the fine detail — exactly *which* polygons
-each tile type emits and the edge/wall-adjacency test — plus the object/sprite geometry `1FF9` also
-feeds. The static tile→geometry *rules* are already decoded (§6). Also open: the per-level
-texture-mapping block, and the object lists the tile heads point into. The render *entry* is a
-callback of the `2252:0410` IRQ0
-timer table; the peripheral-panel noise in `rendered/dungeon.png` should resolve as the HUD draw
-path (a separate `01A0` consumer) is mapped.
+With the tile format (§6), the geometry rules (§7) and the world scale all derived, the level can be
+rebuilt as a **textured 3D mesh** — reimplemented in Go and hooked into the Studio's three.js viewer.
+
+- **Textures.** The `.TR` banks decode straight from their bytes (`extract/tex`): byte 1 is the
+  square dimension (`W64.TR` = 64×64 walls, `F32.TR` = 32×32 floors), a `uint16` count, then per-
+  texture offsets to `dim×dim` palette indices; `PALS.DAT` holds eight VGA palettes. The **per-level
+  texture list** — the missing §6 piece — turned out to be the 122-byte LEV.ARK block `18 + level`:
+  **48 wall texture numbers (into `W64.TR`) then 10 floor numbers (into `F32.TR`)**, which a tile's
+  `WallTex`/`FloorTex` index selects.
+- **Geometry.** `extract/levgeo` walks the tile map and emits, per non-solid tile, a floor quad (its
+  corners carrying the sloped heights), and a wall quad on each edge where the neighbour is solid
+  (full height to the ceiling) or higher (a step up) — floors textured `F32`, walls `W64`, through
+  the texture list. `cmd/levexport` groups the mesh by material and writes a self-contained JSON
+  (positions, UVs, groups, and each texture as a data-URI PNG); `cmd/levrender` is a Go software
+  renderer that verified the result is a coherent dungeon before any browser was involved
+  (`rendered/level1-3d.png` — Level 1 with its rooms, water channels and the ankh room, in 3D).
+- **Viewer.** `site/src/uw/viewer.js` loads that JSON into a three.js `BufferGeometry` with one
+  textured material per group (nearest-filtered, tiling walls) and a fly-camera; all eight levels are
+  registered in the Studio under a new **MS-DOS** system.
+
+This is a faithful *reimplementation* grounded in the reverse-engineered format, not a byte-exact
+replay of `1FF9`: the wall-adjacency rule and slope corners follow the derived tile semantics, the
+height scale is tuned for proportion rather than read from the game, ceilings are omitted for a clear
+overview, and diagonal tiles are drawn as full floors for now (their diagonal cut is a refinement).
+The layout, heights and textures are the game's own.
+
+## 9. Still open
+
+Inside `1FF9`, the exact per-type polygon set and the object/sprite geometry it also feeds; the
+diagonal-tile cut and the true height/ceiling units (for a byte-exact mesh). The object lists the
+tile heads point into. The render *entry* is a callback of the `2252:0410` IRQ0 timer table; the
+peripheral-panel noise in `rendered/dungeon.png` should resolve as the HUD draw path (a separate
+`01A0` consumer) is mapped.
 
 One capability gap worth recording: **avatar movement** can't yet be injected. The scripted
 mouse-hold does reach the game — during play it reads `buttons=1` at the injected cursor via
@@ -724,6 +750,10 @@ page-file cutscene format.
 - `extract/lev` + `extract/cmd/levinfo` — Part V: decode `LEV.ARK` (archive blocks + the 64×64
   tile map) and render a level; the tile fields were derived from the game's own decode code via
   the oracle's `-rdprof` read profiler.
+- `extract/tex` — decode the `.TR` texture banks (W64/F32) and `PALS.DAT` palettes.
+- `extract/levgeo` + `extract/cmd/levexport` — rebuild a level's static geometry (floors/walls,
+  textured via the per-level list) and export it as a self-contained JSON for the Studio viewer;
+  `cmd/levrender` software-renders it for verification.
 - `disasm/` — the code-knowledge store: `uw.asm` (code-traced C-runtime startup) +
   `uw.annotations.txt` (the startup chain annotated with oracle-pinned addresses); see its README.
 

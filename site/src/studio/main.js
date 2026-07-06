@@ -177,6 +177,16 @@ const GAMES = [
       { id: 'objects', label: 'Objects', default: true, when: (m) => !!m.leaves?.[m.currentIdx]?.level?.objects },
     ],
   },
+  {
+    id: 'uw', name: 'Ultima Underworld', system: 'MS-DOS', render: '3d',
+    load: () => import('../uw/viewer.js').then(m => m.LevelViewer),
+    make: (V, el, hud) => new V(el, hud),
+    list: async (v) => await v.init(), // the level list from public/uw/levels.json
+    show: (v, lvl, i) => v.loadLevel(lvl),
+    // Each level's static tile geometry (floors/walls/ceilings) with its real
+    // W64.TR/F32.TR textures, reimplemented in extract/levgeo from the tile map.
+    group: (lvl) => ({ section: 'The Stygian Abyss', label: lvl.name }),
+  },
 ];
 
 // Turrican's manifest labels worlds 0-based with hex start offsets; make them readable.
@@ -213,6 +223,7 @@ const SYSTEMS = [
   { full: 'Sega Game Gear', short: 'Game Gear' },
   { full: 'Nintendo Game Boy', short: 'Game Boy' },
   { full: 'Nintendo DS', short: 'DS' },
+  { full: 'MS-DOS', short: 'MS-DOS' },
 ];
 const CHEVRON = '<svg class="chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg>';
 
@@ -665,7 +676,7 @@ screen.pixelGrid = () => {
 
 // Which shader profile each system uses (CRT tube vs handheld LCD).
 const SYSTEM_PROFILE = {
-  'Commodore 64': 'crt', 'Amiga': 'crt',
+  'Commodore 64': 'crt', 'Amiga': 'crt', 'MS-DOS': 'crt',
   'Sega Game Gear': 'gg', 'Nintendo Game Boy': 'gb',
 };
 

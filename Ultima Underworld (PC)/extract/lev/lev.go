@@ -127,6 +127,59 @@ func DecodeGrid(block []byte) (*Grid, error) {
 // At returns the tile at (x, y).
 func (g *Grid) At(x, y int) Tile { return g.Tiles[y*g.W+x] }
 
+// A level block's siblings in the archive: after the nine tile maps (0-8) come
+// nine 384-byte animation blocks (9-17) and then the 122-byte per-level texture
+// lists (18+). A texture list maps a tile's small texture index to a global
+// number in W64.TR (walls) / F32.TR (floors).
+const (
+	texMapBase  = 18 // block index of level 0's texture list
+	numWallTex  = 48 // wall entries in a texture list (into W64.TR)
+	numFloorTex = 10 // floor entries (into F32.TR)
+)
+
+// TexMap is a level's texture list: the global W64.TR/F32.TR texture numbers its
+// tiles' 6-bit/4-bit texture indices select.
+type TexMap struct {
+	Wall  []uint16 // WallTex index -> W64.TR texture number
+	Floor []uint16 // FloorTex index -> F32.TR texture number
+}
+
+// TexMapForLevel decodes the texture list for level (0-based).
+func (a *Ark) TexMapForLevel(level int) (*TexMap, error) {
+	b, err := a.Block(texMapBase + level)
+	if err != nil {
+		return nil, err
+	}
+	if len(b) < (numWallTex+numFloorTex)*2 {
+		return nil, fmt.Errorf("lev: texture list too small (%d bytes)", len(b))
+	}
+	tm := &TexMap{Wall: make([]uint16, numWallTex), Floor: make([]uint16, numFloorTex)}
+	for i := range tm.Wall {
+		tm.Wall[i] = binary.LittleEndian.Uint16(b[i*2:])
+	}
+	for i := range tm.Floor {
+		tm.Floor[i] = binary.LittleEndian.Uint16(b[(numWallTex+i)*2:])
+	}
+	return tm, nil
+}
+
+// WallTexture maps a tile's WallTex index to a W64.TR texture number.
+func (m *TexMap) WallTexture(idx uint8) uint16 {
+	if int(idx) < len(m.Wall) {
+		return m.Wall[idx]
+	}
+	return 0
+}
+
+// FloorTexture maps a tile's FloorTex index to an F32.TR texture number. Only
+// the low 4 bits index the floor list.
+func (m *TexMap) FloorTexture(idx uint8) uint16 {
+	if int(idx&0x0F) < len(m.Floor) {
+		return m.Floor[idx&0x0F]
+	}
+	return 0
+}
+
 // Geometry describes a tile type's shape. Types 2-5 (diagonal) are open on one
 // triangular half with a diagonal wall across; 6-9 (slope) ramp the floor up by
 // one height unit toward the named side. The four diagonals and the four slopes
