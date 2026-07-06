@@ -15,6 +15,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"retroreverse.com/tools/dos"
 	"retroreverse.com/tools/x86"
@@ -41,6 +42,7 @@ func main() {
 	loadSave := flag.Bool("loadsave", false, "pre-seed SAVE0 with the shipped save templates (test booting into a loaded game)")
 	loadState := flag.String("loadstate", "", "restore a machine snapshot before running (see -savestate)")
 	saveState := flag.String("savestate", "", "after the run, dump the full machine snapshot to this file")
+	poke := flag.String("poke", "", "after loadstate, write word(s): SEG:OFF:VAL[,SEG:OFF:VAL...] (hex)")
 	flag.Parse()
 
 	var bpSeg, bpOff uint32
@@ -97,6 +99,19 @@ func main() {
 		}
 		m.EnableIRQ = *irq // hooks were reset by the fresh load; re-apply run options
 		fmt.Printf("restored snapshot %s (at %d instructions)\n", *loadState, m.CPU.Steps)
+	}
+	if *poke != "" {
+		for _, spec := range strings.Split(*poke, ",") {
+			var s, o, v uint32
+			if n, _ := fmt.Sscanf(spec, "%x:%x:%x", &s, &o, &v); n < 3 {
+				fmt.Fprintln(os.Stderr, "bootoracle: -poke bad spec:", spec)
+				os.Exit(1)
+			}
+			lin := (s<<4 + o) & 0xFFFFF
+			m.Mem[lin] = byte(v)
+			m.Mem[(lin+1)&0xFFFFF] = byte(v >> 8)
+			fmt.Printf("poke %04X:%04X <- %04X\n", s, o, v)
+		}
 	}
 	if *keys != "" {
 		ev, err := dos.ParseKeys(*keys)

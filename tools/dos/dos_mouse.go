@@ -45,6 +45,11 @@ func (m *Machine) int33(c *x86.CPU) bool {
 		m.Int33Hist = map[uint16]int{}
 	}
 	m.Int33Hist[c.Reg16(x86.AX)]++ // which sub-functions the game polls (input debugging)
+	// UW's input dispatch lives in segment 1CD4: a motion handler integrates the
+	// 0Bh mickeys (read via the stack-switching thunk at 214A:09AD) into its own
+	// crosshair at DGROUP:010A/010C, and a button handler (1CD4:0FA9) reads the
+	// mask via the 214A:09F0 thunk. The crosshair scale is ½ mickey/pixel with an
+	// inverted Y (cursor_y = 100 - mickeyY/2); see FeedMickeys.
 	switch c.Reg16(x86.AX) {
 	case 0x0000: // reset driver and read status
 		ms.x, ms.y = 160, 100
@@ -132,6 +137,16 @@ func (m *Machine) MoveMouseTo(x, y int) {
 	ms.clamp()
 	ms.accX += dx * mickeysPerPixel
 	ms.accY += dy * mickeysPerPixel
+}
+
+// FeedMickeys adds a raw motion delta to the counters function 0Bh reports, with
+// no pixel scaling. UW derives its crosshair purely by integrating these 0Bh
+// deltas (it discards the driver's absolute position), so this is the honest way
+// to drive the in-game cursor — the game applies its own mickey→pixel scale.
+func (m *Machine) FeedMickeys(dx, dy int) {
+	ms := m.mouse()
+	ms.accX += dx
+	ms.accY += dy
 }
 
 // SetMouseButtons sets the button mask (bit0 left, bit1 right) reported by 03h,

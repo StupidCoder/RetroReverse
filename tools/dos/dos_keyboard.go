@@ -32,6 +32,7 @@ const (
 	injHome                  // slam the cursor to (0,0) via a large negative delta
 	injMove                  // move the mouse to (x, y)
 	injButton                // set the mouse button mask
+	injDelta                 // feed a raw mickey delta (dx, dy) into the motion counters
 )
 
 // injEvent is one scheduled input action, followed by a `delay`-tick pause.
@@ -118,6 +119,18 @@ func ParseKeys(spec string) ([]injEvent, error) {
 			out = append(out,
 				injEvent{kind: injHome, delay: 3},
 				injEvent{kind: injMove, x: x, y: y, delay: makeBreakGap})
+		case strings.HasPrefix(tok, "dxy:"):
+			// "dxy:DX" consumes the following token as DY (the comma split them).
+			if i+1 >= len(toks) {
+				return nil, fmt.Errorf("keys: %q needs DX,DY", tok)
+			}
+			dx, err1 := strconv.Atoi(tok[len("dxy:"):])
+			dy, err2 := strconv.Atoi(strings.TrimSpace(toks[i+1]))
+			if err1 != nil || err2 != nil {
+				return nil, fmt.Errorf("keys: bad delta %q,%q", tok, toks[i+1])
+			}
+			i++
+			out = append(out, injEvent{kind: injDelta, x: dx, y: dy, delay: makeBreakGap})
 		case tok == "lclick", tok == "rclick":
 			mask := byte(1)
 			if tok == "rclick" {
@@ -204,6 +217,9 @@ func (m *Machine) pumpKeys() {
 	case injButton:
 		m.SetMouseButtons(ev.code)
 		m.logInject("MOUSE buttons=%02X at %d,%d", ev.code, m.ms.x, m.ms.y)
+	case injDelta:
+		m.FeedMickeys(ev.x, ev.y)
+		m.logInject("MOUSE mickeys += %d,%d", ev.x, ev.y)
 	}
 	m.keyEvents = m.keyEvents[1:]
 	m.keyWait = ev.delay
