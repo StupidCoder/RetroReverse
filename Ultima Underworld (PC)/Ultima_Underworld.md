@@ -617,23 +617,33 @@ confirms it: the game copies `DATA\LEV.ARK` to `SAVE0\LEV.ARK`, reads the 2-byte
 `798D:0004`.
 
 Inside a level block, the first `64×64×4` bytes are the **tile map** — two little-endian words per
-tile. The field layout was read from the game's *own* decode code (via the oracle's new read
-profiler, `-rdprof`, pointed at the loaded tile map to find its consumers):
+tile. Every field was derived, not looked up — the geometry/object fields from the game's *own*
+decode code (found with the new read profiler, `-rdprof`, pointed at the loaded tile map), and the
+texture split from the data distribution then confirmed by rendering:
 
-| Field | Bits | Where it was derived |
+| Field | Bits | How it was derived |
 |---|---|---|
 | tile **type** | word0 `0-3` | `2CD3:0740` — `MOV AX,[tile]; AND AX,000F`, indexes a per-type geometry table |
 | floor **height** | word0 `4-7` | `2CD3:0835` — `SHR AX,4; AND AX,000F` |
-| textures | word0 `8-15` | (floor/wall indices — exact split still to pin) |
-| flags | word1 `0-5` | — |
+| **floor texture** | word0 `10-15` | data: clusters to a small per-level set; ~0 on solid tiles |
+| **wall texture** | word1 `0-5` | data: clusters to a per-level set; present on solid *and* open tiles |
 | first **object** | word1 `6-15` | `28B3:08F9` — `MOV AX,[tile+2]; SHR 6; AND 03FF` (0 = empty) |
 
-Type `0` is solid rock, `1` open floor, `2-5` the four diagonal (half-solid) corners, `6-9` the four
-sloping floors. Reimplemented in Go (`extract/lev`, `cmd/levinfo`) and **verified by rendering**: the
-type histogram matches the raw data, and drawing the map (`rendered/level1-map.png`) reproduces a
-coherent Level 1 — rooms, corridors, the central cavern, and the unmistakable **ankh room** — which
-is the proof the tile stride and fields are right. Each of the 329 non-empty tiles carries an object
-list head, the bridge into the object/item system (still to decode).
+**Geometry.** Type `0` is solid rock (full walls, no floor), `1` open flat floor, `2-5` the four
+diagonal (half-solid) corners, `6-9` floors sloping up toward N/S/E/W. That the diagonals are one
+shape in four orientations — and likewise the slopes — is proven by a **rotation-remap table** in
+DGROUP at `034E`: its first row is the identity `00 01 02 03 04 05 06 07 08 09`, and rows 1-3 rotate
+`2↔4↔5↔3` and `6↔9↔7↔8`. The game indexes it by the camera facing (`[2B1A]`, 0-3) so its
+floor-height query (`2CD3:0720`) only handles a canonical orientation; the slope surface itself is a
+per-subregion height table at `038F`.
+
+**Textures** are per-level 6-bit indices into the level's texture list (a separate block, not yet
+decoded). Reimplemented in Go (`extract/lev`, `cmd/levinfo`) and **verified by rendering twice**:
+the tile-type map (`rendered/level1-map.png`) reproduces a coherent Level 1 with the unmistakable
+**ankh room**, and colouring each tile by its texture index (`rendered/level1-tex.png`) yields
+coherent regions — rooms share a wall colour, and the ankh is drawn in its own floor texture,
+exactly as the game renders it. Both are the proof the fields are right. Each of the 329 non-empty
+tiles also carries an object-list head, the bridge into the object/item system (still to decode).
 
 ## 7. Still open
 

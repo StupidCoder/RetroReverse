@@ -58,10 +58,14 @@ func main() {
 	// Field summaries.
 	types := map[uint8]int{}
 	heights := map[uint8]int{}
+	ftex := map[uint8]int{}
+	wtex := map[uint8]int{}
 	objTiles := 0
 	for _, t := range g.Tiles {
 		types[t.Type]++
 		heights[t.Height]++
+		ftex[t.FloorTex]++
+		wtex[t.WallTex]++
 		if t.Object != 0 {
 			objTiles++
 		}
@@ -69,7 +73,16 @@ func main() {
 	fmt.Printf("level %d: %dx%d tiles\n", *level, g.W, g.H)
 	fmt.Printf("  type histogram: %s\n", histo(types))
 	fmt.Printf("  height histogram: %s\n", histo(heights))
-	fmt.Printf("  tiles with objects: %d\n\n", objTiles)
+	fmt.Printf("  floor-texture indices used: %d\n", len(ftex))
+	fmt.Printf("  wall-texture indices used: %d\n", len(wtex))
+	fmt.Printf("  tiles with objects: %d\n", objTiles)
+	fmt.Printf("\ntile geometry by type:\n")
+	for t := uint8(0); t <= 9; t++ {
+		if n := types[t]; n > 0 {
+			fmt.Printf("  %d %-34s %d tiles\n", t, lev.Geometry(t), n)
+		}
+	}
+	fmt.Println()
 
 	fmt.Printf("tile-type map (# solid, . open, / diagonal, s slope):\n")
 	for y := 0; y < g.H; y++ {
@@ -102,8 +115,43 @@ func histo(m map[uint8]int) string {
 	return s
 }
 
-// renderPNG draws the map at 8px/tile: solid rock dark, open floor shaded by
-// height, diagonals/slopes in accent colours. Y is flipped so north is up.
+// texColor maps a 6-bit texture index to a distinct colour (a spread hue) so
+// same-texture regions read as the same colour.
+func texColor(idx uint8) color.RGBA {
+	h := float64(idx) * (360.0 / 64.0)
+	// simple HSV->RGB at fixed S,V
+	c := 0.85
+	x := c * (1 - absf(mod(h/60, 2)-1))
+	var r, gg, b float64
+	switch int(h/60) % 6 {
+	case 0:
+		r, gg, b = c, x, 0
+	case 1:
+		r, gg, b = x, c, 0
+	case 2:
+		r, gg, b = 0, c, x
+	case 3:
+		r, gg, b = 0, x, c
+	case 4:
+		r, gg, b = x, 0, c
+	default:
+		r, gg, b = c, 0, x
+	}
+	return color.RGBA{uint8((r + 0.1) * 200), uint8((gg + 0.1) * 200), uint8((b + 0.1) * 200), 255}
+}
+
+func absf(v float64) float64 {
+	if v < 0 {
+		return -v
+	}
+	return v
+}
+func mod(a, b float64) float64 { return a - b*float64(int(a/b)) }
+
+// renderPNG draws the map at 8px/tile. Solid rock is coloured by its WALL
+// texture, open/slope floor by its FLOOR texture, so if the texture fields are
+// right the walls of a room share a colour and floor regions read coherently.
+// Y is flipped so north is up.
 func renderPNG(g *lev.Grid, path string) error {
 	const s = 8
 	img := image.NewRGBA(image.Rect(0, 0, g.W*s, g.H*s))
@@ -113,14 +161,10 @@ func renderPNG(g *lev.Grid, path string) error {
 			var c color.RGBA
 			switch {
 			case t.Type == lev.TileSolid:
-				c = color.RGBA{20, 18, 16, 255}
-			case t.Type == lev.TileOpen:
-				v := uint8(60 + int(t.Height)*10)
-				c = color.RGBA{v, v - 20, v - 40, 255}
-			case t.Type <= lev.TileDiagNW:
-				c = color.RGBA{80, 60, 90, 255}
+				c = texColor(t.WallTex)
+				c.R, c.G, c.B = c.R/3, c.G/3, c.B/3 // walls dimmed
 			default:
-				c = color.RGBA{60, 90, 80, 255}
+				c = texColor(t.FloorTex)
 			}
 			dy := (g.H - 1 - y) * s
 			for py := 0; py < s; py++ {

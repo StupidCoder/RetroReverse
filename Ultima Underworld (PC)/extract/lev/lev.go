@@ -79,13 +79,15 @@ const (
 	TileSlopeW = 9
 )
 
-// Tile is one decoded map cell.
+// Tile is one decoded map cell. The two words split as: word0 = geometry +
+// floor texture, word1 = wall texture + object-list head. The texture fields are
+// per-level indices (0-63) into the level's texture list.
 type Tile struct {
-	Type    uint8  // bits 0-3 of word0 (see Tile* constants)
-	Height  uint8  // bits 4-7 of word0 — floor height, 0-15
-	Word0Hi uint16 // bits 8-15 of word0 (floor/wall texture indices — split TBD)
-	Flags   uint8  // bits 0-5 of word1
-	Object  uint16 // bits 6-15 of word1 — index of the first object in this tile (0 = none)
+	Type     uint8  // word0 bits 0-3  — geometry (see Tile* constants)
+	Height   uint8  // word0 bits 4-7  — floor height, 0-15
+	FloorTex uint8  // word0 bits 10-15 — floor texture index (6 bits)
+	WallTex  uint8  // word1 bits 0-5  — wall texture index (6 bits)
+	Object   uint16 // word1 bits 6-15 — first object in this tile (0 = none)
 }
 
 // Grid is a level's WidthxHeight tile map.
@@ -112,11 +114,11 @@ func DecodeGrid(block []byte) (*Grid, error) {
 		w0 := binary.LittleEndian.Uint16(block[i*4:])
 		w1 := binary.LittleEndian.Uint16(block[i*4+2:])
 		g.Tiles[i] = Tile{
-			Type:    uint8(w0 & 0x0F),
-			Height:  uint8((w0 >> 4) & 0x0F),
-			Word0Hi: w0 >> 8,
-			Flags:   uint8(w1 & 0x3F),
-			Object:  (w1 >> 6) & 0x3FF,
+			Type:     uint8(w0 & 0x0F),
+			Height:   uint8((w0 >> 4) & 0x0F),
+			FloorTex: uint8((w0 >> 10) & 0x3F),
+			WallTex:  uint8(w1 & 0x3F),
+			Object:   (w1 >> 6) & 0x3FF,
 		}
 	}
 	return g, nil
@@ -124,6 +126,40 @@ func DecodeGrid(block []byte) (*Grid, error) {
 
 // At returns the tile at (x, y).
 func (g *Grid) At(x, y int) Tile { return g.Tiles[y*g.W+x] }
+
+// Geometry describes a tile type's shape. Types 2-5 (diagonal) are open on one
+// triangular half with a diagonal wall across; 6-9 (slope) ramp the floor up by
+// one height unit toward the named side. The four diagonals and the four slopes
+// are rotations of one shape — the game rotates them with a remap table at
+// DGROUP 034E (row = camera facing) so its geometry code only handles a
+// canonical orientation. The slope surface itself is a per-subregion height
+// table (DGROUP 038F) the floor-height query (2CD3:0720) walks.
+func Geometry(t uint8) string {
+	switch t {
+	case TileSolid:
+		return "solid rock (no floor, full walls)"
+	case TileOpen:
+		return "open flat floor"
+	case TileDiagSE:
+		return "diagonal wall, open SE half"
+	case TileDiagSW:
+		return "diagonal wall, open SW half"
+	case TileDiagNE:
+		return "diagonal wall, open NE half"
+	case TileDiagNW:
+		return "diagonal wall, open NW half"
+	case TileSlopeN:
+		return "floor sloping up toward north"
+	case TileSlopeS:
+		return "floor sloping up toward south"
+	case TileSlopeE:
+		return "floor sloping up toward east"
+	case TileSlopeW:
+		return "floor sloping up toward west"
+	default:
+		return "unknown"
+	}
+}
 
 // TypeGlyph maps a tile type to a single character for an ASCII dump.
 func TypeGlyph(t uint8) byte {
