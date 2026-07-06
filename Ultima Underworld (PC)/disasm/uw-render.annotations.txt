@@ -282,3 +282,43 @@ Open (next steps for Part V)
 - The 01A0 display-list command set (the jump table at DS/SS:095E) and the other
   hot primitives (01A0:0F72, 0836, 1067).
 - Confirm the 214A:0A34 table interpolation's use and table contents.
+
+
+§10. OBJECTS AND THE 3D-MODEL BYTECODE (PART 7)
+------------------------------------------------
+Object store (from accessor 28B3:08E8): two arrays after the 0x4000 tile map —
+256 MOBILE objects x27 bytes @0x4000, then 768 STATIC objects x8 bytes. Common
+8-byte header: w0 bits0-8=item id; w1 = Z(0-6)/heading(7-9)/fineY(10-12)/
+fineX(13-15); w2 = quality(0-5)/next-link(6-15). Tile Object head + per-object
+next-link = a per-tile linked list; tile implied by the chain. Decoded in
+extract/lev/object.go. Doors = items 320-327 (320 = closed wood door).
+
+THE DISPLAY LIST IS A BYTECODE PROGRAM. 07F7 interprets opcodes via the jump
+table 499D:2738 (36 entries). Fetch/decode = LODSW; XCHG AX,BX; JMP [BX+2738]
+(07F7:16F8); the opcode word IS the byte offset into the table (opcodes 0,2,4..).
+1FF9 emits the stream per frame. 3D object models are sub-programs of the SAME
+opcodes.
+
+Object pipeline:
+ - opcode 15 (07F7:15AC) REGISTERS an object: world pt - camera pos
+   ([26BA/26BE/26C2], 32-bit) scaled by a per-object power-of-two shift held in
+   ES (distance LOD), depth via CALL 1370, appended to the distance-sorted draw
+   list at [2860] (viewXYZ, depth, program pointer, type 0/2, bounds). No draw.
+ - DRAW PASS (07F7:18FC) walks [2860] back-to-front: push camera matrix
+   [1602..1612]; rotate the model frame by its heading (angle->sin/cos CALLF
+   214A:0A34, composed with the camera matrix, per-axis 5426/558E/56F6); load the
+   model base transform (5834 via 5A83); run the model's opcode program; restore
+   the matrix (POPs at 1A58).
+ - VERTEX opcode (07F7:1BE4 = opcode 28): relative link word to next record, then
+   world coords, camera-relative + power-of-two shift + matrix + project.
+ - POLYGON opcode (07F7:1BAA): project verts (CALL 1370); if OK, CALL [BX+2738]
+   to draw the textured polygon, then dispatch next.
+ - BACKSIDE CULLING = PROGRAM SKIP: a failed visibility/plane test (CALL 1370
+   returns CF, or coord-range compares fail) reaches 07F7:1BCD, which sets the
+   culled marker and does ADD SI,0x0C to step the program pointer PAST the culled
+   polygon, then dispatches the next opcode. Off-screen verts drop via 1BDC.
+   This is the "plane-check opcode that culls by advancing the bytecode".
+
+STILL TO PIN: item id -> model program address; each opcode's exact byte layout;
+how the door model's frame is sized to span its tile floor->ceiling (geometry
+adaptation). All in the 18FC draw pass and the model data it reads.

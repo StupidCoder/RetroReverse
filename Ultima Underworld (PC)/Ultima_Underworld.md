@@ -742,6 +742,57 @@ transform-proven 0.25 (a height unit = a quarter tile). The layout, heights, dia
 textures are all the game's own; the ceiling is code-proven to be one constant texture, its exact
 index the one piece still to confirm from a loaded level.
 
+## 9. Objects and the 3D-model bytecode
+
+Objects (items, wall decorations, and 3D things like doors) live in the level block right after the
+tile map, in two arrays reached through the accessor `28B3:08E8`: **256 mobile objects of 27 bytes**
+at block offset `0x4000`, then **768 static objects of 8 bytes**. Both begin with the same 8-byte
+header — item id (bits 0-8 of word0), then Z / heading / fine-Y / fine-X packed into word1, quality
+and a **next-object link** in word2. Each tile's `Object` field is the head of a per-tile linked
+list; the tile is implied by which chain an object is in, only the fine offset is stored. That decode
+is `extract/lev/object.go` (`Objects`), with `cmd/levobjects`. Doors are items **320-327** (320 = the
+closed wooden door); wall decorations like the moss/vines are decal items (e.g. 193).
+
+**How objects are drawn — traced from the render code.** The whole 3D view is a **bytecode program**:
+`07F7` interprets a *display list* of opcodes through a jump table at **`499D:2738`** (36 entries).
+Every handler ends by fetching the next opcode word and dispatching — `LODSW; XCHG AX,BX;
+JMP [BX+2738]` (the fetch/decode at `07F7:16F8`). The opcode word is the byte offset into the table,
+so opcodes are the even numbers 0,2,4,…; `1FF9` emits this stream each frame (tile geometry, then the
+objects).
+
+- **Object registration (opcode 15 = `07F7:15AC`).** For each visible object the interpreter takes
+  its world position, subtracts the camera position (`[26BA]/[26BE]/[26C2]`, 32-bit X/Y/Z), scales the
+  delta by a **per-object power-of-two shift** carried in `ES` (a cheap distance LOD), computes a
+  depth key (`CALL 1370`), and appends a record to a **distance-ordered draw list at `[2860]`** (view
+  X/Y/Z, depth, the object's *program pointer*, a type field 0 or 2, and bounds). Nothing is drawn
+  yet — objects are collected for a back-to-front pass.
+- **The draw pass (`07F7:18FC`).** Walks the `[2860]` list. For each object it pushes the 3×3 camera
+  matrix (`[1602]…[1612]`), then rotates the object's local frame by its heading: the angle drives a
+  sin/cos lookup (`CALLF 214A:0A34`) that is composed with the camera matrix, once per axis
+  (`5426`/`558E`/`56F6`, chosen by flags in the model header). `5834` loads the model's base transform
+  rows (via `5A83`). Then it runs the object's **model program**.
+- **The model program is more of the same opcodes.** A vertex opcode (e.g. `07F7:1BE4`, opcode 28)
+  reads a vertex — a relative link word to the next record, then the world coords — subtracts the
+  camera position and applies the same power-of-two shift and matrix as above, and projects it. A
+  polygon opcode (`07F7:1BAA`) projects its vertices (`CALL 1370`) and, if they pass, calls the
+  textured-polygon draw through the table (`CALL [BX+2738]`) before dispatching the next opcode.
+- **Backside culling is a program skip.** When a visibility / plane test fails — `CALL 1370` returns
+  carry, or the projected-coordinate range comparisons fail — the interpreter does **not** draw:
+  `07F7:1BCD` sets the culled marker and executes `ADD SI,0x0C`, stepping the program pointer *past*
+  the culled polygon's bytes, then dispatches the next opcode. So a "plane check" opcode culls a face
+  by advancing the bytecode pointer over it — exactly the little-bytecode-with-culling shape the
+  models have. Off-screen vertices drop out the same way (`1BDC`).
+
+So a door renders as: its object record → registered by opcode 15 into the sorted list → in the draw
+pass, oriented by its heading and drawn by its model's opcode program, whose polygon opcodes are
+culled-by-skip when they face away. Full disassembly of these routines is in `disasm/uw-render.asm`
+(PART 7) with commentary in `uw-render.annotations.txt` (§10).
+
+**Still to pin (located, not yet decoded):** the map from item id to a model program address; each
+model opcode's exact byte layout (vertex/polygon/texture records); and how the door model's frame is
+sized to span its tile from floor to ceiling (the geometry-adaptation). These live in the same draw
+pass and the model data it reads, and are the next step toward rendering objects in the viewer.
+
 ## 9. Still open
 
 Inside `1FF9`, the object/sprite geometry it also feeds (the static per-type tile polygons —

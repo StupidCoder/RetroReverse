@@ -719,3 +719,85 @@
   00000B17  83 06 50 72 02      ADD WORD [$7250], $0002
   00000B1C  C4 1E 50 72         LES BX, [$7250]
   00000B20  26 C7 07 02 00      MOV WORD [ES:BX], $0002
+
+
+; ============================================================================
+; PART 7 — OBJECTS and the 3D-MODEL BYTECODE (07F7 display-list interpreter).
+; ============================================================================
+; The whole 3D view is a bytecode program: 07F7 interprets a display list of
+; opcodes via a jump table at 499D:2738 (36 entries; opcode word = byte offset).
+; Every handler ends by fetching+dispatching the next opcode. 3D object models
+; (e.g. doors) are sub-programs of the SAME opcodes; a face is CULLED by
+; advancing the program pointer past it.
+
+; ==== 07F7:16F8 — the opcode fetch/decode (ends every handler) ===============
+  000016F8  AD                  LODSW                 ; next opcode word from the program (DS:SI)
+  000016F9  93                  XCHG AX, BX
+  000016FA  FF A7 38 27         JMP [BX+$2738]        ; dispatch via the 499D:2738 table
+
+; ==== 07F7:15AC — opcode 15: register an object into the sorted draw list ====
+; Transforms the object's world point to camera space and appends a record to
+; the distance-ordered list at [2860]; nothing is drawn here.
+  000015AC  8D 44 0E            LEA AX, [SI+$E]       ; keep the object's program pointer
+  000015B0  AD                  LODSW                 ; (per-vertex link/shift setup)
+  000015B3  03 FE               ADD DI, SI
+  000015B5  8E 45 F8            MOV ES, [DI-$8]        ; ES = per-object power-of-two shift (distance LOD)
+  000015B8  8B 16 BA 26         MOV DX, [$26BA]        ; camera X (lo)   [26BA/26BC]=camX 32-bit
+  000015BC  AD                  LODSW
+  000015BD  2B D0               SUB DX, AX             ; camX - vertex.x
+  000015C3  8B 1E BC 26         MOV BX, [$26BC]
+  000015C7  AD                  LODSW
+  000015C8  1B D8               SBB BX, AX             ; 32-bit subtract
+  000015CF  8C C1               MOV CX, ES             ; shift count -> scale the delta by 2^ES
+  000015D1  E3 14               JCXZ $000015E7
+  000015D3  79 0A               JNS $000015E1          ; CX>=0 -> shift right (SAR/RCR); <0 -> left
+;   ... same for camera Y ([26BE/26C0]) and Z ([26C2/26C4]) -> view X/Y/Z in [01C8]/[01CA]/[01CC]
+  0000167C  8B 75 F6            MOV SI, [DI-$A]
+  000016AA  E8 C3 FC            CALL $00001370         ; project + range test (CF=1 -> reject)
+  000016AD  72 60               JB $0000170F           ; off-screen -> skip this object
+  000016B5  C4 3E 60 28         LES DI, [$2860]        ; append record: viewX,viewY,type=0,progptr,...
+  000016BF  B8 00 00            MOV AX, $0000          ; type 0 (sprite/model marker)
+  000016E5  89 3E 60 28         MOV [$2860], DI        ; advance list head
+
+; ==== 07F7:18FC — the object DRAW pass (walks the [2860] sorted list) ========
+; Per object: push the 3x3 camera matrix [1602..1612], rotate the model's frame
+; by its heading (5426/558E/56F6), load its base transform (5834), run its
+; opcode program, then restore the camera matrix.
+  00001941  E8 FC 36            CALL $00005040         ; setup
+  00001944  FF 36 12 16         PUSH WORD [$1612]      ; save the camera matrix (9 words 1602..1612)
+  00001968  89 2E C6 01         MOV [$01C6], BP        ; BP = the object's model record
+  00001984  FF 76 00            PUSH WORD [BP]
+  0000198A  E8 A7 3E            CALL $00005834         ; load the model transform / run program
+  0000199B  E8 88 3A            CALL $00005426         ; heading rotation about axis 0 (if flagged)
+  000019A7  E8 E4 3B            CALL $0000558E         ; ... axis 1
+  000019B2  E8 41 3D            CALL $000056F6         ; ... axis 2
+  00001A58  8F 06 02 16         POP WORD [$1602]       ; restore the camera matrix afterwards
+
+; ==== 07F7:5426 — compose object heading (one axis) with the camera matrix ===
+  00005426  9A 34 0A 4A 21      CALLF $214A:$0A34      ; angle -> sin/cos (table interp)
+  00005433  A3 0C 27            MOV [$270C], AX        ; cos
+  00005436  89 1E 0A 27         MOV [$270A], BX        ; sin
+  00005445  F7 2E 02 16         IMUL WORD [$1602]      ; rotate camera-matrix rows, saturate to +-7FFF
+  00005468  89 0E D4 26         MOV [$26D4], CX        ; -> composed matrix [26D4..]
+
+; ==== 07F7:1BE4 — opcode 28: define/transform a model VERTEX =================
+  00001BE4  C7 06 82 28 00 00   MOV WORD [$2882], $0000
+  00001BEA  AD                  LODSW                 ; relative link to next record (DI = SI + word)
+  00001BED  03 FE               ADD DI, SI
+  00001BEF  AD                  LODSW                 ; shift (CX) for this vertex
+  00001BF8  AD                  LODSW
+  00001BF9  2B 06 BA 26         SUB AX, [$26BA]        ; vertex - camera (32-bit), then scale by 2^CX
+  00001C0B  E3 14               JCXZ $00001C21         ; (same camera-relative + power-of-two path)
+
+; ==== 07F7:1BAA / 1BCD — draw a model POLYGON, or CULL it by skipping ========
+  00001BAF  E8 BE F7            CALL $00001370         ; project + range test
+  00001BB2  72 28               JB $00001BDC           ; vertex off-screen -> drop
+  00001BC0  AD                  LODSW
+  00001BC2  FF 97 38 27         CALL [BX+$2738]        ; draw the textured polygon (opcode)
+  00001BC6  AD                  LODSW
+  00001BC9  FF A7 38 27         JMP [BX+$2738]         ; next opcode
+; --- the CULL path: a failed plane/visibility check advances SI past the face:
+  00001BCD  C7 06 82 28 FF FF   MOV WORD [$2882], $FFFF ; culled marker
+  00001BD3  83 C6 0C            ADD SI, $000C          ; SKIP the culled polygon's 12 bytes
+  00001BD6  AD                  LODSW
+  00001BD8  FF A7 38 27         JMP [BX+$2738]         ; continue the program
