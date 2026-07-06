@@ -43,6 +43,7 @@ func main() {
 	loadState := flag.String("loadstate", "", "restore a machine snapshot before running (see -savestate)")
 	saveState := flag.String("savestate", "", "after the run, dump the full machine snapshot to this file")
 	poke := flag.String("poke", "", "after loadstate, write word(s): SEG:OFF:VAL[,SEG:OFF:VAL...] (hex)")
+	find := flag.String("find", "", "after the run, scan all RAM for this hex byte pattern and print linear addresses")
 	flag.Parse()
 
 	var bpSeg, bpOff uint32
@@ -183,6 +184,31 @@ func main() {
 	}
 
 	c.Run(*steps)
+
+	if *find != "" {
+		var pat []byte
+		for _, h := range strings.Fields(strings.ReplaceAll(*find, ",", " ")) {
+			var v uint32
+			fmt.Sscanf(h, "%x", &v)
+			pat = append(pat, byte(v))
+		}
+		hits := 0
+		scan := func(name string, mem []byte) {
+			for i := 0; i+len(pat) <= len(mem); i++ {
+				if mem[i] == pat[0] && string(mem[i:i+len(pat)]) == string(pat) {
+					fmt.Printf("found in %s at %05X\n", name, i)
+					if hits++; hits >= 20 {
+						return
+					}
+				}
+			}
+		}
+		scan("RAM", m.Mem[:])
+		scan("EMS", m.EmsBacking())
+		if hits == 0 {
+			fmt.Println("pattern not found")
+		}
+	}
 
 	if *saveState != "" {
 		if err := m.SaveState(*saveState); err != nil {

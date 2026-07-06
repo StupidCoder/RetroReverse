@@ -54,6 +54,15 @@ func (m *Machine) setupEMS() {
 
 func (e *emsState) frameLin(slot int) uint32 { return emsFrameSeg<<4 + uint32(slot)*emsPageSize }
 
+// EmsBacking exposes the expanded-memory backing store (all EMS pages) for
+// diagnostics such as searching for a loaded resource that lives in EMS.
+func (m *Machine) EmsBacking() []byte {
+	if m.ems == nil {
+		return nil
+	}
+	return m.ems.backing
+}
+
 // flush copies a mapped frame slot back to its expanded page.
 func (m *Machine) emsFlush(slot int) {
 	p := m.ems.slot[slot]
