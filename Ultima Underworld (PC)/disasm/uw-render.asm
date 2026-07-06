@@ -525,3 +525,48 @@
   0000033C  81 06 C5 07 00 80   ADD WORD [$07C5], $8000
   00000342  81 16 C3 07 FF FF   ADC WORD [$07C3], $FFFF
   00000349  0E                  PUSH CS
+
+
+; ============================================================================
+; PART 4 — THE PERSPECTIVE PROJECTION (segment 07F7, the geometry heart).
+; Turns the view-space points (already rotated by the camera basis, PART 1)
+; into the screen-space vertices the 01A0 rasteriser consumes (PART 3). One
+; perspective divide per axis per vertex; DS=499D (renderer data), ES=3BDD:0659
+; (the vertex list). Projection constants live at 499D:26B0 — captured live:
+;   [26B0]=56 scaleY  [26B2]=86 scaleX  [26B4]=86 centreX  [26B6]=56 centreY
+;   => screenX = X*86/Z + 86 ; screenY = Y*56/Z + 56  (a 172x112 viewport,
+;      centred at 86,56 — the size of the dungeon 3D view).
+; Source point (at DS:[0307], stepped to [0305]): X +0, Y +2, Z +4, U +8, V +A.
+; Dest vertex (3BDD:0659, 14 bytes): screenX +0, screenY +2, U +4, V +6,
+;   raw axis +8 (scratch), +A, Z +C. At 6129 it arms its OWN #DE handler
+;   ([SS:04D5]=692C) so a near-zero Z saturates instead of trapping.
+; ============================================================================
+
+  00006129  C7 06 D5 04 2C 69   MOV WORD [SS:$04D5], $692C   ; arm this routine's #DE handler
+  00006148  56                  PUSH SI
+  00006149  06                  PUSH ES
+  0000614A  B8 DD 3B            MOV AX, $3BDD
+  0000614D  8E C0               MOV ES, AX
+  0000614F  BF 59 06            MOV DI, $0659
+  00006152  8B 36 07 03         MOV SI, [$0307]
+  00006156  33 C9               XOR CX, CX
+  00006158  8B 6C 04            MOV BP, [SI+$4]
+  0000615B  26 89 6D 0C         MOV [ES:DI+$C], BP
+  0000615F  AD                  LODSW
+  00006160  26 89 45 08         MOV [ES:DI+$8], AX
+  00006164  F7 2E B2 26         IMUL WORD [$26B2]
+  00006168  F7 FD               IDIV BP
+  0000616A  03 06 B4 26         ADD AX, [$26B4]
+  0000616E  AB                  STOSW
+  0000616F  AD                  LODSW
+  00006170  26 89 45 08         MOV [ES:DI+$8], AX
+  00006174  F7 2E B0 26         IMUL WORD [$26B0]
+  00006178  F7 FD               IDIV BP
+  0000617A  03 06 B6 26         ADD AX, [$26B6]
+  0000617E  AB                  STOSW
+  0000617F  83 C6 04            ADD SI, $0004
+  00006182  A5                  MOVSW
+  00006183  A5                  MOVSW
+  00006184  83 C7 06            ADD DI, $0006
+  00006187  41                  INC CX
+  00006188  3B 36 05 03         CMP SI, [$0305]

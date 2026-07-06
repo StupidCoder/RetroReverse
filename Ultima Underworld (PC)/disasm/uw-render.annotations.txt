@@ -152,23 +152,63 @@ segment). Found by profiling writes to the span inputs and then to the deltas.
     v  per pixel
   01A0:02CE  the texture span (§5) — MOVSB a texel, step the coord, LOOP.
 
-So a wall/floor is drawn as: project vertices (07F7, TBD) -> compute the constant
+So a wall/floor is drawn as: project vertices (07F7, §7) -> compute the constant
 edge and texture slopes and patch them into 01A0:0312 -> that steps down the
 polygon calling 01A0:0296 per scanline -> which patches and runs 01A0:02CE per
 pixel. Two levels of self-modifying affine DDA, no per-pixel divide (the only
 divides are the two per-span gradient IDIVs at 01A0:029E/02AC).
 
 ----------------------------------------------------------------------------
+7. The perspective projection — the geometry heart (07F7, uw-render.asm PART 4)
+----------------------------------------------------------------------------
+
+07F7:6148 turns view-space points (already rotated out of world space by the
+camera basis, §1-2) into the screen-space vertices the 01A0 rasteriser (§6)
+consumes. The classic pinhole projection, one divide-by-Z per axis:
+
+  SI = [0307] -> the view-space point list (stepped to [0305]); ES:DI = 3BDD:0659
+  BP = [SI+4] = Z (view-space depth)
+  screenX = (X * [26B2] scaleX) / Z + [26B4] centreX      ; STOSW -> vertex +0
+  screenY = (Y * [26B0] scaleY) / Z + [26B6] centreY      ; STOSW -> vertex +2
+  U,V copied through (MOVSW MOVSW) -> vertex +4/+6 ; Z stashed at vertex +C
+
+Projection constants captured live at 499D:26B0: scaleY=56, scaleX=86,
+centreX=86, centreY=56 => screenX = X*86/Z + 86, screenY = Y*56/Z + 56 — a
+172x112 viewport centred at (86,56), i.e. the size of the dungeon 3D view.
+
+Like the basis normalisation (§2), it arms its OWN #DE handler at 6129
+([SS:04D5]=07F7:692C) so a near-zero Z (a point at/behind the eye) makes the
+IDIV overflow and saturate instead of trapping — the same interrupt-vector
+trick, a second handler for the projection's divides.
+
+Source point layout (14 bytes at DS:[0307]): X +0, Y +2, Z +4, U +8, V +A.
+Dest vertex layout (14 bytes at 3BDD:0659): screenX +0, screenY +2, U +4, V +6,
+raw axis +8 (scratch), +A, Z +C.
+
+--- The pipeline, end to end -----------------------------------------------
+  world point
+    -> camera basis (§1-2, 07F7:4B90 orthonormalised view matrix @ 499D:1600)
+    -> view-space point
+    -> PERSPECTIVE PROJECTION (§7, 07F7:6148: screen = axis*scale/Z + centre)
+    -> screen vertex @ 3BDD:0659
+    -> polygon edge setup (01A0:0060: edge/texture slopes via IDIV, patched)
+    -> vertical edge DDA (§6, 01A0:0312)
+    -> horizontal span DDA (§6, 01A0:0296)
+    -> texture span (§5, 01A0:02CE: MOVSB texels into the 41C5 chunky buffer)
+    -> chunky->planar Mode X blit (§5, 01A0:0B96 -> A000)
+    -> pixels
+
+----------------------------------------------------------------------------
 Open (next steps for Part V)
 ----------------------------------------------------------------------------
 
+- What builds the VIEW-SPACE point list at [0307] from the world: where the tile
+  map / wall geometry is walked and each corner is multiplied by the camera basis
+  (§1) into view space (the step just before §7). This is the last untraced link
+  between the level data (LEV.ARK) and the projection.
 - The per-frame render ENTRY: 2252:0410 is the IRQ0 timer ISR — a 16-slot
   software-timer table firing `CALLF [CS:SI+4]` callbacks; identify which
   callback (or main-loop path) drives the frame draw into 41C5.
-- The perspective projection (in the 07F7 overlay) that turns the normalised
-  basis (§2) into polygon SCREEN VERTICES + texture coordinates, and computes the
-  constant edge/texture slopes patched into 01A0:0312 (§6). This is the geometry
-  heart; the 01A0 rasteriser it feeds is now mapped end to end.
 - The 1FF9 overlay's buffer writes — likely object/billboard sprites.
 - The 01A0 display-list command set (the jump table at DS/SS:095E) and the other
   hot primitives (01A0:0F72, 0836, 1067).

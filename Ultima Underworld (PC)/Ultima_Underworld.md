@@ -576,16 +576,43 @@ polygon → patch and run each span. The state (edge X, texture endpoints, scanl
 the graphics-driver data segment `3BDD` at `[07B7..07CF]`. Full disassembly in `disasm/uw-render.asm`
 (PART 2 = span + blit, PART 3 = the two DDAs) with commentary in `uw-render.annotations.txt` (§5–6).
 
-## 5. Still open
+## 5. The perspective projection — the geometry heart
 
-The `01A0` rasteriser is now mapped end to end. What remains is the **geometry heart** in the `07F7`
-overlay: the perspective projection that turns the normalised view basis (§1) into polygon screen
-vertices and texture coordinates, and computes the constant edge/texture slopes patched into
-`01A0:0312`. Then the render *entry* (`2252:0410` turned out to be the IRQ0 timer ISR — a 16-slot
-software-timer table firing `CALLF` callbacks — so the frame draw is one of those callbacks), the
-`1FF9` sprite path, the `01A0` display-list command set, and the `214A:0A34` interpolator. The
-peripheral-panel noise in `rendered/dungeon.png` should resolve as the HUD draw path (a separate
-consumer of `01A0`) is mapped.
+Climbing once more (profile who writes the *screen vertices* the polygon setup reads) lands in the
+`07F7` overlay at `6148`: the **perspective projection**. It turns each view-space point (already
+rotated out of world space by the camera basis, §1) into a screen vertex, with one divide-by-Z per
+axis — the textbook pinhole projection:
+
+    screenX = X · scaleX / Z + centreX          screenY = Y · scaleY / Z + centreY
+
+The constants, read live at `499D:26B0`, are `scaleX = centreX = 86` and `scaleY = centreY = 56`, so
+the view spans `[0,172] × [0,112]` centred at `(86,56)` — exactly the dungeon 3D viewport. Texture
+coordinates are copied straight through; Z is stashed in the vertex for the rasteriser. And like the
+basis normalisation (§1), the projection **arms its own `#DE` handler** (`[SS:04D5] = 07F7:692C`) so
+a point at or behind the eye (`Z ≈ 0`) saturates instead of trapping — the same interrupt-vector
+trick, a second handler for the projection's divides.
+
+That closes the loop. The whole first-person renderer, world to pixels:
+
+    world point
+      → camera basis  (§1, orthonormalised view matrix @ 499D:1600)  → view-space point
+      → perspective projection  (07F7:6148: screen = axis·scale/Z + centre)  → screen vertex
+      → polygon edge setup  (01A0:0060: edge & texture slopes via IDIV, patched)
+      → vertical edge DDA  (§4, 01A0:0312)  → horizontal span DDA  (§4, 01A0:0296)
+      → texture span  (§3, 01A0:02CE: texels into the 41C5 chunky buffer)
+      → chunky→planar Mode X blit  (§3, 01A0:0B96)  → A000  → pixels
+
+Full disassembly in `disasm/uw-render.asm` (PART 4 = the projection) with commentary in
+`uw-render.annotations.txt` (§7).
+
+## 6. Still open
+
+The renderer is now mapped world-to-pixels. The remaining links are on the *data* side: what walks
+the level's tile/wall geometry and multiplies each corner by the camera basis to build the
+view-space point list at `[0307]` (the bridge from `LEV.ARK` to §5), the `1FF9` object/sprite path,
+and the `01A0` display-list command set. The render *entry* is a callback of the `2252:0410` IRQ0
+timer table. The peripheral-panel noise in `rendered/dungeon.png` should resolve as the HUD draw
+path (a separate consumer of `01A0`) is mapped.
 
 # Part VI — Audio and cutscenes (planned)
 
