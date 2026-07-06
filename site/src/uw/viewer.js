@@ -9,7 +9,7 @@
 
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
-import { FlyCam } from '../shared/flycam.js';
+import { FlyCam, flyHint } from '../shared/flycam.js';
 
 const LEVELS = 'public/uw/';
 
@@ -105,12 +105,16 @@ export class LevelViewer {
     controls.target.set(0, 0, 0);
     controls.update();
 
+    // Levels are explored with free-flight controls (WASD/arrows, or the touch
+    // sticks), not the orbit camera used for single objects.
+    controls.autoRotate = false;
+    this.fly.setScale(r);
+    this.fly.setEnabled(true);
+
     if (this.hud?.detail) {
-      this.hud.detail(`${(data.positions.length / 9) | 0} triangles · ${data.textures.length} textures`);
+      this.hud.detail(`${(data.positions.length / 9) | 0} triangles · ${data.textures.length} textures · ${flyHint}`);
     }
   }
-
-  setActive(on) { this.active = on; }
 
   _dispose() {
     const g = this.three.group;
