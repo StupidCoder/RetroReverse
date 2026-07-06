@@ -90,15 +90,52 @@ c.instrIP in tools/x86/exec.go, and the harte harness note that skips the
 divide-exception cases as a documented 8086-vs-286 difference.
 
 ----------------------------------------------------------------------------
+5. The rasterisation pipeline (uw-render.asm PART 2)
+----------------------------------------------------------------------------
+
+Found by profiling framebuffer and buffer writes in the dungeon
+(`bootoracle -vgaprof N` tallies the code addresses that write A000;
+`-profrange SEG:OFF:LEN` retargets the tally at any buffer). The pipeline:
+
+  3D overlay 07F7  ---draws--->  chunky off-screen buffer at 41C5 (1 byte/pixel)
+  01A0 primitives  ---draws--->  (same buffer)
+  01A0:0B96 blit   ---copies-->  A000 (deinterleaved into the 4 Mode X planes)
+
+- **The off-screen buffer is at segment 41C5** — a chunky (linear, 1 byte per
+  pixel) frame the whole scene is drawn into, so nothing touches planar VGA until
+  the final blit. Captured live: blit source DS:SI = 41C5:xxxx, dest ES:DI =
+  A000:xxxx.
+
+- **Hottest buffer writers** (per-frame, from the -profrange 41C5 tally):
+  01A0:0A5A (span fill, ~1.67M), 01A0:02EA (texture span, ~1.0M), 01A0:0F72,
+  01A0:0836, 01A0:1067/1076, then 07F7:* (the 3D overlay writing directly) and
+  1FF9:* (a further overlay — objects/sprites, not yet mapped).
+
+- **01A0:02CE — texture-mapped span** (uw-render.asm): steps a fixed-point
+  texture coordinate across CX pixels, one MOVSB texel each. The gradient step is
+  SELF-MODIFYING — the `ADD BP,$0000 / ADC AX,$0000` immediates at 02EE/02F2 are
+  patched per span. Textures are 32 texels wide (`SI = (V & 0x3E0) + U`).
+
+- **01A0:0A58 — flat span fill** (`REP STOSW`); **01A0:0A5C — a display-list
+  interpreter** that `LODSW`s command words and dispatches through a jump table
+  at [SS:BX+95E]; **01A0:0B96 — the chunky->planar Mode X blit** (§ above and in
+  uw-render.asm): 4 passes, one per plane, each setting the sequencer map-mask
+  and running an unrolled `MOVSB; ADD SI,3` deinterleave, using a per-scanline
+  source-offset table at [95E]; 80 bytes per Mode X scanline.
+
+The new oracle feature used here, `-vgaprof` / `-profrange`, lives in tools/dos
+(Machine.VGAProfileAt / ProfLo / ProfHi, VGAProfile()).
+
+----------------------------------------------------------------------------
 Open (next steps for Part V)
 ----------------------------------------------------------------------------
 
-- The per-frame render entry called from the main loop (2252:0410) — the top of
-  "draw the 3D view".
-- The perspective projection that consumes the normalised basis (§2) to map
-  world points to screen columns/rows.
-- The wall/floor/ceiling span rasteriser and the texture mapper (likely another
-  fixed-point divide per span — a candidate for the same #DE-saturation trick).
-- Object/billboard sprite drawing.
-- The off-screen buffer -> A000 blit (a memory copy loop was seen at 231D:0070).
+- The per-frame render ENTRY: 2252:0410 is the IRQ0 timer ISR — a 16-slot
+  software-timer table firing `CALLF [CS:SI+4]` callbacks; identify which
+  callback (or main-loop path) drives the frame draw into 41C5.
+- The perspective projection that turns the normalised basis (§2) into the
+  per-span texture coordinates and gradients patched into 01A0:02CE.
+- The 1FF9 overlay's buffer writes — likely object/billboard sprites.
+- The 01A0 display-list command set (the jump table at DS/SS:095E) and the other
+  hot primitives (01A0:0F72, 0836, 1067).
 - Confirm the 214A:0A34 table interpolation's use and table contents.

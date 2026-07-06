@@ -526,13 +526,45 @@ target), it now pushes the faulting address (`divErr` + `CPU.instrIP` in `tools/
 difference (the same class as the already-skipped `PUSHF` reserved bits). The `SingleStepTests/8088`
 suite still passes.
 
-## 3. Still open
+## 3. The rasterisation pipeline
 
-The per-frame render entry (from the main loop `2252:0410`), the perspective projection, the
-wall/floor/texture span rasteriser and its texture mapper, object/billboard sprites, and the
-off-screen-buffer → `A000` blit (a copy loop was seen at `231D:0070`). These are the next targets;
-the peripheral-panel noise in `rendered/dungeon.png` is expected to resolve as the UI/HUD draw path
-is mapped.
+Where the view transform (§1) was found by breakpointing the perspective divide, the *pixel* code
+was found by **profiling writes** — a new oracle feature (`bootoracle -vgaprof N` tallies the code
+addresses that write the `A000` framebuffer once past instruction *N*; `-profrange SEG:OFF:LEN`
+retargets the tally at any buffer). In the dungeon the framebuffer writes all come from one place —
+segment `01A0`, offsets `0BED..0C95`, ~40 unrolled addresses each writing an identical count: an
+unrolled **blit**, not the rasteriser. It reads from an off-screen buffer at segment **`41C5`**, so
+that is where the scene is actually drawn. Re-profiling *that* buffer gives the pipeline:
+
+    3D overlay 07F7  ─draws→  chunky off-screen buffer @ 41C5 (1 byte/pixel)
+    01A0 primitives  ─draws→  (same buffer)
+    01A0:0B96 blit   ─copies→ A000  (deinterleaved into the 4 Mode X planes)
+
+- **The frame is drawn chunky, then blitted.** Everything renders into a linear 1-byte-per-pixel
+  buffer at `41C5`; nothing touches planar VGA until `01A0:0B96` — the **chunky→planar Mode X blit**
+  — copies it out in four passes (one per plane, setting the sequencer map-mask, an unrolled
+  `MOVSB; ADD SI,3` deinterleave, 80 bytes per scanline). This is exactly why the naïve pre-planar
+  screenshots showed four copies.
+- **The texture mapper** is `01A0:02CE`: it walks a span copying one texel per pixel while stepping
+  a fixed-point texture coordinate whose gradient is **self-modifying code** (the `ADD BP,imm /
+  ADC AX,imm` immediates are patched per span). Textures are 32 texels wide (`SI = (V&0x3E0)+U`).
+  Alongside it are a flat span fill (`01A0:0A58`, `REP STOSW`) and a `LODSW`-driven display-list
+  interpreter (`01A0:0A5C`) that dispatches the primitives through a jump table.
+
+So `01A0` is the resident **software rasteriser** (texture spans, fills, blit); `07F7` is the 3D
+geometry overlay that drives it (and writes the buffer directly too); a further overlay `1FF9`
+contributes buffer writes not yet mapped. Full disassembly + commentary in `disasm/uw-render.asm`
+(PART 2) and `uw-render.annotations.txt` (§5).
+
+## 4. Still open
+
+The per-frame render **entry**: `2252:0410` turned out to be the IRQ0 timer ISR — a 16-slot
+software-timer table firing `CALLF [CS:SI+4]` callbacks — so the frame draw is one of those
+callbacks (or a main-loop path) still to be pinned. Then the perspective projection that produces
+the per-span texture coordinates/gradients, the `1FF9` sprite path, the `01A0` display-list command
+set, and confirming the `214A:0A34` interpolator. The peripheral-panel noise in
+`rendered/dungeon.png` should resolve as the HUD draw path (a separate consumer of `01A0`) is
+mapped.
 
 # Part VI — Audio and cutscenes (planned)
 

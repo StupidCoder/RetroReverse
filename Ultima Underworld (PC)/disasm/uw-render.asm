@@ -385,3 +385,89 @@
   00005BE8  2E FF 06 CF 5B      INC WORD [CS:$5BCF]
   00005BED  CF                  IRET
   00005BEE  2E                  .byte $2E
+
+
+; ============================================================================
+; PART 2 — the rasterisation pipeline (segment 01A0, the resident graphics
+; engine) and the off-screen buffer. Found by profiling framebuffer + buffer
+; writes in the dungeon (bootoracle -vgaprof / -profrange): the 3D overlay 07F7
+; and the primitives below all draw into a CHUNKY off-screen buffer at 41C5
+; (one byte per pixel), which the Mode X blit then deinterleaves into A000.
+; ============================================================================
+
+; ==== 01A0:02CE — perspective/affine texture-mapped span ====================
+; Walks CX pixels of one span, stepping a fixed-point texture coordinate and
+; copying a texel per pixel into the chunky buffer. The step is self-modifying
+; (the $0000 immediates at 02EE/02F2 are patched per span with the gradient).
+; Texture is 32 texels wide: SI = (V & 0x3E0) + U, with V in the coord high word
+; and U in DH. [07AF]=texture segment, [07BB/07BD]=coord, ES:DI=buffer.
+  000002CE  A1 BD 07            MOV AX, [$07BD]
+  000002D1  8B 16 BB 07         MOV DX, [$07BB]
+  000002D5  33 DB               XOR BX, BX
+  000002D7  8B 2E C1 07         MOV BP, [$07C1]
+  000002DB  8E 1E AF 07         MOV DS, [$07AF]
+  000002DF  8B F0               MOV SI, AX
+  000002E1  81 E6 E0 03         AND SI, $03E0
+  000002E5  8A DE               MOV BL, DH
+  000002E7  03 F3               ADD SI, BX
+  000002E9  A4                  MOVSB
+  000002EA  81 C2 3B 01         ADD DX, $013B
+  000002EE  81 C5 00 00         ADD BP, $0000
+  000002F2  15 00 00            ADC AX, $0000
+  000002F5  E2 E8               LOOP $000002DF
+  000002F7  36 8E 1E D4 07      MOV DS, [SS:$07D4]
+  000002FC  FF 0E CF 07         DEC WORD [$07CF]
+  00000300  81 06 BF 07 00 00   ADD WORD [$07BF], $0000
+  00000306  81 16 BB 07 00 00   ADC WORD [$07BB], $0000
+  0000030D  06                  PUSH ES
+
+; ==== 01A0:0B96 — chunky -> planar (Mode X) blit to A000 =====================
+; For each scanline group: for each of the 4 planes, set the sequencer map-mask
+; (OUT DX,AL with 01/02/04/08) and CALL 0BEC — an unrolled `MOVSB; ADD SI,3`
+; that reads every 4th source byte (plane P reads buffer[base+P], +4, +8, ...).
+; [BP+95E] is a per-scanline source-offset table; dest advances 0x50 (80) bytes
+; per Mode X scanline. (0A58 REP STOSW is the flat span-fill primitive; 0A5C is
+; a LODSW-driven display-list command interpreter that dispatches these.)
+  00000B96  D1 E5               SHL BP, 1
+  00000B98  8B 8E 5E 09         MOV CX, [BP+$95E]
+  00000B9C  B0 08               MOV AL, $08
+  00000B9E  EE                  OUT DX, AL
+  00000B9F  8B FB               MOV DI, BX
+  00000BA1  BE 03 00            MOV SI, $0003
+  00000BA4  03 F1               ADD SI, CX
+  00000BA6  E8 43 00            CALL $00000BEC
+  00000BA9  B0 02               MOV AL, $02
+  00000BAB  EE                  OUT DX, AL
+  00000BAC  8B FB               MOV DI, BX
+  00000BAE  BE 01 00            MOV SI, $0001
+  00000BB1  03 F1               ADD SI, CX
+  00000BB3  E8 36 00            CALL $00000BEC
+  00000BB6  B0 04               MOV AL, $04
+  00000BB8  EE                  OUT DX, AL
+  00000BB9  8B FB               MOV DI, BX
+  00000BBB  BE 02 00            MOV SI, $0002
+  00000BBE  03 F1               ADD SI, CX
+  00000BC0  E8 29 00            CALL $00000BEC
+  00000BC3  B0 01               MOV AL, $01
+  00000BC5  EE                  OUT DX, AL
+  00000BC6  8B FB               MOV DI, BX
+  00000BC8  8B F1               MOV SI, CX
+  00000BCA  E8 1F 00            CALL $00000BEC
+  00000BCD  83 C3 50            ADD BX, $0050
+  00000BD0  D1 ED               SHR BP, 1
+  00000BD2  4D                  DEC BP
+  00000BD3  36 3B 2E F8 3D      CMP BP, [SS:$3DF8]
+  00000BD8  7F BC               JG $00000B96
+  00000BDA  FA                  CLI
+  00000BDB  2E 8E 16 08 0B      MOV SS, [CS:$0B08]
+  00000BE0  2E 8B 26 0A 0B      MOV SP, [CS:$0B0A]
+  00000BE5  FB                  STI
+  00000BE6  5F                  POP DI
+  00000BE7  5E                  POP SI
+  00000BE8  1F                  POP DS
+  00000BE9  07                  POP ES
+  00000BEA  5D                  POP BP
+  00000BEB  CB                  RETF
+  00000BEC  A4                  MOVSB
+  00000BED  83 C6 03            ADD SI, $0003
+  00000BF0  A4                  MOVSB

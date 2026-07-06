@@ -69,6 +69,10 @@ type Machine struct {
 	WatchAddr    uint32         // if WatchLen>0, log writes to [WatchAddr, WatchAddr+WatchLen) (debugging)
 	WatchLen     uint32
 	watchHits    int
+	VGAProfileAt uint64 // if >0, tally code addrs writing to [ProfLo,ProfHi) once Steps >= this
+	ProfLo       uint32 // profiled linear write range (default: the A000 window)
+	ProfHi       uint32
+	vgaProfile   map[uint32]int // CS<<16|IP -> write count into the profiled range (renderer hunting)
 	Terminated   bool
 	ExitCode     byte
 }
@@ -157,11 +161,42 @@ func (m *Machine) Write(a uint32, v byte) {
 			m.logf("WATCH: write $%02X to %05X at %04X:%04X", v, a, m.CPU.Seg[1], m.CPU.IP)
 		}
 	}
+	if m.VGAProfileAt > 0 && m.CPU != nil && m.CPU.Steps >= m.VGAProfileAt {
+		lo, hi := m.ProfLo, m.ProfHi
+		if hi == 0 { // default: the VGA framebuffer window
+			lo, hi = 0xA0000, 0xB0000
+		}
+		if a >= lo && a < hi {
+			if m.vgaProfile == nil {
+				m.vgaProfile = map[uint32]int{}
+			}
+			m.vgaProfile[uint32(m.CPU.Seg[1])<<16|(m.CPU.IP&0xFFFF)]++
+		}
+	}
 	if a >= 0xA0000 && a < 0xB0000 {
 		m.vgaWrite(a, v) // planar VGA window (see dos_vga.go)
 		return
 	}
 	m.Mem[a] = v
+}
+
+// VGAProfile returns the code addresses that wrote to the profiled range (the
+// A000 framebuffer by default, or [ProfLo,ProfHi) if set) since VGAProfileAt,
+// most-frequent first — the hot addresses are the pixel-writing inner loops
+// (the rasteriser primitives, or the off-screen→screen blit).
+func (m *Machine) VGAProfile() []VGAWriter {
+	out := make([]VGAWriter, 0, len(m.vgaProfile))
+	for pc, n := range m.vgaProfile {
+		out = append(out, VGAWriter{Seg: uint16(pc >> 16), Off: uint16(pc), Count: n})
+	}
+	sort.Slice(out, func(i, j int) bool { return out[i].Count > out[j].Count })
+	return out
+}
+
+// VGAWriter is one code address and how many A000 bytes it wrote.
+type VGAWriter struct {
+	Seg, Off uint16
+	Count    int
 }
 
 func (m *Machine) r16(lin uint32) uint16 { return binary.LittleEndian.Uint16(m.Mem[lin&0xFFFFF:]) }

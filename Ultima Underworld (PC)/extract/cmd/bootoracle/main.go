@@ -34,6 +34,8 @@ func main() {
 	watch := flag.String("watch", "", "log writes to SEG:OFF[:LEN] (hex)")
 	shot := flag.String("shot", "", "after the run, write the mode-13h screen (A000 + DAC palette) as PNG")
 	keys := flag.String("keys", "", "script keyboard input via IRQ1, e.g. \"down,down,enter,wait:40,enter\" (implies -irq)")
+	vgaprof := flag.Uint64("vgaprof", 0, "after this many instructions, tally code addrs writing to the profiled range; print the hottest on stop")
+	profrange := flag.String("profrange", "", "with -vgaprof, profile writes to SEG:OFF:LEN (hex) instead of the A000 framebuffer")
 	flag.Parse()
 
 	var bpSeg, bpOff uint32
@@ -51,6 +53,13 @@ func main() {
 	}
 	m.SeedDir("SAVE0") // UW aborts without a SAVE0 working dir (empty on first run)
 	m.EnableIRQ = *irq
+	m.VGAProfileAt = *vgaprof
+	if *profrange != "" {
+		var s, o, l uint32
+		fmt.Sscanf(*profrange, "%x:%x:%x", &s, &o, &l)
+		m.ProfLo = (s<<4 + o) & 0xFFFFF
+		m.ProfHi = m.ProfLo + l
+	}
 	if *keys != "" {
 		ev, err := dos.ParseKeys(*keys)
 		if err != nil {
@@ -162,6 +171,17 @@ func main() {
 		}
 	}
 	fmt.Println()
+
+	if *vgaprof > 0 {
+		prof := m.VGAProfile()
+		fmt.Printf("\n== A000 writers since step %d (hottest 20 of %d) ==\n", *vgaprof, len(prof))
+		for i, w := range prof {
+			if i >= 20 {
+				break
+			}
+			fmt.Printf("  %04X:%04X  %d writes\n", w.Seg, w.Off, w.Count)
+		}
+	}
 
 	if *shot != "" {
 		if err := m.Screenshot(*shot); err != nil {
