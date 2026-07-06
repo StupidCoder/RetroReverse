@@ -127,14 +127,48 @@ The new oracle feature used here, `-vgaprof` / `-profrange`, lives in tools/dos
 (Machine.VGAProfileAt / ProfLo / ProfHi, VGAProfile()).
 
 ----------------------------------------------------------------------------
+6. The affine textured-polygon rasteriser — two DDA levels (uw-render.asm PART 3)
+----------------------------------------------------------------------------
+
+The texture span (§5) is the innermost of a THREE-level affine rasteriser. All
+interpolation is linear; the per-step deltas are self-modifying immediates that
+each level's setup patches. State lives in DS = 3BDD (the graphics driver data
+segment). Found by profiling writes to the span inputs and then to the deltas.
+
+  01A0:0312  vertical edge/texture DDA — one iteration per scanline. Advances,
+             by constant per-polygon deltas: the left-edge X ([07B7 int]/[07B9
+             frac]) and right-edge X ([07C3]/[07C5]), and the span-endpoint
+             texture coords ([07C7 endU]/[07CB], [07C9 endV]/[07CD], start at
+             [07BB]/[07BD]). Loops until the scanline counter [07CF] passes the
+             polygon's last row (`CMP CX,$16`). The slope immediates (FF99, 8000,
+             FFFE, B334, ...) are patched per polygon by its setup.
+    |
+    v  per scanline
+  01A0:0296  horizontal texture DDA setup — CX = span length (endX-startX); the
+             U gradient (endU-startU)/CX and V gradient (endV-startV)/CX (integer
+             + 16.15 fractional) are IDIV'd out and patched into the span loop's
+             step immediates at [CS:02EC]/[CS:02F0]/[CS:02F3].
+    |
+    v  per pixel
+  01A0:02CE  the texture span (§5) — MOVSB a texel, step the coord, LOOP.
+
+So a wall/floor is drawn as: project vertices (07F7, TBD) -> compute the constant
+edge and texture slopes and patch them into 01A0:0312 -> that steps down the
+polygon calling 01A0:0296 per scanline -> which patches and runs 01A0:02CE per
+pixel. Two levels of self-modifying affine DDA, no per-pixel divide (the only
+divides are the two per-span gradient IDIVs at 01A0:029E/02AC).
+
+----------------------------------------------------------------------------
 Open (next steps for Part V)
 ----------------------------------------------------------------------------
 
 - The per-frame render ENTRY: 2252:0410 is the IRQ0 timer ISR — a 16-slot
   software-timer table firing `CALLF [CS:SI+4]` callbacks; identify which
   callback (or main-loop path) drives the frame draw into 41C5.
-- The perspective projection that turns the normalised basis (§2) into the
-  per-span texture coordinates and gradients patched into 01A0:02CE.
+- The perspective projection (in the 07F7 overlay) that turns the normalised
+  basis (§2) into polygon SCREEN VERTICES + texture coordinates, and computes the
+  constant edge/texture slopes patched into 01A0:0312 (§6). This is the geometry
+  heart; the 01A0 rasteriser it feeds is now mapped end to end.
 - The 1FF9 overlay's buffer writes — likely object/billboard sprites.
 - The 01A0 display-list command set (the jump table at DS/SS:095E) and the other
   hot primitives (01A0:0F72, 0836, 1067).

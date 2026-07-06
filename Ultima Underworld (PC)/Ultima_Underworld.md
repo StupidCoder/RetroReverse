@@ -553,18 +553,39 @@ that is where the scene is actually drawn. Re-profiling *that* buffer gives the 
 
 So `01A0` is the resident **software rasteriser** (texture spans, fills, blit); `07F7` is the 3D
 geometry overlay that drives it (and writes the buffer directly too); a further overlay `1FF9`
-contributes buffer writes not yet mapped. Full disassembly + commentary in `disasm/uw-render.asm`
-(PART 2) and `uw-render.annotations.txt` (§5).
+contributes buffer writes not yet mapped.
 
-## 4. Still open
+## 4. The two-level affine DDA
 
-The per-frame render **entry**: `2252:0410` turned out to be the IRQ0 timer ISR — a 16-slot
-software-timer table firing `CALLF [CS:SI+4]` callbacks — so the frame draw is one of those
-callbacks (or a main-loop path) still to be pinned. Then the perspective projection that produces
-the per-span texture coordinates/gradients, the `1FF9` sprite path, the `01A0` display-list command
-set, and confirming the `214A:0A34` interpolator. The peripheral-panel noise in
-`rendered/dungeon.png` should resolve as the HUD draw path (a separate consumer of `01A0`) is
-mapped.
+The texture span is the innermost of a **three-level affine rasteriser** — found by profiling the
+writers of the span's inputs, then the writers of *their* deltas. There is no per-pixel divide; the
+only divides are two per-span gradient `IDIV`s:
+
+    01A0:0312  vertical DDA   — per scanline: step the left/right edge X and the span-endpoint
+                               texture coords by constant per-polygon deltas; loop to the last row
+      ↓ per scanline
+    01A0:0296  horizontal DDA — CX = span length; IDIV out the U and V gradients (endU−startU)/CX,
+                               (endV−startV)/CX and patch them into the span's step immediates
+      ↓ per pixel
+    01A0:02CE  texture span   — MOVSB a texel, step the coordinate, LOOP
+
+Every level's per-step delta is a **self-modifying immediate** the level above patches — the edge
+slopes into `01A0:0312`, the span gradients into `01A0:02CE`. So drawing a textured wall is:
+project the vertices → compute the constant edge/texture slopes and patch them → step down the
+polygon → patch and run each span. The state (edge X, texture endpoints, scanline counter) lives in
+the graphics-driver data segment `3BDD` at `[07B7..07CF]`. Full disassembly in `disasm/uw-render.asm`
+(PART 2 = span + blit, PART 3 = the two DDAs) with commentary in `uw-render.annotations.txt` (§5–6).
+
+## 5. Still open
+
+The `01A0` rasteriser is now mapped end to end. What remains is the **geometry heart** in the `07F7`
+overlay: the perspective projection that turns the normalised view basis (§1) into polygon screen
+vertices and texture coordinates, and computes the constant edge/texture slopes patched into
+`01A0:0312`. Then the render *entry* (`2252:0410` turned out to be the IRQ0 timer ISR — a 16-slot
+software-timer table firing `CALLF` callbacks — so the frame draw is one of those callbacks), the
+`1FF9` sprite path, the `01A0` display-list command set, and the `214A:0A34` interpolator. The
+peripheral-panel noise in `rendered/dungeon.png` should resolve as the HUD draw path (a separate
+consumer of `01A0`) is mapped.
 
 # Part VI — Audio and cutscenes (planned)
 

@@ -471,3 +471,57 @@
   00000BEC  A4                  MOVSB
   00000BED  83 C6 03            ADD SI, $0003
   00000BF0  A4                  MOVSB
+
+
+; ============================================================================
+; PART 3 — the affine textured-polygon rasteriser (segment 01A0), the two DDA
+; levels that feed the texture span (PART 2). All interpolation is affine
+; (linear), with the per-step deltas held as SELF-MODIFYING immediates patched
+; by the polygon setup from the projected vertices (the projection itself is in
+; the 07F7 overlay, not yet mapped). Inputs/state live in DS=3BDD (the graphics
+; driver data segment): [07B7/07B9] left-edge X int/frac, [07C3/07C5] right-edge
+; X, [07BB/07BD] start tex U/V, [07C7..07CD] end tex U/V, [07CF] scanline.
+; ============================================================================
+
+; ==== 01A0:0296 — per-span horizontal texture DDA setup =====================
+; CX = span length (endX-startX); the U gradient (endU-startU)/CX and the V
+; gradient (endV-startV)/CX (split integer/fractional) are computed and PATCHED
+; into the span loop's step immediates at [CS:02EC]/[CS:02F0]/[CS:02F3].
+  00000296  A1 C7 07            MOV AX, [$07C7]
+  00000299  2B 06 BB 07         SUB AX, [$07BB]
+  0000029D  99                  CWD
+  0000029E  F7 F9               IDIV CX
+  000002A0  2E A3 EC 02         MOV [CS:$02EC], AX
+  000002A4  A1 C9 07            MOV AX, [$07C9]
+  000002A7  2B 06 BD 07         SUB AX, [$07BD]
+  000002AB  99                  CWD
+  000002AC  F7 F9               IDIV CX
+  000002AE  2E A3 F3 02         MOV [CS:$02F3], AX
+  000002B2  33 C0               XOR AX, AX
+  000002B4  D1 FA               SAR DX, 1
+  000002B6  D1 D8               RCR AX, 1
+  000002B8  F7 F9               IDIV CX
+  000002BA  99                  CWD
+  000002BB  D1 E0               SHL AX, 1
+  000002BD  D1 D2               RCL DX, 1
+  000002BF  2E A3 F0 02         MOV [CS:$02F0], AX
+  000002C3  2E 01 16 F3 02      ADD [CS:$02F3], DX
+  000002C8  41                  INC CX
+  000002C9  7F 03               JG $000002CE
+  000002CB  E9 D7 00            JMP $000003A5
+
+; ==== 01A0:0312 — per-scanline vertical edge/texture DDA ====================
+; Advances every polygon interpolant by a constant per-scanline delta: the left
+; and right edge X, and the span-endpoint texture coordinates, then loops until
+; the scanline counter [07CF] passes the polygon's last row. The FF99/8000/FFFE/
+; B334... immediates are the constant slopes, patched per polygon by its setup.
+  00000312  81 16 BD 07 99 FF   ADC WORD [$07BD], $FF99
+  00000318  81 06 B9 07 00 80   ADD WORD [$07B9], $8000
+  0000031E  81 16 B7 07 FE FF   ADC WORD [$07B7], $FFFE
+  00000324  81 06 CB 07 00 00   ADD WORD [$07CB], $0000
+  0000032A  81 16 C7 07 00 00   ADC WORD [$07C7], $0000
+  00000330  81 06 CD 07 34 B3   ADD WORD [$07CD], $B334
+  00000336  81 16 C9 07 99 FF   ADC WORD [$07C9], $FF99
+  0000033C  81 06 C5 07 00 80   ADD WORD [$07C5], $8000
+  00000342  81 16 C3 07 FF FF   ADC WORD [$07C3], $FFFF
+  00000349  0E                  PUSH CS
