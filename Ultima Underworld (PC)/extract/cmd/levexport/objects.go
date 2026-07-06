@@ -34,6 +34,20 @@ import (
 // UW.EXE; -1 entries have no model. Verified equal to live memory.
 const modelTableFileOff = 0x5F85C
 
+// modelFlagsFileOff is the per-model render-flags table (DGROUP:04F4, stride 4,
+// byte0 = flags) in UW.EXE. Bit 0x20 = "texture the model's faces with the
+// tile's WALL texture" (the emit function 2DFE:05E0 reads it into DI and, when
+// set, binds arg wallTex+0x3A). Bit 0x08 = ceiling-adaptive (env vector).
+// So the stone doorframe (model 1, flags 0x21) is wall-textured while the
+// wooden leaf (model 14, flags 0x11) keeps its own DOORS.GR image.
+const modelFlagsFileOff = 0x5F7E4
+
+// modelWallTextured reports whether model n's faces take the tile wall texture.
+func modelWallTextured(exe []byte, n int) bool {
+	off := modelFlagsFileOff + n*4
+	return off < len(exe) && exe[off]&0x20 != 0
+}
+
 const modelUnitsPerTile = 256.0
 
 // Door-family variants (item id & 0xF): 0-5 are the six leveled door types,
@@ -45,13 +59,19 @@ const (
 	openLeafModel   = 15
 )
 
-// flat-poly colours: the VM shades these through a light-banked table
-// (CS:696E); the viewer approximates with fixed wood/metal tones per shade
-// base until that table is extracted.
+// flat-poly colours. A flat face's opcode (0xBC) carries a shade LEVEL (0,1,2…);
+// the VM resolves the final palette index through a runtime-built light table
+// (CS:696E, generated from the palette — not in the EXE) as
+// shadeTable[level+light][baseColor], where baseColor is the object's poked
+// [2920] value. For the wooden door (baseColor 236) that walks the palette's
+// brown ramp pal[235..238] = the real torch-lit door shades below (higher level
+// = darker face). Objects with a different material poke a different baseColor;
+// static export uses this wood ramp as the common case (metals get an explicit
+// colour, e.g. the portcullis).
 var polyShades = map[uint16]color.RGBA{
-	0: {58, 34, 20, 255},
-	1: {96, 58, 32, 255},
-	2: {130, 82, 44, 255},
+	0: {88, 52, 12, 255}, // pal[235] — brightest face
+	1: {72, 40, 12, 255}, // pal[236] — [2920] base for the door
+	2: {60, 36, 12, 255}, // pal[237] — darker face
 }
 
 type objMaterials struct {
@@ -168,11 +188,13 @@ func appendObjects(o *outMesh, grid *lev.Grid, block []byte, exeBytes []byte,
 				height: float32(fineH), heading: obj.Heading, texMat: texMat,
 			}
 			if snap {
-				// Doors fill their doorway: the frame spans a full tile
-				// (-112..+144 model units: opening -48..+80 with 64-unit jambs),
-				// so anchor it on the tile edge along the leaf axis. (The game's
-				// door path applies its own anchor adjustment; this reproduces
-				// the visible result.)
+				// Doors CENTRE in their doorway tile, not at the object's stored
+				// fine offset: the level-0 door is stored at fine (5,3) but the
+				// game renders it filling the tile (placing it at the raw fine
+				// position leaves it off-centre with a jamb poking out — verified
+				// by rendering both). The frame spans a full tile (-112..+144
+				// model units: opening -48..+80 with 64-unit jambs), so we anchor
+				// it on the tile edge along the leaf axis.
 				sin, cos := headingSinCos(pm.heading)
 				lo := float32(-112) / modelUnitsPerTile
 				if cos > 0.5 || cos < -0.5 { // leaf axis = world X
@@ -190,32 +212,50 @@ func appendObjects(o *outMesh, grid *lev.Grid, block []byte, exeBytes []byte,
 			placed = append(placed, pm)
 		}
 
-		if low6 < 0x10 { // door family: frame + leaf
+		wallIdx := grid.At(obj.TileX, obj.TileY).WallTex
+
+		// modelTex picks a model's textured-face material the way the emitter
+		// does: wall-flagged models take the tile wall texture; a wooden door
+		// leaf takes its DOORS.GR image; the portcullis is iron; anything else
+		// leaves its faces to the flat-shade colours (texMat -1).
+		modelTex := func(n, doorImg int) int {
+			switch {
+			case modelWallTextured(exeBytes, n):
+				return mats.wallMat(wallIdx)
+			case n == portcullisModel:
+				return mats.colorMat(color.RGBA{70, 70, 78, 255}) // iron grate
+			case doorImg >= 0:
+				return mats.doorMat(doorImg)
+			}
+			return -1
+		}
+
+		if low6 < 0x10 { // door family: stone frame + leaf
 			variant := low6 & 7
-			leaf, texMat := doorLeafModel, -1
+			leaf, doorImg := doorLeafModel, -1
 			switch {
 			case variant == 6:
 				leaf = portcullisModel
-				texMat = mats.colorMat(color.RGBA{70, 70, 78, 255}) // iron grate
-			case variant == 7: // secret door: rendered with the tile's wall texture
-				texMat = mats.wallMat(grid.At(obj.TileX, obj.TileY).WallTex)
+			case variant == 7: // secret door — leaf reads as the surrounding wall
 			default:
-				texMat = mats.doorMat(int(tm.DoorTexture(uint8(variant))))
+				doorImg = int(tm.DoorTexture(uint8(variant)))
 			}
 			if low6 >= 8 { // standing open
 				leaf = openLeafModel
 			}
-			place(doorFrameModel, texMat, true)
-			place(leaf, texMat, true)
+			place(doorFrameModel, modelTex(doorFrameModel, -1), true) // model 1 -> wall
+			leafMat := modelTex(leaf, doorImg)
+			if variant == 7 { // secret door leaf: force the wall texture
+				leafMat = mats.wallMat(wallIdx)
+			}
+			place(leaf, leafMat, true)
 			continue
 		}
 		mn := itemModel[low6-0x10]
 		if mn < 0 {
 			continue
 		}
-		// Non-door models bind the tile's wall texture for their textured faces
-		// (the emitter passes wallTex+0x3A); flat faces use their shade colour.
-		place(int(mn), mats.wallMat(grid.At(obj.TileX, obj.TileY).WallTex), false)
+		place(int(mn), modelTex(int(mn), -1), false)
 	}
 
 	for _, pm := range placed {
