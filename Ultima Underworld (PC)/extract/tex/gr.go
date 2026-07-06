@@ -120,13 +120,26 @@ func decodeFormat8(frame []byte, w, h int) []byte {
 	if len(nibs) > ncount {
 		nibs = nibs[:ncount]
 	}
-	out := make([]byte, 0, w*h)
+	return rleExpand(nibs, w*h)
+}
+
+// RLEExpand exposes rleExpand for the crit package (format-6 creature frames).
+func RLEExpand(codes []byte, n int) []byte { return rleExpand(codes, n) }
+
+// rleExpand runs UW's run/dump RLE (07F7:018D) over a stream of already-unpacked
+// codes, producing exactly n output codes. It is shared by format 8 (4-bit
+// codes, OBJECTS.GR) and format 6 (5-bit codes, the CRIT creature frames): each
+// op is a RUN (repeat one code) then a DUMP (literal codes); a run byte of 2
+// switches to a counted "run-only" mode; 0/1 select extended run encodings; a
+// count of 0 escapes to a wider count.
+func rleExpand(codes []byte, n int) []byte {
+	out := make([]byte, 0, n)
 	si := 0
 	rd := func() int {
-		if si >= len(nibs) {
+		if si >= len(codes) {
 			return 0
 		}
-		v := nibs[si]
+		v := codes[si]
 		si++
 		return int(v)
 	}
@@ -161,7 +174,7 @@ func decodeFormat8(frame []byte, w, h int) []byte {
 					c = rd()<<12 | rd()<<8 | rd()<<4 | rd()
 				}
 			}
-			for k := 0; k < c && len(out) < w*h; k++ {
+			for k := 0; k < c && len(out) < n; k++ {
 				op(false)
 			}
 			dump()
@@ -184,11 +197,11 @@ func decodeFormat8(frame []byte, w, h int) []byte {
 			dump()
 		}
 	}
-	for si < len(nibs) && len(out) < w*h {
+	for si < len(codes) && len(out) < n {
 		op(true)
 	}
-	for len(out) < w*h {
+	for len(out) < n {
 		out = append(out, 0)
 	}
-	return out[:w*h]
+	return out[:n]
 }

@@ -25,7 +25,10 @@ import (
 	"image"
 	"image/color"
 	"math"
+	"os"
+	"path/filepath"
 
+	"ultimaunderworld/extract/crit"
 	"ultimaunderworld/extract/lev"
 	"ultimaunderworld/extract/model"
 	"ultimaunderworld/extract/tex"
@@ -148,39 +151,65 @@ type placedModel struct {
 // half a tile — a reasonable size for floor items and creatures.
 const spriteWorldPerTexel = 1.0 / 32
 
-// appendBillboards emits the level's class-0/1 objects as camera-facing sprites
-// (OBJECTS.GR frame [item_id]). The base of each sprite sits on the object's
-// floor position.
+// appendBillboards emits the level's class-0/1 objects as camera-facing sprites.
+// Items (class 0/1 non-creature) use OBJECTS.GR frame [item_id]; CREATURES
+// (class-1 mobile objects, item 64-127) use their CRIT/CR<octal>PAGE.N01 sprite.
+// The base of each sprite sits on the object's floor position.
 func appendBillboards(o *outMesh, grid *lev.Grid, block []byte, comObj *lev.ComObj,
-	objGR *tex.GR, allPals []byte, pal tex.Palette) {
+	objGR *tex.GR, allPals []byte, pal tex.Palette, gamePath string) {
 
-	texOf := map[int]int{} // OBJECTS.GR frame -> SpriteTex index
+	critCache := map[int]*crit.Page{} // creature index -> parsed page (nil = missing)
+	loadCrit := func(idx int) *crit.Page {
+		if p, ok := critCache[idx]; ok {
+			return p
+		}
+		// Creature N → CR<octal N>PAGE.N01 (the files are octal-numbered).
+		fn := fmt.Sprintf("CR%02oPAGE.N01", idx)
+		var p *crit.Page
+		if b, err := os.ReadFile(filepath.Join(gamePath, "CRIT", fn)); err == nil {
+			p, _ = crit.ParsePage(b)
+		}
+		critCache[idx] = p
+		return p
+	}
+
+	texOf := map[string]int{} // sprite key -> SpriteTex index
 	for _, obj := range lev.Objects(grid, block) {
 		cls := comObj.RenderClass(obj.ItemID)
 		if cls != lev.RenderNone && cls != lev.RenderBillboard {
 			continue // 3D models and specials handled elsewhere
 		}
-		// Sprite frame = item_id (the emitter's [BP-4]); objects flagged 7 in
-		// w0 bits 6-8 override with their own quality-derived frame, but for a
-		// static export the item's base frame is the right still.
-		frame := int(obj.ItemID)
-		if frame >= objGR.Count() {
-			continue
-		}
-		ti, ok := texOf[frame]
 		var img *image.RGBA
-		if !ok {
-			var err error
-			img, err = objGR.Sprite(frame, pal, allPals)
+		var key string
+		if cls == lev.RenderBillboard && obj.Mobile && obj.ItemID >= 64 && obj.ItemID <= 127 {
+			// Creature: pick an arbitrary animation frame/direction for now.
+			pg := loadCrit(int(obj.ItemID) - 64)
+			if pg == nil || pg.NumFrames() == 0 {
+				continue
+			}
+			frame := 0
+			im, err := pg.Frame(frame, pal)
 			if err != nil {
 				continue
 			}
+			img, key = im, fmt.Sprintf("crit:%d:%d", obj.ItemID, frame)
+		} else {
+			// Item: OBJECTS.GR frame [item_id] (the emitter's [BP-4]).
+			frame := int(obj.ItemID)
+			if frame >= objGR.Count() {
+				continue
+			}
+			im, err := objGR.Sprite(frame, pal, allPals)
+			if err != nil {
+				continue
+			}
+			img, key = im, fmt.Sprintf("obj:%d", frame)
+		}
+		ti, ok := texOf[key]
+		if !ok {
 			ti = len(o.SpriteTex)
 			o.SpriteTex = append(o.SpriteTex, toDataURI(img))
-			texOf[frame] = ti
-		}
-		if img == nil {
-			img, _ = objGR.Sprite(frame, pal, allPals)
+			texOf[key] = ti
 		}
 		w := float32(img.Bounds().Dx()) * spriteWorldPerTexel
 		h := float32(img.Bounds().Dy()) * spriteWorldPerTexel

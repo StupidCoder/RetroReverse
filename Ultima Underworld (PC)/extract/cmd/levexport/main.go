@@ -169,7 +169,7 @@ func main() {
 	// Billboard sprites (class-0/1 objects: items, creatures) from OBJECTS.GR.
 	objGR, err := tex.ParseGR(data("OBJECTS.GR"))
 	must(err)
-	appendBillboards(o, grid, block, comObj, objGR, data("ALLPALS.DAT"), pal)
+	appendBillboards(o, grid, block, comObj, objGR, data("ALLPALS.DAT"), pal, *game)
 
 	buf, err := json.Marshal(o)
 	must(err)
