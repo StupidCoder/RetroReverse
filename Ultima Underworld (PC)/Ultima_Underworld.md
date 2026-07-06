@@ -694,7 +694,12 @@ rebuilt as a **textured 3D mesh** — reimplemented in Go and hooked into the St
 - **Geometry.** `extract/levgeo` walks the tile map and emits, per non-solid tile, a floor quad (its
   corners carrying the sloped heights), and a wall quad on each edge where the neighbour is solid
   (full height to the ceiling) or higher (a step up) — floors textured `F32`, walls `W64`, through
-  the texture list. `cmd/levexport` groups the mesh by material and writes a self-contained JSON
+  the texture list. **Diagonal tiles (types 2-5)** are emitted exactly: the solid corner
+  (NW/NE/SW/SE, derived from neighbour solidity in the real levels) is cut off, leaving a *triangular*
+  floor, a diagonal wall across the hypotenuse, and normal walls on only the two open edges.
+  **Heights** use the ratio the vertex transform proves at `07F7:50BE` — X/Y and Z share a `×2`, then
+  Z alone gets `SAR CX,1`, so a height unit is exactly **half** a tile width (`HeightScale = 0.5`).
+  `cmd/levexport` groups the mesh by material and writes a self-contained JSON
   (positions, UVs, groups, and each texture as a data-URI PNG); `cmd/levrender` is a Go software
   renderer that verified the result is a coherent dungeon before any browser was involved
   (`rendered/level1-3d.png` — Level 1 with its rooms, water channels and the ankh room, in 3D).
@@ -704,15 +709,16 @@ rebuilt as a **textured 3D mesh** — reimplemented in Go and hooked into the St
 
 This is a faithful *reimplementation* grounded in the reverse-engineered format, not a byte-exact
 replay of `1FF9`: the wall-adjacency rule and slope corners follow the derived tile semantics, the
-height scale is tuned for proportion rather than read from the game, ceilings are omitted for a clear
-overview, and diagonal tiles are drawn as full floors for now (their diagonal cut is a refinement).
-The layout, heights and textures are the game's own.
+diagonal cut and per-edge walls follow the derived diagonal orientations, the height scale is the
+transform-proven 0.5 (a height unit = half a tile), and ceilings are omitted for a clear overview.
+The layout, heights, diagonals and textures are all the game's own.
 
 ## 9. Still open
 
-Inside `1FF9`, the exact per-type polygon set and the object/sprite geometry it also feeds; the
-diagonal-tile cut and the true height/ceiling units (for a byte-exact mesh). The object lists the
-tile heads point into. The render *entry* is a callback of the `2252:0410` IRQ0 timer table; the
+Inside `1FF9`, the object/sprite geometry it also feeds (the static per-type tile polygons —
+diagonals and true heights — are now emitted); the exact per-height display units `1FF9` scales the
+0-15 field into (the 0.5 X:Z ratio is proven, the absolute per-height factor is not yet byte-exact).
+The object lists the tile heads point into. The render *entry* is a callback of the `2252:0410` IRQ0 timer table; the
 peripheral-panel noise in `rendered/dungeon.png` should resolve as the HUD draw path (a separate
 `01A0` consumer) is mapped.
 
