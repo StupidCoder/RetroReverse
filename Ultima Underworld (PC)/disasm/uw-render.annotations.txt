@@ -294,7 +294,7 @@ next-link = a per-tile linked list; tile implied by the chain. Decoded in
 extract/lev/object.go. Doors = items 320-327 (320 = closed wood door).
 
 THE DISPLAY LIST IS A BYTECODE PROGRAM. 07F7 interprets opcodes via the jump
-table 499D:2738 (36 entries). Fetch/decode = LODSW; XCHG AX,BX; JMP [BX+2738]
+table 499D:2738 (110+ entries; >=0xDC alias 0x78+). Fetch/decode = LODSW; XCHG AX,BX; JMP [BX+2738]
 (07F7:16F8); the opcode word IS the byte offset into the table (opcodes 0,2,4..).
 1FF9 emits the stream per frame. 3D object models are sub-programs of the SAME
 opcodes.
@@ -311,7 +311,7 @@ Object pipeline:
    the matrix (POPs at 1A58).
  - VERTEX opcode (07F7:1BE4 = opcode 28): relative link word to next record, then
    world coords, camera-relative + power-of-two shift + matrix + project.
- - POLYGON opcode (07F7:1BAA): project verts (CALL 1370); if OK, CALL [BX+2738]
+ - FACE opcode 0x6A (07F7:1A8D): plane check then CALL the tail sub-program
    to draw the textured polygon, then dispatch next.
  - BACKSIDE CULLING = PROGRAM SKIP: a failed visibility/plane test (CALL 1370
    returns CF, or coord-range compares fail) reaches 07F7:1BCD, which sets the
@@ -330,7 +330,7 @@ SI=record; SI+=6). Program header words at +6..+E -> BP/[2886]/[2888]/[288A]/
 [289A] (bounds/anchor). Then the opcode stream.
 
 Opcode stream: each opcode = a WORD equal to the byte offset into 499D:2738
-(36 entries); fetch/decode LODSW; XCHG AX,BX; JMP [BX+2738]. Operands follow
+(110+ entries); fetch/decode LODSW; XCHG AX,BX; JMP [BX+2738]. Operands follow
 inline.
 
 Coords are int32 (2 words LE) per axis -> a VERTEX = 12 bytes (X,Y,Z). Transform:
@@ -341,13 +341,85 @@ ADD SI,0x0C (07F7:1A8D/1B63); opcode 28 (07F7:1BE4) reads the same via LODSW.
 
 Chaining: relative link word, DI = SI + link. Per-record metadata at NEGATIVE
 offsets from the link target: shift [DI-8]; bound deltas [DI-6]/[DI-4]/[DI-2];
-sub-list (polygon vertex indices) pointer [DI-A].
+plane-test scalar d at [DI-A] (CORRECTED: earlier read as a sub-list pointer).
 
 Cull = skip: a failed plane/off-screen test does ADD SI,0x0C (07F7:1BCD) to step
 past the 12-byte record, then dispatches next. When a face IS drawn, a 256-byte
-table at [01E2] maps a projected coord to an octant/gradient index.
+table at [01E2] is a count-leading-zeros/normalization-shift table (7,6,5,5,4x4,
+3x8,2x16...) used to pre-shift deltas for maximum fixed-point precision
+(CORRECTED: earlier called an octant/gradient map).
 
 NOT yet done: enumerate all 36 opcodes' operand bytes (only vertex/polygon/cull
 decoded); capture a concrete door model's bytes to validate (via the object-
 emission pass that WRITES the program, or a runtime capture); item->model map;
 door-frame floor->ceiling sizing.
+
+§10c. THE FULL OPCODE MAP (verification pass; opcode = word value = byte offset
+into 499D:2738; handler addresses in 07F7)
+--------------------------------------------------------------------------------
+CONTROL FLOW
+ 0x00 27D8  RET — ends a sub-program (faces' draw programs are CALLed subroutines)
+ 0x12 3036  CALL relative: [rel] — push SI, SI+=rel, run to RET
+ 0x1A 302D  CALL native: [addr] — plain x86 CALL AX
+ 0x48 3B5A  JMP relative: [rel] — SI+=rel
+ 0x32 3B63  JMP indirect: [addr] — SI=[addr] (computed goto: pick sub-program by state)
+ 0x14 305A  if [addr] >  imm skip N: [N][addr][imm]
+ 0x16 3047  if [addr] <  imm skip N: [N][addr][imm]
+ 0x6C 306D  conditional block: [addr][imm]...
+ 0x84 320D  test N pool outcodes: [count][pool idx] — scan [1626+8i]
+POKES
+ 0x02 2B16  mem[a]=imm   0x04 2B20  *[a]=imm   0x0A 2B2F  [BP+off]=imm
+ 0xBE 2B04  *[b]=*[a]
+VERTEX TRANSFORMS (fill pool 499D:1620, 8-byte slots {viewX,viewY,viewZ,outcode-587E})
+ 0x20 1D43  int32 X,Y,Z + [pool idx] — CLZ-normalize ([01E2]) → matrix 50D8 → pool
+ 0xB6 2C1D  byte-packed tile vertex via 5096 + [pool idx byte] (level path, same pool)
+ 0x82 2B3D  batch: [count][pool off], word coords via 50BE
+ 0xB8 2B72  batch: [count b][pool idx b], byte coords via 5096
+ 0x18 31AD  inline int32 vertex → current registers (no pool)
+VERTEX ARITHMETIC
+ 0x26 33CC  pool[dst]=pool[src]
+ 0x8C 3BB1  pool[a]+pool[b]      0xC6 3BEE  pool[a]-pool[b]
+ 0x1C 328B / 0x2A 3441 / 0x2C 34E4  pool[i] + (imm<<[2880]) along an axis
+ 0x90 358D / 0x92 352C / 0x94 35EE  (imm<<[2880]) x matrix row → model-axis offset
+ 0x4C 3B86  inline offset vector (<<[2880])   0x4A 3B6E  Δ -= 3 inline words
+FACES / CULLING / LOD
+ 0x38 1BE4  face-begin, inline: [link][shift][bndX][X i32][bndY][Y i32][bndZ][Z i32][d]
+ 0x6A 1A8D  face-begin, packed: [link][X i32][Y i32][Z i32]; tail: [DI-A]=d [DI-8]=shift
+            [DI-6/-4/-2]=bounds [DI+0]=draw sub-program (CALLed; runs to RET)
+            plane test: d + ΔX < 0 → back-facing → skip (camera is in the model's
+            rotated frame, so one axis suffices); Δ overflow / |Δ|+bound overflow → cull
+ 0x28 1E84 / 0x30 1E79  LOD re-entry: rescale saved full-precision Δ by [ptr-8]
+            (0x30: ptr=[addr] indirect)
+ROTATION (animation)
+ 0x6E 32D3 / 0x74 32D8 / 0x76 32DD  rotate frame about an axis by angle FROM MEMORY
+            ([operand] var; via composers 558E/56F6/5426) — the door-swing path
+ 0x50 3C32 / 0x70 3CBB / 0x72 3D44 (+0xBA 3C2B / 0xC4 3CB4 / 0xC2 3D3D indirect)
+            save camera matrix + rotate by direct/indirect angle
+PROJECTION STATE
+ 0x54 3ED1  push Δ+scale context     0x56 3EE7  pop context (+CALL 5069)
+ 0x98 3989  transform aux point via 50BE → [15FC/15FE]
+ 0x9A 3A81  negate/scale current Δ
+ 0x40 3937 / 0x44 3925 / 0xD6 38B9 / 0xD8 38FC  select projection/draw back-end:
+            patch fn-ptrs [15F6]/[15F8] (2E7C / 438D+4134 / 6146+6156 = §5 projection)
+            0xD6/0xD8 also patch the 01A0 rasterizer ([ES:0F27]=0F56)
+ 0x2E 3732 / 0x5C 3756  set [15F6/15F8]=438D/4134 with parameter (0x5C: +[DI] add)
+DRAWING
+ 0x08 27D9  point: [pool off] — project (x*[26B2]/z+[26B4], y*[26B0]/z+[26B6]) →
+            CALLF 01A0:0000; honors outcode flag byte
+ 0x96 2818  line: [pool a][pool b] — outcode-tested, both projected
+ 0x34 5DFC / 0x36 5E04  QUAD: [desc idx(x8+B07E→B07C)] then 4x{[pool idx][uv-flags]};
+            gathers to 0309 (+UVs from descriptor); outcodes OR→[161A] AND→[161B]:
+            AND≠0 → trivially rejected, OR≠0 → clip path (5EC8), else project+draw.
+            0x34 selects span mode [B006]=0545, 0x36 mode 01DA (textured)
+ 0x22 2E73  gather N pool verts → 0309: [count] then indices
+ 0x80 2EAC  draw the gathered polygon (through [15F6] back-end)
+ 0x7C 2C41 / 0x8E 2C64 / 0x9C 2C8A  load / append / begin the gather buffer
+ 0x06 30AE / 0x0C 30F6 / 0x0E 3133 / 0x10 3170  (imm + Δaxis)*scale — billboard sizing
+ 0x1E 15AC  register object into the sorted draw list [2860] (draw pass 18FC runs
+            the object's program later, back-to-front)
+ 0x3E 796E + 0x3A 7A41 / 0x5A 7ABD / 0xC0 79D2 / 0xAE 7D7E / 0xB0 7D92 / 0xBC 7D9D
+            level tile-strip family (private sub-table CS:6960); 1FF9 emits $3E per
+            tile polygon, $B0 as strip terminator
+NOT YET READ: 0x42/0x46 4980, 0x78/0xDC 4494, 0x4E 6843, 0x58 3FC0 + 0x5E-0x68
+3F00-3FA9 (shading family?), 0x9E-0xB4 & 0xCE-0xD2 5Cxx/5DF1 (quad-path pokes),
+0xC8 3893 / 0xCA 388D / 0xD6.. dup?, 0xDA 09DF.

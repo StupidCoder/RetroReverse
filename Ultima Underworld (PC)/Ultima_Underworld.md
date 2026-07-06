@@ -787,36 +787,82 @@ So a door renders as: its object record → registered by opcode 15 into the sor
 pass, oriented by its heading and drawn by its model's opcode program, whose polygon opcodes are
 culled-by-skip when they face away.
 
-**The model program byte layout** (read straight off the interpreter — it *is* the ground truth for
-the layout, since the interpreter is what consumes the bytes):
+### The model bytecode — a full instruction set
 
-- A draw record starts with a **6-byte header**; the model program begins at record `+6`
-  (`07F7:190C`: `SI = record; SI += 6`). The first few program words are a **program header** —
-  bounds / anchor read into `BP`, `[2886]`, `[2888]`, `[288A]`, `[289A]` (words at `+6…+E`).
-- The body is a **stream of opcode words**. Each opcode word is the *byte offset* into the
-  `499D:2738` jump table (36 entries); the shared fetch/decode is `LODSW; XCHG AX,BX; JMP [BX+2738]`.
-  So opcodes are the even values `0,2,4,…`, and the operands of each opcode follow it inline.
-- **Coordinates are `int32`** (two little-endian words) per axis, so a **vertex is 12 bytes**
-  (`X,Y,Z`). The interpreter forms `view = (vertex − cameraPos)` per axis (32-bit; camera at
-  `[26BA]/[26BE]/[26C2]`), scales by a **per-record power-of-two shift**, applies the object rotation
-  matrix, and projects. There are two vertex encodings: the polygon opcode reads a vertex at fixed
-  offsets `[SI]…[SI+A]` then `ADD SI,0x0C`; other opcodes (e.g. opcode 28, `07F7:1BE4`) read the same
-  fields with sequential `LODSW`.
-- **Records chain by a relative link word** — `DI = SI + link` — and per-record metadata sits at
-  *negative* offsets from that link target: the shift at `[DI-8]`, bound deltas at `[DI-6]/[DI-4]/
-  [DI-2]`, and a sub-list pointer (the polygon's vertex indices) at `[DI-A]`.
-- **Culling is a program skip.** A failed plane / off-screen test executes `ADD SI,0x0C`
-  (`07F7:1BCD`) to step the program pointer past the 12-byte culled record, then dispatches the next
-  opcode. A 256-byte table at `[01E2]` maps a projected coordinate to an octant/gradient index used
-  when a face *is* drawn.
+The byte layout was decoded straight off the interpreter (the code that consumes the bytes is the
+ground truth), and a systematic sweep of the handler table corrected two earlier readings: the
+`499D:2738` table has **at least 110 entries** (not 36 — `1FF9` emits opcodes like `$B0`/`$B6`, far
+past entry 36; entries above `0xDC` alias the `0x78+` block), and one earlier disassembly had
+started mid-instruction at `1BA8`, producing a phantom instruction. Every opcode is a **word equal
+to the byte offset into the table** (so opcodes are even); operands follow inline; the shared
+fetch/decode is `LODSW; XCHG AX,BX; JMP [BX+2738]` and handlers *tail-chain* — each ends by
+dispatching the next opcode. The instruction set, by family:
 
-Full disassembly of these routines is in `disasm/uw-render.asm` (PART 7) with commentary in
-`uw-render.annotations.txt` (§10).
+- **Control flow.** `0x00` = **RET** (`27D8`) — sub-programs are real subroutines, entered with
+  `CALL [BX+2738]` and ended by an op-`0x00`. `0x12` = **call relative** (push SI, `SI += rel`);
+  `0x1A` = **call native** (a plain x86 routine address); `0x48` = **jump relative**
+  (`SI += rel`); `0x32` = **jump indirect** (`SI = [addr]` — a *computed goto*: a door selects a
+  sub-program from a state variable); `0x14`/`0x16`/`0x6C` = **conditional skips** (compare a memory
+  word against an inline constant, skip N bytes — branch on game state, e.g. open vs closed).
+- **Pokes.** `0x02` mem[a]=imm, `0x04` *[a]=imm, `0x0A` [BP+off]=imm (descriptor-relative), `0xBE`
+  *[b]=*[a].
+- **Vertex transforms** — all fill the shared **vertex pool at `499D:1620`** (8-byte slots:
+  view X, view Y, view Z, **clip outcode** from the classifier `587E`): `0x20` = one **int32×3**
+  model vertex + pool index (normalised by the **CLZ table at `[01E2]`** — a 256-byte
+  count-leading-zeros table used to pre-shift deltas for maximum fixed-point precision — then the
+  camera-matrix multiply `50D8`); `0xB6` = one byte-packed *tile* vertex via `5096` (the §7 level
+  path — **the level geometry and the models run on the same VM and the same pool**); `0x82`/`0xB8`
+  = **batch** uploads (count × word-coord via `50BE` / byte-coord via `5096`); `0x18` = an inline
+  int32 vertex kept in the current registers.
+- **Vertex arithmetic.** `0x26` pool copy; `0x8C`/`0xC6` pool **add/subtract**; `0x1C`/`0x2A`/`0x2C`
+  = pool vertex **plus an inline offset along an axis** (scaled by the current normalisation shift
+  `[2880]`) — how a box corner is derived from one transformed vertex; `0x90`/`0x92`/`0x94` =
+  displacement **through a camera-matrix row** (a model-axis offset in view space); `0x4C` an inline
+  offset vector; `0x4A` adjusts the current deltas.
+- **Faces and culling.** `0x38` and `0x6A` = **face-begin**: an anchor point (int32×3), per-axis
+  range bounds, and a **plane scalar d** — the interpreter forms `Δ = (camera − anchor) · 2^±shift`,
+  rejects if any Δ overflows 16 bits or `|Δ|+bound` overflows, then tests **`d + ΔX < 0` → the face
+  is back-facing: skip** (the plane check; the camera is expressed in the model's current rotated
+  frame, so one axis suffices). If visible it `CALL`s the face's **draw sub-program** (at the record
+  tail, reached by the link word; runs until RET). `0x6A` packs the metadata at the tail
+  (`[DI-A]`=d, `[DI-8]`=shift, `[DI-6/-4/-2]`=bounds — the earlier reading of `[DI-A]` as a
+  "sub-list pointer" was wrong); `0x38` carries them inline. `0x28`/`0x30` = **level-of-detail
+  re-entry** (re-scale the face's saved full-precision deltas by a new shift, direct/indirect).
+  `0x84` tests N pool outcodes at once.
+- **Rotation (animation).** `0x6E`/`0x74`/`0x76` rotate the current frame about one axis by an
+  **angle read from a memory variable** (through the sin/cos composers `558E`/`56F6`/`5426`) — this
+  is how a door *swings*: its angle variable changes, the model program re-rotates each frame. The
+  `0x50`-family (`3C32/3CBB/3D44/…`) saves the whole camera matrix and applies further
+  direct/indirect-angle rotations.
+- **Projection state.** `0x54`/`0x56` push/pop the current Δ+scale context; `0x98` transforms an
+  auxiliary point; `0x40`/`0x44`/`0xD6`/`0xD8` **select the projection/draw back-end** by patching
+  the function pointers at `[15F6]/[15F8]` (`0xD6`/`0xD8` select the standard §5 projection at
+  `6146/6156` and patch the `01A0` rasteriser).
+- **Drawing.** `0x08` = **point** (project one pool vertex — `x·[26B2]/z+[26B4]`, the §5 constants —
+  and `CALLF 01A0:0000`); `0x96` = **line** between two pool vertices (outcode-tested); `0x34`/`0x36`
+  = **textured quad**: operands are a polygon-descriptor index (`×8 + B07E` → `[B07C]`, the very
+  descriptor the §7 texture-reference reads) then **4 × {pool index, UV-flags}**; the four outcodes
+  are OR'd and AND'd (`[161A]/[161B]`) for **Cohen-Sutherland trivial-reject / clip / accept**;
+  `0x22` gathers N pool vertices (variable polygon) and `0x80` draws the gathered buffer; `0x7C`/
+  `0x8E`/`0x9C` load/append/begin the gather buffer. The `0x3E`-family (`796E/7A41/7ABD/79D2/7Dxx`,
+  with a private sub-table at `CS:6960`) is the **level tile-strip** renderer `1FF9` emits (`$3E` per
+  tile polygon, `$B0` as a strip terminator).
 
-**Still to pin:** enumerating every one of the 36 opcodes with its exact operand bytes (only the
-vertex/polygon/cull opcodes above are decoded so far); capturing a concrete door model's bytes to
-validate (the object-emission pass that writes the program, or a runtime capture, would give a real
-sample); the item-id → model map; and how the door frame is sized to span its tile floor-to-ceiling.
+The object pipeline around it: opcode `0x1E` (`15AC`) *registers* a visible object (camera-relative
+position, power-of-two distance scale, depth key) into a distance-sorted list at `[2860]`; the draw
+pass (`07F7:18FC`) walks the list back-to-front — each record carries the object's **program
+pointer** at `+6` — pushes the camera matrix `[1602..1612]`, applies the object's heading rotations,
+and runs the model's program; `1A52` restores the matrix after. Culling, clipping, LOD, animation
+and drawing all happen *inside* the program, in the opcodes above.
+
+Full disassembly in `disasm/uw-render.asm` (PART 7) with the per-opcode map in
+`uw-render.annotations.txt` (§10-§10c).
+
+**Still to pin:** the handful of unread handlers (`4494`, `4980`, `6843`, the `5Cxx` pokes, the
+`3Fxx` shading family); capturing a concrete door model's bytes to validate (via the object-emission
+pass that writes the program — not in `1FF9` — or a runtime capture in the dungeon); the item-id →
+model-program map; and where the door frame's floor-to-ceiling extent enters (the emission pass, or
+memory-read operands inside the program — both mechanisms exist in the instruction set).
 
 ## 9. Still open
 

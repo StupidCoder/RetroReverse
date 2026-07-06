@@ -725,7 +725,8 @@
 ; PART 7 — OBJECTS and the 3D-MODEL BYTECODE (07F7 display-list interpreter).
 ; ============================================================================
 ; The whole 3D view is a bytecode program: 07F7 interprets a display list of
-; opcodes via a jump table at 499D:2738 (36 entries; opcode word = byte offset).
+; opcodes via a jump table at 499D:2738 (110+ entries; opcode word = byte offset;
+; entries >=0xDC alias the 0x78+ block).
 ; Every handler ends by fetching+dispatching the next opcode. 3D object models
 ; (e.g. doors) are sub-programs of the SAME opcodes; a face is CULLED by
 ; advancing the program pointer past it.
@@ -789,7 +790,11 @@
   00001BF9  2B 06 BA 26         SUB AX, [$26BA]        ; vertex - camera (32-bit), then scale by 2^CX
   00001C0B  E3 14               JCXZ $00001C21         ; (same camera-relative + power-of-two path)
 
-; ==== 07F7:1BAA / 1BCD — draw a model POLYGON, or CULL it by skipping ========
+; ==== 07F7:1A8D (op 0x6A) — FACE-begin: plane check, then CALL the face's ====
+; draw sub-program at the record tail; cull = skip. (Excerpt from 1BAC on; the
+; full record layout is in annotations §10b/§10c. NOTE: 1BAA is NOT an
+; instruction boundary — 1BA8 is MOV BP,[288A]; an earlier mid-instruction
+; disassembly here produced a phantom instruction, since corrected.)
   00001BAF  E8 BE F7            CALL $00001370         ; project + range test
   00001BB2  72 28               JB $00001BDC           ; vertex off-screen -> drop
   00001BC0  AD                  LODSW
