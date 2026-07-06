@@ -7,6 +7,9 @@
 //     maxNativeFactor: 4,            // zoom-in cap, in multiples of the native view
 //     markerCat(o) -> category,      // marker colour class for sprite-less objects
 //     hud(level) -> string,          // HUD caption
+//     objectInfo?: { <name>: { title, text } },  // click-to-inspect cards: keyed by an
+//                                    // object's/pool's `name` (spawn = "player"). Present
+//                                    // -> the viewer wires object picking (Fort).
 //     hooks?: { loaded(viewer, level) }   // game-specific extension point
 //   }
 
@@ -35,6 +38,11 @@ export class LevelViewer {
     this.level = null;
     this.tilemap = null;
     this.meta = null;
+    // Clickable objects for the info card (only collected when the game's config
+    // supplies `objectInfo`). `picks` are the fixed placements + spawn, rebuilt per
+    // level; `poolPicks` the randomized pool placements, rebuilt on every re-roll.
+    this.picks = [];
+    this.poolPicks = [];
   }
 
   async init() {
@@ -58,6 +66,7 @@ export class LevelViewer {
       },
     });
     this.cam.wirePointer();
+    if (this.config.objectInfo) this._wireObjectPicking();
     return this.meta;
   }
 
@@ -70,6 +79,9 @@ export class LevelViewer {
     // whose baked TextureSource is gone crashes the renderer (pool stamps) or
     // paints into a dead canvas (tile anims).
     this.anim.reset();
+    this._hideCard();
+    this.picks = [];
+    this.poolPicks = [];
     this.poolLayer.removeChildren();
     this.objectLayer.removeChildren();
     this.collisionLayer.removeChildren();
@@ -166,13 +178,14 @@ export class LevelViewer {
     }
 
     // objects + spawn (fixed placements)
+    const picks = this.config.objectInfo ? this.picks : undefined;
     const { container, animObjs, pathObjs } = await buildObjects(level, this.data, {
-      markerCat: this.config.markerCat || (() => 'default'),
+      markerCat: this.config.markerCat || (() => 'default'), picks,
     });
     for (let i = 0; i < copies; i++) {
       if (i === 0) { this.objectLayer.addChild(container); continue; }
       const { container: dup } = await buildObjects(level, this.data, {
-        markerCat: this.config.markerCat || (() => 'default'),
+        markerCat: this.config.markerCat || (() => 'default'), picks,
       });
       dup.x = i * this.levelW;
       this.objectLayer.addChild(dup);
@@ -195,6 +208,8 @@ export class LevelViewer {
     // patrol records are pool-only: drop the stale ones before the re-roll
     // (pools rebuild on every objects-layer-on toggle, not just level loads)
     this.anim.patrols.length = 0;
+    this.poolPicks = [];
+    this._hideCard(); // its target node may be one of the pool placements we're dropping
     this.poolLayer.removeChildren();
     const level = this.level;
     if (!level || !(level.objectPools || []).length) return;
@@ -206,10 +221,11 @@ export class LevelViewer {
     const seed = fixed != null && !Number.isNaN(fixed) ? fixed : (Math.random() * 0x7fffffff) | 0;
     const copies = this.meta.wrap === 'x' ? 3 : 1;
     const stampTex = (tileId) => this.tilemap.tileTexture(tileId);
+    const picks = this.config.objectInfo ? this.poolPicks : undefined;
     for (let i = 0; i < copies; i++) {
       // group positions are container-local, so the copy offset composes
       const { container, patrols } = await buildPools(level, this.data,
-        { random: rng(seed), stampTex });
+        { random: rng(seed), stampTex, picks });
       container.x = i * this.levelW;
       this.poolLayer.addChild(container);
       this.anim.patrols.push(...patrols);
@@ -221,8 +237,93 @@ export class LevelViewer {
     if (name === 'objects') {
       this.objectLayer.visible = on;
       this.poolLayer.visible = on;
+      if (!on) this._hideCard(); // objects hidden -> drop any open card
       if (on && (this.level?.objectPools || []).length) this._rebuildPools();
     }
     if (name === 'animation') this.anim.setEnabled(on);
+  }
+
+  // --- object info cards (opt-in via config.objectInfo) ------------------------------
+  // A click (not a drag) on a placed object or the spawn shows a small card naming it
+  // and describing its behaviour — the 2-D analogue of the Super Mario 64 DS viewer's
+  // actor cards. Listeners live on `this.el` (not the canvas) because the camera
+  // setPointerCapture()s the pointer to `this.el` on pointerdown, so a captured
+  // pointerup only fires on `this.el` and its ancestors, never a descendant canvas.
+  _wireObjectPicking() {
+    const el = this.el;
+    let downAt = null;
+    el.addEventListener('pointerdown', (e) => { downAt = { x: e.clientX, y: e.clientY }; });
+    el.addEventListener('pointerup', (e) => {
+      if (!downAt) return;
+      const moved = Math.hypot(e.clientX - downAt.x, e.clientY - downAt.y);
+      downAt = null;
+      if (moved > 5) return; // a drag/pan, not a click
+      this._pickAt(e.clientX, e.clientY);
+    });
+  }
+
+  // Hit-test the visible object/pool placements under a client point; show the nearest
+  // (smallest-area, i.e. most specific) match's card, or dismiss the card on a miss.
+  _pickAt(clientX, clientY) {
+    const p = this.cam.screenPt(clientX, clientY);
+    const candidates = [];
+    if (this.objectLayer.visible) candidates.push(...this.picks);
+    if (this.poolLayer.visible) candidates.push(...this.poolPicks);
+    let best = null, bestArea = Infinity;
+    for (const pk of candidates) {
+      const node = pk.node;
+      if (!node || !node.parent || !node.visible) continue;
+      const b = node.getBounds(); // pixi Bounds, in global (screen) px — matches screenPt
+      if (p.x < b.minX || p.x > b.maxX || p.y < b.minY || p.y > b.maxY) continue;
+      const area = (b.maxX - b.minX) * (b.maxY - b.minY);
+      if (area < bestArea) { bestArea = area; best = pk; }
+    }
+    if (best) this._showCard(best, clientX, clientY);
+    else this._hideCard();
+  }
+
+  _showCard(pick, clientX, clientY) {
+    this._hideCard();
+    const info = (this.config.objectInfo || {})[pick.name];
+    const card = document.createElement('div');
+    card.style.cssText = 'position:absolute;max-width:min(360px,74%);z-index:12;'
+      + 'background:rgba(10,13,18,.94);border:1px solid #3a4a5c;border-radius:8px;'
+      + 'padding:10px 12px 11px;font:12px/1.55 system-ui,sans-serif;color:#dfe6f0;'
+      + 'box-shadow:0 8px 28px rgba(0,0,0,.5)';
+    // Keep the card's own clicks off the camera/picker (they bubble to this.el).
+    for (const ev of ['pointerdown', 'pointerup', 'wheel']) {
+      card.addEventListener(ev, (e) => e.stopPropagation());
+    }
+    const close = document.createElement('button');
+    close.textContent = '×';
+    close.title = 'Close';
+    close.style.cssText = 'position:absolute;top:3px;right:7px;border:0;background:none;'
+      + 'color:#8895a8;font-size:18px;line-height:1;cursor:pointer;padding:2px';
+    close.addEventListener('click', () => this._hideCard());
+    const h = document.createElement('div');
+    h.style.cssText = 'font-weight:600;margin:0 14px 4px 0;color:#ffd75e';
+    h.textContent = info ? info.title : pick.name;
+    const body = document.createElement('div');
+    if (info) { body.textContent = info.text; }
+    else { body.style.color = '#9aa7b8'; body.textContent = 'Placed object (no notes for this type).'; }
+    card.append(close, h, body);
+
+    // this.el is the studio's .mount (position:absolute, inset:0) — a positioning
+    // context. Append first so we can measure, then clamp the card inside the viewport.
+    this.el.appendChild(card);
+    const rect = this.el.getBoundingClientRect();
+    let x = clientX - rect.left + 14, y = clientY - rect.top + 14;
+    x = Math.max(8, Math.min(x, rect.width - card.offsetWidth - 8));
+    y = Math.max(8, Math.min(y, rect.height - card.offsetHeight - 8));
+    card.style.left = x + 'px';
+    card.style.top = y + 'px';
+    this._card = card;
+    clearTimeout(this._cardTimer);
+    this._cardTimer = setTimeout(() => this._hideCard(), 15000);
+  }
+
+  _hideCard() {
+    clearTimeout(this._cardTimer);
+    if (this._card) { this._card.remove(); this._card = null; }
   }
 }
