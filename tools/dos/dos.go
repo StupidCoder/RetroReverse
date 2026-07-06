@@ -79,6 +79,7 @@ type Machine struct {
 	rdProfile    map[uint32]int // CS<<16|IP -> read count (finds consumers of a data structure)
 	Terminated   bool
 	ExitCode     byte
+	Int33Hist    map[uint16]int // diagnostic: INT33 sub-function call counts
 }
 
 // LoadEXE reads the MZ executable at exePath and prepares a Machine whose data

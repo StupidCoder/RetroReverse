@@ -41,6 +41,10 @@ func (m *Machine) mouse() *mouseState {
 
 func (m *Machine) int33(c *x86.CPU) bool {
 	ms := m.mouse()
+	if m.Int33Hist == nil {
+		m.Int33Hist = map[uint16]int{}
+	}
+	m.Int33Hist[c.Reg16(x86.AX)]++ // which sub-functions the game polls (input debugging)
 	switch c.Reg16(x86.AX) {
 	case 0x0000: // reset driver and read status
 		ms.x, ms.y = 160, 100

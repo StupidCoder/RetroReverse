@@ -174,6 +174,20 @@ func main() {
 		}
 	}
 
+	if len(m.Int33Hist) > 0 {
+		total := 0
+		fmt.Printf("\n== INT33 mouse polling ==\n")
+		for _, ah := range []uint16{0, 1, 2, 3, 4, 5, 6, 7, 8, 0xB, 0xC, 0xF, 0x14} {
+			if c := m.Int33Hist[ah]; c > 0 {
+				fmt.Printf("  AH=%02X: %d\n", ah, c)
+				total += c
+			}
+		}
+		if s := m.CPU.Steps; s > 0 {
+			fmt.Printf("  ~1 poll per %d instructions\n", s/uint64(total+1))
+		}
+	}
+
 	// Print the tail of the execution ring (deduplicated consecutive repeats).
 	fmt.Printf("\n== last instructions ==\n")
 	start := ri - ringSize
