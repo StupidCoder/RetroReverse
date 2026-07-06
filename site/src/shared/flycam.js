@@ -27,6 +27,7 @@ export class FlyCam {
     this.el = el;
     this.enabled = false;
     this.scale = 10;      // world size of the current model, set by the viewer
+    this.moveScale = 1;   // per-viewer movement-speed multiplier (look speed unaffected)
     this.keys = new Set();
 
     this.shift = false; // Shift doubles movement speed (not look speed)
@@ -66,6 +67,11 @@ export class FlyCam {
 
   setScale(size) { this.scale = size || 10; }
 
+  // Per-viewer movement-speed multiplier (1 = default). Rotation is unaffected —
+  // e.g. UW's levels are huge, so its viewer sets this low to slow translation
+  // while keeping the look speed the same.
+  setMoveScale(m) { this.moveScale = m || 1; }
+
   // Advance one frame; call before controls.update(). Returns whether any fly
   // input is active (viewers can use it to cancel animations if needed).
   update(dt) {
@@ -97,7 +103,7 @@ export class FlyCam {
 
     // move: translate camera and orbit pivot together, view-relative
     if (mf || ms) {
-      const v = this.scale * MOVE * dt * (this.shift ? 2 : 1);
+      const v = this.scale * MOVE * this.moveScale * dt * (this.shift ? 2 : 1);
       this._fwd.copy(off).normalize();
       this._right.copy(this._fwd).cross(UP).normalize();
       pos.addScaledVector(this._fwd, mf * v).addScaledVector(this._right, ms * v);

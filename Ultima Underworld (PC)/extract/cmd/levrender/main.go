@@ -41,8 +41,12 @@ func main() {
 	fp := flag.Bool("fp", false, "first-person camera at -cx,-cy,-fpz looking along -yaw")
 	fpz := flag.Float64("fpz", 3.0, "first-person eye height")
 	yaw := flag.Float64("yaw", 0, "first-person look yaw in degrees (0=+X east)")
+	ceiltex := flag.Int("ceiltex", -1, "override the ceiling texture (global F32 index; -1 = default)")
 	flag.Parse()
 	uvTest = *uvt
+	if *ceiltex >= 0 {
+		levgeo.CeilingTex = uint16(*ceiltex)
+	}
 	rd := func(n ...string) []byte {
 		b, err := os.ReadFile(filepath.Join(append([]string{*game, "DATA"}, n...)...))
 		if err != nil {

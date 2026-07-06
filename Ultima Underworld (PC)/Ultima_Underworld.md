@@ -725,14 +725,22 @@ rebuilt as a **textured 3D mesh** — reimplemented in Go and hooked into the St
   `tileY` swap) keeps the handedness, since a bare axis swap reflects the level and renders it
   mirrored (a step that is on the left in the game appeared on the right). Since the dungeon is now ceiling-enclosed,
   the export also carries a **spawn point** (the open tile nearest the map centre, at eye height) and
-  the viewer starts the camera there, inside the level, rather than on an outside overview.
+  the viewer starts the camera there, inside the level, rather than on an outside overview. Because
+  UW's levels are vast, the viewer sets the fly-camera's *movement* speed to a quarter (look speed
+  unchanged) via a new `FlyCam.setMoveScale`.
+- **Ceiling texture.** The whole level shares **one** ceiling texture, not each tile's floor texture.
+  The builder's polygon-emit routine `1FF9:0A4F` folds the per-tile texture `[0437]` into the
+  polygon's texture id only when the face selector `[BP+8] != 0`; the ceiling face takes the fixed
+  base, so a single texture covers every ceiling (matching the game). The exact per-level index is set
+  at level-load — values the static trace can't reach without a loaded level — so `levgeo.CeilingTex`
+  is set to the F32 texture that matches the game's rendered ceiling (15).
 
 This is a faithful *reimplementation* grounded in the reverse-engineered format, not a byte-exact
 replay of `1FF9`: the wall-adjacency rule and slope corners follow the derived tile semantics, the
 diagonal cut and per-edge walls follow the derived diagonal orientations, and the height scale is the
-transform-proven 0.5 (a height unit = half a tile). The layout, heights, diagonals and textures are
-all the game's own; the ceiling texture (reusing the floor texture, for now) is the one piece not yet
-read from the game.
+transform-proven 0.25 (a height unit = a quarter tile). The layout, heights, diagonals and wall/floor
+textures are all the game's own; the ceiling is code-proven to be one constant texture, its exact
+index the one piece still to confirm from a loaded level.
 
 ## 9. Still open
 

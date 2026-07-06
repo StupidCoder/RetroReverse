@@ -38,6 +38,16 @@ const HeightScale = 0.25
 
 const ceilingZ = Ceiling * HeightScale
 
+// CeilingTex is the single global F32.TR texture used for every ceiling tile.
+// Tracing the builder shows the ceiling gets a FIXED texture, not each tile's
+// own floor texture: the polygon-emit routine 1FF9:0A4F folds in the per-tile
+// texture [0437] only when the face selector [BP+8] != 0, and the ceiling face
+// takes the fixed base — so one texture covers the whole level's ceiling (which
+// matches the game). The exact index is set per level at load-time (values the
+// static trace can't reach without a loaded level); 15 is the F32 texture that
+// matches the game's rendered ceiling.
+var CeilingTex uint16 = 15
+
 // WallTexUnitsPerCopy is the world height (in tile-widths) that one wall-texture
 // copy spans. Wall textures have a UNIFORM scale — a fixed texel size regardless
 // of floor-to-ceiling height — so tall walls tile the texture vertically rather
@@ -145,7 +155,7 @@ func Build(g *lev.Grid, tm *lev.TexMap, ceilings bool) *Mesh {
 				m.Quads = append(m.Quads, Quad{
 					P:   [4][3]float32{{fx, fy, ceilingZ}, {fx, fy + 1, ceilingZ}, {fx + 1, fy + 1, ceilingZ}, {fx + 1, fy, ceilingZ}},
 					UV:  [4][2]float32{{0, 0}, {0, 1}, {1, 1}, {1, 0}},
-					Tex: ftex,
+					Tex: CeilingTex,
 				})
 			}
 			for _, e := range tileEdges(x, y) {
@@ -187,7 +197,7 @@ func buildDiagonal(m *Mesh, g *lev.Grid, x, y int, t lev.Tile, ftex, wtex uint16
 		m.Quads = append(m.Quads, Quad{
 			P:   [4][3]float32{{tp[0][0], tp[0][1], ceilingZ}, {tp[2][0], tp[2][1], ceilingZ}, {tp[1][0], tp[1][1], ceilingZ}, {tp[1][0], tp[1][1], ceilingZ}},
 			UV:  [4][2]float32{tuv[0], tuv[2], tuv[1], tuv[1]},
-			Tex: ftex, Tri: true,
+			Tex: CeilingTex, Tri: true,
 		})
 	}
 

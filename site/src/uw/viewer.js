@@ -117,6 +117,7 @@ export class LevelViewer {
     // sticks), not the orbit camera used for single objects.
     controls.autoRotate = false;
     this.fly.setScale(r);
+    this.fly.setMoveScale(0.25); // UW's levels are vast — quarter-speed movement (look speed unchanged)
     this.fly.setEnabled(true);
 
     if (this.hud?.detail) {
