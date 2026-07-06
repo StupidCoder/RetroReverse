@@ -202,15 +202,16 @@ raw axis +8 (scratch), +A, Z +C.
 8. How tiles become polygons, and how textures are referenced (PART 5)
 ----------------------------------------------------------------------------
 
-The visible geometry is a DISPLAY LIST, built from the tile map once per view
-change and re-rendered each frame (it is cached: profiling its buffer at
-499D:065D and the vertex pool at 499D:1620 shows 0 writers while the player
-stands still — only the transform re-runs). The list is a command stream:
-
-  07F7:2BF0  the interpreter: LODSW a command word, JMP [BX+2738] through a
-             ~24-entry jump table at 499D:2738. The geometry commands transform a
-             vertex and append it to the pool; command 15 (07F7:15AC) is an
-             object/billboard positioned relative to the camera at [26BA/26BC].
+The visible geometry is a DISPLAY LIST at 499D:744A, REBUILT EVERY FRAME by
+segment 1FF9 (the tile->polygon builder, §9). [CORRECTION: an earlier draft
+called it "cached, built once per view change" and named an interpreter at
+07F7:2BF0 — both wrong. 07F7:2BF0 never fires; the 065D I profiled was a stale
+main-loop SI, so it showed 0 writers. The real list is 499D:744A and its builder
+is found without any player movement.] The 07F7 side only interprets it — a
+command stream where each word dispatches (word/2) through a ~24-entry jump table
+at 499D:2738; the live dispatch runs through handlers at 07F7:2B16 / 5E04 / 79CE
+(each ending LODSW; JMP [BX+2738]). One handler (07F7:15AC) is an object/billboard
+positioned relative to the camera at [26BA/26BC].
   07F7:5096  per vertex: read (tileX, tileY, height) bytes, scale each by 32
              (SHL 5 = world units per tile), subtract the camera position, then
              (at 50D8) multiply by the camera matrix -> a view-space vertex,
@@ -232,12 +233,39 @@ span, and the coordinates travel projection -> gather -> the affine DDA (§6).
 So "how a tile becomes polygons": each tile contributes floor/wall/diagonal
 quads whose corners are tile-space vertices (integer tileX/tileY + a height) and
 whose texture is its floor/wall index — assembled into the display list, then
-transformed, projected and rasterised by the pipeline above. The one part still
-to trace is the display-list BUILDER itself (which tile edges emit walls, at
-what heights): it runs only on a view change, so catching it needs the injected
-player to actually cross a tile boundary (the short mouse-hold walk here did
-not). The static tile->geometry RULES are already decoded in extract/lev (Part V
-§6): solid/open/4 diagonals/4 slopes, floor height, floor+wall texture.
+transformed, projected and rasterised by the pipeline above.
+
+----------------------------------------------------------------------------
+9. The display-list builder (1FF9) — the tessellation, PART 6
+----------------------------------------------------------------------------
+
+Found by profiling the writers of the REAL display list at 499D:744A (once the
+stale 065D was corrected): segment 1FF9 rebuilds the whole list EVERY FRAME — no
+player movement needed. 1FF9 is both the tile-map reader and the geometry
+tessellator:
+
+  1FF9:0E56  read a tile (ES:BX from [2F54]): floor HEIGHT (byte0>>4 & 0F), tile
+             TYPE (byte0 & 0F), a texture field (byte1>>2 & 0F) — the very fields
+             extract/lev decodes, confirmed here from the builder's own reads —
+             then branch on them to choose the tile's polygons.
+  1FF9:0AD7  emit a polygon into the list: [7250] is the write pointer; it stores
+             command words ($3E, $02 — the interpreter dispatches word/2 through
+             the 2738 table) interleaved with a texture id ([2F5A]), a height
+             ([BP+A]) and a vertex ref ([2C3A]). One block per polygon.
+
+That closes the loop with no gaps: 1FF9 walks the visible tiles and writes the
+display list each frame; the 07F7 interpreter transforms + gathers it (§7); the
+projection (§7) and 01A0 rasteriser (§3-6) draw it. The static tile->geometry
+RULES are decoded in extract/lev (Part V §6). What remains is only the fine
+detail of WHICH polygons each type emits and the exact edge/wall-adjacency test
+inside 1FF9 (a larger routine), plus the object/sprite path 1FF9 also feeds.
+
+Aside on input injection: the mouse-hold "walk" tried earlier does reach the game
+(it reads buttons=1 at the injected cursor via INT 33h AH=03h during play) but UW
+does not move the avatar from it — its movement handler sits behind a stack-
+switching input thunk (214A:09F0) and keys off its OWN delta-integrated cursor,
+which the absolute-position injection doesn't drive. Movement injection is a
+separate open item; it was not needed to catch the builder.
 
 ----------------------------------------------------------------------------
 Open (next steps for Part V)

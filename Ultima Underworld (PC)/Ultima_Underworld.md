@@ -648,15 +648,24 @@ tiles also carries an object-list head, the bridge into the object/item system (
 ## 7. How tiles become polygons — and how textures are referenced
 
 Tracing the geometry-prep pass joins the level data (§6) to the renderer (§1–5). The visible
-geometry is a **display list** — built from the tile map once per view change, then re-rendered each
-frame (it is *cached*: profiling its buffer and the vertex pool shows zero writers while the player
-stands still — only the transform re-runs). The list is a command stream interpreted at `07F7:2BF0`
-(`LODSW` a command, `JMP [BX+2738]` through a ~24-entry jump table). For each vertex, `07F7:5096`
-reads it as **tile-space bytes** — `(tileX, tileY, height)` — scales each by 32 (`SHL 5`, the world
-units per tile), subtracts the camera position, and multiplies by the camera matrix (§1) into a
-view-space vertex pool at `499D:1620` (8 bytes/vertex). A per-polygon gather (`07F7:5E2A`) then
-copies a polygon's vertices out of the pool by index, attaches texture coordinates, and feeds the
-projection (§5). So a level vertex is stored in *tile coordinates* and transformed on the fly.
+geometry is a **display list** at `499D:744A`, **rebuilt every frame** by segment `1FF9` — the
+tile→polygon tessellator (which also reads the tile map). It is a command stream the `07F7` side
+interprets: each word dispatches (`word/2`) through a ~24-entry jump table at `499D:2738`, the live
+handlers being at `07F7:2B16 / 5E04 / 79CE`. For each vertex, `07F7:5096` reads it as **tile-space
+bytes** — `(tileX, tileY, height)` — scales each by 32 (`SHL 5`, the world units per tile),
+subtracts the camera position, and multiplies by the camera matrix (§1) into a view-space vertex
+pool at `499D:1620` (8 bytes/vertex). A per-polygon gather (`07F7:5E2A`) then copies a polygon's
+vertices out of the pool by index, attaches texture coordinates, and feeds the projection (§5). So a
+level vertex is stored in *tile coordinates* and transformed on the fly.
+
+The builder itself (`1FF9`) reads each tile's fields directly — `byte0>>4 & 0F` = floor height,
+`byte0 & 0F` = type, `byte1>>2 & 0F` = a texture field (the very fields `extract/lev` decodes,
+confirmed here from the builder's own code) — and branches on them to emit the tile's polygons into
+the list through a write pointer at `[7250]`, one command block per polygon.
+(An earlier draft of this section, before the builder was pinned, wrongly called the list *cached*
+and named an interpreter at `07F7:2BF0`; that breakpoint never fires — the `065D` it seemed to use
+was a stale main-loop `SI`. The list is `499D:744A`, rebuilt each frame, and needs no player
+movement to observe.)
 
 **The texture reference** falls out at the rasteriser (`01A0:0210`): each polygon descriptor carries
 its texture *inline* — the draw setup reads the texture **segment** straight into `[07AF]`, the very
@@ -665,20 +674,28 @@ segment is the loaded `.TR` bitmap the display-list builder chose from the tile'
 (§6). So the texture travels *tile index → per-level list → `.TR` segment → polygon descriptor →
 `[07AF]` → span*, while the coordinates travel *projection → gather → affine DDA*.
 
-That is "how a tile becomes polygons," from actual code: each tile contributes floor/wall/diagonal
-quads whose corners are tile-space vertices and whose texture is its floor/wall index, assembled
-into the display list and then transformed, projected and rasterised by §1–5. Full disassembly in
-`disasm/uw-render.asm` (PART 5) with commentary in `uw-render.annotations.txt` (§8).
+That is "how a tile becomes polygons," from actual code: `1FF9` walks the visible tiles each frame
+and emits, per tile, floor/wall/diagonal quads whose corners are tile-space vertices and whose
+texture is its floor/wall index; `07F7` transforms and projects them and `01A0` rasterises them.
+Full disassembly in `disasm/uw-render.asm` (PART 5 = the 07F7 interpret/transform + texture ref,
+PART 6 = the 1FF9 builder) with commentary in `uw-render.annotations.txt` (§8–9).
 
 ## 8. Still open
 
-The one untraced link is the display-list **builder** itself — which tile edges emit walls, at what
-heights — because it runs only on a view change; catching it needs the injected player to cross a
-tile boundary (a short mouse-hold walk here didn't). The static tile→geometry *rules* are already
-decoded (§6). Also open: the `1FF9` object/sprite path, the per-level texture-mapping block, and the
-object lists the tile heads point into. The render *entry* is a callback of the `2252:0410` IRQ0
+The builder loop is pinned; what remains inside `1FF9` is the fine detail — exactly *which* polygons
+each tile type emits and the edge/wall-adjacency test — plus the object/sprite geometry `1FF9` also
+feeds. The static tile→geometry *rules* are already decoded (§6). Also open: the per-level
+texture-mapping block, and the object lists the tile heads point into. The render *entry* is a
+callback of the `2252:0410` IRQ0
 timer table; the peripheral-panel noise in `rendered/dungeon.png` should resolve as the HUD draw
 path (a separate `01A0` consumer) is mapped.
+
+One capability gap worth recording: **avatar movement** can't yet be injected. The scripted
+mouse-hold does reach the game — during play it reads `buttons=1` at the injected cursor via
+`INT 33h` `AH=03h` — but the avatar doesn't move, because UW's movement handler (behind a
+stack-switching input thunk at `214A:09F0`) keys off its *own* delta-integrated cursor rather than
+the absolute position we set. Solving it would enable full playthrough automation; it turned out not
+to be needed for the geometry work, since the display list rebuilds every frame regardless.
 
 # Part VI — Audio and cutscenes (planned)
 

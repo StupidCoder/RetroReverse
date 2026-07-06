@@ -649,3 +649,73 @@
   0000024D  8D 7C FC            LEA DI, [SI-$4]
   00000250  83 C6 0A            ADD SI, $000A
   00000253  E2 E5               LOOP $0000023A
+
+
+; ============================================================================
+; PART 6 — the display-list BUILDER (segment 1FF9): tiles -> polygons, PER FRAME.
+; ============================================================================
+; CORRECTION to PART 5: the display list is NOT cached and NOT built "once per
+; view change" — that was an artifact of reading a stale SI (065D) from the main
+; loop after a breakpoint (07F7:2BF0) that never actually fires. The real display
+; list is at 499D:744A and is REBUILT EVERY FRAME by segment 1FF9 (which also
+; reads the tile map). The 07F7 side only interprets + transforms it; its dispatch
+; runs through handlers at 07F7:2B16 / 5E04 / 79CE (JMP [BX+2738]), not 2BF0.
+;
+; So the geometry-prep needs no player movement to observe: 1FF9 walks the
+; visible tiles each frame, reads each tile's fields, and emits draw commands.
+
+; ==== 1FF9:0E56 — read a tile's fields to decide its geometry ================
+; ES:BX from [2F54] points at the current tile. It reads floor HEIGHT (byte0 >>4
+; & 0F = word0 bits 4-7), tile TYPE (byte0 & 0F = word0 bits 0-3) and a texture
+; field (byte1 >>2 & 0F) — i.e. the exact fields extract/lev decodes — then
+; branches on them (CMP ...,$08) to choose which polygons the tile contributes.
+  00000E56  C7 06 4A 2F C8 00   MOV WORD [$2F4A], $00C8
+  00000E5C  C4 1E 54 2F         LES BX, [$2F54]
+  00000E60  26 8A 07            MOV AL, [ES:BX]
+  00000E63  C1 E8 04            SHR AX, $04
+  00000E66  25 0F 00            AND AX, $000F
+  00000E69  88 46 FF            MOV [BP-$1], AL
+  00000E6C  C4 1E 3C 2C         LES BX, [$2C3C]
+  00000E70  26 8A 47 01         MOV AL, [ES:BX+$1]
+  00000E74  24 0F               AND AL, $0F
+  00000E76  A2 52 2F            MOV [$2F52], AL
+  00000E79  80 3E 52 2F 08      CMP BYTE [$2F52], $08
+  00000E7E  73 2A               JNB $00000EAA
+  00000E80  C4 1E 54 2F         LES BX, [$2F54]
+  00000E84  26 8A 07            MOV AL, [ES:BX]
+  00000E87  25 0F 00            AND AX, $000F
+  00000E8A  88 46 E9            MOV [BP-$17], AL
+  00000E8D  C4 1E 54 2F         LES BX, [$2F54]
+  00000E91  26 8A 5F 01         MOV BL, [ES:BX+$1]
+  00000E95  C1 EB 02            SHR BX, $02
+  00000E98  81 E3 0F 00         AND BX, $000F
+  00000E9C  D1 E3               SHL BX, 1
+  00000E9E  8A 46 E9            MOV AL, [BP-$17]
+
+; ==== 1FF9:0AD7 — emit a polygon into the display list ======================
+; [7250] is the display-list write pointer (LES BX,[7250]; MOV [ES:BX],word; ADD
+; [7250],2). It emits command words (e.g. $3E, $02 — the interpreter dispatches
+; word/2 through the 2738 jump table) interleaved with parameters (a texture id
+; from [2F5A], a height/param from [BP+A], a vertex ref from [2C3A]). One such
+; block per polygon; the 07F7 interpreter then transforms and draws it (PART 5).
+  00000AD7  8A 46 0A            MOV AL, [BP+$A]
+  00000ADA  04 30               ADD AL, $30
+  00000ADC  88 46 0A            MOV [BP+$A], AL
+  00000ADF  C4 1E 50 72         LES BX, [$7250]
+  00000AE3  26 C7 07 3E 00      MOV WORD [ES:BX], $003E
+  00000AE8  83 06 50 72 02      ADD WORD [$7250], $0002
+  00000AED  C4 1E 50 72         LES BX, [$7250]
+  00000AF1  A1 5A 2F            MOV AX, [$2F5A]
+  00000AF4  26 89 07            MOV [ES:BX], AX
+  00000AF7  83 06 50 72 02      ADD WORD [$7250], $0002
+  00000AFC  8A 46 0A            MOV AL, [BP+$A]
+  00000AFF  B4 00               MOV AH, $00
+  00000B01  C4 1E 50 72         LES BX, [$7250]
+  00000B05  26 89 07            MOV [ES:BX], AX
+  00000B08  83 06 50 72 02      ADD WORD [$7250], $0002
+  00000B0D  C4 1E 50 72         LES BX, [$7250]
+  00000B11  A1 3A 2C            MOV AX, [$2C3A]
+  00000B14  26 89 07            MOV [ES:BX], AX
+  00000B17  83 06 50 72 02      ADD WORD [$7250], $0002
+  00000B1C  C4 1E 50 72         LES BX, [$7250]
+  00000B20  26 C7 07 02 00      MOV WORD [ES:BX], $0002
