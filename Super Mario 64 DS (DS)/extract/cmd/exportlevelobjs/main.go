@@ -197,46 +197,61 @@ func main() {
 				continue // same placement listed for several star layers
 			}
 			seen[key] = true
-			j := jsonObj{Actor: o.Actor, Pos: []float64{r3(o.X * toStage), r3(o.Y * toStage), r3(o.Z * toStage)}, RotY: r3(o.RotY), Layer: o.Layer, Txt: signText(o)}
-			if m := modelFor(o.Actor, o.Params); m != "" && hasGLB(m) {
-				j.Model = m
-				j.Bill = bill(m)
-				j.Scale = objScale
-			}
-			if c := colFor(o.Actor, o.Params); c != nil && hasCol(c.KCL) {
-				j.Col = c.KCL
-				if c.Class != "Kc" { // Mbg classes carry their own transform
-					cm := make([]float64, 12)
-					identity := true
-					for k := 0; k < 9; k++ {
-						cm[k] = r5(float64(c.Mtx[k]) / 4096)
-						want := 0.0
-						if k%4 == 0 {
-							want = 1
+			fill := func(j *jsonObj, actor int, par [3]int) {
+				if m := modelFor(actor, par); m != "" && hasGLB(m) {
+					j.Model = m
+					j.Bill = bill(m)
+					j.Scale = objScale
+				}
+				if c := colFor(actor, par); c != nil && hasCol(c.KCL) {
+					j.Col = c.KCL
+					if c.Class != "Kc" { // Mbg classes carry their own transform
+						cm := make([]float64, 12)
+						identity := true
+						for k := 0; k < 9; k++ {
+							cm[k] = r5(float64(c.Mtx[k]) / 4096)
+							want := 0.0
+							if k%4 == 0 {
+								want = 1
+							}
+							if cm[k] != want {
+								identity = false
+							}
 						}
-						if cm[k] != want {
-							identity = false
+						for k := 0; k < 3; k++ {
+							cm[9+k] = r5(float64(c.Mtx[9+k]) / 4096 * toStage)
+							if cm[9+k] != 0 {
+								identity = false
+							}
 						}
-					}
-					for k := 0; k < 3; k++ {
-						cm[9+k] = r5(float64(c.Mtx[9+k]) / 4096 * toStage)
-						if cm[9+k] != 0 {
-							identity = false
+						if !identity {
+							j.ColM = cm
 						}
-					}
-					if !identity {
-						j.ColM = cm
-					}
-					if c.ScaleY != 0 && c.ScaleY != 0x1000 {
-						j.ColSY = r5(float64(c.ScaleY) / 4096)
+						if c.ScaleY != 0 && c.ScaleY != 0x1000 {
+							j.ColSY = r5(float64(c.ScaleY) / 4096)
+						}
 					}
 				}
 			}
+			j := jsonObj{Actor: o.Actor, Pos: []float64{r3(o.X * toStage), r3(o.Y * toStage), r3(o.Z * toStage)}, RotY: r3(o.RotY), Layer: o.Layer, Txt: signText(o)}
+			fill(&j, o.Actor, o.Params)
 			if j.Model != "" {
 				bound++
 			}
 			total++
 			objs = append(objs, j)
+			// The chain chomp's stake: daWanwan_c's init spawns a pile
+			// (actor 27, param $11) at its own position — $02112C6C:
+			// `MOV r0,#27; MOV r1,#$11; ADD r2,actor,#$5C (own pos);
+			// BL $02010E2C` — keeps it at +$608 and marks the pile's
+			// chomp-stake mode byte (+$320). The actor oracle can't see
+			// spawned children (the spawn dies in its bare environment),
+			// so the traced child is emitted here.
+			if o.Actor == 219 {
+				s := jsonObj{Actor: 27, Pos: j.Pos, Layer: o.Layer}
+				fill(&s, 27, [3]int{65535, 0, 0})
+				objs = append(objs, s)
+			}
 		}
 		if len(objs) == 0 {
 			continue
