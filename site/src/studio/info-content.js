@@ -1983,6 +1983,39 @@ moving parts: the coin's step adds <code>$C00</code> to its yaw every frame &mda
 times a second &mdash; and the signposts are proximity dialogs that snap themselves to the ground with a collision
 ray when they spawn. Click one in a course view.</p>
 `,
+    music: `
+<div class="info-eyebrow">Super Mario 64 DS &middot; Music</div>
+<p>All of the game's sound lives in one 4.4&nbsp;MiB file, <code>sound_data.sdat</code> &mdash; the NitroSDK
+sound archive, the same format Mario Kart DS uses. Every note is <strong>sequenced</strong>, MIDI-style;
+there is no streamed audio anywhere on the card. But where Mario Kart DS shipped its archive with the name
+block stripped, this one keeps it: <strong>every tune carries the sound project's own symbol</strong>, and
+the track list you see here is those names, straight off the cartridge.</p>
+
+<h2>The archive, with its names</h2>
+<p>The archive binds <strong>79 sequences</strong> (<code>SSEQ</code>), <strong>109 instrument banks</strong>
+(<code>SBNK</code>) and <strong>89 wave archives</strong> (<code>SWAR</code>) under the project prefix
+<code>NCS_</code>: <code>NCS_BGM_TITLE</code>, <code>NCS_BANK_SE_ACTION</code>,
+<code>NCS_WAVE_RESIDENT</code>. The music names are Japanese romanized development names, and they sort the
+soundtrack at a glance: <code>SHIRO</code> (castle), <code>CHIJOU</code> (overground), <code>OBAKE</code>
+(the haunted house), <code>KUPPA</code> (Bowser &mdash; his Japanese name, Koopa), <code>DOLPIC</code> for
+the beach and its sung twin <code>VOCAL</code>. A few records share one file &mdash; the minigame versions of
+the Bob-omb and Piranha themes are literally the same sequence played through a different setup.</p>
+
+<h2>A soundtrack in families</h2>
+<p>The names split the 83 playable records into clear families: the long looping <strong>world themes</strong>
+(a minute and more), a set of short <strong>power-up loops</strong> (<code>MUTEKI</code> invincibility,
+<code>METAL</code>, <code>FIRE</code>, <code>BALLOON</code>), the <code>MINI*</code> minigame set played on
+the touch screen, a <code>VS*</code> set for wireless multiplayer, and a fanfare for everything that can
+happen to you &mdash; from <code>FIRSTCAP</code> (finding your first cap) and <code>KAGI</code> (a key) down
+to <code>GAMEOVER</code>.</p>
+
+<h2>Playback</h2>
+<p>What you hear is rendered from the bytes: the sequence bytecode runs against the sound driver's clock of
+<strong>48 ticks per quarter note</strong>, envelopes step in decibels at the driver's 192&nbsp;Hz frame rate,
+instruments resample their PCM or ADPCM waves for each note's pitch, and the voices mix at the DS's
+32768&nbsp;Hz &mdash; the same reimplemented sequencer and synthesizer that plays Mario Kart DS's music,
+reused unchanged. Each track plays two loops and fades.</p>
+`,
   },
 };
 

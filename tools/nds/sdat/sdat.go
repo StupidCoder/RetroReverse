@@ -24,11 +24,13 @@ type SDAT struct {
 	Wavearcs []WavearcInfo
 }
 
-// SeqInfo is one INFO SEQ record: a playable sequence.
+// SeqInfo is one INFO SEQ record: a playable sequence. Name is the SYMB-block
+// symbol (empty when the archive ships without SYMB).
 type SeqInfo struct {
 	FileID int
 	Bank   int
 	Vol    int
+	Name   string
 }
 
 // BankInfo is one INFO BANK record: an instrument bank plus up to four wave
@@ -113,7 +115,35 @@ func Parse(data []byte) (*SDAT, error) {
 		}
 		s.Wavearcs = append(s.Wavearcs, WavearcInfo{FileID: int(le.Uint32(r)) & 0xFFFFFF})
 	}
+	s.parseSYMB()
 	return s, nil
+}
+
+// parseSYMB reads the optional SYMB name block: like INFO it starts with eight
+// sub-list offsets (SEQ, SEQARC, BANK, WAVEARC, PLAYER, GROUP, PLAYER2, STRM),
+// each sub-list a u32 count followed by count u32 offsets — but here the
+// offsets (relative to the SYMB block) point at NUL-terminated symbol names.
+// Retail archives often strip the whole block (header offset 0).
+func (s *SDAT) parseSYMB() {
+	data := s.data
+	symbOff := int(le.Uint32(data[0x10:]))
+	if symbOff == 0 || symbOff+12 > len(data) || string(data[symbOff:symbOff+4]) != "SYMB" {
+		return
+	}
+	base := symbOff + int(le.Uint32(data[symbOff+8:])) // SEQ sub-list
+	n := int(le.Uint32(data[base:]))
+	for i := 0; i < n && i < len(s.Seqs); i++ {
+		no := int(le.Uint32(data[base+4+i*4:]))
+		if no == 0 {
+			continue
+		}
+		p := symbOff + no
+		e := p
+		for e < len(data) && data[e] != 0 {
+			e++
+		}
+		s.Seqs[i].Name = string(data[p:e])
+	}
 }
 
 // File returns FAT file i.

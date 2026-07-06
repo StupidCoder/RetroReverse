@@ -179,6 +179,9 @@ const GAMES = [
       { id: 'objects', label: 'Objects', default: true, when: (m) => !!m.leaves?.[m.currentIdx]?.level?.objects },
       { id: 'collision', label: 'Collision', default: false, when: (m) => !!m.leaves?.[m.currentIdx]?.level?.objects },
     ],
+    // the cartridge's SSEQ sequences rendered through our SDAT sequencer+synth;
+    // this SDAT ships WITH its SYMB block, so tracks carry the game's own names
+    music: async () => (await fetch('public/sm64ds/music/tracks.json').then(r => r.json())),
   },
   {
     id: 'uw', name: 'Ultima Underworld', system: 'MS-DOS', render: '3d',

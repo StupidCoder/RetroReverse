@@ -1,0 +1,334 @@
+[
+ {
+  "name": "PERFECT · 0:05",
+  "url": "public/sm64ds/music/perfect.mp3"
+ },
+ {
+  "name": "MINIHISCORE · 0:04",
+  "url": "public/sm64ds/music/minihiscore.mp3"
+ },
+ {
+  "name": "OVERSLOT · 0:03",
+  "url": "public/sm64ds/music/overslot.mp3"
+ },
+ {
+  "name": "MINIOVER · 0:03",
+  "url": "public/sm64ds/music/miniover.mp3"
+ },
+ {
+  "name": "MINICLEAR · 0:03",
+  "url": "public/sm64ds/music/miniclear.mp3"
+ },
+ {
+  "name": "PLAYROOM · 0:16",
+  "url": "public/sm64ds/music/playroom.mp3"
+ },
+ {
+  "name": "OTOATE · 0:37",
+  "url": "public/sm64ds/music/otoate.mp3"
+ },
+ {
+  "name": "PANEL · 1:19",
+  "url": "public/sm64ds/music/panel.mp3"
+ },
+ {
+  "name": "JAZZ · 0:57",
+  "url": "public/sm64ds/music/jazz.mp3"
+ },
+ {
+  "name": "CASINO · 0:59",
+  "url": "public/sm64ds/music/casino.mp3"
+ },
+ {
+  "name": "MINIMERRY · 0:30",
+  "url": "public/sm64ds/music/minimerry.mp3"
+ },
+ {
+  "name": "BOMB · 0:43",
+  "url": "public/sm64ds/music/bomb.mp3"
+ },
+ {
+  "name": "MINISNOW2 · 1:32",
+  "url": "public/sm64ds/music/minisnow2.mp3"
+ },
+ {
+  "name": "CASINOM3 · 0:10",
+  "url": "public/sm64ds/music/casinom3.mp3"
+ },
+ {
+  "name": "MINICOIN · 0:36",
+  "url": "public/sm64ds/music/minicoin.mp3"
+ },
+ {
+  "name": "MINIMUTEKI · 0:25",
+  "url": "public/sm64ds/music/minimuteki.mp3"
+ },
+ {
+  "name": "MINIVOCAL · 1:30",
+  "url": "public/sm64ds/music/minivocal.mp3"
+ },
+ {
+  "name": "MINIMOTOS · 1:19",
+  "url": "public/sm64ds/music/minimotos.mp3"
+ },
+ {
+  "name": "MINIPUKKUN · 1:08",
+  "url": "public/sm64ds/music/minipukkun.mp3"
+ },
+ {
+  "name": "MINIHANA · 0:41",
+  "url": "public/sm64ds/music/minihana.mp3"
+ },
+ {
+  "name": "ESP · 1:56",
+  "url": "public/sm64ds/music/esp.mp3"
+ },
+ {
+  "name": "GAMEOVER · 0:07",
+  "url": "public/sm64ds/music/gameover.mp3"
+ },
+ {
+  "name": "START · 0:05",
+  "url": "public/sm64ds/music/start.mp3"
+ },
+ {
+  "name": "KPCLEAR · 0:05",
+  "url": "public/sm64ds/music/kpclear.mp3"
+ },
+ {
+  "name": "KP3CLEAR · 0:28",
+  "url": "public/sm64ds/music/kp3clear.mp3"
+ },
+ {
+  "name": "SLVSTAR1 · 0:04",
+  "url": "public/sm64ds/music/slvstar1.mp3"
+ },
+ {
+  "name": "SLVSTAR2 · 0:04",
+  "url": "public/sm64ds/music/slvstar2.mp3"
+ },
+ {
+  "name": "SLVSTAR3 · 0:04",
+  "url": "public/sm64ds/music/slvstar3.mp3"
+ },
+ {
+  "name": "SLVSTAR4 · 0:04",
+  "url": "public/sm64ds/music/slvstar4.mp3"
+ },
+ {
+  "name": "SLVSTAR5 · 0:04",
+  "url": "public/sm64ds/music/slvstar5.mp3"
+ },
+ {
+  "name": "DROPSTAR · 0:03",
+  "url": "public/sm64ds/music/dropstar.mp3"
+ },
+ {
+  "name": "GOAL · 0:05",
+  "url": "public/sm64ds/music/goal.mp3"
+ },
+ {
+  "name": "NAZO · 0:04",
+  "url": "public/sm64ds/music/nazo.mp3"
+ },
+ {
+  "name": "STAR · 0:05",
+  "url": "public/sm64ds/music/star.mp3"
+ },
+ {
+  "name": "CLEAR · 0:04",
+  "url": "public/sm64ds/music/clear.mp3"
+ },
+ {
+  "name": "HISCORE · 0:04",
+  "url": "public/sm64ds/music/hiscore.mp3"
+ },
+ {
+  "name": "KUPPAMSG · 0:05",
+  "url": "public/sm64ds/music/kuppamsg.mp3"
+ },
+ {
+  "name": "KINOPIO · 0:04",
+  "url": "public/sm64ds/music/kinopio.mp3"
+ },
+ {
+  "name": "USAGI_0 · 0:20",
+  "url": "public/sm64ds/music/usagi_0.mp3"
+ },
+ {
+  "name": "USAGI_1 · 0:23",
+  "url": "public/sm64ds/music/usagi_1.mp3"
+ },
+ {
+  "name": "KAGI · 0:04",
+  "url": "public/sm64ds/music/kagi.mp3"
+ },
+ {
+  "name": "HAPPY · 0:04",
+  "url": "public/sm64ds/music/happy.mp3"
+ },
+ {
+  "name": "FIRSTCAP · 0:03",
+  "url": "public/sm64ds/music/firstcap.mp3"
+ },
+ {
+  "name": "DEBUT · 0:05",
+  "url": "public/sm64ds/music/debut.mp3"
+ },
+ {
+  "name": "BOSSINTRO · 0:27",
+  "url": "public/sm64ds/music/bossintro.mp3"
+ },
+ {
+  "name": "BOSS · 0:43",
+  "url": "public/sm64ds/music/boss.mp3"
+ },
+ {
+  "name": "MUGEN · 0:15",
+  "url": "public/sm64ds/music/mugen.mp3"
+ },
+ {
+  "name": "OWLFLY · 0:31",
+  "url": "public/sm64ds/music/owlfly.mp3"
+ },
+ {
+  "name": "BALLOON · 0:28",
+  "url": "public/sm64ds/music/balloon.mp3"
+ },
+ {
+  "name": "BIG · 0:28",
+  "url": "public/sm64ds/music/big.mp3"
+ },
+ {
+  "name": "FIRE · 0:27",
+  "url": "public/sm64ds/music/fire.mp3"
+ },
+ {
+  "name": "MUTEKI · 0:25",
+  "url": "public/sm64ds/music/muteki.mp3"
+ },
+ {
+  "name": "METAL · 0:27",
+  "url": "public/sm64ds/music/metal.mp3"
+ },
+ {
+  "name": "MERRY · 0:29",
+  "url": "public/sm64ds/music/merry.mp3"
+ },
+ {
+  "name": "PUKKUN · 1:08",
+  "url": "public/sm64ds/music/pukkun.mp3"
+ },
+ {
+  "name": "TITLE · 1:44",
+  "url": "public/sm64ds/music/title.mp3"
+ },
+ {
+  "name": "SELECT · 0:20",
+  "url": "public/sm64ds/music/select.mp3"
+ },
+ {
+  "name": "SHIRO · 1:02",
+  "url": "public/sm64ds/music/shiro.mp3"
+ },
+ {
+  "name": "CHIJOU · 1:13",
+  "url": "public/sm64ds/music/chijou.mp3"
+ },
+ {
+  "name": "WATER · 1:31",
+  "url": "public/sm64ds/music/water.mp3"
+ },
+ {
+  "name": "SNOW2 · 1:32",
+  "url": "public/sm64ds/music/snow2.mp3"
+ },
+ {
+  "name": "OBAKE · 1:45",
+  "url": "public/sm64ds/music/obake.mp3"
+ },
+ {
+  "name": "DUNGEON · 2:03",
+  "url": "public/sm64ds/music/dungeon.mp3"
+ },
+ {
+  "name": "MOTOS · 1:19",
+  "url": "public/sm64ds/music/motos.mp3"
+ },
+ {
+  "name": "EXTRA · 1:12",
+  "url": "public/sm64ds/music/extra.mp3"
+ },
+ {
+  "name": "ATHRETIC · 1:18",
+  "url": "public/sm64ds/music/athretic.mp3"
+ },
+ {
+  "name": "KUPPA · 1:12",
+  "url": "public/sm64ds/music/kuppa.mp3"
+ },
+ {
+  "name": "KUPPA3 · 1:23",
+  "url": "public/sm64ds/music/kuppa3.mp3"
+ },
+ {
+  "name": "DOLPIC · 1:30",
+  "url": "public/sm64ds/music/dolpic.mp3"
+ },
+ {
+  "name": "VOCAL · 1:30",
+  "url": "public/sm64ds/music/vocal.mp3"
+ },
+ {
+  "name": "PEACH · 0:08",
+  "url": "public/sm64ds/music/peach.mp3"
+ },
+ {
+  "name": "OPENING · 0:32",
+  "url": "public/sm64ds/music/opening.mp3"
+ },
+ {
+  "name": "ENDING · 1:15",
+  "url": "public/sm64ds/music/ending.mp3"
+ },
+ {
+  "name": "STAFFROLL · 3:01",
+  "url": "public/sm64ds/music/staffroll.mp3"
+ },
+ {
+  "name": "JUGEMU · 0:06",
+  "url": "public/sm64ds/music/jugemu.mp3"
+ },
+ {
+  "name": "WAKEUP · 0:31",
+  "url": "public/sm64ds/music/wakeup.mp3"
+ },
+ {
+  "name": "VSSHIRO · 1:02",
+  "url": "public/sm64ds/music/vsshiro.mp3"
+ },
+ {
+  "name": "VSATHRETIC · 1:18",
+  "url": "public/sm64ds/music/vsathretic.mp3"
+ },
+ {
+  "name": "VSMUTEKI · 0:25",
+  "url": "public/sm64ds/music/vsmuteki.mp3"
+ },
+ {
+  "name": "VSCLEAR · 0:02",
+  "url": "public/sm64ds/music/vsclear.mp3"
+ },
+ {
+  "name": "VSDROPSTAR · 0:03",
+  "url": "public/sm64ds/music/vsdropstar.mp3"
+ },
+ {
+  "name": "VSWIN · 0:04",
+  "url": "public/sm64ds/music/vswin.mp3"
+ },
+ {
+  "name": "VSLOSE · 0:04",
+  "url": "public/sm64ds/music/vslose.mp3"
+ }
+]

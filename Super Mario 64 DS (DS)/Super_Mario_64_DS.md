@@ -14,8 +14,7 @@ Image: `Super Mario 64 DS (Europe) (En,Fr,De,Es,It).nds`, 16 MiB, game code **AS
 * **Part IV** — the 3D model format: the game's *own* `.bmd` container (not the NITRO `BMD0` its extension suggests) and how its display lists and textures decode;
 * **Part V** — level data and object placements: the level→overlay and settings-block tables, the object-table format and its spawner, the actor system, and the trace from each actor's create function to the model it draws.
 * **Part VI** — collision: the `.kcl` mesh format (vertices, packed normals, prism records and the octree the queries walk), the external `CLPS` surface-attribute table, the ITCM query walkers — all pinned by running the game's own collision code in the oracle and reimplemented bit-exactly in Go.
-
-Part VII (the SDAT music) is future work; the toolchain and container decoding carry straight over from the Mario Kart DS analysis.
+* **Part VII** — the music: the `SDAT` sound archive (the same NitroSDK format as Mario Kart DS's, but shipped *with* its symbol block, so every tune carries the game's own name), rendered to MP3 through the shared `tools/nds/sdat` sequencer and synth.
 
 Methods: purely static analysis of the `.nds` image. All addresses are 32-bit ARM addresses (`$02000000`-style main-RAM addresses, or the BIOS and I/O regions) unless a *file offset* into the ROM image is explicitly called out; bytes are little-endian.
 
@@ -518,6 +517,22 @@ The Studio viewer gets a **Collision** toggle (like the 2D games' overlays): the
 
 **Object colliders come from the oracle, transforms included.** Which `.kcl` belongs to which placement is not name-matching: the actor oracle records every `.kcl` an actor's own code loads (147 actors, 177 files), and reads back the collider it registers in the 24-slot table — platform actors register on their **first step**, not in init, so the oracle runs one step frame when a `.kcl` was loaded but no collider appeared. The registered object is one of the `dBgW_Kc` subclasses, and the moving ones carry their own transform: a **local→world `MtxFx43` at `+$134`** (inverse at `+$168` — the Mbg wrappers at `$02039CB8`/`$02039E48` transform the query into collider-local space before calling the same ITCM walkers) and, for `dBgW_KcMbgSclY`, an extra **fx12 local-Y scale at `+$1C8`**. Reading that matrix explained the sizes: object `.kcl` are authored ~10× large and the actors scale them down by `$199/$1000 ≈ 0.1` (fixed-point precision headroom). The oracle spawns at the origin with no yaw, so the captured matrix is the actor's *own* collider transform; the viewer composes the placement pose on top — the gate shutters land exactly inside their arches.
 
+# Part VII — The music: `SDAT`, with its names intact
+
+## 1. The same archive as Mario Kart DS — plus the symbol block
+
+All sound lives in one file, `data/sound_data.sdat` (4.4 MB) — the NitroSDK sound archive, byte-for-byte the same container format decoded for [[Mario Kart DS]] (Part IV §8 there): an `INFO` block binding sequences to instrument banks and banks to wave archives, a `FAT` of member files, and the `FILE` payload. The parser, the `SSEQ` sequencer, the `SBNK`/`SWAR` instrument and wave decoding and the synth in `tools/nds/sdat` apply **unchanged** — the whole Part is a reuse dividend.
+
+One thing is different, and it is a gift: where Mario Kart DS stripped the optional **`SYMB`** name block from its retail archive (its 76 sequences are known only by number), Super Mario 64 DS **ships with `SYMB` intact**. The block mirrors `INFO`'s structure — eight sub-lists (SEQ, SEQARC, BANK, WAVEARC, PLAYER, GROUP, PLAYER2, STRM), each a `u32` count and `count` `u32` offsets — but its offsets (relative to the `SYMB` block) point at NUL-terminated symbol names. `tools/nds/sdat` now reads it when present, and every sequence introduces itself: `NCS_BGM_TITLE`, `NCS_BGM_SHIRO` ("castle"), `NCS_BGM_CHIJOU` ("overground"), `NCS_BGM_KUPPA` (Bowser), `NCS_BGM_STAFFROLL`. The `NCS_` prefix runs through the whole archive (`NCS_BANK_SE_ACTION`, `NCS_WAVE_RESIDENT`…) — the sound project's own namespace, on the cartridge.
+
+The census: **282 member files — 79 `SSEQ` sequences, 109 `SBNK` banks, 89 `SWAR` wave archives, 5 `SSAR` effect archives** — bound by 83 SEQ records, 134 BANK records and 89 WAVEARC records (records can share files: `PANEL`/`MINIMOTOS`/`MOTOS` are one `SSEQ` played through different player setups, as are `MINIVOCAL`/`VOCAL` and `MINIPUKKUN`/`PUKKUN` — the minigame versions of world themes are literally the same sequence). As on Mario Kart DS there is **no `STRM`** streamed audio: every note in the game is sequenced.
+
+## 2. Rendered — all 83 sequences
+
+`extract/cmd/musicrender` (a clone of Mario Kart DS's) plays every sequence through the driver-faithful sequencer — 48 ticks per quarter, envelopes at 192 Hz in dB×1024 units, the DS's 32768 Hz mixer — for two loops (capped at 3 minutes) with a fade, and encodes MP3s named after the `SYMB` symbols. **All 83 render**, from the 3-second star-drop stinger to the 3-minute staff roll. The names sort the soundtrack at a glance: the world themes (`SHIRO` castle 62 s, `CHIJOU` overground 73 s, `WATER` 91 s, `SNOW2` 92 s, `OBAKE` haunted house 105 s, `DUNGEON` 124 s, `ATHRETIC` [sic] 78 s, `KUPPA`/`KUPPA3` Bowser 73/84 s, `DOLPIC` beach 90 s and its sung twin `VOCAL`), the power-up loops (`MUTEKI` invincible, `METAL`, `FIRE`, `BIG`, `BALLOON`, `OWLFLY`), the `MINI*` minigame set, the `VS*` multiplayer set, and a fanfare for everything from `FIRSTCAP` to `GAMEOVER`. The tracks land in the Studio's music panel under their cartridge names.
+
+Honest caveats, the same two as Mario Kart DS: the envelope tables and PSG behavior are the sound driver's *documented* semantics reimplemented, not a bit-exact trace of this cartridge's ARM7 driver; and the level→sequence binding (which world plays which `NCS_BGM_*`) is an ARM9 table not yet traced — though with the symbols present, the names themselves do most of that work.
+
 # Appendix A — Toolchain and reproduction
 
 Everything here is derived from the `.nds` image with this repository's own tools: the shared `tools/nds` container reader and the `tools/arm` disassembler/tracer, plus this game's `extract` module. No third-party emulator, debugger or disassembler was used, and nothing was read from released source.
@@ -573,6 +588,10 @@ go run ./cmd/kcltrace -itcm ../extracted/itcm.bin
 go run ./cmd/exportkcl
 # the actor sweep also records .kcl loads and registered collider transforms
 # (actorbind.json "kcl"/"colliders"), consumed by exportlevelobjs
+
+# Part VII — render all 83 SSEQ sequences through the SDAT sequencer+synth to MP3,
+# named from the archive's own SYMB symbols (needs ffmpeg)
+go run ./cmd/musicrender                        # → rendered/music/, copied to site/public/sm64ds/music/
 ```
 
 Toolchain (shared `retroreverse.com/tools`, this repository):
@@ -586,5 +605,7 @@ Toolchain (shared `retroreverse.com/tools`, this repository):
 - **`supermario64ds/extract/cmd/dualoracle`** — co-executes both boot binaries on the `tools/nds/dsmachine` dual-core model, clearing the rendezvous the single-core oracle stops at and running the ARM9 into the post-sync PXI exchange (Part III §6).
 - **`supermario64ds/extract/cmd/kcltrace`** — the Part VI instrument: has the game itself load, fix up and register a level's `.kcl` collider in the oracle, casts ground rays through the game's own dispatcher with a **read watch** over the served file (every byte the walker touches, with the touching PC), and cross-checks `sm64ds/kcl.go`'s bit-exact reimplementation against the running original (`-verify`).
 - **`supermario64ds/extract/cmd/exportkcl`** — Part VI §7: reconstructs every prism's triangle from the walker's own half-plane definition and writes the red collision GLBs for the Studio's Collision toggle (level maps + the object colliders the binding oracle saw actors load), self-validated centroid-by-centroid against the walker's inequalities.
+- **`tools/nds/sdat`** — the SDAT sound archive: container/INFO/FAT parse (now also the optional `SYMB` name block, which this game ships), SBNK instruments, SWAR/SWAV waves (PCM8/16, IMA-ADPCM), and the SSEQ sequencer + synth (driver-faithful timing and envelopes) rendering to stereo PCM. Built for [[Mario Kart DS]]; reused here unchanged apart from the `SYMB` reader.
+- **`supermario64ds/extract/cmd/musicrender`** — Part VII: renders every sequence to MP3 (via ffmpeg), named from the `SYMB` symbols, and writes the Studio music panel's `tracks.json`.
 
 Rendered figures will go in `Super Mario 64 DS (DS)/rendered/`; annotated disassembly in `disasm/`.
