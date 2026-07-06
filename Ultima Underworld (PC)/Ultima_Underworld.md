@@ -858,11 +858,51 @@ and drawing all happen *inside* the program, in the opcodes above.
 Full disassembly in `disasm/uw-render.asm` (PART 7) with the per-opcode map in
 `uw-render.annotations.txt` (§10-§10c).
 
-**Still to pin:** the handful of unread handlers (`4494`, `4980`, `6843`, the `5Cxx` pokes, the
-`3Fxx` shading family); capturing a concrete door model's bytes to validate (via the object-emission
-pass that writes the program — not in `1FF9` — or a runtime capture in the dungeon); the item-id →
-model-program map; and where the door frame's floor-to-ceiling extent enters (the emission pass, or
-memory-read operands inside the program — both mechanisms exist in the instruction set).
+### The models themselves — decoded from UW.EXE
+
+The 64 object models live in UW.EXE as **programs in this same VM bytecode**, written in the high
+alias range (`0x78+`) of the dispatch table — which is *why* that alias range exists. The 64-entry
+offset table sits in DGROUP immediately after the jump table, at **`499D:28A0`** (file `0x4E370`;
+located via a byte signature from an old partial guide, then everything below re-derived from the
+interpreter and verified against live memory — the offsets and record layout match exactly). Model
+N's record is at `499D:292E + table[N]`:
+
+	+0  word (emitter data)      +2  0
+	+4  extents X,Y,Z (3 words)  ← the [SI-6/-4/-2] bounds the draw pass reads
+	+A  the program              ← SI starts here
+
+`extract/model` re-implements the vertex-building opcodes and decodes all 64 models (≈30 real ones;
+the rest are stubs). The model-specific opcodes, all read off their handlers: `0x7A` plant a
+word-coord vertex into a pool slot; `0x78` box frustum-classification (centre ± half-extents through
+the matrix; all-inside sets the no-clip fast path the quad drawer tests via `[2930]`); `0x82`/`0xB8`
+batch vertices; `0x86/0x88/0x8A` derive a vertex by an offset along a model axis (through a matrix
+row); `0x90/0x92/0x94` two-axis variants; `0x8C/0xC6` vertex add/sub; `0x22/0x7E` gather-and-draw a
+flat N-gon; `0xBC` set colour through the light-shade table at `CS:696E` (banked by the light level
+`[2934]`); `0xD4` per-vertex Gouraud shades (into pool byte `+7`, stream padded to even);
+`0xA0/0xA2/0xA4/0xA6` compact textured quads (descriptor word + 4 pool-index *bytes*, implicit
+full-texture corner UVs, mirrored winding between the pairs — a door face in one opcode);
+`0xA8/0xAA/0xB4/0xCE` textured N-gons with explicit per-vertex UVs scaled by the descriptor; `0x06`
+(and 2-term `0x0C/0x0E/0x10`) **two-sided faces** — a plane test picks between two sub-programs,
+executed in *reversed painter's order* on the back side; `0x14/0x16`, `0x5E-0x68`, `0x58`
+conditional skips (state and plane-side); and **`0x50/0x70/0x72` + `0xBA/0xC2/0xC4` scoped
+rotations** — save the matrix, rotate about an axis by an inline angle or one read *from memory*,
+run a sub-program, restore.
+
+**The wooden door (model 14) reads like a design document**: shift the pivot by the hinge offset
+(`0x4A −(-48,0,0)`), **rotate by the angle variable `[292A]`** (`0xBA` — the door swing, animated by
+the game changing one word), build the leaf's 8 box corners (128 wide × 208 tall × 8 thin) from one
+planted vertex + axis offsets, plane-check which side faces the camera, draw the four flat edge
+strips, and texture the big faces via descriptor 6 — where the emitter binds the door's `DOORS.GR`
+texture. The portcullis (model 12) reads the *same* variable as a **bar count** (`if [292A] < 4
+skip…`) so its bars vanish as it opens. Extents identify the rest: benches, tables, bridges
+(256×16×256), beams, pillars, shrines. `cmd/modeldump` prints any model's decoded program;
+`model_test.go` locks the door's geometry.
+
+**Still to pin:** the item-id → model-index map and the descriptor/texture binding (both live in the
+object-emission pass, still not located); the door *frame* geometry (the model is only the leaf — the
+frame likely comes from the emission pass or the tile renderer); models 10's `0x30` LOD-indirect
+path; and the exact `[292A]`-family per-object state protocol (how the emitter loads each object's
+animation state before running its program).
 
 ## 9. Still open
 
