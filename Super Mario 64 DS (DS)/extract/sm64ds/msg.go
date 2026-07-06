@@ -12,7 +12,7 @@ package sm64ds
 //     walks the sections comparing the tag word against INF1/FLW1/DAT1/STR1/
 //     FLI1 constants and stores the INF1 section base, INF1+0x10 (the entry
 //     array) and DAT1+8 (the string pool) in globals $02104C1C/$02104C18/
-//     $02104C24. The string getter $020C8FA0 computes
+//     $02104C24. The string getter $020C94A0 computes
 //     stringPool + u32(entries[id * (entrySizeField>>3)]) — the INF1 header
 //     holds count (u16 at +8) and an entry-size field (u16 at +0xA, value
 //     0x40, used as 0x40>>3 = 8 bytes per entry: u32 offset + u32 attributes).
@@ -101,6 +101,27 @@ func ParseBMG(data []byte) ([]string, error) {
 		msgs[i] = decodeMsg(data, pool+off)
 	}
 	return msgs, nil
+}
+
+// MsgIndex translates an EXTERNAL message ID — the number actors carry, e.g.
+// a signpost placement's par1 — to the message's INF1 index. Game code never
+// stores raw indices: the message-window code (overlay 7) passes every ID
+// through $020B8EC0, which walks a {u16 firstID, u16 firstIndex} range table
+// at ARM9 $0208EEEC and returns firstIndex + (id - firstID) for the range
+// containing the ID (ranges are half-open, table ends at a sentinel ID
+// >= 8000). Returns -1 for an ID before the first range.
+func (ls *LevelSet) MsgIndex(id int) int {
+	const msgRangeTable = 0x8AEEC // ARM9 file offset of $0208EEEC
+	for k := 0; ; k++ {
+		first := int(le.Uint16(ls.arm9[msgRangeTable+k*4:]))
+		next := int(le.Uint16(ls.arm9[msgRangeTable+(k+1)*4:]))
+		if id < first {
+			return -1
+		}
+		if id < next || next >= 8000 {
+			return int(le.Uint16(ls.arm9[msgRangeTable+k*4+2:])) + id - first
+		}
+	}
 }
 
 // decodeMsg converts one glyph-index string (0xFF-terminated) to text.

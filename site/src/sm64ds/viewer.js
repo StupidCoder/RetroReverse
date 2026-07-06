@@ -294,6 +294,17 @@ export class ModelViewer {
         : 'The actor oracle recorded no model load in this actor’s create/init.';
       d.append(body);
     }
+    // A signpost's actual in-game words: the placement's par1 is an external
+    // message ID resolved through the game's $0208EEEC range table into the
+    // English BMG message file (decoded via the dialog font — doc Part VIII).
+    if (hit.txt) {
+      const t = document.createElement('div');
+      t.style.cssText = 'margin-top:8px;padding:8px 10px;background:rgba(255,255,255,.06);' +
+        'border-left:3px solid #ffd75e;border-radius:4px;white-space:pre-wrap;' +
+        'font-style:italic;color:#f2ecd8;max-height:180px;overflow-y:auto';
+      t.textContent = hit.txt;
+      d.append(t);
+    }
     // this.el is the studio's .mount (position:absolute, inset:0) — already a
     // positioning context; never touch its position or the canvas collapses.
     this.el.appendChild(d);
@@ -491,7 +502,7 @@ export class ModelViewer {
       }
       inst.position.set(o.p[0], o.p[1], o.p[2]);
       group.add(inst);
-      this.placed.push({ obj: inst, actor: o.a, model: o.m || null });
+      this.placed.push({ obj: inst, actor: o.a, model: o.m || null, txt: o.txt || null });
     }
     group.visible = this.wantObjects;
     this.three.scene.add(group);

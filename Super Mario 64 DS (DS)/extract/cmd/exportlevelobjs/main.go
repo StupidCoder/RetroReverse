@@ -49,6 +49,10 @@ type jsonObj struct {
 	Pos   []float64 `json:"p"`
 	RotY  float64   `json:"ry,omitempty"`
 	Layer int       `json:"l,omitempty"`
+	// Txt: the signpost's in-game text (actor 184; par1 is an external message
+	// ID resolved through the $0208EEEC range table — see sm64ds.MsgIndex —
+	// into data/message/msg_data_eng.bin).
+	Txt string `json:"txt,omitempty"`
 }
 
 func main() {
@@ -141,6 +145,24 @@ func main() {
 	// just that bone.
 	bill := billboardChecker(ls, *ext)
 
+	// The signposts' text: actor 184 carries its message as par1, an external
+	// message ID the game resolves through $020B8EC0's range table (see
+	// sm64ds.MsgIndex); the text itself is the English BMG message file.
+	msgs, err := sm64ds.LoadBMG(filepath.Join(*ext, "files/data/message/msg_data_eng.bin"))
+	if err != nil {
+		die(err)
+	}
+	const signpostActor = 184
+	signText := func(o sm64ds.LevelObject) string {
+		if o.Actor != signpostActor {
+			return ""
+		}
+		if idx := ls.MsgIndex(o.Params[0]); idx >= 0 && idx < len(msgs) {
+			return msgs[idx]
+		}
+		return ""
+	}
+
 	// objScale is the display scale for an object instance, from the traced engine
 	// transform (Part V §5): object models draw under MTX_SCALE(2^shift) — already
 	// baked into the exported GLB — while the stage draws under an extra uniform
@@ -175,7 +197,7 @@ func main() {
 				continue // same placement listed for several star layers
 			}
 			seen[key] = true
-			j := jsonObj{Actor: o.Actor, Pos: []float64{r3(o.X * toStage), r3(o.Y * toStage), r3(o.Z * toStage)}, RotY: r3(o.RotY), Layer: o.Layer}
+			j := jsonObj{Actor: o.Actor, Pos: []float64{r3(o.X * toStage), r3(o.Y * toStage), r3(o.Z * toStage)}, RotY: r3(o.RotY), Layer: o.Layer, Txt: signText(o)}
 			if m := modelFor(o.Actor, o.Params); m != "" && hasGLB(m) {
 				j.Model = m
 				j.Bill = bill(m)

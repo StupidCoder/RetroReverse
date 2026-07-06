@@ -424,7 +424,7 @@ The **chain chomp** (`daWanwan2_c`, overlay 100) resolves its previously-unbound
 
 The **bob-omb** (`daBmb_c`, overlay 102) wanders differently: its heading picker (`$0214BEB4`) aims **at its home point** (`$0203B7AC` toward the anchor at `+$3C4`) **plus a random signed 16-bit offset** — erratic but home-biased — and beyond **1280 units** (`$500000`) it drops the randomness and heads straight back. Each pick sets the forward speed to **`$5000` (5.0 units/frame)** and the walk repicks when the yaw reaches the target heading (`$0214BE8C`) or when a 512-frame fallback timer (`+$3E8`, set at the state entry `$0214C108`) expires; the yaw eases at **`$400` angle-units/frame** (doubled to `$800` when chasing the target at `+$38C`, whose speed goal becomes `$10000` = 16.0 — the lit-fuse sprint). A nice detail: the walk-cycle playback rate at `+$35C` is the forward speed divided by 8, so the feet match the ground speed. The viewer gives bob-ombs (and the red buddies) this profile alongside the goomba's.
 
-The viewer replicates what is traced: coins spin at the engine's `$C00`-per-frame rate, clicking a signpost pops the traced interaction (the real dialog needs the message archives), skinned enemies play their `.bca` clips, and the goombas **patrol** with the traced wander — 2.0 units/frame, `$200`/frame turning, 100-frame repicks at 75% turn / 25% pause, leashed to their spawn points.
+The viewer replicates what is traced: coins spin at the engine's `$C00`-per-frame rate, clicking a signpost pops the traced interaction — and, since Part VIII, quotes the sign's own in-game words — skinned enemies play their `.bca` clips, and the goombas **patrol** with the traced wander — 2.0 units/frame, `$200`/frame turning, 100-frame repicks at 75% turn / 25% pause, leashed to their spawn points.
 
 # Part VI — Collision: the `.kcl` mesh, the octree walk and the `CLPS` surface table
 
@@ -540,7 +540,7 @@ This Part exists because of a correction. The Studio's level list had shipped wi
 
 ## 1. The `BMG` text containers
 
-All text lives in **BMG** containers: `data/message/msg_data_<lang>.bin` (eng/frn/gmn/itl/spn — the 711 in-game messages, `LZ77`-tagged like the `.bmd` models) plus five small BMGs embedded in the ARM9 itself (the pre-boot option menus, one per language, at file offset `$8E89C`ff). The magic is `MESG`/`bmg1` stored byte-swapped (`GSEM1gmb`), then tagged sections. The game's parser — overlay 7, `$020C951C` — walks the sections comparing each tag word against `INF1`/`FLW1`/`DAT1`/`STR1`/`FLI1` constants and stores the `INF1` base, its entry array (`INF1+$10`) and the string pool (`DAT1+8`) in globals `$02104C1C`/`$02104C18`/`$02104C24`. The string getter `$020C8FA0` then computes:
+All text lives in **BMG** containers: `data/message/msg_data_<lang>.bin` (eng/frn/gmn/itl/spn — the 711 in-game messages, `LZ77`-tagged like the `.bmd` models) plus five small BMGs embedded in the ARM9 itself (the pre-boot option menus, one per language, at file offset `$8E89C`ff). The magic is `MESG`/`bmg1` stored byte-swapped (`GSEM1gmb`), then tagged sections. The game's parser — overlay 7, `$020C951C` — walks the sections comparing each tag word against `INF1`/`FLW1`/`DAT1`/`STR1`/`FLI1` constants and stores the `INF1` base, its entry array (`INF1+$10`) and the string pool (`DAT1+8`) in globals `$02104C1C`/`$02104C18`/`$02104C24`. The string getter `$020C94A0` then computes:
 
 ```
 string(id) = DAT1+8 + u32( entries[ id * (entrySizeField >> 3) ] )
@@ -561,6 +561,12 @@ The binding from level to course is one table and one accessor. The **`s8` table
 `cmd/exportbmd` now derives the Studio's level names from exactly this join (`buildLevelNames`): course name from message `406+course`, title-cased (a display choice — the game shows the names in capitals; "Bob-omb"'s casing follows the game's own mixed-case dialog), with the internal stem appended to a course's secondary maps. The castle hub keeps literal stem descriptions — it is not a course, and its outdoor label `CASTLE GROUNDS` appears on the cartridge only as a pre-rendered banner image in the per-language menu archives (`ARCHIVE/cee.narc` for English), the same sheets that carry `SUNSHINE ISLES` and `PRINCESS'S SECRET SLIDE`.
 
 One more prize fell out of the same 3-bytes-per-level info table at `$02075768`: its third byte is the level's **background-music sequence** (Part VII §2), read at level start by `$0202D35C` and started by `$0201320C` — negative stops the music, so the `$FF` rows are the deliberately silent levels.
+
+## 4. Which signpost says what
+
+Every readable signpost in the game is the same actor, 184 (`obj_tatefuda`, Part V §6) — so where does each one get its words? From its **placement**: the first object parameter (`par1`) is an **external message ID**. These IDs are not `INF1` indices — they live in their own namespace (the course-story signs count up from `1000 + 50·course`: Bob-omb Battlefield uses 1000–1008, Whomp's Fortress 1050–1054…; shared tutorial signs sit in an 1800 block and recur across levels). The translation is the function the message window runs every ID through: **`$020B8EC0`** walks a `{u16 firstID, u16 firstIndex}` **range table at ARM9 `$0208EEEC`** (half-open ranges, sentinel ID ≥ 8000) and returns `firstIndex + (id − firstID)`.
+
+The join proves itself instantly: ID 1000 → index 42 = *"BEWARE OF CHAIN-CHOMP / Extreme Danger!"* — the famous sign next to the Chain Chomp's stake in Bob-omb Battlefield — and 1003 → 45, the Big Bob-omb's *"No visitors allowed, by decree of the Big Bob-omb."* Reimplemented as `sm64ds.LevelSet.MsgIndex`; `cmd/exportlevelobjs` now attaches each signpost's English text to its placement JSON (`txt`), and clicking a signpost in the Studio viewer quotes the sign itself — 102 of the 103 placed signposts resolve (the one holdout is on the unused test map, placed with parameter `$FFFF`, no valid message). Icon escapes (`$FE` controls — the button and d-pad glyphs in control hints) are skipped in the decoded text.
 
 # Appendix A — Toolchain and reproduction
 
