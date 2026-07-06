@@ -1,5 +1,29 @@
 [
  {
+  "name": "? Switch",
+  "file": "habatake_all.glb",
+  "section": "Levels",
+  "objects": "objects/habatake_all.json"
+ },
+ {
+  "name": "Behind the Waterfall",
+  "file": "metal_switch_all.glb",
+  "section": "Levels",
+  "objects": "objects/metal_switch_all.json"
+ },
+ {
+  "name": "Big Boo Battle",
+  "file": "ex_l_map_all.glb",
+  "section": "Levels",
+  "objects": "objects/ex_l_map_all.json"
+ },
+ {
+  "name": "Big Boo Battle (ex_luigi)",
+  "file": "ex_luigi_all.glb",
+  "section": "Levels",
+  "objects": "objects/ex_luigi_all.json"
+ },
+ {
   "name": "Big Boo's Haunt",
   "file": "teresa_house_all.glb",
   "section": "Levels",
@@ -12,28 +36,16 @@
   "objects": "objects/bombhei_map_all.json"
  },
  {
-  "name": "Bowser 1 (arena)",
-  "file": "koopa1_boss_all.glb",
-  "section": "Levels",
-  "objects": "objects/koopa1_boss_all.json"
- },
- {
-  "name": "Bowser 2 (arena)",
-  "file": "koopa2_boss_all.glb",
-  "section": "Levels",
-  "objects": "objects/koopa2_boss_all.json"
- },
- {
-  "name": "Bowser 3 (arena)",
-  "file": "koopa3_boss_all.glb",
-  "section": "Levels",
-  "objects": "objects/koopa3_boss_all.json"
- },
- {
   "name": "Bowser in the Dark World",
   "file": "koopa1_map_all.glb",
   "section": "Levels",
   "objects": "objects/koopa1_map_all.json"
+ },
+ {
+  "name": "Bowser in the Dark World (koopa1_boss)",
+  "file": "koopa1_boss_all.glb",
+  "section": "Levels",
+  "objects": "objects/koopa1_boss_all.json"
  },
  {
   "name": "Bowser in the Fire Sea",
@@ -42,13 +54,25 @@
   "objects": "objects/koopa2_map_all.json"
  },
  {
+  "name": "Bowser in the Fire Sea (koopa2_boss)",
+  "file": "koopa2_boss_all.glb",
+  "section": "Levels",
+  "objects": "objects/koopa2_boss_all.json"
+ },
+ {
   "name": "Bowser in the Sky",
   "file": "koopa3_map_all.glb",
   "section": "Levels",
   "objects": "objects/koopa3_map_all.json"
  },
  {
-  "name": "Castle grounds",
+  "name": "Bowser in the Sky (koopa3_boss)",
+  "file": "koopa3_boss_all.glb",
+  "section": "Levels",
+  "objects": "objects/koopa3_boss_all.json"
+ },
+ {
+  "name": "Castle Grounds",
   "file": "main_garden_all.glb",
   "section": "Levels",
   "objects": "objects/main_garden_all.json"
@@ -72,22 +96,46 @@
   "objects": "objects/castle_b1_all.json"
  },
  {
-  "name": "Cool Cool Mtn slide",
+  "name": "Chief Chilly Challenge",
+  "file": "ex_w_map_all.glb",
+  "section": "Levels",
+  "objects": "objects/ex_w_map_all.json"
+ },
+ {
+  "name": "Chief Chilly Challenge (ex_wario)",
+  "file": "ex_wario_all.glb",
+  "section": "Levels",
+  "objects": "objects/ex_wario_all.json"
+ },
+ {
+  "name": "Cool, Cool Mountain",
   "file": "snow_mt_all.glb",
   "section": "Levels",
   "objects": "objects/snow_mt_all.json"
  },
  {
-  "name": "Cool, Cool Mountain",
+  "name": "Cool, Cool Mountain (snow_slider)",
   "file": "snow_slider_all.glb",
   "section": "Levels",
   "objects": "objects/snow_slider_all.json"
  },
  {
   "name": "Dire, Dire Docks",
-  "file": "kaizoku_irie_all.glb",
+  "file": "water_land_all.glb",
   "section": "Levels",
-  "objects": "objects/kaizoku_irie_all.json"
+  "objects": "objects/water_land_all.json"
+ },
+ {
+  "name": "Goomboss Battle",
+  "file": "ex_m_map_all.glb",
+  "section": "Levels",
+  "objects": "objects/ex_m_map_all.json"
+ },
+ {
+  "name": "Goomboss Battle (ex_mario)",
+  "file": "ex_mario_all.glb",
+  "section": "Levels",
+  "objects": "objects/ex_mario_all.json"
  },
  {
   "name": "Hazy Maze Cave",
@@ -97,9 +145,15 @@
  },
  {
   "name": "Jolly Roger Bay",
-  "file": "horisoko_all.glb",
+  "file": "kaizoku_irie_all.glb",
   "section": "Levels",
-  "objects": "objects/horisoko_all.json"
+  "objects": "objects/kaizoku_irie_all.json"
+ },
+ {
+  "name": "Jolly Roger Bay (kaizoku_ship)",
+  "file": "kaizoku_ship_all.glb",
+  "section": "Levels",
+  "objects": "objects/kaizoku_ship_all.json"
  },
  {
   "name": "Lethal Lava Land",
@@ -108,22 +162,10 @@
   "objects": "objects/fire_land_all.json"
  },
  {
-  "name": "Luigi ? cap course",
-  "file": "ex_luigi_all.glb",
+  "name": "Lethal Lava Land (fire_mt)",
+  "file": "fire_mt_all.glb",
   "section": "Levels",
-  "objects": "objects/ex_luigi_all.json"
- },
- {
-  "name": "Mario ? cap course",
-  "file": "ex_mario_all.glb",
-  "section": "Levels",
-  "objects": "objects/ex_mario_all.json"
- },
- {
-  "name": "Metal-cap cavern",
-  "file": "metal_switch_all.glb",
-  "section": "Levels",
-  "objects": "objects/metal_switch_all.json"
+  "objects": "objects/fire_mt_all.json"
  },
  {
   "name": "Over the Rainbows",
@@ -138,28 +180,16 @@
   "objects": "objects/main_castle_all.json"
  },
  {
-  "name": "Pirate ship",
-  "file": "kaizoku_ship_all.glb",
-  "section": "Levels",
-  "objects": "objects/kaizoku_ship_all.json"
- },
- {
-  "name": "Pyramid interior",
-  "file": "desert_py_all.glb",
-  "section": "Levels",
-  "objects": "objects/desert_py_all.json"
- },
- {
-  "name": "Rainbow Cruise",
-  "file": "rainbow_cruise_all.glb",
-  "section": "Levels",
-  "objects": "objects/rainbow_cruise_all.json"
- },
- {
-  "name": "Rec Room (minigames)",
+  "name": "Playroom",
   "file": "playroom_all.glb",
   "section": "Levels",
   "objects": "objects/playroom_all.json"
+ },
+ {
+  "name": "Rainbow Ride",
+  "file": "rainbow_cruise_all.glb",
+  "section": "Levels",
+  "objects": "objects/rainbow_cruise_all.json"
  },
  {
   "name": "Shifting Sand Land",
@@ -168,10 +198,10 @@
   "objects": "objects/desert_land_all.json"
  },
  {
-  "name": "Snowman",
-  "file": "snow_kama_all.glb",
+  "name": "Shifting Sand Land (desert_py)",
+  "file": "desert_py_all.glb",
   "section": "Levels",
-  "objects": "objects/snow_kama_all.json"
+  "objects": "objects/desert_py_all.json"
  },
  {
   "name": "Snowman's Land",
@@ -180,16 +210,46 @@
   "objects": "objects/snow_land_all.json"
  },
  {
-  "name": "Tall Mtn interior",
+  "name": "Snowman's Land (snow_kama)",
+  "file": "snow_kama_all.glb",
+  "section": "Levels",
+  "objects": "objects/snow_kama_all.json"
+ },
+ {
+  "name": "Tall, Tall Mountain",
   "file": "high_mt_all.glb",
   "section": "Levels",
   "objects": "objects/high_mt_all.json"
  },
  {
-  "name": "Tall, Tall Mountain",
+  "name": "Tall, Tall Mountain (high_slider)",
   "file": "high_slider_all.glb",
   "section": "Levels",
   "objects": "objects/high_slider_all.json"
+ },
+ {
+  "name": "Test map",
+  "file": "test_map_all.glb",
+  "section": "Levels",
+  "objects": "objects/test_map_all.json"
+ },
+ {
+  "name": "Test map B",
+  "file": "test_map_b_all.glb",
+  "section": "Levels",
+  "objects": "objects/test_map_b_all.json"
+ },
+ {
+  "name": "The Secret Aquarium",
+  "file": "suisou_all.glb",
+  "section": "Levels",
+  "objects": "objects/suisou_all.json"
+ },
+ {
+  "name": "The Secret under the Moat",
+  "file": "horisoko_all.glb",
+  "section": "Levels",
+  "objects": "objects/horisoko_all.json"
  },
  {
   "name": "Tick Tock Clock",
@@ -198,94 +258,34 @@
   "objects": "objects/clock_tower_all.json"
  },
  {
-  "name": "Volcano interior",
-  "file": "fire_mt_all.glb",
+  "name": "Tiny-Huge Island",
+  "file": "tibi_deka_d_all.glb",
   "section": "Levels",
-  "objects": "objects/fire_mt_all.json"
+  "objects": "objects/tibi_deka_d_all.json"
  },
  {
-  "name": "Wario ? cap course",
-  "file": "ex_wario_all.glb",
+  "name": "Tiny-Huge Island (tibi_deka_in)",
+  "file": "tibi_deka_in_all.glb",
   "section": "Levels",
-  "objects": "objects/ex_wario_all.json"
+  "objects": "objects/tibi_deka_in_all.json"
+ },
+ {
+  "name": "Tiny-Huge Island (tibi_deka_t)",
+  "file": "tibi_deka_t_all.glb",
+  "section": "Levels",
+  "objects": "objects/tibi_deka_t_all.json"
  },
  {
   "name": "Wet-Dry World",
-  "file": "suisou_all.glb",
+  "file": "water_city_all.glb",
   "section": "Levels",
-  "objects": "objects/suisou_all.json"
+  "objects": "objects/water_city_all.json"
  },
  {
   "name": "Whomp's Fortress",
   "file": "battan_king_map_all.glb",
   "section": "Levels",
   "objects": "objects/battan_king_map_all.json"
- },
- {
-  "name": "Wing-cap tower",
-  "file": "habatake_all.glb",
-  "section": "Levels",
-  "objects": "objects/habatake_all.json"
- },
- {
-  "name": "ex_l_map",
-  "file": "ex_l_map_all.glb",
-  "section": "Levels",
-  "objects": "objects/ex_l_map_all.json"
- },
- {
-  "name": "ex_m_map",
-  "file": "ex_m_map_all.glb",
-  "section": "Levels",
-  "objects": "objects/ex_m_map_all.json"
- },
- {
-  "name": "ex_w_map",
-  "file": "ex_w_map_all.glb",
-  "section": "Levels",
-  "objects": "objects/ex_w_map_all.json"
- },
- {
-  "name": "test_map",
-  "file": "test_map_all.glb",
-  "section": "Levels",
-  "objects": "objects/test_map_all.json"
- },
- {
-  "name": "test_map_b",
-  "file": "test_map_b_all.glb",
-  "section": "Levels",
-  "objects": "objects/test_map_b_all.json"
- },
- {
-  "name": "tibi_deka_d",
-  "file": "tibi_deka_d_all.glb",
-  "section": "Levels",
-  "objects": "objects/tibi_deka_d_all.json"
- },
- {
-  "name": "tibi_deka_in",
-  "file": "tibi_deka_in_all.glb",
-  "section": "Levels",
-  "objects": "objects/tibi_deka_in_all.json"
- },
- {
-  "name": "tibi_deka_t",
-  "file": "tibi_deka_t_all.glb",
-  "section": "Levels",
-  "objects": "objects/tibi_deka_t_all.json"
- },
- {
-  "name": "water_city",
-  "file": "water_city_all.glb",
-  "section": "Levels",
-  "objects": "objects/water_city_all.json"
- },
- {
-  "name": "water_land",
-  "file": "water_land_all.glb",
-  "section": "Levels",
-  "objects": "objects/water_land_all.json"
  },
  {
   "name": "B mario all",

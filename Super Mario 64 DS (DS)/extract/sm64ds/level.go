@@ -60,7 +60,47 @@ const (
 	objActorTable = 0x5F594 // overlay-2 offset of the object->actor u16 table ($0210CBF4)
 	arm9Base      = 0x02004000
 	NumLevels     = 52
+
+	// courseTable: s8 level -> course index (RAM $02075298). The game's
+	// accessor is the one-liner $02013558 `LDRSB r0,[$02075298,r0]`, called
+	// from 35 sites across the save/star system. Castle and playroom levels
+	// hold 29 ("CASTLE SECRET STARS"), the test maps -1.
+	courseTable = 0x71298
+	// levelInfoTable: 3 bytes per level (RAM $02075768, three interleaved s8
+	// arrays read as [$02075768/69/6A + level*3]). Byte 2 is the level's BGM:
+	// the level-start code $0202D35C does `LDRSB [$0207576A + level*3]` and
+	// passes it to the music starter $0201320C (negative = stop music — the
+	// silent levels store $FF). Bytes 0/1 feed the bottom-screen/sound-scene
+	// setup via $0201200C (byte 1 groups the levels of one course).
+	levelInfoTable = 0x71768
+
+	// CourseNameMsg: the course names are messages CourseNameMsg+course in
+	// data/message/msg_data_<lang>.bin — " 1 BOB-OMB BATTLEFIELD" .. "15
+	// RAINBOW RIDE", then the unnumbered Bowser/boss/secret courses, and
+	// "CASTLE SECRET STARS" at course 29. The pause/star-select UI's 16-entry
+	// u16 table at RAM $020757D0 holds exactly {406..420, 435} — the numbered
+	// courses plus the castle row — in this order.
+	CourseNameMsg = 406
 )
+
+// Course returns the level's course index (s8 table $02075298, accessor
+// $02013558), or -1 for the test maps.
+func (ls *LevelSet) Course(id int) int {
+	if id < 0 || id >= NumLevels {
+		return -1
+	}
+	return int(int8(ls.arm9[courseTable+id]))
+}
+
+// MusicSeq returns the level's background-music SSEQ number (byte 2 of the
+// $02075768 level-info table, started by $0201320C at level start), or -1
+// for the silent levels.
+func (ls *LevelSet) MusicSeq(id int) int {
+	if id < 0 || id >= NumLevels {
+		return -1
+	}
+	return int(int8(ls.arm9[levelInfoTable+id*3+2]))
+}
 
 // LevelObject is one placed object, in world units (the fx20.12 integer part;
 // divide by 2^stageShift for stage-model/GLB units).

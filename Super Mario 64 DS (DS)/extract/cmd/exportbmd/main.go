@@ -21,11 +21,18 @@ import (
 func main() {
 	all := flag.Bool("all", false, "sweep the stage + object models")
 	root := flag.String("root", "../extracted/files", "extracted filesystem root (-all)")
+	rom := flag.String("rom", "../Super Mario 64 DS (Europe) (En,Fr,De,Es,It).nds", "cartridge image (course names)")
+	ext := flag.String("extracted", "../extracted", "extracted binaries dir (course names)")
 	outDir := flag.String("o", "../extracted/glb", "output directory")
 	flag.Parse()
 
 	if err := os.MkdirAll(*outDir, 0o755); err != nil {
 		die(err)
+	}
+	if *all {
+		if err := buildLevelNames(*rom, *ext, *root); err != nil {
+			die(err)
+		}
 	}
 	var paths []string
 	if *all {
@@ -139,26 +146,113 @@ func main() {
 	fmt.Printf("exported %d models (%d failed), %d triangles total\n", ok, fail, tris)
 }
 
-// levelNames maps the internal stage stems to their course names.
-var levelNames = map[string]string{
-	"bombhei_map": "Bob-omb Battlefield", "snow_slider": "Cool, Cool Mountain",
-	"teresa_house": "Big Boo's Haunt", "horisoko": "Jolly Roger Bay",
-	"cave": "Hazy Maze Cave", "desert_land": "Shifting Sand Land",
-	"fire_land": "Lethal Lava Land", "snow_land": "Snowman's Land",
-	"suisou": "Wet-Dry World", "kaizoku_irie": "Dire, Dire Docks",
-	"high_slider": "Tall, Tall Mountain", "rainbow_cruise": "Rainbow Cruise",
-	"clock_tower": "Tick Tock Clock", "battan_king_map": "Whomp's Fortress",
-	"koopa1_map": "Bowser in the Dark World", "koopa2_map": "Bowser in the Fire Sea",
-	"koopa3_map": "Bowser in the Sky", "koopa1_boss": "Bowser 1 (arena)",
-	"koopa2_boss": "Bowser 2 (arena)", "koopa3_boss": "Bowser 3 (arena)",
+// levelNames maps stage stems to display names. Course levels get the game's
+// OWN course names — the level->course table at ARM9 $02075298 (the save
+// system's accessor $02013558) joined with course-name messages 406+course
+// from data/message/msg_data_eng.bin (see sm64ds/msg.go for the traced BMG
+// format and font-derived text encoding) — title-cased, with the internal stem
+// appended when several maps make up one course (the mountain and its slide).
+// The castle hub, playroom and test maps aren't courses (their table entry is
+// the shared "CASTLE SECRET STARS" row or -1), so they keep literal
+// stem-derived labels.
+var levelNames = map[string]string{}
+
+// hubNames are the non-course levels: literal descriptions of the internal
+// stem (castle_1f = the castle's first floor...), not in-game course names —
+// the game groups these under one "CASTLE SECRET STARS" save row. "Castle
+// Grounds" and the minigame room's label are on the cartridge as pre-rendered
+// banner graphics in the per-language ARCHIVE/ce?.narc menus.
+var hubNames = map[string]string{
+	"main_castle": "Peach's Castle (exterior)", "main_garden": "Castle Grounds",
 	"castle_1f": "Castle — 1st floor", "castle_2f": "Castle — 2nd floor",
-	"castle_b1": "Castle — basement", "main_castle": "Peach's Castle (exterior)",
-	"main_garden": "Castle grounds", "playroom": "Rec Room (minigames)",
-	"kaizoku_ship": "Pirate ship", "desert_py": "Pyramid interior",
-	"fire_mt": "Volcano interior", "snow_mt": "Cool Cool Mtn slide", "snow_kama": "Snowman",
-	"high_mt": "Tall Mtn interior", "habatake": "Wing-cap tower", "metal_switch": "Metal-cap cavern",
-	"rainbow_mario": "Over the Rainbows", "ex_mario": "Mario ? cap course",
-	"ex_luigi": "Luigi ? cap course", "ex_wario": "Wario ? cap course", "horisoko2": "Jolly Roger Bay (bottom)",
+	"castle_b1": "Castle — basement", "playroom": "Playroom",
+	"test_map": "Test map", "test_map_b": "Test map B",
+}
+
+// buildLevelNames fills levelNames from the cartridge (ROM + extracted
+// binaries + the English message file under root).
+func buildLevelNames(romPath, extDir, root string) error {
+	ls, err := sm64ds.OpenLevels(romPath, extDir)
+	if err != nil {
+		return err
+	}
+	msgs, err := sm64ds.LoadBMG(filepath.Join(root, "data/message/msg_data_eng.bin"))
+	if err != nil {
+		return err
+	}
+	// stems per course, in level order (the first level of a course is its
+	// main map and gets the bare course name)
+	type lv struct{ id, course int }
+	byStem := map[string]lv{}
+	courseCount := map[int]int{}
+	for id := 0; id < sm64ds.NumLevels; id++ {
+		l, err := ls.Level(id)
+		if err != nil {
+			continue
+		}
+		stem := strings.TrimSuffix(strings.TrimSuffix(filepath.Base(l.BMDPath), ".bmd"), "_all")
+		c := ls.Course(id)
+		if _, dup := byStem[stem]; !dup {
+			byStem[stem] = lv{id, c}
+			courseCount[c]++
+		}
+	}
+	first := map[int]int{} // course -> lowest level id
+	for _, v := range byStem {
+		if f, ok := first[v.course]; !ok || v.id < f {
+			first[v.course] = v.id
+		}
+	}
+	for stem, v := range byStem {
+		if n, ok := hubNames[stem]; ok {
+			levelNames[stem] = n
+			continue
+		}
+		if v.course < 0 || v.course+sm64ds.CourseNameMsg >= len(msgs) {
+			levelNames[stem] = stem
+			continue
+		}
+		name := courseTitle(msgs[v.course+sm64ds.CourseNameMsg])
+		if courseCount[v.course] > 1 && first[v.course] != v.id {
+			name += " (" + stem + ")" // secondary maps of the course
+		}
+		levelNames[stem] = name
+	}
+	return nil
+}
+
+// courseTitle turns a course-name message (" 4 COOL, COOL MOUNTAIN") into a
+// display name: the course number is dropped and the all-caps text (the game
+// displays course names in capitals) is title-cased — articles/prepositions
+// lower, hyphen compounds capitalized on both sides (Wet-Dry, Tiny-Huge),
+// except "Bob-omb", whose casing the game's own mixed-case dialog attests
+// (message 137: "You're in the Bob-omb Battlefield!!").
+func courseTitle(msg string) string {
+	s := strings.TrimSpace(msg)
+	s = strings.TrimLeft(s, "0123456789")
+	s = strings.TrimSpace(s)
+	small := map[string]bool{"IN": true, "THE": true, "OF": true, "ON": true, "TO": true, "UNDER": true}
+	words := strings.Fields(s)
+	for i, w := range words {
+		if i > 0 && small[w] {
+			words[i] = strings.ToLower(w)
+			continue
+		}
+		if w == "BOB-OMB" {
+			words[i] = "Bob-omb"
+			continue
+		}
+		r := []rune(strings.ToLower(w))
+		up := true
+		for j, c := range r {
+			if up {
+				r[j] = []rune(strings.ToUpper(string(c)))[0]
+			}
+			up = c == '-'
+		}
+		words[i] = string(r)
+	}
+	return strings.Join(words, " ")
 }
 
 // classify assigns a model to a viewer section with a friendly name, by its path.
