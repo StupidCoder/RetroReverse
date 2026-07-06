@@ -481,3 +481,18 @@ STILL OPEN: item-id -> model-index map + descriptor/texture binding (both in
 the object-emission pass, not yet located); the door FRAME (model = leaf only);
 model 10's 0x30 LOD path; the per-object state protocol ([292A] et al — how the
 emitter loads each object's animation state before running its program).
+
+§10e. ENVIRONMENT SLOTS — how frames/pillars reach the ceiling
+--------------------------------------------------------------
+Four models READ pool slots their programs never WRITE: doorframe (model 1,
+192x1024x8) and pillar (model 10, 32x1024x32) add slot v256 (pool 1620+0x800 =
+499D:1E20) to their upper corners via op 0x8C; the portcullis (12/13) adds v128
+(499D:1A20). No 07F7 code writes these slots — the OBJECT-EMISSION PASS
+pre-loads them with environment vectors (the tile's floor-to-ceiling vector)
+before running the program: top = bottom + v256 lands on the actual ceiling
+whatever the room height. Extent 1024 on the height axis = the "variable"
+sentinel. The doorframe: 128x208 opening (matches the door leaf model 14),
+jamb posts +-64 beyond the sides, lintel top = openingTop + v256 — "the frame
+goes from the floor to the ceiling of its tile". Op 0x8C's middle operand,
+previously "unknown" in old community notes, is simply a pool slot index that
+happens to be one of these emitter-loaded slots.

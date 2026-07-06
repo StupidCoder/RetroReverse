@@ -88,14 +88,36 @@ type Model struct {
 	Faces    []Face
 	Ops      []string // human-readable decoded listing
 	Warnings []string
+	// EnvSlots are pool slots the program READS but never writes: the
+	// object-emission pass pre-loads them with environment vectors (e.g. the
+	// tile's floor-to-ceiling vector) before running the program. This is how a
+	// doorframe or pillar adapts to the room: its top corners are derived as
+	// bottom + envSlot (op 0x8C). Extent 1024 on an axis marks such models.
+	EnvSlots []uint16
 }
 
 type decoder struct {
-	data   []byte // UW.EXE
-	m      *Model
-	seen   map[int]bool
-	color  uint16   // current colour (op 0xBC)
-	gather []uint16 // pending N-gon pool slots (op 0x22)
+	data    []byte // UW.EXE
+	m       *Model
+	seen    map[int]bool
+	color   uint16   // current colour (op 0xBC)
+	gather  []uint16 // pending N-gon pool slots (op 0x22)
+	written map[uint16]bool
+}
+
+// wr marks a pool slot written; rd flags an environment slot (read before any
+// write — pre-loaded by the emitter, e.g. the floor-to-ceiling vector).
+func (d *decoder) wr(slot uint16) { d.written[slot] = true }
+func (d *decoder) rd(slot uint16) {
+	if d.written[slot] {
+		return
+	}
+	for _, s := range d.m.EnvSlots {
+		if s == slot {
+			return
+		}
+	}
+	d.m.EnvSlots = append(d.m.EnvSlots, slot)
 }
 
 // Decode parses UW.EXE and returns all 64 models.
@@ -119,7 +141,7 @@ func Decode(exe []byte) ([]*Model, error) {
 		for k := 0; k < 3; k++ {
 			m.Extents[k] = int16(binary.LittleEndian.Uint16(exe[s+4+2*k:]))
 		}
-		d := &decoder{data: exe, m: m, seen: map[int]bool{}}
+		d := &decoder{data: exe, m: m, seen: map[int]bool{}, written: map[uint16]bool{}}
 		d.run(s+10, 0)
 		models = append(models, m)
 	}
@@ -151,6 +173,7 @@ func (d *decoder) run(p int, depth int) {
 		case 0x7A: // vertex x,y,z -> pool[dst]
 			x, y, z, dst := d.sw(p+2), d.sw(p+4), d.sw(p+6), d.w(p+8)
 			d.m.Pool[dst/8] = Vertex{x, y, z}
+			d.wr(dst / 8)
 			d.log("%04X: 7A vertex (%d,%d,%d) -> v%d", p, x, y, z, dst/8)
 			p += 10
 		case 0x78: // box classify: pool, hx, hy, hz, pad (both handler exits ADD SI,2)
@@ -163,11 +186,14 @@ func (d *decoder) run(p int, depth int) {
 			for k := 0; k < n; k++ {
 				x, y, z := d.sw(p), d.sw(p+2), d.sw(p+4)
 				d.m.Pool[off/8+uint16(k)] = Vertex{x, y, z}
+				d.wr(off/8 + uint16(k))
 				d.log("%04X: 82 vertex (%d,%d,%d) -> v%d", p, x, y, z, off/8+uint16(k))
 				p += 6
 			}
 		case 0x86, 0x88, 0x8A: // src, off, dst — offset along model axis X/Y/Z
 			src, off, dst := d.w(p+2), d.sw(p+4), d.w(p+6)
+			d.rd(src / 8)
+			d.wr(dst / 8)
 			ax := map[uint16]int{0x86: 0, 0x88: 1, 0x8A: 2}[op]
 			v := d.m.Pool[src/8]
 			switch ax {
@@ -181,8 +207,13 @@ func (d *decoder) run(p int, depth int) {
 			d.m.Pool[dst/8] = v
 			d.log("%04X: %02X v%d = v%d %+d on axis %d", p, op, dst/8, src/8, off, ax)
 			p += 8
-		case 0x8C, 0xC6: // pool add/sub: a, b, dst (3BB1/3BEE)
+		case 0x8C, 0xC6: // pool add/sub: a, b, dst (3BB1/3BEE). With b = an
+			// emitter-pre-loaded environment slot (v128/v256) this is
+			// "raise vertex to the ceiling" — the doorframe/pillar adaptation.
 			a, b, dst := d.w(p+2), d.w(p+4), d.w(p+6)
+			d.rd(a / 8)
+			d.rd(b / 8)
+			d.wr(dst / 8)
 			va, vb := d.m.Pool[a/8], d.m.Pool[b/8]
 			if op == 0x8C {
 				d.m.Pool[dst/8] = Vertex{va.X + vb.X, va.Y + vb.Y, va.Z + vb.Z}
@@ -194,6 +225,8 @@ func (d *decoder) run(p int, depth int) {
 			p += 8
 		case 0x90, 0x92, 0x94: // two-axis displacement: off1, off2, src, dst
 			o1, o2, src, dst := d.sw(p+2), d.sw(p+4), d.w(p+6), d.w(p+8)
+			d.rd(src / 8)
+			d.wr(dst / 8)
 			v := d.m.Pool[src/8]
 			switch op {
 			case 0x90: // X, Y axes (matrix rows 1602, 1608)

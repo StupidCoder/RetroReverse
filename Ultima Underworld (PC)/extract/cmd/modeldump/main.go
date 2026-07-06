@@ -38,6 +38,9 @@ func main() {
 		fmt.Printf("model %2d off=%04X extents=(%d,%d,%d) verts=%d quads=%d polys=%d",
 			m.Index, m.Offset, m.Extents[0], m.Extents[1], m.Extents[2],
 			len(m.Pool), len(m.Quads), len(m.Polys))
+		if len(m.EnvSlots) > 0 {
+			fmt.Printf("  env=%v (ceiling-adaptive)", m.EnvSlots)
+		}
 		if len(m.Warnings) > 0 {
 			fmt.Printf("  WARN %v", m.Warnings)
 		}

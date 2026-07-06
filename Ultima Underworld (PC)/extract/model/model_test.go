@@ -48,3 +48,35 @@ func TestDecodeDoor(t *testing.T) {
 		}
 	}
 }
+
+// The doorframe (model 1) and pillar (model 10) adapt to the room: their upper
+// vertices add an environment pool slot (v256) the emitter pre-loads with the
+// tile's floor-to-ceiling vector; the portcullis (12/13) uses v128. Their
+// height extent is the 1024 "variable" sentinel.
+func TestCeilingAdaptiveModels(t *testing.T) {
+	exe, err := os.ReadFile(filepath.Join("..", "..", "game", "UW.EXE"))
+	if err != nil {
+		t.Skip("game data not present")
+	}
+	models, _ := Decode(exe)
+	has := func(m *Model, slot uint16) bool {
+		for _, s := range m.EnvSlots {
+			if s == slot {
+				return true
+			}
+		}
+		return false
+	}
+	if !has(models[1], 256) || models[1].Extents[1] != 1024 {
+		t.Errorf("doorframe: env=%v extents=%v", models[1].EnvSlots, models[1].Extents)
+	}
+	if !has(models[10], 256) || models[10].Extents[1] != 1024 {
+		t.Errorf("pillar: env=%v extents=%v", models[10].EnvSlots, models[10].Extents)
+	}
+	if !has(models[12], 128) {
+		t.Errorf("portcullis: env=%v", models[12].EnvSlots)
+	}
+	if len(models[14].EnvSlots) != 0 {
+		t.Errorf("door leaf should not be ceiling-adaptive: %v", models[14].EnvSlots)
+	}
+}

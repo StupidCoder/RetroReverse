@@ -898,11 +898,20 @@ skip…`) so its bars vanish as it opens. Extents identify the rest: benches, ta
 (256×16×256), beams, pillars, shrines. `cmd/modeldump` prints any model's decoded program;
 `model_test.go` locks the door's geometry.
 
+**How the frame reaches the ceiling — environment slots.** Four models read pool slots their
+programs never write: the **doorframe (model 1)** and **pillar (model 10)** add slot **v256** to
+their upper corners (`0x8C`), the **portcullis (models 12/13)** adds **v128**. The object-emission
+pass pre-loads these slots with *environment vectors* — the tile's floor-to-ceiling vector — before
+running the program, so `top = bottom + v256` lands on the actual ceiling whatever the room's
+height. These models carry the sentinel extent **1024** on their height axis ("variable"). The
+doorframe program reads like a design document: the 128×208 opening outline (matching the door
+leaf), jamb posts extending ±64 beyond the sides, and a lintel whose top corners are
+`openingTop + v256` — the frame *stretches from the floor to the ceiling of its tile*, exactly the
+observed behaviour. The decoder reports these as `EnvSlots` (ceiling-adaptive).
+
 **Still to pin:** the item-id → model-index map and the descriptor/texture binding (both live in the
-object-emission pass, still not located); the door *frame* geometry (the model is only the leaf — the
-frame likely comes from the emission pass or the tile renderer); models 10's `0x30` LOD-indirect
-path; and the exact `[292A]`-family per-object state protocol (how the emitter loads each object's
-animation state before running its program).
+object-emission pass, still not located — the same pass that loads the environment slots and the
+`[292A]`-family per-object animation state); and model 10's `0x30` LOD-indirect path.
 
 ## 9. Still open
 
