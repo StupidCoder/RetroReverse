@@ -154,6 +154,11 @@ func Decode(data []byte, name string) (*Model, error) {
 	for i := 0; i < numMat; i++ {
 		r := oMat + i*0x30
 		m := nitro.Material{Name: b.name(int(b.u32(r))), ScaleS: 1, ScaleT: 1}
+		// GX polygon attribute at +$24: bits 16-20 are the polygon alpha the
+		// engine sends with the material (31 = opaque; 1-30 = hardware-blended
+		// translucency — the water materials use 15/16, star_base 20; the stage
+		// loader at $0202B5EC gives such materials their own polygon ID).
+		m.Alpha = int(b.u32(r+0x24)>>16) & 0x1F
 		// Texture-matrix scale at +$0C/+$10 (fx12) — applied by the hardware
 		// when the addressing word's texgen mode (bits 30-31) is 1. The coin
 		// (arc0[5]) maps its 16x64 texture with scaleS=2 onto mirrored-S

@@ -45,8 +45,10 @@ type Material struct {
 	Texture  string // bound texture name ("" when untextured)
 	Palette  string
 	TexParam uint32 // GX TEXIMAGE_PARAM (repeat/flip bits; bits 30-31 texgen mode)
-	Width    int
-	Height   int
+	Alpha    int    // GX POLYGON_ATTR bits 16-20: 31 = opaque, 1-30 = translucent
+	// polygon alpha (the DS blends the whole polygon), 0 = wireframe (kept opaque)
+	Width  int
+	Height int
 	// Texture-matrix scale (present when the record carries SRT fields; 1.0
 	// otherwise). With texgen mode 1 the texcoords are multiplied by this — the
 	// kart tires map their tread strips into the tread half of the texture via a
@@ -166,10 +168,11 @@ func parseModel(data []byte, base int, name string) (Model, error) {
 	// ($34), then rotation and translation fields for the animated forms.
 	for _, e := range mdict {
 		off := matOff + int(le.Uint32(padded(e.data)))
-		mat := Material{Name: e.name, ScaleS: 1, ScaleT: 1}
+		mat := Material{Name: e.name, ScaleS: 1, ScaleT: 1, Alpha: 31}
 		if off+0x2C <= len(data) {
 			recSize := int(le.Uint16(data[off+2:]))
 			mat.TexParam = le.Uint32(data[off+0x14:])
+			mat.Alpha = int(le.Uint32(data[off+0x0C:])>>16) & 0x1F
 			mat.Width = int(le.Uint16(data[off+0x20:]))
 			mat.Height = int(le.Uint16(data[off+0x22:]))
 			if recSize >= 0x34 && off+0x34 <= len(data) {

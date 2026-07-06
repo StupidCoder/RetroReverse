@@ -213,15 +213,28 @@ func exportGLB(name string, byMat map[int][]Tri, mats []Material, texs map[strin
 				})
 				gtexs = append(gtexs, gTexture{Sampler: len(samplers) - 1, Source: len(images) - 1})
 				gm.PBR.BaseColorTexture = &texRef{Index: len(gtexs) - 1}
-				// Alpha-test only textures that actually have transparent texels — a
-				// blanket MASK makes opaque surfaces do a needless cut-off and can nibble
-				// edges. Opaque textures stay OPAQUE.
-				if hasTransparency(tex.Img) {
+				// The DS's two translucent texel formats — A3I5 (1) and A5I3 (6)
+				// carry a per-texel alpha GRADIENT the hardware blends, so they
+				// export as BLEND. The palette/4x4/direct formats only have binary
+				// on/off texels: alpha-test (MASK) those, and only when transparent
+				// texels actually occur — a blanket MASK makes opaque surfaces do a
+				// needless cut-off and can nibble edges. Opaque textures stay OPAQUE.
+				if tex.Format == 1 || tex.Format == 6 {
+					gm.AlphaMode = "BLEND"
+				} else if hasTransparency(tex.Img) {
 					gm.AlphaMode = "MASK"
 					gm.AlphaCutoff = 0.5
 				}
 				texDims[mi] = [2]int{tex.Width, tex.Height}
 			}
+		}
+		// GX POLYGON_ATTR alpha (bits 16-20): 1-30 = hardware-blended polygon
+		// translucency (the water materials, star_base, baked shadows...). 0 is
+		// wireframe mode, which we keep opaque.
+		if mat := m.Materials; mi < len(mat) && mat[mi].Alpha >= 1 && mat[mi].Alpha <= 30 {
+			gm.AlphaMode = "BLEND"
+			gm.AlphaCutoff = 0
+			gm.PBR.BaseColorFactor = []float64{1, 1, 1, float64(mat[mi].Alpha) / 31}
 		}
 		matIndex[mi] = len(gmats)
 		gmats = append(gmats, gm)
