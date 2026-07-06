@@ -13,8 +13,9 @@ Image: `Super Mario 64 DS (Europe) (En,Fr,De,Es,It).nds`, 16 MiB, game code **AS
 * **Part III** — program architecture: the boot re-run on our own CPU core as an *oracle* (BLZ cross-check, the runtime memory map, the interrupt/IPC setup, the ARM9↔ARM7 rendezvous), and the overlay system that carries the game's 103 code modules.
 * **Part IV** — the 3D model format: the game's *own* `.bmd` container (not the NITRO `BMD0` its extension suggests) and how its display lists and textures decode;
 * **Part V** — level data and object placements: the level→overlay and settings-block tables, the object-table format and its spawner, the actor system, and the trace from each actor's create function to the model it draws.
+* **Part VI** — collision: the `.kcl` mesh format (vertices, packed normals, prism records and the octree the queries walk), the external `CLPS` surface-attribute table, the ITCM query walkers — all pinned by running the game's own collision code in the oracle and reimplemented bit-exactly in Go.
 
-Part VI (the SDAT music) is future work; the toolchain and container decoding carry straight over from the Mario Kart DS analysis.
+Part VII (the SDAT music) is future work; the toolchain and container decoding carry straight over from the Mario Kart DS analysis.
 
 Methods: purely static analysis of the `.nds` image. All addresses are 32-bit ARM addresses (`$02000000`-style main-RAM addresses, or the BIOS and I/O regions) unless a *file offset* into the ROM image is explicitly called out; bytes are little-endian.
 
@@ -425,6 +426,90 @@ The **bob-omb** (`daBmb_c`, overlay 102) wanders differently: its heading picker
 
 The viewer replicates what is traced: coins spin at the engine's `$C00`-per-frame rate, clicking a signpost pops the traced interaction (the real dialog needs the message archives), skinned enemies play their `.bca` clips, and the goombas **patrol** with the traced wander — 2.0 units/frame, `$200`/frame turning, 100-frame repicks at 75% turn / 25% pause, leashed to their spawn points.
 
+# Part VI — Collision: the `.kcl` mesh, the octree walk and the `CLPS` surface table
+
+The render mesh never sees a physics query. Every level (and every solid platform) pairs its `.bmd` display model with a `.kcl` **collision mesh** — 241 of them in the catalog — and the actors probe that through a small family of engine walkers. This part pins the file format and the queries, with a new kind of instrument: instead of only *reading* the code, `cmd/kcltrace` **builds the collision world inside the oracle with the game's own routines and casts the game's own rays through it**, while a read watch on the served file logs every byte the walker touches. The read log gives the structure; the flagged PCs name the code whose disassembly gives the semantics; and a Go reimplementation is then verified bit-for-bit against the running original.
+
+## 1. From level load to a registered collider
+
+Part V's level-data processor (`$020FE190`) consumes the settings block's collision-map file ID at `+$0A`:
+
+* the internal-ID loader (`$0201816C`) fetches the file — `.kcl` files are stored `LZ77`-tagged on card and come out of the loader decompressed (`$02017D84`);
+* `$02039760` **fixes the header up in place**: the file's first four u32s are section *offsets*, and each gains the buffer base to become a pointer — the whole format is position-independent and mutated into its runtime form in four adds;
+* the fixed-up pointer is stored at `+$20` of a collider object, and `$020396F0` seeds the rest of the context (the settings block's `+$00` pointer — the `CLPS` table, §4 — goes to `+$24` via `$0203821C`);
+* `$02039184` registers the collider in a flat **24-slot pointer table at `$020A0C80`** (first free slot; the level map, loading first, is always slot 0).
+
+The collider is a C++ object, and the binary's own RTTI names the family: **`dBgW`** (the base — "background wall"), **`dBgW_Kc`** (the KCL-backed collider, vtable `$020993DC`, constructor `$020398C8`), and the moving/scaling variants **`dBgW_KcMbg`** and **`dBgW_KcMbgSclY`** that platform actors embed. The interesting vtable slots point into **ITCM** — the DS's zero-wait-state instruction TCM, where the engine parks its hottest code: `+$18` the down-ray walker (`$01FFD3F8`, §3), `+$1C` a segment/sweep walker (`$01FFB0FC` — it reads two vectors, `query+$38` and `query+$54`; the wall probes build these via the query class at `$020377B0`), `+$20` a sphere walker (`$01FFB830`, the one consumer of the header's *thickness* field), `+$14`/`+$10` the vertex and normal accessors (`$01FFD890`/`$01FFD8D8`) whose shifts betray the packed encodings below.
+
+Queries go through the dispatcher at `$02038F44` (the routine the signpost's ground-snap calls, Part V §6): slot 0 first, then slots 1–23 — each *dynamic* collider gated by its owning actor's `+$B0` flags — with the query object collecting the best hit across all of them.
+
+## 2. The file layout
+
+After LZ77 decompression, a `.kcl` is a 0x38-byte header and four sections:
+
+| Offset | Content |
+|---|---|
+| `+$00` | u32 → **vertex section**: 12-byte records, fx32 x/y/z in **world>>6** units (the accessor returns them `<<6`) |
+| `+$04` | u32 → **normal section**: 6-byte records, s16 x/y/z in **fx.10** (1.0 = `$400`; returned `<<2` as fx.12) |
+| `+$08` | u32 → **prism section**: 16-byte records (below); record 0 is a dummy — index 0 terminates leaf lists |
+| `+$0C` | u32 → **octree section** (below) |
+| `+$10` | fx32 **thickness** — how far behind a surface plane the sphere walker still counts contact (castle grounds: 80.0); the down-ray never reads it |
+| `+$14` | fx32 ×3 **area minimum** x/y/z, pre-shifted into world>>6 units |
+| `+$20` | u32 ×3 **coordinate masks** — `~mask` is the largest local coordinate (the area's extent in integer world units) |
+| `+$2C` | u32 **root shift** — the descent's starting cell size (log2, in world units) |
+| `+$30`/`+$34` | u32 **y/z root-index shifts** — how the root grid packs, so the walker derives nothing: the file carries its own indexing |
+
+A **prism** — the format's collision triangle — is not three vertices. It is one vertex plus four normal indices and a length, the classic plane-based encoding:
+
+| Offset | Field |
+|---|---|
+| `+$00` | fx32 **length** (the extent along the third edge's direction) |
+| `+$04` | u16 **vertex index** — the triangle's anchor corner |
+| `+$06` | u16 **face-normal** index |
+| `+$08`/`+$0A` | u16 **edge-normal A/B** indices (planes through the anchor) |
+| `+$0C` | u16 **edge-normal C** index (the far edge, bounded by *length*) |
+| `+$0E` | u16 **attribute** — an index into the level's `CLPS` table (§4); the surface's behavior lives *outside* the mesh |
+
+The **octree** section is a forest of s32 tables. The root grid is indexed by `(lz>>s)<<shiftZ | (ly>>s)<<shiftY | lx>>s` (s = root shift, local coordinates in integer world units relative to the area minimum); each word ≥ 0 is a **child-table offset relative to the table holding it**, descending one halved cell per level with the child picked as `xbit | ybit<<1 | zbit<<2`; a word with **bit 31 set** points (same relative convention, low bits) at a **leaf**: a 0-terminated u16 prism-index list starting 2 bytes in. Note the asymmetry — the root packs z highest, the children pack z highest *of three fixed bits* — both spelled out by the code, neither derivable from the other.
+
+## 3. The down-ray walk (`$01FFD3F8`)
+
+The ground query — "the highest floor under (x,y,z)" — works in three nested precisions: fx20.12 world coordinates arrive, are cut to **fx.6** (`>>6`) for all plane math, and to **integer world units** (`>>6` again) for cell addressing. The walker:
+
+1. bounds-checks the local coordinates against the masks — x or z outside means *miss*, but **y above the area clamps** to the top instead (a ray from the sky still finds the ground);
+2. descends the octree to the leaf under the point and tests every prism in its list:
+   * face normal `y ≤ 0` → not a floor, skip; `|y| ≤ 8` (fx.10) → too vertical to solve against, skip (`$020397DC`);
+   * solve the face plane for the height offset at (x,z): `h = −((dx·nx + dz·nz) / ny)` — the products truncate `>>10`, the divide runs on the **hardware divider** (`$02053258`: numerator `<<32`, quotient `+$80000 >> 20` — an fx.12 divide with round-to-nearest), the result drops 2 more bits;
+   * the three **edge tests**: `dx·ex + h·ey + dz·ez` against a `±$20000` tolerance (edges A and B from above, edge C between `−$20000` and `length+$20000`) — the tolerance is why Mario doesn't fall through seams;
+   * the ray origin must be on the plane's **front side** (an exact 64-bit dot with the full dy);
+   * the surface must pass the **`CLPS` filter** (§4);
+   * finally the height must beat the best so far, sit above the area floor, and lie **strictly below the ray origin**;
+3. if the leaf yields nothing better, **steps the cell just below** (`ly = (ly & ~(cell−1)) − 1`) and re-descends from the root, until y walks off the bottom of the area.
+
+On a hit, the best height (`<<6`, back to fx20.12) lands in the query's `+$44`, the hit byte at `+$48`, and the surface record — prism index, `CLPS` entry, face normal — is copied into the query via the global staging buffer at `$020A0CEC`. The manager resets `+$44` to the `−∞` sentinel `$80000000` before every cast (`$02037464`).
+
+## 4. The `CLPS` surface-attribute table
+
+The `.kcl` deliberately knows nothing about *behavior*. A prism carries only a u16 attribute; the level's settings block points (at `+$00`) at a **`CLPS`** chunk — magic, u16 entry size (checked against 8, `$020381CC`), u16 count, then 8-byte entries — and the attribute indexes it. A missing or malformed block falls back to a default entry `{$FC0, $FF}`.
+
+Queries carry an opt-in **flag byte** at `+$04` (the base query constructor sets it to 1) and the filter at `$02039488` matches it against the entry's first word: property bit 5 demands query flag 2, bit 25 demands flag 8, bit 26 demands flag 4, bit 24 *excludes* the surface when flag 4 is set, behavior type `$11` (bits 19–23) is excluded by flag `$20` — and a surface with *no* special properties needs flag 1. So the same mesh answers differently shaped questions: the signpost's plain ground ray (flags = 1) sees only ordinary floors, while water surfaces, death planes and the like need their specific opt-ins — which is exactly what the verification first stumbled over (§5): the aquarium's water plane out-ranked the tank floor until the filter was replicated.
+
+## 5. Verification — the game plays referee
+
+`sm64ds/kcl.go` reimplements the parser and the down-ray walker in Go, to the bit: the fx.6/fx.10 truncations, the divider's rounding, the 32-bit wrapping edge dots, the 64-bit side test, the cell-stepping walk order, the filter. `cmd/kcltrace -verify N` then plays referee: it boots the oracle, has the *game* build the collision world (loader → fixup → `dBgW_Kc` constructor → registration), casts N random rays through the game's own `$02038F44`, and compares every answer — hit flag, ground height, *and the winning prism index* — against the reimplementation:
+
+```
+all 52 levels × 300 rays: 15,600 rays, 0 mismatches
+```
+
+Three real bugs fell out of the loop before it went clean, each a lesson the read watch caught: the child-index packing (y and z swapped — coherent-looking descent, wrong leaves), the reset sentinel (the manager, not the constructor, arms `+$44`), and the `CLPS` filter (water is not ground).
+
+## 6. Same format in Mario Kart DS?
+
+The name `.kcl` also appears in [[Mario Kart DS]]'s course archives (`course_collision.kcl`), and the two decode against each other cleanly: the same four ascending section offsets, the same thickness/minimum/mask/shift header fields in the same order, the same 12-byte vertices, 16-byte prisms and index structure. Two revisions show: Mario Kart DS's header is `$3C` bytes (one extra trailing word) and stores its minimum and thickness in plain fx20.12 where Super Mario 64 DS pre-shifts into world>>6 — and its ARM9 does *not* contain Super Mario 64 DS's four-add fixup sequence, so the loading convention differs in detail.
+
+Is it a NitroSDK format, then? The evidence in the images says **no — it is a Nintendo EAD engine format**, carried between that studio's games rather than shipped in the SDK: it wears no NitroSDK container magic (the SDK's formats — `NARC`, `SDAT`, `BMD0` — all tag themselves), and the walkers are not in a library section but woven into the game's own `dBgW` class framework, RTTI names and all, in the same `d`-prefix hierarchy as the actors (`daObjMc_…`). Consistent with that: Super Mario 64 DS pairs its KCL with a *bespoke* model container (Part IV), while Mario Kart DS pairs its KCL with genuine SDK `NSBMD` models — the collision format is the constant, the SDK usage the variable, which is the signature of studio middleware, not of the platform kit.
+
 # Appendix A — Toolchain and reproduction
 
 Everything here is derived from the `.nds` image with this repository's own tools: the shared `tools/nds` container reader and the `tools/arm` disassembler/tracer, plus this game's `extract` module. No third-party emulator, debugger or disassembler was used, and nothing was read from released source.
@@ -465,6 +550,15 @@ go run ./cmd/exportlevelobjs
 # Part III §6 — the dual-core oracle: both CPUs on shared RAM + IPC, clearing the
 # rendezvous the single core stops at (into the post-sync PXI FIFO exchange)
 ( cd extract && go run ./cmd/dualoracle "../Super Mario 64 DS (Europe) (En,Fr,De,Es,It).nds" )
+
+# Part VI — build the collision world with the game's own code, cast the signpost's
+# ground ray under a read watch (structure log + the PCs that touched the file)
+go run ./cmd/kcltrace -level 1
+# oracle-verify the Go reimplementation of the .kcl walker: N random rays per level,
+# game vs. sm64ds/kcl.go, comparing hit/height/prism (0 mismatches, all 52 levels)
+go run ./cmd/kcltrace -level 30 -verify 300
+# dump the ITCM image (the collision walkers live there) for disassembly
+go run ./cmd/kcltrace -itcm ../extracted/itcm.bin
 ```
 
 Toolchain (shared `retroreverse.com/tools`, this repository):
@@ -476,5 +570,6 @@ Toolchain (shared `retroreverse.com/tools`, this repository):
 - **`supermario64ds/extract/cmd/ndsextract`** — this game's extractor: writes `arm9.bin`/`arm7.bin` and the 103 overlays, and their BLZ-decompressed forms (`arm9_dec.bin`, `ovl9_NNN_dec.bin`), into `extracted/` (regenerable, git-ignored).
 - **`supermario64ds/extract/cmd/bootoracle`** — runs the ARM9 boot on the `tools/arm` core over a flat DS memory (with the BIOS `SWI`s the startup needs): cross-checks BLZ against the game's own decompressor, logs the I/O registers programmed, and stops at the ARM9↔ARM7 `IPCSYNC` rendezvous. The DS analogue of the Amiga per-game oracles; the counterpart of Mario Kart DS's `bootoracle`.
 - **`supermario64ds/extract/cmd/dualoracle`** — co-executes both boot binaries on the `tools/nds/dsmachine` dual-core model, clearing the rendezvous the single-core oracle stops at and running the ARM9 into the post-sync PXI exchange (Part III §6).
+- **`supermario64ds/extract/cmd/kcltrace`** — the Part VI instrument: has the game itself load, fix up and register a level's `.kcl` collider in the oracle, casts ground rays through the game's own dispatcher with a **read watch** over the served file (every byte the walker touches, with the touching PC), and cross-checks `sm64ds/kcl.go`'s bit-exact reimplementation against the running original (`-verify`).
 
 Rendered figures will go in `Super Mario 64 DS (DS)/rendered/`; annotated disassembly in `disasm/`.

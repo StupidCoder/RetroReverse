@@ -133,6 +133,11 @@ type obus struct {
 	dirty   []bool
 	touched []uint32
 	track   bool
+
+	// read watch (observe-only): every byte read in [watchLo,watchHi) is
+	// reported — the read-side counterpart of the write profiler
+	watchLo, watchHi uint32
+	watchFn          func(addr uint32)
 }
 
 func newOBus() *obus {
@@ -149,6 +154,9 @@ func (b *obus) mark(a uint32) {
 
 func (b *obus) Read(a uint32) byte {
 	if a < busSize {
+		if b.watchFn != nil && a >= b.watchLo && a < b.watchHi {
+			b.watchFn(a)
+		}
 		return b.mem[a]
 	}
 	if a>>24 == 0x04 {
@@ -552,6 +560,11 @@ func (o *Oracle) fileFor(id int) (string, []byte) {
 	data, err := readExtractedFile(o.ls.extDir, "files/"+strings.TrimPrefix(name, "/"))
 	if err != nil {
 		return name, nil
+	}
+	// LZ77-tagged card files come out of the loader decompressed ($02017D84);
+	// mirror that here (the .kcl collision maps are tagged, .bmd/.bca are not)
+	if len(data) > 4 && string(data[:4]) == "LZ77" {
+		data = nds.Decompress(data[4:])
 	}
 	return name, data
 }
@@ -1082,3 +1095,56 @@ func (o *Oracle) Classify(f FileReq) string {
 // InitRequests exposes the file requests made by overlay static initializers
 // (level-overlay ctors register per-level model slots through the same loader).
 func (o *Oracle) InitRequests() []FileReq { return o.initReq }
+
+// ---- direct-drive helpers (kcltrace and other function-level probes) ----
+
+// Call runs fn(a0..a3) on the CPU until it returns; the note is "" on a clean
+// return (see call).
+func (o *Oracle) Call(fn uint32, a0, a1, a2, a3 uint32, budget int) (uint32, string) {
+	return o.call(fn, a0, a1, a2, a3, budget)
+}
+
+// R32/R16/W32 access the machine's memory (little-endian).
+func (o *Oracle) R32(a uint32) uint32 { return o.bus.r32(a) }
+func (o *Oracle) R16(a uint32) uint32 {
+	return uint32(o.bus.Read(a)) | uint32(o.bus.Read(a+1))<<8
+}
+func (o *Oracle) W32(a, v uint32) { o.bus.w32(a, v) }
+
+// ReadBytes copies n bytes out of the machine.
+func (o *Oracle) ReadBytes(a, n uint32) []byte {
+	out := make([]byte, n)
+	for i := uint32(0); i < n; i++ {
+		out[i] = o.bus.mem[a+i]
+	}
+	return out
+}
+
+// Alloc carves a zeroed block out of the scratch region.
+func (o *Oracle) Alloc(n uint32) uint32 {
+	addr := (o.scratch + 31) &^ 31
+	for i := uint32(0); i < n; i++ {
+		o.bus.Write(addr+i, 0)
+	}
+	o.scratch = addr + n
+	return addr
+}
+
+// PC exposes the CPU's current program counter (during Call, the instruction
+// a read watch fires under).
+func (o *Oracle) PC() uint32 { return o.cpu.R[15] }
+
+// SetReadWatch observes every byte read in [lo,hi); fn(addr) runs before the
+// read is served. SetReadWatch(0,0,nil) clears it.
+func (o *Oracle) SetReadWatch(lo, hi uint32, fn func(addr uint32)) {
+	o.bus.watchLo, o.bus.watchHi, o.bus.watchFn = lo, hi, fn
+}
+
+// LastServed reports the most recently served file buffer.
+func (o *Oracle) LastServed() (lo, hi uint32, name string) {
+	if len(o.served) == 0 {
+		return 0, 0, ""
+	}
+	s := o.served[len(o.served)-1]
+	return s.lo, s.hi, s.name
+}
