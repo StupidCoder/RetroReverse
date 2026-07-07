@@ -181,34 +181,19 @@ export class TrackViewer {
     }));
     group.add(walls);
 
-    // Vertical strut strips painted on the walls: one at every rung, from the road
-    // surface down to the ground, colour (40,10,10). They lie exactly in the wall plane
-    // (a thin quad along the rail tangent) and are lifted onto the wall with a negative
-    // polygon offset — the real WebGL depth bias — rather than a geometric nudge, so they
-    // read as thin painted strips flush with the wall. (GL lines can't take a polygon
-    // offset; only filled polygons can, which is why these are thin quads.)
-    const SHALF = 0.007; // half-width of a strut strip (world units)
-    const tpos = [];
-    const railStruts = (sel, hgt) => {
-      for (let k = 0; k < m; k++) {
-        const e = sel(rings[k]);
-        const p = sel(rings[(k - 1 + m) % m]), q = sel(rings[(k + 1) % m]);
-        let tx = q.x - p.x, tz = q.z - p.z; // rail tangent (XZ)
-        const d = Math.hypot(tx, tz) || 1; tx = tx / d * SHALF; tz = tz / d * SHALF;
-        const h = hgt(rings[k]);
-        const lx = e.x - tx, lz = e.z - tz, rx = e.x + tx, rz = e.z + tz;
-        tpos.push(lx, h, lz, rx, h, rz, rx, 0, rz); // two triangles of the strip
-        tpos.push(lx, h, lz, rx, 0, rz, lx, 0, lz);
-      }
-    };
-    railStruts(r => r.l, r => r.hl); // left wall
-    railStruts(r => r.r, r => r.hr); // right wall
-    const tgeom = new THREE.BufferGeometry();
-    tgeom.setAttribute('position', new THREE.Float32BufferAttribute(tpos, 3));
-    group.add(new THREE.Mesh(tgeom, new THREE.MeshBasicMaterial({
-      color: 0x280a0a, side: THREE.DoubleSide, // (40,10,10)
-      polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -1,
-    })));
+    // Vertical strut lines on the walls: one at every rung, from the road surface down
+    // to the ground, colour (40,10,10). They sit exactly on the wall plane — the wall's
+    // positive polygon offset (above) pushes the wall back so these coplanar lines render
+    // in front of it without z-fighting, the same trick the road uses for its rung lines.
+    const spos = [];
+    for (let k = 0; k < m; k++) {
+      const a = rings[k];
+      spos.push(a.l.x, a.hl, a.l.z, a.l.x, 0, a.l.z); // left wall
+      spos.push(a.r.x, a.hr, a.r.z, a.r.x, 0, a.r.z); // right wall
+    }
+    const sgeom = new THREE.BufferGeometry();
+    sgeom.setAttribute('position', new THREE.Float32BufferAttribute(spos, 3));
+    group.add(new THREE.LineSegments(sgeom, new THREE.LineBasicMaterial({ color: 0x280a0a }))); // (40,10,10)
 
     // Start/finish marker (green) at ring 0.
     const r0 = rings[0];
