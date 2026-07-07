@@ -119,6 +119,10 @@ func (g *gpu) tri(a, b, c vert, textured bool, clut uint32) {
 func (g *gpu) texel(u, v int, clut uint32) (uint16, bool) {
 	u &= 0xFF
 	v &= 0xFF
+	// Texture window (GP0 E2): mask/offset the coords into the active window so
+	// texture repeat works. U = (U & ~(mask*8)) | ((offset & mask)*8).
+	u = (u &^ (g.texWinMX * 8)) | ((g.texWinOX & g.texWinMX) * 8)
+	v = (v &^ (g.texWinMY * 8)) | ((g.texWinOY & g.texWinMY) * 8)
 	clutBase := int((clut>>6)&0x1FF)*vramW + int(clut&0x3F)*16
 	var raw uint16
 	switch g.texDepth {
