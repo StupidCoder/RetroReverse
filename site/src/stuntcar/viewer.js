@@ -136,21 +136,27 @@ export class TrackViewer {
     }));
     group.add(fill);
 
-    // Wireframe: the two rails (coloured along the lap) + rung lines exactly where the
-    // game's baked model has a polygon edge (flags bit 0); the finish rung is gold.
+    // Wireframe: the two rails + rung lines exactly where the game's baked model has a
+    // polygon edge (flags bit 0); the finish rung is gold. The rails run along the sides
+    // of the road and alternate the game's curb colours per rung segment.
     const lpos = [], lcol = [];
     const col = new THREE.Color();
-    const edge = (p, q, f, gold) => {
-      if (gold) col.setHex(0xe5c04b);
-      else col.setHSL(0.58 - 0.5 * f, 0.85, 0.55);
+    const RAIL_A = new THREE.Color(0xf4f17e); // (244,241,126)
+    const RAIL_B = new THREE.Color(0x280a0a); // (40,10,10)
+    const seg = (p, q, c) => {
       lpos.push(p.x, p.y, p.z, q.x, q.y, q.z);
-      lcol.push(col.r, col.g, col.b, col.r, col.g, col.b);
+      lcol.push(c.r, c.g, c.b, c.r, c.g, c.b);
     };
     for (let k = 0; k < m; k++) {
       const a = rings[k], b = rings[(k + 1) % m], f = k / m;
-      edge(V(a.l, a.hl), V(b.l, b.hl), f); // left rail
-      edge(V(a.r, a.hr), V(b.r, b.hr), f); // right rail
-      if (a.fl & 1) edge(V(a.l, a.hl), V(a.r, a.hr), f, (a.fl & 8) !== 0); // game rung
+      const railCol = (k % 2 === 0) ? RAIL_A : RAIL_B; // alternating curb stripes
+      seg(V(a.l, a.hl), V(b.l, b.hl), railCol); // left rail
+      seg(V(a.r, a.hr), V(b.r, b.hr), railCol); // right rail
+      if (a.fl & 1) { // game rung
+        col.setHSL(0.58 - 0.5 * f, 0.85, 0.55);
+        if (a.fl & 8) col.setHex(0xe5c04b); // finish rung gold
+        seg(V(a.l, a.hl), V(a.r, a.hr), col);
+      }
     }
     const lgeom = new THREE.BufferGeometry();
     lgeom.setAttribute('position', new THREE.Float32BufferAttribute(lpos, 3));
