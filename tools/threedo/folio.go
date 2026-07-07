@@ -1,6 +1,9 @@
 package threedo
 
-import "fmt"
+import (
+	"fmt"
+	"strings"
+)
 
 // folio.go reimplements the Portfolio OS folio/kernel functions the game calls,
 // so the boot oracle can run past the OS-dependent startup instead of merely
@@ -98,6 +101,9 @@ func (m *Machine) serviceFolio(off uint32) bool {
 		m.poolOf(ptr).freeBlock(ptr)
 		m.SetResultAndReturn(0)
 		return true
+	case 0x30: // LookupItem(item) -> in-RAM pointer (kernel item -> struct address)
+		m.SetResultAndReturn(m.lookupItem(int32(m.CPU.Reg(0))))
+		return true
 	case 0x34: // SampleSystemTimeTT(timer, TimeVal*) — fill an advancing time.
 		// Each call advances virtual time so the game's timing/calibration loops
 		// (which decrement counters by the elapsed delta) converge instead of
@@ -110,6 +116,31 @@ func (m *Machine) serviceFolio(off uint32) bool {
 		return true
 	}
 	return false
+}
+
+// lookupItem resolves a kernel Item number to the in-RAM pointer the game will
+// use. A folio must resolve to a base whose negative-offset vectors trap into the
+// HLE: the File folio to its real implementation window, the kernel folio back to
+// the planted kernel base, and any other folio to a generic stub window (so its
+// calls are logged rather than misread as File-folio functions). Non-folio items
+// resolve to their backing struct so field reads/writes work.
+func (m *Machine) lookupItem(num int32) uint32 {
+	it := m.items[num]
+	if it == nil {
+		return 0
+	}
+	if it.typ&0xFF != 0x04 { // not a folio
+		return it.addr
+	}
+	switch {
+	case strings.EqualFold(it.name, "File"):
+		return fileFolioBase
+	case strings.EqualFold(it.name, "kernel"):
+		return kernelBase
+	default:
+		m.note(fmt.Sprintf("LookupItem: folio %q -> generic stub window", it.name))
+		return otherFolioBase
+	}
 }
 
 // simTick is how much virtual time each time sample advances (a generous slice so

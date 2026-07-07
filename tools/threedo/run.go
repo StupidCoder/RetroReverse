@@ -121,6 +121,15 @@ func (m *Machine) serviceKernelCall(pc uint32) {
 		From:   m.CPU.Reg(14) - 8,
 		Args:   [4]uint32{m.CPU.Reg(0), m.CPU.Reg(1), m.CPU.Reg(2), m.CPU.Reg(3)},
 	})
+	// A call in a folio slice of the window is that folio's vector call.
+	if off >= hleOtherTag {
+		m.serviceOtherFolio(off - hleOtherTag)
+		return
+	}
+	if off >= hleFileTag {
+		m.serviceFileFolio(off - hleFileTag)
+		return
+	}
 	// Reimplemented folios handle themselves (including the return); anything not
 	// yet reimplemented falls back to a zero-result stub.
 	if !m.serviceFolio(off) {

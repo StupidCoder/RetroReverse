@@ -111,6 +111,16 @@ func (m *Machine) readWord(a uint32) uint32 {
 // curTask returns the running task.
 func (m *Machine) curTask() *task { return m.tasks[m.cur] }
 
+// taskByNum returns the task with the given item number, or nil.
+func (m *Machine) taskByNum(num int32) *task {
+	for _, t := range m.tasks {
+		if t.num == num {
+			return t
+		}
+	}
+	return nil
+}
+
 // switchTask saves the current context and resumes the next runnable task,
 // round-robin. The caller sets the current task's state (Ready to keep it
 // runnable, Waiting/Done otherwise) before calling. Returns false if no *other*

@@ -33,9 +33,18 @@ const (
 	hleSize     = 0x00010000
 	bootTaskNum = 1 // item number of the initial (boot) task
 
-	dheapBase = 0x00080000 // DRAM AllocMem pool: above the image, below the kernel table
-	dheapTop  = 0x0017F000
-	vheapBase = vramBase // VRAM AllocMem pool: the whole 1 MiB VRAM
+	// The File folio is a second folio, called through its own negative-offset
+	// vector table (LookupItem of the "File" folio item yields its base). Its
+	// vectors point into a distinct slice of the HLE window (hleBase+hleFileTag+N)
+	// so an intercepted call can be told apart from a kernel-folio call.
+	fileFolioBase  = 0x0017F000 // base returned by LookupItem("File" folio)
+	hleFileTag     = 0x8000     // File-folio calls trap at hleBase+hleFileTag+offset
+	otherFolioBase = 0x0017E800 // base for any other (not-yet-implemented) folio
+	hleOtherTag    = 0xA000     // other-folio calls trap at hleBase+hleOtherTag+offset
+
+	dheapBase = 0x00080000 // DRAM AllocMem pool: above the image, below the folio tables
+	dheapTop  = 0x0017E000 // leaves 0x17E000..0x180000 for the folio vector tables
+	vheapBase = vramBase   // VRAM AllocMem pool: the whole 1 MiB VRAM
 	vheapTop  = vramBase + vramSize
 )
 
@@ -58,6 +67,9 @@ type Machine struct {
 	dheap *heap // DRAM pool
 	vheap *heap // VRAM pool
 	CPU   *arm60.CPU
+
+	vol     *Volume                // the mounted disc, so the I/O HLE can read files (io.go)
+	streams map[uint32]*diskStream // open File-folio streams, keyed by handle (filefolio.go)
 
 	// Instrumentation (opt-in; checked in Read/Write and the run loop).
 	WatchLo, WatchHi uint32
@@ -103,6 +115,7 @@ func NewMachine() *Machine {
 		itemByType: map[uint32]*item{},
 		nextItem:   0x1000,
 		logSeen:    map[string]bool{},
+		streams:    map[uint32]*diskStream{},
 	}
 	m.CPU = arm60.NewCPU(m)
 	m.CPU.SWI = m.swi
@@ -124,6 +137,12 @@ func (m *Machine) LoadAIF(a *AIF) {
 	for off := uint32(4); off <= 0x1000; off += 4 {
 		m.writeWord(kernelBase-off, hleBase+off)
 	}
+	// Plant the File folio's vector table the same way, into its own HLE slice,
+	// and a generic table for any other folio the game looks up.
+	for off := uint32(4); off <= 0x100; off += 4 {
+		m.writeWord(fileFolioBase-off, hleBase+hleFileTag+off)
+		m.writeWord(otherFolioBase-off, hleBase+hleOtherTag+off)
+	}
 
 	m.CPU.SetReg(5, 0)          // r5: argc-like
 	m.CPU.SetReg(6, 0)          // r6: argv-like
@@ -131,6 +150,9 @@ func (m *Machine) LoadAIF(a *AIF) {
 	m.CPU.SetReg(13, dramSize-0x1000)
 	m.CPU.SetPC(a.ImageBase)
 }
+
+// SetVolume mounts a disc image so the I/O HLE can read files from it.
+func (m *Machine) SetVolume(v *Volume) { m.vol = v }
 
 // writeWord stores a big-endian word directly into DRAM (setup helper).
 func (m *Machine) writeWord(a, v uint32) {

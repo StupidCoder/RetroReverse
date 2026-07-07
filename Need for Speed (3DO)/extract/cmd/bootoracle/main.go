@@ -32,10 +32,10 @@ func main() {
 
 	var data []byte
 	var err error
+	var vol *threedo.Volume
 	if *file != "" {
 		data, err = os.ReadFile(*file)
 	} else if *image != "" {
-		var vol *threedo.Volume
 		if data, err = os.ReadFile(*image); err == nil {
 			var v *threedo.Volume
 			if v, err = threedo.Open(data); err == nil {
@@ -59,6 +59,9 @@ func main() {
 
 	m := threedo.NewMachine()
 	m.SpinBreak = *spinbreak
+	if vol != nil {
+		m.SetVolume(vol)
+	}
 	m.LoadAIF(aif)
 
 	if *trace || *tracen > 0 {

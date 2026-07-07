@@ -29,11 +29,38 @@ const (
 	swiAllocSignal     = 0x10015
 	swiFreeSignal      = 0x10016
 
+	// The kernel folio's I/O and message SWIs, by the same KERNELSWI-relative
+	// index the boot code issues them at (index found from LaunchMe's disassembly
+	// and the Portfolio kernel folio function table):
+	//
+	//	14 printf   15 GetThisMsg  16 PutMsg    18 ReplyMsg   19 GetMsg
+	//	24 SendIO   25 AbortIO     34 CompleteIO 37 DoIO       41 WaitIO
+	swiPrintf     = 0x1000E
+	swiGetThisMsg = 0x1000F
+	swiPutMsg     = 0x10010
+	swiReplyMsg   = 0x10012
+	swiGetMsg     = 0x10013
+	swiSendIO     = 0x10018
+	swiAbortIO    = 0x10019
+	swiCompleteIO = 0x10022
+	swiDoIO       = 0x10025
+	swiWaitIO     = 0x10029
+
 	// Kernel item subtypes we care about.
 	typeSemaphore = 0x07
 	typeMsgPort   = 0x0A
 	typeIOReq     = 0x0E
 	typeDevice    = 0x0F
+
+	// Item-creation tag numbers (TAG_ITEM_LAST = 9, so item-specific tags start at
+	// 0xA). MsgPort: CREATEPORT_TAG_SIGNAL. IOReq: CREATEIOREQ_TAG_REPLYPORT then
+	// _TAG_DEVICE. TAG_ITEM_NAME (a base item tag) carries a found item's name.
+	tagItemName       = 1
+	tagPortSignal     = 0x0A
+	tagIOReqReplyPort = 0x0A
+	tagIOReqDevice    = 0x0B
+
+	sigfIODONE = 0x08 // SIGF_IODONE: the default I/O-completion signal
 )
 
 // item is a kernel Item tracked by the HLE.
@@ -42,6 +69,15 @@ type item struct {
 	typ  uint32 // full item type (folio<<8 | subtype)
 	addr uint32 // an allocated in-RAM struct for the item, if any
 	tags uint32 // the tag-args pointer the item was created/found with
+	name string // item name (devices found by name, named ports, ...)
+
+	owner  int32  // task that created/owns this item
+	signal uint32 // message port: the signal raised on its owner when a msg arrives
+
+	// IOReq fields (typeIOReq): the device it drives and its reply port (0 = the
+	// completion is delivered as SIGF_IODONE to the owner task instead).
+	device    int32
+	replyPort int32
 }
 
 // kernelSWI services a Portfolio kernel folio SWI. It sets r0 to the result and
@@ -54,9 +90,22 @@ func (m *Machine) kernelSWI(c *arm60.CPU, swi uint32) bool {
 			break
 		}
 		it := m.createItem(c.Reg(0), c.Reg(1), c.Reg(2))
+		m.initItemFromTags(it)
 		c.SetReg(0, uint32(it.num))
 	case swiFindItem:
 		c.SetReg(0, uint32(m.findItem(c.Reg(0), c.Reg(1)).num))
+	case swiPrintf:
+		c.SetReg(0, m.kprintf())
+	case swiSendIO, swiDoIO:
+		m.serviceIO(c)
+	case swiWaitIO:
+		// The I/O already completed synchronously in serviceIO, so there is
+		// nothing to wait for; return its stored error (0 = success).
+		c.SetReg(0, m.ioError(int32(c.Reg(0))))
+	case swiAbortIO, swiCompleteIO:
+		c.SetReg(0, 0)
+	case swiPutMsg, swiReplyMsg, swiGetMsg, swiGetThisMsg:
+		m.serviceMsg(c, swi)
 	case swiOpenItem:
 		// OpenItem(item, args) — return the item, opened.
 		c.SetReg(0, c.Reg(0))
@@ -85,15 +134,7 @@ func (m *Machine) kernelSWI(c *arm60.CPU, swi uint32) bool {
 		m.sendSignal(int32(c.Reg(0)), c.Reg(1))
 		c.SetReg(0, 0)
 	case swiAllocSignal:
-		// AllocSignal(mask) allocates a free signal bit for the current task. User
-		// signals start above the reserved SIGF_* bits (0x100 and up).
-		t := m.curTask()
-		bit := uint32(0x100)
-		for bit != 0 && t.allocSigs&bit != 0 {
-			bit <<= 1
-		}
-		t.allocSigs |= bit
-		c.SetReg(0, bit)
+		c.SetReg(0, m.allocSignalFor(m.curTask().num))
 	case swiFreeSignal:
 		m.curTask().allocSigs &^= c.Reg(0)
 		c.SetReg(0, 0)
@@ -108,7 +149,7 @@ func (m *Machine) kernelSWI(c *arm60.CPU, swi uint32) bool {
 // fields; the item number is what the game holds onto.
 func (m *Machine) createItem(typ, tags, size uint32) *item {
 	m.nextItem++
-	it := &item{num: m.nextItem, typ: typ, tags: tags}
+	it := &item{num: m.nextItem, typ: typ, tags: tags, owner: m.curTask().num}
 	// Give the item a backing struct so field writes/reads have somewhere to go.
 	structSize := uint32(0x100)
 	if size > structSize {
@@ -119,13 +160,46 @@ func (m *Machine) createItem(typ, tags, size uint32) *item {
 	return it
 }
 
-// findItem returns a per-(type) singleton item, creating it on first request so
+// initItemFromTags fills in the type-specific fields (message-port signal, IOReq
+// device/reply-port) of a freshly created item from its TagArg list.
+func (m *Machine) initItemFromTags(it *item) {
+	switch it.typ & 0xFF {
+	case typeMsgPort:
+		it.signal = m.tagArg(it.tags, tagPortSignal)
+		if it.signal == 0 { // no explicit signal: allocate one for the owner
+			it.signal = m.allocSignalFor(it.owner)
+		}
+	case typeIOReq:
+		it.replyPort = int32(m.tagArg(it.tags, tagIOReqReplyPort))
+		it.device = int32(m.tagArg(it.tags, tagIOReqDevice))
+	}
+}
+
+// allocSignalFor hands out a free signal bit to the given task. User signals
+// start above the reserved SIGF_* bits (0x100 and up), matching AllocSignal.
+func (m *Machine) allocSignalFor(taskNum int32) uint32 {
+	t := m.taskByNum(taskNum)
+	if t == nil {
+		t = m.curTask()
+	}
+	bit := uint32(0x100)
+	for bit != 0 && t.allocSigs&bit != 0 {
+		bit <<= 1
+	}
+	t.allocSigs |= bit
+	return bit
+}
+
+// findItem returns a per-(type,name) item, creating it on first request so
 // repeated finds of the same subsystem object resolve to the same Item number.
 func (m *Machine) findItem(typ, tags uint32) *item {
-	if it, ok := m.itemByType[typ]; ok {
+	name := m.tagString(tags, tagItemName)
+	key := typ
+	if it, ok := m.itemByType[key]; ok && it.name == name {
 		return it
 	}
 	it := m.createItem(typ, tags, 0)
-	m.itemByType[typ] = it
+	it.name = name
+	m.itemByType[key] = it
 	return it
 }
