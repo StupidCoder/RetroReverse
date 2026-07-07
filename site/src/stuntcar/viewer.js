@@ -118,19 +118,37 @@ export class TrackViewer {
     const m = rings.length;
     const V = (p, y) => new THREE.Vector3(p.x, y, p.z);
 
-    // The road surface (the ribbon), coloured (166,162,129). It also does the
-    // hidden-line removal for the rail/rung lines drawn on top: it writes depth, and
-    // its polygon offset pushes it back so the coplanar lines sit in front of it.
-    const fpos = [];
-    const quad = (a, b, c, d) => fpos.push(a.x, a.y, a.z, b.x, b.y, b.z, c.x, c.y, c.z, b.x, b.y, b.z, d.x, d.y, d.z, c.x, c.y, c.z);
+    // Segment parity. The game draws horizontal lines across the road at certain rungs
+    // (the baked polygon edges, flags bit 0); those lines split the road into segments.
+    // Number the segments (a new one begins at each line) so the surface and walls can
+    // alternate colour per segment. segPar[k] is the parity of the segment the quad
+    // starting at rung k belongs to; the first segment is parity 0.
+    const segPar = new Array(m);
+    for (let k = 0, s = 0; k < m; k++) {
+      if (k > 0 && (rings[k].fl & 1)) s++;
+      segPar[k] = s & 1;
+    }
+
+    // The road surface (the ribbon). Its colour alternates per segment between
+    // (166,162,129) and (195,192,166). It also does the hidden-line removal for the
+    // rail/rung lines drawn on top: it writes depth, and its polygon offset pushes it
+    // back so the coplanar lines sit in front of it.
+    const ROAD_A = new THREE.Color(0xa6a281); // (166,162,129) darker
+    const ROAD_B = new THREE.Color(0xc3c0a6); // (195,192,166) lighter
+    const fpos = [], fcol = [];
+    const quad = (a, b, c, d, col) => {
+      fpos.push(a.x, a.y, a.z, b.x, b.y, b.z, c.x, c.y, c.z, b.x, b.y, b.z, d.x, d.y, d.z, c.x, c.y, c.z);
+      for (let i = 0; i < 6; i++) fcol.push(col.r, col.g, col.b);
+    };
     for (let k = 0; k < m; k++) {
       const a = rings[k], b = rings[(k + 1) % m];
-      quad(V(a.l, a.hl), V(a.r, a.hr), V(b.l, b.hl), V(b.r, b.hr));
+      quad(V(a.l, a.hl), V(a.r, a.hr), V(b.l, b.hl), V(b.r, b.hr), segPar[k] ? ROAD_B : ROAD_A);
     }
     const fgeom = new THREE.BufferGeometry();
     fgeom.setAttribute('position', new THREE.Float32BufferAttribute(fpos, 3));
+    fgeom.setAttribute('color', new THREE.Float32BufferAttribute(fcol, 3));
     const fill = new THREE.Mesh(fgeom, new THREE.MeshBasicMaterial({
-      color: 0xa6a281, // road surface (166,162,129)
+      vertexColors: true,
       polygonOffset: true, polygonOffsetFactor: 1, polygonOffsetUnits: 1,
       side: THREE.DoubleSide,
     }));
@@ -167,22 +185,29 @@ export class TrackViewer {
     // on the left rail and one on the right (as in the game), replacing the old centre
     // support lines. Each wall is a vertical quad strip that follows its rail and drops
     // to the ground (y=0).
-    const wpos = [];
+    // The wall colour alternates per segment in step with the road: the darker road
+    // (166,162,129) gets white walls, the lighter road (195,192,166) gets red walls.
+    const WALL_A = new THREE.Color(0xffffff); // (255,255,255) with the darker road
+    const WALL_B = new THREE.Color(0x784238); // (120,66,56) with the lighter road
+    const wpos = [], wcol = [];
     // one wall quad between rail points a (top height ha) and b (top height hb):
     // top edge follows the rail, bottom edge sits on the ground.
-    const wallSeg = (a, ha, b, hb) => {
+    const wallSeg = (a, ha, b, hb, col) => {
       wpos.push(a.x, ha, a.z, a.x, 0, a.z, b.x, hb, b.z);
       wpos.push(b.x, hb, b.z, a.x, 0, a.z, b.x, 0, b.z);
+      for (let i = 0; i < 6; i++) wcol.push(col.r, col.g, col.b);
     };
     for (let k = 0; k < m; k++) {
       const a = rings[k], b = rings[(k + 1) % m];
-      wallSeg(a.l, a.hl, b.l, b.hl); // left wall
-      wallSeg(a.r, a.hr, b.r, b.hr); // right wall
+      const wc = segPar[k] ? WALL_B : WALL_A;
+      wallSeg(a.l, a.hl, b.l, b.hl, wc); // left wall
+      wallSeg(a.r, a.hr, b.r, b.hr, wc); // right wall
     }
     const wgeom = new THREE.BufferGeometry();
     wgeom.setAttribute('position', new THREE.Float32BufferAttribute(wpos, 3));
+    wgeom.setAttribute('color', new THREE.Float32BufferAttribute(wcol, 3));
     const walls = new THREE.Mesh(wgeom, new THREE.MeshBasicMaterial({
-      color: 0xffffff, side: THREE.DoubleSide,
+      vertexColors: true, side: THREE.DoubleSide,
       polygonOffset: true, polygonOffsetFactor: 1, polygonOffsetUnits: 1,
     }));
     group.add(walls);
