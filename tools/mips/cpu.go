@@ -234,6 +234,14 @@ func (c *CPU) Interrupt(pending bool) bool {
 	if c.pendingDelay { // don't split a branch from its delay slot
 		return false
 	}
+	// Retire a load still in its delay slot before vectoring: the pipeline would
+	// otherwise land the loaded value in a register during the handler's first
+	// instruction, clobbering whatever the handler set up (e.g. a fresh $ra).
+	if c.ld.reg != 0 {
+		c.R[c.ld.reg] = c.ld.val
+		c.out[c.ld.reg] = c.ld.val
+		c.ld = loadSlot{}
+	}
 	// EPC must be the next instruction to fetch, not the last one executed, so the
 	// handler's rfe resumes exactly where control was preempted.
 	c.curPC = c.PC

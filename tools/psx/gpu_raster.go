@@ -80,10 +80,11 @@ func (g *gpu) tri(a, b, c vert, textured bool, clut uint32) {
 		a, c = c, a
 		area = -area
 	}
-	minX := clampi(min3(a.x, b.x, c.x), g.drawL, g.drawR-1)
-	maxX := clampi(max3(a.x, b.x, c.x), g.drawL, g.drawR-1)
-	minY := clampi(min3(a.y, b.y, c.y), g.drawT, g.drawB-1)
-	maxY := clampi(max3(a.y, b.y, c.y), g.drawT, g.drawB-1)
+	rx, by := mini(g.drawR-1, vramW-1), mini(g.drawB-1, vramH-1)
+	minX := clampi(min3(a.x, b.x, c.x), g.drawL, rx)
+	maxX := clampi(max3(a.x, b.x, c.x), g.drawL, rx)
+	minY := clampi(min3(a.y, b.y, c.y), g.drawT, by)
+	maxY := clampi(max3(a.y, b.y, c.y), g.drawT, by)
 
 	for y := minY; y <= maxY; y++ {
 		for x := minX; x <= maxX; x++ {
@@ -118,18 +119,17 @@ func (g *gpu) tri(a, b, c vert, textured bool, clut uint32) {
 func (g *gpu) texel(u, v int, clut uint32) (uint16, bool) {
 	u &= 0xFF
 	v &= 0xFF
-	clutX := int(clut&0x3F) * 16
-	clutY := int((clut >> 6) & 0x1FF)
+	clutBase := int((clut>>6)&0x1FF)*vramW + int(clut&0x3F)*16
 	var raw uint16
 	switch g.texDepth {
 	case 0: // 4bpp: 4 texels per VRAM word column
 		word := g.vram[((g.texPageY+v)&(vramH-1))*vramW+((g.texPageX+u/4)&(vramW-1))]
 		shift := uint(u&3) * 4
-		raw = g.vram[clutY*vramW+clutX+int((word>>shift)&0xF)]
+		raw = g.vram[(clutBase+int((word>>shift)&0xF))&(len(g.vram)-1)]
 	case 1: // 8bpp
 		word := g.vram[((g.texPageY+v)&(vramH-1))*vramW+((g.texPageX+u/2)&(vramW-1))]
 		shift := uint(u&1) * 8
-		raw = g.vram[clutY*vramW+clutX+int((word>>shift)&0xFF)]
+		raw = g.vram[(clutBase+int((word>>shift)&0xFF))&(len(g.vram)-1)]
 	default: // 15bpp direct
 		raw = g.vram[((g.texPageY+v)&(vramH-1))*vramW+((g.texPageX+u)&(vramW-1))]
 	}
@@ -176,12 +176,12 @@ func (g *gpu) rect(op byte) {
 	flat := r | gg<<5 | bb<<10
 	for y := 0; y < h; y++ {
 		py := y0 + y
-		if py < g.drawT || py >= g.drawB {
+		if py < g.drawT || py >= g.drawB || py >= vramH {
 			continue
 		}
 		for x := 0; x < w; x++ {
 			px := x0 + x
-			if px < g.drawL || px >= g.drawR {
+			if px < g.drawL || px >= g.drawR || px >= vramW {
 				continue
 			}
 			out := flat
