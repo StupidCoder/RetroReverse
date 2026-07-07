@@ -24,8 +24,36 @@ func main() {
 	path := flag.String("path", "", "cel file path within the disc")
 	file := flag.String("f", "", "standalone .cel file (instead of -image/-path)")
 	all := flag.Bool("all", false, "decode every *.cel file on the disc")
-	out := flag.String("o", "", "output PNG file, or output directory with -all")
+	scan := flag.String("scan", "", "scan a raw file for embedded 'CCB ' cels and dump each to -o dir")
+	out := flag.String("o", "", "output PNG file, or output directory with -all/-scan")
 	flag.Parse()
+
+	switch {
+	case *scan != "":
+		data, err := os.ReadFile(*scan)
+		if err != nil {
+			die(err)
+		}
+		if *out == "" {
+			die(fmt.Errorf("-scan needs -o outdir"))
+		}
+		if err := os.MkdirAll(*out, 0o755); err != nil {
+			die(err)
+		}
+		n, fail := 0, 0
+		for i := 0; i+8 <= len(data); i += 4 {
+			if string(data[i:i+4]) != "CCB " {
+				continue
+			}
+			if err := decodeTo(data[i:], filepath.Join(*out, fmt.Sprintf("cel_%06X.png", i))); err != nil {
+				fail++
+				continue
+			}
+			n++
+		}
+		fmt.Printf("decoded %d embedded cels (%d failed) from %s\n", n, fail, *scan)
+		return
+	}
 
 	switch {
 	case *file != "":

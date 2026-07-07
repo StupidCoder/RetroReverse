@@ -327,4 +327,41 @@ the NSX (three LODs), `Ferrari.WrapFam` → an "AXXESS00" body. (Several opponen
 game-data quirk, faithfully reproduced.) Texturing the quads with the WrapFam
 materials, and decoding the track geometry, are the next steps.
 
-## Part VII — track geometry & texturing *(planned)*
+## Part VII — the track format (wwww resource packets)
+
+The tracks turned out to be decodable straight from the disc, like the car
+models — no boot required. Each course (Alpine, Coastal, City) is split into
+three packets `DriveData/DriveArt/{Al,Cl,Cy}{1,2,3}_PKT_000`, and every packet is
+a **`wwww` resource container** (decoded in `tools/threedo/wrap.go`):
+
+- A `wwww` node is `"wwww"`, a u32 count, then that many child offsets **relative
+  to the node's own base** (the outer node sits at 0, so its offsets look
+  absolute); each child is another `wwww` node or a leaf. `0` is an empty slot.
+- Leaves are exactly the formats already decoded: **cels** (`CCB `, road and
+  scenery textures), **models** (`ORI3`, the `TRSL` "track-slice" objects) and
+  **shapes** (`SHPM`, the horizon backdrops).
+
+Inventory of all nine packets (via `cmd/packetinfo`): 226–297 **cels** each, plus
+3–6 ORI3 track-slice models and 3–6 SHPM backdrops per packet — every resource
+classified, none unknown. So a whole track's art extracts today:
+
+```
+packetinfo -image DISC -path DriveData/DriveArt/Al1_PKT_000     # inventory
+celdump   -scan Al1_PKT_000 -o cels/                            # all 269 cels -> PNG
+modelrender -f Al1_PKT_000 -o slices.png                        # the TRSL models
+```
+
+The Alpine packet decodes to 269 scenery/road textures, three `TRSL` track-slice
+meshes and three backdrops. What remains for a full 3D reconstruction is the
+**road layout** — the segment/spline table that positions the slices and maps
+textures along the course. That reference table is the piece most likely to need
+the oracle to boot the race code and watch it consume the packet; the asset
+formats themselves are done.
+
+- `tools/threedo/wrap.go` — `ParseWrap`, `Inventory`; `cmd/packetinfo`.
+- `cmd/celdump -scan` — extract every embedded cel from a raw packet.
+
+## Part VIII — road layout & booting the race *(planned)*
+The boot oracle (Parts IV–V) is being pushed toward the race code so the road
+segment/spline table that ties the packet resources into a drivable course can be
+traced; the async-I/O frontier is the current step.
