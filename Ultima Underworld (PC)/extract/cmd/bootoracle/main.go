@@ -13,9 +13,13 @@ package main
 import (
 	"flag"
 	"fmt"
+	"image"
+	"image/png"
 	"os"
 	"path/filepath"
 	"strings"
+
+	"ultimaunderworld/extract/tex"
 
 	"retroreverse.com/tools/dos"
 	"retroreverse.com/tools/x86"
@@ -34,6 +38,8 @@ func main() {
 	bpal := flag.Int("bpal", -1, "with -bp, only halt when AL equals this value (decimal; -1 = any)")
 	watch := flag.String("watch", "", "log writes to SEG:OFF[:LEN] (hex)")
 	shot := flag.String("shot", "", "after the run, write the mode-13h screen (A000 + DAC palette) as PNG")
+	texid := flag.Int("texid", -1, "extract global texture id N from the EMS cache (resolves [499D:B10F] -> handle -> EMS page) to -texout")
+	texout := flag.String("texout", "/tmp/texid.png", "output PNG for -texid")
 	keys := flag.String("keys", "", "script keyboard input via IRQ1, e.g. \"down,down,enter,wait:40,enter\" (implies -irq)")
 	vgaprof := flag.Uint64("vgaprof", 0, "after this many instructions, tally code addrs writing to the profiled range; print the hottest on stop")
 	profrange := flag.String("profrange", "", "with -vgaprof, profile writes to SEG:OFF:LEN (hex) instead of the A000 framebuffer")
@@ -210,6 +216,10 @@ func main() {
 		}
 	}
 
+	if *texid >= 0 {
+		extractTexID(m, *texid, *texout, *game)
+	}
+
 	if *saveState != "" {
 		if err := m.SaveState(*saveState); err != nil {
 			fmt.Fprintln(os.Stderr, "bootoracle: -savestate:", err)
@@ -375,4 +385,105 @@ func (s *spinDetector) check(c *x86.CPU) {
 	}
 	s.lastPC = pc
 	s.sameCount = 0
+}
+
+// extractTexID pulls a texture out of the game's EMS texture cache by its global
+// id, exactly as the 3D renderer's 0xC0 opcode does (07F7:79D2): read the handle
+// from [499D:B10F + id*2], then the texture lives at logical page (handle>>12) of
+// the texture-cache EMS handle ([499D:C4D7]), byte offset (handle & 0x3FF)*16
+// within that page. The cached bitmap keeps its .GR frame layout
+// [format][W][H][u16 size][pixels]. This lets us confirm which archive frame a
+// model's texture id resolves to without reverse-engineering the load-time id
+// assignment or the page mapping.
+func extractTexID(m *dos.Machine, id int, out, game string) {
+	ds := uint32(0x499D) << 4
+	rd16 := func(off uint32) uint16 {
+		return uint16(m.Mem[ds+off]) | uint16(m.Mem[ds+off+1])<<8
+	}
+	handle := rd16(0xB10F + uint32(id)*2)
+	emsH := uint16(m.Mem[ds+0xC4D7])
+	bank := int(handle >> 12)
+	base := m.EmsHandleBase(emsH)
+	off := int(handle&0x3FF) * 16
+	fmt.Printf("texid %d: handle=%04X bank(logical page)=%d emsHandle=%d base=%d off=0x%X\n", id, handle, bank, emsH, base, off)
+	if base < 0 {
+		fmt.Println("  no such EMS handle")
+		return
+	}
+	backing := m.EmsBacking()
+	lin := (base+bank)*dos.EmsPageSize + off
+	if lin < 0 || lin+5 > len(backing) {
+		fmt.Println("  resolved location out of range")
+		return
+	}
+	t := backing[lin:]
+	format, w, h := t[0], int(t[1]), int(t[2])
+	size := int(t[3]) | int(t[4])<<8
+	fmt.Printf("  format=0x%02X W=%d H=%d size=%d\n", format, w, h, size)
+	if w == 0 || h == 0 || w > 256 || h > 256 {
+		fmt.Println("  header not a texture (id likely not cached) — dumping first bytes:")
+		fmt.Printf("  % X\n", t[:16])
+		return
+	}
+	palsB, _ := os.ReadFile(filepath.Join(game, "DATA/PALS.DAT"))
+	pal, _ := tex.LoadPalette(palsB, 0)
+	img := image.NewRGBA(image.Rect(0, 0, w, h))
+	px := t[5:]
+	for i := 0; i < w*h && i < len(px); i++ {
+		c := pal[px[i]]
+		img.Pix[i*4], img.Pix[i*4+1], img.Pix[i*4+2], img.Pix[i*4+3] = c.R, c.G, c.B, 255
+	}
+	// scale x6 for viewing
+	big := image.NewRGBA(image.Rect(0, 0, w*6, h*6))
+	for y := 0; y < h*6; y++ {
+		for x := 0; x < w*6; x++ {
+			big.Set(x, y, img.At(x/6, y/6))
+		}
+	}
+	f, err := os.Create(out)
+	if err != nil {
+		fmt.Println("  create:", err)
+		return
+	}
+	png.Encode(f, big)
+	f.Close()
+	fmt.Printf("  wrote %s (%dx%d, format %02X)\n", out, w, h, format)
+
+	// Byte-match the cached pixels against TMOBJ.GR frames to name the exact frame
+	// (definitive: identical palette-index bytes), so the model->frame formula can
+	// be confirmed rather than guessed.
+	want := px[:w*h]
+	grB, err := os.ReadFile(filepath.Join(game, "DATA/TMOBJ.GR"))
+	if err != nil {
+		return
+	}
+	// .GR: byte0 tag, u16 count, count u32 offsets, then frames [fmt][W][H][u16 size][pixels]
+	if len(grB) < 3 {
+		return
+	}
+	cnt := int(grB[1]) | int(grB[2])<<8
+	for i := 0; i < cnt; i++ {
+		o := int(grB[3+i*4]) | int(grB[4+i*4])<<8 | int(grB[5+i*4])<<16 | int(grB[6+i*4])<<24
+		if o == 0 || o+5 > len(grB) {
+			continue
+		}
+		fw, fh := int(grB[o+1]), int(grB[o+2])
+		if fw != w || fh != h || grB[o] != format {
+			continue
+		}
+		fp := grB[o+5:]
+		if len(fp) < w*h {
+			continue
+		}
+		match := true
+		for k := 0; k < w*h; k++ {
+			if fp[k] != want[k] {
+				match = false
+				break
+			}
+		}
+		if match {
+			fmt.Printf("  == TMOBJ.GR frame %d (byte-identical)\n", i)
+		}
+	}
 }

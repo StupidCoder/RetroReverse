@@ -208,7 +208,9 @@ func main() {
 	must(err)
 	doorGR, err := tex.ParseGR(data("DOORS.GR"))
 	must(err)
-	appendObjects(o, grid, block, exeBytes, comObj, tm, doorGR, wallTR, pal)
+	tmobjGR, err := tex.ParseGR(data("TMOBJ.GR"))
+	must(err)
+	appendObjects(o, grid, block, exeBytes, comObj, tm, doorGR, tmobjGR, wallTR, pal)
 
 	// Billboard sprites (class-0/1 objects: items, creatures) from OBJECTS.GR.
 	objGR, err := tex.ParseGR(data("OBJECTS.GR"))

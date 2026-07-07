@@ -63,6 +63,23 @@ func (m *Machine) EmsBacking() []byte {
 	return m.ems.backing
 }
 
+// EmsHandleBase returns the first backing-pool page of EMS handle h (or -1). A
+// handle's logical page N lives at backing[(base+N)*emsPageSize ...]; combined
+// with EmsBacking this lets a caller read a resource straight from expanded
+// memory without going through the frame mapping.
+func (m *Machine) EmsHandleBase(h uint16) int {
+	if m.ems == nil {
+		return -1
+	}
+	if hd, ok := m.ems.handles[h]; ok {
+		return hd.base
+	}
+	return -1
+}
+
+// EmsPageSize is the size of one expanded-memory page (16 KiB).
+const EmsPageSize = emsPageSize
+
 // flush copies a mapped frame slot back to its expanded page.
 func (m *Machine) emsFlush(slot int) {
 	p := m.ems.slot[slot]

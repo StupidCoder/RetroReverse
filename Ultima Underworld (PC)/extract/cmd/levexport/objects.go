@@ -54,6 +54,23 @@ func modelWallTextured(exe []byte, n int) bool {
 	return off < len(exe) && exe[off]&0x20 != 0
 }
 
+// modelTmobj reports the DATA/TMOBJ.GR ("texture-map objects") frame a flag-0x10
+// model textures its faces with — the small decorative panels (wall plaques,
+// switches, grates, the bridge deck, etc.). The object emitter (2DFE:05E0, static
+// branch at 084C) computes the texture as (render-flags byte3 & 0x1F) + a
+// per-level global-id base; the TMOBJ-local frame is exactly that byte3 field.
+// VERIFIED byte-exact by pulling the cached bitmap for the plaque's global id
+// (620) out of the running game's EMS texture cache — it is TMOBJ.GR frame 20,
+// and model 18's byte3 & 0x1F == 20. Wall-flagged models (0x20) take the tile
+// texture instead, so they are excluded here.
+func modelTmobj(exe []byte, n int) (int, bool) {
+	off := modelFlagsFileOff + n*4
+	if off+3 >= len(exe) || exe[off]&0x10 == 0 || exe[off]&0x20 != 0 {
+		return 0, false
+	}
+	return int(exe[off+3] & 0x1F), true
+}
+
 const modelUnitsPerTile = 256.0
 
 // Door-family variants (item id & 0xF): 0-5 are the six leveled door types,
@@ -89,10 +106,25 @@ type objMaterials struct {
 	o       *outMesh
 	matOf   map[string]int // material key -> index in o.Textures
 	doorGR  *tex.GR
+	tmobjGR *tex.GR // DATA/TMOBJ.GR: object/decoration textures (plaques, switches…)
 	pal     tex.Palette
 	wallTR  *tex.TR
 	texMap  *lev.TexMap
 	nextMat int
+}
+
+// tmobjMat is the material for a flag-0x10 model's TMOBJ.GR frame (see modelTmobj).
+func (m *objMaterials) tmobjMat(frame int) int {
+	key := fmt.Sprintf("tmobj:%d", frame)
+	if i, ok := m.matOf[key]; ok {
+		return i
+	}
+	im, err := m.tmobjGR.Image(frame%m.tmobjGR.Count(), m.pal)
+	must(err)
+	i := len(m.o.Textures)
+	m.o.Textures = append(m.o.Textures, outTexture{Num: 5000 + frame, PNG: toDataURI(im)})
+	m.matOf[key] = i
+	return i
 }
 
 func (m *objMaterials) doorMat(img int) int {
@@ -330,9 +362,9 @@ func appendBillboards(o *outMesh, grid *lev.Grid, block []byte, comObj *lev.ComO
 // appendObjects decodes the level's 3D-class objects and bakes their models
 // into the mesh as extra triangle groups.
 func appendObjects(o *outMesh, grid *lev.Grid, block []byte, exeBytes []byte,
-	comObj *lev.ComObj, tm *lev.TexMap, doorGR *tex.GR, wallTR *tex.TR, pal tex.Palette) {
+	comObj *lev.ComObj, tm *lev.TexMap, doorGR, tmobjGR *tex.GR, wallTR *tex.TR, pal tex.Palette) {
 
-	mats := &objMaterials{o: o, matOf: map[string]int{}, doorGR: doorGR, pal: pal, wallTR: wallTR, texMap: tm}
+	mats := &objMaterials{o: o, matOf: map[string]int{}, doorGR: doorGR, tmobjGR: tmobjGR, pal: pal, wallTR: wallTR, texMap: tm}
 
 	// item->model table (DGROUP:056C image).
 	var itemModel [32]int16
@@ -422,8 +454,13 @@ func appendObjects(o *outMesh, grid *lev.Grid, block []byte, exeBytes []byte,
 				return mats.wallMat(wallIdx)
 			case n == portcullisModel:
 				return mats.colorMat(color.RGBA{70, 70, 78, 255}) // iron grate
-			case doorImg >= 0:
+			case doorImg >= 0: // door leaf (also flag-0x10) uses DOORS.GR, checked first
 				return mats.doorMat(doorImg)
+			}
+			// Decorative panels (plaques, switches, grate covers, the bridge deck):
+			// flag-0x10 models take a DATA/TMOBJ.GR frame from their flag byte.
+			if frame, ok := modelTmobj(exeBytes, n); ok {
+				return mats.tmobjMat(frame)
 			}
 			return -1
 		}
