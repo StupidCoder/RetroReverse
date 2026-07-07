@@ -1368,7 +1368,177 @@ time, and dropping below the bottom of the playfield is a death. He starts each 
 on-screen position, which is the point this viewer frames every level on.</p>
 `,
   },
-  stuntcar: {},
+  stuntcar: {
+    loader: `
+<div class="info-eyebrow">Stunt Car Racer · Image &amp; Loader</div>
+<p>Stunt Car Racer ships on a single double-density Amiga floppy that carries <strong>no filesystem</strong> —
+a boot block just conformant enough for the Kickstart ROM to run it, and behind it the whole game laid out
+in a private, sector-addressed format the loader pulls off by hand. There is no directory and there are no
+files: the program, the tracks and the physics tables are all located by following the loader.</p>
+
+<h2>The disk image</h2>
+<p>An ADF is a flat dump of the floppy's 1760 blocks of 512 bytes — block <em>N</em> is simply the bytes at
+offset <em>N</em>&times;512, in the usual <strong>80 cylinders &times; 2 heads &times; 11 sectors</strong>
+layout. The first four bytes are the <code>"DOS\\0"</code> boot signature, enough for the ROM to accept the
+disk and run its boot code, and that is the only AmigaDOS-conformant thing on it. The boot block names a root
+block, but there is no valid root header there and no directory — the disk is <strong>custom-formatted</strong>,
+a flat region of code and data only the game's own loader understands. It falls into three raw regions: the
+boot block (sector 0), a self-contained loader (sectors 22&ndash;97), and from sector 110 to the end the whole
+game — engine, tracks and physics — read verbatim into <code>$E700</code>.</p>
+
+<h2>The boot block</h2>
+<p>The boot code is a compact track loader. The ROM enters it with the boot device's I/O request ready; it
+stops multitasking (<code>Forbid</code>), allocates 38&nbsp;KB of cleared chip RAM, and issues one read —
+the 38&nbsp;KB blob at disk offset <code>$2C00</code> (sector 22) into that buffer — retrying on error, then
+stops the drive, resumes (<code>Permit</code>) and jumps into the blob. The boot block does nothing
+game-specific beyond fetching that blob; the loaded code is the real bootstrap.</p>
+
+<h2>The custom loader</h2>
+<p>The 38&nbsp;KB blob is position-independent 68000 code — every reference is PC-relative, so it runs wherever
+it is placed. It does four things. It <strong>seizes the machine</strong>: a <code>TRAP&nbsp;#0</code> drops into
+supervisor mode, then it clears interrupts and DMA, installs its own vertical-blank autovector and re-enables the
+master and VERTB interrupts. It loads an initial stage to <code>$4000</code>. It <strong>shows the title screen</strong>,
+unpacking a four-bitplane image into chip RAM at <code>$78000</code> with its palette and a Copper list. Finally it
+<strong>streams the game in</strong>: 805 sectors starting at sector 110 into <code>$E700</code>, sets the user and
+supervisor stacks, and jumps to <code>$E700</code>.</p>
+
+<h2>The disk reader</h2>
+<p>Behind the loader is a logical-sector reader, not a filesystem: given a start sector, a count and a destination,
+it validates the range against the 1760-block disk, converts a logical sector to a physical track (11 sectors per
+track-side) and MFM-reads whole tracks. Crucially it <strong>only reads</strong> — there is no decompression — so
+on disk everything is stored raw and sector-aligned. That is why the game code at <code>$E700</code> is directly
+executable the moment it lands, with no unpacking step.</p>
+`,
+    engine: `
+<div class="info-eyebrow">Stunt Car Racer · Game Engine</div>
+<p>The loader streams a 412&nbsp;KB engine to <code>$E700</code> and jumps in. The first bytes are not code
+reached by falling through — they are the entry, a small supervisor trampoline, and an embedded Copper list —
+so the engine is best read by following the transfers out of the entry. From there it is a
+<strong>vertical-blank-paced loop</strong> that never touches the operating system.</p>
+
+<h2>Self-check and supervisor</h2>
+<p>The very first thing the engine does is <strong>checksum itself</strong>: it sums roughly 408&nbsp;KB of the
+image as 16-bit words and compares the result against a stored value — a tamper and load-integrity guard. It then
+installs its own <code>TRAP&nbsp;#0</code> handler to drop into supervisor mode, sets the supervisor stack, and
+branches to two routines in turn: the hardware bring-up and the game bootstrap.</p>
+
+<h2>Hardware bring-up</h2>
+<p>Bring-up (<code>$ED56</code>) is a textbook bare-metal Amiga take-over. It masks interrupts, clears and then
+re-enables <code>INTENA</code> (master, vertical-blank and the audio levels), turns on <code>DMACON</code> for the
+bitplanes, Copper, blitter, sprites, disk and audio, and wires the seven 68000 interrupt levels to the engine's own
+handlers — the level-3 vertical-blank handler drives the frame timing. It sets up the CIA timers, points the Copper
+at the embedded display list, and primes the audio buffers. From here on the engine owns the machine and drives the
+hardware registers directly; it never calls <code>graphics.library</code> or <code>dos.library</code>.</p>
+
+<h2>The in-place decryptor</h2>
+<p>Before the game runs, bring-up walks a <strong>~46&nbsp;KB region</strong> (<code>$F4B8</code>&ndash;<code>$1AA4A</code>)
+and <code>EOR</code>s every byte with <code>$80</code> in place. That block is stored <strong>obfuscated</strong> on the
+disk and only becomes real 68000 code once this pass rewrites it — a second layer of protection on top of the
+self-checksum, and the reason a static read of that range is meaningless until it is unscrambled. Everything outside
+it, including the bootstrap and the main loop, is plain on disk.</p>
+
+<h2>The main loop</h2>
+<p>The bootstrap clears its state tables and working screen, initialises the lookup tables, and enters the top level.
+From there the engine is a conventional loop locked to the vertical blank: a <strong>state word</strong> selects the
+current screen — title, menu, track-select or race — and swapping it switches mode without disturbing the surrounding
+pipeline. Two double-buffered colour/Copper tables are exchanged each frame, and the level-3 handler paces everything.
+The filled-vector race renderer, the track interpreter (see Graphics) and the car simulation (see Gameplay) all hang
+off the race state of this loop.</p>
+`,
+    graphics: `
+<div class="info-eyebrow">Stunt Car Racer · Graphics</div>
+<p>The tracks are the game's centrepiece and they are <strong>3-D vector geometry, not bitmaps</strong>: each of the
+eight circuits is a short byte stream — a few hundred bytes — that expands into a complete elevated ribbon of road,
+which the engine draws as filled polygons every frame. The compactness is the whole trick: an entire rollercoaster
+of a track is well under a kilobyte.</p>
+
+<h2>Eight circuits from a byte stream</h2>
+<p>The eight tracks — Little Ramp, Stepping Stones, Hump Back, Big Ramp, Ski Jump, Draw Bridge, High Jump and Roller
+Coaster — are reached through a pointer table, each 124&ndash;213 bytes long. A short header gives the
+<strong>section count</strong> and the start/finish section; then comes a run of per-section records. The stream is
+<strong>run-length-encoded</strong>: a marker nibble repeats the previous section with one parameter stepped by a
+fixed amount, which is how a long constant curve or a steady gradient is stored in a couple of bytes.</p>
+
+<h2>The 16&times;16 grid footprint</h2>
+<p>Each section carries its cell on a <strong>16&times;16 track grid</strong>, packed into one byte (low nibble the
+grid X, high nibble the grid Y). Consecutive sections are always <em>adjacent</em> cells, so the plan view is a
+closed loop built with no accumulation and no drift — the true footprint of the circuit seen from above, whether a
+diamond, a rectangle, or a lap doubling back along an inner peninsula.</p>
+
+<h2>Reusable piece shapes</h2>
+<p>A section's <strong>type</strong> indexes a shared table of <strong>piece shapes</strong> — straights, mirror-image
+arcs, ramps — so a handful of shapes describe every track. Each piece shape holds two things: the local
+<code>(x,z)</code> outline of the rung strip (a straight marches its rails forward; a curve carries its real arc), and
+a per-rung <strong>height profile</strong> for the left and right rails. The section's grid cell places the piece in
+the world; the shape supplies its geometry.</p>
+
+<h2>Surface, ramps and camber</h2>
+<p>Along a section the road is a strip of <strong>rungs</strong>, and each rung has an <em>independent</em> left and
+right rail height. That single fact carries the whole surface: a smooth run of heights is a drivable slope or a hill,
+while a sudden jump between rungs is a <strong>hard edge</strong> — a ramp lip, a stepping-stone gap, a ski-jump
+launch. The mean of the two rails is the road's elevation and their difference is its <strong>banking</strong>
+(camber), so a bend can lean while it climbs. Nothing decides "step versus slope" separately; it is entirely in what
+the profile values do.</p>
+
+<h2>The baked model and the render</h2>
+<p>At race start the engine <strong>bakes</strong> the section stream into the polygon model it will draw: per-rung
+records of the left and right rail positions and heights, placed at absolute coordinates from each section's grid
+cell. The bake <strong>decimates</strong> — it keeps a cross-road polygon edge only where the shape marks one or the
+height changes sharply — reverses the pieces that run backwards, hides the open ends of gap pieces, and tags the
+start/finish. Each frame the renderer re-places these baked records for the current camera and fills them as
+flat-shaded polygons through the blitter: the elevated ribbon on its support walls, drawn as solid vectors rather
+than sprites.</p>
+`,
+    gameplay: `
+<div class="info-eyebrow">Stunt Car Racer · Gameplay</div>
+<p>What gave Stunt Car Racer its reputation is that the car is a <strong>sprung rigid body, not a point</strong>: the
+chassis pitches and rolls on its suspension, the wheels gain and lose contact over crests and on landings, a landing
+that is too hard damages the car, and how it handles depends on speed and the road's gradient. All of that is one
+per-frame simulation.</p>
+
+<h2>The simulation frame</h2>
+<p>A physics tick is a <strong>semi-implicit Euler rigid-body step in fixed point</strong>, run <em>twice</em> per
+displayed frame — once for the player's car and once for the opponent — at a fixed 50&nbsp;Hz. A <code>0.93</code>
+damping factor applied at both integration stages is the drag that keeps the sim stable. Forces are summed in the
+car's <strong>body frame</strong>, rotated into the world through a 3&times;3 orientation matrix rebuilt each tick
+from the roll, yaw and pitch, and integrated to velocity and then position. <strong>Gravity</strong> is a fixed
+world-down vector re-expressed in the tilted body frame every tick, so it always pulls straight down whatever the
+car's attitude.</p>
+
+<h2>Suspension on the real surface</h2>
+<p>The car sits on a <strong>three-point suspension</strong>. Each point's spring compression is the track surface
+height under it minus the chassis contact height minus a rest length; the force is a spring-plus-damper of that
+compression. The chassis contact heights follow the car's height tilted by its roll and pitch — and the
+<strong>track surface heights come straight from the track geometry</strong>: the simulation locates the section the
+car is over, finds where each wheel sits across the rung strip, and interpolates the same per-rung rail heights the
+renderer draws. So the springs literally ride the decoded ramps and bumps, and a wheel running off the lateral edge
+is detected. The three springs combine into a net lift, a roll torque and a pitch torque, and set the on-ground
+flag that the rest of the model keys off.</p>
+
+<h2>Drive, grip and steering</h2>
+<p>Drive force comes from the throttle and gear, decays under wheelspin, and is clamped to the available
+<strong>grip</strong> — tyre load times two, and only when grounded, so there is <em>no</em> grip in the air. The
+lateral tyre force is grip-limited the same way, flagging a <strong>slide</strong> when the demand exceeds grip: a
+friction-circle model. A drag opposes motion, stiff when grounded and speed-proportional when rolling free. An
+<strong>auto-steer</strong> measures the car's heading against the section's centreline and nudges it to follow the
+track.</p>
+
+<h2>Damage</h2>
+<p>When a spring force exceeds its tolerance and stays there for a run of frames, <strong>damage</strong> accumulates
+on a 0&ndash;255 scale, with a separate counter for hard bottoming slams — the "land too hard and you wreck the car"
+mechanic that the whole track design plays against.</p>
+
+<h2>A copy-protection trap in the physics</h2>
+<p>Buried in the steering code is a piece of the disk <strong>copy protection</strong>. It compares a value against a
+constant and, on mismatch, <strong>zeroes the pitch-stabilisation torque</strong> — quietly degrading the handling
+rather than refusing to run. Both operands are obfuscated so they cannot be searched for: the address is built from a
+subtraction, the magic value from a sum. The compared value is not a setting — it is written by a routine that reads
+the <strong>physical disk hardware</strong> (the CIA drive-control and disk-DMA registers), so it is derived from the
+disk's protection tracks. On a genuine disk the check passes; on a plain copy it fails and the car handles a little
+worse — an anti-piracy nudge, not a lock. The controls that feed all of this are a single decoded joystick byte:
+throttle and brake, steer left and right, and fire.</p>
+`,
+  },
   mariokart: {
     loader: `
 <div class="info-eyebrow">Mario Kart DS &middot; Image &amp; Loader</div>
