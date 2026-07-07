@@ -56,6 +56,7 @@ all done; combined, a car can be driven over the decoded tracks.**
   - [5. The spine geometry and re-drawing the circuits](#5-the-spine-geometry-and-re-drawing-the-circuits)
   - [6. The plan footprint (the 16×16 track grid)](#6-the-plan-footprint-the-1616-track-grid)
   - [7. Banking and elevation](#7-banking-and-elevation)
+  - [8. The baked track model — the definitive absolute geometry](#8-the-baked-track-model-65bec--the-definitive-absolute-geometry)
 - [Part V — The physics simulation](#part-v--the-physics-simulation)
 - [Appendix A — Toolchain and reproduction](#appendix-a--toolchain-and-reproduction)
 
@@ -640,19 +641,85 @@ is exact, not a nominal constant. `cmd/planoracle` drives `$5C6C4` in the canoni
 (zero base, zero quadrant) and confirms `package track`'s `planProfile` matches it
 **exactly** on every vertex of all eight tracks.
 
-The renderer itself only ever builds *view-space* points (it walks outward from the car,
-`$1BB22 = dir*8 + cameraPos`), so there is no clean absolute top-down accumulator to lift.
-But there doesn't need to be: the section's **absolute** placement is the verified 16×16
-grid (`p1`), exactly as the engine uses it (`$5FE04`), and that closes every circuit. So
-the viewer similarity-fits each section's exact local outline onto its grid-anchor segment
-— mapping the outline's local centreline start→`A[i]` and end→`A[i+1]` with a rotation and
-uniform scale (one complex multiply). Straights stay straight, curve pieces carry their
-real arc, consecutive sections share the anchor (the ribbon is continuous), and every rung
-is lifted by its exact left/right rail heights. `cmd/trackjson` exports both the height
-profiles and the plan outlines; the viewer needs **no spline and no nominal width** — the
-geometry is entirely the engine's own. **Part IV is complete: the track geometry —
-footprint, surface and camber — is decoded purely from the disk in Go and verified
-coordinate-exact against the original.**
+An earlier revision of this write-up claimed the renderer "only ever builds view-space
+points, so there is no clean absolute top-down accumulator", and the viewer bridged the
+gap by *similarity-fitting* each section's outline onto its grid-anchor chord. That fit
+was a heuristic, and it showed: curves came out lumpy, some arcs bent the wrong way and
+joints kinked. The claim was wrong — the accumulator exists, and §8 traces it.
+
+## 8. The baked track model (`$65BEC`) — the definitive absolute geometry
+
+The race-setup chain (`$5D2CA`: `$5AE46` load → `$64304` grid → `$5A794` → `$696FC` →
+**`$65BEC`**) runs a **bake** that turns the loaded section arrays into the polygon model
+everything else draws: per-rung records `{word0, Lx, Lz, Lh, Rx, Rz, Rh}` written to the
+buffer at `$7ABDA`, with a per-section index at `$7AA1A`. The per-frame renderer never
+recomputes geometry; it re-places these baked records each frame. Annotated flow:
+
+```
+$65BEC  bake entry: $65DEA (per-section LOD bytes -> $65E70), record ptr $66102=$7ABDA
+$65C0E  per section: $7AA1A[sec] = record ptr; $66100 = 0
+$65C2E  $5C51A advance + $5FE56 = peek the NEXT section: if its piece header flags
+        ($1BB4D = a0[1]) bit7: $66100 = $4000; and if ($1BC44^$1BC32) bit7: = $8000
+$65C66  $5C538 retreat + $5FE56 = set up the CURRENT section; $1BC26 = 0
+$65C7A  $1BBF2 = -$1BC4A (NEG.b)      ; section quadrant in a FIXED world frame
+$65C8A  $65756: fill the height strip $1BE70 (left/right full-precision rail heights,
+        profile entry + $1C650/$1C718 base — no >>5) and the vertex-flag strip $1BDD0:
+        a bit-7 marker on a profile byte CLEARS the flag = "this rung is a polygon
+        edge"; unmarked rungs keep the $80 the previous emit left = skipped; the last
+        rung is preset (1 = finish line when sec == $1CA1C); |dh| >= $280 vs the
+        previous rung sets the $20 crease bit; a bit-7 marker after the LAST entry
+        hides the last rung entirely (gap pieces — the Stepping Stones edges)
+$65CBC  $1BB91 = a0[0]+7 (vertex 0's byte offset), + (cnt-1)*4 when the piece is
+        REVERSED (type&$10, $1BC32): reversed pieces run their shape backwards, which
+        also swaps the left/right rails
+$65CDC  emit loop over d1 = 0,4,..,2*cnt: skip flagged ($80) rungs and d1 < 4 (rung 0
+        is the previous section's last rung); emit when d1 >= $1BB5A (the last rung, or
+        last-1 when the last is gap-hidden), the piece is a type-2 ramp ($1BB4D bit7),
+        p2 == $25 && d1 == $18 (one piece's quirk), or the height second-difference
+        |h[d1]/2 - (h[d1-4]+h[d1+4])/4| >= $50 (this is what keeps a rung on a lip);
+        record word0 = (flag&$3F)<<8 | $66100 | sec, then for L (d1) and R (d1+2):
+        d2 = $1BB91 +- 2*d1, JSR $5C6C4, write $1BBF6, $1BBF8, height $1BE70[d1]
+```
+
+`$5C6C4` itself (traced in full) reads one vertex per call — an LE16 `(u,v)` pair at
+offset `d2` in the piece-shape — and writes the **absolute plan point** `$1BBF6/$1BBF8 =
+base($1BB22/$1BB26) + rot(u,v)`, where the rotation by the quadrant byte `$1BBF2` is one
+of exactly four cases (`$800` = one grid cell):
+
+```
+q0 (00): X = bx + u          Z = by + v
+q1 (01): X = bx + $800 - v   Z = by + u
+q2 (10): X = bx + $800 - u   Z = by + $800 - v
+q3 (11): X = bx + v          Z = by + $800 - u
+```
+
+In the bake the base is **zero** (the init chain leaves `$1BB22/$1BB26 = 0`, checked in
+the oracle), so the records are **cell-local** coordinates in `[0,$800]`. The per-frame
+draw (`$65EC4`) proves the placement convention: per visible section it calls `$5FF94`
+(section cell − camera cell, rotated by the *camera* quadrant), scales the delta by one
+cell (`<<10` at half resolution), applies the same four reflections (`$800 − stored`) to
+the stored local values, and adds. So the absolute plan position of every vertex is
+
+```
+world = gridCell(p1) * $800  +  baked local vertex
+```
+
+— no accumulation, no fitting, no spline. The curves join the straights exactly because
+each piece's arc *ends where the data says the next cell begins*.
+
+**Reimplementation and proof.** `track.Bake` (`extract/track/model.go`) reproduces the
+whole bake in pure Go from the disk image — flag strip, height strip, decimation,
+reversed pieces, gap hiding, record words. `cmd/modeloracle` runs the engine's real
+init chain + `$65BEC` on the m68k core and compares **every record of every section of
+all eight tracks byte-exact** (51/69/54/51/44/82/59/78 records) — OK on all eight.
+`track.Geometry` then emits every rung (the decimated ones flagged as the game's drawn
+edges) in absolute coordinates; section joints are continuous to within 4 units out of
+2048 per cell (the residue is in the game's own shape tables, not the decode), and every
+circuit closes. `cmd/modelsvg` renders the top-down plans; `cmd/trackjson` exports
+`rungs[i][k] = [Lx,Lz,Rx,Rz,Lh,Rh,flags]` and the viewer now draws the baked model
+directly — the similarity fit is gone. **Part IV is complete: footprint, surface, camber
+and now the absolute plan are all decoded purely from the disk in Go and verified
+byte-exact against the original renderer's own build.**
 
 *Part V — the physics.*
 
@@ -845,6 +912,14 @@ go run ./cmd/spineoracle ../extracted/game.dec.bin [trackid]   # -> extracted/sp
 
 # Verify the pure-Go spine (package track) against the oracle, coordinate-exact
 go run ./cmd/spineverify ../extracted/game.dec.bin
+
+# Verify the Go reimplementation of the track-model bake (track.Bake) against the
+# engine's real $65BEC on the m68k core — every baked record, all 8 tracks, byte-exact
+go run ./cmd/modeloracle ../extracted/game.dec.bin [trackid]
+
+# Render the absolute top-down plans (the baked model placed at its grid cells) as SVG
+# and report section-joint continuity
+go run ./cmd/modelsvg -out <dir> ../extracted/game.dec.bin
 
 # Export the eight decoded circuits to JSON for the web track viewer
 go run ./cmd/trackjson ../extracted/game.dec.bin   # -> site/public/stuntcar/tracks.json

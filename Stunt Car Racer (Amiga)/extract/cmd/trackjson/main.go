@@ -27,15 +27,16 @@ type outTrack struct {
 	// [planX, planY, height, bank, type, p1, p2, attr] per section. planX/planY = the
 	// 16x16 grid footprint; height = surface elevation; bank = camber.
 	Nodes [][]int `json:"nodes"`
-	// Per-section exact rung surface profile: profiles[i] = [HeightL[], HeightR[]], the
-	// left/right rail heights along the section (the in-game surface — flat, slope, or
-	// hard jump edge), verified coordinate-exact vs the engine (cmd/geomoracle).
-	Profiles [][][]int `json:"profiles"`
-	// Per-section exact local plan outline: outlines[i] = [ [[Lx,Lz]..], [[Rx,Rz]..] ],
-	// the left/right rail (x,z) vertex pairs in the section's local frame (+z forward),
-	// the piece's real shape (straight or arc) the engine's $5C6C4 reads. Verified exact
-	// (cmd/planoracle). The viewer similarity-fits these onto the grid anchors.
-	Outlines [][][][]int `json:"outlines"`
+	// Per-section ABSOLUTE per-rung geometry: rungs[i][k] = [Lx,Lz,Rx,Rz,Lh,Rh,flags].
+	// Plan coordinates are the engine's own baked model ($65BEC): the piece-shape
+	// vertex pairs read by $5C6C4, rotated by the section quadrant ($1BBF2 = -$1BC4A,
+	// engine order — reversed pieces run backwards and swap rails), placed at the
+	// section's 16x16 grid cell exactly as the per-frame draw does (one cell = $800):
+	// world = cell*$800 + local. Heights are the full-precision rail heights (profile
+	// entry + $1C650/$1C718 base). Verified byte-exact against the engine running the
+	// real $65BEC (cmd/modeloracle). flags: 1 = edge (a rung the game's decimated
+	// model draws), 2 = hidden (gap-piece end rung, not drawn), 4 = crease, 8 = finish.
+	Rungs [][][]int `json:"rungs"`
 }
 
 func main() {
@@ -54,21 +55,31 @@ func main() {
 	var tracks []outTrack
 	for id, name := range names {
 		t := im.Spine(id)
+		geom := im.Geometry(&t)
 		ns := make([][]int, len(t.Nodes))
-		profs := make([][][]int, len(t.Nodes))
-		outs := make([][][][]int, len(t.Nodes))
+		rungs := make([][][]int, len(t.Nodes))
 		for i, n := range t.Nodes {
 			ns[i] = []int{n.PlanX, n.PlanY, n.Height, n.Bank, n.Type, n.P1, n.P2, n.Attr}
-			profs[i] = [][]int{n.HeightL, n.HeightR}
-			l := make([][]int, len(n.PlanLX))
-			r := make([][]int, len(n.PlanRX))
-			for j := range n.PlanLX {
-				l[j] = []int{n.PlanLX[j], n.PlanLZ[j]}
-				r[j] = []int{n.PlanRX[j], n.PlanRZ[j]}
+			rs := make([][]int, len(geom[i]))
+			for k, r := range geom[i] {
+				fl := 0
+				if r.Edge {
+					fl |= 1
+				}
+				if r.Hidden {
+					fl |= 2
+				}
+				if r.Crease {
+					fl |= 4
+				}
+				if r.Finish {
+					fl |= 8
+				}
+				rs[k] = []int{r.LX, r.LZ, r.RX, r.RZ, r.HL, r.HR, fl}
 			}
-			outs[i] = [][][]int{l, r}
+			rungs[i] = rs
 		}
-		tracks = append(tracks, outTrack{name, t.Sections, t.FinishIdx, ns, profs, outs})
+		tracks = append(tracks, outTrack{name, t.Sections, t.FinishIdx, ns, rungs})
 	}
 	b, _ := json.Marshal(tracks)
 	if err := os.WriteFile(*out, b, 0o644); err != nil {
