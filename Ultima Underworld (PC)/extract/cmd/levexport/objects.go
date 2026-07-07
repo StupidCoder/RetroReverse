@@ -27,6 +27,7 @@ import (
 	"math"
 	"os"
 	"path/filepath"
+	"sort"
 
 	"ultimaunderworld/extract/crit"
 	"ultimaunderworld/extract/lev"
@@ -207,6 +208,7 @@ func appendBillboards(o *outMesh, grid *lev.Grid, block []byte, comObj *lev.ComO
 	}
 
 	texOf := map[string]int{} // sprite key -> SpriteTex index
+	addSet := map[int]bool{}  // SpriteTex indices that are additive (index-252 glow)
 	spriteTex := func(img *image.RGBA, key string) int {
 		if ti, ok := texOf[key]; ok {
 			return ti
@@ -250,20 +252,41 @@ func appendBillboards(o *outMesh, grid *lev.Grid, block []byte, comObj *lev.ComO
 			if pg == nil || pg.NumFrames() == 0 {
 				continue
 			}
+			// Ethereal creatures (ghost/wisp/fire/shadow) use the reserved additive
+			// index 252: split each frame into a normal layer (eyes/flames/body) and
+			// an additive layer (the 252 glow) so the viewer can brighten only the
+			// glow. Ordinary creatures decode as one opaque sprite.
+			translucent := pg.Translucent()
 			views := make([][]outDir, 8)
 			okAll := true
 			for v := 0; v < 8 && okAll; v++ {
 				for _, frame := range pg.ViewCycle(v) {
-					im, err := pg.Frame(frame, pal)
-					if err != nil {
-						okAll = false
-						break
+					d := outDir{Add: -1}
+					var normal *image.RGBA
+					if translucent {
+						add, ad, err := pg.FrameLayers(frame, pal)
+						if err != nil {
+							okAll = false
+							break
+						}
+						normal = add
+						if ad != nil {
+							ai := spriteTex(ad, fmt.Sprintf("crit:%d:%d:a", obj.ItemID, frame))
+							d.Add = ai
+							addSet[ai] = true
+						}
+					} else {
+						im, err := pg.Frame(frame, pal)
+						if err != nil {
+							okAll = false
+							break
+						}
+						normal = im
 					}
-					views[v] = append(views[v], outDir{
-						Tex: spriteTex(im, fmt.Sprintf("crit:%d:%d", obj.ItemID, frame)),
-						W:   float32(im.Bounds().Dx()) * spriteWorldPerTexel,
-						H:   float32(im.Bounds().Dy()) * spriteWorldPerTexel,
-					})
+					d.Tex = spriteTex(normal, fmt.Sprintf("crit:%d:%d", obj.ItemID, frame))
+					d.W = float32(normal.Bounds().Dx()) * spriteWorldPerTexel
+					d.H = float32(normal.Bounds().Dy()) * spriteWorldPerTexel
+					views[v] = append(views[v], d)
 				}
 			}
 			if !okAll {
@@ -271,7 +294,7 @@ func appendBillboards(o *outMesh, grid *lev.Grid, block []byte, comObj *lev.ComO
 			}
 			o.Creatures = append(o.Creatures, outCreature{
 				Pos: [3]float32{tx, base, -ty}, Heading: int(obj.Heading),
-				Views: views, Fps: creatureIdleFps,
+				Views: views, Fps: creatureIdleFps, Translucent: translucent,
 			})
 			hb := views[0][0]
 			o.Picks = append(o.Picks, spritePick(int(obj.ItemID), tx, base, ty, hb.W, hb.H))
@@ -295,6 +318,13 @@ func appendBillboards(o *outMesh, grid *lev.Grid, block []byte, comObj *lev.ComO
 		})
 		o.Picks = append(o.Picks, spritePick(int(obj.ItemID), tx, base, ty, w, h))
 	}
+
+	// Publish which SpriteTex entries the viewer must draw with additive blending
+	// (the index-252 glow layers), sorted for deterministic output.
+	for ai := range addSet {
+		o.AddTex = append(o.AddTex, ai)
+	}
+	sort.Ints(o.AddTex)
 }
 
 // appendObjects decodes the level's 3D-class objects and bakes their models

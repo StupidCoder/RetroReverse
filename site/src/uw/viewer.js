@@ -140,10 +140,22 @@ export class LevelViewer {
     // each by half its height; they share the level's centring.
     const spriteGroup = new THREE.Group();
     spriteGroup.position.set(-c.x, -c.y, -c.z);
-    const spriteMats = (data.spriteTex || []).map((png) => {
+    // Textures listed in data.addTex are the ethereal creatures' index-252 "glow"
+    // layers: UW brightens the framebuffer there, so draw them with additive
+    // blending (and no depth write, so the glow never occludes). Every other
+    // sprite — including those creatures' opaque parts (the ghost's black eyes,
+    // the shadow's body) — draws normally with alpha-tested cut-outs.
+    const addSet = new Set(data.addTex || []);
+    const spriteMats = (data.spriteTex || []).map((png, i) => {
       const t = this._texLoader.load(png);
       t.magFilter = THREE.NearestFilter;
       t.colorSpace = THREE.SRGBColorSpace;
+      if (addSet.has(i)) {
+        return new THREE.MeshBasicMaterial({
+          map: t, transparent: true, alphaTest: 0.05, side: THREE.DoubleSide,
+          depthWrite: false, blending: THREE.AdditiveBlending,
+        });
+      }
       return new THREE.MeshBasicMaterial({
         map: t, transparent: true, alphaTest: 0.5, side: THREE.DoubleSide, depthWrite: true,
       });
@@ -163,12 +175,24 @@ export class LevelViewer {
     // face as you circle it) and advances the cycle by time so it moves in place.
     const creatures = [];
     for (const c of data.creatures || []) {
-      const views = c.views.map((cyc) => cyc.map((d) => ({ mat: spriteMats[d.tex], w: d.w, h: d.h })));
+      const views = c.views.map((cyc) => cyc.map((d) => ({
+        mat: spriteMats[d.tex], w: d.w, h: d.h,
+        addMat: d.add >= 0 ? spriteMats[d.add] : null, // index-252 glow, additive
+      })));
       const spr = new THREE.Mesh(this._plane, views[0][0].mat);
       spriteGroup.add(spr);
       billboards.push(spr);
+      // Ethereal creatures get a second coincident quad for the additive glow; it
+      // tracks the same view/frame/transform as the body (see _setCreatureFrame).
+      let add = null;
+      if (c.translucent) {
+        add = new THREE.Mesh(this._plane, views[0][0].addMat || views[0][0].mat);
+        add.visible = false;
+        spriteGroup.add(add);
+        billboards.push(add);
+      }
       const rec = {
-        spr, views, heading: c.heading, base: c.pos, fps: c.fps || 1,
+        spr, add, views, heading: c.heading, base: c.pos, fps: c.fps || 1,
         phase: (creatures.length * 0.37) % 2, // desync creatures' cycles
         view: -1, frame: -1,
       };
@@ -237,6 +261,18 @@ export class LevelViewer {
     rec.spr.material = f.mat;
     rec.spr.scale.set(f.w, f.h, 1);
     rec.spr.position.set(rec.base[0], rec.base[1] + f.h / 2, rec.base[2]);
+    // Keep the additive glow quad in lockstep with the body (same frame size and
+    // floor-seated position); hide it on frames that carry no index-252 pixels.
+    if (rec.add) {
+      if (f.addMat) {
+        rec.add.material = f.addMat;
+        rec.add.scale.set(f.w, f.h, 1);
+        rec.add.position.set(rec.base[0], rec.base[1] + f.h / 2, rec.base[2]);
+        rec.add.visible = true;
+      } else {
+        rec.add.visible = false;
+      }
+    }
   }
 
   // _updateCreatures picks each creature's view from the horizontal bearing

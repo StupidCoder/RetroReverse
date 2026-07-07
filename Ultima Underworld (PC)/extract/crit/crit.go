@@ -202,6 +202,101 @@ func (p *Page) ViewCycle(view int) []int {
 // NumFrames is the number of sprite frames in the page.
 func (p *Page) NumFrames() int { return len(p.offsets) }
 
+// Aux0 returns the page's aux palette (code -> main-palette index), or nil.
+func (p *Page) Aux0() []byte {
+	if len(p.aux) == 0 {
+		return nil
+	}
+	return p.aux[0]
+}
+
+// TranslucentIndex is the reserved main-palette index UW treats as an ADDITIVE
+// "brighten the background" marker rather than a literal colour. The ethereal
+// creatures (ghost/wisp/fire/shadow) draw their glow with it; the game shifts
+// the framebuffer pixels there into a brighter range. Frames that use it are
+// split (see FrameLayers) so the viewer renders this layer additively and every
+// other index — the ghost's black eyes, fire's flames, the shadow's body —
+// normally.
+const TranslucentIndex = 252
+
+// Translucent reports whether this page's sprites use TranslucentIndex.
+func (p *Page) Translucent() bool {
+	for _, m := range p.Aux0() {
+		if m == TranslucentIndex {
+			return true
+		}
+	}
+	return false
+}
+
+// FrameLayers decodes frame i into two layers split by palette index: normal
+// holds every opaque pixel whose index is NOT TranslucentIndex (drawn normally),
+// additive holds the TranslucentIndex pixels in their palette colour (drawn
+// additively). additive is nil when the frame has none. Index 0 is transparent
+// in both. This matches the game's rule "the berry index is additive, the others
+// are not" without any per-pixel heuristics.
+func (p *Page) FrameLayers(i int, pal tex.Palette) (normal, additive *image.RGBA, err error) {
+	w, h, codes, err := p.FrameCodes(i)
+	if err != nil {
+		return nil, nil, err
+	}
+	ap := p.Aux0()
+	if len(ap) == 0 {
+		return nil, nil, fmt.Errorf("crit: page has no aux palette")
+	}
+	normal = image.NewRGBA(image.Rect(0, 0, w, h))
+	set := func(img *image.RGBA, k int, idx byte) {
+		c := pal[idx]
+		img.Pix[k*4+0], img.Pix[k*4+1], img.Pix[k*4+2], img.Pix[k*4+3] = c.R, c.G, c.B, 255
+	}
+	for k := 0; k < w*h; k++ {
+		var idx byte
+		if c := codes[k]; int(c) < len(ap) {
+			idx = ap[c]
+		}
+		switch {
+		case idx == TranslucentIndex:
+			if additive == nil {
+				additive = image.NewRGBA(image.Rect(0, 0, w, h))
+			}
+			set(additive, k, idx)
+		case idx != 0:
+			set(normal, k, idx)
+		}
+	}
+	return normal, additive, nil
+}
+
+// FrameCodes returns frame i's raw per-pixel codes (before the aux/main palette
+// lookup) and its dimensions. Code 0 is the sprite's transparent background.
+func (p *Page) FrameCodes(i int) (w, h int, codes []byte, err error) {
+	if i < 0 || i >= len(p.offsets) {
+		return 0, 0, nil, fmt.Errorf("crit: frame %d out of range (%d)", i, len(p.offsets))
+	}
+	o := p.offsets[i]
+	if o+frameHeaderLen > len(p.data) {
+		return 0, 0, nil, fmt.Errorf("crit: frame %d header outside page", i)
+	}
+	w, h = int(p.data[o]), int(p.data[o+1])
+	format := p.data[o+4]
+	count := int(binary.LittleEndian.Uint16(p.data[o+5:]))
+	data := p.data[o+frameHeaderLen:]
+	var cs []byte
+	switch format {
+	case 8:
+		cs = make([]byte, 0, count)
+		for bi := 0; bi < len(data) && len(cs) < count; bi++ {
+			cs = append(cs, data[bi]>>4, data[bi]&0xF)
+		}
+		if len(cs) > count {
+			cs = cs[:count]
+		}
+	default:
+		cs = unpack5(data, count)
+	}
+	return w, h, tex.RLEExpand(cs, w*h), nil
+}
+
 // Frame decodes frame i to an RGBA image (transparent where the code is 0),
 // using the page's aux palette (index 0 — the frames all share one page palette)
 // mapped through the given main palette.

@@ -20,3 +20,20 @@ func TestCodeBits(t *testing.T) {
 		}
 	}
 }
+
+func TestTranslucentDetect(t *testing.T) {
+	if TranslucentIndex != 252 {
+		t.Fatalf("TranslucentIndex = %d, want 252", TranslucentIndex)
+	}
+	// A page whose aux palette maps some code to the reserved additive index 252
+	// (ghost/wisp/fire/shadow) is translucent; one that never uses it is not.
+	if !(&Page{aux: [][]byte{{1, 0, 252, 160}}}).Translucent() {
+		t.Error("page using index 252 should be translucent")
+	}
+	if (&Page{aux: [][]byte{{1, 0, 100, 160}}}).Translucent() {
+		t.Error("page not using index 252 should not be translucent")
+	}
+	if (&Page{}).Translucent() {
+		t.Error("empty page should not be translucent")
+	}
+}

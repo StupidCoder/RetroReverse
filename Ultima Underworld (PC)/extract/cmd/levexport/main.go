@@ -47,6 +47,7 @@ type outMesh struct {
 	Sprites   []outSprite   `json:"sprites"`   // billboard objects (camera-facing)
 	Creatures []outCreature `json:"creatures"` // view-dependent 8-direction sprites
 	SpriteTex []string      `json:"spriteTex"` // PNG data URIs, indexed by outSprite.Tex / outDir.Tex
+	AddTex    []int         `json:"addTex"`    // spriteTex indices to draw ADDITIVELY (translucent bodies)
 	Picks     []outPick     `json:"picks"`     // click targets (item id + world AABB)
 }
 
@@ -79,14 +80,25 @@ type outCreature struct {
 	Heading int        `json:"heading"` // 0-7, 45° steps
 	Views   [][]outDir `json:"views"`   // eight view cycles (fewer → single-view creature)
 	Fps     float32    `json:"fps"`     // idle-cycle playback rate
+	// Translucent marks the ethereal creatures (ghost/wisp/fire/shadow) whose
+	// sprites use the reserved palette index 252 — the game BRIGHTENS the
+	// background there (additively) instead of drawing a colour. For them each
+	// frame is split by palette index: index 252 → the additive layer (outDir.Add),
+	// every other opaque index → the normal layer (outDir.Tex, e.g. the ghost's
+	// black eyes, fire's flames, the shadow's body). The viewer draws Add with
+	// additive blending over the normal Tex.
+	Translucent bool `json:"translucent,omitempty"`
 }
 
 // outDir is one animation frame of a creature: a SpriteTex index and its world
-// size (frames differ in size, so the viewer rescales as the cycle plays).
+// size (frames differ in size, so the viewer rescales as the cycle plays). Add
+// indexes SpriteTex for a translucent creature's additive (index-252) layer, or
+// -1 when the frame has no additive pixels.
 type outDir struct {
 	Tex int     `json:"tex"`
 	W   float32 `json:"w"`
 	H   float32 `json:"h"`
+	Add int     `json:"add"` // additive layer SpriteTex index, -1 = none
 }
 
 func main() {
