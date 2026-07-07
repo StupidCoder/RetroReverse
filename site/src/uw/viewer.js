@@ -24,6 +24,11 @@ const VIEW_REMAP = [
   4, 4, 4, 5, 5, 5, 6, 6, 6, 6, 6, 7, 7, 7, 0, 0,
 ];
 
+// How strongly the ethereal creatures' index-252 glow brightens the background
+// (additive white × this). 1.0 blows the body out to solid white; ~0.6 keeps the
+// wall visible through the ghost, matching the game's translucent look.
+const GHOST_GLOW = 0.6;
+
 export class LevelViewer {
   constructor(el, hud) {
     this.el = el;
@@ -151,9 +156,13 @@ export class LevelViewer {
       t.magFilter = THREE.NearestFilter;
       t.colorSpace = THREE.SRGBColorSpace;
       if (addSet.has(i)) {
+        // The glow texture is white; UW brightens the background (a hue-neutral
+        // shift), so add white — but at partial strength (opacity scales the
+        // added amount for AdditiveBlending) so the wall stays visible through the
+        // ghost instead of blowing out to solid white. GHOST_GLOW is that knob.
         return new THREE.MeshBasicMaterial({
-          map: t, transparent: true, alphaTest: 0.05, side: THREE.DoubleSide,
-          depthWrite: false, blending: THREE.AdditiveBlending,
+          map: t, transparent: true, opacity: GHOST_GLOW, alphaTest: 0.02,
+          side: THREE.DoubleSide, depthWrite: false, blending: THREE.AdditiveBlending,
         });
       }
       return new THREE.MeshBasicMaterial({

@@ -245,9 +245,8 @@ func (p *Page) FrameLayers(i int, pal tex.Palette) (normal, additive *image.RGBA
 		return nil, nil, fmt.Errorf("crit: page has no aux palette")
 	}
 	normal = image.NewRGBA(image.Rect(0, 0, w, h))
-	set := func(img *image.RGBA, k int, idx byte) {
-		c := pal[idx]
-		img.Pix[k*4+0], img.Pix[k*4+1], img.Pix[k*4+2], img.Pix[k*4+3] = c.R, c.G, c.B, 255
+	set := func(img *image.RGBA, k int, r, g, b byte) {
+		img.Pix[k*4+0], img.Pix[k*4+1], img.Pix[k*4+2], img.Pix[k*4+3] = r, g, b, 255
 	}
 	for k := 0; k < w*h; k++ {
 		var idx byte
@@ -259,9 +258,13 @@ func (p *Page) FrameLayers(i int, pal tex.Palette) (normal, additive *image.RGBA
 			if additive == nil {
 				additive = image.NewRGBA(image.Rect(0, 0, w, h))
 			}
-			set(additive, k, idx)
+			// The game BRIGHTENS the framebuffer pixels here (a hue-neutral shift
+			// to a brighter range), so the additive layer is WHITE — not the berry
+			// placeholder pal[252]. The viewer scales this via the material colour.
+			set(additive, k, 255, 255, 255)
 		case idx != 0:
-			set(normal, k, idx)
+			c := pal[idx]
+			set(normal, k, c.R, c.G, c.B)
 		}
 	}
 	return normal, additive, nil
