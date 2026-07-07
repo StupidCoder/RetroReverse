@@ -45,6 +45,7 @@ func main() {
 	watchS := flag.String("watch", "", "watch: log who writes ADDR or ADDR:LEN (hex)")
 	showLog := flag.Bool("log", false, "print the machine's diagnostic notes")
 	showTTY := flag.Bool("tty", true, "print the game's BIOS/TTY output")
+	shot := flag.String("shot", "", "after the run, write the GPU display to this PNG")
 	isrS := flag.String("isr", "8004DF48", "vectored-interrupt entry (hex); Ridge Racer's own "+
 		"interrupt dispatcher, traced — the retail BIOS installs it via HookEntryInt into a slot "+
 		"the HLE BIOS leaves empty. Set 0 to use the (empty) registered chain handler")
@@ -120,6 +121,13 @@ func main() {
 	res := runWithBP(m, steps, &hitBP)
 	if hitBP {
 		res.PC = bpPC
+	}
+
+	if *shot != "" {
+		if err := m.Screenshot(*shot); err != nil {
+			die("screenshot: %v", err)
+		}
+		fmt.Fprintf(os.Stderr, "wrote frame to %s\n", *shot)
 	}
 
 	w.Flush()

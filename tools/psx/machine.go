@@ -50,12 +50,12 @@ type Machine struct {
 	CPU     *mips.CPU
 	GTE     *mips.GTE
 	cd      *cdrom  // CD-ROM controller (0x1F801800-1803)
+	gpu     *gpu    // GPU (0x1F801810-1814)
 	disc    *Volume // mounted disc image, the CD sector source
 
 	io       map[uint32]uint32 // last-written 32-bit I/O registers
 	irqStat  uint32
 	irqMask  uint32
-	gpuFrame uint32 // toggled into GPUSTAT bit 31 so status polls terminate
 	timer    uint32 // free-running value returned for timer reads
 	dmaFlags uint32 // DICR per-channel IRQ flags (bits 0..6), write-1-to-clear
 
@@ -107,11 +107,15 @@ func NewMachine() *Machine {
 	m.GTE = mips.NewGTE()
 	m.CPU.GTE = m.GTE
 	m.cd = newCDROM(m)
+	m.gpu = newGPU()
 	return m
 }
 
 // SetDisc mounts a disc image so the CD-ROM controller can serve sectors.
 func (m *Machine) SetDisc(v *Volume) { m.disc = v }
+
+// Screenshot renders the GPU's active display area to a PNG.
+func (m *Machine) Screenshot(path string) error { return m.gpu.Screenshot(path) }
 
 // LoadEXE copies a parsed PS-X EXE into RAM and seeds the entry state the BIOS
 // would hand the program (PC, gp, sp, fp).
@@ -200,11 +204,10 @@ func (m *Machine) ioReadWord(base uint32) uint32 {
 		return m.irqStat
 	case iMask:
 		return m.irqMask
-	case 0x1F801814: // GPUSTAT: report ready, toggling bit 31 so status polls end
-		m.gpuFrame ^= 0x80000000
-		return 0x1C000000 | m.gpuFrame
+	case 0x1F801814: // GPUSTAT
+		return m.gpu.status()
 	case 0x1F801810: // GPUREAD
-		return 0
+		return m.gpu.read()
 	case 0x1F801100, 0x1F801110, 0x1F801120: // timer current values
 		m.timer += 0x100
 		return m.timer & 0xFFFF
@@ -227,6 +230,10 @@ func (m *Machine) ioSideEffect(base, word uint32) {
 		m.irqStat &= word
 	case base == iMask:
 		m.irqMask = word
+	case base == 0x1F801810: // GP0 drawing command/data port
+		m.gpu.gp0(word)
+	case base == 0x1F801814: // GP1 display/control port
+		m.gpu.gp1(word)
 	case base == 0x1F8010F4: // DICR: bits 24-30 are write-1-to-clear flags
 		m.dmaFlags &^= (word >> 24) & 0x7F
 	case base >= 0x1F801080 && base < 0x1F801100:
@@ -236,15 +243,50 @@ func (m *Machine) ioSideEffect(base, word uint32) {
 		// M12). MADR (+0) and BCR (+4) are the destination and block count.
 		if base&0xF == 0x8 && word&0x01000000 != 0 {
 			ch := (base - 0x1F801080) >> 4
-			if ch == 3 {
-				madr := m.io[base-8] & 0x1FFFFF
-				bcr := m.io[base-4]
+			madr := m.io[base-8] & 0x1FFFFF
+			bcr := m.io[base-4]
+			switch ch {
+			case 2: // GPU: feed a command list to GP0
+				m.dmaGPU(madr, bcr, word)
+			case 3: // CDROM: stream the ready sector into RAM
 				m.cd.dmaTo(madr, bcr)
 			}
 			m.io[base] = word &^ 0x01000000 // clear the busy/start bit
 			m.raiseIRQ(3)                    // DMA interrupt line
 			m.dmaFlags |= 1 << ch            // DICR channel-done flag (write-1-to-clear)
 		}
+	}
+}
+
+// dmaGPU services a GPU DMA (channel 2): in linked-list sync mode (CHCR bits
+// 9-10 == 2) it walks the ordering table, feeding each node's words to GP0; in
+// block mode it streams BCR words (a VRAM image upload).
+func (m *Machine) dmaGPU(madr, bcr, chcr uint32) {
+	if (chcr>>9)&3 == 2 { // linked list
+		addr := madr
+		for i := 0; i < 0x40000; i++ { // guard against a broken/looping list
+			addr &= 0x1FFFFF
+			header := m.read32(addr)
+			for j := uint32(0); j < header>>24; j++ {
+				addr = (addr + 4) & 0x1FFFFF
+				m.gpu.gp0(m.read32(addr))
+			}
+			next := header & 0xFFFFFF
+			if next&0x800000 != 0 { // end-of-list marker
+				break
+			}
+			addr = next
+		}
+		return
+	}
+	// Block / block-sync: BCR = blocksize | blockcount<<16, all words to GP0.
+	n := bcr & 0xFFFF
+	if bc := bcr >> 16; bc > 1 {
+		n *= bc
+	}
+	for i := uint32(0); i < n; i++ {
+		m.gpu.gp0(m.read32(madr))
+		madr = (madr + 4) & 0x1FFFFF
 	}
 }
 
