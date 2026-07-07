@@ -137,6 +137,17 @@ func (c *CPU) SetPC(pc uint32) {
 	c.pendingDelay = false
 }
 
+// SetReg writes a general register in both register files, so it survives the
+// end-of-step commit. Use it to seed state (sp/gp/args) before running.
+func (c *CPU) SetReg(i, v uint32) {
+	if i != 0 {
+		c.R[i], c.out[i] = v, v
+	}
+}
+
+// Reg reads a general register.
+func (c *CPU) Reg(i uint32) uint32 { return c.R[i] }
+
 // --- register access -------------------------------------------------------
 
 // set writes register i (R0 stays hardwired to zero) into the output file.
