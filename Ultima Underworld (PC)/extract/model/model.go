@@ -59,6 +59,7 @@ type Vertex struct{ X, Y, Z int16 }
 type Quad struct {
 	Desc     uint16    // polygon-descriptor index (texture binding by the emitter)
 	V        [4]uint16 // pool slot numbers (byte offset / 8)
+	Verts    [4]Vertex // vertices snapshotted at emit time (see Poly.Verts)
 	UV       [4]uint16 // per-vertex UV code words
 	Textured bool      // opcode 0x36 (vs 0x34 flat)
 }
@@ -72,6 +73,12 @@ type Quad struct {
 type Poly struct {
 	Color uint16
 	V     []uint16
+	// Verts are the vertices snapshotted from the pool at emit time — the values
+	// the draw op saw. This is what callers should bake, NOT Pool[V[i]]: a model
+	// can redraw many primitives (e.g. the portcullis's bars) through sub-
+	// programs that all reuse the same pool slots, so the pool only holds the
+	// LAST primitive's vertices by the time decoding finishes.
+	Verts []Vertex
 	UV    [][2]uint16 // per-vertex (U,V) code words; nil for flat polys
 }
 
@@ -179,6 +186,16 @@ func DecodeWithEnvSwing(exe []byte, env map[uint16]Vertex, swingRad float64) ([]
 func (d *decoder) w(p int) uint16         { return binary.LittleEndian.Uint16(d.data[p:]) }
 func (d *decoder) sw(p int) int16         { return int16(d.w(p)) }
 func (d *decoder) log(f string, a ...any) { d.m.Ops = append(d.m.Ops, fmt.Sprintf(f, a...)) }
+
+// resolve snapshots the current pool vertices for the given slots, so a drawn
+// primitive keeps the vertices it saw even if the slots are later overwritten.
+func (d *decoder) resolve(slots []uint16) []Vertex {
+	vs := make([]Vertex, len(slots))
+	for i, s := range slots {
+		vs[i] = d.m.Pool[s]
+	}
+	return vs
+}
 
 // run interprets the vertex-building/drawing stream at p (file offset) until a
 // RET. depth guards face-subprogram recursion.
@@ -310,11 +327,13 @@ func (d *decoder) run(p int, depth int) {
 				d.gather = append(d.gather, d.w(pp)/8)
 				pp += 2
 			}
-			d.m.Polys = append(d.m.Polys, Poly{Color: d.color, V: append([]uint16{}, d.gather...)})
+			slots := append([]uint16{}, d.gather...)
+			d.m.Polys = append(d.m.Polys, Poly{Color: d.color, V: slots, Verts: d.resolve(slots)})
 			d.log("%04X: %02X ngon color=%03X %v", p, op, d.color, d.gather)
 			p = pp
 		case 0x80: // draw the gathered flat N-gon with the current colour
 			pl := Poly{Color: d.color, V: append([]uint16{}, d.gather...)}
+			pl.Verts = d.resolve(pl.V)
 			d.m.Polys = append(d.m.Polys, pl)
 			d.log("%04X: 80 draw ngon color=%03X %v", p, d.color, pl.V)
 			p += 2
@@ -327,6 +346,7 @@ func (d *decoder) run(p int, depth int) {
 			q := Quad{Desc: d.w(p + 2), Textured: op == 0xA4}
 			for k := 0; k < 4; k++ {
 				q.V[k] = uint16(d.data[p+4+k])
+				q.Verts[k] = d.m.Pool[q.V[k]]
 			}
 			d.m.Quads = append(d.m.Quads, q)
 			d.log("%04X: %02X quadB desc=%d v(%d,%d,%d,%d)", p, op, q.Desc, q.V[0], q.V[1], q.V[2], q.V[3])
@@ -340,6 +360,7 @@ func (d *decoder) run(p int, depth int) {
 				pl.UV = append(pl.UV, [2]uint16{d.w(pp + 2), d.w(pp + 4)})
 				pp += 6
 			}
+			pl.Verts = d.resolve(pl.V)
 			d.m.Polys = append(d.m.Polys, pl)
 			d.log("%04X: %02X tex-ngon desc=%d n=%d %v", p, op, desc, n, pl.V)
 			p = pp
@@ -352,6 +373,7 @@ func (d *decoder) run(p int, depth int) {
 				pl.UV = append(pl.UV, [2]uint16{d.w(pp + 2), d.w(pp + 4)})
 				pp += 6
 			}
+			pl.Verts = d.resolve(pl.V)
 			d.m.Polys = append(d.m.Polys, pl)
 			d.log("%04X: %02X tex-ngon (cur desc) n=%d %v", p, op, n, pl.V)
 			p = pp
@@ -360,6 +382,7 @@ func (d *decoder) run(p int, depth int) {
 			q := Quad{Desc: d.w(p + 2), Textured: true}
 			for k := 0; k < 4; k++ {
 				q.V[k] = uint16(d.data[p+4+k])
+				q.Verts[k] = d.m.Pool[q.V[k]]
 			}
 			d.m.Quads = append(d.m.Quads, q)
 			d.log("%04X: %02X quadB' desc=%d v(%d,%d,%d,%d)", p, op, q.Desc, q.V[0], q.V[1], q.V[2], q.V[3])
@@ -391,6 +414,7 @@ func (d *decoder) run(p int, depth int) {
 			// vertices by the swing angle so a door can be rendered open. Only
 			// 0xBA (the door) is swung; 0xC2/0xC4 are other axes left as-is.
 			before := map[uint16]bool{}
+			npBefore, nqBefore := len(d.m.Polys), len(d.m.Quads)
 			if op == 0xBA && d.swing != 0 {
 				for k := range d.m.Pool {
 					before[k] = true
@@ -399,12 +423,26 @@ func (d *decoder) run(p int, depth int) {
 			d.run(p+6+rel, depth+1)
 			if op == 0xBA && d.swing != 0 {
 				s, c := math.Sin(d.swing), math.Cos(d.swing)
-				for k, v := range d.m.Pool {
-					if before[k] {
-						continue
-					}
+				rot := func(v Vertex) Vertex {
 					x, z := float64(v.X), float64(v.Z)
-					d.m.Pool[k] = Vertex{X: int16(x*c + z*s), Y: v.Y, Z: int16(-x*s + z*c)}
+					return Vertex{X: int16(x*c + z*s), Y: v.Y, Z: int16(-x*s + z*c)}
+				}
+				for k, v := range d.m.Pool {
+					if !before[k] {
+						d.m.Pool[k] = rot(v)
+					}
+				}
+				// Rotate the snapshots of primitives drawn inside this scope too
+				// (they were captured pre-rotation from the pool).
+				for i := npBefore; i < len(d.m.Polys); i++ {
+					for j := range d.m.Polys[i].Verts {
+						d.m.Polys[i].Verts[j] = rot(d.m.Polys[i].Verts[j])
+					}
+				}
+				for i := nqBefore; i < len(d.m.Quads); i++ {
+					for j := range d.m.Quads[i].Verts {
+						d.m.Quads[i].Verts[j] = rot(d.m.Quads[i].Verts[j])
+					}
 				}
 			}
 			p += 6
@@ -495,10 +533,19 @@ func (d *decoder) run(p int, depth int) {
 				map[uint16]string{0x14: ">", 0x16: "<"}[op], int16(d.w(p+6)), n)
 			p += 8
 			_ = n // both paths continue linearly here; the skip target is p+n (decoded on the fall-through path)
-		case 0x12: // call relative
+		case 0x12: // call relative — RE-ENTRANT. A shared draw sub-program is
+			// CALLed repeatedly with different pool vertices (e.g. the portcullis
+			// draws each bar by re-calling one routine), so it must emit every
+			// time. `seen` still guards loops during the call; we restore it
+			// afterwards so a later call re-executes the same target.
 			rel := int(int16(d.w(p + 2)))
 			d.log("%04X: 12 call %+d", p, rel)
+			saved := make(map[int]bool, len(d.seen))
+			for k := range d.seen {
+				saved[k] = true
+			}
 			d.run(p+4+rel, depth+1)
+			d.seen = saved
 			p += 4
 		default:
 			d.m.Warnings = append(d.m.Warnings,

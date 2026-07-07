@@ -441,13 +441,13 @@ func bakeModel(o *outMesh, mats *objMaterials, pm placedModel) {
 		o.Picks = append(o.Picks, aabbPick(int(pm.itemID), lo, hi))
 	}()
 
-	fan := func(mat int, slots []uint16, textured bool) {
-		if len(slots) < 3 {
+	// fan/fanUV take the primitive's snapshotted vertices (model.Poly/Quad.Verts)
+	// — not pool slots — because a model can redraw many primitives through sub-
+	// programs that reuse the same slots (e.g. the portcullis's bars), so the
+	// pool only holds the last one by the end of decoding.
+	fan := func(mat int, vs []model.Vertex, textured bool) {
+		if len(vs) < 3 {
 			return
-		}
-		vs := make([]model.Vertex, len(slots))
-		for i, s := range slots {
-			vs[i] = pm.m.Pool[s]
 		}
 		// Planar UVs over the polygon's own extent: one texture copy per face,
 		// matching the compact quad ops' implicit corner UVs. U/V span the two
@@ -504,13 +504,9 @@ func bakeModel(o *outMesh, mats *objMaterials, pm placedModel) {
 	// coordinates (op 0xA8/0xB4). The stream stores U,V as code words the draw
 	// handler scales by texW>>8 / texH>>16, so a normalised coordinate is
 	// code/65536; V is flipped for three.js's bottom-left texture origin.
-	fanUV := func(mat int, slots []uint16, uv [][2]uint16) {
-		if len(slots) < 3 {
+	fanUV := func(mat int, vs []model.Vertex, uv [][2]uint16) {
+		if len(vs) < 3 {
 			return
-		}
-		vs := make([]model.Vertex, len(slots))
-		for i, s := range slots {
-			vs[i] = pm.m.Pool[s]
 		}
 		tc := func(i int) [2]float32 {
 			return [2]float32{
@@ -529,18 +525,18 @@ func bakeModel(o *outMesh, mats *objMaterials, pm placedModel) {
 		if mat < 0 || !q.Textured {
 			mat = mats.colorMat(shadeColor(q.Desc))
 		}
-		fan(mat, q.V[:], true)
+		fan(mat, q.Verts[:], true)
 	}
 	for _, pl := range pm.m.Polys {
 		if pl.Color&0xF000 != 0 && pm.texMat >= 0 { // textured n-gon
-			if len(pl.UV) == len(pl.V) {
-				fanUV(pm.texMat, pl.V, pl.UV) // real per-vertex UVs
+			if len(pl.UV) == len(pl.Verts) {
+				fanUV(pm.texMat, pl.Verts, pl.UV) // real per-vertex UVs
 			} else {
-				fan(pm.texMat, pl.V, true)
+				fan(pm.texMat, pl.Verts, true)
 			}
 			continue
 		}
-		fan(mats.colorMat(shadeColor(pl.Color&0xFFF)), pl.V, false)
+		fan(mats.colorMat(shadeColor(pl.Color&0xFFF)), pl.Verts, false)
 	}
 }
 
