@@ -13,6 +13,17 @@ import { FlyCam, flyHint } from '../shared/flycam.js';
 
 const LEVELS = 'public/uw/';
 
+// UW's 32-fine-angle → 8-view remap (DGROUP:05AC), reverse-engineered from the
+// creature emit path (2DFE:0221). The game selects a directional sprite as
+//   view = REMAP[(heading*4 + 0x20 - cameraAngle) & 0x1F]
+// where cameraAngle is the bearing from the camera to the creature in 32 steps
+// and heading is the creature's facing (0-7). View 0 is the creature's back,
+// view 4 its front. We reproduce it per render from the true line-of-sight.
+const VIEW_REMAP = [
+  0, 0, 0, 1, 1, 1, 2, 2, 2, 2, 2, 3, 3, 3, 4, 4,
+  4, 4, 4, 5, 5, 5, 6, 6, 6, 6, 6, 7, 7, 7, 0, 0,
+];
+
 export class LevelViewer {
   constructor(el, hud) {
     this.el = el;
@@ -46,6 +57,7 @@ export class LevelViewer {
       if (this.active === false) return;
       this.fly.update(dt);
       controls.update();
+      this._updateCreatures();
       renderer.render(scene, camera);
     };
     tick();
@@ -115,9 +127,24 @@ export class LevelViewer {
       spr.scale.set(s.w, s.h, 1);
       spriteGroup.add(spr);
     }
+
+    // Creatures are directional (Doom-style) billboards: eight view frames that
+    // the render loop swaps by the camera-to-creature angle and the creature's
+    // heading, so a monster shows its back, side or face as you circle it.
+    const creatures = [];
+    for (const c of data.creatures || []) {
+      const dirs = c.dirs.map((d) => ({ mat: spriteMats[d.tex], w: d.w, h: d.h }));
+      const spr = new THREE.Sprite(dirs[0].mat);
+      spriteGroup.add(spr);
+      const rec = { spr, dirs, heading: c.heading, base: c.pos, view: -1 };
+      creatures.push(rec);
+      this._applyView(rec, 0); // place with view 0 until the first update
+    }
+
     scene.add(spriteGroup);
     this._spriteGroup = spriteGroup;
     this._spriteMats = spriteMats;
+    this._creatures = creatures;
 
     // Start inside the dungeon (it's now ceiling-enclosed): the exported spawn
     // is an interior point at eye height; place the camera there looking ahead.
@@ -147,6 +174,37 @@ export class LevelViewer {
     }
   }
 
+  // _applyView points a creature sprite at one of its eight view frames,
+  // rescaling and re-seating its base on the floor (frames differ in size).
+  _applyView(rec, view) {
+    if (view === rec.view) return;
+    rec.view = view;
+    const d = rec.dirs[view] || rec.dirs[0];
+    rec.spr.material = d.mat;
+    rec.spr.scale.set(d.w, d.h, 1);
+    rec.spr.position.set(rec.base[0], rec.base[1] + d.h / 2, rec.base[2]);
+  }
+
+  // _updateCreatures picks each creature's view frame from the horizontal
+  // bearing between it and the camera, in the game's own convention: the fine
+  // angle (0-31) of the camera→creature vector is the cameraAngle, and
+  //   view = REMAP[(heading*4 + 32 - cameraAngle) & 31].
+  _updateCreatures() {
+    const list = this._creatures;
+    if (!list || !list.length) return;
+    const cam = this.three.camera.position;
+    const wp = this._wp || (this._wp = new THREE.Vector3());
+    for (const rec of list) {
+      rec.spr.getWorldPosition(wp);
+      const dx = wp.x - cam.x, dz = wp.z - cam.z; // camera → creature (horizontal)
+      // Match heading's fine-angle convention: heading h faces world such that
+      // atan2(-fx, -fz) == h*4 steps; use the same mapping for the bearing.
+      let camAngle = Math.round((Math.atan2(-dx, -dz) / (2 * Math.PI)) * 32) & 31;
+      const idx = (rec.heading * 4 + 32 - camAngle) & 31;
+      this._applyView(rec, VIEW_REMAP[idx]);
+    }
+  }
+
   _dispose() {
     const g = this.three.group;
     if (g) {
@@ -162,5 +220,6 @@ export class LevelViewer {
     }
     for (const m of this._spriteMats || []) { m.map?.dispose(); m.dispose(); }
     this._spriteMats = null;
+    this._creatures = null;
   }
 }

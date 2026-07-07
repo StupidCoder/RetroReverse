@@ -37,15 +37,16 @@ type outGroup struct {
 }
 
 type outMesh struct {
-	Level     int          `json:"level"`
-	Positions []float32    `json:"positions"`
-	UVs       []float32    `json:"uvs"`
-	Groups    []outGroup   `json:"groups"`
-	Textures  []outTexture `json:"textures"`
-	Spawn     []float32    `json:"spawn"`     // [x,y,z] interior start (Y-up), eye height above a floor
-	SpawnDir  []float32    `json:"spawnDir"`  // [x,y,z] initial look direction (Y-up)
-	Sprites   []outSprite  `json:"sprites"`   // billboard objects (camera-facing)
-	SpriteTex []string     `json:"spriteTex"` // PNG data URIs, indexed by outSprite.Tex
+	Level     int           `json:"level"`
+	Positions []float32     `json:"positions"`
+	UVs       []float32     `json:"uvs"`
+	Groups    []outGroup    `json:"groups"`
+	Textures  []outTexture  `json:"textures"`
+	Spawn     []float32     `json:"spawn"`     // [x,y,z] interior start (Y-up), eye height above a floor
+	SpawnDir  []float32     `json:"spawnDir"`  // [x,y,z] initial look direction (Y-up)
+	Sprites   []outSprite   `json:"sprites"`   // billboard objects (camera-facing)
+	Creatures []outCreature `json:"creatures"` // view-dependent 8-direction sprites
+	SpriteTex []string      `json:"spriteTex"` // PNG data URIs, indexed by outSprite.Tex / outDir.Tex
 }
 
 // outSprite is one camera-facing billboard: its base sits at Pos (Y-up), it is
@@ -55,6 +56,25 @@ type outSprite struct {
 	W   float32    `json:"w"`
 	H   float32    `json:"h"`
 	Tex int        `json:"tex"`
+}
+
+// outCreature is a directional (Doom-style) billboard: it has eight view frames
+// (Dirs, one per compass view — view 0 the creature's back, view 4 its front)
+// and a Heading. The viewer picks the frame each render from the camera-to-
+// creature bearing and Heading, matching the game's emit path (2DFE:0221, remap
+// table DGROUP:05AC). Base sits at Pos (Y-up).
+type outCreature struct {
+	Pos     [3]float32 `json:"pos"`
+	Heading int        `json:"heading"` // 0-7, 45° steps
+	Dirs    []outDir   `json:"dirs"`    // eight view frames (fewer → single-view creature)
+}
+
+// outDir is one view frame of a creature: a SpriteTex index and its world size
+// (frames differ in size per view, so the viewer rescales when it switches).
+type outDir struct {
+	Tex int     `json:"tex"`
+	W   float32 `json:"w"`
+	H   float32 `json:"h"`
 }
 
 func main() {

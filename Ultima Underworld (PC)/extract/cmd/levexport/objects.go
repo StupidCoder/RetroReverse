@@ -174,50 +174,69 @@ func appendBillboards(o *outMesh, grid *lev.Grid, block []byte, comObj *lev.ComO
 	}
 
 	texOf := map[string]int{} // sprite key -> SpriteTex index
+	spriteTex := func(img *image.RGBA, key string) int {
+		if ti, ok := texOf[key]; ok {
+			return ti
+		}
+		ti := len(o.SpriteTex)
+		o.SpriteTex = append(o.SpriteTex, toDataURI(img))
+		texOf[key] = ti
+		return ti
+	}
 	for _, obj := range lev.Objects(grid, block) {
 		cls := comObj.RenderClass(obj.ItemID)
 		if cls != lev.RenderNone && cls != lev.RenderBillboard {
 			continue // 3D models and specials handled elsewhere
 		}
-		var img *image.RGBA
-		var key string
+		tx := float32(obj.TileX) + (float32(obj.FineX)+0.5)/8
+		ty := float32(obj.TileY) + (float32(obj.FineY)+0.5)/8
+		base := float32(obj.Z) / 32 // floor height in tile units (Z*8/256)
+
 		if cls == lev.RenderBillboard && obj.Mobile && obj.ItemID >= 64 && obj.ItemID <= 127 {
-			// Creature: pick an arbitrary animation frame/direction for now.
+			// Creature: emit all eight compass views. The viewer selects one per
+			// render from the camera bearing and the object heading; non-
+			// directional creatures collapse to view 0 for all eight.
 			pg := loadCrit(int(obj.ItemID) - 64)
 			if pg == nil || pg.NumFrames() == 0 {
 				continue
 			}
-			frame := 0
-			im, err := pg.Frame(frame, pal)
-			if err != nil {
+			var dirs []outDir
+			for _, frame := range pg.ViewFrames() {
+				im, err := pg.Frame(frame, pal)
+				if err != nil {
+					dirs = nil
+					break
+				}
+				dirs = append(dirs, outDir{
+					Tex: spriteTex(im, fmt.Sprintf("crit:%d:%d", obj.ItemID, frame)),
+					W:   float32(im.Bounds().Dx()) * spriteWorldPerTexel,
+					H:   float32(im.Bounds().Dy()) * spriteWorldPerTexel,
+				})
+			}
+			if len(dirs) == 0 {
 				continue
 			}
-			img, key = im, fmt.Sprintf("crit:%d:%d", obj.ItemID, frame)
-		} else {
-			// Item: OBJECTS.GR frame [item_id] (the emitter's [BP-4]).
-			frame := int(obj.ItemID)
-			if frame >= objGR.Count() {
-				continue
-			}
-			im, err := objGR.Sprite(frame, pal, allPals)
-			if err != nil {
-				continue
-			}
-			img, key = im, fmt.Sprintf("obj:%d", frame)
+			o.Creatures = append(o.Creatures, outCreature{
+				Pos: [3]float32{tx, base, -ty}, Heading: int(obj.Heading), Dirs: dirs,
+			})
+			continue
 		}
-		ti, ok := texOf[key]
-		if !ok {
-			ti = len(o.SpriteTex)
-			o.SpriteTex = append(o.SpriteTex, toDataURI(img))
-			texOf[key] = ti
+
+		// Item: OBJECTS.GR frame [item_id] (the emitter's [BP-4]).
+		frame := int(obj.ItemID)
+		if frame >= objGR.Count() {
+			continue
 		}
-		w := float32(img.Bounds().Dx()) * spriteWorldPerTexel
-		h := float32(img.Bounds().Dy()) * spriteWorldPerTexel
-		tx := float32(obj.TileX) + (float32(obj.FineX)+0.5)/8
-		ty := float32(obj.TileY) + (float32(obj.FineY)+0.5)/8
-		base := float32(obj.Z) / 32 // floor height in tile units (Z*8/256)
+		im, err := objGR.Sprite(frame, pal, allPals)
+		if err != nil {
+			continue
+		}
+		ti := spriteTex(im, fmt.Sprintf("obj:%d", frame))
 		o.Sprites = append(o.Sprites, outSprite{
-			Pos: [3]float32{tx, base, -ty}, W: w, H: h, Tex: ti,
+			Pos: [3]float32{tx, base, -ty},
+			W:   float32(im.Bounds().Dx()) * spriteWorldPerTexel,
+			H:   float32(im.Bounds().Dy()) * spriteWorldPerTexel,
+			Tex: ti,
 		})
 	}
 }
