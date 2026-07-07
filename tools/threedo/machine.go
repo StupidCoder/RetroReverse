@@ -31,6 +31,11 @@ const (
 	kernelBase = 0x00180000 // synthetic Portfolio kernel/folio base (r7/r9)
 	hleBase    = 0x0FE00000 // reserved window: a PC here is an intercepted folio call
 	hleSize    = 0x00010000
+
+	dheapBase = 0x00080000 // DRAM AllocMem pool: above the image, below the kernel table
+	dheapTop  = 0x0017F000
+	vheapBase = vramBase // VRAM AllocMem pool: the whole 1 MiB VRAM
+	vheapTop  = vramBase + vramSize
 )
 
 // KernelCall records one intercepted Portfolio folio/kernel call.
@@ -44,7 +49,14 @@ type KernelCall struct {
 type Machine struct {
 	dram []byte
 	vram []byte
-	CPU  *arm60.CPU
+	// Two allocation pools, matching the 3DO's split memory: AllocMem's flags
+	// select DRAM (bit 0x10000) or VRAM (bit 0x80000). The game keeps them
+	// separate — its startup allocates a big VRAM framebuffer, then binary-
+	// searches the DRAM pool for its working set — so a single heap corrupts its
+	// bookkeeping.
+	dheap *heap // DRAM pool
+	vheap *heap // VRAM pool
+	CPU   *arm60.CPU
 
 	// Instrumentation (opt-in; checked in Read/Write and the run loop).
 	WatchLo, WatchHi uint32
@@ -65,6 +77,8 @@ func NewMachine() *Machine {
 	m := &Machine{
 		dram:    make([]byte, dramSize),
 		vram:    make([]byte, vramSize),
+		dheap:   newHeap(dheapBase, dheapTop-dheapBase),
+		vheap:   newHeap(vheapBase, vheapTop-vheapBase),
 		logSeen: map[string]bool{},
 	}
 	m.CPU = arm60.NewCPU(m)

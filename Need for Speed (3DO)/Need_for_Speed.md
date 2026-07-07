@@ -240,7 +240,40 @@ we have not yet reimplemented. Identifying each folio offset (they are Portfolio
 kernel/graphics/memory functions) and reimplementing the ones the game depends on
 is the next step, and turns this trace into a full boot.
 
-## Part V — EA track/car formats via the loader *(planned)*
-The toolchain (OperaFS + cel/SHPM + ARM60 + oracle) is now in place to tackle the
-proprietary `DriveData` formats — track geometry, car models, the SHPM variants —
-by tracing `LaunchMe`/`frontovl` reading them, then reimplementing the decoders.
+## Part V — reimplementing the Portfolio folios
+
+Booting further means the oracle must answer the OS calls the game makes, not
+just log them. The calls all go through one mechanism, recovered from LaunchMe's
+own code: a global at `0x3E1F4` holds the **kernel/folio base**; the clib stubs
+(a table around `0x300`–`0x400`) load it and jump `LDR pc, [base, #-N]`, so each
+service is identified by its negative offset `N`. (`SWI #0x100xx` is a second,
+trap-based path used for a few calls.)
+
+**Functions identified from the game's use of them** (clean-room — read off the
+disassembly, not external sources), reimplemented in `tools/threedo/folio.go`:
+
+| offset | function | how it was pinned |
+|-------:|----------|-------------------|
+| `-0x1C` | `AllocMem(memlist, size, flags)` → ptr | the routine at `0x36000` is a **binary search for the largest allocatable block** — allocate a size, on success raise the low bound, on failure lower the high bound |
+| `-0x20` | `FreeMem(memlist, ptr, size)` | the same search frees each probe (`0x36068`) between tries |
+| `-0x30` | a lookup returning a struct ptr | 17 call sites; callers immediately dereference the result (`LDR r0,[ret+0x78]`) |
+
+`AllocMem`/`FreeMem` are backed by a real first-fit heap with coalescing, split
+into **two pools** — the game keeps VRAM (`flags 0x80000`) and DRAM (`flags
+0x10000`) separate: it allocates an 884 KB VRAM framebuffer, then binary-searches
+the DRAM pool for its working set. With the pools split to match the hardware (2
+MiB DRAM + 1 MiB VRAM), the probe returns consistent real pointers and startup
+proceeds through memory setup.
+
+**Where it stops.** After memory setup the boot enters a `memset` whose length
+comes from a folio still stubbed to return 0, so it clears a garbage-sized region
+— the oracle's forward-progress guard now reports this as a closed loop rather
+than spinning the budget. Getting past it is the next tranche of folio work (the
+item system and the call feeding that length). `bootoracle -hot` profiles the
+hottest addresses to find each such frontier. This is steady OS-reimplementation:
+the mechanism and the core memory folios are done; the item/graphics folios are
+the remaining surface between here and a menu.
+
+## Part VI — EA track/car formats *(in progress)*
+With the toolchain in place, the proprietary `DriveData` formats — car models,
+track geometry, the SHPM variants — are the next target.

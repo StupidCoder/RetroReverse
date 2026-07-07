@@ -21,8 +21,23 @@ func (m *Machine) Run(maxSteps uint64) Result {
 	var steps uint64
 	var lastPC uint32
 	var spin int
+	// Forward-progress guard: if a long window passes without executing any
+	// never-before-seen instruction, the run is in a closed loop (e.g. a memset
+	// whose count came from a not-yet-reimplemented folio) — stop with a report
+	// instead of burning the whole budget.
+	seen := map[uint32]bool{}
+	var sinceNew uint64
+	const noProgress = 1_000_000
 	for steps < maxSteps {
 		pc := m.CPU.Reg(15)
+		if pc < dramSize {
+			if !seen[pc] {
+				seen[pc] = true
+				sinceNew = 0
+			} else if sinceNew++; sinceNew > noProgress {
+				return Result{steps, pc, fmt.Sprintf("no forward progress (closed loop near 0x%08X)", pc)}
+			}
+		}
 
 		// A PC in the HLE window is an intercepted folio/kernel call.
 		if pc >= hleBase && pc < hleBase+hleSize {
@@ -70,7 +85,11 @@ func (m *Machine) serviceKernelCall(pc uint32) {
 		From:   m.CPU.Reg(14) - 8,
 		Args:   [4]uint32{m.CPU.Reg(0), m.CPU.Reg(1), m.CPU.Reg(2), m.CPU.Reg(3)},
 	})
-	m.SetResultAndReturn(0)
+	// Reimplemented folios handle themselves (including the return); anything not
+	// yet reimplemented falls back to a zero-result stub.
+	if !m.serviceFolio(off) {
+		m.SetResultAndReturn(0)
+	}
 }
 
 // SetResultAndReturn stubs r0 and returns to LR — the default for an unmodelled

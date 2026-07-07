@@ -10,6 +10,7 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"sort"
 
 	"retroreverse.com/tools/threedo"
 )
@@ -21,6 +22,7 @@ func main() {
 	steps := flag.Uint64("steps", 200000, "max instructions to run")
 	trace := flag.Bool("trace", false, "print each executed instruction")
 	tracen := flag.Uint64("tracen", 0, "print only the first N executed instructions")
+	hot := flag.Bool("hot", false, "profile the most-executed instruction addresses")
 	flag.Parse()
 
 	var data []byte
@@ -63,6 +65,10 @@ func main() {
 			}
 		}
 	}
+	hits := map[uint32]uint64{}
+	if *hot {
+		m.OnStep = func(mm *threedo.Machine, pc uint32) { hits[pc]++ }
+	}
 
 	fmt.Printf("\n--- running (max %d steps) ---\n", *steps)
 	res := m.Run(*steps)
@@ -85,6 +91,21 @@ func main() {
 		}
 	}
 	fmt.Printf("  (%d distinct folio offsets)\n", len(seen))
+	if *hot {
+		type hp struct {
+			pc uint32
+			n  uint64
+		}
+		var hs []hp
+		for pc, n := range hits {
+			hs = append(hs, hp{pc, n})
+		}
+		sort.Slice(hs, func(i, j int) bool { return hs[i].n > hs[j].n })
+		fmt.Printf("\n--- hottest instruction addresses ---\n")
+		for i := 0; i < 12 && i < len(hs); i++ {
+			fmt.Printf("  0x%08X  x%d   %s\n", hs[i].pc, hs[i].n, m.DisasmAt(hs[i].pc))
+		}
+	}
 	if len(m.Log) > 0 {
 		fmt.Printf("\n--- notes ---\n")
 		for _, s := range m.Log {
