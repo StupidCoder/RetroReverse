@@ -83,6 +83,7 @@ type Machine struct {
 	// default, so a plain run stops honestly at the first async-wait frontier.
 	SpinBreak  bool
 	SpinBreaks int
+	simTime    uint64 // virtual microsecond clock (folio SampleSystemTimeTT)
 	tty        []byte
 	Log        []string
 	logSeen    map[string]bool

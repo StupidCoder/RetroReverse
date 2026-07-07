@@ -98,9 +98,23 @@ func (m *Machine) serviceFolio(off uint32) bool {
 		m.poolOf(ptr).freeBlock(ptr)
 		m.SetResultAndReturn(0)
 		return true
+	case 0x34: // SampleSystemTimeTT(timer, TimeVal*) — fill an advancing time.
+		// Each call advances virtual time so the game's timing/calibration loops
+		// (which decrement counters by the elapsed delta) converge instead of
+		// spinning forever. The TimeVal is {seconds, microseconds}.
+		m.simTime += simTick
+		buf := m.CPU.Reg(0)
+		m.writeWord(buf, uint32(m.simTime/1_000_000))
+		m.writeWord(buf+4, uint32(m.simTime%1_000_000))
+		m.SetResultAndReturn(0)
+		return true
 	}
 	return false
 }
+
+// simTick is how much virtual time each time sample advances (a generous slice so
+// timing loops finish quickly).
+const simTick = 100_000 // 100 ms
 
 // 3DO AllocMem memory-type flags (from the Portfolio SDK mem.h).
 const (

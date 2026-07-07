@@ -72,7 +72,7 @@ func (m *Machine) Run(maxSteps uint64) Result {
 					m.curTask().state = stReady
 					if m.switchTask() {
 						stallSwitches++
-						if stallSwitches > 6*len(m.tasks)+8 {
+						if stallSwitches > 32*len(m.tasks)+8 {
 							return Result{steps, pc, fmt.Sprintf("deadlock: all %d tasks stalled near 0x%08X", len(m.tasks), pc)}
 						}
 						sinceNew = 0

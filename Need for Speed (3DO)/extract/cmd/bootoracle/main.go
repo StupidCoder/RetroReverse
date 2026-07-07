@@ -9,6 +9,7 @@ package main
 import (
 	"flag"
 	"fmt"
+	"image/png"
 	"os"
 	"sort"
 
@@ -25,6 +26,8 @@ func main() {
 	hot := flag.Bool("hot", false, "profile the most-executed instruction addresses")
 	breakAt := flag.Uint64("break", 0, "log lr + r0-r3/r12 each time PC == this address")
 	spinbreak := flag.Bool("spinbreak", false, "poke past flag spin-waits (exploration; advances PC, not OS state)")
+	fbOut := flag.String("fb", "", "after the run, capture the VRAM framebuffer (320x240 RGB555) to this PNG")
+	fbBase := flag.Uint64("fbbase", 0x200000, "framebuffer base address in VRAM")
 	flag.Parse()
 
 	var data []byte
@@ -75,14 +78,16 @@ func main() {
 	var brk []string
 	if *breakAt != 0 {
 		ba := uint32(*breakAt)
-		var prev uint32
 		m.OnStep = func(mm *threedo.Machine, pc uint32) {
 			if pc == ba {
 				c := mm.CPU
-				brk = append(brk, fmt.Sprintf("hit 0x%08X (from 0x%08X)  r4=%08X r5=%08X r6=%08X r8=%08X r9=%08X",
-					pc, prev, c.Reg(4), c.Reg(5), c.Reg(6), c.Reg(8), c.Reg(9)))
+				rd := func(a uint32) uint32 {
+					return uint32(mm.Read(a))<<24 | uint32(mm.Read(a+1))<<16 | uint32(mm.Read(a+2))<<8 | uint32(mm.Read(a+3))
+				}
+				r9 := c.Reg(9)
+				brk = append(brk, fmt.Sprintf("hit 0x%08X r4=%08X r9=%08X [r9+34]=%08X cb0=%08X cb1=%08X cb2=%08X",
+					pc, c.Reg(4), r9, rd(r9+0x34), rd(c.Reg(8)), rd(c.Reg(8)+4), rd(c.Reg(8)+8)))
 			}
-			prev = pc
 		}
 	}
 
@@ -95,6 +100,20 @@ func main() {
 		for _, s := range brk[max(0, len(brk)-12):] {
 			fmt.Println(" ", s)
 		}
+	}
+
+	fmt.Printf("VRAM non-zero bytes (first 640KB): %d\n", m.VRAMNonZero(640*1024))
+	if *fbOut != "" {
+		img := m.CaptureVRAM(uint32(*fbBase), 320, 240)
+		f, err := os.Create(*fbOut)
+		if err != nil {
+			die(err)
+		}
+		if err := png.Encode(f, img); err != nil {
+			die(err)
+		}
+		f.Close()
+		fmt.Fprintf(os.Stderr, "wrote framebuffer to %s\n", *fbOut)
 	}
 
 	if tty := m.TTY(); tty != "" {
