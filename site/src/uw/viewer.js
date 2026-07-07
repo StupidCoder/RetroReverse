@@ -25,9 +25,9 @@ const VIEW_REMAP = [
 ];
 
 // How strongly the ethereal creatures' index-252 glow brightens the background
-// (additive white × this). 1.0 blows the body out to solid white; ~0.6 keeps the
-// wall visible through the ghost, matching the game's translucent look.
-const GHOST_GLOW = 0.6;
+// (additive white × this). 1.0 blows the body out to solid white; ~0.4 keeps the
+// wall clearly visible through the ghost, matching the game's translucent look.
+const GHOST_GLOW = 0.4;
 
 export class LevelViewer {
   constructor(el, hud) {
