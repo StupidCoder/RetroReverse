@@ -17,6 +17,8 @@
 package main
 
 import (
+	"bytes"
+	"crypto/md5"
 	"encoding/binary"
 	"encoding/json"
 	"flag"
@@ -173,9 +175,11 @@ func run(adfPath, outDir string) error {
 		nTiles := be32(tableOff) / 4
 
 		atlasName := fmt.Sprintf("atlas%d.png", w)
-		if err := writeAtlas(filepath.Join(outDir, atlasName), block, tableOff, nTiles, pal); err != nil {
+		atlasVer, err := writeAtlas(filepath.Join(outDir, atlasName), block, tableOff, nTiles, pal)
+		if err != nil {
 			return err
 		}
+		atlasURL := atlasName + "?v=" + atlasVer // content-hash cache-buster (see writePNG)
 
 		// Per-tile collision (16 bytes/tile = 4x4 of 8x8-block solidity).
 		collBytes, _ := game.TileCollision(w)
@@ -207,14 +211,15 @@ func run(adfPath, outDir string) error {
 			}
 		}
 		objAtlasName := fmt.Sprintf("sprites/objatlas%d.png", w)
-		rectOf, err := writeObjAtlas(filepath.Join(outDir, objAtlasName), game, w, used)
+		rectOf, objVer, err := writeObjAtlas(filepath.Join(outDir, objAtlasName), game, w, used)
 		if err != nil {
 			return err
 		}
+		objAtlasURL := objAtlasName + "?v=" + objVer // content-hash cache-buster (see writePNG)
 		// world-scoped render keys (frame table + frame) -> single-frame entries.
 		for k, r := range rectOf {
 			spriteIndex[k.renderKey(w)] = map[string]any{
-				"src":    objAtlasName,
+				"src":    objAtlasURL,
 				"frames": [][4]int{{r.X, r.Y, r.W, r.H}},
 			}
 		}
@@ -258,7 +263,7 @@ func run(adfPath, outDir string) error {
 				Format: 1,
 				Name:   fmt.Sprintf("World %d · Scene %d", w+1, sc.Index+1),
 				Grid: jsonGrid{
-					TileSize: tileSide, Atlas: atlasName, AtlasCols: atlasCols, AtlasGutter: tileGutter,
+					TileSize: tileSide, Atlas: atlasURL, AtlasCols: atlasCols, AtlasGutter: tileGutter,
 					Width: sc.Width, Height: sc.Height, Cells: cells, HflipMask: hflipMask,
 				},
 				Collision: jsonCollision{
@@ -275,7 +280,7 @@ func run(adfPath, outDir string) error {
 			meta = append(meta, metaLevel{
 				Name:    fmt.Sprintf("Scene %d", sc.Index+1),
 				Section: fmt.Sprintf("World %d", w+1),
-				File:    file, Atlas: atlasName,
+				File:    file, Atlas: atlasURL,
 			})
 			fmt.Printf("world %d scene %d: %dx%d, %d tiles, %d objects -> %s\n", w, sc.Index, sc.Width, sc.Height, nTiles, len(objects), file)
 		}
@@ -293,7 +298,7 @@ func run(adfPath, outDir string) error {
 
 // writeObjAtlas shelf-packs the first frame of each used sprite into one paletted PNG
 // (index 0 transparent) and returns each sprite's rect in it.
-func writeObjAtlas(path string, game *scene.Game, w int, used map[spriteKey]bool) (map[spriteKey]objSprite, error) {
+func writeObjAtlas(path string, game *scene.Game, w int, used map[spriteKey]bool) (map[spriteKey]objSprite, string, error) {
 	// Deterministic order: residents first, then by address.
 	keys := make([]spriteKey, 0, len(used))
 	for k := range used {
@@ -339,25 +344,40 @@ func writeObjAtlas(path string, game *scene.Game, w int, used map[spriteKey]bool
 		}
 	}
 	if atlasH == 0 {
-		return rectOf, nil
+		return rectOf, "", nil
 	}
 	img := image.NewPaletted(image.Rect(0, 0, objAtlasW, atlasH), game.WorldPalette(w, true))
 	for _, p := range ps {
 		scene.DrawFirstFrame(img, p.sp, p.f, p.x, p.y)
 	}
-	f, err := os.Create(path)
-	if err != nil {
-		return nil, err
+	ver, err := writePNG(path, img)
+	return rectOf, ver, err
+}
+
+// writePNG encodes img, hashes the bytes and writes the file, returning a short
+// content-hash cache-buster (`?v=<hash>`). The atlas layout changes whenever the object
+// set or a resolved frame changes, so a stale browser-cached atlas would sample the new
+// index.json rects at the wrong pixels (sprites replaced with fragments of others); the
+// versioned URL forces a fresh fetch. Empty img (no atlas) returns "".
+func writePNG(path string, img *image.Paletted) (string, error) {
+	if img.Bounds().Empty() {
+		return "", nil
 	}
-	defer f.Close()
-	return rectOf, png.Encode(f, img)
+	var buf bytes.Buffer
+	if err := png.Encode(&buf, img); err != nil {
+		return "", err
+	}
+	if err := os.WriteFile(path, buf.Bytes(), 0o644); err != nil {
+		return "", err
+	}
+	return fmt.Sprintf("%x", md5.Sum(buf.Bytes()))[:8], nil
 }
 
 // writeAtlas packs the world's 32x32 tiles into a grid PNG. Each tile sits in a
 // (tileSide+2*tileGutter)-pixel cell whose 1-pixel border duplicates the tile's edge
 // pixels (extrusion): when the viewer samples a sub-pixel past a tile's edge at
 // fractional zoom, it hits the tile's own colour instead of bleeding the neighbour.
-func writeAtlas(path string, block []byte, tableOff, nTiles int, pal color.Palette) error {
+func writeAtlas(path string, block []byte, tableOff, nTiles int, pal color.Palette) (string, error) {
 	rows := (nTiles + atlasCols - 1) / atlasCols
 	img := image.NewPaletted(image.Rect(0, 0, atlasCols*atlasCell, rows*atlasCell), pal)
 	clamp := func(v int) int {
@@ -395,12 +415,7 @@ func writeAtlas(path string, block []byte, tableOff, nTiles int, pal color.Palet
 			}
 		}
 	}
-	f, err := os.Create(path)
-	if err != nil {
-		return err
-	}
-	defer f.Close()
-	return png.Encode(f, img)
+	return writePNG(path, img)
 }
 
 func readPalette(block []byte, off int) color.Palette {
