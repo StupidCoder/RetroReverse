@@ -323,6 +323,7 @@ below pin the precise copy, so the work stays reproducible.
 | `Fort Apocalypse (C64)/Fort_Apocalypse.tap` | 225,817 | `bec7409816865f3ad160af9984f127cd` |
 | `Marble Madness (Amiga)/Marble_Madness.adf` | 901,120 | `735dc697d64b3eeaa000778eb0b1153a` |
 | `Mario Kart DS (DS)/Mario Kart DS (Europe) (En,Fr,De,Es,It).nds` | 33,554,432 | `18635a82108149b46fe276c6fac44ee6` |
+| `Ridge Racer (PSX)/Ridge Racer (Track 01).bin` | 3,683,232 | `ec755afa6ca49432445384b870412dfb` |
 | `Sonic (GG)/Sonic The Hedgehog (Japan, USA).gg` | 262,144 | `8a95b36139206a5ba13a38bb626aee25` |
 | `Stunt Car Racer (Amiga)/Stunt Car Racer.adf` | 901,120 | `b6d3751e6aa636f203f3c6a8de81ebfc` |
 | `Super Mario 64 DS (DS)/Super Mario 64 DS (Europe) (En,Fr,De,Es,It).nds` | 16,777,216 | `867b3d17ad268e10357c9754a77147e5` |
