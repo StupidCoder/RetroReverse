@@ -28,6 +28,8 @@ func main() {
 	spinbreak := flag.Bool("spinbreak", false, "poke past flag spin-waits (exploration; advances PC, not OS state)")
 	fbOut := flag.String("fb", "", "after the run, capture the VRAM framebuffer (320x240 RGB555) to this PNG")
 	fbBase := flag.Uint64("fbbase", 0x200000, "framebuffer base address in VRAM")
+	watch := flag.Uint64("watch", 0, "log writes to [watch, watch+watchlen) with the writing PC")
+	watchLen := flag.Uint64("watchlen", 4, "byte span for -watch")
 	flag.Parse()
 
 	var data []byte
@@ -94,6 +96,17 @@ func main() {
 		}
 	}
 
+	var watchHits []string
+	if *watch != 0 {
+		m.WatchLo = uint32(*watch)
+		m.WatchHi = uint32(*watch + *watchLen)
+		m.OnWrite = func(addr, val, pc uint32) {
+			if len(watchHits) < 2000 {
+				watchHits = append(watchHits, fmt.Sprintf("write [0x%08X]=0x%02X from pc=0x%08X", addr, val&0xFF, pc))
+			}
+		}
+	}
+
 	fmt.Printf("\n--- running (max %d steps) ---\n", *steps)
 	res := m.Run(*steps)
 	fmt.Printf("stopped: %s  after %d steps, pc=0x%08X\n", res.Reason, res.Steps, res.PC)
@@ -101,6 +114,13 @@ func main() {
 	if len(brk) > 0 {
 		fmt.Printf("\n--- breakpoint hits at 0x%X (last 12 of %d) ---\n", *breakAt, len(brk))
 		for _, s := range brk[max(0, len(brk)-12):] {
+			fmt.Println(" ", s)
+		}
+	}
+
+	if *watch != 0 {
+		fmt.Printf("\n--- watch [0x%X,+0x%X) writes (%d) ---\n", *watch, *watchLen, len(watchHits))
+		for _, s := range watchHits {
 			fmt.Println(" ", s)
 		}
 	}
