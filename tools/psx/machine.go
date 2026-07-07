@@ -40,9 +40,10 @@ const (
 
 	// isrStackTop is the top of a dedicated interrupt stack in the low kernel RAM
 	// (below the game's text at 0x10000), so a dispatched handler's stack frame
-	// never overlaps the interrupted code's stack. The real BIOS switches stacks
-	// the same way before invoking interrupt handlers.
-	isrStackTop = 0x8000F000
+	// never overlaps the interrupted code's stack — the real BIOS switches stacks
+	// the same way. Kept clear of ~0x8000F000, which the game uses for a stack of
+	// its own.
+	isrStackTop = 0x8000D000
 
 	// isrReturn is a sentinel return address for the ISR trampoline: when a
 	// vectored interrupt dispatches to a game handler, $ra is set here so the run

@@ -38,7 +38,11 @@ func (m *Machine) Run(maxSteps uint64) Result {
 		// Deliver a pending, enabled, unmasked interrupt: this vectors the CPU to
 		// 0x80000080, caught below as PC 0x80. Harmless while the game keeps
 		// interrupts masked (Ridge Racer's boot polls instead).
-		m.CPU.Interrupt((m.irqStat & m.irqMask) != 0)
+		// Don't deliver a new interrupt while a handler is still running: the ISR
+		// trampoline keeps a single saved context and one interrupt stack, so a
+		// nested dispatch would corrupt both (the game runs its handler to
+		// completion anyway — the BIOS enters with interrupts disabled).
+		m.CPU.Interrupt((m.irqStat&m.irqMask) != 0 && !m.isr.active)
 
 		pc := phys(m.CPU.PC)
 		switch pc {
