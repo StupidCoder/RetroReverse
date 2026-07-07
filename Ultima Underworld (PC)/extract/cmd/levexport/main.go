@@ -27,9 +27,10 @@ import (
 )
 
 type outTexture struct {
-	Wall bool   `json:"wall"`
-	Num  int    `json:"num"`
-	PNG  string `json:"png"` // data:image/png;base64,...
+	Wall    bool   `json:"wall"`
+	Ceiling bool   `json:"ceiling,omitempty"` // draw single-sided (see-into-rooms-from-above)
+	Num     int    `json:"num"`
+	PNG     string `json:"png"` // data:image/png;base64,...
 }
 
 type outGroup struct {
@@ -150,21 +151,22 @@ func main() {
 	// Assign a material index per (wall, texture-number) used, and sort the quads
 	// by material so each material's triangles form one contiguous group.
 	type matKey struct {
-		wall bool
-		num  uint16
+		wall    bool
+		ceiling bool
+		num     uint16
 	}
+	key := func(q levgeo.Quad) matKey { return matKey{q.Wall, q.Ceiling, q.Tex} }
 	matIndex := map[matKey]int{}
 	var mats []matKey
 	for _, q := range mesh.Quads {
-		k := matKey{q.Wall, q.Tex}
+		k := key(q)
 		if _, ok := matIndex[k]; !ok {
 			matIndex[k] = len(mats)
 			mats = append(mats, k)
 		}
 	}
 	sort.SliceStable(mesh.Quads, func(i, j int) bool {
-		return matIndex[matKey{mesh.Quads[i].Wall, mesh.Quads[i].Tex}] <
-			matIndex[matKey{mesh.Quads[j].Wall, mesh.Quads[j].Tex}]
+		return matIndex[key(mesh.Quads[i])] < matIndex[key(mesh.Quads[j])]
 	})
 
 	// Emit triangles (two per quad), Y-up. The game world is (X=east, Y=north,
@@ -176,7 +178,7 @@ func main() {
 	groupStart := map[int]int{}
 	groupCount := map[int]int{}
 	for _, q := range mesh.Quads {
-		mat := matIndex[matKey{q.Wall, q.Tex}]
+		mat := matIndex[key(q)]
 		if _, ok := groupStart[mat]; !ok {
 			groupStart[mat] = len(o.Positions) / 3
 		}
@@ -201,7 +203,7 @@ func main() {
 			im, err = floorTR.Image(int(k.num)%floorTR.Count(), pal)
 		}
 		must(err)
-		o.Textures = append(o.Textures, outTexture{Wall: k.wall, Num: int(k.num), PNG: toDataURI(im)})
+		o.Textures = append(o.Textures, outTexture{Wall: k.wall, Ceiling: k.ceiling, Num: int(k.num), PNG: toDataURI(im)})
 	}
 
 	// Bake the 3D-class objects (doors, pillars, bridges...) into the mesh as

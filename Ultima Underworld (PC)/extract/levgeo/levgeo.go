@@ -58,11 +58,12 @@ const WallTexUnitsPerCopy = 1.0
 // Quad is one textured polygon. For a triangle, Tri is set and P[3]/UV[3] are
 // unused. P holds the corners (CCW seen from the front); UV the texture coords.
 type Quad struct {
-	P    [4][3]float32
-	UV   [4][2]float32
-	Tex  uint16 // global texture number
-	Wall bool   // W64.TR wall texture (vs F32.TR floor)
-	Tri  bool   // triangle (3 verts) rather than quad (4)
+	P       [4][3]float32
+	UV      [4][2]float32
+	Tex     uint16 // global texture number
+	Wall    bool   // W64.TR wall texture (vs F32.TR floor)
+	Tri     bool   // triangle (3 verts) rather than quad (4)
+	Ceiling bool   // a ceiling face (wound normal-down; the viewer draws it single-sided)
 }
 
 // Mesh is the whole level's geometry.
@@ -176,9 +177,10 @@ func Build(g *lev.Grid, tm *lev.TexMap, ceilings bool) *Mesh {
 			})
 			if ceilings {
 				m.Quads = append(m.Quads, Quad{
-					P:   [4][3]float32{{fx, fy, ceilingZ}, {fx, fy + 1, ceilingZ}, {fx + 1, fy + 1, ceilingZ}, {fx + 1, fy, ceilingZ}},
-					UV:  [4][2]float32{{0, 0}, {0, 1}, {1, 1}, {1, 0}},
-					Tex: CeilingTex,
+					P:       [4][3]float32{{fx, fy, ceilingZ}, {fx, fy + 1, ceilingZ}, {fx + 1, fy + 1, ceilingZ}, {fx + 1, fy, ceilingZ}},
+					UV:      [4][2]float32{{0, 0}, {0, 1}, {1, 1}, {1, 0}},
+					Tex:     CeilingTex,
+					Ceiling: true,
 				})
 			}
 			for _, e := range tileEdges(x, y) {
@@ -220,7 +222,7 @@ func buildDiagonal(m *Mesh, g *lev.Grid, x, y int, t lev.Tile, ftex, wtex uint16
 		m.Quads = append(m.Quads, Quad{
 			P:   [4][3]float32{{tp[0][0], tp[0][1], ceilingZ}, {tp[2][0], tp[2][1], ceilingZ}, {tp[1][0], tp[1][1], ceilingZ}, {tp[1][0], tp[1][1], ceilingZ}},
 			UV:  [4][2]float32{tuv[0], tuv[2], tuv[1], tuv[1]},
-			Tex: CeilingTex, Tri: true,
+			Tex: CeilingTex, Tri: true, Ceiling: true,
 		})
 	}
 

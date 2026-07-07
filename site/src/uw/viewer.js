@@ -119,7 +119,12 @@ export class LevelViewer {
       tex.magFilter = THREE.NearestFilter;
       tex.minFilter = THREE.LinearMipmapLinearFilter;
       tex.colorSpace = THREE.SRGBColorSpace;
-      return new THREE.MeshBasicMaterial({ map: tex, side: THREE.DoubleSide });
+      // Ceilings are wound normal-down, so drawing them FrontSide culls them when
+      // seen from above — you can peer into rooms from a bird's-eye view — while
+      // they still cap the room when you're inside looking up. Everything else is
+      // double-sided.
+      const side = t.ceiling ? THREE.FrontSide : THREE.DoubleSide;
+      return new THREE.MeshBasicMaterial({ map: tex, side });
     });
 
     const geo = new THREE.BufferGeometry();
