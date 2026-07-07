@@ -29,6 +29,9 @@ function idLine(pick) {
   const m = pick.meta || {};
   const parts = [];
   if (m.type != null) parts.push('type $' + Number(m.type).toString(16).toUpperCase());
+  // Turrican: the placement's low byte (node+$1E) is the orientation/direction the AI
+  // handler reads; `frame` is the frame it picked for that orientation (node+$C).
+  if (m.orient != null) parts.push('orient $' + Number(m.orient).toString(16).toUpperCase());
   if (m.handler) parts.push('AI $' + m.handler);
   if (m.hard) parts.push('hard-mode');
   if (m.sprite) parts.push('sprite ' + m.sprite);

@@ -34,10 +34,16 @@ func (g *Game) Space(w int, resident bool) Space {
 // FirstFrame decodes the first BOB descriptor of the frame table at ft, validating
 // its bitmap lies in [gfxLo,gfxHi).
 func FirstFrame(sp Space, ft, gfxLo, gfxHi int) (Frame, bool) {
-	if ft == 0 || !sp.Has(ft, 4) {
+	return NthFrame(sp, ft, 0, gfxLo, gfxHi)
+}
+
+// NthFrame decodes BOB descriptor number n (frame index) of the frame table at ft — the
+// frame the AI selects via node+$C — validating its bitmap lies in [gfxLo,gfxHi).
+func NthFrame(sp Space, ft, n, gfxLo, gfxHi int) (Frame, bool) {
+	if ft == 0 || n < 0 || !sp.Has(ft+n*4, 4) {
 		return Frame{}, false
 	}
-	p := sp.be32(ft)
+	p := sp.be32(ft + n*4)
 	if p < sp.Base || !sp.Has(p, 14) {
 		return Frame{}, false
 	}
@@ -49,6 +55,14 @@ func FirstFrame(sp Space, ft, gfxLo, gfxHi int) (Frame, bool) {
 		return Frame{}, false
 	}
 	return Frame{Bitmap: bm, H: h, DW: dw}, true
+}
+
+// FrameAt decodes frame n of frame table ft for world w in the given space (resident or
+// scene block), picking the right gfx range. Convenience wrapper over NthFrame.
+func (g *Game) FrameAt(w, ft, n int, resident bool) (Frame, bool) {
+	sp := g.Space(w, resident)
+	lo, hi := g.GfxRange(w, resident)
+	return NthFrame(sp, ft, n, lo, hi)
 }
 
 // DrawFirstFrame decodes one 4-bitplane plane-major BOB into img at (ox,oy); colour

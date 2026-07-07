@@ -56,10 +56,13 @@ func (s Space) Has(a, n int) bool {
 // Object is one placed object, resolved to its sprite.
 type Object struct {
 	Type     int  // entry type (high byte of the type word)
+	Orient   int  // placement low byte -> node+$1E: the orientation/direction selector
 	X, Y     int  // world pixel position of the BOB top-left
-	Handler  int  // AI handler address (0 if unresolved)
+	Handler  int  // AI handler address (0 if unresolved) — the steady-state AI after init
 	FT       int  // frame table the handler installs (the sprite; 0 if none)
+	Frame    int  // frame index within FT that the handler selects for this orientation
 	Resident bool // sprite lives in resident space (vs the scene block)
+	Simmed   bool // true if X/Y/FT/Frame/Handler came from running the handler's init
 }
 
 // Scene is one scene's geometry, spawn and objects.
@@ -180,7 +183,7 @@ func (g *Game) objects(w int, blk Space, hi, desc, width, height int) []Object {
 	}
 
 	// Walk each column run to its $00D3 terminator, deduping entries by address.
-	type ent struct{ ty, x, y int }
+	type ent struct{ ty, lo, x, y int }
 	seen := map[int]ent{}
 	for p := range heads {
 		for a := p; blk.Has(a, 6); a += 6 {
@@ -191,7 +194,10 @@ func (g *Game) objects(w int, blk Space, hi, desc, width, height int) []Object {
 			if w == 0 {
 				continue // skipped hole
 			}
-			seen[a] = ent{ty: int(blk.Data[a-blk.Base]), x: blk.be16(a + 2), y: blk.be16(a + 4)}
+			seen[a] = ent{
+				ty: int(blk.Data[a-blk.Base]), lo: int(blk.Data[a-blk.Base+1]),
+				x: blk.be16(a + 2), y: blk.be16(a + 4),
+			}
 		}
 	}
 
@@ -201,7 +207,7 @@ func (g *Game) objects(w int, blk Space, hi, desc, width, height int) []Object {
 		if px < 0 || py < 0 || px >= width*32 || py >= height*32 {
 			continue
 		}
-		o := Object{Type: e.ty, X: px, Y: py}
+		o := Object{Type: e.ty, Orient: e.lo, X: px, Y: py}
 		o.Handler, o.Resident = g.handler(blk, hi, aiTbl, e.ty)
 		if o.Handler != 0 {
 			o.FT = g.frameTable(blk, hi, o.Handler, o.Resident)

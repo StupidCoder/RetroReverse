@@ -85,9 +85,11 @@ type jsonObject struct {
 	X       int    `json:"x"`
 	Y       int    `json:"y"`
 	Sprite  string `json:"sprite"`
-	Name    string `json:"name"`              // info-card key = the sprite/frame-table id (Turrican's stable object identity; the placement `type` is only scene-local)
+	Name    string `json:"name"`              // info-card key = the frame-table id (Turrican's stable object identity; the placement `type` is only scene-local)
 	Type    int    `json:"type"`              // placement type byte (scene-local; resolves to the AI handler)
-	Handler string `json:"handler,omitempty"` // AI handler routine address, hex (the object's behaviour identity)
+	Orient  int    `json:"orient"`            // placement low byte -> node+$1E: the orientation/direction the handler reads
+	Frame   int    `json:"frame"`             // frame index the handler selected for this orientation (node+$C)
+	Handler string `json:"handler,omitempty"` // AI handler routine address, hex (the steady-state behaviour after spawn-init)
 }
 
 type jsonLevel struct {
@@ -110,12 +112,25 @@ type metaLevel struct {
 	Atlas   string `json:"atlas"`
 }
 
-// spriteKey identifies a frame table within a world (resident and scene tables share
-// no addresses, but the flag keeps the mapping explicit).
+// spriteKey identifies one displayed sprite frame within a world: a frame table plus the
+// frame index the object's handler selects for its orientation (resident and scene tables
+// share no addresses, but the flag keeps the mapping explicit).
 type spriteKey struct {
 	ft       int
 	resident bool
+	frame    int
 }
+
+// infoKey is the frame-independent object identity (the AI frame table) used as the
+// info-card key; renderKey adds the frame so each orientation packs its own atlas rect.
+func (k spriteKey) infoKey(w int) string {
+	s := fmt.Sprintf("w%d/ft%X", w, k.ft)
+	if k.resident {
+		s += "r"
+	}
+	return s
+}
+func (k spriteKey) renderKey(w int) string { return fmt.Sprintf("%s.%d", k.infoKey(w), k.frame) }
 
 func main() {
 	out := flag.String("o", "site/public/turrican", "output directory")
@@ -171,13 +186,23 @@ func run(adfPath, outDir string) error {
 
 		scenes := game.Scenes(w)
 
-		// Collect every sprite the world's objects use, then pack each one's first
-		// frame into the world object atlas.
+		// Resolve each placed object's displayed sprite/frame/position by running its
+		// AI handler's spawn-init in the 68000 interpreter (scene.Sim) — reproducing the
+		// engine's orientation/direction handling instead of always showing frame 0.
+		sim := game.NewSim(w)
+		for si := range scenes {
+			for oi := range scenes[si].Objects {
+				game.Resolve(sim, &scenes[si].Objects[oi])
+			}
+		}
+
+		// Collect every displayed sprite frame the world's objects use, then pack each
+		// one into the world object atlas.
 		used := map[spriteKey]bool{}
 		for _, sc := range scenes {
 			for _, o := range sc.Objects {
 				if o.FT != 0 {
-					used[spriteKey{o.FT, o.Resident}] = true
+					used[spriteKey{o.FT, o.Resident, o.Frame}] = true
 				}
 			}
 		}
@@ -186,13 +211,9 @@ func run(adfPath, outDir string) error {
 		if err != nil {
 			return err
 		}
-		// world-scoped sprite keys -> single-frame entries in sprites/index.json
+		// world-scoped render keys (frame table + frame) -> single-frame entries.
 		for k, r := range rectOf {
-			key := fmt.Sprintf("w%d/ft%X", w, k.ft)
-			if k.resident {
-				key += "r"
-			}
-			spriteIndex[key] = map[string]any{
+			spriteIndex[k.renderKey(w)] = map[string]any{
 				"src":    objAtlasName,
 				"frames": [][4]int{{r.X, r.Y, r.W, r.H}},
 			}
@@ -217,15 +238,15 @@ func run(adfPath, outDir string) error {
 
 			var objects []jsonObject
 			for _, o := range sc.Objects {
-				k := spriteKey{o.FT, o.Resident}
+				k := spriteKey{o.FT, o.Resident, o.Frame}
 				if _, ok := rectOf[k]; !ok {
 					continue // no sprite resolved (unhandled type) — skip
 				}
-				key := fmt.Sprintf("w%d/ft%X", w, k.ft)
-				if k.resident {
-					key += "r"
+				obj := jsonObject{
+					X: o.X, Y: o.Y,
+					Sprite: k.renderKey(w), Name: k.infoKey(w),
+					Type: o.Type, Orient: o.Orient, Frame: o.Frame,
 				}
-				obj := jsonObject{X: o.X, Y: o.Y, Sprite: key, Name: key, Type: o.Type}
 				if o.Handler != 0 {
 					obj.Handler = fmt.Sprintf("%X", o.Handler)
 				}
@@ -282,7 +303,10 @@ func writeObjAtlas(path string, game *scene.Game, w int, used map[spriteKey]bool
 		if keys[i].resident != keys[j].resident {
 			return keys[i].resident
 		}
-		return keys[i].ft < keys[j].ft
+		if keys[i].ft != keys[j].ft {
+			return keys[i].ft < keys[j].ft
+		}
+		return keys[i].frame < keys[j].frame
 	})
 
 	rectOf := map[spriteKey]objSprite{}
@@ -295,8 +319,7 @@ func writeObjAtlas(path string, game *scene.Game, w int, used map[spriteKey]bool
 	cx, cy, shelfH, atlasH := 0, 0, 0, 0
 	for _, k := range keys {
 		sp := game.Space(w, k.resident)
-		lo, hi := game.GfxRange(w, k.resident)
-		f, ok := scene.FirstFrame(sp, k.ft, lo, hi)
+		f, ok := game.FrameAt(w, k.ft, k.frame, k.resident) // the orientation's frame
 		if !ok {
 			continue
 		}

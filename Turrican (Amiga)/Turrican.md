@@ -1194,6 +1194,50 @@ driving Paula (`AUDxPER`/`AUDxVOL`).
 > period-pitched 8-bit samples), render to PCM and encode an MP3 to the loop point.
 > Also: the player composite (`$56AC` and its part tables).
 
+## 8. Object orientation — the placement low byte, resolved by running the code
+
+The `type → handler → sprite` table of §6 gives each object its frame *table*, but not
+its **facing**. That is the placement entry's other half. Each entry is `type.w, x.w,
+y.w`; the spawner (`enemy_spawner $1710`) uses only the type word's **high** byte for the
+handler and writes its **low** byte into the object node at **`+$1E`**:
+
+```
+0017CC  MOVE.b (a4),d4        ; d4 = handler index  (HIGH byte of the type word)
+00182C  MOVE.b $1(a4),$1E(a5) ; node+$1E            (LOW byte)  <- the orientation selector
+```
+
+The low byte is `$80 | index` — bit 7 is the "just spawned" flag the handler tests, the
+low bits are an orientation/direction index. On its first run each AI handler reads `+$1E`
+and, for that orientation, chooses the **frame index** (`node+$C`), the movement direction
+(velocity `+$2E`/`+$30`) and small position adjustments. The Amiga's BOB blit
+(`draw_object_bob $603A` / `object_draw $1C0C`) is a plain cookie-cut copy with **no flip**,
+so every facing — including a vertical flip — is a *separate pre-drawn frame* in the one
+frame table. Two shaft examples (internal world 2):
+
+| sprite | type | AI | orient → frame |
+| --- | --- | --- | --- |
+| `$1F68A` four-way cannon | 10 | `$1F4FE` | `$80`→0 up, `$81`→1 down, `$82`→2 right, `$83`→3 left |
+| `$1F9A4` block turret | 11 | `$1F7FA` | `$80`→0 up, `$81`→**7** (pre-drawn upside-down) |
+
+e.g. type-4 handler `$1E598`: `TST.b $1E; ... ANDI.b #$7F,$1E; BNE ...` → index 0 sets
+velocity `+2`, index 1 sets `$FFFE` (−2). Movers select the facing frame from velocity in
+their per-frame path; static emplacements set it directly in init.
+
+**Resolution — run the handler, don't reimplement it.** Rather than parse each handler
+statically, `extract/scene/sim.go` runs every object's spawn-init in a small 68000
+interpreter (`extract/m68k`, the CPU core lifted from the music-driver interpreter of §7)
+and reads back the resolved `node+$12/$C/$18/$1A` — the same "run the code" method that
+made the music byte-exact. Per object it restores a clean engine+block image, runs the
+engine's own `obj_pool_init $1A68` so an init that allocs a sub-object (`$108 → $1ABA`)
+gets valid scratch, seeds `node+$1E`, and calls the handler with `a5` = node. A fault, a
+runaway or an implausible frame falls back to the static frame-0/raw-position result; a
+position that jumps far (a handful of flyers hard-code a *screen* position, e.g.
+`node.x=$150`) keeps the raw placement but takes the resolved sprite. `webexport` packs
+each `(frame table, frame)` into the object atlas and the JSON carries each object's
+`orient` and `frame`, so the viewer shows the facing the Amiga does — cannons pointing
+every way around a shaft, turrets flipped — instead of every object at frame 0 (which had
+them all pointing up).
+
 # Appendix A — Toolchain and reproduction
 
 The disk facts above reproduce with the shared tools:
