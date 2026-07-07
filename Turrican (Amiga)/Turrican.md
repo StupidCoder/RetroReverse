@@ -1209,15 +1209,20 @@ handler and writes its **low** byte into the object node at **`+$1E`**:
 The low byte is `$80 | index` — bit 7 is the "just spawned" flag the handler tests, the
 low bits are an orientation/direction index. On its first run each AI handler reads `+$1E`
 and, for that orientation, chooses the **frame index** (`node+$C`), the movement direction
-(velocity `+$2E`/`+$30`) and small position adjustments. The Amiga's BOB blit
-(`draw_object_bob $603A` / `object_draw $1C0C`) is a plain cookie-cut copy with **no flip**,
-so every facing — including a vertical flip — is a *separate pre-drawn frame* in the one
-frame table. Two shaft examples (internal world 2):
+(velocity `+$2E`/`+$30`) and small position adjustments. A facing is realised one of two
+ways. Usually it is a *distinct pre-drawn frame* in the frame table (the ordinary
+`draw_object_bob $603A` / `object_draw $1C0C` path is a plain cookie-cut copy). A **vertical
+flip**, though, reuses the *same* bitmap tagged with the BOB descriptor's **+$D flag**: when
+set, the draw takes the alt path (`draw_object_bob_alt $6202`, reached by `TST.b $D(a0); BNE`)
+which blits **descending** (bottom-up) — an upside-down copy. Such a flip frame's descriptor
+is the extended 24-byte form (it carries the descending-blit start pointers at +$10/+$14),
+but the pixels are identical to the upright frame. Three shaft examples:
 
-| sprite | type | AI | orient → frame |
-| --- | --- | --- | --- |
-| `$1F68A` four-way cannon | 10 | `$1F4FE` | `$80`→0 up, `$81`→1 down, `$82`→2 right, `$83`→3 left |
-| `$1F9A4` block turret | 11 | `$1F7FA` | `$80`→0 up, `$81`→**7** (pre-drawn upside-down) |
+| sprite | world | type | AI | orient → frame |
+| --- | --- | --- | --- | --- |
+| `$1F68A` four-way cannon | 2 | 10 | `$1F4FE` | `$80`→0 up, `$81`→1 down, `$82`→2 right, `$83`→3 left (distinct frames) |
+| `$1F9A4` block turret | 2 | 11 | `$1F7FA` | `$80`→0 up, `$81`→**7** (= frame 0 + **+$D** flip) |
+| `$1DB3E` flip cannon | 1 | 5/9 | `$1D98E` | `$80`→0 up, `$81`→**7** (= frame 0 + **+$D** flip), lowered 32 px |
 
 e.g. type-4 handler `$1E598`: `TST.b $1E; ... ANDI.b #$7F,$1E; BNE ...` → index 0 sets
 velocity `+2`, index 1 sets `$FFFE` (−2). Movers select the facing frame from velocity in
@@ -1236,7 +1241,9 @@ position that jumps far (a handful of flyers hard-code a *screen* position, e.g.
 each `(frame table, frame)` into the object atlas and the JSON carries each object's
 `orient` and `frame`, so the viewer shows the facing the Amiga does — cannons pointing
 every way around a shaft, turrets flipped — instead of every object at frame 0 (which had
-them all pointing up).
+them all pointing up). The sprite decoder (`extract/scene/sprite.go`) reads each frame's
+descriptor +$D flag and, when set, reverses the bitmap's rows to reproduce the descending
+(vertical-flip) blit.
 
 # Appendix A — Toolchain and reproduction
 

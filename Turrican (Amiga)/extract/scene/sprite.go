@@ -9,9 +9,10 @@ import (
 // Frame is a decoded BOB animation frame: a 4-bitplane plane-major bitmap, one word
 // narrower than BLTSIZE's width (the cookie-cut shift reads an extra word).
 type Frame struct {
-	Bitmap int // bitmap data address
-	H      int // height in pixels
-	DW     int // data width in 16-px words
+	Bitmap int  // bitmap data address
+	H      int  // height in pixels
+	DW     int  // data width in 16-px words
+	VFlip  bool // descriptor +$D flag set -> the engine draws it vertically flipped
 }
 
 // GfxRange returns the [lo,hi) a frame table's bitmaps must fall in for the space a
@@ -54,7 +55,11 @@ func NthFrame(sp Space, ft, n, gfxLo, gfxHi int) (Frame, bool) {
 	if bm < gfxLo || bm >= gfxHi || dw < 1 || h < 1 || h > 96 || !sp.Has(bm, 4*h*dw*2) {
 		return Frame{}, false
 	}
-	return Frame{Bitmap: bm, H: h, DW: dw}, true
+	// Descriptor +$D flag: the engine draws these via the alt BOB path (draw_object_bob_alt
+	// $6202), a descending blit from the bitmap's bottom row = a vertical flip. The bitmap
+	// itself is the same pixels, so we decode it normally and reverse the rows on draw.
+	vflip := sp.Data[p+0xD-sp.Base] != 0
+	return Frame{Bitmap: bm, H: h, DW: dw, VFlip: vflip}, true
 }
 
 // FrameAt decodes frame n of frame table ft for world w in the given space (resident or
@@ -71,6 +76,10 @@ func DrawFirstFrame(img *image.Paletted, sp Space, f Frame, ox, oy int) {
 	bpr := f.DW * 2
 	planeSize := f.H * bpr
 	for y := 0; y < f.H; y++ {
+		dy := y
+		if f.VFlip { // draw bottom row first (the descending-blit vertical flip)
+			dy = f.H - 1 - y
+		}
 		for x := 0; x < f.DW*16; x++ {
 			var v uint8
 			for p := 0; p < 4; p++ {
@@ -80,7 +89,7 @@ func DrawFirstFrame(img *image.Paletted, sp Space, f Frame, ox, oy int) {
 				}
 			}
 			if v != 0 {
-				img.SetColorIndex(ox+x, oy+y, v)
+				img.SetColorIndex(ox+x, oy+dy, v)
 			}
 		}
 	}

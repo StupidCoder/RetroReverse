@@ -16,12 +16,15 @@
 // word's high byte for the handler and writes its LOW byte into the object node at +$1E —
 // the orientation/direction selector (usually $80 | index). The handler reads +$1E on its
 // first (spawn-init) run and picks the frame ($C) / direction / position for that
-// orientation. Because the BOB blit has no flip, every facing is a *pre-drawn frame* in
-// the one frame table (e.g. the shaft cannon $1F68A: frame 0 up, 1 down, 2 right, 3 left;
-// the block turret $1F9A4: frame 0 up, 7 flipped down). The exporter (extract/cmd/webexport
-// + extract/scene/sim.go) resolves each object's displayed frame/position by RUNNING its
-// handler's init in a 68000 interpreter — the same "run the code" method as the music — so
-// the viewer shows the facing the Amiga does, not a fixed frame 0.
+// orientation. A facing is realised one of two ways: a distinct pre-drawn frame (the shaft
+// cannon $1F68A: frame 0 up, 1 down, 2 right, 3 left), or — for a vertical flip — the *same*
+// bitmap tagged with the BOB descriptor's +$D flag, which the engine draws through the alt
+// path (draw_object_bob_alt $6202) as a descending/bottom-up blit = upside-down (the block
+// turret $1F9A4 and the world-2 cannon $1DB3E: frame 7 = frame 0 with +$D set). The exporter
+// (extract/cmd/webexport + extract/scene/sim.go) resolves each object's displayed
+// frame/position by RUNNING its handler's init in a 68000 interpreter — the same "run the
+// code" method as the music — and honours the +$D flip, so the viewer shows the facing the
+// Amiga does, not a fixed frame 0.
 //
 // Keys are the frame-table strings; "player" is the spawn. Prose is folded from
 // Turrican.md Part V §2–§6/§8 + disasm/resident_core.asm; objects our RE doesn't describe
@@ -134,9 +137,10 @@ const objectInfo = {
   'w2/ft1F9A4': {
     title: 'Block turret (sprite $1F9A4)',
     text: 'A turret mounted on a destructible block — placement type 11, AI handler $1F7FA, frame table $1F9A4. '
-      + 'The orientation byte flips it vertically: orient $80 → frame 0 (barrel up), $81 → frame 7 (a pre-drawn '
-      + 'upside-down copy). This is the vertical-flip case — there is no flip bit in the blitter, the mirrored '
-      + 'frame is stored in the table and the handler selects it from node+$1E.',
+      + 'The orientation byte flips it vertically: orient $80 → frame 0 (barrel up), $81 → frame 7. Frame 7 is '
+      + 'the *same* bitmap as frame 0 but its BOB descriptor sets the +$D flag, and the engine draws such frames '
+      + 'through the alt path (draw_object_bob_alt $6202) as a descending, bottom-up blit — an upside-down copy. '
+      + 'The viewer honours the +$D flag by reversing the sprite’s rows.',
   },
   'w2/ft1EC38': {
     title: 'Shaft rocket (sprite $1EC38)',
@@ -152,6 +156,14 @@ const objectInfo = {
       + 'or handed off from the type-9 launcher $1EA82). It installs frame table $1E8F6 and displays frame 7; '
       + 'the orientation byte sets a spawn flag and nudges its start position, and the handler then runs its '
       + 'drop/gravity behaviour.',
+  },
+  'w1/ft1DB3E': {
+    title: 'Flip cannon (sprite $1DB3E)',
+    text: 'A wall cannon (world 2) — AI handler $1D98E (placement types 5/9). The orientation byte flips it '
+      + 'vertically: orient $80 → frame 0 (upright), $81 → frame 7, which the handler lowers by 32 px ($1A += $20) '
+      + 'to hang from the ceiling. Frame 7 is frame 0’s bitmap with the descriptor +$D flag set; the engine draws '
+      + 'it as a descending, bottom-up blit (draw_object_bob_alt $6202) = upside-down. The viewer reproduces this '
+      + 'by reversing the sprite’s rows.',
   },
   'w2/ft20A7A': {
     title: 'Directional projectile (sprite $20A7A)',
