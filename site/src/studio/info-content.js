@@ -2186,6 +2186,179 @@ instruments resample their PCM or ADPCM waves for each note's pitch, and the voi
 32768&nbsp;Hz &mdash; the same reimplemented sequencer and synthesizer that plays Mario Kart DS's music,
 reused unchanged. Each track plays two loops and fades.</p>
 `,
+    gameplay: `
+<div class="info-eyebrow">Super Mario 64 DS &middot; Gameplay</div>
+<p>Everything that moves in a course &mdash; coins, enemies, signposts, the platforms you ride &mdash; is an
+<strong>actor</strong> placed by the level data and run by the engine, and every actor feels the world through a
+<strong>collision mesh separate from the model you see</strong>.</p>
+
+<h2>From a level number to its objects</h2>
+<p>Loading a course indexes two 52-entry tables in the ARM9 data: one maps the level to its code overlay, the other
+to a 28-byte <strong>settings block</strong> that names the level's display model, its collision mesh and its object
+tables as internal file IDs. Each placed object is a compact record &mdash; an object id and a signed 16-bit
+<code>x/y/z</code> whose shorts, shifted up, <em>are</em> the world coordinate, plus a rotation and a couple of
+parameters. Standard objects are 16 bytes; <strong>entrances</strong> share the form and the level's first one is
+where Mario spawns; and 8-byte <strong>simple objects</strong> carry set-dressing like trees and coins. Across the
+52 levels this comes to about <strong>4,350 placements</strong>. Every object id is first translated through an
+<strong>object&rarr;actor table</strong> before spawning &mdash; the id in the level data is not the actor the
+engine runs.</p>
+
+<h2>Actors are C++ objects</h2>
+<p>An actor's behavior is <strong>C++ virtual methods, not a script</strong>: each profile installs a vtable whose
+slots the engine calls every frame &mdash; an init, a per-frame step, a draw. What an actor <em>does</em> lives in
+its step, and the ones traced here show the range:</p>
+<ul>
+  <li>a <strong>coin</strong> adds a fixed amount to its yaw every frame &mdash; a flat quad turning about 1.4 times
+  a second, so the spin is <em>geometry</em>, not a texture animation;</li>
+  <li>a <strong>signpost</strong> casts a downward collision ray when it spawns to <strong>snap itself to the
+  ground</strong>, then watches an interaction flag and starts a dialog when the player is in range (its words come
+  from the message system);</li>
+  <li>a <strong>goomba</strong> wanders: it eases its forward speed toward a per-state value, eases its heading
+  toward a target, repicks a random heading on a 100-frame timer (three turns in four, a pause the fourth), stays
+  <strong>leashed</strong> to its spawn point, and drops into a chase inside its sight radius;</li>
+  <li>a <strong>chain chomp</strong> lunges on a chain strung to a stake it <strong>spawns as a child actor</strong>,
+  and a <strong>bob-omb</strong> wanders home-biased and sprints once its fuse is lit.</li>
+</ul>
+
+<h2>Collision &mdash; the .kcl mesh</h2>
+<p>The mesh you see is <strong>never</strong> queried for physics. Every level, and every solid platform, pairs its
+display model with a <code>.kcl</code> <strong>collision mesh</strong>, and actors probe it through a small family
+of walkers that live in the DS's zero-wait instruction memory: a <strong>down-ray</strong> ("the highest floor
+under this point"), a segment sweep and a sphere. The mesh is a plane-based triangle soup indexed by an
+<strong>octree</strong>, so a query descends straight to the few triangles near the point; a triangle is stored not
+as three corners but as one anchor vertex plus normal indices and an edge length &mdash; the compact plane-based
+encoding.</p>
+<p>What a surface <em>does</em> &mdash; floor, wall, water, death plane, slippery ice &mdash; is deliberately
+<strong>not</strong> in the mesh. Each triangle carries only an index into a separate <code>CLPS</code> attribute
+table, and every query carries a flag byte that <strong>filters which surfaces it can see</strong>. So the same
+mesh answers a plain ground ray (only ordinary floors) and a water probe (the water plane) differently &mdash; the
+reason a signpost's ground-snap ignores the pool it stands beside. The viewer's <strong>Collision</strong> toggle
+draws this mesh in red; what stays uncoloured &mdash; bridge rails, flags, window glass &mdash; has no collision at
+all.</p>
+`,
+  },
+  uw: {
+    loader: `
+<div class="info-eyebrow">Ultima Underworld &middot; Image &amp; Loader</div>
+<p>Ultima Underworld is a 16-bit <strong>MS-DOS real-mode</strong> program from 1992, before DOS extenders were
+common. <code>UW.EXE</code> begins with the <code>MZ</code> signature and carries no <code>PE</code>, extender stub
+or protected-mode header &mdash; it runs on the bare 8086-compatible instruction set, addressing memory through the
+classic <code>segment:offset</code> scheme, and it pages its own code out of the executable because the whole game
+cannot fit in the 640&nbsp;KB a real-mode PC offers.</p>
+
+<h2>The executable and its overlays</h2>
+<p>The header describes a load module of roughly <strong>408&nbsp;KB</strong> that DOS copies into memory, but the
+file is larger still: about <strong>141&nbsp;KB of extra data sits appended past that image</strong>, which DOS never
+loads. That trailing region is a <strong>self-managed code-overlay store</strong> &mdash; segments of code the program
+pages in on demand as the player moves between the world, the menus and the intro. The resident image is only a spine;
+the 3-D renderer, the world code and much else live in overlays fetched from the store as needed. The header also
+carries a 3,176-entry relocation table, since every far pointer baked into the image must be fixed up with the
+runtime load segment.</p>
+
+<h2>The data catalog</h2>
+<p>Beside the executable sit four folders of data. <strong><code>DATA/</code></strong> is the core database: the two
+big archives <code>LEV.ARK</code> (the dungeon levels) and <code>CNV.ARK</code> (the conversation scripts), the
+<code>.GR</code> image banks (objects, weapons, heads, cursors), the <code>.TR</code> wall and floor
+<strong>textures</strong> at 16/32/64 pixels, full-screen <code>.BYT</code> images, small <code>.DAT</code> tables
+(objects, palettes, skills), the packed text in <code>STRINGS.PAK</code> and the bitmap fonts.
+<strong><code>CRIT/</code></strong> holds the creatures as paged animation-frame banks, <strong><code>CUTS/</code></strong>
+the cutscenes as sequenced page files, and <strong><code>SOUND/</code></strong> the audio &mdash; digitized
+<code>.VOC</code> voice, sequenced <code>.XMI</code> music and the Miles sound-driver files. None of these is a
+memory-mapped resource: the game opens and parses each file as it needs it.</p>
+`,
+    engine: `
+<div class="info-eyebrow">Ultima Underworld &middot; Game Engine</div>
+<p>Ultima Underworld manages its own memory and its own code, and it drives the PC hardware directly &mdash; leaning
+on a handful of DOS, BIOS and hardware services more heavily than most games of its day. Understanding how it runs
+means understanding its <strong>overlay system</strong> and the machine it expects underneath it.</p>
+
+<h2>Code paged in on demand</h2>
+<p>Because the program is far larger than it loads, its C runtime installs an <strong><code>INT 3Fh</code> overlay
+dispatcher</strong>. A call into overlaid code traps through that vector; the handler reads a small thunk off the
+return address, looks the overlay up in a resident directory, and <strong>reads its code out of <code>UW.EXE</code>
+into a fresh segment</strong> &mdash; standard Microsoft-C overlay machinery. So which code is resident depends on
+what the game is doing: the renderer's overlay (segment <code>07F7</code>), the tile tessellator (<code>1FF9</code>)
+and the software rasteriser page in and out as the view is drawn.</p>
+
+<h2>The machine it expects</h2>
+<p>UW is demanding about its environment. It <strong>requires an EMS (expanded memory) driver</strong> &mdash; without
+one it prints "Out of EMS Memory" and quits &mdash; and uses it to stream whole screens through a 64&nbsp;KB page
+frame. It manages RAM by resizing its own program block through DOS and sub-allocating inside it. It talks to the
+hardware directly: it detects a VGA through the video BIOS and sets <strong>mode 13h</strong>, probes for a Sound
+Blaster Pro, handshakes the keyboard controller and reads the timer, and hooks the timer interrupt while chaining the
+previous handler. Input arrives at two layers: UW installs its <strong>own keyboard interrupt handler</strong> that
+reads each raw scancode into a 64-byte ring, and it polls a Microsoft-compatible <code>INT 33h</code> mouse driver for
+the pointer &mdash; the two feeding its real-time first-person UI.</p>
+`,
+    graphics: `
+<div class="info-eyebrow">Ultima Underworld &middot; Graphics</div>
+<p>The dungeon view is a real-time <strong>texture-mapped first-person 3-D renderer</strong>, written entirely in
+software on the CPU &mdash; there was no hardware 3-D in 1992. It draws the scene into an off-screen buffer and blits
+that to the screen, and its whole reason for existing is speed: there is no per-pixel divide anywhere in it.</p>
+
+<h2>World to pixels</h2>
+<p>The pipeline is the textbook one, done in fixed point. A world point is rotated by the <strong>camera basis</strong>
+&mdash; a 1.15 fixed-point orientation matrix, re-orthonormalised each frame &mdash; into view space, then run through
+a <strong>perspective projection</strong> (<code>screenX = X &middot; scale / Z + centre</code>, one divide per axis)
+to a screen vertex. Polygon setup computes the constant edge and texture slopes, and a <strong>two-level affine
+stepper</strong> draws it: a vertical loop steps the left and right edges down the polygon, and for each scanline a
+horizontal loop steps a texture coordinate across the span, copying one texel per pixel into a linear
+one-byte-per-pixel <strong>chunky buffer</strong>.</p>
+
+<h2>Self-modifying spans</h2>
+<p>The stepper has no divide in its inner loops: the only divides are two per span, for the texture gradients. Every
+per-step delta is a <strong>self-modifying immediate</strong> that the level above patches &mdash; the edge slopes
+written into the scanline loop, the texture gradients into the span loop. Drawing a textured wall is therefore:
+project the corners, compute the constant slopes and patch them in, then step down the polygon patching and running
+each span. Textures are the loaded <code>.TR</code> bitmaps, 32 texels wide, sampled straight through.</p>
+
+<h2>Divide by design</h2>
+<p>The renderer <em>never</em> guards its divides. When a basis vector is axis-aligned the normalised value is exactly
+1.0 &mdash; a quotient one past the signed-16 maximum, which <strong>overflows the divide</strong>. Rather than test
+for that on every operation, the renderer <strong>arms its own divide-error interrupt handler</strong> and lets the
+fault fire; the handler saturates the result and returns. It does the same for the projection when a point sits at the
+eye (<code>Z</code> near zero). It is the classic fixed-point-renderer trick, routed through the CPU's exception
+vector.</p>
+
+<h2>The Mode&nbsp;X framebuffer</h2>
+<p>Nothing reaches the screen until a final <strong>chunky&rarr;planar blit</strong>. Right after setting mode 13h the
+game turns chain-4 off &mdash; the unchained <strong>Mode&nbsp;X</strong> &mdash; so VGA memory is four parallel planes.
+The blit copies the chunky buffer out in four passes, one plane at a time, deinterleaving it into the planes; that
+planar layout is why a naive linear read of the framebuffer would show the picture repeated four times across.</p>
+`,
+    gameplay: `
+<div class="info-eyebrow">Ultima Underworld &middot; Gameplay</div>
+<p>The Stygian Abyss is a stack of <strong>nine dungeon levels</strong>, and each is a 64&times;64 grid of
+<strong>tiles</strong> carrying its own geometry, textures and a list of the objects standing on it &mdash; the data
+the renderer turns into the world you walk through in real time.</p>
+
+<h2>The level archive</h2>
+<p><code>LEV.ARK</code> is a block archive: a block count, a table of offsets, then the blocks. The first nine blocks
+are the nine dungeon levels, each a fixed size; the rest are the per-level texture lists, automap and animation data.
+A level's tile map is the first thing in its block.</p>
+
+<h2>The tile map</h2>
+<p>Each level begins with a <strong>64&times;64 array, two words per tile</strong>. A tile carries its
+<strong>type</strong> &mdash; solid rock, open floor, one of four diagonal (half-solid) corners, or a floor sloping
+up toward a compass direction &mdash; a <strong>floor height</strong>, and 6-bit <strong>floor and wall texture</strong>
+indices into the level's own texture list. The diagonals are one shape in four orientations and the slopes likewise,
+rotated by a small remap table indexed by facing, so the geometry code only ever handles a canonical orientation.</p>
+
+<h2>Tiles become polygons</h2>
+<p>The visible geometry is <strong>rebuilt every frame</strong>: a tessellator walks the tiles in view and emits, per
+tile, floor, ceiling and wall quads whose corners are tile-space coordinates and whose textures are that tile's
+indices, into a display list the geometry overlay then transforms and projects. Nothing is pre-baked &mdash; a tile
+becomes polygons on the fly, which is how the engine renders a large, vertically varied dungeon from a compact grid.</p>
+
+<h2>Objects</h2>
+<p>Right after the tile map sit the <strong>objects</strong>: 256 mobile objects of 27 bytes and 768 static ones of 8
+bytes, each an item id plus a packed position and a <strong>link to the next object</strong> in its tile's list. Each
+tile holds the head of a linked list of the things resting on it, so only the fine offset within the tile is stored.
+Doors, wall decorations like moss and vines, and 3-D props are all objects. The whole 3-D view is in fact a
+<strong>display-list bytecode</strong> &mdash; a small virtual machine with control flow, vertex transforms and draws,
+which the geometry overlay runs each frame &mdash; so an animated door is a sub-program the engine selects from the
+door's own state.</p>
+`,
   },
 };
 
