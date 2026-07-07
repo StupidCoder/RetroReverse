@@ -109,9 +109,11 @@ export class TrackViewer {
     // on the ground via the per-track minimum.
     const HK = S * 2048 / 4800;
 
+    // Z is negated to mirror the plan back across the X axis: the baked model's Z runs
+    // opposite to ours, so without this the whole course layout comes out flipped.
     const rings = raw.map(({ v, sec }) => ({
-      l: { x: (v[0] - cx) * S, z: (v[1] - cz) * S },
-      r: { x: (v[2] - cx) * S, z: (v[3] - cz) * S },
+      l: { x: (v[0] - cx) * S, z: -(v[1] - cz) * S },
+      r: { x: (v[2] - cx) * S, z: -(v[3] - cz) * S },
       hl: (v[4] - minH) * HK, hr: (v[5] - minH) * HK,
       fl: v[6], sec,
     }));
@@ -154,11 +156,10 @@ export class TrackViewer {
     }));
     group.add(fill);
 
-    // Wireframe: the two rails + rung lines exactly where the game's baked model has a
-    // polygon edge (flags bit 0); the finish rung is gold. The rails run along the sides
-    // of the road and alternate the game's curb colours per rung segment.
+    // The two side rails: lines along each edge of the road that alternate the game's
+    // curb colours per rung segment. (The horizontal cross-lines that used to divide the
+    // segments are gone — the alternating surface colour shows the segments now.)
     const lpos = [], lcol = [];
-    const col = new THREE.Color();
     const RAIL_A = new THREE.Color(0xf4f17e); // (244,241,126)
     const RAIL_B = new THREE.Color(0x280a0a); // (40,10,10)
     const seg = (p, q, c) => {
@@ -166,15 +167,10 @@ export class TrackViewer {
       lcol.push(c.r, c.g, c.b, c.r, c.g, c.b);
     };
     for (let k = 0; k < m; k++) {
-      const a = rings[k], b = rings[(k + 1) % m], f = k / m;
+      const a = rings[k], b = rings[(k + 1) % m];
       const railCol = (k % 2 === 0) ? RAIL_A : RAIL_B; // alternating curb stripes
       seg(V(a.l, a.hl), V(b.l, b.hl), railCol); // left rail
       seg(V(a.r, a.hr), V(b.r, b.hr), railCol); // right rail
-      if (a.fl & 1) { // game rung
-        col.setHSL(0.58 - 0.5 * f, 0.85, 0.55);
-        if (a.fl & 8) col.setHex(0xe5c04b); // finish rung gold
-        seg(V(a.l, a.hl), V(a.r, a.hr), col);
-      }
     }
     const lgeom = new THREE.BufferGeometry();
     lgeom.setAttribute('position', new THREE.Float32BufferAttribute(lpos, 3));
@@ -226,11 +222,22 @@ export class TrackViewer {
     sgeom.setAttribute('position', new THREE.Float32BufferAttribute(spos, 3));
     group.add(new THREE.LineSegments(sgeom, new THREE.LineBasicMaterial({ color: 0x280a0a }))); // (40,10,10)
 
-    // Start/finish marker (green) at ring 0.
-    const r0 = rings[0];
-    const sm = new THREE.Mesh(new THREE.SphereGeometry(0.12, 12, 12), new THREE.MeshBasicMaterial({ color: 0x35d07f }));
-    sm.position.set((r0.l.x + r0.r.x) / 2, (r0.hl + r0.hr) / 2, (r0.l.z + r0.r.z) / 2);
-    group.add(sm);
+    // Start marker: a white strip painted across the road surface at the start (the
+    // first few rungs, spanning rail to rail), lifted onto the surface with a negative
+    // polygon offset so it sits on top of the road.
+    const START_RUNGS = 2;
+    const stpos = [];
+    for (let k = 0; k < START_RUNGS && k + 1 < m; k++) {
+      const a = rings[k], b = rings[k + 1];
+      stpos.push(a.l.x, a.hl, a.l.z, a.r.x, a.hr, a.r.z, b.l.x, b.hl, b.l.z);
+      stpos.push(a.r.x, a.hr, a.r.z, b.r.x, b.hr, b.r.z, b.l.x, b.hl, b.l.z);
+    }
+    const stgeom = new THREE.BufferGeometry();
+    stgeom.setAttribute('position', new THREE.Float32BufferAttribute(stpos, 3));
+    group.add(new THREE.Mesh(stgeom, new THREE.MeshBasicMaterial({
+      color: 0xffffff, side: THREE.DoubleSide,
+      polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -1,
+    })));
 
     t.scene.add(group);
     t.group = group;
