@@ -215,7 +215,9 @@ func (c *CPU) rfe() {
 
 // Interrupt updates the external interrupt line (CAUSE IP2) from the machine's
 // masked IRQ status and, if interrupts are enabled and unmasked, takes an
-// interrupt exception. It returns whether an interrupt was delivered.
+// interrupt exception. It returns whether an interrupt was delivered. Call it
+// between instructions (before Step): the return address saved in EPC is the
+// instruction about to run (c.PC), which resumes cleanly after the handler.
 func (c *CPU) Interrupt(pending bool) bool {
 	if pending {
 		c.COP0[cop0Cause] |= 1 << 10
@@ -229,6 +231,12 @@ func (c *CPU) Interrupt(pending bool) bool {
 	if c.COP0[cop0Cause]&sr&0x0000FF00 == 0 { // masked
 		return false
 	}
+	if c.pendingDelay { // don't split a branch from its delay slot
+		return false
+	}
+	// EPC must be the next instruction to fetch, not the last one executed, so the
+	// handler's rfe resumes exactly where control was preempted.
+	c.curPC = c.PC
 	c.delaySlot = false // an async interrupt is not in a delay slot
 	c.Exception(excInt)
 	return true

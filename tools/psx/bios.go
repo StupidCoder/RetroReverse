@@ -96,6 +96,11 @@ func (m *Machine) serviceBios(table byte, fn uint32) (string, uint32) {
 		case 0x18:
 			return "ResetEntryInt", 0
 		case 0x19:
+			// HookEntryInt(&chain): register the game's interrupt-handler chain.
+			// $a0 -> {next, handler, ...}; we read the handler lazily at dispatch
+			// time (the game fills the slot after registering). Ridge Racer's boot
+			// leaves it empty and polls I_STAT instead — see run.go / dispatchISR.
+			m.isrChain = a0
 			return "HookEntryInt", 0
 		case 0x47:
 			return "GetC0Table", 0
@@ -133,14 +138,33 @@ func (m *Machine) serviceBios(table byte, fn uint32) (string, uint32) {
 	return key, 0
 }
 
+// isrState saves the interrupted context around a vectored-interrupt dispatch to
+// the game's handler, so the handler's register changes stay invisible to the
+// preempted code (hardware-interrupt transparency); memory and I/O side effects
+// persist. See dispatchISR / returnFromISR.
+type isrState struct {
+	active bool
+	retPC  uint32 // interrupted PC (EPC) to resume at when the handler returns
+	R      [32]uint32
+	HI, LO uint32
+}
+
 // handleException emulates the BIOS general-exception handler at 0x80000080. It
-// services `syscall` (critical-section enable/disable) and returns; other
-// exceptions are logged and skipped so a boot trace continues.
+// dispatches hardware interrupts (code 0) to the game's registered handler,
+// services `syscall` (critical-section enable/disable), and logs+skips the rest
+// so a boot trace continues.
 func (m *Machine) handleException() {
 	cause := m.CPU.COP0[13]
 	code := (cause >> 2) & 0x1F
 	epc := m.CPU.COP0[14]
 	switch code {
+	case 0: // hardware interrupt
+		if m.dispatchISR(epc) {
+			return // handler runs natively; returnFromISR resumes at EPC
+		}
+		// No game handler installed (the game polls I_STAT): resume the preempted
+		// instruction. Do not clear I_STAT — the game acknowledges via its poll.
+		m.rfeTo(epc)
 	case 8: // syscall
 		switch m.CPU.Reg(4) { // $a0 selects the sub-function
 		case 1: // EnterCriticalSection: return the old IEc, then disable interrupts
@@ -150,17 +174,69 @@ func (m *Machine) handleException() {
 			m.CPU.COP0[12] |= 1
 		}
 		m.biosCalls[fmt.Sprintf("syscall(%d)", m.CPU.Reg(4))]++
+		m.rfeTo(retAddr(epc, cause)) // resume after the syscall
 	default:
 		m.note(fmt.Sprintf("exception code %d at EPC 0x%08X", code, epc))
+		m.rfeTo(retAddr(epc, cause))
 	}
-	// rfe: pop the SR interrupt/kernel stack, and resume after the faulting op.
+}
+
+// retAddr is the resume address for a synchronous exception: after the faulting
+// instruction, or after the branch if the fault was in its delay slot.
+func retAddr(epc, cause uint32) uint32 {
+	if cause&0x80000000 != 0 { // CAUSE BD: exception in a branch delay slot
+		return epc + 8
+	}
+	return epc + 4
+}
+
+// rfeTo pops the SR interrupt/kernel stack (the tail of an exception handler) and
+// resumes at pc.
+func (m *Machine) rfeTo(pc uint32) {
 	sr := m.CPU.COP0[12]
 	m.CPU.COP0[12] = (sr &^ 0x0F) | ((sr >> 2) & 0x0F)
-	ret := epc + 4
-	if cause&0x80000000 != 0 { // fault was in a branch delay slot
-		ret = epc + 8
+	m.CPU.SetPC(pc)
+}
+
+// dispatchISR transfers control to the game's HookEntryInt handler, if one is
+// installed and non-empty, saving the interrupted context. The handler runs as
+// ordinary code until its `jr $ra` reaches the isrReturn sentinel (run.go), which
+// calls returnFromISR. Returns false when no handler is available.
+func (m *Machine) dispatchISR(epc uint32) bool {
+	if m.isrChain == 0 {
+		return false
 	}
-	m.CPU.SetPC(ret)
+	handler := m.read32(m.isrChain + 4)
+	if handler == 0 {
+		return false
+	}
+	s := &m.isr
+	s.active = true
+	s.retPC = epc
+	for i := uint32(0); i < 32; i++ {
+		s.R[i] = m.CPU.Reg(i)
+	}
+	s.HI, s.LO = m.CPU.HI, m.CPU.LO
+	m.CPU.SetReg(31, isrReturn) // $ra -> return sentinel
+	m.CPU.SetPC(handler)
+	return true
+}
+
+// returnFromISR is reached when a dispatched handler returns to the sentinel: it
+// restores the interrupted context, pops the SR stack (rfe) and resumes.
+func (m *Machine) returnFromISR() {
+	s := &m.isr
+	if !s.active {
+		m.note("ISR return sentinel hit with no active interrupt")
+		m.rfeTo(s.retPC)
+		return
+	}
+	s.active = false
+	for i := uint32(0); i < 32; i++ {
+		m.CPU.SetReg(i, s.R[i])
+	}
+	m.CPU.HI, m.CPU.LO = s.HI, s.LO
+	m.rfeTo(s.retPC)
 }
 
 // --- BIOS service helpers --------------------------------------------------

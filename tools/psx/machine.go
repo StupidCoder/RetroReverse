@@ -28,6 +28,18 @@ const (
 
 	iStat = 0x1F801070
 	iMask = 0x1F801074
+
+	// stepsPerVBlank paces the synthetic vertical-blank IRQ. One NTSC field is
+	// ~564,480 CPU cycles (33.8688 MHz / 60 Hz); with Step ≈ one cycle this is a
+	// close-enough cadence to drive the game's polled I_STAT timing. Only the rate
+	// of in-game time depends on it, not the correctness of the mechanism.
+	stepsPerVBlank = 564480
+
+	// isrReturn is a sentinel return address for the ISR trampoline: when a
+	// vectored interrupt dispatches to a game handler, $ra is set here so the run
+	// loop can catch the handler's `jr $ra`, restore context and resume (see
+	// bios.go). It sits in the low BIOS-reserved page, which real code never runs.
+	isrReturn = 0x000000E0
 )
 
 // Machine is the PSX oracle.
@@ -42,6 +54,14 @@ type Machine struct {
 	irqMask  uint32
 	gpuFrame uint32 // toggled into GPUSTAT bit 31 so status polls terminate
 	timer    uint32 // free-running value returned for timer reads
+
+	// Interrupt delivery (see run.go / bios.go). The PSX raises IRQs into I_STAT;
+	// the game reads them either by polling I_STAT directly (Ridge Racer's CD/timing
+	// path) or, once it enables interrupts, by taking a vectored interrupt that the
+	// BIOS handler dispatches to a handler the game registered with HookEntryInt.
+	vblankAcc uint64 // steps since the last synthetic VBlank
+	isrChain  uint32 // HookEntryInt argument: &{next, handler, ...}
+	isr       isrState
 
 	// BIOS-HLE bookkeeping.
 	biosCalls        map[string]int
@@ -187,6 +207,20 @@ func (m *Machine) ioSideEffect(base, word uint32) {
 
 // raiseIRQ sets an interrupt-request bit in I_STAT (0..10).
 func (m *Machine) raiseIRQ(bit uint) { m.irqStat |= 1 << bit }
+
+// read32 assembles a little-endian word through the normal memory map (used by
+// the BIOS-HLE for structures the game hands us, e.g. the HookEntryInt chain).
+func (m *Machine) read32(a uint32) uint32 {
+	return uint32(m.Read(a)) | uint32(m.Read(a+1))<<8 | uint32(m.Read(a+2))<<16 | uint32(m.Read(a+3))<<24
+}
+
+// write32 stores a little-endian word through the normal memory map.
+func (m *Machine) write32(a, v uint32) {
+	m.Write(a, byte(v))
+	m.Write(a+1, byte(v>>8))
+	m.Write(a+2, byte(v>>16))
+	m.Write(a+3, byte(v>>24))
+}
 
 // note logs a distinct diagnostic message once.
 func (m *Machine) note(msg string) {

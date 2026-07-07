@@ -27,6 +27,17 @@ func (m *Machine) Run(maxSteps uint64) Result {
 	var sinceReset uint64
 
 	for steps < maxSteps {
+		// Synthetic vertical-blank: raise I_STAT bit 0 on a fixed cadence. The game
+		// polls I_STAT for timing (and, in-game, unmasks it for a vectored VBlank).
+		if m.vblankAcc++; m.vblankAcc >= stepsPerVBlank {
+			m.vblankAcc = 0
+			m.raiseIRQ(0)
+		}
+		// Deliver a pending, enabled, unmasked interrupt: this vectors the CPU to
+		// 0x80000080, caught below as PC 0x80. Harmless while the game keeps
+		// interrupts masked (Ridge Racer's boot polls instead).
+		m.CPU.Interrupt((m.irqStat & m.irqMask) != 0)
+
 		pc := phys(m.CPU.PC)
 		switch pc {
 		case 0xA0:
@@ -40,6 +51,9 @@ func (m *Machine) Run(maxSteps uint64) Result {
 			continue
 		case 0x80:
 			m.handleException()
+			continue
+		case isrReturn:
+			m.returnFromISR()
 			continue
 		}
 		if m.CPU.PC == 0 { // returned to the null $ra: program exit
