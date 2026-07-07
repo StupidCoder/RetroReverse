@@ -79,6 +79,7 @@ type Machine struct {
 	tty              []byte // characters written via the BIOS putchar/std_out
 	heapPtr, heapEnd uint32 // bump heap for malloc/InitHeap
 	nextEvent        uint32 // OpenEvent handle counter
+	randSeed         uint32 // BIOS rand() state
 
 	// Diagnostics.
 	Log     []string

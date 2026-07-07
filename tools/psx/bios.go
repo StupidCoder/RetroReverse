@@ -66,6 +66,22 @@ func (m *Machine) serviceBios(table byte, fn uint32) (string, uint32) {
 			// SetMemSize(megabytes): configures the RAM-size register. We don't
 			// model that register; acknowledge with the requested size.
 			return "SetMemSize", a0
+		case 0x17: // strcmp(s1, s2)
+			return "strcmp", m.strcmp(a0, a1, ^uint32(0))
+		case 0x18: // strncmp(s1, s2, n)
+			return "strncmp", m.strcmp(a0, a1, a2)
+		case 0x19: // strcpy(dst, src)
+			return "strcpy", m.strcpy(a0, a1)
+		case 0x1B: // strlen(s)
+			return "strlen", m.strlen(a0)
+		case 0x2F: // rand()
+			m.randSeed = m.randSeed*0x41C64E6D + 0x3039
+			return "rand", (m.randSeed >> 16) & 0x7FFF
+		case 0x30: // srand(seed)
+			m.randSeed = a0
+			return "srand", 0
+		case 0x70: // _bu_init
+			return "_bu_init", 0
 		}
 	case 'B':
 		switch fn {
@@ -281,6 +297,39 @@ func (m *Machine) malloc(size uint32) uint32 {
 	}
 	m.heapPtr += size
 	return p
+}
+
+// strcmp compares two C strings for up to n bytes (n = ^0 for unbounded), the
+// backing for both strcmp and strncmp; returns the signed byte difference.
+func (m *Machine) strcmp(a, b, n uint32) uint32 {
+	for i := uint32(0); i < n; i++ {
+		ca, cb := m.Read(a+i), m.Read(b+i)
+		if ca != cb {
+			return uint32(int32(ca) - int32(cb))
+		}
+		if ca == 0 {
+			break
+		}
+	}
+	return 0
+}
+
+func (m *Machine) strcpy(dst, src uint32) uint32 {
+	for i := uint32(0); ; i++ {
+		c := m.Read(src + i)
+		m.Write(dst+i, c)
+		if c == 0 {
+			return dst
+		}
+	}
+}
+
+func (m *Machine) strlen(s uint32) uint32 {
+	var n uint32
+	for m.Read(s+n) != 0 {
+		n++
+	}
+	return n
 }
 
 func (m *Machine) putchar(c byte) { m.tty = append(m.tty, c) }
