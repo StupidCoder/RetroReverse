@@ -118,7 +118,9 @@ export class TrackViewer {
     const m = rings.length;
     const V = (p, y) => new THREE.Vector3(p.x, y, p.z);
 
-    // Invisible depth fill (the ribbon surface) for hidden-line removal.
+    // The road surface (the ribbon), coloured (166,162,129). It also does the
+    // hidden-line removal for the rail/rung lines drawn on top: it writes depth, and
+    // its polygon offset pushes it back so the coplanar lines sit in front of it.
     const fpos = [];
     const quad = (a, b, c, d) => fpos.push(a.x, a.y, a.z, b.x, b.y, b.z, c.x, c.y, c.z, b.x, b.y, b.z, d.x, d.y, d.z, c.x, c.y, c.z);
     for (let k = 0; k < m; k++) {
@@ -128,7 +130,8 @@ export class TrackViewer {
     const fgeom = new THREE.BufferGeometry();
     fgeom.setAttribute('position', new THREE.Float32BufferAttribute(fpos, 3));
     const fill = new THREE.Mesh(fgeom, new THREE.MeshBasicMaterial({
-      colorWrite: false, polygonOffset: true, polygonOffsetFactor: 1, polygonOffsetUnits: 1,
+      color: 0xa6a281, // road surface (166,162,129)
+      polygonOffset: true, polygonOffsetFactor: 1, polygonOffsetUnits: 1,
       side: THREE.DoubleSide,
     }));
     group.add(fill);
@@ -178,27 +181,34 @@ export class TrackViewer {
     }));
     group.add(walls);
 
-    // Vertical strut lines on the walls: one at every rung, from the road surface down
-    // to the ground. Each is nudged a hair outward off its wall face (along the outward
-    // rail normal) so it doesn't z-fight with the coplanar white wall.
-    const WBIAS = 0.015;
-    const spos = [];
-    const strut = (edge, h, mx, mz) => {
-      let ox = edge.x - mx, oz = edge.z - mz;
-      const d = Math.hypot(ox, oz) || 1;
-      ox = ox / d * WBIAS; oz = oz / d * WBIAS;
-      spos.push(edge.x + ox, h, edge.z + oz, edge.x + ox, 0, edge.z + oz);
+    // Vertical strut strips painted on the walls: one at every rung, from the road
+    // surface down to the ground, colour (40,10,10). They lie exactly in the wall plane
+    // (a thin quad along the rail tangent) and are lifted onto the wall with a negative
+    // polygon offset — the real WebGL depth bias — rather than a geometric nudge, so they
+    // read as thin painted strips flush with the wall. (GL lines can't take a polygon
+    // offset; only filled polygons can, which is why these are thin quads.)
+    const SHALF = 0.007; // half-width of a strut strip (world units)
+    const tpos = [];
+    const railStruts = (sel, hgt) => {
+      for (let k = 0; k < m; k++) {
+        const e = sel(rings[k]);
+        const p = sel(rings[(k - 1 + m) % m]), q = sel(rings[(k + 1) % m]);
+        let tx = q.x - p.x, tz = q.z - p.z; // rail tangent (XZ)
+        const d = Math.hypot(tx, tz) || 1; tx = tx / d * SHALF; tz = tz / d * SHALF;
+        const h = hgt(rings[k]);
+        const lx = e.x - tx, lz = e.z - tz, rx = e.x + tx, rz = e.z + tz;
+        tpos.push(lx, h, lz, rx, h, rz, rx, 0, rz); // two triangles of the strip
+        tpos.push(lx, h, lz, rx, 0, rz, lx, 0, lz);
+      }
     };
-    for (let k = 0; k < m; k++) {
-      const a = rings[k];
-      const mx = (a.l.x + a.r.x) / 2, mz = (a.l.z + a.r.z) / 2;
-      strut(a.l, a.hl, mx, mz); // left wall
-      strut(a.r, a.hr, mx, mz); // right wall
-    }
-    const sgeom = new THREE.BufferGeometry();
-    sgeom.setAttribute('position', new THREE.Float32BufferAttribute(spos, 3));
-    group.add(new THREE.LineSegments(sgeom,
-      new THREE.LineBasicMaterial({ color: new THREE.Color(40 / 255, 10 / 255, 10 / 255) })));
+    railStruts(r => r.l, r => r.hl); // left wall
+    railStruts(r => r.r, r => r.hr); // right wall
+    const tgeom = new THREE.BufferGeometry();
+    tgeom.setAttribute('position', new THREE.Float32BufferAttribute(tpos, 3));
+    group.add(new THREE.Mesh(tgeom, new THREE.MeshBasicMaterial({
+      color: 0x280a0a, side: THREE.DoubleSide, // (40,10,10)
+      polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -1,
+    })));
 
     // Start/finish marker (green) at ring 0.
     const r0 = rings[0];
