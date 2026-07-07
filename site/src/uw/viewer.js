@@ -221,6 +221,7 @@ export class LevelViewer {
       box.position.set(p.pos[0], p.pos[1], p.pos[2]);
       box.scale.set(p.size[0], p.size[1], p.size[2]);
       box.userData.id = p.id;
+      box.userData.text = p.text; // the object's sign/wall words (block 8), if any
       pickGroup.add(box);
     }
     scene.add(pickGroup);
@@ -339,13 +340,14 @@ export class LevelViewer {
     this._ray.setFromCamera(ndc, this.three.camera);
     const hits = this._ray.intersectObjects(grp.children, false);
     if (!hits.length) { this._card.hide(); return; }
-    const id = hits[0].object.userData.id;
+    const { id, text } = hits[0].object.userData;
     const name = this._names[id];
     this._card.show({
       title: name || `item ${id}`,
       subtitle: `item id ${id}`,
       body: name ? undefined : 'No name for this item in STRINGS.PAK block 4.',
       muted: !name,
+      quote: text, // writings/gravestones carry their own words (block 8)
     });
   }
 

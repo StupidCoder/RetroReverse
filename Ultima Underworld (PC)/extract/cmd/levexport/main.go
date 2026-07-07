@@ -61,6 +61,7 @@ type outPick struct {
 	ID   int        `json:"id"`
 	Pos  [3]float32 `json:"pos"`
 	Size [3]float32 `json:"size"`
+	Text string     `json:"text,omitempty"` // the object's own sign/wall words (STRINGS.PAK block 8)
 }
 
 // outSprite is one camera-facing billboard: its base sits at Pos (Y-up), it is
@@ -213,17 +214,22 @@ func main() {
 	must(err)
 	tmobjGR, err := tex.ParseGR(data("TMOBJ.GR"))
 	must(err)
-	appendObjects(o, grid, block, exeBytes, comObj, tm, doorGR, tmobjGR, wallTR, pal)
+	// STRINGS.PAK block 4 = object names by item id; block 8 = the words written on
+	// signs/walls (referenced by a writing/gravestone's "special" field).
+	arch, err := strpak.Parse(data("STRINGS.PAK"))
+	must(err)
+	b4, _ := arch.Block(4)
+	b8, _ := arch.Block(8)
+	appendObjects(o, grid, block, exeBytes, comObj, tm, doorGR, tmobjGR, wallTR, pal, b8)
 
 	// Billboard sprites (class-0/1 objects: items, creatures) from OBJECTS.GR.
 	objGR, err := tex.ParseGR(data("OBJECTS.GR"))
 	must(err)
-	appendBillboards(o, grid, block, comObj, objGR, data("ALLPALS.DAT"), pal, *game)
+	appendBillboards(o, grid, block, comObj, objGR, data("ALLPALS.DAT"), pal, *game, b8)
 
-	// Object names for the click card: STRINGS.PAK block 4 is object names by item
-	// id. Attach the name of every clickable object (its pick id) so the viewer
-	// can show it (e.g. item 358 -> "some writing").
-	o.Names = objectNames(data("STRINGS.PAK"), o.Picks)
+	// Attach the name of every clickable object (its pick id) so the viewer can
+	// show it (e.g. item 358 -> "some writing").
+	o.Names = objectNames(b4, o.Picks)
 
 	buf, err := json.Marshal(o)
 	must(err)
@@ -238,13 +244,8 @@ func main() {
 // "&" plural form ("a_box&boxes"); we take the singular and render it as words.
 // Only ids that appear as click targets are included, to keep the JSON small.
 // Returns nil if STRINGS.PAK is missing or unparseable.
-func objectNames(pak []byte, picks []outPick) map[int]string {
-	a, err := strpak.Parse(pak)
-	if err != nil {
-		return nil
-	}
-	names, ok := a.Block(4)
-	if !ok {
+func objectNames(names []string, picks []outPick) map[int]string {
+	if names == nil {
 		return nil
 	}
 	out := map[int]string{}

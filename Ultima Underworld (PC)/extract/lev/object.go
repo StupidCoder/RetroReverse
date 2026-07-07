@@ -44,6 +44,7 @@ type Object struct {
 	Quality      uint8
 	Flags        uint16 // word0 bits 9-15
 	Next         int    // next object index in the tile (0 = end)
+	Special      int    // word3 bits 6-15 — quantity / link / (>=512) string reference
 	Mobile       bool   // mobile (27-byte) vs static (8-byte)
 }
 
@@ -67,6 +68,7 @@ func DecodeObject(block []byte, idx int) (Object, bool) {
 	w0 := binary.LittleEndian.Uint16(block[off:])
 	w1 := binary.LittleEndian.Uint16(block[off+2:])
 	w2 := binary.LittleEndian.Uint16(block[off+4:])
+	w3 := binary.LittleEndian.Uint16(block[off+6:])
 	return Object{
 		Index:   idx,
 		ItemID:  w0 & 0x1FF,
@@ -77,6 +79,7 @@ func DecodeObject(block []byte, idx int) (Object, bool) {
 		FineX:   uint8((w1 >> 13) & 0x7),
 		Quality: uint8(w2 & 0x3F),
 		Next:    int((w2 >> 6) & 0x3FF),
+		Special: int(w3 >> 6),
 		Mobile:  idx < 256,
 	}, true
 }

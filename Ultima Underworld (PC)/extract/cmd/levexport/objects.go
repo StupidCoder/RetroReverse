@@ -28,6 +28,7 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
+	"strings"
 
 	"ultimaunderworld/extract/crit"
 	"ultimaunderworld/extract/lev"
@@ -63,6 +64,25 @@ func modelWallTextured(exe []byte, n int) bool {
 // (620) out of the running game's EMS texture cache — it is TMOBJ.GR frame 20,
 // and model 18's byte3 & 0x1F == 20. Wall-flagged models (0x20) take the tile
 // texture instead, so they are excluded here.
+// signText returns an object's readable sign/wall words from STRINGS.PAK block 8,
+// or "" if it has none. Only writings (item 358) and gravestones (item 357) — the
+// "text on signs and walls" objects — use their "special" field (word 3 bits
+// 6-15, lev.Object.Special) as a block-8 string reference: a value >= 512 is a
+// string and the index is value - 512. VERIFIED against the game's own strings:
+// the start-room plaque (item 358, special 576) -> block 8[64] "We attacked the
+// entrance with all manner of tools, but it gave not a hair...". Other object
+// types reuse that field for links/quantities/enchantments (a sack's contained
+// object, a door's trigger), so they are excluded rather than showing garbage.
+func signText(b8 []string, obj lev.Object) string {
+	if obj.ItemID != 357 && obj.ItemID != 358 {
+		return ""
+	}
+	if obj.Special < 512 || obj.Special-512 >= len(b8) {
+		return ""
+	}
+	return strings.TrimRight(b8[obj.Special-512], "\n ")
+}
+
 func modelTmobj(exe []byte, n int) (int, bool) {
 	off := modelFlagsFileOff + n*4
 	if off+3 >= len(exe) || exe[off]&0x10 == 0 || exe[off]&0x20 != 0 {
@@ -179,6 +199,7 @@ type placedModel struct {
 	height  float32 // fine height units (z*8)
 	heading uint8   // 0-7, 45° steps
 	texMat  int     // material for textured polys (desc-bound), -1 = none
+	text    string  // the object's own sign/wall words (block 8), for the click card
 }
 
 // spriteWorldPerTexel scales an object sprite's texels to world (tile) units.
@@ -222,7 +243,7 @@ const creatureIdleFps = 1
 // (class-1 mobile objects, item 64-127) use their CRIT/CR<octal>PAGE.N01 sprite.
 // The base of each sprite sits on the object's floor position.
 func appendBillboards(o *outMesh, grid *lev.Grid, block []byte, comObj *lev.ComObj,
-	objGR *tex.GR, allPals []byte, pal tex.Palette, gamePath string) {
+	objGR *tex.GR, allPals []byte, pal tex.Palette, gamePath string, b8 []string) {
 
 	critCache := map[int]*crit.Page{} // creature index -> parsed page (nil = missing)
 	loadCrit := func(idx int) *crit.Page {
@@ -329,7 +350,9 @@ func appendBillboards(o *outMesh, grid *lev.Grid, block []byte, comObj *lev.ComO
 				Views: views, Fps: creatureIdleFps, Translucent: translucent,
 			})
 			hb := views[0][0]
-			o.Picks = append(o.Picks, spritePick(int(obj.ItemID), tx, base, ty, hb.W, hb.H))
+			cpk := spritePick(int(obj.ItemID), tx, base, ty, hb.W, hb.H)
+			cpk.Text = signText(b8, obj)
+			o.Picks = append(o.Picks, cpk)
 			continue
 		}
 
@@ -348,7 +371,9 @@ func appendBillboards(o *outMesh, grid *lev.Grid, block []byte, comObj *lev.ComO
 		o.Sprites = append(o.Sprites, outSprite{
 			Pos: [3]float32{tx, base, -ty}, W: w, H: h, Tex: ti,
 		})
-		o.Picks = append(o.Picks, spritePick(int(obj.ItemID), tx, base, ty, w, h))
+		spk := spritePick(int(obj.ItemID), tx, base, ty, w, h)
+		spk.Text = signText(b8, obj)
+		o.Picks = append(o.Picks, spk)
 	}
 
 	// Publish which SpriteTex entries the viewer must draw with additive blending
@@ -362,7 +387,7 @@ func appendBillboards(o *outMesh, grid *lev.Grid, block []byte, comObj *lev.ComO
 // appendObjects decodes the level's 3D-class objects and bakes their models
 // into the mesh as extra triangle groups.
 func appendObjects(o *outMesh, grid *lev.Grid, block []byte, exeBytes []byte,
-	comObj *lev.ComObj, tm *lev.TexMap, doorGR, tmobjGR *tex.GR, wallTR *tex.TR, pal tex.Palette) {
+	comObj *lev.ComObj, tm *lev.TexMap, doorGR, tmobjGR *tex.GR, wallTR *tex.TR, pal tex.Palette, b8 []string) {
 
 	mats := &objMaterials{o: o, matOf: map[string]int{}, doorGR: doorGR, tmobjGR: tmobjGR, pal: pal, wallTR: wallTR, texMap: tm}
 
@@ -416,6 +441,7 @@ func appendObjects(o *outMesh, grid *lev.Grid, block []byte, exeBytes []byte,
 				tileX:  float32(obj.TileX) + (float32(obj.FineX)+0.5)/8,
 				tileY:  float32(obj.TileY) + (float32(obj.FineY)+0.5)/8,
 				height: float32(fineH), heading: obj.Heading, texMat: texMat,
+				text: signText(b8, obj),
 			}
 			if snap {
 				// Doors CENTRE in their doorway tile, not at the object's stored
@@ -547,7 +573,9 @@ func bakeModel(o *outMesh, mats *objMaterials, pm placedModel) {
 		if hi[0] < lo[0] {
 			return // no triangles emitted
 		}
-		o.Picks = append(o.Picks, aabbPick(int(pm.itemID), lo, hi))
+		pk := aabbPick(int(pm.itemID), lo, hi)
+		pk.Text = pm.text
+		o.Picks = append(o.Picks, pk)
 	}()
 
 	// fan/fanUV take the primitive's snapshotted vertices (model.Poly/Quad.Verts)
