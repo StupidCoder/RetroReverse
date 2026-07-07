@@ -210,6 +210,20 @@ func (p *Page) Aux0() []byte {
 	return p.aux[0]
 }
 
+// NumAux is the number of auxiliary (colour-variant) palettes in the page.
+func (p *Page) NumAux() int { return len(p.aux) }
+
+// auxFor returns the variant-th aux palette, clamped (variant 0 = the default).
+func (p *Page) auxFor(variant int) []byte {
+	if len(p.aux) == 0 {
+		return nil
+	}
+	if variant < 0 || variant >= len(p.aux) {
+		variant = 0
+	}
+	return p.aux[variant]
+}
+
 // TranslucentIndex is the reserved main-palette index UW treats as an ADDITIVE
 // "brighten the background" marker rather than a literal colour. The ethereal
 // creatures (ghost/wisp/fire/shadow) draw their glow with it; the game shifts
@@ -235,12 +249,12 @@ func (p *Page) Translucent() bool {
 // additively). additive is nil when the frame has none. Index 0 is transparent
 // in both. This matches the game's rule "the berry index is additive, the others
 // are not" without any per-pixel heuristics.
-func (p *Page) FrameLayers(i int, pal tex.Palette) (normal, additive *image.RGBA, err error) {
+func (p *Page) FrameLayers(i, variant int, pal tex.Palette) (normal, additive *image.RGBA, err error) {
 	w, h, codes, err := p.FrameCodes(i)
 	if err != nil {
 		return nil, nil, err
 	}
-	ap := p.Aux0()
+	ap := p.auxFor(variant)
 	if len(ap) == 0 {
 		return nil, nil, fmt.Errorf("crit: page has no aux palette")
 	}
@@ -303,7 +317,7 @@ func (p *Page) FrameCodes(i int) (w, h int, codes []byte, err error) {
 // Frame decodes frame i to an RGBA image (transparent where the code is 0),
 // using the page's aux palette (index 0 — the frames all share one page palette)
 // mapped through the given main palette.
-func (p *Page) Frame(i int, pal tex.Palette) (*image.RGBA, error) {
+func (p *Page) Frame(i, variant int, pal tex.Palette) (*image.RGBA, error) {
 	if i < 0 || i >= len(p.offsets) {
 		return nil, fmt.Errorf("crit: frame %d out of range (%d)", i, len(p.offsets))
 	}
@@ -329,7 +343,7 @@ func (p *Page) Frame(i int, pal tex.Palette) (*image.RGBA, error) {
 		codes = unpack5(data, count)
 	}
 	px := tex.RLEExpand(codes, w*h)
-	ap := p.aux[0]
+	ap := p.auxFor(variant)
 	if len(ap) == 0 {
 		return nil, fmt.Errorf("crit: page has no aux palette")
 	}

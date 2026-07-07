@@ -255,12 +255,21 @@ func appendBillboards(o *outMesh, grid *lev.Grid, block []byte, comObj *lev.ComO
 	// spider -> set 5 (spider), 69 acid slug -> set 9 (slug), 70 goblin -> set 0,
 	// 97 ghost -> set 13 (the translucent CR15).
 	assoc, _ := os.ReadFile(filepath.Join(gamePath, "CRIT", "ASSOC.ANM"))
-	critSet := func(itemID int) int {
-		off := 0x100 + (itemID-64)*2
+	// critSet/critVariant read the {set, variant} entry: byte0 = CR page, byte1 =
+	// the palette variant (which of the page's aux palettes to use — e.g. the
+	// green vs grey goblin share CR00 but different variant palettes).
+	critEntry := func(itemID, field int) int {
+		off := 0x100 + (itemID-64)*2 + field
 		if itemID < 64 || itemID > 127 || off >= len(assoc) {
-			return itemID - 64 // fallback
+			return 0
 		}
 		return int(assoc[off])
+	}
+	critSet := func(itemID int) int {
+		if itemID < 64 || itemID > 127 || 0x100+(itemID-64)*2 >= len(assoc) {
+			return itemID - 64 // fallback: old mapping
+		}
+		return critEntry(itemID, 0)
 	}
 	critCache := map[int]*crit.Page{} // animation set -> parsed page (nil = missing)
 	loadCrit := func(set int) *crit.Page {
@@ -319,6 +328,7 @@ func appendBillboards(o *outMesh, grid *lev.Grid, block []byte, comObj *lev.ComO
 			// render from the camera bearing and the object heading and loops the
 			// cycle; non-directional creatures collapse to view 0 for all eight.
 			set := critSet(int(obj.ItemID))
+			variant := critEntry(int(obj.ItemID), 1) // palette variant within the page
 			pg := loadCrit(set)
 			if pg == nil || pg.NumFrames() == 0 {
 				continue
@@ -335,26 +345,26 @@ func appendBillboards(o *outMesh, grid *lev.Grid, block []byte, comObj *lev.ComO
 					d := outDir{Add: -1}
 					var normal *image.RGBA
 					if translucent {
-						add, ad, err := pg.FrameLayers(frame, pal)
+						add, ad, err := pg.FrameLayers(frame, variant, pal)
 						if err != nil {
 							okAll = false
 							break
 						}
 						normal = add
 						if ad != nil {
-							ai := spriteTex(ad, fmt.Sprintf("crit:%d:%d:a", set, frame))
+							ai := spriteTex(ad, fmt.Sprintf("crit:%d.%d:%d:a", set, variant, frame))
 							d.Add = ai
 							addSet[ai] = true
 						}
 					} else {
-						im, err := pg.Frame(frame, pal)
+						im, err := pg.Frame(frame, variant, pal)
 						if err != nil {
 							okAll = false
 							break
 						}
 						normal = im
 					}
-					d.Tex = spriteTex(normal, fmt.Sprintf("crit:%d:%d", set, frame))
+					d.Tex = spriteTex(normal, fmt.Sprintf("crit:%d.%d:%d", set, variant, frame))
 					d.W = float32(normal.Bounds().Dx()) * spriteWorldPerTexel
 					d.H = float32(normal.Bounds().Dy()) * spriteWorldPerTexel
 					views[v] = append(views[v], d)
