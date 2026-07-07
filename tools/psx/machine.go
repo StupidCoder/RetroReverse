@@ -31,10 +31,12 @@ const (
 	cdBase = 0x1F801800 // CD-ROM controller (4 byte-wide, index-banked registers)
 
 	// stepsPerVBlank paces the synthetic vertical-blank IRQ. One NTSC field is
-	// ~564,480 CPU cycles (33.8688 MHz / 60 Hz); with Step ≈ one cycle this is a
-	// close-enough cadence to drive the game's polled I_STAT timing. Only the rate
-	// of in-game time depends on it, not the correctness of the mechanism.
-	stepsPerVBlank = 564480
+	// ~565,000 CPU cycles (33.8688 MHz / 59.94 Hz), but the oracle counts executed
+	// instructions, not cycles — and the R3000 averages well over one cycle per
+	// instruction (memory access to un-cached RAM dominates). The game's frame
+	// waits count instructions against a VBlank-advanced counter, so the cadence
+	// must be scaled by that CPI: ~2 gives roughly a real frame's worth of code.
+	stepsPerVBlank = 250000
 
 	// isrReturn is a sentinel return address for the ISR trampoline: when a
 	// vectored interrupt dispatches to a game handler, $ra is set here so the run

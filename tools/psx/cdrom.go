@@ -221,6 +221,19 @@ func (c *cdrom) command(cmd byte) {
 		c.ack()
 		c.stat &^= cdSeeking
 		c.queueSecond()
+	case 0x13: // CdlGetTN: first & last track numbers (BCD). Data-only disc: 1..1.
+		c.enqueue(pending{delay: cdAckDelay, cause: 3, resp: []byte{c.stat, 0x01, 0x01}})
+	case 0x14: // CdlGetTD: start MSF of a track (param = track, BCD; 0 = lead-out)
+		track := 0
+		if len(c.params) >= 1 {
+			track = int(fromBCD(c.params[0]))
+		}
+		lba := 0 // track 1 (the data track) starts at LBA 0
+		if track == 0 && c.m.disc != nil {
+			lba = c.m.disc.nsect // lead-out = end of disc
+		}
+		mm, ss := lbaToMSF(lba)
+		c.enqueue(pending{delay: cdAckDelay, cause: 3, resp: []byte{c.stat, toBCD(mm), toBCD(ss)}})
 	case 0x19: // CdlTest
 		c.testCommand()
 	default:
@@ -352,6 +365,16 @@ func bcdToLBA(m, s, f byte) int {
 	return lba
 }
 
+func fromBCD(b byte) int  { return int(b>>4)*10 + int(b&0x0F) }
+func toBCD(n int) byte     { return byte((n/10)<<4 | n%10) }
+
+// lbaToMSF converts a logical block number to minutes/seconds on the disc,
+// including the 2-second (150-sector) pregap.
+func lbaToMSF(lba int) (mm, ss int) {
+	t := lba + 150
+	return t / (75 * 60), (t / 75) % 60
+}
+
 func cdCmdName(cmd byte) string {
 	switch cmd {
 	case 0x01:
@@ -378,6 +401,24 @@ func cdCmdName(cmd byte) string {
 		return "Test"
 	case 0x1B:
 		return "ReadS"
+	case 0x0D:
+		return "Setfilter"
+	case 0x0F:
+		return "Getparam"
+	case 0x10:
+		return "GetlocL"
+	case 0x11:
+		return "GetlocP"
+	case 0x13:
+		return "GetTN"
+	case 0x14:
+		return "GetTD"
+	case 0x1A:
+		return "GetID"
+	case 0x03:
+		return "Play"
+	case 0x08:
+		return "Stop"
 	}
-	return "cmd?"
+	return fmt.Sprintf("cmd?0x%02X", cmd)
 }
