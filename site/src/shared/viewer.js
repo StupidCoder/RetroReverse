@@ -21,6 +21,20 @@ import { AnimRunner } from './anim.js';
 import { buildWaterInfo, setupCycle } from './palettefx.js';
 import { buildCollisionGrid, buildCollisionProfiles, buildObjects, buildPools, rng } from './layers.js';
 
+// Compact identifier line for an info card: whichever of an object's raw ids are present,
+// in a fixed order. `type` is shown in hex (our RE docs' convention); `handler` is an AI
+// routine address string (Turrican); `sprite` is the atlas / frame-table key. Empty when
+// the pick carries no ids (e.g. Fort's randomized pools, keyed only by name).
+function idLine(pick) {
+  const m = pick.meta || {};
+  const parts = [];
+  if (m.type != null) parts.push('type $' + Number(m.type).toString(16).toUpperCase());
+  if (m.handler) parts.push('AI $' + m.handler);
+  if (m.hard) parts.push('hard-mode');
+  if (m.sprite) parts.push('sprite ' + m.sprite);
+  return parts.join('   ·   ');
+}
+
 export class LevelViewer {
   constructor(viewportEl, hudEl, config) {
     this.el = viewportEl;
@@ -302,11 +316,22 @@ export class LevelViewer {
     close.addEventListener('click', () => this._hideCard());
     const h = document.createElement('div');
     h.style.cssText = 'font-weight:600;margin:0 14px 4px 0;color:#ffd75e';
-    h.textContent = info ? info.title : pick.name;
+    h.textContent = info ? info.title : (pick.name === 'player' ? 'Player' : 'Object');
+    // ID line: the object's raw identifiers (type / AI handler / sprite), always shown so
+    // the user has a stable handle to ask about later — the point of these cards.
+    const ids = idLine(pick);
+    let idEl = null;
+    if (ids) {
+      idEl = document.createElement('div');
+      idEl.style.cssText = 'font:11px/1.4 ui-monospace,Menlo,monospace;color:#7f8ea3;margin:0 0 6px';
+      idEl.textContent = ids;
+    }
     const body = document.createElement('div');
     if (info) { body.textContent = info.text; }
-    else { body.style.color = '#9aa7b8'; body.textContent = 'Placed object (no notes for this type).'; }
-    card.append(close, h, body);
+    else { body.style.color = '#9aa7b8'; body.textContent = 'No notes for this object yet — the id above is its handle.'; }
+    card.append(close, h);
+    if (idEl) card.append(idEl);
+    card.append(body);
 
     // this.el is the studio's .mount (position:absolute, inset:0) — a positioning
     // context. Append first so we can measure, then clamp the card inside the viewport.

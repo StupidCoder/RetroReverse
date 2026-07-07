@@ -102,6 +102,14 @@ export function buildCollisionProfiles(level, shapes) {
 
 // --- objects -----------------------------------------------------------------------
 
+// The info-card key for a placed object. Games that name their objects (Sonic) key by
+// the name; those with only a numeric type (SML) key by "type-<n>"; those with only a
+// sprite reference (Turrican, whose id is the AI frame table encoded in the sprite path)
+// key by the sprite string. Returns null when nothing identifies the object.
+function pickName(o) {
+  return o.name || (o.type != null ? 'type-' + o.type : o.sprite) || null;
+}
+
 function marker(layer, x, y, w, h, color, label) {
   const g = new Graphics();
   g.rect(x, y, w, h).stroke({ width: 2, color });
@@ -166,9 +174,7 @@ export async function buildObjects(level, data, { markerCat = () => 'default', p
       const placed = placeSprite(container, rec, o.x, o.y, o.tint);
       if (placed.anim) animObjs.push(placed.anim);
       if (placed.path) pathObjs.push(placed.path);
-      if (picks && (o.name || o.type != null)) {
-        picks.push({ node: placed.sprite, name: o.name || ('type-' + o.type) });
-      }
+      if (picks) { const name = pickName(o); if (name) picks.push({ node: placed.sprite, name, meta: o }); }
     } else {
       const cat = markerCat(o);
       const size = level.blocks ? level.grid.tileSize * level.blocks.size : level.grid.tileSize * 2;
@@ -176,9 +182,7 @@ export async function buildObjects(level, data, { markerCat = () => 'default', p
       const g = marker(container, bx, by, size, size,
         MARKER_COLORS[cat] || MARKER_COLORS.default,
         o.name || (o.type != null ? '?' + o.type.toString(16) : ''));
-      if (picks && (o.name || o.type != null)) {
-        picks.push({ node: g, name: o.name || ('type-' + o.type) });
-      }
+      if (picks) { const name = pickName(o); if (name) picks.push({ node: g, name, meta: o }); }
     }
   };
   for (const o of level.objects || []) await put(o);
@@ -188,10 +192,10 @@ export async function buildObjects(level, data, { markerCat = () => 'default', p
     if (rec) {
       const placed = placeSprite(container, rec, x, y, tint);
       if (placed.anim) animObjs.push(placed.anim);
-      if (picks) picks.push({ node: placed.sprite, name: 'player' });
+      if (picks) picks.push({ node: placed.sprite, name: 'player', meta: level.spawn });
     } else {
       const g = spawnCross(container, x, y);
-      if (picks) picks.push({ node: g, name: 'player' });
+      if (picks) picks.push({ node: g, name: 'player', meta: level.spawn });
     }
   }
   return { container, animObjs, pathObjs };
@@ -225,7 +229,7 @@ export async function buildPools(level, data, { random = Math.random, stampTex, 
       const group = new Container();
       group.x = x; group.y = y;
       container.addChild(group);
-      if (picks && pool.name) picks.push({ node: group, name: pool.name });
+      if (picks && pool.name) picks.push({ node: group, name: pool.name, meta: { name: pool.name } });
       stampInto(group, v.stamps);
       if (v.sprite) {
         const rec = await data.sprite(v.sprite);

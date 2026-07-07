@@ -82,9 +82,12 @@ type jsonCollision struct {
 }
 
 type jsonObject struct {
-	X      int    `json:"x"`
-	Y      int    `json:"y"`
-	Sprite string `json:"sprite"`
+	X       int    `json:"x"`
+	Y       int    `json:"y"`
+	Sprite  string `json:"sprite"`
+	Name    string `json:"name"`              // info-card key = the sprite/frame-table id (Turrican's stable object identity; the placement `type` is only scene-local)
+	Type    int    `json:"type"`              // placement type byte (scene-local; resolves to the AI handler)
+	Handler string `json:"handler,omitempty"` // AI handler routine address, hex (the object's behaviour identity)
 }
 
 type jsonLevel struct {
@@ -222,7 +225,11 @@ func run(adfPath, outDir string) error {
 				if k.resident {
 					key += "r"
 				}
-				objects = append(objects, jsonObject{X: o.X, Y: o.Y, Sprite: key})
+				obj := jsonObject{X: o.X, Y: o.Y, Sprite: key, Name: key, Type: o.Type}
+				if o.Handler != 0 {
+					obj.Handler = fmt.Sprintf("%X", o.Handler)
+				}
+				objects = append(objects, obj)
 			}
 
 			file := fmt.Sprintf("world%d_scene%d.json", w, sc.Index)
