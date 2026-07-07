@@ -154,18 +154,29 @@ export class TrackViewer {
     lgeom.setAttribute('color', new THREE.Float32BufferAttribute(lcol, 3));
     group.add(new THREE.LineSegments(lgeom, new THREE.LineBasicMaterial({ vertexColors: true })));
 
-    // Support columns down to the ground (y=0), like the game's preview.
-    const cpos = [];
-    for (let k = 0; k < m; k += 3) {
-      const a = rings[k];
-      const mx = (a.l.x + a.r.x) / 2, mz = (a.l.z + a.r.z) / 2, my = (a.hl + a.hr) / 2;
-      if (my > 0.02) cpos.push(mx, my, mz, mx, 0, mz);
+    // Solid side walls: the track is an elevated ribbon walled along each edge, one
+    // on the left rail and one on the right (as in the game), replacing the old centre
+    // support lines. Each wall is a vertical quad strip that follows its rail and drops
+    // to the ground (y=0). (Colour is a first pass — refined next.)
+    const wpos = [];
+    // one wall quad between rail points a (top height ha) and b (top height hb):
+    // top edge follows the rail, bottom edge sits on the ground.
+    const wallSeg = (a, ha, b, hb) => {
+      wpos.push(a.x, ha, a.z, a.x, 0, a.z, b.x, hb, b.z);
+      wpos.push(b.x, hb, b.z, a.x, 0, a.z, b.x, 0, b.z);
+    };
+    for (let k = 0; k < m; k++) {
+      const a = rings[k], b = rings[(k + 1) % m];
+      wallSeg(a.l, a.hl, b.l, b.hl); // left wall
+      wallSeg(a.r, a.hr, b.r, b.hr); // right wall
     }
-    if (cpos.length) {
-      const cg = new THREE.BufferGeometry();
-      cg.setAttribute('position', new THREE.Float32BufferAttribute(cpos, 3));
-      group.add(new THREE.LineSegments(cg, new THREE.LineBasicMaterial({ color: 0x6b4a3a })));
-    }
+    const wgeom = new THREE.BufferGeometry();
+    wgeom.setAttribute('position', new THREE.Float32BufferAttribute(wpos, 3));
+    const walls = new THREE.Mesh(wgeom, new THREE.MeshBasicMaterial({
+      color: 0x39424f, side: THREE.DoubleSide,
+      polygonOffset: true, polygonOffsetFactor: 1, polygonOffsetUnits: 1,
+    }));
+    group.add(walls);
 
     // Start/finish marker (green) at ring 0.
     const r0 = rings[0];
