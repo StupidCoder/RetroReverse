@@ -170,12 +170,16 @@ func (m *Machine) handleException() {
 		// instruction. Do not clear I_STAT — the game acknowledges via its poll.
 		m.rfeTo(epc)
 	case 8: // syscall
+		// Interrupt enable lives in SR's "previous" slot (IEp, bit 2) at handler
+		// time: the exception entry shifted IEc→IEp, and the closing rfe shifts
+		// IEp→IEc. So critical-section enable/disable must touch IEp, not IEc —
+		// otherwise the rfe overwrites the change and interrupts never turn on.
 		switch m.CPU.Reg(4) { // $a0 selects the sub-function
 		case 1: // EnterCriticalSection: return the old IEc, then disable interrupts
-			m.CPU.SetReg(2, m.CPU.COP0[12]&1)
-			m.CPU.COP0[12] &^= 1
+			m.CPU.SetReg(2, (m.CPU.COP0[12]>>2)&1)
+			m.CPU.COP0[12] &^= 1 << 2
 		case 2: // ExitCriticalSection: enable interrupts
-			m.CPU.COP0[12] |= 1
+			m.CPU.COP0[12] |= 1 << 2
 		}
 		m.biosCalls[fmt.Sprintf("syscall(%d)", m.CPU.Reg(4))]++
 		m.rfeTo(retAddr(epc, cause)) // resume after the syscall

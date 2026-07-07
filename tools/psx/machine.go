@@ -166,7 +166,11 @@ func (m *Machine) Write(addr uint32, v byte) {
 		base := a &^ 3
 		shift := (a & 3) * 8
 		m.io[base] = (m.io[base] &^ (0xFF << shift)) | uint32(v)<<shift
-		if a&3 == 3 { // register completed by this byte (32-bit stores)
+		// Fire the register side effect when the access completes. Most I/O is
+		// written 32-bit (high byte at a&3==3), but the game drives the 16-bit
+		// interrupt registers with `sh` (I_MASK enable, I_STAT ack), which never
+		// reaches a&3==3 — so also fire I_STAT/I_MASK on their halfword boundary.
+		if a&3 == 3 || ((base == iStat || base == iMask) && a&3 == 1) {
 			m.ioSideEffect(base, m.io[base])
 		}
 	case a >= biosBase && a < biosEnd:
