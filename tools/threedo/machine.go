@@ -28,7 +28,7 @@ const (
 	madamEnd    = 0x03400000
 	clioBase    = 0x03400000 // Clio (video/audio/timers/IRQ) registers
 	clioEnd     = 0x03500000
-	kernelBase  = 0x00180000 // synthetic Portfolio kernel/folio base (r7/r9)
+	kernelBase  = 0x001F3000 // synthetic Portfolio kernel/folio base (r7/r9)
 	hleBase     = 0x0FE00000 // reserved window: a PC here is an intercepted folio call
 	hleSize     = 0x00010000
 	bootTaskNum = 1 // item number of the initial (boot) task
@@ -37,13 +37,19 @@ const (
 	// vector table (LookupItem of the "File" folio item yields its base). Its
 	// vectors point into a distinct slice of the HLE window (hleBase+hleFileTag+N)
 	// so an intercepted call can be told apart from a kernel-folio call.
-	fileFolioBase  = 0x0017F000 // base returned by LookupItem("File" folio)
+	fileFolioBase  = 0x001F1F00 // base returned by LookupItem("File" folio)
 	hleFileTag     = 0x8000     // File-folio calls trap at hleBase+hleFileTag+offset
-	otherFolioBase = 0x0017E800 // base for any other (not-yet-implemented) folio
+	otherFolioBase = 0x001F1D00 // base for any other (not-yet-implemented) folio
 	hleOtherTag    = 0xA000     // other-folio calls trap at hleBase+hleOtherTag+offset
 
-	dheapBase = 0x00080000 // DRAM AllocMem pool: above the image, below the folio tables
-	dheapTop  = 0x0017E000 // leaves 0x17E000..0x180000 for the folio vector tables
+	// The kernel/folio vector tables and the boot stack live at the very top of
+	// DRAM so the AllocMem pool is one big *contiguous* span, the way the real 3DO
+	// hands the game ~2 MiB in one piece. A pool split by tables in the middle (and
+	// capped near ~1 MiB) starved the game's own allocator: it carves a fixed node
+	// pool out of the largest block it can get, and built a corrupt free list once
+	// that ran short (InitMemList's second node alloc returned 0 -> first.next=0).
+	dheapBase = 0x00080000 // DRAM AllocMem pool: above the image + BSS
+	dheapTop  = 0x001F0000 // ends below the folio tables (0x1F1C00..) and boot stack
 	vheapBase = vramBase   // VRAM AllocMem pool: the whole 1 MiB VRAM
 	vheapTop  = vramBase + vramSize
 )

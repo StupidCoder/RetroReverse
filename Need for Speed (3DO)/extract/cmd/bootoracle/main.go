@@ -30,6 +30,8 @@ func main() {
 	fbBase := flag.Uint64("fbbase", 0x200000, "framebuffer base address in VRAM")
 	watch := flag.Uint64("watch", 0, "log writes to [watch, watch+watchlen) with the writing PC")
 	watchLen := flag.Uint64("watchlen", 4, "byte span for -watch")
+	dump := flag.Uint64("dump", 0, "after the run, dump memory words at [dump, dump+dumplen)")
+	dumpLen := flag.Uint64("dumplen", 0x40, "byte span for -dump")
 	flag.Parse()
 
 	var data []byte
@@ -86,12 +88,8 @@ func main() {
 		m.OnStep = func(mm *threedo.Machine, pc uint32) {
 			if pc == ba {
 				c := mm.CPU
-				rd := func(a uint32) uint32 {
-					return uint32(mm.Read(a))<<24 | uint32(mm.Read(a+1))<<16 | uint32(mm.Read(a+2))<<8 | uint32(mm.Read(a+3))
-				}
-				r9 := c.Reg(9)
-				brk = append(brk, fmt.Sprintf("hit 0x%08X r4=%08X r9=%08X [r9+34]=%08X cb0=%08X cb1=%08X cb2=%08X",
-					pc, c.Reg(4), r9, rd(r9+0x34), rd(c.Reg(8)), rd(c.Reg(8)+4), rd(c.Reg(8)+8)))
+				brk = append(brk, fmt.Sprintf("hit 0x%08X r0=%08X r1=%08X r2=%08X r3=%08X r4=%08X r5=%08X r6=%08X r12=%08X lr=%08X",
+					pc, c.Reg(0), c.Reg(1), c.Reg(2), c.Reg(3), c.Reg(4), c.Reg(5), c.Reg(6), c.Reg(12), c.Reg(14)))
 			}
 		}
 	}
@@ -122,6 +120,16 @@ func main() {
 		fmt.Printf("\n--- watch [0x%X,+0x%X) writes (%d) ---\n", *watch, *watchLen, len(watchHits))
 		for _, s := range watchHits {
 			fmt.Println(" ", s)
+		}
+	}
+
+	if *dump != 0 {
+		fmt.Printf("\n--- memory dump 0x%X..0x%X ---\n", *dump, *dump+*dumpLen)
+		rd := func(a uint32) uint32 {
+			return uint32(m.Read(a))<<24 | uint32(m.Read(a+1))<<16 | uint32(m.Read(a+2))<<8 | uint32(m.Read(a+3))
+		}
+		for a := uint32(*dump); a < uint32(*dump+*dumpLen); a += 16 {
+			fmt.Printf("  %08X: %08X %08X %08X %08X\n", a, rd(a), rd(a+4), rd(a+8), rd(a+12))
 		}
 	}
 
