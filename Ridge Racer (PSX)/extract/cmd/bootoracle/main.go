@@ -45,6 +45,9 @@ func main() {
 	watchS := flag.String("watch", "", "watch: log who writes ADDR or ADDR:LEN (hex)")
 	showLog := flag.Bool("log", false, "print the machine's diagnostic notes")
 	showTTY := flag.Bool("tty", true, "print the game's BIOS/TTY output")
+	isrS := flag.String("isr", "8004DF48", "vectored-interrupt entry (hex); Ridge Racer's own "+
+		"interrupt dispatcher, traced — the retail BIOS installs it via HookEntryInt into a slot "+
+		"the HLE BIOS leaves empty. Set 0 to use the (empty) registered chain handler")
 	flag.Parse()
 	if *image == "" {
 		die("need -image")
@@ -71,6 +74,9 @@ func main() {
 
 	m := psx.NewMachine()
 	m.SetDisc(vol)
+	if isr, err := hx(*isrS); err == nil {
+		m.ISRHandler = isr
+	}
 	m.LoadEXE(exe)
 
 	w := bufio.NewWriter(os.Stdout)

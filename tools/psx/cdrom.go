@@ -188,6 +188,8 @@ func (c *cdrom) command(cmd byte) {
 	case 0x02: // CdlSetloc: params = min, sec, frame (BCD)
 		if len(c.params) >= 3 {
 			c.loc = bcdToLBA(c.params[0], c.params[1], c.params[2])
+			c.cmdLog[len(c.cmdLog)-1] = fmt.Sprintf("Setloc(%02X:%02X:%02X=LBA%d)",
+				c.params[0], c.params[1], c.params[2], c.loc)
 		}
 		c.ack()
 	case 0x06, 0x1B: // CdlReadN / CdlReadS
@@ -293,6 +295,32 @@ func (c *cdrom) deliverNext() {
 		}
 	}
 	c.m.raiseIRQ(2) // CD interrupt line; the game gates delivery via I_STAT/I_MASK
+}
+
+// dmaTo services a CDROM DMA (channel 3): it streams `bcr` words from the data
+// FIFO into RAM at `madr`, pulling further sectors off the disc as the FIFO
+// drains while a read is active. bcr is blocksize(words) | blockcount<<16.
+func (c *cdrom) dmaTo(madr, bcr uint32) {
+	words := bcr & 0xFFFF
+	if bc := bcr >> 16; bc > 1 {
+		words *= bc
+	}
+	for i := uint32(0); i < words; i++ {
+		if c.dataPos+4 > len(c.data) {
+			if !c.reading {
+				break
+			}
+			c.loadData() // refill from the next sector
+		}
+		if c.dataPos+4 > len(c.data) {
+			break
+		}
+		w := uint32(c.data[c.dataPos]) | uint32(c.data[c.dataPos+1])<<8 |
+			uint32(c.data[c.dataPos+2])<<16 | uint32(c.data[c.dataPos+3])<<24
+		c.dataPos += 4
+		c.m.write32(madr, w)
+		madr += 4
+	}
 }
 
 // loadData copies the current sector (2048 user bytes) into the data FIFO and

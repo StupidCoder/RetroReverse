@@ -57,6 +57,7 @@ type Machine struct {
 	irqMask  uint32
 	gpuFrame uint32 // toggled into GPUSTAT bit 31 so status polls terminate
 	timer    uint32 // free-running value returned for timer reads
+	dmaFlags uint32 // DICR per-channel IRQ flags (bits 0..6), write-1-to-clear
 
 	// Interrupt delivery (see run.go / bios.go). The PSX raises IRQs into I_STAT;
 	// the game reads them either by polling I_STAT directly (Ridge Racer's CD/timing
@@ -65,6 +66,13 @@ type Machine struct {
 	vblankAcc uint64 // steps since the last synthetic VBlank
 	isrChain  uint32 // HookEntryInt argument: &{next, handler, ...}
 	isr       isrState
+
+	// ISRHandler optionally overrides the vectored-interrupt entry point. The
+	// retail BIOS ROM, on HookEntryInt, installs a handler stub at the caller's
+	// slot; under HLE (no ROM) that slot stays empty, so a caller that has traced
+	// the game's own interrupt dispatcher can point delivery straight at it. Zero
+	// means "use the registered chain handler" (the default).
+	ISRHandler uint32
 
 	// BIOS-HLE bookkeeping.
 	biosCalls        map[string]int
@@ -116,6 +124,10 @@ func (m *Machine) LoadEXE(e *EXE) {
 	m.CPU.SetReg(30, sp)            // $fp
 	m.CPU.SetReg(4, 1)              // $a0 = argc (BIOS convention)
 	m.CPU.SetReg(5, 0)              // $a1 = argv
+	// The BIOS leaves the hardware-interrupt mask (SR IM2, bit 10) enabled before
+	// handing control to the game; IEc itself is toggled by critical sections.
+	// Without IM2 a raised IP2 (I_STAT&I_MASK) would be masked and never vector.
+	m.CPU.COP0[12] |= 1 << 10
 }
 
 // --- mips.Bus --------------------------------------------------------------
@@ -195,6 +207,12 @@ func (m *Machine) ioReadWord(base uint32) uint32 {
 	case 0x1F801100, 0x1F801110, 0x1F801120: // timer current values
 		m.timer += 0x100
 		return m.timer & 0xFFFF
+	case 0x1F8010F4: // DICR: control bits + per-channel flags + master IRQ flag
+		v := m.io[base]&0x00FFFFFF | m.dmaFlags<<24
+		if v&(1<<15) != 0 || (v&(1<<23) != 0 && m.dmaFlags&((v>>16)&0x7F) != 0) {
+			v |= 1 << 31 // master IRQ flag
+		}
+		return v
 	default:
 		return m.io[base]
 	}
@@ -208,14 +226,23 @@ func (m *Machine) ioSideEffect(base, word uint32) {
 		m.irqStat &= word
 	case base == iMask:
 		m.irqMask = word
+	case base == 0x1F8010F4: // DICR: bits 24-30 are write-1-to-clear flags
+		m.dmaFlags &^= (word >> 24) & 0x7F
 	case base >= 0x1F801080 && base < 0x1F801100:
-		// DMA channel registers. On a CHCR (offset +8) write that starts a
-		// transfer, immediately mark it complete so the game does not wait.
+		// DMA channel registers. A CHCR (offset +8) write with the start bit runs
+		// the transfer; channel 3 (CDROM) actually moves the ready sector from the
+		// CD data FIFO into RAM, the rest still auto-complete (real GPU/OTC DMA is
+		// M12). MADR (+0) and BCR (+4) are the destination and block count.
 		if base&0xF == 0x8 && word&0x01000000 != 0 {
-			m.io[base] = word &^ 0x01000000 // clear the busy/start bit
 			ch := (base - 0x1F801080) >> 4
-			m.raiseIRQ(3)            // DMA interrupt line
-			m.io[0x1F8010F4] |= 1 << (24 + ch) // DICR channel-done flag
+			if ch == 3 {
+				madr := m.io[base-8] & 0x1FFFFF
+				bcr := m.io[base-4]
+				m.cd.dmaTo(madr, bcr)
+			}
+			m.io[base] = word &^ 0x01000000 // clear the busy/start bit
+			m.raiseIRQ(3)                    // DMA interrupt line
+			m.dmaFlags |= 1 << ch            // DICR channel-done flag (write-1-to-clear)
 		}
 	}
 }

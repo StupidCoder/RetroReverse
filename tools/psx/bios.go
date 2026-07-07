@@ -166,8 +166,10 @@ func (m *Machine) handleException() {
 		if m.dispatchISR(epc) {
 			return // handler runs natively; returnFromISR resumes at EPC
 		}
-		// No game handler installed (the game polls I_STAT): resume the preempted
-		// instruction. Do not clear I_STAT — the game acknowledges via its poll.
+		// No usable handler: acknowledge the masked pending sources so the line
+		// drops (otherwise the interrupt re-fires every instruction and storms),
+		// then resume the preempted instruction.
+		m.irqStat &^= m.irqMask
 		m.rfeTo(epc)
 	case 8: // syscall
 		// Interrupt enable lives in SR's "previous" slot (IEp, bit 2) at handler
@@ -211,11 +213,13 @@ func (m *Machine) rfeTo(pc uint32) {
 // ordinary code until its `jr $ra` reaches the isrReturn sentinel (run.go), which
 // calls returnFromISR. Returns false when no handler is available.
 func (m *Machine) dispatchISR(epc uint32) bool {
-	if m.isrChain == 0 {
-		return false
+	handler := m.ISRHandler
+	if handler == 0 && m.isrChain != 0 {
+		handler = m.read32(m.isrChain + 4)
 	}
-	handler := m.read32(m.isrChain + 4)
-	if handler == 0 {
+	// Reject a missing handler or one whose entry is still an uninitialised NOP —
+	// vectoring into empty RAM would run off into garbage.
+	if handler == 0 || m.read32(handler) == 0 {
 		return false
 	}
 	s := &m.isr
