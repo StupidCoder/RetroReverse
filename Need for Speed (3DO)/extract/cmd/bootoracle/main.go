@@ -23,6 +23,7 @@ func main() {
 	trace := flag.Bool("trace", false, "print each executed instruction")
 	tracen := flag.Uint64("tracen", 0, "print only the first N executed instructions")
 	hot := flag.Bool("hot", false, "profile the most-executed instruction addresses")
+	breakAt := flag.Uint64("break", 0, "log lr + r0-r3/r12 each time PC == this address")
 	flag.Parse()
 
 	var data []byte
@@ -69,10 +70,30 @@ func main() {
 	if *hot {
 		m.OnStep = func(mm *threedo.Machine, pc uint32) { hits[pc]++ }
 	}
+	var brk []string
+	if *breakAt != 0 {
+		ba := uint32(*breakAt)
+		var prev uint32
+		m.OnStep = func(mm *threedo.Machine, pc uint32) {
+			if pc == ba {
+				c := mm.CPU
+				brk = append(brk, fmt.Sprintf("hit 0x%08X (from 0x%08X) lr=0x%08X  r0=%08X r1=%08X r2=%08X r3=%08X",
+					pc, prev, c.Reg(14), c.Reg(0), c.Reg(1), c.Reg(2), c.Reg(3)))
+			}
+			prev = pc
+		}
+	}
 
 	fmt.Printf("\n--- running (max %d steps) ---\n", *steps)
 	res := m.Run(*steps)
 	fmt.Printf("stopped: %s  after %d steps, pc=0x%08X\n", res.Reason, res.Steps, res.PC)
+
+	if len(brk) > 0 {
+		fmt.Printf("\n--- breakpoint hits at 0x%X (last 12 of %d) ---\n", *breakAt, len(brk))
+		for _, s := range brk[max(0, len(brk)-12):] {
+			fmt.Println(" ", s)
+		}
+	}
 
 	if tty := m.TTY(); tty != "" {
 		fmt.Printf("\n[TTY]\n%s\n", tty)

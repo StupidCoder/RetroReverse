@@ -138,6 +138,15 @@ func (m *Machine) Read(addr uint32) byte {
 		return m.vram[addr-vramBase]
 	case addr >= madamBase && addr < clioEnd:
 		return 0 // Madam/Clio registers read as 0 under HLE
+	case addr >= 0xFFFFF000:
+		// A folio call through a *null* base — `LDR pc, [0, #-N]` — reads near the
+		// top of the address space. Return hleBase+N so the load lands in the HLE
+		// trap window with the folio's offset, making a call through an
+		// uninitialised folio base resolve like any other. (Without this the game
+		// reads 0, jumps to 0, and re-runs the AIF header — the boot retry loop.)
+		wbase := addr &^ 3
+		w := hleBase - wbase // uint32 wrap: hleBase + (2^32 - wbase)
+		return byte(w >> uint((3-(addr&3))*8))
 	default:
 		m.note(fmt.Sprintf("read unmapped 0x%08X", addr))
 		return 0

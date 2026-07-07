@@ -265,14 +265,27 @@ the DRAM pool for its working set. With the pools split to match the hardware (2
 MiB DRAM + 1 MiB VRAM), the probe returns consistent real pointers and startup
 proceeds through memory setup.
 
-**Where it stops.** After memory setup the boot enters a `memset` whose length
-comes from a folio still stubbed to return 0, so it clears a garbage-sized region
-— the oracle's forward-progress guard now reports this as a closed loop rather
-than spinning the budget. Getting past it is the next tranche of folio work (the
-item system and the call feeding that length). `bootoracle -hot` profiles the
-hottest addresses to find each such frontier. This is steady OS-reimplementation:
-the mechanism and the core memory folios are done; the item/graphics folios are
-the remaining surface between here and a menu.
+**The boot-retry loop, and the null-base fix.** After memory setup the boot
+appeared to hang in a `memset` — but `bootoracle -break` (register/`from` logging)
+showed the *whole* AIF header sequence (relocate → zero-init → entry) re-running
+~13 times. The cause: the game opens **more than one folio**, and only the kernel
+base is stored where our HLE plants it; a *second* folio's base global stays 0, so
+`LDR pc, [0, #-0xC0]` reads address `0xFFFFFF40`, gets 0, and jumps to 0 — back to
+the AIF header. The fix (in `machine.go`): a read in the top page returns
+`hleBase + N` for an access at `-N`, so a folio call through *any* base — even a
+null one — lands in the HLE trap window with the correct offset. With that, the
+boot leaves the header loop and runs real initialisation code (some of it copied
+into and executed from VRAM), exercising 18 distinct folios.
+
+**The current frontier: async I/O.** It now stalls in a spin-wait —
+`LDRB r1,[r4,#0x18]; TEQ r1,#0; BEQ .` — on a completion flag. The preceding code
+builds a request and submits it through the SWI folio dispatcher (`SendIO`-style):
+on hardware an I/O server task or interrupt sets `[req+0x18]` when done; with no
+task/interrupt model the flag never sets. Completing these I/O requests (the 3DO
+task/message model, or synchronous HLE of each I/O) is the next milestone —
+`bootoracle -hot`/`-break` locate each such wait. The mechanism, the memory folios
+and the multi-folio dispatch are done; async I/O + the graphics folio are the
+surface between here and a rendered frame.
 
 ## Part VI — the car model format (ORI3)
 
