@@ -169,5 +169,38 @@ support is needed), code at base+0x80. `System/Programs/*`, `System/Kernel` and
 `System/Folios/*` are AIF ARM60 code too — the Portfolio OS the oracle boots
 through in Part IV.
 
-## Part III — the ARM60 toolchain *(in progress)*
+## Part III — the ARM60 toolchain
+
+The 3DO CPU is an **ARM60** — an ARMv3 core, and (crucially) wired **big-endian**,
+so instructions and data are most-significant-byte first. `tools/arm60` is a
+dedicated core rather than a mode of the DS's `tools/arm`, matching the repo's
+one-core-per-target style and keeping the working DS core untouched.
+
+Versus the ARMv4T/v5TE that `tools/arm` models, the ARM60 has **no** Thumb, no
+BX/BLX, no halfword/signed loads, no CLZ/DSP/saturating ops, and `cond==1111`
+means the old **"never" (NV)** condition, not the ARMv5 unconditional space. It
+runs the classic set: conditional data-processing through the barrel shifter,
+MRS/MSR, MUL/MLA (+ long multiplies), SWP, LDR/STR, LDM/STM, B/BL, SWI. The
+game's AIF header pins **32-bit mode** (address mode 0x20), so the ARMv3 26-bit
+modes are not modelled.
+
+- `tools/arm60/arm60.go` — decoder + `Disassemble`, big-endian `word()`, `Flow`
+  classification; NV instructions are decoded but flow-neutralized so the tracer
+  never follows a dead branch.
+- `tools/arm60/cpu.go`, `exec.go` — the execution core: banked registers + mode
+  switching, CPSR/SPSR, big-endian memory, barrel-shifter carry, exceptions/IRQ,
+  and a `SWI` hook for Portfolio HLE. `Bus` is the same byte interface as `arm`.
+- `tools/cmd/disarm60` — linear disassembler; `tools/cmd/codetracearm60` —
+  recursive-descent tracer (entry points → reachable code, data gaps marked).
+
+Validated on `LaunchMe` itself. The AIF header disassembles exactly (`MOV r0,r0`
+no-op decompress, `BL` self-reloc/zero-init/entry, `SWI #0x11` exit). The entry
+at 0x100 is coherent 3DO code: the **Portfolio folio-call convention** — indirect
+calls through negative offsets from `r9`, the kernel/data base (`LDR pc,[r9,#-0x78]`)
+— a signed-divide helper (`CMP r1,#0x80000000 / RSBCS / RRX`), and stack thunks.
+The tracer follows the entry `BL` into the AIF self-relocation loop
+(`SUB r12,lr,pc / ADD r12,pc,r12`). `cpu_test.go`/`decode_test.go` cover
+data-processing, conditional execution, big-endian load/store, LDM/STM, branch
+and return, the SWI hook, mode banking and exception entry.
+
 ## Part IV — booting LaunchMe *(planned)*
