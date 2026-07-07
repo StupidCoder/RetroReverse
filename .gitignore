@@ -2,6 +2,9 @@
 
 # copyrighted commercial game data — pinned by MD5 in README, never committed
 Ultima Underworld (PC)/game/
+# Need for Speed (3DO) disc image — 771 MB, too large to commit; pinned by MD5 in README
+Need for Speed (3DO)/Need for Speed.bin
+Need for Speed (3DO)/Need for Speed.cue
 
 # compiled extraction tools (build with: cd "<Game>/extract" && go build)
 */extract/extract

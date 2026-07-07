@@ -323,6 +323,7 @@ below pin the precise copy, so the work stays reproducible.
 | `Fort Apocalypse (C64)/Fort_Apocalypse.tap` | 225,817 | `bec7409816865f3ad160af9984f127cd` |
 | `Marble Madness (Amiga)/Marble_Madness.adf` | 901,120 | `735dc697d64b3eeaa000778eb0b1153a` |
 | `Mario Kart DS (DS)/Mario Kart DS (Europe) (En,Fr,De,Es,It).nds` | 33,554,432 | `18635a82108149b46fe276c6fac44ee6` |
+| `Need for Speed (3DO)/Need for Speed.bin` | 771,408,960 | `b213789b67a3368207a2ebf2c222847a` |
 | `Ridge Racer (PSX)/Ridge Racer (Track 01).bin` | 3,683,232 | `ec755afa6ca49432445384b870412dfb` |
 | `Sonic (GG)/Sonic The Hedgehog (Japan, USA).gg` | 262,144 | `8a95b36139206a5ba13a38bb626aee25` |
 | `Stunt Car Racer (Amiga)/Stunt Car Racer.adf` | 901,120 | `b6d3751e6aa636f203f3c6a8de81ebfc` |
@@ -334,6 +335,10 @@ below pin the precise copy, so the work stays reproducible.
 The Ultima Underworld `game/` folder (the executable plus ~11 MB of data) is a
 copyrighted commercial release and is **not committed** (`.gitignore`d); only
 `UW.EXE` is pinned above, as the offsets in its writeup depend on it.
+
+The Need for Speed (3DO) disc image (`Need for Speed.bin`, 771 MB) is likewise a
+copyrighted commercial release and **not committed** (`.gitignore`d); it is
+pinned above so the OperaFS extraction and the writeup stay reproducible.
 
 Verify a copy before reusing it, e.g. `md5 "Elite (C64)/Elite.tap"`
 (`md5sum` on Linux).
