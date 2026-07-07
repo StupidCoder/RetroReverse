@@ -123,6 +123,26 @@ func (g *gpu) gp0(w uint32) {
 	}
 }
 
+// feedNode sends one GPU-DMA ordering-table node's body words to GP0. Each node
+// in Ridge Racer's ordering table holds exactly one primitive whose first word
+// is the GP0 opcode+colour. The game keeps disabled primitives (e.g. culled
+// roadside sprites, whole track-object nodes that are off this frame) linked in
+// the table but zeroes their opcode+colour word, so the leading opcode reads as
+// a NOP (0x00). Feeding such a node's remaining words straight to GP0 would
+// misread its texcoord/CLUT words — whose high bytes hold values like 0x7B or
+// 0x3C — as rectangle/polygon opcodes, drawing spurious primitives and, when a
+// bogus opcode's parameter count overruns the node, desyncing the FIFO into
+// giant fills that trample the texture atlas. Skip a node whose primitive opcode
+// is a NOP; feed every other node forward unchanged.
+func (g *gpu) feedNode(w []uint32) {
+	if g.need == 0 && g.imgPx == 0 && len(w) >= 2 && byte(w[0]>>24) == 0 {
+		return
+	}
+	for _, x := range w {
+		g.gp0(x)
+	}
+}
+
 // pushImage stores two 16-bit pixels from a CPU→VRAM word into the upload rect.
 func (g *gpu) pushImage(w uint32) {
 	for _, px := range [2]uint16{uint16(w), uint16(w >> 16)} {

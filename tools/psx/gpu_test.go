@@ -39,6 +39,37 @@ func TestGPUGouraudTriangle(t *testing.T) {
 	}
 }
 
+// TestFeedNodeSkipsDisabledPrimitive checks that a linked-list node whose
+// primitive opcode word is zeroed (a culled/disabled slot Ridge Racer leaves in
+// its ordering table) is skipped whole: its interior texcoord/CLUT words — whose
+// high bytes alias GP0 rectangle/polygon opcodes — must not be executed, and the
+// GP0 FIFO must stay synced so the next real primitive still draws.
+func TestFeedNodeSkipsDisabledPrimitive(t *testing.T) {
+	g := newGPU()
+	// A disabled POLY_FT4 slot: opcode+colour word zeroed. Word [2] is a
+	// texcoord+CLUT word (0x7B0000FF) whose top byte 0x7B is a 16x16 rectangle
+	// opcode; if fed forward it would paint a rectangle at word [3]'s coords.
+	g.feedNode([]uint32{
+		0x00000000, // opcode+colour = NOP -> whole node skipped
+		0x00320032,
+		0x7B0000FF, // top byte 0x7B looks like a rect opcode
+		0x00320032, // (50,50) -> where the spurious rect would land
+		0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000,
+	})
+	if g.pixel(50, 50) != 0 {
+		t.Errorf("disabled node drew a spurious pixel at (50,50): 0x%04X", g.pixel(50, 50))
+	}
+	if g.need != 0 || g.imgPx != 0 {
+		t.Fatalf("FIFO desynced after skipped node: need=%d imgPx=%d", g.need, g.imgPx)
+	}
+	// A real primitive after the skipped node still draws (FIFO stayed synced):
+	// a 4x4 fill-rect (GP0 0x02) at (0,0) in red.
+	g.feedNode([]uint32{0x020000FF, 0x00000000, 0x00040004})
+	if g.pixel(1, 1) != 0x001F {
+		t.Errorf("fill after skipped node = 0x%04X, want 0x001F", g.pixel(1, 1))
+	}
+}
+
 // TestGPUImageLoadAndDisplay uploads a 2x2 image via GP0 0xA0 and reads it back.
 func TestGPUImageLoadAndDisplay(t *testing.T) {
 	g := newGPU()

@@ -268,18 +268,23 @@ func (m *Machine) ioSideEffect(base, word uint32) {
 }
 
 // dmaGPU services a GPU DMA (channel 2): in linked-list sync mode (CHCR bits
-// 9-10 == 2) it walks the ordering table, feeding each node's words to GP0; in
-// block mode it streams BCR words (a VRAM image upload).
+// 9-10 == 2) it walks the ordering table, handing each node's words to the GPU
+// (feedNode, which skips the game's disabled/zeroed primitive slots); in block
+// mode it streams BCR words (a VRAM image upload).
 func (m *Machine) dmaGPU(madr, bcr, chcr uint32) {
 	if (chcr>>9)&3 == 2 { // linked list
 		addr := madr
+		nodeWords := make([]uint32, 0, 16)
 		for i := 0; i < 0x40000; i++ { // guard against a broken/looping list
 			addr &= 0x1FFFFF
 			header := m.read32(addr)
-			for j := uint32(0); j < header>>24; j++ {
+			words := header >> 24
+			nodeWords = nodeWords[:0]
+			for j := uint32(0); j < words; j++ {
 				addr = (addr + 4) & 0x1FFFFF
-				m.gpu.gp0(m.read32(addr))
+				nodeWords = append(nodeWords, m.read32(addr))
 			}
+			m.gpu.feedNode(nodeWords)
 			next := header & 0xFFFFFF
 			if next&0x800000 != 0 { // end-of-list marker
 				break
