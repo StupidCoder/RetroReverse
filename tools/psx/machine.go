@@ -90,6 +90,20 @@ type Machine struct {
 	nextEvent        uint32 // OpenEvent handle counter
 	randSeed         uint32 // BIOS rand() state
 
+	// Controller input. InitPad registers the port-1 pad buffer (padBuf); StartPad
+	// arms polling; thereafter each synthetic VBlank writes a digital-pad packet
+	// reflecting PadButtons (active-low 16-bit button mask, 0=pressed) into it, the
+	// way the retail BIOS's VBlank handler would. PadButtons is driven by the host.
+	padBuf     uint32
+	padActive  bool
+	PadButtons uint16
+
+	// PadScript is an optional time-ordered schedule of button states: at each
+	// entry's step count PadButtons is set to its mask (active-low). It lets a
+	// caller script menu input without a per-run driver. Applied in Run.
+	PadScript []PadEvent
+	padCursor  int
+
 	// Diagnostics.
 	Log     []string
 	logSeen map[string]bool
@@ -106,11 +120,12 @@ type Machine struct {
 // NewMachine builds a reset machine with RAM, scratchpad, CPU and GTE.
 func NewMachine() *Machine {
 	m := &Machine{
-		ram:       make([]byte, ramSize),
-		scratch:   make([]byte, scratchSize),
-		io:        map[uint32]uint32{},
-		biosCalls: map[string]int{},
-		logSeen:   map[string]bool{},
+		ram:        make([]byte, ramSize),
+		scratch:    make([]byte, scratchSize),
+		io:         map[uint32]uint32{},
+		biosCalls:  map[string]int{},
+		logSeen:    map[string]bool{},
+		PadButtons: 0xFFFF, // all buttons released (active-low)
 	}
 	m.CPU = mips.NewCPU(m)
 	m.GTE = mips.NewGTE()
@@ -118,6 +133,34 @@ func NewMachine() *Machine {
 	m.cd = newCDROM(m)
 	m.gpu = newGPU()
 	return m
+}
+
+// Digital controller button bits (active-low: clear a bit in PadButtons to press
+// it). PadReleased is the idle state with every button up.
+const (
+	PadSelect   uint16 = 1 << 0
+	PadStart    uint16 = 1 << 3
+	PadUp       uint16 = 1 << 4
+	PadRight    uint16 = 1 << 5
+	PadDown     uint16 = 1 << 6
+	PadLeft     uint16 = 1 << 7
+	PadL2       uint16 = 1 << 8
+	PadR2       uint16 = 1 << 9
+	PadL1       uint16 = 1 << 10
+	PadR1       uint16 = 1 << 11
+	PadTriangle uint16 = 1 << 12
+	PadCircle   uint16 = 1 << 13
+	PadCross    uint16 = 1 << 14
+	PadSquare   uint16 = 1 << 15
+
+	PadReleased uint16 = 0xFFFF
+)
+
+// PadEvent sets the controller button mask (active-low, 0=pressed) once the run
+// has executed AtStep instructions. Entries must be ordered by AtStep.
+type PadEvent struct {
+	AtStep  uint64
+	Buttons uint16
 }
 
 // SetDisc mounts a disc image so the CD-ROM controller can serve sectors.
@@ -306,6 +349,21 @@ func (m *Machine) dmaGPU(madr, bcr, chcr uint32) {
 
 // raiseIRQ sets an interrupt-request bit in I_STAT (0..10).
 func (m *Machine) raiseIRQ(bit uint) { m.irqStat |= 1 << bit }
+
+// writePad fills the game's registered port-1 pad buffer with a standard digital
+// controller (SCPH-1080) packet, as the BIOS VBlank pad handler would. The
+// layout the InitPad-based reader expects: byte0 = 0 (device present), byte1 =
+// 0x41 (digital pad id / one data half-word), bytes2-3 = the 16-bit button state
+// (active-low, 0 = pressed). Called each synthetic VBlank once StartPad has run.
+func (m *Machine) writePad() {
+	if !m.padActive || m.padBuf == 0 {
+		return
+	}
+	m.Write(m.padBuf+0, 0x00)
+	m.Write(m.padBuf+1, 0x41)
+	m.Write(m.padBuf+2, byte(m.PadButtons))
+	m.Write(m.padBuf+3, byte(m.PadButtons>>8))
+}
 
 // read32 assembles a little-endian word through the normal memory map (used by
 // the BIOS-HLE for structures the game hands us, e.g. the HookEntryInt chain).

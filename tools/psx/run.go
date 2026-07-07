@@ -27,11 +27,17 @@ func (m *Machine) Run(maxSteps uint64) Result {
 	var sinceReset uint64
 
 	for steps < maxSteps {
+		// Apply any scripted controller input whose step has been reached.
+		for m.padCursor < len(m.PadScript) && m.CPU.Steps >= m.PadScript[m.padCursor].AtStep {
+			m.PadButtons = m.PadScript[m.padCursor].Buttons
+			m.padCursor++
+		}
 		// Synthetic vertical-blank: raise I_STAT bit 0 on a fixed cadence. The game
 		// polls I_STAT for timing (and, in-game, unmasks it for a vectored VBlank).
 		if m.vblankAcc++; m.vblankAcc >= stepsPerVBlank {
 			m.vblankAcc = 0
 			m.raiseIRQ(0)
+			m.writePad() // refresh the controller buffer, as the BIOS would
 		}
 		// Advance the CD-ROM controller's queued interrupt responses.
 		m.cd.tick()

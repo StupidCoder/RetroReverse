@@ -106,8 +106,13 @@ func (m *Machine) serviceBios(table byte, fn uint32) (string, uint32) {
 		case 0x0D:
 			return "DisableEvent", 1
 		case 0x12:
+			// InitPad(buf1, len1, buf2, len2): register the per-port pad buffers.
+			// We drive port 1 only; buf1 = $a0.
+			m.padBuf = a0
 			return "InitPad", 1
 		case 0x13:
+			// StartPad(): begin polling. From here the VBlank handler fills padBuf.
+			m.padActive = true
 			return "StartPad", 1
 		case 0x14:
 			return "StopPad", 0

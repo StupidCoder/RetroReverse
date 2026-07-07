@@ -19,6 +19,7 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"sort"
 	"strconv"
 	"strings"
 
@@ -49,6 +50,10 @@ func main() {
 	isrS := flag.String("isr", "8004DF48", "vectored-interrupt entry (hex); Ridge Racer's own "+
 		"interrupt dispatcher, traced — the retail BIOS installs it via HookEntryInt into a slot "+
 		"the HLE BIOS leaves empty. Set 0 to use the (empty) registered chain handler")
+	press := flag.String("press", "", "scripted controller input: comma-separated BUTTON@STEP:HOLD "+
+		"entries (e.g. start@380000000:400000,right@390000000:400000). BUTTON is start/select/up/"+
+		"down/left/right/cross/circle/triangle/square/l1/r1/l2/r2. STEP is the instruction count to "+
+		"press at, HOLD how many instructions to hold. Fills the HLE pad buffer at VBlank cadence")
 	flag.Parse()
 	if *image == "" {
 		die("need -image")
@@ -77,6 +82,13 @@ func main() {
 	m.SetDisc(vol)
 	if isr, err := hx(*isrS); err == nil {
 		m.ISRHandler = isr
+	}
+	if *press != "" {
+		script, err := parsePress(*press)
+		if err != nil {
+			die("bad -press: %v", err)
+		}
+		m.PadScript = script
 	}
 	m.LoadEXE(exe)
 
@@ -182,6 +194,67 @@ func parseCount(s string) (uint64, error) {
 		return uint64(v), err
 	}
 	return strconv.ParseUint(s, 10, 64)
+}
+
+// padNames maps -press button names to their active-low mask bit.
+var padNames = map[string]uint16{
+	"select": psx.PadSelect, "start": psx.PadStart,
+	"up": psx.PadUp, "right": psx.PadRight, "down": psx.PadDown, "left": psx.PadLeft,
+	"l2": psx.PadL2, "r2": psx.PadR2, "l1": psx.PadL1, "r1": psx.PadR1,
+	"triangle": psx.PadTriangle, "circle": psx.PadCircle, "cross": psx.PadCross, "square": psx.PadSquare,
+}
+
+// parsePress turns "start@380000000:400000,right@390000000:400000" into a
+// time-ordered pad schedule: each entry presses a button at its step for a hold
+// span, then releases. Overlapping holds are OR-combined so chords work.
+func parsePress(spec string) ([]psx.PadEvent, error) {
+	type edge struct {
+		step uint64
+		bit  uint16
+		down bool
+	}
+	var edges []edge
+	for _, part := range strings.Split(spec, ",") {
+		part = strings.TrimSpace(part)
+		if part == "" {
+			continue
+		}
+		at := strings.IndexByte(part, '@')
+		col := strings.LastIndexByte(part, ':')
+		if at < 0 || col < at {
+			return nil, fmt.Errorf("want BUTTON@STEP:HOLD, got %q", part)
+		}
+		bit, ok := padNames[strings.ToLower(part[:at])]
+		if !ok {
+			return nil, fmt.Errorf("unknown button %q", part[:at])
+		}
+		step, err := parseCount(part[at+1 : col])
+		if err != nil {
+			return nil, fmt.Errorf("bad step in %q", part)
+		}
+		hold, err := parseCount(part[col+1:])
+		if err != nil {
+			return nil, fmt.Errorf("bad hold in %q", part)
+		}
+		edges = append(edges, edge{step, bit, true}, edge{step + hold, bit, false})
+	}
+	sort.Slice(edges, func(i, j int) bool { return edges[i].step < edges[j].step })
+	var script []psx.PadEvent
+	held := uint16(0)
+	for _, e := range edges {
+		if e.down {
+			held |= e.bit
+		} else {
+			held &^= e.bit
+		}
+		buttons := psx.PadReleased &^ held
+		if n := len(script); n > 0 && script[n-1].AtStep == e.step {
+			script[n-1].Buttons = buttons // coalesce simultaneous edges
+		} else {
+			script = append(script, psx.PadEvent{AtStep: e.step, Buttons: buttons})
+		}
+	}
+	return script, nil
 }
 
 func parseWatch(s string) (lo, ln uint32, err error) {
