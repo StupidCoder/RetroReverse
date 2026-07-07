@@ -51,6 +51,24 @@ export class LevelViewer {
     // in Y, not a THREE.Sprite (which tilts to fully face the camera).
     this._plane = new THREE.PlaneGeometry(1, 1);
 
+    // Click-to-identify: invisible boxes (one per object) carry the item id;
+    // a click raycasts them and shows the id in a small overlay.
+    this._pickBox = new THREE.BoxGeometry(1, 1, 1);
+    this._pickMat = new THREE.MeshBasicMaterial({ colorWrite: false, depthWrite: false, side: THREE.DoubleSide });
+    this._ray = new THREE.Raycaster();
+    if (getComputedStyle(el).position === 'static') el.style.position = 'relative';
+    const label = document.createElement('div');
+    label.style.cssText = 'position:absolute;left:8px;bottom:8px;padding:4px 8px;' +
+      'font:12px/1.4 ui-monospace,monospace;color:#cde;background:rgba(0,0,0,.62);' +
+      'border:1px solid #2c3444;border-radius:4px;pointer-events:none;display:none;z-index:5;';
+    el.appendChild(label);
+    this._pickLabel = label;
+    let downX = 0, downY = 0;
+    renderer.domElement.addEventListener('pointerdown', (e) => { downX = e.clientX; downY = e.clientY; });
+    renderer.domElement.addEventListener('pointerup', (e) => {
+      if (Math.hypot(e.clientX - downX, e.clientY - downY) <= 5) this._pick(e); // ignore drags
+    });
+
     this._resize();
     window.addEventListener('resize', () => this._resize());
     new ResizeObserver(() => this._resize()).observe(el);
@@ -164,6 +182,21 @@ export class LevelViewer {
     this._creatures = creatures;
     this._billboards = billboards;
 
+    // Invisible click boxes tagged with each object's item id (doors emit two —
+    // frame + leaf — with the same id). Exported Pos is the AABB centre.
+    const pickGroup = new THREE.Group();
+    pickGroup.position.set(-c.x, -c.y, -c.z);
+    for (const p of data.picks || []) {
+      const box = new THREE.Mesh(this._pickBox, this._pickMat);
+      box.position.set(p.pos[0], p.pos[1], p.pos[2]);
+      box.scale.set(p.size[0], p.size[1], p.size[2]);
+      box.userData.id = p.id;
+      pickGroup.add(box);
+    }
+    scene.add(pickGroup);
+    this._pickGroup = pickGroup;
+    this._pickLabel.style.display = 'none';
+
     // Start inside the dungeon (it's now ceiling-enclosed): the exported spawn
     // is an interior point at eye height; place the camera there looking ahead.
     // Fall back to an angled overview if no spawn was exported.
@@ -250,6 +283,25 @@ export class LevelViewer {
     }
   }
 
+  // _pick raycasts the invisible object boxes at the clicked point and shows the
+  // item id of the nearest one (the boxes share the level's centring group).
+  _pick(e) {
+    const grp = this._pickGroup;
+    if (!grp) return;
+    const rect = this.three.renderer.domElement.getBoundingClientRect();
+    const ndc = this._ndc || (this._ndc = new THREE.Vector2());
+    ndc.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
+    ndc.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
+    this._ray.setFromCamera(ndc, this.three.camera);
+    const hits = this._ray.intersectObjects(grp.children, false);
+    if (hits.length) {
+      this._pickLabel.textContent = `item id ${hits[0].object.userData.id}`;
+      this._pickLabel.style.display = 'block';
+    } else {
+      this._pickLabel.style.display = 'none';
+    }
+  }
+
   _dispose() {
     const g = this.three.group;
     if (g) {
@@ -267,5 +319,9 @@ export class LevelViewer {
     this._spriteMats = null;
     this._creatures = null;
     this._billboards = null;
+    if (this._pickGroup) {
+      this.three.scene.remove(this._pickGroup);
+      this._pickGroup = null;
+    }
   }
 }

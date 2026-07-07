@@ -47,6 +47,16 @@ type outMesh struct {
 	Sprites   []outSprite   `json:"sprites"`   // billboard objects (camera-facing)
 	Creatures []outCreature `json:"creatures"` // view-dependent 8-direction sprites
 	SpriteTex []string      `json:"spriteTex"` // PNG data URIs, indexed by outSprite.Tex / outDir.Tex
+	Picks     []outPick     `json:"picks"`     // click targets (item id + world AABB)
+}
+
+// outPick is a click target: an axis-aligned box (world Y-up, Pos = centre, Size
+// = full extents) tagged with the object's item id, so the viewer can raycast it
+// and report which object was clicked. Doors emit two (frame + leaf, same id).
+type outPick struct {
+	ID   int        `json:"id"`
+	Pos  [3]float32 `json:"pos"`
+	Size [3]float32 `json:"size"`
 }
 
 // outSprite is one camera-facing billboard: its base sits at Pos (Y-up), it is

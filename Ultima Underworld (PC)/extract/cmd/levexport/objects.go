@@ -139,6 +139,7 @@ func (m *objMaterials) wallMat(idx uint8) int {
 // placedModel positions one decoded model in the level.
 type placedModel struct {
 	m       *model.Model
+	itemID  uint16  // owning object's item id (for click picking)
 	tileX   float32 // world position, tile units
 	tileY   float32
 	height  float32 // fine height units (z*8)
@@ -230,6 +231,8 @@ func appendBillboards(o *outMesh, grid *lev.Grid, block []byte, comObj *lev.ComO
 				Pos: [3]float32{tx, base, -ty}, Heading: int(obj.Heading),
 				Views: views, Fps: creatureIdleFps,
 			})
+			hb := views[0][0]
+			o.Picks = append(o.Picks, spritePick(int(obj.ItemID), tx, base, ty, hb.W, hb.H))
 			continue
 		}
 
@@ -243,12 +246,12 @@ func appendBillboards(o *outMesh, grid *lev.Grid, block []byte, comObj *lev.ComO
 			continue
 		}
 		ti := spriteTex(im, fmt.Sprintf("obj:%d", frame))
+		w := float32(im.Bounds().Dx()) * spriteWorldPerTexel
+		h := float32(im.Bounds().Dy()) * spriteWorldPerTexel
 		o.Sprites = append(o.Sprites, outSprite{
-			Pos: [3]float32{tx, base, -ty},
-			W:   float32(im.Bounds().Dx()) * spriteWorldPerTexel,
-			H:   float32(im.Bounds().Dy()) * spriteWorldPerTexel,
-			Tex: ti,
+			Pos: [3]float32{tx, base, -ty}, W: w, H: h, Tex: ti,
 		})
+		o.Picks = append(o.Picks, spritePick(int(obj.ItemID), tx, base, ty, w, h))
 	}
 }
 
@@ -305,6 +308,7 @@ func appendObjects(o *outMesh, grid *lev.Grid, block []byte, exeBytes []byte,
 			}
 			pm := placedModel{
 				m:      mm[n],
+				itemID: obj.ItemID,
 				tileX:  float32(obj.TileX) + (float32(obj.FineX)+0.5)/8,
 				tileY:  float32(obj.TileY) + (float32(obj.FineY)+0.5)/8,
 				height: float32(fineH), heading: obj.Heading, texMat: texMat,
@@ -413,17 +417,29 @@ func bakeModel(o *outMesh, mats *objMaterials, pm placedModel) {
 		return [3]float32{wx, wup, -wy}
 	}
 
+	// Accumulate the model's world AABB as triangles are emitted, for a click box.
+	lo := [3]float32{math.MaxFloat32, math.MaxFloat32, math.MaxFloat32}
+	hi := [3]float32{-math.MaxFloat32, -math.MaxFloat32, -math.MaxFloat32}
 	appendTri := func(mat int, a, b, c [3]float32, uv [3][2]float32) {
 		// winding doesn't matter: the viewer renders every material DoubleSide
 		g := findGroup(o, mat)
 		for _, p := range [][3]float32{a, b, c} {
 			o.Positions = append(o.Positions, p[0], p[1], p[2])
+			for k := 0; k < 3; k++ {
+				lo[k], hi[k] = min(lo[k], p[k]), max(hi[k], p[k])
+			}
 		}
 		for _, t := range uv {
 			o.UVs = append(o.UVs, t[0], t[1])
 		}
 		g.Count += 3
 	}
+	defer func() {
+		if hi[0] < lo[0] {
+			return // no triangles emitted
+		}
+		o.Picks = append(o.Picks, aabbPick(int(pm.itemID), lo, hi))
+	}()
 
 	fan := func(mat int, slots []uint16, textured bool) {
 		if len(slots) < 3 {
@@ -533,6 +549,28 @@ func shadeColor(base uint16) color.RGBA {
 		return c
 	}
 	return color.RGBA{100, 100, 100, 255}
+}
+
+// spritePick makes a click box for a billboard standing on the floor at world
+// (tx, base, -ty), w×h in tile units; depth ≈ width so it is clickable head-on.
+func spritePick(id int, tx, base, ty, w, h float32) outPick {
+	lo := [3]float32{tx - w/2, base, -ty - w/2}
+	hi := [3]float32{tx + w/2, base + h, -ty + w/2}
+	return aabbPick(id, lo, hi)
+}
+
+// aabbPick makes a click box from a world AABB, padding thin axes (a flat door
+// leaf has near-zero depth) to a minimum so every object stays easy to click.
+func aabbPick(id int, lo, hi [3]float32) outPick {
+	const minSize = 0.2 // tile units
+	var pos, size [3]float32
+	for k := 0; k < 3; k++ {
+		pos[k] = (lo[k] + hi[k]) / 2
+		if size[k] = hi[k] - lo[k]; size[k] < minSize {
+			size[k] = minSize
+		}
+	}
+	return outPick{ID: id, Pos: pos, Size: size}
 }
 
 func headingSinCos(h uint8) (sin, cos float32) {
