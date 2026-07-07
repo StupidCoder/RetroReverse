@@ -203,4 +203,44 @@ The tracer follows the entry `BL` into the AIF self-relocation loop
 data-processing, conditional execution, big-endian load/store, LDM/STM, branch
 and return, the SWI hook, mode banking and exception entry.
 
-## Part IV — booting LaunchMe *(planned)*
+## Part IV — booting LaunchMe: the ARM60 oracle
+
+`tools/threedo` now includes an AIF loader and an ARM60 machine that boots and
+traces the game's code, mirroring the PSX oracle (`tools/psx/machine.go`): an
+HLE'd OS over a stubbed hardware map.
+
+- `aif.go` — `ParseAIF` decodes the executable header (validated on `LaunchMe`:
+  image base 0, 32-bit mode, RO 0x3DB4C, RW 0x99C4, BSS 0x14944, self-relocating).
+- `machine.go` / `run.go` — a `Machine` (2 MiB DRAM at 0, 1 MiB VRAM at 0x200000,
+  Madam @0x3300000 / Clio @0x3400000 stubbed) driving `tools/arm60`, with the
+  `OnStep`/`OnWrite`/`WatchLo..Hi`/`TTY` instrumentation the repo's oracles share.
+- `Need for Speed (3DO)/extract/cmd/bootoracle` — loads `LaunchMe` from the disc
+  and runs it.
+
+**Portfolio HLE by synthetic vectors.** The 3DO kernel enters an app with a
+register pointing at the folio/kernel base; the app then calls OS services
+indirectly through negative offsets from it (`LDR pc, [r9, #-0x78]`). Lacking the
+OS, the oracle plants a vector table just below a synthetic base (`r7`=0x180000)
+whose every slot jumps into a reserved HLE address window; the run loop intercepts
+a PC landing there, logs the folio offset + arguments, stubs a result and returns.
+
+**What the oracle does.** Booting `LaunchMe` from the disc, it executes the AIF
+sequence for real: the no-op decompress, then the **self-relocation** routine
+(`SUB r12,lr,pc` load-delta, `SWI #0x10`, the relocation-table scan), then the
+**BSS zero-init** loop (~63k instructions clearing 84 KB — a good soak test of the
+core), then the entry at 0x100. From there it traces the Portfolio startup: the
+first folio call (`folio[-0x78]` from 0x118), item calls (`folio[-0x30]` with type
+tags 0x10E/0x104), and a memory-probe loop (`folio[-0x1C]` from 0x320 with
+descending power-of-two sizes — largest-free-block probing). It runs hundreds of
+thousands of instructions without a decode/exec fault.
+
+This is the same bar as the PSX oracle "booting into its CD-wait loop": the
+machine runs the real game code and reaches the point where it needs OS services
+we have not yet reimplemented. Identifying each folio offset (they are Portfolio
+kernel/graphics/memory functions) and reimplementing the ones the game depends on
+is the next step, and turns this trace into a full boot.
+
+## Part V — EA track/car formats via the loader *(planned)*
+The toolchain (OperaFS + cel/SHPM + ARM60 + oracle) is now in place to tackle the
+proprietary `DriveData` formats — track geometry, car models, the SHPM variants —
+by tracing `LaunchMe`/`frontovl` reading them, then reimplementing the decoders.

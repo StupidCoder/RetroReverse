@@ -33,23 +33,23 @@ func buildImage(t *testing.T, fileName string, fileData []byte) []byte {
 
 	// --- block 2: root directory (one file entry) ---
 	dir := img[2*userSize : 3*userSize]
-	be.PutUint32(dir[0:], 0xFFFFFFFF) // next = -1
-	be.PutUint32(dir[4:], 0xFFFFFFFF) // prev = -1
-	be.PutUint32(dir[8:], 0)          // flags
-	entryLen := 0x44 + 4              // fixed header + one avatar
+	be.PutUint32(dir[0:], 0xFFFFFFFF)           // next = -1
+	be.PutUint32(dir[4:], 0xFFFFFFFF)           // prev = -1
+	be.PutUint32(dir[8:], 0)                    // flags
+	entryLen := 0x44 + 4                        // fixed header + one avatar
 	be.PutUint32(dir[12:], uint32(20+entryLen)) // endOffset (first free byte)
 	be.PutUint32(dir[16:], 20)                  // first entry offset
 
 	e := dir[20:]
-	be.PutUint32(e[0:], 0x02)              // flags: file
-	be.PutUint32(e[4:], 0x9999)            // id
-	copy(e[8:12], []byte("Txt"))           // type
-	be.PutUint32(e[12:], userSize)         // block size
+	be.PutUint32(e[0:], 0x02)      // flags: file
+	be.PutUint32(e[4:], 0x9999)    // id
+	copy(e[8:12], []byte("Txt"))   // type
+	be.PutUint32(e[12:], userSize) // block size
 	be.PutUint32(e[16:], uint32(len(fileData)))
-	be.PutUint32(e[20:], 1)                // block count
-	copy(e[0x20:0x40], []byte(fileName))   // name
-	be.PutUint32(e[0x40:], 0)              // last avatar index (=> 1 copy)
-	be.PutUint32(e[0x44:], 3)              // avatar[0] -> block 3
+	be.PutUint32(e[20:], 1)              // block count
+	copy(e[0x20:0x40], []byte(fileName)) // name
+	be.PutUint32(e[0x40:], 0)            // last avatar index (=> 1 copy)
+	be.PutUint32(e[0x44:], 3)            // avatar[0] -> block 3
 
 	// --- block 3: file data ---
 	copy(img[3*userSize:], fileData)
