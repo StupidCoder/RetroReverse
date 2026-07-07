@@ -102,9 +102,17 @@ func (m *Machine) serviceFolio(off uint32) bool {
 	return false
 }
 
-// poolFor selects the allocation pool by AllocMem flags (bit 0x80000 = VRAM).
+// 3DO AllocMem memory-type flags (from the Portfolio SDK mem.h).
+const (
+	memtypeVRAM = 0x00010000
+	memtypeDRAM = 0x00080000
+)
+
+// poolFor selects the allocation pool by AllocMem flags. Per mem.h,
+// MEMTYPE_VRAM is 0x10000 and MEMTYPE_DRAM is 0x80000; anything else
+// (MEMTYPE_ANY = 0, DMA/CEL/etc.) draws from DRAM.
 func (m *Machine) poolFor(flags uint32) *heap {
-	if flags&0x80000 != 0 {
+	if flags&memtypeVRAM != 0 {
 		return m.vheap
 	}
 	return m.dheap

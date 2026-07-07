@@ -50,9 +50,9 @@ type Machine struct {
 	dram []byte
 	vram []byte
 	// Two allocation pools, matching the 3DO's split memory: AllocMem's flags
-	// select DRAM (bit 0x10000) or VRAM (bit 0x80000). The game keeps them
-	// separate — its startup allocates a big VRAM framebuffer, then binary-
-	// searches the DRAM pool for its working set — so a single heap corrupts its
+	// select VRAM (MEMTYPE_VRAM 0x10000) or DRAM (MEMTYPE_DRAM 0x80000, or ANY).
+	// The game keeps them separate — its startup allocates a big DRAM working set,
+	// then binary-searches VRAM for framebuffers — so a single heap corrupts its
 	// bookkeeping.
 	dheap *heap // DRAM pool
 	vheap *heap // VRAM pool
