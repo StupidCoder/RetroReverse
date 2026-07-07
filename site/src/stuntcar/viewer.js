@@ -1,4 +1,4 @@
-// Stunt Car Racer — track ribbon viewer. The geometry is entirely the engine's own,
+// Stunt Car Racer — track level viewer. The geometry is entirely the engine's own,
 // decoded purely from the disk in Go (package track, Part IV) and verified against the
 // original on our m68k core. Each track is the game's own baked polygon model (the
 // race-setup bake $65BEC, reimplemented in Go and verified byte-exact by cmd/modeloracle):
@@ -10,55 +10,67 @@
 // real camber); rung LINES are drawn only where the game's decimated model has a polygon
 // edge. Rendered as a hidden-line wireframe (invisible depth fill + colour LineSegments,
 // the Marble Madness slope-viewer technique).
+//
+// Each circuit is presented as a level: you fly through it with the shared FlyCam (WASD
+// to move relative to the view, arrow keys to look; mouse drag still orbits), the same
+// free-flight controls the other 3-D level viewers use.
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
-import { Physics } from './physics.js';
+import { FlyCam, flyHint } from '../shared/flycam.js';
 
 export class TrackViewer {
-  constructor(el) {
+  constructor(el, hud) {
     this.el = el;
+    this.hud = hud;
     const renderer = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true });
     renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
     renderer.setClearColor(0x0a0d12, 1);
     el.appendChild(renderer.domElement);
 
     const scene = new THREE.Scene();
-    const camera = new THREE.PerspectiveCamera(45, 1, 0.1, 100);
+    const camera = new THREE.PerspectiveCamera(45, 1, 0.01, 200);
     const controls = new OrbitControls(camera, renderer.domElement);
     controls.enableDamping = true;
     controls.dampingFactor = 0.08;
 
     this.three = { renderer, scene, camera, controls, group: null };
-    this.drive = null; // set while driving
-    this.keys = {};
-    window.addEventListener('keydown', (e) => { if (this.drive) { this.keys[e.key.toLowerCase()] = true; if ('wasd '.includes(e.key.toLowerCase())) e.preventDefault(); } });
-    window.addEventListener('keyup', (e) => { this.keys[e.key.toLowerCase()] = false; });
+    // Free-flight camera (WASD move / arrow look), layered on the orbit controls. The
+    // Studio's KeyboardCamera checks v.fly.enabled and cedes the arrow keys to it.
+    this.fly = new FlyCam(camera, controls, el);
+    this._clock = new THREE.Clock();
     this._resize();
     window.addEventListener('resize', () => this._resize());
+    new ResizeObserver(() => this._resize()).observe(el);
 
-    let last = performance.now();
-    const tick = (now) => {
+    const tick = () => {
       requestAnimationFrame(tick);
-      if (this.active === false) { last = now; return; } // paused while another viewer is shown
-      const dt = Math.min(0.05, (now - last) / 1000); last = now;
-      if (this.drive) this._driveStep(dt);
-      else controls.update();
+      if (this.active === false) return; // paused while another viewer is shown
+      const dt = Math.min(0.05, this._clock.getDelta());
+      this.fly.update(dt);
+      controls.update();
       renderer.render(scene, camera);
     };
-    tick(last);
+    tick();
   }
 
   _resize() {
     const w = this.el.clientWidth, h = this.el.clientHeight || Math.round(w * 0.62);
+    if (!w) return;
     const { renderer, camera } = this.three;
     renderer.setSize(w, h, false);
     camera.aspect = w / h;
     camera.updateProjectionMatrix();
   }
 
-  // track: { name, nodes:[[x,z,type,p1,p2,attr],...] }; id = 0..7
-  show(track, id) {
-    if (this.drive) this.exitDrive();
+  // The level list: the eight decoded circuits (public/stuntcar/tracks.json). Fetched
+  // and cached here so the Studio treats the viewer like every other level viewer.
+  async init() {
+    this.levels = await fetch('public/stuntcar/tracks.json').then(r => r.json());
+    return this.levels;
+  }
+
+  // Load one track as a level. track: { name, sections, finishIdx, nodes, rungs }; id = 0..7
+  loadLevel(track, id) {
     this.trackId = id;
     const t = this.three;
     if (t.group) { t.scene.remove(t.group); disposeGroup(t.group); }
@@ -104,7 +116,6 @@ export class TrackViewer {
       fl: v[6], sec,
     }));
     const m = rings.length;
-    this.ribbon = { rings, m }; // for the drive mode
     const V = (p, y) => new THREE.Vector3(p.x, y, p.z);
 
     // Invisible depth fill (the ribbon surface) for hidden-line removal.
@@ -165,123 +176,26 @@ export class TrackViewer {
     t.scene.add(group);
     t.group = group;
 
-    // Frame it from a raised 3/4 angle so both the circuit plan and the elevation read.
-    const cam = t.camera, ctrl = t.controls;
-    ctrl.target.set(0, 0.5, 0);
-    cam.position.set(2.5, 5, 8.5);
-    cam.near = 0.1; cam.far = 100; cam.updateProjectionMatrix();
-    ctrl.update();
-  }
-
-  // --- drive mode: run the verified physics (package physics, ported to physics.js) and
-  // steer the car along the rendered ribbon with WASD. The physics provides the speed,
-  // suspension bounce and roll/pitch; progress maps it onto the decoded track. ---
-  async enterDrive(hud) {
-    if (!this.ribbon || this.drive) return;
-    const id = this.trackId;
-    const [stat, init, traceR] = await Promise.all([
-      fetch('public/stuntcar/phys/static.bin').then(r => r.arrayBuffer()),
-      fetch(`public/stuntcar/phys/${id}.bin`).then(r => r.arrayBuffer()),
-      fetch(`public/stuntcar/phys/${id}.trace.json`).then(r => r.json()),
-    ]);
-    // verify the JS port against the Go golden trace on a throwaway copy.
-    const check = new Physics(); check.loadTrack(init, stat);
-    const fail = check.selfTest(traceR);
-    const phys = new Physics(); phys.loadTrack(init, stat);
-    phys.B[0x1BB72] = 0x80;                       // arm the race (grounded drive block)
-    phys.placeCar605B6(this.ribbon.rings[0].sec); // real start placement (local frame, posY=16)
-
-    const car = this._buildCar();
-    this.three.scene.add(car);
-    this.drive = {
-      phys, car, rings: this.ribbon.rings, m: this.ribbon.m,
-      progress: 0, lateral: 0, throttle: 0, acc: 0, speed: 0, hud,
-      verdict: fail < 0 ? `physics verified exact (${traceR.frames.length} frames)` : `selftest diverged at frame ${fail}`,
-    };
-    if (hud) hud.style.display = 'block';
-  }
-
-  exitDrive() {
-    if (!this.drive) return;
-    this.three.scene.remove(this.drive.car); disposeGroup(this.drive.car);
-    if (this.drive.hud) this.drive.hud.style.display = 'none';
-    this.drive = null;
+    // Frame the whole circuit from a raised 3/4 angle so both the plan and the elevation
+    // read, then hand control to the fly-cam to explore it.
+    let maxH = 0;
+    for (const r of rings) maxH = Math.max(maxH, r.hl, r.hr);
+    const size = Math.max(8, maxH * 1.5); // world extent of the level (plan ~8 units + relief)
     const { camera, controls } = this.three;
-    controls.target.set(0, 0.5, 0); camera.position.set(2.5, 5, 8.5); controls.update();
-  }
+    controls.target.set(0, maxH * 0.35, 0);
+    camera.position.set(size * 0.28, size * 0.55, size * 0.95);
+    camera.near = 0.01; camera.far = 200; camera.updateProjectionMatrix();
+    controls.update();
 
-  _buildCar() {
-    const g = new THREE.Group();
-    const body = new THREE.Mesh(new THREE.BoxGeometry(0.34, 0.12, 0.6),
-      new THREE.MeshBasicMaterial({ color: 0xe23b3b }));
-    body.position.y = 0.1; g.add(body);
-    const cab = new THREE.Mesh(new THREE.BoxGeometry(0.26, 0.1, 0.26),
-      new THREE.MeshBasicMaterial({ color: 0xffd23b }));
-    cab.position.set(0, 0.19, -0.04); g.add(cab);
-    const wheelGeo = new THREE.CylinderGeometry(0.07, 0.07, 0.06, 10);
-    const wheelMat = new THREE.MeshBasicMaterial({ color: 0x222428 });
-    for (const [x, z] of [[-0.18, 0.2], [0.18, 0.2], [-0.18, -0.2], [0.18, -0.2]]) {
-      const wm = new THREE.Mesh(wheelGeo, wheelMat);
-      wm.rotation.z = Math.PI / 2; wm.position.set(x, 0.04, z); g.add(wm);
-    }
-    return g;
-  }
+    // Levels are explored with the free-flight controls (WASD/arrows, or the touch
+    // sticks), like the other 3-D level viewers.
+    this.fly.setScale(size);
+    this.fly.setMoveScale(1.4);
+    this.fly.setEnabled(true);
 
-  _driveStep(dt) {
-    const d = this.drive, k = this.keys;
-    // The original physics is FIXED-TIMESTEP, not framerate-independent: each $6185C
-    // advances the sim by one tick and the constants bake the step in (the 0.93 damping,
-    // the <<6/<<7 velocity->position scales). So we run it at a fixed rate decoupled from
-    // the display via an accumulator -- one tick = one game frame (Amiga PAL VBlank, 50 Hz)
-    // -- never scaled by the render dt. The golden-trace check is per-tick, so exactness is
-    // independent of wall-clock rate; the 50 Hz only sets how fast the car feels.
-    const STEP = 1 / 50; // Amiga PAL frame
-    d.acc = Math.min(d.acc + dt, 0.2); // clamp so a stalled tab can't spiral
-    while (d.acc >= STEP) {
-      d.acc -= STEP;
-      if (k['w']) d.throttle = Math.min(0x3800, d.throttle + 0x300);
-      else if (k['s']) d.throttle = Math.max(-0x2000, d.throttle - 0x400);
-      else d.throttle = Math.trunc(d.throttle * 0.92);
-      // The exact drive/grip/drag/suspension model with the REAL render coupling: the car
-      // is placed in the local track frame and the suspension samples the real surface under
-      // the wheels for the section it's on (fed from the ribbon), so it rides the actual
-      // ramps and bumps. Returns the throttle-responsive world speed to advance the ribbon.
-      const p = ((d.progress % d.m) + d.m) % d.m;
-      const sec = d.rings[Math.floor(p) % d.m].sec;
-      d.speed = d.phys.driveTickCoupled(d.throttle | 0, sec);
-      d.progress += d.speed * 1e-5;
-      const steer = (k['d'] ? 1 : 0) - (k['a'] ? 1 : 0);
-      d.lateral = Math.max(-1, Math.min(1, d.lateral * 0.86 + steer * 0.05));
+    if (this.hud) {
+      this.hud.textContent = `${track.name} — ${track.sections} sections, ${m} rungs · ${flyHint}`;
     }
-    this._placeCar();
-    if (d.hud) {
-      const dmg = Math.max(d.phys.u8(0x1BB4F), d.phys.u8(0x1BB50), d.phys.u8(0x1BB51));
-      d.hud.textContent = `${d.verdict}  ·  speed ${d.speed | 0}  ·  damage ${(dmg / 255 * 100) | 0}%  ·  W/S throttle, A/D steer`;
-    }
-  }
-
-  _placeCar() {
-    const d = this.drive, rings = d.rings, m = d.m;
-    const ctr = (r) => ({ x: (r.l.x + r.r.x) / 2, y: (r.hl + r.hr) / 2, z: (r.l.z + r.r.z) / 2 });
-    const p = ((d.progress % m) + m) % m;
-    const i0 = Math.floor(p), frac = p - i0;
-    const a = rings[i0 % m], b = rings[(i0 + 1) % m];
-    const ca = ctr(a), cb = ctr(b);
-    const cx = ca.x + (cb.x - ca.x) * frac, cy = ca.y + (cb.y - ca.y) * frac, cz = ca.z + (cb.z - ca.z) * frac;
-    let tx = cb.x - ca.x, tz = cb.z - ca.z; const tl = Math.hypot(tx, tz) || 1; tx /= tl; tz /= tl;
-    const nx = -tz, nz = tx;
-    const halfW = Math.hypot(a.r.x - a.l.x, a.r.z - a.l.z) / 2 || 0.2;
-    const ox = cx + nx * d.lateral * halfW, oz = cz + nz * d.lateral * halfW;
-    d.car.position.set(ox, cy + 0.06, oz);
-    // bank with the road (rail-height difference) + a little into the turn; subtle pitch.
-    const bank = Math.atan2(a.hr - a.hl, halfW * 2 || 1);
-    const pit = d.phys.w(0x1BCE8) * (Math.PI * 2 / 65536);
-    const yaw = Math.atan2(tx, tz) + d.lateral * 0.25;
-    d.car.rotation.set(0, 0, 0);
-    d.car.rotateY(yaw); d.car.rotateX(-pit * 0.4); d.car.rotateZ(-bank - d.lateral * 0.15);
-    const cam = this.three.camera;
-    cam.position.set(ox - tx * 1.7, cy + 0.95, oz - tz * 1.7);
-    cam.lookAt(ox + tx * 0.6, cy + 0.18, oz + tz * 0.6);
   }
 }
 

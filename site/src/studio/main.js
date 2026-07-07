@@ -123,9 +123,11 @@ const GAMES = [
   {
     id: 'stuntcar', name: 'Stunt Car Racer', system: 'Amiga', render: '3d',
     load: () => import('../stuntcar/viewer.js').then(m => m.TrackViewer),
-    make: (V, el, hud) => new V(el),
-    list: async () => (await fetch('public/stuntcar/tracks.json').then(r => r.json())),
-    show: (v, lvl, i) => v.show(lvl, i),
+    make: (V, el, hud) => new V(el, hud),
+    list: async (v) => await v.init(), // the eight circuits from tracks.json
+    show: (v, lvl, i) => v.loadLevel(lvl, i),
+    // each circuit is a level you fly through
+    group: (lvl) => ({ section: 'Circuits', label: lvl.name }),
   },
   {
     id: 'elite', name: 'Elite', system: 'Commodore 64', render: '3d',
