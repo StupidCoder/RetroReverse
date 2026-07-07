@@ -152,9 +152,10 @@ type placedModel struct {
 const spriteWorldPerTexel = 1.0 / 32
 
 // creatureIdleFps is the playback rate of a creature's idle cycle. The segment
-// lists imply one frame per animation tick but the tick rate isn't traced; ~6
-// fps reads as a gentle in-place idle (the cycles are only 3-4 frames).
-const creatureIdleFps = 6
+// lists imply one frame per animation tick but the tick rate isn't traced; the
+// idle is mostly a slow look-around, so 1 fps (one pose per second) reads right
+// — faster looks like the creature is shaking its head.
+const creatureIdleFps = 1
 
 // appendBillboards emits the level's class-0/1 objects as camera-facing sprites.
 // Items (class 0/1 non-creature) use OBJECTS.GR frame [item_id]; CREATURES

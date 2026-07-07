@@ -46,6 +46,10 @@ export class LevelViewer {
     this.fly = new FlyCam(camera, controls, el);
     this._clock = new THREE.Clock();
     this._texLoader = new THREE.TextureLoader();
+    // Unit quad shared by every billboard. Billboards face the camera around the
+    // vertical axis only (cylindrical), so they stay upright — a plane we swivel
+    // in Y, not a THREE.Sprite (which tilts to fully face the camera).
+    this._plane = new THREE.PlaneGeometry(1, 1);
 
     this._resize();
     window.addEventListener('resize', () => this._resize());
@@ -59,6 +63,7 @@ export class LevelViewer {
       this.fly.update(dt);
       controls.update();
       this._updateCreatures();
+      this._faceCamera();
       renderer.render(scene, camera);
     };
     tick();
@@ -111,22 +116,27 @@ export class LevelViewer {
     this.three.group = mesh;
     this._materials = materials;
 
-    // Billboard objects (items, creatures): OBJECTS.GR sprites drawn as
-    // camera-facing THREE.Sprites. Their exported position is the base on the
-    // floor, so lift each by half its height; they share the level's centring.
+    // Billboard objects (items, creatures): OBJECTS.GR / CRIT sprites drawn as
+    // upright quads that swivel around the vertical axis to face the camera (see
+    // _faceCamera). Their exported position is the base on the floor, so lift
+    // each by half its height; they share the level's centring.
     const spriteGroup = new THREE.Group();
     spriteGroup.position.set(-c.x, -c.y, -c.z);
     const spriteMats = (data.spriteTex || []).map((png) => {
       const t = this._texLoader.load(png);
       t.magFilter = THREE.NearestFilter;
       t.colorSpace = THREE.SRGBColorSpace;
-      return new THREE.SpriteMaterial({ map: t, transparent: true, alphaTest: 0.5, depthWrite: true });
+      return new THREE.MeshBasicMaterial({
+        map: t, transparent: true, alphaTest: 0.5, side: THREE.DoubleSide, depthWrite: true,
+      });
     });
+    const billboards = []; // every quad that faces the camera around Y
     for (const s of data.sprites || []) {
-      const spr = new THREE.Sprite(spriteMats[s.tex]);
-      spr.position.set(s.pos[0], s.pos[1] + s.h / 2, s.pos[2]);
-      spr.scale.set(s.w, s.h, 1);
-      spriteGroup.add(spr);
+      const m = new THREE.Mesh(this._plane, spriteMats[s.tex]);
+      m.position.set(s.pos[0], s.pos[1] + s.h / 2, s.pos[2]);
+      m.scale.set(s.w, s.h, 1);
+      spriteGroup.add(m);
+      billboards.push(m);
     }
 
     // Creatures are directional (Doom-style) billboards that play their idle
@@ -136,10 +146,11 @@ export class LevelViewer {
     const creatures = [];
     for (const c of data.creatures || []) {
       const views = c.views.map((cyc) => cyc.map((d) => ({ mat: spriteMats[d.tex], w: d.w, h: d.h })));
-      const spr = new THREE.Sprite(views[0][0].mat);
+      const spr = new THREE.Mesh(this._plane, views[0][0].mat);
       spriteGroup.add(spr);
+      billboards.push(spr);
       const rec = {
-        spr, views, heading: c.heading, base: c.pos, fps: c.fps || 6,
+        spr, views, heading: c.heading, base: c.pos, fps: c.fps || 1,
         phase: (creatures.length * 0.37) % 2, // desync creatures' cycles
         view: -1, frame: -1,
       };
@@ -151,6 +162,7 @@ export class LevelViewer {
     this._spriteGroup = spriteGroup;
     this._spriteMats = spriteMats;
     this._creatures = creatures;
+    this._billboards = billboards;
 
     // Start inside the dungeon (it's now ceiling-enclosed): the exported spawn
     // is an interior point at eye height; place the camera there looking ahead.
@@ -222,6 +234,22 @@ export class LevelViewer {
     }
   }
 
+  // _faceCamera swivels every billboard quad around the vertical axis so its
+  // face points at the camera horizontally — cylindrical billboarding. Unlike a
+  // THREE.Sprite the quad never tilts, so sprites stay upright when you look up
+  // or down. The quad's default normal is +Z, so rotation.y = atan2(dx, dz)
+  // aims +Z from the quad toward the camera.
+  _faceCamera() {
+    const list = this._billboards;
+    if (!list || !list.length) return;
+    const cam = this.three.camera.position;
+    const wp = this._wp || (this._wp = new THREE.Vector3());
+    for (const m of list) {
+      m.getWorldPosition(wp);
+      m.rotation.y = Math.atan2(cam.x - wp.x, cam.z - wp.z);
+    }
+  }
+
   _dispose() {
     const g = this.three.group;
     if (g) {
@@ -238,5 +266,6 @@ export class LevelViewer {
     for (const m of this._spriteMats || []) { m.map?.dispose(); m.dispose(); }
     this._spriteMats = null;
     this._creatures = null;
+    this._billboards = null;
   }
 }
