@@ -245,8 +245,10 @@ func (m *Machine) dispatchISR(epc uint32) bool {
 		s.R[i] = m.CPU.Reg(i)
 	}
 	s.HI, s.LO = m.CPU.HI, m.CPU.LO
-	m.CPU.SetReg(31, isrReturn) // $ra -> return sentinel
-	m.CPU.SetPC(handler)
+	m.CPU.SetReg(31, isrReturn)       // $ra -> return sentinel
+	m.CPU.SetReg(29, isrStackTop)     // run the handler on a dedicated interrupt
+	m.CPU.SetReg(30, isrStackTop)     // stack, like the BIOS does, so its frame
+	m.CPU.SetPC(handler)              // does not corrupt the interrupted stack
 	return true
 }
 
