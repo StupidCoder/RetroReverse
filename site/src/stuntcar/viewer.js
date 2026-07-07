@@ -157,7 +157,7 @@ export class TrackViewer {
     // Solid side walls: the track is an elevated ribbon walled along each edge, one
     // on the left rail and one on the right (as in the game), replacing the old centre
     // support lines. Each wall is a vertical quad strip that follows its rail and drops
-    // to the ground (y=0). (Colour is a first pass — refined next.)
+    // to the ground (y=0).
     const wpos = [];
     // one wall quad between rail points a (top height ha) and b (top height hb):
     // top edge follows the rail, bottom edge sits on the ground.
@@ -173,10 +173,32 @@ export class TrackViewer {
     const wgeom = new THREE.BufferGeometry();
     wgeom.setAttribute('position', new THREE.Float32BufferAttribute(wpos, 3));
     const walls = new THREE.Mesh(wgeom, new THREE.MeshBasicMaterial({
-      color: 0x39424f, side: THREE.DoubleSide,
+      color: 0xffffff, side: THREE.DoubleSide,
       polygonOffset: true, polygonOffsetFactor: 1, polygonOffsetUnits: 1,
     }));
     group.add(walls);
+
+    // Vertical strut lines on the walls: one at every rung, from the road surface down
+    // to the ground. Each is nudged a hair outward off its wall face (along the outward
+    // rail normal) so it doesn't z-fight with the coplanar white wall.
+    const WBIAS = 0.015;
+    const spos = [];
+    const strut = (edge, h, mx, mz) => {
+      let ox = edge.x - mx, oz = edge.z - mz;
+      const d = Math.hypot(ox, oz) || 1;
+      ox = ox / d * WBIAS; oz = oz / d * WBIAS;
+      spos.push(edge.x + ox, h, edge.z + oz, edge.x + ox, 0, edge.z + oz);
+    };
+    for (let k = 0; k < m; k++) {
+      const a = rings[k];
+      const mx = (a.l.x + a.r.x) / 2, mz = (a.l.z + a.r.z) / 2;
+      strut(a.l, a.hl, mx, mz); // left wall
+      strut(a.r, a.hr, mx, mz); // right wall
+    }
+    const sgeom = new THREE.BufferGeometry();
+    sgeom.setAttribute('position', new THREE.Float32BufferAttribute(spos, 3));
+    group.add(new THREE.LineSegments(sgeom,
+      new THREE.LineBasicMaterial({ color: new THREE.Color(40 / 255, 10 / 255, 10 / 255) })));
 
     // Start/finish marker (green) at ring 0.
     const r0 = rings[0];
