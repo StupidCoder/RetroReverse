@@ -287,12 +287,11 @@ func (c *cdrom) deliverNext() {
 	c.queue = c.queue[1:]
 	c.response = append([]byte(nil), p.resp...)
 	c.irqFlags = p.cause
-	if p.read {
-		c.loadData()
-		// Keep streaming while a read is active.
-		if c.reading {
-			c.queueRead()
-		}
+	if p.read && c.reading {
+		// INT1 only signals "a sector is ready"; the sector is pulled on demand by
+		// the DMA (or a BFRD request) so readLBA advances once per sector actually
+		// consumed. Keep streaming while the read is active.
+		c.queueRead()
 	}
 	c.m.raiseIRQ(2) // CD interrupt line; the game gates delivery via I_STAT/I_MASK
 }
