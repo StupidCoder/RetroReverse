@@ -245,18 +245,35 @@ const creatureIdleFps = 1
 func appendBillboards(o *outMesh, grid *lev.Grid, block []byte, comObj *lev.ComObj,
 	objGR *tex.GR, allPals []byte, pal tex.Palette, gamePath string, b8 []string) {
 
-	critCache := map[int]*crit.Page{} // creature index -> parsed page (nil = missing)
-	loadCrit := func(idx int) *crit.Page {
-		if p, ok := critCache[idx]; ok {
+	// CRIT/ASSOC.ANM: 0x00-0xFF = 32 animation-set names (8 bytes each), then at
+	// 0x100 a 64-entry {set, variant} table indexed by creature (item id - 64).
+	// A creature's graphics are NOT CR<item-64> — that was wrong (it drew item 69
+	// "acid slug" as the spider CR05 and item 77 "goblin" as the ghost CR15). The
+	// real page is CR<octal(set)> where set = ASSOC.ANM[0x100 + (item-64)*2]. This
+	// is the game's own table, read live from [499D:C10F] in the 0x5A creature draw
+	// handler (07F7:7ABD) and matched byte-for-byte here. VERIFIED: item 68 giant
+	// spider -> set 5 (spider), 69 acid slug -> set 9 (slug), 70 goblin -> set 0,
+	// 97 ghost -> set 13 (the translucent CR15).
+	assoc, _ := os.ReadFile(filepath.Join(gamePath, "CRIT", "ASSOC.ANM"))
+	critSet := func(itemID int) int {
+		off := 0x100 + (itemID-64)*2
+		if itemID < 64 || itemID > 127 || off >= len(assoc) {
+			return itemID - 64 // fallback
+		}
+		return int(assoc[off])
+	}
+	critCache := map[int]*crit.Page{} // animation set -> parsed page (nil = missing)
+	loadCrit := func(set int) *crit.Page {
+		if p, ok := critCache[set]; ok {
 			return p
 		}
-		// Creature N → CR<octal N>PAGE.N01 (the files are octal-numbered).
-		fn := fmt.Sprintf("CR%02oPAGE.N01", idx)
+		// Animation set N → CR<octal N>PAGE.N01 (the files are octal-numbered).
+		fn := fmt.Sprintf("CR%02oPAGE.N01", set)
 		var p *crit.Page
 		if b, err := os.ReadFile(filepath.Join(gamePath, "CRIT", fn)); err == nil {
 			p, _ = crit.ParsePage(b)
 		}
-		critCache[idx] = p
+		critCache[set] = p
 		return p
 	}
 
@@ -301,7 +318,8 @@ func appendBillboards(o *outMesh, grid *lev.Grid, block []byte, comObj *lev.ComO
 			// (segment 0-7 of the primary animation). The viewer selects a view per
 			// render from the camera bearing and the object heading and loops the
 			// cycle; non-directional creatures collapse to view 0 for all eight.
-			pg := loadCrit(int(obj.ItemID) - 64)
+			set := critSet(int(obj.ItemID))
+			pg := loadCrit(set)
 			if pg == nil || pg.NumFrames() == 0 {
 				continue
 			}
@@ -324,7 +342,7 @@ func appendBillboards(o *outMesh, grid *lev.Grid, block []byte, comObj *lev.ComO
 						}
 						normal = add
 						if ad != nil {
-							ai := spriteTex(ad, fmt.Sprintf("crit:%d:%d:a", obj.ItemID, frame))
+							ai := spriteTex(ad, fmt.Sprintf("crit:%d:%d:a", set, frame))
 							d.Add = ai
 							addSet[ai] = true
 						}
@@ -336,7 +354,7 @@ func appendBillboards(o *outMesh, grid *lev.Grid, block []byte, comObj *lev.ComO
 						}
 						normal = im
 					}
-					d.Tex = spriteTex(normal, fmt.Sprintf("crit:%d:%d", obj.ItemID, frame))
+					d.Tex = spriteTex(normal, fmt.Sprintf("crit:%d:%d", set, frame))
 					d.W = float32(normal.Bounds().Dx()) * spriteWorldPerTexel
 					d.H = float32(normal.Bounds().Dy()) * spriteWorldPerTexel
 					views[v] = append(views[v], d)
