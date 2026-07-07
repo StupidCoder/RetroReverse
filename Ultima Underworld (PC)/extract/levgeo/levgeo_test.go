@@ -96,3 +96,35 @@ func TestBuildOpenTileWalls(t *testing.T) {
 		t.Errorf("walls = %d, want 4 (open tile ringed by solid)", walls)
 	}
 }
+
+// TestFloorHeightAtSlope checks that the interpolated floor surface rises across
+// a slope (so a creature's feet sit on the ramp, not at its low base corner) and
+// stays flat on a level tile.
+func TestFloorHeightAtSlope(t *testing.T) {
+	// A slope rising toward +Y (north), base height 8.
+	sl := lev.Tile{Type: lev.TileSlopeN, Height: 8}
+	base := float32(8) * HeightScale   // low (south) corner
+	top := float32(8+1) * HeightScale  // high (north) corner
+	south := FloorHeightAt(sl, 0.5, 0) // y=0 south edge
+	north := FloorHeightAt(sl, 0.5, 1) // y=1 north edge
+	mid := FloorHeightAt(sl, 0.5, 0.5) // middle of the ramp
+	if south != base {
+		t.Errorf("south edge = %v, want base %v", south, base)
+	}
+	if north != top {
+		t.Errorf("north edge = %v, want top %v", north, top)
+	}
+	if !(mid > south && mid < north) {
+		t.Errorf("mid %v not strictly between south %v and north %v", mid, south, north)
+	}
+	// A grounded creature at the mid tile (fine 3-4 ~ centre) must sit above the
+	// base corner — the bug was placing it AT the base.
+	if got := FloorHeightAt(sl, (3+0.5)/8, (3+0.5)/8); got <= base {
+		t.Errorf("mid-slope floor %v not above base %v (feet would be buried)", got, base)
+	}
+	// Flat tile: floor is uniform at its base height everywhere.
+	flat := lev.Tile{Type: lev.TileOpen, Height: 8}
+	if got := FloorHeightAt(flat, 0.9, 0.1); got != base {
+		t.Errorf("flat floor = %v, want %v", got, base)
+	}
+}

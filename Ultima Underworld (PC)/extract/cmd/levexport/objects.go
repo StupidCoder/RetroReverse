@@ -30,6 +30,7 @@ import (
 
 	"ultimaunderworld/extract/crit"
 	"ultimaunderworld/extract/lev"
+	"ultimaunderworld/extract/levgeo"
 	"ultimaunderworld/extract/model"
 	"ultimaunderworld/extract/tex"
 )
@@ -223,6 +224,22 @@ func appendBillboards(o *outMesh, grid *lev.Grid, block []byte, comObj *lev.ComO
 		tx := float32(obj.TileX) + (float32(obj.FineX)+0.5)/8
 		ty := float32(obj.TileY) + (float32(obj.FineY)+0.5)/8
 		base := float32(obj.Z) / 32 // floor height in tile units (Z*8/256)
+
+		// On a slope the stored Z is the tile's LOW base corner (obj.Z == tile
+		// height x8 for a grounded object), so a creature standing mid-slope would
+		// have its feet buried in the ramp. The game renders MOBILE objects from a
+		// fine runtime Z (obj[+0x0F], 2F2C:0896) that physics snaps to the floor
+		// under the creature; static objects render at their stored coarse Z
+		// (2F2C:0884). So for mobiles lift the base to the interpolated slope
+		// surface. max() keeps a flying / elevated creature (stored Z above the
+		// floor) at its own height, and is a no-op on flat tiles.
+		if obj.Mobile {
+			floor := levgeo.FloorHeightAt(grid.At(int(obj.TileX), int(obj.TileY)),
+				(float32(obj.FineX)+0.5)/8, (float32(obj.FineY)+0.5)/8)
+			if floor > base {
+				base = floor
+			}
+		}
 
 		if cls == lev.RenderBillboard && obj.Mobile && obj.ItemID >= 64 && obj.ItemID <= 127 {
 			// Creature: emit all eight compass views, each as its idle frame cycle

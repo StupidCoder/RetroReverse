@@ -92,6 +92,29 @@ func cornerHeight(t, h uint8, cx, cy int) float32 {
 	return z * HeightScale
 }
 
+// FloorHeightAt returns the world height (tile units, Y-up) of the floor surface
+// inside tile t at fractional position (fx,fy) in [0,1] across the cell — i.e.
+// the height a floor-resting object's feet should sit at. It bilinearly blends
+// the tile's four corner heights, so a slope (a planar ramp: two corners raised
+// one unit) gives the exact ramp surface and a flat/diagonal tile gives its base
+// height. This is the surface our geometry renders, so an object placed here sits
+// on the floor rather than at the tile's lowest corner.
+//
+// The game keeps the equivalent value in each mobile object's fine runtime Z
+// (obj[+0x0F], read at 2F2C:0896 for rendering); its own floor query 2CD3:0720
+// samples the slope surface the same way (7 sub-regions across the tile). Static
+// objects instead render at their stored coarse Z (2F2C:0884), so callers apply
+// this only where the game uses the fine floor (mobiles / floor-resting items).
+func FloorHeightAt(t lev.Tile, fx, fy float32) float32 {
+	h00 := cornerHeight(t.Type, t.Height, 0, 0)
+	h10 := cornerHeight(t.Type, t.Height, 1, 0)
+	h01 := cornerHeight(t.Type, t.Height, 0, 1)
+	h11 := cornerHeight(t.Type, t.Height, 1, 1)
+	a := h00*(1-fx) + h10*fx // interpolate along X at y=0
+	b := h01*(1-fx) + h11*fx // interpolate along X at y=1
+	return a*(1-fy) + b*fy   // interpolate along Y
+}
+
 // The four tile edges, each with its index (0=S,1=E,2=N,3=W), neighbour offset
 // and the two shared corners.
 type edge struct {
