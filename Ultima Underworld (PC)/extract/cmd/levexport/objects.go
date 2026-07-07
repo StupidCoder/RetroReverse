@@ -148,9 +148,34 @@ type placedModel struct {
 }
 
 // spriteWorldPerTexel scales an object sprite's texels to world (tile) units.
-// UW object sprites are ~16 texels; 1/32 tile per texel makes a 16-texel sprite
-// half a tile — a reasonable size for floor items and creatures.
-const spriteWorldPerTexel = 1.0 / 32
+//
+// Derived from the game's own billboard-draw code (traced live from the
+// in-dungeon oracle, 07F7:684B, the routine that turns a decoded sprite into a
+// screen quad). Both class-0 (opcode 0x3A) and class-1 (0x5A) billboards route
+// through it, so items AND creatures share one scale. Per scanline the routine
+// builds two view-space corners of the quad and projects each through the
+// pinhole (screenX = X*86/Z + 86, screenY = Y*56/Z + 56). The corner deltas are:
+//
+//	widthDelta  = texW * [B0DC](=4) << [2880](=1) * [26D0]   (07F7:6880)
+//	heightDelta = texH * [B0DE](=5) << [2880](=1) * [160A]   (07F7:6890)
+//
+// The multiplier bytes (4 horizontal, 5 vertical) are GLOBAL constants — byte
+// identical across every object and every dungeon state we captured, so the
+// game does NOT size sprites per-object; world size is purely texels x constant.
+//
+// The VERTICAL factor is the one to trust: [160A] is the camera's world-UP
+// basis vector (~0x7FFD ~= 1.0 in 1.15 fixed), which is invariant to which way
+// you face. IMUL keeps the high word (=x/2^16), so the net multiply is
+// texH * 5 * 2^1 * (0x7FFD/2^16) = texH * 5.0 world units. World space is
+// 256 units/tile (modelUnitsPerTile, pinned from the doors), so a sprite is
+// 5/256 tiles per texel. (The horizontal factor uses [26D0] ~= 0.79, the
+// yaw-rotated basis; the game picks 4 instead of 5 there to cancel the 86-vs-56
+// projection aspect and keep the sprite square on screen. Our viewer camera is
+// aspect-correct, so a single square scale reproduces the on-screen size.)
+//
+// The old value was 1/32 = 8/256 — a guess that drew every sprite ~1.6x too
+// large (skulls, floor items, and creatures poking through low ceilings).
+const spriteWorldPerTexel = 5.0 / 256.0
 
 // creatureIdleFps is the playback rate of a creature's idle cycle. The segment
 // lists imply one frame per animation tick but the tick rate isn't traced; the

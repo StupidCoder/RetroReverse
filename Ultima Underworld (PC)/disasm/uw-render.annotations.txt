@@ -577,3 +577,45 @@ FORMAT-8 DECODE (07F7:00D9 + 018D), reimplemented in extract/tex/gr.go:
 Verified pixel-exact: OBJECTS.GR frame 128 decoded == the game's live output at
 469D/481D (256/256). tex/gr_test.go pins the RLE paths. bootoracle gained -find
 (scan RAM+EMS for a hex pattern) which located OBJECTS.GR at EMS 0x13760.
+
+--------------------------------------------------------------------------------
+§10h  BILLBOARD SIZING: the world size of a sprite (skull/item/creature scale)
+--------------------------------------------------------------------------------
+Class-0 emit 2DFE:0351 writes a display-list stream for a floor item:
+  0x007A  vertex-to-pool opcode
+  [3320]  X   [3324] Y   [3322] Z    (the object's world position, 256/tile)
+  0x07F8  sprite sub-program ptr
+  0x003A  the DRAW opcode
+  [BP-4]  the object word (item id + flags)
+Opcode 0x3A -> handler 07F7:7A41 (jump-table [499D:2738+0x3A] = word 0x7A41).
+7A41 maps the sprite's EMS bank (CALL 7B09), reads its header [W=hdr+1, H=hdr+2],
+runs the per-format decoder (CALL [CS:BX+6960]), and writes a DESCRIPTOR at
+499D:B0D2:
+    +0 decoded-pixel ptr   +2 texW   +4 texH
+    +6=8  +8=16  +A=4  +C=5   (the size/orientation constants)   +E work seg
+Then 7AAD reads the pool-vertex index and JMPF 07F7:684B (AX=0x1C -> SI=B0D2).
+
+684B builds two view-space corners of the quad and projects both through the
+pinhole (screenX = X*[26B2=86]/Z + [26B4=86]; screenY = Y*[26B0=56]/Z + [26B6=56]):
+    widthDelta  [15FC] = texW * byte[SI+A](=4) << [2880](=1) * [26D0]   (6880)
+    heightDelta [15FE] = texH * byte[SI+C](=5) << [2880](=1) * [160A]   (6890)
+    corner1 = base;  corner2 = base + (widthDelta, heightDelta)
+    screen width  = proj(corner2).x - proj(corner1).x
+    screen height = proj(corner2).y - proj(corner1).y
+
+KEY FACTS (captured live from dungeon/fwd6/door-view states):
+- The multiplier bytes B0D8..B0DE (8,16,4,5) are GLOBAL CONSTANTS - byte-identical
+  across every object and every dungeon state.  The game does NOT size sprites
+  per-object; world size is purely (sprite texels) x (this constant).  Both
+  class-0 (0x3A) and class-1 creature (0x5A) billboards use the same 684B path.
+- IMUL keeps the high word (= product / 2^16), so a 1.15 matrix element multiplies
+  as value/2^16 = (value/0x8000) * 0.5.
+- The VERTICAL factor is facing-invariant: [160A] is the camera's world-UP basis
+  (~0x7FFD ~= 1.0), so height = texH * 5 * 2 * 0.5 = texH * 5.0 world units.
+  With 256 world units/tile that is 5/256 tile per texel (a 16px sprite = 0.3125
+  tile).  The HORIZONTAL uses [26D0] (~0x64F1 = 0.79, the yaw-rotated basis) with
+  a smaller multiplier (4) so the sprite stays square on the 86-vs-56 viewport.
+- Net: the correct billboard scale is 5/256 tile/texel.  The viewer had been using
+  a guessed 1/32 = 8/256, drawing every sprite/creature 1.6x too large (skulls
+  oversized, tall creatures clipping through low ceilings).  Fixed in
+  extract/cmd/levexport/objects.go (spriteWorldPerTexel = 5.0/256.0).
