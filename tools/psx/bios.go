@@ -62,6 +62,10 @@ func (m *Machine) serviceBios(table byte, fn uint32) (string, uint32) {
 			return "add_nullcon_driver", 0
 		case 0xA3:
 			return "DequeueCdIntr", 0
+		case 0x9F:
+			// SetMemSize(megabytes): configures the RAM-size register. We don't
+			// model that register; acknowledge with the requested size.
+			return "SetMemSize", a0
 		}
 	case 'B':
 		switch fn {
