@@ -274,6 +274,44 @@ hottest addresses to find each such frontier. This is steady OS-reimplementation
 the mechanism and the core memory folios are done; the item/graphics folios are
 the remaining surface between here and a menu.
 
-## Part VI — EA track/car formats *(in progress)*
-With the toolchain in place, the proprietary `DriveData` formats — car models,
-track geometry, the SHPM variants — are the next target.
+## Part VI — the car model format (ORI3)
+
+The in-race 3D car models are **ORI3** objects ("3DO object", magic `ORI3`),
+carried inside the `DriveArt/CarArt/*.WrapFam` files (an outer `wwww` "wrap"
+container) and the player-car `CarData/*.WrapFam` files; standalone `.3OR` files
+(e.g. the car shadow) use the same object. Decoded in `tools/threedo/model.go`.
+
+Layout (big-endian, relative to the `ORI3` magic):
+
+| off | field |
+|----:|-------|
+| +0x04 | u32 object size |
+| +0x10 | u32 vertex count |
+| +0x14 | u32 vertex offset — vertices are `int32 x,y,z` (12 bytes) |
+| +0x20 | u32 face count |
+| +0x24 | u32 face offset — faces are 24-byte records |
+| +0x28 | char[8] name (`viper000`, `NSX00000`, …) |
+
+Each **face is a quad** (the Madam cel engine textures quads): a 24-byte record
+`u32 material, u32 id, u32 v0,v1,v2,v3`. Materials index the "wrap" texture set
+in the enclosing WrapFam.
+
+**How it was pinned (clean-room, from the disc):** the Viper header gives 78
+vertices at +0x78 and faces at +0x420, and `0x78 + 78·12 = 0x420` exactly — the
+vertex array ends precisely where the face array begins. Parsing those 78
+vertices, **all 78 are perfectly left-right (X) mirror-symmetric** and their
+silhouette is a Viper. A WrapFam can hold several LOD models (the NSX carries
+three: 46/87/87 verts).
+
+- `tools/threedo/model.go` — `ParseModels` → `[]*Model{Name, Verts, Faces}`.
+- `tools/threedo/cmd/modelrender` — orthographic side/top/front wireframe → PNG.
+- `model_test.go` round-trips a synthetic ORI3 (header offsets, vertex triples,
+  quad face record) inside a container.
+
+Verified on the real disc: `VIPER.WrapFam` → the Viper, `CarData/ANSX.WrapFam` →
+the NSX (three LODs), `Ferrari.WrapFam` → an "AXXESS00" body. (Several opponent
+`CarArt/*.WrapFam` slots are byte-identical placeholder `viper000` models — a
+game-data quirk, faithfully reproduced.) Texturing the quads with the WrapFam
+materials, and decoding the track geometry, are the next steps.
+
+## Part VII — track geometry & texturing *(planned)*
