@@ -148,6 +148,10 @@ func (c *CPU) SetReg(i, v uint32) {
 // Reg reads a general register.
 func (c *CPU) Reg(i uint32) uint32 { return c.R[i] }
 
+// CurPC returns the address of the instruction currently executing (valid inside
+// a Bus write, e.g. to attribute "who wrote this address").
+func (c *CPU) CurPC() uint32 { return c.curPC }
+
 // --- register access -------------------------------------------------------
 
 // set writes register i (R0 stays hardwired to zero) into the output file.

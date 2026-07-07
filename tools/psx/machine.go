@@ -125,8 +125,8 @@ func (m *Machine) Write(addr uint32, v byte) {
 	switch {
 	case a < 0x00800000:
 		off := a & 0x1FFFFF
-		if a >= m.WatchLo && a < m.WatchHi && m.OnWrite != nil {
-			m.OnWrite(a, uint32(v), m.CPU.PC)
+		if m.OnWrite != nil && a >= phys(m.WatchLo) && a < phys(m.WatchHi) {
+			m.OnWrite(a, uint32(v), m.CPU.CurPC())
 		}
 		m.ram[off] = v
 	case a >= scratchBase && a < scratchBase+scratchSize:
@@ -195,6 +195,15 @@ func (m *Machine) note(msg string) {
 	}
 	m.logSeen[msg] = true
 	m.Log = append(m.Log, msg)
+}
+
+// DisasmAt returns the disassembly text of the instruction at pc (for tracing).
+func (m *Machine) DisasmAt(pc uint32) string {
+	var b [4]byte
+	for i := uint32(0); i < 4; i++ {
+		b[i] = m.Read(pc + i)
+	}
+	return mips.Decode(b[:], pc).Text
 }
 
 // TTY returns the text the program printed through the BIOS.
