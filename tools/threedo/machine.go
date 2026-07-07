@@ -64,9 +64,15 @@ type Machine struct {
 	OnStep           func(m *Machine, pc uint32)
 
 	KernelCalls []KernelCall
-	tty         []byte
-	Log         []string
-	logSeen     map[string]bool
+	// SpinBreak, when set, lets the run loop poke past flag spin-waits (an
+	// exploration aid — it advances the PC but not real OS state, so downstream
+	// code that needed the awaited result runs on uninitialised data). Off by
+	// default, so a plain run stops honestly at the first async-wait frontier.
+	SpinBreak  bool
+	SpinBreaks int
+	tty        []byte
+	Log        []string
+	logSeen    map[string]bool
 
 	Halted     bool
 	HaltReason string
@@ -167,6 +173,64 @@ func (m *Machine) Write(addr uint32, v byte) {
 	default:
 		m.note(fmt.Sprintf("write unmapped 0x%08X", addr))
 	}
+}
+
+// breakSpin tries to unstick a flag spin-wait. Only a load whose value is then
+// compared against zero within the loop is treated as a flag; its target byte is
+// set to 1 (the minimal non-zero, to avoid corrupting a value used as anything
+// but a boolean), so a `while ([base+imm] == 0)` busy-wait — one an interrupt
+// would normally end — falls through. Returns the addresses it poked. This is the
+// oracle standing in for the interrupt/task that would set the flag.
+func (m *Machine) breakSpin(pcs []uint32) []uint32 {
+	// A loop must contain a "compare against zero" for us to treat a load as a
+	// flag — otherwise we leave it alone.
+	hasCmpZero := false
+	for _, pc := range pcs {
+		if pc+4 > dramSize {
+			continue
+		}
+		w := be32(m.dram[pc:])
+		op := (w >> 21) & 0xF
+		if (w>>26)&3 == 0 && (w>>20)&1 == 1 && (op == 0x8 || op == 0x9 || op == 0xA) && (w>>25)&1 == 1 && w&0xFFF == 0 {
+			hasCmpZero = true // TST/TEQ/CMP rX, #0
+			break
+		}
+	}
+	if !hasCmpZero {
+		return nil
+	}
+
+	var poked []uint32
+	done := map[uint32]bool{}
+	for _, pc := range pcs {
+		if done[pc] || pc+4 > dramSize {
+			continue
+		}
+		done[pc] = true
+		w := be32(m.dram[pc:])
+		if (w>>26)&3 != 1 || (w>>25)&1 != 0 || (w>>20)&1 != 1 { // LDR/LDRB rd,[rn,#imm]
+			continue
+		}
+		base := m.CPU.Reg((w >> 16) & 0xF)
+		imm := w & 0xFFF
+		addr := base
+		if (w>>24)&1 == 1 {
+			if (w>>23)&1 == 1 {
+				addr = base + imm
+			} else {
+				addr = base - imm
+			}
+		}
+		switch {
+		case addr < dramSize:
+			m.dram[addr] = 1
+			poked = append(poked, addr)
+		case addr >= vramBase && addr < vramBase+vramSize:
+			m.vram[addr-vramBase] = 1
+			poked = append(poked, addr)
+		}
+	}
+	return poked
 }
 
 // swi services the ARM SWI gate. The AIF exit SWI (#0x11) stops the machine;

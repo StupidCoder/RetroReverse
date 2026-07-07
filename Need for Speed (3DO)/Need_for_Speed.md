@@ -361,7 +361,37 @@ formats themselves are done.
 - `tools/threedo/wrap.go` — `ParseWrap`, `Inventory`; `cmd/packetinfo`.
 - `cmd/celdump -scan` — extract every embedded cel from a raw packet.
 
-## Part VIII — road layout & booting the race *(planned)*
-The boot oracle (Parts IV–V) is being pushed toward the race code so the road
-segment/spline table that ties the packet resources into a drivable course can be
-traced; the async-I/O frontier is the current step.
+## Part VIII — pushing the boot: the async frontier
+
+Past the memory-setup and the header-retry loop (Part V), the boot reaches the
+game's async waits. The relevant kernel gates were identified from the code:
+`SWI #0x10001` = **WaitSignal**, `#0x10002` = **SendSignal**, `#0x10007` = the
+folio-call trap. The recurring stall is a busy-wait: a routine clears a byte flag
+`[ctx+0x18]`, submits an operation, then spins `LDRB r1,[r4,#0x18]; TEQ r1,#0;
+BEQ .` until an **interrupt** sets the flag. With no interrupt/task model the flag
+never sets.
+
+A `bootoracle -spinbreak` mode was added to explore past these: when the run
+detects a closed loop containing a *compare-against-zero*, it pokes the polled
+byte to 1 (standing in for the interrupt). It does advance — from 18 to 22 folios
+and into more init — but the exploration proved an important point: **skipping a
+wait is not the same as completing the work**. Downstream the game walks its own
+allocator free-list (`[node+0x20]` = next) and finds garbage, because the awaited
+operation never actually produced its result. So `-spinbreak` is a diagnostic
+aid, off by default; a plain run stops honestly at the first async wait.
+
+**The road to a real boot** (each a milestone, in order):
+
+1. **A valid kernel base + OS `MemList`.** The game reads the memory list through
+   the kernel base struct (`[base+0x98]`→`[+0xA8]`) to build its own allocator;
+   giving it a real, consistent list is what stops the free-list corruption.
+2. **Interrupt/VBlank/timer delivery** — so the `[ctx+0x18]` completion flags get
+   set for real (the PSX oracle's synthetic-VBlank approach, adapted).
+3. **Signals + a minimal task model** (`WaitSignal`/`SendSignal`) so cross-context
+   waits resolve.
+4. **The graphics folio** (VDL, the cel engine) to reach a rendered frame.
+
+The asset formats (cels, SHPM, ORI3 models, the wwww track packets) are all
+decoded; this OS surface is what stands between the oracle and watching the game
+consume a track — which is where the **road layout table** (Part VII's remaining
+piece) will finally be read.

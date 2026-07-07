@@ -24,6 +24,7 @@ func main() {
 	tracen := flag.Uint64("tracen", 0, "print only the first N executed instructions")
 	hot := flag.Bool("hot", false, "profile the most-executed instruction addresses")
 	breakAt := flag.Uint64("break", 0, "log lr + r0-r3/r12 each time PC == this address")
+	spinbreak := flag.Bool("spinbreak", false, "poke past flag spin-waits (exploration; advances PC, not OS state)")
 	flag.Parse()
 
 	var data []byte
@@ -54,6 +55,7 @@ func main() {
 	fmt.Print(aif.Describe())
 
 	m := threedo.NewMachine()
+	m.SpinBreak = *spinbreak
 	m.LoadAIF(aif)
 
 	if *trace || *tracen > 0 {

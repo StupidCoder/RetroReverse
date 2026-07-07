@@ -28,14 +28,31 @@ func (m *Machine) Run(maxSteps uint64) Result {
 	seen := map[uint32]bool{}
 	var sinceNew uint64
 	const noProgress = 1_000_000
+	const unstickAt = 80_000 // try to break a flag spin-wait well before giving up
+	var ring [64]uint32
+	var ri int
+	var unstickTries int
 	for steps < maxSteps {
 		pc := m.CPU.Reg(15)
+		ring[ri&63] = pc
+		ri++
 		if pc < dramSize {
 			if !seen[pc] {
 				seen[pc] = true
 				sinceNew = 0
-			} else if sinceNew++; sinceNew > noProgress {
-				return Result{steps, pc, fmt.Sprintf("no forward progress (closed loop near 0x%08X)", pc)}
+			} else {
+				sinceNew++
+				if m.SpinBreak && sinceNew == unstickAt {
+					// Stuck in a closed loop — optionally satisfy a flag spin-wait by
+					// poking the polled address, standing in for the interrupt.
+					if poked := m.breakSpin(ring[:]); len(poked) > 0 && unstickTries < 2000 {
+						unstickTries++
+						m.SpinBreaks++
+						sinceNew = 0
+					}
+				} else if sinceNew > noProgress {
+					return Result{steps, pc, fmt.Sprintf("no forward progress (closed loop near 0x%08X, %d spin-breaks)", pc, m.SpinBreaks)}
+				}
 			}
 		}
 
