@@ -192,7 +192,7 @@ export class TrackViewer {
     // positive polygon offset (above) pushes the wall back so these coplanar lines render
     // in front of it without z-fighting, the same trick the road uses for its rung lines.
     const spos = [];
-    for (let k = 0; k < m; k++) {
+    for (let k = 0; k < m; k += 2) { // every other rung: keep, drop, keep, ...
       const a = rings[k];
       spos.push(a.l.x, a.hl, a.l.z, a.l.x, 0, a.l.z); // left wall
       spos.push(a.r.x, a.hr, a.r.z, a.r.x, 0, a.r.z); // right wall
