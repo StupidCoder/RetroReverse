@@ -151,6 +151,11 @@ type placedModel struct {
 // half a tile — a reasonable size for floor items and creatures.
 const spriteWorldPerTexel = 1.0 / 32
 
+// creatureIdleFps is the playback rate of a creature's idle cycle. The segment
+// lists imply one frame per animation tick but the tick rate isn't traced; ~6
+// fps reads as a gentle in-place idle (the cycles are only 3-4 frames).
+const creatureIdleFps = 6
+
 // appendBillboards emits the level's class-0/1 objects as camera-facing sprites.
 // Items (class 0/1 non-creature) use OBJECTS.GR frame [item_id]; CREATURES
 // (class-1 mobile objects, item 64-127) use their CRIT/CR<octal>PAGE.N01 sprite.
@@ -193,31 +198,36 @@ func appendBillboards(o *outMesh, grid *lev.Grid, block []byte, comObj *lev.ComO
 		base := float32(obj.Z) / 32 // floor height in tile units (Z*8/256)
 
 		if cls == lev.RenderBillboard && obj.Mobile && obj.ItemID >= 64 && obj.ItemID <= 127 {
-			// Creature: emit all eight compass views. The viewer selects one per
-			// render from the camera bearing and the object heading; non-
-			// directional creatures collapse to view 0 for all eight.
+			// Creature: emit all eight compass views, each as its idle frame cycle
+			// (segment 0-7 of the primary animation). The viewer selects a view per
+			// render from the camera bearing and the object heading and loops the
+			// cycle; non-directional creatures collapse to view 0 for all eight.
 			pg := loadCrit(int(obj.ItemID) - 64)
 			if pg == nil || pg.NumFrames() == 0 {
 				continue
 			}
-			var dirs []outDir
-			for _, frame := range pg.ViewFrames() {
-				im, err := pg.Frame(frame, pal)
-				if err != nil {
-					dirs = nil
-					break
+			views := make([][]outDir, 8)
+			okAll := true
+			for v := 0; v < 8 && okAll; v++ {
+				for _, frame := range pg.ViewCycle(v) {
+					im, err := pg.Frame(frame, pal)
+					if err != nil {
+						okAll = false
+						break
+					}
+					views[v] = append(views[v], outDir{
+						Tex: spriteTex(im, fmt.Sprintf("crit:%d:%d", obj.ItemID, frame)),
+						W:   float32(im.Bounds().Dx()) * spriteWorldPerTexel,
+						H:   float32(im.Bounds().Dy()) * spriteWorldPerTexel,
+					})
 				}
-				dirs = append(dirs, outDir{
-					Tex: spriteTex(im, fmt.Sprintf("crit:%d:%d", obj.ItemID, frame)),
-					W:   float32(im.Bounds().Dx()) * spriteWorldPerTexel,
-					H:   float32(im.Bounds().Dy()) * spriteWorldPerTexel,
-				})
 			}
-			if len(dirs) == 0 {
+			if !okAll {
 				continue
 			}
 			o.Creatures = append(o.Creatures, outCreature{
-				Pos: [3]float32{tx, base, -ty}, Heading: int(obj.Heading), Dirs: dirs,
+				Pos: [3]float32{tx, base, -ty}, Heading: int(obj.Heading),
+				Views: views, Fps: creatureIdleFps,
 			})
 			continue
 		}

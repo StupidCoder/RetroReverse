@@ -55,6 +55,7 @@ export class LevelViewer {
       requestAnimationFrame(tick);
       const dt = Math.min(this._clock.getDelta(), 0.1);
       if (this.active === false) return;
+      this._animT = (this._animT || 0) + dt;
       this.fly.update(dt);
       controls.update();
       this._updateCreatures();
@@ -128,17 +129,22 @@ export class LevelViewer {
       spriteGroup.add(spr);
     }
 
-    // Creatures are directional (Doom-style) billboards: eight view frames that
-    // the render loop swaps by the camera-to-creature angle and the creature's
-    // heading, so a monster shows its back, side or face as you circle it.
+    // Creatures are directional (Doom-style) billboards that play their idle
+    // animation. Each has eight view cycles; the render loop swaps view by the
+    // camera-to-creature angle and heading (so a monster shows its back, side or
+    // face as you circle it) and advances the cycle by time so it moves in place.
     const creatures = [];
     for (const c of data.creatures || []) {
-      const dirs = c.dirs.map((d) => ({ mat: spriteMats[d.tex], w: d.w, h: d.h }));
-      const spr = new THREE.Sprite(dirs[0].mat);
+      const views = c.views.map((cyc) => cyc.map((d) => ({ mat: spriteMats[d.tex], w: d.w, h: d.h })));
+      const spr = new THREE.Sprite(views[0][0].mat);
       spriteGroup.add(spr);
-      const rec = { spr, dirs, heading: c.heading, base: c.pos, view: -1 };
+      const rec = {
+        spr, views, heading: c.heading, base: c.pos, fps: c.fps || 6,
+        phase: (creatures.length * 0.37) % 2, // desync creatures' cycles
+        view: -1, frame: -1,
+      };
       creatures.push(rec);
-      this._applyView(rec, 0); // place with view 0 until the first update
+      this._setCreatureFrame(rec, 0, 0); // place until the first update
     }
 
     scene.add(spriteGroup);
@@ -174,38 +180,45 @@ export class LevelViewer {
     }
   }
 
-  // _applyView points a creature sprite at one of its eight view frames,
-  // rescaling and re-seating its base on the floor (frames differ in size).
-  _applyView(rec, view) {
-    if (view === rec.view) return;
+  // _setCreatureFrame points a creature sprite at frame `fi` of view cycle
+  // `view`, rescaling and re-seating its base on the floor (frames differ in
+  // size). No-op when nothing changed so material swaps stay cheap.
+  _setCreatureFrame(rec, view, fi) {
+    if (view === rec.view && fi === rec.frame) return;
     rec.view = view;
-    const d = rec.dirs[view] || rec.dirs[0];
-    rec.spr.material = d.mat;
-    rec.spr.scale.set(d.w, d.h, 1);
-    rec.spr.position.set(rec.base[0], rec.base[1] + d.h / 2, rec.base[2]);
+    rec.frame = fi;
+    const cyc = rec.views[view] || rec.views[0];
+    const f = cyc[fi % cyc.length] || cyc[0];
+    rec.spr.material = f.mat;
+    rec.spr.scale.set(f.w, f.h, 1);
+    rec.spr.position.set(rec.base[0], rec.base[1] + f.h / 2, rec.base[2]);
   }
 
-  // _updateCreatures picks each creature's view frame from the horizontal
-  // bearing between it and the camera, in the game's own convention: the fine
-  // angle (0-31) of the camera→creature vector is the cameraAngle, and
-  //   view = REMAP[(heading*4 + 32 - cameraAngle) & 31].
+  // _updateCreatures picks each creature's view from the horizontal bearing
+  // between it and the camera — the fine angle (0-31) of the camera→creature
+  // vector is the cameraAngle and view = REMAP[(camAngle - heading*4) & 31] —
+  // then advances the idle cycle by elapsed time (each creature phase-offset so
+  // they don't animate in lockstep).
   _updateCreatures() {
     const list = this._creatures;
     if (!list || !list.length) return;
     const cam = this.three.camera.position;
     const wp = this._wp || (this._wp = new THREE.Vector3());
+    const t = this._animT || 0;
     for (const rec of list) {
       rec.spr.getWorldPosition(wp);
       const dx = wp.x - cam.x, dz = wp.z - cam.z; // camera → creature (horizontal)
       // Match heading's fine-angle convention: heading h faces world such that
       // atan2(-fx, -fz) == h*4 steps; use the same mapping for the bearing.
-      let camAngle = Math.round((Math.atan2(-dx, -dz) / (2 * Math.PI)) * 32) & 31;
       // (camAngle - heading*4), not the game formula's (heading*4 - camAngle):
       // our world's rotational sense runs opposite to UW's fine-angle count, so
       // this sign reverses the turn direction while keeping back (view 0) and
       // front (view 4) fixed — only the two sides swap (1<->7, 2<->6, 3<->5).
-      const idx = (camAngle - rec.heading * 4 + 32) & 31;
-      this._applyView(rec, VIEW_REMAP[idx]);
+      const camAngle = Math.round((Math.atan2(-dx, -dz) / (2 * Math.PI)) * 32) & 31;
+      const view = VIEW_REMAP[(camAngle - rec.heading * 4 + 32) & 31];
+      const cyc = rec.views[view] || rec.views[0];
+      const fi = Math.floor((t + rec.phase) * rec.fps) % cyc.length;
+      this._setCreatureFrame(rec, view, fi);
     }
   }
 

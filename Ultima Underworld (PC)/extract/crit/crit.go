@@ -44,7 +44,7 @@ type Page struct {
 	data     []byte
 	offsets  []int    // per-frame file offsets
 	aux      [][]byte // 30-entry auxiliary palettes
-	segFirst []int    // first frame index of each animation segment
+	segments [][]int  // per-segment frame-index cycle (ff-terminated list)
 }
 
 // ParsePage reads a CRxxPAGE.Nyy file. The header (slot directory + segment
@@ -132,9 +132,10 @@ func ParsePage(data []byte) (*Page, error) {
 // each an 0xff-terminated list of frame indices for one animation cycle. The
 // records are grouped by animation, 8 consecutive records per animation (one per
 // compass view), so segments 0-7 are the eight directional views of the
-// creature's primary (idle/walk) animation and record[0] is the standing frame
-// for that view. (Verified visually: for the gray goblin, segments 0-7's first
-// frames are a clean 8-way rotation — view 0 the back, view 4 the front.)
+// creature's primary (idle/walk) animation: record[0] is the standing frame for
+// that view and the whole list is the loop to play. (Verified visually: for the
+// gray goblin, segments 0-7's first frames are a clean 8-way rotation — view 0
+// the back, view 4 the front — and each list is a gentle in-place idle cycle.)
 func (p *Page) parseSegments() {
 	if len(p.data) < 2 {
 		return
@@ -153,11 +154,22 @@ func (p *Page) parseSegments() {
 		if rec >= len(p.data) {
 			break
 		}
-		fr := int(p.data[rec])
-		if fr >= len(p.offsets) {
-			fr = 0 // out-of-range → fall back to the first frame
+		var list []int
+		for i := 0; i < 8 && rec+i < len(p.data); i++ {
+			f := p.data[rec+i]
+			if f == 0xff {
+				break
+			}
+			fr := int(f)
+			if fr >= len(p.offsets) {
+				fr = 0 // out-of-range → fall back to the first frame
+			}
+			list = append(list, fr)
 		}
-		p.segFirst = append(p.segFirst, fr)
+		if len(list) == 0 {
+			list = []int{0}
+		}
+		p.segments = append(p.segments, list)
 	}
 }
 
@@ -170,11 +182,21 @@ func (p *Page) parseSegments() {
 func (p *Page) ViewFrames() [8]int {
 	var v [8]int
 	for i := range v {
-		if i < len(p.segFirst) {
-			v[i] = p.segFirst[i]
+		if i < len(p.segments) {
+			v[i] = p.segments[i][0]
 		}
 	}
 	return v
+}
+
+// ViewCycle returns the frame-index loop for compass view `view` (segment
+// `view` of the creature's primary animation) — the sequence to play for an
+// idle creature facing that view. Missing views fall back to a single frame 0.
+func (p *Page) ViewCycle(view int) []int {
+	if view >= 0 && view < len(p.segments) {
+		return p.segments[view]
+	}
+	return []int{0}
 }
 
 // NumFrames is the number of sprite frames in the page.
