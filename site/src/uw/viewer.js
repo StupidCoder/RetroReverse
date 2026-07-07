@@ -200,7 +200,11 @@ export class LevelViewer {
       // Match heading's fine-angle convention: heading h faces world such that
       // atan2(-fx, -fz) == h*4 steps; use the same mapping for the bearing.
       let camAngle = Math.round((Math.atan2(-dx, -dz) / (2 * Math.PI)) * 32) & 31;
-      const idx = (rec.heading * 4 + 32 - camAngle) & 31;
+      // (camAngle - heading*4), not the game formula's (heading*4 - camAngle):
+      // our world's rotational sense runs opposite to UW's fine-angle count, so
+      // this sign reverses the turn direction while keeping back (view 0) and
+      // front (view 4) fixed — only the two sides swap (1<->7, 2<->6, 3<->5).
+      const idx = (camAngle - rec.heading * 4 + 32) & 31;
       this._applyView(rec, VIEW_REMAP[idx]);
     }
   }
