@@ -73,6 +73,38 @@ func (c *CPU) Halt(format string, args ...interface{}) {
 // CurPC returns the address of the instruction currently executing.
 func (c *CPU) CurPC() uint32 { return c.cur }
 
+// Context is a full snapshot of the programmer-visible CPU state — everything
+// needed to suspend and resume a thread of execution. A machine model uses it to
+// implement cooperative multitasking (context switching between tasks).
+type Context struct {
+	R                      [16]uint32
+	N, Z, C, V             bool
+	IRQDisable, FIQDisable bool
+	Mode                   uint32
+	bankR13, bankR14       [6]uint32
+	bankSPSR               [6]uint32
+	fiqR8_12, usrR8_12     [5]uint32
+}
+
+// SaveContext captures the CPU state for later resumption.
+func (c *CPU) SaveContext() Context {
+	return Context{
+		R: c.R, N: c.N, Z: c.Z, C: c.C, V: c.V,
+		IRQDisable: c.IRQDisable, FIQDisable: c.FIQDisable, Mode: c.Mode,
+		bankR13: c.bankR13, bankR14: c.bankR14, bankSPSR: c.bankSPSR,
+		fiqR8_12: c.fiqR8_12, usrR8_12: c.usrR8_12,
+	}
+}
+
+// RestoreContext resumes a previously saved CPU state.
+func (c *CPU) RestoreContext(x Context) {
+	c.R, c.N, c.Z, c.C, c.V = x.R, x.N, x.Z, x.C, x.V
+	c.IRQDisable, c.FIQDisable, c.Mode = x.IRQDisable, x.FIQDisable, x.Mode
+	c.bankR13, c.bankR14, c.bankSPSR = x.bankR13, x.bankR14, x.bankSPSR
+	c.fiqR8_12, c.usrR8_12 = x.fiqR8_12, x.usrR8_12
+	c.branched = false
+}
+
 // SetPC / SetReg seed state before entering a program.
 func (c *CPU) SetPC(v uint32)      { c.R[15] = v }
 func (c *CPU) SetReg(i, v uint32)  { c.R[i&0xF] = v }

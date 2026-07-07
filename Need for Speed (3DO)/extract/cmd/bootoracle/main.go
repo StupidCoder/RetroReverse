@@ -79,8 +79,8 @@ func main() {
 		m.OnStep = func(mm *threedo.Machine, pc uint32) {
 			if pc == ba {
 				c := mm.CPU
-				brk = append(brk, fmt.Sprintf("hit 0x%08X (from 0x%08X) lr=0x%08X  r0=%08X r1=%08X r2=%08X r3=%08X",
-					pc, prev, c.Reg(14), c.Reg(0), c.Reg(1), c.Reg(2), c.Reg(3)))
+				brk = append(brk, fmt.Sprintf("hit 0x%08X (from 0x%08X)  r4=%08X r5=%08X r6=%08X r8=%08X r9=%08X",
+					pc, prev, c.Reg(4), c.Reg(5), c.Reg(6), c.Reg(8), c.Reg(9)))
 			}
 			prev = pc
 		}
@@ -114,6 +114,20 @@ func main() {
 		}
 	}
 	fmt.Printf("  (%d distinct folio offsets)\n", len(seen))
+
+	fmt.Printf("\n--- tasks ---\n")
+	for _, s := range m.TaskSummary() {
+		fmt.Println(" ", s)
+	}
+
+	fmt.Printf("\n--- kernel SWIs (%d) ---\n", len(m.SWICalls))
+	for i, k := range m.SWICalls {
+		if i >= 30 {
+			break
+		}
+		fmt.Printf("  SWI 0x%-5X from 0x%08X  args=%08X %08X %08X %08X\n",
+			k.Offset, k.From, k.Args[0], k.Args[1], k.Args[2], k.Args[3])
+	}
 	if *hot {
 		type hp struct {
 			pc uint32

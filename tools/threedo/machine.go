@@ -21,16 +21,17 @@ import (
 )
 
 const (
-	dramSize   = 2 * 1024 * 1024 // 2 MiB main DRAM at 0x00000000
-	vramBase   = 0x00200000
-	vramSize   = 1024 * 1024 // 1 MiB VRAM
-	madamBase  = 0x03300000  // Madam (CEL/matrix/DMA) registers
-	madamEnd   = 0x03400000
-	clioBase   = 0x03400000 // Clio (video/audio/timers/IRQ) registers
-	clioEnd    = 0x03500000
-	kernelBase = 0x00180000 // synthetic Portfolio kernel/folio base (r7/r9)
-	hleBase    = 0x0FE00000 // reserved window: a PC here is an intercepted folio call
-	hleSize    = 0x00010000
+	dramSize    = 2 * 1024 * 1024 // 2 MiB main DRAM at 0x00000000
+	vramBase    = 0x00200000
+	vramSize    = 1024 * 1024 // 1 MiB VRAM
+	madamBase   = 0x03300000  // Madam (CEL/matrix/DMA) registers
+	madamEnd    = 0x03400000
+	clioBase    = 0x03400000 // Clio (video/audio/timers/IRQ) registers
+	clioEnd     = 0x03500000
+	kernelBase  = 0x00180000 // synthetic Portfolio kernel/folio base (r7/r9)
+	hleBase     = 0x0FE00000 // reserved window: a PC here is an intercepted folio call
+	hleSize     = 0x00010000
+	bootTaskNum = 1 // item number of the initial (boot) task
 
 	dheapBase = 0x00080000 // DRAM AllocMem pool: above the image, below the kernel table
 	dheapTop  = 0x0017F000
@@ -63,7 +64,19 @@ type Machine struct {
 	OnWrite          func(addr, val, pc uint32)
 	OnStep           func(m *Machine, pc uint32)
 
+	// Kernel item system (kernel.go).
+	items      map[int32]*item
+	itemByType map[uint32]*item
+	nextItem   int32
+
+	// Cooperative task scheduler (task.go).
+	tasks        []*task
+	cur          int  // index of the running task
+	switches     int  // context-switch count
+	needSchedule bool // a WaitSignal/exit asked to switch after this instruction
+
 	KernelCalls []KernelCall
+	SWICalls    []KernelCall // SWI kernel calls (Offset = SWI comment)
 	// SpinBreak, when set, lets the run loop poke past flag spin-waits (an
 	// exploration aid — it advances the PC but not real OS state, so downstream
 	// code that needed the awaited result runs on uninitialised data). Off by
@@ -81,14 +94,18 @@ type Machine struct {
 // NewMachine builds a reset 3DO machine with DRAM, VRAM and an ARM60 core.
 func NewMachine() *Machine {
 	m := &Machine{
-		dram:    make([]byte, dramSize),
-		vram:    make([]byte, vramSize),
-		dheap:   newHeap(dheapBase, dheapTop-dheapBase),
-		vheap:   newHeap(vheapBase, vheapTop-vheapBase),
-		logSeen: map[string]bool{},
+		dram:       make([]byte, dramSize),
+		vram:       make([]byte, vramSize),
+		dheap:      newHeap(dheapBase, dheapTop-dheapBase),
+		vheap:      newHeap(vheapBase, vheapTop-vheapBase),
+		items:      map[int32]*item{},
+		itemByType: map[uint32]*item{},
+		nextItem:   0x1000,
+		logSeen:    map[string]bool{},
 	}
 	m.CPU = arm60.NewCPU(m)
 	m.CPU.SWI = m.swi
+	m.initTasks()
 	return m
 }
 
@@ -181,10 +198,11 @@ func (m *Machine) Write(addr uint32, v byte) {
 // but a boolean), so a `while ([base+imm] == 0)` busy-wait — one an interrupt
 // would normally end — falls through. Returns the addresses it poked. This is the
 // oracle standing in for the interrupt/task that would set the flag.
-func (m *Machine) breakSpin(pcs []uint32) []uint32 {
-	// A loop must contain a "compare against zero" for us to treat a load as a
-	// flag — otherwise we leave it alone.
-	hasCmpZero := false
+// isFlagSpin reports whether the recent loop body contains a compare-against-zero
+// (TST/TEQ/CMP rX,#0) — the signature of a busy-wait on a flag, as opposed to a
+// working loop (memset, search) that just happens to revisit addresses. Used to
+// decide when to switch tasks or poke.
+func (m *Machine) isFlagSpin(pcs []uint32) bool {
 	for _, pc := range pcs {
 		if pc+4 > dramSize {
 			continue
@@ -192,11 +210,14 @@ func (m *Machine) breakSpin(pcs []uint32) []uint32 {
 		w := be32(m.dram[pc:])
 		op := (w >> 21) & 0xF
 		if (w>>26)&3 == 0 && (w>>20)&1 == 1 && (op == 0x8 || op == 0x9 || op == 0xA) && (w>>25)&1 == 1 && w&0xFFF == 0 {
-			hasCmpZero = true // TST/TEQ/CMP rX, #0
-			break
+			return true
 		}
 	}
-	if !hasCmpZero {
+	return false
+}
+
+func (m *Machine) breakSpin(pcs []uint32) []uint32 {
+	if !m.isFlagSpin(pcs) {
 		return nil
 	}
 
@@ -234,13 +255,19 @@ func (m *Machine) breakSpin(pcs []uint32) []uint32 {
 }
 
 // swi services the ARM SWI gate. The AIF exit SWI (#0x11) stops the machine;
-// other SWIs are logged and returned from.
+// other SWIs are the Portfolio kernel calls, logged with their arguments.
 func (m *Machine) swi(c *arm60.CPU, comment uint32) bool {
-	switch comment {
-	case 0x11: // program exit
+	if comment == 0x11 { // program exit
 		m.Halted, m.HaltReason = true, "program exit (SWI #0x11)"
-	default:
-		m.note(fmt.Sprintf("SWI #0x%X", comment))
+		return true
+	}
+	m.SWICalls = append(m.SWICalls, KernelCall{
+		Offset: comment,
+		From:   c.CurPC(),
+		Args:   [4]uint32{c.Reg(0), c.Reg(1), c.Reg(2), c.Reg(3)},
+	})
+	if !m.kernelSWI(c, comment) {
+		m.note(fmt.Sprintf("SWI #0x%X (stub)", comment))
 	}
 	return true // serviced: do not vector to 0x08
 }

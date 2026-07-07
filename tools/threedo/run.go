@@ -19,44 +19,31 @@ type Result struct {
 // branch spin, or the step budget.
 func (m *Machine) Run(maxSteps uint64) Result {
 	var steps uint64
-	var lastPC uint32
-	var spin int
-	// Forward-progress guard: if a long window passes without executing any
-	// never-before-seen instruction, the run is in a closed loop (e.g. a memset
-	// whose count came from a not-yet-reimplemented folio) — stop with a report
-	// instead of burning the whole budget.
+	// Forward-progress tracking: a task that executes no never-before-seen
+	// instruction for a while is busy-waiting; if it's a flag spin we switch to
+	// another runnable task (the cooperative scheduler), else eventually give up.
 	seen := map[uint32]bool{}
 	var sinceNew uint64
-	const noProgress = 1_000_000
-	const unstickAt = 80_000 // try to break a flag spin-wait well before giving up
+	const (
+		noProgress = 1_000_000
+		switchAt   = 20_000 // check for a flag-spin / try a task switch this often
+	)
 	var ring [64]uint32
 	var ri int
 	var unstickTries int
+	var stallSwitches int // context switches since the last real progress
 	for steps < maxSteps {
 		pc := m.CPU.Reg(15)
-		ring[ri&63] = pc
-		ri++
-		if pc < dramSize {
-			if !seen[pc] {
-				seen[pc] = true
-				sinceNew = 0
-			} else {
-				sinceNew++
-				if m.SpinBreak && sinceNew == unstickAt {
-					// Stuck in a closed loop — optionally satisfy a flag spin-wait by
-					// poking the polled address, standing in for the interrupt.
-					if poked := m.breakSpin(ring[:]); len(poked) > 0 && unstickTries < 2000 {
-						unstickTries++
-						m.SpinBreaks++
-						sinceNew = 0
-					}
-				} else if sinceNew > noProgress {
-					return Result{steps, pc, fmt.Sprintf("no forward progress (closed loop near 0x%08X, %d spin-breaks)", pc, m.SpinBreaks)}
-				}
-			}
-		}
 
-		// A PC in the HLE window is an intercepted folio/kernel call.
+		// A spawned task returned to its exit trampoline.
+		if pc == taskExitTramp {
+			m.curTask().state = stDone
+			if !m.switchTask() {
+				return Result{steps, pc, fmt.Sprintf("all tasks finished (%d switches)", m.switches)}
+			}
+			continue
+		}
+		// A PC in the HLE window is an intercepted folio call.
 		if pc >= hleBase && pc < hleBase+hleSize {
 			m.serviceKernelCall(pc)
 			steps++
@@ -69,19 +56,51 @@ func (m *Machine) Run(maxSteps uint64) Result {
 			m.OnStep(m, pc)
 		}
 
-		// Tight-spin detection: a branch-to-self (the AIF's post-exit "B .").
-		if pc == lastPC {
-			spin++
-			if spin > 64 {
-				return Result{steps, pc, fmt.Sprintf("spin at 0x%08X", pc)}
+		ring[ri&63] = pc
+		ri++
+		if pc < dramSize {
+			if !seen[pc] {
+				seen[pc] = true
+				sinceNew = 0
+				stallSwitches = 0 // real forward progress
+			} else {
+				sinceNew++
+				if sinceNew%switchAt == 0 {
+					// This task has made no progress for a while. In cooperative
+					// multitasking it should yield: switch to another runnable task
+					// (which may set the flag / build the list it's waiting on).
+					m.curTask().state = stReady
+					if m.switchTask() {
+						stallSwitches++
+						if stallSwitches > 6*len(m.tasks)+8 {
+							return Result{steps, pc, fmt.Sprintf("deadlock: all %d tasks stalled near 0x%08X", len(m.tasks), pc)}
+						}
+						sinceNew = 0
+						continue
+					}
+					m.curTask().state = stRunning
+					if m.SpinBreak && m.isFlagSpin(ring[:]) {
+						if poked := m.breakSpin(ring[:]); len(poked) > 0 && unstickTries < 2000 {
+							unstickTries++
+							m.SpinBreaks++
+							sinceNew = 0
+						}
+					}
+				}
+				if sinceNew > noProgress {
+					return Result{steps, pc, fmt.Sprintf("no forward progress (0x%08X, %d switches, %d tasks)", pc, m.switches, len(m.tasks))}
+				}
 			}
-		} else {
-			spin = 0
 		}
-		lastPC = pc
 
 		m.CPU.Step()
 		steps++
+		if m.needSchedule { // a WaitSignal blocked the current task
+			m.needSchedule = false
+			if !m.switchTask() {
+				m.curTask().state = stRunning // nothing else runnable: proceed optimistically
+			}
+		}
 		if m.CPU.Halted {
 			return Result{steps, m.CPU.CurPC(), "cpu: " + m.CPU.HaltReason}
 		}
