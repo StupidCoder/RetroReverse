@@ -18,9 +18,11 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
+	"strings"
 
 	"ultimaunderworld/extract/lev"
 	"ultimaunderworld/extract/levgeo"
+	"ultimaunderworld/extract/strpak"
 	"ultimaunderworld/extract/tex"
 )
 
@@ -37,18 +39,19 @@ type outGroup struct {
 }
 
 type outMesh struct {
-	Level     int           `json:"level"`
-	Positions []float32     `json:"positions"`
-	UVs       []float32     `json:"uvs"`
-	Groups    []outGroup    `json:"groups"`
-	Textures  []outTexture  `json:"textures"`
-	Spawn     []float32     `json:"spawn"`     // [x,y,z] interior start (Y-up), eye height above a floor
-	SpawnDir  []float32     `json:"spawnDir"`  // [x,y,z] initial look direction (Y-up)
-	Sprites   []outSprite   `json:"sprites"`   // billboard objects (camera-facing)
-	Creatures []outCreature `json:"creatures"` // view-dependent 8-direction sprites
-	SpriteTex []string      `json:"spriteTex"` // PNG data URIs, indexed by outSprite.Tex / outDir.Tex
-	AddTex    []int         `json:"addTex"`    // spriteTex indices to draw ADDITIVELY (translucent bodies)
-	Picks     []outPick     `json:"picks"`     // click targets (item id + world AABB)
+	Level     int            `json:"level"`
+	Positions []float32      `json:"positions"`
+	UVs       []float32      `json:"uvs"`
+	Groups    []outGroup     `json:"groups"`
+	Textures  []outTexture   `json:"textures"`
+	Spawn     []float32      `json:"spawn"`     // [x,y,z] interior start (Y-up), eye height above a floor
+	SpawnDir  []float32      `json:"spawnDir"`  // [x,y,z] initial look direction (Y-up)
+	Sprites   []outSprite    `json:"sprites"`   // billboard objects (camera-facing)
+	Creatures []outCreature  `json:"creatures"` // view-dependent 8-direction sprites
+	SpriteTex []string       `json:"spriteTex"` // PNG data URIs, indexed by outSprite.Tex / outDir.Tex
+	AddTex    []int          `json:"addTex"`    // spriteTex indices to draw ADDITIVELY (translucent bodies)
+	Picks     []outPick      `json:"picks"`     // click targets (item id + world AABB)
+	Names     map[int]string `json:"names"`     // item id -> object name (STRINGS.PAK block 4), for clicked objects
 }
 
 // outPick is a click target: an axis-aligned box (world Y-up, Pos = centre, Size
@@ -217,11 +220,48 @@ func main() {
 	must(err)
 	appendBillboards(o, grid, block, comObj, objGR, data("ALLPALS.DAT"), pal, *game)
 
+	// Object names for the click card: STRINGS.PAK block 4 is object names by item
+	// id. Attach the name of every clickable object (its pick id) so the viewer
+	// can show it (e.g. item 358 -> "some writing").
+	o.Names = objectNames(data("STRINGS.PAK"), o.Picks)
+
 	buf, err := json.Marshal(o)
 	must(err)
 	must(os.WriteFile(*out, buf, 0o644))
 	fmt.Printf("wrote %s: %d triangles, %d materials, %d KB\n",
 		*out, len(o.Positions)/9, len(mats), len(buf)/1024)
+}
+
+// objectNames maps each clicked object's item id to its display name from
+// STRINGS.PAK block 4 (the object-name block). UW stores the name with its
+// article joined by an underscore ("a_hand axe", "some_writing") and a singular
+// "&" plural form ("a_box&boxes"); we take the singular and render it as words.
+// Only ids that appear as click targets are included, to keep the JSON small.
+// Returns nil if STRINGS.PAK is missing or unparseable.
+func objectNames(pak []byte, picks []outPick) map[int]string {
+	a, err := strpak.Parse(pak)
+	if err != nil {
+		return nil
+	}
+	names, ok := a.Block(4)
+	if !ok {
+		return nil
+	}
+	out := map[int]string{}
+	for _, pk := range picks {
+		if _, done := out[pk.ID]; done {
+			continue
+		}
+		if pk.ID < 0 || pk.ID >= len(names) {
+			continue
+		}
+		s := strings.SplitN(names[pk.ID], "&", 2)[0] // singular form
+		s = strings.TrimSpace(strings.ReplaceAll(s, "_", " "))
+		if s != "" {
+			out[pk.ID] = s
+		}
+	}
+	return out
 }
 
 // spawnPoint returns an interior start position and initial look direction

@@ -10,6 +10,7 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { FlyCam, flyHint } from '../shared/flycam.js';
+import { InfoCard } from '../shared/infocard.js';
 
 const LEVELS = 'public/uw/';
 
@@ -56,18 +57,14 @@ export class LevelViewer {
     // in Y, not a THREE.Sprite (which tilts to fully face the camera).
     this._plane = new THREE.PlaneGeometry(1, 1);
 
-    // Click-to-identify: invisible boxes (one per object) carry the item id;
-    // a click raycasts them and shows the id in a small overlay.
+    // Click-to-identify: invisible boxes (one per object) carry the item id; a
+    // click raycasts them and shows the object's name + id in the shared card.
     this._pickBox = new THREE.BoxGeometry(1, 1, 1);
     this._pickMat = new THREE.MeshBasicMaterial({ colorWrite: false, depthWrite: false, side: THREE.DoubleSide });
     this._ray = new THREE.Raycaster();
     if (getComputedStyle(el).position === 'static') el.style.position = 'relative';
-    const label = document.createElement('div');
-    label.style.cssText = 'position:absolute;left:8px;bottom:8px;padding:4px 8px;' +
-      'font:12px/1.4 ui-monospace,monospace;color:#cde;background:rgba(0,0,0,.62);' +
-      'border:1px solid #2c3444;border-radius:4px;pointer-events:none;display:none;z-index:5;';
-    el.appendChild(label);
-    this._pickLabel = label;
+    this._card = new InfoCard(el); // shared bottom-right object-info card
+    this._names = {};              // item id -> object name (STRINGS.PAK block 4)
     let downX = 0, downY = 0;
     renderer.domElement.addEventListener('pointerdown', (e) => { downX = e.clientX; downY = e.clientY; });
     renderer.domElement.addEventListener('pointerup', (e) => {
@@ -228,7 +225,8 @@ export class LevelViewer {
     }
     scene.add(pickGroup);
     this._pickGroup = pickGroup;
-    this._pickLabel.style.display = 'none';
+    this._names = data.names || {}; // item id -> object name (STRINGS.PAK block 4)
+    this._card.hide();
 
     // Start inside the dungeon (it's now ceiling-enclosed): the exported spawn
     // is an interior point at eye height; place the camera there looking ahead.
@@ -329,7 +327,8 @@ export class LevelViewer {
   }
 
   // _pick raycasts the invisible object boxes at the clicked point and shows the
-  // item id of the nearest one (the boxes share the level's centring group).
+  // nearest one's name + item id in the shared card. The name is the object's
+  // own STRINGS.PAK block-4 entry (e.g. item 358 = "some writing").
   _pick(e) {
     const grp = this._pickGroup;
     if (!grp) return;
@@ -339,12 +338,15 @@ export class LevelViewer {
     ndc.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
     this._ray.setFromCamera(ndc, this.three.camera);
     const hits = this._ray.intersectObjects(grp.children, false);
-    if (hits.length) {
-      this._pickLabel.textContent = `item id ${hits[0].object.userData.id}`;
-      this._pickLabel.style.display = 'block';
-    } else {
-      this._pickLabel.style.display = 'none';
-    }
+    if (!hits.length) { this._card.hide(); return; }
+    const id = hits[0].object.userData.id;
+    const name = this._names[id];
+    this._card.show({
+      title: name || `item ${id}`,
+      subtitle: `item id ${id}`,
+      body: name ? undefined : 'No name for this item in STRINGS.PAK block 4.',
+      muted: !name,
+    });
   }
 
   _dispose() {
@@ -368,5 +370,6 @@ export class LevelViewer {
       this.three.scene.remove(this._pickGroup);
       this._pickGroup = null;
     }
+    this._card?.hide();
   }
 }

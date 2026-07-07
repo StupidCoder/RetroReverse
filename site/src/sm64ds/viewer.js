@@ -8,6 +8,7 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { FlyCam, flyHint } from '../shared/flycam.js';
+import { InfoCard } from '../shared/infocard.js';
 import { clone as cloneSkinned } from 'three/addons/utils/SkeletonUtils.js';
 
 const MODELS = 'public/sm64ds/models/';
@@ -242,6 +243,7 @@ export class ModelViewer {
 
     // Signpost interaction: a click (not a drag) raycasts the placed signposts.
     this._ray = new THREE.Raycaster();
+    this._card = new InfoCard(this.el); // shared bottom-right object-info card
     let downAt = null;
     renderer.domElement.addEventListener('pointerdown', e => { downAt = [e.clientX, e.clientY]; });
     renderer.domElement.addEventListener('pointerup', e => {
@@ -271,51 +273,23 @@ export class ModelViewer {
       node = node.parent;
     }
     if (!hit) return;
-    const d = document.createElement('div');
-    d.style.cssText = 'position:absolute;right:12px;bottom:64px;max-width:min(480px,70%);' +
-      'background:rgba(10,13,18,.94);border:1px solid #3a4a5c;border-radius:8px;' +
-      'padding:10px 12px;font:12px/1.55 system-ui;color:#dfe6f0;z-index:5';
-    const h = document.createElement('div');
-    h.style.cssText = 'font-weight:600;margin-bottom:4px;color:#ffd75e';
-    h.textContent = `Actor ${hit.actor}` + (hit.model ? ` — ${hit.model}` : ' — no model bound');
-    d.append(h);
     const info = hit.model && ACTOR_INFO[hit.model];
-    if (info) {
-      const sub = document.createElement('div');
-      sub.style.cssText = 'font-weight:600;margin-bottom:2px';
-      sub.textContent = info.title;
-      const body = document.createElement('div');
-      body.textContent = info.text;
-      d.append(sub, body);
-    } else {
-      const body = document.createElement('div');
-      body.style.cssText = 'color:#9aa7b8';
-      body.textContent = hit.model
-        ? 'Placement decoded from the level overlay; model bound by the actor oracle.'
-        : 'The actor oracle recorded no model load in this actor’s create/init.';
-      d.append(body);
-    }
     // A signpost's actual in-game words: the placement's par1 is an external
     // message ID resolved through the game's $0208EEEC range table into the
     // English BMG message file (decoded via the dialog font — doc Part VIII).
-    if (hit.txt) {
-      const t = document.createElement('div');
-      t.style.cssText = 'margin-top:8px;padding:8px 10px;background:rgba(255,255,255,.06);' +
-        'border-left:3px solid #ffd75e;border-radius:4px;white-space:pre-wrap;' +
-        'font-style:italic;color:#f2ecd8;max-height:180px;overflow-y:auto';
-      t.textContent = hit.txt;
-      d.append(t);
-    }
-    // this.el is the studio's .mount (position:absolute, inset:0) — already a
-    // positioning context; never touch its position or the canvas collapses.
-    this.el.appendChild(d);
-    this._signBox = d;
-    clearTimeout(this._signTimer);
-    this._signTimer = setTimeout(() => this._hideSign(), 15000);
+    this._card.show({
+      title: `Actor ${hit.actor}` + (hit.model ? ` — ${hit.model}` : ' — no model bound'),
+      subtitle: info ? info.title : undefined,
+      body: info ? info.text : (hit.model
+        ? 'Placement decoded from the level overlay; model bound by the actor oracle.'
+        : 'The actor oracle recorded no model load in this actor’s create/init.'),
+      muted: !info,
+      quote: hit.txt,
+    });
   }
 
   _hideSign() {
-    if (this._signBox) { this._signBox.remove(); this._signBox = null; }
+    this._card.hide();
   }
 
   _resize() {
