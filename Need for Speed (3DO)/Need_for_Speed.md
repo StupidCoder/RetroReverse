@@ -145,5 +145,29 @@ trace, which will pin the record format exactly rather than by inference.
 - `cel_test.go` round-trips a hand-encoded packed 4bpp cel (chunk walk + all
   packet types + PLUT); no dependency on the committed-out disc.
 
-## Part III — ARM60 toolchain *(in progress)*
+### Disc map (846 files, 31 dirs)
+
+| Area | Count | Contents |
+|------|------:|----------|
+| `DriveData/` | 456 | per-car art (`.3sh`), physics/audio tunables (text: `#Mass 1 …`), track "Horizons" art |
+| `FrontEnd/` | 117 | menus: `.3sh` shapes, `.cel`, fonts (`.3fn`), UI audio (`.aiff`/`.aifc`) |
+| `Movies/` | 165 | `*.Stream` — 3DO streamed FMV (SANM video + SoundStream audio) |
+| `System/` | 129 | the **Portfolio OS** itself: `Kernel/`, `Folios/`, 32 `Programs/`, `Drivers/`, `Fonts/`, DSP sound patches (`.dsp`), AIFF |
+
+Extension census: 103 `.3sh`, 26 AIFF-family audio (`.aiff`/`.aifc`/`.aifffam`),
+8 `.cel`, `.3fn` font, `.dsp` DSP patches, `.Stream` movies. Audio (AIFF-C,
+`.dsp` sound patches) and the `.Stream` FMV are catalogued but not yet decoded;
+they are lower priority than the code toolchain and are revisited later.
+
+### `LaunchMe` is a standard ARM Image Format (AIF) executable
+
+Confirming the M3/M4 approach: `LaunchMe`'s first 128 bytes are a textbook,
+**big-endian** AIF header — `MOV r0,r0` (no decompress), a `BL` self-relocate,
+`BL` zero-init, `BL` entry, `SWI 0x11` exit; RO(code)=0x3DB4C, RW(data)=0x99C4,
+BSS=0x14944, **image base 0, address mode 0x20 = 32-bit** (so no ARM 26-bit
+support is needed), code at base+0x80. `System/Programs/*`, `System/Kernel` and
+`System/Folios/*` are AIF ARM60 code too — the Portfolio OS the oracle boots
+through in Part IV.
+
+## Part III — the ARM60 toolchain *(in progress)*
 ## Part IV — booting LaunchMe *(planned)*
