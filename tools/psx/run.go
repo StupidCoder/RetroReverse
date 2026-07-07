@@ -33,6 +33,8 @@ func (m *Machine) Run(maxSteps uint64) Result {
 			m.vblankAcc = 0
 			m.raiseIRQ(0)
 		}
+		// Advance the CD-ROM controller's queued interrupt responses.
+		m.cd.tick()
 		// Deliver a pending, enabled, unmasked interrupt: this vectors the CPU to
 		// 0x80000080, caught below as PC 0x80. Harmless while the game keeps
 		// interrupts masked (Ridge Racer's boot polls instead).

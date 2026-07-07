@@ -70,6 +70,7 @@ func main() {
 	}
 
 	m := psx.NewMachine()
+	m.SetDisc(vol)
 	m.LoadEXE(exe)
 
 	w := bufio.NewWriter(os.Stdout)
@@ -127,6 +128,12 @@ func main() {
 	if *showLog {
 		for _, l := range m.Log {
 			fmt.Fprintln(os.Stderr, "note:", l)
+		}
+		if cmds := m.CDCommands(); len(cmds) > 0 {
+			fmt.Fprintf(os.Stderr, "CD commands: %v\n", cmds)
+		}
+		for _, l := range m.CDTrace() {
+			fmt.Fprintln(os.Stderr, "cd:", l)
 		}
 	}
 }

@@ -28,6 +28,7 @@ const (
 
 	iStat = 0x1F801070
 	iMask = 0x1F801074
+	cdBase = 0x1F801800 // CD-ROM controller (4 byte-wide, index-banked registers)
 
 	// stepsPerVBlank paces the synthetic vertical-blank IRQ. One NTSC field is
 	// ~564,480 CPU cycles (33.8688 MHz / 60 Hz); with Step ≈ one cycle this is a
@@ -48,6 +49,8 @@ type Machine struct {
 	scratch []byte
 	CPU     *mips.CPU
 	GTE     *mips.GTE
+	cd      *cdrom  // CD-ROM controller (0x1F801800-1803)
+	disc    *Volume // mounted disc image, the CD sector source
 
 	io       map[uint32]uint32 // last-written 32-bit I/O registers
 	irqStat  uint32
@@ -94,8 +97,12 @@ func NewMachine() *Machine {
 	m.CPU = mips.NewCPU(m)
 	m.GTE = mips.NewGTE()
 	m.CPU.GTE = m.GTE
+	m.cd = newCDROM(m)
 	return m
 }
+
+// SetDisc mounts a disc image so the CD-ROM controller can serve sectors.
+func (m *Machine) SetDisc(v *Volume) { m.disc = v }
 
 // LoadEXE copies a parsed PS-X EXE into RAM and seeds the entry state the BIOS
 // would hand the program (PC, gp, sp, fp).
@@ -124,6 +131,8 @@ func (m *Machine) Read(addr uint32) byte {
 		return m.ram[a&0x1FFFFF]
 	case a >= scratchBase && a < scratchBase+scratchSize:
 		return m.scratch[a-scratchBase]
+	case a >= cdBase && a <= cdBase+3:
+		return m.cd.read(a - cdBase) // byte-addressed, index-banked
 	case a >= ioBase && a < ioEnd:
 		base := a &^ 3
 		return byte(m.ioReadWord(base) >> ((a & 3) * 8))
@@ -151,6 +160,8 @@ func (m *Machine) Write(addr uint32, v byte) {
 		m.ram[off] = v
 	case a >= scratchBase && a < scratchBase+scratchSize:
 		m.scratch[a-scratchBase] = v
+	case a >= cdBase && a <= cdBase+3:
+		m.cd.write(a-cdBase, v) // byte-addressed, index-banked
 	case a >= ioBase && a < ioEnd:
 		base := a &^ 3
 		shift := (a & 3) * 8
