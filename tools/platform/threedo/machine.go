@@ -211,6 +211,23 @@ func (m *Machine) SetVolume(v *Volume) { m.vol = v }
 // VBL interrupt, which the HLE stands in for by writing the count each field.
 func (m *Machine) SetVBLMirror(addr uint32) { m.vblMirror = addr }
 
+// advanceVBlank moves the virtual VBlank/field clock forward by n fields and
+// publishes the new count everywhere the game reads it: the OS context struct
+// (osCtx +0xA) and, if registered, the program's own elapsed-field global
+// (SetVBLMirror). This stands in for the graphics folio's VBL interrupt. It is
+// driven both by a steady background tick (run loop) and by field-wait timer IOs
+// (io.go), so field waits actually advance time.
+func (m *Machine) advanceVBlank(n uint32) {
+	if n == 0 {
+		n = 1
+	}
+	m.vblank += n
+	m.dram[osCtxBase+osCtxVBlank] = byte(m.vblank)
+	if m.vblMirror != 0 {
+		m.writeWord(m.vblMirror, m.vblank)
+	}
+}
+
 // writeWord stores a big-endian word directly into DRAM (setup helper).
 func (m *Machine) writeWord(a, v uint32) {
 	if int(a)+4 <= len(m.dram) {

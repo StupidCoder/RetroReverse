@@ -54,6 +54,14 @@ const (
 	cmdRead        = 1
 	cmdStatus      = 2
 	fileCmdReadDir = 3
+
+	// Timer device: command 3 is "wait N fields" (the game's WaitVBL sends it with
+	// the field count in ioi_Offset). The real driver blocks the caller until N
+	// vertical-blank fields elapse; we complete instantly and instead advance the
+	// virtual field clock by N, so the game's frame-pacing accumulator (which reads
+	// the elapsed-field count each WaitVBL) settles at one update per field instead
+	// of spinning while it waits for the clock to catch up.
+	timerCmdWaitField = 3
 )
 
 // --- byte helpers (big-endian, over the full address space via the bus) -------
@@ -182,6 +190,12 @@ func (m *Machine) performIO(it *item, cmd, offset, buf, length uint32) (int32, i
 		}
 	}
 	m.note(fmt.Sprintf("IO dev=%q cmd=%d offset=0x%X buf=0x%08X len=0x%X", dev, cmd, offset, buf, length))
+	if dev == "timer" && cmd == timerCmdWaitField {
+		// A field wait: advance the virtual VBlank clock by the requested count so
+		// the caller's timing loop sees the fields elapse (see timerCmdWaitField).
+		m.advanceVBlank(offset)
+		return 0, 0
+	}
 	switch cmd {
 	case cmdRead:
 		return m.readDevice(it, offset, buf, length)

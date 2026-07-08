@@ -42,14 +42,9 @@ func (m *Machine) Run(maxSteps uint64) Result {
 		// struct (osCtx +0xA), so timer/VBlank waits see fields elapse. ~60 Hz is
 		// modelled as one field per vblankPeriod instructions.
 		if steps%vblankPeriod == 0 {
-			m.vblank++
-			m.dram[osCtxBase+osCtxVBlank] = byte(m.vblank)
-			// The virtual VBL manager also advances the game's elapsed-field
-			// counter (registered via SetVBLMirror), the monotonic count the frame
-			// and timer loops poll — the interrupt-driven update we cannot run.
-			if m.vblMirror != 0 {
-				m.writeWord(m.vblMirror, m.vblank)
-			}
+			// A steady background tick, so timing loops that never issue a field-wait
+			// IO still see the clock move. Field-wait IOs advance it too (io.go).
+			m.advanceVBlank(1)
 		}
 
 		pc := m.CPU.Reg(15)
