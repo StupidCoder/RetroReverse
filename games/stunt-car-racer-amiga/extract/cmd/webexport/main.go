@@ -33,6 +33,7 @@ type Manifest struct {
 	Native   map[string]int `json:"native"`
 	TickHz   int            `json:"tickHz"`
 	Views    []ViewIndex    `json:"views,omitempty"`
+	Models   []ModelIndex   `json:"models,omitempty"`
 }
 
 // ViewIndex is one manifest views[] entry: a bespoke per-game three.js view. Each
@@ -75,10 +76,11 @@ func parseOnly(sel string) map[string]bool {
 		}
 		if s == "all" {
 			out["tracks"] = true
+			out["models"] = true
 			continue
 		}
-		if s != "tracks" {
-			fmt.Fprintf(os.Stderr, "webexport: unknown -only stage %q (want tracks,all)\n", s)
+		if s != "tracks" && s != "models" {
+			fmt.Fprintf(os.Stderr, "webexport: unknown -only stage %q (want tracks,models,all)\n", s)
 			os.Exit(2)
 		}
 		out[s] = true
@@ -113,6 +115,9 @@ func main() {
 	}
 	if sel["tracks"] {
 		man.Views = exportTracks(*in, *outdir)
+	}
+	if sel["models"] {
+		man.Models = exportModels(*in, *outdir)
 	}
 	writeJSON(filepath.Join(*outdir, "manifest.json"), man)
 	fmt.Fprintf(os.Stderr, "[manifest] %d circuits -> %s\n", len(man.Views), *outdir)
