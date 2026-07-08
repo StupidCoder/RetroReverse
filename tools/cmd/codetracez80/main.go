@@ -6,13 +6,13 @@
 // their jump tables are supplied with -table, and any unresolved ones are reported.
 //
 // It works on a single ≤64 KB Z80 address space (one cartridge bank configuration);
-// banking is the caller's concern — assemble the image you want and give -load.
+// banking is the caller's concern — assemble the image you want and give -base.
 //
 // Usage:
 //
-//	codetracez80 [-load HEX] -entry A,B,C [-table ADDR:N ...] [-annotate FILE] [-o out.asm] image.bin
+//	codetracez80 [-base HEX] -entry A,B,C [-table ADDR:N ...] [-annotate FILE] [-o out.asm] image.bin
 //
-// image.bin is raw Z80 code loaded at -load (hex, default 0). Addresses are hex.
+// image.bin is raw Z80 code loaded at -base (hex, default 0). Addresses are hex.
 package main
 
 import (
@@ -28,7 +28,7 @@ import (
 )
 
 func main() {
-	load := flag.String("load", "0", "load address of the binary (hex)")
+	load := flag.String("base", "0", "load address of the binary (hex)")
 	entry := flag.String("entry", "", "comma-separated entry addresses (hex)")
 	var tables multiFlag
 	flag.Var(&tables, "table", "jump table to seed as code, ADDR:N (N little-endian words); repeatable")
@@ -36,7 +36,7 @@ func main() {
 	out := flag.String("o", "", "write disassembly to this file (default stdout)")
 	flag.Parse()
 	if flag.NArg() != 1 {
-		fmt.Fprintln(os.Stderr, "usage: codetracez80 [-load HEX] -entry A,B,C [-table ADDR:N ...] [-annotate FILE] [-o out] image.bin")
+		fmt.Fprintln(os.Stderr, "usage: codetracez80 [-base HEX] -entry A,B,C [-table ADDR:N ...] [-annotate FILE] [-o out] image.bin")
 		os.Exit(2)
 	}
 	if err := run(flag.Arg(0), *load, *entry, tables, *annotate, *out); err != nil {
@@ -102,7 +102,7 @@ func run(path, loadStr, entryStr string, tables multiFlag, annPath, outPath stri
 	}
 	base, err := hx(loadStr)
 	if err != nil {
-		return fmt.Errorf("bad -load %q: %v", loadStr, err)
+		return fmt.Errorf("bad -base %q: %v", loadStr, err)
 	}
 	mem := make([]byte, 0x10000)
 	copy(mem[base:], raw)

@@ -1,9 +1,12 @@
 // bonusshot renders the shared zone-6 (bonus/special-stage) map with its tiles+palette,
 // and prints each bonus descriptor's vertical bounds + spawn, to see whether the 8 bonus
 // stages (descriptor idx 28-35) are distinct maps or vertical windows of one map.
+//
+// Usage: bonusshot -in <rom.gg> -o <out.png>
 package main
 
 import (
+	"flag"
 	"fmt"
 	"image"
 	"image/color"
@@ -17,7 +20,14 @@ import (
 func w(rom []byte, o int) int { return int(rom[o]) | int(rom[o+1])<<8 }
 
 func main() {
-	rom, _ := os.ReadFile(os.Args[1])
+	in := flag.String("in", "", "input Game Gear ROM (.gg)")
+	out := flag.String("o", "", "output PNG")
+	flag.Parse()
+	if *in == "" || *out == "" {
+		fmt.Fprintln(os.Stderr, "usage: bonusshot -in <rom.gg> -o <out.png>")
+		os.Exit(2)
+	}
+	rom, _ := os.ReadFile(*in)
 	const T = 0x15600
 	d := T + w(rom, T+28*2) // idx 28 = first bonus
 	stride := w(rom, d+1)
@@ -51,7 +61,7 @@ func main() {
 			}
 		}
 	}
-	f, _ := os.Create(os.Args[2])
+	f, _ := os.Create(*out)
 	png.Encode(f, img)
 	f.Close()
 	for i := 28; i < 36; i++ {

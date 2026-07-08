@@ -7,10 +7,11 @@
 // section, $696FC config, $604B4 car placement), set the input ($1BB47) and gear
 // ($1BB57), then call $6185C N times.
 //
-// Usage: physoracle game.dec.bin [trackid] [frames] [inputhex]
+// Usage: physoracle -in game.dec.bin [-id N] [-frames N] [-input HEX]
 package main
 
 import (
+	"flag"
 	"fmt"
 	"os"
 	"strconv"
@@ -72,22 +73,24 @@ func dumpState(tag string) {
 }
 
 func main() {
-	img, err := os.ReadFile(os.Args[1])
+	in := flag.String("in", "", "input decoded game binary (game.dec.bin)")
+	idFlag := flag.Int("id", 1, "track id")
+	framesFlag := flag.Int("frames", 8, "number of physics frames to run")
+	inputHex := flag.String("input", "0", "input byte held each frame (hex)")
+	flag.Parse()
+	if *in == "" {
+		fmt.Fprintln(os.Stderr, "usage: physoracle -in game.dec.bin [-id N] [-frames N] [-input HEX]")
+		os.Exit(2)
+	}
+	img, err := os.ReadFile(*in)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "physoracle:", err)
 		os.Exit(1)
 	}
-	id := 1
-	frames := 8
+	id := *idFlag
+	frames := *framesFlag
 	input := 0
-	if len(os.Args) >= 3 {
-		id, _ = strconv.Atoi(os.Args[2])
-	}
-	if len(os.Args) >= 4 {
-		frames, _ = strconv.Atoi(os.Args[3])
-	}
-	if len(os.Args) >= 5 {
-		v, _ := strconv.ParseInt(os.Args[4], 16, 32)
+	if v, err := strconv.ParseInt(*inputHex, 16, 32); err == nil {
 		input = int(v)
 	}
 

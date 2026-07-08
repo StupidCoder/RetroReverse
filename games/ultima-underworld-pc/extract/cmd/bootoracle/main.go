@@ -27,6 +27,7 @@ import (
 
 func main() {
 	game := flag.String("game", "../game", "path to the game/ folder (contains UW.EXE)")
+	image := flag.String("image", "", "alias for -game (the installed game/ directory)")
 	steps := flag.Uint64("steps", 20_000_000, "maximum instructions to execute")
 	trace := flag.Bool("trace", false, "print a PC trace line for the first -tracen instructions")
 	tracen := flag.Uint64("tracen", 200, "number of instructions to trace with -trace")
@@ -51,6 +52,9 @@ func main() {
 	poke := flag.String("poke", "", "after loadstate, write word(s): SEG:OFF:VAL[,SEG:OFF:VAL...] (hex)")
 	find := flag.String("find", "", "after the run, scan all RAM for this hex byte pattern and print linear addresses")
 	flag.Parse()
+	if *image != "" {
+		*game = *image // -image is the standard alias for -game
+	}
 
 	var bpSeg, bpOff uint32
 	bpSet := false

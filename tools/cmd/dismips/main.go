@@ -2,11 +2,14 @@
 // — an extracted PS-X EXE text image, a memory dump, or a slice of one. You tell
 // it the CPU address the first decoded byte maps to; all numbers are hex.
 //
-//	dismips [-off FILEOFF] [-len N] [-base ADDR] file.bin
+//	dismips [-base ADDR] [-skip N] [-start ADDR] [-end ADDR] file.bin
+//
+// -base is the CPU address the first byte (after -skip file bytes are dropped) maps
+// to; -start/-end select an absolute address sub-range (default: the whole file).
 //
 // A linear disassembler decodes straight through and cannot follow indirect
 // jumps or separate code from data — use codetracemips for that. To disassemble
-// a PS-X EXE, skip its 0x800 header with -off 800 and set -base to t_addr.
+// a PS-X EXE, skip its 0x800 header with -skip 2048 and set -base to t_addr.
 package main
 
 import (
@@ -31,32 +34,41 @@ func die(format string, a ...interface{}) {
 }
 
 func main() {
-	offF := flag.String("off", "0", "file offset to start at (hex)")
-	lenF := flag.String("len", "", "number of bytes (hex, default: to end of file)")
-	baseF := flag.String("base", "0", "CPU address the first decoded byte maps to (hex)")
+	baseF := flag.String("base", "0", "CPU address the first byte (after -skip) maps to (hex)")
+	skipF := flag.Int("skip", 0, "leading file bytes to drop before -base maps")
+	startF := flag.String("start", "", "start address (hex), default: base")
+	endF := flag.String("end", "", "end address (hex, exclusive), default: end of file")
 	flag.Parse()
 	if flag.NArg() != 1 {
-		die("usage: dismips [-off F -len N -base A] file.bin")
+		die("usage: dismips [-base A] [-skip N] [-start A] [-end A] file.bin")
 	}
 	raw, err := os.ReadFile(flag.Arg(0))
 	if err != nil {
 		die("%v", err)
 	}
-	off, err := hx(*offF)
-	if err != nil || off < 0 || off > len(raw) {
-		die("bad -off (file is %d bytes)", len(raw))
+	if *skipF < 0 || *skipF > len(raw) {
+		die("bad -skip (file is %d bytes)", len(raw))
 	}
-	n := len(raw) - off
-	if *lenF != "" {
-		if n, err = hx(*lenF); err != nil || n < 0 || off+n > len(raw) {
-			die("bad -len (file is %d bytes)", len(raw))
-		}
-	}
+	code := raw[*skipF:]
 	base, err := hx(*baseF)
 	if err != nil {
 		die("bad -base")
 	}
-	for _, l := range mips.Disassemble(raw[off:off+n], uint32(base)) {
+	start, end := base, base+len(code)
+	if *startF != "" {
+		if start, err = hx(*startF); err != nil {
+			die("bad -start")
+		}
+	}
+	if *endF != "" {
+		if end, err = hx(*endF); err != nil {
+			die("bad -end")
+		}
+	}
+	if start < base || start >= base+len(code) || end > base+len(code) || end <= start {
+		die("range $%X-$%X outside loaded blob ($%X-$%X)", start, end, base, base+len(code))
+	}
+	for _, l := range mips.Disassemble(code[start-base:end-base], uint32(start)) {
 		fmt.Println(l)
 	}
 }

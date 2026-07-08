@@ -5,7 +5,10 @@
 //
 // Flat mode — disassemble a raw file slice mapped at a CPU address:
 //
-//	dissm83 [-off FILEOFF] [-len N] [-base ADDR] rom.gb
+//	dissm83 [-base ADDR] [-skip N] [-start ADDR] [-end ADDR] rom.gb
+//
+// -base is the CPU address the first byte (after -skip file bytes) maps to;
+// -start/-end select an absolute address sub-range (default: the whole file).
 //
 // Bank mode — disassemble a CPU address range with bank 0 fixed and a chosen bank in
 // the $4000-$7FFF window, so banked code decodes against the right bank:
@@ -16,7 +19,7 @@
 //
 //	dissm83 -bank 3 -start 0x7FF0 -end 0x8000 rom.gb
 //
-// All numbers are hex. In bank mode -end defaults to -start + $80.
+// All addresses are hex; -skip is decimal. In bank mode -end defaults to -start + $80.
 package main
 
 import (
@@ -43,15 +46,14 @@ func die(format string, a ...interface{}) {
 }
 
 func main() {
-	offF := flag.String("off", "0", "flat mode: file offset to start at (hex)")
-	lenF := flag.String("len", "", "flat mode: number of bytes (hex, default: to end of file)")
-	baseF := flag.String("base", "0", "flat mode: CPU address the first byte maps to (hex)")
+	baseF := flag.String("base", "0", "flat mode: CPU address the first byte (after -skip) maps to (hex)")
+	skipF := flag.Int("skip", 0, "flat mode: leading file bytes to drop before -base maps")
 	bankF := flag.String("bank", "", "bank mode: ROM bank paged into $4000-$7FFF (hex)")
-	startF := flag.String("start", "", "bank mode: CPU start address (hex)")
-	endF := flag.String("end", "", "bank mode: CPU end address, exclusive (hex; default start+$80)")
+	startF := flag.String("start", "", "start address (hex); flat: default base, bank: required")
+	endF := flag.String("end", "", "end address, exclusive (hex); flat: default end of file, bank: default start+$80")
 	flag.Parse()
 	if flag.NArg() != 1 {
-		die("usage: dissm83 [-off F -len N -base A | -bank N -start A -end A] rom")
+		die("usage: dissm83 [-base A] [-skip N] [-start A] [-end A] | -bank N -start A [-end A] rom")
 	}
 	raw, err := os.ReadFile(flag.Arg(0))
 	if err != nil {
@@ -64,21 +66,29 @@ func main() {
 	}
 
 	// Flat mode.
-	off, err := hx(*offF)
-	if err != nil || off < 0 || off > len(raw) {
-		die("bad -off (file is %d bytes)", len(raw))
+	if *skipF < 0 || *skipF > len(raw) {
+		die("bad -skip (file is %d bytes)", len(raw))
 	}
-	n := len(raw) - off
-	if *lenF != "" {
-		if n, err = hx(*lenF); err != nil || n < 0 || off+n > len(raw) {
-			die("bad -len (file is %d bytes)", len(raw))
-		}
-	}
+	code := raw[*skipF:]
 	base, err := hx(*baseF)
 	if err != nil {
 		die("bad -base")
 	}
-	for _, l := range sm83.Disassemble(raw[off:off+n], uint16(base)) {
+	start, end := base, base+len(code)
+	if *startF != "" {
+		if start, err = hx(*startF); err != nil {
+			die("bad -start")
+		}
+	}
+	if *endF != "" {
+		if end, err = hx(*endF); err != nil {
+			die("bad -end")
+		}
+	}
+	if start < base || start >= base+len(code) || end > base+len(code) || end <= start {
+		die("range $%X-$%X outside loaded blob ($%X-$%X)", start, end, base, base+len(code))
+	}
+	for _, l := range sm83.Disassemble(code[start-base:end-base], uint16(start)) {
 		fmt.Println(l)
 	}
 }

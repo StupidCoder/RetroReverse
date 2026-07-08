@@ -1,9 +1,13 @@
 // watershot renders Labyrinth Act 1 with the underwater split applied (rows at/below the
 // water line use the bank-0 $0216 underwater palette) — a static verification of the
 // viewer feature and Part V §3.
+//
+// Usage: watershot -in <rom.gg> -o <out.png>
 package main
 
 import (
+	"flag"
+	"fmt"
 	"image"
 	"image/color"
 	"image/png"
@@ -16,7 +20,14 @@ import (
 func w(rom []byte, o int) int { return int(rom[o]) | int(rom[o+1])<<8 }
 
 func main() {
-	rom, _ := os.ReadFile(os.Args[1])
+	in := flag.String("in", "", "input Game Gear ROM (.gg)")
+	out := flag.String("o", "", "output PNG")
+	flag.Parse()
+	if *in == "" || *out == "" {
+		fmt.Fprintln(os.Stderr, "usage: watershot -in <rom.gg> -o <out.png>")
+		os.Exit(2)
+	}
+	rom, _ := os.ReadFile(*in)
 	const T = 0x15600
 	act := 9 // Labyrinth Act 1
 	d := T + w(rom, T+act*2)
@@ -59,7 +70,7 @@ func main() {
 			}
 		}
 	}
-	f, _ := os.Create(os.Args[2])
+	f, _ := os.Create(*out)
 	png.Encode(f, img)
 	f.Close()
 }

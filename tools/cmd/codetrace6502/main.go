@@ -7,9 +7,9 @@
 //
 // Usage:
 //
-//	codetrace6502 [-load HEX] -entry A,B,C [-table ADDR:N ...] [-o out.asm] image.prg
+//	codetrace6502 [-base HEX] -entry A,B,C [-table ADDR:N ...] [-o out.asm] image.prg
 //
-// image.prg is a 2-byte-load-address .prg unless -load is given (raw binary at
+// image.prg is a 2-byte-load-address .prg unless -base is given (raw binary at
 // that hex load address). Addresses are hex.
 package main
 
@@ -26,7 +26,7 @@ import (
 )
 
 func main() {
-	load := flag.String("load", "", "raw binary load address (hex); omit for a .prg")
+	load := flag.String("base", "", "raw binary load address (hex); omit for a .prg")
 	entry := flag.String("entry", "", "comma-separated entry addresses (hex)")
 	var tables multiFlag
 	flag.Var(&tables, "table", "jump table to seed as code, ADDR:N (N little-endian words); repeatable")
@@ -34,7 +34,7 @@ func main() {
 	out := flag.String("o", "", "write disassembly to this file (default stdout)")
 	flag.Parse()
 	if flag.NArg() != 1 {
-		fmt.Fprintln(os.Stderr, "usage: codetrace6502 [-load HEX] -entry A,B,C [-table ADDR:N ...] [-annotate FILE] [-o out] image.prg")
+		fmt.Fprintln(os.Stderr, "usage: codetrace6502 [-base HEX] -entry A,B,C [-table ADDR:N ...] [-annotate FILE] [-o out] image.prg")
 		os.Exit(2)
 	}
 	if err := run(flag.Arg(0), *load, *entry, tables, *annotate, *out); err != nil {

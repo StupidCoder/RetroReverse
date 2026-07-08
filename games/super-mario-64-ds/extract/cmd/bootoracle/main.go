@@ -75,14 +75,19 @@ func (b *bus) w32(a, v uint32) {
 }
 
 func main() {
+	image := flag.String("image", "", "ROM image (.nds); or pass as a positional arg")
 	steps := flag.Int("steps", 30_000_000, "instruction budget")
 	showIO := flag.Bool("io", false, "list the I/O registers the boot programmed")
 	flag.Parse()
-	if flag.NArg() != 1 {
-		fmt.Fprintln(os.Stderr, "usage: bootoracle [-steps N] [-io] rom.nds")
+	romPath := *image
+	if romPath == "" && flag.NArg() == 1 {
+		romPath = flag.Arg(0)
+	}
+	if romPath == "" {
+		fmt.Fprintln(os.Stderr, "usage: bootoracle -image rom.nds [-steps N] [-io]")
 		os.Exit(2)
 	}
-	data, err := os.ReadFile(flag.Arg(0))
+	data, err := os.ReadFile(romPath)
 	if err != nil {
 		die(err)
 	}

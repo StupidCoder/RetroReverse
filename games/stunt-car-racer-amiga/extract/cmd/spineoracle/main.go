@@ -8,13 +8,13 @@
 // $5AE46 takes only d1 = track id (0..7); it self-initialises the rest from the track
 // header. We give it a stack and a sentinel return address and step until it returns.
 //
-// Usage: spineoracle game.dec.bin [trackid]   (default: all eight)
+// Usage: spineoracle -in game.dec.bin [-id N]   (default -id -1: all eight)
 package main
 
 import (
+	"flag"
 	"fmt"
 	"os"
-	"strconv"
 
 	"retroreverse.com/tools/cpu/m68k"
 )
@@ -37,19 +37,21 @@ func (b *flatBus) Read(a uint32) byte     { return b.m[a&0xFFFFFF] }
 func (b *flatBus) Write(a uint32, v byte) { b.m[a&0xFFFFFF] = v }
 
 func main() {
-	if len(os.Args) < 2 {
-		fmt.Fprintln(os.Stderr, "usage: spineoracle game.dec.bin [trackid]")
+	in := flag.String("in", "", "input decoded game binary (game.dec.bin)")
+	idFlag := flag.Int("id", -1, "track id (-1: all eight)")
+	flag.Parse()
+	if *in == "" {
+		fmt.Fprintln(os.Stderr, "usage: spineoracle -in game.dec.bin [-id N]")
 		os.Exit(2)
 	}
-	img, err := os.ReadFile(os.Args[1])
+	img, err := os.ReadFile(*in)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "spineoracle:", err)
 		os.Exit(1)
 	}
 	ids := []int{0, 1, 2, 3, 4, 5, 6, 7}
-	if len(os.Args) >= 3 {
-		n, _ := strconv.Atoi(os.Args[2])
-		ids = []int{n}
+	if *idFlag >= 0 {
+		ids = []int{*idFlag}
 	}
 	for _, id := range ids {
 		runTrack(img, id)

@@ -6,13 +6,13 @@
 // both rails — against track.Bake. Per the project rule the oracle only verifies; it
 // is never the source of shipped data.
 //
-// Usage: modeloracle game.dec.bin [trackid]
+// Usage: modeloracle -in game.dec.bin [-id N]   (default -id -1: all eight)
 package main
 
 import (
+	"flag"
 	"fmt"
 	"os"
-	"strconv"
 
 	"retroreverse.com/tools/cpu/m68k"
 	"retroreverse.com/games/stunt-car-racer-amiga/extract/track"
@@ -30,19 +30,21 @@ func (b *flatBus) Read(a uint32) byte     { return b.m[a&0xFFFFFF] }
 func (b *flatBus) Write(a uint32, v byte) { b.m[a&0xFFFFFF] = v }
 
 func main() {
-	if len(os.Args) < 2 {
-		fmt.Fprintln(os.Stderr, "usage: modeloracle game.dec.bin [trackid]")
+	in := flag.String("in", "", "input decoded game binary (game.dec.bin)")
+	idFlag := flag.Int("id", -1, "track id (-1: all eight)")
+	flag.Parse()
+	if *in == "" {
+		fmt.Fprintln(os.Stderr, "usage: modeloracle -in game.dec.bin [-id N]")
 		os.Exit(2)
 	}
-	img, err := os.ReadFile(os.Args[1])
+	img, err := os.ReadFile(*in)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "modeloracle:", err)
 		os.Exit(1)
 	}
 	ids := []int{0, 1, 2, 3, 4, 5, 6, 7}
-	if len(os.Args) >= 3 {
-		id, _ := strconv.Atoi(os.Args[2])
-		ids = []int{id}
+	if *idFlag >= 0 {
+		ids = []int{*idFlag}
 	}
 
 	fail := 0

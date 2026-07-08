@@ -3,12 +3,15 @@
 // space is 32-bit; you tell disarm the CPU address the first byte maps to and the
 // instruction set to decode in.
 //
-//	disarm [-off FILEOFF] [-len N] [-base ADDR] [-thumb] file.bin
+//	disarm [-base ADDR] [-skip N] [-start ADDR] [-end ADDR] [-thumb] file.bin
+//
+// -base is the CPU address the first byte (after -skip file bytes are dropped) maps
+// to; -start/-end select an absolute address sub-range (default: the whole file).
 //
 // A linear disassembler decodes at one fixed width the whole way through; it cannot
 // follow a BX that switches between ARM and Thumb at run time, so decode each state's
 // region separately (-thumb selects Thumb) — or use codetracearm, which tracks the
-// state changes for you. All numbers are hex.
+// state changes for you. All addresses are hex; -skip is decimal.
 package main
 
 import (
@@ -33,33 +36,42 @@ func die(format string, a ...interface{}) {
 }
 
 func main() {
-	offF := flag.String("off", "0", "file offset to start at (hex)")
-	lenF := flag.String("len", "", "number of bytes (hex, default: to end of file)")
-	baseF := flag.String("base", "0", "CPU address the first decoded byte maps to (hex)")
+	baseF := flag.String("base", "0", "CPU address the first byte (after -skip) maps to (hex)")
+	skipF := flag.Int("skip", 0, "leading file bytes to drop before -base maps")
+	startF := flag.String("start", "", "start address (hex), default: base")
+	endF := flag.String("end", "", "end address (hex, exclusive), default: end of file")
 	thumb := flag.Bool("thumb", false, "decode as Thumb (16-bit) instead of ARM (32-bit)")
 	flag.Parse()
 	if flag.NArg() != 1 {
-		die("usage: disarm [-off F -len N -base A] [-thumb] file.bin")
+		die("usage: disarm [-base A] [-skip N] [-start A] [-end A] [-thumb] file.bin")
 	}
 	raw, err := os.ReadFile(flag.Arg(0))
 	if err != nil {
 		die("%v", err)
 	}
-	off, err := hx(*offF)
-	if err != nil || off < 0 || off > len(raw) {
-		die("bad -off (file is %d bytes)", len(raw))
+	if *skipF < 0 || *skipF > len(raw) {
+		die("bad -skip (file is %d bytes)", len(raw))
 	}
-	n := len(raw) - off
-	if *lenF != "" {
-		if n, err = hx(*lenF); err != nil || n < 0 || off+n > len(raw) {
-			die("bad -len (file is %d bytes)", len(raw))
-		}
-	}
+	code := raw[*skipF:]
 	base, err := hx(*baseF)
 	if err != nil {
 		die("bad -base")
 	}
-	for _, l := range arm.Disassemble(raw[off:off+n], uint32(base), *thumb) {
+	start, end := base, base+len(code)
+	if *startF != "" {
+		if start, err = hx(*startF); err != nil {
+			die("bad -start")
+		}
+	}
+	if *endF != "" {
+		if end, err = hx(*endF); err != nil {
+			die("bad -end")
+		}
+	}
+	if start < base || start >= base+len(code) || end > base+len(code) || end <= start {
+		die("range $%X-$%X outside loaded blob ($%X-$%X)", start, end, base, base+len(code))
+	}
+	for _, l := range arm.Disassemble(code[start-base:end-base], uint32(start), *thumb) {
 		fmt.Println(l)
 	}
 }

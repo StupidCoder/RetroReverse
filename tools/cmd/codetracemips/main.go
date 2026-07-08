@@ -18,8 +18,8 @@
 //
 //	codetracemips [-base ADDR] [-skip N] -entry A,B,C [-table ADDR:N] [-annotate FILE] [-o out] image.bin
 //
-// The image is loaded flat at -base (default 0); -skip drops a header (0x800 for
-// a PS-X EXE). All addresses are hex.
+// The image is loaded flat at -base (default 0); -skip drops that many leading file
+// bytes (decimal; 2048 for a PS-X EXE header). All addresses are hex.
 package main
 
 import (
@@ -36,7 +36,7 @@ import (
 
 func main() {
 	base := flag.String("base", "0", "CPU address the image is loaded at (hex)")
-	skip := flag.String("skip", "0", "bytes to drop from the front of the file (hex)")
+	skip := flag.Int("skip", 0, "leading file bytes to drop before -base maps")
 	entry := flag.String("entry", "", "comma-separated entry addresses (hex)")
 	var tables multiFlag
 	flag.Var(&tables, "table", "jump table to seed as code, ADDR:N (N 32-bit pointers); repeatable")
@@ -98,7 +98,7 @@ func loadAnnotations(path string) (map[uint32]annot, error) {
 	return m, nil
 }
 
-func run(path, baseS, skipS, entryStr string, tables multiFlag, annPath, outPath string) error {
+func run(path, baseS string, skip int, entryStr string, tables multiFlag, annPath, outPath string) error {
 	ann, err := loadAnnotations(annPath)
 	if err != nil {
 		return err
@@ -111,9 +111,8 @@ func run(path, baseS, skipS, entryStr string, tables multiFlag, annPath, outPath
 	if err != nil {
 		return fmt.Errorf("bad -base %q", baseS)
 	}
-	skip, err := hx(skipS)
-	if err != nil || int(skip) > len(raw) {
-		return fmt.Errorf("bad -skip %q", skipS)
+	if skip < 0 || skip > len(raw) {
+		return fmt.Errorf("bad -skip %d", skip)
 	}
 	mem := raw[skip:]
 

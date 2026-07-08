@@ -4,7 +4,10 @@
 //
 // Flat mode — disassemble a raw file slice mapped at a Z80 address:
 //
-//	disz80 [-off FILEOFF] [-len N] [-base ADDR] rom.gg
+//	disz80 [-base ADDR] [-skip N] [-start ADDR] [-end ADDR] rom.gg
+//
+// -base is the Z80 address the first byte (after -skip file bytes) maps to;
+// -start/-end select an absolute address sub-range (default: the whole file).
 //
 // Bank mode — disassemble a Z80 address range with a given slot configuration, so
 // banked code (and its cross-references) decodes against the right banks:
@@ -15,7 +18,7 @@
 //
 //	disz80 -slots 0,3,2 -start 0x4000 -end 0x4080 rom.gg
 //
-// All numbers are hex. In bank mode -end defaults to -start + $80.
+// All addresses are hex; -skip is decimal. In bank mode -end defaults to -start + $80.
 package main
 
 import (
@@ -41,15 +44,14 @@ func die(format string, a ...interface{}) {
 }
 
 func main() {
-	offF := flag.String("off", "0", "flat mode: file offset to start at (hex)")
-	lenF := flag.String("len", "", "flat mode: number of bytes (hex, default: to end of file)")
-	baseF := flag.String("base", "0", "flat mode: Z80 address the first byte maps to (hex)")
+	baseF := flag.String("base", "0", "flat mode: Z80 address the first byte (after -skip) maps to (hex)")
+	skipF := flag.Int("skip", 0, "flat mode: leading file bytes to drop before -base maps")
 	slotsF := flag.String("slots", "", "bank mode: ROM banks in slots 0,1,2 (hex, e.g. 0,3,2)")
-	startF := flag.String("start", "", "bank mode: Z80 start address (hex)")
-	endF := flag.String("end", "", "bank mode: Z80 end address, exclusive (hex; default start+$80)")
+	startF := flag.String("start", "", "start address (hex); flat: default base, bank: required")
+	endF := flag.String("end", "", "end address, exclusive (hex); flat: default end of file, bank: default start+$80")
 	flag.Parse()
 	if flag.NArg() != 1 {
-		die("usage: disz80 [-off F -len N -base A | -slots b0,b1,b2 -start A -end A] rom")
+		die("usage: disz80 [-base A] [-skip N] [-start A] [-end A] | -slots b0,b1,b2 -start A [-end A] rom")
 	}
 	raw, err := os.ReadFile(flag.Arg(0))
 	if err != nil {
@@ -62,21 +64,29 @@ func main() {
 	}
 
 	// Flat mode.
-	off, err := hx(*offF)
-	if err != nil || off < 0 || off > len(raw) {
-		die("bad -off (file is %d bytes)", len(raw))
+	if *skipF < 0 || *skipF > len(raw) {
+		die("bad -skip (file is %d bytes)", len(raw))
 	}
-	n := len(raw) - off
-	if *lenF != "" {
-		if n, err = hx(*lenF); err != nil || n < 0 || off+n > len(raw) {
-			die("bad -len (file is %d bytes)", len(raw))
-		}
-	}
+	code := raw[*skipF:]
 	base, err := hx(*baseF)
 	if err != nil {
 		die("bad -base")
 	}
-	for _, l := range z80.Disassemble(raw[off:off+n], uint16(base)) {
+	start, end := base, base+len(code)
+	if *startF != "" {
+		if start, err = hx(*startF); err != nil {
+			die("bad -start")
+		}
+	}
+	if *endF != "" {
+		if end, err = hx(*endF); err != nil {
+			die("bad -end")
+		}
+	}
+	if start < base || start >= base+len(code) || end > base+len(code) || end <= start {
+		die("range $%X-$%X outside loaded blob ($%X-$%X)", start, end, base, base+len(code))
+	}
+	for _, l := range z80.Disassemble(code[start-base:end-base], uint16(start)) {
 		fmt.Println(l)
 	}
 }

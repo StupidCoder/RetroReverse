@@ -6,16 +6,16 @@
 // tiles, palettes, metasprite layouts (cmd/spriterip's analyzer) and Sonic's frame-0
 // tiles (bank 8 3bpp).
 //
-// Usage: placeshot <rom.gg> <out.png> [act [firstBlock [widthBlocks]]]
+// Usage: placeshot -in <rom.gg> -o <out.png> [-act N] [-first N] [-width N]
 package main
 
 import (
+	"flag"
 	"fmt"
 	"image"
 	"image/color"
 	"image/png"
 	"os"
-	"strconv"
 
 	"retroreverse.com/games/sonic-gg/extract/decomp"
 	"retroreverse.com/games/sonic-gg/extract/objplace"
@@ -38,18 +38,19 @@ func romPalette(rom []byte, idx int) color.Palette {
 }
 
 func main() {
-	rom, _ := os.ReadFile(os.Args[1])
-	out := os.Args[2]
-	act, x0, wb := 0, 0, 48
-	if len(os.Args) > 3 {
-		act, _ = strconv.Atoi(os.Args[3])
+	in := flag.String("in", "", "input Game Gear ROM (.gg)")
+	outFlag := flag.String("o", "", "output PNG")
+	actFlag := flag.Int("act", 0, "act descriptor index")
+	firstFlag := flag.Int("first", 0, "first block column")
+	widthFlag := flag.Int("width", 48, "width in blocks")
+	flag.Parse()
+	if *in == "" || *outFlag == "" {
+		fmt.Fprintln(os.Stderr, "usage: placeshot -in <rom.gg> -o <out.png> [-act N] [-first N] [-width N]")
+		os.Exit(2)
 	}
-	if len(os.Args) > 4 {
-		x0, _ = strconv.Atoi(os.Args[4])
-	}
-	if len(os.Args) > 5 {
-		wb, _ = strconv.Atoi(os.Args[5])
-	}
+	rom, _ := os.ReadFile(*in)
+	out := *outFlag
+	act, x0, wb := *actFlag, *firstFlag, *widthFlag
 
 	d := descTable + w(rom, descTable+act*2)
 	zone := int(rom[d]) // desc+0 = the engine zone ($D2D5); Sky Base 3 + the teleporter interiors are zone 7

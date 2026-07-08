@@ -16,8 +16,8 @@
 //
 //	codetracearm [-base ADDR] [-skip N] [-thumb] -entry A,Bt,C [-table ADDR:N] [-annotate FILE] [-o out] image.bin
 //
-// The image is loaded flat at -base (default 0); -skip drops a header. Addresses are
-// hex. An entry/table pointer with bit 0 set selects Thumb, matching the hardware's
+// The image is loaded flat at -base (default 0); -skip drops that many leading file
+// bytes (decimal). Addresses are hex. An entry/table pointer with bit 0 set selects Thumb, matching the hardware's
 // interworking convention.
 package main
 
@@ -35,7 +35,7 @@ import (
 
 func main() {
 	base := flag.String("base", "0", "CPU address the image is loaded at (hex)")
-	skip := flag.String("skip", "0", "bytes to drop from the front of the file (hex)")
+	skip := flag.Int("skip", 0, "leading file bytes to drop before -base maps")
 	thumbDefault := flag.Bool("thumb", false, "entries with no a/t suffix default to Thumb")
 	entry := flag.String("entry", "", "comma-separated entry addresses (hex; suffix t=Thumb, a=ARM)")
 	var tables multiFlag
@@ -132,7 +132,7 @@ func fromTarget(a uint32, thumb bool) seed {
 	return seed{a &^ 3, false}
 }
 
-func run(path, baseS, skipS string, thumbDefault bool, entryStr string, tables multiFlag, annPath, outPath string) error {
+func run(path, baseS string, skip int, thumbDefault bool, entryStr string, tables multiFlag, annPath, outPath string) error {
 	ann, err := loadAnnotations(annPath)
 	if err != nil {
 		return err
@@ -145,9 +145,8 @@ func run(path, baseS, skipS string, thumbDefault bool, entryStr string, tables m
 	if err != nil {
 		return fmt.Errorf("bad -base %q", baseS)
 	}
-	skip, err := hx(skipS)
-	if err != nil || int(skip) > len(raw) {
-		return fmt.Errorf("bad -skip %q", skipS)
+	if skip < 0 || skip > len(raw) {
+		return fmt.Errorf("bad -skip %d", skip)
 	}
 	mem := raw[skip:]
 

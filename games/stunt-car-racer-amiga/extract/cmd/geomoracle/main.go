@@ -7,13 +7,13 @@
 // ground truth the Go reimplementation in package track must match. Per the project rule
 // the oracle only verifies; it is never the source of shipped data.
 //
-// Usage: geomoracle game.dec.bin [trackid]
+// Usage: geomoracle -in game.dec.bin [-id N]
 package main
 
 import (
+	"flag"
 	"fmt"
 	"os"
-	"strconv"
 
 	"retroreverse.com/games/stunt-car-racer-amiga/extract/track"
 	"retroreverse.com/tools/cpu/m68k"
@@ -36,19 +36,19 @@ func (b *flatBus) Read(a uint32) byte     { return b.m[a&0xFFFFFF] }
 func (b *flatBus) Write(a uint32, v byte) { b.m[a&0xFFFFFF] = v }
 
 func main() {
-	if len(os.Args) < 2 {
-		fmt.Fprintln(os.Stderr, "usage: geomoracle game.dec.bin [trackid]")
+	in := flag.String("in", "", "input decoded game binary (game.dec.bin)")
+	idFlag := flag.Int("id", 1, "track id")
+	flag.Parse()
+	if *in == "" {
+		fmt.Fprintln(os.Stderr, "usage: geomoracle -in game.dec.bin [-id N]")
 		os.Exit(2)
 	}
-	img, err := os.ReadFile(os.Args[1])
+	img, err := os.ReadFile(*in)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "geomoracle:", err)
 		os.Exit(1)
 	}
-	id := 1
-	if len(os.Args) >= 3 {
-		id, _ = strconv.Atoi(os.Args[2])
-	}
+	id := *idFlag
 
 	bus := &flatBus{m: make([]byte, 1<<24)}
 	copy(bus.m[base:], img)
