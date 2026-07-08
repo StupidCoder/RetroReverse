@@ -57,20 +57,31 @@ const (
 	osCtxVBlank = 0x0A       // +0xA: current VBlank/field count (byte)
 	osCtxMemLst = 0xA8       // +0xA8: OS MemList pointer (ignored by our AllocMem)
 
+	// The game builds TWO memory managers that BOTH over-commit: each requests
+	// ~0xD8000 of DRAM and ~0xF8C00 of VRAM (InitMemMgr, id 0xC8, called twice).
+	// Both share one memlist array (@game 0x5BA68) and each manager's setup calls
+	// InitMemList, which *replaces* (not appends) that array with its own region.
+	// So whichever manager runs second and gets a non-empty region wipes the first
+	// manager's block tracking — and every later free of a first-manager block
+	// (task stacks, screen buffers) then fails findmemblock and, fatally, calls the
+	// game's exit handler. The game tolerates this only because on real hardware the
+	// second manager gets *nothing*: manager 0 takes almost all of DRAM and VRAM,
+	// and the small remainder is below the game's own AvailMem fallback threshold
+	// (~0xA800), so InitMemMgr for manager 1 allocates zero and skips InitMemList,
+	// leaving manager 0's list intact. We reproduce that by sizing the pools so
+	// manager 0 fits and the leftover is under that threshold: the OS reserves the
+	// upper DRAM (kernel/folios/system stacks) and nearly all VRAM (display).
 	dheapBase = 0x00080000 // DRAM AllocMem pool: above the image + BSS
-	dheapTop  = 0x0017D000 // ends below the OS context struct + folio vector tables
-	vheapBase = vramBase // VRAM AllocMem pool
-	// The game's startup builds TWO memory managers that each request ~0xF8C00 of
-	// VRAM — an over-commit of the 3DO's 1 MiB. Manager 0 gets its full request;
-	// manager 1 must get *zero* VRAM (as on real hardware, where the OS reserves
-	// VRAM for the display so nothing is left). If manager 1 instead gets the tiny
-	// leftover, it builds a VRAM free list that empties and the game's allocator
-	// loops forever walking it. Reserving a sliver here (just above the game's own
-	// fallback threshold) leaves manager 1 with nothing while manager 0 still gets
-	// its full 0xF8C00 — so the game's over-commit resolves the way it does on
-	// hardware and the boot proceeds.
-	vramReserve = 0x4000
+	dheapTop  = 0x00160000 // reserve the upper DRAM: manager 0 (~0xD8000 @ 0x80800)
+	//                        fits; the ~0x7800 leftover is below the game's fallback
+	//                        threshold, so the over-committed manager 1 gets zero.
+	vheapBase   = vramBase
+	vramReserve = 0x4000 // leave <fallback-threshold VRAM after manager 0's 0xF8C00
 	vheapTop    = vramBase + vramSize - vramReserve
+	// osCtx (0x17D000) and the folio vector tables (0x17E000..0x180000) sit above
+	// the DRAM pool; the boot stack grows down from near the top of DRAM, clear of
+	// both. (A higher kernelBase left too little stack headroom and a deep boot's
+	// stack corrupted the vectors.)
 )
 
 // KernelCall records one intercepted Portfolio folio/kernel call.
