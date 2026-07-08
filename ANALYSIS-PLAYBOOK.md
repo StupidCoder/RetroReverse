@@ -345,6 +345,80 @@ for on any unknown format:
   algorithm) is not proof; trace the draw path to the hardware before writing it
   up — the sort turned out to order *sprite-channel assignment*, and the
   occlusion was a per-frame software mask punched out of sprite DMA data.
+- **Read-watch the whole file's RAM extent, summarised per PC.** The read-side
+  complement of the write-profiler climb, with aggregation doing the analysis:
+  watch the *entire* resident copy of an asset file for one run and report, per
+  reading PC, the hit count and the low/high address range. One run maps every
+  consumer at once, and the numbers *are* the structure: PCs whose ranges cover
+  only the file's head are the directory parser; PCs covering the tail are the
+  record walkers; a cluster of PCs whose range starts differ by 4 is one routine
+  reading consecutive words (Ridge Racer's six-PC cluster at `+0,+4,…,+20` was
+  the packed-vertex loader — 4 × int16 xyz — before any disassembly). Raw
+  per-access logging drowns at this scale; the per-PC `{count, lo..hi}` summary
+  is what makes watching a 400 KB file tractable.
+- **Prove a directory with arithmetic before reading a single record.** When you
+  suspect `header + count × entry + Σ(counts × recordSize)`, compute it against
+  the file length first: MAP.RRM's `4 + 258×8 + 6737×40 = 271,548` and OBJ.RRO's
+  `4 + 319×16 + 440,240 = 445,348` both land on the exact byte count, zero
+  leftover — at that point the container structure is essentially proven and
+  every record boundary is known. Leftover bytes are equally informative: they
+  mean a region you haven't explained yet. This is minutes of work and it
+  anchors everything that follows.
+- **Expect records shaped as the hardware's own packets.** On console-era 3-D
+  titles, asset records are often the GPU/DSP command layout with the file
+  fields in command order: Ridge Racer's 40-byte track quads store their
+  texture words exactly as the `POLY_FT4` packet wants them, with the packet's
+  two *spare* high halfwords repurposed for depth bias and shade; the `.TMS`
+  archives are literally the VRAM upload command stream (each record = transfer
+  header + dest rect + pixels) played out one block per frame; and the object
+  directory reserves a word the loader patches with a runtime pointer. The tell
+  is field order matching the hardware spec — once seen, the "decoder" is
+  mostly the packet layout, and placement data you feared was hardcoded turns
+  out to live in the file itself.
+- **Verify at the narrowest seam the engine itself uses.** To prove a decoder
+  you do not need to replicate everything downstream of it (projection,
+  culling, near-quad subdivision, palette shifts) — trap the exact instructions
+  where the engine hands decoded data to a narrow interface, and compare what
+  crosses it. Ridge Racer's `geomoracle` breaks on the renderers' own
+  RTPT/RTPS/NCT/NCS ops and checks, per event, the record address in the
+  pointer register and the GTE data registers just loaded against the Go
+  decoder's record at that file offset: bit-exact or fail, 8,000+ events, and
+  not one line of the projection pipeline reimplemented. Choosing the seam well
+  also keeps the check non-circular: the *register contents* verify field
+  interpretation, the *record address* verifies structure — comparing decoded
+  bytes against the RAM copy of the file would verify nothing.
+- **A state differential needs a timeline.** Comparing rebuilt state (a VRAM
+  image, a sound-RAM bank) against the oracle *at the end of a run* fails for a
+  reason that isn't a decode bug: later producers legitimately overwrite it.
+  Ridge Racer's title screen redraws parts of the texture pages while the last
+  archive is still streaming, so the honest differential compares each
+  archive's cells at the moment *its own* stream completes, and excludes cells
+  a later transfer touched (track upload order per cell). If a differential
+  fails, first ask **who else writes the target after your producer finished** —
+  the answer converted 4,531 "mismatches" into an exact pass without changing
+  the decoder.
+- **Know what your instrumentation hides.** Filters you add for signal quality
+  become blind spots: muting the read-watch during DMA (so the OT walk doesn't
+  drown the log) made an entire file look "never read" — it was consumed purely
+  by DMA. An empty watch under a filtered hook is evidence about the filter as
+  much as the program; before concluding "nothing reads this," re-check with
+  the filter off, or list what the hook deliberately ignores.
+- **Count event multiplicities to decompose composite draws.** Bucket trapped
+  draw calls per time window and count per-object frequencies before reading
+  any code: Ridge Racer's car-select frames showed `{body×1, canopy×2, axle×4,
+  underbody×2}` — the ×2s meant *two cars on screen* (the carousel draws the
+  neighbour), the ×4 meant a shared axle drawn per corner pair, and the whole
+  parts-list structure of the car table fell out of ratios alone. Frequencies
+  are a structure probe that costs one run and no disassembly.
+- **Delay slots execute — simulate them.** On MIPS (and SPARC/PA-RISC), the
+  instruction *after* every branch, jump and `jal` runs before control
+  transfers, and hand-tracing that wrong sends a format hypothesis into the
+  weeds: Ridge Racer's TMS walker "made no sense" for an hour because a
+  `j`/`addiu` pair advances the cursor *before* the target label, and a CLUT
+  branch's delay-slot `addiu` put the record pointer four bytes past where a
+  linear reading said it was. When a hand-derived walk contradicts observed
+  behaviour on a delay-slot ISA, re-read every branch with its slot before
+  doubting the data.
 
 ---
 
