@@ -123,6 +123,13 @@ first-person/3-D engine emits.
 Billboard/animated sprite entities that belong to the mesh view (doors, creatures) live in
 `objects` / `objectsFile`, not in `mesh`.
 
+**Single-sided materials.** A level GLB may mark any material single-sided (glTF
+`material.doubleSided:false`), which three.js honours by back-face culling. The shared writer
+`tools/lib/glb` emits this per triangle group via `WriteTrianglesMat` (`TriGroup.SingleSided`);
+the default is double-sided (unchanged). Use it for one-way geometry — a dungeon **ceiling** is
+authored single-sided so the camera sees into rooms from above but the ceiling still occludes
+from below. This is a property of the GLB itself; no viewer flag is needed.
+
 ## objects (inline) and `<level>.objects.json`
 
 `objects` is the lightweight inline placement list (as format 1). The full
@@ -147,6 +154,42 @@ fields absent in a game's engine are omitted.
 
 `objectPools` (randomized placements with optional patrol metadata) is carried unchanged
 from format 1; see `FORMAT.md` for its `patrol`/`variants`/`dirStamps` sub-schema.
+
+### 3-D object rendering — `model` and `sprite`
+
+The shared object layer (`site/src/shared/renderers.js` → `placeObjects`) renders a 3-D level's
+objects two ways, chosen per object:
+
+- **`model`** — a `"models/x.glb"` path. The GLB is loaded and placed at `pos` (and `rot`, in
+  **radians**, when present).
+- **`sprite`** — a first-class **directional-billboard sprite spec** (below). It becomes a
+  textured camera-facing quad placed at `pos`, updated every frame. This is the shared
+  replacement for per-game billboard code (Doom-style 8-view things, Ultima Underworld creatures);
+  a plain always-facing billboard is just `views: 1`.
+
+```jsonc
+"sprite": {
+  "billboard": "camera",   // "camera" (full facing) | "yaw" (about world-up only) | "none"; default "camera"
+  "views": 8,              // directional angle buckets; 1 = a plain non-directional billboard
+  "heading": 0,            // object facing in RADIANS (base angle for view bucket 0); ignored when views==1
+  "size": [1.0, 1.5],      // world-unit quad [w, h]
+  "sheet": "sprites/creatures.png",  // atlas URL, resolved by the viewer as base + sheet
+  "frames": [[0,0,32,48], ...],      // atlas rects in PIXELS; length == views*perView,
+                                     //   laid out as `views` blocks of `perView` frames
+  "perView": 1,            // animation frames per view
+  "fps": 8,                // animation rate (0 = static: first frame of each view)
+  "blend": "alpha"         // "opaque" | "alpha" | "additive"; default "opaque"
+}
+```
+
+The view bucket is `quantize(angleToCamera - heading, views)` and the animation frame is
+`floor(t*fps) % perView`, so `frames[bucket*perView + frame]` is drawn.
+
+**`blend` values** (all unlit, `NearestFilter` for retro crispness):
+- `opaque` — solid quad; transparent border pixels still cut out (`alphaTest`).
+- `alpha` — alpha-masked cut-out; `depthWrite:false`.
+- `additive` — `THREE.AdditiveBlending`, `depthWrite:false` (translucent bodies: ghosts, fire,
+  wisps — the game brightens the background rather than drawing a colour).
 
 ## Animation, collision, palette effects
 

@@ -93,9 +93,22 @@ func (b *builder) addIndices(idx []uint32) int {
 	return len(b.accessors) - 1
 }
 
-// unlitMaterial returns a doubled-sided KHR_materials_unlit material with the
-// given RGB base colour (alpha 1).
-func unlitMaterial(color [3]float32) map[string]any {
+// TriGroup is one triangle sub-mesh of a WriteTrianglesMat call: its own triangle
+// list (each tri a triple of indices into the shared positions array), an unlit
+// base colour, and a face-culling choice. SingleSided marks the emitted material
+// doubleSided:false (the glTF default), which three.js honours by back-face
+// culling — used for one-way geometry such as a ceiling seen only from below. The
+// zero value is double-sided, matching WriteLines/WriteTriangles.
+type TriGroup struct {
+	Tris        [][3]uint32
+	Color       [3]float32
+	SingleSided bool
+}
+
+// unlitMaterial returns a KHR_materials_unlit material with the given RGB base
+// colour (alpha 1). doubleSided is emitted explicitly (true keeps the legacy
+// two-sided default; false lets three.js back-face cull, e.g. for ceilings).
+func unlitMaterial(color [3]float32, doubleSided bool) map[string]any {
 	return map[string]any{
 		"name": "wire",
 		"pbrMetallicRoughness": map[string]any{
@@ -104,7 +117,7 @@ func unlitMaterial(color [3]float32) map[string]any {
 			"roughnessFactor": 1,
 		},
 		"extensions":  map[string]any{"KHR_materials_unlit": struct{}{}},
-		"doubleSided": true,
+		"doubleSided": doubleSided,
 	}
 }
 
@@ -144,30 +157,44 @@ func pack(doc map[string]any, bin []byte) ([]byte, error) {
 	return out.Bytes(), nil
 }
 
-// document assembles the shared top-level glTF document for a single mesh with
-// one primitive (the caller supplies POSITION, the optional index accessor, and
-// the primitive mode).
-func document(name string, b *builder, posAcc, idxAcc, mode int, color [3]float32) map[string]any {
-	prim := map[string]any{
-		"attributes": map[string]int{"POSITION": posAcc},
-		"material":   0,
-		"mode":       mode,
-	}
-	if idxAcc >= 0 {
-		prim["indices"] = idxAcc
-	}
+// assemble wraps a set of primitives and materials into the shared top-level
+// glTF document (one mesh in one node in one scene). Each primitive's "material"
+// indexes materials; a LINES/TRIANGLES writer passes one of each, WriteTrianglesMat
+// passes one per group.
+func assemble(name string, b *builder, prims, materials []map[string]any) map[string]any {
 	return map[string]any{
 		"asset":          map[string]string{"version": "2.0", "generator": "retroreverse tools/lib/glb"},
 		"extensionsUsed": []string{"KHR_materials_unlit"},
 		"scene":          0,
 		"scenes":         []map[string]any{{"nodes": []int{0}, "name": name}},
 		"nodes":          []map[string]any{{"mesh": 0, "name": name}},
-		"meshes":         []map[string]any{{"primitives": []map[string]any{prim}, "name": name}},
-		"materials":      []map[string]any{unlitMaterial(color)},
+		"meshes":         []map[string]any{{"primitives": prims, "name": name}},
+		"materials":      materials,
 		"accessors":      b.accessors,
 		"bufferViews":    b.views,
 		"buffers":        []map[string]int{{"byteLength": b.bin.Len()}},
 	}
+}
+
+// primitive builds one glTF primitive over the shared POSITION accessor with the
+// given optional index accessor (idxAcc < 0 = none), draw mode, and material index.
+func primitive(posAcc, idxAcc, mode, material int) map[string]any {
+	prim := map[string]any{
+		"attributes": map[string]int{"POSITION": posAcc},
+		"material":   material,
+		"mode":       mode,
+	}
+	if idxAcc >= 0 {
+		prim["indices"] = idxAcc
+	}
+	return prim
+}
+
+// document assembles a single-mesh, single-primitive, single-material (double-sided)
+// glTF document — the shared body of WriteLines and WriteTriangles.
+func document(name string, b *builder, posAcc, idxAcc, mode int, color [3]float32) map[string]any {
+	prim := primitive(posAcc, idxAcc, mode, 0)
+	return assemble(name, b, []map[string]any{prim}, []map[string]any{unlitMaterial(color, true)})
 }
 
 // WriteLines writes an indexed LINES (mode 1) GLB: one mesh, one primitive, a
@@ -202,6 +229,38 @@ func WriteTriangles(path string, positions [][3]float32, tris [][3]uint32, color
 	}
 	idxAcc := b.addIndices(idx)
 	doc := document(baseName(path), b, posAcc, idxAcc, 4, color) // mode 4 = TRIANGLES
+	data, err := pack(doc, b.bin.Bytes())
+	if err != nil {
+		return err
+	}
+	return os.WriteFile(path, data, 0o644)
+}
+
+// WriteTrianglesMat writes a multi-material TRIANGLES (mode 4) GLB: one mesh whose
+// primitives all share a single POSITION accessor over positions, one primitive
+// (and one unlit material) per group. A group may be marked SingleSided so its
+// material serialises doubleSided:false and three.js back-face culls it (e.g.
+// ceilings); the default is double-sided, matching WriteTriangles. Groups with no
+// triangles are skipped. With a single default-sided group this is equivalent to
+// WriteTriangles.
+func WriteTrianglesMat(path string, positions [][3]float32, groups []TriGroup) error {
+	b := &builder{}
+	posAcc := b.addPositions(positions)
+	var prims, materials []map[string]any
+	for _, g := range groups {
+		if len(g.Tris) == 0 {
+			continue
+		}
+		idx := make([]uint32, 0, len(g.Tris)*3)
+		for _, t := range g.Tris {
+			idx = append(idx, t[0], t[1], t[2])
+		}
+		idxAcc := b.addIndices(idx)
+		mat := len(materials)
+		prims = append(prims, primitive(posAcc, idxAcc, 4, mat))
+		materials = append(materials, unlitMaterial(g.Color, !g.SingleSided))
+	}
+	doc := assemble(baseName(path), b, prims, materials)
 	data, err := pack(doc, b.bin.Bytes())
 	if err != nil {
 		return err

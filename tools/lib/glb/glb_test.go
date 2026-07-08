@@ -155,3 +155,73 @@ func TestWriteTriangles(t *testing.T) {
 		t.Fatalf("bad magic")
 	}
 }
+
+// TestWriteTrianglesMat writes two triangle groups — one default (double-sided)
+// and one SingleSided — and asserts the GLB carries one primitive + one material
+// per group, that both primitives share the single POSITION accessor, and that
+// the single-sided group serialises doubleSided:false while the default group
+// serialises doubleSided:true.
+func TestWriteTrianglesMat(t *testing.T) {
+	pos := [][3]float32{
+		{0, 0, 0}, {1, 0, 0}, {0, 1, 0}, // group 0
+		{0, 0, 1}, {1, 0, 1}, {0, 1, 1}, // group 1
+	}
+	groups := []TriGroup{
+		{Tris: [][3]uint32{{0, 1, 2}}, Color: [3]float32{1, 0, 0}},                    // double-sided (default)
+		{Tris: [][3]uint32{{3, 4, 5}}, Color: [3]float32{0, 1, 0}, SingleSided: true}, // ceiling-style
+	}
+	path := filepath.Join(t.TempDir(), "mat.glb")
+	if err := WriteTrianglesMat(path, pos, groups); err != nil {
+		t.Fatal(err)
+	}
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(data[0:4]) != "glTF" {
+		t.Fatalf("bad magic")
+	}
+	jLen := binary.LittleEndian.Uint32(data[12:16])
+	var doc struct {
+		Meshes []struct {
+			Primitives []struct {
+				Attributes map[string]int `json:"attributes"`
+				Material   int            `json:"material"`
+				Mode       int            `json:"mode"`
+			} `json:"primitives"`
+		} `json:"meshes"`
+		Materials []struct {
+			DoubleSided bool                       `json:"doubleSided"`
+			Extensions  map[string]json.RawMessage `json:"extensions"`
+		} `json:"materials"`
+	}
+	if err := json.Unmarshal(data[20:20+int(jLen)], &doc); err != nil {
+		t.Fatalf("JSON chunk not valid: %v", err)
+	}
+	if len(doc.Meshes) != 1 || len(doc.Meshes[0].Primitives) != 2 {
+		t.Fatalf("want one mesh with two primitives, got %+v", doc.Meshes)
+	}
+	if len(doc.Materials) != 2 {
+		t.Fatalf("want two materials, got %d", len(doc.Materials))
+	}
+	// Both primitives share the one POSITION accessor and index distinct materials.
+	p0, p1 := doc.Meshes[0].Primitives[0], doc.Meshes[0].Primitives[1]
+	if p0.Attributes["POSITION"] != p1.Attributes["POSITION"] {
+		t.Fatalf("groups should share one POSITION accessor: %d vs %d",
+			p0.Attributes["POSITION"], p1.Attributes["POSITION"])
+	}
+	if p0.Material != 0 || p1.Material != 1 || p0.Mode != 4 || p1.Mode != 4 {
+		t.Fatalf("primitive material/mode wiring wrong: %+v %+v", p0, p1)
+	}
+	if !doc.Materials[0].DoubleSided {
+		t.Fatalf("group 0 should be double-sided (doubleSided:true)")
+	}
+	if doc.Materials[1].DoubleSided {
+		t.Fatalf("group 1 (SingleSided) should serialise doubleSided:false")
+	}
+	for i, m := range doc.Materials {
+		if _, ok := m.Extensions["KHR_materials_unlit"]; !ok {
+			t.Fatalf("material %d is not unlit: %+v", i, m.Extensions)
+		}
+	}
+}

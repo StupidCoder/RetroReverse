@@ -210,6 +210,23 @@ SM64DS actor placement):
 `z`/`size`/`rot`/`model`/`actor` are omitted where a game's engine has no such concept
 (a 2-D tilemap object is `pos: [x, y]`, `hard`, and a sprite key in `props`).
 
+A 3-D object is rendered by the shared object layer (`site/src/shared/renderers.js` →
+`placeObjects`, used by the builtin `mesh3d` renderer and game plugins) two ways:
+
+- `model` — a `"models/x.glb"` path; loaded and placed at `pos`/`rot` (`rot` in **radians**).
+- `sprite` — a first-class **directional-billboard sprite spec** (`site/src/shared/sprites3d.js`):
+  `{ billboard, views, heading (radians), size:[w,h], sheet, frames:[[x,y,w,h]…], perView, fps,
+  blend }`. It becomes a camera-facing textured quad; the view is
+  `quantize(angleToCamera - heading, views)` and the frame is `floor(t*fps) % perView`. A plain
+  always-facing billboard is `views: 1`. This shared path replaces per-game billboard code
+  (Doom things, Ultima Underworld creatures).
+
+`blend` is `opaque` | `alpha` (alpha-masked, depth-write off) | `additive`
+(`AdditiveBlending`, for translucent bodies). Separately, a level **GLB** may mark a material
+single-sided (glTF `doubleSided:false`) so three.js back-face culls it — emitted by
+`tools/lib/glb` `WriteTrianglesMat` via `TriGroup.SingleSided` (default double-sided), used for
+ceilings and other one-way geometry. See `site/FORMAT2.md` for the full sprite-spec fields.
+
 ---
 
 ## 5. Writeup style (`games/<slug>/<slug>.md`)
