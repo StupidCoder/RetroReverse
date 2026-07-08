@@ -135,6 +135,8 @@ func (m *Machine) lookupItem(num int32) uint32 {
 	switch {
 	case strings.EqualFold(it.name, "File"):
 		return fileFolioBase
+	case strings.EqualFold(it.name, "Graphics"):
+		return gfxFolioBase
 	case strings.EqualFold(it.name, "kernel"):
 		return kernelBase
 	default:

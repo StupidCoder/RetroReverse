@@ -135,7 +135,12 @@ func (m *Machine) serviceKernelCall(pc uint32) {
 		From:   m.CPU.Reg(14) - 8,
 		Args:   [4]uint32{m.CPU.Reg(0), m.CPU.Reg(1), m.CPU.Reg(2), m.CPU.Reg(3)},
 	})
-	// A call in a folio slice of the window is that folio's vector call.
+	// A call in a folio slice of the window is that folio's vector call. Slices are
+	// ordered by tag; test the highest tag first.
+	if off >= hleGfxTag {
+		m.serviceGraphicsFolio(off - hleGfxTag)
+		return
+	}
 	if off >= hleOtherTag {
 		m.serviceOtherFolio(off - hleOtherTag)
 		return

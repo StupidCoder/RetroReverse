@@ -41,6 +41,8 @@ const (
 	hleFileTag     = 0x8000     // File-folio calls trap at hleBase+hleFileTag+offset
 	otherFolioBase = 0x0017E800 // base for any other (not-yet-implemented) folio
 	hleOtherTag    = 0xA000     // other-folio calls trap at hleBase+hleOtherTag+offset
+	gfxFolioBase   = 0x0017E000 // base returned by LookupItem("Graphics" folio)
+	hleGfxTag      = 0xC000     // Graphics-folio calls trap at hleBase+hleGfxTag+offset
 
 	// The folio vector tables sit just below the kernel base (0x17E000..0x180000);
 	// the AllocMem pool is below them and the boot stack (SP near the top of DRAM)
@@ -187,6 +189,7 @@ func (m *Machine) LoadAIF(a *AIF) {
 	for off := uint32(4); off <= 0x100; off += 4 {
 		m.writeWord(fileFolioBase-off, hleBase+hleFileTag+off)
 		m.writeWord(otherFolioBase-off, hleBase+hleOtherTag+off)
+		m.writeWord(gfxFolioBase-off, hleBase+hleGfxTag+off)
 	}
 
 	// Plant the OS hardware-context struct and point [kernelBase+0x98] at it, so
