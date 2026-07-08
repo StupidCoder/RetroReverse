@@ -1,0 +1,10 @@
+{
+ "format": 2,
+ "kind": "mesh3d",
+ "mesh": {
+  "glb": "models/dokan_course.glb"
+ },
+ "name": "dokan_course (unused)",
+ "objectsFile": "dokan_course.objects.json",
+ "path": "dokan_course.path.json"
+}

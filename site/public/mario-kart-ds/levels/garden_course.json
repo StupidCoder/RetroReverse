@@ -1,0 +1,12 @@
+{
+ "anims": "garden_course.anims.json",
+ "format": 2,
+ "kind": "mesh3d",
+ "mesh": {
+  "glb": "models/garden_course.glb"
+ },
+ "name": "Peach Gardens",
+ "objectsFile": "garden_course.objects.json",
+ "path": "garden_course.path.json",
+ "sky": "models/garden_course_V.glb"
+}

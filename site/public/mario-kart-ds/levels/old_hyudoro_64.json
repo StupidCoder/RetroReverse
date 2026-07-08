@@ -1,0 +1,11 @@
+{
+ "format": 2,
+ "kind": "mesh3d",
+ "mesh": {
+  "glb": "models/old_hyudoro_64.glb"
+ },
+ "name": "N64 Banshee Boardwalk",
+ "objectsFile": "old_hyudoro_64.objects.json",
+ "path": "old_hyudoro_64.path.json",
+ "sky": "models/old_hyudoro_64_V.glb"
+}

@@ -1,0 +1,12 @@
+{
+ "anims": "pinball_course.anims.json",
+ "format": 2,
+ "kind": "mesh3d",
+ "mesh": {
+  "glb": "models/pinball_course.glb"
+ },
+ "name": "Waluigi Pinball",
+ "objectsFile": "pinball_course.objects.json",
+ "path": "pinball_course.path.json",
+ "sky": "models/pinball_course_V.glb"
+}

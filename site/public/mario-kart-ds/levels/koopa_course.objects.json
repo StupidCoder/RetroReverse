@@ -1,0 +1,184 @@
+{
+ "format": 2,
+ "level": "koopa_course",
+ "objects": [
+  {
+   "file": "models/MapObj-itembox.glb",
+   "pos": [
+    -48.4375,
+    44.5,
+    -25
+   ]
+  },
+  {
+   "file": "models/MapObj-itembox.glb",
+   "pos": [
+    -45.3125,
+    44.5,
+    -25
+   ]
+  },
+  {
+   "file": "models/MapObj-itembox.glb",
+   "pos": [
+    -42.1875,
+    44.5,
+    -25
+   ]
+  },
+  {
+   "file": "models/MapObj-itembox.glb",
+   "pos": [
+    -39.0625,
+    44.5,
+    -25
+   ]
+  },
+  {
+   "file": "models/koopa_course-mkd_ef_burner.glb",
+   "pos": [
+    -113.19972229003906,
+    65.3125,
+    -40.280487060546875
+   ],
+   "scale": [
+    1.25,
+    1.125,
+    1.25
+   ]
+  },
+  {
+   "file": "models/koopa_course-mkd_ef_burner.glb",
+   "pos": [
+    -115.04460144042969,
+    65.3125,
+    -25.548080444335938
+   ],
+   "scale": [
+    1.25,
+    1.125,
+    1.25
+   ]
+  },
+  {
+   "file": "models/MapObj-itembox.glb",
+   "pos": [
+    -102.1875,
+    57,
+    -118.4375
+   ]
+  },
+  {
+   "file": "models/MapObj-itembox.glb",
+   "pos": [
+    -107.1875,
+    57,
+    -118.4375
+   ]
+  },
+  {
+   "file": "models/MapObj-itembox.glb",
+   "pos": [
+    -104.6875,
+    57,
+    -118.4375
+   ]
+  },
+  {
+   "file": "models/MapObj-itembox.glb",
+   "pos": [
+    65.625,
+    63.25,
+    -131.875
+   ]
+  },
+  {
+   "file": "models/MapObj-itembox.glb",
+   "pos": [
+    65.625,
+    63.25,
+    -128.75
+   ]
+  },
+  {
+   "file": "models/MapObj-itembox.glb",
+   "pos": [
+    65.625,
+    63.25,
+    -125.625
+   ]
+  },
+  {
+   "file": "models/MapObj-itembox.glb",
+   "pos": [
+    43.75,
+    44.492767333984375,
+    -165.3125
+   ]
+  },
+  {
+   "file": "models/MapObj-itembox.glb",
+   "pos": [
+    43.75,
+    44.492767333984375,
+    -161.875
+   ]
+  },
+  {
+   "file": "models/MapObj-itembox.glb",
+   "pos": [
+    43.75,
+    44.492767333984375,
+    -158.4375
+   ]
+  },
+  {
+   "file": "models/MapObj-itembox.glb",
+   "pos": [
+    112.8125,
+    35.125,
+    115.625
+   ]
+  },
+  {
+   "file": "models/MapObj-itembox.glb",
+   "pos": [
+    104.0625,
+    35.125,
+    115.625
+   ]
+  },
+  {
+   "file": "models/MapObj-itembox.glb",
+   "pos": [
+    99.6875,
+    35.125,
+    115.625
+   ]
+  },
+  {
+   "file": "models/MapObj-itembox.glb",
+   "pos": [
+    108.4375,
+    35.125,
+    115.625
+   ]
+  },
+  {
+   "file": "models/koopa_course-water_efct.glb",
+   "pos": [
+    8.6640625,
+    28.125,
+    0.2950439453125
+   ]
+  }
+ ],
+ "routes": null,
+ "skipped": {
+  "0x0CA": 4,
+  "0x0D0": 1,
+  "0x0D1": 1,
+  "0x193": 4
+ },
+ "space": "glb"
+}

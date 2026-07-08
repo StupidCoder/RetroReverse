@@ -1,0 +1,12 @@
+{
+ "anims": "airship_course.anims.json",
+ "format": 2,
+ "kind": "mesh3d",
+ "mesh": {
+  "glb": "models/airship_course.glb"
+ },
+ "name": "Airship Fortress",
+ "objectsFile": "airship_course.objects.json",
+ "path": "airship_course.path.json",
+ "sky": "models/airship_course_V.glb"
+}

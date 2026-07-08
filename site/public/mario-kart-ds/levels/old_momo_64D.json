@@ -1,0 +1,11 @@
+{
+ "format": 2,
+ "kind": "mesh3d",
+ "mesh": {
+  "glb": "models/old_momo_64D.glb"
+ },
+ "name": "N64 Moo Moo Farm (multiplayer)",
+ "objectsFile": "old_momo_64D.objects.json",
+ "path": "old_momo_64D.path.json",
+ "sky": "models/old_momo_64D_V.glb"
+}

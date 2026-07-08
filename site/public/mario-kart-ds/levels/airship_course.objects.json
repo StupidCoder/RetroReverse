@@ -1,0 +1,295 @@
+{
+ "format": 2,
+ "level": "airship_course",
+ "objects": [
+  {
+   "file": "models/MapObj-itembox.glb",
+   "pos": [
+    100,
+    35.203094482421875,
+    -430
+   ]
+  },
+  {
+   "file": "models/MapObj-itembox.glb",
+   "pos": [
+    100,
+    35.203094482421875,
+    -426.5625
+   ]
+  },
+  {
+   "file": "models/MapObj-itembox.glb",
+   "pos": [
+    100,
+    35.203094482421875,
+    -423.125
+   ]
+  },
+  {
+   "file": "models/MapObj-itembox.glb",
+   "pos": [
+    100,
+    35.203094482421875,
+    -419.6875
+   ]
+  },
+  {
+   "file": "models/MapObj-itembox.glb",
+   "pos": [
+    6.25,
+    41.25160217285156,
+    -329.375
+   ]
+  },
+  {
+   "file": "models/MapObj-itembox.glb",
+   "pos": [
+    6.25,
+    41.25059509277344,
+    -325.9375
+   ]
+  },
+  {
+   "file": "models/MapObj-itembox.glb",
+   "pos": [
+    6.25,
+    41.249420166015625,
+    -322.5
+   ]
+  },
+  {
+   "file": "models/MapObj-itembox.glb",
+   "pos": [
+    6.25,
+    41.25276184082031,
+    -332.8125
+   ]
+  },
+  {
+   "file": "models/MapObj-itembox.glb",
+   "pos": [
+    -87.5,
+    62.01136779785156,
+    -105.9375
+   ]
+  },
+  {
+   "file": "models/MapObj-itembox.glb",
+   "pos": [
+    -87.5,
+    62.26470947265625,
+    -109.6875
+   ]
+  },
+  {
+   "file": "models/MapObj-itembox.glb",
+   "pos": [
+    -87.5,
+    61.91352844238281,
+    -102.1875
+   ]
+  },
+  {
+   "file": "models/MapObj-itembox.glb",
+   "pos": [
+    -87.5,
+    61.782562255859375,
+    -98.4375
+   ]
+  },
+  {
+   "file": "models/airship_course-NsKiller1.glb",
+   "pos": [
+    46.5625,
+    37.5,
+    -384.375
+   ],
+   "route": 0
+  },
+  {
+   "file": "models/airship_course-mkd_ef_burner.glb",
+   "pos": [
+    -18.75,
+    43.61653137207031,
+    -413.05506896972656
+   ],
+   "scale": [
+    1.699951171875,
+    1.699951171875,
+    1.699951171875
+   ],
+   "route": 1
+  },
+  {
+   "file": "models/airship_course-mkd_ef_burner.glb",
+   "pos": [
+    -6.2966766357421875,
+    43.61653137207031,
+    -428.8851776123047
+   ],
+   "scale": [
+    1.699951171875,
+    1.699951171875,
+    1.699951171875
+   ],
+   "route": 2
+  },
+  {
+   "file": "models/airship_course-cover.glb",
+   "pos": [
+    -14.277084350585938,
+    46.25,
+    -424.79786682128906
+   ]
+  },
+  {
+   "file": "models/airship_course-cover.glb",
+   "pos": [
+    12.4368896484375,
+    46.25,
+    -453.23680114746094
+   ]
+  },
+  {
+   "file": "models/airship_course-cover.glb",
+   "pos": [
+    27.577987670898438,
+    46.25,
+    -443.61024475097656
+   ]
+  },
+  {
+   "file": "models/airship_course-cover.glb",
+   "pos": [
+    49.36572265625,
+    46.25,
+    -446.0258331298828
+   ]
+  },
+  {
+   "file": "models/airship_course-cover.glb",
+   "pos": [
+    47.88053894042969,
+    46.25,
+    -423.21934509277344
+   ]
+  },
+  {
+   "file": "models/airship_course-cover.glb",
+   "pos": [
+    -2.86199951171875,
+    46.25,
+    -440.01600646972656
+   ]
+  },
+  {
+   "file": "models/airship_course-NsCannon1.glb",
+   "pos": [
+    3.05206298828125,
+    46.25,
+    -406.24781799316406
+   ],
+   "billboard": true
+  },
+  {
+   "file": "models/airship_course-NsCannon1.glb",
+   "pos": [
+    3.05206298828125,
+    46.25,
+    -432.7741241455078
+   ],
+   "billboard": true
+  },
+  {
+   "file": "models/airship_course-NsCannon1.glb",
+   "pos": [
+    30.651046752929688,
+    46.25,
+    -432.79026794433594
+   ],
+   "billboard": true
+  },
+  {
+   "file": "models/airship_course-NsCannon1.glb",
+   "pos": [
+    67.65449523925781,
+    46.25,
+    -416.1033477783203
+   ],
+   "billboard": true
+  }
+ ],
+ "routes": [
+  {
+   "loop": true,
+   "points": [
+    [
+     46.5625,
+     37.5,
+     -384.375
+    ],
+    [
+     39.6875,
+     37.5,
+     -384.375
+    ],
+    [
+     36.25,
+     37.5,
+     -384.375
+    ],
+    [
+     43.125,
+     37.5,
+     -384.375
+    ],
+    [
+     50,
+     37.5,
+     -384.375
+    ],
+    [
+     53.4375,
+     37.5,
+     -384.375
+    ]
+   ]
+  },
+  {
+   "loop": false,
+   "points": [
+    [
+     -18.75,
+     43.75,
+     -413.125
+    ],
+    [
+     -18.75,
+     43.75,
+     -428.75
+    ]
+   ]
+  },
+  {
+   "loop": false,
+   "points": [
+    [
+     -6.25,
+     43.75,
+     -429.0625
+    ],
+    [
+     -6.25,
+     43.75,
+     -413.4375
+    ]
+   ]
+  }
+ ],
+ "skipped": {
+  "0x008": 1,
+  "0x067": 5
+ },
+ "space": "glb"
+}

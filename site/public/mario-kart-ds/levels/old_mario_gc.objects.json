@@ -1,0 +1,33 @@
+{
+ "format": 2,
+ "level": "old_mario_gc",
+ "objects": [
+  {
+   "file": "models/MapObj-itembox.glb",
+   "pos": [
+    -95.625,
+    7.625,
+    115.625
+   ]
+  },
+  {
+   "file": "models/MapObj-itembox.glb",
+   "pos": [
+    -90.625,
+    7.625,
+    115.625
+   ]
+  },
+  {
+   "file": "models/MapObj-itembox.glb",
+   "pos": [
+    -85.625,
+    7.625,
+    115.625
+   ]
+  }
+ ],
+ "routes": null,
+ "skipped": {},
+ "space": "glb"
+}

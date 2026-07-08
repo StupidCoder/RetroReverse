@@ -1,0 +1,12 @@
+{
+ "anims": "old_frappe_64.anims.json",
+ "format": 2,
+ "kind": "mesh3d",
+ "mesh": {
+  "glb": "models/old_frappe_64.glb"
+ },
+ "name": "N64 Frappe Snowland",
+ "objectsFile": "old_frappe_64.objects.json",
+ "path": "old_frappe_64.path.json",
+ "sky": "models/old_frappe_64_V.glb"
+}

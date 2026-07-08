@@ -1,0 +1,10 @@
+{
+ "format": 2,
+ "kind": "mesh3d",
+ "mesh": {
+  "glb": "models/mini_stage2.glb"
+ },
+ "name": "mini_stage2",
+ "objectsFile": "mini_stage2.objects.json",
+ "sky": "models/mini_stage2_V.glb"
+}

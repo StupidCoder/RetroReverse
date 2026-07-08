@@ -1,0 +1,12 @@
+{
+ "anims": "stadium_course.anims.json",
+ "format": 2,
+ "kind": "mesh3d",
+ "mesh": {
+  "glb": "models/stadium_course.glb"
+ },
+ "name": "Wario Stadium",
+ "objectsFile": "stadium_course.objects.json",
+ "path": "stadium_course.path.json",
+ "sky": "models/stadium_course_V.glb"
+}

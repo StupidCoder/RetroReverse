@@ -1,0 +1,12 @@
+{
+ "anims": "beach_course.anims.json",
+ "format": 2,
+ "kind": "mesh3d",
+ "mesh": {
+  "glb": "models/beach_course.glb"
+ },
+ "name": "Cheep Cheep Beach",
+ "objectsFile": "beach_course.objects.json",
+ "path": "beach_course.path.json",
+ "sky": "models/beach_course_V.glb"
+}

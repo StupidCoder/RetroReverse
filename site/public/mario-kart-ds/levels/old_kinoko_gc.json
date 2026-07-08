@@ -1,0 +1,11 @@
+{
+ "format": 2,
+ "kind": "mesh3d",
+ "mesh": {
+  "glb": "models/old_kinoko_gc.glb"
+ },
+ "name": "GCN Mushroom Bridge",
+ "objectsFile": "old_kinoko_gc.objects.json",
+ "path": "old_kinoko_gc.path.json",
+ "sky": "models/old_kinoko_gc_V.glb"
+}

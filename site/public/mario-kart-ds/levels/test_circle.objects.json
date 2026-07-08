@@ -1,0 +1,17 @@
+{
+ "format": 2,
+ "level": "test_circle",
+ "objects": [
+  {
+   "file": "models/MapObj-itembox.glb",
+   "pos": [
+    19.375,
+    13.40972900390625,
+    0
+   ]
+  }
+ ],
+ "routes": null,
+ "skipped": {},
+ "space": "glb"
+}

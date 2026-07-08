@@ -1,0 +1,12 @@
+{
+ "anims": "snow_course.anims.json",
+ "format": 2,
+ "kind": "mesh3d",
+ "mesh": {
+  "glb": "models/snow_course.glb"
+ },
+ "name": "DK Pass",
+ "objectsFile": "snow_course.objects.json",
+ "path": "snow_course.path.json",
+ "sky": "models/snow_course_V.glb"
+}

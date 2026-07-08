@@ -1,0 +1,10 @@
+{
+ "format": 2,
+ "kind": "mesh3d",
+ "mesh": {
+  "glb": "models/test1_course.glb"
+ },
+ "name": "test1_course (unused)",
+ "objectsFile": "test1_course.objects.json",
+ "path": "test1_course.path.json"
+}

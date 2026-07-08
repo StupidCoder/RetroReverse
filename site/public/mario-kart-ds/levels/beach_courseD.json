@@ -1,0 +1,12 @@
+{
+ "anims": "beach_courseD.anims.json",
+ "format": 2,
+ "kind": "mesh3d",
+ "mesh": {
+  "glb": "models/beach_courseD.glb"
+ },
+ "name": "Cheep Cheep Beach (multiplayer)",
+ "objectsFile": "beach_courseD.objects.json",
+ "path": "beach_courseD.path.json",
+ "sky": "models/beach_courseD_V.glb"
+}

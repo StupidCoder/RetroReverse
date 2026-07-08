@@ -1,0 +1,12 @@
+{
+ "anims": "old_yoshi_gc.anims.json",
+ "format": 2,
+ "kind": "mesh3d",
+ "mesh": {
+  "glb": "models/old_yoshi_gc.glb"
+ },
+ "name": "GCN Yoshi Circuit",
+ "objectsFile": "old_yoshi_gc.objects.json",
+ "path": "old_yoshi_gc.path.json",
+ "sky": "models/old_yoshi_gc_V.glb"
+}

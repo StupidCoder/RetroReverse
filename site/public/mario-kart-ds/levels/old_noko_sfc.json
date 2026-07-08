@@ -1,0 +1,11 @@
+{
+ "format": 2,
+ "kind": "mesh3d",
+ "mesh": {
+  "glb": "models/old_noko_sfc.glb"
+ },
+ "name": "SNES Koopa Beach 2",
+ "objectsFile": "old_noko_sfc.objects.json",
+ "path": "old_noko_sfc.path.json",
+ "sky": "models/old_noko_sfc_V.glb"
+}

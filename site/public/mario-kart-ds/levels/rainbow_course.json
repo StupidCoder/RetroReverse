@@ -1,0 +1,12 @@
+{
+ "anims": "rainbow_course.anims.json",
+ "format": 2,
+ "kind": "mesh3d",
+ "mesh": {
+  "glb": "models/rainbow_course.glb"
+ },
+ "name": "Rainbow Road",
+ "objectsFile": "rainbow_course.objects.json",
+ "path": "rainbow_course.path.json",
+ "sky": "models/rainbow_course_V.glb"
+}

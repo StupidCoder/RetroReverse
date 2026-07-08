@@ -1,0 +1,12 @@
+{
+ "anims": "ridge_course.anims.json",
+ "format": 2,
+ "kind": "mesh3d",
+ "mesh": {
+  "glb": "models/ridge_course.glb"
+ },
+ "name": "Shroom Ridge",
+ "objectsFile": "ridge_course.objects.json",
+ "path": "ridge_course.path.json",
+ "sky": "models/ridge_course_V.glb"
+}

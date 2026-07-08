@@ -1,0 +1,12 @@
+{
+ "anims": "old_sky_agb.anims.json",
+ "format": 2,
+ "kind": "mesh3d",
+ "mesh": {
+  "glb": "models/old_sky_agb.glb"
+ },
+ "name": "GBA Sky Garden",
+ "objectsFile": "old_sky_agb.objects.json",
+ "path": "old_sky_agb.path.json",
+ "sky": "models/old_sky_agb_V.glb"
+}

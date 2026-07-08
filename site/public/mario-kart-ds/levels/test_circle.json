@@ -1,0 +1,10 @@
+{
+ "format": 2,
+ "kind": "mesh3d",
+ "mesh": {
+  "glb": "models/test_circle.glb"
+ },
+ "name": "test_circle",
+ "objectsFile": "test_circle.objects.json",
+ "path": "test_circle.path.json"
+}

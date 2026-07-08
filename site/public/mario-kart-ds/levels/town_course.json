@@ -1,0 +1,12 @@
+{
+ "anims": "town_course.anims.json",
+ "format": 2,
+ "kind": "mesh3d",
+ "mesh": {
+  "glb": "models/town_course.glb"
+ },
+ "name": "Delfino Square",
+ "objectsFile": "town_course.objects.json",
+ "path": "town_course.path.json",
+ "sky": "models/town_course_V.glb"
+}

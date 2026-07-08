@@ -155,28 +155,29 @@ const GAMES = [
       .music.map(t => ({ name: t.name, url: 'public/elite-c64/' + t.file })),
   },
   {
-    id: 'mariokart', name: 'Mario Kart DS', system: 'Nintendo DS', render: '3d',
+    id: 'mario-kart-ds', name: 'Mario Kart DS', system: 'Nintendo DS', render: '3d',
     load: () => import('../mariokart/viewer.js').then(m => m.ModelViewer),
     make: (V, el, hud) => new V(el, hud),
-    list: async (v) => await v.init(), // returns the model list from models.json
+    list: async (v) => await v.init(), // browse list from the format-2 manifest (levels + models)
     show: (v, lvl, i) => v.loadModel(i),
-    // Tracks are sections of their own: "Track" plus the course's map objects.
-    // The manifest's short label names the item inside its section; the full
-    // name (e.g. "Delfino Square · bridge") stays on the HUD and deep link.
+    // Courses (levels[]) each land in their own section (the course name); the karts
+    // and characters group by their section field. The full name stays on the HUD/link.
     group: (lvl) => ({ section: lvl.section, label: lvl.label || lvl.name }),
     // open on Mario's B-Dasher rather than the first list item
-    defaultAsset: (models) => models.findIndex(m => m.file === 'kart_MR_a.glb'),
-    // course-only toggles: the "_V" backdrop (camera-locked skybox) and a fly-along
-    // of the CPU racers' drive line. `when` keys off the current manifest entry so
-    // they show only for tracks that ship those pieces.
+    defaultAsset: (models) => models.findIndex(m => m.file === 'models/kart_MR_a.glb'),
+    // course-only toggles: the "_V" backdrop (camera-locked skybox), the OBJI object
+    // placements, and a fly-along of the CPU racers' drive line. Skybox/Drive show for
+    // any course (mesh3d); Objects only when the manifest entry carries an objects file.
     layers: [
-      { id: 'skybox', label: 'Skybox', default: true, when: (m) => !!m.leaves?.[m.currentIdx]?.level?.skybox },
+      { id: 'skybox', label: 'Skybox', default: true, when: (m) => m.leaves?.[m.currentIdx]?.level?.kind === 'mesh3d' },
       { id: 'objects', label: 'Objects', default: true, when: (m) => !!m.leaves?.[m.currentIdx]?.level?.objects },
-      { id: 'drive', label: 'Drive the CPU line', default: false, when: (m) => !!m.leaves?.[m.currentIdx]?.level?.path },
+      { id: 'drive', label: 'Drive the CPU line', default: false, when: (m) => m.leaves?.[m.currentIdx]?.level?.kind === 'mesh3d' },
     ],
-    // the cartridge's 76 SSEQ sequences, rendered through our SDAT sequencer+synth
-    // (the retail SDAT ships no symbol block, so tracks are numbered, not named)
-    music: async () => (await fetch('public/mariokart/music/tracks.json').then(r => r.json())),
+    // the cartridge's SSEQ sequences rendered through our SDAT sequencer+synth (the
+    // retail SDAT ships no symbol block, so tracks are numbered, not named); the
+    // format-2 manifest lists them as {name, file} — map to the player's {name, url}
+    music: async () => (await fetch('public/mario-kart-ds/manifest.json').then(r => r.json()))
+      .music.map(t => ({ name: t.name, url: 'public/mario-kart-ds/' + t.file })),
   },
   {
     id: 'super-mario-64-ds', name: 'Super Mario 64 DS', system: 'Nintendo DS', render: '3d',

@@ -1,0 +1,11 @@
+{
+ "format": 2,
+ "kind": "mesh3d",
+ "mesh": {
+  "glb": "models/old_choco_64.glb"
+ },
+ "name": "N64 Choco Mountain",
+ "objectsFile": "old_choco_64.objects.json",
+ "path": "old_choco_64.path.json",
+ "sky": "models/old_choco_64_V.glb"
+}

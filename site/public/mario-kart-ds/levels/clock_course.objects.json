@@ -1,0 +1,88 @@
+{
+ "format": 2,
+ "level": "clock_course",
+ "objects": [
+  {
+   "file": "models/MapObj-itembox.glb",
+   "pos": [
+    -5.625,
+    46.094879150390625,
+    125
+   ]
+  },
+  {
+   "file": "models/MapObj-itembox.glb",
+   "pos": [
+    -1.875,
+    46.094879150390625,
+    125
+   ]
+  },
+  {
+   "file": "models/MapObj-itembox.glb",
+   "pos": [
+    5.625,
+    46.094879150390625,
+    125
+   ]
+  },
+  {
+   "file": "models/MapObj-itembox.glb",
+   "pos": [
+    1.875,
+    46.094879150390625,
+    125
+   ]
+  },
+  {
+   "file": "models/MapObj-itembox.glb",
+   "pos": [
+    65.625,
+    35.125,
+    -171.875
+   ]
+  },
+  {
+   "file": "models/MapObj-itembox.glb",
+   "pos": [
+    68.75,
+    35.125,
+    -168.75
+   ]
+  },
+  {
+   "file": "models/MapObj-itembox.glb",
+   "pos": [
+    65.625,
+    35.125,
+    -165.625
+   ]
+  },
+  {
+   "file": "models/MapObj-itembox.glb",
+   "pos": [
+    68.75,
+    35.125,
+    -162.5
+   ]
+  },
+  {
+   "file": "models/MapObj-itembox.glb",
+   "pos": [
+    65.625,
+    35.125,
+    -159.375
+   ]
+  }
+ ],
+ "routes": null,
+ "skipped": {
+  "0x008": 1,
+  "0x0C9": 6,
+  "0x0CB": 4,
+  "0x0CD": 3,
+  "0x0CE": 2,
+  "0x0CF": 1
+ },
+ "space": "glb"
+}

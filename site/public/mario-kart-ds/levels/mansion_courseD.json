@@ -1,0 +1,10 @@
+{
+ "format": 2,
+ "kind": "mesh3d",
+ "mesh": {
+  "glb": "models/mansion_courseD.glb"
+ },
+ "name": "Luigi's Mansion (multiplayer)",
+ "objectsFile": "mansion_courseD.objects.json",
+ "path": "mansion_courseD.path.json"
+}

@@ -1,0 +1,459 @@
+{
+ "format": 2,
+ "level": "beach_course",
+ "objects": [
+  {
+   "file": "models/MapObj-itembox.glb",
+   "pos": [
+    40.625,
+    8.875,
+    -141.25
+   ]
+  },
+  {
+   "file": "models/MapObj-itembox.glb",
+   "pos": [
+    40.625,
+    8.875,
+    -152.5
+   ]
+  },
+  {
+   "file": "models/MapObj-itembox.glb",
+   "pos": [
+    40.625,
+    8.875,
+    -146.875
+   ]
+  },
+  {
+   "file": "models/MapObj-itembox.glb",
+   "pos": [
+    38.125,
+    8.875,
+    -144.0625
+   ]
+  },
+  {
+   "file": "models/MapObj-itembox.glb",
+   "pos": [
+    38.125,
+    8.875,
+    -149.6875
+   ]
+  },
+  {
+   "file": "models/MapObj-itembox.glb",
+   "pos": [
+    65.625,
+    8.43194580078125,
+    34.375
+   ]
+  },
+  {
+   "file": "models/MapObj-itembox.glb",
+   "pos": [
+    81.25,
+    8.875,
+    31.25
+   ]
+  },
+  {
+   "file": "models/MapObj-itembox.glb",
+   "pos": [
+    71.875,
+    8.875,
+    28.125
+   ]
+  },
+  {
+   "file": "models/MapObj-itembox.glb",
+   "pos": [
+    78.125,
+    8.2525634765625,
+    21.875
+   ]
+  },
+  {
+   "file": "models/MapObj-itembox.glb",
+   "pos": [
+    62.5,
+    8.875,
+    25
+   ]
+  },
+  {
+   "file": "models/MapObj-itembox.glb",
+   "pos": [
+    -144.7889862060547,
+    10.245101928710938,
+    158.35906982421875
+   ]
+  },
+  {
+   "file": "models/MapObj-itembox.glb",
+   "pos": [
+    -143.8514862060547,
+    10.248092651367188,
+    155.23406982421875
+   ]
+  },
+  {
+   "file": "models/MapObj-itembox.glb",
+   "pos": [
+    -141.9764862060547,
+    10.254074096679688,
+    148.98406982421875
+   ]
+  },
+  {
+   "file": "models/MapObj-itembox.glb",
+   "pos": [
+    -142.9139862060547,
+    10.251083374023438,
+    152.10906982421875
+   ]
+  },
+  {
+   "file": "models/beach_course-crab.glb",
+   "pos": [
+    48.35960388183594,
+    8.125,
+    -19.47540283203125
+   ],
+   "scale": [
+    1.25,
+    1.25,
+    1.25
+   ],
+   "billboard": true,
+   "route": 0
+  },
+  {
+   "file": "models/beach_course-crab.glb",
+   "pos": [
+    54.126556396484375,
+    7.8242950439453125,
+    9.076522827148438
+   ],
+   "scale": [
+    1.25,
+    1.25,
+    1.25
+   ],
+   "billboard": true,
+   "route": 1
+  },
+  {
+   "file": "models/beach_course-crab.glb",
+   "pos": [
+    74.603759765625,
+    6.646881103515625,
+    52.74714660644531
+   ],
+   "scale": [
+    1.25,
+    1.25,
+    1.25
+   ],
+   "billboard": true,
+   "route": 2
+  },
+  {
+   "file": "models/beach_course-crab.glb",
+   "pos": [
+    75.9136962890625,
+    7.4916229248046875,
+    72.59785461425781
+   ],
+   "scale": [
+    1.25,
+    1.25,
+    1.25
+   ],
+   "billboard": true,
+   "route": 3
+  },
+  {
+   "file": "models/beach_course-water_efct.glb",
+   "pos": [
+    0,
+    6.8125,
+    0
+   ]
+  },
+  {
+   "file": "models/beach_course-BeachTree1.glb",
+   "pos": [
+    -98.75,
+    8.125,
+    -48.125
+   ],
+   "billboard": true
+  },
+  {
+   "file": "models/beach_course-BeachTree1.glb",
+   "pos": [
+    -116.25,
+    8.125,
+    -48.125
+   ],
+   "billboard": true
+  },
+  {
+   "file": "models/beach_course-BeachTree1.glb",
+   "pos": [
+    -96.875,
+    8.125,
+    -35.625
+   ],
+   "billboard": true
+  },
+  {
+   "file": "models/beach_course-BeachTree1.glb",
+   "pos": [
+    -116.875,
+    8.125,
+    -35.625
+   ],
+   "billboard": true
+  },
+  {
+   "file": "models/beach_course-BeachTree1.glb",
+   "pos": [
+    48.125,
+    8.125,
+    -137.5
+   ],
+   "rot": [
+    0,
+    -90,
+    0
+   ],
+   "billboard": true
+  },
+  {
+   "file": "models/beach_course-BeachTree1.glb",
+   "pos": [
+    70,
+    8.125,
+    -26.25
+   ],
+   "rot": [
+    0,
+    130,
+    0
+   ],
+   "billboard": true
+  },
+  {
+   "file": "models/beach_course-BeachTree1.glb",
+   "pos": [
+    43.125,
+    8.125,
+    -23.125
+   ],
+   "rot": [
+    0,
+    130,
+    0
+   ],
+   "billboard": true
+  },
+  {
+   "file": "models/beach_course-BeachTree1.glb",
+   "pos": [
+    55.625,
+    8.125,
+    25.625
+   ],
+   "rot": [
+    0,
+    210,
+    0
+   ],
+   "billboard": true
+  },
+  {
+   "file": "models/beach_course-BeachTree1.glb",
+   "pos": [
+    86.875,
+    8.125,
+    31.25
+   ],
+   "rot": [
+    0,
+    240,
+    0
+   ],
+   "billboard": true
+  },
+  {
+   "file": "models/beach_course-BeachTree1.glb",
+   "pos": [
+    -19.0625,
+    8.125,
+    144.0625
+   ],
+   "rot": [
+    0,
+    120,
+    0
+   ],
+   "billboard": true
+  },
+  {
+   "file": "models/beach_course-BeachTree1.glb",
+   "pos": [
+    -35.625,
+    8.125,
+    148.125
+   ],
+   "rot": [
+    0,
+    120,
+    0
+   ],
+   "billboard": true
+  },
+  {
+   "file": "models/beach_course-BeachTree1.glb",
+   "pos": [
+    -90.625,
+    8.125,
+    160
+   ],
+   "rot": [
+    0,
+    120,
+    0
+   ],
+   "billboard": true
+  },
+  {
+   "file": "models/beach_course-BeachTree1.glb",
+   "pos": [
+    53.75,
+    8.125,
+    82.5
+   ],
+   "rot": [
+    0,
+    120,
+    0
+   ],
+   "billboard": true
+  },
+  {
+   "file": "models/beach_course-BeachTree1.glb",
+   "pos": [
+    77.5,
+    8.125,
+    91.25
+   ],
+   "rot": [
+    0,
+    150,
+    0
+   ],
+   "billboard": true
+  },
+  {
+   "file": "models/beach_course-BeachTree1.glb",
+   "pos": [
+    -117.5,
+    8.125,
+    -21.875
+   ],
+   "billboard": true
+  },
+  {
+   "file": "models/beach_course-BeachTree1.glb",
+   "pos": [
+    -97.5,
+    8.125,
+    -21.875
+   ],
+   "billboard": true
+  }
+ ],
+ "routes": [
+  {
+   "loop": false,
+   "points": [
+    [
+     48.3758544921875,
+     8.125,
+     -19.561325073242188
+    ],
+    [
+     53.637939453125,
+     8.11334228515625,
+     -17.126327514648438
+    ],
+    [
+     60.16661071777344,
+     7.539794921875,
+     -15.252334594726562
+    ]
+   ]
+  },
+  {
+   "loop": false,
+   "points": [
+    [
+     54.11802673339844,
+     7.8248748779296875,
+     9.075576782226562
+    ],
+    [
+     65.14920043945312,
+     6.995452880859375,
+     9.022445678710938
+    ]
+   ]
+  },
+  {
+   "loop": false,
+   "points": [
+    [
+     74.64511108398438,
+     6.651397705078125,
+     52.71514892578125
+    ],
+    [
+     88.58322143554688,
+     7.8280487060546875,
+     46.988861083984375
+    ]
+   ]
+  },
+  {
+   "loop": false,
+   "points": [
+    [
+     75.81657409667969,
+     7.49859619140625,
+     72.71116638183594
+    ],
+    [
+     80.467041015625,
+     8.125,
+     78.28666687011719
+    ],
+    [
+     83.59210205078125,
+     8.125,
+     85.55972290039062
+    ]
+   ]
+  }
+ ],
+ "skipped": {
+  "0x008": 1,
+  "0x00A": 1,
+  "0x066": 2,
+  "0x19B": 5
+ },
+ "space": "glb"
+}

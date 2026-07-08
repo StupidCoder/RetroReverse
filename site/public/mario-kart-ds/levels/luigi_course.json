@@ -1,0 +1,11 @@
+{
+ "format": 2,
+ "kind": "mesh3d",
+ "mesh": {
+  "glb": "models/luigi_course.glb"
+ },
+ "name": "luigi_course (unused)",
+ "objectsFile": "luigi_course.objects.json",
+ "path": "luigi_course.path.json",
+ "sky": "models/luigi_course_V.glb"
+}

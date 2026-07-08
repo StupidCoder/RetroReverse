@@ -1,0 +1,12 @@
+{
+ "anims": "Award.anims.json",
+ "format": 2,
+ "kind": "mesh3d",
+ "mesh": {
+  "glb": "models/Award.glb"
+ },
+ "name": "Award ceremony scene",
+ "objectsFile": "Award.objects.json",
+ "path": "Award.path.json",
+ "sky": "models/cross_course_V.glb"
+}

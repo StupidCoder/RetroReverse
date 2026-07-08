@@ -21,7 +21,12 @@ import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { FlyCam, flyHint } from '../shared/flycam.js';
 
-const MODELS = 'public/mariokart/models/';
+// Format-2 asset tree. The manifest and the per-level envelopes live at this base;
+// the level envelope's mesh.glb / sky paths are root-relative to it (models/…), so
+// load them as BASE + path. Object-placement GLBs are still referenced by bare name
+// inside the objects JSON (inner OBJI shape unchanged), so they load from MODELS.
+const BASE = 'public/mario-kart-ds/';
+const MODELS = BASE + 'models/';
 
 // makeMover precomputes a route follower: the polyline's segments and total
 // length (closing segment appended on loops), a shared plausible speed, and a
@@ -165,7 +170,24 @@ export class ModelViewer {
   }
 
   async init() {
-    this.models = await fetch('public/mariokart/models.json').then(r => r.json());
+    // The browse list is the format-2 manifest: its courses (levels[], each a
+    // mesh3d entry that resolves to a level envelope) followed by its plain model
+    // GLBs (karts, characters, shared objects), grouped by their section field.
+    const manifest = await fetch(BASE + 'manifest.json').then(r => r.json());
+    this.manifest = manifest;
+    const levels = (manifest.levels || []).map(l => ({
+      name: l.name,
+      section: l.section,
+      kind: 'mesh3d',       // marks a course: loadModel resolves the level envelope
+      file: l.file,         // the level envelope json (levels/<stem>.json)
+      objects: l.objects,   // present => the Studio shows the Objects toggle
+    }));
+    const models = (manifest.models || []).map(m => ({
+      name: m.name,
+      section: m.section,
+      file: m.file,         // models/<x>.glb, root-relative to BASE
+    }));
+    this.models = levels.concat(models);
     return this.models;
   }
 
@@ -195,52 +217,82 @@ export class ModelViewer {
     this._setDrive(false);
     this.animDefs = []; this.liveAnims = []; this.animClock = 0;
 
-    this.loader.load(MODELS + m.file, (gltf) => {
-      if (gen !== this.gen) return; // superseded by a newer selection
-      const { scene, camera, controls } = this.three;
-      this._disposeGroup();
-      this._disposeSkybox();
-      this._disposeObjects();
+    if (m.kind === 'mesh3d') this._loadCourse(m, gen);
+    else this._loadPlainModel(m, gen);
+  }
 
-      const group = gltf.scene;
-      let tris = 0;
-      group.traverse(o => {
-        if (o.isMesh) {
-          tris += (o.geometry.attributes.position.count / 3) | 0;
-          if (o.material && o.material.map) {
-            o.material.map.magFilter = THREE.NearestFilter; // DS textures are tiny: keep crisp
-            o.material.map.needsUpdate = true;
-          }
+  // Install a loaded GLB as the main scene group: dispose the old scene, keep the DS
+  // textures crisp, frame the camera, and switch between fly (courses) and orbit
+  // (karts/characters/objects) controls. Returns the framed size (GLB units).
+  _installMain(gltf, isCourse, name) {
+    const { scene, camera, controls } = this.three;
+    this._disposeGroup();
+    this._disposeSkybox();
+    this._disposeObjects();
+
+    const group = gltf.scene;
+    let tris = 0;
+    group.traverse(o => {
+      if (o.isMesh) {
+        tris += (o.geometry.attributes.position.count / 3) | 0;
+        if (o.material && o.material.map) {
+          o.material.map.magFilter = THREE.NearestFilter; // DS textures are tiny: keep crisp
+          o.material.map.needsUpdate = true;
         }
-      });
-      scene.add(group);
-      this.three.group = group;
+      }
+    });
+    scene.add(group);
+    this.three.group = group;
 
-      // Frame the main model (the skybox, once loaded, is excluded).
-      const box = new THREE.Box3().setFromObject(group);
-      const c = box.getCenter(new THREE.Vector3());
-      const size = box.getSize(new THREE.Vector3()).length() || 1;
-      this.frame = { center: c.clone(), size };
-      camera.near = size / 100;
-      camera.far = size * 20;
-      camera.updateProjectionMatrix();
-      this._orbitFrame();
+    // Frame the main model (the skybox, once loaded, is excluded).
+    const box = new THREE.Box3().setFromObject(group);
+    const c = box.getCenter(new THREE.Vector3());
+    const size = box.getSize(new THREE.Vector3()).length() || 1;
+    this.frame = { center: c.clone(), size };
+    camera.near = size / 100;
+    camera.far = size * 20;
+    camera.updateProjectionMatrix();
+    this._orbitFrame();
 
-      // Tracks get fly controls (no auto-rotation); everything else keeps the orbit.
-      this.flyWanted = m.label === 'Track';
-      controls.autoRotate = !this.flyWanted;
-      this.fly.setScale(size);
-      this.fly.setEnabled(this.flyWanted && !this.driveOn);
+    // Tracks get fly controls (no auto-rotation); everything else keeps the orbit.
+    this.flyWanted = isCourse;
+    controls.autoRotate = !this.flyWanted;
+    this.fly.setScale(size);
+    this.fly.setEnabled(this.flyWanted && !this.driveOn);
 
-      this.hudBase = `${m.name} — ${tris.toLocaleString()} triangles, textures as shipped on cartridge` +
-        (this.flyWanted ? ` · ${flyHint}` : '');
-      if (this.hud) this.hud.textContent = this.hudBase;
+    this.hudBase = `${name} — ${tris.toLocaleString()} triangles, textures as shipped on cartridge` +
+      (this.flyWanted ? ` · ${flyHint}` : '');
+    if (this.hud) this.hud.textContent = this.hudBase;
 
-      this._bindAnims(group); // anims may already be loaded (fetch races the GLB)
-      if (m.skybox) this._loadSkybox(m.skybox, gen);
-      if (m.path) this._loadPath(m.path, gen);
-      if (m.objects) this._loadObjects(m.objects, gen);
-      if (m.anims) this._loadAnims(m.anims, gen);
+    this._bindAnims(group); // anims may already be loaded (fetch races the GLB)
+    return size;
+  }
+
+  // A plain model entry (kart/character/shared object): one GLB, root-relative to BASE.
+  _loadPlainModel(m, gen) {
+    this.loader.load(BASE + m.file, (gltf) => {
+      if (gen !== this.gen) return; // superseded by a newer selection
+      this._installMain(gltf, false, m.name);
+    });
+  }
+
+  // A course entry: fetch the level envelope, load its track mesh, then attach the
+  // envelope's extras — the "_V" skybox, the CPU drive line (path), the OBJI object
+  // placements, and any texture-SRT animations. mesh.glb / sky paths in the envelope
+  // are root-relative to BASE; the path/objects/anims sidecar JSONs live under levels/.
+  async _loadCourse(m, gen) {
+    let level;
+    try {
+      level = await fetch(BASE + m.file).then(r => r.json());
+    } catch { return; }
+    if (gen !== this.gen || !level || !level.mesh || !level.mesh.glb) return;
+    this.loader.load(BASE + level.mesh.glb, (gltf) => {
+      if (gen !== this.gen) return; // superseded by a newer selection
+      this._installMain(gltf, true, level.name || m.name);
+      if (level.sky) this._loadSkybox(level.sky, gen);
+      if (level.path) this._loadPath('levels/' + level.path, gen);
+      if (level.objectsFile) this._loadObjects('levels/' + level.objectsFile, gen);
+      if (level.anims) this._loadAnims('levels/' + level.anims, gen);
     });
   }
 
@@ -250,7 +302,7 @@ export class ModelViewer {
   async _loadAnims(file, gen) {
     let doc;
     try {
-      doc = await fetch(MODELS + file).then(r => r.json());
+      doc = await fetch(BASE + file).then(r => r.json());
     } catch { return; }
     if (gen !== this.gen || !doc.anims) return;
     this.animDefs = doc.anims;
@@ -290,7 +342,7 @@ export class ModelViewer {
   async _loadObjects(file, gen) {
     let doc;
     try {
-      doc = await fetch(MODELS + file).then(r => r.json());
+      doc = await fetch(BASE + file).then(r => r.json());
     } catch { return; }
     if (gen !== this.gen || !doc.objects) return;
 
@@ -375,7 +427,7 @@ export class ModelViewer {
   // Load the "_V" far model as a camera-locked backdrop: full-bright (unlit) so it
   // reads as sky/scenery, depth-test off so it never occludes the track.
   _loadSkybox(file, gen) {
-    this.loader.load(MODELS + file, (gltf) => {
+    this.loader.load(BASE + file, (gltf) => {
       if (gen !== this.gen) return;
       const sky = gltf.scene;
       sky.traverse(o => {
@@ -407,7 +459,7 @@ export class ModelViewer {
 
   async _loadPath(file, gen) {
     try {
-      const doc = await fetch(MODELS + file).then(r => r.json());
+      const doc = await fetch(BASE + file).then(r => r.json());
       if (gen !== this.gen || !doc.points || doc.points.length < 2) return;
       const pts = doc.points.map(p => new THREE.Vector3(p[0], p[1], p[2]));
       this.curve = new THREE.CatmullRomCurve3(pts, !!doc.loop, 'catmullrom', 0.5);

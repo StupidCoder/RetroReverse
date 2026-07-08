@@ -1,0 +1,10 @@
+{
+ "format": 2,
+ "kind": "mesh3d",
+ "mesh": {
+  "glb": "models/nokonoko_course.glb"
+ },
+ "name": "nokonoko_course (unused)",
+ "objectsFile": "nokonoko_course.objects.json",
+ "path": "nokonoko_course.path.json"
+}

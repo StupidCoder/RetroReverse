@@ -1,0 +1,12 @@
+{
+ "anims": "clock_course.anims.json",
+ "format": 2,
+ "kind": "mesh3d",
+ "mesh": {
+  "glb": "models/clock_course.glb"
+ },
+ "name": "Tick-Tock Clock",
+ "objectsFile": "clock_course.objects.json",
+ "path": "clock_course.path.json",
+ "sky": "models/clock_course_V.glb"
+}

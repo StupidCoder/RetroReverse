@@ -1,0 +1,79 @@
+{
+ "format": 2,
+ "level": "ridge_course",
+ "objects": [
+  {
+   "file": "models/MapObj-itembox.glb",
+   "pos": [
+    127.5,
+    73.45045471191406,
+    -9.375
+   ]
+  },
+  {
+   "file": "models/MapObj-itembox.glb",
+   "pos": [
+    130.9375,
+    74.02629089355469,
+    -9.375
+   ]
+  },
+  {
+   "file": "models/MapObj-itembox.glb",
+   "pos": [
+    134.6875,
+    74.63661193847656,
+    -9.375
+   ]
+  },
+  {
+   "file": "models/MapObj-itembox.glb",
+   "pos": [
+    138.4375,
+    75.24691772460938,
+    -9.375
+   ]
+  },
+  {
+   "file": "models/MapObj-itembox.glb",
+   "pos": [
+    -180.4659881591797,
+    97.9749755859375,
+    95.08908081054688
+   ]
+  },
+  {
+   "file": "models/MapObj-itembox.glb",
+   "pos": [
+    -178.5909881591797,
+    97.96696472167969,
+    97.58908081054688
+   ]
+  },
+  {
+   "file": "models/MapObj-itembox.glb",
+   "pos": [
+    -182.3409881591797,
+    97.98298645019531,
+    92.58908081054688
+   ]
+  },
+  {
+   "file": "models/MapObj-itembox.glb",
+   "pos": [
+    -176.7159881591797,
+    97.95895385742188,
+    100.08908081054688
+   ]
+  }
+ ],
+ "routes": null,
+ "skipped": {
+  "0x008": 1,
+  "0x0C9": 3,
+  "0x195": 3,
+  "0x19A": 6,
+  "0x19C": 4
+ },
+ "space": "glb"
+}

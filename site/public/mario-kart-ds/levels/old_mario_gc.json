@@ -1,0 +1,10 @@
+{
+ "format": 2,
+ "kind": "mesh3d",
+ "mesh": {
+  "glb": "models/old_mario_gc.glb"
+ },
+ "name": "old_mario_gc (unused)",
+ "objectsFile": "old_mario_gc.objects.json",
+ "path": "old_mario_gc.path.json"
+}

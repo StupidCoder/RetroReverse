@@ -1,0 +1,11 @@
+{
+ "format": 2,
+ "kind": "mesh3d",
+ "mesh": {
+  "glb": "models/old_baby_gc.glb"
+ },
+ "name": "GCN Baby Park",
+ "objectsFile": "old_baby_gc.objects.json",
+ "path": "old_baby_gc.path.json",
+ "sky": "models/old_baby_gc_V.glb"
+}

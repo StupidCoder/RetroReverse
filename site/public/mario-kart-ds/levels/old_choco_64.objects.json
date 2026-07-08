@@ -1,0 +1,124 @@
+{
+ "format": 2,
+ "level": "old_choco_64",
+ "objects": [
+  {
+   "file": "models/MapObj-itembox.glb",
+   "pos": [
+    -108.16566467285156,
+    32,
+    108.01469421386719
+   ]
+  },
+  {
+   "file": "models/MapObj-itembox.glb",
+   "pos": [
+    -105.40715026855469,
+    32,
+    108.72889709472656
+   ]
+  },
+  {
+   "file": "models/MapObj-itembox.glb",
+   "pos": [
+    -102.13386535644531,
+    32,
+    106.35313415527344
+   ]
+  },
+  {
+   "file": "models/MapObj-itembox.glb",
+   "pos": [
+    -104.92019653320312,
+    32,
+    105.94219970703125
+   ]
+  },
+  {
+   "file": "models/MapObj-itembox.glb",
+   "pos": [
+    -101.90074157714844,
+    32,
+    103.66336059570312
+   ]
+  },
+  {
+   "file": "models/MapObj-itembox.glb",
+   "pos": [
+    51.168243408203125,
+    33.5625,
+    -107.06678771972656
+   ]
+  },
+  {
+   "file": "models/MapObj-itembox.glb",
+   "pos": [
+    49.550079345703125,
+    33.5625,
+    -101.92111206054688
+   ]
+  },
+  {
+   "file": "models/MapObj-itembox.glb",
+   "pos": [
+    49.644195556640625,
+    33.5625,
+    -109.49632263183594
+   ]
+  },
+  {
+   "file": "models/MapObj-itembox.glb",
+   "pos": [
+    51.23292541503906,
+    33.5625,
+    -104.2528076171875
+   ]
+  },
+  {
+   "file": "models/MapObj-itembox.glb",
+   "pos": [
+    50.518524169921875,
+    36.6875,
+    111.57734680175781
+   ]
+  },
+  {
+   "file": "models/MapObj-itembox.glb",
+   "pos": [
+    47.785491943359375,
+    36.6875,
+    109.56742858886719
+   ]
+  },
+  {
+   "file": "models/MapObj-itembox.glb",
+   "pos": [
+    48.29034423828125,
+    36.6875,
+    106.66026306152344
+   ]
+  },
+  {
+   "file": "models/MapObj-itembox.glb",
+   "pos": [
+    45.80113220214844,
+    36.6875,
+    104.64976501464844
+   ]
+  },
+  {
+   "file": "models/old_choco_64-water_efct.glb",
+   "pos": [
+    128.10568237304688,
+    25,
+    35.049407958984375
+   ]
+  }
+ ],
+ "routes": null,
+ "skipped": {
+  "0x008": 1,
+  "0x1B1": 3
+ },
+ "space": "glb"
+}

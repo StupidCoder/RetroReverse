@@ -1,0 +1,11 @@
+{
+ "format": 2,
+ "kind": "mesh3d",
+ "mesh": {
+  "glb": "models/old_donut_sfc.glb"
+ },
+ "name": "SNES Donut Plains 1",
+ "objectsFile": "old_donut_sfc.objects.json",
+ "path": "old_donut_sfc.path.json",
+ "sky": "models/old_donut_sfc_V.glb"
+}

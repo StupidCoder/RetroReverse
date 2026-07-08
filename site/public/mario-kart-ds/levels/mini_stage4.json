@@ -1,0 +1,11 @@
+{
+ "anims": "mini_stage4.anims.json",
+ "format": 2,
+ "kind": "mesh3d",
+ "mesh": {
+  "glb": "models/mini_stage4.glb"
+ },
+ "name": "mini_stage4",
+ "objectsFile": "mini_stage4.objects.json",
+ "sky": "models/mini_stage4_V.glb"
+}

@@ -1,0 +1,33 @@
+{
+ "format": 2,
+ "level": "wario_course",
+ "objects": [
+  {
+   "file": "models/MapObj-itembox.glb",
+   "pos": [
+    -132.4148406982422,
+    13.679977416992188,
+    36.127777099609375
+   ]
+  },
+  {
+   "file": "models/MapObj-itembox.glb",
+   "pos": [
+    -142.0880584716797,
+    14.765853881835938,
+    30.890579223632812
+   ]
+  },
+  {
+   "file": "models/MapObj-itembox.glb",
+   "pos": [
+    -138.9662628173828,
+    14.207000732421875,
+    41.12510681152344
+   ]
+  }
+ ],
+ "routes": null,
+ "skipped": {},
+ "space": "glb"
+}

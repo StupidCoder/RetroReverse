@@ -1,0 +1,9 @@
+{
+ "format": 2,
+ "kind": "mesh3d",
+ "mesh": {
+  "glb": "models/StaffRoll.glb"
+ },
+ "name": "StaffRoll",
+ "path": "StaffRoll.path.json"
+}

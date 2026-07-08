@@ -1,0 +1,11 @@
+{
+ "format": 2,
+ "kind": "mesh3d",
+ "mesh": {
+  "glb": "models/old_peach_agb.glb"
+ },
+ "name": "GBA Peach Circuit",
+ "objectsFile": "old_peach_agb.objects.json",
+ "path": "old_peach_agb.path.json",
+ "sky": "models/old_peach_agb_V.glb"
+}

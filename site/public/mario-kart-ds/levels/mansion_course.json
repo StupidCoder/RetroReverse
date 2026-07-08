@@ -1,0 +1,12 @@
+{
+ "anims": "mansion_course.anims.json",
+ "format": 2,
+ "kind": "mesh3d",
+ "mesh": {
+  "glb": "models/mansion_course.glb"
+ },
+ "name": "Luigi's Mansion",
+ "objectsFile": "mansion_course.objects.json",
+ "path": "mansion_course.path.json",
+ "sky": "models/mansion_course_V.glb"
+}

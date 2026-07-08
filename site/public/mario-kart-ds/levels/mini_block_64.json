@@ -1,0 +1,10 @@
+{
+ "format": 2,
+ "kind": "mesh3d",
+ "mesh": {
+  "glb": "models/mini_block_64.glb"
+ },
+ "name": "mini_block_64",
+ "objectsFile": "mini_block_64.objects.json",
+ "sky": "models/mini_block_64_V.glb"
+}

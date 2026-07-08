@@ -1,0 +1,12 @@
+{
+ "anims": "desert_course.anims.json",
+ "format": 2,
+ "kind": "mesh3d",
+ "mesh": {
+  "glb": "models/desert_course.glb"
+ },
+ "name": "Desert Hills",
+ "objectsFile": "desert_course.objects.json",
+ "path": "desert_course.path.json",
+ "sky": "models/desert_course_V.glb"
+}

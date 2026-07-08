@@ -1,0 +1,11 @@
+{
+ "format": 2,
+ "kind": "mesh3d",
+ "mesh": {
+  "glb": "models/old_mario_sfc.glb"
+ },
+ "name": "SNES Mario Circuit 1",
+ "objectsFile": "old_mario_sfc.objects.json",
+ "path": "old_mario_sfc.path.json",
+ "sky": "models/old_mario_sfc_V.glb"
+}

@@ -1,0 +1,12 @@
+{
+ "anims": "mario_course.anims.json",
+ "format": 2,
+ "kind": "mesh3d",
+ "mesh": {
+  "glb": "models/mario_course.glb"
+ },
+ "name": "Mario Circuit",
+ "objectsFile": "mario_course.objects.json",
+ "path": "mario_course.path.json",
+ "sky": "models/mario_course_V.glb"
+}

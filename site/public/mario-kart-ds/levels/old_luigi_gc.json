@@ -1,0 +1,12 @@
+{
+ "anims": "old_luigi_gc.anims.json",
+ "format": 2,
+ "kind": "mesh3d",
+ "mesh": {
+  "glb": "models/old_luigi_gc.glb"
+ },
+ "name": "GCN Luigi Circuit",
+ "objectsFile": "old_luigi_gc.objects.json",
+ "path": "old_luigi_gc.path.json",
+ "sky": "models/old_luigi_gc_V.glb"
+}

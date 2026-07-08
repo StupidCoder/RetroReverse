@@ -1,0 +1,12 @@
+{
+ "anims": "donkey_course.anims.json",
+ "format": 2,
+ "kind": "mesh3d",
+ "mesh": {
+  "glb": "models/donkey_course.glb"
+ },
+ "name": "donkey_course (unused)",
+ "objectsFile": "donkey_course.objects.json",
+ "path": "donkey_course.path.json",
+ "sky": "models/donkey_course_V.glb"
+}

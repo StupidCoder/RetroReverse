@@ -1,0 +1,11 @@
+{
+ "format": 2,
+ "kind": "mesh3d",
+ "mesh": {
+  "glb": "models/old_luigi_agb.glb"
+ },
+ "name": "GBA Luigi Circuit",
+ "objectsFile": "old_luigi_agb.objects.json",
+ "path": "old_luigi_agb.path.json",
+ "sky": "models/old_luigi_agb_V.glb"
+}

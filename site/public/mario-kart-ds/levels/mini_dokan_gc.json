@@ -1,0 +1,11 @@
+{
+ "anims": "mini_dokan_gc.anims.json",
+ "format": 2,
+ "kind": "mesh3d",
+ "mesh": {
+  "glb": "models/mini_dokan_gc.glb"
+ },
+ "name": "mini_dokan_gc",
+ "objectsFile": "mini_dokan_gc.objects.json",
+ "sky": "models/mini_dokan_gc_V.glb"
+}

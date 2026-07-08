@@ -1,0 +1,12 @@
+{
+ "anims": "koopa_course.anims.json",
+ "format": 2,
+ "kind": "mesh3d",
+ "mesh": {
+  "glb": "models/koopa_course.glb"
+ },
+ "name": "Bowser Castle",
+ "objectsFile": "koopa_course.objects.json",
+ "path": "koopa_course.path.json",
+ "sky": "models/koopa_course_V.glb"
+}

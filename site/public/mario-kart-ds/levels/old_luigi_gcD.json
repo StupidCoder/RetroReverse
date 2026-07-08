@@ -1,0 +1,12 @@
+{
+ "anims": "old_luigi_gcD.anims.json",
+ "format": 2,
+ "kind": "mesh3d",
+ "mesh": {
+  "glb": "models/old_luigi_gcD.glb"
+ },
+ "name": "GCN Luigi Circuit (multiplayer)",
+ "objectsFile": "old_luigi_gcD.objects.json",
+ "path": "old_luigi_gcD.path.json",
+ "sky": "models/old_luigi_gcD_V.glb"
+}

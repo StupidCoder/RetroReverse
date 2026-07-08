@@ -1539,7 +1539,7 @@ worse — an anti-piracy nudge, not a lock. The controls that feed all of this a
 throttle and brake, steer left and right, and fire.</p>
 `,
   },
-  mariokart: {
+  'mario-kart-ds': {
     loader: `
 <div class="info-eyebrow">Mario Kart DS &middot; Image &amp; Loader</div>
 <p>Mario Kart DS runs from a 32&nbsp;MiB Nintendo&nbsp;DS Game Card. A DS card is not a memory-mapped

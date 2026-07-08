@@ -1,0 +1,12 @@
+{
+ "anims": "bank_course.anims.json",
+ "format": 2,
+ "kind": "mesh3d",
+ "mesh": {
+  "glb": "models/bank_course.glb"
+ },
+ "name": "Yoshi Falls",
+ "objectsFile": "bank_course.objects.json",
+ "path": "bank_course.path.json",
+ "sky": "models/bank_course_V.glb"
+}

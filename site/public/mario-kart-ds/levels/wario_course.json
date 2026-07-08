@@ -1,0 +1,12 @@
+{
+ "anims": "wario_course.anims.json",
+ "format": 2,
+ "kind": "mesh3d",
+ "mesh": {
+  "glb": "models/wario_course.glb"
+ },
+ "name": "wario_course",
+ "objectsFile": "wario_course.objects.json",
+ "path": "wario_course.path.json",
+ "sky": "models/stadium_course_V.glb"
+}

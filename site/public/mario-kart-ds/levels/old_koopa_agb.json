@@ -1,0 +1,12 @@
+{
+ "anims": "old_koopa_agb.anims.json",
+ "format": 2,
+ "kind": "mesh3d",
+ "mesh": {
+  "glb": "models/old_koopa_agb.glb"
+ },
+ "name": "GBA Bowser Castle 2",
+ "objectsFile": "old_koopa_agb.objects.json",
+ "path": "old_koopa_agb.path.json",
+ "sky": "models/old_koopa_agb_V.glb"
+}

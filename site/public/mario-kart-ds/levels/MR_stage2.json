@@ -1,0 +1,10 @@
+{
+ "anims": "MR_stage2.anims.json",
+ "format": 2,
+ "kind": "mesh3d",
+ "mesh": {
+  "glb": "models/MR_stage2.glb"
+ },
+ "name": "MR_stage2",
+ "sky": "models/MR_stage2_V.glb"
+}

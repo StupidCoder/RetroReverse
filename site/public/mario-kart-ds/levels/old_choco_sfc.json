@@ -1,0 +1,11 @@
+{
+ "format": 2,
+ "kind": "mesh3d",
+ "mesh": {
+  "glb": "models/old_choco_sfc.glb"
+ },
+ "name": "SNES Choco Island 2",
+ "objectsFile": "old_choco_sfc.objects.json",
+ "path": "old_choco_sfc.path.json",
+ "sky": "models/old_choco_sfc_V.glb"
+}
