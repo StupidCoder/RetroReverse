@@ -19,9 +19,11 @@ export class InfoCard {
   show({ title, subtitle, body, muted, quote, timeout = 15000 }) {
     this.hide();
     const d = document.createElement('div');
+    // z-index 12 keeps the card above the CRT/LCD screen filter (#screenfx, z-index 10);
+    // at 5 it was hidden behind the filter in the 3-D viewers (the 2-D card already used 12).
     d.style.cssText = 'position:absolute;right:12px;bottom:64px;max-width:min(480px,70%);' +
       'background:rgba(10,13,18,.94);border:1px solid #3a4a5c;border-radius:8px;' +
-      'padding:10px 12px;font:12px/1.55 system-ui;color:#dfe6f0;z-index:5';
+      'padding:10px 12px;font:12px/1.55 system-ui;color:#dfe6f0;z-index:12';
     if (title) {
       const h = document.createElement('div');
       h.style.cssText = 'font-weight:600;margin-bottom:4px;color:#ffd75e';
