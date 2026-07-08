@@ -630,7 +630,7 @@ go run ./cmd/exportkcl
 
 # Part VII — render all 83 SSEQ sequences through the SDAT sequencer+synth to MP3,
 # named from the archive's own SYMB symbols (needs ffmpeg)
-go run ./cmd/musicrender                        # → rendered/music/, copied to site/public/sm64ds/music/
+go run ./cmd/musicrender                        # → work/music/, copied to site/public/sm64ds/music/
 ```
 
 Toolchain (shared `retroreverse.com/tools`, this repository):
@@ -647,4 +647,4 @@ Toolchain (shared `retroreverse.com/tools`, this repository):
 - **`tools/nds/sdat`** — the SDAT sound archive: container/INFO/FAT parse (now also the optional `SYMB` name block, which this game ships), SBNK instruments, SWAR/SWAV waves (PCM8/16, IMA-ADPCM), and the SSEQ sequencer + synth (driver-faithful timing and envelopes) rendering to stereo PCM. Built for [[Mario Kart DS]]; reused here unchanged apart from the `SYMB` reader.
 - **`supermario64ds/extract/cmd/musicrender`** — Part VII: renders every sequence to MP3 (via ffmpeg), named from the `SYMB` symbols, and writes the Studio music panel's `tracks.json`.
 
-Rendered figures will go in `Super Mario 64 DS (DS)/rendered/`; annotated disassembly in `disasm/`.
+Rendered figures will go in `Super Mario 64 DS (DS)/work/`; annotated disassembly in `disasm/`.

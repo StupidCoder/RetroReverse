@@ -780,7 +780,7 @@ machine. The decoder `tools/amiga/iff` parses those chunks, unpacks the BODY,
 de-interleaves the four bitplanes into colour indices and looks them up in the
 CMAP:
 
-![Marble Madness splash screen](rendered/splash.png)
+![Marble Madness splash screen](figures/splash.png)
 
 Decoding it also recovers the on-disk attribution that the screen displays: the
 Amiga conversion is credited to **Larry Reed**, under **© 1984, 1986 Atari Games
@@ -813,12 +813,12 @@ scaled 2× vertically to restore the intended aspect.
 `MarbleMadness!.info` (the icon the player double-clicks, Part II) is a **64×29,
 2-plane** image — the marble: a dark sphere with a white specular highlight.
 
-![MarbleMadness! icon](rendered/icon-marblemadness.png)
+![MarbleMadness! icon](figures/icon-marblemadness.png)
 
 `Disk.info` is the **32×16** disk icon — the familiar white floppy with an orange
 label.
 
-![Disk icon](rendered/icon-disk.png)
+![Disk icon](figures/icon-disk.png)
 
 ## 3. Tile map (`.mlb`)
 
@@ -884,7 +884,7 @@ bakes the true band colours.)
 eight 1-byte rows from `plane[(i>>1)*16 + (i&1) + 2*r]` — even/odd tiles are
 byte-interleaved within 16-byte groups. Tile 0 is the all-black tile.
 
-![Beginner tile set](rendered/beginr.tiles.png)
+![Beginner tile set](figures/beginr.tiles.png)
 
 **Assembling the course.** The **tilemap** at `+0x12` is a row-major stream of
 big-endian tile-index words, **36 tiles (288 px) wide** (the blitter's 72-byte row
@@ -894,11 +894,11 @@ constant and the height varies per course — from Practice's 36×75 up to Ultim
 reproduces the complete course — here Beginner, with its maze start, the cone bumps,
 the spiral **funnel**, and the **GOAL** at the bottom:
 
-![Beginner course](rendered/beginr.png)
+![Beginner course](figures/beginr.png)
 
 [`extract/cmd/sprites`](extract/cmd/sprites) decodes every `.mlb` and writes the
 tile set (`<course>.tiles.png`) and the assembled course (`<course>.png`) to
-[`rendered/`](rendered). The `.mlb` tilemap is only the *visual* surface; the physics
+[`work/`](rendered). The `.mlb` tilemap is only the *visual* surface; the physics
 rolls the marble on a separate height field (Part V §4).
 
 ## 4. Obstacles (`.ilb`)
@@ -966,9 +966,9 @@ is resolved). There are two storage layouts, picked by the type byte:
 
 [`extract/cmd/sprites`](extract/cmd/sprites) branches on the type byte and renders both
 layouts correctly, flow-packing the cells into one sheet per bank in
-[`rendered/`](rendered):
+[`work/`](rendered):
 
-![Silly goal-flag cells — four wave frames](rendered/silly.ilb.png)
+![Silly goal-flag cells — four wave frames](figures/silly.ilb.png)
 
 The moving creatures and the marble live in separate `.vlb` files (16×N×2p type-1
 sprites) that share this container: `marbdat.vlb` holds the rolling-marble frames plus
@@ -1472,7 +1472,7 @@ are the **three slinkies**; the yellow boxes are the **dynamic regions** (drawn 
 keyframe position, not their trigger cell) — every one identified in-game (drawbridge,
 funnels, ice-bowl, the two goal flags), see the table above.
 
-![Beginner course Track layers — slope wireframe + placement objects (cyan) + black-marble/slinky patrols + dynamic regions](rendered/beginr.wire.png)
+![Beginner course Track layers — slope wireframe + placement objects (cyan) + black-marble/slinky patrols + dynamic regions](figures/beginr.wire.png)
 
 The marker positions are the creatures' verified spawn/waypoint positions (from the path
 pointer), drawn on the course; the record's trigger/home cell is *not* drawn here — earlier
@@ -1789,8 +1789,8 @@ clamps the velocity against it. One height map → both the roll and the walls, 
 per-cell terrain codes.
 
 `extract/cmd/regions` replays the `$E158` height generation and plots each course as an
-iso slope-direction map (`rendered/<course>.regions.png`) and a 3-D wireframe of the
-mesh (`rendered/<course>.wire.png` — dimetric, hidden-line, 3× supersampled, Go
+iso slope-direction map (`work/<course>.regions.png`) and a 3-D wireframe of the
+mesh (`work/<course>.wire.png` — dimetric, hidden-line, 3× supersampled, Go
 standard library; **shown with the Track's other layers in Part IV §5**). From the
 records alone the renders reproduce each course feature-for-feature — Beginner's maze
 start, cone bumps, descending platforms and GOAL (Part IV §5); Practice's checkerboard

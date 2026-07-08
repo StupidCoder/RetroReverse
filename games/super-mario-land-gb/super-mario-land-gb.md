@@ -601,7 +601,7 @@ and high bitplane**: pixel *x*'s value is bit `7−x` of the first byte plus bit
 the second byte shifted up one. Tile memory is `$8000`–`$97FF` = **384 tiles** in three
 128-tile blocks. Decoding all of SML's loaded tiles gives its font, HUD and logo:
 
-![SML tile sheet — font, HUD, the SUPER MARIO LAND logo](rendered/title-tiles.png)
+![SML tile sheet — font, HUD, the SUPER MARIO LAND logo](figures/title-tiles.png)
 
 ## 2. Tile addressing and the background maps
 
@@ -618,7 +618,7 @@ Super Mario Land runs with `LCDC = $C3`: background map `$9800`, **signed `$8800
 addressing**, OBJ on. Composing the `$9800` map with that addressing reproduces the
 title screen exactly:
 
-![SML title screen, composed from the $9800 map](rendered/title-bg.png)
+![SML title screen, composed from the $9800 map](figures/title-bg.png)
 
 The **status bar / HUD** (`MARIO×02`, score, `WORLD`, `TIME`, `1-1`) is *not* a
 separate layer — it is the **top rows of the background map** itself. Decoding the
@@ -649,7 +649,7 @@ handler DMA-copies it into OAM through the HRAM routine (Parts II–III). Compos
 scrolled background with the decoded OAM reproduces an in-level frame — World 1-1,
 with Mario and the HUD:
 
-![World 1-1, background + sprites](rendered/level-1-1.png)
+![World 1-1, background + sprites](figures/level-1-1.png)
 
 ## 5. How a level is drawn
 
@@ -725,10 +725,10 @@ table entirely (Part V §1). Decoding World 1‑1's main path (`P1[3..]`) yields
 columns** (15 screens) that match the game's own decoded columns; rendered with the
 world's tiles it is the level start-to-flag:
 
-![Level 1-1 main path, decoded from the ROM](rendered/level-1-1-map.png)
+![Level 1-1 main path, decoded from the ROM](figures/level-1-1-map.png)
 
 `extract/cmd/levelmap -id 11` (… `43`) decodes any of the twelve levels via the master
-lookup and renders it. All four worlds' maps are committed under `rendered/`. Still to
+lookup and renders it. All four worlds' maps are committed under `work/`. Still to
 do: the **bonus rooms** (screens 1 and 2 of each level) — Part V.
 
 ## 7. Animated background tiles
@@ -850,7 +850,7 @@ table (World 1 via `$0D30`/`$05D0`), so the same frame id renders the world's ow
 tile block and `extract/cmd/metasprites` composites the frame table — both show recognizable
 enemies, Mario poses and HUD glyphs:
 
-![World 1 object metasprite frames](rendered/world1-metasprites.png)
+![World 1 object metasprite frames](figures/world1-metasprites.png)
 
 Object **behaviour** is script-driven: the runner `$263F` looks up each object's per-type
 script through the table at **`$3495`** (indexed by type id) and interprets it (`$26AC`).
@@ -862,7 +862,7 @@ This covers all 99 object types (§5) and matches the frames observed by playing
 not the source). `cmd/levelmap -id NN` overlays each placement with its real metasprite, and
 the Studio viewer does the same from a per-world object-icon atlas:
 
-![Level 1-1 with decoded objects](rendered/level-1-1-objects.png)
+![Level 1-1 with decoded objects](figures/level-1-1-objects.png)
 
 ## 3. The object-script language
 
@@ -1108,7 +1108,7 @@ palms, the decorative Birabuto pyramids, Easton's stone statues…) and `$60`–
 `[$60, $F0)`, and `extract/cmd/levelmap -id NN -collision` tints the solid tiles to verify
 it — the decorative pyramids stay clear while the ground and blocks light up:
 
-![1-1 solid tiles tinted](rendered/level-1-1-collision.png)
+![1-1 solid tiles tinted](figures/level-1-1-collision.png)
 
 The Studio viewer exposes this as a **Collision layer** toggle: it fills every solid cell
 (computed from the tile id in the level JSON) semi-transparent red, merging horizontal runs.
@@ -1259,7 +1259,7 @@ The music isn't an "overworld/underground" set — it is chosen **per level** by
 | `$04` | the pipe bonus rooms | `bonus.mp3` |
 
 (Other ids drive the title, level-clear, game-over and ending jingles, triggered outside the
-level table.) The six tracks render under `rendered/music/`; the same player renders the
+level table.) The six tracks render under `work/music/`; the same player renders the
 sound effects from the `$DFE0`/`$DFF0`/`$DFF8` tables.
 
 ---
@@ -1304,7 +1304,7 @@ The full Game Boy toolchain now exists, mirroring the Game Gear set:
   also holds the fixed DMG **graphics decoders** (2bpp tile, `BGP`/`OBP` palettes, tile
   sheet, background-map and full-screen/​sprite composition).
 - **`Super Mario Land (GB)/extract`** — the per-game module. `cmd/render` boots the ROM
-  on the oracle and writes the PNGs used in Part IV (`rendered/title-tiles.png`,
+  on the oracle and writes the PNGs used in Part IV (`figures/title-tiles.png`,
   `title-bg.png`, and, with `-play`, `level-1-1.png`):
 
   ```sh

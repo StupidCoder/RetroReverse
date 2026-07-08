@@ -22,7 +22,8 @@ games/<slug>/                    # one directory per game
     cmd/<tool>/main.go           # one command per tool
     <packages>
   disasm/                        # optional: text disassembly dumps
-  work/                          # dev-only inspection renders (not web assets)
+  figures/                       # images embedded in <slug>.md — tracked
+  work/                          # regenerable dev/debug scratch — .gitignored
 tools/
   cpu/       mos6502 m68k z80 sm83 arm arm60 mips x86
   platform/  psx nds dos gameboy gamegear threedo amiga c64
@@ -52,6 +53,18 @@ extensions (`*.tap *.adf *.nds *.gb *.gg *.bin *.cue *.prg`) are `.gitignored`. 
 is identified by an MD5 pinned in that game's writeup, so a reader can supply the exact
 image themselves. Extracted assets under `site/public/<slug>/` are derived data (our own
 output) and stay tracked.
+
+**Per-game output dirs.** Three distinct roles, kept separate:
+
+- `site/public/<slug>/` — curated web deliverables (the `webexport` output). Tracked.
+- `games/<slug>/figures/` — **only** the images actually embedded in `<slug>.md`
+  (`![...](figures/...)`). Tracked, so the writeup renders on GitHub. Nothing else belongs
+  here — an image that the writeup does not embed is not a figure.
+- `games/<slug>/work/` — regenerable dev/debug scratch (inspection renders, dumps). All of
+  it is `.gitignored`. Anything a tool can re-emit lives here, never in `figures/`.
+
+There is no `rendered/` or `extracted/` dir; regenerable output that no writeup embeds is
+either written to `work/` or not kept at all.
 
 ---
 

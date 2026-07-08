@@ -596,7 +596,7 @@ also occupies `$4000–$6000` during the load, is covered next.
 While the long segments stream in, Elite shows its title picture — the 3-D
 "ELITE" logo and a Cobra Mk III over a starfield:
 
-![Elite loading screen](rendered/loading-screen.png)
+![Elite loading screen](figures/loading-screen.png)
 
 It is a **multicolor bitmap** (160×200 colour pixels), stored **uncompressed**
 and split across three tape segments rather than packed — consistent with the
@@ -831,14 +831,14 @@ its two faces points towards the camera) — as white lines on black. It decodes
 32 of the 33 table entries (one slot is not a model) and writes a montage plus a
 rotating animation per ship:
 
-![All ship models](rendered/ships-montage.png)
+![All ship models](figures/ships-montage.png)
 
 The animations spin each model around its up axis. Four examples — a faceted
 freighter hull, a flat angular hull, a sharp-nosed fighter, and a rounded
 many-faceted station-like hull (identified here only by blueprint type, since
 the in-game names are stored as encrypted text tokens not yet decoded):
 
-| ![type 10](rendered/ships/ship-10.png) | ![type 11](rendered/ships/ship-11.png) | ![type 19](rendered/ships/ship-19.png) | ![type 33](rendered/ships/ship-33.png) |
+| ![type 10](figures/ships/ship-10.png) | ![type 11](figures/ships/ship-11.png) | ![type 19](figures/ships/ship-19.png) | ![type 33](figures/ships/ship-33.png) |
 |:--:|:--:|:--:|:--:|
 | type 10 | type 11 | type 19 | type 33 |
 
@@ -1922,7 +1922,7 @@ go run retroreverse.com/tools/c64/cmd/tapdump Elite.tap
 ( cd extract && go build -o extract . )
 extract/extract -o extracted Elite.tap
 
-# 3. Render the multicolor-bitmap loading screen to rendered/loading-screen.png
+# 3. Render the multicolor-bitmap loading screen to figures/loading-screen.png
 ( cd extract && go run ./cmd/loadingscreen -o ../rendered )
 
 # 4. Render the wireframe ships (rotating animated PNGs + a montage)

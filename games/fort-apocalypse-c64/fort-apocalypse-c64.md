@@ -545,7 +545,7 @@ furniture.
 Chars $5C–$7F ($52E0–$53FF) are **soft characters**: the radar window
 is rendered into them at runtime (§5).
 
-![HUD charset](rendered/charset-hud.png)
+![HUD charset](figures/charset-hud.png)
 
 ### Playfield charset, $5800 (screen rows 7–24, $D018=$16)
 
@@ -566,7 +566,7 @@ Chars $00–$20 are left for
 | $59,$5A     | $8DD3   | reactor gate walls: one randomly solid per life (Part V §8) |
 | $71,$72     | $A904   | missile exhaust rows noise-flickered every frame |
 
-![Playfield charset](rendered/charset-playfield.png)
+![Playfield charset](figures/charset-playfield.png)
 
 (Both charset sheets are rendered in multicolor interpretation:
 00=black, 01=$D022, 10=$D023=white, 11=colour-RAM green. The letter
@@ -597,13 +597,13 @@ The player toggles the rotor bit every frame ($67 bit 0); the enemy
 every 4 frames ($A313). Animation sheet, one row per pose
 (full-left → level → full-right), the two rotor frames side by side:
 
-![Helicopter animation sheet](rendered/sprite-anim-helicopter.png)
+![Helicopter animation sheet](figures/sprite-anim-helicopter.png)
 
 The two bullet sprites are built at runtime ($B0B0) from a 9-byte dot
 pattern at $B0C2 into blocks $20 (pattern twice: angled shots) and
 $21 (once: straight-down shots):
 
-![Bullet sprites](rendered/sprites-bullets.png)
+![Bullet sprites](figures/sprites-bullets.png)
 
 ## 4. The level maps
 
@@ -656,13 +656,13 @@ center over the entry shaft; the four cavern teleport drop points
 **Level 0 — Vaults of Draconis** (surface with FUEL depots and the
 LAND HERE pad, cavern levels below):
 
-![Level 0 map](rendered/map-level0.png)
+![Level 0 map](figures/map-level0.png)
 
 **Level 1 — Crystalline Caves** (the Kralthan fortress: central
 shaft, the fort core chamber, and a large destructible-rock field —
 plus a hidden "PLEXAR WAS HERE" graffito):
 
-![Level 1 map](rendered/map-level1.png)
+![Level 1 map](figures/map-level1.png)
 
 ### Scrolling: brute-force window copy ($A72C)
 

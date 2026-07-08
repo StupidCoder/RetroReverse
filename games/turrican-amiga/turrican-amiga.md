@@ -737,11 +737,11 @@ palette. World 0 has 209 tiles, world 1 has 215, etc.
 sheet — no hard-coded offsets, just the header:
 
 ```sh
-go run turrican/extract/cmd/tiles -world 0 -o rendered/world0_tiles.png Turrican.adf
-# world 0: 209 tiles (32x32x4), palette @ block+$B8 -> rendered/world0_tiles.png
+go run turrican/extract/cmd/tiles -world 0 -o work/world0_tiles.png Turrican.adf
+# world 0: 209 tiles (32x32x4), palette @ block+$B8 -> work/world0_tiles.png
 ```
 
-The five sheets (`rendered/world0_tiles.png` … `world4_tiles.png`) come out as the
+The five sheets (`work/world0_tiles.png` … `world4_tiles.png`) come out as the
 recognisable Turrican worlds — the cave/planet surface, the machine/factory world,
 and so on — confirming the tile format, the palette and the per-world block layout
 end to end.
@@ -766,14 +766,14 @@ first world; other worlds are shaped very differently (world 2 scene 0 is a
 `12×269` vertical shaft). `extract/cmd/map` renders any of them:
 
 ```sh
-go run turrican/extract/cmd/map -world 0 -scene 0 -o rendered/world0_map0.png Turrican.adf
-# world 0 scene 0: 137x51 tiles -> rendered/world0_map0.png
+go run turrican/extract/cmd/map -world 0 -scene 0 -o work/world0_map0.png Turrican.adf
+# world 0 scene 0: 137x51 tiles -> work/world0_map0.png
 ```
 
 The output is the real playfield — world 1's opening with its floating platforms,
 the central waterfall, the red tower and the **"1989"** spelled out in the rock —
 recovered end to end from the disk image through the reimplemented decoder, the
-tile format and this map. The committed `rendered/world*_map*.png` cover every
+tile format and this map. The committed `work/world*_map*.png` cover every
 world.
 
 ## 6. The collision map
@@ -799,7 +799,7 @@ position at 8-pixel granularity (`x/8` column, 48-byte row stride). h-flipped ma
 mirror their 4 columns. Overlaying the decoded shapes on the map, the solid mask hugs
 the terrain surface exactly — sky and the decorative grass tips passable, ground solid:
 
-![World 1 collision over the map](rendered/world0_collision.png)
+![World 1 collision over the map](figures/world0_collision.png)
 
 `extract/scene`'s `TileCollision` reads this off the disk; `webexport` ships it per
 scene (the viewer's **Collision** toggle expands it over the tiles).
@@ -894,7 +894,7 @@ and for **each of the five worlds' scene blocks** (that world's enemies, drawn i
 the world's own palette):
 
 ```sh
-go run turrican/extract/cmd/sprites -o rendered/sprites Turrican.adf
+go run turrican/extract/cmd/sprites -o work/sprites Turrican.adf
 # sprite_04CCA.png        — the spinning weapon (resident, shared)
 # world0_sprite_1E23E.png — world 1's rotating eye, … (14 sprites)
 # world4_sprite_1DE36.png — world 5's red-eyed mech, …
@@ -903,11 +903,11 @@ go run turrican/extract/cmd/sprites -o rendered/sprites Turrican.adf
 `$04CCA` is Turrican's signature **spinning energy weapon** — 32 frames of a full
 rotation, then a three-frame burst:
 
-![Turrican spinning-weapon sprite, all frames](rendered/sprites/sprite_04CCA.png)
+![Turrican spinning-weapon sprite, all frames](figures/sprites/sprite_04CCA.png)
 
 Each world yields its own enemy set (the rotating eyeball, saucers, turrets,
 mechs, …) — 45 sprite sheets across the five worlds plus the five shared resident
-ones, all in `rendered/sprites/`.
+ones, all in `work/sprites/`.
 
 The **player** is *not* in any of these tables (the auto-scan only finds the
 flat-pointer frame tables). He is drawn by a dedicated routine, `$56AC`, inside the
@@ -955,7 +955,7 @@ Each world's scene block carries its own game code in two parts (see
 So the per-world differences are the **enemies and the backdrop**, not new
 mechanics — every world uses the same engine, object system and sound interface
 (code sizes 3.5–8.8 KB). The handlers wire each enemy to a sprite from
-`rendered/sprites/world<N>_sprite_*.png`.
+`work/sprites/world<N>_sprite_*.png`.
 
 ## 5. Enemy placement
 
@@ -983,7 +983,7 @@ world 1's scene-0 objects on the decoded map, drawn with each one's real sprite,
 confirms it — mines and turrets seated on the floating ledges, flyers in the diagonal
 wave-lines across the sky, ground enemies on the terrain:
 
-![World 1 object placements over the map](rendered/world0_placements.png)
+![World 1 object placements over the map](figures/world0_placements.png)
 
 The spawner was *located* with help from the FS-UAE oracle, but every byte of the
 placement data is extracted from the ADF. This same data drives the companion

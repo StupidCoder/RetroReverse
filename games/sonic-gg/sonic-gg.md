@@ -500,9 +500,9 @@ see in play. The two variants compose like this (both rendered statically by `sc
 | wide island | `$D279 ≥ 6` | `(bank $0C,$0000)` | `$6F86` + `$716A` | bg `$0A` / spr `$0B` |
 | zoomed peak | `$D279 < 6` | `(bank $0C,$171A)` | `$6C6D` + `$6DC3` | bg `$0C` / spr `$0D` |
 
-![Wide-angle island map — shown for the early levels ($D279 >= 6)](rendered/worldmap_wide.gg.png)
+![Wide-angle island map — shown for the early levels ($D279 >= 6)](figures/worldmap_wide.gg.png)
 
-![Zoomed mountain-top map — shown for the late levels ($D279 < 6)](rendered/worldmap_zoom.gg.png)
+![Zoomed mountain-top map — shown for the late levels ($D279 < 6)](figures/worldmap_zoom.gg.png)
 
 It is the same island both times: the castle/ruin on the peak of the wide shot is the
 detailed city that fills the zoomed shot. Decoding each from its own tile set and
@@ -665,7 +665,7 @@ So the logo is: an identity background grid revealed column-by-column as Sonic j
 across it, then Sonic landing beside the completed logo. Read back from the oracle's
 VRAM, the finished frame is:
 
-![SEGA logo — the name table the boot code built, column by column](rendered/sega.gg.png)
+![SEGA logo — the name table the boot code built, column by column](figures/sega.gg.png)
 
 ### The title — a stored, compressed map (`$0C20`)
 
@@ -688,7 +688,7 @@ full-screen picture loaded in one shot (the watchpoint attributes those ~768 wri
 `$0502`'s literal and run loops at `$052D`/`$054B`). No per-tile code, no reveal: the
 map was authored offline and compressed into the ROM.
 
-![Sonic title screen — the stored map loaded by $0502, with the blinking prompt](rendered/title.gg.png)
+![Sonic title screen — the stored map loaded by $0502, with the blinking prompt](figures/title.gg.png)
 
 ### `PRESS START BUTTON` — a text overlay (`$0612`)
 
@@ -834,10 +834,10 @@ are off-level storage padding, cropped (no content trimming — legitimate empty
 the width is kept). Expanded through the table above — every byte from ROM — the render
 reproduces the level:
 
-![Green Hills Act 1 — the full level, reconstructed from the ROM block-index map, block tile table and tile graphics](rendered/level_greenhills_act1_overview.png)
+![Green Hills Act 1 — the full level, reconstructed from the ROM block-index map, block tile table and tile graphics](figures/level_greenhills_act1_overview.png)
 
 *(Scaled to fit; the full-resolution 8192×512 render is
-[`rendered/level_greenhills_act1.png`](rendered/level_greenhills_act1.png).)*
+[`work/level_greenhills_act1.png`](work/level_greenhills_act1.png).)*
 
 ### The other two acts of the zone
 
@@ -858,9 +858,9 @@ tile expansion with the shared table and tile set. `cmd/levelmap` renders all th
 acts 2 (a more cave-and-platform layout) and 3 (the short final act) come out as coherent
 Green Hills levels in the identical art:
 
-![Green Hills Act 2 — same tiles and palette, a different map](rendered/level_greenhills_act2_overview.png)
+![Green Hills Act 2 — same tiles and palette, a different map](figures/level_greenhills_act2_overview.png)
 
-![Green Hills Act 3 — the short final act, same art](rendered/level_greenhills_act3_overview.png)
+![Green Hills Act 3 — the short final act, same art](figures/level_greenhills_act3_overview.png)
 
 This is the payoff of the descriptor format: one decode, and every act of the zone (and,
 by the same table, the other zones) is reachable from the ROM alone.
@@ -898,7 +898,7 @@ Each act descriptor is **37 bytes**, reached as `$5600 + word($5600 + act×2)` i
 ### Every zone — and a surprise: the map isn't always 16×256
 
 The same table has 18 entries (6 zones × 3 acts), and `cmd/levelmap` renders them all (to
-`rendered/level_<zone>_act<N>.png`), entirely from ROM. The zones — Green Hills, Bridge,
+`work/level_<zone>_act<N>.png`), entirely from ROM. The zones — Green Hills, Bridge,
 Jungle, Labyrinth, Scrap Brain, Sky Base — each have their own tile set and block table,
 shared by the zone's three acts; the palette is usually shared too, except **Sky Base**,
 whose three acts use the same tile set with three *different* palettes. The validation
@@ -932,7 +932,7 @@ animators** — the twinkling sea waves and clouds) and one `$51` (a **checkpoin
 are rings — the rings are baked into the block map (below). Note the table position is the
 *spawn*, not where an object is seen in play: the engine settles each object on activation
 (Part V §1), and the engine-exact scene is rendered by `cmd/placeshot`
-([`rendered/placement_greenhills1.png`](rendered/placement_greenhills1.png)).
+([`figures/placement_greenhills1.png`](figures/placement_greenhills1.png)).
 
 Each object **type** indexes an 8-byte record at `$2560` — its per-frame **culling
 margins** (the `$2BD8` pre-pass; valid types are `< $57`) — and a behaviour handler
@@ -982,7 +982,7 @@ and the current frame id both selects a sprite-layout (`$5C1B`) and computes a R
 Because the frames stream, the cleanest capture is the **oracle**: boot an act, let the engine
 draw, then read `VRAM $2000` + the SAT + the sprite palette (CRAM 16–31) and compose the real
 sprites. `extract/cmd/spriteprobe` dumps each zone's resident sprite tile sheet
-(`rendered/sprites/`); `extract/cmd/spritecompose` lifts Sonic's spawn frame; and
+(`work/sprites/`); `extract/cmd/spritecompose` lifts Sonic's spawn frame; and
 `extract/cmd/enemyprobe` scrolls Green Hills so enemies activate and crops each one (the crab
 `$08` and beetle `$10` came out clean). Those PNGs are what the level viewer now draws on its
 Objects layer in place of the coloured boxes for Sonic, the crab and the beetle.
@@ -1150,7 +1150,7 @@ stands on the grass, the item box sits on its pillar, and the beetle (whose 16-p
 happens to equal its block's surface offset, `352 = 368 − 16`) doesn't move at all.
 `cmd/placeshot` renders a level strip with everything placed this way for a by-eye check:
 
-![Green Hills Act 1 with engine-placed objects](rendered/placement_greenhills1.png)
+![Green Hills Act 1 with engine-placed objects](figures/placement_greenhills1.png)
 
 This is enough to extract every object's sprite **straight from the ROM**, with no
 emulator. `cmd/spriterip` reads each `$24B2` handler for its layout pointer (the `DE` base
@@ -1656,7 +1656,7 @@ The shape field is 6 bits, but the floor pointer table at `$3E7A` has only **48 
 silhouettes (one column per byte, surface = the signed height, `$80` = no surface) makes the
 vocabulary obvious:
 
-![Collision height profiles](rendered/block_collision_profiles.png)
+![Collision height profiles](figures/block_collision_profiles.png)
 
 Shape `$00` and `$18`–`$26` are empty (non-solid placeholders, marked `-`); `$01`–`$0A` are
 straight slopes of increasing steepness (½, full and double gradients, both directions);

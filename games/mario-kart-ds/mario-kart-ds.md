@@ -468,7 +468,7 @@ $6EC4  4x4 palette words ($2DE0 bytes — exactly half the texel words)
 $9CA4  palette colours   ($4300 bytes = size field $0860 << 3)  → end of block ✓
 ```
 
-With that layout every format-5 texture in the game decodes cleanly — Rainbow Road's rainbow-gradient roadway, Cheep Cheep Beach's palm-jungle skyline, Mario Circuit's trackside billboards (`rendered/course/`).
+With that layout every format-5 texture in the game decodes cleanly — Rainbow Road's rainbow-gradient roadway, Cheep Cheep Beach's palm-jungle skyline, Mario Circuit's trackside billboards (`work/course/`).
 
 ## 5. The 2D tile pipeline: NCLR, NCGR, NSCR
 
@@ -480,7 +480,7 @@ The menus, HUD and every flat screen use the DS's 2D tile engines, and ship in t
 
 Composing screen→tiles→palette reproduces what the 2D engine displays. Two game conventions matter: names suffixed **`_b`** are the background bank and **`_o`**/`.nce` the sprite bank (a screen must pair with `_b` — the composer prefers it); and a scene's screens may sit in the *base* archive while their tiles ship in the **language variants** (`Title.carc` holds `title_m1_EU.NSCR`; the 8bpp title-logo tiles are in `Title_us.carc`…`_it.carc`), so composition merges each language archive with its base — the same join the game performs at load time.
 
-`extract/cmd/renderall` sweeps the whole filesystem through every decoder above and renders **every texture and every screen in the game** into `rendered/` — 1,360 textures (all 45+ course sets and every kart/character model texture), 596 composed screens and 376 tile sheets, zero archives skipped. Among the verified figures: the boot **Nintendo logo**, the **MARIO KART DS title screen**, all 32 **cup-select course previews**, the race HUD and menu backdrops, the full **debug font** (`data/Boot/dbgfont`), and the 32×32 cartridge **banner icon** — Shy Guy in a kart — from the raw `.nbfc`/`.nbfp` pair. (`data/Boot/builddate.bin`, incidentally, dates the build: *"Build: 2005 10/8 (Sat) 23:05:54"*.)
+`extract/cmd/renderall` sweeps the whole filesystem through every decoder above and renders **every texture and every screen in the game** into `work/` — 1,360 textures (all 45+ course sets and every kart/character model texture), 596 composed screens and 376 tile sheets, zero archives skipped. Among the verified figures: the boot **Nintendo logo**, the **MARIO KART DS title screen**, all 32 **cup-select course previews**, the race HUD and menu backdrops, the full **debug font** (`data/Boot/dbgfont`), and the 32×32 cartridge **banner icon** — Shy Guy in a kart — from the raw `.nbfc`/`.nbfp` pair. (`data/Boot/builddate.bin`, incidentally, dates the build: *"Build: 2005 10/8 (Sat) 23:05:54"*.)
 
 ## 6. NSBMD models: nodes, scene bytecode, display lists
 
@@ -492,7 +492,7 @@ An `NSBMD` (`BMD0`, block `MDL0`) is a small named *scene*, not just a mesh, dec
 - a **shape** is `{u16 itemTag, u16 recSize, u32 flags, u32 dlOffset (record-relative), u32 dlSize}` → a raw **display list**: the DS geometry engine's own command stream, four packed command IDs per word. The decoder executes it: `MTX_RESTORE` (joint binding), `COLOR`, `TEXCOORD` (12.4 texel units), and the vertex forms `VTX_16`, `VTX_10`, `VTX_XY/XZ/YZ` (two coords + one kept) and `VTX_DIFF` (10-bit deltas in *raw fx12* units — ±0.125; the scale that, wrong, explodes every character model into spikes). Primitives 0–3 are triangles/quads/tri-strips/quad-strips; a **quad strip's** vertices arrive `v0 v1 v2 v3…` but each quad's spatial cycle is `v0→v1→v3→v2` (the newest pair swaps), so splitting on the wrong diagonal turns every lathed surface — the tires — into bowties;
 - a material whose record is longer than the base `$2C` bytes carries a **texture-SRT matrix**, flagged in the `+$1C` flag word and applied when `TEXIMAGE_PARAM` bits 30–31 select the texcoord-source transform: `+$2C`/`+$30` are fx32 **scaleS/scaleT**. The kart wheels are the textbook case — their 32×32 texture is half tread pattern, half hub face, and the tread strips' texcoords only land on the tread half after the material's `scale(2, 1)`; without it the hub face smears around the tyre.
 
-Verified by rendering (`extract/cmd/rendermodel`, a z-buffered software rasteriser): Mario's **B-Dasher** with the "M" emblem on the hood and gold-hubbed tires, the **Mario menu character** (cap logo, moustache, gloves), Yoshi, Bowser's kart with his emblem on the tail — all 12 characters and all 29 menu karts, `rendered/models/`. Sanity anchor: the shadow model decodes to exactly the 6 quads its header declares.
+Verified by rendering (`extract/cmd/rendermodel`, a z-buffered software rasteriser): Mario's **B-Dasher** with the "M" emblem on the hood and gold-hubbed tires, the **Mario menu character** (cap logo, moustache, gloves), Yoshi, Bowser's kart with his emblem on the tail — all 12 characters and all 29 menu karts, `work/models/`. Sanity anchor: the shadow model decodes to exactly the 6 quads its header declares.
 
 **GLB export.** `nitro.ExportGLB` serialises any decoded model as a standard **binary glTF 2.0** — per-material primitives with positions, normalised UVs and vertex colours, the NSBTX textures embedded as PNGs, GX repeat/flip mapped to glTF sampler wrap modes. `extract/cmd/exportglb -all` emits all 41 menu models plus a `models.json` manifest, and the set is published on the repository's viewer site: **Mario Kart DS is in the Studio** (`site/`, "Nintendo DS" system) with a three.js GLB viewer (`site/src/mariokart/viewer.js`) — orbit controls, nearest-filtered textures, characters and karts selectable per section.
 
@@ -514,7 +514,7 @@ So the segmentation is real, but not LOD-per-segment: the course body is **one m
 Three findings pin the geometry to the world:
 
 - **`POSSCALE`**: course vertices are stored divided by a power-of-two scale (`$40` for Mario Circuit — the fx16 vertex range is only ±8) and the SBC re-applies it (`$0B` between `NODEDESC` and the draws) — implemented in `RunSBC`.
-- **The ×16 world scale**: even after `POSSCALE`, the model spans ±250 units while the course-map data (§V.1) spans ±2,900 — the render model lives at **1/16 of kart-world scale**. Overlaying the two at ×16 puts the CPU drive line exactly on the asphalt (the `rendered/tracks/` figures), which is the proof.
+- **The ×16 world scale**: even after `POSSCALE`, the model spans ±250 units while the course-map data (§V.1) spans ±2,900 — the render model lives at **1/16 of kart-world scale**. Overlaying the two at ×16 puts the CPU drive line exactly on the asphalt (the `work/tracks/` figures), which is the proof.
 - **Textures cross archives**: the course model's textures live in the sibling `<name>Tex.carc` (two `BTX0` sets — the main model's and the `_V` model's), resolved through the model's own material bindings.
 
 And a cartridge archaeology bonus: `data/Course` still contains **unused development courses** — `donkey_course`, `luigi_course`, `nokonoko_course`, `dokan_course`, `test1_course`, `test_circle`, plus `wario_course` (an earlier Wario Stadium with only 3 placed objects) and the `StaffRoll` credits fly-through — all complete with geometry and course maps, all decoded by the same pipeline.
@@ -577,7 +577,7 @@ Everything about a track that is not geometry lives in its **NKM** file (`NKMD`,
 
 How a lap actually works, read straight from the data: the 52 `CPOI` gates are chained by `CPAT` into sections; crossing gates advances your position, the gate with **key ID 0 is the lap line**, and higher key IDs are *key checkpoints* — you must cross them in order for a lap to count, which is exactly the game's shortcut protection. Each checkpoint names the `KTPJ` respawn to use if you fall out inside its stretch. The CPU racers follow `EPOI` — a polyline with a per-point **radius** (how far they may wander from it) and a **drift** hint; item routing uses the parallel `IPOI` line. All three share the section scheme with up to three `next[]` links, and that is how **alternate routes** are encoded: Mario Circuit is one section end-to-end, but Waluigi Pinball's drive line splits into **10 sections** branching around the bumper field, Delfino Square has 6, DK Pass 4.
 
-The `rendered/tracks/` figures (59 courses, `extract/cmd/trackmap`) draw it all in one frame: the course geometry top-down, the CPU line (cyan), item line (yellow), every checkpoint gate (red; key checkpoints gold, the lap line white), respawns (magenta), objects (white) and the start (green). That the drive line sits pixel-on-the-asphalt for every course is the joint verification of the model decoder, the NKM decoder and the ×16 world scale.
+The `work/tracks/` figures (59 courses, `extract/cmd/trackmap`) draw it all in one frame: the course geometry top-down, the CPU line (cyan), item line (yellow), every checkpoint gate (red; key checkpoints gold, the lap line white), respawns (magenta), objects (white) and the start (green). That the drive line sits pixel-on-the-asphalt for every course is the joint verification of the model decoder, the NKM decoder and the ×16 world scale.
 
 ## 2. How the engine spawns the course objects
 
@@ -634,13 +634,13 @@ go run retroreverse.com/tools/cmd/codetracearm -base 0x02380000 -entry 0x0238000
 ( cd extract && go run ./cmd/bootoracle -io "../Mario Kart DS (Europe) (En,Fr,De,Es,It).nds" )
 
 # Part IV — extract the filesystem, then render EVERY texture and 2D screen in the
-# game (rendered/course, rendered/tex, rendered/ui) with one sweep
+# game (work/course, work/tex, work/ui) with one sweep
 ( cd extract && go run ./cmd/ndsextract -fs "../Mario Kart DS (Europe) (En,Fr,De,Es,It).nds" )
 ( cd extract && go run ./cmd/renderall )
 
 # or individually: one texture set / one UI archive
-( cd extract && go run ./cmd/rendertex -o ../rendered/course ../extracted/files/data/Course/beach_courseTex.carc )
-( cd extract && go run ./cmd/render2d  -o ../rendered/ui     ../extracted/files/data/CupPicture )
+( cd extract && go run ./cmd/rendertex -o ../work/course ../extracted/files/data/Course/beach_courseTex.carc )
+( cd extract && go run ./cmd/render2d  -o ../work/ui     ../extracted/files/data/CupPicture )
 
 # 3D models: inspect structure, software-render to PNG, export all 377 to GLB (+manifest + drive-line JSON)
 ( cd extract && go run ./cmd/modeldump   ../extracted/files/data/KartModelMenu/kart/mario/kart_MR_a.nsbmd )
@@ -648,10 +648,10 @@ go run retroreverse.com/tools/cmd/codetracearm -base 0x02380000 -entry 0x0238000
 ( cd extract && go run ./cmd/exportglb -all )   # → extracted/glb/, copied to site/public/mariokart/
 
 # Music: render all 76 SSEQ sequences through the SDAT sequencer+synth to MP3 (needs ffmpeg)
-( cd extract && go run ./cmd/musicrender )      # → rendered/music/, copied to site/public/mariokart/music/
+( cd extract && go run ./cmd/musicrender )      # → work/music/, copied to site/public/mariokart/music/
 
 # Part V — the full track layout: course geometry + NKM overlay (checkpoints, CPU
-# line, item line, spawns, objects) for one course or all of rendered/tracks/
+# line, item line, spawns, objects) for one course or all of work/tracks/
 ( cd extract && go run ./cmd/trackmap ../extracted/files/data/Course/mario_course.carc )
 
 # Part V §2 — the map-object descriptor table ($0216B288): 124 object IDs with their
@@ -672,12 +672,12 @@ Toolchain (all under the `retroreverse.com/tools` module unless noted, this repo
 - **`tools/nds/nitro`** — the NITRO resource decoders. `DecodeNSBTX` turns a `BTX0`/`TEX0` texture set into Go images (resource-dictionary parse, `texImageParam`, all seven texture formats including 4x4-compressed, BGR555, name-matched palettes); `ParseNCLR`/`ParseNCGR`/`ParseNSCR` + `ComposeScreen`/`TileSheet` decode and compose the 2D tile pipeline.
 - **`mariokartds/extract/cmd/rendertex`** — renders every texture in an NSBTX, or in a `.carc`/NARC's `BTX0` blocks, to PNG.
 - **`mariokartds/extract/cmd/render2d`** — composes the NSCR screens of a directory or `.carc` through their NCGR/NCLR (name-paired, `_b` background banks preferred).
-- **`mariokartds/extract/cmd/renderall`** — the whole-filesystem sweep: every texture, every screen (merging language-variant archives with their base), every leftover tile sheet, and the raw `.nbfc`/`.nbfp` banner — regenerates all 2,300+ figures in `rendered/`.
+- **`mariokartds/extract/cmd/renderall`** — the whole-filesystem sweep: every texture, every screen (merging language-variant archives with their base), every leftover tile sheet, and the raw `.nbfc`/`.nbfp` banner — regenerates all 2,300+ figures in `work/`.
 - **`tools/nds/nitro` models** — `ParseNSBMD` (nodes/TRS + pivot rotations, SBC, materials with the authoritative tex↔pal binding, shapes), `RunSBC` (joint matrices → matrix stack → draw list), `DecodeDL` (the GX display-list interpreter: all vertex forms, strips), `ExportGLB` (standard binary glTF 2.0 with embedded PNG textures), `DecodeContainerTextures` (the TEX0 of any NITRO container, incl. BMD0-embedded), and `DecodeNSBTA` (BTA0 texture-SRT animation: per-material scale/rotation/translation tracks, constant or sampled every 4th frame).
 - **`tools/nds/sdat`** — the SDAT sound archive: container/INFO/FAT parse, SBNK instruments, SWAR/SWAV waves (PCM8/16, IMA-ADPCM), and the SSEQ sequencer + synth (driver-faithful timing and envelopes) rendering to stereo PCM.
-- **`mariokartds/extract/cmd/modeldump` / `rendermodel` / `exportglb`** — model structure dump; z-buffered software render to PNG (`rendered/models/`); GLB export of all 377 models (characters, karts, every course scene + skybox + map objects, including the retro tracks) plus each course's `<name>.path.json` drive line and the `models.json` manifest that `site/public/mariokart/` serves. The Studio site (`site/`) carries them under the "Nintendo DS" system (`site/src/mariokart/viewer.js`), one section per track (the track plus its map objects), with camera-locked skyboxes and a drive-the-CPU-line fly-through.
+- **`mariokartds/extract/cmd/modeldump` / `rendermodel` / `exportglb`** — model structure dump; z-buffered software render to PNG (`work/models/`); GLB export of all 377 models (characters, karts, every course scene + skybox + map objects, including the retro tracks) plus each course's `<name>.path.json` drive line and the `models.json` manifest that `site/public/mariokart/` serves. The Studio site (`site/`) carries them under the "Nintendo DS" system (`site/src/mariokart/viewer.js`), one section per track (the track plus its map objects), with camera-locked skyboxes and a drive-the-CPU-line fly-through.
 - **`mariokartds/extract/mkds`** — the game-specific plumbing: `LoadModels`/`LoadTextures` (loose files, NARC-embedded models, the cross-archive `<name>Tex.carc` convention) and `ParseNKM`, the course-map decoder.
-- **`mariokartds/extract/cmd/trackmap`** — the track-layout figure generator (`rendered/tracks/`, 59 courses): top-down course geometry at the ×16 world scale, overlaid with every NKM element.
+- **`mariokartds/extract/cmd/trackmap`** — the track-layout figure generator (`work/tracks/`, 59 courses): top-down course geometry at the ×16 world scale, overlaid with every NKM element.
 - **`mariokartds/extract/cmd/objtable`** — dumps the Part V §2 map-object descriptor table from the ARM9 image: 124 `{id, descriptor, auxFn}` records at `$0216B288`, each with its instance size and the resource names recovered from the callbacks' literal pools.
 
-Rendered figures go in `Mario Kart DS (DS)/rendered/`; annotated disassembly in `disasm/`.
+Rendered figures go in `Mario Kart DS (DS)/work/`; annotated disassembly in `disasm/`.

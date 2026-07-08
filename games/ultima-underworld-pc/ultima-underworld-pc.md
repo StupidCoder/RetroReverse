@@ -417,7 +417,7 @@ The model implements chain-4 addressing, unchained write modes 0 (set/reset + bi
 copies, the VRAM-to-VRAM blit mode) and 2, and read modes 0/1 with latch loading. `Screenshot`
 reconstructs the display the way the CRT does — plane `x&3` at offset `start + y·pitch + x/4`,
 start address and pitch from the CRTC registers — so `bootoracle -shot` now yields **single,
-pixel-perfect frames**: `rendered/oracle-planar-*.png` show the intro cutscene (a chainmail
+pixel-perfect frames**: `work/oracle-planar-*.png` show the intro cutscene (a chainmail
 knight, subtitle *"A score of us gave chase, but it fled into the Stygian Abyss with poor
 Arial."*) and the **main menu** (*Introduction / Create Character / Acknowledgements*), exactly as
 a monitor would show them. Beyond proof, this matters for what comes next: the plane-accurate
@@ -452,7 +452,7 @@ to *play*. UW takes its input two ways, and injection meets each at its own laye
 `lclick`/`rclick` — into a schedule paced against the timer tick. That was enough to walk the whole
 of character creation with mouse clicks (sex, handedness, class, skills, a weapon, a general skill,
 a portrait, difficulty), type the hero's name at the keyboard, confirm, and press through — every
-step verified against UW's own crosshair drawn into the framebuffer (`rendered/cc-*.png`).
+step verified against UW's own crosshair drawn into the framebuffer (`work/cc-*.png`).
 
 **The divide-error gate.** Confirming the character launches the intro and world setup, where the
 core stopped on a *divide overflow* at `07F7:4DCA` — `IDIV DI` computing `([1612] << 15) / DI` with
@@ -461,7 +461,7 @@ bug: UW's fixed-point renderer installs its **own #DE handler** (IVT[0] → `589
 `07F7:5BD1`, inside the same overlay) and deliberately lets such divides overflow so the handler can
 *saturate* the result — the classic texture-mapper trick. The core was halting instead of vectoring
 the exception, so `divOp` now raises `#DE` through IVT[0] (`divErr`), exactly as an 8086 does. With
-that, the game runs its own handler and drops into the **dungeon**: `rendered/dungeon.png` is the
+that, the game runs its own handler and drops into the **dungeon**: `work/dungeon.png` is the
 first-person, texture-mapped view of the Stygian Abyss — a stone corridor drawn by UW's engine on
 our CPU, with the character HUD beside it. (The peripheral status panels still show some noise; the
 central 3D viewport is correct. Pixel-exact UI is a Part V refinement.)
@@ -483,7 +483,7 @@ instruction **ring buffer** printed on stop, and spin/runaway detectors.
 
 Static decode, no oracle required: the palettes (`PALS.DAT`/`ALLPALS.DAT`), the `.GR` image
 banks, the `.TR` textures, the `.BYT` full-screen images, the `FONT*.SYS` fonts, and
-`STRINGS.PAK`. Each will be reimplemented in the game's `extract` module and rendered to `rendered/`.
+`STRINGS.PAK`. Each will be reimplemented in the game's `extract` module and rendered to `work/`.
 
 # Part V — The world and the 3D renderer
 
@@ -641,8 +641,8 @@ per-subregion height table at `038F`.
 
 **Textures** are per-level 6-bit indices into the level's texture list (a separate block, not yet
 decoded). Reimplemented in Go (`extract/lev`, `cmd/levinfo`) and **verified by rendering twice**:
-the tile-type map (`rendered/level1-map.png`) reproduces a coherent Level 1 with the unmistakable
-**ankh room**, and colouring each tile by its texture index (`rendered/level1-tex.png`) yields
+the tile-type map (`work/level1-map.png`) reproduces a coherent Level 1 with the unmistakable
+**ankh room**, and colouring each tile by its texture index (`work/level1-tex.png`) yields
 coherent regions — rooms share a wall colour, and the ankh is drawn in its own floor texture,
 exactly as the game renders it. Both are the proof the fields are right. Each of the 329 non-empty
 tiles also carries an object-list head, the bridge into the object/item system (still to decode).
@@ -719,7 +719,7 @@ rebuilt as a **textured 3D mesh** — reimplemented in Go and hooked into the St
   `cmd/levexport` groups the mesh by material and writes a self-contained JSON
   (positions, UVs, groups, and each texture as a data-URI PNG); `cmd/levrender` is a Go software
   renderer that verified the result is a coherent dungeon before any browser was involved
-  (`rendered/level1-3d.png` — Level 1 with its rooms, water channels and the ankh room, in 3D).
+  (`work/level1-3d.png` — Level 1 with its rooms, water channels and the ankh room, in 3D).
 - **Viewer.** `site/src/uw/viewer.js` loads that JSON into a three.js `BufferGeometry` with one
   textured material per group (nearest-filtered) and a fly-camera; all eight levels are
   registered in the Studio under a new **MS-DOS** system. The game world is `(X=east, Y=north, Z=up)`;
@@ -971,7 +971,7 @@ Inside `1FF9`, the object/sprite geometry it also feeds (the static per-type til
 diagonals and true heights — are now emitted); the exact per-height display units `1FF9` scales the
 0-15 field into (the 0.5 X:Z ratio is proven, the absolute per-height factor is not yet byte-exact).
 The object lists the tile heads point into. The render *entry* is a callback of the `2252:0410` IRQ0 timer table; the
-peripheral-panel noise in `rendered/dungeon.png` should resolve as the HUD draw path (a separate
+peripheral-panel noise in `work/dungeon.png` should resolve as the HUD draw path (a separate
 `01A0` consumer) is mapped.
 
 One capability gap worth recording: **avatar movement** can't yet be injected. The scripted
