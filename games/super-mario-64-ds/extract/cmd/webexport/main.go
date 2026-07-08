@@ -1,5 +1,5 @@
 // webexport runs the whole Super Mario 64 DS extraction from the raw cartridge
-// and writes the Studio's common format-2 asset tree (site/FORMAT2.md) under one
+// and writes the Studio's common format-2 asset tree (FORMAT2.md) under one
 // output root. It replaces the manual 6-tool pipeline (ndsextract, actororacle,
 // exportbmd, exportkcl, exportlevelobjs, musicrender): it stages the filesystem
 // + decompressed binaries in a temp dir, renders the SDAT music, runs the

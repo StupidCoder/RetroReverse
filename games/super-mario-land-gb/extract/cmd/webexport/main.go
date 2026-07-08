@@ -1,5 +1,5 @@
 // webexport serializes the decoded Super Mario Land assets for the static web viewer as
-// the common format-2 asset tree (see STANDARDS.md / site/FORMAT2.md). Everything is
+// the common format-2 asset tree (see STANDARDS.md / FORMAT2.md). Everything is
 // reconstructed from the cartridge by the same decode path as cmd/levelmap, then written
 // under the output root:
 //
@@ -36,7 +36,7 @@ const (
 	nTile = 256
 )
 
-// Manifest is the format-2 per-game index (site/FORMAT2.md).
+// Manifest is the format-2 per-game index (FORMAT2.md).
 type Manifest struct {
 	Format   int            `json:"format"`
 	Game     string         `json:"game"`

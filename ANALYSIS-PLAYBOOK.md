@@ -2,9 +2,21 @@
 
 A field guide to the methods used across the games in this repository, written so
 that a future session (human or AI) can start a new project with a plan instead
-of a blank page. It distils what actually worked on two C64 tape games (Elite,
-Fort Apocalypse) and one Amiga disk game (Marble Madness), and generalises the
-moves that transfer to an unknown medium and unknown formats.
+of a blank page. It distils what worked across the collection — C64 tape (Elite,
+Fort Apocalypse), Amiga disk (Marble Madness, Turrican, Stunt Car Racer),
+cartridge ROM (Sonic on Game Gear, Super Mario Land on Game Boy, Super Mario 64 DS
+and Mario Kart DS on the DS), optical disc (Ridge Racer on PlayStation, Need for
+Speed on 3DO), and a DOS x86 executable (Ultima Underworld) — and generalises the
+moves that transfer to an unknown medium and unknown formats. §2 and §3 walk the
+two media worked in most depth (tape, disk); the cross-cutting sections §4–§7
+carry the transferable technique, and the per-game writeups hold the specifics.
+
+This document is the *methodology*. The repository's *structure* — the tool
+layout, the CPU/oracle/extract command flags, the extracted-asset formats, and the
+writeup style — is specified separately in [`STANDARDS.md`](STANDARDS.md); the
+data interchange format the extractors produce and the viewer consumes is in
+[`FORMAT2.md`](FORMAT2.md). Where this guide names a path or a tool it follows
+those; when they disagree, they win.
 
 The house rule for all of it: **static analysis first.** No third-party
 emulator, debugger, or disassembler; no looking up released source or other RE
@@ -18,9 +30,9 @@ data.
 
 ## 0. The shape every project converges on
 
-Both platforms produced the same five-part arc. When you start a new game, this
-is your default table of contents — fill it top to bottom, because each part
-unlocks the next:
+Every game, regardless of medium, converges on the same arc. When you start a new
+game, this is your default table of contents — fill it top to bottom, because each
+part unlocks the next:
 
 | Part | Question | C64 (tape) | Amiga (disk) |
 |------|----------|------------|--------------|
@@ -29,20 +41,44 @@ unlocks the next:
 | **III — Program architecture** | How does the loaded game decrypt/relocate/initialise itself? | decrypt+relocate, hardware init, IRQ architecture, memory map | multi-stage decrypt, the decryptor, copy protection, static limits |
 | **IV — Graphics & data** | What are the asset formats? | charsets, sprites, bitmaps, maps, compression | IFF ILBM, icons, custom sprite banks, level/sound modules |
 | **V — Game mechanics** | How do the objects behave? | object tables, movement/AI, collisions, scoring | object/actor structs, movement/physics, state machines, collisions, scoring |
+| **VI — Sound & music** | How is audio produced? | SID register writes, SFX player, music sequencer/bytecode | Paula sample channels, mod/sequencer playback |
 
 The cells name the *medium-typical* form each part tends to take — not a fixed
-checklist, and not the specifics of any one game (those live in the per-game writeups,
-§2–§3). Write it up *as you go*, with byte examples and assembly snippets. The writeup
-is the deliverable; the tools are how you earn it.
+checklist, and not the specifics of any one game (those live in the per-game
+writeups). This is also the canonical Part numbering the writeups use (see
+STANDARDS §5); games subdivide a Part (separate model / level / collision /
+message formats) but keep the order and number sequentially.
+
+**Only Parts I–II change shape with the medium; III–VI are largely medium-neutral.**
+The two media worked in most depth are tape (§2) and disk (§3); the others slot the
+same way, differing mainly in how Part I frames the image and Part II reaches the
+entry point:
+
+- **Cartridge ROM** (Game Gear, Game Boy, DS) — Part I is a memory-mapped ROM with a
+  header and bank scheme (GG/GB mapper registers; DS `FNT`/`FAT` + overlays), read
+  directly rather than decoded from a signal. Part II is the on-cart boot/reset
+  vector into the engine; there is no filesystem-loader stage to reverse.
+- **Optical disc** (PlayStation, 3DO) — Part I parses the disc image (ISO/OperaFS
+  directory) and the platform executable (PSX-EXE, 3DO AIF); Part II is the BIOS/OS
+  hand-off (self-relocation, BSS, entry) that a boot oracle drives (§6).
+- **DOS x86 executable** (Ultima Underworld) — Part I is the MZ image and the
+  real-mode memory/segment map; Part II is DOS/BIOS service emulation (INT 10h/21h/
+  33h) up to the game's own entry.
+
+Write it up *as you go*, with byte examples and assembly snippets. The writeup is
+the deliverable; the tools are how you earn it.
 
 ---
 
 ## 1. The reusable toolkit
 
 Everything is one Go workspace (`go.work`) over a shared `tools` module plus a
-per-game `extract/` module. Platform-neutral tools sit in `tools/`; per-platform
-ones in `tools/<platform>/`. The investment that paid off most was a **CPU core
-you can both disassemble with and execute**, per instruction-set:
+per-game `extract/` module. The shared tools are grouped by role: CPU cores in
+`tools/cpu/<arch>/`, platform machines and their format/codec libraries in
+`tools/platform/<platform>/`, the disassembler/tracer command binaries in
+`tools/cmd/`, and genuinely cross-platform helpers in `tools/lib/` (see STANDARDS
+§1 for the full layout). The investment that paid off most was a **CPU core you
+can both disassemble with and execute**, per instruction-set:
 
 - **Disassemblers, two flavours each — both still earn their keep.** A *linear*
   sweep (`dis6502`, `dis68k`) and a *recursive-descent* tracer (`codetrace6502`,
@@ -55,24 +91,33 @@ you can both disassemble with and execute**, per instruction-set:
   computed/indirect jumps (a `JMP (pc,Dn)` dispatch, self-modified vectors). Rather
   than hunting for an entry point to feed the tracer, just linearly disassemble that
   byte range; the two are complements, not a hierarchy.
-- **An executable CPU core** (`tools/mos6502`, `tools/m68k`). This is the secret
+- **An executable CPU core** (`tools/cpu/mos6502`, `tools/cpu/m68k`, and one per
+  instruction-set: `z80`, `sm83`, `arm`, `arm60`, `mips`, `x86`). This is the secret
   weapon. When a loader's bit-framing or a decryptor's key schedule is painful to
   reverse purely on paper, *run it* on your own core with the real input and
   watch what it produces. It is also how you validate a reimplementation
   bit-for-bit. Expect to implement instructions lazily — add them when the target
   code first hits them (Marble Madness needed EXG, the bit ops, NOT/NEG/NEGX
-  added to the 68k core mid-project; each came with a unit test).
-- **Container/format readers** per platform: `tools/c64/{tap,cbmtape}`,
-  `tools/amiga/{adf,hunk,iff,icon}`. Each is a library plus a `cmd/` front-end
-  (`tapdump`, `adfdump`, `hunkload`, `amigapng`).
-- **Graphics** (`tools/c64/gfx`): palettes, char/sprite/bitmap rendering, PNG and
-  APNG output. Rendering an asset is how you *prove* you decoded it.
+  added to the 68k core mid-project; each came with a unit test). Where a published
+  per-instruction conformance suite exists, gate the core on it (SingleStepTests for
+  6502, 8088/x86, and MIPS, run only when the test data is present); cores without a
+  suite keep hand-written assembled-loop tests. STANDARDS §2 lists the current state.
+- **Container/format readers** per platform: `tools/platform/c64/{tap,cbmtape}`,
+  `tools/platform/amiga/{adf,hunk,iff,icon}`. Each is a library plus a `cmd/`
+  front-end (`tapdump`, `adfdump`, `hunkload`, `amigapng`).
+- **Graphics** (`tools/platform/c64/gfx`): palettes, char/sprite/bitmap rendering,
+  PNG and APNG output. Rendering an asset is how you *prove* you decoded it.
 
 Principle: **make each finding reproducible from the raw image with one
-command.** Git-ignore the regenerable or copyrighted intermediates (`extracted/`,
-compiled binaries, the ROM/ADF images themselves); but **do commit** the render
-outputs the writeup embeds (`rendered/`) — they are figures *in* the documentation,
-reproducible yet part of the deliverable.
+command.** Each game separates three output roles (STANDARDS §1): the raw
+ROM/disk image and any regenerable scratch are **not** committed — the image lives
+in `games/<slug>/image/` and is `.gitignored` for copyright, dev/debug renders and
+dumps go to `games/<slug>/work/` (also `.gitignored`); the curated web deliverables
+the `webexport` tool produces are committed under `site/public/<slug>/`; and the
+handful of images a writeup actually embeds are committed under
+`games/<slug>/figures/` — *only* those, nothing a writeup does not reference. There
+is no `rendered/` or `extracted/` dir. The rule of thumb: if a tool can re-emit it
+and no writeup shows it, it belongs in `work/`, not in git.
 
 ---
 
@@ -103,7 +148,7 @@ The whole of Part I is turning pulses back into program.
    pin on paper, run the disassembled loader on the 6502 core with the real pulse
    stream as input and capture what it writes to memory. This is faster and more
    certain than arguing about edge cases, and the C64 machine model
-   (`tools/c64/c64`) exists precisely to run hostile loaders.
+   (`tools/platform/c64/c64`) exists precisely to run hostile loaders.
 5. **Extract the segments → `.prg` files.** Now you have the program in memory
    images. Map the multi-stage chain (each stage often loads the next, sometimes
    with a different encoding or under an IRQ).
@@ -217,6 +262,16 @@ for on any unknown format:
   tracing `level-id → $0470 index → $0D64 bank → $4000[idx]` gave the real one. The
   only time data is found heuristically is when *the game itself* does so (rare);
   otherwise heuristic offset-hunting is a smell that you skipped the lookup.
+- **Climb the write-profiler up the pipeline.** When you want the *producer* of a
+  value — who filled this buffer, who built this table, who wrote this VGA latch —
+  don't reason about it, measure it: profile "which PC wrote address X" (Ultima
+  Underworld's DOS oracle has `-vgaprof`/`-profrange` for exactly this), then treat
+  that writer's *inputs* as the next X and profile again, climbing the call stack
+  one producer at a time until you reach the source data or a literal table. This
+  measures the pipeline instead of guessing it, and it catches the case that defeats
+  static reading: a **self-modifying patcher** whose output byte was written by code
+  that itself was written moments earlier — a write-profile sees the real writer, a
+  disassembly sees stale bytes.
 - **Round-trip verification.** You haven't decoded something until you've
   re-emitted it and checked: relocations apply cleanly, checksums hold, the image
   renders to a recognisable picture, the extractor's output matches a golden
@@ -310,9 +365,23 @@ time each would have saved:
 
 ---
 
-## 6. When static analysis legitimately stops — and what then
+## 6. The executable machine — and when static analysis legitimately stops
 
-Some state is simply not on the medium: it is produced by the booted machine.
+A self-built machine is no longer an emergency measure; for every ROM/disc/DOS
+platform it is a **standard, first-class deliverable** — a machine model plus a CPU
+core, driven by a per-game `bootoracle` (STANDARDS §3). These boot the real image
+all the way through the interesting part: the PlayStation core boots Ridge Racer to
+its CD-wait loop and renders the attract demo, the 3DO ARM60 machine runs Need for
+Speed's `LaunchMe` through self-relocation/BSS into its entry, the DS `dsmachine`
+runs both ARM cores, the Game Boy core boots Super Mario Land, and Ultima
+Underworld's DOS machine boots into the texture-mapped dungeon. The clean-room
+discipline is what keeps even a full boot honest: the oracle is a **guide and a
+verifier**, never the data — you read the structure out of the code and reimplement
+the decode in Go, using the running machine to confirm it and to supply only what is
+provably not on the medium.
+
+That last clause is the narrow case this section is really about. Some state is
+simply not on the medium: it is produced by the booted machine.
 Marble Madness binds its decryption key to the host **Kickstart ROM** exception-
 vector pages *and* the running process's `tc_ExceptCode`/`tc_TrapCode` handler
 fields — values that exist only once AmigaDOS has constructed the process. No
@@ -325,9 +394,9 @@ The escalation ladder, in order of preference:
 2. **Known-plaintext / linear-algebra** against the cipher to recover as much key
    as the structure pins down (got the header and first segments; stalled where
    too few reliable equations met too many unknowns).
-3. **A self-built debugger, as a last resort, to capture *only* the irreducible
-   runtime bytes.** For Marble Madness that meant building a headless FS-UAE with
-   a GDB stub (`tools/amiga/fsuae-debug/`), booting a real Kickstart, and reading
+3. **A self-built debugger to capture *only* the irreducible runtime bytes.** For
+   Marble Madness that meant building a headless FS-UAE with a GDB stub
+   (`tools/platform/amiga/fsuae-debug/`), booting a real Kickstart, and reading
    ~25 bytes of OS state at decode time — then baking those constants into the Go
    decoder. The algorithm stays reimplemented in Go; the emulator supplies and
    verifies a handful of bytes, nothing more.
@@ -338,6 +407,20 @@ live (CLI commands run in-process, so `FindTask(0)` is the right task). Keep the
 debugger itself honest — a working continue/breakpoint/step loop is worth the
 effort to fix, because it turns a one-shot guess into repeatable measurement.
 
+**Drive the oracle, don't just watch it.** Some state only exists after the player
+acts — a menu selection, a name typed at character creation, the first frame of
+gameplay. Rather than reconstruct that state by hand, make the oracle **play the
+game**: feed it a `-keys` input script and inject the events through the platform's
+*own* input path. Ultima Underworld's oracle walks the entire character-creation
+flow, types the character's name, and "Journeys Onward" into the first-person
+dungeon by pushing key events into the game's own INT 9 keyboard ring buffer
+(phase-offset from the timer tick so the game's interrupt-flag logic accepts them)
+and mouse events through INT 33h (scale and corner-homing pinned from the game's own
+cursor arithmetic). Injecting through the game's real input mechanism — not a
+synthetic poke of the resulting variable — is what keeps it clean-room: the game
+computes its own consequences, and the oracle only supplies the keystrokes a player
+would.
+
 ---
 
 ## 7. A starting checklist for a new, unknown image
@@ -345,8 +428,10 @@ effort to fix, because it turns a one-shot guess into repeatable measurement.
 1. `file`/`hexdump` the image; measure size; compute an entropy profile across
    it (flat high-entropy regions = packed/encrypted; structured low-entropy =
    headers/tables/code).
-2. Identify the **container**: is it a signal stream (tape pulses), a sector dump
-   (disk), a cartridge ROM, or a raw program? Build/borrow the container reader.
+2. Identify the **container**: a signal stream (tape pulses), a sector dump with a
+   filesystem (disk), a cartridge ROM (bank/header scheme), an optical-disc image
+   (ISO/OperaFS + a platform executable), a DOS MZ program, or a raw dump? Build or
+   reuse the container reader.
 3. Find the **first code that runs** (autostart vector, boot block, reset
    vector) and disassemble outward from it with recursive descent.
 4. Map the **load chain** — what each stage reads, decodes, and hands to the
@@ -362,6 +447,8 @@ effort to fix, because it turns a one-shot guess into repeatable measurement.
    backward to its inputs and forward to its data source; anchor every claim to an
    instruction + address; decode one concrete instance's data to check the story; and
    don't assume one proven path covers every case.
-9. Write each part up with byte/asm examples as you confirm it. Keep raw images
-   and copyrighted ROMs out of git; keep every result one command from
-   reproducible.
+9. Write each part up with byte/asm examples as you confirm it, in the neutral
+   technical-manual voice the writeups use (STANDARDS §5). Keep raw images and
+   copyrighted ROMs out of git (`games/<slug>/image/`); commit only the web
+   deliverables (`site/public/<slug>/`) and the figures the writeup embeds
+   (`games/<slug>/figures/`); keep every result one command from reproducible.

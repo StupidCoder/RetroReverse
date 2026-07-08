@@ -177,8 +177,8 @@ site/public/<slug>/
 
 ### 4.3 Level format 2
 
-A single superset envelope; `kind` selects the body. See `site/FORMAT2.md` for the full
-field-by-field spec (supersedes the earlier format-1 spec, now folded into `site/FORMAT2.md`).
+A single superset envelope; `kind` selects the body. See `FORMAT2.md` for the full
+field-by-field spec (supersedes the earlier format-1 spec, now folded into `FORMAT2.md`).
 
 ```jsonc
 { "format": 2, "name": "...", "kind": "tilemap2d" | "mesh3d",
@@ -226,7 +226,7 @@ A 3-D object is rendered by the shared object layer (`site/src/shared/renderers.
 (`AdditiveBlending`, for translucent bodies). Separately, a level **GLB** may mark a material
 single-sided (glTF `doubleSided:false`) so three.js back-face culls it — emitted by
 `tools/lib/glb` `WriteTrianglesMat` via `TriGroup.SingleSided` (default double-sided), used for
-ceilings and other one-way geometry. See `site/FORMAT2.md` for the full sprite-spec fields.
+ceilings and other one-way geometry. See `FORMAT2.md` for the full sprite-spec fields.
 
 ---
 

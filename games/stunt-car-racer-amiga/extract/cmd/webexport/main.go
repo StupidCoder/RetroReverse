@@ -1,5 +1,5 @@
 // webexport reconstructs Stunt Car Racer's web assets from the decoded game binary
-// and writes the common format-2 asset tree (see site/FORMAT2.md / STANDARDS.md §4)
+// and writes the common format-2 asset tree (see FORMAT2.md / STANDARDS.md §4)
 // under the output root:
 //
 //	manifest.json               game index: native res, tick rate, circuit view list

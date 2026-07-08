@@ -31,7 +31,7 @@ const (
 const amigaViewW, amigaViewH = 320, 256
 
 // hflipMask re-encodes the map's flip convention (raw byte >= ntiles = tile-128, h-flipped)
-// as an explicit cell flag bit per the common format (site/FORMAT2.md).
+// as an explicit cell flag bit per the common format (FORMAT2.md).
 const hflipMask = 0x8000
 
 type point struct {

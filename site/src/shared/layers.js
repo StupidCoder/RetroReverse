@@ -1,6 +1,6 @@
 // Overlay layers for the shared 2-D level viewer: collision geometry, object
 // placements (sprites with anchors/tints, marker fallbacks, the player spawn) and
-// randomized object pools. See site/FORMAT2.md.
+// randomized object pools. See FORMAT2.md.
 
 import { Container, Graphics, Sprite, Text } from 'pixi.js';
 import { cellTile } from './tilemap.js';
@@ -164,7 +164,7 @@ function placeSprite(layer, rec, x, y, tint) {
 // Build the object layer: fixed placements + spawn. Returns { container, animObjs,
 // pathObjs } — the anim/path records feed the shared AnimRunner (M3+). When a `picks`
 // array is supplied, each placement (and the spawn, keyed "player") registers a
-// clickable node for the viewer's info-card raycast (site/FORMAT2.md `objectInfo`).
+// clickable node for the viewer's info-card raycast (FORMAT2.md `objectInfo`).
 export async function buildObjects(level, data, { markerCat = () => 'default', picks } = {}) {
   const container = new Container();
   const animObjs = [], pathObjs = [];
@@ -205,7 +205,7 @@ export async function buildObjects(level, data, { markerCat = () => 'default', p
 // random variant of tile stamps and/or a sprite. Rebuilt every time the objects
 // layer is switched on. `stampTex(tileId)` supplies the tile textures. When a `picks`
 // array is supplied, each placement group registers a clickable node keyed by the
-// pool's `name` for the viewer's info-card raycast (site/FORMAT2.md `objectInfo`).
+// pool's `name` for the viewer's info-card raycast (FORMAT2.md `objectInfo`).
 // Returns { container, patrols } — the patrol records feed AnimRunner.patrols.
 export async function buildPools(level, data, { random = Math.random, stampTex, picks } = {}) {
   const container = new Container();

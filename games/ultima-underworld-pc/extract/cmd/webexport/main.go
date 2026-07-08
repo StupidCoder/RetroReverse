@@ -1,5 +1,5 @@
 // webexport reconstructs Ultima Underworld's web assets from the installed game
-// directory and writes the common format-2 asset tree (see site/FORMAT2.md /
+// directory and writes the common format-2 asset tree (see FORMAT2.md /
 // STANDARDS.md §4) under the output root:
 //
 //	manifest.json                      game index: native res, tick rate, level list
@@ -57,7 +57,7 @@ type LevelIndex struct {
 	Objects string `json:"objects"`
 }
 
-// LevelFile is the format-2 mesh3d level envelope (site/FORMAT2.md).
+// LevelFile is the format-2 mesh3d level envelope (FORMAT2.md).
 type LevelFile struct {
 	Format      int       `json:"format"`
 	Name        string    `json:"name"`
@@ -109,7 +109,7 @@ type FObject struct {
 	Props  *FProps    `json:"props,omitempty"`
 }
 
-// FSprite is the first-class directional-billboard sprite spec (site/FORMAT2.md
+// FSprite is the first-class directional-billboard sprite spec (FORMAT2.md
 // §"3-D object rendering"). frames are atlas pixel rects [x,y,w,h], laid out as
 // `views` blocks of `perView` frames.
 type FSprite struct {

@@ -1,5 +1,5 @@
-// Data loading for the shared 2-D level viewer: the manifest (format 2, site/FORMAT2.md)
-// or legacy meta.json (format 1, site/FORMAT2.md), level files, the sprite index and image
+// Data loading for the shared 2-D level viewer: the manifest (format 2, FORMAT2.md)
+// or legacy meta.json (format 1, FORMAT2.md), level files, the sprite index and image
 // assets. Format-2 tilemap2d levels keep grid/objects/collision at the top level, so the
 // viewer consumes them unchanged; only the index file differs.
 

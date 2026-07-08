@@ -1,5 +1,5 @@
 // The shared tilemap renderer: one Pixi Sprite per map cell, textures shared so Pixi
-// batches them. Two texture strategies, per site/FORMAT2.md:
+// batches them. Two texture strategies, per FORMAT2.md:
 //
 //  - "sliced": each cell's texture is a rect of the atlas image (static tiles —
 //    Turrican, SML, Marble). Supports a 1px extruded atlas gutter and per-cell

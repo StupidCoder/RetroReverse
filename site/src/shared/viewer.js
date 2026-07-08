@@ -1,4 +1,4 @@
-// The shared 2-D level viewer: consumes the common format (site/FORMAT2.md) and
+// The shared 2-D level viewer: consumes the common format (FORMAT2.md) and
 // composes the shared pieces — MapCamera, Tilemap, overlay layers, AnimRunner.
 // Per-game differences live in a small config (site/src/<game>/config.js):
 //

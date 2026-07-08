@@ -50,6 +50,8 @@ RetroReverse/
 ├── go.work                     # Go workspace over tools + each game's extract/
 ├── README.md                   # this file
 ├── STANDARDS.md                # repo-wide layout / CLI / asset-format contract
+├── ANALYSIS-PLAYBOOK.md        # methodology: how the games are reverse-engineered
+├── FORMAT2.md                  # the extracted asset / level "format 2" spec
 ├── tools/                      # shared tooling (module retroreverse.com/tools)
 │   ├── cpu/                    #   CPU disassemblers + executable cores
 │   │   ├── mos6502/            #     MOS 6502 (any 6502 platform)
@@ -91,7 +93,6 @@ RetroReverse/
 │
 └── site/                       # the Studio web app (no-build PixiJS 2D + three.js 3D)
     ├── index.html
-    ├── FORMAT2.md              # the extracted asset / level "format 2" spec
     ├── src/                    # the Studio and per-game viewers
     └── public/<slug>/          # canonical extracted assets: manifest.json + levels/ models/ music/ sprites/ bitmaps/
 ```

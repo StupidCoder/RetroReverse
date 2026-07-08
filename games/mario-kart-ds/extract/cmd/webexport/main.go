@@ -1,5 +1,5 @@
 // webexport runs the whole Mario Kart DS extraction from the raw cartridge and
-// writes the Studio's common format-2 asset tree (site/FORMAT2.md) under one
+// writes the Studio's common format-2 asset tree (FORMAT2.md) under one
 // output root. It consolidates the separate tools (ndsextract, exportglb,
 // musicrender): it stages the filesystem in a temp dir, renders the SDAT music,
 // exports every NSBMD model to GLB (courses, skyboxes, karts, characters, map

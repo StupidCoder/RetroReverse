@@ -1,5 +1,5 @@
 // webexport is Turrican's single-call format-2 asset exporter (see STANDARDS.md §4 /
-// site/FORMAT2.md). It reconstructs everything from the disk image and writes the common
+// FORMAT2.md). It reconstructs everything from the disk image and writes the common
 // asset tree under the output root:
 //
 //	manifest.json                 game index: native res, tick rate, level/music list, sprites ref
@@ -35,7 +35,7 @@ import (
 	"retroreverse.com/games/turrican-amiga/extract/scene"
 )
 
-// manifest is the format-2 per-game index (site/FORMAT2.md).
+// manifest is the format-2 per-game index (FORMAT2.md).
 type manifest struct {
 	Format   int            `json:"format"`
 	Game     string         `json:"game"`

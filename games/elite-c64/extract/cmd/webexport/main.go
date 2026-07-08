@@ -1,5 +1,5 @@
 // webexport reconstructs Elite's web assets from the extracted C64 game image and
-// writes the common format-2 asset tree (see site/FORMAT2.md / STANDARDS.md §4)
+// writes the common format-2 asset tree (see FORMAT2.md / STANDARDS.md §4)
 // under the output root:
 //
 //	manifest.json               game index: native res, tick rate, model/bitmap/music list

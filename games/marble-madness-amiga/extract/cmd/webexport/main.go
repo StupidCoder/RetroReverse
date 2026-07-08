@@ -1,5 +1,5 @@
 // webexport is Marble Madness's single-call format-2 asset exporter (see
-// STANDARDS.md §4 / site/FORMAT2.md). It reconstructs everything from the Amiga
+// STANDARDS.md §4 / FORMAT2.md). It reconstructs everything from the Amiga
 // disk image and writes the common asset tree under the output root:
 //
 //	manifest.json                 game index: native res, tick rate, levels/views/music/sprites
@@ -43,7 +43,7 @@ var courses = []struct{ key, track, snd, name string }{
 	{"ultima", "UltTrack", "UltSnd", "Ultimate"},
 }
 
-// Manifest is the format-2 per-game index (site/FORMAT2.md). A stage gated out via -only leaves
+// Manifest is the format-2 per-game index (FORMAT2.md). A stage gated out via -only leaves
 // its section empty; omitempty drops it, so a partial run stays self-consistent.
 type Manifest struct {
 	Format   int            `json:"format"`

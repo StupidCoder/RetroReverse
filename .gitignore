@@ -18,21 +18,21 @@ games/*/*.img
 games/ultima-underworld-pc/game/
 
 # --- compiled binaries from `go build` in a cmd/ or extract dir (no extension) ---
-games/*/extract/extract
+# A stray binary is any extensionless file dropped at a module root by `go build`.
+# Everything legitimately tracked at these roots is a directory, go.mod/go.sum, or *.go,
+# so ignore the rest and re-include those.
+games/*/extract/*
+!games/*/extract/*/
+!games/*/extract/*.go
+!games/*/extract/go.mod
+!games/*/extract/go.sum
 games/*/extract/cmd/*/*[!.go]
-games/*/extract/bootoracle
-games/*/extract/webexport
-games/*/extract/oracleshot
-games/*/extract/spriterip
-games/*/extract/ndsextract
-games/*/extract/exportglb
-games/*/extract/trackmap
-games/*/extract/rendermodel
-games/*/extract/rendertex
-games/*/extract/modeldump
-games/*/extract/placeshot
-games/*/extract/objsettle
-games/*/extract/spawncheck
+# tools module: command binaries stray at the tools root (source is in tools/cmd/<name>/)
+/tools/*
+!/tools/*/
+!/tools/*.go
+!/tools/go.mod
+!/tools/go.sum
 
 # --- regenerable extraction output (dev-only) ---
 games/*/extracted/

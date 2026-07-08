@@ -1,4 +1,4 @@
-// Turrican — configuration for the shared 2-D level viewer (site/FORMAT2.md). The data
+// Turrican — configuration for the shared 2-D level viewer (FORMAT2.md). The data
 // (32px tiles with the explicit hflip bit, 4x4 per-tile collision with the class
 // legend, object placements resolved to sprite-atlas keys) is exported by
 // "Turrican (Amiga)/extract/cmd/webexport".

@@ -41,7 +41,7 @@ current URL to share exactly what you're looking at.
 - `src/shared/` — the **shared 2-D level viewer** every tilemap game runs on (Sonic, Fort,
   Turrican, Marble's map view, SML): camera, tilemap renderer (sliced / baked / block
   strategies), overlay layers, the animation runner and palette effects. It consumes the
-  **common level format** specified in [FORMAT2.md](FORMAT2.md); per-game specifics live in a
+  **common level format** specified in [FORMAT2.md](../FORMAT2.md); per-game specifics live in a
   small `src/<game>/config.js`.
 - `src/elite/`, `src/stuntcar/`, `src/marble/slopes.js` — the three.js 3-D viewers (wireframe
   ships, track ribbons, the slope height-mesh), outside the tilemap format.
