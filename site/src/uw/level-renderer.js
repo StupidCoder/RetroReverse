@@ -19,6 +19,7 @@
 import * as THREE from 'three';
 import { FlyCam, flyHint } from '../shared/flycam.js';
 import { placeObjects } from '../shared/renderers.js';
+import { InfoCard } from '../shared/infocard.js';
 
 // The Abyss's near-black clear colour and the fog that swallows distance — carried from the old
 // viewer so the first-person look is preserved.
@@ -73,14 +74,16 @@ export default {
 
     // --- the level's objects, via the SHARED object layer ---
     // Creatures / doors / items become directional-billboard sprites (including additive translucents)
-    // through placeObjects → sprites3d; their per-frame updates compose onto stage.onFrame. No bespoke
-    // billboard/additive code here. Objects that are pure props (props.text writings, no sprite) carry
-    // no billboard and are simply not drawn: the old viewer's click-to-inspect InfoCard (raycasting
-    // invisible pick boxes tagged with each object's name/text) is DROPPED in this migration — it was
-    // bespoke pick geometry outside the shared object layer. A future pass could re-add it generically.
+    // through placeObjects → sprites3d; their per-frame updates compose onto stage.onFrame.
+    // Objects that carry no sprite are pure PICK boxes: invisible click AABBs tagged with the object's
+    // own name and words (STRINGS.PAK blocks 4 / 8). A click raycasts them and shows the text in the
+    // shared InfoCard — the old viewer's click-to-inspect, restored.
+    let disposePicks = () => {};
     if (item.objects) {
       const doc = await fetch(base + item.objects).then((r) => r.json());
-      await placeObjects({ objects: doc.objects || [], base, stage });
+      const objs = doc.objects || [];
+      await placeObjects({ objects: objs, base, stage });
+      disposePicks = installPicks(stage, objs);
     }
 
     // --- first-person camera ---
@@ -124,6 +127,7 @@ export default {
     // listeners/sticks before the next item builds (the Viewer calls this before stage.clear()).
     stage.disposePlugin = () => {
       flycam.dispose();
+      disposePicks();
       scene.fog = null;
       geo.dispose();
       for (const m of materials) { m.map?.dispose(); m.dispose(); }
@@ -132,3 +136,61 @@ export default {
     return dungeon;
   },
 };
+
+// installPicks adds an invisible click box per pick object (an object with a size AABB and
+// no sprite/model — UW's doors, levers, signs, gravestones) and wires click-to-inspect: a
+// non-drag pointerup raycasts the boxes with the stage camera and shows the object's name
+// (STRINGS.PAK block 4) and any of its own words (block 8) in the shared InfoCard. Returns a
+// teardown that removes the listeners, disposes the geometry, and hides the card.
+function installPicks(stage, objs) {
+  const picks = objs.filter((o) => !o.sprite && !o.model && Array.isArray(o.size));
+  if (!picks.length) return () => {};
+
+  const boxGeo = new THREE.BoxGeometry(1, 1, 1);
+  const boxMat = new THREE.MeshBasicMaterial({ colorWrite: false, depthWrite: false, side: THREE.DoubleSide });
+  const group = new THREE.Group();
+  for (const o of picks) {
+    const box = new THREE.Mesh(boxGeo, boxMat);
+    box.position.set(o.pos[0], o.pos[1], o.pos[2]);
+    box.scale.set(o.size[0] || 1, o.size[1] || 1, o.size[2] || 1);
+    box.userData = { id: o.id, name: o.name, text: o.props?.text };
+    group.add(box);
+  }
+  stage.add(group);
+
+  const card = new InfoCard(stage.el);
+  card.hide();
+  const ray = new THREE.Raycaster();
+  const ndc = new THREE.Vector2();
+  const canvas = stage.canvas;
+  let downX = 0, downY = 0;
+  const onDown = (e) => { downX = e.clientX; downY = e.clientY; };
+  const onUp = (e) => {
+    if (Math.hypot(e.clientX - downX, e.clientY - downY) > 5) return; // ignore drags/look
+    const rect = canvas.getBoundingClientRect();
+    ndc.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
+    ndc.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
+    ray.setFromCamera(ndc, stage.camera);
+    const hits = ray.intersectObjects(group.children, false);
+    if (!hits.length) { card.hide(); return; }
+    const { id, name, text } = hits[0].object.userData;
+    card.show({
+      title: name || `item ${id}`,
+      subtitle: `item id ${id}`,
+      body: name ? undefined : 'No name for this item in STRINGS.PAK block 4.',
+      muted: !name,
+      quote: text, // writings / gravestones carry their own words (block 8)
+    });
+  };
+  canvas.addEventListener('pointerdown', onDown);
+  canvas.addEventListener('pointerup', onUp);
+
+  return () => {
+    canvas.removeEventListener('pointerdown', onDown);
+    canvas.removeEventListener('pointerup', onUp);
+    card.hide();
+    boxGeo.dispose();
+    boxMat.dispose();
+    stage.scene.remove(group);
+  };
+}
