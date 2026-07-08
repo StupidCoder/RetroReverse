@@ -117,6 +117,7 @@ type FSprite struct {
 	Views     int        `json:"views"`
 	Heading   float64    `json:"heading,omitempty"`
 	Size      [2]float32 `json:"size"`
+	Anchor    string     `json:"anchor,omitempty"` // "bottom": UW places the feet at pos, not the centre
 	Sheet     string     `json:"sheet"`
 	Frames    [][4]int   `json:"frames"`
 	PerView   int        `json:"perView"`
@@ -252,6 +253,7 @@ func buildObjects(db *ObjectsDB, o *outMesh, spritesDir string, nextID *int) (nS
 			Sprite: &FSprite{
 				Billboard: "camera", Views: 1,
 				Size:   [2]float32{sp.W, sp.H},
+				Anchor: "bottom",
 				Sheet:  fmt.Sprintf("sprites/%d.png", id),
 				Frames: [][4]int{{0, 0, w, h}}, PerView: 1, Fps: 0, Blend: blend,
 			},
@@ -310,7 +312,7 @@ func buildObjects(db *ObjectsDB, o *outMesh, spritesDir string, nextID *int) (nS
 		db.Objects = append(db.Objects, FObject{
 			ID: id, Pos: cr.Pos,
 			Sprite: &FSprite{
-				Billboard: "yaw", Views: views, Heading: heading, Size: size,
+				Billboard: "yaw", Views: views, Heading: heading, Size: size, Anchor: "bottom",
 				Sheet:  fmt.Sprintf("sprites/%d.png", id),
 				Frames: frames, PerView: perView, Fps: cr.Fps, Blend: blend,
 			},
@@ -326,7 +328,7 @@ func buildObjects(db *ObjectsDB, o *outMesh, spritesDir string, nextID *int) (nS
 			db.Objects = append(db.Objects, FObject{
 				ID: oid, Pos: cr.Pos,
 				Sprite: &FSprite{
-					Billboard: "yaw", Views: views, Heading: heading, Size: size,
+					Billboard: "yaw", Views: views, Heading: heading, Size: size, Anchor: "bottom",
 					Sheet:  fmt.Sprintf("sprites/%d.png", oid),
 					Frames: oframes, PerView: perView, Fps: cr.Fps, Blend: "additive",
 				},

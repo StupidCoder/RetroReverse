@@ -11,6 +11,7 @@
 //     views: 8,          // directional angle buckets; 1 = a plain (non-directional) billboard
 //     heading: 0,        // object facing in RADIANS (base angle for bucket 0); ignored when views==1
 //     size: [w,h],       // world-unit quad size
+//     anchor: "center",  // what pos means: "center" (default) | "bottom" (feet at pos)
 //     sheet: "sprites/x.png",   // atlas URL (the caller resolves it as base+sheet)
 //     frames: [[x,y,w,h], ...], // atlas rects in PIXELS; length == views*perView,
 //                               //   laid out as `views` blocks of `perView` frames
@@ -95,7 +96,13 @@ export async function makeSprite(spec, texture) {
   }
   const material = new THREE.MeshBasicMaterial(matOpts);
 
-  const object3d = new THREE.Mesh(new THREE.PlaneGeometry(w, h), material);
+  // anchor selects what the object's pos means: "center" (default) puts the quad's
+  // centre at pos; "bottom" puts the quad's bottom edge at pos (feet on the floor —
+  // the usual choice for standing creatures/props). We shift the geometry up by h/2
+  // for "bottom" so the mesh origin (the billboard's rotation pivot) sits at the feet.
+  const geo = new THREE.PlaneGeometry(w, h);
+  if ((spec.anchor || 'center') === 'bottom') geo.translate(0, h / 2, 0);
+  const object3d = new THREE.Mesh(geo, material);
   object3d.frustumCulled = false; // billboards jump around; their static bounds lie
 
   // setFrame points the cloned texture at one atlas rect (pixels). three's UV

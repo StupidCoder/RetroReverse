@@ -173,6 +173,7 @@ objects two ways, chosen per object:
   "views": 8,              // directional angle buckets; 1 = a plain non-directional billboard
   "heading": 0,            // object facing in RADIANS (base angle for view bucket 0); ignored when views==1
   "size": [1.0, 1.5],      // world-unit quad [w, h]
+  "anchor": "bottom",      // what pos means: "center" (default) | "bottom" (feet at pos — standing things)
   "sheet": "sprites/creatures.png",  // atlas URL, resolved by the viewer as base + sheet
   "frames": [[0,0,32,48], ...],      // atlas rects in PIXELS; length == views*perView,
                                      //   laid out as `views` blocks of `perView` frames

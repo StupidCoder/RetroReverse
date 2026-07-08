@@ -215,11 +215,12 @@ A 3-D object is rendered by the shared object layer (`site/src/shared/renderers.
 
 - `model` — a `"models/x.glb"` path; loaded and placed at `pos`/`rot` (`rot` in **radians**).
 - `sprite` — a first-class **directional-billboard sprite spec** (`site/src/shared/sprites3d.js`):
-  `{ billboard, views, heading (radians), size:[w,h], sheet, frames:[[x,y,w,h]…], perView, fps,
-  blend }`. It becomes a camera-facing textured quad; the view is
+  `{ billboard, views, heading (radians), size:[w,h], anchor, sheet, frames:[[x,y,w,h]…], perView,
+  fps, blend }`. It becomes a camera-facing textured quad; the view is
   `quantize(angleToCamera - heading, views)` and the frame is `floor(t*fps) % perView`. A plain
-  always-facing billboard is `views: 1`. This shared path replaces per-game billboard code
-  (Doom things, Ultima Underworld creatures).
+  always-facing billboard is `views: 1`. `anchor` selects what `pos` means — `"center"` (default)
+  or `"bottom"` (the quad's feet at `pos`, for standing creatures/props). This shared path replaces
+  per-game billboard code (Doom things, Ultima Underworld creatures).
 
 `blend` is `opaque` | `alpha` (alpha-masked, depth-write off) | `additive`
 (`AdditiveBlending`, for translucent bodies). Separately, a level **GLB** may mark a material
