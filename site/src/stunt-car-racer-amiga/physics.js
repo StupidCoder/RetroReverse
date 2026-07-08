@@ -912,8 +912,7 @@ export class Physics {
     const L = ['Drive', 'PosX', 'PosY', 'PosZ', 'Roll', 'Yaw', 'Pit', 'VelX', 'VelY', 'VelZ'];
     for (let f = 0; f < trace.frames.length; f++) {
       const fr = trace.frames[f];
-      this.setW(A.Drive, fr[0]);
-      this.frame6185C();
+      this.driveTickCoupled(fr[0]); // faithful drive: physics then real coupling
       const got = [fr[0], this.l(A.PosX), this.l(A.PosY), this.l(A.PosZ),
         this.w(A.Roll), this.w(A.Yaw), this.w(A.Pit), this.w(A.VelX), this.w(A.VelY), this.w(A.VelZ)];
       for (let k = 1; k < got.length; k++) {

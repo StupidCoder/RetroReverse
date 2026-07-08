@@ -59,7 +59,7 @@ var names = []string{"little-ramp", "stepping-stones", "hump-back", "big-ramp",
 	"ski-jump", "draw-bridge", "high-jump", "roller-coaster"}
 
 func main() {
-	out := flag.String("out", "../../site/public/stuntcar/phys", "output dir")
+	out := flag.String("out", "../../../site/public/stunt-car-racer-amiga/phys", "output dir")
 	flag.Parse()
 	img, err := os.ReadFile(flag.Arg(0))
 	if err != nil {
@@ -92,8 +92,11 @@ func main() {
 	fmt.Printf("static.bin: %d KB (sin table + piece shapes, shared)\n", (memHi-memSplit)/1024)
 }
 
-// initTrack loads a track and places the car (the real setup chain on the m68k core),
-// returning the full 24-bit memory.
+// initTrack loads a track and places the car with the REAL race-intro sequence on the m68k
+// core (verified in cmd/driveverify), returning the full 24-bit memory. The placed state is
+// grounded and ready to drive: $605B6 places (posY=16.0), the intro coupling + one unarmed
+// tick + the render $64E4C prime the coupling, then the physics is armed and the spawn
+// crash-recovery countdown $1BBDF is zeroed (the $5B32E crash machine is not reimplemented).
 func initTrack(img []byte, id int) []byte {
 	bus := &flatBus{m: make([]byte, 1<<24)}
 	copy(bus.m[base:], img)
@@ -103,15 +106,17 @@ func initTrack(img []byte, id int) []byte {
 	call(bus, c, 0x64304, nil)
 	call(bus, c, 0x5A794, nil)
 	call(bus, c, 0x696FC, nil)
-	// place the car (gear 1) and arm the race state for normal driving.
-	g := uint32(1 & 3)
-	bus.m[0x1BCD8] = bus.m[0x60552+g]
-	bus.m[0x1BCE0] = bus.m[0x60556+g]
-	bus.m[0x1BCE6] = bus.m[0x6055A+g]
-	bus.m[0x1BCDC], bus.m[0x1BCDD] = 0x03, 0xF0
-	bus.m[0x1BC42], bus.m[0x1BC43] = 0x07, 0x00
-	bus.m[0x1BB68], bus.m[0x1BB57], bus.m[0x1BB72] = 0x80, 1, 0x80
-	bus.m[0x1BBDF], bus.m[0x1BB46], bus.m[0x63EE0], bus.m[0x620B6] = 0, 0, 5, 5
+	call(bus, c, 0x65BEC, nil)
+	bus.m[0x1BB57] = 1 // gear 1
+	copy(bus.m[0x64AEC:], []byte{0x9C, 0xED, 0xCD, 0x02})
+	call(bus, c, 0x605B6, nil) // real placement (posY = 16.0)
+	call(bus, c, 0x5E778, nil)
+	call(bus, c, 0x60CDE, nil)
+	call(bus, c, 0x64E4C, nil)
+	call(bus, c, 0x6185C, nil) // one unarmed tick
+	call(bus, c, 0x64E4C, nil)
+	bus.m[0x1BB72] = 0x80 // arm
+	bus.m[0x1BBDF] = 0    // skip spawn crash-recovery
 	return bus.m
 }
 
@@ -119,8 +124,9 @@ type trace struct {
 	Frames [][]int32 `json:"frames"` // per frame: [drive, posX, posY, posZ, roll, yaw, pit, velX, velY, velZ]
 }
 
-// goldenTrace runs the Go physics with a scripted throttle and records the state, for the
-// JS port to reproduce.
+// goldenTrace runs the Go faithful drive (the verified $6185C physics + the real per-frame
+// render coupling) with a scripted throttle and records the state, for the JS port to
+// reproduce (physics.js driveTickCoupled runs the identical sequence).
 func goldenTrace(img, mem []byte) trace {
 	gm := physics.New(img)
 	copy(gm.B, mem)
@@ -130,6 +136,14 @@ func goldenTrace(img, mem []byte) trace {
 		drive := int16(0x2800) // steady throttle
 		gm.SetW(physics.Drive, drive)
 		gm.Frame6185C()
+		// faithful coupling (== render $64E4C for the physics state): camera, zero view
+		// offsets, grid->section into $1BB85, place.
+		gm.Camera60190()
+		gm.B[0x1BBD5], gm.B[0x1BBD6] = 0, 0
+		if sec, off := gm.Section5FE04(); !off && byte(sec) != 0xFF {
+			gm.B[0x1BB85] = byte(sec)
+			gm.Couple5BE44()
+		}
 		t.Frames = append(t.Frames, []int32{
 			int32(drive), gm.L(physics.PosX), gm.L(physics.PosY), gm.L(physics.PosZ),
 			int32(gm.W(physics.Roll)), int32(gm.W(physics.Yaw)), int32(gm.W(physics.Pit)),

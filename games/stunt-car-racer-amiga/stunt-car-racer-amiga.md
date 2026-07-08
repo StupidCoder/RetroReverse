@@ -1061,13 +1061,27 @@ on tracks 1/3/7, car grounded throughout. The browser physics (`physics.js`
 `driveTickCoupled`) is the same sequence and matches the engine over a 150-frame golden trace.
 Reverse into a spin-off still diverges when `$5B32E` re-engages — the one open path.
 
-**What is left for interactive in-viewer driving** is a coordinate reconciliation, not more
-physics: the sim runs in a camera-relative local frame (`$605B6` seats the car at its grid
-cell (0,0), `posY` ≈ 16), whereas the baked GLB track is in absolute grid×`$800` world space.
-Mapping the car's local physics position/heading onto the GLB world (the job the engine's
-render walk `$65EC4` does) plus the `$5B32E` crash machine are the remaining pieces; until
-then the viewer shows the car correctly placed and scaled at the start line (Part VI), and the
-drive dynamics themselves are verified exact.
+**The world↔GLB mapping is solved.** The sim's persistent world position `$1BCD8`/`$1BCE0` is
+in the same 16×16 track grid as the baked GLB, only at a different scale: `$605B6` seats the car
+at grid×128 (128 units/cell, 16.16 fixed), while the GLB bakes grid×`$800`/1024 = 2 units/cell.
+So **GLB = (physics 16.16 position) / (65536·64)**. Overlaying a driven path on the track
+top-down confirms it: the car's mapped start sits exactly on the road, and `cmd/physdump` now
+emits the real placed state per track so a browser `Physics` starts grounded and on-road.
+
+**What is *not* yet done is the vehicle-control layer that turns the exact physics into a
+drivable car.** Injecting a drive force `$1BD2A` directly and skipping the spawn crash-recovery
+gives a grounded car, but it creeps and then flails — the section index `$1BB1C` never advances,
+the heading swings, and it wanders off its own track. `cmd/driveverify` shows this is faithful:
+the Go drive matches the engine bit-for-bit, so **the engine flails the same way** under these
+inputs. Real driving needs the layer the race loop runs on top of the physics: the joystick
+decode `$5D8A2` (throttle/brake/steer → `$1BB47` → `$1BBC6`/gear), the gear machine `$5D980`,
+and the crash-recovery/spawn state-machine `$5B32E` that orients and launches the car down the
+track at the start (it runs while the `$1BBDF` countdown is non-zero — the very thing the drive
+zeroes). Notably, *forcing* the steering bias `$1BBC6` every frame (even to 0) fights the
+engine's own auto-steer and throws the car airborne; it must be left alone unless actively
+steering. Those three routines are the next chunk; until they land the viewer shows the car
+correctly placed and scaled at the start line (Part VI), with the physics and the world mapping
+both verified exact underneath.
 
 ---
 
