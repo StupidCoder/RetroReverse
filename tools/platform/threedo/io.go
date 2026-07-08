@@ -331,12 +331,7 @@ func (m *Machine) serviceMsg(c *arm60.CPU, swi uint32) {
 			m.write32(msg.addr+msgMsgPort, uint32(port.num))
 		}
 		if port.name == "eventbroker" {
-			// The system input broker: on hardware a kernel task behind this port
-			// consumes configuration/connect requests and replies to each. Nothing
-			// is behind it here, so acknowledge immediately — the requester only
-			// blocks on getting its message back with a success result.
-			m.note(fmt.Sprintf("eventbroker: msg %d from task #%d acknowledged", msg.num, msg.owner))
-			m.replyMsg(msg, 0)
+			m.eventBrokerRequest(port, msg, c.Reg(2))
 			c.SetReg(0, 0)
 			return
 		}
@@ -399,8 +394,114 @@ func (m *Machine) replyMsg(msg *item, result uint32) {
 		m.note(fmt.Sprintf("replyMsg: msg %d has no live reply port (field=0x%X)", msg.num, m.read32(msg.addr+msgReplyPort)))
 		return
 	}
+	if rp.name == "eventbroker" {
+		// An event message coming back from a listener (EB_EventReply): the
+		// broker would recycle it; nothing to do in the HLE.
+		return
+	}
 	rp.msgs = append(rp.msgs, msg.num)
 	m.sendSignal(rp.owner, rp.signal)
+}
+
+// --- event broker -------------------------------------------------------------
+//
+// The system input broker (event.h): programs connect by sending a
+// ConfigurationRequest message to the public "eventbroker" port; the broker
+// replies to it and from then on delivers EB_EventRecord messages — an
+// EventBrokerHeader followed by EventFrames — to the same reply port whenever
+// a watched device (the control pad) changes. No broker task exists in the
+// HLE, so the PutMsg intercept plays the broker: it acknowledges requests and
+// records each connector's reply port as an event listener; SendPadEvent then
+// pushes control-pad frames to every listener.
+
+// Event-broker message flavors and the control-pad event payload (event.h).
+const (
+	ebConfigure   = 1
+	ebEventRecord = 3
+
+	eventNumButtonUpdate = 3 // EVENTNUM_ControlButtonUpdate: current button state
+
+	// ControlPadEventData button bits (left-justified).
+	PadDown       = 0x80000000
+	PadUp         = 0x40000000
+	PadRight      = 0x20000000
+	PadLeft       = 0x10000000
+	PadA          = 0x08000000
+	PadB          = 0x04000000
+	PadC          = 0x02000000
+	PadStart      = 0x01000000
+	PadX          = 0x00800000
+	PadRightShift = 0x00400000
+	PadLeftShift  = 0x00200000
+)
+
+// eventBrokerRequest services a message arriving at the broker port: it logs
+// the flavor, remembers EB_Configure senders' reply ports as event listeners,
+// and acknowledges the request so the sender's handshake completes.
+func (m *Machine) eventBrokerRequest(port, msg *item, dataPtr uint32) {
+	flavor := m.read32(dataPtr)
+	if flavor == ebConfigure {
+		listener := int32(m.read32(msg.addr + msgReplyPort))
+		category := m.read32(dataPtr + 4)
+		if m.items[listener] != nil {
+			m.ebListeners = append(m.ebListeners, listener)
+		}
+		m.note(fmt.Sprintf("eventbroker: task #%d configured (category %d) -> listener port %d", msg.owner, category, listener))
+	} else {
+		m.note(fmt.Sprintf("eventbroker: msg %d flavor %d from task #%d acknowledged", msg.num, flavor, msg.owner))
+	}
+	m.replyMsg(msg, 0)
+}
+
+// SendPadEvent delivers a control-pad button state to every event-broker
+// listener as an EB_EventRecord message: header, one ControlButtonUpdate
+// EventFrame carrying the bits, and a terminating zero count.
+func (m *Machine) SendPadEvent(buttons uint32) {
+	for _, lp := range m.ebListeners {
+		port := m.items[lp]
+		if port == nil {
+			continue
+		}
+		rec := m.dheap.alloc(0x40)
+		if rec == 0 {
+			return
+		}
+		m.writeWord(rec, ebEventRecord) // EventBrokerHeader.ebh_Flavor
+		f := rec + 4
+		m.writeWord(f+0x00, 0x20)     // ef_ByteCount: 28-byte frame + 4 data
+		m.writeWord(f+0x04, 0)        // ef_SystemID
+		m.writeWord(f+0x08, m.vblank) // ef_SystemTimeStamp
+		m.writeWord(f+0x0C, 0)        // ef_Submitter
+		m.Write(f+0x10, eventNumButtonUpdate)
+		m.Write(f+0x11, 1) // ef_PodNumber: pad 1
+		m.Write(f+0x12, 1) // ef_PodPosition
+		m.Write(f+0x13, 1) // ef_GenericPosition: generic controller #1
+		m.Write(f+0x14, 0) // ef_Trigger
+		m.writeWord(f+0x18, 0)
+		m.writeWord(f+0x1C, buttons) // ControlPadEventData.cped_ButtonBits
+		m.writeWord(f+0x20, 0)       // terminating frame count
+		msg := m.createItem(0x100|typeMsg, 0, 0)
+		if msg.addr != 0 {
+			m.writeWord(msg.addr+msgReplyPort, m.brokerPortNum())
+			m.write32(msg.addr+msgDataPtr, rec)
+			m.write32(msg.addr+msgDataSize, 0x28)
+			m.write32(msg.addr+msgMsgPort, uint32(port.num))
+		}
+		port.msgs = append(port.msgs, msg.num)
+		m.sendSignal(port.owner, port.signal)
+	}
+	m.note(fmt.Sprintf("pad event 0x%08X -> %d listener(s)", buttons, len(m.ebListeners)))
+}
+
+// brokerPortNum returns the public event-broker port's item number (0 if the
+// program never looked it up).
+func (m *Machine) brokerPortNum() uint32 {
+	for _, it := range m.items {
+		if it.name == "eventbroker" {
+			return uint32(it.num)
+		}
+	}
+	return 0
 }
 
 // --- kernel printf -----------------------------------------------------------

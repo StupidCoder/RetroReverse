@@ -12,6 +12,8 @@ import (
 	"image/png"
 	"os"
 	"sort"
+	"strconv"
+	"strings"
 
 	"retroreverse.com/tools/platform/threedo"
 )
@@ -35,6 +37,7 @@ func main() {
 	vblMirror := flag.Uint64("vblmirror", 0x42734, "game global the VBL manager keeps at the elapsed-field count (0 = off)")
 	stall := flag.Int("stall", 1, "deadlock-guard tolerance multiplier (raise for programs with settled main loops)")
 	movies := flag.Bool("movies", false, "let the game open .stream movies (FMV subsystem not modelled yet: crashes in the movie player)")
+	pad := flag.String("pad", "", "control-pad script: STEP:btn+btn,STEP:0,... (btns: a b c start x up down left right ls rs; 0=release)")
 	flag.Parse()
 
 	var data []byte
@@ -68,6 +71,13 @@ func main() {
 	m.SpinBreak = *spinbreak
 	m.StallTolerance = *stall
 	m.NoStreams = !*movies
+	if *pad != "" {
+		script, err := parsePadScript(*pad)
+		if err != nil {
+			die(err)
+		}
+		m.PadScript = script
+	}
 	if vol != nil {
 		m.SetVolume(vol)
 	}
@@ -210,6 +220,40 @@ func main() {
 			fmt.Println(" ", s)
 		}
 	}
+}
+
+// parsePadScript turns "20000000:start,21000000:0,30000000:a+down" into the
+// machine's step-scheduled control-pad states.
+func parsePadScript(s string) ([]threedo.PadStep, error) {
+	bits := map[string]uint32{
+		"a": threedo.PadA, "b": threedo.PadB, "c": threedo.PadC,
+		"start": threedo.PadStart, "p": threedo.PadStart, "x": threedo.PadX,
+		"up": threedo.PadUp, "down": threedo.PadDown,
+		"left": threedo.PadLeft, "right": threedo.PadRight,
+		"ls": threedo.PadLeftShift, "rs": threedo.PadRightShift, "0": 0,
+	}
+	var script []threedo.PadStep
+	for _, entry := range strings.Split(s, ",") {
+		step, names, ok := strings.Cut(strings.TrimSpace(entry), ":")
+		if !ok {
+			return nil, fmt.Errorf("pad entry %q: want STEP:buttons", entry)
+		}
+		at, err := strconv.ParseUint(step, 10, 64)
+		if err != nil {
+			return nil, fmt.Errorf("pad entry %q: %v", entry, err)
+		}
+		var buttons uint32
+		for _, n := range strings.Split(names, "+") {
+			bit, ok := bits[strings.ToLower(strings.TrimSpace(n))]
+			if !ok {
+				return nil, fmt.Errorf("pad entry %q: unknown button %q", entry, n)
+			}
+			buttons |= bit
+		}
+		script = append(script, threedo.PadStep{AtStep: at, Buttons: buttons})
+	}
+	sort.Slice(script, func(i, j int) bool { return script[i].AtStep < script[j].AtStep })
+	return script, nil
 }
 
 func die(err error) {

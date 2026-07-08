@@ -122,6 +122,11 @@ type Machine struct {
 	screenBM   map[int32]int32     // Screen item -> its (first) Bitmap item
 	displayBuf uint32              // the front buffer DisplayScreen last showed
 
+	// Event-broker state (io.go): ports that connected as listeners, and a
+	// step-scheduled control-pad script the run loop feeds to SendPadEvent.
+	ebListeners []int32
+	PadScript   []PadStep
+
 	// Instrumentation (opt-in; checked in Read/Write and the run loop).
 	WatchLo, WatchHi uint32
 	OnWrite          func(addr, val, pc uint32)

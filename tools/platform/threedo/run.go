@@ -18,6 +18,14 @@ type Result struct {
 	Reason string
 }
 
+// PadStep schedules a control-pad state change: at instruction AtStep the
+// buttons become Buttons (0 = all released) until the next entry. The oracle
+// fills Machine.PadScript with these to drive menus without a real pad.
+type PadStep struct {
+	AtStep  uint64
+	Buttons uint32
+}
+
 // Run steps the ARM60 up to maxSteps, intercepting synthetic Portfolio folio
 // calls (a PC in the HLE window), stubbing each and returning to the caller. It
 // stops on a program exit, an unmodelled instruction (CPU halt), a tight self-
@@ -45,6 +53,12 @@ func (m *Machine) Run(maxSteps uint64) Result {
 			// A steady background tick, so timing loops that never issue a field-wait
 			// IO still see the clock move. Field-wait IOs advance it too (io.go).
 			m.advanceVBlank(1)
+		}
+		// Feed the scheduled control-pad script: deliver each state change once
+		// its step arrives (in order; entries already delivered are dropped).
+		for len(m.PadScript) > 0 && steps >= m.PadScript[0].AtStep {
+			m.SendPadEvent(m.PadScript[0].Buttons)
+			m.PadScript = m.PadScript[1:]
 		}
 
 		pc := m.CPU.Reg(15)

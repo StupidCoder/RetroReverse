@@ -104,6 +104,20 @@ func (m *Machine) serviceFolio(off uint32) bool {
 	case 0x30: // LookupItem(item) -> in-RAM pointer (kernel item -> struct address)
 		m.SetResultAndReturn(m.lookupItem(int32(m.CPU.Reg(0))))
 		return true
+	case 0x38: // memcpy(dst, src, n) — the kernel folio's exported block copy.
+		// The C library routes memcpy through this vector, so a stub here makes
+		// every library copy a silent no-op (the event reader's control-pad
+		// button bits were vanishing into one). Bounded so a garbage length
+		// cannot wedge the oracle.
+		dst, src, n := m.CPU.Reg(0), m.CPU.Reg(1), m.CPU.Reg(2)
+		if n > 0x400000 {
+			n = 0x400000
+		}
+		for i := uint32(0); i < n; i++ {
+			m.Write(dst+i, m.Read(src+i))
+		}
+		m.SetResultAndReturn(dst)
+		return true
 	case 0x34: // SampleSystemTimeTT(timer, TimeVal*) — fill an advancing time.
 		// Each call advances virtual time so the game's timing/calibration loops
 		// (which decrement counters by the elapsed delta) converge instead of

@@ -139,6 +139,7 @@ func main() {
 
 	m.StallTolerance = *stall
 	m.NoStreams = true
+	m.PadScript = []threedo.PadStep{{AtStep: 10000000, Buttons: threedo.PadStart}, {AtStep: 10400000, Buttons: 0}}
 
 	res := m.Run(*steps)
 	fmt.Printf("stopped: %s after %d steps pc=%X\n", res.Reason, res.Steps, res.PC)
@@ -171,6 +172,23 @@ func main() {
 	fmt.Printf("\nSWIs by number (%d total):\n", len(m.SWICalls))
 	for n, cnt := range bySWI {
 		fmt.Printf("  0x%-6X x%d\n", n, cnt)
+	}
+	msgSites := map[uint32]map[uint32]int{}
+	for _, k := range m.SWICalls {
+		if k.Offset == 0x10013 || k.Offset == 0x10012 || k.Offset == 0x10001 {
+			if msgSites[k.Offset] == nil {
+				msgSites[k.Offset] = map[uint32]int{}
+			}
+			msgSites[k.Offset][k.From]++
+		}
+	}
+	for _, swi := range []uint32{0x10013, 0x10012, 0x10001} {
+		fmt.Printf("SWI 0x%X sites:\n", swi)
+		for from, cnt := range msgSites[swi] {
+			if cnt > 2 {
+				fmt.Printf("  from 0x%08X x%d\n", from, cnt)
+			}
+		}
 	}
 	fmt.Println("all SWIs except WaitVBL SendIO (chronological, first 150):")
 	shown := 0
