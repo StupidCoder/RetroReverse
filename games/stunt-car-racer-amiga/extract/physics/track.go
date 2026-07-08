@@ -542,9 +542,189 @@ func (m *Mem) Couple5BE44() {
 	}
 }
 
-// couple5BF50 is the ramp-type-2 branch of $5BE44 (curved ramp pieces). TODO.
+// planPoint5C6C4 reproduces $5C6C4: read the piece-shape plan vertex at byte offset d2
+// (two consecutive little-endian words), add the plan base ($1BB22/$1BB26 words) and
+// rotate by the section quadrant ($1BBF2 bits 7,6, with the +$800 half-cell offsets on
+// negated axes) into the plan point $1BBF6/$1BBF8. a5 is re-derived from the type-shape
+// handle $1BCBC, as in the engine.
+func (m *Mem) planPoint5C6C4(d2 uint32) {
+	a5 := uint32(handlePhys(int(uint16(m.W(0x1BCBC)))))
+	v0 := m.le16(a5 + d2)
+	v1 := m.le16(a5 + d2 + 2)
+	bx := uint16(m.W(0x1BB22))
+	by := uint16(m.W(0x1BB26))
+	q := m.U8(0x1BBF2)
+	switch {
+	case q&0x80 == 0 && q&0x40 == 0: // quadrant 0
+		m.SetW(0x1BBF6, int16(bx+uint16(v0)))
+		m.SetW(0x1BBF8, int16(by+uint16(v1)))
+	case q&0x80 == 0: // quadrant 1 (bit6)
+		m.SetW(0x1BBF8, int16(by+uint16(v0)))
+		m.SetW(0x1BBF6, int16(bx-uint16(v1)+0x800))
+	case q&0x40 == 0: // quadrant 2 (bit7)
+		m.SetW(0x1BBF6, int16(bx-uint16(v0)+0x800))
+		m.SetW(0x1BBF8, int16(by-uint16(v1)+0x800))
+	default: // quadrant 3
+		m.SetW(0x1BBF8, int16(by-uint16(v0)+0x800))
+		m.SetW(0x1BBF6, int16(bx+uint16(v1)))
+	}
+}
+
+// atan264D66 reproduces $64D66: quarter-table ATAN2 of the plan point (d0=x, d3=y),
+// table at $1CC46, full circle = $10000 with 0 on the +y axis. Besides the angle it
+// returns the ratio quotient the engine leaves in d7 -- hypot64DE8's table index.
+// DIVU overflow (quotient > $FFFF) leaves the destination unchanged, whose low word
+// the preceding CLR.w zeroed, so the ratio reads as 0.
+func (m *Mem) atan264D66(x, y int16) (int16, uint16) {
+	ax, ay := x, y
+	if ax < 0 {
+		ax = -ax
+	}
+	if ay < 0 {
+		ay = -ay
+	}
+	var d7 uint16
+	var t int16
+	switch {
+	case ay == ax: // diagonal: fixed $2000, ratio $FFFF
+		d7 = 0xFFFF
+		t = 0x2000
+	case ay > ax: // |y| > |x|: ratio = |x|<<16 / |y|
+		q := (uint32(uint16(ax)) << 16) / uint32(uint16(ay))
+		if q > 0xFFFF {
+			q = 0
+		}
+		d7 = uint16(q)
+		t = m.W(0x1CC46 + uint32((d7>>4)&^1))
+	default: // |y| < |x|: ratio = |y|<<16 / |x|, own sign fixup, no COMMON
+		q := (uint32(uint16(ay)) << 16) / uint32(uint16(ax))
+		if q > 0xFFFF {
+			q = 0
+		}
+		d7 = uint16(q)
+		t = m.W(0x1CC46 + uint32((d7>>4)&^1))
+		if (x ^ y) >= 0 { // same signs -> negate (BMI skips the NEG)
+			t = -t
+		}
+		base := uint16(0x4000)
+		if x < 0 {
+			base = 0xC000
+		}
+		return int16(base + uint16(t)), d7
+	}
+	// COMMON ($64DD2): the |y| >= |x| paths
+	if (x ^ y) < 0 { // opposite signs -> negate (BPL skips the NEG)
+		t = -t
+	}
+	if y < 0 {
+		t = int16(uint16(t) + 0x8000)
+	}
+	return t, d7
+}
+
+// hypot64DE8 reproduces $64DE8: table hypot (table $1DC46) of the original x/y, indexed
+// by the ratio d7 that atan264D66 left behind: max + (table[d7>>4] * min >> 16).
+func (m *Mem) hypot64DE8(x, y int16, d7 uint16) int16 {
+	if x < 0 {
+		x = -x
+	}
+	if y < 0 {
+		y = -y
+	}
+	if y < x { // EXG when d5 < d4: d4=min, d5=max
+		x, y = y, x
+	}
+	t := m.W(0x1DC46 + uint32((d7>>4)&^1))
+	p := (uint32(uint16(t)) * uint32(uint16(x))) >> 16 // MULU; SWAP
+	return int16(uint16(p) + uint16(y))
+}
+
+// radius5C65A reproduces $5C65A: refine the curve radius $1BC36 by a step proportional
+// to (x^2 + z^2 - r^2), scaled by a per-type-nibble coefficient from the table $5C6B8.
+// $6135A is the squaring helper (MULS d0,d0 with a dead |.| fixup).
+func (m *Mem) radius5C65A() {
+	sq := func(v int16) int32 {
+		p := int32(v) * int32(v)
+		if p < 0 { // unreachable for MULS.W squares; kept literal
+			p = -p
+		}
+		return p
+	}
+	d4 := sq(m.W(0x1BBF6)) + sq(m.W(0x1BBF8))
+	rsq := sq(m.W(0x1BC36))
+	m.B[0x1BB1A] = byte(m.U8(0x5C6B8 + uint32(m.U8(0x1BB86))))
+	d4 -= rsq
+	d0 := int16(uint32(d4) >> 8) // LSR.l #8 (logical), then the low word
+	coef := int16((uint16(m.U8(0x1BB1A)) << 7) &^ 0x8000)
+	p := (int32(d0) * int32(coef)) << 1
+	r := int16(p>>16) >> 4 // SWAP -> high word, ASR.w #4
+	m.SetW(0x1BC36, int16(uint16(m.W(0x1BC36))+uint16(r)))
+}
+
+// couple5BF50 is the ramp-type-2 branch of $5BE44 (curved ramp/banked-curve pieces,
+// $1BB4D bit 7): place the car on the piece's ARC. The plan point ($5C6C4 at header
+// offset 2) is the car relative to the curve centre; atan2/hypot give its polar angle
+// and radius; the heading $1BC1C and orientation ref $1BD5A come from the angle + the
+// camera quadrant; the along-progress $1BB10 is the angle swept from the arc start
+// (header word 6) times the arc coefficient (header byte 8), scaled by the exponent in
+// the ramp-flag low bits; past the piece's end it steps to the neighbouring section and,
+// if that piece's type nibble is 4, re-enters the whole coupling for it ($5C072). The
+// radius is refined ($5C65A) and $1BC5E = piece radius (header word 9) - car radius.
 func (m *Mem) couple5BF50(a5 uint32) {
-	panic("couple5BF50 (ramp type 2) not yet implemented")
+	m.planPoint5C6C4(2)
+	x := m.W(0x1BBF6)
+	y := m.W(0x1BBF8)
+	ang, d7 := m.atan264D66(x, y)
+	m.SetW(0x1BC36, m.hypot64DE8(x, y, d7))
+
+	d0 := int16(uint16(ang) + uint16(m.W(0x1BC30)))
+	d0 = int16(uint16(d0) + 0x8000) // BPL/BMI paths both flip by $8000 (word wrap)
+	m.SetW(0x1BC1C, d0)
+	m.SetW(0x1BD5A, int16(uint16(d0)+0x4000-uint16(m.W(0x1BC44))))
+
+	d4 := int8(1 - int8(m.U8(0x1BB4D)&3)) // shift exponent from the ramp-flag low bits
+	arc0 := int16(uint16(m.le16(a5+6)) << 6)
+	sweep := int16(uint16(m.W(0x1BC1C)) - uint16(arc0) - uint16(m.W(0x1BC4A)))
+	if sweep < 0 {
+		sweep = -sweep
+	}
+	m.B[0x1BB1A] = byte(m.U8(a5 + 8))
+	coef := int16((uint16(m.U8(0x1BB1A)) << 7) &^ 0x8000)
+	p := (int32(sweep) * int32(coef)) << 1
+	along := int16(p >> 16)
+	if d4 < 0 {
+		along = int16(uint16(along) << (uint(-d4) & 7)) // ASL.w
+	} else {
+		along = int16(uint16(along) >> (uint(d4) & 7)) // LSR.w
+	}
+	m.SetW(0x1BB10, along)
+
+	// past the end of the piece: step to the adjacent section; type nibble 4 re-enters
+	// the whole coupling for it (BRA $5BE44).
+	e := byte(uint16(along)>>7) + 2
+	if int8(e) >= int8(m.U8(0x1BB97)) {
+		if nib := m.U8(0x1BB86); nib == 1 || nib == 3 {
+			m.B[0x1BB19] = byte(m.U8(0x1BB85))
+			if m.U8(0x1BC32) != 0 {
+				m.SecRetreat5C538()
+			} else {
+				m.SecAdvance5C51A()
+			}
+			if m.U8(0x1C5EC+uint32(m.U8(0x1BB85)))&0x0F == 4 {
+				m.Couple5BE44()
+				return
+			}
+			m.B[0x1BB85] = byte(m.U8(0x1BB19))
+		}
+	}
+
+	m.radius5C65A()
+	d3 := int16(uint16(m.U8(a5+10))<<8 | uint16(m.U8(a5+9))) // le16(a5+9)
+	d3 = int16(uint16(d3) - uint16(m.W(0x1BC36)))
+	if int8(m.U8(0x1BC44)) < 0 {
+		d3 = -d3
+	}
+	m.SetW(0x1BC5E, d3)
 }
 
 // refGrid600A6 reproduces $600A6: from the camera quadrant (d0q = $1BC30) derive the camera

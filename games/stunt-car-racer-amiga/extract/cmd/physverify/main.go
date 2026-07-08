@@ -397,7 +397,8 @@ func main() {
 	}
 
 	// --- $5BE44 render coupling, every section of a loaded track ---
-	coupleCheck := []uint32{0x1BBF2, 0x1BBF6, 0x1BBF8, 0x1BC5E, 0x1BB10, 0x1BD5A}
+	coupleCheck := []uint32{0x1BBF2, 0x1BBF6, 0x1BBF8, 0x1BC5E, 0x1BB10, 0x1BD5A,
+		0x1BC1C, 0x1BC36, 0x1BB84 /* word covering the section byte $1BB85 */}
 	for _, id := range []int{1, 3, 7} {
 		m0 := baseMem()
 		m0[0x1CA33] = byte(id)
@@ -411,13 +412,12 @@ func main() {
 				for _, a := range []uint32{0x1BB04, 0x1BB06, 0x1BC30, 0x1BB2E, 0x1BB32, 0x1BC4A, 0x1BC4B} {
 					m[a] = byte(rng.Intn(256))
 				}
-				// determine the branch ($1BB4D) this section takes; skip ramp-type-2 (TODO).
+				// count the ramp-type-2 cases so the report shows their coverage.
 				probe := physics.New(img)
 				copy(probe.B, m)
 				probe.Setup5FE56(sec)
 				if probe.B[0x1BB4D]&0x80 != 0 {
 					ramp2++
-					continue
 				}
 				eng, _ := runEngine(m, 0x5BE44, nil)
 				gm := physics.New(img)
@@ -435,11 +435,7 @@ func main() {
 				}
 			}
 		}
-		tag := fmt.Sprintf("Couple5BE44 track %d", id)
-		if ramp2 > 0 {
-			tag = fmt.Sprintf("Couple5BE44 track %d (%d ramp2 skipped)", id, ramp2)
-		}
-		report(tag, bad)
+		report(fmt.Sprintf("Couple5BE44 track %d (%d ramp2)", id, ramp2), bad)
 	}
 
 	// --- $60190 camera-follow (incl $600A6) + $5FE04 section lookup ---
