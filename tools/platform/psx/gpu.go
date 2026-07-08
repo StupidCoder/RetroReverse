@@ -13,7 +13,6 @@ package psx
 // Colours in VRAM are 16-bit 5:5:5 (bit0-4 R, 5-9 G, 10-14 B, bit15 mask).
 
 import (
-	"fmt"
 	"image"
 	"image/color"
 	"image/png"
@@ -35,6 +34,10 @@ type gpu struct {
 	imgX, imgY, imgW, imgH int
 	imgPx                  int // pixels still to receive
 	imgCurX, imgCurY       int
+	// Image store (GP0 0xC0, VRAM→CPU): source rect drained by GPUREAD / to-RAM DMA.
+	rdX, rdY, rdW, rdH int
+	rdPx               int // pixels still to send
+	rdCurX, rdCurY     int
 
 	// Drawing state (GP0 0xE1-0xE6).
 	drawL, drawT, drawR, drawB int // clip rectangle (inclusive TL, exclusive BR)
@@ -48,88 +51,8 @@ type gpu struct {
 	dispX, dispY  int  // top-left of the shown area in VRAM
 	dispW, dispH  int  // shown resolution
 	dispEnabled   bool
-	gp0Read       uint32 // last GPUREAD latch (for VRAM→CPU, mostly unused)
+	gp0Read       uint32 // last GPUREAD latch, plus VRAM→CPU copy readout
 	statField     uint32 // toggles so GPUSTAT polls terminate
-
-	// DEBUG: watch VRAM rect [dwx0,dwy0)-(dwx1,dwy1) and log who writes it.
-	dbgOn                  bool
-	dwx0, dwy0, dwx1, dwy1 int
-	dbgLog                 func(string)
-	dbgWatchedLoad         bool
-	dbgFirstWord           bool
-	dbgAllOnes             bool
-	dbgStepFn              func() uint64
-	dbgTPFrom              uint64
-	dbgTP                  map[uint32]*tpStat
-}
-
-type tpStat struct {
-	count, minY, maxY int
-	clut              uint32
-}
-
-// dbgRecordTP (debug) records that a textured primitive sampled the current
-// texture page over screen-Y range [y0,y1].
-func (g *gpu) dbgRecordTP(y0, y1 int, clut uint32) {
-	if !g.dbgOn || g.dbgStepFn == nil || g.dbgStepFn() < g.dbgTPFrom {
-		return
-	}
-	if g.dbgTP == nil {
-		g.dbgTP = map[uint32]*tpStat{}
-	}
-	key := uint32(g.texPageX)<<12 | uint32(g.texPageY)<<2 | uint32(g.texDepth)
-	s := g.dbgTP[key]
-	if s == nil {
-		s = &tpStat{minY: 1 << 30, maxY: -1 << 30, clut: clut}
-		g.dbgTP[key] = s
-	}
-	s.count++
-	if y0 < s.minY {
-		s.minY = y0
-	}
-	if y1 > s.maxY {
-		s.maxY = y1
-	}
-}
-
-// DumpTexpages (debug) prints, for each texture page sampled since dbgTPFrom, the
-// use count, screen-Y span, and whether that VRAM region is populated.
-func (g *gpu) DumpTexpages(log func(string)) {
-	for key, s := range g.dbgTP {
-		tx := int(key>>12) & 0x3FF
-		ty := int(key>>2) & 0x1FF
-		depth := int(key & 3)
-		w := 256
-		if depth == 0 {
-			w = 64
-		} else if depth == 1 {
-			w = 128
-		}
-		log(fmt.Sprintf("texpage=(%d,%d) depth=%d clut=(%d,%d) uses=%d screenY=%d..%d vramVar=%d",
-			tx, ty, depth, int(s.clut&0x3F)*16, int((s.clut>>6)&0x1FF), s.count, s.minY, s.maxY,
-			g.dvariety(tx, ty, w, 256)))
-	}
-}
-
-// DEBUG helpers for the who-writes-VRAM investigation.
-func (g *gpu) dhits(x, y, w, h int) bool {
-	if !g.dbgOn {
-		return false
-	}
-	return x < g.dwx1 && x+w > g.dwx0 && y < g.dwy1 && y+h > g.dwy0
-}
-
-func (g *gpu) dvariety(x, y, w, h int) int {
-	seen := map[uint16]bool{}
-	for yy := y; yy < y+h && yy < vramH; yy++ {
-		for xx := x; xx < x+w && xx < vramW; xx++ {
-			seen[g.vram[yy*vramW+xx]] = true
-			if len(seen) > 64 {
-				return len(seen)
-			}
-		}
-	}
-	return len(seen)
 }
 
 func newGPU() *gpu {
@@ -149,7 +72,35 @@ func (g *gpu) status() uint32 {
 	return 0x1C000000 | g.statField
 }
 
-func (g *gpu) read() uint32 { return g.gp0Read }
+// read returns a GPUREAD word. While a VRAM→CPU copy (GP0 0xC0) is draining, each
+// read yields the next two VRAM pixels; otherwise it returns the last latch.
+func (g *gpu) read() uint32 {
+	if g.rdPx > 0 {
+		return g.readWord()
+	}
+	return g.gp0Read
+}
+
+// readWord pops the next two 16-bit VRAM pixels of the active VRAM→CPU copy rect
+// (low pixel in the low halfword) and advances; returns 0 once exhausted.
+func (g *gpu) readWord() uint32 {
+	var w uint32
+	for i := uint(0); i < 2; i++ {
+		if g.rdPx <= 0 {
+			break
+		}
+		x := (g.rdX + g.rdCurX) & (vramW - 1)
+		y := (g.rdY + g.rdCurY) & (vramH - 1)
+		w |= uint32(g.vram[y*vramW+x]) << (16 * i)
+		g.rdPx--
+		if g.rdCurX++; g.rdCurX >= g.rdW {
+			g.rdCurX = 0
+			g.rdCurY++
+		}
+	}
+	g.gp0Read = w
+	return w
+}
 
 // gp1 handles a display/control command (top byte selects the command).
 func (g *gpu) gp1(w uint32) {
@@ -226,14 +177,6 @@ func (g *gpu) feedNode(w []uint32) {
 
 // pushImage stores two 16-bit pixels from a CPU→VRAM word into the upload rect.
 func (g *gpu) pushImage(w uint32) {
-	if g.dbgWatchedLoad {
-		if g.dbgFirstWord {
-			g.dbgFirstWord, g.dbgAllOnes = false, true
-		}
-		if w != 0 {
-			g.dbgAllOnes = false
-		}
-	}
 	for _, px := range [2]uint16{uint16(w), uint16(w >> 16)} {
 		if g.imgPx <= 0 {
 			return
@@ -245,12 +188,6 @@ func (g *gpu) pushImage(w uint32) {
 		if g.imgCurX++; g.imgCurX >= g.imgW {
 			g.imgCurX = 0
 			g.imgCurY++
-		}
-		if g.imgPx == 0 && g.dbgWatchedLoad {
-			g.dbgLog(fmt.Sprintf("IMAGELOAD done dst=(%d,%d) %dx%d allZeroData=%v vramVar=%d",
-				g.imgX, g.imgY, g.imgW, g.imgH, g.dbgAllOnes,
-				g.dvariety(g.imgX, g.imgY, g.imgW, g.imgH)))
-			g.dbgWatchedLoad = false
 		}
 	}
 }
@@ -320,6 +257,8 @@ func (g *gpu) exec() {
 		g.copyVRAM()
 	case op >= 0xA0 && op <= 0xBF:
 		g.beginImageLoad()
+	case op >= 0xC0 && op <= 0xDF:
+		g.beginImageStore()
 	case op >= 0xE1 && op <= 0xE6:
 		g.drawSetting(op)
 	}
@@ -364,8 +303,25 @@ func (g *gpu) beginImageLoad() {
 	}
 	g.imgCurX, g.imgCurY = 0, 0
 	g.imgPx = g.imgW * g.imgH
-	g.dbgWatchedLoad = g.dhits(g.imgX, g.imgY, g.imgW, g.imgH)
-	g.dbgFirstWord = true
+}
+
+// beginImageStore sets up a VRAM→CPU copy (GP0 0xC0): the source rect is later
+// drained by GPUREAD reads or a to-RAM (VRAM→CPU) GPU DMA — the game uses this to
+// pull staged textures back out of VRAM into a RAM work buffer.
+func (g *gpu) beginImageStore() {
+	src, size := g.fifo[1], g.fifo[2]
+	g.rdX = int(src & 0x3FF)
+	g.rdY = int((src >> 16) & 0x1FF)
+	g.rdW = int(size & 0xFFFF)
+	g.rdH = int((size >> 16) & 0xFFFF)
+	if g.rdW == 0 {
+		g.rdW = 1024
+	}
+	if g.rdH == 0 {
+		g.rdH = 512
+	}
+	g.rdCurX, g.rdCurY = 0, 0
+	g.rdPx = g.rdW * g.rdH
 }
 
 func (g *gpu) fillRect() {
@@ -374,9 +330,6 @@ func (g *gpu) fillRect() {
 	y0 := int((g.fifo[1] >> 16) & 0x1FF)
 	w := int(g.fifo[2] & 0x3FF)
 	h := int((g.fifo[2] >> 16) & 0x1FF)
-	if g.dhits(x0, y0, w, h) {
-		g.dbgLog(fmt.Sprintf("FILL dst=(%d,%d) %dx%d color=0x%04X", x0, y0, w, h, c))
-	}
 	for y := y0; y < y0+h && y < vramH; y++ {
 		for x := x0; x < x0+w && x < vramW; x++ {
 			g.vram[y*vramW+x] = c
@@ -389,10 +342,6 @@ func (g *gpu) copyVRAM() {
 	sx, sy := int(src&0x3FF), int((src>>16)&0x1FF)
 	dx, dy := int(dst&0x3FF), int((dst>>16)&0x1FF)
 	w, h := int(size&0x3FF), int((size>>16)&0x1FF)
-	if g.dhits(dx, dy, w, h) {
-		g.dbgLog(fmt.Sprintf("COPY src=(%d,%d) dst=(%d,%d) %dx%d srcVar=%d",
-			sx, sy, dx, dy, w, h, g.dvariety(sx, sy, w, h)))
-	}
 	for y := 0; y < h; y++ {
 		for x := 0; x < w; x++ {
 			g.vram[((dy+y)&(vramH-1))*vramW+((dx+x)&(vramW-1))] =
@@ -412,23 +361,6 @@ func (g *gpu) Screenshot(path string) error {
 		for x := 0; x < w; x++ {
 			px := g.vram[((g.dispY+y)&(vramH-1))*vramW+((g.dispX+x)&(vramW-1))]
 			r, gr, b := rgb15(px)
-			img.Set(x, y, color.RGBA{r, gr, b, 255})
-		}
-	}
-	f, err := os.Create(path)
-	if err != nil {
-		return err
-	}
-	defer f.Close()
-	return png.Encode(f, img)
-}
-
-// DumpVRAM (debug) writes the entire 1024×512 VRAM as a 15-bit-colour PNG.
-func (g *gpu) DumpVRAM(path string) error {
-	img := image.NewRGBA(image.Rect(0, 0, vramW, vramH))
-	for y := 0; y < vramH; y++ {
-		for x := 0; x < vramW; x++ {
-			r, gr, b := rgb15(g.vram[y*vramW+x])
 			img.Set(x, y, color.RGBA{r, gr, b, 255})
 		}
 	}

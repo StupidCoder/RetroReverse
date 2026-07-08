@@ -86,6 +86,28 @@ func TestModulate(t *testing.T) {
 	}
 }
 
+// TestGPUImageStoreReadback checks the VRAM→CPU copy path (GP0 0xC0): after a
+// 2x2 image is placed in VRAM, a store command must let GPUREAD stream those
+// pixels back out, packed two per word, low pixel first. Ridge Racer relies on
+// this to pull staged scenery/font textures back out of VRAM into a RAM work
+// buffer; without it the buffer stays zero and the scenery renders untextured.
+func TestGPUImageStoreReadback(t *testing.T) {
+	g := newGPU()
+	// Seed a 2x2 block at (5,5): (5,5)=green,(6,5)=cyan,(5,6)=red,(6,6)=blue.
+	g.vram[5*vramW+5], g.vram[5*vramW+6] = 0x03E0, 0x7C1F
+	g.vram[6*vramW+5], g.vram[6*vramW+6] = 0x001F, 0x7C00
+	// VRAM→CPU copy from (5,5), size 2x2: header (3 words), then read 2 words.
+	g.gp0(0xC0000000)
+	g.gp0(5<<16 | 5)   // src x=5,y=5
+	g.gp0(2<<16 | 2)   // w=2,h=2
+	if w := g.read(); w != 0x7C1F_03E0 {
+		t.Errorf("readback word 0 = 0x%08X, want 0x7C1F03E0", w)
+	}
+	if w := g.read(); w != 0x7C00_001F {
+		t.Errorf("readback word 1 = 0x%08X, want 0x7C00001F", w)
+	}
+}
+
 // TestGPUImageLoadAndDisplay uploads a 2x2 image via GP0 0xA0 and reads it back.
 func TestGPUImageLoadAndDisplay(t *testing.T) {
 	g := newGPU()

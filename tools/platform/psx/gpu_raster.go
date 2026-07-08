@@ -60,18 +60,6 @@ func (g *gpu) polygon(op byte) {
 		g.texDepth = int((tpage >> 7) & 3)
 	}
 
-	if textured {
-		y0, y1 := vs[0].y, vs[0].y
-		for _, v := range vs {
-			if v.y < y0 {
-				y0 = v.y
-			}
-			if v.y > y1 {
-				y1 = v.y
-			}
-		}
-		g.dbgRecordTP(y0, y1, clut)
-	}
 	g.tri(vs[0], vs[1], vs[2], textured, clut)
 	if nv == 4 {
 		g.tri(vs[1], vs[2], vs[3], textured, clut)
@@ -199,7 +187,6 @@ func (g *gpu) rect(op byte) {
 		u0 = int(uv & 0xFF)
 		v0 = int((uv >> 8) & 0xFF)
 		clut = (uv >> 16) & 0xFFFF
-		g.dbgRecordTP(y0, y0, clut)
 	}
 	w, h := 1, 1
 	switch op & 0x18 {

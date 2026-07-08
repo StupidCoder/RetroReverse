@@ -169,28 +169,6 @@ func (m *Machine) SetDisc(v *Volume) { m.disc = v }
 // Screenshot renders the GPU's active display area to a PNG.
 func (m *Machine) Screenshot(path string) error { return m.gpu.Screenshot(path) }
 
-// DumpVRAM (debug) writes the full 1024×512 VRAM to a PNG.
-func (m *Machine) DumpVRAM(path string) error { return m.gpu.DumpVRAM(path) }
-
-// DebugTexpages (debug) starts recording sampled texture pages from step `from`.
-func (m *Machine) DebugTexpages(from uint64) {
-	m.gpu.dbgOn = true
-	m.gpu.dbgStepFn = func() uint64 { return m.CPU.Steps }
-	m.gpu.dbgTPFrom = from
-}
-
-// DumpTexpages (debug) prints the recorded texture-page usage.
-func (m *Machine) DumpTexpages(log func(string)) { m.gpu.DumpTexpages(log) }
-
-// DebugWatchVRAM (temporary) logs every GPU fill/copy/image-load whose
-// destination intersects the VRAM rect [x0,y0)-(x1,y1), tagging copies with the
-// source's colour variety.
-func (m *Machine) DebugWatchVRAM(x0, y0, x1, y1 int, log func(string)) {
-	m.gpu.dbgOn = true
-	m.gpu.dwx0, m.gpu.dwy0, m.gpu.dwx1, m.gpu.dwy1 = x0, y0, x1, y1
-	m.gpu.dbgLog = log
-}
-
 // LoadEXE copies a parsed PS-X EXE into RAM and seeds the entry state the BIOS
 // would hand the program (PC, gp, sp, fp).
 func (m *Machine) LoadEXE(e *EXE) {
@@ -321,11 +299,6 @@ func (m *Machine) ioSideEffect(base, word uint32) {
 			bcr := m.io[base-4]
 			switch ch {
 			case 2: // GPU: feed a command list to GP0
-				if m.gpu.dbgOn && m.gpu.dbgLog != nil {
-					m.gpu.dbgLog(fmt.Sprintf("DMA2 chcr=0x%08X dir=%d(%s) sync=%d madr=0x%06X bcr=0x%08X",
-						word, word&1, map[bool]string{true: "fromRAM", false: "toRAM"}[word&1 != 0],
-						(word>>9)&3, madr, bcr))
-				}
 				m.dmaGPU(madr, bcr, word)
 			case 3: // CDROM: stream the ready sector into RAM
 				m.cd.dmaTo(madr, bcr)
@@ -340,7 +313,9 @@ func (m *Machine) ioSideEffect(base, word uint32) {
 // dmaGPU services a GPU DMA (channel 2): in linked-list sync mode (CHCR bits
 // 9-10 == 2) it walks the ordering table, handing each node's words to the GPU
 // (feedNode, which skips the game's disabled/zeroed primitive slots); in block
-// mode it streams BCR words (a VRAM image upload).
+// mode it streams BCR words either from RAM to GP0 (CPU→VRAM image upload) or,
+// when the CHCR direction bit selects to-RAM, from VRAM back into RAM (a
+// VRAM→CPU image store — the game pulls staged textures back out of VRAM).
 func (m *Machine) dmaGPU(madr, bcr, chcr uint32) {
 	if (chcr>>9)&3 == 2 { // linked list
 		addr := madr
@@ -363,23 +338,23 @@ func (m *Machine) dmaGPU(madr, bcr, chcr uint32) {
 		}
 		return
 	}
-	// Block / block-sync: BCR = blocksize | blockcount<<16, all words to GP0.
+	// Block / block-sync: BCR = blocksize | blockcount<<16.
 	n := bcr & 0xFFFF
 	if bc := bcr >> 16; bc > 1 {
 		n *= bc
 	}
-	if m.gpu.dbgOn && m.gpu.dbgLog != nil {
-		var nz uint32
-		a := madr
-		for i := uint32(0); i < n && i < 8192; i++ {
-			if m.read32(a) != 0 {
-				nz++
-			}
-			a = (a + 4) & 0x1FFFFF
+	if chcr&1 == 0 {
+		// Direction to-RAM: a VRAM→CPU copy. Drain the GPU's pending image-store
+		// rect (set up by a preceding GP0 0xC0) into RAM. The game reads staged
+		// textures back out of VRAM this way; without it the target buffer stays
+		// zero (untextured scenery).
+		for i := uint32(0); i < n; i++ {
+			m.write32(madr, m.gpu.readWord())
+			madr = (madr + 4) & 0x1FFFFF
 		}
-		m.gpu.dbgLog(fmt.Sprintf("BLOCKDMA->img madr=0x%06X n=%d srcNonZeroWords=%d first=0x%08X",
-			madr, n, nz, m.read32(madr)))
+		return
 	}
+	// Direction from-RAM: a CPU→VRAM image upload, all words to GP0.
 	for i := uint32(0); i < n; i++ {
 		m.gpu.gp0(m.read32(madr))
 		madr = (madr + 4) & 0x1FFFFF
