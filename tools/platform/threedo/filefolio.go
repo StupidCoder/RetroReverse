@@ -67,7 +67,7 @@ func (m *Machine) serviceFileFolio(foff uint32) {
 // tells which vector was wanted, guiding the next folio to reimplement.
 func (m *Machine) serviceOtherFolio(foff uint32) {
 	c := m.CPU
-	m.note(fmt.Sprintf("otherFolio[-0x%X] stub (r0=0x%08X r1=0x%08X r2=0x%08X)", foff, c.Reg(0), c.Reg(1), c.Reg(2)))
+	m.note(fmt.Sprintf("otherFolio[-0x%X] from 0x%08X (r0=0x%08X r1=0x%08X r2=0x%08X r3=0x%08X)", foff, c.Reg(14)-8, c.Reg(0), c.Reg(1), c.Reg(2), c.Reg(3)))
 	m.SetResultAndReturn(0)
 }
 
