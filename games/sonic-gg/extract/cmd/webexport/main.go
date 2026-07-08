@@ -9,11 +9,15 @@
 //	levels/act<NN>.objects.json machine-readable object DB for the act
 //	levels/atlas_<k>.png        256 tiles (8x8) at a zone palette, 16 wide; reused across acts
 //	levels/shapes.json          the 48 collision height profiles ($3E7A) + angles ($3978)
+//	sprites/index.json          object/enemy sprite metadata (see sprites.go, ex-cmd/spriterip)
+//	sprites/<zone>/<hex>.png    per-object metasprite strips
+//	music/<track>.mp3           the 7 zone themes, pure-ROM synth (see music.go, ex-cmd/musicrom)
 //
-// The client expands blocks -> tiles into a tilemap. sprites/ and music/ are produced
-// by cmd/spriterip and cmd/musicbake into the same tree.
+// The client expands blocks -> tiles into a tilemap. All three producers (levels, sprites,
+// music) are folded into this one command; -only gates which stages run. The levels stage
+// uses the machine oracle only to capture the paletteFx cycle; sprites and music are oracle-free.
 //
-// Usage: webexport -in <rom.gg> [-o <outdir>]
+// Usage: webexport -in <rom.gg> [-o <outdir>] [-only levels,sprites,music,all]
 package main
 
 import (
@@ -463,7 +467,7 @@ type Manifest struct {
 	Platform string         `json:"platform"`
 	Native   map[string]int `json:"native"`
 	TickHz   int            `json:"tickHz"`
-	Levels   []LevelIndex   `json:"levels"`
+	Levels   []LevelIndex   `json:"levels,omitempty"`
 	Music    []MusicEntry   `json:"music,omitempty"`
 	Sprites  string         `json:"sprites,omitempty"`
 }
@@ -637,20 +641,71 @@ func waterLine(rom []byte, act int) int {
 	return -1
 }
 
+// parseOnly turns the -only selection into a stage set. "all" (or empty) selects every
+// stage; otherwise only the named stages (levels,sprites,music) run.
+func parseOnly(sel string) map[string]bool {
+	out := map[string]bool{}
+	for _, s := range strings.Split(sel, ",") {
+		s = strings.TrimSpace(s)
+		if s == "" {
+			continue
+		}
+		if s == "all" {
+			out["levels"], out["sprites"], out["music"] = true, true, true
+			continue
+		}
+		if s != "levels" && s != "sprites" && s != "music" {
+			fmt.Fprintf(os.Stderr, "webexport: unknown -only stage %q (want levels,sprites,music,all)\n", s)
+			os.Exit(2)
+		}
+		out[s] = true
+	}
+	return out
+}
+
 func main() {
 	in := flag.String("in", "", "input Game Gear ROM (.gg)")
 	outdir := flag.String("o", "../../site/public/sonic-gg", "output asset root")
+	only := flag.String("only", "all", "comma-separated subset of stages to run: levels,sprites,music,all")
 	flag.Parse()
 	if *in == "" && flag.NArg() > 0 {
 		*in = flag.Arg(0) // tolerate a positional ROM path
 	}
 	if *in == "" {
-		fmt.Fprintln(os.Stderr, "usage: webexport -in <rom.gg> [-o <outdir>]")
+		fmt.Fprintln(os.Stderr, "usage: webexport -in <rom.gg> [-o <outdir>] [-only levels,sprites,music,all]")
 		os.Exit(2)
 	}
+	sel := parseOnly(*only)
 	rom, err := os.ReadFile(*in)
 	chk(err)
-	levelsDir := filepath.Join(*outdir, "levels")
+	chk(os.MkdirAll(*outdir, 0o755))
+
+	// The manifest covers whatever stages ran: a stage that is gated out via -only leaves
+	// its manifest section empty, and omitempty drops it, so a partial run stays self-consistent.
+	man := Manifest{
+		Format: 2, Game: "sonic-gg", Platform: "Game Gear",
+		Native: map[string]int{"w": 160, "h": 144}, TickHz: 60,
+	}
+	if sel["levels"] {
+		man.Levels = exportLevels(rom, *outdir)
+	}
+	if sel["sprites"] {
+		exportSprites(rom, *outdir)
+		man.Sprites = "sprites/index.json"
+	}
+	if sel["music"] {
+		man.Music = exportMusic(rom, *outdir)
+	}
+	writeJSON(filepath.Join(*outdir, "manifest.json"), man)
+	fmt.Fprintf(os.Stderr, "[manifest] %d levels, %d music, sprites=%q -> %s\n",
+		len(man.Levels), len(man.Music), man.Sprites, *outdir)
+}
+
+// exportLevels writes the levels/ tree (shapes.json, per-act tilemaps + object DBs, deduped
+// atlases) and returns the manifest level index. This is the original webexport logic; it is
+// the one stage that uses the machine oracle (capturePaletteCycle).
+func exportLevels(rom []byte, outdir string) []LevelIndex {
+	levelsDir := filepath.Join(outdir, "levels")
 	chk(os.MkdirAll(levelsDir, 0o755))
 
 	// levels/shapes.json (global collision profiles)
@@ -673,12 +728,7 @@ func main() {
 	atlasName := map[[2]int]string{}
 	atlasAnim := map[string][]AnimGroup{}
 	cycleCache := map[int]*PaletteCycle{} // by bgPal: the BG-palette cycle (oracle-captured)
-	man := Manifest{
-		Format: 2, Game: "sonic-gg", Platform: "Game Gear",
-		Native: map[string]int{"w": 160, "h": 144}, TickHz: 60,
-		Sprites: "sprites/index.json",
-	}
-	musicSeen := map[string]bool{}
+	var levels []LevelIndex
 
 	const screenBlk = 5
 	for idx, a := range acts {
@@ -808,20 +858,15 @@ func main() {
 		}
 		writeJSON(filepath.Join(levelsDir, num+".objects.json"), db)
 
-		man.Levels = append(man.Levels, LevelIndex{
+		levels = append(levels, LevelIndex{
 			Name: a.name, Section: sectionOf(a), File: "levels/" + num + ".json",
 			Kind: "tilemap2d", Atlas: atlasRef, Objects: "levels/" + num + ".objects.json",
 		})
-		if t := af.Music; t != "" && !musicSeen[t] {
-			musicSeen[t] = true
-			man.Music = append(man.Music, MusicEntry{Name: musicName(t), File: "music/" + t + ".mp3"})
-		}
 		fmt.Fprintf(os.Stderr, "[levels] %2d/%2d  %-16s %3dx%-3d blocks  %s  %d objects\n",
 			idx+1, len(acts), a.name, cols, rows, atlas, len(objs))
 	}
-	writeJSON(filepath.Join(*outdir, "manifest.json"), man)
-	fmt.Fprintf(os.Stderr, "[manifest] %d levels, %d atlases, %d music -> %s\n",
-		len(man.Levels), len(atlasName), len(man.Music), *outdir)
+	fmt.Fprintf(os.Stderr, "[levels] done: %d acts, %d atlases\n", len(levels), len(atlasName))
+	return levels
 }
 
 // musicName maps a track id to its Studio display name for the manifest.
