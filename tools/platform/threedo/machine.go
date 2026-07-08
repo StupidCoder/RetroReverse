@@ -59,26 +59,28 @@ const (
 	osCtxVBlank = 0x0A       // +0xA: current VBlank/field count (byte)
 	osCtxMemLst = 0xA8       // +0xA8: OS MemList pointer (ignored by our AllocMem)
 
-	// The game builds TWO memory managers that BOTH over-commit: each requests
-	// ~0xD8000 of DRAM and ~0xF8C00 of VRAM (InitMemMgr, id 0xC8, called twice).
-	// Both share one memlist array (@game 0x5BA68) and each manager's setup calls
-	// InitMemList, which *replaces* (not appends) that array with its own region.
-	// So whichever manager runs second and gets a non-empty region wipes the first
-	// manager's block tracking — and every later free of a first-manager block
-	// (task stacks, screen buffers) then fails findmemblock and, fatally, calls the
-	// game's exit handler. The game tolerates this only because on real hardware the
-	// second manager gets *nothing*: manager 0 takes almost all of DRAM and VRAM,
-	// and the small remainder is below the game's own AvailMem fallback threshold
-	// (~0xA800), so InitMemMgr for manager 1 allocates zero and skips InitMemList,
-	// leaving manager 0's list intact. We reproduce that by sizing the pools so
-	// manager 0 fits and the leftover is under that threshold: the OS reserves the
-	// upper DRAM (kernel/folios/system stacks) and nearly all VRAM (display).
+	// The game sets up TWO memory managers (InitMemMgr, id 0xC8): one at boot entry
+	// and one from a later dispatch. Both share one memlist array (@game 0x5BA68)
+	// AND one block-node pool ([0x42368]); each manager's setup calls InitMemList
+	// (which *replaces* the array with its own region) and rebuilds the node pool
+	// at its region base. So the second manager wipes the first's block tracking,
+	// and a later free of a first-manager block (e.g. the default screen buffer
+	// 0x827c0) misses findmemblock and fatally calls the game's exit handler.
+	//
+	// This is the boot's current hard blocker and is NOT yet solved. A previous
+	// attempt shrank this pool so manager 1's DRAM alloc returned 0 (skipping the
+	// wipe); that was WRONG — the game then builds its node pool at base 0, whose
+	// 0x28-strided .next writes corrupt the low-memory code (exception vectors,
+	// folio trampolines, the 0x4C4 divide routine), so large-number divides loop
+	// forever (proven: divide_test passes in isolation; an in-game trace showed
+	// 0x4D0 overwritten). Keep manager 1's region VALID (non-zero) to avoid that
+	// corruption; the real fix is a faithful OS MemList so manager 1's allocation
+	// resolves the way it does on hardware (a valid region that doesn't orphan the
+	// first manager's normal-path frees) — see the game's InitMemMgr flow.
 	dheapBase = 0x00080000 // DRAM AllocMem pool: above the image + BSS
-	dheapTop  = 0x00160000 // reserve the upper DRAM: manager 0 (~0xD8000 @ 0x80800)
-	//                        fits; the ~0x7800 leftover is below the game's fallback
-	//                        threshold, so the over-committed manager 1 gets zero.
+	dheapTop  = 0x0017D000 // ends below the OS context struct + folio vector tables
 	vheapBase   = vramBase
-	vramReserve = 0x4000 // leave <fallback-threshold VRAM after manager 0's 0xF8C00
+	vramReserve = 0x4000 // reserve a VRAM sliver (over-commit workaround, see git log)
 	vheapTop    = vramBase + vramSize - vramReserve
 	// osCtx (0x17D000) and the folio vector tables (0x17E000..0x180000) sit above
 	// the DRAM pool; the boot stack grows down from near the top of DRAM, clear of
