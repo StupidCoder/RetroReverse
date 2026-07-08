@@ -35,11 +35,22 @@ import (
 // stunt-model GLB plugin; Section groups the browse list (the circuits under "Courses", the
 // opponent car + horizon under "Models"); Fly marks the circuits the viewer lets you fly through.
 type ModelIndex struct {
-	Name    string `json:"name"`
-	File    string `json:"file"`
-	Kind    string `json:"kind"`
-	Section string `json:"section"`
-	Fly     bool   `json:"fly,omitempty"`
+	Name    string       `json:"name"`
+	File    string       `json:"file"`
+	Kind    string       `json:"kind"`
+	Section string       `json:"section"`
+	Fly     bool         `json:"fly,omitempty"`
+	Start   *StartAnchor `json:"start,omitempty"`
+}
+
+// StartAnchor is where the car sits on the grid at the start of a lap, in the circuit
+// GLB's own coordinate space: Pos is the road-surface midpoint of the finish/start rung,
+// Yaw is the Y-rotation (radians) that faces a model whose local forward is -Z along the
+// direction of travel. The opponent car GLB shares this space and scale, so the viewer
+// drops it in at scale 1, position Pos, rotation.y Yaw.
+type StartAnchor struct {
+	Pos [3]float32 `json:"pos"`
+	Yaw float32    `json:"yaw"`
 }
 
 const (
@@ -127,6 +138,7 @@ func exportModels(inPath, outDir string) []ModelIndex {
 
 		name := trackNames[id]
 		file := "models/" + slug(name) + ".glb"
+		anchor := startAnchor(im, id)
 		if id == track.DrawBridgeTrack {
 			// the bridge ramps are animated at runtime ($5A794): the base mesh
 			// is the lowered pose (phase 15, tri 0), one morph target raises it
@@ -160,17 +172,63 @@ func exportModels(inPath, outDir string) []ModelIndex {
 				Default: 14.0 / 15.0,
 			}
 			chk(glb.WriteMixedMorph(filepath.Join(outDir, file), lo.pos, loT, loL, m))
-			out = append(out, ModelIndex{Name: name, File: file, Kind: "stunt-model", Section: "Courses", Fly: true})
+			out = append(out, ModelIndex{Name: name, File: file, Kind: "stunt-model", Section: "Courses", Fly: true, Start: anchor})
 			fmt.Fprintf(os.Stderr, "[models] %d/10 %s (%d verts, morph)\n", id+1, filepath.Base(file), len(lo.pos))
 			continue
 		}
 		chk(glb.WriteMixed(filepath.Join(outDir, file), mb.pos, triGroups, lineGroups))
-		out = append(out, ModelIndex{Name: name, File: file, Kind: "stunt-model", Section: "Courses", Fly: true})
+		out = append(out, ModelIndex{Name: name, File: file, Kind: "stunt-model", Section: "Courses", Fly: true, Start: anchor})
 		fmt.Fprintf(os.Stderr, "[models] %d/10 %s (%d verts)\n", id+1, filepath.Base(file), len(mb.pos))
 	}
 	out = append(out, exportCar(pal, outDir))
 	out = append(out, exportHorizon(im, pal, outDir))
 	return out
+}
+
+// glbPos maps a game-world plan point (x, z) at height h to the circuit GLB's
+// coordinate space — the same transform meshBuilder.vert applies.
+func glbPos(x, z, h int) [3]float32 {
+	return [3]float32{
+		float32(x) * glbScale,
+		float32(h-groundH) / heightDiv * glbScale,
+		-float32(z) * glbScale,
+	}
+}
+
+// startAnchor finds the circuit's finish/start rung (RungAbs.Finish) and returns the car's
+// grid pose there: the road-surface midpoint of that rung, facing along the direction of
+// travel (the midpoint delta across an adjacent rung in the same section). Returns nil if
+// the track carries no finish rung.
+func startAnchor(im *track.Image, id int) *StartAnchor {
+	t := im.Spine(id)
+	geo := im.Geometry(&t)
+	for sec := range geo {
+		rs := geo[sec]
+		for k := range rs {
+			if !rs[k].Finish {
+				continue
+			}
+			mid := func(r track.RungAbs) [3]float32 {
+				return glbPos((r.LX+r.RX)/2, (r.LZ+r.RZ)/2, (r.HL+r.HR)/2)
+			}
+			cur := mid(rs[k])
+			// travel direction = midpoint delta across an adjacent rung in the same
+			// section: previous->current normally, current->next for a finish rung at k=0.
+			var fx, fz float32
+			if k > 0 {
+				p := mid(rs[k-1])
+				fx, fz = cur[0]-p[0], cur[2]-p[2]
+			} else if k+1 < len(rs) {
+				n := mid(rs[k+1])
+				fx, fz = n[0]-cur[0], n[2]-cur[2]
+			}
+			// a -Z-forward model rotated by yaw about Y faces (-sin yaw, 0, -cos yaw);
+			// solve that against the travel direction (fx, fz).
+			yaw := float32(math.Atan2(float64(-fx), float64(-fz)))
+			return &StartAnchor{Pos: cur, Yaw: yaw}
+		}
+	}
+	return nil
 }
 
 // buildCircuit assembles one circuit's coloured geometry (quads and decal

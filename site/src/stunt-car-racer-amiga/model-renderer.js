@@ -58,6 +58,20 @@ export default {
     scene.background = new THREE.Color(SKY);
     stage.add(model);
 
+    // On a circuit, drop the opponent car GLB onto the start/finish line. Both GLBs share the
+    // 1/1024 scale and Y-up/Z-negated convention (webexport models.go), so the car goes in at
+    // scale 1: item.start.pos is the road-surface midpoint of the finish rung and item.start.yaw
+    // faces the car (local forward -Z) along the direction of travel. Placeholder placement —
+    // the car is static for now, not yet driven by the physics.
+    let car = null;
+    if (item.fly && item.start) {
+      const carGltf = await gltfLoader().loadAsync(base + 'models/opponent-car.glb');
+      car = carGltf.scene;
+      car.position.set(item.start.pos[0], item.start.pos[1], item.start.pos[2]);
+      car.rotation.y = item.start.yaw;
+      stage.add(car);
+    }
+
     // ---- native-resolution post: render the scene into a 200-line target, upscale chunky ----
     // The target's texture is tagged sRGB so the scene is encoded into it and decoded back out by
     // the upscale quad — a colour-exact round trip (the GLB materials are unlit, linear-light
@@ -140,12 +154,14 @@ export default {
       if (mixer) mixer.stopAllAction();
       controls.autoRotate = false;
       renderer.setRenderTarget(null);
-      model.traverse((o) => {
+      const disposeTree = (root) => root.traverse((o) => {
         if (o.geometry) o.geometry.dispose();
         if (o.material) {
           for (const m of Array.isArray(o.material) ? o.material : [o.material]) m.dispose();
         }
       });
+      disposeTree(model);
+      if (car) disposeTree(car);
       postTarget.dispose();
       quad.geometry.dispose();
       quad.material.dispose();
