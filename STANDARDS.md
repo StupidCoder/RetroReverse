@@ -127,15 +127,24 @@ under one `bootoracle` (thin wrappers are fine). NDS oracles share the dual-CPU
 
 ### 4.1 Extract CLI (`games/<slug>/extract/cmd/webexport`)
 
-Each game exposes one primary export command named `webexport`:
+Each game exposes one primary export command named `webexport` that runs the whole
+extraction internally (from the raw image) and writes the full asset tree below plus
+`manifest.json`:
 
 - `-in PATH` — input image / rom / game-dir. Games that stage a pre-extracted tree may add
   `-extracted DIR` as a secondary input.
 - `-o DIR` — output root, default `../../site/public/<slug>` for every game.
-- `-only bitmaps|music|sfx|models|levels|sprites|all` — optional selective export (default `all`).
+- `-only bitmaps|music|sfx|models|levels|sprites|all` — selective export (default `all`),
+  comma-separated. **`-only` gates which stages run**, so an expensive stage is skipped when
+  its assets are not requested (e.g. `-only music` must not boot a model/actor oracle).
 
-`webexport` writes the full asset tree below plus `manifest.json`. Inspection/dev tools use
-`-in` + `-o` and write to `games/<slug>/work/`.
+**Progress output (required).** Every `webexport` reports what it is doing on stderr as it
+runs: a line per stage announcing the stage, and progress within long stages (e.g.
+`[models]  142/463  castle_1f.glb`). The output is human-readable and ordered; it names the
+stage, the item, and a running count so a slow run (oracle, GLB export) is legible. Keep it
+concise — one line per item or a periodic counter, not a flood.
+
+Inspection/dev tools use `-in` + `-o` and write to `games/<slug>/work/`.
 
 ### 4.2 Asset tree (`site/public/<slug>/`)
 

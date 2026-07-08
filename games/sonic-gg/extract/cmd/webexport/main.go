@@ -665,8 +665,10 @@ func main() {
 		sh.Angles = append(sh.Angles, int(int8(rom[angleTbl+s])))
 	}
 	writeJSON(filepath.Join(levelsDir, "shapes.json"), sh)
+	fmt.Fprintf(os.Stderr, "[shapes] %d collision profiles\n", numShapes)
 
 	acts := parseActs(rom)
+	fmt.Fprintf(os.Stderr, "[levels] %d acts\n", len(acts))
 	// Dedup atlases by (tileFile, bgPal): same tiles + palette -> one PNG.
 	atlasName := map[[2]int]string{}
 	atlasAnim := map[string][]AnimGroup{}
@@ -679,7 +681,7 @@ func main() {
 	musicSeen := map[string]bool{}
 
 	const screenBlk = 5
-	for _, a := range acts {
+	for idx, a := range acts {
 		tiles := decomp.Decompress(rom, a.tileFile)
 		applyAnimFrame(rom, tiles, a.zone)
 		pal := romPalette(rom, a.bgPal)
@@ -814,10 +816,12 @@ func main() {
 			musicSeen[t] = true
 			man.Music = append(man.Music, MusicEntry{Name: musicName(t), File: "music/" + t + ".mp3"})
 		}
-		fmt.Printf("%-16s %3dx%-3d blocks  atlas %s  %d objects\n", a.name, cols, rows, atlas, len(objs))
+		fmt.Fprintf(os.Stderr, "[levels] %2d/%2d  %-16s %3dx%-3d blocks  %s  %d objects\n",
+			idx+1, len(acts), a.name, cols, rows, atlas, len(objs))
 	}
 	writeJSON(filepath.Join(*outdir, "manifest.json"), man)
-	fmt.Printf("wrote %d acts, %d atlases, shapes(%d) + manifest to %s\n", len(acts), len(atlasName), numShapes, *outdir)
+	fmt.Fprintf(os.Stderr, "[manifest] %d levels, %d atlases, %d music -> %s\n",
+		len(man.Levels), len(atlasName), len(man.Music), *outdir)
 }
 
 // musicName maps a track id to its Studio display name for the manifest.
