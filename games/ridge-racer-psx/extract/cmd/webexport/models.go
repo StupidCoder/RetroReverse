@@ -72,19 +72,19 @@ func u16(b []byte, off int) uint16 { return uint16(b[off]) | uint16(b[off+1])<<8
 // addObject feeds every record of one object into the mesh at a world offset.
 func addObject(b *meshBuilder, o *rr.Object, off [3]int32) {
 	for _, q := range o.FT {
-		b.AddTextured(q.V, q.UV, q.TPage, q.CLUT, off)
+		b.AddTextured(q.V, q.UV, q.TPage, q.CLUT, off, 0)
 	}
 	for _, q := range o.FT8 {
-		b.AddTextured(q.V, q.UV, q.TPage, q.CLUT, off)
+		b.AddTextured(q.V, q.UV, q.TPage, q.CLUT, off, 0)
 	}
 	for _, q := range o.F {
 		b.AddFlat(q.V, q.RGB, off)
 	}
 	for _, q := range o.GT {
-		b.AddTextured(q.V, q.UV, q.TPage, q.CLUT, off)
+		b.AddTextured(q.V, q.UV, q.TPage, q.CLUT, off, 0)
 	}
 	for _, q := range o.GT8 {
-		b.AddTextured(q.V, q.UV, q.TPage, q.CLUT, off)
+		b.AddTextured(q.V, q.UV, q.TPage, q.CLUT, off, 0)
 	}
 	for _, q := range o.G {
 		b.AddFlat(q.V, q.RGB, off)
@@ -102,7 +102,7 @@ func exportCars(a *assets, out string) ([]ModelIndex, error) {
 	}
 	var models []ModelIndex
 	for i, c := range cars {
-		b := newMeshBuilder(a.vram)
+		b := newMeshBuilder(a.vrams[0])
 		addObject(b, &a.objs[c.Body], [3]int32{0, 0, 0})
 		addObject(b, &a.objs[c.Canopy], [3]int32{0, 0, 0})
 		addObject(b, &a.objs[c.Canopy+3], [3]int32{0, 0, 0}) // underbody

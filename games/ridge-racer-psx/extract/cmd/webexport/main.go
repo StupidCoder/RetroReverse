@@ -51,8 +51,8 @@ type assets struct {
 	objs  []rr.Object
 	track *rr.Track
 	grid  *rr.Grid
-	vram  *rr.VRAM
-	exe   []byte // text segment (0x80010000..)
+	vrams [3]*rr.VRAM // one texture state per scenery set
+	exe   []byte      // text segment (0x80010000..)
 }
 
 func main() {
@@ -156,10 +156,9 @@ func load(vol *psx.Volume) (*assets, error) {
 		}
 		rects = append(rects, rs)
 	}
-	// The race-time texture state: the models and the track both reference
-	// the pages as the race sees them (the scenery quadrant differs from the
-	// boot replay; everything else is identical).
-	a.vram = rr.NewRaceVRAM(rects[0], rects[1], rects[2], rects[3], rects[4])
+	// The race texture states: one per scenery set (the quadrant pages are
+	// paged by course progress; everything else is identical across sets).
+	a.vrams = rr.NewSceneryVRAMs(rects[0], rects[1], rects[2], rects[3], rects[4])
 	_, exe, err := vol.BootEXE()
 	if err != nil {
 		return nil, err

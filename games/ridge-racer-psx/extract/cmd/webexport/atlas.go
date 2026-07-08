@@ -21,7 +21,10 @@ const worldScale = 1.0 / 1024
 
 const tileSize = 256 // one PSX texture page, texel-addressed 0..255
 
-type pageKey struct{ page, clut uint16 }
+type pageKey struct {
+	page, clut uint16
+	set        uint8 // scenery set for quadrant pages; 0 otherwise
+}
 
 type vkey struct {
 	x, y, z int32 // world-space, game units
@@ -30,9 +33,10 @@ type vkey struct {
 }
 
 // meshBuilder accumulates one model's geometry: textured tris over a shared
-// tile atlas plus flat-coloured tris.
+// tile atlas plus flat-coloured tris. vrams holds one texture state per
+// scenery set (course.go); a model with no set-dependent pages passes one.
 type meshBuilder struct {
-	vram *rr.VRAM
+	vrams []*rr.VRAM
 
 	tiles   []pageKey
 	tileIdx map[pageKey]int
@@ -43,9 +47,9 @@ type meshBuilder struct {
 	colTris map[[3]uint8][][3]uint32
 }
 
-func newMeshBuilder(vram *rr.VRAM) *meshBuilder {
+func newMeshBuilder(vrams ...*rr.VRAM) *meshBuilder {
 	return &meshBuilder{
-		vram:    vram,
+		vrams:   vrams,
 		tileIdx: map[pageKey]int{},
 		index:   map[vkey]uint32{},
 		colTris: map[[3]uint8][][3]uint32{},
@@ -67,9 +71,20 @@ func quadTris(a, b, c, d uint32) [][3]uint32 {
 	return [][3]uint32{{a, b, c}, {b, d, c}}
 }
 
-// AddTextured adds one textured quad at a world offset (game units).
-func (b *meshBuilder) AddTextured(v [4][3]int16, uv [4]rr.UV, page, clut uint16, off [3]int32) {
-	key := pageKey{page, clut}
+// quadrantPage reports whether a texture page lies in the race scenery
+// quadrant, VRAM (640,256)-(1024,512) — the pages whose content depends on
+// the scenery set.
+func quadrantPage(page uint16) bool {
+	return page&0x10 != 0 && page&0xF >= 0xA
+}
+
+// AddTextured adds one textured quad at a world offset (game units), sampling
+// the given scenery set's texture state for quadrant pages.
+func (b *meshBuilder) AddTextured(v [4][3]int16, uv [4]rr.UV, page, clut uint16, off [3]int32, set int) {
+	if !quadrantPage(page) {
+		set = 0 // content identical in every set; share the tile
+	}
+	key := pageKey{page, clut, uint8(set)}
 	tile, ok := b.tileIdx[key]
 	if !ok {
 		tile = len(b.tiles)
@@ -150,9 +165,13 @@ func (b *meshBuilder) bakeAtlas() (*image.RGBA, int) {
 	for t, key := range b.tiles {
 		ox := (t % cols) * tileSize
 		oy := (t / cols) * tileSize
+		vram := b.vrams[0]
+		if int(key.set) < len(b.vrams) {
+			vram = b.vrams[key.set]
+		}
 		for v := 0; v < tileSize; v++ {
 			for u := 0; u < tileSize; u++ {
-				px := b.vram.Texel(key.page, key.clut, byte(u), byte(v))
+				px := vram.Texel(key.page, key.clut, byte(u), byte(v))
 				o := img.PixOffset(ox+u, oy+v)
 				if px == 0 {
 					continue // transparent black, zero-initialised

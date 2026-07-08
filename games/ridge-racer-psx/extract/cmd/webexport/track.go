@@ -20,7 +20,11 @@ func exportTrack(a *assets, out string) (ModelIndex, error) {
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		return ModelIndex{}, err
 	}
-	b := newMeshBuilder(a.vram)
+	cps, err := rr.Checkpoints(a.exe)
+	if err != nil {
+		return ModelIndex{}, err
+	}
+	b := newMeshBuilder(a.vrams[0], a.vrams[1], a.vrams[2])
 	cells := 0
 	for z := 0; z < 32; z++ {
 		for x := 0; x < 32; x++ {
@@ -30,10 +34,14 @@ func exportTrack(a *assets, out string) (ModelIndex, error) {
 			}
 			cells++
 			off := [3]int32{int32(x) * rr.CellModel, 0, int32(z) * rr.CellModel}
+			// The scenery set this section renders under: the set active when
+			// the car passes its cell (course.go).
+			seg := rr.NearestSegment(cps, off[0]+rr.CellModel/2, off[2]+rr.CellModel/2)
+			set := rr.SetForProgress(int32(seg) * 256)
 			s := &a.track.Sections[sec]
 			for _, class := range [][]rr.TrackQuad{s.A, s.B, s.C} {
 				for _, q := range class {
-					b.AddTextured(q.V, q.UV, q.TPage, q.CLUT, off)
+					b.AddTextured(q.V, q.UV, q.TPage, q.CLUT, off, set)
 				}
 			}
 		}

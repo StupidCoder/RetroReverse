@@ -570,13 +570,28 @@ the pacing splits it. Per archive: `TEX4` 163 blocks (23 distinct images — the
 `TEX0` 143 (the biggest pages), `TEX1` 120, `TEX2` 102, `TEX3` 102.
 
 The archives paint VRAM twice over: the **race scenery quadrant** — VRAM (640,256)–(1024,512), the
-texture pages `0x1A`–`0x1E` the track's buildings and roadside art sample — is uploaded by
-`TEX0`/`TEX1`, then **saved to RAM** the moment `TEX1`'s stream completes (eight 384×32 VRAM→CPU
-read-backs, GP0 `0xC0`), and the later archives paint the menu screens over the same pages. When
-the race starts, the saved image is **restored row by row** (256 paired `0xC0`/`0xA0` 384×1
-transfers — the read half banks the menu art for the way back). The race therefore renders from
-the quadrant as it stood at the end of `TEX1`, a state that exists in no single archive and at no
-single moment of the boot replay.
+texture pages `0x1A`–`0x1E` the track's buildings and roadside art sample — holds one of **three
+scenery sets**, and the archives deliver all three: the quadrant as it stands at the end of
+`TEX1`'s stream is the **city** set (0), at the end of `TEX2`'s the **seaside** set (1), and at the
+end of `TEX3`'s the third set (2). Each boundary is banked to RAM with eight 384×32 VRAM→CPU
+read-backs (GP0 `0xC0`); the rotator at `0x800375FC` then pages sets between VRAM and the two RAM
+banks (`0x80176D10`, `0x801A6D10`) row by row (paired `0xC0`/`0xA0` 384×1 transfers), tracking each
+row's occupancy in the per-row arrays at `0x801DB460`/`0x801DB560` — the displaced set always lands
+in the bank the incoming set vacated.
+
+Which set is in VRAM follows the car's **course progress**: the selector at `0x800374F0` measures
+the circular distance (`0x80037434`, positions modulo 65,536) from the car's progress to two
+triggers — immediates in the course init at `0x80012D60`: `0xD00` and `0x6800` (`0x6400` for the
+alternate course variant) — and keeps the city set while the car is between them, the seaside set
+on the rest of the lap, sliding the row boundary gradually across a ±512-unit window around each
+trigger. The third set is requested explicitly by attract-demo scenes and course variants, never by
+lap position on the standard course.
+
+Course progress itself is defined by the executable's **checkpoint table at `0x80059164`**: 256
+gates of 20 bytes, searched per frame (`0x8001B68C`) for the gate containing the car; progress =
+gate index × 256 + fraction. A gate decodes as `X = 0xF000 − (word0 >> 14)`,
+`Z = word4 >> 14` (position units, i.e. model units ÷ 4; the X origin `0xF000` is the immediate at
+`0x8001547C`), with the gate heading in the halfword at +10 and half-widths at +14/+16.
 
 ## 2. MAP.RRM — the track
 
@@ -726,9 +741,11 @@ oracle never supplies data; it only verifies.
 `extract/cmd/webexport` builds `site/public/ridge-racer-psx/` from the image alone. The **models**
 stage emits one GLB per car, composed exactly as the carousel draws it (body + canopy + underbody +
 both axles); the **levels** stage places all 258 sections at their grid cells (8,192 model units
-apart) and emits the whole course as one GLB. Textures resolve against the **race-time** virtual
-VRAM (the TMS replay with the scenery quadrant restored from its end-of-`TEX1` snapshot, §VI.1)
-and are baked per referenced page+CLUT pair into a tiled atlas embedded in the GLB
-(nearest-neighbour sampling, texel 0 cut out via alpha masking); PSX coordinates become glTF's
-through `(x, -y, -z)` at 1/1024 scale. The manifest lists the 13 cars and the course; the Studio
-renders them with its stock GLB viewer.
+apart) and emits the whole course as one GLB. Textures resolve against the race texture states of
+§VI.1: all three scenery-set VRAM images are rebuilt from the TMS replay, and a section's
+quadrant-page quads sample the set active when the car passes its cell — the section's nearest
+checkpoint gate gives its progress, the traced trigger rules give the set. Every distinct
+page+CLUT(+set) is baked into a tiled atlas embedded in the GLB (nearest-neighbour sampling,
+texel 0 cut out via alpha masking); PSX coordinates become glTF's through `(x, -y, -z)` at 1/1024
+scale. The manifest lists the 13 cars and the course; the Studio renders them with its stock GLB
+viewer.

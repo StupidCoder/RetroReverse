@@ -39,28 +39,52 @@ const (
 	quadW, quadH = 384, 256
 )
 
-// NewRaceVRAM builds the texture state the race renders from: the boot replay
-// with the scenery quadrant as it stood before the menu archives painted over
-// it. Arguments are the five archives' rect lists in load order.
+// NewRaceVRAM builds the texture state the race starts from: the boot replay
+// with the scenery quadrant holding the city set. Arguments are the five
+// archives' rect lists in load order.
 func NewRaceVRAM(tex4, tex0, tex1, tex2, tex3 []Rect) *VRAM {
+	return NewSceneryVRAMs(tex4, tex0, tex1, tex2, tex3)[0]
+}
+
+// NewSceneryVRAMs builds the three race texture states, indexed by scenery
+// set (course.go): each is the boot replay with the quadrant as it stood at
+// the end of TEX1's, TEX2's and TEX3's stream respectively — the states the
+// rotator at 0x800375FC banks in RAM and pages into VRAM by course progress.
+func NewSceneryVRAMs(tex4, tex0, tex1, tex2, tex3 []Rect) [3]*VRAM {
 	v := NewVRAM(tex4, tex0, tex1)
-	var snap [quadW * quadH]uint16
-	for y := 0; y < quadH; y++ {
-		for x := 0; x < quadW; x++ {
-			snap[y*quadW+x] = v.At(quadX+x, quadY+y)
+	snap := func() []uint16 {
+		s := make([]uint16, quadW*quadH)
+		for y := 0; y < quadH; y++ {
+			for x := 0; x < quadW; x++ {
+				s[y*quadW+x] = v.At(quadX+x, quadY+y)
+			}
 		}
+		return s
 	}
-	for _, rects := range [][]Rect{tex2, tex3} {
+	blit := func(rects []Rect) {
 		for _, r := range rects {
 			v.Blit(r)
 		}
 	}
-	for y := 0; y < quadH; y++ {
-		for x := 0; x < quadW; x++ {
-			v.Pix[(quadY+y)*VRAMW+quadX+x] = snap[y*quadW+x]
+	q0 := snap()
+	blit(tex2)
+	q1 := snap()
+	blit(tex3)
+
+	var out [3]*VRAM
+	for set, q := range [][]uint16{q0, q1, nil} {
+		c := &VRAM{}
+		c.Pix = v.Pix
+		if q != nil {
+			for y := 0; y < quadH; y++ {
+				for x := 0; x < quadW; x++ {
+					c.Pix[(quadY+y)*VRAMW+quadX+x] = q[y*quadW+x]
+				}
+			}
 		}
+		out[set] = c
 	}
-	return v
+	return out
 }
 
 // Blit stores one upload rect, wrapping coordinates as the GPU does.
