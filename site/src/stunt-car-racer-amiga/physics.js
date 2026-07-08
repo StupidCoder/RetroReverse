@@ -49,6 +49,7 @@ export class Physics {
     this.B.set([0, 0, 0, 217, 255, 39], 0x6125A);            // $6125A table
     this.B.set([44, 0, 10, 0, 211, 0, 245, 0, 48, 57, 0, 1], 0x61AD4); // $61AD4 limits
     this.B.set([0x9C, 0xED, 0xCD, 0x02], 0x64AEC);           // protection: genuine disk
+    this.B.set([0x00, 0xD4, 0x80, 0xD4, 0x00, 0x00, 0xAB, 0xAB, 0x40, 0x40, 0x00, 0x00], 0x5C6B8); // $5C6B8 radius coefs
   }
 
   // --- memory access (big-endian, like the 68000) ---
@@ -703,7 +704,107 @@ export class Physics {
     }
   }
 
-  couple5BF50(_a5) { /* ramp-type-2 (curved ramps) not yet ported; flat/ramp-1 cover most */ }
+  // planPoint5C6C4 ($5C6C4): piece-shape plan vertex at byte offset d2 (two LE words),
+  // added to the plan base $1BB22/$1BB26 and rotated by the section quadrant $1BBF2.
+  planPoint5C6C4(d2) {
+    const a5 = this.handlePhys(u16(this.w(0x1BCBC)));
+    const v0 = this.le16(a5 + d2), v1 = this.le16(a5 + d2 + 2);
+    const bx = this.w(0x1BB22), by = this.w(0x1BB26);
+    const q = this.u8(0x1BBF2);
+    if ((q & 0x80) === 0 && (q & 0x40) === 0) { this.setW(0x1BBF6, bx + v0); this.setW(0x1BBF8, by + v1); }
+    else if ((q & 0x80) === 0) { this.setW(0x1BBF8, by + v0); this.setW(0x1BBF6, bx - v1 + 0x800); }
+    else if ((q & 0x40) === 0) { this.setW(0x1BBF6, bx - v0 + 0x800); this.setW(0x1BBF8, by - v1 + 0x800); }
+    else { this.setW(0x1BBF8, by - v0 + 0x800); this.setW(0x1BBF6, bx + v1); }
+  }
+
+  // atan264D66 ($64D66): quarter-table ATAN2 (table $1CC46, full circle $10000, 0 = +y).
+  // Returns [angle, ratio]; the ratio is the d7 quotient hypot64DE8 reuses. On DIVU
+  // overflow the destination's cleared low word stays 0, so the ratio reads as 0.
+  atan264D66(x, y) {
+    const ax = x < 0 ? i16(-x) : x, ay = y < 0 ? i16(-y) : y;
+    let d7, t;
+    if (ay === ax) { d7 = 0xFFFF; t = 0x2000; }
+    else if (ay > ax) {
+      let q = Math.floor((u16(ax) * 0x10000) / u16(ay)); if (q > 0xFFFF) q = 0;
+      d7 = q; t = this.w(0x1CC46 + ((d7 >> 4) & ~1));
+    } else {
+      let q = Math.floor((u16(ay) * 0x10000) / u16(ax)); if (q > 0xFFFF) q = 0;
+      d7 = q; t = this.w(0x1CC46 + ((d7 >> 4) & ~1));
+      if (i16(x ^ y) >= 0) t = i16(-t); // same signs -> negate (BMI skips the NEG)
+      return [i16((x < 0 ? 0xC000 : 0x4000) + t), d7];
+    }
+    if (i16(x ^ y) < 0) t = i16(-t); // opposite signs -> negate (BPL skips the NEG)
+    if (y < 0) t = i16(t + 0x8000);
+    return [i16(t), d7];
+  }
+
+  // hypot64DE8 ($64DE8): table hypot (table $1DC46) of the original x/y, indexed by the
+  // atan2 ratio: max + (table * min >> 16).
+  hypot64DE8(x, y, d7) {
+    let ax = x < 0 ? i16(-x) : x, ay = y < 0 ? i16(-y) : y;
+    if (ay < ax) { const tv = ax; ax = ay; ay = tv; }
+    const t = this.w(0x1DC46 + ((d7 >> 4) & ~1));
+    const p = Math.floor((u16(t) * u16(ax)) / 0x10000);
+    return i16(p + u16(ay));
+  }
+
+  // radius5C65A ($5C65A): refine the curve radius $1BC36 by a step proportional to
+  // (x^2 + z^2 - r^2), scaled by the per-type-nibble coefficient from $5C6B8.
+  radius5C65A() {
+    const sq = (v) => { let p = Math.imul(i16(v), i16(v)); if (p < 0) p = -p; return p; };
+    let d4 = (sq(this.w(0x1BBF6)) + sq(this.w(0x1BBF8))) | 0;
+    const rsq = sq(this.w(0x1BC36));
+    this.B[0x1BB1A] = this.u8(0x5C6B8 + this.u8(0x1BB86));
+    d4 = (d4 - rsq) | 0;
+    const d0 = i16(d4 >>> 8); // LSR.l #8, low word
+    const coef = (this.u8(0x1BB1A) << 7) & 0x7FFF;
+    const p = Math.imul(d0, coef) << 1;
+    const r = i16(p >> 16) >> 4; // SWAP -> high word, ASR.w #4
+    this.setW(0x1BC36, i16(this.w(0x1BC36) + r));
+  }
+
+  // couple5BF50 ($5BF50, ramp-type-2 = curved ramp pieces, $1BB4D bit 7): place the car
+  // on the piece's ARC. atan2/hypot of the plan point give the polar angle/radius around
+  // the curve centre; heading $1BC1C / orientation ref $1BD5A from angle + camera quadrant;
+  // along-progress $1BB10 = swept angle x arc coefficient (header byte 8) scaled by the
+  // exponent in the ramp-flag low bits; past the piece end step the section and, for a
+  // type-nibble-4 neighbour, re-enter the whole coupling; then refine the radius and set
+  // $1BC5E = piece radius (header word 9) - car radius, sign-flipped by $1BC44.
+  couple5BF50(a5) {
+    this.planPoint5C6C4(2);
+    const x = this.w(0x1BBF6), y = this.w(0x1BBF8);
+    const [ang, d7] = this.atan264D66(x, y);
+    this.setW(0x1BC36, this.hypot64DE8(x, y, d7));
+    let d0 = i16(ang + this.w(0x1BC30));
+    d0 = i16(d0 + 0x8000); // the BPL/BMI paths both flip by $8000 (word wrap)
+    this.setW(0x1BC1C, d0);
+    this.setW(0x1BD5A, i16(d0 + 0x4000 - this.w(0x1BC44)));
+    const d4 = i8(1 - (this.u8(0x1BB4D) & 3)); // shift exponent from the ramp-flag low bits
+    const arc0 = i16(this.le16(a5 + 6) << 6);
+    let sweep = i16(this.w(0x1BC1C) - arc0 - this.w(0x1BC4A));
+    if (sweep < 0) sweep = i16(-sweep);
+    this.B[0x1BB1A] = this.u8(a5 + 8);
+    const coef = (this.u8(0x1BB1A) << 7) & 0x7FFF;
+    let along = i16((Math.imul(sweep, coef) << 1) >> 16);
+    if (d4 < 0) along = i16(u16(along) << ((-d4) & 7)); // ASL.w
+    else along = i16(u16(along) >>> (d4 & 7));          // LSR.w
+    this.setW(0x1BB10, along);
+    const e = ((u16(along) >>> 7) + 2) & 0xFF;
+    if (i8(e) >= i8(this.u8(0x1BB97))) {
+      const nib = this.u8(0x1BB86);
+      if (nib === 1 || nib === 3) {
+        this.B[0x1BB19] = this.u8(0x1BB85);
+        if (this.u8(0x1BC32) !== 0) this.secRetreat5C538(); else this.secAdvance5C51A();
+        if ((this.u8(0x1C5EC + this.u8(0x1BB85)) & 0x0F) === 4) { this.couple5BE44(); return; }
+        this.B[0x1BB85] = this.u8(0x1BB19);
+      }
+    }
+    this.radius5C65A();
+    let d3 = i16((this.u8(a5 + 10) << 8) | this.u8(a5 + 9)); // le16(a5+9)
+    d3 = i16(d3 - this.w(0x1BC36));
+    if (i8(this.u8(0x1BC44)) < 0) d3 = i16(-d3);
+    this.setW(0x1BC5E, d3);
+  }
 
   // placeCar605B6 reproduces $605B6's placement path: seat the car at the start section's
   // grid cell (x/z = cell*128 + 64), facing along the section, run the coupling + one

@@ -1014,9 +1014,27 @@ longer tumbles. What does **not** run in software is the *drawing*: the per-fram
 a vertical-blank interrupt, never terminates. So the faithful path is **not** to run the whole
 loop, but to reimplement the handful of coupling routines (`$5BE44`, `$60190`, the section
 update, the `$1BB47` control decode) in Go — each verifiable in isolation against the now-working
-oracle — and compose them around the verified `$6185C` frame. That is the remaining work for a
-fully faithful in-browser drive; until it lands, the viewer uses a provisional coupling
-(flat ground under the wheels, attitude held) with the **exact** throttle/grip/drag dynamics.
+oracle — and compose them around the verified `$6185C` frame.
+
+That is what shipped: the camera-follow (`$60190`/`$600A6`), the grid→section lookup
+(`$5FE04`), the plan base and point (`$5FF94`/`$5C3DA`) and the placement `$5BE44` are all
+reimplemented in Go (verified per-routine against the engine in `physverify`) and hand-ported
+to the browser physics (cross-checked exact against the Go over the same memory blobs). The
+placement covers **all three piece branches**, including the ramp-type-2 (curved-ramp) branch
+`$5BF50`: the plan point (`$5C6C4` at header offset 2) is the car relative to the **curve
+centre**; a quarter-table **atan2** (`$64D66`, table `$1CC46`) and **hypot** (`$64DE8`, table
+`$1DC46` — indexed by the ratio quotient the atan2 leaves in `d7`) give its polar angle and
+radius; the heading `$1BC1C` and orientation reference `$1BD5A` come from the angle plus the
+camera quadrant; the along-progress `$1BB10` is the angle swept from the arc start (header
+word 6) times an arc coefficient (header byte 8), scaled by a shift exponent in the ramp-flag
+low bits; past the piece's end it steps to the neighbouring section and — if that piece's
+type nibble is 4 — **re-enters the whole coupling for it** (`$5C072`); finally the radius is
+refined (`$5C65A`: `r += ((x²+z²−r²)>>8) × coef[$5C6B8]`, a Newton-style pull toward the true
+distance) and `$1BC5E` = piece radius (header word 9) − car radius, sign-flipped by `$1BC44`.
+`physverify` checks every section of tracks 1/3/7 under random camera state (2048 ramp-2
+cases, including the recursion, all exact). The viewer's drive mode still holds the vertical
+seating clamp (the grounded-block launch artefact on a bare-placed car remains open), but the
+surface-following coupling underneath is now the complete, exact model on every piece type.
 
 ---
 

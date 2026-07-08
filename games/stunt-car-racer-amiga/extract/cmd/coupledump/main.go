@@ -26,7 +26,17 @@ func loadTrack(perTrack, static []byte) *physics.Mem {
 	copy(b[0x6125A:], []byte{0, 0, 0, 217, 255, 39})
 	copy(b[0x61AD4:], []byte{44, 0, 10, 0, 211, 0, 245, 0, 48, 57, 0, 1})
 	copy(b[0x64AEC:], []byte{0x9C, 0xED, 0xCD, 0x02})
+	copy(b[0x5C6B8:], []byte{0x00, 0xD4, 0x80, 0xD4, 0x00, 0x00, 0xAB, 0xAB, 0x40, 0x40, 0x00, 0x00})
 	return &physics.Mem{B: b}
+}
+
+// xs steps the xorshift32 the Node harness mirrors, so both sides generate the same
+// camera-state bytes for the per-section coupling sweep.
+func xs(s uint32) uint32 {
+	s ^= s << 13
+	s ^= s >> 17
+	s ^= s << 5
+	return s
 }
 
 func main() {
@@ -76,6 +86,46 @@ func main() {
 			sec,
 		})
 	}
-	b, _ := json.MarshalIndent(results, "", " ")
+	// Per-section coupling sweep over the tracks with ramp-type-2 pieces: deterministic
+	// xorshift camera states (mirrored by the Node harness), Couple5BE44 run directly on
+	// the placed section, all branch outputs dumped -- so the JS ramp-2 port is checked
+	// against the oracle-verified Go on every section, every branch.
+	type sweepOut struct {
+		Track, Sec, Iter                   int
+		BBF2, BBF6, BBF8, BC5E, BB10, BD5A int
+		BC1C, BC36                         int
+		Sec85, BB4D                        int
+	}
+	var sweep []sweepOut
+	for _, id := range []int{1, 3, 7} {
+		pt, err := os.ReadFile(filepath.Join(dir, fmt.Sprintf("%d.bin", id)))
+		if err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(1)
+		}
+		probe := loadTrack(pt, static)
+		n := probe.U8(0x1CA1A)
+		for sec := 0; sec < n; sec++ {
+			for iter := 0; iter < 8; iter++ {
+				m := loadTrack(pt, static)
+				m.B[0x1BB85] = byte(sec)
+				s := uint32(id*1_000_000 + sec*1_000 + iter + 1)
+				for _, a := range []uint32{0x1BB04, 0x1BB06, 0x1BC30, 0x1BB2E, 0x1BB32, 0x1BC4A, 0x1BC4B} {
+					s = xs(s)
+					m.B[a] = byte(s)
+				}
+				m.Couple5BE44()
+				sweep = append(sweep, sweepOut{
+					id, sec, iter,
+					int(m.W(0x1BBF2)), int(m.W(0x1BBF6)), int(m.W(0x1BBF8)),
+					int(m.W(0x1BC5E)), int(m.W(0x1BB10)), int(m.W(0x1BD5A)),
+					int(m.W(0x1BC1C)), int(m.W(0x1BC36)),
+					m.U8(0x1BB85), m.U8(0x1BB4D),
+				})
+			}
+		}
+	}
+
+	b, _ := json.MarshalIndent(map[string]any{"states": results, "sweep": sweep}, "", " ")
 	fmt.Println(string(b))
 }

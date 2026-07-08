@@ -506,8 +506,8 @@ func (m *Mem) le16(a uint32) int16 {
 // Couple5BE44 reproduces $5BE44 -- the per-frame render coupling that places the car's
 // section on the track: it runs the per-section setup ($5FE56), the plan base ($5FF94)
 // and plan point ($5C3DA), then writes the surface-sample offsets $1BC5E/$1BB10 and the
-// orientation reference $1BD5A, branching on the piece's ramp flags ($1BB4D bits 7/6).
-// Flat and ramp-type-1 (bit6) are implemented; ramp-type-2 (bit7) is $5BF50 (TODO).
+// orientation reference $1BD5A, branching on the piece's ramp flags ($1BB4D bits 7/6):
+// flat ($5BE9A), ramp-type-1 ($5BECE, bit 6) and ramp-type-2 ($5BF50, bit 7).
 func (m *Mem) Couple5BE44() {
 	sec := m.U8(0x1BB85)
 	m.Setup5FE56(sec)
