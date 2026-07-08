@@ -51,9 +51,12 @@ const worldTick = 2
 // referenced .ilb cell once into spritesDir (recorded in spriteIndex, keyed
 // "<course>/c<cell>" or "<course>/a<region>" for animated strips), and returns
 // the level's objects entries plus its screen-swap cellAnims.
+// render selects whether the sprite PNGs and index entries are actually produced: the
+// levels stage passes false (it needs only the object placements + screen-swap cellAnims,
+// and the sprite keys are deterministic), the sprites stage passes true.
 func exportOverlays(vol *adf.Volume, paths map[string]string, key string, track []byte,
 	co *mlb.Course, palAt func(row int) color.Palette,
-	spritesDir string, spriteIndex map[string]any) ([]map[string]any, []map[string]any, error) {
+	spritesDir string, spriteIndex map[string]any, renderSprites bool) ([]map[string]any, []map[string]any, error) {
 	objects := []map[string]any{}
 	ip, ok := paths[key+".ilb"]
 	if !ok {
@@ -95,7 +98,7 @@ func exportOverlays(vol *adf.Volume, paths map[string]string, key string, track 
 		var sprite string
 		if len(steps) > 1 && len(order) > 1 {
 			sprite = fmt.Sprintf("%s/a%d", key, o.Region)
-			if !done[sprite] {
+			if renderSprites && !done[sprite] {
 				done[sprite] = true
 				w, h := 0, 0
 				for _, c := range order {
@@ -147,7 +150,7 @@ func exportOverlays(vol *adf.Volume, paths map[string]string, key string, track 
 			}
 		} else {
 			sprite = fmt.Sprintf("%s/c%d", key, o.Cell)
-			if !done[sprite] {
+			if renderSprites && !done[sprite] {
 				done[sprite] = true
 				pngName := fmt.Sprintf("%s-c%d.png", key, o.Cell)
 				cl := cells[o.Cell]

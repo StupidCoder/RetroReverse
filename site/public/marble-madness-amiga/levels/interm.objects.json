@@ -1,0 +1,1 @@
+{"format":2,"level":"Intermediate","objects":[{"id":0,"name":"region 1 overlay (cell 0)","pos":[208,948],"props":{"sprite":"interm/a1"},"type":1},{"id":1,"name":"region 2 overlay (cell 0)","pos":[176,964],"props":{"sprite":"interm/a2"},"type":2},{"id":2,"name":"region 90 overlay (cell 4)","pos":[64,784],"props":{"sprite":"interm/a90"},"type":90}]}

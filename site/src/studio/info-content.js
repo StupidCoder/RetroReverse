@@ -955,7 +955,7 @@ releases in a short burst. Its sprite is one of the shared resident sprites — 
 plus burst — rather than a per-world enemy graphic, so it is available in every world.</p>
 `,
   },
-  marble: {
+  'marble-madness-amiga': {
     loader: `
 <div class="info-eyebrow">Marble Madness · Image &amp; Loader</div>
 <p>Marble Madness ships on a single Amiga floppy that boots through entirely <strong>stock AmigaDOS</strong>:

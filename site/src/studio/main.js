@@ -81,19 +81,20 @@ const GAMES = [
       .map(t => ({ name: t.name, url: `public/turrican-amiga/${t.file}` })),
   },
   {
-    id: 'marble', name: 'Marble Madness', system: 'Amiga',
+    id: 'marble-madness-amiga', name: 'Marble Madness', system: 'Amiga',
     load: () => import('../marble/viewer.js').then(m => m.MarbleViewer),
     make: (V, el, hud) => new V(el, hud),
-    list: async (v) => (await v.init()).levels,
-    show: (v, lvl, i) => v.loadLevel(lvl),
-    // per-view toggles: the scenery-overlay sprites live in the 2-D map, the
-    // Track markers only in the slope view
+    // the courses (tilemap2d) and the slopes (marble-slope views) are independent items
+    list: async (v) => await v.init(),
+    show: (v, item, i) => v.showItem(item),
+    group: (item) => ({ section: item.kind === 'marble-slope' ? 'Slopes' : 'Courses', label: item.name }),
+    // per-item toggles: scenery-overlay sprites on the 2-D courses, Track markers on the slopes
     layers: [
-      { id: 'objects', label: 'Scenery overlays', default: true, when: (m) => m.leaves?.[m.currentIdx]?.name === 'Map' },
-      { id: 'markers', label: 'Markers', default: false, when: (m) => m.leaves?.[m.currentIdx]?.name === 'Slopes' },
+      { id: 'objects', label: 'Scenery overlays', default: true, when: (m) => m.leaves?.[m.currentIdx]?.level?.kind === 'tilemap2d' },
+      { id: 'markers', label: 'Markers', default: false, when: (m) => m.leaves?.[m.currentIdx]?.level?.kind === 'marble-slope' },
     ],
-    music: async () => (await fetch('public/marble/music/manifest.json').then(r => r.json()))
-      .map(m => ({ name: m.course, url: `public/marble/music/${m.file}` })),
+    music: async () => (await fetch('public/marble-madness-amiga/manifest.json').then(r => r.json())).music
+      .map(t => ({ name: t.name, url: `public/marble-madness-amiga/${t.file}` })),
   },
   {
     id: 'super-mario-land-gb', name: 'Super Mario Land', system: 'Nintendo Game Boy',
@@ -289,16 +290,6 @@ function markActiveGame(id) {
 //      world/zone -> act/scene accordion. Each leaf has { name, hud, run }. ----
 function assetEntries(m) {
   const { game, viewer, levels } = m;
-  if (game.id === 'marble') {
-    return levels.map((course, ci) => ({
-      name: course.name,
-      children: [
-        { name: 'Map', hud: `${course.name} · Map`, run: async () => { await game.show(viewer, course, ci); viewer.setMode('tilemap'); applyLayers(m); } },
-        { name: 'Slopes', hud: `${course.name} · Slopes`, run: async () => { await game.show(viewer, course, ci); viewer.setMode('slopes'); applyLayers(m); } },
-      ],
-    }));
-  }
-
   const leaf = (lvl, i, name) => ({
     name,
     hud: lvl.name || `Asset ${i + 1}`,
