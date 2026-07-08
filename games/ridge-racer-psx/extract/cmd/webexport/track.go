@@ -46,11 +46,70 @@ func exportTrack(a *assets, out string) (ModelIndex, error) {
 			}
 		}
 	}
+
+	// Roadside objects: each placement rotates its OBJ.RRO object about Y and
+	// translates it to the placement's world position (objects.go). The scenery
+	// set follows the object's own position, as with the track sections.
+	placements := rr.Placements(a.exe)
+	placed := 0
+	for _, p := range placements {
+		if p.Obj < 0 || p.Obj >= len(a.objs) {
+			continue
+		}
+		R := rr.YawMatrix(p.Yaw)
+		off := [3]int32{p.X, p.Y, p.Z}
+		seg := rr.NearestSegment(cps, p.X, p.Z)
+		set := rr.SetForProgress(int32(seg) * 256)
+		addObjectXform(b, &a.objs[p.Obj], R, off, set)
+		placed++
+	}
+
 	file := "models/track.glb"
 	if err := b.Write(filepath.Join(out, file)); err != nil {
 		return ModelIndex{}, err
 	}
-	fmt.Fprintf(os.Stderr, "[levels] track.glb (%d cells, %d verts, %d tiles)\n",
-		cells, len(b.verts), len(b.tiles))
+	fmt.Fprintf(os.Stderr, "[levels] track.glb (%d cells, %d objects, %d verts, %d tiles)\n",
+		cells, placed, len(b.verts), len(b.tiles))
 	return ModelIndex{Name: "Ridge Racer Course", File: file, Kind: "mesh3d"}, nil
+}
+
+// rotv applies a 4096-scaled rotation matrix to an int16 vertex, returning an
+// int16 vertex (object-local magnitudes stay in range).
+func rotv(R [3][3]int32, v [3]int16) [3]int16 {
+	var o [3]int16
+	for i := 0; i < 3; i++ {
+		s := int32(v[0])*R[i][0] + int32(v[1])*R[i][1] + int32(v[2])*R[i][2]
+		o[i] = int16(s / 4096)
+	}
+	return o
+}
+
+// addObjectXform adds one OBJ.RRO object rotated by R and translated by off,
+// sampling scenery set `set` for its quadrant-page textures.
+func addObjectXform(b *meshBuilder, o *rr.Object, R [3][3]int32, off [3]int32, set int) {
+	rot := func(v [4][3]int16) [4][3]int16 {
+		var r [4][3]int16
+		for i := range v {
+			r[i] = rotv(R, v[i])
+		}
+		return r
+	}
+	for _, q := range o.FT {
+		b.AddTextured(rot(q.V), q.UV, q.TPage, q.CLUT, off, set)
+	}
+	for _, q := range o.FT8 {
+		b.AddTextured(rot(q.V), q.UV, q.TPage, q.CLUT, off, set)
+	}
+	for _, q := range o.F {
+		b.AddFlat(rot(q.V), q.RGB, off)
+	}
+	for _, q := range o.GT {
+		b.AddTextured(rot(q.V), q.UV, q.TPage, q.CLUT, off, set)
+	}
+	for _, q := range o.GT8 {
+		b.AddTextured(rot(q.V), q.UV, q.TPage, q.CLUT, off, set)
+	}
+	for _, q := range o.G {
+		b.AddFlat(rot(q.V), q.RGB, off)
+	}
 }

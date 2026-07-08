@@ -701,6 +701,34 @@ strings that open the text segment (file offset `0x800`), in table order: F/A RA
 RT YELLOW SOLVALOU, RT BLUE SOLVALOU, RT PINK MAPPY, RT BLUE MAPPY, GALAGA RT PLID'S, GALAGA RT
 CARROT, RT BOSCONIAN, RT NEBULASRAY, RT XEVIOUS RED, RT XEVIOUS GREEN, 13" RACING.
 
+## 6. Roadside object placement
+
+The scenery objects that line the course — buildings, signs, the grandstand and start complex — are
+`OBJ.RRO` models placed in the world by **six static placement tables** in the executable
+(`0x8006E85C`, `0x8006E904`, `0x8006E9AC`, `0x8006EA54`, `0x8006EAFC`, `0x8006F09C`), drawn each frame
+by four near-identical iterators (`0x800157D8`, `0x800158E8`, `0x800159F8`, `0x80036778`) and culled
+against the frame's visible-cell mask. Every table is a run of **24-byte records** ending on a
+negative id:
+
+```
++0   s16 id        ; OBJ.RRO object index; a negative id ends the table
++2   s16 —         ; 0
++4   s32 X         ; world position in quarter model units (×4 → model units)
++8   s32 Y
++12  s32 Z
++16  s32 —         ; 0 in the model lists; a per-list draw-mode flag otherwise
++20  s16 yaw       ; Y-axis rotation, 4096 = one turn
++22  s16 —
+```
+
+The iterator reads the record's X/Z (as `X>>11`, `Z>>11`) to index the visible-cell bitmask and skip
+off-screen objects, builds a Y-axis rotation from the yaw (`RotMatrix` at `0x80017EAC`, matrix
+`[cos,0,-sin / 0,1,0 / sin,0,cos]`), and draws the object's geometry under that rotation translated to
+`(X, Y, Z)`. The positions are in the same quarter-model-unit space as the grid (§V.2), so a placement
+sits at `(X, Y, Z)×4` in the track's model units. Two of the six tables hold the same 59 placements
+(a second draw pass distinguished only by the `+16` flag), so a placement is uniquely
+`(id, X, Y, Z, yaw)`.
+
 ---
 
 # Part VII — Extraction and verification
@@ -709,9 +737,10 @@ CARROT, RT BOSCONIAN, RT NEBULASRAY, RT XEVIOUS RED, RT XEVIOUS GREEN, 13" RACIN
 
 `extract/rr` reimplements every format of Parts V–VI as pure decoders over the CD file bytes:
 `idx.go` (the grid), `rrm.go` (sections and `TrackQuad`s), `obj.go` (objects and the six record
-types), `tms.go` (the upload blocks) and `vram.go` — a 1024×512 virtual VRAM built by replaying
-all five TMS streams, whose `Texel(page, clut, u, v)` mirrors the rasterizer's addressing. The
-oracle never supplies data; it only verifies.
+types), `objects.go` (the roadside placement tables and the yaw rotation), `course.go` (the
+checkpoint table and scenery-set triggers), `tms.go` (the upload blocks) and `vram.go` — a
+1024×512 virtual VRAM built by replaying all five TMS streams, whose `Texel(page, clut, u, v)`
+mirrors the rasterizer's addressing. The oracle never supplies data; it only verifies.
 
 ## 2. geomoracle — the differential
 
@@ -732,17 +761,20 @@ oracle never supplies data; it only verifies.
   mismatches). Two further in-race checks ride along: **placement** — the quad path's GTE
   translation is the camera-rotated cell offset, so `Rᵀ·TR` recovers each drawn section's world
   position, and every pairwise difference must equal the grid-cell delta × 8192 (this pins the
-  cell pitch, the x mirror and the orientation at once) — and the **race texture VRAM**, compared
+  cell pitch, the x mirror and the orientation at once); the **race texture VRAM**, compared
   word-for-word against the pure file-byte reconstruction (the boot replay with the scenery
-  quadrant restored from its end-of-`TEX1` snapshot): 360,448 words, zero mismatched.
+  quadrant restored from its end-of-`TEX1` snapshot): 360,448 words, zero mismatched; and **object
+  placement** — each drawn `OBJ.RRO` object's `Rᵀ·TR` world position, whose every pairwise delta
+  must equal the decoded placement table's, pinning both the table and the ×4 unit scale.
 
 ## 3. webexport — the shipped models
 
 `extract/cmd/webexport` builds `site/public/ridge-racer-psx/` from the image alone. The **models**
 stage emits one GLB per car, composed exactly as the carousel draws it (body + canopy + underbody +
 both axles); the **levels** stage places all 258 sections at their grid cells (8,192 model units
-apart) and emits the whole course as one GLB. Textures resolve against the race texture states of
-§VI.1: all three scenery-set VRAM images are rebuilt from the TMS replay, and a section's
+apart), adds the roadside objects (each `OBJ.RRO` model yaw-rotated and translated to its
+placement, §VI.6), and emits the whole course as one GLB. Textures resolve against the race texture
+states of §VI.1: all three scenery-set VRAM images are rebuilt from the TMS replay, and a section's
 quadrant-page quads sample the set active when the car passes its cell — the section's nearest
 checkpoint gate gives its progress, the traced trigger rules give the set. Every distinct
 page+CLUT(+set) is baked into a tiled atlas embedded in the GLB (nearest-neighbour sampling,

@@ -28,6 +28,7 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"sort"
 	"strings"
 
 	"retroreverse.com/games/ridge-racer-psx/extract/rr"
@@ -308,8 +309,136 @@ func checkGeometry(vol *psx.Volume, name, press string, warmup uint64, window ui
 	if name == "track" {
 		fail += checkPlacement(vol, track, events)
 		fail += checkRaceVRAM(vol, m)
+		fail += checkObjectPlacement(vol)
 	}
 	return fail
+}
+
+// checkObjectPlacement verifies the roadside object placements (objects.go):
+// it drives into the race, captures each drawn OBJ.RRO object's id (from the
+// record address) and its GTE-recovered camera-relative world position
+// (Rᵀ·TR), and checks that every pairwise position delta between drawn objects
+// equals the decoded placement-table delta — pinning both the table's
+// positions and the ×4 unit scale, camera-independently.
+func checkObjectPlacement(vol *psx.Volume) int {
+	objData, err := vol.ReadFile("OBJ.RRO")
+	if err != nil {
+		die("OBJ.RRO: %v", err)
+	}
+	objs, err := rr.ParseRRO(objData)
+	if err != nil {
+		die("OBJ.RRO: %v", err)
+	}
+	// OBJ.RRO record spans, by resident RAM address, to map a record to its id.
+	type span struct{ lo, hi uint32 }
+	spans := make([]span, len(objs))
+	addr := uint32(objBase) + 4 + uint32(len(objs))*16
+	for i := range objs {
+		o := &objs[i]
+		n := uint32(len(o.FT)*40 + len(o.FT8)*48 + len(o.F)*32 + len(o.GT)*64 + len(o.GT8)*72 + len(o.G)*56)
+		spans[i] = span{addr, addr + n}
+		addr += n
+	}
+	idOf := func(a uint32) int {
+		for i, s := range spans {
+			if a >= s.lo && a < s.hi {
+				return i
+			}
+		}
+		return -1
+	}
+
+	m := boot(vol, pressRace)
+	m.Run(429_500_000)
+	type pos struct{ x, z int64 }
+	seen := map[int]pos{}
+	m.OnStep = func(mm *psx.Machine, pc uint32) {
+		reg := regA0
+		switch pc {
+		case pcQuadRTPT:
+		case pcGTRTPT:
+			reg = regT1
+		default:
+			return
+		}
+		id := idOf(mm.CPU.Reg(uint32(reg)) & 0x1FFFFF)
+		if id < 0 {
+			return
+		}
+		if _, ok := seen[id]; ok {
+			return
+		}
+		var c [8]int32
+		for i := range c {
+			c[i] = int32(mm.GTE.ReadCtrl(uint32(i)))
+		}
+		R := [3][3]int64{
+			{int64(int16(c[0])), int64(int16(c[0] >> 16)), int64(int16(c[1]))},
+			{int64(int16(c[1] >> 16)), int64(int16(c[2])), int64(int16(c[2] >> 16))},
+			{int64(int16(c[3])), int64(int16(c[3] >> 16)), int64(int16(c[4]))},
+		}
+		tr := [3]int64{int64(c[5]), int64(c[6]), int64(c[7])}
+		seen[id] = pos{
+			(R[0][0]*tr[0] + R[1][0]*tr[1] + R[2][0]*tr[2]) / 4096,
+			(R[0][2]*tr[0] + R[1][2]*tr[1] + R[2][2]*tr[2]) / 4096,
+		}
+	}
+	m.Run(1_000_000)
+	m.OnStep = nil
+
+	_, exe, err := vol.BootEXE()
+	if err != nil {
+		die("boot exe: %v", err)
+	}
+	tbl := map[int]rr.Placement{}
+	for _, p := range rr.Placements(exe.Text) {
+		if _, ok := tbl[p.Obj]; !ok {
+			tbl[p.Obj] = p
+		}
+	}
+	var ids []int
+	for id := range seen {
+		if _, ok := tbl[id]; ok {
+			ids = append(ids, id)
+		}
+	}
+	sort.Ints(ids)
+	if len(ids) < 2 {
+		fmt.Fprintf(os.Stderr, "[track] object placement: only %d drawn objects in the table (skipped)\n", len(ids))
+		return 0
+	}
+	ok, bad := 0, 0
+	for i := 0; i < len(ids); i++ {
+		for j := i + 1; j < len(ids); j++ {
+			a, b := ids[i], ids[j]
+			dwx := seen[a].x - seen[b].x
+			dwz := seen[a].z - seen[b].z
+			dtx := int64(tbl[a].X - tbl[b].X)
+			dtz := int64(tbl[a].Z - tbl[b].Z)
+			if abs64(dwx-dtx) <= 8 && abs64(dwz-dtz) <= 8 {
+				ok++
+			} else {
+				if bad < 5 {
+					fmt.Fprintf(os.Stderr, "[track] object MISMATCH %d vs %d: draw d=(%d,%d) table d=(%d,%d)\n",
+						a, b, dwx, dwz, dtx, dtz)
+				}
+				bad++
+			}
+		}
+	}
+	if bad > 0 {
+		fmt.Fprintf(os.Stderr, "[track] object placement FAIL: %d/%d pairs off\n", bad, ok+bad)
+		return 1
+	}
+	fmt.Fprintf(os.Stderr, "[track] object placement OK: %d drawn objects, all %d pairwise deltas match the table\n", len(ids), ok)
+	return 0
+}
+
+func abs64(v int64) int64 {
+	if v < 0 {
+		return -v
+	}
+	return v
 }
 
 // checkPlacement verifies the grid placement: the 40-byte-quad path's GTE
