@@ -92,6 +92,14 @@ export class LevelViewer {
     const level = await this.data.loadLevel(entry);
     this.level = level;
 
+    // A level may carry its own inline sprite atlas (`objSprites`: key -> { src, frames } — the
+    // same shape as sprites/index.json entries, e.g. Turrican's per-world object atlas). Merge it
+    // into the sprite index so the shared object layer resolves those keys via data.sprite().
+    if (level.objSprites) {
+      Object.assign(this.data.spriteIndex, level.objSprites);
+      for (const k of Object.keys(level.objSprites)) this.data.spriteTex.delete(k); // drop stale cache
+    }
+
     // Drop every consumer of the old tilemap's textures BEFORE destroying it —
     // the awaits below yield to the render loop, and a tick drawing a sprite
     // whose baked TextureSource is gone crashes the renderer (pool stamps) or

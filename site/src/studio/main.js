@@ -164,7 +164,7 @@ const GAMES = [
     // and characters group by their section field. The full name stays on the HUD/link.
     group: (lvl) => ({ section: lvl.section, label: lvl.label || lvl.name }),
     // open on Mario's B-Dasher rather than the first list item
-    defaultAsset: (models) => models.findIndex(m => m.file === 'models/kart_MR_a.glb'),
+    defaultAsset: (models) => models.findIndex(m => m.name === 'Mario Circuit'),
     // course-only toggles: the "_V" backdrop (camera-locked skybox), the OBJI object
     // placements, and a fly-along of the CPU racers' drive line. Skybox/Drive show for
     // any course (mesh3d); Objects only when the manifest entry carries an objects file.
