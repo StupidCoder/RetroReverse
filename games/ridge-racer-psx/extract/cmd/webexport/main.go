@@ -156,7 +156,10 @@ func load(vol *psx.Volume) (*assets, error) {
 		}
 		rects = append(rects, rs)
 	}
-	a.vram = rr.NewVRAM(rects...)
+	// The race-time texture state: the models and the track both reference
+	// the pages as the race sees them (the scenery quadrant differs from the
+	// boot replay; everything else is identical).
+	a.vram = rr.NewRaceVRAM(rects[0], rects[1], rects[2], rects[3], rects[4])
 	_, exe, err := vol.BootEXE()
 	if err != nil {
 		return nil, err

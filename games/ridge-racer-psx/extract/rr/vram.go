@@ -17,12 +17,47 @@ type VRAM struct {
 }
 
 // NewVRAM replays TMS upload rect lists (any number of files, in load order)
-// into a fresh VRAM image.
+// into a fresh VRAM image — the state at the end of the boot streams.
 func NewVRAM(files ...[]Rect) *VRAM {
 	v := &VRAM{}
 	for _, rects := range files {
 		for _, r := range rects {
 			v.Blit(r)
+		}
+	}
+	return v
+}
+
+// The race scenery quadrant: VRAM (640,256)–(1024,512), the texture pages
+// 0x1A–0x1E. At the end of TEX1's upload stream the game saves this quadrant
+// to RAM (GP0 0xC0 read-backs of eight 384×32 rects), lets the later archives
+// draw the menu screens over it, and restores the saved image row by row when
+// the race starts (paired 0xC0/0xA0 384×1 transfers — the read half banks the
+// menu art for the way back).
+const (
+	quadX, quadY = 640, 256
+	quadW, quadH = 384, 256
+)
+
+// NewRaceVRAM builds the texture state the race renders from: the boot replay
+// with the scenery quadrant as it stood before the menu archives painted over
+// it. Arguments are the five archives' rect lists in load order.
+func NewRaceVRAM(tex4, tex0, tex1, tex2, tex3 []Rect) *VRAM {
+	v := NewVRAM(tex4, tex0, tex1)
+	var snap [quadW * quadH]uint16
+	for y := 0; y < quadH; y++ {
+		for x := 0; x < quadW; x++ {
+			snap[y*quadW+x] = v.At(quadX+x, quadY+y)
+		}
+	}
+	for _, rects := range [][]Rect{tex2, tex3} {
+		for _, r := range rects {
+			v.Blit(r)
+		}
+	}
+	for y := 0; y < quadH; y++ {
+		for x := 0; x < quadW; x++ {
+			v.Pix[(quadY+y)*VRAMW+quadX+x] = snap[y*quadW+x]
 		}
 	}
 	return v

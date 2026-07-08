@@ -512,11 +512,17 @@ files in place every frame — nothing is unpacked or converted.
 
 ## 2. IDX.HED — the course grid
 
-The game world is a **32×32 grid of cells, 2048 units square** (64 Kunits on a side). `IDX.HED` is
-exactly this grid: **1024 little-endian halfwords**, each the `MAP.RRM` section index occupying that
-cell, or `0xFFFF` for empty ground. A pointer to the resident copy lives at `0x801DBB24`.
+The game world is a **32×32 grid of cells**. `IDX.HED` is exactly this grid: **1024 little-endian
+halfwords**, each the `MAP.RRM` section index occupying that cell, or `0xFFFF` for empty ground. A
+pointer to the resident copy lives at `0x801DBB24`.
 
-The per-frame grid walk at `0x80012478` selects the visible cells: the camera's cell is its world
+Two unit systems meet at the grid. Positions (the camera, the cars) are kept in **quarter model
+units**: a cell is 2048 *position* units, but the section records' vertex coordinates are in model
+units, where a cell is **8192** across — the grid walk shifts the rotated cell translation left by
+two (`0x80012568`) before handing it to the GTE. (This is also why a section's geometry, spanning
+thousands of model units, still fits its cell.)
+
+The per-frame grid walk at `0x80012478` selects the visible cells: the camera's cell is its
 position arithmetically shifted right by 11 (`x >> 11`, `z >> 11`); a direction-dependent table of
 64 signed byte pairs (blocks of 128 pairs at `0x80056D64`, selected by the view octant) supplies
 the neighbourhood offsets; and a cell (x, z) — both coordinates must be < 32 — is looked up as
@@ -526,10 +532,11 @@ section = grid[z*32 + 30 - x]        ; halfword; 0xFFFF = nothing to draw
 ```
 
 Each visible cell gets a 16-byte entry in the cell list at `0x801DB060`: the section index and the
-cell's camera-relative translation, `(x*2048 - camX, -camY, z*2048 - camZ)` — a section's world
-origin is simply its cell corner. 258 cells are occupied, each by a distinct section (0–257,
-matching `MAP.RRM`'s section count exactly); drawn as a map, the grid is the Ridge Racer island —
-the circuit, the seaside, and the scenery hills around it.
+cell's camera-relative translation, `(x*2048 - camX, -camY, z*2048 - camZ)` in position units,
+rotated by the camera matrix and scaled ×4 into the GTE translation — a section's world origin is
+its cell corner, `(x*8192, 0, z*8192)` in model units. 258 cells are occupied, each by a distinct
+section (0–257, matching `MAP.RRM`'s section count exactly); drawn as a map, the grid is the Ridge
+Racer island — the circuit, the seaside, and the scenery hills around it.
 
 ---
 
@@ -561,6 +568,15 @@ the streamer re-sends with its block. An image whose area exceeds **2048 pixels*
 **eight horizontal slices** of `h/8` rows, one per frame — the file stores the rect whole and only
 the pacing splits it. Per archive: `TEX4` 163 blocks (23 distinct images — the early sky and font),
 `TEX0` 143 (the biggest pages), `TEX1` 120, `TEX2` 102, `TEX3` 102.
+
+The archives paint VRAM twice over: the **race scenery quadrant** — VRAM (640,256)–(1024,512), the
+texture pages `0x1A`–`0x1E` the track's buildings and roadside art sample — is uploaded by
+`TEX0`/`TEX1`, then **saved to RAM** the moment `TEX1`'s stream completes (eight 384×32 VRAM→CPU
+read-backs, GP0 `0xC0`), and the later archives paint the menu screens over the same pages. When
+the race starts, the saved image is **restored row by row** (256 paired `0xC0`/`0xA0` 384×1
+transfers — the read half banks the menu art for the way back). The race therefore renders from
+the quadrant as it stood at the end of `TEX1`, a state that exists in no single archive and at no
+single moment of the boot replay.
 
 ## 2. MAP.RRM — the track
 
@@ -698,14 +714,21 @@ oracle never supplies data; it only verifies.
   (3,763 events, zero mismatches).
 * **track** — the same in-race, adding the 40-byte-quad path (`0x80046250`/`0x8004626C`, record in
   `$a0`), which covers `MAP.RRM` sections and the flat-textured objects (4,475 events, zero
-  mismatches).
+  mismatches). Two further in-race checks ride along: **placement** — the quad path's GTE
+  translation is the camera-rotated cell offset, so `Rᵀ·TR` recovers each drawn section's world
+  position, and every pairwise difference must equal the grid-cell delta × 8192 (this pins the
+  cell pitch, the x mirror and the orientation at once) — and the **race texture VRAM**, compared
+  word-for-word against the pure file-byte reconstruction (the boot replay with the scenery
+  quadrant restored from its end-of-`TEX1` snapshot): 360,448 words, zero mismatched.
 
 ## 3. webexport — the shipped models
 
 `extract/cmd/webexport` builds `site/public/ridge-racer-psx/` from the image alone. The **models**
 stage emits one GLB per car, composed exactly as the carousel draws it (body + canopy + underbody +
-both axles); the **levels** stage places all 258 sections at their grid cells and emits the whole
-course as one GLB. Textures are baked per referenced page+CLUT pair from the virtual VRAM into a
-tiled atlas embedded in the GLB (nearest-neighbour sampling, texel 0 cut out via alpha masking);
-PSX coordinates become glTF's through `(x, -y, -z)` at 1/1024 scale. The manifest lists the 13 cars
-and the course; the Studio renders them with its stock GLB viewer.
+both axles); the **levels** stage places all 258 sections at their grid cells (8,192 model units
+apart) and emits the whole course as one GLB. Textures resolve against the **race-time** virtual
+VRAM (the TMS replay with the scenery quadrant restored from its end-of-`TEX1` snapshot, §VI.1)
+and are baked per referenced page+CLUT pair into a tiled atlas embedded in the GLB
+(nearest-neighbour sampling, texel 0 cut out via alpha masking); PSX coordinates become glTF's
+through `(x, -y, -z)` at 1/1024 scale. The manifest lists the 13 cars and the course; the Studio
+renders them with its stock GLB viewer.

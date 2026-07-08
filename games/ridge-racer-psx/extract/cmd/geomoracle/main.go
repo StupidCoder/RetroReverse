@@ -222,12 +222,15 @@ func checkVRAM(vol *psx.Volume) int {
 
 // --- geometry ----------------------------------------------------------
 
-// event is one trapped GTE load: which path, the record RAM address and the
-// six data registers as loaded (packed halfwords).
+// event is one trapped GTE load: which path, the record RAM address, the six
+// data registers as loaded (packed halfwords), and — on the 40-byte-quad path
+// — the GTE control registers (rotation + translation) for the placement
+// check.
 type event struct {
 	pc   uint32
 	addr uint32
 	r    [6]uint32
+	ctrl [8]uint32
 }
 
 func checkGeometry(vol *psx.Volume, name, press string, warmup uint64, window uint64) int {
@@ -251,6 +254,11 @@ func checkGeometry(vol *psx.Volume, name, press string, warmup uint64, window ui
 		ev := event{pc: pc, addr: mm.CPU.Reg(uint32(reg)) & 0x1FFFFF}
 		for i := 0; i < 6; i++ {
 			ev.r[i] = mm.GTE.Read(uint32(i))
+		}
+		if pc == pcQuadRTPT {
+			for i := range ev.ctrl {
+				ev.ctrl[i] = mm.GTE.ReadCtrl(uint32(i))
+			}
 		}
 		events = append(events, ev)
 	}
@@ -295,6 +303,151 @@ func checkGeometry(vol *psx.Volume, name, press string, warmup uint64, window ui
 		return 1
 	}
 	fmt.Fprintf(os.Stderr, "[%s] OK: %d events, all bit-exact\n", name, len(events))
+
+	fail := 0
+	if name == "track" {
+		fail += checkPlacement(vol, track, events)
+		fail += checkRaceVRAM(vol, m)
+	}
+	return fail
+}
+
+// checkPlacement verifies the grid placement: the 40-byte-quad path's GTE
+// translation is the camera-rotated cell offset, so Rᵀ·TR recovers each drawn
+// section's camera-relative world position. Differences between two sections
+// must equal their grid-cell deltas × CellModel (8192 model units per cell) —
+// this pins the cell pitch, the x mirror and the orientation in one check.
+func checkPlacement(vol *psx.Volume, track *rr.Track, events []event) int {
+	idxData, err := vol.ReadFile("IDX.HED")
+	if err != nil {
+		die("IDX.HED: %v", err)
+	}
+	grid, err := rr.ParseIDX(idxData)
+	if err != nil {
+		die("IDX.HED: %v", err)
+	}
+	cellOf := map[int][2]int{}
+	for z := 0; z < 32; z++ {
+		for x := 0; x < 32; x++ {
+			if s := grid.Section(x, z); s != rr.Empty {
+				cellOf[int(s)] = [2]int{x, z}
+			}
+		}
+	}
+	// Section spans by resident address, to map a trapped record to its section.
+	type span struct {
+		lo, hi uint32
+		sec    int
+	}
+	var spans []span
+	addr := uint32(mapBase) + 4 + uint32(len(track.Sections))*8
+	for i, s := range track.Sections {
+		n := uint32(len(s.A)+len(s.B)+len(s.C)) * 40
+		spans = append(spans, span{addr, addr + n, i})
+		addr += n
+	}
+	secOf := func(a uint32) int {
+		for _, s := range spans {
+			if a >= s.lo && a < s.hi {
+				return s.sec
+			}
+		}
+		return -1
+	}
+
+	// One recovered position per section: world = Rᵀ·TR / 4096.
+	type pos struct{ x, y, z float64 }
+	got := map[int]pos{}
+	for _, ev := range events {
+		if ev.pc != pcQuadRTPT {
+			continue
+		}
+		sec := secOf(ev.addr)
+		if sec < 0 {
+			continue // an OBJ.RRO flat-textured record, not a track section
+		}
+		if _, ok := got[sec]; ok {
+			continue
+		}
+		var R [3][3]float64
+		for r := 0; r < 3; r++ {
+			for c := 0; c < 3; c++ {
+				i := r*3 + c
+				h := uint16(ev.ctrl[i/2] >> (16 * uint(i%2)))
+				R[r][c] = float64(int16(h))
+			}
+		}
+		tr := [3]float64{float64(int32(ev.ctrl[5])), float64(int32(ev.ctrl[6])), float64(int32(ev.ctrl[7]))}
+		var w pos
+		w.x = (R[0][0]*tr[0] + R[1][0]*tr[1] + R[2][0]*tr[2]) / 4096
+		w.y = (R[0][1]*tr[0] + R[1][1]*tr[1] + R[2][1]*tr[2]) / 4096
+		w.z = (R[0][2]*tr[0] + R[1][2]*tr[1] + R[2][2]*tr[2]) / 4096
+		got[sec] = w
+	}
+	if len(got) < 2 {
+		fmt.Fprintf(os.Stderr, "[track] placement FAIL: only %d sections recovered\n", len(got))
+		return 1
+	}
+	const tol = 256.0 // fixed-point noise; a wrong pitch or mirror is ≥ 8192
+	secs := make([]int, 0, len(got))
+	for s := range got {
+		secs = append(secs, s)
+	}
+	bad := 0
+	for i := 0; i < len(secs); i++ {
+		for j := i + 1; j < len(secs); j++ {
+			a, b := secs[i], secs[j]
+			ca, cb := cellOf[a], cellOf[b]
+			dx := got[a].x - got[b].x - float64((ca[0]-cb[0])*rr.CellModel)
+			dy := got[a].y - got[b].y
+			dz := got[a].z - got[b].z - float64((ca[1]-cb[1])*rr.CellModel)
+			if dx < -tol || dx > tol || dy < -tol || dy > tol || dz < -tol || dz > tol {
+				if bad < 5 {
+					fmt.Fprintf(os.Stderr, "[track] placement MISMATCH sec %d vs %d: err=(%.0f,%.0f,%.0f)\n",
+						a, b, dx, dy, dz)
+				}
+				bad++
+			}
+		}
+	}
+	if bad > 0 {
+		fmt.Fprintf(os.Stderr, "[track] placement FAIL: %d pair(s) off\n", bad)
+		return 1
+	}
+	fmt.Fprintf(os.Stderr, "[track] placement OK: %d sections, all pairwise cell deltas match ×%d\n",
+		len(got), rr.CellModel)
+	return 0
+}
+
+// checkRaceVRAM compares the race-time texture half of VRAM against the pure
+// file-byte reconstruction (boot replay with the scenery quadrant restored
+// from its pre-menu snapshot).
+func checkRaceVRAM(vol *psx.Volume, m *psx.Machine) int {
+	var rects [5][]rr.Rect
+	for i, name := range []string{"TEX4.TMS", "TEX0.TMS", "TEX1.TMS", "TEX2.TMS", "TEX3.TMS"} {
+		d, err := vol.ReadFile(name)
+		if err != nil {
+			die("%s: %v", name, err)
+		}
+		if rects[i], err = rr.ParseTMS(d); err != nil {
+			die("%s: %v", name, err)
+		}
+	}
+	replay := rr.NewRaceVRAM(rects[0], rects[1], rects[2], rects[3], rects[4])
+	vram := m.VRAM()
+	diff := 0
+	for y := 0; y < rr.VRAMH; y++ {
+		for x := 320; x < rr.VRAMW; x++ {
+			if vram[y*rr.VRAMW+x] != replay.At(x, y) {
+				diff++
+			}
+		}
+	}
+	fmt.Fprintf(os.Stderr, "[track] race texture VRAM: %d words compared, %d mismatched\n",
+		(rr.VRAMW-320)*rr.VRAMH, diff)
+	if diff > 0 {
+		return 1
+	}
 	return 0
 }
 

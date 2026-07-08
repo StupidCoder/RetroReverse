@@ -1,16 +1,26 @@
 package rr
 
-// idx.go decodes IDX.HED: the 32×32 course grid. The world is a square of
-// 32×32 cells of 2048 units; each grid slot holds the MAP.RRM section index
-// occupying that cell, or 0xFFFF for empty ground. The renderer (grid walk at
-// 0x80012478) converts a world position to a cell with x>>11, z>>11 and looks
-// a cell up as grid[z*32 + 30 - x]; a section's world origin is
-// (cellX*2048, 0, cellZ*2048).
+// idx.go decodes IDX.HED: the 32×32 course grid. Each grid slot holds the
+// MAP.RRM section index occupying that cell, or 0xFFFF for empty ground. The
+// renderer (grid walk at 0x80012478) converts a position to a cell with
+// x>>11, z>>11 and looks a cell up as grid[z*32 + 30 - x].
+//
+// Two unit systems meet here: positions (the camera, the cars) are kept in
+// quarter model units — a cell is 2048 position units — while the section
+// records are in model units. The grid walk shifts the rotated cell
+// translation left by 2 (0x80012568) before it becomes the GTE translation,
+// so in the records' own units a cell is 8192 across and a section's world
+// origin is (cellX*8192, 0, cellZ*8192).
 
 import "fmt"
 
-// CellSize is the world-unit edge length of one grid cell.
+// CellSize is the edge length of one grid cell in position units (the
+// x>>11 of the grid walk).
 const CellSize = 2048
+
+// CellModel is the edge length of one grid cell in model units — the units
+// of the MAP.RRM/OBJ.RRO vertices (position units × 4, the walk's <<2).
+const CellModel = CellSize * 4
 
 // Grid is the course grid; Empty marks an unoccupied cell.
 type Grid struct {

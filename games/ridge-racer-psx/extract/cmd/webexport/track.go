@@ -1,10 +1,11 @@
 package main
 
 // track.go exports the whole course as one textured GLB. IDX.HED's 32×32 grid
-// places each MAP.RRM section at its cell origin (cellX*2048, 0, cellZ*2048);
-// a section's three record classes are all 40-byte textured quads in cell
-// space, so the world mesh is a straight composition — the same placement the
-// renderer's grid walk performs each frame.
+// places each MAP.RRM section at its cell origin (cellX*8192, 0, cellZ*8192)
+// in the records' model units; a section's three record classes are all
+// 40-byte textured quads in cell space, so the world mesh is a straight
+// composition — the same placement the renderer's grid walk performs each
+// frame.
 
 import (
 	"fmt"
@@ -28,7 +29,7 @@ func exportTrack(a *assets, out string) (ModelIndex, error) {
 				continue
 			}
 			cells++
-			off := [3]int32{int32(x) * rr.CellSize, 0, int32(z) * rr.CellSize}
+			off := [3]int32{int32(x) * rr.CellModel, 0, int32(z) * rr.CellModel}
 			s := &a.track.Sections[sec]
 			for _, class := range [][]rr.TrackQuad{s.A, s.B, s.C} {
 				for _, q := range class {

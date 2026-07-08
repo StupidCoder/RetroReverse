@@ -396,7 +396,15 @@ for on any unknown format:
   a later transfer touched (track upload order per cell). If a differential
   fails, first ask **who else writes the target after your producer finished** —
   the answer converted 4,531 "mismatches" into an exact pass without changing
-  the decoder.
+  the decoder. And the timeline can *fork*: a game may **snapshot hardware
+  state and restore it in another scene** — Ridge Racer saves its scenery
+  texture quadrant to RAM the moment one archive's stream ends, lets the menu
+  paint over it, and restores it at race start, so the race renders from a
+  VRAM state that exists at *no single moment* of a linear replay. The
+  diagnostic that found the fork without tracing any copy loop: classify each
+  mismatching cell by **which replay-prefix state its live value matches**
+  (after file 1? file 2? …) — every cell matched the post-`TEX1` prefix, which
+  *is* the snapshot point.
 - **Know what your instrumentation hides.** Filters you add for signal quality
   become blind spots: muting the read-watch during DMA (so the OT walk doesn't
   drown the log) made an entire file look "never read" — it was consumed purely
@@ -410,6 +418,18 @@ for on any unknown format:
   neighbour), the ×4 meant a shared axle drawn per corner pair, and the whole
   parts-list structure of the car table fell out of ratios alone. Frequencies
   are a structure probe that costs one run and no disassembly.
+- **Placement can be right while the scale is wrong — check for unit forks.**
+  Verifying every *record* bit-exact says nothing about the transform that
+  places records in the world, and engines routinely keep two unit systems:
+  Ridge Racer's positions (camera, cars, the 2048-per-cell grid) are quarter
+  model units, converted by a single `sll ...,2` where the grid walk builds
+  the GTE translation — missed on first reading, so the exported course packed
+  its sections 4× too close while every section rendered perfectly. When
+  composed output looks scrambled but the pieces verify, audit the
+  translation-building path for shifts/scales, and settle it with ground
+  truth: trap the transform's inputs at the coprocessor (Rᵀ·TR recovers each
+  section's true world offset; pairwise deltas expose the real cell pitch to
+  within rounding).
 - **Delay slots execute — simulate them.** On MIPS (and SPARC/PA-RISC), the
   instruction *after* every branch, jump and `jal` runs before control
   transfers, and hand-tracing that wrong sends a format hypothesis into the
