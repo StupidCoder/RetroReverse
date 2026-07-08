@@ -1,8 +1,8 @@
-# Mario Kart DS (Nintendo DS) — cartridge format and game analysis
+# Mario Kart DS (Nintendo DS) — technical reference
 
 **Image:** `Mario Kart DS (Europe) (En,Fr,De,Es,It).nds` — 33,554,432 bytes, MD5 `18635a82108149b46fe276c6fac44ee6`. Not committed (copyright); supply your own copy.
 
-A reverse-engineering reference for `Mario Kart DS (Europe) (En,Fr,De,Es,It).nds`, the 2005 Nintendo kart racer. This is the repository's first **Nintendo DS** title and its first **ARM** project: where every earlier game runs on a single 8- or 16-bit CPU, the DS is a dual-processor machine — an **ARM9** (ARM946E-S, ARMv5TE, the 67 MHz main CPU) beside an **ARM7** (ARM7TDMI, ARMv4T, the 33 MHz sound/IO CPU) — and its `.nds` cartridge is a real container with a header, two CPU binaries, code overlays and an on-cartridge filesystem, unlike the flat mask-ROM of a Game Boy cartridge or the raw disk of an Amiga floppy. The writeup follows the same shape as the others, in reading order:
+A technical reference for `Mario Kart DS (Europe) (En,Fr,De,Es,It).nds`, the 2005 Nintendo kart racer. The DS is a dual-processor machine — an **ARM9** (ARM946E-S, ARMv5TE, the 67 MHz main CPU) beside an **ARM7** (ARM7TDMI, ARMv4T, the 33 MHz sound/IO CPU) — and its `.nds` cartridge is a real container with a header, two CPU binaries, code overlays and an on-cartridge filesystem. The writeup proceeds in reading order:
 
 * **Part I** — the cartridge image: the `.nds` container, its header, the ARM9/ARM7 binaries and overlays, and the FNT/FAT filesystem that names ~600 asset files;
 * **Part II** — the boot chain: the cartridge header's entry points, the secure area, and how the ARM9 and ARM7 come up and hand off;
@@ -32,7 +32,7 @@ Methods: purely static analysis of the `.nds` image. The DS needed a new toolcha
   - [5. The ARM7 startup](#5-the-arm7-startup)
   - [6. The two processors meet: shared RAM and the IPC FIFO](#6-the-two-processors-meet-shared-ram-and-the-ipc-fifo)
 - [Part III — Program architecture](#part-iii--program-architecture)
-  - [1. The oracle: running the boot on our own core](#1-the-oracle-running-the-boot-on-our-own-core)
+  - [1. The oracle: running the boot on the CPU core](#1-the-oracle-running-the-boot-on-the-cpu-core)
   - [2. The runtime memory map](#2-the-runtime-memory-map)
   - [3. Initialisation: from `crt0` to the framework](#3-initialisation-from-crt0-to-the-framework)
   - [4. Interrupts and the IPC FIFO](#4-interrupts-and-the-ipc-fifo)
@@ -330,18 +330,18 @@ Part III §4–§5 picks this up: running the ARM9 boot on the `tools/cpu/arm` c
 
 # Part III — Program architecture
 
-Part II followed the boot to the game's `main`; Part III is about the machine that `main` builds — the runtime memory layout, the OS/interrupt scaffolding, and the point where the ARM9 first has to talk to the ARM7. A retail DS game is a large C++ program that dispatches almost everything through function pointers and virtual tables, so a purely static trace fans out into hundreds of unreachable indirect calls. So this Part leans on the repository's standard technique: an **oracle** — the game's own code run on our own CPU core — to establish, from behaviour, the structure a static read can only guess at.
+Part II followed the boot to the game's `main`; Part III is about the machine that `main` builds — the runtime memory layout, the OS/interrupt scaffolding, and the point where the ARM9 first has to talk to the ARM7. A retail DS game is a large C++ program that dispatches almost everything through function pointers and virtual tables, so a purely static trace fans out into hundreds of unreachable indirect calls. So this Part leans on the repository's standard technique: an **oracle** — the game's own code run on the `tools/cpu/arm` core — to establish, from behaviour, the structure a static read can only guess at.
 
-## 1. The oracle: running the boot on our own core
+## 1. The oracle: running the boot on the CPU core
 
 `mariokartds/extract`'s `bootoracle` loads the *compressed* ARM9 binary to `$02000000` exactly as the BIOS would, points the `tools/cpu/arm` core at the entry `$02000800`, and lets it run: a flat memory for RAM/TCM/WRAM, the handful of BIOS `SWI`s the startup needs (`CpuSet`/`CpuFastSet` memory moves, `WaitByLoop`), CP15 accepted and ignored, and every write to the `$04000000` I/O block logged. It runs the real startup — no shortcuts — and reports what the code *did*.
 
 It executes ≈12.3 million instructions to reach `main` (`$02003000`), then the game init (`$020365F0`), and halts cleanly at the first thing a lone ARM9 cannot get past (§5). Two things fall straight out of that run, each a verification rather than a guess:
 
 - **The BLZ decompression is confirmed by the game itself.** After boot, the bytes the game's own `crt0` decompressor wrote into `$02000000…$0216F340` are **identical** to what `tools/platform/nds`' independent `DecompressBLZ` produces (`bootoracle` diffs them) — divergence begins only at `$0216F340`, exactly `.bss` start, which the `crt0` then zero-fills. The Part II reimplementation and the real decompressor agree bit-for-bit over all code and data.
-- **The startup reaches the framework on our core** — the decoder, the CPU core, the mode/bank handling and the memory model are correct enough to run millions of instructions of real ARM9 code, including the self-decompression, autoload and OS init, without a wrong turn.
+- **The startup reaches the framework on the CPU core** — the decoder, the CPU core, the mode/bank handling and the memory model are correct enough to run millions of instructions of real ARM9 code, including the self-decompression, autoload and OS init, without a wrong turn.
 
-This is the oracle in the repository's sense: real code, our core, used to *confirm* structure — never to scrape decoded data out of RAM.
+This is the oracle in the repository's sense: real code, the CPU core, used to *confirm* structure — never to scrape decoded data out of RAM.
 
 ## 2. The runtime memory map
 
@@ -459,7 +459,7 @@ Palette colours are 15-bit **BGR555** words (`tools/platform/nds/nitro` expands 
 
 Format 5, the DS's only compressed texture format, carries most course art (a course's `…Tex.carc` is typically 80% format 5). The texture is a grid of **4x4-pixel blocks**: per block, one 32-bit word of sixteen 2-bit values, plus one 16-bit palette word — bits 0–13 a sub-palette offset (4-byte steps, relative to the texture's palette), bits 14–15 a mode: the four 2-bit values select `{c0, c1, c2, transparent}`, `{c0, c1, (c0+c1)/2, transparent}`, `{c0, c1, c2, c3}` or `{c0, c1, (5·c0+3·c1)/8, (3·c0+5·c1)/8}`.
 
-The subtlety that initially broke the decode is *where* the two block streams live: format-5 texel words go in a **dedicated region** at `TEX0+$24` (not the ordinary texel region), and the palette words in a third region at `TEX0+$28`, indexed at **half** the texture's address. The proof is in the region arithmetic of a real file — in `beach_courseTex` the four regions tile the block exactly, back to back:
+The subtlety is *where* the two block streams live: format-5 texel words go in a **dedicated region** at `TEX0+$24` (not the ordinary texel region), and the palette words in a third region at `TEX0+$28`, indexed at **half** the texture's address. The proof is in the region arithmetic of a real file — in `beach_courseTex` the four regions tile the block exactly, back to back:
 
 ```
 $0404  ordinary texels   ($0F00 bytes = size field $01E0 << 3)
@@ -611,7 +611,7 @@ So the answer to "how do objects move" is layered: the *placement* (`OBJI`) name
 
 # Appendix A — Toolchain and reproduction
 
-Everything here is derived from the `.nds` image with this repository's own tools: static disassembly for Parts I–II, and — for Part III — the game's own code run on our `tools/cpu/arm` core as an oracle. No third-party emulator, debugger or disassembler was used, and nothing was read from released source. Verify the image, then reproduce the catalog, the boot trace and the oracle run:
+Everything here is derived from the `.nds` image with this repository's own tools: static disassembly for Parts I–II, and — for Part III — the game's own code run on the `tools/cpu/arm` core as an oracle. No third-party emulator, debugger or disassembler was used, and nothing was read from released source. Verify the image, then reproduce the catalog, the boot trace and the oracle run:
 
 ```sh
 # identity (size + MD5 pinned in ../README.md#image-files)

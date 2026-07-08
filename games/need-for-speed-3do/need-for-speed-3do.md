@@ -1,11 +1,10 @@
-# The Need for Speed (3DO) — reverse engineering notes
+# Need for Speed (3DO) — technical reference
 
 **Image:** `Need for Speed.bin` — 771,408,960 bytes, MD5 `b213789b67a3368207a2ebf2c222847a`. Not committed (copyright, 771 MB); supply your own copy.
 
-The 3DO Interactive Multiplayer is the repo's first 3DO project. Its CPU is an
-**ARM60 (ARMv3, big-endian)** and it is CD-based, so the toolchain reuses the
-shape of the ARM work (`tools/cpu/arm`, now joined by a dedicated big-endian
-`tools/cpu/arm60`) and the CD-oracle work (`tools/platform/psx`). Everything here is derived
+The 3DO Interactive Multiplayer runs an **ARM60 (ARMv3, big-endian)** CPU and is
+CD-based. The toolchain comprises a dedicated big-endian `tools/cpu/arm60` CPU
+core and the CD low layer in `tools/platform/psx`. Everything here is derived
 from the disc image plus public 3DO platform documentation — never from
 game-specific sources (clean-room rule).
 
@@ -22,7 +21,7 @@ per-game commands in `extract/` (module `needforspeed/extract`).
 
 3DO discs use the **Opera** file system, not ISO 9660. The low layer is the same
 as any CD (`tools/platform/psx/cd.go`): the data track is raw 2352-byte sectors whose
-2048-byte user area we expose through a `block()` accessor. On top of that sits
+2048-byte user area is exposed through a `block()` accessor. On top of that sits
 Opera, decoded in `tools/platform/threedo/operafs.go`. Three things distinguish it:
 
 1. **Big-endian.** The ARM60 runs big-endian; every Opera field is a plain
@@ -31,7 +30,7 @@ Opera, decoded in `tools/platform/threedo/operafs.go`. Three things distinguish 
    sync bytes + version `0x01` (ISO's "CD001" descriptor is at block 16).
 3. **Avatars.** Every file and directory exists as one or more identical copies
    scattered across the disc, to cut seek time and add redundancy. A directory
-   entry lists all avatar block numbers; we read avatar 0.
+   entry lists all avatar block numbers; avatar 0 is read.
 
 ### On-disc structures (confirmed byte-for-byte against this disc)
 
@@ -63,10 +62,9 @@ special, `0x07` dir), `id(u32)`, `type[4]` (e.g. `Bigd`, `Wrap`, `Tire`),
 block numbers are **absolute** — bulk file data is pooled near the front of the
 disc (blocks ~1–800) while the directory tree sits near the back (~block 218k).
 
-Two subtleties caught by reading the real bytes: the copy count is stored as the
-**highest index** (so `+1` for the count), and the directory `next` field is a
-**relative** index, not an absolute block — an absolute reading walked off into a
-bogus block until both were corrected.
+Two subtleties on this disc: the copy count is stored as the **highest index**
+(so `+1` for the count), and the directory `next` field is a **relative** index,
+not an absolute block.
 
 ### What's on the disc
 
@@ -175,10 +173,9 @@ through in Part IV.
 
 The 3DO CPU is an **ARM60** — an ARMv3 core, and (crucially) wired **big-endian**,
 so instructions and data are most-significant-byte first. `tools/cpu/arm60` is a
-dedicated core rather than a mode of the DS's `tools/cpu/arm`, matching the repo's
-one-core-per-target style and keeping the working DS core untouched.
+dedicated core for this big-endian target.
 
-Versus the ARMv4T/v5TE that `tools/cpu/arm` models, the ARM60 has **no** Thumb, no
+As an ARMv3 core, the ARM60 has **no** Thumb, no
 BX/BLX, no halfword/signed loads, no CLZ/DSP/saturating ops, and `cond==1111`
 means the old **"never" (NV)** condition, not the ARMv5 unconditional space. It
 runs the classic set: conditional data-processing through the barrel shifter,
@@ -208,14 +205,13 @@ and return, the SWI hook, mode banking and exception entry.
 ## Part IV — booting LaunchMe: the ARM60 oracle
 
 `tools/platform/threedo` now includes an AIF loader and an ARM60 machine that boots and
-traces the game's code, mirroring the PSX oracle (`tools/platform/psx/machine.go`): an
-HLE'd OS over a stubbed hardware map.
+traces the game's code: an HLE'd OS over a stubbed hardware map.
 
 - `aif.go` — `ParseAIF` decodes the executable header (validated on `LaunchMe`:
   image base 0, 32-bit mode, RO 0x3DB4C, RW 0x99C4, BSS 0x14944, self-relocating).
 - `machine.go` / `run.go` — a `Machine` (2 MiB DRAM at 0, 1 MiB VRAM at 0x200000,
   Madam @0x3300000 / Clio @0x3400000 stubbed) driving `tools/cpu/arm60`, with the
-  `OnStep`/`OnWrite`/`WatchLo..Hi`/`TTY` instrumentation the repo's oracles share.
+  `OnStep`/`OnWrite`/`WatchLo..Hi`/`TTY` instrumentation.
 - `Need for Speed (3DO)/extract/cmd/bootoracle` — loads `LaunchMe` from the disc
   and runs it.
 
@@ -236,9 +232,8 @@ tags 0x10E/0x104), and a memory-probe loop (`folio[-0x1C]` from 0x320 with
 descending power-of-two sizes — largest-free-block probing). It runs hundreds of
 thousands of instructions without a decode/exec fault.
 
-This is the same bar as the PSX oracle "booting into its CD-wait loop": the
-machine runs the real game code and reaches the point where it needs OS services
-we have not yet reimplemented. Identifying each folio offset (they are Portfolio
+The machine runs the real game code and reaches the point where it needs OS
+services not yet reimplemented. Identifying each folio offset (they are Portfolio
 kernel/graphics/memory functions) and reimplementing the ones the game depends on
 is the next step, and turns this trace into a full boot.
 
@@ -267,16 +262,15 @@ the DRAM pool for its working set. With the pools split to match the hardware (2
 MiB DRAM + 1 MiB VRAM), the probe returns consistent real pointers and startup
 proceeds through memory setup.
 
-**The boot-retry loop, and the null-base fix.** After memory setup the boot
-appeared to hang in a `memset` — but `bootoracle -break` (register/`from` logging)
-showed the *whole* AIF header sequence (relocate → zero-init → entry) re-running
-~13 times. The cause: the game opens **more than one folio**, and only the kernel
-base is stored where our HLE plants it; a *second* folio's base global stays 0, so
-`LDR pc, [0, #-0xC0]` reads address `0xFFFFFF40`, gets 0, and jumps to 0 — back to
-the AIF header. The fix (in `machine.go`): a read in the top page returns
-`hleBase + N` for an access at `-N`, so a folio call through *any* base — even a
-null one — lands in the HLE trap window with the correct offset. With that, the
-boot leaves the header loop and runs real initialisation code (some of it copied
+**The boot-retry loop, and the null-base handling.** After memory setup the game
+opens **more than one folio**, and only the kernel base is stored where the HLE
+plants it; a *second* folio's base global stays 0, so `LDR pc, [0, #-0xC0]` reads
+address `0xFFFFFF40`, gets 0, and jumps to 0 — back to the AIF header, re-running
+the *whole* AIF header sequence (relocate → zero-init → entry) ~13 times (visible
+with `bootoracle -break`, register/`from` logging). In `machine.go`, a read in the
+top page returns `hleBase + N` for an access at `-N`, so a folio call through *any*
+base — even a null one — lands in the HLE trap window with the correct offset. The
+boot then leaves the header loop and runs real initialisation code (some of it copied
 into and executed from VRAM), exercising 18 distinct folios.
 
 **The current frontier: async I/O.** It now stalls in a spin-wait —
@@ -331,7 +325,7 @@ materials, and decoding the track geometry, are the next steps.
 
 ## Part VII — the track format (wwww resource packets)
 
-The tracks turned out to be decodable straight from the disc, like the car
+The tracks decode straight from the disc, like the car
 models — no boot required. Each course (Alpine, Coastal, City) is split into
 three packets `DriveData/DriveArt/{Al,Cl,Cy}{1,2,3}_PKT_000`, and every packet is
 a **`wwww` resource container** (decoded in `tools/platform/threedo/wrap.go`):
@@ -388,7 +382,7 @@ aid, off by default; a plain run stops honestly at the first async wait.
    the kernel base struct (`[base+0x98]`→`[+0xA8]`) to build its own allocator;
    giving it a real, consistent list is what stops the free-list corruption.
 2. **Interrupt/VBlank/timer delivery** — so the `[ctx+0x18]` completion flags get
-   set for real (the PSX oracle's synthetic-VBlank approach, adapted).
+   set for real (synthetic VBlank delivery).
 3. **Signals + a minimal task model** (`WaitSignal`/`SendSignal`) so cross-context
    waits resolve.
 4. **The graphics folio** (VDL, the cel engine) to reach a rendered frame.

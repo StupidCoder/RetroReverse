@@ -1,4 +1,4 @@
-# Ridge Racer (PlayStation) — disc format and game analysis
+# Ridge Racer (PlayStation) — technical reference
 
 **Image:** `Ridge Racer (Track 01).bin` — 3,683,232 bytes, MD5 `ec755afa6ca49432445384b870412dfb` (data track only). Not committed (copyright); supply your own copy.
 

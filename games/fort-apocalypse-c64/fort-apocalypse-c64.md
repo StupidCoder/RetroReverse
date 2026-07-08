@@ -1,4 +1,4 @@
-# Fort Apocalypse (C64) — tape format, loader, and game analysis
+# Fort Apocalypse (Commodore 64) — technical reference
 
 **Image:** `Fort_Apocalypse.tap` — 225,817 bytes, MD5 `bec7409816865f3ad160af9984f127cd`. Not committed (copyright); supply your own copy.
 
@@ -1132,7 +1132,7 @@ $AF54 alternates chars $4C–$4F between two dense dither patterns
 ($AF80 vs the original data at $B6B9) every 8 frames, and toggles two
 middle rows of the destructible-rock char $47 in step — a shimmering
 "energy field" texture on 44 wall cells of level 0. Both patterns
-have pixels everywhere, so unlike everything above this never changes
+have pixels everywhere, so this never changes
 collision; it is pure dressing. (Similarly cosmetic: the missile
 chars $71/$72 get their exhaust-flame rows noise-flickered every
 frame at $A904.)

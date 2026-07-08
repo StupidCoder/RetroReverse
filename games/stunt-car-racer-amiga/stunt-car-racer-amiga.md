@@ -1,15 +1,13 @@
-# Stunt Car Racer (Amiga) — disk format, tracks and physics
+# Stunt Car Racer (Amiga) — technical reference
 
 **Image:** `Stunt Car Racer.adf` — 901,120 bytes, MD5 `b6d3751e6aa636f203f3c6a8de81ebfc`. Not committed (copyright); supply your own copy.
 
-A reverse-engineering reference for `Stunt Car Racer.adf`, the Amiga release of
+A technical reference for `Stunt Car Racer.adf`, the Amiga release of
 Geoff Crammond's *Stunt Car Racer* (1989) — a filled/wireframe-vector stunt
 racing game built around an unusually advanced (for its day) rigid-body car
-simulation running on elevated 3-D circuits. It is the second vector game in
-this repository (after Elite) and the first whose **goal is the simulation**
-rather than the static assets.
+simulation running on elevated 3-D circuits.
 
-The writeup follows the same shape as the other titles, in reading order, but
+The writeup proceeds in reading order, but
 the centre of gravity is the last two parts — the tracks and the physics:
 
 * **Part I** — the disk image: the ADF container and the custom (non-AmigaDOS)
@@ -97,8 +95,8 @@ root header"*). There is no DOS filesystem, no directory, no files — the disk 
 **custom-formatted**: a flat region of game code and data that only the game's
 own loader understands.
 
-This is the same pattern as Turrican in this repository (and most commercial
-Amiga games of the era): a minimal DOS-looking boot block that bootstraps a
+This is a common pattern for commercial
+Amiga games of the era: a minimal DOS-looking boot block that bootstraps a
 bespoke track-loading scheme, both to fit the data densely and to resist
 copying. Everything past the boot block — the loader, the engine, the track
 geometry and the physics tables — has to be located by following that loader
@@ -167,7 +165,7 @@ with `sector / $B` (11 sectors per track-side), then MFM-reads whole tracks (the
 helpers at `$C22`/`$664`/`$9E4`/`$746`). Crucially it **only reads** — there is
 no decompression — so on disk the data is stored raw, sector-aligned. (A
 `"DOW"`-plus-incrementing-byte table at `$96CE` looks like a per-sector
-track/format key, the same shape as Marble Madness's `sigfile`.)
+track/format key.)
 
 ### The disk map
 
@@ -301,7 +299,7 @@ part is to:
    sections connect);
 2. enumerate the game's built-in tracks (the league circuits);
 3. reimplement the decoder in Go and **re-draw each circuit** (a 3-D wireframe/
-   plan view), the way the Elite ship blueprints were re-rendered.
+   plan view).
 
 ## 1. Finding the track table (the race-setup path)
 
@@ -483,13 +481,12 @@ apart.
 
 **The Go reimplementation (`extract/track`).** `package track` walks this spine
 purely in Go, reading only the game's data tables — it does *not* run any 68000 code.
-The handle math has two byte-width subtleties worth recording (both were initial
-mis-reads, caught because the format is shared with the 6502/Z80 ports and so cannot
-depend on any 68000 quirk):
+The handle math has two byte-width subtleties worth recording (the format is shared
+with the 6502/Z80 ports and so cannot depend on any 68000 quirk):
 
-* the per-type shape table is a **word table at `$1EF82 + nib*2`** (an earlier
-  reading saw a phantom `ASL.l #7` — actually the low word of the
-  `MOVEA.l #$1EF82` immediately before it; there is no shift);
+* the per-type shape table is a **word table at `$1EF82 + nib*2`** — no shift (the
+  `ASL.l #7` that reads out adjacent is the low word of the preceding
+  `MOVEA.l #$1EF82`, not an instruction);
 * the X/Z offset-shape handle index is `ASL.b #1` on the param, i.e.
   **`(param*2) & $FF`** — a byte multiply that wraps, not a 16-bit one.
 
@@ -555,10 +552,7 @@ prongs that are literally its drawbridge:
 ```
 
 `package track` sets `PlanX/PlanY` from `p1`; `cmd/trackjson` exports them; the viewer
-draws them. (An earlier attempt reconstructed the plan by accumulating a per-section
-heading from `p1`'s nibbles and a `type` quadrant — it was wrong: it forced closure with
-a fitted quadrant table and produced sharp corners and false crossings. Reading
-`$5FE04`/`$64304` replaced it with the actual grid.)
+draws them.
 
 ## 7. Banking and elevation
 
@@ -589,8 +583,7 @@ On a straight the section's `p2 == attr`, the two rails are level, banking is ze
 on a curve they diverge and the road tilts. The elevation profile **matches the
 preview screenshots**: Big Ramp is flat with a single ramp, Stepping Stones gently
 undulates, Roller Coaster is a run of hills — and every circuit's height **closes**
-over the lap (Hump Back exactly). (An earlier draft mis-used `$1C650 − $1C718` as the
-height; its bumps fell on the corners, where roads bank — caught and corrected.)
+over the lap (Hump Back exactly).
 
 **Smooth or stepped — solved, exactly.** A long search for an explicit "step here" flag
 (`$65D3C`, the `type` bits, the `p2` sign, `attr`, `a0[1]`, the height magnitude) found
@@ -642,12 +635,6 @@ left/right rails are independent, so the rail **width** (and any asymmetry throu
 is exact, not a nominal constant. `cmd/planoracle` drives `$5C6C4` in the canonical frame
 (zero base, zero quadrant) and confirms `package track`'s `planProfile` matches it
 **exactly** on every vertex of all eight tracks.
-
-An earlier revision of this write-up claimed the renderer "only ever builds view-space
-points, so there is no clean absolute top-down accumulator", and the viewer bridged the
-gap by *similarity-fitting* each section's outline onto its grid-anchor chord. That fit
-was a heuristic, and it showed: curves came out lumpy, some arcs bent the wrong way and
-joints kinked. The claim was wrong — the accumulator exists, and §8 traces it.
 
 ## 8. The baked track model (`$65BEC`) — the definitive absolute geometry
 
@@ -719,7 +706,7 @@ edges) in absolute coordinates; section joints are continuous to within 4 units 
 2048 per cell (the residue is in the game's own shape tables, not the decode), and every
 circuit closes. `cmd/modelsvg` renders the top-down plans; `cmd/trackjson` exports
 `rungs[i][k] = [Lx,Lz,Rx,Rz,Lh,Rh,flags]` and the viewer now draws the baked model
-directly — the similarity fit is gone. **Part IV is complete: footprint, surface, camber
+directly. **Part IV is complete: footprint, surface, camber
 and now the absolute plan are all decoded purely from the disk in Go and verified
 byte-exact against the original renderer's own build.**
 
@@ -826,7 +813,7 @@ can't be grepped: the address is built as `$79360 - $14874`, the magic value as
 written (at `$5CEFA`) by a routine (`$5CEB4`) that reads the **physical disk hardware**
 (CIA-B `$BFD100` drive control, `DMACONR`/`DMACON` disk DMA), i.e. it is derived from the
 disk's protection tracks. So on a genuine disk the protection writes `$9CEDCD02` and the
-check passes; our extracted blob holds the unpatched `$2F76EA80`, so it fails. The
+check passes; the extracted blob holds the unpatched `$2F76EA80`, so it fails. The
 reimplementation reproduces the check exactly (matching the oracle on the same image); for
 a playable sim, "inserting the genuine disk" is just storing the expected value at `$64AEC`.
 
@@ -837,10 +824,10 @@ and compares the state — `Sin/Cos`, the integrator, the matrix and transforms,
 suspension and damage, the drive/tyre/drag, the load projection, the per-section setup, the
 **surface sample over loaded tracks**, the auto-steer (both protection branches), and
 finally the whole `$6185C` frame in lockstep for 60 frames. **All match exactly.** The
-oracle repeatedly earned its keep — it caught a swapped sin/cos quarter-mirror, a signed
-`CMPI.b #5` whose `NEG.b $80` stays `$80`, an unsigned shift on a negative handle that
-mis-decoded only curve pieces, and a branch where a large heading error uses the *excess*
-as the correction — all subtle enough to pass a careful read.
+checks pin several subtle behaviours of the original code: a swapped sin/cos
+quarter-mirror, a signed `CMPI.b #5` whose `NEG.b $80` stays `$80`, an unsigned shift on
+a negative handle that affects only curve pieces, and a branch where a large heading
+error uses the *excess* as the correction.
 
 **Part V is complete: the full rigid-body car physics is decoded from the disk in Go and
 verified coordinate-exact against the original, frame by frame.** Combined with Part IV, a
@@ -936,7 +923,7 @@ go run retroreverse.com/tools/cmd/codetrace68k -base 0xE700 -entry <addr>       
 ```
 
 Dynamic verification uses the instruction-level 68000 core in `tools/cpu/m68k`
-(`m68k.CPU` over a `Bus`), the same way the other games are checked.
+(`m68k.CPU` over a `Bus`).
 
 The disk image is not committed (it is a copyrighted game); its size and MD5
 are recorded in the repository [README](../README.md#image-files) so the exact

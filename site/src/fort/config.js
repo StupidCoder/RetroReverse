@@ -1,4 +1,4 @@
-// Fort Apocalypse — configuration for the shared 2-D level viewer (site/FORMAT.md).
+// Fort Apocalypse — configuration for the shared 2-D level viewer (site/FORMAT2.md).
 // The playfield is a horizontal cylinder (meta wrap "x"); the soft-char animations
 // need the baked per-tile strategy (repaint in place); prisoners/tanks/mines/the
 // enemy helicopter are randomized objectPools re-rolled per toggle, and the movers

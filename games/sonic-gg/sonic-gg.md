@@ -1,11 +1,9 @@
-# Sonic the Hedgehog (Game Gear) — cartridge format and game analysis
+# Sonic the Hedgehog (Game Gear) — technical reference
 
 **Image:** `Sonic The Hedgehog (Japan, USA).gg` — 262,144 bytes, MD5 `8a95b36139206a5ba13a38bb626aee25`. Not committed (copyright); supply your own copy.
 
 A reverse-engineering reference for `Sonic The Hedgehog (Japan, USA).gg`, the Sega
-Game Gear release of Sonic the Hedgehog. This is the first Z80 / Sega title in this
-repository — and the first cartridge ROM rather than a tape or disk — and the
-writeup follows the same shape as the C64 and Amiga games, in reading order:
+Game Gear release of Sonic the Hedgehog. The writeup proceeds in reading order:
 
 * **Part I** — the cartridge image: the flat ROM dump, the Game Gear's memory map,
   the bank-switching mapper, and the cartridge header;
@@ -60,9 +58,8 @@ addresses (16-bit, `$0000`–`$FFFF`) unless a *file offset* is called out; byte
 
 # Part I — The cartridge image
 
-A cartridge is the simplest image format in this repository. There is **no
-container, no filesystem and no loader** — unlike the C64 tape (a pulse stream you
-have to decode) or the Amiga disk (an AmigaDOS filesystem you have to walk). The
+A cartridge is a simple image format. There is **no
+container, no filesystem and no loader**. The
 `.gg` file is a verbatim copy of the cartridge's mask-ROM chip: byte *N* of the
 file is exactly the byte the Z80 reads from the chip at ROM offset *N*. So Part I
 is short — there is nothing to *extract*. The only real structure is the **memory
@@ -562,8 +559,8 @@ left for Part V.
 
 Graphics on the Game Gear are two layers of problem: the fixed **VDP hardware
 formats** the data ends up in (§1), and the game-specific **compression** it is
-stored under in the ROM (§2). With both decoded we can take a routine that loads a
-screen and reproduce its pixels exactly — §3 does this for the first screen the
+stored under in the ROM (§2). With both decoded, a routine that loads a
+screen reproduces its pixels exactly — §3 does this for the first screen the
 console shows, and §4 does it for a whole scrolling level, both as end-to-end checks.
 
 ## 1. The VDP formats
@@ -624,7 +621,7 @@ The logo's tile map is **computed in code**; the title's is a **stored, compress
 map** loaded wholesale. Both then get a per-frame sprite layer and, on the title, a
 blinking text overlay. This section follows the actual routines.
 
-To do that I let the game run and watched what it did, using the Game Gear machine
+To do that, the game runs under the Game Gear machine
 model in [`tools/platform/gamegear`](../../tools/platform/gamegear) (the `z80` core wired to RAM, the
 Sega mapper and a VDP that captures VRAM/CRAM) as an *oracle*. Two things make it a
 tracing tool rather than just a renderer: [`extract/cmd/screentrace`](extract/cmd/screentrace)
@@ -718,7 +715,7 @@ The opening screens (§3) are single static pictures. A *level* is different: it
 wider than the screen, it scrolls, and it is built from a small alphabet of reusable
 **blocks** rather than per-cell tile numbers. Sonic stores a level as three nested
 layers — a compressed **block-index map**, a **block → tiles** table, and the **tile
-graphics** — plus a palette. Decoding all three lets us reproduce a whole level from the
+graphics** — plus a palette. Decoding all three reproduces a whole level from the
 ROM alone; the result for Zone 0 (Green Hills Act 1) is the image at the end of this
 section, rendered by [`extract/cmd/levelmap`](extract/cmd/levelmap).
 
@@ -1001,7 +998,7 @@ for each type's *size*; the **behaviour** is dispatched by a separate table at `
 
 ### Object types — the master dispatch
 
-The behaviour dispatch is now found, and the earlier lead (`$4740`) was a red herring.
+The behaviour dispatch is found.
 Every live object in the `$D3FD` array is processed once per frame by `$2CBA` (bank 0),
 which dispatches through a **word-pointer table at `$24B2`** (bank 0), indexed by
 `type×2`. This is the real master object dispatch: it is valid for types **`$00`–`$56`**
@@ -1102,7 +1099,7 @@ each preceded by its X-velocity store — the extractor prefers the **negative**
 every walker starts toward the player (the porcupine's first site is its facing-*right*
 walk, which is what briefly pointed it the wrong way in the viewer).
 
-One "animation" turned out not to be one. The pickup TV alternates two layouts on the
+One apparent "animation" is not one. The pickup TV alternates two layouts on the
 frame rotor (`$5E17`): the full metasprite (`$5E97`, 3 of 8 frames) and a variant that
 *drops the middle top cell* (`$5EA4`, 5 of 8). Composited with the icon overlay the two
 frames are **pixel-identical** — the opaque 16×16 icon (sprites `$5C`/`$5E` at +4/+12,
@@ -1249,8 +1246,8 @@ velocity (`IX+18/19`) and added to the angle, then a sub-action fires (`RST $28`
 end higher. Because the launch is driven by impact speed, **there is no single fixed launch
 height** — it scales with how fast Sonic comes down, exactly matching the in-game feel
 (jump on the high end, the weight on the low end is flung up, and on its way down it
-catapults Sonic). This one I've only read statically; the two-stage momentum sim would be
-worth confirming against footage if we want exact numbers.
+catapults Sonic). This one is read statically only; the two-stage momentum sim would be
+worth confirming against footage for exact numbers.
 
 ### Crab (`$08`)
 
@@ -1378,12 +1375,12 @@ it runs the save at `$6034`: `($D238)` (the act) × 2 indexes `$D32F`, and the *
 object's *own* position** — `IX+2/3` and `IX+5/6`, each `×8` and taking the high byte to
 convert pixels → blocks, with the Y block minus 1 — is stored there. (So you respawn *at
 the checkpoint*, one block above it, not at the exact pixel you touched it — and note this
-saves the checkpoint's coordinates, **not** Sonic's, correcting an earlier reading.) It
+saves the checkpoint's coordinates, **not** Sonic's.) It
 also sets a per-act "checkpoint reached" bit in the `$D312` bitmask (`$0B8D` picks the bit
 by act number) so the save fires once, then draws its sprite (`$5500` via `$5E0C`).
 
-This resolves the long-standing guess: the checkpoint *is* a placed object, but it is type
-`$51`, not `$50` (which turned out to be the background animator — it feeds the `$D2AB`
+The checkpoint *is* a placed object, but it is type
+`$51`, not `$50` (which is the background animator — it feeds the `$D2AB`
 scroll-draw request, repainting its own map cell).
 
 ### Special-stage objects — bumper (`$21`), Continue powerup (`$52`)
@@ -1475,8 +1472,8 @@ frame and copies it into three words:
 Which set is chosen depends on Sonic's state flags (`IX+24`) and whether he is on the
 ground. Two groups are loaded per state: a **9-byte horizontal block** copied to `($D20F…)`
 (its first word is the **top-speed cap**, `$D213` an acceleration term), *and* three
-separate words `($D23A/$D23C/$D23E)`. Crucially — and this corrects an earlier draft of
-this section — `$D23C`/`$D23E` are **not** horizontal friction and cap; they feed the
+separate words `($D23A/$D23C/$D23E)`. Crucially, `$D23C`/`$D23E` are **not** horizontal
+friction and cap; they feed the
 *vertical* (jump/gravity) path (next sub-section). The raw values:
 
 | State | h. accel `$D23A` | top speed `($D20F)` | jump impulse `$D23C` | gravity `$D23E` | source |
@@ -1602,12 +1599,11 @@ separate routine, decoded next.
 
 ### The solid-ground floor — height profiles and slope angles
 
-The plain floor is now fully decoded — and finding it first required fixing a **bug in our
-own Z80 emulator** (see the box below), because that bug was corrupting the very Y value I
-was trying to read. With a correct CPU the oracle behaves like hardware: Sonic falls, then
+The plain floor is now fully decoded — and finding it first required fixing a **bug in the
+Z80 emulator** (see the box below), because that bug was corrupting the Y value being read.
+With a correct CPU the oracle behaves like hardware: Sonic falls, then
 **lands** — his Y snaps to the surface and his Y-velocity is **zeroed** — and he then **runs
-along the ground** without sinking. (So the earlier "velocity is never zeroed / clamped every
-frame" reading was the emulator bug, not the game.)
+along the ground** without sinking.
 
 The floor routine lives in **bank 0** (always mapped — which is why it never appeared in the
 bank-1 player code), entered at **`$2DF4`/`$2E02`** and reached every frame through the common
@@ -1729,8 +1725,8 @@ the next frame's top. The net effect on screen:
   #001199 #bbffaa #66bb99 #007733 #bbff77 #002255 #aaffff`). This is why submerged vines and
   walls read as **cyan** rather than the surface greens/purples.
 
-(An earlier guess that the underwater palette was `palTable` index 8 was wrong; the real
-colours are this hand-written bank-0 table, found by following the line interrupt.)
+(The underwater colours are this hand-written bank-0 table, found by following the line
+interrupt.)
 
 ### The physics flag, and what it changes
 

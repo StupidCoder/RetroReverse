@@ -1,21 +1,17 @@
-# Ultima Underworld (MS-DOS) — executable format and game analysis
+# Ultima Underworld (MS-DOS) — technical reference
 
 **Image:** distributed as an installed game directory (`game/` — `UW.EXE` plus the `CRIT`/`CUTS`/`DATA`/`SOUND` data files); copyrighted, not committed. Supply your own installed copy. The offsets here are pinned to `UW.EXE`, 561,744 bytes, MD5 `0f58c92a45b8d8d5bba498c59eb111c2`.
 
 Ultima Underworld: The Stygian Abyss (Blue Sky Productions / Origin Systems, 1992) is a
 first-person, texture-mapped 3D dungeon crawler — one of the earliest games to render a
-freely-looking, slope-and-stair 3D world in real time on a PC. This document reverse-engineers
-the *shipped MS-DOS game* from its files alone, the same way the other titles in this repository
-are taken apart: no third-party emulator, debugger or disassembler, no released source, and
-nothing about the file formats taken from external documentation. Everything here is derived
-from the bytes on disk via our own tools.
+freely-looking, slope-and-stair 3D world in real time on a PC. This document reconstructs
+the *shipped MS-DOS game* from its files alone: no third-party emulator, debugger or
+disassembler, no released source, and nothing about the file formats taken from external
+documentation. Everything here is derived from the bytes on disk via purpose-built tools.
 
-It is the repository's **first MS-DOS / x86 title**. Every prior game ran on a CPU we already
-had a disassembler and (usually) an execution core for — 6502, 68000, Z80, SM83, ARM. Ultima
-Underworld runs on the **Intel x86 in 16-bit real mode**, which we have *no* tooling for yet, so
-a large part of this project is building that toolchain: a real-mode x86 disassembler, a
-recursive code-tracer, and eventually an execution core to use as an **oracle** (Part II), in
-the same spirit as `tools/cpu/arm`, `tools/cpu/m68k`, and `tools/cpu/mos6502`.
+Ultima Underworld runs on the **Intel x86 in 16-bit real mode**. Analysing it requires an
+x86 toolchain: a real-mode x86 disassembler, a recursive code-tracer, and an execution core
+to use as an **oracle** (Part II).
 
 Image: `game/UW.EXE`, 561,744 bytes, MD5 `0f58c92a45b8d8d5bba498c59eb111c2` (pinned in
 `../README.md`). The complete `game/` folder (executable plus ~11 MB of data) is a copyrighted
@@ -29,7 +25,7 @@ their tests and the rendered outputs live in the repository.
   on-disk asset folders (`DATA` / `CRIT` / `CUTS` / `SOUND`). *(started — header decoded)*
 * **Part II** — the x86 toolchain: a 16-bit real-mode **x86 disassembler**, a recursive
   **code-tracer**, and an **execution-core oracle** with a minimal DOS around it — all built and
-  validated by booting UW.EXE's real startup code, mirroring the ARM/68k/6502 toolchains.
+  validated by booting UW.EXE's real startup code.
   *(done — the oracle boots the game to its overlay manager)*
 * **Part III** — the boot chain and overlay system: the DOS entry at `CS:IP`, program startup, and
   UW's **overlaid code segments** (the Microsoft-C `INT 3Fh` scheme, overlay store at file
@@ -47,8 +43,8 @@ their tests and the rendered outputs live in the repository.
 * **Part VI** — audio and cutscenes: the digitized voices (`.VOC`), the sequenced music
   (`.XMI`) and its Miles driver files, and the `CUTS` cutscene animation format. *(planned)*
 
-Methods: purely static analysis of the shipped files, plus dynamic analysis via our own x86
-oracle once it exists. All addresses are given as real-mode `segment:offset` pairs or as byte
+Methods: purely static analysis of the shipped files, plus dynamic analysis via the x86
+oracle. All addresses are given as real-mode `segment:offset` pairs or as byte
 offsets into a file (called out explicitly); bytes are little-endian.
 
 ---
@@ -64,8 +60,8 @@ runs directly on the 8086-compatible real-mode instruction set (with the 286/386
 1992-era minimum hardware provided), addressing memory through the classic `segment:offset`
 scheme where a linear byte address is `segment × 16 + offset`.
 
-This is the fact that shapes the whole project: **we have no x86 tooling**, and real-mode x86 is
-unlike anything already in `tools/` — variable-length instructions (1–6+ bytes, with prefixes),
+This is the fact that shapes the whole project: real-mode x86 needs a toolchain of its own —
+variable-length instructions (1–6+ bytes, with prefixes),
 segmented addressing, and a program that (as shown below) is far larger on disk than the single
 image DOS loads, implying a **code-overlay** scheme it manages itself.
 
@@ -105,7 +101,7 @@ Two things stand out:
 
 - **3,176 relocations.** Every far pointer baked into the image must be fixed up at load time by
   adding the runtime load segment. The first few point into segment `$0EC5` (the same segment as
-  the entry point), i.e. the fix-ups begin right where execution begins. Our `ParseMZ` reads
+  the entry point), i.e. the fix-ups begin right where execution begins. `ParseMZ` reads
   the whole table (entries are `{offset u16, segment u16}` at file offset `$3E`); a future x86
   oracle will apply them when it places the module at a chosen load segment.
 - **141 KiB of data past the load image.** DOS only loads the 408 KiB module described by the
@@ -154,15 +150,14 @@ cd "Ultima Underworld (PC)/extract" && go run ./cmd/uwinfo -game ../game
 
 # Part II — The x86 toolchain
 
-Everything past Part I needs to read x86 code. The toolchain mirrors the existing per-CPU
-packages (`tools/cpu/arm`, `tools/cpu/m68k`, `tools/cpu/mos6502`, `tools/cpu/sm83`) and lives at **`tools/cpu/x86`**,
+Everything past Part I needs to read x86 code. The toolchain lives at **`tools/cpu/x86`**,
 platform-neutral under the shared module.
 
 ## 1. The disassembler (`tools/cpu/x86`) — done
 
 A table/pattern-driven **16-bit real-mode decoder** returning the repository's common
-`Inst{Addr, Len, Mnem, Text, Flow, Target, HasTarget}` shape with the same `Flow` enum
-(Seq/Branch/Jump/Call/Return/IndJump/Stop) as the other cores, so the existing recursive-trace
+`Inst{Addr, Len, Mnem, Text, Flow, Target, HasTarget}` shape with the `Flow` enum
+(Seq/Branch/Jump/Call/Return/IndJump/Stop), so the existing recursive-trace
 machinery drives it unchanged. It handles the full variable-length x86 encoding:
 
 - **Prefixes** — segment overrides (`ES:`…`GS:`), the `0x66`/`0x67` operand- and address-size
@@ -181,8 +176,7 @@ target; `JMP`/`CALL rel` carry a target; a direct far pointer (`CALLF`/`JMPF ptr
 `seg:off` to a linear `Target`; an **indirect `JMP`** (through a register or memory) ends the
 path as `FlowIndJump`, while an **indirect `CALL`** keeps the fall-through with `HasTarget=false`.
 Anything unrecognised decodes as a `.byte` with `FlowStop` so a walk stays aligned rather than
-mis-decoding the next byte. Syntax is Intel order, upper-case, `$`-hex — matching the other
-disassemblers here. Unit-tested against hand-assembled encodings (addressing modes, prefixes,
+mis-decoding the next byte. Syntax is Intel order, upper-case, `$`-hex. Unit-tested against hand-assembled encodings (addressing modes, prefixes,
 every control-flow form, x87 length-correctness) in `tools/cpu/x86/x86_test.go`.
 
 **Validated on UW.EXE's own code.** Disassembling from the real entry point (`$EC50`, the DOS C
@@ -203,11 +197,10 @@ sizing arithmetic — with every branch landing on an instruction boundary and n
 
 ## 2. The CLIs — done
 
-- **`cmd/disx86`** — a linear disassembler (`-base`/`-skip`/`-start`/`-end`), paired with
-  `dis6502`/`dis68k`/`disarm`. Disassemble the MZ load module by skipping the 12,800-byte header:
+- **`cmd/disx86`** — a linear disassembler (`-base`/`-skip`/`-start`/`-end`). Disassemble the MZ load module by skipping the 12,800-byte header:
   `disx86 -skip 0x3200 -base 0 -start EC50 game/UW.EXE`.
 - **`cmd/codetracex86`** — the recursive-descent tracer (`-entry`, `-table` for jump tables,
-  `-annotate`, `-o`), following the repo's `codetrace*` convention and feeding the `disasm/`
+  `-annotate`, `-o`), feeding the `disasm/`
   annotation store. It separates code from data, names subroutines by their CALL targets, and
   reports unresolved indirect jumps/calls. From the entry it cleanly traces the CRT startup
   (10 routines, 0 stop-hits) and stops at the **6 indirect calls** through which the runtime
@@ -216,8 +209,8 @@ sizing arithmetic — with every branch landing on an instruction boundary and n
 ## 3. The execution-core oracle — done
 
 The tracer's static reach ends where UW's startup dispatches into the game through indirect and
-far calls. The answer is the same one the DS titles needed: an **execution core** that *runs*
-UW.EXE and we watch. `tools/cpu/x86` now carries one (`cpu.go`/`exec.go`/`exec2.go`) — a real-mode
+far calls. The answer is an **execution core** that *runs*
+UW.EXE under observation. `tools/cpu/x86` now carries one (`cpu.go`/`exec.go`/`exec2.go`) — a real-mode
 `CPU` over a `Bus`, covering MOV/LEA, the PUSH/POP family, the eight ALU ops in every form plus
 INC/DEC/NEG/NOT/TEST, MUL/IMUL/DIV/IDIV, the shift/rotate family, the REP string ops, the full
 near/short/far/indirect control transfers, the flag and BCD/ASCII-adjust ops, and INT/IRET, all
@@ -237,7 +230,7 @@ drives it and reports where the boot goes.
 run-time startup with no wrong turn — servicing get-version, resizing its memory block three times,
 installing the divide/overflow/etc. interrupt vectors — and then **reaches the overlay manager**,
 exactly the wall Part II §2 predicted. This both validates the CPU core on a large body of real
-code and lands us precisely at the Part III entry point.
+code and lands precisely at the Part III entry point.
 
 ## 4. What the oracle found: the overlay system (Part III lead-in)
 
@@ -336,7 +329,7 @@ way to its **root cause** — a DOS memory-management fidelity gap. The chain, f
   `3BDD:4108` (`heapSize = [4106] - [4108] - 1`), and those hold `0xFFFF`/`0xFFFE`.
 - A memory-write watch pins where `0xFFFF` comes from: `01A0:3A61` stores `DI`, and `DI` is the
   result of a scan (`01A0:3A3F`…) over the game's **internal memory-allocation registry** — a
-  min-of-tracked-blocks that *defaults to `0xFFFF` when the registry is empty*. In our emulation
+  min-of-tracked-blocks that *defaults to `0xFFFF` when the registry is empty*. In this emulation
   the registry **is** empty.
 
 So the game manages memory by repeatedly **resizing its own program block** (`INT 21h/4Ah`, growing
@@ -353,7 +346,7 @@ game's *own* sub-allocator: `015E:000A` reserves a heap from a pool (bounds `[3B
 writes the heap header, but the heap's block table ends up without a usable free entry (the
 allocator `015E:004A` reads an entry whose "free" field is 0 and skips it), so every record
 allocation fails. The game's memory-manager data structures are simply ending up **inconsistent**
-under our emulation.
+under this emulation.
 
 That inconsistency looked like the signature of a **subtle CPU-core bug**, so the core was
 cross-validated against an independent reference — the **SingleStepTests/8088** suite, which gives a
@@ -379,7 +372,7 @@ debugger (`-watch` on the game's own variables was the key tool). Four fixes, in
    back through the game's sub-allocator to its **video-memory arena** (`[3BDD:4104/4106/4108]`)
    never being initialised, because the arena init lives in the **video-mode-set routine** — and
    the game only sets its mode after *detecting a VGA through the BIOS* (`INT 10h AX=1A00`),
-   which our stub never answered. `dos_video.go` now implements a minimal VGA BIOS (mode set/get
+   which the stub never answered. `dos_video.go` now implements a minimal VGA BIOS (mode set/get
    tracked in the BDA, the `1A00`/`12,10`/font detection answers, palette/DAC functions), and the
    game immediately detects VGA at `01A0:3400` and sets **mode 13h**. The arena initialises, the
    D004 abort vanishes, and the game runs its intro.
@@ -463,10 +456,10 @@ bug: UW's fixed-point renderer installs its **own #DE handler** (IVT[0] → `589
 the exception, so `divOp` now raises `#DE` through IVT[0] (`divErr`), exactly as an 8086 does. With
 that, the game runs its own handler and drops into the **dungeon**: `work/dungeon.png` is the
 first-person, texture-mapped view of the Stygian Abyss — a stone corridor drawn by UW's engine on
-our CPU, with the character HUD beside it. (The peripheral status panels still show some noise; the
+this CPU, with the character HUD beside it. (The peripheral status panels still show some noise; the
 central 3D viewport is correct. Pixel-exact UI is a Part V refinement.)
 
-This is the whole arc closed: from an MZ header we could not run to the game *being played* under
+This is the whole arc closed: from an unrunnable MZ header to the game *being played* under
 the oracle, deterministically, all the way to dungeon gameplay — the foundation for the
 object-behaviour and world work of Parts IV/V.
 
@@ -664,10 +657,6 @@ The builder itself (`1FF9`) reads each tile's fields directly — `byte0>>4 & 0F
 `byte0 & 0F` = type, `byte1>>2 & 0F` = a texture field (the very fields `extract/lev` decodes,
 confirmed here from the builder's own code) — and branches on them to emit the tile's polygons into
 the list through a write pointer at `[7250]`, one command block per polygon.
-(An earlier draft of this section, before the builder was pinned, wrongly called the list *cached*
-and named an interpreter at `07F7:2BF0`; that breakpoint never fires — the `065D` it seemed to use
-was a stale main-loop `SI`. The list is `499D:744A`, rebuilt each frame, and needs no player
-movement to observe.)
 
 **The texture reference** falls out at the rasteriser (`01A0:0210`): each polygon descriptor carries
 its texture *inline* — the draw setup reads the texture **segment** straight into `[07AF]`, the very
@@ -690,7 +679,7 @@ rebuilt as a **textured 3D mesh** — reimplemented in Go and hooked into the St
 - **Textures.** The `.TR` banks decode straight from their bytes (`extract/tex`): byte 1 is the
   square dimension (`W64.TR` = 64×64 walls, `F32.TR` = 32×32 floors), a `uint16` count, then per-
   texture offsets to `dim×dim` palette indices; `PALS.DAT` holds eight VGA palettes. The **per-level
-  texture list** — the missing §6 piece — turned out to be the 122-byte LEV.ARK block `18 + level`:
+  texture list** — the missing §6 piece — is the 122-byte LEV.ARK block `18 + level`:
   **48 wall texture numbers (into `W64.TR`) then 10 floor numbers (into `F32.TR`)**, which a tile's
   `WallTex`/`FloorTex` index selects.
 - **Geometry.** `extract/levgeo` walks the tile map and emits, per non-solid tile, a floor quad (its
@@ -714,8 +703,7 @@ rebuilt as a **textured 3D mesh** — reimplemented in Go and hooked into the St
   `1FF9:0006` stores tile X/Y with `SHL 3` (×8) and the height field with `SHL 1` (×2), then the
   vertex transform `07F7:5096` scales all three equally (`SHL 5` then `SHL 1` = ×64). So a tile spans
   `8×64` and a height-field unit `2×64`, i.e. a height unit is `2/8 = ` **a quarter** of a tile width
-  (`HeightScale = 0.25`). (An earlier `0.5` was wrong — it read the shared transform but missed the
-  unequal `×8`/`×2` in `1FF9:0006`; the symptom was walls twice too tall, doubling the door texture.)
+  (`HeightScale = 0.25`).
   `cmd/levexport` groups the mesh by material and writes a self-contained JSON
   (positions, UVs, groups, and each texture as a data-URI PNG); `cmd/levrender` is a Go software
   renderer that verified the result is a coherent dungeon before any browser was involved
@@ -827,8 +815,7 @@ dispatching the next opcode. The instruction set, by family:
   is back-facing: skip** (the plane check; the camera is expressed in the model's current rotated
   frame, so one axis suffices). If visible it `CALL`s the face's **draw sub-program** (at the record
   tail, reached by the link word; runs until RET). `0x6A` packs the metadata at the tail
-  (`[DI-A]`=d, `[DI-8]`=shift, `[DI-6/-4/-2]`=bounds — the earlier reading of `[DI-A]` as a
-  "sub-list pointer" was wrong); `0x38` carries them inline. `0x28`/`0x30` = **level-of-detail
+  (`[DI-A]`=d, `[DI-8]`=shift, `[DI-6/-4/-2]`=bounds); `0x38` carries them inline. `0x28`/`0x30` = **level-of-detail
   re-entry** (re-scale the face's saved full-precision deltas by a new shift, direct/indirect).
   `0x84` tests N pool outcodes at once.
 - **Rotation (animation).** `0x6E`/`0x74`/`0x76` rotate the current frame about one axis by an
@@ -949,8 +936,8 @@ From `2DFE:0005` (the per-object dispatch) the whole mapping is plain compiled C
    floor-to-ceiling vector in fine height units (ceiling = 16 heights × 64 = 1024).
 
 **Textures:** `1FF9` keeps a *texture bank* register (`[2F5A]`): floors are bank 0, walls 2, doors
-4 (+1 page fold). The door's actual image comes from a place we had been carrying around unparsed
-all along: **the last 6 bytes of the 122-byte per-level texture list** (48 wall words + 10 floor
+4 (+1 page fold). The door's actual image comes from a previously unparsed part of the data:
+**the last 6 bytes of the 122-byte per-level texture list** (48 wall words + 10 floor
 words + **6 door bytes**) select images in **DATA/DOORS.GR** — 13 door pictures, 32×64, raw 8-bit
 (format: `01`, count, offsets; image = `04`, W, H, size, pixels). Level 1's list is `0 3 5 6 7 9`,
 and image 0 is the brown planked door standing at tile (33,8).
@@ -978,8 +965,8 @@ One capability gap worth recording: **avatar movement** can't yet be injected. T
 mouse-hold does reach the game — during play it reads `buttons=1` at the injected cursor via
 `INT 33h` `AH=03h` — but the avatar doesn't move, because UW's movement handler (behind a
 stack-switching input thunk at `214A:09F0`) keys off its *own* delta-integrated cursor rather than
-the absolute position we set. Solving it would enable full playthrough automation; it turned out not
-to be needed for the geometry work, since the display list rebuilds every frame regardless.
+the absolute position injected. Solving it would enable full playthrough automation; it is not
+needed for the geometry work, since the display list rebuilds every frame regardless.
 
 # Part VI — Audio and cutscenes (planned)
 

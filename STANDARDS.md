@@ -178,7 +178,7 @@ site/public/<slug>/
 ### 4.3 Level format 2
 
 A single superset envelope; `kind` selects the body. See `site/FORMAT2.md` for the full
-field-by-field spec (supersedes the format-1 `site/FORMAT.md`).
+field-by-field spec (supersedes the earlier format-1 spec, now folded into `site/FORMAT2.md`).
 
 ```jsonc
 { "format": 2, "name": "...", "kind": "tilemap2d" | "mesh3d",

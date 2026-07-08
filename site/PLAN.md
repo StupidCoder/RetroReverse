@@ -2,7 +2,7 @@
 
 > **Historical document.** The site has since evolved: every 2-D tilemap game now runs on
 > one shared viewer (`src/shared/`) consuming the common level format specified in
-> [FORMAT.md](FORMAT.md); the per-game JSON sketches below describe the original Sonic-only
+> [FORMAT2.md](FORMAT2.md); the per-game JSON sketches below describe the original Sonic-only
 > formats and are superseded.
 
 An interactive companion site for the reverse-engineering work in this repo. It presents

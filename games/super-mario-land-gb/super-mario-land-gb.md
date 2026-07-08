@@ -1,12 +1,11 @@
-# Super Mario Land (Game Boy) — cartridge format and game analysis
+# Super Mario Land (Game Boy) — technical reference
 
 **Image:** `Super Mario Land (World).gb` — 65,536 bytes, MD5 `b48161623f12f86fec88320166a21fce`. Not committed (copyright); supply your own copy.
 
-A reverse-engineering reference for `Super Mario Land (World).gb`, the 1989 Game
-Boy launch title. This is the first **Game Boy** title in this repository, and the
-first **Sharp LR35902** ("GBZ80" / SM83) CPU — a relative of the Z80 but, as Part I
-shows, *not* the same chip. The writeup follows the same shape as the C64, Amiga and
-Game Gear games, in reading order:
+A technical reference for `Super Mario Land (World).gb`, the 1989 Game
+Boy launch title. Its CPU is the **Sharp LR35902** ("GBZ80" / SM83) — a relative
+of the Z80 but, as Part I shows, *not* the same chip. The writeup proceeds in
+reading order:
 
 * **Part I** — the cartridge image: the flat ROM dump, the Game Boy memory map, the
   MBC1 bank-switching mapper, the cartridge header, and the CPU vectors;
@@ -20,13 +19,13 @@ Game Gear games, in reading order:
   and progression.
 * **Appendix** — toolchain and reproduction.
 
-Methods: purely static analysis of the ROM image. **Note the toolchain gap:** the
-shared `tools/cpu/z80` decoder does *not* apply here — the Game Boy CPU is the Sharp
+Methods: purely static analysis of the ROM image. The `tools/cpu/z80` decoder does
+*not* apply here — the Game Boy CPU is the Sharp
 LR35902, which shares the Z80's register names and much of its opcode map but drops
 the `IX`/`IY` index registers, the alternate register set and the `IN`/`OUT` ports,
 and adds Game-Boy-specific opcodes (`LDH`, `LD (C),A`, `LD (a16),A`, `STOP`, `SWAP`,
-`ADD SP,e`, `LD HL,SP+e`). A new LR35902 disassembler — **`tools/cpu/sm83`** with the
-**`cmd/dissm83`** CLI — has been built for this game (mirroring `tools/cpu/z80`); the
+`ADD SP,e`, `LD HL,SP+e`). The LR35902 disassembler **`tools/cpu/sm83`** with the
+**`cmd/dissm83`** CLI decodes it; the
 hand decodes below were confirmed against it. All addresses are CPU addresses
 (16-bit, `$0000`–`$FFFF`) unless a *file offset* is called out; bytes are 8-bit.
 Parts I–IV are complete; Part V covers the game mechanics (objects, sprites, scripts,
@@ -72,9 +71,8 @@ pipes, collision and Mario's physics) — only scoring/progression bookkeeping i
 
 # Part I — The cartridge image
 
-A cartridge is the simplest image format in this repository: there is **no
-container, no filesystem and no loader** — unlike a C64 tape (a pulse stream you have
-to decode) or an Amiga disk (an AmigaDOS filesystem you have to walk). The `.gb`
+A cartridge is a simple image format: there is **no
+container, no filesystem and no loader**. The `.gb`
 file is a verbatim copy of the cartridge's mask-ROM chip: byte *N* of the file is
 exactly the byte the CPU reads from the chip at ROM offset *N*. So there is nothing
 to *extract*. The structure that matters is the **memory map** the console imposes
@@ -683,7 +681,7 @@ repeats geometry compactly. The screen index `ffe5` walks `P1`; crucially it doe
 start at 0**. SML reserves the low indices: screen 0 is a start lead-in, and **screens
 1 and 2 are the pipe-accessed bonus rooms**, so the *main* horizontal map begins at
 **index 3** (the level start code sets `$FFE5 = 3` at `$0DD4`). Decoding `P1[0..]`
-blindly — the first mistake here — splices the bonus coin-rooms into the middle of the
+blindly would splice the bonus coin-rooms into the middle of the
 level; the main map is `P1[3..]` up to the `$FF` terminator.
 
 Which bank and which `ffe4` is **not guessed — it is traced through the ROM's own
@@ -967,8 +965,7 @@ pipes. 1‑1's two pipes match the game exactly:
 
 Ten of the twelve levels carry two pipes (to bonus rooms 1 and 2); the auto-scroll/boss
 stages 1‑2, 2‑3 and 4‑3 have none. (The sibling table `$6536`, read by the `$80`/`$5F`-tile
-handler `$2318`, is the same idea for the breakable/`?`-block contents — not pipes; an earlier
-note here had `$651C` and `$6536` mislabelled.)
+handler `$2318`, is the same idea for the breakable/`?`-block contents — not pipes.)
 
 ## 5. The object cast
 
@@ -1230,15 +1227,15 @@ $00       : end of pattern (advance to the next order entry)
 
 ### A Go port of the player
 
-Rather than run the engine, `extract/cmd/musicrom` is a **Go reimplementation** of it (like
-the Sonic and Elite music tools): it decodes the four channels straight from the ROM bytes
+Rather than run the engine, `extract/cmd/musicrom` is a **Go reimplementation** of it: it
+decodes the four channels straight from the ROM bytes
 into note events and renders them through a small **DMG APU emulator** (`tools/platform/gameboy/apu.go`
 — two squares + wave + noise with length/envelope/sweep off a 512 Hz frame sequencer). The
 decode is checked against ground truth with **`musicrom -verify <id>`**, which boots the real
-engine and prints its note *and envelope* stream beside the port's, channel by channel — the
-indispensable debugging tool here. (Two bugs it caught: the wave instrument is a *pointer* to
-wave-RAM data the port wasn't loading, leaving a DC drone; and note `$01` is a *note-off*, not
-a sustained note — without honouring it every channel droned and they blurred into one voice.)
+engine and prints its note *and envelope* stream beside the port's, channel by channel. Two
+details this pins: the wave instrument is a *pointer* to wave-RAM data that must be loaded
+(otherwise a DC drone), and note `$01` is a *note-off*, not a sustained note — without
+honouring it every channel drones and they blur into one voice.
 
 Each track is rendered as its **intro plus two loop iterations with a 2.5 s fade-out**: the
 intro plays once, then the body repeats (channels of unequal loop length tile to their least
@@ -1289,7 +1286,7 @@ go run retroreverse.com/tools/cmd/dissm83 -bank 3 -start 0x7FF0 -end 0x8000 \
     "Super Mario Land (GB)/Super Mario Land (World).gb"
 ```
 
-The full Game Boy toolchain now exists, mirroring the Game Gear set:
+The full Game Boy toolchain now exists:
 
 - **`tools/cpu/sm83`** — the `Decode`/`Disassemble` disassembler **and** an instruction-level
   `CPU` execution core (the LR35902's four-flag behaviour and Game-Boy-specific ops;
@@ -1300,7 +1297,7 @@ The full Game Boy toolchain now exists, mirroring the Game Gear set:
 - **`tools/platform/gameboy`** — a DMG machine model (MBC1 + the memory map + the timer and LCD
   scanline interrupts) that drives the `sm83` core as an **emulation oracle**: it boots
   the real ROM and runs its per-frame loop, after which VRAM/OAM can be read back to see
-  exactly what the game drew (the same technique as the Game Gear oracle). Its `gb.go`
+  exactly what the game drew. Its `gb.go`
   also holds the fixed DMG **graphics decoders** (2bpp tile, `BGP`/`OBP` palettes, tile
   sheet, background-map and full-screen/​sprite composition).
 - **`Super Mario Land (GB)/extract`** — the per-game module. `cmd/render` boots the ROM

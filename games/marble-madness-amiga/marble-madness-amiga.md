@@ -1,10 +1,9 @@
-# Marble Madness (Amiga) — disk format and game analysis
+# Marble Madness (Amiga) — technical reference
 
 **Image:** `Marble_Madness.adf` — 901,120 bytes, MD5 `735dc697d64b3eeaa000778eb0b1153a`. Not committed (copyright); supply your own copy.
 
-A reverse-engineering reference for `Marble_Madness.adf`, the Amiga release of
-Marble Madness (disk volume `MarbleMadness!`). This is the first Amiga title in
-this repository and the writeup follows the same shape as the C64 games, in
+A technical reference for `Marble_Madness.adf`, the Amiga release of
+Marble Madness (disk volume `MarbleMadness!`). The writeup proceeds in
 reading order:
 
 * **Part I** — the disk image: the ADF container, the AmigaDOS filesystem on it,
@@ -445,7 +444,7 @@ by *physical track and sector position* by `c/xxx`, which reimplements
 `$4489` sync, MFM-decode, and validate each sector's standard `[$FF, track,
 sector<11, sectors-to-gap]` header (it even carries the `"trackdisk.device"`
 string and an `IORequest` builder as a fallback path). So the loader is *not*
-reading data we haven't seen; it is reading the `.dat`'s own bytes off the
+reading data unseen elsewhere; it is reading the `.dat`'s own bytes off the
 platter by location. The `.dat` exists as a DOS file so the disk stays a valid,
 bootable AmigaDOS volume and so those blocks are reserved and laid down
 contiguously; it is read by position for speed (whole-track DMA beats per-sector
@@ -676,7 +675,7 @@ proves to be the disk's fast loader (Part II §5).
 
 **Update — the `.dat` decrypted, statically, no second capture needed.** The
 main program uses the *same* decode but with a 20-long key array, and recovering
-that key array turned out not to need a debugger at all — only the decrypted
+that key array needs only the decrypted
 `c/xxx` and a 16-bit brute force. The key array is **built by `c/xxx` itself**:
 running as the loader, its `run_loader` fills the 20-longword `ctrl->C` buffer
 (which then *becomes* the key array for the second `c/zzz` pass) with
@@ -1440,7 +1439,7 @@ on nearing a flag). The exact win instruction that fires on entering type 12 is 
 | Silly | `SilTrack` | 104 | 110 | 5 | 12 | 0 | 0 | 0 |
 | Ultimate | `UltTrack` | 144 | 53 | 20 | 17 | 1 | 4 | 4 |
 
-The columns are the Track structures whose record format we've pinned: the **respawn
+The columns are the Track structures whose record format is pinned: the **respawn
 points** (placement table, `+4` — the fall-off-edge anchors of the previous section), the
 **slope regions** (the static height field, `+0` — Silly has the most warped geometry,
 Ultimate the least), the **dynamic regions** (the scripted features incl. the drawbridge and
@@ -1475,9 +1474,8 @@ funnels, ice-bowl, the two goal flags), see the table above.
 ![Beginner course Track layers — slope wireframe + placement objects (cyan) + black-marble/slinky patrols + dynamic regions](figures/beginr.wire.png)
 
 The marker positions are the creatures' verified spawn/waypoint positions (from the path
-pointer), drawn on the course; the record's trigger/home cell is *not* drawn here — earlier
-we mistook that home cell for the spawn position, and the pixel-consistent ~32×8-tile offset
-the eye caught was exactly the record→path split that this corrects.
+pointer), drawn on the course; the record's trigger/home cell is *not* drawn here — it sits
+a pixel-consistent ~32×8-tile offset from the path, the record→path split.
 
 **Still open.** What each placement `type` *means*, the per-type object/animation definitions
 (`+$C`; `+$24` is Silly's), the waypoint direction bytes, and the region-script opcode
@@ -1877,10 +1875,9 @@ region-struct layout, and the scoring machine.
 
 # Part VI — Music and sound
 
-Each course has its own theme — and, as it turns out, **two** of them per course
-(fourteen tunes in all). The interesting finding is *how* they are played. Unlike the
-bare-metal C64 drivers (or the Amiga Turrican's hand-written TFMX driver, which bangs
-Paula's registers directly), Marble Madness plays its music through the operating
+Each course has its own theme — **two** of them per course
+(fourteen tunes in all). Notable is *how* they are played: rather than banging
+Paula's registers directly, Marble Madness plays its music through the operating
 system's **`audio.device`**. The game never touches `$DFF0A0`–`$DFF0DF` for music;
 instead it *sequences* the song and, for each voice, hands the OS a sample pointer, a
 period (pitch) and a volume, and lets `audio.device` perform the actual Paula DMA. The
@@ -2196,8 +2193,7 @@ go run retroreverse.com/tools/cmd/codetrace68k -base 0 -skip 36 -entry 0 mm-file
 ```
 
 Dynamic verification uses the instruction-level 68000 core in `tools/cpu/m68k`
-(`m68k.CPU` over a `Bus`), the same way the C64 games are checked against the
-`tools/platform/c64/c64` machine model.
+(`m68k.CPU` over a `Bus`).
 
 The disk image is not committed (it is a copyrighted game); its size and MD5 are
 recorded in the repository [README](../README.md#image-files) so the exact copy

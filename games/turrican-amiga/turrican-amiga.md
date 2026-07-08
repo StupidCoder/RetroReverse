@@ -1,14 +1,13 @@
-# Turrican (Amiga) — disk format and game analysis
+# Turrican (Amiga) — technical reference
 
 **Image:** `Turrican.adf` — 901,120 bytes, MD5 `6677ce6cea38dc66be40e9211576a149`. Not committed (copyright); supply your own copy.
 
 A reverse-engineering reference for `Turrican.adf`, the Amiga release of
-Turrican (Rainbow Arts / Factor 5, 1990). This is the second Amiga title in this
-repository and the writeup follows the same shape as the others, in reading
+Turrican (Rainbow Arts / Factor 5, 1990). The writeup is organised in reading
 order:
 
 * **Part I** — the disk image: the ADF container and the disk's *custom* layout.
-  Unlike Marble Madness, this is **not** an AmigaDOS volume — it is a bootable
+  This is **not** an AmigaDOS volume — it is a bootable
   non-DOS disk whose boot block is a hand-written sector loader, so Part I is
   about mapping the raw disk rather than walking a filesystem;
 * **Part II** — the boot chain: the boot block's multi-stage load and the

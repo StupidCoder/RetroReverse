@@ -1,4 +1,4 @@
-// Palette effects (level.paletteFx, site/FORMAT.md) — currently Sonic-only, but any
+// Palette effects (level.paletteFx, site/FORMAT2.md) — currently Sonic-only, but any
 // game exporting the section gets them:
 //
 //  - cycle: the engine rotates a few palette slots at a fixed period (water /

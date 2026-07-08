@@ -1,5 +1,5 @@
 // Sonic the Hedgehog (Game Gear) — configuration for the shared 2-D level viewer
-// (site/FORMAT.md). The richest data set: block-indirected tilemap, ring/flower tile
+// (site/FORMAT2.md). The richest data set: block-indirected tilemap, ring/flower tile
 // animations, the $50 background cell animators, animated object sprites with
 // movement paths (index.json steps/durations/path), height-profile collision
 // (shapes.json) and the palette effects (water/lava cycle + the Labyrinth underwater

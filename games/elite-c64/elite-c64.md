@@ -1,4 +1,4 @@
-# Elite (C64) — tape format, loader, and game analysis
+# Elite (Commodore 64) — technical reference
 
 **Image:** `Elite.tap` — 801,592 bytes, MD5 `d51b7f84fd1bec6eb24f4bf210c8cc74`. Not committed (copyright); supply your own copy.
 
@@ -1945,7 +1945,7 @@ extract/extract -o extracted Elite.tap
 #    into disasm/elite.asm: follow every branch/jump/call from the entry points
 #    plus the text-token handler table at $2509, separating code from data, and
 #    apply the running function names/notes from disasm/annotations.txt. Game
-#    code does not rewrite itself (unlike the loader), so the disassembly is
+#    code does not rewrite itself (the loader does), so the disassembly is
 #    stable; annotations in disasm/annotations.txt grow as analysis progresses.
 ( cd extract && go run ./cmd/enginedump /tmp/elite-engine.prg )
 go run retroreverse.com/tools/cmd/codetrace6502 \

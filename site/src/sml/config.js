@@ -1,4 +1,4 @@
-// Super Mario Land — configuration for the shared 2-D level viewer (site/FORMAT.md).
+// Super Mario Land — configuration for the shared 2-D level viewer (site/FORMAT2.md).
 // The data (grid, objects in px with anchored sprite icons, tile-range collision) is
 // exported by "Super Mario Land (GB)/extract/cmd/webexport".
 //
