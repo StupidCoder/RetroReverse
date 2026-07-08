@@ -40,6 +40,20 @@ export default {
     const gltf = await gltfLoader().loadAsync(base + item.file);
     const model = gltf.scene;
 
+    // Hidden-line removal for the coplanar decals. The GLB carries the road/walls as TRIANGLES
+    // and the curb strokes, wall struts and start/finish stripe as LINES lying exactly on those
+    // faces — so without help they z-fight. glTF can't express a polygon-offset render state, so
+    // (as the old stunt-track renderer did for its fill/walls) we push every triangle mesh back a
+    // touch in depth; the offset-free lines then always resolve in front of the surface they sit on.
+    model.traverse((o) => {
+      if (!o.isMesh) return; // Mesh = TRIANGLES; LineSegments (o.isLine) stay un-offset, in front
+      for (const mat of Array.isArray(o.material) ? o.material : [o.material]) {
+        mat.polygonOffset = true;
+        mat.polygonOffsetFactor = 1;
+        mat.polygonOffsetUnits = 1;
+      }
+    });
+
     const { scene, camera, controls, renderer } = stage;
     scene.background = new THREE.Color(SKY);
     stage.add(model);
