@@ -20,6 +20,7 @@ import { Tilemap, BlockTilemap } from './tilemap.js';
 import { AnimRunner } from './anim.js';
 import { buildWaterInfo, setupCycle } from './palettefx.js';
 import { buildCollisionGrid, buildCollisionProfiles, buildObjects, buildPools, rng } from './layers.js';
+import { resolveObjectInfo } from './objinfo.js';
 
 // Compact identifier line for an info card: whichever of an object's raw ids are present,
 // in a fixed order. `type` is shown in hex (our RE docs' convention); `handler` is an AI
@@ -301,7 +302,10 @@ export class LevelViewer {
 
   _showCard(pick, clientX, clientY) {
     this._hideCard();
-    const info = (this.config.objectInfo || {})[pick.name];
+    // Shared resolution: the object's extracted `info` (if any) then the game's editorial
+    // objectInfo map, keyed by name/type. The 2-D card keeps its own chrome (cursor-anchored,
+    // closeable, monospace id line) but takes its title/body from the same resolver as the 3-D cards.
+    const p = resolveObjectInfo(pick, this.config.objectInfo);
     const card = document.createElement('div');
     card.style.cssText = 'position:absolute;max-width:min(360px,74%);z-index:12;'
       + 'background:rgba(10,13,18,.94);border:1px solid #3a4a5c;border-radius:8px;'
@@ -319,7 +323,7 @@ export class LevelViewer {
     close.addEventListener('click', () => this._hideCard());
     const h = document.createElement('div');
     h.style.cssText = 'font-weight:600;margin:0 14px 4px 0;color:#ffd75e';
-    h.textContent = info ? info.title : (pick.name === 'player' ? 'Player' : 'Object');
+    h.textContent = p?.title || (pick.name === 'player' ? 'Player' : 'Object');
     // ID line: the object's raw identifiers (type / AI handler / sprite), always shown so
     // the user has a stable handle to ask about later — the point of these cards.
     const ids = idLine(pick);
@@ -330,7 +334,7 @@ export class LevelViewer {
       idEl.textContent = ids;
     }
     const body = document.createElement('div');
-    if (info) { body.textContent = info.text; }
+    if (p?.body) { body.textContent = p.body; }
     else { body.style.color = '#9aa7b8'; body.textContent = 'No notes for this object yet — the id above is its handle.'; }
     card.append(close, h);
     if (idEl) card.append(idEl);

@@ -8,14 +8,14 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { FlyCam, flyHint } from '../shared/flycam.js';
-import { InfoCard } from '../shared/infocard.js';
+import { installPicker } from '../shared/objinfo.js';
 import { clone as cloneSkinned } from 'three/addons/utils/SkeletonUtils.js';
 
 // Format-2 asset tree. Every GLB path inside the JSON (models/…, collision/…)
 // is already root-relative to this base, so load them as BASE + path.
 const BASE = 'public/super-mario-64-ds/';
 // Bare stem of a "models/foo.glb" / "collision/foo.glb" path — the key our
-// per-model behavior tables (PATROL, COIN_MODELS, ACTOR_INFO, …) are keyed on.
+// per-model behavior tables (PATROL, COIN_MODELS, objectInfo, …) are keyed on.
 const stemOf = (p) => (p ? p.replace(/^.*\//, '').replace(/\.glb$/, '') : null);
 
 // Clip choice: clip names end in walk/wait/run + an optional number
@@ -79,7 +79,9 @@ const CHOMP = {
   lunge: (0x17000 / 4096) * 30 / 1000,      // stage units/s
   links: 5,
 };
-const ACTOR_INFO = {
+// Editorial per-actor behaviour notes (the shared objectInfo format: { key: {title, text} },
+// keyed by the model stem), resolved by the shared picker into the InfoCard.
+const objectInfo = {
   kuribo_model: { title: 'Goomba — daKrb_c, actor 202 (trio spawners: actors 200/201)', text:
     'Wander AI (overlay 84): forward speed at +$98 eases toward the per-state table at $02130248 — 2.0 world-units/frame wandering, 8.0 chasing — by $500 per frame. Yaw eases toward a target heading at $200 angle-units/frame ($10000 = 360°). A 100-frame timer repicks: the shared RNG ($0203B990) turns it by a random signed 16-bit angle three times out of four and pauses it the fourth. Wall contact reflects the heading, a 1000-unit leash around the spawn point (+$41C) steers it home, and falling out teleports it back. Chase (state 3) triggers from the profile\u2019s 100-unit sight radius. Walk clip: kuribo_walk.bca — 3 bones, 30 frames, 16-key rotation tracks.' },
   bombhei: { title: 'Bob-omb — daBmb_c, actor 206', text:
@@ -245,55 +247,34 @@ export class ModelViewer {
     };
     tick();
 
-    // Signpost interaction: a click (not a drag) raycasts the placed signposts.
-    this._ray = new THREE.Raycaster();
-    this._card = new InfoCard(this.el); // shared bottom-right object-info card
-    let downAt = null;
-    renderer.domElement.addEventListener('pointerdown', e => { downAt = [e.clientX, e.clientY]; });
-    renderer.domElement.addEventListener('pointerup', e => {
-      if (!downAt || Math.hypot(e.clientX - downAt[0], e.clientY - downAt[1]) > 5) return;
-      downAt = null;
-      this._clickSign(e);
-    });
-  }
-
-  // Every placed object (model instance or marker) is clickable: the popup
-  // names the actor ID and its bound model — the ID is the handle for talking
-  // about a specific placement — plus the traced behavior notes when we have
-  // them for that model.
-  _clickSign(e) {
-    this._hideSign();
-    if (!this.placed || !this.placed.length || this.wantObjects === false) return;
-    const r = this.three.renderer.domElement.getBoundingClientRect();
-    const p = new THREE.Vector2(
-      ((e.clientX - r.left) / r.width) * 2 - 1,
-      -((e.clientY - r.top) / r.height) * 2 + 1);
-    this._ray.setFromCamera(p, this.three.camera);
-    const hits = this._ray.intersectObjects(this.placed.map(c => c.obj), true);
-    if (!hits.length) return;
-    let node = hits[0].object, hit = null;
-    while (node && !hit) {
-      hit = this.placed.find(c => c.obj === node) || null;
-      node = node.parent;
-    }
-    if (!hit) return;
-    const info = hit.model && ACTOR_INFO[hit.model];
-    // A signpost's actual in-game words: the placement's par1 is an external
-    // message ID resolved through the game's $0208EEEC range table into the
-    // English BMG message file (decoded via the dialog font — doc Part VIII).
-    this._card.show({
-      title: `Actor ${hit.actor}` + (hit.model ? ` — ${hit.model}` : ' — no model bound'),
-      subtitle: info ? info.title : undefined,
-      body: info ? info.text : (hit.model
-        ? 'Placement decoded from the level overlay; model bound by the actor oracle.'
-        : 'The actor oracle recorded no model load in this actor’s create/init.'),
-      muted: !info,
-      quote: hit.txt,
-    });
+    // Placement interaction via the SHARED picker: a click raycasts the placed objects and shows
+    // the actor id + bound model + the editorial behaviour notes (objectInfo), or the object's own
+    // words (signposts). The placed set changes per level, so pass a getter; gate on the objects
+    // layer. The picker composes the card title itself via `resolve`.
+    this._picker = installPicker(
+      { el: this.el, canvas: renderer.domElement, camera: this.three.camera },
+      () => this.placed.map(c => ({ object3d: c.obj, obj: c })),
+      {
+        enabled: () => this.wantObjects !== false,
+        resolve: (c) => {
+          const ed = c.model && objectInfo[c.model];
+          return {
+            title: `Actor ${c.actor}` + (c.model ? ` — ${c.model}` : ' — no model bound'),
+            subtitle: ed ? ed.title : undefined,
+            body: ed ? ed.text : (c.model
+              ? 'Placement decoded from the level overlay; model bound by the actor oracle.'
+              : 'The actor oracle recorded no model load in this actor’s create/init.'),
+            muted: !ed,
+            // A signpost's in-game words: par1 is a message id resolved through the game's
+            // $0208EEEC range table into the English BMG file (dialog font, doc Part VIII).
+            quote: c.txt,
+          };
+        },
+      });
   }
 
   _hideSign() {
-    this._card.hide();
+    this._picker?.hide();
   }
 
   _resize() {

@@ -19,7 +19,7 @@
 import * as THREE from 'three';
 import { FlyCam, flyHint } from '../shared/flycam.js';
 import { placeObjects } from '../shared/renderers.js';
-import { InfoCard } from '../shared/infocard.js';
+import { installPicker } from '../shared/objinfo.js';
 
 // The Abyss's near-black clear colour and the fog that swallows distance — carried from the old
 // viewer so the first-person look is preserved.
@@ -137,11 +137,12 @@ export default {
   },
 };
 
-// installPicks adds an invisible click box per pick object (an object with a size AABB and
-// no sprite/model — UW's doors, levers, signs, gravestones) and wires click-to-inspect: a
-// non-drag pointerup raycasts the boxes with the stage camera and shows the object's name
-// (STRINGS.PAK block 4) and any of its own words (block 8) in the shared InfoCard. Returns a
-// teardown that removes the listeners, disposes the geometry, and hides the card.
+// installPicks adds an invisible click box per pick object (an object with a size AABB and no
+// sprite/model — UW's doors, levers, signs, gravestones) and wires click-to-inspect through the
+// SHARED picker (shared/objinfo.js): a click raycasts the boxes and shows each object's own name
+// (STRINGS.PAK block 4) and words (block 8) in the shared InfoCard. UW has no editorial objectInfo
+// map — the card content is the object's extracted fields, resolved by resolveObjectInfo. Returns
+// a teardown that removes the listeners, hides the card, and disposes the box geometry.
 function installPicks(stage, objs) {
   const picks = objs.filter((o) => !o.sprite && !o.model && Array.isArray(o.size));
   if (!picks.length) return () => {};
@@ -149,46 +150,19 @@ function installPicks(stage, objs) {
   const boxGeo = new THREE.BoxGeometry(1, 1, 1);
   const boxMat = new THREE.MeshBasicMaterial({ colorWrite: false, depthWrite: false, side: THREE.DoubleSide });
   const group = new THREE.Group();
+  const pickables = [];
   for (const o of picks) {
     const box = new THREE.Mesh(boxGeo, boxMat);
     box.position.set(o.pos[0], o.pos[1], o.pos[2]);
     box.scale.set(o.size[0] || 1, o.size[1] || 1, o.size[2] || 1);
-    box.userData = { id: o.id, name: o.name, text: o.props?.text };
     group.add(box);
+    pickables.push({ object3d: box, obj: o }); // obj = the format-2 object (name/props.text)
   }
   stage.add(group);
 
-  const card = new InfoCard(stage.el);
-  card.hide();
-  const ray = new THREE.Raycaster();
-  const ndc = new THREE.Vector2();
-  const canvas = stage.canvas;
-  let downX = 0, downY = 0;
-  const onDown = (e) => { downX = e.clientX; downY = e.clientY; };
-  const onUp = (e) => {
-    if (Math.hypot(e.clientX - downX, e.clientY - downY) > 5) return; // ignore drags/look
-    const rect = canvas.getBoundingClientRect();
-    ndc.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
-    ndc.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
-    ray.setFromCamera(ndc, stage.camera);
-    const hits = ray.intersectObjects(group.children, false);
-    if (!hits.length) { card.hide(); return; }
-    const { id, name, text } = hits[0].object.userData;
-    card.show({
-      title: name || `item ${id}`,
-      subtitle: `item id ${id}`,
-      body: name ? undefined : 'No name for this item in STRINGS.PAK block 4.',
-      muted: !name,
-      quote: text, // writings / gravestones carry their own words (block 8)
-    });
-  };
-  canvas.addEventListener('pointerdown', onDown);
-  canvas.addEventListener('pointerup', onUp);
-
+  const picker = installPicker(stage, pickables);
   return () => {
-    canvas.removeEventListener('pointerdown', onDown);
-    canvas.removeEventListener('pointerup', onUp);
-    card.hide();
+    picker.dispose();
     boxGeo.dispose();
     boxMat.dispose();
     stage.scene.remove(group);

@@ -154,6 +154,22 @@ fields absent in a game's engine are omitted.
 `objectPools` (randomized placements with optional patrol metadata) is carried unchanged
 from format 1 — see the objectPools section below.
 
+**Click-to-inspect (object info cards).** Clicking an object/sprite shows an info card, the
+same way in 2-D and 3-D. Its content comes from two sources, merged by the shared resolver
+`site/src/shared/objinfo.js` → `resolveObjectInfo(obj, objectInfo)`:
+
+- **Extracted** (per object, in `objects.json`): the object's own `name`, `type`, and
+  `props.text` (its in-game words), or an optional pre-composed `info: { title?, body?,
+  quote? }` — data the game itself supplies (e.g. Ultima Underworld's STRINGS.PAK names +
+  writings).
+- **Editorial** (per game): an `objectInfo` map `{ <key>: { title, text } }` of hand-written
+  documentation, keyed by the object's `name` / `type` / `model` / `actor`. It lives in the
+  game's viewer config, not the asset JSON, because it is authored prose, not extractable data.
+
+3-D viewers wire the raycast/click plumbing with the shared `installPicker(stage, pickables,
+{ objectInfo, resolve?, enabled? })`; the 2-D viewer keeps its own cursor-anchored card but
+takes its content from the same `resolveObjectInfo`.
+
 ### 3-D object rendering — `model` and `sprite`
 
 The shared object layer (`site/src/shared/renderers.js` → `placeObjects`) renders a 3-D level's
