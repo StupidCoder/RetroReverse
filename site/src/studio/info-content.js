@@ -2237,7 +2237,7 @@ draws this mesh in red; what stays uncoloured &mdash; bridge rails, flags, windo
 all.</p>
 `,
   },
-  uw: {
+  'ultima-underworld-pc': {
     loader: `
 <div class="info-eyebrow">Ultima Underworld &middot; Image &amp; Loader</div>
 <p>Ultima Underworld is a 16-bit <strong>MS-DOS real-mode</strong> program from 1992, before DOS extenders were

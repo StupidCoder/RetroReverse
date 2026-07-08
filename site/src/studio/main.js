@@ -203,14 +203,21 @@ const GAMES = [
       .music.map(t => ({ name: t.name, url: 'public/super-mario-64-ds/' + t.file })),
   },
   {
-    id: 'uw', name: 'Ultima Underworld', system: 'MS-DOS', render: '3d',
-    load: () => import('../uw/viewer.js').then(m => m.LevelViewer),
-    make: (V, el, hud) => new V(el, hud),
-    list: async (v) => await v.init(), // the level list from public/uw/levels.json
-    show: (v, lvl, i) => v.loadLevel(lvl),
+    id: 'ultima-underworld-pc', name: 'Ultima Underworld', system: 'MS-DOS', render: '3d',
+    // The generic manifest-driven 3-D viewer + the uw-level renderer plugin. UW's level mesh is
+    // INLINE geometry (positions/uvs/groups/textures), not a GLB, so its manifest levels carry
+    // kind:"mesh3d" but we register the plugin UNDER that key — resolveRenderer prefers the game's
+    // own renderers[kind] over the builtin GLB mesh3d, so UW's inline-mesh levels route here.
+    load: () => import('../shared/viewer3d.js').then(m => m.Viewer3D),
+    make: (V, el, hud) => new V(el, hud, {
+      base: 'public/ultima-underworld-pc/',
+      renderers: { 'mesh3d': () => import('../uw/level-renderer.js') },
+    }),
+    list: async (v) => await v.init(), // manifest.levels — each level carries its kind/file/objects
+    show: (v, item, i) => v.showItem(item),
     // Each level's static tile geometry (floors/walls/ceilings) with its real
     // W64.TR/F32.TR textures, reimplemented in extract/levgeo from the tile map.
-    group: (lvl) => ({ section: 'The Stygian Abyss', label: lvl.name }),
+    group: (item) => ({ section: item.section || 'The Stygian Abyss', label: item.name }),
   },
 ];
 

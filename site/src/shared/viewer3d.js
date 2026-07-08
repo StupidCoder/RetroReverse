@@ -37,12 +37,13 @@ export class Viewer3D {
   // CRT filter can lock its scanlines/mask to it; null for full-res 3-D content.
   pixelGrid() { return this.stage.pixelGrid ? this.stage.pixelGrid() : null; }
 
-  // Fetch the manifest and return the browse list: its models (Elite's ships) plus any bespoke
-  // views[] items (Stunt Car's circuits), each carrying kind/file/data/…. Elite ships only
-  // models[], so this is unchanged for it.
+  // Fetch the manifest and return the browse list: its models (Elite's ships), any bespoke views[]
+  // items (Stunt Car's circuits), and any levels[] (Ultima Underworld's dungeon levels), each carrying
+  // kind/file/data/…. Elite ships only models[] and Stunt Car only views[], so those are unchanged.
   async init() {
     this.manifest = await fetch(this.base + 'manifest.json').then((r) => r.json());
-    return (this.manifest.models || []).concat(this.manifest.views || []);
+    const m = this.manifest;
+    return (m.models || []).concat(m.views || [], m.levels || []);
   }
 
   // Tear down the previous plugin, clear the stage and reset every plugin hook, then resolve and
