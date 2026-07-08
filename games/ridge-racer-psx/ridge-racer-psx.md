@@ -32,6 +32,15 @@ CD-audio tracks (the CD-swap feature) that are not part of this file.
   ordering-table DMA, the triangle/quad/rectangle rasterizer, the GTE lighting that shades the
   models, and the texture staging (CPU→VRAM upload and VRAM→CPU read-back) that populates VRAM for
   each scene.
+* **Part V** — the **asset index and load map**: the boot load sequence, the staging buffer, where
+  each file resides in RAM, and `IDX.HED` — the 32×32 course grid that places every track section
+  in the world.
+* **Part VI** — the **asset formats**: the `TEX*.TMS` texture-upload streams, the `MAP.RRM` track
+  geometry, the `OBJ.RRO` object models with their six polygon record types, how polygons reference
+  texture pages and CLUTs, and the executable's car table.
+* **Part VII** — **extraction and verification**: the pure-Go decoders in `extract/rr`, the
+  `geomoracle` differential that checks them bit-exact against the running game, and the
+  `webexport` pipeline that bakes the textured car and course GLBs.
 
 Addresses are MIPS virtual addresses (`0x8000xxxx` in the cached KSEG0 window) or byte offsets into
 a file (called out explicitly); bytes are little-endian.
@@ -472,3 +481,231 @@ speedometer and course map, and the TIME / POSITION / LAP HUD text:
 bootoracle -image "games/ridge-racer-psx/Ridge Racer (Track 01).bin" -steps 430000000 \
            -press "start@380000000:380000,cross@386000000:380000" -shot race.png
 ```
+
+---
+
+# Part V — The asset index and load map
+
+## 1. The boot load sequence
+
+The loader streams every asset file off the disc during the boot and attract sequence, one file at
+a time, through a **staging buffer at `0x8008045C`**. Each CD read is a channel-3 DMA of one 2048-byte
+sector; the per-file destination and order (instruction counts are the oracle's synthetic timeline):
+
+| File | Sectors (LBA) | RAM destination | Fate |
+|---|---|---|---|
+| `RR.VH` | 478–493 | `0x801DCBB4` | resident (VAB header) |
+| `RR.VB` | 238–477 | `0x8008045C` | staged, uploaded to the SPU |
+| `TEX4.TMS` | 494–501 | `0x8008045C` | staged, streamed to VRAM (Part VI §1) |
+| `TEX0.TMS` | 502–843 | `0x8008045C` | staged, streamed to VRAM |
+| `TEX1.TMS` | 844–940 | `0x8008045C` | staged, streamed to VRAM |
+| `TEX2.TMS` | 941–1009 | `0x8008045C` | staged, streamed to VRAM |
+| `TEX3.TMS` | 1010–1063 | `0x8008045C` | staged, streamed to VRAM |
+| `MAP.RRM` | 1064–1196 | `0x8008045C` | **resident** — rendered in place |
+| `OBJ.RRO` | 1197–1414 | `0x800C2918` | **resident** — rendered in place |
+| `IDX.HED` | 1415 | `0x8007F134` | **resident** — the course grid |
+
+A texture archive is fully consumed (streamed to VRAM at a paced rate, §VI.1) before the next file
+overwrites the staging buffer. `MAP.RRM` is the last user of the buffer and simply stays there;
+`OBJ.RRO` lands directly behind it (`0x8008045C` + 271,548 = `0x800C2918`). The renderer walks both
+files in place every frame — nothing is unpacked or converted.
+
+## 2. IDX.HED — the course grid
+
+The game world is a **32×32 grid of cells, 2048 units square** (64 Kunits on a side). `IDX.HED` is
+exactly this grid: **1024 little-endian halfwords**, each the `MAP.RRM` section index occupying that
+cell, or `0xFFFF` for empty ground. A pointer to the resident copy lives at `0x801DBB24`.
+
+The per-frame grid walk at `0x80012478` selects the visible cells: the camera's cell is its world
+position arithmetically shifted right by 11 (`x >> 11`, `z >> 11`); a direction-dependent table of
+64 signed byte pairs (blocks of 128 pairs at `0x80056D64`, selected by the view octant) supplies
+the neighbourhood offsets; and a cell (x, z) — both coordinates must be < 32 — is looked up as
+
+```
+section = grid[z*32 + 30 - x]        ; halfword; 0xFFFF = nothing to draw
+```
+
+Each visible cell gets a 16-byte entry in the cell list at `0x801DB060`: the section index and the
+cell's camera-relative translation, `(x*2048 - camX, -camY, z*2048 - camZ)` — a section's world
+origin is simply its cell corner. 258 cells are occupied, each by a distinct section (0–257,
+matching `MAP.RRM`'s section count exactly); drawn as a map, the grid is the Ridge Racer island —
+the circuit, the seaside, and the scenery hills around it.
+
+---
+
+# Part VI — Asset formats
+
+## 1. TEX*.TMS — the texture-upload streams
+
+A `.TMS` archive is a **VRAM upload schedule**: the sequence of CPU→VRAM transfers (Part IV §4)
+that populate the texture atlas, stored ready to send. The streamer at `0x80037DB8` walks it a
+block per frame — texture loading is spread across the attract sequence, which is why the title
+screen appears long before the race pages are complete.
+
+```
+u32 format                     ; 0x100
+repeat:
+  u32 blockLen                 ; next block header at +4 + (blockLen & ~3); ≤ 0 ends the file
+  u32 flags                    ; bit 3: a CLUT record precedes the image record
+  if flags & 8:
+    u32 len                    ; record length: 12 + w*h*2
+    u16 x, y, w, h             ; destination rect in VRAM (w in 16-bit units)
+    u16 pixels[w*h]
+  u32 len                      ; image record, same shape; skipped when w or h is 0
+  u16 x, y, w, h
+  u16 pixels[w*h]
+```
+
+Both record kinds are raw VRAM rects; a CLUT is just a 16×1 strip (the 4-bit palettes here) that
+the streamer re-sends with its block. An image whose area exceeds **2048 pixels** is uploaded in
+**eight horizontal slices** of `h/8` rows, one per frame — the file stores the rect whole and only
+the pacing splits it. Per archive: `TEX4` 163 blocks (23 distinct images — the early sky and font),
+`TEX0` 143 (the biggest pages), `TEX1` 120, `TEX2` 102, `TEX3` 102.
+
+## 2. MAP.RRM — the track
+
+`MAP.RRM` holds every track section's geometry as **GPU-shaped 40-byte textured-quad records**,
+grouped per section into three consecutively stored draw classes (the renderer batches each class
+separately — near geometry, far geometry, and a trailing class, each with its own shading and
+subdivision treatment):
+
+```
+u16 sectionCount               ; 258
+u16 pad
+sectionCount × {
+  u16 nA, nB, nC               ; record counts of the three classes
+  u16 pad
+}
+Σ(nA+nB+nC) × TrackQuad        ; 40 bytes each, section by section, class A then B then C
+```
+
+The directory walker at `0x80011D64` converts the counts to running record pointers (each section's
+geometry starts where the previous one ended); the layout accounts for the file exactly:
+4 + 258×8 + **6,737**×40 = 271,548 bytes.
+
+A `TrackQuad` is the in-file image of a textured quad, vertices first, then the texture words in
+exactly the order the GPU packet wants them — the two spare high halfwords carry the depth bias and
+the shade pair:
+
+```
++0   int16 x,y,z  × 4          ; the corners (TL, TR, BL, BR), local to the section cell
++24  u8 u0,v0   u16 clut
++28  u8 u1,v1   u16 tpage
++32  u8 u2,v2   int16 bias     ; added to the ordering-table depth
++36  u8 u3,v3   u8 shade0, shade1
+```
+
+The transform helper at `0x800461E8` loads the packed vertices into the GTE (`RTPT` for the first
+three corners, `RTPS` for the fourth), stores the projected `SXY` pairs, runs `AVSZ4` for the
+ordering-table depth, and returns `IR0` — the depth-cue factor. The class walker (`0x800341A0` for
+class B) screen-clips the quad, fades the two shade bytes with distance (`shade - OTZ>>10`,
+clamped at zero), depth-cues the colour through `DPCS` (`0x80047844`), subdivides near quads
+(`0x80047E38`, the workspace splits a quad into perspective-corrected pieces), and links the packet
+at `OT[OTZ>>shift + bias]`.
+
+## 3. OBJ.RRO — the object models
+
+`OBJ.RRO` holds every 3-D object — the cars, the roadside scenery, the grandstand, the blimp — as
+**319 objects**, each a run of polygon records of six fixed-size types:
+
+```
+u32 objectCount                ; 319
+objectCount × {
+  u16 n40, n48, n32, n64, n72, n56   ; record counts, one per type
+  u32 runtime                        ; zero on disc; the loader stores the object's
+}                                    ;   geometry address here (0x80011E48)
+per object, in directory order:
+  n40 × 40 bytes   n48 × 48   n32 × 32   n64 × 64   n72 × 72   n56 × 56
+```
+
+4 + 319×16 + 440,240 = 445,348 bytes, again exact. The types:
+
+| Size | Shape | Layout |
+|---|---|---|
+| 40 | textured flat quad | identical to `TrackQuad` |
+| 48 | textured flat quad + tail | `TrackQuad` + 8 bytes |
+| 32 | untextured flat quad | verts + RGB colour at +24, depth bias at +28 (drawn as GP0 `0x2B`; the car shadows) |
+| 64 | textured **lit** quad | verts + 4 × int16 normals at +24 + texture words at +48 (as `TrackQuad`'s, uv3's spare halfword unused) |
+| 72 | textured lit quad + tail | the 64-byte layout + 8 bytes carrying the base colour |
+| 56 | untextured lit quad | verts + normals + a ready-made GP0 colour word `{r,g,b,0x38}` at +48 + bias at +52 |
+
+The lit-quad renderer at `0x80046B18` is the busiest: `RTPT`/`RTPS` project the corners, **`NCLIP`
+culls by winding** — a context flag selects which sign survives, so a model can be one- or
+two-sided — the normals feed **`NCT`** (three) and **`NCS`** (fourth) with `RGBC = 0x808080` to
+produce the four gouraud colours of a `POLY_GT4` packet, and the record's CLUT halfword gets a
+**per-instance offset added** (`addu` at `0x80046BF0`) as it is copied into the packet — palette
+recolouring, applied per drawn object.
+
+## 4. Texture references
+
+Every textured record carries the two GPU texture halfwords verbatim (Part IV §3): `tpage` selects
+a 64×256-halfword page in VRAM (bits 0–3 page X ×64, bit 4 page Y ×256, bits 7–8 the colour depth:
+4-bit, 8-bit or direct 15-bit) and `clut` names the palette strip (bits 0–5 X ×16, bits 6–14 Y).
+UV bytes address texels within the page. Texel value 0 is fully transparent. Resolving a record's
+texels therefore needs only the VRAM image the TMS streams build — no other lookup exists.
+
+## 5. The car table
+
+The executable's **car table at `0x80056B40`** defines the 13 cars (12 selectable plus the
+unlockable `13" RACING`), 16 bytes each:
+
+```
++0   u16   —                    ; aux object
++2   u16 body                   ; the display body object (car select, podium)
++4   u16 race                   ; the reduced in-race body (objects 24–35)
++6   u16 family                 ; canopy object; +1 axle, +2 shadow, +3 underbody
++8   i16   —                    ; −79…−83, family-dependent
++10  i16 wheelbase              ; the second axle's Z offset (−335, −317 or −320 by family)
++12  u16 spec                   ; per-car stat/livery selector
++14  i16   —                    ; -32767
+```
+
+The car-select carousel (`0x8001D2F4`) composes a car as: **body**, **canopy** (`family`),
+**shadow** (`family+2`, twice, through the translucent path at `0x8001232C`), **underbody**
+(`family+3`), and the **axle** (`family+1`) drawn twice — once at the car origin (the rear) and
+once translated by the yaw-rotated `(0, 0, wheelbase)` (the front), with a spin matrix so the
+wheels turn. Cars share part families: `F/A RACING` and `RT RYUKYU` use family 1, the SOLVALOUs
+and XEVIOUSes family 17, the MAPPYs and GALAGAs family 7. The car names are the NUL-terminated
+strings that open the text segment (file offset `0x800`), in table order: F/A RACING, RT RYUKYU,
+RT YELLOW SOLVALOU, RT BLUE SOLVALOU, RT PINK MAPPY, RT BLUE MAPPY, GALAGA RT PLID'S, GALAGA RT
+CARROT, RT BOSCONIAN, RT NEBULASRAY, RT XEVIOUS RED, RT XEVIOUS GREEN, 13" RACING.
+
+---
+
+# Part VII — Extraction and verification
+
+## 1. The decoders (extract/rr)
+
+`extract/rr` reimplements every format of Parts V–VI as pure decoders over the CD file bytes:
+`idx.go` (the grid), `rrm.go` (sections and `TrackQuad`s), `obj.go` (objects and the six record
+types), `tms.go` (the upload blocks) and `vram.go` — a 1024×512 virtual VRAM built by replaying
+all five TMS streams, whose `Texel(page, clut, u, v)` mirrors the rasterizer's addressing. The
+oracle never supplies data; it only verifies.
+
+## 2. geomoracle — the differential
+
+`extract/cmd/geomoracle` proves the decoders against the running game, three ways:
+
+* **vram** — boots the game and, at the instant each TMS stream completes (the staging buffer's
+  reuse order guarantees the boundary), compares the machine's VRAM **word-for-word** against the
+  replay over every rect that archive uploads. Cells the game re-uploads afterwards (the title
+  screen redraws parts of the pages while the last archive still streams) are excluded by
+  upload-order tracking. All five archives match exactly.
+* **cars** — drives the menu into car select and traps the lit-quad renderer's GTE loads (the
+  `RTPT`/`RTPS`/`NCT`/`NCS` at `0x80046B6C`/`0x80046BDC`/`0x80046C74`/`0x80046CA0`). Every trap
+  yields the record's address (register `$t1`) and the vertex/normal registers just loaded; each
+  must land on a decoder-predicted record boundary and match its decoded vectors **bit-exact**
+  (3,763 events, zero mismatches).
+* **track** — the same in-race, adding the 40-byte-quad path (`0x80046250`/`0x8004626C`, record in
+  `$a0`), which covers `MAP.RRM` sections and the flat-textured objects (4,475 events, zero
+  mismatches).
+
+## 3. webexport — the shipped models
+
+`extract/cmd/webexport` builds `site/public/ridge-racer-psx/` from the image alone. The **models**
+stage emits one GLB per car, composed exactly as the carousel draws it (body + canopy + underbody +
+both axles); the **levels** stage places all 258 sections at their grid cells and emits the whole
+course as one GLB. Textures are baked per referenced page+CLUT pair from the virtual VRAM into a
+tiled atlas embedded in the GLB (nearest-neighbour sampling, texel 0 cut out via alpha masking);
+PSX coordinates become glTF's through `(x, -y, -z)` at 1/1024 scale. The manifest lists the 13 cars
+and the course; the Studio renders them with its stock GLB viewer.
