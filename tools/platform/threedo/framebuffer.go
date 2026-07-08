@@ -2,15 +2,17 @@ package threedo
 
 import "image"
 
-// CaptureVRAM reads a region of VRAM as a 16-bit RGB555 bitmap — the 3DO
-// framebuffer format — into an image. base is the framebuffer address in VRAM
-// (the game's first VRAM allocation is the display buffer). This is how the
-// oracle "sees" what the game has rendered.
+// CaptureVRAM reads a frame buffer from VRAM into an image — how the oracle
+// "sees" what the game has rendered. base is the buffer address (pass the
+// machine's DisplayBuffer for the screen the game is showing). The layout is
+// the hardware's interleaved line-pair format: two screen lines share a
+// 4-byte-per-column stripe, the even line in the first halfword and the odd
+// line in the second, each pixel big-endian RGB555.
 func (m *Machine) CaptureVRAM(base uint32, w, h int) *image.RGBA {
 	img := image.NewRGBA(image.Rect(0, 0, w, h))
 	for y := 0; y < h; y++ {
 		for x := 0; x < w; x++ {
-			o := base - vramBase + uint32((y*w+x)*2)
+			o := base - vramBase + uint32(y>>1)*uint32(w)*4 + uint32(x)*4 + uint32(y&1)*2
 			if int(o)+2 > len(m.vram) {
 				continue
 			}

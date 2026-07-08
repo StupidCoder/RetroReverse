@@ -141,7 +141,12 @@ func main() {
 
 	fmt.Printf("VRAM non-zero bytes (first 640KB): %d\n", m.VRAMNonZero(640*1024))
 	if *fbOut != "" {
-		img := m.CaptureVRAM(uint32(*fbBase), 320, 240)
+		base := uint32(*fbBase)
+		if db := m.DisplayBuffer(); db != 0 && *fbBase == 0x200000 {
+			base = db // default to the screen the game is actually showing
+			fmt.Printf("capturing DisplayScreen buffer 0x%08X\n", base)
+		}
+		img := m.CaptureVRAM(base, 320, 240)
 		f, err := os.Create(*fbOut)
 		if err != nil {
 			die(err)

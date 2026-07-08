@@ -117,6 +117,11 @@ type Machine struct {
 	dirs    map[uint32]*dirScan    // open File-folio directory scans (filefolio.go)
 	nvram   map[string][]byte      // battery-backed store, empty like a fresh console (filefolio.go)
 
+	// Graphics folio state (graphicsfolio.go).
+	bitmaps    map[int32]gfxBitmap // Bitmap item -> pixel buffer geometry
+	screenBM   map[int32]int32     // Screen item -> its (first) Bitmap item
+	displayBuf uint32              // the front buffer DisplayScreen last showed
+
 	// Instrumentation (opt-in; checked in Read/Write and the run loop).
 	WatchLo, WatchHi uint32
 	OnWrite          func(addr, val, pc uint32)
@@ -182,6 +187,8 @@ func NewMachine() *Machine {
 		streams:    map[uint32]*diskStream{},
 		dirs:       map[uint32]*dirScan{},
 		nvram:      map[string][]byte{},
+		bitmaps:    map[int32]gfxBitmap{},
+		screenBM:   map[int32]int32{},
 	}
 	m.CPU = arm60.NewCPU(m)
 	m.CPU.SWI = m.swi
@@ -229,6 +236,10 @@ func (m *Machine) LoadAIF(a *AIF) {
 
 // SetVolume mounts a disc image so the I/O HLE can read files from it.
 func (m *Machine) SetVolume(v *Volume) { m.vol = v }
+
+// DisplayBuffer returns the frame buffer the program last put on screen via
+// DisplayScreen (0 if no screen has been shown yet).
+func (m *Machine) DisplayBuffer() uint32 { return m.displayBuf }
 
 // SetVBLMirror registers a game global that the virtual VBL manager keeps equal
 // to the elapsed-field count (see the vblMirror field). Programs read the folio's
