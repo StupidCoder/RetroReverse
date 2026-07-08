@@ -122,6 +122,10 @@ func main() {
 			ev("seekendret", 10, "r0=%X", c.Reg(0))
 		case 0x9E0EC:
 			ev("readysig", 10, "SendSignal(task=%X, sig=%X)", c.Reg(0), c.Reg(1))
+		case 0x2880:
+			ev("framecb", 8, "task#%d flag=%X lr=%X", mm.CurrentTaskNum(), rd(0x40044), c.Reg(14))
+		case 0x1C94C:
+			ev("framespin", 4, "task#%d flag=%X", mm.CurrentTaskNum(), rd(0x40044))
 		case 0x9E270:
 			ev("wsigmask", 10, "WaitSignal(mask=%X)", c.Reg(0))
 		case 0x9E274:
@@ -139,7 +143,7 @@ func main() {
 
 	m.StallTolerance = *stall
 	m.NoStreams = true
-	m.PadScript = []threedo.PadStep{{AtStep: 10000000, Buttons: threedo.PadStart}, {AtStep: 10400000, Buttons: 0}}
+	m.PadScript = []threedo.PadStep{{AtStep: 10000000, Buttons: threedo.PadStart}, {AtStep: 10400000, Buttons: 0}, {AtStep: 22000000, Buttons: threedo.PadA}, {AtStep: 24000000, Buttons: 0}, {AtStep: 26000000, Buttons: threedo.PadA}, {AtStep: 28000000, Buttons: 0}, {AtStep: 30000000, Buttons: threedo.PadA}}
 
 	res := m.Run(*steps)
 	fmt.Printf("stopped: %s after %d steps pc=%X\n", res.Reason, res.Steps, res.PC)

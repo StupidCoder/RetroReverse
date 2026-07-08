@@ -253,18 +253,30 @@ func (m *Machine) DisplayBuffer() uint32 { return m.displayBuf }
 func (m *Machine) SetVBLMirror(addr uint32) { m.vblMirror = addr }
 
 // advanceVBlank moves the virtual VBlank/field clock forward by n fields and
-// publishes the new count to the program's registered elapsed-field global
+// publishes the elapsed time to the program's registered field counter
 // (SetVBLMirror), standing in for the graphics folio's VBL interrupt. It is
 // driven both by a steady background tick (run loop) and by field-wait timer IOs
 // (io.go), so field waits actually advance time.
+//
+// The counter's units are the game's own contract, read off its VBL service
+// loop: each field it adds a field's worth (0x64) to an accumulator and
+// subtracts the counter value, dispatching its per-field callbacks while the
+// accumulator stays non-negative — so the counter must read ~100 per field
+// (centifields since the last dispatch), NOT a monotonic total. A growing
+// total drives the accumulator to minus infinity and the callbacks (frame
+// flip, the race's frame-completion flag) never run again.
 func (m *Machine) advanceVBlank(n uint32) {
 	if n == 0 {
 		n = 1
 	}
 	m.vblank += n
 	if m.vblMirror != 0 {
-		m.writeWord(m.vblMirror, m.vblank)
+		m.writeWord(m.vblMirror, n*100)
 	}
+	// GrafBase's gf_VBLNumber (+0x74): the folio's monotonic field counter,
+	// which programs read straight off the folio base for frame timing (the
+	// race's wait-until-field loops poll it).
+	m.writeWord(gfxFolioBase+0x74, m.vblank)
 }
 
 // writeWord stores a big-endian word directly into DRAM (setup helper).

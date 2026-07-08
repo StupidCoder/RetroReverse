@@ -111,6 +111,9 @@ func (m *Machine) readWord(a uint32) uint32 {
 // curTask returns the running task.
 func (m *Machine) curTask() *task { return m.tasks[m.cur] }
 
+// CurrentTaskNum reports the running task's item number (diagnostics).
+func (m *Machine) CurrentTaskNum() int32 { return m.curTask().num }
+
 // taskByNum returns the task with the given item number, or nil.
 func (m *Machine) taskByNum(num int32) *task {
 	for _, t := range m.tasks {
