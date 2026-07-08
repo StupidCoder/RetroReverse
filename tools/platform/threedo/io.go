@@ -46,7 +46,8 @@ const (
 	ioiRecvLen  = 0x1C // IOInfo.ioi_Recv.iob_Len
 	ioInfoBytes = 0x20
 
-	ioDone = 0x01 // IO_DONE bit in io_Flags
+	ioDone  = 0x01 // IO_DONE bit in io_Flags
+	ioQuick = 0x02 // IO_QUICK: the request completed synchronously in the submit call
 
 	// Standard device commands (CMD_*) and file device commands (FILECMD_*).
 	cmdWrite       = 0
@@ -134,7 +135,11 @@ func (m *Machine) serviceIO(c *arm60.CPU) {
 
 	if it != nil && it.addr != 0 {
 		m.write32(it.addr+ioActualOff, uint32(actual))
-		m.write32(it.addr+ioFlagsOff, m.read32(it.addr+ioFlagsOff)|ioDone)
+		// Our disc is instant, so every request finishes inside the submit call:
+		// mark it DONE and QUICK. IO_QUICK tells the caller's WaitIO the request
+		// completed synchronously with no reply message queued, so it returns the
+		// stored error immediately instead of blocking on a reply port.
+		m.write32(it.addr+ioFlagsOff, m.read32(it.addr+ioFlagsOff)|ioDone|ioQuick)
 		m.write32(it.addr+ioErrorOff, uint32(ioErr))
 	}
 	m.completeIO(it)

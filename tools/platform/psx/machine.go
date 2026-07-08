@@ -169,6 +169,18 @@ func (m *Machine) SetDisc(v *Volume) { m.disc = v }
 // Screenshot renders the GPU's active display area to a PNG.
 func (m *Machine) Screenshot(path string) error { return m.gpu.Screenshot(path) }
 
+// DumpVRAM (debug) writes the full 1024×512 VRAM to a PNG.
+func (m *Machine) DumpVRAM(path string) error { return m.gpu.DumpVRAM(path) }
+
+// DebugWatchVRAM (temporary) logs every GPU fill/copy/image-load whose
+// destination intersects the VRAM rect [x0,y0)-(x1,y1), tagging copies with the
+// source's colour variety.
+func (m *Machine) DebugWatchVRAM(x0, y0, x1, y1 int, log func(string)) {
+	m.gpu.dbgOn = true
+	m.gpu.dwx0, m.gpu.dwy0, m.gpu.dwx1, m.gpu.dwy1 = x0, y0, x1, y1
+	m.gpu.dbgLog = log
+}
+
 // LoadEXE copies a parsed PS-X EXE into RAM and seeds the entry state the BIOS
 // would hand the program (PC, gp, sp, fp).
 func (m *Machine) LoadEXE(e *EXE) {
@@ -340,6 +352,18 @@ func (m *Machine) dmaGPU(madr, bcr, chcr uint32) {
 	n := bcr & 0xFFFF
 	if bc := bcr >> 16; bc > 1 {
 		n *= bc
+	}
+	if m.gpu.dbgOn && m.gpu.dbgLog != nil {
+		var nz uint32
+		a := madr
+		for i := uint32(0); i < n && i < 8192; i++ {
+			if m.read32(a) != 0 {
+				nz++
+			}
+			a = (a + 4) & 0x1FFFFF
+		}
+		m.gpu.dbgLog(fmt.Sprintf("BLOCKDMA->img madr=0x%06X n=%d srcNonZeroWords=%d first=0x%08X",
+			madr, n, nz, m.read32(madr)))
 	}
 	for i := uint32(0); i < n; i++ {
 		m.gpu.gp0(m.read32(madr))

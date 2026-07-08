@@ -13,6 +13,7 @@ package psx
 // Colours in VRAM are 16-bit 5:5:5 (bit0-4 R, 5-9 G, 10-14 B, bit15 mask).
 
 import (
+	"fmt"
 	"image"
 	"image/color"
 	"image/png"
@@ -49,6 +50,35 @@ type gpu struct {
 	dispEnabled   bool
 	gp0Read       uint32 // last GPUREAD latch (for VRAM→CPU, mostly unused)
 	statField     uint32 // toggles so GPUSTAT polls terminate
+
+	// DEBUG: watch VRAM rect [dwx0,dwy0)-(dwx1,dwy1) and log who writes it.
+	dbgOn                  bool
+	dwx0, dwy0, dwx1, dwy1 int
+	dbgLog                 func(string)
+	dbgWatchedLoad         bool
+	dbgFirstWord           bool
+	dbgAllOnes             bool
+}
+
+// DEBUG helpers for the who-writes-VRAM investigation.
+func (g *gpu) dhits(x, y, w, h int) bool {
+	if !g.dbgOn {
+		return false
+	}
+	return x < g.dwx1 && x+w > g.dwx0 && y < g.dwy1 && y+h > g.dwy0
+}
+
+func (g *gpu) dvariety(x, y, w, h int) int {
+	seen := map[uint16]bool{}
+	for yy := y; yy < y+h && yy < vramH; yy++ {
+		for xx := x; xx < x+w && xx < vramW; xx++ {
+			seen[g.vram[yy*vramW+xx]] = true
+			if len(seen) > 64 {
+				return len(seen)
+			}
+		}
+	}
+	return len(seen)
 }
 
 func newGPU() *gpu {
@@ -145,6 +175,14 @@ func (g *gpu) feedNode(w []uint32) {
 
 // pushImage stores two 16-bit pixels from a CPU→VRAM word into the upload rect.
 func (g *gpu) pushImage(w uint32) {
+	if g.dbgWatchedLoad {
+		if g.dbgFirstWord {
+			g.dbgFirstWord, g.dbgAllOnes = false, true
+		}
+		if w != 0 {
+			g.dbgAllOnes = false
+		}
+	}
 	for _, px := range [2]uint16{uint16(w), uint16(w >> 16)} {
 		if g.imgPx <= 0 {
 			return
@@ -156,6 +194,12 @@ func (g *gpu) pushImage(w uint32) {
 		if g.imgCurX++; g.imgCurX >= g.imgW {
 			g.imgCurX = 0
 			g.imgCurY++
+		}
+		if g.imgPx == 0 && g.dbgWatchedLoad {
+			g.dbgLog(fmt.Sprintf("IMAGELOAD done dst=(%d,%d) %dx%d allZeroData=%v vramVar=%d",
+				g.imgX, g.imgY, g.imgW, g.imgH, g.dbgAllOnes,
+				g.dvariety(g.imgX, g.imgY, g.imgW, g.imgH)))
+			g.dbgWatchedLoad = false
 		}
 	}
 }
@@ -269,6 +313,8 @@ func (g *gpu) beginImageLoad() {
 	}
 	g.imgCurX, g.imgCurY = 0, 0
 	g.imgPx = g.imgW * g.imgH
+	g.dbgWatchedLoad = g.dhits(g.imgX, g.imgY, g.imgW, g.imgH)
+	g.dbgFirstWord = true
 }
 
 func (g *gpu) fillRect() {
@@ -277,6 +323,9 @@ func (g *gpu) fillRect() {
 	y0 := int((g.fifo[1] >> 16) & 0x1FF)
 	w := int(g.fifo[2] & 0x3FF)
 	h := int((g.fifo[2] >> 16) & 0x1FF)
+	if g.dhits(x0, y0, w, h) {
+		g.dbgLog(fmt.Sprintf("FILL dst=(%d,%d) %dx%d color=0x%04X", x0, y0, w, h, c))
+	}
 	for y := y0; y < y0+h && y < vramH; y++ {
 		for x := x0; x < x0+w && x < vramW; x++ {
 			g.vram[y*vramW+x] = c
@@ -289,6 +338,10 @@ func (g *gpu) copyVRAM() {
 	sx, sy := int(src&0x3FF), int((src>>16)&0x1FF)
 	dx, dy := int(dst&0x3FF), int((dst>>16)&0x1FF)
 	w, h := int(size&0x3FF), int((size>>16)&0x1FF)
+	if g.dhits(dx, dy, w, h) {
+		g.dbgLog(fmt.Sprintf("COPY src=(%d,%d) dst=(%d,%d) %dx%d srcVar=%d",
+			sx, sy, dx, dy, w, h, g.dvariety(sx, sy, w, h)))
+	}
 	for y := 0; y < h; y++ {
 		for x := 0; x < w; x++ {
 			g.vram[((dy+y)&(vramH-1))*vramW+((dx+x)&(vramW-1))] =
@@ -308,6 +361,23 @@ func (g *gpu) Screenshot(path string) error {
 		for x := 0; x < w; x++ {
 			px := g.vram[((g.dispY+y)&(vramH-1))*vramW+((g.dispX+x)&(vramW-1))]
 			r, gr, b := rgb15(px)
+			img.Set(x, y, color.RGBA{r, gr, b, 255})
+		}
+	}
+	f, err := os.Create(path)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+	return png.Encode(f, img)
+}
+
+// DumpVRAM (debug) writes the entire 1024×512 VRAM as a 15-bit-colour PNG.
+func (g *gpu) DumpVRAM(path string) error {
+	img := image.NewRGBA(image.Rect(0, 0, vramW, vramH))
+	for y := 0; y < vramH; y++ {
+		for x := 0; x < vramW; x++ {
+			r, gr, b := rgb15(g.vram[y*vramW+x])
 			img.Set(x, y, color.RGBA{r, gr, b, 255})
 		}
 	}

@@ -92,6 +92,7 @@ const GAMES = [
     layers: [
       { id: 'objects', label: 'Scenery overlays', default: true, when: (m) => m.leaves?.[m.currentIdx]?.level?.kind === 'tilemap2d' },
       { id: 'markers', label: 'Markers', default: false, when: (m) => m.leaves?.[m.currentIdx]?.level?.kind === 'marble-slope' },
+      { id: 'wireframe', label: 'Wireframe', default: false, when: (m) => m.leaves?.[m.currentIdx]?.level?.kind === 'marble-slope' },
     ],
     music: async () => (await fetch('public/marble-madness-amiga/manifest.json').then(r => r.json())).music
       .map(t => ({ name: t.name, url: `public/marble-madness-amiga/${t.file}` })),
@@ -133,6 +134,7 @@ const GAMES = [
     list: async (v) => await v.init(), // the circuits from manifest.views — each carries its kind/file
     show: (v, item, i) => v.showItem(item),
     // each circuit is a level you fly through
+    layers: [{ id: 'wireframe', label: 'Wireframe', default: false }],
     group: (item) => ({ section: item.section || 'Circuits', label: item.name }),
   },
   {
@@ -172,6 +174,7 @@ const GAMES = [
       { id: 'skybox', label: 'Skybox', default: true, when: (m) => m.leaves?.[m.currentIdx]?.level?.kind === 'mesh3d' },
       { id: 'objects', label: 'Objects', default: true, when: (m) => !!m.leaves?.[m.currentIdx]?.level?.objects },
       { id: 'drive', label: 'Drive the CPU line', default: false, when: (m) => m.leaves?.[m.currentIdx]?.level?.kind === 'mesh3d' },
+      { id: 'wireframe', label: 'Wireframe', default: false },
     ],
     // the cartridge's SSEQ sequences rendered through our SDAT sequencer+synth (the
     // retail SDAT ships no symbol block, so tracks are numbered, not named); the
@@ -195,6 +198,7 @@ const GAMES = [
     layers: [
       { id: 'objects', label: 'Objects', default: true, when: (m) => !!m.leaves?.[m.currentIdx]?.level?.objects },
       { id: 'collision', label: 'Collision', default: false, when: (m) => !!m.leaves?.[m.currentIdx]?.level?.objects },
+      { id: 'wireframe', label: 'Wireframe', default: false },
     ],
     // the cartridge's SSEQ sequences rendered through our SDAT sequencer+synth;
     // this SDAT ships WITH its SYMB block, so tracks carry the game's own names;
@@ -217,6 +221,7 @@ const GAMES = [
     show: (v, item, i) => v.showItem(item),
     // Each level's static tile geometry (floors/walls/ceilings) with its real
     // W64.TR/F32.TR textures, reimplemented in extract/levgeo from the tile map.
+    layers: [{ id: 'wireframe', label: 'Wireframe', default: false }],
     group: (item) => ({ section: item.section || 'The Stygian Abyss', label: item.name }),
   },
 ];

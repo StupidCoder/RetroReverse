@@ -32,6 +32,7 @@ func main() {
 	watchLen := flag.Uint64("watchlen", 4, "byte span for -watch")
 	dump := flag.Uint64("dump", 0, "after the run, dump memory words at [dump, dump+dumplen)")
 	dumpLen := flag.Uint64("dumplen", 0x40, "byte span for -dump")
+	vblMirror := flag.Uint64("vblmirror", 0x42734, "game global the VBL manager keeps at the elapsed-field count (0 = off)")
 	flag.Parse()
 
 	var data []byte
@@ -66,6 +67,7 @@ func main() {
 	if vol != nil {
 		m.SetVolume(vol)
 	}
+	m.SetVBLMirror(uint32(*vblMirror))
 	m.LoadAIF(aif)
 
 	if *trace || *tracen > 0 {

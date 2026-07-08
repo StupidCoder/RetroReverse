@@ -58,9 +58,10 @@ export class MarbleViewer {
   }
 
   setLayer(name, on) {
-    // 'markers' drives the slope view's Track pins; 'objects' (the scenery
-    // overlay sprites) and the rest go to the 2-D map viewer.
+    // 'markers'/'wireframe' drive the 3-D slope view; 'objects' (the scenery overlay
+    // sprites) and the rest go to the 2-D map viewer.
     if (name === 'markers') this.slopes.setMarkers(on);
+    else if (name === 'wireframe') this.slopes.setWireframe(on);
     else this.map.setLayer(name, on);
   }
 

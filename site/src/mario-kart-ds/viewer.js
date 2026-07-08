@@ -20,6 +20,7 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { FlyCam, flyHint } from '../shared/flycam.js';
+import { applyWireframe } from '../shared/wireframe.js';
 
 // Format-2 asset tree. The manifest and the per-level envelopes live at this base;
 // the level envelope's mesh.glb / sky paths are root-relative to it (models/…), so
@@ -204,6 +205,8 @@ export class ModelViewer {
     } else if (id === 'objects') {
       this.wantObjects = on;
       if (this.objectsGroup) this.objectsGroup.visible = on;
+    } else if (id === 'wireframe') {
+      applyWireframe(this.three.scene, on);
     }
   }
 

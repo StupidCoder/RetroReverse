@@ -44,6 +44,12 @@ func (m *Machine) Run(maxSteps uint64) Result {
 		if steps%vblankPeriod == 0 {
 			m.vblank++
 			m.dram[osCtxBase+osCtxVBlank] = byte(m.vblank)
+			// The virtual VBL manager also advances the game's elapsed-field
+			// counter (registered via SetVBLMirror), the monotonic count the frame
+			// and timer loops poll — the interrupt-driven update we cannot run.
+			if m.vblMirror != 0 {
+				m.writeWord(m.vblMirror, m.vblank)
+			}
 		}
 
 		pc := m.CPU.Reg(15)

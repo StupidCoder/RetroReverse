@@ -8,6 +8,7 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { FlyCam, flyHint } from '../shared/flycam.js';
+import { applyWireframe } from '../shared/wireframe.js';
 import { installPicker } from '../shared/objinfo.js';
 import { clone as cloneSkinned } from 'three/addons/utils/SkeletonUtils.js';
 
@@ -321,6 +322,7 @@ export class ModelViewer {
       this.wantCollision = on;
       if (this.collisionGroup) this.collisionGroup.visible = on;
     }
+    if (id === 'wireframe') applyWireframe(this.three.scene, on);
   }
 
   loadModel(i) {

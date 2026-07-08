@@ -122,6 +122,14 @@ type Machine struct {
 	SpinBreaks int
 	simTime    uint64 // virtual microsecond clock (folio SampleSystemTimeTT)
 	vblank     uint32 // virtual VBlank/field counter (osCtx +0xA)
+	// vblMirror, if non-zero, is a game global the VBL manager must keep in step
+	// with the elapsed-field count. On real hardware the graphics folio's VBL
+	// interrupt increments a monotonic field counter that the game's frame/timer
+	// loops read; we have no interrupts, so the HLE's virtual VBL manager writes
+	// the same count here each field. The address is game-specific (the OS folio
+	// writes wherever the program registered its counter), so the program's oracle
+	// configures it via SetVBLMirror; the mechanism (advance every field) is generic.
+	vblMirror uint32
 	tty        []byte
 	Log        []string
 	logSeen    map[string]bool
@@ -185,6 +193,12 @@ func (m *Machine) LoadAIF(a *AIF) {
 
 // SetVolume mounts a disc image so the I/O HLE can read files from it.
 func (m *Machine) SetVolume(v *Volume) { m.vol = v }
+
+// SetVBLMirror registers a game global that the virtual VBL manager keeps equal
+// to the elapsed-field count (see the vblMirror field). Programs read the folio's
+// monotonic VBlank counter out of their own BSS; the OS folio fills it from the
+// VBL interrupt, which the HLE stands in for by writing the count each field.
+func (m *Machine) SetVBLMirror(addr uint32) { m.vblMirror = addr }
 
 // writeWord stores a big-endian word directly into DRAM (setup helper).
 func (m *Machine) writeWord(a, v uint32) {

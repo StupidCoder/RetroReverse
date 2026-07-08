@@ -7,6 +7,7 @@
 
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { applyWireframe } from '../shared/wireframe.js';
 
 // "#rrggbb" -> [r,g,b] in 0..1 for three.js vertex colours.
 function hexRgb(hex) {
@@ -21,6 +22,7 @@ export class SlopeView {
     this.isActive = isActive;
     this.three = null;
     this.markersOn = false;
+    this.wireframeOn = false;
   }
 
   get canvas() { return this.three && this.three.renderer.domElement; }
@@ -28,6 +30,11 @@ export class SlopeView {
   setMarkers(on) {
     this.markersOn = on;
     if (this.three && this.three.markers) this.three.markers.visible = on;
+  }
+
+  setWireframe(on) {
+    this.wireframeOn = on;
+    if (this.three && this.three.model) applyWireframe(this.three.model, on);
   }
 
   // show(scene, markers): scene is a loaded GLB terrain (gltf.scene, already in the

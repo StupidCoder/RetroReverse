@@ -6,6 +6,7 @@
 // loop when hidden, and `three`/`camera`/`controls` let the keyboard camera dolly & pan.
 import { Stage3D } from './stage3d.js';
 import { resolveRenderer } from './renderers.js';
+import { applyWireframe } from './wireframe.js';
 
 export class Viewer3D {
   constructor(el, hud, { base, renderers } = {}) {
@@ -25,6 +26,12 @@ export class Viewer3D {
   }
   get camera() { return this.stage.camera; }
   get controls() { return this.stage.controls; }
+  // Studio layer toggles. The generic one is "wireframe" (every mesh in the built scene);
+  // plugins add their own behaviour by exposing stage.setLayer if needed.
+  setLayer(id, on) {
+    if (id === 'wireframe') applyWireframe(this.stage.scene, on);
+    else if (this.stage.setLayer) this.stage.setLayer(id, on);
+  }
   // A fly-through plugin (e.g. Stunt Car's stunt-track) publishes its FlyCam as stage.fly; expose
   // it so the Studio's KeyboardCamera cedes the arrow keys to it (it checks viewer.fly.enabled).
   // Non-fly plugins (Elite) leave it null — showItem() resets stage.fly before each build.

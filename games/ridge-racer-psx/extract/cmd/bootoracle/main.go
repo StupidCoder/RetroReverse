@@ -47,9 +47,11 @@ func main() {
 	showLog := flag.Bool("log", false, "print the machine's diagnostic notes")
 	showTTY := flag.Bool("tty", true, "print the game's BIOS/TTY output")
 	shot := flag.String("shot", "", "after the run, write the GPU display to this PNG")
+	vramdump := flag.String("vramdump", "", "DEBUG: after the run, write full 1024x512 VRAM to this PNG")
 	isrS := flag.String("isr", "8004DF48", "vectored-interrupt entry (hex); Ridge Racer's own "+
 		"interrupt dispatcher, traced — the retail BIOS installs it via HookEntryInt into a slot "+
 		"the HLE BIOS leaves empty. Set 0 to use the (empty) registered chain handler")
+	gpuwatch := flag.String("gpuwatch", "", "DEBUG: log GPU writes into VRAM rect x0,y0,x1,y1")
 	press := flag.String("press", "", "scripted controller input: comma-separated BUTTON@STEP:HOLD "+
 		"entries (e.g. start@380000000:400000,right@390000000:400000). BUTTON is start/select/up/"+
 		"down/left/right/cross/circle/triangle/square/l1/r1/l2/r2. STEP is the instruction count to "+
@@ -89,6 +91,14 @@ func main() {
 			die("bad -press: %v", err)
 		}
 		m.PadScript = script
+	}
+	if *gpuwatch != "" {
+		var a, b, c, d int
+		if n, _ := fmt.Sscanf(*gpuwatch, "%d,%d,%d,%d", &a, &b, &c, &d); n == 4 {
+			m.DebugWatchVRAM(a, b, c, d, func(s string) {
+				fmt.Fprintf(os.Stderr, "gpu@%d: %s\n", m.CPU.Steps, s)
+			})
+		}
 	}
 	m.LoadEXE(exe)
 
@@ -140,6 +150,12 @@ func main() {
 			die("screenshot: %v", err)
 		}
 		fmt.Fprintf(os.Stderr, "wrote frame to %s\n", *shot)
+	}
+	if *vramdump != "" {
+		if err := m.DumpVRAM(*vramdump); err != nil {
+			die("vramdump: %v", err)
+		}
+		fmt.Fprintf(os.Stderr, "wrote VRAM to %s\n", *vramdump)
 	}
 
 	w.Flush()
