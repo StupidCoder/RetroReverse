@@ -67,12 +67,14 @@ type LevelIndex struct {
 }
 
 // ViewIndex is a bespoke-3D-view entry (the escape hatch): the course slopes are
-// standalone "marble-slope" views, not referenced by any level.
+// standalone "marble-slope" views, not referenced by any level. File is the solid
+// terrain GLB; Markers is the sidecar of world-space route markers/pins.
 type ViewIndex struct {
 	Name    string `json:"name"`
 	Section string `json:"section,omitempty"`
 	File    string `json:"file"`
 	Kind    string `json:"kind"`
+	Markers string `json:"markers,omitempty"`
 }
 
 type MusicEntry struct {

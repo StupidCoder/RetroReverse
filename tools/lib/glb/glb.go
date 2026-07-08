@@ -268,6 +268,59 @@ func WriteTrianglesMat(path string, positions [][3]float32, groups []TriGroup) e
 	return os.WriteFile(path, data, 0o644)
 }
 
+// LineGroup is one LINES sub-mesh of a WriteMixed call: its own edge list (each
+// edge a pair of indices into the shared positions array) and an unlit base
+// colour. Line materials are always double-sided (culling has no meaning for
+// lines).
+type LineGroup struct {
+	Lines [][2]uint32
+	Color [3]float32
+}
+
+// WriteMixed writes a multi-material GLB mixing filled and line geometry in one
+// mesh: every primitive shares a single POSITION accessor over positions, with
+// one TRIANGLES (mode 4) primitive + unlit material per TriGroup followed by one
+// LINES (mode 1) primitive + unlit material per LineGroup, in caller order.
+// Groups with no geometry are skipped. With only TriGroups this is equivalent to
+// WriteTrianglesMat; with only one LineGroup, to WriteLines.
+func WriteMixed(path string, positions [][3]float32, tris []TriGroup, lines []LineGroup) error {
+	b := &builder{}
+	posAcc := b.addPositions(positions)
+	var prims, materials []map[string]any
+	for _, g := range tris {
+		if len(g.Tris) == 0 {
+			continue
+		}
+		idx := make([]uint32, 0, len(g.Tris)*3)
+		for _, t := range g.Tris {
+			idx = append(idx, t[0], t[1], t[2])
+		}
+		idxAcc := b.addIndices(idx)
+		mat := len(materials)
+		prims = append(prims, primitive(posAcc, idxAcc, 4, mat))
+		materials = append(materials, unlitMaterial(g.Color, !g.SingleSided))
+	}
+	for _, g := range lines {
+		if len(g.Lines) == 0 {
+			continue
+		}
+		idx := make([]uint32, 0, len(g.Lines)*2)
+		for _, e := range g.Lines {
+			idx = append(idx, e[0], e[1])
+		}
+		idxAcc := b.addIndices(idx)
+		mat := len(materials)
+		prims = append(prims, primitive(posAcc, idxAcc, 1, mat))
+		materials = append(materials, unlitMaterial(g.Color, true))
+	}
+	doc := assemble(baseName(path), b, prims, materials)
+	data, err := pack(doc, b.bin.Bytes())
+	if err != nil {
+		return err
+	}
+	return os.WriteFile(path, data, 0o644)
+}
+
 // baseName returns the file name without its directory or extension, for use as
 // the mesh/scene name. Kept tiny to avoid a path/filepath import cost for callers.
 func baseName(path string) string {

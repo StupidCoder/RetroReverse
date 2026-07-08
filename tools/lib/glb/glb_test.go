@@ -1,6 +1,7 @@
 package glb
 
 import (
+	"bytes"
 	"encoding/binary"
 	"encoding/json"
 	"os"
@@ -153,6 +154,97 @@ func TestWriteTriangles(t *testing.T) {
 	}
 	if string(data[0:4]) != "glTF" {
 		t.Fatalf("bad magic")
+	}
+}
+
+// TestWriteMixed writes one quad (two triangles) plus two decal line groups and
+// asserts the mesh carries the primitives in order (TRIANGLES then LINES), one
+// material per group with its own colour, all sharing the single POSITION
+// accessor — and that the output is byte-stable across two writes.
+func TestWriteMixed(t *testing.T) {
+	pos := [][3]float32{
+		{0, 0, 0}, {1, 0, 0}, {1, 0, 1}, {0, 0, 1}, // quad
+		{0, 0.01, 0}, {1, 0.01, 0}, // decal A
+		{0, 0.01, 1}, {1, 0.01, 1}, // decal B
+	}
+	tris := []TriGroup{
+		{Tris: [][3]uint32{{0, 1, 2}, {0, 2, 3}}, Color: [3]float32{0.5, 0.5, 0.5}},
+		{}, // empty group: skipped
+	}
+	lines := []LineGroup{
+		{Lines: [][2]uint32{{4, 5}}, Color: [3]float32{1, 1, 0}},
+		{Lines: [][2]uint32{{6, 7}}, Color: [3]float32{0, 0, 0}},
+	}
+	path := filepath.Join(t.TempDir(), "mixed.glb")
+	if err := WriteMixed(path, pos, tris, lines); err != nil {
+		t.Fatal(err)
+	}
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(data[0:4]) != "glTF" {
+		t.Fatalf("bad magic")
+	}
+	jLen := binary.LittleEndian.Uint32(data[12:16])
+	var doc struct {
+		Meshes []struct {
+			Primitives []struct {
+				Attributes map[string]int `json:"attributes"`
+				Material   int            `json:"material"`
+				Mode       int            `json:"mode"`
+			} `json:"primitives"`
+		} `json:"meshes"`
+		Materials []struct {
+			PBR struct {
+				BaseColorFactor []float64 `json:"baseColorFactor"`
+			} `json:"pbrMetallicRoughness"`
+			Extensions map[string]json.RawMessage `json:"extensions"`
+		} `json:"materials"`
+	}
+	if err := json.Unmarshal(data[20:20+int(jLen)], &doc); err != nil {
+		t.Fatalf("JSON chunk not valid: %v", err)
+	}
+	if len(doc.Meshes) != 1 || len(doc.Meshes[0].Primitives) != 3 {
+		t.Fatalf("want one mesh with three primitives (empty group skipped), got %+v", doc.Meshes)
+	}
+	prims := doc.Meshes[0].Primitives
+	wantModes := []int{4, 1, 1}
+	for i, p := range prims {
+		if p.Mode != wantModes[i] {
+			t.Fatalf("primitive %d mode = %d, want %d", i, p.Mode, wantModes[i])
+		}
+		if p.Material != i {
+			t.Fatalf("primitive %d material = %d, want %d", i, p.Material, i)
+		}
+		if p.Attributes["POSITION"] != prims[0].Attributes["POSITION"] {
+			t.Fatalf("primitive %d does not share the POSITION accessor", i)
+		}
+	}
+	if len(doc.Materials) != 3 {
+		t.Fatalf("want three materials, got %d", len(doc.Materials))
+	}
+	wantColor := [][3]float64{{0.5, 0.5, 0.5}, {1, 1, 0}, {0, 0, 0}}
+	for i, m := range doc.Materials {
+		c := m.PBR.BaseColorFactor
+		if len(c) != 4 || c[0] != wantColor[i][0] || c[1] != wantColor[i][1] || c[2] != wantColor[i][2] {
+			t.Fatalf("material %d baseColorFactor = %v, want %v", i, c, wantColor[i])
+		}
+		if _, ok := m.Extensions["KHR_materials_unlit"]; !ok {
+			t.Fatalf("material %d is not unlit", i)
+		}
+	}
+	// Byte-stable: a second write of the same input is identical.
+	path2 := filepath.Join(t.TempDir(), "mixed.glb")
+	if err := WriteMixed(path2, pos, tris, lines); err != nil {
+		t.Fatal(err)
+	}
+	data2, err := os.ReadFile(path2)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !bytes.Equal(data, data2) {
+		t.Fatalf("WriteMixed output not byte-stable")
 	}
 }
 

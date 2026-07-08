@@ -1,10 +1,11 @@
 // Marble Madness course viewer — a thin two-engine shell:
 //  • Courses — the playfield tilemaps on the shared 2-D LevelViewer (common format).
-//  • Slopes — the 3-D slope-field height meshes (slopes.js, three.js), as separate items.
+//  • Slopes — the 3-D slope-field terrain (GLB + markers sidecar; slopes.js, three.js).
 // Courses (manifest.levels, kind "tilemap2d") and slopes (manifest.views, kind
 // "marble-slope") are independent browse items; showItem() picks the engine by kind and
 // shows only the active canvas.
 
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { LevelViewer } from '../shared/viewer.js';
 import { SlopeView } from './slopes.js';
 import config from './config.js';
@@ -19,6 +20,7 @@ export class MarbleViewer {
       camEnabled: () => this.mode === 'tilemap',
     });
     this.slopes = new SlopeView(viewportEl, () => this.active !== false && this.mode === 'slopes');
+    this.gltf = new GLTFLoader();
     this.name = '';
   }
 
@@ -39,8 +41,11 @@ export class MarbleViewer {
     this.name = item.name;
     if (item.kind === 'marble-slope') {
       this.mode = 'slopes';
-      const slope = await fetch(config.base + item.file).then((r) => r.json());
-      this.slopes.show(slope);
+      const [gltf, markers] = await Promise.all([
+        this.gltf.loadAsync(config.base + item.file),
+        fetch(config.base + item.markers).then((r) => r.json()),
+      ]);
+      this.slopes.show(gltf.scene, markers);
       this.map.app.canvas.style.display = 'none';
       if (this.slopes.canvas) this.slopes.canvas.style.display = 'block';
     } else {

@@ -1,29 +1,17 @@
 // Marble Madness slope view — the three.js half of the course viewer: the static
 // slope field (the height the marble rolls on, decoded from the Track file) as a 3-D
-// height-mesh you drag to rotate, with the Track-layer markers (creature routes and
-// placements). Moved verbatim from the old combined viewer; the tilemap half now runs
-// on the shared 2-D LevelViewer.
+// terrain you drag to rotate, with the Track-layer markers (creature routes and
+// placements). The terrain is a pre-baked GLB (a solid triangulated height-band mesh
+// in world coords); the markers are a sidecar JSON of world-coord pins & routes. The
+// tilemap half runs on the shared 2-D LevelViewer.
 
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 
-const HEIGHT_SCALE = 0.15;               // slope-mesh vertical exaggeration (per tile unit)
-
-// heightRamp maps t in [0,1] to blue(low)..white(high), matching the offline
-// region renderer; returns r,g,b in 0..1 for three.js vertex colours.
-const RAMP = [
-  [0.0, 30, 40, 120], [0.3, 40, 140, 150], [0.55, 60, 170, 80], [0.78, 220, 205, 70], [1.0, 250, 250, 250],
-];
-function heightRamp(t) {
-  t = Math.max(0, Math.min(1, t));
-  for (let i = 0; i < RAMP.length - 1; i++) {
-    if (t <= RAMP[i + 1][0]) {
-      const a = RAMP[i], b = RAMP[i + 1];
-      const f = (t - a[0]) / (b[0] - a[0] + 1e-9);
-      return [(a[1] + (b[1] - a[1]) * f) / 255, (a[2] + (b[2] - a[2]) * f) / 255, (a[3] + (b[3] - a[3]) * f) / 255];
-    }
-  }
-  return [250 / 255, 250 / 255, 250 / 255];
+// "#rrggbb" -> [r,g,b] in 0..1 for three.js vertex colours.
+function hexRgb(hex) {
+  const c = parseInt(hex.replace('#', ''), 16);
+  return [((c >> 16) & 255) / 255, ((c >> 8) & 255) / 255, (c & 255) / 255];
 }
 
 export class SlopeView {
@@ -32,7 +20,6 @@ export class SlopeView {
     this.el = el;
     this.isActive = isActive;
     this.three = null;
-    this.slope = null;
     this.markersOn = false;
   }
 
@@ -43,10 +30,12 @@ export class SlopeView {
     if (this.three && this.three.markers) this.three.markers.visible = on;
   }
 
-  show(slope) {
-    this.slope = slope;
+  // show(scene, markers): scene is a loaded GLB terrain (gltf.scene, already in the
+  // world coords the offline renderer used); markers is the parsed sidecar
+  // { pins:[{pos,color}], paths:[{points,color}] } in those same coords.
+  show(scene, markers) {
     if (!this.three) this._initThree();
-    this._buildMesh();
+    this._buildMesh(scene, markers);
     this._resize();
   }
 
@@ -64,14 +53,14 @@ export class SlopeView {
     controls.enableDamping = true;
     controls.dampingFactor = 0.08;
     controls.rotateSpeed = 0.9;
-    this.three = { renderer, scene, camera, controls, group: null, markers: null, fill: null, frustumH: 1 };
+    this.three = { renderer, scene, camera, controls, model: null, markers: null, frustumH: 1 };
     // Pivot where you're looking: when a gesture starts, raycast the screen
-    // centre onto the surface and orbit around that point.
+    // centre onto the terrain and orbit around that point.
     const ray = new THREE.Raycaster();
     controls.addEventListener('start', () => {
-      if (!this.three.fill) return;
+      if (!this.three.model) return;
       ray.setFromCamera(new THREE.Vector2(0, 0), this.three.camera);
-      const hit = ray.intersectObject(this.three.fill, false)[0];
+      const hit = ray.intersectObject(this.three.model, true)[0];
       if (hit) this.three.controls.target.copy(hit.point);
     });
     new ResizeObserver(() => this._resize()).observe(this.el);
@@ -95,83 +84,27 @@ export class SlopeView {
     cam.updateProjectionMatrix();
   }
 
-  // Build the slope as a wireframe with hidden-line removal, like the offline
-  // *.wire.png: each rolling-surface tile is a vertex at (tx, height, ty); the
-  // grid edges to the (+1,0) and (0,+1) neighbours are drawn as height-coloured
-  // lines, and an invisible fill of the same quads writes depth so lines behind
-  // the surface are hidden. Pits (no surface) leave holes.
-  _buildMesh() {
+  // Add the pre-baked GLB terrain (a solid triangulated height-band mesh, already
+  // in world coords) and frame it isometrically (orthographic) down a 2:1 dimetric
+  // angle from its bounding box. The solid mesh writes depth itself, so the marker
+  // routes/pins occlude correctly against it (no more invisible fill).
+  _buildMesh(scene, markers) {
     const t = this.three;
     const dispose = (g) => { if (g) { t.scene.remove(g); g.traverse((o) => { if (o.geometry) o.geometry.dispose(); if (o.material) o.material.dispose(); }); } };
-    dispose(t.group); dispose(t.markers);
-    const s = this.slope;
-    const { w, h, heights } = s;
-    const range = Math.max(1, s.hi - s.lo);
-    const cx = (w - 1) / 2, cz = (h - 1) / 2;
-    const present = (gx, gy) => gx >= 0 && gy >= 0 && gx < w && gy < h && heights[gy * w + gx] > 0;
-    // Axis swap (tile-X -> world Z, tile-Y -> world X) so the isometric view
-    // matches the offline *.wire.png instead of mirroring it.
-    const wX = (gx, gy) => gy - cz;
-    const wZ = (gx, gy) => gx - cx;
-    const surfY = (gx, gy) => (heights[gy * w + gx] - 1) * HEIGHT_SCALE;
+    dispose(t.model); dispose(t.markers);
 
-    // Invisible depth fill (triangulated quads) for hidden-line removal.
-    const vidx = new Int32Array(w * h).fill(-1);
-    const fpos = [];
-    for (let gy = 0; gy < h; gy++) {
-      for (let gx = 0; gx < w; gx++) {
-        if (!present(gx, gy)) continue;
-        vidx[gy * w + gx] = fpos.length / 3;
-        fpos.push(wX(gx, gy), surfY(gx, gy), wZ(gx, gy));
-      }
-    }
-    const idx = [];
-    for (let gy = 0; gy < h - 1; gy++) {
-      for (let gx = 0; gx < w - 1; gx++) {
-        const a = vidx[gy * w + gx], b = vidx[gy * w + gx + 1], c = vidx[(gy + 1) * w + gx], d = vidx[(gy + 1) * w + gx + 1];
-        if (a >= 0 && b >= 0 && c >= 0 && d >= 0) idx.push(a, c, b, b, c, d);
-      }
-    }
-    const fgeom = new THREE.BufferGeometry();
-    fgeom.setAttribute('position', new THREE.Float32BufferAttribute(fpos, 3));
-    fgeom.setIndex(idx);
-    const fill = new THREE.Mesh(fgeom, new THREE.MeshBasicMaterial({
-      colorWrite: false, side: THREE.DoubleSide,
-      polygonOffset: true, polygonOffsetFactor: 1, polygonOffsetUnits: 1,
-    }));
+    t.scene.add(scene);
+    t.model = scene;
 
-    // Height-coloured grid edges.
-    const epos = [], ecol = [];
-    const pushV = (gx, gy) => {
-      epos.push(wX(gx, gy), surfY(gx, gy), wZ(gx, gy));
-      const c = heightRamp((heights[gy * w + gx] - 1) / range);
-      ecol.push(c[0], c[1], c[2]);
-    };
-    for (let gy = 0; gy < h; gy++) {
-      for (let gx = 0; gx < w; gx++) {
-        if (!present(gx, gy)) continue;
-        if (present(gx + 1, gy)) { pushV(gx, gy); pushV(gx + 1, gy); }
-        if (present(gx, gy + 1)) { pushV(gx, gy); pushV(gx, gy + 1); }
-      }
-    }
-    const egeom = new THREE.BufferGeometry();
-    egeom.setAttribute('position', new THREE.Float32BufferAttribute(epos, 3));
-    egeom.setAttribute('color', new THREE.Float32BufferAttribute(ecol, 3));
-    const lines = new THREE.LineSegments(egeom, new THREE.LineBasicMaterial({ vertexColors: true }));
+    const box = new THREE.Box3().setFromObject(scene);
+    const ctr = box.getCenter(new THREE.Vector3());
+    const size = box.getSize(new THREE.Vector3());
+    const span = Math.max(size.x, size.z);
 
-    const group = new THREE.Group();
-    group.add(fill, lines);
-    t.scene.add(group);
-    t.group = group;
-    t.fill = fill;
-
-    const span = Math.max(w, h);
-    t.markers = this._buildMarkers(s, { present, wX, wZ, surfY, span });
+    t.markers = this._buildMarkers(markers, span);
     t.markers.visible = this.markersOn;
     t.scene.add(t.markers);
 
-    // Frame it isometrically (orthographic), down a 2:1 dimetric angle.
-    const ctr = new THREE.Vector3(0, (range * HEIGHT_SCALE) / 2, 0);
     t.frustumH = span;
     const dir = new THREE.Vector3(0.632, 0.447, 0.632); // azimuth 45°, elevation ~26.6°
     t.camera.position.copy(ctr).addScaledVector(dir, span * 2);
@@ -182,30 +115,27 @@ export class SlopeView {
     t.controls.update();
   }
 
-  // Build the Track-layer markers: a coloured pin per single object and a coloured
-  // route polyline per creature path, depth-tested so the slopes occlude them.
-  _buildMarkers(s, m) {
-    const { present, wX, wZ, surfY, span } = m;
+  // Build the Track-layer markers from the sidecar (positions already in the GLB's
+  // world coords): a coloured pin per placement and a coloured route polyline per
+  // creature path, depth-tested so the terrain occludes them.
+  _buildMarkers(markers, span) {
     const stem = Math.max(2, span * 0.045);
-    const gx = (x) => x - s.x0, gy = (y) => y - s.y0;
-    const surf = (x, y) => (present(gx(x), gy(y)) ? surfY(gx(x), gy(y)) : 0);
-    const W = (x, y) => [wX(gx(x), gy(y)), surf(x, y), wZ(gx(x), gy(y))];
-    const rgb = (c) => [((c >> 16) & 255) / 255, ((c >> 8) & 255) / 255, (c & 255) / 255];
+    const pins = (markers && markers.pins) || [];
+    const paths = (markers && markers.paths) || [];
 
     const stemPos = [], stemCol = [], headPos = [], headCol = [], routePos = [], routeCol = [];
-    const pin = (x, y, c) => {
-      const [px, py, pz] = W(x, y), col = rgb(c);
+    const pin = (pos, col) => {
+      const [px, py, pz] = pos;
       stemPos.push(px, py, pz, px, py + stem, pz); stemCol.push(...col, ...col);
       headPos.push(px, py + stem, pz); headCol.push(...col);
     };
-    for (const p of s.markers.points) pin(p.x, p.y, p.c);
-    for (const path of s.markers.paths) {
-      const col = rgb(path.c);
-      for (let i = 0; i + 1 < path.pts.length; i++) {
-        const a = W(path.pts[i][0], path.pts[i][1]), b = W(path.pts[i + 1][0], path.pts[i + 1][1]);
-        routePos.push(...a, ...b); routeCol.push(...col, ...col);
+    for (const p of pins) pin(p.pos, hexRgb(p.color));
+    for (const path of paths) {
+      const col = hexRgb(path.color);
+      for (let i = 0; i + 1 < path.points.length; i++) {
+        routePos.push(...path.points[i], ...path.points[i + 1]);
+        routeCol.push(...col, ...col);
       }
-      if (path.pts.length) pin(path.pts[0][0], path.pts[0][1], path.c); // spawn pin
     }
 
     const g = new THREE.Group();
