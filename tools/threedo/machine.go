@@ -47,8 +47,18 @@ const (
 	// grows down through the ~0.5 MiB above, so a deep boot's stack never reaches
 	// the tables. (A higher kernelBase left too little stack headroom and a deep
 	// boot's stack corrupted the vectors.)
+	// The OS "hardware context" struct the game reaches through the kernel base:
+	// `[[0x3E1F4]+0x98]` points here. The game reads the current VBlank/field count
+	// from +0xA (AddTimer), a device-ish field at +0x18 (timer setup) and the OS
+	// MemList at +0xA8 (AllocMem's list arg, which our HLE ignores). We plant a real
+	// pointer to this struct and advance the VBlank count so the game's timing loops
+	// (the VBlank service task) see time passing.
+	osCtxBase   = 0x0017D000 // the [kernelBase+0x98] OS context struct
+	osCtxVBlank = 0x0A       // +0xA: current VBlank/field count (byte)
+	osCtxMemLst = 0xA8       // +0xA8: OS MemList pointer (ignored by our AllocMem)
+
 	dheapBase = 0x00080000 // DRAM AllocMem pool: above the image + BSS
-	dheapTop  = 0x0017E000 // ends below the folio vector tables
+	dheapTop  = 0x0017D000 // ends below the OS context struct + folio vector tables
 	vheapBase = vramBase // VRAM AllocMem pool
 	// The game's startup builds TWO memory managers that each request ~0xF8C00 of
 	// VRAM — an over-commit of the 3DO's 1 MiB. Manager 0 gets its full request;
@@ -111,6 +121,7 @@ type Machine struct {
 	SpinBreak  bool
 	SpinBreaks int
 	simTime    uint64 // virtual microsecond clock (folio SampleSystemTimeTT)
+	vblank     uint32 // virtual VBlank/field counter (osCtx +0xA)
 	tty        []byte
 	Log        []string
 	logSeen    map[string]bool
@@ -158,6 +169,12 @@ func (m *Machine) LoadAIF(a *AIF) {
 		m.writeWord(fileFolioBase-off, hleBase+hleFileTag+off)
 		m.writeWord(otherFolioBase-off, hleBase+hleOtherTag+off)
 	}
+
+	// Plant the OS hardware-context struct and point [kernelBase+0x98] at it, so
+	// the game's timer/VBlank and AllocMem code reads real fields (see osCtxBase).
+	// The MemList pointer just has to be non-zero (our AllocMem ignores it).
+	m.writeWord(kernelBase+0x98, osCtxBase)
+	m.writeWord(osCtxBase+osCtxMemLst, osCtxBase+0x400)
 
 	m.CPU.SetReg(5, 0)          // r5: argc-like
 	m.CPU.SetReg(6, 0)          // r6: argv-like

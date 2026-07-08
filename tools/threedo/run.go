@@ -6,6 +6,11 @@ import (
 	"retroreverse.com/tools/arm60"
 )
 
+// vblankPeriod is how many instructions map to one virtual VBlank/field. The
+// real ratio depends on emulated CPU speed; this is tuned so timing loops see a
+// steady stream of fields without spinning the whole step budget on one frame.
+const vblankPeriod = 20000
+
 // Result summarises a run.
 type Result struct {
 	Steps  uint64
@@ -33,6 +38,14 @@ func (m *Machine) Run(maxSteps uint64) Result {
 	var unstickTries int
 	var stallSwitches int // context switches since the last real progress
 	for steps < maxSteps {
+		// Advance the virtual VBlank counter the game reads out of the OS context
+		// struct (osCtx +0xA), so timer/VBlank waits see fields elapse. ~60 Hz is
+		// modelled as one field per vblankPeriod instructions.
+		if steps%vblankPeriod == 0 {
+			m.vblank++
+			m.dram[osCtxBase+osCtxVBlank] = byte(m.vblank)
+		}
+
 		pc := m.CPU.Reg(15)
 
 		// A spawned task returned to its exit trampoline.
