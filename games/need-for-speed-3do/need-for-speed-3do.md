@@ -4,8 +4,8 @@
 
 The 3DO Interactive Multiplayer is the repo's first 3DO project. Its CPU is an
 **ARM60 (ARMv3, big-endian)** and it is CD-based, so the toolchain reuses the
-shape of the ARM work (`tools/arm`, now joined by a dedicated big-endian
-`tools/arm60`) and the CD-oracle work (`tools/psx`). Everything here is derived
+shape of the ARM work (`tools/cpu/arm`, now joined by a dedicated big-endian
+`tools/cpu/arm60`) and the CD-oracle work (`tools/platform/psx`). Everything here is derived
 from the disc image plus public 3DO platform documentation — never from
 game-specific sources (clean-room rule).
 
@@ -13,7 +13,7 @@ game-specific sources (clean-room rule).
   `b213789b67a3368207a2ebf2c222847a`, single `MODE1_RAW` track (2352-byte
   sectors → 327,980 sectors). Not committed (771 MB); pinned in the top README.
 
-Tooling lives in `tools/threedo` (platform package) and `tools/arm60` (CPU);
+Tooling lives in `tools/platform/threedo` (platform package) and `tools/cpu/arm60` (CPU);
 per-game commands in `extract/` (module `needforspeed/extract`).
 
 ---
@@ -21,9 +21,9 @@ per-game commands in `extract/` (module `needforspeed/extract`).
 ## Part I — the disc: the Opera file system
 
 3DO discs use the **Opera** file system, not ISO 9660. The low layer is the same
-as any CD (`tools/psx/cd.go`): the data track is raw 2352-byte sectors whose
+as any CD (`tools/platform/psx/cd.go`): the data track is raw 2352-byte sectors whose
 2048-byte user area we expose through a `block()` accessor. On top of that sits
-Opera, decoded in `tools/threedo/operafs.go`. Three things distinguish it:
+Opera, decoded in `tools/platform/threedo/operafs.go`. Three things distinguish it:
 
 1. **Big-endian.** The ARM60 runs big-endian; every Opera field is a plain
    big-endian word (ISO stores numbers "both-endian").
@@ -83,8 +83,8 @@ bogus block until both were corrected.
 
 ### Tools
 
-- `tools/threedo/operafs.go` — `Open`, `ReadDir`, `Walk`, `ReadFile`, `Entry`.
-- `tools/threedo/cmd/operainfo` — `-label`, `-ls`, `-extract PATH -o FILE`.
+- `tools/platform/threedo/operafs.go` — `Open`, `ReadDir`, `Walk`, `ReadFile`, `Entry`.
+- `tools/platform/threedo/cmd/operainfo` — `-label`, `-ls`, `-extract PATH -o FILE`.
 
 ```
 go run ./threedo/cmd/operainfo -ls   "Need for Speed (3DO)/Need for Speed.bin"
@@ -99,7 +99,7 @@ committed-out disc); on the real disc, extraction is byte-exact (`ANSX.TDDyn` �
 
 ## Part II — image assets: cels and SHPM shapes
 
-Two image formats carry the disc's 2D art. Both decode in `tools/threedo` and
+Two image formats carry the disc's 2D art. Both decode in `tools/platform/threedo` and
 render through `cmd/celdump` (`-image DISC -path P -o out.png`, or `-all` to
 batch every `.cel`/`.3sh` into a directory).
 
@@ -142,8 +142,8 @@ trace, which will pin the record format exactly rather than by inference.
 
 ### Tools & tests
 
-- `tools/threedo/cel.go` — `ParseCel`, `Cel.Image()`; `shpm.go` — `ParseSHPM`.
-- `tools/threedo/cmd/celdump` — single-file and `-all` batch to PNG.
+- `tools/platform/threedo/cel.go` — `ParseCel`, `Cel.Image()`; `shpm.go` — `ParseSHPM`.
+- `tools/platform/threedo/cmd/celdump` — single-file and `-all` batch to PNG.
 - `cel_test.go` round-trips a hand-encoded packed 4bpp cel (chunk walk + all
   packet types + PLUT); no dependency on the committed-out disc.
 
@@ -174,11 +174,11 @@ through in Part IV.
 ## Part III — the ARM60 toolchain
 
 The 3DO CPU is an **ARM60** — an ARMv3 core, and (crucially) wired **big-endian**,
-so instructions and data are most-significant-byte first. `tools/arm60` is a
-dedicated core rather than a mode of the DS's `tools/arm`, matching the repo's
+so instructions and data are most-significant-byte first. `tools/cpu/arm60` is a
+dedicated core rather than a mode of the DS's `tools/cpu/arm`, matching the repo's
 one-core-per-target style and keeping the working DS core untouched.
 
-Versus the ARMv4T/v5TE that `tools/arm` models, the ARM60 has **no** Thumb, no
+Versus the ARMv4T/v5TE that `tools/cpu/arm` models, the ARM60 has **no** Thumb, no
 BX/BLX, no halfword/signed loads, no CLZ/DSP/saturating ops, and `cond==1111`
 means the old **"never" (NV)** condition, not the ARMv5 unconditional space. It
 runs the classic set: conditional data-processing through the barrel shifter,
@@ -186,10 +186,10 @@ MRS/MSR, MUL/MLA (+ long multiplies), SWP, LDR/STR, LDM/STM, B/BL, SWI. The
 game's AIF header pins **32-bit mode** (address mode 0x20), so the ARMv3 26-bit
 modes are not modelled.
 
-- `tools/arm60/arm60.go` — decoder + `Disassemble`, big-endian `word()`, `Flow`
+- `tools/cpu/arm60/arm60.go` — decoder + `Disassemble`, big-endian `word()`, `Flow`
   classification; NV instructions are decoded but flow-neutralized so the tracer
   never follows a dead branch.
-- `tools/arm60/cpu.go`, `exec.go` — the execution core: banked registers + mode
+- `tools/cpu/arm60/cpu.go`, `exec.go` — the execution core: banked registers + mode
   switching, CPSR/SPSR, big-endian memory, barrel-shifter carry, exceptions/IRQ,
   and a `SWI` hook for Portfolio HLE. `Bus` is the same byte interface as `arm`.
 - `tools/cmd/disarm60` — linear disassembler; `tools/cmd/codetracearm60` —
@@ -207,14 +207,14 @@ and return, the SWI hook, mode banking and exception entry.
 
 ## Part IV — booting LaunchMe: the ARM60 oracle
 
-`tools/threedo` now includes an AIF loader and an ARM60 machine that boots and
-traces the game's code, mirroring the PSX oracle (`tools/psx/machine.go`): an
+`tools/platform/threedo` now includes an AIF loader and an ARM60 machine that boots and
+traces the game's code, mirroring the PSX oracle (`tools/platform/psx/machine.go`): an
 HLE'd OS over a stubbed hardware map.
 
 - `aif.go` — `ParseAIF` decodes the executable header (validated on `LaunchMe`:
   image base 0, 32-bit mode, RO 0x3DB4C, RW 0x99C4, BSS 0x14944, self-relocating).
 - `machine.go` / `run.go` — a `Machine` (2 MiB DRAM at 0, 1 MiB VRAM at 0x200000,
-  Madam @0x3300000 / Clio @0x3400000 stubbed) driving `tools/arm60`, with the
+  Madam @0x3300000 / Clio @0x3400000 stubbed) driving `tools/cpu/arm60`, with the
   `OnStep`/`OnWrite`/`WatchLo..Hi`/`TTY` instrumentation the repo's oracles share.
 - `Need for Speed (3DO)/extract/cmd/bootoracle` — loads `LaunchMe` from the disc
   and runs it.
@@ -252,7 +252,7 @@ service is identified by its negative offset `N`. (`SWI #0x100xx` is a second,
 trap-based path used for a few calls.)
 
 **Functions identified from the game's use of them** (clean-room — read off the
-disassembly, not external sources), reimplemented in `tools/threedo/folio.go`:
+disassembly, not external sources), reimplemented in `tools/platform/threedo/folio.go`:
 
 | offset | function | how it was pinned |
 |-------:|----------|-------------------|
@@ -294,7 +294,7 @@ surface between here and a rendered frame.
 The in-race 3D car models are **ORI3** objects ("3DO object", magic `ORI3`),
 carried inside the `DriveArt/CarArt/*.WrapFam` files (an outer `wwww` "wrap"
 container) and the player-car `CarData/*.WrapFam` files; standalone `.3OR` files
-(e.g. the car shadow) use the same object. Decoded in `tools/threedo/model.go`.
+(e.g. the car shadow) use the same object. Decoded in `tools/platform/threedo/model.go`.
 
 Layout (big-endian, relative to the `ORI3` magic):
 
@@ -318,8 +318,8 @@ vertices, **all 78 are perfectly left-right (X) mirror-symmetric** and their
 silhouette is a Viper. A WrapFam can hold several LOD models (the NSX carries
 three: 46/87/87 verts).
 
-- `tools/threedo/model.go` — `ParseModels` → `[]*Model{Name, Verts, Faces}`.
-- `tools/threedo/cmd/modelrender` — orthographic side/top/front wireframe → PNG.
+- `tools/platform/threedo/model.go` — `ParseModels` → `[]*Model{Name, Verts, Faces}`.
+- `tools/platform/threedo/cmd/modelrender` — orthographic side/top/front wireframe → PNG.
 - `model_test.go` round-trips a synthetic ORI3 (header offsets, vertex triples,
   quad face record) inside a container.
 
@@ -334,7 +334,7 @@ materials, and decoding the track geometry, are the next steps.
 The tracks turned out to be decodable straight from the disc, like the car
 models — no boot required. Each course (Alpine, Coastal, City) is split into
 three packets `DriveData/DriveArt/{Al,Cl,Cy}{1,2,3}_PKT_000`, and every packet is
-a **`wwww` resource container** (decoded in `tools/threedo/wrap.go`):
+a **`wwww` resource container** (decoded in `tools/platform/threedo/wrap.go`):
 
 - A `wwww` node is `"wwww"`, a u32 count, then that many child offsets **relative
   to the node's own base** (the outer node sits at 0, so its offsets look
@@ -360,7 +360,7 @@ textures along the course. That reference table is the piece most likely to need
 the oracle to boot the race code and watch it consume the packet; the asset
 formats themselves are done.
 
-- `tools/threedo/wrap.go` — `ParseWrap`, `Inventory`; `cmd/packetinfo`.
+- `tools/platform/threedo/wrap.go` — `ParseWrap`, `Inventory`; `cmd/packetinfo`.
 - `cmd/celdump -scan` — extract every embedded cel from a raw packet.
 
 ## Part VIII — pushing the boot: the async frontier

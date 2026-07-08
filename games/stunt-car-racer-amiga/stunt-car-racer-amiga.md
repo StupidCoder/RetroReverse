@@ -27,9 +27,9 @@ the centre of gravity is the last two parts — the tracks and the physics:
 * **Appendices** — toolchain and reproduction.
 
 Methods: purely static analysis of the disk image, plus the 68000 toolchain in
-the shared `tools/` module — the AmigaDOS reader (`tools/amiga/adf`), the
+the shared `tools/` module — the AmigaDOS reader (`tools/platform/amiga/adf`), the
 disassemblers (`tools/cmd/dis68k`, `tools/cmd/codetrace68k`) and an
-instruction-level 68000 execution core (`tools/m68k`) for dynamic verification.
+instruction-level 68000 execution core (`tools/cpu/m68k`) for dynamic verification.
 All addresses are 68000 addresses; sizes are `.b`/`.w`/`.l` (8/16/32-bit).
 **Status: complete. Parts I–III (disk format, loader, engine architecture), Part IV (the
 track geometry — footprint, surface and camber, decoded and verified coordinate-exact) and
@@ -92,7 +92,7 @@ ignores any filesystem and pulls the game off the disk itself (Part II).
 ## 2. Not an AmigaDOS filesystem
 
 The boot block names root block 880, but block 880 is **not** a valid AmigaDOS
-root header (`tools/amiga/cmd/adfdump` rejects it: *"root block is not a valid
+root header (`tools/platform/amiga/cmd/adfdump` rejects it: *"root block is not a valid
 root header"*). There is no DOS filesystem, no directory, no files — the disk is
 **custom-formatted**: a flat region of game code and data that only the game's
 own loader understands.
@@ -493,7 +493,7 @@ depend on any 68000 quirk):
 * the X/Z offset-shape handle index is `ASL.b #1` on the param, i.e.
   **`(param*2) & $FF`** — a byte multiply that wraps, not a 16-bit one.
 
-`extract/cmd/spineoracle` executes the real `$5AE46` on the `tools/m68k` core (it
+`extract/cmd/spineoracle` executes the real `$5AE46` on the `tools/cpu/m68k` core (it
 takes only `d1` = track id and self-initialises) and reads the `$1C650`/`$1C718`
 arrays back out; `extract/cmd/spineverify` checks `package track` against it.
 **All eight tracks match coordinate-exact** — the Go decoder is the source of truth,
@@ -735,7 +735,7 @@ suspension, the wheels gain and lose contact over crests and on landings, too ha
 landing damages the car, and airtime/handling depend on speed and the track gradient.
 The **entire** per-frame simulation has been reverse-engineered from the 68000 code and
 reimplemented in Go (`extract/physics`), **verified coordinate-exact against the original
-frame by frame** on the `tools/m68k` core (`cmd/physverify`): every sub-routine matches on
+frame by frame** on the `tools/cpu/m68k` core (`cmd/physverify`): every sub-routine matches on
 3000 random states each, and the whole frame matches bit-for-bit over 60 consecutive
 frames on three tracks. The reimplementation operates directly on the game's 24-bit memory
 image, so it can be checked address-for-address.
@@ -935,7 +935,7 @@ go run retroreverse.com/tools/cmd/dis68k     -base 0xE700 -start <addr> -end <ad
 go run retroreverse.com/tools/cmd/codetrace68k -base 0xE700 -entry <addr>            extracted/game.dec.bin
 ```
 
-Dynamic verification uses the instruction-level 68000 core in `tools/m68k`
+Dynamic verification uses the instruction-level 68000 core in `tools/cpu/m68k`
 (`m68k.CPU` over a `Bus`), the same way the other games are checked.
 
 The disk image is not committed (it is a copyrighted game); its size and MD5

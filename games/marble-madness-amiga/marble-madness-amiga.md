@@ -21,9 +21,9 @@ reading order:
 
 Methods: purely static analysis of the disk image, plus the 68000 toolchain
 built for it in the shared `tools/` module — the AmigaDOS reader
-(`tools/amiga/adf`), the disassemblers (`tools/cmd/dis68k`,
+(`tools/platform/amiga/adf`), the disassemblers (`tools/cmd/dis68k`,
 `tools/cmd/codetrace68k`) and an instruction-level 68000 execution core
-(`tools/m68k`) for dynamic verification. All addresses are 68000 addresses;
+(`tools/cpu/m68k`) for dynamic verification. All addresses are 68000 addresses;
 sizes are `.b`/`.w`/`.l` (8/16/32-bit). Parts I–III are complete and Part IV is
 under way; Part V is still a stub.
 
@@ -86,7 +86,7 @@ is the filesystem-flags byte, and zero means OFS (a `1` would be FFS). The same
 header points the root block at **block 880** (`numBlocks / 2` for a DD disk),
 and the root block carries the volume name, **`MarbleMadness!`**.
 
-The on-disk structures, all decoded by `tools/amiga/adf`, are the standard
+The on-disk structures, all decoded by `tools/platform/amiga/adf`, are the standard
 AmigaDOS ones:
 
 - **Directories** (the root and the three subdirectories) store their entries in
@@ -120,7 +120,7 @@ zero-filled `BSS` blocks — each optionally trailed by a 32-bit relocation tabl
 Because a segment may be placed anywhere in memory, that table lists every
 longword inside the segment that holds an address, and `LoadSeg` adds the
 segment's real load address to each of them as it brings the file in; the program
-is therefore position-independent. The shared reader `tools/amiga/hunk` does the
+is therefore position-independent. The shared reader `tools/platform/amiga/hunk` does the
 same — it lays the segments out from a chosen base, applies the relocations, and
 returns a flat image that `dis68k`/`codetrace68k` can disassemble.
 
@@ -298,7 +298,7 @@ the launcher included, is an ordinary Amiga hunk object brought in through
 per-course overlays (Parts III–IV).
 
 Tracing the launcher's own code confirms the shape. Loaded into a flat, relocated
-image by `tools/amiga/hunk` (whose symbol-table support labels the library stubs
+image by `tools/platform/amiga/hunk` (whose symbol-table support labels the library stubs
 the linker left in the file) and traced with `codetrace68k`, the C-runtime
 startup takes the Workbench branch shown above and calls `main`. `main` then
 parses the `WBStartup` message, uses its lock to `CurrentDir` into the program's
@@ -532,7 +532,7 @@ table: two indices `p` (start 0) and `q` (start 27); each call does
 `table[p]`. Being purely additive, the **low byte of every output is a linear
 function (mod 256) of the table's low bytes** — the lever §4 pulls.
 
-`extract/cmd/unpack` runs this real code on the `tools/m68k` core, trapping the
+`extract/cmd/unpack` runs this real code on the `tools/cpu/m68k` core, trapping the
 six AmigaDOS/Exec stubs and streaming the packed bytes through `_Read`. It
 reproduces the keystream bit-exact (verified against an independent generator)
 and decodes the header cleanly: `c/xxx` is a `HUNK_HEADER` with **22 hunks**
@@ -659,7 +659,7 @@ gated behind a running, booted Amiga of the right vintage.
 **Update — the gate, opened.** Rather than emulate the full boot in the minimal
 core, the missing machine state was read off a real **Kickstart 1.2** under a
 GDB-controllable FS-UAE build (the shared Amiga debugger
-[`tools/amiga/fsuae-debug/`](../tools/amiga/fsuae-debug); the game-specific
+[`tools/platform/amiga/fsuae-debug/`](../tools/platform/amiga/fsuae-debug); the game-specific
 capture scripts are in [`tools/fsuae-debug/`](tools/fsuae-debug)). A CLI auto-run
 disk (`modadf.go` rewrites the `s/startup-sequence` in place and
 fixes the OFS block checksum) boots straight to the decrypt, and the launcher
@@ -748,9 +748,9 @@ starting point for the mechanics analysis of Part V.
 
 ```sh
 # split + first-pass disassembly of the decrypted engine
-go run retroreverse.com/tools/amiga/cmd/hunkload -base 0 \
+go run retroreverse.com/tools/platform/amiga/cmd/hunkload -base 0 \
     extracted/c_MarbleMadness.dat.decrypted.hunk            # the hunk/code-data map
-go run retroreverse.com/tools/amiga/cmd/hunkload -base 0 -o /tmp/dat.bin \
+go run retroreverse.com/tools/platform/amiga/cmd/hunkload -base 0 -o /tmp/dat.bin \
     extracted/c_MarbleMadness.dat.decrypted.hunk            # flat relocated image
 # -entry = every CODE-hunk base from the map above
 go run retroreverse.com/tools/cmd/codetrace68k -base 0 -entry <CODE-hunk bases> /tmp/dat.bin
@@ -776,7 +776,7 @@ The boot/title screen the player sees is `c/splash`, stored as a standard **IFF
 **320×200, 4-bitplane (16-colour)** image; the `BODY` is **ByteRun1 (PackBits)
 compressed**; a `CMAP` chunk carries the 16-colour palette; and four `CRNG`
 chunks define colour-cycling ranges, so parts of the logo animate on the real
-machine. The decoder `tools/amiga/iff` parses those chunks, unpacks the BODY,
+machine. The decoder `tools/platform/amiga/iff` parses those chunks, unpacks the BODY,
 de-interleaves the four bitplanes into colour indices and looks them up in the
 CMAP:
 
@@ -804,7 +804,7 @@ them, `c/sigfile`, is not graphics either: it is a short table of
 
 The `.info` files are standard Workbench icons: a `DiskObject` header (`$E310`
 magic) followed by one or two planar `Image` structures. Icons carry no palette
-of their own — they are drawn in the Workbench screen pens — so `tools/amiga/icon`
+of their own — they are drawn in the Workbench screen pens — so `tools/platform/amiga/icon`
 renders them with the standard Workbench 1.x four-colour palette (pen 0 blue,
 1 white, 2 black, 3 orange). They are also authored for the hi-res Workbench
 screen, whose pixels are about twice as tall as wide, so the renders below are
@@ -1968,7 +1968,7 @@ ground truth a reimplementation must reproduce.
 
 The interpreter was recovered by static disassembly of the decrypted body, cross-
 checked against a dynamic run in the 68000 core (`extract/cmd/sndcapture`, over
-`tools/m68k`, with the OS and `audio.device` stubbed). The engine is a general
+`tools/cpu/m68k`, with the OS and `audio.device` stubbed). The engine is a general
 **sampled-sound driver** — music is just a set of voices it triggers — and it is
 **dual-clocked**:
 
@@ -2103,7 +2103,7 @@ note's remaining ticks and releases the voice (`$2015E`) at zero.
 
 §1–§3 describe the *engine* — the OS-driven SfxTask, the per-voice sequencer and the
 envelope clock — recovered partly by static disassembly and partly by a single-task
-`tools/m68k` harness (`extract/cmd/sndoracle`) that runs the real driver under stubbed
+`tools/cpu/m68k` harness (`extract/cmd/sndoracle`) that runs the real driver under stubbed
 `exec`/`timer.device`/`audio.device`. That harness was a *scaffold for understanding*,
 not the deliverable; it proved the control flow but is too slow to record a whole song.
 The next section is the payoff: the music format, fully decoded, and a from-scratch Go
@@ -2182,10 +2182,10 @@ the repository root:
 
 ```sh
 # 1. List the disk's filesystem and files
-go run retroreverse.com/tools/amiga/cmd/adfdump "Marble Madness (Amiga)/Marble_Madness.adf"
+go run retroreverse.com/tools/platform/amiga/cmd/adfdump "Marble Madness (Amiga)/Marble_Madness.adf"
 
 # 2. Extract every file (preserving the directory tree)
-go run retroreverse.com/tools/amiga/cmd/adfdump -x mm-files \
+go run retroreverse.com/tools/platform/amiga/cmd/adfdump -x mm-files \
     "Marble Madness (Amiga)/Marble_Madness.adf"
 
 # 3. Disassemble a 68000 code hunk (-skip steps past the HUNK_HEADER to the code)
@@ -2195,9 +2195,9 @@ go run retroreverse.com/tools/cmd/dis68k -skip 36 mm-files/c/EndCLI
 go run retroreverse.com/tools/cmd/codetrace68k -base 0 -skip 36 -entry 0 mm-files/c/EndCLI
 ```
 
-Dynamic verification uses the instruction-level 68000 core in `tools/m68k`
+Dynamic verification uses the instruction-level 68000 core in `tools/cpu/m68k`
 (`m68k.CPU` over a `Bus`), the same way the C64 games are checked against the
-`tools/c64/c64` machine model.
+`tools/platform/c64/c64` machine model.
 
 The disk image is not committed (it is a copyrighted game); its size and MD5 are
 recorded in the repository [README](../README.md#image-files) so the exact copy

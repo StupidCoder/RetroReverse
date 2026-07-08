@@ -21,12 +21,12 @@ Game Gear games, in reading order:
 * **Appendix** — toolchain and reproduction.
 
 Methods: purely static analysis of the ROM image. **Note the toolchain gap:** the
-shared `tools/z80` decoder does *not* apply here — the Game Boy CPU is the Sharp
+shared `tools/cpu/z80` decoder does *not* apply here — the Game Boy CPU is the Sharp
 LR35902, which shares the Z80's register names and much of its opcode map but drops
 the `IX`/`IY` index registers, the alternate register set and the `IN`/`OUT` ports,
 and adds Game-Boy-specific opcodes (`LDH`, `LD (C),A`, `LD (a16),A`, `STOP`, `SWAP`,
-`ADD SP,e`, `LD HL,SP+e`). A new LR35902 disassembler — **`tools/sm83`** with the
-**`cmd/dissm83`** CLI — has been built for this game (mirroring `tools/z80`); the
+`ADD SP,e`, `LD HL,SP+e`). A new LR35902 disassembler — **`tools/cpu/sm83`** with the
+**`cmd/dissm83`** CLI — has been built for this game (mirroring `tools/cpu/z80`); the
 hand decodes below were confirmed against it. All addresses are CPU addresses
 (16-bit, `$0000`–`$FFFF`) unless a *file offset* is called out; bytes are 8-bit.
 Parts I–IV are complete; Part V covers the game mechanics (objects, sprites, scripts,
@@ -290,7 +290,7 @@ cold-start routine, sets up the hardware and clears memory, then drops into a ti
 end to end. It was traced statically with `cmd/dissm83`/`cmd/codetracesm83` and the
 control-flow facts that the `RST`-table dispatch hides from a static trace (where the
 LCD is switched on, where interrupts are enabled) were pinned by running the ROM on
-the `tools/gameboy` oracle.
+the `tools/platform/gameboy` oracle.
 
 ## 1. Entry and cold start (`$0100` → `$0150` → `$0185`)
 
@@ -464,7 +464,7 @@ results to the screen, and a single byte decides which logic runs. This part des
 that architecture — the loop's division of labour, the `RST $28` state dispatcher and
 the states it selects, how input reaches them, and the RAM and banking conventions the
 whole engine rests on. The control flow that the `RST $28` jump table hides from a
-static trace was recovered by running the ROM on the `tools/gameboy` oracle.
+static trace was recovered by running the ROM on the `tools/platform/gameboy` oracle.
 
 ## 1. Two halves of a frame
 
@@ -587,10 +587,10 @@ model for the parts to come.
 
 The Game Boy's graphics are **fixed hardware formats** — the game fills VRAM and OAM,
 and the LCD controller composes the picture from them. So Part IV has two halves: the
-hardware encodings (the same for every DMG game, and decoded once in `tools/gameboy`),
+hardware encodings (the same for every DMG game, and decoded once in `tools/platform/gameboy`),
 and how Super Mario Land arranges its data on top of them. Everything below was
 verified by **decoding the bytes the game itself wrote** — the images here are
-rendered straight from the VRAM/OAM of a real run on the `tools/gameboy` oracle, not
+rendered straight from the VRAM/OAM of a real run on the `tools/platform/gameboy` oracle, not
 from a reference.
 
 ## 1. The 2bpp tile
@@ -1168,7 +1168,7 @@ state from elsewhere.
 So "Mario physics" reuses the engine pieces Parts V §2–§6 already established (the velocity
 integrator, the tile-id collision rule, the block metadata); what's genuinely Mario-specific
 is the A-button jump state machine and the camera coupling. The numbers above come from
-both the disassembly and a live capture in the oracle (`tools/gameboy`).
+both the disassembly and a live capture in the oracle (`tools/platform/gameboy`).
 
 *Still stubbed for Part V:* the fine sub-pixel accel/friction constants, scoring, and level
 progression — the remaining bookkeeping rather than new mechanisms.
@@ -1232,7 +1232,7 @@ $00       : end of pattern (advance to the next order entry)
 
 Rather than run the engine, `extract/cmd/musicrom` is a **Go reimplementation** of it (like
 the Sonic and Elite music tools): it decodes the four channels straight from the ROM bytes
-into note events and renders them through a small **DMG APU emulator** (`tools/gameboy/apu.go`
+into note events and renders them through a small **DMG APU emulator** (`tools/platform/gameboy/apu.go`
 — two squares + wave + noise with length/envelope/sweep off a 512 Hz frame sequencer). The
 decode is checked against ground truth with **`musicrom -verify <id>`**, which boots the real
 engine and prints its note *and envelope* stream beside the port's, channel by channel — the
@@ -1276,7 +1276,7 @@ md5 "Super Mario Land (GB)/Super Mario Land (World).gb"   # md5sum on Linux
 Everything in Part I was derived by static inspection of the 64 KB image (header
 fields, checksum recomputation, the Nintendo-logo comparison, per-bank entropy and a
 decode of the vectors). Because the Game Boy's Sharp LR35902 is not a Z80, the
-existing `tools/z80` could not be reused; a dedicated **`tools/sm83`** disassembler
+existing `tools/cpu/z80` could not be reused; a dedicated **`tools/cpu/sm83`** disassembler
 was built for it, with the **`cmd/dissm83`** CLI:
 
 ```sh
@@ -1291,13 +1291,13 @@ go run retroreverse.com/tools/cmd/dissm83 -bank 3 -start 0x7FF0 -end 0x8000 \
 
 The full Game Boy toolchain now exists, mirroring the Game Gear set:
 
-- **`tools/sm83`** — the `Decode`/`Disassemble` disassembler **and** an instruction-level
+- **`tools/cpu/sm83`** — the `Decode`/`Disassemble` disassembler **and** an instruction-level
   `CPU` execution core (the LR35902's four-flag behaviour and Game-Boy-specific ops;
   `Step` returns T-cycles), unit-tested against the opcode pages, the GB-only and
   illegal opcodes, flags, interrupts, and Super Mario Land's vectors.
 - **`cmd/dissm83`** — linear disassembler (flat or MBC1-bank mode).
 - **`cmd/codetracesm83`** — recursive-descent disassembler over a 32 KB bank view.
-- **`tools/gameboy`** — a DMG machine model (MBC1 + the memory map + the timer and LCD
+- **`tools/platform/gameboy`** — a DMG machine model (MBC1 + the memory map + the timer and LCD
   scanline interrupts) that drives the `sm83` core as an **emulation oracle**: it boots
   the real ROM and runs its per-frame loop, after which VRAM/OAM can be read back to see
   exactly what the game drew (the same technique as the Game Gear oracle). Its `gb.go`

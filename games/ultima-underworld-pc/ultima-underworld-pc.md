@@ -15,7 +15,7 @@ had a disassembler and (usually) an execution core for — 6502, 68000, Z80, SM8
 Underworld runs on the **Intel x86 in 16-bit real mode**, which we have *no* tooling for yet, so
 a large part of this project is building that toolchain: a real-mode x86 disassembler, a
 recursive code-tracer, and eventually an execution core to use as an **oracle** (Part II), in
-the same spirit as `tools/arm`, `tools/m68k`, and `tools/mos6502`.
+the same spirit as `tools/cpu/arm`, `tools/cpu/m68k`, and `tools/cpu/mos6502`.
 
 Image: `game/UW.EXE`, 561,744 bytes, MD5 `0f58c92a45b8d8d5bba498c59eb111c2` (pinned in
 `../README.md`). The complete `game/` folder (executable plus ~11 MB of data) is a copyrighted
@@ -72,7 +72,7 @@ image DOS loads, implying a **code-overlay** scheme it manages itself.
 ## 2. The MZ header
 
 Decoding the 28-byte MZ header at file offset 0 (verified by `extract/cmd/uwinfo`, which
-reimplements the parse in `tools/dos/mz.go`):
+reimplements the parse in `tools/platform/dos/mz.go`):
 
 ```
 $00  4D 5A            signature        "MZ"
@@ -155,10 +155,10 @@ cd "Ultima Underworld (PC)/extract" && go run ./cmd/uwinfo -game ../game
 # Part II — The x86 toolchain
 
 Everything past Part I needs to read x86 code. The toolchain mirrors the existing per-CPU
-packages (`tools/arm`, `tools/m68k`, `tools/mos6502`, `tools/sm83`) and lives at **`tools/x86`**,
+packages (`tools/cpu/arm`, `tools/cpu/m68k`, `tools/cpu/mos6502`, `tools/cpu/sm83`) and lives at **`tools/cpu/x86`**,
 platform-neutral under the shared module.
 
-## 1. The disassembler (`tools/x86`) — done
+## 1. The disassembler (`tools/cpu/x86`) — done
 
 A table/pattern-driven **16-bit real-mode decoder** returning the repository's common
 `Inst{Addr, Len, Mnem, Text, Flow, Target, HasTarget}` shape with the same `Flow` enum
@@ -183,7 +183,7 @@ path as `FlowIndJump`, while an **indirect `CALL`** keeps the fall-through with 
 Anything unrecognised decodes as a `.byte` with `FlowStop` so a walk stays aligned rather than
 mis-decoding the next byte. Syntax is Intel order, upper-case, `$`-hex — matching the other
 disassemblers here. Unit-tested against hand-assembled encodings (addressing modes, prefixes,
-every control-flow form, x87 length-correctness) in `tools/x86/x86_test.go`.
+every control-flow form, x87 length-correctness) in `tools/cpu/x86/x86_test.go`.
 
 **Validated on UW.EXE's own code.** Disassembling from the real entry point (`$EC50`, the DOS C
 runtime startup) produces clean, coherent x86 — the `INT 21h`/`AH=30h` get-version call, the PSP
@@ -217,7 +217,7 @@ sizing arithmetic — with every branch landing on an instruction boundary and n
 
 The tracer's static reach ends where UW's startup dispatches into the game through indirect and
 far calls. The answer is the same one the DS titles needed: an **execution core** that *runs*
-UW.EXE and we watch. `tools/x86` now carries one (`cpu.go`/`exec.go`/`exec2.go`) — a real-mode
+UW.EXE and we watch. `tools/cpu/x86` now carries one (`cpu.go`/`exec.go`/`exec2.go`) — a real-mode
 `CPU` over a `Bus`, covering MOV/LEA, the PUSH/POP family, the eight ALU ops in every form plus
 INC/DEC/NEG/NOT/TEST, MUL/IMUL/DIV/IDIV, the shift/rotate family, the REP string ops, the full
 near/short/far/indirect control transfers, the flag and BCD/ASCII-adjust ops, and INT/IRET, all
@@ -225,7 +225,7 @@ with real-mode flags. Unimplemented opcodes (notably the x87 FPU) halt with the 
 gaps are explicit. It is unit-tested with small programs (a `LOOP` sum, `CALL`/`RET`, conditional
 branches, `SUB` flags, memory round-trips, `REP STOSB`, `MUL`, and an `IntHook`).
 
-Around it, `tools/dos` (`dos.go`/`dos_int.go`) is a **reusable minimal real-mode DOS**: it loads UW.EXE the
+Around it, `tools/platform/dos` (`dos.go`/`dos_int.go`) is a **reusable minimal real-mode DOS**: it loads UW.EXE the
 way DOS would — place a PSP and environment, copy the load module, **apply the 3,176 relocations**
 (this is what turns the entry's link-time `MOV DX,$5C0F` into the correct runtime data segment),
 seed `CS:IP`/`SS:SP`/`DS`/`ES` — then services the `INT 21h`/BIOS calls the program makes
@@ -287,7 +287,7 @@ overlay's code into a fresh segment — exactly as it would on a real DOS machin
 ## 2. What the boot needs — a minimal DOS/PC around the CPU
 
 Running the real engine surfaced each thing UW depends on, and the oracle grew a faithful-enough
-model of each (all now in the reusable `tools/dos`):
+model of each (all now in the reusable `tools/platform/dos`):
 
 - **LIM EMS (expanded memory), `INT 67h`** — UW *requires* an EMS driver (without one it prints
   "Out of EMS Memory" and quits). `dos_ems.go` provides a 64 KiB page frame + an 8 MiB expanded
@@ -340,7 +340,7 @@ way to its **root cause** — a DOS memory-management fidelity gap. The chain, f
   the registry **is** empty.
 
 So the game manages memory by repeatedly **resizing its own program block** (`INT 21h/4Ah`, growing
-to ~35,200 paragraphs) plus a 928 KiB EMS allocation, then sub-allocating internally. `tools/dos`
+to ~35,200 paragraphs) plus a 928 KiB EMS allocation, then sub-allocating internally. `tools/platform/dos`
 now carries a **faithful DOS memory manager** (`dos_mem.go`) — a real **MCB chain** with correct
 `INT 21h/48h/49h/4Ah/52h` block, free, resize (grow-by-absorbing-free-neighbours) and coalesce
 semantics, replacing the earlier bump stub. That is the right foundation and matters for the deeper
@@ -358,7 +358,7 @@ under our emulation.
 That inconsistency looked like the signature of a **subtle CPU-core bug**, so the core was
 cross-validated against an independent reference — the **SingleStepTests/8088** suite, which gives a
 full initial CPU+RAM state, one instruction, and the exact resulting state, for thousands of cases
-per opcode. A differential harness (`tools/x86/harte_test.go`, gated on `HARTE_DIR`) loads each
+per opcode. A differential harness (`tools/cpu/x86/harte_test.go`, gated on `HARTE_DIR`) loads each
 case, `Step()`s once, and diffs registers/memory/flags (masking flags the 8088 leaves undefined,
 and skipping opcodes that genuinely differ between the 8088 and this core's 286+ choices).
 
@@ -521,10 +521,10 @@ It is the classic fixed-point-renderer trick, done through the interrupt vector.
 
 Reading that handler pinned a real oracle bug. It advances the pushed return IP by 2 to step over
 the 2-byte `IDIV` — which only lands correctly if the pushed IP is the **faulting** instruction's,
-the **286-and-later** `#DE` behaviour. `tools/x86` was pushing the *following* instruction's
+the **286-and-later** `#DE` behaviour. `tools/cpu/x86` was pushing the *following* instruction's
 address (the 8086/8088 quirk), so the handler returned one byte into the next instruction and
 transiently corrupted the view matrix at setup. Since this core models a 386-class machine (UW's
-target), it now pushes the faulting address (`divErr` + `CPU.instrIP` in `tools/x86/exec.go`); the
+target), it now pushes the faulting address (`divErr` + `CPU.instrIP` in `tools/cpu/x86/exec.go`); the
 8088 differential harness skips the divide-*exception* cases as the documented generational
 difference (the same class as the already-skipped `PUSHF` reserved bits). The `SingleStepTests/8088`
 suite still passes.
@@ -990,20 +990,20 @@ page-file cutscene format.
 
 ## Appendix A — Tools
 
-- `tools/x86` — the shared 16-bit real-mode x86 disassembler (`Decode`/`Disassemble`) **and**
+- `tools/cpu/x86` — the shared 16-bit real-mode x86 disassembler (`Decode`/`Disassemble`) **and**
   execution core (`CPU`/`Bus`/`Step`).
 - `tools/cmd/disx86` — linear disassembler; `tools/cmd/codetracex86` — recursive code-tracer.
-- `tools/dos` — the **reusable real-mode DOS/PC machine** (the oracle) built on `tools/x86`:
+- `tools/platform/dos` — the **reusable real-mode DOS/PC machine** (the oracle) built on `tools/cpu/x86`:
   `mz.go` (MZ loader + relocations, `ParseMZ`/`LoadEXE`), `dos.go`/`dos_int.go` (`INT 21h`
   services: file I/O, FindFirst/Next, MCB memory, vectors, scratch filesystem), `dos_mem.go`
   (MCB chain), `dos_ems.go` (LIM EMS `INT 67h`), `dos_video.go`/`dos_vga.go` (VGA BIOS + planar
   VGA), `dos_mouse.go` (`INT 33h`), `dos_io.go` (PC ports + timer IRQ), `dos_keyboard.go`
   (keyboard/mouse input injection). Game-agnostic — first proven on UW but nothing here is
   UW-specific.
-- `extract/cmd/bootoracle` — the UW driver: loads `game/UW.EXE` on `tools/dos`, seeds `SAVE0`,
+- `extract/cmd/bootoracle` — the UW driver: loads `game/UW.EXE` on `tools/platform/dos`, seeds `SAVE0`,
   and exposes `-trace`/`-log`/`-dump`/`-dis`/`-shot`/`-keys`/`-irq` with a decoded instruction
   ring and spin/runaway detectors.
-- `extract/cmd/uwinfo` — Part I recon: decode the UW.EXE header/layout (via `tools/dos.ParseMZ`)
+- `extract/cmd/uwinfo` — Part I recon: decode the UW.EXE header/layout (via `tools/platform/dos.ParseMZ`)
   and inventory `game/`.
 - `extract/lev` + `extract/cmd/levinfo` — Part V: decode `LEV.ARK` (archive blocks + the 64×64
   tile map) and render a level; the tile fields were derived from the game's own decode code via

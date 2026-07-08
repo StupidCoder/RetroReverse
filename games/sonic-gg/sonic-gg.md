@@ -21,7 +21,7 @@ writeup follows the same shape as the C64 and Amiga games, in reading order:
 
 Methods: purely static analysis of the ROM image, plus the Z80 toolchain built for
 it in the shared `tools/` module — the disassemblers (`tools/cmd/disz80`,
-`tools/cmd/codetracez80`) over the `tools/z80` decoder. All addresses are Z80
+`tools/cmd/codetracez80`) over the `tools/cpu/z80` decoder. All addresses are Z80
 addresses (16-bit, `$0000`–`$FFFF`) unless a *file offset* is called out; bytes are
 8-bit. Parts I–III are complete and Part IV is under way; Part V is stubbed.
 
@@ -569,7 +569,7 @@ console shows, and §4 does it for a whole scrolling level, both as end-to-end c
 ## 1. The VDP formats
 
 These are standard Mode-4 hardware formats, decoded by the reusable
-[`tools/gamegear`](tools/gamegear) package (so they are shared, not Sonic-specific):
+[`tools/platform/gamegear`](tools/platform/gamegear) package (so they are shared, not Sonic-specific):
 
 - **Tiles** — 8×8 pixels, **4 bitplanes** (16 colours), **32 bytes** each, stored
   *row-interleaved*: each pixel row is 4 bytes (one per bitplane), and pixel *x*'s
@@ -589,7 +589,7 @@ bits/byte). The decompressor is the routine at **`$0406`**; it is a **4-byte-uni
 LZ** — a literal/back-reference scheme whose unit is one *tile row* (4 bitplane
 bytes), so a repeated row (a blank row, a flat fill) costs a single bit. It is a
 game-specific *software* codec, so it lives in the game's
-[`extract/decomp`](extract/decomp) module, not in `tools/gamegear`.
+[`extract/decomp`](extract/decomp) module, not in `tools/platform/gamegear`.
 
 A compressed block is addressed as a `(bank, address)` pair; the routine's prologue
 **normalises** it (`while addr ≥ $4000: addr -= $4000; bank++`) and maps two
@@ -625,7 +625,7 @@ map** loaded wholesale. Both then get a per-frame sprite layer and, on the title
 blinking text overlay. This section follows the actual routines.
 
 To do that I let the game run and watched what it did, using the Game Gear machine
-model in [`tools/gamegear`](../../tools/gamegear) (the `z80` core wired to RAM, the
+model in [`tools/platform/gamegear`](../../tools/platform/gamegear) (the `z80` core wired to RAM, the
 Sega mapper and a VDP that captures VRAM/CRAM) as an *oracle*. Two things make it a
 tracing tool rather than just a renderer: [`extract/cmd/screentrace`](extract/cmd/screentrace)
 fingerprints VRAM every frame (so palette fades don't hide the moments the picture
@@ -1666,7 +1666,7 @@ half/edge blocks. The figure is built by reading the profiles straight from `$3E
 
 > **Toolchain fix — `LD (IX+d),n` operand swap.** Chasing this floor snap, a value-capturing
 > write trace showed an instruction at `$4C75` (`LD (IX+20),$05`) writing the *wrong* address
-> and value. The cause was in `tools/z80`: `case 6 /*LD r,n*/ { c.setR(y, c.fetch()) }` — Go
+> and value. The cause was in `tools/cpu/z80`: `case 6 /*LD r,n*/ { c.setR(y, c.fetch()) }` — Go
 > evaluates the `c.fetch()` argument first, so for `LD (IX+d),n` it read the **immediate
 > before the displacement** and swapped them, corrupting every IX/IY-relative immediate store.
 > Fixed (resolve the `(idx+disp)` address before fetching `n`) with a regression test; this
@@ -1900,10 +1900,10 @@ are approximations of the real chip.
 
 Static analysis only, with the Z80 toolchain in the shared `tools/` module:
 
-- [`tools/z80`](../../tools/z80) — a Z80 decoder (`Decode`/`Disassemble`) built on
+- [`tools/cpu/z80`](../../tools/cpu/z80) — a Z80 decoder (`Decode`/`Disassemble`) built on
   the CPU's regular x/y/z/p/q opcode bit-fields, covering the `CB`/`ED`/`DD`/`FD`
   prefix pages, plus an **execution core** (`cpu.go`) for running real code.
-- [`tools/gamegear`](../../tools/gamegear) — the Game Gear hardware: the VDP tile,
+- [`tools/platform/gamegear`](../../tools/platform/gamegear) — the Game Gear hardware: the VDP tile,
   palette and name-table decoders, and a minimal `Machine` (RAM + Sega mapper + VDP
   ports) that drives the Z80 core as an emulation oracle, with a per-region write
   counter and a **VRAM write watchpoint** (record the PC of whatever draws a given

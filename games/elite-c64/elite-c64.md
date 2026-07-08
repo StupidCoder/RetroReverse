@@ -1815,7 +1815,7 @@ chorused texture the music is known for. Voice 1 plays clean, carrying the bass 
 ## 4. The music — the Blue Danube docking waltz
 
 Walking the `$C034` stream to its loop opcode (a Go reimplementation of the dispatcher,
-rendered through the shared SID emulator `tools/c64/sid` and confirmed by ear) shows the
+rendered through the shared SID emulator `tools/platform/c64/sid` and confirmed by ear) shows the
 engine plays **one piece**: `$C034`–`$CA6A`, about **2.6 KB**, **916 notes** across the
 three voices, ~141 s long, ending in a single op-9 loop back to the start. The piece is
 **Johann Strauss II's *The Blue Danube* waltz** — the classic nod to *2001: A Space
@@ -1855,7 +1855,7 @@ to recover: this image plays only the docking waltz.
 
 The format is fully reimplemented in `extract/cmd/musicrender`: it runs the `$BDDC`
 opcode list over the `$C034` data and drives a from-scratch MOS 6581 emulator
-(`tools/c64/sid` — three oscillators, the reSID-style ADSR, and the multimode filter),
+(`tools/platform/c64/sid` — three oscillators, the reSID-style ADSR, and the multimode filter),
 ticking at the PAL frame rate and modelling the `+$20` two-oscillator detune and the
 `$C6==2` gate-release, to render the waltz straight from the ROM image to audio.
 
@@ -1895,14 +1895,14 @@ wire itself, the extractor does not reimplement the protocol. Instead it
 with the other games in this repository via the `tools` module (see the
 root `README.md`); only the Elite-specific glue lives in `extract/`:
 
-1. `tools/c64/tap` parses the TAP container into pulses.
-2. `tools/c64/cbmtape` decodes the ROM-format boot file (checksum verified).
-3. `tools/mos6502` (CPU) and `tools/c64/c64` (machine model) run the boot
+1. `tools/platform/c64/tap` parses the TAP container into pulses.
+2. `tools/platform/c64/cbmtape` decodes the ROM-format boot file (checksum verified).
+3. `tools/cpu/mos6502` (CPU) and `tools/platform/c64/c64` (machine model) run the boot
    code on a small 6502 emulator. The only hardware modelled is what the
    loader touches: CIA1 FLAG edges fed from the TAP pulse stream, and CIA2
    timers A/B as pulse-width discriminators against their latches. The
    standard KERNAL tape entry points ($FCDB, $FCD1, $FCCA, $FF90) are
-   provided by `tools/c64/c64`; the Elite-specific hooks in `extract/driver.go`
+   provided by `tools/platform/c64/c64`; the Elite-specific hooks in `extract/driver.go`
    add KERNAL LOAD ($FFD5/ILOAD) and the BASIC statement loop $A7EA, which
    drives the loaded `LOAD`/`LOAD`/`SYS` stub.
 4. `extract/main.go` logs every memory write performed while tape pulses are
@@ -1916,7 +1916,7 @@ root `README.md`); only the Elite-specific glue lives in `extract/`:
 # repository root lets the extract module find the shared tools packages.
 
 # 1. Summarise the tape (pulse histogram + segment map)
-go run retroreverse.com/tools/c64/cmd/tapdump Elite.tap
+go run retroreverse.com/tools/platform/c64/cmd/tapdump Elite.tap
 
 # 2. Extract all program files by running the loader under emulation
 ( cd extract && go build -o extract . )

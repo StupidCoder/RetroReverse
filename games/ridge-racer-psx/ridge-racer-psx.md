@@ -2,27 +2,20 @@
 
 **Image:** `Ridge Racer (Track 01).bin` — 3,683,232 bytes, MD5 `ec755afa6ca49432445384b870412dfb` (data track only). Not committed (copyright); supply your own copy.
 
-Ridge Racer (Namco, 1993 arcade / 1994 PlayStation launch title) is one of the first true 3D
-console racing games — a texture-mapped, GTE-transformed track running at 30 fps on brand-new
-hardware. This document reverse-engineers the *shipped PlayStation disc* from its bytes alone, the
-same way the other titles in this repository are taken apart: no third-party emulator, debugger or
-disassembler, no released source, and nothing about the file or instruction formats taken from
-external documentation. Everything here is derived from the image via our own tools.
+Ridge Racer (Namco, 1993 arcade / 1994 PlayStation) is a texture-mapped, GTE-transformed 3D
+racing game running at 30 fps. This document reconstructs the shipped PlayStation disc from its
+bytes alone: no third-party emulator, debugger or disassembler, no released source, and nothing
+about the file or instruction formats taken from external documentation. Everything is derived
+from the image with purpose-built tools.
 
-It is the repository's **first Sony PlayStation title**, and its **first MIPS** target. Every
-prior game ran on a CPU we already had tooling for — 6502, 68000, Z80, SM83, ARM, x86. The PSX
-runs a **MIPS R3000A** (the LSI CW33300 core) with a fixed-point 3D coprocessor, the **GTE**, that
-nothing else in the repo resembles, so a large part of this project is building that toolchain: a
-MIPS disassembler, a recursive code-tracer, an execution core, a bit-exact GTE, and a **machine
-oracle** that boots the game — in the same spirit as `tools/x86`/`tools/dos` for Ultima Underworld.
+The PlayStation runs a **MIPS R3000A** (the LSI CW33300 core) with a fixed-point 3D coprocessor,
+the **GTE**. Analysing the disc requires a MIPS toolchain: a disassembler, a recursive code-tracer,
+an execution core, a bit-exact GTE, and a **machine oracle** that boots the game. The whole game
+loads into the console's 2 MiB of RAM — which is why the game CD can be swapped for any music CD
+mid-race — so the data track holds the executable and every asset.
 
-Ridge Racer is a deliberate first PSX pick: the whole game is tiny (it famously loads into the
-console's 2 MiB of RAM so you can swap the game CD for any music CD mid-race), and as an
-arcade-faithful launch title it is unlikely to lean on undocumented hardware quirks.
-
-Image: `Ridge Racer (Track 01).bin`, 3,683,232 bytes, MD5 `ec755afa6ca49432445384b870412dfb`
-(pinned in `../README.md`). This is the disc's **data track only**; the in-game music lives on
-separate Redbook CD-audio tracks (the CD-swap feature) that are not part of this file.
+The image is the disc's **data track only**; the in-game music lives on separate Redbook
+CD-audio tracks (the CD-swap feature) that are not part of this file.
 
 ## Contents
 
@@ -31,8 +24,8 @@ separate Redbook CD-audio tracks (the CD-swap feature) that are not part of this
   its load layout and embedded string tables. *(done)*
 * **Part II** — the **MIPS R3000 / PSX toolchain**: a MIPS disassembler, a recursive code-tracer,
   an execution core (with the R3000's branch- and load-delay slots), a bit-exact **GTE**, and a
-  **machine oracle** with an HLE BIOS that **boots the real game** — mirroring the ARM/x86
-  toolchains. *(done — the oracle boots Ridge Racer into its CD-ready wait loop, and the game's own
+  **machine oracle** with an HLE BIOS that **boots the real game**. *(done — the oracle boots Ridge
+  Racer into its CD-ready wait loop, and the game's own
   debug output comes back through the emulated BIOS)*
 * **Part III** — CD-ROM + interrupt delivery to advance the boot past the CD wait loop into the
   interrupt-driven main loop. *(planned)*
@@ -41,7 +34,7 @@ separate Redbook CD-audio tracks (the CD-swap feature) that are not part of this
 * **Part V** — the **GPU**: the GP0/GP1 command stream, VRAM and the ordering-table DMA, and a
   screenshot of the first rendered frame. *(planned — the GTE it depends on is done)*
 
-Methods: purely static analysis of the shipped image, plus dynamic analysis via our own PSX oracle.
+Methods: purely static analysis of the shipped image, plus dynamic analysis via the PSX oracle.
 Addresses are MIPS virtual addresses (`0x8000xxxx` in the cached KSEG0 window) or byte offsets into
 a file (called out explicitly); bytes are little-endian.
 
@@ -66,11 +59,11 @@ $0018  ... 2048 bytes of user data ...
 Mode byte `$02` and a subheader submode with the data bit set make every sector **Mode 2, Form 1**:
 2,048 bytes of user data starting at offset `$18`, wrapped in the CD's sync/header/subheader/EDC/ECC
 framing. Stripping that framing to expose the 2,048-byte payload of each logical block is the one
-job unique to a CD image versus a flat disk; our reader folds it into the block accessor, exactly as
+job unique to a CD image versus a flat disk; the reader folds it into the block accessor, exactly as
 the Amiga `adf` reader hands back 512-byte blocks:
 
 ```
-tools/psx/cd.go  →  func (v *Volume) block(n int) []byte   // img[n*2352+0x18 : +2048]
+tools/platform/psx/cd.go  →  func (v *Volume) block(n int) []byte   // img[n*2352+0x18 : +2048]
 ```
 
 ## 2. The ISO 9660 filesystem
@@ -107,7 +100,7 @@ index ADPCM samples in the `.VB` body); the `.TMS` files are the game's texture 
 and `.RRO` are the track and object data. All of these are Part IV/V targets. Re-list at any time:
 
 ```
-go run retroreverse.com/tools/psx/cmd/psxinfo -ls "Ridge Racer (PSX)/Ridge Racer (Track 01).bin"
+go run retroreverse.com/tools/platform/psx/cmd/psxinfo -ls "Ridge Racer (PSX)/Ridge Racer (Track 01).bin"
 ```
 
 `SYSTEM.CNF` is the 68-byte boot script the console reads first — plain text:
@@ -126,8 +119,8 @@ which is why the volume is `RIDGERACERUSA`.
 ## 3. The PS-X EXE
 
 `SCUS-943.00` begins with the ASCII bytes **`PS-X EXE`**, the PlayStation executable signature. The
-format is a fixed 2,048-byte (`$800`) header followed by the raw text image; our loader
-(`tools/psx/exe.go`, the analog of `tools/dos/mz.go`) decodes it:
+format is a fixed 2,048-byte (`$800`) header followed by the raw text image; the loader
+(`tools/platform/psx/exe.go`) decodes it:
 
 | Field | Value | Meaning |
 |---|---:|---|
@@ -144,7 +137,7 @@ cached window; physically it is RAM offset `0x10000`, leaving the low 64 KiB for
 scratch. Verify:
 
 ```
-go run retroreverse.com/tools/psx/cmd/psxinfo -exe "SCUS-943.00;1" "Ridge Racer (PSX)/Ridge Racer (Track 01).bin"
+go run retroreverse.com/tools/platform/psx/cmd/psxinfo -exe "SCUS-943.00;1" "Ridge Racer (PSX)/Ridge Racer (Track 01).bin"
 ```
 
 ## 4. What's inside the executable
@@ -170,11 +163,11 @@ this table the image is MIPS code; Part II builds the tools to read it.
 # Part II — The MIPS R3000 / PSX toolchain
 
 Everything past Part I needs to read and run MIPS. The toolchain mirrors the existing per-CPU
-packages (`tools/arm`, `tools/x86`, `tools/sm83`) and lives at **`tools/mips`** (the CPU) and
-**`tools/psx`** (the disc reader, executable loader and machine), platform-neutral under the shared
+packages (`tools/cpu/arm`, `tools/cpu/x86`, `tools/cpu/sm83`) and lives at **`tools/cpu/mips`** (the CPU) and
+**`tools/platform/psx`** (the disc reader, executable loader and machine), platform-neutral under the shared
 `retroreverse.com/tools` module.
 
-## 1. The disassembler (`tools/mips`) — done
+## 1. The disassembler (`tools/cpu/mips`) — done
 
 A table-driven decoder for the **MIPS I** instruction set plus the PSX's coprocessors (COP0 system
 control, COP2 = the GTE), returning the repository's common
@@ -219,9 +212,9 @@ MIPS — the C-runtime prologue, a classic BSS-clear loop with its branch delay 
   The 51 unresolved indirect transfers are `jr`-through-register jump tables — the seed list for the
   static↔dynamic loop, resolved by watching the oracle run them live (§5).
 
-## 3. The execution core (`tools/mips` CPU) — done
+## 3. The execution core (`tools/cpu/mips` CPU) — done
 
-`tools/mips` carries a full R3000 interpreter (`cpu.go`/`exec.go`) — a `CPU` over a small `Bus`,
+`tools/cpu/mips` carries a full R3000 interpreter (`cpu.go`/`exec.go`) — a `CPU` over a small `Bus`,
 covering the whole MIPS I set: the ALU/shift ops, `mult`/`div` (with the R3000's specific
 divide-by-zero and `INT_MIN/-1` results), the aligned and unaligned loads/stores
 (`lwl`/`lwr`/`swl`/`swr`), all branches and jumps, the HI/LO pair, and COP0 exceptions
@@ -241,13 +234,13 @@ Two R3000 pipeline hazards are modelled because real code depends on them:
 It is unit-tested with small hand-assembled programs proving both hazards, `jal`/`jr` call-return,
 `mult`/`div`, `$zero` hardwiring and the add-overflow trap, and there is an env-gated differential
 harness (`singlestep_test.go`) that diffs the core against the **SingleStepTests/psx** vectors
-instruction-by-instruction, in the same spirit as the x86 core's 8088 validation.
+instruction-by-instruction against a reference test suite.
 
-## 4. The GTE (`tools/mips/gte.go`) — done
+## 4. The GTE (`tools/cpu/mips/gte.go`) — done
 
 The PlayStation's 3D math runs on the **GTE** (Geometry Transformation Engine, coprocessor 2): a
 fixed-point matrix/vector engine with no floating point, reached through `cop2` commands and
-`mfc2`/`mtc2`/`cfc2`/`ctc2` register moves. It is the one genuinely new, hard component. Our GTE
+`mfc2`/`mtc2`/`cfc2`/`ctc2` register moves. It is the one genuinely new, hard component. The GTE
 implements the register file (with the screen-XY / screen-Z ordering-table FIFOs, the IRGB colour
 packing and the leading-zero-count registers) and the transform + ordering-table + matrix-vector
 command subset a racer leans on: **RTPS/RTPT** (rotate-translate-perspective), **NCLIP** (back-face
@@ -259,16 +252,16 @@ input vector exactly, NCLIP computes signed area, AVSZ averages Z, and the UNR d
 closed-form quotient to within one unit in the last place. It hangs off the CPU as an optional
 coprocessor hook, exactly as `arm.CPU` routes CP15.
 
-## 5. The machine oracle (`tools/psx`) — done, and it boots the game
+## 5. The machine oracle (`tools/platform/psx`) — done, and it boots the game
 
 The tracer's static reach ends at those 51 indirect jumps; the answer is the same one the DS and
-DOS titles needed — an execution core that *runs* the game and we watch. `tools/psx` wires the CPU +
+DOS titles needed — an execution core that *runs* the game so its behaviour can be observed. `tools/platform/psx` wires the CPU +
 GTE to the PSX memory map: 2 MiB RAM (with its KSEG0/KSEG1 mirrors), the 1 KiB scratchpad, the
 hardware I/O register window (`I_STAT`/`I_MASK`, a "ready" `GPUSTAT`, DMA channel auto-complete,
 timers), and a **high-level-emulated BIOS**. Rather than a firmware image, the BIOS `A0`/`B0`/`C0`
 call vectors are intercepted at their fixed entry addresses and serviced in Go —
 `InitHeap`/`malloc`, `memcpy`/`memset`, `printf`, `putchar`, the event/pad calls, `FlushCache` — the
-same approach `tools/dos` takes with `INT 21h`, with unhandled calls logged once so the next one to
+same approach `tools/platform/dos` takes with `INT 21h`, with unhandled calls logged once so the next one to
 implement is obvious. A minimal exception handler at `0x80000080` services the critical-section
 `syscall`s.
 
@@ -276,7 +269,7 @@ implement is obvious. A minimal exception handler at `0x80000080` services the c
 clears BSS, sets up the stack, and the game's initialization proceeds through the BIOS into its CD
 setup — tens of millions of instructions of real code with no wrong turn and no unimplemented-opcode
 halt. It parks in **Ridge Racer's own CD-ready wait loop** (a bounded counter poll around
-`0x8004B648`), where it idles because we have not yet wired the CD drive and its interrupt to change
+`0x8004B648`), where it idles because the CD drive and its interrupt are not yet wired to change
 the status byte it is watching — precisely the Part III entry point.
 
 The clinching evidence is the game's **own debug output**, captured through the HLE `printf` and
@@ -308,7 +301,7 @@ disassembly, and the oracle resolves the indirect jumps the static pass left ope
 
 | Command | Role |
 |---|---|
-| `tools/psx/cmd/psxinfo` | inspect the disc: `-ls`, `-pvd`, `-extract PATH -o FILE`, `-exe PATH` |
+| `tools/platform/psx/cmd/psxinfo` | inspect the disc: `-ls`, `-pvd`, `-extract PATH -o FILE`, `-exe PATH` |
 | `tools/cmd/dismips` | linear MIPS disassembler (`-off`/`-len`/`-base`) |
 | `tools/cmd/codetracemips` | recursive-descent tracer (`-entry`/`-table`/`-annotate`), delay-slot aware |
 | `Ridge Racer (PSX)/extract/cmd/bootoracle` | boot the game under the oracle (`-trace`/`-bp`/`-watch`/`-log`/`-tty`) |

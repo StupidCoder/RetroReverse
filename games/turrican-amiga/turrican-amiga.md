@@ -22,9 +22,9 @@ order:
 * **Appendices** — toolchain and reproduction.
 
 Methods: purely static analysis of the disk image, plus the 68000 toolchain in
-the shared `tools/` module — the AmigaDOS reader (`tools/amiga/adf`), the
+the shared `tools/` module — the AmigaDOS reader (`tools/platform/amiga/adf`), the
 disassemblers (`tools/cmd/dis68k`, `tools/cmd/codetrace68k`) and the 68000
-execution core (`tools/m68k`) for dynamic verification. All addresses are 68000
+execution core (`tools/cpu/m68k`) for dynamic verification. All addresses are 68000
 addresses; sizes are `.b`/`.w`/`.l` (8/16/32-bit). **Parts I–II are complete;
 Parts III–V are stubs.**
 
@@ -550,14 +550,14 @@ The engine doesn't ship complete in the resident image — `game_init` and
 
   Its decruncher (`pp20_decrunch $6078C`) is the **standard PowerPacker "PP20"**
   format, reimplemented as a reusable Go package
-  (`tools/amiga/powerpacker`) since PP20 is one of the most common Amiga
+  (`tools/platform/amiga/powerpacker`) since PP20 is one of the most common Amiga
   crunchers. The module is recovered and **verified byte-identical against the
   FS-UAE oracle**:
 
   ```sh
   go run turrican/extract/cmd/decrunch -o /tmp/turrican.bin "Turrican (Amiga)/Turrican.adf"
   # the PP20 block sits at image $6C186..$703EA = file offset $28906, length $42E4
-  go run retroreverse.com/tools/amiga/cmd/ppdecrunch \
+  go run retroreverse.com/tools/platform/amiga/cmd/ppdecrunch \
     -off 0x28906 -len 0x42E4 -o /tmp/mod_30000.bin /tmp/turrican.bin
   # decrunched 31272 bytes, md5 3c249c100bb1a00792e6fa92016e9900
   ```
@@ -605,7 +605,7 @@ This matches the cabinet credit — the music is a **Chris Hülsbeck** score.
 > object/state dispatch tables, toward the player, enemies and level handling
 > (Parts IV–V). All three streamed modules are now recovered (the `$1BB00` sound
 > driver, the `$50000` loader-sound player, and the `$30000` OS-interface module
-> via the new `tools/amiga/powerpacker`).
+> via the new `tools/platform/amiga/powerpacker`).
 
 ## 6. The game loop
 
@@ -1256,7 +1256,7 @@ The disk facts above reproduce with the shared tools:
 md5 "Turrican (Amiga)/Turrican.adf"
 
 # confirm it is not an AmigaDOS volume
-go run retroreverse.com/tools/amiga/cmd/adfdump "Turrican (Amiga)/Turrican.adf"
+go run retroreverse.com/tools/platform/amiga/cmd/adfdump "Turrican (Amiga)/Turrican.adf"
 
 # disassemble the boot block (code starts at +12)
 go run retroreverse.com/tools/cmd/dis68k -skip 12 -base 0xc "Turrican (Amiga)/Turrican.adf"

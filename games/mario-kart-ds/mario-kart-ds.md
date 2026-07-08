@@ -6,12 +6,12 @@ A reverse-engineering reference for `Mario Kart DS (Europe) (En,Fr,De,Es,It).nds
 
 * **Part I** — the cartridge image: the `.nds` container, its header, the ARM9/ARM7 binaries and overlays, and the FNT/FAT filesystem that names ~600 asset files;
 * **Part II** — the boot chain: the cartridge header's entry points, the secure area, and how the ARM9 and ARM7 come up and hand off;
-* **Part III** — program architecture: the runtime memory map, how the game initialises through the OS layer, its interrupt and IPC-FIFO setup, and the ARM9↔ARM7 rendezvous — pinned by running the boot on the `tools/arm` core as an oracle;
+* **Part III** — program architecture: the runtime memory map, how the game initialises through the OS layer, its interrupt and IPC-FIFO setup, and the ARM9↔ARM7 rendezvous — pinned by running the boot on the `tools/cpu/arm` core as an oracle;
 * **Part IV** — graphics and data formats: peeling the asset layers (`.carc` → LZ77 → `NARC` archive → NITRO resources), decoding all seven `NSBTX` texture formats, the `NCLR`/`NCGR`/`NSCR` 2D tile pipeline, and the `NSBMD` 3D models (nodes, scene bytecode, GX display lists) — every track texture and UI screen rendered, every menu kart and character exported to GLB;
 * **Part V** — game mechanics: the NKM course map (checkpoints and the lap graph, the CPU drive line, item routes, spawns, objects — the full track layout), the engine's object-spawn chain (the NKM loader, its 17 positional section parsers, and the 124-entry map-object descriptor table) and the route-follower that moves objects along their paths, with collision and kart physics ahead;
 * **Appendix A** — toolchain and reproduction.
 
-Methods: purely static analysis of the `.nds` image. The DS needed a new toolchain — the shared 6502/68000/Z80/LR35902 decoders do not apply — so this project is built on the new `tools/nds` cartridge reader (header, FNT/FAT, overlays, BLZ decompression) and the new `tools/arm` ARM/Thumb disassembler and CPU core, with `tools/nds/cmd/ndsinfo` for the container catalog, the game's `mariokartds/extract` `ndsextract` to pull the CPU binaries, and `retroreverse.com/tools/cmd/disarm` / `codetracearm` for the code. All addresses are 32-bit ARM addresses (`$02000000`-style main-RAM addresses, or the ARM9/ARM7 BIOS and I/O regions) unless a *file offset* into the ROM image is explicitly called out; bytes are little-endian. **Parts I–IV are essentially complete (IV: every 2D format, every texture and screen, and the `NSBMD` models — karts, characters and all course scenes with their skyboxes — rendered and exported to GLB in the viewer site; `NCER` cells and `SDAT` remain). Part V has begun: the NKM course map — the full track layout — is decoded and figure-verified for all 59 courses; collision and physics are its frontier.**
+Methods: purely static analysis of the `.nds` image. The DS needed a new toolchain — the shared 6502/68000/Z80/LR35902 decoders do not apply — so this project is built on the new `tools/platform/nds` cartridge reader (header, FNT/FAT, overlays, BLZ decompression) and the new `tools/cpu/arm` ARM/Thumb disassembler and CPU core, with `tools/platform/nds/cmd/ndsinfo` for the container catalog, the game's `mariokartds/extract` `ndsextract` to pull the CPU binaries, and `retroreverse.com/tools/cmd/disarm` / `codetracearm` for the code. All addresses are 32-bit ARM addresses (`$02000000`-style main-RAM addresses, or the ARM9/ARM7 BIOS and I/O regions) unless a *file offset* into the ROM image is explicitly called out; bytes are little-endian. **Parts I–IV are essentially complete (IV: every 2D format, every texture and screen, and the `NSBMD` models — karts, characters and all course scenes with their skyboxes — rendered and exported to GLB in the viewer site; `NCER` cells and `SDAT` remain). Part V has begun: the NKM course map — the full track layout — is decoded and figure-verified for all 59 courses; collision and physics are its frontier.**
 
 ---
 
@@ -67,7 +67,7 @@ Two integrity fields in the header are checkable without running anything, and b
 - the **header checksum** at `$15E` is a CRC-16 (MODBUS: reflected poly `$A001`, init `$FFFF`) over header bytes `$000`–`$15D`. Computed `$73A0`, stored `$73A0` ✓.
 - the **Nintendo-logo checksum** at `$15C` covers the compressed logo bitmap at `$0C0`–`$15B` that the BIOS validates on boot; stored `$CF56`, the fixed value every genuine retail cartridge carries ✓.
 
-The image is pinned by size and MD5 in the repository [README](../README.md#image-files); the Appendix repeats the verify command. All of Part I is produced by `tools/nds/cmd/ndsinfo` reading those header/FNT/FAT structures directly out of the image.
+The image is pinned by size and MD5 in the repository [README](../README.md#image-files); the Appendix repeats the verify command. All of Part I is produced by `tools/platform/nds/cmd/ndsinfo` reading those header/FNT/FAT structures directly out of the image.
 
 ## 2. The DS dual-CPU architecture and the address map
 
@@ -93,7 +93,7 @@ Both CPUs share the single 4 MiB main memory at `$02000000`–`$023FFFFF`; the A
 
 The ARM7 sees a smaller, different map: its own 16 KiB BIOS at `$00000000`, the shared main RAM at `$02000000`, a private 64 KiB WRAM at `$03800000` (plus its slice of the shared `$03000000` WRAM), its own I/O block at `$04000000` (sound, SPI/touchscreen, RTC) and the Wi-Fi region at `$04800000`. The two processors coordinate through the **IPC** hardware FIFO and shared-memory mailboxes in the `$04000000` I/O space — the mechanism traced in Part II.
 
-The ARM9 is an ARMv5TE core and the ARM7 an ARMv4T core; both run the 32-bit **ARM** and 16-bit **Thumb** instruction sets, switched via `BX`/`BLX`. Disassembling either binary therefore means tracking ARM-vs-Thumb state per address, which is exactly what `tools/arm` and `codetracearm` do (Appendix); the boot code is ARM, but large amounts of the game are Thumb to save the 32 MiB.
+The ARM9 is an ARMv5TE core and the ARM7 an ARMv4T core; both run the 32-bit **ARM** and 16-bit **Thumb** instruction sets, switched via `BX`/`BLX`. Disassembling either binary therefore means tracking ARM-vs-Thumb state per address, which is exactly what `tools/cpu/arm` and `codetracearm` do (Appendix); the boot code is ARM, but large amounts of the game are Thumb to save the 32 MiB.
 
 ## 3. The cartridge header (`$000`–`$15F`)
 
@@ -163,7 +163,7 @@ Everything that is not boot code — models, textures, tracks, UI graphics, the 
 - the **FAT** (file allocation table) at `$16D000`, `$1310` bytes, is a flat array of 8-byte records: a **start** and **end** file offset per file. `$1310 / 8 = 610` files. File *ID* is just the index; the bytes are `image[start:end]`. This is *storage framing only* — it says where a file is, nothing about what it contains.
 - the **FNT** (file name table) at `$16A000`, `$2E9E` bytes, is the **directory tree** that gives those numbered files names and a hierarchy. Its main table is an array of 8-byte directory records (record 0 = the root, whose "parent" field instead holds the total directory count); each record points at a **sub-table** listing that directory's entries. A sub-table entry is a control byte — `$00` ends the directory, `$01`–`$7F` is a file whose name length is the low 7 bits, `$81`–`$FF` is a subdirectory — followed by the name, and for a subdirectory a 2-byte child directory ID (`$F000 | n`). Files take **sequential IDs** starting from the directory record's "first file ID", which is how names bind to FAT indices.
 
-`tools/nds` walks the tree and joins the two tables: of the 610 FAT entries, IDs **0–3 are the four ARM9 overlays** (they have no filesystem name — the overlay table references them directly, §4), and IDs **4–609 are the 606 named files**. Walking from the root yields paths like `data/Course/airship_course.carc` and `data/KartModelMenu/character/mario/…`.
+`tools/platform/nds` walks the tree and joins the two tables: of the 610 FAT entries, IDs **0–3 are the four ARM9 overlays** (they have no filesystem name — the overlay table references them directly, §4), and IDs **4–609 are the 606 named files**. Walking from the root yields paths like `data/Course/airship_course.carc` and `data/KartModelMenu/character/mario/…`.
 
 One layering note, per the "separate the layers" rule: a filesystem file is *not* the asset. The first named file, `data/CharacterKartSelect.carc` (ID 4, `$27CA00`–`$28069F`), begins:
 
@@ -282,7 +282,7 @@ $02000B4C +0x00  0x021773C0   autoload list start
 
 The footer values (`enc_len $E351C`, `hdr_len $08`, `inc_len $8FEBC`) put the compressed region at ARM9 offset `$4000` upward (the secure-area/startup stub below it stays verbatim), and give a decompressed size of `$E751C + $8FEBC = $1773D8`. The ARM9 therefore expands from `$02000000`–`$020E751C` to `$02000000`–`$021773D8`, which is exactly why the far calls that follow (e.g. `BL 0x02133DA8`) land in valid code only *after* this step.
 
-BLZ is reimplemented from scratch in Go (`tools/nds`, `DecompressBLZ`) — reversing the compressed stream, running a forward LZSS, and reversing the result. Verified per the decode-reimplement rule: the output is exactly `$1773D8` bytes, its far-call targets disassemble as coherent ARM code, and the tiny 20-byte fourth overlay round-trips to its 32 known bytes (a unit-test golden vector). The game never ships decompressed; `ndsextract` regenerates `arm9_dec.bin` on demand.
+BLZ is reimplemented from scratch in Go (`tools/platform/nds`, `DecompressBLZ`) — reversing the compressed stream, running a forward LZSS, and reversing the result. Verified per the decode-reimplement rule: the output is exactly `$1773D8` bytes, its far-call targets disassemble as coherent ARM code, and the tiny 20-byte fourth overlay round-trips to its 32 known bytes (a unit-test golden vector). The game never ships decompressed; `ndsextract` regenerates `arm9_dec.bin` on demand.
 
 ## 4. Autoload, `.bss`, and the handoff to `main`
 
@@ -326,7 +326,7 @@ The ARM7's stacks live at the top of its private 64 KiB WRAM (`$03800000`–`$03
 
 Both binaries load into the same 4 MiB main RAM (`$02000000`; ARM9 at the base, ARM7 near the top at `$02380000`), and both reach `main` independently after the sequences above. From there they coordinate through the DS's **inter-processor communication** hardware in the `$04000000` I/O block — the `IPCSYNC` register (`$04000180`, a 4-bit mailbox each way plus an IRQ line) and the `IPCFIFO` (control at `$04000184`, the 64-byte send/receive FIFO at `$04100000`) — with main RAM used for the bulk payloads (input state, sound commands, DMA lists). The ARM9, owning the cartridge, streams the filesystem (Part I) and drives the game; the ARM7 services sound (the single `SDAT` bank), the touchscreen, buttons and wireless, reporting back over the FIFO.
 
-Part III §4–§5 picks this up: running the ARM9 boot on the `tools/arm` core as an oracle pins the exact IPCSYNC handshake by which the ARM9 blocks waiting for the ARM7. The full bidirectional command protocol still needs a dual-core oracle and remains a frontier.
+Part III §4–§5 picks this up: running the ARM9 boot on the `tools/cpu/arm` core as an oracle pins the exact IPCSYNC handshake by which the ARM9 blocks waiting for the ARM7. The full bidirectional command protocol still needs a dual-core oracle and remains a frontier.
 
 # Part III — Program architecture
 
@@ -334,11 +334,11 @@ Part II followed the boot to the game's `main`; Part III is about the machine th
 
 ## 1. The oracle: running the boot on our own core
 
-`mariokartds/extract`'s `bootoracle` loads the *compressed* ARM9 binary to `$02000000` exactly as the BIOS would, points the `tools/arm` core at the entry `$02000800`, and lets it run: a flat memory for RAM/TCM/WRAM, the handful of BIOS `SWI`s the startup needs (`CpuSet`/`CpuFastSet` memory moves, `WaitByLoop`), CP15 accepted and ignored, and every write to the `$04000000` I/O block logged. It runs the real startup — no shortcuts — and reports what the code *did*.
+`mariokartds/extract`'s `bootoracle` loads the *compressed* ARM9 binary to `$02000000` exactly as the BIOS would, points the `tools/cpu/arm` core at the entry `$02000800`, and lets it run: a flat memory for RAM/TCM/WRAM, the handful of BIOS `SWI`s the startup needs (`CpuSet`/`CpuFastSet` memory moves, `WaitByLoop`), CP15 accepted and ignored, and every write to the `$04000000` I/O block logged. It runs the real startup — no shortcuts — and reports what the code *did*.
 
 It executes ≈12.3 million instructions to reach `main` (`$02003000`), then the game init (`$020365F0`), and halts cleanly at the first thing a lone ARM9 cannot get past (§5). Two things fall straight out of that run, each a verification rather than a guess:
 
-- **The BLZ decompression is confirmed by the game itself.** After boot, the bytes the game's own `crt0` decompressor wrote into `$02000000…$0216F340` are **identical** to what `tools/nds`' independent `DecompressBLZ` produces (`bootoracle` diffs them) — divergence begins only at `$0216F340`, exactly `.bss` start, which the `crt0` then zero-fills. The Part II reimplementation and the real decompressor agree bit-for-bit over all code and data.
+- **The BLZ decompression is confirmed by the game itself.** After boot, the bytes the game's own `crt0` decompressor wrote into `$02000000…$0216F340` are **identical** to what `tools/platform/nds`' independent `DecompressBLZ` produces (`bootoracle` diffs them) — divergence begins only at `$0216F340`, exactly `.bss` start, which the `crt0` then zero-fills. The Part II reimplementation and the real decompressor agree bit-for-bit over all code and data.
 - **The startup reaches the framework on our core** — the decoder, the CPU core, the mode/bank handling and the memory model are correct enough to run millions of instructions of real ARM9 code, including the self-decompression, autoload and OS init, without a wrong turn.
 
 This is the oracle in the repository's sense: real code, our core, used to *confirm* structure — never to scrape decoded data out of RAM.
@@ -419,7 +419,7 @@ Part I catalogued the filesystem and noted (the "separate the layers" rule) that
 
 ## 1. Peeling the asset layers: LZ77 and NARC
 
-A `.carc` file is two layers over the real content, both reimplemented from scratch in `tools/nds` and verified against the image:
+A `.carc` file is two layers over the real content, both reimplemented from scratch in `tools/platform/nds` and verified against the image:
 
 - **LZ77** — Nintendo's standard *forward* LZSS (distinct from the *backward* BLZ the boot code uses, Part II §3). A 4-byte header (`0x10`/`0x11` type + 24-bit decompressed size) precedes flag-driven blocks of literals and back-references. `DecompressLZ77` decompresses `data/CharacterKartSelect.carc` (`0x10`, declared size `$850C`) to exactly `$850C` bytes beginning `NARC`. ✓
 - **NARC** (Nintendo ARChive) — the bundle underneath, the same idea as the cartridge filesystem in miniature: a `BTAF` file-allocation table (start/end offsets), a usually-flat `BTNF` name table, and a `GMIF` blob of file data. `ParseNARC` (which LZ77-decompresses first, so a raw `.carc` is accepted directly) splits `beach_courseTex.carc` into its 11 sub-files, and `mario_course.carc` into 21.
@@ -450,7 +450,7 @@ DK_emblem "emblem": param = $2D200000
 
 ## 3. Texture formats and palettes
 
-Palette colours are 15-bit **BGR555** words (`tools/nds/nitro` expands each 5-bit channel to 8-bit); colour index 0 is transparent when the texture's flag says so. All seven DS texture formats are decoded: 2 (4-colour, 2bpp), 3 (16-colour, 4bpp), 4 (256-colour, 8bpp), 1 (**A3I5**: 3-bit alpha + 5-bit index) and 6 (**A5I3**: 5-bit alpha + 3-bit index) for translucency, 7 (direct 16bpp), and 5 (4x4-compressed, §4). Two facts had to be pinned empirically against real sets:
+Palette colours are 15-bit **BGR555** words (`tools/platform/nds/nitro` expands each 5-bit channel to 8-bit); colour index 0 is transparent when the texture's flag says so. All seven DS texture formats are decoded: 2 (4-colour, 2bpp), 3 (16-colour, 4bpp), 4 (256-colour, 8bpp), 1 (**A3I5**: 3-bit alpha + 5-bit index) and 6 (**A5I3**: 5-bit alpha + 3-bit index) for translucency, 7 (direct 16bpp), and 5 (4x4-compressed, §4). Two facts had to be pinned empirically against real sets:
 
 - the palette dictionary's offset word is in **8-byte units** (`<<3`, like the `TEX0` size fields) — proved by the last palettes of a full course set landing exactly inside the palette region, where a `<<4` read overshoots it;
 - textures and palettes are named *and ordered independently*, and the naming is erratic — `emblem`↔`emblem_pl`, but also `nr_road5`↔`road5_pl` (prefix dropped), `nr_dash_02`↔`nr_dash2`, `nr_start_line2`↔`nr_line_pl` — so `DecodeNSBTX` pairs them by **name similarity** (exact → containment → common suffix/substring). The authoritative binding lives in the material block of the `NSBMD` model that consumes the texture (§6); a texture set alone doesn't carry it.
@@ -472,7 +472,7 @@ With that layout every format-5 texture in the game decodes cleanly — Rainbow 
 
 ## 5. The 2D tile pipeline: NCLR, NCGR, NSCR
 
-The menus, HUD and every flat screen use the DS's 2D tile engines, and ship in three NITRO files that mirror the hardware's three memories — decoded in `tools/nds/nitro/g2d.go`:
+The menus, HUD and every flat screen use the DS's 2D tile engines, and ship in three NITRO files that mirror the hardware's three memories — decoded in `tools/platform/nds/nitro/g2d.go`:
 
 - **`NCLR`** (`RLCN`, block `TTLP`; the SDK also emits an `RPCN` variant, seen on the debug font) — palette RAM: BGR555 colours, 4bpp (16×16) or 8bpp (256);
 - **`NCGR`** (`RGCN`, block `RAHC`) — tile VRAM: 8x8-pixel characters at 4bpp or 8bpp (sprite-destined ones mark their dimensions `$FFFF` — "scattered", laid out by a cell file, §6);
@@ -484,7 +484,7 @@ Composing screen→tiles→palette reproduces what the 2D engine displays. Two g
 
 ## 6. NSBMD models: nodes, scene bytecode, display lists
 
-An `NSBMD` (`BMD0`, block `MDL0`) is a small named *scene*, not just a mesh, decoded in `tools/nds/nitro/model.go` + `displaylist.go` and pinned structure-by-structure against the game's own files (the 476-byte shadow-quad model was the Rosetta stone — small enough to hand-verify every field):
+An `NSBMD` (`BMD0`, block `MDL0`) is a small named *scene*, not just a mesh, decoded in `tools/platform/nds/nitro/model.go` + `displaylist.go` and pinned structure-by-structure against the game's own files (the 476-byte shadow-quad model was the Rosetta stone — small enough to hand-verify every field):
 
 - the **model header** carries section offsets (`+$04` SBC, `+$08` materials, `+$0C` shapes) and counts; then a resource dictionary of **nodes** (joints), each a packed TRS record — a flags word (bit 0 no-T, 1 no-R, 2 no-S, 3 *pivot*), fx32 translation, and either a full fx16 3x3 or a **pivot-compressed rotation**: one matrix element is ±1 (its index in flags bits 4–7, sign bit 8) and the 2x2 remainder is `{A,B;±B,±A}` (bits 9–10) from just two fx16 values;
 - the **SBC scene bytecode** walks the scene: `NODEDESC` (node × parent → the joint's world matrix, optionally stored to a GX matrix-stack slot — opcode bits `$20/$40` add store/restore operands), `MTX` (restore a slot), `MAT` (bind material), `SHP` (draw shape). Mario's menu model is seven `NODEDESC`s (root→body→arms→head) then four draw commands;
@@ -529,7 +529,7 @@ A placement subtlety, traced in code: the item boxes are authored at **road heig
 
 **Route-following objects move.** Placements whose `OBJI` entry names a route carry their `PATH`/`POIT` polyline in the JSON (36 across the cartridge: the Airship Fortress Bullet Bills and burners, the beach crabs, the desert Pokeys — and Desert Hills' *sun*, which circles the track on a route — the mansion's walking trees, Waluigi Pinball's iron balls). The viewer walks them along the polyline at constant world speed with the engine's follower semantics (Part V §3): wrap on looped paths, out-and-back on open ones, facing the travel direction. The per-type *speeds* live in engine code not yet traced, so a shared plausible speed stands in.
 
-**BTA0 texture animation, decoded** (`tools/nds/nitro/anim.go`, `DecodeNSBTA`). The `BTA0` sub-files of the course archives are material **texture-SRT animations** — the scrolling water, waterfalls and boost-panel arrows. One `SRT0` block holds a dict of animations (named for their target model); each is an `"M\0AT"` record `{u16 numFrames, u16 flags}` plus a dict of materials whose 0x28-byte entries are five 8-byte component records inline — `{u16 lastFrame, u8 0, u8 flags, u32 v}` for *scaleS, scaleT, rotation, transS, transT*. Component flag bit 7 selects a sampled track: `v` becomes the offset (relative to the `M\0AT` record) of u16 fx12 samples taken **every 4th frame**; otherwise `v` is an fx12 constant (rotation packs a `(sin,cos)` pair). The pin that proves the layout: the beach dash panel's last sample is `0xFBD` = 4096×60/61 *exactly* — one full texture wrap per 61-frame loop. All **47 course BTA0s decode** (81 material animations, 39 with sampled tracks; Rainbow Road alone has 11). `exportglb` emits them as `<course>.anims.json` and the viewer replays them at 60 fps on the matching GLB materials — the drawbridge's `Bdash` **boost-panel arrows scroll**, Yoshi Falls pours, and the course waters ripple as shipped.
+**BTA0 texture animation, decoded** (`tools/platform/nds/nitro/anim.go`, `DecodeNSBTA`). The `BTA0` sub-files of the course archives are material **texture-SRT animations** — the scrolling water, waterfalls and boost-panel arrows. One `SRT0` block holds a dict of animations (named for their target model); each is an `"M\0AT"` record `{u16 numFrames, u16 flags}` plus a dict of materials whose 0x28-byte entries are five 8-byte component records inline — `{u16 lastFrame, u8 0, u8 flags, u32 v}` for *scaleS, scaleT, rotation, transS, transT*. Component flag bit 7 selects a sampled track: `v` becomes the offset (relative to the `M\0AT` record) of u16 fx12 samples taken **every 4th frame**; otherwise `v` is an fx12 constant (rotation packs a `(sin,cos)` pair). The pin that proves the layout: the beach dash panel's last sample is `0xFBD` = 4096×60/61 *exactly* — one full texture wrap per 61-frame loop. All **47 course BTA0s decode** (81 material animations, 39 with sampled tracks; Rainbow Road alone has 11). `exportglb` emits them as `<course>.anims.json` and the viewer replays them at 60 fps on the matching GLB materials — the drawbridge's `Bdash` **boost-panel arrows scroll**, Yoshi Falls pours, and the course waters ripple as shipped.
 
 Two extras ride alongside each course GLB for the viewer:
 
@@ -542,7 +542,7 @@ Two extras ride alongside each course GLB for the viewer:
 
 All sound lives in one file: `data/Sound/sound_data.sdat` (3.3 MB), the NitroSDK sound archive. The retail build ships it with **three blocks — `INFO`, `FAT `, `FILE` — and no `SYMB`**: the symbol (name) block was stripped, so nothing on the cartridge names its own music. The `FAT` holds 284 files: **76 `SSEQ`** sequences (the music and jingles), **99 `SBNK`** instrument banks, **104 `SWAR`** wave archives and 5 `SSAR` effect archives (no streamed `STRM` audio at all — every note is sequenced). `INFO` binds them: a SEQ record `{u32 fileID, u16 bank, u8 vol, …}` names each sequence's bank and volume; a BANK record `{u32 fileID, u16 swar[4]}` gives each bank up to four wave archives.
 
-The three formats, decoded in `tools/nds/sdat` (the DS analogue of `tools/c64/sid`):
+The three formats, decoded in `tools/platform/nds/sdat` (the DS analogue of `tools/platform/c64/sid`):
 
 - **`SSEQ`** — MIDI-like bytecode, one stream, multiple tracks (`0xFE` track mask + `0x93` open-track at the start): `0x00–0x7F` note-on `{key, u8 velocity, varint ticks}`, `0x80` rest, `0x81` program change, `0x94/0x95/0xFD` jump/call/return (a backward `0x94` is the music's loop point), `0xC0–0xE1` controllers (pan, volume, expression, transpose, pitch bend ± range, vibrato, tempo), `0xD4/0xFC` counted loops, `0xFF` end.
 - **`SBNK`** — instruments: type 1 = a sampled wave `{u16 swav, u16 swar, base note, A, D, S, R, pan}`, types 2/3 = the DS's PSG pulse (duty in the wave field) and LFSR noise channels, type 16 = drumset (per-key instrument map), type 17 = eight-region keysplit.
@@ -611,14 +611,14 @@ So the answer to "how do objects move" is layered: the *placement* (`OBJI`) name
 
 # Appendix A — Toolchain and reproduction
 
-Everything here is derived from the `.nds` image with this repository's own tools: static disassembly for Parts I–II, and — for Part III — the game's own code run on our `tools/arm` core as an oracle. No third-party emulator, debugger or disassembler was used, and nothing was read from released source. Verify the image, then reproduce the catalog, the boot trace and the oracle run:
+Everything here is derived from the `.nds` image with this repository's own tools: static disassembly for Parts I–II, and — for Part III — the game's own code run on our `tools/cpu/arm` core as an oracle. No third-party emulator, debugger or disassembler was used, and nothing was read from released source. Verify the image, then reproduce the catalog, the boot trace and the oracle run:
 
 ```sh
 # identity (size + MD5 pinned in ../README.md#image-files)
 md5 "Mario Kart DS (Europe) (En,Fr,De,Es,It).nds"
 
 # Part I — header, integrity checks, overlay/filesystem summary (and -files / -tree)
-go run retroreverse.com/tools/nds/cmd/ndsinfo "Mario Kart DS (Europe) (En,Fr,De,Es,It).nds"
+go run retroreverse.com/tools/platform/nds/cmd/ndsinfo "Mario Kart DS (Europe) (En,Fr,De,Es,It).nds"
 
 # Part II — extract + BLZ-decompress the ARM9/ARM7 binaries and overlays into extracted/
 ( cd extract && go run ./cmd/ndsextract "../Mario Kart DS (Europe) (En,Fr,De,Es,It).nds" )
@@ -629,7 +629,7 @@ go run retroreverse.com/tools/cmd/codetracearm -base 0x02000000 -entry 0x0200080
 # trace the ARM7 boot chain from its entry
 go run retroreverse.com/tools/cmd/codetracearm -base 0x02380000 -entry 0x02380000 extracted/arm7.bin
 
-# Part III — run the ARM9 boot on the tools/arm core as an oracle: BLZ cross-check,
+# Part III — run the ARM9 boot on the tools/cpu/arm core as an oracle: BLZ cross-check,
 # the I/O registers it programs, and the ARM9↔ARM7 IPCSYNC rendezvous it stops at
 ( cd extract && go run ./cmd/bootoracle -io "../Mario Kart DS (Europe) (En,Fr,De,Es,It).nds" )
 
@@ -661,20 +661,20 @@ go run retroreverse.com/tools/cmd/codetracearm -base 0x02380000 -entry 0x0238000
 
 Toolchain (all under the `retroreverse.com/tools` module unless noted, this repository):
 
-- **`tools/nds`** — the Nintendo DS cartridge container reader: header parse + CRC-16 verification, the FAT, the FNT directory-tree walk, the ARM9 overlay table, and the **BLZ** (backward-LZSS) decompressor used by the ARM9 and its overlays. New for this project.
-- **`tools/nds/cmd/ndsinfo`** — the container inspector for Part I (`-files`, `-tree`, `-grep`).
-- **`tools/arm`** — the ARM9/ARM7 disassembler and CPU core (ARMv5TE + ARMv4T; ARM + Thumb, interworking-aware). New for this project.
+- **`tools/platform/nds`** — the Nintendo DS cartridge container reader: header parse + CRC-16 verification, the FAT, the FNT directory-tree walk, the ARM9 overlay table, and the **BLZ** (backward-LZSS) decompressor used by the ARM9 and its overlays. New for this project.
+- **`tools/platform/nds/cmd/ndsinfo`** — the container inspector for Part I (`-files`, `-tree`, `-grep`).
+- **`tools/cpu/arm`** — the ARM9/ARM7 disassembler and CPU core (ARMv5TE + ARMv4T; ARM + Thumb, interworking-aware). New for this project.
 - **`tools/cmd/disarm`** — linear ARM/Thumb disassembler.
 - **`tools/cmd/codetracearm`** — recursive-descent code-tracer that follows ARM↔Thumb interworking; used to trace both boot chains.
 - **`mariokartds/extract/cmd/ndsextract`** — the game's extractor: writes `arm9.bin`/`arm7.bin` and the overlays, and their BLZ-decompressed forms (`arm9_dec.bin`, `ovl9_00N_dec.bin`), into `extracted/` (regenerable, git-ignored).
-- **`mariokartds/extract/cmd/bootoracle`** — runs the ARM9 boot on the `tools/arm` core over a flat DS memory (with the BIOS `SWI`s the startup needs): cross-checks BLZ against the game's own decompressor, logs the I/O registers programmed, and stops at the ARM9↔ARM7 IPCSYNC rendezvous. The DS analogue of the Amiga per-game oracles.
-- **`tools/nds` LZ77 + NARC** — `DecompressLZ77`/`Decompress` (the forward LZ10/LZ11 the filesystem uses) and `ParseNARC` (splits a NARC, transparently decompressing a `.carc` first). Both unit-tested.
-- **`tools/nds/nitro`** — the NITRO resource decoders. `DecodeNSBTX` turns a `BTX0`/`TEX0` texture set into Go images (resource-dictionary parse, `texImageParam`, all seven texture formats including 4x4-compressed, BGR555, name-matched palettes); `ParseNCLR`/`ParseNCGR`/`ParseNSCR` + `ComposeScreen`/`TileSheet` decode and compose the 2D tile pipeline.
+- **`mariokartds/extract/cmd/bootoracle`** — runs the ARM9 boot on the `tools/cpu/arm` core over a flat DS memory (with the BIOS `SWI`s the startup needs): cross-checks BLZ against the game's own decompressor, logs the I/O registers programmed, and stops at the ARM9↔ARM7 IPCSYNC rendezvous. The DS analogue of the Amiga per-game oracles.
+- **`tools/platform/nds` LZ77 + NARC** — `DecompressLZ77`/`Decompress` (the forward LZ10/LZ11 the filesystem uses) and `ParseNARC` (splits a NARC, transparently decompressing a `.carc` first). Both unit-tested.
+- **`tools/platform/nds/nitro`** — the NITRO resource decoders. `DecodeNSBTX` turns a `BTX0`/`TEX0` texture set into Go images (resource-dictionary parse, `texImageParam`, all seven texture formats including 4x4-compressed, BGR555, name-matched palettes); `ParseNCLR`/`ParseNCGR`/`ParseNSCR` + `ComposeScreen`/`TileSheet` decode and compose the 2D tile pipeline.
 - **`mariokartds/extract/cmd/rendertex`** — renders every texture in an NSBTX, or in a `.carc`/NARC's `BTX0` blocks, to PNG.
 - **`mariokartds/extract/cmd/render2d`** — composes the NSCR screens of a directory or `.carc` through their NCGR/NCLR (name-paired, `_b` background banks preferred).
 - **`mariokartds/extract/cmd/renderall`** — the whole-filesystem sweep: every texture, every screen (merging language-variant archives with their base), every leftover tile sheet, and the raw `.nbfc`/`.nbfp` banner — regenerates all 2,300+ figures in `work/`.
-- **`tools/nds/nitro` models** — `ParseNSBMD` (nodes/TRS + pivot rotations, SBC, materials with the authoritative tex↔pal binding, shapes), `RunSBC` (joint matrices → matrix stack → draw list), `DecodeDL` (the GX display-list interpreter: all vertex forms, strips), `ExportGLB` (standard binary glTF 2.0 with embedded PNG textures), `DecodeContainerTextures` (the TEX0 of any NITRO container, incl. BMD0-embedded), and `DecodeNSBTA` (BTA0 texture-SRT animation: per-material scale/rotation/translation tracks, constant or sampled every 4th frame).
-- **`tools/nds/sdat`** — the SDAT sound archive: container/INFO/FAT parse, SBNK instruments, SWAR/SWAV waves (PCM8/16, IMA-ADPCM), and the SSEQ sequencer + synth (driver-faithful timing and envelopes) rendering to stereo PCM.
+- **`tools/platform/nds/nitro` models** — `ParseNSBMD` (nodes/TRS + pivot rotations, SBC, materials with the authoritative tex↔pal binding, shapes), `RunSBC` (joint matrices → matrix stack → draw list), `DecodeDL` (the GX display-list interpreter: all vertex forms, strips), `ExportGLB` (standard binary glTF 2.0 with embedded PNG textures), `DecodeContainerTextures` (the TEX0 of any NITRO container, incl. BMD0-embedded), and `DecodeNSBTA` (BTA0 texture-SRT animation: per-material scale/rotation/translation tracks, constant or sampled every 4th frame).
+- **`tools/platform/nds/sdat`** — the SDAT sound archive: container/INFO/FAT parse, SBNK instruments, SWAR/SWAV waves (PCM8/16, IMA-ADPCM), and the SSEQ sequencer + synth (driver-faithful timing and envelopes) rendering to stereo PCM.
 - **`mariokartds/extract/cmd/modeldump` / `rendermodel` / `exportglb`** — model structure dump; z-buffered software render to PNG (`work/models/`); GLB export of all 377 models (characters, karts, every course scene + skybox + map objects, including the retro tracks) plus each course's `<name>.path.json` drive line and the `models.json` manifest that `site/public/mariokart/` serves. The Studio site (`site/`) carries them under the "Nintendo DS" system (`site/src/mariokart/viewer.js`), one section per track (the track plus its map objects), with camera-locked skyboxes and a drive-the-CPU-line fly-through.
 - **`mariokartds/extract/mkds`** — the game-specific plumbing: `LoadModels`/`LoadTextures` (loose files, NARC-embedded models, the cross-archive `<name>Tex.carc` convention) and `ParseNKM`, the course-map decoder.
 - **`mariokartds/extract/cmd/trackmap`** — the track-layout figure generator (`work/tracks/`, 59 courses): top-down course geometry at the ×16 world scale, overlaid with every NKM element.

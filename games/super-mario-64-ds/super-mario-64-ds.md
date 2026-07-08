@@ -4,7 +4,7 @@
 
 Super Mario 64 DS is a Nintendo DS launch title (2004) — a remake of the Nintendo 64 original that rebuilds the castle and its worlds on the DS's twin 2D/3D engines, adds four playable characters, a touch-screen map, and a suite of minigames. This document reverse-engineers the *shipped cartridge* from the `.nds` image alone, the same way the other titles in this repository are taken apart: no third-party emulator, debugger or disassembler, and nothing read from released source.
 
-It is the second Nintendo DS title analysed here (after [[Mario Kart DS]]), so it stands on the same toolchain — the shared `tools/nds` cartridge reader (header, FNT/FAT, overlays, BLZ decompression) and the `tools/arm` ARM/Thumb disassembler and code-tracer — and the two make an instructive pair: same platform, same NitroSDK runtime, but different choices at almost every turn (where the ARM9 loads, how many overlays it carries, which asset formats it stores).
+It is the second Nintendo DS title analysed here (after [[Mario Kart DS]]), so it stands on the same toolchain — the shared `tools/platform/nds` cartridge reader (header, FNT/FAT, overlays, BLZ decompression) and the `tools/cpu/arm` ARM/Thumb disassembler and code-tracer — and the two make an instructive pair: same platform, same NitroSDK runtime, but different choices at almost every turn (where the ARM9 loads, how many overlays it carries, which asset formats it stores).
 
 Image: `Super Mario 64 DS (Europe) (En,Fr,De,Es,It).nds`, 16 MiB, game code **ASMP**, MD5 `867b3d17ad268e10357c9754a77147e5` (pinned in `../README.md`).
 
@@ -16,7 +16,7 @@ Image: `Super Mario 64 DS (Europe) (En,Fr,De,Es,It).nds`, 16 MiB, game code **AS
 * **Part IV** — the 3D model format: the game's *own* `.bmd` container (not the NITRO `BMD0` its extension suggests) and how its display lists and textures decode;
 * **Part V** — level data and object placements: the level→overlay and settings-block tables, the object-table format and its spawner, the actor system, and the trace from each actor's create function to the model it draws.
 * **Part VI** — collision: the `.kcl` mesh format (vertices, packed normals, prism records and the octree the queries walk), the external `CLPS` surface-attribute table, the ITCM query walkers — all pinned by running the game's own collision code in the oracle and reimplemented bit-exactly in Go.
-* **Part VII** — the music: the `SDAT` sound archive (the same NitroSDK format as Mario Kart DS's, but shipped *with* its symbol block, so every tune carries the game's own name), rendered to MP3 through the shared `tools/nds/sdat` sequencer and synth.
+* **Part VII** — the music: the `SDAT` sound archive (the same NitroSDK format as Mario Kart DS's, but shipped *with* its symbol block, so every tune carries the game's own name), rendered to MP3 through the shared `tools/platform/nds/sdat` sequencer and synth.
 * **Part VIII** — the message system and the game's own course names: the `BMG` text containers, the font-derived character encoding, the level→course table the save system uses, and the per-level music binding — replacing the viewer's earlier guessed level names with the cartridge's own.
 
 Methods: purely static analysis of the `.nds` image. All addresses are 32-bit ARM addresses (`$02000000`-style main-RAM addresses, or the BIOS and I/O regions) unless a *file offset* into the ROM image is explicitly called out; bytes are little-endian.
@@ -36,7 +36,7 @@ The header hands the two CPUs *different* load and entry addresses:
 
 Both CPUs share the single 4 MiB main memory `$02000000`–`$023FFFFF`. Two things stand out immediately against Mario Kart DS, which loads its ARM9 at the very base `$02000000`: Super Mario 64 DS bases its ARM9 image `$4000` bytes higher, **leaving the low 16 KiB of main RAM (`$02000000`–`$02003FFF`) free** for the system to use, and (as with any DS title) the entry sits `$800` past the load base, over the secure-area landing.
 
-The ARM9 is an ARMv5TE core and the ARM7 an ARMv4T core; both run the 32-bit **ARM** and 16-bit **Thumb** instruction sets, switched via `BX`/`BLX`, so disassembling either binary means tracking ARM-vs-Thumb state per address — exactly what `tools/arm` and `codetracearm` do. The ARM9 owns the card and drives the game and both screens; the ARM7 sits near the top of main RAM and services sound, the touchscreen, buttons and wireless, the two coordinating through the DS's **IPC** hardware in the `$04000000` I/O block.
+The ARM9 is an ARMv5TE core and the ARM7 an ARMv4T core; both run the 32-bit **ARM** and 16-bit **Thumb** instruction sets, switched via `BX`/`BLX`, so disassembling either binary means tracking ARM-vs-Thumb state per address — exactly what `tools/cpu/arm` and `codetracearm` do. The ARM9 owns the card and drives the game and both screens; the ARM7 sits near the top of main RAM and services sound, the touchscreen, buttons and wireless, the two coordinating through the DS's **IPC** hardware in the `$04000000` I/O block.
 
 ## 3. The cartridge header (`$000`–`$15F`)
 
@@ -106,7 +106,7 @@ Everything that is not boot code — models, animations, collision, textures, th
 - the **FAT** (file allocation table) at `$1E5224`, `$43F8` bytes, is a flat array of 8-byte records, one **start** and **end** file offset per file. `$43F8 / 8 = 2175` files. File *ID* is the index; the bytes are `image[start:end]` — storage framing only.
 - the **FNT** (file name table) at `$1D9324`, `$BEFD` bytes, is the **directory tree** that gives those numbered files names and a hierarchy. Its main table is an array of 8-byte directory records (record 0 = the root, whose "parent" field instead holds the total directory count); each points at a sub-table of that directory's entries. A sub-table entry is a control byte — `$00` ends the directory, `$01`–`$7F` a file whose name length is the low 7 bits, `$81`–`$FF` a subdirectory — followed by the name, and for a subdirectory a child directory ID. Files take **sequential IDs** from the directory's "first file ID", binding names to FAT indices.
 
-`tools/nds` joins the two tables: of the 2175 FAT entries, IDs **0–102 are the ARM9 overlays** (referenced directly by the overlay table, with no filesystem name) and IDs **103–2174 are the 2072 named files**. Walking from the root yields paths like `data/enemy/wanwan/wanwan.bmd` and `ARCHIVE/arc0.narc`.
+`tools/platform/nds` joins the two tables: of the 2175 FAT entries, IDs **0–102 are the ARM9 overlays** (referenced directly by the overlay table, with no filesystem name) and IDs **103–2174 are the 2072 named files**. Walking from the root yields paths like `data/enemy/wanwan/wanwan.bmd` and `ARCHIVE/arc0.narc`.
 
 As always, a filesystem file is *not* the asset: the top-level `ARCHIVE/` directory holds a handful of **`NARC`** archives (`arc0.narc`, `ar1.narc`, the per-language `cee`/`cef`/`ceg`/`cei`/`ces`, the versus-mode `vs1`–`vs4`), each a mini-container of further sub-files, and every archive is itself LZ77-compressed inside its `.carc`-style wrapper. The nested layering (FAT slice → compression → NARC → NITRO resource) is decoded in the later graphics Part.
 
@@ -187,7 +187,7 @@ $02004AD8 +0x00  0x020A0F60   autoload list start
           +0x1C  0xDEC00621   NitroSDK signature
 ```
 
-The compressed-static end `$02061504` is exactly the load base `$02004000` plus the header's compressed ARM9 size `$5D504`. The image expands from `$02004000`–`$02061504` to a static code+data region ending at `.bss` start `$0209B000`, with `.bss` running on to `$020AA420` — precisely the base at which the first overlay loads. The far calls that follow the decompression (e.g. `BL 0x02019780`) land in valid code only *after* this step. BLZ is reimplemented from scratch in Go (`tools/nds`, `DecompressBLZ`) — reversing the stream, running a forward LZSS, reversing the result — and the same routine decompresses all 103 overlays.
+The compressed-static end `$02061504` is exactly the load base `$02004000` plus the header's compressed ARM9 size `$5D504`. The image expands from `$02004000`–`$02061504` to a static code+data region ending at `.bss` start `$0209B000`, with `.bss` running on to `$020AA420` — precisely the base at which the first overlay loads. The far calls that follow the decompression (e.g. `BL 0x02019780`) land in valid code only *after* this step. BLZ is reimplemented from scratch in Go (`tools/platform/nds`, `DecompressBLZ`) — reversing the stream, running a forward LZSS, reversing the result — and the same routine decompresses all 103 overlays.
 
 ## 4. Autoload, `.bss`, and the handoff to `main`
 
@@ -236,11 +236,11 @@ Part II followed the boot to each processor's `main`; Part III is about the mach
 
 ## 1. The oracle: running the boot on our own core
 
-`supermario64ds/extract`'s `bootoracle` loads the *compressed* ARM9 binary to `$02004000` exactly as the BIOS would, points the `tools/arm` core at the entry `$02004800`, and lets it run: a flat memory for RAM/TCM/WRAM, the handful of BIOS `SWI`s the startup needs (`CpuSet`/`CpuFastSet` moves, `WaitByLoop`), CP15 accepted and ignored, and every write to the `$04000000` I/O block logged. It runs the real startup and reports what the code *did*.
+`supermario64ds/extract`'s `bootoracle` loads the *compressed* ARM9 binary to `$02004000` exactly as the BIOS would, points the `tools/cpu/arm` core at the entry `$02004800`, and lets it run: a flat memory for RAM/TCM/WRAM, the handful of BIOS `SWI`s the startup needs (`CpuSet`/`CpuFastSet` moves, `WaitByLoop`), CP15 accepted and ignored, and every write to the `$04000000` I/O block logged. It runs the real startup and reports what the code *did*.
 
 Two things fall out immediately, each a verification rather than a guess:
 
-- **The BLZ decompression is confirmed by the game itself.** After boot, the bytes the game's own `crt0` decompressor wrote into `$02004000`… are **identical** to what `tools/nds`' independent `DecompressBLZ` produces (`bootoracle` diffs them) over all code and data — the two agree bit-for-bit through `.bss` start, above which the `crt0` zero-fills. The Part II reimplementation and the real decompressor match exactly.
+- **The BLZ decompression is confirmed by the game itself.** After boot, the bytes the game's own `crt0` decompressor wrote into `$02004000`… are **identical** to what `tools/platform/nds`' independent `DecompressBLZ` produces (`bootoracle` diffs them) over all code and data — the two agree bit-for-bit through `.bss` start, above which the `crt0` zero-fills. The Part II reimplementation and the real decompressor match exactly.
 - **The startup runs cleanly on our core** — the decoder, CPU core, mode/bank handling and memory model execute millions of instructions of real ARM9 code (self-decompression, autoload, OS init) without a wrong turn.
 
 ## 2. The runtime memory map
@@ -310,7 +310,7 @@ Which of the 103 overlays backs which part of the game — the castle hub, each 
 
 ## 6. The dual-core oracle: past the rendezvous
 
-The rendezvous only blocks a *lone* ARM9, so the next tool is a **dual-core oracle** — both processors on `tools/arm` cores over one shared main RAM, wired by the DS's IPC hardware. It lives in `tools/nds/dsmachine` (game-neutral, for any DS title) and models the "full machine" the bare CPU core leaves to its caller: the shared 4 MiB main RAM and 32 KiB WRAM, each core's private TCM/WRAM and BIOS vectors, the cross-wired **IPCSYNC** mailbox and the two directional **IPC FIFOs**, a per-core interrupt controller, and the BIOS `SWI`s. `bootoracle` was single-core; `dualoracle` co-executes the two.
+The rendezvous only blocks a *lone* ARM9, so the next tool is a **dual-core oracle** — both processors on `tools/cpu/arm` cores over one shared main RAM, wired by the DS's IPC hardware. It lives in `tools/platform/nds/dsmachine` (game-neutral, for any DS title) and models the "full machine" the bare CPU core leaves to its caller: the shared 4 MiB main RAM and 32 KiB WRAM, each core's private TCM/WRAM and BIOS vectors, the cross-wired **IPCSYNC** mailbox and the two directional **IPC FIFOs**, a per-core interrupt controller, and the BIOS `SWI`s. `bootoracle` was single-core; `dualoracle` co-executes the two.
 
 Watching the two cores run the handshake together resolves it. The routine is a mutual echo-and-count: the ARM7 posts a nibble that counts down `8,7,…,1,0`, reloading to 8 whenever the ARM9's echo lags; the ARM9 (at `$0205BB54`) echoes whatever the ARM7 posts and exits only when it reads a **0** after five or more rounds. The catch is timing — between each post the ARM7 spins in a BIOS `WaitByLoop`, and that delay is exactly what lets the other core's echo catch up, so the model has to *honour* `WaitByLoop` (yield to the other core) rather than skip it as a single-core trace would. With that, **both sync nibbles ratchet cleanly to 0 and the ARM9 clears `$0205BB54`** — the frontier the single-core oracle could not pass — and runs on into the post-sync **PXI** exchange (`$02059E48`), where it waits to *receive* the ARM7's boot message over the FIFO.
 
@@ -330,7 +330,7 @@ The catalog's 455 `.bmd` files *look* like the NitroSDK's `BMD0` models under an
 | palettes `+$1C/+$20` | $10 | name, data offset, size (BGR555) |
 | materials `+$24/+$28` | $30 | name, **explicit texture and palette indices** (`+$04`/`+$08`), texture-matrix scale, GX texture addressing (`+$20`), GX polygon attribute (`+$24`) |
 
-Only the low-level pieces are the shared DS silicon — the GX geometry display lists (including the full in-list matrix stack: push/pop/load/mult/scale/translate, which the larger stages drive) and the seven hardware texture formats — so those decoders carry over from the Mario Kart DS work unchanged (`tools/nds/nitro`); the container parser is this game's own (`extract/sm64ds/bmd.go`). Two traps mattered in practice: the display-list stride is **8 bytes, not 16** (a 16-byte read merges adjacent lists and scrambles which material draws what), and a display list's two GX chunks are one *continuous* command stream (a chunk may open with a delta vertex relative to the previous chunk's last).
+Only the low-level pieces are the shared DS silicon — the GX geometry display lists (including the full in-list matrix stack: push/pop/load/mult/scale/translate, which the larger stages drive) and the seven hardware texture formats — so those decoders carry over from the Mario Kart DS work unchanged (`tools/platform/nds/nitro`); the container parser is this game's own (`extract/sm64ds/bmd.go`). Two traps mattered in practice: the display-list stride is **8 bytes, not 16** (a 16-byte read merges adjacent lists and scrambles which material draws what), and a display list's two GX chunks are one *continuous* command stream (a chunk may open with a delta vertex relative to the previous chunk's last).
 
 ## The .bca skeletal animation
 
@@ -377,7 +377,7 @@ The spawn call lands in the factory at `$02043098`: `LDR r0, [[profileTable] + a
 
 Which model belongs to which actor is answered by **running the actors' own code** — the actor oracle (`extract/sm64ds/oracle.go`, driven by `cmd/actororacle`). An earlier revision pattern-matched the create functions for file-ID literals; it misbound look-alikes (a stone Eyerok hand under Bob-omb Battlefield's bridge) and needed hand-kept exception lists, so it was replaced wholesale. The oracle:
 
-1. **Boots the real game.** The compressed ARM9 runs from its entry on the `tools/arm` core over a flat DS memory image — the crt0 self-decompresses, builds the TCM sections and the pre-`main` heap — and then `main()` itself runs up to (not into) its frame-loop call at `$02007040`, so OS arenas, the root heap (`$0203CB04`), and the engine init (`$0201A054`) happen in the game's own order. The handful of places that need the ARM7 or the card are trapped at function level: the IPC rendezvous and PXI waits, the sound system's channel-`$B` commands, the save-file read, and the GX status waits that only an interrupt handler would clear.
+1. **Boots the real game.** The compressed ARM9 runs from its entry on the `tools/cpu/arm` core over a flat DS memory image — the crt0 self-decompresses, builds the TCM sections and the pre-`main` heap — and then `main()` itself runs up to (not into) its frame-loop call at `$02007040`, so OS arenas, the root heap (`$0203CB04`), and the engine init (`$0201A054`) happen in the game's own order. The handful of places that need the ARM7 or the card are trapped at function level: the IPC rendezvous and PXI waits, the sound system's channel-`$B` commands, the save-file read, and the GX status waits that only an interrupt handler would clear.
 2. **Runs the overlay initialisers natively.** Overlay 0's initialiser at `$020AA420` resolves all `$80A` internal file paths (our FNT answers the path→ID walk at `$020189F0`) and builds the internal→FS remap table; then overlays 1+2 load and their 28 constructors run, registering every file-handle slot (`$02017ACC`) and queueing the common-model preloads. The queued loads are serviced the way the game's loader thread would — the async callbacks (`$02017AB4`) only publish the slot to the thread's mailbox, so the oracle performs the acquire (`$02017BC4`) itself — which preloads the shared pool: coins, stars, `?`-blocks, shells, signs, Peach, the power flowers…
 3. **Traps the loaders and serves real files.** The load-by-internal-ID function (`$0201818C`) and the slot loader (`$02017C54`) are replaced: the requested ID is recorded and the actual extracted file (archive members decompressed, exactly like the real branches) is served into scratch RAM, so the relocation and parse code after each load runs on real data.
 4. **Spawns every placed actor.** For each level (its overlay loaded next to 1+2) and each enemy bank, every distinct `(actor, parameters)` combination the levels place is run: the factory's context store (`$02043180`) is called with the placement's parameters, then the profile's create function, then the new object's init (vtable slot 0), then the async queue is drained. Between runs the machine state rolls back by dirty-page restore.
@@ -526,9 +526,9 @@ The Studio viewer gets a **Collision** toggle (like the 2D games' overlays): the
 
 ## 1. The same archive as Mario Kart DS — plus the symbol block
 
-All sound lives in one file, `data/sound_data.sdat` (4.4 MB) — the NitroSDK sound archive, byte-for-byte the same container format decoded for [[Mario Kart DS]] (Part IV §8 there): an `INFO` block binding sequences to instrument banks and banks to wave archives, a `FAT` of member files, and the `FILE` payload. The parser, the `SSEQ` sequencer, the `SBNK`/`SWAR` instrument and wave decoding and the synth in `tools/nds/sdat` apply **unchanged** — the whole Part is a reuse dividend.
+All sound lives in one file, `data/sound_data.sdat` (4.4 MB) — the NitroSDK sound archive, byte-for-byte the same container format decoded for [[Mario Kart DS]] (Part IV §8 there): an `INFO` block binding sequences to instrument banks and banks to wave archives, a `FAT` of member files, and the `FILE` payload. The parser, the `SSEQ` sequencer, the `SBNK`/`SWAR` instrument and wave decoding and the synth in `tools/platform/nds/sdat` apply **unchanged** — the whole Part is a reuse dividend.
 
-One thing is different, and it is a gift: where Mario Kart DS stripped the optional **`SYMB`** name block from its retail archive (its 76 sequences are known only by number), Super Mario 64 DS **ships with `SYMB` intact**. The block mirrors `INFO`'s structure — eight sub-lists (SEQ, SEQARC, BANK, WAVEARC, PLAYER, GROUP, PLAYER2, STRM), each a `u32` count and `count` `u32` offsets — but its offsets (relative to the `SYMB` block) point at NUL-terminated symbol names. `tools/nds/sdat` now reads it when present, and every sequence introduces itself: `NCS_BGM_TITLE`, `NCS_BGM_SHIRO` ("castle"), `NCS_BGM_CHIJOU` ("overground"), `NCS_BGM_KUPPA` (Bowser), `NCS_BGM_STAFFROLL`. The `NCS_` prefix runs through the whole archive (`NCS_BANK_SE_ACTION`, `NCS_WAVE_RESIDENT`…) — the sound project's own namespace, on the cartridge.
+One thing is different, and it is a gift: where Mario Kart DS stripped the optional **`SYMB`** name block from its retail archive (its 76 sequences are known only by number), Super Mario 64 DS **ships with `SYMB` intact**. The block mirrors `INFO`'s structure — eight sub-lists (SEQ, SEQARC, BANK, WAVEARC, PLAYER, GROUP, PLAYER2, STRM), each a `u32` count and `count` `u32` offsets — but its offsets (relative to the `SYMB` block) point at NUL-terminated symbol names. `tools/platform/nds/sdat` now reads it when present, and every sequence introduces itself: `NCS_BGM_TITLE`, `NCS_BGM_SHIRO` ("castle"), `NCS_BGM_CHIJOU` ("overground"), `NCS_BGM_KUPPA` (Bowser), `NCS_BGM_STAFFROLL`. The `NCS_` prefix runs through the whole archive (`NCS_BANK_SE_ACTION`, `NCS_WAVE_RESIDENT`…) — the sound project's own namespace, on the cartridge.
 
 The census: **282 member files — 79 `SSEQ` sequences, 109 `SBNK` banks, 89 `SWAR` wave archives, 5 `SSAR` effect archives** — bound by 83 SEQ records, 134 BANK records and 89 WAVEARC records (records can share files: `PANEL`/`MINIMOTOS`/`MOTOS` are one `SSEQ` played through different player setups, as are `MINIVOCAL`/`VOCAL` and `MINIPUKKUN`/`PUKKUN` — the minigame versions of world themes are literally the same sequence). As on Mario Kart DS there is **no `STRM`** streamed audio: every note in the game is sequenced.
 
@@ -574,16 +574,16 @@ The join proves itself instantly: ID 1000 → index 42 = *"BEWARE OF CHAIN-CHOMP
 
 # Appendix A — Toolchain and reproduction
 
-Everything here is derived from the `.nds` image with this repository's own tools: the shared `tools/nds` container reader and the `tools/arm` disassembler/tracer, plus this game's `extract` module. No third-party emulator, debugger or disassembler was used, and nothing was read from released source.
+Everything here is derived from the `.nds` image with this repository's own tools: the shared `tools/platform/nds` container reader and the `tools/cpu/arm` disassembler/tracer, plus this game's `extract` module. No third-party emulator, debugger or disassembler was used, and nothing was read from released source.
 
 ```sh
 # identity (size + MD5 pinned in ../README.md#image-files)
 md5 "Super Mario 64 DS (Europe) (En,Fr,De,Es,It).nds"
 
 # Part I — header, integrity checks, overlay/filesystem summary (and -files / -tree)
-go run retroreverse.com/tools/nds/cmd/ndsinfo "Super Mario 64 DS (Europe) (En,Fr,De,Es,It).nds"
-go run retroreverse.com/tools/nds/cmd/ndsinfo -tree  "Super Mario 64 DS (Europe) (En,Fr,De,Es,It).nds"
-go run retroreverse.com/tools/nds/cmd/ndsinfo -files "Super Mario 64 DS (Europe) (En,Fr,De,Es,It).nds"
+go run retroreverse.com/tools/platform/nds/cmd/ndsinfo "Super Mario 64 DS (Europe) (En,Fr,De,Es,It).nds"
+go run retroreverse.com/tools/platform/nds/cmd/ndsinfo -tree  "Super Mario 64 DS (Europe) (En,Fr,De,Es,It).nds"
+go run retroreverse.com/tools/platform/nds/cmd/ndsinfo -files "Super Mario 64 DS (Europe) (En,Fr,De,Es,It).nds"
 
 # Part II — extract + BLZ-decompress the ARM9/ARM7 binaries and all 103 overlays into extracted/
 ( cd extract && go run ./cmd/ndsextract "../Super Mario 64 DS (Europe) (En,Fr,De,Es,It).nds" )
@@ -595,14 +595,14 @@ go run retroreverse.com/tools/cmd/codetracearm -base 0x02004000 -entry 0x0200480
 # trace the ARM7 boot chain from its entry
 go run retroreverse.com/tools/cmd/codetracearm -base 0x02380000 -entry 0x02380000 extracted/arm7.bin
 
-# Part III — run the ARM9 boot on the tools/arm core as an oracle: BLZ cross-check,
+# Part III — run the ARM9 boot on the tools/cpu/arm core as an oracle: BLZ cross-check,
 # the I/O registers it programs, and the ARM9↔ARM7 IPCSYNC rendezvous it stops at
 ( cd extract && go run ./cmd/bootoracle -io "../Super Mario 64 DS (Europe) (En,Fr,De,Es,It).nds" )
 
 # Part IV — decode every .bmd model and export GLBs (+ the viewer manifest)
 go run ./cmd/exportbmd -all
 
-# Part V — run every placed actor's create/init on the tools/arm core and record
+# Part V — run every placed actor's create/init on the tools/cpu/arm core and record
 # the files its code loads (the actor oracle; writes extracted/actorbind.json)
 go run ./cmd/actororacle
 # then decode all 52 levels' object placements into per-stage JSON, bound
@@ -635,16 +635,16 @@ go run ./cmd/musicrender                        # → work/music/, copied to sit
 
 Toolchain (shared `retroreverse.com/tools`, this repository):
 
-- **`tools/nds`** — the Nintendo DS Game Card container reader: header parse + CRC-16 verification, the FAT, the FNT directory-tree walk, the ARM9 overlay table, and the **BLZ** (backward-LZSS) decompressor the SDK applies to the ARM9 static module and every overlay. Shared with the [[Mario Kart DS]] analysis; makes no assumptions about the game inside.
-- **`tools/nds/dsmachine`** — the reusable **dual-core DS machine**: two `tools/arm` cores over one shared main RAM + WRAM, per-core private TCM/WRAM/BIOS, the cross-wired IPCSYNC mailbox and the two IPC FIFOs, a per-core interrupt controller, and the BIOS `SWI`s. Game-neutral; the model any DS title's dual-core oracle builds on. (`arm.CPU.Exception`, added for the BIOS-style IRQ dispatch, is its one addition to the core.)
-- **`tools/nds/cmd/ndsinfo`** — the container inspector for Part I (`-files`, `-tree`, `-grep`).
-- **`tools/arm`** — the ARM9/ARM7 disassembler and CPU core (ARMv5TE + ARMv4T; ARM + Thumb, interworking-aware), with `tools/cmd/disarm` (linear) and `tools/cmd/codetracearm` (recursive-descent, follows ARM↔Thumb interworking) as CLIs.
+- **`tools/platform/nds`** — the Nintendo DS Game Card container reader: header parse + CRC-16 verification, the FAT, the FNT directory-tree walk, the ARM9 overlay table, and the **BLZ** (backward-LZSS) decompressor the SDK applies to the ARM9 static module and every overlay. Shared with the [[Mario Kart DS]] analysis; makes no assumptions about the game inside.
+- **`tools/platform/nds/dsmachine`** — the reusable **dual-core DS machine**: two `tools/cpu/arm` cores over one shared main RAM + WRAM, per-core private TCM/WRAM/BIOS, the cross-wired IPCSYNC mailbox and the two IPC FIFOs, a per-core interrupt controller, and the BIOS `SWI`s. Game-neutral; the model any DS title's dual-core oracle builds on. (`arm.CPU.Exception`, added for the BIOS-style IRQ dispatch, is its one addition to the core.)
+- **`tools/platform/nds/cmd/ndsinfo`** — the container inspector for Part I (`-files`, `-tree`, `-grep`).
+- **`tools/cpu/arm`** — the ARM9/ARM7 disassembler and CPU core (ARMv5TE + ARMv4T; ARM + Thumb, interworking-aware), with `tools/cmd/disarm` (linear) and `tools/cmd/codetracearm` (recursive-descent, follows ARM↔Thumb interworking) as CLIs.
 - **`supermario64ds/extract/cmd/ndsextract`** — this game's extractor: writes `arm9.bin`/`arm7.bin` and the 103 overlays, and their BLZ-decompressed forms (`arm9_dec.bin`, `ovl9_NNN_dec.bin`), into `extracted/` (regenerable, git-ignored).
-- **`supermario64ds/extract/cmd/bootoracle`** — runs the ARM9 boot on the `tools/arm` core over a flat DS memory (with the BIOS `SWI`s the startup needs): cross-checks BLZ against the game's own decompressor, logs the I/O registers programmed, and stops at the ARM9↔ARM7 `IPCSYNC` rendezvous. The DS analogue of the Amiga per-game oracles; the counterpart of Mario Kart DS's `bootoracle`.
-- **`supermario64ds/extract/cmd/dualoracle`** — co-executes both boot binaries on the `tools/nds/dsmachine` dual-core model, clearing the rendezvous the single-core oracle stops at and running the ARM9 into the post-sync PXI exchange (Part III §6).
+- **`supermario64ds/extract/cmd/bootoracle`** — runs the ARM9 boot on the `tools/cpu/arm` core over a flat DS memory (with the BIOS `SWI`s the startup needs): cross-checks BLZ against the game's own decompressor, logs the I/O registers programmed, and stops at the ARM9↔ARM7 `IPCSYNC` rendezvous. The DS analogue of the Amiga per-game oracles; the counterpart of Mario Kart DS's `bootoracle`.
+- **`supermario64ds/extract/cmd/dualoracle`** — co-executes both boot binaries on the `tools/platform/nds/dsmachine` dual-core model, clearing the rendezvous the single-core oracle stops at and running the ARM9 into the post-sync PXI exchange (Part III §6).
 - **`supermario64ds/extract/cmd/kcltrace`** — the Part VI instrument: has the game itself load, fix up and register a level's `.kcl` collider in the oracle, casts ground rays through the game's own dispatcher with a **read watch** over the served file (every byte the walker touches, with the touching PC), and cross-checks `sm64ds/kcl.go`'s bit-exact reimplementation against the running original (`-verify`).
 - **`supermario64ds/extract/cmd/exportkcl`** — Part VI §7: reconstructs every prism's triangle from the walker's own half-plane definition and writes the red collision GLBs for the Studio's Collision toggle (level maps + the object colliders the binding oracle saw actors load), self-validated centroid-by-centroid against the walker's inequalities.
-- **`tools/nds/sdat`** — the SDAT sound archive: container/INFO/FAT parse (now also the optional `SYMB` name block, which this game ships), SBNK instruments, SWAR/SWAV waves (PCM8/16, IMA-ADPCM), and the SSEQ sequencer + synth (driver-faithful timing and envelopes) rendering to stereo PCM. Built for [[Mario Kart DS]]; reused here unchanged apart from the `SYMB` reader.
+- **`tools/platform/nds/sdat`** — the SDAT sound archive: container/INFO/FAT parse (now also the optional `SYMB` name block, which this game ships), SBNK instruments, SWAR/SWAV waves (PCM8/16, IMA-ADPCM), and the SSEQ sequencer + synth (driver-faithful timing and envelopes) rendering to stereo PCM. Built for [[Mario Kart DS]]; reused here unchanged apart from the `SYMB` reader.
 - **`supermario64ds/extract/cmd/musicrender`** — Part VII: renders every sequence to MP3 (via ffmpeg), named from the `SYMB` symbols, and writes the Studio music panel's `tracks.json`.
 
 Rendered figures will go in `Super Mario 64 DS (DS)/work/`; annotated disassembly in `disasm/`.

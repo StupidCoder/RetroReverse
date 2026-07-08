@@ -27,7 +27,7 @@ learned in this analysis session, in reading order:
 Methods: a Go extraction toolchain (`extract/` plus the shared
 `tools/`), a table-driven 6502 disassembler (`tools/cmd/dis6502`),
 a graphics renderer (`extract/cmd/gfxrender`), and dynamic verification
-that ran the real init/title/game path under the shared `tools/c64/c64`
+that ran the real init/title/game path under the shared `tools/platform/c64/c64`
 machine model, logging all reads/writes to confirm the static analysis.
 All addresses are C64 memory addresses; "frame" means one PAL frame.
 
@@ -1245,7 +1245,7 @@ extract/extract -o extracted -dis Fort_Apocalypse.tap
 **Dynamic verification.** Many findings in Parts III–V (which routine
 reads which data table, which writes which video region) were confirmed
 by running the real init/title/game code under emulation and logging its
-memory access. The shared `tools/c64/c64` machine model supports exactly
+memory access. The shared `tools/platform/c64/c64` machine model supports exactly
 this: load the game file into its RAM, drive it from an entry point, read
 back the `Writes` log for video/buffer writes and install a read probe
 (`machine.SetReadProbe`) to record, per program counter, which addresses
