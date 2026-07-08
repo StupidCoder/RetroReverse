@@ -16,7 +16,7 @@ export function loadImage(src) {
 
 export class GameData {
   constructor(base) {
-    this.base = base;             // e.g. 'public/sml/'
+    this.base = base;             // e.g. 'public/super-mario-land-gb/'
     this.meta = null;
     this.spriteIndex = {};        // key -> { src, frames, anchor?, durations?, steps?, path? }
     this.spriteTex = new Map();   // key -> { frames: Texture[], entry }

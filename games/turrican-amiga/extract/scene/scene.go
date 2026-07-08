@@ -24,6 +24,7 @@ package scene
 import (
 	"encoding/binary"
 	"fmt"
+	"sort"
 
 	"retroreverse.com/games/turrican-amiga/extract/decrunch"
 )
@@ -201,8 +202,17 @@ func (g *Game) objects(w int, blk Space, hi, desc, width, height int) []Object {
 		}
 	}
 
+	// Emit in ascending entry-address order (the entries' own memory layout) so the object
+	// list is deterministic — map iteration order is not.
+	addrs := make([]int, 0, len(seen))
+	for a := range seen {
+		addrs = append(addrs, a)
+	}
+	sort.Ints(addrs)
+
 	var objs []Object
-	for _, e := range seen {
+	for _, a := range addrs {
+		e := seen[a]
 		px, py := e.x*8-32, e.y*8
 		if px < 0 || py < 0 || px >= width*32 || py >= height*32 {
 			continue

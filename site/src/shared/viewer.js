@@ -2,7 +2,7 @@
 // composes the shared pieces — MapCamera, Tilemap, overlay layers, AnimRunner.
 // Per-game differences live in a small config (site/src/<game>/config.js):
 //
-//   { base: 'public/sml/',           // data directory
+//   { base: 'public/super-mario-land-gb/',           // data directory
 //     strategy: 'sliced'|'baked',    // tile texture strategy (baked = tile anim games)
 //     maxNativeFactor: 4,            // zoom-in cap, in multiples of the native view
 //     markerCat(o) -> category,      // marker colour class for sprite-less objects

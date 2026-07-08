@@ -175,7 +175,7 @@ const objectInfo = {
 };
 
 export default {
-  base: 'public/turrican/',
+  base: 'public/turrican-amiga/',
   strategy: 'sliced',
   maxNativeFactor: 4,
   minFitFactor: 0.9,

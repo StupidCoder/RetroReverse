@@ -50,7 +50,7 @@ const GAMES = [
       .map(t => ({ name: t.name, url: `public/sonic-gg/${t.file}` })),
   },
   {
-    id: 'fort', name: 'Fort Apocalypse', system: 'Commodore 64',
+    id: 'fort-apocalypse-c64', name: 'Fort Apocalypse', system: 'Commodore 64',
     load: () => Promise.all([
       import('../shared/viewer.js'), import('../fort/config.js'),
     ]).then(([m, c]) => class extends m.LevelViewer {
@@ -62,7 +62,7 @@ const GAMES = [
     layers: [{ id: 'objects', label: 'Objects & enemies', default: true }],
   },
   {
-    id: 'turrican', name: 'Turrican', system: 'Amiga',
+    id: 'turrican-amiga', name: 'Turrican', system: 'Amiga',
     load: () => Promise.all([
       import('../shared/viewer.js'), import('../turrican/config.js'),
     ]).then(([m, c]) => class extends m.LevelViewer {
@@ -77,8 +77,8 @@ const GAMES = [
       { id: 'objects', label: 'Objects & enemies', default: true },
       { id: 'collision', label: 'Collision layer', default: false },
     ],
-    music: async () => (await fetch('public/turrican/music/manifest.json').then(r => r.json()))
-      .map(m => ({ name: turricanTrackName(m), url: `public/turrican/music/${m.file}` })),
+    music: async () => (await fetch('public/turrican-amiga/manifest.json').then(r => r.json())).music
+      .map(t => ({ name: t.name, url: `public/turrican-amiga/${t.file}` })),
   },
   {
     id: 'marble', name: 'Marble Madness', system: 'Amiga',
@@ -96,7 +96,7 @@ const GAMES = [
       .map(m => ({ name: m.course, url: `public/marble/music/${m.file}` })),
   },
   {
-    id: 'sml', name: 'Super Mario Land', system: 'Nintendo Game Boy',
+    id: 'super-mario-land-gb', name: 'Super Mario Land', system: 'Nintendo Game Boy',
     load: () => Promise.all([
       import('../shared/viewer.js'), import('../sml/config.js'),
     ]).then(([m, c]) => class extends m.LevelViewer {
@@ -112,12 +112,12 @@ const GAMES = [
     // world -> level accordion from the meta's section field
     group: (lvl) => ({ section: lvl.section || lvl.name, label: lvl.name }),
     music: async () => [
-      { name: 'Levels 1-1, 1-2, 3-1', url: 'public/sml/music/level-1-1.mp3' },
-      { name: 'Levels 1-3, 3-2, 3-3', url: 'public/sml/music/level-1-3.mp3' },
-      { name: 'Levels 2-1, 2-2 (Muda)', url: 'public/sml/music/level-2-1.mp3' },
-      { name: 'Levels 4-1, 4-2 (Chai)', url: 'public/sml/music/level-4-1.mp3' },
-      { name: 'Levels 2-3, 4-3 (boss)', url: 'public/sml/music/level-2-3.mp3' },
-      { name: 'Bonus rooms', url: 'public/sml/music/bonus.mp3' },
+      { name: 'Levels 1-1, 1-2, 3-1', url: 'public/super-mario-land-gb/music/level-1-1.mp3' },
+      { name: 'Levels 1-3, 3-2, 3-3', url: 'public/super-mario-land-gb/music/level-1-3.mp3' },
+      { name: 'Levels 2-1, 2-2 (Muda)', url: 'public/super-mario-land-gb/music/level-2-1.mp3' },
+      { name: 'Levels 4-1, 4-2 (Chai)', url: 'public/super-mario-land-gb/music/level-4-1.mp3' },
+      { name: 'Levels 2-3, 4-3 (boss)', url: 'public/super-mario-land-gb/music/level-2-3.mp3' },
+      { name: 'Bonus rooms', url: 'public/super-mario-land-gb/music/bonus.mp3' },
     ],
   },
   {

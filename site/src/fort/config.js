@@ -61,7 +61,7 @@ const objectInfo = {
 };
 
 export default {
-  base: 'public/fort/',
+  base: 'public/fort-apocalypse-c64/',
   strategy: 'baked',
   maxNativeFactor: 3,
   minFitFactor: 1, // never zoom out past one cylinder period (objects would repeat)

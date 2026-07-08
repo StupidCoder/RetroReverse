@@ -321,7 +321,7 @@ the special-stage theme, the world map, act-clear, a shared boss theme, and asso
 example, Sky Base Act 1 correctly plays the Scrap Brain music.</p>
 `,
   },
-  fort: {
+  'fort-apocalypse-c64': {
     loader: `
 <div class="info-eyebrow">Fort Apocalypse · Image &amp; Loader</div>
 <p>Fort Apocalypse ships on a single cassette, preserved as a <strong>TAP image</strong>: a
@@ -722,7 +722,7 @@ handlers drive the audio each frame — the copter's engine, gunfire, explosions
 rather than a continuous melody, so the gameplay itself runs without a backing track.</p>
 `,
   },
-  turrican: {
+  'turrican-amiga': {
     loader: `
 <div class="info-eyebrow">Turrican · Image &amp; Loader</div>
 <p>Turrican ships on a single double-density Amiga floppy that carries <strong>no filesystem</strong> —
@@ -1201,7 +1201,7 @@ Advancing the score is a third, separate clock: a per-frame music tick driven by
 60&nbsp;Hz envelope timer and its sample-reply note clock, each doing its own job.</p>
 `,
   },
-  sml: {
+  'super-mario-land-gb': {
     loader: `
 <div class="info-eyebrow">Super Mario Land · Image &amp; Loader</div>
 <p>Super Mario Land ships on a 64&nbsp;KB Game Boy cartridge with a simple bank-switching chip. There is no

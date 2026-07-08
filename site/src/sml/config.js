@@ -214,7 +214,7 @@ const objectInfo = {
 };
 
 export default {
-  base: 'public/sml/',
+  base: 'public/super-mario-land-gb/',
   strategy: 'baked', // per-tile canvas textures so tileAnims (torch/waterfall) repaint
 
   maxNativeFactor: 6,

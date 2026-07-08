@@ -1,13 +1,23 @@
-// webexport renders the Fort Apocalypse level maps in the Studio's common level
-// format (site/FORMAT.md). For each of the two levels it bakes a character atlas
-// (the 128 playfield chars in the level's colours, plus the extra frames the
-// animated soft chars cycle through) and writes a JSON file with the cell grid,
-// the soft-char tile animations, and the randomized object POOLS (the game seeds
-// prisoners/tanks/mines at load; the viewer re-rolls them from the exported
-// candidate lists). A meta.json lists the levels; the playfield is a horizontal
-// cylinder (meta wrap "x").
+// webexport serializes the decoded Fort Apocalypse levels for the static web
+// viewer as the common format-2 asset tree (see STANDARDS.md / site/FORMAT2.md).
+// Everything is reconstructed from the pre-extracted game file ($7000 image) by
+// the same decode path as the inspection tools, then written under the output root:
 //
-// Usage: webexport [-prg FORT-fast-7000.prg] [-o dir]
+//	manifest.json               game index: native res, tick rate, wrap, level list
+//	levels/level<N>.json        per level (kind "tilemap2d"): char grid, soft-char
+//	                            tile animations, the randomized object POOLS
+//	levels/level<N>.objects.json machine-readable object DB (fixed objects + the
+//	                            flattened pool candidates, each tagged with its pool)
+//	levels/atlas-L<N>.png       the 128 playfield chars in the level's colours plus
+//	                            the extra soft-char animation frames, 16 wide
+//	sprites/index.json          helicopter sprite metadata + the sprite PNGs
+//
+// The playfield is a horizontal cylinder (manifest/level wrap "x"): column 214
+// joins back to column 0. There is no music stage (C64, no in-engine track here).
+// Both producers (levels, sprites) are folded into this one command; -only gates
+// which stages run.
+//
+// Usage: webexport [-prg FORT-fast-7000.prg | -in FILE] [-o dir] [-only levels,sprites,all]
 package main
 
 import (
@@ -18,6 +28,7 @@ import (
 	"image/color"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"retroreverse.com/games/fort-apocalypse-c64/extract/fortgfx"
 	"retroreverse.com/tools/platform/c64/gfx"
@@ -106,33 +117,109 @@ type jsonSpawn struct {
 	Tint   string `json:"tint"`
 }
 
-type jsonLevel struct {
-	Format      int        `json:"format"`
-	Name        string     `json:"name"`
-	Grid        jsonGrid   `json:"grid"`
-	View        jsonRect   `json:"view"`
-	Spawn       jsonSpawn  `json:"spawn"`
-	TileAnims   []jsonAnim `json:"tileAnims"`
-	ObjectPools []jsonPool `json:"objectPools"`
+// jsonExtents is the format-2 tilemap2d extent (size in cells).
+type jsonExtents struct {
+	TileSize int `json:"tileSize"`
+	Width    int `json:"width"`
+	Height   int `json:"height"`
 }
 
-type metaLevel struct {
-	Name  string `json:"name"`
-	File  string `json:"file"`
-	Atlas string `json:"atlas"`
+// jsonLevel is the format-2 level envelope: the common header (format/name/kind/
+// extents/wrap) followed by the unchanged format-1 tilemap body (grid, view,
+// spawn, tileAnims, objectPools) and the sibling machine-readable object DB ref.
+type jsonLevel struct {
+	Format      int         `json:"format"`
+	Name        string      `json:"name"`
+	Kind        string      `json:"kind"` // "tilemap2d"
+	Extents     jsonExtents `json:"extents"`
+	Wrap        string      `json:"wrap"` // "x" — horizontal cylinder
+	Grid        jsonGrid    `json:"grid"`
+	View        jsonRect    `json:"view"`
+	Spawn       jsonSpawn   `json:"spawn"`
+	TileAnims   []jsonAnim  `json:"tileAnims"`
+	ObjectPools []jsonPool  `json:"objectPools"`
+	ObjectsFile string      `json:"objectsFile,omitempty"`
+}
+
+// Manifest is the format-2 per-game index (site/FORMAT2.md). Fort has no music.
+type Manifest struct {
+	Format   int            `json:"format"`
+	Game     string         `json:"game"`
+	Platform string         `json:"platform"`
+	Native   map[string]int `json:"native"`
+	TickHz   int            `json:"tickHz"`
+	Wrap     string         `json:"wrap,omitempty"`
+	Levels   []LevelIndex   `json:"levels,omitempty"`
+	Sprites  string         `json:"sprites,omitempty"`
+}
+
+type LevelIndex struct {
+	Name    string `json:"name"`
+	Section string `json:"section,omitempty"`
+	File    string `json:"file"`
+	Kind    string `json:"kind"`
+	Atlas   string `json:"atlas,omitempty"`
+	Objects string `json:"objects,omitempty"`
+}
+
+// ObjectsDB is the machine-readable object database written alongside each level
+// (levels/<stem>.objects.json). Fort has no fixed objects; every entry is a
+// flattened object-pool candidate tagged (in props) with its pool.
+type ObjectsDB struct {
+	Format  int     `json:"format"`
+	Level   string  `json:"level"`
+	Objects []DBObj `json:"objects"`
+}
+
+type DBObj struct {
+	ID    int            `json:"id"`
+	Type  int            `json:"type,omitempty"`
+	Name  string         `json:"name,omitempty"`
+	Pos   []int          `json:"pos"`
+	Props map[string]any `json:"props,omitempty"`
+}
+
+var levelNames = []string{"Vaults of Draconis", "Crystalline Caves"}
+
+// parseOnly turns the -only selection into a stage set. "all" (or empty) selects
+// every stage; otherwise only the named stages (levels,sprites) run.
+func parseOnly(sel string) map[string]bool {
+	out := map[string]bool{}
+	for _, s := range strings.Split(sel, ",") {
+		s = strings.TrimSpace(s)
+		if s == "" {
+			continue
+		}
+		if s == "all" {
+			out["levels"], out["sprites"] = true, true
+			continue
+		}
+		if s != "levels" && s != "sprites" {
+			fmt.Fprintf(os.Stderr, "webexport: unknown -only stage %q (want levels,sprites,all)\n", s)
+			os.Exit(2)
+		}
+		out[s] = true
+	}
+	return out
 }
 
 func main() {
-	prg := flag.String("prg", "../extracted/FORT-fast-7000.prg", "game file ($7000)")
-	outDir := flag.String("o", "../../site/public/fort", "output directory")
+	prg := flag.String("prg", "../extracted/FORT-fast-7000.prg", "pre-extracted game file ($7000)")
+	in := flag.String("in", "", "alias for -prg (input game file)")
+	outDir := flag.String("o", "../../site/public/fort-apocalypse-c64", "output asset root")
+	only := flag.String("only", "all", "comma-separated subset of stages to run: levels,sprites,all")
 	flag.Parse()
-	if err := run(*prg, *outDir); err != nil {
+	path := *prg
+	if *in != "" {
+		path = *in
+	}
+	if err := run(path, *outDir, parseOnly(*only)); err != nil {
 		fmt.Fprintln(os.Stderr, "webexport:", err)
 		os.Exit(1)
 	}
 }
 
-func run(prgPath, outDir string) error {
+func run(prgPath, outDir string, sel map[string]bool) error {
 	game, err := fortgfx.LoadGame(prgPath)
 	if err != nil {
 		return err
@@ -140,43 +227,88 @@ func run(prgPath, outDir string) error {
 	if err := os.MkdirAll(outDir, 0o755); err != nil {
 		return err
 	}
-	cs := game.PlayfieldCharset()
-	anim := game.SoftCharAnim()
 
-	// Helicopter sprites (shared by both levels): the level-flight pose for the
-	// player and a banked pose for the enemy, white on transparent so the viewer
-	// can tint them (yellow / blue). The poses come in tilt order full-left ..
-	// level .. full-right; [0] is the sprite block of each pose's first rotor frame.
-	poses := game.HelicopterPoses()
-	shapes := game.SpriteShapes()
-	if err := os.MkdirAll(filepath.Join(outDir, "sprites"), 0o755); err != nil {
+	// The manifest covers whatever stages ran: a stage gated out via -only leaves
+	// its section empty, and omitempty drops it, so a partial run stays consistent.
+	man := Manifest{
+		Format: 2, Game: "fort-apocalypse-c64", Platform: "Commodore 64",
+		Native: map[string]int{"w": 320, "h": 200}, TickHz: 50, Wrap: "x",
+	}
+	if sel["levels"] {
+		man.Levels, err = exportLevels(game, outDir)
+		if err != nil {
+			return err
+		}
+	}
+	if sel["sprites"] {
+		if err := exportSprites(game, outDir); err != nil {
+			return err
+		}
+		man.Sprites = "sprites/index.json"
+	}
+	if err := writeJSON(filepath.Join(outDir, "manifest.json"), man); err != nil {
 		return err
 	}
-	if err := gfx.WritePNG(filepath.Join(outDir, "sprites", "chopper-fwd.png"),
+	fmt.Fprintf(os.Stderr, "[manifest] %d levels, sprites=%q -> %s\n",
+		len(man.Levels), man.Sprites, outDir)
+	return nil
+}
+
+// exportSprites writes the sprites/ tree (index.json + the helicopter PNGs) from
+// the game image. The two poses are shared by both levels: the level-flight pose
+// for the player and a banked pose for the enemy, white on transparent so the
+// viewer can tint them (yellow / blue). No oracle.
+func exportSprites(game *fortgfx.Game, outDir string) error {
+	sprDir := filepath.Join(outDir, "sprites")
+	if err := os.MkdirAll(sprDir, 0o755); err != nil {
+		return err
+	}
+	poses := game.HelicopterPoses()
+	shapes := game.SpriteShapes()
+	// poses are in tilt order full-left .. level .. full-right; [0] is the sprite
+	// block of each pose's first rotor frame.
+	if err := gfx.WritePNG(filepath.Join(sprDir, "chopper-fwd.png"),
 		chopperImg(shapes[poses[len(poses)/2][0]-1])); err != nil {
 		return err
 	}
-	if err := gfx.WritePNG(filepath.Join(outDir, "sprites", "chopper-side.png"),
+	if err := gfx.WritePNG(filepath.Join(sprDir, "chopper-side.png"),
 		chopperImg(shapes[poses[0][0]-1])); err != nil {
 		return err
 	}
-	if err := writeJSON(filepath.Join(outDir, "sprites", "index.json"), map[string]any{
+	if err := writeJSON(filepath.Join(sprDir, "index.json"), map[string]any{
 		"chopper-fwd":  map[string]any{"src": "sprites/chopper-fwd.png", "frames": [][4]int{{0, 0, 32, 18}}},
 		"chopper-side": map[string]any{"src": "sprites/chopper-side.png", "frames": [][4]int{{0, 0, 32, 18}}},
 	}); err != nil {
 		return err
 	}
+	fmt.Fprintf(os.Stderr, "[sprites] done: 2 sprites + index.json\n")
+	return nil
+}
 
-	var metas []metaLevel
-	names := []string{"Vaults of Draconis", "Crystalline Caves"}
+// exportLevels writes the levels/ tree (per-level format-2 tilemaps, object DBs,
+// atlases) and returns the manifest level index.
+func exportLevels(game *fortgfx.Game, outDir string) ([]LevelIndex, error) {
+	levelsDir := filepath.Join(outDir, "levels")
+	if err := os.MkdirAll(levelsDir, 0o755); err != nil {
+		return nil, err
+	}
+	cs := game.PlayfieldCharset()
+	anim := game.SoftCharAnim()
+	obst := game.ObstacleChars()
+
+	var levels []LevelIndex
+	fmt.Fprintf(os.Stderr, "[levels] %d levels\n", len(levelNames))
 	for level := 0; level <= 1; level++ {
 		lm, err := game.LevelMap(level)
 		if err != nil {
-			return err
+			return nil, err
 		}
+		stem := fmt.Sprintf("level%d", level)
 		atlasName := fmt.Sprintf("atlas-L%d.png", level)
-		jl := jsonLevel{Format: 1, Name: names[level]}
-		jl.Grid = jsonGrid{TileSize: 8, Atlas: atlasName, AtlasCols: 16}
+		atlasRef := "levels/" + atlasName // path relative to the asset root
+
+		jl := jsonLevel{Format: 2, Name: levelNames[level], Kind: "tilemap2d", Wrap: "x"}
+		jl.Grid = jsonGrid{TileSize: 8, Atlas: atlasRef, AtlasCols: 16}
 
 		// Atlas tiles: the 128 base chars at fixed indices 0..127, then any extra
 		// frame bitmaps the animations need, appended and de-duplicated.
@@ -206,14 +338,15 @@ func run(prgPath, outDir string) error {
 		}
 
 		pal := palette(game.MulticolorValue(level))
-		if err := writeAtlas(filepath.Join(outDir, atlasName), tiles, pal); err != nil {
-			return err
+		if err := writeAtlas(filepath.Join(levelsDir, atlasName), tiles, pal); err != nil {
+			return nil, err
 		}
 
 		// Cells: the 215 content columns (Part IV §4). The playfield is a
 		// cylinder — column 214 joins back to column 0 — so the stored wrap-seam
 		// column (a duplicate of column 0) is dropped; the viewer wraps instead.
 		w := fortgfx.ContentWidth
+		jl.Extents = jsonExtents{TileSize: 8, Width: w, Height: fortgfx.MapHeight}
 		jl.Grid.Width, jl.Grid.Height = w, fortgfx.MapHeight
 		jl.Grid.Cells = make([]int, w*fortgfx.MapHeight)
 		for r := 0; r < fortgfx.MapHeight; r++ {
@@ -253,7 +386,6 @@ func run(prgPath, outDir string) error {
 		//    cells stay empty inside the band ($9617).
 		//  - one enemy helicopter at a random 4x2-clear spot in the same band
 		//    (a player-pursuit AI, not a patroller — left static).
-		obst := game.ObstacleChars()
 		var prisoners [][]int
 		for _, p := range lm.PrisonerSpawns {
 			l, r := lm.PrisonerRange(p.Col, p.Row)
@@ -342,21 +474,40 @@ func run(prgPath, outDir string) error {
 			},
 		})
 
-		file := fmt.Sprintf("level%d.json", level)
-		if err := writeJSON(filepath.Join(outDir, file), jl); err != nil {
-			return err
+		jl.ObjectsFile = stem + ".objects.json"
+		if err := writeJSON(filepath.Join(levelsDir, stem+".json"), jl); err != nil {
+			return nil, err
 		}
-		metas = append(metas, metaLevel{Name: names[level], File: file, Atlas: atlasName})
-		fmt.Printf("level %d: %dx%d cells, %d atlas tiles; %d prisoner cands, %d tanks, %d SPM spots, %d heli spots -> %s\n",
-			level, w, fortgfx.MapHeight, len(tiles), len(prisoners), len(tanks), len(spmSpots), len(heliSpots), file)
+
+		// Machine-readable object DB (sibling of the level file): the fixed objects
+		// (Fort has none) plus every pool candidate flattened into one placement,
+		// tagged with its pool name and, for movers, its precomputed patrol span.
+		db := ObjectsDB{Format: 2, Level: levelNames[level]}
+		id := 0
+		for _, pool := range jl.ObjectPools {
+			for _, cand := range pool.Candidates {
+				o := DBObj{ID: id, Name: pool.Name, Pos: []int{cand[0], cand[1]},
+					Props: map[string]any{"pool": pool.Name}}
+				if len(cand) >= 4 {
+					o.Props["patrol"] = []int{cand[2], cand[3]} // world-px span [minX, maxX]
+				}
+				db.Objects = append(db.Objects, o)
+				id++
+			}
+		}
+		if err := writeJSON(filepath.Join(levelsDir, stem+".objects.json"), db); err != nil {
+			return nil, err
+		}
+
+		levels = append(levels, LevelIndex{
+			Name: levelNames[level], File: "levels/" + stem + ".json",
+			Kind: "tilemap2d", Atlas: atlasRef, Objects: "levels/" + stem + ".objects.json",
+		})
+		fmt.Fprintf(os.Stderr, "[levels] %d/%d  %-18s %3dx%-2d cells  %d atlas tiles  %s  %d objects\n",
+			level+1, len(levelNames), levelNames[level], w, fortgfx.MapHeight, len(tiles), atlasName, len(db.Objects))
 	}
-	return writeJSON(filepath.Join(outDir, "meta.json"), map[string]any{
-		"format": 1, "game": "fort",
-		"native": map[string]int{"w": 320, "h": 200},
-		"tickHz": 50,
-		"wrap":   "x",
-		"levels": metas,
-	})
+	fmt.Fprintf(os.Stderr, "[levels] done: %d levels\n", len(levels))
+	return levels, nil
 }
 
 // palette is the playfield's multicolor map: 00=black, 01=$D022 (per level),

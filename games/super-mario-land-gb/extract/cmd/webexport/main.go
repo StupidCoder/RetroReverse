@@ -1,25 +1,31 @@
-// webexport decodes every Super Mario Land level map from the ROM and writes the
-// Studio's common level format (site/FORMAT.md): a per-world 256-tile atlas PNG, a
-// per-level JSON (grid + objects + collision), a sprites/index.json of composited
-// metasprite icons, and a meta.json index. The maps are decoded from the cartridge
-// (extract/level); the tile graphics come from a short oracle run nudged into each
-// world (the oracle supplies only the pixels, not the map).
+// webexport serializes the decoded Super Mario Land assets for the static web viewer as
+// the common format-2 asset tree (see STANDARDS.md / site/FORMAT2.md). Everything is
+// reconstructed from the cartridge by the same decode path as cmd/levelmap, then written
+// under the output root:
 //
-//	go run ./cmd/webexport [-rom PATH] [-o DIR]
+//	manifest.json                    game index: native res, tick rate, level/music list
+//	levels/level-W-L.json            per level (kind "tilemap2d"): grid + objects + collision,
+//	                                 wrapped in the format-2 envelope; atlas + objects ref
+//	levels/level-W-L.objects.json    machine-readable object DB for the level
+//	levels/worldN.png                the world's 256-tile background atlas (16 wide)
+//	sprites/index.json               object/enemy metasprite icon metadata (see sprites.go)
+//	sprites/worldN-obj.png           per-world composited object-icon strips
+//	music/level-W-L.mp3, bonus.mp3   the level themes + bonus jingle, pure-ROM synth (music.go)
+//
+// All three producers (levels, sprites, music) are folded into this one command; -only gates
+// which stages run. The levels and sprites stages use the machine oracle only to snapshot the
+// per-world VRAM/palette pixels (never the maps); the music stage is oracle-free.
+//
+// Usage: webexport -in <rom.gb> [-o <outdir>] [-only levels,sprites,music,all]
 package main
 
 import (
 	"encoding/json"
+	"flag"
 	"fmt"
-	"image"
-	"image/color"
-	"image/png"
 	"os"
 	"path/filepath"
-	"sort"
-
-	"retroreverse.com/tools/platform/gameboy"
-	"retroreverse.com/games/super-mario-land-gb/extract/level"
+	"strings"
 )
 
 const (
@@ -30,342 +36,93 @@ const (
 	nTile = 256
 )
 
-type levelMeta struct {
+// Manifest is the format-2 per-game index (site/FORMAT2.md).
+type Manifest struct {
+	Format   int            `json:"format"`
+	Game     string         `json:"game"`
+	Platform string         `json:"platform"`
+	Native   map[string]int `json:"native"`
+	TickHz   int            `json:"tickHz"`
+	Levels   []LevelIndex   `json:"levels,omitempty"`
+	Music    []MusicEntry   `json:"music,omitempty"`
+	Sprites  string         `json:"sprites,omitempty"`
+}
+
+type LevelIndex struct {
 	Name    string `json:"name"`
 	Section string `json:"section"`
 	File    string `json:"file"`
-	Atlas   string `json:"atlas"`
+	Kind    string `json:"kind"`
+	Atlas   string `json:"atlas,omitempty"`
+	Objects string `json:"objects,omitempty"`
 }
 
-// isSolid is the tile-id solidity rule (the walkable/blocking BG tiles occupy one id
-// range in every world's tile set) — previously hardcoded in the viewer, now exported
-// as collision data (kind "grid", sub 1).
-func isSolid(id int) bool { return id >= 0x60 && id < 0xF0 }
+type MusicEntry struct {
+	Name string `json:"name"`
+	File string `json:"file"`
+}
+
+// parseOnly turns the -only selection into a stage set. "all" (or empty) selects every
+// stage; otherwise only the named stages (levels,sprites,music) run.
+func parseOnly(sel string) map[string]bool {
+	out := map[string]bool{}
+	for _, s := range strings.Split(sel, ",") {
+		s = strings.TrimSpace(s)
+		if s == "" {
+			continue
+		}
+		if s == "all" {
+			out["levels"], out["sprites"], out["music"] = true, true, true
+			continue
+		}
+		if s != "levels" && s != "sprites" && s != "music" {
+			fmt.Fprintf(os.Stderr, "webexport: unknown -only stage %q (want levels,sprites,music,all)\n", s)
+			os.Exit(2)
+		}
+		out[s] = true
+	}
+	return out
+}
 
 func main() {
-	rom := stringFlag("-rom", "../Super Mario Land (World).gb")
-	out := stringFlag("-o", "../../site/public/sml")
+	in := flag.String("in", "../Super Mario Land (World).gb", "input Game Boy ROM (.gb)")
+	outdir := flag.String("o", "../../site/public/super-mario-land-gb", "output asset root")
+	only := flag.String("only", "all", "comma-separated subset of stages to run: levels,sprites,music,all")
+	flag.Parse()
+	if *in == "" && flag.NArg() > 0 {
+		*in = flag.Arg(0) // tolerate a positional ROM path
+	}
+	sel := parseOnly(*only)
 
-	data, err := os.ReadFile(rom)
+	data, err := os.ReadFile(*in)
 	must(err)
-	must(os.MkdirAll(out, 0o755))
+	must(os.MkdirAll(*outdir, 0o755))
 
-	must(os.MkdirAll(filepath.Join(out, "sprites"), 0o755))
-	// per-tile solidity: one byte per tile id (kind "grid", sub 1)
-	solid := make([]int, nTile)
-	for t := range solid {
-		if isSolid(t) {
-			solid[t] = 1
-		}
+	// The manifest covers whatever stages ran: a stage gated out via -only leaves its
+	// manifest section empty, and omitempty drops it, so a partial run stays self-consistent.
+	man := Manifest{
+		Format: 2, Game: "super-mario-land-gb", Platform: "Nintendo Game Boy",
+		Native: map[string]int{"w": 160, "h": 144}, TickHz: 60,
 	}
-
-	var metas []levelMeta
-	spriteIndex := map[string]any{}
-	for world := 1; world <= 4; world++ {
-		// Tiles: warp the oracle into this world and read back VRAM + palettes.
-		vram, lcdc, bgp := worldTiles(data, byte(world))
-		obp0 := objPalette(data, byte(world))
-		// The world's animated-tile frames ($23F8 rewrites tile $5D's high plane;
-		// decoded from ROM, per-world). Frame data is deterministic where the oracle
-		// VRAM snapshot could be caught mid-phase, so the atlas paints tile $5D and
-		// the appended frame cell (tile 256) from the decode, not the snapshot.
-		anim := level.DecodeTileAnim(data, byte(world<<4|3)) // any enabled level; every world has one
-		for lv := 1; anim == nil && lv <= 3; lv++ {
-			anim = level.DecodeTileAnim(data, byte(world<<4|lv))
-		}
-		saveAtlas(filepath.Join(out, fmt.Sprintf("world%d.png", world)), vram, lcdc, bgp, anim)
-		// Object sprite icons: per known type, its script animation poses (or the one
-		// base metasprite) composited into a strip of objCell cells, rows stacked into
-		// an atlas referenced by world-scoped sprite keys.
-		objAtlas := fmt.Sprintf("sprites/world%d-obj.png", world)
-		objTypes, marioIcon := saveObjIcons(data, filepath.Join(out, objAtlas), vram, obp0)
-		icon := func(t objIcon) map[string]any {
-			e := map[string]any{
-				"src":    objAtlas,
-				"anchor": objOrigin, // the metasprite origin within each cell
-			}
-			frames := make([][4]int, t.frames)
-			for f := range frames {
-				frames[f] = [4]int{f * objCell, t.row * objCell, objCell, objCell}
-			}
-			e["frames"] = frames
-			if len(t.durations) > 1 {
-				e["durations"] = t.durations // 60 Hz frames per pose (script-derived)
-			}
-			return e
-		}
-		for t, ic := range objTypes {
-			spriteIndex[fmt.Sprintf("w%d/%s", world, t)] = icon(ic)
-		}
-		spriteIndex[fmt.Sprintf("w%d/mario", world)] = icon(objIcon{row: marioIcon, frames: 1})
-
-		for lv := 1; lv <= 3; lv++ {
-			id := byte(world<<4 | lv)
-			cols2, _, _ := level.DecodeLevelByID(data, id)
-			w := len(cols2)
-			cells := make([]int, w*16) // row-major: cells[r*w + x]
-			for x, col := range cols2 {
-				for r := 0; r < 16; r++ {
-					cells[r*w+x] = int(col[r])
-				}
-			}
-			// Object/enemy placements (decoded from the ROM list at $401A[ffe4]),
-			// world px: tile origin plus the position byte's 4px-per-unit fine X
-			// nudge — the spawner computes X = $D0 + ((pos&$C0)>>4) - 16*catchup,
-			// which lands on col*16 + fine*4 (oracle-verified by cmd/spawnverify).
-			objs := level.DecodeObjectsByID(data, id)
-			ojson := make([]map[string]any, len(objs))
-			for i, o := range objs {
-				e := map[string]any{
-					"type": o.Type, "x": o.Col*8 + o.FineX*4, "y": o.Row * 8, "hard": o.Hard,
-				}
-				if _, known := objTypes[fmt.Sprintf("%d", o.Type)]; known {
-					e["sprite"] = fmt.Sprintf("w%d/%d", world, o.Type)
-				}
-				ojson[i] = e
-			}
-			name := fmt.Sprintf("%d-%d", world, lv)
-			file := "level-" + name + ".json"
-			atlas := fmt.Sprintf("world%d.png", world)
-			lj := map[string]any{
-				"format": 1,
-				"name":   name,
-				"grid": map[string]any{
-					"tileSize": tile, "atlas": atlas, "atlasCols": cols, "atlasGutter": gut,
-					"width": w, "height": 16, "cells": cells,
-				},
-				// Frame the first Game Boy screen (the level is 128px tall inside the
-				// 144px screen; the 16px HUD sits above the map).
-				"view":    map[string]any{"x": 0, "y": -8, "w": 160, "h": 144},
-				"objects": ojson,
-				// Mario's fixed start (his sprite top-left, in map pixels): the engine
-				// spawns him at screen (50,134); minus the 16px HUD that is map px.
-				"spawn":     map[string]any{"x": 35, "y": 96, "sprite": fmt.Sprintf("w%d/mario", world)},
-				"collision": map[string]any{"kind": "grid", "sub": 1, "solid": solid},
-			}
-			// Tile animation ($23F8): in enabled levels tile $5D alternates between
-			// the accent frame (appended as atlas tile 256) and its resting shape,
-			// 8 frames per phase.
-			if level.DecodeTileAnim(data, id) != nil {
-				lj["tileAnims"] = []map[string]any{{
-					"tiles": []int{level.AnimTile}, "frames": [][]int{{nTile}, {level.AnimTile}},
-					"periodFrames": level.AnimPeriod,
-				}}
-			}
-			writeJSON(filepath.Join(out, file), lj)
-			metas = append(metas, levelMeta{name, fmt.Sprintf("World %d", world), file, atlas})
-		}
+	if sel["levels"] {
+		man.Levels = exportLevels(data, *outdir)
 	}
-	writeJSON(filepath.Join(out, "sprites", "index.json"), spriteIndex)
-	writeJSON(filepath.Join(out, "meta.json"), map[string]any{
-		"format": 1, "game": "sml",
-		"native": map[string]int{"w": 160, "h": 144},
-		"tickHz": 60,
-		"levels": metas,
-	})
-	fmt.Printf("wrote %d levels + 4 world atlases + sprite index to %s\n", len(metas), out)
-}
-
-// Object-icon atlas geometry: each known type's metasprite is composited into one
-// objCell-square cell (stacked vertically). objOrigin is the cell pixel where the
-// metasprite's cursor origin (0,0) sits, so the viewer can line an icon up with a
-// placement: it blits the cell so objOrigin lands on the object's world anchor. The cell
-// must hold the largest metasprite: across all base frames the tiles span DX -8..+32,
-// DY -24..+16, so a 40x40 cell with the origin at (8,24) fits every sprite without clipping.
-const objCell = 40
-
-var objOrigin = [2]int{8, 24}
-
-// marioFrame is Mario's idle standing sprite: a 2x2 of OBJ tiles, each {tile, dx, dy}
-// from the sprite top-left (read from the running game's OAM at spawn).
-var marioFrame = []level.Sprite{
-	{Tile: 0x00}, {Tile: 0x01, DX: 8}, {Tile: 0x10, DY: 8}, {Tile: 0x11, DX: 8, DY: 8},
-}
-
-// objIcon describes one type's strip in the object-icon atlas: its row, how many
-// pose cells it has, and the per-pose durations (60 Hz frames) when it animates.
-type objIcon struct {
-	row       int
-	frames    int
-	durations []int
-}
-
-// saveObjIcons composites each known object type's animation poses (from its script
-// timeline, level.TypeTimeline; fallback: the single base metasprite) into a strip of
-// objCell cells, one row per type, in this world's OBJ tiles + sprite palette, plus
-// one extra row for Mario's idle sprite. It returns the type id -> icon map and
-// Mario's row. Types not in level.TypeFrames are omitted (the viewer falls back to a
-// marker for them).
-func saveObjIcons(rom []byte, path string, vram []byte, obp0 byte) (map[string]objIcon, int) {
-	// Stable order so the atlas is deterministic.
-	typeFrame := level.TypeFrames(rom)
-	var types []int
-	for t := range typeFrame {
-		types = append(types, int(t))
+	if sel["sprites"] {
+		exportSprites(data, *outdir)
+		man.Sprites = "sprites/index.json"
 	}
-	sort.Ints(types)
-
-	out := map[string]objIcon{}
-	maxFrames := 1
-	for i, t := range types {
-		ic := objIcon{row: i, frames: 1}
-		if tl := level.TypeTimeline(rom, byte(t)); tl != nil {
-			ic.frames = len(tl)
-			for _, st := range tl {
-				ic.durations = append(ic.durations, st.Frames)
-			}
-		}
-		if ic.frames > maxFrames {
-			maxFrames = ic.frames
-		}
-		out[fmt.Sprintf("%d", t)] = ic
+	if sel["music"] {
+		man.Music = exportMusic(data, *outdir)
 	}
-
-	marioIdx := len(types) // Mario gets the last row
-	img := image.NewNRGBA(image.Rect(0, 0, objCell*maxFrames, objCell*(len(types)+1)))
-	stamp := func(s level.Sprite, ox, oy int) {
-		tl := gameboy.DecodeTile(vram[int(s.Tile)*16:]) // 8x8 OBJ tile
-		for py := 0; py < 8; py++ {
-			for px := 0; px < 8; px++ {
-				sx, sy := px, py // the sprite's flip attrs mirror the tile
-				if s.XFlip {
-					sx = 7 - px
-				}
-				if s.YFlip {
-					sy = 7 - py
-				}
-				if v := tl[sy][sx]; v != 0 { // OBJ colour 0 = transparent
-					g := []uint8{0xff, 0xaa, 0x55, 0x00}[(obp0>>(2*v))&3]
-					img.Set(ox+s.DX+px, oy+s.DY+py, color.NRGBA{g, g, g, 0xff})
-				}
-			}
-		}
-	}
-	pose := func(frame byte, cellX, cellY int) {
-		for _, s := range level.DecodeMetasprite(rom, int(frame)) {
-			stamp(s, cellX*objCell+objOrigin[0], cellY*objCell+objOrigin[1])
-		}
-	}
-	for i, t := range types {
-		if tl := level.TypeTimeline(rom, byte(t)); tl != nil {
-			for f, st := range tl {
-				pose(st.Frame, f, i)
-			}
-		} else {
-			pose(typeFrame[byte(t)], 0, i)
-		}
-	}
-	for _, s := range marioFrame { // Mario's 2x2, top-left at the cell origin
-		stamp(s, objOrigin[0], marioIdx*objCell+objOrigin[1])
-	}
-	f, err := os.Create(path)
-	must(err)
-	defer f.Close()
-	must(png.Encode(f, img))
-	return out, marioIdx
-}
-
-// objPalette warps the oracle into `world` and returns its OBP0 sprite palette register.
-func objPalette(rom []byte, world byte) byte {
-	m := gameboy.NewMachine(rom)
-	m.RunFrames(80)
-	for f := 0; f < 6; f++ {
-		m.Buttons = gameboy.BtnStart
-		m.RunFrame()
-	}
-	m.Buttons = 0
-	id := byte(world<<4 | 1)
-	for f := 0; f < 40; f++ {
-		m.Write(0xFFB4, id)
-		m.RunFrame()
-	}
-	return m.Read(0xFF48)
-}
-
-// worldTiles boots the ROM, nudges it into `world` by forcing the level id through the
-// load window, and returns the VRAM, LCDC and BG palette register.
-func worldTiles(rom []byte, world byte) (vram []byte, lcdc, bgp byte) {
-	m := gameboy.NewMachine(rom)
-	m.RunFrames(80)
-	for f := 0; f < 6; f++ {
-		m.Buttons = gameboy.BtnStart
-		m.RunFrame()
-	}
-	m.Buttons = 0
-	id := byte(world<<4 | 1) // world's first level
-	for f := 0; f < 40; f++ {
-		m.Write(0xFFB4, id)
-		m.RunFrame()
-	}
-	return m.VRAM(), m.Read(0xFF40), m.Read(0xFF47)
-}
-
-// saveAtlas writes the 256 background tiles (indexed by the map's tile value, signed
-// $8800 addressing) into a 16-wide atlas with a 1px extruded gutter, in the BG palette.
-// When the world animates tile $5D (anim != nil), that cell and the appended frame
-// cell (atlas tile 256, a 17th row) are painted from the ROM-decoded frames — the
-// oracle VRAM snapshot could be caught in either phase.
-func saveAtlas(path string, vram []byte, lcdc, bgp byte, anim *level.TileAnim) {
-	total := nTile
-	if anim != nil {
-		total = nTile + 1
-	}
-	rows := (total + cols - 1) / cols
-	img := image.NewPaletted(image.Rect(0, 0, cols*cell, rows*cell), gameboy.GreyPalette())
-	shade := func(v uint8) uint8 { return (bgp >> (2 * v)) & 3 }
-	paint := func(n int, t [8][8]uint8) {
-		ox, oy := (n%cols)*cell+gut, (n/cols)*cell+gut
-		for y := -gut; y < tile+gut; y++ {
-			for x := -gut; x < tile+gut; x++ {
-				sx, sy := clamp(x), clamp(y) // extrude edges into the gutter
-				img.SetColorIndex(ox+x, oy+y, shade(t[sy][sx]))
-			}
-		}
-	}
-	for n := 0; n < nTile; n++ {
-		paint(n, gameboy.DecodeTile(vram[tileOffset(lcdc, byte(n)):]))
-	}
-	if anim != nil {
-		paint(level.AnimTile, gameboy.DecodeTile(anim.Frames[1][:])) // resting shape
-		paint(nTile, gameboy.DecodeTile(anim.Frames[0][:]))          // accent frame
-	}
-	f, err := os.Create(path)
-	must(err)
-	defer f.Close()
-	must(png.Encode(f, img))
-}
-
-func clamp(v int) int {
-	if v < 0 {
-		return 0
-	}
-	if v >= tile {
-		return tile - 1
-	}
-	return v
-}
-
-// tileOffset mirrors the BG tile addressing (LCDC bit 4: $8000 unsigned vs signed $8800).
-func tileOffset(lcdc, idx byte) int {
-	if lcdc&0x10 != 0 {
-		return int(idx) * 16
-	}
-	return 0x1000 + int(int8(idx))*16
+	writeJSON(filepath.Join(*outdir, "manifest.json"), man)
+	fmt.Fprintf(os.Stderr, "[manifest] %d levels, %d music, sprites=%q -> %s\n",
+		len(man.Levels), len(man.Music), man.Sprites, *outdir)
 }
 
 func writeJSON(path string, v any) {
 	b, err := json.Marshal(v)
 	must(err)
 	must(os.WriteFile(path, b, 0o644))
-}
-
-func stringFlag(name, def string) string {
-	for i, a := range os.Args {
-		if a == name && i+1 < len(os.Args) {
-			return os.Args[i+1]
-		}
-	}
-	return def
 }
 
 func must(err error) {
