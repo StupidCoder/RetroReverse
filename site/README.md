@@ -1,6 +1,6 @@
 # site/
 
-Interactive companion website for the reverse-engineering write-ups (see [PLAN.md](PLAN.md)).
+Interactive companion website for the reverse-engineering write-ups.
 
 It is a **no-build static site**: plain ES modules with an [import map](index.html) that pulls
 PixiJS (v8) from a CDN, so there is nothing to install or compile. 3D viewers use three.js

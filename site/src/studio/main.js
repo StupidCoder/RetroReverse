@@ -29,7 +29,7 @@ const GAMES = [
   {
     id: 'sonic-gg', name: 'Sonic the Hedgehog', system: 'Sega Game Gear',
     load: () => Promise.all([
-      import('../shared/viewer.js'), import('../sonic/config.js'),
+      import('../shared/viewer.js'), import('../sonic-gg/config.js'),
     ]).then(([m, c]) => class extends m.LevelViewer {
       constructor(el, hud) { super(el, hud, c.default); }
     }),
@@ -52,7 +52,7 @@ const GAMES = [
   {
     id: 'fort-apocalypse-c64', name: 'Fort Apocalypse', system: 'Commodore 64',
     load: () => Promise.all([
-      import('../shared/viewer.js'), import('../fort/config.js'),
+      import('../shared/viewer.js'), import('../fort-apocalypse-c64/config.js'),
     ]).then(([m, c]) => class extends m.LevelViewer {
       constructor(el, hud) { super(el, hud, c.default); }
     }),
@@ -64,7 +64,7 @@ const GAMES = [
   {
     id: 'turrican-amiga', name: 'Turrican', system: 'Amiga',
     load: () => Promise.all([
-      import('../shared/viewer.js'), import('../turrican/config.js'),
+      import('../shared/viewer.js'), import('../turrican-amiga/config.js'),
     ]).then(([m, c]) => class extends m.LevelViewer {
       constructor(el, hud) { super(el, hud, c.default); }
     }),
@@ -82,7 +82,7 @@ const GAMES = [
   },
   {
     id: 'marble-madness-amiga', name: 'Marble Madness', system: 'Amiga',
-    load: () => import('../marble/viewer.js').then(m => m.MarbleViewer),
+    load: () => import('../marble-madness-amiga/viewer.js').then(m => m.MarbleViewer),
     make: (V, el, hud) => new V(el, hud),
     // the courses (tilemap2d) and the slopes (marble-slope views) are independent items
     list: async (v) => await v.init(),
@@ -99,7 +99,7 @@ const GAMES = [
   {
     id: 'super-mario-land-gb', name: 'Super Mario Land', system: 'Nintendo Game Boy',
     load: () => Promise.all([
-      import('../shared/viewer.js'), import('../sml/config.js'),
+      import('../shared/viewer.js'), import('../super-mario-land-gb/config.js'),
     ]).then(([m, c]) => class extends m.LevelViewer {
       constructor(el, hud) { super(el, hud, c.default); }
     }),
@@ -128,7 +128,7 @@ const GAMES = [
     load: () => import('../shared/viewer3d.js').then(m => m.Viewer3D),
     make: (V, el, hud) => new V(el, hud, {
       base: 'public/stunt-car-racer-amiga/',
-      renderers: { 'stunt-track': () => import('../stuntcar/track-renderer.js') },
+      renderers: { 'stunt-track': () => import('../stunt-car-racer-amiga/track-renderer.js') },
     }),
     list: async (v) => await v.init(), // the circuits from manifest.views — each carries its kind/file
     show: (v, item, i) => v.showItem(item),
@@ -142,7 +142,7 @@ const GAMES = [
     load: () => import('../shared/viewer3d.js').then(m => m.Viewer3D),
     make: (V, el, hud) => new V(el, hud, {
       base: 'public/elite-c64/',
-      renderers: { 'elite-ship': () => import('../elite/ship-renderer.js') },
+      renderers: { 'elite-ship': () => import('../elite-c64/ship-renderer.js') },
     }),
     list: async (v) => await v.init(), // manifest.models — each ship carries its kind/file/data
     show: (v, item, i) => v.showItem(item),
@@ -156,7 +156,7 @@ const GAMES = [
   },
   {
     id: 'mario-kart-ds', name: 'Mario Kart DS', system: 'Nintendo DS', render: '3d',
-    load: () => import('../mariokart/viewer.js').then(m => m.ModelViewer),
+    load: () => import('../mario-kart-ds/viewer.js').then(m => m.ModelViewer),
     make: (V, el, hud) => new V(el, hud),
     list: async (v) => await v.init(), // browse list from the format-2 manifest (levels + models)
     show: (v, lvl, i) => v.loadModel(i),
@@ -181,7 +181,7 @@ const GAMES = [
   },
   {
     id: 'super-mario-64-ds', name: 'Super Mario 64 DS', system: 'Nintendo DS', render: '3d',
-    load: () => import('../sm64ds/viewer.js').then(m => m.ModelViewer),
+    load: () => import('../super-mario-64-ds/viewer.js').then(m => m.ModelViewer),
     make: (V, el, hud) => new V(el, hud),
     list: async (v) => await v.init(), // browse list from the format-2 manifest (levels + models)
     show: (v, lvl, i) => v.loadModel(i),
@@ -211,7 +211,7 @@ const GAMES = [
     load: () => import('../shared/viewer3d.js').then(m => m.Viewer3D),
     make: (V, el, hud) => new V(el, hud, {
       base: 'public/ultima-underworld-pc/',
-      renderers: { 'mesh3d': () => import('../uw/level-renderer.js') },
+      renderers: { 'mesh3d': () => import('../ultima-underworld-pc/level-renderer.js') },
     }),
     list: async (v) => await v.init(), // manifest.levels — each level carries its kind/file/objects
     show: (v, item, i) => v.showItem(item),
