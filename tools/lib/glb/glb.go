@@ -16,6 +16,8 @@ import (
 	"bytes"
 	"encoding/binary"
 	"encoding/json"
+	"image"
+	"image/png"
 	"math"
 	"os"
 )
@@ -413,6 +415,116 @@ func (b *builder) addScalars(vals []float32) int {
 	})
 	return len(b.accessors) - 1
 }
+
+// TexturedGroup is one textured triangle sub-mesh of a WriteTextured call: a
+// triangle list over the shared position/UV arrays and the RGBA image its
+// triangles sample. The image is PNG-encoded into the BIN chunk and sampled
+// NEAREST/CLAMP_TO_EDGE (crisp texels); fully transparent pixels are cut out
+// via alphaMode MASK. Groups sharing an equal image pointer share one texture.
+type TexturedGroup struct {
+	Tris        [][3]uint32
+	Image       image.Image
+	SingleSided bool
+}
+
+// addUVs writes a tightly packed VEC2 float32 TEXCOORD accessor.
+func (b *builder) addUVs(uvs [][2]float32) int {
+	buf := make([]byte, 8*len(uvs))
+	for i, uv := range uvs {
+		binary.LittleEndian.PutUint32(buf[i*8:], math.Float32bits(uv[0]))
+		binary.LittleEndian.PutUint32(buf[i*8+4:], math.Float32bits(uv[1]))
+	}
+	vi := b.addView(buf)
+	b.accessors = append(b.accessors, accessor{
+		BufferView: vi, ComponentType: 5126, Count: len(uvs), Type: "VEC2",
+	})
+	return len(b.accessors) - 1
+}
+
+// WriteTextured writes a textured TRIANGLES GLB: one mesh whose primitives
+// share a POSITION accessor over positions and a TEXCOORD_0 accessor over uvs
+// (parallel arrays — duplicate a vertex to give it distinct UVs). Each
+// TexturedGroup becomes one primitive with an unlit base-colour-texture
+// material over its PNG-embedded image; each trailing TriGroup becomes an
+// untextured unlit primitive, as in WriteTrianglesMat. Empty groups are
+// skipped.
+func WriteTextured(path string, positions [][3]float32, uvs [][2]float32,
+	texGroups []TexturedGroup, colorGroups []TriGroup) error {
+	b := &builder{}
+	posAcc := b.addPositions(positions)
+	uvAcc := b.addUVs(uvs)
+
+	var prims, materials, images, textures []map[string]any
+	imageIndex := map[image.Image]int{}
+	for _, g := range texGroups {
+		if len(g.Tris) == 0 {
+			continue
+		}
+		img, ok := imageIndex[g.Image]
+		if !ok {
+			var png bytes.Buffer
+			if err := encodePNG(&png, g.Image); err != nil {
+				return err
+			}
+			vi := b.addView(png.Bytes())
+			img = len(images)
+			imageIndex[g.Image] = img
+			images = append(images, map[string]any{"bufferView": vi, "mimeType": "image/png"})
+			textures = append(textures, map[string]any{"sampler": 0, "source": img})
+		}
+		idx := make([]uint32, 0, len(g.Tris)*3)
+		for _, t := range g.Tris {
+			idx = append(idx, t[0], t[1], t[2])
+		}
+		idxAcc := b.addIndices(idx)
+		prim := primitive(posAcc, idxAcc, 4, len(materials))
+		prim["attributes"] = map[string]int{"POSITION": posAcc, "TEXCOORD_0": uvAcc}
+		prims = append(prims, prim)
+		materials = append(materials, map[string]any{
+			"name": "tex",
+			"pbrMetallicRoughness": map[string]any{
+				"baseColorTexture": map[string]int{"index": img},
+				"baseColorFactor":  []float64{1, 1, 1, 1},
+				"metallicFactor":   0,
+				"roughnessFactor":  1,
+			},
+			"extensions":  map[string]any{"KHR_materials_unlit": struct{}{}},
+			"alphaMode":   "MASK",
+			"alphaCutoff": 0.5,
+			"doubleSided": !g.SingleSided,
+		})
+	}
+	for _, g := range colorGroups {
+		if len(g.Tris) == 0 {
+			continue
+		}
+		idx := make([]uint32, 0, len(g.Tris)*3)
+		for _, t := range g.Tris {
+			idx = append(idx, t[0], t[1], t[2])
+		}
+		idxAcc := b.addIndices(idx)
+		prims = append(prims, primitive(posAcc, idxAcc, 4, len(materials)))
+		materials = append(materials, unlitMaterial(g.Color, !g.SingleSided))
+	}
+
+	doc := assemble(baseName(path), b, prims, materials)
+	if len(images) > 0 {
+		doc["images"] = images
+		doc["textures"] = textures
+		// 9728 = NEAREST, 33071 = CLAMP_TO_EDGE.
+		doc["samplers"] = []map[string]any{{
+			"magFilter": 9728, "minFilter": 9728, "wrapS": 33071, "wrapT": 33071,
+		}}
+	}
+	data, err := pack(doc, b.bin.Bytes())
+	if err != nil {
+		return err
+	}
+	return os.WriteFile(path, data, 0o644)
+}
+
+// encodePNG is png.Encode behind a seam the test can reuse.
+func encodePNG(w *bytes.Buffer, img image.Image) error { return png.Encode(w, img) }
 
 // baseName returns the file name without its directory or extension, for use as
 // the mesh/scene name. Kept tiny to avoid a path/filepath import cost for callers.

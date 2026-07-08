@@ -224,6 +224,18 @@ const GAMES = [
     layers: [{ id: 'wireframe', label: 'Wireframe', default: false }],
     group: (item) => ({ section: item.section || 'The Stygian Abyss', label: item.name }),
   },
+  {
+    id: 'ridge-racer-psx', name: 'Ridge Racer', system: 'Sony PlayStation', render: '3d',
+    // The generic manifest-driven 3-D viewer with the builtin GLB path: the manifest's
+    // models[] (the 13 car-select cars and the whole course) carry kind:"mesh3d", so no
+    // per-game renderer plugin is needed — webexport bakes the PSX texture pages and
+    // CLUTs into each GLB.
+    load: () => import('../shared/viewer3d.js').then(m => m.Viewer3D),
+    make: (V, el, hud) => new V(el, hud, { base: 'public/ridge-racer-psx/' }),
+    list: async (v) => await v.init(), // manifest.models — cars + the course
+    show: (v, item, i) => v.showItem(item),
+    group: (item) => ({ section: item.file === 'models/track.glb' ? 'Course' : 'Cars', label: item.name }),
+  },
 ];
 
 // Turrican's manifest labels worlds 0-based with hex start offsets; make them readable.
@@ -261,6 +273,7 @@ const SYSTEMS = [
   { full: 'Nintendo Game Boy', short: 'Game Boy' },
   { full: 'Nintendo DS', short: 'DS' },
   { full: 'MS-DOS', short: 'MS-DOS' },
+  { full: 'Sony PlayStation', short: 'PSX' },
 ];
 const CHEVRON = '<svg class="chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg>';
 

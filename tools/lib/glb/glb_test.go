@@ -4,6 +4,9 @@ import (
 	"bytes"
 	"encoding/binary"
 	"encoding/json"
+	"image"
+	"image/color"
+	"image/png"
 	"os"
 	"path/filepath"
 	"testing"
@@ -393,5 +396,72 @@ func TestWriteTrianglesMat(t *testing.T) {
 		if _, ok := m.Extensions["KHR_materials_unlit"]; !ok {
 			t.Fatalf("material %d is not unlit: %+v", i, m.Extensions)
 		}
+	}
+}
+
+// TestWriteTexturedQuad writes one textured quad plus one flat-coloured
+// triangle, then re-parses the GLB to assert the textured wiring: a
+// TEXCOORD_0 attribute, an embedded PNG image with a bufferView, a NEAREST/
+// CLAMP sampler, and a MASK-alpha unlit material whose baseColorTexture
+// references the texture.
+func TestWriteTexturedQuad(t *testing.T) {
+	img := image.NewRGBA(image.Rect(0, 0, 4, 4))
+	img.Set(1, 1, color.RGBA{255, 0, 0, 255})
+	pos := [][3]float32{{0, 0, 0}, {1, 0, 0}, {1, 1, 0}, {0, 1, 0}, {2, 0, 0}}
+	uvs := [][2]float32{{0, 0}, {1, 0}, {1, 1}, {0, 1}, {0, 0}}
+	path := filepath.Join(t.TempDir(), "tex.glb")
+	err := WriteTextured(path, pos, uvs,
+		[]TexturedGroup{{Tris: [][3]uint32{{0, 1, 2}, {0, 2, 3}}, Image: img}},
+		[]TriGroup{{Tris: [][3]uint32{{0, 1, 4}}, Color: [3]float32{1, 0, 0}}})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	jsonLen := binary.LittleEndian.Uint32(data[12:])
+	var doc map[string]any
+	if err := json.Unmarshal(data[20:20+jsonLen], &doc); err != nil {
+		t.Fatal(err)
+	}
+
+	prims := doc["meshes"].([]any)[0].(map[string]any)["primitives"].([]any)
+	if len(prims) != 2 {
+		t.Fatalf("want 2 primitives, got %d", len(prims))
+	}
+	attrs := prims[0].(map[string]any)["attributes"].(map[string]any)
+	if _, ok := attrs["TEXCOORD_0"]; !ok {
+		t.Fatal("textured primitive lacks TEXCOORD_0")
+	}
+	images := doc["images"].([]any)
+	if len(images) != 1 || images[0].(map[string]any)["mimeType"] != "image/png" {
+		t.Fatalf("bad images: %v", images)
+	}
+	smp := doc["samplers"].([]any)[0].(map[string]any)
+	if smp["magFilter"].(float64) != 9728 {
+		t.Fatalf("want NEAREST magFilter, got %v", smp["magFilter"])
+	}
+	mat := doc["materials"].([]any)[0].(map[string]any)
+	if mat["alphaMode"] != "MASK" {
+		t.Fatalf("want MASK alphaMode, got %v", mat["alphaMode"])
+	}
+	if _, ok := mat["pbrMetallicRoughness"].(map[string]any)["baseColorTexture"]; !ok {
+		t.Fatal("material lacks baseColorTexture")
+	}
+
+	// The embedded PNG must decode back to the source image.
+	viewIdx := int(images[0].(map[string]any)["bufferView"].(float64))
+	views := doc["bufferViews"].([]any)
+	v := views[viewIdx].(map[string]any)
+	binStart := 20 + int(jsonLen) + 8
+	off, ln := int(v["byteOffset"].(float64)), int(v["byteLength"].(float64))
+	back, err := png.Decode(bytes.NewReader(data[binStart+off : binStart+off+ln]))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if r, _, _, _ := back.At(1, 1).RGBA(); r != 0xFFFF {
+		t.Fatal("embedded PNG lost the red texel")
 	}
 }

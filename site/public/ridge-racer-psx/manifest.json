@@ -1,0 +1,82 @@
+{
+  "format": 2,
+  "game": "ridge-racer-psx",
+  "platform": "Sony PlayStation",
+  "native": {
+    "w": 320,
+    "h": 240
+  },
+  "tickHz": 60,
+  "models": [
+    {
+      "name": "F/A RACING",
+      "file": "models/car-01.glb",
+      "kind": "mesh3d"
+    },
+    {
+      "name": "RT RYUKYU",
+      "file": "models/car-02.glb",
+      "kind": "mesh3d"
+    },
+    {
+      "name": "RT YELLOW SOLVALOU",
+      "file": "models/car-03.glb",
+      "kind": "mesh3d"
+    },
+    {
+      "name": "RT BLUE SOLVALOU",
+      "file": "models/car-04.glb",
+      "kind": "mesh3d"
+    },
+    {
+      "name": "RT PINK MAPPY",
+      "file": "models/car-05.glb",
+      "kind": "mesh3d"
+    },
+    {
+      "name": "RT BLUE MAPPY",
+      "file": "models/car-06.glb",
+      "kind": "mesh3d"
+    },
+    {
+      "name": "GALAGA RT PLID'S",
+      "file": "models/car-07.glb",
+      "kind": "mesh3d"
+    },
+    {
+      "name": "GALAGA RT CARROT",
+      "file": "models/car-08.glb",
+      "kind": "mesh3d"
+    },
+    {
+      "name": "RT BOSCONIAN",
+      "file": "models/car-09.glb",
+      "kind": "mesh3d"
+    },
+    {
+      "name": "RT NEBULASRAY",
+      "file": "models/car-10.glb",
+      "kind": "mesh3d"
+    },
+    {
+      "name": "RT XEVIOUS RED",
+      "file": "models/car-11.glb",
+      "kind": "mesh3d"
+    },
+    {
+      "name": "RT XEVIOUS GREEN",
+      "file": "models/car-12.glb",
+      "kind": "mesh3d"
+    },
+    {
+      "name": "13\" RACING",
+      "file": "models/car-13.glb",
+      "kind": "mesh3d"
+    },
+    {
+      "name": "Ridge Racer Course",
+      "file": "models/track.glb",
+      "kind": "mesh3d"
+    }
+  ]
+}
