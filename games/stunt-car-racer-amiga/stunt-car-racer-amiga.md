@@ -22,6 +22,9 @@ the centre of gravity is the last two parts — the tracks and the physics:
 * **Part V** — **the physics**: the car's rigid-body simulation — the chassis,
   suspension, wheel/ground contact, drive and damage model — reverse-engineered
   from the 68000 integrator and reimplemented in Go so a track can be *driven*.
+* **Part VI** — **the opponent car**: the one 3-D object the race view draws
+  besides the track — a procedural screen-space build, not a stored model —
+  reverse-engineered, ported and shipped as a GLB.
 * **Appendices** — toolchain and reproduction.
 
 Methods: purely static analysis of the disk image, plus the 68000 toolchain in
@@ -30,9 +33,11 @@ disassemblers (`tools/cmd/dis68k`, `tools/cmd/codetrace68k`) and an
 instruction-level 68000 execution core (`tools/cpu/m68k`) for dynamic verification.
 All addresses are 68000 addresses; sizes are `.b`/`.w`/`.l` (8/16/32-bit).
 **Status: complete. Parts I–III (disk format, loader, engine architecture), Part IV (the
-track geometry — footprint, surface and camber, decoded and verified coordinate-exact) and
-Part V (the full rigid-body car physics, verified frame-by-frame against the original) are
-all done; combined, a car can be driven over the decoded tracks.**
+track geometry — footprint, surface, camber and the preview renderer's colours and decals,
+decoded and verified exact), Part V (the full rigid-body car physics, verified
+frame-by-frame against the original) and Part VI (the opponent car object) are all done;
+combined, a car can be driven over the decoded tracks, and the circuits and the opponent
+car ship as GLB models in the game's own colours.**
 
 ---
 
@@ -57,7 +62,12 @@ all done; combined, a car can be driven over the decoded tracks.**
   - [6. The plan footprint (the 16×16 track grid)](#6-the-plan-footprint-the-1616-track-grid)
   - [7. Banking and elevation](#7-banking-and-elevation)
   - [8. The baked track model — the definitive absolute geometry](#8-the-baked-track-model-65bec--the-definitive-absolute-geometry)
+  - [9. The drawn faces: colours and decals](#9-the-drawn-faces-colours-and-decals-672cc68f28)
 - [Part V — The physics simulation](#part-v--the-physics-simulation)
+- [Part VI — The opponent car (the 3-D vector object)](#part-vi--the-opponent-car-the-3-d-vector-object)
+  - [1. Placement: wheels ride the decoded track](#1-placement-wheels-ride-the-decoded-track)
+  - [2. The screen-space build](#2-the-screen-space-build-599e2)
+  - [3. Reimplementation and proof](#3-reimplementation-and-proof)
 - [Appendix A — Toolchain and reproduction](#appendix-a--toolchain-and-reproduction)
 
 ---
@@ -265,7 +275,7 @@ structure:
 ```
 $5C890 MOVE.w #0,$23C32                     ; a mode/state word
        copy $1ECAA[256]  -> $7A91A          ; a 256-byte table (LUT)
-       copy $5CF30[…]    -> $7A61A / $7A71A ; two parallel buffers (double-buffered colour/Copper)
+       copy $5CF30[…]    -> $7A61A / $7A71A ; two parallel byte tables (championship names/scores)
        TST.b $64AF0 ; BNE …                 ; a "skip intro" flag
        JSR  $62D0A                          ; …
        BRA  $5C960                          ; the main loop body
@@ -273,14 +283,18 @@ $5C890 MOVE.w #0,$23C32                     ; a mode/state word
 
 From here the engine is a conventional VBlank-paced loop: a state word
 (`$23C32`) selects the current screen (title / menu / track-select / race), the
-double-buffered colour/Copper buffers (`$7A61A`/`$7A71A`) are swapped each frame,
-and the level-3 handler (`$EF1A`) drives timing. The filled-vector race renderer,
+championship name/score tables (`$7A61A`/`$7A71A`) hold the standings (the
+`$5F29A` handlers copy 12-byte `------------` name entries and the `$1C916…`
+score counters in and out of them — an early read of these as colour buffers
+was wrong; the palette path is the staged table at `$E83A`/`$E85A` pushed to
+the Copper list by `$1BA82`, §IV.9), and the level-3 handler (`$EF1A`) drives
+timing. The filled-vector race renderer,
 the track interpreter (Part IV) and the car simulation (Part V) hang off the race
 state of this loop.
 
 *Memory map (run-time, so far):* engine code/data from `$E700`; the encrypted
 `$F4B8..$1AA4A` block; sound buffers at `$6A594`; the working screen/Copper at
-`$78000`+ and double-buffered colour tables at `$7A61A`/`$7A71A`; assorted state
+`$78000`+ and the championship tables at `$7A61A`/`$7A71A`; assorted state
 words around `$23C32`/`$64AF0`. The track and physics tables are located in
 Parts IV–V.
 
@@ -710,6 +724,71 @@ directly. **Part IV is complete: footprint, surface, camber
 and now the absolute plan are all decoded purely from the disk in Go and verified
 byte-exact against the original renderer's own build.**
 
+## 9. The drawn faces: colours and decals (`$672CC`/`$68F28`)
+
+The pre-race track preview (`$604B4`) is the renderer at full strength: it walks
+all 16×16 grid cells (`$602E4`/`$60324`), recomputes every section at full rung
+resolution (`$6521C` → the `$65756` strips of Part IV §8) and, because the
+preview flag `$1BB68=$80` makes `$654C2` emit a wall-bottom vertex for every
+rail point at height `$200` (the ground plane), draws the whole circuit as a
+walled ribbon standing on the ground. The emit `$672CC` writes one display-list
+strip per rung pair — four lengthwise edges (two road rails, two wall bottoms),
+two wall verticals, one road cross-line — closed by a 4-byte descriptor
+`{section, type, flag, piece}`; the flush `$68F28` walks the list backwards in
+batches that end at each *drawn-edge* rung (flag-strip bit 7 clear) and fills
+and strokes each batch. Everything the player sees is decided as follows:
+
+- **Palette.** The 16 words at `$2B974` are the race/preview palette. They are
+  staged at `$E83A` (current) / `$E85A` (fade target, loader `$1BA70`), the
+  fade `$64470` steps each 4-bit channel per frame, and `$1BA82` pushes the
+  staged words into the embedded Copper list's `COLOR` block at `$E770+4n`
+  after doubling every channel and setting its low bit when non-zero
+  (`c → 2c|1`): stored `$443` displays as `$997`. The displayed values:
+  `$055` background (0), `$997`/`$BB9` road greys (1/2), `$FF0` yellow (3),
+  `$555` (5), `$500` dark red (9), `$733` red (`$A`), `$777` (`$D`/`$E`-ish
+  greys), `$FFF` white (`$F`).
+- **Road surface** (`$68D82`): each batch — the span of strips up to a drawn
+  edge — is filled as one polygon in palette **1**, or **2 when the section
+  number is odd** (`$691C4` tests bit 0 of the descriptor's section byte). A
+  batch whose descriptor carries the crease bit `$20` is filled with the
+  **background colour 0** instead — the dark bands leading up to ramp lips.
+- **Side walls** (`$68A56`/`$68BEC`): filled palette **`$F` (white)**, or
+  **`$A` (red) when the section is odd** — the classic alternation is *per
+  section*, in step with the road greys. A cell viewed from its back side
+  (`$1BB66`, from the camera/section quadrants) is filled `$9` instead — the
+  dark inner face of the wall.
+- **Curb strokes** (`$689CE`/`$68A12`): the road-edge lengthwise lines are
+  stroked in the descriptor's type byte — **9, or 3 on alternating rungs**
+  (`$67120`: parity of the rung index XOR a per-section phase). The phase is
+  computed *by the track loader*: `$5AE46` accumulates
+  `$1BBDC = ($1BBDC + cnt−2) & 2` across sections from zero and stores each
+  section's phase bit as bit 7 of its `$1C524` byte (`$5B010`/`$5AF7C`) —
+  which is what keeps the yellow/dark-red dashes continuous over every joint.
+- **Wall verticals** (`$6892A`/`$6897C`): emitted on parity-even or drawn-edge
+  rungs and stroked palette **9** on type-9 strips only — the strut lines
+  climbing the walls on every other rung.
+- **Cross-lines**: emitted at drawn-edge rungs. The preview clears the first
+  and last rung's flag byte outright (`$6045C`), forcing a lateral edge at
+  every section joint — and wiping the crease and finish bits there, so the
+  preview never draws the white finish stroke (`$688FC` is race-only).
+- The screen is 4 bitplanes (`BPLCON0 = $4200`); a face colour is a 4-bit
+  palette index that `$66348` patches into the plane-select fill code — there
+  is no per-scanline Copper trickery in the scene.
+
+The preview projection halves the plan (`$62454`) and squeezes heights by
+`$4C1B/$8000` (`$624C2`) — screen framing only. The true proportions are the
+race view's: plan enters the projection unscaled and heights are `ASR #2` —
+**4 height units to 1 plan unit**.
+
+`track.Mesh` (`extract/track/mesh.go`) reimplements the whole assignment in
+pure Go — palette, fills, strokes, phases — and `cmd/coloracle` verifies it by
+running the real `$604B4` on the m68k core for all four preview camera angles
+with hooks on every colour decision: **all eight tracks match, every rung
+covered, palette word-exact**. `cmd/webexport -only models` bakes the result
+into one GLB per circuit (`models/<slug>.glb`): road and wall quads per rung
+pair with the exact linearised Amiga colours, and the stroked decals as true
+glTF `LINES` primitives.
+
 *Part V — the physics.*
 
 ---
@@ -879,6 +958,71 @@ fully faithful in-browser drive; until it lands, the viewer uses a provisional c
 
 ---
 
+# Part VI — The opponent car (the 3-D vector object)
+
+The computer player's car — the one 3-D object the race view draws besides the
+track — is **not a stored vertex model**. There is no vertex/face list anywhere
+on the disk: `$599E2` assembles the car procedurally, in *screen space*, from
+the four projected wheel points of the opponent's rig, and `$67AA6` fills its
+faces with colours hard-coded in an unrolled paint list.
+
+## 1. Placement: wheels ride the decoded track
+
+The opponent runs no physics. Its state is the AI navigator's — section
+(`$1BB1D`), distance along it (`$1BB0C`), across position (`$1BB13`) — advanced
+by `$63996` each frame, and `$5A186`/`$5A40C` place its four wheels directly on
+the Part IV track surface: the **front axle** is the across-interpolation of
+the rail sample grid (the car is 81 plan units wide on the standard 384-unit
+road — the `$1BBBE` across offsets), and the **rear axle** is the front pair
+displaced by **1.5× the axle vector rotated 90°** (`$5A468`) — wheelbase 122.
+Heights stack simply (`$63A58`, `$641B6`): body plane = the bilinear surface
+sample + `$68` + a per-frame bounce (`rand & $7F`, the fake suspension); wheel
+tops = body + `$50`; deck plane = surface sample + `$50`.
+
+## 2. The screen-space build (`$599E2`)
+
+`$5A0CE` takes an axle's two projected wheel points and derives a family of
+**signed halves, quarters and eighths** of the screen axle vector and its
+perpendicular (`$59B7A`), plus the axle midpoint. From those fractions alone:
+
+- `$59C7C` builds the **front face rectangle** and, via `$59F78`/`$59F98`, the
+  two front **tyre parallelograms**;
+- `$59DF6` builds the **rear face rectangle**, the four **connector edges**
+  running the length of the car, and the rear tyres;
+- `$59B1A` closes the **deck quad** over the four wheel-bottom points, which
+  `$599E2` first slides by the axle fractions (`$59AB8`/`$59AEE` — the front
+  shift uses `bc6A−1`, the rear plain `bc6A`) so the deck lands under the car
+  as its painted shadow/base plate.
+
+Everything goes into a reserved display-list region at `$5E0` (32 edges), and
+`$67AA6` — dispatched from the flush when it reaches the car's strip
+(`$66FF0`/`$1BC12`, painter's order) — fills ten faces with fixed colours:
+**front rectangle `$A` (red), top `$F` (white), bottom `9` (dark red), flanks
+`$C` (light grey), deck `5` (mid grey), tyres `0`** — the background colour:
+the wheels are literally holes filled with sky.
+
+## 3. Reimplementation and proof
+
+`extract/carmodel` ports the construction verbatim (`carmodel.Build`, the
+`$1BC64…$1BC8A` fraction family included), and `cmd/caroracle` proves it: it
+runs the real race init, places the opponent exactly as `$5D3C6` does, runs the
+game's own per-frame chain (`$6076C` distance/visibility, `$63A58`, `$641B6`,
+`$5A186`) and the real `$67AA6` draw on the m68k core, and compares every one
+of the 32 emitted display-list edges against `carmodel.Build` —
+**coordinate-exact on all eight tracks**.
+
+Because the construction is linear in the projected wheel points, running the
+verified port through two *orthographic* views (front and side) recovers the
+exact 3-D shape the arithmetic encodes: `carmodel.Rest` does that, and
+`cmd/webexport` ships it as `models/opponent-car.glb` — the red-fronted,
+white-topped wedge on four background-coloured tyre panels over its grey deck
+plate, in the same scale and palette conventions as the circuit GLBs. (The
+original being a screen-space build, the GLB is by nature its rest-pose
+interpretation; the wedge proportions, planes and colours are the engine's own
+numbers.)
+
+---
+
 # Appendix A — Toolchain and reproduction
 
 All work is reproducible from the image with the shared `tools/` module:
@@ -916,6 +1060,19 @@ go run ./cmd/trackjson ../extracted/game.dec.bin   # -> site/public/stuntcar/tra
 # Verify the Go car physics (package physics) against the engine on the m68k core:
 # every sub-routine + the full $6185C frame in lockstep for 60 frames (all exact)
 go run ./cmd/physverify ../extracted/game.dec.bin
+
+# Verify the preview colour/decal reimplementation (track.Mesh) against the real
+# $604B4 preview draw on the m68k core — 4 camera angles, every colour decision
+# hooked; all 8 tracks exact, palette word-exact (Part IV §9)
+go run ./cmd/coloracle -in ../extracted/game.dec.bin [-id N] [-dump]
+
+# Verify the opponent-car construction port (carmodel.Build) against the real
+# $599E2/$67AA6 draw — all 32 display-list edges coordinate-exact (Part VI)
+go run ./cmd/caroracle -in ../extracted/game.dec.bin [-id N]
+
+# Export the web assets: per-circuit track JSON + the GLB models (8 circuits in
+# the preview's exact colours/decals + models/opponent-car.glb)
+go run ./cmd/webexport [-in ../extracted/game.dec.bin] [-only tracks,models,all]
 
 # Disassemble / trace the engine. Use game.dec.bin for anything in $F4B8..$1AA4A.
 go run retroreverse.com/tools/cmd/dis68k     -base 0xE700 -start <addr> -end <addr> extracted/game.dec.bin
