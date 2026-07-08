@@ -55,9 +55,13 @@ const (
 	// MemList at +0xA8 (AllocMem's list arg, which our HLE ignores). We plant a real
 	// pointer to this struct and advance the VBlank count so the game's timing loops
 	// (the VBlank service task) see time passing.
-	osCtxBase   = 0x0017D000 // the [kernelBase+0x98] OS context struct
-	osCtxVBlank = 0x0A       // +0xA: current VBlank/field count (byte)
-	osCtxMemLst = 0xA8       // +0xA8: OS MemList pointer (ignored by our AllocMem)
+	// [kernelBase+0x98] is kb_CurrentTask: a pointer to the running task's Task
+	// struct. The HLE keeps one synthetic Task struct that always describes the
+	// current task (updated on every switch) — the fields programs read off it:
+	osCtxBase   = 0x0017D000 // the Task struct kb_CurrentTask points at
+	osCtxPri    = 0x0A       // +0x0A: ItemNode n_Priority (threads inherit it)
+	osCtxItem   = 0x18       // +0x18: ItemNode n_Item — the current task's Item
+	osCtxMemLst = 0xA8       // +0xA8: t_FreeMemoryLists (ignored by our AllocMem)
 
 	// The game sets up TWO memory managers (InitMemMgr, id 0xC8): one at boot entry
 	// and one from a later dispatch. Both share one memlist array (@game 0x5BA68)
@@ -110,6 +114,8 @@ type Machine struct {
 
 	vol     *Volume                // the mounted disc, so the I/O HLE can read files (io.go)
 	streams map[uint32]*diskStream // open File-folio streams, keyed by handle (filefolio.go)
+	dirs    map[uint32]*dirScan    // open File-folio directory scans (filefolio.go)
+	nvram   map[string][]byte      // battery-backed store, empty like a fresh console (filefolio.go)
 
 	// Instrumentation (opt-in; checked in Read/Write and the run loop).
 	WatchLo, WatchHi uint32
@@ -135,6 +141,15 @@ type Machine struct {
 	// default, so a plain run stops honestly at the first async-wait frontier.
 	SpinBreak  bool
 	SpinBreaks int
+	// StallTolerance scales the run loop's deadlock threshold (default 1). The
+	// guard calls a run dead after N fruitless task switches; a program whose
+	// main loop legitimately re-executes only already-seen code (a settled frame
+	// loop) needs a higher tolerance to keep running.
+	StallTolerance int
+	// NoStreams makes .stream movie files fail to resolve, skipping FMV playback
+	// through the game's own missing-file fallback (see loadDiscFile). Set it
+	// until the audio folio + DataStreamer are modelled well enough to play them.
+	NoStreams bool
 	simTime    uint64 // virtual microsecond clock (folio SampleSystemTimeTT)
 	vblank     uint32 // virtual VBlank/field counter (osCtx +0xA)
 	// vblMirror, if non-zero, is a game global the VBL manager must keep in step
@@ -165,6 +180,8 @@ func NewMachine() *Machine {
 		nextItem:   0x1000,
 		logSeen:    map[string]bool{},
 		streams:    map[uint32]*diskStream{},
+		dirs:       map[uint32]*dirScan{},
+		nvram:      map[string][]byte{},
 	}
 	m.CPU = arm60.NewCPU(m)
 	m.CPU.SWI = m.swi
@@ -194,10 +211,13 @@ func (m *Machine) LoadAIF(a *AIF) {
 		m.writeWord(gfxFolioBase-off, hleBase+hleGfxTag+off)
 	}
 
-	// Plant the OS hardware-context struct and point [kernelBase+0x98] at it, so
-	// the game's timer/VBlank and AllocMem code reads real fields (see osCtxBase).
-	// The MemList pointer just has to be non-zero (our AllocMem ignores it).
+	// Plant the current-task struct and point [kernelBase+0x98] (kb_CurrentTask)
+	// at it. Programs read their own item number (n_Item — e.g. to tell a spawned
+	// thread whom to signal back), their priority (threads inherit it), and the
+	// task MemList pointer (just has to be non-zero; our AllocMem ignores it).
 	m.writeWord(kernelBase+0x98, osCtxBase)
+	m.dram[osCtxBase+osCtxPri] = 100
+	m.writeWord(osCtxBase+osCtxItem, uint32(m.curTask().num))
 	m.writeWord(osCtxBase+osCtxMemLst, osCtxBase+0x400)
 
 	m.CPU.SetReg(5, 0)          // r5: argc-like
@@ -217,9 +237,8 @@ func (m *Machine) SetVolume(v *Volume) { m.vol = v }
 func (m *Machine) SetVBLMirror(addr uint32) { m.vblMirror = addr }
 
 // advanceVBlank moves the virtual VBlank/field clock forward by n fields and
-// publishes the new count everywhere the game reads it: the OS context struct
-// (osCtx +0xA) and, if registered, the program's own elapsed-field global
-// (SetVBLMirror). This stands in for the graphics folio's VBL interrupt. It is
+// publishes the new count to the program's registered elapsed-field global
+// (SetVBLMirror), standing in for the graphics folio's VBL interrupt. It is
 // driven both by a steady background tick (run loop) and by field-wait timer IOs
 // (io.go), so field waits actually advance time.
 func (m *Machine) advanceVBlank(n uint32) {
@@ -227,7 +246,6 @@ func (m *Machine) advanceVBlank(n uint32) {
 		n = 1
 	}
 	m.vblank += n
-	m.dram[osCtxBase+osCtxVBlank] = byte(m.vblank)
 	if m.vblMirror != 0 {
 		m.writeWord(m.vblMirror, m.vblank)
 	}
@@ -368,7 +386,7 @@ func (m *Machine) swi(c *arm60.CPU, comment uint32) bool {
 		From:   c.CurPC(),
 		Args:   [4]uint32{c.Reg(0), c.Reg(1), c.Reg(2), c.Reg(3)},
 	})
-	if !m.kernelSWI(c, comment) {
+	if !m.kernelSWI(c, comment) && !m.fileFolioSWI(c, comment) {
 		m.note(fmt.Sprintf("SWI #0x%X (stub)", comment))
 	}
 	return true // serviced: do not vector to 0x08

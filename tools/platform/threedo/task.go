@@ -136,6 +136,10 @@ func (m *Machine) switchTask() bool {
 			m.tasks[j].state = stRunning
 			m.cur = j
 			m.switches++
+			// Keep kb_CurrentTask's n_Item naming the running task, so programs
+			// asking "who am I" (to hand a thread a signal-back target) get the
+			// item SendSignal can route to.
+			m.writeWord(osCtxBase+osCtxItem, uint32(m.tasks[j].num))
 			return true
 		}
 	}

@@ -33,6 +33,8 @@ func main() {
 	dump := flag.Uint64("dump", 0, "after the run, dump memory words at [dump, dump+dumplen)")
 	dumpLen := flag.Uint64("dumplen", 0x40, "byte span for -dump")
 	vblMirror := flag.Uint64("vblmirror", 0x42734, "game global the VBL manager keeps at the elapsed-field count (0 = off)")
+	stall := flag.Int("stall", 1, "deadlock-guard tolerance multiplier (raise for programs with settled main loops)")
+	movies := flag.Bool("movies", false, "let the game open .stream movies (FMV subsystem not modelled yet: crashes in the movie player)")
 	flag.Parse()
 
 	var data []byte
@@ -64,6 +66,8 @@ func main() {
 
 	m := threedo.NewMachine()
 	m.SpinBreak = *spinbreak
+	m.StallTolerance = *stall
+	m.NoStreams = !*movies
 	if vol != nil {
 		m.SetVolume(vol)
 	}

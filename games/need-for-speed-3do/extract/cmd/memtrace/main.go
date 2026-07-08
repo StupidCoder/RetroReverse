@@ -16,6 +16,8 @@ import (
 func main() {
 	image := flag.String("image", "", "3DO disc image")
 	steps := flag.Uint64("steps", 3000000, "max instructions")
+	stall := flag.Int("stall", 1, "deadlock-guard tolerance multiplier")
+	vramOut := flag.String("vramout", "", "write the raw 1MB VRAM to this file after the run")
 	flag.Parse()
 
 	data, err := os.ReadFile(*image)
@@ -64,9 +66,23 @@ func main() {
 		}
 	}
 
+	type snap struct{ pc, sp, r11, lr uint32 }
+	var ring [64]snap
+	var ri int
+	dumped := false
 	m.OnStep = func(mm *threedo.Machine, pc uint32) {
 		n++
 		c := mm.CPU
+		ring[ri%len(ring)] = snap{pc, c.Reg(13), c.Reg(11), c.Reg(14)}
+		ri++
+		if !dumped && pc >= 0xB0000 && pc < 0xB1000 {
+			dumped = true
+			fmt.Printf("[%9d] EXEC IN STACK at %X — last %d pcs:\n", n, pc, len(ring))
+			for i := 0; i < len(ring); i++ {
+				s := ring[(ri+i)%len(ring)]
+				fmt.Printf("  sp=%08X r11=%08X lr=%08X  %s\n", s.sp, s.r11, s.lr, mm.DisasmAt(s.pc))
+			}
+		}
 		switch pc {
 		case 0xEB6C:
 			ev("sysinit", 10, "0xEB6C(r0=%X) lr=%X", c.Reg(0), c.Reg(14))
@@ -104,6 +120,12 @@ func main() {
 			ev("seekglue", 10, "stream=%X off=%X whence=%X lr=%X", c.Reg(0), c.Reg(1), c.Reg(2), c.Reg(14))
 		case 0x33820:
 			ev("seekendret", 10, "r0=%X", c.Reg(0))
+		case 0x9E0EC:
+			ev("readysig", 10, "SendSignal(task=%X, sig=%X)", c.Reg(0), c.Reg(1))
+		case 0x9E270:
+			ev("wsigmask", 10, "WaitSignal(mask=%X)", c.Reg(0))
+		case 0x9E274:
+			ev("wsigret", 10, "-> r0=%X", c.Reg(0))
 		case 0x12D2C:
 			ev("ovlbuf", 10, "0x32B5C returned r0=%X", c.Reg(0))
 		case 0x12D34:
@@ -115,11 +137,81 @@ func main() {
 		ev("G4write", 20, "[0x472D4] byte=%02X from pc=%X", val&0xFF, pc)
 	}
 
+	m.StallTolerance = *stall
+	m.NoStreams = true
+
 	res := m.Run(*steps)
 	fmt.Printf("stopped: %s after %d steps pc=%X\n", res.Reason, res.Steps, res.PC)
 	fmt.Println("\nevent totals:")
 	for k, v := range counts {
 		fmt.Printf("  %-14s %d\n", k, v)
+	}
+
+	// Kernel/folio call census: which vectors dominate, and the tail of the log.
+	type ofr struct{ off, from uint32 }
+	byOff := map[ofr]int{}
+	for _, k := range m.KernelCalls {
+		byOff[ofr{k.Offset, k.From}]++
+	}
+	fmt.Printf("\nkernel/folio calls by offset+site (%d total):\n", len(m.KernelCalls))
+	for of, cnt := range byOff {
+		if cnt > 20 {
+			fmt.Printf("  -0x%-6X from 0x%08X x%d\n", of.off, of.from, cnt)
+		}
+	}
+	fmt.Println("\nlast 30 kernel/folio calls:")
+	kc := m.KernelCalls
+	for _, k := range kc[max(0, len(kc)-30):] {
+		fmt.Printf("  folio[-0x%X] from 0x%08X args=%08X %08X %08X %08X\n", k.Offset, k.From, k.Args[0], k.Args[1], k.Args[2], k.Args[3])
+	}
+	bySWI := map[uint32]int{}
+	for _, k := range m.SWICalls {
+		bySWI[k.Offset]++
+	}
+	fmt.Printf("\nSWIs by number (%d total):\n", len(m.SWICalls))
+	for n, cnt := range bySWI {
+		fmt.Printf("  0x%-6X x%d\n", n, cnt)
+	}
+	fmt.Println("all SWIs except WaitVBL SendIO (chronological, first 150):")
+	shown := 0
+	for _, k := range m.SWICalls {
+		if k.Offset == 0x10018 && k.Args[2] == 0x20 {
+			continue // the frame loop's field-wait spam
+		}
+		fmt.Printf("  SWI 0x%-6X from 0x%08X args=%08X %08X %08X %08X\n", k.Offset, k.From, k.Args[0], k.Args[1], k.Args[2], k.Args[3])
+		if shown++; shown > 150 {
+			break
+		}
+	}
+	fmt.Printf("\nVRAM non-zero (640KB): %d\n", m.VRAMNonZero(640*1024))
+	for _, s := range m.TaskSummary() {
+		fmt.Println(" ", s)
+	}
+	fmt.Println("\nitems:")
+	for _, s := range m.ItemsSummary() {
+		fmt.Println(" ", s)
+	}
+	fmt.Println("\nVRAM occupancy (16KB bins, nonzero bytes):")
+	for base := uint32(0x200000); base < 0x300000; base += 0x4000 {
+		nz := 0
+		for a := base; a < base+0x4000; a++ {
+			if m.Read(a) != 0 {
+				nz++
+			}
+		}
+		if nz > 0 {
+			fmt.Printf("  %08X: %d\n", base, nz)
+		}
+	}
+	if *vramOut != "" {
+		buf := make([]byte, 0x100000)
+		for i := range buf {
+			buf[i] = m.Read(0x200000 + uint32(i))
+		}
+		if err := os.WriteFile(*vramOut, buf, 0644); err != nil {
+			die(err)
+		}
+		fmt.Println("wrote VRAM to", *vramOut)
 	}
 }
 

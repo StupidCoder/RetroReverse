@@ -1,6 +1,11 @@
 package threedo
 
-import "retroreverse.com/tools/cpu/arm60"
+import (
+	"fmt"
+	"sort"
+
+	"retroreverse.com/tools/cpu/arm60"
+)
 
 // kernel.go high-level-emulates the Portfolio kernel folio's SWI calls — the
 // item system, semaphores and signals the game uses during boot. The SWI numbers
@@ -48,6 +53,7 @@ const (
 
 	// Kernel item subtypes we care about.
 	typeSemaphore = 0x07
+	typeMsg       = 0x09 // MESSAGENODE (created by CreateMsg right before use)
 	typeMsgPort   = 0x0A
 	typeIOReq     = 0x0E
 	typeDevice    = 0x0F
@@ -59,6 +65,7 @@ const (
 	tagPortSignal     = 0x0A
 	tagIOReqReplyPort = 0x0A
 	tagIOReqDevice    = 0x0B
+	tagMsgReplyPort   = 0x0A // CREATEMSG_TAG_REPLY_PORT (TAG_ITEM_LAST+1)
 
 	sigfIODONE = 0x08 // SIGF_IODONE: the default I/O-completion signal
 )
@@ -73,6 +80,7 @@ type item struct {
 
 	owner  int32  // task that created/owns this item
 	signal uint32 // message port: the signal raised on its owner when a msg arrives
+	msgs   []int32 // message port: queued Message items, FIFO
 
 	// IOReq fields (typeIOReq): the device it drives and its reply port (0 = the
 	// completion is delivered as SIGF_IODONE to the owner task instead).
@@ -156,6 +164,13 @@ func (m *Machine) createItem(typ, tags, size uint32) *item {
 		structSize = size
 	}
 	it.addr = m.dheap.alloc(structSize)
+	if it.addr != 0 {
+		// Fill the ItemNode header fields programs read back off the struct:
+		// n_SubsysType/n_Type at +8/+9 and n_Item at +0x18 (nodes.h layout).
+		m.Write(it.addr+8, byte(typ>>8))
+		m.Write(it.addr+9, byte(typ))
+		m.writeWord(it.addr+0x18, uint32(it.num))
+	}
 	m.items[it.num] = it
 	return it
 }
@@ -169,9 +184,20 @@ func (m *Machine) initItemFromTags(it *item) {
 		if it.signal == 0 { // no explicit signal: allocate one for the owner
 			it.signal = m.allocSignalFor(it.owner)
 		}
+		if it.addr != 0 {
+			// mp_Signal sits right after the ItemNode (+0x24); programs read it
+			// off the struct (GetMsgPortSignal) to build their WaitSignal masks.
+			m.writeWord(it.addr+0x24, it.signal)
+		}
 	case typeIOReq:
 		it.replyPort = int32(m.tagArg(it.tags, tagIOReqReplyPort))
 		it.device = int32(m.tagArg(it.tags, tagIOReqDevice))
+	case typeMsg:
+		// CreateMsg(..., CREATEMSG_TAG_REPLY_PORT): reply routing lives on the
+		// message struct where ReplyMsg reads it back.
+		if it.addr != 0 {
+			m.writeWord(it.addr+msgReplyPort, m.tagArg(it.tags, tagMsgReplyPort))
+		}
 	}
 }
 
@@ -188,6 +214,40 @@ func (m *Machine) allocSignalFor(taskNum int32) uint32 {
 	}
 	t.allocSigs |= bit
 	return bit
+}
+
+// ItemsSummary lists every live kernel item for the oracle's diagnostics.
+func (m *Machine) ItemsSummary() []string {
+	var nums []int32
+	for n := range m.items {
+		nums = append(nums, n)
+	}
+	sort.Slice(nums, func(i, j int) bool { return nums[i] < nums[j] })
+	var out []string
+	for _, n := range nums {
+		it := m.items[n]
+		s := fmt.Sprintf("item %d type=0x%X owner=#%d", it.num, it.typ, it.owner)
+		if it.name != "" {
+			s += fmt.Sprintf(" name=%q", it.name)
+		}
+		if it.signal != 0 {
+			s += fmt.Sprintf(" signal=0x%X", it.signal)
+		}
+		if len(it.msgs) > 0 {
+			s += fmt.Sprintf(" queued=%v", it.msgs)
+		}
+		if it.device != 0 {
+			s += fmt.Sprintf(" device=%d", it.device)
+		}
+		if it.replyPort != 0 {
+			s += fmt.Sprintf(" replyPort=%d", it.replyPort)
+		}
+		if it.typ&0xFF == typeMsg && it.addr != 0 {
+			s += fmt.Sprintf(" msgReplyPort=%d result=0x%X", m.read32(it.addr+msgReplyPort), m.read32(it.addr+msgResult))
+		}
+		out = append(out, s)
+	}
+	return out
 }
 
 // findItem returns a per-(type,name) item, creating it on first request so

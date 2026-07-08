@@ -49,11 +49,14 @@ const (
 	ioDone  = 0x01 // IO_DONE bit in io_Flags
 	ioQuick = 0x02 // IO_QUICK: the request completed synchronously in the submit call
 
-	// Standard device commands (CMD_*) and file device commands (FILECMD_*).
-	cmdWrite       = 0
-	cmdRead        = 1
-	cmdStatus      = 2
-	fileCmdReadDir = 3
+	// Standard device commands (CMD_*) and file device commands (FILECMD_*,
+	// filesystem.h).
+	cmdWrite           = 0
+	cmdRead            = 1
+	cmdStatus          = 2
+	fileCmdReadDir     = 3
+	fileCmdAllocBlocks = 6
+	fileCmdSetEOF      = 7
 
 	// Timer device: command 3 is "wait N fields" (the game's WaitVBL sends it with
 	// the field count in ioi_Offset). The real driver blocks the caller until N
@@ -128,6 +131,8 @@ func (m *Machine) serviceIO(c *arm60.CPU) {
 
 	cmd := uint32(m.Read(info + ioiCommand))
 	offset := m.read32(info + ioiOffset)
+	sendBuf := m.read32(info + ioiSendBuf)
+	sendLen := m.read32(info + ioiSendLen)
 	recvBuf := m.read32(info + ioiRecvBuf)
 	recvLen := m.read32(info + ioiRecvLen)
 
@@ -139,7 +144,7 @@ func (m *Machine) serviceIO(c *arm60.CPU) {
 		}
 	}
 
-	actual, ioErr := m.performIO(it, cmd, offset, recvBuf, recvLen)
+	actual, ioErr := m.performIO(it, cmd, offset, sendBuf, sendLen, recvBuf, recvLen)
 
 	if it != nil && it.addr != 0 {
 		m.write32(it.addr+ioActualOff, uint32(actual))
@@ -179,10 +184,11 @@ func (m *Machine) ioError(ioNum int32) uint32 {
 }
 
 // performIO carries out one device request and returns (bytes transferred,
-// error). It reads file/directory data straight off the mounted disc image. When
-// the request cannot yet be mapped to disc data it is logged and reported as a
+// error). File-device requests (the device item was opened by OpenDiskFile)
+// serve disc bytes or the NVRAM store; the timer's field-wait advances the
+// virtual VBlank clock. Unmapped requests are logged and acknowledged as a
 // zero-length success so the boot proceeds and the gap is visible.
-func (m *Machine) performIO(it *item, cmd, offset, buf, length uint32) (int32, int32) {
+func (m *Machine) performIO(it *item, cmd, offset, sendBuf, sendLen, buf, length uint32) (int32, int32) {
 	dev := ""
 	if it != nil && it.device != 0 {
 		if d := m.items[it.device]; d != nil {
@@ -194,64 +200,207 @@ func (m *Machine) performIO(it *item, cmd, offset, buf, length uint32) (int32, i
 		// A field wait: advance the virtual VBlank clock by the requested count so
 		// the caller's timing loop sees the fields elapse (see timerCmdWaitField).
 		m.advanceVBlank(offset)
+		// On hardware this request parks the caller for a whole field — an eternity
+		// in which every other task runs. Completing it instantly without yielding
+		// would let a frame loop starve the rest of the program, so hand the CPU to
+		// the next ready task; the waiter stays ready and resumes on its next turn.
+		m.curTask().state = stReady
+		m.needSchedule = true
 		return 0, 0
 	}
-	switch cmd {
-	case cmdRead:
-		return m.readDevice(it, offset, buf, length)
-	default:
-		// STATUS/READDIR/WRITE and unmapped commands: acknowledge with no data.
-		return 0, 0
+	if dev != "" && dev != "timer" && dev != "SPORT" {
+		return m.fileDeviceIO(dev, cmd, offset, sendBuf, sendLen, buf, length)
 	}
+	// Non-file devices: acknowledge with no data until they are modelled.
+	return 0, 0
 }
 
-// readDevice copies length bytes at the given offset from the disc file backing
-// the IOReq's device into buf. It relies on the device name being a disc path;
-// mapping opened-file items to disc files is refined as the boot reveals them.
-func (m *Machine) readDevice(it *item, offset, buf, length uint32) (int32, int32) {
-	if m.vol == nil || it == nil || buf == 0 {
+// fileDeviceIO serves a request against an opened file: STATUS fills the
+// FileStatus block (DeviceStatus + fs_ByteCount), READ copies block-addressed
+// data, and the write-side commands mutate the NVRAM store (the disc is
+// read-only). Block addressing follows the driver: ioi_Offset counts blocks of
+// the device's block size — 2048 for disc files, 1 for NVRAM bytes.
+func (m *Machine) fileDeviceIO(name string, cmd, offset, sendBuf, sendLen, buf, length uint32) (int32, int32) {
+	data, blockSize, nvKey, ok := m.fileData(name)
+	if !ok {
+		return 0, -1
+	}
+	switch cmd {
+	case cmdStatus:
+		blocks := uint32(len(data))
+		if blockSize > 1 {
+			blocks = (uint32(len(data)) + blockSize - 1) / blockSize
+		}
+		for i, w := range []uint32{
+			0,                // +0x00 identity/version/family/pad
+			0x28,             // +0x04 ds_MaximumStatusSize
+			blockSize,        // +0x08 ds_DeviceBlockSize
+			blocks,           // +0x0C ds_DeviceBlockCount
+			0, 0, 0, 0, 0,    // flags, usage, last error, media counter, reserved
+			uint32(len(data)), // +0x24 fs_ByteCount (FileStatus)
+		} {
+			if uint32(i)*4 < length {
+				m.write32(buf+uint32(i)*4, w)
+			}
+		}
+		n := int32(0x28)
+		if uint32(n) > length {
+			n = int32(length)
+		}
+		return n, 0
+	case cmdRead:
+		byteOff := offset * blockSize
+		if buf == 0 || int(byteOff) >= len(data) {
+			return 0, 0
+		}
+		n := len(data) - int(byteOff)
+		if uint32(n) > length {
+			n = int(length)
+		}
+		for i := 0; i < n; i++ {
+			m.Write(buf+uint32(i), data[int(byteOff)+i])
+		}
+		return int32(n), 0
+	case cmdWrite:
+		if nvKey == "" {
+			return 0, -1 // the disc is read-only
+		}
+		byteOff := offset * blockSize
+		stored := m.nvram[nvKey]
+		if need := int(byteOff) + int(sendLen); need > len(stored) {
+			grown := make([]byte, need)
+			copy(grown, stored)
+			stored = grown
+		}
+		for i := uint32(0); i < sendLen; i++ {
+			stored[byteOff+i] = m.Read(sendBuf + i)
+		}
+		m.nvram[nvKey] = stored
+		return int32(sendLen), 0
+	case fileCmdAllocBlocks:
+		if nvKey == "" {
+			return 0, -1
+		}
+		if grow := int(offset) * int(blockSize); grow > 0 {
+			m.nvram[nvKey] = append(m.nvram[nvKey], make([]byte, grow)...)
+		}
+		return 0, 0
+	case fileCmdSetEOF:
+		if nvKey == "" {
+			return 0, -1
+		}
+		stored := m.nvram[nvKey]
+		if int(offset) <= len(stored) {
+			m.nvram[nvKey] = stored[:offset]
+		} else {
+			m.nvram[nvKey] = append(stored, make([]byte, int(offset)-len(stored))...)
+		}
+		return 0, 0
+	default:
 		return 0, 0
 	}
-	dev := m.items[it.device]
-	if dev == nil || dev.name == "" {
-		return 0, 0
-	}
-	data, err := m.vol.ReadFile(dev.name)
-	if err != nil {
-		return 0, 0
-	}
-	if int(offset) >= len(data) {
-		return 0, 0
-	}
-	n := len(data) - int(offset)
-	if uint32(n) > length {
-		n = int(length)
-	}
-	for i := 0; i < n; i++ {
-		m.Write(buf+uint32(i), data[int(offset)+i])
-	}
-	return int32(n), 0
 }
 
 // --- messages ----------------------------------------------------------------
 
-// serviceMsg handles the message-port SWIs the boot uses alongside I/O. The
-// oracle delivers I/O completions as signals, so a full message queue is not
-// needed yet; these keep the call sites progressing and return benign results.
+// Message struct field offsets (msgport.h; the 0x24-byte ItemNode comes first).
+const (
+	msgReplyPort = 0x24 // msg_ReplyPort (Item)
+	msgResult    = 0x28 // msg_Result
+	msgDataPtr   = 0x2C // msg_DataPtr
+	msgDataSize  = 0x30 // msg_DataSize
+	msgMsgPort   = 0x34 // msg_MsgPort: the port the message is queued on
+)
+
+// serviceMsg handles the message-port SWIs: real FIFO queues per port, with the
+// port's signal raised on its owner at queue time — the SendMsg/GetMsg/ReplyMsg
+// handshake tasks use to talk to their worker threads.
 func (m *Machine) serviceMsg(c *arm60.CPU, swi uint32) {
 	switch swi {
 	case swiPutMsg:
-		// PutMsg(port, msg): signal the port's owner so a WaitPort wakes.
-		if p := m.items[int32(c.Reg(0))]; p != nil {
-			m.sendSignal(p.owner, p.signal)
+		// SendMsg(port, msg, dataptr, datasize): record the payload on the message,
+		// queue it and wake the port's owner.
+		port, msg := m.items[int32(c.Reg(0))], m.items[int32(c.Reg(1))]
+		if port == nil || msg == nil {
+			c.SetReg(0, ^uint32(0)) // BADITEM
+			return
 		}
+		if msg.addr != 0 {
+			m.write32(msg.addr+msgDataPtr, c.Reg(2))
+			m.write32(msg.addr+msgDataSize, c.Reg(3))
+			m.write32(msg.addr+msgMsgPort, uint32(port.num))
+		}
+		if port.name == "eventbroker" {
+			// The system input broker: on hardware a kernel task behind this port
+			// consumes configuration/connect requests and replies to each. Nothing
+			// is behind it here, so acknowledge immediately — the requester only
+			// blocks on getting its message back with a success result.
+			m.note(fmt.Sprintf("eventbroker: msg %d from task #%d acknowledged", msg.num, msg.owner))
+			m.replyMsg(msg, 0)
+			c.SetReg(0, 0)
+			return
+		}
+		port.msgs = append(port.msgs, msg.num)
+		m.sendSignal(port.owner, port.signal)
 		c.SetReg(0, 0)
-	case swiGetMsg, swiGetThisMsg:
-		// No queued message: report "none".
-		c.SetReg(0, 0)
+	case swiGetMsg:
+		// GetMsg(port): pop the oldest queued message (0 = none).
+		port := m.items[int32(c.Reg(0))]
+		if port == nil || len(port.msgs) == 0 {
+			c.SetReg(0, 0)
+			return
+		}
+		num := port.msgs[0]
+		port.msgs = port.msgs[1:]
+		c.SetReg(0, uint32(num))
+	case swiGetThisMsg:
+		// GetThisMsg(msg): remove the message from whatever port holds it.
+		msg := m.items[int32(c.Reg(0))]
+		if msg == nil {
+			c.SetReg(0, 0)
+			return
+		}
+		for _, p := range m.items {
+			for i, qn := range p.msgs {
+				if qn == msg.num {
+					p.msgs = append(p.msgs[:i], p.msgs[i+1:]...)
+					c.SetReg(0, uint32(msg.num))
+					return
+				}
+			}
+		}
+		c.SetReg(0, uint32(msg.num))
 	case swiReplyMsg:
+		// ReplyMsg(msg, result, dataptr, datasize): store the result and queue the
+		// message back on its reply port, waking that port's owner.
+		msg := m.items[int32(c.Reg(0))]
+		if msg == nil {
+			c.SetReg(0, ^uint32(0))
+			return
+		}
+		if msg.addr != 0 {
+			m.write32(msg.addr+msgDataPtr, c.Reg(2))
+			m.write32(msg.addr+msgDataSize, c.Reg(3))
+		}
+		m.replyMsg(msg, c.Reg(1))
 		c.SetReg(0, 0)
 	}
+}
+
+// replyMsg stores a result on a message and queues it back on its reply port,
+// waking that port's owner — the completion half of the SendMsg handshake.
+func (m *Machine) replyMsg(msg *item, result uint32) {
+	if msg == nil || msg.addr == 0 {
+		return
+	}
+	m.write32(msg.addr+msgResult, result)
+	rp := m.items[int32(m.read32(msg.addr+msgReplyPort))]
+	if rp == nil {
+		m.note(fmt.Sprintf("replyMsg: msg %d has no live reply port (field=0x%X)", msg.num, m.read32(msg.addr+msgReplyPort)))
+		return
+	}
+	rp.msgs = append(rp.msgs, msg.num)
+	m.sendSignal(rp.owner, rp.signal)
 }
 
 // --- kernel printf -----------------------------------------------------------
