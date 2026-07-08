@@ -25,6 +25,10 @@ export class Viewer3D {
   }
   get camera() { return this.stage.camera; }
   get controls() { return this.stage.controls; }
+  // A fly-through plugin (e.g. Stunt Car's stunt-track) publishes its FlyCam as stage.fly; expose
+  // it so the Studio's KeyboardCamera cedes the arrow keys to it (it checks viewer.fly.enabled).
+  // Non-fly plugins (Elite) leave it null — showItem() resets stage.fly before each build.
+  get fly() { return this.stage.fly ?? null; }
   get active() { return this.stage.active; }
   set active(v) { this.stage.active = v; }           // setMountActive() pauses hidden viewers here
   start() { this.stage.start(); }
@@ -33,10 +37,12 @@ export class Viewer3D {
   // CRT filter can lock its scanlines/mask to it; null for full-res 3-D content.
   pixelGrid() { return this.stage.pixelGrid ? this.stage.pixelGrid() : null; }
 
-  // Fetch the manifest and return the browse list (its models, each carrying kind/file/data/…).
+  // Fetch the manifest and return the browse list: its models (Elite's ships) plus any bespoke
+  // views[] items (Stunt Car's circuits), each carrying kind/file/data/…. Elite ships only
+  // models[], so this is unchanged for it.
   async init() {
     this.manifest = await fetch(this.base + 'manifest.json').then((r) => r.json());
-    return this.manifest.models || [];
+    return (this.manifest.models || []).concat(this.manifest.views || []);
   }
 
   // Tear down the previous plugin, clear the stage and reset every plugin hook, then resolve and
@@ -48,6 +54,7 @@ export class Viewer3D {
     this.stage.onFrame = null;
     this.stage.pixelGrid = null;
     this.stage.hud = null;
+    this.stage.fly = null; // a fly plugin republishes this; non-fly plugins (Elite) leave it null
     this.stage.disposePlugin = null;
 
     const load = resolveRenderer(item.kind, this.renderers);

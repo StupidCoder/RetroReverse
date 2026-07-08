@@ -1368,7 +1368,7 @@ time, and dropping below the bottom of the playfield is a death. He starts each 
 on-screen position, which is the point this viewer frames every level on.</p>
 `,
   },
-  stuntcar: {
+  'stunt-car-racer-amiga': {
     loader: `
 <div class="info-eyebrow">Stunt Car Racer · Image &amp; Loader</div>
 <p>Stunt Car Racer ships on a single double-density Amiga floppy that carries <strong>no filesystem</strong> —

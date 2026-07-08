@@ -122,13 +122,18 @@ const GAMES = [
     ],
   },
   {
-    id: 'stuntcar', name: 'Stunt Car Racer', system: 'Amiga', render: '3d',
-    load: () => import('../stuntcar/viewer.js').then(m => m.TrackViewer),
-    make: (V, el, hud) => new V(el, hud),
-    list: async (v) => await v.init(), // the eight circuits from tracks.json
-    show: (v, lvl, i) => v.loadLevel(lvl, i),
+    id: 'stunt-car-racer-amiga', name: 'Stunt Car Racer', system: 'Amiga', render: '3d',
+    // The generic manifest-driven 3-D viewer + the stunt-track renderer plugin (which carries the
+    // baked-track wireframe geometry and the fly-through FlyCam). The plugin is lazily imported per kind.
+    load: () => import('../shared/viewer3d.js').then(m => m.Viewer3D),
+    make: (V, el, hud) => new V(el, hud, {
+      base: 'public/stunt-car-racer-amiga/',
+      renderers: { 'stunt-track': () => import('../stuntcar/track-renderer.js') },
+    }),
+    list: async (v) => await v.init(), // the circuits from manifest.views — each carries its kind/file
+    show: (v, item, i) => v.showItem(item),
     // each circuit is a level you fly through
-    group: (lvl) => ({ section: 'Circuits', label: lvl.name }),
+    group: (item) => ({ section: item.section || 'Circuits', label: item.name }),
   },
   {
     id: 'elite-c64', name: 'Elite', system: 'Commodore 64', render: '3d',

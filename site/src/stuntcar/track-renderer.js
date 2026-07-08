@@ -1,79 +1,33 @@
-// Stunt Car Racer — track level viewer. The geometry is entirely the engine's own,
-// decoded purely from the disk in Go (package track, Part IV) and verified against the
-// original on our m68k core. Each track is the game's own baked polygon model (the
-// race-setup bake $65BEC, reimplemented in Go and verified byte-exact by cmd/modeloracle):
-// per rung, the piece-shape (x,z) vertex pairs read by $5C6C4 rotated by the section
-// quadrant, placed at the section's 16x16 grid cell exactly as the game's per-frame draw
-// does (one cell = $800 units) — world = cell*$800 + local. No fit, no spline, no
-// accumulation: straights are straight, arcs are the real arcs, and joints meet because
-// the data says so. Heights are the full-precision rail heights (their difference is the
-// real camber); rung LINES are drawn only where the game's decimated model has a polygon
-// edge. Rendered as a hidden-line wireframe (invisible depth fill + colour LineSegments,
-// the Marble Madness slope-viewer technique).
+// Stunt Car Racer track renderer — the `stunt-track` plugin for the shared Viewer3D/Stage3D seam.
+// The geometry is entirely the engine's own, decoded purely from the disk in Go (package track,
+// Part IV) and verified against the original on our m68k core. Each track is the game's own baked
+// polygon model (the race-setup bake $65BEC, reimplemented in Go and verified byte-exact by
+// cmd/modeloracle): per rung, the piece-shape (x,z) vertex pairs read by $5C6C4 rotated by the
+// section quadrant, placed at the section's 16x16 grid cell exactly as the game's per-frame draw
+// does (one cell = $800 units) — world = cell*$800 + local. No fit, no spline, no accumulation:
+// straights are straight, arcs are the real arcs, and joints meet because the data says so.
+// Heights are the full-precision rail heights (their difference is the real camber); rung LINES
+// are drawn only where the game's decimated model has a polygon edge. Rendered as a hidden-line
+// wireframe (invisible depth fill + colour LineSegments, the Marble Madness slope-viewer technique).
 //
-// Each circuit is presented as a level: you fly through it with the shared FlyCam (WASD
-// to move relative to the view, arrow keys to look; mouse drag still orbits), the same
-// free-flight controls the other 3-D level viewers use.
+// Each circuit is presented as a level: you fly through it with the shared FlyCam (WASD to move
+// relative to the view, arrow keys to look; mouse drag still orbits), the same free-flight controls
+// the other 3-D level viewers use. The geometry build and the fly-cam setup are moved VERBATIM from
+// the old TrackViewer.loadLevel — the plugin is only a new shell around exactly the same visuals.
 import * as THREE from 'three';
-import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { FlyCam, flyHint } from '../shared/flycam.js';
 
-export class TrackViewer {
-  constructor(el, hud) {
-    this.el = el;
-    this.hud = hud;
-    const renderer = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true });
-    renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
-    renderer.setClearColor(0x0a0d12, 1);
-    el.appendChild(renderer.domElement);
+export default {
+  kind: 'stunt-track',
+  async build({ item, base, stage }) {
+    // One circuit's JSON — the same per-circuit object the old TrackViewer.loadLevel consumed:
+    // track = { name, sections, finishIdx, nodes, rungs }.
+    const track = await fetch(base + item.file).then((r) => r.json());
 
-    const scene = new THREE.Scene();
-    const camera = new THREE.PerspectiveCamera(45, 1, 0.01, 200);
-    const controls = new OrbitControls(camera, renderer.domElement);
-    controls.enableDamping = true;
-    controls.dampingFactor = 0.08;
+    const { scene, camera, controls } = stage;
+    // The engine's night-sky clear colour (was renderer.setClearColor(0x0a0d12, 1) in TrackViewer).
+    scene.background = new THREE.Color(0x0a0d12);
 
-    this.three = { renderer, scene, camera, controls, group: null };
-    // Free-flight camera (WASD move / arrow look), layered on the orbit controls. The
-    // Studio's KeyboardCamera checks v.fly.enabled and cedes the arrow keys to it.
-    this.fly = new FlyCam(camera, controls, el);
-    this._clock = new THREE.Clock();
-    this._resize();
-    window.addEventListener('resize', () => this._resize());
-    new ResizeObserver(() => this._resize()).observe(el);
-
-    const tick = () => {
-      requestAnimationFrame(tick);
-      if (this.active === false) return; // paused while another viewer is shown
-      const dt = Math.min(0.05, this._clock.getDelta());
-      this.fly.update(dt);
-      controls.update();
-      renderer.render(scene, camera);
-    };
-    tick();
-  }
-
-  _resize() {
-    const w = this.el.clientWidth, h = this.el.clientHeight || Math.round(w * 0.62);
-    if (!w) return;
-    const { renderer, camera } = this.three;
-    renderer.setSize(w, h, false);
-    camera.aspect = w / h;
-    camera.updateProjectionMatrix();
-  }
-
-  // The level list: the eight decoded circuits (public/stuntcar/tracks.json). Fetched
-  // and cached here so the Studio treats the viewer like every other level viewer.
-  async init() {
-    this.levels = await fetch('public/stuntcar/tracks.json').then(r => r.json());
-    return this.levels;
-  }
-
-  // Load one track as a level. track: { name, sections, finishIdx, nodes, rungs }; id = 0..7
-  loadLevel(track, id) {
-    this.trackId = id;
-    const t = this.three;
-    if (t.group) { t.scene.remove(t.group); disposeGroup(t.group); }
     const group = new THREE.Group();
 
     // track.rungs[i][k] = [Lx,Lz,Rx,Rz,Lh,Rh,flags]: the game's own baked polygon
@@ -239,32 +193,46 @@ export class TrackViewer {
       polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -1,
     })));
 
-    t.scene.add(group);
-    t.group = group;
+    stage.add(group);
 
     // Frame the whole circuit from a raised 3/4 angle so both the plan and the elevation
     // read, then hand control to the fly-cam to explore it.
     let maxH = 0;
     for (const r of rings) maxH = Math.max(maxH, r.hl, r.hr);
     const size = Math.max(8, maxH * 1.5); // world extent of the level (plan ~8 units + relief)
-    const { camera, controls } = this.three;
     controls.target.set(0, maxH * 0.35, 0);
     camera.position.set(size * 0.28, size * 0.55, size * 0.95);
     camera.near = 0.01; camera.far = 200; camera.updateProjectionMatrix();
     controls.update();
 
-    // Levels are explored with the free-flight controls (WASD/arrows, or the touch
-    // sticks), like the other 3-D level viewers.
-    this.fly.setScale(size);
-    this.fly.setMoveScale(1.4);
-    this.fly.setEnabled(true);
+    // Free-flight camera (WASD move / arrow look), layered on the orbit controls. Bound to
+    // the stage's camera/controls/element and published as stage.fly so the Studio's
+    // KeyboardCamera (which checks v.fly.enabled and cedes the arrow keys to it) reaches it.
+    const flycam = new FlyCam(camera, controls, stage.el);
+    // Levels are explored with the free-flight controls (WASD/arrows, or the touch sticks),
+    // like the other 3-D level viewers.
+    flycam.setScale(size);
+    flycam.setMoveScale(1.4);
+    flycam.setEnabled(true);
+    stage.fly = flycam;
 
-    if (this.hud) {
-      this.hud.textContent = `${track.name} — ${track.sections} sections, ${m} rungs · ${flyHint}`;
-    }
-  }
-}
+    // Drive the fly-cam each frame; this game has no post-FX, so we do NOT set stage.render —
+    // Stage3D's default renderer.render(scene, camera) draws the frame.
+    stage.onFrame = (camPos, dt) => flycam.update(dt);
 
-function disposeGroup(g) {
-  g.traverse(o => { if (o.geometry) o.geometry.dispose(); if (o.material) o.material.dispose(); });
-}
+    // HUD detail line (as the old loadLevel set it).
+    stage.hud = `${track.name} — ${track.sections} sections, ${m} rungs · ${flyHint}`;
+
+    // Teardown: free this circuit's GPU resources and unhook the fly-cam's listeners/sticks
+    // before the next item builds (the Viewer calls this before stage.clear()).
+    stage.disposePlugin = () => {
+      flycam.dispose();
+      group.traverse((o) => {
+        if (o.geometry) o.geometry.dispose();
+        if (o.material) o.material.dispose();
+      });
+    };
+
+    return group;
+  },
+};
