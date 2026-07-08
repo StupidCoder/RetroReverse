@@ -2,16 +2,16 @@ go 1.23
 
 use (
 	./tools
-	"./Elite (C64)/extract"
-	"./Fort Apocalypse (C64)/extract"
-	"./Marble Madness (Amiga)/extract"
-	"./Mario Kart DS (DS)/extract"
-	"./Need for Speed (3DO)/extract"
-	"./Ridge Racer (PSX)/extract"
-	"./Sonic (GG)/extract"
-	"./Stunt Car Racer (Amiga)/extract"
-	"./Super Mario 64 DS (DS)/extract"
-	"./Super Mario Land (GB)/extract"
-	"./Turrican (Amiga)/extract"
-	"./Ultima Underworld (PC)/extract"
+	./games/elite-c64/extract
+	./games/fort-apocalypse-c64/extract
+	./games/marble-madness-amiga/extract
+	./games/mario-kart-ds/extract
+	./games/need-for-speed-3do/extract
+	./games/ridge-racer-psx/extract
+	./games/sonic-gg/extract
+	./games/stunt-car-racer-amiga/extract
+	./games/super-mario-64-ds/extract
+	./games/super-mario-land-gb/extract
+	./games/turrican-amiga/extract
+	./games/ultima-underworld-pc/extract
 )

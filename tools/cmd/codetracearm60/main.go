@@ -15,7 +15,7 @@ import (
 	"strconv"
 	"strings"
 
-	"retroreverse.com/tools/arm60"
+	"retroreverse.com/tools/cpu/arm60"
 )
 
 func main() {

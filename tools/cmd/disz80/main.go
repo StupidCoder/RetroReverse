@@ -25,8 +25,8 @@ import (
 	"strconv"
 	"strings"
 
-	"retroreverse.com/tools/gamegear"
-	"retroreverse.com/tools/z80"
+	"retroreverse.com/tools/platform/gamegear"
+	"retroreverse.com/tools/cpu/z80"
 )
 
 func hx(s string) (int, error) {

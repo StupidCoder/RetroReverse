@@ -26,7 +26,7 @@ import (
 	"strconv"
 	"strings"
 
-	"retroreverse.com/tools/sm83"
+	"retroreverse.com/tools/cpu/sm83"
 )
 
 const bankSize = 0x4000 // 16 KB

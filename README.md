@@ -312,36 +312,13 @@ name).
 
 ## Image files
 
-Many differing dumps of these games circulate online. All results in this
-repository were produced from these exact image files; the documentation and
-the golden extraction tests assume them byte for byte. The MD5 (and size)
-below pin the precise copy, so the work stays reproducible.
-
-| Image | Size (bytes) | MD5 |
-|-------|-------------:|-----|
-| `Elite (C64)/Elite.tap` | 801,592 | `d51b7f84fd1bec6eb24f4bf210c8cc74` |
-| `Fort Apocalypse (C64)/Fort_Apocalypse.tap` | 225,817 | `bec7409816865f3ad160af9984f127cd` |
-| `Marble Madness (Amiga)/Marble_Madness.adf` | 901,120 | `735dc697d64b3eeaa000778eb0b1153a` |
-| `Mario Kart DS (DS)/Mario Kart DS (Europe) (En,Fr,De,Es,It).nds` | 33,554,432 | `18635a82108149b46fe276c6fac44ee6` |
-| `Need for Speed (3DO)/Need for Speed.bin` | 771,408,960 | `b213789b67a3368207a2ebf2c222847a` |
-| `Ridge Racer (PSX)/Ridge Racer (Track 01).bin` | 3,683,232 | `ec755afa6ca49432445384b870412dfb` |
-| `Sonic (GG)/Sonic The Hedgehog (Japan, USA).gg` | 262,144 | `8a95b36139206a5ba13a38bb626aee25` |
-| `Stunt Car Racer (Amiga)/Stunt Car Racer.adf` | 901,120 | `b6d3751e6aa636f203f3c6a8de81ebfc` |
-| `Super Mario 64 DS (DS)/Super Mario 64 DS (Europe) (En,Fr,De,Es,It).nds` | 16,777,216 | `867b3d17ad268e10357c9754a77147e5` |
-| `Super Mario Land (GB)/Super Mario Land (World).gb` | 65,536 | `b48161623f12f86fec88320166a21fce` |
-| `Turrican (Amiga)/Turrican.adf` | 901,120 | `6677ce6cea38dc66be40e9211576a149` |
-| `Ultima Underworld (PC)/game/UW.EXE` | 561,744 | `0f58c92a45b8d8d5bba498c59eb111c2` |
-
-The Ultima Underworld `game/` folder (the executable plus ~11 MB of data) is a
-copyrighted commercial release and is **not committed** (`.gitignore`d); only
-`UW.EXE` is pinned above, as the offsets in its writeup depend on it.
-
-The Need for Speed (3DO) disc image (`Need for Speed.bin`, 771 MB) is likewise a
-copyrighted commercial release and **not committed** (`.gitignore`d); it is
-pinned above so the OperaFS extraction and the writeup stay reproducible.
-
-Verify a copy before reusing it, e.g. `md5 "Elite (C64)/Elite.tap"`
-(`md5sum` on Linux).
+Every game is analyzed from one exact image (ROM, disk, or disc); the
+documentation and the golden extraction tests assume it byte for byte. Game
+images are **copyrighted and never committed** — they are `.gitignore`d, and
+each game's writeup pins the precise copy by filename, size, and MD5 in its
+**Image** line near the top. Supply your own copy at
+`games/<slug>/` before running that game's tools, and verify it, e.g.
+`md5 games/elite-c64/Elite.tap` (`md5sum` on Linux).
 
 ## Shared tools (`tools`)
 

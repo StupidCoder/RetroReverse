@@ -26,7 +26,7 @@ import (
 	"strconv"
 	"strings"
 
-	"retroreverse.com/tools/x86"
+	"retroreverse.com/tools/cpu/x86"
 )
 
 type multiFlag []string

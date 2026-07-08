@@ -22,7 +22,7 @@ import (
 	"strconv"
 	"strings"
 
-	"retroreverse.com/tools/mos6502"
+	"retroreverse.com/tools/cpu/mos6502"
 )
 
 func main() {

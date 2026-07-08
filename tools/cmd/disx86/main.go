@@ -16,7 +16,7 @@ import (
 	"strconv"
 	"strings"
 
-	"retroreverse.com/tools/x86"
+	"retroreverse.com/tools/cpu/x86"
 )
 
 func parseAddr(s string) (uint32, error) {

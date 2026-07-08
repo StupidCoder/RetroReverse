@@ -16,7 +16,7 @@ import (
 	"strconv"
 	"strings"
 
-	"retroreverse.com/tools/mips"
+	"retroreverse.com/tools/cpu/mips"
 )
 
 func hx(s string) (int, error) {

@@ -18,7 +18,7 @@ import (
 	"strconv"
 	"strings"
 
-	"retroreverse.com/tools/arm"
+	"retroreverse.com/tools/cpu/arm"
 )
 
 func hx(s string) (int, error) {

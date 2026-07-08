@@ -1,0 +1,444 @@
+// sprites extracts the bitmaps from Marble Madness's sprite/level banks (.ilb
+// course scenery, .vlb moving objects, .mlb level tiles) and writes them as PNGs.
+//
+// The codec was reversed from the decrypted game program (Marble_Madness.md
+// Part IV §3): the WHOLE file is one ByteRun1 / PackBits stream (same RLE as IFF
+// ILBM bodies, engine routine $9118). Unpacked, the buffer holds a count word, an
+// array of 20-byte cell descriptors (loader $80B4), then the planar pixel data the
+// descriptors point at. Each cell carries its own width/height and plane count
+// (2 planes / 4 colours for small markers and objects, 4 planes / 16 colours for
+// scenery blocks). The per-course palette comes from the course .mlb (offset 0x16).
+//
+// Usage: sprites <disk.adf> <outdir>
+//   writes <outdir>/<bankname>.png — one tiled sheet of all cells per bank.
+package main
+
+import (
+	"fmt"
+	"image"
+	"image/color"
+	"image/png"
+	"os"
+	"path/filepath"
+	"strings"
+
+	"retroreverse.com/tools/platform/amiga/adf"
+)
+
+// unpackByteRun1 decodes PackBits: signed control byte n; 0..127 -> copy n+1
+// literals; -1..-127 -> repeat next byte (1-n) times; -128 -> no-op.
+func unpackByteRun1(src []byte) []byte {
+	var out []byte
+	for i := 0; i < len(src); {
+		n := int8(src[i])
+		i++
+		switch {
+		case n >= 0:
+			for k := 0; k <= int(n) && i < len(src); k++ {
+				out = append(out, src[i])
+				i++
+			}
+		case n != -128:
+			if i >= len(src) {
+				return out
+			}
+			b := src[i]
+			i++
+			for k := 0; k < 1-int(n); k++ {
+				out = append(out, b)
+			}
+		}
+	}
+	return out
+}
+
+// pal is the 4-colour image palette for the bank currently being rendered (the
+// .ilb/.vlb cells are 2 bitplanes = colours 0..3 of the course palette). It is
+// reset per bank in main; greys is the fallback when no course palette is known.
+var greys = color.Palette{
+	color.Gray{0x00}, color.Gray{0x55}, color.Gray{0xAA}, color.Gray{0xFF},
+}
+
+// greys16 is the 16-colour fallback for sprite banks when no course palette is
+// known (cells can be up to 4 bitplanes / 16 colours).
+var greys16 = func() color.Palette {
+	p := make(color.Palette, 16)
+	for i := range p {
+		p[i] = color.Gray{uint8(i * 17)}
+	}
+	return p
+}()
+var pal = greys
+
+// mlbPalette reads a course's 16-colour playfield palette from its .mlb level
+// module. The palette is 16 big-endian $0RGB words at offset 0x16 of the
+// whole-file-unpacked buffer (Marble_Madness.md Part IV §3). Reading the raw file
+// at 0x17 instead happens to work for most courses but is a PackBits artifact —
+// for beginner it yields a bogus $EE00 where the buffer holds $0000.
+// cycleInitial maps the palette slots the runtime colour-cycling system drives
+// (colour_cycle_a/b, $B6DE/$A7A2) to their frame-0 colour from the game program's
+// cycle tables. A course that is fully cycle-driven (e.g. Beginner's ice pit)
+// leaves those slots black ($000) in the .mlb, so a static render shows the pit as
+// black; filling the black ones with the cycle's initial colour restores the look.
+//   11 ($B774[0]) and 13 ($B794[0]) are cycle_a; 12 ($A86E[0], red/lava) and
+//   14 ($A88E[0], blue/ice) are cycle_b. Values are $0RGB.
+// Values are a representative MID-cycle frame (not frame-0): the cyclers ramp
+// COLOR11/12 red->white and COLOR13/14 blue->white, so a mid frame ($0F88 / $088F)
+// reads as the hazard red / ice cyan the slot shows most of the time, rather than
+// the pure red/blue endpoints.
+var cycleInitial = map[int]uint16{11: 0x0F88, 12: 0x0F88, 13: 0x088F, 14: 0x088F}
+
+// type1Off is the palette offset added to a type-1 sprite's 2-bit pixel value: the
+// engine draws these sprites with a per-object colour ramp (set by the actor system),
+// not palette 0-3. Index 7 (the course's first object-accent colour) matches the
+// creatures and the goal flags; the marble bank uses the grey ramp (offset 0). It is
+// set per bank in main; this is an approximation of the runtime per-object colour.
+var type1Off uint8 = 6
+
+func mlbPalette(d []byte) color.Palette {
+	buf := unpackByteRun1(d)
+	n4 := func(x uint16) uint8 { return uint8(x) * 17 } // 4-bit -> 8-bit
+	rgb := func(w uint16) color.RGBA {
+		return color.RGBA{n4((w >> 8) & 0xF), n4((w >> 4) & 0xF), n4(w & 0xF), 0xFF}
+	}
+	p := make(color.Palette, 16)
+	for i := 0; i < 16; i++ {
+		o := 0x16 + 2*i
+		w := uint16(0)
+		if o+1 < len(buf) {
+			w = uint16(buf[o])<<8 | uint16(buf[o+1])
+		}
+		// A cycle-driven slot the .mlb left black gets its cycle frame-0 colour.
+		if w == 0 {
+			if init, ok := cycleInitial[i]; ok {
+				w = init
+			}
+		}
+		p[i] = rgb(w)
+	}
+	return p
+}
+
+// blitTile draws 8x8 tile idx at (px,py) into img, reading the four planes from
+// the unpacked buffer: tile row r is the byte at plane[(idx>>1)*16 + (idx&1) + 2*r].
+func blitTile(img *image.Paletted, up []byte, planes [4]int, idx, px, py int) {
+	b0 := (idx>>1)*16 + (idx & 1)
+	for r := 0; r < 8; r++ {
+		var bp [4]byte
+		for p := 0; p < 4; p++ {
+			if o := planes[p] + b0 + 2*r; o >= 0 && o < len(up) {
+				bp[p] = up[o]
+			}
+		}
+		for x := 0; x < 8; x++ {
+			bit := uint(7 - x)
+			v := bp[0]>>bit&1 | (bp[1]>>bit&1)<<1 | (bp[2]>>bit&1)<<2 | (bp[3]>>bit&1)<<3
+			img.SetColorIndex(px+x, py+r, v)
+		}
+	}
+}
+
+// tileSheet renders all nTiles 8x8 tiles in a cols-wide grid (1px gaps).
+func tileSheet(up []byte, planes [4]int, nTiles, cols int) *image.Paletted {
+	rows := (nTiles + cols - 1) / cols
+	img := image.NewPaletted(image.Rect(0, 0, cols*9+1, rows*9+1), pal)
+	for t := 0; t < nTiles; t++ {
+		blitTile(img, up, planes, t, (t%cols)*9+1, (t/cols)*9+1)
+	}
+	return img
+}
+
+// mlbCourse assembles the full course image from the tilemap: a row-major stream
+// of big-endian tile-index words, courseW tiles wide (the game scrolls vertically,
+// so width is fixed and height varies). Returns the image and its tile height.
+func mlbCourse(up []byte, planes [4]int, tilemap []byte, courseW int) (*image.Paletted, int) {
+	n := len(tilemap) / 2
+	H := n / courseW
+	img := image.NewPaletted(image.Rect(0, 0, courseW*8, H*8), pal)
+	for ty := 0; ty < H; ty++ {
+		for tx := 0; tx < courseW; tx++ {
+			o := (ty*courseW + tx) * 2
+			idx := int(tilemap[o])<<8 | int(tilemap[o+1])
+			blitTile(img, up, planes, idx, tx*8, ty*8)
+		}
+	}
+	return img, H
+}
+
+// cell is one .ilb/.vlb sprite cell decoded from a 20-byte descriptor: w x h
+// pixels, planes bitplanes starting at src in the unpacked buffer (cz = one-plane
+// byte size = (w/8)*h). typ is the descriptor's +0 type byte: type-1 "stored"
+// cells (the free sprites — goal flag, marble, creatures) store their planes
+// ROW-INTERLEAVED (each pixel row holds all planes back to back) and are a single
+// animation frame; type-0 "composited" scenery cells store sequential plane blocks.
+type cell struct{ w, h, planes, cz, src, typ int }
+
+// parseCells reads the count descriptors at buf+2 (stride 20) and derives each
+// cell's plane count from its source span (gap to the next cell, or buffer end).
+func parseCells(buf []byte, count int) []cell {
+	wd := func(o int) int {
+		if o+1 < len(buf) {
+			return int(buf[o])<<8 | int(buf[o+1])
+		}
+		return 0
+	}
+	ln := func(o int) int { return wd(o)<<16 | wd(o+2) }
+	var cs []cell
+	for i := 0; i < count; i++ {
+		o := 2 + i*20
+		if o+20 > len(buf) {
+			break
+		}
+		typ, ww, h, cz, src := int(buf[o]), wd(o+2), wd(o+4), wd(o+6), ln(o+8)
+		if cz <= 0 || src <= 0 || src >= len(buf) {
+			continue
+		}
+		end := len(buf)
+		if i+1 < count {
+			if nx := ln(o + 20 + 8); nx > src && nx <= len(buf) {
+				end = nx
+			}
+		}
+		planes := (end - src) / cz
+		if planes < 1 {
+			planes = 1
+		} else if planes > 6 {
+			planes = 6
+		}
+		if typ == 1 && h > 1 {
+			h-- // type-1 cells carry a trailing sentinel/guard row (heights are 2^n+1)
+		}
+		cs = append(cs, cell{w: ww * 16, h: h, planes: planes, cz: cz, src: src, typ: typ})
+	}
+	return cs
+}
+
+// drawCell blits one cell at (ox,oy), ORing the planes' bits (low plane = bit 0).
+// type-1 "stored" cells (goal flag, marble, creatures) are ROW-INTERLEAVED: each
+// pixel row holds all planes consecutively (plane stride = bpr, row stride =
+// planes*bpr). type-0 "composited" cells store sequential cz-byte plane blocks.
+func drawCell(img *image.Paletted, buf []byte, c cell, ox, oy int) {
+	bpr := c.w / 8 // bytes per plane row
+	for y := 0; y < c.h; y++ {
+		for x := 0; x < c.w; x++ {
+			var v uint8
+			for p := 0; p < c.planes; p++ {
+				var o int
+				if c.typ == 1 {
+					o = c.src + y*c.planes*bpr + p*bpr + x/8
+				} else {
+					o = c.src + p*c.cz + y*bpr + x/8
+				}
+				if o >= 0 && o < len(buf) {
+					v |= (buf[o] >> uint(7-x%8) & 1) << uint(p)
+				}
+			}
+			if c.typ == 1 && v > 0 {
+				v += type1Off // type-1 sprites use a per-object colour ramp, not idx 0-3
+			}
+			img.SetColorIndex(ox+x, oy+y, v)
+		}
+	}
+}
+
+// ilbSheet flow-packs the cells left-to-right (wrapping near maxW px), each row as
+// tall as its tallest cell, 1px gaps.
+func ilbSheet(buf []byte, cells []cell) *image.Paletted {
+	const gap, maxW = 1, 40 * 16
+	type place struct {
+		c    cell
+		x, y int
+	}
+	var ps []place
+	x, y, rowH, totW := gap, gap, 0, gap
+	for _, c := range cells {
+		if x > gap && x+c.w+gap > maxW {
+			x, y, rowH = gap, y+rowH+gap, 0
+		}
+		ps = append(ps, place{c, x, y})
+		x += c.w + gap
+		if c.h > rowH {
+			rowH = c.h
+		}
+		if x > totW {
+			totW = x
+		}
+	}
+	img := image.NewPaletted(image.Rect(0, 0, totW, y+rowH+gap), pal)
+	for _, p := range ps {
+		drawCell(img, buf, p.c, p.x, p.y)
+	}
+	return img
+}
+
+// cellSummary tallies the distinct WxHxP cell shapes for the log line.
+func cellSummary(cells []cell) string {
+	order := []string{}
+	n := map[string]int{}
+	for _, c := range cells {
+		k := fmt.Sprintf("%dx%dx%dp", c.w, c.h, c.planes)
+		if n[k] == 0 {
+			order = append(order, k)
+		}
+		n[k]++
+	}
+	parts := make([]string, len(order))
+	for i, k := range order {
+		parts[i] = fmt.Sprintf("%dx %s", n[k], k)
+	}
+	return strings.Join(parts, ", ")
+}
+
+// scale nearest-neighbours an image up by n for visibility.
+func scale(src *image.Paletted, n int) *image.Paletted {
+	b := src.Bounds()
+	out := image.NewPaletted(image.Rect(0, 0, b.Dx()*n, b.Dy()*n), src.Palette)
+	for y := 0; y < b.Dy(); y++ {
+		for x := 0; x < b.Dx(); x++ {
+			ci := src.ColorIndexAt(x, y)
+			for dy := 0; dy < n; dy++ {
+				for dx := 0; dx < n; dx++ {
+					out.SetColorIndex(x*n+dx, y*n+dy, ci)
+				}
+			}
+		}
+	}
+	return out
+}
+
+func writePNG(path string, img image.Image) {
+	chk(os.MkdirAll(filepath.Dir(path), 0755))
+	f, err := os.Create(path)
+	chk(err)
+	defer f.Close()
+	chk(png.Encode(f, img))
+}
+
+// courseOf maps a bank's filename prefix to the course whose .mlb palette it
+// uses. The shared object banks (marble, creatures) fall back to "practy".
+func courseOf(base string) string {
+	for _, c := range []struct{ pre, course string }{
+		{"prc", "practy"}, {"practy", "practy"},
+		{"beg", "beginr"}, {"beginr", "beginr"},
+		{"int", "interm"}, {"interm", "interm"},
+		{"aer", "aerial"}, {"aerial", "aerial"},
+		{"sil", "silly"}, {"silly", "silly"}, {"slink", "silly"},
+		{"ult", "ultima"}, {"ultima", "ultima"},
+	} {
+		if strings.HasPrefix(base, c.pre) {
+			return c.course
+		}
+	}
+	return "practy"
+}
+
+func main() {
+	if len(os.Args) != 3 {
+		fmt.Fprintln(os.Stderr, "usage: sprites <disk.adf> <outdir>")
+		os.Exit(2)
+	}
+	img, err := os.ReadFile(os.Args[1])
+	chk(err)
+	vol, err := adf.Open(img)
+	chk(err)
+	outdir := os.Args[2]
+
+	// Pre-load each course's playfield palette from its .mlb (offset 0x17).
+	palettes := map[string]color.Palette{}
+	for _, c := range []string{"practy", "beginr", "interm", "aerial", "silly", "ultima"} {
+		if d, err := vol.ReadFile("c/" + c + ".mlb"); err == nil {
+			palettes[c] = mlbPalette(d)
+		} else if d, err := vol.ReadFile(c + ".mlb"); err == nil {
+			palettes[c] = mlbPalette(d)
+		}
+	}
+
+	chk(vol.Walk(func(e adf.Entry) error {
+		if e.IsDir {
+			return nil
+		}
+		base := e.Name
+		ext := strings.ToLower(filepath.Ext(base))
+		if ext != ".ilb" && ext != ".vlb" && ext != ".mlb" {
+			return nil
+		}
+		d, err := vol.ReadFile(e.Path)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "skip %s: %v\n", base, err)
+			return nil
+		}
+		course := courseOf(base)
+		out := filepath.Join(outdir, base+".png")
+
+		if ext == ".mlb" {
+			// The .mlb (map library) is one ByteRun1/PackBits stream over the whole
+			// file. Unpacked, its work buffer begins:
+			//   +0   word   tile count (not always used)
+			//   +2   long   plane-0 offset ($36 — the four planes follow the header)
+			//   +6/+10/+14  long  plane-1/2/3 offsets (the loader $7F38 relocates
+			//                     these four and the tilemap pointer to absolute)
+			//   +$12 long   tilemap offset
+			// Tiles are 8x8, 4 bitplanes (16 colours, course palette from .mlb 0x17).
+			// Tile i row r (0..7) = plane[(i>>1)*16 + (i&1) + 2*r] (even/odd tiles
+			// byte-interleaved). The tilemap is a row-major stream of tile-index
+			// words, 36 tiles (288px) wide; the game scrolls vertically so the width
+			// is fixed and the height varies.
+			pal = greys
+			if p, ok := palettes[course]; ok {
+				pal = p
+			}
+			buf := unpackByteRun1(d)
+			lw := func(o int) int { return int(buf[o])<<24 | int(buf[o+1])<<16 | int(buf[o+2])<<8 | int(buf[o+3]) }
+			planes := [4]int{lw(2), lw(6), lw(10), lw(14)}
+			tmOff := lw(0x12)
+			nTiles := (planes[1] - planes[0]) / 8
+			const courseW = 36
+			img, ht := mlbCourse(buf, planes, buf[tmOff:], courseW)
+			writePNG(filepath.Join(outdir, course+".png"), scale(img, 2))
+			writePNG(filepath.Join(outdir, course+".tiles.png"), scale(tileSheet(buf, planes, nTiles, 40), 3))
+			fmt.Printf("%-14s flag=$%02X  %d tiles, course %dx%d (%dx%d px)  pal=%s\n",
+				base, d[0], nTiles, courseW, ht, courseW*8, ht*8, course)
+			return nil
+		}
+
+		// .ilb / .vlb: like the .mlb, the WHOLE file is one ByteRun1/PackBits stream
+		// (loader $7E4E). Unpacked, the buffer is:
+		//   +0   word              cell count
+		//   +2   count x 20-byte   cell descriptors (loader $80B4 walks these at
+		//                          stride $14): +2 width in 16-px words, +4 height in
+		//                          rows, +6 one-plane byte size (= width*2 * height),
+		//                          +8 source offset into this same buffer.
+		//   ...                    the planar pixel data the +8 fields point at.
+		// Cells are contiguous and in order, so a cell's source span is the gap to the
+		// next +8 (or buffer end); the plane count is span/cellsize (planes are stored
+		// as sequential blocks, per composite_planes $8026). Geometry varies per cell
+		// (e.g. practy mixes 16x33 2-plane scenery with 80x48 4-plane cells), which the
+		// old uniform-height/2-plane model could not represent — it only matched by
+		// unpacking from a coincidental raw-file offset.
+		buf := unpackByteRun1(d)
+		count := int(buf[0])<<8 | int(buf[1])
+		cells := parseCells(buf, count)
+		if len(cells) == 0 {
+			fmt.Fprintf(os.Stderr, "skip %s: no cells (count=%d)\n", base, count)
+			return nil
+		}
+		pal = greys16
+		if p, ok := palettes[course]; ok {
+			pal = p
+		}
+		type1Off = 6 // creatures + goal flags use the object-accent ramp (idx 7)
+		if strings.HasPrefix(base, "marb") {
+			type1Off = 0 // the marble bank (marble + HUD) uses the grey ramp
+		}
+		writePNG(out, scale(ilbSheet(buf, cells), 3))
+		fmt.Printf("%-14s flag=$%02X  %d cells, %s  pal=%s -> %s\n",
+			base, d[0], count, cellSummary(cells), course, out)
+		return nil
+	}))
+}
+
+func chk(e error) {
+	if e != nil {
+		panic(e)
+	}
+}

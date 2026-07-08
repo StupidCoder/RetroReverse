@@ -1,31 +1,43 @@
 .DS_Store
+site/dist/
 
-# copyrighted commercial game data — pinned by MD5 in README, never committed
-Ultima Underworld (PC)/game/
-# Need for Speed (3DO) disc image — 771 MB, too large to commit; pinned by MD5 in README
-Need for Speed (3DO)/Need for Speed.bin
-Need for Speed (3DO)/Need for Speed.cue
+# --- copyrighted game images: never committed (each game's writeup pins its MD5) ---
+games/*/image/
+games/*/*.tap
+games/*/*.adf
+games/*/*.nds
+games/*/*.gb
+games/*/*.gg
+games/*/*.bin
+games/*/*.cue
+games/*/*.prg
+games/*/*.rom
+games/*/*.iso
+games/*/*.img
+# Ultima Underworld installed game tree (copyrighted commercial data)
+games/ultima-underworld-pc/game/
 
-# compiled extraction tools (build with: cd "<Game>/extract" && go build)
-*/extract/extract
-# stray per-command binaries from `go build ./cmd/<tool>` runs
-*/extract/oracleshot
-*/extract/spriterip
-*/extract/webexport
-*/extract/placeshot
-*/extract/objsettle
-*/extract/spawncheck
-*/extract/ndsextract
-*/extract/bootoracle
-*/extract/rendertex
-*/extract/trackmap
-*/extract/exportglb
-*/extract/rendermodel
-*/extract/modeldump
+# --- compiled binaries from `go build` in a cmd/ or extract dir (no extension) ---
+games/*/extract/extract
+games/*/extract/cmd/*/*[!.go]
+games/*/extract/bootoracle
+games/*/extract/webexport
+games/*/extract/oracleshot
+games/*/extract/spriterip
+games/*/extract/ndsextract
+games/*/extract/exportglb
+games/*/extract/trackmap
+games/*/extract/rendermodel
+games/*/extract/rendertex
+games/*/extract/modeldump
+games/*/extract/placeshot
+games/*/extract/objsettle
+games/*/extract/spawncheck
 
-# regenerable extraction output
-*/extracted/
-*/extract/unpacked/
-*/extract/runlauncher
-*/extract/unpack
-*/extract/decode
+# --- regenerable extraction output (dev-only) ---
+games/*/extracted/
+games/*/work/
+games/*/extract/unpacked/
+games/*/extract/decode
+games/*/extract/unpack
+games/*/extract/runlauncher
