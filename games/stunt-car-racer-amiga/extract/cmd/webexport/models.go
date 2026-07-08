@@ -26,6 +26,7 @@ import (
 	"os"
 	"path/filepath"
 
+	"retroreverse.com/games/stunt-car-racer-amiga/extract/carmodel"
 	"retroreverse.com/games/stunt-car-racer-amiga/extract/track"
 	"retroreverse.com/tools/lib/glb"
 )
@@ -198,7 +199,51 @@ func exportModels(inPath, outDir string) []ModelIndex {
 		file := "models/" + slug(name) + ".glb"
 		chk(glb.WriteMixed(filepath.Join(outDir, file), mb.pos, triGroups, lineGroups))
 		out = append(out, ModelIndex{Name: name, File: file})
-		fmt.Fprintf(os.Stderr, "[models] %d/8 %s (%d verts)\n", id+1, filepath.Base(file), len(mb.pos))
+		fmt.Fprintf(os.Stderr, "[models] %d/9 %s (%d verts)\n", id+1, filepath.Base(file), len(mb.pos))
 	}
+	out = append(out, exportCar(pal, outDir))
 	return out
+}
+
+// exportCar writes the opponent car's rest-pose model (carmodel.Rest — the
+// verbatim-ported $599E2 construction run through orthographic views) as
+// models/opponent-car.glb, in the same scale and colour conventions as the
+// circuit GLBs, resting on Y=0. Faces stay double-sided: the engine's 2-D
+// fills repaint every face each frame with no facing test.
+func exportCar(pal [16][3]uint8, outDir string) ModelIndex {
+	m := carmodel.Rest()
+	minY := m.Verts[0].Y
+	for _, v := range m.Verts {
+		if v.Y < minY {
+			minY = v.Y
+		}
+	}
+	pos := make([][3]float32, len(m.Verts))
+	for i, v := range m.Verts {
+		pos[i] = [3]float32{
+			float32(v.X * glbScale),
+			float32((v.Y - minY) * glbScale),
+			float32(-v.Z * glbScale),
+		}
+	}
+	// one TriGroup per palette index used, in fixed order
+	carPal := []byte{0xA, 0xF, 9, 0xC, 5, 0}
+	idx := map[byte]int{}
+	tris := make([][][3]uint32, len(carPal))
+	for i, p := range carPal {
+		idx[p] = i
+	}
+	for _, q := range m.Quads {
+		g := idx[q.Pal]
+		a, b, c, d := uint32(q.V[0]), uint32(q.V[1]), uint32(q.V[2]), uint32(q.V[3])
+		tris[g] = append(tris[g], [3]uint32{a, b, c}, [3]uint32{a, c, d})
+	}
+	var groups []glb.TriGroup
+	for i, p := range carPal {
+		groups = append(groups, glb.TriGroup{Tris: tris[i], Color: linColor(pal[p])})
+	}
+	file := "models/opponent-car.glb"
+	chk(glb.WriteMixed(filepath.Join(outDir, file), pos, groups, nil))
+	fmt.Fprintf(os.Stderr, "[models] 9/9 opponent-car.glb (%d verts)\n", len(pos))
+	return ModelIndex{Name: "Opponent Car", File: file}
 }
