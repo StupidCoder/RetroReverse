@@ -92,7 +92,7 @@ const GAMES = [
     layers: [
       { id: 'objects', label: 'Scenery overlays', default: true, when: (m) => m.leaves?.[m.currentIdx]?.level?.kind === 'tilemap2d' },
       { id: 'markers', label: 'Markers', default: false, when: (m) => m.leaves?.[m.currentIdx]?.level?.kind === 'marble-slope' },
-      { id: 'wireframe', label: 'Wireframe', default: false, when: (m) => m.leaves?.[m.currentIdx]?.level?.kind === 'marble-slope' },
+      { id: 'wireframe', label: 'Wireframe', default: true, when: (m) => m.leaves?.[m.currentIdx]?.level?.kind === 'marble-slope' },
     ],
     music: async () => (await fetch('public/marble-madness-amiga/manifest.json').then(r => r.json())).music
       .map(t => ({ name: t.name, url: `public/marble-madness-amiga/${t.file}` })),

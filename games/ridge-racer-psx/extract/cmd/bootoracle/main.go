@@ -52,6 +52,7 @@ func main() {
 		"interrupt dispatcher, traced — the retail BIOS installs it via HookEntryInt into a slot "+
 		"the HLE BIOS leaves empty. Set 0 to use the (empty) registered chain handler")
 	gpuwatch := flag.String("gpuwatch", "", "DEBUG: log GPU writes into VRAM rect x0,y0,x1,y1")
+	tpfrom := flag.String("tpfrom", "", "DEBUG: record sampled texpages from this step")
 	press := flag.String("press", "", "scripted controller input: comma-separated BUTTON@STEP:HOLD "+
 		"entries (e.g. start@380000000:400000,right@390000000:400000). BUTTON is start/select/up/"+
 		"down/left/right/cross/circle/triangle/square/l1/r1/l2/r2. STEP is the instruction count to "+
@@ -98,6 +99,11 @@ func main() {
 			m.DebugWatchVRAM(a, b, c, d, func(s string) {
 				fmt.Fprintf(os.Stderr, "gpu@%d: %s\n", m.CPU.Steps, s)
 			})
+		}
+	}
+	if *tpfrom != "" {
+		if from, err := parseCount(*tpfrom); err == nil {
+			m.DebugTexpages(from)
 		}
 	}
 	m.LoadEXE(exe)
@@ -150,6 +156,9 @@ func main() {
 			die("screenshot: %v", err)
 		}
 		fmt.Fprintf(os.Stderr, "wrote frame to %s\n", *shot)
+	}
+	if *tpfrom != "" {
+		m.DumpTexpages(func(s string) { fmt.Fprintln(os.Stderr, "tp:", s) })
 	}
 	if *vramdump != "" {
 		if err := m.DumpVRAM(*vramdump); err != nil {

@@ -172,6 +172,16 @@ func (m *Machine) Screenshot(path string) error { return m.gpu.Screenshot(path) 
 // DumpVRAM (debug) writes the full 1024×512 VRAM to a PNG.
 func (m *Machine) DumpVRAM(path string) error { return m.gpu.DumpVRAM(path) }
 
+// DebugTexpages (debug) starts recording sampled texture pages from step `from`.
+func (m *Machine) DebugTexpages(from uint64) {
+	m.gpu.dbgOn = true
+	m.gpu.dbgStepFn = func() uint64 { return m.CPU.Steps }
+	m.gpu.dbgTPFrom = from
+}
+
+// DumpTexpages (debug) prints the recorded texture-page usage.
+func (m *Machine) DumpTexpages(log func(string)) { m.gpu.DumpTexpages(log) }
+
 // DebugWatchVRAM (temporary) logs every GPU fill/copy/image-load whose
 // destination intersects the VRAM rect [x0,y0)-(x1,y1), tagging copies with the
 // source's colour variety.
@@ -311,6 +321,11 @@ func (m *Machine) ioSideEffect(base, word uint32) {
 			bcr := m.io[base-4]
 			switch ch {
 			case 2: // GPU: feed a command list to GP0
+				if m.gpu.dbgOn && m.gpu.dbgLog != nil {
+					m.gpu.dbgLog(fmt.Sprintf("DMA2 chcr=0x%08X dir=%d(%s) sync=%d madr=0x%06X bcr=0x%08X",
+						word, word&1, map[bool]string{true: "fromRAM", false: "toRAM"}[word&1 != 0],
+						(word>>9)&3, madr, bcr))
+				}
 				m.dmaGPU(madr, bcr, word)
 			case 3: // CDROM: stream the ready sector into RAM
 				m.cd.dmaTo(madr, bcr)

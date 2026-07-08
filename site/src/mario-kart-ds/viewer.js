@@ -22,12 +22,10 @@ import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { FlyCam, flyHint } from '../shared/flycam.js';
 import { applyWireframe } from '../shared/wireframe.js';
 
-// Format-2 asset tree. The manifest and the per-level envelopes live at this base;
-// the level envelope's mesh.glb / sky paths are root-relative to it (models/…), so
-// load them as BASE + path. Object-placement GLBs are still referenced by bare name
-// inside the objects JSON (inner OBJI shape unchanged), so they load from MODELS.
+// Format-2 asset tree. The manifest and the per-level envelopes live at this base; every
+// GLB path inside the JSON — the level's mesh.glb / sky and each OBJI object placement's
+// `file` (models/…) — is root-relative to it, so load them all as BASE + path.
 const BASE = 'public/mario-kart-ds/';
-const MODELS = BASE + 'models/';
 
 // makeMover precomputes a route follower: the polyline's segments and total
 // length (closing segment appended on loops), a shared plausible speed, and a
@@ -354,7 +352,8 @@ export class ModelViewer {
     for (const o of doc.objects) {
       if (!protos.has(o.file)) {
         protos.set(o.file, new Promise(res =>
-          this.loader.load(MODELS + o.file, g => {
+          // o.file is root-relative to BASE (e.g. "models/MapObj-itembox.glb"), like mesh.glb/sky
+          this.loader.load(BASE + o.file, g => {
             g.scene.traverse(n => {
               if (n.isMesh && n.material && n.material.map) {
                 n.material.map.magFilter = THREE.NearestFilter;

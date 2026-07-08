@@ -58,6 +58,57 @@ type gpu struct {
 	dbgWatchedLoad         bool
 	dbgFirstWord           bool
 	dbgAllOnes             bool
+	dbgStepFn              func() uint64
+	dbgTPFrom              uint64
+	dbgTP                  map[uint32]*tpStat
+}
+
+type tpStat struct {
+	count, minY, maxY int
+	clut              uint32
+}
+
+// dbgRecordTP (debug) records that a textured primitive sampled the current
+// texture page over screen-Y range [y0,y1].
+func (g *gpu) dbgRecordTP(y0, y1 int, clut uint32) {
+	if !g.dbgOn || g.dbgStepFn == nil || g.dbgStepFn() < g.dbgTPFrom {
+		return
+	}
+	if g.dbgTP == nil {
+		g.dbgTP = map[uint32]*tpStat{}
+	}
+	key := uint32(g.texPageX)<<12 | uint32(g.texPageY)<<2 | uint32(g.texDepth)
+	s := g.dbgTP[key]
+	if s == nil {
+		s = &tpStat{minY: 1 << 30, maxY: -1 << 30, clut: clut}
+		g.dbgTP[key] = s
+	}
+	s.count++
+	if y0 < s.minY {
+		s.minY = y0
+	}
+	if y1 > s.maxY {
+		s.maxY = y1
+	}
+}
+
+// DumpTexpages (debug) prints, for each texture page sampled since dbgTPFrom, the
+// use count, screen-Y span, and whether that VRAM region is populated.
+func (g *gpu) DumpTexpages(log func(string)) {
+	for key, s := range g.dbgTP {
+		tx := int(key>>12) & 0x3FF
+		ty := int(key>>2) & 0x1FF
+		depth := int(key & 3)
+		w := 256
+		if depth == 0 {
+			w = 64
+		} else if depth == 1 {
+			w = 128
+		}
+		log(fmt.Sprintf("texpage=(%d,%d) depth=%d clut=(%d,%d) uses=%d screenY=%d..%d vramVar=%d",
+			tx, ty, depth, int(s.clut&0x3F)*16, int((s.clut>>6)&0x1FF), s.count, s.minY, s.maxY,
+			g.dvariety(tx, ty, w, 256)))
+	}
 }
 
 // DEBUG helpers for the who-writes-VRAM investigation.

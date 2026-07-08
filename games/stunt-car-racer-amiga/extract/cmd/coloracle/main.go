@@ -94,7 +94,6 @@ func run(img []byte, id int, dump bool) bool {
 	rd16 := func(a uint32) int { return int(bus.m[a])<<8 | int(bus.m[a+1]) }
 
 	var strips []*strip
-	var cur *strip
 	angle := 0
 
 	// hooks fire before the instruction at their PC executes
@@ -125,11 +124,6 @@ func run(img []byte, id int, dump bool) bool {
 		hookDesc()
 		byOffset[c.D[3]&0xFFFF] = strips[len(strips)-1]
 	}
-	fill := func(field *int) func() {
-		_ = field
-		return nil
-	}
-	_ = fill
 	setFill := func(which string) func() {
 		return func() {
 			d3 := c.D[3] & 0xFFFF
@@ -164,8 +158,10 @@ func run(img []byte, id int, dump bool) bool {
 	hooks[0x6899C] = stroke("vertR")  // wall vertical R (slot $14)
 	hooks[0x689E6] = stroke("curbL")  // road-edge lengthwise L (slot $0)
 	hooks[0x68A2A] = stroke("curbR")  // road-edge lengthwise R (slot $4)
-	// cur is unused; silence linters that dislike dead vars
-	_ = cur
+	// the fade's frame waits spin on counters the VBL interrupt would decrement;
+	// there are no interrupts on the oracle core, so tick them from here
+	hooks[0x64516] = func() { bus.m[0x616D8] = 0 }
+	hooks[0x64524] = func() { bus.m[0x616DA] = 0 }
 
 	call := func(pc uint32, regs map[int]uint32) bool {
 		c.A[7] = stackTop - 4
