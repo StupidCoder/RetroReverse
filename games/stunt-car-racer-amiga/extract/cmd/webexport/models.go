@@ -132,10 +132,12 @@ func exportModels(inPath, outDir string) []ModelIndex {
 			triIdx[p] = i
 		}
 		const innerWall = 5 // tris[] slot for the $9 inner faces
-		// line groups: palette 9 (curbs + struts), palette 3 (curbs)
-		linePal := []byte{9, 3}
+		// line groups: palette 9 (curbs + struts), palette 3 (curbs), and
+		// palette $F — the white start/finish line the race view strokes
+		// ($688FC; the preview wipes its flag, but it belongs to the circuit)
+		linePal := []byte{9, 3, 0xF}
 		lines := make([][][2]uint32, len(linePal))
-		lineIdx := map[byte]int{9: 0, 3: 1}
+		lineIdx := map[byte]int{9: 0, 3: 1, 0xF: 2}
 
 		for sec := range geo {
 			rs := geo[sec]
@@ -178,6 +180,12 @@ func exportModels(inPath, outDir string) []ModelIndex {
 				if mr.VertS {
 					lines[0] = append(lines[0], [2]uint32{lq, lqg}, [2]uint32{rq, rqg})
 				}
+
+				// the race view's white start/finish cross-line ($688FC,
+				// baked flag bit 0 on the finish section's last rung)
+				if q.Finish {
+					lines[2] = append(lines[2], [2]uint32{lq, rq})
+				}
 			}
 		}
 
@@ -199,10 +207,99 @@ func exportModels(inPath, outDir string) []ModelIndex {
 		file := "models/" + slug(name) + ".glb"
 		chk(glb.WriteMixed(filepath.Join(outDir, file), mb.pos, triGroups, lineGroups))
 		out = append(out, ModelIndex{Name: name, File: file})
-		fmt.Fprintf(os.Stderr, "[models] %d/9 %s (%d verts)\n", id+1, filepath.Base(file), len(mb.pos))
+		fmt.Fprintf(os.Stderr, "[models] %d/10 %s (%d verts)\n", id+1, filepath.Base(file), len(mb.pos))
 	}
 	out = append(out, exportCar(pal, outDir))
+	out = append(out, exportHorizon(im, pal, outDir))
 	return out
+}
+
+// exportHorizon writes the race view's mountain range (track.Horizon, verified
+// by cmd/horizonoracle) as models/horizon.glb: the 32 placed silhouettes
+// arranged as the 360-degree ring the renderer implements — one compass yaw
+// unit is 32 horizon pixels, so the full 256-unit circle is 8192 px; each
+// vertex's x maps to arc length on a cylinder of radius 8192/2pi px and its y
+// to height above the horizon plane (Y=0). Scale: 1 GLB unit = 32 px (1 yaw
+// unit), radius ~40.7 units, faces double-sided facing the viewer inside.
+func exportHorizon(im *track.Image, pal [16][3]uint8, outDir string) ModelIndex {
+	place, models := im.Horizon()
+	const pxPerYaw = 32.0
+	const circle = 256 * pxPerYaw
+	radius := circle / (2 * math.Pi)
+
+	var pos [][3]float32
+	index := map[[2]int]uint32{}
+	vert := func(xpx, ypx int) uint32 {
+		key := [2]int{xpx, ypx}
+		if i, ok := index[key]; ok {
+			return i
+		}
+		phi := float64(xpx) / circle * 2 * math.Pi
+		i := uint32(len(pos))
+		index[key] = i
+		pos = append(pos, [3]float32{
+			float32(radius * math.Sin(phi) / pxPerYaw),
+			float32(float64(ypx) / pxPerYaw),
+			float32(-radius * math.Cos(phi) / pxPerYaw),
+		})
+		return i
+	}
+
+	// one TriGroup per palette index used, in fixed order (5 = the grey
+	// mountains; 4 appears only in the unplaced two-tone shape)
+	triPal := []byte{5, 4}
+	triIdx := map[byte]int{5: 0, 4: 1}
+	tris := make([][][3]uint32, len(triPal))
+
+	for _, p := range place {
+		m := models[p.Model]
+		xl := int(p.Yaw) * int(pxPerYaw)
+		for _, f := range m.Faces {
+			// chain the face's boundary edges into a vertex ring
+			es := make([][2]int, len(f.Edges))
+			for i, ei := range f.Edges {
+				es[i] = m.Edges[ei]
+			}
+			ring := []int{es[0][0], es[0][1]}
+			used := map[int]bool{0: true}
+			for len(ring) < len(es) {
+				cur := ring[len(ring)-1]
+				for i, e := range es {
+					if used[i] {
+						continue
+					}
+					if e[0] == cur {
+						ring = append(ring, e[1])
+						used[i] = true
+						break
+					}
+					if e[1] == cur {
+						ring = append(ring, e[0])
+						used[i] = true
+						break
+					}
+				}
+			}
+			var ids []uint32
+			for _, vi := range ring {
+				v := m.Verts[vi]
+				ids = append(ids, vert(xl+v[0], v[1]))
+			}
+			g := triIdx[f.Pal]
+			for i := 2; i < len(ids); i++ {
+				tris[g] = append(tris[g], [3]uint32{ids[0], ids[i-1], ids[i]})
+			}
+		}
+	}
+
+	var groups []glb.TriGroup
+	for i, p := range triPal {
+		groups = append(groups, glb.TriGroup{Tris: tris[i], Color: linColor(pal[p])})
+	}
+	file := "models/horizon.glb"
+	chk(glb.WriteMixed(filepath.Join(outDir, file), pos, groups, nil))
+	fmt.Fprintf(os.Stderr, "[models] 10/10 horizon.glb (%d placements, %d verts)\n", len(place), len(pos))
+	return ModelIndex{Name: "Horizon", File: file}
 }
 
 // exportCar writes the opponent car's rest-pose model (carmodel.Rest — the
@@ -244,6 +341,6 @@ func exportCar(pal [16][3]uint8, outDir string) ModelIndex {
 	}
 	file := "models/opponent-car.glb"
 	chk(glb.WriteMixed(filepath.Join(outDir, file), pos, groups, nil))
-	fmt.Fprintf(os.Stderr, "[models] 9/9 opponent-car.glb (%d verts)\n", len(pos))
+	fmt.Fprintf(os.Stderr, "[models] 9/10 opponent-car.glb (%d verts)\n", len(pos))
 	return ModelIndex{Name: "Opponent Car", File: file}
 }

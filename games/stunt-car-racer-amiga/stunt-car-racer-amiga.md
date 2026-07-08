@@ -22,9 +22,9 @@ the centre of gravity is the last two parts — the tracks and the physics:
 * **Part V** — **the physics**: the car's rigid-body simulation — the chassis,
   suspension, wheel/ground contact, drive and damage model — reverse-engineered
   from the 68000 integrator and reimplemented in Go so a track can be *driven*.
-* **Part VI** — **the opponent car**: the one 3-D object the race view draws
-  besides the track — a procedural screen-space build, not a stored model —
-  reverse-engineered, ported and shipped as a GLB.
+* **Part VI** — **the 3-D objects**: the opponent car (a procedural
+  screen-space build, not a stored model) and the horizon mountain range —
+  reverse-engineered, ported and shipped as GLBs.
 * **Appendices** — toolchain and reproduction.
 
 Methods: purely static analysis of the disk image, plus the 68000 toolchain in
@@ -64,10 +64,11 @@ car ship as GLB models in the game's own colours.**
   - [8. The baked track model — the definitive absolute geometry](#8-the-baked-track-model-65bec--the-definitive-absolute-geometry)
   - [9. The drawn faces: colours and decals](#9-the-drawn-faces-colours-and-decals-672cc68f28)
 - [Part V — The physics simulation](#part-v--the-physics-simulation)
-- [Part VI — The opponent car (the 3-D vector object)](#part-vi--the-opponent-car-the-3-d-vector-object)
+- [Part VI — The 3-D objects: the opponent car and the horizon](#part-vi--the-3-d-objects-the-opponent-car-and-the-horizon)
   - [1. Placement: wheels ride the decoded track](#1-placement-wheels-ride-the-decoded-track)
   - [2. The screen-space build](#2-the-screen-space-build-599e2)
   - [3. Reimplementation and proof](#3-reimplementation-and-proof)
+  - [4. The horizon mountain range](#4-the-horizon-mountain-range-6953e)
 - [Appendix A — Toolchain and reproduction](#appendix-a--toolchain-and-reproduction)
 
 ---
@@ -787,7 +788,8 @@ with hooks on every colour decision: **all eight tracks match, every rung
 covered, palette word-exact**. `cmd/webexport -only models` bakes the result
 into one GLB per circuit (`models/<slug>.glb`): road and wall quads per rung
 pair with the exact linearised Amiga colours, and the stroked decals as true
-glTF `LINES` primitives.
+glTF `LINES` primitives — plus the race view's white start/finish cross-line
+(`$688FC`, the baked flag bit 0 the preview wipes) as a palette-`$F` segment.
 
 *Part V — the physics.*
 
@@ -958,10 +960,11 @@ fully faithful in-browser drive; until it lands, the viewer uses a provisional c
 
 ---
 
-# Part VI — The opponent car (the 3-D vector object)
+# Part VI — The 3-D objects: the opponent car and the horizon
 
-The computer player's car — the one 3-D object the race view draws besides the
-track — is **not a stored vertex model**. There is no vertex/face list anywhere
+The race view draws two things besides the track: the computer player's car,
+and the mountain range on the horizon. The car is **not a stored vertex
+model**. There is no vertex/face list anywhere
 on the disk: `$599E2` assembles the car procedurally, in *screen space*, from
 the four projected wheel points of the opponent's rig, and `$67AA6` fills its
 faces with colours hard-coded in an unrolled paint list.
@@ -1021,6 +1024,41 @@ original being a screen-space build, the GLB is by nature its rest-pose
 interpretation; the wedge proportions, planes and colours are the engine's own
 numbers.)
 
+## 4. The horizon mountain range (`$6953E`)
+
+The mountains are true 2-D shapes, drawn by a small yaw-placed object renderer.
+The race-init config step `$696FC` loads a placement list through the pointer
+table at `$69A80` (it forces entry 0, so **every track shows the same range**):
+a count byte then `(yaw, model)` pairs into `$69736`/`$69766` — **32 objects
+spread around the full 256-unit compass** at alternating `$A`/`$6`-unit
+spacings. Each frame `$6953E` walks the list and draws every object whose
+heading falls in the view window, at
+
+```
+x_left   = (yaw·256 − cameraYaw16) >> 3     ; 1 yaw unit = 32 horizon pixels
+y_screen = −($1BC42 >> 3) − y               ; base pinned to the horizon line
+```
+
+then pushes every vertex through the same `$62518` roll-rotate/`>>2`/re-centre
+transform as the car. A model (table `$699B8`, 8 bytes per entry: shape +
+variable-stream pointers) is a word vertex count, `(x, y)` word pairs where a
+**negative word is a placeholder filled from the entry's variable stream**,
+an edge list and a face list `{colour, vertex count, edge refs}`. That
+placeholder trick is the whole range: **all 14 placed models share one
+4-vertex silhouette** — base line plus two peaks — with per-entry streams of
+5 words giving each mountain its width (250–384 px) and peak heights
+(12–39 px), filled as a single quad in **palette 5** (`$555` mid grey). A
+second two-triangle shape (table entries 14/15, palettes 4/5) exists but the
+config never places it.
+
+`track.Horizon` decodes the placement list and models purely from the image,
+and `cmd/horizonoracle` verifies it against the real `$6953E` on the m68k core
+across eight camera headings — **every emitted edge coordinate-exact, face
+colours included**. `cmd/webexport` ships the range as `models/horizon.glb`:
+the 32 silhouettes arranged as the 360° ring the renderer implements (arc
+length = the engine's 32 px per yaw unit, radius `8192/2π` px, bases on the
+Y=0 horizon plane).
+
 ---
 
 # Appendix A — Toolchain and reproduction
@@ -1069,6 +1107,10 @@ go run ./cmd/coloracle -in ../extracted/game.dec.bin [-id N] [-dump]
 # Verify the opponent-car construction port (carmodel.Build) against the real
 # $599E2/$67AA6 draw — all 32 display-list edges coordinate-exact (Part VI)
 go run ./cmd/caroracle -in ../extracted/game.dec.bin [-id N]
+
+# Verify the horizon mountain-range decode (track.Horizon) against the real
+# $6953E renderer over 8 camera headings — edge- and colour-exact (Part VI §4)
+go run ./cmd/horizonoracle -in ../extracted/game.dec.bin [-id N]
 
 # Export the web assets: per-circuit track JSON + the GLB models (8 circuits in
 # the preview's exact colours/decals + models/opponent-car.glb)
