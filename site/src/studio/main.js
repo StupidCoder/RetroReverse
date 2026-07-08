@@ -131,15 +131,23 @@ const GAMES = [
     group: (lvl) => ({ section: 'Circuits', label: lvl.name }),
   },
   {
-    id: 'elite', name: 'Elite', system: 'Commodore 64', render: '3d',
-    load: () => import('../elite/viewer.js').then(m => m.ShipViewer),
-    make: (V, el, hud) => new V(el, hud),
-    list: async (v) => await v.init(), // returns the ship list
-    show: (v, lvl, i) => v.loadShip(i),
+    id: 'elite-c64', name: 'Elite', system: 'Commodore 64', render: '3d',
+    // The generic manifest-driven 3-D viewer + the elite-ship renderer plugin (which carries
+    // Elite's HSR wireframe + low-res/CRT post-process). The plugin is lazily imported per kind.
+    load: () => import('../shared/viewer3d.js').then(m => m.Viewer3D),
+    make: (V, el, hud) => new V(el, hud, {
+      base: 'public/elite-c64/',
+      renderers: { 'elite-ship': () => import('../elite/ship-renderer.js') },
+    }),
+    list: async (v) => await v.init(), // manifest.models — each ship carries its kind/file/data
+    show: (v, item, i) => v.showItem(item),
+    // Ships (the only section for now) → each ship
+    group: (item) => ({ section: item.section || 'Ships', label: item.name }),
     // open on the Cobra Mk III — the iconic player ship — rather than the missile
-    defaultAsset: (ships) => ships.findIndex(s => s.name === 'Cobra Mk III'),
+    defaultAsset: (models) => models.findIndex(m => m.name === 'Cobra Mk III'),
     // the docking music (The Blue Danube), rendered from the $BDDC engine through our SID emulator
-    music: async () => [{ name: 'Docking — The Blue Danube', url: 'public/elite/music/docking.mp3' }],
+    music: async () => (await fetch('public/elite-c64/manifest.json').then(r => r.json()))
+      .music.map(t => ({ name: t.name, url: 'public/elite-c64/' + t.file })),
   },
   {
     id: 'mariokart', name: 'Mario Kart DS', system: 'Nintendo DS', render: '3d',

@@ -1785,7 +1785,7 @@ course, drives Airship&nbsp;Fortress's Bullet&nbsp;Bills along their track, and 
 iron balls through the table.</p>
 `,
   },
-  elite: {
+  'elite-c64': {
     loader: `
 <div class="info-eyebrow">Elite · Image &amp; Loader</div>
 <p>Elite for the C64 loads from cassette, and the tape is as much a <strong>copy-protection device</strong>
