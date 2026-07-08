@@ -58,7 +58,8 @@ const palTable = 0x2B974
 // colour of the strip. All colours are 4-bit palette indexes into Palette().
 type MeshRung struct {
 	Type    byte // 9 or 3: curb colour, alternating per rung with per-section seed
-	RoadPal byte // road fill of strip (k-1,k): 1/2 by section parity, 0 on crease
+	RoadPal byte // road fill of strip (k-1,k): 1/2 by section parity; 0 when the
+	// span this strip belongs to ends at a crease rung (fills are per batch)
 	WallPal byte // outer wall fill of strip (k-1,k): $F/$A by section parity
 	Cross   bool // lateral road line emitted at rung k (flag bit 7 clear)
 	Crease  bool // flag bit 5 at rung k
@@ -78,6 +79,22 @@ type MeshSection struct {
 // Geometry(); this carries the colours the flush would assign.
 func (im *Image) Mesh(t *Track) TrackMesh {
 	out := TrackMesh{Sections: make([]MeshSection, len(t.Nodes))}
+
+	// the curb-phase seeds: the loader ($5AE46) accumulates a two-state phase
+	// across sections ($5B046: $1BBDC = ($1BBDC + cnt-2) & 2, from 0) and stores
+	// each section's phase bit as bit 7 of $1C524[sec] ($5B010/$5AF7C) — this is
+	// what keeps the yellow/dark curb dashes continuous across section joints
+	seeds := make([]int, len(t.Nodes))
+	phase := 0
+	for s := range t.Nodes {
+		seeds[s] = phase >> 1
+		nib := t.Nodes[s].Type & 0x0F
+		shp := handle(im.u16(dataBase + 2*nib))
+		off := im.u8(shp)
+		cnt := im.u8(shp + off)
+		phase = (phase + cnt - 2) & 2
+	}
+
 	for sec := range t.Nodes {
 		n := &t.Nodes[sec]
 		nib := n.Type & 0x0F
@@ -94,12 +111,15 @@ func (im *Image) Mesh(t *Track) TrackMesh {
 		}
 		finish := t.FinishIdx
 		im.heights65756(st, n, sec, finish, cnt, rungs-1, 0)
-		// the preview walk forces the first and last rung visible ($6045C)
+		// the preview walk clears the first and last rung's flag byte outright
+		// ($6045C MOVE.b #0) — forcing them visible and, as a side effect, wiping
+		// any crease bit and the finish-line bit there: the preview never draws
+		// the white finish stroke ($688FC is a race-view feature)
 		st.flags[0] = 0
 		last := ((cnt - 2) << 1) & 0xFF
-		st.flags[last] &= 0x7F
+		st.flags[last] = 0
 
-		seed := (n.Attr >> 7) & 1 // $5FE82: ROXL of $1C524[sec]<<1
+		seed := seeds[sec] // $5FE82: ROXL of $1C524[sec]<<1
 		parity := func(k int) int { return (seed ^ k) & 1 }
 
 		ms := MeshSection{Rungs: make([]MeshRung, rungs)}
@@ -121,12 +141,24 @@ func (im *Image) Mesh(t *Track) TrackMesh {
 			if parity(k) != 0 {
 				r.Type = 3
 			}
-			if f&0x20 != 0 {
-				r.RoadPal = 0 // crease strip: road filled with the background
-			}
 			r.Verts = parity(k) == 0 || r.Cross
 			r.VertS = r.Verts && r.Type != 3
 			ms.Rungs[k] = r
+		}
+		// the flush fills the road in batches: each span of strips ending at an
+		// edge rung is one polygon, coloured by THAT rung's descriptor — so a
+		// crease bit blackens (palette 0) the whole span leading up to it
+		for k := rungs - 1; k >= 1; k-- {
+			if !ms.Rungs[k].Cross {
+				continue
+			}
+			pal := ms.Rungs[k].RoadPal
+			if ms.Rungs[k].Crease {
+				pal = 0
+			}
+			for j := k; j >= 1 && (j == k || !ms.Rungs[j].Cross); j-- {
+				ms.Rungs[j].RoadPal = pal
+			}
 		}
 		out.Sections[sec] = ms
 	}

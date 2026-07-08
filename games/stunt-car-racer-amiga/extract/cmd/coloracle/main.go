@@ -124,9 +124,10 @@ func run(img []byte, id int, dump bool) bool {
 		hookDesc()
 		byOffset[c.D[3]&0xFFFF] = strips[len(strips)-1]
 	}
+	// the flush routines index strips by their base offset (descriptor - $1C)
 	setFill := func(which string) func() {
 		return func() {
-			d3 := c.D[3] & 0xFFFF
+			d3 := (c.D[3] + 0x1C) & 0xFFFF
 			s := byOffset[d3]
 			if s == nil {
 				return
@@ -147,7 +148,7 @@ func run(img []byte, id int, dump bool) bool {
 	hooks[0x68C62] = setFill("wallR")
 	stroke := func(slot string) func() {
 		return func() {
-			d3 := c.D[3] & 0xFFFF
+			d3 := (c.D[3] + 0x1C) & 0xFFFF
 			if s := byOffset[d3]; s != nil {
 				s.strokes[slot] = byte(c.D[0] & 0xFF)
 			}
@@ -155,7 +156,7 @@ func run(img []byte, id int, dump bool) bool {
 	}
 	hooks[0x6890C] = stroke("finish") // cross line at cursor strip, finish only
 	hooks[0x68950] = stroke("vertL")  // wall vertical L (slot $10)
-	hooks[0x6899C] = stroke("vertR")  // wall vertical R (slot $14)
+	hooks[0x689A2] = stroke("vertR")  // wall vertical R (slot $14)
 	hooks[0x689E6] = stroke("curbL")  // road-edge lengthwise L (slot $0)
 	hooks[0x68A2A] = stroke("curbR")  // road-edge lengthwise R (slot $4)
 	// the fade's frame waits spin on counters the VBL interrupt would decrement;
@@ -240,6 +241,11 @@ func run(img []byte, id int, dump bool) bool {
 	}
 
 	if dump {
+		for sec := range t.Nodes {
+			raw := bus.m[0x1C524+uint32(sec)]
+			fmt.Printf("sec %2d: $1C524=%02X attr=%02X p2=%02X type=%02X p1=%02X\n",
+				sec, raw, byte(t.Nodes[sec].Attr), byte(t.Nodes[sec].P2), byte(t.Nodes[sec].Type), byte(t.Nodes[sec].P1))
+		}
 		fmt.Printf("track %d: %d strips, palette %s\n", id, len(strips),
 			map[bool]string{true: "OK", false: "BAD"}[palBad == 0])
 		for _, s := range strips {
@@ -260,6 +266,12 @@ func run(img []byte, id int, dump bool) bool {
 	}
 	covered := map[[2]int]bool{}
 	for _, s := range strips {
+		if s.rung == 0 {
+			// rung-0 strips are emitted but never dispatched: the flush's batch
+			// walk drops them below the $1BC1E bound, and their type byte is the
+			// previous cell's stale $69AD8 parity
+			continue
+		}
 		if s.sec >= len(mesh.Sections) {
 			report("track %d a%d: strip sec %d out of range\n", id, s.angle, s.sec)
 			continue
@@ -287,11 +299,15 @@ func run(img []byte, id int, dump bool) bool {
 		if s.wallR >= 0 && byte(s.wallR) != wallWant {
 			report("track %d a%d sec %d rung %d: wallR oracle %d go %d (b66 %02X)\n", id, s.angle, s.sec, s.rung, s.wallR, wallWant, s.b66)
 		}
-		if col, ok := s.strokes["curbL"]; ok && col != mr.Type {
-			report("track %d a%d sec %d rung %d: curbL stroke %d != type %d\n", id, s.angle, s.sec, s.rung, col, mr.Type)
+		for _, curb := range []string{"curbL", "curbR"} {
+			if col, ok := s.strokes[curb]; ok && col != mr.Type {
+				report("track %d a%d sec %d rung %d: %s stroke %d != type %d\n", id, s.angle, s.sec, s.rung, curb, col, mr.Type)
+			}
 		}
-		if col, ok := s.strokes["vertL"]; ok && (col != 9 || mr.Type == 3) {
-			report("track %d a%d sec %d rung %d: vertL stroke %d (type %d)\n", id, s.angle, s.sec, s.rung, col, mr.Type)
+		for _, vert := range []string{"vertL", "vertR"} {
+			if col, ok := s.strokes[vert]; ok && (col != 9 || !mr.VertS) {
+				report("track %d a%d sec %d rung %d: %s stroke %d (type %d VertS %v)\n", id, s.angle, s.sec, s.rung, vert, col, mr.Type, mr.VertS)
+			}
 		}
 		if col, ok := s.strokes["finish"]; ok && (col != 0xF || !mr.Finish) {
 			report("track %d a%d sec %d rung %d: finish stroke %d finish=%v\n", id, s.angle, s.sec, s.rung, col, mr.Finish)
