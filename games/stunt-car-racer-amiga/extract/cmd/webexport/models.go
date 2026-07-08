@@ -13,7 +13,7 @@
 // preview's extra $4C1B vertical squeeze is a screen transform and is NOT baked
 // in. $200 is the wall-bottom ground height $654C2 plants ($1BB68=$80), so the
 // ground sits at Y=0. Z is negated to keep the circuit plan un-mirrored in the
-// right-handed glTF frame (same convention as the stunt-track viewer).
+// right-handed glTF frame (same convention as the stunt-model viewer).
 //
 // Colours: 4-bit displayed channels (Palette, already through the copper-push
 // 2c|1 map) -> sRGB c/15 -> linearised into baseColorFactor, so an sRGB-output
@@ -31,10 +31,15 @@ import (
 	"retroreverse.com/tools/lib/glb"
 )
 
-// ModelIndex is one manifest models[] entry (STANDARDS.md §4.2).
+// ModelIndex is one manifest models[] entry (STANDARDS.md §4.2). Kind routes the site to the
+// stunt-model GLB plugin; Section groups the browse list (the circuits under "Courses", the
+// opponent car + horizon under "Models"); Fly marks the circuits the viewer lets you fly through.
 type ModelIndex struct {
-	Name string `json:"name"`
-	File string `json:"file"`
+	Name    string `json:"name"`
+	File    string `json:"file"`
+	Kind    string `json:"kind"`
+	Section string `json:"section"`
+	Fly     bool   `json:"fly,omitempty"`
 }
 
 const (
@@ -155,12 +160,12 @@ func exportModels(inPath, outDir string) []ModelIndex {
 				Default: 14.0 / 15.0,
 			}
 			chk(glb.WriteMixedMorph(filepath.Join(outDir, file), lo.pos, loT, loL, m))
-			out = append(out, ModelIndex{Name: name, File: file})
+			out = append(out, ModelIndex{Name: name, File: file, Kind: "stunt-model", Section: "Courses", Fly: true})
 			fmt.Fprintf(os.Stderr, "[models] %d/10 %s (%d verts, morph)\n", id+1, filepath.Base(file), len(lo.pos))
 			continue
 		}
 		chk(glb.WriteMixed(filepath.Join(outDir, file), mb.pos, triGroups, lineGroups))
-		out = append(out, ModelIndex{Name: name, File: file})
+		out = append(out, ModelIndex{Name: name, File: file, Kind: "stunt-model", Section: "Courses", Fly: true})
 		fmt.Fprintf(os.Stderr, "[models] %d/10 %s (%d verts)\n", id+1, filepath.Base(file), len(mb.pos))
 	}
 	out = append(out, exportCar(pal, outDir))
@@ -347,7 +352,7 @@ func exportHorizon(im *track.Image, pal [16][3]uint8, outDir string) ModelIndex 
 	file := "models/horizon.glb"
 	chk(glb.WriteMixed(filepath.Join(outDir, file), pos, groups, nil))
 	fmt.Fprintf(os.Stderr, "[models] 10/10 horizon.glb (%d placements, %d verts)\n", len(place), len(pos))
-	return ModelIndex{Name: "Horizon", File: file}
+	return ModelIndex{Name: "Horizon", File: file, Kind: "stunt-model", Section: "Models"}
 }
 
 // exportCar writes the opponent car's rest-pose model (carmodel.Rest — the
@@ -390,5 +395,5 @@ func exportCar(pal [16][3]uint8, outDir string) ModelIndex {
 	file := "models/opponent-car.glb"
 	chk(glb.WriteMixed(filepath.Join(outDir, file), pos, groups, nil))
 	fmt.Fprintf(os.Stderr, "[models] 9/10 opponent-car.glb (%d verts)\n", len(pos))
-	return ModelIndex{Name: "Opponent Car", File: file}
+	return ModelIndex{Name: "Opponent Car", File: file, Kind: "stunt-model", Section: "Models"}
 }

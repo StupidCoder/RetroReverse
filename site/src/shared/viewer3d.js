@@ -32,7 +32,7 @@ export class Viewer3D {
     if (id === 'wireframe') applyWireframe(this.stage.scene, on);
     else if (this.stage.setLayer) this.stage.setLayer(id, on);
   }
-  // A fly-through plugin (e.g. Stunt Car's stunt-track) publishes its FlyCam as stage.fly; expose
+  // A fly-through plugin (e.g. Stunt Car's stunt-model) publishes its FlyCam as stage.fly; expose
   // it so the Studio's KeyboardCamera cedes the arrow keys to it (it checks viewer.fly.enabled).
   // Non-fly plugins (Elite) leave it null — showItem() resets stage.fly before each build.
   get fly() { return this.stage.fly ?? null; }

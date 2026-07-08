@@ -124,18 +124,20 @@ const GAMES = [
   },
   {
     id: 'stunt-car-racer-amiga', name: 'Stunt Car Racer', system: 'Amiga', render: '3d',
-    // The generic manifest-driven 3-D viewer + the stunt-track renderer plugin (which carries the
-    // baked-track wireframe geometry and the fly-through FlyCam). The plugin is lazily imported per kind.
+    // The generic manifest-driven 3-D viewer + the stunt-model renderer plugin (which loads the
+    // baked-track/car/horizon GLBs, flies the circuits and renders at the Amiga's native 200-line
+    // resolution). The plugin is lazily imported per kind.
     load: () => import('../shared/viewer3d.js').then(m => m.Viewer3D),
     make: (V, el, hud) => new V(el, hud, {
       base: 'public/stunt-car-racer-amiga/',
-      renderers: { 'stunt-track': () => import('../stunt-car-racer-amiga/track-renderer.js') },
+      renderers: { 'stunt-model': () => import('../stunt-car-racer-amiga/model-renderer.js') },
     }),
-    list: async (v) => await v.init(), // the circuits from manifest.views — each carries its kind/file
+    list: async (v) => await v.init(), // manifest.models — each carries its kind/file/section
     show: (v, item, i) => v.showItem(item),
     // each circuit is a level you fly through
     layers: [{ id: 'wireframe', label: 'Wireframe', default: false }],
-    group: (item) => ({ section: item.section || 'Circuits', label: item.name }),
+    // Courses (the circuits) vs the Models section (opponent car + horizon), from the section field
+    group: (item) => ({ section: item.section || 'Courses', label: item.name }),
   },
   {
     id: 'elite-c64', name: 'Elite', system: 'Commodore 64', render: '3d',
