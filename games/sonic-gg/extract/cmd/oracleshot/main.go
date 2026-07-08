@@ -4,28 +4,33 @@
 // ($3F00 Y / $3F80 X+tile, 8x16 mode) — the ground truth for how the real game lays a
 // scene out, sprite positions included, without any placement logic of ours.
 //
-// Usage: oracleshot <rom.gg> <out.png> [act [settleFrames]]
+// Usage: oracleshot -in <rom.gg> -o <out.png> [-act N] [-settle N]
 package main
 
 import (
+	"flag"
 	"fmt"
 	"image"
 	"image/png"
 	"os"
-	"strconv"
 
 	"retroreverse.com/tools/platform/gamegear"
 )
 
 func main() {
-	rom, _ := os.ReadFile(os.Args[1])
-	out := os.Args[2]
-	act, settle := 0, 120
-	if len(os.Args) > 3 {
-		act, _ = strconv.Atoi(os.Args[3])
+	in := flag.String("in", "", "input Game Gear ROM (.gg)")
+	out := flag.String("o", "", "output screenshot PNG")
+	act := flag.Int("act", 0, "act descriptor index to force")
+	settle := flag.Int("settle", 120, "frames to settle after the act loads")
+	flag.Parse()
+	if *in == "" || *out == "" {
+		fmt.Fprintln(os.Stderr, "usage: oracleshot -in <rom.gg> -o <out.png> [-act N] [-settle N]")
+		os.Exit(2)
 	}
-	if len(os.Args) > 4 {
-		settle, _ = strconv.Atoi(os.Args[4])
+	rom, err := os.ReadFile(*in)
+	if err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		os.Exit(1)
 	}
 
 	m := gamegear.NewMachine(rom)
@@ -36,12 +41,12 @@ func main() {
 	for round := 0; round < 40 && word(0xD26F) == 0; round++ {
 		m.Pad00 = 0x7F
 		for i := 0; i < 8; i++ {
-			m.Write(0xD238, byte(act))
+			m.Write(0xD238, byte(*act))
 			m.RunFrame()
 		}
 		m.Pad00 = 0xFF
 		for k := 0; k < 242 && word(0xD26F) == 0; k++ {
-			m.Write(0xD238, byte(act))
+			m.Write(0xD238, byte(*act))
 			m.RunFrame()
 		}
 	}
@@ -63,9 +68,9 @@ func main() {
 			m.RunFrame()
 		}
 		m.PadDC = 0xF7 // hold Right: walk into the sign
-		settle -= n
+		*settle -= n
 	}
-	for i := 0; i < settle; i++ {
+	for i := 0; i < *settle; i++ {
 		m.RunFrame()
 	}
 
@@ -110,10 +115,10 @@ func main() {
 			gg.Set(x, y, img.At(x+48, y+24))
 		}
 	}
-	f, _ := os.Create(out)
+	f, _ := os.Create(*out)
 	png.Encode(f, gg)
 	f.Close()
-	fmt.Printf("act %d after %d frames: cam=$%04X/%04X sonic=(%d,%d)\n", act, settle,
+	fmt.Printf("act %d after %d frames: cam=$%04X/%04X sonic=(%d,%d)\n", *act, *settle,
 		word(0xD254), word(0xD257),
 		int(word(0xD3FD+2)), int(word(0xD3FD+5)))
 }

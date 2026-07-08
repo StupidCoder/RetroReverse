@@ -27,7 +27,7 @@ const slugify = (s) => String(s).toLowerCase().normalize('NFKD')
 
 const GAMES = [
   {
-    id: 'sonic', name: 'Sonic the Hedgehog', system: 'Sega Game Gear',
+    id: 'sonic-gg', name: 'Sonic the Hedgehog', system: 'Sega Game Gear',
     load: () => Promise.all([
       import('../shared/viewer.js'), import('../sonic/config.js'),
     ]).then(([m, c]) => class extends m.LevelViewer {
@@ -36,7 +36,7 @@ const GAMES = [
     make: (V, el, hud) => new V(el, hud),
     list: async (v) => (await v.init()).levels,
     show: (v, lvl, i) => v.loadLevel(lvl),
-    // zone -> act accordion from the meta's section field ("Green Hills" -> "Act 1")
+    // zone -> act accordion from the manifest's section field ("Green Hills" -> "Act 1")
     group: (lvl) => ({
       section: lvl.section || lvl.name,
       label: lvl.name.startsWith(lvl.section) ? lvl.name.slice(lvl.section.length).trim() || lvl.name : lvl.name,
@@ -45,9 +45,9 @@ const GAMES = [
       { id: 'objects', label: 'Objects & enemies', default: true },
       { id: 'collision', label: 'Collision layer', default: false },
     ],
-    music: async () => ['Green Hills:greenhills', 'Bridge:bridge', 'Jungle:jungle',
-      'Labyrinth:labyrinth', 'Scrap Brain:scrapbrain', 'Sky Base:skybase', 'Special Stage:special']
-      .map(s => { const [name, f] = s.split(':'); return { name, url: `public/sonic/music/${f}.mp3` }; }),
+    // the format-2 manifest carries music[]; map to Studio {name,url}
+    music: async () => (await fetch('public/sonic-gg/manifest.json').then(r => r.json())).music
+      .map(t => ({ name: t.name, url: `public/sonic-gg/${t.file}` })),
   },
   {
     id: 'fort', name: 'Fort Apocalypse', system: 'Commodore 64',

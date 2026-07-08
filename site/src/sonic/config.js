@@ -183,7 +183,7 @@ const CAT = {
 };
 
 export default {
-  base: 'public/sonic/',
+  base: 'public/sonic-gg/',
   maxNativeFactor: 1, // GG 1:1 — never magnify past the original viewport
   markerCat: (o) => CAT[o.name] || 'default',
   hud: (level) => `${level.grid.width}x${level.grid.height} blocks`,

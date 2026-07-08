@@ -1,5 +1,7 @@
-// Data loading for the shared 2-D level viewer: meta.json, level files, the sprite
-// index and image assets, per the common format documented in site/FORMAT.md.
+// Data loading for the shared 2-D level viewer: the manifest (format 2, site/FORMAT2.md)
+// or legacy meta.json (format 1, site/FORMAT.md), level files, the sprite index and image
+// assets. Format-2 tilemap2d levels keep grid/objects/collision at the top level, so the
+// viewer consumes them unchanged; only the index file differs.
 
 import { Rectangle, Texture } from 'pixi.js';
 
@@ -23,9 +25,13 @@ export class GameData {
   }
 
   async loadMeta() {
-    this.meta = await fetch(this.base + 'meta.json').then((r) => r.json());
+    // Format 2 ships manifest.json (which subsumes meta.json); fall back to format-1
+    // meta.json. Both expose levels[], tickHz and wrap the viewer reads.
+    let m = await fetch(this.base + 'manifest.json').then((r) => (r.ok ? r.json() : null)).catch(() => null);
+    if (!m) m = await fetch(this.base + 'meta.json').then((r) => r.json());
+    this.meta = m;
     try {
-      this.spriteIndex = await fetch(this.base + 'sprites/index.json').then((r) => r.json());
+      this.spriteIndex = await fetch(this.base + (m.sprites || 'sprites/index.json')).then((r) => r.json());
     } catch { /* game has no sprites */ }
     return this.meta;
   }

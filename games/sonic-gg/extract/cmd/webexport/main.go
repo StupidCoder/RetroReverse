@@ -1,22 +1,24 @@
-// webexport serializes the decoded Sonic levels for the static web viewer (see
-// site/PLAN.md). Everything is reconstructed from the cartridge by the same decode
-// path as cmd/levelmap, then written as small block-indexed JSON plus a per-(tileset,
-// palette) tile-atlas PNG:
+// webexport serializes the decoded Sonic levels for the static web viewer as the
+// common format-2 asset tree (see STANDARDS.md / site/FORMAT2.md). Everything is
+// reconstructed from the cartridge by the same decode path as cmd/levelmap, then
+// written under the output root:
 //
-//	meta.json            zone names, the 18-act index, animation cadence
-//	shapes.json          the 48 collision height profiles ($3E7A) + angles ($3978)
-//	atlas_<k>.png        256 tiles (8x8) at a zone palette, 16 wide; reused across acts
-//	act<NN>.json         per act: block map, block->tile table, block->collision shape,
-//	                     palette, spawn, objects, atlas reference
+//	manifest.json               game index: native res, tick rate, level/music list
+//	levels/act<NN>.json         per act (kind "tilemap2d"): block map, block->tile table,
+//	                            block->collision shape, palette, spawn, atlas + objects ref
+//	levels/act<NN>.objects.json machine-readable object DB for the act
+//	levels/atlas_<k>.png        256 tiles (8x8) at a zone palette, 16 wide; reused across acts
+//	levels/shapes.json          the 48 collision height profiles ($3E7A) + angles ($3978)
 //
-// The client expands blocks -> tiles into a tilemap. Output defaults to
-// site/public/sonic (relative to the repo root).
+// The client expands blocks -> tiles into a tilemap. sprites/ and music/ are produced
+// by cmd/spriterip and cmd/musicbake into the same tree.
 //
-// Usage: webexport <rom.gg> [outdir]
+// Usage: webexport -in <rom.gg> [-o <outdir>]
 package main
 
 import (
 	"encoding/json"
+	"flag"
 	"fmt"
 	"image"
 	"image/color"
@@ -454,18 +456,43 @@ func capturePaletteCycle(rom []byte, act int, staticPal color.Palette) *PaletteC
 
 // JSON shapes ----------------------------------------------------------------
 
-type Meta struct {
-	Format int            `json:"format"`
-	Game   string         `json:"game"`
-	Native map[string]int `json:"native"`
-	TickHz int            `json:"tickHz"`
-	Levels []ActIndex     `json:"levels"`
+// Manifest is the format-2 per-game index (site/FORMAT2.md).
+type Manifest struct {
+	Format   int            `json:"format"`
+	Game     string         `json:"game"`
+	Platform string         `json:"platform"`
+	Native   map[string]int `json:"native"`
+	TickHz   int            `json:"tickHz"`
+	Levels   []LevelIndex   `json:"levels"`
+	Music    []MusicEntry   `json:"music,omitempty"`
+	Sprites  string         `json:"sprites,omitempty"`
 }
-type ActIndex struct {
+type LevelIndex struct {
 	Name    string `json:"name"`
 	Section string `json:"section"`
 	File    string `json:"file"`
-	Atlas   string `json:"atlas"`
+	Kind    string `json:"kind"`
+	Atlas   string `json:"atlas,omitempty"`
+	Objects string `json:"objects,omitempty"`
+}
+type MusicEntry struct {
+	Name string `json:"name"`
+	File string `json:"file"`
+}
+
+// ObjectsDB is the machine-readable object database written alongside each level
+// (<level>.objects.json). Fields absent in the engine are omitted.
+type ObjectsDB struct {
+	Format  int     `json:"format"`
+	Level   string  `json:"level"`
+	Objects []DBObj `json:"objects"`
+}
+type DBObj struct {
+	ID    int            `json:"id"`
+	Type  int            `json:"type"`
+	Name  string         `json:"name,omitempty"`
+	Pos   []int          `json:"pos"`
+	Props map[string]any `json:"props,omitempty"`
 }
 
 // framesPerTick is the engine's tile-animation cadence (the $15FF update's ~10-frame
@@ -529,19 +556,30 @@ type WaterLine struct {
 	Palette []string `json:"palette"`
 }
 
+// Extents is the format-2 level extent (tilemap2d: size in cells).
+type Extents struct {
+	TileSize int `json:"tileSize"`
+	Width    int `json:"width"`
+	Height   int `json:"height"`
+}
+
 type ActFile struct {
-	Format    int        `json:"format"`
-	Name      string     `json:"name"`
-	Grid      Grid       `json:"grid"`
-	Blocks    Blocks     `json:"blocks"`
-	View      Rect       `json:"view"`
-	Spawn     Spawn      `json:"spawn"` // Sonic's rest position (dropped to the floor)
-	Objects   []Obj      `json:"objects"`
-	TileAnims []TileAnim `json:"tileAnims"`           // rings/flowers (atlas indices per frame)
-	CellAnims []CellAnim `json:"cellAnims,omitempty"` // type-$50 background animators
-	Collision Collision  `json:"collision"`           // kind "profiles" -> shapes.json + Blocks.Shapes
-	PaletteFx *PaletteFx `json:"paletteFx,omitempty"` // palette + cycle + Labyrinth waterline
-	Music     string     `json:"music,omitempty"`     // background-music track name (descriptor +36 -> id)
+	Format      int        `json:"format"`
+	Name        string     `json:"name"`
+	Kind        string     `json:"kind"`    // "tilemap2d"
+	Extents     Extents    `json:"extents"` // size in cells
+	Wrap        string     `json:"wrap"`    // "none" | "x" | "xy"
+	Grid        Grid       `json:"grid"`
+	Blocks      Blocks     `json:"blocks"`
+	View        Rect       `json:"view"`
+	Spawn       Spawn      `json:"spawn"` // Sonic's rest position (dropped to the floor)
+	Objects     []Obj      `json:"objects"`
+	ObjectsFile string     `json:"objectsFile,omitempty"` // sibling machine-readable object DB
+	TileAnims   []TileAnim `json:"tileAnims"`             // rings/flowers (atlas indices per frame)
+	CellAnims   []CellAnim `json:"cellAnims,omitempty"`   // type-$50 background animators
+	Collision   Collision  `json:"collision"`             // kind "profiles" -> shapes.json + Blocks.Shapes
+	PaletteFx   *PaletteFx `json:"paletteFx,omitempty"`   // palette + cycle + Labyrinth waterline
+	Music       string     `json:"music,omitempty"`       // background-music track name (descriptor +36 -> id)
 }
 
 // sectionOf derives the Studio accordion section from the act's name: the text
@@ -600,19 +638,22 @@ func waterLine(rom []byte, act int) int {
 }
 
 func main() {
-	if len(os.Args) < 2 {
-		fmt.Fprintln(os.Stderr, "usage: webexport <rom.gg> [outdir]")
+	in := flag.String("in", "", "input Game Gear ROM (.gg)")
+	outdir := flag.String("o", "../../site/public/sonic-gg", "output asset root")
+	flag.Parse()
+	if *in == "" && flag.NArg() > 0 {
+		*in = flag.Arg(0) // tolerate a positional ROM path
+	}
+	if *in == "" {
+		fmt.Fprintln(os.Stderr, "usage: webexport -in <rom.gg> [-o <outdir>]")
 		os.Exit(2)
 	}
-	rom, err := os.ReadFile(os.Args[1])
+	rom, err := os.ReadFile(*in)
 	chk(err)
-	outdir := "site/public/sonic"
-	if len(os.Args) > 2 {
-		outdir = os.Args[2]
-	}
-	chk(os.MkdirAll(outdir, 0o755))
+	levelsDir := filepath.Join(*outdir, "levels")
+	chk(os.MkdirAll(levelsDir, 0o755))
 
-	// shapes.json (global)
+	// levels/shapes.json (global collision profiles)
 	sh := Shapes{Count: numShapes}
 	for s := 0; s < numShapes; s++ {
 		p := w(rom, shapeTbl+s*2)
@@ -623,14 +664,19 @@ func main() {
 		sh.Profiles = append(sh.Profiles, prof)
 		sh.Angles = append(sh.Angles, int(int8(rom[angleTbl+s])))
 	}
-	writeJSON(filepath.Join(outdir, "shapes.json"), sh)
+	writeJSON(filepath.Join(levelsDir, "shapes.json"), sh)
 
 	acts := parseActs(rom)
 	// Dedup atlases by (tileFile, bgPal): same tiles + palette -> one PNG.
 	atlasName := map[[2]int]string{}
 	atlasAnim := map[string][]AnimGroup{}
 	cycleCache := map[int]*PaletteCycle{} // by bgPal: the BG-palette cycle (oracle-captured)
-	meta := Meta{Format: 1, Game: "sonic", Native: map[string]int{"w": 160, "h": 144}, TickHz: 60}
+	man := Manifest{
+		Format: 2, Game: "sonic-gg", Platform: "Game Gear",
+		Native: map[string]int{"w": 160, "h": 144}, TickHz: 60,
+		Sprites: "sprites/index.json",
+	}
+	musicSeen := map[string]bool{}
 
 	const screenBlk = 5
 	for _, a := range acts {
@@ -638,7 +684,7 @@ func main() {
 		applyAnimFrame(rom, tiles, a.zone)
 		pal := romPalette(rom, a.bgPal)
 
-		// atlas (deduped)
+		// atlas (deduped) -> levels/
 		key := [2]int{a.tileFile, a.bgPal}
 		atlas, ok := atlasName[key]
 		if !ok {
@@ -646,8 +692,9 @@ func main() {
 			atlasName[key] = atlas
 			img, groups := renderAtlas(rom, tiles, pal, a.zone)
 			atlasAnim[atlas] = groups
-			writePNG(filepath.Join(outdir, atlas), img)
+			writePNG(filepath.Join(levelsDir, atlas), img)
 		}
+		atlasRef := "levels/" + atlas // path relative to the asset root
 
 		// map + geometry. The map window is usually 4096 bytes, but the hidden teleporter
 		// rooms decode to a smaller buffer, so size the height from the actual decoded length.
@@ -700,22 +747,27 @@ func main() {
 			tileAnims = append(tileAnims, TileAnim{Tiles: g.Frames[0], Frames: g.Frames, PeriodFrames: framesPerTick})
 		}
 
+		num := fmt.Sprintf("act%02d", a.num+1)
 		af := ActFile{
-			Format: 1,
-			Name:   a.name,
+			Format:  2,
+			Name:    a.name,
+			Kind:    "tilemap2d",
+			Extents: Extents{TileSize: 8, Width: cols, Height: rows},
+			Wrap:    "none",
 			Grid: Grid{
-				TileSize: 8, Atlas: atlas, AtlasCols: 16,
+				TileSize: 8, Atlas: atlasRef, AtlasCols: 16,
 				Width: cols, Height: rows, Cells: blocks,
 			},
 			Blocks: Blocks{Size: 4, Tiles: bt, Shapes: blockShapes(rom, a.engZone)},
 			// initial framing: one GG screen centred on the spawn block's anchor
-			View:      Rect{X: a.spawnX*32 + 8 - 80, Y: a.spawnY*32 + 16 - 72, W: 160, H: 144},
-			Spawn:     spawn,
-			Objects:   objs,
-			TileAnims: tileAnims,
-			CellAnims: acts50,
-			Collision: Collision{Kind: "profiles", ShapesFile: "shapes.json"},
-			Music:     musicTrack(rom, a.num),
+			View:        Rect{X: a.spawnX*32 + 8 - 80, Y: a.spawnY*32 + 16 - 72, W: 160, H: 144},
+			Spawn:       spawn,
+			Objects:     objs,
+			ObjectsFile: num + ".objects.json",
+			TileAnims:   tileAnims,
+			CellAnims:   acts50,
+			Collision:   Collision{Kind: "profiles", ShapesFile: "levels/shapes.json"},
+			Music:       musicTrack(rom, a.num),
 		}
 		// The palette cycle is oracle-captured by booting the act; only do it for the real
 		// zones (the bonus stages can't be reached by forcing $D238 and have no water/lava
@@ -741,13 +793,44 @@ func main() {
 		if fx.Cycle != nil || fx.WaterLine != nil {
 			af.PaletteFx = fx
 		}
-		file := fmt.Sprintf("act%02d.json", a.num+1)
-		writeJSON(filepath.Join(outdir, file), af)
-		meta.Levels = append(meta.Levels, ActIndex{Name: a.name, Section: sectionOf(a), File: file, Atlas: atlas})
+		writeJSON(filepath.Join(levelsDir, num+".json"), af)
+
+		// machine-readable object DB (sibling of the level file)
+		db := ObjectsDB{Format: 2, Level: a.name}
+		for i, o := range objs {
+			d := DBObj{ID: i, Type: int(o.Type), Name: o.Name, Pos: []int{o.X, o.Y}}
+			if o.Sprite != "" {
+				d.Props = map[string]any{"sprite": o.Sprite}
+			}
+			db.Objects = append(db.Objects, d)
+		}
+		writeJSON(filepath.Join(levelsDir, num+".objects.json"), db)
+
+		man.Levels = append(man.Levels, LevelIndex{
+			Name: a.name, Section: sectionOf(a), File: "levels/" + num + ".json",
+			Kind: "tilemap2d", Atlas: atlasRef, Objects: "levels/" + num + ".objects.json",
+		})
+		if t := af.Music; t != "" && !musicSeen[t] {
+			musicSeen[t] = true
+			man.Music = append(man.Music, MusicEntry{Name: musicName(t), File: "music/" + t + ".mp3"})
+		}
 		fmt.Printf("%-16s %3dx%-3d blocks  atlas %s  %d objects\n", a.name, cols, rows, atlas, len(objs))
 	}
-	writeJSON(filepath.Join(outdir, "meta.json"), meta)
-	fmt.Printf("wrote %d acts, %d atlases, shapes(%d) + meta to %s\n", len(acts), len(atlasName), numShapes, outdir)
+	writeJSON(filepath.Join(*outdir, "manifest.json"), man)
+	fmt.Printf("wrote %d acts, %d atlases, shapes(%d) + manifest to %s\n", len(acts), len(atlasName), numShapes, *outdir)
+}
+
+// musicName maps a track id to its Studio display name for the manifest.
+func musicName(track string) string {
+	names := map[string]string{
+		"greenhills": "Green Hills", "bridge": "Bridge", "jungle": "Jungle",
+		"labyrinth": "Labyrinth", "scrapbrain": "Scrap Brain", "skybase": "Sky Base",
+		"special": "Special Stage",
+	}
+	if n, ok := names[track]; ok {
+		return n
+	}
+	return track
 }
 
 func paletteHex(p color.Palette) []string {

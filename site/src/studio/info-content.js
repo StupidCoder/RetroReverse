@@ -22,7 +22,7 @@ export const INFO_TABS = [
 ];
 
 export const INFO_CONTENT = {
-  sonic: {
+  'sonic-gg': {
     loader: `
 <div class="info-eyebrow">Sonic the Hedgehog · Image &amp; Loader</div>
 <p>Sonic runs from a Game Gear cartridge, and a cartridge image is far simpler than a disk or tape image: it is
