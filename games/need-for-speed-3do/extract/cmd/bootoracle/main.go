@@ -38,6 +38,7 @@ func main() {
 	stall := flag.Int("stall", 1, "deadlock-guard tolerance multiplier (raise for programs with settled main loops)")
 	movies := flag.Bool("movies", false, "let the game open .stream movies (FMV subsystem not modelled yet: crashes in the movie player)")
 	pad := flag.String("pad", "", "control-pad script: STEP:btn+btn,STEP:0,... (btns: a b c start x up down left right ls rs; 0=release)")
+	celDebugAt := flag.Uint64("celdebug", 0, "record a per-cel render summary for the frames after this step")
 	flag.Parse()
 
 	var data []byte
@@ -97,6 +98,14 @@ func main() {
 	hits := map[uint32]uint64{}
 	if *hot {
 		m.OnStep = func(mm *threedo.Machine, pc uint32) { hits[pc]++ }
+	}
+	if *celDebugAt != 0 {
+		var n uint64
+		m.OnStep = func(mm *threedo.Machine, pc uint32) {
+			if n++; n >= *celDebugAt {
+				mm.CelDebug = true
+			}
+		}
 	}
 	var brk []string
 	if *breakAt != 0 {
@@ -166,6 +175,13 @@ func main() {
 		}
 		f.Close()
 		fmt.Fprintf(os.Stderr, "wrote framebuffer to %s\n", *fbOut)
+	}
+
+	if *celDebugAt != 0 {
+		fmt.Printf("\n--- last displayed frame's cels (%d) ---\n", len(m.CelFrameLog))
+		for _, s := range m.CelFrameLog {
+			fmt.Println(" ", s)
+		}
 	}
 
 	if tty := m.TTY(); tty != "" {

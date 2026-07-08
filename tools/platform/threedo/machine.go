@@ -127,6 +127,13 @@ type Machine struct {
 	ebListeners []int32
 	PadScript   []PadStep
 
+	// CelDebug, when set, records a one-line summary of every cel DrawCels
+	// renders (graphicsfolio.go) into CelDebugLog — for diagnosing what lands
+	// on screen and what silently drops.
+	CelDebug    bool
+	CelDebugLog []string // cels drawn since the last DisplayScreen
+	CelFrameLog []string // the last fully-displayed frame's cels
+
 	// Instrumentation (opt-in; checked in Read/Write and the run loop).
 	WatchLo, WatchHi uint32
 	OnWrite          func(addr, val, pc uint32)

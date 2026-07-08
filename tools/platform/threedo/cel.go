@@ -176,8 +176,12 @@ func (c *Cel) Image() (*image.RGBA, error) {
 // (bpp<=8) or two bytes (16bpp) giving the offset in words to the next line,
 // minus two; the packet bitstream follows, word-aligned per line.
 func (c *Cel) decodePacked(set func(x, y int, v uint32)) {
+	// The per-line word-offset preamble is 1 byte for cels below 8bpp and 2
+	// bytes at 8bpp and above (Madam packed-cel format). Using the wrong width
+	// desyncs every line: 8bpp packed cels — NFS's sky, scenery and dashboard —
+	// decoded to almost nothing before this boundary was corrected.
 	offBytes := 1
-	if c.BPP > 8 {
+	if c.BPP >= 8 {
 		offBytes = 2
 	}
 	pos := 0

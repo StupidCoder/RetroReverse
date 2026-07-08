@@ -65,6 +65,46 @@ const (
 	pre1LRForm = 0x00000800 // PRE1 bit: source is in linear-framebuffer layout
 )
 
+// flashClear fills the current render target (the screen bitmap not being
+// displayed — the back buffer of the double buffer) with an RGB555 value. This
+// stands in for the SPORT FLASHWRITE that clears the frame's background each
+// field; without it, regions the frame doesn't redraw keep stale content (a
+// hall-of-mirrors), and the sky — which the game paints as a flat clear rather
+// than a cel — never appears.
+func (m *Machine) flashClear(val uint16) {
+	bm, ok := m.renderTarget()
+	if !ok {
+		return
+	}
+	if m.CelDebug {
+		m.CelDebugLog = append(m.CelDebugLog, fmt.Sprintf("FLASHCLEAR val=%04X -> buf 0x%08X (display=0x%08X)", val, bm.buf, m.displayBuf))
+	}
+	hi, lo := byte(val>>8), byte(val)
+	end := bm.buf + uint32(bm.w*bm.h*2)
+	for a := bm.buf; a+1 < end; a += 2 {
+		m.Write(a, hi)
+		m.Write(a+1, lo)
+	}
+}
+
+// renderTarget returns the screen bitmap the game is drawing into this frame —
+// the one that is not currently on display. With a single buffer, that buffer.
+func (m *Machine) renderTarget() (gfxBitmap, bool) {
+	var any gfxBitmap
+	haveAny := false
+	for _, bmItem := range m.screenBM {
+		bm, ok := m.bitmaps[bmItem]
+		if !ok || bm.buf == 0 {
+			continue
+		}
+		any, haveAny = bm, true
+		if bm.buf != m.displayBuf {
+			return bm, true
+		}
+	}
+	return any, haveAny
+}
+
 // gfxBitmap is the HLE's record of a Bitmap item: where its pixels live.
 type gfxBitmap struct {
 	buf  uint32
@@ -118,6 +158,12 @@ func (m *Machine) serviceGraphicsFolio(foff uint32) {
 			if bm, ok := m.bitmaps[bmItem]; ok {
 				m.displayBuf = bm.buf
 			}
+		}
+		if m.CelDebug {
+			// Frame boundary: keep the just-drawn frame's cels and start fresh, so
+			// CelDebugLog holds exactly the frame being put on screen.
+			m.CelFrameLog = m.CelDebugLog
+			m.CelDebugLog = nil
 		}
 		m.SetResultAndReturn(0)
 	case 0xAC: // DrawCels(bitmapItem, CCB*)
@@ -274,6 +320,9 @@ func (m *Machine) drawCels(bitmapItem int32, ccb uint32) uint32 {
 	if drawn > 0 {
 		m.note(fmt.Sprintf("DrawCels: %d cel(s) -> buf 0x%08X", drawn, bm.buf))
 	}
+	if m.CelDebug {
+		m.CelDebugLog = append(m.CelDebugLog, fmt.Sprintf("== DrawCels %d cels -> buf 0x%08X ==", drawn, bm.buf))
+	}
 	return 0
 }
 
@@ -378,6 +427,7 @@ func (m *Machine) drawOneCel(bm gfxBitmap, ccb, flags, src, plutPtr uint32) bool
 	}
 
 	bgnd := flags&ccbBGND != 0
+	written := 0
 	put := func(sx, sy int, v uint32) {
 		var pix uint16
 		if cel.Coded {
@@ -428,6 +478,7 @@ func (m *Machine) drawOneCel(bm gfxBitmap, ccb, flags, src, plutPtr uint32) bool
 				continue
 			}
 			m.blendPixel(bm, x, y, pix, pixc, flags)
+			written++
 		}
 	}
 
@@ -439,6 +490,24 @@ func (m *Machine) drawOneCel(bm gfxBitmap, ccb, flags, src, plutPtr uint32) bool
 		cel.decodePacked(put)
 	} else {
 		cel.decodeUnpacked(put)
+	}
+	if m.CelDebug && len(m.CelDebugLog) < 4000 {
+		kind := "unpacked"
+		if cel.Packed {
+			kind = "packed"
+		}
+		coded := "coded"
+		if !cel.Coded {
+			coded = "16bpp"
+		}
+		lr := ""
+		if lrform {
+			lr = " LRFORM"
+		}
+		m.CelDebugLog = append(m.CelDebugLog, fmt.Sprintf(
+			"cel src=%08X %dbpp %s %s%s %dx%d pos=(%d,%d) pixc=%08X flags=%08X plut=%d wrote=%d",
+			src, cel.BPP, kind, coded, lr, cel.Width, cel.Height,
+			int(xPos>>16), int(yPos>>16), pixc, flags, len(cel.PLUT), written))
 	}
 	return true
 }

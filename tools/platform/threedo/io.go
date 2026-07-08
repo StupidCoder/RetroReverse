@@ -65,6 +65,9 @@ const (
 	// the elapsed-field count each WaitVBL) settles at one update per field instead
 	// of spinning while it waits for the clock to catch up.
 	timerCmdWaitField = 3
+
+	// SPORT (VRAM serial port) command: FLASHWRITE fills VRAM with a constant.
+	sportFlashWrite = 6
 )
 
 // --- byte helpers (big-endian, over the full address space via the bus) -------
@@ -208,7 +211,22 @@ func (m *Machine) performIO(it *item, cmd, offset, sendBuf, sendLen, buf, length
 		m.needSchedule = true
 		return 0, 0
 	}
-	if dev != "" && dev != "timer" && dev != "SPORT" {
+	if dev == "SPORT" {
+		// FLASHWRITE_CMD clears VRAM to a constant via the VRAM serial port — how
+		// the game paints the frame's background (sky/ground) each field. The fill
+		// value is a 16-bit RGB555 replicated into both halfwords of ioi_Offset;
+		// send.len is the SPORT page mask (all pages for a full clear). The
+		// destination is the bitmap the SPORT is bound to — the frame the game is
+		// about to render, i.e. the back buffer — not carried in the IOInfo.
+		// A full-screen background clear: all-pages mask (0xFFFFFFFF) and a fill
+		// value that is one RGB555 color duplicated into both halfwords. Other
+		// FLASHWRITE uses (page init with address-shaped lengths) are left alone.
+		if cmd == sportFlashWrite && sendLen == 0xFFFFFFFF && uint16(offset) == uint16(offset>>16) {
+			m.flashClear(uint16(offset))
+		}
+		return 0, 0
+	}
+	if dev != "" && dev != "timer" {
 		return m.fileDeviceIO(dev, cmd, offset, sendBuf, sendLen, buf, length)
 	}
 	// Non-file devices: acknowledge with no data until they are modelled.
