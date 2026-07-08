@@ -53,6 +53,10 @@ type gpu struct {
 	dispEnabled   bool
 	gp0Read       uint32 // last GPUREAD latch, plus VRAM→CPU copy readout
 	statField     uint32 // toggles so GPUSTAT polls terminate
+
+	// onPrim, when set, observes each completed GP0 command before it executes
+	// (see Machine.OnGP0). The slice is g.fifo — valid only during the call.
+	onPrim func(words []uint32)
 }
 
 func newGPU() *gpu {
@@ -245,6 +249,9 @@ func gp0Len(op byte) int {
 // --- command execution -----------------------------------------------------
 
 func (g *gpu) exec() {
+	if g.onPrim != nil {
+		g.onPrim(g.fifo)
+	}
 	op := byte(g.fifo[0] >> 24)
 	switch {
 	case op == 0x02:

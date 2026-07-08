@@ -109,9 +109,15 @@ type Machine struct {
 	logSeen map[string]bool
 
 	// Instrumentation (opt-in; checked in Read/Write and the run loop).
-	WatchLo, WatchHi uint32                        // "who wrote X" window (inclusive lo, exclusive hi)
-	OnWrite          func(addr, val, pc uint32)    // called for writes in the watch window
-	OnStep           func(m *Machine, pc uint32)   // called before each instruction
+	WatchLo, WatchHi   uint32                      // "who wrote X" window (inclusive lo, exclusive hi)
+	OnWrite            func(addr, val, pc uint32)  // called for writes in the watch window
+	OnStep             func(m *Machine, pc uint32) // called before each instruction
+	RWatchLo, RWatchHi uint32                      // "who read X" window (inclusive lo, exclusive hi)
+	OnRead             func(addr, val, pc uint32)  // called for CPU data reads in the read-watch window
+	// OnDMA is called at the start of each DMA transfer (ch 2 = GPU, 3 = CDROM);
+	// lba is the next CD sector a channel-3 transfer will stream, -1 otherwise.
+	OnDMA     func(ch int, madr, bcr, chcr uint32, lba int)
+	hookMuted bool // suppresses OnRead during machine-internal reads (DMA walks, disassembly)
 
 	Halted     bool
 	HaltReason string
@@ -169,6 +175,17 @@ func (m *Machine) SetDisc(v *Volume) { m.disc = v }
 // Screenshot renders the GPU's active display area to a PNG.
 func (m *Machine) Screenshot(path string) error { return m.gpu.Screenshot(path) }
 
+// VRAM returns the GPU's live 1024×512 16-bit frame buffer (row-major, 5:5:5
+// pixels). It is the backing store, not a copy — treat it as read-only.
+func (m *Machine) VRAM() []uint16 { return m.gpu.vram }
+
+// OnGP0 registers a callback invoked with each completed GP0 drawing command
+// (the opcode word plus its parameter words) before it executes — every
+// primitive the game submits, whether written to the port or DMA'd from an
+// ordering table. An image load (0xA0) fires once with its 3-word header; the
+// pixel run does not. The slice is reused: copy it to retain it.
+func (m *Machine) OnGP0(fn func(words []uint32)) { m.gpu.onPrim = fn }
+
 // LoadEXE copies a parsed PS-X EXE into RAM and seeds the entry state the BIOS
 // would hand the program (PC, gp, sp, fp).
 func (m *Machine) LoadEXE(e *EXE) {
@@ -197,7 +214,15 @@ func (m *Machine) Read(addr uint32) byte {
 	a := phys(addr)
 	switch {
 	case a < 0x00800000:
-		return m.ram[a&0x1FFFFF]
+		v := m.ram[a&0x1FFFFF]
+		if m.OnRead != nil && !m.hookMuted && a >= phys(m.RWatchLo) && a < phys(m.RWatchHi) {
+			// Skip the instruction fetch itself (the CPU reads code through the
+			// same byte bus); only data reads are of interest.
+			if pc := phys(m.CPU.CurPC()); a-pc >= 4 {
+				m.OnRead(a, uint32(v), m.CPU.CurPC())
+			}
+		}
+		return v
 	case a >= scratchBase && a < scratchBase+scratchSize:
 		return m.scratch[a-scratchBase]
 	case a >= cdBase && a <= cdBase+3:
@@ -297,6 +322,13 @@ func (m *Machine) ioSideEffect(base, word uint32) {
 			ch := (base - 0x1F801080) >> 4
 			madr := m.io[base-8] & 0x1FFFFF
 			bcr := m.io[base-4]
+			if m.OnDMA != nil {
+				lba := -1
+				if ch == 3 {
+					lba = m.cd.readLBA
+				}
+				m.OnDMA(int(ch), madr, bcr, word, lba)
+			}
 			switch ch {
 			case 2: // GPU: feed a command list to GP0
 				m.dmaGPU(madr, bcr, word)
@@ -317,6 +349,8 @@ func (m *Machine) ioSideEffect(base, word uint32) {
 // when the CHCR direction bit selects to-RAM, from VRAM back into RAM (a
 // VRAM→CPU image store — the game pulls staged textures back out of VRAM).
 func (m *Machine) dmaGPU(madr, bcr, chcr uint32) {
+	m.hookMuted = true // ordering-table walk reads are not the CPU's data reads
+	defer func() { m.hookMuted = false }()
 	if (chcr>>9)&3 == 2 { // linked list
 		addr := madr
 		nodeWords := make([]uint32, 0, 16)
@@ -404,6 +438,8 @@ func (m *Machine) note(msg string) {
 
 // DisasmAt returns the disassembly text of the instruction at pc (for tracing).
 func (m *Machine) DisasmAt(pc uint32) string {
+	m.hookMuted = true // instrumentation reads, not the program's
+	defer func() { m.hookMuted = false }()
 	var b [4]byte
 	for i := uint32(0); i < 4; i++ {
 		b[i] = m.Read(pc + i)

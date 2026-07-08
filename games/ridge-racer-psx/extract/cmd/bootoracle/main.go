@@ -44,6 +44,15 @@ func main() {
 	tracen := flag.Int("tracen", 200, "with -trace, stop printing after this many instructions")
 	bpS := flag.String("bp", "", "breakpoint: stop when PC reaches this address (hex)")
 	watchS := flag.String("watch", "", "watch: log who writes ADDR or ADDR:LEN (hex)")
+	rwatchS := flag.String("rwatch", "", "watch: log who reads ADDR or ADDR:LEN (hex; data reads only)")
+	watchN := flag.Int("watchn", 50, "with -watch/-rwatch, stop printing raw accesses after this many "+
+		"(a per-PC summary is always printed at the end)")
+	gplog := flag.Int("gplog", 0, "log up to N completed GP0 drawing commands (decoded)")
+	gpfrom := flag.String("gpfrom", "0", "with -gplog, start logging at this instruction count (hex or decimal)")
+	gpop := flag.String("gpop", "", "with -gplog, only log these GP0 opcodes (comma-separated hex, e.g. 2C,3C)")
+	dmalog := flag.Bool("dmalog", false, "log each DMA transfer (channel, MADR, BCR, CD sector)")
+	dumpS := flag.String("dump", "", "after the run, dump RAM ranges to files: ADDR:LEN:FILE[,ADDR:LEN:FILE...] (hex)")
+	vramS := flag.String("vram", "", "after the run, dump raw VRAM (1024x512 little-endian 16-bit words) to this file")
 	showLog := flag.Bool("log", false, "print the machine's diagnostic notes")
 	showTTY := flag.Bool("tty", true, "print the game's BIOS/TTY output")
 	shot := flag.String("shot", "", "after the run, write the GPU display to this PNG")
@@ -84,7 +93,7 @@ func main() {
 		m.ISRHandler = isr
 	}
 	if *press != "" {
-		script, err := parsePress(*press)
+		script, err := psx.ParsePress(*press)
 		if err != nil {
 			die("bad -press: %v", err)
 		}
@@ -104,14 +113,78 @@ func main() {
 		}
 		haveBP = true
 	}
+	var wsum, rsum *accessSummary
 	if *watchS != "" {
 		lo, ln, err := parseWatch(*watchS)
 		if err != nil {
 			die("bad -watch")
 		}
 		m.WatchLo, m.WatchHi = lo, lo+ln
+		wsum = &accessSummary{kind: "write", pcs: map[uint32]*pcStat{}}
 		m.OnWrite = func(addr, val, pc uint32) {
-			fmt.Fprintf(w, "write [0x%08X] = 0x%02X  by PC 0x%08X\n", addr, val, pc)
+			if wsum.raw < *watchN {
+				fmt.Fprintf(w, "write [0x%08X] = 0x%02X  by PC 0x%08X\n", addr, val, pc)
+			}
+			wsum.add(addr, pc)
+		}
+	}
+	if *rwatchS != "" {
+		lo, ln, err := parseWatch(*rwatchS)
+		if err != nil {
+			die("bad -rwatch")
+		}
+		m.RWatchLo, m.RWatchHi = lo, lo+ln
+		rsum = &accessSummary{kind: "read", pcs: map[uint32]*pcStat{}}
+		m.OnRead = func(addr, val, pc uint32) {
+			if rsum.raw < *watchN {
+				fmt.Fprintf(w, "read  [0x%08X] = 0x%02X  by PC 0x%08X\n", addr, val, pc)
+			}
+			rsum.add(addr, pc)
+		}
+	}
+	if *gplog > 0 {
+		gpFrom, err := parseCount(*gpfrom)
+		if err != nil {
+			die("bad -gpfrom")
+		}
+		var gpOps map[byte]bool
+		if *gpop != "" {
+			gpOps = map[byte]bool{}
+			for _, s := range strings.Split(*gpop, ",") {
+				op, err := hx(strings.TrimSpace(s))
+				if err != nil || op > 0xFF {
+					die("bad -gpop entry %q", s)
+				}
+				gpOps[byte(op)] = true
+			}
+		}
+		remaining := *gplog
+		m.OnGP0(func(words []uint32) {
+			if remaining <= 0 || m.CPU.Steps < gpFrom {
+				return
+			}
+			if gpOps != nil && !gpOps[byte(words[0]>>24)] {
+				return
+			}
+			remaining--
+			fmt.Fprintf(w, "gp0 @%d  %s\n", m.CPU.Steps, describePrim(words))
+		})
+	}
+	if *dmalog {
+		m.OnDMA = func(ch int, madr, bcr, chcr uint32, lba int) {
+			mode := "block"
+			if (chcr>>9)&3 == 2 {
+				mode = "list"
+			} else if chcr&1 == 0 {
+				mode = "to-RAM"
+			}
+			if ch == 3 {
+				fmt.Fprintf(w, "dma @%d  ch3 CD->RAM  madr=0x%06X bcr=0x%08X lba=%d\n",
+					m.CPU.Steps, madr, bcr, lba)
+			} else {
+				fmt.Fprintf(w, "dma @%d  ch%d %-7s  madr=0x%06X bcr=0x%08X\n",
+					m.CPU.Steps, ch, mode, madr, bcr)
+			}
 		}
 	}
 	traced := 0
@@ -135,11 +208,43 @@ func main() {
 		res.PC = bpPC
 	}
 
+	wsum.print(w)
+	rsum.print(w)
+
 	if *shot != "" {
 		if err := m.Screenshot(*shot); err != nil {
 			die("screenshot: %v", err)
 		}
 		fmt.Fprintf(os.Stderr, "wrote frame to %s\n", *shot)
+	}
+	if *dumpS != "" {
+		m.OnRead = nil // our own reads, not the program's
+		for _, spec := range strings.Split(*dumpS, ",") {
+			addr, ln, file, err := parseDump(spec)
+			if err != nil {
+				die("bad -dump entry %q: %v", spec, err)
+			}
+			buf := make([]byte, ln)
+			for i := uint32(0); i < ln; i++ {
+				buf[i] = m.Read(addr + i)
+			}
+			if err := os.WriteFile(file, buf, 0644); err != nil {
+				die("dump: %v", err)
+			}
+			fmt.Fprintf(os.Stderr, "dumped 0x%08X:0x%X to %s\n", addr, ln, file)
+		}
+	}
+	if *vramS != "" {
+		vram := m.VRAM()
+		buf := make([]byte, len(vram)*2)
+		for i, px := range vram {
+			buf[i*2] = byte(px)
+			buf[i*2+1] = byte(px >> 8)
+		}
+		if err := os.WriteFile(*vramS, buf, 0644); err != nil {
+			die("vram: %v", err)
+		}
+		fmt.Fprintf(os.Stderr, "dumped VRAM to %s\n", *vramS)
 	}
 
 	w.Flush()
@@ -196,65 +301,156 @@ func parseCount(s string) (uint64, error) {
 	return strconv.ParseUint(s, 10, 64)
 }
 
-// padNames maps -press button names to their active-low mask bit.
-var padNames = map[string]uint16{
-	"select": psx.PadSelect, "start": psx.PadStart,
-	"up": psx.PadUp, "right": psx.PadRight, "down": psx.PadDown, "left": psx.PadLeft,
-	"l2": psx.PadL2, "r2": psx.PadR2, "l1": psx.PadL1, "r1": psx.PadR1,
-	"triangle": psx.PadTriangle, "circle": psx.PadCircle, "cross": psx.PadCross, "square": psx.PadSquare,
+// accessSummary aggregates watch hits per accessing PC so a long run ends with
+// "which routines touch this range" instead of a megabyte of raw lines.
+type accessSummary struct {
+	kind string
+	raw  int
+	pcs  map[uint32]*pcStat
 }
 
-// parsePress turns "start@380000000:400000,right@390000000:400000" into a
-// time-ordered pad schedule: each entry presses a button at its step for a hold
-// span, then releases. Overlapping holds are OR-combined so chords work.
-func parsePress(spec string) ([]psx.PadEvent, error) {
-	type edge struct {
-		step uint64
-		bit  uint16
-		down bool
+type pcStat struct {
+	count  int
+	lo, hi uint32 // address range touched (inclusive)
+}
+
+func (s *accessSummary) add(addr, pc uint32) {
+	s.raw++
+	st := s.pcs[pc]
+	if st == nil {
+		st = &pcStat{lo: addr, hi: addr}
+		s.pcs[pc] = st
 	}
-	var edges []edge
-	for _, part := range strings.Split(spec, ",") {
-		part = strings.TrimSpace(part)
-		if part == "" {
-			continue
-		}
-		at := strings.IndexByte(part, '@')
-		col := strings.LastIndexByte(part, ':')
-		if at < 0 || col < at {
-			return nil, fmt.Errorf("want BUTTON@STEP:HOLD, got %q", part)
-		}
-		bit, ok := padNames[strings.ToLower(part[:at])]
-		if !ok {
-			return nil, fmt.Errorf("unknown button %q", part[:at])
-		}
-		step, err := parseCount(part[at+1 : col])
-		if err != nil {
-			return nil, fmt.Errorf("bad step in %q", part)
-		}
-		hold, err := parseCount(part[col+1:])
-		if err != nil {
-			return nil, fmt.Errorf("bad hold in %q", part)
-		}
-		edges = append(edges, edge{step, bit, true}, edge{step + hold, bit, false})
+	st.count++
+	if addr < st.lo {
+		st.lo = addr
 	}
-	sort.Slice(edges, func(i, j int) bool { return edges[i].step < edges[j].step })
-	var script []psx.PadEvent
-	held := uint16(0)
-	for _, e := range edges {
-		if e.down {
-			held |= e.bit
+	if addr > st.hi {
+		st.hi = addr
+	}
+}
+
+func (s *accessSummary) print(w *bufio.Writer) {
+	if s == nil || len(s.pcs) == 0 {
+		return
+	}
+	pcs := make([]uint32, 0, len(s.pcs))
+	for pc := range s.pcs {
+		pcs = append(pcs, pc)
+	}
+	sort.Slice(pcs, func(i, j int) bool { return s.pcs[pcs[i]].count > s.pcs[pcs[j]].count })
+	fmt.Fprintf(w, "\n%s summary (%d accesses, %d PCs):\n", s.kind, s.raw, len(pcs))
+	for _, pc := range pcs {
+		st := s.pcs[pc]
+		fmt.Fprintf(w, "  PC 0x%08X  %8d %ss  [0x%08X..0x%08X]\n", pc, st.count, s.kind, st.lo, st.hi)
+	}
+}
+
+// parseDump splits an ADDR:LEN:FILE spec (ADDR and LEN hex).
+func parseDump(s string) (addr, ln uint32, file string, err error) {
+	parts := strings.SplitN(strings.TrimSpace(s), ":", 3)
+	if len(parts) != 3 {
+		return 0, 0, "", fmt.Errorf("want ADDR:LEN:FILE")
+	}
+	if addr, err = hx(parts[0]); err != nil {
+		return
+	}
+	if ln, err = hx(parts[1]); err != nil {
+		return
+	}
+	return addr, ln, parts[2], nil
+}
+
+// describePrim renders one completed GP0 command for the -gplog trace: the
+// opcode with its class decoded, and for polygons/rectangles the vertices,
+// texcoords, CLUT and texture page as the words encode them.
+func describePrim(words []uint32) string {
+	op := byte(words[0] >> 24)
+	var b strings.Builder
+	fmt.Fprintf(&b, "%02X", op)
+	vtx := func(w uint32) {
+		x := int16(w&0xFFFF) << 5 >> 5 // signed 11-bit
+		y := int16(w>>16) << 5 >> 5
+		fmt.Fprintf(&b, " (%d,%d)", x, y)
+	}
+	switch {
+	case op >= 0x20 && op <= 0x3F: // polygon
+		verts := 3
+		if op&0x08 != 0 {
+			verts = 4
+		}
+		gouraud := op&0x10 != 0
+		textured := op&0x04 != 0
+		tag := "tri"
+		if verts == 4 {
+			tag = "quad"
+		}
+		if textured {
+			tag += " tex"
+		}
+		if gouraud {
+			tag += " gouraud"
 		} else {
-			held &^= e.bit
+			tag += " flat"
 		}
-		buttons := psx.PadReleased &^ held
-		if n := len(script); n > 0 && script[n-1].AtStep == e.step {
-			script[n-1].Buttons = buttons // coalesce simultaneous edges
-		} else {
-			script = append(script, psx.PadEvent{AtStep: e.step, Buttons: buttons})
+		if op&0x02 != 0 {
+			tag += " semi"
+		}
+		fmt.Fprintf(&b, " %s rgb=%06X", tag, words[0]&0xFFFFFF)
+		i := 1
+		var clut, page uint32
+		for v := 0; v < verts; v++ {
+			if gouraud && v > 0 {
+				i++ // per-vertex colour word
+			}
+			vtx(words[i])
+			i++
+			if textured {
+				uv := words[i]
+				fmt.Fprintf(&b, " uv=(%d,%d)", uv&0xFF, (uv>>8)&0xFF)
+				if v == 0 {
+					clut = uv >> 16
+				}
+				if v == 1 {
+					page = uv >> 16
+				}
+				i++
+			}
+		}
+		if textured {
+			fmt.Fprintf(&b, " clut=0x%04X page=0x%04X", clut, page)
+		}
+	case op >= 0x60 && op <= 0x7F: // rectangle
+		fmt.Fprintf(&b, " rect rgb=%06X", words[0]&0xFFFFFF)
+		vtx(words[1])
+		i := 2
+		if op&0x04 != 0 {
+			uv := words[i]
+			fmt.Fprintf(&b, " uv=(%d,%d) clut=0x%04X", uv&0xFF, (uv>>8)&0xFF, uv>>16)
+			i++
+		}
+		if op&0x18 == 0 && i < len(words) {
+			fmt.Fprintf(&b, " wh=(%d,%d)", words[i]&0xFFFF, words[i]>>16)
+		}
+	case op >= 0xA0 && op <= 0xBF:
+		fmt.Fprintf(&b, " img->vram dst=(%d,%d) wh=(%d,%d)",
+			words[1]&0x3FF, (words[1]>>16)&0x1FF, words[2]&0xFFFF, words[2]>>16)
+	case op >= 0xC0 && op <= 0xDF:
+		fmt.Fprintf(&b, " vram->cpu src=(%d,%d) wh=(%d,%d)",
+			words[1]&0x3FF, (words[1]>>16)&0x1FF, words[2]&0xFFFF, words[2]>>16)
+	case op >= 0x80 && op <= 0x9F:
+		fmt.Fprintf(&b, " vram->vram src=(%d,%d) dst=(%d,%d) wh=(%d,%d)",
+			words[1]&0x3FF, (words[1]>>16)&0x1FF, words[2]&0x3FF, (words[2]>>16)&0x1FF,
+			words[3]&0x3FF, words[3]>>16)
+	case op == 0x02:
+		fmt.Fprintf(&b, " fill rgb=%06X xy=(%d,%d) wh=(%d,%d)", words[0]&0xFFFFFF,
+			words[1]&0x3FF, (words[1]>>16)&0x1FF, words[2]&0x3FF, (words[2]>>16)&0x1FF)
+	default:
+		for _, wd := range words {
+			fmt.Fprintf(&b, " %08X", wd)
 		}
 	}
-	return script, nil
+	return b.String()
 }
 
 func parseWatch(s string) (lo, ln uint32, err error) {
