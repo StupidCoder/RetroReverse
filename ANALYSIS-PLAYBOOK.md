@@ -272,6 +272,54 @@ for on any unknown format:
   static reading: a **self-modifying patcher** whose output byte was written by code
   that itself was written moments earlier — a write-profile sees the real writer, a
   disassembly sees stale bytes.
+- **Hook PCs to log decisions; verify algorithms as sequences.** The write-profiler
+  answers "who wrote X"; the complementary move verifies a *reimplemented algorithm*
+  (a colour-assignment rule, a procedural geometry build) rather than a data format.
+  Plant hooks on the exact instruction addresses where the engine commits each
+  decision — a descriptor write, the colour load before a fill call, every edge-emit
+  call — log the registers/memory *at that moment*, and diff the whole logged
+  sequence against the Go reimplementation's output. On a step-loop core this is one
+  map lookup per instruction (`if h, ok := hooks[c.PC]; ok { h() }`); Stunt Car
+  Racer's preview colours, car build and horizon objects were each proven this way
+  (every strip/edge/fill across all tracks, exact). Capture values **at the hook**,
+  not after the run — work buffers get reused (the car recomputes one four-vertex
+  slot set per wheel), so post-hoc reads see only the last occupant.
+- **Expect "the asset is code."** Not every drawn thing has stored data, so a failed
+  pointer-hunt for vertex data is itself a clue. Stunt Car Racer's opponent car is
+  built procedurally each frame from four projected wheel points (fixed fractions of
+  the axle vector — no model anywhere on disk); its drawbridge ramps are *rewritten
+  into the track data* every frame; its horizon range is one 4-vertex silhouette
+  whose negative coordinate words are placeholders filled from per-instance streams.
+  When data won't turn up, look for a **builder**: find the code that writes where
+  the renderer reads, and reimplement the construction instead of a decode.
+- **Locally weird decoded data = suspect a runtime patcher.** If a verified pipeline
+  produces nonsense in one small region (the Draw Bridge ramps decoded as narrow
+  height spikes while 76 of 78 sections were perfect), don't rationalise it —
+  byte-search the binary for the region's absolute address and find who *writes* it.
+  The spikes were on-disk placeholder bytes the game never displays: a per-frame
+  animator regenerates that table before anything draws, and even the "static"
+  preview runs one pass of it first. Related tell: several handles decoding to
+  *identical* records ⇒ diff the handle values — they were overlapping 9-entry
+  windows into one 36-entry table, not four copies.
+- **An oracle comparison only verifies the state you actually established.** A
+  routine that begins with a compare-and-return (`CMPI.b #5,$1CA33; BEQ …; RTS`) is
+  gated on state your harness may never set — and then it silently no-ops on *both*
+  sides, so the comparison passes while verifying the wrong world. Stunt Car Racer's
+  bake oracle reported track 5 byte-exact for weeks while both engine and Go were in
+  the never-displayed placeholder state, because the animator checks a menu byte the
+  harness didn't write. When you add a call to an oracle chain, read its first few
+  instructions and confirm every gate variable is established; and phrase results
+  honestly — "byte-exact" is a statement about the state you created, not about the
+  game as played.
+- **Absence of a throttle is a finding — don't invent a frame rate.** Before claiming
+  real-time cadence for anything (an animation cycle, a physics rate), trace the
+  actual pacing: VBlank counters, raster-position waits, blitter waits. Stunt Car
+  Racer's race loop has none — it free-runs render-bound, so the honest statement is
+  "one step per rendered frame, machine-dependent," with any absolute seconds
+  explicitly nominal. While you're at it, check *reachability*: the one 3-VBlank wait
+  routine in the binary has zero callers (dead code), and a phase-update block sat
+  behind a branch that can never fall through (`MOVE.b #0` sets N=0, so the following
+  `BPL` always takes) — verify a branch can go both ways before modelling its body.
 - **Round-trip verification.** You haven't decoded something until you've
   re-emitted it and checked: relocations apply cleanly, checksums hold, the image
   renders to a recognisable picture, the extractor's output matches a golden
@@ -357,6 +405,17 @@ time each would have saved:
   bird's entry point," pinpointing the misread. State game behaviour as fact only once
   it is traced; otherwise flag it as inference and put the honest (even visibly-wrong)
   artefact in front of the domain expert in the loop.
+- **Re-emitting a renderer's output as a portable asset: separate world geometry from
+  screen framing.** A game renderer mixes what the scene *is* (world positions, face
+  colours) with how it *frames* it (projection scale, a preview-only vertical squeeze,
+  screen re-centring, view-dependent recolouring like back-face darkening). Exporting
+  "exactly what the game draws" means keeping the first and stripping-but-documenting
+  the second — bake the true height:plan ratio, not the preview's squeeze. And when
+  the construction is *linear* in its projected inputs (Stunt Car Racer's car is
+  fixed fractions of two projected wheel points), a verbatim port becomes a measuring
+  instrument: feed it orthographic projections from two axes and the screen-space
+  arithmetic hands you the exact 3-D shape it encodes — verify the port against the
+  engine's real emitted edges first, then trust the extraction.
 - **Keep generated tools deterministic, and verify the artefact, not the run.**
   Map-iteration order made PNG output change run-to-run; a `head` on a regenerate
   SIGPIPE-killed it mid-way and left stale files. `git diff`/`status` on the *committed
