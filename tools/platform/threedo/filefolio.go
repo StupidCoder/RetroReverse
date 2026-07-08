@@ -34,11 +34,14 @@ type diskStream struct {
 	pos  int
 }
 
-// SeekOrigin values (enum SeekOrigin from the 3DO filesystem API).
+// SeekOrigin values (enum SeekOrigin, filestream.h): 0 is SEEK_NOT ("no seek
+// pending"), not a valid whence. NFS's file-size probe depends on these exact
+// numbers: it does SeekDiskStream(s, 0, SEEK_END) to learn the length, then
+// SeekDiskStream(s, 0, SEEK_SET) to rewind.
 const (
-	seekSet = 0
-	seekCur = 1
-	seekEnd = 2
+	seekSet = 1
+	seekCur = 2
+	seekEnd = 3
 )
 
 // serviceFileFolio dispatches an intercepted File-folio vector call by its
@@ -115,7 +118,10 @@ func (m *Machine) readDiskStream(handle, buf uint32, n int32) int32 {
 	return n
 }
 
-// seekDiskStream repositions the stream cursor and returns the new position.
+// seekDiskStream repositions the stream cursor and returns the new absolute
+// position, or -1 on a bad handle, an invalid whence, or an out-of-range
+// target — SeekDiskStream's contract. SEEK_END measures the offset back from
+// the end of the file, so (0, SEEK_END) lands on (and returns) the length.
 func (m *Machine) seekDiskStream(handle uint32, offset int32, whence uint32) int32 {
 	s := m.streams[handle]
 	if s == nil {
@@ -123,18 +129,17 @@ func (m *Machine) seekDiskStream(handle uint32, offset int32, whence uint32) int
 	}
 	var pos int
 	switch whence {
+	case seekSet:
+		pos = int(offset)
 	case seekCur:
 		pos = s.pos + int(offset)
 	case seekEnd:
-		pos = len(s.data) + int(offset)
-	default: // seekSet
-		pos = int(offset)
+		pos = len(s.data) - int(offset)
+	default:
+		return -1
 	}
-	if pos < 0 {
-		pos = 0
-	}
-	if pos > len(s.data) {
-		pos = len(s.data)
+	if pos < 0 || pos > len(s.data) {
+		return -1
 	}
 	s.pos = pos
 	return int32(pos)
