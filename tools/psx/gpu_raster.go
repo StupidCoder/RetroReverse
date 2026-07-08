@@ -70,6 +70,30 @@ func edge(ax, ay, bx, by, px, py int) int {
 	return (bx-ax)*(py-ay) - (by-ay)*(px-ax)
 }
 
+// modulate scales a 15-bit texel by an 8-bit-per-channel primitive colour, where
+// 0x80 leaves the texel unchanged (the PSX texture-modulation rule). Each 5-bit
+// texel lane is multiplied by the colour lane and shifted right 7, then clamped.
+//
+// An all-zero primitive colour is treated as unmodulated (raw texel) rather than
+// black: the game only leaves a textured primitive's colour zero when that colour
+// should come from a GTE lighting op we don't model yet (the demo track's INTPL
+// fog), and modulating by zero would wrongly black those surfaces out. Lit
+// primitives we do model (NCS/NCT — the car) carry non-zero colours and shade
+// normally.
+func modulate(t uint16, r, g, b int) uint16 {
+	if r|g|b == 0 {
+		return t
+	}
+	lane := func(c5 uint16, col int) uint16 {
+		v := int(c5) * col >> 7
+		if v > 0x1F {
+			v = 0x1F
+		}
+		return uint16(v)
+	}
+	return lane(t&0x1F, r) | lane((t>>5)&0x1F, g)<<5 | lane((t>>10)&0x1F, b)<<10 | t&0x8000
+}
+
 func (g *gpu) tri(a, b, c vert, textured bool, clut uint32) {
 	area := edge(a.x, a.y, b.x, b.y, c.x, c.y)
 	if area == 0 {
@@ -95,6 +119,9 @@ func (g *gpu) tri(a, b, c vert, textured bool, clut uint32) {
 				continue
 			}
 			var px uint16
+			r := (w0*a.r + w1*b.r + w2*c.r) / area
+			gg := (w0*a.g + w1*b.g + w2*c.g) / area
+			bb := (w0*a.b + w1*b.b + w2*c.b) / area
 			if textured {
 				u := (w0*a.u + w1*b.u + w2*c.u) / area
 				v := (w0*a.v + w1*b.v + w2*c.v) / area
@@ -102,11 +129,11 @@ func (g *gpu) tri(a, b, c vert, textured bool, clut uint32) {
 				if !ok {
 					continue // fully transparent texel
 				}
-				px = t
+				// Modulate the texel by the (interpolated, lit) primitive colour:
+				// out = texel * colour / 128, so 0x80 is neutral. Games rely on this
+				// to shade lit textured models (GTE NCS/NCT feed the vertex colours).
+				px = modulate(t, r, gg, bb)
 			} else {
-				r := (w0*a.r + w1*b.r + w2*c.r) / area
-				gg := (w0*a.g + w1*b.g + w2*c.g) / area
-				bb := (w0*a.b + w1*b.b + w2*c.b) / area
 				px = uint16(r>>3) | uint16(gg>>3)<<5 | uint16(bb>>3)<<10
 			}
 			g.vram[y*vramW+x] = px
@@ -195,6 +222,10 @@ func (g *gpu) rect(op byte) {
 					continue
 				}
 				out = t
+				// Modulate by the primitive colour unless the raw-texture bit is set.
+				if op&0x01 == 0 {
+					out = modulate(t, int(col&0xFF), int((col>>8)&0xFF), int((col>>16)&0xFF))
+				}
 			}
 			g.vram[py*vramW+px] = out
 		}

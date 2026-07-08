@@ -70,6 +70,22 @@ func TestFeedNodeSkipsDisabledPrimitive(t *testing.T) {
 	}
 }
 
+// TestModulate checks texture-colour modulation: 0x80 is neutral, brighter/
+// darker colours scale the texel, and an all-zero colour is treated as raw
+// (unmodulated) so surfaces lit by GTE ops we don't model yet aren't blacked out.
+func TestModulate(t *testing.T) {
+	white := uint16(0x7FFF) // all lanes 0x1F
+	if got := modulate(white, 0x80, 0x80, 0x80); got != white {
+		t.Errorf("neutral 0x80 modulation = 0x%04X, want 0x%04X (identity)", got, white)
+	}
+	if got := modulate(white, 0x40, 0x40, 0x40); got != 0x3DEF { // 0x1F*0x40>>7 = 0x0F per lane
+		t.Errorf("half 0x40 modulation = 0x%04X, want 0x3DEF", got)
+	}
+	if got := modulate(white, 0, 0, 0); got != white {
+		t.Errorf("zero-colour modulation = 0x%04X, want raw 0x%04X", got, white)
+	}
+}
+
 // TestGPUImageLoadAndDisplay uploads a 2x2 image via GP0 0xA0 and reads it back.
 func TestGPUImageLoadAndDisplay(t *testing.T) {
 	g := newGPU()

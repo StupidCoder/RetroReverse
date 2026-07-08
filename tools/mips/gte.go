@@ -14,10 +14,13 @@ package mips
 //	cpu.GTE = mips.NewGTE()
 //
 // Implemented commands: RTPS, RTPT, NCLIP, AVSZ3, AVSZ4, MVMVA — the transform +
-// ordering-table + matrix-vector subset a racer's pipeline leans on. Lighting
-// commands (NCDS, NCCS, CDP, ...) are not yet modelled; they are accepted and
-// leave the accumulators untouched rather than faulting, so a boot trace does
-// not stall (see the note in Command).
+// ordering-table + matrix-vector subset a racer's pipeline leans on — plus the
+// normal-colour lighting family (NCS/NCT, NCCS/NCCT, NCDS/NCDT, CC, CDP), which
+// runs a vertex normal through the light and light-colour matrices and pushes the
+// shaded colour onto the RGB FIFO, preserving the GPU command byte in RGBC bits
+// 24-31 (games read it back to build lit primitives). The remaining depth-cue /
+// interpolation ops (DPCS, DPCT, INTPL, DCPL, and the SQR/GPF/GPL/OP helpers) are
+// still accepted as no-ops rather than faulting.
 
 // GTE FLAG register bits (data/ctrl reg 31 for ctrl; here the calc-error flags).
 const (
@@ -315,9 +318,34 @@ func (g *GTE) Command(cmd uint32) {
 		g.avsz(false)
 	case 0x2E: // AVSZ4
 		g.avsz(true)
+	case 0x1E: // NCS  — normal colour, vertex 0
+		g.normalColor(0, sf, lm, false, false)
+	case 0x20: // NCT  — normal colour, vertices 0..2
+		g.normalColorT(sf, lm, false, false)
+	case 0x1B: // NCCS — normal colour + primary colour, vertex 0
+		g.normalColor(0, sf, lm, true, false)
+	case 0x3F: // NCCT — normal colour + primary colour, vertices 0..2
+		g.normalColorT(sf, lm, true, false)
+	case 0x13: // NCDS — normal colour + primary colour + depth cue, vertex 0
+		g.normalColor(0, sf, lm, true, true)
+	case 0x16: // NCDT — same, vertices 0..2
+		g.normalColorT(sf, lm, true, true)
+	case 0x1C: // CC   — colour colour: light-colour matrix on existing IR + primary
+		g.lightColor(sf, lm)
+		g.primaryColor(sf, lm, false)
+		g.pushColorFIFO()
+	case 0x14: // CDP  — colour depth cue: like CC with depth cueing
+		g.lightColor(sf, lm)
+		g.primaryColor(sf, lm, true)
+		g.pushColorFIFO()
+	case 0x11: // INTPL — interpolate the current IR colour toward the far colour
+		g.interpolate(sf, lm, [3]int64{int64(g.irVal(1)) << 12, int64(g.irVal(2)) << 12, int64(g.irVal(3)) << 12})
+	case 0x10: // DPCS — depth-cue the primary (RGBC) colour toward the far colour
+		c := g.data[6]
+		g.interpolate(sf, lm, [3]int64{int64(c&0xFF) << 16, int64((c>>8)&0xFF) << 16, int64((c>>16)&0xFF) << 16})
 	default:
-		// Lighting/colour ops not yet modelled; accept without faulting so a boot
-		// trace continues (geometry will be incomplete until they are added).
+		// The remaining depth-cue/interpolation and helper ops are not yet
+		// modelled; accept without faulting so a boot trace continues.
 	}
 	g.finishFlags()
 }
@@ -418,6 +446,114 @@ func (g *GTE) mvmva(cmd uint32, sf uint, lm bool) {
 		val := tr(i)<<12 + int64(mat(i, 0))*int64(vx) + int64(mat(i, 1))*int64(vy) + int64(mat(i, 2))*int64(vz)
 		g.setMacIR(i+1, val, sf, lm)
 	}
+}
+
+// --- normal-colour lighting ------------------------------------------------
+
+// normalColor runs the single-vertex normal-colour pipeline: transform the
+// vertex normal n by the light matrix, apply the light-colour matrix and
+// background colour, optionally modulate by the primary colour and depth-cue,
+// then push the result onto the RGB FIFO. This is the body of NCS/NCCS/NCDS
+// (primary/depth select the variant); NCT/NCCT/NCDT repeat it for all 3 normals.
+func (g *GTE) normalColor(n int, sf uint, lm, primary, depth bool) {
+	g.lightVector(n, sf, lm)
+	g.lightColor(sf, lm)
+	if primary {
+		g.primaryColor(sf, lm, depth)
+	}
+	g.pushColorFIFO()
+}
+
+func (g *GTE) normalColorT(sf uint, lm, primary, depth bool) {
+	for n := 0; n < 3; n++ {
+		g.normalColor(n, sf, lm, primary, depth)
+	}
+}
+
+// lightVector: [MAC1..3]=[IR1..3] = (LLM * normal_n) >> sf. LLM is the light
+// matrix (ctrl 8..12); the normal is a vertex vector (V0..V2).
+func (g *GTE) lightVector(n int, sf uint, lm bool) {
+	vx, vy, vz := g.vec(n)
+	for i := 0; i < 3; i++ {
+		val := int64(g.light(i, 0))*int64(vx) + int64(g.light(i, 1))*int64(vy) + int64(g.light(i, 2))*int64(vz)
+		g.setMacIR(i+1, val, sf, lm)
+	}
+}
+
+// lightColor: [MAC1..3]=[IR1..3] = (BK*0x1000 + LCM * IR) >> sf. LCM is the
+// light-colour matrix (ctrl 16..20), BK the background colour (ctrl 13..15).
+func (g *GTE) lightColor(sf uint, lm bool) {
+	i1, i2, i3 := g.irVal(1), g.irVal(2), g.irVal(3)
+	for i := 0; i < 3; i++ {
+		val := int64(g.bk(i))<<12 + int64(g.color(i, 0))*int64(i1) + int64(g.color(i, 1))*int64(i2) + int64(g.color(i, 2))*int64(i3)
+		g.setMacIR(i+1, val, sf, lm)
+	}
+}
+
+// primaryColor: [MAC1..3] = [R*IR1, G*IR2, B*IR3] << 4 (R,G,B from RGBC), then
+// optional depth cueing toward the far colour, then >> sf into MAC/IR.
+func (g *GTE) primaryColor(sf uint, lm, depth bool) {
+	col := [3]int64{int64(g.data[6] & 0xFF), int64((g.data[6] >> 8) & 0xFF), int64((g.data[6] >> 16) & 0xFF)}
+	var mac [3]int64
+	for i := 0; i < 3; i++ {
+		mac[i] = col[i] * int64(g.irVal(i+1)) << 4
+	}
+	if depth { // MAC = MAC + (FC - MAC) * IR0
+		for i := 0; i < 3; i++ {
+			diff := (int64(g.fc(i)) << 12) - mac[i]
+			g.setIR(i+1, int32(diff>>sf), false)
+			mac[i] += int64(g.irVal(i+1)) * int64(g.irVal(0))
+		}
+	}
+	for i := 0; i < 3; i++ {
+		g.macCheck(i+1, mac[i])
+		m := int32(mac[i] >> sf)
+		g.setMac(i+1, m)
+		g.setIR(i+1, m, lm)
+	}
+}
+
+// interpolate depth-cues a starting colour (in <<12 fixed point, one lane each)
+// toward the far colour by IR0 — MAC = start + (FC - start)*IR0 — then pushes the
+// result onto the colour FIFO. This is the body of INTPL and DPCS (fog): near
+// (IR0=0) keeps the source colour, far (IR0=0x1000) fades to the far colour.
+func (g *GTE) interpolate(sf uint, lm bool, start [3]int64) {
+	for i := 0; i < 3; i++ {
+		mac := start[i]
+		diff := (int64(g.fc(i)) << 12) - mac
+		g.setIR(i+1, int32(diff>>sf), false)
+		mac += int64(g.irVal(i+1)) * int64(g.irVal(0))
+		g.macCheck(i+1, mac)
+		m := int32(mac >> sf)
+		g.setMac(i+1, m)
+		g.setIR(i+1, m, lm)
+	}
+	g.pushColorFIFO()
+}
+
+// pushColorFIFO clamps MAC1..3>>4 to 0..255 and pushes them (with the RGBC
+// command byte in bits 24-31) onto the RGB0/1/2 FIFO.
+func (g *GTE) pushColorFIFO() {
+	code := (g.data[6] >> 24) & 0xFF
+	r := g.clampColor(int32(g.data[25])>>4, 21)
+	gg := g.clampColor(int32(g.data[26])>>4, 20)
+	b := g.clampColor(int32(g.data[27])>>4, 19)
+	g.data[20] = g.data[21]
+	g.data[21] = g.data[22]
+	g.data[22] = uint32(r) | uint32(gg)<<8 | uint32(b)<<16 | code<<24
+}
+
+// clampColor saturates a colour lane to 0..255, flagging bit on overflow.
+func (g *GTE) clampColor(v int32, bit uint) int32 {
+	if v < 0 {
+		g.setFlag(1 << bit)
+		return 0
+	}
+	if v > 0xFF {
+		g.setFlag(1 << bit)
+		return 0xFF
+	}
+	return v
 }
 
 // --- perspective divide (hardware unsigned Newton-Raphson) -----------------

@@ -101,3 +101,51 @@ func TestGTE_DivideOverflow(t *testing.T) {
 		t.Error("divide overflow flag not set")
 	}
 }
+
+// TestGTE_NCS_PreservesCode checks the normal-colour lighting pipeline: with a
+// unit +Z normal and identity light/colour matrices it produces a non-zero lit
+// colour on the RGB FIFO, and — crucially for building lit primitives — carries
+// the GPU command byte from RGBC (bits 24-31) through to the pushed colour word.
+func TestGTE_NCS_PreservesCode(t *testing.T) {
+	g := NewGTE()
+	// Light matrix LLM (ctrl 8..12) = identity (0x1000 diagonal).
+	g.ctrl[8], g.ctrl[10], g.ctrl[12] = 0x1000, 0x1000, 0x1000
+	// Light-colour matrix LCM (ctrl 16..20) = identity.
+	g.ctrl[16], g.ctrl[18], g.ctrl[20] = 0x1000, 0x1000, 0x1000
+	// RGBC: colour grey, command byte 0x2C (a flat textured quad).
+	g.data[6] = 0x2C808080
+	// Normal V0 = (0,0,0x1000) — points along +Z.
+	g.data[0], g.data[1] = 0, 0x1000
+
+	g.Command((1 << 19) | (1 << 10) | 0x1E) // NCS, sf=12, lm=1
+
+	rgb2 := g.Read(22)
+	if code := rgb2 >> 24; code != 0x2C {
+		t.Errorf("pushed colour code byte = 0x%02X, want 0x2C (RGBC command byte)", code)
+	}
+	if rgb2&0xFFFFFF == 0 {
+		t.Errorf("lit colour is zero (0x%06X); a lit surface should be non-black", rgb2&0xFFFFFF)
+	}
+}
+
+// TestGTE_INTPL_Fog checks the fog interpolation: with IR0=0 (near) the source
+// colour passes through, and the RGBC command byte is preserved on the FIFO.
+func TestGTE_INTPL_Fog(t *testing.T) {
+	g := NewGTE()
+	g.data[6] = 0x24000000       // command byte 0x24, colour ignored by INTPL
+	g.data[9], g.data[10], g.data[11] = 0x400, 0x400, 0x400 // IR1..3 base colour
+	g.data[8] = 0                // IR0 = 0 -> near, no fog: keep the source colour
+	// Far colour FC (ctrl 21..23) arbitrary; with IR0=0 it must not matter.
+	g.ctrl[21], g.ctrl[22], g.ctrl[23] = 0x1000, 0, 0
+
+	g.Command((1 << 19) | 0x11) // INTPL, sf=12
+
+	rgb2 := g.Read(22)
+	if code := rgb2 >> 24; code != 0x24 {
+		t.Errorf("INTPL code byte = 0x%02X, want 0x24", code)
+	}
+	// IR base 0x400 -> MAC 0x400<<12 -> >>12 -> 0x400 -> colour /16 = 0x40 each lane.
+	if r := rgb2 & 0xFF; r != 0x40 {
+		t.Errorf("INTPL near colour R = 0x%02X, want 0x40 (source colour passthrough)", r)
+	}
+}
