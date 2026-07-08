@@ -228,15 +228,23 @@ const GAMES = [
   },
   {
     id: 'ridge-racer-psx', name: 'Ridge Racer', system: 'Sony PlayStation', render: '3d',
-    // The generic manifest-driven 3-D viewer with the builtin GLB path: the manifest's
-    // models[] (the 13 car-select cars and the whole course) carry kind:"mesh3d", so no
-    // per-game renderer plugin is needed — webexport bakes the PSX texture pages and
-    // CLUTs into each GLB.
+    // The generic manifest-driven 3-D viewer. The 13 cars are plain GLBs (builtin mesh3d);
+    // the course routes to the rr-course plugin, which loads the road GLB plus the roadside
+    // object GLBs (course.objects.json), flies through it, toggles the object layer and shows
+    // each object's record address / flag / rotation card on click.
     load: () => import('../shared/viewer3d.js').then(m => m.Viewer3D),
-    make: (V, el, hud) => new V(el, hud, { base: 'public/ridge-racer-psx/' }),
+    make: (V, el, hud) => new V(el, hud, {
+      base: 'public/ridge-racer-psx/',
+      renderers: { 'rr-course': () => import('../ridge-racer-psx/course-renderer.js') },
+    }),
     list: async (v) => await v.init(), // manifest.models — cars + the course
     show: (v, item, i) => v.showItem(item),
-    group: (item) => ({ section: item.file === 'models/track.glb' ? 'Course' : 'Cars', label: item.name }),
+    // The object layer and wireframe apply to the course (rr-course), not the individual cars.
+    layers: [
+      { id: 'objects', label: 'Roadside objects', default: true, when: (m) => m.leaves?.[m.currentIdx]?.level?.kind === 'rr-course' },
+      { id: 'wireframe', label: 'Wireframe', default: false },
+    ],
+    group: (item) => ({ section: item.kind === 'rr-course' ? 'Course' : 'Cars', label: item.name }),
   },
 ];
 

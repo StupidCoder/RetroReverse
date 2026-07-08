@@ -771,13 +771,15 @@ mirrors the rasterizer's addressing. The oracle never supplies data; it only ver
 
 `extract/cmd/webexport` builds `site/public/ridge-racer-psx/` from the image alone. The **models**
 stage emits one GLB per car, composed exactly as the carousel draws it (body + canopy + underbody +
-both axles); the **levels** stage places all 258 sections at their grid cells (8,192 model units
-apart), adds the roadside objects (each `OBJ.RRO` model yaw-rotated and translated to its
-placement, §VI.6), and emits the whole course as one GLB. Textures resolve against the race texture
-states of §VI.1: all three scenery-set VRAM images are rebuilt from the TMS replay, and a section's
-quadrant-page quads sample the set active when the car passes its cell — the section's nearest
-checkpoint gate gives its progress, the traced trigger rules give the set. Every distinct
-page+CLUT(+set) is baked into a tiled atlas embedded in the GLB (nearest-neighbour sampling,
-texel 0 cut out via alpha masking); PSX coordinates become glTF's through `(x, -y, -z)` at 1/1024
-scale. The manifest lists the 13 cars and the course; the Studio renders them with its stock GLB
-viewer.
+both axles); the **levels** stage emits the road as one `track.glb` (all 258 sections at their grid
+cells, 8,192 model units apart), each roadside object as its own `obj-NN.glb`, and
+`course.objects.json` — the placement list (`{model, pos, rot}` plus each record's address, flag and
+yaw). Textures resolve against the race texture states of §VI.1: all three scenery-set VRAM images
+are rebuilt from the TMS replay, and a section's (or object's) quadrant-page quads sample the set
+active at its position — the nearest checkpoint gate gives the progress, the traced trigger rules
+give the set (no object id spans two sets). Every distinct page+CLUT(+set) is baked into a tiled
+atlas embedded in the GLB (nearest-neighbour sampling, texel 0 cut out via alpha masking); PSX
+coordinates become glTF's through `(x, -y, -z)` at 1/1024 scale, and an object's yaw becomes a
+three.js `rotation.y` of the same angle. The Studio's `rr-course` renderer flies through the course
+(shared `FlyCam`), toggles the roadside-object layer, and shows each object's record address, flag
+and rotation in a click-to-inspect card.

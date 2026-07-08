@@ -40,9 +40,11 @@ type Size struct {
 }
 
 type ModelIndex struct {
-	Name string `json:"name"`
-	File string `json:"file"`
-	Kind string `json:"kind"` // routes to the Studio's builtin GLB renderer
+	Name        string `json:"name"`
+	File        string `json:"file"`
+	Kind        string `json:"kind"`                  // routes to a Studio renderer plugin
+	ObjectsFile string `json:"objectsFile,omitempty"` // placement manifest for the object layer
+	Fly         bool   `json:"fly,omitempty"`         // present the item with the fly camera
 }
 
 // assets bundles everything the stages need: the decoded files and the

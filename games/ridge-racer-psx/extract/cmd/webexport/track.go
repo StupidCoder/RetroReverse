@@ -47,30 +47,23 @@ func exportTrack(a *assets, out string) (ModelIndex, error) {
 		}
 	}
 
-	// Roadside objects: each placement rotates its OBJ.RRO object about Y and
-	// translates it to the placement's world position (objects.go). The scenery
-	// set follows the object's own position, as with the track sections.
-	placements := rr.Placements(a.exe)
-	placed := 0
-	for _, p := range placements {
-		if p.Obj < 0 || p.Obj >= len(a.objs) {
-			continue
-		}
-		R := rr.YawMatrix(p.Yaw)
-		off := [3]int32{p.X, p.Y, p.Z}
-		seg := rr.NearestSegment(cps, p.X, p.Z)
-		set := rr.SetForProgress(int32(seg) * 256)
-		addObjectXform(b, &a.objs[p.Obj], R, off, set)
-		placed++
-	}
-
 	file := "models/track.glb"
 	if err := b.Write(filepath.Join(out, file)); err != nil {
 		return ModelIndex{}, err
 	}
-	fmt.Fprintf(os.Stderr, "[levels] track.glb (%d cells, %d objects, %d verts, %d tiles)\n",
-		cells, placed, len(b.verts), len(b.tiles))
-	return ModelIndex{Name: "Ridge Racer Course", File: file, Kind: "mesh3d"}, nil
+	fmt.Fprintf(os.Stderr, "[levels] track.glb (%d cells, %d verts, %d tiles)\n",
+		cells, len(b.verts), len(b.tiles))
+
+	// The roadside objects ship as separate GLBs placed by course.objects.json,
+	// so the viewer can toggle and inspect them.
+	objectsFile, err := exportObjects(a, out, cps)
+	if err != nil {
+		return ModelIndex{}, err
+	}
+	return ModelIndex{
+		Name: "Ridge Racer Course", File: file, Kind: "rr-course",
+		ObjectsFile: objectsFile, Fly: true,
+	}, nil
 }
 
 // rotv applies a 4096-scaled rotation matrix to an int16 vertex, returning an

@@ -32,19 +32,27 @@ var placementLists = []uint32{
 const exeTextBase = 0x80010000
 
 // Placement is one roadside object: an OBJ.RRO index, a world position in
-// model units, and a Y-axis rotation in turns/4096.
+// model units, a Y-axis rotation in turns/4096, and the source record's RAM
+// address and draw-mode flag (the +16 word) for diagnostics.
 type Placement struct {
 	Obj     int
-	X, Y, Z int32 // model units
-	Yaw     int16 // 4096 = 360°
+	X, Y, Z int32  // model units
+	Yaw     int16  // 4096 = 360°
+	Addr    uint32 // RAM address of the source record
+	Flag    uint32 // the +16 word (a per-list draw-mode flag)
 }
 
 // Placements decodes every roadside object placement from the executable's
 // text segment, deduplicated (the same object at the same position appears in
-// more than one draw list).
+// more than one draw list). Dedup keys on id+position+yaw, keeping the first
+// occurrence's address and flag.
 func Placements(text []byte) []Placement {
 	var out []Placement
-	seen := map[Placement]bool{}
+	type key struct {
+		id, yaw    int
+		x, y, z    int32
+	}
+	seen := map[key]bool{}
 	for _, head := range placementLists {
 		off := int(head - exeTextBase)
 		for off+24 <= len(text) {
@@ -53,14 +61,17 @@ func Placements(text []byte) []Placement {
 				break
 			}
 			p := Placement{
-				Obj: int(id),
-				X:   int32(u32(text, off+4)) * 4,
-				Y:   int32(u32(text, off+8)) * 4,
-				Z:   int32(u32(text, off+12)) * 4,
-				Yaw: s16(text, off+20),
+				Obj:  int(id),
+				X:    int32(u32(text, off+4)) * 4,
+				Y:    int32(u32(text, off+8)) * 4,
+				Z:    int32(u32(text, off+12)) * 4,
+				Yaw:  s16(text, off+20),
+				Addr: exeTextBase + uint32(off),
+				Flag: u32(text, off+16),
 			}
-			if !seen[p] {
-				seen[p] = true
+			k := key{p.Obj, int(p.Yaw), p.X, p.Y, p.Z}
+			if !seen[k] {
+				seen[k] = true
 				out = append(out, p)
 			}
 			off += 24
