@@ -1,0 +1,1868 @@
+{
+ "format": 2,
+ "level": "snow_land_all",
+ "objects": [
+  {
+   "id": 0,
+   "actor": 258,
+   "pos": [
+    1.7,
+    3.25,
+    0.45
+   ],
+   "rot": [
+    0,
+    -49.999,
+    0
+   ],
+   "model": "models/penguin.glb",
+   "collision": "collision/penguin.glb",
+   "props": {
+    "colMtx": [
+     0.06543,
+     0,
+     0.0752,
+     0,
+     0.09985,
+     0,
+     -0.07544,
+     0,
+     0.06543,
+     1.72823,
+     3.27,
+     0.39002
+    ],
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 1,
+   "actor": 92,
+   "pos": [
+    0.954,
+    1,
+    2.025
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/sl_ice_brock.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 2,
+   "actor": 261,
+   "pos": [
+    2.1,
+    1,
+    5.6
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/gamaguchi.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 3,
+   "actor": 312,
+   "pos": [
+    1.5,
+    1,
+    3.3
+   ],
+   "rot": [
+    0,
+    90,
+    0
+   ],
+   "model": "models/huwahuwa_model.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 4,
+   "actor": 312,
+   "pos": [
+    0.5,
+    1,
+    5.4
+   ],
+   "rot": [
+    0,
+    90,
+    0
+   ],
+   "model": "models/huwahuwa_model.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 5,
+   "actor": 312,
+   "pos": [
+    1,
+    1,
+    4.4
+   ],
+   "rot": [
+    0,
+    90,
+    0
+   ],
+   "model": "models/huwahuwa_model.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 6,
+   "actor": 184,
+   "pos": [
+    3.5,
+    0.964,
+    0.5
+   ],
+   "rot": [
+    0,
+    90,
+    0
+   ],
+   "model": "models/obj_tatefuda.glb",
+   "collision": "collision/obj_tatefuda.glb",
+   "props": {
+    "colMtx": [
+     0.09985,
+     0,
+     0,
+     0,
+     0.09985,
+     0,
+     0,
+     0,
+     0.09985,
+     0,
+     0,
+     0
+    ],
+    "scale": 0.008,
+    "text": "Running around in circles \nmakes some bad guys roll\ntheir eyes.\nUse the Touch Screen to\nrun smoothly."
+   }
+  },
+  {
+   "id": 7,
+   "actor": 223,
+   "pos": [
+    3.174,
+    0.851,
+    1.269
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/snowman_model.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 8,
+   "actor": 223,
+   "pos": [
+    5.339,
+    1,
+    -1.015
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/snowman_model.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 9,
+   "actor": 207,
+   "pos": [
+    4.375,
+    0.8,
+    1.137
+   ],
+   "rot": [
+    0,
+    -180,
+    0
+   ],
+   "model": "models/houdai.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 10,
+   "actor": 312,
+   "pos": [
+    3.3,
+    1.593,
+    -2.8
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/huwahuwa_model.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 11,
+   "actor": 232,
+   "pos": [
+    3.9,
+    0.761,
+    -3
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/propeller_heyho.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 12,
+   "actor": 266,
+   "pos": [
+    3.98,
+    0.839,
+    -2.85
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/birikyu.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 13,
+   "actor": 217,
+   "pos": [
+    0.2,
+    1.32,
+    -4.5
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ]
+  },
+  {
+   "id": 14,
+   "actor": 312,
+   "pos": [
+    3.5,
+    1.024,
+    -5.1
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/huwahuwa_model.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 15,
+   "actor": 184,
+   "pos": [
+    -0.6,
+    1.074,
+    -3.6
+   ],
+   "rot": [
+    0,
+    -90,
+    0
+   ],
+   "model": "models/obj_tatefuda.glb",
+   "collision": "collision/obj_tatefuda.glb",
+   "props": {
+    "colMtx": [
+     0.09985,
+     0,
+     0,
+     0,
+     0.09985,
+     0,
+     0,
+     0,
+     0.09985,
+     0,
+     0,
+     0
+    ],
+    "scale": 0.008,
+    "text": "BRRR! Frostbite Danger!\nDo not swim here.\nI'm serious.\n  --The Penguin"
+   }
+  },
+  {
+   "id": 16,
+   "actor": 21,
+   "pos": [
+    -3.6,
+    1.342,
+    -4.3
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/arc0_14.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 17,
+   "actor": 312,
+   "pos": [
+    -3.6,
+    1.102,
+    -5.2
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/huwahuwa_model.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 18,
+   "actor": 312,
+   "pos": [
+    -4.5,
+    1.038,
+    -4
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/huwahuwa_model.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 19,
+   "actor": 223,
+   "pos": [
+    -3.7,
+    1.076,
+    -3.3
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/snowman_model.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 20,
+   "actor": 312,
+   "pos": [
+    -3.3,
+    1,
+    -0.2
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/huwahuwa_model.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 21,
+   "actor": 312,
+   "pos": [
+    -3.8,
+    1,
+    1.2
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/huwahuwa_model.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 22,
+   "actor": 184,
+   "pos": [
+    -3.7,
+    1,
+    -0.7
+   ],
+   "rot": [
+    0,
+    129.996,
+    0
+   ],
+   "model": "models/obj_tatefuda.glb",
+   "collision": "collision/obj_tatefuda.glb",
+   "props": {
+    "colMtx": [
+     0.09985,
+     0,
+     0,
+     0,
+     0.09985,
+     0,
+     0,
+     0,
+     0.09985,
+     0,
+     0,
+     0
+    ],
+    "scale": 0.008,
+    "text": "Snowman Mountain ahead.\nKeep out! And don't \ntry to triple jump \nover the ice-block \nshooter.\nIf you fall into the\nfreezing pond, your \npower decreases quickly\nand won't recover \nautomatically.\n    --The Snowman"
+   }
+  },
+  {
+   "id": 23,
+   "actor": 21,
+   "pos": [
+    -4.6,
+    1.25,
+    5.8
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/arc0_14.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 24,
+   "actor": 21,
+   "pos": [
+    -5.4,
+    1.25,
+    5.8
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/arc0_14.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 25,
+   "actor": 184,
+   "pos": [
+    -5,
+    1,
+    5.9
+   ],
+   "rot": [
+    0,
+    -180,
+    0
+   ],
+   "model": "models/obj_tatefuda.glb",
+   "collision": "collision/obj_tatefuda.glb",
+   "props": {
+    "colMtx": [
+     0.09985,
+     0,
+     0,
+     0,
+     0.09985,
+     0,
+     0,
+     0,
+     0.09985,
+     0,
+     0,
+     0
+    ],
+    "scale": 0.008,
+    "text": "Hop on the shiny shell\nand ride wherever you\nwant to go! Shred \nthose enemies!"
+   }
+  },
+  {
+   "id": 26,
+   "actor": 223,
+   "pos": [
+    -6.233,
+    2,
+    -3.1
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/snowman_model.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 27,
+   "actor": 261,
+   "pos": [
+    -2.4,
+    1.142,
+    -4
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/gamaguchi.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 28,
+   "actor": 312,
+   "pos": [
+    -4.1,
+    0.949,
+    2.9
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/huwahuwa_model.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 29,
+   "actor": 312,
+   "pos": [
+    -4.1,
+    0.949,
+    3.8
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/huwahuwa_model.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 30,
+   "actor": 276,
+   "pos": [
+    0,
+    5.35,
+    0
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/ar1_15.glb",
+   "props": {
+    "billboard": true,
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 31,
+   "actor": 14,
+   "pos": [
+    4.375,
+    0.8,
+    1.137
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/cannon_shutter.glb",
+   "collision": "collision/cannon_shutter.glb",
+   "props": {
+    "colMtx": [
+     0.09985,
+     0,
+     0,
+     0,
+     0.09985,
+     0,
+     0,
+     0,
+     0.09985,
+     0,
+     0,
+     0
+    ],
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 32,
+   "actor": 275,
+   "pos": [
+    1.05,
+    3.65,
+    1.05
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/arc0_17.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 33,
+   "actor": 20,
+   "pos": [
+    0.2,
+    5,
+    0.2
+   ],
+   "rot": [
+    0,
+    45,
+    0
+   ],
+   "model": "models/hatena_karabox.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 34,
+   "actor": 269,
+   "pos": [
+    2.985,
+    1,
+    5.305
+   ],
+   "rot": [
+    0,
+    -180,
+    0
+   ],
+   "model": "models/arc0_17.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 35,
+   "actor": 269,
+   "pos": [
+    -1.715,
+    1.148,
+    -4
+   ],
+   "rot": [
+    0,
+    90,
+    0
+   ],
+   "model": "models/arc0_20.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 36,
+   "actor": 269,
+   "pos": [
+    4.515,
+    1.108,
+    -1.04
+   ],
+   "rot": [
+    0,
+    45,
+    0
+   ],
+   "model": "models/arc0_16.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 37,
+   "actor": 200,
+   "pos": [
+    4.131,
+    1.006,
+    -5.485
+   ],
+   "rot": [
+    0,
+    -180,
+    0
+   ],
+   "model": "models/kuribo_model.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 38,
+   "actor": 200,
+   "pos": [
+    3.916,
+    1,
+    -6.011
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/kuribo_model.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 39,
+   "actor": 200,
+   "pos": [
+    4.359,
+    1,
+    -5.999
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/kuribo_model.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 40,
+   "actor": 316,
+   "pos": [
+    4.1,
+    1.05,
+    -5.797
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ]
+  },
+  {
+   "id": 41,
+   "actor": 18,
+   "pos": [
+    3.7,
+    1.2,
+    4.1
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/ice_block_ll.glb",
+   "collision": "collision/ice_block_ll.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 42,
+   "actor": 18,
+   "pos": [
+    4.3,
+    1.5,
+    4.1
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/ice_block_ll.glb",
+   "collision": "collision/ice_block_ll.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 43,
+   "actor": 20,
+   "pos": [
+    2.407,
+    1.75,
+    -1.978
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/hatena_karabox.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 44,
+   "actor": 184,
+   "pos": [
+    2.62,
+    1.466,
+    -1.682
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/obj_tatefuda.glb",
+   "collision": "collision/obj_tatefuda.glb",
+   "props": {
+    "colMtx": [
+     0.09985,
+     0,
+     0,
+     0,
+     0.09985,
+     0,
+     0,
+     0,
+     0.09985,
+     0,
+     0,
+     0
+    ],
+    "scale": 0.008,
+    "text": "The Power Flower \nstrengthens characters \nbased on their \npersonality types.\n\nEating nasty enemies has \ngiven Yoshi a bad case of\nheartburn! When he plucks\na Power Flower, he'll be \nable to breathe fire!"
+   }
+  },
+  {
+   "id": 45,
+   "actor": 18,
+   "pos": [
+    4.3,
+    1.2,
+    4.1
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/ice_block_ll.glb",
+   "collision": "collision/ice_block_ll.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 46,
+   "actor": 18,
+   "pos": [
+    3.7,
+    1.8,
+    4.7
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/ice_block_ll.glb",
+   "collision": "collision/ice_block_ll.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 47,
+   "actor": 18,
+   "pos": [
+    3.7,
+    1.5,
+    4.7
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/ice_block_ll.glb",
+   "collision": "collision/ice_block_ll.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 48,
+   "actor": 18,
+   "pos": [
+    3.7,
+    1.2,
+    4.7
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/ice_block_ll.glb",
+   "collision": "collision/ice_block_ll.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 49,
+   "actor": 18,
+   "pos": [
+    4.3,
+    1.8,
+    4.7
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/ice_block_ll.glb",
+   "collision": "collision/ice_block_ll.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 50,
+   "actor": 18,
+   "pos": [
+    4.3,
+    1.5,
+    4.7
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/ice_block_ll.glb",
+   "collision": "collision/ice_block_ll.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 51,
+   "actor": 18,
+   "pos": [
+    4.3,
+    1.2,
+    4.7
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/ice_block_ll.glb",
+   "collision": "collision/ice_block_ll.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 52,
+   "actor": 194,
+   "pos": [
+    4.717,
+    1,
+    3.432
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/broken_block_s.glb",
+   "collision": "collision/broken_block_s.glb",
+   "props": {
+    "colMtx": [
+     0.09985,
+     0,
+     0,
+     0,
+     0.09985,
+     0,
+     0,
+     0,
+     0.09985,
+     0,
+     -0.002,
+     0
+    ],
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 53,
+   "actor": 194,
+   "pos": [
+    -5.095,
+    1,
+    -6.45
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/broken_block_s.glb",
+   "collision": "collision/broken_block_s.glb",
+   "props": {
+    "colMtx": [
+     0.09985,
+     0,
+     0,
+     0,
+     0.09985,
+     0,
+     0,
+     0,
+     0.09985,
+     0,
+     -0.002,
+     0
+    ],
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 54,
+   "actor": 299,
+   "pos": [
+    -4.551,
+    1.02,
+    -2.606
+   ],
+   "rot": [
+    0,
+    90,
+    0
+   ],
+   "model": "models/yajirusi_l.glb",
+   "collision": "collision/yajirusi_l.glb",
+   "props": {
+    "colMtx": [
+     0.09985,
+     0,
+     0,
+     0,
+     0.09985,
+     0,
+     0,
+     0,
+     0.09985,
+     0,
+     0,
+     0
+    ],
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 55,
+   "actor": 300,
+   "pos": [
+    2.987,
+    1,
+    0.235
+   ],
+   "rot": [
+    0,
+    90,
+    0
+   ],
+   "model": "models/yajirusi_r.glb",
+   "collision": "collision/yajirusi_r.glb",
+   "props": {
+    "colMtx": [
+     0.09985,
+     0,
+     0,
+     0,
+     0.09985,
+     0,
+     0,
+     0,
+     0.09985,
+     0,
+     0,
+     0
+    ],
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 56,
+   "actor": 288,
+   "pos": [
+    2.5,
+    1,
+    4.6
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/arc0_5.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 57,
+   "actor": 288,
+   "pos": [
+    2.9,
+    1,
+    3.7
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/arc0_5.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 58,
+   "actor": 178,
+   "pos": [
+    3.7,
+    1.95,
+    4.7
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/arc0_21.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 59,
+   "actor": 288,
+   "pos": [
+    -1.4,
+    1.078,
+    0.9
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/arc0_5.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 60,
+   "actor": 288,
+   "pos": [
+    -1.2,
+    1.36,
+    1
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/arc0_5.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 61,
+   "actor": 288,
+   "pos": [
+    -1,
+    1.642,
+    1.1
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/arc0_5.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 62,
+   "actor": 288,
+   "pos": [
+    -0.9,
+    1.789,
+    1.2
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/arc0_5.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 63,
+   "actor": 288,
+   "pos": [
+    -0.75,
+    1.853,
+    1.25
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/arc0_5.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 64,
+   "actor": 288,
+   "pos": [
+    -0.6,
+    1.917,
+    1.3
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/arc0_5.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 65,
+   "actor": 288,
+   "pos": [
+    -0.45,
+    1.968,
+    1.35
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/arc0_5.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 66,
+   "actor": 288,
+   "pos": [
+    -0.3,
+    2.016,
+    1.4
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/arc0_5.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 67,
+   "actor": 288,
+   "pos": [
+    1.25,
+    2.158,
+    0.38
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/arc0_5.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 68,
+   "actor": 288,
+   "pos": [
+    1.7,
+    2.5,
+    -0.65
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/arc0_5.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 69,
+   "actor": 288,
+   "pos": [
+    1.75,
+    3.1,
+    0.05
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/arc0_5.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 70,
+   "actor": 288,
+   "pos": [
+    0,
+    3.25,
+    1.8
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/arc0_5.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 71,
+   "actor": 288,
+   "pos": [
+    -0.3,
+    3.419,
+    1.6
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/arc0_5.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 72,
+   "actor": 286,
+   "pos": [
+    5.533,
+    1,
+    -3.263
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/yuki_tree.glb",
+   "props": {
+    "billboard": true,
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 73,
+   "actor": 286,
+   "pos": [
+    5.268,
+    1.029,
+    -5.316
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/yuki_tree.glb",
+   "props": {
+    "billboard": true,
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 74,
+   "actor": 286,
+   "pos": [
+    3.559,
+    1,
+    -5.751
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/yuki_tree.glb",
+   "props": {
+    "billboard": true,
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 75,
+   "actor": 286,
+   "pos": [
+    1.873,
+    1,
+    -4.648
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/yuki_tree.glb",
+   "props": {
+    "billboard": true,
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 76,
+   "actor": 286,
+   "pos": [
+    1.618,
+    1.5,
+    -3.521
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/yuki_tree.glb",
+   "props": {
+    "billboard": true,
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 77,
+   "actor": 286,
+   "pos": [
+    -3.681,
+    1,
+    -1.169
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/yuki_tree.glb",
+   "props": {
+    "billboard": true,
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 78,
+   "actor": 286,
+   "pos": [
+    -2.681,
+    1,
+    -0.569
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/yuki_tree.glb",
+   "props": {
+    "billboard": true,
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 79,
+   "actor": 286,
+   "pos": [
+    0,
+    4.75,
+    0
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/yuki_tree.glb",
+   "props": {
+    "billboard": true,
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 80,
+   "actor": 286,
+   "pos": [
+    1.724,
+    2.75,
+    -0.92
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/yuki_tree.glb",
+   "props": {
+    "billboard": true,
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 81,
+   "actor": 180,
+   "pos": [
+    0.25,
+    1.42,
+    -4.45
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/star_base.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 82,
+   "actor": 180,
+   "pos": [
+    -4.6,
+    1.1,
+    5.795
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/star_base.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 83,
+   "actor": 178,
+   "pos": [
+    0.7,
+    4.35,
+    0.65
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/arc0_21.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 84,
+   "actor": 178,
+   "pos": [
+    0.442,
+    2.34,
+    1.332
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/arc0_21.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 85,
+   "actor": 288,
+   "pos": [
+    1.617,
+    2.2,
+    -3.521
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/arc0_5.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 86,
+   "actor": 234,
+   "pos": [
+    1.618,
+    2.1,
+    -3.521
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/owl.glb",
+   "props": {
+    "layer": 2,
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 87,
+   "actor": 179,
+   "pos": [
+    4.3,
+    1.345,
+    -4.9
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/arc0_25.glb",
+   "props": {
+    "layer": 5,
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 88,
+   "actor": 179,
+   "pos": [
+    0.3,
+    1.05,
+    -4.5
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/arc0_25.glb",
+   "props": {
+    "layer": 5,
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 89,
+   "actor": 179,
+   "pos": [
+    -6.3,
+    1.662,
+    4.8
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/arc0_25.glb",
+   "props": {
+    "layer": 5,
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 90,
+   "actor": 179,
+   "pos": [
+    -4.4,
+    1.355,
+    -5
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/arc0_25.glb",
+   "props": {
+    "layer": 5,
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 91,
+   "actor": 179,
+   "pos": [
+    -6.7,
+    2.3,
+    -5.5
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/arc0_25.glb",
+   "props": {
+    "layer": 5,
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 92,
+   "actor": 178,
+   "pos": [
+    4.5,
+    1.25,
+    -0.2
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/arc0_21.glb",
+   "props": {
+    "layer": 5,
+    "scale": 0.008
+   }
+  }
+ ]
+}

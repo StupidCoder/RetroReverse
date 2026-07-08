@@ -1,0 +1,19 @@
+{
+ "collision": "collision/high_mt.glb",
+ "format": 2,
+ "kind": "mesh3d",
+ "mesh": {
+  "glb": "models/high_mt_all.glb"
+ },
+ "name": "Tall, Tall Mountain",
+ "objectsFile": "high_mt_all.objects.json",
+ "sky": "models/vr01.glb",
+ "spawn": {
+  "pos": [
+   0.1,
+   -2.531,
+   5.55
+  ],
+  "rot": 90
+ }
+}

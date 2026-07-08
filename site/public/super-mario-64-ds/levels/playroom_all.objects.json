@@ -1,0 +1,110 @@
+{
+ "format": 2,
+ "level": "playroom_all",
+ "objects": [
+  {
+   "id": 0,
+   "actor": 183,
+   "pos": [
+    0.58,
+    0.725,
+    -2
+   ],
+   "rot": [
+    0,
+    109.995,
+    0
+   ],
+   "model": "models/obj_kanban.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 1,
+   "actor": 185,
+   "pos": [
+    3.102,
+    0.6,
+    -3.9
+   ],
+   "rot": [
+    0,
+    -45,
+    0
+   ],
+   "model": "models/kinopio.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 2,
+   "actor": 182,
+   "pos": [
+    3.496,
+    0.65,
+    -4.291
+   ],
+   "rot": [
+    0,
+    -45,
+    0
+   ]
+  },
+  {
+   "id": 3,
+   "actor": 307,
+   "pos": [
+    2.542,
+    0.7,
+    -4.444
+   ],
+   "rot": [
+    0,
+    45,
+    0
+   ],
+   "model": "models/for_vs_island.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 4,
+   "actor": 307,
+   "pos": [
+    4.978,
+    0.7,
+    -4.094
+   ],
+   "rot": [
+    0,
+    -135,
+    0
+   ],
+   "model": "models/for_ex_mario.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 5,
+   "actor": 187,
+   "pos": [
+    4.9,
+    0.6,
+    -4.7
+   ],
+   "rot": [
+    0,
+    -59.996,
+    0
+   ],
+   "model": "models/mip.glb",
+   "props": {
+    "scale": 0.008
+   }
+  }
+ ]
+}

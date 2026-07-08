@@ -1,0 +1,19 @@
+{
+ "collision": "collision/main_castle.glb",
+ "format": 2,
+ "kind": "mesh3d",
+ "mesh": {
+  "glb": "models/main_castle_all.glb"
+ },
+ "name": "Peach's Castle (exterior)",
+ "objectsFile": "main_castle_all.objects.json",
+ "sky": "models/vr01.glb",
+ "spawn": {
+  "pos": [
+   -1.2,
+   0.254,
+   6.8
+  ],
+  "rot": -180
+ }
+}

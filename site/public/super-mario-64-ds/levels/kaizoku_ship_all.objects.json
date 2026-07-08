@@ -1,0 +1,223 @@
+{
+ "format": 2,
+ "level": "kaizoku_ship_all",
+ "objects": [
+  {
+   "id": 0,
+   "actor": 21,
+   "pos": [
+    0,
+    1.478,
+    2.9
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/arc0_14.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 1,
+   "actor": 13,
+   "pos": [
+    0,
+    -0.343,
+    -1.95
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/t_box.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 2,
+   "actor": 62,
+   "pos": [
+    0,
+    2.057,
+    0
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/ks_mizu.glb",
+   "collision": "collision/ks_mizu.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 3,
+   "actor": 180,
+   "pos": [
+    0,
+    1.478,
+    2.9
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/star_base.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 4,
+   "actor": 288,
+   "pos": [
+    0.3,
+    -0.34,
+    -2.7
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/arc0_5.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 5,
+   "actor": 288,
+   "pos": [
+    -0.25,
+    -0.07,
+    0.7
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/arc0_5.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 6,
+   "actor": 288,
+   "pos": [
+    0.55,
+    -0.34,
+    -2.6
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/arc0_5.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 7,
+   "actor": 288,
+   "pos": [
+    0.75,
+    0.925,
+    2.65
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/arc0_5.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 8,
+   "actor": 288,
+   "pos": [
+    0.8,
+    -0.34,
+    -2.5
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/arc0_5.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 9,
+   "actor": 288,
+   "pos": [
+    0.85,
+    -0.035,
+    0.95
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/arc0_5.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 10,
+   "actor": 288,
+   "pos": [
+    0.25,
+    0.315,
+    1.55
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/arc0_5.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 11,
+   "actor": 288,
+   "pos": [
+    -0.25,
+    0.68,
+    1.9
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/arc0_5.glb",
+   "props": {
+    "scale": 0.008
+   }
+  }
+ ]
+}

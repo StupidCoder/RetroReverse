@@ -1,0 +1,19 @@
+{
+ "collision": "collision/desert_land.glb",
+ "format": 2,
+ "kind": "mesh3d",
+ "mesh": {
+  "glb": "models/desert_land_all.glb"
+ },
+ "name": "Shifting Sand Land",
+ "objectsFile": "desert_land_all.objects.json",
+ "sky": "models/vr06.glb",
+ "spawn": {
+  "pos": [
+   0.7,
+   1.737,
+   6.15
+  ],
+  "rot": 90
+ }
+}

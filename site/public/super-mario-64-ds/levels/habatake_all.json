@@ -1,0 +1,19 @@
+{
+ "collision": "collision/habatake.glb",
+ "format": 2,
+ "kind": "mesh3d",
+ "mesh": {
+  "glb": "models/habatake_all.glb"
+ },
+ "name": "? Switch",
+ "objectsFile": "habatake_all.objects.json",
+ "sky": "models/vr02.glb",
+ "spawn": {
+  "pos": [
+   -4,
+   2.866,
+   0
+  ],
+  "rot": 90
+ }
+}

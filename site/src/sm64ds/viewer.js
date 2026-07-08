@@ -11,8 +11,12 @@ import { FlyCam, flyHint } from '../shared/flycam.js';
 import { InfoCard } from '../shared/infocard.js';
 import { clone as cloneSkinned } from 'three/addons/utils/SkeletonUtils.js';
 
-const MODELS = 'public/sm64ds/models/';
-const COLLISION = 'public/sm64ds/collision/';
+// Format-2 asset tree. Every GLB path inside the JSON (models/…, collision/…)
+// is already root-relative to this base, so load them as BASE + path.
+const BASE = 'public/super-mario-64-ds/';
+// Bare stem of a "models/foo.glb" / "collision/foo.glb" path — the key our
+// per-model behavior tables (PATROL, COIN_MODELS, ACTOR_INFO, …) are keyed on.
+const stemOf = (p) => (p ? p.replace(/^.*\//, '').replace(/\.glb$/, '') : null);
 
 // Clip choice: clip names end in walk/wait/run + an optional number
 // (bombking_walk1, kuribo_wait). Patrolling actors lead with their walk;
@@ -302,7 +306,26 @@ export class ModelViewer {
   }
 
   async init() {
-    this.models = await fetch('public/sm64ds/models.json').then(r => r.json());
+    // The browse list is the format-2 manifest: its levels (Levels section,
+    // level-kind entries that resolve to a level envelope) followed by its
+    // plain model GLBs, grouped by their section (Characters/Enemies/Objects/
+    // Skyboxes) exactly as before.
+    const manifest = await fetch(BASE + 'manifest.json').then(r => r.json());
+    this.manifest = manifest;
+    const levels = (manifest.levels || []).map(l => ({
+      name: l.name,
+      section: l.section || 'Levels',
+      kind: 'level',
+      file: l.file,          // the level envelope json (levels/<stem>.json)
+      objects: l.objects,    // present => the studio shows the object/collision layer toggles
+    }));
+    const models = (manifest.models || []).map(m => ({
+      name: m.name,
+      section: m.section,
+      kind: 'model',
+      file: m.file,          // models/<stem>.glb, root-relative to BASE
+    }));
+    this.models = levels.concat(models);
     return this.models;
   }
 
@@ -323,77 +346,109 @@ export class ModelViewer {
     const m = this.models[i];
     if (!m) return;
     const gen = ++this.gen;
-    this.loader.load(MODELS + m.file, (gltf) => {
-      if (gen !== this.gen) return; // superseded
-      const { scene, camera, controls } = this.three;
-      this._dispose();
-      this._disposeObjects();
+    if (m.kind === 'level') this._loadLevel(m, gen);
+    else this._loadPlainModel(m, gen);
+  }
 
-      const group = gltf.scene;
-      let tris = 0;
-      group.traverse(o => {
-        if (o.isMesh) {
-          tris += (o.geometry.attributes.position.count / 3) | 0;
-          if (o.material && o.material.map) {
-            o.material.map.magFilter = THREE.NearestFilter; // DS textures are tiny: keep crisp
-            o.material.map.needsUpdate = true;
-          }
-          if (o.isSkinnedMesh) o.frustumCulled = false;
+  // Install a loaded GLB as the main scene group: keep DS textures crisp, play
+  // an enemy's first clip, frame the camera, and switch fly/orbit controls.
+  // Returns the group's bounding size (stage units) for downstream fitting.
+  _installMain(gltf, isLevel, name) {
+    const { scene, camera, controls } = this.three;
+    this._dispose();
+    this._disposeObjects();
+
+    const group = gltf.scene;
+    let tris = 0;
+    group.traverse(o => {
+      if (o.isMesh) {
+        tris += (o.geometry.attributes.position.count / 3) | 0;
+        if (o.material && o.material.map) {
+          o.material.map.magFilter = THREE.NearestFilter; // DS textures are tiny: keep crisp
+          o.material.map.needsUpdate = true;
         }
-      });
-      // Animated models (the enemies) play their first .bca clip in the gallery.
-      group.traverse(o => { if (o.userData && o.userData.billboard) this.bbBones.push(o); });
-      if (gltf.animations && gltf.animations.length) {
-        const mx = new THREE.AnimationMixer(group);
-        const clip = pickClip(gltf.animations, ['walk', 'run', 'wait']);
-        mx.clipAction(clip).play();
-        this.mixers.push(mx);
+        if (o.isSkinnedMesh) o.frustumCulled = false;
       }
-      scene.add(group);
-      this.three.group = group;
+    });
+    // Animated models (the enemies) play their first .bca clip in the gallery.
+    group.traverse(o => { if (o.userData && o.userData.billboard) this.bbBones.push(o); });
+    if (gltf.animations && gltf.animations.length) {
+      const mx = new THREE.AnimationMixer(group);
+      const clip = pickClip(gltf.animations, ['walk', 'run', 'wait']);
+      mx.clipAction(clip).play();
+      this.mixers.push(mx);
+    }
+    scene.add(group);
+    this.three.group = group;
 
-      const box = new THREE.Box3().setFromObject(group);
-      const c = box.getCenter(new THREE.Vector3());
-      const size = box.getSize(new THREE.Vector3()).length() || 1;
-      controls.target.copy(c);
-      camera.position.set(c.x + size * 0.7, c.y + size * 0.5, c.z + size * 0.7);
-      camera.near = size / 200;
-      camera.far = size * 20;
-      camera.updateProjectionMatrix();
-      controls.update();
+    const box = new THREE.Box3().setFromObject(group);
+    const c = box.getCenter(new THREE.Vector3());
+    const size = box.getSize(new THREE.Vector3()).length() || 1;
+    controls.target.copy(c);
+    camera.position.set(c.x + size * 0.7, c.y + size * 0.5, c.z + size * 0.7);
+    camera.near = size / 200;
+    camera.far = size * 20;
+    camera.updateProjectionMatrix();
+    controls.update();
 
-      // Levels get fly controls (no auto-rotation); everything else keeps the orbit.
-      const isLevel = m.section === 'Levels';
-      controls.autoRotate = !isLevel;
-      this.fly.setScale(size);
-      this.fly.setEnabled(isLevel);
+    // Levels get fly controls (no auto-rotation); everything else keeps the orbit.
+    controls.autoRotate = !isLevel;
+    this.fly.setScale(size);
+    this.fly.setEnabled(isLevel);
 
-      if (this.hud) {
-        this.hud.textContent = `${m.name} — ${tris.toLocaleString()} triangles, textures as shipped on cartridge` +
-          (isLevel ? ` · ${flyHint}` : '');
+    if (this.hud) {
+      this.hud.textContent = `${name} — ${tris.toLocaleString()} triangles, textures as shipped on cartridge` +
+        (isLevel ? ` · ${flyHint}` : '');
+    }
+    return size;
+  }
+
+  // A plain model entry: one GLB, root-relative to BASE.
+  _loadPlainModel(m, gen) {
+    this.loader.load(BASE + m.file, (gltf) => {
+      if (gen !== this.gen) return; // superseded
+      this._installMain(gltf, m.section === 'Levels', m.name);
+    });
+  }
+
+  // A level entry: fetch the level envelope, load its stage mesh, then its
+  // object placements (which also bring in the skybox + Mario spawn from the
+  // envelope). mesh.glb / sky / objects paths are all root-relative to BASE.
+  async _loadLevel(m, gen) {
+    let level;
+    try {
+      level = await fetch(BASE + m.file).then(r => r.json());
+    } catch { return; }
+    if (gen !== this.gen || !level || !level.mesh || !level.mesh.glb) return;
+    this.loader.load(BASE + level.mesh.glb, (gltf) => {
+      if (gen !== this.gen) return;
+      const size = this._installMain(gltf, true, level.name || m.name);
+      if (level.objectsFile) {
+        this._loadObjects('levels/' + level.objectsFile, gen, size, level);
       }
-
-      if (m.objects) this._loadObjects(m.objects, gen, size);
     });
   }
 
   // Place the level's objects (decoded from the level overlay's object tables).
   // Placements bound to an extracted model load it once and clone per instance;
   // the rest show as small markers — their models aren't extracted yet.
-  async _loadObjects(file, gen, size) {
+  async _loadObjects(file, gen, size, level) {
     let doc;
     try {
-      doc = await fetch('public/sm64ds/' + file).then(r => r.json());
+      doc = await fetch(BASE + file).then(r => r.json());
     } catch { return; }
     if (gen !== this.gen || !doc.objects) return;
 
+    // Prototypes are keyed by bare stem; the full "models/<stem>.glb" path
+    // comes straight off each placement's `model` field.
     const protos = new Map();
-    const wantProto = new Set(doc.objects.map(o => o.m).filter(Boolean));
-    if (wantProto.has('ar1_2')) wantProto.add('ar1_1'); // chomp brings its chain
-    for (const o of [...wantProto].map(m => ({ m }))) {
-      if (o.m && !protos.has(o.m)) {
-        protos.set(o.m, new Promise(res =>
-          this.loader.load(MODELS + o.m + '.glb', g => {
+    const wantProto = new Map(); // stem -> full glb path (root-relative to BASE)
+    for (const o of doc.objects) if (o.model) wantProto.set(stemOf(o.model), o.model);
+    if (wantProto.has('ar1_2')) wantProto.set('ar1_1', 'models/ar1_1.glb'); // chomp brings its chain
+    for (const [stem, path] of wantProto) {
+      if (!protos.has(stem)) {
+        protos.set(stem, new Promise(res =>
+          this.loader.load(BASE + path, g => {
             g.scene.traverse(n => {
               if (n.isMesh && n.material && n.material.map) {
                 n.material.map.magFilter = THREE.NearestFilter;
@@ -414,9 +469,17 @@ export class ModelViewer {
     const markerMat = new THREE.MeshBasicMaterial({ color: 0xffd75e, transparent: true, opacity: 0.75 });
     let placed = 0, markers = 0;
     for (const o of doc.objects) {
+      const props = o.props || {};
+      const model = o.model || null;            // full "models/<stem>.glb" path
+      const stem = stemOf(model);               // behavior-table key
+      const pos = o.pos;
+      const ry = (o.rot && o.rot[1]) || 0;      // yaw, degrees
+      // Scale rides with the model: default to the engine's GLB/125 only when a
+      // model is bound but the exporter emitted no explicit scale.
+      const scale = props.scale != null ? props.scale : (model ? 1 / 125 : null);
       let inst;
-      if (o.m) {
-        const proto = await protos.get(o.m);
+      if (model) {
+        const proto = await protos.get(stem);
         if (proto) {
           // Skinned models (the enemies) clone with their skeletons and play
           // their .bca walk cycle (decoded from the cartridge, 30 fps).
@@ -424,7 +487,7 @@ export class ModelViewer {
             inst = cloneSkinned(proto.scene);
             inst.traverse(n => { if (n.userData && n.userData.billboard) this.bbBones.push(n); });
             const clip = pickClip(proto.animations,
-              PATROL[o.m] ? ['walk', 'run', 'wait'] : ['wait', 'walk', 'run']);
+              PATROL[stem] ? ['walk', 'run', 'wait'] : ['wait', 'walk', 'run']);
             const mx = new THREE.AnimationMixer(inst);
             mx.clipAction(clip).play();
             // desync instances so a troop doesn't march in lockstep
@@ -433,18 +496,18 @@ export class ModelViewer {
           } else {
             inst = proto.scene.clone();
           }
-          if (o.s) inst.scale.setScalar(o.s);
-          if (o.b) bills.push(inst);
-          else if (o.ry) inst.rotation.y = o.ry * Math.PI / 180;
-          if (COIN_MODELS.has(o.m)) spinners.push(inst);
-          if (o.m === SIGN_MODEL) signs.push(inst);
-          if (o.m === 'ar1_2') { // chain chomp: anchored, with chain links
+          if (scale != null) inst.scale.setScalar(scale);
+          if (props.billboard) bills.push(inst);
+          else if (ry) inst.rotation.y = ry * Math.PI / 180;
+          if (COIN_MODELS.has(stem)) spinners.push(inst);
+          if (stem === SIGN_MODEL) signs.push(inst);
+          if (stem === 'ar1_2') { // chain chomp: anchored, with chain links
             const links = [];
             const linkProto = await protos.get('ar1_1');
             if (linkProto) {
               for (let i = 0; i < CHOMP.links; i++) {
                 const l = linkProto.scene.clone();
-                l.scale.setScalar(o.s || 1 / 125);
+                l.scale.setScalar(scale != null ? scale : 1 / 125);
                 group.add(l);
                 links.push(l);
                 bills.push(l); // the link disc is a single billboard-flagged bone
@@ -453,19 +516,19 @@ export class ModelViewer {
             // The body model's pivot is its centre; the engine's gravity rests
             // it on the ground, so lift by the model's half-depth.
             const cbox = new THREE.Box3().setFromObject(proto.scene);
-            const lift = -cbox.min.y * (o.s || 1 / 125);
+            const lift = -cbox.min.y * (scale != null ? scale : 1 / 125);
             this.chomps.push({
               obj: inst, links, lift, t: Math.random() * 2,
-              tx: o.p[0], tz: o.p[2],
-              home: { x: o.p[0], y: o.p[1], z: o.p[2] },
+              tx: pos[0], tz: pos[2],
+              home: { x: pos[0], y: pos[1], z: pos[2] },
             });
           }
-          if (PATROL[o.m]) {
-            const yaw = (o.ry || 0) * Math.PI / 180;
+          if (PATROL[stem]) {
+            const yaw = ry * Math.PI / 180;
             this.patrollers.push({
-              obj: inst, yaw, target: yaw, paused: false, cfg: PATROL[o.m],
-              timer: Math.random() * PATROL[o.m].repick,
-              home: { x: o.p[0], z: o.p[2] },
+              obj: inst, yaw, target: yaw, paused: false, cfg: PATROL[stem],
+              timer: Math.random() * PATROL[stem].repick,
+              home: { x: pos[0], z: pos[2] },
             });
           }
           placed++;
@@ -475,18 +538,20 @@ export class ModelViewer {
         inst = new THREE.Mesh(markerGeo, markerMat);
         markers++;
       }
-      inst.position.set(o.p[0], o.p[1], o.p[2]);
+      inst.position.set(pos[0], pos[1], pos[2]);
       group.add(inst);
-      this.placed.push({ obj: inst, actor: o.a, model: o.m || null, txt: o.txt || null });
+      this.placed.push({ obj: inst, actor: o.actor, model: stem, txt: props.text || null });
     }
     group.visible = this.wantObjects;
     this.three.scene.add(group);
     this.objectsGroup = group;
-    this._loadCollision(doc, gen);
+    this._loadCollision(doc, gen, level);
 
     // Mario at the level's first entrance (type-1 entry), idling (su_wait).
-    if (doc.mario) {
-      this.loader.load(MODELS + 'mario_model_mg.glb', g => {
+    // The spawn now lives on the level envelope: spawn.pos + spawn.rot (degrees).
+    const spawn = level && level.spawn;
+    if (spawn && spawn.pos) {
+      this.loader.load(BASE + 'models/mario_model_mg.glb', g => {
         if (gen !== this.gen) return;
         g.scene.traverse(n => {
           if (n.isMesh && n.material && n.material.map) {
@@ -497,8 +562,8 @@ export class ModelViewer {
         });
         const inst = cloneSkinned(g.scene);
         inst.scale.setScalar(1 / 125);
-        inst.position.set(doc.mario.p[0], doc.mario.p[1], doc.mario.p[2]);
-        inst.rotation.y = (doc.mario.ry || 0) * Math.PI / 180;
+        inst.position.set(spawn.pos[0], spawn.pos[1], spawn.pos[2]);
+        inst.rotation.y = (spawn.rot || 0) * Math.PI / 180;
         const clip = g.animations.find(a => a.name === 'su_wait') || g.animations[0];
         if (clip) {
           const mx = new THREE.AnimationMixer(inst);
@@ -510,9 +575,10 @@ export class ModelViewer {
     }
 
     // Skybox (settings +$18 -> vrbox table $02075620): camera-centred, drawn
-    // behind everything at the engine's NULL-scale object size (GLB/125).
-    if (doc.sky) {
-      this.loader.load(MODELS + doc.sky + '.glb', g => {
+    // behind everything at the engine's NULL-scale object size (GLB/125). The
+    // sky now lives on the level envelope as a full "models/<vr>.glb" path.
+    if (level && level.sky) {
+      this.loader.load(BASE + level.sky, g => {
         if (gen !== this.gen) return;
         g.scene.traverse(n => {
           if (n.isMesh) {
@@ -553,14 +619,20 @@ export class ModelViewer {
   // binding oracle), reconstructed from the prism records and baked red.
   // Exported in stage-GLB units: the level map sits at the origin, object
   // colliders at their placement with only the placement yaw.
-  async _loadCollision(doc, gen) {
-    const stems = new Set();
-    if (doc.col) stems.add(doc.col);
-    for (const o of doc.objects) if (o.c) stems.add(o.c);
-    if (!stems.size) return;
+  async _loadCollision(doc, gen, level) {
+    // Collider GLB paths are full ("collision/<stem>.glb") and used as the map
+    // key. The stage's OWN collision mesh is an optional `collision` field on
+    // the level envelope; format-2 does not currently export it (see GAP note),
+    // so this reads it only when present and otherwise the stage collider is
+    // gracefully absent.
+    const paths = new Set();
+    const stageCol = level && level.collision;
+    if (stageCol) paths.add(stageCol);
+    for (const o of doc.objects) if (o.collision) paths.add(o.collision);
+    if (!paths.size) return;
     const protos = new Map();
-    await Promise.all([...stems].map(s => new Promise(res =>
-      this.loader.load(COLLISION + s + '.glb', g => {
+    await Promise.all([...paths].map(p => new Promise(res =>
+      this.loader.load(BASE + p, g => {
         g.scene.traverse(n => {
           if (n.isMesh && n.material) {
             // walls are seen from both sides, and collision faces are often
@@ -572,30 +644,33 @@ export class ModelViewer {
             n.material.polygonOffsetUnits = -1;
           }
         });
-        protos.set(s, g.scene);
+        protos.set(p, g.scene);
         res();
       }, undefined, () => res()))));
     if (gen !== this.gen) return;
     const group = new THREE.Group();
-    if (doc.col && protos.has(doc.col)) group.add(protos.get(doc.col).clone());
+    if (stageCol && protos.has(stageCol)) group.add(protos.get(stageCol).clone());
     for (const o of doc.objects) {
-      if (!o.c || !protos.has(o.c)) continue;
+      if (!o.collision || !protos.has(o.collision)) continue;
+      const props = o.props || {};
+      const pos = o.pos;
+      const ry = (o.rot && o.rot[1]) || 0;
       // outer node = the placement pose; inner node = the collider's own
       // registered transform (the MtxFx43 the oracle read at +$134 — a
       // row-vector matrix, so its 3x3 transposes into three.js's column
       // convention; object .kcl are authored ~10x and scaled down here)
       const outer = new THREE.Group();
-      outer.position.set(o.p[0], o.p[1], o.p[2]);
-      if (o.ry) outer.rotation.y = o.ry * Math.PI / 180;
-      const inst = protos.get(o.c).clone();
-      if (o.cm) {
-        const a = o.cm;
+      outer.position.set(pos[0], pos[1], pos[2]);
+      if (ry) outer.rotation.y = ry * Math.PI / 180;
+      const inst = protos.get(o.collision).clone();
+      if (props.colMtx) {
+        const a = props.colMtx;
         const m = new THREE.Matrix4().set(
           a[0], a[3], a[6], a[9],
           a[1], a[4], a[7], a[10],
           a[2], a[5], a[8], a[11],
           0, 0, 0, 1);
-        if (o.cy) m.multiply(new THREE.Matrix4().makeScale(1, o.cy, 1));
+        if (props.colScaleY) m.multiply(new THREE.Matrix4().makeScale(1, props.colScaleY, 1));
         inst.matrixAutoUpdate = false;
         inst.matrix.copy(m);
       }

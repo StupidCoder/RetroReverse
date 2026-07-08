@@ -1,0 +1,3414 @@
+{
+ "format": 2,
+ "level": "cave_all",
+ "objects": [
+  {
+   "id": 0,
+   "actor": 184,
+   "pos": [
+    -5.893,
+    2,
+    5.846
+   ],
+   "rot": [
+    0,
+    -45,
+    0
+   ],
+   "model": "models/obj_tatefuda.glb",
+   "collision": "collision/obj_tatefuda.glb",
+   "props": {
+    "colMtx": [
+     0.09985,
+     0,
+     0,
+     0,
+     0.09985,
+     0,
+     0,
+     0,
+     0.09985,
+     0,
+     0,
+     0
+    ],
+    "scale": 0.008,
+    "text": "Both ways fraught with\ndanger! Watch your feet!\nThose who can't do the\nlong jump, tsk, tsk. \nMake your way to \nthe right.\nRight: Work Elevator\n       Hazy Maze\nLeft: Black Hole\n      Underground Lake\nRed Circle: Elevator 2\n      Underground Lake\nArrow: You are here"
+   }
+  },
+  {
+   "id": 1,
+   "actor": 184,
+   "pos": [
+    -6.575,
+    1.81,
+    4.527
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/obj_tatefuda.glb",
+   "collision": "collision/obj_tatefuda.glb",
+   "props": {
+    "colMtx": [
+     0.09985,
+     0,
+     0,
+     0,
+     0.09985,
+     0,
+     0,
+     0,
+     0.09985,
+     0,
+     0,
+     0
+    ],
+    "scale": 0.008,
+    "text": "Slide down a slope \nby crouching.\nOr, crouch in the air to\npound the ground.\nIf you stop, crouch, \nthen jump, you'll do a\nbackward somersault!\nGot that? There's more.\nCrouch and then jump \nwhile running to do a \nlong jump! \nOr crouch and walk to...\nNever mind. It's a \nsecret."
+   }
+  },
+  {
+   "id": 2,
+   "actor": 255,
+   "pos": [
+    -6.25,
+    2,
+    6.65
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/spider.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 3,
+   "actor": 20,
+   "pos": [
+    -6.8,
+    2.35,
+    7.2
+   ],
+   "rot": [
+    0,
+    -45,
+    0
+   ],
+   "model": "models/hatena_karabox.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 4,
+   "actor": 255,
+   "pos": [
+    -3.6,
+    1.7,
+    6
+   ],
+   "rot": [
+    0,
+    -90,
+    0
+   ],
+   "model": "models/spider.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 5,
+   "actor": 318,
+   "pos": [
+    -2.85,
+    1.6,
+    4.5
+   ],
+   "rot": [
+    0,
+    -45,
+    0
+   ]
+  },
+  {
+   "id": 6,
+   "actor": 318,
+   "pos": [
+    -0.45,
+    1.6,
+    3.4
+   ],
+   "rot": [
+    0,
+    -90,
+    0
+   ]
+  },
+  {
+   "id": 7,
+   "actor": 318,
+   "pos": [
+    -0.45,
+    1.6,
+    3.75
+   ],
+   "rot": [
+    0,
+    -90,
+    0
+   ]
+  },
+  {
+   "id": 8,
+   "actor": 184,
+   "pos": [
+    -6.825,
+    2.11,
+    6.96
+   ],
+   "rot": [
+    0,
+    -45,
+    0
+   ],
+   "model": "models/obj_tatefuda.glb",
+   "collision": "collision/obj_tatefuda.glb",
+   "props": {
+    "colMtx": [
+     0.09985,
+     0,
+     0,
+     0,
+     0.09985,
+     0,
+     0,
+     0,
+     0.09985,
+     0,
+     0,
+     0
+    ],
+    "scale": 0.008,
+    "text": "In Standard Mode, press \n to center the\ncamera behind you. \nEven when it's hard to \nsee what's around you, \nrelax and press .\nA word of advice:\nkeep going but don't rush."
+   }
+  },
+  {
+   "id": 9,
+   "actor": 194,
+   "pos": [
+    -6.109,
+    2,
+    5.621
+   ],
+   "rot": [
+    0,
+    -45,
+    0
+   ],
+   "model": "models/broken_block_s.glb",
+   "collision": "collision/broken_block_s.glb",
+   "props": {
+    "colMtx": [
+     0.09985,
+     0,
+     0,
+     0,
+     0.09985,
+     0,
+     0,
+     0,
+     0.09985,
+     0,
+     -0.002,
+     0
+    ],
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 10,
+   "actor": 288,
+   "pos": [
+    -2.45,
+    2,
+    4.63
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/arc0_5.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 11,
+   "actor": 288,
+   "pos": [
+    -2.3,
+    2,
+    4.48
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/arc0_5.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 12,
+   "actor": 288,
+   "pos": [
+    -2.15,
+    2,
+    4.33
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/arc0_5.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 13,
+   "actor": 288,
+   "pos": [
+    -2,
+    2,
+    4.25
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/arc0_5.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 14,
+   "actor": 288,
+   "pos": [
+    -1.85,
+    2,
+    4.17
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/arc0_5.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 15,
+   "actor": 200,
+   "pos": [
+    -3,
+    2,
+    5.1
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/kuribo_model.glb",
+   "props": {
+    "layer": 2,
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 16,
+   "actor": 33,
+   "pos": [
+    -3.167,
+    1.4,
+    1.358
+   ],
+   "rot": [
+    0,
+    26.565,
+    0
+   ],
+   "model": "models/cv_ud_lift.glb",
+   "collision": "collision/cv_ud_lift.glb",
+   "props": {
+    "colMtx": [
+     0.09985,
+     0,
+     0,
+     0,
+     0.09985,
+     0,
+     0,
+     0,
+     0.09985,
+     0,
+     0,
+     0
+    ],
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 17,
+   "actor": 68,
+   "pos": [
+    1.1,
+    0.95,
+    6.2
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/cv_news_lift.glb",
+   "collision": "collision/cv_news_lift.glb",
+   "props": {
+    "colMtx": [
+     0.09985,
+     0,
+     0,
+     0,
+     0.09985,
+     0,
+     0,
+     0,
+     0.09985,
+     0,
+     0,
+     0
+    ],
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 18,
+   "actor": 184,
+   "pos": [
+    0.821,
+    2,
+    3.545
+   ],
+   "rot": [
+    0,
+    -88.995,
+    0
+   ],
+   "model": "models/obj_tatefuda.glb",
+   "collision": "collision/obj_tatefuda.glb",
+   "props": {
+    "colMtx": [
+     0.09985,
+     0,
+     0,
+     0,
+     0.09985,
+     0,
+     0,
+     0,
+     0.09985,
+     0,
+     0,
+     0
+    ],
+    "scale": 0.008,
+    "text": "Work Elevator\nFor those who get off\nhere: grab the pole to\nthe left and slide \ndown carefully."
+   }
+  },
+  {
+   "id": 19,
+   "actor": 184,
+   "pos": [
+    2.284,
+    0,
+    2.657
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/obj_tatefuda.glb",
+   "collision": "collision/obj_tatefuda.glb",
+   "props": {
+    "colMtx": [
+     0.09985,
+     0,
+     0,
+     0,
+     0.09985,
+     0,
+     0,
+     0,
+     0.09985,
+     0,
+     0,
+     0
+    ],
+    "scale": 0.008,
+    "text": "Elevator Area\nRight: Hazy Maze\n       Entrance\nLeft: Black Hole\n      Elevator 1\nArrow: You are here"
+   }
+  },
+  {
+   "id": 20,
+   "actor": 184,
+   "pos": [
+    5.253,
+    0,
+    2.644
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/obj_tatefuda.glb",
+   "collision": "collision/obj_tatefuda.glb",
+   "props": {
+    "colMtx": [
+     0.09985,
+     0,
+     0,
+     0,
+     0.09985,
+     0,
+     0,
+     0,
+     0.09985,
+     0,
+     0,
+     0
+    ],
+    "scale": 0.008,
+    "text": "Hazy Maze Exit\nDanger! Closed.\nTurn back now."
+   }
+  },
+  {
+   "id": 21,
+   "actor": 184,
+   "pos": [
+    0.442,
+    0,
+    5.264
+   ],
+   "rot": [
+    0,
+    90,
+    0
+   ],
+   "model": "models/obj_tatefuda.glb",
+   "collision": "collision/obj_tatefuda.glb",
+   "props": {
+    "colMtx": [
+     0.09985,
+     0,
+     0,
+     0,
+     0.09985,
+     0,
+     0,
+     0,
+     0.09985,
+     0,
+     0,
+     0
+    ],
+    "scale": 0.008,
+    "text": "Above:\nAutomatic Elevator\nElevator begins\nautomatically and \nfollows a set course.\n\nIt disappears\nautomatically, too."
+   }
+  },
+  {
+   "id": 22,
+   "actor": 184,
+   "pos": [
+    1.916,
+    0,
+    6.624
+   ],
+   "rot": [
+    0,
+    -180,
+    0
+   ],
+   "model": "models/obj_tatefuda.glb",
+   "collision": "collision/obj_tatefuda.glb",
+   "props": {
+    "colMtx": [
+     0.09985,
+     0,
+     0,
+     0,
+     0.09985,
+     0,
+     0,
+     0,
+     0.09985,
+     0,
+     0,
+     0
+    ],
+    "scale": 0.008,
+    "text": "Work Elevator\nDanger!!\nRead instructions\nthoroughly!\n\nStep on an arrow to\nmove the elevator in \nthat direction. \n\n\nOnce you hop off the\nelevator, it will return\nto its original location."
+   }
+  },
+  {
+   "id": 23,
+   "actor": 184,
+   "pos": [
+    -3,
+    0,
+    0.61
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/obj_tatefuda.glb",
+   "collision": "collision/obj_tatefuda.glb",
+   "props": {
+    "colMtx": [
+     0.09985,
+     0,
+     0,
+     0,
+     0.09985,
+     0,
+     0,
+     0,
+     0.09985,
+     0,
+     0,
+     0
+    ],
+    "scale": 0.008,
+    "text": "Elevator 1\nUp: Black Hole\nRight: Work Elevator\n       Hazy Maze\n"
+   }
+  },
+  {
+   "id": 24,
+   "actor": 287,
+   "pos": [
+    0.868,
+    1,
+    3.2
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ]
+  },
+  {
+   "id": 25,
+   "actor": 287,
+   "pos": [
+    0.78,
+    1,
+    4.33
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ]
+  },
+  {
+   "id": 26,
+   "actor": 255,
+   "pos": [
+    5.4,
+    0,
+    3.25
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/spider.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 27,
+   "actor": 255,
+   "pos": [
+    3.8,
+    0,
+    6.1
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/spider.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 28,
+   "actor": 15,
+   "pos": [
+    2.95,
+    1,
+    4.95
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/broken_block_l.glb",
+   "collision": "collision/broken_block_l.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 29,
+   "actor": 15,
+   "pos": [
+    4.15,
+    1,
+    5.5
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/broken_block_l.glb",
+   "collision": "collision/broken_block_l.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 30,
+   "actor": 15,
+   "pos": [
+    6.05,
+    1,
+    4.75
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/broken_block_l.glb",
+   "collision": "collision/broken_block_l.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 31,
+   "actor": 262,
+   "pos": [
+    4.534,
+    1.1,
+    4.665
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/eyekun.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 32,
+   "actor": 15,
+   "pos": [
+    1,
+    1.8,
+    5
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/broken_block_l.glb",
+   "collision": "collision/broken_block_l.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 33,
+   "actor": 31,
+   "pos": [
+    1.25,
+    1.975,
+    5
+   ],
+   "rot": [
+    0,
+    -180,
+    0
+   ],
+   "model": "models/ar1_13.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 34,
+   "actor": 15,
+   "pos": [
+    3.1,
+    2,
+    3
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/broken_block_l.glb",
+   "collision": "collision/broken_block_l.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 35,
+   "actor": 316,
+   "pos": [
+    6.33,
+    0.45,
+    3.15
+   ],
+   "rot": [
+    0,
+    -90,
+    0
+   ]
+  },
+  {
+   "id": 36,
+   "actor": 316,
+   "pos": [
+    6.75,
+    0.45,
+    3.61
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ]
+  },
+  {
+   "id": 37,
+   "actor": 316,
+   "pos": [
+    6.75,
+    0.45,
+    6.39
+   ],
+   "rot": [
+    0,
+    -180,
+    0
+   ]
+  },
+  {
+   "id": 38,
+   "actor": 316,
+   "pos": [
+    6.33,
+    0.45,
+    6.85
+   ],
+   "rot": [
+    0,
+    -90,
+    0
+   ]
+  },
+  {
+   "id": 39,
+   "actor": 316,
+   "pos": [
+    1.05,
+    0.45,
+    6.4
+   ],
+   "rot": [
+    0,
+    -180,
+    0
+   ]
+  },
+  {
+   "id": 40,
+   "actor": 316,
+   "pos": [
+    3.727,
+    0.7,
+    1.01
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ]
+  },
+  {
+   "id": 41,
+   "actor": 200,
+   "pos": [
+    7.062,
+    0.012,
+    5.444
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/kuribo_model.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 42,
+   "actor": 12,
+   "pos": [
+    6.249,
+    0.001,
+    7.35
+   ],
+   "rot": [
+    0,
+    -90,
+    0
+   ],
+   "model": "models/obj_star_switch.glb",
+   "collision": "collision/obj_star_switch.glb",
+   "props": {
+    "colMtx": [
+     0.09985,
+     0,
+     0,
+     0,
+     0.09985,
+     0,
+     0,
+     0,
+     0.09985,
+     0,
+     -0.043,
+     0
+    ],
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 43,
+   "actor": 17,
+   "pos": [
+    6.249,
+    0,
+    7.35
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/broken_block_ll.glb",
+   "collision": "collision/broken_block_ll.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 44,
+   "actor": 269,
+   "pos": [
+    2.156,
+    0.001,
+    7.166
+   ],
+   "rot": [
+    0,
+    135,
+    0
+   ],
+   "model": "models/arc0_17.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 45,
+   "actor": 200,
+   "pos": [
+    6.645,
+    0,
+    5.984
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/kuribo_model.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 46,
+   "actor": 269,
+   "pos": [
+    2.843,
+    0.001,
+    7.166
+   ],
+   "rot": [
+    0,
+    135,
+    0
+   ],
+   "model": "models/arc0_16.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 47,
+   "actor": 184,
+   "pos": [
+    0.447,
+    0,
+    4.539
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/obj_tatefuda.glb",
+   "collision": "collision/obj_tatefuda.glb",
+   "props": {
+    "colMtx": [
+     0.09985,
+     0,
+     0,
+     0,
+     0.09985,
+     0,
+     0,
+     0,
+     0.09985,
+     0,
+     0,
+     0
+    ],
+    "scale": 0.008,
+    "text": "Do you know the famous\nwall jump?\nHop onto a high place\nby first jumping toward\na wall.\nAs soon as you touch \nthe wall, jump again to\nrocket into the air.\n\n\nOnly a superhero with\na red hat can jump this\nhigh. Practice it well!"
+   }
+  },
+  {
+   "id": 48,
+   "actor": 184,
+   "pos": [
+    6.249,
+    0.001,
+    7
+   ],
+   "rot": [
+    0,
+    -180,
+    0
+   ],
+   "model": "models/obj_tatefuda.glb",
+   "collision": "collision/obj_tatefuda.glb",
+   "props": {
+    "colMtx": [
+     0.09985,
+     0,
+     0,
+     0,
+     0.09985,
+     0,
+     0,
+     0,
+     0.09985,
+     0,
+     0,
+     0
+    ],
+    "scale": 0.008,
+    "text": "The very hard-looking \nblock in front of you \nreally IS hard.\nHitting it is not advised.\nBut if you're shaped like\na rock--and have rocks \nfor brains--you'll \nprobably do it anyway. "
+   }
+  },
+  {
+   "id": 49,
+   "actor": 180,
+   "pos": [
+    3.743,
+    0.05,
+    4.832
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/star_base.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 50,
+   "actor": 289,
+   "pos": [
+    6.7,
+    1,
+    3.2
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/arc0_7.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 51,
+   "actor": 289,
+   "pos": [
+    5.631,
+    2,
+    5.804
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/arc0_7.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 52,
+   "actor": 289,
+   "pos": [
+    2.85,
+    2,
+    6.4
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/arc0_7.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 53,
+   "actor": 289,
+   "pos": [
+    2.05,
+    2,
+    6.4
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/arc0_7.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 54,
+   "actor": 289,
+   "pos": [
+    4.672,
+    2.1,
+    3.816
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/arc0_7.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 55,
+   "actor": 289,
+   "pos": [
+    3.1,
+    2.1,
+    3
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/arc0_7.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 56,
+   "actor": 289,
+   "pos": [
+    2.95,
+    1.1,
+    4.95
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/arc0_7.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 57,
+   "actor": 289,
+   "pos": [
+    4.15,
+    1.1,
+    5.5
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/arc0_7.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 58,
+   "actor": 180,
+   "pos": [
+    1.146,
+    1.25,
+    4.248
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/star_base.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 59,
+   "actor": 181,
+   "pos": [
+    0.747,
+    1,
+    6.661
+   ],
+   "rot": [
+    0,
+    90,
+    0
+   ],
+   "model": "models/red_bombhei.glb",
+   "props": {
+    "layer": 2,
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 60,
+   "actor": 184,
+   "pos": [
+    2.45,
+    0.2,
+    -0.05
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/obj_tatefuda.glb",
+   "collision": "collision/obj_tatefuda.glb",
+   "props": {
+    "colMtx": [
+     0.09985,
+     0,
+     0,
+     0,
+     0.09985,
+     0,
+     0,
+     0,
+     0.09985,
+     0,
+     0,
+     0
+    ],
+    "scale": 0.008,
+    "text": "Danger Ahead!\nBeware of the strange\ntoxic cloud! Don't \nbreathe it!\nIf you feel faint, run\nfor higher ground and \nfresh air!\n\nCircle: Shelter\nArrow: Entrance-Exit"
+   }
+  },
+  {
+   "id": 61,
+   "actor": 184,
+   "pos": [
+    2.9,
+    0.2,
+    -0.05
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/obj_tatefuda.glb",
+   "collision": "collision/obj_tatefuda.glb",
+   "props": {
+    "colMtx": [
+     0.09985,
+     0,
+     0,
+     0,
+     0.09985,
+     0,
+     0,
+     0,
+     0.09985,
+     0,
+     0,
+     0
+    ],
+    "scale": 0.008,
+    "text": "The Power Flower gives\nstrength according to\nthe personality of the\nperson who plucked it.\nIron man Wario will turn\ninto a metal man!\nHe won't be burned or \nhurt by enemy attacks.\nHe doesn't even have to\nbreathe while wearing it.\nThe only problem:\nhe can't swim in it."
+   }
+  },
+  {
+   "id": 62,
+   "actor": 236,
+   "pos": [
+    2.2,
+    -0.65,
+    -5.35
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/yurei_mucho.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 63,
+   "actor": 237,
+   "pos": [
+    4.8,
+    -0.65,
+    -5.15
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/basabasa.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 64,
+   "actor": 237,
+   "pos": [
+    5.3,
+    -0.65,
+    -4.95
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/basabasa.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 65,
+   "actor": 237,
+   "pos": [
+    5,
+    -0.6,
+    -4.55
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/basabasa.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 66,
+   "actor": 237,
+   "pos": [
+    5.5,
+    -0.55,
+    -4.35
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/basabasa.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 67,
+   "actor": 20,
+   "pos": [
+    5,
+    -0.65,
+    -4.25
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/hatena_karabox.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 68,
+   "actor": 10,
+   "pos": [
+    5,
+    -0.75,
+    -2.85
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/b_coin_switch.glb",
+   "collision": "collision/b_coin_switch.glb",
+   "props": {
+    "colMtx": [
+     0.09985,
+     0,
+     0,
+     0,
+     0.09985,
+     0,
+     0,
+     0,
+     0.09985,
+     0,
+     0,
+     0
+    ],
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 69,
+   "actor": 236,
+   "pos": [
+    5.8,
+    -0.6,
+    -1.1
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/yurei_mucho.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 70,
+   "actor": 20,
+   "pos": [
+    5.75,
+    -0.6,
+    -0.7
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/hatena_karabox.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 71,
+   "actor": 236,
+   "pos": [
+    4.45,
+    -0.75,
+    -1.5
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/yurei_mucho.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 72,
+   "actor": 310,
+   "pos": [
+    3,
+    -0.745,
+    -1.25
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/choropu.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 73,
+   "actor": 310,
+   "pos": [
+    3.25,
+    -0.745,
+    -1.5
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/choropu.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 74,
+   "actor": 236,
+   "pos": [
+    2.05,
+    -0.75,
+    -1.55
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/yurei_mucho.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 75,
+   "actor": 20,
+   "pos": [
+    1.9,
+    -0.6,
+    -2.85
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/hatena_karabox.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 76,
+   "actor": 310,
+   "pos": [
+    2.6,
+    -0.745,
+    -4
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/choropu.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 77,
+   "actor": 316,
+   "pos": [
+    1.72,
+    0.65,
+    0
+   ],
+   "rot": [
+    0,
+    90,
+    0
+   ]
+  },
+  {
+   "id": 78,
+   "actor": 316,
+   "pos": [
+    1.95,
+    0.65,
+    -0.23
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ]
+  },
+  {
+   "id": 79,
+   "actor": 316,
+   "pos": [
+    2.18,
+    -0.45,
+    0.25
+   ],
+   "rot": [
+    0,
+    -90,
+    0
+   ]
+  },
+  {
+   "id": 80,
+   "actor": 316,
+   "pos": [
+    1.72,
+    -0.45,
+    0.25
+   ],
+   "rot": [
+    0,
+    90,
+    0
+   ]
+  },
+  {
+   "id": 81,
+   "actor": 316,
+   "pos": [
+    1.72,
+    -0.45,
+    -2.55
+   ],
+   "rot": [
+    0,
+    90,
+    0
+   ]
+  },
+  {
+   "id": 82,
+   "actor": 316,
+   "pos": [
+    3.38,
+    -0.25,
+    -1.1
+   ],
+   "rot": [
+    0,
+    -90,
+    0
+   ]
+  },
+  {
+   "id": 83,
+   "actor": 316,
+   "pos": [
+    4.58,
+    -0.35,
+    -0.75
+   ],
+   "rot": [
+    0,
+    -90,
+    0
+   ]
+  },
+  {
+   "id": 84,
+   "actor": 316,
+   "pos": [
+    4.08,
+    -0.25,
+    -3.76
+   ],
+   "rot": [
+    0,
+    -90,
+    0
+   ]
+  },
+  {
+   "id": 85,
+   "actor": 316,
+   "pos": [
+    4.82,
+    -0.35,
+    -4.05
+   ],
+   "rot": [
+    0,
+    90,
+    0
+   ]
+  },
+  {
+   "id": 86,
+   "actor": 316,
+   "pos": [
+    5.38,
+    -0.25,
+    -3.35
+   ],
+   "rot": [
+    0,
+    -90,
+    0
+   ]
+  },
+  {
+   "id": 87,
+   "actor": 316,
+   "pos": [
+    4.9,
+    -0.45,
+    -5.43
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ]
+  },
+  {
+   "id": 88,
+   "actor": 297,
+   "pos": [
+    5.443,
+    -0.7,
+    -2.623
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/obj_heart.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 89,
+   "actor": 15,
+   "pos": [
+    4.221,
+    -1,
+    -1.729
+   ],
+   "rot": [
+    0,
+    45,
+    0
+   ],
+   "model": "models/broken_block_l.glb",
+   "collision": "collision/broken_block_l.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 90,
+   "actor": 288,
+   "pos": [
+    2.95,
+    0.2,
+    0.5
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/arc0_5.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 91,
+   "actor": 288,
+   "pos": [
+    2.8,
+    0.2,
+    0.5
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/arc0_5.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 92,
+   "actor": 288,
+   "pos": [
+    2.65,
+    0.2,
+    0.5
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/arc0_5.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 93,
+   "actor": 288,
+   "pos": [
+    2.5,
+    0.2,
+    0.5
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/arc0_5.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 94,
+   "actor": 288,
+   "pos": [
+    2.35,
+    0.2,
+    0.5
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/arc0_5.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 95,
+   "actor": 290,
+   "pos": [
+    4,
+    -1,
+    -2.8
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/ar1_6.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 96,
+   "actor": 290,
+   "pos": [
+    3.75,
+    -1,
+    -3.95
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/ar1_6.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 97,
+   "actor": 290,
+   "pos": [
+    3.05,
+    -0.874,
+    -4
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/ar1_6.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 98,
+   "actor": 290,
+   "pos": [
+    2.25,
+    -0.9,
+    -4
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/ar1_6.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 99,
+   "actor": 290,
+   "pos": [
+    1.85,
+    -0.85,
+    -4.5
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/ar1_6.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 100,
+   "actor": 290,
+   "pos": [
+    1.85,
+    -0.65,
+    -4.5
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/ar1_6.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 101,
+   "actor": 290,
+   "pos": [
+    1.85,
+    -0.45,
+    -4.5
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/ar1_6.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 102,
+   "actor": 322,
+   "pos": [
+    4.221,
+    -1,
+    -1.729
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/scale_up_kinoko.glb",
+   "props": {
+    "billboard": true,
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 103,
+   "actor": 221,
+   "pos": [
+    -5.8,
+    2.9,
+    -7.8
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/cv_goro_rock.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 104,
+   "actor": 184,
+   "pos": [
+    -3.228,
+    1.5,
+    0.262
+   ],
+   "rot": [
+    0,
+    -65.995,
+    0
+   ],
+   "model": "models/obj_tatefuda.glb",
+   "collision": "collision/obj_tatefuda.glb",
+   "props": {
+    "colMtx": [
+     0.09985,
+     0,
+     0,
+     0,
+     0.09985,
+     0,
+     0,
+     0,
+     0.09985,
+     0,
+     0,
+     0
+    ],
+    "scale": 0.008,
+    "text": "The Black Hole\nRight: Work Elevator\n       Hazy Maze\nLeft: Underground Lake"
+   }
+  },
+  {
+   "id": 105,
+   "actor": 184,
+   "pos": [
+    -4.029,
+    2.3,
+    -2.013
+   ],
+   "rot": [
+    0,
+    143.998,
+    0
+   ],
+   "model": "models/obj_tatefuda.glb",
+   "collision": "collision/obj_tatefuda.glb",
+   "props": {
+    "colMtx": [
+     0.09985,
+     0,
+     0,
+     0,
+     0.09985,
+     0,
+     0,
+     0,
+     0.09985,
+     0,
+     0,
+     0
+    ],
+    "scale": 0.008,
+    "text": "In Standard Mode, \njump and hold  \nto hang on to some \nobjects overhead.\nUse this move to \nhitch a ride with a \nflying bird."
+   }
+  },
+  {
+   "id": 106,
+   "actor": 237,
+   "pos": [
+    -5,
+    2.2,
+    -0.09
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/basabasa.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 107,
+   "actor": 297,
+   "pos": [
+    -6.636,
+    1.547,
+    -5.617
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/obj_heart.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 108,
+   "actor": 255,
+   "pos": [
+    -5.25,
+    1.5,
+    0.45
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/spider.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 109,
+   "actor": 21,
+   "pos": [
+    -4.8,
+    2.65,
+    0.05
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/arc0_14.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 110,
+   "actor": 17,
+   "pos": [
+    -7.404,
+    1.299,
+    -0.449
+   ],
+   "rot": [
+    0,
+    14.996,
+    0
+   ],
+   "model": "models/broken_block_ll.glb",
+   "collision": "collision/broken_block_ll.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 111,
+   "actor": 276,
+   "pos": [
+    -4.9,
+    2.744,
+    -6.66
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/ar1_15.glb",
+   "props": {
+    "billboard": true,
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 112,
+   "actor": 178,
+   "pos": [
+    -6.35,
+    2.6,
+    -1.6
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/arc0_21.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 113,
+   "actor": 288,
+   "pos": [
+    -5.05,
+    2.67,
+    -2
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/arc0_5.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 114,
+   "actor": 288,
+   "pos": [
+    -5.15,
+    2.67,
+    -1.85
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/arc0_5.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 115,
+   "actor": 288,
+   "pos": [
+    -5.25,
+    2.67,
+    -1.7
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/arc0_5.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 116,
+   "actor": 288,
+   "pos": [
+    -5.35,
+    2.67,
+    -1.55
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/arc0_5.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 117,
+   "actor": 288,
+   "pos": [
+    -5.45,
+    2.67,
+    -1.4
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/arc0_5.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 118,
+   "actor": 288,
+   "pos": [
+    -6.45,
+    1.522,
+    -5.35
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/arc0_5.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 119,
+   "actor": 288,
+   "pos": [
+    -6.45,
+    1.537,
+    -5.5
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/arc0_5.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 120,
+   "actor": 288,
+   "pos": [
+    -6.45,
+    1.552,
+    -5.65
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/arc0_5.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 121,
+   "actor": 288,
+   "pos": [
+    -6.45,
+    1.567,
+    -5.8
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/arc0_5.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 122,
+   "actor": 288,
+   "pos": [
+    -6.45,
+    1.582,
+    -5.95
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/arc0_5.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 123,
+   "actor": 322,
+   "pos": [
+    -7.404,
+    1.299,
+    -0.449
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/scale_up_kinoko.glb",
+   "props": {
+    "billboard": true,
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 124,
+   "actor": 180,
+   "pos": [
+    -5.838,
+    1.85,
+    -6.748
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/star_base.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 125,
+   "actor": 33,
+   "pos": [
+    -2.75,
+    2.199,
+    -2.45
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/cv_ud_lift.glb",
+   "collision": "collision/cv_ud_lift.glb",
+   "props": {
+    "colMtx": [
+     0.09985,
+     0,
+     0,
+     0,
+     0.09985,
+     0,
+     0,
+     0,
+     0.09985,
+     0,
+     0,
+     0
+    ],
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 126,
+   "actor": 11,
+   "pos": [
+    -0.32,
+    -4.88,
+    2.46
+   ],
+   "rot": [
+    0,
+    -90,
+    0
+   ],
+   "model": "models/obj_box_switch.glb",
+   "collision": "collision/obj_box_switch.glb",
+   "props": {
+    "colMtx": [
+     0.09985,
+     0,
+     0,
+     0,
+     0.09985,
+     0,
+     0,
+     0,
+     0.09985,
+     0,
+     0.005,
+     0
+    ],
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 127,
+   "actor": 67,
+   "pos": [
+    0.6,
+    -4.58,
+    1.875
+   ],
+   "rot": [
+    0,
+    -90,
+    0
+   ],
+   "model": "models/cv_shutter.glb",
+   "collision": "collision/cv_shutter.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 128,
+   "actor": 67,
+   "pos": [
+    0.6,
+    -4.58,
+    2.675
+   ],
+   "rot": [
+    0,
+    90,
+    0
+   ],
+   "model": "models/cv_shutter.glb",
+   "collision": "collision/cv_shutter.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 129,
+   "actor": 33,
+   "pos": [
+    -3.449,
+    1.699,
+    -6.875
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/cv_ud_lift.glb",
+   "collision": "collision/cv_ud_lift.glb",
+   "props": {
+    "colMtx": [
+     0.09985,
+     0,
+     0,
+     0,
+     0.09985,
+     0,
+     0,
+     0,
+     0.09985,
+     0,
+     0,
+     0
+    ],
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 130,
+   "actor": 33,
+   "pos": [
+    -0.95,
+    1.699,
+    -7.175
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/cv_ud_lift.glb",
+   "collision": "collision/cv_ud_lift.glb",
+   "props": {
+    "colMtx": [
+     0.09985,
+     0,
+     0,
+     0,
+     0.09985,
+     0,
+     0,
+     0,
+     0.09985,
+     0,
+     0,
+     0
+    ],
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 131,
+   "actor": 184,
+   "pos": [
+    -3.056,
+    1.769,
+    -7.517
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/obj_tatefuda.glb",
+   "collision": "collision/obj_tatefuda.glb",
+   "props": {
+    "colMtx": [
+     0.09985,
+     0,
+     0,
+     0,
+     0.09985,
+     0,
+     0,
+     0,
+     0.09985,
+     0,
+     0,
+     0
+    ],
+    "scale": 0.008,
+    "text": "Elevator 2\nDown: Underground Lake\nLeft: Black Hole\nRight: Hazy Maze\n       Closed!"
+   }
+  },
+  {
+   "id": 132,
+   "actor": 184,
+   "pos": [
+    0.362,
+    -4.58,
+    3.324
+   ],
+   "rot": [
+    0,
+    -90,
+    0
+   ],
+   "model": "models/obj_tatefuda.glb",
+   "collision": "collision/obj_tatefuda.glb",
+   "props": {
+    "colMtx": [
+     0.09985,
+     0,
+     0,
+     0,
+     0.09985,
+     0,
+     0,
+     0,
+     0.09985,
+     0,
+     0,
+     0
+    ],
+    "scale": 0.008,
+    "text": "Underground Lake\nRight: Metal Cave\nLeft: Abandoned Mine\n      Closed!\n\nA gentle sea dragon \nlives here. Ground-pound\nhis back to make him \nlower his head.\nDon't become his lunch."
+   }
+  },
+  {
+   "id": 133,
+   "actor": 21,
+   "pos": [
+    -2.55,
+    2.05,
+    -6.35
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/arc0_14.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 134,
+   "actor": 20,
+   "pos": [
+    -2.95,
+    -2.25,
+    -6.4
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/hatena_karabox.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 135,
+   "actor": 237,
+   "pos": [
+    1.2,
+    0.05,
+    -7.55
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/basabasa.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 136,
+   "actor": 237,
+   "pos": [
+    2.1,
+    0.05,
+    -7.55
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/basabasa.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 137,
+   "actor": 200,
+   "pos": [
+    -4.7,
+    -3.408,
+    -4.75
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/kuribo_model.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 138,
+   "actor": 200,
+   "pos": [
+    -4.364,
+    -3.176,
+    -5.17
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/kuribo_model.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 139,
+   "actor": 221,
+   "pos": [
+    -3.449,
+    -4.35,
+    3.459
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/cv_goro_rock.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 140,
+   "actor": 288,
+   "pos": [
+    -2.55,
+    1.8,
+    -6.65
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/arc0_5.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 141,
+   "actor": 288,
+   "pos": [
+    -2.75,
+    1.8,
+    -6.55
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/arc0_5.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 142,
+   "actor": 288,
+   "pos": [
+    -2.85,
+    1.8,
+    -6.35
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/arc0_5.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 143,
+   "actor": 288,
+   "pos": [
+    -2.75,
+    1.8,
+    -6.15
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/arc0_5.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 144,
+   "actor": 288,
+   "pos": [
+    -2.55,
+    1.8,
+    -6.05
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/arc0_5.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 145,
+   "actor": 288,
+   "pos": [
+    -2.35,
+    1.8,
+    -6.15
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/arc0_5.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 146,
+   "actor": 288,
+   "pos": [
+    -2.25,
+    1.8,
+    -6.35
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/arc0_5.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 147,
+   "actor": 288,
+   "pos": [
+    -2.35,
+    1.8,
+    -6.55
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/arc0_5.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 148,
+   "actor": 178,
+   "pos": [
+    -2.15,
+    2,
+    -7.5
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/arc0_21.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 149,
+   "actor": 288,
+   "pos": [
+    -3.45,
+    -4.6,
+    3.1
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/arc0_5.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 150,
+   "actor": 288,
+   "pos": [
+    -3.15,
+    -4.6,
+    3.2
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/arc0_5.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 151,
+   "actor": 288,
+   "pos": [
+    -3.05,
+    -4.6,
+    3.5
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/arc0_5.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 152,
+   "actor": 288,
+   "pos": [
+    -3.15,
+    -4.6,
+    3.75
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/arc0_5.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 153,
+   "actor": 288,
+   "pos": [
+    -3.45,
+    -4.6,
+    3.85
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/arc0_5.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 154,
+   "actor": 288,
+   "pos": [
+    -3.75,
+    -4.6,
+    3.75
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/arc0_5.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 155,
+   "actor": 288,
+   "pos": [
+    -3.85,
+    -4.6,
+    3.5
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/arc0_5.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 156,
+   "actor": 288,
+   "pos": [
+    -3.75,
+    -4.6,
+    3.2
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/arc0_5.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 157,
+   "actor": 288,
+   "pos": [
+    1.6,
+    -0.4,
+    -7.2
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/arc0_5.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 158,
+   "actor": 288,
+   "pos": [
+    1.75,
+    -0.4,
+    -7.2
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/arc0_5.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 159,
+   "actor": 288,
+   "pos": [
+    1.9,
+    -0.4,
+    -7.2
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/arc0_5.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 160,
+   "actor": 288,
+   "pos": [
+    2.05,
+    -0.4,
+    -7.2
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/arc0_5.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 161,
+   "actor": 288,
+   "pos": [
+    2.2,
+    -0.4,
+    -7.2
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/arc0_5.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 162,
+   "actor": 180,
+   "pos": [
+    -3.462,
+    -4.5,
+    3.487
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/star_base.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 163,
+   "actor": 33267,
+   "pos": [
+    -3.391,
+    -1.561,
+    -6.401
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ]
+  },
+  {
+   "id": 164,
+   "actor": 181,
+   "pos": [
+    -3.936,
+    -2.5,
+    -6.882
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/red_bombhei.glb",
+   "props": {
+    "layer": 1,
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 165,
+   "actor": 168,
+   "pos": [
+    -3.45,
+    -4.7,
+    3.5
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/dossy.glb",
+   "collision": "collision/dossy_body.glb",
+   "props": {
+    "colMtx": [
+     1,
+     0,
+     0,
+     0,
+     1,
+     0,
+     0,
+     0,
+     1,
+     2,
+     0,
+     0
+    ],
+    "layer": 1,
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 166,
+   "actor": 200,
+   "pos": [
+    -4.906,
+    -3.908,
+    -3.771
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/kuribo_model.glb",
+   "props": {
+    "layer": 1,
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 167,
+   "actor": 255,
+   "pos": [
+    3.15,
+    -4.9,
+    2.25
+   ],
+   "rot": [
+    0,
+    -90,
+    0
+   ],
+   "model": "models/spider.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 168,
+   "actor": 178,
+   "pos": [
+    6.15,
+    -4.35,
+    2.25
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/arc0_21.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 169,
+   "actor": 307,
+   "pos": [
+    3.27,
+    -4.45,
+    5.015
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/for_cv_ex5.glb",
+   "props": {
+    "scale": 0.008
+   }
+  }
+ ]
+}

@@ -1,0 +1,18 @@
+{
+ "collision": "collision/metal_switch.glb",
+ "format": 2,
+ "kind": "mesh3d",
+ "mesh": {
+  "glb": "models/metal_switch_all.glb"
+ },
+ "name": "Behind the Waterfall",
+ "objectsFile": "metal_switch_all.objects.json",
+ "spawn": {
+  "pos": [
+   -4.2,
+   0.42,
+   -0.05
+  ],
+  "rot": 90
+ }
+}

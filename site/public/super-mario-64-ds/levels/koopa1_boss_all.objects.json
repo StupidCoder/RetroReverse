@@ -1,0 +1,472 @@
+{
+ "format": 2,
+ "level": "koopa1_boss_all",
+ "objects": [
+  {
+   "id": 0,
+   "actor": 279,
+   "pos": [
+    -0.014,
+    0.3,
+    -1.501
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/koopa_model.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 1,
+   "actor": 284,
+   "pos": [
+    0,
+    0.625,
+    -3.08
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/koopa_bomb.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 2,
+   "actor": 284,
+   "pos": [
+    3.08,
+    0.625,
+    0
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/koopa_bomb.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 3,
+   "actor": 284,
+   "pos": [
+    0,
+    0.625,
+    3.08
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/koopa_bomb.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 4,
+   "actor": 284,
+   "pos": [
+    -3.08,
+    0.625,
+    0
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/koopa_bomb.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 5,
+   "actor": 301,
+   "pos": [
+    0,
+    0.325,
+    3.08
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/kb1_ball.glb",
+   "props": {
+    "billboard": true,
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 6,
+   "actor": 301,
+   "pos": [
+    -1.088,
+    0.325,
+    2.628
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/kb1_ball.glb",
+   "props": {
+    "billboard": true,
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 7,
+   "actor": 301,
+   "pos": [
+    -2.177,
+    0.325,
+    2.177
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/kb1_ball.glb",
+   "props": {
+    "billboard": true,
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 8,
+   "actor": 301,
+   "pos": [
+    -2.628,
+    0.325,
+    1.088
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/kb1_ball.glb",
+   "props": {
+    "billboard": true,
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 9,
+   "actor": 301,
+   "pos": [
+    -3.08,
+    0.325,
+    0
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/kb1_ball.glb",
+   "props": {
+    "billboard": true,
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 10,
+   "actor": 301,
+   "pos": [
+    -2.628,
+    0.325,
+    -1.088
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/kb1_ball.glb",
+   "props": {
+    "billboard": true,
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 11,
+   "actor": 301,
+   "pos": [
+    -2.177,
+    0.325,
+    -2.177
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/kb1_ball.glb",
+   "props": {
+    "billboard": true,
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 12,
+   "actor": 301,
+   "pos": [
+    -1.088,
+    0.325,
+    -2.628
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/kb1_ball.glb",
+   "props": {
+    "billboard": true,
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 13,
+   "actor": 301,
+   "pos": [
+    0,
+    0.325,
+    -3.08
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/kb1_ball.glb",
+   "props": {
+    "billboard": true,
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 14,
+   "actor": 301,
+   "pos": [
+    1.088,
+    0.325,
+    -2.628
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/kb1_ball.glb",
+   "props": {
+    "billboard": true,
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 15,
+   "actor": 301,
+   "pos": [
+    2.177,
+    0.325,
+    -2.177
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/kb1_ball.glb",
+   "props": {
+    "billboard": true,
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 16,
+   "actor": 301,
+   "pos": [
+    2.628,
+    0.325,
+    -1.088
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/kb1_ball.glb",
+   "props": {
+    "billboard": true,
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 17,
+   "actor": 301,
+   "pos": [
+    3.08,
+    0.325,
+    0
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/kb1_ball.glb",
+   "props": {
+    "billboard": true,
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 18,
+   "actor": 301,
+   "pos": [
+    2.628,
+    0.325,
+    1.088
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/kb1_ball.glb",
+   "props": {
+    "billboard": true,
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 19,
+   "actor": 301,
+   "pos": [
+    2.177,
+    0.325,
+    2.177
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/kb1_ball.glb",
+   "props": {
+    "billboard": true,
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 20,
+   "actor": 301,
+   "pos": [
+    1.088,
+    0.325,
+    2.628
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/kb1_ball.glb",
+   "props": {
+    "billboard": true,
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 21,
+   "actor": 284,
+   "pos": [
+    -2.156,
+    0.625,
+    -2.156
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/koopa_bomb.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 22,
+   "actor": 284,
+   "pos": [
+    2.177,
+    0.625,
+    -2.177
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/koopa_bomb.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 23,
+   "actor": 284,
+   "pos": [
+    2.177,
+    0.625,
+    2.177
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/koopa_bomb.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 24,
+   "actor": 284,
+   "pos": [
+    -2.177,
+    0.625,
+    2.177
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/koopa_bomb.glb",
+   "props": {
+    "scale": 0.008
+   }
+  }
+ ]
+}

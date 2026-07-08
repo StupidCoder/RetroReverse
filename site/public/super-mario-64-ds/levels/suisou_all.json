@@ -1,0 +1,19 @@
+{
+ "collision": "collision/suisou.glb",
+ "format": 2,
+ "kind": "mesh3d",
+ "mesh": {
+  "glb": "models/suisou_all.glb"
+ },
+ "name": "The Secret Aquarium",
+ "objectsFile": "suisou_all.objects.json",
+ "sky": "models/vr02.glb",
+ "spawn": {
+  "pos": [
+   0,
+   -0.7,
+   0
+  ],
+  "rot": 0
+ }
+}

@@ -1,0 +1,19 @@
+{
+ "collision": "collision/bombhei_map.glb",
+ "format": 2,
+ "kind": "mesh3d",
+ "mesh": {
+  "glb": "models/bombhei_map_all.glb"
+ },
+ "name": "Bob-omb Battlefield",
+ "objectsFile": "bombhei_map_all.objects.json",
+ "sky": "models/vr01.glb",
+ "spawn": {
+  "pos": [
+   -6.225,
+   1.7,
+   6.353
+  ],
+  "rot": 135
+ }
+}

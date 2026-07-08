@@ -1,0 +1,19 @@
+{
+ "collision": "collision/tibi_deka_t.glb",
+ "format": 2,
+ "kind": "mesh3d",
+ "mesh": {
+  "glb": "models/tibi_deka_t_all.glb"
+ },
+ "name": "Tiny-Huge Island (tibi_deka_t)",
+ "objectsFile": "tibi_deka_t_all.objects.json",
+ "sky": "models/vr01.glb",
+ "spawn": {
+  "pos": [
+   -2.1,
+   0.83,
+   1.9
+  ],
+  "rot": 129.996
+ }
+}

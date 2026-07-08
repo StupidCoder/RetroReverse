@@ -1,0 +1,19 @@
+{
+ "collision": "collision/rainbow_cruise.glb",
+ "format": 2,
+ "kind": "mesh3d",
+ "mesh": {
+  "glb": "models/rainbow_cruise_all.glb"
+ },
+ "name": "Rainbow Ride",
+ "objectsFile": "rainbow_cruise_all.objects.json",
+ "sky": "models/vr02.glb",
+ "spawn": {
+  "pos": [
+   2.55,
+   -0.09,
+   2
+  ],
+  "rot": 90
+ }
+}

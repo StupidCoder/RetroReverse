@@ -1,0 +1,19 @@
+{
+ "collision": "collision/koopa1_map.glb",
+ "format": 2,
+ "kind": "mesh3d",
+ "mesh": {
+  "glb": "models/koopa1_map_all.glb"
+ },
+ "name": "Bowser in the Dark World",
+ "objectsFile": "koopa1_map_all.objects.json",
+ "sky": "models/vr10.glb",
+ "spawn": {
+  "pos": [
+   -7.4,
+   -2.2,
+   3.8
+  ],
+  "rot": 90
+ }
+}

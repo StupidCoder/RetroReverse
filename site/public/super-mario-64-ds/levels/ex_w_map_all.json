@@ -1,0 +1,19 @@
+{
+ "collision": "collision/ex_w_map.glb",
+ "format": 2,
+ "kind": "mesh3d",
+ "mesh": {
+  "glb": "models/ex_w_map_all.glb"
+ },
+ "name": "Chief Chilly Challenge",
+ "objectsFile": "ex_w_map_all.objects.json",
+ "sky": "models/vr04.glb",
+ "spawn": {
+  "pos": [
+   -0.719,
+   2.4,
+   -10.86
+  ],
+  "rot": 0
+ }
+}

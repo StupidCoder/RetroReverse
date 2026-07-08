@@ -1,0 +1,19 @@
+{
+ "collision": "collision/ex_m_map.glb",
+ "format": 2,
+ "kind": "mesh3d",
+ "mesh": {
+  "glb": "models/ex_m_map_all.glb"
+ },
+ "name": "Goomboss Battle",
+ "objectsFile": "ex_m_map_all.objects.json",
+ "sky": "models/vr09.glb",
+ "spawn": {
+  "pos": [
+   -3.8,
+   6.7,
+   7.5
+  ],
+  "rot": -180
+ }
+}

@@ -1,0 +1,19 @@
+{
+ "collision": "collision/ex_mario.glb",
+ "format": 2,
+ "kind": "mesh3d",
+ "mesh": {
+  "glb": "models/ex_mario_all.glb"
+ },
+ "name": "Goomboss Battle (ex_mario)",
+ "objectsFile": "ex_mario_all.objects.json",
+ "sky": "models/vr09.glb",
+ "spawn": {
+  "pos": [
+   0,
+   1,
+   1.35
+  ],
+  "rot": -180
+ }
+}

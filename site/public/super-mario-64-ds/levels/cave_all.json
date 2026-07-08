@@ -1,0 +1,18 @@
+{
+ "collision": "collision/cave.glb",
+ "format": 2,
+ "kind": "mesh3d",
+ "mesh": {
+  "glb": "models/cave_all.glb"
+ },
+ "name": "Hazy Maze Cave",
+ "objectsFile": "cave_all.objects.json",
+ "spawn": {
+  "pos": [
+   -7.128,
+   3.8,
+   7.13
+  ],
+  "rot": 135
+ }
+}

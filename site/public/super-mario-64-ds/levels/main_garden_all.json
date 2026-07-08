@@ -1,0 +1,19 @@
+{
+ "collision": "collision/main_garden.glb",
+ "format": 2,
+ "kind": "mesh3d",
+ "mesh": {
+  "glb": "models/main_garden_all.glb"
+ },
+ "name": "Castle Grounds",
+ "objectsFile": "main_garden_all.objects.json",
+ "sky": "models/vr01.glb",
+ "spawn": {
+  "pos": [
+   0,
+   0.15,
+   -1.2
+  ],
+  "rot": 0
+ }
+}

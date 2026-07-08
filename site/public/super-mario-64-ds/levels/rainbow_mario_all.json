@@ -1,0 +1,19 @@
+{
+ "collision": "collision/rainbow_mario.glb",
+ "format": 2,
+ "kind": "mesh3d",
+ "mesh": {
+  "glb": "models/rainbow_mario_all.glb"
+ },
+ "name": "Over the Rainbows",
+ "objectsFile": "rainbow_mario_all.objects.json",
+ "sky": "models/vr02.glb",
+ "spawn": {
+  "pos": [
+   0,
+   2.75,
+   0
+  ],
+  "rot": 0
+ }
+}

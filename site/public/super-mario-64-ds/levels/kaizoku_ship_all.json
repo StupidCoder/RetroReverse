@@ -1,0 +1,18 @@
+{
+ "collision": "collision/kaizoku_ship.glb",
+ "format": 2,
+ "kind": "mesh3d",
+ "mesh": {
+  "glb": "models/kaizoku_ship_all.glb"
+ },
+ "name": "Jolly Roger Bay (kaizoku_ship)",
+ "objectsFile": "kaizoku_ship_all.objects.json",
+ "spawn": {
+  "pos": [
+   0.9,
+   0.884,
+   -1.4
+  ],
+  "rot": -180
+ }
+}

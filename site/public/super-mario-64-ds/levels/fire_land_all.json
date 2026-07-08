@@ -1,0 +1,19 @@
+{
+ "collision": "collision/fire_land.glb",
+ "format": 2,
+ "kind": "mesh3d",
+ "mesh": {
+  "glb": "models/fire_land_all.glb"
+ },
+ "name": "Lethal Lava Land",
+ "objectsFile": "fire_land_all.objects.json",
+ "sky": "models/vr07.glb",
+ "spawn": {
+  "pos": [
+   -3.75,
+   1.85,
+   6.15
+  ],
+  "rot": 90
+ }
+}

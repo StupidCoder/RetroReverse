@@ -1,0 +1,18 @@
+{
+ "collision": "collision/high_slider.glb",
+ "format": 2,
+ "kind": "mesh3d",
+ "mesh": {
+  "glb": "models/high_slider_all.glb"
+ },
+ "name": "Tall, Tall Mountain (high_slider)",
+ "objectsFile": "high_slider_all.objects.json",
+ "spawn": {
+  "pos": [
+   11.373,
+   13.427,
+   12.539
+  ],
+  "rot": -139.999
+ }
+}

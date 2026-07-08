@@ -1,0 +1,4523 @@
+{
+ "format": 2,
+ "level": "bombhei_map_all",
+ "objects": [
+  {
+   "id": 0,
+   "actor": 29,
+   "pos": [
+    1.625,
+    0.05,
+    4.5
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/obj_updnlift.glb",
+   "collision": "collision/obj_updnlift.glb",
+   "props": {
+    "colMtx": [
+     0.09985,
+     0,
+     0,
+     0,
+     0.09985,
+     0,
+     0,
+     0,
+     0.09985,
+     0,
+     0.24,
+     -0.15
+    ],
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 1,
+   "actor": 39,
+   "pos": [
+    -2.25,
+    0.7,
+    1
+   ],
+   "rot": [
+    0,
+    45,
+    0
+   ],
+   "model": "models/b_si_so.glb",
+   "collision": "collision/b_si_so.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 2,
+   "actor": 220,
+   "pos": [
+    0.423,
+    2.62,
+    -5.428
+   ],
+   "rot": [
+    0,
+    -146.997,
+    0
+   ],
+   "model": "models/ar1_0.glb",
+   "props": {
+    "billboard": true,
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 3,
+   "actor": 220,
+   "pos": [
+    1.477,
+    3.745,
+    -5.526
+   ],
+   "rot": [
+    0,
+    -150.996,
+    0
+   ],
+   "model": "models/ar1_0.glb",
+   "props": {
+    "billboard": true,
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 4,
+   "actor": 220,
+   "pos": [
+    -0.099,
+    0.8,
+    -3.345
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/ar1_0.glb",
+   "props": {
+    "billboard": true,
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 5,
+   "actor": 220,
+   "pos": [
+    -1.313,
+    0.79,
+    -3.673
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/ar1_0.glb",
+   "props": {
+    "billboard": true,
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 6,
+   "actor": 20,
+   "pos": [
+    0.294,
+    0.25,
+    6.4
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/hatena_karabox.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 7,
+   "actor": 11,
+   "pos": [
+    -2.25,
+    0,
+    -3.55
+   ],
+   "rot": [
+    0,
+    26.719,
+    0
+   ],
+   "model": "models/obj_box_switch.glb",
+   "collision": "collision/obj_box_switch.glb",
+   "props": {
+    "colMtx": [
+     0.09985,
+     0,
+     0,
+     0,
+     0.09985,
+     0,
+     0,
+     0,
+     0.09985,
+     0,
+     0.005,
+     0
+    ],
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 8,
+   "actor": 40,
+   "pos": [
+    -2.29,
+    0,
+    -2.86
+   ],
+   "rot": [
+    0,
+    26.719,
+    0
+   ],
+   "model": "models/b_ana_shutter.glb",
+   "collision": "collision/b_ana_shutter.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 9,
+   "actor": 40,
+   "pos": [
+    -1.725,
+    0,
+    -3.145
+   ],
+   "rot": [
+    0,
+    -153.001,
+    0
+   ],
+   "model": "models/b_ana_shutter.glb",
+   "collision": "collision/b_ana_shutter.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 10,
+   "actor": 200,
+   "pos": [
+    -2.095,
+    0.205,
+    5.352
+   ],
+   "rot": [
+    0,
+    -74.998,
+    0
+   ],
+   "model": "models/kuribo_model.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 11,
+   "actor": 200,
+   "pos": [
+    3.591,
+    0.792,
+    5.595
+   ],
+   "rot": [
+    0,
+    90,
+    0
+   ],
+   "model": "models/kuribo_model.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 12,
+   "actor": 200,
+   "pos": [
+    0.998,
+    0.749,
+    5.399
+   ],
+   "rot": [
+    0,
+    -90,
+    0
+   ],
+   "model": "models/kuribo_model.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 13,
+   "actor": 200,
+   "pos": [
+    4.255,
+    0.738,
+    1.622
+   ],
+   "rot": [
+    0,
+    -39.996,
+    0
+   ],
+   "model": "models/kuribo_model.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 14,
+   "actor": 200,
+   "pos": [
+    6.7,
+    1.965,
+    -5.683
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/kuribo_model.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 15,
+   "actor": 206,
+   "pos": [
+    2.151,
+    0.74,
+    3.429
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/bombhei.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 16,
+   "actor": 206,
+   "pos": [
+    -1.607,
+    0,
+    -2.194
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/bombhei.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 17,
+   "actor": 206,
+   "pos": [
+    -0.969,
+    0,
+    -1.001
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/bombhei.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 18,
+   "actor": 206,
+   "pos": [
+    -2.6,
+    0,
+    1.6
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/bombhei.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 19,
+   "actor": 206,
+   "pos": [
+    -1.911,
+    0,
+    3.08
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/bombhei.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 20,
+   "actor": 27,
+   "pos": [
+    -6.45,
+    0.75,
+    1.7
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/pile.glb",
+   "collision": "collision/pile.glb",
+   "props": {
+    "colMtx": [
+     0.09985,
+     0,
+     0,
+     0,
+     0.09985,
+     0,
+     0,
+     0,
+     0.09985,
+     0,
+     0,
+     0
+    ],
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 21,
+   "actor": 27,
+   "pos": [
+    -6.45,
+    0.749,
+    2.9
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/pile.glb",
+   "collision": "collision/pile.glb",
+   "props": {
+    "colMtx": [
+     0.09985,
+     0,
+     0,
+     0,
+     0.09985,
+     0,
+     0,
+     0,
+     0.09985,
+     0,
+     0,
+     0
+    ],
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 22,
+   "actor": 27,
+   "pos": [
+    -5.25,
+    0.749,
+    1.7
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/pile.glb",
+   "collision": "collision/pile.glb",
+   "props": {
+    "colMtx": [
+     0.09985,
+     0,
+     0,
+     0,
+     0.09985,
+     0,
+     0,
+     0,
+     0.09985,
+     0,
+     0,
+     0
+    ],
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 23,
+   "actor": 27,
+   "pos": [
+    -5.25,
+    0.749,
+    2.9
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/pile.glb",
+   "collision": "collision/pile.glb",
+   "props": {
+    "colMtx": [
+     0.09985,
+     0,
+     0,
+     0,
+     0.09985,
+     0,
+     0,
+     0,
+     0.09985,
+     0,
+     0,
+     0
+    ],
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 24,
+   "actor": 20,
+   "pos": [
+    -6.4,
+    1.25,
+    -2.3
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/hatena_karabox.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 25,
+   "actor": 206,
+   "pos": [
+    -3.619,
+    1,
+    -0.309
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/bombhei.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 26,
+   "actor": 206,
+   "pos": [
+    -2.783,
+    0.819,
+    -2.532
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/bombhei.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 27,
+   "actor": 206,
+   "pos": [
+    -3.843,
+    0.937,
+    -3.338
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/bombhei.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 28,
+   "actor": 200,
+   "pos": [
+    6.266,
+    0.926,
+    4.814
+   ],
+   "rot": [
+    0,
+    -90,
+    0
+   ],
+   "model": "models/kuribo_model.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 29,
+   "actor": 184,
+   "pos": [
+    -4,
+    0,
+    5.9
+   ],
+   "rot": [
+    0,
+    -90,
+    0
+   ],
+   "model": "models/obj_tatefuda.glb",
+   "collision": "collision/obj_tatefuda.glb",
+   "props": {
+    "colMtx": [
+     0.09985,
+     0,
+     0,
+     0,
+     0.09985,
+     0,
+     0,
+     0,
+     0.09985,
+     0,
+     0,
+     0
+    ],
+    "scale": 0.008,
+    "text": "Here's a piece of advice\nfor the green fellow \nwithout a mustache.\nWhen playing in Standard\nMode: \nIf you're feeling \nhungry, press  to \nstick out your tongue \nand swallow an enemy. \n\nPress  again to \nspit it out.\nOr, you can lay an egg\nby crouching while your \nmouth is still full.\nPress  again \nto throw the egg. \n\n\n\nRemember, some enemies \nwon't turn into eggs \neven if you swallow \nthem."
+   }
+  },
+  {
+   "id": 30,
+   "actor": 184,
+   "pos": [
+    -4,
+    0,
+    6.2
+   ],
+   "rot": [
+    0,
+    -90,
+    0
+   ],
+   "model": "models/obj_tatefuda.glb",
+   "collision": "collision/obj_tatefuda.glb",
+   "props": {
+    "colMtx": [
+     0.09985,
+     0,
+     0,
+     0,
+     0.09985,
+     0,
+     0,
+     0,
+     0.09985,
+     0,
+     0,
+     0
+    ],
+    "scale": 0.008,
+    "text": "If you sport a cap and\na mustache, this advice\nis for you:\nDefend yourself against\nenemies!\nIn Standard Mode, press\n to punch.\nPress  to jump.\nPress  and  at \nthe same time to kick.\nPress  to pick up\nsomething.\nTo throw something \nyou're holding, press \n again."
+   }
+  },
+  {
+   "id": 31,
+   "actor": 184,
+   "pos": [
+    1.311,
+    0.75,
+    3.051
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/obj_tatefuda.glb",
+   "collision": "collision/obj_tatefuda.glb",
+   "props": {
+    "colMtx": [
+     0.09985,
+     0,
+     0,
+     0,
+     0.09985,
+     0,
+     0,
+     0,
+     0.09985,
+     0,
+     0,
+     0
+    ],
+    "scale": 0.008,
+    "text": "BEWARE OF CHAIN-CHOMP\nExtreme Danger!\n\n\nIn Standard Mode, you \ncan center the camera \nbehind you by pressing \n. \nThis move is helpful \nwhen you want to look \nat something up close. \n\nSee the red coin on top\nof the stake? When you\ncollect 8 of them, a \nPower Star will appear. \nThe map on the Touch \nScreen will show you \nwhere the Star is."
+   }
+  },
+  {
+   "id": 32,
+   "actor": 184,
+   "pos": [
+    -2.162,
+    0.967,
+    -4.252
+   ],
+   "rot": [
+    0,
+    -59.996,
+    0
+   ],
+   "model": "models/obj_tatefuda.glb",
+   "collision": "collision/obj_tatefuda.glb",
+   "props": {
+    "colMtx": [
+     0.09985,
+     0,
+     0,
+     0,
+     0.09985,
+     0,
+     0,
+     0,
+     0.09985,
+     0,
+     0,
+     0
+    ],
+    "scale": 0.008,
+    "text": "No visitors allowed, \nby decree of the \nBig Bob-omb.\nI shall never surrender\nmy Stars.\nThey hold the power of\nthe castle in their glow.\nThey were a gift from \nBowser, the Koopa King\nhimself.\nThey lie well hidden \nwithin my realm.\nNot a whisper of their\nwhereabouts shall leave\nmy lips. \nOh, all right, perhaps \njust a hint: heed the \nStar names at the \nbeginning of the course.\n    --The Big Bob-omb"
+   }
+  },
+  {
+   "id": 33,
+   "actor": 184,
+   "pos": [
+    3.3,
+    3,
+    1.7
+   ],
+   "rot": [
+    0,
+    59.996,
+    0
+   ],
+   "model": "models/obj_tatefuda.glb",
+   "collision": "collision/obj_tatefuda.glb",
+   "props": {
+    "colMtx": [
+     0.09985,
+     0,
+     0,
+     0,
+     0.09985,
+     0,
+     0,
+     0,
+     0.09985,
+     0,
+     0,
+     0
+    ],
+    "scale": 0.008,
+    "text": "When Mario gets Wings from\na ? Block, he'll be able \nto fly. Perform a triple \njump to take off. \n\n\nIn Standard Mode, once \nMario's in the air, press \nthe  Down to ascend \nand press it Up to descend.\nPress  to stop flying!"
+   }
+  },
+  {
+   "id": 34,
+   "actor": 184,
+   "pos": [
+    6.554,
+    2.002,
+    -6.415
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/obj_tatefuda.glb",
+   "collision": "collision/obj_tatefuda.glb",
+   "props": {
+    "colMtx": [
+     0.09985,
+     0,
+     0,
+     0,
+     0.09985,
+     0,
+     0,
+     0,
+     0.09985,
+     0,
+     0,
+     0
+    ],
+    "scale": 0.008,
+    "text": "You can grab the edge \nof a cliff or ledge with\nyour fingertips and hang\ndown from it. \nIf you are in Standard\nMode:\nDrop down from the \nedge by crouching or \npressing  in the \ndirection of your back.\n\n\nClimb onto the ledge by \npressing Up on .\nPress  as soon as \nyou grab the edge to \nclimb up quickly!"
+   }
+  },
+  {
+   "id": 35,
+   "actor": 184,
+   "pos": [
+    -5.85,
+    0.749,
+    2.9
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/obj_tatefuda.glb",
+   "collision": "collision/obj_tatefuda.glb",
+   "props": {
+    "colMtx": [
+     0.09985,
+     0,
+     0,
+     0,
+     0.09985,
+     0,
+     0,
+     0,
+     0.09985,
+     0,
+     0,
+     0
+    ],
+    "scale": 0.008,
+    "text": "The shadowy star in \nfront of you is a \nStar Marker. When \nyou collect all 8 red\ncoins, a Star will \nappear here."
+   }
+  },
+  {
+   "id": 36,
+   "actor": 184,
+   "pos": [
+    3.969,
+    3.4,
+    -6.787
+   ],
+   "rot": [
+    0,
+    59.996,
+    0
+   ],
+   "model": "models/obj_tatefuda.glb",
+   "collision": "collision/obj_tatefuda.glb",
+   "props": {
+    "colMtx": [
+     0.09985,
+     0,
+     0,
+     0,
+     0.09985,
+     0,
+     0,
+     0,
+     0.09985,
+     0,
+     0,
+     0
+    ],
+    "scale": 0.008,
+    "text": "Coins refill your \nPower Meter, so get \nas many as you can! \n\nSpinning Hearts can \nalso refill your \nPower Meter.\n\nThe faster you run \nthrough a Spinning \nHeart, the more you'll\nrecover."
+   }
+  },
+  {
+   "id": 37,
+   "actor": 184,
+   "pos": [
+    0.037,
+    0,
+    6.834
+   ],
+   "rot": [
+    0,
+    -90,
+    0
+   ],
+   "model": "models/obj_tatefuda.glb",
+   "collision": "collision/obj_tatefuda.glb",
+   "props": {
+    "colMtx": [
+     0.09985,
+     0,
+     0,
+     0,
+     0.09985,
+     0,
+     0,
+     0,
+     0.09985,
+     0,
+     0,
+     0
+    ],
+    "scale": 0.008,
+    "text": "When you step on the \nstrange ? Switch\nhidden in the castle, \nthe ? Blocks will \nbecome solid. \n\nSome of these blocks \nhave useful items inside.\nGet the items by \nbreaking the blocks. \nBut beware! Some \nblocks are duds."
+   }
+  },
+  {
+   "id": 38,
+   "actor": 184,
+   "pos": [
+    -3.456,
+    0.749,
+    0.292
+   ],
+   "rot": [
+    0,
+    45,
+    0
+   ],
+   "model": "models/obj_tatefuda.glb",
+   "collision": "collision/obj_tatefuda.glb",
+   "props": {
+    "colMtx": [
+     0.09985,
+     0,
+     0,
+     0,
+     0.09985,
+     0,
+     0,
+     0,
+     0.09985,
+     0,
+     0,
+     0
+    ],
+    "scale": 0.008,
+    "text": "Slide down a slope \nby crouching.\nOr, crouch in the air to\npound the ground.\nIf you stop, crouch, \nthen jump, you'll do a\nbackward somersault!\nGot that? There's more.\nCrouch and then jump \nwhile running to do a \nlong jump! \nOr crouch and walk to...\nNever mind. It's a \nsecret."
+   }
+  },
+  {
+   "id": 39,
+   "actor": 184,
+   "pos": [
+    4.9,
+    3,
+    2.2
+   ],
+   "rot": [
+    0,
+    1,
+    0
+   ],
+   "model": "models/obj_tatefuda.glb",
+   "collision": "collision/obj_tatefuda.glb",
+   "props": {
+    "colMtx": [
+     0.09985,
+     0,
+     0,
+     0,
+     0.09985,
+     0,
+     0,
+     0,
+     0.09985,
+     0,
+     0,
+     0
+    ],
+    "scale": 0.008,
+    "text": "If you pass through a\ncoin ring or find a \nsecret point in a\ncourse, sometimes a \nred number will appear.\n\nIf you trigger five \nred numbers, a \nSecret Star\nwill show up."
+   }
+  },
+  {
+   "id": 40,
+   "actor": 184,
+   "pos": [
+    -6.65,
+    1,
+    -2.3
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/obj_tatefuda.glb",
+   "collision": "collision/obj_tatefuda.glb",
+   "props": {
+    "colMtx": [
+     0.09985,
+     0,
+     0,
+     0,
+     0.09985,
+     0,
+     0,
+     0,
+     0.09985,
+     0,
+     0,
+     0
+    ],
+    "scale": 0.008,
+    "text": "You can fly if you're \nwearing the red Wing cap!\nPut the cap on, then \ntriple jump to take off.\nYou can fly even higher\nif you blast out of a\ncannon wearing the\nWing cap!"
+   }
+  },
+  {
+   "id": 41,
+   "actor": 207,
+   "pos": [
+    -5.57,
+    0.125,
+    5.475
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/houdai.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 42,
+   "actor": 207,
+   "pos": [
+    5.25,
+    1.5,
+    4.5
+   ],
+   "rot": [
+    0,
+    90,
+    0
+   ],
+   "model": "models/houdai.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 43,
+   "actor": 207,
+   "pos": [
+    -4.9,
+    1.3,
+    -3.45
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/houdai.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 44,
+   "actor": 207,
+   "pos": [
+    6.2,
+    2.031,
+    -6.9
+   ],
+   "rot": [
+    0,
+    -90,
+    0
+   ],
+   "model": "models/houdai.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 45,
+   "actor": 207,
+   "pos": [
+    4.15,
+    3,
+    -2.4
+   ],
+   "rot": [
+    0,
+    -90,
+    0
+   ],
+   "model": "models/houdai.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 46,
+   "actor": 207,
+   "pos": [
+    4.25,
+    3,
+    1.201
+   ],
+   "rot": [
+    0,
+    -180,
+    0
+   ],
+   "model": "models/houdai.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 47,
+   "actor": 20,
+   "pos": [
+    3.7,
+    3.25,
+    1.95
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/hatena_karabox.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 48,
+   "actor": 297,
+   "pos": [
+    3.636,
+    3.455,
+    -6.855
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/obj_heart.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 49,
+   "actor": 329,
+   "pos": [
+    -1.5,
+    5.45,
+    1.2
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/arc0_9.glb",
+   "props": {
+    "billboard": true,
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 50,
+   "actor": 329,
+   "pos": [
+    2.95,
+    3.6,
+    1.2
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/arc0_9.glb",
+   "props": {
+    "billboard": true,
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 51,
+   "actor": 329,
+   "pos": [
+    2.1,
+    3.6,
+    1.2
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/arc0_9.glb",
+   "props": {
+    "billboard": true,
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 52,
+   "actor": 329,
+   "pos": [
+    1.25,
+    3.6,
+    1.2
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/arc0_9.glb",
+   "props": {
+    "billboard": true,
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 53,
+   "actor": 329,
+   "pos": [
+    -0.45,
+    4.1,
+    1.2
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/arc0_9.glb",
+   "props": {
+    "billboard": true,
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 54,
+   "actor": 206,
+   "pos": [
+    -4.45,
+    1,
+    -2.2
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/bombhei.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 55,
+   "actor": 276,
+   "pos": [
+    -2.35,
+    0,
+    -4.05
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/ar1_15.glb",
+   "props": {
+    "billboard": true,
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 56,
+   "actor": 200,
+   "pos": [
+    6.227,
+    0.743,
+    0.564
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/kuribo_model.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 57,
+   "actor": 14,
+   "pos": [
+    -5.562,
+    0.125,
+    5.468
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/cannon_shutter.glb",
+   "collision": "collision/cannon_shutter.glb",
+   "props": {
+    "colMtx": [
+     0.09985,
+     0,
+     0,
+     0,
+     0.09985,
+     0,
+     0,
+     0,
+     0.09985,
+     0,
+     0,
+     0
+    ],
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 58,
+   "actor": 14,
+   "pos": [
+    5.25,
+    1.5,
+    4.5
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/cannon_shutter.glb",
+   "collision": "collision/cannon_shutter.glb",
+   "props": {
+    "colMtx": [
+     0.09985,
+     0,
+     0,
+     0,
+     0.09985,
+     0,
+     0,
+     0,
+     0.09985,
+     0,
+     0,
+     0
+    ],
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 59,
+   "actor": 14,
+   "pos": [
+    -4.9,
+    1.3,
+    -3.45
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/cannon_shutter.glb",
+   "collision": "collision/cannon_shutter.glb",
+   "props": {
+    "colMtx": [
+     0.09985,
+     0,
+     0,
+     0,
+     0.09985,
+     0,
+     0,
+     0,
+     0.09985,
+     0,
+     0,
+     0
+    ],
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 60,
+   "actor": 14,
+   "pos": [
+    6.2,
+    2.031,
+    -6.9
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/cannon_shutter.glb",
+   "collision": "collision/cannon_shutter.glb",
+   "props": {
+    "colMtx": [
+     0.09985,
+     0,
+     0,
+     0,
+     0.09985,
+     0,
+     0,
+     0,
+     0.09985,
+     0,
+     0,
+     0
+    ],
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 61,
+   "actor": 14,
+   "pos": [
+    4.15,
+    3,
+    -2.4
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/cannon_shutter.glb",
+   "collision": "collision/cannon_shutter.glb",
+   "props": {
+    "colMtx": [
+     0.09985,
+     0,
+     0,
+     0,
+     0.09985,
+     0,
+     0,
+     0,
+     0.09985,
+     0,
+     0,
+     0
+    ],
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 62,
+   "actor": 14,
+   "pos": [
+    4.25,
+    3,
+    1.201
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/cannon_shutter.glb",
+   "collision": "collision/cannon_shutter.glb",
+   "props": {
+    "colMtx": [
+     0.09985,
+     0,
+     0,
+     0,
+     0.09985,
+     0,
+     0,
+     0,
+     0.09985,
+     0,
+     0,
+     0
+    ],
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 63,
+   "actor": 200,
+   "pos": [
+    -1.252,
+    0.249,
+    5.662
+   ],
+   "rot": [
+    0,
+    -90,
+    0
+   ],
+   "model": "models/kuribo_model.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 64,
+   "actor": 276,
+   "pos": [
+    5.3,
+    1.43,
+    5.9
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/ar1_15.glb",
+   "props": {
+    "billboard": true,
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 65,
+   "actor": 276,
+   "pos": [
+    -6.1,
+    1,
+    -4.8
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/arc0_5.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 66,
+   "actor": 276,
+   "pos": [
+    -6.15,
+    1,
+    -5.15
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/ar1_15.glb",
+   "props": {
+    "billboard": true,
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 67,
+   "actor": 276,
+   "pos": [
+    -6.45,
+    1,
+    -4.8
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/arc0_5.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 68,
+   "actor": 276,
+   "pos": [
+    -6.6,
+    1,
+    -5
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/arc0_5.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 69,
+   "actor": 276,
+   "pos": [
+    -6.55,
+    1,
+    -5.25
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/arc0_5.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 70,
+   "actor": 276,
+   "pos": [
+    -6.25,
+    1,
+    -5.45
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/arc0_5.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 71,
+   "actor": 276,
+   "pos": [
+    -5.95,
+    1,
+    -5.5
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/arc0_5.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 72,
+   "actor": 276,
+   "pos": [
+    -5.65,
+    1,
+    -5.3
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/arc0_5.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 73,
+   "actor": 276,
+   "pos": [
+    -5.8,
+    1,
+    -5
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/arc0_5.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 74,
+   "actor": 206,
+   "pos": [
+    -3,
+    0,
+    -5.05
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/bombhei.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 75,
+   "actor": 200,
+   "pos": [
+    -6.049,
+    0.75,
+    0.795
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/kuribo_model.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 76,
+   "actor": 200,
+   "pos": [
+    3.717,
+    0.879,
+    3.888
+   ],
+   "rot": [
+    0,
+    -90,
+    0
+   ],
+   "model": "models/kuribo_model.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 77,
+   "actor": 200,
+   "pos": [
+    3.58,
+    0.72,
+    1.583
+   ],
+   "rot": [
+    0,
+    -90,
+    0
+   ],
+   "model": "models/kuribo_model.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 78,
+   "actor": 200,
+   "pos": [
+    -1.449,
+    0,
+    -1.696
+   ],
+   "rot": [
+    0,
+    29.998,
+    0
+   ],
+   "model": "models/kuribo_model.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 79,
+   "actor": 200,
+   "pos": [
+    -5.229,
+    0.75,
+    1.037
+   ],
+   "rot": [
+    0,
+    -90,
+    0
+   ],
+   "model": "models/kuribo_model.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 80,
+   "actor": 299,
+   "pos": [
+    2.24,
+    0.75,
+    4.225
+   ],
+   "rot": [
+    0,
+    -90,
+    0
+   ],
+   "model": "models/yajirusi_l.glb",
+   "collision": "collision/yajirusi_l.glb",
+   "props": {
+    "colMtx": [
+     0.09985,
+     0,
+     0,
+     0,
+     0.09985,
+     0,
+     0,
+     0,
+     0.09985,
+     0,
+     0,
+     0
+    ],
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 81,
+   "actor": 300,
+   "pos": [
+    -4.807,
+    1,
+    -1.819
+   ],
+   "rot": [
+    0,
+    45,
+    0
+   ],
+   "model": "models/yajirusi_r.glb",
+   "collision": "collision/yajirusi_r.glb",
+   "props": {
+    "colMtx": [
+     0.09985,
+     0,
+     0,
+     0,
+     0.09985,
+     0,
+     0,
+     0,
+     0.09985,
+     0,
+     0,
+     0
+    ],
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 82,
+   "actor": 300,
+   "pos": [
+    -3.2,
+    0.776,
+    -4.469
+   ],
+   "rot": [
+    0,
+    19.995,
+    0
+   ],
+   "model": "models/yajirusi_r.glb",
+   "collision": "collision/yajirusi_r.glb",
+   "props": {
+    "colMtx": [
+     0.09985,
+     0,
+     0,
+     0,
+     0.09985,
+     0,
+     0,
+     0,
+     0.09985,
+     0,
+     0,
+     0
+    ],
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 83,
+   "actor": 300,
+   "pos": [
+    -1.699,
+    1,
+    -5.541
+   ],
+   "rot": [
+    0,
+    -64.995,
+    0
+   ],
+   "model": "models/yajirusi_r.glb",
+   "collision": "collision/yajirusi_r.glb",
+   "props": {
+    "colMtx": [
+     0.09985,
+     0,
+     0,
+     0,
+     0.09985,
+     0,
+     0,
+     0,
+     0.09985,
+     0,
+     0,
+     0
+    ],
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 84,
+   "actor": 299,
+   "pos": [
+    6.138,
+    0.849,
+    -1.457
+   ],
+   "rot": [
+    0,
+    45,
+    0
+   ],
+   "model": "models/yajirusi_l.glb",
+   "collision": "collision/yajirusi_l.glb",
+   "props": {
+    "colMtx": [
+     0.09985,
+     0,
+     0,
+     0,
+     0.09985,
+     0,
+     0,
+     0,
+     0.09985,
+     0,
+     0,
+     0
+    ],
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 85,
+   "actor": 15,
+   "pos": [
+    6.833,
+    1.983,
+    -6.415
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/broken_block_l.glb",
+   "collision": "collision/broken_block_l.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 86,
+   "actor": 15,
+   "pos": [
+    -3.66,
+    0,
+    6.411
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/broken_block_l.glb",
+   "collision": "collision/broken_block_l.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 87,
+   "actor": 286,
+   "pos": [
+    -5.987,
+    0.881,
+    -6.355
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/bomb_tree.glb",
+   "props": {
+    "billboard": true,
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 88,
+   "actor": 286,
+   "pos": [
+    -5.657,
+    0.999,
+    -4.546
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/bomb_tree.glb",
+   "props": {
+    "billboard": true,
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 89,
+   "actor": 286,
+   "pos": [
+    -6.645,
+    1.015,
+    -4.753
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/bomb_tree.glb",
+   "props": {
+    "billboard": true,
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 90,
+   "actor": 286,
+   "pos": [
+    -6.028,
+    1,
+    -0.421
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/bomb_tree.glb",
+   "props": {
+    "billboard": true,
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 91,
+   "actor": 286,
+   "pos": [
+    -5,
+    0.749,
+    2
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/bomb_tree.glb",
+   "props": {
+    "billboard": true,
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 92,
+   "actor": 286,
+   "pos": [
+    -4,
+    0.749,
+    1.499
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/bomb_tree.glb",
+   "props": {
+    "billboard": true,
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 93,
+   "actor": 286,
+   "pos": [
+    -6.499,
+    0.75,
+    3.5
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/bomb_tree.glb",
+   "props": {
+    "billboard": true,
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 94,
+   "actor": 286,
+   "pos": [
+    -4,
+    0.75,
+    3
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/bomb_tree.glb",
+   "props": {
+    "billboard": true,
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 95,
+   "actor": 286,
+   "pos": [
+    -3.499,
+    0.749,
+    2.499
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/bomb_tree.glb",
+   "props": {
+    "billboard": true,
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 96,
+   "actor": 286,
+   "pos": [
+    -4.168,
+    0,
+    4.655
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/bomb_tree.glb",
+   "props": {
+    "billboard": true,
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 97,
+   "actor": 286,
+   "pos": [
+    -1.474,
+    0.13,
+    4.974
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/bomb_tree.glb",
+   "props": {
+    "billboard": true,
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 98,
+   "actor": 286,
+   "pos": [
+    2.842,
+    0.749,
+    5.777
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/bomb_tree.glb",
+   "props": {
+    "billboard": true,
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 99,
+   "actor": 286,
+   "pos": [
+    5.3,
+    0.85,
+    5.9
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/bomb_tree.glb",
+   "props": {
+    "billboard": true,
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 100,
+   "actor": 286,
+   "pos": [
+    4.108,
+    0.905,
+    3.683
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/bomb_tree.glb",
+   "props": {
+    "billboard": true,
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 101,
+   "actor": 286,
+   "pos": [
+    4,
+    3,
+    1.6
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/bomb_tree.glb",
+   "props": {
+    "billboard": true,
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 102,
+   "actor": 286,
+   "pos": [
+    6.639,
+    1.96,
+    -5.457
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/bomb_tree.glb",
+   "props": {
+    "billboard": true,
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 103,
+   "actor": 286,
+   "pos": [
+    5.891,
+    2.142,
+    -7.481
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/bomb_tree.glb",
+   "props": {
+    "billboard": true,
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 104,
+   "actor": 288,
+   "pos": [
+    4.411,
+    3.002,
+    -2.527
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/arc0_5.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 105,
+   "actor": 288,
+   "pos": [
+    4.604,
+    3.006,
+    -2.621
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/arc0_5.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 106,
+   "actor": 288,
+   "pos": [
+    4.798,
+    3.009,
+    -2.72
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/arc0_5.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 107,
+   "actor": 288,
+   "pos": [
+    4.981,
+    3.011,
+    -2.814
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/arc0_5.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 108,
+   "actor": 288,
+   "pos": [
+    5.159,
+    3.014,
+    -2.914
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/arc0_5.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 109,
+   "actor": 288,
+   "pos": [
+    -0.664,
+    0,
+    5.506
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/arc0_5.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 110,
+   "actor": 288,
+   "pos": [
+    -0.35,
+    0,
+    5.506
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/arc0_5.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 111,
+   "actor": 288,
+   "pos": [
+    -0.042,
+    0,
+    5.506
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/arc0_5.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 112,
+   "actor": 288,
+   "pos": [
+    0.283,
+    0,
+    5.506
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/arc0_5.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 113,
+   "actor": 288,
+   "pos": [
+    0.544,
+    0,
+    5.506
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/arc0_5.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 114,
+   "actor": 288,
+   "pos": [
+    1.568,
+    2.849,
+    -2.233
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/arc0_5.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 115,
+   "actor": 288,
+   "pos": [
+    1.723,
+    2.849,
+    -2.167
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/arc0_5.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 116,
+   "actor": 288,
+   "pos": [
+    1.903,
+    2.848,
+    -2.11
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/arc0_5.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 117,
+   "actor": 288,
+   "pos": [
+    2.074,
+    2.848,
+    -2.037
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/arc0_5.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 118,
+   "actor": 288,
+   "pos": [
+    2.228,
+    2.848,
+    -1.973
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/arc0_5.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 119,
+   "actor": 180,
+   "pos": [
+    -6.3,
+    0.85,
+    1.05
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/star_base.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 120,
+   "actor": 288,
+   "pos": [
+    2.95,
+    3.9,
+    1.2
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/arc0_5.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 121,
+   "actor": 288,
+   "pos": [
+    2.95,
+    3.8,
+    1.4
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/arc0_5.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 122,
+   "actor": 288,
+   "pos": [
+    2.95,
+    3.6,
+    1.5
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/arc0_5.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 123,
+   "actor": 288,
+   "pos": [
+    2.95,
+    3.4,
+    1.4
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/arc0_5.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 124,
+   "actor": 288,
+   "pos": [
+    2.95,
+    3.3,
+    1.2
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/arc0_5.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 125,
+   "actor": 288,
+   "pos": [
+    2.95,
+    3.4,
+    1
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/arc0_5.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 126,
+   "actor": 288,
+   "pos": [
+    2.95,
+    3.6,
+    0.9
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/arc0_5.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 127,
+   "actor": 288,
+   "pos": [
+    2.95,
+    3.8,
+    1
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/arc0_5.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 128,
+   "actor": 288,
+   "pos": [
+    2.95,
+    3.6,
+    1.2
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/arc0_5.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 129,
+   "actor": 288,
+   "pos": [
+    1.25,
+    3.9,
+    1.2
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/arc0_5.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 130,
+   "actor": 288,
+   "pos": [
+    1.25,
+    3.8,
+    1.4
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/arc0_5.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 131,
+   "actor": 288,
+   "pos": [
+    1.25,
+    3.6,
+    1.5
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/arc0_5.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 132,
+   "actor": 288,
+   "pos": [
+    1.25,
+    3.4,
+    1.4
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/arc0_5.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 133,
+   "actor": 288,
+   "pos": [
+    1.25,
+    3.3,
+    1.2
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/arc0_5.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 134,
+   "actor": 288,
+   "pos": [
+    1.25,
+    3.4,
+    1
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/arc0_5.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 135,
+   "actor": 288,
+   "pos": [
+    1.25,
+    3.6,
+    0.9
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/arc0_5.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 136,
+   "actor": 288,
+   "pos": [
+    1.25,
+    3.8,
+    1
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/arc0_5.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 137,
+   "actor": 288,
+   "pos": [
+    1.25,
+    3.6,
+    1.2
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/arc0_5.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 138,
+   "actor": 288,
+   "pos": [
+    2.1,
+    3.9,
+    1.2
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/arc0_5.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 139,
+   "actor": 288,
+   "pos": [
+    2.1,
+    3.8,
+    1.4
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/arc0_5.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 140,
+   "actor": 288,
+   "pos": [
+    2.1,
+    3.6,
+    1.5
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/arc0_5.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 141,
+   "actor": 288,
+   "pos": [
+    2.1,
+    3.4,
+    1.4
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/arc0_5.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 142,
+   "actor": 288,
+   "pos": [
+    2.1,
+    3.3,
+    1.2
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/arc0_5.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 143,
+   "actor": 288,
+   "pos": [
+    2.1,
+    3.4,
+    1
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/arc0_5.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 144,
+   "actor": 288,
+   "pos": [
+    2.1,
+    3.6,
+    0.9
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/arc0_5.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 145,
+   "actor": 288,
+   "pos": [
+    2.1,
+    3.8,
+    1
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/arc0_5.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 146,
+   "actor": 288,
+   "pos": [
+    2.1,
+    3.6,
+    1.2
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/arc0_5.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 147,
+   "actor": 288,
+   "pos": [
+    -0.45,
+    4.4,
+    1.2
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/arc0_5.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 148,
+   "actor": 288,
+   "pos": [
+    -0.45,
+    4.3,
+    1.4
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/arc0_5.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 149,
+   "actor": 288,
+   "pos": [
+    -0.45,
+    4.1,
+    1.5
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/arc0_5.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 150,
+   "actor": 288,
+   "pos": [
+    -0.45,
+    3.9,
+    1.4
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/arc0_5.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 151,
+   "actor": 288,
+   "pos": [
+    -0.45,
+    3.8,
+    1.2
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/arc0_5.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 152,
+   "actor": 288,
+   "pos": [
+    -0.45,
+    3.9,
+    1
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/arc0_5.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 153,
+   "actor": 288,
+   "pos": [
+    -0.45,
+    4.1,
+    0.9
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/arc0_5.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 154,
+   "actor": 288,
+   "pos": [
+    -0.45,
+    4.3,
+    1
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/arc0_5.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 155,
+   "actor": 288,
+   "pos": [
+    -0.45,
+    4.1,
+    1.2
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/arc0_5.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 156,
+   "actor": 288,
+   "pos": [
+    -1.5,
+    5.75,
+    1.2
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/arc0_5.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 157,
+   "actor": 288,
+   "pos": [
+    -1.5,
+    5.65,
+    1.4
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/arc0_5.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 158,
+   "actor": 288,
+   "pos": [
+    -1.5,
+    5.45,
+    1.5
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/arc0_5.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 159,
+   "actor": 288,
+   "pos": [
+    -1.5,
+    5.25,
+    1.4
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/arc0_5.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 160,
+   "actor": 288,
+   "pos": [
+    -1.5,
+    5.15,
+    1.2
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/arc0_5.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 161,
+   "actor": 288,
+   "pos": [
+    -1.5,
+    5.25,
+    1
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/arc0_5.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 162,
+   "actor": 288,
+   "pos": [
+    -1.5,
+    5.45,
+    0.9
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/arc0_5.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 163,
+   "actor": 288,
+   "pos": [
+    -1.5,
+    5.65,
+    1
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/arc0_5.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 164,
+   "actor": 288,
+   "pos": [
+    -1.5,
+    5.45,
+    1.2
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/arc0_5.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 165,
+   "actor": 289,
+   "pos": [
+    4.854,
+    1.381,
+    0.809
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/arc0_7.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 166,
+   "actor": 289,
+   "pos": [
+    1.602,
+    0.971,
+    4.338
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/arc0_7.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 167,
+   "actor": 289,
+   "pos": [
+    0.397,
+    1.053,
+    1.896
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/arc0_7.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 168,
+   "actor": 289,
+   "pos": [
+    -2.7,
+    0,
+    -3.95
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/arc0_7.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 169,
+   "actor": 289,
+   "pos": [
+    1.004,
+    1.823,
+    -6.873
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/arc0_7.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 170,
+   "actor": 289,
+   "pos": [
+    -5.25,
+    0.749,
+    2.3
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/arc0_7.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 171,
+   "actor": 289,
+   "pos": [
+    -6.45,
+    0.749,
+    2.3
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/arc0_7.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 172,
+   "actor": 289,
+   "pos": [
+    3.998,
+    3.695,
+    1.601
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/arc0_7.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 173,
+   "actor": 180,
+   "pos": [
+    -6.073,
+    0.8,
+    2.683
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/star_base.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 174,
+   "actor": 178,
+   "pos": [
+    1.529,
+    1.05,
+    0.264
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/arc0_21.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 175,
+   "actor": 208,
+   "pos": [
+    -3.673,
+    2.85,
+    -1.568
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/water_bomb.glb",
+   "props": {
+    "layer": 1,
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 176,
+   "actor": 208,
+   "pos": [
+    3.744,
+    2.85,
+    3.47
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/water_bomb.glb",
+   "props": {
+    "layer": 1,
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 177,
+   "actor": 207,
+   "pos": [
+    1.363,
+    2.849,
+    -2.331
+   ],
+   "rot": [
+    0,
+    -17.996,
+    0
+   ],
+   "model": "models/houdai.glb",
+   "props": {
+    "layer": 1,
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 178,
+   "actor": 181,
+   "pos": [
+    -5.95,
+    0,
+    6.5
+   ],
+   "rot": [
+    0,
+    -90,
+    0
+   ],
+   "model": "models/red_bombhei.glb",
+   "props": {
+    "layer": 1,
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 179,
+   "actor": 181,
+   "pos": [
+    -5.5,
+    0.15,
+    5.8
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/red_bombhei.glb",
+   "props": {
+    "layer": 1,
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 180,
+   "actor": 189,
+   "pos": [
+    1.501,
+    4.192,
+    -5.387
+   ],
+   "rot": [
+    0,
+    -145.997,
+    0
+   ],
+   "model": "models/bomb_king.glb",
+   "props": {
+    "layer": 1,
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 181,
+   "actor": 219,
+   "pos": [
+    0.4,
+    0.75,
+    1.9
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/ar1_2.glb",
+   "props": {
+    "layer": 1,
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 182,
+   "actor": 27,
+   "pos": [
+    0.4,
+    0.75,
+    1.9
+   ],
+   "model": "models/pile.glb",
+   "collision": "collision/pile.glb",
+   "props": {
+    "colMtx": [
+     0.09985,
+     0,
+     0,
+     0,
+     0.09985,
+     0,
+     0,
+     0,
+     0.09985,
+     0,
+     0,
+     0
+    ],
+    "layer": 1,
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 183,
+   "actor": 41,
+   "pos": [
+    1.449,
+    0.75,
+    0.407
+   ],
+   "rot": [
+    0,
+    -32.498,
+    0
+   ],
+   "model": "models/b_wan_shutter.glb",
+   "collision": "collision/b_wan_shutter.glb",
+   "props": {
+    "layer": 1,
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 184,
+   "actor": 207,
+   "pos": [
+    -5.562,
+    0.125,
+    5.468
+   ],
+   "rot": [
+    0,
+    135,
+    0
+   ],
+   "model": "models/houdai.glb",
+   "props": {
+    "layer": 1,
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 185,
+   "actor": 206,
+   "pos": [
+    1.122,
+    2.832,
+    -2.414
+   ],
+   "rot": [
+    0,
+    -17.996,
+    0
+   ],
+   "model": "models/bombhei.glb",
+   "props": {
+    "layer": 1,
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 186,
+   "actor": 200,
+   "pos": [
+    -0.2,
+    0,
+    4.22
+   ],
+   "rot": [
+    0,
+    -90,
+    0
+   ],
+   "model": "models/kuribo_model.glb",
+   "props": {
+    "layer": 1,
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 187,
+   "actor": 200,
+   "pos": [
+    5.201,
+    0.975,
+    3.608
+   ],
+   "rot": [
+    0,
+    -45,
+    0
+   ],
+   "model": "models/kuribo_model.glb",
+   "props": {
+    "layer": 1,
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 188,
+   "actor": 180,
+   "pos": [
+    2.998,
+    4.292,
+    -4.597
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/star_base.glb",
+   "props": {
+    "layer": 1,
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 189,
+   "actor": 188,
+   "pos": [
+    -3.7,
+    0,
+    5.1
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/nokonoko.glb",
+   "props": {
+    "layer": 2,
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 190,
+   "actor": 205,
+   "pos": [
+    3,
+    4.192,
+    -4.6
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/obj_race_flag.glb",
+   "props": {
+    "layer": 2,
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 191,
+   "actor": 200,
+   "pos": [
+    5.201,
+    0.975,
+    3.609
+   ],
+   "rot": [
+    0,
+    -45,
+    0
+   ],
+   "model": "models/kuribo_model.glb",
+   "props": {
+    "layer": 2,
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 192,
+   "actor": 181,
+   "pos": [
+    -4.213,
+    0,
+    4.999
+   ],
+   "rot": [
+    0,
+    -90,
+    0
+   ],
+   "model": "models/red_bombhei.glb",
+   "props": {
+    "layer": 2,
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 193,
+   "actor": 269,
+   "pos": [
+    4.272,
+    3.334,
+    -6.492
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/arc0_17.glb",
+   "props": {
+    "layer": 2,
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 194,
+   "actor": 200,
+   "pos": [
+    -0.199,
+    0,
+    4.221
+   ],
+   "rot": [
+    0,
+    -90,
+    0
+   ],
+   "model": "models/kuribo_model.glb",
+   "props": {
+    "layer": 2,
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 195,
+   "actor": 180,
+   "pos": [
+    1.905,
+    4.292,
+    -4.557
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/star_base.glb",
+   "props": {
+    "layer": 2,
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 196,
+   "actor": 337,
+   "pos": [
+    4.65,
+    0.85,
+    2.65
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/ar1_2.glb",
+   "props": {
+    "layer": 3,
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 197,
+   "actor": 200,
+   "pos": [
+    6.85,
+    1.941,
+    -5.25
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/kuribo_model.glb",
+   "props": {
+    "layer": 3,
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 198,
+   "actor": 200,
+   "pos": [
+    -4.195,
+    0.75,
+    2.256
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/kuribo_model.glb",
+   "props": {
+    "layer": 3,
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 199,
+   "actor": 184,
+   "pos": [
+    -4.48,
+    0,
+    5.308
+   ],
+   "rot": [
+    0,
+    -90,
+    0
+   ],
+   "model": "models/obj_tatefuda.glb",
+   "collision": "collision/obj_tatefuda.glb",
+   "props": {
+    "colMtx": [
+     0.09985,
+     0,
+     0,
+     0,
+     0.09985,
+     0,
+     0,
+     0,
+     0.09985,
+     0,
+     0,
+     0
+    ],
+    "layer": 3,
+    "scale": 0.008,
+    "text": "The clear ball you\nsee in front of you\nis a Star Sphere.\n\nWhen you get all 5 \nSilver Stars, the Power\nStar will appear \ninside the Star Sphere."
+   }
+  },
+  {
+   "id": 200,
+   "actor": 179,
+   "pos": [
+    -1.474,
+    0.95,
+    4.974
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/arc0_25.glb",
+   "props": {
+    "layer": 3,
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 201,
+   "actor": 179,
+   "pos": [
+    -6.15,
+    1.05,
+    -5.15
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/arc0_25.glb",
+   "props": {
+    "layer": 3,
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 202,
+   "actor": 178,
+   "pos": [
+    -4.372,
+    0.25,
+    5.505
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/arc0_21.glb",
+   "props": {
+    "layer": 3,
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 203,
+   "actor": 15,
+   "pos": [
+    -4.845,
+    1,
+    -0.75
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/broken_block_l.glb",
+   "collision": "collision/broken_block_l.glb",
+   "props": {
+    "layer": 4,
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 204,
+   "actor": 358,
+   "pos": [
+    -2.3,
+    1.8,
+    -3.85
+   ],
+   "rot": [
+    0,
+    -62.001,
+    0
+   ],
+   "model": "models/bombhei.glb",
+   "props": {
+    "layer": 4,
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 205,
+   "actor": 357,
+   "pos": [
+    -2.45,
+    0.861,
+    -3.8
+   ],
+   "rot": [
+    0,
+    0.011,
+    0
+   ],
+   "props": {
+    "layer": 4
+   }
+  },
+  {
+   "id": 206,
+   "actor": 357,
+   "pos": [
+    5.85,
+    1.9,
+    -3.5
+   ],
+   "rot": [
+    0,
+    0.011,
+    0
+   ],
+   "props": {
+    "layer": 4
+   }
+  },
+  {
+   "id": 207,
+   "actor": 358,
+   "pos": [
+    6.15,
+    3,
+    -4.6
+   ],
+   "rot": [
+    0,
+    90,
+    0
+   ],
+   "model": "models/bombhei.glb",
+   "props": {
+    "layer": 4,
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 208,
+   "actor": 203,
+   "pos": [
+    4.003,
+    0.749,
+    6.199
+   ],
+   "rot": [
+    0,
+    -90,
+    0
+   ],
+   "model": "models/nokonoko.glb",
+   "props": {
+    "layer": 4,
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 209,
+   "actor": 200,
+   "pos": [
+    4.272,
+    3.334,
+    -6.492
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/kuribo_model.glb",
+   "props": {
+    "layer": 4,
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 210,
+   "actor": 189,
+   "pos": [
+    3,
+    4.192,
+    -4.6
+   ],
+   "rot": [
+    0,
+    -145.997,
+    0
+   ],
+   "model": "models/bomb_king.glb",
+   "props": {
+    "layer": 4,
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 211,
+   "actor": 15,
+   "pos": [
+    -2.891,
+    0.75,
+    0.25
+   ],
+   "rot": [
+    0,
+    45,
+    0
+   ],
+   "model": "models/broken_block_l.glb",
+   "collision": "collision/broken_block_l.glb",
+   "props": {
+    "layer": 4,
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 212,
+   "actor": 15,
+   "pos": [
+    -3.032,
+    0.75,
+    0.391
+   ],
+   "rot": [
+    0,
+    45,
+    0
+   ],
+   "model": "models/broken_block_l.glb",
+   "collision": "collision/broken_block_l.glb",
+   "props": {
+    "layer": 4,
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 213,
+   "actor": 15,
+   "pos": [
+    -2.361,
+    0.952,
+    -4.688
+   ],
+   "rot": [
+    0,
+    26.999,
+    0
+   ],
+   "model": "models/broken_block_l.glb",
+   "collision": "collision/broken_block_l.glb",
+   "props": {
+    "layer": 4,
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 214,
+   "actor": 15,
+   "pos": [
+    -2.452,
+    0.952,
+    -4.866
+   ],
+   "rot": [
+    0,
+    26.999,
+    0
+   ],
+   "model": "models/broken_block_l.glb",
+   "collision": "collision/broken_block_l.glb",
+   "props": {
+    "layer": 4,
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 215,
+   "actor": 15,
+   "pos": [
+    -4.301,
+    1,
+    -0.646
+   ],
+   "rot": [
+    0,
+    45,
+    0
+   ],
+   "model": "models/broken_block_l.glb",
+   "collision": "collision/broken_block_l.glb",
+   "props": {
+    "layer": 4,
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 216,
+   "actor": 200,
+   "pos": [
+    0.519,
+    2.761,
+    -2.626
+   ],
+   "rot": [
+    0,
+    -180,
+    0
+   ],
+   "model": "models/kuribo_model.glb",
+   "props": {
+    "layer": 4,
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 217,
+   "actor": 322,
+   "pos": [
+    6.833,
+    1.983,
+    -6.415
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/scale_up_kinoko.glb",
+   "props": {
+    "billboard": true,
+    "layer": 4,
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 218,
+   "actor": 322,
+   "pos": [
+    -4.845,
+    1,
+    -0.75
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/scale_up_kinoko.glb",
+   "props": {
+    "billboard": true,
+    "layer": 4,
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 219,
+   "actor": 181,
+   "pos": [
+    -3.241,
+    0.045,
+    5.657
+   ],
+   "rot": [
+    0,
+    -90,
+    0
+   ],
+   "model": "models/red_bombhei.glb",
+   "props": {
+    "layer": 6,
+    "scale": 0.008
+   }
+  }
+ ]
+}

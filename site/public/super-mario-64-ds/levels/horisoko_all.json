@@ -1,0 +1,18 @@
+{
+ "collision": "collision/horisoko.glb",
+ "format": 2,
+ "kind": "mesh3d",
+ "mesh": {
+  "glb": "models/horisoko_all.glb"
+ },
+ "name": "The Secret under the Moat",
+ "objectsFile": "horisoko_all.objects.json",
+ "spawn": {
+  "pos": [
+   -6,
+   6,
+   -6
+  ],
+  "rot": 0
+ }
+}

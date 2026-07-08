@@ -1,0 +1,18 @@
+{
+ "collision": "collision/desert_py.glb",
+ "format": 2,
+ "kind": "mesh3d",
+ "mesh": {
+  "glb": "models/desert_py_all.glb"
+ },
+ "name": "Shifting Sand Land (desert_py)",
+ "objectsFile": "desert_py_all.objects.json",
+ "spawn": {
+  "pos": [
+   0,
+   0.42,
+   6
+  ],
+  "rot": -180
+ }
+}

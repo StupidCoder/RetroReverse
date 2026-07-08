@@ -1,0 +1,1743 @@
+{
+ "format": 2,
+ "level": "tibi_deka_d_all",
+ "objects": [
+  {
+   "id": 0,
+   "actor": 298,
+   "pos": [
+    -5.7,
+    -2,
+    -5.8
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/obj_dokan.glb",
+   "collision": "collision/obj_dokan.glb",
+   "props": {
+    "colMtx": [
+     0.09985,
+     0,
+     0,
+     0,
+     0.09985,
+     0,
+     0,
+     0,
+     0.09985,
+     0,
+     0,
+     0
+    ],
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 1,
+   "actor": 298,
+   "pos": [
+    -3.1,
+    0.5,
+    -3.7
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/obj_dokan.glb",
+   "collision": "collision/obj_dokan.glb",
+   "props": {
+    "colMtx": [
+     0.09985,
+     0,
+     0,
+     0,
+     0.09985,
+     0,
+     0,
+     0,
+     0.09985,
+     0,
+     0,
+     0
+    ],
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 2,
+   "actor": 298,
+   "pos": [
+    6.4,
+    -1.5,
+    -5.7
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/obj_dokan.glb",
+   "collision": "collision/obj_dokan.glb",
+   "props": {
+    "colMtx": [
+     0.09985,
+     0,
+     0,
+     0,
+     0.09985,
+     0,
+     0,
+     0,
+     0.09985,
+     0,
+     0,
+     0
+    ],
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 3,
+   "actor": 21,
+   "pos": [
+    5.85,
+    -1.75,
+    -0.499
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/arc0_14.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 4,
+   "actor": 21,
+   "pos": [
+    2.5,
+    3.4,
+    -2.2
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/arc0_14.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 5,
+   "actor": 207,
+   "pos": [
+    6.5,
+    -2.768,
+    6.8
+   ],
+   "rot": [
+    0,
+    -180,
+    0
+   ],
+   "model": "models/houdai.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 6,
+   "actor": 276,
+   "pos": [
+    -6.028,
+    -3.499,
+    -1.368
+   ],
+   "rot": [
+    0,
+    -90,
+    0
+   ],
+   "model": "models/ar1_15.glb",
+   "props": {
+    "billboard": true,
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 7,
+   "actor": 232,
+   "pos": [
+    0,
+    -2,
+    3.5
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/propeller_heyho.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 8,
+   "actor": 232,
+   "pos": [
+    6.3,
+    -2,
+    6
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/propeller_heyho.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 9,
+   "actor": 203,
+   "pos": [
+    -0.29,
+    -1.973,
+    2.15
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/nokonoko.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 10,
+   "actor": 228,
+   "pos": [
+    -6.552,
+    -3.2,
+    -0.882
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/bakubaku.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 11,
+   "actor": 228,
+   "pos": [
+    1.116,
+    -3.3,
+    6.69
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/bakubaku.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 12,
+   "actor": 220,
+   "pos": [
+    -4.379,
+    0.2,
+    -2.084
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/ar1_0.glb",
+   "props": {
+    "billboard": true,
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 13,
+   "actor": 232,
+   "pos": [
+    -3.285,
+    0.1,
+    -5.449
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/propeller_heyho.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 14,
+   "actor": 27,
+   "pos": [
+    -0.5,
+    -2.5,
+    6.5
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/pile.glb",
+   "collision": "collision/pile.glb",
+   "props": {
+    "colMtx": [
+     0.09985,
+     0,
+     0,
+     0,
+     0.09985,
+     0,
+     0,
+     0,
+     0.09985,
+     0,
+     0,
+     0
+    ],
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 15,
+   "actor": 27,
+   "pos": [
+    -5.265,
+    -2.9,
+    5.261
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/pile.glb",
+   "collision": "collision/pile.glb",
+   "props": {
+    "colMtx": [
+     0.09985,
+     0,
+     0,
+     0,
+     0.09985,
+     0,
+     0,
+     0,
+     0.09985,
+     0,
+     0,
+     0
+    ],
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 16,
+   "actor": 265,
+   "pos": [
+    -0.3,
+    -2.52,
+    4.4
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/jugem.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 17,
+   "actor": 184,
+   "pos": [
+    -0.79,
+    -2.5,
+    6.53
+   ],
+   "rot": [
+    0,
+    90,
+    0
+   ],
+   "model": "models/obj_tatefuda.glb",
+   "collision": "collision/obj_tatefuda.glb",
+   "props": {
+    "colMtx": [
+     0.09985,
+     0,
+     0,
+     0,
+     0.09985,
+     0,
+     0,
+     0,
+     0.09985,
+     0,
+     0,
+     0
+    ],
+    "scale": 0.008,
+    "text": "It's not our problem\nif you run around this\nspike and get dizzy."
+   }
+  },
+  {
+   "id": 18,
+   "actor": 184,
+   "pos": [
+    -2.25,
+    -0.5,
+    2
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/obj_tatefuda.glb",
+   "collision": "collision/obj_tatefuda.glb",
+   "props": {
+    "colMtx": [
+     0.09985,
+     0,
+     0,
+     0,
+     0.09985,
+     0,
+     0,
+     0,
+     0.09985,
+     0,
+     0,
+     0
+    ],
+    "scale": 0.008,
+    "text": "I'll be back soon.\nI'm out training now,\nso come back later.\n    --Koopa the Quick"
+   }
+  },
+  {
+   "id": 19,
+   "actor": 184,
+   "pos": [
+    6.645,
+    -2.5,
+    1.894
+   ],
+   "rot": [
+    0,
+    90,
+    0
+   ],
+   "model": "models/obj_tatefuda.glb",
+   "collision": "collision/obj_tatefuda.glb",
+   "props": {
+    "colMtx": [
+     0.09985,
+     0,
+     0,
+     0,
+     0.09985,
+     0,
+     0,
+     0,
+     0.09985,
+     0,
+     0,
+     0
+    ],
+    "scale": 0.008,
+    "text": "Danger! Strong Gusts!\nBut the wind makes a\ncomfy ride."
+   }
+  },
+  {
+   "id": 20,
+   "actor": 106,
+   "pos": [
+    0,
+    3.82,
+    -1.5
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/td_obj_futa.glb",
+   "collision": "collision/td_obj_futa.glb",
+   "props": {
+    "colMtx": [
+     0.09985,
+     0,
+     0,
+     0,
+     0.09985,
+     0,
+     0,
+     0,
+     0.09985,
+     0,
+     0,
+     0
+    ],
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 21,
+   "actor": 107,
+   "pos": [
+    0,
+    0,
+    0
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/td_obj_water.glb",
+   "collision": "collision/td_obj_water.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 22,
+   "actor": 269,
+   "pos": [
+    5.8,
+    -1.5,
+    -6.2
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/arc0_20.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 23,
+   "actor": 190,
+   "pos": [
+    -2.066,
+    2.15,
+    -0.617
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/horuhei.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 24,
+   "actor": 202,
+   "pos": [
+    -6.3,
+    -2.9,
+    5.5
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/kuribo_model.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 25,
+   "actor": 202,
+   "pos": [
+    -6.8,
+    -2.9,
+    6.1
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/kuribo_model.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 26,
+   "actor": 202,
+   "pos": [
+    -6,
+    -2.9,
+    6.9
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/kuribo_model.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 27,
+   "actor": 202,
+   "pos": [
+    -3.9,
+    -0.5,
+    3.3
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/kuribo_model.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 28,
+   "actor": 202,
+   "pos": [
+    -3.1,
+    -0.5,
+    2.1
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/kuribo_model.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 29,
+   "actor": 202,
+   "pos": [
+    6.3,
+    -2.5,
+    4.5
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/kuribo_model.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 30,
+   "actor": 202,
+   "pos": [
+    3.7,
+    -0.5,
+    2.7
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/kuribo_model.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 31,
+   "actor": 202,
+   "pos": [
+    3.742,
+    -1.5,
+    3.56
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/kuribo_model.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 32,
+   "actor": 202,
+   "pos": [
+    7,
+    -1.5,
+    -5
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/kuribo_model.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 33,
+   "actor": 14,
+   "pos": [
+    6.5,
+    -2.768,
+    6.8
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/cannon_shutter.glb",
+   "collision": "collision/cannon_shutter.glb",
+   "props": {
+    "colMtx": [
+     0.09985,
+     0,
+     0,
+     0,
+     0.09985,
+     0,
+     0,
+     0,
+     0.09985,
+     0,
+     0,
+     0
+    ],
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 34,
+   "actor": 276,
+   "pos": [
+    -0.7,
+    -1.588,
+    1.2
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/ar1_15.glb",
+   "props": {
+    "billboard": true,
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 35,
+   "actor": 251,
+   "pos": [
+    -6.1,
+    -2,
+    -3.6
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/pakkun_model.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 36,
+   "actor": 251,
+   "pos": [
+    -5.4,
+    -2,
+    -5
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/pakkun_model.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 37,
+   "actor": 251,
+   "pos": [
+    -6.5,
+    -2,
+    -4.4
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/pakkun_model.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 38,
+   "actor": 251,
+   "pos": [
+    -6.1,
+    -2,
+    -5.2
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/pakkun_model.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 39,
+   "actor": 251,
+   "pos": [
+    -5.5,
+    -2,
+    -6.5
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/pakkun_model.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 40,
+   "actor": 269,
+   "pos": [
+    -4.27,
+    0.7,
+    -2.1
+   ],
+   "rot": [
+    0,
+    -45,
+    0
+   ],
+   "model": "models/arc0_16.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 41,
+   "actor": 269,
+   "pos": [
+    -6.1,
+    -2.85,
+    1.1
+   ],
+   "rot": [
+    0,
+    45,
+    0
+   ],
+   "model": "models/arc0_17.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 42,
+   "actor": 27,
+   "pos": [
+    -5.25,
+    -2,
+    -3.2
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/pile.glb",
+   "collision": "collision/pile.glb",
+   "props": {
+    "colMtx": [
+     0.09985,
+     0,
+     0,
+     0,
+     0.09985,
+     0,
+     0,
+     0,
+     0.09985,
+     0,
+     0,
+     0
+    ],
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 43,
+   "actor": 27,
+   "pos": [
+    -6.4,
+    -2,
+    -4.85
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/pile.glb",
+   "collision": "collision/pile.glb",
+   "props": {
+    "colMtx": [
+     0.09985,
+     0,
+     0,
+     0,
+     0.09985,
+     0,
+     0,
+     0,
+     0.09985,
+     0,
+     0,
+     0
+    ],
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 44,
+   "actor": 27,
+   "pos": [
+    -6.8,
+    -2,
+    -3.2
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/pile.glb",
+   "collision": "collision/pile.glb",
+   "props": {
+    "colMtx": [
+     0.09985,
+     0,
+     0,
+     0,
+     0.09985,
+     0,
+     0,
+     0,
+     0.09985,
+     0,
+     0,
+     0
+    ],
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 45,
+   "actor": 184,
+   "pos": [
+    2.7,
+    -0.5,
+    3.2
+   ],
+   "rot": [
+    0,
+    90,
+    0
+   ],
+   "model": "models/obj_tatefuda.glb",
+   "collision": "collision/obj_tatefuda.glb",
+   "props": {
+    "colMtx": [
+     0.09985,
+     0,
+     0,
+     0,
+     0.09985,
+     0,
+     0,
+     0,
+     0.09985,
+     0,
+     0,
+     0
+    ],
+    "scale": 0.008,
+    "text": "When using the Touch\nScreen, it's easy to walk\nor run.\nYou can even calmly and\ncoolly navigate your way\nacross narrow ledges.\nUse the thumb pad on the\nwrist strap for smoother \ncontrol than your finger."
+   }
+  },
+  {
+   "id": 46,
+   "actor": 269,
+   "pos": [
+    5.8,
+    -1.5,
+    -6.1
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/arc0_20.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 47,
+   "actor": 269,
+   "pos": [
+    -4.27,
+    0.703,
+    -2.1
+   ],
+   "rot": [
+    0,
+    -45,
+    0
+   ],
+   "model": "models/arc0_16.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 48,
+   "actor": 269,
+   "pos": [
+    -6.1,
+    -2.85,
+    1.2
+   ],
+   "rot": [
+    0,
+    45,
+    0
+   ],
+   "model": "models/arc0_17.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 49,
+   "actor": 286,
+   "pos": [
+    4.7,
+    -0.495,
+    2.201
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/ar1_16.glb",
+   "props": {
+    "billboard": true,
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 50,
+   "actor": 288,
+   "pos": [
+    -4.8,
+    -0.049,
+    -1.7
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/arc0_5.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 51,
+   "actor": 288,
+   "pos": [
+    -4.8,
+    -0.106,
+    -1.55
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/arc0_5.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 52,
+   "actor": 288,
+   "pos": [
+    -4.8,
+    -0.162,
+    -1.4
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/arc0_5.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 53,
+   "actor": 288,
+   "pos": [
+    -4.8,
+    -0.218,
+    -1.25
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/arc0_5.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 54,
+   "actor": 288,
+   "pos": [
+    0.747,
+    -0.49,
+    2.284
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/arc0_5.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 55,
+   "actor": 288,
+   "pos": [
+    0.744,
+    -0.49,
+    2.442
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/arc0_5.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 56,
+   "actor": 288,
+   "pos": [
+    0.741,
+    -0.49,
+    2.603
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/arc0_5.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 57,
+   "actor": 288,
+   "pos": [
+    0.738,
+    -0.49,
+    2.774
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/arc0_5.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 58,
+   "actor": 288,
+   "pos": [
+    0.731,
+    -0.49,
+    2.948
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/arc0_5.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 59,
+   "actor": 288,
+   "pos": [
+    -0.2,
+    2.15,
+    0.4
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/arc0_5.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 60,
+   "actor": 288,
+   "pos": [
+    0,
+    2.15,
+    0.4
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/arc0_5.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 61,
+   "actor": 288,
+   "pos": [
+    0.2,
+    2.15,
+    0.4
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/arc0_5.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 62,
+   "actor": 288,
+   "pos": [
+    0.4,
+    2.15,
+    0.4
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/arc0_5.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 63,
+   "actor": 288,
+   "pos": [
+    0.6,
+    2.15,
+    0.4
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/arc0_5.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 64,
+   "actor": 288,
+   "pos": [
+    5.55,
+    -1.775,
+    -2.3
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/arc0_5.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 65,
+   "actor": 288,
+   "pos": [
+    5.55,
+    -1.8,
+    -2.1
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/arc0_5.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 66,
+   "actor": 288,
+   "pos": [
+    5.55,
+    -1.825,
+    -1.9
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/arc0_5.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 67,
+   "actor": 288,
+   "pos": [
+    5.55,
+    -1.85,
+    -1.7
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/arc0_5.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 68,
+   "actor": 288,
+   "pos": [
+    5.55,
+    -1.875,
+    -1.5
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/arc0_5.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 69,
+   "actor": 180,
+   "pos": [
+    -6.2,
+    -1.92,
+    -6.3
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/star_base.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 70,
+   "actor": 180,
+   "pos": [
+    7,
+    -1.42,
+    -5.7
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/star_base.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 71,
+   "actor": 344,
+   "pos": [
+    -1.6,
+    -3.2,
+    6.8
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/fish.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 72,
+   "actor": 344,
+   "pos": [
+    2.3,
+    -3.2,
+    7
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/fish.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 73,
+   "actor": 344,
+   "pos": [
+    -6.4,
+    -3.2,
+    4.1
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/fish.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 74,
+   "actor": 344,
+   "pos": [
+    -5.7,
+    -3.3,
+    -1.2
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/fish.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 75,
+   "actor": 180,
+   "pos": [
+    2.5,
+    3.4,
+    -2.2
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/star_base.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 76,
+   "actor": 320,
+   "pos": [
+    -6.8,
+    -2,
+    -3.2
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/scale_up_kinoko.glb",
+   "props": {
+    "billboard": true,
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 77,
+   "actor": 319,
+   "pos": [
+    -6.8,
+    -1.6,
+    -3.2
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/scale_up_kinoko.glb",
+   "props": {
+    "billboard": true,
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 78,
+   "actor": 178,
+   "pos": [
+    0,
+    4.1,
+    -1.5
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/arc0_21.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 79,
+   "actor": 286,
+   "pos": [
+    -6.6,
+    -2.85,
+    0.9
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/ar1_16.glb",
+   "props": {
+    "billboard": true,
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 80,
+   "actor": 288,
+   "pos": [
+    -6.6,
+    -2.2,
+    0.9
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/arc0_5.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 81,
+   "actor": 205,
+   "pos": [
+    7.05,
+    -1.5,
+    -6.15
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/obj_race_flag.glb",
+   "props": {
+    "layer": 3,
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 82,
+   "actor": 188,
+   "pos": [
+    -1.8,
+    -0.5,
+    2.1
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/nokonoko.glb",
+   "props": {
+    "layer": 3,
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 83,
+   "actor": 234,
+   "pos": [
+    -6.6,
+    -2.25,
+    0.9
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/owl.glb",
+   "props": {
+    "layer": 3,
+    "scale": 0.008
+   }
+  }
+ ]
+}

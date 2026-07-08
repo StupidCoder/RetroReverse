@@ -165,10 +165,10 @@ const GAMES = [
     music: async () => (await fetch('public/mariokart/music/tracks.json').then(r => r.json())),
   },
   {
-    id: 'sm64ds', name: 'Super Mario 64 DS', system: 'Nintendo DS', render: '3d',
+    id: 'super-mario-64-ds', name: 'Super Mario 64 DS', system: 'Nintendo DS', render: '3d',
     load: () => import('../sm64ds/viewer.js').then(m => m.ModelViewer),
     make: (V, el, hud) => new V(el, hud),
-    list: async (v) => await v.init(), // model list from models.json (its own BMD format)
+    list: async (v) => await v.init(), // browse list from the format-2 manifest (levels + models)
     show: (v, lvl, i) => v.loadModel(i),
     // Levels / Characters / Enemies / Objects sections, from the manifest's section field
     group: (lvl) => ({ section: lvl.section, label: lvl.name }),
@@ -182,8 +182,10 @@ const GAMES = [
       { id: 'collision', label: 'Collision', default: false, when: (m) => !!m.leaves?.[m.currentIdx]?.level?.objects },
     ],
     // the cartridge's SSEQ sequences rendered through our SDAT sequencer+synth;
-    // this SDAT ships WITH its SYMB block, so tracks carry the game's own names
-    music: async () => (await fetch('public/sm64ds/music/tracks.json').then(r => r.json())),
+    // this SDAT ships WITH its SYMB block, so tracks carry the game's own names;
+    // the format-2 manifest lists them as {name, file} — map to the player's {name, url}
+    music: async () => (await fetch('public/super-mario-64-ds/manifest.json').then(r => r.json()))
+      .music.map(t => ({ name: t.name, url: 'public/super-mario-64-ds/' + t.file })),
   },
   {
     id: 'uw', name: 'Ultima Underworld', system: 'MS-DOS', render: '3d',

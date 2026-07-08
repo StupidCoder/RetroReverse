@@ -1,0 +1,133 @@
+{
+ "format": 2,
+ "level": "koopa3_boss_all",
+ "objects": [
+  {
+   "id": 0,
+   "actor": 279,
+   "pos": [
+    -0.005,
+    0.3,
+    -0.89
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/koopa_model.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 1,
+   "actor": 167,
+   "pos": [
+    0,
+    0,
+    0
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/kb3_a.glb",
+   "collision": "collision/kb3_a.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 2,
+   "actor": 284,
+   "pos": [
+    -3.284,
+    0.5,
+    1.094
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/koopa_bomb.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 3,
+   "actor": 284,
+   "pos": [
+    0,
+    0.5,
+    3.5
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/koopa_bomb.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 4,
+   "actor": 284,
+   "pos": [
+    3.284,
+    0.5,
+    1.094
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/koopa_bomb.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 5,
+   "actor": 284,
+   "pos": [
+    2.073,
+    0.5,
+    -2.844
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/koopa_bomb.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 6,
+   "actor": 284,
+   "pos": [
+    -2.073,
+    0.5,
+    -2.844
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/koopa_bomb.glb",
+   "props": {
+    "scale": 0.008
+   }
+  }
+ ]
+}

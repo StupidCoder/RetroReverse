@@ -1,0 +1,19 @@
+{
+ "collision": "collision/battan_king_map.glb",
+ "format": 2,
+ "kind": "mesh3d",
+ "mesh": {
+  "glb": "models/battan_king_map_all.glb"
+ },
+ "name": "Whomp's Fortress",
+ "objectsFile": "battan_king_map_all.objects.json",
+ "sky": "models/vr02.glb",
+ "spawn": {
+  "pos": [
+   3.1,
+   1.95,
+   4.4
+  ],
+  "rot": 90
+ }
+}

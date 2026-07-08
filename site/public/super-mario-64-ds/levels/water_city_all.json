@@ -1,0 +1,19 @@
+{
+ "collision": "collision/water_city.glb",
+ "format": 2,
+ "kind": "mesh3d",
+ "mesh": {
+  "glb": "models/water_city_all.glb"
+ },
+ "name": "Wet-Dry World",
+ "objectsFile": "water_city_all.objects.json",
+ "sky": "models/vr08.glb",
+ "spawn": {
+  "pos": [
+   3.311,
+   3.5,
+   0.35
+  ],
+  "rot": -180
+ }
+}

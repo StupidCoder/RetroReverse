@@ -1,0 +1,19 @@
+{
+ "collision": "collision/kaizoku_irie.glb",
+ "format": 2,
+ "kind": "mesh3d",
+ "mesh": {
+  "glb": "models/kaizoku_irie_all.glb"
+ },
+ "name": "Jolly Roger Bay",
+ "objectsFile": "kaizoku_irie_all.objects.json",
+ "sky": "models/vr03.glb",
+ "spawn": {
+  "pos": [
+   -6.05,
+   2.8,
+   -0.25
+  ],
+  "rot": 59.996
+ }
+}

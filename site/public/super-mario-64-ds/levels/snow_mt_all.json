@@ -1,0 +1,19 @@
+{
+ "collision": "collision/snow_mt.glb",
+ "format": 2,
+ "kind": "mesh3d",
+ "mesh": {
+  "glb": "models/snow_mt_all.glb"
+ },
+ "name": "Cool, Cool Mountain",
+ "objectsFile": "snow_mt_all.objects.json",
+ "sky": "models/vr04.glb",
+ "spawn": {
+  "pos": [
+   -1.6,
+   4.2,
+   -2.5
+  ],
+  "rot": 90
+ }
+}

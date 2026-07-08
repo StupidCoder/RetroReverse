@@ -1,0 +1,2454 @@
+{
+  "format": 2,
+  "game": "super-mario-64-ds",
+  "levels": [
+    {
+      "name": "? Switch",
+      "section": "Levels",
+      "file": "levels/habatake_all.json",
+      "kind": "mesh3d",
+      "objects": "levels/habatake_all.objects.json"
+    },
+    {
+      "name": "Behind the Waterfall",
+      "section": "Levels",
+      "file": "levels/metal_switch_all.json",
+      "kind": "mesh3d",
+      "objects": "levels/metal_switch_all.objects.json"
+    },
+    {
+      "name": "Big Boo Battle",
+      "section": "Levels",
+      "file": "levels/ex_l_map_all.json",
+      "kind": "mesh3d",
+      "objects": "levels/ex_l_map_all.objects.json"
+    },
+    {
+      "name": "Big Boo Battle (ex_luigi)",
+      "section": "Levels",
+      "file": "levels/ex_luigi_all.json",
+      "kind": "mesh3d",
+      "objects": "levels/ex_luigi_all.objects.json"
+    },
+    {
+      "name": "Big Boo's Haunt",
+      "section": "Levels",
+      "file": "levels/teresa_house_all.json",
+      "kind": "mesh3d",
+      "objects": "levels/teresa_house_all.objects.json"
+    },
+    {
+      "name": "Bob-omb Battlefield",
+      "section": "Levels",
+      "file": "levels/bombhei_map_all.json",
+      "kind": "mesh3d",
+      "objects": "levels/bombhei_map_all.objects.json"
+    },
+    {
+      "name": "Bowser in the Dark World",
+      "section": "Levels",
+      "file": "levels/koopa1_map_all.json",
+      "kind": "mesh3d",
+      "objects": "levels/koopa1_map_all.objects.json"
+    },
+    {
+      "name": "Bowser in the Dark World (koopa1_boss)",
+      "section": "Levels",
+      "file": "levels/koopa1_boss_all.json",
+      "kind": "mesh3d",
+      "objects": "levels/koopa1_boss_all.objects.json"
+    },
+    {
+      "name": "Bowser in the Fire Sea",
+      "section": "Levels",
+      "file": "levels/koopa2_map_all.json",
+      "kind": "mesh3d",
+      "objects": "levels/koopa2_map_all.objects.json"
+    },
+    {
+      "name": "Bowser in the Fire Sea (koopa2_boss)",
+      "section": "Levels",
+      "file": "levels/koopa2_boss_all.json",
+      "kind": "mesh3d",
+      "objects": "levels/koopa2_boss_all.objects.json"
+    },
+    {
+      "name": "Bowser in the Sky",
+      "section": "Levels",
+      "file": "levels/koopa3_map_all.json",
+      "kind": "mesh3d",
+      "objects": "levels/koopa3_map_all.objects.json"
+    },
+    {
+      "name": "Bowser in the Sky (koopa3_boss)",
+      "section": "Levels",
+      "file": "levels/koopa3_boss_all.json",
+      "kind": "mesh3d",
+      "objects": "levels/koopa3_boss_all.objects.json"
+    },
+    {
+      "name": "Castle Grounds",
+      "section": "Levels",
+      "file": "levels/main_garden_all.json",
+      "kind": "mesh3d",
+      "objects": "levels/main_garden_all.objects.json"
+    },
+    {
+      "name": "Castle — 1st floor",
+      "section": "Levels",
+      "file": "levels/castle_1f_all.json",
+      "kind": "mesh3d",
+      "objects": "levels/castle_1f_all.objects.json"
+    },
+    {
+      "name": "Castle — 2nd floor",
+      "section": "Levels",
+      "file": "levels/castle_2f_all.json",
+      "kind": "mesh3d",
+      "objects": "levels/castle_2f_all.objects.json"
+    },
+    {
+      "name": "Castle — basement",
+      "section": "Levels",
+      "file": "levels/castle_b1_all.json",
+      "kind": "mesh3d",
+      "objects": "levels/castle_b1_all.objects.json"
+    },
+    {
+      "name": "Chief Chilly Challenge",
+      "section": "Levels",
+      "file": "levels/ex_w_map_all.json",
+      "kind": "mesh3d",
+      "objects": "levels/ex_w_map_all.objects.json"
+    },
+    {
+      "name": "Chief Chilly Challenge (ex_wario)",
+      "section": "Levels",
+      "file": "levels/ex_wario_all.json",
+      "kind": "mesh3d",
+      "objects": "levels/ex_wario_all.objects.json"
+    },
+    {
+      "name": "Cool, Cool Mountain",
+      "section": "Levels",
+      "file": "levels/snow_mt_all.json",
+      "kind": "mesh3d",
+      "objects": "levels/snow_mt_all.objects.json"
+    },
+    {
+      "name": "Cool, Cool Mountain (snow_slider)",
+      "section": "Levels",
+      "file": "levels/snow_slider_all.json",
+      "kind": "mesh3d",
+      "objects": "levels/snow_slider_all.objects.json"
+    },
+    {
+      "name": "Dire, Dire Docks",
+      "section": "Levels",
+      "file": "levels/water_land_all.json",
+      "kind": "mesh3d",
+      "objects": "levels/water_land_all.objects.json"
+    },
+    {
+      "name": "Goomboss Battle",
+      "section": "Levels",
+      "file": "levels/ex_m_map_all.json",
+      "kind": "mesh3d",
+      "objects": "levels/ex_m_map_all.objects.json"
+    },
+    {
+      "name": "Goomboss Battle (ex_mario)",
+      "section": "Levels",
+      "file": "levels/ex_mario_all.json",
+      "kind": "mesh3d",
+      "objects": "levels/ex_mario_all.objects.json"
+    },
+    {
+      "name": "Hazy Maze Cave",
+      "section": "Levels",
+      "file": "levels/cave_all.json",
+      "kind": "mesh3d",
+      "objects": "levels/cave_all.objects.json"
+    },
+    {
+      "name": "Jolly Roger Bay",
+      "section": "Levels",
+      "file": "levels/kaizoku_irie_all.json",
+      "kind": "mesh3d",
+      "objects": "levels/kaizoku_irie_all.objects.json"
+    },
+    {
+      "name": "Jolly Roger Bay (kaizoku_ship)",
+      "section": "Levels",
+      "file": "levels/kaizoku_ship_all.json",
+      "kind": "mesh3d",
+      "objects": "levels/kaizoku_ship_all.objects.json"
+    },
+    {
+      "name": "Lethal Lava Land",
+      "section": "Levels",
+      "file": "levels/fire_land_all.json",
+      "kind": "mesh3d",
+      "objects": "levels/fire_land_all.objects.json"
+    },
+    {
+      "name": "Lethal Lava Land (fire_mt)",
+      "section": "Levels",
+      "file": "levels/fire_mt_all.json",
+      "kind": "mesh3d",
+      "objects": "levels/fire_mt_all.objects.json"
+    },
+    {
+      "name": "Over the Rainbows",
+      "section": "Levels",
+      "file": "levels/rainbow_mario_all.json",
+      "kind": "mesh3d",
+      "objects": "levels/rainbow_mario_all.objects.json"
+    },
+    {
+      "name": "Peach's Castle (exterior)",
+      "section": "Levels",
+      "file": "levels/main_castle_all.json",
+      "kind": "mesh3d",
+      "objects": "levels/main_castle_all.objects.json"
+    },
+    {
+      "name": "Playroom",
+      "section": "Levels",
+      "file": "levels/playroom_all.json",
+      "kind": "mesh3d",
+      "objects": "levels/playroom_all.objects.json"
+    },
+    {
+      "name": "Rainbow Ride",
+      "section": "Levels",
+      "file": "levels/rainbow_cruise_all.json",
+      "kind": "mesh3d",
+      "objects": "levels/rainbow_cruise_all.objects.json"
+    },
+    {
+      "name": "Shifting Sand Land",
+      "section": "Levels",
+      "file": "levels/desert_land_all.json",
+      "kind": "mesh3d",
+      "objects": "levels/desert_land_all.objects.json"
+    },
+    {
+      "name": "Shifting Sand Land (desert_py)",
+      "section": "Levels",
+      "file": "levels/desert_py_all.json",
+      "kind": "mesh3d",
+      "objects": "levels/desert_py_all.objects.json"
+    },
+    {
+      "name": "Snowman's Land",
+      "section": "Levels",
+      "file": "levels/snow_land_all.json",
+      "kind": "mesh3d",
+      "objects": "levels/snow_land_all.objects.json"
+    },
+    {
+      "name": "Snowman's Land (snow_kama)",
+      "section": "Levels",
+      "file": "levels/snow_kama_all.json",
+      "kind": "mesh3d",
+      "objects": "levels/snow_kama_all.objects.json"
+    },
+    {
+      "name": "Tall, Tall Mountain",
+      "section": "Levels",
+      "file": "levels/high_mt_all.json",
+      "kind": "mesh3d",
+      "objects": "levels/high_mt_all.objects.json"
+    },
+    {
+      "name": "Tall, Tall Mountain (high_slider)",
+      "section": "Levels",
+      "file": "levels/high_slider_all.json",
+      "kind": "mesh3d",
+      "objects": "levels/high_slider_all.objects.json"
+    },
+    {
+      "name": "Test map",
+      "section": "Levels",
+      "file": "levels/test_map_all.json",
+      "kind": "mesh3d",
+      "objects": "levels/test_map_all.objects.json"
+    },
+    {
+      "name": "Test map B",
+      "section": "Levels",
+      "file": "levels/test_map_b_all.json",
+      "kind": "mesh3d",
+      "objects": "levels/test_map_b_all.objects.json"
+    },
+    {
+      "name": "The Secret Aquarium",
+      "section": "Levels",
+      "file": "levels/suisou_all.json",
+      "kind": "mesh3d",
+      "objects": "levels/suisou_all.objects.json"
+    },
+    {
+      "name": "The Secret under the Moat",
+      "section": "Levels",
+      "file": "levels/horisoko_all.json",
+      "kind": "mesh3d",
+      "objects": "levels/horisoko_all.objects.json"
+    },
+    {
+      "name": "Tick Tock Clock",
+      "section": "Levels",
+      "file": "levels/clock_tower_all.json",
+      "kind": "mesh3d",
+      "objects": "levels/clock_tower_all.objects.json"
+    },
+    {
+      "name": "Tiny-Huge Island",
+      "section": "Levels",
+      "file": "levels/tibi_deka_d_all.json",
+      "kind": "mesh3d",
+      "objects": "levels/tibi_deka_d_all.objects.json"
+    },
+    {
+      "name": "Tiny-Huge Island (tibi_deka_in)",
+      "section": "Levels",
+      "file": "levels/tibi_deka_in_all.json",
+      "kind": "mesh3d",
+      "objects": "levels/tibi_deka_in_all.objects.json"
+    },
+    {
+      "name": "Tiny-Huge Island (tibi_deka_t)",
+      "section": "Levels",
+      "file": "levels/tibi_deka_t_all.json",
+      "kind": "mesh3d",
+      "objects": "levels/tibi_deka_t_all.objects.json"
+    },
+    {
+      "name": "Wet-Dry World",
+      "section": "Levels",
+      "file": "levels/water_city_all.json",
+      "kind": "mesh3d",
+      "objects": "levels/water_city_all.objects.json"
+    },
+    {
+      "name": "Whomp's Fortress",
+      "section": "Levels",
+      "file": "levels/battan_king_map_all.json",
+      "kind": "mesh3d",
+      "objects": "levels/battan_king_map_all.objects.json"
+    }
+  ],
+  "models": [
+    {
+      "name": "B mario all",
+      "section": "Characters",
+      "file": "models/b_mario_all.glb"
+    },
+    {
+      "name": "B mario body",
+      "section": "Characters",
+      "file": "models/b_mario_body.glb"
+    },
+    {
+      "name": "B mario head cap",
+      "section": "Characters",
+      "file": "models/b_mario_head_cap.glb"
+    },
+    {
+      "name": "Mario (in-game)",
+      "section": "Characters",
+      "file": "models/mario_model_mg.glb"
+    },
+    {
+      "name": "Wario metal model",
+      "section": "Characters",
+      "file": "models/wario_metal_model.glb"
+    },
+    {
+      "name": "Bakubaku",
+      "section": "Enemies",
+      "file": "models/bakubaku.glb"
+    },
+    {
+      "name": "Basabasa",
+      "section": "Enemies",
+      "file": "models/basabasa.glb"
+    },
+    {
+      "name": "Basabasa wait",
+      "section": "Enemies",
+      "file": "models/basabasa_wait.glb"
+    },
+    {
+      "name": "Batta block",
+      "section": "Enemies",
+      "file": "models/batta_block.glb"
+    },
+    {
+      "name": "Battan",
+      "section": "Enemies",
+      "file": "models/battan.glb"
+    },
+    {
+      "name": "Battan king",
+      "section": "Enemies",
+      "file": "models/battan_king.glb"
+    },
+    {
+      "name": "Big snowman body",
+      "section": "Enemies",
+      "file": "models/big_snowman_body.glb"
+    },
+    {
+      "name": "Big snowman head",
+      "section": "Enemies",
+      "file": "models/big_snowman_head.glb"
+    },
+    {
+      "name": "Birikyu",
+      "section": "Enemies",
+      "file": "models/birikyu.glb"
+    },
+    {
+      "name": "Birikyu elec",
+      "section": "Enemies",
+      "file": "models/birikyu_elec.glb"
+    },
+    {
+      "name": "Bomb king",
+      "section": "Enemies",
+      "file": "models/bomb_king.glb"
+    },
+    {
+      "name": "Bombhei",
+      "section": "Enemies",
+      "file": "models/bombhei.glb"
+    },
+    {
+      "name": "Book",
+      "section": "Enemies",
+      "file": "models/book.glb"
+    },
+    {
+      "name": "Boss donketu",
+      "section": "Enemies",
+      "file": "models/boss_donketu.glb"
+    },
+    {
+      "name": "Boss teresa",
+      "section": "Enemies",
+      "file": "models/boss_teresa.glb"
+    },
+    {
+      "name": "C jugem",
+      "section": "Enemies",
+      "file": "models/c_jugem.glb"
+    },
+    {
+      "name": "Chair",
+      "section": "Enemies",
+      "file": "models/chair.glb"
+    },
+    {
+      "name": "Choropu",
+      "section": "Enemies",
+      "file": "models/choropu.glb"
+    },
+    {
+      "name": "Donguru",
+      "section": "Enemies",
+      "file": "models/donguru.glb"
+    },
+    {
+      "name": "Donkaku",
+      "section": "Enemies",
+      "file": "models/donkaku.glb"
+    },
+    {
+      "name": "Donketu",
+      "section": "Enemies",
+      "file": "models/donketu.glb"
+    },
+    {
+      "name": "Dossy",
+      "section": "Enemies",
+      "file": "models/dossy.glb"
+    },
+    {
+      "name": "Dosune",
+      "section": "Enemies",
+      "file": "models/dosune.glb"
+    },
+    {
+      "name": "Eyekun",
+      "section": "Enemies",
+      "file": "models/eyekun.glb"
+    },
+    {
+      "name": "Gamaguchi",
+      "section": "Enemies",
+      "file": "models/gamaguchi.glb"
+    },
+    {
+      "name": "Hanachan body01",
+      "section": "Enemies",
+      "file": "models/hanachan_body01.glb"
+    },
+    {
+      "name": "Hanachan body02",
+      "section": "Enemies",
+      "file": "models/hanachan_body02.glb"
+    },
+    {
+      "name": "Hanachan body03",
+      "section": "Enemies",
+      "file": "models/hanachan_body03.glb"
+    },
+    {
+      "name": "Hanachan body04",
+      "section": "Enemies",
+      "file": "models/hanachan_body04.glb"
+    },
+    {
+      "name": "Hanachan head",
+      "section": "Enemies",
+      "file": "models/hanachan_head.glb"
+    },
+    {
+      "name": "Hojiro",
+      "section": "Enemies",
+      "file": "models/hojiro.glb"
+    },
+    {
+      "name": "Horuhei",
+      "section": "Enemies",
+      "file": "models/horuhei.glb"
+    },
+    {
+      "name": "Huwahuwa model",
+      "section": "Enemies",
+      "file": "models/huwahuwa_model.glb"
+    },
+    {
+      "name": "Hyuhyu",
+      "section": "Enemies",
+      "file": "models/hyuhyu.glb"
+    },
+    {
+      "name": "Ice donketu",
+      "section": "Enemies",
+      "file": "models/ice_donketu.glb"
+    },
+    {
+      "name": "Iwante dummy",
+      "section": "Enemies",
+      "file": "models/iwante_dummy.glb"
+    },
+    {
+      "name": "Iwante lhand",
+      "section": "Enemies",
+      "file": "models/iwante_lhand.glb"
+    },
+    {
+      "name": "Iwante rhand",
+      "section": "Enemies",
+      "file": "models/iwante_rhand.glb"
+    },
+    {
+      "name": "Jango",
+      "section": "Enemies",
+      "file": "models/jango.glb"
+    },
+    {
+      "name": "Jugem",
+      "section": "Enemies",
+      "file": "models/jugem.glb"
+    },
+    {
+      "name": "Keronpa",
+      "section": "Enemies",
+      "file": "models/keronpa.glb"
+    },
+    {
+      "name": "Killer body",
+      "section": "Enemies",
+      "file": "models/killer_body.glb"
+    },
+    {
+      "name": "Killer face",
+      "section": "Enemies",
+      "file": "models/killer_face.glb"
+    },
+    {
+      "name": "King ice donketu model",
+      "section": "Enemies",
+      "file": "models/king_ice_donketu_model.glb"
+    },
+    {
+      "name": "Kinopio",
+      "section": "Enemies",
+      "file": "models/kinopio.glb"
+    },
+    {
+      "name": "Koopa bomb",
+      "section": "Enemies",
+      "file": "models/koopa_bomb.glb"
+    },
+    {
+      "name": "Koopa model",
+      "section": "Enemies",
+      "file": "models/koopa_model.glb"
+    },
+    {
+      "name": "Kpa shwave",
+      "section": "Enemies",
+      "file": "models/kpa_shwave.glb"
+    },
+    {
+      "name": "Kuribo  low model",
+      "section": "Enemies",
+      "file": "models/kuribo__low_model.glb"
+    },
+    {
+      "name": "Kuribo model",
+      "section": "Enemies",
+      "file": "models/kuribo_model.glb"
+    },
+    {
+      "name": "Kuriking model",
+      "section": "Enemies",
+      "file": "models/kuriking_model.glb"
+    },
+    {
+      "name": "Manta",
+      "section": "Enemies",
+      "file": "models/manta.glb"
+    },
+    {
+      "name": "Menbo",
+      "section": "Enemies",
+      "file": "models/menbo.glb"
+    },
+    {
+      "name": "Mip",
+      "section": "Enemies",
+      "file": "models/mip.glb"
+    },
+    {
+      "name": "Monkey",
+      "section": "Enemies",
+      "file": "models/monkey.glb"
+    },
+    {
+      "name": "Moray",
+      "section": "Enemies",
+      "file": "models/moray.glb"
+    },
+    {
+      "name": "Nokonoko",
+      "section": "Enemies",
+      "file": "models/nokonoko.glb"
+    },
+    {
+      "name": "Nokonoko red",
+      "section": "Enemies",
+      "file": "models/nokonoko_red.glb"
+    },
+    {
+      "name": "Nom book",
+      "section": "Enemies",
+      "file": "models/nom_book.glb"
+    },
+    {
+      "name": "Onimasu",
+      "section": "Enemies",
+      "file": "models/onimasu.glb"
+    },
+    {
+      "name": "Owl",
+      "section": "Enemies",
+      "file": "models/owl.glb"
+    },
+    {
+      "name": "Paipo",
+      "section": "Enemies",
+      "file": "models/paipo.glb"
+    },
+    {
+      "name": "Pakkun model",
+      "section": "Enemies",
+      "file": "models/pakkun_model.glb"
+    },
+    {
+      "name": "Peach high",
+      "section": "Enemies",
+      "file": "models/peach_high.glb"
+    },
+    {
+      "name": "Peach low",
+      "section": "Enemies",
+      "file": "models/peach_low.glb"
+    },
+    {
+      "name": "Penguin",
+      "section": "Enemies",
+      "file": "models/penguin.glb"
+    },
+    {
+      "name": "Penguin child",
+      "section": "Enemies",
+      "file": "models/penguin_child.glb"
+    },
+    {
+      "name": "Piano",
+      "section": "Enemies",
+      "file": "models/piano.glb"
+    },
+    {
+      "name": "Popoi",
+      "section": "Enemies",
+      "file": "models/popoi.glb"
+    },
+    {
+      "name": "Propeller heyho",
+      "section": "Enemies",
+      "file": "models/propeller_heyho.glb"
+    },
+    {
+      "name": "Pukupuku",
+      "section": "Enemies",
+      "file": "models/pukupuku.glb"
+    },
+    {
+      "name": "Red bombhei",
+      "section": "Enemies",
+      "file": "models/red_bombhei.glb"
+    },
+    {
+      "name": "Rock",
+      "section": "Enemies",
+      "file": "models/rock.glb"
+    },
+    {
+      "name": "Sanbo body",
+      "section": "Enemies",
+      "file": "models/sanbo_body.glb"
+    },
+    {
+      "name": "Sanbo head",
+      "section": "Enemies",
+      "file": "models/sanbo_head.glb"
+    },
+    {
+      "name": "Sand tornado",
+      "section": "Enemies",
+      "file": "models/sand_tornado.glb"
+    },
+    {
+      "name": "Shell green",
+      "section": "Enemies",
+      "file": "models/shell_green.glb"
+    },
+    {
+      "name": "Shell red",
+      "section": "Enemies",
+      "file": "models/shell_red.glb"
+    },
+    {
+      "name": "Snow ball",
+      "section": "Enemies",
+      "file": "models/snow_ball.glb"
+    },
+    {
+      "name": "Snowman model",
+      "section": "Enemies",
+      "file": "models/snowman_model.glb"
+    },
+    {
+      "name": "Spider",
+      "section": "Enemies",
+      "file": "models/spider.glb"
+    },
+    {
+      "name": "Teresa",
+      "section": "Enemies",
+      "file": "models/teresa.glb"
+    },
+    {
+      "name": "Togezo",
+      "section": "Enemies",
+      "file": "models/togezo.glb"
+    },
+    {
+      "name": "Water bomb",
+      "section": "Enemies",
+      "file": "models/water_bomb.glb"
+    },
+    {
+      "name": "Yurei mucho",
+      "section": "Enemies",
+      "file": "models/yurei_mucho.glb"
+    },
+    {
+      "name": "Yurei mucho ball",
+      "section": "Enemies",
+      "file": "models/yurei_mucho_ball.glb"
+    },
+    {
+      "name": "B ana shutter",
+      "section": "Objects",
+      "file": "models/b_ana_shutter.glb"
+    },
+    {
+      "name": "B coin switch",
+      "section": "Objects",
+      "file": "models/b_coin_switch.glb"
+    },
+    {
+      "name": "B si so",
+      "section": "Objects",
+      "file": "models/b_si_so.glb"
+    },
+    {
+      "name": "B wan shutter",
+      "section": "Objects",
+      "file": "models/b_wan_shutter.glb"
+    },
+    {
+      "name": "Big 1up number",
+      "section": "Objects",
+      "file": "models/big_1up_number.glb"
+    },
+    {
+      "name": "Bird",
+      "section": "Objects",
+      "file": "models/bird.glb"
+    },
+    {
+      "name": "Bk billbord",
+      "section": "Objects",
+      "file": "models/bk_billbord.glb"
+    },
+    {
+      "name": "Bk botaosi",
+      "section": "Objects",
+      "file": "models/bk_botaosi.glb"
+    },
+    {
+      "name": "Bk dossunbar l",
+      "section": "Objects",
+      "file": "models/bk_dossunbar_l.glb"
+    },
+    {
+      "name": "Bk dossunbar s",
+      "section": "Objects",
+      "file": "models/bk_dossunbar_s.glb"
+    },
+    {
+      "name": "Bk down b",
+      "section": "Objects",
+      "file": "models/bk_down_b.glb"
+    },
+    {
+      "name": "Bk futa",
+      "section": "Objects",
+      "file": "models/bk_futa.glb"
+    },
+    {
+      "name": "Bk kabe00",
+      "section": "Objects",
+      "file": "models/bk_kabe00.glb"
+    },
+    {
+      "name": "Bk kabe01",
+      "section": "Objects",
+      "file": "models/bk_kabe01.glb"
+    },
+    {
+      "name": "Bk killer dai",
+      "section": "Objects",
+      "file": "models/bk_killer_dai.glb"
+    },
+    {
+      "name": "Bk lift01",
+      "section": "Objects",
+      "file": "models/bk_lift01.glb"
+    },
+    {
+      "name": "Bk rotebar",
+      "section": "Objects",
+      "file": "models/bk_rotebar.glb"
+    },
+    {
+      "name": "Bk tower",
+      "section": "Objects",
+      "file": "models/bk_tower.glb"
+    },
+    {
+      "name": "Bk transbar",
+      "section": "Objects",
+      "file": "models/bk_transbar.glb"
+    },
+    {
+      "name": "Bk ukisima",
+      "section": "Objects",
+      "file": "models/bk_ukisima.glb"
+    },
+    {
+      "name": "Bomb tree",
+      "section": "Objects",
+      "file": "models/bomb_tree.glb"
+    },
+    {
+      "name": "Broken block l",
+      "section": "Objects",
+      "file": "models/broken_block_l.glb"
+    },
+    {
+      "name": "Broken block ll",
+      "section": "Objects",
+      "file": "models/broken_block_ll.glb"
+    },
+    {
+      "name": "Broken block s",
+      "section": "Objects",
+      "file": "models/broken_block_s.glb"
+    },
+    {
+      "name": "Butterfly",
+      "section": "Objects",
+      "file": "models/butterfly.glb"
+    },
+    {
+      "name": "C0 switch",
+      "section": "Objects",
+      "file": "models/c0_switch.glb"
+    },
+    {
+      "name": "C0 water",
+      "section": "Objects",
+      "file": "models/c0_water.glb"
+    },
+    {
+      "name": "C1 hikari",
+      "section": "Objects",
+      "file": "models/c1_hikari.glb"
+    },
+    {
+      "name": "C1 peach",
+      "section": "Objects",
+      "file": "models/c1_peach.glb"
+    },
+    {
+      "name": "C1 trap",
+      "section": "Objects",
+      "file": "models/c1_trap.glb"
+    },
+    {
+      "name": "C2 hari long",
+      "section": "Objects",
+      "file": "models/c2_hari_long.glb"
+    },
+    {
+      "name": "C2 hari short",
+      "section": "Objects",
+      "file": "models/c2_hari_short.glb"
+    },
+    {
+      "name": "C2 huriko",
+      "section": "Objects",
+      "file": "models/c2_huriko.glb"
+    },
+    {
+      "name": "Cannon shutter",
+      "section": "Objects",
+      "file": "models/cannon_shutter.glb"
+    },
+    {
+      "name": "Casket",
+      "section": "Objects",
+      "file": "models/casket.glb"
+    },
+    {
+      "name": "Ct mecha obj01",
+      "section": "Objects",
+      "file": "models/ct_mecha_obj01.glb"
+    },
+    {
+      "name": "Ct mecha obj01a",
+      "section": "Objects",
+      "file": "models/ct_mecha_obj01a.glb"
+    },
+    {
+      "name": "Ct mecha obj02",
+      "section": "Objects",
+      "file": "models/ct_mecha_obj02.glb"
+    },
+    {
+      "name": "Ct mecha obj02a",
+      "section": "Objects",
+      "file": "models/ct_mecha_obj02a.glb"
+    },
+    {
+      "name": "Ct mecha obj03",
+      "section": "Objects",
+      "file": "models/ct_mecha_obj03.glb"
+    },
+    {
+      "name": "Ct mecha obj04l",
+      "section": "Objects",
+      "file": "models/ct_mecha_obj04l.glb"
+    },
+    {
+      "name": "Ct mecha obj04s",
+      "section": "Objects",
+      "file": "models/ct_mecha_obj04s.glb"
+    },
+    {
+      "name": "Ct mecha obj05",
+      "section": "Objects",
+      "file": "models/ct_mecha_obj05.glb"
+    },
+    {
+      "name": "Ct mecha obj06",
+      "section": "Objects",
+      "file": "models/ct_mecha_obj06.glb"
+    },
+    {
+      "name": "Ct mecha obj07",
+      "section": "Objects",
+      "file": "models/ct_mecha_obj07.glb"
+    },
+    {
+      "name": "Ct mecha obj08a",
+      "section": "Objects",
+      "file": "models/ct_mecha_obj08a.glb"
+    },
+    {
+      "name": "Ct mecha obj08b",
+      "section": "Objects",
+      "file": "models/ct_mecha_obj08b.glb"
+    },
+    {
+      "name": "Ct mecha obj09",
+      "section": "Objects",
+      "file": "models/ct_mecha_obj09.glb"
+    },
+    {
+      "name": "Ct mecha obj10",
+      "section": "Objects",
+      "file": "models/ct_mecha_obj10.glb"
+    },
+    {
+      "name": "Ct mecha obj11",
+      "section": "Objects",
+      "file": "models/ct_mecha_obj11.glb"
+    },
+    {
+      "name": "Ct mecha obj12l",
+      "section": "Objects",
+      "file": "models/ct_mecha_obj12l.glb"
+    },
+    {
+      "name": "Ct mecha obj12s",
+      "section": "Objects",
+      "file": "models/ct_mecha_obj12s.glb"
+    },
+    {
+      "name": "Cv goro rock",
+      "section": "Objects",
+      "file": "models/cv_goro_rock.glb"
+    },
+    {
+      "name": "Cv lift btn",
+      "section": "Objects",
+      "file": "models/cv_lift_btn.glb"
+    },
+    {
+      "name": "Cv news lift",
+      "section": "Objects",
+      "file": "models/cv_news_lift.glb"
+    },
+    {
+      "name": "Cv shutter",
+      "section": "Objects",
+      "file": "models/cv_shutter.glb"
+    },
+    {
+      "name": "Cv ud lift",
+      "section": "Objects",
+      "file": "models/cv_ud_lift.glb"
+    },
+    {
+      "name": "Dl pyramid",
+      "section": "Objects",
+      "file": "models/dl_pyramid.glb"
+    },
+    {
+      "name": "Dp brock",
+      "section": "Objects",
+      "file": "models/dp_brock.glb"
+    },
+    {
+      "name": "Dp lift",
+      "section": "Objects",
+      "file": "models/dp_lift.glb"
+    },
+    {
+      "name": "Emm log",
+      "section": "Objects",
+      "file": "models/emm_log.glb"
+    },
+    {
+      "name": "Emm yuka",
+      "section": "Objects",
+      "file": "models/emm_yuka.glb"
+    },
+    {
+      "name": "Ewb ice a",
+      "section": "Objects",
+      "file": "models/ewb_ice_a.glb"
+    },
+    {
+      "name": "Ewb ice b",
+      "section": "Objects",
+      "file": "models/ewb_ice_b.glb"
+    },
+    {
+      "name": "Ewb ice c",
+      "section": "Objects",
+      "file": "models/ewb_ice_c.glb"
+    },
+    {
+      "name": "Ewm ice brock",
+      "section": "Objects",
+      "file": "models/ewm_ice_brock.glb"
+    },
+    {
+      "name": "Fish",
+      "section": "Objects",
+      "file": "models/fish.glb"
+    },
+    {
+      "name": "Fish a",
+      "section": "Objects",
+      "file": "models/fish_a.glb"
+    },
+    {
+      "name": "Fish b",
+      "section": "Objects",
+      "file": "models/fish_b.glb"
+    },
+    {
+      "name": "Fl 14 00",
+      "section": "Objects",
+      "file": "models/fl_14_00.glb"
+    },
+    {
+      "name": "Fl 14 01",
+      "section": "Objects",
+      "file": "models/fl_14_01.glb"
+    },
+    {
+      "name": "Fl 14 02",
+      "section": "Objects",
+      "file": "models/fl_14_02.glb"
+    },
+    {
+      "name": "Fl 14 03",
+      "section": "Objects",
+      "file": "models/fl_14_03.glb"
+    },
+    {
+      "name": "Fl 14 04",
+      "section": "Objects",
+      "file": "models/fl_14_04.glb"
+    },
+    {
+      "name": "Fl 14 05",
+      "section": "Objects",
+      "file": "models/fl_14_05.glb"
+    },
+    {
+      "name": "Fl 14 06",
+      "section": "Objects",
+      "file": "models/fl_14_06.glb"
+    },
+    {
+      "name": "Fl 14 07",
+      "section": "Objects",
+      "file": "models/fl_14_07.glb"
+    },
+    {
+      "name": "Fl 14 08",
+      "section": "Objects",
+      "file": "models/fl_14_08.glb"
+    },
+    {
+      "name": "Fl 14 09",
+      "section": "Objects",
+      "file": "models/fl_14_09.glb"
+    },
+    {
+      "name": "Fl 14 10",
+      "section": "Objects",
+      "file": "models/fl_14_10.glb"
+    },
+    {
+      "name": "Fl 14 11",
+      "section": "Objects",
+      "file": "models/fl_14_11.glb"
+    },
+    {
+      "name": "Fl 14 12",
+      "section": "Objects",
+      "file": "models/fl_14_12.glb"
+    },
+    {
+      "name": "Fl 14 13",
+      "section": "Objects",
+      "file": "models/fl_14_13.glb"
+    },
+    {
+      "name": "Fl amilift",
+      "section": "Objects",
+      "file": "models/fl_amilift.glb"
+    },
+    {
+      "name": "Fl block",
+      "section": "Objects",
+      "file": "models/fl_block.glb"
+    },
+    {
+      "name": "Fl gura",
+      "section": "Objects",
+      "file": "models/fl_gura.glb"
+    },
+    {
+      "name": "Fl koma d",
+      "section": "Objects",
+      "file": "models/fl_koma_d.glb"
+    },
+    {
+      "name": "Fl koma u",
+      "section": "Objects",
+      "file": "models/fl_koma_u.glb"
+    },
+    {
+      "name": "Fl kuzure",
+      "section": "Objects",
+      "file": "models/fl_kuzure.glb"
+    },
+    {
+      "name": "Fl log",
+      "section": "Objects",
+      "file": "models/fl_log.glb"
+    },
+    {
+      "name": "Fl london",
+      "section": "Objects",
+      "file": "models/fl_london.glb"
+    },
+    {
+      "name": "Fl ring",
+      "section": "Objects",
+      "file": "models/fl_ring.glb"
+    },
+    {
+      "name": "Fl shiso",
+      "section": "Objects",
+      "file": "models/fl_shiso.glb"
+    },
+    {
+      "name": "Fl uki ki",
+      "section": "Objects",
+      "file": "models/fl_uki_ki.glb"
+    },
+    {
+      "name": "Fl uki yuka",
+      "section": "Objects",
+      "file": "models/fl_uki_yuka.glb"
+    },
+    {
+      "name": "Fm battan",
+      "section": "Objects",
+      "file": "models/fm_battan.glb"
+    },
+    {
+      "name": "Hatena box",
+      "section": "Objects",
+      "file": "models/hatena_box.glb"
+    },
+    {
+      "name": "Hatena karabox",
+      "section": "Objects",
+      "file": "models/hatena_karabox.glb"
+    },
+    {
+      "name": "Hatena red switch",
+      "section": "Objects",
+      "file": "models/hatena_red_switch.glb"
+    },
+    {
+      "name": "Hatena switch",
+      "section": "Objects",
+      "file": "models/hatena_switch.glb"
+    },
+    {
+      "name": "Hm basket",
+      "section": "Objects",
+      "file": "models/hm_basket.glb"
+    },
+    {
+      "name": "Hm maruta",
+      "section": "Objects",
+      "file": "models/hm_maruta.glb"
+    },
+    {
+      "name": "Houdai",
+      "section": "Objects",
+      "file": "models/houdai.glb"
+    },
+    {
+      "name": "Hs b star",
+      "section": "Objects",
+      "file": "models/hs_b_star.glb"
+    },
+    {
+      "name": "Hs moon",
+      "section": "Objects",
+      "file": "models/hs_moon.glb"
+    },
+    {
+      "name": "Hs star",
+      "section": "Objects",
+      "file": "models/hs_star.glb"
+    },
+    {
+      "name": "Hs updown lift",
+      "section": "Objects",
+      "file": "models/hs_updown_lift.glb"
+    },
+    {
+      "name": "Hs y star",
+      "section": "Objects",
+      "file": "models/hs_y_star.glb"
+    },
+    {
+      "name": "Ice block ll",
+      "section": "Objects",
+      "file": "models/ice_block_ll.glb"
+    },
+    {
+      "name": "Kb1 ball",
+      "section": "Objects",
+      "file": "models/kb1_ball.glb"
+    },
+    {
+      "name": "Kb2 stage",
+      "section": "Objects",
+      "file": "models/kb2_stage.glb"
+    },
+    {
+      "name": "Kb3 a",
+      "section": "Objects",
+      "file": "models/kb3_a.glb"
+    },
+    {
+      "name": "Kb3 b",
+      "section": "Objects",
+      "file": "models/kb3_b.glb"
+    },
+    {
+      "name": "Kb3 c",
+      "section": "Objects",
+      "file": "models/kb3_c.glb"
+    },
+    {
+      "name": "Kb3 d",
+      "section": "Objects",
+      "file": "models/kb3_d.glb"
+    },
+    {
+      "name": "Kb3 e",
+      "section": "Objects",
+      "file": "models/kb3_e.glb"
+    },
+    {
+      "name": "Kb3 f",
+      "section": "Objects",
+      "file": "models/kb3_f.glb"
+    },
+    {
+      "name": "Kb3 g",
+      "section": "Objects",
+      "file": "models/kb3_g.glb"
+    },
+    {
+      "name": "Kb3 h",
+      "section": "Objects",
+      "file": "models/kb3_h.glb"
+    },
+    {
+      "name": "Kb3 i",
+      "section": "Objects",
+      "file": "models/kb3_i.glb"
+    },
+    {
+      "name": "Kb3 j",
+      "section": "Objects",
+      "file": "models/kb3_j.glb"
+    },
+    {
+      "name": "Ki fune down a",
+      "section": "Objects",
+      "file": "models/ki_fune_down_a.glb"
+    },
+    {
+      "name": "Ki fune up",
+      "section": "Objects",
+      "file": "models/ki_fune_up.glb"
+    },
+    {
+      "name": "Ki hasira",
+      "section": "Objects",
+      "file": "models/ki_hasira.glb"
+    },
+    {
+      "name": "Ki hasira dai",
+      "section": "Objects",
+      "file": "models/ki_hasira_dai.glb"
+    },
+    {
+      "name": "Ki ita",
+      "section": "Objects",
+      "file": "models/ki_ita.glb"
+    },
+    {
+      "name": "Ki iwa",
+      "section": "Objects",
+      "file": "models/ki_iwa.glb"
+    },
+    {
+      "name": "Ki slide box",
+      "section": "Objects",
+      "file": "models/ki_slide_box.glb"
+    },
+    {
+      "name": "Km1 deru",
+      "section": "Objects",
+      "file": "models/km1_deru.glb"
+    },
+    {
+      "name": "Km1 dorifu0",
+      "section": "Objects",
+      "file": "models/km1_dorifu0.glb"
+    },
+    {
+      "name": "Km1 dorifu1",
+      "section": "Objects",
+      "file": "models/km1_dorifu1.glb"
+    },
+    {
+      "name": "Km1 dorifu2",
+      "section": "Objects",
+      "file": "models/km1_dorifu2.glb"
+    },
+    {
+      "name": "Km1 dorifu3",
+      "section": "Objects",
+      "file": "models/km1_dorifu3.glb"
+    },
+    {
+      "name": "Km1 dorifu4",
+      "section": "Objects",
+      "file": "models/km1_dorifu4.glb"
+    },
+    {
+      "name": "Km1 kuruma",
+      "section": "Objects",
+      "file": "models/km1_kuruma.glb"
+    },
+    {
+      "name": "Km1 kurumajiku",
+      "section": "Objects",
+      "file": "models/km1_kurumajiku.glb"
+    },
+    {
+      "name": "Km1 shiso",
+      "section": "Objects",
+      "file": "models/km1_shiso.glb"
+    },
+    {
+      "name": "Km1 ukishima",
+      "section": "Objects",
+      "file": "models/km1_ukishima.glb"
+    },
+    {
+      "name": "Km2 agaru",
+      "section": "Objects",
+      "file": "models/km2_agaru.glb"
+    },
+    {
+      "name": "Km2 ami bou",
+      "section": "Objects",
+      "file": "models/km2_ami_bou.glb"
+    },
+    {
+      "name": "Km2 gura",
+      "section": "Objects",
+      "file": "models/km2_gura.glb"
+    },
+    {
+      "name": "Km2 kuzure",
+      "section": "Objects",
+      "file": "models/km2_kuzure.glb"
+    },
+    {
+      "name": "Km2 nobiru",
+      "section": "Objects",
+      "file": "models/km2_nobiru.glb"
+    },
+    {
+      "name": "Km2 rift01",
+      "section": "Objects",
+      "file": "models/km2_rift01.glb"
+    },
+    {
+      "name": "Km2 rift02",
+      "section": "Objects",
+      "file": "models/km2_rift02.glb"
+    },
+    {
+      "name": "Km2 susumu",
+      "section": "Objects",
+      "file": "models/km2_susumu.glb"
+    },
+    {
+      "name": "Km2 ukishima",
+      "section": "Objects",
+      "file": "models/km2_ukishima.glb"
+    },
+    {
+      "name": "Km2 yokoshiso",
+      "section": "Objects",
+      "file": "models/km2_yokoshiso.glb"
+    },
+    {
+      "name": "Km3 dan0",
+      "section": "Objects",
+      "file": "models/km3_dan0.glb"
+    },
+    {
+      "name": "Km3 dan1",
+      "section": "Objects",
+      "file": "models/km3_dan1.glb"
+    },
+    {
+      "name": "Km3 dan2",
+      "section": "Objects",
+      "file": "models/km3_dan2.glb"
+    },
+    {
+      "name": "Km3 dan3",
+      "section": "Objects",
+      "file": "models/km3_dan3.glb"
+    },
+    {
+      "name": "Km3 dan4",
+      "section": "Objects",
+      "file": "models/km3_dan4.glb"
+    },
+    {
+      "name": "Km3 deru01",
+      "section": "Objects",
+      "file": "models/km3_deru01.glb"
+    },
+    {
+      "name": "Km3 deru02",
+      "section": "Objects",
+      "file": "models/km3_deru02.glb"
+    },
+    {
+      "name": "Km3 kaitendai",
+      "section": "Objects",
+      "file": "models/km3_kaitendai.glb"
+    },
+    {
+      "name": "Km3 kuruma",
+      "section": "Objects",
+      "file": "models/km3_kuruma.glb"
+    },
+    {
+      "name": "Km3 kurumajiku",
+      "section": "Objects",
+      "file": "models/km3_kurumajiku.glb"
+    },
+    {
+      "name": "Km3 rift",
+      "section": "Objects",
+      "file": "models/km3_rift.glb"
+    },
+    {
+      "name": "Km3 shiso",
+      "section": "Objects",
+      "file": "models/km3_shiso.glb"
+    },
+    {
+      "name": "Km3 yokoshiso",
+      "section": "Objects",
+      "file": "models/km3_yokoshiso.glb"
+    },
+    {
+      "name": "Koopa key",
+      "section": "Objects",
+      "file": "models/koopa_key.glb"
+    },
+    {
+      "name": "Ks mizu",
+      "section": "Objects",
+      "file": "models/ks_mizu.glb"
+    },
+    {
+      "name": "Luigi key",
+      "section": "Objects",
+      "file": "models/luigi_key.glb"
+    },
+    {
+      "name": "Mario key",
+      "section": "Objects",
+      "file": "models/mario_key.glb"
+    },
+    {
+      "name": "Mc dodai",
+      "section": "Objects",
+      "file": "models/mc_dodai.glb"
+    },
+    {
+      "name": "Mc flag",
+      "section": "Objects",
+      "file": "models/mc_flag.glb"
+    },
+    {
+      "name": "Mc hazad",
+      "section": "Objects",
+      "file": "models/mc_hazad.glb"
+    },
+    {
+      "name": "Mc metalnet",
+      "section": "Objects",
+      "file": "models/mc_metalnet.glb"
+    },
+    {
+      "name": "Mc water",
+      "section": "Objects",
+      "file": "models/mc_water.glb"
+    },
+    {
+      "name": "Mip key",
+      "section": "Objects",
+      "file": "models/mip_key.glb"
+    },
+    {
+      "name": "Obj box switch",
+      "section": "Objects",
+      "file": "models/obj_box_switch.glb"
+    },
+    {
+      "name": "Obj cap box l",
+      "section": "Objects",
+      "file": "models/obj_cap_box_l.glb"
+    },
+    {
+      "name": "Obj cap box m",
+      "section": "Objects",
+      "file": "models/obj_cap_box_m.glb"
+    },
+    {
+      "name": "Obj cap box w",
+      "section": "Objects",
+      "file": "models/obj_cap_box_w.glb"
+    },
+    {
+      "name": "Obj dokan",
+      "section": "Objects",
+      "file": "models/obj_dokan.glb"
+    },
+    {
+      "name": "Obj door0 star",
+      "section": "Objects",
+      "file": "models/obj_door0_star.glb"
+    },
+    {
+      "name": "Obj door0 star1",
+      "section": "Objects",
+      "file": "models/obj_door0_star1.glb"
+    },
+    {
+      "name": "Obj door0 star10",
+      "section": "Objects",
+      "file": "models/obj_door0_star10.glb"
+    },
+    {
+      "name": "Obj door0 star3",
+      "section": "Objects",
+      "file": "models/obj_door0_star3.glb"
+    },
+    {
+      "name": "Obj door0 star5",
+      "section": "Objects",
+      "file": "models/obj_door0_star5.glb"
+    },
+    {
+      "name": "Obj door1",
+      "section": "Objects",
+      "file": "models/obj_door1.glb"
+    },
+    {
+      "name": "Obj door2 boro",
+      "section": "Objects",
+      "file": "models/obj_door2_boro.glb"
+    },
+    {
+      "name": "Obj door4 yami",
+      "section": "Objects",
+      "file": "models/obj_door4_yami.glb"
+    },
+    {
+      "name": "Obj door5 horror",
+      "section": "Objects",
+      "file": "models/obj_door5_horror.glb"
+    },
+    {
+      "name": "Obj heart",
+      "section": "Objects",
+      "file": "models/obj_heart.glb"
+    },
+    {
+      "name": "Obj ice board",
+      "section": "Objects",
+      "file": "models/obj_ice_board.glb"
+    },
+    {
+      "name": "Obj kanban",
+      "section": "Objects",
+      "file": "models/obj_kanban.glb"
+    },
+    {
+      "name": "Obj kumo",
+      "section": "Objects",
+      "file": "models/obj_kumo.glb"
+    },
+    {
+      "name": "Obj pushblock",
+      "section": "Objects",
+      "file": "models/obj_pushblock.glb"
+    },
+    {
+      "name": "Obj race flag",
+      "section": "Objects",
+      "file": "models/obj_race_flag.glb"
+    },
+    {
+      "name": "Obj seesaw",
+      "section": "Objects",
+      "file": "models/obj_seesaw.glb"
+    },
+    {
+      "name": "Obj shell",
+      "section": "Objects",
+      "file": "models/obj_shell.glb"
+    },
+    {
+      "name": "Obj star switch",
+      "section": "Objects",
+      "file": "models/obj_star_switch.glb"
+    },
+    {
+      "name": "Obj stargate",
+      "section": "Objects",
+      "file": "models/obj_stargate.glb"
+    },
+    {
+      "name": "Obj tatefuda",
+      "section": "Objects",
+      "file": "models/obj_tatefuda.glb"
+    },
+    {
+      "name": "Obj updnlift",
+      "section": "Objects",
+      "file": "models/obj_updnlift.glb"
+    },
+    {
+      "name": "Obj wakame",
+      "section": "Objects",
+      "file": "models/obj_wakame.glb"
+    },
+    {
+      "name": "P flower close",
+      "section": "Objects",
+      "file": "models/p_flower_close.glb"
+    },
+    {
+      "name": "P flower open",
+      "section": "Objects",
+      "file": "models/p_flower_open.glb"
+    },
+    {
+      "name": "Peach letter US",
+      "section": "Objects",
+      "file": "models/peach_letter_US.glb"
+    },
+    {
+      "name": "Pile",
+      "section": "Objects",
+      "file": "models/pile.glb"
+    },
+    {
+      "name": "Power up item",
+      "section": "Objects",
+      "file": "models/power_up_item.glb"
+    },
+    {
+      "name": "Rc buranko",
+      "section": "Objects",
+      "file": "models/rc_buranko.glb"
+    },
+    {
+      "name": "Rc carpet",
+      "section": "Objects",
+      "file": "models/rc_carpet.glb"
+    },
+    {
+      "name": "Rc dorifu0",
+      "section": "Objects",
+      "file": "models/rc_dorifu0.glb"
+    },
+    {
+      "name": "Rc dorifu1",
+      "section": "Objects",
+      "file": "models/rc_dorifu1.glb"
+    },
+    {
+      "name": "Rc dorifu2",
+      "section": "Objects",
+      "file": "models/rc_dorifu2.glb"
+    },
+    {
+      "name": "Rc dorifu3",
+      "section": "Objects",
+      "file": "models/rc_dorifu3.glb"
+    },
+    {
+      "name": "Rc dorifu4",
+      "section": "Objects",
+      "file": "models/rc_dorifu4.glb"
+    },
+    {
+      "name": "Rc guruguru",
+      "section": "Objects",
+      "file": "models/rc_guruguru.glb"
+    },
+    {
+      "name": "Rc hane",
+      "section": "Objects",
+      "file": "models/rc_hane.glb"
+    },
+    {
+      "name": "Rc kaiten",
+      "section": "Objects",
+      "file": "models/rc_kaiten.glb"
+    },
+    {
+      "name": "Rc rift01",
+      "section": "Objects",
+      "file": "models/rc_rift01.glb"
+    },
+    {
+      "name": "Rc rift02",
+      "section": "Objects",
+      "file": "models/rc_rift02.glb"
+    },
+    {
+      "name": "Rc shiso",
+      "section": "Objects",
+      "file": "models/rc_shiso.glb"
+    },
+    {
+      "name": "Rc tikuwa",
+      "section": "Objects",
+      "file": "models/rc_tikuwa.glb"
+    },
+    {
+      "name": "Scale up kinoko",
+      "section": "Objects",
+      "file": "models/scale_up_kinoko.glb"
+    },
+    {
+      "name": "Sl ice brock",
+      "section": "Objects",
+      "file": "models/sl_ice_brock.glb"
+    },
+    {
+      "name": "Sm lift",
+      "section": "Objects",
+      "file": "models/sm_lift.glb"
+    },
+    {
+      "name": "Star base",
+      "section": "Objects",
+      "file": "models/star_base.glb"
+    },
+    {
+      "name": "T basket",
+      "section": "Objects",
+      "file": "models/t_basket.glb"
+    },
+    {
+      "name": "T box",
+      "section": "Objects",
+      "file": "models/t_box.glb"
+    },
+    {
+      "name": "Td obj futa",
+      "section": "Objects",
+      "file": "models/td_obj_futa.glb"
+    },
+    {
+      "name": "Td obj water",
+      "section": "Objects",
+      "file": "models/td_obj_water.glb"
+    },
+    {
+      "name": "Th down b",
+      "section": "Objects",
+      "file": "models/th_down_b.glb"
+    },
+    {
+      "name": "Th hondana",
+      "section": "Objects",
+      "file": "models/th_hondana.glb"
+    },
+    {
+      "name": "Th kaidan",
+      "section": "Objects",
+      "file": "models/th_kaidan.glb"
+    },
+    {
+      "name": "Th lift",
+      "section": "Objects",
+      "file": "models/th_lift.glb"
+    },
+    {
+      "name": "Th mery go",
+      "section": "Objects",
+      "file": "models/th_mery_go.glb"
+    },
+    {
+      "name": "Th trap",
+      "section": "Objects",
+      "file": "models/th_trap.glb"
+    },
+    {
+      "name": "Toge tree",
+      "section": "Objects",
+      "file": "models/toge_tree.glb"
+    },
+    {
+      "name": "Tt obj futa",
+      "section": "Objects",
+      "file": "models/tt_obj_futa.glb"
+    },
+    {
+      "name": "Tt obj water",
+      "section": "Objects",
+      "file": "models/tt_obj_water.glb"
+    },
+    {
+      "name": "W ring",
+      "section": "Objects",
+      "file": "models/w_ring.glb"
+    },
+    {
+      "name": "Wario key",
+      "section": "Objects",
+      "file": "models/wario_key.glb"
+    },
+    {
+      "name": "Water tatumaki",
+      "section": "Objects",
+      "file": "models/water_tatumaki.glb"
+    },
+    {
+      "name": "Wc mizu",
+      "section": "Objects",
+      "file": "models/wc_mizu.glb"
+    },
+    {
+      "name": "Wc obj01",
+      "section": "Objects",
+      "file": "models/wc_obj01.glb"
+    },
+    {
+      "name": "Wc obj02",
+      "section": "Objects",
+      "file": "models/wc_obj02.glb"
+    },
+    {
+      "name": "Wc obj03",
+      "section": "Objects",
+      "file": "models/wc_obj03.glb"
+    },
+    {
+      "name": "Wc obj04",
+      "section": "Objects",
+      "file": "models/wc_obj04.glb"
+    },
+    {
+      "name": "Wc obj05",
+      "section": "Objects",
+      "file": "models/wc_obj05.glb"
+    },
+    {
+      "name": "Wc obj06",
+      "section": "Objects",
+      "file": "models/wc_obj06.glb"
+    },
+    {
+      "name": "Wc obj07",
+      "section": "Objects",
+      "file": "models/wc_obj07.glb"
+    },
+    {
+      "name": "Wl kupa shutter",
+      "section": "Objects",
+      "file": "models/wl_kupa_shutter.glb"
+    },
+    {
+      "name": "Wl pole lift",
+      "section": "Objects",
+      "file": "models/wl_pole_lift.glb"
+    },
+    {
+      "name": "Wl submarine",
+      "section": "Objects",
+      "file": "models/wl_submarine.glb"
+    },
+    {
+      "name": "Yajirusi l",
+      "section": "Objects",
+      "file": "models/yajirusi_l.glb"
+    },
+    {
+      "name": "Yajirusi r",
+      "section": "Objects",
+      "file": "models/yajirusi_r.glb"
+    },
+    {
+      "name": "Yashi tree",
+      "section": "Objects",
+      "file": "models/yashi_tree.glb"
+    },
+    {
+      "name": "Yuki tree",
+      "section": "Objects",
+      "file": "models/yuki_tree.glb"
+    },
+    {
+      "name": "Skybox 01",
+      "section": "Skyboxes",
+      "file": "models/vr01.glb"
+    },
+    {
+      "name": "Skybox 02",
+      "section": "Skyboxes",
+      "file": "models/vr02.glb"
+    },
+    {
+      "name": "Skybox 03",
+      "section": "Skyboxes",
+      "file": "models/vr03.glb"
+    },
+    {
+      "name": "Skybox 04",
+      "section": "Skyboxes",
+      "file": "models/vr04.glb"
+    },
+    {
+      "name": "Skybox 05",
+      "section": "Skyboxes",
+      "file": "models/vr05.glb"
+    },
+    {
+      "name": "Skybox 06",
+      "section": "Skyboxes",
+      "file": "models/vr06.glb"
+    },
+    {
+      "name": "Skybox 07",
+      "section": "Skyboxes",
+      "file": "models/vr07.glb"
+    },
+    {
+      "name": "Skybox 08",
+      "section": "Skyboxes",
+      "file": "models/vr08.glb"
+    },
+    {
+      "name": "Skybox 09",
+      "section": "Skyboxes",
+      "file": "models/vr09.glb"
+    },
+    {
+      "name": "Skybox 10",
+      "section": "Skyboxes",
+      "file": "models/vr10.glb"
+    },
+    {
+      "name": "Skybox 11",
+      "section": "Skyboxes",
+      "file": "models/vr11.glb"
+    }
+  ],
+  "music": [
+    {
+      "name": "athretic",
+      "file": "music/athretic.mp3"
+    },
+    {
+      "name": "balloon",
+      "file": "music/balloon.mp3"
+    },
+    {
+      "name": "big",
+      "file": "music/big.mp3"
+    },
+    {
+      "name": "bomb",
+      "file": "music/bomb.mp3"
+    },
+    {
+      "name": "boss",
+      "file": "music/boss.mp3"
+    },
+    {
+      "name": "bossintro",
+      "file": "music/bossintro.mp3"
+    },
+    {
+      "name": "casino",
+      "file": "music/casino.mp3"
+    },
+    {
+      "name": "casinom3",
+      "file": "music/casinom3.mp3"
+    },
+    {
+      "name": "chijou",
+      "file": "music/chijou.mp3"
+    },
+    {
+      "name": "clear",
+      "file": "music/clear.mp3"
+    },
+    {
+      "name": "debut",
+      "file": "music/debut.mp3"
+    },
+    {
+      "name": "dolpic",
+      "file": "music/dolpic.mp3"
+    },
+    {
+      "name": "dropstar",
+      "file": "music/dropstar.mp3"
+    },
+    {
+      "name": "dungeon",
+      "file": "music/dungeon.mp3"
+    },
+    {
+      "name": "ending",
+      "file": "music/ending.mp3"
+    },
+    {
+      "name": "esp",
+      "file": "music/esp.mp3"
+    },
+    {
+      "name": "extra",
+      "file": "music/extra.mp3"
+    },
+    {
+      "name": "fire",
+      "file": "music/fire.mp3"
+    },
+    {
+      "name": "firstcap",
+      "file": "music/firstcap.mp3"
+    },
+    {
+      "name": "gameover",
+      "file": "music/gameover.mp3"
+    },
+    {
+      "name": "goal",
+      "file": "music/goal.mp3"
+    },
+    {
+      "name": "happy",
+      "file": "music/happy.mp3"
+    },
+    {
+      "name": "hiscore",
+      "file": "music/hiscore.mp3"
+    },
+    {
+      "name": "jazz",
+      "file": "music/jazz.mp3"
+    },
+    {
+      "name": "jugemu",
+      "file": "music/jugemu.mp3"
+    },
+    {
+      "name": "kagi",
+      "file": "music/kagi.mp3"
+    },
+    {
+      "name": "kinopio",
+      "file": "music/kinopio.mp3"
+    },
+    {
+      "name": "kp3clear",
+      "file": "music/kp3clear.mp3"
+    },
+    {
+      "name": "kpclear",
+      "file": "music/kpclear.mp3"
+    },
+    {
+      "name": "kuppa",
+      "file": "music/kuppa.mp3"
+    },
+    {
+      "name": "kuppa3",
+      "file": "music/kuppa3.mp3"
+    },
+    {
+      "name": "kuppamsg",
+      "file": "music/kuppamsg.mp3"
+    },
+    {
+      "name": "merry",
+      "file": "music/merry.mp3"
+    },
+    {
+      "name": "metal",
+      "file": "music/metal.mp3"
+    },
+    {
+      "name": "miniclear",
+      "file": "music/miniclear.mp3"
+    },
+    {
+      "name": "minicoin",
+      "file": "music/minicoin.mp3"
+    },
+    {
+      "name": "minihana",
+      "file": "music/minihana.mp3"
+    },
+    {
+      "name": "minihiscore",
+      "file": "music/minihiscore.mp3"
+    },
+    {
+      "name": "minimerry",
+      "file": "music/minimerry.mp3"
+    },
+    {
+      "name": "minimotos",
+      "file": "music/minimotos.mp3"
+    },
+    {
+      "name": "minimuteki",
+      "file": "music/minimuteki.mp3"
+    },
+    {
+      "name": "miniover",
+      "file": "music/miniover.mp3"
+    },
+    {
+      "name": "minipukkun",
+      "file": "music/minipukkun.mp3"
+    },
+    {
+      "name": "minisnow2",
+      "file": "music/minisnow2.mp3"
+    },
+    {
+      "name": "minivocal",
+      "file": "music/minivocal.mp3"
+    },
+    {
+      "name": "motos",
+      "file": "music/motos.mp3"
+    },
+    {
+      "name": "mugen",
+      "file": "music/mugen.mp3"
+    },
+    {
+      "name": "muteki",
+      "file": "music/muteki.mp3"
+    },
+    {
+      "name": "nazo",
+      "file": "music/nazo.mp3"
+    },
+    {
+      "name": "obake",
+      "file": "music/obake.mp3"
+    },
+    {
+      "name": "opening",
+      "file": "music/opening.mp3"
+    },
+    {
+      "name": "otoate",
+      "file": "music/otoate.mp3"
+    },
+    {
+      "name": "overslot",
+      "file": "music/overslot.mp3"
+    },
+    {
+      "name": "owlfly",
+      "file": "music/owlfly.mp3"
+    },
+    {
+      "name": "panel",
+      "file": "music/panel.mp3"
+    },
+    {
+      "name": "peach",
+      "file": "music/peach.mp3"
+    },
+    {
+      "name": "perfect",
+      "file": "music/perfect.mp3"
+    },
+    {
+      "name": "playroom",
+      "file": "music/playroom.mp3"
+    },
+    {
+      "name": "pukkun",
+      "file": "music/pukkun.mp3"
+    },
+    {
+      "name": "select",
+      "file": "music/select.mp3"
+    },
+    {
+      "name": "shiro",
+      "file": "music/shiro.mp3"
+    },
+    {
+      "name": "slvstar1",
+      "file": "music/slvstar1.mp3"
+    },
+    {
+      "name": "slvstar2",
+      "file": "music/slvstar2.mp3"
+    },
+    {
+      "name": "slvstar3",
+      "file": "music/slvstar3.mp3"
+    },
+    {
+      "name": "slvstar4",
+      "file": "music/slvstar4.mp3"
+    },
+    {
+      "name": "slvstar5",
+      "file": "music/slvstar5.mp3"
+    },
+    {
+      "name": "snow2",
+      "file": "music/snow2.mp3"
+    },
+    {
+      "name": "staffroll",
+      "file": "music/staffroll.mp3"
+    },
+    {
+      "name": "star",
+      "file": "music/star.mp3"
+    },
+    {
+      "name": "start",
+      "file": "music/start.mp3"
+    },
+    {
+      "name": "title",
+      "file": "music/title.mp3"
+    },
+    {
+      "name": "usagi_0",
+      "file": "music/usagi_0.mp3"
+    },
+    {
+      "name": "usagi_1",
+      "file": "music/usagi_1.mp3"
+    },
+    {
+      "name": "vocal",
+      "file": "music/vocal.mp3"
+    },
+    {
+      "name": "vsathretic",
+      "file": "music/vsathretic.mp3"
+    },
+    {
+      "name": "vsclear",
+      "file": "music/vsclear.mp3"
+    },
+    {
+      "name": "vsdropstar",
+      "file": "music/vsdropstar.mp3"
+    },
+    {
+      "name": "vslose",
+      "file": "music/vslose.mp3"
+    },
+    {
+      "name": "vsmuteki",
+      "file": "music/vsmuteki.mp3"
+    },
+    {
+      "name": "vsshiro",
+      "file": "music/vsshiro.mp3"
+    },
+    {
+      "name": "vswin",
+      "file": "music/vswin.mp3"
+    },
+    {
+      "name": "wakeup",
+      "file": "music/wakeup.mp3"
+    },
+    {
+      "name": "water",
+      "file": "music/water.mp3"
+    }
+  ],
+  "native": {
+    "h": 192,
+    "w": 256
+  },
+  "platform": "Nintendo DS",
+  "tickHz": 60
+}

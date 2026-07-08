@@ -1,0 +1,19 @@
+{
+ "collision": "collision/test_map.glb",
+ "format": 2,
+ "kind": "mesh3d",
+ "mesh": {
+  "glb": "models/test_map_all.glb"
+ },
+ "name": "Test map",
+ "objectsFile": "test_map_all.objects.json",
+ "sky": "models/vr02.glb",
+ "spawn": {
+  "pos": [
+   1.25,
+   0,
+   4.6
+  ],
+  "rot": -180
+ }
+}

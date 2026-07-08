@@ -1,0 +1,25 @@
+{
+ "format": 2,
+ "level": "ex_mario_all",
+ "objects": [
+  {
+   "id": 0,
+   "actor": 198,
+   "pos": [
+    0,
+    0.3,
+    0
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/scale_up_kinoko.glb",
+   "props": {
+    "billboard": true,
+    "scale": 0.008
+   }
+  }
+ ]
+}

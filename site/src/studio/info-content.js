@@ -2038,7 +2038,7 @@ the envelope generator and the multimode filter — clocked at the C64's rate an
 chip's output is. No recording of the original is used; it is played from the bytes.</p>
 `,
   },
-  sm64ds: {
+  'super-mario-64-ds': {
     loader: `
 <div class="info-eyebrow">Super Mario 64 DS &middot; Image &amp; Loader</div>
 <p>Super Mario 64 DS ships on a 16&nbsp;MiB Nintendo DS Game Card. A DS card is not a memory-mapped cartridge

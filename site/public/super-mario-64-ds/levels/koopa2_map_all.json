@@ -1,0 +1,19 @@
+{
+ "collision": "collision/koopa2_map.glb",
+ "format": 2,
+ "kind": "mesh3d",
+ "mesh": {
+  "glb": "models/koopa2_map_all.glb"
+ },
+ "name": "Bowser in the Fire Sea",
+ "objectsFile": "koopa2_map_all.objects.json",
+ "sky": "models/vr07.glb",
+ "spawn": {
+  "pos": [
+   -7.6,
+   -1.9,
+   0
+  ],
+  "rot": 90
+ }
+}

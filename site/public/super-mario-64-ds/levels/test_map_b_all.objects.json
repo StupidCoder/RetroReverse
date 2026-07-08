@@ -1,0 +1,336 @@
+{
+ "format": 2,
+ "level": "test_map_b_all",
+ "objects": [
+  {
+   "id": 0,
+   "actor": 309,
+   "pos": [
+    -1.75,
+    0,
+    -0.75
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/onimasu.glb",
+   "collision": "collision/onimasu.glb",
+   "props": {
+    "colMtx": [
+     1,
+     0,
+     0,
+     0,
+     1,
+     0,
+     0,
+     0,
+     1,
+     0,
+     0.25,
+     0
+    ],
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 1,
+   "actor": 309,
+   "pos": [
+    -0.75,
+    0,
+    -0.75
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/onimasu.glb",
+   "collision": "collision/onimasu.glb",
+   "props": {
+    "colMtx": [
+     1,
+     0,
+     0,
+     0,
+     1,
+     0,
+     0,
+     0,
+     1,
+     0,
+     0.25,
+     0
+    ],
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 2,
+   "actor": 309,
+   "pos": [
+    0.25,
+    0,
+    -0.75
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/onimasu.glb",
+   "collision": "collision/onimasu.glb",
+   "props": {
+    "colMtx": [
+     1,
+     0,
+     0,
+     0,
+     1,
+     0,
+     0,
+     0,
+     1,
+     0,
+     0.25,
+     0
+    ],
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 3,
+   "actor": 309,
+   "pos": [
+    1.25,
+    0,
+    -0.75
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/onimasu.glb",
+   "collision": "collision/onimasu.glb",
+   "props": {
+    "colMtx": [
+     1,
+     0,
+     0,
+     0,
+     1,
+     0,
+     0,
+     0,
+     1,
+     0,
+     0.25,
+     0
+    ],
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 4,
+   "actor": 309,
+   "pos": [
+    2.25,
+    0,
+    -0.75
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/onimasu.glb",
+   "collision": "collision/onimasu.glb",
+   "props": {
+    "colMtx": [
+     1,
+     0,
+     0,
+     0,
+     1,
+     0,
+     0,
+     0,
+     1,
+     0,
+     0.25,
+     0
+    ],
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 5,
+   "actor": 309,
+   "pos": [
+    -1.75,
+    0,
+    0.75
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/onimasu.glb",
+   "collision": "collision/onimasu.glb",
+   "props": {
+    "colMtx": [
+     1,
+     0,
+     0,
+     0,
+     1,
+     0,
+     0,
+     0,
+     1,
+     0,
+     0.25,
+     0
+    ],
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 6,
+   "actor": 309,
+   "pos": [
+    -0.75,
+    0,
+    0.75
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/onimasu.glb",
+   "collision": "collision/onimasu.glb",
+   "props": {
+    "colMtx": [
+     1,
+     0,
+     0,
+     0,
+     1,
+     0,
+     0,
+     0,
+     1,
+     0,
+     0.25,
+     0
+    ],
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 7,
+   "actor": 309,
+   "pos": [
+    0.25,
+    0,
+    0.75
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/onimasu.glb",
+   "collision": "collision/onimasu.glb",
+   "props": {
+    "colMtx": [
+     1,
+     0,
+     0,
+     0,
+     1,
+     0,
+     0,
+     0,
+     1,
+     0,
+     0.25,
+     0
+    ],
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 8,
+   "actor": 309,
+   "pos": [
+    1.25,
+    0,
+    0.75
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/onimasu.glb",
+   "collision": "collision/onimasu.glb",
+   "props": {
+    "colMtx": [
+     1,
+     0,
+     0,
+     0,
+     1,
+     0,
+     0,
+     0,
+     1,
+     0,
+     0.25,
+     0
+    ],
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 9,
+   "actor": 309,
+   "pos": [
+    2.25,
+    0,
+    0.75
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/onimasu.glb",
+   "collision": "collision/onimasu.glb",
+   "props": {
+    "colMtx": [
+     1,
+     0,
+     0,
+     0,
+     1,
+     0,
+     0,
+     0,
+     1,
+     0,
+     0.25,
+     0
+    ],
+    "scale": 0.008
+   }
+  }
+ ]
+}

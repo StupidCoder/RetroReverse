@@ -1,0 +1,19 @@
+{
+ "collision": "collision/snow_land.glb",
+ "format": 2,
+ "kind": "mesh3d",
+ "mesh": {
+  "glb": "models/snow_land_all.glb"
+ },
+ "name": "Snowman's Land",
+ "objectsFile": "snow_land_all.objects.json",
+ "sky": "models/vr04.glb",
+ "spawn": {
+  "pos": [
+   5.4,
+   2.7,
+   0.6
+  ],
+  "rot": -90
+ }
+}

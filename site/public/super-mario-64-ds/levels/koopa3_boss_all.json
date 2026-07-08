@@ -1,0 +1,19 @@
+{
+ "collision": "collision/koopa3_boss.glb",
+ "format": 2,
+ "kind": "mesh3d",
+ "mesh": {
+  "glb": "models/koopa3_boss_all.glb"
+ },
+ "name": "Bowser in the Sky (koopa3_boss)",
+ "objectsFile": "koopa3_boss_all.objects.json",
+ "sky": "models/vr11.glb",
+ "spawn": {
+  "pos": [
+   0,
+   1.1,
+   0
+  ],
+  "rot": -180
+ }
+}

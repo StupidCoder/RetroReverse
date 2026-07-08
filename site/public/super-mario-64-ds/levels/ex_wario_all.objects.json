@@ -1,0 +1,343 @@
+{
+ "format": 2,
+ "level": "ex_wario_all",
+ "objects": [
+  {
+   "id": 0,
+   "actor": 218,
+   "pos": [
+    0,
+    1,
+    0
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ]
+  },
+  {
+   "id": 1,
+   "actor": 170,
+   "pos": [
+    0,
+    0.75,
+    0
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/ewb_ice_a.glb",
+   "collision": "collision/ewb_ice_a.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 2,
+   "actor": 171,
+   "pos": [
+    0,
+    0.75,
+    1.942
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/ewb_ice_b.glb",
+   "collision": "collision/ewb_ice_b.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 3,
+   "actor": 172,
+   "pos": [
+    0,
+    0.75,
+    2.54
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "model": "models/ewb_ice_c.glb",
+   "collision": "collision/ewb_ice_c.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 4,
+   "actor": 171,
+   "pos": [
+    1.373,
+    0.75,
+    1.373
+   ],
+   "rot": [
+    0,
+    45,
+    0
+   ],
+   "model": "models/ewb_ice_b.glb",
+   "collision": "collision/ewb_ice_b.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 5,
+   "actor": 171,
+   "pos": [
+    1.942,
+    0.75,
+    0
+   ],
+   "rot": [
+    0,
+    90,
+    0
+   ],
+   "model": "models/ewb_ice_b.glb",
+   "collision": "collision/ewb_ice_b.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 6,
+   "actor": 171,
+   "pos": [
+    1.373,
+    0.75,
+    -1.373
+   ],
+   "rot": [
+    0,
+    135,
+    0
+   ],
+   "model": "models/ewb_ice_b.glb",
+   "collision": "collision/ewb_ice_b.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 7,
+   "actor": 171,
+   "pos": [
+    0,
+    0.75,
+    -1.942
+   ],
+   "rot": [
+    0,
+    -180,
+    0
+   ],
+   "model": "models/ewb_ice_b.glb",
+   "collision": "collision/ewb_ice_b.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 8,
+   "actor": 171,
+   "pos": [
+    -1.373,
+    0.75,
+    -1.373
+   ],
+   "rot": [
+    0,
+    -135,
+    0
+   ],
+   "model": "models/ewb_ice_b.glb",
+   "collision": "collision/ewb_ice_b.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 9,
+   "actor": 171,
+   "pos": [
+    -1.942,
+    0.75,
+    0
+   ],
+   "rot": [
+    0,
+    -90,
+    0
+   ],
+   "model": "models/ewb_ice_b.glb",
+   "collision": "collision/ewb_ice_b.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 10,
+   "actor": 171,
+   "pos": [
+    -1.373,
+    0.75,
+    1.373
+   ],
+   "rot": [
+    0,
+    -45,
+    0
+   ],
+   "model": "models/ewb_ice_b.glb",
+   "collision": "collision/ewb_ice_b.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 11,
+   "actor": 172,
+   "pos": [
+    1.796,
+    0.75,
+    1.796
+   ],
+   "rot": [
+    0,
+    45,
+    0
+   ],
+   "model": "models/ewb_ice_c.glb",
+   "collision": "collision/ewb_ice_c.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 12,
+   "actor": 172,
+   "pos": [
+    2.54,
+    0.75,
+    0
+   ],
+   "rot": [
+    0,
+    90,
+    0
+   ],
+   "model": "models/ewb_ice_c.glb",
+   "collision": "collision/ewb_ice_c.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 13,
+   "actor": 172,
+   "pos": [
+    1.796,
+    0.75,
+    -1.796
+   ],
+   "rot": [
+    0,
+    135,
+    0
+   ],
+   "model": "models/ewb_ice_c.glb",
+   "collision": "collision/ewb_ice_c.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 14,
+   "actor": 172,
+   "pos": [
+    0,
+    0.75,
+    -2.54
+   ],
+   "rot": [
+    0,
+    -180,
+    0
+   ],
+   "model": "models/ewb_ice_c.glb",
+   "collision": "collision/ewb_ice_c.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 15,
+   "actor": 172,
+   "pos": [
+    -1.796,
+    0.75,
+    -1.796
+   ],
+   "rot": [
+    0,
+    -135,
+    0
+   ],
+   "model": "models/ewb_ice_c.glb",
+   "collision": "collision/ewb_ice_c.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 16,
+   "actor": 172,
+   "pos": [
+    -2.54,
+    0.75,
+    0
+   ],
+   "rot": [
+    0,
+    -90,
+    0
+   ],
+   "model": "models/ewb_ice_c.glb",
+   "collision": "collision/ewb_ice_c.glb",
+   "props": {
+    "scale": 0.008
+   }
+  },
+  {
+   "id": 17,
+   "actor": 172,
+   "pos": [
+    -1.796,
+    0.75,
+    1.796
+   ],
+   "rot": [
+    0,
+    -45,
+    0
+   ],
+   "model": "models/ewb_ice_c.glb",
+   "collision": "collision/ewb_ice_c.glb",
+   "props": {
+    "scale": 0.008
+   }
+  }
+ ]
+}

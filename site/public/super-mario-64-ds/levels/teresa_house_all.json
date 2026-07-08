@@ -1,0 +1,19 @@
+{
+ "collision": "collision/teresa_house.glb",
+ "format": 2,
+ "kind": "mesh3d",
+ "mesh": {
+  "glb": "models/teresa_house_all.glb"
+ },
+ "name": "Big Boo's Haunt",
+ "objectsFile": "teresa_house_all.objects.json",
+ "sky": "models/vr05.glb",
+ "spawn": {
+  "pos": [
+   0.9,
+   1.5,
+   5.8
+  ],
+  "rot": -180
+ }
+}

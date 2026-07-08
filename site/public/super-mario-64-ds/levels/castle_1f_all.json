@@ -1,0 +1,18 @@
+{
+ "collision": "collision/castle_1f.glb",
+ "format": 2,
+ "kind": "mesh3d",
+ "mesh": {
+  "glb": "models/castle_1f_all.glb"
+ },
+ "name": "Castle — 1st floor",
+ "objectsFile": "castle_1f_all.objects.json",
+ "spawn": {
+  "pos": [
+   -1,
+   -0.007,
+   0.692
+  ],
+  "rot": -180
+ }
+}
