@@ -63,6 +63,7 @@ car ship as GLB models in the game's own colours.**
   - [7. Banking and elevation](#7-banking-and-elevation)
   - [8. The baked track model — the definitive absolute geometry](#8-the-baked-track-model-65bec--the-definitive-absolute-geometry)
   - [9. The drawn faces: colours and decals](#9-the-drawn-faces-colours-and-decals-672cc68f28)
+  - [10. The Draw Bridge animator](#10-the-draw-bridge-animator-5a794)
 - [Part V — The physics simulation](#part-v--the-physics-simulation)
 - [Part VI — The 3-D objects: the opponent car and the horizon](#part-vi--the-3-d-objects-the-opponent-car-and-the-horizon)
   - [1. Placement: wheels ride the decoded track](#1-placement-wheels-ride-the-decoded-track)
@@ -791,6 +792,53 @@ pair with the exact linearised Amiga colours, and the stroked decals as true
 glTF `LINES` primitives — plus the race view's white start/finish cross-line
 (`$688FC`, the baked flag bit 0 the preview wipes) as a palette-`$F` segment.
 
+## 10. The Draw Bridge animator (`$5A794`)
+
+Track 5's two bridge ramps (sections 51/52 and 54/55, around the gap section
+53) have no fixed geometry. Their four height-profile handles (`$5F..$62`) are
+**overlapping 9-entry windows into one 36-entry table**, and the disk only
+holds a placeholder pattern there (a narrow spike per window — the game never
+displays it). `$5A794`, gated to track 5 by the menu byte `$1CA33`, rewrites
+the table:
+
+```
+tri  = |(phase & $1F) − 16|      ; triangle wave 15..0..15 over 32 steps
+step = (tri + 4) << 5            ; per-rung rise, 128..608 height units
+```
+
+Entries 1–16 become the accumulating ramp `k·step` (entry 9 repeating entry
+8's value — the shared joint rung between sections 51 and 52 — and entry 16,
+the lip, carrying the profile's bit-7 edge marker), and every write is
+mirrored at entry `35−k`, producing the second ramp descending; entries
+0/17/18/35 stay zero. Through the four overlapping windows this reads back as:
+section 51 ascending, 52 ascending to the marked lip then dropping to the gap
+floor, 53 flat, 54 rising to its lip at rung 1 and descending through 55 —
+with the lips swinging between 1 920 and 9 120 height units above the deck as
+`tri` cycles.
+
+Cadence (all traced): the race loop calls the animator once per frame
+(`$5D49C`); the phase advances unless the `$EE` time-base accumulator missed
+its carry (`$5DB34`: `$1BBCF += $EE` twice per frame, `$1BBCD` = the last
+carry — 18 frames in 256 skip), and freezes entirely while the player's or
+the opponent's section is `$33..$37` (a car on the bridge). One full up-down
+cycle is 32 phase steps, holding two steps at each extreme. The race loop
+itself is **unthrottled** (there is no VBlank or raster wait anywhere in the
+race path), so the absolute rate is machine-dependent. Even the pre-race
+preview runs one animator pass first (`$5D2DA`), advancing the phase from 0
+to 1 (`tri` 14) — the near-fully-raised "static ramps" the preview shows.
+
+`track.Drawbridge` reimplements the patch in pure Go and `cmd/bridgeoracle`
+verifies it against the engine's own `$5A794` over 64 consecutive frames,
+byte-exact, including the freeze gate. (Note: `cmd/modeloracle` never sets
+`$1CA33`, so its track-5 verification covers the placeholder state on both
+sides — consistent, but not what the game shows; the in-game state is what
+`bridgeoracle` covers.) The exports use the patched profiles: the track JSON
+carries the first-preview pose, and `draw-bridge.glb` ships the animation as a
+**morph target** — base mesh at the lowered pose, one target raising it, and
+a LINEAR weight track reproducing the triangle wave with its two-step holds
+and the `$EE` stretch (nominal 12.5 fps A500-class race rate, ≈2.75 s per
+cycle).
+
 *Part V — the physics.*
 
 ---
@@ -1111,6 +1159,10 @@ go run ./cmd/caroracle -in ../extracted/game.dec.bin [-id N]
 # Verify the horizon mountain-range decode (track.Horizon) against the real
 # $6953E renderer over 8 camera headings — edge- and colour-exact (Part VI §4)
 go run ./cmd/horizonoracle -in ../extracted/game.dec.bin [-id N]
+
+# Verify the Draw Bridge animator reimplementation (track.Drawbridge) against
+# the real $5A794 over 64 frames — table byte-exact + freeze gate (Part IV §10)
+go run ./cmd/bridgeoracle -in ../extracted/game.dec.bin
 
 # Export the web assets: per-circuit track JSON + the GLB models (8 circuits in
 # the preview's exact colours/decals + models/opponent-car.glb)

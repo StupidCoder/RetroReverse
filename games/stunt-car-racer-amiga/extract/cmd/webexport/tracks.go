@@ -79,7 +79,14 @@ func exportTracks(inPath, outDir string) []ViewIndex {
 
 	var idx []ViewIndex
 	for id, name := range trackNames {
-		ot := decodeTrack(im, id, name)
+		tim := im
+		if id == track.DrawBridgeTrack {
+			// the bridge profiles on disk are placeholders; the game patches
+			// them before anything draws ($5A794) — export the same static
+			// pose the game's first preview shows (phase 1)
+			tim = im.Drawbridge(1)
+		}
+		ot := decodeTrack(tim, id, name)
 		stem := slug(name)
 		file := filepath.Join("tracks", stem+".json")
 		writeJSON(filepath.Join(outDir, file), ot)

@@ -321,6 +321,99 @@ func WriteMixed(path string, positions [][3]float32, tris []TriGroup, lines []Li
 	return os.WriteFile(path, data, 0o644)
 }
 
+// MorphAnim is one morph target with an animated weight track for
+// WriteMixedMorph: per-vertex POSITION displacements (same length and order as
+// the positions array), a LINEAR-interpolated weight animation (Times seconds,
+// Weights 0..1), and the mesh's resting weight for viewers that do not play
+// the animation.
+type MorphAnim struct {
+	Name    string
+	Deltas  [][3]float32
+	Times   []float32
+	Weights []float32
+	Default float32
+}
+
+// WriteMixedMorph writes a WriteMixed-style GLB whose mesh carries one morph
+// target: every primitive gets the shared POSITION-displacement target, the
+// mesh weight defaults to m.Default, and one animation drives the weight along
+// m.Times/m.Weights with LINEAR interpolation (make the last keyframe equal
+// the first for a seamless loop).
+func WriteMixedMorph(path string, positions [][3]float32, tris []TriGroup, lines []LineGroup, m *MorphAnim) error {
+	b := &builder{}
+	posAcc := b.addPositions(positions)
+	deltaAcc := b.addPositions(m.Deltas)
+	var prims, materials []map[string]any
+	addPrim := func(idx []uint32, mode int, mat map[string]any) {
+		idxAcc := b.addIndices(idx)
+		prim := primitive(posAcc, idxAcc, mode, len(materials))
+		prim["targets"] = []map[string]int{{"POSITION": deltaAcc}}
+		prims = append(prims, prim)
+		materials = append(materials, mat)
+	}
+	for _, g := range tris {
+		if len(g.Tris) == 0 {
+			continue
+		}
+		idx := make([]uint32, 0, len(g.Tris)*3)
+		for _, t := range g.Tris {
+			idx = append(idx, t[0], t[1], t[2])
+		}
+		addPrim(idx, 4, unlitMaterial(g.Color, !g.SingleSided))
+	}
+	for _, g := range lines {
+		if len(g.Lines) == 0 {
+			continue
+		}
+		idx := make([]uint32, 0, len(g.Lines)*2)
+		for _, e := range g.Lines {
+			idx = append(idx, e[0], e[1])
+		}
+		addPrim(idx, 1, unlitMaterial(g.Color, true))
+	}
+
+	tAcc := b.addScalars(m.Times)
+	wAcc := b.addScalars(m.Weights)
+	doc := assemble(baseName(path), b, prims, materials)
+	doc["meshes"].([]map[string]any)[0]["weights"] = []float64{float64(m.Default)}
+	doc["animations"] = []map[string]any{{
+		"name": m.Name,
+		"samplers": []map[string]any{{
+			"input": tAcc, "output": wAcc, "interpolation": "LINEAR",
+		}},
+		"channels": []map[string]any{{
+			"sampler": 0,
+			"target":  map[string]any{"node": 0, "path": "weights"},
+		}},
+	}}
+	data, err := pack(doc, b.bin.Bytes())
+	if err != nil {
+		return err
+	}
+	return os.WriteFile(path, data, 0o644)
+}
+
+// addScalars writes a tightly packed SCALAR float32 accessor with min/max (the
+// glTF spec requires bounds on animation-sampler inputs) and returns its index.
+func (b *builder) addScalars(vals []float32) int {
+	buf := make([]byte, 4*len(vals))
+	mn, mx := math.Inf(1), math.Inf(-1)
+	for i, v := range vals {
+		binary.LittleEndian.PutUint32(buf[i*4:], math.Float32bits(v))
+		mn = math.Min(mn, float64(v))
+		mx = math.Max(mx, float64(v))
+	}
+	if len(vals) == 0 {
+		mn, mx = 0, 0
+	}
+	vi := b.addView(buf)
+	b.accessors = append(b.accessors, accessor{
+		BufferView: vi, ComponentType: 5126, Count: len(vals), Type: "SCALAR",
+		Min: []float64{mn}, Max: []float64{mx},
+	})
+	return len(b.accessors) - 1
+}
+
 // baseName returns the file name without its directory or extension, for use as
 // the mesh/scene name. Kept tiny to avoid a path/filepath import cost for callers.
 func baseName(path string) string {

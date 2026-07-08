@@ -118,6 +118,62 @@ func exportModels(inPath, outDir string) []ModelIndex {
 
 	var out []ModelIndex
 	for id := 0; id < 8; id++ {
+		mb, triGroups, lineGroups := buildCircuit(im, id, pal)
+
+		name := trackNames[id]
+		file := "models/" + slug(name) + ".glb"
+		if id == track.DrawBridgeTrack {
+			// the bridge ramps are animated at runtime ($5A794): the base mesh
+			// is the lowered pose (phase 15, tri 0), one morph target raises it
+			// to the top pose (phase 0, tri 15), and the weight animation is
+			// the traced triangle-wave cadence
+			lo, loT, loL := buildCircuit(im.Drawbridge(15), id, pal)
+			hi, _, _ := buildCircuit(im.Drawbridge(0), id, pal)
+			if len(lo.pos) != len(hi.pos) {
+				chk(fmt.Errorf("drawbridge morph: vertex count mismatch %d vs %d", len(lo.pos), len(hi.pos)))
+			}
+			deltas := make([][3]float32, len(lo.pos))
+			for i := range deltas {
+				for c := 0; c < 3; c++ {
+					deltas[i][c] = hi.pos[i][c] - lo.pos[i][c]
+				}
+			}
+			// cadence (traced): one phase step per race frame, stretched by the
+			// $EE time-base accumulator ($5DB34: 18 of 256 frames skip the
+			// step), two steps held at each extreme; the race loop itself is
+			// render-bound (no VBlank throttle), so the absolute rate is
+			// machine-dependent — a nominal 12.5 fps A500-class race rate is
+			// used for the GLB clock
+			const nominalFPS = 12.5
+			step := float32((1.0 / nominalFPS) * 256.0 / 238.0)
+			m := &glb.MorphAnim{
+				Name:    "drawbridge",
+				Deltas:  deltas,
+				Times:   []float32{0, 15 * step, 16 * step, 31 * step, 32 * step},
+				Weights: []float32{1, 0, 0, 1, 1},
+				// resting pose = the game's own first preview (phase 1, tri 14)
+				Default: 14.0 / 15.0,
+			}
+			chk(glb.WriteMixedMorph(filepath.Join(outDir, file), lo.pos, loT, loL, m))
+			out = append(out, ModelIndex{Name: name, File: file})
+			fmt.Fprintf(os.Stderr, "[models] %d/10 %s (%d verts, morph)\n", id+1, filepath.Base(file), len(lo.pos))
+			continue
+		}
+		chk(glb.WriteMixed(filepath.Join(outDir, file), mb.pos, triGroups, lineGroups))
+		out = append(out, ModelIndex{Name: name, File: file})
+		fmt.Fprintf(os.Stderr, "[models] %d/10 %s (%d verts)\n", id+1, filepath.Base(file), len(mb.pos))
+	}
+	out = append(out, exportCar(pal, outDir))
+	out = append(out, exportHorizon(im, pal, outDir))
+	return out
+}
+
+// buildCircuit assembles one circuit's coloured geometry (quads and decal
+// lines, deterministic vertex order) from the given image — for the Draw
+// Bridge the caller passes Drawbridge-patched images to build the animation
+// poses.
+func buildCircuit(im *track.Image, id int, pal [16][3]uint8) (*meshBuilder, []glb.TriGroup, []glb.LineGroup) {
+	{
 		t := im.Spine(id)
 		geo := im.Geometry(&t)
 		mesh := im.Mesh(&t)
@@ -202,16 +258,8 @@ func exportModels(inPath, outDir string) []ModelIndex {
 		for i, p := range linePal {
 			lineGroups = append(lineGroups, glb.LineGroup{Lines: lines[i], Color: linColor(pal[p])})
 		}
-
-		name := trackNames[id]
-		file := "models/" + slug(name) + ".glb"
-		chk(glb.WriteMixed(filepath.Join(outDir, file), mb.pos, triGroups, lineGroups))
-		out = append(out, ModelIndex{Name: name, File: file})
-		fmt.Fprintf(os.Stderr, "[models] %d/10 %s (%d verts)\n", id+1, filepath.Base(file), len(mb.pos))
+		return mb, triGroups, lineGroups
 	}
-	out = append(out, exportCar(pal, outDir))
-	out = append(out, exportHorizon(im, pal, outDir))
-	return out
 }
 
 // exportHorizon writes the race view's mountain range (track.Horizon, verified

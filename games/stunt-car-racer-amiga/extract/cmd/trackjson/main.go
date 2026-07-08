@@ -21,9 +21,9 @@ var names = []string{
 }
 
 type outTrack struct {
-	Name      string  `json:"name"`
-	Sections  int     `json:"sections"`
-	FinishIdx int     `json:"finishIdx"`
+	Name      string `json:"name"`
+	Sections  int    `json:"sections"`
+	FinishIdx int    `json:"finishIdx"`
 	// [planX, planY, height, bank, type, p1, p2, attr] per section. planX/planY = the
 	// 16x16 grid footprint; height = surface elevation; bank = camber.
 	Nodes [][]int `json:"nodes"`
@@ -54,8 +54,14 @@ func main() {
 	im := track.New(img)
 	var tracks []outTrack
 	for id, name := range names {
-		t := im.Spine(id)
-		geom := im.Geometry(&t)
+		tim := im
+		if id == track.DrawBridgeTrack {
+			// the bridge profiles on disk are placeholders the game patches
+			// before anything draws ($5A794); use the first-preview pose
+			tim = im.Drawbridge(1)
+		}
+		t := tim.Spine(id)
+		geom := tim.Geometry(&t)
 		ns := make([][]int, len(t.Nodes))
 		rungs := make([][][]int, len(t.Nodes))
 		for i, n := range t.Nodes {

@@ -248,6 +248,84 @@ func TestWriteMixed(t *testing.T) {
 	}
 }
 
+// TestWriteMixedMorph writes a quad with one morph target and a weight
+// animation, and asserts every primitive carries the shared POSITION target,
+// the mesh default weight, and a LINEAR weights animation with bounded input.
+func TestWriteMixedMorph(t *testing.T) {
+	pos := [][3]float32{{0, 0, 0}, {1, 0, 0}, {1, 0, 1}, {0, 0, 1}}
+	deltas := [][3]float32{{0, 1, 0}, {0, 1, 0}, {0, 0, 0}, {0, 0, 0}}
+	tris := []TriGroup{{Tris: [][3]uint32{{0, 1, 2}, {0, 2, 3}}, Color: [3]float32{1, 0, 0}}}
+	lines := []LineGroup{{Lines: [][2]uint32{{0, 1}}, Color: [3]float32{0, 0, 0}}}
+	m := &MorphAnim{
+		Name: "flap", Deltas: deltas,
+		Times: []float32{0, 1, 2}, Weights: []float32{1, 0, 1}, Default: 0.5,
+	}
+	path := filepath.Join(t.TempDir(), "morph.glb")
+	if err := WriteMixedMorph(path, pos, tris, lines, m); err != nil {
+		t.Fatal(err)
+	}
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	jLen := binary.LittleEndian.Uint32(data[12:16])
+	var doc struct {
+		Meshes []struct {
+			Primitives []struct {
+				Targets []map[string]int `json:"targets"`
+			} `json:"primitives"`
+			Weights []float64 `json:"weights"`
+		} `json:"meshes"`
+		Animations []struct {
+			Samplers []struct {
+				Input         int    `json:"input"`
+				Output        int    `json:"output"`
+				Interpolation string `json:"interpolation"`
+			} `json:"samplers"`
+			Channels []struct {
+				Target struct {
+					Node int    `json:"node"`
+					Path string `json:"path"`
+				} `json:"target"`
+			} `json:"channels"`
+		} `json:"animations"`
+		Accessors []struct {
+			Count int       `json:"count"`
+			Min   []float64 `json:"min"`
+			Max   []float64 `json:"max"`
+		} `json:"accessors"`
+	}
+	if err := json.Unmarshal(data[20:20+int(jLen)], &doc); err != nil {
+		t.Fatalf("JSON chunk not valid: %v", err)
+	}
+	mesh := doc.Meshes[0]
+	if len(mesh.Primitives) != 2 {
+		t.Fatalf("want 2 primitives, got %d", len(mesh.Primitives))
+	}
+	for i, p := range mesh.Primitives {
+		if len(p.Targets) != 1 {
+			t.Fatalf("primitive %d: want 1 morph target, got %d", i, len(p.Targets))
+		}
+		if _, ok := p.Targets[0]["POSITION"]; !ok {
+			t.Fatalf("primitive %d target missing POSITION", i)
+		}
+	}
+	if len(mesh.Weights) != 1 || mesh.Weights[0] != 0.5 {
+		t.Fatalf("mesh weights = %v, want [0.5]", mesh.Weights)
+	}
+	if len(doc.Animations) != 1 {
+		t.Fatalf("want one animation")
+	}
+	a := doc.Animations[0]
+	if a.Samplers[0].Interpolation != "LINEAR" || a.Channels[0].Target.Path != "weights" {
+		t.Fatalf("animation wiring wrong: %+v", a)
+	}
+	ta := doc.Accessors[a.Samplers[0].Input]
+	if ta.Count != 3 || ta.Min[0] != 0 || ta.Max[0] != 2 {
+		t.Fatalf("time accessor = %+v", ta)
+	}
+}
+
 // TestWriteTrianglesMat writes two triangle groups — one default (double-sided)
 // and one SingleSided — and asserts the GLB carries one primitive + one material
 // per group, that both primitives share the single POSITION accessor, and that
