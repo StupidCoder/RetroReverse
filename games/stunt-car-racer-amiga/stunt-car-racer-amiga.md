@@ -450,6 +450,10 @@ The whole track stream is:
 6 (header)  +  section stream  +  6 (trailer)  +  2*trailer[4] + trailer[5] (scenery)
 ```
 
+(Trailer bytes 0/1 — loaded to `$1CA2A`/`$1CA2B` — are the track's **damage windows**:
+how many ticks of a sustained over-tolerance suspension impact accumulate chassis damage;
+see Part V §3.)
+
 so a correct parse must consume a track's bytes **exactly**. It does, for all seven
 length-bounded tracks:
 
@@ -909,15 +913,23 @@ across the rung strip, samples the four surrounding rung-corner heights with the
 (`$5C554`) — so the springs ride the exact decoded track surface, and a wheel running off
 the lateral edge (`$1BB65`) is detected and tapered (`$5C808`).
 
-The three spring forces combine (`$61F42`) into a **net lift** (`$1BD38`, the average), a
-**roll torque** (`3 * (left - right)`, clamped) and a **pitch torque** (front − rear); the
-**on-ground flag** `$1BB7E` is set if any spring is engaged. The net lift is projected onto
-the body axes by the road slope (`$622DC`) into the tyre **loads** `$1BD40/42/44`.
+The three spring forces combine (`$61F42`) into a **net lift** (`$1BD38` — the weighted
+average `(frontAvg + rear) / 2`: the single rear point carries the same weight as the front
+pair together), a **roll torque** (`3 * (left - right)`, clamped to `±$1000`) and a
+**pitch torque** (front average − rear); the **on-ground flag** `$1BB7E` is set if any
+spring is engaged. The net lift is projected onto the body axes by the road slope
+(`$622DC`) into the tyre **loads** `$1BD40/42/44`.
 
-**Damage.** When a spring force exceeds a tolerance (`$1BB01 << 8 + $700`) and stays there
-for `$63CE2` frames, damage accumulates into `$1BB4F/50/51` (0–255), with a separate
-bottoming counter (`$1BB7D`) for hard slams — the "land too hard and you wreck the car"
-mechanic, reproduced exactly.
+**Damage.** When a spring force exceeds a tolerance (`$1BB01 << 8 + $700`) an impact counter
+(`$1BB56`, shared by the three points, reset the moment the force drops back below) starts
+counting, and damage accumulates into `$1BB4F/50/51` (0–255) on each of the **first
+`mem[$63CE2]` ticks** of the impact — after that window a continuous impact adds nothing
+more, so the damage from one slam is bounded. The window is **per-track data**: `$63CE2` is
+written at race setup (`$63AD2`) from the track trailer byte `$1CA2A` (or `$1CA2B` when the
+mode flag `$1C9D0` is set) — 3 ticks on Roller Coaster, 4 on Draw Bridge, up to 10 on Big
+Ramp. A separate bottoming counter (`$1BB7D`) increments when a spring force jumps to
+`≥ $400` from below `$200` — the "land too hard and you wreck the car" mechanic,
+reproduced exactly.
 
 ### 4. Drive, grip and steering
 
