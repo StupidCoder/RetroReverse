@@ -16,6 +16,8 @@
 package main
 
 import (
+	"encoding/base64"
+	"encoding/json"
 	"flag"
 	"fmt"
 	"os"
@@ -105,6 +107,7 @@ func main() {
 	frames := flag.Int("frames", 120, "physics frames")
 	drive := flag.Int("drive", 0, "drive force $1BD2A held each frame")
 	noCrash := flag.Bool("nocrash", false, "zero $1BBDF after arming (skip spawn crash-recovery)")
+	dumpPath := flag.String("dump", "", "write a JS golden trace (track 1 oracle states) to this path")
 	tracks := flag.String("tracks", "1,3,7", "comma track ids (unused placeholder)")
 	flag.Parse()
 	_ = tracks
@@ -146,6 +149,22 @@ func main() {
 		gm := &physics.Mem{B: make([]byte, 1<<24)}
 		copy(gm.B, m0)
 
+		// optional JS golden trace (track 1): the region the JS Physics.B covers (0..0x66000)
+		// as the start memory, plus the oracle car-state words after each frame.
+		type traceT struct {
+			M0     string     `json:"m0"`
+			Drive  int        `json:"drive"`
+			Addrs  []string   `json:"addrs"`
+			Frames [][]int    `json:"frames"`
+		}
+		var tr *traceT
+		if *dumpPath != "" && id == 1 {
+			tr = &traceT{M0: base64.StdEncoding.EncodeToString(m0[:0x66000]), Drive: *drive}
+			for _, ck := range checks {
+				tr.Addrs = append(tr.Addrs, fmt.Sprintf("%X", ck.addr))
+			}
+		}
+
 		bad := 0
 		for f := 0; f < *frames; f++ {
 			// Real loop order ($5D48A then $5D496): physics tick, THEN the render
@@ -170,6 +189,21 @@ func main() {
 					}
 					break
 				}
+			}
+			if tr != nil {
+				row := make([]int, len(checks))
+				for i, ck := range checks {
+					row[i] = int(rw(bus.m, ck.addr))
+				}
+				tr.Frames = append(tr.Frames, row)
+			}
+		}
+		if tr != nil {
+			b, _ := json.Marshal(tr)
+			if err := os.WriteFile(*dumpPath, b, 0o644); err != nil {
+				fmt.Fprintln(os.Stderr, err)
+			} else {
+				fmt.Printf("wrote golden trace -> %s (%d frames)\n", *dumpPath, *frames)
 			}
 		}
 		if bad == 0 {

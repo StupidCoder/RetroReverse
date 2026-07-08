@@ -1032,9 +1032,42 @@ type nibble is 4 — **re-enters the whole coupling for it** (`$5C072`); finally
 refined (`$5C65A`: `r += ((x²+z²−r²)>>8) × coef[$5C6B8]`, a Newton-style pull toward the true
 distance) and `$1BC5E` = piece radius (header word 9) − car radius, sign-flipped by `$1BC44`.
 `physverify` checks every section of tracks 1/3/7 under random camera state (2048 ramp-2
-cases, including the recursion, all exact). The viewer's drive mode still holds the vertical
-seating clamp (the grounded-block launch artefact on a bare-placed car remains open), but the
-surface-following coupling underneath is now the complete, exact model on every piece type.
+cases, including the recursion, all exact).
+
+### 8. The drive, grounded — the launch artefact explained and fixed
+
+The earlier "vertical launch" was never a physics bug. It came from running the exact
+`$6185C` from a *bare* placement (`posY` ≈ 1008) without the real per-frame coupling: the
+surface sample then found no valid section, the springs read a mismatched frame, and the car
+either fell through or shot up. Running the **real** sequence on the oracle settles the
+question. The race loop (`$5D402`…) places with `$605B6` — which forces **`posY = 16.0`** in a
+local frame whose surface sits near zero — runs one unarmed tick and the render coupling, then
+arms `$1BB72` and, each iteration, does **physics then coupling** (`$6185C` at `$5D48A`, the
+render `$64E4C` at `$5D496`). Driven that way the car settles and stays grounded: `posY`
+oscillates 16 → 14.6 → 14.8, vertical velocity damps to zero, `onGround` stays set. No launch.
+
+The render coupling that matters for the physics is a small, decomposable part of `$64E4C`:
+`$60190` camera, zero the view offsets `$1BBD5`/`$1BBD6`, `$5FE04` grid→section into `$1BB85`,
+`$5BE44` placement (the rest of `$64E4C` is the scene draw and the opponent car). That subset
+is **byte-identical** to the full `$64E4C` for the car-state it produces, so the drive can be
+composed in Go/JS from routines already verified individually.
+
+One spawn detail matters: `$605B6` sets a crash-recovery countdown `$1BBDF = $F0`, and while it
+counts down the `$5B32E` crash state-machine runs (it is a no-op only once `$1BBDF` reaches 0).
+That machine is not reimplemented, so the faithful drive **zeroes `$1BBDF`** to drop straight
+into normal driving. With that, `cmd/driveverify` locksteps the Go package drive (coupling +
+`$6185C`) against the engine and matches **exactly**: 200 idle frames and 150 throttle frames
+on tracks 1/3/7, car grounded throughout. The browser physics (`physics.js`
+`driveTickCoupled`) is the same sequence and matches the engine over a 150-frame golden trace.
+Reverse into a spin-off still diverges when `$5B32E` re-engages — the one open path.
+
+**What is left for interactive in-viewer driving** is a coordinate reconciliation, not more
+physics: the sim runs in a camera-relative local frame (`$605B6` seats the car at its grid
+cell (0,0), `posY` ≈ 16), whereas the baked GLB track is in absolute grid×`$800` world space.
+Mapping the car's local physics position/heading onto the GLB world (the job the engine's
+render walk `$65EC4` does) plus the `$5B32E` crash machine are the remaining pieces; until
+then the viewer shows the car correctly placed and scaled at the start line (Part VI), and the
+drive dynamics themselves are verified exact.
 
 ---
 

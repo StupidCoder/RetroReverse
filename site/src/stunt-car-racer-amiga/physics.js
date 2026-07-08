@@ -827,6 +827,15 @@ export class Physics {
     this.setW(A.Drive, 0); this.frame6185C();
     this.setW(0x1BCDE, 0); this.setW(0x1BCDC, 0x10); // posY = 16.0 (local resting frame)
     for (const a of [A.VelX, A.VelY, A.VelZ, A.AmR, A.AmP, A.AmY]) this.setW(a, 0);
+    // Skip the spawn crash-recovery countdown: $605B6 sets $1BBDF=$F0 and the $5B32E
+    // crash machine (not reimplemented) runs while it counts down. Zeroing it drops the
+    // car straight into normal driving -- verified exact vs the engine in cmd/driveverify.
+    this.B[0x1BBDF] = 0;
+    // prime the coupling for the first driveTick's physics (real loop: physics then couple).
+    this.camera60190();
+    this.B[0x1BBD5] = 0; this.B[0x1BBD6] = 0;
+    const s0 = this.section5FE04();
+    if (!s0.off && s0.sec !== 0xFF) { this.B[0x1BB85] = s0.sec; this.couple5BE44(); }
   }
 
   // driveTickCoupled runs the real per-frame render coupling (camera-follow + section +
@@ -836,20 +845,20 @@ export class Physics {
   // render state -- see Part V Sec.7), so we keep the car seated vertically (clamp posY to
   // the local resting band) and bound the attitude, while the throttle/grip/drag and the
   // surface-following are the exact model. Returns the world speed for the viewer.
-  driveTickCoupled(throttle, section) {
-    if (section !== undefined) { this.B[0x1BB1C] = section & 0xFF; this.B[0x1BB85] = section & 0xFF; }
-    this.camera60190();
-    this.couple5BE44();
+  // driveTickCoupled runs one FAITHFUL drive frame: the verified physics $6185C, then the
+  // real per-frame render coupling that primes the next tick. This is the coupling that is
+  // byte-identical to the render $64E4C for the physics-relevant state ($60190 camera, zero
+  // the view offsets $1BBD5/$1BBD6, $5FE04 grid->section into $1BB85, $5BE44 placement),
+  // in the engine's real loop order (physics then couple). No posY/attitude clamps -- the
+  // car stays grounded on its own. Verified exact vs the engine in cmd/driveverify (with the
+  // spawn crash-recovery $1BBDF zeroed by placeCar605B6). Returns the world speed.
+  driveTickCoupled(throttle) {
     this.setW(A.Drive, throttle);
     this.frame6185C();
-    // Keep the car seated: the grounded block tends to launch a near-rest car (an artefact
-    // of running the sim outside the original's full render state). Re-seat posY to the
-    // local resting band each frame so the car tracks the surface instead of flying off,
-    // and bleed off any upward velocity, while throttle/grip/drag and surface-following run.
-    this.setW(A.PosY, 0x10);
-    if (this.w(A.VelY) > 0) this.setW(A.VelY, 0);
-    for (const a of [A.Roll, A.Pit]) { const v = this.w(a); if (v > 0x400) this.setW(a, 0x400); else if (v < -0x400) this.setW(a, -0x400); }
-    for (const a of [A.AmR, A.AmP, A.AmY]) { const v = this.w(a); if (v > 0x80) this.setW(a, 0x80); else if (v < -0x80) this.setW(a, -0x80); }
+    this.camera60190();
+    this.B[0x1BBD5] = 0; this.B[0x1BBD6] = 0;
+    const s = this.section5FE04();
+    if (!s.off && s.sec !== 0xFF) { this.B[0x1BB85] = s.sec; this.couple5BE44(); }
     const vx = this.w(A.VelX), vz = this.w(A.VelZ);
     return Math.round(Math.sqrt(vx * vx + vz * vz));
   }
@@ -897,47 +906,6 @@ export class Physics {
     return { sec: this.u8(0x1C280 + (((gx & 0x0F) | this.B[0x1BB1B]) & 0xFF)), off: false };
   }
 
-  // driveTick is a PROVISIONAL drive coupling (not the verified frame6185C). The exact
-  // physics needs per-frame state the original computes in its render pass -- where the
-  // car sits on the track, the surface under each wheel, the section heading -- which
-  // isn't reimplemented yet (the remaining piece of the Part V gameplay). Without it the
-  // isolated physics floats in a
-  // mismatched frame and tumbles. So here we (1) inject a flat ground just under the
-  // wheels so the verified suspension/grip/drive engage -- the throttle/acceleration/drag
-  // are the real model -- and (2) keep the chassis roughly upright, since the render
-  // coupling that would balance the drive->roll torque against the banked track is the
-  // missing piece. Returns the body-frame world speed magnitude for the viewer.
-  driveTick(throttle) {
-    this.matrix61368();
-    this.corners618CE();
-    this.contactHeights61B70();
-    const off = 0x800 << 8; // mid-range compression so the springs hold the car
-    this.setL(0x1BCA4, (this.l(0x1BC94) + this.l(A.Rest) + off) | 0);
-    this.setL(0x1BCA8, (this.l(0x1BC98) + this.l(A.Rest) + off) | 0);
-    this.setL(0x1BCAC, (this.l(0x1BC9C) + this.l(A.Rest) + off) | 0);
-    this.velToBody6158C();
-    this.sound60FBE();
-    this.gravToBody615E6();
-    this.suspension61BCC();
-    this.loadProject622DC();
-    this.setW(0x1BD46, this.w(0x1BD44));
-    this.tail63E2E();
-    if (this.u8(0x1BB72) !== 0) {
-      this.setW(A.Drive, throttle);
-      this.drive620B8();   // exact drive force + grip clamp
-      this.forceToWorld61618();
-      this.drag621F4();    // exact velocity drag
-      this.torqueApply62138();
-      this.torque61B26();
-      this.torqueToWorld61672();
-    }
-    this.force61ADC();
-    this.integrate61950();
-    for (const a of [A.Roll, A.Pit]) { const v = this.w(a); if (v > 0x400) this.setW(a, 0x400); else if (v < -0x400) this.setW(a, -0x400); }
-    for (const a of [A.AmR, A.AmP, A.AmY]) { const v = this.w(a); if (v > 0x80) this.setW(a, 0x80); else if (v < -0x80) this.setW(a, -0x80); }
-    const vx = this.w(A.VelX), vz = this.w(A.VelZ);
-    return Math.round(Math.sqrt(vx * vx + vz * vz));
-  }
 
   // self-check against the Go golden trace; returns the first mismatching frame or -1.
   selfTest(trace) {
