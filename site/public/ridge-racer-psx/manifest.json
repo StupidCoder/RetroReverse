@@ -76,7 +76,8 @@
     {
       "name": "Ridge Racer Course",
       "file": "models/track.glb",
-      "kind": "mesh3d"
+      "kind": "mesh3d",
+      "fly": true
     }
   ]
 }
