@@ -19,7 +19,7 @@ func TestBlendPixelModes(t *testing.T) {
 
 	// NORMAL (0x1F40 in both PPMP words): the source replaces the destination.
 	src := pix(20, 10, 4)
-	m.blendPixel(bm, 0, 0, src, 0x1F401F40, 0)
+	m.blendPixel(bm, 0, 0, src, 0x49, 0x1F401F40, 0)
 	if got := read(0, 0); got != src {
 		t.Fatalf("NORMAL: got %04X want %04X", got, src)
 	}
@@ -27,8 +27,8 @@ func TestBlendPixelModes(t *testing.T) {
 	// AVERAGE (0x1F81): out = source/2 + dest/2, per channel.
 	// Seed the destination, then average a source over it.
 	dst := pix(8, 30, 2)
-	m.blendPixel(bm, 1, 1, dst, 0x1F401F40, 0) // lay down dst opaquely
-	m.blendPixel(bm, 1, 1, src, 0x1F811F81, 0) // average src over dst
+	m.blendPixel(bm, 1, 1, dst, 0x49, 0x1F401F40, 0) // lay down dst opaquely
+	m.blendPixel(bm, 1, 1, src, 0x49, 0x1F811F81, 0) // average src over dst
 	want := pix((20+8)/2, (10+30)/2, (4+2)/2)
 	if got := read(1, 1); got != want {
 		t.Fatalf("AVERAGE: got %04X want %04X (src %04X dst %04X)", got, want, src, dst)
@@ -43,7 +43,7 @@ func TestBlendPixelClamps(t *testing.T) {
 	// MF=8, DIV=8, so out = source; but feed a max-channel source and confirm it
 	// stays 0x1F rather than wrapping.
 	src := uint16(0x1F)<<10 | uint16(0x1F)<<5 | 0x1F
-	m.blendPixel(bm, 0, 0, src, 0x1F401F40, 0)
+	m.blendPixel(bm, 0, 0, src, 0x49, 0x1F401F40, 0)
 	a := bm.buf
 	got := uint16(m.Read(a))<<8 | uint16(m.Read(a+1))
 	if got != src {

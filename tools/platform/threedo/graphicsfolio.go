@@ -409,20 +409,9 @@ func (m *Machine) drawOneCel(bm gfxBitmap, ccb, flags, src, plutPtr uint32) bool
 	bgnd := flags&ccbBGND != 0
 	written := 0
 	put := func(sx, sy int, v uint32) {
-		var pix uint16
-		if cel.Coded {
-			if int(v) >= len(cel.PLUT) {
-				return
-			}
-			if v == 0 && !bgnd {
-				return // index 0 is the transparent background unless CCB_BGND
-			}
-			pix = cel.PLUT[v]
-		} else {
-			if v&0x7FFF == 0 && !bgnd {
-				return // an all-zero color word is transparent
-			}
-			pix = uint16(v)
+		pix, amv, transparent := m.decodePixel(cel, v, flags, bgnd)
+		if transparent {
+			return
 		}
 		// A texel maps to the segment from its corner toward the next column's
 		// corner (along the row's HDX/HDY direction). When the cel is magnified —
@@ -457,7 +446,7 @@ func (m *Machine) drawOneCel(bm gfxBitmap, ccb, flags, src, plutPtr uint32) bool
 			if x < 0 || y < 0 || x >= bm.w || y >= bm.h {
 				continue
 			}
-			m.blendPixel(bm, x, y, pix, pixc, flags)
+			m.blendPixel(bm, x, y, pix, amv, pixc, flags)
 			written++
 		}
 	}
@@ -506,21 +495,71 @@ func (m *Machine) decodeLRForm16(c *Cel, src uint32, set func(x, y int, v uint32
 	}
 }
 
-// blendPixel combines a source RGB555 pixel with the destination through the
-// 3DO cel-engine pixel processor (PPMP) and stores the result. PIXC holds two
-// 16-bit PPMPC words; the P-mode (POVER, or the pixel's own bit-15 P-bit)
-// selects which. For each 5-bit channel:
+// decodePixel resolves a raw cel pixel value into an RGB555 color (with the
+// P-bit in bit 15), its AMV shading value, and whether it is transparent —
+// the cel engine's pixel decoder (PDEC). Coded cels split the value into a
+// PLUT index plus per-format control bits: 6bpp is a 5-bit index + a P-bit
+// (cp6btag c:5,pw:1), 8bpp a 5-bit index + a 3-bit AMV (cp8btag c:5,mpw:1,m:2);
+// 1/2/4bpp are a direct index into a PLUT slice chosen by the CCB's PLUTA bits.
+// A pixel is transparent when its resolved color is RGB black and CCB_BGND is
+// clear. Indexing PLUT with the full value (dropping the P-bit pixels) was what
+// made opaque cels — the dashboard — render only their translucent P=0 pixels.
+func (m *Machine) decodePixel(cel *Cel, v, flags uint32, bgnd bool) (uint16, uint32, bool) {
+	amv := uint32(0x49) // constant AMV for all but 8bpp coded cels
+	if !cel.Coded {
+		if v&0x7FFF == 0 && !bgnd {
+			return 0, amv, true
+		}
+		return uint16(v), amv, false
+	}
+
+	var idx uint32
+	var pw uint16
+	switch cel.BPP {
+	case 1:
+		idx = (flags&0xF)*2 + (v & 0x1)
+	case 2:
+		idx = (flags&0xE)*2 + (v & 0x3)
+	case 4:
+		idx = (flags&0x8)*2 + (v & 0xF)
+	case 6:
+		idx = v & 0x1F
+		pw = uint16((v>>5)&1) << 15
+	case 8:
+		idx = v & 0x1F
+		amv = (((v>>6)&3)<<1 | (v>>5)&1) * 0x49 // (m<<1 | mpw) replicated per channel
+	default:
+		idx = v & 0x1F
+	}
+	if int(idx) >= len(cel.PLUT) {
+		return 0, amv, true
+	}
+	raw := cel.PLUT[idx]
+	color := raw & 0x7FFF
+	if color == 0 && !bgnd {
+		return 0, amv, true
+	}
+	if cel.BPP != 6 {
+		pw = raw & 0x8000 // P-bit from the palette entry except 6bpp (from the pixel)
+	}
+	return color | pw, amv, false
+}
+
+// blendPixel combines a decoded source pixel with the destination through the
+// 3DO cel-engine pixel processor (PPMP/PPROC) and stores the result. PIXC holds
+// two 16-bit PPMPC words; the P-mode (POVER, or the pixel's bit-15 P-bit)
+// selects which. Per 5-bit channel:
 //
-//	first  = (input1 * (MF+1)) >> PDV(dv1)     PDV(n) = ((n-1)&3)+1
-//	second = 0 | AV | destination | source     (per the 2S field)
-//	out    = clamp5((first + second) >> dv2)
+//	first  = input1 * (Mult+1) >> PDV(dv1)     PDV(n) = ((n-1)&3)+1
+//	out    = clip((first + second) >> dv2)
 //
-// where input1 is the source pixel (or the destination, if 1S) and dv2 is the
-// low bit. This is the general processor, matched to the stock modes: NORMAL
-// (0x1F40) yields the source unchanged, AVERAGE (0x1F81) yields (src+dst)/2.
-// The AV-as-control (CCB_USEAV) and PXOR paths are not modelled; NFS's cels
-// use the plain modes.
-func (m *Machine) blendPixel(bm gfxBitmap, x, y int, pix uint16, pixc, flags uint32) {
+// input1 is the source pixel, or the destination when 1S. The multiplier comes
+// from MF (MS=0), the pixel's AMV shading (MS=1), or the pixel itself (MS=2/3).
+// second is 0 / a constant / the destination / the source (2S), each shifted by
+// the AV dv3 field when CCB_USEAV is set. This reproduces the stock modes —
+// NORMAL 0x1F40 = source, AVERAGE 0x1F81 = (src+dst)/2 — and the per-pixel
+// P-bit blends NFS uses (opaque dashboard vs translucent glass).
+func (m *Machine) blendPixel(bm gfxBitmap, x, y int, pix uint16, amv, pixc, flags uint32) {
 	a := bm.buf + uint32(y>>1)*uint32(bm.w)*4 + uint32(x)*4 + uint32(y&1)*2
 
 	// Select the PPMPC word.
@@ -535,55 +574,87 @@ func (m *Machine) blendPixel(bm gfxBitmap, x, y int, pix uint16, pixc, flags uin
 		}
 	}
 
-	mul := ((word >> 10) & 7) + 1          // MF: multiply by 1..8
-	sh1 := ((((word >> 8) & 3) - 1) & 3) + 1 // dv1 -> PDV shift (1..4)
-	s1 := word&0x8000 != 0                  // first source: destination not cel
-	s2 := (word >> 6) & 3                   // second source select
-	dv2 := (word & 1)                       // final divide shift (0 or 1)
+	s1 := word&0x8000 != 0     // first source: destination, not the cel pixel
+	ms := (word >> 13) & 3     // multiply source: MF / AMV / pixel
+	mxf := (word >> 10) & 7    // MF multiply factor (Mult+1)
+	dv1 := (word >> 8) & 3     // first-source divide (PDV)
+	s2 := (word >> 6) & 3      // second source select
+	avf := (word >> 1) & 0x1F  // AV field (constant, or control signals if USEAV)
+	dv2 := word & 1            // final divide shift
 
 	// Fast path: opaque source copy (NORMAL and its P-mode twins) — no blend, so
 	// the destination need not be read.
-	if !s1 && s2 == 0 && dv2 == 0 && mul == 8 && sh1 == 3 {
+	if !s1 && ms == 0 && s2 == 0 && dv2 == 0 && mxf == 7 && dv1 == 3 {
 		m.Write(a, byte(pix>>8))
 		m.Write(a+1, byte(pix))
 		return
 	}
 
-	dst := uint16(m.Read(a))<<8 | uint16(m.Read(a+1))
-	r1, g1, b1 := chan5(pix)
-	if s1 {
-		r1, g1, b1 = chan5(dst)
+	// AV control signals (only when CCB_USEAV): dv3 shifts the second source,
+	// nCLIP suppresses the saturating clamp.
+	var dv3 uint32
+	clip := true
+	if flags&0x400 != 0 { // CCB_USEAV
+		dv3 = (avf >> 3) & 3
+		clip = avf&4 == 0 // nCLIP bit set -> no clamp
 	}
-	r1 = (r1 * mul) >> sh1
-	g1 = (g1 * mul) >> sh1
-	b1 = (b1 * mul) >> sh1
 
-	var r2, g2, b2 uint32
-	switch s2 {
-	case 0:
-		// second source is zero
-	case 1:
-		av := (word >> 1) & 0x1F // constant AV, same on each channel
-		r2, g2, b2 = av, av, av
-	case 2:
-		r2, g2, b2 = chan5(dst) // current destination pixel
-	case 3:
-		r2, g2, b2 = chan5(pix) // the source pixel
+	dst := uint16(m.Read(a))<<8 | uint16(m.Read(a+1))
+	ir, ig, ib := chan5(pix)
+	if s1 {
+		ir, ig, ib = chan5(dst)
 	}
-	out := clamp5((r1+r2)>>dv2)<<10 | clamp5((g1+g2)>>dv2)<<5 | clamp5((b1+b2)>>dv2)
+	sh1 := pdv(dv1)
+	var c1r, c1g, c1b uint32
+	switch ms {
+	case 1: // AMV: per-channel multiplier from the pixel's shading value
+		c1r = (ir * (((amv >> 6) & 7) + 1)) >> sh1
+		c1g = (ig * (((amv >> 3) & 7) + 1)) >> sh1
+		c1b = (ib * ((amv & 7) + 1)) >> sh1
+	case 2: // pixel self-modulate (multiplier and divide from the channel)
+		c1r = (ir * ((ir >> 2) + 1)) >> pdv(ir&3)
+		c1g = (ig * ((ig >> 2) + 1)) >> pdv(ig&3)
+		c1b = (ib * ((ib >> 2) + 1)) >> pdv(ib&3)
+	case 3:
+		c1r = (ir * ((ir >> 2) + 1)) >> sh1
+		c1g = (ig * ((ig >> 2) + 1)) >> sh1
+		c1b = (ib * ((ib >> 2) + 1)) >> sh1
+	default: // MS=0: constant MF
+		c1r = (ir * (mxf + 1)) >> sh1
+		c1g = (ig * (mxf + 1)) >> sh1
+		c1b = (ib * (mxf + 1)) >> sh1
+	}
+
+	var c2r, c2g, c2b uint32
+	switch s2 {
+	case 1:
+		c2r, c2g, c2b = avf>>dv3, avf>>dv3, avf>>dv3
+	case 2:
+		dr, dg, db := chan5(dst)
+		c2r, c2g, c2b = dr>>dv3, dg>>dv3, db>>dv3
+	case 3:
+		sr, sg, sb := chan5(pix)
+		c2r, c2g, c2b = sr>>dv3, sg>>dv3, sb>>dv3
+	}
+
+	clampOr := func(v uint32) uint32 {
+		if !clip {
+			return v & 0x1F
+		}
+		if v > 0x1F {
+			return 0x1F
+		}
+		return v
+	}
+	out := clampOr((c1r+c2r)>>dv2)<<10 | clampOr((c1g+c2g)>>dv2)<<5 | clampOr((c1b+c2b)>>dv2)
 	m.Write(a, byte(out>>8))
 	m.Write(a+1, byte(out))
 }
 
+// pdv is the cel engine's PDV divide-shift: PDV(n) = ((n-1)&3)+1, range 1..4.
+func pdv(n uint32) uint32 { return ((n-1)&3 + 1) }
+
 // chan5 splits an RGB555 pixel into its three 5-bit channels.
 func chan5(p uint16) (r, g, b uint32) {
 	return uint32(p>>10) & 0x1F, uint32(p>>5) & 0x1F, uint32(p) & 0x1F
-}
-
-// clamp5 saturates a channel value to 5 bits.
-func clamp5(v uint32) uint16 {
-	if v > 0x1F {
-		return 0x1F
-	}
-	return uint16(v)
 }
