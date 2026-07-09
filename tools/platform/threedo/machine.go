@@ -153,8 +153,10 @@ type Machine struct {
 	frame     uint64
 
 	// Instrumentation (opt-in; checked in Read/Write and the run loop).
-	WatchLo, WatchHi uint32
-	OnWrite          func(addr, val, pc uint32)
+	WatchLo, WatchHi   uint32
+	OnWrite            func(addr, val, pc uint32)
+	RWatchLo, RWatchHi uint32
+	OnRead             func(addr, val, pc uint32)
 	OnStep           func(m *Machine, pc uint32)
 	// OnSWI is called before each kernel SWI is serviced (from = the SWI
 	// instruction's PC); OnMsgQueue whenever a message lands on a port queue —
@@ -336,6 +338,13 @@ func (m *Machine) TTY() string { return string(m.tty) }
 // --- arm60.Bus -------------------------------------------------------------
 
 func (m *Machine) Read(addr uint32) byte {
+	if m.OnRead != nil && addr >= m.RWatchLo && addr < m.RWatchHi {
+		m.OnRead(addr, uint32(m.rawRead(addr)), m.CPU.CurPC())
+	}
+	return m.rawRead(addr)
+}
+
+func (m *Machine) rawRead(addr uint32) byte {
 	switch {
 	case addr < dramSize:
 		return m.dram[addr]

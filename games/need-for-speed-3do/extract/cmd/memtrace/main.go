@@ -86,8 +86,34 @@ func main() {
 	audioSWI := map[uint32]int{}
 	sendSig := map[[2]uint32]int{} // {task,sigs} -> count
 
+	// APCS frame-pointer backtrace (EA functions use full STMDB {..,fp,ip,lr,pc}
+	// frames: [r11]=saved pc, [r11-4]=lr, [r11-0xC]=caller's r11).
+	backtrace := func() string {
+		fp := m.CPU.Reg(11)
+		s := ""
+		for i := 0; i < 8 && fp > 0x1000 && fp < 0x400000; i++ {
+			s += fmt.Sprintf(" <-0x%X", rd(fp-4)-4)
+			fp = rd(fp - 0xC)
+		}
+		return s
+	}
+
+	// Operamath vector-transform census: source arrays of MulManyVec3Mat33
+	// (SWI 0x50002) enumerate every world-space vertex array the game
+	// transforms per frame (road strip, scenery slice rows, cars).
+	mmv := map[[2]uint32]int{}
 	m.OnSWI = func(mm *threedo.Machine, from, swi uint32) {
 		c := mm.CPU
+		if swi == 0x50002 && n > 16_000_000 {
+			k := [2]uint32{from, c.Reg(3)}
+			mmv[k]++
+			if mmv[k] <= 2 {
+				src := c.Reg(1)
+				v0 := []uint32{rd(src), rd(src + 4), rd(src + 8)}
+				fmt.Printf("[%9d t#%-4d] MMV        from=0x%X dst=0x%X src=0x%X mat=0x%X n=%d v0=%08X,%08X,%08X bt:%s\n",
+					n, m.CurrentTaskNum(), from, c.Reg(0), src, c.Reg(2), c.Reg(3), v0[0], v0[1], v0[2], backtrace())
+			}
+		}
 		if swi >= 0x40000 && swi < 0x40100 {
 			audioSWI[swi]++
 			if audioSWI[swi] <= 4 {
@@ -112,43 +138,70 @@ func main() {
 	var traceLog []uint32
 	var traceName string
 
-	// APCS frame-pointer backtrace (EA functions use full STMDB {..,fp,ip,lr,pc}
-	// frames: [r11]=saved pc, [r11-4]=lr, [r11-0xC]=caller's r11).
-	backtrace := func() string {
-		fp := m.CPU.Reg(11)
-		s := ""
-		for i := 0; i < 8 && fp > 0x1000 && fp < 0x400000; i++ {
-			s += fmt.Sprintf(" <-0x%X", rd(fp-4)-4)
-			fp = rd(fp - 0xC)
-		}
-		return s
-	}
 	var integLogs int
 
-	// hold->started transition: watch the countdown [0x41D0C], started flag
-	// [0x41D10], and opponent position [0x295810] with no step filter.
-	var stampLogs int
-	watchCnt := map[uint32]int{}
-	m.WatchLo, m.WatchHi = 0x295810, 0x295814
+	// write-watch: where do the road-strip vertex rows (strip struct 0x14B290,
+	// verts at +0x24) come from? Log writer PC + backtrace.
+	wrPCs := map[uint32]int{}
+	m.WatchLo, m.WatchHi = 0x14B2B4, 0x14B2C0
 	m.OnWrite = func(addr, val, pc uint32) {
-		old := uint32(m.Read(addr))
-		if old == val || watchCnt[addr] > 25 {
-			return
+		wrPCs[pc]++
+		if wrPCs[pc] <= 2 {
+			fmt.Printf("[%9d t#%-4d] WR         [0x%X]=0x%02X pc=0x%X%s\n", n, m.CurrentTaskNum(), addr, val, pc, backtrace())
 		}
-		watchCnt[addr]++
-		fmt.Printf("[%9d t#%-4d] WR         [0x%X] 0x%02X->0x%02X pc=0x%X frame=%d hold=%d started=%d\n",
-			n, m.CurrentTaskNum(), addr, old, val, pc, rd(0x41D24), rd(0x41D0C), rd(0x41D10))
 	}
-	_ = stampLogs
 
 	// counters for the frame chain
 	var loopHead, worldUpd uint64
 	carSim := map[uint32]uint64{} // r0 (car ptr) -> count
 	lastStatus := uint64(0)
 
+	// track-stream geometry trace: the road-strip vertex rows are read straight
+	// off the trk stream (ReadDiskStream into strip+0x24). Log seek/read on the
+	// stream plus the chunk-index helpers 0x15704/0x15724.
+	var trkStream uint32
+	var resolver [][3]uint32 // {fn, arg, lr} stack for arena-resolver returns
 	m.OnStep = func(mm *threedo.Machine, pc uint32) {
 		n++
 		c := mm.CPU
+		switch pc {
+		case 0x15650: // trkOpen(name, bufsz) — caches stream ptr at [0x3F2B0]
+			ev("TRKOPEN", 8, "name=%q bufsz=0x%X", readCStr(m, c.Reg(0)), c.Reg(1))
+		case 0x15660: // return from OpenDiskStream inside trkOpen
+			trkStream = c.Reg(0)
+			ev("TRKSTRM", 8, "stream=0x%X", trkStream)
+		case 0x39BD0: // ReadDiskStream(stream, buf, len)
+			if c.Reg(0) == trkStream && trkStream != 0 {
+				ev("TRKREAD", 60, "buf=0x%X len=0x%X bt:%s", c.Reg(1), c.Reg(2), backtrace())
+			}
+		case 0x39C0C: // SeekDiskStream(stream, pos, whence)
+			if c.Reg(0) == trkStream && trkStream != 0 {
+				ev("TRKSEEK", 60, "pos=0x%X whence=%d bt:%s", c.Reg(1), c.Reg(2), backtrace())
+			}
+		case 0x15704: // seek to chunk idx: offset = [blockBase+0x98C+idx*4]
+			ev("CHUNKSEEK", 60, "idx=%d lr=0x%X", c.Reg(0), c.Reg(14))
+		case 0x15724: // chunk walker: r0 = idx
+			ev("CHUNKWALK", 60, "idx=%d lr=0x%X", c.Reg(0), c.Reg(14))
+		case 0x15CA0, 0x15D1C: // arena resolvers: capture (pc, arg) -> return
+			if n > 16_500_000 {
+				resolver = append(resolver, [3]uint32{pc, c.Reg(0), c.Reg(14)})
+			}
+		case 0x21CC4: // drawFaces(count, projVerts, ?, ?, [sp]: faces, idxlist, texset)
+			if n > 16_500_000 {
+				sp := c.Reg(13)
+				ev("DRAWFACES", 40, "n=%d r1=0x%X r2=0x%X r3=0x%X sp0=0x%X sp1=0x%X sp2=0x%X sp3=0x%X lr=0x%X",
+					c.Reg(0), c.Reg(1), c.Reg(2), c.Reg(3), rd(sp), rd(sp+4), rd(sp+8), rd(sp+12), c.Reg(14))
+			}
+		case 0x352DC: // transform/prep before drawFaces
+			if n > 16_500_000 {
+				ev("PREPFACES", 40, "r0=0x%X r1=0x%X r2=0x%X r3=0x%X lr=0x%X", c.Reg(0), c.Reg(1), c.Reg(2), c.Reg(3), c.Reg(14))
+			}
+		}
+		if len(resolver) > 0 && pc == resolver[len(resolver)-1][2] {
+			r := resolver[len(resolver)-1]
+			resolver = resolver[:len(resolver)-1]
+			ev("ARENA", 120, "fn=0x%X arg=%d -> 0x%X", r[0], r[1], c.Reg(0))
+		}
 		if traceRet != 0 {
 			if pc == traceRet {
 				fmt.Printf("--- %s: 0x1779C(r0=1) path (%d instrs) ---\n", traceName, len(traceLog))
@@ -311,6 +364,18 @@ func parsePadScript(s string) ([]threedo.PadStep, error) {
 	}
 	sort.Slice(script, func(i, j int) bool { return script[i].AtStep < script[j].AtStep })
 	return script, nil
+}
+
+func readCStr(m *threedo.Machine, addr uint32) string {
+	var b []byte
+	for i := uint32(0); i < 64; i++ {
+		c := m.Read(addr + i)
+		if c == 0 {
+			break
+		}
+		b = append(b, c)
+	}
+	return string(b)
 }
 
 func die(err error) {
