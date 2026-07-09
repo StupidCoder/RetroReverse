@@ -193,20 +193,18 @@ export default {
       flycam.setMoveScale(1.4);
       flycam.setEnabled(true);
       stage.fly = flycam;
-      stage.hud = `${item.name} · ${flyHint}${drive ? ' · IJKL drive' : ''} · R: native res`;
+      stage.hud = `${item.name} · ${flyHint}${drive ? ' · IJKL drive' : ''}`;
     } else {
       controls.autoRotate = true;
       controls.autoRotateSpeed = AUTO_ROTATE_SPEED;
-      stage.hud = `${item.name} · R: native res`;
+      stage.hud = item.name;
     }
 
     // Optional low-res render: the 200-line target + chunky upscale is authentic but distracting
-    // when judging exactness. 'R' toggles it (native Amiga resolution on/off).
+    // when judging exactness. Driven by the Studio's "Low res" layer toggle (applyLayers ->
+    // setLayer); pixelGrid()/stage.render re-query it each frame.
     let lowRes = true;
-    const resToggle = (e) => {
-      if (e.key.toLowerCase() === 'r') lowRes = !lowRes; // pixelGrid()/render re-query each frame
-    };
-    window.addEventListener('keydown', resToggle);
+    stage.setLayer = (id, on) => { if (id === 'lowres') lowRes = on; };
 
     // Per-frame: fixed-50 Hz physics for the driven car (the sim is a fixed-timestep tick),
     // decoupled from the render dt via an accumulator. The camera is the fly-cam (or orbit) —
@@ -247,7 +245,7 @@ export default {
     // item builds (the Viewer calls this before stage.clear()).
     stage.disposePlugin = () => {
       ro.disconnect();
-      window.removeEventListener('keydown', resToggle);
+      stage.setLayer = null;
       if (flycam) flycam.dispose();
       if (drive) drive.dispose();
       if (mixer) mixer.stopAllAction();

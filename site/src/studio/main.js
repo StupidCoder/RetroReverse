@@ -135,7 +135,10 @@ const GAMES = [
     list: async (v) => await v.init(), // manifest.models — each carries its kind/file/section
     show: (v, item, i) => v.showItem(item),
     // each circuit is a level you fly through
-    layers: [{ id: 'wireframe', label: 'Wireframe', default: false }],
+    layers: [
+      { id: 'wireframe', label: 'Wireframe', default: false },
+      { id: 'lowres', label: 'Low res', default: true },
+    ],
     // Courses (the circuits) vs the Models section (opponent car + horizon), from the section field
     group: (item) => ({ section: item.section || 'Courses', label: item.name }),
   },

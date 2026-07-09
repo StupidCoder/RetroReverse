@@ -1116,8 +1116,9 @@ raycast onto the track mesh. The car spawns at the start line and drives the cir
 own auto-steer follows the straights, and the player steers through the corners. Controls are
 **`IJKL`** (I throttle, K brake, J/L steer, O fire) so they don't collide with the free-flight
 **fly-cam** (`WASD`/arrows) — the camera stays under your control while the car drives on its
-own; it does not chase. **`R`** toggles the native-Amiga low-resolution render off, for judging
-exactness at full display resolution. (Forcing the steering bias `$1BBC6` every frame — even to
+own; it does not chase. The **Low res** display toggle (next to Wireframe / Screen filter)
+turns the native-Amiga 200-line render off for judging exactness at full display resolution.
+(Forcing the steering bias `$1BBC6` every frame — even to
 0 — fights the auto-steer and throws the car airborne; it is left alone unless a steer key is
 held.)
 
