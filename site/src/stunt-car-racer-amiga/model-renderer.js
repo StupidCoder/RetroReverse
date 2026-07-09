@@ -22,6 +22,16 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { FlyCam, flyHint } from '../shared/flycam.js';
+import { Physics } from './physics.js';
+
+// Circuit slugs in physics track-id order (physdump / package physics), so the driven car
+// loads the right per-track placed state.
+const TRACK_SLUGS = ['little-ramp', 'stepping-stones', 'hump-back', 'big-ramp',
+  'ski-jump', 'draw-bridge', 'high-jump', 'roller-coaster'];
+// physics world -> GLB world: the sim tracks the car at grid*128 (128 units/cell) in 16.16
+// fixed point; the baked GLB is grid*2048/1024 = 2 units/cell. So GLB = (physics 16.16) /
+// (65536*64). Verified by overlaying the drive path on the track top-down.
+const PHYS_TO_GLB = 1 / (65536 * 64);
 
 // The engine's night-sky clear colour (the pre-race preview's backdrop). Shared by every item so
 // the whole game reads as one scene.
@@ -33,6 +43,60 @@ const AUTO_ROTATE_SPEED = 0.9; // idle spin for the car / horizon
 
 let _gltf = null;
 const gltfLoader = () => (_gltf || (_gltf = new GLTFLoader()));
+
+// setupDrive loads a circuit's placed physics state and returns a driver that steps the sim
+// each frame from keyboard input and maps the car onto the GLB track. The physics is the
+// verified vehicle-control layer (physics.js driveTickCoupled: input decode -> physics with
+// the $5B32E spawn -> coupling -> timer); the world<->GLB mapping and the on-road height
+// (raycast) are the presentation layer. The car spawns (~240 frames) then drives.
+async function setupDrive(id, base, car, track) {
+  const dir = base + 'phys/';
+  const [perTrack, staticBuf] = await Promise.all([
+    fetch(`${dir}${id}.bin`).then((r) => { if (!r.ok) throw new Error('no bin'); return r.arrayBuffer(); }),
+    fetch(`${dir}static.bin`).then((r) => { if (!r.ok) throw new Error('no static'); return r.arrayBuffer(); }),
+  ]);
+  const phys = new Physics();
+  phys.loadTrack(perTrack, staticBuf);
+
+  const keys = new Set();
+  const kd = (e) => keys.add(e.key.toLowerCase());
+  const ku = (e) => keys.delete(e.key.toLowerCase());
+  window.addEventListener('keydown', kd);
+  window.addEventListener('keyup', ku);
+
+  const ray = new THREE.Raycaster();
+  const down = new THREE.Vector3(0, -1, 0);
+  let px = null, pz = null, yaw = 0, y = 0;
+
+  return {
+    step() {
+      // build the joystick byte $1BB47: bits 0-1 throttle/brake, 2-3 steer, 4 fire.
+      let inp = 0;
+      if (keys.has('w') || keys.has('arrowup')) inp |= 0x01;
+      else if (keys.has('s') || keys.has('arrowdown')) inp |= 0x02;
+      if (keys.has('a') || keys.has('arrowleft')) inp |= 0x04;
+      else if (keys.has('d') || keys.has('arrowright')) inp |= 0x08;
+      if (keys.has(' ')) inp |= 0x10;
+      const speed = phys.driveTickCoupled(inp);
+
+      const gx = phys.l(0x1BCD8) * PHYS_TO_GLB, gz = -phys.l(0x1BCE0) * PHYS_TO_GLB;
+      if (px !== null && (gx - px) ** 2 + (gz - pz) ** 2 > 1e-6) {
+        yaw = Math.atan2(-(gx - px), -(gz - pz)); // face along motion (car forward = -Z local)
+      }
+      px = gx; pz = gz;
+      ray.set(new THREE.Vector3(gx, 200, gz), down);
+      const hits = ray.intersectObject(track, true);
+      if (hits.length) y = hits[0].point.y;
+      car.position.set(gx, y, gz);
+      car.rotation.y = yaw;
+      return { gx, gz, y, yaw, speed };
+    },
+    dispose() {
+      window.removeEventListener('keydown', kd);
+      window.removeEventListener('keyup', ku);
+    },
+  };
+}
 
 export default {
   kind: 'stunt-model',
@@ -58,18 +122,27 @@ export default {
     scene.background = new THREE.Color(SKY);
     stage.add(model);
 
-    // On a circuit, drop the opponent car GLB onto the start/finish line. Both GLBs share the
-    // 1/1024 scale and Y-up/Z-negated convention (webexport models.go), so the car goes in at
-    // scale 1: item.start.pos is the road-surface midpoint of the finish rung and item.start.yaw
-    // faces the car (local forward -Z) along the direction of travel. Placeholder placement —
-    // the car is static for now, not yet driven by the physics.
-    let car = null;
-    if (item.fly && item.start) {
+    // On a circuit, add the opponent car GLB and drive it with the verified physics (WASD /
+    // arrows). If the per-track physics data loads, the car spawns and drives; otherwise it
+    // falls back to a static placement at the start line (item.start).
+    let car = null, drive = null;
+    if (item.fly) {
       const carGltf = await gltfLoader().loadAsync(base + 'models/opponent-car.glb');
       car = carGltf.scene;
-      car.position.set(item.start.pos[0], item.start.pos[1], item.start.pos[2]);
-      car.rotation.y = item.start.yaw;
       stage.add(car);
+      const slug = item.file.replace(/^.*\//, '').replace(/\.glb$/, '');
+      const id = TRACK_SLUGS.indexOf(slug);
+      if (id >= 0) {
+        try {
+          drive = await setupDrive(id, base, car, model);
+        } catch (e) {
+          console.warn('stunt drive: physics data unavailable, static car', e);
+        }
+      }
+      if (!drive && item.start) {
+        car.position.set(item.start.pos[0], item.start.pos[1], item.start.pos[2]);
+        car.rotation.y = item.start.yaw;
+      }
     }
 
     // ---- native-resolution post: render the scene into a 200-line target, upscale chunky ----
@@ -109,9 +182,14 @@ export default {
       for (const clip of gltf.animations) mixer.clipAction(clip).play();
     }
 
-    // ---- controls: circuits fly, the car / horizon orbit ----
+    // ---- controls: a driven circuit gets a chase cam, an un-driven circuit flies, the
+    // car / horizon orbit ----
     let flycam = null;
-    if (item.fly) {
+    if (drive) {
+      controls.enabled = false;
+      controls.autoRotate = false;
+      stage.hud = `${item.name} · WASD / arrows to drive`;
+    } else if (item.fly) {
       controls.autoRotate = false;
       flycam = new FlyCam(camera, controls, stage.el);
       flycam.setScale(size);
@@ -125,11 +203,26 @@ export default {
       stage.hud = item.name;
     }
 
-    // Per-frame: advance the fly-cam / animation, then the plugin owns the frame — render the scene
-    // into the low-res target and upscale it to the canvas.
+    // Chase camera: behind and above the car (car forward = -Z rotated by yaw), looking ahead.
+    const chaseCam = (st) => {
+      const fx = -Math.sin(st.yaw), fz = -Math.cos(st.yaw);
+      camera.position.set(st.gx - fx * 3.2, st.y + 1.6, st.gz - fz * 3.2);
+      camera.lookAt(st.gx + fx * 1.5, st.y + 0.4, st.gz + fz * 1.5);
+    };
+
+    // Per-frame: fixed-50 Hz physics for the driven car (the sim is a fixed-timestep tick),
+    // decoupled from the render dt via an accumulator; then the chase cam. Otherwise fly / animate.
+    let acc = 0;
+    const DT = 1 / 50;
     stage.onFrame = (camPos, dt) => {
       if (flycam) flycam.update(dt);
       if (mixer) mixer.update(dt);
+      if (drive) {
+        acc += Math.min(dt, 0.25);
+        let st = null;
+        while (acc >= DT) { st = drive.step(); acc -= DT; }
+        if (st) chaseCam(st);
+      }
     };
     stage.render = (s) => {
       s.renderer.setRenderTarget(postTarget);
@@ -151,6 +244,7 @@ export default {
     stage.disposePlugin = () => {
       ro.disconnect();
       if (flycam) flycam.dispose();
+      if (drive) drive.dispose();
       if (mixer) mixer.stopAllAction();
       controls.autoRotate = false;
       renderer.setRenderTarget(null);

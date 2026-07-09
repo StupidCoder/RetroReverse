@@ -110,11 +110,17 @@ func initTrack(img []byte, id int) []byte {
 	bus.m[0x1BB57] = 1 // gear 1
 	copy(bus.m[0x64AEC:], []byte{0x9C, 0xED, 0xCD, 0x02})
 	// per-car constant copy ($5D73A): accel $1BAFA/B, wheelspin $1BAFE etc. into $1BAF8..
-	d1 := int(bus.m[0x1C9D0])
+	cd := int(bus.m[0x1C9D0])
 	for i := 0; i < 11; i++ {
-		bus.m[0x1BAF8+uint32(i)] = bus.m[0x1FE6C+uint32(d1+i)]
+		bus.m[0x1BAF8+uint32(i)] = bus.m[0x1FE6C+uint32(cd+i)]
 	}
-	call(bus, c, 0x605B6, nil) // real placement (posY = 16.0)
+	// race intro setup ($5D3C6..$5D402): the start section is $1CA1B (the header finish/start
+	// index), placed by $605B6 with d1 = that section.
+	startSec := uint32(bus.m[0x1CA1B])
+	bus.m[0x1BB1D] = byte(startSec)
+	bus.m[0x1BB0C] = 4
+	bus.m[0x1BBED] = 0x4C
+	call(bus, c, 0x605B6, map[int]uint32{1: startSec}) // real placement (posY = 16.0)
 	call(bus, c, 0x5E778, nil)
 	call(bus, c, 0x60CDE, nil)
 	call(bus, c, 0x64E4C, nil)

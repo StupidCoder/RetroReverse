@@ -133,14 +133,20 @@ func main() {
 		call(0x65BEC)
 		bus.Write(0x1BB57, 1)
 		copy(bus.m[0x64AEC:], []byte{0x9C, 0xED, 0xCD, 0x02})
+		startSec := uint32(0)
 		if *full {
 			// per-car constant copy ($5D73A): accel $1BAFA/B, wheelspin $1BAFE etc.
-			d1 := int(bus.Read(0x1C9D0))
+			cd := int(bus.Read(0x1C9D0))
 			for i := 0; i < 11; i++ {
-				bus.Write(0x1BAF8+uint32(i), bus.Read(0x1FE6C+uint32(d1+i)))
+				bus.Write(0x1BAF8+uint32(i), bus.Read(0x1FE6C+uint32(cd+i)))
 			}
+			// race intro setup: start section = $1CA1B, placed by $605B6 with d1 = it.
+			startSec = uint32(bus.Read(0x1CA1B))
+			bus.Write(0x1BB1D, byte(startSec))
+			bus.Write(0x1BB0C, 4)
+			bus.Write(0x1BBED, 0x4C)
 		}
-		call(0x605B6) // real placement (posY = 16.0)
+		callD1(0x605B6, startSec) // real placement (posY = 16.0), d1 = start section
 		call(0x5E778)
 		call(0x60CDE)
 		call(0x64E4C)
