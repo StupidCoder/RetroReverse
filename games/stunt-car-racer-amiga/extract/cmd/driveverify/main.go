@@ -107,6 +107,8 @@ func main() {
 	frames := flag.Int("frames", 120, "physics frames")
 	drive := flag.Int("drive", 0, "drive force $1BD2A held each frame")
 	noCrash := flag.Bool("nocrash", false, "zero $1BBDF after arming (skip spawn crash-recovery)")
+	full := flag.Bool("full", false, "full-drive lockstep: reimplemented input+crash+timer, spawn active")
+	inputHex := flag.Int("input", 1, "joystick byte $1BB47 held each frame in -full mode")
 	dumpPath := flag.String("dump", "", "write a JS golden trace (track 1 oracle states) to this path")
 	tracks := flag.String("tracks", "1,3,7", "comma track ids (unused placeholder)")
 	flag.Parse()
@@ -131,6 +133,13 @@ func main() {
 		call(0x65BEC)
 		bus.Write(0x1BB57, 1)
 		copy(bus.m[0x64AEC:], []byte{0x9C, 0xED, 0xCD, 0x02})
+		if *full {
+			// per-car constant copy ($5D73A): accel $1BAFA/B, wheelspin $1BAFE etc.
+			d1 := int(bus.Read(0x1C9D0))
+			for i := 0; i < 11; i++ {
+				bus.Write(0x1BAF8+uint32(i), bus.Read(0x1FE6C+uint32(d1+i)))
+			}
+		}
 		call(0x605B6) // real placement (posY = 16.0)
 		call(0x5E778)
 		call(0x60CDE)
@@ -167,18 +176,30 @@ func main() {
 
 		bad := 0
 		for f := 0; f < *frames; f++ {
-			// Real loop order ($5D48A then $5D496): physics tick, THEN the render
-			// coupling that sets up the next tick. The intro's final $64E4C already
-			// primed the coupling state read by this first physics tick.
-			// oracle
-			bus.Write(0x1BD2A, byte(*drive>>8))
-			bus.Write(0x1BD2B, byte(*drive))
-			call(0x6185C)
-			engineCouple()
-			// go
-			gm.SetW(0x1BD2A, int16(*drive))
-			gm.Frame6185C()
-			goCouple(gm)
+			if *full {
+				// Full real loop: input decode, physics (incl the $5B32E spawn), coupling,
+				// timer. The oracle runs the real routines; Go runs the reimplementations.
+				bus.Write(0x1BB47, byte(*inputHex))
+				call(0x5D8A8) // $5D8A2 input decode (past the $60BAE hardware read)
+				call(0x6185C)
+				engineCouple()
+				call(0x5DB34) // full lap timer (ground truth; sets $1BBCD etc.)
+				gm.B[0x1BB47] = byte(*inputHex)
+				gm.Input5D8A2()
+				gm.Frame6185C()
+				goCouple(gm)
+				gm.Timer5DB34() // minimal time-base tick (physics-relevant subset of $5DB34)
+			} else {
+				// Base physics lockstep: direct drive-force injection, spawn skipped.
+				// Real loop order ($5D48A then $5D496): physics tick, THEN the render coupling.
+				bus.Write(0x1BD2A, byte(*drive>>8))
+				bus.Write(0x1BD2B, byte(*drive))
+				call(0x6185C)
+				engineCouple()
+				gm.SetW(0x1BD2A, int16(*drive))
+				gm.Frame6185C()
+				goCouple(gm)
+			}
 
 			for _, ck := range checks {
 				if rw(gm.B, ck.addr) != rw(bus.m, ck.addr) {

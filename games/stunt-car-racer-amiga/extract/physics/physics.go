@@ -646,6 +646,160 @@ func (m *Mem) postInput608A4() {
 	m.SetW(Drive, m.W(Drive)<<1) // ASL.w -- double the drive force
 }
 
+// Timer5DB34 reproduces the physics-relevant part of the per-frame lap timer $5DB34: the
+// frame counter $1BBC9 and the $EE time-base accumulator $1BBCF whose carry drives the tick
+// flag $1BBCD ($1BBCD = 0 on a carry frame = "advance this frame", $FF otherwise). $1BBCD
+// gates the crash-recovery countdown ($5B32E) and the wheelspin timer ($608A4). The rest of
+// $5DB34 -- the start-light sequence ($5DF2E/$5DCC8 …) -- drives only the start-light visuals
+// and the $1BB8E launch flag, neither of which affects the car physics (verified by
+// driveprobe: bit-identical drive with the full $5DB34 vs this tick).
+func (m *Mem) Timer5DB34() {
+	m.B[0x1BBC9]++
+	sum := m.U8(0x1BBCF) + 0xEE
+	m.B[0x1BBCF] = byte(sum)
+	if sum > 0xFF {
+		m.B[0x1BBCD] = 0 // carry: this frame advances the countdown/timer
+	} else {
+		m.B[0x1BBCD] = 0xFF
+	}
+}
+
+// --- crash-recovery / spawn state-machine ($5B32E), run inside $61BCC's tail ($62042) each
+// frame; a no-op once the countdown $1BBDF reaches 0. It servos the car's pitch and heading
+// during the ~240-frame spawn, then hands off to normal driving. ---
+
+// dirPick58758 ($58758): flip the spawn-heading direction $1BBE1 bit 7 under its gates. A
+// no-op when the feature flag $57C3C is 0 (the race case).
+func (m *Mem) dirPick58758() {
+	if m.U8(0x57C3C) == 0 || int8(m.U8(0x1BBC4)) >= 0 || int8(m.U8(0x1BBE0)) >= 0 {
+		return
+	}
+	d0 := byte(m.U8(0x1BBE0)) << 1
+	if m.U8(0x1BB1C) != m.U8(0x1BB1D) {
+		return
+	}
+	d0 ^= byte(m.U8(0x1BBE1))
+	if int8(d0) < 0 {
+		return
+	}
+	m.B[0x1BBE1] ^= 0x80
+}
+
+// pitchDriver5B4A8 ($5B4A8): integrate the pitch accumulator $1BC00 toward the target ($10,
+// or $F0 when $1BBE1 < 0) by a damped step of the param, write the pitch angle $1BCE8 (=
+// $1BC00 - $1BC5C<<5) and clear the pitch-torque accumulator $1BD26. Returns whether the
+// $1BC00 byte has reached the target.
+func (m *Mem) pitchDriver5B4A8(param int) bool {
+	d4 := byte(0x10)
+	d0b := byte(param)
+	if int8(m.U8(0x1BBE1)) < 0 {
+		d0b = byte(-int8(d0b)) // NEG.b
+		d4 = 0xF0
+	}
+	d0 := int16(uint16(d0b) << 8)       // ASL.w #8 (the stale high byte is shifted out)
+	d0 = int16((int32(d0) * damp) >> 8) // MULS.W $EE ; ASR.l #8
+	d3 := m.W(0x1BC5C) << 5
+	if byte(m.U8(0x1BC00)) != d4 {
+		m.SetW(0x1BC00, m.W(0x1BC00)+d0)
+	}
+	m.SetW(0x1BCE8, m.W(0x1BC00)-d3)
+	m.SetW(0x1BD26, 0)
+	return byte(m.U8(0x1BC00)) == d4
+}
+
+// headingNudge5B472 ($5B472): swing the heading accumulator $1BD42 toward the track by a
+// clamped error term (from $1BCD0 - $1BC60 - param<<8). Returns the high byte of the raw
+// error + 2 (its sign gates the caller's countdown decrement).
+func (m *Mem) headingNudge5B472(param int) int8 {
+	d0 := int16(uint16(byte(param)) << 8)
+	d3 := m.W(0x1BCD0) - m.W(0x1BC60) - d0
+	dd := (d3 >> 3) - 0x100
+	if dd < 0 && uint16(dd) < 0xFE00 {
+		dd = -512 // clamp the error to >= -512
+	}
+	m.SetW(0x1BD42, m.W(0x1BD42)-dd)
+	return int8(byte(uint16(d3)>>8) + 2)
+}
+
+// launchArm5E4EC ($5E4EC): the launch armer tail-called from the $E4 phase -- set the "go"
+// flag $1BB8E (doesn't affect the physics) plus two scratch bytes the start-lights read.
+func (m *Mem) launchArm5E4EC(d0, d2 byte) {
+	m.B[0x1BB8E] = 0x80
+	m.B[0x5E65B] = d2
+	m.B[0x5E65A] = d0
+}
+
+// Crash5B32E reproduces the spawn/crash-recovery machine $5B32E. $1BBDF is a phase clock:
+// $F0..$E6 prime the pitch accumulator (sign from $1BBE1) and pick the spawn direction; $E5
+// begins the pitch+heading servo with a gated decrement; $E4 waits for the pitch to settle,
+// then reloads the clock ($8C -- the race has $1CA22>=0, so the PRNG branch is never taken)
+// and arms the launch; $E3..$01 continue the servo, decrement gated by the time-base tick
+// $1BBCD, and reset ($1BBDF/$1BB9C/$1BB8E=0, $1BBC4=$80) to hand off to normal driving.
+func (m *Mem) Crash5B32E() {
+	d1 := m.U8(0x1BBDF)
+	if d1 == 0 {
+		return // no-op in normal driving
+	}
+	switch {
+	case d1 >= 0xE6: // phase A ($E6..$F0): prime the pitch accumulator, pick direction
+		m.dirPick58758()
+		d0 := byte(0x2C)
+		if int8(m.U8(0x1BBE1)) < 0 {
+			d0 = 0xD4
+		}
+		m.B[0x1BC00] = d0
+		m.B[0x1BC01] = 0
+		m.B[0x1BBDF]--
+	case d1 == 0xE5: // phase B: begin the servo
+		m.pitchDriver5B4A8(0)
+		if m.headingNudge5B472(3) >= 0 {
+			m.B[0x1BBDF]--
+		}
+	case d1 == 0xE4: // phase C: wait for pitch, then reload + arm the launch
+		m.headingNudge5B472(4)
+		if !m.pitchDriver5B4A8(0xFF) {
+			return // pitch not yet at target -- stay in $E4
+		}
+		d2 := byte(0x2C)
+		if int8(m.U8(0x1BBC4)) < 0 {
+			d2 = 0x3C
+		}
+		// $1CA22 >= 0 in the race -> deterministic $8C reload (no $62574 PRNG).
+		m.B[0x1BBDF] = 0x8C
+		if m.U8(0x1BB74) != 0 {
+			m.B[0x1BB74] = 0x32
+		}
+		m.launchArm5E4EC(4, d2)
+	default: // phase D ($E3..$01): continue the servo, gated decrement, then hand off
+		m.pitchDriver5B4A8(0)
+		m.headingNudge5B472(2)
+		if int8(m.U8(0x1BBCD)) >= 0 { // time-base tick frame: decrement (floored at 1)
+			m.B[0x1BBDF]--
+			if m.U8(0x1BBDF) == 0 {
+				m.B[0x1BBDF]++
+			}
+		}
+		if m.U8(0x1BBC4) == 0 {
+			if int8(m.U8(0x1BBDF)) >= 0 {
+				m.crashReset5B450()
+			}
+			return
+		}
+		if m.U8(0x1BB70) != 0 {
+			return
+		}
+		m.crashReset5B450()
+	}
+}
+
+// crashReset5B450 ends crash recovery: clear the countdown and launch flag, arm $1BBC4.
+func (m *Mem) crashReset5B450() {
+	m.B[0x1BBDF] = 0
+	m.B[0x1BB9C] = 0
+	m.B[0x1BB8E] = 0
+	m.B[0x1BBC4] = 0x80
+}
+
 // slope62424 ($62424): abs+clamp a slope value to 0..$FF ($1BB2B) and look up its
 // half-angle in the table at $1EECA ($1BB2D).
 func (m *Mem) slope62424(d0w int16) {
@@ -850,7 +1004,7 @@ func (m *Mem) Frame6185C() {
 	m.GravToBody615E6()
 	m.Suspension61BCC() // springs + combine + self-righting
 	m.LoadProject622DC() // $622DC (called inside $61BCC; data-independent of the combine)
-	// $5B32E crash recovery: no-op when $1BBDF == 0
+	m.Crash5B32E()       // $5B32E crash-recovery/spawn (in $61BCC's tail); no-op when $1BBDF==0
 	m.SetW(0x1BD46, m.W(0x1BD44)) // $62048
 	m.Tail63E2E()
 	if m.U8(0x620B6) != 0 {

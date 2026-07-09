@@ -185,6 +185,10 @@ func main() {
 		// input decode: entered at $5D8A8 (past the $60BAE hardware read); byte-seeded below.
 		{"Input5D8A2 $5D8A2", 0x5D8A8, (*physics.Mem).Input5D8A2, nil,
 			[]uint32{0x1BBC6, 0x1BB70, 0x1BBA8, 0x1BD2A, 0x1BB62, 0x1BB3D}},
+		// crash-recovery/spawn machine; $1BBDF seeded across all phases below.
+		{"Crash5B32E $5B32E", 0x5B32E, (*physics.Mem).Crash5B32E, nil,
+			[]uint32{0x1BBDF, 0x1BC00, 0x1BCE8, 0x1BD26, 0x1BD42, 0x1BB8E, 0x1BB9C,
+				0x1BBC4, 0x1BBE1, 0x5E65A, 0x1BB74}},
 	}
 	for _, t := range cases {
 		bad := 0
@@ -220,6 +224,33 @@ func main() {
 				m[0x1BAFA] = byte(rng.Intn(0x100)) // per-car accel lo
 				m[0x1BAFB] = byte(rng.Intn(0x100)) // per-car accel hi
 				m[0x1BAFE] = byte(rng.Intn(0x100)) // wheelspin reload
+			}
+			if t.pc == 0x5B32E { // crash machine: seed $1BBDF across every phase
+				phases := []byte{0xF0, 0xEA, 0xE6, 0xE5, 0xE4, 0xE3, 0xC0, 0x80, 0x10, 0x02, 0x01}
+				m[0x1BBDF] = phases[rng.Intn(len(phases))]
+				m[0x1BBE1] = byte(rng.Intn(0x100))
+				m[0x1BBC4] = byte(rng.Intn(0x100))
+				m[0x1BBE0] = byte(rng.Intn(0x100))
+				m[0x1BB1C] = byte(rng.Intn(4))
+				m[0x1BB1D] = byte(rng.Intn(4))
+				m[0x1CA22] = byte(rng.Intn(0x80)) // bit7 clear (race case; PRNG branch unused)
+				m[0x1BB74] = byte(rng.Intn(0x100))
+				m[0x1BB70] = byte(rng.Intn(0x100))
+				m[0x1BBCD] = byte(rng.Intn(0x100))
+				m[0x57C3C] = byte(rng.Intn(2))
+				wW(m, 0x1BC00, int16(rng.Intn(0x10000)))
+				wW(m, 0x1BC5C, int16(rng.Intn(0x10000)))
+				wW(m, 0x1BCD0, int16(rng.Intn(0x10000)))
+				wW(m, 0x1BC60, int16(rng.Intn(0x10000)))
+				wW(m, 0x1BD42, int16(rng.Intn(0x10000)))
+				// exercise the $E4 launch-arm path: settle the pitch at its target sometimes
+				if m[0x1BBDF] == 0xE4 && rng.Intn(2) == 0 {
+					if int8(m[0x1BBE1]) < 0 {
+						m[0x1BC00] = 0xF0
+					} else {
+						m[0x1BC00] = 0x10
+					}
+				}
 			}
 			if t.pc == 0x622DC {
 				for _, a := range []uint32{0x1BCB0, 0x1BCB4, 0x1BCB8} {
