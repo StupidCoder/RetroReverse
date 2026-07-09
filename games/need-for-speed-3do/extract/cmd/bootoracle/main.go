@@ -41,6 +41,8 @@ func main() {
 	celDebugAt := flag.Uint64("celdebug", 0, "record a per-cel render summary for the frames after this step")
 	sportDebug := flag.Bool("sportdebug", false, "log the full IOInfo of every SPORT request")
 	perspTint := flag.Bool("persptint", false, "paint perspective cels solid magenta")
+	probeX := flag.Uint64("probex", 0, "log cels writing this pixel (with -celdebug)")
+	probeY := flag.Uint64("probey", 0, "probe pixel Y")
 	flag.Parse()
 
 	var data []byte
@@ -76,6 +78,8 @@ func main() {
 	m.NoStreams = !*movies
 	m.SportDebug = *sportDebug
 	m.PerspTint = *perspTint
+	m.ProbeX = uint32(*probeX)
+	m.ProbeY = uint32(*probeY)
 	if *pad != "" {
 		script, err := parsePadScript(*pad)
 		if err != nil {

@@ -135,6 +135,8 @@ type Machine struct {
 	CelFrameLog []string // the last fully-displayed frame's cels
 	SportDebug  bool     // log the full IOInfo of every SPORT request
 	PerspTint   bool     // paint perspective (corner-engine) cels solid magenta
+	ProbeX      uint32   // with CelDebug, log every cel that writes this pixel
+	ProbeY      uint32
 
 	// Instrumentation (opt-in; checked in Read/Write and the run loop).
 	WatchLo, WatchHi uint32

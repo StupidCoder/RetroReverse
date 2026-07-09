@@ -457,6 +457,10 @@ func (m *Machine) drawOneCel(bm gfxBitmap, ccb, flags, src, plutPtr uint32) bool
 				offN++
 				continue
 			}
+			if m.CelDebug && x == int(m.ProbeX) && y == int(m.ProbeY) {
+				m.CelDebugLog = append(m.CelDebugLog, fmt.Sprintf("PROBE (%d,%d) hit by cel src=%08X %dbpp %dx%d pos=(%d,%d) HD=(%X,%X) VD=(%X,%X) lrform=%v flags=%08X",
+					x, y, src, cel.BPP, cel.Width, cel.Height, int(xPos>>16), int(yPos>>16), hdx, hdy, vdx, vdy, lrform, flags))
+			}
 			m.blendPixel(bm, x, y, pix, amv, pixc, flags)
 			written++
 		}
@@ -496,16 +500,21 @@ func (m *Machine) drawOneCel(bm gfxBitmap, ccb, flags, src, plutPtr uint32) bool
 	return true
 }
 
-// decodeLRForm16 walks a 16bpp LRFORM source: its pixels are stored in the
-// hardware's interleaved line-pair layout (two rows share a 4-byte column
-// stripe, even row in the first halfword) rather than the standard row-major
-// cel stride. Used for full-screen background cels copied from a bitmap.
+// decodeLRForm16 walks a 16bpp LRFORM source — a bitmap in the hardware's
+// interleaved line-pair layout, as produced by rendering into a screen (e.g.
+// the rear-view mirror's off-screen buffer). Each 32-bit word holds two pixels:
+// the first halfword is the even scanline, the second the odd scanline, at the
+// same column. So the cel's declared width counts halfwords (two per word/two
+// per column pair) and its height counts line-pairs — the real image is
+// (Width/2) wide by (Height*2) tall. Decoding it as Width x Height row-major
+// stretched the mirror to double width and half height.
 func (m *Machine) decodeLRForm16(c *Cel, src uint32, set func(x, y int, v uint32)) {
-	for y := 0; y < c.Height; y++ {
-		row := src + uint32(y>>1)*uint32(c.Width)*4 + uint32(y&1)*2
-		for x := 0; x < c.Width; x++ {
-			a := row + uint32(x)*4
-			set(x, y, uint32(m.Read(a))<<8|uint32(m.Read(a+1)))
+	cols := c.Width / 2 // 16-bit pixels per scanline = words per line-pair
+	for lp := 0; lp < c.Height; lp++ {
+		for x := 0; x < cols; x++ {
+			w := src + uint32(lp*cols+x)*4
+			set(x, lp*2, uint32(m.Read(w))<<8|uint32(m.Read(w+1)))     // even line
+			set(x, lp*2+1, uint32(m.Read(w+2))<<8|uint32(m.Read(w+3))) // odd line
 		}
 	}
 }
