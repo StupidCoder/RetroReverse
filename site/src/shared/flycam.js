@@ -132,7 +132,7 @@ export class FlyCam {
       base.style.cssText =
         `position:absolute;bottom:84px;${side}:26px;width:112px;height:112px;border-radius:50%;` + // above the corner fab + HUD
         'background:rgba(110,130,160,.16);border:1px solid rgba(150,175,210,.35);' +
-        'display:none;z-index:6;touch-action:none;-webkit-tap-highlight-color:transparent;' +
+        'display:none;z-index:11;touch-action:none;-webkit-tap-highlight-color:transparent;' + // above the CRT filter (#screenfx, z-index 10) so it stays visible on mobile
         'user-select:none;-webkit-user-select:none;';
       const knob = document.createElement('div');
       knob.style.cssText =

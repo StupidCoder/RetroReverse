@@ -139,7 +139,7 @@ export default {
     controls.autoRotate = false;
     const flycam = new FlyCam(camera, controls, stage.el);
     flycam.setScale(size);
-    flycam.setMoveScale(1.2);
+    flycam.setMoveScale(0.12); // Ridge Racer courses are large in world units — slow the fly cam to 10% of the old 1.2
     flycam.setEnabled(true);
     stage.fly = flycam;
     stage.hud = `${item.name} · ${flyHint}`;
