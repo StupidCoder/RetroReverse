@@ -23,10 +23,16 @@ package rr
 
 import "math"
 
-// Roadside placement list heads in the executable (RAM addresses; the drawer
-// dispatch at 0x80014F80 loads each as an immediate).
+// Roadside placement lists in the executable (RAM addresses; the drawer
+// dispatch at 0x80014F80 loads each as an immediate). Six lists form the two
+// time-of-day sets: E85C and E904 are drawn in both, then a flag at 0x8016E93C
+// selects the daytime pair (EAFC via 0x80036778, E9AC via 0x800158E8) or the
+// night pair (F09C, EA54) — the two carry the same buildings at the same
+// positions but with different object variants (e.g. 177 by day, 178 by night),
+// which is why exporting both z-fights. The course renders the daytime set.
 var placementLists = []uint32{
-	0x8006E85C, 0x8006E904, 0x8006E9AC, 0x8006EA54, 0x8006EAFC, 0x8006F09C,
+	0x8006E85C, 0x8006E904, // always drawn
+	0x8006EAFC, 0x8006E9AC, // the daytime pair (flag == 0)
 }
 
 const exeTextBase = 0x80010000
