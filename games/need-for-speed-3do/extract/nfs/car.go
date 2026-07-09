@@ -191,3 +191,32 @@ func decodeSpot(shape []byte, off int) (*image.RGBA, error) {
 // exported for the track packets' (model, shape) scenery pairs, which use the
 // same binding as the car families.
 func ParseShapeInto(shape []byte, lod *CarLOD) error { return parseCarShape(shape, lod) }
+
+// SpotOffsets returns the absolute file offsets of the SPoT records of the
+// SHPM shape paired with the ORI3 at oriOff (the next SHPM in the file) —
+// used by geomoracle to match the game's live texset pointers.
+func SpotOffsets(fam []byte, oriOff int) []int {
+	shp := -1
+	for o := oriOff; o+4 <= len(fam); o++ {
+		if string(fam[o:o+4]) == "SHPM" {
+			shp = o
+			break
+		}
+	}
+	if shp < 0 {
+		return nil
+	}
+	count := int(be32(fam[shp+8:]))
+	if count <= 0 || count > 1024 {
+		return nil
+	}
+	var offs []int
+	for k := 0; k < count; k++ {
+		name := string(fam[shp+0x10+8*k : shp+0x10+8*k+4])
+		if name == "!ori" || name == "!ORI" {
+			continue
+		}
+		offs = append(offs, shp+int(be32(fam[shp+0x14+8*k:])))
+	}
+	return offs
+}
