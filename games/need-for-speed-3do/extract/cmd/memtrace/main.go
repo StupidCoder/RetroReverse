@@ -174,6 +174,9 @@ func main() {
 			if c.Reg(0) == trkStream && trkStream != 0 {
 				ev("TRKREAD", 60, "buf=0x%X len=0x%X bt:%s", c.Reg(1), c.Reg(2), backtrace())
 			}
+			if c.Reg(1) <= 0x293E20 && c.Reg(1)+c.Reg(2) > 0x293E20 {
+				ev("TEXREAD", 20, "buf=0x%X len=0x%X bt:%s", c.Reg(1), c.Reg(2), backtrace())
+			}
 		case 0x39C0C: // SeekDiskStream(stream, pos, whence)
 			if c.Reg(0) == trkStream && trkStream != 0 {
 				ev("TRKSEEK", 60, "pos=0x%X whence=%d bt:%s", c.Reg(1), c.Reg(2), backtrace())
@@ -183,17 +186,17 @@ func main() {
 		case 0x15724: // chunk walker: r0 = idx
 			ev("CHUNKWALK", 60, "idx=%d lr=0x%X", c.Reg(0), c.Reg(14))
 		case 0x15CA0, 0x15D1C: // arena resolvers: capture (pc, arg) -> return
-			if n > 16_500_000 {
+			if n > 4_500_000 {
 				resolver = append(resolver, [3]uint32{pc, c.Reg(0), c.Reg(14)})
 			}
 		case 0x21CC4: // drawFaces(count, projVerts, ?, ?, [sp]: faces, idxlist, texset)
-			if n > 16_500_000 {
+			if n > 4_500_000 {
 				sp := c.Reg(13)
 				ev("DRAWFACES", 40, "n=%d r1=0x%X r2=0x%X r3=0x%X sp0=0x%X sp1=0x%X sp2=0x%X sp3=0x%X lr=0x%X",
 					c.Reg(0), c.Reg(1), c.Reg(2), c.Reg(3), rd(sp), rd(sp+4), rd(sp+8), rd(sp+12), c.Reg(14))
 			}
 		case 0x352DC: // transform/prep before drawFaces
-			if n > 16_500_000 {
+			if n > 4_500_000 {
 				ev("PREPFACES", 40, "r0=0x%X r1=0x%X r2=0x%X r3=0x%X lr=0x%X", c.Reg(0), c.Reg(1), c.Reg(2), c.Reg(3), c.Reg(14))
 			}
 		}
