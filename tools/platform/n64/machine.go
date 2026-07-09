@@ -21,6 +21,7 @@ import (
 	"fmt"
 
 	"retroreverse.com/tools/cpu/r4300"
+	"retroreverse.com/tools/cpu/rsp"
 )
 
 // The physical memory map.
@@ -73,6 +74,9 @@ type Machine struct {
 	romMD5 string // pins a save-state to the cartridge it was taken on
 
 	CPU *r4300.CPU
+	// RSP is created the first time a task starts. It shares the machine's DMEM
+	// and IMEM slices, so a DMA into them is immediately visible to microcode.
+	RSP *rsp.CPU
 
 	mi   mi // interrupt aggregation
 	pi   pi // cartridge DMA
@@ -93,7 +97,10 @@ type Machine struct {
 	// no save device is fitted.
 	EEPROM []byte
 
-	run runState
+	run        runState
+	rspRunning bool   // guards against a task restarting itself mid-run
+	rspSteps   uint64 // RSP instructions executed, across all tasks
+	rdpWords   uint64 // RDP command words queued, across all tasks
 
 	// Diagnostics. Each distinct message is logged once, so a register touched in
 	// a loop does not flood the trace.
@@ -111,6 +118,9 @@ type Machine struct {
 	// OnDisplay is called once per video field, after the retrace interrupt is
 	// raised — the natural place to capture a frame.
 	OnDisplay func(m *Machine)
+	// OnRSPTask is called just before a microcode task begins, with its entry
+	// point in IMEM.
+	OnRSPTask func(m *Machine, pc uint32)
 
 	hookMuted bool // suppresses hooks during machine-internal reads (DMA, disassembly)
 }
@@ -281,7 +291,7 @@ func (m *Machine) ioRead(addr uint32) uint32 {
 	case addr >= spRegBase && addr < spRegEnd:
 		return m.spRead(addr)
 	case addr >= dpRegBase && addr < dpRegEnd:
-		return m.dp[addr&0xFF]
+		return m.dpRead(addr)
 	case addr >= miRegBase && addr < miRegEnd:
 		return m.miRead(addr)
 	case addr >= viRegBase && addr < viRegEnd:
@@ -308,7 +318,7 @@ func (m *Machine) ioWrite(addr uint32, v uint32) {
 	case addr >= spRegBase && addr < spRegEnd:
 		m.spWrite(addr, v)
 	case addr >= dpRegBase && addr < dpRegEnd:
-		m.dp[addr&0xFF] = v
+		m.dpWrite(addr, v)
 	case addr >= miRegBase && addr < miRegEnd:
 		m.miWrite(addr, v)
 	case addr >= viRegBase && addr < viRegEnd:
@@ -362,3 +372,8 @@ func (m *Machine) ReadVirt(vaddr uint64) (uint32, bool) {
 	m.hookMuted = muted
 	return v, true
 }
+
+// RSPSteps and RDPWords report how much work the coprocessors have been given,
+// for the oracle's diagnostics.
+func (m *Machine) RSPSteps() uint64 { return m.rspSteps }
+func (m *Machine) RDPWords() uint64 { return m.rdpWords }

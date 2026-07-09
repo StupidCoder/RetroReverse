@@ -57,29 +57,32 @@ func TestBootReachesGameEntry(t *testing.T) {
 	t.Logf("reached the game entry 0x%08X after %d instructions", res.PC, res.Steps)
 }
 
-// TestBootReachesFirstRSPTask is the Phase 3b gate. Past the entry point the
-// game's own libultra takes over: it creates threads, blocks the main one on a
-// retrace message queue, and lets the idle thread spin. Only the VI's retrace
-// interrupt restarts it — with no VI the boot looks like a crash in a `b .`
-// loop, which is the idle thread doing its job.
+// TestBootRunsRSPTasks is the Phase 3b/3c gate. Past the entry point the game's
+// own libultra takes over: it creates threads, blocks the main one on a retrace
+// message queue, and lets the idle thread spin. Only the VI's retrace interrupt
+// restarts it — with no VI the boot looks like a crash in a `b .` loop, which is
+// the idle thread doing its job.
 //
-// With VI, SI and PI modelled, the boot proceeds until it hands the RSP a
-// display list. The oracle halts there rather than silently doing nothing, so
-// the frontier is always explicit.
-func TestBootReachesFirstRSPTask(t *testing.T) {
+// With VI, SI and PI modelled the boot reaches its first RSP task, and with the
+// RSP core it runs them: audio microcode first, then graphics microcode that
+// queues real RDP commands. The run ends at the frontier, which is the RSP's
+// reciprocal instruction — the perspective divide reads a table burnt into the
+// chip that is not on the cartridge, so the core refuses to invent an answer.
+func TestBootRunsRSPTasks(t *testing.T) {
 	rom := loadTestROM(t)
 	m := NewMachine(rom)
 	if err := m.Boot(rom, DefaultBoot()); err != nil {
 		t.Fatal(err)
 	}
 
-	fields, dmas := 0, 0
+	fields, dmas, tasks := 0, 0, 0
 	m.OnDisplay = func(*Machine) { fields++ }
 	m.OnDMA = func(string, uint32, uint32, uint32) { dmas++ }
+	m.OnRSPTask = func(*Machine, uint32) { tasks++ }
 
-	res := m.Run(80_000_000)
-	if !strings.Contains(res.Reason, "unmodelled RSP task") {
-		t.Fatalf("expected to halt on the first RSP task, got: %s", res)
+	res := m.Run(400_000_000)
+	if !strings.Contains(res.Reason, "reciprocal") {
+		t.Fatalf("expected to halt on the RSP's reciprocal instruction, got: %s", res)
 	}
 	if fields == 0 {
 		t.Error("no video field completed: the retrace interrupt never fired")
@@ -87,16 +90,29 @@ func TestBootReachesFirstRSPTask(t *testing.T) {
 	if dmas == 0 {
 		t.Error("no DMA ran: the game loaded nothing from the cartridge")
 	}
+	if tasks == 0 {
+		t.Error("no RSP task ran")
+	}
+	// Every task before the frontier must have ended in a BREAK, or the run
+	// would have stopped earlier with a different reason.
+	if m.RSPSteps() == 0 {
+		t.Error("the RSP executed no instructions")
+	}
+	// The graphics microcode reached the RDP: geometry is flowing through the
+	// vector unit and out the command queue.
+	if m.RDPWords() == 0 {
+		t.Error("no RDP command was queued: the graphics microcode never ran")
+	}
 	// libultra unmasks every RCP interrupt source once it is up.
 	if m.mi.Mask == 0 {
 		t.Error("MI_INTR_MASK is empty: libultra never enabled an interrupt")
 	}
-	// The VI must be scanning out a real framebuffer by now.
 	if m.Origin() == 0 || m.Width() == 0 {
 		t.Errorf("VI is not scanning a framebuffer: origin=%08X width=%d", m.Origin(), m.Width())
 	}
-	t.Logf("first RSP task after %d instructions; %d fields, %d DMAs, VI %dx? at 0x%08X, type %d",
-		res.Steps, fields, dmas, m.Width(), m.Origin(), m.PixelType())
+	t.Logf("%d CPU instructions, %d RSP tasks (%d RSP instructions), %d RDP command words, %d fields; "+
+		"VI %d wide at 0x%08X, type %d", res.Steps, tasks, m.RSPSteps(), m.RDPWords(), fields,
+		m.Width(), m.Origin(), m.PixelType())
 }
 
 // The joybus must answer an empty port, or a game polling four controllers waits

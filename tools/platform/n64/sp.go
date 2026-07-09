@@ -4,10 +4,16 @@ package n64
 // DMA engine that moves microcode and data between RDRAM and the RSP's DMEM and
 // IMEM, and the program counter that starts a task.
 //
-// The RSP core itself is not here — it is a CPU, and lives in tools/cpu/rsp. At
-// this stage the RSP stays halted, and an attempt to start a task halts the
-// oracle rather than silently doing nothing, so the boot's first display-list
-// task announces itself.
+// The RSP core itself is not here — it is a CPU, and lives in tools/cpu/rsp. What
+// this file owns is the handshake around it. Clearing the halt bit starts the
+// microcode; it runs to a BREAK, which sets BROKE and, if the game asked for it,
+// raises the SP interrupt. The RSP runs to completion inside the write that
+// starts it, because nothing it does is observable to the CPU until it stops.
+//
+// Its COP0 window reaches back through here: the RSP reads and writes its own SP
+// registers, and the RDP's command queue, by number rather than by address.
+
+import "retroreverse.com/tools/cpu/rsp"
 
 const (
 	spMemAddr   = 0x00 // DMEM/IMEM address for a DMA
@@ -134,14 +140,77 @@ func (m *Machine) spStatusWrite(v uint32) {
 			s |= spStatusSig0 << i
 		}
 	}
-	// Clearing halt starts the RSP on whatever microcode is in IMEM. That is a
-	// task, and running it needs the RSP core.
-	if v&spWClearHalt != 0 && s&spStatusHalt != 0 {
+	// Clearing halt starts the RSP on whatever microcode is in IMEM.
+	start := v&spWClearHalt != 0 && s&spStatusHalt != 0
+	if start {
 		s &^= spStatusHalt
-		m.CPU.Halt("unmodelled RSP task: SP_PC=0x%03X, started from 0x%08X (tools/cpu/rsp is not wired up yet)",
-			m.spPC, m.pc())
 	}
 	m.sp[spStatus] = s
+	if start {
+		m.runRSP()
+	}
+}
+
+// runRSP executes the microcode in IMEM until it breaks, and reports the result
+// through SP_STATUS exactly as the hardware does.
+//
+// The budget is a runaway guard, not a schedule: a task that has not stopped
+// after this many instructions is looping, and saying so is more useful than
+// hanging. A real display-list task is a few hundred thousand instructions.
+const rspBudget = 20_000_000
+
+func (m *Machine) runRSP() {
+	if m.rspRunning {
+		return // microcode cleared its own halt bit; it is already running
+	}
+	m.rspRunning = true
+	defer func() { m.rspRunning = false }()
+
+	if m.RSP == nil {
+		m.RSP = rsp.NewCPU(m.DMEM, m.IMEM, m)
+	}
+	if m.OnRSPTask != nil {
+		m.OnRSPTask(m, m.spPC)
+	}
+	m.RSP.Start(m.spPC)
+	n := m.RSP.Run(rspBudget)
+	m.rspSteps += n
+
+	if !m.RSP.Broke {
+		if m.RSP.Halted {
+			// An unmodelled encoding: surface it on the CPU, which is what the
+			// caller is watching.
+			m.CPU.Halt("RSP halted: %s (after %d RSP instructions)", m.RSP.HaltReason, n)
+			return
+		}
+		m.CPU.Halt("RSP ran %d instructions without a BREAK: the microcode is looping", n)
+		return
+	}
+
+	m.sp[spStatus] |= spStatusHalt | spStatusBroke
+	m.spPC = m.RSP.CurPC()
+	if m.sp[spStatus]&spStatusIntrBreak != 0 {
+		m.raiseIRQ(intrSP)
+	}
+}
+
+// ReadCop0 and WriteCop0 are the RSP's view of the memory-mapped registers, by
+// index: 0..7 are its own SP block, 8..15 the RDP's command queue.
+func (m *Machine) ReadCop0(reg uint32) uint32 {
+	if reg < 8 {
+		return m.spRead(spRegsBase + reg*4)
+	}
+	return m.dpRead(dpRegBase + (reg-8)*4)
+}
+
+func (m *Machine) WriteCop0(reg uint32, v uint32) {
+	if reg < 8 {
+		// A DMA kicked by the RSP itself is the normal way microcode loads its
+		// next overlay, so this reaches the same engine the CPU uses.
+		m.spWrite(spRegsBase+reg*4, v)
+		return
+	}
+	m.dpWrite(dpRegBase+(reg-8)*4, v)
 }
 
 // spDMA moves a block between RDRAM and the RSP's DMEM or IMEM. The length field
