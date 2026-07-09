@@ -1,9 +1,9 @@
-// memtrace is a throwaway step-stamped event tracer. Current focus: the frozen
-// race sim. Main task#1 busy-waits in its GetMsg pump (SWI 0x10013 via helper
-// 0x3A12C) during the race, while the attract/credits states advance fine. This
-// trace logs every message queue/dequeue and signal send with step stamps so the
-// working state (attract, ~28-30M steps) can be compared with the frozen race
-// (>40M steps): which port does the pump poll, and who feeds it when it works?
+// memtrace is a throwaway step-stamped event tracer. Current focus: the
+// no-input pre-start hold. With zero input after race entry nothing ticks (not
+// even the race clock); the first pad edge starts everything. On hardware the
+// opponent launches by itself after ~3-4s. This trace compares a no-input run
+// against a driving run: who kicks the sim chain, what state flips on the
+// first input edge, and which stubbed service should have flipped it alone.
 package main
 
 import (
@@ -11,14 +11,20 @@ import (
 	"fmt"
 	"os"
 	"sort"
+	"strconv"
+	"strings"
 
 	"retroreverse.com/tools/platform/threedo"
 )
 
 func main() {
 	image := flag.String("image", "", "3DO disc image")
-	steps := flag.Uint64("steps", 60000000, "max instructions")
+	steps := flag.Uint64("steps", 42000000, "max instructions")
 	stall := flag.Int("stall", 400, "deadlock-guard tolerance multiplier")
+	pad := flag.String("pad", "4000000:start,4300000:0", "control-pad script (bootoracle syntax)")
+	snap := flag.String("snap", "", "comma-separated steps at which to dump 3MB DRAM+VRAM snapshots")
+	snapPrefix := flag.String("snapprefix", "mem", "snapshot file prefix")
+	pokeAddr := flag.Uint64("poke", 0, "write 1 to this address at step 6M")
 	flag.Parse()
 
 	data, err := os.ReadFile(*image)
@@ -42,10 +48,27 @@ func main() {
 	m.SetVolume(vol)
 	m.SetVBLMirror(0x42734)
 	m.LoadAIF(aif)
+	m.StallTolerance = *stall
+	m.NoStreams = true
+	script, err := parsePadScript(*pad)
+	if err != nil {
+		die(err)
+	}
+	m.PadScript = script
+
+	var snapAt []uint64
+	if *snap != "" {
+		for _, s := range strings.Split(*snap, ",") {
+			v, err := strconv.ParseUint(strings.TrimSpace(s), 10, 64)
+			if err != nil {
+				die(err)
+			}
+			snapAt = append(snapAt, v)
+		}
+		sort.Slice(snapAt, func(i, j int) bool { return snapAt[i] < snapAt[j] })
+	}
 
 	var n uint64
-	// count-limited event logger: limits apply per 10M-step phase so both the
-	// working attract window and the frozen race window stay visible.
 	counts := map[string]int{}
 	ev := func(kind string, limit int, format string, args ...any) {
 		key := fmt.Sprintf("%s@%d", kind, n/10_000_000)
@@ -55,202 +78,239 @@ func main() {
 		}
 	}
 
-	// GetMsg poll census: port -> polls, successes, step of first/last poll.
-	type pollStat struct{ polls, hits int; first, last uint64 }
-	getStats := map[uint32]*pollStat{}
-	// pending GetMsg: watch the instruction after the SWI for the result.
-	var pendPC, pendPort uint32
-
-	m.OnSWI = func(mm *threedo.Machine, from, swi uint32) {
-		c := mm.CPU
-		switch swi {
-		case 0x10010: // PutMsg(port, msg)
-			ev("PutMsg", 40, "port=%d msg=%d from=0x%X", c.Reg(0), c.Reg(1), from)
-		case 0x10012: // ReplyMsg(msg, result)
-			ev("ReplyMsg", 40, "msg=%d result=0x%X from=0x%X", c.Reg(0), c.Reg(1), from)
-		case 0x10013: // GetMsg(port)
-			port := c.Reg(0)
-			s := getStats[port]
-			if s == nil {
-				s = &pollStat{first: n}
-				getStats[port] = s
-			}
-			s.polls++
-			s.last = n
-			if s.polls <= 3 {
-				ev("GetMsg", 60, "port=%d from=0x%X (poll #%d)", port, from, s.polls)
-			}
-			pendPC, pendPort = from+4, port
-		case 0x10002: // SendSignal(task, sigs)
-			ev("SendSig", 40, "task=%d sigs=0x%X from=0x%X", c.Reg(0), c.Reg(1), from)
-		case 0x10001: // WaitSignal(mask)
-			ev("WaitSig", 30, "mask=0x%X from=0x%X", c.Reg(0), from)
-		case 0x40016: // MonitorAttachment(att, cue, cueAt)
-			ev("MONATT", 60, "att=%d cue=%d cueAt=0x%X from=0x%X", c.Reg(0), c.Reg(1), c.Reg(2), from)
-		case 0x40001: // StartInstrument(ins, tags)
-			ev("STARTINS", 40, "ins=%d tags=0x%X from=0x%X", c.Reg(0), c.Reg(1), from)
-		case 0x40012: // StartAttachment(att, tags)
-			ev("STARTATT", 40, "att=%d tags=0x%X from=0x%X", c.Reg(0), c.Reg(1), from)
-		}
-	}
-	m.OnMsgQueue = func(mm *threedo.Machine, port, msg int32, why string) {
-		ev("QUEUE", 60, "%s -> port=%d msg=%d", why, port, msg)
-	}
-	m.WatchLo, m.WatchHi = 0x41D2C, 0x41D30
-	m.OnWrite = func(addr, val, pc uint32) {
-		if addr == 0x41D2F { // low byte of the flags word
-			ev("FLAGW", 100, "[0x41D2C] byte3=%d from pc=0x%X lr=0x%X", val, pc, m.CPU.Reg(14))
-		}
-	}
-
 	rd := func(a uint32) uint32 {
 		return uint32(m.Read(a))<<24 | uint32(m.Read(a+1))<<16 | uint32(m.Read(a+2))<<8 | uint32(m.Read(a+3))
 	}
-	// Hot-PC histogram of the main task inside a step window (the static phase),
-	// to see the race loop's actual per-iteration path.
-	hot := map[[2]uint32]uint64{} // {task, pc} -> count
-	var hotLR = map[uint32]uint64{}
-	var traceRet uint32
-	var traced bool
-	var traceLog []uint32
-	m.OnStep = func(mm *threedo.Machine, pc uint32) {
-		n++
-		if pc == pendPC {
-			pendPC = 0
-			if r0 := mm.CPU.Reg(0); r0 != 0 {
-				s := getStats[pendPort]
-				s.hits++
-				if s.hits <= 6 || s.hits%500 == 0 {
-					ev("GOTMSG", 80, "port=%d -> msg=%d (hit #%d)", pendPort, r0, s.hits)
-				}
+
+	// audio SWI census: swi -> count (all 0x40000..0x400FF)
+	audioSWI := map[uint32]int{}
+	sendSig := map[[2]uint32]int{} // {task,sigs} -> count
+
+	m.OnSWI = func(mm *threedo.Machine, from, swi uint32) {
+		c := mm.CPU
+		if swi >= 0x40000 && swi < 0x40100 {
+			audioSWI[swi]++
+			if audioSWI[swi] <= 4 {
+				ev("AUDSWI", 80, "0x%X r0=0x%X r1=0x%X r2=0x%X from=0x%X", swi, c.Reg(0), c.Reg(1), c.Reg(2), from)
 			}
 		}
+		switch swi {
+		case 0x10002: // SendSignal(task, sigs)
+			k := [2]uint32{c.Reg(0), c.Reg(1)}
+			sendSig[k]++
+			if sendSig[k] <= 3 {
+				ev("SendSig", 40, "task=%d sigs=0x%X from=0x%X", c.Reg(0), c.Reg(1), from)
+			}
+		}
+	}
+
+	// one-shot PC traces of the opponent's car-sim invocation (0x1779C, r0=1)
+	// at two moments (pre-GO ~15M, post-GO ~17.6M): diff the executed paths to
+	// find the branch the GO flag controls.
+	traceAts := []uint64{}
+	var traceRet uint32
+	var traceLog []uint32
+	var traceName string
+
+	// APCS frame-pointer backtrace (EA functions use full STMDB {..,fp,ip,lr,pc}
+	// frames: [r11]=saved pc, [r11-4]=lr, [r11-0xC]=caller's r11).
+	backtrace := func() string {
+		fp := m.CPU.Reg(11)
+		s := ""
+		for i := 0; i < 8 && fp > 0x1000 && fp < 0x400000; i++ {
+			s += fmt.Sprintf(" <-0x%X", rd(fp-4)-4)
+			fp = rd(fp - 0xC)
+		}
+		return s
+	}
+	var integLogs int
+
+	// hold->started transition: watch the countdown [0x41D0C], started flag
+	// [0x41D10], and opponent position [0x295810] with no step filter.
+	var stampLogs int
+	watchCnt := map[uint32]int{}
+	m.WatchLo, m.WatchHi = 0x295810, 0x295814
+	m.OnWrite = func(addr, val, pc uint32) {
+		old := uint32(m.Read(addr))
+		if old == val || watchCnt[addr] > 25 {
+			return
+		}
+		watchCnt[addr]++
+		fmt.Printf("[%9d t#%-4d] WR         [0x%X] 0x%02X->0x%02X pc=0x%X frame=%d hold=%d started=%d\n",
+			n, m.CurrentTaskNum(), addr, old, val, pc, rd(0x41D24), rd(0x41D0C), rd(0x41D10))
+	}
+	_ = stampLogs
+
+	// counters for the frame chain
+	var loopHead, worldUpd uint64
+	carSim := map[uint32]uint64{} // r0 (car ptr) -> count
+	lastStatus := uint64(0)
+
+	m.OnStep = func(mm *threedo.Machine, pc uint32) {
+		n++
 		c := mm.CPU
-		// One-shot full PC trace of the 30Hz full-sim call (0x1779C, even frames).
 		if traceRet != 0 {
-			if pc == traceRet && len(traceLog) > 2 {
-				fmt.Printf("--- 0x1779C invocation trace (%d instrs) ---\n", len(traceLog))
+			if pc == traceRet {
+				fmt.Printf("--- %s: 0x1779C(r0=1) path (%d instrs) ---\n", traceName, len(traceLog))
 				for _, r := range compressRanges(traceLog) {
 					fmt.Println("   ", r)
 				}
 				traceRet = 0
 				traceLog = nil
-			} else if len(traceLog) < 300000 && mm.CurrentTaskNum() == 4190 {
+			} else if len(traceLog) < 400000 {
 				traceLog = append(traceLog, pc)
 			}
-		} else if pc == 0x17904 && n > 26_000_000 && !traced && rd(0x41D2C)&1 != 0 {
-			traced = true
+		} else if pc == 0x1779C && c.Reg(0) == 1 && len(traceAts) > 0 && n >= traceAts[0] {
+			traceName = fmt.Sprintf("at %d", n)
+			traceAts = traceAts[1:]
 			traceRet = c.Reg(14)
-			traceLog = traceLog[:0]
 		}
-		if n > 20_000_000 {
-			hot[[2]uint32{uint32(mm.CurrentTaskNum()), pc}]++
-			if pc == 0x27C8 { // loop head: sample where it goes
-				hotLR[c.Reg(14)]++
-			}
+		if pc == 0x28BE0 && c.Reg(4) == 0x295810 && integLogs < 8 {
+			integLogs++
+			fmt.Printf("[%9d t#%-4d] INTEG      opp integrator vel=0x%X,0x%X,0x%X frame=%d bt:%s\n",
+				n, m.CurrentTaskNum(), rd(0x295858), rd(0x29585C), rd(0x295860), rd(0x41D24), backtrace())
+		}
+		if pc == 0x12918 {
+			fmt.Printf("[%9d t#%-4d] STAMP      [0x3F97C]=%d (frame+1) car? bt:%s\n",
+				n, m.CurrentTaskNum(), rd(0x41D24)+1, backtrace())
+		}
+		if *pokeAddr != 0 && n == 6_000_000 {
+			m.Write(uint32(*pokeAddr), 1)
+			fmt.Printf("[%9d] POKE       [0x%X]=1\n", n, *pokeAddr)
+		}
+		if pc == 0x128FC { // stamp condition: r0 = |speed| of the car being checked
+			ev("SPDCHK", 6, "car=0x%X speed=0x%X frame=%d bt:%s", c.Reg(4), c.Reg(0), rd(0x41D24), backtrace())
+		}
+		// experiment: fake a brief player-car motion (speed scalar [obj+0x5C])
+		// during 8.0M..8.3M — does the stamp/opponent-launch/race-clock cascade?
+		if false {
+			m.Write(0x295D50, 0)
+			m.Write(0x295D51, 0)
+			m.Write(0x295D52, 0x20)
+			m.Write(0x295D53, 0)
 		}
 		switch pc {
-		case 0x34458: // RegisterVBLCallback(func): store in first free slot
-			ev("VBLREG", 40, "func=0x%X lr=0x%X", c.Reg(0), c.Reg(14))
-		case 0x2804: // race loop: WaitSignal(cueSig) returned r0
-			ev("LOOPWAKE", 40, "r0=0x%X frame[+8]=%d", c.Reg(0), rd(0x3E5D4+8))
-		case 0x27F8: // race loop: SignalAtTime(cue=[r4+0x10], t=now+4)
-			ev("SIGAT", 20, "cue=%d t=%d", c.Reg(0), c.Reg(1))
-		case 0x2830: // race loop: pad bits from 0x130E8
-			ev("PADBITS", 20, "bits=0x%08X gate[0x40044]=0x%X", c.Reg(0), rd(0x40044))
-		case 0x1C94C:
-			ev("FRAMESPIN", 10, "gate=0x%X", rd(0x40044))
-		case 0x17980: // world update reads simFlags
-			ev("SIMFLAGS", 6, "[0x41D2C]=0x%X frame=%d", rd(0x41D2C), rd(0x41D24))
-		case 0x1824: // track-stream state machine(ctx): [ctx]=state, [ctx+4]=next
-			ev("STREAM", 60, "ctx=0x%X state=%d next=%d lr=0x%X", c.Reg(0), rd(c.Reg(0)), rd(c.Reg(0)+4), c.Reg(14))
+		case 0x206C4: // sim-task hold path taken this frame
+			ev("HOLD", 12, "countdown=%d frame=%d", rd(0x41D0C), rd(0x41D24))
+		case 0x20740: // started transition
+			fmt.Printf("[%9d t#%-4d] STARTED    countdown=%d frame=%d\n", n, m.CurrentTaskNum(), rd(0x41D0C), rd(0x41D24))
+		case 0x27C8:
+			loopHead++
+		case 0x17904:
+			worldUpd++
+		case 0x1779C:
+			carSim[c.Reg(0)]++
+			if carSim[c.Reg(0)] <= 2 {
+				ev("CARSIM", 20, "car=0x%X seg=%d", c.Reg(0), rd(c.Reg(0)+0x50))
+			}
+		case 0x1824: // track-stream state machine(ctx)
+			ev("STREAM", 40, "ctx=0x%X state=%d next=%d lr=0x%X", c.Reg(0), rd(c.Reg(0)), rd(c.Reg(0)+4), c.Reg(14))
 		case 0xD48: // post a load request
-			ev("LOADREQ", 60, "r0=0x%X r1=0x%X r2=%d lr=0x%X", c.Reg(0), c.Reg(1), c.Reg(2), c.Reg(14))
+			ev("LOADREQ", 40, "r0=0x%X r1=0x%X r2=%d lr=0x%X", c.Reg(0), c.Reg(1), c.Reg(2), c.Reg(14))
 		case 0x134E0: // steer consumer(obj, steerByte)
-			ev("STEER", 12, "obj=0x%X v=0x%X lr=0x%X", c.Reg(0), c.Reg(1), c.Reg(14))
+			if c.Reg(0) != 0x295CF4 {
+				ev("STEER-O", 40, "obj=0x%X v=0x%X lr=0x%X", c.Reg(0), c.Reg(1), c.Reg(14))
+			}
 		case 0x13B58: // gas consumer(obj, nibble)
-			ev("GAS", 12, "obj=0x%X v=0x%X lr=0x%X", c.Reg(0), c.Reg(1), c.Reg(14))
+			if c.Reg(0) != 0x295CF4 {
+				ev("GAS-O", 40, "obj=0x%X v=0x%X lr=0x%X", c.Reg(0), c.Reg(1), c.Reg(14))
+			} else if c.Reg(1) != 0 {
+				ev("GAS-P", 12, "obj=0x%X v=0x%X lr=0x%X", c.Reg(0), c.Reg(1), c.Reg(14))
+			}
 		}
-	}
-
-	m.StallTolerance = *stall
-	m.NoStreams = true
-	m.PadScript = []threedo.PadStep{{AtStep: 4000000, Buttons: threedo.PadStart}, {AtStep: 4300000, Buttons: 0}, {AtStep: 16000000, Buttons: threedo.PadA}, {AtStep: 17000000, Buttons: 0}, {AtStep: 18000000, Buttons: threedo.PadA}, {AtStep: 19000000, Buttons: 0}, {AtStep: 20000000, Buttons: threedo.PadA}}
-
-	// DRAM snapshots for state diffing: idle (14M), A-held (28M, 30M).
-	snapAt := []uint64{22_000_000, 28_000_000, 30_000_000}
-	snaps := map[uint64][]byte{}
-	prevOnStep := m.OnStep
-	m.OnStep = func(mm *threedo.Machine, pc uint32) {
-		prevOnStep(mm, pc)
+		// periodic world-state status
+		if n-lastStatus >= 1_000_000 && n >= 4_000_000 {
+			lastStatus = n
+			fmt.Printf("[%9d] STATUS frame=%d simflags=0x%X raceseg=%d racestate=%d simstate=0x%X gate=0x%X loop=%d world=%d p.seg=%d o.seg=%d\n",
+				n, rd(0x41D24), rd(0x41D2C), rd(0x3F970), rd(0x3F974), rd(0x41A84), rd(0x40044),
+				loopHead, worldUpd, rd(0x295CE8+0x50), rd(0x295804+0x50))
+		}
 		if len(snapAt) > 0 && n >= snapAt[0] {
 			buf := make([]byte, 3*1024*1024)
 			for i := range buf {
 				buf[i] = mm.Read(uint32(i))
 			}
-			snaps[snapAt[0]] = buf
+			os.WriteFile(fmt.Sprintf("%s-%d.bin", *snapPrefix, snapAt[0]), buf, 0644)
+			fmt.Printf("[%9d] SNAP -> %s-%d.bin\n", n, *snapPrefix, snapAt[0])
 			snapAt = snapAt[1:]
 		}
 	}
 
 	res := m.Run(*steps)
-	for at, buf := range snaps {
-		os.WriteFile(fmt.Sprintf("dram-%d.bin", at), buf, 0644)
-	}
 	fmt.Printf("stopped: %s after %d steps pc=%X\n", res.Reason, res.Steps, res.PC)
 
-	fmt.Println("\nGetMsg poll census (port: polls/hits, first..last step):")
-	var ports []uint32
-	for p := range getStats {
-		ports = append(ports, p)
+	fmt.Println("\naudio SWI census:")
+	var sws []uint32
+	for s := range audioSWI {
+		sws = append(sws, s)
 	}
-	sort.Slice(ports, func(i, j int) bool { return ports[i] < ports[j] })
-	for _, p := range ports {
-		s := getStats[p]
-		fmt.Printf("  port %-6d polls=%-9d hits=%-6d steps [%d .. %d]\n", p, s.polls, s.hits, s.first, s.last)
+	sort.Slice(sws, func(i, j int) bool { return sws[i] < sws[j] })
+	for _, s := range sws {
+		fmt.Printf("  SWI 0x%-6X x%d\n", s, audioSWI[s])
 	}
 
-	fmt.Println("\nhot {task,pc} after 20M steps (top 80):")
-	type hc struct {
-		key [2]uint32
-		c   uint64
+	fmt.Println("\nSendSignal census:")
+	type sk struct {
+		k [2]uint32
+		c int
 	}
-	var hcs []hc
-	perTask := map[uint32]uint64{}
-	for p, c := range hot {
-		hcs = append(hcs, hc{p, c})
-		perTask[p[0]] += c
+	var sks []sk
+	for k, c := range sendSig {
+		sks = append(sks, sk{k, c})
 	}
-	fmt.Println("steps per task in window:")
-	for t, c := range perTask {
-		fmt.Printf("  task#%-5d %d\n", t, c)
-	}
-	sort.Slice(hcs, func(i, j int) bool { return hcs[i].c > hcs[j].c })
-	for i, h := range hcs {
-		if i >= 80 {
+	sort.Slice(sks, func(i, j int) bool { return sks[i].c > sks[j].c })
+	for i, s := range sks {
+		if i >= 30 {
 			break
 		}
-		fmt.Printf("  t#%-5d %8d  %s\n", h.key[0], h.c, m.DisasmAt(h.key[1]))
+		fmt.Printf("  task=%-6d sigs=0x%-8X x%d\n", s.k[0], s.k[1], s.c)
 	}
-	if f, err := os.Create("hot.csv"); err == nil {
-		for _, h := range hcs {
-			fmt.Fprintf(f, "%d,%08X,%d\n", h.key[0], h.key[1], h.c)
-		}
-		f.Close()
-	}
-	fmt.Println("\nloop-head LR census:")
-	for lr, c := range hotLR {
-		fmt.Printf("  lr=0x%X x%d\n", lr, c)
+
+	fmt.Println("\ncar-sim census:")
+	for car, c := range carSim {
+		fmt.Printf("  car=0x%X x%d\n", car, c)
 	}
 
 	fmt.Println("\ntasks:")
 	for _, s := range m.TaskSummary() {
 		fmt.Println(" ", s)
 	}
-	fmt.Println("\nitems:")
-	for _, s := range m.ItemsSummary() {
-		fmt.Println(" ", s)
+	if tty := m.TTY(); tty != "" {
+		fmt.Printf("\n[TTY]\n%s\n", tty)
 	}
+}
+
+// parsePadScript mirrors bootoracle's syntax.
+func parsePadScript(s string) ([]threedo.PadStep, error) {
+	bits := map[string]uint32{
+		"a": threedo.PadA, "b": threedo.PadB, "c": threedo.PadC,
+		"start": threedo.PadStart, "p": threedo.PadStart, "x": threedo.PadX,
+		"up": threedo.PadUp, "down": threedo.PadDown,
+		"left": threedo.PadLeft, "right": threedo.PadRight,
+		"ls": threedo.PadLeftShift, "rs": threedo.PadRightShift, "0": 0,
+	}
+	var script []threedo.PadStep
+	for _, entry := range strings.Split(s, ",") {
+		step, names, ok := strings.Cut(strings.TrimSpace(entry), ":")
+		if !ok {
+			return nil, fmt.Errorf("pad entry %q: want STEP:buttons", entry)
+		}
+		at, err := strconv.ParseUint(step, 10, 64)
+		if err != nil {
+			return nil, fmt.Errorf("pad entry %q: %v", entry, err)
+		}
+		var buttons uint32
+		for _, nm := range strings.Split(names, "+") {
+			bit, ok := bits[strings.ToLower(strings.TrimSpace(nm))]
+			if !ok {
+				return nil, fmt.Errorf("pad entry %q: unknown button %q", entry, nm)
+			}
+			buttons |= bit
+		}
+		script = append(script, threedo.PadStep{AtStep: at, Buttons: buttons})
+	}
+	sort.Slice(script, func(i, j int) bool { return script[i].AtStep < script[j].AtStep })
+	return script, nil
 }
 
 func die(err error) {
@@ -276,7 +336,7 @@ func compressRanges(pcs []uint32) []string {
 		out = append(out, fmt.Sprintf("%05X-%05X (%d)", start, prev, count))
 		start, prev = pc, pc
 		count = 1
-		if len(out) > 800 {
+		if len(out) > 3000 {
 			out = append(out, "...truncated")
 			break
 		}

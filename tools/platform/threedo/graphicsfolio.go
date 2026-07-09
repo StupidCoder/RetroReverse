@@ -141,9 +141,12 @@ func (m *Machine) serviceGraphicsFolio(foff uint32) {
 		}
 		if m.CelDebug {
 			// Frame boundary: keep the just-drawn frame's cels and start fresh, so
-			// CelDebugLog holds exactly the frame being put on screen.
-			m.CelFrameLog = m.CelDebugLog
-			m.CelDebugLog = nil
+			// CelDebugLog holds exactly the frame being put on screen. A flip with
+			// no draws (static scene) keeps the previous frame's log.
+			if len(m.CelDebugLog) > 0 {
+				m.CelFrameLog = m.CelDebugLog
+				m.CelDebugLog = nil
+			}
 		}
 		m.frame++
 		if m.OnDisplay != nil {
@@ -369,17 +372,12 @@ func (m *Machine) drawOneCel(bm gfxBitmap, ccb, flags, src, plutPtr uint32) bool
 	}
 	cel.Coded = cel.BPP <= 8
 	lrform := pre1&pre1LRForm != 0
-	// LDSIZE says the CCB's ccb_Width/Height carry the geometry — but the CCBs
-	// NFS uses are the 0x40-byte "temporary" form without those fields, so only
-	// honour them when they read back sane; otherwise fall to the PRE words.
-	if flags&ccbLDSize != 0 {
-		if w := int(m.read32(ccb + 0x3C)); w > 0 && w <= 2048 {
-			cel.Width = w
-		}
-		if h := int(m.read32(ccb + 0x40)); h > 0 && h <= 2048 {
-			cel.Height = h
-		}
-	}
+	// The preamble is the sole source of the cel's dimensions. CCB_LDSIZE only
+	// tells the DMA engine to load the size registers (HDX..VDY) from the CCB;
+	// the hardware never reads the C struct's ccb_Width/Height. An earlier
+	// "honour ccb_Width/Height when sane" heuristic here picked up garbage
+	// (e.g. 6x6) on the race's scenery CCBs and clipped 64x64 textures to a
+	// 6-row band — the in-race "columns of noise".
 	if cel.Packed {
 		// Packed lines are self-delimiting (per-line offset + EOL packets), so the
 		// width is just the clip-edge loop bound, not a stored dimension.
@@ -427,46 +425,60 @@ func (m *Machine) drawOneCel(bm gfxBitmap, ccb, flags, src, plutPtr uint32) bool
 		if m.PerspTint && persp {
 			pix, amv = 0x7C1F, 0x49 // solid magenta: show where perspective cels land
 		}
-		// A texel maps to the segment from its corner toward the next column's
-		// corner (along the row's HDX/HDY direction). When the cel is magnified —
-		// a projected road texture can stretch one source pixel across many
-		// destination pixels — plotting only the corner leaves holes, so walk the
-		// segment; at 1:1 or minified it is the single corner pixel. Adjacent rows
-		// cover the vertical extent. Following the row direction (rather than a
-		// bounding box) keeps sheared cels from smearing into a vertical strip.
+		// A texel maps to the projected quad spanned by its corner and the next
+		// column's / next row's corners. When the cel is magnified — a projected
+		// texture can stretch one source pixel across many destination pixels —
+		// plotting only the corner leaves holes, so walk the quad along both the
+		// column (HD) and row (VD) edge directions; at 1:1 or minified that is
+		// the single corner pixel. (The hardware fills each texel's projected
+		// quad exactly; this is the sampled equivalent.)
 		c, r := int64(sx), int64(sy)
 		x0, y0 := mapCorner(c, r)
 		x1, y1 := mapCorner(c+1, r)
-		span := (x1 - x0)
-		if span < 0 {
-			span = -span
-		}
-		if d := y1 - y0; d > span {
-			span = d
-		} else if -d > span {
-			span = -d
-		}
-		steps := span >> 16
-		// Only bridge genuine magnification. A near-degenerate projection (a texel
-		// at the vanishing point) blows the step up to a screen-long streak, so
-		// past a small span just plot the corner — the neighbouring texels cover it.
-		if steps < 1 || steps > 12 {
-			steps = 1
-		}
-		for s := int64(0); s < steps; s++ {
-			dx := x0 + (x1-x0)*s/steps
-			dy := y0 + (y1-y0)*s/steps
-			x, y := int(dx>>16), int(dy>>16)
-			if x < 0 || y < 0 || x >= bm.w || y >= bm.h {
-				offN++
-				continue
+		xv, yv := mapCorner(c, r+1)
+		edgeSteps := func(dx, dy int64) int64 {
+			span := dx
+			if span < 0 {
+				span = -span
 			}
-			if m.CelDebug && x == int(m.ProbeX) && y == int(m.ProbeY) {
-				m.CelDebugLog = append(m.CelDebugLog, fmt.Sprintf("PROBE (%d,%d) hit by cel src=%08X %dbpp %dx%d pos=(%d,%d) HD=(%X,%X) VD=(%X,%X) lrform=%v flags=%08X",
-					x, y, src, cel.BPP, cel.Width, cel.Height, int(xPos>>16), int(yPos>>16), hdx, hdy, vdx, vdy, lrform, flags))
+			if dy > span {
+				span = dy
+			} else if -dy > span {
+				span = -dy
 			}
-			m.blendPixel(bm, x, y, pix, amv, pixc, flags)
-			written++
+			// Ceiling, so a fractional magnification (e.g. 1.25px texel pitch)
+			// still writes every destination pixel — flooring left a moire of
+			// unwritten clear-through pixels.
+			steps := (span + 0xFFFF) >> 16
+			// Only bridge genuine magnification. A near-degenerate projection (a
+			// texel at the vanishing point) blows the step up to a screen-long
+			// streak, so past a small span just plot the corner — the neighbouring
+			// texels cover it.
+			if steps < 1 || steps > 12 {
+				steps = 1
+			}
+			return steps
+		}
+		stepsH := edgeSteps(x1-x0, y1-y0)
+		stepsV := edgeSteps(xv-x0, yv-y0)
+		for t := int64(0); t < stepsV; t++ {
+			bx := x0 + (xv-x0)*t/stepsV
+			by := y0 + (yv-y0)*t/stepsV
+			for s := int64(0); s < stepsH; s++ {
+				dx := bx + (x1-x0)*s/stepsH
+				dy := by + (y1-y0)*s/stepsH
+				x, y := int(dx>>16), int(dy>>16)
+				if x < 0 || y < 0 || x >= bm.w || y >= bm.h {
+					offN++
+					continue
+				}
+				if m.CelDebug && x == int(m.ProbeX) && y == int(m.ProbeY) {
+					m.CelDebugLog = append(m.CelDebugLog, fmt.Sprintf("PROBE (%d,%d) hit by cel src=%08X %dbpp %dx%d pos=(%d,%d) HD=(%X,%X) VD=(%X,%X) lrform=%v flags=%08X",
+						x, y, src, cel.BPP, cel.Width, cel.Height, int(xPos>>16), int(yPos>>16), hdx, hdy, vdx, vdy, lrform, flags))
+				}
+				m.blendPixel(bm, x, y, pix, amv, pixc, flags)
+				written++
+			}
 		}
 	}
 
@@ -497,8 +509,8 @@ func (m *Machine) drawOneCel(bm gfxBitmap, ccb, flags, src, plutPtr uint32) bool
 			persp = " PERSP"
 		}
 		m.CelDebugLog = append(m.CelDebugLog, fmt.Sprintf(
-			"cel src=%08X %dbpp %s %s%s%s %dx%d pos=(%d,%d) HD=(%X,%X) VD=(%X,%X) HDD=(%X,%X) pixc=%08X flags=%08X calls=%d clear=%d off=%d wrote=%d",
-			src, cel.BPP, kind, coded, lr, persp, cel.Width, cel.Height,
+			"cel ccb=%08X src=%08X %dbpp %s %s%s%s %dx%d pos=(%d,%d) HD=(%X,%X) VD=(%X,%X) HDD=(%X,%X) pixc=%08X flags=%08X calls=%d clear=%d off=%d wrote=%d",
+			ccb, src, cel.BPP, kind, coded, lr, persp, cel.Width, cel.Height,
 			int(xPos>>16), int(yPos>>16), hdx, hdy, vdx, vdy, hddx, hddy, pixc, flags, calls, clearN, offN, written))
 	}
 	return true
