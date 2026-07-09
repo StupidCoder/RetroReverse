@@ -32,6 +32,12 @@ type CPU struct {
 	VCC uint16    // compare (low byte) and clip (high byte) flags
 	VCE uint8     // compare-extension flags
 
+	// The reciprocal unit's staging registers. A 32-bit divide is spread across
+	// three instructions, and these carry the halves between them.
+	divIn       uint16
+	divOut      uint16
+	divInLoaded bool
+
 	DMEM []byte
 	IMEM []byte
 
@@ -61,6 +67,7 @@ func (c *CPU) Reset() {
 	c.V = [32][8]uint16{}
 	c.Acc = [8]uint64{}
 	c.VCO, c.VCC, c.VCE = 0, 0, 0
+	c.divIn, c.divOut, c.divInLoaded = 0, 0, false
 	c.PC, c.nextPC = 0, 4
 	c.Halted, c.Broke, c.HaltReason = true, false, ""
 	c.Steps = 0

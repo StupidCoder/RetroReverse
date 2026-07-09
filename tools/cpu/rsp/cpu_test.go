@@ -261,16 +261,108 @@ func TestVectorLoadStoreQuadword(t *testing.T) {
 	}
 }
 
-func TestReciprocalHaltsRatherThanGuessing(t *testing.T) {
-	// The reciprocal ROM is burnt into the RSP and is not on the cartridge. A
-	// plausible-looking wrong answer would show up as geometry that almost
-	// works, so the core refuses instead.
-	c, _ := newTest(vec(0, 1, 0, 2, 0x30)) // vrcp
+func TestReciprocalScalesConsistently(t *testing.T) {
+	// The hardware's reciprocal is scaled: it approximates 2^33/x rather than
+	// 1/x, and microcode carries the exponent itself. What must hold is that
+	// doubling the input exactly halves the result, which is what makes the
+	// scaling usable at all.
+	c, _ := newTest()
+	one := c.reciprocal(0x00010000)  // 1.0 in 16.16
+	two := c.reciprocal(0x00020000)  // 2.0
+	four := c.reciprocal(0x00040000) // 4.0
+
+	if two != one>>1 || four != one>>2 {
+		t.Errorf("reciprocal is not scale-consistent: rcp(1)=%08X rcp(2)=%08X rcp(4)=%08X",
+			one, two, four)
+	}
+	// The leading 1 and the first ROM entry: 1 || 0xFFFF.
+	if one != 0x0001FFFF {
+		t.Errorf("rcp(1.0) = %08X want 0001FFFF", one)
+	}
+}
+
+func TestReciprocalOfZeroAndNegatives(t *testing.T) {
+	c, _ := newTest()
+	if got := c.reciprocal(0); got != 0xFFFF || c.divOut != 0xFFFF {
+		t.Errorf("rcp(0) = %04X/%04X want FFFF/FFFF (it saturates; there is no exception)",
+			c.divOut, got)
+	}
+	// A negative input inverts the result rather than negating it.
+	pos := c.reciprocal(0x00010000)
+	neg := c.reciprocal(-0x00010000)
+	if neg != ^pos {
+		t.Errorf("rcp(-x) = %08X want ^rcp(x) = %08X", neg, ^pos)
+	}
+}
+
+func TestReciprocalROMResistsAClosedForm(t *testing.T) {
+	// The obvious closed form, floor(65536*(512-i)/(512+i)), reproduces 510 of
+	// the ROM's 512 entries. It is wrong at exactly two — indices 241 and 273,
+	// each low by one.
+	//
+	// That is the whole argument for transcribing the table rather than
+	// computing it. A reciprocal that is correct 99.6% of the time yields
+	// geometry that is almost right, everywhere, occasionally: the hardest
+	// possible thing to notice and to chase.
+	var wrong []int
+	for i := 0; i < 512; i++ {
+		v := 65536 * (512 - i) / (512 + i)
+		if v > 0xFFFF {
+			v = 0xFFFF
+		}
+		if uint16(v) != rcpROM[i] {
+			wrong = append(wrong, i)
+		}
+	}
+	if len(wrong) != 2 || wrong[0] != 241 || wrong[1] != 273 {
+		t.Errorf("the closed form diverges at %v; expected exactly [241 273]", wrong)
+	}
+	if rcpROM[241] != 23586 || rcpROM[273] != 19953 {
+		t.Errorf("ROM entries 241/273 = %d/%d, want 23586/19953", rcpROM[241], rcpROM[273])
+	}
+}
+
+func TestLongReciprocalSequence(t *testing.T) {
+	// A 32-bit divide takes three instructions, and this is the sequence at the
+	// top of the game's perspective-divide overlay: VRCPH latches the input's
+	// high half, VRCPL supplies the low half and does the work, and a second
+	// VRCPH reads the answer's high half back out.
+	//
+	// vrcph $v2[0], $v1[0]   -- latch the high half of the input
+	// vrcpl $v3[0], $v1[1]   -- supply the low half; $v3 gets the low result
+	// vrcph $v4[0], $v0[0]   -- $v4 gets the high result
+	c, _ := newTest(
+		vec(0, 1, 0, 2, 0x32),
+		vec(1, 1, 0, 3, 0x31),
+		vec(0, 0, 0, 4, 0x32),
+	)
+	// The input 0x00010000 spread across two lanes: high 0x0001, low 0x0000.
+	c.V[1][0] = 0x0001
+	c.V[1][1] = 0x0000
+
+	run(t, c, 1)
+	if !c.divInLoaded {
+		t.Fatal("vrcph did not latch the input's high half")
+	}
+	run(t, c, 1)
+	if c.divInLoaded {
+		t.Error("vrcpl did not consume the latched high half")
+	}
+	run(t, c, 1) // the second vrcph collects the result's high half
+
+	want := c.reciprocal(0x00010000)
+	got := uint32(c.V[4][0])<<16 | uint32(c.V[3][0])
+	if got != want {
+		t.Errorf("32-bit reciprocal: got %08X want %08X", got, want)
+	}
+}
+
+func TestReciprocalSquareRootStillHalts(t *testing.T) {
+	// VRSQ's published algorithm is self-inconsistent and no microcode has
+	// exercised it, so the core refuses rather than invent a plausible answer.
+	c, _ := newTest(vec(0, 1, 0, 2, 0x34)) // vrsq
 	c.Step()
 	if !c.Halted || c.Broke {
-		t.Fatal("vrcp did not halt the core")
-	}
-	if got := c.HaltReason; got == "" {
-		t.Error("vrcp halted without a reason")
+		t.Fatal("vrsq did not halt the core")
 	}
 }

@@ -5,7 +5,6 @@ import (
 	"crypto/sha256"
 	"os"
 	"path/filepath"
-	"strings"
 	"testing"
 )
 
@@ -64,10 +63,10 @@ func TestBootReachesGameEntry(t *testing.T) {
 // the idle thread doing its job.
 //
 // With VI, SI and PI modelled the boot reaches its first RSP task, and with the
-// RSP core it runs them: audio microcode first, then graphics microcode that
-// queues real RDP commands. The run ends at the frontier, which is the RSP's
-// reciprocal instruction — the perspective divide reads a table burnt into the
-// chip that is not on the cartridge, so the core refuses to invent an answer.
+// RSP core it runs them to completion: audio microcode first, then graphics
+// microcode that walks the game's display lists and pours commands into the
+// RDP's queue. Nothing halts — every task ends in a BREAK, and the frontier has
+// moved on to the rasteriser those commands are waiting for.
 func TestBootRunsRSPTasks(t *testing.T) {
 	rom := loadTestROM(t)
 	m := NewMachine(rom)
@@ -81,8 +80,9 @@ func TestBootRunsRSPTasks(t *testing.T) {
 	m.OnRSPTask = func(*Machine, uint32) { tasks++ }
 
 	res := m.Run(400_000_000)
-	if !strings.Contains(res.Reason, "reciprocal") {
-		t.Fatalf("expected to halt on the RSP's reciprocal instruction, got: %s", res)
+	// A halt here is an unmodelled instruction on either core, and names itself.
+	if res.Reason != "step budget exhausted" {
+		t.Fatalf("the boot stopped early: %s", res)
 	}
 	if fields == 0 {
 		t.Error("no video field completed: the retrace interrupt never fired")
@@ -93,15 +93,14 @@ func TestBootRunsRSPTasks(t *testing.T) {
 	if tasks == 0 {
 		t.Error("no RSP task ran")
 	}
-	// Every task before the frontier must have ended in a BREAK, or the run
-	// would have stopped earlier with a different reason.
 	if m.RSPSteps() == 0 {
 		t.Error("the RSP executed no instructions")
 	}
 	// The graphics microcode reached the RDP: geometry is flowing through the
-	// vector unit and out the command queue.
-	if m.RDPWords() == 0 {
-		t.Error("no RDP command was queued: the graphics microcode never ran")
+	// vector unit, past the perspective divide, and out the command queue.
+	if m.RDPWords() < 1000 {
+		t.Errorf("only %d RDP command words were queued: the graphics microcode is not running",
+			m.RDPWords())
 	}
 	// libultra unmasks every RCP interrupt source once it is up.
 	if m.mi.Mask == 0 {

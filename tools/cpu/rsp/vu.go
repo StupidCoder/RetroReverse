@@ -14,11 +14,8 @@ package rsp
 // vector by a scalar without moving anything: element 8..15 broadcast a single
 // lane across all eight, and 2..7 select within pairs or quads. See element().
 //
-// The reciprocal instructions (VRCP, VRSQ and their long forms) index a table
-// burnt into the RSP's silicon. That table is not on the cartridge and has no
-// published closed form, so they halt rather than return a plausible-looking
-// wrong answer — a perspective divide that is quietly off by a bit would show up
-// as geometry that almost works, which is the worst kind of bug to chase.
+// The reciprocal instructions index a table burnt into the RSP's silicon, which
+// is not on the cartridge and could not be derived from it — see rcprom.go.
 
 // accMask is the accumulator's 48-bit width.
 const accMask = 0xFFFFFFFFFFFF
@@ -357,16 +354,43 @@ func (c *CPU) vectorALU(funct, e, vt, vs, vd uint32) {
 		}
 
 	case 0x33: // vmov: copy one lane
-		src := element(e, vd&7)
-		c.V[vd][vd&7] = c.V[vt][src]
+		// The single-lane operations name their destination lane in the low bits
+		// of the vs field and their source lane in the element field, not by the
+		// broadcast rule the ALU ops use.
+		de, se := vs&7, e&7
+		c.V[vd][de] = c.V[vt][se]
 		for i := uint32(0); i < 8; i++ {
 			c.setAcc(i, s16(c.vt(vt, e, i)))
 		}
 	case 0x37: // vnop
 
-	case 0x30, 0x31, 0x32, 0x34, 0x35, 0x36:
-		c.Halt("unmodelled reciprocal instruction %q at $%03X: the RSP's reciprocal ROM is "+
-			"burnt into silicon, is not on the cartridge, and has no published closed form",
+	case 0x30: // vrcp: the reciprocal of a 16-bit input
+		c.divide(e, vt, vs, vd, int32(int16(c.V[vt][e&7])))
+	case 0x31: // vrcpl: the low half of a 32-bit reciprocal
+		lo := c.V[vt][e&7]
+		in := int32(int16(lo)) // with no high half latched, the input sign-extends
+		if c.divInLoaded {
+			in = int32(uint32(c.divIn)<<16 | uint32(lo))
+		}
+		c.divide(e, vt, vs, vd, in)
+		c.divIn, c.divInLoaded = 0, false
+	case 0x32, 0x36: // vrcph, vrsqh: exchange the high halves
+		// No arithmetic happens here. The previous result's high half is read
+		// out, and this operand's becomes the high half of the next divide.
+		c.V[vd][vs&7] = c.divOut
+		c.divIn, c.divInLoaded = c.V[vt][e&7], true
+		for i := uint32(0); i < 8; i++ {
+			c.setAcc(i, s16(c.vt(vt, e, i)))
+		}
+	case 0x34, 0x35: // vrsq, vrsql
+		// No microcode seen so far executes these, and the published pseudocode
+		// for them is self-inconsistent: it derives scale_out from the input's
+		// scale before halving that scale, and its final line invokes the
+		// reciprocal rather than the reciprocal square root. Implementing it from
+		// a description that cannot be right would produce a wrong answer that
+		// looks plausible, so it waits for a microcode that exercises it.
+		c.Halt("unmodelled %q at $%03X: the published algorithm for the reciprocal "+
+			"square root is self-inconsistent and no microcode has exercised it",
 			vuOp[funct], c.curPC)
 
 	default:
@@ -552,8 +576,30 @@ func (c *CPU) vecLoad(w, rs, vt uint32) {
 		for b := 16 - n; b < 16; b, addr = b+1, addr+1 {
 			c.setVecByte(vt, b, c.DMEM[addr&0xFFF])
 		}
+	case 0x06: // lpv: eight bytes, one per lane, as signed values
+		c.packedLoad(vt, e, addr, 8)
+	case 0x07: // luv: eight bytes, one per lane, as unsigned values
+		c.packedLoad(vt, e, addr, 7)
 	default:
 		c.Halt("unmodelled vector load %q at $%03X", lwc2Op[op], c.curPC)
+	}
+}
+
+// packedLoad implements LPV and LUV: eight bytes, one into each lane.
+//
+// Two independent wraps make this instruction what it is. The bytes are read
+// starting at the effective address and wrap at its 8-byte boundary; the lanes
+// they land in start at the element and wrap at eight. So an unaligned address
+// and a non-zero element rotate the source and the destination separately.
+//
+// The shift decides how the byte sits in its 16-bit lane: LPV puts it in bits
+// 15..8, which makes it a signed value, and LUV in bits 14..7, which makes it
+// unsigned. For loads an element above 7 simply wraps, its top bit ignored.
+func (c *CPU) packedLoad(vt, e, addr, shift uint32) {
+	base, start := addr&^7, addr&7
+	for i := uint32(0); i < 8; i++ {
+		b := c.DMEM[(base+(start+i)&7)&0xFFF]
+		c.V[vt][(e+i)&7] = uint16(b) << shift
 	}
 }
 
@@ -581,7 +627,101 @@ func (c *CPU) vecStore(w, rs, vt uint32) {
 		for b := 16 - n; b < 16; b, addr = b+1, addr+1 {
 			c.DMEM[addr&0xFFF] = c.vecByte(vt, (e+b)&15)
 		}
+	case 0x06, 0x07: // spv, suv
+		// Unlike the loads, an element above 7 does not merely wrap here: it
+		// swaps the two instructions' meaning, so SPV with element 8..15 stores
+		// as SUV does, and the other way round.
+		shift := uint32(8)
+		if op == 0x07 {
+			shift = 7
+		}
+		if e >= 8 {
+			shift = 15 - shift
+		}
+		c.packedStore(vt, e, addr, shift)
 	default:
 		c.Halt("unmodelled vector store %q at $%03X", swc2Op[op], c.curPC)
 	}
+}
+
+// packedStore implements SPV and SUV, the counterpart of packedLoad.
+func (c *CPU) packedStore(vt, e, addr, shift uint32) {
+	base, start := addr&^7, addr&7
+	for i := uint32(0); i < 8; i++ {
+		v := c.V[vt][(e+i)&7] >> shift
+		c.DMEM[(base+(start+i)&7)&0xFFF] = byte(v)
+	}
+}
+
+// --- the reciprocal unit ----------------------------------------------------
+//
+// VRCP and VRSQ turn a fixed-point value into its reciprocal (or reciprocal
+// square root) by normalising it, looking the mantissa up in a ROM (rcprom.go),
+// and shifting the 17-bit result — whose top bit is an implicit 1 — back into
+// place. The result is 32 bits wide: the low half lands in the destination lane,
+// the high half in an internal register that the next VRCPH/VRSQH reads out.
+//
+// A 32-bit divide is therefore three instructions. VRCPH latches the high half
+// of the input, VRCPL supplies the low half and does the work, and a second
+// VRCPH collects the high half of the answer. That is the sequence at the top of
+// this game's perspective-divide overlay.
+
+// divide computes a reciprocal, writes its low half to the destination lane, and
+// leaves the high half in divOut for the following VRCPH to collect.
+func (c *CPU) divide(e, vt, vs, vd uint32, in int32) {
+	c.V[vd][vs&7] = uint16(c.reciprocal(in))
+	for i := uint32(0); i < 8; i++ {
+		c.setAcc(i, s16(c.vt(vt, e, i)))
+	}
+}
+
+// reciprocal follows the hardware's algorithm exactly: normalise the input, look
+// its top nine mantissa bits up in the ROM, prepend the implicit leading 1, and
+// shift the resulting 17-bit value so that its top bit lands at the output's
+// scale. A negative input inverts the result rather than negating it.
+//
+// The scaling is the hardware's own and looks arbitrary out of context: the
+// result approximates 2^33/x rather than 1/x, and microcode carries the exponent
+// itself. What matters is that it is consistent, which the shift below keeps.
+func (c *CPU) reciprocal(in int32) uint32 {
+	if in == 0 {
+		// There is no divide-by-zero exception on the RSP; the result saturates.
+		c.divOut = 0xFFFF
+		return 0xFFFF
+	}
+	neg := in < 0
+	x := uint32(in)
+	if neg {
+		x = uint32(-in)
+	}
+
+	// scaleIn is the position of the highest set bit: the input's exponent.
+	scaleIn := uint32(31)
+	for x&(1<<scaleIn) == 0 {
+		scaleIn--
+	}
+	scaleOut := 32 - scaleIn
+
+	// The nine mantissa bits immediately below the leading 1. Bit positions
+	// below zero read as zero, which the shift direction handles.
+	var idx uint32
+	if scaleIn >= 9 {
+		idx = x >> (scaleIn - 9) & 0x1FF
+	} else {
+		idx = x << (9 - scaleIn) & 0x1FF
+	}
+
+	// Place the 17-bit value (1 || rom) with its top bit at scaleOut.
+	v := uint64(0x10000) | uint64(rcpROM[idx])
+	var result uint32
+	if scaleOut >= 16 {
+		result = uint32(v << (scaleOut - 16))
+	} else {
+		result = uint32(v >> (16 - scaleOut))
+	}
+	if neg {
+		result = ^result
+	}
+	c.divOut = uint16(result >> 16)
+	return result
 }

@@ -29,11 +29,12 @@ import (
 	"os"
 
 	"retroreverse.com/tools/cpu/r4300"
+	"retroreverse.com/tools/cpu/rsp"
 )
 
 // snapshotVersion changes whenever the snapshot's shape does, so an old file is
 // rejected rather than decoded into the wrong fields.
-const snapshotVersion = 1
+const snapshotVersion = 2
 
 // snapshot is the fully-serialisable machine state (all fields exported for gob).
 type snapshot struct {
@@ -48,6 +49,15 @@ type snapshot struct {
 	EEPROM []byte
 
 	CPU r4300.State
+
+	// The RSP's registers. It is always halted between CPU instructions, so this
+	// is not observable today — but the rule is that every device the machine
+	// owns goes into the snapshot, and a microcode that leaned on registers a
+	// previous task left behind would otherwise resume wrong.
+	RSP      rsp.State
+	RSPLive  bool
+	RSPSteps uint64
+	RDPWords uint64
 
 	// Devices.
 	MI mi
@@ -67,19 +77,22 @@ type snapshot struct {
 // SaveState writes the machine's full state to path (gzip-compressed gob).
 func (m *Machine) SaveState(path string) error {
 	s := &snapshot{
-		Version: snapshotVersion,
-		ROMMD5:  m.romMD5,
-		RDRAM:   append([]byte(nil), m.RDRAM...),
-		DMEM:    append([]byte(nil), m.DMEM...),
-		IMEM:    append([]byte(nil), m.IMEM...),
-		PIF:     append([]byte(nil), m.PIF...),
-		EEPROM:  append([]byte(nil), m.EEPROM...),
-		CPU:     m.CPU.Snapshot(),
-		MI:      m.mi,
-		PI:      m.pi,
-		VI:      vi{Regs: m.vi.Regs.clone(), Acc: m.vi.Acc, Current: m.vi.Current},
-		AI:      ai{Regs: m.ai.Regs.clone()},
-		SI:      si{Regs: m.si.Regs.clone(), DramAddr: m.si.DramAddr},
+		Version:  snapshotVersion,
+		ROMMD5:   m.romMD5,
+		RDRAM:    append([]byte(nil), m.RDRAM...),
+		DMEM:     append([]byte(nil), m.DMEM...),
+		IMEM:     append([]byte(nil), m.IMEM...),
+		PIF:      append([]byte(nil), m.PIF...),
+		EEPROM:   append([]byte(nil), m.EEPROM...),
+		CPU:      m.CPU.Snapshot(),
+		RSPLive:  m.RSP != nil,
+		RSPSteps: m.rspSteps,
+		RDPWords: m.rdpWords,
+		MI:       m.mi,
+		PI:       m.pi,
+		VI:       vi{Regs: m.vi.Regs.clone(), Acc: m.vi.Acc, Current: m.vi.Current},
+		AI:       ai{Regs: m.ai.Regs.clone()},
+		SI:       si{Regs: m.si.Regs.clone(), DramAddr: m.si.DramAddr},
 
 		SPPC:        m.spPC,
 		SP:          m.sp.clone(),
@@ -88,6 +101,10 @@ func (m *Machine) SaveState(path string) error {
 		DP:          m.dp.clone(),
 		Controllers: m.Controllers,
 	}
+	if m.RSP != nil {
+		s.RSP = m.RSP.Snapshot()
+	}
+
 	out, err := os.Create(path)
 	if err != nil {
 		return err
@@ -133,6 +150,13 @@ func (m *Machine) LoadState(path string) error {
 	copy(m.PIF, s.PIF)
 	m.EEPROM = append(m.EEPROM[:0], s.EEPROM...)
 	m.CPU.Restore(s.CPU)
+	if s.RSPLive {
+		if m.RSP == nil {
+			m.RSP = rsp.NewCPU(m.DMEM, m.IMEM, m)
+		}
+		m.RSP.Restore(s.RSP)
+	}
+	m.rspSteps, m.rdpWords = s.RSPSteps, s.RDPWords
 	m.mi, m.pi, m.vi, m.ai, m.si = s.MI, s.PI, s.VI, s.AI, s.SI
 	m.spPC = s.SPPC
 	m.sp, m.ri, m.rd, m.dp = s.SP, s.RI, s.RD, s.DP
