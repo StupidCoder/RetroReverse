@@ -25,9 +25,9 @@ type testRAM struct{ b []byte }
 
 func newRAM() *testRAM { return &testRAM{b: make([]byte, 0x10000)} }
 
-func (r *testRAM) Read(a uint32) byte      { return r.b[a&0xFFFF] }
-func (r *testRAM) Write(a uint32, v byte)  { r.b[a&0xFFFF] = v }
-func (r *testRAM) Read32(a uint32) uint32  { return binary.BigEndian.Uint32(r.b[a&0xFFFF:]) }
+func (r *testRAM) Read(a uint32) byte         { return r.b[a&0xFFFF] }
+func (r *testRAM) Write(a uint32, v byte)     { r.b[a&0xFFFF] = v }
+func (r *testRAM) Read32(a uint32) uint32     { return binary.BigEndian.Uint32(r.b[a&0xFFFF:]) }
 func (r *testRAM) Write32(a uint32, v uint32) { binary.BigEndian.PutUint32(r.b[a&0xFFFF:], v) }
 
 // base is where test programs are assembled: KSEG0, which maps to physical 0.
@@ -91,9 +91,9 @@ func TestSignExtension32BitOps(t *testing.T) {
 func TestDoubleShifts(t *testing.T) {
 	// The "32" forms add 32 to the shift amount, reaching 32..63.
 	c, _ := newTest(
-		rt(0, 0, 1, 2, 0, 0x3C),  // dsll32 $2, $1, 0   -> $1 << 32
-		rt(0, 0, 2, 3, 4, 0x3E),  // dsrl32 $3, $2, 4   -> $2 >> 36
-		rt(0, 0, 1, 4, 8, 0x38),  // dsll   $4, $1, 8
+		rt(0, 0, 1, 2, 0, 0x3C), // dsll32 $2, $1, 0   -> $1 << 32
+		rt(0, 0, 2, 3, 4, 0x3E), // dsrl32 $3, $2, 4   -> $2 >> 36
+		rt(0, 0, 1, 4, 8, 0x38), // dsll   $4, $1, 8
 	)
 	c.SetReg(1, 1)
 	run(t, c, 3)
@@ -113,9 +113,9 @@ func TestBranchLikelyAnnulsWhenNotTaken(t *testing.T) {
 	// beql $1,$0 with $1 != 0: not taken, so the delay slot is annulled and the
 	// instruction after it runs.
 	c, _ := newTest(
-		it(0x14, 1, 0, 2),       // beql  $1, $0, +2
-		it(0x09, 0, 2, 0x0BAD),  // addiu $2, $0, 0xBAD   (delay slot: annulled)
-		it(0x09, 0, 3, 7),       // addiu $3, $0, 7
+		it(0x14, 1, 0, 2),      // beql  $1, $0, +2
+		it(0x09, 0, 2, 0x0BAD), // addiu $2, $0, 0xBAD   (delay slot: annulled)
+		it(0x09, 0, 3, 7),      // addiu $3, $0, 7
 	)
 	c.SetReg(1, 1)
 	run(t, c, 2)
@@ -132,10 +132,10 @@ func TestBranchLikelyRunsSlotWhenTaken(t *testing.T) {
 	// beql $1,$0 with $1 == 0: taken, so the delay slot runs and control lands
 	// on the target, skipping the instruction between.
 	c, _ := newTest(
-		it(0x14, 1, 0, 2),  // beql  $1, $0, +2  -> target is word[3]
-		it(0x09, 0, 2, 5),  // addiu $2, $0, 5   (delay slot: runs)
-		it(0x09, 0, 3, 7),  // addiu $3, $0, 7   (skipped)
-		it(0x09, 0, 4, 9),  // addiu $4, $0, 9
+		it(0x14, 1, 0, 2), // beql  $1, $0, +2  -> target is word[3]
+		it(0x09, 0, 2, 5), // addiu $2, $0, 5   (delay slot: runs)
+		it(0x09, 0, 3, 7), // addiu $3, $0, 7   (skipped)
+		it(0x09, 0, 4, 9), // addiu $4, $0, 9
 	)
 	c.SetReg(1, 0)
 	run(t, c, 3)

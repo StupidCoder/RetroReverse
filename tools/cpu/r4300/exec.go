@@ -33,7 +33,7 @@ func (c *CPU) Step() int {
 	if !ok {
 		return 1 // the fault has already redirected the PC
 	}
-	w := c.read32(paddr)
+	w := c.fetch(paddr)
 
 	c.PC = c.nextPC
 	c.nextPC += 4

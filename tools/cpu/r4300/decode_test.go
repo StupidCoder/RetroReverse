@@ -59,23 +59,23 @@ func TestDecodeFlow(t *testing.T) {
 		delay bool
 		annul bool
 	}{
-		{0x00000000, FlowSeq, false, false},     // nop
-		{0x08000000, FlowJump, true, false},     // j
-		{0x0C000000, FlowCall, true, false},     // jal
-		{0x03E00008, FlowReturn, true, false},   // jr $ra
-		{0x01000008, FlowIndJump, true, false},  // jr $t0
-		{0x0320F809, FlowIndCall, true, false},  // jalr $t9
-		{0x10000001, FlowJump, true, false},     // beq $0,$0 == b
-		{0x14400001, FlowBranch, true, false},   // bne
-		{0x50400001, FlowBranch, true, true},    // beql
-		{0x54400001, FlowBranch, true, true},    // bnel
-		{0x04620001, FlowBranch, true, true},    // bltzl
-		{0x04710001, FlowCall, true, false},     // bgezal:  links, so a call
-		{0x04720001, FlowCall, true, true},      // bgezall: links and annuls
-		{0x45030001, FlowBranch, true, true},    // bc1tl
-		{0x0000000C, FlowStop, false, false},    // syscall
-		{0x42000018, FlowStop, false, false},    // eret
-		{0x4C000000, FlowStop, false, false},    // COP3: .word
+		{0x00000000, FlowSeq, false, false},    // nop
+		{0x08000000, FlowJump, true, false},    // j
+		{0x0C000000, FlowCall, true, false},    // jal
+		{0x03E00008, FlowReturn, true, false},  // jr $ra
+		{0x01000008, FlowIndJump, true, false}, // jr $t0
+		{0x0320F809, FlowIndCall, true, false}, // jalr $t9
+		{0x10000001, FlowJump, true, false},    // beq $0,$0 == b
+		{0x14400001, FlowBranch, true, false},  // bne
+		{0x50400001, FlowBranch, true, true},   // beql
+		{0x54400001, FlowBranch, true, true},   // bnel
+		{0x04620001, FlowBranch, true, true},   // bltzl
+		{0x04710001, FlowCall, true, false},    // bgezal:  links, so a call
+		{0x04720001, FlowCall, true, true},     // bgezall: links and annuls
+		{0x45030001, FlowBranch, true, true},   // bc1tl
+		{0x0000000C, FlowStop, false, false},   // syscall
+		{0x42000018, FlowStop, false, false},   // eret
+		{0x4C000000, FlowStop, false, false},   // COP3: .word
 	}
 	for _, c := range cases {
 		in := decodeAt(c.w, 0x80000000)

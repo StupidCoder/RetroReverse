@@ -34,6 +34,14 @@ type Bus interface {
 	Write32(addr uint32, v uint32)
 }
 
+// Fetcher lets a machine model distinguish an instruction fetch from a data
+// read. A Bus that implements it has Fetch32 called for every instruction word,
+// and Read32 only for loads — without which a "who reads this address" watch is
+// drowned by the fetch of every instruction that runs inside the window.
+type Fetcher interface {
+	Fetch32(addr uint32) uint32
+}
+
 // COP0 register indices.
 const (
 	cop0Index    = 0
@@ -77,19 +85,19 @@ const (
 
 // Exception codes (Cause bits 2..6).
 const (
-	excInt   = 0x00 // interrupt
-	excMod   = 0x01 // TLB modification (store to a clean page)
-	excTLBL  = 0x02 // TLB miss, load or fetch
-	excTLBS  = 0x03 // TLB miss, store
-	excAdEL  = 0x04 // address error, load/fetch
-	excAdES  = 0x05 // address error, store
-	excSys   = 0x08 // syscall
-	excBp    = 0x09 // breakpoint
-	excRI    = 0x0A // reserved instruction
-	excCpU   = 0x0B // coprocessor unusable
-	excOv    = 0x0C // arithmetic overflow
-	excTrap  = 0x0D // trap instruction
-	excFPE   = 0x0F // floating-point exception
+	excInt  = 0x00 // interrupt
+	excMod  = 0x01 // TLB modification (store to a clean page)
+	excTLBL = 0x02 // TLB miss, load or fetch
+	excTLBS = 0x03 // TLB miss, store
+	excAdEL = 0x04 // address error, load/fetch
+	excAdES = 0x05 // address error, store
+	excSys  = 0x08 // syscall
+	excBp   = 0x09 // breakpoint
+	excRI   = 0x0A // reserved instruction
+	excCpU  = 0x0B // coprocessor unusable
+	excOv   = 0x0C // arithmetic overflow
+	excTrap = 0x0D // trap instruction
+	excFPE  = 0x0F // floating-point exception
 )
 
 // Exception vector bases. Which is used depends on the Status BEV bit, and the
@@ -97,6 +105,28 @@ const (
 const (
 	vecRAM = 0x80000000
 	vecROM = 0xBFC00200
+)
+
+// Exported names for the COP0 registers and Status/Cause bits a machine model
+// needs to reach: the boot code sets Status directly, and the run loop reads the
+// interrupt-pending bits.
+const (
+	Cop0Count    = cop0Count
+	Cop0Compare  = cop0Compare
+	Cop0Status   = cop0Status
+	Cop0Cause    = cop0Cause
+	Cop0EPC      = cop0EPC
+	Cop0BadVAddr = cop0BadVAddr
+
+	StatusIE  = statusIE
+	StatusEXL = statusEXL
+	StatusERL = statusERL
+	StatusBEV = statusBEV
+	StatusFR  = statusFR
+	StatusCU1 = statusCU1
+
+	CauseIP2 = causeIP2
+	CauseIP7 = causeIP7
 )
 
 // CPU is the VR4300 programmer's-model core.
@@ -118,7 +148,8 @@ type CPU struct {
 	HaltReason string
 	Steps      uint64
 
-	bus Bus
+	bus   Bus
+	fetch func(uint32) uint32 // bus.Fetch32 when the Bus is a Fetcher, else bus.Read32
 
 	curPC        uint64 // address of the instruction currently executing
 	delaySlot    bool   // the current instruction is in a branch delay slot
@@ -132,7 +163,10 @@ type CPU struct {
 
 // NewCPU makes a core over bus in the reset state.
 func NewCPU(bus Bus) *CPU {
-	c := &CPU{bus: bus}
+	c := &CPU{bus: bus, fetch: bus.Read32}
+	if f, ok := bus.(Fetcher); ok {
+		c.fetch = f.Fetch32
+	}
 	c.Reset()
 	return c
 }
@@ -205,7 +239,7 @@ func sext32(v uint32) uint64 { return uint64(int64(int32(v))) }
 
 // --- memory helpers (big-endian, physical addresses) ------------------------
 
-func (c *CPU) read8(a uint32) uint32  { return uint32(c.bus.Read(a)) }
+func (c *CPU) read8(a uint32) uint32     { return uint32(c.bus.Read(a)) }
 func (c *CPU) write8(a uint32, v uint32) { c.bus.Write(a, byte(v)) }
 
 func (c *CPU) read16(a uint32) uint32 {
@@ -216,7 +250,7 @@ func (c *CPU) write16(a uint32, v uint32) {
 	c.bus.Write(a+1, byte(v))
 }
 
-func (c *CPU) read32(a uint32) uint32  { return c.bus.Read32(a) }
+func (c *CPU) read32(a uint32) uint32     { return c.bus.Read32(a) }
 func (c *CPU) write32(a uint32, v uint32) { c.bus.Write32(a, v) }
 
 func (c *CPU) read64(a uint32) uint64 {

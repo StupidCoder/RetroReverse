@@ -72,8 +72,8 @@ func (c *CPU) writeFGR64(i uint32, v uint64) {
 	c.FGR[i] = v
 }
 
-func (c *CPU) fs(i uint32) float32  { return math.Float32frombits(c.readFGR32(i)) }
-func (c *CPU) fd(i uint32) float64  { return math.Float64frombits(c.readFGR64(i)) }
+func (c *CPU) fs(i uint32) float32      { return math.Float32frombits(c.readFGR32(i)) }
+func (c *CPU) fd(i uint32) float64      { return math.Float64frombits(c.readFGR64(i)) }
 func (c *CPU) setS(i uint32, v float32) { c.writeFGR32(i, math.Float32bits(v)) }
 func (c *CPU) setD(i uint32, v float64) { c.writeFGR64(i, math.Float64bits(v)) }
 
