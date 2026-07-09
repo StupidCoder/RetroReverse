@@ -34,12 +34,18 @@ type specialObj struct {
 	X, Z int32
 }
 
+// These are real OBJ.RRO objects the game draws in the race that are not in the
+// static placement tables (objects.go). Only 182 is identified — the finish
+// banner. The rest are miscellaneous course objects, kept under neutral names;
+// they are NOT the animated helicopter / number girl / airplane / big screen
+// (those are drawn by dedicated code from other geometry/sprite sources and are
+// not yet located).
 var specials = []specialObj{
-	{175, "Helicopter", 177237, 140359},
-	{250, "Number girl", 134180, 158126},
 	{182, "Finish banner", 158750, 150511},
-	{185, "Trackside screen", 98133, 68082},
-	{257, "Trackside object", 0, 0},
+	{175, "Object 175", 177237, 140359},
+	{185, "Object 185", 98133, 68082},
+	{250, "Object 250", 134180, 158126},
+	{257, "Object 257", 0, 0},
 }
 
 func exportSpecials(a *assets, out string) ([]ModelIndex, error) {
@@ -71,9 +77,14 @@ func exportSpecials(a *assets, out string) ([]ModelIndex, error) {
 		}
 		fmt.Fprintf(os.Stderr, "[objects] special %s (obj %d, set %d, %d verts)\n",
 			s.Name, s.ID, set, len(b.verts))
+		name := s.Name
+		if s.Name == fmt.Sprintf("Object %d", s.ID) {
+			name = s.Name // already carries the id
+		} else {
+			name = fmt.Sprintf("%s (obj %d)", s.Name, s.ID)
+		}
 		models = append(models, ModelIndex{
-			Name: fmt.Sprintf("%s (obj %d)", s.Name, s.ID), File: file,
-			Kind: "mesh3d", Section: "Objects",
+			Name: name, File: file, Kind: "mesh3d", Section: "Objects",
 		})
 	}
 	return models, nil

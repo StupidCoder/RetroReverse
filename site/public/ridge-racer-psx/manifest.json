@@ -87,31 +87,31 @@
       "section": "Cars"
     },
     {
-      "name": "Helicopter (obj 175)",
-      "file": "models/special-175.glb",
-      "kind": "mesh3d",
-      "section": "Objects"
-    },
-    {
-      "name": "Number girl (obj 250)",
-      "file": "models/special-250.glb",
-      "kind": "mesh3d",
-      "section": "Objects"
-    },
-    {
       "name": "Finish banner (obj 182)",
       "file": "models/special-182.glb",
       "kind": "mesh3d",
       "section": "Objects"
     },
     {
-      "name": "Trackside screen (obj 185)",
+      "name": "Object 175",
+      "file": "models/special-175.glb",
+      "kind": "mesh3d",
+      "section": "Objects"
+    },
+    {
+      "name": "Object 185",
       "file": "models/special-185.glb",
       "kind": "mesh3d",
       "section": "Objects"
     },
     {
-      "name": "Trackside object (obj 257)",
+      "name": "Object 250",
+      "file": "models/special-250.glb",
+      "kind": "mesh3d",
+      "section": "Objects"
+    },
+    {
+      "name": "Object 257",
       "file": "models/special-257.glb",
       "kind": "mesh3d",
       "section": "Objects"
