@@ -139,6 +139,13 @@ func (m *Machine) serviceIO(c *arm60.CPU) {
 	recvBuf := m.read32(info + ioiRecvBuf)
 	recvLen := m.read32(info + ioiRecvLen)
 
+	if m.SportDebug && cmd == sportFlashWrite {
+		// FLASHWRITE IOInfo forensics: ioi_Recv carries the clear's dest+byte
+		// count, ioi_Offset the fill colour (SetVRAMPages, game 0x39598).
+		m.note(fmt.Sprintf("FLASHWRITE dest=0x%08X bytes=0x%X val=0x%08X (send=%08X,%08X)",
+			recvBuf, recvLen, offset, sendBuf, sendLen))
+	}
+
 	// Copy the caller's IOInfo into the IOReq's io_Info, as the kernel does, so
 	// code that inspects the request through its item sees the submitted command.
 	if it != nil && it.addr != 0 {
@@ -211,19 +218,21 @@ func (m *Machine) performIO(it *item, cmd, offset, sendBuf, sendLen, buf, length
 		m.needSchedule = true
 		return 0, 0
 	}
+	// FLASHWRITE_CMD clears a VRAM span to a constant via the VRAM serial port —
+	// how the game paints the frame's background each field (SetVRAMPages, game
+	// 0x39598). The fill value is a 16-bit RGB555 replicated into both halfwords
+	// of ioi_Offset; the destination is ioi_Recv.iob_Buffer and the byte count
+	// ioi_Recv.iob_Len (= VRAM page size × page count). Each frame issues two: the
+	// sky colour over the top span, the ground colour over the rest, so the
+	// horizon lands exactly where the page counts split. These clears arrive on a
+	// device that is not the named "SPORT" item, so they are keyed on the command
+	// landing in VRAM, not the device name (file ALLOCBLOCKS is also command 6 but
+	// never targets VRAM).
+	if cmd == sportFlashWrite && buf >= vramBase && buf < vramBase+vramSize && length > 0 {
+		m.flashClearRange(buf, length, uint16(offset))
+		return 0, 0
+	}
 	if dev == "SPORT" {
-		// FLASHWRITE_CMD clears VRAM to a constant via the VRAM serial port — how
-		// the game paints the frame's background (sky/ground) each field. The fill
-		// value is a 16-bit RGB555 replicated into both halfwords of ioi_Offset;
-		// send.len is the SPORT page mask (all pages for a full clear). The
-		// destination is the bitmap the SPORT is bound to — the frame the game is
-		// about to render, i.e. the back buffer — not carried in the IOInfo.
-		// A full-screen background clear: all-pages mask (0xFFFFFFFF) and a fill
-		// value that is one RGB555 color duplicated into both halfwords. Other
-		// FLASHWRITE uses (page init with address-shaped lengths) are left alone.
-		if cmd == sportFlashWrite && sendLen == 0xFFFFFFFF && uint16(offset) == uint16(offset>>16) {
-			m.flashClear(uint16(offset))
-		}
 		return 0, 0
 	}
 	if dev != "" && dev != "timer" {

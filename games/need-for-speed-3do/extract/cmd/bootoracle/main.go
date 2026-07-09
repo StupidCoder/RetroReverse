@@ -39,6 +39,7 @@ func main() {
 	movies := flag.Bool("movies", false, "let the game open .stream movies (FMV subsystem not modelled yet: crashes in the movie player)")
 	pad := flag.String("pad", "", "control-pad script: STEP:btn+btn,STEP:0,... (btns: a b c start x up down left right ls rs; 0=release)")
 	celDebugAt := flag.Uint64("celdebug", 0, "record a per-cel render summary for the frames after this step")
+	sportDebug := flag.Bool("sportdebug", false, "log the full IOInfo of every SPORT request")
 	flag.Parse()
 
 	var data []byte
@@ -72,6 +73,7 @@ func main() {
 	m.SpinBreak = *spinbreak
 	m.StallTolerance = *stall
 	m.NoStreams = !*movies
+	m.SportDebug = *sportDebug
 	if *pad != "" {
 		script, err := parsePadScript(*pad)
 		if err != nil {

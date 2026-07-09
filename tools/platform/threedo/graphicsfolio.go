@@ -65,44 +65,24 @@ const (
 	pre1LRForm = 0x00000800 // PRE1 bit: source is in linear-framebuffer layout
 )
 
-// flashClear fills the current render target (the screen bitmap not being
-// displayed — the back buffer of the double buffer) with an RGB555 value. This
-// stands in for the SPORT FLASHWRITE that clears the frame's background each
-// field; without it, regions the frame doesn't redraw keep stale content (a
-// hall-of-mirrors), and the sky — which the game paints as a flat clear rather
-// than a cel — never appears.
-func (m *Machine) flashClear(val uint16) {
-	bm, ok := m.renderTarget()
-	if !ok {
-		return
-	}
-	if m.CelDebug {
-		m.CelDebugLog = append(m.CelDebugLog, fmt.Sprintf("FLASHCLEAR val=%04X -> buf 0x%08X (display=0x%08X)", val, bm.buf, m.displayBuf))
-	}
+// flashClearRange fills a contiguous VRAM byte span with a 16-bit RGB555 value —
+// the SPORT FLASHWRITE that paints the frame's background. The game clears each
+// buffer as two spans, the sky colour over the top page-run and the ground
+// colour over the rest, so the horizon falls at the byte offset where the runs
+// meet. Filling the exact [dest, dest+bytes) range reproduces that split (the
+// interleaved line-pair layout means the offset maps to a scanline boundary).
+// Without it, regions the frame doesn't repaint keep stale content — a
+// hall-of-mirrors — and the sky, which is a clear rather than a cel, is absent.
+func (m *Machine) flashClearRange(dest, bytes uint32, val uint16) {
 	hi, lo := byte(val>>8), byte(val)
-	end := bm.buf + uint32(bm.w*bm.h*2)
-	for a := bm.buf; a+1 < end; a += 2 {
+	end := dest + bytes
+	for a := dest; a+1 < end; a += 2 {
 		m.Write(a, hi)
 		m.Write(a+1, lo)
 	}
-}
-
-// renderTarget returns the screen bitmap the game is drawing into this frame —
-// the one that is not currently on display. With a single buffer, that buffer.
-func (m *Machine) renderTarget() (gfxBitmap, bool) {
-	var any gfxBitmap
-	haveAny := false
-	for _, bmItem := range m.screenBM {
-		bm, ok := m.bitmaps[bmItem]
-		if !ok || bm.buf == 0 {
-			continue
-		}
-		any, haveAny = bm, true
-		if bm.buf != m.displayBuf {
-			return bm, true
-		}
+	if m.CelDebug {
+		m.CelDebugLog = append(m.CelDebugLog, fmt.Sprintf("FLASHCLEAR val=%04X -> [0x%08X,+0x%X)", val, dest, bytes))
 	}
-	return any, haveAny
 }
 
 // gfxBitmap is the HLE's record of a Bitmap item: where its pixels live.

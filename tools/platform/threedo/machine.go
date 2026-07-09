@@ -133,6 +133,7 @@ type Machine struct {
 	CelDebug    bool
 	CelDebugLog []string // cels drawn since the last DisplayScreen
 	CelFrameLog []string // the last fully-displayed frame's cels
+	SportDebug  bool     // log the full IOInfo of every SPORT request
 
 	// Instrumentation (opt-in; checked in Read/Write and the run loop).
 	WatchLo, WatchHi uint32

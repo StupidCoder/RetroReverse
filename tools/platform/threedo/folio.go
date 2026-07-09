@@ -118,6 +118,17 @@ func (m *Machine) serviceFolio(off uint32) bool {
 		}
 		m.SetResultAndReturn(dst)
 		return true
+	case 0x3C: // GetPageSize(memtype) -> bytes per memory page.
+		// The VRAM serial-port clear (SetVRAMPages, game 0x39598) aligns its
+		// destination and multiplies its page count by this, so a stub of 0
+		// collapsed every screen clear to a zero-length fill at address 0. The
+		// 3DO's VRAM SPORT page is 2048 bytes; DRAM pages are 4096.
+		if m.CPU.Reg(0)&0x10000 != 0 { // MEMTYPE_VRAM
+			m.SetResultAndReturn(0x800)
+		} else {
+			m.SetResultAndReturn(0x1000)
+		}
+		return true
 	case 0x34: // SampleSystemTimeTT(timer, TimeVal*) — fill an advancing time.
 		// Each call advances virtual time so the game's timing/calibration loops
 		// (which decrement counters by the elapsed delta) converge instead of
