@@ -289,10 +289,6 @@ func (m *Machine) drawCels(bitmapItem int32, ccb uint32) uint32 {
 			plut = ccb + 0x0C + plut + 4
 		}
 		if flags&ccbSkip == 0 {
-			if m.CelDebug {
-				m.CelDebugLog = append(m.CelDebugLog, fmt.Sprintf("CCB@%08X flags=%08X src=%08X X=%08X Y=%08X HDX=%08X HDY=%08X VDX=%08X VDY=%08X HDDX=%08X HDDY=%08X",
-					ccb, flags, src, m.read32(ccb+0x10), m.read32(ccb+0x14), m.read32(ccb+0x18), m.read32(ccb+0x1C), m.read32(ccb+0x20), m.read32(ccb+0x24), m.read32(ccb+0x28), m.read32(ccb+0x2C)))
-			}
 			if m.drawOneCel(bm, ccb, flags, src, plut) {
 				drawn++
 			}

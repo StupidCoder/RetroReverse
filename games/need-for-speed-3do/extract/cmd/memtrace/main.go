@@ -84,6 +84,10 @@ func main() {
 			}
 		}
 		switch pc {
+		case 0x3C208: // MapCel: r0=CCB, r1=corner array, r2=shift arg
+			r1 := c.Reg(1)
+			ev("MapCel", 30, "ccb=%X corners=[%X %X %X %X %X %X %X %X] shift=%X lr=%X",
+				c.Reg(0), rd(r1), rd(r1+4), rd(r1+8), rd(r1+0xC), rd(r1+0x10), rd(r1+0x14), rd(r1+0x18), rd(r1+0x1C), c.Reg(2), c.Reg(14))
 		case 0xEB6C:
 			ev("sysinit", 10, "0xEB6C(r0=%X) lr=%X", c.Reg(0), c.Reg(14))
 		case 0xECE4:

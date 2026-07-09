@@ -423,7 +423,7 @@ func (m *Machine) swi(c *arm60.CPU, comment uint32) bool {
 		From:   c.CurPC(),
 		Args:   [4]uint32{c.Reg(0), c.Reg(1), c.Reg(2), c.Reg(3)},
 	})
-	if !m.kernelSWI(c, comment) && !m.fileFolioSWI(c, comment) {
+	if !m.kernelSWI(c, comment) && !m.fileFolioSWI(c, comment) && !m.mathFolioSWI(c, comment) {
 		m.note(fmt.Sprintf("SWI #0x%X (stub)", comment))
 	}
 	return true // serviced: do not vector to 0x08
