@@ -240,14 +240,18 @@ const GAMES = [
       base: 'public/ridge-racer-psx/',
       renderers: { 'rr-course': () => import('../ridge-racer-psx/course-renderer.js') },
     }),
-    list: async (v) => await v.init(), // manifest.models — cars + the course
+    list: async (v) => await v.init(), // manifest.models — the course, cars, and bespoke objects
     show: (v, item, i) => v.showItem(item),
+    // Open on the course rather than the first car.
+    defaultAsset: (models) => models.findIndex((m) => m.kind === 'rr-course'),
     // The object layer and wireframe apply to the course (rr-course), not the individual cars.
     layers: [
       { id: 'objects', label: 'Roadside objects', default: true, when: (m) => m.leaves?.[m.currentIdx]?.level?.kind === 'rr-course' },
       { id: 'wireframe', label: 'Wireframe', default: false },
     ],
-    group: (item) => ({ section: item.kind === 'rr-course' ? 'Course' : 'Cars', label: item.name }),
+    // Browse-list accordion: the manifest tags each model's section ("Course",
+    // "Cars", "Objects"); fall back to kind for older manifests.
+    group: (item) => ({ section: item.section || (item.kind === 'rr-course' ? 'Course' : 'Cars'), label: item.name }),
   },
 ];
 

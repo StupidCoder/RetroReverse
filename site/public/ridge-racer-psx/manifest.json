@@ -11,74 +11,130 @@
     {
       "name": "F/A RACING",
       "file": "models/car-01.glb",
-      "kind": "mesh3d"
+      "kind": "mesh3d",
+      "section": "Cars"
     },
     {
       "name": "RT RYUKYU",
       "file": "models/car-02.glb",
-      "kind": "mesh3d"
+      "kind": "mesh3d",
+      "section": "Cars"
     },
     {
       "name": "RT YELLOW SOLVALOU",
       "file": "models/car-03.glb",
-      "kind": "mesh3d"
+      "kind": "mesh3d",
+      "section": "Cars"
     },
     {
       "name": "RT BLUE SOLVALOU",
       "file": "models/car-04.glb",
-      "kind": "mesh3d"
+      "kind": "mesh3d",
+      "section": "Cars"
     },
     {
       "name": "RT PINK MAPPY",
       "file": "models/car-05.glb",
-      "kind": "mesh3d"
+      "kind": "mesh3d",
+      "section": "Cars"
     },
     {
       "name": "RT BLUE MAPPY",
       "file": "models/car-06.glb",
-      "kind": "mesh3d"
+      "kind": "mesh3d",
+      "section": "Cars"
     },
     {
       "name": "GALAGA RT PLID'S",
       "file": "models/car-07.glb",
-      "kind": "mesh3d"
+      "kind": "mesh3d",
+      "section": "Cars"
     },
     {
       "name": "GALAGA RT CARROT",
       "file": "models/car-08.glb",
-      "kind": "mesh3d"
+      "kind": "mesh3d",
+      "section": "Cars"
     },
     {
       "name": "RT BOSCONIAN",
       "file": "models/car-09.glb",
-      "kind": "mesh3d"
+      "kind": "mesh3d",
+      "section": "Cars"
     },
     {
       "name": "RT NEBULASRAY",
       "file": "models/car-10.glb",
-      "kind": "mesh3d"
+      "kind": "mesh3d",
+      "section": "Cars"
     },
     {
       "name": "RT XEVIOUS RED",
       "file": "models/car-11.glb",
-      "kind": "mesh3d"
+      "kind": "mesh3d",
+      "section": "Cars"
     },
     {
       "name": "RT XEVIOUS GREEN",
       "file": "models/car-12.glb",
-      "kind": "mesh3d"
+      "kind": "mesh3d",
+      "section": "Cars"
     },
     {
       "name": "13\" RACING",
       "file": "models/car-13.glb",
-      "kind": "mesh3d"
+      "kind": "mesh3d",
+      "section": "Cars"
+    },
+    {
+      "name": "Helicopter (obj 175)",
+      "file": "models/special-175.glb",
+      "kind": "mesh3d",
+      "section": "Objects"
+    },
+    {
+      "name": "Number girl (obj 250)",
+      "file": "models/special-250.glb",
+      "kind": "mesh3d",
+      "section": "Objects"
+    },
+    {
+      "name": "Finish banner (obj 182)",
+      "file": "models/special-182.glb",
+      "kind": "mesh3d",
+      "section": "Objects"
+    },
+    {
+      "name": "Trackside screen (obj 185)",
+      "file": "models/special-185.glb",
+      "kind": "mesh3d",
+      "section": "Objects"
+    },
+    {
+      "name": "Trackside object (obj 257)",
+      "file": "models/special-257.glb",
+      "kind": "mesh3d",
+      "section": "Objects"
     },
     {
       "name": "Ridge Racer Course",
       "file": "models/track.glb",
       "kind": "rr-course",
+      "section": "Course",
       "objectsFile": "levels/course.objects.json",
-      "fly": true
+      "fly": true,
+      "camera": {
+        "pos": [
+          103.646,
+          0.098,
+          -162.713
+        ],
+        "target": [
+          122.914,
+          0.098,
+          -157.347
+        ]
+      }
     }
   ]
 }

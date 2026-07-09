@@ -40,11 +40,30 @@ type Size struct {
 }
 
 type ModelIndex struct {
-	Name        string `json:"name"`
-	File        string `json:"file"`
-	Kind        string `json:"kind"`                  // routes to a Studio renderer plugin
-	ObjectsFile string `json:"objectsFile,omitempty"` // placement manifest for the object layer
-	Fly         bool   `json:"fly,omitempty"`         // present the item with the fly camera
+	Name        string      `json:"name"`
+	File        string      `json:"file"`
+	Kind        string      `json:"kind"`                  // routes to a Studio renderer plugin
+	Section     string      `json:"section,omitempty"`     // Studio browse-list group ("Course", "Cars", "Objects")
+	ObjectsFile string      `json:"objectsFile,omitempty"` // placement manifest for the object layer
+	Fly         bool        `json:"fly,omitempty"`         // present the item with the fly camera
+	Camera      *CameraPose `json:"camera,omitempty"`      // opening view (course only)
+}
+
+// CameraPose is a viewer opening view in GLB axes.
+type CameraPose struct {
+	Pos    [3]float64 `json:"pos"`
+	Target [3]float64 `json:"target"`
+}
+
+// startCam is the course viewer's opening view: the race-start camera pose
+// captured from the running game at the grid. The camera's world position and
+// facing are recovered from the GTE view transform (R, TR) at the first race
+// frame — cam = P_known − Rᵀ·TR for a known-placement object in frame, forward
+// = R's third row — then converted to GLB axes (x, −y, −z)/1024. The target is
+// 20 GLB units down the captured forward (0.9634, 0, 0.2683).
+var startCam = CameraPose{
+	Pos:    [3]float64{103.646, 0.098, -162.713},
+	Target: [3]float64{122.914, 0.098, -157.347},
 }
 
 // assets bundles everything the stages need: the decoded files and the
@@ -103,6 +122,11 @@ func main() {
 			die("models: %v", err)
 		}
 		man.Models = append(man.Models, models...)
+		specials, err := exportSpecials(a, *out)
+		if err != nil {
+			die("models: %v", err)
+		}
+		man.Models = append(man.Models, specials...)
 	}
 	if run("levels") {
 		m, err := exportTrack(a, *out)

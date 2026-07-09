@@ -60,9 +60,10 @@ func exportTrack(a *assets, out string) (ModelIndex, error) {
 	if err != nil {
 		return ModelIndex{}, err
 	}
+	cam := startCam
 	return ModelIndex{
-		Name: "Ridge Racer Course", File: file, Kind: "rr-course",
-		ObjectsFile: objectsFile, Fly: true,
+		Name: "Ridge Racer Course", File: file, Kind: "rr-course", Section: "Course",
+		ObjectsFile: objectsFile, Fly: true, Camera: &cam,
 	}, nil
 }
 

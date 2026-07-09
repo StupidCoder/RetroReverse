@@ -49,8 +49,18 @@ export default {
       placed.push({ object3d: node, obj: o });
     }));
 
-    stage.frame(track);
+    stage.frame(track); // fits near/far to the whole course
     const size = new THREE.Box3().setFromObject(track).getSize(new THREE.Vector3()).length() || 100;
+
+    // Open at the race-start camera (captured from the game, manifest.camera) so
+    // the course reads from the grid looking down the track, not from a fitted
+    // 3/4 overview. The FlyCam continues from whatever pose the camera holds.
+    if (item.camera) {
+      const p = item.camera.pos, t = item.camera.target;
+      camera.position.set(p[0], p[1], p[2]);
+      controls.target.set(t[0], t[1], t[2]);
+      controls.update();
+    }
 
     // ---- fly camera ----
     controls.autoRotate = false;

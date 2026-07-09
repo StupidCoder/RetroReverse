@@ -98,7 +98,7 @@ func exportCars(a *assets, out string) ([]ModelIndex, error) {
 		}
 		fmt.Fprintf(os.Stderr, "[models] %2d/%d %s (%s, %d verts)\n",
 			i+1, len(cars), filepath.Base(file), c.Name, len(b.verts))
-		models = append(models, ModelIndex{Name: c.Name, File: file, Kind: "mesh3d"})
+		models = append(models, ModelIndex{Name: c.Name, File: file, Kind: "mesh3d", Section: "Cars"})
 	}
 	return models, nil
 }
