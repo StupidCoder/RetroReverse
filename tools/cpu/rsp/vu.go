@@ -122,11 +122,11 @@ func (c *CPU) cop2(w uint32) {
 		case 0x06: // ctc2
 			c.setCtrl(rd&3, uint16(c.R[rt]))
 		default:
-			c.Halt("unimplemented cop2 rs=0x%02X (word 0x%08X) at $%03X", rs, w, c.curPC)
+			c.unimpl(w)
 		}
 		return
 	}
-	c.vectorALU(w&0x3F, rs&15, rt, rd, shamt)
+	c.vectorALU(w, w&0x3F, rs&15, rt, rd, shamt)
 }
 
 func (c *CPU) ctrl(i uint32) uint16 {
@@ -173,7 +173,7 @@ func (c *CPU) setVecByte(r, b uint32, v byte) {
 
 // vectorALU runs one vector operation. vd is the destination, vs the first
 // source, vt the second (through the element specifier).
-func (c *CPU) vectorALU(funct, e, vt, vs, vd uint32) {
+func (c *CPU) vectorALU(w, funct, e, vt, vs, vd uint32) {
 	switch funct {
 	// --- multiply: write the accumulator outright ---------------------------
 	case 0x00: // vmulf: signed fractional multiply, rounded
@@ -383,18 +383,16 @@ func (c *CPU) vectorALU(funct, e, vt, vs, vd uint32) {
 			c.setAcc(i, s16(c.vt(vt, e, i)))
 		}
 	case 0x34, 0x35: // vrsq, vrsql
-		// No microcode seen so far executes these, and the published pseudocode
-		// for them is self-inconsistent: it derives scale_out from the input's
-		// scale before halving that scale, and its final line invokes the
-		// reciprocal rather than the reciprocal square root. Implementing it from
-		// a description that cannot be right would produce a wrong answer that
-		// looks plausible, so it waits for a microcode that exercises it.
-		c.Halt("unmodelled %q at $%03X: the published algorithm for the reciprocal "+
-			"square root is self-inconsistent and no microcode has exercised it",
-			vuOp[funct], c.curPC)
+		// The published pseudocode for the reciprocal square root is
+		// self-inconsistent: it derives scale_out from the input's scale before
+		// halving that scale, and its final line invokes the reciprocal rather
+		// than the square root. Implementing it from a description that cannot be
+		// right would give a plausible wrong answer, so it is recorded and the
+		// destination left alone. n64-systemtest names it if a program needs it.
+		c.unimpl(w)
 
 	default:
-		c.Halt("unimplemented vector op funct 0x%02X at $%03X", funct, c.curPC)
+		c.unimpl(w)
 	}
 }
 
@@ -581,7 +579,7 @@ func (c *CPU) vecLoad(w, rs, vt uint32) {
 	case 0x07: // luv: eight bytes, one per lane, as unsigned values
 		c.packedLoad(vt, e, addr, 7)
 	default:
-		c.Halt("unmodelled vector load %q at $%03X", lwc2Op[op], c.curPC)
+		c.unimpl(w)
 	}
 }
 
@@ -640,7 +638,7 @@ func (c *CPU) vecStore(w, rs, vt uint32) {
 		}
 		c.packedStore(vt, e, addr, shift)
 	default:
-		c.Halt("unmodelled vector store %q at $%03X", swc2Op[op], c.curPC)
+		c.unimpl(w)
 	}
 }
 

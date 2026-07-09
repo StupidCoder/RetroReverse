@@ -259,7 +259,12 @@ func (c *CPU) cop0(w, rs, rt, rd uint32) {
 		case 0x18:
 			c.eret()
 		default:
-			c.Halt("unimplemented cop0 command 0x%08X at 0x%08X", w, uint32(c.curPC))
+			// The VR4300's coprocessor-0 command space has exactly five defined
+			// functions; everything else does nothing at all. It does not fault,
+			// which is why programs can probe the space safely — n64-systemtest
+			// asks whether it is running under an emulator by executing an
+			// undefined one and looking at whether a register changed. Halting
+			// here would stop a program that real hardware runs without a murmur.
 		}
 		return
 	}
@@ -273,7 +278,7 @@ func (c *CPU) cop0(w, rs, rt, rd uint32) {
 	case 0x05: // dmtc0
 		c.writeCop0(rd, c.R[rt])
 	default:
-		c.Halt("unimplemented cop0 rs=0x%02X (word 0x%08X) at 0x%08X", rs, w, uint32(c.curPC))
+		c.Exception(excRI) // an undefined COP0 move
 	}
 }
 

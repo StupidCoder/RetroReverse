@@ -100,6 +100,7 @@ type Machine struct {
 	EEPROM []byte
 
 	run        runState
+	noSpin     bool
 	rspRunning bool   // guards against a task restarting itself mid-run
 	rspSteps   uint64 // RSP instructions executed, across all tasks
 	rdpWords   uint64 // RDP command words queued, across all tasks

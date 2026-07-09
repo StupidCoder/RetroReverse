@@ -357,12 +357,26 @@ func TestLongReciprocalSequence(t *testing.T) {
 	}
 }
 
-func TestReciprocalSquareRootStillHalts(t *testing.T) {
-	// VRSQ's published algorithm is self-inconsistent and no microcode has
-	// exercised it, so the core refuses rather than invent a plausible answer.
-	c, _ := newTest(vec(0, 1, 0, 2, 0x34)) // vrsq
+func TestUnimplementedEncodingsAreRecordedNotFatal(t *testing.T) {
+	// The RSP has no exception mechanism: no interrupts, no faults, nowhere to
+	// vector to. An encoding it does not implement does nothing at all, so a core
+	// that halted would stop microcode real hardware runs. The gap is recorded
+	// instead.
+	//
+	// VRSQ is one: its published algorithm is self-inconsistent, so rather than
+	// invent a plausible answer the core leaves the destination alone and says so.
+	w := vec(0, 1, 0, 2, 0x34) // vrsq
+	c, _ := newTest(w)
+	c.V[2][0] = 0xBEEF
 	c.Step()
-	if !c.Halted || c.Broke {
-		t.Fatal("vrsq did not halt the core")
+
+	if c.Halted {
+		t.Fatalf("vrsq halted the core: %s", c.HaltReason)
+	}
+	if c.V[2][0] != 0xBEEF {
+		t.Error("vrsq wrote a destination lane it does not model")
+	}
+	if c.Unimplemented[w] != 1 {
+		t.Errorf("vrsq was not recorded as unimplemented: %v", c.Unimplemented)
 	}
 }

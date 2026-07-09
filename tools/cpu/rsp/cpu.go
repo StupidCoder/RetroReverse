@@ -49,6 +49,15 @@ type CPU struct {
 	HaltReason string
 	Steps      uint64
 
+	// Unimplemented counts the encodings this core met and did not model, by
+	// instruction word.
+	//
+	// The RSP has no exception mechanism — no interrupts, no faults, nowhere to
+	// vector to — so an encoding it does not implement simply does nothing. A
+	// core that halted instead would stop microcode that real hardware runs. The
+	// gap is recorded rather than swallowed, so a caller can still see it.
+	Unimplemented map[uint32]int
+
 	regs Regs
 
 	curPC uint32
@@ -71,6 +80,15 @@ func (c *CPU) Reset() {
 	c.PC, c.nextPC = 0, 4
 	c.Halted, c.Broke, c.HaltReason = true, false, ""
 	c.Steps = 0
+}
+
+// unimpl records an encoding this core does not model and continues. See the
+// Unimplemented field for why this is not a halt.
+func (c *CPU) unimpl(w uint32) {
+	if c.Unimplemented == nil {
+		c.Unimplemented = map[uint32]int{}
+	}
+	c.Unimplemented[w]++
 }
 
 // Halt stops the core, recording why.
@@ -186,7 +204,7 @@ func (c *CPU) execute(w uint32) {
 			c.set(31, (c.curPC+8)&0xFFC)
 			c.doBranch(s >= 0, branchT)
 		default:
-			c.Halt("unimplemented regimm rt=0x%02X (word 0x%08X) at $%03X", rt, w, c.curPC)
+			c.unimpl(w)
 		}
 	case 0x02:
 		c.doBranch(true, jumpT)
@@ -226,7 +244,7 @@ func (c *CPU) execute(w uint32) {
 		case 0x04:
 			c.regs.WriteCop0(rd, c.R[rt])
 		default:
-			c.Halt("unimplemented cop0 rs=0x%02X (word 0x%08X) at $%03X", rs, w, c.curPC)
+			c.unimpl(w)
 		}
 	case 0x12: // COP2
 		c.cop2(w)
@@ -254,7 +272,7 @@ func (c *CPU) execute(w uint32) {
 		c.vecStore(w, rs, rt)
 
 	default:
-		c.Halt("unimplemented opcode 0x%02X (word 0x%08X) at $%03X", op, w, c.curPC)
+		c.unimpl(w)
 	}
 }
 
@@ -300,7 +318,7 @@ func (c *CPU) special(w, rs, rt uint32) {
 	case 0x2B:
 		c.set(rd, b2u(c.R[rs] < c.R[rt]))
 	default:
-		c.Halt("unimplemented special funct 0x%02X (word 0x%08X) at $%03X", w&63, w, c.curPC)
+		c.unimpl(w)
 	}
 }
 

@@ -21,8 +21,22 @@ import "math"
 
 // FCR31 bits.
 const (
-	fcr31Cond = 1 << 23 // the condition flag set by c.cond.fmt
+	fcr31Cond        = 1 << 23 // the condition flag set by c.cond.fmt
+	fcr31CauseUnimpl = 1 << 17 // an operation the FPU does not implement
 )
+
+// fpUnimplemented raises the floating-point exception a program gets for an
+// encoding the FPU has no unit for — cvt.s.s, say, which names a conversion from
+// a format to itself.
+//
+// The hardware does not simply ignore these. It traps, unconditionally, whatever
+// the enable bits say, and records the reason in FCR31. n64-systemtest executes
+// them on purpose and expects to land in its handler; halting here would stop a
+// program that real hardware runs.
+func (c *CPU) fpUnimplemented() {
+	c.FCR31 |= fcr31CauseUnimpl
+	c.Exception(excFPE)
+}
 
 // Rounding modes (FCR31 bits 0..1).
 const (
@@ -198,7 +212,7 @@ func (c *CPU) cop1(w, rs, rt, rd, shamt uint32, branchT uint64) {
 		case 0x21: // cvt.d.w
 			c.setD(fd, float64(int32(c.readFGR32(fs))))
 		default:
-			c.Halt("unimplemented cop1 w-format funct 0x%02X (word 0x%08X) at 0x%08X", funct, w, uint32(c.curPC))
+			c.fpUnimplemented()
 		}
 	case 0x15: // 64-bit integer source
 		switch funct {
@@ -207,10 +221,10 @@ func (c *CPU) cop1(w, rs, rt, rd, shamt uint32, branchT uint64) {
 		case 0x21: // cvt.d.l
 			c.setD(fd, float64(int64(c.readFGR64(fs))))
 		default:
-			c.Halt("unimplemented cop1 l-format funct 0x%02X (word 0x%08X) at 0x%08X", funct, w, uint32(c.curPC))
+			c.fpUnimplemented()
 		}
 	default:
-		c.Halt("unimplemented cop1 rs=0x%02X (word 0x%08X) at 0x%08X", rs, w, uint32(c.curPC))
+		c.fpUnimplemented()
 	}
 }
 
@@ -259,7 +273,7 @@ func (c *CPU) cop1Single(w, funct, ft, fs, fd uint32) {
 	case 0x25: // cvt.l.s
 		c.writeFGR64(fd, uint64(int64(c.round(float64(c.fs(fs))))))
 	default:
-		c.Halt("unimplemented cop1 s-format funct 0x%02X (word 0x%08X) at 0x%08X", funct, w, uint32(c.curPC))
+		c.fpUnimplemented()
 	}
 }
 
@@ -308,7 +322,7 @@ func (c *CPU) cop1Double(w, funct, ft, fs, fd uint32) {
 	case 0x25: // cvt.l.d
 		c.writeFGR64(fd, uint64(int64(c.round(c.fd(fs)))))
 	default:
-		c.Halt("unimplemented cop1 d-format funct 0x%02X (word 0x%08X) at 0x%08X", funct, w, uint32(c.curPC))
+		c.fpUnimplemented()
 	}
 }
 

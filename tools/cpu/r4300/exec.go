@@ -145,7 +145,13 @@ func (c *CPU) execute(w uint32) {
 	case 0x10:
 		c.cop0(w, rs, rt, (w>>11)&31)
 	case 0x11:
+		if c.COP0[cop0Status]&statusCU1 == 0 {
+			c.coprocessorUnusable(1)
+			return
+		}
 		c.cop1(w, rs, rt, (w>>11)&31, (w>>6)&31, branchT)
+	case 0x12:
+		c.cop2(w, rs, rt)
 
 	case 0x20, 0x21, 0x22, 0x23, 0x24, 0x25, 0x26, 0x27, 0x1A, 0x1B, 0x30, 0x34, 0x37:
 		c.loadOp(op, rs, rt, simm)
@@ -158,10 +164,52 @@ func (c *CPU) execute(w uint32) {
 		// osInvalDCache/osWritebackDCache, so halting here would stop the boot.
 
 	case 0x31, 0x35, 0x39, 0x3D: // lwc1 / ldc1 / swc1 / sdc1
+		if c.COP0[cop0Status]&statusCU1 == 0 {
+			c.coprocessorUnusable(1)
+			return
+		}
 		c.cop1Mem(op, rs, rt, simm)
 
 	default:
-		c.Halt("unimplemented opcode 0x%02X (word 0x%08X) at 0x%08X", op, w, uint32(c.curPC))
+		// Every encoding the VR4300 does not define raises a reserved-instruction
+		// fault. There is no third coprocessor, no SPECIAL2, no SPECIAL3 — and a
+		// program may execute one on purpose to see what happens. Halting here
+		// would stop code that real hardware runs, so the fault is raised.
+		//
+		// This gives up the halt-on-gap safety net for the instruction set, which
+		// was worth having only while the set was incomplete. It is complete, and
+		// n64-systemtest is a better instrument than a Go panic: a gap now shows
+		// up as a named failing test rather than a stopped machine.
+		c.Exception(excRI)
+	}
+}
+
+// cop2 is the VR4300's second coprocessor: no function unit, one 64-bit latch,
+// and an exception for touching it while Status has it disabled.
+//
+// The N64 never uses it for arithmetic — the vector unit lives in the RSP — but
+// the moves decode and behave, and code does execute them. n64-systemtest reads
+// the latch back to check exactly this.
+func (c *CPU) cop2(w, rs, rt uint32) {
+	if c.COP0[cop0Status]&statusCU2 == 0 {
+		c.coprocessorUnusable(2)
+		return
+	}
+	switch rs {
+	case 0x00: // mfc2: the latch's low half, sign-extended
+		c.set(rt, sext32(uint32(c.COP2Latch)))
+	case 0x01: // dmfc2
+		c.set(rt, c.COP2Latch)
+	case 0x02: // cfc2
+		c.set(rt, sext32(uint32(c.COP2Latch)))
+	case 0x04: // mtc2: only the low half is written
+		c.COP2Latch = c.COP2Latch&^0xFFFFFFFF | uint64(uint32(c.R[rt]))
+	case 0x05: // dmtc2
+		c.COP2Latch = c.R[rt]
+	case 0x06: // ctc2
+		c.COP2Latch = c.COP2Latch&^0xFFFFFFFF | uint64(uint32(c.R[rt]))
+	default:
+		// The COP2 command space is undefined and, like COP0's, does nothing.
 	}
 }
 
@@ -176,13 +224,18 @@ func (c *CPU) special(w, rs, rt uint32) {
 	case 0x02: // srl
 		c.set(rd, sext32(uint32(c.R[rt])>>shamt))
 	case 0x03: // sra
-		c.set(rd, sext32(uint32(int32(uint32(c.R[rt]))>>shamt)))
+		// The arithmetic right shifts read the *whole* 64-bit register, not its
+		// low half, and only then sign-extend the 32-bit result. A core that
+		// shifts the low half alone gives a different answer whenever the high
+		// half is not already the sign extension of the low one — which is
+		// exactly what happens after a 64-bit operation.
+		c.set(rd, sext32(uint32(int64(c.R[rt])>>shamt)))
 	case 0x04: // sllv
 		c.set(rd, sext32(uint32(c.R[rt])<<(c.R[rs]&31)))
 	case 0x06: // srlv
 		c.set(rd, sext32(uint32(c.R[rt])>>(c.R[rs]&31)))
 	case 0x07: // srav
-		c.set(rd, sext32(uint32(int32(uint32(c.R[rt]))>>(c.R[rs]&31))))
+		c.set(rd, sext32(uint32(int64(c.R[rt])>>(c.R[rs]&31))))
 
 	case 0x08: // jr
 		c.doBranch(true, c.R[rs])
@@ -306,7 +359,7 @@ func (c *CPU) special(w, rs, rt uint32) {
 		c.set(rd, uint64(int64(c.R[rt])>>(shamt+32)))
 
 	default:
-		c.Halt("unimplemented special funct 0x%02X (word 0x%08X) at 0x%08X", funct, w, uint32(c.curPC))
+		c.Exception(excRI) // an undefined SPECIAL function
 	}
 }
 
@@ -350,7 +403,7 @@ func (c *CPU) regimm(w, rs, rt uint32, branchT, simm uint64) {
 		c.doBranchLikely(s >= 0, branchT)
 
 	default:
-		c.Halt("unimplemented regimm rt=0x%02X (word 0x%08X) at 0x%08X", rt, w, uint32(c.curPC))
+		c.Exception(excRI) // an undefined REGIMM function
 	}
 }
 

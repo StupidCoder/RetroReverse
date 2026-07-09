@@ -109,6 +109,37 @@ func TestDoubleShifts(t *testing.T) {
 	}
 }
 
+func TestArithmeticShiftReadsTheWholeRegister(t *testing.T) {
+	// sra and srav shift the full 64-bit register and sign-extend the 32-bit
+	// result. Shifting only the low half gives a different answer whenever the
+	// high half is not already the sign extension of the low one — which is what
+	// a preceding 64-bit operation leaves behind.
+	c, _ := newTest(
+		rt(0, 0, 1, 2, 4, 0x03), // sra  $2, $1, 4
+		rt(0, 3, 1, 4, 0, 0x07), // srav $4, $1, $3
+	)
+	c.SetReg(1, 0x00000000FFFFFFFF) // low half all ones, high half zero
+	c.SetReg(3, 4)
+	run(t, c, 2)
+
+	// (int64)0x00000000FFFFFFFF >> 4 is 0x0FFFFFFF, whose low 32 bits are
+	// 0x0FFFFFFF. Shifting the low half alone would treat it as -1 and give -1.
+	if got, want := c.R[2], uint64(0x0FFFFFFF); got != want {
+		t.Errorf("sra: got %016X want %016X", got, want)
+	}
+	if got, want := c.R[4], uint64(0x0FFFFFFF); got != want {
+		t.Errorf("srav: got %016X want %016X", got, want)
+	}
+
+	// And a genuinely negative 64-bit value still sign-extends.
+	c2, _ := newTest(rt(0, 0, 1, 2, 4, 0x03))
+	c2.SetReg(1, 0xFFFFFFFFFFFFFF00)
+	run(t, c2, 1)
+	if got, want := c2.R[2], uint64(0xFFFFFFFFFFFFFFF0); got != want {
+		t.Errorf("sra of a negative value: got %016X want %016X", got, want)
+	}
+}
+
 func TestBranchLikelyAnnulsWhenNotTaken(t *testing.T) {
 	// beql $1,$0 with $1 != 0: not taken, so the delay slot is annulled and the
 	// instruction after it runs.
@@ -506,11 +537,75 @@ func TestFPURegisterFileShape(t *testing.T) {
 	}
 }
 
-func TestUnimplementedOpcodeHalts(t *testing.T) {
-	// Gaps must be explicit rather than silently wrong.
-	c, _ := newTest(0x4C000000) // COP3: the VR4300 has no third coprocessor
+func TestUndefinedOpcodeRaisesReservedInstruction(t *testing.T) {
+	// Every encoding the VR4300 does not define faults rather than halting. A
+	// program may execute one deliberately to see what happens — n64-systemtest
+	// does — and real hardware obliges it with an exception.
+	for _, tc := range []struct {
+		name string
+		w    uint32
+	}{
+		{"COP3 (there is no third coprocessor)", 0x4C000000},
+		{"SPECIAL3", 0x7C03E83B},
+		{"an undefined SPECIAL function", 0x00000015},
+		{"an undefined REGIMM function", 0x04170001},
+	} {
+		c, _ := newTest(tc.w)
+		c.Step()
+		if c.Halted {
+			t.Errorf("%s halted the core instead of faulting: %s", tc.name, c.HaltReason)
+			continue
+		}
+		if got := (c.COP0[cop0Cause] >> 2) & 0x1F; got != excRI {
+			t.Errorf("%s: exception code %d, want RI (%d)", tc.name, got, excRI)
+		}
+		if c.PC != 0xFFFFFFFF80000180 {
+			t.Errorf("%s: vectored to %016X, want the general handler", tc.name, c.PC)
+		}
+	}
+}
+
+func TestCoprocessorUnusable(t *testing.T) {
+	// Touching a coprocessor that Status has not enabled faults, and the Cause
+	// register records which one — a handler cannot act without knowing.
+	c, _ := newTest(rt(0x11, 0x04, 1, 0, 0, 0)) // mtc1, with CU1 cleared below
+	c.COP0[cop0Status] &^= statusCU1
 	c.Step()
-	if !c.Halted {
-		t.Fatal("an unimplemented opcode did not halt the core")
+	if got := (c.COP0[cop0Cause] >> 2) & 0x1F; got != excCpU {
+		t.Errorf("COP1 while disabled: exception code %d, want CpU (%d)", got, excCpU)
+	}
+	if got := (c.COP0[cop0Cause] >> 28) & 3; got != 1 {
+		t.Errorf("Cause CE = %d, want 1 (the coprocessor that faulted)", got)
+	}
+}
+
+func TestCOP2IsALatch(t *testing.T) {
+	// The VR4300's second coprocessor has no function unit — the N64's vector
+	// unit lives in the RSP — but its moves work, on one shared latch.
+	c, _ := newTest(
+		rt(0x12, 0x05, 1, 0, 0, 0), // dmtc2 $1, $0
+		rt(0x12, 0x01, 2, 0, 0, 0), // dmfc2 $2, $0
+	)
+	c.COP0[cop0Status] |= statusCU2
+	c.SetReg(1, 0x0123456789ABCDEF)
+	run(t, c, 2)
+	if c.R[2] != 0x0123456789ABCDEF {
+		t.Errorf("the COP2 latch did not round-trip: got %016X", c.R[2])
+	}
+}
+
+func TestUnimplementedFPOperationFaults(t *testing.T) {
+	// cvt.s.s names a conversion from a format to itself. The FPU has no unit for
+	// it and traps unconditionally, recording the reason in FCR31.
+	c, _ := newTest(0x46000120) // cvt.s.s $f4, $f0
+	c.Step()
+	if c.Halted {
+		t.Fatalf("cvt.s.s halted the core: %s", c.HaltReason)
+	}
+	if got := (c.COP0[cop0Cause] >> 2) & 0x1F; got != excFPE {
+		t.Errorf("exception code %d, want FPE (%d)", got, excFPE)
+	}
+	if c.FCR31&fcr31CauseUnimpl == 0 {
+		t.Error("FCR31 does not record an unimplemented operation")
 	}
 }

@@ -107,7 +107,13 @@ func (m *Machine) Boot(rom *ROM, cfg BootConfig) error {
 	// IPL3 runs from DMEM with the caches and the TLB untouched, so clear the
 	// reset-forced ERL/BEV: the vectors it would use are never taken, and leaving
 	// ERL set would make KSEG0 behave as unmapped-uncached for the game too.
-	c.COP0[r4300.Cop0Status] = r4300.StatusCU1
+	//
+	// The Status bits IPL2 leaves are CU0, CU1 and FR — 0x34000000. FR is the
+	// load-bearing one: it selects whether the floating-point register file is 32
+	// independent 64-bit registers or 16 even/odd pairs, so a boot that clears it
+	// hands the game a different FPU from the one it was compiled for.
+	// n64-systemtest's very first check is this register's value.
+	c.COP0[r4300.Cop0Status] = r4300.StatusCU0 | r4300.StatusCU1 | r4300.StatusFR
 
 	c.SetReg(3, 0)                      // $v1
 	c.SetReg(11, ipl3Entry)             // $t3: IPL2 leaves IPL3's own address here

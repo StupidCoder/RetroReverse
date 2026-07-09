@@ -72,7 +72,9 @@ const (
 	statusERL = 1 << 2  // error level
 	statusBEV = 1 << 22 // bootstrap exception vectors (ROM, not RAM)
 	statusFR  = 1 << 26 // full 32-register FPU file (vs 16 even-odd pairs)
+	statusCU0 = 1 << 28 // coprocessor 0 usable in user mode
 	statusCU1 = 1 << 29 // coprocessor 1 usable
+	statusCU2 = 1 << 30 // coprocessor 2 usable
 )
 
 // Cause register bits. IP2 is the RCP's aggregated interrupt line; IP7 is the
@@ -123,7 +125,9 @@ const (
 	StatusERL = statusERL
 	StatusBEV = statusBEV
 	StatusFR  = statusFR
+	StatusCU0 = statusCU0
 	StatusCU1 = statusCU1
+	StatusCU2 = statusCU2
 
 	CauseIP2 = causeIP2
 	CauseIP7 = causeIP7
@@ -141,6 +145,11 @@ type CPU struct {
 
 	FGR   [32]uint64 // floating-point register file (see fpu.go)
 	FCR31 uint32     // FPU control/status: rounding mode, flags, condition bit
+
+	// COP2Latch is the whole of the VR4300's second coprocessor. The chip has no
+	// COP2 function unit — the N64 puts its vector unit in the RSP instead — but
+	// the moves still decode, and they read and write one shared 64-bit latch.
+	COP2Latch uint64
 
 	LLBit bool // set by ll/lld, cleared by an intervening store or eret; sc/scd test it
 
@@ -192,6 +201,7 @@ func (c *CPU) Reset() {
 	c.TLB = [TLBSize]TLBEntry{}
 	c.FGR = [32]uint64{}
 	c.FCR31 = 0
+	c.COP2Latch = 0
 	c.LLBit = false
 	c.delaySlot, c.pendingDelay = false, false
 	c.Halted, c.HaltReason = false, ""
@@ -329,6 +339,14 @@ func (c *CPU) eret() {
 	c.LLBit = false
 	// ERET has no delay slot: the next instruction fetched is at the target.
 	c.pendingDelay = false
+}
+
+// coprocessorUnusable raises the exception a program gets for touching a
+// coprocessor its Status register has not enabled. Which coprocessor is recorded
+// in the Cause register's CE field, and a handler needs it to know what to do.
+func (c *CPU) coprocessorUnusable(unit uint32) {
+	c.COP0[cop0Cause] = (c.COP0[cop0Cause] &^ 0x30000000) | uint64(unit)<<28
+	c.Exception(excCpU)
 }
 
 // addrError raises an address-error exception for a misaligned access.

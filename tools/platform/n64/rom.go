@@ -84,6 +84,11 @@ type CIC struct {
 // IPL3 run to its jump (see boot.go).
 var cicByIPL3 = map[uint32]CIC{
 	0x90BB6CB5: {"CIC-NUS-6102", 0x3F},
+
+	// libdragon's open-source bootcode, which homebrew and test ROMs use in
+	// place of Nintendo's. It performs no integrity check, so the seed is inert
+	// and is carried only to keep the boot handoff uniform.
+	0xB531BDE6: {"libdragon IPL3 (homebrew)", 0x3F},
 }
 
 // Header is the 64-byte cartridge header, in native (big-endian) form.
