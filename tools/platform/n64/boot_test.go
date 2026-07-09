@@ -129,7 +129,10 @@ func TestBootClearsTheFramebuffer(t *testing.T) {
 	// The colour image is rebound several times a frame, so the buffer that
 	// matters is the one that was bound when the fill ran — not whichever is
 	// bound when the frame ends, which may hold nothing but a texture's
-	// leftovers.
+	// leftovers. And the moment that matters is when the clearing ends: the
+	// first buffer this game fills is its *depth* buffer, which the triangles
+	// that follow legitimately write z values into, and an encoded z can hold
+	// a zero byte. Sample at the first draw command, before it executes.
 	fills, drawn := 0, -1
 	var fillBase, fillWidth, fillColor uint32
 	m.OnRDPCmd = func(mm *Machine, op uint32, _ []uint64) {
@@ -140,9 +143,10 @@ func TestBootClearsTheFramebuffer(t *testing.T) {
 				fillBase, fillWidth = mm.rdp.Color.Addr, mm.rdp.Color.Width
 				fillColor = mm.rdp.FillColor
 			}
-		case cmdSyncFull:
+		case cmdTexRect, cmdTexRectFlip, cmdTriFill, cmdTriFillZ, cmdTriTex, cmdTriTexZ,
+			cmdTriShade, cmdTriShadeZ, cmdTriShadeTex, cmdTriShadeTexZ:
 			if drawn >= 0 || fillBase == 0 {
-				return // only the first frame that actually cleared something
+				return // only the first clear, measured once
 			}
 			drawn = 0
 			for _, b := range mm.RDRAM[fillBase : fillBase+fillWidth*240*2] {

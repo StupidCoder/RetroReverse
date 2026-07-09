@@ -127,6 +127,12 @@ type Machine struct {
 	// OnRDPCmd is called for each decoded RDP command, before it is executed —
 	// the counterpart of the PlayStation oracle's OnGP0.
 	OnRDPCmd func(m *Machine, op uint32, words []uint64)
+	// OnPixel is called for every pixel the triangle rasteriser and the
+	// texture-rectangle walker produce, whether or not it reached memory.
+	// Pairing it with a command counter kept in OnRDPCmd attributes each
+	// pixel to the draw that produced it — the census method every RDP
+	// defect so far was found with.
+	OnPixel func(x, y uint32, ev PixelEvent)
 	// OnPrint is called for each line a program writes to the IS-Viewer. Test
 	// ROMs report their results this way.
 	OnPrint func(m *Machine, line string)

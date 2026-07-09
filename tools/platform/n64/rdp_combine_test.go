@@ -117,14 +117,18 @@ func TestBlenderKnowsWhenItReadsMemory(t *testing.T) {
 
 func TestTexCoordWrapsAndMirrors(t *testing.T) {
 	// A three-bit mask wraps every eight texels; mirroring reflects every other
-	// repeat, which is how a game tiles a texture without a seam.
+	// repeat, which is how a game tiles a texture without a seam. The cm bits
+	// are libultra's G_TX constants: 1 mirrors, 2 clamps — Pilotwings' sky is
+	// the witness for which is which (see texCoord).
 	for _, tc := range []struct {
 		v        int32
 		mask, cm uint32
 		want     uint32
 	}{
 		{3, 3, 0, 3}, {8, 3, 0, 0}, {11, 3, 0, 3}, // wrap
-		{3, 3, 2, 3}, {8, 3, 2, 7}, {11, 3, 2, 4}, // mirror
+		{3, 3, 1, 3}, {8, 3, 1, 7}, {11, 3, 1, 4}, // mirror
+		{3, 3, 2, 3}, {8, 3, 2, 7}, {11, 3, 2, 7}, // clamp to the extent, 0..7
+		{-2, 3, 2, 0}, {9, 3, 3, 7},               // clamp below; clamp wins before mirror
 	} {
 		if got := texCoord(tc.v, tc.mask, tc.cm, 0, 7); got != tc.want {
 			t.Errorf("texCoord(v=%d mask=%d cm=%d) = %d want %d", tc.v, tc.mask, tc.cm, got, tc.want)

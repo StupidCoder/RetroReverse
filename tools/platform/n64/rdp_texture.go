@@ -20,35 +20,37 @@ package n64
 // tlutBase is where Load_TLUT writes, halfway up TMEM.
 const tlutBase = 0x800
 
-// texCoord applies a tile's wrap, mirror and clamp rules to one axis.
+// texCoord applies a tile's clamp, mirror and wrap rules to one axis.
 //
-// The mask selects how many low bits survive, which is the wrap. Mirroring
-// reflects every other repeat, so the bit above the mask flips the coordinate.
-// Clamping, which the hardware only honours when no mask is set, pins the
-// coordinate inside the tile's declared extent.
+// The cm field is two independent bits, and they are libultra's G_TX constants
+// verbatim: bit 0 is MIRROR (1), bit 1 is CLAMP (2). Getting them the wrong way
+// round is not a subtle defect, but it hides well: most tiles either set no cm
+// bits at all or use mask==0, where clamping is forced regardless. It surfaced
+// as a horizontal strip of upside-down cloud in Pilotwings' sky — the horizon
+// band's tile says clamp (cmT=2, extent 32 rows), its t coordinate reaches ~50
+// at the top of the band, and a swapped decode mirrored those rows back through
+// the artwork instead of pinning them to the empty bottom row.
+//
+// Clamping pins the coordinate inside the tile's declared extent, and the
+// hardware applies it when the clamp bit is set — or always, when there is no
+// mask. The mask then selects how many low bits survive (the wrap), and the
+// mirror bit reflects every other repeat, so the bit above the mask flips the
+// coordinate.
 func texCoord(v int32, mask, cm, lo, hi uint32) uint32 {
-	if mask == 0 {
-		// No mask: clamp into the tile's extent.
-		if v < int32(lo) {
-			v = int32(lo)
-		}
-		if v > int32(hi) {
-			v = int32(hi)
-		}
-		return uint32(v - int32(lo))
-	}
 	v -= int32(lo)
-	m := int32(1)<<mask - 1
-	if cm&1 != 0 { // clamp
+	if cm&2 != 0 || mask == 0 { // clamp
 		if v < 0 {
 			v = 0
 		}
-		if v > int32(hi-lo) {
+		if hi > lo && v > int32(hi-lo) {
 			v = int32(hi - lo)
 		}
+	}
+	if mask == 0 {
 		return uint32(v)
 	}
-	if cm&2 != 0 && v&(m+1) != 0 { // mirror: every other repeat runs backwards
+	m := int32(1)<<mask - 1
+	if cm&1 != 0 && v&(m+1) != 0 { // mirror: every other repeat runs backwards
 		return uint32(m - (v & m))
 	}
 	return uint32(v & m)
@@ -307,6 +309,17 @@ func depthOf(z int64) uint32 {
 	return (uint32(exp)<<11 | mantissa&0x7FF) << 2
 }
 
+// PixelEvent is what the OnPixel instrumentation hook sees: whether the pixel
+// reached memory, why it was rejected if not, and the colour that was written.
+type PixelEvent struct {
+	Drawn                bool
+	ZReject, AlphaReject bool
+	R, G, B, A           uint32
+	Z                    int64
+	TexR, TexG, TexB, TexA uint32 // the sampled texel, before the combiner
+	TexS, TexT             int32  // the 10.5 coordinates it was sampled at
+}
+
 // drawPixel runs one pixel through the combiner, the depth test and the blender,
 // and stores it. It is the single place a shaded pixel reaches memory.
 func (m *Machine) drawPixel(x, y uint32, in *combineInputs, z int64, useZ bool) {
@@ -315,6 +328,9 @@ func (m *Machine) drawPixel(x, y uint32, in *combineInputs, z int64, useZ bool) 
 	if useZ && r.OtherModes&omZCompare != 0 && r.Mask != 0 {
 		zv := depthOf(z)
 		if zv >= m.depthAt(x, y) {
+			if m.OnPixel != nil {
+				m.OnPixel(x, y, PixelEvent{ZReject: true, Z: z})
+			}
 			return // hidden by something already drawn
 		}
 	}
@@ -324,6 +340,9 @@ func (m *Machine) drawPixel(x, y uint32, in *combineInputs, z int64, useZ bool) 
 	// The alpha test discards a pixel outright, which is how a cut-out texture
 	// gets its holes.
 	if r.OtherModes&omAlphaCompare != 0 && col.A < r.BlendColor&255 {
+		if m.OnPixel != nil {
+			m.OnPixel(x, y, PixelEvent{AlphaReject: true, Z: z})
+		}
 		return
 	}
 
@@ -335,6 +354,13 @@ func (m *Machine) drawPixel(x, y uint32, in *combineInputs, z int64, useZ bool) 
 
 	if useZ && r.OtherModes&omZUpdate != 0 && r.Mask != 0 {
 		m.setDepth(x, y, depthOf(z))
+	}
+	if m.OnPixel != nil {
+		m.OnPixel(x, y, PixelEvent{
+			Drawn: true, R: out.R, G: out.G, B: out.B, A: out.A, Z: z,
+			TexR: in.Texel0.R, TexG: in.Texel0.G, TexB: in.Texel0.B, TexA: in.Texel0.A,
+			TexS: in.texS, TexT: in.texT,
+		})
 	}
 }
 

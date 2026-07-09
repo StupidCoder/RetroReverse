@@ -29,6 +29,8 @@ type combineInputs struct {
 	Comb        rgba // the previous cycle's output
 	LODFrac     uint32
 	PrimLODFrac uint32
+
+	texS, texT int32 // where Texel0 was sampled (10.5); carried for OnPixel
 }
 
 type rgba struct{ R, G, B, A uint32 }

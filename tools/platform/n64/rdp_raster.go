@@ -181,14 +181,24 @@ func (m *Machine) texRect(w []uint64, flip bool) {
 				// COPY bypasses the combiner entirely. A zero alpha is a hole
 				// when the alpha test is on, which is how 2-D cut-outs work.
 				if r.OtherModes&omAlphaCompare != 0 && texel.A == 0 {
+					if m.OnPixel != nil {
+						m.OnPixel(x, y, PixelEvent{AlphaReject: true})
+					}
 					continue
 				}
 				m.writePixel(x, y, texel.R, texel.G, texel.B, texel.A)
+				if m.OnPixel != nil {
+					m.OnPixel(x, y, PixelEvent{
+						Drawn: true, R: texel.R, G: texel.G, B: texel.B, A: texel.A,
+						TexR: texel.R, TexG: texel.G, TexB: texel.B, TexA: texel.A,
+					})
+				}
 				continue
 			}
 			in := combineInputs{
 				Texel0: texel, Texel1: texel, Prim: prim, Env: env,
 				Shade: rgba{255, 255, 255, 255},
+				texS:  sv >> 5, texT: tv >> 5,
 			}
 			m.drawPixel(x, y, &in, 0, false)
 			if m.CPU.Halted {

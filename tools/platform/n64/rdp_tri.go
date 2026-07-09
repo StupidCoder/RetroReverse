@@ -19,10 +19,31 @@ package n64
 // every attribute is expressed in.
 //
 // Coefficients are s15.16 fixed point, y values are 11.2 — quarter-scanlines.
-// The rasteriser here steps whole scanlines from the top of the triangle, which
-// loses the subpixel coverage the hardware computes for antialiasing. Edges are
-// therefore hard, and a game relying on coverage for transparency will look
-// wrong; nothing seen so far does.
+// The rasteriser walks the triangle in quarter-lines, the grid the hardware
+// samples coverage on, and a pixel is drawn when any of its sixteen subpixel
+// samples is inside the triangle. What is still missing is *fractional*
+// coverage: the hardware would hand the blender a 3-bit count for antialiasing,
+// and here an edge pixel is written in full, as the hardware does with
+// antialiasing off.
+//
+// Where the edges are anchored was pinned by measuring the microcode's own
+// output — 14,507 triangles from the attract flyby, every one consistent:
+//
+//   - XH and XM are the edge x values at YH rounded *down to a whole scanline*
+//     (YH & ~3), stepped by slope/4 per quarter-line. Evaluated at YH itself,
+//     the two edges meet at the top vertex to within 0.0001 px.
+//   - XL is the low edge's x at exactly YM, not at a scanline boundary
+//     (2,514 triangles with ym&3 != 0 discriminate the two: 0.04 px against
+//     346 px of error).
+//   - The triangle occupies quarter-lines [YH, YL).
+//
+// Getting this wrong by stepping whole scanlines is not a subtle defect: a
+// sliver triangle whose whole life is a fraction of a scanline has its edges
+// evaluated at the boundary *above* it, where they have not met yet — the span
+// comes out tens of pixels wide, inverted, with the shade interpolated far
+// outside the triangle and clamping to black. That was a family of one-pixel
+// stripe artefacts across the ocean, a smeared row at a mountain summit, and
+// rows the sky skipped entirely.
 
 // triAttrs holds one interpolated quantity's base value and its two gradients,
 // all in s15.16.
@@ -109,60 +130,105 @@ func (m *Machine) triangle(op uint32, w []uint64) {
 		next += 2
 	}
 
-	// Clip vertically against the scissor, in whole scanlines.
-	yTop := int32(yh) >> 2
-	yBot := int32(yl) >> 2
-	if lo := int32(r.Scissor.YH >> 2); yTop < lo {
-		yTop = lo
+	// Clip vertically against the scissor, in quarter-lines — both are 11.2.
+	q0 := int64(yh)
+	if lo := int64(r.Scissor.YH); q0 < lo {
+		q0 = lo
 	}
-	if hi := int32(r.Scissor.YL >> 2); yBot > hi {
-		yBot = hi
+	q1 := int64(yl)
+	if hi := int64(r.Scissor.YL); q1 > hi {
+		q1 = hi
 	}
-	yhScan := int32(yh) >> 2
-	ymScan := int32(ym) >> 2
+
+	yhBase := int64(yh) &^ 3 // the quarter-line XH and XM are given on
+	yhScan := int64(yh) >> 2 // the scanline the attributes are given on
+	ymQ := int64(ym)         // the quarter-line XL takes over on, and is given on
+
+	// The horizontal sample grid is quarter-pixels, so the scissor's 10.2 x
+	// bounds clip sample columns directly.
+	sampLo := int64(r.Scissor.XH)
+	sampHi := int64(r.Scissor.XL)
+	if hi := int64(r.Color.Width) * 4; sampHi > hi {
+		sampHi = hi
+	}
 
 	tile := &r.Tiles[tileIdx]
 	prim := unpackColor(r.PrimColor)
 	env := unpackColor(r.EnvColor)
 
-	for y := yTop; y < yBot; y++ {
-		dy := int64(y - yhScan)
-
-		// The major edge spans the whole triangle; the minor edge switches at the
-		// middle vertex.
-		major := xh + dxhdy*dy
-		var minor int64
-		if y < ymScan {
-			minor = xm + dxmdy*dy
-		} else {
-			minor = xl + dxldy*int64(y-ymScan)
+	for q := q0; q < q1; {
+		y := q >> 2
+		qEnd := (y + 1) * 4
+		if qEnd > q1 {
+			qEnd = q1
 		}
 
-		xs, xe := major, minor
-		if !lft {
-			xs, xe = minor, major
+		// The spans of this scanline's quarter-lines, as half-open ranges of
+		// quarter-pixel sample columns.
+		var spans [4][2]int64
+		n := 0
+		for ; q < qEnd; q++ {
+			major := xh + dxhdy*(q-yhBase)/4
+			var minor int64
+			if q < ymQ {
+				minor = xm + dxmdy*(q-yhBase)/4
+			} else {
+				minor = xl + dxldy*(q-ymQ)/4
+			}
+			xs, xe := major, minor
+			if !lft {
+				xs, xe = minor, major
+			}
+			// An empty or inverted span holds no samples. The hardware never
+			// swaps one: a sliver narrower than its own edge rounding simply
+			// covers nothing on this quarter-line.
+			if xe <= xs {
+				continue
+			}
+			c0, c1 := ceilQuarter(xs), ceilQuarter(xe)
+			if c0 < sampLo {
+				c0 = sampLo
+			}
+			if c1 > sampHi {
+				c1 = sampHi
+			}
+			if c0 < c1 {
+				spans[n] = [2]int64{c0, c1}
+				n++
+			}
 		}
-		x0 := int32(xs >> 16)
-		x1 := int32(xe >> 16)
-		if x1 < x0 {
-			x0, x1 = x1, x0
+		if n == 0 {
+			continue
 		}
-		if lo := int32(r.Scissor.XH >> 2); x0 < lo {
-			x0 = lo
-		}
-		if hi := int32(r.Scissor.XL >> 2); x1 > hi {
-			x1 = hi
-		}
-		if hi := int32(r.Color.Width); x1 > hi {
-			x1 = hi
+		lo, hi := spans[0][0], spans[0][1]
+		for i := 1; i < n; i++ {
+			if spans[i][0] < lo {
+				lo = spans[i][0]
+			}
+			if spans[i][1] > hi {
+				hi = spans[i][1]
+			}
 		}
 
-		// Attributes are expressed relative to the major edge, so that is where
-		// the per-pixel walk starts from.
-		majorPix := int64(major >> 16)
+		// Attributes are expressed relative to the major edge at the scanline
+		// boundary, so that is where the per-pixel walk starts from.
+		dy := y - yhScan
+		majorPix := (xh + dxhdy*dy) >> 16
 
-		for x := x0; x < x1; x++ {
-			dxPix := int64(x) - majorPix
+		for x := lo >> 2; x <= (hi-1)>>2; x++ {
+			// A pixel is drawn when any quarter-line span touches one of its
+			// four sample columns.
+			covered := false
+			for i := 0; i < n; i++ {
+				if spans[i][0] < x*4+4 && spans[i][1] > x*4 {
+					covered = true
+					break
+				}
+			}
+			if !covered {
+				continue
+			}
+			dxPix := x - majorPix
 
 			in := combineInputs{Prim: prim, Env: env, Shade: rgba{R: 255, G: 255, B: 255, A: 255}}
 			if hasShade {
@@ -201,6 +267,7 @@ func (m *Machine) triangle(op uint32, w []uint64) {
 					return
 				}
 				in.Texel0, in.Texel1 = texel, texel
+				in.texS, in.texT = sFix, tFix
 			}
 
 			z := int64(0)
@@ -213,6 +280,17 @@ func (m *Machine) triangle(op uint32, w []uint64) {
 			}
 		}
 	}
+}
+
+// ceilQuarter converts a 16.16 x position to the index of the first
+// quarter-pixel sample column at or after it. Sample column c sits at
+// x = c/4, so this is a ceiling divide by 2^14.
+func ceilQuarter(v int64) int64 {
+	q := v >> 14
+	if v&0x3FFF != 0 {
+		q++
+	}
+	return q
 }
 
 // omPerspTex enables the per-pixel perspective divide.

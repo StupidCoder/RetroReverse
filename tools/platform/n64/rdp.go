@@ -169,6 +169,14 @@ type rdp struct {
 // cycleType extracts the pipeline mode from Set_Other_Modes.
 func (r *rdp) cycleType() uint32 { return uint32(r.OtherModes>>52) & 3 }
 
+// RDPTMem exposes a copy of texture memory to instrumentation, so a tool can
+// dump a tile exactly as the sampler will read it.
+func (m *Machine) RDPTMem() []byte {
+	t := make([]byte, len(m.rdp.TMem))
+	copy(t, m.rdp.TMem[:])
+	return t
+}
+
 // runRDP drains the command queue from DPC_CURRENT up to DPC_END.
 //
 // It resumes at CURRENT rather than START, and that is the whole contract.
