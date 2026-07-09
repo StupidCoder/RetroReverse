@@ -150,3 +150,6 @@ func ParseTrack(trk []byte) (*Track, error) {
 	t.Objects = *obj
 	return t, nil
 }
+
+// RowPoints is the number of cross-section points per slice row.
+const RowPoints = rowPoints

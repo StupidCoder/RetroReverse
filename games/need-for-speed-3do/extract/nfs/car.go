@@ -186,3 +186,8 @@ func decodeSpot(shape []byte, off int) (*image.RGBA, error) {
 	}
 	return img, nil
 }
+
+// ParseShapeInto decodes a SHPM shape's textures and !ori face map into lod —
+// exported for the track packets' (model, shape) scenery pairs, which use the
+// same binding as the car families.
+func ParseShapeInto(shape []byte, lod *CarLOD) error { return parseCarShape(shape, lod) }
