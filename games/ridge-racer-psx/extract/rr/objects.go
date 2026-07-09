@@ -23,16 +23,22 @@ package rr
 
 import "math"
 
-// Roadside placement lists in the executable (RAM addresses; the drawer
-// dispatch at 0x80014F80 loads each as an immediate). Six lists form the two
-// time-of-day sets: E85C and E904 are drawn in both, then a flag at 0x8016E93C
-// selects the daytime pair (EAFC via 0x80036778, E9AC via 0x800158E8) or the
-// night pair (F09C, EA54) — the two carry the same buildings at the same
-// positions but with different object variants (e.g. 177 by day, 178 by night),
-// which is why exporting both z-fights. The course renders the daytime set.
+// Placement lists in the executable, drawn in the daytime race, all sharing
+// the 24-byte record. Two dispatch blocks contribute:
+//
+//   - The roadside buildings (block at 0x80014F80): E85C and E904 always, then
+//     a flag at 0x8016E93C selects the daytime pair (EAFC, E9AC) over the night
+//     pair (F09C, EA54) — the pairs carry the same buildings as different
+//     object variants (177 by day, 178 by night), so exporting both z-fights.
+//
+//   - The structures (block at 0x80015B90): the grandstand (60, 61 at 0x703C0)
+//     and the repeated barrier/fence walls (object 187 at 0x70360 and 0x70510).
+//     This block has its own night variants (70468, 705E8, 706C0) not listed.
+//
+// The set is exactly what the daytime race draws (captured from the drawers).
 var placementLists = []uint32{
-	0x8006E85C, 0x8006E904, // always drawn
-	0x8006EAFC, 0x8006E9AC, // the daytime pair (flag == 0)
+	0x8006E85C, 0x8006E904, 0x8006EAFC, 0x8006E9AC, // buildings (daytime)
+	0x80070360, 0x800703C0, 0x80070510, // grandstand + barriers
 }
 
 const exeTextBase = 0x80010000

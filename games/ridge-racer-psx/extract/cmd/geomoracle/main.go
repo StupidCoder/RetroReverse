@@ -390,10 +390,18 @@ func checkObjectPlacement(vol *psx.Volume) int {
 	if err != nil {
 		die("boot exe: %v", err)
 	}
+	// Only objects placed at a single position are usable for the pairwise
+	// check; repeated objects (the barrier is placed dozens of times) have no
+	// unique table position to compare a drawn instance against.
+	count := map[int]int{}
 	tbl := map[int]rr.Placement{}
 	for _, p := range rr.Placements(exe.Text) {
-		if _, ok := tbl[p.Obj]; !ok {
-			tbl[p.Obj] = p
+		count[p.Obj]++
+		tbl[p.Obj] = p
+	}
+	for id, c := range count {
+		if c > 1 {
+			delete(tbl, id)
 		}
 	}
 	var ids []int
