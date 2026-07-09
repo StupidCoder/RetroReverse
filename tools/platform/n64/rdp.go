@@ -198,8 +198,10 @@ func (m *Machine) runRDP() {
 			a := addr & 0xFF8
 			return binary.BigEndian.Uint64(m.DMEM[a:])
 		}
-		a := addr % uint32(len(m.RDRAM))
-		return binary.BigEndian.Uint64(m.RDRAM[a:])
+		if int(addr)+8 > len(m.RDRAM) {
+			return 0 // RDRAM does not mirror; past it reads zero
+		}
+		return binary.BigEndian.Uint64(m.RDRAM[addr:])
 	}
 
 	for addr := start; addr < end; {

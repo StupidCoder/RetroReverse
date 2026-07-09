@@ -233,13 +233,16 @@ func (m *Machine) spDMA(lenReg uint32, toRDRAM bool) {
 	if m.OnDMA != nil {
 		m.OnDMA(kind, dramAddr, memAddr, length)
 	}
+	// The SP's own memories wrap inside themselves — a transfer longer than
+	// 4 KiB reads its own start again rather than running into the neighbouring
+	// memory. RDRAM does not wrap: past the populated chips it reads zero.
 	for i := uint32(0); i < length; i++ {
-		d := (dramAddr + i) % uint32(len(m.RDRAM))
+		d := dramAddr + i
 		s := (memAddr + i) % spMemSize
 		if toRDRAM {
-			m.RDRAM[d] = mem[s]
+			m.rdramWrite(d, mem[s])
 		} else {
-			mem[s] = m.RDRAM[d]
+			mem[s] = m.rdramRead(d)
 		}
 	}
 	m.sp[spDramAddr] = dramAddr + length

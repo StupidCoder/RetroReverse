@@ -83,6 +83,7 @@ type Machine struct {
 	vi   vi  // video, and the retrace interrupt that is the machine's heartbeat
 	ai   ai  // audio (deferred; registers only)
 	si   si  // serial: the joybus to the controllers and the save EEPROM
+	isv  isv // the IS-Viewer development cartridge's print window
 	rdp  rdp // the rasteriser's state (rdp.go, rdp_raster.go)
 	ri   regFile
 	rd   regFile // RDRAM device registers
@@ -125,6 +126,9 @@ type Machine struct {
 	// OnRDPCmd is called for each decoded RDP command, before it is executed —
 	// the counterpart of the PlayStation oracle's OnGP0.
 	OnRDPCmd func(m *Machine, op uint32, words []uint64)
+	// OnPrint is called for each line a program writes to the IS-Viewer. Test
+	// ROMs report their results this way.
+	OnPrint func(m *Machine, line string)
 
 	dpWriteHook func(addr, v uint32)
 	hookMuted   bool // suppresses hooks during machine-internal reads (DMA, disassembly)
@@ -172,6 +176,27 @@ func (r regFile) init(pairs ...uint32) {
 	}
 }
 
+// rdramRead and rdramWrite address RDRAM without mirroring.
+//
+// The N64 has no RAM mirroring: the address space reserves 8 MiB for RDRAM but a
+// console without an Expansion Pak populates only the first 4. Reads of the
+// unpopulated half return zero and writes vanish. Wrapping the address instead —
+// which is the obvious thing to do with a Go slice — makes a DMA from high
+// memory quietly copy the low memory over itself. n64-systemtest's own boot code
+// relies on the zeroes to clear the RSP's instruction memory.
+func (m *Machine) rdramRead(a uint32) byte {
+	if int(a) < len(m.RDRAM) {
+		return m.RDRAM[a]
+	}
+	return 0
+}
+
+func (m *Machine) rdramWrite(a uint32, v byte) {
+	if int(a) < len(m.RDRAM) {
+		m.RDRAM[a] = v
+	}
+}
+
 // note records a diagnostic once.
 func (m *Machine) note(format string, args ...interface{}) {
 	s := fmt.Sprintf(format, args...)
@@ -198,6 +223,8 @@ func (m *Machine) backing(addr uint32) ([]byte, uint32) {
 		return m.DMEM, addr - spDMEMBase
 	case addr >= spIMEMBase && addr < spMemEnd:
 		return m.IMEM, addr - spIMEMBase
+	case inISViewer(addr):
+		return nil, 0 // handled by ioRead / ioWrite, ahead of the cartridge
 	case addr >= cartBase && addr < cartEnd:
 		off := addr - cartBase
 		if int(off) < len(m.ROM) {
@@ -274,6 +301,10 @@ func (m *Machine) Write(addr uint32, v byte) {
 	if !m.hookMuted && m.OnWrite != nil && addr >= m.WatchLo && addr < m.WatchHi {
 		m.OnWrite(addr, uint32(v), m.pc())
 	}
+	if inISViewer(addr) {
+		m.isvWriteByte(addr, v) // the print buffer is filled a byte at a time
+		return
+	}
 	if b, off := m.backing(addr); b != nil {
 		if addr >= cartBase && addr < cartEnd {
 			m.note("write 0x%02X to the cartridge at 0x%08X (ignored)", v, addr)
@@ -313,6 +344,8 @@ func (m *Machine) ioRead(addr uint32) uint32 {
 		return m.ri[addr&0xFF]
 	case addr >= siRegBase && addr < siRegEnd:
 		return m.siRead(addr)
+	case inISViewer(addr):
+		return m.isvRead(addr)
 	}
 	m.note("read from unmapped physical address 0x%08X (returning 0)", addr)
 	return 0
@@ -340,6 +373,8 @@ func (m *Machine) ioWrite(addr uint32, v uint32) {
 		m.ri[addr&0xFF] = v
 	case addr >= siRegBase && addr < siRegEnd:
 		m.siWrite(addr, v)
+	case inISViewer(addr):
+		m.isvWrite(addr, v)
 	default:
 		m.note("write 0x%08X to unmapped physical address 0x%08X (ignored)", v, addr)
 	}

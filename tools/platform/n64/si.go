@@ -110,14 +110,14 @@ func (m *Machine) siWrite(addr uint32, v uint32) {
 		m.si.DramAddr = v & 0x00FFFFFF
 	case siWriteAddr: // RDRAM -> PIF RAM, then the PIF executes the block
 		for i := 0; i < pifRAMSize; i++ {
-			m.PIF[i] = m.RDRAM[(m.si.DramAddr+uint32(i))%uint32(len(m.RDRAM))]
+			m.PIF[i] = m.rdramRead(m.si.DramAddr + uint32(i))
 		}
 		m.joybus()
 		m.raiseIRQ(intrSI)
 	case siReadAddr: // PIF RAM -> RDRAM
 		m.joybus()
 		for i := 0; i < pifRAMSize; i++ {
-			m.RDRAM[(m.si.DramAddr+uint32(i))%uint32(len(m.RDRAM))] = m.PIF[i]
+			m.rdramWrite(m.si.DramAddr+uint32(i), m.PIF[i])
 		}
 		m.raiseIRQ(intrSI)
 	case siStatus:
