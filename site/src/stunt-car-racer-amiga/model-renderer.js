@@ -60,13 +60,13 @@ async function setupDrive(id, base, car, track) {
 
   const ray = new THREE.Raycaster();
   const down = new THREE.Vector3(0, -1, 0);
-  let px = null, pz = null, yaw = 0, y = 0;
+  let y = 0, fall = 0, miss = 0;
 
   // U resets the car: re-load the placed spawn state (loadTrack rebuilds the memory to the
   // start line + re-runs the spawn) and forget the last mapped pose.
   const reset = () => {
     phys.loadTrack(perTrack, staticBuf);
-    px = null; pz = null; yaw = 0; y = 0;
+    y = 0; fall = 0; miss = 0;
   };
 
   const keys = new Set();
@@ -92,13 +92,14 @@ async function setupDrive(id, base, car, track) {
       const speed = phys.driveTickCoupled(inp);
 
       const gx = phys.l(0x1BCD8) * PHYS_TO_GLB, gz = -phys.l(0x1BCE0) * PHYS_TO_GLB;
-      if (px !== null && (gx - px) ** 2 + (gz - pz) ** 2 > 1e-6) {
-        yaw = Math.atan2(-(gx - px), -(gz - pz)); // face along motion (car forward = -Z local)
-      }
-      px = gx; pz = gz;
+      // Face where the car POINTS (its heading $1BCE6, a 16-bit angle), not where it moves —
+      // during the slow spawn and any drift the motion direction is noisy / backwards. The car
+      // GLB's local forward is -Z, which the sim's yaw maps to by rotation.y = -yaw.
+      const yaw = -phys.w(0x1BCE6) / 65536 * Math.PI * 2;
       ray.set(new THREE.Vector3(gx, 200, gz), down);
       const hits = ray.intersectObject(track, true);
-      if (hits.length) y = hits[0].point.y;
+      if (hits.length) { y = hits[0].point.y; fall = 0; miss = 0; }
+      else if (++miss > 5) { fall += 0.02; y -= fall; } // sustained miss = off track: drop off the edge
       car.position.set(gx, y, gz);
       car.rotation.y = yaw;
       return { gx, gz, y, yaw, speed };

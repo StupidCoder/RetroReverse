@@ -1111,8 +1111,10 @@ are exact.
 
 **The car drives in the Studio.** `site/src/stunt-car-racer-amiga/model-renderer.js` loads the
 per-track placed state, runs `driveTickCoupled` from a joystick byte each frame, maps the sim
-world position onto the GLB by `/(65536·64)`, and keeps the car on the road with a downward
-raycast onto the track mesh. The car spawns at the start line and drives the circuit; the game's
+world position onto the GLB by `/(65536·64)`, orients the car by its sim heading (`$1BCE6` →
+`rotation.y = -yaw`, so it shows where the car *points* — steady through the slow spawn and any
+drift, unlike a motion-direction guess), and keeps it on the road with a downward raycast onto
+the track mesh (dropping off the edge only on a sustained miss). The car spawns at the start line and drives the circuit; the game's
 own auto-steer follows the straights, and the player steers through the corners. Controls are
 **`IJKL`** (I throttle, K brake, J/L steer, O fire) so they don't collide with the free-flight
 **fly-cam** (`WASD`/arrows) — the camera stays under your control while the car drives on its
