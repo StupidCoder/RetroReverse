@@ -54,7 +54,32 @@ const (
 	fpDivByZero = 1 << 3
 	fpInvalid   = 1 << 4
 	fpUnimpl    = 1 << 5
+
+	// fpTiny is not a hardware bit. It marks a result too small to represent, and
+	// leaves the decision of what that means to fpApply, which is where the
+	// enables and the FS bit can be consulted.
+	fpTiny = 1 << 6
 )
+
+// isSNaN32 and isSNaN64 report whether a register holds a signalling NaN.
+//
+// The VR4300 predates IEEE-754-2008 and uses the opposite convention: a NaN
+// whose mantissa's top bit is *set* is signalling, and one whose top bit is
+// clear is quiet. Go — and every modern language — has it the other way round,
+// so math.NaN() is a signalling NaN on this chip, and an operand of it raises
+// invalid-operation rather than propagating silently.
+//
+// They take raw bits, and must. Widening a float32 NaN to a float64 quiets it,
+// so a value round-tripped through the host's arithmetic answers the question
+// about the host's NaN and not about the one in the register.
+func isSNaN32(bits uint32) bool {
+	return bits&0x7F800000 == 0x7F800000 && bits&0x007FFFFF != 0 && bits&0x00400000 != 0
+}
+
+func isSNaN64(bits uint64) bool {
+	return bits&0x7FF0000000000000 == 0x7FF0000000000000 &&
+		bits&0x000FFFFFFFFFFFFF != 0 && bits&(1<<51) != 0
+}
 
 // The three fields' positions in FCR31.
 const (
@@ -69,6 +94,23 @@ const (
 // flags alone. Otherwise the causes are recorded and folded into the flags, and
 // the operation's result stands.
 func (c *CPU) fpApply(cond uint32) bool {
+	enables := (c.FCR31 >> fcr31EnableShift) & 0x1F
+
+	// A result too small to represent has three possible fates, and the chip
+	// picks between them here rather than in the arithmetic.
+	//
+	// If either the underflow or the inexact trap is enabled, the operation is
+	// declared unimplemented and handed to software — the hardware will not even
+	// try to report an underflow it might have to trap on. Otherwise the FS bit
+	// decides: set, the result flushes to a signed zero and underflow and inexact
+	// are merely recorded; clear, it is unimplemented again.
+	if cond&fpTiny != 0 {
+		cond &^= fpTiny
+		if enables&(fpUnderflow|fpInexact) != 0 || c.FCR31&fcr31FS == 0 {
+			cond = fpUnimpl
+		}
+	}
+
 	c.FCR31 = (c.FCR31 &^ fcr31CauseMask) | cond<<fcr31CauseShift
 
 	// The unimplemented-operation condition has no enable to consult. It always
@@ -77,7 +119,6 @@ func (c *CPU) fpApply(cond uint32) bool {
 		c.Exception(excFPE)
 		return true
 	}
-	enables := (c.FCR31 >> fcr31EnableShift) & 0x1F
 	if cond&enables != 0 {
 		c.Exception(excFPE)
 		return true
@@ -95,10 +136,8 @@ func (c *CPU) fpApply(cond uint32) bool {
 // unimplemented-operation exception, and an operating system is expected to
 // finish the arithmetic in software.
 //
-// A denormal *result* it cannot represent either, and what it does then is the
-// FS bit's decision. With FS set it flushes the result to a zero of the same
-// sign and reports underflow and inexact; with FS clear it refuses, and raises
-// unimplemented-operation just as it would for a denormal operand.
+// A denormal *result* it cannot represent either. What that means depends on the
+// enables and on the FS bit, and fpApply decides it.
 //
 // An emulator that quietly computes with denormals is faster than the real chip
 // and wrong in every position.
@@ -186,21 +225,18 @@ func signOf(v float64) int {
 // classifySingle narrows a double result into a float and classifies the
 // rounding. residual is the exact error of the double operation, so the pair
 // (rounded, residual) names the exact value between them.
-func classifySingle(rounded, residual float64, flush bool) (float64, uint32) {
+func classifySingle(rounded float64, inexact bool) (float64, uint32) {
 	var cond uint32
 	f := float32(rounded)
-	if residual != 0 || float64(f) != rounded {
+	if inexact || float64(f) != rounded {
 		cond |= fpInexact
 	}
 	switch {
 	case isInf(float64(f)) && !isInf(rounded):
 		cond |= fpOverflow | fpInexact
 	case isSubnormal32(f) || (f == 0 && rounded != 0):
-		// The result is too small to represent.
-		if !flush {
-			return 0, fpUnimpl
-		}
-		return zero(sign(rounded)), fpUnderflow | fpInexact
+		// Too small to represent; fpApply decides what that costs.
+		return zero(sign(rounded)), fpUnderflow | fpInexact | fpTiny
 	}
 	return float64(f), cond
 }
@@ -214,19 +250,16 @@ func isSubnormal64(v float64) bool {
 }
 
 // classifyDouble uses the residual of the rounded operation to decide exactness.
-func classifyDouble(r, residual float64, flush bool) (float64, uint32) {
+func classifyDouble(r float64, inexact bool) (float64, uint32) {
 	var cond uint32
-	if residual != 0 {
+	if inexact {
 		cond |= fpInexact
 	}
 	switch {
 	case isInf(r):
 		cond |= fpOverflow | fpInexact
-	case isSubnormal64(r) || (r == 0 && residual != 0):
-		if !flush {
-			return 0, fpUnimpl
-		}
-		return zero(sign(r + residual)), fpUnderflow | fpInexact
+	case isSubnormal64(r) || (r == 0 && inexact):
+		return zero(sign(r)), fpUnderflow | fpInexact | fpTiny
 	}
 	return r, cond
 }
@@ -234,9 +267,12 @@ func classifyDouble(r, residual float64, flush bool) (float64, uint32) {
 // fpArith evaluates op on a and b, rounds into the target format, and reports the
 // conditions that rounding raised. single selects the format; the caller narrows
 // the returned value.
-func fpArith(rm uint32, flush bool, op byte, a, b float64, single bool) (float64, uint32) {
+func fpArith(rm uint32, op byte, a, b float64, single, snanIn bool) (float64, uint32) {
 	// Invalid and divide-by-zero are decided by the operands, before any
 	// arithmetic happens.
+	if snanIn {
+		return nan(), fpInvalid // signalling here means "mantissa top bit set"
+	}
 	if isNaN(a) || isNaN(b) {
 		return nan(), 0 // a quiet NaN propagates without raising anything
 	}
@@ -280,22 +316,22 @@ func fpArith(rm uint32, flush bool, op byte, a, b float64, single bool) (float64
 			}
 			s := a + b
 			err := twoSumResidual(a, b, s)
-			v, cond := classifySingle(s, err, flush)
-			// exact - float32(s) = (s - float32(s)) + err
-			d := (s - v) + err
+			v, cond := classifySingle(s, err != 0)
+			d := (s - v) + err // exact - the narrowed result
 			return applyRounding(rm, v, signOf(d), true), cond
 		case '*':
 			// A product of two 24-bit significands is at most 48 bits: exact.
 			p := a * b
-			v, cond := classifySingle(p, 0, flush)
+			v, cond := classifySingle(p, false)
 			return applyRounding(rm, v, signOf(p-v), true), cond
 		}
-		// Division: round through a double, then confirm with the residual.
-		q := float64(float32(a / b))
-		cond := divideConditions(q, a, b, true)
-		// exact - q = (a - q*b) / b, whose sign is -sign(residual)*sign(b).
-		d := -signOf(math.FMA(q, b, -a)) * signOf(b)
-		return applyRounding(rm, q, d, true), cond
+		// Division: round through a double, then confirm with the residual, which
+		// a fused multiply-add computes without a second rounding.
+		q := a / b
+		res := math.FMA(float64(float32(q)), b, -a)
+		v, cond := classifySingle(q, res != 0)
+		// exact - q has the sign of -(residual)/b.
+		return applyRounding(rm, v, -signOf(res)*signOf(b), true), cond
 	}
 
 	switch op {
@@ -305,7 +341,7 @@ func fpArith(rm uint32, flush bool, op byte, a, b float64, single bool) (float64
 		}
 		r := a + b
 		err := twoSumResidual(a, b, r)
-		v, cond := classifyDouble(r, err, flush)
+		v, cond := classifyDouble(r, err != 0)
 		return applyRounding(rm, v, signOf(err), false), cond
 	case '*':
 		r := a * b
@@ -313,13 +349,13 @@ func fpArith(rm uint32, flush bool, op byte, a, b float64, single bool) (float64
 			return r, fpOverflow | fpInexact
 		}
 		err := math.FMA(a, b, -r)
-		v, cond := classifyDouble(r, err, flush)
+		v, cond := classifyDouble(r, err != 0)
 		return applyRounding(rm, v, signOf(err), false), cond
 	default: // '/'
 		r := a / b
-		cond := divideConditions(r, a, b, false)
-		d := -signOf(math.FMA(r, b, -a)) * signOf(b)
-		return applyRounding(rm, r, d, false), cond
+		res := math.FMA(r, b, -a)
+		v, cond := classifyDouble(r, res != 0)
+		return applyRounding(rm, v, -signOf(res)*signOf(b), false), cond
 	}
 }
 
@@ -327,32 +363,6 @@ func fpArith(rm uint32, flush bool, op byte, a, b float64, single bool) (float64
 func twoSumResidual(a, b, s float64) float64 {
 	bb := s - a
 	return (a - (s - bb)) + (b - bb)
-}
-
-// divideConditions classifies a quotient using its residual, r*b - a, which a
-// fused multiply-add computes without rounding.
-func divideConditions(r, a, b float64, single bool) uint32 {
-	var cond uint32
-	if isInf(r) {
-		return fpOverflow | fpInexact
-	}
-	if math.FMA(r, b, -a) != 0 {
-		cond |= fpInexact
-	}
-	if single {
-		if f := float32(r); f == 0 && a != 0 {
-			cond |= fpUnderflow | fpInexact
-		} else if cond&fpInexact != 0 && isSubnormal32(f) {
-			cond |= fpUnderflow
-		}
-		return cond
-	}
-	if r == 0 && a != 0 {
-		cond |= fpUnderflow | fpInexact
-	} else if cond&fpInexact != 0 && isSubnormal64(r) {
-		cond |= fpUnderflow
-	}
-	return cond
 }
 
 // infiniteResult is the exact answer when at least one operand is infinite and

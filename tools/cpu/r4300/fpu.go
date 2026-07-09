@@ -33,6 +33,53 @@ const (
 
 // setSResult and setDResult write a computed value, substituting the hardware's
 // quiet NaN for whatever pattern the host produced.
+// snanCheckS and snanCheckD raise invalid-operation for a signalling NaN operand
+// and write the hardware's quiet NaN. They report whether they handled it.
+func (c *CPU) snanCheckS(fd, fs uint32) bool {
+	if !isSNaN32(c.readFGR32(fs)) {
+		return false
+	}
+	c.fpApply(fpInvalid)
+	c.writeFGR32(fd, qNaN32)
+	return true
+}
+
+// snanCheckD tests a *double* source. Reading the register as a single as well
+// would misread the low half of an ordinary double as a NaN pattern, and every
+// such value would be quietly replaced.
+func (c *CPU) snanCheckD(fd, fs uint32) bool {
+	if !isSNaN64(c.readFGR64(fs)) {
+		return false
+	}
+	c.fpApply(fpInvalid)
+	c.writeFGR64(fd, qNaN64)
+	return true
+}
+
+// snanCheckSToD is cvt.d.s, whose source is a single and whose destination is a
+// double. snanCheckDToS is cvt.s.d, the other way round.
+//
+// The source's format is the instruction's, not the destination's. Reading a
+// double's register as a single — or the reverse — misreads half of an ordinary
+// value as a NaN pattern, and every such value is then quietly replaced.
+func (c *CPU) snanCheckSToD(fd, fs uint32) bool {
+	if !isSNaN32(c.readFGR32(fs)) {
+		return false
+	}
+	c.fpApply(fpInvalid)
+	c.writeFGR64(fd, qNaN64)
+	return true
+}
+
+func (c *CPU) snanCheckDToS(fd, fs uint32) bool {
+	if !isSNaN64(c.readFGR64(fs)) {
+		return false
+	}
+	c.fpApply(fpInvalid)
+	c.writeFGR32(fd, qNaN32)
+	return true
+}
+
 func (c *CPU) setSResult(i uint32, v float32) {
 	if math.IsNaN(float64(v)) {
 		c.writeFGR32(i, qNaN32)
@@ -277,21 +324,23 @@ func (c *CPU) cop1Single(w, funct, ft, fs, fd uint32) {
 		c.clearCause()
 	}
 	if funct&0x30 == 0x30 { // c.cond.s
-		c.compare(float64(c.fs(fs)), float64(c.fs(ft)), funct&0xF)
+		c.compare(float64(c.fs(fs)), float64(c.fs(ft)), funct&0xF,
+			isSNaN32(c.readFGR32(fs)) || isSNaN32(c.readFGR32(ft)))
 		return
 	}
 	switch funct {
 	case 0x00, 0x01, 0x02, 0x03:
 		// The four arithmetic operations share their exception handling: the
 		// exact result decides which conditions the rounding raised.
-		r, cond := fpArith(c.FCR31&3, c.FCR31&fcr31FS != 0, "+-*/"[funct], float64(c.fs(fs)), float64(c.fs(ft)), true)
+		snan := isSNaN32(c.readFGR32(fs)) || isSNaN32(c.readFGR32(ft))
+		r, cond := fpArith(c.FCR31&3, "+-*/"[funct], float64(c.fs(fs)), float64(c.fs(ft)), true, snan)
 		if c.fpApply(cond) {
 			return // an enabled condition trapped; the destination is untouched
 		}
 		c.setSResult(fd, float32(r))
 	case 0x04:
 		x := float64(c.fs(fs))
-		if x < 0 {
+		if x < 0 || isSNaN32(c.readFGR32(fs)) {
 			c.fpApply(fpInvalid)
 			c.setSResult(fd, float32(math.NaN()))
 			break
@@ -299,15 +348,24 @@ func (c *CPU) cop1Single(w, funct, ft, fs, fd uint32) {
 		r := math.Sqrt(x)
 		// The residual r*r - x is exact under a fused multiply-add, so it says
 		// whether the root was representable.
-		c.fpApply(sqrtConditions(r, x))
+		if c.fpApply(sqrtConditions(r, x)) {
+			break // a trapping operation leaves its destination alone
+		}
 		c.setSResult(fd, float32(r))
 	case 0x05:
-		// Absolute value and negation of a NaN yield the hardware's quiet NaN
-		// rather than the operand with its sign bit rewritten.
+		// Absolute value and negation raise invalid on a signalling NaN, and in
+		// any case yield the hardware's quiet NaN rather than the operand with
+		// its sign bit rewritten.
+		if c.snanCheckS(fd, fs) {
+			break
+		}
 		c.setSResult(fd, float32(math.Abs(float64(c.fs(fs)))))
 	case 0x06:
 		c.writeFGR32(fd, c.readFGR32(fs)) // mov.s moves bits, not a value
 	case 0x07:
+		if c.snanCheckS(fd, fs) {
+			break
+		}
 		c.setSResult(fd, -c.fs(fs))
 	case 0x08: // round.l.s
 		c.writeFGR64(fd, uint64(int64(c.round(float64(c.fs(fs))))))
@@ -318,19 +376,22 @@ func (c *CPU) cop1Single(w, funct, ft, fs, fd uint32) {
 	case 0x0B: // floor.l.s
 		c.writeFGR64(fd, uint64(int64(math.Floor(float64(c.fs(fs))))))
 	case 0x0C: // round.w.s
-		c.writeFGR32(fd, uint32(int32(c.round(float64(c.fs(fs))))))
+		c.toInt32(fd, float64(c.fs(fs)), math.RoundToEven)
 	case 0x0D: // trunc.w.s
-		c.writeFGR32(fd, uint32(int32(math.Trunc(float64(c.fs(fs))))))
+		c.toInt32(fd, float64(c.fs(fs)), math.Trunc)
 	case 0x0E: // ceil.w.s
-		c.writeFGR32(fd, uint32(int32(math.Ceil(float64(c.fs(fs))))))
+		c.toInt32(fd, float64(c.fs(fs)), math.Ceil)
 	case 0x0F: // floor.w.s
-		c.writeFGR32(fd, uint32(int32(math.Floor(float64(c.fs(fs))))))
+		c.toInt32(fd, float64(c.fs(fs)), math.Floor)
 	case 0x21: // cvt.d.s
+		if c.snanCheckSToD(fd, fs) {
+			break
+		}
 		c.setDResult(fd, float64(c.fs(fs)))
 	case 0x24: // cvt.w.s
-		c.writeFGR32(fd, uint32(int32(c.round(float64(c.fs(fs))))))
+		c.toInt32(fd, float64(c.fs(fs)), c.round)
 	case 0x25: // cvt.l.s
-		c.writeFGR64(fd, uint64(int64(c.round(float64(c.fs(fs))))))
+		c.toInt64(fd, float64(c.fs(fs)), c.round)
 	default:
 		c.fpUnimplemented()
 	}
@@ -341,31 +402,41 @@ func (c *CPU) cop1Double(w, funct, ft, fs, fd uint32) {
 		c.clearCause()
 	}
 	if funct&0x30 == 0x30 { // c.cond.d
-		c.compare(c.fd(fs), c.fd(ft), funct&0xF)
+		c.compare(c.fd(fs), c.fd(ft), funct&0xF,
+			isSNaN64(c.readFGR64(fs)) || isSNaN64(c.readFGR64(ft)))
 		return
 	}
 	switch funct {
 	case 0x00, 0x01, 0x02, 0x03:
-		r, cond := fpArith(c.FCR31&3, c.FCR31&fcr31FS != 0, "+-*/"[funct], c.fd(fs), c.fd(ft), false)
+		snan := isSNaN64(c.readFGR64(fs)) || isSNaN64(c.readFGR64(ft))
+		r, cond := fpArith(c.FCR31&3, "+-*/"[funct], c.fd(fs), c.fd(ft), false, snan)
 		if c.fpApply(cond) {
 			return
 		}
 		c.setDResult(fd, r)
 	case 0x04:
 		x := c.fd(fs)
-		if x < 0 {
+		if x < 0 || isSNaN64(c.readFGR64(fs)) {
 			c.fpApply(fpInvalid)
 			c.setDResult(fd, math.NaN())
 			break
 		}
 		r := math.Sqrt(x)
-		c.fpApply(sqrtConditions(r, x))
+		if c.fpApply(sqrtConditions(r, x)) {
+			break
+		}
 		c.setDResult(fd, r)
 	case 0x05:
+		if c.snanCheckD(fd, fs) {
+			break
+		}
 		c.setDResult(fd, math.Abs(c.fd(fs)))
 	case 0x06:
 		c.writeFGR64(fd, c.readFGR64(fs)) // mov.d
 	case 0x07:
+		if c.snanCheckD(fd, fs) {
+			break
+		}
 		c.setDResult(fd, -c.fd(fs))
 	case 0x08: // round.l.d
 		c.writeFGR64(fd, uint64(int64(c.round(c.fd(fs)))))
@@ -376,31 +447,52 @@ func (c *CPU) cop1Double(w, funct, ft, fs, fd uint32) {
 	case 0x0B: // floor.l.d
 		c.writeFGR64(fd, uint64(int64(math.Floor(c.fd(fs)))))
 	case 0x0C: // round.w.d
-		c.writeFGR32(fd, uint32(int32(c.round(c.fd(fs)))))
+		c.toInt32(fd, c.fd(fs), math.RoundToEven)
 	case 0x0D: // trunc.w.d
-		c.writeFGR32(fd, uint32(int32(math.Trunc(c.fd(fs)))))
+		c.toInt32(fd, c.fd(fs), math.Trunc)
 	case 0x0E: // ceil.w.d
-		c.writeFGR32(fd, uint32(int32(math.Ceil(c.fd(fs)))))
+		c.toInt32(fd, c.fd(fs), math.Ceil)
 	case 0x0F: // floor.w.d
-		c.writeFGR32(fd, uint32(int32(math.Floor(c.fd(fs)))))
+		c.toInt32(fd, c.fd(fs), math.Floor)
 	case 0x20: // cvt.s.d
-		c.setSResult(fd, float32(c.fd(fs)))
+		if c.snanCheckDToS(fd, fs) {
+			break
+		}
+		// Narrowing loses bits whenever the double is not representable.
+		v := c.fd(fs)
+		if float64(float32(v)) != v {
+			c.fpApply(fpInexact)
+		}
+		c.setSResult(fd, float32(v))
 	case 0x24: // cvt.w.d
-		c.writeFGR32(fd, uint32(int32(c.round(c.fd(fs)))))
+		c.toInt32(fd, c.fd(fs), c.round)
 	case 0x25: // cvt.l.d
-		c.writeFGR64(fd, uint64(int64(c.round(c.fd(fs)))))
+		c.toInt64(fd, c.fd(fs), c.round)
 	default:
 		c.fpUnimplemented()
 	}
 }
 
 // compare evaluates one of the sixteen FP conditions and writes the FCR31
-// condition bit. The condition's low three bits select, in order, whether an
-// unordered pair compares true, whether equality does, and whether less-than
-// does; the fourth bit only selects whether a NaN signals, which is not
-// modelled.
-func (c *CPU) compare(a, b float64, cond uint32) {
+// condition bit.
+//
+// The condition's low three bits select, in order, whether an unordered pair
+// compares true, whether equality does, and whether less-than does. The fourth
+// bit picks the predicate's "signalling" half: those eight raise invalid on *any*
+// NaN operand, while the other eight raise it only on a signalling one.
+func (c *CPU) compare(a, b float64, cond uint32, snanIn bool) {
 	unordered := math.IsNaN(a) || math.IsNaN(b)
+
+	if unordered {
+		signalling := cond&8 != 0 || snanIn
+		if signalling && c.fpApply(fpInvalid) {
+			return // the trap leaves the condition bit alone
+		}
+		if !signalling {
+			c.clearCause()
+		}
+	}
+
 	var r bool
 	if unordered {
 		r = cond&1 != 0
@@ -412,4 +504,31 @@ func (c *CPU) compare(a, b float64, cond uint32) {
 	} else {
 		c.FCR31 &^= fcr31Cond
 	}
+}
+
+// toInt32 and toInt64 convert a float to an integer with the given rounding, and
+// report inexact when the value had a fractional part. A trapping conversion
+// leaves its destination alone.
+func (c *CPU) toInt32(fd uint32, v float64, round func(float64) float64) {
+	r := round(v)
+	var cond uint32
+	if r != v {
+		cond |= fpInexact
+	}
+	if c.fpApply(cond) {
+		return
+	}
+	c.writeFGR32(fd, uint32(int32(r)))
+}
+
+func (c *CPU) toInt64(fd uint32, v float64, round func(float64) float64) {
+	r := round(v)
+	var cond uint32
+	if r != v {
+		cond |= fpInexact
+	}
+	if c.fpApply(cond) {
+		return
+	}
+	c.writeFGR64(fd, uint64(int64(r)))
 }

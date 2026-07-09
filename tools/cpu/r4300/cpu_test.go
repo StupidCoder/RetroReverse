@@ -789,3 +789,39 @@ func TestFPUProducesTheHardwareQuietNaN(t *testing.T) {
 		t.Errorf("neg of a NaN gave %08X, want %08X unchanged", got, uint32(qNaN32))
 	}
 }
+
+func TestSignallingNaNAndSourceFormats(t *testing.T) {
+	// The VR4300 predates IEEE-754-2008 and uses the opposite NaN convention: a
+	// mantissa whose top bit is set is *signalling*. So the NaN every modern
+	// language calls quiet raises invalid-operation here.
+	c, _ := newTest(rt(0x11, 0x10, 0, 0, 1, 0x05)) // abs.s $f1, $f0
+	c.writeFGR32(0, 0x7FC00000)                    // Go's "quiet" NaN
+	c.Step()
+	if c.FCR31&(fpInvalid<<fcr31CauseShift) == 0 {
+		t.Error("abs.s of a signalling NaN did not raise invalid")
+	}
+	if got := c.readFGR32(1); got != qNaN32 {
+		t.Errorf("result %08X, want the hardware quiet NaN %08X", got, uint32(qNaN32))
+	}
+
+	// And a genuinely quiet NaN propagates in silence.
+	c2, _ := newTest(rt(0x11, 0x10, 0, 0, 1, 0x05))
+	c2.writeFGR32(0, qNaN32)
+	c2.Step()
+	if c2.FCR31&(fpInvalid<<fcr31CauseShift) != 0 {
+		t.Error("abs.s of a quiet NaN raised invalid")
+	}
+
+	// cvt.s.d reads a *double*. Testing its source register as a single would
+	// misread the low half of an ordinary value as a NaN pattern — a bug that
+	// silently replaced most of a game's arithmetic.
+	c3, _ := newTest(rt(0x11, 0x11, 0, 0, 2, 0x20)) // cvt.s.d $f2, $f0
+	c3.setD(0, 1.5)                                 // low half is 0x00000000
+	run(t, c3, 1)
+	if got := c3.fs(2); got != 1.5 {
+		t.Errorf("cvt.s.d gave %v, want 1.5", got)
+	}
+	if c3.FCR31&(fpInvalid<<fcr31CauseShift) != 0 {
+		t.Error("cvt.s.d of an ordinary double raised invalid: it read its source as a single")
+	}
+}
