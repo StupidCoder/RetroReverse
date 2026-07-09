@@ -83,6 +83,9 @@ func exportObjects(a *assets, out string, cps []rr.Checkpoint) (string, error) {
 			Yaw:   int(p.Yaw),
 		})
 	}
+	// The code-placed dynamic objects with fixed positions (rr.Dynamics):
+	// their GLBs are written by the models stage (specials.go).
+	doc.Objects = append(doc.Objects, dynamicPlacements(a, cps)...)
 	if err := os.MkdirAll(filepath.Join(out, "levels"), 0o755); err != nil {
 		return "", err
 	}

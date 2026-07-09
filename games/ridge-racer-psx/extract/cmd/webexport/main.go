@@ -78,7 +78,7 @@ type assets struct {
 
 func main() {
 	in := flag.String("in", "../Ridge Racer (Track 01).bin", "PlayStation CD image (.bin)")
-	out := flag.String("o", "../../site/public/ridge-racer-psx", "output root")
+	out := flag.String("o", "../../../site/public/ridge-racer-psx", "output root")
 	only := flag.String("only", "all", "stages to run: models,levels or all")
 	flag.Parse()
 

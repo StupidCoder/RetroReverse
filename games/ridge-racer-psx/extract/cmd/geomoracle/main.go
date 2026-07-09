@@ -43,6 +43,8 @@ const (
 
 	pcQuadRTPT = 0x80046250 // 40-byte quad path: RTPT (record in $a0)
 	pcQuadRTPS = 0x8004626C // 40-byte quad path: 4th-vertex RTPS
+	pcVisRTPT  = 0x8004615C // visibility precheck (0x80046114), all draw variants (record in $a0)
+	pcGT2RTPT  = 0x80046D64 // translucent 64/72-byte lit path: RTPT (record in $t1)
 	pcGTRTPT   = 0x80046B6C // 64/72-byte lit path: RTPT (record in $t1)
 	pcGTRTPS   = 0x80046BDC // 64/72-byte lit path: 4th-vertex RTPS
 	pcGTNCT    = 0x80046C74 // 64/72-byte lit path: NCT (normals 0-2)
@@ -92,6 +94,9 @@ func main() {
 	}
 	if all || want["track"] {
 		fail += checkGeometry(vol, "track", pressRace, 429_500_000, 1_000_000)
+	}
+	if all || want["dynamics"] {
+		fail += checkDynamics(vol)
 	}
 	if fail > 0 {
 		die("%d check(s) failed", fail)
@@ -447,6 +452,197 @@ func abs64(v int64) int64 {
 		return -v
 	}
 	return v
+}
+
+// checkDynamics verifies the dynamic-object catalog (rr.Dynamics) against the
+// running game. The transform setup (0x80012148) computes TR = 4·R_cam·(pos −
+// cam) with the camera position read as quarter-unit halfwords at 0x801DCB84,
+// and loads R = R_cam·R_obj — so at each trapped draw, R_obj·(Rᵀ·TR)/4 + cam
+// reconstructs the object's absolute position (mod 2¹⁶ quarter units), which
+// must land on the decoded EXE vector. Two capture windows cover the targets:
+// the race countdown (the number girl) and the attract demo lap (beacon, start
+// banner, both big screens, the crowd gate). Spinning and path-flying objects
+// have no constant pose to check and are excluded. A small fraction of events
+// read the camera variables one frame stale (the game moves the camera between
+// a draw's transform setup and our trap), so the check tolerates a minority of
+// off-by-a-frame outliers; a wrong decode is off on every event.
+func checkDynamics(vol *psx.Volume) int {
+	objData, err := vol.ReadFile("OBJ.RRO")
+	if err != nil {
+		die("OBJ.RRO: %v", err)
+	}
+	objs, err := rr.ParseRRO(objData)
+	if err != nil {
+		die("OBJ.RRO: %v", err)
+	}
+	type span struct{ lo, hi uint32 }
+	spans := make([]span, len(objs))
+	addr := uint32(objBase) + 4 + uint32(len(objs))*16
+	for i := range objs {
+		o := &objs[i]
+		n := uint32(len(o.FT)*40 + len(o.FT8)*48 + len(o.F)*32 + len(o.GT)*64 + len(o.GT8)*72 + len(o.G)*56)
+		spans[i] = span{addr, addr + n}
+		addr += n
+	}
+	idOf := func(a uint32) int {
+		for i, s := range spans {
+			if a >= s.lo && a < s.hi {
+				return i
+			}
+		}
+		return -1
+	}
+
+	_, exe, err := vol.BootEXE()
+	if err != nil {
+		die("boot exe: %v", err)
+	}
+	// Targets: dynamics with a fixed position and a constant pose.
+	type target struct {
+		d   rr.Dynamic
+		hit bool
+	}
+	targets := map[int][]*target{} // base object id -> candidate instances
+	wantNames := map[string]bool{
+		"Number girl": true, "Beacon (palette-cycled)": true, "Start banner": true,
+		"Big screen A": true, "Big screen B": true, "Start gate crowd (far LOD)": true,
+	}
+	for _, d := range rr.Dynamics(exe.Text) {
+		if !wantNames[d.Name] {
+			continue
+		}
+		targets[d.Objs[0]] = append(targets[d.Objs[0]], &target{d: d})
+	}
+
+	rot := func(R [3][3]int32, v [3]int64) [3]int64 {
+		var o [3]int64
+		for r := 0; r < 3; r++ {
+			o[r] = (int64(R[r][0])*v[0] + int64(R[r][1])*v[1] + int64(R[r][2])*v[2]) / 4096
+		}
+		return o
+	}
+
+	okc := map[string]int{}
+	badc := map[string]int{}
+	capture := func(m *psx.Machine, window uint64) {
+		camHW := func(a uint32) int64 {
+			return int64(uint32(m.Read(a)) | uint32(m.Read(a+1))<<8)
+		}
+		m.OnStep = func(mm *psx.Machine, pc uint32) {
+			reg := regA0
+			switch pc {
+			case pcQuadRTPT, pcVisRTPT:
+			case pcGTRTPT, pcGT2RTPT:
+				reg = regT1
+			default:
+				return
+			}
+			id := idOf(mm.CPU.Reg(uint32(reg)) & 0x1FFFFF)
+			if id < 0 {
+				return
+			}
+			cands, ok := targets[id]
+			if !ok {
+				return
+			}
+			var c [8]int32
+			for i := range c {
+				c[i] = int32(mm.GTE.ReadCtrl(uint32(i)))
+			}
+			R := [3][3]int64{
+				{int64(int16(c[0])), int64(int16(c[0] >> 16)), int64(int16(c[1]))},
+				{int64(int16(c[1] >> 16)), int64(int16(c[2])), int64(int16(c[2] >> 16))},
+				{int64(int16(c[3])), int64(int16(c[3] >> 16)), int64(int16(c[4]))},
+			}
+			tr := [3]int64{int64(c[5]), int64(c[6]), int64(c[7])}
+			raw := [3]int64{
+				(R[0][0]*tr[0] + R[1][0]*tr[1] + R[2][0]*tr[2]) / 4096,
+				(R[0][1]*tr[0] + R[1][1]*tr[1] + R[2][1]*tr[2]) / 4096,
+				(R[0][2]*tr[0] + R[1][2]*tr[1] + R[2][2]*tr[2]) / 4096,
+			}
+			// The camera position the transform setup subtracted, quarter units.
+			cam := [3]int64{camHW(0x801DCB84), camHW(0x801DCB88), camHW(0x801DCB8C)}
+			matched := false
+			var bx, by, bz int64
+			for _, t := range cands {
+				Ro := rr.YawMatrix(t.d.Yaw)
+				if t.d.Pitch != 0 {
+					Ro = mul33(rr.YawMatrix(t.d.Yaw), rr.PitchMatrix(t.d.Pitch))
+				}
+				rel := rot(Ro, raw) // 4·(pos − cam) in model units
+				var err [3]int64
+				for i, want := range []int64{int64(t.d.X), int64(t.d.Y), int64(t.d.Z)} {
+					got := (cam[i] + rel[i]/4) & 0xFFFF     // quarter units, u16 wrap
+					err[i] = int64(int16(got - (want/4)&0xFFFF)) * 4
+				}
+				if abs64(err[0]) <= 32 && abs64(err[1]) <= 32 && abs64(err[2]) <= 32 {
+					matched, t.hit = true, true
+					break
+				}
+				if e := abs64(err[0]) + abs64(err[1]) + abs64(err[2]); bx+by+bz == 0 || e < bx+by+bz {
+					bx, by, bz = abs64(err[0]), abs64(err[1]), abs64(err[2])
+				}
+			}
+			name := cands[0].d.Name
+			if matched {
+				okc[name]++
+			} else {
+				badc[name]++
+				if badc[name] < 4 {
+					fmt.Fprintf(os.Stderr, "[dynamics] MISMATCH obj %d: err (%d,%d,%d)\n", id, bx, by, bz)
+				}
+			}
+		}
+		m.Run(window)
+		m.OnStep = nil
+	}
+
+	fmt.Fprintln(os.Stderr, "[dynamics] booting into the race (countdown window)...")
+	m := boot(vol, pressRace)
+	m.Run(415_000_000)
+	capture(m, 20_000_000)
+
+	fmt.Fprintln(os.Stderr, "[dynamics] booting the attract demo (lap window)...")
+	m = boot(vol, "")
+	m.Run(600_000_000)
+	capture(m, 3_400_000_000)
+
+	fail := 0
+	for _, cands := range targets {
+		for _, t := range cands {
+			name := t.d.Name
+			if t.hit || okc[name] > 0 {
+				continue // hit, or the sibling instance covered the shared id
+			}
+			fmt.Fprintf(os.Stderr, "[dynamics] %s (obj %d): not observed/verified\n", name, t.d.Objs[0])
+			fail = 1
+		}
+	}
+	for name, n := range okc {
+		fmt.Fprintf(os.Stderr, "[dynamics] %-28s %5d position checks ok, %d off\n", name, n, badc[name])
+		if badc[name] > n/8 {
+			fail = 1
+		}
+	}
+	if fail == 0 {
+		fmt.Fprintln(os.Stderr, "[dynamics] OK")
+	}
+	return fail
+}
+
+// mul33 multiplies two 4096-scaled 3×3 matrices.
+func mul33(a, b [3][3]int32) [3][3]int32 {
+	var o [3][3]int32
+	for r := 0; r < 3; r++ {
+		for c := 0; c < 3; c++ {
+			var s int64
+			for k := 0; k < 3; k++ {
+				s += int64(a[r][k]) * int64(b[k][c])
+			}
+			o[r][c] = int32(s / 4096)
+		}
+	}
+	return o
 }
 
 // checkPlacement verifies the grid placement: the 40-byte-quad path's GTE

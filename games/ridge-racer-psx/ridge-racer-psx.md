@@ -37,7 +37,8 @@ CD-audio tracks (the CD-swap feature) that are not part of this file.
   in the world.
 * **Part VI** — the **asset formats**: the `TEX*.TMS` texture-upload streams, the `MAP.RRM` track
   geometry, the `OBJ.RRO` object models with their six polygon record types, how polygons reference
-  texture pages and CLUTs, and the executable's car table.
+  texture pages and CLUTs, the executable's car table, the roadside placement tables, and the
+  dynamic objects (the number girl, helicopter, airplane, start balloons, big screens and friends).
 * **Part VII** — **extraction and verification**: the pure-Go decoders in `extract/rr`, the
   `geomoracle` differential that checks them bit-exact against the running game, and the
   `webexport` pipeline that bakes the textured car and course GLBs.
@@ -710,12 +711,18 @@ CARROT, RT BOSCONIAN, RT NEBULASRAY, RT XEVIOUS RED, RT XEVIOUS GREEN, 13" RACIN
 
 ## 6. Roadside object placement
 
-The scenery objects that line the course — buildings, signs, the grandstand and start complex — are
-`OBJ.RRO` models placed in the world by **six static placement tables** in the executable
-(`0x8006E85C`, `0x8006E904`, `0x8006E9AC`, `0x8006EA54`, `0x8006EAFC`, `0x8006F09C`), drawn each frame
-by four near-identical iterators (`0x800157D8`, `0x800158E8`, `0x800159F8`, `0x80036778`) and culled
-against the frame's visible-cell mask. Every table is a run of **24-byte records** ending on a
-negative id:
+Every `OBJ.RRO` object the race draws funnels through one small family of draw-object routines
+(`0x800348E8` plain, `0x80034F78` translucent, `0x800372B0` shadow-class-only) that fetch the
+geometry pointer from the object directory entry (`id×16+12`); read-watching the directory over a
+full attract lap therefore enumerates **every** draw path. They split into three groups: the static
+placement tables below, the **dynamic objects** placed by dedicated code (§7), and the car
+compositor (§5).
+
+The scenery that lines the course — buildings, signs, the grandstand, barriers and the first
+tunnel's warning placards — comes from **static placement tables** in the executable, drawn each
+frame by four near-identical iterators (`0x800157D8` plain, `0x800158E8` translucent, `0x800159F8`,
+`0x80036778`) and culled against the frame's visible-cell mask. Every table is a run of **24-byte
+records** ending on a negative id:
 
 ```
 +0   s16 id        ; OBJ.RRO object index; a negative id ends the table
@@ -732,9 +739,61 @@ The iterator reads the record's X/Z (as `X>>11`, `Z>>11`) to index the visible-c
 off-screen objects, builds a Y-axis rotation from the yaw (`RotMatrix` at `0x80017EAC`, matrix
 `[cos,0,-sin / 0,1,0 / sin,0,cos]`), and draws the object's geometry under that rotation translated to
 `(X, Y, Z)`. The positions are in the same quarter-model-unit space as the grid (§V.2), so a placement
-sits at `(X, Y, Z)×4` in the track's model units. Two of the six tables hold the same 59 placements
-(a second draw pass distinguished only by the `+16` flag), so a placement is uniquely
+sits at `(X, Y, Z)×4` in the track's model units.
+
+Two dispatchers select the tables. The **buildings dispatcher** (`0x800129E0`, mirrored at
+`0x80014F80`) always draws `0x8006E85C` — the six warning placards (ids 191–194) in the first
+tunnel — and `0x8006E904` (translucent glow/flag panels 247–249), then the day/night halfword at
+`0x8017693C` picks the day pair (`0x8006EAFC` via `0x80036778`, `0x8006E9AC` via `0x800158E8`) or
+the night pair (`0x8006F09C` via `0x800159F8`, `0x8006EA54` via `0x800157D8`) — the same buildings
+as different object variants (e.g. 177 by day, 178 by night). The **structures dispatcher** (the
+head of the scenery routine at `0x80015B98`) draws the start barriers (`0x80070360`, at night
+`0x80070468`) and the grandstand list (`0x800703C0` with objects 60/61; at night a pointer variable
+at `0x80079F98/9C` selects a single-record 61-variant list at `0x80070408/0x80070438`), then the
+course-length word at `0x80176CBC` picks the course-split barrier walls (`0x80070510` short courses,
+`0x800705E8` long), and at night `0x800706C0` adds translucent extras (101, 142, 165). The day pair
+and night pair carry the same 59 building placements, so a placement is uniquely
 `(id, X, Y, Z, yaw)`.
+
+**The placards are draw-only.** Watched over a full attract lap and a scripted drive through a
+placard relocated onto the racing line, table `0x8006E85C` is read by the draw iterator and the
+transform setup only, and written by nothing: no collision system knows the placards exist in this
+build. (Object 193 is a flattened sign lying on the road; the *swinging* sign hanging over the same
+tunnel is dynamic — §7.)
+
+## 7. Dynamic objects
+
+Everything that moves — and a handful of fixed but animated objects — is placed by dedicated code,
+one traced block per object, mostly inside the scenery dispatcher at `0x80015B98` (the full block
+list with addresses lives in `extract/rr/dynamics.go`). Each block culls by the same visible-cell
+mask, builds its own rotation, calls `SetTransform` (`0x80012148`) with a **16-byte position vector
+in the executable's data segment** (X, Y, Z, W words in quarter model units), and draws through the
+shared draw-object routines. The id immediates encode a fallback: every block clamps to object 1
+when the loaded directory has fewer objects than it needs, which is why the iterators carry the
+same `id ≥ count → 1` guard.
+
+| Object | Ids | Position vector | Behaviour (traced) |
+|---|---|---|---|
+| Number girl | 250 | `0x80070870` | on the grid; upright billboard (pitch `0x400`, yaw `W+0x400`), translucent path |
+| Swinging tunnel sign | 192 | `0x80070780` | hangs over the first tunnel's road; yaw `0xC00 ± sin(frame)/8` |
+| Rotating sign | 175 | `0x80070720` | spins 16/frame (reversed at night) |
+| Beacon | 257 | `0x80070820` | unrotated; CLUT offset cycles four palettes every four frames (the per-instance CLUT add of §3) |
+| Start banner | 182/181 | `0x80070730` day, `0x80070740` night | gantry banner; 181 on a scheduled flicker frame |
+| Big screens ×2 | 185 off, 183/184 on | `0x80070750`, `0x80070760` | video walls; the drawer re-points the screen quad's UVs through the directory each frame |
+| Start-gate crowd | 67 + 68–83 | `0x800707A0` (night twin `0x80070810`) | the crowd panel waves: frame `(counter>>2)&15` |
+| — near LOD | 146,145,152,153,164 + 147–151 + 154–158 | `0x800707A0`–`0x800707E0` | drawn instead of 67 when the camera word `0x80130CC4` < 900: base + parts + crowd-wave sequence (byte table `0x800100F4`, ids 98+b) + the start-semaphore column (lit frame 154+n from the rig table `0x80056C44`) |
+| Camera crane | 258–260 (row of `0x80056C44`) | pivot `0x800707F0` | articulated rig (`0x800154B8`); one joint spins frame×16 |
+| Start balloons | 166–173 + 279–318 | `0x80070830` day, `0x80070840` night (W = yaw) | released at the start; drift −X and climb with race progress `(0x80176AE4−90)/3` ∈ [0,360); the topper is `279+8·bank+frame` with the bank byte (`0x80079FA0`) picked by lap — the lap banner |
+| Hot-air balloons ×2 | 139 | `0x80070850`, `0x80070860` | night classes only (flag bits 0x20/0x40 at `0x80080444`); rise 256 and 544 per frame |
+| Helicopter | 188 body + 189 rotor | script `0x80073790` | the rotor spins 331/frame; a **waypoint bytecode script** (opcodes 0–9, jump table `0x800107FC`, cursor in the struct at `0x801DB8FC`) flies it around the whole course: op 0 teleports, op 1 records are `X, Y, Z, two angles, duration` |
+| Airplane | 190 day / 251 night | struct `0x801D6DBC` | spawned at race start, glides along the data-segment direction vector at `0x800739F4` (pitch −192, yaw `0xF00`) for 1800 frames |
+
+The day/night split (`0x80176BF8`) is the race class — the higher classes run at dusk/night and
+swap models; `0x80176CBC` is the course length. `extract/rr/dynamics.go` decodes the catalog
+(positions from the EXE vectors, ids and behaviour from the traced blocks), and
+`geomoracle -only dynamics` verifies it: over the attract lap, each drawn dynamic object's
+GTE-recovered position (`R_obj·Rᵀ·TR`, camera cancelled against a same-frame static anchor) must
+land on the decoded vector.
 
 ---
 
@@ -744,7 +803,9 @@ sits at `(X, Y, Z)×4` in the track's model units. Two of the six tables hold th
 
 `extract/rr` reimplements every format of Parts V–VI as pure decoders over the CD file bytes:
 `idx.go` (the grid), `rrm.go` (sections and `TrackQuad`s), `obj.go` (objects and the six record
-types), `objects.go` (the roadside placement tables and the yaw rotation), `course.go` (the
+types), `objects.go` (the roadside placement tables and the yaw rotation), `dynamics.go` (the
+dynamic-object catalog of §VI.7 — ids and behaviour from the traced code blocks, positions from
+the EXE data vectors), `course.go` (the
 checkpoint table and scenery-set triggers), `tms.go` (the upload blocks) and `vram.go` — a
 1024×512 virtual VRAM built by replaying all five TMS streams, whose `Texel(page, clut, u, v)`
 mirrors the rasterizer's addressing. The oracle never supplies data; it only verifies.
@@ -773,6 +834,10 @@ mirrors the rasterizer's addressing. The oracle never supplies data; it only ver
   quadrant restored from its end-of-`TEX1` snapshot): 360,448 words, zero mismatched; and **object
   placement** — each drawn `OBJ.RRO` object's `Rᵀ·TR` world position, whose every pairwise delta
   must equal the decoded placement table's, pinning both the table and the ×4 unit scale.
+* **dynamics** — runs the attract demo lap and, for every drawn dynamic object with a fixed
+  position and constant rotation (the girl, beacon, start banner, both big screens, the crowd
+  gate), recovers `R_obj·Rᵀ·TR` and checks it against the decoded catalog position through a
+  same-frame static anchor (the camera cancels in the pairwise delta).
 
 ## 3. webexport — the shipped models
 
@@ -781,7 +846,9 @@ stage emits one GLB per car, composed exactly as the carousel draws it (body + c
 both axles); the **levels** stage emits the road as one `track.glb` (all 258 sections at their grid
 cells, 8,192 model units apart), each roadside object as its own `obj-NN.glb`, and
 `course.objects.json` — the placement list (`{model, pos, rot}` plus each record's address, flag and
-yaw). Textures resolve against the race texture states of §VI.1: all three scenery-set VRAM images
+yaw), including every fixed-position dynamic object of §VI.7 (flagged `dynamic`; the airplane has
+no fixed position and appears only as a model). The dynamic objects also ship as named
+`special-NNN.glb` viewer models (the helicopter with its rotor, the camera crane assembled). Textures resolve against the race texture states of §VI.1: all three scenery-set VRAM images
 are rebuilt from the TMS replay, and a section's (or object's) quadrant-page quads sample the set
 active at its position — the nearest checkpoint gate gives the progress, the traced trigger rules
 give the set (no object id spans two sets). Every distinct page+CLUT(+set) is baked into a tiled

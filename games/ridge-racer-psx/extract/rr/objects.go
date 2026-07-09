@@ -24,20 +24,31 @@ package rr
 import "math"
 
 // Placement lists in the executable, drawn in the daytime race, all sharing
-// the 24-byte record. Two dispatch blocks contribute:
+// the 24-byte record. Two dispatchers feed the four iterators (0x800157D8
+// plain, 0x800158E8 translucent, 0x800159F8, 0x80036778):
 //
-//   - The roadside buildings (block at 0x80014F80): E85C and E904 always, then
-//     a flag at 0x8016E93C selects the daytime pair (EAFC, E9AC) over the night
-//     pair (F09C, EA54) — the pairs carry the same buildings as different
-//     object variants (177 by day, 178 by night), so exporting both z-fights.
+//   - The roadside buildings (0x800129E0, mirrored at 0x80014F80): E85C (the
+//     first-tunnel warning placards 191-194 — draw-only scenery; nothing else
+//     ever reads or writes the table) and E904 (glow/flag panels 247-249)
+//     always, then the halfword at 0x8017693C selects the day pair
+//     (EAFC via 0x80036778, E9AC via 0x800158E8) or the night pair (F09C via
+//     0x800159F8, EA54 via 0x800157D8) — the same buildings as different
+//     object variants (e.g. 177 by day, 178 by night), so exporting both
+//     z-fights.
 //
-//   - The structures (block at 0x80015B90): the grandstand (60, 61 at 0x703C0)
-//     and the repeated barrier/fence walls (object 187 at 0x70360 and 0x70510).
-//     This block has its own night variants (70468, 705E8, 706C0) not listed.
+//   - The structures head of the scenery dispatcher (0x80015B98), selected by
+//     a scene mode: 0x70360 (start barriers) then 0x703C0 (grandstand 60, 61)
+//     by day — at night 0x70468 replaces the barriers and the grandstand list
+//     comes from a pointer variable (0x80079F98/9C -> 0x70408/0x70438, single
+//     61-variant records); then the course-length word at 0x80176CBC picks
+//     0x70510 (short courses) or 0x705E8 (long) for the course-split barrier
+//     walls, and at night 0x706C0 adds translucent extras (101, 142, 165).
 //
-// The set is exactly what the daytime race draws (captured from the drawers).
+// The set below is exactly what the daytime race draws (verified against the
+// drawers); the dynamic, code-placed objects are decoded by Dynamics()
+// (dynamics.go).
 var placementLists = []uint32{
-	0x8006E85C, 0x8006E904, 0x8006EAFC, 0x8006E9AC, // buildings (daytime)
+	0x8006E85C, 0x8006E904, 0x8006EAFC, 0x8006E9AC, // buildings + placards (daytime)
 	0x80070360, 0x800703C0, 0x80070510, // grandstand + barriers
 }
 
@@ -105,6 +116,22 @@ func YawMatrix(yaw int16) [3][3]int32 {
 		{c, 0, -s},
 		{0, 4096, 0},
 		{s, 0, c},
+	}
+}
+
+// PitchMatrix returns the X-axis rotation the game builds through 0x80017F18
+// (libgte RotMatrixX layout), 4096 = 1.0:
+//
+//	[ 1.0   0     0  ]
+//	[  0   cos  -sin ]
+//	[  0   sin   cos ]
+func PitchMatrix(pitch int16) [3][3]int32 {
+	s := rsin(pitch)
+	c := rcos(pitch)
+	return [3][3]int32{
+		{4096, 0, 0},
+		{0, c, -s},
+		{0, s, c},
 	}
 }
 

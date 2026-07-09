@@ -87,32 +87,98 @@
       "section": "Cars"
     },
     {
-      "name": "Finish banner (obj 182)",
-      "file": "models/special-182.glb",
-      "kind": "mesh3d",
-      "section": "Objects"
-    },
-    {
-      "name": "Object 175",
-      "file": "models/special-175.glb",
-      "kind": "mesh3d",
-      "section": "Objects"
-    },
-    {
-      "name": "Object 185",
-      "file": "models/special-185.glb",
-      "kind": "mesh3d",
-      "section": "Objects"
-    },
-    {
-      "name": "Object 250",
+      "name": "Number girl (obj 250)",
       "file": "models/special-250.glb",
       "kind": "mesh3d",
       "section": "Objects"
     },
     {
-      "name": "Object 257",
+      "name": "Swinging tunnel sign (obj 192)",
+      "file": "models/special-192.glb",
+      "kind": "mesh3d",
+      "section": "Objects"
+    },
+    {
+      "name": "Rotating sign (obj 175)",
+      "file": "models/special-175.glb",
+      "kind": "mesh3d",
+      "section": "Objects"
+    },
+    {
+      "name": "Beacon (palette-cycled) (obj 257)",
       "file": "models/special-257.glb",
+      "kind": "mesh3d",
+      "section": "Objects"
+    },
+    {
+      "name": "Start banner (obj 182)",
+      "file": "models/special-182.glb",
+      "kind": "mesh3d",
+      "section": "Objects"
+    },
+    {
+      "name": "Big screen A (obj 185)",
+      "file": "models/special-185.glb",
+      "kind": "mesh3d",
+      "section": "Objects"
+    },
+    {
+      "name": "Start gate crowd (far LOD) (obj 67)",
+      "file": "models/special-067.glb",
+      "kind": "mesh3d",
+      "section": "Objects"
+    },
+    {
+      "name": "Start gate crowd (near LOD base) (obj 146)",
+      "file": "models/special-146.glb",
+      "kind": "mesh3d",
+      "section": "Objects"
+    },
+    {
+      "name": "Start semaphore (obj 154)",
+      "file": "models/special-154.glb",
+      "kind": "mesh3d",
+      "section": "Objects"
+    },
+    {
+      "name": "Crowd wave (near LOD) (obj 147)",
+      "file": "models/special-147.glb",
+      "kind": "mesh3d",
+      "section": "Objects"
+    },
+    {
+      "name": "Camera crane (obj 258)",
+      "file": "models/special-258.glb",
+      "kind": "mesh3d",
+      "section": "Objects"
+    },
+    {
+      "name": "Start balloons (obj 166)",
+      "file": "models/special-166.glb",
+      "kind": "mesh3d",
+      "section": "Objects"
+    },
+    {
+      "name": "Lap banner (on balloons) (obj 279)",
+      "file": "models/special-279.glb",
+      "kind": "mesh3d",
+      "section": "Objects"
+    },
+    {
+      "name": "Hot-air balloon A (obj 139)",
+      "file": "models/special-139.glb",
+      "kind": "mesh3d",
+      "section": "Objects"
+    },
+    {
+      "name": "Helicopter (obj 188)",
+      "file": "models/special-188.glb",
+      "kind": "mesh3d",
+      "section": "Objects"
+    },
+    {
+      "name": "Airplane (obj 190)",
+      "file": "models/special-190.glb",
       "kind": "mesh3d",
       "section": "Objects"
     },
