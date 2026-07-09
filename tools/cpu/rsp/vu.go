@@ -697,24 +697,44 @@ func (c *CPU) divide(e, vt, vs, vd uint32, in int32) {
 	}
 }
 
-// reciprocal follows the hardware's algorithm exactly: normalise the input, look
-// its top nine mantissa bits up in the ROM, prepend the implicit leading 1, and
-// shift the resulting 17-bit value so that its top bit lands at the output's
-// scale. A negative input inverts the result rather than negating it.
+// reciprocal normalises the input, looks its top nine mantissa bits up in the
+// ROM, prepends the implicit leading 1, and shifts the resulting 17-bit value
+// down by the input's exponent. A negative input inverts the result rather than
+// negating it, so the sign falls out of the same complement that produced the
+// magnitude.
 //
 // The scaling is the hardware's own and looks arbitrary out of context: the
-// result approximates 2^33/x rather than 1/x, and microcode carries the exponent
-// itself. What matters is that it is consistent, which the shift below keeps.
+// result approximates 2^31/x rather than 1/x, and microcode carries the exponent
+// itself. What matters is that it is consistent.
+//
+// Two details are worth stating because getting either wrong yields geometry
+// that is almost right. The first is the shift. Published pseudocode for this
+// unit writes the output scale as 32 - scale_in, which places the 17-bit value
+// two bits too high; the true fixed point puts its top bit at bit 30, so the
+// shift is 14 - scale_in. n64-systemtest pins this from both ends: its RCP table
+// test asserts reciprocal(0x1000) == 0x0007FFFC, and its exhaustive 16-bit test
+// asserts the low half of reciprocal(1) is 0xC000. Only 14 satisfies both.
+//
+// The second is that the input's magnitude is taken as ~in, not -in, once it
+// reaches -32768 or below. Above that the two agree; at exactly -32768 the
+// hardware short-circuits, because negating it overflows.
 func (c *CPU) reciprocal(in int32) uint32 {
-	if in == 0 {
-		// There is no divide-by-zero exception on the RSP; the result saturates.
-		c.divOut = 0xFFFF
-		return 0xFFFF
+	// The sign, smeared across the word: 0 for a positive input, ~0 for a
+	// negative one. It both un-negates the input and re-negates the result.
+	mask := in >> 31
+	x := uint32(in ^ mask)
+	if in > -32768 {
+		x = uint32((in ^ mask) - mask)
 	}
-	neg := in < 0
-	x := uint32(in)
-	if neg {
-		x = uint32(-in)
+
+	switch {
+	case x == 0:
+		// There is no divide-by-zero exception on the RSP; the result saturates.
+		c.divOut = 0x7FFF
+		return 0x7FFFFFFF
+	case in == -32768:
+		c.divOut = 0xFFFF
+		return 0xFFFF0000
 	}
 
 	// scaleIn is the position of the highest set bit: the input's exponent.
@@ -722,7 +742,6 @@ func (c *CPU) reciprocal(in int32) uint32 {
 	for x&(1<<scaleIn) == 0 {
 		scaleIn--
 	}
-	scaleOut := 32 - scaleIn
 
 	// The nine mantissa bits immediately below the leading 1. Bit positions
 	// below zero read as zero, which the shift direction handles.
@@ -733,17 +752,16 @@ func (c *CPU) reciprocal(in int32) uint32 {
 		idx = x << (9 - scaleIn) & 0x1FF
 	}
 
-	// Place the 17-bit value (1 || rom) with its top bit at scaleOut.
+	// Place the 17-bit value (1 || rom) with its top bit at bit 30 - scaleIn.
 	v := uint64(0x10000) | uint64(rcpROM[idx])
 	var result uint32
-	if scaleOut >= 16 {
-		result = uint32(v << (scaleOut - 16))
+	if scaleIn <= 14 {
+		result = uint32(v << (14 - scaleIn))
 	} else {
-		result = uint32(v >> (16 - scaleOut))
+		result = uint32(v >> (scaleIn - 14))
 	}
-	if neg {
-		result = ^result
-	}
+	result ^= uint32(mask)
+
 	c.divOut = uint16(result >> 16)
 	return result
 }

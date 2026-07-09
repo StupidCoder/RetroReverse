@@ -177,17 +177,26 @@ func (m *Machine) triangle(op uint32, w []uint64) {
 				sv := tex[0].at(dy, dxPix)
 				tv := tex[1].at(dy, dxPix)
 				wv := tex[2].at(dy, dxPix)
-				// The perspective divide. The microcode interpolates s*w and
-				// t*w linearly across the triangle, because those are the only
-				// quantities that vary linearly in screen space; the RDP divides
-				// them by w again at every pixel to recover s and t.
+
+				// The sampler wants a 10.5 coordinate, which without perspective
+				// is just the integer part of the 16.16 coefficient.
+				sFix, tFix := int32(sv>>16), int32(tv>>16)
+
+				// The perspective divide. The microcode interpolates s/w and t/w
+				// linearly across the triangle, because those are the only
+				// quantities that vary linearly in screen space, and hands the RDP
+				// 1/w alongside them; the RDP multiplies them back out per pixel.
+				//
+				// The scale is the part that is easy to get wrong. The RDP takes
+				// the w coefficient's integer part as a 15-bit fraction with bit 15
+				// as its carry, so unity is 0x8000, not 0x10000. Dividing by 0x10000
+				// therefore lands every terrain coordinate inside texel zero, and
+				// each triangle comes out a single flat colour.
 				if r.OtherModes&omPerspTex != 0 && wv > 0 {
-					sv = sv * 0x10000 / wv
-					tv = tv * 0x10000 / wv
+					sFix = int32(sv * 0x8000 / wv)
+					tFix = int32(tv * 0x8000 / wv)
 				}
-				// The integer part of a 16.16 coefficient is the 10.5 coordinate
-				// the sampler wants.
-				texel, ok := m.sample(tile, int32(sv>>16), int32(tv>>16))
+				texel, ok := m.sample(tile, sFix, tFix)
 				if !ok {
 					return
 				}

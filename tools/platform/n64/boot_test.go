@@ -169,10 +169,23 @@ func TestBootClearsTheFramebuffer(t *testing.T) {
 		fills, fillBase, fillColor, drawn)
 }
 
-// TestBootRendersAFrame is the Phase 3d gate. Once the combiner, the sampler and
-// the span rasteriser exist, the game's frames are not a flat clear any more:
-// triangles and textured rectangles put hundreds of distinct colours on the
-// screen. Counting them is a cheap way to tell a picture from a fill.
+// TestBootRendersAFrame is the Phase 3d gate: the attract sequence opens on the
+// island seen from high above, so a correct machine puts an ocean, a coastline
+// and hundreds of colours on the screen.
+//
+// Two things about the assertions are deliberate, because an earlier version of
+// this test passed while the game rendered almost nothing.
+//
+// It counts colours only in frames that received triangles. The game's first
+// colour image is a stretch of RDRAM the boot never wrote, and its noise holds
+// thousands of distinct values — more than any real frame. Sampling that was
+// what let a broken renderer look like a working one.
+//
+// And it asserts a triangle *rate*, not merely that some triangle arrived. When
+// the RSP's reciprocal was wrong the perspective divide fell apart, the microcode
+// culled nearly all of the island, and about three triangles per frame reached
+// the rasteriser instead of several hundred. A non-zero count could not see that;
+// a rate can.
 func TestBootRendersAFrame(t *testing.T) {
 	rom := loadTestROM(t)
 	m := NewMachine(rom)
@@ -180,7 +193,8 @@ func TestBootRendersAFrame(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	tris, rects, best := 0, 0, 0
+	tris, rects, frames, drawnFrames, best := 0, 0, 0, 0, 0
+	sinceSync := 0
 	m.OnRDPCmd = func(mm *Machine, op uint32, _ []uint64) {
 		switch op {
 		case cmdTexRect, cmdTexRectFlip:
@@ -188,11 +202,16 @@ func TestBootRendersAFrame(t *testing.T) {
 		case cmdTriFill, cmdTriFillZ, cmdTriTex, cmdTriTexZ,
 			cmdTriShade, cmdTriShadeZ, cmdTriShadeTex, cmdTriShadeTexZ:
 			tris++
+			sinceSync++
 		case cmdSyncFull:
+			frames++
+			drew := sinceSync > 0
+			sinceSync = 0
 			base, w := mm.rdp.Color.Addr, mm.rdp.Color.Width
-			if base == 0 || w == 0 || int(base+w*240*2) > len(mm.RDRAM) {
+			if !drew || base == 0 || w == 0 || int(base+w*240*2) > len(mm.RDRAM) {
 				return
 			}
+			drawnFrames++
 			uniq := map[uint16]bool{}
 			for i := uint32(0); i < w*240; i++ {
 				a := base + i*2
@@ -205,18 +224,23 @@ func TestBootRendersAFrame(t *testing.T) {
 	}
 	m.Run(400_000_000)
 
-	if tris == 0 {
-		t.Error("no triangle reached the rasteriser")
-	}
 	if rects == 0 {
 		t.Error("no textured rectangle reached the rasteriser")
 	}
+	if drawnFrames == 0 {
+		t.Fatal("no frame received a single triangle")
+	}
+	// The island's terrain mesh alone is several hundred triangles a frame.
+	if rate := tris / frames; rate < 100 {
+		t.Errorf("only %d triangles per frame reached the rasteriser: the microcode is culling the scene", rate)
+	}
 	// A cleared screen holds one or two colours. A rendered one holds hundreds.
 	if best < 100 {
-		t.Errorf("the busiest frame held only %d distinct colours: nothing was shaded", best)
+		t.Errorf("the busiest drawn frame held only %d distinct colours: nothing was shaded", best)
 	}
-	t.Logf("%d triangles, %d textured rectangles; the busiest frame held %d distinct colours",
-		tris, rects, best)
+	t.Logf("%d triangles over %d frames (%d/frame), %d textured rectangles; "+
+		"the busiest of %d drawn frames held %d distinct colours",
+		tris, frames, tris/frames, rects, drawnFrames, best)
 }
 
 // The joybus must answer an empty port, or a game polling four controllers waits

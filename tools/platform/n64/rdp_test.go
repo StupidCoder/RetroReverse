@@ -182,3 +182,29 @@ func TestUnmodelledCommandHalts(t *testing.T) {
 		t.Fatal("an unmodelled RDP command did not halt the machine")
 	}
 }
+
+func TestDepthEncodingIsMonotonicAndSpansTheBuffer(t *testing.T) {
+	// The far plane must encode to the value a cleared buffer holds, or nothing
+	// at maximum depth is ever hidden.
+	if got := depthOf(0x7FFFFFFF); got != 0xFFFC {
+		t.Errorf("depthOf(far plane) = %04X want FFFC", got)
+	}
+	if got := depthOf(0); got != 0 {
+		t.Errorf("depthOf(0) = %04X want 0000", got)
+	}
+	// Monotonic, and it must actually discriminate in the band where this game's
+	// terrain lives: z integer parts 32626..32748.
+	prev := uint32(0)
+	for z := int64(0); z < 0x7FFF<<16; z += 0x4000 {
+		v := depthOf(z)
+		if v < prev {
+			t.Fatalf("depthOf is not monotonic at z=%d: %04X after %04X", z, v, prev)
+		}
+		prev = v
+	}
+	lo, hi := depthOf(32626<<16), depthOf(32748<<16)
+	if lo == hi {
+		t.Errorf("the terrain's whole depth band encodes to one value %04X", lo)
+	}
+	t.Logf("terrain band encodes %04X..%04X (%d distinct steps)", lo, hi, (hi-lo)/4)
+}

@@ -137,16 +137,22 @@ func tap3(base, alongS, alongT rgba, sf, tf uint32) rgba {
 	}
 }
 
-// TMEM's odd-row word swap is not applied here, and that is a known gap.
+// swizzle undoes TMEM's odd-row word swap.
 //
-// The hardware stores every odd row of a texture with its two 32-bit halves
-// exchanged, and Load_Block's dxt field drives that swap while the block is
-// being copied. Applying it at sample time as well produced no visible
-// improvement, which says the two halves of the question — where the swap
-// happens on load, and whether the sampler must undo it — have to be answered
-// together, against a texture whose contents are known. Until then this reads
-// TMEM linearly and says so, rather than guessing.
-func swizzle(off, row uint32) uint32 { return off }
+// The hardware stores every odd row of a texture with the two 32-bit halves of
+// each 64-bit word exchanged; Load_Block's dxt field drives the swap as the
+// block is copied in. The sampler must flip bit 2 of the byte offset on odd rows
+// to read a texel back from where it actually landed.
+//
+// Left unapplied, a texture reads back with its odd rows broken into alternating
+// four-byte dashes, which is exactly how this game's 32x32 grass tile appears
+// when this returns off unchanged.
+func swizzle(off, row uint32) uint32 {
+	if row&1 != 0 {
+		return off ^ 4
+	}
+	return off
+}
 
 // texelAt reads one texel, in whole texels, through a tile's wrap rules.
 func (m *Machine) texelAt(t *tile, s, tt int32) (rgba, bool) {
@@ -250,24 +256,55 @@ func (m *Machine) setDepth(x, y, z uint32) {
 	m.storeRDRAM16(a, uint16(z))
 }
 
+// zRanges is the depth encoding's piecewise table, one row per exponent: the
+// first z the exponent covers, and how far the mantissa is shifted down.
+//
+// Each row spans exactly 2048 mantissa steps, so the eight of them tile the whole
+// 18-bit range, and the encoding is monotonic across the joins.
+var zRanges = [8]struct{ base, shift uint32 }{
+	{0x00000, 6}, {0x20000, 5}, {0x30000, 4}, {0x38000, 3},
+	{0x3C000, 2}, {0x3E000, 1}, {0x3F000, 0}, {0x3F800, 0},
+}
+
 // depthOf converts an interpolated 15.16 depth into the 16-bit value the buffer
 // holds.
 //
-// The hardware stores depth in a floating-point-like encoding with an exponent
-// and a mantissa. This model stores it linearly instead. Nothing in a game reads
-// the depth buffer as data — it only ever compares against itself — so an
-// internally consistent encoding hides the surface it should hide. A tool that
-// wanted to *display* the depth buffer would see the wrong numbers, and would
-// need the real encoding.
+// The buffer does not store depth linearly. It stores a 14-bit floating-point
+// value — a 3-bit exponent and an 11-bit mantissa — in the word's top bits, with
+// the low two bits reserved for the delta-z the anti-aliaser uses. That gives the
+// far plane, where perspective crowds every surface together, far more precision
+// than a linear encoding would.
+//
+// This matters more than "the depth buffer is only compared against itself"
+// suggests. A projected scene spends almost all of its z range near the far
+// plane: this game's terrain arrives with the integer part of z between 32626 and
+// 32748, out of a 32767 maximum. A linear encoding that saturates anywhere in
+// that band collapses the entire world onto one depth value, the comparison stops
+// discriminating, and whatever is drawn last wins.
 func depthOf(z int64) uint32 {
+	// The encoder works on 18 bits: the 15-bit integer part and three bits of
+	// fraction. The rest of the fraction is below the buffer's resolution.
 	if z < 0 {
-		return 0
+		z = 0
 	}
-	v := uint32(z >> 2)
-	if v > 0xFFFF {
-		return 0xFFFF
+	v := uint32(z >> 13)
+	if v > 0x3FFFF {
+		v = 0x3FFFF
 	}
-	return v
+
+	exp := 7
+	for i := 1; i < 8; i++ {
+		if v < zRanges[i].base {
+			exp = i - 1
+			break
+		}
+	}
+	r := zRanges[exp]
+	mantissa := (v - r.base) >> r.shift
+
+	// The encoded value sits above the two delta-z bits, which is why a cleared
+	// buffer reads 0xFFFC rather than 0xFFFF.
+	return (uint32(exp)<<11 | mantissa&0x7FF) << 2
 }
 
 // drawPixel runs one pixel through the combiner, the depth test and the blender,

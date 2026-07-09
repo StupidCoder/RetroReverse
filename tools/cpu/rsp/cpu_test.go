@@ -261,8 +261,23 @@ func TestVectorLoadStoreQuadword(t *testing.T) {
 	}
 }
 
+func TestReciprocalMatchesHardware(t *testing.T) {
+	// Two values fix the output scale, and both come from n64-systemtest running
+	// on real hardware rather than from any formula of ours: its RCP table test
+	// asserts rcp(0x1000) == 0x0007FFFC, and its exhaustive 16-bit test asserts
+	// the low half of rcp(1) is 0xC000. A scale one bit either way fails one or
+	// the other. See the comment on reciprocal.
+	c, _ := newTest()
+	if got := c.reciprocal(0x1000); got != 0x0007FFFC {
+		t.Errorf("rcp(0x1000) = %08X want 0007FFFC", got)
+	}
+	if got := uint16(c.reciprocal(1)); got != 0xC000 {
+		t.Errorf("low half of rcp(1) = %04X want C000", got)
+	}
+}
+
 func TestReciprocalScalesConsistently(t *testing.T) {
-	// The hardware's reciprocal is scaled: it approximates 2^33/x rather than
+	// The hardware's reciprocal is scaled: it approximates 2^31/x rather than
 	// 1/x, and microcode carries the exponent itself. What must hold is that
 	// doubling the input exactly halves the result, which is what makes the
 	// scaling usable at all.
@@ -275,23 +290,28 @@ func TestReciprocalScalesConsistently(t *testing.T) {
 		t.Errorf("reciprocal is not scale-consistent: rcp(1)=%08X rcp(2)=%08X rcp(4)=%08X",
 			one, two, four)
 	}
-	// The leading 1 and the first ROM entry: 1 || 0xFFFF.
-	if one != 0x0001FFFF {
-		t.Errorf("rcp(1.0) = %08X want 0001FFFF", one)
-	}
 }
 
 func TestReciprocalOfZeroAndNegatives(t *testing.T) {
 	c, _ := newTest()
-	if got := c.reciprocal(0); got != 0xFFFF || c.divOut != 0xFFFF {
-		t.Errorf("rcp(0) = %04X/%04X want FFFF/FFFF (it saturates; there is no exception)",
-			c.divOut, got)
+	// Zero saturates rather than raising anything; the RSP has no exceptions.
+	if got := c.reciprocal(0); got != 0x7FFFFFFF || c.divOut != 0x7FFF {
+		t.Errorf("rcp(0) = %08X (divOut %04X) want 7FFFFFFF/7FFF", got, c.divOut)
+	}
+	// -32768 is short-circuited, because negating it overflows.
+	if got := c.reciprocal(-32768); got != 0xFFFF0000 {
+		t.Errorf("rcp(-32768) = %08X want FFFF0000", got)
 	}
 	// A negative input inverts the result rather than negating it.
-	pos := c.reciprocal(0x00010000)
-	neg := c.reciprocal(-0x00010000)
+	pos := c.reciprocal(0x1000)
+	neg := c.reciprocal(-0x1000)
 	if neg != ^pos {
 		t.Errorf("rcp(-x) = %08X want ^rcp(x) = %08X", neg, ^pos)
+	}
+	// Below -32768 the identity stops holding, because the magnitude is taken as
+	// ~in rather than -in: the reciprocal of -65536 is computed from 65535.
+	if got, want := c.reciprocal(-0x00010000), ^c.reciprocal(0xFFFF); got != want {
+		t.Errorf("rcp(-65536) = %08X want ^rcp(65535) = %08X", got, want)
 	}
 }
 
