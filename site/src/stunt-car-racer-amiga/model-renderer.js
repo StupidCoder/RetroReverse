@@ -58,15 +58,26 @@ async function setupDrive(id, base, car, track) {
   const phys = new Physics();
   phys.loadTrack(perTrack, staticBuf);
 
-  const keys = new Set();
-  const kd = (e) => keys.add(e.key.toLowerCase());
-  const ku = (e) => keys.delete(e.key.toLowerCase());
-  window.addEventListener('keydown', kd);
-  window.addEventListener('keyup', ku);
-
   const ray = new THREE.Raycaster();
   const down = new THREE.Vector3(0, -1, 0);
   let px = null, pz = null, yaw = 0, y = 0;
+
+  // U resets the car: re-load the placed spawn state (loadTrack rebuilds the memory to the
+  // start line + re-runs the spawn) and forget the last mapped pose.
+  const reset = () => {
+    phys.loadTrack(perTrack, staticBuf);
+    px = null; pz = null; yaw = 0; y = 0;
+  };
+
+  const keys = new Set();
+  const kd = (e) => {
+    const k = e.key.toLowerCase();
+    if (k === 'u' && !keys.has('u')) reset(); // one-shot on press, ignore key-repeat
+    keys.add(k);
+  };
+  const ku = (e) => keys.delete(e.key.toLowerCase());
+  window.addEventListener('keydown', kd);
+  window.addEventListener('keyup', ku);
 
   return {
     step() {
@@ -193,7 +204,7 @@ export default {
       flycam.setMoveScale(1.4);
       flycam.setEnabled(true);
       stage.fly = flycam;
-      stage.hud = `${item.name} · ${flyHint}${drive ? ' · IJKL drive' : ''}`;
+      stage.hud = `${item.name} · ${flyHint}${drive ? ' · IJKL drive, U reset' : ''}`;
     } else {
       controls.autoRotate = true;
       controls.autoRotateSpeed = AUTO_ROTATE_SPEED;
