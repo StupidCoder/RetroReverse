@@ -609,3 +609,183 @@ func TestUnimplementedFPOperationFaults(t *testing.T) {
 		t.Error("FCR31 does not record an unimplemented operation")
 	}
 }
+
+func TestFPUCauseFieldIsClearedEachOperation(t *testing.T) {
+	// The causes describe the operation that just ran. Letting them accumulate
+	// reports an FPU permanently in every error state at once, which is what a
+	// program polling FCR31 would then believe.
+	c, _ := newTest(
+		rt(0x11, 0x10, 1, 0, 2, 0x00), // add.s $f2, $f0, $f1  (inexact)
+		rt(0x11, 0x10, 1, 0, 3, 0x00), // add.s $f3, $f0, $f1  (exact)
+	)
+	c.setS(0, 1.0)
+	c.setS(1, 1e-30) // 1 + 1e-30 rounds back to 1: inexact
+	run(t, c, 1)
+	if c.FCR31&(fpInexact<<fcr31CauseShift) == 0 {
+		t.Fatal("an inexact add did not raise the inexact cause")
+	}
+
+	c.setS(1, 1.0) // 1 + 1 is exact
+	run(t, c, 1)
+	if c.FCR31&fcr31CauseMask != 0 {
+		t.Errorf("an exact add left causes set: FCR31 = %08X", c.FCR31)
+	}
+	// The sticky flag from the first operation survives, though.
+	if c.FCR31&(fpInexact<<fcr31FlagShift) == 0 {
+		t.Error("the sticky inexact flag was cleared: flags are not sticky")
+	}
+}
+
+func TestFPUDivideByZeroAndInvalid(t *testing.T) {
+	c, _ := newTest(rt(0x11, 0x10, 1, 0, 2, 0x03)) // div.s $f2, $f0, $f1
+	c.setS(0, 1.0)
+	c.setS(1, 0.0)
+	run(t, c, 1)
+	if c.FCR31&(fpDivByZero<<fcr31CauseShift) == 0 {
+		t.Error("1/0 did not raise divide-by-zero")
+	}
+
+	c2, _ := newTest(rt(0x11, 0x10, 1, 0, 2, 0x03))
+	c2.setS(0, 0.0)
+	c2.setS(1, 0.0)
+	run(t, c2, 1)
+	if c2.FCR31&(fpInvalid<<fcr31CauseShift) == 0 {
+		t.Error("0/0 did not raise invalid")
+	}
+}
+
+func TestFPUEnabledCauseTrapsAndLeavesFlagsAlone(t *testing.T) {
+	// When an enabled cause traps, the sticky flags are not updated: the handler
+	// is meant to see the causes untouched.
+	c, _ := newTest(rt(0x11, 0x10, 1, 0, 2, 0x00)) // add.s
+	c.FCR31 = fpInexact << fcr31EnableShift
+	c.setS(0, 1.0)
+	c.setS(1, 1e-30)
+	c.Step()
+
+	if got := (c.COP0[cop0Cause] >> 2) & 0x1F; got != excFPE {
+		t.Fatalf("an enabled inexact cause did not trap: exception code %d", got)
+	}
+	if c.FCR31&(fpInexact<<fcr31FlagShift) != 0 {
+		t.Error("a trapping operation updated the sticky flags")
+	}
+}
+
+func TestAddressErrorUpdatesContext(t *testing.T) {
+	// Context and XContext are page-table pointers: a base the OS wrote, with the
+	// faulting page number spliced in. Every fault with an address updates them,
+	// not just a TLB miss — and their low four bits are hardwired to zero.
+	c, _ := newTest(it(0x23, 5, 1, 0)) // lw $1, 0($5), misaligned
+	c.COP0[cop0Context] = 0xFFFFFFFFFF000000
+	c.SetReg(5, 0x80002002)
+	c.Step()
+
+	if got := (c.COP0[cop0Cause] >> 2) & 0x1F; got != excAdEL {
+		t.Fatalf("exception code %d, want AdEL", got)
+	}
+	if c.COP0[cop0BadVAddr] != 0x80002002 {
+		t.Errorf("BadVAddr = %016X", c.COP0[cop0BadVAddr])
+	}
+	// BadVPN2 is the address shifted right 13, placed at bit 4.
+	wantVPN := (uint64(0x80002002) >> 13) & 0x7FFFF << 4
+	if got := c.COP0[cop0Context] & 0x7FFFFF; got != wantVPN {
+		t.Errorf("Context page number = %06X want %06X", got, wantVPN)
+	}
+	if c.COP0[cop0Context]&0xF != 0 {
+		t.Error("Context's low four bits are not zero")
+	}
+	if c.COP0[cop0Context]&0xFFFFFFFFFF000000 != 0xFFFFFFFFFF000000 {
+		t.Error("Context's base was not preserved")
+	}
+}
+
+func TestFPUHasNoDenormals(t *testing.T) {
+	// A denormal operand is something this FPU cannot compute with at all: it
+	// raises unimplemented-operation and leaves the arithmetic to software.
+	c, _ := newTest(rt(0x11, 0x10, 1, 0, 2, 0x00)) // add.s
+	c.writeFGR32(0, 0x00000001)                    // the smallest denormal
+	c.setS(1, 1.0)
+	c.Step()
+	if c.FCR31&fcr31CauseUnimpl == 0 {
+		t.Error("a denormal operand did not raise unimplemented-operation")
+	}
+	if got := (c.COP0[cop0Cause] >> 2) & 0x1F; got != excFPE {
+		t.Errorf("exception code %d, want FPE", got)
+	}
+}
+
+func TestFPUDenormalResultFollowsTheFlushBit(t *testing.T) {
+	// A result too small to represent flushes to a signed zero when FS is set,
+	// and raises unimplemented-operation when it is not.
+	sum := func(flush bool) *CPU {
+		c, _ := newTest(rt(0x11, 0x10, 1, 0, 2, 0x00)) // add.s $f2, $f0, $f1
+		if flush {
+			c.FCR31 |= fcr31FS
+		}
+		c.setS(0, 1.5285104e-37)
+		c.setS(1, -1.5391543e-37) // the exact sum is denormal
+		c.Step()
+		return c
+	}
+
+	c := sum(true)
+	if c.FCR31&fcr31CauseUnimpl != 0 {
+		t.Error("with FS set, a denormal result should flush rather than trap")
+	}
+	if got := c.readFGR32(2); got != 0x80000000 {
+		t.Errorf("flushed result = %08X, want a negative zero", got)
+	}
+	if c.FCR31&((fpUnderflow|fpInexact)<<fcr31CauseShift) != (fpUnderflow|fpInexact)<<fcr31CauseShift {
+		t.Errorf("flushing did not report underflow and inexact: FCR31 = %08X", c.FCR31)
+	}
+
+	c = sum(false)
+	if c.FCR31&fcr31CauseUnimpl == 0 {
+		t.Error("with FS clear, a denormal result should raise unimplemented-operation")
+	}
+}
+
+func TestFPURoundingModes(t *testing.T) {
+	// 1/3 is not representable, so each mode lands on a different neighbour.
+	div := func(rm uint32) float32 {
+		c, _ := newTest(rt(0x11, 0x10, 1, 0, 2, 0x03)) // div.s $f2, $f0, $f1
+		c.FCR31 = rm
+		c.setS(0, 1)
+		c.setS(1, 3)
+		run(t, c, 1)
+		return c.fs(2)
+	}
+	// The exact value lies just below the nearest float, so nearest rounds up.
+	nearest := div(roundNearest)
+	toZero := div(roundToZero)
+	ceil := div(roundCeil)
+	floor := div(roundFloor)
+
+	if !(toZero < nearest) {
+		t.Errorf("toward zero (%v) should step below nearest (%v)", toZero, nearest)
+	}
+	if ceil != nearest {
+		t.Errorf("toward +inf (%v) should agree with nearest (%v) when nearest rounded up", ceil, nearest)
+	}
+	if floor != toZero {
+		t.Errorf("toward -inf (%v) should agree with toward zero (%v) for a positive value", floor, toZero)
+	}
+}
+
+func TestFPUProducesTheHardwareQuietNaN(t *testing.T) {
+	// The VR4300's quiet NaN is not the one IEEE suggests, and neg does not flip
+	// a NaN's sign.
+	c, _ := newTest(
+		rt(0x11, 0x10, 1, 0, 2, 0x03), // div.s $f2, $f0, $f1  -> 0/0 = NaN
+		rt(0x11, 0x10, 0, 2, 3, 0x07), // neg.s $f3, $f2
+	)
+	c.setS(0, 0)
+	c.setS(1, 0)
+	run(t, c, 2)
+	if got := c.readFGR32(2); got != qNaN32 {
+		t.Errorf("0/0 gave %08X, want the hardware quiet NaN %08X", got, uint32(qNaN32))
+	}
+	if got := c.readFGR32(3); got != qNaN32 {
+		t.Errorf("neg of a NaN gave %08X, want %08X unchanged", got, uint32(qNaN32))
+	}
+}

@@ -99,7 +99,7 @@ func (c *CPU) tlbTranslate(vaddr uint64, store bool) (uint32, bool) {
 		if store && lo&entryLoD == 0 {
 			// Valid but not writable: the modification exception, which a
 			// copy-on-write or dirty-tracking handler uses.
-			c.COP0[cop0BadVAddr] = vaddr
+			c.setFaultAddress(vaddr)
 			c.setEntryHiVPN(vaddr)
 			c.Exception(excMod)
 			return 0, false
@@ -122,11 +122,8 @@ func (c *CPU) tlbException(vaddr uint64, store, refill bool) {
 	if store {
 		code = excTLBS
 	}
-	c.COP0[cop0BadVAddr] = vaddr
+	c.setFaultAddress(vaddr)
 	c.setEntryHiVPN(vaddr)
-	// Context holds the page-table entry address the refill handler wants.
-	badVPN2 := (vaddr >> 13) & 0x7FFFF
-	c.COP0[cop0Context] = (c.COP0[cop0Context] &^ 0x7FFFF0) | (badVPN2 << 4)
 	c.exceptionAt(code, refill)
 }
 
@@ -134,6 +131,35 @@ func (c *CPU) tlbException(vaddr uint64, store, refill bool) {
 // ASID, so the handler can fill the entry without recomputing it.
 func (c *CPU) setEntryHiVPN(vaddr uint64) {
 	c.COP0[cop0EntryHi] = (c.COP0[cop0EntryHi] & 0xFF) | (vaddr &^ 0x1FFF)
+}
+
+// setFaultAddress records a faulting address in the three registers a handler
+// reads: BadVAddr, and the two Context registers.
+//
+// Context and XContext are page-table pointers, not addresses. Each holds a base
+// the operating system wrote, with the faulting address's virtual page number
+// spliced into the middle of it — so that the handler can load the page-table
+// entry with a single instruction. The base must survive, which is why these are
+// masked writes rather than assignments.
+//
+// They are updated by *every* fault that has an address, not just TLB misses: an
+// unaligned load writes them too. A model that only touched them on a TLB miss
+// leaves a handler reading the last miss's page.
+func (c *CPU) setFaultAddress(vaddr uint64) {
+	c.COP0[cop0BadVAddr] = vaddr
+
+	// Context: a 19-bit page number at bits 4..22. The low four bits are hardwired
+	// to zero, so they are cleared rather than preserved.
+	badVPN2 := (vaddr >> 13) & 0x7FFFF
+	c.COP0[cop0Context] = (c.COP0[cop0Context] &^ 0x7FFFFF) | (badVPN2 << 4)
+
+	// XContext: a 27-bit page number at bits 4..30, above it the two region bits
+	// that say which of the four 64-bit address spaces the fault was in. Its low
+	// four bits are hardwired to zero too.
+	badVPN2x := (vaddr >> 13) & 0x7FFFFFF
+	region := (vaddr >> 62) & 3
+	c.COP0[cop0XContext] = (c.COP0[cop0XContext] &^ 0x1FFFFFFFF) |
+		(badVPN2x << 4) | (region << 31)
 }
 
 // --- the TLB instructions ---------------------------------------------------

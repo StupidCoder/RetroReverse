@@ -306,6 +306,11 @@ func (c *CPU) exceptionAt(code uint32, tlbRefill bool) {
 		c.COP0[cop0Cause] = (c.COP0[cop0Cause] &^ 0x0000007C) | uint64(code<<2)
 	}
 
+	// The coprocessor field names the unit that faulted, and is written on every
+	// exception — zero unless a coprocessor was involved. Leaving the previous
+	// exception's value in it tells a handler the wrong story.
+	c.COP0[cop0Cause] &^= 0x30000000
+
 	base := uint64(vecRAM)
 	if sr&statusBEV != 0 {
 		base = vecROM
@@ -345,13 +350,13 @@ func (c *CPU) eret() {
 // coprocessor its Status register has not enabled. Which coprocessor is recorded
 // in the Cause register's CE field, and a handler needs it to know what to do.
 func (c *CPU) coprocessorUnusable(unit uint32) {
-	c.COP0[cop0Cause] = (c.COP0[cop0Cause] &^ 0x30000000) | uint64(unit)<<28
 	c.Exception(excCpU)
+	c.COP0[cop0Cause] = (c.COP0[cop0Cause] &^ 0x30000000) | uint64(unit)<<28
 }
 
 // addrError raises an address-error exception for a misaligned access.
 func (c *CPU) addrError(code uint32, vaddr uint64) {
-	c.COP0[cop0BadVAddr] = vaddr
+	c.setFaultAddress(vaddr)
 	c.Exception(code)
 }
 

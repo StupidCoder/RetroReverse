@@ -19,11 +19,53 @@ package r4300
 
 import "math"
 
-// FCR31 bits.
+// The VR4300's quiet NaN is not the one IEEE-754 suggests and Go produces. Every
+// operation that must invent a NaN produces this exact pattern, and a program
+// that compares bit patterns — as a conformance suite does — sees the difference.
+// fcr31FS is the flush-denorm-to-zero bit, which decides what happens when a
+// result is too small to represent.
+const fcr31FS = 1 << 24
+
 const (
-	fcr31Cond        = 1 << 23 // the condition flag set by c.cond.fmt
-	fcr31CauseUnimpl = 1 << 17 // an operation the FPU does not implement
+	qNaN32 = 0x7FBFFFFF
+	qNaN64 = 0x7FF7FFFFFFFFFFFF
 )
+
+// setSResult and setDResult write a computed value, substituting the hardware's
+// quiet NaN for whatever pattern the host produced.
+func (c *CPU) setSResult(i uint32, v float32) {
+	if math.IsNaN(float64(v)) {
+		c.writeFGR32(i, qNaN32)
+		return
+	}
+	c.setS(i, v)
+}
+
+func (c *CPU) setDResult(i uint32, v float64) {
+	if math.IsNaN(v) {
+		c.writeFGR64(i, qNaN64)
+		return
+	}
+	c.setD(i, v)
+}
+
+// FCR31 bits. The register carries three parallel five- or six-bit fields for
+// the same five IEEE exceptions: the sticky flags a program polls, the enables
+// that decide whether a condition traps, and the causes raised by the operation
+// that just ran.
+const (
+	fcr31Cond        = 1 << 23    // the condition flag set by c.cond.fmt
+	fcr31CauseUnimpl = 1 << 17    // an operation the FPU does not implement
+	fcr31CauseMask   = 0x0003F000 // bits 12..17: the six cause bits
+)
+
+// clearCause empties the cause field, which every arithmetic operation does
+// before it runs.
+//
+// The causes describe the operation that just executed, not the history of the
+// program — that is what the sticky flags below them are for. A model that lets
+// them accumulate reports an FPU permanently in every error state at once.
+func (c *CPU) clearCause() { c.FCR31 &^= fcr31CauseMask }
 
 // fpUnimplemented raises the floating-point exception a program gets for an
 // encoding the FPU has no unit for — cvt.s.s, say, which names a conversion from
@@ -33,10 +75,7 @@ const (
 // the enable bits say, and records the reason in FCR31. n64-systemtest executes
 // them on purpose and expects to land in its handler; halting here would stop a
 // program that real hardware runs.
-func (c *CPU) fpUnimplemented() {
-	c.FCR31 |= fcr31CauseUnimpl
-	c.Exception(excFPE)
-}
+func (c *CPU) fpUnimplemented() { c.fpApply(fpUnimpl) }
 
 // Rounding modes (FCR31 bits 0..1).
 const (
@@ -206,15 +245,17 @@ func (c *CPU) cop1(w, rs, rt, rd, shamt uint32, branchT uint64) {
 	case 0x11: // double precision
 		c.cop1Double(w, funct, ft, fs, fd)
 	case 0x14: // 32-bit integer source: only the conversions are defined
+		c.clearCause()
 		switch funct {
 		case 0x20: // cvt.s.w
-			c.setS(fd, float32(int32(c.readFGR32(fs))))
+			c.setSResult(fd, float32(int32(c.readFGR32(fs))))
 		case 0x21: // cvt.d.w
 			c.setD(fd, float64(int32(c.readFGR32(fs))))
 		default:
 			c.fpUnimplemented()
 		}
 	case 0x15: // 64-bit integer source
+		c.clearCause()
 		switch funct {
 		case 0x20: // cvt.s.l
 			c.setS(fd, float32(int64(c.readFGR64(fs))))
@@ -229,27 +270,45 @@ func (c *CPU) cop1(w, rs, rt, rd, shamt uint32, branchT uint64) {
 }
 
 func (c *CPU) cop1Single(w, funct, ft, fs, fd uint32) {
+	// MOV.fmt moves bits and computes nothing, so it leaves the cause field
+	// alone. Every other operation reports on itself, and therefore clears the
+	// causes of the one before it.
+	if funct != 0x06 {
+		c.clearCause()
+	}
 	if funct&0x30 == 0x30 { // c.cond.s
 		c.compare(float64(c.fs(fs)), float64(c.fs(ft)), funct&0xF)
 		return
 	}
 	switch funct {
-	case 0x00:
-		c.setS(fd, c.fs(fs)+c.fs(ft))
-	case 0x01:
-		c.setS(fd, c.fs(fs)-c.fs(ft))
-	case 0x02:
-		c.setS(fd, c.fs(fs)*c.fs(ft))
-	case 0x03:
-		c.setS(fd, c.fs(fs)/c.fs(ft))
+	case 0x00, 0x01, 0x02, 0x03:
+		// The four arithmetic operations share their exception handling: the
+		// exact result decides which conditions the rounding raised.
+		r, cond := fpArith(c.FCR31&3, c.FCR31&fcr31FS != 0, "+-*/"[funct], float64(c.fs(fs)), float64(c.fs(ft)), true)
+		if c.fpApply(cond) {
+			return // an enabled condition trapped; the destination is untouched
+		}
+		c.setSResult(fd, float32(r))
 	case 0x04:
-		c.setS(fd, float32(math.Sqrt(float64(c.fs(fs)))))
+		x := float64(c.fs(fs))
+		if x < 0 {
+			c.fpApply(fpInvalid)
+			c.setSResult(fd, float32(math.NaN()))
+			break
+		}
+		r := math.Sqrt(x)
+		// The residual r*r - x is exact under a fused multiply-add, so it says
+		// whether the root was representable.
+		c.fpApply(sqrtConditions(r, x))
+		c.setSResult(fd, float32(r))
 	case 0x05:
-		c.setS(fd, float32(math.Abs(float64(c.fs(fs)))))
+		// Absolute value and negation of a NaN yield the hardware's quiet NaN
+		// rather than the operand with its sign bit rewritten.
+		c.setSResult(fd, float32(math.Abs(float64(c.fs(fs)))))
 	case 0x06:
 		c.writeFGR32(fd, c.readFGR32(fs)) // mov.s moves bits, not a value
 	case 0x07:
-		c.setS(fd, -c.fs(fs))
+		c.setSResult(fd, -c.fs(fs))
 	case 0x08: // round.l.s
 		c.writeFGR64(fd, uint64(int64(c.round(float64(c.fs(fs))))))
 	case 0x09: // trunc.l.s
@@ -267,7 +326,7 @@ func (c *CPU) cop1Single(w, funct, ft, fs, fd uint32) {
 	case 0x0F: // floor.w.s
 		c.writeFGR32(fd, uint32(int32(math.Floor(float64(c.fs(fs))))))
 	case 0x21: // cvt.d.s
-		c.setD(fd, float64(c.fs(fs)))
+		c.setDResult(fd, float64(c.fs(fs)))
 	case 0x24: // cvt.w.s
 		c.writeFGR32(fd, uint32(int32(c.round(float64(c.fs(fs))))))
 	case 0x25: // cvt.l.s
@@ -278,27 +337,36 @@ func (c *CPU) cop1Single(w, funct, ft, fs, fd uint32) {
 }
 
 func (c *CPU) cop1Double(w, funct, ft, fs, fd uint32) {
+	if funct != 0x06 { // MOV.d computes nothing; see cop1Single
+		c.clearCause()
+	}
 	if funct&0x30 == 0x30 { // c.cond.d
 		c.compare(c.fd(fs), c.fd(ft), funct&0xF)
 		return
 	}
 	switch funct {
-	case 0x00:
-		c.setD(fd, c.fd(fs)+c.fd(ft))
-	case 0x01:
-		c.setD(fd, c.fd(fs)-c.fd(ft))
-	case 0x02:
-		c.setD(fd, c.fd(fs)*c.fd(ft))
-	case 0x03:
-		c.setD(fd, c.fd(fs)/c.fd(ft))
+	case 0x00, 0x01, 0x02, 0x03:
+		r, cond := fpArith(c.FCR31&3, c.FCR31&fcr31FS != 0, "+-*/"[funct], c.fd(fs), c.fd(ft), false)
+		if c.fpApply(cond) {
+			return
+		}
+		c.setDResult(fd, r)
 	case 0x04:
-		c.setD(fd, math.Sqrt(c.fd(fs)))
+		x := c.fd(fs)
+		if x < 0 {
+			c.fpApply(fpInvalid)
+			c.setDResult(fd, math.NaN())
+			break
+		}
+		r := math.Sqrt(x)
+		c.fpApply(sqrtConditions(r, x))
+		c.setDResult(fd, r)
 	case 0x05:
-		c.setD(fd, math.Abs(c.fd(fs)))
+		c.setDResult(fd, math.Abs(c.fd(fs)))
 	case 0x06:
 		c.writeFGR64(fd, c.readFGR64(fs)) // mov.d
 	case 0x07:
-		c.setD(fd, -c.fd(fs))
+		c.setDResult(fd, -c.fd(fs))
 	case 0x08: // round.l.d
 		c.writeFGR64(fd, uint64(int64(c.round(c.fd(fs)))))
 	case 0x09: // trunc.l.d
@@ -316,7 +384,7 @@ func (c *CPU) cop1Double(w, funct, ft, fs, fd uint32) {
 	case 0x0F: // floor.w.d
 		c.writeFGR32(fd, uint32(int32(math.Floor(c.fd(fs)))))
 	case 0x20: // cvt.s.d
-		c.setS(fd, float32(c.fd(fs)))
+		c.setSResult(fd, float32(c.fd(fs)))
 	case 0x24: // cvt.w.d
 		c.writeFGR32(fd, uint32(int32(c.round(c.fd(fs)))))
 	case 0x25: // cvt.l.d
