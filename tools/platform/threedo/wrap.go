@@ -84,3 +84,54 @@ func Inventory(res []Resource) map[string]int {
 	}
 	return m
 }
+
+// WrapNode is one node of a wwww tree with its children resolved, mirroring
+// how the game itself navigates a packet: the loader rebases each child-offset
+// word into a pointer, so game code addresses resources as "root child k",
+// "child k of child 0", and so on. Children[i] is nil for an empty (0) slot.
+type WrapNode struct {
+	Offset   int    // node or leaf offset within the container
+	Kind     string // "wwww", "cel", "model", "shape", or "unknown"
+	Children []*WrapNode
+}
+
+// ParseWrapTree decodes a wwww container preserving the tree structure, so a
+// caller can navigate by child index exactly like the game's loader does.
+func ParseWrapTree(data []byte) (*WrapNode, error) {
+	if len(data) < 8 || string(data[0:4]) != "wwww" {
+		return nil, fmt.Errorf("threedo: not a wwww container")
+	}
+	seen := map[int]bool{}
+	var walk func(off, depth int) *WrapNode
+	walk = func(off, depth int) *WrapNode {
+		if off < 0 || off+8 > len(data) || seen[off] || depth > 8 {
+			return nil
+		}
+		if string(data[off:off+4]) != "wwww" {
+			return &WrapNode{Offset: off, Kind: kindOf(data, off)}
+		}
+		seen[off] = true
+		n := int(be32(data[off+4:]))
+		if n < 0 || n > 100000 {
+			return nil
+		}
+		node := &WrapNode{Offset: off, Kind: "wwww"}
+		for i := 0; i < n; i++ {
+			p := off + 8 + i*4
+			if p+4 > len(data) {
+				break
+			}
+			var child *WrapNode
+			if rel := int(be32(data[p:])); rel != 0 {
+				child = walk(off+rel, depth+1)
+			}
+			node.Children = append(node.Children, child)
+		}
+		return node
+	}
+	root := walk(0, 0)
+	if root == nil {
+		return nil, fmt.Errorf("threedo: malformed wwww container")
+	}
+	return root, nil
+}

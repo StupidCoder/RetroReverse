@@ -96,6 +96,10 @@ func ParseCel(data []byte) (*Cel, error) {
 	return c, nil
 }
 
+// RGB555 expands a 15-bit 3DO color (bit 15 is the P/W control bit, ignored)
+// to an opaque RGBA color.
+func RGB555(v uint16) color.RGBA { return rgb555(v) }
+
 // rgb555 expands a 15-bit 3DO color (bit 15 is the P/W control bit, ignored) to
 // an opaque RGBA color.
 func rgb555(v uint16) color.RGBA {
