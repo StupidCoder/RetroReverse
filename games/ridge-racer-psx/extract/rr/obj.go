@@ -57,10 +57,19 @@ type QuadG struct {
 	Bias int16
 }
 
-// Quad48 is a textured flat quad with an 8-byte tail (48-byte record).
+// Quad48 is a textured flat quad with an 8-byte tail (48-byte record). The
+// tail is a texture window: mask/offset bytes at +0,+2,+4,+6 (maskX, maskY,
+// offsetX, offsetY, in pixels) that the GPU applies to the UVs before
+// sampling, so a sub-region of the page repeats (drawing code sets GP0 0xE2
+// from these). The 40-byte records carry no window.
 type Quad48 struct {
 	TrackQuad
 	Extra [8]byte
+}
+
+// Window returns the 48-byte record's texture window.
+func (q Quad48) Window() TexWindow {
+	return TexWindow{MaskX: q.Extra[0], MaskY: q.Extra[2], OffX: q.Extra[4], OffY: q.Extra[6]}
 }
 
 // Object is one model: its six record lists in file order.

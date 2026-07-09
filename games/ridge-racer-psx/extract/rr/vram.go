@@ -101,6 +101,16 @@ func (v *VRAM) Blit(r Rect) {
 // At returns the raw 16-bit VRAM word at (x, y).
 func (v *VRAM) At(x, y int) uint16 { return v.Pix[(y&(VRAMH-1))*VRAMW+(x&(VRAMW-1))] }
 
+// TexWindow is a PSX texture window: coordinates are masked and offset before
+// sampling so a sub-region of the page repeats. Mask and offset are in pixels
+// (the record stores them directly). A zero mask leaves the coordinate
+// untouched. The masking mirrors the GPU: c = (c &^ mask) | (offset & mask).
+type TexWindow struct{ MaskX, MaskY, OffX, OffY byte }
+
+func (w TexWindow) apply(u, vv byte) (byte, byte) {
+	return (u &^ w.MaskX) | (w.OffX & w.MaskX), (vv &^ w.MaskY) | (w.OffY & w.MaskY)
+}
+
 // Texel resolves one texel the way the rasterizer does: page selects the
 // 64×256 texture page base and colour depth, clut the palette strip, (u,v)
 // the texel inside the page. The returned value is a 15-bit VRAM colour
@@ -110,6 +120,12 @@ func (v *VRAM) At(x, y int) uint16 { return v.Pix[(y&(VRAMH-1))*VRAMW+(x&(VRAMW-
 // bits 7-8 colour depth (0 = 4-bit, 1 = 8-bit, 2 = direct 15-bit).
 // CLUT halfword: bits 0-5 palette X (×16), bits 6-14 palette Y.
 func (v *VRAM) Texel(page, clut uint16, u, vv byte) uint16 {
+	return v.TexelW(page, clut, u, vv, TexWindow{})
+}
+
+// TexelW is Texel with a texture window applied to (u, v) first.
+func (v *VRAM) TexelW(page, clut uint16, u, vv byte, win TexWindow) uint16 {
+	u, vv = win.apply(u, vv)
 	px := int(page&0x0F) * 64
 	py := int((page>>4)&1) * 256
 	depth := int((page >> 7) & 3)

@@ -41,7 +41,7 @@ func exportTrack(a *assets, out string) (ModelIndex, error) {
 			s := &a.track.Sections[sec]
 			for _, class := range [][]rr.TrackQuad{s.A, s.B, s.C} {
 				for _, q := range class {
-					b.AddTextured(q.V, q.UV, q.TPage, q.CLUT, off, set)
+					b.AddTextured(q.V, q.UV, q.TPage, q.CLUT, off, set, rr.TexWindow{})
 				}
 			}
 		}
@@ -88,19 +88,19 @@ func addObjectXform(b *meshBuilder, o *rr.Object, R [3][3]int32, off [3]int32, s
 		return r
 	}
 	for _, q := range o.FT {
-		b.AddTextured(rot(q.V), q.UV, q.TPage, q.CLUT, off, set)
+		b.AddTextured(rot(q.V), q.UV, q.TPage, q.CLUT, off, set, rr.TexWindow{})
 	}
 	for _, q := range o.FT8 {
-		b.AddTextured(rot(q.V), q.UV, q.TPage, q.CLUT, off, set)
+		b.AddTextured(rot(q.V), q.UV, q.TPage, q.CLUT, off, set, q.Window())
 	}
 	for _, q := range o.F {
 		b.AddFlat(rot(q.V), q.RGB, off)
 	}
 	for _, q := range o.GT {
-		b.AddTextured(rot(q.V), q.UV, q.TPage, q.CLUT, off, set)
+		b.AddTextured(rot(q.V), q.UV, q.TPage, q.CLUT, off, set, rr.TexWindow{})
 	}
 	for _, q := range o.GT8 {
-		b.AddTextured(rot(q.V), q.UV, q.TPage, q.CLUT, off, set)
+		b.AddTextured(rot(q.V), q.UV, q.TPage, q.CLUT, off, set, rr.TexWindow{})
 	}
 	for _, q := range o.G {
 		b.AddFlat(rot(q.V), q.RGB, off)

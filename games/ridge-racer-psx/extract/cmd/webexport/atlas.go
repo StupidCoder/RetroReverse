@@ -23,7 +23,8 @@ const tileSize = 256 // one PSX texture page, texel-addressed 0..255
 
 type pageKey struct {
 	page, clut uint16
-	set        uint8 // scenery set for quadrant pages; 0 otherwise
+	set        uint8       // scenery set for quadrant pages; 0 otherwise
+	win        rr.TexWindow // texture window (48-byte records); zero otherwise
 }
 
 type vkey struct {
@@ -79,12 +80,13 @@ func quadrantPage(page uint16) bool {
 }
 
 // AddTextured adds one textured quad at a world offset (game units), sampling
-// the given scenery set's texture state for quadrant pages.
-func (b *meshBuilder) AddTextured(v [4][3]int16, uv [4]rr.UV, page, clut uint16, off [3]int32, set int) {
+// the given scenery set's texture state for quadrant pages and applying the
+// quad's texture window (48-byte records; zero for the rest).
+func (b *meshBuilder) AddTextured(v [4][3]int16, uv [4]rr.UV, page, clut uint16, off [3]int32, set int, win rr.TexWindow) {
 	if !quadrantPage(page) {
 		set = 0 // content identical in every set; share the tile
 	}
-	key := pageKey{page, clut, uint8(set)}
+	key := pageKey{page, clut, uint8(set), win}
 	tile, ok := b.tileIdx[key]
 	if !ok {
 		tile = len(b.tiles)
@@ -171,7 +173,7 @@ func (b *meshBuilder) bakeAtlas() (*image.RGBA, int) {
 		}
 		for v := 0; v < tileSize; v++ {
 			for u := 0; u < tileSize; u++ {
-				px := vram.Texel(key.page, key.clut, byte(u), byte(v))
+				px := vram.TexelW(key.page, key.clut, byte(u), byte(v), key.win)
 				o := img.PixOffset(ox+u, oy+v)
 				if px == 0 {
 					continue // transparent black, zero-initialised
