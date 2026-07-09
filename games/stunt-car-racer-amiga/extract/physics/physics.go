@@ -559,6 +559,93 @@ func (m *Mem) Drive620B8() {
 	m.LateralTire6217A()
 }
 
+// Input5D8A2 reproduces the per-frame input decode $5D8A2, entered at $5D8A8 -- the reimpl
+// bypasses the $60BAE hardware/PRNG read by supplying the decoded joystick byte $1BB47
+// directly. It turns $1BB47 (bits 0-1 throttle, 2-3 steer, 4 fire) into the steering demand
+// $1BBC6, the fire flag $1BB70 (active-low), and the longitudinal drive-force word
+// $1BD2A/$1BD2B from the per-car accel constants $1BAFA/$1BAFB, with airborne/stall/crash
+// gating and the accelerate latch $1BBA8; then the wheelspin post-process $608A4.
+func (m *Mem) Input5D8A2() {
+	// steering $1BBC6: 0 when unarmed; the crash countdown $1BBDF while it is active; else
+	// the steer bits of $1BB47 ($04 -> -15, $08/$0C -> +15).
+	var steer byte
+	switch {
+	case m.U8(0x1BB7E) == 0:
+		steer = 0
+	case m.U8(0x1BBDF) != 0:
+		steer = byte(m.U8(0x1BBDF))
+	default:
+		switch m.U8(0x1BB47) & 0x0C {
+		case 0x00:
+			steer = 0
+		case 0x04:
+			steer = 0xF1
+		default: // $08 or $0C
+			steer = 0x0F
+		}
+	}
+	m.B[0x1BBC6] = steer
+
+	m.B[0x1BB70] = byte((m.U8(0x1BB47) & 0x10) ^ 0x10) // fire, active-low
+
+	// throttle -> drive-force word $1BD2A(hi)/$1BD2B(lo). Blocked when airborne ($1BD30 in
+	// $78..$7F), during crash recovery ($1BBDF), or stalled/off-track ($1BCA2).
+	d1, d2 := byte(0), byte(0) // $1BD2B (lo), $1BD2A (hi)
+	vv := byte(m.U8(0x1BD30))
+	airborne := int8(vv) >= 0 && vv >= 0x78
+	if !airborne && m.U8(0x1BBDF) == 0 && m.U8(0x1BCA2) == 0 {
+		accel := false
+		switch thr := m.U8(0x1BB47) & 0x03; {
+		case thr == 1:
+			accel = true
+		case thr > 1: // reverse: small negative force, clear the latch
+			d1, d2 = 0x10, 0xFF
+			m.B[0x1BBA8] = 0
+		default: // thr == 0: accelerate only while the latch is engaged
+			if int8(m.U8(0x1BBA8)) < 0 {
+				accel = true
+			}
+		}
+		if accel {
+			d1, d2 = byte(m.U8(0x1BAFA)), byte(m.U8(0x1BAFB))
+			m.B[0x1BBA8] = 0x80
+		}
+	}
+	m.B[0x1BD2B] = d1
+	m.B[0x1BD2A] = d2
+	m.postInput608A4()
+}
+
+// postInput608A4 reproduces $608A4: the wheelspin/launch boost. When fire is held ($1BB70
+// active-low = 0) and not stalled, with throttle and $1CA20 set, it ticks the wheelspin
+// timer $1BB3D (reloading from $1BAFE), sets the wheelspin flag $1BB62 and DOUBLES the drive
+// force ($1BD2A <<= 1). Otherwise it clears $1BB62. The $60824 engine-sound trigger is
+// skipped (as the other routines skip sound).
+func (m *Mem) postInput608A4() {
+	if (m.U8(0x1BB70) | m.U8(0x1BCA2)) != 0 { // not firing, or stalled
+		m.B[0x1BB62] = 0
+		return
+	}
+	if int8(m.U8(0x1BBA8)) >= 0 { // latch not engaged: require a throttle bit
+		if m.U8(0x1BB47)&0x03 == 0 {
+			m.B[0x1BB62] = 0
+			return
+		}
+	}
+	if m.U8(0x1CA20) == 0 {
+		m.B[0x1BB62] = 0
+		return
+	}
+	if int8(m.U8(0x1BBCD)) >= 0 { // not the time-base tick frame: run the wheelspin timer
+		m.B[0x1BB3D]--
+		if int8(m.U8(0x1BB3D)) < 0 {
+			m.B[0x1BB3D] = byte(m.U8(0x1BAFE)) // reload; $60824 sound skipped
+		}
+	}
+	m.B[0x1BB62] = 0x80
+	m.SetW(Drive, m.W(Drive)<<1) // ASL.w -- double the drive force
+}
+
 // slope62424 ($62424): abs+clamp a slope value to 0..$FF ($1BB2B) and look up its
 // half-angle in the table at $1EECA ($1BB2D).
 func (m *Mem) slope62424(d0w int16) {

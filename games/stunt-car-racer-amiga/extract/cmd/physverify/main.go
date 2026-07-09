@@ -182,6 +182,9 @@ func main() {
 			[]uint32{physics.GrvB, physics.GrvC, physics.GrvA, physics.LoadA, physics.LoadB, physics.LoadC,
 				physics.Drive, physics.BVelV, 0x1BD2B, physics.BVelL, physics.OnGround},
 			[]uint32{physics.BFrcB, physics.BFrcC, physics.Drive, physics.BFrcA, physics.Slip}},
+		// input decode: entered at $5D8A8 (past the $60BAE hardware read); byte-seeded below.
+		{"Input5D8A2 $5D8A2", 0x5D8A8, (*physics.Mem).Input5D8A2, nil,
+			[]uint32{0x1BBC6, 0x1BB70, 0x1BBA8, 0x1BD2A, 0x1BB62, 0x1BB3D}},
 	}
 	for _, t := range cases {
 		bad := 0
@@ -200,6 +203,23 @@ func main() {
 			}
 			if t.pc == 0x61B70 {
 				wL(m, physics.PosY, rng.Int31()-(1<<30))
+			}
+			if t.pc == 0x5D8A8 { // input decode: byte-seed the scattered input state
+				m[0x1BB7E] = byte(rng.Intn(2)) * 0x80 // armed or not
+				m[0x1BBDF] = byte(rng.Intn(0x100))
+				if rng.Intn(2) == 0 {
+					m[0x1BBDF] = 0 // half the cases in normal driving (crash inactive)
+				}
+				m[0x1BB47] = byte(rng.Intn(0x20)) // full input byte (throttle/steer/fire)
+				m[0x1BD30] = byte(rng.Intn(0x100)) // body vertical velocity (airborne gate)
+				m[0x1BCA2] = byte(rng.Intn(2))     // stall/off-track
+				m[0x1BBA8] = byte(rng.Intn(0x100)) // accelerate latch
+				m[0x1BBCD] = byte(rng.Intn(0x100)) // time-base tick
+				m[0x1CA20] = byte(rng.Intn(2))     // wheelspin enable
+				m[0x1BB3D] = byte(rng.Intn(0x100)) // wheelspin timer
+				m[0x1BAFA] = byte(rng.Intn(0x100)) // per-car accel lo
+				m[0x1BAFB] = byte(rng.Intn(0x100)) // per-car accel hi
+				m[0x1BAFE] = byte(rng.Intn(0x100)) // wheelspin reload
 			}
 			if t.pc == 0x622DC {
 				for _, a := range []uint32{0x1BCB0, 0x1BCB4, 0x1BCB8} {
