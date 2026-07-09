@@ -43,6 +43,9 @@ func main() {
 	perspTint := flag.Bool("persptint", false, "paint perspective cels solid magenta")
 	probeX := flag.Uint64("probex", 0, "log cels writing this pixel (with -celdebug)")
 	probeY := flag.Uint64("probey", 0, "probe pixel Y")
+	shots := flag.String("shots", "", "capture a PNG sequence to PREFIX-NNNN.png at DisplayScreen frames")
+	shotEvery := flag.Uint64("shotevery", 30, "capture every Nth frame for -shots")
+	shotFrom := flag.Uint64("shotfrom", 0, "start the -shots sequence at this frame")
 	flag.Parse()
 
 	var data []byte
@@ -80,6 +83,24 @@ func main() {
 	m.PerspTint = *perspTint
 	m.ProbeX = uint32(*probeX)
 	m.ProbeY = uint32(*probeY)
+	if *shots != "" {
+		var saved int
+		m.OnDisplay = func(mm *threedo.Machine, frame uint64, buf uint32) {
+			if frame < *shotFrom || (frame-*shotFrom)%*shotEvery != 0 {
+				return
+			}
+			img := mm.CaptureVRAM(buf, 320, 240)
+			name := fmt.Sprintf("%s-%04d.png", *shots, frame)
+			f, err := os.Create(name)
+			if err != nil {
+				die(err)
+			}
+			png.Encode(f, img)
+			f.Close()
+			saved++
+		}
+		defer func() { fmt.Fprintf(os.Stderr, "captured %d frames\n", saved) }()
+	}
 	if *pad != "" {
 		script, err := parsePadScript(*pad)
 		if err != nil {

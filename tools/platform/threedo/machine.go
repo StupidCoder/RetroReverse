@@ -137,6 +137,10 @@ type Machine struct {
 	PerspTint   bool     // paint perspective (corner-engine) cels solid magenta
 	ProbeX      uint32   // with CelDebug, log every cel that writes this pixel
 	ProbeY      uint32
+	// OnDisplay, if set, is called at each DisplayScreen (frame present) with the
+	// running frame count and the front-buffer address — for capturing a sequence.
+	OnDisplay func(m *Machine, frame uint64, buf uint32)
+	frame     uint64
 
 	// Instrumentation (opt-in; checked in Read/Write and the run loop).
 	WatchLo, WatchHi uint32

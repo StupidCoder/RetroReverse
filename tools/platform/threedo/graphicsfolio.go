@@ -145,6 +145,10 @@ func (m *Machine) serviceGraphicsFolio(foff uint32) {
 			m.CelFrameLog = m.CelDebugLog
 			m.CelDebugLog = nil
 		}
+		m.frame++
+		if m.OnDisplay != nil {
+			m.OnDisplay(m, m.frame, m.displayBuf)
+		}
 		m.SetResultAndReturn(0)
 	case 0xAC: // DrawCels(bitmapItem, CCB*)
 		m.SetResultAndReturn(m.drawCels(int32(r0), r1))
