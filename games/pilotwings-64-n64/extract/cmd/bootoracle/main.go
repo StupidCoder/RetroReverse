@@ -30,7 +30,9 @@ func main() {
 	var bps, watches multiFlag
 	flag.Var(&bps, "bp", "breakpoint address (hex); repeatable")
 	flag.Var(&watches, "watch", "memory watch ADDR[:LEN] (hex); repeatable")
-	shot := flag.String("shot", "", "write a PNG of the framebuffer to this directory, once per video field")
+	shot := flag.String("shot", "", "write a PNG of the framebuffer to this directory")
+	shotEvery := flag.Int("shotevery", 60, "write a -shot PNG every this many video fields (1 = every field)")
+	shotBase := flag.Int("shotbase", 0, "number the first -shot field as this, for runs resumed from a savestate")
 	saveState := flag.String("savestate", "", "after the run, dump the full machine snapshot to this file")
 	loadState := flag.String("loadstate", "", "restore a machine snapshot before running")
 	out := flag.String("o", "", "output directory")
@@ -41,7 +43,12 @@ func main() {
 		flag.Usage()
 		os.Exit(2)
 	}
-	if err := run(*image, *steps, *trace, *tracen, bps, watches, *shot, *saveState, *loadState, *out); err != nil {
+	if *shotEvery < 1 {
+		fmt.Fprintln(os.Stderr, "bootoracle: -shotevery must be at least 1")
+		os.Exit(2)
+	}
+	if err := run(*image, *steps, *trace, *tracen, bps, watches,
+		*shot, *shotEvery, *shotBase, *saveState, *loadState, *out); err != nil {
 		fmt.Fprintln(os.Stderr, "bootoracle:", err)
 		os.Exit(1)
 	}
@@ -69,7 +76,8 @@ func hx(s string) (uint32, error) {
 	return uint32(v), err
 }
 
-func run(image, stepsS string, trace bool, tracen int, bps, watches multiFlag, shot, saveState, loadState, out string) error {
+func run(image, stepsS string, trace bool, tracen int, bps, watches multiFlag,
+	shot string, shotEvery, shotBase int, saveState, loadState, out string) error {
 	rom, err := n64.Load(image)
 	if err != nil {
 		return err
@@ -122,11 +130,13 @@ func run(image, stepsS string, trace bool, tracen int, bps, watches multiFlag, s
 		if err := os.MkdirAll(shot, 0o755); err != nil {
 			return err
 		}
-		fields := 0
+		// A run resumed from a savestate starts counting fields at zero, so
+		// -shotbase restores the numbering the original boot would have given
+		// them. That is what lets a snapshot stand in for the run that made it.
+		fields := shotBase
 		m.OnDisplay = func(mm *n64.Machine) {
 			fields++
-			// One field in sixty: about one PNG a second of emulated time.
-			if fields%60 != 0 {
+			if fields%shotEvery != 0 {
 				return
 			}
 			p := filepath.Join(shot, fmt.Sprintf("frame-%04d.png", fields))
