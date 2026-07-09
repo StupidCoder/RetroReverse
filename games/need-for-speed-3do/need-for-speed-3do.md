@@ -578,3 +578,120 @@ glitches) were one bug with two layers in the software cel engine:
   "dithered" hillsides were this bug, not an intentional pattern: they are
   solid green on hardware, and the chase and driving views now show solid
   terrain, the skyline, and a clean grandstand.
+
+## Part X — the track geometry: from disc to textured GLB
+
+Everything the race renders in 3D — road, curbs, walls, terrain, roadside
+props, cars — now decodes straight from the disc (`extract/nfs`), verified
+bit-exact against the running game (`extract/cmd/geomoracle`), and ships as
+web assets (`extract/cmd/webexport`: a textured course GLB, per-object GLBs
+plus a placement manifest, and a textured car GLB).
+
+### The .trk file: sections, slices and a pre-baked streaming window
+
+The loader (0x158D8) reads a fixed **0x16C44-byte head block** (the
+"RoadSection" allocation) and publishes the **segment array** at
+`[0x4CCEC]` = block+0x13B4: **2400 records × 0x24**. A segment record is one
+step of the track spline:
+
+| off | field |
+|----:|-------|
+| +0x2/+0x3 | width bytes (lane code 0x28B70) |
+| +0x7 | slice family — selects the cross-section topology |
+| +0x8/+0xC/+0x10 | world position x,y,z (16.16) |
+| +0x18 | s16 heading; `<<10` = yaw angle, full circle 0x1000000 |
+
+Segments come 6 m apart; cy1 uses 1920 of the 2400 (the array is padded).
+City stage 1 is a 9.7 km point-to-point road, not a loop.
+
+The geometry itself streams: the head block's table at +0x98C gives one file
+offset per **group** (4 segments), each a 0x3000-aligned **`TRKD` chunk**
+`{magic, size, group#}`. A chunk is a **pre-baked sliding window** — groups
+g..g+12 concatenated (13 × 0x258) plus five 0x9C near-window records at
++0x1E78 — so one disc read gives the renderer its whole ±13-group
+neighbourhood with no stitching; consecutive chunks repeat 12/13 of their
+content. (The double-seek pattern in the stream trace is the ring arena at
+`[0x3F2D8]` keeping the window contiguous across its wrap.) For extraction
+only each chunk's first group is canonical.
+
+A **group block** (0x258) is a 0x18 header — bytes [2..14) are the **material
+remap**: face material m → texture-group index — then 4 rows of 0x90: a
+12-byte row header and **11 world-space (x,y,z) 16.16 points**, the slice
+cross-section stored absolute (centre, right shoulder/curb/wall pairs, then
+the left side). No extrusion math at runtime: the track bakes its own
+world vertices.
+
+### Slice topology is static in LaunchMe, shared by all nine courses
+
+Three tables in the executable (offsets = load addresses):
+
+- **0x3F2F0 selector**: 128-byte rows indexed by segment family; 32 slice-type
+  ids by distance-from-camera — a draw-LOD ramp. Entry 0 is full detail.
+- **0x41164 slice types** (76 B): total vertex count, face count/start, and
+  four 0xFF-terminated byte lists — the **per-row vertex subsets**. Sparse
+  rows drop the wall points (type 0 alternates 11/7/11/7), so walls repeat
+  every second segment.
+- **0x402BC faces** (8 B): four vertex indices, material, a cull byte, the
+  texture sub-index, and an effect count. Indices address the group's
+  **compacted 4-row vertex batch** (concatenated subsets: type 0 rows start
+  at 0/11/18/29) and reach into the next group's first row from the type's
+  vertex total — wall faces legitimately span two segments.
+
+The world-vertex builder (0x15F70) walks exactly these lists into the batch
+the Operamath transform consumes; the per-segment scan (0x1A7DC) draws the
+face list with materials remapped through the group header into the packet's
+texture groups.
+
+### Textures: the packet tree, navigated like the game does
+
+`Cy1_PKT_000`'s wwww root has five children, addressed by index at load
+(0x1BEB8, via 0x1FA44 = "root child k", every offset rebased to a pointer;
+**zero offsets inherit the previous entry** — that is the loader's rule, and
+group 3 of the slice textures really resolves to group 0):
+
+0. **slice texture groups** (51 slots) — each a wwww of up to 36 cels
+   (animation frames); face material → group, texture sub-index → cel.
+1. **object billboard textures** (168 slots = 42 × 4 mip cels).
+2. **3D scenery objects** — (ORI3 model, SHPM shape) pairs, car-style.
+3. 7 cels, 4. 6 cels (horizon backdrops).
+
+### RoadObjects: 64 defs + ~1000 placements
+
+After the head block: `{?, size, ?}` then the "RoadObjects" payload —
+**64 defs × 16 B** (`{flat flag, type 1/4/6, texture index, extents}`;
+type 4 = upright billboard of W×H, flat = ground quad, type 1 = 3D model,
+type 6 = two-anchor cel) and **placements × 16 B**, sorted by segment:
+`{u32 segment, def, yaw byte, anim flag, s16 dx/dy/dz}`. World position =
+segment position + offsets<<8 (the builder at 0x16118); billboard yaw =
+−(yaw<<16) − (heading<<10). cy1 places 813 objects from 29 distinct defs.
+
+### The car texture binding: SPoT records and the "!ori" face map
+
+A car `.wrapFam` pairs an ORI3 model with a SHPM shape per LOD. The shape's
+directory (`{char4 name, u32 offset}` after "SPoT") holds N textures plus a
+**"!ori"** record: after its 0x18-byte header and `[+0x10]`×40-byte records
+come 8-byte `{face, spot}` entries — the face → texture map the texset
+builder (0x24800) bakes into `[car+0x4E0]`. A **SPoT record** is EA's coded
+bitmap: `{u8 type, u24 PLUT offset, u16 w, u16 h, …, pixels at +0x10}` with
+the type→bpp table `0,1,2,4,6,8,16` (from the cel constructor 0x3B9C4) and
+an inline 0x20-tagged PLUT chunk; 6bpp pixels are 5-bit PLUT indexes with
+the P-bit above, rows word-padded to ≥8 bytes. ORI3 model units are
+**1/128 m** (the render path shifts them <<9 into 16.16 world space; the
+Diablo's ±292 units = 4.56 m). The extra directory names — `whl0`..`whl2`,
+`bkl1` — are the wheel-spin frames and brake light the game swaps into the
+texset at runtime.
+
+### Verification and deliverables
+
+`cmd/geomoracle` (decode-reimplement compliant: decoders read the disc, the
+oracle only checks) traps one scripted drive: the resident segment array
+byte-compares 2400/2400; every cross-section point the world-vertex builder
+emits (group, row, point + x,y,z at 0x1605C) matches the decoder bit-exact
+(606 hits); every placement's world position (0x16184) matches bit-exact
+(76 hits); the car texset resolves to the decoder's SPoT choices for all 61
+faces (with the 4 wheel/brake swaps recognised as dynamic).
+
+`cmd/webexport -image DISC -o out` emits `models/course-cy1.glb` (57k verts,
+56 textures), `models/obj-NN.glb` + `cy1.objects.json` (Ridge Racer-style
+instancing: repeated props ship once), `models/car-ldiablo.glb` and
+`manifest.json`. `cmd/geomprobe` sanity-checks the decoders standalone.
