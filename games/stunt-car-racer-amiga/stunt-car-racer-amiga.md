@@ -1119,7 +1119,12 @@ own auto-steer follows the straights, and the player steers through the corners.
 **`IJKL`** (I throttle, K brake, J/L steer, O fire) so they don't collide with the free-flight
 **fly-cam** (`WASD`/arrows) — the camera stays under your control while the car drives on its
 own; it does not chase. **`U`** resets the car to the start line (re-loads the placed spawn
-state and re-runs the spawn). The **Low res** display toggle (next to Wireframe / Screen filter)
+state and re-runs the spawn). One RE note on the throttle: the extracted `$5D8A2` *latches* the
+accelerator via `$1BBA8` (a tap keeps applying full force until you brake — verified on the
+engine; the accel force `$1BAFA/$1BAFB` is a per-car constant, not a ramp), but the original
+hardware lifts off when you release the gas, so the viewer clears the latch whenever `I` is not
+held (hold-to-accelerate) — a viewer input choice; the reimplemented `Input5D8A2` itself stays
+faithful to the dump. The **Low res** display toggle (next to Wireframe / Screen filter)
 turns the native-Amiga 200-line render off for judging exactness at full display resolution.
 (Forcing the steering bias `$1BBC6` every frame — even to
 0 — fights the auto-steer and throws the car airborne; it is left alone unless a steer key is

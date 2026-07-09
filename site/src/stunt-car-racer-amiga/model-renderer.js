@@ -89,6 +89,11 @@ async function setupDrive(id, base, car, track) {
       if (keys.has('j')) inp |= 0x04;
       else if (keys.has('l')) inp |= 0x08;
       if (keys.has('o')) inp |= 0x10;
+      // Hold-to-accelerate: the extracted $5D8A2 code LATCHES the throttle via $1BBA8 (once
+      // you tap accelerate it keeps applying full force until you brake -- verified on the
+      // engine). Real gameplay lifts off when you release the gas, so clear the latch whenever
+      // the accelerator (I) isn't held: releasing I then reads as no drive and the car coasts.
+      if (!(inp & 0x01)) phys.B[0x1BBA8] = 0;
       const speed = phys.driveTickCoupled(inp);
 
       const gx = phys.l(0x1BCD8) * PHYS_TO_GLB, gz = -phys.l(0x1BCE0) * PHYS_TO_GLB;
