@@ -49,6 +49,79 @@ export default {
       placed.push({ object3d: node, obj: o });
     }));
 
+    // ---- flying objects (course.paths.json: the helicopter's waypoint
+    // routes and the airplane's linear glide, decoded from the game's own
+    // flight scripts — see webexport paths.go). Both animate on the game's
+    // 30 Hz tick timeline; the airplane jumps back to its spawn when its
+    // 1800-tick life ends.
+    let flyers = null;
+    if (item.pathsFile) {
+      try {
+        const paths = await fetch(base + item.pathsFile).then((r) => r.json());
+        const heliBody = await loadObj(base + paths.helicopter.body);
+        const heliRotor = await loadObj(base + paths.helicopter.rotor);
+        const heli = new THREE.Group();
+        heli.add(heliBody, heliRotor);
+        const plane = await loadObj(base + paths.airplane.model);
+        objectsGroup.add(heli, plane);
+        placed.push(
+          { object3d: heli, obj: { id: 188, addr: paths.helicopter.routes[0].addr, flags: 'dynamic, flight script', yaw: 0 } },
+          { object3d: plane, obj: { id: 190, addr: '0x800739E4', flags: 'dynamic, linear glide', yaw: 0xF00 } },
+        );
+        // Per-route cumulative tick table: [{t0, t1, from, to, yaw0, yaw1, holdUntil}].
+        // The routes end parked at the helipad for 9000 ticks (5 min) before
+        // the next route starts; cap holds so the loop stays watchable.
+        const routes = paths.helicopter.routes.map((r) => {
+          const segs = [];
+          let t = 0;
+          let from = r.start, yaw = r.yaw;
+          for (const k of r.keys) {
+            const hold = Math.min(k.hold, 300);
+            segs.push({ t0: t, t1: t + k.dur, from, to: k.pos, yaw0: yaw, yaw1: k.yaw, holdUntil: t + k.dur + hold });
+            t = t + k.dur + hold;
+            from = k.pos; yaw = k.yaw;
+          }
+          return { segs, total: t };
+        });
+        flyers = { paths, heli, heliRotor, plane, routes, t: 0 };
+      } catch { flyers = null; }
+    }
+    const lerpAngle = (a, b, f) => {
+      let d = (b - a) % (2 * Math.PI);
+      if (d > Math.PI) d -= 2 * Math.PI;
+      if (d < -Math.PI) d += 2 * Math.PI;
+      return a + d * f;
+    };
+    const updateFlyers = (dt) => {
+      if (!flyers) return;
+      flyers.t += dt * flyers.paths.fps; // game ticks
+      // Helicopter: fly route 0, then route 1, alternating (the script's
+      // end-of-route opcode restarts with one of the two picked at random).
+      const total = flyers.routes[0].total + flyers.routes[1].total;
+      let ht = flyers.t % total;
+      let route = flyers.routes[0];
+      if (ht >= route.total) { ht -= route.total; route = flyers.routes[1]; }
+      let seg = route.segs[route.segs.length - 1];
+      for (const s of route.segs) { if (ht < s.holdUntil) { seg = s; break; } }
+      const f = seg.t1 > seg.t0 ? Math.min(1, Math.max(0, (ht - seg.t0) / (seg.t1 - seg.t0))) : 1;
+      flyers.heli.position.set(
+        seg.from[0] + (seg.to[0] - seg.from[0]) * f,
+        seg.from[1] + (seg.to[1] - seg.from[1]) * f,
+        seg.from[2] + (seg.to[2] - seg.from[2]) * f,
+      );
+      flyers.heli.rotation.y = lerpAngle(seg.yaw0, seg.yaw1, f);
+      flyers.heliRotor.rotation.y = (flyers.t / flyers.paths.fps) * (flyers.paths.helicopter.rotorRate || 0);
+      // Airplane: linear glide, jumping back to the spawn at end of life.
+      const a = flyers.paths.airplane;
+      const pt = flyers.t % a.frames;
+      flyers.plane.position.set(
+        a.start[0] + a.delta[0] * pt,
+        a.start[1] + a.delta[1] * pt,
+        a.start[2] + a.delta[2] * pt,
+      );
+      flyers.plane.rotation.y = a.yaw;
+    };
+
     stage.frame(track); // fits near/far to the whole course
     const size = new THREE.Box3().setFromObject(track).getSize(new THREE.Vector3()).length() || 100;
 
@@ -90,7 +163,7 @@ export default {
         }),
       });
 
-    stage.onFrame = (camPos, dt) => { flycam.update(dt); };
+    stage.onFrame = (camPos, dt) => { flycam.update(dt); updateFlyers(dt); };
 
     stage.disposePlugin = () => {
       picker.dispose();

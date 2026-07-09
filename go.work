@@ -7,6 +7,7 @@ use (
 	./games/marble-madness-amiga/extract
 	./games/mario-kart-ds/extract
 	./games/need-for-speed-3do/extract
+	./games/pilotwings-64-n64/extract
 	./games/ridge-racer-psx/extract
 	./games/sonic-gg/extract
 	./games/stunt-car-racer-amiga/extract

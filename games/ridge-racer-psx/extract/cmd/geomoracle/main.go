@@ -98,6 +98,9 @@ func main() {
 	if all || want["dynamics"] {
 		fail += checkDynamics(vol)
 	}
+	if all || want["flight"] {
+		fail += checkFlight(vol)
+	}
 	if fail > 0 {
 		die("%d check(s) failed", fail)
 	}
@@ -626,6 +629,142 @@ func checkDynamics(vol *psx.Volume) int {
 	}
 	if fail == 0 {
 		fmt.Fprintln(os.Stderr, "[dynamics] OK")
+	}
+	return fail
+}
+
+// checkFlight verifies the decoded flight paths (rr.HeliScripts, rr.Airplane)
+// against the running game: it samples the helicopter's flight struct
+// (0x801DB8FC, current waypoint TARGET at +52 — written verbatim by opcode 1,
+// so the observed target sequence must equal the decoded key list in order,
+// independent of the easing/progress gates) and the airplane's (0x801D6DBC,
+// position at +8, age at +0) once per game tick at their per-frame update
+// PCs; the airplane's per-tick position delta must equal the decoded
+// (dir·speed)>>16 step exactly. The parked race only advances the first few
+// waypoints (the gates track race progress), so the check requires an
+// in-order prefix, not the full route.
+func checkFlight(vol *psx.Volume) int {
+	_, exe, err := vol.BootEXE()
+	if err != nil {
+		die("boot exe: %v", err)
+	}
+	scripts, err := rr.HeliScripts(exe.Text)
+	if err != nil {
+		die("heli scripts: %v", err)
+	}
+	plane := rr.Airplane(exe.Text)
+
+	const (
+		pcPlaneTick = 0x80038E2C // airplane age increment, once per live tick
+		pcHeliTick  = 0x8003899C // helicopter yaw update, once per tick
+		heliStruct  = 0x801DB8FC
+		planeStruct = 0x801D6DBC
+	)
+	type sample struct{ x, y, z int64 }
+	run := func(press string, warmup, window uint64) (heli, planeS []sample, base uint32) {
+		m := boot(vol, press)
+		m.Run(warmup)
+		word := func(a uint32) int64 {
+			v := uint32(m.Read(a)) | uint32(m.Read(a+1))<<8 | uint32(m.Read(a+2))<<16 | uint32(m.Read(a+3))<<24
+			return int64(int32(v))
+		}
+		m.OnStep = func(mm *psx.Machine, pc uint32) {
+			switch pc {
+			case pcHeliTick:
+				t := sample{word(heliStruct + 52), word(heliStruct + 56), word(heliStruct + 60)}
+				if n := len(heli); n == 0 || heli[n-1] != t {
+					heli = append(heli, t) // target changed: the script advanced
+				}
+				if base == 0 {
+					base = uint32(word(heliStruct))
+				}
+			case pcPlaneTick:
+				if word(planeStruct) > 0 {
+					planeS = append(planeS, sample{word(planeStruct + 8), word(planeStruct + 12), word(planeStruct + 16)})
+				}
+			}
+		}
+		m.Run(window)
+		m.OnStep = nil
+		return
+	}
+
+	fail := 0
+	check := func(name string, targets, planeS []sample, base uint32) {
+		// Airplane: consecutive live-tick deltas must equal the decoded step.
+		okd, badd := 0, 0
+		for i := 1; i < len(planeS); i++ {
+			d := sample{planeS[i].x - planeS[i-1].x, planeS[i].y - planeS[i-1].y, planeS[i].z - planeS[i-1].z}
+			if d == (sample{}) {
+				continue // paused tick (no motion this sample)
+			}
+			if d.x == int64(plane.DX/4) && d.y == int64(plane.DY/4) && d.z == int64(plane.DZ/4) {
+				okd++
+			} else {
+				badd++
+			}
+		}
+		// Helicopter: every observed waypoint target must equal the decoded
+		// key list, in order (the first observed target may be mid-script).
+		var script *rr.HeliScript
+		for i := range scripts {
+			if scripts[i].Addr == base {
+				script = &scripts[i]
+			}
+		}
+		matched, badT := 0, 0
+		if script != nil && len(targets) > 0 {
+			qk := func(k rr.HeliKey) sample {
+				return sample{int64(uint16(k.X / 4)), int64(k.Y / 4), int64(uint16(k.Z / 4))}
+			}
+			start := sample{int64(uint16(script.X / 4)), int64(script.Y / 4), int64(uint16(script.Z / 4))}
+			// The interpreter may step several ops in one tick when the
+			// progress gates are already passed, so the observed sequence can
+			// skip keys — match each observed target forward from the cursor.
+			k := 0
+			for _, t := range targets {
+				if t == start {
+					continue // opcode 0 parks the target at the start pose
+				}
+				found := -1
+				for j := k; j < len(script.Keys); j++ {
+					if t == qk(script.Keys[j]) {
+						found = j
+						break
+					}
+				}
+				if found < 0 && k > 0 { // opcode 9 restarted the route
+					for j := 0; j < k; j++ {
+						if t == qk(script.Keys[j]) {
+							found = j
+							break
+						}
+					}
+				}
+				if found >= 0 {
+					matched++
+					k = found + 1
+				} else {
+					badT++
+				}
+			}
+		}
+		if len(planeS) == 0 && len(targets) == 0 {
+			fmt.Fprintf(os.Stderr, "[flight] %-8s idle (no flight activity in the window)\n", name)
+			return
+		}
+		fmt.Fprintf(os.Stderr, "[flight] %-8s plane %d/%d ticks exact; heli script %08X: %d targets matched in order, %d off\n",
+			name, okd, okd+badd, base, matched, badT)
+		if badd > 0 || badT > 0 || (len(targets) > 0 && matched < 2) {
+			fail = 1
+		}
+	}
+
+	fmt.Fprintln(os.Stderr, "[flight] booting into the race...")
+	h, p, b := run(pressRace, 429_500_000, 1_800_000_000)
+	check("race", h, p, b)
+	if fail == 0 {
+		fmt.Fprintln(os.Stderr, "[flight] OK")
 	}
 	return fail
 }

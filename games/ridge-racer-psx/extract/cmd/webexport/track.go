@@ -60,10 +60,15 @@ func exportTrack(a *assets, out string) (ModelIndex, error) {
 	if err != nil {
 		return ModelIndex{}, err
 	}
+	// The flying objects' movement data (helicopter routes, airplane glide).
+	pathsFile, err := exportPaths(a, out, cps)
+	if err != nil {
+		return ModelIndex{}, err
+	}
 	cam := startCam
 	return ModelIndex{
 		Name: "Ridge Racer Course", File: file, Kind: "rr-course", Section: "Course",
-		ObjectsFile: objectsFile, Fly: true, Camera: &cam,
+		ObjectsFile: objectsFile, PathsFile: pathsFile, Fly: true, Camera: &cam,
 	}, nil
 }
 

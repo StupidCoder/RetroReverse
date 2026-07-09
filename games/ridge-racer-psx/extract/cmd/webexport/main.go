@@ -45,6 +45,7 @@ type ModelIndex struct {
 	Kind        string      `json:"kind"`                  // routes to a Studio renderer plugin
 	Section     string      `json:"section,omitempty"`     // Studio browse-list group ("Course", "Cars", "Objects")
 	ObjectsFile string      `json:"objectsFile,omitempty"` // placement manifest for the object layer
+	PathsFile   string      `json:"pathsFile,omitempty"`   // flight-path manifest for the animation layer
 	Fly         bool        `json:"fly,omitempty"`         // present the item with the fly camera
 	Camera      *CameraPose `json:"camera,omitempty"`      // opening view (course only)
 }

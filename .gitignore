@@ -14,6 +14,9 @@ games/*/*.prg
 games/*/*.rom
 games/*/*.iso
 games/*/*.img
+games/*/*.z64
+games/*/*.v64
+games/*/*.n64
 # Ultima Underworld installed game tree (copyrighted commercial data)
 games/ultima-underworld-pc/game/
 

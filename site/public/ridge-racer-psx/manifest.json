@@ -188,6 +188,7 @@
       "kind": "rr-course",
       "section": "Course",
       "objectsFile": "levels/course.objects.json",
+      "pathsFile": "levels/course.paths.json",
       "fly": true,
       "camera": {
         "pos": [

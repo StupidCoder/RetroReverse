@@ -785,8 +785,30 @@ same `id ≥ count → 1` guard.
 | Camera crane | 258–260 (row of `0x80056C44`) | pivot `0x800707F0` | articulated rig (`0x800154B8`); one joint spins frame×16 |
 | Start balloons | 166–173 + 279–318 | `0x80070830` day, `0x80070840` night (W = yaw) | released at the start; drift −X and climb with race progress `(0x80176AE4−90)/3` ∈ [0,360); the topper is `279+8·bank+frame` with the bank byte (`0x80079FA0`) picked by lap — the lap banner |
 | Hot-air balloons ×2 | 139 | `0x80070850`, `0x80070860` | night classes only (flag bits 0x20/0x40 at `0x80080444`); rise 256 and 544 per frame |
-| Helicopter | 188 body + 189 rotor | script `0x80073790` | the rotor spins 331/frame; a **waypoint bytecode script** (opcodes 0–9, jump table `0x800107FC`, cursor in the struct at `0x801DB8FC`) flies it around the whole course: op 0 teleports, op 1 records are `X, Y, Z, two angles, duration` |
-| Airplane | 190 day / 251 night | struct `0x801D6DBC` | spawned at race start, glides along the data-segment direction vector at `0x800739F4` (pitch −192, yaw `0xF00`) for 1800 frames |
+| Helicopter | 188 body + 189 rotor | scripts `0x800734D0`, `0x80073790` | the rotor spins 331/frame about the pitched axis; **waypoint bytecode scripts** fly it around the whole course (below) |
+| Airplane | 190 day / 251 night | struct `0x801D6DBC` | spawn vector `0x800739E4` = (22976, 0, 30912), then position += `(dir·200)>>16` per tick along the 16.16 direction at `0x800739F4` = (−8448, −4096, −17664) → Δ(−25, −12, −53) quarter units/tick (pitch −192, yaw `0xF00`), alive 1800 ticks; spawned at race start with a random age and re-spawned at course-progress gates. Positions wrap at 2¹⁶ quarter units — the world is a u16 torus |
+
+The helicopter's flight is a small **bytecode program** (interpreter `0x800380A0`, jump table
+`0x800107FC`, flight struct `0x801DB8FC`; the drawer applies pitch = angle0 − 1024, the model being
+authored nose-up). Each opcode is a run of halfwords:
+
+```
+0  X, Y, Z, pitch, yaw, roll     teleport + attitude (X/Z unsigned)
+1  X, Y, Z, gateS, gateL, dur    fly to waypoint; the gate (short-/long-course
+                                 variant, <<8) holds until race progress passes
+                                 it, dur is the flight time in ticks
+2  dur                           hover for dur ticks
+3|4|5  angle                     set pitch|yaw|roll
+6|7|8  target, rate              seek pitch|yaw|roll at rate/tick
+9  —                             restart with one of the two routes at random
+                                 (pointer pair 0x8007A10C)
+```
+
+Both routes lift off from the helipad east of the start (36 and 30 waypoints), circle the course
+and land back on it, hovering 9000 ticks before the next route. `rr/flight.go` decodes the scripts
+and the airplane's glide; `geomoracle -only flight` verifies them (the airplane's per-tick delta
+bit-exact over 1591 ticks; the interpreter's waypoint-target sequence matches the decoded key list
+in order, 22/22 in the race window).
 
 The day/night split (`0x80176BF8`) is the race class — the higher classes run at dusk/night and
 swap models; `0x80176CBC` is the course length. `extract/rr/dynamics.go` decodes the catalog
@@ -838,6 +860,9 @@ mirrors the rasterizer's addressing. The oracle never supplies data; it only ver
   position and constant rotation (the girl, beacon, start banner, both big screens, the crowd
   gate), recovers `R_obj·Rᵀ·TR` and checks it against the decoded catalog position through a
   same-frame static anchor (the camera cancels in the pairwise delta).
+* **flight** — samples the helicopter's and airplane's flight structs once per game tick in the
+  race: the airplane's position delta must equal the decoded `(dir·speed)>>16` step exactly, and
+  the helicopter's waypoint-target field must walk the decoded script's key list in order.
 
 ## 3. webexport — the shipped models
 
@@ -848,7 +873,12 @@ cells, 8,192 model units apart), each roadside object as its own `obj-NN.glb`, a
 `course.objects.json` — the placement list (`{model, pos, rot}` plus each record's address, flag and
 yaw), including every fixed-position dynamic object of §VI.7 (flagged `dynamic`; the airplane has
 no fixed position and appears only as a model). The dynamic objects also ship as named
-`special-NNN.glb` viewer models (the helicopter with its rotor, the camera crane assembled). Textures resolve against the race texture states of §VI.1: all three scenery-set VRAM images
+`special-NNN.glb` viewer models (the helicopter with its rotor, the camera crane assembled), and
+`course.paths.json` carries the flight paths — the two helicopter routes (waypoints in GLB units
+with per-key flight/hover ticks and commanded yaws, plus body/rotor part GLBs so the rotor spins)
+and the airplane's glide (spawn, per-tick delta, 1800-tick life). The course renderer animates
+both on the 30 Hz tick timeline: the helicopter flies the routes alternately (terminal helipad
+hovers capped for watchability), the airplane jumps back to its spawn at the end of its life. Textures resolve against the race texture states of §VI.1: all three scenery-set VRAM images
 are rebuilt from the TMS replay, and a section's (or object's) quadrant-page quads sample the set
 active at its position — the nearest checkpoint gate gives the progress, the traced trigger rules
 give the set (no object id spans two sets). Every distinct page+CLUT(+set) is baked into a tiled

@@ -1818,23 +1818,6 @@
       "addr": "0x80070810",
       "flags": "dynamic, night",
       "yaw": 2164
-    },
-    {
-      "model": "models/special-188.glb",
-      "pos": [
-        220,
-        -0.75,
-        -112
-      ],
-      "rot": [
-        0,
-        1.5707963267948966,
-        0
-      ],
-      "id": 188,
-      "addr": "0x80073790",
-      "flags": "dynamic",
-      "yaw": 1024
     }
   ]
 }

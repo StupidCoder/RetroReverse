@@ -163,8 +163,11 @@ func Dynamics(text []byte) []Dynamic {
 			Y:    int32(s16(text, off+4)) * 4,
 			Z:    int32(uint16(s16(text, off+6))) * 4,
 			Yaw:  s16(text, off+10),
-			Addr: 0x80073790,
-			Note: "body 188 + rotor 189 (spun 331/frame); flies the waypoint script at 0x80073790",
+			// The drawer's pitch is the script's angle0 − 1024: the model is
+			// authored nose-up and flown pitched −90° (0x80038A38).
+			Pitch: -1024,
+			Addr:  0x80073790,
+			Note:  "body 188 + rotor 189 (spun 331/frame); flies the waypoint scripts at 0x800734D0/0x80073790 (rr.HeliScripts)",
 		})
 	}
 	out = append(out, Dynamic{

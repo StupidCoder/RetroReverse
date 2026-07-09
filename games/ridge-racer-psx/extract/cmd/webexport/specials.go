@@ -29,6 +29,9 @@ func dynamicPlacements(a *assets, cps []rr.Checkpoint) []ObjectPlacement {
 		if d.X == 0 && d.Z == 0 {
 			continue // no fixed world position (the airplane)
 		}
+		if d.Name == "Helicopter" {
+			continue // animated by the paths layer (course.paths.json)
+		}
 		flags := "dynamic"
 		if d.Night {
 			flags = "dynamic, night"
