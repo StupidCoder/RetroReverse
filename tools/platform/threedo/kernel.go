@@ -120,7 +120,17 @@ func (m *Machine) kernelSWI(c *arm60.CPU, swi uint32) bool {
 	case swiLockItem:
 		// LockItem(sema, waitflag) — in a single context the lock is always free.
 		c.SetReg(0, 1)
-	case swiUnlockItem, swiCloseItem, swiDeleteItem, swiSetItemPri:
+	case swiDeleteItem:
+		// Most item state is harmless to leak, but an audio Cue holds one of the
+		// owner's ~24 signal bits — a game that cycles cues would exhaust them.
+		if it := m.items[int32(c.Reg(0))]; it != nil && it.typ == typeAudioCue {
+			if t := m.taskByNum(it.owner); t != nil {
+				t.allocSigs &^= it.signal
+			}
+			delete(m.items, it.num)
+		}
+		c.SetReg(0, 0)
+	case swiUnlockItem, swiCloseItem, swiSetItemPri:
 		c.SetReg(0, 0) // success
 	case swiWaitSignal:
 		// WaitSignal(mask): if any awaited signal is already pending, take it and
@@ -178,6 +188,12 @@ func (m *Machine) createItem(typ, tags, size uint32) *item {
 // initItemFromTags fills in the type-specific fields (message-port signal, IOReq
 // device/reply-port) of a freshly created item from its TagArg list.
 func (m *Machine) initItemFromTags(it *item) {
+	if it.typ == typeAudioCue {
+		// An audio Cue carries a signal of its own (GetCueSignal) that the audio
+		// timer raises on the owner when a SignalAtTime request comes due.
+		it.signal = m.allocSignalFor(it.owner)
+		return
+	}
 	switch it.typ & 0xFF {
 	case typeMsgPort:
 		it.signal = m.tagArg(it.tags, tagPortSignal)

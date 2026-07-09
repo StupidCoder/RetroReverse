@@ -75,6 +75,12 @@ func (m *Machine) Run(maxSteps uint64) Result {
 		if pc >= hleBase && pc < hleBase+hleSize {
 			m.serviceKernelCall(pc)
 			steps++
+			if m.needSchedule { // a blocking folio call (SleepUntilTime) yielded
+				m.needSchedule = false
+				if !m.switchTask() {
+					m.curTask().state = stRunning
+				}
+			}
 			continue
 		}
 		if m.Halted {
@@ -151,6 +157,10 @@ func (m *Machine) serviceKernelCall(pc uint32) {
 	})
 	// A call in a folio slice of the window is that folio's vector call. Slices are
 	// ordered by tag; test the highest tag first.
+	if off >= hleAudioTag {
+		m.serviceAudioFolio(off - hleAudioTag)
+		return
+	}
 	if off >= hleGfxTag {
 		m.serviceGraphicsFolio(off - hleGfxTag)
 		return
@@ -161,6 +171,10 @@ func (m *Machine) serviceKernelCall(pc uint32) {
 	}
 	if off >= hleFileTag {
 		m.serviceFileFolio(off - hleFileTag)
+		return
+	}
+	if off >= hleMathTag {
+		m.serviceMathFolio(off - hleMathTag)
 		return
 	}
 	// Reimplemented folios handle themselves (including the return); anything not

@@ -363,6 +363,9 @@ func (m *Machine) serviceMsg(c *arm60.CPU, swi uint32) {
 			return
 		}
 		port.msgs = append(port.msgs, msg.num)
+		if m.OnMsgQueue != nil {
+			m.OnMsgQueue(m, port.num, msg.num, "PutMsg")
+		}
 		m.sendSignal(port.owner, port.signal)
 		c.SetReg(0, 0)
 	case swiGetMsg:
@@ -427,6 +430,9 @@ func (m *Machine) replyMsg(msg *item, result uint32) {
 		return
 	}
 	rp.msgs = append(rp.msgs, msg.num)
+	if m.OnMsgQueue != nil {
+		m.OnMsgQueue(m, rp.num, msg.num, "ReplyMsg")
+	}
 	m.sendSignal(rp.owner, rp.signal)
 }
 
@@ -515,6 +521,9 @@ func (m *Machine) SendPadEvent(buttons uint32) {
 			m.write32(msg.addr+msgMsgPort, uint32(port.num))
 		}
 		port.msgs = append(port.msgs, msg.num)
+		if m.OnMsgQueue != nil {
+			m.OnMsgQueue(m, port.num, msg.num, "PadEvent")
+		}
 		m.sendSignal(port.owner, port.signal)
 	}
 	m.note(fmt.Sprintf("pad event 0x%08X -> %d listener(s)", buttons, len(m.ebListeners)))

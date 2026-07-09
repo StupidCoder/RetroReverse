@@ -43,6 +43,10 @@ const (
 	hleOtherTag    = 0xA000     // other-folio calls trap at hleBase+hleOtherTag+offset
 	gfxFolioBase   = 0x0017E000 // base returned by LookupItem("Graphics" folio)
 	hleGfxTag      = 0xC000     // Graphics-folio calls trap at hleBase+hleGfxTag+offset
+	audioFolioBase = 0x0017D800 // base returned by LookupItem("audio" folio)
+	hleAudioTag    = 0xE000     // audio-folio calls trap at hleBase+hleAudioTag+offset
+	mathFolioBase  = 0x0017E400 // base returned by LookupItem("Operamath" folio)
+	hleMathTag     = 0x6000     // math-folio calls trap at hleBase+hleMathTag+offset
 
 	// The folio vector tables sit just below the kernel base (0x17E000..0x180000);
 	// the AllocMem pool is below them and the boot stack (SP near the top of DRAM)
@@ -122,6 +126,12 @@ type Machine struct {
 	screenBM   map[int32]int32     // Screen item -> its (first) Bitmap item
 	displayBuf uint32              // the front buffer DisplayScreen last showed
 
+	// Audio folio state (audiofolio.go): the 240 Hz audio clock, pending
+	// SignalAtTime requests, and the clock-ownership token.
+	audioTime       uint32
+	audioEvents     []audioEvent
+	audioClockOwner int32
+
 	// Event-broker state (io.go): ports that connected as listeners, and a
 	// step-scheduled control-pad script the run loop feeds to SendPadEvent.
 	ebListeners []int32
@@ -146,6 +156,11 @@ type Machine struct {
 	WatchLo, WatchHi uint32
 	OnWrite          func(addr, val, pc uint32)
 	OnStep           func(m *Machine, pc uint32)
+	// OnSWI is called before each kernel SWI is serviced (from = the SWI
+	// instruction's PC); OnMsgQueue whenever a message lands on a port queue —
+	// via PutMsg, ReplyMsg or an HLE-internal send (why says which).
+	OnSWI      func(m *Machine, from, swi uint32)
+	OnMsgQueue func(m *Machine, port, msg int32, why string)
 
 	// Kernel item system (kernel.go).
 	items      map[int32]*item
@@ -236,6 +251,8 @@ func (m *Machine) LoadAIF(a *AIF) {
 		m.writeWord(fileFolioBase-off, hleBase+hleFileTag+off)
 		m.writeWord(otherFolioBase-off, hleBase+hleOtherTag+off)
 		m.writeWord(gfxFolioBase-off, hleBase+hleGfxTag+off)
+		m.writeWord(audioFolioBase-off, hleBase+hleAudioTag+off)
+		m.writeWord(mathFolioBase-off, hleBase+hleMathTag+off)
 	}
 
 	// Plant the current-task struct and point [kernelBase+0x98] (kb_CurrentTask)
@@ -292,6 +309,8 @@ func (m *Machine) advanceVBlank(n uint32) {
 	// which programs read straight off the folio base for frame timing (the
 	// race's wait-until-field loops poll it).
 	m.writeWord(gfxFolioBase+0x74, m.vblank)
+	// The audio folio's 240 Hz clock tracks field time (audiofolio.go).
+	m.advanceAudioClock(n)
 }
 
 // writeWord stores a big-endian word directly into DRAM (setup helper).
@@ -429,7 +448,10 @@ func (m *Machine) swi(c *arm60.CPU, comment uint32) bool {
 		From:   c.CurPC(),
 		Args:   [4]uint32{c.Reg(0), c.Reg(1), c.Reg(2), c.Reg(3)},
 	})
-	if !m.kernelSWI(c, comment) && !m.fileFolioSWI(c, comment) && !m.mathFolioSWI(c, comment) {
+	if m.OnSWI != nil {
+		m.OnSWI(m, c.CurPC(), comment)
+	}
+	if !m.kernelSWI(c, comment) && !m.fileFolioSWI(c, comment) && !m.mathFolioSWI(c, comment) && !m.audioFolioSWI(c, comment) {
 		m.note(fmt.Sprintf("SWI #0x%X (stub)", comment))
 	}
 	return true // serviced: do not vector to 0x08

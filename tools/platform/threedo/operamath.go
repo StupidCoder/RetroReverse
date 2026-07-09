@@ -1,6 +1,10 @@
 package threedo
 
-import "retroreverse.com/tools/cpu/arm60"
+import (
+	"fmt"
+
+	"retroreverse.com/tools/cpu/arm60"
+)
 
 // operamath.go reimplements the Operamath (math) folio's fixed-point vector and
 // matrix SWIs — the 3D math the game's renderer runs every frame. These were
@@ -101,6 +105,89 @@ func (m *Machine) mulMat33Mat33(dest, src1, src2 uint32) {
 			m.write32(dest+(i*3+j)*4, uint32(out[i][j]))
 		}
 	}
+}
+
+// serviceMathFolio dispatches a call into the Operamath folio's user-function
+// vector table (LDR pc, [base, #-off]). These are the scalar 16.16 helpers the
+// folio exports as plain functions rather than SWIs (mathfolio.c MathUserFuncs;
+// byte offset = 4×index): the car physics runs on them, so the stub-zero
+// returns froze the drivetrain — every torque/velocity product came out 0.
+//
+//	-0x04 MulUF16   -0x08 MulSF16
+//	-0x0C DivUF16   -0x10 DivRemUF16(rem*, d1, d2)
+//	-0x14 DivSF16   -0x18 DivRemSF16(rem*, d1, d2)
+//	-0x1C RecipUF16 -0x20 RecipSF16
+//
+// Divides return a 16.16 quotient of d1/d2; the remainder is 0.32 (the
+// fraction below the quotient's LSB). Overflow/zero-divide returns all bits
+// set (unsigned) or maximum positive (signed), per operamath.h.
+func (m *Machine) serviceMathFolio(foff uint32) {
+	c := m.CPU
+	r0, r1, r2 := c.Reg(0), c.Reg(1), c.Reg(2)
+	switch foff {
+	case 0x04: // MulUF16(m1, m2)
+		m.SetResultAndReturn(uint32((uint64(r0) * uint64(r1)) >> 16))
+	case 0x08: // MulSF16(m1, m2)
+		m.SetResultAndReturn(uint32((int64(int32(r0)) * int64(int32(r1))) >> 16))
+	case 0x0C: // DivUF16(d1, d2)
+		q, _ := divUF16(r0, r1)
+		m.SetResultAndReturn(q)
+	case 0x10: // DivRemUF16(rem*, d1, d2)
+		q, rem := divUF16(r1, r2)
+		m.write32(r0, rem)
+		m.SetResultAndReturn(q)
+	case 0x14: // DivSF16(d1, d2)
+		q, _ := divSF16(int32(r0), int32(r1))
+		m.SetResultAndReturn(uint32(q))
+	case 0x18: // DivRemSF16(rem*, d1, d2)
+		q, rem := divSF16(int32(r1), int32(r2))
+		m.write32(r0, rem)
+		m.SetResultAndReturn(uint32(q))
+	case 0x1C: // RecipUF16(d)
+		q, _ := divUF16(1<<16, r0)
+		m.SetResultAndReturn(q)
+	case 0x20: // RecipSF16(d)
+		q, _ := divSF16(1<<16, int32(r0))
+		m.SetResultAndReturn(uint32(q))
+	default:
+		m.note(fmt.Sprintf("MathFolio[-0x%X] stub (r0=0x%08X r1=0x%08X r2=0x%08X)", foff, r0, r1, r2))
+		m.SetResultAndReturn(0)
+	}
+}
+
+// divUF16 divides two unsigned 16.16 values, returning the 16.16 quotient and
+// the 0.32 remainder fraction; overflow or a zero divisor returns all bits set.
+func divUF16(d1, d2 uint32) (q, rem uint32) {
+	if d2 == 0 {
+		return 0xFFFFFFFF, 0xFFFFFFFF
+	}
+	num := uint64(d1) << 16
+	quot := num / uint64(d2)
+	if quot > 0xFFFFFFFF {
+		return 0xFFFFFFFF, 0xFFFFFFFF
+	}
+	return uint32(quot), uint32(((num % uint64(d2)) << 16) / uint64(d2))
+}
+
+// divSF16 is the signed counterpart; overflow returns maximum positive.
+func divSF16(d1, d2 int32) (q int32, rem uint32) {
+	if d2 == 0 {
+		return 0x7FFFFFFF, 0xFFFFFFFF
+	}
+	num := int64(d1) << 16
+	quot := num / int64(d2)
+	if quot > 0x7FFFFFFF || quot < -0x80000000 {
+		return 0x7FFFFFFF, 0xFFFFFFFF
+	}
+	r := num % int64(d2)
+	if r < 0 {
+		r = -r
+	}
+	d := int64(d2)
+	if d < 0 {
+		d = -d
+	}
+	return int32(quot), uint32((r << 16) / d)
 }
 
 // cross3 computes dest = v1 x v2 (vector cross product).

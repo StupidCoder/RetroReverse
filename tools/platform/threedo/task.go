@@ -150,12 +150,18 @@ func (m *Machine) switchTask() bool {
 }
 
 // sendSignal ORs bits into a task's pending signals and wakes it if it was
-// waiting on any of them.
+// waiting on any of them. Waking consumes the awaited bits and delivers them as
+// the blocked WaitSignal's result (its saved r0), matching the real kernel —
+// leaving them pending would make the task's next WaitSignal on the same mask
+// return instantly forever, so a once-per-frame pacing wait would never pace.
 func (m *Machine) sendSignal(num int32, sigs uint32) {
 	for _, t := range m.tasks {
 		if t.num == num {
 			t.sig |= sigs
 			if t.state == stWaiting && t.sig&t.wait != 0 {
+				got := t.sig & t.wait
+				t.sig &^= got
+				t.ctx.R[0] = got
 				t.state = stReady
 			}
 			return

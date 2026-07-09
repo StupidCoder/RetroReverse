@@ -162,6 +162,10 @@ func (m *Machine) lookupItem(num int32) uint32 {
 		return fileFolioBase
 	case strings.EqualFold(it.name, "Graphics"):
 		return gfxFolioBase
+	case strings.EqualFold(it.name, "audio"):
+		return audioFolioBase
+	case strings.EqualFold(it.name, "Operamath"):
+		return mathFolioBase
 	case strings.EqualFold(it.name, "kernel"):
 		return kernelBase
 	default:
