@@ -15,7 +15,7 @@ func newRDPTest(t *testing.T, cycle uint32) *Machine {
 		logSeen: map[string]bool{},
 	}
 	m.CPU = newBareCPU(m)
-	m.rdp.Color = image{Format: fmtRGBA, Size: size16, Width: 320, Addr: 0x100000}
+	m.rdp.Color = rdpImage{Format: fmtRGBA, Size: size16, Width: 320, Addr: 0x100000}
 	m.rdp.Scissor.XL, m.rdp.Scissor.YL = 320<<2, 240<<2
 	m.rdp.OtherModes = uint64(cycle) << 52
 	return m

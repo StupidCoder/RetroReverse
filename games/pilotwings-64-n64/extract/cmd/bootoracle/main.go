@@ -15,6 +15,7 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 
@@ -29,6 +30,7 @@ func main() {
 	var bps, watches multiFlag
 	flag.Var(&bps, "bp", "breakpoint address (hex); repeatable")
 	flag.Var(&watches, "watch", "memory watch ADDR[:LEN] (hex); repeatable")
+	shot := flag.String("shot", "", "write a PNG of the framebuffer to this directory, once per video field")
 	saveState := flag.String("savestate", "", "after the run, dump the full machine snapshot to this file")
 	loadState := flag.String("loadstate", "", "restore a machine snapshot before running")
 	out := flag.String("o", "", "output directory")
@@ -39,7 +41,7 @@ func main() {
 		flag.Usage()
 		os.Exit(2)
 	}
-	if err := run(*image, *steps, *trace, *tracen, bps, watches, *saveState, *loadState, *out); err != nil {
+	if err := run(*image, *steps, *trace, *tracen, bps, watches, *shot, *saveState, *loadState, *out); err != nil {
 		fmt.Fprintln(os.Stderr, "bootoracle:", err)
 		os.Exit(1)
 	}
@@ -67,7 +69,7 @@ func hx(s string) (uint32, error) {
 	return uint32(v), err
 }
 
-func run(image, stepsS string, trace bool, tracen int, bps, watches multiFlag, saveState, loadState, out string) error {
+func run(image, stepsS string, trace bool, tracen int, bps, watches multiFlag, shot, saveState, loadState, out string) error {
 	rom, err := n64.Load(image)
 	if err != nil {
 		return err
@@ -114,6 +116,25 @@ func run(image, stepsS string, trace bool, tracen int, bps, watches multiFlag, s
 		m.WatchLo, m.WatchHi = a, a+uint32(n)
 		m.OnWrite = func(addr, val, pc uint32) {
 			fmt.Fprintf(os.Stderr, "  write [%08X] = %08X  from %08X  (%s)\n", addr, val, pc, m.DisasmAt(uint64(pc)))
+		}
+	}
+	if shot != "" {
+		if err := os.MkdirAll(shot, 0o755); err != nil {
+			return err
+		}
+		fields := 0
+		m.OnDisplay = func(mm *n64.Machine) {
+			fields++
+			// One field in sixty: about one PNG a second of emulated time.
+			if fields%60 != 0 {
+				return
+			}
+			p := filepath.Join(shot, fmt.Sprintf("frame-%04d.png", fields))
+			if err := mm.Screenshot(p); err != nil {
+				fmt.Fprintf(os.Stderr, "  field %d: %v\n", fields, err)
+				return
+			}
+			fmt.Fprintf(os.Stderr, "  wrote %s\n", p)
 		}
 	}
 	if trace {

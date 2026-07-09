@@ -5,7 +5,6 @@ import (
 	"crypto/sha256"
 	"os"
 	"path/filepath"
-	"strings"
 	"testing"
 )
 
@@ -66,8 +65,7 @@ func TestBootReachesGameEntry(t *testing.T) {
 // With VI, SI and PI modelled the boot reaches its first RSP task, and with the
 // RSP core it runs them to completion: audio microcode first, then graphics
 // microcode that walks the game's display lists and pours commands into the
-// RDP's queue. The RDP consumes them until it meets a mode the rasteriser does
-// not yet build, and names it.
+// RDP's queue. The RDP drains that queue into pixels. Nothing halts.
 func TestBootRunsRSPTasks(t *testing.T) {
 	rom := loadTestROM(t)
 	m := NewMachine(rom)
@@ -81,10 +79,10 @@ func TestBootRunsRSPTasks(t *testing.T) {
 	m.OnRSPTask = func(*Machine, uint32) { tasks++ }
 
 	res := m.Run(400_000_000)
-	// The frontier: a textured rectangle drawn through the colour combiner,
-	// which the rasteriser does not model yet.
-	if !strings.Contains(res.Reason, "Texture_Rectangle") {
-		t.Fatalf("expected to halt at the rasteriser's frontier, got: %s", res)
+	// A halt names an unmodelled instruction, command or mode on one of the
+	// three processors. Running out of budget means everything was handled.
+	if res.Reason != "step budget exhausted" {
+		t.Fatalf("the boot stopped early: %s", res)
 	}
 	if fields == 0 {
 		t.Error("no video field completed: the retrace interrupt never fired")
@@ -169,6 +167,56 @@ func TestBootClearsTheFramebuffer(t *testing.T) {
 	}
 	t.Logf("%d fills; the cleared image at 0x%08X (fill colour %08X) holds %d non-zero bytes",
 		fills, fillBase, fillColor, drawn)
+}
+
+// TestBootRendersAFrame is the Phase 3d gate. Once the combiner, the sampler and
+// the span rasteriser exist, the game's frames are not a flat clear any more:
+// triangles and textured rectangles put hundreds of distinct colours on the
+// screen. Counting them is a cheap way to tell a picture from a fill.
+func TestBootRendersAFrame(t *testing.T) {
+	rom := loadTestROM(t)
+	m := NewMachine(rom)
+	if err := m.Boot(rom, DefaultBoot()); err != nil {
+		t.Fatal(err)
+	}
+
+	tris, rects, best := 0, 0, 0
+	m.OnRDPCmd = func(mm *Machine, op uint32, _ []uint64) {
+		switch op {
+		case cmdTexRect, cmdTexRectFlip:
+			rects++
+		case cmdTriFill, cmdTriFillZ, cmdTriTex, cmdTriTexZ,
+			cmdTriShade, cmdTriShadeZ, cmdTriShadeTex, cmdTriShadeTexZ:
+			tris++
+		case cmdSyncFull:
+			base, w := mm.rdp.Color.Addr, mm.rdp.Color.Width
+			if base == 0 || w == 0 || int(base+w*240*2) > len(mm.RDRAM) {
+				return
+			}
+			uniq := map[uint16]bool{}
+			for i := uint32(0); i < w*240; i++ {
+				a := base + i*2
+				uniq[uint16(mm.RDRAM[a])<<8|uint16(mm.RDRAM[a+1])] = true
+			}
+			if len(uniq) > best {
+				best = len(uniq)
+			}
+		}
+	}
+	m.Run(400_000_000)
+
+	if tris == 0 {
+		t.Error("no triangle reached the rasteriser")
+	}
+	if rects == 0 {
+		t.Error("no textured rectangle reached the rasteriser")
+	}
+	// A cleared screen holds one or two colours. A rendered one holds hundreds.
+	if best < 100 {
+		t.Errorf("the busiest frame held only %d distinct colours: nothing was shaded", best)
+	}
+	t.Logf("%d triangles, %d textured rectangles; the busiest frame held %d distinct colours",
+		tris, rects, best)
 }
 
 // The joybus must answer an empty port, or a game polling four controllers waits

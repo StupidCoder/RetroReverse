@@ -123,8 +123,8 @@ const (
 	size32 = 3
 )
 
-// image describes a framebuffer or a texture source in RDRAM.
-type image struct {
+// rdpImage describes a framebuffer or a texture source in RDRAM.
+type rdpImage struct {
 	Format uint32
 	Size   uint32
 	Width  uint32 // in pixels, minus one as encoded; stored decoded
@@ -147,9 +147,9 @@ type tile struct {
 // rdp holds the rasteriser's whole state. Fields are exported so encoding/gob
 // carries them into a save-state.
 type rdp struct {
-	Color   image  // where drawing lands
-	Texture image  // where a Load_Tile / Load_Block reads from
-	Mask    uint32 // the depth buffer's address
+	Color   rdpImage // where drawing lands
+	Texture rdpImage // where a Load_Tile / Load_Block reads from
+	Mask    uint32   // the depth buffer's address
 
 	Scissor    struct{ XH, YH, XL, YL uint32 } // in 10.2 fixed point
 	OtherModes uint64
@@ -314,8 +314,8 @@ func (m *Machine) execRDP(op uint32, w []uint64) {
 	}
 }
 
-func decodeImage(w uint64) image {
-	return image{
+func decodeImage(w uint64) rdpImage {
+	return rdpImage{
 		Format: uint32(w >> 53 & 7),
 		Size:   uint32(w >> 51 & 3),
 		Width:  uint32(w>>32&0x3FF) + 1,

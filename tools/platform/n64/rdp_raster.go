@@ -131,14 +131,16 @@ func (m *Machine) fillRect(w uint64) {
 	}
 }
 
-// texRect draws a screen-aligned rectangle of texels. In COPY mode the texel is
-// written straight through; in 1CYCLE it would pass through the combiner, which
-// is not modelled yet.
+// texRect draws a screen-aligned rectangle of texels.
+//
+// In COPY mode the texel goes straight to the framebuffer. In 1-cycle and
+// 2-cycle mode it passes through the colour combiner like any other pixel, which
+// is how a game tints a sprite or fades one out.
 func (m *Machine) texRect(w []uint64, flip bool) {
 	r := &m.rdp
 	ct := r.cycleType()
-	if ct != cycleCopy {
-		m.CPU.Halt("unmodelled Texture_Rectangle in cycle type %d (only COPY is modelled)", ct)
+	if ct == cycleFill {
+		m.CPU.Halt("Texture_Rectangle in FILL mode, which the hardware does not define")
 		return
 	}
 
@@ -148,11 +150,14 @@ func (m *Machine) texRect(w []uint64, flip bool) {
 	xh := uint32(w[0]>>12&0xFFF) >> 2
 	yh := uint32(w[0]&0xFFF) >> 2
 
+	// The texture coordinates are 10.5, and their per-pixel steps 5.10.
 	s0 := int32(int16(uint16(w[1] >> 48)))
 	t0 := int32(int16(uint16(w[1] >> 32)))
 	dsdx := int32(int16(uint16(w[1] >> 16)))
 	dtdy := int32(int16(uint16(w[1])))
 	if flip {
+		// The flipped form transposes the rectangle: s advances down the screen
+		// and t across it.
 		dsdx, dtdy = dtdy, dsdx
 	}
 
@@ -160,55 +165,37 @@ func (m *Machine) texRect(w []uint64, flip bool) {
 	if !ok {
 		return
 	}
-	tl := &r.Tiles[tileIdx]
+	tile := &r.Tiles[tileIdx]
+	prim := unpackColor(r.PrimColor)
+	env := unpackColor(r.EnvColor)
 
-	// In COPY mode the texture coordinates step in 5.10 fixed point per pixel.
 	for y := cyh; y < cyl; y++ {
-		tv := t0 + dtdy*int32(y-yh)
+		tv := t0 + dtdy*int32(y-yh)/32
 		for x := cxh; x < cxl; x++ {
-			sv := s0 + dsdx*int32(x-xh)
-			rr, gg, bb, aa, ok := m.texel(tl, uint32(sv>>5), uint32(tv>>5))
+			sv := s0 + dsdx*int32(x-xh)/32
+			texel, ok := m.sample(tile, sv>>5, tv>>5)
 			if !ok {
-				return // texel() halted with a reason
+				return
 			}
-			// COPY mode writes the texel unchanged, and a zero alpha is a hole.
-			if aa == 0 && r.OtherModes&(1<<12) != 0 { // alpha compare enabled
+			if ct == cycleCopy {
+				// COPY bypasses the combiner entirely. A zero alpha is a hole
+				// when the alpha test is on, which is how 2-D cut-outs work.
+				if r.OtherModes&omAlphaCompare != 0 && texel.A == 0 {
+					continue
+				}
+				m.writePixel(x, y, texel.R, texel.G, texel.B, texel.A)
 				continue
 			}
-			m.writePixel(x, y, rr, gg, bb, aa)
+			in := combineInputs{
+				Texel0: texel, Texel1: texel, Prim: prim, Env: env,
+				Shade: rgba{255, 255, 255, 255},
+			}
+			m.drawPixel(x, y, &in, 0, false)
+			if m.CPU.Halted {
+				return
+			}
 		}
 	}
-}
-
-// texel reads a texel out of TMEM through a tile descriptor.
-func (m *Machine) texel(t *tile, s, tt uint32) (uint32, uint32, uint32, uint32, bool) {
-	// Wrap into the tile's declared extent. Mirroring and clamping are not
-	// modelled; nothing seen so far enables them on a copied rectangle.
-	if t.MaskS != 0 {
-		s &= 1<<t.MaskS - 1
-	}
-	if t.MaskT != 0 {
-		tt &= 1<<t.MaskT - 1
-	}
-
-	switch {
-	case t.Format == fmtRGBA && t.Size == size16:
-		off := (t.TMem*8 + tt*t.Line*8 + s*2) & 0xFFF
-		v := uint16(m.rdp.TMem[off])<<8 | uint16(m.rdp.TMem[off+1])
-		return uint32(v>>11&31) << 3, uint32(v>>6&31) << 3, uint32(v>>1&31) << 3, uint32(v&1) * 255, true
-	case t.Format == fmtI && t.Size == size8:
-		off := (t.TMem*8 + tt*t.Line*8 + s) & 0xFFF
-		i := uint32(m.rdp.TMem[off])
-		return i, i, i, i, true
-	case t.Format == fmtIA && t.Size == size8:
-		off := (t.TMem*8 + tt*t.Line*8 + s) & 0xFFF
-		v := m.rdp.TMem[off]
-		i := uint32(v>>4) * 17
-		a := uint32(v&15) * 17
-		return i, i, i, a, true
-	}
-	m.CPU.Halt("unmodelled texture format %d size %d in a copied rectangle", t.Format, t.Size)
-	return 0, 0, 0, 0, false
 }
 
 // --- TMEM loads -------------------------------------------------------------
@@ -303,11 +290,4 @@ func texelBytes(size uint32) uint32 {
 		return 4
 	}
 	return 0
-}
-
-// triangle rasterises one of the eight triangle commands. It is the bulk of the
-// RDP's work and lands next; for now the command names itself so the frontier is
-// explicit.
-func (m *Machine) triangle(op uint32, w []uint64) {
-	m.CPU.Halt("unmodelled RDP triangle %s (the span rasteriser is not built yet)", cmdNameOf(op))
 }
