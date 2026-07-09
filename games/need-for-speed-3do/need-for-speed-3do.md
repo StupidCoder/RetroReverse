@@ -391,3 +391,128 @@ The asset formats (cels, SHPM, ORI3 models, the wwww track packets) are all
 decoded; this OS surface is what stands between the oracle and watching the game
 consume a track — which is where the **road layout table** (Part VII's remaining
 piece) will finally be read.
+
+## Part IX — the running game: pacing, tasks, and the drive train
+
+Everything in Part VIII has since been built out (task model, signals, I/O
+completion, the graphics folio with a software cel engine, SPORT VRAM clears,
+Operamath), and the oracle now boots into a *playable* race: the chase-camera
+intro runs, the race clock ticks, and the car drives under pad input. This part
+records the machinery that makes the game tick — the parts that were invisible
+until they were missing.
+
+### The frame clock is the audio folio
+
+The surprise at the heart of the race loop: the game does not pace itself on
+VBlank messages or timer I/O — **it sleeps on the audio folio's clock**. The
+Portfolio audio folio keeps a 240 Hz tick counter (`AudioTime`), exposes it via
+`GetAudioTime()`, and offers a wake-up service: `SignalAtTime(cue, t)` arms a
+**Cue** item (type `0x405`) so the folio raises the cue's signal on its owner
+when the clock reaches `t`.
+
+The race main loop (task #1, loop head `0x27C8`, state struct `0x3E5D4`) runs:
+
+```
+each frame:
+  SignalAtTime(cue, GetAudioTime() + 4)     ; SWI 0x4000D — wake me in 4 ticks
+  WaitSignal(cueSignal)                     ; cueSignal from GetCueSignal(cue)
+  read pads (non-blocking), kick the sim task, bookkeep missed frames
+```
+
+At 240 Hz, +4 ticks is exactly one 60 Hz video field — the audio clock *is* the
+field clock, kept in a domain where the music/SFX engine can sync to it. The
+folio calls involved, pinned from the game's thunks against the audio folio's
+user-function table (byte offset = 4 × table index):
+
+| call | offset / SWI | use in the loop |
+|------|--------------|-----------------|
+| `GetAudioTime()` | vector `-0xA8` | current 240 Hz tick count |
+| `GetCueSignal(cue)` | vector `-0x48` | the signal bit `WaitSignal` blocks on |
+| `SignalAtTime(cue, t)` | SWI `0x4000D` | arm the wake-up |
+| `OwnAudioClock` / `GetAudioRate` | `-0x4C` / `-0x3C` | clock ownership / rate (frac16 240.0) |
+
+While these were stubbed the loop's `WaitSignal` mask was 0 and `GetAudioTime`
+returned a constant — the loop spun, every time delta read zero, and the whole
+world stood still while the renderer faithfully redrew the same frame. The HLE
+(`audiofolio.go`) drives the clock 4 ticks per virtual field and fires due
+`SignalAtTime` requests as real signals.
+
+Two OS details mattered as much as the clock itself:
+
+- **`WaitSignal` consumes what it returns.** On wake, the kernel clears the
+  awaited bits from the task's signal word and returns them (`signal.c`); bits
+  *not* being waited on stay pending. An HLE that leaves the bits set makes
+  every subsequent once-per-frame wait return instantly — pacing silently
+  degenerates into a free-running spin.
+- **Signals only wake a task if they intersect its wait mask.** A task blocked
+  on its message-port signal cannot be nudged with a different bit; the game's
+  pad thread relies on a *pad event* arriving to fall out of its menu-mode
+  block before its race-mode kick signal means anything.
+
+### The per-frame task pipeline
+
+The race is four cooperating tasks in a signal chain, one link per frame:
+
+```
+main #1          sim #4190             render #4196          VBL service
+audio-clock  →   SendSignal 0x100  →   SendSignal 0x100  →   (WaitVBL field
+wake, pads       world update          MapCel + CCB lists     waits, page
+                 (30 Hz car physics)   for the cel engine     flips, SPORT)
+```
+
+- The **sim task** computes per-frame flags from its frame counter
+  (`[0x41D2C]`: bit 0 = even frame → run the 30 Hz vehicle dynamics, bit 2 =
+  every 4th frame) — the car physics deliberately runs at half the frame rate.
+- The **render task** transforms the world through the Operamath folio and
+  builds the CCB lists (`MapCel` at `0x3C208` stores the corner-engine
+  transform into each CCB) that `DrawCels` consumes.
+- A separate **pad thread** (entry `0x154E8`) owns the event-broker listener
+  port; in menus it blocks on port events, in-race it is kicked at 30 Hz and
+  converts button state into smoothed steering/throttle ramps.
+
+### Operamath is two interfaces, and both matter
+
+The math folio splits its API: the vector/matrix operations are **SWIs**
+(`0x50000` MulVec3Mat33, `0x50002` MulManyVec3Mat33, …) but the scalar 16.16
+helpers are plain **user-function vectors** on the folio base: `-0x4 MulUF16`,
+`-0x8 MulSF16`, `-0xC DivUF16`, `-0x10 DivRemUF16(rem*, d1, d2)`, `-0x14/-0x18`
+signed, `-0x1C/-0x20` reciprocals (remainders in 0.32 format; overflow returns
+all-bits/max-positive). The renderer leans on the SWIs; **the car physics and
+the dynamic cameras lean on the scalar vectors**. With only the SWIs
+implemented the road rendered perfectly while every drivetrain torque product
+and chase-camera term multiplied to zero — the interior view (a fixed cockpit
+transform) worked, the chase camera collapsed to vertical lines, and the car
+could rev but never move. One table of eight scalar functions separated "renders
+a frame" from "plays the game".
+
+### Input: from broker pods to the gearbox
+
+- The game asks the event broker **what is plugged in** (`EB_DescribePods`,
+  flavor 27) and expects a `PodDescriptionList` reply naming a generic control
+  pad; with no pods described it decides there is no controller and never
+  routes input to the car. The HLE answers with one digital pad.
+- Button semantics come from the game's own **control-mapping table**
+  (`0x3EE3C`): `+0x14` gas = A, `+0x18` brake = B, `+0x20/+0x24` gear up/down =
+  the shoulder shifts, `+0x44` handbrake = X. The same struct holds the mode
+  byte (`+0x10`): 0 = digital pad, 5 = attract-demo playback — in demo mode the
+  game force-feeds `gas = 0x1E` and steers from recorded ramp data.
+- **The car starts in neutral.** The Diablo's manual box means a standing start
+  is `shift up, then throttle` — the canonical oracle script is
+  `-pad "4000000:start,4300000:0,16000000:rs,16400000:0,17000000:a"`.
+
+### Where the game keeps its world
+
+The car simulation state lives in **VRAM used as plain RAM** (the 3DO lets
+programs allocate VRAM like any memory): the player car struct at `0x295CE8`,
+the opponent at `0x295804` — `+0x50` current track segment, `+0x1C` a 3×3
+frac16 orientation matrix, `+0x3EC` gear state, `+0x3F4` throttle counter. The
+race-progress struct (`0x3F970`) holds the start-line segment (1739 for City)
+and the race state (1 = pre-start, 2 = racing once a car crosses the line);
+the race clock is the sim frame counter (`0x41D24`).
+
+**Open items** (the current frontier): with *zero* input after race entry the
+game sits in its pre-start hold — even the race clock waits — while on hardware
+the opponent launches itself after a few seconds; the GO trigger / opponent-AI
+launch condition is not yet found. And several in-race sprites (the crowd, the
+opponent car body) render with columns of noise — a cel-decode detail still to
+pin down.
