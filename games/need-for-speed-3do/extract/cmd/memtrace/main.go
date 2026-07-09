@@ -138,7 +138,7 @@ func main() {
 			} else if len(traceLog) < 300000 && mm.CurrentTaskNum() == 4190 {
 				traceLog = append(traceLog, pc)
 			}
-		} else if pc == 0x17904 && n > 20_000_000 && !traced && rd(0x41D2C)&1 != 0 {
+		} else if pc == 0x17904 && n > 26_000_000 && !traced && rd(0x41D2C)&1 != 0 {
 			traced = true
 			traceRet = c.Reg(14)
 			traceLog = traceLog[:0]
@@ -166,15 +166,19 @@ func main() {
 			ev("STREAM", 60, "ctx=0x%X state=%d next=%d lr=0x%X", c.Reg(0), rd(c.Reg(0)), rd(c.Reg(0)+4), c.Reg(14))
 		case 0xD48: // post a load request
 			ev("LOADREQ", 60, "r0=0x%X r1=0x%X r2=%d lr=0x%X", c.Reg(0), c.Reg(1), c.Reg(2), c.Reg(14))
+		case 0x134E0: // steer consumer(obj, steerByte)
+			ev("STEER", 12, "obj=0x%X v=0x%X lr=0x%X", c.Reg(0), c.Reg(1), c.Reg(14))
+		case 0x13B58: // gas consumer(obj, nibble)
+			ev("GAS", 12, "obj=0x%X v=0x%X lr=0x%X", c.Reg(0), c.Reg(1), c.Reg(14))
 		}
 	}
 
 	m.StallTolerance = *stall
 	m.NoStreams = true
-	m.PadScript = []threedo.PadStep{{AtStep: 4000000, Buttons: threedo.PadStart}, {AtStep: 4300000, Buttons: 0}, {AtStep: 16000000, Buttons: threedo.PadA}}
+	m.PadScript = []threedo.PadStep{{AtStep: 4000000, Buttons: threedo.PadStart}, {AtStep: 4300000, Buttons: 0}, {AtStep: 16000000, Buttons: threedo.PadA}, {AtStep: 17000000, Buttons: 0}, {AtStep: 18000000, Buttons: threedo.PadA}, {AtStep: 19000000, Buttons: 0}, {AtStep: 20000000, Buttons: threedo.PadA}}
 
 	// DRAM snapshots for state diffing: idle (14M), A-held (28M, 30M).
-	snapAt := []uint64{14_000_000, 28_000_000, 30_000_000}
+	snapAt := []uint64{22_000_000, 28_000_000, 30_000_000}
 	snaps := map[uint64][]byte{}
 	prevOnStep := m.OnStep
 	m.OnStep = func(mm *threedo.Machine, pc uint32) {

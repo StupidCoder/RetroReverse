@@ -358,7 +358,7 @@ func (m *Machine) serviceMsg(c *arm60.CPU, swi uint32) {
 			m.write32(msg.addr+msgMsgPort, uint32(port.num))
 		}
 		if port.name == "eventbroker" {
-			m.eventBrokerRequest(port, msg, c.Reg(2))
+			m.eventBrokerRequest(port, msg, c.Reg(2), c.Reg(3))
 			c.SetReg(0, 0)
 			return
 		}
@@ -449,8 +449,12 @@ func (m *Machine) replyMsg(msg *item, result uint32) {
 
 // Event-broker message flavors and the control-pad event payload (event.h).
 const (
-	ebConfigure   = 1
-	ebEventRecord = 3
+	ebConfigure         = 1
+	ebEventRecord       = 3
+	ebDescribePods      = 27 // EB_DescribePods: enumerate control-port devices
+	ebDescribePodsReply = 28
+
+	podIsControlPad = 0x80000000 // PodDescription pod_Flags generic-type bit 0
 
 	eventNumButtonUpdate = 3 // EVENTNUM_ControlButtonUpdate: current button state
 
@@ -470,17 +474,46 @@ const (
 
 // eventBrokerRequest services a message arriving at the broker port: it logs
 // the flavor, remembers EB_Configure senders' reply ports as event listeners,
-// and acknowledges the request so the sender's handshake completes.
-func (m *Machine) eventBrokerRequest(port, msg *item, dataPtr uint32) {
+// answers EB_DescribePods with one generic control pad, and acknowledges the
+// request so the sender's handshake completes.
+func (m *Machine) eventBrokerRequest(port, msg *item, dataPtr, dataSize uint32) {
 	flavor := m.read32(dataPtr)
-	if flavor == ebConfigure {
+	switch flavor {
+	case ebConfigure:
 		listener := int32(m.read32(msg.addr + msgReplyPort))
 		category := m.read32(dataPtr + 4)
 		if m.items[listener] != nil {
 			m.ebListeners = append(m.ebListeners, listener)
 		}
 		m.note(fmt.Sprintf("eventbroker: task #%d configured (category %d) -> listener port %d", msg.owner, category, listener))
-	} else {
+	case ebDescribePods:
+		// EB_DescribePodsReply, written back into the request's data buffer
+		// (event.h says to send the request "in a fairly large message" for
+		// exactly this): a PodDescriptionList holding one digital control pad.
+		// Programs use this to pick their input mode — with no pods described,
+		// NFS decided no controller was attached and never routed pad input
+		// into the car. PodDescription (event.h): number/position bytes,
+		// pod_Type, BitsIn, BitsOut, pod_Flags (bit31 = generic control pad),
+		// pod_GenericNumber[16] ([0]=1: first pad), pod_LockHolder.
+		if dataSize == 0 || dataSize >= 0x30 {
+			m.writeWord(dataPtr+0x00, ebDescribePodsReply)
+			m.writeWord(dataPtr+0x04, 1) // pdl_PodCount
+			m.Write(dataPtr+0x08, 1)     // pod_Number
+			m.Write(dataPtr+0x09, 1)     // pod_Position
+			m.Write(dataPtr+0x0A, 0)
+			m.Write(dataPtr+0x0B, 0)
+			m.writeWord(dataPtr+0x0C, 0)               // pod_Type
+			m.writeWord(dataPtr+0x10, 0)               // pod_BitsIn
+			m.writeWord(dataPtr+0x14, 0)               // pod_BitsOut
+			m.writeWord(dataPtr+0x18, podIsControlPad) // pod_Flags
+			for i := uint32(0); i < 16; i++ {          // pod_GenericNumber
+				m.Write(dataPtr+0x1C+i, 0)
+			}
+			m.Write(dataPtr+0x1C, 1) // first generic control pad
+			m.writeWord(dataPtr+0x2C, 0)
+		}
+		m.note(fmt.Sprintf("eventbroker: described 1 control pad to task #%d (bufsize 0x%X)", msg.owner, dataSize))
+	default:
 		m.note(fmt.Sprintf("eventbroker: msg %d flavor %d from task #%d acknowledged", msg.num, flavor, msg.owner))
 	}
 	m.replyMsg(msg, 0)
