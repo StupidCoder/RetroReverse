@@ -380,3 +380,61 @@ func TestUnimplementedEncodingsAreRecordedNotFatal(t *testing.T) {
 		t.Errorf("vrsq was not recorded as unimplemented: %v", c.Unimplemented)
 	}
 }
+
+func TestOnlyMultipliesOwnTheWholeAccumulator(t *testing.T) {
+	// A multiply produces a 48-bit product and owns its accumulator lane. An add,
+	// a compare, a logical or a lane move produces sixteen bits and writes only
+	// those — the slices above survive. Microcode reads them back with VSAR long
+	// after the operation that filled them, so an implementation that zeroes them
+	// on every VADD quietly destroys geometry.
+	c, _ := newTest(
+		vec(0, 2, 1, 3, 0x07), // vmudh $v3, $v1, $v2  -- fills the whole lane
+		vec(0, 5, 4, 6, 0x10), // vadd  $v6, $v4, $v5  -- must touch only the low 16
+	)
+	c.V[1][0] = 0x0100
+	c.V[2][0] = 0x0100 // product 0x10000, so acc lane 0 = 0x0001_0000_0000
+	run(t, c, 1)
+	before := c.Acc[0]
+	if before>>16 == 0 {
+		t.Fatalf("vmudh did not fill the accumulator's upper slices: %012X", before)
+	}
+
+	c.V[4][0] = 3
+	c.V[5][0] = 4
+	run(t, c, 1)
+
+	if got := c.Acc[0] & 0xFFFF; got != 7 {
+		t.Errorf("vadd wrote acc low = %04X, want 7", got)
+	}
+	if got, want := c.Acc[0]>>16, before>>16; got != want {
+		t.Errorf("vadd disturbed the accumulator above bit 16: %08X want %08X", got, want)
+	}
+}
+
+func TestLRVLoadsTheBytesBeforeTheAddress(t *testing.T) {
+	// LQV and LRV are the LWL and LWR of a 128-bit load. LQV takes the bytes from
+	// the address up to the next 16-byte boundary; LRV takes those from the
+	// previous boundary up to, but excluding, the address, and lands them at the
+	// register's tail.
+	c, _ := newTest(
+		0x32<<26|1<<21|1<<16|4<<11|0, // lqv $v1[0], 0($1)
+		0x32<<26|2<<21|1<<16|5<<11|0, // lrv $v1[0], 0($2)
+	)
+	for i := 0; i < 32; i++ {
+		c.DMEM[i] = byte(0x10 + i)
+	}
+	c.R[1] = 8  // eight bytes, up to the boundary at 16
+	c.R[2] = 24 // the eight bytes from 16 up to 24
+	run(t, c, 2)
+
+	// Bytes 8..15 of DMEM land in the register's first half, 16..23 in its second.
+	if got := c.vecByte(1, 0); got != 0x18 {
+		t.Errorf("lqv put %02X in byte 0, want 18", got)
+	}
+	if got := c.vecByte(1, 8); got != 0x20 {
+		t.Errorf("lrv put %02X in byte 8, want 20", got)
+	}
+	if got := c.vecByte(1, 15); got != 0x27 {
+		t.Errorf("lrv put %02X in byte 15, want 27", got)
+	}
+}

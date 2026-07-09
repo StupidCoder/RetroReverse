@@ -47,6 +47,19 @@ func (c *CPU) acc(i uint32) int64 { return int64(c.Acc[i]<<16) >> 16 }
 
 func (c *CPU) setAcc(i uint32, v int64) { c.Acc[i] = uint64(v) & accMask }
 
+// setAccLo writes only the accumulator's low 16 bits, leaving the middle and
+// high slices as they were.
+//
+// This is the difference between the multiply instructions and everything else.
+// A multiply produces a 48-bit product and owns the whole accumulator lane. An
+// add, a compare, a logical operation or a lane move produces sixteen bits, and
+// writes only those — the slices above survive. Microcode relies on it: it reads
+// them back with VSAR long after the operation that filled them, and an
+// implementation that zeroes them on every VADD quietly destroys geometry.
+func (c *CPU) setAccLo(i uint32, v uint16) {
+	c.Acc[i] = c.Acc[i]&^0xFFFF | uint64(v)
+}
+
 // clampS is the signed saturation the "high slice" instructions apply.
 func clampS(v int64) uint16 {
 	if v > 32767 {
@@ -249,14 +262,14 @@ func (c *CPU) vectorALU(w, funct, e, vt, vs, vd uint32) {
 	case 0x10: // vadd: adds the carry VADDC left behind
 		for i := uint32(0); i < 8; i++ {
 			sum := s16(c.V[vs][i]) + s16(c.vt(vt, e, i)) + b2i(bit(c.VCO, i))
-			c.setAcc(i, sum)
+			c.setAccLo(i, uint16(sum))
 			c.V[vd][i] = clampS(sum)
 		}
 		c.VCO = 0
 	case 0x11: // vsub
 		for i := uint32(0); i < 8; i++ {
 			d := s16(c.V[vs][i]) - s16(c.vt(vt, e, i)) - b2i(bit(c.VCO, i))
-			c.setAcc(i, d)
+			c.setAccLo(i, uint16(d))
 			c.V[vd][i] = clampS(d)
 		}
 		c.VCO = 0
@@ -275,14 +288,14 @@ func (c *CPU) vectorALU(w, funct, e, vt, vs, vd uint32) {
 			case s > 0:
 				r = t
 			}
-			c.setAcc(i, s16(r))
+			c.setAccLo(i, r)
 			c.V[vd][i] = r
 		}
 	case 0x14: // vaddc: unsigned add, leaving the carry in VCO
 		c.VCO = 0
 		for i := uint32(0); i < 8; i++ {
 			sum := u16(c.V[vs][i]) + u16(c.vt(vt, e, i))
-			c.setAcc(i, sum)
+			c.setAccLo(i, uint16(sum))
 			c.V[vd][i] = uint16(sum)
 			setBit(&c.VCO, i, sum > 0xFFFF)
 		}
@@ -290,7 +303,7 @@ func (c *CPU) vectorALU(w, funct, e, vt, vs, vd uint32) {
 		c.VCO = 0
 		for i := uint32(0); i < 8; i++ {
 			d := u16(c.V[vs][i]) - u16(c.vt(vt, e, i))
-			c.setAcc(i, d)
+			c.setAccLo(i, uint16(d))
 			c.V[vd][i] = uint16(d)
 			setBit(&c.VCO, i, d < 0)
 			setBit(&c.VCO, i+8, d != 0)
@@ -325,7 +338,7 @@ func (c *CPU) vectorALU(w, funct, e, vt, vs, vd uint32) {
 			if bit(c.VCC, i) {
 				r = c.V[vs][i]
 			}
-			c.setAcc(i, s16(r))
+			c.setAccLo(i, r)
 			c.V[vd][i] = r
 		}
 		c.VCO = 0
@@ -349,7 +362,7 @@ func (c *CPU) vectorALU(w, funct, e, vt, vs, vd uint32) {
 			case 0x2D:
 				r = ^(a ^ b)
 			}
-			c.setAcc(i, s16(r))
+			c.setAccLo(i, r)
 			c.V[vd][i] = r
 		}
 
@@ -360,7 +373,7 @@ func (c *CPU) vectorALU(w, funct, e, vt, vs, vd uint32) {
 		de, se := vs&7, e&7
 		c.V[vd][de] = c.V[vt][se]
 		for i := uint32(0); i < 8; i++ {
-			c.setAcc(i, s16(c.vt(vt, e, i)))
+			c.setAccLo(i, c.vt(vt, e, i))
 		}
 	case 0x37: // vnop
 
@@ -380,7 +393,7 @@ func (c *CPU) vectorALU(w, funct, e, vt, vs, vd uint32) {
 		c.V[vd][vs&7] = c.divOut
 		c.divIn, c.divInLoaded = c.V[vt][e&7], true
 		for i := uint32(0); i < 8; i++ {
-			c.setAcc(i, s16(c.vt(vt, e, i)))
+			c.setAccLo(i, c.vt(vt, e, i))
 		}
 	case 0x34, 0x35: // vrsq, vrsql
 		// The published pseudocode for the reciprocal square root is
@@ -428,7 +441,7 @@ func (c *CPU) compare(funct, e, vt, vs, vd uint32) {
 		if cond {
 			r = uint16(a)
 		}
-		c.setAcc(i, s16(r))
+		c.setAccLo(i, r)
 		c.V[vd][i] = r
 	}
 	c.VCO = 0
@@ -472,7 +485,7 @@ func (c *CPU) vch(e, vt, vs, vd uint32) {
 			}
 			setBit(&c.VCO, i+8, a-b != 0)
 		}
-		c.setAcc(i, r)
+		c.setAccLo(i, uint16(r))
 		c.V[vd][i] = uint16(r)
 	}
 }
@@ -509,7 +522,7 @@ func (c *CPU) vcl(e, vt, vs, vd uint32) {
 				r = a
 			}
 		}
-		c.setAcc(i, s16(r))
+		c.setAccLo(i, r)
 		c.V[vd][i] = r
 	}
 	c.VCO, c.VCE = 0, 0
@@ -541,7 +554,7 @@ func (c *CPU) vcr(e, vt, vs, vd uint32) {
 				r = a
 			}
 		}
-		c.setAcc(i, r)
+		c.setAccLo(i, uint16(r))
 		c.V[vd][i] = uint16(r)
 	}
 }
@@ -568,11 +581,19 @@ func (c *CPU) vecLoad(w, rs, vt uint32) {
 		for b := e; b < 16 && addr < end; b, addr = b+1, addr+1 {
 			c.setVecByte(vt, b, c.DMEM[addr&0xFFF])
 		}
-	case 0x05: // lrv: the bytes before the boundary, right-aligned
+	case 0x05: // lrv: the bytes before the address, right-aligned in the register
+		// LQV and LRV are the LWL and LWR of a 128-bit load. LQV takes the bytes
+		// from the address up to the next 16-byte boundary; LRV takes the bytes
+		// from the previous boundary up to, but excluding, the address — and
+		// lands them at the register's tail.
+		//
+		// The element is where the pair's first byte goes, so a non-zero element
+		// shortens the *load*: LRV fills from 16-n+e to 15, reading from the
+		// boundary. Fewer bytes are read, not different ones.
 		n := addr & 15
-		addr &^= 15
-		for b := 16 - n; b < 16; b, addr = b+1, addr+1 {
-			c.setVecByte(vt, b, c.DMEM[addr&0xFFF])
+		base := addr &^ 15
+		for i := uint32(0); 16-n+e+i < 16; i++ {
+			c.setVecByte(vt, 16-n+e+i, c.DMEM[(base+i)&0xFFF])
 		}
 	case 0x06: // lpv: eight bytes, one per lane, as signed values
 		c.packedLoad(vt, e, addr, 8)
@@ -620,10 +641,13 @@ func (c *CPU) vecStore(w, rs, vt uint32) {
 			c.DMEM[addr&0xFFF] = c.vecByte(vt, b&15)
 		}
 	case 0x05: // srv
+		// The stores differ from the loads in how the element is used: they
+		// always write full width, fetching from the register with a wrap, so a
+		// non-zero element rotates the data rather than shortening it.
 		n := addr & 15
-		addr &^= 15
-		for b := 16 - n; b < 16; b, addr = b+1, addr+1 {
-			c.DMEM[addr&0xFFF] = c.vecByte(vt, (e+b)&15)
+		base := addr &^ 15
+		for i := uint32(0); i < n; i++ {
+			c.DMEM[(base+i)&0xFFF] = c.vecByte(vt, (e+16-n+i)&15)
 		}
 	case 0x06, 0x07: // spv, suv
 		// Unlike the loads, an element above 7 does not merely wrap here: it
@@ -669,7 +693,7 @@ func (c *CPU) packedStore(vt, e, addr, shift uint32) {
 func (c *CPU) divide(e, vt, vs, vd uint32, in int32) {
 	c.V[vd][vs&7] = uint16(c.reciprocal(in))
 	for i := uint32(0); i < 8; i++ {
-		c.setAcc(i, s16(c.vt(vt, e, i)))
+		c.setAccLo(i, c.vt(vt, e, i))
 	}
 }
 

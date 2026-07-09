@@ -188,7 +188,9 @@ func (m *Machine) runRSP() {
 	}
 
 	m.sp[spStatus] |= spStatusHalt | spStatusBroke
-	m.spPC = m.RSP.CurPC()
+	// The program counter left behind points *after* the BREAK, not at it: the
+	// instruction retired like any other before the core stopped.
+	m.spPC = (m.RSP.CurPC() + 4) & 0xFFC
 	if m.sp[spStatus]&spStatusIntrBreak != 0 {
 		m.raiseIRQ(intrSP)
 	}
