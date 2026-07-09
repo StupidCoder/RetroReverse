@@ -152,8 +152,17 @@ func (c *Cel) Image() (*image.RGBA, error) {
 		}
 		var col color.RGBA
 		if c.Coded {
-			if int(v) < len(c.PLUT) {
-				col = rgb555(c.PLUT[v])
+			// The PDEC's palette index is the low 5 bits; at 6bpp bit 5 is the
+			// P-bit and at 8bpp the top bits are the AMV shade (not applied
+			// here) — neither is part of the index (opera_madam.c cp6btag/
+			// cp8btag). Without the mask, P-bit pixels fell outside the PLUT
+			// and decoded as spurious transparent black.
+			idx := v
+			if c.BPP >= 6 {
+				idx &= 0x1F
+			}
+			if int(idx) < len(c.PLUT) {
+				col = rgb555(c.PLUT[idx])
 			} else if len(c.PLUT) == 0 {
 				// No palette: render the index as grayscale so the shape shows.
 				g := uint8(v * 255 / uint32((1<<c.BPP)-1))
