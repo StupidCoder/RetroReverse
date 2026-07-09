@@ -40,6 +40,7 @@ func main() {
 	pad := flag.String("pad", "", "control-pad script: STEP:btn+btn,STEP:0,... (btns: a b c start x up down left right ls rs; 0=release)")
 	celDebugAt := flag.Uint64("celdebug", 0, "record a per-cel render summary for the frames after this step")
 	sportDebug := flag.Bool("sportdebug", false, "log the full IOInfo of every SPORT request")
+	perspTint := flag.Bool("persptint", false, "paint perspective cels solid magenta")
 	flag.Parse()
 
 	var data []byte
@@ -74,6 +75,7 @@ func main() {
 	m.StallTolerance = *stall
 	m.NoStreams = !*movies
 	m.SportDebug = *sportDebug
+	m.PerspTint = *perspTint
 	if *pad != "" {
 		script, err := parsePadScript(*pad)
 		if err != nil {

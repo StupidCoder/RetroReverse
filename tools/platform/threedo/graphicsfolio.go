@@ -272,8 +272,9 @@ func (m *Machine) drawCels(bitmapItem int32, ccb uint32) uint32 {
 		m.note(fmt.Sprintf("DrawCels: unknown bitmap item %d", bitmapItem))
 		return 0
 	}
-	drawn := 0
+	drawn, skipped, total := 0, 0, 0
 	for n := 0; ccb != 0 && n < 4096; n++ {
+		total++
 		flags := m.read32(ccb)
 		next := m.read32(ccb + 0x04)
 		src := m.read32(ccb + 0x08)
@@ -288,9 +289,15 @@ func (m *Machine) drawCels(bitmapItem int32, ccb uint32) uint32 {
 			plut = ccb + 0x0C + plut + 4
 		}
 		if flags&ccbSkip == 0 {
+			if m.CelDebug {
+				m.CelDebugLog = append(m.CelDebugLog, fmt.Sprintf("CCB@%08X flags=%08X src=%08X X=%08X Y=%08X HDX=%08X HDY=%08X VDX=%08X VDY=%08X HDDX=%08X HDDY=%08X",
+					ccb, flags, src, m.read32(ccb+0x10), m.read32(ccb+0x14), m.read32(ccb+0x18), m.read32(ccb+0x1C), m.read32(ccb+0x20), m.read32(ccb+0x24), m.read32(ccb+0x28), m.read32(ccb+0x2C)))
+			}
 			if m.drawOneCel(bm, ccb, flags, src, plut) {
 				drawn++
 			}
+		} else {
+			skipped++
 		}
 		if flags&ccbLast != 0 {
 			break
@@ -301,7 +308,7 @@ func (m *Machine) drawCels(bitmapItem int32, ccb uint32) uint32 {
 		m.note(fmt.Sprintf("DrawCels: %d cel(s) -> buf 0x%08X", drawn, bm.buf))
 	}
 	if m.CelDebug {
-		m.CelDebugLog = append(m.CelDebugLog, fmt.Sprintf("== DrawCels %d cels -> buf 0x%08X ==", drawn, bm.buf))
+		m.CelDebugLog = append(m.CelDebugLog, fmt.Sprintf("== DrawCels chain: %d total, %d drawn, %d skipped -> buf 0x%08X ==", total, drawn, skipped, bm.buf))
 	}
 	return 0
 }
@@ -407,11 +414,18 @@ func (m *Machine) drawOneCel(bm gfxBitmap, ccb, flags, src, plutPtr uint32) bool
 	}
 
 	bgnd := flags&ccbBGND != 0
+	persp := hddx != 0 || hddy != 0 || vdx != 0 || hdy != 0
 	written := 0
+	var calls, clearN, offN int
 	put := func(sx, sy int, v uint32) {
+		calls++
 		pix, amv, transparent := m.decodePixel(cel, v, flags, bgnd)
 		if transparent {
+			clearN++
 			return
+		}
+		if m.PerspTint && persp {
+			pix, amv = 0x7C1F, 0x49 // solid magenta: show where perspective cels land
 		}
 		// A texel maps to the segment from its corner toward the next column's
 		// corner (along the row's HDX/HDY direction). When the cel is magnified —
@@ -444,6 +458,7 @@ func (m *Machine) drawOneCel(bm gfxBitmap, ccb, flags, src, plutPtr uint32) bool
 			dy := y0 + (y1-y0)*s/steps
 			x, y := int(dx>>16), int(dy>>16)
 			if x < 0 || y < 0 || x >= bm.w || y >= bm.h {
+				offN++
 				continue
 			}
 			m.blendPixel(bm, x, y, pix, amv, pixc, flags)
@@ -473,10 +488,14 @@ func (m *Machine) drawOneCel(bm gfxBitmap, ccb, flags, src, plutPtr uint32) bool
 		if lrform {
 			lr = " LRFORM"
 		}
+		persp := ""
+		if hddx != 0 || hddy != 0 || vdx != 0 || hdy != 0 {
+			persp = " PERSP"
+		}
 		m.CelDebugLog = append(m.CelDebugLog, fmt.Sprintf(
-			"cel src=%08X %dbpp %s %s%s %dx%d pos=(%d,%d) pixc=%08X flags=%08X plut=%d wrote=%d",
-			src, cel.BPP, kind, coded, lr, cel.Width, cel.Height,
-			int(xPos>>16), int(yPos>>16), pixc, flags, len(cel.PLUT), written))
+			"cel src=%08X %dbpp %s %s%s%s %dx%d pos=(%d,%d) HD=(%X,%X) VD=(%X,%X) HDD=(%X,%X) pixc=%08X flags=%08X calls=%d clear=%d off=%d wrote=%d",
+			src, cel.BPP, kind, coded, lr, persp, cel.Width, cel.Height,
+			int(xPos>>16), int(yPos>>16), hdx, hdy, vdx, vdy, hddx, hddy, pixc, flags, calls, clearN, offN, written))
 	}
 	return true
 }
