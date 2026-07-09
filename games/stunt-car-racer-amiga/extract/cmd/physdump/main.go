@@ -109,43 +109,48 @@ func initTrack(img []byte, id int) []byte {
 	call(bus, c, 0x65BEC, nil)
 	bus.m[0x1BB57] = 1 // gear 1
 	copy(bus.m[0x64AEC:], []byte{0x9C, 0xED, 0xCD, 0x02})
+	// per-car constant copy ($5D73A): accel $1BAFA/B, wheelspin $1BAFE etc. into $1BAF8..
+	d1 := int(bus.m[0x1C9D0])
+	for i := 0; i < 11; i++ {
+		bus.m[0x1BAF8+uint32(i)] = bus.m[0x1FE6C+uint32(d1+i)]
+	}
 	call(bus, c, 0x605B6, nil) // real placement (posY = 16.0)
 	call(bus, c, 0x5E778, nil)
 	call(bus, c, 0x60CDE, nil)
 	call(bus, c, 0x64E4C, nil)
 	call(bus, c, 0x6185C, nil) // one unarmed tick
 	call(bus, c, 0x64E4C, nil)
-	bus.m[0x1BB72] = 0x80 // arm
-	bus.m[0x1BBDF] = 0    // skip spawn crash-recovery
+	bus.m[0x1BB72] = 0x80 // arm; $1BBDF stays at $F0 so the real spawn runs in the drive
 	return bus.m
 }
 
 type trace struct {
-	Frames [][]int32 `json:"frames"` // per frame: [drive, posX, posY, posZ, roll, yaw, pit, velX, velY, velZ]
+	Frames [][]int32 `json:"frames"` // per frame: [input, posX, posY, posZ, roll, yaw, pit, velX, velY, velZ]
 }
 
-// goldenTrace runs the Go faithful drive (the verified $6185C physics + the real per-frame
-// render coupling) with a scripted throttle and records the state, for the JS port to
-// reproduce (physics.js driveTickCoupled runs the identical sequence).
+// goldenTrace runs the Go full drive (input decode -> physics with the $5B32E spawn ->
+// coupling -> time-base tick) holding the throttle, and records the state, for the JS port to
+// reproduce (physics.js driveTickCoupled runs the identical sequence). The car spawns then
+// drives; column 0 is the joystick byte $1BB47.
 func goldenTrace(img, mem []byte) trace {
 	gm := physics.New(img)
 	copy(gm.B, mem)
 	gm.B[0x64AEC], gm.B[0x64AED], gm.B[0x64AEE], gm.B[0x64AEF] = 0x9C, 0xED, 0xCD, 0x02
 	var t trace
-	for f := 0; f < 240; f++ {
-		drive := int16(0x2800) // steady throttle
-		gm.SetW(physics.Drive, drive)
+	for f := 0; f < 300; f++ {
+		input := int32(1) // hold throttle (bit 0)
+		gm.B[0x1BB47] = byte(input)
+		gm.Input5D8A2()
 		gm.Frame6185C()
-		// faithful coupling (== render $64E4C for the physics state): camera, zero view
-		// offsets, grid->section into $1BB85, place.
 		gm.Camera60190()
 		gm.B[0x1BBD5], gm.B[0x1BBD6] = 0, 0
 		if sec, off := gm.Section5FE04(); !off && byte(sec) != 0xFF {
 			gm.B[0x1BB85] = byte(sec)
 			gm.Couple5BE44()
 		}
+		gm.Timer5DB34()
 		t.Frames = append(t.Frames, []int32{
-			int32(drive), gm.L(physics.PosX), gm.L(physics.PosY), gm.L(physics.PosZ),
+			input, gm.L(physics.PosX), gm.L(physics.PosY), gm.L(physics.PosZ),
 			int32(gm.W(physics.Roll)), int32(gm.W(physics.Yaw)), int32(gm.W(physics.Pit)),
 			int32(gm.W(physics.VelX)), int32(gm.W(physics.VelY)), int32(gm.W(physics.VelZ)),
 		})

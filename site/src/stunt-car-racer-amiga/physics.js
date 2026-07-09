@@ -110,6 +110,12 @@ export class Physics {
     if (i8(this.u8(0x1BB75)) < 0 && this.u8(0x1BB9A) === 0xE0) d2 = 2;
     this.clampAngle(A.Roll, A.AmR, A.angLimits, d2);
     this.clampAngle(A.Pit, A.AmY, A.angLimits, d2);
+    // $619E4 tail: $1BBAB bit7 = roll at/near the limit; $1BC42 = -roll ($622DC reads it).
+    this.B[0x1BBAB] &= ~0x80;
+    let rb = this.u8(A.Roll);
+    if (i8(rb) < 0) rb = (-i8(rb)) & 0xFF;
+    if (i8(rb) >= 0x0F) this.B[0x1BBAB] |= 0x80;
+    this.setW(0x1BC42, i16(-this.w(A.Roll)));
   }
   clampAngle(ang, mom, a0, d2) {
     const d3 = this.w(ang);
@@ -314,6 +320,117 @@ export class Physics {
     this.setW(A.BFrcC, i16(this.w(A.Drive) + this.w(A.LoadC) + this.w(A.GrvC)));
     this.lateralTire6217A();
   }
+
+  // --- vehicle-control layer (ports of extract/physics; verified vs the engine) ---
+
+  // input5D8A2 ($5D8A2, entered at $5D8A8): joystick byte $1BB47 -> steering $1BBC6, fire
+  // $1BB70, drive-force $1BD2A/$1BD2B from per-car accel $1BAFA/$1BAFB, with the gating and
+  // latch; then the wheelspin post-process $608A4.
+  input5D8A2() {
+    let steer;
+    if (this.u8(0x1BB7E) === 0) steer = 0;
+    else if (this.u8(0x1BBDF) !== 0) steer = this.u8(0x1BBDF);
+    else { const s = this.u8(0x1BB47) & 0x0C; steer = s === 0 ? 0 : s === 0x04 ? 0xF1 : 0x0F; }
+    this.B[0x1BBC6] = steer & 0xFF;
+    this.B[0x1BB70] = ((this.u8(0x1BB47) & 0x10) ^ 0x10) & 0xFF;
+    let d1 = 0, d2 = 0; // $1BD2B (lo), $1BD2A (hi)
+    const vv = this.u8(0x1BD30);
+    const airborne = i8(vv) >= 0 && vv >= 0x78;
+    if (!airborne && this.u8(0x1BBDF) === 0 && this.u8(0x1BCA2) === 0) {
+      let accel = false;
+      const thr = this.u8(0x1BB47) & 0x03;
+      if (thr === 1) accel = true;
+      else if (thr > 1) { d1 = 0x10; d2 = 0xFF; this.B[0x1BBA8] = 0; }
+      else if (i8(this.u8(0x1BBA8)) < 0) accel = true;
+      if (accel) { d1 = this.u8(0x1BAFA); d2 = this.u8(0x1BAFB); this.B[0x1BBA8] = 0x80; }
+    }
+    this.B[0x1BD2B] = d1 & 0xFF;
+    this.B[0x1BD2A] = d2 & 0xFF;
+    this.postInput608A4();
+  }
+  postInput608A4() {
+    if ((this.u8(0x1BB70) | this.u8(0x1BCA2)) !== 0) { this.B[0x1BB62] = 0; return; }
+    if (i8(this.u8(0x1BBA8)) >= 0 && (this.u8(0x1BB47) & 0x03) === 0) { this.B[0x1BB62] = 0; return; }
+    if (this.u8(0x1CA20) === 0) { this.B[0x1BB62] = 0; return; }
+    if (i8(this.u8(0x1BBCD)) >= 0) {
+      this.B[0x1BB3D] = (this.B[0x1BB3D] - 1) & 0xFF;
+      if (i8(this.u8(0x1BB3D)) < 0) this.B[0x1BB3D] = this.u8(0x1BAFE) & 0xFF;
+    }
+    this.B[0x1BB62] = 0x80;
+    this.setW(A.Drive, i16(this.w(A.Drive) << 1));
+  }
+
+  // timer5DB34: the physics-relevant $EE time-base tick $1BBCD (0 on a carry frame) of the
+  // lap timer $5DB34; the start-light sequence is visual-only.
+  timer5DB34() {
+    this.B[0x1BBC9] = (this.B[0x1BBC9] + 1) & 0xFF;
+    const sum = this.u8(0x1BBCF) + 0xEE;
+    this.B[0x1BBCF] = sum & 0xFF;
+    this.B[0x1BBCD] = sum > 0xFF ? 0 : 0xFF;
+  }
+
+  // crash5B32E ($5B32E, run in $61BCC's tail): the spawn/crash-recovery phase machine on the
+  // countdown $1BBDF; a no-op once $1BBDF==0. Servos pitch + heading, then hands off.
+  dirPick58758() {
+    if (this.u8(0x57C3C) === 0 || i8(this.u8(0x1BBC4)) >= 0 || i8(this.u8(0x1BBE0)) >= 0) return;
+    let d0 = (this.u8(0x1BBE0) << 1) & 0xFF;
+    if (this.u8(0x1BB1C) !== this.u8(0x1BB1D)) return;
+    d0 ^= this.u8(0x1BBE1);
+    if (i8(d0) < 0) return;
+    this.B[0x1BBE1] ^= 0x80;
+  }
+  pitchDriver5B4A8(param) {
+    let d4 = 0x10, d0b = param & 0xFF;
+    if (i8(this.u8(0x1BBE1)) < 0) { d0b = (-i8(d0b)) & 0xFF; d4 = 0xF0; }
+    let d0 = i16(u16(d0b << 8));
+    d0 = i16((Math.imul(d0, 0xEE)) >> 8);
+    const d3 = i16(this.w(0x1BC5C) << 5);
+    if ((this.u8(0x1BC00)) !== d4) this.setW(0x1BC00, i16(this.w(0x1BC00) + d0));
+    this.setW(A.Pit, i16(this.w(0x1BC00) - d3));
+    this.setW(0x1BD26, 0);
+    return this.u8(0x1BC00) === d4;
+  }
+  headingNudge5B472(param) {
+    const d0 = i16(u16((param & 0xFF) << 8));
+    const d3 = i16(this.w(0x1BCD0) - this.w(0x1BC60) - d0);
+    let dd = i16((d3 >> 3) - 0x100);
+    if (dd < 0 && u16(dd) < 0xFE00) dd = -512;
+    this.setW(0x1BD42, i16(this.w(0x1BD42) - dd));
+    return i8((((u16(d3) >> 8) & 0xFF) + 2) & 0xFF);
+  }
+  launchArm5E4EC(d0, d2) { this.B[0x1BB8E] = 0x80; this.B[0x5E65B] = d2 & 0xFF; this.B[0x5E65A] = d0 & 0xFF; }
+  crashReset5B450() { this.B[0x1BBDF] = 0; this.B[0x1BB9C] = 0; this.B[0x1BB8E] = 0; this.B[0x1BBC4] = 0x80; }
+  crash5B32E() {
+    const d1 = this.u8(0x1BBDF);
+    if (d1 === 0) return;
+    if (d1 >= 0xE6) { // phase A
+      this.dirPick58758();
+      this.B[0x1BC00] = i8(this.u8(0x1BBE1)) < 0 ? 0xD4 : 0x2C;
+      this.B[0x1BC01] = 0;
+      this.B[0x1BBDF] = (this.B[0x1BBDF] - 1) & 0xFF;
+    } else if (d1 === 0xE5) { // phase B
+      this.pitchDriver5B4A8(0);
+      if (this.headingNudge5B472(3) >= 0) this.B[0x1BBDF] = (this.B[0x1BBDF] - 1) & 0xFF;
+    } else if (d1 === 0xE4) { // phase C: wait for pitch, reload + arm
+      this.headingNudge5B472(4);
+      if (!this.pitchDriver5B4A8(0xFF)) return;
+      const d2 = i8(this.u8(0x1BBC4)) < 0 ? 0x3C : 0x2C;
+      this.B[0x1BBDF] = 0x8C; // $1CA22>=0 in the race -> no PRNG
+      if (this.u8(0x1BB74) !== 0) this.B[0x1BB74] = 0x32;
+      this.launchArm5E4EC(4, d2);
+    } else { // phase D
+      this.pitchDriver5B4A8(0);
+      this.headingNudge5B472(2);
+      if (i8(this.u8(0x1BBCD)) >= 0) {
+        this.B[0x1BBDF] = (this.B[0x1BBDF] - 1) & 0xFF;
+        if (this.u8(0x1BBDF) === 0) this.B[0x1BBDF] = (this.B[0x1BBDF] + 1) & 0xFF;
+      }
+      if (this.u8(0x1BBC4) === 0) { if (i8(this.u8(0x1BBDF)) >= 0) this.crashReset5B450(); return; }
+      if (this.u8(0x1BB70) !== 0) return;
+      this.crashReset5B450();
+    }
+  }
+
   torqueApply62138() {
     let d0 = i16(this.w(A.PitchTq) - (this.w(A.AmR) >> 4));
     if (this.u8(A.OnGround) !== 0) d0 = i16(d0 + (this.w(A.BFrcC) >> 2));
@@ -636,6 +753,7 @@ export class Physics {
     this.gravToBody615E6();
     this.suspension61BCC();
     this.loadProject622DC();
+    this.crash5B32E(); // $5B32E crash-recovery/spawn (in $61BCC's tail); no-op when $1BBDF==0
     this.setW(0x1BD46, this.w(0x1BD44));
     this.tail63E2E();
     if (this.u8(0x620B6) !== 0) this.B[0x620B6] = (this.B[0x620B6] - 1) & 0xFF;
@@ -845,20 +963,22 @@ export class Physics {
   // render state -- see Part V Sec.7), so we keep the car seated vertically (clamp posY to
   // the local resting band) and bound the attitude, while the throttle/grip/drag and the
   // surface-following are the exact model. Returns the world speed for the viewer.
-  // driveTickCoupled runs one FAITHFUL drive frame: the verified physics $6185C, then the
-  // real per-frame render coupling that primes the next tick. This is the coupling that is
-  // byte-identical to the render $64E4C for the physics-relevant state ($60190 camera, zero
-  // the view offsets $1BBD5/$1BBD6, $5FE04 grid->section into $1BB85, $5BE44 placement),
-  // in the engine's real loop order (physics then couple). No posY/attitude clamps -- the
-  // car stays grounded on its own. Verified exact vs the engine in cmd/driveverify (with the
-  // spawn crash-recovery $1BBDF zeroed by placeCar605B6). Returns the world speed.
-  driveTickCoupled(throttle) {
-    this.setW(A.Drive, throttle);
+  // driveTickCoupled runs one FAITHFUL drive frame in the engine's real main-loop order:
+  // input decode ($5D8A2, from the joystick byte `input`), the physics $6185C (which runs the
+  // $5B32E spawn machine in its tail), the per-frame render coupling (camera + $5FE04 section
+  // + $5BE44 placement), and the time-base tick $5DB34. The car spawns (~240 frames) and then
+  // drives grounded -- no posY/attitude clamps. Verified against the engine in cmd/driveverify
+  // (-full, spawn active): bit-exact through the whole spawn + drive on track 1. `input` is the
+  // decoded joystick byte $1BB47 (bits 0-1 throttle/brake, 2-3 steer, 4 fire). Returns speed.
+  driveTickCoupled(input) {
+    this.B[0x1BB47] = input & 0xFF;
+    this.input5D8A2();
     this.frame6185C();
     this.camera60190();
     this.B[0x1BBD5] = 0; this.B[0x1BBD6] = 0;
     const s = this.section5FE04();
     if (!s.off && s.sec !== 0xFF) { this.B[0x1BB85] = s.sec; this.couple5BE44(); }
+    this.timer5DB34();
     const vx = this.w(A.VelX), vz = this.w(A.VelZ);
     return Math.round(Math.sqrt(vx * vx + vz * vz));
   }
