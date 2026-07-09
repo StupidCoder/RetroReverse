@@ -71,12 +71,13 @@ async function setupDrive(id, base, car, track) {
   return {
     step() {
       // build the joystick byte $1BB47: bits 0-1 throttle/brake, 2-3 steer, 4 fire.
+      // IJKL for the car (the fly-cam owns WASD / arrows): I throttle, K brake, J/L steer, O fire.
       let inp = 0;
-      if (keys.has('w') || keys.has('arrowup')) inp |= 0x01;
-      else if (keys.has('s') || keys.has('arrowdown')) inp |= 0x02;
-      if (keys.has('a') || keys.has('arrowleft')) inp |= 0x04;
-      else if (keys.has('d') || keys.has('arrowright')) inp |= 0x08;
-      if (keys.has(' ')) inp |= 0x10;
+      if (keys.has('i')) inp |= 0x01;
+      else if (keys.has('k')) inp |= 0x02;
+      if (keys.has('j')) inp |= 0x04;
+      else if (keys.has('l')) inp |= 0x08;
+      if (keys.has('o')) inp |= 0x10;
       const speed = phys.driveTickCoupled(inp);
 
       const gx = phys.l(0x1BCD8) * PHYS_TO_GLB, gz = -phys.l(0x1BCE0) * PHYS_TO_GLB;
@@ -182,36 +183,34 @@ export default {
       for (const clip of gltf.animations) mixer.clipAction(clip).play();
     }
 
-    // ---- controls: a driven circuit gets a chase cam, an un-driven circuit flies, the
-    // car / horizon orbit ----
+    // ---- controls: circuits fly (WASD / arrows), the car / horizon orbit. A driven circuit
+    // keeps the fly-cam — the physics steps the car independently, the camera stays yours. ----
     let flycam = null;
-    if (drive) {
-      controls.enabled = false;
-      controls.autoRotate = false;
-      stage.hud = `${item.name} · WASD / arrows to drive`;
-    } else if (item.fly) {
+    if (item.fly) {
       controls.autoRotate = false;
       flycam = new FlyCam(camera, controls, stage.el);
       flycam.setScale(size);
       flycam.setMoveScale(1.4);
       flycam.setEnabled(true);
       stage.fly = flycam;
-      stage.hud = `${item.name} · ${flyHint}`;
+      stage.hud = `${item.name} · ${flyHint}${drive ? ' · IJKL drive' : ''} · R: native res`;
     } else {
       controls.autoRotate = true;
       controls.autoRotateSpeed = AUTO_ROTATE_SPEED;
-      stage.hud = item.name;
+      stage.hud = `${item.name} · R: native res`;
     }
 
-    // Chase camera: behind and above the car (car forward = -Z rotated by yaw), looking ahead.
-    const chaseCam = (st) => {
-      const fx = -Math.sin(st.yaw), fz = -Math.cos(st.yaw);
-      camera.position.set(st.gx - fx * 3.2, st.y + 1.6, st.gz - fz * 3.2);
-      camera.lookAt(st.gx + fx * 1.5, st.y + 0.4, st.gz + fz * 1.5);
+    // Optional low-res render: the 200-line target + chunky upscale is authentic but distracting
+    // when judging exactness. 'R' toggles it (native Amiga resolution on/off).
+    let lowRes = true;
+    const resToggle = (e) => {
+      if (e.key.toLowerCase() === 'r') lowRes = !lowRes; // pixelGrid()/render re-query each frame
     };
+    window.addEventListener('keydown', resToggle);
 
     // Per-frame: fixed-50 Hz physics for the driven car (the sim is a fixed-timestep tick),
-    // decoupled from the render dt via an accumulator; then the chase cam. Otherwise fly / animate.
+    // decoupled from the render dt via an accumulator. The camera is the fly-cam (or orbit) —
+    // the car drives on its own; it does NOT drive the camera.
     let acc = 0;
     const DT = 1 / 50;
     stage.onFrame = (camPos, dt) => {
@@ -219,21 +218,26 @@ export default {
       if (mixer) mixer.update(dt);
       if (drive) {
         acc += Math.min(dt, 0.25);
-        let st = null;
-        while (acc >= DT) { st = drive.step(); acc -= DT; }
-        if (st) chaseCam(st);
+        while (acc >= DT) { drive.step(); acc -= DT; }
       }
     };
     stage.render = (s) => {
-      s.renderer.setRenderTarget(postTarget);
-      s.renderer.render(s.scene, s.camera);
-      s.renderer.setRenderTarget(null);
-      s.renderer.render(quadScene, postCam);
+      if (lowRes) {
+        s.renderer.setRenderTarget(postTarget);
+        s.renderer.render(s.scene, s.camera);
+        s.renderer.setRenderTarget(null);
+        s.renderer.render(quadScene, postCam);
+      } else {
+        s.renderer.setRenderTarget(null);
+        s.renderer.render(s.scene, s.camera); // full-resolution, no upscale
+      }
     };
 
     // The native Amiga pixel grid the low-res render presents, so the global CRT filter can match
-    // its scanlines/mask to it. One native pixel = clientHeight / 200 CSS px (no pan).
+    // its scanlines/mask to it. One native pixel = clientHeight / 200 CSS px (no pan). Null when
+    // the low-res render is off, so the CRT filter drops its scanlines to match.
     stage.pixelGrid = () => {
+      if (!lowRes) return null;
       const w = stage.el.clientWidth, h = stage.el.clientHeight;
       if (!w || !h) return null;
       return { cell: h / NATIVE_H, ox: 0, oy: 0, ref: w };
@@ -243,6 +247,7 @@ export default {
     // item builds (the Viewer calls this before stage.clear()).
     stage.disposePlugin = () => {
       ro.disconnect();
+      window.removeEventListener('keydown', resToggle);
       if (flycam) flycam.dispose();
       if (drive) drive.dispose();
       if (mixer) mixer.stopAllAction();

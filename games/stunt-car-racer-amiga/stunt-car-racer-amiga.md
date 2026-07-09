@@ -1110,12 +1110,16 @@ full-drive trace). The far tail of the drive on some tracks still diverges from 
 are exact.
 
 **The car drives in the Studio.** `site/src/stunt-car-racer-amiga/model-renderer.js` loads the
-per-track placed state, runs `driveTickCoupled` from a WASD/arrows joystick byte each frame,
-maps the sim world position onto the GLB by `/(65536·64)`, keeps the car on the road with a
-downward raycast onto the track mesh, and chases it with the camera. The car spawns at the start
-line and drives the circuit; the game's own auto-steer follows the straights, and `A`/`D` steer
-through the corners. (Forcing the steering bias `$1BBC6` every frame — even to 0 — fights that
-auto-steer and throws the car airborne; it is left alone unless a steer key is held.)
+per-track placed state, runs `driveTickCoupled` from a joystick byte each frame, maps the sim
+world position onto the GLB by `/(65536·64)`, and keeps the car on the road with a downward
+raycast onto the track mesh. The car spawns at the start line and drives the circuit; the game's
+own auto-steer follows the straights, and the player steers through the corners. Controls are
+**`IJKL`** (I throttle, K brake, J/L steer, O fire) so they don't collide with the free-flight
+**fly-cam** (`WASD`/arrows) — the camera stays under your control while the car drives on its
+own; it does not chase. **`R`** toggles the native-Amiga low-resolution render off, for judging
+exactness at full display resolution. (Forcing the steering bias `$1BBC6` every frame — even to
+0 — fights the auto-steer and throws the car airborne; it is left alone unless a steer key is
+held.)
 
 ---
 
