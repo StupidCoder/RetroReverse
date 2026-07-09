@@ -128,7 +128,8 @@ func main() {
 	cases := []tc{
 		{"Force61ADC $61ADC", 0x61ADC, (*physics.Mem).Force61ADC, intSeed, stateBlock},
 		{"Torque61B26 $61B26", 0x61B26, (*physics.Mem).Torque61B26, intSeed, stateBlock},
-		{"Integrate61950 $61950", 0x61950, (*physics.Mem).Integrate61950, intSeed, stateBlock},
+		{"Integrate61950 $61950", 0x61950, (*physics.Mem).Integrate61950, intSeed,
+			append(append([]uint32{}, stateBlock...), 0x1BC42, 0x1BBAB)},
 		{"Matrix61368 $61368", 0x61368, (*physics.Mem).Matrix61368,
 			[]uint32{physics.Roll, physics.Yaw, physics.Pit, physics.Hdg}, matrixSlots},
 		{"VelToBody $6158C", 0x6158C, (*physics.Mem).VelToBody6158C,

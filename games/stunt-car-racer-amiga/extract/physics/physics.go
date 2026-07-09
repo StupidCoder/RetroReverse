@@ -1066,6 +1066,18 @@ func (m *Mem) clamp619E4(d0 int16) {
 	m.clampAngle(Roll, AmR, a0, d2)
 	// pitch vs limits, zero AmY ($1BCF4) when clamped
 	m.clampAngle(Pit, AmY, a0, d2)
+
+	// $619E4 tail (always run): $1BBAB bit7 = roll at/near the limit (|roll hi byte| >= $F),
+	// and $1BC42 = -roll (read by $622DC LoadProject and the renderer).
+	m.B[0x1BBAB] &^= 0x80
+	rb := byte(m.U8(Roll)) // MOVE.b $1BCE4 (roll high byte)
+	if int8(rb) < 0 {
+		rb = byte(-int8(rb)) // NEG.b
+	}
+	if int8(rb) >= 0x0F {
+		m.B[0x1BBAB] |= 0x80
+	}
+	m.SetW(0x1BC42, -m.W(Roll))
 }
 
 func (m *Mem) clampAngle(ang, mom, a0, d2 uint32) {
