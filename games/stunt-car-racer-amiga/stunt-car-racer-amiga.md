@@ -1068,20 +1068,54 @@ So **GLB = (physics 16.16 position) / (65536·64)**. Overlaying a driven path on
 top-down confirms it: the car's mapped start sits exactly on the road, and `cmd/physdump` now
 emits the real placed state per track so a browser `Physics` starts grounded and on-road.
 
-**What is *not* yet done is the vehicle-control layer that turns the exact physics into a
-drivable car.** Injecting a drive force `$1BD2A` directly and skipping the spawn crash-recovery
-gives a grounded car, but it creeps and then flails — the section index `$1BB1C` never advances,
-the heading swings, and it wanders off its own track. `cmd/driveverify` shows this is faithful:
-the Go drive matches the engine bit-for-bit, so **the engine flails the same way** under these
-inputs. Real driving needs the layer the race loop runs on top of the physics: the joystick
-decode `$5D8A2` (throttle/brake/steer → `$1BB47` → `$1BBC6`/gear), the gear machine `$5D980`,
-and the crash-recovery/spawn state-machine `$5B32E` that orients and launches the car down the
-track at the start (it runs while the `$1BBDF` countdown is non-zero — the very thing the drive
-zeroes). Notably, *forcing* the steering bias `$1BBC6` every frame (even to 0) fights the
-engine's own auto-steer and throws the car airborne; it must be left alone unless actively
-steering. Those three routines are the next chunk; until they land the viewer shows the car
-correctly placed and scaled at the start line (Part VI), with the physics and the world mapping
-both verified exact underneath.
+### 9. The vehicle-control layer — the car drives
+
+The exact physics alone is not a drivable car; the race loop runs a control layer on top of it,
+now reimplemented and verified. Three routines matter (found by running the real control stack
+on the oracle and pruning to the minimal set that laps):
+
+- **`$5D8A2`** — the per-frame input decode (entered at `$5D8A8`, past the `$60BAE` hardware/
+  keyboard-matrix read a port bypasses by supplying `$1BB47` directly). It turns the joystick
+  byte `$1BB47` (bits 0-1 throttle/brake, 2-3 steer, 4 fire) into the steering demand `$1BBC6`,
+  the fire flag `$1BB70`, and the longitudinal drive-force word `$1BD2A`/`$1BD2B` — the force
+  comes from the **per-car acceleration constants** `$1BAFA`/`$1BAFB` (copied at setup by
+  `$5D73A` from the car table), gated on airborne/stall/crash, with a wheelspin force-doubling
+  (`$608A4`) when fire is held. (Injecting `$1BD2A` directly instead is why the earlier "drive"
+  crept: it read a zero force.)
+- **`$5B32E`** — the spawn / crash-recovery state-machine, run in the `$61BCC` tail each frame,
+  a no-op once `$1BBDF` reaches 0. `$1BBDF` is a phase clock from `$F0`: prime the pitch
+  accumulator (`$F0..$E6`), a pitch + heading servo (`$E5`), wait for the pitch to settle then
+  reload the clock and arm the launch (`$E4`; the reload is a deterministic `$8C` because the
+  race has `$1CA22 ≥ 0`, so the `$62574` PRNG branch is never taken), and settle-and-hand-off
+  (`$E3..$01`). It servos the pitch angle `$1BCE8` and a heading accumulator, injecting no
+  velocity — the car rolls forward once the physics is handed control. This is what makes the
+  car launch cleanly instead of flailing.
+- **`$5DB34`** — the lap timer, of which only the `$EE` time-base tick `$1BBCD` matters to the
+  physics (it gates the crash countdown and the wheelspin timer). The rest — the start-light
+  sequence — is visual; a minimal tick reproduces the physics bit-for-bit.
+
+The start section is `$605B6`'s `d1 = $1CA1B` (the header finish/start index), with the intro
+setup `$1BB1D`/`$1BB0C`/`$1BBED`; the car seats at the start line, `posY = 16.0`.
+
+**Verification.** Each routine is checked against the engine in `cmd/physverify` (3000 random
+states, exact). `cmd/driveverify -full` locksteps the whole real stack — input decode, physics
+with the `$5B32E` spawn active, coupling, timer — against the engine frame by frame with an
+injected throttle: **bit-exact through the entire ~240-frame spawn and into free driving**, 300+
+frames per track (all 300 on Roller Coaster). Finding this fixed a real omission the earlier
+checks missed — `Integrate61950` skipped the always-run `$619E4` tail (`$1BC42 = -roll`, read by
+`$622DC`). The browser physics (`physics.js`) ports the same routines and matches the Go golden
+trace exactly for 300 frames on all eight tracks (`cmd/physdump` emits the placed state + the
+full-drive trace). The far tail of the drive on some tracks still diverges from the engine
+(a start-light-state feedback the minimal timer omits), but the spawn and the bulk of the drive
+are exact.
+
+**The car drives in the Studio.** `site/src/stunt-car-racer-amiga/model-renderer.js` loads the
+per-track placed state, runs `driveTickCoupled` from a WASD/arrows joystick byte each frame,
+maps the sim world position onto the GLB by `/(65536·64)`, keeps the car on the road with a
+downward raycast onto the track mesh, and chases it with the camera. The car spawns at the start
+line and drives the circuit; the game's own auto-steer follows the straights, and `A`/`D` steer
+through the corners. (Forcing the steering bias `$1BBC6` every frame — even to 0 — fights that
+auto-steer and throws the car airborne; it is left alone unless a steer key is held.)
 
 ---
 
