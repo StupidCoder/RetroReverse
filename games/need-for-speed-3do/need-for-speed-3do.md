@@ -510,9 +510,71 @@ race-progress struct (`0x3F970`) holds the start-line segment (1739 for City)
 and the race state (1 = pre-start, 2 = racing once a car crosses the line);
 the race clock is the sim frame counter (`0x41D24`).
 
-**Open items** (the current frontier): with *zero* input after race entry the
-game sits in its pre-start hold — even the race clock waits — while on hardware
-the opponent launches itself after a few seconds; the GO trigger / opponent-AI
-launch condition is not yet found. And several in-race sprites (the crowd, the
-opponent car body) render with columns of noise — a cel-decode detail still to
-pin down.
+### The GO trigger: the race arms itself off the player's first movement
+
+The "no-input pre-start hold" turned out not to be a missing OS service at
+all — it is the game's own start logic, traced end to end:
+
+- After race entry the sim task holds for a **hardcoded 10-frame settle**
+  (`[0x41D0C]`, set to `#0xA` at `0x20860`, decremented once per hold frame at
+  `0x206E0`). During the hold the world updates run in a pre-start mode
+  (`0x206FC` re-initialises the race-progress struct via `RaceProgressInit`
+  `0x16BCC` every frame) and, in demo mode only (`[0x3EE4C]` = 5), throttle
+  `0x1E` is force-fed. When the countdown hits zero the sim flips to *started*
+  (`0x20740`: `[0x41D10]`=1, `[0x41A84]`=1, frame counter `[0x41D24]` reset).
+- From then on the frame clock, world update (`0x17904`) and both cars' sim
+  slots all run — the "frozen race" of earlier sessions is gone with the audio
+  clock, Operamath and pod-description fixes in place. What still waits is
+  the **launch stamp** `[0x3F97C]`: the per-frame stats block inside the
+  *player's* physics function (`0x128DC..0x12918`, every 4th frame once
+  started) writes `frame+1` into it the first time the player car's speed
+  scalar (`[obj+0x5C]`) exceeds ~`0xCC0` — i.e. "the player has moved at all".
+  That stamp is the base of the displayed race clock (`0xBAA4` reads `+0xC`)
+  **and the opponent's AI gate**: the object walk (`0x17A78..0x17AAC`) skips
+  the opponent's physics function unless `frame == 0` or
+  `0 < stamp < frame`. Poking a brief fake player speed in a no-input run
+  fires the whole cascade — stamp, race clock, opponent launching hard and
+  pulling out of view — proving the chain.
+- Consequences: the opponent launches ~2-3 s after the player first applies
+  throttle (its AI ramps up on its own once ungated; it needs no pad input —
+  it never touches the steer/gas consumers `0x134E0`/`0x13B58`), and the race
+  clock starts when *you* move, which is exactly NFS's drag-style timing. No
+  timer, audio-completion or streaming condition writes the stamp — every
+  other `0x3F970`-referencing site is a reader (or the race-reset zeroing at
+  `0xF2E0`) — so with a literally motionless player the opponent stays put
+  under the game's own code. Since the whole car sim is the game's own ARM
+  code executing in the oracle, a zero-input run here is bit-faithful to the
+  console; the remembered real-hardware "opponent goes after ~3-4 s with no
+  input" most plausibly involved an input edge (a held Start release plus a
+  throttle blip) or a saved configuration difference — worth a re-test on the
+  real machine.
+- Canonical "watch the opponent go" script (one tap of gas in 1st):
+  `-pad "4000000:start,4300000:0,8000000:rs,8400000:0,9000000:a,9600000:0"`
+  — the player rolls a few feet and stops; the opponent tears past into view
+  a couple of seconds later.
+
+### Cel dimensions come from the preamble (the noise-columns bug)
+
+The in-race "columns of noise" (crowd/grandstand area, scenery, opponent-car
+glitches) were one bug with two layers in the software cel engine:
+
+- **`ccb_Width`/`ccb_Height` are not hardware fields.** `CCB_LDSIZE` tells
+  the cel DMA to load the *size registers* (HDX/HDY/VDX/VDY) from the CCB;
+  the C struct's trailing width/height words are SDK conveniences the
+  hardware never reads (opera_madam.c parses the CCB sequentially and takes
+  dimensions from PRE0 `VCNT` / PRE1 `TLHPCNT` only). Our "honour
+  ccb_Width/Height when sane" heuristic read leftover `(6,6)` on the race's
+  scenery CCBs and cropped 64×64 textures to a 6-row band: the City
+  smokestacks became vertical noise columns, and the entire distant-skyline
+  panorama (64×64 slices drawn rotated 90°, texture columns → screen
+  vertical) collapsed into invisible 6×6 blobs. PRE0/PRE1 are now
+  authoritative.
+- **A texel fills its projected quad.** The renderer bridged magnified texels
+  only along the column (HD) direction, with a floored step count — any
+  fractionally-magnified cel (the skyline tiles, the hillside strips at
+  ~1.25 px texel pitch) left a moire of unwritten clear-through pixels. The
+  fix walks both edge directions (HD and VD) with ceiling step counts, the
+  sampled equivalent of the hardware's corner-to-corner quad fill. The
+  "dithered" hillsides were this bug, not an intentional pattern: they are
+  solid green on hardware, and the chase and driving views now show solid
+  terrain, the skyline, and a clean grandstand.
