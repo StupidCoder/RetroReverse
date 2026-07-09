@@ -78,11 +78,12 @@ type Machine struct {
 	// and IMEM slices, so a DMA into them is immediately visible to microcode.
 	RSP *rsp.CPU
 
-	mi   mi // interrupt aggregation
-	pi   pi // cartridge DMA
-	vi   vi // video, and the retrace interrupt that is the machine's heartbeat
-	ai   ai // audio (deferred; registers only)
-	si   si // serial: the joybus to the controllers and the save EEPROM
+	mi   mi  // interrupt aggregation
+	pi   pi  // cartridge DMA
+	vi   vi  // video, and the retrace interrupt that is the machine's heartbeat
+	ai   ai  // audio (deferred; registers only)
+	si   si  // serial: the joybus to the controllers and the save EEPROM
+	rdp  rdp // the rasteriser's state (rdp.go, rdp_raster.go)
 	ri   regFile
 	rd   regFile // RDRAM device registers
 	sp   regFile
@@ -121,8 +122,12 @@ type Machine struct {
 	// OnRSPTask is called just before a microcode task begins, with its entry
 	// point in IMEM.
 	OnRSPTask func(m *Machine, pc uint32)
+	// OnRDPCmd is called for each decoded RDP command, before it is executed —
+	// the counterpart of the PlayStation oracle's OnGP0.
+	OnRDPCmd func(m *Machine, op uint32, words []uint64)
 
-	hookMuted bool // suppresses hooks during machine-internal reads (DMA, disassembly)
+	dpWriteHook func(addr, v uint32)
+	hookMuted   bool // suppresses hooks during machine-internal reads (DMA, disassembly)
 }
 
 // regFile is a device's register block: 32-bit registers, read back as written
@@ -156,6 +161,10 @@ func NewMachine(rom *ROM) *Machine {
 	m.Controllers[0].Present = true   // one controller, in port 1
 	return m
 }
+
+// newBareCPU attaches a CPU to a machine assembled without a cartridge, for the
+// rasteriser's unit tests.
+func newBareCPU(m *Machine) *r4300.CPU { return r4300.NewCPU(m) }
 
 func (r regFile) init(pairs ...uint32) {
 	for i := 0; i+1 < len(pairs); i += 2 {

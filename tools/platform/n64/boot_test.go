@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -65,8 +66,8 @@ func TestBootReachesGameEntry(t *testing.T) {
 // With VI, SI and PI modelled the boot reaches its first RSP task, and with the
 // RSP core it runs them to completion: audio microcode first, then graphics
 // microcode that walks the game's display lists and pours commands into the
-// RDP's queue. Nothing halts — every task ends in a BREAK, and the frontier has
-// moved on to the rasteriser those commands are waiting for.
+// RDP's queue. The RDP consumes them until it meets a mode the rasteriser does
+// not yet build, and names it.
 func TestBootRunsRSPTasks(t *testing.T) {
 	rom := loadTestROM(t)
 	m := NewMachine(rom)
@@ -80,9 +81,10 @@ func TestBootRunsRSPTasks(t *testing.T) {
 	m.OnRSPTask = func(*Machine, uint32) { tasks++ }
 
 	res := m.Run(400_000_000)
-	// A halt here is an unmodelled instruction on either core, and names itself.
-	if res.Reason != "step budget exhausted" {
-		t.Fatalf("the boot stopped early: %s", res)
+	// The frontier: a textured rectangle drawn through the colour combiner,
+	// which the rasteriser does not model yet.
+	if !strings.Contains(res.Reason, "Texture_Rectangle") {
+		t.Fatalf("expected to halt at the rasteriser's frontier, got: %s", res)
 	}
 	if fields == 0 {
 		t.Error("no video field completed: the retrace interrupt never fired")
@@ -112,6 +114,61 @@ func TestBootRunsRSPTasks(t *testing.T) {
 	t.Logf("%d CPU instructions, %d RSP tasks (%d RSP instructions), %d RDP command words, %d fields; "+
 		"VI %d wide at 0x%08X, type %d", res.Steps, tasks, m.RSPSteps(), m.RDPWords(), fields,
 		m.Width(), m.Origin(), m.PixelType())
+}
+
+// TestBootClearsTheFramebuffer is the Phase 3d Tier-1 gate. The game's first
+// frame begins the way every N64 frame begins: a Fill_Rectangle over the whole
+// colour image. Catching it at Sync_Full — the RDP's own "the frame is done"
+// signal — proves the command queue, the fill path and the scissor all work
+// before a single triangle exists.
+func TestBootClearsTheFramebuffer(t *testing.T) {
+	rom := loadTestROM(t)
+	m := NewMachine(rom)
+	if err := m.Boot(rom, DefaultBoot()); err != nil {
+		t.Fatal(err)
+	}
+
+	// The colour image is rebound several times a frame, so the buffer that
+	// matters is the one that was bound when the fill ran — not whichever is
+	// bound when the frame ends, which may hold nothing but a texture's
+	// leftovers.
+	fills, drawn := 0, -1
+	var fillBase, fillWidth, fillColor uint32
+	m.OnRDPCmd = func(mm *Machine, op uint32, _ []uint64) {
+		switch op {
+		case cmdFillRect:
+			fills++
+			if fillBase == 0 {
+				fillBase, fillWidth = mm.rdp.Color.Addr, mm.rdp.Color.Width
+				fillColor = mm.rdp.FillColor
+			}
+		case cmdSyncFull:
+			if drawn >= 0 || fillBase == 0 {
+				return // only the first frame that actually cleared something
+			}
+			drawn = 0
+			for _, b := range mm.RDRAM[fillBase : fillBase+fillWidth*240*2] {
+				if b != 0 {
+					drawn++
+				}
+			}
+		}
+	}
+	m.Run(400_000_000)
+
+	if fills == 0 {
+		t.Fatal("the game never issued a Fill_Rectangle")
+	}
+	if drawn < 0 {
+		t.Fatal("the RDP never reached a Sync_Full: no frame completed")
+	}
+	// A full-screen clear of a 320x240 16-bit image touches every one of its
+	// bytes, and this game's fill colour has no zero byte in it.
+	if want := int(fillWidth * 240 * 2); drawn != want {
+		t.Errorf("the cleared image holds %d non-zero bytes of %d: the fill did not cover it", drawn, want)
+	}
+	t.Logf("%d fills; the cleared image at 0x%08X (fill colour %08X) holds %d non-zero bytes",
+		fills, fillBase, fillColor, drawn)
 }
 
 // The joybus must answer an empty port, or a game polling four controllers waits

@@ -34,7 +34,7 @@ import (
 
 // snapshotVersion changes whenever the snapshot's shape does, so an old file is
 // rejected rather than decoded into the wrong fields.
-const snapshotVersion = 2
+const snapshotVersion = 3
 
 // snapshot is the fully-serialisable machine state (all fields exported for gob).
 type snapshot struct {
@@ -60,11 +60,12 @@ type snapshot struct {
 	RDPWords uint64
 
 	// Devices.
-	MI mi
-	PI pi
-	VI vi
-	AI ai
-	SI si
+	MI  mi
+	PI  pi
+	VI  vi
+	AI  ai
+	SI  si
+	RDP rdp
 
 	SPPC        uint32
 	SP          regFile
@@ -157,7 +158,7 @@ func (m *Machine) LoadState(path string) error {
 		m.RSP.Restore(s.RSP)
 	}
 	m.rspSteps, m.rdpWords = s.RSPSteps, s.RDPWords
-	m.mi, m.pi, m.vi, m.ai, m.si = s.MI, s.PI, s.VI, s.AI, s.SI
+	m.mi, m.pi, m.vi, m.ai, m.si, m.rdp = s.MI, s.PI, s.VI, s.AI, s.SI, s.RDP
 	m.spPC = s.SPPC
 	m.sp, m.ri, m.rd, m.dp = s.SP, s.RI, s.RD, s.DP
 	m.Controllers = s.Controllers

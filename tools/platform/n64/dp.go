@@ -2,12 +2,8 @@ package n64
 
 // dp.go is the RDP's command-queue interface: the registers through which the
 // CPU (or the RSP, through its COP0 window) hands the rasteriser a span of
-// display-list commands to execute.
-//
-// The rasteriser itself is not modelled yet. Commands are accepted and the queue
-// reports itself immediately drained, so a game that waits for the RDP to finish
-// does not stall; the DP interrupt that Sync_Full raises will arrive with the
-// rasteriser in the next phase.
+// display-list commands to execute. The commands themselves are in rdp.go, and
+// the pixels they produce in rdp_raster.go.
 
 const (
 	dpStart    = 0x00
@@ -76,17 +72,4 @@ func (m *Machine) dpWrite(addr uint32, v uint32) {
 	default:
 		m.dp[addr&0x1F] = v
 	}
-}
-
-// runRDP consumes the command span [DPC_START, DPC_END). The rasteriser lands in
-// the next phase; for now the commands are counted so a boot can be watched
-// producing them, and the queue is reported drained.
-func (m *Machine) runRDP() {
-	start, end := m.dp[dpStart], m.dp[dpEnd]
-	if end > start {
-		m.rdpWords += uint64(end-start) / 8
-		m.note("RDP: %d command words at 0x%08X (the rasteriser is not modelled yet)",
-			(end-start)/8, start)
-	}
-	m.dp[dpCurrent] = end
 }
