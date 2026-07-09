@@ -41,25 +41,27 @@ type snapshot struct {
 	ROMMD5  string
 
 	// Memory. The cartridge is omitted: it is read-only, and ROMMD5 pins it.
-	RDRAM []byte
-	DMEM  []byte
-	IMEM  []byte
-	PIF   []byte
+	RDRAM  []byte
+	DMEM   []byte
+	IMEM   []byte
+	PIF    []byte
+	EEPROM []byte
 
 	CPU r4300.State
 
 	// Devices.
 	MI mi
 	PI pi
+	VI vi
+	AI ai
+	SI si
 
-	SPPC uint32
-	SP   regFile
-	RI   regFile
-	RD   regFile
-	VI   regFile
-	AI   regFile
-	SI   regFile
-	DP   regFile
+	SPPC        uint32
+	SP          regFile
+	RI          regFile
+	RD          regFile
+	DP          regFile
+	Controllers [4]Controller
 }
 
 // SaveState writes the machine's full state to path (gzip-compressed gob).
@@ -71,17 +73,20 @@ func (m *Machine) SaveState(path string) error {
 		DMEM:    append([]byte(nil), m.DMEM...),
 		IMEM:    append([]byte(nil), m.IMEM...),
 		PIF:     append([]byte(nil), m.PIF...),
+		EEPROM:  append([]byte(nil), m.EEPROM...),
 		CPU:     m.CPU.Snapshot(),
 		MI:      m.mi,
 		PI:      m.pi,
-		SPPC:    m.spPC,
-		SP:      m.sp.clone(),
-		RI:      m.ri.clone(),
-		RD:      m.rd.clone(),
-		VI:      m.vi.clone(),
-		AI:      m.ai.clone(),
-		SI:      m.si.clone(),
-		DP:      m.dp.clone(),
+		VI:      vi{Regs: m.vi.Regs.clone(), Acc: m.vi.Acc, Current: m.vi.Current},
+		AI:      ai{Regs: m.ai.Regs.clone()},
+		SI:      si{Regs: m.si.Regs.clone(), DramAddr: m.si.DramAddr},
+
+		SPPC:        m.spPC,
+		SP:          m.sp.clone(),
+		RI:          m.ri.clone(),
+		RD:          m.rd.clone(),
+		DP:          m.dp.clone(),
+		Controllers: m.Controllers,
 	}
 	out, err := os.Create(path)
 	if err != nil {
@@ -126,11 +131,12 @@ func (m *Machine) LoadState(path string) error {
 	copy(m.DMEM, s.DMEM)
 	copy(m.IMEM, s.IMEM)
 	copy(m.PIF, s.PIF)
+	m.EEPROM = append(m.EEPROM[:0], s.EEPROM...)
 	m.CPU.Restore(s.CPU)
-	m.mi, m.pi = s.MI, s.PI
+	m.mi, m.pi, m.vi, m.ai, m.si = s.MI, s.PI, s.VI, s.AI, s.SI
 	m.spPC = s.SPPC
-	m.sp, m.ri, m.rd = s.SP, s.RI, s.RD
-	m.vi, m.ai, m.si, m.dp = s.VI, s.AI, s.SI, s.DP
+	m.sp, m.ri, m.rd, m.dp = s.SP, s.RI, s.RD, s.DP
+	m.Controllers = s.Controllers
 	return nil
 }
 

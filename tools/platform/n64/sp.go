@@ -20,9 +20,14 @@ const (
 	spSemaphore = 0x1C
 )
 
-// spPCWindow is the separate register window holding the RSP's program counter,
-// at 0x04080000 rather than among the status registers.
-const spPCWindow = 0x00040000
+// The RSP's registers occupy two windows. The eight command/status registers sit
+// at 0x04040000; the program counter is alone in a second window at 0x04080000,
+// far enough away that a mask over the low bits cannot tell them apart.
+const (
+	spRegsBase = 0x04040000
+	spPCBase   = 0x04080000
+	spPCEnd    = 0x040C0000
+)
 
 // SP_STATUS read bits.
 const (
@@ -54,10 +59,10 @@ const (
 )
 
 func (m *Machine) spRead(addr uint32) uint32 {
-	if addr&0x000C0000 == spPCWindow {
+	if addr >= spPCBase && addr < spPCEnd {
 		return m.spPC
 	}
-	switch addr & 0xFF {
+	switch addr & 0x1F {
 	case spStatus:
 		return m.sp[spStatus]
 	case spDMABusy:
@@ -70,17 +75,17 @@ func (m *Machine) spRead(addr uint32) uint32 {
 		m.sp[spSemaphore] = 1
 		return v
 	}
-	return m.sp[addr&0xFF]
+	return m.sp[addr&0x1F]
 }
 
 func (m *Machine) spWrite(addr uint32, v uint32) {
-	if addr&0x000C0000 == spPCWindow {
+	if addr >= spPCBase && addr < spPCEnd {
 		m.spPC = v & 0xFFC
 		return
 	}
-	switch addr & 0xFF {
+	switch addr & 0x1F {
 	case spMemAddr, spDramAddr:
-		m.sp[addr&0xFF] = v
+		m.sp[addr&0x1F] = v
 	case spRdLen:
 		m.spDMA(v, false)
 	case spWrLen:
@@ -90,7 +95,7 @@ func (m *Machine) spWrite(addr uint32, v uint32) {
 	case spSemaphore:
 		m.sp[spSemaphore] = 0 // any write releases it
 	default:
-		m.sp[addr&0xFF] = v
+		m.sp[addr&0x1F] = v
 	}
 }
 

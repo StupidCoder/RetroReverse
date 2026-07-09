@@ -76,14 +76,22 @@ type Machine struct {
 
 	mi   mi // interrupt aggregation
 	pi   pi // cartridge DMA
+	vi   vi // video, and the retrace interrupt that is the machine's heartbeat
+	ai   ai // audio (deferred; registers only)
+	si   si // serial: the joybus to the controllers and the save EEPROM
 	ri   regFile
 	rd   regFile // RDRAM device registers
 	sp   regFile
 	spPC uint32 // the RSP's program counter, in its own register window
-	vi   regFile
-	ai   regFile
-	si   regFile
 	dp   regFile
+
+	// Controllers holds the four ports. Only port 0 is attached by default; the
+	// joybus reports the rest as empty, which is what a real console does.
+	Controllers [4]Controller
+
+	// EEPROM is the cartridge's save device, reached over the joybus. Empty means
+	// no save device is fitted.
+	EEPROM []byte
 
 	run runState
 
@@ -100,6 +108,9 @@ type Machine struct {
 	OnRead             func(addr, val, pc uint32)  // called for CPU reads in the read-watch window
 	// OnDMA is called at the start of each DMA transfer.
 	OnDMA func(kind string, dramAddr, cartAddr, length uint32)
+	// OnDisplay is called once per video field, after the retrace interrupt is
+	// raised — the natural place to capture a frame.
+	OnDisplay func(m *Machine)
 
 	hookMuted bool // suppresses hooks during machine-internal reads (DMA, disassembly)
 }
@@ -122,15 +133,17 @@ func NewMachine(rom *ROM) *Machine {
 		ri:      regFile{},
 		rd:      regFile{},
 		sp:      regFile{},
-		vi:      regFile{},
-		ai:      regFile{},
-		si:      regFile{},
 		dp:      regFile{},
+		EEPROM:  make([]byte, eeprom4KBlocks*eepromBlockSize),
 		logSeen: map[string]bool{},
 	}
 	m.CPU = r4300.NewCPU(m)
 	m.pi.init()
+	m.vi.init()
+	m.ai.init()
+	m.si.init()
 	m.sp.init(spStatus, spStatusHalt) // the RSP is halted out of reset
+	m.Controllers[0].Present = true   // one controller, in port 1
 	return m
 }
 
@@ -272,15 +285,15 @@ func (m *Machine) ioRead(addr uint32) uint32 {
 	case addr >= miRegBase && addr < miRegEnd:
 		return m.miRead(addr)
 	case addr >= viRegBase && addr < viRegEnd:
-		return m.vi[addr&0xFF]
+		return m.viRead(addr)
 	case addr >= aiRegBase && addr < aiRegEnd:
-		return m.ai[addr&0xFF]
+		return m.aiRead(addr)
 	case addr >= piRegBase && addr < piRegEnd:
 		return m.piRead(addr)
 	case addr >= riRegBase && addr < riRegEnd:
 		return m.ri[addr&0xFF]
 	case addr >= siRegBase && addr < siRegEnd:
-		return m.si[addr&0xFF]
+		return m.siRead(addr)
 	}
 	m.note("read from unmapped physical address 0x%08X (returning 0)", addr)
 	return 0
@@ -299,15 +312,15 @@ func (m *Machine) ioWrite(addr uint32, v uint32) {
 	case addr >= miRegBase && addr < miRegEnd:
 		m.miWrite(addr, v)
 	case addr >= viRegBase && addr < viRegEnd:
-		m.vi[addr&0xFF] = v
+		m.viWrite(addr, v)
 	case addr >= aiRegBase && addr < aiRegEnd:
-		m.ai[addr&0xFF] = v
+		m.aiWrite(addr, v)
 	case addr >= piRegBase && addr < piRegEnd:
 		m.piWrite(addr, v)
 	case addr >= riRegBase && addr < riRegEnd:
 		m.ri[addr&0xFF] = v
 	case addr >= siRegBase && addr < siRegEnd:
-		m.si[addr&0xFF] = v
+		m.siWrite(addr, v)
 	default:
 		m.note("write 0x%08X to unmapped physical address 0x%08X (ignored)", v, addr)
 	}

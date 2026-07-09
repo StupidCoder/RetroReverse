@@ -58,6 +58,8 @@ func (m *Machine) Run(maxSteps uint64) Result {
 			m.OnStep(m, pc)
 		}
 
+		m.tickVI()
+
 		// Deliver a pending, unmasked RCP interrupt. The game installs its own
 		// handler at the exception vector: nothing is emulated on its behalf.
 		m.CPU.Interrupt(m.irqPending())
