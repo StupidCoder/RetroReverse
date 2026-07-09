@@ -653,12 +653,19 @@ per object, in directory order:
 
 | Size | Shape | Layout |
 |---|---|---|
-| 40 | textured flat quad | identical to `TrackQuad` |
-| 48 | textured flat quad + tail | `TrackQuad` + 8 bytes |
+| 40 | textured flat quad | identical to `TrackQuad`; no texture window |
+| 48 | textured flat quad + tail | `TrackQuad` + an 8-byte texture-window rectangle (below) |
 | 32 | untextured flat quad | verts + RGB colour at +24, depth bias at +28 (drawn as GP0 `0x2B`; the car shadows) |
-| 64 | textured **lit** quad | verts + 4 × int16 normals at +24 + texture words at +48 (as `TrackQuad`'s, uv3's spare halfword unused) |
-| 72 | textured lit quad + tail | the 64-byte layout + 8 bytes carrying the base colour |
+| 64 | textured **lit** quad | verts + 4 × int16 normals at +24 + texture words at +48 (as `TrackQuad`'s, uv3's spare halfword unused); no window |
+| 72 | textured lit quad + tail | the 64-byte layout + an 8-byte texture-window rectangle |
 | 56 | untextured lit quad | verts + normals + a ready-made GP0 colour word `{r,g,b,0x38}` at +48 + bias at +52 |
+
+The 48- and 72-byte tails are a **texture window** — a rectangle in the page `(u0, v0, w, h)` as four
+halfwords — from which the draw code builds a GP0 `0xE2` window before the primitive so that
+rectangle repeats. The register's raw 5-bit fields are `offsetX = u0/8`, `offsetY = v0/8`,
+`maskX = (256 − w)/8`, `maskY = (256 − h)/8` (a full-size axis → mask 0, no repeat), and the GPU
+samples `texel = (uv &^ (mask·8)) | ((offset & mask)·8)`. The buildings rely on this to tile a small
+facade strip up their walls; sampling the raw UVs instead lands on the neighbouring texture.
 
 The lit-quad renderer at `0x80046B18` is the busiest: `RTPT`/`RTPS` project the corners, **`NCLIP`
 culls by winding** — a context flag selects which sign survives, so a model can be one- or

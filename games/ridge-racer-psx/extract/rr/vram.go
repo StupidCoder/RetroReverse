@@ -101,14 +101,17 @@ func (v *VRAM) Blit(r Rect) {
 // At returns the raw 16-bit VRAM word at (x, y).
 func (v *VRAM) At(x, y int) uint16 { return v.Pix[(y&(VRAMH-1))*VRAMW+(x&(VRAMW-1))] }
 
-// TexWindow is a PSX texture window: coordinates are masked and offset before
-// sampling so a sub-region of the page repeats. Mask and offset are in pixels
-// (the record stores them directly). A zero mask leaves the coordinate
-// untouched. The masking mirrors the GPU: c = (c &^ mask) | (offset & mask).
+// TexWindow is a PSX texture window (GP0 0xE2): its fields are the raw 5-bit
+// mask/offset in 8-pixel units, exactly as the register holds them. Sampling
+// masks the high bits of each coordinate to the offset, so a sub-region of the
+// page repeats — the GPU rule c = (c &^ (mask*8)) | ((offset & mask)*8). A zero
+// mask leaves the coordinate untouched.
 type TexWindow struct{ MaskX, MaskY, OffX, OffY byte }
 
 func (w TexWindow) apply(u, vv byte) (byte, byte) {
-	return (u &^ w.MaskX) | (w.OffX & w.MaskX), (vv &^ w.MaskY) | (w.OffY & w.MaskY)
+	u = byte((int(u) &^ (int(w.MaskX) * 8)) | ((int(w.OffX) & int(w.MaskX)) * 8))
+	vv = byte((int(vv) &^ (int(w.MaskY) * 8)) | ((int(w.OffY) & int(w.MaskY)) * 8))
+	return u, vv
 }
 
 // Texel resolves one texel the way the rasterizer does: page selects the

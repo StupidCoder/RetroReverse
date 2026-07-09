@@ -44,7 +44,14 @@ type QuadGT struct {
 	CLUT  uint16
 	TPage uint16
 	Bias  int16
-	Extra [8]byte
+	Extra [8]byte // 72-byte records only: a texture-window rectangle, as Quad48
+}
+
+// Window returns the texture window of a 72-byte lit record (its Extra tail is
+// the same (u0, v0, w, h) rectangle as a 48-byte record). The 64-byte records
+// leave Extra zero, which yields no window.
+func (q QuadGT) Window() TexWindow {
+	return windowFromRect(q.Extra)
 }
 
 // QuadG is an untextured, vertex-lit quad (56-byte record). RGB is the base
@@ -58,10 +65,10 @@ type QuadG struct {
 }
 
 // Quad48 is a textured flat quad with an 8-byte tail (48-byte record). The
-// tail is a texture window: mask/offset bytes at +0,+2,+4,+6 (maskX, maskY,
-// offsetX, offsetY, in pixels) that the GPU applies to the UVs before
-// sampling, so a sub-region of the page repeats (drawing code sets GP0 0xE2
-// from these). The 40-byte records carry no window.
+// tail is a texture-window rectangle in the page — (u0, v0, w, h) as the
+// halfwords at +0,+2,+4,+6 — from which the drawing code builds the GP0 0xE2
+// window before sampling, so that rectangle of the page repeats. The 40-byte
+// records carry no window.
 type Quad48 struct {
 	TrackQuad
 	Extra [8]byte
@@ -69,7 +76,20 @@ type Quad48 struct {
 
 // Window returns the 48-byte record's texture window.
 func (q Quad48) Window() TexWindow {
-	return TexWindow{MaskX: q.Extra[0], MaskY: q.Extra[2], OffX: q.Extra[4], OffY: q.Extra[6]}
+	return windowFromRect(q.Extra)
+}
+
+// windowFromRect maps a record tail's texture-window rectangle to the GP0 0xE2
+// register's raw 5-bit fields. The tail halfwords are (u0, v0, w, h) in
+// pixels: offset = origin/8, mask = (256-size)/8 (so a size of 256 → mask 0,
+// no repeat).
+func windowFromRect(extra [8]byte) TexWindow {
+	return TexWindow{
+		OffX:  (extra[0] / 8) & 0x1F,
+		OffY:  (extra[2] / 8) & 0x1F,
+		MaskX: byte(((256 - int(extra[4])) / 8) & 0x1F),
+		MaskY: byte(((256 - int(extra[6])) / 8) & 0x1F),
+	}
 }
 
 // Object is one model: its six record lists in file order.

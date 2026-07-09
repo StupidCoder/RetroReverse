@@ -97,10 +97,10 @@ func addObjectXform(b *meshBuilder, o *rr.Object, R [3][3]int32, off [3]int32, s
 		b.AddFlat(rot(q.V), q.RGB, off)
 	}
 	for _, q := range o.GT {
-		b.AddTextured(rot(q.V), q.UV, q.TPage, q.CLUT, off, set, rr.TexWindow{})
+		b.AddTextured(rot(q.V), q.UV, q.TPage, q.CLUT, off, set, q.Window())
 	}
 	for _, q := range o.GT8 {
-		b.AddTextured(rot(q.V), q.UV, q.TPage, q.CLUT, off, set, rr.TexWindow{})
+		b.AddTextured(rot(q.V), q.UV, q.TPage, q.CLUT, off, set, q.Window())
 	}
 	for _, q := range o.G {
 		b.AddFlat(rot(q.V), q.RGB, off)
