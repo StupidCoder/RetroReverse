@@ -46,6 +46,10 @@ func main() {
 	flag.Var(&pxFlags, "px", "probe pixel X,Y; repeatable")
 	dumpTMem := flag.String("dumptmem", "", "CMDIDX:FILE — dump TMEM before this command")
 	triCheck := flag.Bool("tricheck", false, "verify edge-coefficient conventions across all recorded triangles")
+	tasks := flag.Bool("tasks", false, "decode the OSTask block for every RSP task started")
+	var dumpRAM multiFlag
+	flag.Var(&dumpRAM, "dumpram", "ADDR:LEN:FILE (hex addr/len) — dump RDRAM at the target field; repeatable")
+	snapRAM := flag.String("snapram", "", "FILE — snapshot all of RDRAM at the first graphics task of the target field")
 	flag.Parse()
 
 	var probes []probe
@@ -118,9 +122,57 @@ func main() {
 			mm.CPU.Halt("target field reached")
 		}
 	}
+	if *tasks {
+		// The OSTask block is libultra's task descriptor, DMA'd to the top of
+		// DMEM before the RSP starts. Offset 0xFC0: type, flags, then pointer/
+		// size pairs for boot ucode, ucode text, ucode data, dram stack, output
+		// buffer, task data (the display list for a graphics task), yield data.
+		m.OnRSPTask = func(mm *n64.Machine, pc uint32) {
+			be := func(off int) uint32 {
+				d := mm.DMEM[0xFC0+off:]
+				return uint32(d[0])<<24 | uint32(d[1])<<16 | uint32(d[2])<<8 | uint32(d[3])
+			}
+			fmt.Printf("task field=%d pc=%03X type=%d flags=%X ucode=%08X/%d data=%08X/%d dl=%08X/%d out=%08X\n",
+				curField, pc, be(0), be(4), be(16), be(20), be(24), be(28), be(48), be(52), be(40))
+		}
+	}
+	if *snapRAM != "" {
+		prev := m.OnRSPTask
+		m.OnRSPTask = func(mm *n64.Machine, pc uint32) {
+			if prev != nil {
+				prev(mm, pc)
+			}
+			be := func(off int) uint32 {
+				d := mm.DMEM[0xFC0+off:]
+				return uint32(d[0])<<24 | uint32(d[1])<<16 | uint32(d[2])<<8 | uint32(d[3])
+			}
+			// Snapshot at a graphics task close to the target field, so the RAM
+			// matches the frame that field displays. The DL pointer is printed;
+			// the walker takes it from there.
+			if be(0) == 1 && curField >= *field-2 && *snapRAM != "" {
+				os.WriteFile(*snapRAM, mm.RDRAM, 0o644)
+				fmt.Fprintf(os.Stderr, "snapped RDRAM at field %d gfx task: dl=%08X/%d ucode=%08X data=%08X -> %s\n",
+					curField, be(48), be(52), be(16), be(24), *snapRAM)
+				*snapRAM = ""
+			}
+		}
+	}
 
 	res := m.Run(*steps)
 	fmt.Fprintf(os.Stderr, "run: %s\n", res)
+	for _, s := range dumpRAM {
+		parts := strings.SplitN(s, ":", 3)
+		if len(parts) != 3 {
+			fmt.Fprintf(os.Stderr, "bad -dumpram %q\n", s)
+			continue
+		}
+		addr, _ := strconv.ParseUint(strings.TrimPrefix(parts[0], "0x"), 16, 32)
+		length, _ := strconv.ParseUint(strings.TrimPrefix(parts[1], "0x"), 16, 32)
+		if int(addr+length) <= len(m.RDRAM) {
+			os.WriteFile(parts[2], m.RDRAM[addr:addr+length], 0o644)
+			fmt.Fprintf(os.Stderr, "dumped %d bytes at %06X to %s\n", length, addr, parts[2])
+		}
+	}
 	fmt.Printf("field %d origin=0x%08X, %d commands recorded\n\n", *field, origin, len(cmds))
 
 	if *triCheck {
