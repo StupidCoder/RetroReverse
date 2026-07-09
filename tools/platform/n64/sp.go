@@ -188,9 +188,12 @@ func (m *Machine) runRSP() {
 	}
 
 	m.sp[spStatus] |= spStatusHalt | spStatusBroke
-	// The program counter left behind points *after* the BREAK, not at it: the
-	// instruction retired like any other before the core stopped.
-	m.spPC = (m.RSP.CurPC() + 4) & 0xFFC
+	// The program counter left behind is whatever fetch was pending when the
+	// BREAK retired. In straight-line code that is BREAK + 4, but a BREAK in a
+	// taken branch's delay slot leaves the branch target — the core's own PC,
+	// not an address computed from the BREAK's. n64-systemtest distinguishes
+	// the two with a BREAK behind beq/bne.
+	m.spPC = m.RSP.PC & 0xFFC
 	if m.sp[spStatus]&spStatusIntrBreak != 0 {
 		m.raiseIRQ(intrSP)
 	}

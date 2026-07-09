@@ -44,11 +44,24 @@ func (m *Machine) dpRead(addr uint32) uint32 {
 func (m *Machine) dpWrite(addr uint32, v uint32) {
 	switch addr & 0x1F {
 	case dpStart:
-		m.dp[dpStart] = v & 0x00FFFFF8
-		m.dp[dpCurrent] = m.dp[dpStart]
+		// Writing the start address arms the queue: the address latches and
+		// start-valid is set. While armed, further start writes are ignored —
+		// the hardware holds the first address until the matching end write,
+		// and n64-systemtest checks that a second write changes nothing.
+		// CURRENT does not move here; it moves when the end write commits.
+		if m.dp[dpStatus]&dpStatusStartValid == 0 {
+			m.dp[dpStart] = v & 0x00FFFFF8
+			m.dp[dpStatus] |= dpStatusStartValid
+		}
 	case dpEnd:
 		m.dp[dpEnd] = v & 0x00FFFFF8
-		m.runRDP()
+		if m.dp[dpStatus]&dpStatusStartValid != 0 {
+			m.dp[dpCurrent] = m.dp[dpStart]
+			m.dp[dpStatus] &^= dpStatusStartValid
+		}
+		if m.dp[dpStatus]&dpStatusFreeze == 0 {
+			m.runRDP()
+		}
 	case dpStatus:
 		// Paired clear/set bits, as elsewhere in the RCP.
 		if v&(1<<0) != 0 {
@@ -58,7 +71,9 @@ func (m *Machine) dpWrite(addr uint32, v uint32) {
 			m.dp[dpStatus] |= dpStatusXBusDMEM
 		}
 		if v&(1<<2) != 0 {
+			// Unfreezing releases whatever the queue received while frozen.
 			m.dp[dpStatus] &^= dpStatusFreeze
+			m.runRDP()
 		}
 		if v&(1<<3) != 0 {
 			m.dp[dpStatus] |= dpStatusFreeze

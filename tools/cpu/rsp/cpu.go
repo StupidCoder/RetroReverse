@@ -257,7 +257,7 @@ func (c *CPU) execute(w uint32) {
 		c.set(rt, uint32(int32(int16(uint16(c.rd16(c.R[rs]+simm))))))
 	case 0x25: // lhu
 		c.set(rt, c.rd16(c.R[rs]+simm))
-	case 0x23: // lw
+	case 0x23, 0x27: // lw; lwu behaves identically, the registers being 32-bit
 		c.set(rt, c.rd32(c.R[rs]+simm))
 	case 0x28:
 		c.wr8(c.R[rs]+simm, c.R[rt])
@@ -295,8 +295,11 @@ func (c *CPU) special(w, rs, rt uint32) {
 	case 0x08:
 		c.doBranch(true, c.R[rs])
 	case 0x09:
+		// The target is read before the link is written, so a jalr whose return
+		// register is also its target still jumps where the register pointed.
+		target := c.R[rs]
 		c.set(rd, (c.curPC+8)&0xFFC)
-		c.doBranch(true, c.R[rs])
+		c.doBranch(true, target)
 	case 0x0D: // break
 		c.Broke = true
 		c.Halted = true

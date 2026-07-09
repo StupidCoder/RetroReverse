@@ -39,8 +39,8 @@ func element(e, i uint32) uint32 {
 	}
 }
 
-// vt reads the second operand's lane i under the element specifier.
-func (c *CPU) vt(r, e, i uint32) uint16 { return c.V[r][element(e, i)] }
+// vte reads lane i of a source-register snapshot under the element specifier.
+func vte(v [8]uint16, e, i uint32) uint16 { return v[element(e, i)] }
 
 // acc reads a lane of the accumulator, sign-extended from 48 bits.
 func (c *CPU) acc(i uint32) int64 { return int64(c.Acc[i]<<16) >> 16 }
@@ -71,12 +71,16 @@ func clampS(v int64) uint16 {
 	return uint16(int16(v))
 }
 
-// clampU saturates to an unsigned 16-bit range, which VMULU and VMACU use.
+// clampU is VMULU's and VMACU's saturation. It is not a clamp to the unsigned
+// 16-bit range: the comparison happens at the *signed* boundary, so an
+// accumulator slice of 0x8000 — representable unsigned — still saturates to
+// 0xFFFF. Negative accumulators clamp to zero. n64-systemtest pins 0x8000×0x8000
+// to 0xFFFF, which a true unsigned clamp would return as 0x8000.
 func clampU(v int64) uint16 {
 	if v < 0 {
 		return 0
 	}
-	if v > 65535 {
+	if v > 32767 {
 		return 0xFFFF
 	}
 	return uint16(v)
@@ -142,25 +146,27 @@ func (c *CPU) cop2(w uint32) {
 	c.vectorALU(w, w&0x3F, rs&15, rt, rd, shamt)
 }
 
+// ctrl and setCtrl map the control-register index to a flag register. There are
+// only three, but the two-bit index has four values: the hardware maps both 2
+// and 3 to VCE, and CFC2/CTC2 with indices above 3 reduce to their low two bits.
 func (c *CPU) ctrl(i uint32) uint16 {
-	switch i {
+	switch i & 3 {
 	case 0:
 		return c.VCO
 	case 1:
 		return c.VCC
-	case 2:
+	default:
 		return uint16(c.VCE)
 	}
-	return 0
 }
 
 func (c *CPU) setCtrl(i uint32, v uint16) {
-	switch i {
+	switch i & 3 {
 	case 0:
 		c.VCO = v
 	case 1:
 		c.VCC = v
-	case 2:
+	default:
 		c.VCE = uint8(v)
 	}
 }
@@ -186,74 +192,130 @@ func (c *CPU) setVecByte(r, b uint32, v byte) {
 
 // vectorALU runs one vector operation. vd is the destination, vs the first
 // source, vt the second (through the element specifier).
+//
+// Both sources are copied before anything is written. The hardware reads its
+// operands in full before writeback, so an instruction whose destination is also
+// a source still computes from the old values — visible whenever the element
+// specifier makes lane i read some other lane j that was already overwritten.
+// n64-systemtest exercises exactly this with vd == vt and vd == vs.
 func (c *CPU) vectorALU(w, funct, e, vt, vs, vd uint32) {
+	vsv, vtv := c.V[vs], c.V[vt]
 	switch funct {
 	// --- multiply: write the accumulator outright ---------------------------
 	case 0x00: // vmulf: signed fractional multiply, rounded
 		for i := uint32(0); i < 8; i++ {
-			p := s16(c.V[vs][i]) * s16(c.vt(vt, e, i))
+			p := s16(vsv[i]) * s16(vte(vtv, e, i))
 			c.setAcc(i, p<<1+0x8000)
 			c.V[vd][i] = clampS(c.acc(i) >> 16)
 		}
 	case 0x01: // vmulu: as vmulf, saturating unsigned
 		for i := uint32(0); i < 8; i++ {
-			p := s16(c.V[vs][i]) * s16(c.vt(vt, e, i))
+			p := s16(vsv[i]) * s16(vte(vtv, e, i))
 			c.setAcc(i, p<<1+0x8000)
 			c.V[vd][i] = clampU(c.acc(i) >> 16)
 		}
 	case 0x04: // vmudl: unsigned * unsigned, low slice
 		for i := uint32(0); i < 8; i++ {
-			c.setAcc(i, u16(c.V[vs][i])*u16(c.vt(vt, e, i))>>16)
+			c.setAcc(i, u16(vsv[i])*u16(vte(vtv, e, i))>>16)
 			c.V[vd][i] = uint16(c.acc(i))
 		}
 	case 0x05: // vmudm: signed * unsigned, high slice
 		for i := uint32(0); i < 8; i++ {
-			c.setAcc(i, s16(c.V[vs][i])*u16(c.vt(vt, e, i)))
+			c.setAcc(i, s16(vsv[i])*u16(vte(vtv, e, i)))
 			c.V[vd][i] = clampS(c.acc(i) >> 16)
 		}
 	case 0x06: // vmudn: unsigned * signed, low slice
 		for i := uint32(0); i < 8; i++ {
-			c.setAcc(i, u16(c.V[vs][i])*s16(c.vt(vt, e, i)))
+			c.setAcc(i, u16(vsv[i])*s16(vte(vtv, e, i)))
 			c.V[vd][i] = uint16(c.acc(i))
 		}
 	case 0x07: // vmudh: signed * signed, shifted into the high slice
 		for i := uint32(0); i < 8; i++ {
-			p := s16(c.V[vs][i]) * s16(c.vt(vt, e, i))
+			p := s16(vsv[i]) * s16(vte(vtv, e, i))
 			c.setAcc(i, p<<16)
 			c.V[vd][i] = clampS(p)
+		}
+	case 0x03: // vmulq: the MPEG quantiser multiply
+		// The product sits in the accumulator's upper 32 bits; a negative one is
+		// rounded up by 31 in its integer part before the result is taken from
+		// one bit below the mid slice, with the low nibble stripped.
+		for i := uint32(0); i < 8; i++ {
+			a := s16(vsv[i]) * s16(vte(vtv, e, i)) << 16
+			if a < 0 {
+				a += 0x1F0000
+			}
+			c.setAcc(i, a)
+			c.V[vd][i] = clampS(a>>17) & 0xFFF0
+		}
+	case 0x02, 0x0A: // vrndp, vrndn: the MPEG rounding adds
+		// The operand is vt through the element specifier; the vs *field* is not
+		// a register here but a flag — odd values shift the product into the
+		// accumulator's upper half. VRNDP adds only while the accumulator is
+		// non-negative, VRNDN only while negative, which is what makes them
+		// rounds toward the respective direction.
+		for i := uint32(0); i < 8; i++ {
+			p := s16(vte(vtv, e, i))
+			if vs&1 != 0 {
+				p <<= 16
+			}
+			a := c.acc(i)
+			if (funct == 0x02) == (a >= 0) {
+				a += p
+			}
+			c.setAcc(i, a)
+			c.V[vd][i] = clampS(c.acc(i) >> 16)
+		}
+	case 0x0B: // vmacq: the matching accumulator rounder; reads no operands
+		for i := uint32(0); i < 8; i++ {
+			a := c.acc(i)
+			if a&0x200000 == 0 {
+				if a>>22 < 0 {
+					a += 0x200000
+				} else if a>>22 > 0 {
+					a -= 0x200000
+				}
+			}
+			c.setAcc(i, a)
+			r := uint16(a >> 17)
+			if a < 0 && (^a)>>32 != 0 {
+				r = 0x8000
+			} else if a >= 0 && a>>32 != 0 {
+				r = 0x7FFF
+			}
+			c.V[vd][i] = r & 0xFFF0
 		}
 
 	// --- multiply-accumulate: add into the accumulator -----------------------
 	case 0x08: // vmacf
 		for i := uint32(0); i < 8; i++ {
-			p := s16(c.V[vs][i]) * s16(c.vt(vt, e, i))
+			p := s16(vsv[i]) * s16(vte(vtv, e, i))
 			c.setAcc(i, c.acc(i)+p<<1)
 			c.V[vd][i] = clampS(c.acc(i) >> 16)
 		}
 	case 0x09: // vmacu
 		for i := uint32(0); i < 8; i++ {
-			p := s16(c.V[vs][i]) * s16(c.vt(vt, e, i))
+			p := s16(vsv[i]) * s16(vte(vtv, e, i))
 			c.setAcc(i, c.acc(i)+p<<1)
 			c.V[vd][i] = clampU(c.acc(i) >> 16)
 		}
 	case 0x0C: // vmadl
 		for i := uint32(0); i < 8; i++ {
-			c.setAcc(i, c.acc(i)+u16(c.V[vs][i])*u16(c.vt(vt, e, i))>>16)
+			c.setAcc(i, c.acc(i)+u16(vsv[i])*u16(vte(vtv, e, i))>>16)
 			c.V[vd][i] = clampLow(c.acc(i))
 		}
 	case 0x0D: // vmadm
 		for i := uint32(0); i < 8; i++ {
-			c.setAcc(i, c.acc(i)+s16(c.V[vs][i])*u16(c.vt(vt, e, i)))
+			c.setAcc(i, c.acc(i)+s16(vsv[i])*u16(vte(vtv, e, i)))
 			c.V[vd][i] = clampS(c.acc(i) >> 16)
 		}
 	case 0x0E: // vmadn
 		for i := uint32(0); i < 8; i++ {
-			c.setAcc(i, c.acc(i)+u16(c.V[vs][i])*s16(c.vt(vt, e, i)))
+			c.setAcc(i, c.acc(i)+u16(vsv[i])*s16(vte(vtv, e, i)))
 			c.V[vd][i] = clampLow(c.acc(i))
 		}
 	case 0x0F: // vmadh
 		for i := uint32(0); i < 8; i++ {
-			p := s16(c.V[vs][i]) * s16(c.vt(vt, e, i))
+			p := s16(vsv[i]) * s16(vte(vtv, e, i))
 			c.setAcc(i, c.acc(i)+p<<16)
 			c.V[vd][i] = clampS(c.acc(i) >> 16)
 		}
@@ -261,40 +323,43 @@ func (c *CPU) vectorALU(w, funct, e, vt, vs, vd uint32) {
 	// --- add and subtract, through the carry flags ---------------------------
 	case 0x10: // vadd: adds the carry VADDC left behind
 		for i := uint32(0); i < 8; i++ {
-			sum := s16(c.V[vs][i]) + s16(c.vt(vt, e, i)) + b2i(bit(c.VCO, i))
+			sum := s16(vsv[i]) + s16(vte(vtv, e, i)) + b2i(bit(c.VCO, i))
 			c.setAccLo(i, uint16(sum))
 			c.V[vd][i] = clampS(sum)
 		}
 		c.VCO = 0
 	case 0x11: // vsub
 		for i := uint32(0); i < 8; i++ {
-			d := s16(c.V[vs][i]) - s16(c.vt(vt, e, i)) - b2i(bit(c.VCO, i))
+			d := s16(vsv[i]) - s16(vte(vtv, e, i)) - b2i(bit(c.VCO, i))
 			c.setAccLo(i, uint16(d))
 			c.V[vd][i] = clampS(d)
 		}
 		c.VCO = 0
 	case 0x13: // vabs: the sign of vs applied to vt
 		for i := uint32(0); i < 8; i++ {
-			s := s16(c.V[vs][i])
-			t := c.vt(vt, e, i)
-			var r uint16
+			s := s16(vsv[i])
+			t := vte(vtv, e, i)
+			var r, a uint16
 			switch {
 			case s < 0:
+				// Negating the most negative value saturates in the register,
+				// but the accumulator keeps the raw two's complement — the
+				// saturation happens on the way out, not inside the adder.
+				a = uint16(-int16(t))
+				r = a
 				if t == 0x8000 {
-					r = 0x7FFF // negating the most negative value saturates
-				} else {
-					r = uint16(-int16(t))
+					r = 0x7FFF
 				}
 			case s > 0:
-				r = t
+				r, a = t, t
 			}
-			c.setAccLo(i, r)
+			c.setAccLo(i, a)
 			c.V[vd][i] = r
 		}
 	case 0x14: // vaddc: unsigned add, leaving the carry in VCO
 		c.VCO = 0
 		for i := uint32(0); i < 8; i++ {
-			sum := u16(c.V[vs][i]) + u16(c.vt(vt, e, i))
+			sum := u16(vsv[i]) + u16(vte(vtv, e, i))
 			c.setAccLo(i, uint16(sum))
 			c.V[vd][i] = uint16(sum)
 			setBit(&c.VCO, i, sum > 0xFFFF)
@@ -302,7 +367,7 @@ func (c *CPU) vectorALU(w, funct, e, vt, vs, vd uint32) {
 	case 0x15: // vsubc: unsigned subtract, leaving borrow and not-equal in VCO
 		c.VCO = 0
 		for i := uint32(0); i < 8; i++ {
-			d := u16(c.V[vs][i]) - u16(c.vt(vt, e, i))
+			d := u16(vsv[i]) - u16(vte(vtv, e, i))
 			c.setAccLo(i, uint16(d))
 			c.V[vd][i] = uint16(d)
 			setBit(&c.VCO, i, d < 0)
@@ -325,18 +390,18 @@ func (c *CPU) vectorALU(w, funct, e, vt, vs, vd uint32) {
 
 	// --- compares: write VCC, and select into vd -----------------------------
 	case 0x20, 0x21, 0x22, 0x23:
-		c.compare(funct, e, vt, vs, vd)
+		c.compare(funct, e, vsv, vtv, vd)
 	case 0x24:
-		c.vcl(e, vt, vs, vd)
+		c.vcl(e, vsv, vtv, vd)
 	case 0x25:
-		c.vch(e, vt, vs, vd)
+		c.vch(e, vsv, vtv, vd)
 	case 0x26:
-		c.vcr(e, vt, vs, vd)
-	case 0x27: // vmrg: select by VCC, without touching the flags
+		c.vcr(e, vsv, vtv, vd)
+	case 0x27: // vmrg: select by VCC, clearing the carries but not VCC itself
 		for i := uint32(0); i < 8; i++ {
-			r := c.vt(vt, e, i)
+			r := vte(vtv, e, i)
 			if bit(c.VCC, i) {
-				r = c.V[vs][i]
+				r = vsv[i]
 			}
 			c.setAccLo(i, r)
 			c.V[vd][i] = r
@@ -346,7 +411,7 @@ func (c *CPU) vectorALU(w, funct, e, vt, vs, vd uint32) {
 	// --- bitwise -------------------------------------------------------------
 	case 0x28, 0x29, 0x2A, 0x2B, 0x2C, 0x2D:
 		for i := uint32(0); i < 8; i++ {
-			a, b := c.V[vs][i], c.vt(vt, e, i)
+			a, b := vsv[i], vte(vtv, e, i)
 			var r uint16
 			switch funct {
 			case 0x28:
@@ -368,41 +433,47 @@ func (c *CPU) vectorALU(w, funct, e, vt, vs, vd uint32) {
 
 	case 0x33: // vmov: copy one lane
 		// The single-lane operations name their destination lane in the low bits
-		// of the vs field and their source lane in the element field, not by the
-		// broadcast rule the ALU ops use.
-		de, se := vs&7, e&7
-		c.V[vd][de] = c.V[vt][se]
+		// of the vs field. VMOV's source goes through the ordinary element
+		// broadcast, indexed at the destination lane; the divide family reads the
+		// raw lane e&7 instead. n64-systemtest distinguishes the two.
+		de := vs & 7
+		c.V[vd][de] = vte(vtv, e, de)
 		for i := uint32(0); i < 8; i++ {
-			c.setAccLo(i, c.vt(vt, e, i))
+			c.setAccLo(i, vte(vtv, e, i))
 		}
 	case 0x37: // vnop
 
-	case 0x30: // vrcp: the reciprocal of a 16-bit input
-		c.divide(e, vt, vs, vd, int32(int16(c.V[vt][e&7])))
-	case 0x31: // vrcpl: the low half of a 32-bit reciprocal
-		lo := c.V[vt][e&7]
-		in := int32(int16(lo)) // with no high half latched, the input sign-extends
-		if c.divInLoaded {
-			in = int32(uint32(c.divIn)<<16 | uint32(lo))
+	// The holes in the opcode map are not no-ops. The hardware's adder still
+	// runs: the accumulator's low slice receives vs + vt (wrapping), and the
+	// destination register is zeroed. n64-systemtest probes every one of these
+	// encodings against hardware; an emulator that treats them as no-ops or
+	// faults is detectable.
+	case 0x12, 0x16, 0x17, 0x18, 0x19, 0x1A, 0x1B, 0x1C, 0x1E, 0x1F,
+		0x2E, 0x2F, 0x38, 0x39, 0x3A, 0x3B, 0x3C, 0x3D, 0x3E:
+		for i := uint32(0); i < 8; i++ {
+			c.setAccLo(i, vsv[i]+vte(vtv, e, i))
+			c.V[vd][i] = 0
 		}
-		c.divide(e, vt, vs, vd, in)
+	case 0x3F: // vnull: does nothing at all
+
+	case 0x30: // vrcp: the reciprocal of a 16-bit input
 		c.divIn, c.divInLoaded = 0, false
+		c.divide(e, vtv, vs, vd, c.reciprocal(int32(int16(vtv[e&7]))))
+	case 0x31: // vrcpl: the low half of a 32-bit reciprocal
+		c.divide(e, vtv, vs, vd, c.reciprocal(c.divInput(vtv[e&7])))
+	case 0x34: // vrsq: the reciprocal square root of a 16-bit input
+		c.divIn, c.divInLoaded = 0, false
+		c.divide(e, vtv, vs, vd, c.rsqrt(int32(int16(vtv[e&7]))))
+	case 0x35: // vrsql: the low half of a 32-bit reciprocal square root
+		c.divide(e, vtv, vs, vd, c.rsqrt(c.divInput(vtv[e&7])))
 	case 0x32, 0x36: // vrcph, vrsqh: exchange the high halves
 		// No arithmetic happens here. The previous result's high half is read
 		// out, and this operand's becomes the high half of the next divide.
 		c.V[vd][vs&7] = c.divOut
-		c.divIn, c.divInLoaded = c.V[vt][e&7], true
+		c.divIn, c.divInLoaded = vtv[e&7], true
 		for i := uint32(0); i < 8; i++ {
-			c.setAccLo(i, c.vt(vt, e, i))
+			c.setAccLo(i, vte(vtv, e, i))
 		}
-	case 0x34, 0x35: // vrsq, vrsql
-		// The published pseudocode for the reciprocal square root is
-		// self-inconsistent: it derives scale_out from the input's scale before
-		// halving that scale, and its final line invokes the reciprocal rather
-		// than the square root. Implementing it from a description that cannot be
-		// right would give a plausible wrong answer, so it is recorded and the
-		// destination left alone. n64-systemtest names it if a program needs it.
-		c.unimpl(w)
 
 	default:
 		c.unimpl(w)
@@ -418,10 +489,10 @@ func b2i(b bool) int64 {
 
 // compare implements VLT, VEQ, VNE and VGE, which differ only in the predicate
 // and in how they consult the carry and not-equal flags VSUBC left behind.
-func (c *CPU) compare(funct, e, vt, vs, vd uint32) {
+func (c *CPU) compare(funct, e uint32, vsv, vtv [8]uint16, vd uint32) {
 	c.VCC = 0
 	for i := uint32(0); i < 8; i++ {
-		a, b := s16(c.V[vs][i]), s16(c.vt(vt, e, i))
+		a, b := s16(vsv[i]), s16(vte(vtv, e, i))
 		carry, ne := bit(c.VCO, i), bit(c.VCO, i+8)
 
 		var cond bool
@@ -450,33 +521,35 @@ func (c *CPU) compare(funct, e, vt, vs, vd uint32) {
 // vch is the clip test used when a triangle straddles a frustum plane: it
 // compares vs against ±vt, choosing the sign from whether they point the same
 // way, and records both the result and enough state for VCL to finish the job.
-func (c *CPU) vch(e, vt, vs, vd uint32) {
+//
+// Every lane writes all five flag bits, so the flags can be cleared up front and
+// set where true. The selection bits VCC carries out are what the microcode's
+// clipper steers by; n64-systemtest checks each against hardware, per lane, for
+// every prior flag state.
+func (c *CPU) vch(e uint32, vsv, vtv [8]uint16, vd uint32) {
 	c.VCO, c.VCC, c.VCE = 0, 0, 0
 	for i := uint32(0); i < 8; i++ {
-		a, b := s16(c.V[vs][i]), s16(c.vt(vt, e, i))
-		sign := (a ^ b) < 0 // the operands have opposite signs
+		a, b := s16(vsv[i]), s16(vte(vtv, e, i))
 
 		var r int64
-		if sign {
-			// Compare against -vt: the lower clip plane.
-			ge := b >= 0
-			le := a+b <= 0
+		if (a ^ b) < 0 { // opposite signs: compare against -vt, the lower plane
+			sum := a + b
+			le := sum <= 0
 			setBit(&c.VCC, i, le)
-			setBit(&c.VCC, i+8, ge)
+			setBit(&c.VCC, i+8, b < 0)
 			if le {
 				r = -b
 			} else {
 				r = a
 			}
 			setBit(&c.VCO, i, true)
-			setBit(&c.VCO, i+8, a+b != 0 && uint16(a) != ^uint16(b))
-			if a+b == -1 {
+			setBit(&c.VCO, i+8, sum != 0 && uint16(a) != ^uint16(b))
+			if sum == -1 {
 				c.VCE |= 1 << i
 			}
-		} else {
+		} else { // same signs: compare against +vt, the upper plane
 			ge := a-b >= 0
-			le := b < 0
-			setBit(&c.VCC, i, le)
+			setBit(&c.VCC, i, b < 0)
 			setBit(&c.VCC, i+8, ge)
 			if ge {
 				r = b
@@ -490,10 +563,13 @@ func (c *CPU) vch(e, vt, vs, vd uint32) {
 	}
 }
 
-// vcl completes the clip test VCH began, using the flags it left behind.
-func (c *CPU) vcl(e, vt, vs, vd uint32) {
+// vcl completes the clip test VCH began, using the flags it left behind. The
+// VCC bit for a lane is rewritten only when VCH found the operands equal enough
+// (its not-equal bit clear); otherwise the earlier verdict stands and only the
+// selection happens.
+func (c *CPU) vcl(e uint32, vsv, vtv [8]uint16, vd uint32) {
 	for i := uint32(0); i < 8; i++ {
-		a, b := c.V[vs][i], c.vt(vt, e, i)
+		a, b := vsv[i], vte(vtv, e, i)
 		carry, ne := bit(c.VCO, i), bit(c.VCO, i+8)
 		vce := c.VCE&(1<<i) != 0
 
@@ -501,9 +577,11 @@ func (c *CPU) vcl(e, vt, vs, vd uint32) {
 		if carry { // opposite signs: test against the lower plane
 			if !ne {
 				sum := uint32(a) + uint32(b)
-				le := sum&0x10000 == 0 || sum&0xFFFF == 0
+				exact := sum&0xFFFF == 0    // -vs == vt precisely
+				noCarry := sum&0x10000 == 0 // the 16-bit add did not wrap
+				le := exact && noCarry
 				if vce {
-					le = sum&0xFFFF <= 0x10000
+					le = exact || noCarry
 				}
 				setBit(&c.VCC, i, le)
 			}
@@ -514,7 +592,7 @@ func (c *CPU) vcl(e, vt, vs, vd uint32) {
 			}
 		} else { // same signs: test against the upper plane
 			if !ne {
-				setBit(&c.VCC, i+8, uint32(a)-uint32(b) >= 0 && a >= b)
+				setBit(&c.VCC, i+8, a >= b)
 			}
 			if bit(c.VCC, i+8) {
 				r = b
@@ -528,25 +606,27 @@ func (c *CPU) vcl(e, vt, vs, vd uint32) {
 	c.VCO, c.VCE = 0, 0
 }
 
-// vcr is the clip test without the carry bookkeeping, used for the simpler
-// single-sided planes.
-func (c *CPU) vcr(e, vt, vs, vd uint32) {
+// vcr is the clip test for single-precision inputs: like VCH but with a
+// one's-complement select on the lower plane and no carry bookkeeping for a
+// following VCL.
+func (c *CPU) vcr(e uint32, vsv, vtv [8]uint16, vd uint32) {
 	c.VCO, c.VCC, c.VCE = 0, 0, 0
 	for i := uint32(0); i < 8; i++ {
-		a, b := s16(c.V[vs][i]), s16(c.vt(vt, e, i))
-		sign := (a ^ b) < 0
+		a, b := s16(vsv[i]), s16(vte(vtv, e, i))
 
 		var r int64
-		if sign {
+		if (a ^ b) < 0 { // opposite signs
 			le := a+b < 0
 			setBit(&c.VCC, i, le)
+			setBit(&c.VCC, i+8, b < 0)
 			if le {
 				r = ^b
 			} else {
 				r = a
 			}
-		} else {
+		} else { // same signs
 			ge := a-b >= 0
+			setBit(&c.VCC, i, b < 0)
 			setBit(&c.VCC, i+8, ge)
 			if ge {
 				r = b
@@ -596,29 +676,72 @@ func (c *CPU) vecLoad(w, rs, vt uint32) {
 			c.setVecByte(vt, 16-n+e+i, c.DMEM[(base+i)&0xFFF])
 		}
 	case 0x06: // lpv: eight bytes, one per lane, as signed values
-		c.packedLoad(vt, e, addr, 8)
+		c.packedLoad(vt, e, addr, 8, 1)
 	case 0x07: // luv: eight bytes, one per lane, as unsigned values
-		c.packedLoad(vt, e, addr, 7)
+		c.packedLoad(vt, e, addr, 7, 1)
+	case 0x08: // lhv: every second byte, one per lane, unsigned
+		c.packedLoad(vt, e, addr, 7, 2)
+	case 0x09: // lfv: every fourth byte, into one half of the register
+		c.lfv(vt, e, addr)
+	case 0x0A: // lwv: does not exist in the hardware; the encoding does nothing
+	case 0x0B: // ltv: one lane into each of eight registers — a transposed load
+		c.ltv(vt, e, addr)
 	default:
 		c.unimpl(w)
 	}
 }
 
-// packedLoad implements LPV and LUV: eight bytes, one into each lane.
+// packedLoad implements LPV, LUV and LHV: eight bytes unpacked one per lane,
+// every stride-th byte from a 16-byte window at the address's 8-byte boundary.
 //
-// Two independent wraps make this instruction what it is. The bytes are read
-// starting at the effective address and wrap at its 8-byte boundary; the lanes
-// they land in start at the element and wrap at eight. So an unaligned address
-// and a non-zero element rotate the source and the destination separately.
+// The element does not choose destination lanes — all eight are always written.
+// It rotates the *source*: lane i reads the byte at (16 - e + i*stride + mis)
+// mod 16 within the window, mis being the address's misalignment. n64-systemtest
+// walks every element against every misalignment, including the DMEM wrap.
 //
 // The shift decides how the byte sits in its 16-bit lane: LPV puts it in bits
-// 15..8, which makes it a signed value, and LUV in bits 14..7, which makes it
-// unsigned. For loads an element above 7 simply wraps, its top bit ignored.
-func (c *CPU) packedLoad(vt, e, addr, shift uint32) {
-	base, start := addr&^7, addr&7
+// 15..8, which makes it a signed value; LUV and LHV in bits 14..7, unsigned.
+func (c *CPU) packedLoad(vt, e, addr, shift, stride uint32) {
+	base, mis := addr&^7, addr&7
 	for i := uint32(0); i < 8; i++ {
-		b := c.DMEM[(base+(start+i)&7)&0xFFF]
-		c.V[vt][(e+i)&7] = uint16(b) << shift
+		b := c.DMEM[(base+(16-e+i*stride+mis)&0xF)&0xFFF]
+		c.V[vt][i] = uint16(b) << shift
+	}
+}
+
+// lfv loads every fourth byte through a fixed source pattern into one half of
+// the register — bytes e onward, at most eight. The pattern is the hardware's
+// own, transcribed from n64-systemtest's LFV expectation, quirks included: lane
+// 0 offsets by +e where every other lane offsets by -e, and lanes 4..7 repeat
+// sources rather than continue them.
+func (c *CPU) lfv(vt, e, addr uint32) {
+	base, mis := addr&^7, addr&7
+	off := [8]uint32{mis + e, mis + 4 - e, mis + 8 - e, mis + 12 - e,
+		mis + 8 - e, mis + 12 - e, mis - e, mis + 4 - e}
+	var tmp [16]byte
+	for i := uint32(0); i < 8; i++ {
+		v := uint16(c.DMEM[(base+off[i]&0xF)&0xFFF]) << 7
+		tmp[i*2] = byte(v >> 8)
+		tmp[i*2+1] = byte(v)
+	}
+	for b := e; b < 16 && b < e+8; b++ {
+		c.setVecByte(vt, b, tmp[b])
+	}
+}
+
+// ltv is the transposed load: byte pair i lands in register group-base+i, each
+// pair one lane further along, so eight registers each receive one lane of a
+// diagonal. The group is the register's aligned block of eight; the element's
+// top three bits pick which diagonal, and bit 3 of the address rotates the
+// 16-byte source window by half.
+func (c *CPU) ltv(vt, e, addr uint32) {
+	base := addr &^ 7
+	rot := base & 8
+	for i := uint32(0); i < 8; i++ {
+		reg := vt&^7 + (e/2+i)&7
+		for h := uint32(0); h < 2; h++ {
+			c.setVecByte(reg, i*2+h, c.DMEM[(base+(rot+e+i*2+h)&0xF)&0xFFF])
+		}
 	}
 }
 
@@ -649,29 +772,83 @@ func (c *CPU) vecStore(w, rs, vt uint32) {
 		for i := uint32(0); i < n; i++ {
 			c.DMEM[(base+i)&0xFFF] = c.vecByte(vt, (e+16-n+i)&15)
 		}
-	case 0x06, 0x07: // spv, suv
-		// Unlike the loads, an element above 7 does not merely wrap here: it
-		// swaps the two instructions' meaning, so SPV with element 8..15 stores
-		// as SUV does, and the other way round.
-		shift := uint32(8)
-		if op == 0x07 {
-			shift = 7
+	case 0x06: // spv: eight lanes packed to bytes, signed scale
+		c.packedStore(vt, e, addr, 8, 7)
+	case 0x07: // suv: as spv, unsigned scale
+		c.packedStore(vt, e, addr, 7, 8)
+	case 0x08: // shv: every second byte, reading lanes at byte granularity
+		c.shv(vt, e, addr)
+	case 0x09: // sfv: every fourth byte, through a fixed source-lane table
+		c.sfv(vt, e, addr)
+	case 0x0A: // swv: the whole register, rotated through a 16-byte window
+		base, mis := addr&^7, addr&7
+		for i := uint32(0); i < 16; i++ {
+			c.DMEM[(base+(mis+i)&0xF)&0xFFF] = c.vecByte(vt, (e+i)&15)
 		}
-		if e >= 8 {
-			shift = 15 - shift
-		}
-		c.packedStore(vt, e, addr, shift)
+	case 0x0B: // stv: the transposed store, one lane from each of eight registers
+		c.stv(vt, e, addr)
 	default:
 		c.unimpl(w)
 	}
 }
 
-// packedStore implements SPV and SUV, the counterpart of packedLoad.
-func (c *CPU) packedStore(vt, e, addr, shift uint32) {
-	base, start := addr&^7, addr&7
+// packedStore implements SPV and SUV: eight lanes packed to eight contiguous
+// bytes. The two differ only in scale — SPV keeps bits 15..8 (signed bytes),
+// SUV bits 14..7 (unsigned) — and walking the element past 7 switches a lane to
+// the *other* instruction's scale. The swap is decided per element index as the
+// walk crosses 8, not wholesale by the starting element.
+func (c *CPU) packedStore(vt, e, addr, shift, altShift uint32) {
 	for i := uint32(0); i < 8; i++ {
-		v := c.V[vt][(e+i)&7] >> shift
-		c.DMEM[(base+(start+i)&7)&0xFFF] = byte(v)
+		ei := e + i
+		s := shift
+		if ei&8 != 0 {
+			s = altShift
+		}
+		c.DMEM[(addr+i)&0xFFF] = byte(c.V[vt][ei&7] >> s)
+	}
+}
+
+// shv packs eight 16-bit values read at *byte* offsets — element e gives the
+// first byte, so an odd element reads values straddling two lanes — into every
+// second byte of a 16-byte window at the address's 8-byte boundary.
+func (c *CPU) shv(vt, e, addr uint32) {
+	base, mis := addr&^7, addr&7
+	for i := uint32(0); i < 8; i++ {
+		ei := e + i*2
+		v := uint16(c.vecByte(vt, ei&15))<<8 | uint16(c.vecByte(vt, (ei+1)&15))
+		c.DMEM[(base+(mis+i*2)&0xF)&0xFFF] = byte(v >> 7)
+	}
+}
+
+// sfvStart gives SFV's first source lane for the elements the hardware defines;
+// the three following lanes stay within the same register half. Undefined
+// elements store zeroes. Transcribed from n64-systemtest's SFV expectation.
+var sfvStart = map[uint32]uint32{0: 0, 1: 6, 4: 1, 5: 7, 8: 4, 11: 3, 12: 5, 15: 0}
+
+// sfv packs four lanes into every fourth byte of a 16-byte window.
+func (c *CPU) sfv(vt, e, addr uint32) {
+	base, mis := addr&^7, addr&7
+	start, ok := sfvStart[e]
+	for i := uint32(0); i < 4; i++ {
+		var b byte
+		if ok {
+			lane := start&4 | (start+i)&3
+			b = byte(c.V[vt][lane] >> 7)
+		}
+		c.DMEM[(base+(mis+i*4)&0xF)&0xFFF] = b
+	}
+}
+
+// stv is the transposed store, LTV's counterpart: byte pair i comes from
+// register group-base+i's lane i rotated by the element, writing a full
+// 16-byte window. Bit 3 of the address rotates which register the diagonal
+// starts in, mirroring LTV's source rotation.
+func (c *CPU) stv(vt, e, addr uint32) {
+	base := addr &^ 7
+	rot := (base & 8) / 2
+	for i := uint32(0); i < 16; i++ {
+		reg := vt&^7 + (i/2-rot+e/2)&7
+		c.DMEM[(base+(addr+i)&0xF)&0xFFF] = c.vecByte(reg, (i+base)&15)
 	}
 }
 
@@ -690,11 +867,23 @@ func (c *CPU) packedStore(vt, e, addr, shift uint32) {
 
 // divide computes a reciprocal, writes its low half to the destination lane, and
 // leaves the high half in divOut for the following VRCPH to collect.
-func (c *CPU) divide(e, vt, vs, vd uint32, in int32) {
-	c.V[vd][vs&7] = uint16(c.reciprocal(in))
+func (c *CPU) divide(e uint32, vtv [8]uint16, vs, vd uint32, result uint32) {
+	c.V[vd][vs&7] = uint16(result)
 	for i := uint32(0); i < 8; i++ {
-		c.setAccLo(i, c.vt(vt, e, i))
+		c.setAccLo(i, vte(vtv, e, i))
 	}
+}
+
+// divInput assembles the input for the L-form divides: the operand supplies the
+// low half, and a preceding VRCPH/VRSQH may have latched the high half. Without
+// one, the input is the operand sign-extended. The latch is consumed either way.
+func (c *CPU) divInput(lo uint16) int32 {
+	in := int32(int16(lo))
+	if c.divInLoaded {
+		in = int32(uint32(c.divIn)<<16 | uint32(lo))
+	}
+	c.divIn, c.divInLoaded = 0, false
+	return in
 }
 
 // reciprocal normalises the input, looks its top nine mantissa bits up in the
@@ -760,6 +949,53 @@ func (c *CPU) reciprocal(in int32) uint32 {
 	} else {
 		result = uint32(v >> (scaleIn - 14))
 	}
+	result ^= uint32(mask)
+
+	c.divOut = uint16(result >> 16)
+	return result
+}
+
+// rsqrt is the reciprocal square root, sharing reciprocal's shape with two
+// differences that are the square root's own. The table index carries eight
+// mantissa bits plus the exponent's parity — sqrt(2·x) and sqrt(x) need
+// different mantissa curves, so odd exponents select the table's upper half.
+// And the output shift halves the exponent, since sqrt halves magnitudes'
+// scales. The special cases match reciprocal's, and n64-systemtest's RSQ table
+// test pins every entry against hardware.
+func (c *CPU) rsqrt(in int32) uint32 {
+	mask := in >> 31
+	x := uint32(in ^ mask)
+	if in > -32768 {
+		x = uint32((in ^ mask) - mask)
+	}
+
+	switch {
+	case x == 0:
+		c.divOut = 0x7FFF
+		return 0x7FFFFFFF
+	case in == -32768:
+		c.divOut = 0xFFFF
+		return 0xFFFF0000
+	}
+
+	scaleIn := uint32(31)
+	for x&(1<<scaleIn) == 0 {
+		scaleIn--
+	}
+
+	// Eight mantissa bits below the leading 1, with the exponent's parity above
+	// them selecting the table half.
+	var idx uint32
+	if scaleIn >= 8 {
+		idx = x >> (scaleIn - 8) & 0xFF
+	} else {
+		idx = x << (8 - scaleIn) & 0xFF
+	}
+	idx |= (scaleIn & 1) << 8
+
+	// Place the 17-bit value with its top bit at bit 30 - scaleIn/2.
+	v := uint64(0x10000) | uint64(rsqROM[idx])
+	result := uint32(v << 14 >> (scaleIn >> 1))
 	result ^= uint32(mask)
 
 	c.divOut = uint16(result >> 16)

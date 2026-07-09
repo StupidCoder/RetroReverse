@@ -377,27 +377,48 @@ func TestLongReciprocalSequence(t *testing.T) {
 	}
 }
 
+func TestReciprocalSquareRootMatchesHardware(t *testing.T) {
+	// Values pinned by n64-systemtest's RSQ table test, which reads the table
+	// back through VRSQ on hardware: entry 0 probes with 0x1000 and expects the
+	// result (r >> 8) &^ 0x10000 == rsqROM[0], and the parity of the exponent
+	// selects the table half, so 0x2000 (one bit higher) must land in the upper
+	// half rather than scale the same entry.
+	c, _ := newTest()
+	if got := (c.rsqrt(0x1000) >> 8) &^ 0x10000; got != uint32(rsqROM[0]) {
+		t.Errorf("rsqrt(0x1000)>>8 = %04X want rsqROM[0] = %04X", got, rsqROM[0])
+	}
+	if got := (c.rsqrt(0x2000) >> 8) &^ 0x10000; got>>1 != uint32(rsqROM[256])>>1 {
+		t.Errorf("rsqrt(0x2000) = %04X did not select the odd-exponent table half (%04X)",
+			got, rsqROM[256])
+	}
+	// The special cases match the reciprocal's.
+	if got := c.rsqrt(0); got != 0x7FFFFFFF {
+		t.Errorf("rsqrt(0) = %08X want 7FFFFFFF", got)
+	}
+	if got := c.rsqrt(-32768); got != 0xFFFF0000 {
+		t.Errorf("rsqrt(-32768) = %08X want FFFF0000", got)
+	}
+}
+
 func TestUnimplementedEncodingsAreRecordedNotFatal(t *testing.T) {
 	// The RSP has no exception mechanism: no interrupts, no faults, nowhere to
 	// vector to. An encoding it does not implement does nothing at all, so a core
 	// that halted would stop microcode real hardware runs. The gap is recorded
-	// instead.
-	//
-	// VRSQ is one: its published algorithm is self-inconsistent, so rather than
-	// invent a plausible answer the core leaves the destination alone and says so.
-	w := vec(0, 1, 0, 2, 0x34) // vrsq
+	// instead. COP2 with rs=1 — DMFC2 on a real MIPS, which the RSP lacks — is
+	// such an encoding.
+	w := uint32(0x12)<<26 | uint32(1)<<21 | uint32(2)<<16
 	c, _ := newTest(w)
 	c.V[2][0] = 0xBEEF
 	c.Step()
 
 	if c.Halted {
-		t.Fatalf("vrsq halted the core: %s", c.HaltReason)
+		t.Fatalf("the undefined encoding halted the core: %s", c.HaltReason)
 	}
 	if c.V[2][0] != 0xBEEF {
-		t.Error("vrsq wrote a destination lane it does not model")
+		t.Error("the undefined encoding wrote a destination lane")
 	}
 	if c.Unimplemented[w] != 1 {
-		t.Errorf("vrsq was not recorded as unimplemented: %v", c.Unimplemented)
+		t.Errorf("the undefined encoding was not recorded: %v", c.Unimplemented)
 	}
 }
 
