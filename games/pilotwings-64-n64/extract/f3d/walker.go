@@ -369,6 +369,20 @@ func (w *Walker) addTri(i0, i1, i2 uint32) {
 	})
 }
 
+// Tile returns the tile-descriptor state of tile i (0..7) as the walk left it.
+// A material display-list template configures its tiles and ends without ever
+// drawing, so this — not a draw group — is how its texture parameters are read.
+func (w *Walker) Tile(i int) TileDesc { return w.tile[i&7] }
+
+// TexTile is the tile index the last G_TEXTURE selected for drawing.
+func (w *Walker) TexTile() uint32 { return w.texTile }
+
+// TexScale is the s,t scale the last G_TEXTURE set.
+func (w *Walker) TexScale() [2]uint32 { return w.texScale }
+
+// TLUT is the RAM address of the palette the last Load_TLUT read.
+func (w *Walker) TLUT() uint32 { return w.tlut }
+
 // Ordered returns the draw groups in first-draw order.
 func (w *Walker) Ordered() []*Group {
 	var out []*Group

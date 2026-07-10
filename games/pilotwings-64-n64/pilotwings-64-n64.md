@@ -188,12 +188,82 @@ therefore *implicit*: a mesh chunk stores a vertex pool and a stream that drives
 not a triangle list. Decoding that stream, and the corresponding builders for articulated models,
 is what the per-format sections below do.
 
-Two early readings of the compressed payloads, recorded here because the archive now explains
-them: a texture chunk opens with `u16` payload length and `u16` format code (`0x19` RGBA16,
-`0x0D` I4) and ends with material display-list templates carrying a zero-address `G_SETTIMG` that
-the loader patches once the texture lands; a mesh chunk opens with `u16` vertex count and `u16`
-type code (`0x0101` terrain, `0x010A` articulated), followed by that many 16-byte Fast3D vertex
-records.
+A mesh chunk opens with `u16` vertex count and `u16` type code (`0x0101` terrain, `0x010A`
+articulated), followed by that many 16-byte Fast3D vertex records.
+
+## Part IV §2 — `UVTX`: the textures
+
+Each of the 463 `UVTX` resources is a single `COMM` chunk — usually compressed, 23 of them raw.
+Its header is read by the game at `0x80226A54`, which pulls the fields one at a time through a
+cursor helper at `0x80225394`:
+
+```
+u16 dataSize      texel bytes that follow the header
+u16 formatCode    an authoring code; the reader parses and discards it
+u32 × 4           read and discarded
+u8  texels[dataSize]
+…                 a Fast3D display list: the material template
+```
+
+`dataSize` is clamped to **4096** — the reader prints an error and truncates above that — so one
+TMEM is the hard limit on a Pilotwings texture, and the largest are 128×64 I4 or 64×64 I8. The
+`formatCode` takes twelve values (`0x19` on 230 resources, `0x0D` on 118, …) but the game never
+uses it: the authority is the template.
+
+### The material template
+
+The bytes after the texels are an ordinary display list. All 463 parse to completion:
+
+```
+G_TEXTURE       tile 1 (431 resources) or tile 0 (32), scale 0xFFFF/0xFFFF
+G_SETOTHERMODE_H × 5, G_SETCOMBINE, G_RDPLoadSync, G_RDPTileSync
+G_SETTIMG       fmt/siz, address word 0x00000000  ← the loader patches this
+Set_Tile        tile 7, the load tile
+Load_Block      tile 7, dxt = 0
+Set_Tile        tile 1 …                          ┐ up to six mip levels,
+Set_Tile_Size   tile 1 …                          ┘ tiles 1..6, halving
+G_ENDDL
+```
+
+Three properties hold across every resource, and the decoder relies on all three: **no template
+loads a palette** (nothing is CI4/CI8), **every `Load_Block` uses `dxt = 0`** (so the texels ship
+pre-swizzled, exactly as TMEM wants them), and **every template terminates**. The texel formats
+are RGBA16 (255), I4 (103), IA8 (56), I8 (20), IA4 (20) and IA16 (9).
+
+Decoding is therefore not a matter of guessing dimensions from `dataSize`. Walk the template with
+the same Fast3D interpreter the renderer uses (`extract/f3d`), take the tile `G_TEXTURE` selects,
+and read the texels through it. Two wrinkles, both of which the game's own data forced:
+
+- **The drawing tile may carry no `Set_Tile_Size`.** Thirty-two templates draw through tile 0 and
+  size it never. Its extent is then either the *sibling tile at the same TMEM base and line
+  stride* — the mip-mapped templates re-declare level 0 as tile 0 at the very end, so tile 1 holds
+  the size — or, failing that, the tile's own wrap **mask**: 2<sup>mask</sup> texels per axis,
+  where the RDP clamps. In the mask case the template configures no mip levels, so the image must
+  account for every stored texel byte exactly; the decoder asserts it, because a wrong extent
+  would otherwise decode into a plausible picture.
+- **The odd-row swizzle is computed on the absolute byte offset** (`off ^= 4`), so it only lands
+  correctly when the texels begin on an 8-byte boundary. In RDRAM they do — the game's allocator
+  aligns to 8. Inside the chunk they begin at offset 20. Decoding in place silently corrupts every
+  odd row; the decoder copies the texels to an aligned base first.
+
+### Verification
+
+`extract/cmd/texdump` decodes all 463 with **zero fallbacks** — there is no white-square path —
+and `-verify` checks the ROM decode against the running game. It walks a frame's display list out
+of an RDRAM snapshot and, for each textured draw group, finds the `UVTX` whose texels the game
+copied to that address. Then:
+
+- the fields that say *how the bytes are read* — format, size, line stride — must match between
+  the frame's tile and the resource's own template;
+- the **game's copy of the texels, decoded through the extent our ROM template gave us, must be
+  pixel-identical to the ROM decode.**
+
+Across the title card and the flyby, 44 draw groups match a resource and every one is identical.
+The check is what caught the swizzle-alignment bug above; a silent fallback would fail it on the
+first group. It also measured two things worth stating: three groups sample a **window** of their
+texture rather than the whole of it (the ocean wraps a 65×65 window over a 64×64 image), and one
+is re-issued with different wrap modes for its draw. Extents and wrap modes are sampling
+behaviour and vary per use; format, size and line stride never do.
 
 ## Verifying the display-list walk against the RDP stream
 
