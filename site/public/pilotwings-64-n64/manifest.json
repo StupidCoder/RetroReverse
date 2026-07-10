@@ -1,0 +1,72 @@
+{
+  "format": 2,
+  "game": "pilotwings-64-n64",
+  "platform": "Nintendo 64",
+  "native": {
+    "w": 320,
+    "h": 240
+  },
+  "tickHz": 60,
+  "models": [
+    {
+      "name": "The island",
+      "file": "models/island.glb",
+      "kind": "mesh3d",
+      "section": "Island"
+    },
+    {
+      "name": "Ocean",
+      "file": "models/ocean.glb",
+      "kind": "mesh3d",
+      "section": "Island"
+    },
+    {
+      "name": "Sky dome",
+      "file": "models/sky.glb",
+      "kind": "mesh3d",
+      "section": "Island"
+    },
+    {
+      "name": "Gyrocopter A",
+      "file": "models/gyro-a.glb",
+      "kind": "mesh3d",
+      "section": "Gyrocopters"
+    },
+    {
+      "name": "Gyrocopter B",
+      "file": "models/gyro-b.glb",
+      "kind": "mesh3d",
+      "section": "Gyrocopters"
+    },
+    {
+      "name": "PILOTWINGS letters",
+      "file": "models/logo-letters.glb",
+      "kind": "mesh3d",
+      "section": "Logo"
+    },
+    {
+      "name": "Emblem wing",
+      "file": "models/logo-wing.glb",
+      "kind": "mesh3d",
+      "section": "Logo"
+    },
+    {
+      "name": "Feather",
+      "file": "models/logo-feather.glb",
+      "kind": "mesh3d",
+      "section": "Logo"
+    },
+    {
+      "name": "The 6",
+      "file": "models/logo-6.glb",
+      "kind": "mesh3d",
+      "section": "Logo"
+    },
+    {
+      "name": "The 4",
+      "file": "models/logo-4.glb",
+      "kind": "mesh3d",
+      "section": "Logo"
+    }
+  ]
+}

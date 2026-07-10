@@ -277,6 +277,23 @@ const GAMES = [
     // "Cars", "Objects"); fall back to kind for older manifests.
     group: (item) => ({ section: item.section || (item.kind === 'rr-course' ? 'Course' : 'Cars'), label: item.name }),
   },
+  {
+    id: 'pilotwings-64-n64', name: 'Pilotwings 64', system: 'Nintendo 64', render: '3d',
+    // The generic manifest-driven 3-D viewer over plain GLBs (builtin mesh3d): the attract
+    // sequence's island, ocean and sky dome, both gyrocopters (their rotor-blur discs
+    // alpha-blended, vertex alpha carrying the blur), and the PILOTWINGS logo in five
+    // pieces. webexport boots the cartridge from power-on on the oracle, snapshots RDRAM
+    // at the flyby and title-card fields, and walks the Fast3D display lists (extract/f3d,
+    // verified against the RDP triangle stream by dlverify).
+    load: () => import('../shared/viewer3d.js').then(m => m.Viewer3D),
+    make: (V, el, hud) => new V(el, hud, { base: 'public/pilotwings-64-n64/' }),
+    list: async (v) => await v.init(), // manifest.models — island, sky, ocean, gyros, logo pieces
+    show: (v, item, i) => v.showItem(item),
+    // Open on the island rather than the first list entry.
+    defaultAsset: (models) => models.findIndex((m) => m.file?.includes('island')),
+    layers: [{ id: 'wireframe', label: 'Wireframe', default: false }],
+    group: (item) => ({ section: item.section || 'Models', label: item.name }),
+  },
 ];
 
 // Turrican's manifest labels worlds 0-based with hex start offsets; make them readable.
@@ -315,6 +332,7 @@ const SYSTEMS = [
   { full: 'Nintendo DS', short: 'DS' },
   { full: 'MS-DOS', short: 'MS-DOS' },
   { full: 'Sony PlayStation', short: 'PSX' },
+  { full: 'Nintendo 64', short: 'N64' },
   { full: '3DO', short: '3DO' },
 ];
 const CHEVRON = '<svg class="chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg>';

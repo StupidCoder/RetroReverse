@@ -2360,6 +2360,93 @@ which the geometry overlay runs each frame &mdash; so an animated door is a sub-
 door's own state.</p>
 `,
   },
+  'pilotwings-64-n64': {
+    loader: `
+<div class="info-eyebrow">Pilotwings 64 · Image &amp; Loader</div>
+<p>Pilotwings 64 ships on an 8&nbsp;MB mask-ROM cartridge. There is no filesystem: the game finds
+everything by offset, reading directory structures straight off the cartridge bus and pulling
+each asset through one small loader routine. Almost nothing in the ROM is stored ready to use —
+the art and geometry live in <strong>MIO0-compressed blobs</strong> that are inflated on demand
+into a scratch window and copied into place piece by piece.</p>
+
+<h2>Boot</h2>
+<p>The console's own boot ROM (in the PIF chip, off the cartridge) validates the cartridge and
+copies its first 4&nbsp;KB — the <strong>IPL3 boot stub</strong> at offset <code>0x40</code> —
+into the RSP's data memory, then jumps into it. IPL3 checksums itself against a seed derived
+from the cartridge's security chip (a CIC-NUS-6102 here), brings up main memory, DMAs the 1&nbsp;MB
+program image from cartridge offset <code>0x1000</code> to RAM, and jumps to the game's entry
+point. The operating system, libultra, is not console firmware — it is linked into that program
+image and runs as ordinary game code.</p>
+
+<h2>The loader</h2>
+<p>All asset traffic goes through a single fetch primitive: <em>load(destination, source,
+length)</em>. A source with the high bit set is a RAM pointer and the routine byte-copies; a
+source below <code>0x80000000</code> is a cartridge offset, fetched by DMA in 4&nbsp;KB chunks
+through an alignment bounce buffer. The game calls it thousands of times with 4-byte lengths
+just to walk its asset directories — the cartridge bus is treated like slow memory.</p>
+
+<h2>MIO0 compression</h2>
+<p>Each compressed blob sits inside an 8-byte container (a fourCC such as <code>COMM</code> plus a
+payload size) and starts with the magic <code>MIO0</code>. The header gives the decompressed
+length and the offsets of two streams: raw literal bytes, and 16-bit back-references. A bit
+stream (MSB-first in 32-bit words) selects between them — a set bit copies one literal, a clear
+bit copies <em>length</em> bytes (3–18, from the record's top nibble) from up to 4096 bytes
+behind the write cursor. It is LZ77 tuned for tiny decompression code: the whole decompressor
+is 40 MIPS instructions.</p>
+<p>During the attract sequence the game streams roughly a dozen blobs per video frame: each is
+staged at a fixed bounce address, inflated into a window at <code>0x3DA800</code>, and slices of
+the window are copied to their final homes — textures, meshes, and <strong>display-list
+templates</strong> that ship with a zeroed texture-pointer command the loader patches after
+placing the texture. That per-frame budget is why the attract's scenes fade in piece by piece.</p>
+`,
+    graphics: `
+<div class="info-eyebrow">Pilotwings 64 · Graphics</div>
+<p>Pilotwings 64 draws with the Nintendo 64's Reality Co-Processor: the CPU builds a
+<strong>display list</strong> for each frame, the RSP vector unit transforms and clips it under
+the <strong>Fast3D microcode</strong> (SGI's launch-era graphics microcode, "RSP SW Version
+2.0D" in its data), and the RDP rasterises the resulting triangle commands into the framebuffer.
+Nothing is retained between frames — the double-buffered display lists are rebuilt from scratch
+sixty times a second.</p>
+
+<h2>The geometry pipeline</h2>
+<p>Vertices are 16-byte records: signed 16-bit positions, texture coordinates, and either an RGBA
+colour or a normal. The microcode transforms each batch <em>as it is loaded</em>: positions go
+through the current modelview and projection (4&times;4 matrices in <strong>s15.16 fixed
+point</strong>, split into 32 bytes of integer parts and 32 bytes of fractions), and the screen
+mapping — viewport scale and translate, y negated — is applied at load time too, so a triangle
+drawn after a viewport change still lands where its vertices were mapped. Every matrix in the
+attract is loaded whole; hierarchy comes from a small matrix stack with push/pop.</p>
+<p>Triangles that straddle the view volume are clipped and fanned into up to seven fragments; a
+mid-frame command widens the clip ratio from 1&times; to 2&times;, letting geometry overshoot
+the screen edges before the clipper bothers cutting it. Back faces cull by screen-space winding
+(front faces wind clockwise).</p>
+
+<h2>The rasteriser</h2>
+<p>The RDP consumes triangles as <strong>edge coefficients</strong> — three edges with slopes,
+walked in quarter-scanline steps — plus per-pixel attribute gradients for shade, texture and
+depth. Textures are sampled from <strong>TMEM</strong>, a 4&nbsp;KB on-chip texture memory, with
+a three-tap triangular filter (not true bilinear). Odd TMEM rows store their 32-bit word halves
+swapped so the sampler can fetch neighbouring rows in one cycle; texture data on the cartridge
+is pre-swizzled to match. Depth is stored through a 3-bit-exponent/11-bit-mantissa encoding
+that concentrates precision at the far plane, where a projected scene spends almost its whole
+z range.</p>
+
+<h2>Translucency and the rotor discs</h2>
+<p>Opaque surfaces write with the blender bypassed. Where the render mode sets
+<strong>FORCE_BL</strong>, the blender mixes the pixel with the framebuffer — the gyrocopters'
+spinning rotors are drawn as flat discs whose <em>vertex alpha carries the blur amount</em>,
+about 15% opacity at the rim rising to 60% at the hub, and the island's surf line blends the
+same way. The title card's PILOTWINGS letters are pure <strong>vertex-coloured</strong> geometry
+(1,464 triangles with texturing switched off); only the emblem's wing and the small "6" and "4"
+sample the blue-to-white gradient texture.</p>
+
+<h2>The attract scenes</h2>
+<p>The opening shot is a textured ocean and island seen from altitude — about 340 triangles per
+frame. The flyby scene poses two articulated gyrocopters (each a dozen separately-matrixed
+parts) over the same island; the title card then draws the 3-D backdrop, the logo as five 3-D
+pieces, and the menu and cast artwork as 2-D texture rectangles over it.</p>
+`,
+  },
 };
 
 // HTML for a game/tab, or null if nothing has been written for it yet.
