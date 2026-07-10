@@ -1,0 +1,18 @@
+{
+ "format": 2,
+ "game": "super-mario-3d-land-3ds",
+ "models": [
+  {
+   "file": "models/banner.glb",
+   "kind": "mesh3d",
+   "name": "HOME Menu Banner",
+   "section": "Banner"
+  }
+ ],
+ "native": {
+  "h": 240,
+  "w": 400
+ },
+ "platform": "Nintendo 3DS",
+ "tickHz": 60
+}

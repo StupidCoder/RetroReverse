@@ -310,6 +310,19 @@ const GAMES = [
       return { section, label };
     },
   },
+  {
+    id: 'super-mario-3d-land-3ds', name: 'Super Mario 3D Land', system: 'Nintendo 3DS', render: '3d',
+    // The manifest-driven 3-D viewer. The one asset so far is the HOME-Menu banner — the little
+    // animated logo scene the console shows for the game — decoded from the ExeFS banner
+    // (CBMD -> LZ11 -> CGFX) into a plain GLB (builtin mesh3d) with embedded textures and the
+    // CANM skeletal animation baked into glTF tracks, which mesh3d plays on loop.
+    load: () => import('../shared/viewer3d.js').then(m => m.Viewer3D),
+    make: (V, el, hud) => new V(el, hud, { base: 'public/super-mario-3d-land-3ds/' }),
+    list: async (v) => await v.init(),
+    show: (v, item, i) => v.showItem(item),
+    layers: [{ id: 'wireframe', label: 'Wireframe', default: false }],
+    group: (item) => ({ section: item.section || 'Banner', label: item.name }),
+  },
 ];
 
 // Turrican's manifest labels worlds 0-based with hex start offsets; make them readable.
@@ -349,6 +362,7 @@ const SYSTEMS = [
   { full: 'MS-DOS', short: 'MS-DOS' },
   { full: 'Sony PlayStation', short: 'PSX' },
   { full: 'Nintendo 64', short: 'N64' },
+  { full: 'Nintendo 3DS', short: '3DS' },
   { full: '3DO', short: '3DO' },
 ];
 const CHEVRON = '<svg class="chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg>';

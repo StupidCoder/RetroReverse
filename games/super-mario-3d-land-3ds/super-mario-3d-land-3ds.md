@@ -15,8 +15,8 @@ under a high-level-emulated Horizon kernel. This is the repository's first Ninte
 its first ARMv6/VFP target.
 
 This file currently documents **Part I (the cartridge image and its containers)**, **Part II (the
-boot/execution bring-up)**, and **Part III (the HOME-Menu banner — the animated 3-D scene)**; the
-in-game asset formats (Part IV onward) follow in later work.
+boot/execution bring-up)**, **Part III (the HOME-Menu banner — its format)** and **Part IV (extracting the banner to a GLB)**;
+the in-game asset formats follow in later work.
 
 ---
 
@@ -107,7 +107,7 @@ Level 3 is a conventional metadata-table filesystem (directory table + file tabl
 ```
 
 The payloads are `.szs` (Yaz0-compressed SARC archives), `.bcmdl`/`.bcmld` models, `.bcstm` audio and
-the like — the standard Nintendo middleware containers. Decoding them is Part IV and later.
+the like — the standard Nintendo middleware containers. Decoding them is later work.
 
 ---
 
@@ -232,7 +232,7 @@ CGFX  revision 0x05000000  fileSize 294272
 ```
 
 The **model** (CMDL) resolves further: it carries **8 meshes** (each binding a shape to one of the **4
-materials**, MTOB) and **9 shapes** (SOBJ) that hold the geometry. A shape's vertex-buffer descriptor
+materials**, MTOB) and **8 shapes** (SOBJ) that hold the geometry — a ninth SOBJ is the skeleton itself. A shape's vertex-buffer descriptor
 points into the IMAG block — the first shape's vertices are a 2,922-byte run at IMAG offset `0x8`, with
 16-bit (`GL_UNSIGNED_SHORT`) indices — and each material's texture reference names one of the four
 TXOBs. The **CANM** is what makes it move: a skeletal/transform animation over the scene, the reason the
@@ -243,17 +243,39 @@ logo turns.
 ```
 ExeFS/banner  =  CBMD
                  └── LZ11-compressed  →  CGFX
-                     ├── DATA   descriptors: CMDL (8 meshes / 9 shapes / 4 materials),
+                     ├── DATA   descriptors: CMDL (8 meshes / 8 shapes / 4 materials),
                      │          4× TXOB, LUTS, CCAM, CFLT, CENV, CANM
                      └── IMAG   raw vertex streams + tiled texture pixels
 ```
 
-Parts I–II's tooling handles all of the above end to end (`bannerdump game.cci` lists the scene, `-o`
-writes the decompressed CGFX). What remains for a **GLB export** — and is now a decode against a fully
-mapped layout rather than an unknown — is: reading each shape's vertex attributes (position/normal/uv/
-colour, with their PICA formats and scales) and 16-bit indices out of IMAG; decoding the four textures
-(the 3DS's tiled, Morton-ordered pixel layout, and ETC1 where used) to RGBA; binding materials to
-textures; and baking the CANM transform track. That is the next milestone.
+### The GLB export
+
+`webexport` decodes the whole scene from the cartridge and writes one GLB —
+`site/public/super-mario-3d-land-3ds/models/banner.glb` — that a standard glTF viewer plays. The
+mapping is one-to-one with the CGFX: a node per bone (parented per the skeleton), a mesh per CGFX
+mesh attached to its bone's node, and the CANM curves carried as glTF **CUBICSPLINE** channels — the
+source keys are (frame, value, in/out-slope) hermite triples, which map onto glTF's (in-tangent,
+value, out-tangent) form with no resampling. The banner's rest pose has no bone rotations, and the
+scene is Y-up like glTF, so no reorientation is applied (a Z-up guess visibly tilted the logo — the
+render is the check).
+
+Each shape's **interleaved vertex buffer** de-interleaves by its attribute descriptors: position and
+normal are float32 triples; vertex colour is four unsigned bytes scaled to [0,1]; the two UV sets are
+float32 pairs (V-flipped to glTF's top-left origin). Indices are the 16-bit streams read straight from
+IMAG. The **textures** decode from the 3DS's native layouts — the colour atlas and Mario's skin are
+**ETC1** (4×4 block compression, four blocks per 8×8 tile in Z-order), the title's cutout layers are
+**L4** (4-bit luminance) — all un-swizzled from their 8×8 Morton-ordered tiles.
+
+The one place glTF cannot mirror the hardware is the **texture combiner**: the title's flat faces are
+plain quads that the PICA cuts to the logo silhouette by multiplying the colour atlas (sampled by
+UV0) with a 4-bit mask (sampled by UV1). glTF binds one texture per material, so the exporter **bakes
+the combine per texel** — it rasterises each such mesh in mask (UV1) space, interpolates UV0
+barycentrically (exact, since UV0 is affine within a triangle), and writes the atlas colour with the
+mask as alpha — reproducing the fragment result exactly. Only the extruded title-side mesh drops its
+secondary depth-shade layer; that is the single documented approximation. The result renders correctly:
+Mario mid-run in his textures, the golden Super Leaf, the question block and the brick platforms, and
+Mario and the leaf bobbing on the baked animation loop. The Studio hosts it under a new Nintendo 3DS
+system entry.
 
 ---
 
@@ -264,6 +286,7 @@ textures; and baking the CANM transform track. That is the next milestone.
 | `tools/platform/n3ds` | NCSD/NCCH/ExHeader/ExeFS/RomFS parsers, BLZ + LZ11 decompressors, CBMD/CGFX banner parsing, the machine + SVC HLE |
 | `tools/platform/n3ds/cmd/n3dsdump` | list/extract the cartridge's containers (`-romfs`, `-verify`, `-code`, `-x`) |
 | `tools/platform/n3ds/cmd/bannerdump` | decode the HOME-Menu banner scene (`game.cci`; `-o` writes the CGFX) |
+| `games/super-mario-3d-land-3ds/extract/cmd/webexport` | export the banner to `site/public/.../banner.glb` (`-texdump` writes the decoded PNGs) |
 | `tools/cpu/arm` (`V6K` variant) | ARMv6K + VFPv2 disassembler, code-tracer and execution core |
 | `tools/cmd/disarm -v6`, `codetracearm -v6` | ARM11 disassembly and recursive-descent tracing |
 | `games/super-mario-3d-land-3ds/extract/cmd/bootoracle` | boot and run the ARM11 program under the HLE kernel |

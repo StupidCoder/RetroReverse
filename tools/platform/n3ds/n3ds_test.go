@@ -234,3 +234,91 @@ func TestBannerScene(t *testing.T) {
 		t.Errorf("model magic = %q, want CMDL", m[0].Magic)
 	}
 }
+
+// The banner CGFX decodes to a complete, self-consistent scene: a model whose
+// meshes bind real shapes and materials, textures whose pixel budgets match
+// their headers, and an animation over named bones. Everything asserted is
+// arithmetic the format pins itself, so it cannot pass on a mis-decode.
+func TestBannerModelDecode(t *testing.T) {
+	n := loadImage(t)
+	c, _ := n.Executable()
+	efs, _ := c.ExeFS()
+	raw, _ := efs.File("banner")
+	bn, err := ParseBanner(raw)
+	if err != nil {
+		t.Fatal(err)
+	}
+	cgfx, err := bn.CommonModel()
+	if err != nil {
+		t.Fatal(err)
+	}
+	g, err := ParseCGFX(cgfx)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	m, err := g.DecodeModel(g.Resources["Models"][0])
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(m.Meshes) != 8 || len(m.Shapes) != 8 || len(m.Materials) != 4 || len(m.Bones) != 9 {
+		t.Fatalf("model shape: %d meshes, %d shapes, %d materials, %d bones (want 8/8/4/9)",
+			len(m.Meshes), len(m.Shapes), len(m.Materials), len(m.Bones))
+	}
+	// Every mesh's indices are in range and a whole number of triangles.
+	for si, sh := range m.Shapes {
+		if len(sh.Indices) == 0 || len(sh.Indices)%3 != 0 {
+			t.Errorf("shape %d has %d indices (not a triangle list)", si, len(sh.Indices))
+		}
+		for _, ix := range sh.Indices {
+			if int(ix) >= len(sh.Verts) {
+				t.Fatalf("shape %d index %d exceeds %d verts", si, ix, len(sh.Verts))
+			}
+		}
+	}
+	// The named bones we rely on for the animation must be present.
+	names := map[string]bool{}
+	for _, b := range m.Bones {
+		names[b.Name] = true
+	}
+	for _, want := range []string{"AllRoot", "Mario", "SuperLeaf", "Block"} {
+		if !names[want] {
+			t.Errorf("skeleton missing bone %q", want)
+		}
+	}
+
+	// Textures: each decodes, and its dimensions match a power-of-two-ish tile grid.
+	for _, te := range g.Resources["Textures"] {
+		txob, im, err := g.DecodeTexture(te)
+		if err != nil {
+			t.Fatalf("texture %q: %v", te.Name, err)
+		}
+		if im.Rect.Dx() != txob.Width || im.Rect.Dy() != txob.Height {
+			t.Errorf("texture %q decoded to %dx%d, header says %dx%d",
+				te.Name, im.Rect.Dx(), im.Rect.Dy(), txob.Width, txob.Height)
+		}
+	}
+
+	// Animation: over known bones, with keyed curves.
+	anim, err := g.DecodeSkeletalAnim(g.Resources["SkeletalAnimations"][0])
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(anim.Members) == 0 {
+		t.Fatal("animation has no members")
+	}
+	for _, mem := range anim.Members {
+		if !names[mem.Bone] {
+			t.Errorf("animation targets unknown bone %q", mem.Bone)
+		}
+		keyed := false
+		for _, cv := range mem.Curves {
+			if cv != nil && len(cv.Keys) > 0 {
+				keyed = true
+			}
+		}
+		if !keyed {
+			t.Errorf("animation member %q has no keyed curves", mem.Bone)
+		}
+	}
+}

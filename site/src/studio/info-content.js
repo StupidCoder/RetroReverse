@@ -2506,6 +2506,45 @@ parts) over the same island; the title card then draws the 3-D backdrop, the log
 pieces, and the menu and cast artwork as 2-D texture rectangles over it.</p>
 `,
   },
+
+  'super-mario-3d-land-3ds': {
+    loader: `
+<div class="info-eyebrow">Super Mario 3D Land · Image &amp; Loader</div>
+<p>Super Mario 3D Land ships on a Nintendo 3DS game card, dumped as a <strong>CCI</strong> image framed by an
+<strong>NCSD</strong> header. Inside, partition&nbsp;0 is the application — an <strong>NCCH</strong> container whose parts are
+normally AES-CTR encrypted with keys that live in the console, not on the card. This dump is
+<strong>decrypted</strong> (the NoCrypto flag is set), so its extended header, executable filesystem and read-only
+asset filesystem are all readable; an encrypted retail dump can't be, and the toolchain refuses it
+rather than returning noise.</p>
+<p>The executable, <strong>ExeFS/.code</strong>, is packed with Nintendo's backward LZ77 (BLZ) so it can unpack in
+place; it decompresses to exactly the size the extended header's segment table promises — the
+arithmetic proof the decode is right. The 300&nbsp;MB asset filesystem (<strong>RomFS</strong>) sits under an IVFC
+hash tree whose every block verifies by SHA-256.</p>`,
+    engine: `
+<div class="info-eyebrow">Super Mario 3D Land · Game Engine</div>
+<p>The 3DS runs an <strong>ARM11 (ARMv6K)</strong> application processor with a <strong>VFPv2</strong> floating-point unit, under
+the Horizon microkernel. This repository's ARM core was extended to ARMv6K + VFP to disassemble and
+execute it; a machine oracle loads <code>.code</code>, lays out the process memory map, and
+high-level-emulates the kernel's supervisor calls. From a cold boot it runs the C runtime and the
+floating-point-heavy library init, sizes and allocates a 60&nbsp;MiB heap, and reaches the first
+inter-process request — the handshake with the service manager — which is where bringing up the
+graphics and applet services begins.</p>`,
+    graphics: `
+<div class="info-eyebrow">Super Mario 3D Land · Graphics</div>
+<p>The asset shown here is the <strong>HOME-Menu banner</strong>: the little animated 3-D scene the console plays on
+its top screen when the game is highlighted. It is not really part of the game — every title carries
+one — but it is a complete miniature 3-D program and a clean first asset to decode.</p>
+<p>The banner is the ExeFS <strong>banner</strong> file: a CBMD container holding an <strong>LZ11</strong>-compressed <strong>CGFX</strong>
+("CTR Graphics") scene. Inside are one model (the logo, split into rigidly-animated parts — the
+question block, Mario, the Super Leaf, the Tanooki tail and the three faces of the "3D LAND"
+title), four textures, and a skeletal animation. The textures are the 3DS's native formats — an
+<strong>ETC1</strong>-compressed colour atlas and 4-bit cutout masks, all swizzled into 8×8 Morton-ordered tiles —
+decoded here to RGBA. The title's flat faces are plain quads that the console's texture combiner
+cuts to the logo silhouette by multiplying the atlas with a mask; that two-texture combine is baked
+per-texel into a single image so a standard glTF viewer reproduces it exactly. The whole scene is
+exported as one GLB, with the animation carried loss-lessly as cubic-spline tracks, and it plays on
+loop in the viewer.</p>`,
+  },
 };
 
 // HTML for a game/tab, or null if nothing has been written for it yet.
