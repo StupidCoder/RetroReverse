@@ -55,7 +55,7 @@ func (m *Machine) handleIPC(handle uint32) bool {
 	}
 	m.ipcLog = append(m.ipcLog, ipcCall{service: name, command: hdr.Command})
 	if m.Verbose {
-		fmt.Printf("  IPC handle=0x%08X %-14s cmd 0x%04X (%d normal, %d translate)\n", handle, name, hdr.Command, hdr.Normal, hdr.Translate)
+		fmt.Printf("  [t%d] IPC handle=0x%08X %-14s cmd 0x%04X (%d normal, %d translate)\n", m.curThread.id, handle, name, hdr.Command, hdr.Normal, hdr.Translate)
 	}
 
 	switch name {

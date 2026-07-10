@@ -22,6 +22,7 @@ func (m *Machine) Run(budget int) int {
 		t := m.pickRunnable()
 		if t == nil {
 			if !m.advanceIdle() {
+				m.dumpThreads()
 				m.CPU.Halt("all threads blocked (deadlock): %d live, none runnable, after %d instructions",
 					m.aliveThreads(), m.CPU.Instrs)
 				break

@@ -50,14 +50,18 @@ func serviceBase(name string) string {
 // events, and an APT_Wrap-free "you are running" status.
 func (m *Machine) ipcAPT(name string, hdr ipcHeader) bool {
 	switch hdr.Command {
-	case 0x0001: // GetLockHandle → APT mutex + applet attributes
+	case 0x0001: // GetLockHandle → applet attributes + the APT lock mutex handle.
+		// Response header 0x00010102: 4 normal words (result, attributes, APT
+		// state, pad) then a moved handle — so the handle lands at cmdbuf[6]. A
+		// wrong normal count makes the app read the translate descriptor (0) as
+		// the handle and then WaitSync on handle 0 forever.
 		h := m.newHandle("apt-lock", true)
-		m.WriteWord(m.cmdBuf(), uint32(hdr.Command)<<16|3<<6|2)
+		m.WriteWord(m.cmdBuf(), uint32(hdr.Command)<<16|4<<6|2)
 		m.WriteWord(m.cmdBuf()+4, resultSuccess)
 		m.WriteWord(m.cmdBuf()+8, 0)  // applet attributes
 		m.WriteWord(m.cmdBuf()+12, 0) // APT state
-		m.WriteWord(m.cmdBuf()+16, 0)
-		m.WriteWord(m.cmdBuf()+20, 0) // translate: move handle
+		m.WriteWord(m.cmdBuf()+16, 0) // pad
+		m.WriteWord(m.cmdBuf()+20, 0) // translate descriptor: move 1 handle
 		m.WriteWord(m.cmdBuf()+24, h)
 		return true
 	case 0x0002, 0x0003, 0x0004: // Initialize / Enable / Finalize

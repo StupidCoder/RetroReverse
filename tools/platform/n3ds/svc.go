@@ -83,8 +83,8 @@ func (m *Machine) handleSVC(c *arm.CPU, comment uint32) bool {
 	ev.Args = [4]uint32{c.R[0], c.R[1], c.R[2], c.R[3]}
 	m.svcLog = append(m.svcLog, ev)
 	if m.Verbose {
-		fmt.Printf("svc 0x%02X %-20s r0=%08X r1=%08X r2=%08X r3=%08X  pc=%08X\n",
-			num, ev.Name, c.R[0], c.R[1], c.R[2], c.R[3], c.PC())
+		fmt.Printf("[t%d] svc 0x%02X %-20s r0=%08X r1=%08X r2=%08X r3=%08X  pc=%08X\n",
+			m.curThread.id, num, ev.Name, c.R[0], c.R[1], c.R[2], c.R[3], c.PC())
 	}
 
 	switch num {

@@ -208,6 +208,27 @@ func (m *Machine) setResult(t *thread, reg int, v uint32) {
 	}
 }
 
+// dumpThreads prints each thread's state and what it is blocked on — the
+// diagnostic for a deadlock (which sync object nothing is signalling).
+func (m *Machine) dumpThreads() {
+	fmt.Printf("thread states at deadlock:\n")
+	for _, t := range m.threads {
+		wo := ""
+		for _, h := range t.waitOn {
+			kind := "?"
+			if o := m.handles[h]; o != nil {
+				kind = o.kind
+			}
+			wo += fmt.Sprintf(" 0x%08X(%s)", h, kind)
+		}
+		if t.arbAddr != 0 {
+			wo += fmt.Sprintf(" arb@0x%08X", t.arbAddr)
+		}
+		fmt.Printf("  thread %d prio %d state %-8s pc=0x%08X waitOn:%s\n",
+			t.id, t.priority, t.state, t.ctx.R[15], wo)
+	}
+}
+
 // aliveThreads counts threads not yet dead.
 func (m *Machine) aliveThreads() int {
 	n := 0
