@@ -181,6 +181,12 @@ func decodeSpot(shape []byte, off int) (*image.RGBA, error) {
 				}
 				c = plut[v&(len(plut)-1)]
 			}
+			if c&0x7FFF == 0 {
+				// PDEC: resolved black is transparent (the CCB template the
+				// car loader stamps has CCB_BGND clear) — the cutout around
+				// the wheel discs.
+				continue
+			}
 			img.SetRGBA(x, y, threedo.RGB555(c))
 		}
 	}
