@@ -416,6 +416,38 @@ four more words. The loader turns `faceStart` into a pointer into the face array
 belong to the batch drawn over them** — three vertex indices and a word, which says collision. No
 code in the render path reads them, so they are carried through undecoded rather than named.
 
+### Object placements
+
+Each terrain chunk carries a list of placed objects — **1,364 across the 101 chunks**, appearing
+1,806 times once the chunks shared between world grids are counted. The record, in the order the
+reader at `0x802260FC` pulls it:
+
+```
+u8  poseCount
+Matrix[poseCount]   64 bytes each — libultra fixed point (16 s16 integer parts,
+                    then 16 u16 fractions), the same layout a G_MTX points at
+u16 type            0..198; 183 of the 199 are used
+f32 x, y, z         the object's position, in the chunk's local space
+u16 mask            never zero; one bit on 1,106 objects, two on 190, up to six
+u16 -               always 0xFFFF: a slot the loader fills in at runtime
+```
+
+The check: an object's position is a float triple read at an offset nothing forced on us, in a
+space we inferred. Pushed through its cell's transform, **every one of the 1,806 placements lands
+inside the cell that names it** — the same test the terrain geometry passes. A wrong offset, or a
+wrong idea of which space the position is in, could not.
+
+Twenty-one objects carry **more than one matrix** — three, four, and in one case ten. That is
+where a moving object's poses live. What `type` selects is not yet traced.
+
+### The water
+
+The worlds export as terrain only, and terrain stops at the shoreline: the sea is a separate mesh.
+`UVMD` 360, 365, 367 and 368 are flat planes at *z* = 0 spanning ±12,288 units — one per level —
+and `UVMD` 219 is a ±2,995 plane, exactly the extent of the 6,000-unit world 9. All of them are
+textured with **UVTX ordinal 26**, the same water tile the attract sequence's ocean uses. Which
+plane belongs to which world, and what places it, is not yet traced.
+
 ### `UVBT` — identified, not decoded
 
 102 resources, tantalisingly close to `UVCT`'s 101. Its loader is `0x80227D34` and its parser

@@ -146,14 +146,73 @@ func TestEveryTerrainChunkDecodes(t *testing.T) {
 	}
 }
 
+// An object's position is a float triple read at an offset nothing forced on us,
+// in the terrain chunk's own local space. Pushing it through the cell transform
+// must land it inside that cell — as the chunk's own geometry does. A wrong
+// offset, or a wrong idea of which space the position is in, cannot pass.
+func TestObjectsLieInsideTheirCells(t *testing.T) {
+	a := archive(t)
+	ws := worlds(t, a)
+	chunks := terrainChunks(t, a)
+
+	const eps = 0.01
+	total := 0
+	for wi, w := range ws {
+		for _, c := range w.Cells {
+			if !c.Present {
+				continue
+			}
+			cx, cy := w.Centre(c.Col, c.Row)
+			loX, hiX := cx-w.CellW/2-eps, cx+w.CellW/2+eps
+			loY, hiY := cy-w.CellH/2-eps, cy+w.CellH/2+eps
+			for oi, o := range chunks[c.Chunk].Objects {
+				x := c.Matrix[0][0]*o.X + c.Matrix[1][0]*o.Y + c.Matrix[2][0]*o.Z + c.Matrix[3][0]
+				y := c.Matrix[0][1]*o.X + c.Matrix[1][1]*o.Y + c.Matrix[2][1]*o.Z + c.Matrix[3][1]
+				total++
+				if x < loX || x > hiX || y < loY || y > hiY {
+					t.Fatalf("world %d cell (%d,%d) chunk %d object %d (type %d): placed at (%g,%g), "+
+						"outside cell x[%g,%g] y[%g,%g]", wi, c.Col, c.Row, c.Chunk, oi, o.Type, x, y, loX, hiX, loY, hiY)
+				}
+			}
+		}
+	}
+	if total == 0 {
+		t.Fatal("no objects were checked")
+	}
+	t.Logf("%d object placements checked across the ten worlds", total)
+}
+
+// Every object's Runtime field is the 0xFFFF the loader overwrites, and its Mask
+// is a single bit. Both are cheap invariants that a shifted record would break.
+func TestObjectTailInvariants(t *testing.T) {
+	a := archive(t)
+	n, types := 0, map[uint16]bool{}
+	for _, c := range terrainChunks(t, a) {
+		for _, o := range c.Objects {
+			n++
+			types[o.Type] = true
+			if o.Runtime != 0xFFFF {
+				t.Fatalf("object type %d: runtime slot is %#04x, not 0xFFFF", o.Type, o.Runtime)
+			}
+			if o.Mask == 0 {
+				t.Fatalf("object type %d: mask is zero", o.Type)
+			}
+		}
+	}
+	if n != 1364 {
+		t.Errorf("%d objects, want 1364", n)
+	}
+	t.Logf("%d objects, %d distinct types", n, len(types))
+}
+
 // No placed chunk may spill outside the cell that names it. A chunk need not
 // fill its cell — a coastal cell stops at the shoreline — but geometry crossing
 // a cell boundary would mean the transform, the axes or the cell stride is wrong.
-func TestChunksStayInsideTheirCells(t *testing.T) {
-	a := archive(t)
-	ws := worlds(t, a)
-	chunks := map[int]*uvct.Chunk{}
-	for _, i := range a.ByType("UVCT") {
+func terrainChunks(t *testing.T, a *pwad.Archive) []*uvct.Chunk {
+	t.Helper()
+	idx := a.ByType("UVCT")
+	out := make([]*uvct.Chunk, 0, len(idx))
+	for _, i := range idx {
 		f, err := a.Resource(i)
 		if err != nil {
 			t.Fatal(err)
@@ -174,9 +233,16 @@ func TestChunksStayInsideTheirCells(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			chunks[i-a.ByType("UVCT")[0]] = ch
+			out = append(out, ch)
 		}
 	}
+	return out
+}
+
+func TestChunksStayInsideTheirCells(t *testing.T) {
+	a := archive(t)
+	ws := worlds(t, a)
+	chunks := terrainChunks(t, a)
 	const eps = 0.01
 	for wi, w := range ws {
 		for _, c := range w.Cells {

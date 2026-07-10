@@ -158,6 +158,22 @@ func (m *Model) Triangles(lod int) int {
 	return n
 }
 
+// DecodeFixedMatrix reads libultra's 64-byte fixed-point matrix: sixteen s16
+// integer parts, then sixteen u16 fraction parts, row-major. This is the layout
+// a G_MTX command points at, and the one UVCT's object placements use — as
+// distinct from the plain float 4x4 a UVMD part's rest pose carries.
+func DecodeFixedMatrix(d []byte) Matrix {
+	var m Matrix
+	for i := 0; i < 4; i++ {
+		for j := 0; j < 4; j++ {
+			hi := int16(binary.BigEndian.Uint16(d[(i*4+j)*2:]))
+			lo := binary.BigEndian.Uint16(d[32+(i*4+j)*2:])
+			m[i][j] = float32(hi) + float32(lo)/65536
+		}
+	}
+	return m
+}
+
 // DecodeBatch reads one batch — a material and a command stream — from data at
 // offset p, returning it and the offset just past it.
 //

@@ -45,12 +45,25 @@ type Face struct {
 	Word uint16
 }
 
-// Object is one placement inside the chunk.
+// Object is one object placed inside a terrain chunk. The record, in file order,
+// is what the reader at 0x802260FC pulls through the cursor:
+//
+//	u8  poseCount
+//	Matrix[poseCount]   64 bytes each, libultra fixed point (not float)
+//	u16 Type            0..198; 183 of the 199 are used
+//	f32 X, Y, Z         the object's position, in the chunk's local space
+//	u16 Mask            never zero; a single bit on 1,106 of the 1,364 objects,
+//	                    two on 190, and up to six on the rest
+//	u16 -               always 0xFFFF: a slot the loader fills in at runtime
+//
+// Most objects carry one matrix. Twenty-one carry several — up to ten — which is
+// where a moving object's poses live. What Type selects is not yet traced.
 type Object struct {
-	Poses []uvmd.Matrix
-	Flag  uint16
-	Words [3]uint32
-	Extra [2]uint16
+	Poses   []uvmd.Matrix
+	Type    uint16
+	X, Y, Z float32
+	Mask    uint16
+	Runtime uint16
 }
 
 // Batch is a UVMD batch plus the trailer UVCT appends to it.
@@ -141,19 +154,16 @@ func Decode(data []byte) (*Chunk, error) {
 		}
 		c.Objects[i].Poses = make([]uvmd.Matrix, poses)
 		for k := 0; k < poses; k++ {
-			for r := 0; r < 4; r++ {
-				for col := 0; col < 4; col++ {
-					c.Objects[i].Poses[k][r][col] = math.Float32frombits(be32(data, p+(r*4+col)*4))
-				}
-			}
+			c.Objects[i].Poses[k] = uvmd.DecodeFixedMatrix(data[p:])
 			p += 64
 		}
-		c.Objects[i].Flag = be16(data, p)
-		c.Objects[i].Words[0] = be32(data, p+2)
-		c.Objects[i].Words[1] = be32(data, p+6)
-		c.Objects[i].Words[2] = be32(data, p+10)
-		c.Objects[i].Extra[0] = be16(data, p+14)
-		c.Objects[i].Extra[1] = be16(data, p+16)
+		o := &c.Objects[i]
+		o.Type = be16(data, p)
+		o.X = math.Float32frombits(be32(data, p+2))
+		o.Y = math.Float32frombits(be32(data, p+6))
+		o.Z = math.Float32frombits(be32(data, p+10))
+		o.Mask = be16(data, p+14)
+		o.Runtime = be16(data, p+16)
 		p += 18
 	}
 
