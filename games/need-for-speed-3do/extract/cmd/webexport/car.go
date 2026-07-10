@@ -15,6 +15,18 @@ import (
 	"retroreverse.com/tools/platform/threedo"
 )
 
+// carNames maps a CarData basename to a friendlier Studio label (the model
+// names inside the ORI3 are terse — "DIABLO00").
+var carNames = map[string]string{
+	"LDiablo": "Diablo",
+	"F512TR":  "F512 TR",
+	"CopMust": "Police Mustang",
+	"Wagon":   "Warrior Wagon",
+	"CRX":     "CRX",
+	"Vandura": "Vandura",
+	"BMW":     "BMW 850i",
+}
+
 func exportCar(vol *threedo.Volume, name, out string) (string, string, error) {
 	fam, err := vol.ReadFile("DriveData/CarData/" + name + ".wrapFam")
 	if err != nil {
@@ -35,7 +47,11 @@ func exportCar(vol *threedo.Volume, name, out string) (string, string, error) {
 	if err := writeORI3(best, 1.0/128, filepath.Join(out, file)); err != nil {
 		return "", "", err
 	}
-	return file, fmt.Sprintf("%s (%s)", name, best.Model.Name), nil
+	display := name
+	if d, ok := carNames[name]; ok {
+		display = d
+	}
+	return file, display, nil
 }
 
 // writeORI3 writes a textured GLB from an ORI3 model + its face-texture map.

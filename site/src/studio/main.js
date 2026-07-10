@@ -230,6 +230,30 @@ const GAMES = [
     group: (item) => ({ section: item.section || 'The Stygian Abyss', label: item.name }),
   },
   {
+    id: 'need-for-speed-3do', name: 'The Need for Speed', system: '3DO', render: '3d',
+    // The generic manifest-driven 3-D viewer. The Diablo is a plain textured GLB
+    // (builtin mesh3d); the City track routes to the nfs-course plugin, which loads
+    // the road GLB plus the roadside object GLBs (cy1.objects.json), opens at the
+    // in-game race-start camera and flies through it, toggles the object layer, and
+    // shows each object's def/type/segment card on click.
+    load: () => import('../shared/viewer3d.js').then(m => m.Viewer3D),
+    make: (V, el, hud) => new V(el, hud, {
+      base: 'public/need-for-speed-3do/',
+      renderers: { 'nfs-course': () => import('../need-for-speed-3do/course-renderer.js') },
+    }),
+    list: async (v) => await v.init(), // manifest.models — the City track + the Diablo
+    show: (v, item, i) => v.showItem(item),
+    // Open on the City track rather than the car.
+    defaultAsset: (models) => models.findIndex((m) => m.kind === 'nfs-course'),
+    // The object layer and wireframe apply to the track (nfs-course), not the car.
+    layers: [
+      { id: 'objects', label: 'Roadside objects', default: true, when: (m) => m.leaves?.[m.currentIdx]?.level?.kind === 'nfs-course' },
+      { id: 'wireframe', label: 'Wireframe', default: false },
+    ],
+    // Browse-list accordion: the manifest tags each model's section ("Tracks", "Cars").
+    group: (item) => ({ section: item.section || (item.kind === 'nfs-course' ? 'Tracks' : 'Cars'), label: item.name }),
+  },
+  {
     id: 'ridge-racer-psx', name: 'Ridge Racer', system: 'Sony PlayStation', render: '3d',
     // The generic manifest-driven 3-D viewer. The 13 cars are plain GLBs (builtin mesh3d);
     // the course routes to the rr-course plugin, which loads the road GLB plus the roadside
@@ -291,6 +315,7 @@ const SYSTEMS = [
   { full: 'Nintendo DS', short: 'DS' },
   { full: 'MS-DOS', short: 'MS-DOS' },
   { full: 'Sony PlayStation', short: 'PSX' },
+  { full: '3DO', short: '3DO' },
 ];
 const CHEVRON = '<svg class="chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg>';
 

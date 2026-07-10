@@ -1,0 +1,38 @@
+{
+  "format": 2,
+  "game": "The Need for Speed",
+  "platform": "3DO",
+  "native": {
+    "w": 320,
+    "h": 240
+  },
+  "tickHz": 60,
+  "models": [
+    {
+      "name": "City",
+      "file": "models/course-cy1.glb",
+      "kind": "nfs-course",
+      "section": "Tracks",
+      "objectsFile": "cy1.objects.json",
+      "fly": true,
+      "camera": {
+        "pos": [
+          -2.902,
+          0.94,
+          -96
+        ],
+        "target": [
+          -2.902,
+          0.94,
+          -136
+        ]
+      }
+    },
+    {
+      "name": "Diablo",
+      "file": "models/car-ldiablo.glb",
+      "kind": "mesh3d",
+      "section": "Cars"
+    }
+  ]
+}

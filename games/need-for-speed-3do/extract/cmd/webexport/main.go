@@ -41,11 +41,30 @@ type Size struct {
 }
 
 type ModelIndex struct {
-	Name        string `json:"name"`
-	File        string `json:"file"`
-	Kind        string `json:"kind"`                  // routes to a Studio renderer plugin
-	Section     string `json:"section,omitempty"`     // Studio browse-list group
-	ObjectsFile string `json:"objectsFile,omitempty"` // placement manifest for the object layer
+	Name        string      `json:"name"`
+	File        string      `json:"file"`
+	Kind        string      `json:"kind"`                  // routes to a Studio renderer plugin
+	Section     string      `json:"section,omitempty"`     // Studio browse-list group
+	ObjectsFile string      `json:"objectsFile,omitempty"` // placement manifest for the object layer
+	Fly         bool        `json:"fly,omitempty"`         // present with the free-flight camera
+	Camera      *CameraPose `json:"camera,omitempty"`      // opening view (course only)
+}
+
+// CameraPose is a viewer opening view in GLB axes (x, y, -z).
+type CameraPose struct {
+	Pos    [3]float64 `json:"pos"`
+	Target [3]float64 `json:"target"`
+}
+
+// startCam is the City race's opening view: the driver's-eye interior camera
+// captured from the running game at the grid (camObj @[0x40014], position at
+// +0xDC/+0xE0/+0xE4 in 16.16 world units, orientation the identity matrix at
+// [0x4001C]=0x485A0). The camera sits 2.9 m left of centre, 0.94 m up, at the
+// start line, looking straight down the track's +Z. Converted to GLB axes
+// (x, y, -z); the target is 40 units down the captured forward.
+var startCam = CameraPose{
+	Pos:    [3]float64{-2.902, 0.940, -96.000},
+	Target: [3]float64{-2.902, 0.940, -136.000},
 }
 
 // assets bundles a course's decoded inputs.
@@ -93,8 +112,9 @@ func main() {
 		die("objects: %v", err)
 	}
 	models = append(models, ModelIndex{
-		Name: fmt.Sprintf("City course (%s)", a.course), File: courseFile,
-		Kind: "nfs-course", Section: "Course", ObjectsFile: objectsFile,
+		Name: "City", File: courseFile,
+		Kind: "nfs-course", Section: "Tracks", ObjectsFile: objectsFile,
+		Fly: true, Camera: &startCam,
 	})
 
 	carFile, carName, err := exportCar(vol, *car, *out)
