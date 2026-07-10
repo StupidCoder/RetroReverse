@@ -30,6 +30,7 @@ type accessor struct {
 	ComponentType int       `json:"componentType"`
 	Count         int       `json:"count"`
 	Type          string    `json:"type"`
+	Normalized    bool      `json:"normalized,omitempty"`
 	Min           []float64 `json:"min,omitempty"`
 	Max           []float64 `json:"max,omitempty"`
 }
@@ -425,6 +426,9 @@ type TexturedGroup struct {
 	Tris        [][3]uint32
 	Image       image.Image
 	SingleSided bool
+	// WrapS/WrapT are glTF sampler wrap enums (10497 REPEAT, 33071
+	// CLAMP_TO_EDGE, 33648 MIRRORED_REPEAT); zero means CLAMP_TO_EDGE.
+	WrapS, WrapT int
 }
 
 // addUVs writes a tightly packed VEC2 float32 TEXCOORD accessor.
@@ -441,6 +445,27 @@ func (b *builder) addUVs(uvs [][2]float32) int {
 	return len(b.accessors) - 1
 }
 
+// addColors writes a normalized RGBA8 COLOR_0 accessor.
+func (b *builder) addColors(colors [][4]uint8) int {
+	buf := make([]byte, 4*len(colors))
+	for i, c := range colors {
+		buf[i*4], buf[i*4+1], buf[i*4+2], buf[i*4+3] = c[0], c[1], c[2], c[3]
+	}
+	vi := b.addView(buf)
+	b.accessors = append(b.accessors, accessor{
+		BufferView: vi, ComponentType: 5121, Count: len(colors), Type: "VEC4", Normalized: true,
+	})
+	return len(b.accessors) - 1
+}
+
+// WriteTexturedColored is WriteTextured with a per-vertex COLOR_0 layered under
+// the textures — how the N64 combiner's texel-times-shade modulation survives
+// into a GLB. colors runs parallel to positions and uvs.
+func WriteTexturedColored(path string, positions [][3]float32, uvs [][2]float32,
+	colors [][4]uint8, texGroups []TexturedGroup, colorGroups []TriGroup) error {
+	return writeTextured(path, positions, uvs, colors, texGroups, colorGroups)
+}
+
 // WriteTextured writes a textured TRIANGLES GLB: one mesh whose primitives
 // share a POSITION accessor over positions and a TEXCOORD_0 accessor over uvs
 // (parallel arrays — duplicate a vertex to give it distinct UVs). Each
@@ -450,15 +475,41 @@ func (b *builder) addUVs(uvs [][2]float32) int {
 // skipped.
 func WriteTextured(path string, positions [][3]float32, uvs [][2]float32,
 	texGroups []TexturedGroup, colorGroups []TriGroup) error {
+	return writeTextured(path, positions, uvs, nil, texGroups, colorGroups)
+}
+
+func writeTextured(path string, positions [][3]float32, uvs [][2]float32,
+	colors [][4]uint8, texGroups []TexturedGroup, colorGroups []TriGroup) error {
 	b := &builder{}
 	posAcc := b.addPositions(positions)
 	uvAcc := b.addUVs(uvs)
+	colAcc := -1
+	if len(colors) > 0 {
+		colAcc = b.addColors(colors)
+	}
 
 	var prims, materials, images, textures []map[string]any
+	var samplers []map[string]any
+	samplerIndex := map[[2]int]int{}
 	imageIndex := map[image.Image]int{}
 	for _, g := range texGroups {
 		if len(g.Tris) == 0 {
 			continue
+		}
+		wrapS, wrapT := g.WrapS, g.WrapT
+		if wrapS == 0 {
+			wrapS = 33071 // CLAMP_TO_EDGE
+		}
+		if wrapT == 0 {
+			wrapT = 33071
+		}
+		smp, ok := samplerIndex[[2]int{wrapS, wrapT}]
+		if !ok {
+			smp = len(samplers)
+			samplerIndex[[2]int{wrapS, wrapT}] = smp
+			samplers = append(samplers, map[string]any{
+				"magFilter": 9728, "minFilter": 9728, "wrapS": wrapS, "wrapT": wrapT,
+			})
 		}
 		img, ok := imageIndex[g.Image]
 		if !ok {
@@ -470,20 +521,24 @@ func WriteTextured(path string, positions [][3]float32, uvs [][2]float32,
 			img = len(images)
 			imageIndex[g.Image] = img
 			images = append(images, map[string]any{"bufferView": vi, "mimeType": "image/png"})
-			textures = append(textures, map[string]any{"sampler": 0, "source": img})
 		}
+		textures = append(textures, map[string]any{"sampler": smp, "source": img})
 		idx := make([]uint32, 0, len(g.Tris)*3)
 		for _, t := range g.Tris {
 			idx = append(idx, t[0], t[1], t[2])
 		}
 		idxAcc := b.addIndices(idx)
 		prim := primitive(posAcc, idxAcc, 4, len(materials))
-		prim["attributes"] = map[string]int{"POSITION": posAcc, "TEXCOORD_0": uvAcc}
+		attrs := map[string]int{"POSITION": posAcc, "TEXCOORD_0": uvAcc}
+		if colAcc >= 0 {
+			attrs["COLOR_0"] = colAcc
+		}
+		prim["attributes"] = attrs
 		prims = append(prims, prim)
 		materials = append(materials, map[string]any{
 			"name": "tex",
 			"pbrMetallicRoughness": map[string]any{
-				"baseColorTexture": map[string]int{"index": img},
+				"baseColorTexture": map[string]int{"index": len(textures) - 1},
 				"baseColorFactor":  []float64{1, 1, 1, 1},
 				"metallicFactor":   0,
 				"roughnessFactor":  1,
@@ -511,10 +566,7 @@ func WriteTextured(path string, positions [][3]float32, uvs [][2]float32,
 	if len(images) > 0 {
 		doc["images"] = images
 		doc["textures"] = textures
-		// 9728 = NEAREST, 33071 = CLAMP_TO_EDGE.
-		doc["samplers"] = []map[string]any{{
-			"magFilter": 9728, "minFilter": 9728, "wrapS": 33071, "wrapT": 33071,
-		}}
+		doc["samplers"] = samplers
 	}
 	data, err := pack(doc, b.bin.Bytes())
 	if err != nil {

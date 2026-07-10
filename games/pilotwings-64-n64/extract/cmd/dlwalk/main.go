@@ -44,6 +44,7 @@ type walker struct {
 	tile     [8]tileDesc
 	texTile  uint32            // the tile G_TEXTURE selects for drawing
 	tmemSrc  map[uint32]uint32 // TMEM word address -> RDRAM source of the last load into it
+	geoMode  uint32            // G_SETGEOMETRYMODE bits: lighting decides colour-vs-normal
 
 	// per-draw grouping: one group per (modelview matrix, texture image)
 	groups map[string]*group
@@ -80,9 +81,17 @@ type group struct {
 	tlut   uint32
 	scale  [2]uint32
 	mtx    mtx44
+	lit    bool // G_LIGHTING: vertex bytes 12..15 are a normal, not a colour
+	texGen bool // G_TEXTURE_GEN: s,t come from the normal (environment map)
 	verts  []vertex
 	faces  [][3]int
 }
+
+// F3D geometry mode bits.
+const (
+	geoLighting   = 0x00020000
+	geoTextureGen = 0x00040000
+)
 
 func main() {
 	ramFile := flag.String("ram", "", "RDRAM snapshot")
@@ -90,6 +99,10 @@ func main() {
 	verbose := flag.Bool("v", false, "print every command")
 	objDir := flag.String("obj", "", "write one .obj per draw group into this directory")
 	glbDir := flag.String("glb", "", "write one textured .glb per draw group into this directory")
+	var objects multiFlag
+	flag.Var(&objects, "object", `NAME=idx,idx,... — merge the listed draw groups into NAME.glb
+(written to the -glb directory). Groups are placed relative to the first
+group's matrix, so an articulated model reassembles from its parts.`)
 	flag.Parse()
 
 	ram, err := os.ReadFile(*ramFile)
@@ -110,7 +123,16 @@ func main() {
 	fmt.Printf("\n%d triangles in %d groups\n", w.tris, len(w.groups))
 	for _, k := range w.order {
 		g := w.groups[k]
-		fmt.Printf("  %-40s tex=%06X %4d verts %4d tris\n", g.name, g.texImg, len(g.verts), len(g.faces))
+		flags := ""
+		if g.lit {
+			flags += " lit"
+		}
+		if g.texGen {
+			flags += " texgen"
+		}
+		fmt.Printf("  %-40s tex=%06X %4d verts %4d tris  T=(%8.1f %8.1f %8.1f)%s\n",
+			g.name, g.texImg, len(g.verts), len(g.faces),
+			g.mtx[3][0], g.mtx[3][1], g.mtx[3][2], flags)
 	}
 
 	if *objDir != "" {
@@ -120,8 +142,28 @@ func main() {
 			writeOBJ(*objDir, g)
 		}
 	}
-	if *glbDir != "" {
+	if *glbDir != "" && len(objects) == 0 {
 		w.writeGLBs(*glbDir)
+	}
+	for _, spec := range objects {
+		eq := strings.IndexByte(spec, '=')
+		if eq < 0 {
+			fmt.Fprintf(os.Stderr, "bad -object %q\n", spec)
+			continue
+		}
+		name := spec[:eq]
+		var gs []*group
+		for _, s := range strings.Split(spec[eq+1:], ",") {
+			i, err := strconv.Atoi(strings.TrimSpace(s))
+			if err != nil || i < 0 || i >= len(w.order) {
+				fmt.Fprintf(os.Stderr, "bad group index %q in %q\n", s, spec)
+				continue
+			}
+			gs = append(gs, w.groups[w.order[i]])
+		}
+		if len(gs) > 0 {
+			w.writeObject(*glbDir, name, gs)
+		}
 	}
 }
 
@@ -265,9 +307,15 @@ func (w *walker) walk(pc uint32) {
 		case 0xF0: // Load_TLUT
 			w.tlut = w.texImg
 			w.logf("G_LOADTLUT src=%06X", w.texImg)
+		case 0xB7: // G_SETGEOMETRYMODE
+			w.geoMode |= w1
+			w.logf("G_SETGEOMETRYMODE %08X -> %08X", w1, w.geoMode)
+		case 0xB6: // G_CLEARGEOMETRYMODE
+			w.geoMode &^= w1
+			w.logf("G_CLEARGEOMETRYMODE %08X -> %08X", w1, w.geoMode)
 		case 0xB2, 0xB3, // G_RDPHALF_CONT / G_RDPHALF_2
 			0xB4, // G_PERSPNORMALIZE
-			0xB6, 0xB7, 0xB9, 0xBA, 0xBE, 0xE4, 0xE6, 0xE7, 0xE8, 0xE9, 0xED, 0xEE, 0xEF,
+			0xB9, 0xBA, 0xBE, 0xE4, 0xE6, 0xE7, 0xE8, 0xE9, 0xED, 0xEE, 0xEF,
 			0xF6, 0xF7, 0xF8, 0xF9, 0xFA, 0xFB, 0xFC, 0xFE, 0xFF:
 			// geometry mode, othermode, cull, and RDP passthroughs: not needed
 			// for geometry extraction, logged for the record.
@@ -294,6 +342,7 @@ func (w *walker) addTri(i0, i1, i2 uint32) {
 		g = &group{
 			name: fmt.Sprintf("group-%03d-tex%06X", len(w.groups), t.img),
 			texImg: t.img, tile: t, tlut: w.tlut, scale: w.texScale, mtx: *m,
+			lit: w.geoMode&geoLighting != 0, texGen: w.geoMode&geoTextureGen != 0,
 		}
 		w.groups[key] = g
 		w.order = append(w.order, key)
@@ -358,6 +407,14 @@ func identity() mtx44 {
 		m[i][i] = 1
 	}
 	return m
+}
+
+type multiFlag []string
+
+func (m *multiFlag) String() string { return strings.Join(*m, ",") }
+func (m *multiFlag) Set(s string) error {
+	*m = append(*m, s)
+	return nil
 }
 
 func iff(c bool, a, b string) string {
@@ -473,6 +530,110 @@ func (w *walker) decodeTexture(g *group) image.Image {
 }
 
 // --- GLB export ---------------------------------------------------------
+
+// writeObject merges draw groups into one GLB. Vertices are model-space; a
+// group whose matrix differs from the first group's is baked through the
+// relative transform, so an articulated model (a gyrocopter's rotor over its
+// body) reassembles the way the frame posed it.
+func (w *walker) writeObject(dir, name string, gs []*group) {
+	os.MkdirAll(dir, 0o755)
+	root := invertAffine(gs[0].mtx)
+
+	var pos [][3]float32
+	var uvs [][2]float32
+	var cols [][4]uint8
+	var texGroups []glb.TexturedGroup
+	for _, g := range gs {
+		rel := mul(g.mtx, root)
+		img := w.decodeTexture(g)
+		tw := float64(g.tile.sh>>2-g.tile.sl>>2) + 1
+		tth := float64(g.tile.th>>2-g.tile.tl>>2) + 1
+		sScale := float64(g.scale[0]) / 65536
+		tScale := float64(g.scale[1]) / 65536
+
+		var tris [][3]uint32
+		for _, f := range g.faces {
+			base := uint32(len(pos))
+			for _, vi := range f {
+				v := g.verts[vi]
+				x, y, z := float64(v.x), float64(v.y), float64(v.z)
+				pos = append(pos, [3]float32{
+					float32(rel[0][0]*x + rel[1][0]*y + rel[2][0]*z + rel[3][0]),
+					float32(rel[0][1]*x + rel[1][1]*y + rel[2][1]*z + rel[3][1]),
+					float32(rel[0][2]*x + rel[1][2]*y + rel[2][2]*z + rel[3][2]),
+				})
+				uvs = append(uvs, [2]float32{
+					float32(float64(v.s) / 32 * sScale / tw),
+					float32(float64(v.t) / 32 * tScale / tth),
+				})
+				cols = append(cols, [4]uint8{v.r, v.g, v.b, v.a})
+			}
+			tris = append(tris, [3]uint32{base, base + 1, base + 2})
+		}
+		if img == nil {
+			img = image.NewRGBA(image.Rect(0, 0, 1, 1))
+			img.(*image.RGBA).SetRGBA(0, 0, color.RGBA{255, 255, 255, 255})
+		}
+		texGroups = append(texGroups, glb.TexturedGroup{
+			Tris: tris, Image: img,
+			WrapS: wrapMode(g.tile.cmS, g.tile.maskS),
+			WrapT: wrapMode(g.tile.cmT, g.tile.maskT),
+		})
+	}
+
+	path := fmt.Sprintf("%s/%s.glb", dir, name)
+	if err := glb.WriteTexturedColored(path, pos, uvs, cols, texGroups, nil); err != nil {
+		fmt.Fprintf(os.Stderr, "%s: %v\n", path, err)
+		return
+	}
+	fmt.Printf("wrote %s: %d groups, %d verts\n", path, len(gs), len(pos))
+}
+
+// wrapMode maps a tile's cm/mask to the glTF sampler wrap enum. The cm bits
+// are libultra's G_TX constants: 1 mirrors, 2 clamps; no mask forces a clamp.
+func wrapMode(cm, mask uint32) int {
+	switch {
+	case cm&2 != 0 || mask == 0:
+		return 33071 // CLAMP_TO_EDGE
+	case cm&1 != 0:
+		return 33648 // MIRRORED_REPEAT
+	default:
+		return 10497 // REPEAT
+	}
+}
+
+// invertAffine inverts a rigid-ish modelview (rotation+scale+translation).
+func invertAffine(m mtx44) mtx44 {
+	// Invert the 3x3 by adjugate, then the translation.
+	a := [3][3]float64{
+		{m[0][0], m[0][1], m[0][2]},
+		{m[1][0], m[1][1], m[1][2]},
+		{m[2][0], m[2][1], m[2][2]},
+	}
+	det := a[0][0]*(a[1][1]*a[2][2]-a[1][2]*a[2][1]) -
+		a[0][1]*(a[1][0]*a[2][2]-a[1][2]*a[2][0]) +
+		a[0][2]*(a[1][0]*a[2][1]-a[1][1]*a[2][0])
+	if det == 0 {
+		return identity()
+	}
+	inv := func(i, j int) float64 {
+		i1, i2 := (i+1)%3, (i+2)%3
+		j1, j2 := (j+1)%3, (j+2)%3
+		return (a[j1][i1]*a[j2][i2] - a[j1][i2]*a[j2][i1]) / det
+	}
+	var r mtx44
+	for i := 0; i < 3; i++ {
+		for j := 0; j < 3; j++ {
+			r[i][j] = inv(i, j)
+		}
+	}
+	// translation' = -T * R'
+	for j := 0; j < 3; j++ {
+		r[3][j] = -(m[3][0]*r[0][j] + m[3][1]*r[1][j] + m[3][2]*r[2][j])
+	}
+	r[3][3] = 1
+	return r
+}
 
 // writeGLBs writes one textured GLB per draw group, in model space (the raw
 // vertex coordinates the game keeps in RDRAM), with UVs derived from the
