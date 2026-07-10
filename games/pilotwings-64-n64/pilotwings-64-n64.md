@@ -35,8 +35,9 @@ write PCs back gives the machinery:
   flag bits MSB-first in 32-bit words — set = copy one literal byte, clear = back-reference of
   length `(rec>>12)+3` at distance `(rec&0xFFF)+1`. Reimplemented in Go in `extract/mio0`
   (`sub $t1,$a1,$t2` then `lb -1($t1)`: the stored distance field is one less than the distance).
-- On the cartridge each MIO0 image sits 8 bytes into an outer container: a fourCC (`COMM` for
-  the attract assets, `TABL` for the first table at `0xDE74C`) and a 32-bit payload size.
+- On the cartridge each MIO0 image sits 8 bytes inside a `GZIP` chunk of an IFF `FORM` — see
+  *Part IV — the cartridge archive* below, which supersedes the "outer container" reading this
+  section originally recorded.
 - **Display-list templates ship in the same blobs** and are patched after placement: the ROM
   copy holds a `G_SETTIMG` (`FD`) with a zero address word; the loader writes the texture's
   final RDRAM address into it (e.g. the sky-band template at `0x0B4080`, three bytes
@@ -80,33 +81,119 @@ byte-identical. `+off` is the slice offset inside the decompressed blob.
 The loads run at ~12 blobs per video field across fields 266–283 (and again from field 272 when
 the attract's second scene rebuilds the arena), which is why the sequence fades in scene by scene.
 
-### Inside a blob — toward an oracle-free export
+## Part IV — the cartridge archive
 
-The export should ultimately come from the ROM alone (the project documents shipped formats;
-emulation is the instrument, not the extractor), and the pieces are falling into place. The
-decompressed `COMM` payloads are self-describing files:
+Every asset in the game is a file in a single archive, and that archive is **IFF-85** — the same
+`FORM`/chunk container the Amiga uses, byte-for-byte, on a Nintendo cartridge. It occupies cart
+`0x0DE720`–`0x0618B6C`: **1,273 back-to-back `FORM` chunks**, contiguous but for one 12-byte run
+of zeros after the first. Below it sits the program image; above it, the audio banks.
 
-- **Texture blobs**: a 20-byte header — `u16` payload length (matches the slice the loader
-  copies out), `u16` format code (`0x19` for the RGBA16 terrain tiles, `0x0D` for I4) — then
-  texels, then trailing sections holding the material display-list templates (`G_TEXTURE`,
-  `Set_Combine`, `Set_Tile`, the zero-address `G_SETTIMG` patched at load). The frame display
-  lists G_DL-call these templates in place (`0xB3D80–0xB4560` at the title card).
-- **Mesh blobs**: `u16` vertex count, `u16` type (`0x0101` terrain, `0x010A` gyro parts), then
-  the count × 16-byte Fast3D vertex records (the placed slice is exactly this pool), then a
-  packed **patch stream** and per-part float data (identity rows, part offsets — rest poses).
+```
+FORM <u32 size> <type>              type: UVTX, UVMD, UVCT, UPWT, ... (20 resource types)
+  PAD  <u32 4> 00 00 00 00          padding, always first
+  <tag> <u32 size> <bytes>          a plain chunk, or …
+  GZIP <u32 size>                   … "the chunk that follows is compressed"
+    <tag> <u32 uncompressedSize>
+    MIO0 …                          the stream decoded in Part III
+```
 
-The frame display lists themselves are not on the cartridge: the CPU rebuilds them every frame.
-The terrain's G_TRI1s come out of a strip builder at `0x802206C0` — it walks one flat vertex
-pool through three globals at `0x80296A80` (pool pointer, cursor, end), emits `G_VTX` batches of
-≤16 and purely sequential triangles (`k, k+1, k+2`; the emitter is a `multu` by 10 at
-`0x802208E4`) — so terrain connectivity is implicit and the real source format is the blob's
-patch stream that feeds those globals. What still stands between `webexport` and a boot-free
-export: the patch-stream layout, the logo/gyro builders' index formats, the placement directory
-the game reads 4 bytes at a time (`TABL` at cart `0xDE74C` and friends), and the attract's pose
-matrices (runtime animation state — to be captured once and baked as documented constants, the
-way Ridge Racer's webexport bakes its start camera). Until then webexport reproduces the whole
-export from the ROM in one deterministic power-on boot, with `romtrace` proving every payload
-byte-identical to its cart blob.
+`GZIP` is a wrapper tag, unrelated to RFC 1952: its payload is an ordinary chunk header whose
+size field carries the *decompressed* length, followed by an MIO0 stream. A `FORM` holds between
+zero and thirteen of them. All 39,150 chunk sizes are even and every `FORM`'s chunk list ends
+exactly on its boundary, so IFF's word-padding rule never fires here.
+
+### The directory
+
+The first `FORM` has type `UVRM` and holds one compressed chunk, `TABL` — the archive's table of
+contents, and the very first thing the game loads (video field 10, cart `0x0DE74C`). It is
+**1,272 entries of `(fourCC type, u32 totalLength)`**, one per following `FORM`, in ROM order.
+The length counts the `FORM`'s own 8-byte header, which makes the directory a walkable index:
+resource *i* begins at `0x0DF5B0` plus the sum of the preceding lengths. The running sum over all
+1,272 entries is 5,477,820 bytes and lands **exactly** on the archive's end. Combined with an
+independent walk of the `FORM` chain — which agrees with the directory on every resource's type,
+length and offset, 1,272 for 1,272 — that arithmetic is what proves the container.
+
+This is why no cartridge offset table exists anywhere in the ROM: the game does not need one. It
+reads `TABL` once and walks. The thousands of 4-byte cartridge fetches noted in Part III
+(`ra=0x8022AA50`) are that walk, reading chunk headers straight off the cartridge bus.
+
+### The inventory
+
+| Type | × | Bytes | Chunks | Contents |
+|---|---|---|---|---|
+| `UVTX` | 463 | 820,444 | `GZIP(COMM)`, 23 plain `COMM` | textures |
+| `UVMD` | 363 | 876,404 | `GZIP(COMM)` | models |
+| `UVAN` | 115 | 146,972 | `COMM`, `PART`, `GZIP(PART)` | animations |
+| `UVBT` | 102 | 426,728 | `GZIP(COMM)`, 1 plain `COMM` | per-chunk terrain companion |
+| `UVCT` | 101 | 544,852 | `GZIP(COMM)` | terrain chunks |
+| `UPWT` | 61 | 103,008 | `NAME` `INFO` `COMM` `JPTX` `TPAD` `LPAD` `RNGS` `THER` `BALS` `TARG` `CNTG` `LSTP` `LWIN` `HOPD` `PHTS` `FALC` `HPAD` `BTGT` | missions |
+| `PDAT` | 25 | 840,512 | `PHDR`, `PPOS`×7910, `RHDR`, `RPKT`×24401 | recorded flight data |
+| `3VUE` | 12 | 68,832 | `COMM` `QUAT` `XLAT` | camera views |
+| `UVFT` | 9 | 15,892 | `FRMT` `STRG` `GZIP(BITM)` `GZIP(IMAG)` | fonts |
+| `SPTH` | 8 | 5,392 | `SCP#` `SCPP` `SCPH` `SCPR` `SCPX` `SCPY` `SCPZ` | spline paths |
+| `UPWL` | 4 | 76,144 | `LEVL` `ESND` `LPAD` `WOBJ` `TOYS` `APTS` `TPTS` `BNUS` | the four levels |
+| `UVLV` | 1 | 12,160 | `COMM`×136 | level index |
+| `UVTR` | 1 | 8,864 | `COMM`×10 | the world map |
+| `UVSX` | 1 | 1,455,088 | `.CTL` `.TBL` | audio bank |
+| `ADAT` | 1 | 74,120 | `SIZE`, `NAME`×439, `DATA`×439 | named sound effects |
+| `UVEN` | 1 | 1,912 | `COMM`×24 | — |
+| `UVTP` | 1 | 264 | `COMM`×7 | — |
+| `UVSQ` | 1 | 136 | `COMM` | — |
+| `UVSY` | 1 | 72 | `COMM` | — |
+| `UVLT` | 1 | 24 | (only `PAD`) | — |
+
+Several chunk tags name themselves. `UPWT`'s `NAME` chunks are the developers' own mission
+labels, in the clear: `LEVEL 1`, `CB L1 Target2`, `SD 1`. `ADAT` pairs 439 `NAME`/`DATA` chunks
+(`COUNT_3`, `B_CLR_N`, `HG_P1_S2`). `UVSX` holds `.CTL` and `.TBL` — libultra's audio bank pair.
+The `UVxx`/`UPWx` prefixes and the four `UPWL` forms line up with the game's four islands, but
+the mapping from a chunk tag to a *meaning* is only ever settled by disassembling the code that
+reads it; the table above records what the container says, not what the names suggest.
+
+One hypothesis the chunk names already corrected: `PDAT` was assumed to be object placement, on
+its size alone. Its chunks are `PHDR` + 7,910 `PPOS` and `RHDR` + 24,401 `RPKT` — the shape of
+recorded flight paths, not scenery. Placement lives elsewhere (`UPWL`'s `WOBJ`, `UPWT`'s
+per-mission chunks are the candidates).
+
+### Reading it
+
+`extract/pwad` is the reader; `extract/cmd/romls` lists and censuses the archive, and
+`extract/cmd/romextract` writes all 36,723 chunks out, decompressing as it goes. Neither boots
+the machine.
+
+Four checks stand behind it, all mechanical:
+
+1. The `FORM` walk finds exactly 1,273 forms and consumes the archive with no unexplained gap.
+2. The walk and the `TABL` directory — two independent readings — agree on every resource's type,
+   byte length and offset, and the directory's running sum ends exactly at the archive's end.
+3. All **1,322 MIO0 streams inflate to precisely the length their chunk header declares**: 1,322
+   independent checks of the codec reimplemented in Part III.
+4. **The static archive is the archive the game reads.** `romls -calllog` takes a loader trace
+   from a real boot and checks every cartridge fetch against the parsed chunk list: all 104
+   staged (compressed) fetches land on a `GZIP` chunk body, all 1,234 in-archive direct fetches
+   land on a plain chunk body, zero exceptions. The four fetches outside the archive are the
+   program overlay at `0x051E30` and the post-archive audio data at `0x0618B70`.
+
+Check 4 is the one that matters most: the first three could all pass on a self-consistent
+misreading. Only the running game can testify that the container we parse is the container it
+loads from.
+
+### What the container does not contain
+
+The frame display lists are not on the cartridge — the CPU rebuilds them every frame into the
+double buffers at `0x299280`/`0x2A15C0`. The terrain's `G_TRI1`s come out of a strip builder at
+`0x802206C0`, which walks one flat vertex pool through three globals at `0x80296A80` (pool
+pointer, cursor, end), emitting `G_VTX` batches of ≤16 vertices and purely sequential triangles
+`k, k+1, k+2` (the index emitter is the `multu` by 10 at `0x802208E4`). Terrain connectivity is
+therefore *implicit*: a mesh chunk stores a vertex pool and a stream that drives those globals,
+not a triangle list. Decoding that stream, and the corresponding builders for articulated models,
+is what the per-format sections below do.
+
+Two early readings of the compressed payloads, recorded here because the archive now explains
+them: a texture chunk opens with `u16` payload length and `u16` format code (`0x19` RGBA16,
+`0x0D` I4) and ends with material display-list templates carrying a zero-address `G_SETTIMG` that
+the loader patches once the texture lands; a mesh chunk opens with `u16` vertex count and `u16`
+type code (`0x0101` terrain, `0x010A` articulated), followed by that many 16-byte Fast3D vertex
+records.
 
 ## Verifying the display-list walk against the RDP stream
 
