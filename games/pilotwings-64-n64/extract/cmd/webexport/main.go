@@ -371,14 +371,17 @@ func (b *builder) write(path string, texs []*uvtx.Texture) error {
 		keys = append(keys, k)
 	}
 	sort.Ints(keys)
-	w := white()
 	var groups []glb.TexturedGroup
 	for _, k := range keys {
-		img := w
+		g := glb.TexturedGroup{Tris: b.byTex[k], WrapS: 10497, WrapT: 10497}
 		if k >= 0 {
-			img = texs[k].Image
+			// A straight-alpha image with the alpha the format really carries, so
+			// intensity textures stay grey and opaque instead of white with holes.
+			g.Image, g.Blend = exportImage(texs[k])
+		} else {
+			g.Image = white()
 		}
-		groups = append(groups, glb.TexturedGroup{Tris: b.byTex[k], Image: img, WrapS: 10497, WrapT: 10497})
+		groups = append(groups, g)
 	}
 	return glb.WriteTexturedColored(path, b.pos, b.uvs, b.cols, groups, nil)
 }

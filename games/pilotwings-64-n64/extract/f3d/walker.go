@@ -383,6 +383,11 @@ func (w *Walker) TexScale() [2]uint32 { return w.texScale }
 // TLUT is the RAM address of the palette the last Load_TLUT read.
 func (w *Walker) TLUT() uint32 { return w.tlut }
 
+// OtherL is the accumulated othermode-L: the render mode. Its low two bits are
+// the alpha-compare mode (0 = none, 1 = threshold, 3 = dither), which is what
+// says whether a texel's alpha is a transparency mask or an ignored byte.
+func (w *Walker) OtherL() uint32 { return w.otherL }
+
 // Ordered returns the draw groups in first-draw order.
 func (w *Walker) Ordered() []*Group {
 	var out []*Group

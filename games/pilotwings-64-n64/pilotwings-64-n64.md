@@ -877,6 +877,34 @@ Only world 0 gets its **water**, and only because the oracle watched the game lo
 while world 0's terrain streamed in). It is a separate GLB, loaded *after* the camera is framed on
 the terrain — the ocean is ±12,288 units across and would otherwise pull the fit out to sea.
 
+### Materials: intensity is colour, not transparency
+
+For a long while 186 of the 363 models exported **white** — a stone castle, plain white, its roof
+riddled with holes. The cause was a straight-vs-premultiplied alpha confusion, and it is worth
+recording because it is the kind of bug that hides behind a plausible render.
+
+`f3d.DecodeTexture` returns the RDP texel's four channels verbatim, in an `image.RGBA`. For an
+intensity texel (`I4`/`I8`) those channels are `(I, I, I, I)` — the hardware replicates intensity
+into the alpha slot so the colour combiner can pick it up. That is correct for the oracle, which
+reads the same channels the RDP does. But `image.RGBA` is **alpha-premultiplied**, and glTF wants
+**straight** alpha: a stored `(I, I, I, I)` *is* the straight colour `(255, 255, 255)` at alpha `I`.
+So every intensity texture PNG-encoded to white, and the default `alphaMode: MASK` then cut every
+texel dimmer than half into a hole. The walls were white; the roof was white with holes.
+
+The export now rebuilds each texture as a straight-alpha image, reading the raw texel channels and
+giving each format the alpha it actually carries:
+
+- **`I4`, `I8`** — intensity only. The replicated alpha is a copy of the colour, not coverage, so
+  the surface is opaque: intensity goes to RGB, alpha is forced to 255. (No `UVTX` template enables
+  alpha-compare, which is consistent with the surfaces being opaque.)
+- **`IA4/8/16`** — a real alpha, kept. A graded alpha exports as `BLEND` so it fades; an on/off
+  alpha stays a `MASK` cutout.
+- **`RGBA16`, `CI`** — a one-bit or palette alpha, kept as a `MASK` cutout — which is what makes the
+  foliage and the sky band cut cleanly, unchanged.
+
+The attract island, all `RGBA16` and opaque, is byte-for-byte what it was: an opaque texel has
+alpha 255, where premultiplied and straight coincide, so only the intensity textures ever moved.
+
 ### Axes
 
 The game is **Z-up**: terrain lies in the X/Y plane and height is Z. A world grid's cell centres
