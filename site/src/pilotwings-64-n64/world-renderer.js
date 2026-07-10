@@ -95,7 +95,7 @@ export default {
       },
     );
 
-    stage.disposePlugin = () => { picker(); stage.setLayer = null; };
+    stage.disposePlugin = () => { picker.dispose(); stage.setLayer = null; };
     return terrain;
   },
 };
