@@ -373,7 +373,10 @@ func (b *builder) addBatch(bt uvmd.Batch, verts []uvmd.Vertex, mtx uvmd.Matrix, 
 	}
 }
 
-func (b *builder) write(path string, texs []*uvtx.Texture) error {
+// write emits the accumulated triangles as one textured GLB. opaque forces every
+// texture to full alpha — true for terrain, which the game draws with alpha
+// testing off (see exportImage).
+func (b *builder) write(path string, texs []*uvtx.Texture, opaque bool) error {
 	if len(b.pos) == 0 {
 		return fmt.Errorf("nothing to write")
 	}
@@ -388,7 +391,7 @@ func (b *builder) write(path string, texs []*uvtx.Texture) error {
 		if k >= 0 {
 			// A straight-alpha image with the alpha the format really carries, so
 			// intensity textures stay grey and opaque instead of white with holes.
-			g.Image, g.Blend = exportImage(texs[k])
+			g.Image, g.Blend = exportImage(texs[k], opaque)
 		} else {
 			g.Image = white()
 		}
@@ -425,7 +428,7 @@ func writeWorld(path string, w *uvtr.World, chunks []*uvct.Chunk, texs []*uvtx.T
 			b.addBatch(bt.Batch, ch.Vertices, c.Matrix, texs)
 		}
 	}
-	return b.tris(), b.write(path, texs)
+	return b.tris(), b.write(path, texs, true)
 }
 
 // writeModel exports LOD 0, each part placed by its rest pose (the pairing of
@@ -441,7 +444,7 @@ func writeModel(path string, m *uvmd.Model, texs []*uvtx.Texture) error {
 			b.addBatch(bt, m.Vertices, mtx, texs)
 		}
 	}
-	return b.write(path, texs)
+	return b.write(path, texs, false)
 }
 
 func die(err error) {

@@ -33,7 +33,15 @@ import (
 
 // exportImage rebuilds a texture as a straight-alpha image for glTF, and reports
 // whether it needs alpha blending (a graded alpha) rather than the MASK cutout.
-func exportImage(t *uvtx.Texture) (*image.NRGBA, bool) {
+//
+// opaque forces every texel to full alpha, for surfaces the game draws with alpha
+// testing off — terrain above all. A terrain texture's alpha is not coverage: an
+// RGBA16 ground tile carries a stray one-bit alpha and an IA ground tile an
+// intensity-shaped alpha, and honouring either turns solid ground into a MASK
+// sieve — the black holes and colour speckles a partially-cut world shows. The
+// draw templates set no alpha-compare, so the ground is opaque and its alpha is
+// ignored.
+func exportImage(t *uvtx.Texture, opaque bool) (*image.NRGBA, bool) {
 	src := t.Image
 	b := src.Bounds()
 	out := image.NewNRGBA(b)
@@ -48,7 +56,7 @@ func exportImage(t *uvtx.Texture) (*image.NRGBA, bool) {
 			// The raw stored bytes are the RDP texel's channels, unpremultiplied.
 			i := src.PixOffset(x, y)
 			r, g, bl, a := src.Pix[i], src.Pix[i+1], src.Pix[i+2], src.Pix[i+3]
-			if intensityOnly {
+			if opaque || intensityOnly {
 				a = 255
 			} else if a != 0 && a != 255 {
 				graded = true

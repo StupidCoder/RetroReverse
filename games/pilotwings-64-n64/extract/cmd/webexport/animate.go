@@ -138,7 +138,7 @@ func writeAnimatedModel(path string, m *uvmd.Model, anims []*uvan.Animation, tex
 		for tex, tris := range byTex {
 			g := glb.TexturedGroup{Tris: tris, WrapS: 10497, WrapT: 10497}
 			if tex >= 0 {
-				g.Image, g.Blend = exportImage(texs[tex])
+				g.Image, g.Blend = exportImage(texs[tex], false)
 			} else {
 				g.Image = white()
 			}
