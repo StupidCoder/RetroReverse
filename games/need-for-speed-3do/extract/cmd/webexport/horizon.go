@@ -107,13 +107,19 @@ type skyBuilder struct {
 // 71° hFOV), so 24 cel slots cycle the 6-cel ring exactly 4× per circle.
 const skyWraps = 4
 
+// skySegments is the shared tessellation of every dome ring — cylinders and
+// cone caps alike, so their rims are the same polygon and the seams close
+// exactly (a 48-gon cap rim against a 96-gon cylinder ring leaves hairline
+// cracks).
+const skySegments = 96
+
 // cylinder adds an open cylinder of radius r spanning y0..y1, the panorama
 // repeated skyWraps times around it (u grows with bearing). v0/v1 are the
 // texture rows at the top and bottom edge; a v beyond [0,1] samples the
 // clamped edge row (WrapT CLAMP), which extends the band's own edge colours
 // per column instead of a flat fill.
 func (b *skyBuilder) cylinder(img image.Image, r, y0, y1, v0, v1 float32) {
-	const n = 96
+	const n = skySegments
 	base := uint32(len(b.positions))
 	for s := 0; s <= n; s++ {
 		th := 2 * math.Pi * float64(s) / n
@@ -133,7 +139,7 @@ func (b *skyBuilder) cylinder(img image.Image, r, y0, y1, v0, v1 float32) {
 
 // cap adds a cone fan from the circle (r, y) to the apex (0, apexY, 0).
 func (b *skyBuilder) cap(img image.Image, r, y, apexY float32) {
-	const n = 48
+	const n = skySegments
 	base := uint32(len(b.positions))
 	b.positions = append(b.positions, [3]float32{0, apexY, 0})
 	b.uvs = append(b.uvs, [2]float32{0.5, 0.5})
