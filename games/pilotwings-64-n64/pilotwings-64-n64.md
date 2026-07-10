@@ -123,7 +123,7 @@ reads `TABL` once and walks. The thousands of 4-byte cartridge fetches noted in 
 |---|---|---|---|---|
 | `UVTX` | 463 | 820,444 | `GZIP(COMM)`, 23 plain `COMM` | textures |
 | `UVMD` | 363 | 876,404 | `GZIP(COMM)` | models |
-| `UVAN` | 115 | 146,972 | `COMM`, `PART`, `GZIP(PART)` | animations |
+| `UVAN` | 115 | 146,972 | `COMM`, `PART`, `GZIP(PART)` | animations — quaternion tracks for models 211..351 (characters/vehicles), **not** scenery |
 | `UVBT` | 102 | 426,728 | `GZIP(COMM)`, 1 plain `COMM` | per-chunk terrain companion |
 | `UVCT` | 101 | 544,852 | `GZIP(COMM)` | terrain chunks |
 | `UPWT` | 61 | 103,008 | `NAME` `INFO` `COMM` `JPTX` `TPAD` `LPAD` `RNGS` `THER` `BALS` `TARG` `CNTG` `LSTP` `LWIN` `HOPD` `PHTS` `FALC` `HPAD` `BTGT` | missions |
@@ -508,8 +508,47 @@ radius ≈143 at 45° spacing with a ninth above the centre — a ferris wheel, 
 The exported GLB already bakes those rest poses, so placing the object needs matrix `[0]` alone.
 
 That also settles a hope: the multi-matrix objects are **not** where movement lives. Nothing in the
-placement data moves. Whatever turns the wheel and sails the boat is in `UVAN`'s 115 undecoded
-resources.
+placement data moves, and — as the next section shows — the animation resources do not move it
+either. A terrain object is drawn from its one static matrix, with level-of-detail and billboarding
+and nothing else; if the retail game turns the wheel, it does so in engine code that this project
+has not reached, not from any asset in the archive.
+
+### `UVAN` — animation, and what it does *not* animate
+
+115 animation resources, and they are genuine keyframe animation: for each moving part of a target
+model, a list of **unit quaternions at frame numbers**. A UVAN is one `COMM` header and one `PART`
+chunk per animated part (some `GZIP`-compressed):
+
+```
+COMM  u32 flags     1 if any part moves, 0 for a static pose set
+      u32 frames    the animation's length (its highest frame number)
+      u32 -         usually 0
+      u32 rate      usually 1
+      u32 model     the target — a UVMD ordinal
+      u32 -         always 0
+PART  u32 count     keyframes in this track
+      u32 part      the part of the model it rotates (1-based; part 0, the root, never moves)
+      Key[count]    20 bytes, padded to an 8-byte boundary
+        f32 x,y,z,w   a rotation, |q| = 1
+        u16 frame     0..frames
+        u16 tangent   an interpolation parameter, carried but not identified
+```
+
+Every one of the **5,943 quaternions across all 115 resources is unit-norm** (worst deviation
+`1.2 × 10⁻⁷`), every part index lies inside its target model's part count, and every frame lies
+within the header's length. That is the structure proven against itself.
+
+And it is what corrects the guess above. **A UVAN's target is always a UVMD ordinal in 211..351** —
+49 distinct models, the pilots, the birds, the articulated vehicles. **None is in 0..198**, and that
+range is exactly the object `type`s a terrain chunk places. The ferris wheel is object `type` 12;
+the boat is a low-ordinal model too. *No animation in the archive names either.* Whatever motion
+they have in the running game is not keyframed here — the earlier hope that "`UVAN` turns the wheel"
+was wrong, and the archive says so cleanly.
+
+Playing a UVAN back needs one more thing this project has not decoded: the target model's **part
+hierarchy** (`UVMD` carries its bones as raw bytes). A quaternion track rotates part *i* about its
+parent, and without the parent chain the limbs would fly apart. So the format is decoded, tested and
+documented; a viewer that animates the pilots waits on `UVMD`'s bones.
 
 ### The water
 
