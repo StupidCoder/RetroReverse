@@ -173,13 +173,28 @@ makes the heap a clean, page-aligned **60 MiB** (`0x03C00000`) — and the whole
 
 ### How far it runs
 
-From a cold boot the oracle runs **230,742 instructions** of real ARM11 code — the C runtime's
-segment/BSS setup, VFP-heavy library init, the process-memory and resource-limit handshake, the heap
-allocation, and mutex/handle setup — and reaches the first inter-process request: it connects to the
-service-manager port **`srv:`** and issues its `RegisterClient` command (`SendSyncRequest`, header
-`0x00010002`). That IPC handshake — servicing `srv:`, then GSP (graphics) and APT (applets) — is the
-frontier, and the next milestone's starting point. Every remaining dependency is a concrete, named
-kernel facility, not a mystery.
+From a cold boot the oracle runs the C runtime's segment/BSS setup, the VFP-heavy library init, the
+process-memory and resource-limit handshake, the heap allocation, and mutex/handle setup, and then
+enters the **OS service handshake**: it connects to the service-manager port **`srv:`**
+(`RegisterClient`, `EnableNotification`), and through it acquires and drives the first services — the
+applet manager **`APT:U`** (lock handle, Initialize with its notification/resume events), the network
+daemon **`ndm:u`**, and the system-config service **`cfg:u`**. `bootoracle` reports the whole service
+transcript. It reaches **~725,000 instructions** — roughly triple the pre-IPC reach — before halting
+on the next unimplemented service command, which is always named precisely.
+
+The Horizon IPC layer is high-level-emulated (`ipc.go`, `ipc_services.go`): a `SendSyncRequest` reads
+the caller's TLS command buffer, and each service is modelled just far enough to keep init moving.
+One quirk is recorded and not yet explained — some `srv:GetServiceHandle` requests store the 8-byte
+service name with each 32-bit word's halves swapped ("APT:U" arrives half-swapped, "ndm:u" straight,
+both from the same thread), so the reader tries both orders and takes the one whose family it knows.
+
+The remaining distance to a **rendered frame** is real work, not a mystery: completing the APT
+applet-lifecycle handshake (the app receiving its startup parameter and transitioning to the running
+state), the GSP graphics service (registering the shared command queue, then the game building GPU
+command lists), and — for actual pixels — a **PICA200 GPU** implementation to execute those command
+lists, an effort on the scale of this repo's N64 RDP or PSX GPU. The machine is built to reach the
+point of *submitting* the first frame and to report it (`bootoracle` counts GPU command lists and
+buffer swaps); producing the pixels is the next platform milestone.
 
 ---
 
@@ -283,7 +298,7 @@ system entry.
 
 | tool | role |
 |------|------|
-| `tools/platform/n3ds` | NCSD/NCCH/ExHeader/ExeFS/RomFS parsers, BLZ + LZ11 decompressors, CBMD/CGFX banner parsing, the machine + SVC HLE |
+| `tools/platform/n3ds` | NCSD/NCCH/ExHeader/ExeFS/RomFS parsers, BLZ + LZ11 decompressors, CBMD/CGFX banner parsing, the machine + SVC & IPC HLE |
 | `tools/platform/n3ds/cmd/n3dsdump` | list/extract the cartridge's containers (`-romfs`, `-verify`, `-code`, `-x`) |
 | `tools/platform/n3ds/cmd/bannerdump` | decode the HOME-Menu banner scene (`game.cci`; `-o` writes the CGFX) |
 | `games/super-mario-3d-land-3ds/extract/cmd/webexport` | export the banner to `site/public/.../banner.glb` (`-texdump` writes the decoded PNGs) |

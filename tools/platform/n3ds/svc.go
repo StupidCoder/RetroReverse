@@ -73,7 +73,6 @@ const (
 // Horizon result codes used by the HLE.
 const (
 	resultSuccess uint32 = 0x00000000
-	resultNotImpl uint32 = 0xD8E007F7 // a generic "not implemented" error
 )
 
 // handleSVC is the CPU's SWI hook. Returning true tells the core the call was
@@ -167,7 +166,15 @@ func (m *Machine) handleSVC(c *arm.CPU, comment uint32) bool {
 func (m *Machine) svcControlMemory(c *arm.CPU) {
 	memop := c.R[0]
 	size := (c.R[3] + pageSize - 1) &^ (pageSize - 1)
-	if memop&0xFF != 3 { // MEMOP_ALLOC is 3; FREE/MAP/PROTECT not needed yet
+	switch memop & 0xFF {
+	case 3: // MEMOP_ALLOC — handled below
+	case 1, 4, 6: // MEMOP_FREE / MAP / PROTECT
+		// The HLE's heaps are bump allocators that never reclaim, so a free is a
+		// no-op leak and a map/protect is accepted unchanged. r1 (the mapped
+		// address the caller passed in addr0) is left untouched for a free-check.
+		c.R[0] = resultSuccess
+		return
+	default:
 		c.Halt("svcControlMemory op 0x%X unimplemented at 0x%08X", memop&0xFF, c.PC())
 		return
 	}
@@ -252,21 +259,14 @@ func (m *Machine) svcConnectToPort(c *arm.CPU) {
 	}
 }
 
-// svcSendSyncRequest is the IPC entry point. The command header sits in the
-// thread's TLS command buffer at TLS+0x80. We log the header and the target port,
-// then return an error: servicing srv:/GSP/APT is the next milestone, and a
-// silent fake success would send the runtime down a wrong path. This is the
-// honest stopping point for the current bring-up.
+// svcSendSyncRequest is the IPC entry point: the command header and parameters
+// sit in the calling thread's TLS command buffer at TLS+0x80, addressed by the
+// session handle in r0. It dispatches to the HLE service layer (ipc.go), which
+// writes the reply back into the same buffer. The svc itself succeeds; a service
+// this layer does not implement halts there with the service and command ID.
 func (m *Machine) svcSendSyncRequest(c *arm.CPU) {
-	handle := c.R[0]
-	cmdHdr := m.ReadWord(tlsBase + 0x80)
-	port := m.ports[handle]
-	if m.Verbose {
-		fmt.Printf("  SendSyncRequest handle=0x%08X port=%q cmd=0x%08X\n", handle, port, cmdHdr)
-	}
-	m.lastIPC = ipcRequest{handle: handle, port: port, header: cmdHdr}
-	c.Halt("svcSendSyncRequest to port %q (cmd 0x%08X) — IPC not yet implemented, at 0x%08X after %d instructions",
-		port, cmdHdr, c.PC(), c.Instrs)
+	m.handleIPC(c.R[0])
+	c.R[0] = resultSuccess
 }
 
 // svcGetResourceLimitValues services GetResourceLimitCurrentValues (current==true)
@@ -374,13 +374,6 @@ func svcName(n uint32) string {
 		return s
 	}
 	return fmt.Sprintf("svc_0x%02X", n)
-}
-
-// ipcRequest records the last SendSyncRequest for the oracle to report.
-type ipcRequest struct {
-	handle uint32
-	port   string
-	header uint32
 }
 
 // SVCLog returns the ordered list of supervisor calls made so far.

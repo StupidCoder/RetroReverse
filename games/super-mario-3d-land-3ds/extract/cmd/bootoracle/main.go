@@ -134,6 +134,19 @@ func run(imagePath, stepsStr string, trace bool, tracen int, verbose, svclog boo
 			fmt.Printf("  0x%08X  %s\n", h, name)
 		}
 	}
+	if ipc := m.IPCLog(); len(ipc) > 0 {
+		fmt.Printf("\nIPC requests: %d\n", len(ipc))
+		counts := map[string]int{}
+		for _, e := range ipc {
+			counts[e.Service()]++
+		}
+		for svc, n := range counts {
+			fmt.Printf("  %-10s %d requests\n", svc, n)
+		}
+	}
+	if sub, swp := m.FrameStats(); sub > 0 || swp > 0 {
+		fmt.Printf("\ngraphics: %d GPU command lists submitted, %d frame swaps\n", sub, swp)
+	}
 	if svclog {
 		printSVCSummary(m)
 	}

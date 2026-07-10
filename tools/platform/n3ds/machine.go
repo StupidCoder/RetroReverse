@@ -9,14 +9,15 @@ package n3ds
 // are loaded at the addresses the ExHeader gives; a stack, a growable heap, the
 // kernel→user shared config page and a thread-local-storage page are mapped; and
 // the ARM11 boots at the code entry in User mode. The svc instruction traps to the
-// HLE kernel. It deliberately does not model the GPU, the DSP, the ARM9, or the
-// full Horizon service tree — reaching in-game rendering on the 3DS is a large
-// effort (the srv:/GSP/APT handshake alone is substantial), so this is the
-// first-milestone machine: load the code, run the C runtime, and stop *explicitly*
-// at the first kernel facility not yet implemented rather than diverging silently.
+// HLE kernel (svc.go), and SendSyncRequest into a partial Horizon service tree
+// (ipc.go / ipc_services.go: srv:, APT, GSP, hid, cfg, fs). It deliberately does
+// not model the PICA200 GPU, the DSP or the ARM9 — turning the game's GPU command
+// lists into pixels is a large separate effort — so this is a bring-up machine:
+// run the C runtime and the OS handshake, and stop *explicitly* at the first
+// kernel facility or service command not yet implemented rather than diverging.
 //
-// Every unimplemented supervisor call halts with its number and PC, so a run's
-// reach is always a concrete, honest statement of what has been brought up.
+// Every unimplemented supervisor call or IPC command halts with its identity and
+// PC, so a run's reach is always a concrete, honest statement of what works.
 
 import (
 	"encoding/binary"
@@ -77,8 +78,15 @@ type Machine struct {
 	handles    map[uint32]*kobject
 	nextHandle uint32
 	ports      map[uint32]string // connected port handles → service name
+	services   map[uint32]string // srv:-acquired service handles → service name
 	tick       uint64            // GetSystemTick counter (advanced per step)
 	tpidr      uint32            // TPIDRURW/PRW writable per-thread scratch (CP15)
+
+	// IPC / graphics bring-up.
+	ipcLog          []ipcCall
+	gspShared       uint32 // the GSP shared-memory block handle, once registered
+	framesSubmitted int    // GSP TriggerCmdReqQueue calls (GPU command lists)
+	framesSwapped   int    // GSP SetBufferSwap calls (frames presented)
 
 	// Instrumentation.
 	Trace     bool
@@ -88,7 +96,6 @@ type Machine struct {
 	watches   []watch
 	svcLog    []svcEvent // every supervisor call, in order
 	debugOut  []byte     // svcOutputDebugString text
-	lastIPC   ipcRequest // most recent SendSyncRequest
 	Verbose   bool
 
 	// Metadata pinned into a savestate so it cannot resume into another title.
@@ -153,6 +160,7 @@ func NewMachine(img []byte) (*Machine, error) {
 		handles:    map[uint32]*kobject{},
 		nextHandle: 0x00010000,
 		ports:      map[uint32]string{},
+		services:   map[uint32]string{},
 		bps:        map[uint32]bool{},
 		programID:  cxi.ProgramID,
 		entry:      ex.Text.Address,
