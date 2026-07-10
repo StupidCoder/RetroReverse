@@ -56,6 +56,19 @@ func (b *courseBuilder) quad(img *image.RGBA, p [4]nfs.Vec3) {
 		[3]uint32{idx[0], idx[1], idx[2]}, [3]uint32{idx[0], idx[2], idx[3]})
 }
 
+// hasPartialAlpha reports whether an image carries alpha values strictly
+// between transparent and opaque — such textures (the cel engine's
+// destination-shading pixels, e.g. the chain-link fences) need a BLEND
+// material; a MASK cutout would drop them entirely.
+func hasPartialAlpha(img *image.RGBA) bool {
+	for i := 3; i < len(img.Pix); i += 4 {
+		if a := img.Pix[i]; a != 0 && a != 0xFF {
+			return true
+		}
+	}
+	return false
+}
+
 func exportCourse(a *assets, out string) (string, error) {
 	b := &courseBuilder{index: map[vkey]uint32{}, byTex: map[*image.RGBA][][3]uint32{}}
 
@@ -127,7 +140,7 @@ func exportCourse(a *assets, out string) (string, error) {
 	}
 	var groups []glb.TexturedGroup
 	for _, img := range b.order {
-		groups = append(groups, glb.TexturedGroup{Tris: b.byTex[img], Image: img})
+		groups = append(groups, glb.TexturedGroup{Tris: b.byTex[img], Image: img, Blend: hasPartialAlpha(img)})
 	}
 	file := fmt.Sprintf("models/course-%s.glb", a.course)
 	if err := glb.WriteTextured(filepath.Join(out, file), positions, uvs, groups, nil); err != nil {

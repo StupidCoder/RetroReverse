@@ -197,26 +197,45 @@ func (c *Cel) Image() (*image.RGBA, error) {
 		if x < 0 || x >= c.Width {
 			return
 		}
+		// PDEC (mirrors decodePixel in graphicsfolio.go): resolve the palette
+		// index — the PLUTA bits of the CCB flags extend the short indices at
+		// 1/2/4bpp; at 6bpp bit 5 is the P-bit and at 8bpp bits 5-7 are the
+		// per-pixel AMV shade (the fence cels' rusty wire pattern lives
+		// entirely in that shade — ignoring it rendered them as their one
+		// bright-red palette color).
+		amv := uint32(0x49)
 		var raw uint16 // RGB555 with the P-bit in bit 15
 		if c.Coded {
-			// The PDEC's palette index is the low 5 bits; at 6bpp bit 5 is the
-			// P-bit and at 8bpp the top bits are the AMV shade (not applied
-			// here) — neither is part of the index (opera_madam.c cp6btag/
-			// cp8btag).
-			idx := v
-			if c.BPP >= 6 {
-				idx &= 0x1F
+			var idx uint32
+			var pw uint16
+			switch c.BPP {
+			case 1:
+				idx = (c.Flags&0xF)*2 + (v & 0x1)
+			case 2:
+				idx = (c.Flags&0xE)*2 + (v & 0x3)
+			case 4:
+				idx = (c.Flags&0x8)*2 + (v & 0xF)
+			case 6:
+				idx = v & 0x1F
+				pw = uint16((v>>5)&1) << 15
+			case 8:
+				idx = v & 0x1F
+				amv = (((v>>6)&3)<<1 | (v>>5)&1) * 0x49
+			default:
+				idx = v & 0x1F
 			}
-			if int(idx) < len(c.PLUT) {
-				raw = c.PLUT[idx]
-				if c.BPP == 6 {
-					raw = raw&0x7FFF | uint16(v&0x20)<<10 // P from the pixel
-				}
-			} else if len(c.PLUT) == 0 {
+			if len(c.PLUT) == 0 {
 				// No palette: render the index as grayscale so the shape shows.
 				g := uint8(v * 255 / uint32((1<<c.BPP)-1))
 				img.SetRGBA(x, y, color.RGBA{g, g, g, 0xFF})
 				return
+			}
+			if int(idx) >= len(c.PLUT) {
+				return // out-of-palette index: transparent (decodePixel)
+			}
+			raw = c.PLUT[idx]
+			if c.BPP == 6 {
+				raw = raw&0x7FFF | pw // P from the pixel, not the palette
 			}
 		} else { // uncoded 16bpp literal RGB555
 			raw = uint16(v)
@@ -224,7 +243,10 @@ func (c *Cel) Image() (*image.RGBA, error) {
 		if raw&0x7FFF == 0 && !bgnd {
 			return // resolved black without CCB_BGND: transparent (PDEC)
 		}
-		img.SetRGBA(x, y, rgb555(c.ppmp(raw)))
+		out, alpha := c.ppmp(raw, amv)
+		col := rgb555(out)
+		col.A = alpha
+		img.SetRGBA(x, y, col)
 	}
 
 	if c.Packed {
@@ -235,15 +257,23 @@ func (c *Cel) Image() (*image.RGBA, error) {
 	return img, nil
 }
 
-// ppmp applies the destination-independent part of the pixel processor to one
-// RGB555 pixel (P-bit in bit 15): the P-bit or the CCB's POVER override picks
-// one of PIXC's two PPMP words; the word's first-source multiply/divide,
-// constant second source and final shift then scale the color (blendPixel in
-// graphicsfolio.go is the full engine). Words that need the framebuffer
-// (first source = destination, AMV/self-modulate multipliers, second source =
-// destination/source) pass the color through unchanged — a flat texture
-// export has no destination to blend with.
-func (c *Cel) ppmp(pix uint16) uint16 {
+// ppmp applies the pixel processor to one RGB555 pixel (P-bit in bit 15) as
+// far as a flat texture can: the P-bit or the CCB's POVER override picks one
+// of PIXC's two PPMP words (blendPixel in graphicsfolio.go is the full
+// engine). Returns the color and an alpha:
+//
+//   - Destination-independent words (first source = the cel pixel, second
+//     source absent or a constant) scale the color exactly: constant MF, the
+//     pixel's AMV shade, or self-modulation, then the second source and the
+//     final shift. Alpha 255.
+//   - Destination-SHADING words (first source = the framebuffer) draw nothing
+//     of their own — they multiply what is already there. The track's
+//     chain-link fences are all such pixels: PIXC 0xBF81 with a per-pixel AMV
+//     darkening factor, behind a placeholder bright-red palette entry the
+//     hardware never shows. These become translucent black with
+//     alpha = 1 − (the fraction of the destination that survives), for a
+//     glTF BLEND material to composite the same way.
+func (c *Cel) ppmp(pix uint16, amv uint32) (uint16, uint8) {
 	word := c.PIXC & 0xFFFF
 	switch c.Flags & ccbPOVER {
 	case 0x100: // PMODE_ZERO: force the low word
@@ -255,7 +285,7 @@ func (c *Cel) ppmp(pix uint16) uint16 {
 		}
 	}
 	if word == 0 { // no PIXC recorded (e.g. a synthetic cel): pass through
-		return pix
+		return pix, 0xFF
 	}
 	s1 := word&0x8000 != 0
 	ms := (word >> 13) & 3
@@ -264,21 +294,74 @@ func (c *Cel) ppmp(pix uint16) uint16 {
 	s2 := (word >> 6) & 3
 	avf := (word >> 1) & 0x1F
 	dv2 := word & 1
-	if s1 || ms != 0 || s2 >= 2 {
-		return pix // needs the destination (or a shade value); pass through
+	var dv3 uint32
+	clip := true
+	if c.Flags&0x400 != 0 { // CCB_USEAV: AV carries control signals
+		dv3 = (avf >> 3) & 3
+		clip = avf&4 == 0
+		avf &^= 0x1C
+	}
+	sh1 := (dv1-1)&3 + 1 // PDV
+
+	if s1 {
+		// First source = destination: a shading overlay. Approximate the
+		// fraction of the background that survives and emit translucent
+		// black; a second source of the destination adds to that fraction, a
+		// constant AV adds a flat gray of its own.
+		var frac float64
+		switch ms {
+		case 1:
+			frac = float64((amv&7)+1) / float64(uint32(1)<<sh1)
+		case 2, 3: // self-modulate on the destination: assume mid-brightness
+			frac = float64(16>>2+1) / float64(uint32(1)<<sh1)
+		default:
+			frac = float64(mxf+1) / float64(uint32(1)<<sh1)
+		}
+		var gray uint32
+		switch s2 {
+		case 1:
+			gray = avf >> dv3
+		case 2:
+			frac += 1 / float64(uint32(1)<<dv3)
+		}
+		frac /= float64(uint32(1) << dv2)
+		gray >>= dv2
+		alpha := 1 - frac
+		if alpha < 0 {
+			alpha = 0
+		}
+		if alpha > 1 {
+			alpha = 1
+		}
+		g := uint16(gray)
+		if g > 31 {
+			g = 31
+		}
+		return g<<10 | g<<5 | g, uint8(alpha*255 + 0.5)
+	}
+	if s2 >= 2 {
+		return pix, 0xFF // second source needs the destination; pass through
 	}
 	var second uint32
 	if s2 == 1 {
-		dv3 := uint32(0)
-		if c.Flags&0x400 != 0 { // CCB_USEAV: AV carries control signals
-			dv3 = (avf >> 3) & 3
-			avf &^= 0x1C
-		}
 		second = avf >> dv3
 	}
-	sh1 := ((dv1 - 1) & 3) + 1 // PDV
 	scale := func(ch uint32) uint16 {
-		v := ((ch*(mxf+1))>>sh1 + second) >> dv2
+		var first uint32
+		switch ms {
+		case 1: // AMV: per-channel multiplier from the pixel's shade bits
+			first = (ch * ((amv & 7) + 1)) >> sh1
+		case 2: // pixel self-modulate (multiplier and divide from the channel)
+			first = (ch * ((ch >> 2) + 1)) >> ((ch&3-1)&3 + 1)
+		case 3:
+			first = (ch * ((ch >> 2) + 1)) >> sh1
+		default: // MS=0: constant MF
+			first = (ch * (mxf + 1)) >> sh1
+		}
+		v := (first + second) >> dv2
+		if !clip {
+			return uint16(v & 0x1F)
+		}
 		if v > 31 {
 			v = 31
 		}
@@ -287,7 +370,7 @@ func (c *Cel) ppmp(pix uint16) uint16 {
 	r := scale((uint32(pix) >> 10) & 0x1F)
 	g := scale((uint32(pix) >> 5) & 0x1F)
 	b := scale(uint32(pix) & 0x1F)
-	return r<<10 | g<<5 | b
+	return r<<10 | g<<5 | b, 0xFF
 }
 
 // decodePacked walks the per-line RLE stream. Each line begins with a byte

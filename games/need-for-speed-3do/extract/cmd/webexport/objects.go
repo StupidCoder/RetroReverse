@@ -129,6 +129,7 @@ func writeBillboard(a *assets, def *nfs.ObjectDef, path string) error {
 	groups := []glb.TexturedGroup{{
 		Tris:  [][3]uint32{{0, 1, 2}, {0, 2, 3}},
 		Image: img,
+		Blend: hasPartialAlpha(img),
 	}}
 	return glb.WriteTextured(path, positions, uvs, groups, nil)
 }

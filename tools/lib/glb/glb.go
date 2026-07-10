@@ -429,6 +429,10 @@ type TexturedGroup struct {
 	// WrapS/WrapT are glTF sampler wrap enums (10497 REPEAT, 33071
 	// CLAMP_TO_EDGE, 33648 MIRRORED_REPEAT); zero means CLAMP_TO_EDGE.
 	WrapS, WrapT int
+	// Blend renders the group with alphaMode BLEND instead of the default
+	// MASK cutout — for textures carrying partial alpha (e.g. the 3DO cel
+	// engine's destination-shading pixels baked as translucent black).
+	Blend bool
 }
 
 // addUVs writes a tightly packed VEC2 float32 TEXCOORD accessor.
@@ -535,7 +539,7 @@ func writeTextured(path string, positions [][3]float32, uvs [][2]float32,
 		}
 		prim["attributes"] = attrs
 		prims = append(prims, prim)
-		materials = append(materials, map[string]any{
+		mat := map[string]any{
 			"name": "tex",
 			"pbrMetallicRoughness": map[string]any{
 				"baseColorTexture": map[string]int{"index": len(textures) - 1},
@@ -547,7 +551,12 @@ func writeTextured(path string, positions [][3]float32, uvs [][2]float32,
 			"alphaMode":   "MASK",
 			"alphaCutoff": 0.5,
 			"doubleSided": !g.SingleSided,
-		})
+		}
+		if g.Blend {
+			mat["alphaMode"] = "BLEND"
+			delete(mat, "alphaCutoff")
+		}
+		materials = append(materials, mat)
 	}
 	for _, g := range colorGroups {
 		if len(g.Tris) == 0 {
