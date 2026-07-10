@@ -88,6 +88,9 @@ type ModelIndex struct {
 	// sets) and, where it has been traced, its ocean plane.
 	ObjectsFile string `json:"objectsFile,omitempty"`
 	WaterFile   string `json:"waterFile,omitempty"`
+
+	// An animated model's GLB carries these named glTF clips.
+	Clips []string `json:"clips,omitempty"`
 }
 
 // waterModel names the UVMD resource that is a world's ocean plane, where the
@@ -136,9 +139,10 @@ func main() {
 	// the ordinal-to-file map is only complete once the empty ones are known.
 	uvmdIdx := a.ByType("UVMD")
 	sort.Ints(uvmdIdx)
+	animations := gatherAnimations(a)          // by UVMD ordinal
 	modelFiles := make([]string, len(uvmdIdx)) // by ordinal; "" if not shipped
 	var modelEntries []ModelIndex
-	written, empty := 0, 0
+	written, empty, animated := 0, 0, 0
 	for ord, i := range uvmdIdx {
 		f, err := a.Resource(i)
 		if err != nil {
@@ -153,18 +157,25 @@ func main() {
 			continue
 		}
 		file := fmt.Sprintf("models/uvmd-%04d.glb", i)
-		if err := writeModel(filepath.Join(*out, file), m, texs); err != nil {
+		entry := ModelIndex{File: file, Kind: "mesh3d", Section: "Models"}
+		// A model any UVAN targets ships rigged and animated (a node per part with
+		// rotation clips) instead of one baked static mesh.
+		if anims := animations[ord]; len(anims) > 0 {
+			clips := writeAnimatedModel(filepath.Join(*out, file), m, anims, texs)
+			entry.Clips = clips
+			animated++
+		} else if err := writeModel(filepath.Join(*out, file), m, texs); err != nil {
 			die(fmt.Errorf("UVMD %d: %w", i, err))
 		}
 		modelFiles[ord] = file
-		name := knownModels[i]
-		if name == "" {
-			name = fmt.Sprintf("Model %03d", i)
+		entry.Name = knownModels[i]
+		if entry.Name == "" {
+			entry.Name = fmt.Sprintf("Model %03d", i)
 		}
-		modelEntries = append(modelEntries, ModelIndex{Name: name, File: file, Kind: "mesh3d", Section: "Models"})
+		modelEntries = append(modelEntries, entry)
 		written++
 	}
-	fmt.Printf("%d models written, %d skipped for having no triangles at LOD 0\n", written, empty)
+	fmt.Printf("%d models written (%d animated), %d skipped for having no triangles at LOD 0\n", written, animated, empty)
 
 	// --- worlds, and their sixteen object sets -----------------------------
 	worlds, chunks := loadWorld(a)

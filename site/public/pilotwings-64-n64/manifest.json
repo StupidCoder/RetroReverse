@@ -2125,7 +2125,19 @@
       "name": "Model 218",
       "file": "models/uvmd-0218.glb",
       "kind": "mesh3d",
-      "section": "Models"
+      "section": "Models",
+      "clips": [
+        "clip-00",
+        "clip-01",
+        "clip-02",
+        "clip-03",
+        "clip-04",
+        "clip-05",
+        "clip-06",
+        "clip-07",
+        "clip-08",
+        "clip-09"
+      ]
     },
     {
       "name": "Model 219",
@@ -2149,7 +2161,10 @@
       "name": "Model 222",
       "file": "models/uvmd-0222.glb",
       "kind": "mesh3d",
-      "section": "Models"
+      "section": "Models",
+      "clips": [
+        "clip-00"
+      ]
     },
     {
       "name": "Model 223",
@@ -2491,7 +2506,15 @@
       "name": "Model 279",
       "file": "models/uvmd-0279.glb",
       "kind": "mesh3d",
-      "section": "Models"
+      "section": "Models",
+      "clips": [
+        "clip-00",
+        "clip-01",
+        "clip-02",
+        "clip-03",
+        "clip-04",
+        "clip-05"
+      ]
     },
     {
       "name": "Model 280",
@@ -2509,73 +2532,135 @@
       "name": "Model 282",
       "file": "models/uvmd-0282.glb",
       "kind": "mesh3d",
-      "section": "Models"
+      "section": "Models",
+      "clips": [
+        "clip-00"
+      ]
     },
     {
       "name": "Model 283",
       "file": "models/uvmd-0283.glb",
       "kind": "mesh3d",
-      "section": "Models"
+      "section": "Models",
+      "clips": [
+        "clip-00",
+        "clip-01",
+        "clip-02",
+        "clip-03",
+        "clip-04",
+        "clip-05"
+      ]
     },
     {
       "name": "Model 284",
       "file": "models/uvmd-0284.glb",
       "kind": "mesh3d",
-      "section": "Models"
+      "section": "Models",
+      "clips": [
+        "clip-00"
+      ]
     },
     {
       "name": "Model 285",
       "file": "models/uvmd-0285.glb",
       "kind": "mesh3d",
-      "section": "Models"
+      "section": "Models",
+      "clips": [
+        "clip-00",
+        "clip-01",
+        "clip-02",
+        "clip-03",
+        "clip-04",
+        "clip-05"
+      ]
     },
     {
       "name": "Model 286",
       "file": "models/uvmd-0286.glb",
       "kind": "mesh3d",
-      "section": "Models"
+      "section": "Models",
+      "clips": [
+        "clip-00"
+      ]
     },
     {
       "name": "Model 287",
       "file": "models/uvmd-0287.glb",
       "kind": "mesh3d",
-      "section": "Models"
+      "section": "Models",
+      "clips": [
+        "clip-00",
+        "clip-01",
+        "clip-02",
+        "clip-03",
+        "clip-04",
+        "clip-05"
+      ]
     },
     {
       "name": "Model 288",
       "file": "models/uvmd-0288.glb",
       "kind": "mesh3d",
-      "section": "Models"
+      "section": "Models",
+      "clips": [
+        "clip-00"
+      ]
     },
     {
       "name": "Model 289",
       "file": "models/uvmd-0289.glb",
       "kind": "mesh3d",
-      "section": "Models"
+      "section": "Models",
+      "clips": [
+        "clip-00",
+        "clip-01",
+        "clip-02",
+        "clip-03",
+        "clip-04",
+        "clip-05"
+      ]
     },
     {
       "name": "Model 290",
       "file": "models/uvmd-0290.glb",
       "kind": "mesh3d",
-      "section": "Models"
+      "section": "Models",
+      "clips": [
+        "clip-00"
+      ]
     },
     {
       "name": "Model 291",
       "file": "models/uvmd-0291.glb",
       "kind": "mesh3d",
-      "section": "Models"
+      "section": "Models",
+      "clips": [
+        "clip-00",
+        "clip-01",
+        "clip-02",
+        "clip-03",
+        "clip-04",
+        "clip-05"
+      ]
     },
     {
       "name": "Model 292",
       "file": "models/uvmd-0292.glb",
       "kind": "mesh3d",
-      "section": "Models"
+      "section": "Models",
+      "clips": [
+        "clip-00"
+      ]
     },
     {
       "name": "Model 293",
       "file": "models/uvmd-0293.glb",
       "kind": "mesh3d",
-      "section": "Models"
+      "section": "Models",
+      "clips": [
+        "clip-00",
+        "clip-01"
+      ]
     },
     {
       "name": "Model 294",
@@ -2629,7 +2714,12 @@
       "name": "Model 302",
       "file": "models/uvmd-0302.glb",
       "kind": "mesh3d",
-      "section": "Models"
+      "section": "Models",
+      "clips": [
+        "clip-00",
+        "clip-01",
+        "clip-02"
+      ]
     },
     {
       "name": "Model 303",
@@ -2653,7 +2743,11 @@
       "name": "Model 306",
       "file": "models/uvmd-0306.glb",
       "kind": "mesh3d",
-      "section": "Models"
+      "section": "Models",
+      "clips": [
+        "clip-00",
+        "clip-01"
+      ]
     },
     {
       "name": "Model 307",
@@ -2665,7 +2759,11 @@
       "name": "Model 308",
       "file": "models/uvmd-0308.glb",
       "kind": "mesh3d",
-      "section": "Models"
+      "section": "Models",
+      "clips": [
+        "clip-00",
+        "clip-01"
+      ]
     },
     {
       "name": "Model 309",
@@ -2713,43 +2811,65 @@
       "name": "Model 316",
       "file": "models/uvmd-0316.glb",
       "kind": "mesh3d",
-      "section": "Models"
+      "section": "Models",
+      "clips": [
+        "clip-00"
+      ]
     },
     {
       "name": "Model 317",
       "file": "models/uvmd-0317.glb",
       "kind": "mesh3d",
-      "section": "Models"
+      "section": "Models",
+      "clips": [
+        "clip-00"
+      ]
     },
     {
       "name": "Model 318",
       "file": "models/uvmd-0318.glb",
       "kind": "mesh3d",
-      "section": "Models"
+      "section": "Models",
+      "clips": [
+        "clip-00"
+      ]
     },
     {
       "name": "Model 319",
       "file": "models/uvmd-0319.glb",
       "kind": "mesh3d",
-      "section": "Models"
+      "section": "Models",
+      "clips": [
+        "clip-00"
+      ]
     },
     {
       "name": "Model 320",
       "file": "models/uvmd-0320.glb",
       "kind": "mesh3d",
-      "section": "Models"
+      "section": "Models",
+      "clips": [
+        "clip-00"
+      ]
     },
     {
       "name": "Model 321",
       "file": "models/uvmd-0321.glb",
       "kind": "mesh3d",
-      "section": "Models"
+      "section": "Models",
+      "clips": [
+        "clip-00"
+      ]
     },
     {
       "name": "Model 322",
       "file": "models/uvmd-0322.glb",
       "kind": "mesh3d",
-      "section": "Models"
+      "section": "Models",
+      "clips": [
+        "clip-00",
+        "clip-01"
+      ]
     },
     {
       "name": "Model 323",
@@ -2767,61 +2887,103 @@
       "name": "Model 325",
       "file": "models/uvmd-0325.glb",
       "kind": "mesh3d",
-      "section": "Models"
+      "section": "Models",
+      "clips": [
+        "clip-00",
+        "clip-01"
+      ]
     },
     {
       "name": "Model 326",
       "file": "models/uvmd-0326.glb",
       "kind": "mesh3d",
-      "section": "Models"
+      "section": "Models",
+      "clips": [
+        "clip-00",
+        "clip-01"
+      ]
     },
     {
       "name": "Model 327",
       "file": "models/uvmd-0327.glb",
       "kind": "mesh3d",
-      "section": "Models"
+      "section": "Models",
+      "clips": [
+        "clip-00"
+      ]
     },
     {
       "name": "Model 328",
       "file": "models/uvmd-0328.glb",
       "kind": "mesh3d",
-      "section": "Models"
+      "section": "Models",
+      "clips": [
+        "clip-00"
+      ]
     },
     {
       "name": "Model 329",
       "file": "models/uvmd-0329.glb",
       "kind": "mesh3d",
-      "section": "Models"
+      "section": "Models",
+      "clips": [
+        "clip-00"
+      ]
     },
     {
       "name": "Model 330",
       "file": "models/uvmd-0330.glb",
       "kind": "mesh3d",
-      "section": "Models"
+      "section": "Models",
+      "clips": [
+        "clip-00",
+        "clip-01",
+        "clip-02"
+      ]
     },
     {
       "name": "Model 331",
       "file": "models/uvmd-0331.glb",
       "kind": "mesh3d",
-      "section": "Models"
+      "section": "Models",
+      "clips": [
+        "clip-00",
+        "clip-01",
+        "clip-02"
+      ]
     },
     {
       "name": "Model 332",
       "file": "models/uvmd-0332.glb",
       "kind": "mesh3d",
-      "section": "Models"
+      "section": "Models",
+      "clips": [
+        "clip-00",
+        "clip-01",
+        "clip-02"
+      ]
     },
     {
       "name": "Model 333",
       "file": "models/uvmd-0333.glb",
       "kind": "mesh3d",
-      "section": "Models"
+      "section": "Models",
+      "clips": [
+        "clip-00",
+        "clip-01",
+        "clip-02"
+      ]
     },
     {
       "name": "Model 334",
       "file": "models/uvmd-0334.glb",
       "kind": "mesh3d",
-      "section": "Models"
+      "section": "Models",
+      "clips": [
+        "clip-00",
+        "clip-01",
+        "clip-02"
+      ]
     },
     {
       "name": "Model 335",
@@ -2833,49 +2995,82 @@
       "name": "Model 336",
       "file": "models/uvmd-0336.glb",
       "kind": "mesh3d",
-      "section": "Models"
+      "section": "Models",
+      "clips": [
+        "clip-00",
+        "clip-01",
+        "clip-02"
+      ]
     },
     {
       "name": "Model 337",
       "file": "models/uvmd-0337.glb",
       "kind": "mesh3d",
-      "section": "Models"
+      "section": "Models",
+      "clips": [
+        "clip-00",
+        "clip-01"
+      ]
     },
     {
       "name": "Model 338",
       "file": "models/uvmd-0338.glb",
       "kind": "mesh3d",
-      "section": "Models"
+      "section": "Models",
+      "clips": [
+        "clip-00",
+        "clip-01",
+        "clip-02"
+      ]
     },
     {
       "name": "Model 339",
       "file": "models/uvmd-0339.glb",
       "kind": "mesh3d",
-      "section": "Models"
+      "section": "Models",
+      "clips": [
+        "clip-00",
+        "clip-01"
+      ]
     },
     {
       "name": "Model 340",
       "file": "models/uvmd-0340.glb",
       "kind": "mesh3d",
-      "section": "Models"
+      "section": "Models",
+      "clips": [
+        "clip-00",
+        "clip-01"
+      ]
     },
     {
       "name": "Model 341",
       "file": "models/uvmd-0341.glb",
       "kind": "mesh3d",
-      "section": "Models"
+      "section": "Models",
+      "clips": [
+        "clip-00",
+        "clip-01"
+      ]
     },
     {
       "name": "Model 342",
       "file": "models/uvmd-0342.glb",
       "kind": "mesh3d",
-      "section": "Models"
+      "section": "Models",
+      "clips": [
+        "clip-00",
+        "clip-01"
+      ]
     },
     {
       "name": "Model 343",
       "file": "models/uvmd-0343.glb",
       "kind": "mesh3d",
-      "section": "Models"
+      "section": "Models",
+      "clips": [
+        "clip-00"
+      ]
     },
     {
       "name": "Model 344",
@@ -2935,37 +3130,55 @@
       "name": "Model 353",
       "file": "models/uvmd-0353.glb",
       "kind": "mesh3d",
-      "section": "Models"
+      "section": "Models",
+      "clips": [
+        "clip-00"
+      ]
     },
     {
       "name": "Model 354",
       "file": "models/uvmd-0354.glb",
       "kind": "mesh3d",
-      "section": "Models"
+      "section": "Models",
+      "clips": [
+        "clip-00"
+      ]
     },
     {
       "name": "Model 355",
       "file": "models/uvmd-0355.glb",
       "kind": "mesh3d",
-      "section": "Models"
+      "section": "Models",
+      "clips": [
+        "clip-00"
+      ]
     },
     {
       "name": "Model 356",
       "file": "models/uvmd-0356.glb",
       "kind": "mesh3d",
-      "section": "Models"
+      "section": "Models",
+      "clips": [
+        "clip-00"
+      ]
     },
     {
       "name": "Model 357",
       "file": "models/uvmd-0357.glb",
       "kind": "mesh3d",
-      "section": "Models"
+      "section": "Models",
+      "clips": [
+        "clip-00"
+      ]
     },
     {
       "name": "Model 358",
       "file": "models/uvmd-0358.glb",
       "kind": "mesh3d",
-      "section": "Models"
+      "section": "Models",
+      "clips": [
+        "clip-00"
+      ]
     },
     {
       "name": "Model 359",

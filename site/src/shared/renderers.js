@@ -79,10 +79,14 @@ export async function placeObjects({ objects, base, stage }) {
 
 // Builtin `mesh3d`: load a plain GLB (base + item.file), drop its scene onto the stage, fit the
 // camera to it, and hand it back. If the item carries an object layer (`objects[]` inline or an
-// `objectsFile`), place it too via placeObjects. If the GLB carries animations (the 3DS banner's
-// baked bone tracks), a mixer plays them all on loop, composed onto stage.onFrame so it stacks
-// with any other per-frame updaters. The default renderer.render(scene, camera) draws everything
-// (the plugin installs no stage.render), so it uses the stage's ordinary pipeline.
+// `objectsFile`), place it too via placeObjects.
+//
+// If the GLB carries animations, a mixer plays ONE clip on loop (a model with several clips —
+// Pilotwings pilots have up to ten — would tear if they all drove the same nodes at once),
+// composed onto stage.onFrame so it stacks with any other per-frame updater. When there is more
+// than one clip the stage gets a `cycleClip()` the Studio can wire to a control; the HUD names the
+// current clip. The default renderer.render(scene, camera) draws everything, so it uses the stage's
+// ordinary pipeline.
 export const mesh3d = {
   kind: 'mesh3d',
   async build({ item, base, stage }) {
@@ -90,11 +94,36 @@ export const mesh3d = {
     const obj = gltf.scene;
     stage.add(obj);
     stage.frame(obj);
-    if (gltf.animations?.length) {
+    const clips = gltf.animations || [];
+    if (clips.length) {
       const mixer = new THREE.AnimationMixer(obj);
-      for (const clip of gltf.animations) mixer.clipAction(clip).play();
+      let cur = -1;
+      const play = (i) => {
+        i = ((i % clips.length) + clips.length) % clips.length;
+        if (i === cur) return;
+        mixer.stopAllAction();
+        mixer.clipAction(clips[i]).reset().play();
+        cur = i;
+        stage.hud = clips.length > 1 ? `${item.name} · ${clips[i].name} (${i + 1}/${clips.length}) · click to cycle` : null;
+      };
+      play(0);
       const prev = stage.onFrame;
       stage.onFrame = (camPos, dt) => { if (prev) prev(camPos, dt); mixer.update(dt); };
+      if (clips.length > 1) {
+        stage.cycleClip = () => play(cur + 1);
+        // Click (not drag) anywhere on the model to advance to the next clip.
+        const canvas = stage.canvas;
+        let dx = 0, dy = 0;
+        const down = (e) => { dx = e.clientX; dy = e.clientY; };
+        const up = (e) => { if (Math.hypot(e.clientX - dx, e.clientY - dy) <= 5) play(cur + 1); };
+        canvas.addEventListener('pointerdown', down);
+        canvas.addEventListener('pointerup', up);
+        stage.disposePlugin = () => {
+          canvas.removeEventListener('pointerdown', down);
+          canvas.removeEventListener('pointerup', up);
+          stage.cycleClip = null;
+        };
+      }
     }
     const objects = await resolveObjects(item, base);
     if (objects.length) await placeObjects({ objects, base, stage });

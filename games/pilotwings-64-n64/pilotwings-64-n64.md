@@ -990,3 +990,60 @@ carries the blur amount** (38 at the rim to 153 at the hub; the tail discs sit a
 126). Current curation, by draw-group index: title scene — ocean 0-1, sky 2-5, island 6-16,
 feather 17, wing 18, letters 19, "6" 20-21, "4" 22-23; flyby scene — gyro A 17-29+44-45,
 gyro B 30-43+46-47.
+
+## Part VII — animation: from `UVAN` into glTF
+
+`UVAN` gives, per part of a target model, a quaternion at each frame (Part IV). Turning that into a
+playable glTF meant answering one question the format does not: **how does a quaternion become a
+part's pose?** That is not in the archive — it is in the engine — so it was traced.
+
+### How the game poses a part
+
+The apply loop is at `0x80200638`. It walks a model's parts, and for each one:
+
+```
+lw   a1, 0(s0) ; lw a2, 4(s0) ; lw a3, 8(s0) ; lwc1 f4, 12(s0)   ; the part's quaternion x,y,z,w
+jal  0x8020FA54                                                   ; copy the part's REST matrix into a scratch
+jal  0x80229D78                                                  ; overwrite its 3x3 with the quaternion's rotation
+jal  0x80216E08                                                  ; store the result as part index (400(s0))'s matrix
+```
+
+Three facts fall out, each checkable:
+
+- **The quaternion→matrix routine `0x80229D78` is the standard formula** — `m00 = 1 − 2(y²+z²)`,
+  `m01 = 2(xy − zw)`, and so on — written row-major, with the quaternion in `(x, y, z, w)` order.
+  That is glTF's own convention, so the keys need no reinterpretation.
+- **The rest pose is pure translation.** Every rest matrix of every animated model has an identity
+  3×3 (checked: all parts of all 49 targets). So a part's rest pose is just its pivot position, and
+  the apply *replaces* the rotation outright rather than composing with a rest rotation.
+- **There is no hierarchy.** The loop concatenates no parent matrix; each part's matrix is
+  `rotation(quaternion)` with the rest translation, stored independently. The parts are rigid
+  pieces — each owns a contiguous slice of the vertex pool (checked: one shared vertex across
+  model 211's 13 parts) — rotated about their own pivots. A pilot's elbow does not follow its
+  shoulder; the animations are authored for rigid parts.
+
+That last point is why this is exportable at all without a skin: **one glTF node per part**,
+translation at the pivot, an animated rotation, all siblings under a root.
+
+### The export
+
+`extract/cmd/webexport` writes a model any `UVAN` targets as a rigged, animated GLB
+(`glb.WriteRiggedAnimated`) instead of a single baked mesh: a node per part carrying that part's
+part-local triangles, and one glTF animation per `UVAN`, a rotation channel per animated part.
+**49 models, with one to ten clips each** (the pilots carry ten — idle, and the postures for each
+vehicle).
+
+Two coordinate facts meet in the quaternion. The game is Z-up and glTF Y-up, joined by
+`B: (x,y,z) → (x,z,−y)` (a −90° rotation about X). A vertex the game rotates by `q` about a pivot
+must, in the new basis, rotate by the same rotation re-expressed there: `q' = b ⊗ q ⊗ b⁻¹`, with
+`b` the quaternion of `B`; the node translation is `B` applied to the pivot. Worked through, the
+glTF node reproduces the game's transform exactly, and the bind pose (identity rotation) is
+`toGL(rest·vertex)` — bit-identical to the static export, because `toGL` is linear. The one bit a
+sign error would flip — the handedness — is pinned by a test: a game rotation about the up axis
+(Z) must come out a glTF rotation about the up axis (Y).
+
+What is *not* decoded is the playback rate. The `UVAN` header's rate word is 1 for all but six
+resources, and the timeword's low half (the per-key interpolation parameter) is unidentified, so
+the export plays keys at a chosen 12 fps — a presentation choice, stated as one, not a measured
+value. The Studio plays one clip on a loop and cycles to the next on a click (a pilot with ten
+postures would tear if all ten drove the same nodes at once).
