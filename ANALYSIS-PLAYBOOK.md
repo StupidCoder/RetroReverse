@@ -515,6 +515,68 @@ for on any unknown format:
   whole hypothesis families for free (and conversely, an artefact the real
   console shows that *requires* interleaving is evidence about where the model
   diverges from hardware).
+- **A systematic failure across a file family is one misread field, not N broken
+  files — and the failing values themselves say what you misread.** Need for
+  Speed's ~14 traffic cars all failed with "no PLUT chunk" while every player car
+  decoded; the offending offset fields all began `0xFF…`. A high byte of 0xFF in
+  an offset is the classic tell for a **signed** field read as unsigned — the
+  24-bit PLUT offsets are s24, and the negative ones point *backwards* at a
+  shared palette chunk. The prior session had instead hypothesised an "external
+  palette" variant, confidently and wrongly; a minutes-long side-by-side hexdump
+  of the failing records killed the theory before any code was written on it.
+  And the *proof* of signedness sits in the consumer's own arithmetic: the
+  constructor reads the field with `MOVS r2, r0, LSL #8 … ADD r9, r9, r2, ASR #8`
+  — a shift-up/arithmetic-shift-down pair over the field width is the code
+  declaring "signed 24-bit, relative to this base" as plainly as a struct
+  definition. Read shifts as type declarations: the mask gives the width, ASR
+  gives the sign, the ADD's other operand gives the base.
+- **Track each LDM/STM register to its byte offset before naming a field.** ARM
+  block moves store ascending registers at ascending addresses around pre/post
+  writeback, and one bookkeeping slip mislabels a struct slot and every claim
+  built on it: the cel constructor's `lr` was first written up as "the palette
+  pointer"; reconstructing the actual store arithmetic put it at +0x30 — the
+  **PIXC** slot — turning "global recolour palette" into "global pixel-processor
+  word" and relocating the real recolour mechanism entirely. When a semantic
+  claim rests on which register lands where, compute every store address
+  explicitly (walk the `SUB`/`STMDB r5!` sequence to concrete offsets), treat
+  field identifications from register flow as provisional until a *consumer* of
+  the field confirms the meaning, and when a later symptom contradicts the
+  story, re-derive the register map before defending the story.
+- **When constructor code LDMs a template from the literal pool, dump the
+  template — those defaults live in no file.** The SPoT cel constructor stamps
+  every cel from 13 static words reached via its own literal (`LDR r4,
+  [pc, #-0x10]` → base 0x47314): the block held both PIXC words (pass-through
+  0x1F001F00; per-pixel-AMV 0x3F003F00 for the 8bpp types) and the CCB flags —
+  values that decide how every texture renders yet appear in no asset file, so
+  no amount of file-format staring finds them. Pin them in the decoder as
+  constants with provenance (the address and the instruction that loads them),
+  exactly like a bpp table.
+- **A recurring artefact means a rule fixed in one decoder is missing from
+  another — unify the paths so the class dies once.** The "white speckles" the
+  user flagged on car windows were the *identical* bug fixed earlier on road
+  textures (PIXC not applied), alive in a second, hand-rolled pixel walk. Pixel
+  semantics accumulate (PDEC transparency, PIXC/PPMP scaling, per-pixel AMV,
+  PLUT index widths), and every private reimplementation of the same pixel
+  format silently misses the rules added after it was written. The durable fix
+  was not "apply PIXC here too" but deleting the private walk and routing the
+  asset decoder through the platform's one Cel implementation — after which the
+  next rule lands everywhere at once. Writing a second decoder for a pixel
+  format the platform library already decodes is the smell.
+- **Predict a refactor's diff footprint, then read `git status` on regenerated
+  outputs as the regression harness.** The committed exports are a golden corpus
+  you already have: rewriting the SPoT decoder through the shared cel engine
+  came with a prediction — "only the type-5/0x85 files change (AMV newly
+  applied); all player cars byte-identical" — and the regenerated tree showed
+  exactly the 15 traffic files modified and nothing else. A footprint that
+  matches the prediction is strong evidence at zero tooling cost; any change
+  *outside* the predicted set means the refactor is wrong even if every render
+  still "looks fine". (Requires deterministic exporters — see §5.)
+- **The disc names its own content — use it.** Display names for exported
+  assets should come from the medium (menu strings, and failing that the game's
+  *own asset filenames*: NFS's course names were pinned by its announcer audio
+  files `CITY/COASTAL/ALPINE.22k.mw.aif`), not from remembering the game —
+  recalled names are both a clean-room leak and a proven error source (Super
+  Mario 64 DS shipped wrong guessed level names once).
 
 ---
 
@@ -666,6 +728,20 @@ oracle and bake it as a **documented constant** — Ridge Racer's start camera a
 the gyrocopters' attract poses are a few dozen numbers with a provenance note, not
 an emulator in the export path. State explicitly, in the writeup, which category
 each remaining dependency is in.
+
+There is a rung above the baked constant: **re-express the capture as a
+derivation from on-medium data, validated by reproducing the capture.** A
+runtime value is often a *function* of data you have already decoded, with a few
+fixed offsets — and one ground-truth capture is enough to calibrate them. Need
+for Speed's grid camera was captured once from the running game (City 1); read
+against the decoded track spline it resolved to "segment 16, 2.10 m right of the
+centreline, 0.94 m up, looking 40 m down the heading". That formula reproduces
+the captured camera to 4 mm — the validation gate — and then generalises to all
+nine courses with no further captures, so the exporter stays pure file decode.
+The test for whether this rung is reachable: is the captured value plausibly
+computed by the game *from* medium data (a position on a spline, a colour from a
+palette), or is it genuine accumulated runtime state (a physics pose mid-attract)?
+Calibrate the former; bake the latter.
 
 ---
 
