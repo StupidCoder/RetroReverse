@@ -144,8 +144,9 @@ func TestQueueResumesAtCurrentNotStart(t *testing.T) {
 	}
 }
 
-// A command whose last word has not been appended yet must not run, and must be
-// picked up once DPC_END moves past it.
+// A command whose last word has not been appended yet must not run, and must
+// run exactly once when DPC_END moves past it. Its first word is held in the
+// pending buffer meanwhile.
 func TestPartiallyAppendedCommandWaits(t *testing.T) {
 	m := newRDPTest(t, cycleFill)
 	const base = 0x3000
@@ -161,9 +162,46 @@ func TestPartiallyAppendedCommandWaits(t *testing.T) {
 	if seen != 0 {
 		t.Fatal("a half-appended command was executed")
 	}
-	if m.dp[dpCurrent] != base {
-		t.Errorf("DPC_CURRENT = %08X, want it left before the incomplete command (%08X)",
-			m.dp[dpCurrent], base)
+	if len(m.rdp.Pending) != 1 {
+		t.Errorf("pending buffer holds %d words, want the command's first word", len(m.rdp.Pending))
+	}
+	m.dpWrite(dpRegBase+dpEnd, base+16) // the rest of it
+	if seen != 1 {
+		t.Errorf("after completion the command ran %d times, want once", seen)
+	}
+}
+
+// The fifo microcode splits commands across buffer wraps: a command's first
+// word arrives as the last word of one segment, DPC_START is rewritten, and
+// the tail continues at the new segment's base. The RDP consumes a continuous
+// word stream, so the command must still execute — Pilotwings' title card is
+// the witness (a Texture_Rectangle split exactly this way every few frames).
+func TestCommandSplitAcrossSegments(t *testing.T) {
+	m := newRDPTest(t, cycleFill)
+	const segA, segB = 0x3000, 0x5000
+	// Word 0 of a Texture_Rectangle at the end of segment A...
+	for i := uint32(0); i < 8; i++ {
+		m.RDRAM[segA+i] = byte(uint64(cmdTexRect) << 56 >> (56 - 8*i))
+	}
+	// ...and word 1 (s/t/dsdx/dtdy) at the start of segment B.
+	m.RDRAM[segB] = 0x20
+
+	var got []uint64
+	m.OnRDPCmd = func(_ *Machine, op uint32, words []uint64) {
+		if op == cmdTexRect {
+			got = append(got, words...)
+		}
+	}
+
+	m.dpWrite(dpRegBase+dpStart, segA)
+	m.dpWrite(dpRegBase+dpEnd, segA+8) // segment A ends mid-command
+	m.dpWrite(dpRegBase+dpStart, segB)
+	m.dpWrite(dpRegBase+dpEnd, segB+8) // segment B carries the tail
+	if len(got) != 2 {
+		t.Fatalf("split texture rectangle ran with %d words, want 2", len(got))
+	}
+	if got[1]>>56 != 0x20 {
+		t.Errorf("second word %016X, want the tail from the new segment", got[1])
 	}
 }
 

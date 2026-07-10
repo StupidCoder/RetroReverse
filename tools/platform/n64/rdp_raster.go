@@ -160,6 +160,11 @@ func (m *Machine) texRect(w []uint64, flip bool) {
 		// and t across it.
 		dsdx, dtdy = dtdy, dsdx
 	}
+	// COPY mode moves four texels per clock, and the encoded step is for the
+	// group: a 1:1 blit says dsdx=4.0. Per pixel that is a quarter of it.
+	if ct == cycleCopy {
+		dsdx >>= 2
+	}
 
 	cxh, cyh, cxl, cyl, ok := r.clip(xh, yh, xl+1, yl+1)
 	if !ok {
@@ -172,8 +177,13 @@ func (m *Machine) texRect(w []uint64, flip bool) {
 	for y := cyh; y < cyl; y++ {
 		tv := t0 + dtdy*int32(y-yh)/32
 		for x := cxh; x < cxl; x++ {
+			// The step product is 5.10; dropping five fraction bits leaves the
+			// 10.5 the sampler takes. The coordinate itself stays 10.5 — it was
+			// being shifted a second time on the way in, which read texel n/32
+			// instead of texel n and smeared every rectangle into its corner
+			// texel.
 			sv := s0 + dsdx*int32(x-xh)/32
-			texel, ok := m.sample(tile, sv>>5, tv>>5)
+			texel, ok := m.sample(tile, sv, tv)
 			if !ok {
 				return
 			}
@@ -198,7 +208,7 @@ func (m *Machine) texRect(w []uint64, flip bool) {
 			in := combineInputs{
 				Texel0: texel, Texel1: texel, Prim: prim, Env: env,
 				Shade: rgba{255, 255, 255, 255},
-				texS:  sv >> 5, texT: tv >> 5,
+				texS:  sv, texT: tv,
 			}
 			m.drawPixel(x, y, &in, 0, false)
 			if m.CPU.Halted {
@@ -220,7 +230,6 @@ func (m *Machine) loadBlock(w uint64) {
 	tl := uint32(w >> 32 & 0xFFF)
 	sh := uint32(w >> 12 & 0xFFF)
 	dxt := uint32(w & 0xFFF)
-	_ = dxt // the interleave applied to successive rows; not modelled
 
 	t := &r.Tiles[tileIdx]
 	bpt := texelBytes(r.Texture.Size)
@@ -232,12 +241,26 @@ func (m *Machine) loadBlock(w uint64) {
 	n := (sh - sl + 1) * bpt
 	dst := t.TMem * 8
 	for i := uint32(0); i < n && dst+i < 4096; i++ {
-		if int(src+i) < len(m.RDRAM) {
-			r.TMem[dst+i] = m.RDRAM[src+i]
+		if int(src+i) >= len(m.RDRAM) {
+			continue
 		}
-	}
-	if dxt != 0 {
-		m.note("RDP: Load_Block with dxt=%d (row interleave is not modelled)", dxt)
+		// dxt is the per-64-bit-word increment of a 1.11 row counter: it tells
+		// the loader when the copy crosses into the next texture row, and the
+		// hardware swaps the 32-bit halves of every odd row's words as they
+		// land. The sampler swaps them back (swizzle in rdp_texture.go). With
+		// dxt=0 the whole load is one "row", nothing is swapped, and a texture
+		// authored pre-swizzled reads back through the sampler's swap — which
+		// is how this game ships most of its textures.
+		d := dst + i
+		if dxt != 0 {
+			word := i / 8
+			if word*dxt>>11&1 != 0 {
+				d = dst + (i &^ 7) + ((i & 7) ^ 4)
+			}
+		}
+		if d < 4096 {
+			r.TMem[d] = m.RDRAM[src+i]
+		}
 	}
 }
 
@@ -261,8 +284,17 @@ func (m *Machine) loadTile(w uint64) {
 		dst := t.TMem*8 + (row-tl)*t.Line*8
 		n := (sh - sl + 1) * bpt
 		for i := uint32(0); i < n && dst+i < 4096; i++ {
-			if int(src+i) < len(m.RDRAM) {
-				r.TMem[dst+i] = m.RDRAM[src+i]
+			if int(src+i) >= len(m.RDRAM) {
+				continue
+			}
+			// Rows land in TMEM with the same odd-row word swap Load_Block
+			// applies; the sampler undoes it.
+			d := dst + i
+			if (row-tl)&1 != 0 {
+				d = dst + (i &^ 7) + ((i & 7) ^ 4)
+			}
+			if d < 4096 {
+				r.TMem[d] = m.RDRAM[src+i]
 			}
 		}
 	}

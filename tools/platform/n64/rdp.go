@@ -164,6 +164,14 @@ type rdp struct {
 
 	Tiles [8]tile
 	TMem  [4096]byte
+
+	// Pending holds the words of a command whose tail has not been handed
+	// over yet. The RDP consumes a continuous stream of 64-bit words, and the
+	// fifo microcode will happily split one command across a buffer wrap: the
+	// first word arrives as the last of one segment, DPC_START is rewritten,
+	// and the rest continues at the buffer base. A drain that re-parsed at the
+	// new CURRENT would read a command's middle as an opcode.
+	Pending []uint64
 }
 
 // cycleType extracts the pipeline mode from Set_Other_Modes.
@@ -212,34 +220,30 @@ func (m *Machine) runRDP() {
 		return binary.BigEndian.Uint64(m.RDRAM[addr:])
 	}
 
+	// Words are consumed one at a time into the pending command, which runs
+	// when complete. CURRENT advances per word, so a command split across a
+	// segment boundary picks its tail up wherever the next segment begins.
+	r := &m.rdp
 	for addr := start; addr < end; {
-		w0 := read64(addr)
-		op := uint32(w0 >> 56 & 0x3F)
-		n := cmdLen(op)
+		r.Pending = append(r.Pending, read64(addr))
+		addr += 8
+		m.dp[dpCurrent] = addr
+		m.rdpWords++
 
-		// A command only partly appended is not yet ours to run: leave CURRENT
-		// before it and pick it up when END moves past its last word.
-		if addr+uint32(n)*8 > end {
-			m.dp[dpCurrent] = addr
-			return
+		op := uint32(r.Pending[0] >> 56 & 0x3F)
+		if len(r.Pending) < cmdLen(op) {
+			continue
 		}
-		words := make([]uint64, n)
-		for i := 0; i < n; i++ {
-			words[i] = read64(addr + uint32(i)*8)
-		}
-		addr += uint32(n) * 8
-		m.rdpWords += uint64(n)
-
+		words := r.Pending
+		r.Pending = nil
 		if m.OnRDPCmd != nil {
 			m.OnRDPCmd(m, op, words)
 		}
 		m.execRDP(op, words)
-		m.dp[dpCurrent] = addr
 		if m.CPU.Halted {
 			return
 		}
 	}
-	m.dp[dpCurrent] = end
 }
 
 func cmdNameOf(op uint32) string {
