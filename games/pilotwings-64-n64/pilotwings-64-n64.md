@@ -106,3 +106,13 @@ triangles apiece in one static logo-cluster group — their matrix and vertex by
 between snapshot and run, both positions show rendered geometry in the frame, and they look like
 near-duplicate draws pairing off against each other. Unexplained; dlverify exits non-zero on
 them deliberately so the question stays visible.
+
+The G_TEXTURE fix re-cut the export curation: the PILOTWINGS letters are **vertex-coloured**,
+not textured (their 1,464 triangles draw with texturing off; only the emblem wing samples the
+`041820` gradient), so the earlier letters GLB carried a texture the game never applied to them.
+The rotor-blur discs and the island's surf decal render through the blender — `FORCE_BL`
+(0x4000) in othermode-L, mapped to glTF `alphaMode: BLEND` — and the discs' **vertex alpha
+carries the blur amount** (38 at the rim to 153 at the hub; the tail discs sit at a constant
+126). Current curation, by draw-group index: title scene — ocean 0-1, sky 2-5, island 6-16,
+feather 17, wing 18, letters 19, "6" 20-21, "4" 22-23; flyby scene — gyro A 17-29+44-45,
+gyro B 30-43+46-47.

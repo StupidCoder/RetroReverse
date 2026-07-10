@@ -28,9 +28,9 @@ import (
 )
 
 type dma struct {
-	field       int
-	dram, cart  uint32
-	length      uint32
+	field      int
+	dram, cart uint32
+	length     uint32
 }
 
 func main() {

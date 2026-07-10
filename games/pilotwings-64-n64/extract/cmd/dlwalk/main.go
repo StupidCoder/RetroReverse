@@ -54,9 +54,18 @@ group's matrix, so an articulated model reassembles from its parts.`)
 		if g.TexGen {
 			flags += " texgen"
 		}
-		fmt.Printf("  %-40s tex=%06X %4d verts %4d tris  T=(%8.1f %8.1f %8.1f)%s\n",
+		aMin, aMax := 255, 0
+		for _, v := range g.Verts {
+			if int(v.A) < aMin {
+				aMin = int(v.A)
+			}
+			if int(v.A) > aMax {
+				aMax = int(v.A)
+			}
+		}
+		fmt.Printf("  %-40s tex=%06X %4d verts %4d tris  T=(%8.1f %8.1f %8.1f) om=%08X a=%d..%d%s\n",
 			g.Name, g.TexImg, len(g.Verts), len(g.Faces),
-			g.Mtx[3][0], g.Mtx[3][1], g.Mtx[3][2], flags)
+			g.Mtx[3][0], g.Mtx[3][1], g.Mtx[3][2], g.OtherL, aMin, aMax, flags)
 	}
 
 	if *objDir != "" {

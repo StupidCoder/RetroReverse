@@ -55,6 +55,10 @@ func (w *Walker) WriteObject(dir, name string, gs []*Group) {
 			Tris: tris, Image: img,
 			WrapS: wrapMode(g.Tile.CmS, g.Tile.MaskS),
 			WrapT: wrapMode(g.Tile.CmT, g.Tile.MaskT),
+			// FORCE_BL in the render mode is the game's translucency: the
+			// rotor-blur discs (vertex alpha 38..153 carrying the blur
+			// amount) and the surf decals render through the blender.
+			Blend: g.OtherL&OMForceBlend != 0,
 		})
 	}
 
