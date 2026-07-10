@@ -37,7 +37,9 @@ type Cel struct {
 // bppFromPRE0 maps the 3-bit PRE0 bpp field to bits per pixel.
 var bppFromPRE0 = map[uint32]int{1: 1, 2: 2, 3: 4, 4: 6, 5: 8, 6: 16}
 
-const ccbPacked = 0x00000200 // CCB flag bit 9: packed source data
+// CCB flag bit 9: packed source data. (ccbCCBPre and the other CCB flag bits
+// are defined in graphicsfolio.go, same package.)
+const ccbPacked = 0x00000200
 
 // ParseCel walks the chunk stream and extracts the fields needed to decode.
 func ParseCel(data []byte) (*Cel, error) {
@@ -52,6 +54,13 @@ func ParseCel(data []byte) (*Cel, error) {
 		body := data[p+8 : p+size]
 		switch tag {
 		case "CCB ":
+			// A second CCB begins the NEXT cel — in a track packet the cels sit
+			// back-to-back, so without this stop the walk marched on and
+			// returned the last cel's header over the first cel's data (the
+			// exported textures came out as another mip's dimensions: garbled).
+			if haveCCB {
+				return c.finish()
+			}
 			if len(body) < 0x48 {
 				return nil, fmt.Errorf("threedo: CCB chunk too small (%d)", len(body))
 			}
@@ -79,16 +88,36 @@ func ParseCel(data []byte) (*Cel, error) {
 	if !haveCCB {
 		return nil, fmt.Errorf("threedo: no CCB chunk (not a cel?)")
 	}
+	return c.finish()
+}
+
+// finish derives the decode parameters once the cel's own chunks are in.
+func (c *Cel) finish() (*Cel, error) {
+	// Without CCB_CCBPRE the preamble words lead the source data (PRE0 always,
+	// PRE1 only for unpacked cels — packed lines carry their own offsets). Art
+	// tools usually copy them into the CCB struct as well, so only fall back
+	// to the source data when the struct's PRE0 is genuinely absent.
+	if c.PRE0 == 0 && c.Flags&ccbCCBPre == 0 && len(c.PDAT) >= 4 {
+		c.PRE0 = be32(c.PDAT)
+		c.PDAT = c.PDAT[4:]
+		if c.Flags&ccbPacked == 0 && len(c.PDAT) >= 4 {
+			c.PRE1 = be32(c.PDAT)
+			c.PDAT = c.PDAT[4:]
+		}
+	}
 	c.BPP = bppFromPRE0[c.PRE0&0x7]
 	if c.BPP == 0 {
 		return nil, fmt.Errorf("threedo: unknown bpp code %d", c.PRE0&0x7)
 	}
-	// Prefer the CCB geometry; fall back to the preamble words if it is blank.
-	if c.Width == 0 {
-		c.Width = int(c.PRE1&0x7FF) + 1
+	// The preamble is the authoritative source of the cel's dimensions — the
+	// hardware never reads the C struct's ccb_Width/Height (the rule the
+	// software cel engine learned from the in-race "noise columns"). Fall back
+	// to the struct fields only when the preamble is degenerate.
+	if w := int(c.PRE1&0x7FF) + 1; w > 1 || c.Width == 0 {
+		c.Width = w
 	}
-	if c.Height == 0 {
-		c.Height = int((c.PRE0>>6)&0x3FF) + 1
+	if h := int((c.PRE0>>6)&0x3FF) + 1; h > 1 || c.Height == 0 {
+		c.Height = h
 	}
 	// A cel is coded when its pixels are <=8-bit indices into a PLUT; 16-bit
 	// cels carry literal RGB555 and load no PLUT.
@@ -240,10 +269,21 @@ func (c *Cel) decodePacked(set func(x, y int, v uint32)) {
 	}
 }
 
-// decodeUnpacked reads fixed-width pixels row by row. The row stride is the
-// pixel row rounded up to a whole number of 32-bit words.
+// decodeUnpacked reads fixed-width pixels row by row. The row stride comes
+// from PRE1's WOFFSET field — (offset+2) words per row, in bits 24-31 below
+// 8bpp and bits 16-25 at 8/16bpp (opera_madam.c) — falling back to the
+// minimal word-rounded row when the preamble carries no offset.
 func (c *Cel) decodeUnpacked(set func(x, y int, v uint32)) {
-	strideBits := ((c.Width*c.BPP + 31) / 32) * 32
+	var woffset int
+	if c.BPP >= 8 {
+		woffset = int((c.PRE1 >> 16) & 0x3FF)
+	} else {
+		woffset = int((c.PRE1 >> 24) & 0xFF)
+	}
+	strideBits := (woffset + 2) * 32
+	if minBits := ((c.Width*c.BPP + 31) / 32) * 32; strideBits < minBits {
+		strideBits = minBits
+	}
 	for y := 0; y < c.Height; y++ {
 		br := &bitReader{data: c.PDAT, pos: y * strideBits}
 		for x := 0; x < c.Width; x++ {
