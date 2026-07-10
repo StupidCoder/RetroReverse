@@ -28,9 +28,15 @@ func (w *Walker) DecodeTexture(g *Group) image.Image {
 		}
 		return w.RAM[off]
 	}
-	for y := 0; y < th; y++ {
+	// The tile is a window into the loaded texture: SL/TL (10.2) give its
+	// origin, so texel (x,y) of the window sits at (x+SL/4, y+TL/4) of the
+	// stored image — the ocean binds two windows of one water texture.
+	x0, y0 := int(t.SL>>2), int(t.TL>>2)
+	for wy := 0; wy < th; wy++ {
+		y := wy + y0
 		row := int(t.Img) + y*rowBytes
-		for x := 0; x < tw; x++ {
+		for wx := 0; wx < tw; wx++ {
+			x := wx + x0
 			var r, gg, b, a uint32
 			swz := func(off int) int {
 				if y&1 != 0 {
@@ -89,7 +95,7 @@ func (w *Walker) DecodeTexture(g *Group) image.Image {
 			default:
 				return nil
 			}
-			img.SetRGBA(x, y, color.RGBA{uint8(r), uint8(gg), uint8(b), uint8(a)})
+			img.SetRGBA(wx, wy, color.RGBA{uint8(r), uint8(gg), uint8(b), uint8(a)})
 		}
 	}
 	return img

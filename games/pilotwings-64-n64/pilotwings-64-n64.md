@@ -80,6 +80,34 @@ byte-identical. `+off` is the slice offset inside the decompressed blob.
 The loads run at ~12 blobs per video field across fields 266–283 (and again from field 272 when
 the attract's second scene rebuilds the arena), which is why the sequence fades in scene by scene.
 
+### Inside a blob — toward an oracle-free export
+
+The export should ultimately come from the ROM alone (the project documents shipped formats;
+emulation is the instrument, not the extractor), and the pieces are falling into place. The
+decompressed `COMM` payloads are self-describing files:
+
+- **Texture blobs**: a 20-byte header — `u16` payload length (matches the slice the loader
+  copies out), `u16` format code (`0x19` for the RGBA16 terrain tiles, `0x0D` for I4) — then
+  texels, then trailing sections holding the material display-list templates (`G_TEXTURE`,
+  `Set_Combine`, `Set_Tile`, the zero-address `G_SETTIMG` patched at load). The frame display
+  lists G_DL-call these templates in place (`0xB3D80–0xB4560` at the title card).
+- **Mesh blobs**: `u16` vertex count, `u16` type (`0x0101` terrain, `0x010A` gyro parts), then
+  the count × 16-byte Fast3D vertex records (the placed slice is exactly this pool), then a
+  packed **patch stream** and per-part float data (identity rows, part offsets — rest poses).
+
+The frame display lists themselves are not on the cartridge: the CPU rebuilds them every frame.
+The terrain's G_TRI1s come out of a strip builder at `0x802206C0` — it walks one flat vertex
+pool through three globals at `0x80296A80` (pool pointer, cursor, end), emits `G_VTX` batches of
+≤16 and purely sequential triangles (`k, k+1, k+2`; the emitter is a `multu` by 10 at
+`0x802208E4`) — so terrain connectivity is implicit and the real source format is the blob's
+patch stream that feeds those globals. What still stands between `webexport` and a boot-free
+export: the patch-stream layout, the logo/gyro builders' index formats, the placement directory
+the game reads 4 bytes at a time (`TABL` at cart `0xDE74C` and friends), and the attract's pose
+matrices (runtime animation state — to be captured once and baked as documented constants, the
+way Ridge Racer's webexport bakes its start camera). Until then webexport reproduces the whole
+export from the ROM in one deterministic power-on boot, with `romtrace` proving every payload
+byte-identical to its cart blob.
+
 ## Verifying the display-list walk against the RDP stream
 
 The GLB exports come from `extract/cmd/dlwalk`, which walks the frame's Fast3D display list out
@@ -106,6 +134,20 @@ triangles apiece in one static logo-cluster group — their matrix and vertex by
 between snapshot and run, both positions show rendered geometry in the frame, and they look like
 near-duplicate draws pairing off against each other. Unexplained; dlverify exits non-zero on
 them deliberately so the question stays visible.
+
+Two walker defects the verification-era work exposed in the exports themselves:
+
+- **Set_Tile's tile index is in the low command word** (`w1>>24&7`, like Set_Tile_Size). The
+  walker read it from the high word, whose bits 24-31 are the opcode — `0xF5 & 7 = 5` — so every
+  Set_Tile landed in tile 5 and the tile the draws sample never received its format, line stride
+  or wrap bits. Every texture decode failed silently to the white fallback: **all GLB exports
+  before 2026-07-10 were vertex-coloured only**, and looked plausible because Pilotwings' terrain
+  carries most of its look in vertex colours. With the index fixed, all textured groups decode
+  (terrain RGBA16 tiles, I4 sky/water/gradient tiles) and the island shows its farmland, surf,
+  forest and airstrip texel detail.
+- A tile is a **window** into its loaded texture: SL/TL (10.2) give the origin — the ocean binds
+  two windows of one water image — and the tile's coordinate shift scales s/t before windowing.
+  Both now feed the texture decode and the exported UVs.
 
 The G_TEXTURE fix re-cut the export curation: the PILOTWINGS letters are **vertex-coloured**,
 not textured (their 1,464 triangles draw with texturing off; only the emblem wing samples the

@@ -272,14 +272,17 @@ func (w *Walker) Walk(pc uint32) {
 			w.texFmt = w0 >> 21 & 7
 			w.texSiz = w0 >> 19 & 3
 			w.logf("G_SETTIMG fmt=%d size=%d addr=%06X", w.texFmt, w.texSiz, w.texImg)
-		case 0xF5: // Set_Tile
-			t := &w.tile[w0>>24&7]
+		case 0xF5: // Set_Tile: the tile index is in the LOW word (w1>>24), like
+			// Set_Tile_Size — w0's bits 24-31 are the opcode, so reading the
+			// index there sends every Set_Tile to tile 5 and the draw tile
+			// never receives its format (the untextured-exports bug).
+			t := &w.tile[w1>>24&7]
 			t.Fmt, t.Size = w0>>21&7, w0>>19&3
 			t.Line, t.Tmem = w0>>9&0x1FF, w0&0x1FF
 			t.Pal = w1 >> 20 & 15
 			t.CmT, t.MaskT, t.ShiftT = w1>>18&3, w1>>14&15, w1>>10&15
 			t.CmS, t.MaskS, t.ShiftS = w1>>8&3, w1>>4&15, w1&15
-			w.logf("G_SETTILE %d fmt=%d size=%d line=%d tmem=%d", w0>>24&7, t.Fmt, t.Size, t.Line, t.Tmem)
+			w.logf("G_SETTILE %d fmt=%d size=%d line=%d tmem=%d", w1>>24&7, t.Fmt, t.Size, t.Line, t.Tmem)
 		case 0xF2: // Set_Tile_Size
 			t := &w.tile[w1>>24&7]
 			t.SL, t.TL = w0>>12&0xFFF, w0&0xFFF

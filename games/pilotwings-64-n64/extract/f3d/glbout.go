@@ -24,10 +24,7 @@ func (w *Walker) WriteObject(dir, name string, gs []*Group) {
 	for _, g := range gs {
 		rel := Mul(g.Mtx, root)
 		img := w.DecodeTexture(g)
-		tw := float64(g.Tile.SH>>2-g.Tile.SL>>2) + 1
-		tth := float64(g.Tile.TH>>2-g.Tile.TL>>2) + 1
-		sScale := float64(g.Scale[0]) / 65536
-		tScale := float64(g.Scale[1]) / 65536
+		st := uv(g)
 
 		var tris [][3]uint32
 		for _, f := range g.Faces {
@@ -40,10 +37,8 @@ func (w *Walker) WriteObject(dir, name string, gs []*Group) {
 					float32(rel[0][1]*x + rel[1][1]*y + rel[2][1]*z + rel[3][1]),
 					float32(rel[0][2]*x + rel[1][2]*y + rel[2][2]*z + rel[3][2]),
 				})
-				uvs = append(uvs, [2]float32{
-					float32(float64(v.S) / 32 * sScale / tw),
-					float32(float64(v.T) / 32 * tScale / tth),
-				})
+				u, vv := st(v.S, v.T)
+				uvs = append(uvs, [2]float32{u, vv})
 				cols = append(cols, [4]uint8{v.R, v.G, v.B, v.A})
 			}
 			tris = append(tris, [3]uint32{base, base + 1, base + 2})
@@ -80,11 +75,7 @@ func (w *Walker) WriteGLBs(dir string) {
 			continue
 		}
 		img := w.DecodeTexture(g)
-
-		tw := float64(g.Tile.SH>>2-g.Tile.SL>>2) + 1
-		tth := float64(g.Tile.TH>>2-g.Tile.TL>>2) + 1
-		sScale := float64(g.Scale[0]) / 65536
-		tScale := float64(g.Scale[1]) / 65536
+		st := uv(g)
 
 		var pos [][3]float32
 		var uvs [][2]float32
@@ -94,10 +85,8 @@ func (w *Walker) WriteGLBs(dir string) {
 			for _, vi := range f {
 				v := g.Verts[vi]
 				pos = append(pos, [3]float32{float32(v.X), float32(v.Y), float32(v.Z)})
-				// s,t are 10.5 texel coordinates before the texture scale.
-				u := float64(v.S) / 32 * sScale / tw
-				vv := float64(v.T) / 32 * tScale / tth
-				uvs = append(uvs, [2]float32{float32(u), float32(vv)})
+				u, vv := st(v.S, v.T)
+				uvs = append(uvs, [2]float32{u, vv})
 			}
 			tris = append(tris, [3]uint32{base, base + 1, base + 2})
 		}
@@ -113,6 +102,33 @@ func (w *Walker) WriteGLBs(dir string) {
 			fmt.Fprintf(os.Stderr, "%s: %v\n", path, err)
 		}
 	}
+}
+
+// uv maps a vertex s/t (10.5 texel coordinates) to a [0,1] coordinate of the
+// group's decoded tile window: the G_TEXTURE scale applies first, then the
+// tile's coordinate shift (0-10 right, 11-15 left by 16-n), then the window
+// origin SL/TL (10.2) is subtracted and the result normalised by the extent.
+func uv(g *Group) func(s, t int16) (float32, float32) {
+	tw := float64(g.Tile.SH>>2-g.Tile.SL>>2) + 1
+	th := float64(g.Tile.TH>>2-g.Tile.TL>>2) + 1
+	sScale := float64(g.Scale[0]) / 65536 * shiftScale(g.Tile.ShiftS)
+	tScale := float64(g.Scale[1]) / 65536 * shiftScale(g.Tile.ShiftT)
+	s0 := float64(g.Tile.SL) / 4
+	t0 := float64(g.Tile.TL) / 4
+	return func(s, t int16) (float32, float32) {
+		return float32((float64(s)/32*sScale - s0) / tw),
+			float32((float64(t)/32*tScale - t0) / th)
+	}
+}
+
+func shiftScale(sh uint32) float64 {
+	if sh == 0 {
+		return 1
+	}
+	if sh <= 10 {
+		return 1 / float64(uint32(1)<<sh)
+	}
+	return float64(uint32(1) << (16 - sh))
 }
 
 // wrapMode maps a tile's cm/mask to the glTF sampler wrap enum. The cm bits
