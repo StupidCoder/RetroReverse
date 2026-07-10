@@ -685,9 +685,10 @@ The PLUT offset (and each chain hop) is **signed** 24-bit, relative to the
 record — the constructor computes `ADD r9, r9, r2, ASR #8` with
 `r2 = word0 << 8`. The player cars never exercise the sign; the **traffic
 cars** do: their SHPM lists bare PLUT chunks as directory entries
-(`plt0`..`plt3`, four 32-colour recolour schemes per file) and every
-texture points *backwards* at `plt0`. Two more type-byte forms, also from
-0x3B9C4:
+(`plt0`..`plt3`, four 32-colour recolour schemes per file — the first 14
+entries shared chrome/glass/tyres, the rest the body ramp; the game
+retargets the cel PLUT pointers per spawned instance) and every texture
+points *backwards* at `plt0`. Two more type-byte forms, also from 0x3B9C4:
 
 - **type ≥ 0x80** (bit 7 set): skips the bpp table — the low bits are the
   CCB PRE0 word directly (`PRE0 = type & 0x17`: bits 0-2 bpp code, bit 4
@@ -695,16 +696,23 @@ texture points *backwards* at `plt0`. Two more type-byte forms, also from
   flags: the pixel stream is per-line RLE, decoded by the same packed-cel
   walker as the game's 2D art (`threedo.Cel`). 0x84 = packed 6bpp,
   0x85 = packed 8bpp (Jetta's grille, the 512 TR's LOD-2 set).
-- **types 5 and 0x85** (the 8bpp forms) take their palette from a global
-  the traffic-car loader stamps (`LDREQ lr, [r4, #-0x4]` at
-  0x3BA0C/0x3BA90) — that global is how one traffic car body cycles
-  through its four `plt` recolours per spawned instance. Statically the
-  record's own chain resolves to `plt0`, the default scheme.
+- **PIXC**: the constructor stamps the cel's pixel-processor word (cel
+  +0x30) from a static template block at 0x472D8 (base literal 0x47314 at
+  0x3B9C0): default `[L-0x4]` = **0x1F001F00** (pass-through), overridden
+  by the PLUT chunk's `[+0xC]` word when nonzero (dormant — no CarData
+  file uses it), overridden for **types 5/0x85** by `[L-0x38]` =
+  **0x3F003F00** (`LDREQ lr, [r4,#-0x4]`): source × per-pixel AMV — the
+  8bpp pixel's top 3 bits scale the palette colour (ch×(AMV+1)>>3). That
+  shading is where the traffic cars' window tint and panel gradients
+  live; decoded flat they show raw bright palette entries as white
+  speckles (the same unapplied-PIXC class as the road-speckle bug).
+  Template CCB flags = 0x1FEE4410 (BGND clear → PDEC black transparent).
 
-With those three rules every car `.wrapFam` on the disc decodes — 28 of
-29; the sole failure, `CopMust.WrapFam.old`, has type 0x16, an index past
-the retail engine's own 7-entry table (dev-era leftover the shipped game
-could not draw either).
+With those rules every car `.wrapFam` on the disc decodes — 28 of 29; the
+sole failure, `CopMust.WrapFam.old`, has type 0x16, an index past the
+retail engine's own 7-entry table (dev-era leftover the shipped game could
+not draw either). The decoder feeds all of it through `threedo.Cel` — the
+same pixel pipeline the oracle draws with.
 
 ### The CarData shelf: 8 player cars, a traffic fleet, and the shelf of the unused
 
@@ -733,6 +741,7 @@ faces (with the 4 wheel/brake swaps recognised as dynamic).
 `cmd/webexport -image DISC -o out` emits `models/course-cy1.glb` (57k verts,
 56 textures), `models/obj-NN.glb` + `cy1.objects.json` (Ridge Racer-style
 instancing: repeated props ship once), the **full 28-car fleet** as
-`models/car-*.glb` (highest-detail LOD each, sectioned Cars / Traffic /
-Unused in the manifest) and `manifest.json`. `cmd/geomprobe` sanity-checks
-the decoders standalone.
+`models/car-*.glb` (highest-detail LOD each, manifest sections Player cars /
+Traffic vehicles / Unused vehicles; traffic cars additionally in all four
+`plt` recolour schemes, `car-*-pltN.glb` — 64 car GLBs total) and
+`manifest.json`. `cmd/geomprobe` sanity-checks the decoders standalone.

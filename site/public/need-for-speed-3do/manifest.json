@@ -32,169 +32,385 @@
       "name": "Diablo",
       "file": "models/car-ldiablo.glb",
       "kind": "mesh3d",
-      "section": "Cars"
+      "section": "Player cars"
     },
     {
       "name": "512 TR",
       "file": "models/car-f512tr.glb",
       "kind": "mesh3d",
-      "section": "Cars"
+      "section": "Player cars"
     },
     {
       "name": "911",
       "file": "models/car-p911.glb",
       "kind": "mesh3d",
-      "section": "Cars"
+      "section": "Player cars"
     },
     {
       "name": "ZR-1",
       "file": "models/car-czr1.glb",
       "kind": "mesh3d",
-      "section": "Cars"
+      "section": "Player cars"
     },
     {
       "name": "Viper",
       "file": "models/car-dviper.glb",
       "kind": "mesh3d",
-      "section": "Cars"
+      "section": "Player cars"
     },
     {
       "name": "NSX",
       "file": "models/car-ansx.glb",
       "kind": "mesh3d",
-      "section": "Cars"
+      "section": "Player cars"
     },
     {
       "name": "RX-7",
       "file": "models/car-mrx7.glb",
       "kind": "mesh3d",
-      "section": "Cars"
+      "section": "Player cars"
     },
     {
       "name": "Supra",
       "file": "models/car-tsupra.glb",
       "kind": "mesh3d",
-      "section": "Cars"
+      "section": "Player cars"
     },
     {
       "name": "Police Mustang",
       "file": "models/car-copmust.glb",
       "kind": "mesh3d",
-      "section": "Traffic"
+      "section": "Traffic vehicles"
     },
     {
       "name": "BMW",
       "file": "models/car-bmw.glb",
       "kind": "mesh3d",
-      "section": "Traffic"
+      "section": "Traffic vehicles"
+    },
+    {
+      "name": "BMW (scheme 2)",
+      "file": "models/car-bmw-plt1.glb",
+      "kind": "mesh3d",
+      "section": "Traffic vehicles"
+    },
+    {
+      "name": "BMW (scheme 3)",
+      "file": "models/car-bmw-plt2.glb",
+      "kind": "mesh3d",
+      "section": "Traffic vehicles"
+    },
+    {
+      "name": "BMW (scheme 4)",
+      "file": "models/car-bmw-plt3.glb",
+      "kind": "mesh3d",
+      "section": "Traffic vehicles"
     },
     {
       "name": "CRX",
       "file": "models/car-crx.glb",
       "kind": "mesh3d",
-      "section": "Traffic"
+      "section": "Traffic vehicles"
+    },
+    {
+      "name": "CRX (scheme 2)",
+      "file": "models/car-crx-plt1.glb",
+      "kind": "mesh3d",
+      "section": "Traffic vehicles"
+    },
+    {
+      "name": "CRX (scheme 3)",
+      "file": "models/car-crx-plt2.glb",
+      "kind": "mesh3d",
+      "section": "Traffic vehicles"
+    },
+    {
+      "name": "CRX (scheme 4)",
+      "file": "models/car-crx-plt3.glb",
+      "kind": "mesh3d",
+      "section": "Traffic vehicles"
     },
     {
       "name": "GMC Truck",
       "file": "models/car-gmctruck.glb",
       "kind": "mesh3d",
-      "section": "Traffic"
+      "section": "Traffic vehicles"
     },
     {
       "name": "Jeep",
       "file": "models/car-jeep.glb",
       "kind": "mesh3d",
-      "section": "Traffic"
+      "section": "Traffic vehicles"
+    },
+    {
+      "name": "Jeep (scheme 2)",
+      "file": "models/car-jeep-plt1.glb",
+      "kind": "mesh3d",
+      "section": "Traffic vehicles"
+    },
+    {
+      "name": "Jeep (scheme 3)",
+      "file": "models/car-jeep-plt2.glb",
+      "kind": "mesh3d",
+      "section": "Traffic vehicles"
+    },
+    {
+      "name": "Jeep (scheme 4)",
+      "file": "models/car-jeep-plt3.glb",
+      "kind": "mesh3d",
+      "section": "Traffic vehicles"
     },
     {
       "name": "Jetta",
       "file": "models/car-jetta.glb",
       "kind": "mesh3d",
-      "section": "Traffic"
+      "section": "Traffic vehicles"
+    },
+    {
+      "name": "Jetta (scheme 2)",
+      "file": "models/car-jetta-plt1.glb",
+      "kind": "mesh3d",
+      "section": "Traffic vehicles"
+    },
+    {
+      "name": "Jetta (scheme 3)",
+      "file": "models/car-jetta-plt2.glb",
+      "kind": "mesh3d",
+      "section": "Traffic vehicles"
+    },
+    {
+      "name": "Jetta (scheme 4)",
+      "file": "models/car-jetta-plt3.glb",
+      "kind": "mesh3d",
+      "section": "Traffic vehicles"
     },
     {
       "name": "Lemans",
       "file": "models/car-lemans.glb",
       "kind": "mesh3d",
-      "section": "Traffic"
+      "section": "Traffic vehicles"
+    },
+    {
+      "name": "Lemans (scheme 2)",
+      "file": "models/car-lemans-plt1.glb",
+      "kind": "mesh3d",
+      "section": "Traffic vehicles"
+    },
+    {
+      "name": "Lemans (scheme 3)",
+      "file": "models/car-lemans-plt2.glb",
+      "kind": "mesh3d",
+      "section": "Traffic vehicles"
+    },
+    {
+      "name": "Lemans (scheme 4)",
+      "file": "models/car-lemans-plt3.glb",
+      "kind": "mesh3d",
+      "section": "Traffic vehicles"
     },
     {
       "name": "Pickup",
       "file": "models/car-pickup.glb",
       "kind": "mesh3d",
-      "section": "Traffic"
+      "section": "Traffic vehicles"
+    },
+    {
+      "name": "Pickup (scheme 2)",
+      "file": "models/car-pickup-plt1.glb",
+      "kind": "mesh3d",
+      "section": "Traffic vehicles"
+    },
+    {
+      "name": "Pickup (scheme 3)",
+      "file": "models/car-pickup-plt2.glb",
+      "kind": "mesh3d",
+      "section": "Traffic vehicles"
+    },
+    {
+      "name": "Pickup (scheme 4)",
+      "file": "models/car-pickup-plt3.glb",
+      "kind": "mesh3d",
+      "section": "Traffic vehicles"
     },
     {
       "name": "Prelude",
       "file": "models/car-prelude.glb",
       "kind": "mesh3d",
-      "section": "Traffic"
+      "section": "Traffic vehicles"
     },
     {
       "name": "Probe",
       "file": "models/car-probe.glb",
       "kind": "mesh3d",
-      "section": "Traffic"
+      "section": "Traffic vehicles"
+    },
+    {
+      "name": "Probe (scheme 2)",
+      "file": "models/car-probe-plt1.glb",
+      "kind": "mesh3d",
+      "section": "Traffic vehicles"
+    },
+    {
+      "name": "Probe (scheme 3)",
+      "file": "models/car-probe-plt2.glb",
+      "kind": "mesh3d",
+      "section": "Traffic vehicles"
+    },
+    {
+      "name": "Probe (scheme 4)",
+      "file": "models/car-probe-plt3.glb",
+      "kind": "mesh3d",
+      "section": "Traffic vehicles"
     },
     {
       "name": "Rodeo",
       "file": "models/car-rodeo.glb",
       "kind": "mesh3d",
-      "section": "Traffic"
+      "section": "Traffic vehicles"
+    },
+    {
+      "name": "Rodeo (scheme 2)",
+      "file": "models/car-rodeo-plt1.glb",
+      "kind": "mesh3d",
+      "section": "Traffic vehicles"
+    },
+    {
+      "name": "Rodeo (scheme 3)",
+      "file": "models/car-rodeo-plt2.glb",
+      "kind": "mesh3d",
+      "section": "Traffic vehicles"
+    },
+    {
+      "name": "Rodeo (scheme 4)",
+      "file": "models/car-rodeo-plt3.glb",
+      "kind": "mesh3d",
+      "section": "Traffic vehicles"
     },
     {
       "name": "Sunbird",
       "file": "models/car-sunbird.glb",
       "kind": "mesh3d",
-      "section": "Traffic"
+      "section": "Traffic vehicles"
+    },
+    {
+      "name": "Sunbird (scheme 2)",
+      "file": "models/car-sunbird-plt1.glb",
+      "kind": "mesh3d",
+      "section": "Traffic vehicles"
+    },
+    {
+      "name": "Sunbird (scheme 3)",
+      "file": "models/car-sunbird-plt2.glb",
+      "kind": "mesh3d",
+      "section": "Traffic vehicles"
+    },
+    {
+      "name": "Sunbird (scheme 4)",
+      "file": "models/car-sunbird-plt3.glb",
+      "kind": "mesh3d",
+      "section": "Traffic vehicles"
     },
     {
       "name": "Vandura",
       "file": "models/car-vandura.glb",
       "kind": "mesh3d",
-      "section": "Traffic"
+      "section": "Traffic vehicles"
+    },
+    {
+      "name": "Vandura (scheme 2)",
+      "file": "models/car-vandura-plt1.glb",
+      "kind": "mesh3d",
+      "section": "Traffic vehicles"
+    },
+    {
+      "name": "Vandura (scheme 3)",
+      "file": "models/car-vandura-plt2.glb",
+      "kind": "mesh3d",
+      "section": "Traffic vehicles"
+    },
+    {
+      "name": "Vandura (scheme 4)",
+      "file": "models/car-vandura-plt3.glb",
+      "kind": "mesh3d",
+      "section": "Traffic vehicles"
     },
     {
       "name": "Wagon",
       "file": "models/car-wagon.glb",
       "kind": "mesh3d",
-      "section": "Traffic"
+      "section": "Traffic vehicles"
+    },
+    {
+      "name": "Wagon (scheme 2)",
+      "file": "models/car-wagon-plt1.glb",
+      "kind": "mesh3d",
+      "section": "Traffic vehicles"
+    },
+    {
+      "name": "Wagon (scheme 3)",
+      "file": "models/car-wagon-plt2.glb",
+      "kind": "mesh3d",
+      "section": "Traffic vehicles"
+    },
+    {
+      "name": "Wagon (scheme 4)",
+      "file": "models/car-wagon-plt3.glb",
+      "kind": "mesh3d",
+      "section": "Traffic vehicles"
     },
     {
       "name": "Axxess",
       "file": "models/car-axxess.glb",
       "kind": "mesh3d",
-      "section": "Traffic"
+      "section": "Traffic vehicles"
+    },
+    {
+      "name": "Axxess (scheme 2)",
+      "file": "models/car-axxess-plt1.glb",
+      "kind": "mesh3d",
+      "section": "Traffic vehicles"
+    },
+    {
+      "name": "Axxess (scheme 3)",
+      "file": "models/car-axxess-plt2.glb",
+      "kind": "mesh3d",
+      "section": "Traffic vehicles"
+    },
+    {
+      "name": "Axxess (scheme 4)",
+      "file": "models/car-axxess-plt3.glb",
+      "kind": "mesh3d",
+      "section": "Traffic vehicles"
     },
     {
       "name": "Scooter",
       "file": "models/car-scooter.glb",
       "kind": "mesh3d",
-      "section": "Unused"
+      "section": "Unused vehicles"
     },
     {
       "name": "911 (classic body)",
       "file": "models/car-porsche.glb",
       "kind": "mesh3d",
-      "section": "Unused"
+      "section": "Unused vehicles"
     },
     {
       "name": "Police Mustang (dev)",
       "file": "models/car-copmust-new.glb",
       "kind": "mesh3d",
-      "section": "Unused"
+      "section": "Unused vehicles"
     },
     {
       "name": "Probe94 (SASCO model)",
       "file": "models/car-probe94.glb",
       "kind": "mesh3d",
-      "section": "Unused"
+      "section": "Unused vehicles"
     },
     {
       "name": "SASCO",
       "file": "models/car-sasco.glb",
       "kind": "mesh3d",
-      "section": "Unused"
+      "section": "Unused vehicles"
     }
   ]
 }

@@ -22,38 +22,39 @@ import (
 // fleet the player weaves through (plus the police Mustang that chases), and
 // the cars nothing in the game spawns.
 var fleet = []struct{ file, name, section string }{
-	{"LDiablo.WrapFam", "Diablo", "Cars"},
-	{"F512TR.WrapFam", "512 TR", "Cars"},
-	{"P911.WrapFam", "911", "Cars"},
-	{"CZR1.WrapFam", "ZR-1", "Cars"},
-	{"DVIPER.WrapFam", "Viper", "Cars"},
-	{"ANSX.WrapFam", "NSX", "Cars"},
-	{"MRX7.WrapFam", "RX-7", "Cars"},
-	{"TSupra.WrapFam", "Supra", "Cars"},
-	{"CopMust.WrapFam", "Police Mustang", "Traffic"},
-	{"BMW.WrapFam", "BMW", "Traffic"},
-	{"CRX.WrapFam", "CRX", "Traffic"},
-	{"GMCTRUCK.WrapFam", "GMC Truck", "Traffic"},
-	{"Jeep.WrapFam", "Jeep", "Traffic"},
-	{"Jetta.WrapFam", "Jetta", "Traffic"},
-	{"Lemans.WrapFam", "Lemans", "Traffic"},
-	{"Pickup.WrapFam", "Pickup", "Traffic"},
-	{"PRELUDE.WrapFam", "Prelude", "Traffic"},
-	{"PROBE.WrapFam", "Probe", "Traffic"},
-	{"RODEO.WrapFam", "Rodeo", "Traffic"},
-	{"SunBird.WrapFam", "Sunbird", "Traffic"},
-	{"Vandura.WrapFam", "Vandura", "Traffic"},
-	{"Wagon.WrapFam", "Wagon", "Traffic"},
-	{"axxess.WrapFam", "Axxess", "Traffic"},
-	{"Scooter.WrapFam", "Scooter", "Unused"},
-	{"Porsche.WrapFam", "911 (classic body)", "Unused"},
-	{"CopMust.WrapFam.new", "Police Mustang (dev)", "Unused"},
-	{"Probe94.WrapFam", "Probe94 (SASCO model)", "Unused"},
-	{"SASCO.WrapFam", "SASCO", "Unused"},
+	{"LDiablo.WrapFam", "Diablo", "Player cars"},
+	{"F512TR.WrapFam", "512 TR", "Player cars"},
+	{"P911.WrapFam", "911", "Player cars"},
+	{"CZR1.WrapFam", "ZR-1", "Player cars"},
+	{"DVIPER.WrapFam", "Viper", "Player cars"},
+	{"ANSX.WrapFam", "NSX", "Player cars"},
+	{"MRX7.WrapFam", "RX-7", "Player cars"},
+	{"TSupra.WrapFam", "Supra", "Player cars"},
+	{"CopMust.WrapFam", "Police Mustang", "Traffic vehicles"},
+	{"BMW.WrapFam", "BMW", "Traffic vehicles"},
+	{"CRX.WrapFam", "CRX", "Traffic vehicles"},
+	{"GMCTRUCK.WrapFam", "GMC Truck", "Traffic vehicles"},
+	{"Jeep.WrapFam", "Jeep", "Traffic vehicles"},
+	{"Jetta.WrapFam", "Jetta", "Traffic vehicles"},
+	{"Lemans.WrapFam", "Lemans", "Traffic vehicles"},
+	{"Pickup.WrapFam", "Pickup", "Traffic vehicles"},
+	{"PRELUDE.WrapFam", "Prelude", "Traffic vehicles"},
+	{"PROBE.WrapFam", "Probe", "Traffic vehicles"},
+	{"RODEO.WrapFam", "Rodeo", "Traffic vehicles"},
+	{"SunBird.WrapFam", "Sunbird", "Traffic vehicles"},
+	{"Vandura.WrapFam", "Vandura", "Traffic vehicles"},
+	{"Wagon.WrapFam", "Wagon", "Traffic vehicles"},
+	{"axxess.WrapFam", "Axxess", "Traffic vehicles"},
+	{"Scooter.WrapFam", "Scooter", "Unused vehicles"},
+	{"Porsche.WrapFam", "911 (classic body)", "Unused vehicles"},
+	{"CopMust.WrapFam.new", "Police Mustang (dev)", "Unused vehicles"},
+	{"Probe94.WrapFam", "Probe94 (SASCO model)", "Unused vehicles"},
+	{"SASCO.WrapFam", "SASCO", "Unused vehicles"},
 }
 
 // exportCars writes the highest-detail LOD of every fleet car as a textured
-// GLB and returns their manifest entries.
+// GLB and returns their manifest entries. Cars whose shapes carry the shared
+// plt recolour chunks get one GLB per colour scheme.
 func exportCars(vol *threedo.Volume, out string) ([]ModelIndex, error) {
 	var models []ModelIndex
 	for _, c := range fleet {
@@ -61,26 +62,37 @@ func exportCars(vol *threedo.Volume, out string) ([]ModelIndex, error) {
 		if err != nil {
 			return nil, fmt.Errorf("%s: %v", c.file, err)
 		}
-		lods, err := nfs.ParseCarFam(fam)
-		if err != nil {
-			return nil, fmt.Errorf("%s: %v", c.file, err)
-		}
-		// highest detail = most faces
-		best := lods[0]
-		for _, l := range lods[1:] {
-			if len(l.Model.Faces) > len(best.Model.Faces) {
-				best = l
-			}
-		}
 		// "CopMust.WrapFam.new" -> "copmust-new"
 		slug := strings.ToLower(strings.ReplaceAll(strings.Replace(c.file, ".WrapFam", "", 1), ".", "-"))
-		file := fmt.Sprintf("models/car-%s.glb", slug)
-		if err := writeORI3(best, 1.0/128, filepath.Join(out, file)); err != nil {
-			return nil, fmt.Errorf("%s: %v", c.file, err)
+		schemes := 1
+		for plt := 0; plt < schemes; plt++ {
+			lods, err := nfs.ParseCarFamPalette(fam, plt)
+			if err != nil {
+				return nil, fmt.Errorf("%s: %v", c.file, err)
+			}
+			// highest detail = most faces
+			best := lods[0]
+			for _, l := range lods[1:] {
+				if len(l.Model.Faces) > len(best.Model.Faces) {
+					best = l
+				}
+			}
+			if plt == 0 && best.Palettes > 1 {
+				schemes = best.Palettes
+			}
+			file := fmt.Sprintf("models/car-%s.glb", slug)
+			name := c.name
+			if plt > 0 {
+				file = fmt.Sprintf("models/car-%s-plt%d.glb", slug, plt)
+				name = fmt.Sprintf("%s (scheme %d)", c.name, plt+1)
+			}
+			if err := writeORI3(best, 1.0/128, filepath.Join(out, file)); err != nil {
+				return nil, fmt.Errorf("%s: %v", c.file, err)
+			}
+			models = append(models, ModelIndex{
+				Name: name, File: file, Kind: "mesh3d", Section: c.section,
+			})
 		}
-		models = append(models, ModelIndex{
-			Name: c.name, File: file, Kind: "mesh3d", Section: c.section,
-		})
 	}
 	return models, nil
 }
