@@ -80,3 +80,7 @@ func parseCount(s string) (uint64, error) {
 	}
 	return strconv.ParseUint(s, 10, 64)
 }
+
+// PadBufAddr reports the port-1 pad buffer the game registered with InitPad
+// (0 until it does) — instrumentation for pad-flow tracing.
+func (m *Machine) PadBufAddr() uint32 { return m.padBuf }

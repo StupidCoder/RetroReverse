@@ -42,6 +42,10 @@ CD-audio tracks (the CD-swap feature) that are not part of this file.
 * **Part VII** — **extraction and verification**: the pure-Go decoders in `extract/rr`, the
   `geomoracle` differential that checks them bit-exact against the running game, and the
   `webexport` pipeline that bakes the textured car and course GLBs.
+* **Part VIII** — **the driving simulation**: the car state block and its 30 Hz update pipeline,
+  the engine/gear model, the polar-coordinate velocity core that produces the drift, the
+  road-edge and car-to-car collision with its ×0.7 bump and damped-sine wobble, and the opponent
+  AI — a centerline follower with a player-aware speed state machine (the rubber band).
 
 Addresses are MIPS virtual addresses (`0x8000xxxx` in the cached KSEG0 window) or byte offsets into
 a file (called out explicitly); bytes are little-endian.
@@ -305,7 +309,17 @@ labeled disassembly and the oracle resolves the indirect jumps the static pass l
 | `tools/platform/psx/cmd/psxinfo` | inspect the disc: `-ls`, `-pvd`, `-extract PATH -o FILE`, `-exe PATH` |
 | `tools/cmd/dismips` | linear MIPS disassembler (`-off`/`-len`/`-base`) |
 | `tools/cmd/codetracemips` | recursive-descent tracer (`-entry`/`-table`/`-annotate`), delay-slot aware |
-| `games/ridge-racer-psx/extract/cmd/bootoracle` | boot the game under the oracle (`-trace`/`-bp`/`-watch`/`-shot`/`-press`/`-isr`/`-log`/`-tty`) |
+| `games/ridge-racer-psx/extract/cmd/bootoracle` | boot the game under the oracle (`-trace`/`-bp`/`-watch`/`-shot`/`-press`/`-isr`/`-log`/`-tty`, `-save`/`-load` machine savestates) |
+| `games/ridge-racer-psx/extract/cmd/physprobe` | restore a race savestate, drive, and log the car state block once per physics frame as CSV |
+| `games/ridge-racer-psx/extract/cmd/calltrace` | record the dynamic call tree under a root function (one frame of the physics pipeline in one run) |
+| `games/ridge-racer-psx/extract/cmd/pccount` | trap a PC list and census hits per `(pc, $a0, $ra)` — "who runs this routine with which struct" |
+
+The oracle also supports **machine savestates** (`tools/platform/psx/state.go` with the CPU/GTE
+half in `tools/cpu/mips/state.go`): everything the game can observe — RAM, scratchpad, CPU
+pipeline state (including a pending load-delay slot), GTE registers, GPU with its VRAM, CD
+controller, IRQ/DMA/pad/BIOS-HLE state — serializes to a gob+gzip file (~1 MiB). Host
+configuration (hooks, pad script, the disc) deliberately stays outside the snapshot, so one
+500-M-instruction boot into a race becomes a reusable branch point for every Part VIII experiment.
 
 ---
 
@@ -887,3 +901,211 @@ coordinates become glTF's through `(x, -y, -z)` at 1/1024 scale, and an object's
 three.js `rotation.y` of the same angle. The Studio's `rr-course` renderer flies through the course
 (shared `FlyCam`), toggles the roadside-object layer, and shows each object's record address, flag
 and rotation in a click-to-inspect card.
+
+---
+
+# Part VIII — The driving simulation
+
+Everything below was traced in a *driven* race: the oracle's pad script walks the menus, a
+savestate is taken just as the start lights go out (~520 M instructions), and every experiment
+branches from that state — accelerate, steer, scrape a wall — while `-watch` attributes each field
+of the car state to the instruction that wrote it. One boot-time fact matters up front: the
+**attract demo is a replay, not a simulation**. A leaf at `0x8002A894` copies 40-byte recorded
+frames (position, angles, progress for two cars) out of a table at `[0x80080434]` straight into
+the car blocks, and none of the physics below runs. Physics facts can only be observed by playing.
+
+## 1. The car state block and the frame pipeline
+
+The player car is a **~280-byte state block at `0x80080194`**; the eleven opponents use the same
+layout in an array at `0x801ECE34 + n × 0x114`. The fields that matter (offsets in hex):
+
+| Offset | Field |
+|---|---|
+| +00 | active flag; +02 car model index (0–12, the Part VI §5 table order) |
+| +08 | course progress: `gate × 256 + fraction`, **decreasing** as the car advances, wrapping at the course length (`[0x801FCC04]`) |
+| +10/+14/+18 | world X, Y, Z (position units; the grid cell is 2,048) |
+| +20/+24/+28 | drawn pitch / **travel direction** / drawn roll (angles, 4096 = 360°) |
+| +38 | wheel-rotation accumulator (`+= speed`, bit 0x1000 flags "slow") |
+| +58… | a sub-block the code addresses as `car+88`: +74 steering (±4096), +82 gear, +84 engine/wheel speed, +B8 airborne flag, +BA air time, +BC/+C0 vertical velocity |
+| +60/+68 | velocity X / Z (used by the track sampler and the drawers) |
+| +A0 | **speed** — the velocity magnitude the whole model revolves around |
+| +A4 | per-frame **thrust magnitude** (engine force after drag) |
+| +A8 | **velocity direction** (where the car is actually going) |
+| +AC | **steer target** (where the front wheels point) |
+| +B0 | drive-force/speedometer value (16.16; the mph readout derives from it) |
+| +B4 | traction state (0 = grip … 3 = wheels loose: launch burnout, drift) |
+| +C8/+CA | throttle / brake flags (0x100 while held) |
+
+The player's per-frame driver is `0x8001BD80` (reached through a mode dispatcher; `jal` sites at
+`0x80013448`…`0x80014C70` select attract/race/etc.). Traced with `calltrace`, one 30 Hz frame is:
+
+```
+0x8001B9D4  read pad        → steering ±4096 (slew 1280/frame, snap through zero)
+0x800195B0  engine          → gears, throttle force, drag → thrust +A4, speed +A0
+0x800176A4  track sampler   → road frame + four wheel heights under the car
+0x8001B68C  gate search     → progress +08; fails if the new position leaves the road
+0x8001AC54  car collision   → 6-point footprint vs. every active opponent
+0x80032E94…0x80033600        five post passes: bump impulse, wobble oscillator,
+                             jump/landing, brake dive, suspension roll/pitch
+```
+
+then the driver either commits the integrated position (`0x8001C450/454/458`) or, if the gate
+search or the car check flagged contact, runs the collision response of §5.
+
+Input, incidentally, does **not** come from the BIOS pad buffer the menus use. The game reads the
+raw packet at `0x80176948` (the `InitPad` buffer), rebuilds it active-high with the bytes swapped
+(`0x8002E12C`: `buttons = ~(b[2]<<8 | b[3])`, the SDK's `PADL*/PADR*` layout), and per-function
+**mask globals** at `0x801DAFAC+` map buttons to actions — steer left/right `0x8000/0x2000`,
+accelerate `0x0040` (cross), brake `0x0080` (square). A pad-id check for `0x23` selects a NeGcon
+path with analog steering.
+
+## 2. Engine, gears, forces
+
+`0x800195B0` owns the longitudinal model. The transmission is a **7-row × 20-byte gear table
+built at race init at `0x801DB71C`** — per gear `{ratio, torque-low, torque-high, back-torque,
+speed ceiling}`; the ceilings run 6180, 6500, 6820, 7140, 7460, 7780, 8100 speed units across the
+six forward gears. Throttle is smoothed into `[0x8007F12C]` (0–256, slewing ±25/frame — even a
+digital button gives the engine an analog ramp), torque comes from the gear row, and a drag
+accumulator collects: rolling/aero drag, extra drag when the car's travel direction disagrees
+with the road direction (`0x80019528` vs. the gate frame), a wheelspin penalty while the traction
+state (+B4) is 3, and a **landing penalty** (`200 + 20 × airtime/3`) after a jump. The net force
+becomes the frame's thrust `+A4`; the speed `+A0` also decays by a drag factor — ×0.996 normally,
+×0.94 in the heavy path (off-throttle/brake). Traction state 3 additionally **halves the steering
+rate** and feeds a random jitter (`rand & 3 × (brake+8) >> 8`) into the model — the burnout
+wiggle.
+
+## 3. The velocity core — where the drift comes from
+
+The lateral model lives in `0x80027BE4` + `0x800265D0`, and it is neither a bicycle model nor
+rails: the car's velocity is stored in **polar form** — magnitude `+A0`, direction `+A8` — and
+each frame the engine's thrust is added to it as a second vector:
+
+1. The steer target `+AC` rotates by `steering × sensitivity ([0x80079FA8]) >> 8` per frame
+   (scaled by speed when slow, halved when the wheels are loose).
+2. The travel direction `+24` **eases toward `+AC` at 20 % per frame** (`0x80027C10`:
+   `dir += Δ × 20 / 100`) — the front wheels drag the drivetrain around, not the car.
+3. `0x800265D0` forms the vector sum `v = speed·dir(+A8) + thrust·dir(+24)`: the new magnitude
+   comes from the **law of cosines** (`0x800465F4` is an integer square root), the new direction
+   from an **atan2** (`0x8001805C`) — velocity integration done entirely in angles and
+   magnitudes, GTE-style fixed point, no Cartesian velocity state at all.
+
+Drift is then *emergent*, not a scripted mode: at 90 mph the thrust vector (~45 units) is tiny
+against the velocity vector (~700), so the velocity direction can only creep toward where the
+wheels point — the car runs wide, nose in, tail out. Log of a full-lock left at 102 mph
+(steer target / travel dir / velocity dir, in angle units):
+
+```
+frame   +AC steer   +24 travel   +A8 velocity
+  4       1186        1198          1199
+ 10       1065        1130          1166
+ 16        939        1019          1080
+ 22        879         923           978      ← target clamped at lock
+ 28        879         892           918      ← still 39 units of tail-out slide
+```
+
+Braking during the turn shrinks `+A0` (the ×0.94 drag path) while the 20 %-easing keeps rotating
+the thrust — which is exactly the arcade power-slide: brake-tap to break the speed, the nose
+whips in, throttle catches the exit.
+
+## 4. The road: suspension, jumps
+
+`0x800176A4` samples the checkpoint tables (`0x80059164` and a parallel edge table at
+`0x800596C8`) around the car and produces the road frame plus **four wheel-contact heights**
+(globals `0x80176C28/38/48/58`). The fifth post pass (`0x80033600`) turns them into the body
+attitude: left/right height difference → drawn roll (+28), front/rear difference → drawn pitch
+(+20), the average → suspension-settled Y. The fourth pass (`0x800334B4`) adds pitch dive — an
+accumulator that ramps while braking (or during the race-start launch) and relaxes ×3/4 per
+frame. There is no spring/damper integration per wheel — attitude is *derived* from the sampled
+surface each frame, plus these two accumulators.
+
+Jumps are **data-driven**: `0x80033294` compares the car's progress remainder against per-class
+course positions (`0x3400/0x7900/0xE900/0x5D00/0x7700` — the hill crests) and, above a speed
+threshold (1216), launches the car with a vertical velocity from a per-crest table at
+`0x80073430`. While airborne (+B8), gravity integrates the vertical velocity and steering keeps
+working; landing fires event 1 (below), the landing drag penalty of §2, and — after long air
+time — a dust effect (`0x80015B14`).
+
+## 5. Collision: the bump and the wobble
+
+Two detectors feed one response path in the driver's tail:
+
+* **Road edge** — the gate search `0x8001B68C` re-locates the car's *proposed* position (plus
+  four footprint corners via `0x80017404`) against the road quad between checkpoint gates; if the
+  position falls outside, the frame's move is rejected (`s2 ≠ 0`) — the "wall" is the road
+  boundary itself, there is no separate wall geometry.
+* **Car-to-car** — `0x8001AC54` transforms every active opponent into the player's local frame
+  and tests a **6-point footprint** (from a table at `0x80010128`: rear corners ±(−19, 22),
+  mid ±(35, 24), nose ±(79, 25)) against the opponent's extent.
+
+On contact the driver **skips the position commit** and instead (`0x8001C500…0x8001C668`):
+
+* computes a push vector — for car contact, the blocked position delta; for a road-edge hit, the
+  road direction rotated ±90°/16 (`0x80026B50` + sin/cos), i.e. *away from the edge, along the
+  road* — and hands it to `0x80032F6C`;
+* `0x80032F6C` latches the impulse into globals (`0x801ECCA0/A8`), arms a **30-frame bump state**
+  (`[0x80131040] = 30`, flag `0x801DB6CC`), and fires a wobble event;
+* multiplies the speed `+A0` by **0.7** and the drive force by 0.8 (`0x8001C618–0x8001C668`) —
+  the signature Ridge Racer wall tax, applied once per contact frame;
+* docks 5,000 progress units from a standings accumulator (`0x80176AC8 −= 5000`).
+
+The **bump** is the first post pass (`0x80032E94`): while the bump state is armed, position gets
+`impulse/8` added each frame and the impulse decays ×7/8 — an exponential shove away from the
+contact that dies out over about a second. Because the car keeps thrusting toward the wall, a
+shallow scrape settles into a limit cycle: watch of a 100-mph wall graze shows contact frames
+about every 28 frames, each one a clean ×0.70 on the velocity vector (`(15152, −4220) →
+(10603, −2953)`) with the heading untouched.
+
+The **wobble** is the second post pass (`0x80033140`): wobble events (`0x80032FB4`, codes 1–5 —
+landing, road-edge, car contact, …) arm a counter, and each frame adds a **damped sinusoid** —
+`sin(counter × 3 × 4096 / 30) × counter × amplitude >> 7`, three full oscillations over 30 frames
+with linearly dying amplitude — to the drawn **roll** for side contact or the drawn **pitch** for
+landings. The same frame log shows it directly: after an impact the roll rings
+`0 → 17 → 0 → −13 → 0 → 9 → …` — the car visibly rocks three diminishing times over one second.
+The bump moves the car; the wobble only moves the *body* (and the chase camera reads the same
+angles) — the handling model underneath is disturbed only by the one-off ×0.7.
+
+Opponents get the same treatment in miniature: their updater carries the airborne/landing state
+and a landing **bounce** — a decaying sine subtracted from Y (`0x80023E5C`) — so AI cars crest
+the hills and slam down believably without owning a suspension.
+
+## 6. The opponents — rails with a race engineer
+
+The eleven AI cars are **not** driven by the player's physics. Their update splits by distance:
+
+* **Far opponents** (out of sight) run a one-dimensional integrator inside the scheduler
+  (`0x80024B9C`, the writer at `0x800253F0`): progress advances along the racing line at the
+  commanded speed, and the position is simply the track sampler's centerline point — pure rails.
+* **Near opponents** (the ~5 around the player; the same set the drawer at `0x80020BB0` renders)
+  run a kinematic updater (`0x80023B48`): `speed +88` integrates `accel(+100)/3` per frame,
+  velocity is `speed × (sin, cos)(heading +C4)`, a slide angle (+78) rotates the velocity during
+  avoidance, and `0x80023570` steers the heading to stay inside a **lateral envelope** on the
+  road (bounds `[0x80130CBC]`/`[0x8008044C]`, the latter maintained per-frame — lane keeping, and
+  the mechanism that makes them swerve around the player rather than through). They also get the
+  jump/landing treatment of §5. There is no engine, no grip, no drag — the "physics" is position
+  integration; everything else is control law.
+
+The interesting part is the **speed controller** (`0x800228A0` per opponent per frame). Each car
+steps its speed toward a target at a state-given rate (`0x80022EE8`), and the target comes from a
+per-car mode field (+A2) that a **player-proximity classifier** (`0x800213AC–0x800214FC`)
+switches: it computes the opponent's circular progress distance to the player
+(`opp+08 − [0x8008019C]`, wrap-corrected) and, inside ~200–500 progress units, promotes the car
+out of its cruise mode:
+
+| Mode | Target speed |
+|---|---|
+| default | scripted cruise speed (+FC / +108, set per car at init) |
+| 1 | +10C boosted by **+10 %** when its duel flags allow |
+| 2 | +110 boosted by **+7 %** when the player-side flag `[0x8008018C]` is set |
+| 3 | the speed of the opponent indexed by +96 (**the car ahead**) **+6.7 %** — a chase mode |
+
+That is the rubber band, and it is deliberately asymmetric: the boosts only arm near the player,
+so back markers brake to a beatable pace when you catch them while the leaders cruise their
+script far ahead. The AI never reads the player's *inputs* and never gets the player's physics —
+`pccount` over a live race shows the full pipeline (`0x8001BD80` → `0x800195B0` → `0x80027BE4` →
+`0x800265D0` → `0x8001AC54`) executing for exactly one struct: `0x80080194`.
+
+So: the opponents are rails plus a control layer — lane-keeping steering, scripted cruise speeds,
+a proximity-triggered chase state machine — while the player's car is a genuine (if stylised)
+simulation: polar-form velocity with vector-added thrust, emergent drift from the 20 % easing,
+data-driven jumps, and a collision response tuned to feel like a bump (decaying impulse), a
+wobble (damped sine on the body) and a penalty (×0.7) rather than a crash.
