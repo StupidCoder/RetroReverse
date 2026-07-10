@@ -109,12 +109,14 @@ func (m *Machine) siWrite(addr uint32, v uint32) {
 	case siDramAddr:
 		m.si.DramAddr = v & 0x00FFFFFF
 	case siWriteAddr: // RDRAM -> PIF RAM, then the PIF executes the block
+		m.SIWrites++
 		for i := 0; i < pifRAMSize; i++ {
 			m.PIF[i] = m.rdramRead(m.si.DramAddr + uint32(i))
 		}
 		m.joybus()
 		m.raiseIRQ(intrSI)
 	case siReadAddr: // PIF RAM -> RDRAM
+		m.SIReads++
 		m.joybus()
 		for i := 0; i < pifRAMSize; i++ {
 			m.rdramWrite(m.si.DramAddr+uint32(i), m.PIF[i])
@@ -129,15 +131,28 @@ func (m *Machine) siWrite(addr uint32, v uint32) {
 
 // joybus walks the command block in PIF RAM and answers each channel in place.
 //
-// The PIF only runs the block when the CPU sets bit 0 of the last byte; libultra
-// writes that byte as part of the block it DMAs in. Answering unconditionally
-// would be wrong for the "read back the results" transfer, which must not
-// re-execute — so the flag is honoured and cleared, as the hardware does.
+// The PIF runs a block when bit 0 of PIF RAM's last byte is set — the low byte of
+// libultra's `pifstatus` word. Two things about that were got wrong at first, and
+// both were measured rather than reasoned:
+//
+//   - **The flag must not be cleared.** Clearing it inside PIF RAM looks harmless,
+//     but the read-back transfer copies all 64 bytes into the game's own buffer,
+//     zeroing the status word it re-sends next frame. Pilotwings then polls the
+//     controller exactly once, ever — 259 command blocks written, two executed —
+//     and no injected input can reach it.
+//   - **A block must be answered at the read-back, not only when it arrives.**
+//     Pilotwings' write DMA delivers the block with the flag *clear* and the CPU
+//     sets it afterwards, with an ordinary store into PIF RAM. Executing only on
+//     the incoming transfer therefore answers nothing. Running on both transfers
+//     costs nothing: the commands are pure, so answering a block twice writes the
+//     same replies.
+//
+// With both corrected the game polls the controller once per field, as a console
+// does, and a scripted button press reaches it.
 func (m *Machine) joybus() {
 	if m.PIF[pifRAMSize-1]&1 == 0 {
 		return
 	}
-	m.PIF[pifRAMSize-1] &^= 1
 
 	ch := 0
 	for i := 0; i < pifRAMSize-1; {
@@ -184,6 +199,11 @@ func (m *Machine) joybusChannel(ch int, cmd, res []byte, rxAt int) {
 	}
 	pad := m.Controllers[ch]
 
+	if m.JoybusCmds == nil {
+		m.JoybusCmds = map[byte]uint64{}
+	}
+	m.JoybusCmds[cmd[0]]++
+
 	switch cmd[0] {
 	case jbInfo, jbReset:
 		if !pad.Present {
@@ -198,6 +218,10 @@ func (m *Machine) joybusChannel(ch int, cmd, res []byte, rxAt int) {
 			res[2] = 0 // no accessory in the controller's expansion slot
 		}
 	case jbControllerState:
+		// Instrumentation, not state: a game that never asks for the controller's
+		// buttons cannot be responding to them, and that is the first thing to
+		// establish when injected input appears to do nothing.
+		m.ContPolls++
 		if !pad.Present {
 			m.PIF[rxAt] |= 0x80
 			return

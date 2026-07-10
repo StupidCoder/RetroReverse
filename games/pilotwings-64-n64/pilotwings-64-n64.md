@@ -590,11 +590,34 @@ nothing is injected past the hardware the way Ultima Underworld's oracle must in
 script applies at a field boundary, so the game's once-per-frame poll sees each change exactly
 once, like a real press.
 
-**It does not yet reach a mission.** Holding Start and A on the title card demonstrably changes the
-machine's state — a run with the button held diverges from one without — but the menu does not
-advance, and the reason is not yet found. Since every check in this Part is static, nothing here
-depends on it. Driving into a mission stays open, and would earn its keep by confirming one
-reachable mission's feature records against this decode.
+At first it reached nothing: pressing Start on the title card changed the machine's state but the
+menu never advanced. The cause was a defect in the **oracle**, not the script, and it was found by
+counting rather than reasoning. A joybus command block covers all four ports at once, so a single
+counter of controller-state commands answers the only question that matters first — *does the game
+ever ask?* Over an entire boot it asked **once**: 259 command blocks written to the PIF, two
+executed.
+
+Two mistakes, both in `tools/platform/n64/si.go`:
+
+- **The PIF's execute flag was being cleared.** Inside PIF RAM that looks harmless. But the
+  read-back transfer copies all 64 bytes into the game's *own* command buffer, zeroing the
+  `pifstatus` word it re-sends next frame. After the first block, every later one arrived with the
+  flag clear and was ignored. The flag belongs to the game.
+- **A block was only answered when it arrived.** Pilotwings' write DMA delivers the block with the
+  flag *clear* and the CPU sets it afterwards, with an ordinary store into PIF RAM — which the
+  machine does not hook. Answering only the incoming transfer therefore answers nothing; the block
+  must also be run at the read-back. Running on both costs nothing, because the commands are pure:
+  answering a block twice writes the same replies.
+
+With both corrected the game polls the controller **once per field**, as a console does — 6,876
+polls over the boot instead of four — and a scripted Start press takes the oracle from the title
+card into the **file-select screen**. Two regression tests pin the behaviour, and an older test
+that asserted the flag *was* cleared has been corrected: it encoded the bug.
+
+That the same savestates still verify (`dlverify`, `mdldump -verify`, `texdump -verify` all
+unchanged) is worth noting — but a state cut *before* the fix carries the game's already-zeroed
+`pifstatus` word, so resuming one and injecting input still yields nothing. Input scripts need a
+cold boot, or a state cut after the fix.
 
 ## Part VI — from archive to glTF
 

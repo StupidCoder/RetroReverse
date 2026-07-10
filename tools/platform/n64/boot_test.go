@@ -275,9 +275,11 @@ func TestJoybusReportsAbsentControllers(t *testing.T) {
 	if m.PIF[8]&0x80 == 0 {
 		t.Errorf("port 2 is empty but reported a response (rx byte %02X)", m.PIF[8])
 	}
-	// The execute flag is consumed, so the read-back transfer does not re-run it.
-	if m.PIF[pifRAMSize-1]&1 != 0 {
-		t.Error("the joybus execute flag was not cleared")
+	// The execute flag is the game's, not the PIF's: see
+	// TestJoybusLeavesTheExecuteFlagForTheGame for why consuming it here would
+	// stop Pilotwings ever reading its controller again.
+	if m.PIF[pifRAMSize-1]&1 == 0 {
+		t.Error("the joybus execute flag was cleared")
 	}
 }
 
@@ -387,5 +389,53 @@ func TestSaveStateRejectsAnotherCartridge(t *testing.T) {
 	other.romMD5 = "0000000000000000000000000000dead"
 	if err := other.LoadState(path); err == nil {
 		t.Fatal("a snapshot loaded into a machine holding a different cartridge")
+	}
+}
+
+// The PIF's execute flag must survive a block being answered.
+//
+// Clearing it inside PIF RAM looks harmless, but the read-back transfer copies
+// all 64 bytes into the game's own command buffer, zeroing the `pifstatus` word
+// it re-sends on the next frame. Pilotwings then polls the controller exactly
+// once, ever, and no input ever reaches it. The flag belongs to the game; the
+// PIF answers the block and leaves it alone.
+func TestJoybusLeavesTheExecuteFlagForTheGame(t *testing.T) {
+	m := &Machine{RDRAM: make([]byte, rdramSize), PIF: make([]byte, pifRAMSize), logSeen: map[string]bool{}}
+	copy(m.PIF, []byte{0x01, 0x04, jbControllerState, 0xFF, 0xFF, 0xFF, 0xFF, 0xFE})
+	m.PIF[pifRAMSize-1] = 1
+	m.Controllers[0] = Controller{Present: true, Buttons: BtnStart}
+
+	m.joybus()
+	if m.PIF[pifRAMSize-1]&1 == 0 {
+		t.Fatal("the execute flag was cleared; the game's next command block would arrive with it unset")
+	}
+	if got := uint16(m.PIF[3])<<8 | uint16(m.PIF[4]); got != BtnStart {
+		t.Fatalf("buttons %04X, want %04X", got, uint16(BtnStart))
+	}
+
+	// Answering the same block twice is what running on both SI transfers does.
+	// The commands are pure, so the replies must be identical.
+	before := append([]byte(nil), m.PIF...)
+	m.joybus()
+	for i := range before {
+		if before[i] != m.PIF[i] {
+			t.Fatalf("re-answering the block changed PIF byte %d: %02X -> %02X", i, before[i], m.PIF[i])
+		}
+	}
+}
+
+// A block whose execute flag is clear must not be answered: that is how the CPU
+// says "I have not finished writing this yet".
+func TestJoybusIgnoresAnUnflaggedBlock(t *testing.T) {
+	m := &Machine{RDRAM: make([]byte, rdramSize), PIF: make([]byte, pifRAMSize), logSeen: map[string]bool{}}
+	copy(m.PIF, []byte{0x01, 0x04, jbControllerState, 0xFF, 0xFF, 0xFF, 0xFF, 0xFE})
+	m.Controllers[0] = Controller{Present: true, Buttons: BtnStart}
+
+	m.joybus()
+	if m.PIF[3] != 0xFF || m.PIF[4] != 0xFF {
+		t.Fatal("an unflagged block was answered")
+	}
+	if m.ContPolls != 0 {
+		t.Fatalf("ContPolls = %d after an unflagged block", m.ContPolls)
 	}
 }

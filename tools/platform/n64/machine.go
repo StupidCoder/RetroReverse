@@ -136,6 +136,12 @@ type Machine struct {
 	// OnPrint is called for each line a program writes to the IS-Viewer. Test
 	// ROMs report their results this way.
 	OnPrint func(m *Machine, line string)
+	// ContPolls counts joybus controller-state reads, and JoybusCmds counts every
+	// joybus command by opcode. Instrumentation only: neither is part of the
+	// machine state, and neither is saved.
+	ContPolls         uint64
+	JoybusCmds        map[byte]uint64
+	SIWrites, SIReads uint64
 	// StopRequested ends the current Run at the next instruction boundary. A
 	// hook (say, OnDisplay counting video fields) sets it to stop a run at a
 	// condition a step budget cannot express. Not part of the machine state.

@@ -336,6 +336,20 @@ func run(image, stepsS string, trace bool, tracen int, bps, watches, callLogs mu
 
 	res := m.Run(budget)
 	fmt.Fprintf(os.Stderr, "\nbootoracle: %s\n", res)
+	fmt.Fprintf(os.Stderr, "bootoracle: the game polled the controller %d times\n", m.ContPolls)
+	if len(m.JoybusCmds) > 0 {
+		var ops []int
+		for op := range m.JoybusCmds {
+			ops = append(ops, int(op))
+		}
+		sort.Ints(ops)
+		fmt.Fprintf(os.Stderr, "bootoracle: joybus commands:")
+		for _, op := range ops {
+			fmt.Fprintf(os.Stderr, " %02X=%d", op, m.JoybusCmds[byte(op)])
+		}
+		fmt.Fprintln(os.Stderr)
+	}
+	fmt.Fprintf(os.Stderr, "bootoracle: SI DMAs: %d command blocks written, %d read back\n", m.SIWrites, m.SIReads)
 	fmt.Fprintf(os.Stderr, "bootoracle: osMemSize = 0x%08X\n", m.OSMemSize())
 	if len(m.Log) > 0 {
 		fmt.Fprintf(os.Stderr, "bootoracle: machine notes:\n")
