@@ -26,7 +26,7 @@ games/<slug>/                    # one directory per game
   work/                          # regenerable dev/debug scratch — .gitignored
 tools/
   cpu/       mos6502 m68k z80 sm83 arm arm60 mips x86
-  platform/  psx nds dos gameboy gamegear threedo amiga c64
+  platform/  psx nds dos gameboy gamegear threedo amiga c64 n3ds
              (each platform owns its format/codec libs, e.g. amiga/iff, nds/nitro, c64/sid)
   lib/       reserved for genuinely cross-platform helpers (none yet)
   cmd/       dis<cpu> / codetrace<cpu> command binaries
@@ -37,12 +37,14 @@ site/
 **Slugs** are `lowercase-with-hyphens`, ending in the platform tag:
 `elite-c64`, `fort-apocalypse-c64`, `marble-madness-amiga`, `mario-kart-ds`,
 `need-for-speed-3do`, `ridge-racer-psx`, `sonic-gg`, `stunt-car-racer-amiga`,
-`super-mario-64-ds`, `super-mario-land-gb`, `turrican-amiga`, `ultima-underworld-pc`.
+`super-mario-3d-land-3ds`, `super-mario-64-ds`, `super-mario-land-gb`, `turrican-amiga`,
+`ultima-underworld-pc`.
 
 The `site/public/<slug>/` asset key matches the game slug exactly.
 
-The two ARM cores are distinct: `tools/cpu/arm` is little-endian (Nintendo DS), `tools/cpu/arm60`
-is big-endian ARMv3 (3DO).
+The two ARM cores are distinct: `tools/cpu/arm` is little-endian (Nintendo DS's ARMv5TE and the
+Nintendo 3DS's ARMv6K + VFPv2), selected by its `Variant` (`V5TE`/`V6K`) with the `-v6` flag on the
+`disarm`/`codetracearm` front-ends; `tools/cpu/arm60` is big-endian ARMv3 (3DO).
 
 **Modules.** `tools` is one module (`retroreverse.com/tools`); each game's `extract/` is
 its own module (`retroreverse.com/games/<slug>/extract`). `go.work` lists `./tools` and one

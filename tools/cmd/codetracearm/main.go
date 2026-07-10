@@ -1,8 +1,10 @@
-// codetracearm is a recursive-descent ("code-tracing") disassembler for the Nintendo
-// DS ARM cores (ARM9 / ARM7), the counterpart of codetrace68k / codetracesm83.
-// Starting from one or more entry points it follows every branch, call, jump and
-// interworking BX/BLX, marks which bytes are reachable code, and leaves everything
-// else as data — so graphics, tables and the like don't get mis-decoded.
+// codetracearm is a recursive-descent ("code-tracing") disassembler for the ARM
+// cores in this repository — the Nintendo DS's ARM9/ARM7 (ARMv5TE, the default)
+// and the Nintendo 3DS's ARM11 (ARMv6K, with -v6) — the counterpart of
+// codetrace68k / codetracesm83. Starting from one or more entry points it follows
+// every branch, call, jump and interworking BX/BLX, marks which bytes are
+// reachable code, and leaves everything else as data — so graphics, tables and
+// the like don't get mis-decoded.
 //
 // The ARM twist over the other CPUs is two instruction sets. Each address is traced
 // in a definite state (ARM or Thumb); the interworking branches switch state, and
@@ -42,12 +44,17 @@ func main() {
 	flag.Var(&tables, "table", "jump table to seed as code, ADDR:N (N 32-bit pointers); repeatable")
 	annotate := flag.String("annotate", "", "annotations file: lines \"ADDR name description\" (# comments)")
 	out := flag.String("o", "", "write disassembly to this file (default stdout)")
+	v6 := flag.Bool("v6", false, "trace ARMv6K (Nintendo 3DS ARM11); default is ARMv5TE (DS)")
 	flag.Parse()
 	if flag.NArg() != 1 {
-		fmt.Fprintln(os.Stderr, "usage: codetracearm [-base A] [-skip N] [-thumb] -entry A,Bt,C [-table ADDR:N] [-annotate F] [-o out] image.bin")
+		fmt.Fprintln(os.Stderr, "usage: codetracearm [-base A] [-skip N] [-thumb] [-v6] -entry A,Bt,C [-table ADDR:N] [-annotate F] [-o out] image.bin")
 		os.Exit(2)
 	}
-	if err := run(flag.Arg(0), *base, *skip, *thumbDefault, *entry, tables, *annotate, *out); err != nil {
+	variant := arm.V5TE
+	if *v6 {
+		variant = arm.V6K
+	}
+	if err := run(flag.Arg(0), *base, *skip, *thumbDefault, *entry, tables, *annotate, *out, variant); err != nil {
 		fmt.Fprintln(os.Stderr, "codetracearm:", err)
 		os.Exit(1)
 	}
@@ -132,7 +139,7 @@ func fromTarget(a uint32, thumb bool) seed {
 	return seed{a &^ 3, false}
 }
 
-func run(path, baseS string, skip int, thumbDefault bool, entryStr string, tables multiFlag, annPath, outPath string) error {
+func run(path, baseS string, skip int, thumbDefault bool, entryStr string, tables multiFlag, annPath, outPath string, variant arm.Variant) error {
 	ann, err := loadAnnotations(annPath)
 	if err != nil {
 		return err
@@ -183,7 +190,7 @@ func run(path, baseS string, skip int, thumbDefault bool, entryStr string, table
 		return fmt.Errorf("no -entry points given")
 	}
 
-	tr := trace(mem, base, seeds)
+	tr := trace(mem, base, seeds, variant)
 
 	w := bufio.NewWriter(os.Stdout)
 	if outPath != "" {
@@ -216,7 +223,7 @@ type traced struct {
 	stops    []uint32
 }
 
-func trace(mem []byte, base uint32, seeds []seed) *traced {
+func trace(mem []byte, base uint32, seeds []seed, variant arm.Variant) *traced {
 	t := &traced{instr: map[uint32]arm.Inst{}, covered: make([]bool, len(mem)), callers: map[uint32]int{}}
 	inRange := func(a uint32) bool { return a >= base && int(a-base) < len(mem) }
 
@@ -243,7 +250,7 @@ func trace(mem []byte, base uint32, seeds []seed) *traced {
 			if _, done := t.instr[pc]; done {
 				break
 			}
-			in := arm.Decode(mem[pc-base:], pc, thumb)
+			in := arm.DecodeVariant(mem[pc-base:], pc, thumb, variant)
 			t.instr[pc] = in
 			for i := 0; i < in.Len && int(pc-base)+i < len(mem); i++ {
 				t.covered[int(pc-base)+i] = true

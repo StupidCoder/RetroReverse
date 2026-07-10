@@ -10,11 +10,18 @@ import (
 // is true and ARM state otherwise, at that fixed width throughout — a linear driver
 // cannot follow a BX that switches state at run time, so callers disassemble each
 // state's regions separately (the codetracearm tool tracks state changes for you).
-// Unmodelled words and truncated reads appear as ".word"/".hword".
+// Unmodelled words and truncated reads appear as ".word"/".hword". It decodes
+// for the ARMv5TE (Nintendo DS) variant; use DisassembleVariant for ARMv6K.
 func Disassemble(code []byte, base uint32, thumb bool) []string {
+	return DisassembleVariant(code, base, thumb, V5TE)
+}
+
+// DisassembleVariant is Disassemble for a chosen architecture variant — V6K for
+// the Nintendo 3DS's ARM11, V5TE for the DS.
+func DisassembleVariant(code []byte, base uint32, thumb bool, v Variant) []string {
 	var out []string
 	for pc := 0; pc < len(code); {
-		in := Decode(code[pc:], base+uint32(pc), thumb)
+		in := DecodeVariant(code[pc:], base+uint32(pc), thumb, v)
 		raw := make([]string, 0, in.Len)
 		for i := 0; i < in.Len && pc+i < len(code); i++ {
 			raw = append(raw, fmt.Sprintf("%02X", code[pc+i]))

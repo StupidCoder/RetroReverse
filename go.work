@@ -11,6 +11,7 @@ use (
 	./games/ridge-racer-psx/extract
 	./games/sonic-gg/extract
 	./games/stunt-car-racer-amiga/extract
+	./games/super-mario-3d-land-3ds/extract
 	./games/super-mario-64-ds/extract
 	./games/super-mario-land-gb/extract
 	./games/turrican-amiga/extract

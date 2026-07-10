@@ -45,10 +45,26 @@ type CPU struct {
 	R          [16]uint32 // active registers; R[13]=SP, R[14]=LR, R[15]=PC
 	N, Z, C, V bool       // CPSR condition flags
 	Q          bool       // CPSR sticky saturation flag (set by QADD/SMLAxy overflow)
+	GE         uint32     // CPSR GE[3:0] (bits 19:16) — set by the ARMv6 parallel adds, read by SEL
 	Thumb      bool       // CPSR T bit — Thumb state when set
+	BigEndian  bool       // CPSR E bit — data endianness (ARMv6 SETEND); the 3DS runs little-endian
 	IRQDisable bool       // CPSR I bit
 	FIQDisable bool       // CPSR F bit
 	Mode       uint32     // CPSR mode field (ModeUSR…ModeSYS)
+
+	// Arch selects the instruction set. V5TE (the default, for the DS) executes
+	// exactly as before; V6K enables the ARMv6K additions (see variant.go) and the
+	// VFPv2 coprocessor (vfp.go).
+	Arch Variant
+
+	// VFP is the VFPv2 floating-point coprocessor state (V6K only).
+	VFP vfpState
+
+	// Exclusive-access monitor for LDREX/STREX. A local (non-shared) monitor is
+	// enough for a single-core HLE: LDREX tags an address, STREX succeeds only if
+	// the tag still stands, and any explicit clear (CLREX, an exception) drops it.
+	exclValid bool
+	exclAddr  uint32
 
 	// Banked registers, indexed by modeIndex(). USR/SYS share bank 0.
 	bankR13  [6]uint32
@@ -97,6 +113,10 @@ func (c *CPU) Halt(format string, args ...interface{}) {
 	c.HaltReason = fmt.Sprintf(format, args...)
 }
 
+// PC returns the address of the instruction currently executing (during a Step
+// hook) or the next to execute (between steps).
+func (c *CPU) PC() uint32 { return c.R[15] }
+
 // --- CPSR packing ----------------------------------------------------------
 
 // CPSR assembles the condition/control bits into the 32-bit program status word.
@@ -117,6 +137,10 @@ func (c *CPU) CPSR() uint32 {
 	if c.Q {
 		v |= 1 << 27
 	}
+	v |= (c.GE & 0xF) << 16
+	if c.BigEndian {
+		v |= 1 << 9
+	}
 	if c.IRQDisable {
 		v |= 1 << 7
 	}
@@ -136,6 +160,8 @@ func (c *CPU) SetCPSR(v uint32) {
 	c.C = v&(1<<29) != 0
 	c.V = v&(1<<28) != 0
 	c.Q = v&(1<<27) != 0
+	c.GE = (v >> 16) & 0xF
+	c.BigEndian = v&(1<<9) != 0
 	c.IRQDisable = v&(1<<7) != 0
 	c.FIQDisable = v&(1<<6) != 0
 	c.Thumb = v&(1<<5) != 0

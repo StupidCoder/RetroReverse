@@ -32,10 +32,21 @@ func (c *CPU) stepARM() int {
 	w := c.read32aligned(c.cur)
 	cond := int(w >> 28)
 	if cond == condNV {
+		if c.Arch >= V6K && c.execUncondARMv6(w) {
+			return 1
+		}
 		return c.execUncondARM(w)
 	}
 	if !c.cond(cond) {
 		c.R[15] = c.cur + 4
+		return 1
+	}
+	// On ARMv6K the additions are tried first; they alias slots ARMv5TE assigns
+	// to SWP and MUL, so the base decoder must not see them (see variant.go).
+	if c.Arch >= V6K && c.execARMv6(w) {
+		if !c.branched {
+			c.R[15] = c.cur + 4
+		}
 		return 1
 	}
 	c.execARM(w)

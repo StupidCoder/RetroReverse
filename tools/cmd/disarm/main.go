@@ -1,9 +1,11 @@
-// disarm linearly disassembles Nintendo DS ARM code (ARM9 / ARM7) from a raw binary
-// — an extracted .bin, a memory dump, or a slice of a cartridge. The DS address
-// space is 32-bit; you tell disarm the CPU address the first byte maps to and the
-// instruction set to decode in.
+// disarm linearly disassembles ARM code from a raw binary — an extracted .bin, a
+// memory dump, or a slice of a cartridge. It covers both little-endian ARM cores
+// in this repository: the Nintendo DS's ARM9/ARM7 (ARMv5TE, the default) and the
+// Nintendo 3DS's ARM11 (ARMv6K, selected with -v6). The address space is 32-bit;
+// you tell disarm the CPU address the first byte maps to and the instruction set
+// to decode in.
 //
-//	disarm [-base ADDR] [-skip N] [-start ADDR] [-end ADDR] [-thumb] file.bin
+//	disarm [-base ADDR] [-skip N] [-start ADDR] [-end ADDR] [-thumb] [-v6] file.bin
 //
 // -base is the CPU address the first byte (after -skip file bytes are dropped) maps
 // to; -start/-end select an absolute address sub-range (default: the whole file).
@@ -41,6 +43,7 @@ func main() {
 	startF := flag.String("start", "", "start address (hex), default: base")
 	endF := flag.String("end", "", "end address (hex, exclusive), default: end of file")
 	thumb := flag.Bool("thumb", false, "decode as Thumb (16-bit) instead of ARM (32-bit)")
+	v6 := flag.Bool("v6", false, "decode for ARMv6K (Nintendo 3DS ARM11); default is ARMv5TE (DS)")
 	flag.Parse()
 	if flag.NArg() != 1 {
 		die("usage: disarm [-base A] [-skip N] [-start A] [-end A] [-thumb] file.bin")
@@ -71,7 +74,11 @@ func main() {
 	if start < base || start >= base+len(code) || end > base+len(code) || end <= start {
 		die("range $%X-$%X outside loaded blob ($%X-$%X)", start, end, base, base+len(code))
 	}
-	for _, l := range arm.Disassemble(code[start-base:end-base], uint32(start), *thumb) {
+	variant := arm.V5TE
+	if *v6 {
+		variant = arm.V6K
+	}
+	for _, l := range arm.DisassembleVariant(code[start-base:end-base], uint32(start), *thumb, variant) {
 		fmt.Println(l)
 	}
 }
