@@ -81,7 +81,10 @@ func buildCel(w, h int, plut []uint16, pdat []byte) []byte {
 		return out
 	}
 	ccb := make([]byte, 0x48)
-	be.PutUint32(ccb[0x04:], ccbPacked)
+	// CCB_CCBPRE: this synthetic cel carries its preamble in the CCB struct
+	// (a cel without the flag leads its source data with the preamble words,
+	// and ParseCel consumes them from there).
+	be.PutUint32(ccb[0x04:], ccbPacked|ccbCCBPre)
 	be.PutUint32(ccb[0x38:], 3|uint32(h-1)<<6) // PRE0: bpp code 3 (4bpp), VCNT
 	be.PutUint32(ccb[0x3C:], uint32(w-1))      // PRE1: HPCNT
 	be.PutUint32(ccb[0x40:], uint32(w))

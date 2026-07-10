@@ -96,10 +96,13 @@ func ParseCel(data []byte) (*Cel, error) {
 // finish derives the decode parameters once the cel's own chunks are in.
 func (c *Cel) finish() (*Cel, error) {
 	// Without CCB_CCBPRE the preamble words lead the source data (PRE0 always,
-	// PRE1 only for unpacked cels — packed lines carry their own offsets). Art
-	// tools usually copy them into the CCB struct as well, so only fall back
-	// to the source data when the struct's PRE0 is genuinely absent.
-	if c.PRE0 == 0 && c.Flags&ccbCCBPre == 0 && len(c.PDAT) >= 4 {
+	// PRE1 only for unpacked cels — packed lines carry their own offsets), and
+	// the hardware reads them from there. The struct's own PRE fields may hold
+	// a stale copy, so the in-stream words are authoritative — and they MUST be
+	// consumed: leaving them in place shifts the packed line-offset chain four
+	// bytes and desyncs the whole image (the truncated roadside billboard whose
+	// first "line offset" was really the preamble byte 0x80).
+	if c.Flags&ccbCCBPre == 0 && len(c.PDAT) >= 4 {
 		c.PRE0 = be32(c.PDAT)
 		c.PDAT = c.PDAT[4:]
 		if c.Flags&ccbPacked == 0 && len(c.PDAT) >= 4 {
