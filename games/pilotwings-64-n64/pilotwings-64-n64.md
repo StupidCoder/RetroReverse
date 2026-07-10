@@ -265,6 +265,91 @@ texture rather than the whole of it (the ocean wraps a 65×65 window over a 64×
 is re-issued with different wrap modes for its draw. Extents and wrap modes are sampling
 behaviour and vary per use; format, size and line stride never do.
 
+## Part IV §3 — `UVMD`: the models
+
+Each of the 363 `UVMD` resources is one compressed `COMM` chunk. Its reader is at `0x802256B8`
+and pulls every field through the same cursor helper as the textures, so the file is a strictly
+linear stream and the field order below is simply the order the reader calls that helper in:
+
+```
+u16 vertexCount
+u8  lodCount            levels of detail
+u8  partCount
+u8  faceCount           count of the 36-byte records after the matrices
+u8  flag
+u16 boneCount           count of the 6-byte records at the end
+Vertex[vertexCount]     16 bytes each — the Fast3D vertex pool, copied verbatim to RDRAM
+for each lod:
+    u8 partCount, u8 flag
+    for each part:
+        u8 batchCount, u8 flag, u8 flag
+        for each batch:
+            u32 material
+            u16 unknown, u16 unknown
+            u16 commandCount
+            command[commandCount]
+    u32 lodDistance
+Matrix[partCount]       64 bytes: a 4x4 float rest pose
+Face[faceCount]         36 bytes  (consumer not yet traced)
+u32 × 3
+Bone[boneCount]         6 bytes   (consumer not yet traced)
+```
+
+The whole resource is consumed but for 0–7 bytes of padding to an 8-byte boundary, on all 363.
+`vertexCount × 16` is exactly the length of the slice the loader copies to RDRAM, and the matrices
+begin exactly where its second slice starts — the two placements we had already observed in Part
+III fall out of the header.
+
+### The command stream: connectivity that isn't stored
+
+A batch is **not** a triangle list. It is a compact encoding the game expands into a Fast3D
+display list once, at load time; the emitter is at `0x80225940`. Each command is a `u16`:
+
+| bit `0x4000` | meaning |
+|---|---|
+| set | a triangle — three 4-bit **vertex-buffer slots** in bits 8–11, 4–7, 0–3 (the game multiplies each by 10, a `G_TRI1` index's byte stride) |
+| clear | a vertex load — bits 0–13 are an index into the vertex pool, and a following `u8` packs `((n-1) << 4) \| slot`, loading *n* vertices into the 16-entry buffer at *slot* |
+
+So the mesh's connectivity lives in a 16-slot sliding window, exactly as the RSP sees it. The
+decoder replays that window to recover triangles as indices into the vertex pool. This is why the
+earlier guess of a "patch stream" of unknown layout was only half right: the stream *is* the
+display list, minus the addresses.
+
+### Materials
+
+The batch's `u32` material has one pinned field: **the low 12 bits index the archive's `UVTX`
+resources in order**, 0–462 — the texture resources are contiguous (indices 471–933), so the
+ordinal is all that is needed. The value `0xFFF` means **untextured**, and the batch draws with
+vertex colours. That is the independent confirmation of something the RDP stream had already told
+us: the PILOTWINGS letters are 1,464 untextured triangles. Across the archive 1,481 of 3,427
+batches are untextured. The material's upper 20 bits are render flags the loader tests (bit 27 is
+latched into a per-part byte); they are carried through raw rather than guessed at.
+
+### Rest poses
+
+Each part has a 64-byte 4×4 float rest pose, in part order. The evidence for that pairing — which
+otherwise would rest only on the loader's allocation order — is that **all 264 single-part models
+in the archive carry an identity matrix.** A part-ordering error would have to arrange for every
+one of them to be identity by coincidence. The pairing holds at LOD 0; a lower LOD may drop a part
+outright (model 83's LOD 1 has two parts against three matrices), so nothing is placed below it.
+
+### Verification: the display lists, byte for byte
+
+This is the narrow seam. `extract/cmd/mdldump -verify` takes an RDRAM snapshot, locates each
+model's vertex pool by its bytes, and then — from the ROM alone — rebuilds the exact Fast3D
+display list the engine's emitter would write for every batch, and requires those bytes to appear
+in RAM. **12 models resident, 197 display lists, every one byte-for-byte identical, zero
+mismatches**, across both the title-card and flyby snapshots.
+
+The engine wrote those command words; we derived them from the file. Matching them verifies the
+command-stream decode, the slot window, the vertex indices and the emitter's encoding all at once,
+without reimplementing one line of the renderer. It also caught the one encoding error in the
+first attempt: the `G_VTX` pointer is a **segmented** address (the pool's physical address), not a
+KSEG0 one.
+
+Rendering the results confirms it from the other side: `uvmd-0047` is the island, textured, and
+`uvmd-0212` is the ten pieces of the PILOTWINGS logo.
+
 ## Verifying the display-list walk against the RDP stream
 
 The GLB exports come from `extract/cmd/dlwalk`, which walks the frame's Fast3D display list out

@@ -17,6 +17,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sort"
 	"strconv"
 	"strings"
 
@@ -38,6 +39,7 @@ func main() {
 	stopField := flag.Int("stopfield", 0, "stop the run after this many video fields (0 = never)")
 	var callLogs multiFlag
 	flag.Var(&callLogs, "calllog", "log a0-a3 and ra each time this PC executes (hex); repeatable")
+	rwatch := flag.String("rwatch", "", "read-watch ADDR:LEN (hex): summarise, per reading PC, the hit count and address range")
 	saveState := flag.String("savestate", "", "after the run, dump the full machine snapshot to this file")
 	loadState := flag.String("loadstate", "", "restore a machine snapshot before running")
 	out := flag.String("o", "", "output directory")
@@ -52,7 +54,7 @@ func main() {
 		fmt.Fprintln(os.Stderr, "bootoracle: -shotevery must be at least 1")
 		os.Exit(2)
 	}
-	if err := run(*image, *steps, *trace, *tracen, bps, watches, callLogs,
+	if err := run(*image, *steps, *trace, *tracen, bps, watches, callLogs, *rwatch,
 		*shot, *shotEvery, *shotBase, *dmaLog, *stopField, *saveState, *loadState, *out); err != nil {
 		fmt.Fprintln(os.Stderr, "bootoracle:", err)
 		os.Exit(1)
@@ -81,7 +83,17 @@ func hx(s string) (uint32, error) {
 	return uint32(v), err
 }
 
-func run(image, stepsS string, trace bool, tracen int, bps, watches, callLogs multiFlag,
+// readSite aggregates one PC's reads inside the watch window. Raw per-access
+// logging drowns at this scale; the {count, lo..hi} summary per PC *is* the
+// structure — a directory parser only touches the head, a record walker the
+// tail, and a cluster of PCs whose ranges start four bytes apart is one routine
+// reading consecutive words.
+type readSite struct {
+	count  int
+	lo, hi uint32
+}
+
+func run(image, stepsS string, trace bool, tracen int, bps, watches, callLogs multiFlag, rwatch string,
 	shot string, shotEvery, shotBase int, dmaLog string, stopField int,
 	saveState, loadState, out string) error {
 	rom, err := n64.Load(image)
@@ -169,6 +181,37 @@ func run(image, stepsS string, trace bool, tracen int, bps, watches, callLogs mu
 			fmt.Fprintf(w, "%s %d %08X %08X %X\n", kind, fields, dramAddr, cartAddr, length)
 		}
 	}
+	var sites map[uint32]*readSite
+	if rwatch != "" {
+		addr, length := rwatch, "4"
+		if i := strings.IndexByte(rwatch, ':'); i >= 0 {
+			addr, length = rwatch[:i], rwatch[i+1:]
+		}
+		a, err := hx(addr)
+		if err != nil {
+			return fmt.Errorf("bad -rwatch %q", rwatch)
+		}
+		n, err := hx(length)
+		if err != nil {
+			return fmt.Errorf("bad -rwatch length in %q", rwatch)
+		}
+		m.RWatchLo, m.RWatchHi = a, a+n
+		sites = map[uint32]*readSite{}
+		m.OnRead = func(addr, val, pc uint32) {
+			s := sites[pc]
+			if s == nil {
+				s = &readSite{lo: addr, hi: addr}
+				sites[pc] = s
+			}
+			s.count++
+			if addr < s.lo {
+				s.lo = addr
+			}
+			if addr > s.hi {
+				s.hi = addr
+			}
+		}
+	}
 	if len(callLogs) > 0 {
 		pcs := map[uint32]bool{}
 		for _, s := range callLogs {
@@ -204,6 +247,20 @@ func run(image, stepsS string, trace bool, tracen int, bps, watches, callLogs mu
 		fmt.Fprintf(os.Stderr, "bootoracle: machine notes:\n")
 		for _, l := range m.Log {
 			fmt.Fprintf(os.Stderr, "  - %s\n", l)
+		}
+	}
+
+	if sites != nil {
+		pcs := make([]uint32, 0, len(sites))
+		for pc := range sites {
+			pcs = append(pcs, pc)
+		}
+		sort.Slice(pcs, func(i, j int) bool { return sites[pcs[i]].count > sites[pcs[j]].count })
+		fmt.Printf("read-watch %08X..%08X: %d reading PCs\n", m.RWatchLo, m.RWatchHi, len(pcs))
+		fmt.Printf("%-10s %9s  %-19s %s\n", "pc", "reads", "range", "instruction")
+		for _, pc := range pcs {
+			s := sites[pc]
+			fmt.Printf("%08X   %9d  %06X..%06X  %s\n", pc, s.count, s.lo, s.hi, m.DisasmAt(uint64(pc)))
 		}
 	}
 
