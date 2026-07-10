@@ -79,3 +79,30 @@ byte-identical. `+off` is the slice offset inside the decompressed blob.
 
 The loads run at ~12 blobs per video field across fields 266–283 (and again from field 272 when
 the attract's second scene rebuilds the arena), which is why the sequence fades in scene by scene.
+
+## Verifying the display-list walk against the RDP stream
+
+The GLB exports come from `extract/cmd/dlwalk`, which walks the frame's Fast3D display list out
+of an RDRAM snapshot (the walker lives in `extract/f3d`). `extract/cmd/dlverify` verifies that
+walk mechanically: for one field it projects every walked triangle through the walked modelview,
+projection and viewport, and compares against the RDP triangle stream the oracle actually
+executed that field (captured via OnRDPCmd up to Sync_Full, each triangle's texture source
+tracked by TMEM address, its bounding box reconstructed from the edge coefficients). Tolerances
+are declared up front: counts per texture source in `[inside, inside + 7·straddling + slivers]`
+(the RSP clips and subdivides; near-degenerate triangles may collapse under its quantization),
+1:1 nearest-neighbour bbox matching at 2 px, and a per-triangle fixed-point band above that
+(the RSP concatenates MV·P in s15.16; the logo scene's rotation elements are ~0.01, one quantum
+is 0.1% of the element).
+
+Running it pinned four conventions the walker now embodies: screen y maps with **negated**
+viewport scale (x positive); the cull-face sign in that flipped space (front faces wind
+clockwise); the viewport applies **per vertex** — the RSP maps to the screen at G_VTX time, and
+the title card reprograms the viewport between the 3-D backdrop and the logo overlay; and a draw
+with G_TEXTURE off is untextured no matter what tile is bound.
+
+Standing results: the flyby scene passes clean (692/695 triangles matched within 2 px, every
+count in range); title and logo match 99.4% each, failing only on seven small untextured
+triangles apiece in one static logo-cluster group — their matrix and vertex bytes are identical
+between snapshot and run, both positions show rendered geometry in the frame, and they look like
+near-duplicate draws pairing off against each other. Unexplained; dlverify exits non-zero on
+them deliberately so the question stays visible.
