@@ -44,6 +44,7 @@ func main() {
 	saveState := flag.String("savestate", "", "after the run, dump the full machine snapshot to this file")
 	loadState := flag.String("loadstate", "", "restore a machine snapshot before running")
 	out := flag.String("o", "", "output directory")
+	pcmDump := flag.String("pcmdump", "", "write the raw PCM the audio thread plays (AI buffers) to this file, plus a .rate sidecar")
 	flag.Parse()
 
 	if *image == "" {
@@ -56,7 +57,7 @@ func main() {
 		os.Exit(2)
 	}
 	if err := run(*image, *steps, *trace, *tracen, bps, watches, callLogs, *rwatch, *keys,
-		*shot, *shotEvery, *shotBase, *dmaLog, *stopField, *saveState, *loadState, *out); err != nil {
+		*shot, *shotEvery, *shotBase, *dmaLog, *stopField, *saveState, *loadState, *out, *pcmDump); err != nil {
 		fmt.Fprintln(os.Stderr, "bootoracle:", err)
 		os.Exit(1)
 	}
@@ -160,7 +161,7 @@ func parseKeys(s string) ([]keyEvent, error) {
 
 func run(image, stepsS string, trace bool, tracen int, bps, watches, callLogs multiFlag, rwatch, keys string,
 	shot string, shotEvery, shotBase int, dmaLog string, stopField int,
-	saveState, loadState, out string) error {
+	saveState, loadState, out, pcmDump string) error {
 	rom, err := n64.Load(image)
 	if err != nil {
 		return err
@@ -274,6 +275,36 @@ func run(image, stepsS string, trace bool, tracen int, bps, watches, callLogs mu
 		m.OnDMA = func(kind string, dramAddr, cartAddr, length uint32) {
 			fmt.Fprintf(w, "%s %d %08X %08X %X\n", kind, fields, dramAddr, cartAddr, length)
 		}
+	}
+	if pcmDump != "" {
+		f, err := os.Create(pcmDump)
+		if err != nil {
+			return fmt.Errorf("-pcmdump: %w", err)
+		}
+		defer f.Close()
+		w := bufio.NewWriter(f)
+		defer w.Flush()
+		var lastRate uint32
+		var buffers, samples int
+		m.OnAIBuffer = func(dramAddr, length, dacRate uint32) {
+			end := dramAddr + length
+			if int(end) > len(m.RDRAM) {
+				return
+			}
+			w.Write(m.RDRAM[dramAddr:end])
+			lastRate, buffers, samples = dacRate, buffers+1, samples+int(length)/4
+		}
+		defer func() {
+			// The DAC clock is the VI crystal; rate = clock/(dacRate+1). Write it
+			// beside the PCM so a renderer can tag the WAV correctly.
+			const dacClock = 48681812
+			rate := 0
+			if lastRate != 0 {
+				rate = dacClock / int(lastRate+1)
+			}
+			os.WriteFile(pcmDump+".rate", []byte(fmt.Sprintf("%d\n", rate)), 0o644)
+			fmt.Fprintf(os.Stderr, "bootoracle: captured %d AI buffers, %d stereo samples, rate %d Hz\n", buffers, samples, rate)
+		}()
 	}
 	var sites map[uint32]*readSite
 	if rwatch != "" {

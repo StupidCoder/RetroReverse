@@ -48,8 +48,14 @@ func (m *Machine) aiWrite(addr uint32, v uint32) {
 		return
 	case aiLength:
 		// The sample block is dropped, and the interrupt raised immediately: the
-		// audio thread sees its buffer consumed and queues the next one.
-		m.ai.Regs[aiLength] = v & 0x3FFF8
+		// audio thread sees its buffer consumed and queues the next one. Before
+		// dropping it, hand the buffer to any observer — this is the only place
+		// the PCM the game actually plays is visible.
+		length := v & 0x3FFF8
+		m.ai.Regs[aiLength] = length
+		if !m.hookMuted && m.OnAIBuffer != nil && length > 0 {
+			m.OnAIBuffer(m.ai.Regs[aiDramAddr]&0xFFFFFF, length, m.ai.Regs[aiDacRate])
+		}
 		m.raiseIRQ(intrAI)
 		return
 	}

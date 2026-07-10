@@ -124,6 +124,12 @@ type Machine struct {
 	// OnRSPTask is called just before a microcode task begins, with its entry
 	// point in IMEM.
 	OnRSPTask func(m *Machine, pc uint32)
+	// OnAIBuffer is called each time the audio thread hands the DAC a PCM buffer
+	// (a write to AI_LEN), with the RDRAM address, byte length, and DAC rate
+	// divisor. It is the ground truth for audio: the samples the game's own synth
+	// and RSP microcode produced. dacRate is the AI_DACRATE divisor; the output
+	// sample rate is the VI clock (48_681_812 Hz) / (dacRate+1).
+	OnAIBuffer func(dramAddr, length, dacRate uint32)
 	// OnRDPCmd is called for each decoded RDP command, before it is executed —
 	// the counterpart of the PlayStation oracle's OnGP0.
 	OnRDPCmd func(m *Machine, op uint32, words []uint64)

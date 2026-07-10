@@ -1047,3 +1047,72 @@ resources, and the timeword's low half (the per-key interpolation parameter) is 
 the export plays keys at a chosen 12 fps — a presentation choice, stated as one, not a measured
 value. The Studio plays one clip on a loop and cycles to the next on a click (a pilot with ten
 postures would tear if all ten drove the same nodes at once).
+
+## Part VIII — the soundtrack: banks, samples, and the sequence directory
+
+The music is not in the IFF archive. The loader trace (`bootoracle -dmalog`) shows the running
+game fetch four cartridge regions past the archive's end at `0x0618B6C`, and three of them are the
+audio system, in the clear once the v64 byte-swap is undone (`n64.Load` normalises it; a raw `xxd`
+of the `.z64` does not, which is why the first read of the header looked like garbage). The tell
+was arithmetic: the loader reads an 8-byte header from `0x0618B70`, then DMAs exactly `0xFC` bytes
+— and `0xFC` only appears in the header *after* the swap.
+
+Three resources, each proven by where the machine reads it and then by an internal check:
+
+- **`0x0618B70` — the sequence bank.** Header `"S1"` + a `u16` count of **31**, then 31 records of
+  `{u32 offset, u32 len}` into one concatenated blob. The offsets are monotonic, `off[i]+len[i]`
+  lands on `off[i+1]`, and song 30 ends at `0x62D45B` — exactly where the next resource begins.
+  Each song opens with a 16-word header: one byte offset per MIDI channel into its own event
+  stream, `0` for a silent channel. Every song drives channel 0 (the conductor track, carrying the
+  `FF 51` tempo and `FF 2F` end-of-track meta events) and most drive channel 9 (GM percussion).
+- **`0x62D460` — the music instrument bank.** A second libultra `ALBankFile` (`"B1"`, the same
+  format as UVSX's `.CTL`): **49 instruments plus a percussion program, 22050 Hz**. It is a
+  separate bank from UVSX — that one (120 instruments, no percussion) is the sound-effect bank.
+- **`0x6314D0` — the music sample table.** The music bank's own VADPCM `.TBL`, sitting right after
+  its `.CTL`. Its location was not guessed: it is the single cartridge offset at which the bank's
+  wavetable base pointers reproduce the decoder states the game stored in them (below).
+
+### The bank format, and a decoder that proves itself
+
+`tools/platform/n64/audio` is new, reusable platform code: it parses the `ALBankFile` pointer
+graph (`ALBank → ALInstrument → ALSound → {ALEnvelope, ALKeyMap, ALWaveTable → ALADPCMBook,
+ALADPCMLoop}`) and decodes the N64's VADPCM — 9-byte frames of a 4-bit scale, a 4-bit predictor
+index, and sixteen signed 4-bit residuals, reconstructed by a short Q11 IIR filter over the
+predictor codebook. Row 0 of a predictor propagates the older carried sample, row 1 the newer, and
+that same last row is the impulse response convolved with the residuals inside a sub-frame;
+feedback is clamped to `s16`, as the RSP mixer does.
+
+The decoder needs no external oracle to be trusted. A looping sample's `ALADPCMLoop` stores the
+sixteen decoded samples of the frame that contains the loop point. Decoding each sample from the
+start and comparing that frame, bit for bit, to the stored state is a self-contained proof:
+
+```
+UVSX .CTL:            29/29 looping samples reproduce the stored decoder state
+music bank @0x62d460: 42/42 looping samples reproduce the stored decoder state
+```
+
+**71 of 71.** The check also settled two things that a plausible-but-wrong decoder would have
+passed over: the loop state is aligned *down* to the 16-sample VADPCM frame boundary (loop starts
+are not frame-aligned), and the music bank's samples do **not** come from UVSX's `.TBL` — they are
+a distinct table at `0x6314D0`, which is how that offset was found. `cmd/audiodump` runs the whole
+report.
+
+### Capturing what the game plays
+
+For end-to-end verification the oracle grew an ear. `ai.go`'s Audio Interface was a stub that
+dropped every buffer; it now offers `OnAIBuffer(dramAddr, length, dacRate)`, called at each write
+to `AI_LEN` with the PCM the audio thread hands the DAC — the samples the game's own synth and RSP
+microcode produced. `bootoracle -pcmdump` writes that stream out with a sample-rate sidecar. A
+boot run captures 113 buffers at **22047 Hz** (the `AI_DACRATE` divisor resolves to the bank's
+22050), confirming samples play at their native rate. Those buffers are silent — no song is
+triggered during attract, and the song blob is never DMA'd in a plain boot — so the loop-state
+check above, not the capture, is what currently verifies the codec; driving the game to a screen
+with music (via `-keys`) is what turns the capture into an A/B reference for the sequencer.
+
+### What remains
+
+The container, the instruments, the samples, and the codec are decoded and verified. Not yet
+written: the Type-0 sequence interpreter (delta-time, running status, the note-duration encoding,
+loop points and tempo) and the voice synth that renders a song to PCM — the same shape as the
+NDS `sdat` player, reading these banks — then the WAV→MP3 stage and the manifest wiring that puts
+the 31 songs in the Studio.
