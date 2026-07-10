@@ -564,6 +564,53 @@ advance, and the reason is not yet found. Since every check in this Part is stat
 depends on it. Driving into a mission stays open, and would earn its keep by confirming one
 reachable mission's feature records against this decode.
 
+## Part VI — from archive to glTF
+
+`extract/cmd/webexport` writes the Studio's assets, and **it does not boot the machine.** It opens
+the archive, decodes the textures, models, world grids and terrain chunks, and writes GLBs plus a
+format-2 manifest. The oracle is no longer in the export path; the exporter's only inputs are the
+cartridge and the decoders.
+
+What ships: the **ten worlds**, each assembled from its terrain chunks into one continuous mesh,
+and all **363 models**, each at LOD 0 with its parts placed by their rest poses — 373 GLBs, 11 MB.
+Textures are embedded per model. Nothing is silently dropped: no model has zero triangles at
+LOD 0, and the exporter would say so if one did.
+
+### Axes
+
+The game is **Z-up**: terrain lies in the X/Y plane and height is Z. A world grid's cell centres
+are `(x, y)`, and the island model's height runs 0–502 in Z. glTF is **Y-up**, so every exported
+position is rotated
+
+```
+(x, y, z)  ->  (x, z, -y)
+```
+
+which is a rotation about X and not a mirror — its determinant is +1 — so triangle winding and face
+orientation carry over unchanged and no normals need flipping.
+
+### Naming
+
+The archive carries no names for its models or worlds. Only three models and two worlds are named
+here, and each was *identified*, not guessed: the island, the logo and the sky dome are the attract
+sequence's meshes, verified against the RAM walk; **Crescent Island** and **Little States** are the
+two worlds that were recognised on assembling them. Everything else keeps its resource index.
+
+### What the oracle is still for
+
+Retiring emulation from the exporter does not retire it from the project. Three harnesses remain,
+and all three still pass:
+
+| harness | what it proves |
+|---|---|
+| `mdldump -verify` | 197 display lists, rebuilt from the ROM alone, appear byte-for-byte in the RAM the engine built |
+| `texdump -verify` | the game's own texels decode pixel-identically through the extent our ROM template gives |
+| `dlverify` | the display-list walk matches the RDP triangle stream the machine executed |
+| `worldexport -check` | every world's extents and cell transforms are self-consistent, and no chunk escapes its cell |
+
+That is the arrangement the project wants: the ROM is the source of record, the decoders are the
+deliverable, and the machine is the instrument that says whether they are right.
+
 ## Verifying the display-list walk against the RDP stream
 
 The GLB exports come from `extract/cmd/dlwalk`, which walks the frame's Fast3D display list out

@@ -280,18 +280,17 @@ const GAMES = [
   },
   {
     id: 'pilotwings-64-n64', name: 'Pilotwings 64', system: 'Nintendo 64', render: '3d',
-    // The generic manifest-driven 3-D viewer over plain GLBs (builtin mesh3d): the attract
-    // sequence's island, ocean and sky dome, both gyrocopters (their rotor-blur discs
-    // alpha-blended, vertex alpha carrying the blur), and the PILOTWINGS logo in five
-    // pieces. webexport boots the cartridge from power-on on the oracle, snapshots RDRAM
-    // at the flyby and title-card fields, and walks the Fast3D display lists (extract/f3d,
-    // verified against the RDP triangle stream by dlverify).
+    // The generic manifest-driven 3-D viewer over plain GLBs (builtin mesh3d). Everything is
+    // decoded from the cartridge's IFF archive with no emulation: the ten world grids, each
+    // assembled from its terrain chunks into one continuous mesh, and all 363 models. The
+    // game is Z-up and glTF is Y-up, so webexport rotates every position (x,y,z) -> (x,z,-y).
     load: () => import('../shared/viewer3d.js').then(m => m.Viewer3D),
     make: (V, el, hud) => new V(el, hud, { base: 'public/pilotwings-64-n64/' }),
-    list: async (v) => await v.init(), // manifest.models — island, sky, ocean, gyros, logo pieces
+    list: async (v) => await v.init(), // manifest.models — the worlds, then the models
     show: (v, item, i) => v.showItem(item),
-    // Open on the island rather than the first list entry.
-    defaultAsset: (models) => models.findIndex((m) => m.file?.includes('island')),
+    // Open on Crescent Island: the island the attract sequence flies over, assembled here
+    // from its 45 terrain chunks rather than drawn as the single model the attract uses.
+    defaultAsset: (models) => models.findIndex((m) => m.name === 'Crescent Island'),
     layers: [{ id: 'wireframe', label: 'Wireframe', default: false }],
     group: (item) => ({ section: item.section || 'Models', label: item.name }),
   },

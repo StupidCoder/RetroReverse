@@ -2363,11 +2363,11 @@ door's own state.</p>
   'pilotwings-64-n64': {
     loader: `
 <div class="info-eyebrow">Pilotwings 64 · Image &amp; Loader</div>
-<p>Pilotwings 64 ships on an 8&nbsp;MB mask-ROM cartridge. There is no filesystem: the game finds
-everything by offset, reading directory structures straight off the cartridge bus and pulling
-each asset through one small loader routine. Almost nothing in the ROM is stored ready to use —
-the art and geometry live in <strong>MIO0-compressed blobs</strong> that are inflated on demand
-into a scratch window and copied into place piece by piece.</p>
+<p>Pilotwings 64 ships on an 8&nbsp;MB mask-ROM cartridge, and every asset in the game lives in a
+single archive on it — <strong>IFF-85</strong>, the same <code>FORM</code>/chunk container the
+Amiga uses, on a Nintendo cartridge. Almost nothing is stored ready to use: the art and geometry
+sit in <strong>MIO0-compressed</strong> chunks that the game inflates on demand into a scratch
+window and copies into place piece by piece.</p>
 
 <h2>Boot</h2>
 <p>The console's own boot ROM (in the PIF chip, off the cartridge) validates the cartridge and
@@ -2378,16 +2378,28 @@ program image from cartridge offset <code>0x1000</code> to RAM, and jumps to the
 point. The operating system, libultra, is not console firmware — it is linked into that program
 image and runs as ordinary game code.</p>
 
+<h2>The archive</h2>
+<p>From cartridge offset <code>0x0DE720</code> to <code>0x0618B6C</code> run <strong>1,273
+back-to-back <code>FORM</code> chunks</strong>, contiguous but for one twelve-byte run of zeros.
+The first has type <code>UVRM</code> and holds the directory, <code>TABL</code>: 1,272 entries of
+a four-character type and a 32-bit byte length, one per following <code>FORM</code>. The length
+counts each form's own header, so the directory is a walkable index — resource <em>i</em> begins
+at the sum of the lengths before it, and the running total lands exactly on the archive's end.
+That is why no offset table exists anywhere in the ROM: the game reads the directory once and
+walks. Twenty resource types make up the game — textures, models, terrain chunks, world grids,
+missions, spline paths, recorded flights, fonts and the audio bank.</p>
+
 <h2>The loader</h2>
 <p>All asset traffic goes through a single fetch primitive: <em>load(destination, source,
 length)</em>. A source with the high bit set is a RAM pointer and the routine byte-copies; a
 source below <code>0x80000000</code> is a cartridge offset, fetched by DMA in 4&nbsp;KB chunks
-through an alignment bounce buffer. The game calls it thousands of times with 4-byte lengths
-just to walk its asset directories — the cartridge bus is treated like slow memory.</p>
+through an alignment bounce buffer. The game calls it thousands of times with 4-byte lengths just
+to walk the archive's chunk headers — the cartridge bus is treated like slow memory.</p>
 
 <h2>MIO0 compression</h2>
-<p>Each compressed blob sits inside an 8-byte container (a fourCC such as <code>COMM</code> plus a
-payload size) and starts with the magic <code>MIO0</code>. The header gives the decompressed
+<p>A compressed chunk is wrapped in one tagged <code>GZIP</code> — a wrapper name, unrelated to
+the format of the same name. Its payload is a chunk header carrying the <em>decompressed</em>
+length, then a stream beginning with the magic <code>MIO0</code>. The header gives the decompressed
 length and the offsets of two streams: raw literal bytes, and 16-bit back-references. A bit
 stream (MSB-first in 32-bit words) selects between them — a set bit copies one literal, a clear
 bit copies <em>length</em> bytes (3–18, from the record's top nibble) from up to 4096 bytes
@@ -2398,6 +2410,53 @@ staged at a fixed bounce address, inflated into a window at <code>0x3DA800</code
 the window are copied to their final homes — textures, meshes, and <strong>display-list
 templates</strong> that ship with a zeroed texture-pointer command the loader patches after
 placing the texture. That per-frame budget is why the attract's scenes fade in piece by piece.</p>
+`,
+    engine: `
+<div class="info-eyebrow">Pilotwings 64 · Game Engine</div>
+<p>Every resource in the archive is read by the same cursor helper: a routine that pulls a field
+of a given width and advances. A file is therefore a strictly linear stream, and its layout is
+simply the order in which its reader calls that helper.</p>
+
+<h2>Textures</h2>
+<p>A texture chunk is a two-byte size — clamped to 4096, so one TMEM is the hard limit on a
+Pilotwings texture — a format code the reader parses and throws away, sixteen discarded bytes, the
+texels, and then a <strong>Fast3D display list</strong>. That list is the authority on how the
+texels are read: it sets the tile format, the line stride and the wrap modes, loads the block, and
+declares up to six mip levels. None of the game's 463 textures is paletted, and every one ships
+pre-swizzled for TMEM.</p>
+
+<h2>Models</h2>
+<p>A model is a vertex pool and, per part and per material, a <strong>command stream</strong>. It
+is not a triangle list. Each command is a sixteen-bit word: one bit selects between a triangle,
+whose three vertices are four-bit slots in the RSP's sixteen-entry vertex buffer, and a vertex
+load, which fills <em>n</em> of those slots from the pool. The mesh's connectivity lives in that
+sliding window and nowhere else; the game expands the stream into a real display list once, at
+load time. A material's low twelve bits index the archive's texture resources, and the value
+<code>0xFFF</code> means untextured — which is why the PILOTWINGS letters, 1,464 triangles of
+them, are drawn purely in vertex colour.</p>
+<p>Each part carries a 4&times;4 rest pose, so an articulated model — a gyrocopter's rotor over
+its body — reassembles as the game holds it. Models come in up to five levels of detail; a coarser
+level may drop a part outright.</p>
+
+<h2>The worlds</h2>
+<p>The game's ten worlds are grids. A world declares its bounds, its column and row count and its
+cell size, then one byte per cell saying whether anything is there; a cell that is occupied names
+a <strong>terrain chunk</strong> and carries the 4&times;4 transform that places it, whose
+translation is exactly the cell's centre. The 101 terrain chunks are each named by at least one
+cell, and several are shared between grids that describe variants of the same place.</p>
+<p>A terrain chunk holds vertices, object placements, eight-byte faces, and batches in the very
+same command-stream encoding the models use — terrain and models are drawn by one expander. Each
+batch owns a slice of the face array, which is what a collision mesh looks like, though nothing in
+the render path reads it.</p>
+
+<h2>Missions</h2>
+<p>The 61 missions ship uncompressed and carry the developers' own names — <code>CB L1
+Target2</code>, <code>GC Exp</code>, <code>BIRD 3C</code> — along with a description string and a
+descriptor whose first word is a class, a vehicle, a variant and one of the four levels. Each
+mission's contents are flat record arrays named by tag: takeoff and landing pads, rings, thermals,
+balloons, targets. Alongside them the archive keeps eight spline paths, twelve camera views, and
+twenty-five <strong>recorded flights</strong> — nearly eight thousand position samples of someone
+flying the game.</p>
 `,
     graphics: `
 <div class="info-eyebrow">Pilotwings 64 · Graphics</div>
