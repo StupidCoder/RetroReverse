@@ -682,16 +682,21 @@ cylinder; the focal constant pins the game's horizontal FOV at ~71°. The
 near and far rings scroll at the same rate, index-aligned (both chains
 put the same cel boundary at screen centre). The band CCBs' HDY is
 **negative** — source columns walk *up* the screen — so each band rises
-from its YPos line: the near ring's centre cel spans screen y 36–86
-(tan +0.33 to +0.11 above eye level) and the far ring's y ~0–68 (+0.50 to
-+0.19). The far band therefore sits mostly *above* the near one — its
-hills show over the treeline, only the sky gradient higher, the stacking
-the pre-composed preview cel depicts. `cmd/webexport` bakes all of it into
-`models/sky-<id>.glb`: two concentric camera-centred cylinders, panorama
-wrapped 4× (REPEAT sampler), bands at the traced tan heights, the near
-ring's bottom row clamp-extended down toward eye level (the wedge the
-game's terrain covers from the low driving camera), cone caps continuing
-the edge colours; the Studio pins the dome to the camera every frame,
+from its YPos line: the near ring from screen y 85 up to 35, the far
+ring from ~68 up to ~0 (same anchors at the start line and mid-drive).
+Eye level sits at **y ≈ 85** — the projection converges there (the
+distant roadside-object mip cels cluster at y 79–84 dead ahead of the
+start grid, and the horizon-refresh code anchors the band at a constant
+built as `120 + offset`, 0x14804) — so the game rests the treeline base
+*exactly on the horizon line*, with the far ring's hills from tan +0.08
+up to +0.39, showing over the treeline; only the sky gradient sits
+higher, the stacking the pre-composed preview cel depicts.
+`cmd/webexport` bakes all of it into `models/sky-<id>.glb`: two
+concentric camera-centred cylinders, panorama wrapped 4× (REPEAT
+sampler), near band tan 0.00–0.22 and far +0.08–+0.39, the near ring's
+bottom row clamp-extended below the horizon (the region the game's
+terrain covers from the low driving camera), cone caps continuing the
+edge colours; the Studio pins the dome to the camera every frame,
 DS-viewer style.
 
 ### RoadObjects: 64 defs + ~1000 placements

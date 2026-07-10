@@ -174,24 +174,26 @@ func exportSky(a *assets, out string) (string, error) {
 		far = edgeColor(near, 0)
 	}
 
-	// Band placement is the traced frame's, in tan units (f = 223 px, eye
-	// level ~y=110 of 240). The horizon CCBs' HDY is NEGATIVE — source
-	// columns walk UP the screen — so each band RISES from its YPos line:
-	// the near ring's centre cel spans screen y 36-86 (tan +0.33 to +0.11
-	// above eye level) and the far ring's y ~0-68 (+0.50 to +0.19). The far
-	// band therefore sits mostly ABOVE the near one: its mountains show
-	// over the near ring's treeline, with only the sky gradient higher —
-	// the stacking the pre-composed preview cel shows. Taller near rings
-	// (Coastal's 128-row ocean) keep the same base and grow upward.
+	// Band placement is the traced frame's, in tan units (f = 223 px). The
+	// horizon CCBs' HDY is NEGATIVE — source columns walk UP the screen —
+	// so each band RISES from its YPos line: the near ring from y 85 up to
+	// 35, the far ring from ~68 up to ~0 (start-line frame; same anchors
+	// mid-drive). Eye level is y ≈ 85: the projection converges there (the
+	// distant roadside-object mips cluster at y 79-84 dead ahead), so the
+	// game anchors the treeline base exactly ON the horizon line, with the
+	// far ring's hills from +0.08 up — showing over the treeline, only the
+	// sky gradient higher, the stacking the pre-composed preview cel
+	// depicts. Taller near rings (Coastal's 128-row ocean) keep the same
+	// base and grow upward.
 	nearRows := near.Bounds().Dy()
-	nearY0 := float32(0.11)
+	nearY0 := float32(0.0)
 	nearTop := nearY0 + 0.22*float32(nearRows)/64
-	farY0, farTop := float32(0.19), float32(0.50)
-	// The near cylinder runs past its traced base down to near eye level
-	// with v clamped past 1: each column continues its own bottom-row colour
-	// (treeline base, lake shore, ocean) into the wedge the game's terrain
-	// otherwise covers from the low driving camera.
-	const ext = 0.02
+	farY0, farTop := float32(0.08), float32(0.39)
+	// The near cylinder runs a little past its traced base with v clamped
+	// past 1: each column continues its own bottom-row colour (treeline
+	// base, lake shore, ocean) below the horizon line, where the game's
+	// terrain otherwise covers from the low driving camera.
+	const ext = -0.08
 	vExt := 1 + (nearY0-ext)/(nearTop-nearY0)
 	b := &skyBuilder{}
 	b.cylinder(far, 1.0, farY0, farTop, 0, 1)
