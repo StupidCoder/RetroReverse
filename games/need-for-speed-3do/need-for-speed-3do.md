@@ -680,13 +680,19 @@ revolution, the 6-cel ring repeating **4×**, drawn with per-cel tangent
 widths (edge cels 1.44 px/texel, centre 0.93) that flat-project the
 cylinder; the focal constant pins the game's horizontal FOV at ~71°. The
 near and far rings scroll at the same rate, index-aligned (both chains
-put the same cel boundary at screen centre), and both bands straddle eye
-level (near ring's centre cel: screen y 86–151; far: 67–164 — the lower
-halves hide behind the terrain). `cmd/webexport` bakes all of it into
+put the same cel boundary at screen centre). The band CCBs' HDY is
+**negative** — source columns walk *up* the screen — so each band rises
+from its YPos line: the near ring's centre cel spans screen y 36–86
+(tan +0.33 to +0.11 above eye level) and the far ring's y ~0–68 (+0.50 to
++0.19). The far band therefore sits mostly *above* the near one — its
+hills show over the treeline, only the sky gradient higher, the stacking
+the pre-composed preview cel depicts. `cmd/webexport` bakes all of it into
 `models/sky-<id>.glb`: two concentric camera-centred cylinders, panorama
-wrapped 4× (REPEAT sampler), band placement in the traced tan units, cone
-caps continuing the rings' edge colours; the Studio pins the dome to the
-camera every frame, DS-viewer style.
+wrapped 4× (REPEAT sampler), bands at the traced tan heights, the near
+ring's bottom row clamp-extended down toward eye level (the wedge the
+game's terrain covers from the low driving camera), cone caps continuing
+the edge colours; the Studio pins the dome to the camera every frame,
+DS-viewer style.
 
 ### RoadObjects: 64 defs + ~1000 placements
 

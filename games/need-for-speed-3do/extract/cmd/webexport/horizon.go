@@ -108,8 +108,11 @@ type skyBuilder struct {
 const skyWraps = 4
 
 // cylinder adds an open cylinder of radius r spanning y0..y1, the panorama
-// repeated skyWraps times around it (u grows with bearing, v=0 at the top).
-func (b *skyBuilder) cylinder(img image.Image, r, y0, y1 float32) {
+// repeated skyWraps times around it (u grows with bearing). v0/v1 are the
+// texture rows at the top and bottom edge; a v beyond [0,1] samples the
+// clamped edge row (WrapT CLAMP), which extends the band's own edge colours
+// per column instead of a flat fill.
+func (b *skyBuilder) cylinder(img image.Image, r, y0, y1, v0, v1 float32) {
 	const n = 96
 	base := uint32(len(b.positions))
 	for s := 0; s <= n; s++ {
@@ -118,7 +121,7 @@ func (b *skyBuilder) cylinder(img image.Image, r, y0, y1 float32) {
 		u := skyWraps * float32(s) / n
 		b.positions = append(b.positions,
 			[3]float32{r * x, y1, -r * z}, [3]float32{r * x, y0, -r * z})
-		b.uvs = append(b.uvs, [2]float32{u, 0}, [2]float32{u, 1})
+		b.uvs = append(b.uvs, [2]float32{u, v0}, [2]float32{u, v1})
 	}
 	var tris [][3]uint32
 	for s := uint32(0); s < n; s++ {
@@ -172,23 +175,29 @@ func exportSky(a *assets, out string) (string, error) {
 	}
 
 	// Band placement is the traced frame's, in tan units (f = 223 px, eye
-	// level ~y=115 of 240): the near ring's centre cel runs screen y 86-151
-	// (tan +0.13 to -0.15) and the far ring's y 67-164 (+0.22 to -0.22) —
-	// both straddle eye level; the lower parts hide behind the terrain, as
-	// in the game. Taller rings (Coastal's 128-row ocean) keep the same top
-	// and grow downward. The caps continue the rings' own edge colours.
+	// level ~y=110 of 240). The horizon CCBs' HDY is NEGATIVE — source
+	// columns walk UP the screen — so each band RISES from its YPos line:
+	// the near ring's centre cel spans screen y 36-86 (tan +0.33 to +0.11
+	// above eye level) and the far ring's y ~0-68 (+0.50 to +0.19). The far
+	// band therefore sits mostly ABOVE the near one: its mountains show
+	// over the near ring's treeline, with only the sky gradient higher —
+	// the stacking the pre-composed preview cel shows. Taller near rings
+	// (Coastal's 128-row ocean) keep the same base and grow upward.
 	nearRows := near.Bounds().Dy()
-	nearTop := float32(0.13)
-	nearY0 := nearTop - 0.28*float32(nearRows)/64
-	farTop, farY0 := float32(0.22), float32(-0.22)
-	if farY0 > nearY0 {
-		farY0 = nearY0 // the opaque far ring backs the whole near band
-	}
+	nearY0 := float32(0.11)
+	nearTop := nearY0 + 0.22*float32(nearRows)/64
+	farY0, farTop := float32(0.19), float32(0.50)
+	// The near cylinder runs past its traced base down to near eye level
+	// with v clamped past 1: each column continues its own bottom-row colour
+	// (treeline base, lake shore, ocean) into the wedge the game's terrain
+	// otherwise covers from the low driving camera.
+	const ext = 0.02
+	vExt := 1 + (nearY0-ext)/(nearTop-nearY0)
 	b := &skyBuilder{}
-	b.cylinder(far, 1.0, farY0, farTop)
-	b.cap(edgeColor(far, 0), 1.0, farTop, 0.9)             // sky
-	b.cap(edgeColor(near, nearRows-1), 0.98, nearY0, -0.5) // ground haze
-	b.cylinder(near, 0.98, nearY0, nearTop)
+	b.cylinder(far, 1.0, farY0, farTop, 0, 1)
+	b.cap(edgeColor(far, 0), 1.0, farTop, 1.2)                   // sky above
+	b.cap(edgeColor(near, near.Bounds().Dy()-1), 1.0, ext, -0.5) // ground below
+	b.cylinder(near, 0.98, ext, nearTop, 0, vExt)
 
 	file := fmt.Sprintf("models/sky-%s.glb", a.course)
 	if err := glb.WriteTextured(filepath.Join(out, file), b.positions, b.uvs, b.groups, nil); err != nil {
