@@ -12,6 +12,7 @@
 package main
 
 import (
+	"bufio"
 	"flag"
 	"fmt"
 	"os"
@@ -33,6 +34,10 @@ func main() {
 	shot := flag.String("shot", "", "write a PNG of the framebuffer to this directory")
 	shotEvery := flag.Int("shotevery", 60, "write a -shot PNG every this many video fields (1 = every field)")
 	shotBase := flag.Int("shotbase", 0, "number the first -shot field as this, for runs resumed from a savestate")
+	dmaLog := flag.String("dmalog", "", "log every DMA transfer (kind, field, addresses, length) to this file")
+	stopField := flag.Int("stopfield", 0, "stop the run after this many video fields (0 = never)")
+	var callLogs multiFlag
+	flag.Var(&callLogs, "calllog", "log a0-a3 and ra each time this PC executes (hex); repeatable")
 	saveState := flag.String("savestate", "", "after the run, dump the full machine snapshot to this file")
 	loadState := flag.String("loadstate", "", "restore a machine snapshot before running")
 	out := flag.String("o", "", "output directory")
@@ -47,8 +52,8 @@ func main() {
 		fmt.Fprintln(os.Stderr, "bootoracle: -shotevery must be at least 1")
 		os.Exit(2)
 	}
-	if err := run(*image, *steps, *trace, *tracen, bps, watches,
-		*shot, *shotEvery, *shotBase, *saveState, *loadState, *out); err != nil {
+	if err := run(*image, *steps, *trace, *tracen, bps, watches, callLogs,
+		*shot, *shotEvery, *shotBase, *dmaLog, *stopField, *saveState, *loadState, *out); err != nil {
 		fmt.Fprintln(os.Stderr, "bootoracle:", err)
 		os.Exit(1)
 	}
@@ -76,8 +81,9 @@ func hx(s string) (uint32, error) {
 	return uint32(v), err
 }
 
-func run(image, stepsS string, trace bool, tracen int, bps, watches multiFlag,
-	shot string, shotEvery, shotBase int, saveState, loadState, out string) error {
+func run(image, stepsS string, trace bool, tracen int, bps, watches, callLogs multiFlag,
+	shot string, shotEvery, shotBase int, dmaLog string, stopField int,
+	saveState, loadState, out string) error {
 	rom, err := n64.Load(image)
 	if err != nil {
 		return err
@@ -126,25 +132,58 @@ func run(image, stepsS string, trace bool, tracen int, bps, watches multiFlag,
 			fmt.Fprintf(os.Stderr, "  write [%08X] = %08X  from %08X  (%s)\n", addr, val, pc, m.DisasmAt(uint64(pc)))
 		}
 	}
+	// A run resumed from a savestate starts counting fields at zero, so
+	// -shotbase restores the numbering the original boot would have given
+	// them. That is what lets a snapshot stand in for the run that made it.
+	fields := shotBase
 	if shot != "" {
 		if err := os.MkdirAll(shot, 0o755); err != nil {
 			return err
 		}
-		// A run resumed from a savestate starts counting fields at zero, so
-		// -shotbase restores the numbering the original boot would have given
-		// them. That is what lets a snapshot stand in for the run that made it.
-		fields := shotBase
-		m.OnDisplay = func(mm *n64.Machine) {
-			fields++
-			if fields%shotEvery != 0 {
-				return
+	}
+	m.OnDisplay = func(mm *n64.Machine) {
+		fields++
+		if stopField > 0 && fields >= stopField {
+			mm.StopRequested = true
+		}
+		if shot == "" || fields%shotEvery != 0 {
+			return
+		}
+		p := filepath.Join(shot, fmt.Sprintf("frame-%04d.png", fields))
+		if err := mm.Screenshot(p); err != nil {
+			fmt.Fprintf(os.Stderr, "  field %d: %v\n", fields, err)
+			return
+		}
+		fmt.Fprintf(os.Stderr, "  wrote %s\n", p)
+	}
+	if dmaLog != "" {
+		f, err := os.Create(dmaLog)
+		if err != nil {
+			return fmt.Errorf("-dmalog: %w", err)
+		}
+		defer f.Close()
+		w := bufio.NewWriter(f)
+		defer w.Flush()
+		fmt.Fprintf(w, "# kind field dram(cart-side for sp) src length\n")
+		m.OnDMA = func(kind string, dramAddr, cartAddr, length uint32) {
+			fmt.Fprintf(w, "%s %d %08X %08X %X\n", kind, fields, dramAddr, cartAddr, length)
+		}
+	}
+	if len(callLogs) > 0 {
+		pcs := map[uint32]bool{}
+		for _, s := range callLogs {
+			a, err := hx(s)
+			if err != nil {
+				return fmt.Errorf("bad -calllog %q", s)
 			}
-			p := filepath.Join(shot, fmt.Sprintf("frame-%04d.png", fields))
-			if err := mm.Screenshot(p); err != nil {
-				fmt.Fprintf(os.Stderr, "  field %d: %v\n", fields, err)
-				return
+			pcs[a] = true
+		}
+		m.OnStep = func(mm *n64.Machine, pc uint32) {
+			if pcs[pc] {
+				r := mm.CPU.R
+				fmt.Printf("call %08X field=%d a0=%08X a1=%08X a2=%08X a3=%08X ra=%08X\n",
+					pc, fields, uint32(r[4]), uint32(r[5]), uint32(r[6]), uint32(r[7]), uint32(r[31]))
 			}
-			fmt.Fprintf(os.Stderr, "  wrote %s\n", p)
 		}
 	}
 	if trace {

@@ -136,6 +136,10 @@ type Machine struct {
 	// OnPrint is called for each line a program writes to the IS-Viewer. Test
 	// ROMs report their results this way.
 	OnPrint func(m *Machine, line string)
+	// StopRequested ends the current Run at the next instruction boundary. A
+	// hook (say, OnDisplay counting video fields) sets it to stop a run at a
+	// condition a step budget cannot express. Not part of the machine state.
+	StopRequested bool
 
 	dpWriteHook func(addr, v uint32)
 	hookMuted   bool // suppresses hooks during machine-internal reads (DMA, disassembly)

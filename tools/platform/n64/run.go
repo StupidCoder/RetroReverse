@@ -59,6 +59,10 @@ func (m *Machine) Run(maxSteps uint64) Result {
 	for steps < maxSteps {
 		pc := uint32(m.CPU.PC)
 
+		if m.StopRequested {
+			m.StopRequested = false
+			return Result{steps, pc, "stop requested"}
+		}
 		if m.run.breakpoints[pc] && !first {
 			return Result{steps, pc, fmt.Sprintf("breakpoint at 0x%08X", pc)}
 		}
