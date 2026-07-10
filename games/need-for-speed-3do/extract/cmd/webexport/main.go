@@ -81,10 +81,9 @@ func main() {
 	image := flag.String("image", "", "3DO disc image")
 	out := flag.String("o", "", "output directory")
 	course := flag.String("course", "cy1", "course to export (al1..cy3)")
-	car := flag.String("car", "LDiablo", "CarData .wrapFam to export")
 	flag.Parse()
 	if *image == "" || *out == "" {
-		die("usage: webexport -image DISC -o OUTDIR [-course cy1] [-car LDiablo]")
+		die("usage: webexport -image DISC -o OUTDIR [-course cy1]")
 	}
 
 	data, err := os.ReadFile(*image)
@@ -117,13 +116,11 @@ func main() {
 		Fly: true, Camera: &startCam,
 	})
 
-	carFile, carName, err := exportCar(vol, *car, *out)
+	cars, err := exportCars(vol, *out)
 	if err != nil {
 		die("car: %v", err)
 	}
-	models = append(models, ModelIndex{
-		Name: carName, File: carFile, Kind: "mesh3d", Section: "Cars",
-	})
+	models = append(models, cars...)
 
 	m := Manifest{
 		Format: 2, Game: "The Need for Speed", Platform: "3DO",

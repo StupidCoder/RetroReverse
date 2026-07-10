@@ -80,6 +80,13 @@ func parseCarShape(shape []byte, lod *CarLOD) error {
 			oriOff = off
 			continue
 		}
+		if off < len(shape) && shape[off] == 0x20 {
+			// a bare PLUT chunk listed in the directory (the traffic cars'
+			// shared "plt0".."plt3" recolour palettes) — the textures reach
+			// it by signed offset; it is not itself a texture. These always
+			// trail the numbered textures, so skipping keeps !ori indices.
+			continue
+		}
 		spotOffs = append(spotOffs, off)
 	}
 	if oriOff < 0 {
@@ -112,27 +119,48 @@ func parseCarShape(shape []byte, lod *CarLOD) error {
 
 // spotBPP maps the SPoT type byte to bits per pixel — the game's own table
 // (bytes 00 01 02 04 06 08 10 next to the CCB template the cel constructor
-// 0x3B9C4 copies; type is word0's top byte).
+// 0x3B9C4 copies; type is word0's top byte). The table is exactly the CCB
+// PRE0 bpp-code map: a type byte with bit 7 set skips the table and is the
+// PRE0 low bits directly (the BMI path at 0x3BA44: PRE0 = type & 0x17, so
+// bits 0-2 = bpp code, bit 4 = uncoded) — 0x84 is 6bpp coded, 0x85 8bpp
+// coded. Types 5 and 0x85 render with the global recolour palette the
+// traffic-car loader stamps (LDREQ lr, [r4, #-0x4] at 0x3BA0C/0x3BA90);
+// statically their chain resolves to the file's "plt0", the default scheme.
 var spotBPP = [7]int{0, 1, 2, 4, 6, 8, 16}
 
 // decodeSpot decodes one SPoT texture record:
 //
-//	+0x00 u8 type (index into spotBPP), u24 PLUT-chunk offset
+//	+0x00 u8 type (index into spotBPP), s24 PLUT-chunk offset
 //	+0x04 u16 w, u16 h
 //	+0x08 u32 0, +0x0C u32 0x00320032
 //	+0x10 pixel rows, MSB-first bit-packed, word-aligned, minimum 8 bytes
-//	At the PLUT offset: {u8 0x20, u24 next, u32 ?, u32 ?, u32 external-ptr
+//	At the PLUT offset: {u8 0x20, s24 next, u32 ?, u32 ?, u32 external-ptr
 //	(0 = colors inline), RGB555 colors at +0x10}. Coded pixels are a 5-bit
 //	PLUT index with the P-bit above it (the cel engine's 6bpp PDEC layout).
+//
+// The PLUT offset and the chain hops are SIGNED 24-bit, relative to the
+// record (the constructor at 0x3B9C4 does ADD r9, r9, r2, ASR #8 with
+// r2 = word0 << 8): the traffic cars point every texture backwards at one
+// shared "plt0" chunk instead of carrying a PLUT each.
 func decodeSpot(shape []byte, off int) (*image.RGBA, error) {
 	if off+0x10 > len(shape) {
 		return nil, fmt.Errorf("SPoT record at 0x%X out of range", off)
 	}
 	typ := int(shape[off])
-	if typ >= len(spotBPP) || spotBPP[typ] == 0 {
-		return nil, fmt.Errorf("SPoT type %d unsupported", typ)
+	bpp, uncoded := 0, false
+	switch {
+	case typ < len(spotBPP):
+		bpp = spotBPP[typ]
+	case typ >= 0x80:
+		bpp = spotBPP[typ&7] // PRE0-direct: bits 0-2 are the code
+		uncoded = typ&0x10 != 0
 	}
-	bpp := spotBPP[typ]
+	if bpp == 0 {
+		return nil, fmt.Errorf("SPoT type 0x%X unsupported", typ)
+	}
+	if uncoded && bpp != 16 {
+		return nil, fmt.Errorf("SPoT type 0x%X: uncoded %dbpp unsupported", typ, bpp)
+	}
 	w := int(be16(shape[off+4:]))
 	h := int(be16(shape[off+6:]))
 	if w <= 0 || h <= 0 || w > 512 || h > 512 {
@@ -141,15 +169,15 @@ func decodeSpot(shape []byte, off int) (*image.RGBA, error) {
 	// PLUT colors (coded depths only)
 	var plut []uint16
 	if bpp < 16 {
-		chunk := off + int(be32(shape[off:])&0xFFFFFF)
-		for chunk+0x10 <= len(shape) && shape[chunk] != 0x20 {
-			next := int(be32(shape[chunk:]) & 0xFFFFFF)
+		chunk := off + s24(be32(shape[off:]))
+		for chunk >= 0 && chunk+0x10 <= len(shape) && shape[chunk] != 0x20 {
+			next := s24(be32(shape[chunk:]))
 			if next == 0 {
 				break
 			}
 			chunk += next
 		}
-		if chunk+0x10 > len(shape) || shape[chunk] != 0x20 {
+		if chunk < 0 || chunk+0x10 > len(shape) || shape[chunk] != 0x20 {
 			return nil, fmt.Errorf("SPoT at 0x%X: no PLUT chunk", off)
 		}
 		colors := chunk + 0x10
@@ -157,6 +185,19 @@ func decodeSpot(shape []byte, off int) (*image.RGBA, error) {
 		for i := 0; i < n && colors+2*i+2 <= len(shape); i++ {
 			plut = append(plut, be16(shape[colors+2*i:]))
 		}
+	}
+	if typ >= 0x80 {
+		// The negative-type path also ORRs CCB_PACKED (0x200) into the
+		// template flags (0x3BA10): the pixel stream is per-line RLE, not
+		// row-strided. Reuse the platform cel decoder; PIXC pass-through and
+		// BGND clear match the unpacked path's verified behaviour.
+		cel := &threedo.Cel{
+			Width: w, Height: h, BPP: bpp,
+			Packed: true, Coded: !uncoded,
+			PLUT: plut, PDAT: shape[off+0x10:],
+			PIXC: 0x1F001F00,
+		}
+		return cel.Image()
 	}
 	rowBytes := ((w*bpp + 31) / 32) * 4
 	if rowBytes < 8 {
@@ -222,7 +263,11 @@ func SpotOffsets(fam []byte, oriOff int) []int {
 		if name == "!ori" || name == "!ORI" {
 			continue
 		}
-		offs = append(offs, shp+int(be32(fam[shp+0x14+8*k:])))
+		off := shp + int(be32(fam[shp+0x14+8*k:]))
+		if off < len(fam) && fam[off] == 0x20 {
+			continue // shared plt palette chunk, not a texture
+		}
+		offs = append(offs, off)
 	}
 	return offs
 }

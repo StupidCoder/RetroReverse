@@ -33,6 +33,168 @@
       "file": "models/car-ldiablo.glb",
       "kind": "mesh3d",
       "section": "Cars"
+    },
+    {
+      "name": "512 TR",
+      "file": "models/car-f512tr.glb",
+      "kind": "mesh3d",
+      "section": "Cars"
+    },
+    {
+      "name": "911",
+      "file": "models/car-p911.glb",
+      "kind": "mesh3d",
+      "section": "Cars"
+    },
+    {
+      "name": "ZR-1",
+      "file": "models/car-czr1.glb",
+      "kind": "mesh3d",
+      "section": "Cars"
+    },
+    {
+      "name": "Viper",
+      "file": "models/car-dviper.glb",
+      "kind": "mesh3d",
+      "section": "Cars"
+    },
+    {
+      "name": "NSX",
+      "file": "models/car-ansx.glb",
+      "kind": "mesh3d",
+      "section": "Cars"
+    },
+    {
+      "name": "RX-7",
+      "file": "models/car-mrx7.glb",
+      "kind": "mesh3d",
+      "section": "Cars"
+    },
+    {
+      "name": "Supra",
+      "file": "models/car-tsupra.glb",
+      "kind": "mesh3d",
+      "section": "Cars"
+    },
+    {
+      "name": "Police Mustang",
+      "file": "models/car-copmust.glb",
+      "kind": "mesh3d",
+      "section": "Traffic"
+    },
+    {
+      "name": "BMW",
+      "file": "models/car-bmw.glb",
+      "kind": "mesh3d",
+      "section": "Traffic"
+    },
+    {
+      "name": "CRX",
+      "file": "models/car-crx.glb",
+      "kind": "mesh3d",
+      "section": "Traffic"
+    },
+    {
+      "name": "GMC Truck",
+      "file": "models/car-gmctruck.glb",
+      "kind": "mesh3d",
+      "section": "Traffic"
+    },
+    {
+      "name": "Jeep",
+      "file": "models/car-jeep.glb",
+      "kind": "mesh3d",
+      "section": "Traffic"
+    },
+    {
+      "name": "Jetta",
+      "file": "models/car-jetta.glb",
+      "kind": "mesh3d",
+      "section": "Traffic"
+    },
+    {
+      "name": "Lemans",
+      "file": "models/car-lemans.glb",
+      "kind": "mesh3d",
+      "section": "Traffic"
+    },
+    {
+      "name": "Pickup",
+      "file": "models/car-pickup.glb",
+      "kind": "mesh3d",
+      "section": "Traffic"
+    },
+    {
+      "name": "Prelude",
+      "file": "models/car-prelude.glb",
+      "kind": "mesh3d",
+      "section": "Traffic"
+    },
+    {
+      "name": "Probe",
+      "file": "models/car-probe.glb",
+      "kind": "mesh3d",
+      "section": "Traffic"
+    },
+    {
+      "name": "Rodeo",
+      "file": "models/car-rodeo.glb",
+      "kind": "mesh3d",
+      "section": "Traffic"
+    },
+    {
+      "name": "Sunbird",
+      "file": "models/car-sunbird.glb",
+      "kind": "mesh3d",
+      "section": "Traffic"
+    },
+    {
+      "name": "Vandura",
+      "file": "models/car-vandura.glb",
+      "kind": "mesh3d",
+      "section": "Traffic"
+    },
+    {
+      "name": "Wagon",
+      "file": "models/car-wagon.glb",
+      "kind": "mesh3d",
+      "section": "Traffic"
+    },
+    {
+      "name": "Axxess",
+      "file": "models/car-axxess.glb",
+      "kind": "mesh3d",
+      "section": "Traffic"
+    },
+    {
+      "name": "Scooter",
+      "file": "models/car-scooter.glb",
+      "kind": "mesh3d",
+      "section": "Unused"
+    },
+    {
+      "name": "911 (classic body)",
+      "file": "models/car-porsche.glb",
+      "kind": "mesh3d",
+      "section": "Unused"
+    },
+    {
+      "name": "Police Mustang (dev)",
+      "file": "models/car-copmust-new.glb",
+      "kind": "mesh3d",
+      "section": "Unused"
+    },
+    {
+      "name": "Probe94 (SASCO model)",
+      "file": "models/car-probe94.glb",
+      "kind": "mesh3d",
+      "section": "Unused"
+    },
+    {
+      "name": "SASCO",
+      "file": "models/car-sasco.glb",
+      "kind": "mesh3d",
+      "section": "Unused"
     }
   ]
 }

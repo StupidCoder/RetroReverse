@@ -15,43 +15,74 @@ import (
 	"retroreverse.com/tools/platform/threedo"
 )
 
-// carNames maps a CarData basename to a friendlier Studio label (the model
-// names inside the ORI3 are terse — "DIABLO00").
-var carNames = map[string]string{
-	"LDiablo": "Diablo",
-	"F512TR":  "F512 TR",
-	"CopMust": "Police Mustang",
-	"Wagon":   "Warrior Wagon",
-	"CRX":     "CRX",
-	"Vandura": "Vandura",
-	"BMW":     "BMW 850i",
+// fleet is every car .wrapFam on the disc that decodes (28 of 29 — only the
+// dev leftover CopMust.WrapFam.old has a type byte even the retail engine
+// would misread). Names come from the filenames and the ORI3 model names;
+// sections group the Studio browse list: the 8 player cars, the traffic
+// fleet the player weaves through (plus the police Mustang that chases), and
+// the cars nothing in the game spawns.
+var fleet = []struct{ file, name, section string }{
+	{"LDiablo.WrapFam", "Diablo", "Cars"},
+	{"F512TR.WrapFam", "512 TR", "Cars"},
+	{"P911.WrapFam", "911", "Cars"},
+	{"CZR1.WrapFam", "ZR-1", "Cars"},
+	{"DVIPER.WrapFam", "Viper", "Cars"},
+	{"ANSX.WrapFam", "NSX", "Cars"},
+	{"MRX7.WrapFam", "RX-7", "Cars"},
+	{"TSupra.WrapFam", "Supra", "Cars"},
+	{"CopMust.WrapFam", "Police Mustang", "Traffic"},
+	{"BMW.WrapFam", "BMW", "Traffic"},
+	{"CRX.WrapFam", "CRX", "Traffic"},
+	{"GMCTRUCK.WrapFam", "GMC Truck", "Traffic"},
+	{"Jeep.WrapFam", "Jeep", "Traffic"},
+	{"Jetta.WrapFam", "Jetta", "Traffic"},
+	{"Lemans.WrapFam", "Lemans", "Traffic"},
+	{"Pickup.WrapFam", "Pickup", "Traffic"},
+	{"PRELUDE.WrapFam", "Prelude", "Traffic"},
+	{"PROBE.WrapFam", "Probe", "Traffic"},
+	{"RODEO.WrapFam", "Rodeo", "Traffic"},
+	{"SunBird.WrapFam", "Sunbird", "Traffic"},
+	{"Vandura.WrapFam", "Vandura", "Traffic"},
+	{"Wagon.WrapFam", "Wagon", "Traffic"},
+	{"axxess.WrapFam", "Axxess", "Traffic"},
+	{"Scooter.WrapFam", "Scooter", "Unused"},
+	{"Porsche.WrapFam", "911 (classic body)", "Unused"},
+	{"CopMust.WrapFam.new", "Police Mustang (dev)", "Unused"},
+	{"Probe94.WrapFam", "Probe94 (SASCO model)", "Unused"},
+	{"SASCO.WrapFam", "SASCO", "Unused"},
 }
 
-func exportCar(vol *threedo.Volume, name, out string) (string, string, error) {
-	fam, err := vol.ReadFile("DriveData/CarData/" + name + ".wrapFam")
-	if err != nil {
-		return "", "", err
-	}
-	lods, err := nfs.ParseCarFam(fam)
-	if err != nil {
-		return "", "", err
-	}
-	// highest detail = most faces
-	best := lods[0]
-	for _, l := range lods[1:] {
-		if len(l.Model.Faces) > len(best.Model.Faces) {
-			best = l
+// exportCars writes the highest-detail LOD of every fleet car as a textured
+// GLB and returns their manifest entries.
+func exportCars(vol *threedo.Volume, out string) ([]ModelIndex, error) {
+	var models []ModelIndex
+	for _, c := range fleet {
+		fam, err := vol.ReadFile("DriveData/CarData/" + c.file)
+		if err != nil {
+			return nil, fmt.Errorf("%s: %v", c.file, err)
 		}
+		lods, err := nfs.ParseCarFam(fam)
+		if err != nil {
+			return nil, fmt.Errorf("%s: %v", c.file, err)
+		}
+		// highest detail = most faces
+		best := lods[0]
+		for _, l := range lods[1:] {
+			if len(l.Model.Faces) > len(best.Model.Faces) {
+				best = l
+			}
+		}
+		// "CopMust.WrapFam.new" -> "copmust-new"
+		slug := strings.ToLower(strings.ReplaceAll(strings.Replace(c.file, ".WrapFam", "", 1), ".", "-"))
+		file := fmt.Sprintf("models/car-%s.glb", slug)
+		if err := writeORI3(best, 1.0/128, filepath.Join(out, file)); err != nil {
+			return nil, fmt.Errorf("%s: %v", c.file, err)
+		}
+		models = append(models, ModelIndex{
+			Name: c.name, File: file, Kind: "mesh3d", Section: c.section,
+		})
 	}
-	file := fmt.Sprintf("models/car-%s.glb", strings.ToLower(name))
-	if err := writeORI3(best, 1.0/128, filepath.Join(out, file)); err != nil {
-		return "", "", err
-	}
-	display := name
-	if d, ok := carNames[name]; ok {
-		display = d
-	}
-	return file, display, nil
+	return models, nil
 }
 
 // writeORI3 writes a textured GLB from an ORI3 model + its face-texture map.

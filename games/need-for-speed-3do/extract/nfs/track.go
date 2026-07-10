@@ -16,6 +16,7 @@ func be32(b []byte) uint32  { return binary.BigEndian.Uint32(b) }
 func sbe32(b []byte) int32  { return int32(binary.BigEndian.Uint32(b)) }
 func be16(b []byte) uint16  { return binary.BigEndian.Uint16(b) }
 func sbe16(b []byte) int16  { return int16(binary.BigEndian.Uint16(b)) }
+func s24(w uint32) int      { return int(int32(w<<8) >> 8) } // signed low 24 bits
 
 // Fixed 16.16 world coordinate.
 type Fx16 = int32
