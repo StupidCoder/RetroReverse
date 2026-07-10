@@ -350,6 +350,98 @@ KSEG0 one.
 Rendering the results confirms it from the other side: `uvmd-0047` is the island, textured, and
 `uvmd-0212` is the ten pieces of the PILOTWINGS logo.
 
+## Part IV §4 — the world: `UVTR`, `UVCT`, `UVBT`
+
+The attract sequence draws its island as a single `UVMD` model. The playable worlds are built
+differently, and none of them is ever loaded before the title card — so nothing in this section is
+verified by watching the machine. It is verified by assembling the world and looking at it.
+
+### `UVTR` — ten world grids
+
+The archive holds exactly one `UVTR` resource, carrying **ten uncompressed `COMM` chunks: ten
+worlds.** Its reader is at `0x802270BC`:
+
+```
+f32 minX, minY, minZ        the world's lower bound
+f32 maxX, maxY, maxZ        its upper bound
+u8  cols, u8 rows
+f32 cellW, f32 cellH
+f32 radius
+Cell[cols*rows]             row-major
+```
+
+and a cell is one byte of presence, and if present a 4×4 float matrix, a flag byte, and a `u16`:
+
+```
+u8  present                 0 -> the loader zeroes a 72-byte slot and moves on
+f32[16] matrix
+u8  flag
+u16 chunk                   a UVCT resource's ordinal, 0..100
+```
+
+Three facts pin it, and none of them can hold by accident:
+
+1. Every world's extent is **exactly** `cols × cellW` by `rows × cellH`.
+2. Every present cell's matrix translates to that cell's **centre**,
+   `(minX + (col+½)·cellW, minY + (row+½)·cellH)` — for all 120 cells of all ten worlds. The
+   grid's second axis lands in the matrix's *Y* slot: the terrain's ground plane is X/Y with Z up,
+   as the island model already implied.
+3. The ten grids name **each of the 101 `UVCT` resources at least once**, and nothing outside them.
+
+The worlds: a 2×2 of 600-unit cells; two 8×8 grids of 512; four 8×5 grids of 1000 sharing one
+8000×5000 extent; two 2×5 grids of 1000; and a single 6000-unit cell. Nineteen chunks are named by
+more than one grid — the grids that share an extent are variants of one place, re-using most of its
+terrain.
+
+### `UVCT` — the terrain chunks
+
+Read at `0x80225FBC`, through the same cursor helper as everything else:
+
+```
+u16 vertexCount, u16 faceCount, u16 objectCount, u16 batchCount
+Vertex[vertexCount]     16 bytes — the Fast3D vertex pool
+Face[faceCount]         8 bytes  — three u16 vertex indices and a word
+Object[objectCount]     u8 poseCount, that many 64-byte 4x4 matrices, then u16, u32×3, u16, u16
+Batch[batchCount]       a UVMD batch, then a 24-byte trailer
+u32 × 5
+```
+
+**A terrain batch is a model batch.** Same material word, same `u16` command stream, expanded by
+the same display-list emitter at `0x80225940` — so `extract/uvmd`'s `DecodeBatch` is reused
+verbatim, and the terrain's connectivity is the same 16-slot sliding window. (This retires an old
+suspicion: the "strip builder" at `0x802206C0`, once assumed to draw terrain, draws something else.)
+
+What `UVCT` adds is a trailer after each batch's commands: `u16 faceStart, u16 faceCount`, then
+four more words. The loader turns `faceStart` into a pointer into the face array, so **the faces
+belong to the batch drawn over them** — three vertex indices and a word, which says collision. No
+code in the render path reads them, so they are carried through undecoded rather than named.
+
+### `UVBT` — identified, not decoded
+
+102 resources, tantalisingly close to `UVCT`'s 101. Its loader is `0x80227D34` and its parser
+`0x80227260`, which reads the chunk through **64-bit shift helpers**: it is a bit-packed structure,
+not an array of records, and nothing in the terrain draw path touches it. Guessing at it from the
+count coincidence is exactly what this project does not do, so it is left here: named, located,
+and undecoded.
+
+### Verification: assemble the world
+
+`extract/cmd/worldexport` decodes the ten grids and the 101 chunks from the ROM, places every
+chunk by its cell's transform, and writes one continuous textured GLB per world. Because each
+chunk is decoded and placed independently, a wrong transform, a wrong axis or a wrong cell stride
+has nowhere to hide.
+
+- **Containment, mechanically:** no vertex of any placed chunk escapes the cell that names it, in
+  any of the ten worlds. Worst overhang: **0.0000 units.** (A chunk need not *fill* its cell — a
+  coastal cell stops at the shoreline — so measuring the gap between neighbours proves nothing;
+  measuring the overhang proves everything.)
+- **Continuity, visually:** world 1 assembles 45 chunks into the crescent island the attract
+  sequence flies over — the same landmass, from a completely different source. World 3 assembles
+  38 chunks into **Little States**, unmistakably the United States, with the Rockies, the
+  Mississippi and Florida.
+
+20,846 terrain triangles across the 101 chunks.
+
 ## Verifying the display-list walk against the RDP stream
 
 The GLB exports come from `extract/cmd/dlwalk`, which walks the frame's Fast3D display list out

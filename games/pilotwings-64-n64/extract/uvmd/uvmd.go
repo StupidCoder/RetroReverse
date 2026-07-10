@@ -158,6 +158,29 @@ func (m *Model) Triangles(lod int) int {
 	return n
 }
 
+// DecodeBatch reads one batch — a material and a command stream — from data at
+// offset p, returning it and the offset just past it.
+//
+// It is exported because UVCT terrain chunks carry the *same* batch record and
+// feed the *same* display-list emitter at 0x80225940. The two formats differ in
+// everything around the batches and in nothing about them.
+func DecodeBatch(data []byte, p, vertexCount int) (Batch, int, error) {
+	c := &cursor{d: data, p: p}
+	var b Batch
+	b.Material = Material(c.u32())
+	b.Unknown[0], b.Unknown[1] = c.u16(), c.u16()
+	n := int(c.u16())
+	if c.err != nil {
+		return b, c.p, c.err
+	}
+	tris, stream, err := build(c, n, vertexCount)
+	if err != nil {
+		return b, c.p, err
+	}
+	b.Tris, b.Stream = tris, stream
+	return b, c.p, c.err
+}
+
 // cursor mirrors the game's read helper: every field is pulled in order and the
 // position advances by exactly the bytes consumed.
 type cursor struct {
