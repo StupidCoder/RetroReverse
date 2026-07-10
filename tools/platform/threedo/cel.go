@@ -26,6 +26,7 @@ import (
 type Cel struct {
 	Flags         uint32
 	PRE0, PRE1    uint32
+	PIXC          uint32 // the two PPMP pixel-processor words
 	Width, Height int
 	BPP           int      // bits per pixel: 1,2,4,6,8,16
 	Packed        bool     // packed (RLE) vs unpacked source data
@@ -66,6 +67,7 @@ func ParseCel(data []byte) (*Cel, error) {
 			}
 			// body[0] is ccbversion; fields below are relative to it.
 			c.Flags = be32(body[0x04:])
+			c.PIXC = be32(body[0x34:])
 			c.PRE0 = be32(body[0x38:])
 			c.PRE1 = be32(body[0x3C:])
 			c.Width = int(be32(body[0x40:]))
@@ -168,42 +170,58 @@ const (
 	packRepeat      = 3
 )
 
-// Image decodes the cel into an RGBA image. Transparent runs (and, for uncoded
-// cels, a zero color word) become fully transparent pixels.
+// Image decodes the cel into an RGBA image, the way the cel engine's PDEC and
+// PPMP stages resolve it:
+//
+//   - Transparent runs, and any pixel whose resolved color is RGB black on a
+//     cel without CCB_BGND, become fully transparent (the PDEC rule — this is
+//     what cuts out lamp posts and building billboards from their black
+//     backgrounds; the road cels set BGND, so their black texels stay).
+//   - Each pixel's P-bit (bit 5 at 6bpp, the PLUT entry's bit 15 otherwise)
+//     selects one of the CCB's two PPMP words, and the destination-independent
+//     part of that word — first-source multiply/divide, constant second
+//     source, final shift — is applied to the color. The track's road cels
+//     carry PIXC 0x1F001F01: P=0 texels are halved (the dark asphalt), P=1
+//     texels pass through (the lane lines) — without this the export showed
+//     the raw over-bright palette with white speckles the game never draws.
 func (c *Cel) Image() (*image.RGBA, error) {
 	if c.Width <= 0 || c.Height <= 0 || c.Width > 4096 || c.Height > 4096 {
 		return nil, fmt.Errorf("threedo: implausible cel size %dx%d", c.Width, c.Height)
 	}
 	img := image.NewRGBA(image.Rect(0, 0, c.Width, c.Height))
+	bgnd := c.Flags&ccbBGND != 0
 	set := func(x, y int, v uint32) {
 		if x < 0 || x >= c.Width {
 			return
 		}
-		var col color.RGBA
+		var raw uint16 // RGB555 with the P-bit in bit 15
 		if c.Coded {
 			// The PDEC's palette index is the low 5 bits; at 6bpp bit 5 is the
 			// P-bit and at 8bpp the top bits are the AMV shade (not applied
 			// here) — neither is part of the index (opera_madam.c cp6btag/
-			// cp8btag). Without the mask, P-bit pixels fell outside the PLUT
-			// and decoded as spurious transparent black.
+			// cp8btag).
 			idx := v
 			if c.BPP >= 6 {
 				idx &= 0x1F
 			}
 			if int(idx) < len(c.PLUT) {
-				col = rgb555(c.PLUT[idx])
+				raw = c.PLUT[idx]
+				if c.BPP == 6 {
+					raw = raw&0x7FFF | uint16(v&0x20)<<10 // P from the pixel
+				}
 			} else if len(c.PLUT) == 0 {
 				// No palette: render the index as grayscale so the shape shows.
 				g := uint8(v * 255 / uint32((1<<c.BPP)-1))
-				col = color.RGBA{g, g, g, 0xFF}
+				img.SetRGBA(x, y, color.RGBA{g, g, g, 0xFF})
+				return
 			}
 		} else { // uncoded 16bpp literal RGB555
-			if uint16(v) == 0 {
-				return // treat the zero word as transparent
-			}
-			col = rgb555(uint16(v))
+			raw = uint16(v)
 		}
-		img.SetRGBA(x, y, col)
+		if raw&0x7FFF == 0 && !bgnd {
+			return // resolved black without CCB_BGND: transparent (PDEC)
+		}
+		img.SetRGBA(x, y, rgb555(c.ppmp(raw)))
 	}
 
 	if c.Packed {
@@ -212,6 +230,61 @@ func (c *Cel) Image() (*image.RGBA, error) {
 		c.decodeUnpacked(set)
 	}
 	return img, nil
+}
+
+// ppmp applies the destination-independent part of the pixel processor to one
+// RGB555 pixel (P-bit in bit 15): the P-bit or the CCB's POVER override picks
+// one of PIXC's two PPMP words; the word's first-source multiply/divide,
+// constant second source and final shift then scale the color (blendPixel in
+// graphicsfolio.go is the full engine). Words that need the framebuffer
+// (first source = destination, AMV/self-modulate multipliers, second source =
+// destination/source) pass the color through unchanged — a flat texture
+// export has no destination to blend with.
+func (c *Cel) ppmp(pix uint16) uint16 {
+	word := c.PIXC & 0xFFFF
+	switch c.Flags & ccbPOVER {
+	case 0x100: // PMODE_ZERO: force the low word
+	case 0x180: // PMODE_ONE: force the high word
+		word = c.PIXC >> 16
+	default: // the pixel's own P-bit picks the word
+		if pix&0x8000 != 0 {
+			word = c.PIXC >> 16
+		}
+	}
+	if word == 0 { // no PIXC recorded (e.g. a synthetic cel): pass through
+		return pix
+	}
+	s1 := word&0x8000 != 0
+	ms := (word >> 13) & 3
+	mxf := (word >> 10) & 7
+	dv1 := (word >> 8) & 3
+	s2 := (word >> 6) & 3
+	avf := (word >> 1) & 0x1F
+	dv2 := word & 1
+	if s1 || ms != 0 || s2 >= 2 {
+		return pix // needs the destination (or a shade value); pass through
+	}
+	var second uint32
+	if s2 == 1 {
+		dv3 := uint32(0)
+		if c.Flags&0x400 != 0 { // CCB_USEAV: AV carries control signals
+			dv3 = (avf >> 3) & 3
+			avf &^= 0x1C
+		}
+		second = avf >> dv3
+	}
+	sh1 := ((dv1 - 1) & 3) + 1 // PDV
+	scale := func(ch uint32) uint16 {
+		v := ((ch*(mxf+1))>>sh1 + second) >> dv2
+		if v > 31 {
+			v = 31
+		}
+		return uint16(v)
+	}
+	r := scale((uint32(pix) >> 10) & 0x1F)
+	g := scale((uint32(pix) >> 5) & 0x1F)
+	b := scale(uint32(pix) & 0x1F)
+	return r<<10 | g<<5 | b
 }
 
 // decodePacked walks the per-line RLE stream. Each line begins with a byte

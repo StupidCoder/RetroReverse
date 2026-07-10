@@ -96,11 +96,14 @@ func exportObjects(a *assets, out string) (string, error) {
 }
 
 // objectYaw converts a placement's yaw to GLB radians. The billboard corner
-// code (0x161E4) rotates by -(yaw<<16) - (heading<<10) with a full circle of
-// 0x1000000; with the GLB Z-flip the sense negates back.
+// code (0x161E4) rotates by a = -(yaw<<16) - (heading<<10), full circle
+// 0x1000000, and spans the quad along (cos a, sin a) in game X/Z. Mapping to
+// GLB (x, y, -z) and three.js's +Y rotation of the +X-aligned quad gives
+// theta = a — the same negative angle. (The sign error this replaces was
+// invisible at the start grid, where the heading is 0, and mirrored every
+// sign and lamp post once the track curved.)
 func objectYaw(p nfs.Placement, seg *nfs.Segment) float64 {
-	angle := float64(int32(p.Yaw)<<16+int32(seg.Heading)<<10) / float64(1<<24) * 2 * math.Pi
-	return angle
+	return -float64(int32(p.Yaw)<<16+int32(seg.Heading)<<10) / float64(1<<24) * 2 * math.Pi
 }
 
 // writeBillboard emits one textured quad: width W1 centred on the origin,
