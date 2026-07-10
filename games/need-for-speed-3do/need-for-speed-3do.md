@@ -925,3 +925,54 @@ count). Three named allocations round out the picture: `UsrCtrlBuff`
 `OppCarMS` (24 × 23 × 0x60 records, world-coordinate sequences along the
 course) — the MS pair look like sampled position/racing-line tables; their
 exact consumer is left untraced.
+
+### The two motion models — full physics vs rails with a spring
+
+Whether AI cars share the player's physics is directly measurable: watch
+each car's world-position field for its writer PC. They differ.
+
+**The player** runs the full simulation (module 0x10000–0x127xx, where
+the `Adjusted max tire co` and `ANGLE WARNING` diagnostics live). Per
+1/30 s tick (every integration multiplies by 0x888/0x10000): force
+accumulators (+0x414/+0x41C) integrate into **body-frame velocities**
+(+0x54/+0x5C), rotate through the heading (0x10370) and advance the
+world position (a vec3 at +0x0C; writer 0x12640). The car carries a 3×3
+orientation matrix at +0x2C (readable cos/sin — a 30° yaw shows up as
+±0.50 off-diagonals), a second smoothed orientation at +0xC4, a **slip
+angle at +0x45C** (exists only while sliding; the tire-smoke placer at
+0x2B3D0 consumes it ×12 as an angle), and a grip state at +0x3A0 averaged
+from +0x450 × a spec constant. The `.TdDyn` text feeds it: `Mass`,
+`MomentOfInertia`, `Size`, per-gear top speeds (+0x31C thresholds),
+`redline` (+0x34C — LDiablo's 7300 verified in RAM), and the 100-sample
+`PowerCurve` (+0x190).
+
+**AI cars** — opponent, cops, traffic alike — are moved by the AI module
+instead (writers 0x28C1C/0x28CBC and a twin at 0x29F4C): position += a
+velocity vector (+0x48) × (1/32 + 1/512 ≈ 1/30), then a **corrective
+spring toward a road anchor point** (+0xA4 vec3): the delta is normalised
+(Operamath SWI 0x5000C) and a scaled fraction subtracted from the
+position. No forces, no slip, no orientation dynamics — rails with a
+spring, steered by the Part XI lane/speed targets. Their `.TdDyn`
+parameters still matter, but differently: the per-skill **Handling
+Factor** ("higher is less affected by curves") and **Speed Factor** ("% of
+the 512TR's top speed line") are the difficulty system (the `pskills`
+selection) — the LDiablo opponent runs 90/90/100 % of the 512TR line by
+skill; the generic traffic class `CAR1` pins handling at 255.0 (never
+slowed by curves) and cruises near 8 m/s.
+
+### Crashes: continuous, not canned (as far as scripted driving reaches)
+
+Two instrumented impacts — 116 km/h and 139 km/h into the City berm —
+show wall contact handled *inside* the continuous model: no state flag
+flips anywhere in the car struct (behaviour mask stays 0x1E0, activity
+stays 7). The lateral position is constrained at the barrier, speed
+scrubs 32 → 9 m/s over ~1.5 s, the car yaws ~30° and the slip angle
+spikes to −15° (tire smoke). The scripted drives produced only oblique
+barrier hits; the cinematic roll-over sequence the game shows on hard
+frontal impacts was not reached, so its trigger threshold remains
+untraced (small state enums at 0x3E8A4/0x41A54 moved across the contact
+windows and are the natural suspects). Car-to-car contact is shortlisted
+by the AI walk's per-frame proximity transients on the player's mask
+(0x400 = near a witness-class car, 0x800 = within 10 segments — the same
+flags the cop bust gates on); the fine contact resolution is likewise
+left for a future pass.
