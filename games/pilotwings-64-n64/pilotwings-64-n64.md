@@ -437,8 +437,73 @@ space we inferred. Pushed through its cell's transform, **every one of the 1,806
 inside the cell that names it** — the same test the terrain geometry passes. A wrong offset, or a
 wrong idea of which space the position is in, could not.
 
-Twenty-one objects carry **more than one matrix** — three, four, and in one case ten. That is
-where a moving object's poses live. What `type` selects is not yet traced.
+Twenty-one objects carry **more than one matrix** — three, four, and in one case ten.
+
+#### What `type` selects: the model, by its ordinal
+
+Nothing in the archive maps `type` to a model, and looking for such a table was wasted effort.
+Driving the oracle into a lesson (below) and read-watching the resident object array answers it in
+one screen. The consumer is at `0x8022C59C`:
+
+```
+lui   $fp, 0x8025
+lw    $fp, -29232($fp)   ; fp = *(0x80248DD0)
+addiu $fp, $fp, 200      ; ...+200 is a table of 4-byte pointers
+
+lhu   $v0, 0($s2)        ; type
+beql  $v0, 0xFFFF, next  ; 0xFFFF: a slot the game cleared at runtime
+lhu   $v1, 20($s2)       ; mask
+sll   $t9, $v0, 2
+addu  $t0, $fp, $t9      ; &table[type]
+and   $t8, $v1, $t7      ; mask & a per-scene selector
+beql  $t8, $zero, next   ; no bit in common -> this object is not in this scene
+lw    $s0, 0($t0)        ; the model
+bne   $s0, $zero, draw
+jal   $8022ED14          ; otherwise: complain, and skip
+```
+
+The table is a 200-entry cache of loaded models, and `type` indexes it raw. In the beginner
+hang-glider lesson exactly 38 of its entries are non-zero, at indices 1..23 and 25..39 — and the
+game had DMA'd exactly 38 `UVMD` resources, whose **ordinals** are 1..23 and 25..39. There is no
+mapping to find:
+
+> **An object's `type` is a `UVMD` ordinal.**
+
+The gap is the proof: type 24 has no model *because* `UVMD` ordinal 24 was never loaded for this
+scene, and the table slot stayed zero. The `0` at index 0 and the `jal` above it say what happens
+if an object names a model the scene did not load — the engine treats it as a fault, not a hole.
+
+That claim is then checked against the whole ROM, with no oracle: for each of the 13 `UVLV` scenes
+that name terrain (below), take the union of the object `type`s in the `UVCT` chunks it loads and
+require every one to appear in the `UVMD` list the same scene loads. **All 13 pass**, covering all
+183 distinct types.
+
+#### `mask` — which scene an object belongs to
+
+The `and` above is the whole story: an object is drawn only where `mask & selector` is non-zero.
+Sixteen bits, never zero, and the low and high halves cluster by region — the amusement-park corner
+of Holiday Island is `0x4000`/`0x8000`, the airstrip `0x0010`/`0x0011`. This is where the game's
+time-of-day and per-mission object sets live, exactly as expected. **The selector's source is not
+yet traced**, so which bit means what is not claimed here.
+
+#### The extra matrices are instances, not frames
+
+Matrix `[0]` is the object's placement: its translation equals the `x, y, z` read four fields
+later, every time, and its upper 3×3 carries the object's scale and yaw. The rest are further
+transforms of the same model, in the object's local space. The one ten-matrix object — `UVCT` 2,
+object 8, `type` 12, in Holiday Island's south-west cell — has nine of them, and eight lie on a
+circle of radius ≈143 at 45° spacing, with the ninth above the centre:
+
+```
+[1] (   4.8,   0.0, 232.9)      [2] (  -0.0, 0.0,  145.7)   [3] (-144.0, 0.0,   1.7)
+[4] (  -0.0,   0.0,-142.3)      [5] ( 142.9, 0.0,    5.9)   [6] ( -99.5, 0.0, 104.3)
+[7] ( -99.5,   0.0, -92.4)      [8] (  97.2, 0.0,  -92.4)   [9] (  97.2, 0.0, 104.3)
+```
+
+Eight cars on a wheel. The draw routine at `0x8022CC40` copies one 64-byte matrix at a time out of
+the object's block (`lw $t3, 4($s7)`, stride 64) onto the stack, so the model is emitted once per
+matrix. Whether the ring *turns* is an animation question, and `UVAN`'s 115 resources are still
+undecoded.
 
 ### The water
 
@@ -447,6 +512,56 @@ The worlds export as terrain only, and terrain stops at the shoreline: the sea i
 and `UVMD` 219 is a ±2,995 plane, exactly the extent of the 6,000-unit world 9. All of them are
 textured with **UVTX ordinal 26**, the same water tile the attract sequence's ocean uses. Which
 plane belongs to which world, and what places it, is not yet traced.
+
+### `UVLV` — the scene manifests
+
+One `UVLV` resource, 136 uncompressed `COMM` chunks, each **ten `(u16 count, u16[count])` arrays**
+and up to six bytes of zero padding. Its parser is `0x80226B20`. The arrays hold **ordinals within a
+FORM type** — not resource indices — and the slots are:
+
+| slot | names | used by |
+|---|---|---|
+| 0 | `UVTR` worlds | 13 chunks |
+| 3 | `UVMD` models | 103 |
+| 4 | `UVCT` terrain chunks | 13 |
+| 5 | `UVTX` textures | 99 |
+| 8 | `UVFT` fonts (always `0..8`) | 136 |
+| 1 | never used | 0 |
+| 2, 6, 7, 9 | unidentified | 29, 3, 54, 29 |
+
+**Ten, not nine.** Nine slots parse without error on all 136 chunks, because slot 9 is empty in 107
+of them and its zero count is indistinguishable from the alignment padding that follows. The count
+came from the parser, which is unrolled rather than a loop: it reads a `u16` into `s0+4`, `s0+12`,
+… `s0+76` — ten `(pointer, count)` pairs — and then returns. Only one chunk, scene 11, would have
+exposed the mistake, and it would have looked like a corrupt tail rather than a missing field.
+
+A `UVLV` chunk is a **scene**: everything the game must have resident to run it. What identifies
+slots 0 and 4 is arithmetic, not shape. For each of the 13 chunks that name worlds, take the union
+of the `UVCT` ordinals those worlds' grid cells name, and compare it to slot 4:
+
+```
+UVLV   1: worlds [0]     -> UVCT 0..3            == slot 4    ✓
+UVLV   3: worlds [1, 2]  -> UVCT 4..50           == slot 4    ✓
+UVLV   5: worlds [3]     -> UVCT 51..88          == slot 4    ✓
+UVLV   6: worlds [4]     -> UVCT 58, 65, 66      == slot 4    ✓
+UVLV   7: worlds [5]     -> 11 chunks            == slot 4    ✓
+UVLV   8: worlds [6]     -> UVCT 51, 52, 59..61  == slot 4    ✓
+UVLV  10: worlds [7, 8]  -> UVCT 89..99          == slot 4    ✓
+UVLV  59..64: worlds [9] -> UVCT 100             == slot 4    ✓   (six scenes, one cell)
+```
+
+Thirteen for thirteen, from the ROM alone: two independently-decoded structures, `UVTR`'s grids and
+`UVLV`'s lists, agree on which terrain each scene needs. Slot 8 is `0..8` in all 136 chunks — the
+nine fonts, always resident — which is what makes the *type* of a slot legible at all. All four
+claims are tests in `extract/uvlv`.
+
+Six scenes share world 9's single cell, and three share world 3's terrain with different model and
+texture sets. **The variations the game shows are scene manifests over shared terrain**, not
+duplicated maps.
+
+Independently, the beginner hang-glider lesson's PI-DMA log (below) contains exactly the resources
+`UVLV` chunk 1 lists, plus the mission's own vehicle, pilot and HUD assets. The manifest is
+therefore what the loader reads, not merely what parses.
 
 ### `UVBT` — identified, not decoded
 
@@ -618,6 +733,46 @@ That the same savestates still verify (`dlverify`, `mdldump -verify`, `texdump -
 unchanged) is worth noting — but a state cut *before* the fix carries the game's already-zeroed
 `pifstatus` word, so resuming one and injecting input still yields nothing. Input scripts need a
 cold boot, or a state cut after the fix.
+
+### Into a lesson
+
+Five presses reach gameplay, and each screen's field number was read off the frame the previous run
+wrote. From a cold boot:
+
+```
+bootoracle -keys "2170:+start,2182:-start"    -> title card       -> SELECT FILE
+           "2410:+a,2414:-a"                  -> SELECT FILE      -> SELECT VEHICLE & CLASS
+           "2650:+a,2654:-a"                  -> beginner class, hang glider
+           "2810:+a,2814:-a"                  -> SELECT PILOT      (Lark)
+           "3000:+a,3004:-a"                  -> the briefing: "Holiday Island, 1 test to go"
+           "3100:+a,3104:-a"                  -> the lesson
+```
+
+By field 3400 the oracle is flying a hang glider over an island, with a working HUD, altimeter and
+radar. Every screen in the chain is a savestate, so a run that only needs the loaded scene resumes
+from `work/prelaunch.state` in 30 seconds rather than replaying the boot.
+
+The first thing the flight bought was the **scene's resource set**, straight from `-dmalog`: every
+PI-DMA read landing inside the archive, mapped back to the FORM it falls in.
+
+```
+UVTR  ordinal 0        UVCT  0..3        (world 0)
+UVMD  1..23, 25..39    + the hang glider, pilot and shadow models
+UVTX  70 scene tiles   + the vehicle's and HUD's
+UVFT  0..8             UVEN 0, UVSY 0, UVLV 0, UPWL 0, UPWT 52, ADAT 0, UVSX 0
+```
+
+Two things fall out immediately, both checkable afterwards without the machine. **The terrain
+chunks are `UVCT` 0..3 — exactly the four cells `UVTR` world 0 names**, which is the world grid
+confirming itself against the loader. And the whole list is `UVLV` chunk 1, which is what made that
+resource legible. The briefing screen names the place: **world 0 is Holiday Island.**
+
+The second thing it bought was the object `type` mapping, above. The route was the playbook's:
+`-calllog` on the object-loop's allocator to learn where the resident object array lives
+(`0x800B6288` for the first chunk), then `-rwatch` on it to find who reads it. Eight PCs, one
+answer. Note the address: the watch takes a **physical** address, and watching `0x800B6288` reports
+zero reads while `0x000B6288` reports 5,720 — a silent nothing that reads exactly like "the array
+is never used".
 
 ## Part VI — from archive to glTF
 

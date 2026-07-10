@@ -318,8 +318,10 @@ func run(image, stepsS string, trace bool, tracen int, bps, watches, callLogs mu
 		m.OnStep = func(mm *n64.Machine, pc uint32) {
 			if pcs[pc] {
 				r := mm.CPU.R
-				fmt.Printf("call %08X field=%d a0=%08X a1=%08X a2=%08X a3=%08X ra=%08X\n",
-					pc, fields, uint32(r[4]), uint32(r[5]), uint32(r[6]), uint32(r[7]), uint32(r[31]))
+				// v0 as well as the arguments: an allocator's answer is the address
+				// everything downstream watches, and it is only ever in v0.
+				fmt.Printf("call %08X field=%d a0=%08X a1=%08X a2=%08X a3=%08X v0=%08X ra=%08X\n",
+					pc, fields, uint32(r[4]), uint32(r[5]), uint32(r[6]), uint32(r[7]), uint32(r[2]), uint32(r[31]))
 			}
 		}
 	}
