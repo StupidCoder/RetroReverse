@@ -795,3 +795,133 @@ course's opening camera is derived from its spline (segment 16, 2.10 m right
 of centre, 0.94 m up, 40 m look-ahead), calibrated against the City 1
 driver's-eye camera captured from the running game (reproduced to 4 mm).
 `cmd/geomprobe` sanity-checks the decoders standalone.
+
+---
+
+## Part XI — the drivers: opponent, cops and traffic
+
+Everything that moves on the road shares one architecture, traced from the
+LaunchMe disasm with the oracle supplying ground truth (RAM snapshots via
+`cmd/memtrace -snap`, writer PCs via `bootoracle -watch`, then reading the
+code at those PCs).
+
+### The car pool: one list, one struct, three drivers
+
+The race allocates a pool of **seven car structs** (0x4E4 bytes each,
+doubly linked through +0x00/+0x04, self-pointer at +0x88; the traced City
+race has them at 0x293F90..0x295CE8). Key fields, verified across two RAM
+snapshots 100k instructions apart:
+
+| offset | meaning |
+|---|---|
+| +0x44 | road segment counter (the car's own advance) |
+| +0x50 | current track segment index |
+| +0x70 | forward speed (16.16) |
+| +0x80 | lateral road position (16.16 m; the road spans ±20 m) |
+| +0x158 | current speed for gear logic |
+| +0x160 | **target lateral position** the steering seeks |
+| +0x17C | spawn-config flags (bit 0x1000 = oncoming lane pool) |
+| +0x188 | **behaviour bitmask** — which AI modules run (below) |
+| +0x31C..0x330 | gear-shift speed thresholds (ascending, from .TdDyn) |
+| +0x334..0x348 | per-gear target factors |
+| +0x408 | governed target speed (written by the AI governor) |
+| +0x4C4 | **driver function pointer** |
+| +0x4CC | activity flags (bit 2 = simulated) |
+| +0x4DC/+0x4E0 | model / texset (Part X) |
+
+`+0x4C4` selects the car's brain — three driver functions exist:
+
+- **0xF8D8 — the player** (control from the pad path, Part IX).
+- **0x284E0 — the road AI**, shared by the opponent, active traffic and
+  cops alike; behaviour differences come only from the +0x188 bitmask.
+- **0x2A4D8 — the dormant pool driver**: a countdown, then spawn gates
+  (player past segment N−0x38, spacing `0x19 + 2·car` segments, an active
+  count against a density cap from the constants files); when they pass,
+  the car *swaps its own driver pointer* to 0x284E0 and calls the placer
+  0x28EB0. In the traced grid moment the pool holds the player, the
+  opponent (x = ±2.5 m at segment 16), one pre-armed cop and four dormant
+  traffic cars.
+
+### The dispatcher and the behaviour bits
+
+Per tick, 0x27800 walks the list (skipping dormant cars) and dispatches
+modules from `[car+0x188]`:
+
+- **bit 2 (0x4) — pace governor** (0x2704C): the opponent's throttle.
+- **bit 3 (0x8) — cop module** (0x26B58): pursuit and busting.
+- **bit 8 (0x100) — lane steering** (0x2799C): everyone.
+- bit 12 (0x1000) — **oncoming direction**; 0x400/0x800 are per-frame
+  transients (cleared at 0x27800), 0x80000 = "passed the player" latch
+  (overtake counters), 0x10000 on the *player* = "pursuit armed".
+
+### Lanes: 8 × 5 m, scored
+
+The steering module derives the car's lane (0-7) from its lateral
+position, then scores candidates {lane−1, lane, lane+1}: a side penalty
+keeps same-way cars on lanes ≥ 4 (−5.0 for crossing over) and oncoming
+cars on lanes < 4 (−3.0 mirrored); the segment's own byte +0x4 nibbles
+bound the drivable range (`[3−hi, lo+4]`); an 8-slot occupancy map built
+from the other cars feeds avoidance. The winner becomes the target
+lateral `[car+0x160] = (5·lane − 17.5)<<16` — **eight 5-metre lanes
+centred on the road**. Oncoming cars (bit 0x1000) also run with their
+road-frame motion block negated wholesale (+0x80 block copied to +0x20
+through an RSB per word in the road driver).
+
+### Speed: pace notes stored in the .trk
+
+The governor (0x2704C/0x27100) sets `[car+0x408]` with a first-order lag,
+`v += (target − v)/8`, from three sources:
+
+1. **A pace-note table inside the .trk file** — a previously unmapped
+   block (cy1.trk offset 0x16534, resident in RAM directly after the
+   2400×36 segment array): **600 records of 3 bytes, one per 4 segments**
+   `{speed limit (0x34 = 52 through the city), advisory speed (2–36 —
+   dips to 2 at the hairpin), param (0x20)}`, indexed `segment >> 2`.
+2. **Curvature**: the heading delta between consecutive segment records
+   (bytes +0x18/+0x19, sign-extended into the 0x1000000 circle) scales
+   the target down for corners.
+3. **Gears**: thresholds at +0x31C pick a gear, +0x334 its target factor
+   (×0.75 applied at 0x271A4).
+
+### Traffic lifecycle
+
+Spawned traffic lives in a window of **−20..+54 segments (−120 m..+324 m)
+around the player** — the road driver's first act is this check, and a
+car outside it re-enters the placer. Placement (0x28EB0): an inline LCG
+(`seed × mult`, bits 8-23, threshold 0x7F00) flips a 50/50 **direction
+coin** — same-way or oncoming — overridden to same-way where the segment
+byte +0x4 marks a one-way zone; per-direction active counts are **capped
+at 3 cars each way**; cars enter 12 or 18 segments out (per config flag
+bit 3), adjusted when the player is slow. The same LCG stream drives the
+model/scheme variety at activation (the four plt recolours of Part X give
+each class four liveries). Traffic cruises toward the pace-note advisory
+speed on its side of the road.
+
+### Cops: pursue, pull over, ticket
+
+The cop car idles pre-armed (road driver + cop module, activity bit 2
+clear until spawned). In the cop module (0x26B58):
+
+- **Arming** (0x26E00): when the cop is within 2 segments of the player
+  and either car moves at ≥ 0x30000 velocity units, the player's 0x10000
+  pursuit flag sets.
+- **Busting** (0x26D4C): once the catch state fires, the warning count is
+  compared against the constants threshold — under it, a **warning**
+  (counter +0x88, `0xBA44` → `warningt0.celFam`); over it, a **speeding
+  ticket** (counter +0x84, `0xBA24` → `speedingt0.celFam`). The pull-over
+  choreography (0x2E060, side pick via 0x28038) parks both cars; then the
+  cop's chase flags and the player's pursuit flag clear and the race
+  resumes.
+- The ticket UI runs off globals at 0x3E700: +0x128/+0x12C select the
+  loaded celFam, +0x130 a −1000 display timer, drawn every frame from the
+  main loop (0x1CB28/0x1CB34).
+
+### Bookkeeping and buffers
+
+The dispatcher's cop/event module also maintains overtake counters (cars
+carrying flag 0x2400 that drop behind the player increment a passed
+count). Three named allocations round out the picture: `UsrCtrlBuff`
+(0x1C20 bytes, the control stream), `PlayerMS` (16 × 0x19C records) and
+`OppCarMS` (24 × 23 × 0x60 records, world-coordinate sequences along the
+course) — the MS pair look like sampled position/racing-line tables; their
+exact consumer is left untraced.
