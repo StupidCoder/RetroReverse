@@ -666,14 +666,27 @@ ring**: the treeline/skyline silhouette with a PDEC-transparent sky, drawn
 over the far ring. Child 3 carries a seventh cel — an *unrotated* 128×64
 pre-composed preview of the two layers stacked (CCB flags 0x47EE4420,
 unlike the rings' 0x1FEE4620) — which is what pinned the layer order.
-Each ring is six 64×64 cels = a 384×64 panorama for the full circle;
-Coastal ships 128-row near cels (a taller band whose ocean drops below
-the horizon line) and collapses its far ring to a single 4×4
-**destination-shading** cel (PIXC 0x9F00 — it dims the framebuffer, not a
-picture). `cmd/webexport` bakes the rings into `models/sky-<id>.glb`, two
-concentric camera-centred cylinders (band heights matched to the in-race
-frame, ~7-13° above eye level; cone caps continue the rings' edge
-colours) that the Studio pins to the camera every frame, DS-viewer style.
+Each ring is six 64×64 cels = a 384-texel panorama; Coastal ships 128-row
+near cels (a taller band whose ocean drops below the horizon line) and
+collapses its far ring to a single 4×4 **destination-shading** cel (PIXC
+0x9F00 — it dims the framebuffer, not a picture).
+
+The ring does **not** wrap once per revolution. Traced from the in-race
+frame's own CCBs (both rings are 6-cel DrawCels chains, built by a corner
+table fed to the game's MapCel at 0x3C208): the cel boundaries sit at
+`tan(k·15°) × 223` px — −61, 31, 100, 160, 219, 288 across the 320px
+screen — so **each cel spans exactly 15° of bearing**: 24 cel slots per
+revolution, the 6-cel ring repeating **4×**, drawn with per-cel tangent
+widths (edge cels 1.44 px/texel, centre 0.93) that flat-project the
+cylinder; the focal constant pins the game's horizontal FOV at ~71°. The
+near and far rings scroll at the same rate, index-aligned (both chains
+put the same cel boundary at screen centre), and both bands straddle eye
+level (near ring's centre cel: screen y 86–151; far: 67–164 — the lower
+halves hide behind the terrain). `cmd/webexport` bakes all of it into
+`models/sky-<id>.glb`: two concentric camera-centred cylinders, panorama
+wrapped 4× (REPEAT sampler), band placement in the traced tan units, cone
+caps continuing the rings' edge colours; the Studio pins the dome to the
+camera every frame, DS-viewer style.
 
 ### RoadObjects: 64 defs + ~1000 placements
 
