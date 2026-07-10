@@ -40,6 +40,7 @@ func main() {
 	var callLogs multiFlag
 	flag.Var(&callLogs, "calllog", "log a0-a3 and ra each time this PC executes (hex); repeatable")
 	rwatch := flag.String("rwatch", "", "read-watch ADDR:LEN (hex): summarise, per reading PC, the hit count and address range")
+	keys := flag.String("keys", "", "field-timed controller script, e.g. \"2160:+start,2166:-start,2200:+a\"")
 	saveState := flag.String("savestate", "", "after the run, dump the full machine snapshot to this file")
 	loadState := flag.String("loadstate", "", "restore a machine snapshot before running")
 	out := flag.String("o", "", "output directory")
@@ -54,7 +55,7 @@ func main() {
 		fmt.Fprintln(os.Stderr, "bootoracle: -shotevery must be at least 1")
 		os.Exit(2)
 	}
-	if err := run(*image, *steps, *trace, *tracen, bps, watches, callLogs, *rwatch,
+	if err := run(*image, *steps, *trace, *tracen, bps, watches, callLogs, *rwatch, *keys,
 		*shot, *shotEvery, *shotBase, *dmaLog, *stopField, *saveState, *loadState, *out); err != nil {
 		fmt.Fprintln(os.Stderr, "bootoracle:", err)
 		os.Exit(1)
@@ -93,7 +94,71 @@ type readSite struct {
 	lo, hi uint32
 }
 
-func run(image, stepsS string, trace bool, tracen int, bps, watches, callLogs multiFlag, rwatch string,
+// buttonNames maps a script token to the joybus button bit. Setting these in
+// m.Controllers[0] *is* the game's real input path: Pilotwings polls the joybus
+// itself, so nothing is injected past the hardware the way Ultima Underworld's
+// oracle has to inject past DOS.
+var buttonNames = map[string]uint16{
+	"a": n64.BtnA, "b": n64.BtnB, "z": n64.BtnZ, "start": n64.BtnStart,
+	"dup": n64.BtnDUp, "ddown": n64.BtnDDown, "dleft": n64.BtnDLeft, "dright": n64.BtnDRight,
+	"l": n64.BtnL, "r": n64.BtnR,
+	"cup": n64.BtnCUp, "cdown": n64.BtnCDown, "cleft": n64.BtnCLeft, "cright": n64.BtnCRight,
+}
+
+// keyEvent is one scripted controller change, applied when the field is reached.
+type keyEvent struct {
+	field  int
+	press  bool
+	button uint16
+	stickX *int8
+	stickY *int8
+}
+
+// parseKeys reads "FIELD:+start,FIELD:-start,FIELD:x=40,FIELD:y=-20".
+func parseKeys(s string) ([]keyEvent, error) {
+	var out []keyEvent
+	for _, tok := range strings.Split(s, ",") {
+		tok = strings.TrimSpace(tok)
+		if tok == "" {
+			continue
+		}
+		i := strings.IndexByte(tok, ':')
+		if i < 0 {
+			return nil, fmt.Errorf("-keys: %q has no FIELD:", tok)
+		}
+		field, err := strconv.Atoi(tok[:i])
+		if err != nil {
+			return nil, fmt.Errorf("-keys: bad field in %q", tok)
+		}
+		act := tok[i+1:]
+		switch {
+		case strings.HasPrefix(act, "x="), strings.HasPrefix(act, "y="):
+			v, err := strconv.Atoi(act[2:])
+			if err != nil || v < -128 || v > 127 {
+				return nil, fmt.Errorf("-keys: bad stick value in %q", tok)
+			}
+			b := int8(v)
+			e := keyEvent{field: field}
+			if act[0] == 'x' {
+				e.stickX = &b
+			} else {
+				e.stickY = &b
+			}
+			out = append(out, e)
+		case strings.HasPrefix(act, "+"), strings.HasPrefix(act, "-"):
+			bit, ok := buttonNames[strings.ToLower(act[1:])]
+			if !ok {
+				return nil, fmt.Errorf("-keys: unknown button %q", act[1:])
+			}
+			out = append(out, keyEvent{field: field, press: act[0] == '+', button: bit})
+		default:
+			return nil, fmt.Errorf("-keys: %q is not +button, -button, x= or y=", act)
+		}
+	}
+	return out, nil
+}
+
+func run(image, stepsS string, trace bool, tracen int, bps, watches, callLogs multiFlag, rwatch, keys string,
 	shot string, shotEvery, shotBase int, dmaLog string, stopField int,
 	saveState, loadState, out string) error {
 	rom, err := n64.Load(image)
@@ -153,8 +218,37 @@ func run(image, stepsS string, trace bool, tracen int, bps, watches, callLogs mu
 			return err
 		}
 	}
+	var script []keyEvent
+	if keys != "" {
+		var err error
+		if script, err = parseKeys(keys); err != nil {
+			return err
+		}
+		// The controller must be attached before anything is pressed on it.
+		m.Controllers[0].Present = true
+	}
 	m.OnDisplay = func(mm *n64.Machine) {
 		fields++
+		// Apply the script at a field boundary: the game polls the joybus once
+		// per frame, so a change here is seen exactly once, like a real press.
+		for _, e := range script {
+			if e.field != fields {
+				continue
+			}
+			c := &mm.Controllers[0]
+			switch {
+			case e.stickX != nil:
+				c.StickX = *e.stickX
+			case e.stickY != nil:
+				c.StickY = *e.stickY
+			case e.press:
+				c.Buttons |= e.button
+			default:
+				c.Buttons &^= e.button
+			}
+			fmt.Fprintf(os.Stderr, "  field %d: controller now buttons=%04X stick=(%d,%d)\n",
+				fields, c.Buttons, c.StickX, c.StickY)
+		}
 		if stopField > 0 && fields >= stopField {
 			mm.StopRequested = true
 		}

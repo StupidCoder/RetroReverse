@@ -442,6 +442,128 @@ has nowhere to hide.
 
 20,846 terrain triangles across the 101 chunks.
 
+## Part V — missions, levels, paths and recorded flights
+
+Everything in this Part ships **uncompressed**, so the work was never decoding — it was meaning.
+The mission reader lives in a gameplay overlay (not in the base program image; it loads at
+`0x8034xxxx`) and is a switch over chunk tags at `0x80345D40`. Almost every arm does nothing but
+`load(global, chunkPtr, chunkSize)` — copy the chunk verbatim into a fixed buffer. **A mission's
+features are therefore flat record arrays, and the tag names each one.**
+
+### `UPWT` — the 61 missions
+
+```
+NAME    the developers' own label, NUL-padded
+JPTX    a short key: "A_EX_1"
+INFO    a description: "shoot at the the target"
+COMM    1072 bytes, the mission descriptor
+TPAD    48 bytes, exactly one per mission: the takeoff pad
+…       zero or more feature arrays, by tag
+```
+
+`NAME` gives all 61 missions the names their authors used: `LEVEL 1`, `CB L1 Target2`, `SD 3`,
+`BIRD 3C`, `GC Exp`, `RP P2`, `HG B1`. The prefixes are the craft — cannonball, sky diving,
+birdman, gyrocopter, rocket belt, hang glider.
+
+The `COMM` descriptor's **first word decomposes into four bytes: class, vehicle, variant, level.**
+The vehicle byte is what makes that reading more than a story: it agrees with the developers' own
+prefix on **all 42 prefixed missions** — every `GC` is vehicle 2, every `RP` 1, every `HG` 0,
+`CB` 3, `SD` 4, `HM` 5. The level byte is 0–3 and there are exactly four `UPWL` levels. The other
+1068 bytes of the descriptor are carried through raw.
+
+The feature arrays, with the strides the archive's sizes pin (a tag appearing once per mission
+pins its own; the rest by common divisor):
+
+| tag | stride | tag | stride | tag | stride |
+|---|---|---|---|---|---|
+| `TPAD` takeoff pad | 48 | `LPAD` landing pads | 48 | `CNTG` | 32 |
+| `RNGS` rings | — | `THER` thermals | 40 | `HOPD` | 32 |
+| `BALS` balloons | 104 | `TARG` targets | 32 | `BTGT` | 32 |
+| `LSTP` | 40 | `HPAD` | 128 | `FALC` | 344 |
+| `LWIN`, `PHTS` | — | | | | |
+
+A dash means the sizes across the archive share no divisor big enough to claim, so the array is
+carried as bytes. Beyond the stride, no record's fields are claimed: nothing in the render or
+gameplay path has been traced to them.
+
+### `UPWL` — the four levels
+
+`LEVL` (8 bytes), `LPAD` (24-byte landing pads), `WOBJ` (16-byte world objects: a position and a
+word), and further arrays `TOYS`, `APTS`, `TPTS`, `BNUS`, `ESND`. Levels 1 and 2 carry 6 and 13
+world objects; levels 0 and 3 carry none.
+
+### `SPTH` — eight spline paths
+
+Seven chunks, one per animated channel — `SCPX`, `SCPY`, `SCPZ`, `SCPH`, `SCPP`, `SCPR`, `SCP#` —
+and each is
+
+```
+u32 count
+u32 unknown
+Key[count]     two f32s
+```
+
+`8 + 8*count` equals the chunk's size for all 56 chunks, exactly. Which float is the value and
+which the time does not follow from that, but two measurements settle it: in **every** multi-key
+curve (49 of them) the *second* component rises across all keys but the last, whose second
+component is **exactly 0.0** — a terminator; and in six of the eight paths, `SCPX`, `SCPY` and
+`SCPZ` carry an *identical* array of second components, which is what a shared timeline looks like.
+(The other two give X, Y and Z different key counts outright, so they are keyed independently.)
+
+### `PDAT` — 25 recorded flights
+
+`PDAT` was assumed to be object placement, on its 841 KB alone, before the chunk names were read.
+It is not. Each resource is `PHDR` (8 bytes) plus 24-byte `PPOS` position samples — three floats
+of position, three more of orientation — and `RHDR`/`RPKT` replay packets (24 and 16 bytes).
+Across the archive: 7,910 samples and 24,401 packets. These are recorded flights.
+
+### `3VUE` — twelve camera views, undecoded
+
+`COMM` (32 bytes), `QUAT` and `XLAT`. `QUAT`'s size divides by 16 in all twelve. `XLAT`'s divides
+by 12 in only six — so **`XLAT` is not an array of vec3s**, the obvious reading is wrong, and
+`3VUE` is left named and undecoded rather than forced.
+
+### Verification
+
+Nothing here is verified by the machine: the attract sequence loads none of it. What verifies it
+is that these formats have to agree with the worlds decoded in Part IV. The pads and flight
+samples are float triples read at offsets nothing forced on us — a wrong one yields denormals or
+1e38, not coordinates.
+
+`extract/cmd/missions` checks, from the ROM alone:
+
+- The vehicle byte agrees with the mission name on **42/42** prefixed missions.
+- **61/61 takeoff pads** lie inside at least one world, and for each of the four levels there is at
+  least one world containing *all* of its missions' pads. Level 2's pads fit only the four
+  8000×5000 worlds — Little States — and no other level's do.
+- Each `UPWL[i]`'s landing pads fit the same worlds as level *i*'s takeoff pads, which independently
+  corroborates that the descriptor's level byte indexes the `UPWL` resources in order.
+- **8/8** spline paths are 0.0-terminated with rising times; 6/8 share one position timeline.
+- **7,872 of 7,910** recorded flight samples lie inside a world. The 38 that do not are one
+  recording leaving the western edge of its 8000-unit world, contiguous and within ~313 units of
+  the boundary — a flight, not a misread.
+
+### Driving the oracle: `bootoracle -keys`
+
+The machine already modelled the controller completely — `tools/platform/n64/si.go` answers the
+joybus with the buttons and stick of `Controllers[0]`, and a controller is attached by default —
+so injection needed only a field-timed script:
+
+```
+bootoracle -keys "2160:+start,2190:-start,2260:+a,2290:-a"
+```
+
+Setting `Controllers[0]` *is* the game's real input path: Pilotwings polls the joybus itself, so
+nothing is injected past the hardware the way Ultima Underworld's oracle must inject past DOS. The
+script applies at a field boundary, so the game's once-per-frame poll sees each change exactly
+once, like a real press.
+
+**It does not yet reach a mission.** Holding Start and A on the title card demonstrably changes the
+machine's state — a run with the button held diverges from one without — but the menu does not
+advance, and the reason is not yet found. Since every check in this Part is static, nothing here
+depends on it. Driving into a mission stays open, and would earn its keep by confirming one
+reachable mission's feature records against this decode.
+
 ## Verifying the display-list walk against the RDP stream
 
 The GLB exports come from `extract/cmd/dlwalk`, which walks the frame's Fast3D display list out
