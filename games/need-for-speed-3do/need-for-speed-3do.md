@@ -738,10 +738,16 @@ emits (group, row, point + x,y,z at 0x1605C) matches the decoder bit-exact
 (76 hits); the car texset resolves to the decoder's SPoT choices for all 61
 faces (with the 4 wheel/brake swaps recognised as dynamic).
 
-`cmd/webexport -image DISC -o out` emits `models/course-cy1.glb` (57k verts,
-56 textures), `models/obj-NN.glb` + `cy1.objects.json` (Ridge Racer-style
-instancing: repeated props ship once), the **full 28-car fleet** as
-`models/car-*.glb` (highest-detail LOD each, manifest sections Player cars /
-Traffic vehicles / Unused vehicles; traffic cars additionally in all four
-`plt` recolour schemes, `car-*-pltN.glb` — 64 car GLBs total) and
-`manifest.json`. `cmd/geomprobe` sanity-checks the decoders standalone.
+`cmd/webexport -image DISC -o out` emits **all nine courses** —
+City/Coastal/Alpine × 3 stages, named by the disc's own announcer audio —
+as `models/course-<id>.glb` (49k–70k verts each, zero skipped faces or
+objects on any track) with per-course `models/obj-<id>-NN.glb` +
+`<id>.objects.json` placement manifests (Ridge Racer-style instancing:
+repeated props ship once), the **full 28-car fleet** as `models/car-*.glb`
+(highest-detail LOD each, manifest sections Player cars / Traffic vehicles /
+Unused vehicles; traffic cars additionally in all four `plt` recolour
+schemes, `car-*-pltN.glb` — 64 car GLBs total) and `manifest.json`. Each
+course's opening camera is derived from its spline (segment 16, 2.10 m right
+of centre, 0.94 m up, 40 m look-ahead), calibrated against the City 1
+driver's-eye camera captured from the running game (reproduced to 4 mm).
+`cmd/geomprobe` sanity-checks the decoders standalone.
