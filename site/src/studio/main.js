@@ -280,19 +280,35 @@ const GAMES = [
   },
   {
     id: 'pilotwings-64-n64', name: 'Pilotwings 64', system: 'Nintendo 64', render: '3d',
-    // The generic manifest-driven 3-D viewer over plain GLBs (builtin mesh3d). Everything is
-    // decoded from the cartridge's IFF archive with no emulation: the ten world grids, each
-    // assembled from its terrain chunks into one continuous mesh, and all 363 models. The
-    // game is Z-up and glTF is Y-up, so webexport rotates every position (x,y,z) -> (x,z,-y).
+    // The manifest-driven 3-D viewer: models are plain GLBs (builtin mesh3d), worlds go through
+    // the `pw-world` plugin (terrain + an object set + the ocean). Everything is decoded from the
+    // cartridge's IFF archive with no emulation: the ten world grids, each assembled from its
+    // terrain chunks into one continuous mesh, and all 363 models. The game is Z-up and glTF is
+    // Y-up, so webexport rotates every position (x,y,z) -> (x,z,-y).
     load: () => import('../shared/viewer3d.js').then(m => m.Viewer3D),
-    make: (V, el, hud) => new V(el, hud, { base: 'public/pilotwings-64-n64/' }),
+    make: (V, el, hud) => new V(el, hud, {
+      base: 'public/pilotwings-64-n64/',
+      renderers: { 'pw-world': () => import('../pilotwings-64-n64/world-renderer.js') },
+    }),
     list: async (v) => await v.init(), // manifest.models — the worlds, then the models
     show: (v, item, i) => v.showItem(item),
     // Open on Crescent Island: the island the attract sequence flies over, assembled here
     // from its 45 terrain chunks rather than drawn as the single model the attract uses.
     defaultAsset: (models) => models.findIndex((m) => m.name === 'Crescent Island'),
-    layers: [{ id: 'wireframe', label: 'Wireframe', default: false }],
-    group: (item) => ({ section: item.section || 'Models', label: item.name }),
+    layers: [
+      { id: 'objects', label: 'Objects', default: true },
+      { id: 'water', label: 'Water', default: true },
+      { id: 'wireframe', label: 'Wireframe', default: false },
+    ],
+    // A world's bare terrain and its sixteen object sets share the world's name as their section;
+    // the models all sit under "Models". Strip the section from a set's label so the accordion
+    // reads "Holiday Island > Set 3" rather than repeating the island in every row.
+    group: (item) => {
+      const section = item.section || 'Models';
+      if (item.name === section) return { section, label: 'Terrain only' };
+      const label = item.name.startsWith(section + ' · ') ? item.name.slice(section.length + 3) : item.name;
+      return { section, label };
+    },
   },
 ];
 

@@ -52,9 +52,13 @@ var knownModels = map[int]string{
 	351: "Sky dome",        // the attract sky, with its horizon band
 }
 
-// worldNames are the only two worlds this project has identified, both by
-// assembling them and recognising the result (Part IV). The rest are numbered.
+// worldNames are the worlds this project has identified. Two by assembling them
+// and recognising the result (Part IV); world 0 by the game's own words — the
+// briefing screen the oracle drove into names it "Holiday Island", and that
+// lesson loaded UVCT 0..3, exactly the four cells UVTR world 0 holds. The rest
+// are numbered.
 var worldNames = map[int]string{
+	0: "Holiday Island",
 	1: "Crescent Island",
 	3: "Little States",
 }
@@ -79,7 +83,20 @@ type ModelIndex struct {
 	File    string `json:"file"`
 	Kind    string `json:"kind"`
 	Section string `json:"section,omitempty"`
+
+	// A world entry may carry an object layer (one of the world's sixteen mask
+	// sets) and, where it has been traced, its ocean plane.
+	ObjectsFile string `json:"objectsFile,omitempty"`
+	WaterFile   string `json:"waterFile,omitempty"`
 }
+
+// waterModel names the UVMD resource that is a world's ocean plane, where the
+// game has been observed to load it. Only world 0's is known: the beginner
+// hang-glider lesson, driven in the oracle, DMA'd UVMD resource 360 — a flat
+// z=0 plane spanning ±12,288 units, textured with the attract sequence's water
+// tile. Resources 365, 367 and 368 are the same plane for other worlds, but
+// which belongs to which is not traced, and is not guessed here.
+var waterModel = map[int]int{0: 360}
 
 func main() {
 	image_ := flag.String("image", "", "cartridge image")
@@ -113,25 +130,16 @@ func main() {
 	man := Manifest{Format: 2, Game: "pilotwings-64-n64", Platform: "Nintendo 64",
 		Native: Size{320, 240}, TickHz: 60}
 
-	// --- worlds -----------------------------------------------------------
-	worlds, chunks := loadWorld(a)
-	for i, w := range worlds {
-		name := worldNames[i]
-		if name == "" {
-			name = fmt.Sprintf("World %d", i)
-		}
-		file := fmt.Sprintf("worlds/world-%d.glb", i)
-		tris, err := writeWorld(filepath.Join(*out, file), w, chunks, texs)
-		if err != nil {
-			die(fmt.Errorf("world %d: %w", i, err))
-		}
-		fmt.Printf("world %d %-18s %6d triangles\n", i, name, tris)
-		man.Models = append(man.Models, ModelIndex{Name: name, File: file, Kind: "mesh3d", Section: "Worlds"})
-	}
-
 	// --- models -----------------------------------------------------------
+	//
+	// Models come first: a world's object layer names them by UVMD *ordinal*, and
+	// the ordinal-to-file map is only complete once the empty ones are known.
+	uvmdIdx := a.ByType("UVMD")
+	sort.Ints(uvmdIdx)
+	modelFiles := make([]string, len(uvmdIdx)) // by ordinal; "" if not shipped
+	var modelEntries []ModelIndex
 	written, empty := 0, 0
-	for _, i := range a.ByType("UVMD") {
+	for ord, i := range uvmdIdx {
 		f, err := a.Resource(i)
 		if err != nil {
 			die(err)
@@ -148,14 +156,85 @@ func main() {
 		if err := writeModel(filepath.Join(*out, file), m, texs); err != nil {
 			die(fmt.Errorf("UVMD %d: %w", i, err))
 		}
+		modelFiles[ord] = file
 		name := knownModels[i]
 		if name == "" {
 			name = fmt.Sprintf("Model %03d", i)
 		}
-		man.Models = append(man.Models, ModelIndex{Name: name, File: file, Kind: "mesh3d", Section: "Models"})
+		modelEntries = append(modelEntries, ModelIndex{Name: name, File: file, Kind: "mesh3d", Section: "Models"})
 		written++
 	}
 	fmt.Printf("%d models written, %d skipped for having no triangles at LOD 0\n", written, empty)
+
+	// --- worlds, and their sixteen object sets -----------------------------
+	worlds, chunks := loadWorld(a)
+	for i, w := range worlds {
+		name := worldNames[i]
+		if name == "" {
+			name = fmt.Sprintf("World %d", i)
+		}
+		file := fmt.Sprintf("worlds/world-%d.glb", i)
+		tris, err := writeWorld(filepath.Join(*out, file), w, chunks, texs)
+		if err != nil {
+			die(fmt.Errorf("world %d: %w", i, err))
+		}
+
+		water := ""
+		if r, ok := waterModel[i]; ok {
+			water = fmt.Sprintf("worlds/world-%d-water.glb", i)
+			f, err := a.Resource(r)
+			if err != nil {
+				die(err)
+			}
+			m, err := uvmd.Decode(commOf(a, f))
+			if err != nil {
+				die(fmt.Errorf("water UVMD %d: %w", r, err))
+			}
+			if err := writeModel(filepath.Join(*out, water), m, texs); err != nil {
+				die(fmt.Errorf("water UVMD %d: %w", r, err))
+			}
+		}
+
+		sets := worldObjects(w, chunks, modelFiles, uvmdIdx)
+		files, err := writeObjectSets(filepath.Join(*out, "worlds"), fmt.Sprintf("world-%d", i), sets)
+		if err != nil {
+			die(fmt.Errorf("world %d objects: %w", i, err))
+		}
+
+		// The bare terrain keeps the world's own name, so the Studio's default
+		// asset and any deep link still resolve; each mask bit is a sibling.
+		base := ModelIndex{Name: name, File: file, Kind: "pw-world", Section: name, WaterFile: water}
+		man.Models = append(man.Models, base)
+		total := 0
+		for b := 0; b < MaskBits; b++ {
+			if files[b] == "" {
+				continue
+			}
+			e := base
+			e.Name = fmt.Sprintf("%s · Set %d", name, b+1)
+			e.ObjectsFile = "worlds/" + files[b]
+			man.Models = append(man.Models, e)
+			total += len(sets[b])
+		}
+		fmt.Printf("world %d %-18s %6d triangles, %2d object sets, %4d placements%s\n",
+			i, name, tris, len(files), total, map[bool]string{true: ", water"}[water != ""])
+	}
+	man.Models = append(man.Models, modelEntries...)
+
+	// Every object must have found its model: a type whose GLB was pruned would
+	// silently vanish from the viewer, which is exactly the kind of quiet gap
+	// this exporter refuses to ship.
+	missing := 0
+	for _, ch := range chunks {
+		for _, o := range ch.Objects {
+			if modelFiles[o.Type] == "" {
+				missing++
+			}
+		}
+	}
+	if missing > 0 {
+		fmt.Printf("WARNING: %d placements name a model with no triangles at LOD 0 and were dropped\n", missing)
+	}
 
 	j, _ := json.MarshalIndent(man, "", "  ")
 	if err := os.WriteFile(filepath.Join(*out, "manifest.json"), append(j, '\n'), 0o644); err != nil {

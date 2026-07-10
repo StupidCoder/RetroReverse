@@ -9,64 +9,851 @@
   "tickHz": 60,
   "models": [
     {
-      "name": "World 0",
+      "name": "Holiday Island",
       "file": "worlds/world-0.glb",
-      "kind": "mesh3d",
-      "section": "Worlds"
+      "kind": "pw-world",
+      "section": "Holiday Island",
+      "waterFile": "worlds/world-0-water.glb"
+    },
+    {
+      "name": "Holiday Island · Set 1",
+      "file": "worlds/world-0.glb",
+      "kind": "pw-world",
+      "section": "Holiday Island",
+      "objectsFile": "worlds/world-0-set-01.objects.json",
+      "waterFile": "worlds/world-0-water.glb"
+    },
+    {
+      "name": "Holiday Island · Set 2",
+      "file": "worlds/world-0.glb",
+      "kind": "pw-world",
+      "section": "Holiday Island",
+      "objectsFile": "worlds/world-0-set-02.objects.json",
+      "waterFile": "worlds/world-0-water.glb"
+    },
+    {
+      "name": "Holiday Island · Set 3",
+      "file": "worlds/world-0.glb",
+      "kind": "pw-world",
+      "section": "Holiday Island",
+      "objectsFile": "worlds/world-0-set-03.objects.json",
+      "waterFile": "worlds/world-0-water.glb"
+    },
+    {
+      "name": "Holiday Island · Set 4",
+      "file": "worlds/world-0.glb",
+      "kind": "pw-world",
+      "section": "Holiday Island",
+      "objectsFile": "worlds/world-0-set-04.objects.json",
+      "waterFile": "worlds/world-0-water.glb"
+    },
+    {
+      "name": "Holiday Island · Set 5",
+      "file": "worlds/world-0.glb",
+      "kind": "pw-world",
+      "section": "Holiday Island",
+      "objectsFile": "worlds/world-0-set-05.objects.json",
+      "waterFile": "worlds/world-0-water.glb"
+    },
+    {
+      "name": "Holiday Island · Set 6",
+      "file": "worlds/world-0.glb",
+      "kind": "pw-world",
+      "section": "Holiday Island",
+      "objectsFile": "worlds/world-0-set-06.objects.json",
+      "waterFile": "worlds/world-0-water.glb"
+    },
+    {
+      "name": "Holiday Island · Set 7",
+      "file": "worlds/world-0.glb",
+      "kind": "pw-world",
+      "section": "Holiday Island",
+      "objectsFile": "worlds/world-0-set-07.objects.json",
+      "waterFile": "worlds/world-0-water.glb"
+    },
+    {
+      "name": "Holiday Island · Set 8",
+      "file": "worlds/world-0.glb",
+      "kind": "pw-world",
+      "section": "Holiday Island",
+      "objectsFile": "worlds/world-0-set-08.objects.json",
+      "waterFile": "worlds/world-0-water.glb"
+    },
+    {
+      "name": "Holiday Island · Set 9",
+      "file": "worlds/world-0.glb",
+      "kind": "pw-world",
+      "section": "Holiday Island",
+      "objectsFile": "worlds/world-0-set-09.objects.json",
+      "waterFile": "worlds/world-0-water.glb"
+    },
+    {
+      "name": "Holiday Island · Set 10",
+      "file": "worlds/world-0.glb",
+      "kind": "pw-world",
+      "section": "Holiday Island",
+      "objectsFile": "worlds/world-0-set-10.objects.json",
+      "waterFile": "worlds/world-0-water.glb"
+    },
+    {
+      "name": "Holiday Island · Set 11",
+      "file": "worlds/world-0.glb",
+      "kind": "pw-world",
+      "section": "Holiday Island",
+      "objectsFile": "worlds/world-0-set-11.objects.json",
+      "waterFile": "worlds/world-0-water.glb"
+    },
+    {
+      "name": "Holiday Island · Set 12",
+      "file": "worlds/world-0.glb",
+      "kind": "pw-world",
+      "section": "Holiday Island",
+      "objectsFile": "worlds/world-0-set-12.objects.json",
+      "waterFile": "worlds/world-0-water.glb"
+    },
+    {
+      "name": "Holiday Island · Set 13",
+      "file": "worlds/world-0.glb",
+      "kind": "pw-world",
+      "section": "Holiday Island",
+      "objectsFile": "worlds/world-0-set-13.objects.json",
+      "waterFile": "worlds/world-0-water.glb"
+    },
+    {
+      "name": "Holiday Island · Set 14",
+      "file": "worlds/world-0.glb",
+      "kind": "pw-world",
+      "section": "Holiday Island",
+      "objectsFile": "worlds/world-0-set-14.objects.json",
+      "waterFile": "worlds/world-0-water.glb"
+    },
+    {
+      "name": "Holiday Island · Set 15",
+      "file": "worlds/world-0.glb",
+      "kind": "pw-world",
+      "section": "Holiday Island",
+      "objectsFile": "worlds/world-0-set-15.objects.json",
+      "waterFile": "worlds/world-0-water.glb"
+    },
+    {
+      "name": "Holiday Island · Set 16",
+      "file": "worlds/world-0.glb",
+      "kind": "pw-world",
+      "section": "Holiday Island",
+      "objectsFile": "worlds/world-0-set-16.objects.json",
+      "waterFile": "worlds/world-0-water.glb"
     },
     {
       "name": "Crescent Island",
       "file": "worlds/world-1.glb",
-      "kind": "mesh3d",
-      "section": "Worlds"
+      "kind": "pw-world",
+      "section": "Crescent Island"
+    },
+    {
+      "name": "Crescent Island · Set 1",
+      "file": "worlds/world-1.glb",
+      "kind": "pw-world",
+      "section": "Crescent Island",
+      "objectsFile": "worlds/world-1-set-01.objects.json"
+    },
+    {
+      "name": "Crescent Island · Set 2",
+      "file": "worlds/world-1.glb",
+      "kind": "pw-world",
+      "section": "Crescent Island",
+      "objectsFile": "worlds/world-1-set-02.objects.json"
+    },
+    {
+      "name": "Crescent Island · Set 3",
+      "file": "worlds/world-1.glb",
+      "kind": "pw-world",
+      "section": "Crescent Island",
+      "objectsFile": "worlds/world-1-set-03.objects.json"
+    },
+    {
+      "name": "Crescent Island · Set 4",
+      "file": "worlds/world-1.glb",
+      "kind": "pw-world",
+      "section": "Crescent Island",
+      "objectsFile": "worlds/world-1-set-04.objects.json"
+    },
+    {
+      "name": "Crescent Island · Set 5",
+      "file": "worlds/world-1.glb",
+      "kind": "pw-world",
+      "section": "Crescent Island",
+      "objectsFile": "worlds/world-1-set-05.objects.json"
+    },
+    {
+      "name": "Crescent Island · Set 6",
+      "file": "worlds/world-1.glb",
+      "kind": "pw-world",
+      "section": "Crescent Island",
+      "objectsFile": "worlds/world-1-set-06.objects.json"
+    },
+    {
+      "name": "Crescent Island · Set 7",
+      "file": "worlds/world-1.glb",
+      "kind": "pw-world",
+      "section": "Crescent Island",
+      "objectsFile": "worlds/world-1-set-07.objects.json"
+    },
+    {
+      "name": "Crescent Island · Set 8",
+      "file": "worlds/world-1.glb",
+      "kind": "pw-world",
+      "section": "Crescent Island",
+      "objectsFile": "worlds/world-1-set-08.objects.json"
+    },
+    {
+      "name": "Crescent Island · Set 9",
+      "file": "worlds/world-1.glb",
+      "kind": "pw-world",
+      "section": "Crescent Island",
+      "objectsFile": "worlds/world-1-set-09.objects.json"
+    },
+    {
+      "name": "Crescent Island · Set 10",
+      "file": "worlds/world-1.glb",
+      "kind": "pw-world",
+      "section": "Crescent Island",
+      "objectsFile": "worlds/world-1-set-10.objects.json"
+    },
+    {
+      "name": "Crescent Island · Set 11",
+      "file": "worlds/world-1.glb",
+      "kind": "pw-world",
+      "section": "Crescent Island",
+      "objectsFile": "worlds/world-1-set-11.objects.json"
+    },
+    {
+      "name": "Crescent Island · Set 12",
+      "file": "worlds/world-1.glb",
+      "kind": "pw-world",
+      "section": "Crescent Island",
+      "objectsFile": "worlds/world-1-set-12.objects.json"
+    },
+    {
+      "name": "Crescent Island · Set 13",
+      "file": "worlds/world-1.glb",
+      "kind": "pw-world",
+      "section": "Crescent Island",
+      "objectsFile": "worlds/world-1-set-13.objects.json"
+    },
+    {
+      "name": "Crescent Island · Set 14",
+      "file": "worlds/world-1.glb",
+      "kind": "pw-world",
+      "section": "Crescent Island",
+      "objectsFile": "worlds/world-1-set-14.objects.json"
+    },
+    {
+      "name": "Crescent Island · Set 15",
+      "file": "worlds/world-1.glb",
+      "kind": "pw-world",
+      "section": "Crescent Island",
+      "objectsFile": "worlds/world-1-set-15.objects.json"
+    },
+    {
+      "name": "Crescent Island · Set 16",
+      "file": "worlds/world-1.glb",
+      "kind": "pw-world",
+      "section": "Crescent Island",
+      "objectsFile": "worlds/world-1-set-16.objects.json"
     },
     {
       "name": "World 2",
       "file": "worlds/world-2.glb",
-      "kind": "mesh3d",
-      "section": "Worlds"
+      "kind": "pw-world",
+      "section": "World 2"
+    },
+    {
+      "name": "World 2 · Set 1",
+      "file": "worlds/world-2.glb",
+      "kind": "pw-world",
+      "section": "World 2",
+      "objectsFile": "worlds/world-2-set-01.objects.json"
+    },
+    {
+      "name": "World 2 · Set 2",
+      "file": "worlds/world-2.glb",
+      "kind": "pw-world",
+      "section": "World 2",
+      "objectsFile": "worlds/world-2-set-02.objects.json"
+    },
+    {
+      "name": "World 2 · Set 3",
+      "file": "worlds/world-2.glb",
+      "kind": "pw-world",
+      "section": "World 2",
+      "objectsFile": "worlds/world-2-set-03.objects.json"
+    },
+    {
+      "name": "World 2 · Set 4",
+      "file": "worlds/world-2.glb",
+      "kind": "pw-world",
+      "section": "World 2",
+      "objectsFile": "worlds/world-2-set-04.objects.json"
+    },
+    {
+      "name": "World 2 · Set 5",
+      "file": "worlds/world-2.glb",
+      "kind": "pw-world",
+      "section": "World 2",
+      "objectsFile": "worlds/world-2-set-05.objects.json"
+    },
+    {
+      "name": "World 2 · Set 6",
+      "file": "worlds/world-2.glb",
+      "kind": "pw-world",
+      "section": "World 2",
+      "objectsFile": "worlds/world-2-set-06.objects.json"
+    },
+    {
+      "name": "World 2 · Set 7",
+      "file": "worlds/world-2.glb",
+      "kind": "pw-world",
+      "section": "World 2",
+      "objectsFile": "worlds/world-2-set-07.objects.json"
+    },
+    {
+      "name": "World 2 · Set 8",
+      "file": "worlds/world-2.glb",
+      "kind": "pw-world",
+      "section": "World 2",
+      "objectsFile": "worlds/world-2-set-08.objects.json"
+    },
+    {
+      "name": "World 2 · Set 10",
+      "file": "worlds/world-2.glb",
+      "kind": "pw-world",
+      "section": "World 2",
+      "objectsFile": "worlds/world-2-set-10.objects.json"
+    },
+    {
+      "name": "World 2 · Set 11",
+      "file": "worlds/world-2.glb",
+      "kind": "pw-world",
+      "section": "World 2",
+      "objectsFile": "worlds/world-2-set-11.objects.json"
     },
     {
       "name": "Little States",
       "file": "worlds/world-3.glb",
-      "kind": "mesh3d",
-      "section": "Worlds"
+      "kind": "pw-world",
+      "section": "Little States"
+    },
+    {
+      "name": "Little States · Set 1",
+      "file": "worlds/world-3.glb",
+      "kind": "pw-world",
+      "section": "Little States",
+      "objectsFile": "worlds/world-3-set-01.objects.json"
+    },
+    {
+      "name": "Little States · Set 2",
+      "file": "worlds/world-3.glb",
+      "kind": "pw-world",
+      "section": "Little States",
+      "objectsFile": "worlds/world-3-set-02.objects.json"
+    },
+    {
+      "name": "Little States · Set 3",
+      "file": "worlds/world-3.glb",
+      "kind": "pw-world",
+      "section": "Little States",
+      "objectsFile": "worlds/world-3-set-03.objects.json"
+    },
+    {
+      "name": "Little States · Set 4",
+      "file": "worlds/world-3.glb",
+      "kind": "pw-world",
+      "section": "Little States",
+      "objectsFile": "worlds/world-3-set-04.objects.json"
+    },
+    {
+      "name": "Little States · Set 5",
+      "file": "worlds/world-3.glb",
+      "kind": "pw-world",
+      "section": "Little States",
+      "objectsFile": "worlds/world-3-set-05.objects.json"
+    },
+    {
+      "name": "Little States · Set 6",
+      "file": "worlds/world-3.glb",
+      "kind": "pw-world",
+      "section": "Little States",
+      "objectsFile": "worlds/world-3-set-06.objects.json"
+    },
+    {
+      "name": "Little States · Set 7",
+      "file": "worlds/world-3.glb",
+      "kind": "pw-world",
+      "section": "Little States",
+      "objectsFile": "worlds/world-3-set-07.objects.json"
+    },
+    {
+      "name": "Little States · Set 8",
+      "file": "worlds/world-3.glb",
+      "kind": "pw-world",
+      "section": "Little States",
+      "objectsFile": "worlds/world-3-set-08.objects.json"
+    },
+    {
+      "name": "Little States · Set 9",
+      "file": "worlds/world-3.glb",
+      "kind": "pw-world",
+      "section": "Little States",
+      "objectsFile": "worlds/world-3-set-09.objects.json"
+    },
+    {
+      "name": "Little States · Set 10",
+      "file": "worlds/world-3.glb",
+      "kind": "pw-world",
+      "section": "Little States",
+      "objectsFile": "worlds/world-3-set-10.objects.json"
+    },
+    {
+      "name": "Little States · Set 11",
+      "file": "worlds/world-3.glb",
+      "kind": "pw-world",
+      "section": "Little States",
+      "objectsFile": "worlds/world-3-set-11.objects.json"
+    },
+    {
+      "name": "Little States · Set 12",
+      "file": "worlds/world-3.glb",
+      "kind": "pw-world",
+      "section": "Little States",
+      "objectsFile": "worlds/world-3-set-12.objects.json"
+    },
+    {
+      "name": "Little States · Set 13",
+      "file": "worlds/world-3.glb",
+      "kind": "pw-world",
+      "section": "Little States",
+      "objectsFile": "worlds/world-3-set-13.objects.json"
+    },
+    {
+      "name": "Little States · Set 14",
+      "file": "worlds/world-3.glb",
+      "kind": "pw-world",
+      "section": "Little States",
+      "objectsFile": "worlds/world-3-set-14.objects.json"
+    },
+    {
+      "name": "Little States · Set 15",
+      "file": "worlds/world-3.glb",
+      "kind": "pw-world",
+      "section": "Little States",
+      "objectsFile": "worlds/world-3-set-15.objects.json"
+    },
+    {
+      "name": "Little States · Set 16",
+      "file": "worlds/world-3.glb",
+      "kind": "pw-world",
+      "section": "Little States",
+      "objectsFile": "worlds/world-3-set-16.objects.json"
     },
     {
       "name": "World 4",
       "file": "worlds/world-4.glb",
-      "kind": "mesh3d",
-      "section": "Worlds"
+      "kind": "pw-world",
+      "section": "World 4"
+    },
+    {
+      "name": "World 4 · Set 2",
+      "file": "worlds/world-4.glb",
+      "kind": "pw-world",
+      "section": "World 4",
+      "objectsFile": "worlds/world-4-set-02.objects.json"
+    },
+    {
+      "name": "World 4 · Set 3",
+      "file": "worlds/world-4.glb",
+      "kind": "pw-world",
+      "section": "World 4",
+      "objectsFile": "worlds/world-4-set-03.objects.json"
+    },
+    {
+      "name": "World 4 · Set 6",
+      "file": "worlds/world-4.glb",
+      "kind": "pw-world",
+      "section": "World 4",
+      "objectsFile": "worlds/world-4-set-06.objects.json"
+    },
+    {
+      "name": "World 4 · Set 7",
+      "file": "worlds/world-4.glb",
+      "kind": "pw-world",
+      "section": "World 4",
+      "objectsFile": "worlds/world-4-set-07.objects.json"
+    },
+    {
+      "name": "World 4 · Set 8",
+      "file": "worlds/world-4.glb",
+      "kind": "pw-world",
+      "section": "World 4",
+      "objectsFile": "worlds/world-4-set-08.objects.json"
+    },
+    {
+      "name": "World 4 · Set 10",
+      "file": "worlds/world-4.glb",
+      "kind": "pw-world",
+      "section": "World 4",
+      "objectsFile": "worlds/world-4-set-10.objects.json"
+    },
+    {
+      "name": "World 4 · Set 11",
+      "file": "worlds/world-4.glb",
+      "kind": "pw-world",
+      "section": "World 4",
+      "objectsFile": "worlds/world-4-set-11.objects.json"
+    },
+    {
+      "name": "World 4 · Set 12",
+      "file": "worlds/world-4.glb",
+      "kind": "pw-world",
+      "section": "World 4",
+      "objectsFile": "worlds/world-4-set-12.objects.json"
+    },
+    {
+      "name": "World 4 · Set 14",
+      "file": "worlds/world-4.glb",
+      "kind": "pw-world",
+      "section": "World 4",
+      "objectsFile": "worlds/world-4-set-14.objects.json"
+    },
+    {
+      "name": "World 4 · Set 15",
+      "file": "worlds/world-4.glb",
+      "kind": "pw-world",
+      "section": "World 4",
+      "objectsFile": "worlds/world-4-set-15.objects.json"
+    },
+    {
+      "name": "World 4 · Set 16",
+      "file": "worlds/world-4.glb",
+      "kind": "pw-world",
+      "section": "World 4",
+      "objectsFile": "worlds/world-4-set-16.objects.json"
     },
     {
       "name": "World 5",
       "file": "worlds/world-5.glb",
-      "kind": "mesh3d",
-      "section": "Worlds"
+      "kind": "pw-world",
+      "section": "World 5"
+    },
+    {
+      "name": "World 5 · Set 1",
+      "file": "worlds/world-5.glb",
+      "kind": "pw-world",
+      "section": "World 5",
+      "objectsFile": "worlds/world-5-set-01.objects.json"
+    },
+    {
+      "name": "World 5 · Set 2",
+      "file": "worlds/world-5.glb",
+      "kind": "pw-world",
+      "section": "World 5",
+      "objectsFile": "worlds/world-5-set-02.objects.json"
+    },
+    {
+      "name": "World 5 · Set 3",
+      "file": "worlds/world-5.glb",
+      "kind": "pw-world",
+      "section": "World 5",
+      "objectsFile": "worlds/world-5-set-03.objects.json"
+    },
+    {
+      "name": "World 5 · Set 4",
+      "file": "worlds/world-5.glb",
+      "kind": "pw-world",
+      "section": "World 5",
+      "objectsFile": "worlds/world-5-set-04.objects.json"
+    },
+    {
+      "name": "World 5 · Set 5",
+      "file": "worlds/world-5.glb",
+      "kind": "pw-world",
+      "section": "World 5",
+      "objectsFile": "worlds/world-5-set-05.objects.json"
+    },
+    {
+      "name": "World 5 · Set 6",
+      "file": "worlds/world-5.glb",
+      "kind": "pw-world",
+      "section": "World 5",
+      "objectsFile": "worlds/world-5-set-06.objects.json"
+    },
+    {
+      "name": "World 5 · Set 7",
+      "file": "worlds/world-5.glb",
+      "kind": "pw-world",
+      "section": "World 5",
+      "objectsFile": "worlds/world-5-set-07.objects.json"
+    },
+    {
+      "name": "World 5 · Set 8",
+      "file": "worlds/world-5.glb",
+      "kind": "pw-world",
+      "section": "World 5",
+      "objectsFile": "worlds/world-5-set-08.objects.json"
+    },
+    {
+      "name": "World 5 · Set 9",
+      "file": "worlds/world-5.glb",
+      "kind": "pw-world",
+      "section": "World 5",
+      "objectsFile": "worlds/world-5-set-09.objects.json"
+    },
+    {
+      "name": "World 5 · Set 10",
+      "file": "worlds/world-5.glb",
+      "kind": "pw-world",
+      "section": "World 5",
+      "objectsFile": "worlds/world-5-set-10.objects.json"
+    },
+    {
+      "name": "World 5 · Set 11",
+      "file": "worlds/world-5.glb",
+      "kind": "pw-world",
+      "section": "World 5",
+      "objectsFile": "worlds/world-5-set-11.objects.json"
+    },
+    {
+      "name": "World 5 · Set 12",
+      "file": "worlds/world-5.glb",
+      "kind": "pw-world",
+      "section": "World 5",
+      "objectsFile": "worlds/world-5-set-12.objects.json"
+    },
+    {
+      "name": "World 5 · Set 13",
+      "file": "worlds/world-5.glb",
+      "kind": "pw-world",
+      "section": "World 5",
+      "objectsFile": "worlds/world-5-set-13.objects.json"
+    },
+    {
+      "name": "World 5 · Set 14",
+      "file": "worlds/world-5.glb",
+      "kind": "pw-world",
+      "section": "World 5",
+      "objectsFile": "worlds/world-5-set-14.objects.json"
+    },
+    {
+      "name": "World 5 · Set 15",
+      "file": "worlds/world-5.glb",
+      "kind": "pw-world",
+      "section": "World 5",
+      "objectsFile": "worlds/world-5-set-15.objects.json"
+    },
+    {
+      "name": "World 5 · Set 16",
+      "file": "worlds/world-5.glb",
+      "kind": "pw-world",
+      "section": "World 5",
+      "objectsFile": "worlds/world-5-set-16.objects.json"
     },
     {
       "name": "World 6",
       "file": "worlds/world-6.glb",
-      "kind": "mesh3d",
-      "section": "Worlds"
+      "kind": "pw-world",
+      "section": "World 6"
+    },
+    {
+      "name": "World 6 · Set 2",
+      "file": "worlds/world-6.glb",
+      "kind": "pw-world",
+      "section": "World 6",
+      "objectsFile": "worlds/world-6-set-02.objects.json"
+    },
+    {
+      "name": "World 6 · Set 3",
+      "file": "worlds/world-6.glb",
+      "kind": "pw-world",
+      "section": "World 6",
+      "objectsFile": "worlds/world-6-set-03.objects.json"
+    },
+    {
+      "name": "World 6 · Set 5",
+      "file": "worlds/world-6.glb",
+      "kind": "pw-world",
+      "section": "World 6",
+      "objectsFile": "worlds/world-6-set-05.objects.json"
+    },
+    {
+      "name": "World 6 · Set 6",
+      "file": "worlds/world-6.glb",
+      "kind": "pw-world",
+      "section": "World 6",
+      "objectsFile": "worlds/world-6-set-06.objects.json"
+    },
+    {
+      "name": "World 6 · Set 7",
+      "file": "worlds/world-6.glb",
+      "kind": "pw-world",
+      "section": "World 6",
+      "objectsFile": "worlds/world-6-set-07.objects.json"
+    },
+    {
+      "name": "World 6 · Set 10",
+      "file": "worlds/world-6.glb",
+      "kind": "pw-world",
+      "section": "World 6",
+      "objectsFile": "worlds/world-6-set-10.objects.json"
+    },
+    {
+      "name": "World 6 · Set 11",
+      "file": "worlds/world-6.glb",
+      "kind": "pw-world",
+      "section": "World 6",
+      "objectsFile": "worlds/world-6-set-11.objects.json"
+    },
+    {
+      "name": "World 6 · Set 14",
+      "file": "worlds/world-6.glb",
+      "kind": "pw-world",
+      "section": "World 6",
+      "objectsFile": "worlds/world-6-set-14.objects.json"
+    },
+    {
+      "name": "World 6 · Set 15",
+      "file": "worlds/world-6.glb",
+      "kind": "pw-world",
+      "section": "World 6",
+      "objectsFile": "worlds/world-6-set-15.objects.json"
+    },
+    {
+      "name": "World 6 · Set 16",
+      "file": "worlds/world-6.glb",
+      "kind": "pw-world",
+      "section": "World 6",
+      "objectsFile": "worlds/world-6-set-16.objects.json"
     },
     {
       "name": "World 7",
       "file": "worlds/world-7.glb",
-      "kind": "mesh3d",
-      "section": "Worlds"
+      "kind": "pw-world",
+      "section": "World 7"
+    },
+    {
+      "name": "World 7 · Set 1",
+      "file": "worlds/world-7.glb",
+      "kind": "pw-world",
+      "section": "World 7",
+      "objectsFile": "worlds/world-7-set-01.objects.json"
+    },
+    {
+      "name": "World 7 · Set 2",
+      "file": "worlds/world-7.glb",
+      "kind": "pw-world",
+      "section": "World 7",
+      "objectsFile": "worlds/world-7-set-02.objects.json"
+    },
+    {
+      "name": "World 7 · Set 3",
+      "file": "worlds/world-7.glb",
+      "kind": "pw-world",
+      "section": "World 7",
+      "objectsFile": "worlds/world-7-set-03.objects.json"
+    },
+    {
+      "name": "World 7 · Set 4",
+      "file": "worlds/world-7.glb",
+      "kind": "pw-world",
+      "section": "World 7",
+      "objectsFile": "worlds/world-7-set-04.objects.json"
+    },
+    {
+      "name": "World 7 · Set 5",
+      "file": "worlds/world-7.glb",
+      "kind": "pw-world",
+      "section": "World 7",
+      "objectsFile": "worlds/world-7-set-05.objects.json"
+    },
+    {
+      "name": "World 7 · Set 6",
+      "file": "worlds/world-7.glb",
+      "kind": "pw-world",
+      "section": "World 7",
+      "objectsFile": "worlds/world-7-set-06.objects.json"
+    },
+    {
+      "name": "World 7 · Set 7",
+      "file": "worlds/world-7.glb",
+      "kind": "pw-world",
+      "section": "World 7",
+      "objectsFile": "worlds/world-7-set-07.objects.json"
+    },
+    {
+      "name": "World 7 · Set 8",
+      "file": "worlds/world-7.glb",
+      "kind": "pw-world",
+      "section": "World 7",
+      "objectsFile": "worlds/world-7-set-08.objects.json"
+    },
+    {
+      "name": "World 7 · Set 9",
+      "file": "worlds/world-7.glb",
+      "kind": "pw-world",
+      "section": "World 7",
+      "objectsFile": "worlds/world-7-set-09.objects.json"
+    },
+    {
+      "name": "World 7 · Set 10",
+      "file": "worlds/world-7.glb",
+      "kind": "pw-world",
+      "section": "World 7",
+      "objectsFile": "worlds/world-7-set-10.objects.json"
+    },
+    {
+      "name": "World 7 · Set 11",
+      "file": "worlds/world-7.glb",
+      "kind": "pw-world",
+      "section": "World 7",
+      "objectsFile": "worlds/world-7-set-11.objects.json"
+    },
+    {
+      "name": "World 7 · Set 12",
+      "file": "worlds/world-7.glb",
+      "kind": "pw-world",
+      "section": "World 7",
+      "objectsFile": "worlds/world-7-set-12.objects.json"
+    },
+    {
+      "name": "World 7 · Set 13",
+      "file": "worlds/world-7.glb",
+      "kind": "pw-world",
+      "section": "World 7",
+      "objectsFile": "worlds/world-7-set-13.objects.json"
+    },
+    {
+      "name": "World 7 · Set 14",
+      "file": "worlds/world-7.glb",
+      "kind": "pw-world",
+      "section": "World 7",
+      "objectsFile": "worlds/world-7-set-14.objects.json"
+    },
+    {
+      "name": "World 7 · Set 15",
+      "file": "worlds/world-7.glb",
+      "kind": "pw-world",
+      "section": "World 7",
+      "objectsFile": "worlds/world-7-set-15.objects.json"
     },
     {
       "name": "World 8",
       "file": "worlds/world-8.glb",
-      "kind": "mesh3d",
-      "section": "Worlds"
+      "kind": "pw-world",
+      "section": "World 8"
     },
     {
       "name": "World 9",
       "file": "worlds/world-9.glb",
-      "kind": "mesh3d",
-      "section": "Worlds"
+      "kind": "pw-world",
+      "section": "World 9"
     },
     {
       "name": "Model 007",

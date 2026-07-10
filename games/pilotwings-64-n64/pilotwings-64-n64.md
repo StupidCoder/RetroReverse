@@ -437,7 +437,8 @@ space we inferred. Pushed through its cell's transform, **every one of the 1,806
 inside the cell that names it** — the same test the terrain geometry passes. A wrong offset, or a
 wrong idea of which space the position is in, could not.
 
-Twenty-one objects carry **more than one matrix** — three, four, and in one case ten.
+Twenty-one objects carry **more than one matrix** — three, four, and in one case ten. That is not
+a moving object's keyframes; see below.
 
 #### What `type` selects: the model, by its ordinal
 
@@ -486,32 +487,43 @@ of Holiday Island is `0x4000`/`0x8000`, the airstrip `0x0010`/`0x0011`. This is 
 time-of-day and per-mission object sets live, exactly as expected. **The selector's source is not
 yet traced**, so which bit means what is not claimed here.
 
-#### The extra matrices are instances, not frames
+#### The pose block is one matrix per model part
 
-Matrix `[0]` is the object's placement: its translation equals the `x, y, z` read four fields
-later, every time, and its upper 3×3 carries the object's scale and yaw. The rest are further
-transforms of the same model, in the object's local space. The one ten-matrix object — `UVCT` 2,
-object 8, `type` 12, in Holiday Island's south-west cell — has nine of them, and eight lie on a
-circle of radius ≈143 at 45° spacing, with the ninth above the centre:
+The draw routine at `0x8022CC40` walks the object's matrices one at a time (`lw $t3, 4($s7)`,
+stride 64), and the loop's bound comes not from the object but from the model: `lbu $a0, 4($s4)`,
+a count in the model's own header. That reframes `poseCount` entirely, and the archive confirms it
+without the machine:
 
-```
-[1] (   4.8,   0.0, 232.9)      [2] (  -0.0, 0.0,  145.7)   [3] (-144.0, 0.0,   1.7)
-[4] (  -0.0,   0.0,-142.3)      [5] ( 142.9, 0.0,    5.9)   [6] ( -99.5, 0.0, 104.3)
-[7] ( -99.5,   0.0, -92.4)      [8] (  97.2, 0.0,  -92.4)   [9] (  97.2, 0.0, 104.3)
-```
+> **`poseCount` equals the model's part count — for all 1,364 objects, with no exceptions.**
 
-Eight cars on a wheel. The draw routine at `0x8022CC40` copies one 64-byte matrix at a time out of
-the object's block (`lw $t3, 4($s7)`, stride 64) onto the stack, so the model is emitted once per
-matrix. Whether the ring *turns* is an animation question, and `UVAN`'s 115 resources are still
-undecoded.
+`UVMD` already carries one rest-pose matrix per part (`extract/uvmd`). An object's block is a
+*copy* of that array with part 0's matrix replaced by the object's placement: part 0's rest pose is
+the identity in every one of the 1,364 models involved, and the object's matrix `[0]` translates to
+exactly the `x, y, z` stored four fields later, with the object's scale and yaw in its 3×3. The
+tail matches the model's rest poses to `2⁻¹⁶` — the fixed-point step, and nothing else.
+
+So the ten-matrix object (`UVCT` 2, object 8, `type` 12, in Holiday Island's south-west cell) is
+not ten instances of anything. It is a **ten-part model**, and eight of its parts lie on a circle of
+radius ≈143 at 45° spacing with a ninth above the centre — a ferris wheel, with its cars as parts.
+The exported GLB already bakes those rest poses, so placing the object needs matrix `[0]` alone.
+
+That also settles a hope: the multi-matrix objects are **not** where movement lives. Nothing in the
+placement data moves. Whatever turns the wheel and sails the boat is in `UVAN`'s 115 undecoded
+resources.
 
 ### The water
 
 The worlds export as terrain only, and terrain stops at the shoreline: the sea is a separate mesh.
-`UVMD` 360, 365, 367 and 368 are flat planes at *z* = 0 spanning ±12,288 units — one per level —
-and `UVMD` 219 is a ±2,995 plane, exactly the extent of the 6,000-unit world 9. All of them are
-textured with **UVTX ordinal 26**, the same water tile the attract sequence's ocean uses. Which
-plane belongs to which world, and what places it, is not yet traced.
+`UVMD` 360, 365, 367 and 368 are flat planes at *z* = 0 spanning ±12,288 units, and `UVMD` 219 is a
+±2,995 plane, exactly the extent of the 6,000-unit world 9. All of them are textured with **UVTX
+ordinal 26**, the same water tile the attract sequence's ocean uses.
+
+They live in `UVLV` scenes that name no terrain — scenes 114 onward, each pairing one water plane
+with `UVMD` 359, a dome rising to *z* = 1500 that is the sky. An environment scene, in other words,
+selected per mission rather than per world. **Only world 0's water is pinned**, and by observation
+rather than by the archive: the beginner hang-glider lesson, driven in the oracle, DMA'd resource
+360 while loading world 0's terrain. That one is exported; the others are left unplaced rather than
+matched by guesswork.
 
 ### `UVLV` — the scene manifests
 
@@ -782,9 +794,49 @@ format-2 manifest. The oracle is no longer in the export path; the exporter's on
 cartridge and the decoders.
 
 What ships: the **ten worlds**, each assembled from its terrain chunks into one continuous mesh,
-and all **363 models**, each at LOD 0 with its parts placed by their rest poses — 373 GLBs, 11 MB.
-Textures are embedded per model. Nothing is silently dropped: no model has zero triangles at
-LOD 0, and the exporter would say so if one did.
+and all **363 models**, each at LOD 0 with its parts placed by their rest poses. Textures are
+embedded per model. Nothing is silently dropped: no model has zero triangles at LOD 0, and the
+exporter would say so if one did.
+
+### The object layer, and the sixteen sets
+
+Objects are **not baked into the terrain.** Each world's placements go out as small JSON lists over
+the one terrain GLB, in the format-2 shape the Studio's shared `placeObjects` / `installPicker`
+helpers already read, and the viewer places them in a group its "Objects" layer toggle hides.
+
+Because an object is drawn only where its `mask` meets a per-scene selector, a world with *every*
+object at once is a world no mission ever shows — rings and balloons and targets from a dozen
+different tasks, all at the same time. The exporter therefore writes **one list per mask bit**:
+
+| world | | sets | placements | world | | sets | placements |
+|---|---|---|---|---|---|---|---|
+| 0 | Holiday Island | 16 | 235 | 5 | | 16 | 412 |
+| 1 | Crescent Island | 16 | 260 | 6 | | 10 | 96 |
+| 2 | | 10 | 92 | 7 | | 15 | 309 |
+| 3 | Little States | 16 | 843 | 8 | | 0 | 0 |
+| 4 | | 11 | 51 | 9 | | 0 | 0 |
+
+110 sets, 2,298 placements, half a megabyte of JSON against 11 MB of geometry — the models are
+shared, so a set costs almost nothing. Which bit is which mission is not known, so the sets are
+numbered, not named. The Studio lists them under the world's own name, beside its bare terrain.
+
+Each placement carries a full 4×4 matrix, not a position and a yaw: an object's pose block gives it
+a **scale** (0.1 is common) as well as a rotation, and decomposing that into Euler angles would drop
+it. Composing that matrix is the one place the Y-up rotation `R` bites twice. The model's GLB is
+already rotated, so its vertices are `v·R`; the node's matrix must therefore be
+
+```
+N  =  R⁻¹ · (pose₀ · cell) · R
+```
+
+and not `pose₀ · cell`. Get that wrong and objects with no rotation still look right — which is
+most of them, and exactly the kind of coherent-but-wrong render this project distrusts. The check
+is the old one: every placement's world position must land inside the cell that names it, and all
+2,298 do.
+
+Only world 0 gets its **water**, and only because the oracle watched the game load it (`UVMD` 360,
+while world 0's terrain streamed in). It is a separate GLB, loaded *after* the camera is framed on
+the terrain — the ocean is ±12,288 units across and would otherwise pull the fit out to sea.
 
 ### Axes
 
