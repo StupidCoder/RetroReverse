@@ -10,6 +10,7 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"strings"
 
 	"retroreverse.com/tools/platform/psx"
 )
@@ -23,6 +24,7 @@ func main() {
 	image := flag.String("image", "", "PlayStation CD image (.bin)")
 	load := flag.String("load", "", "machine savestate to restore")
 	press := flag.String("press", "", "pad script")
+	pokeS := flag.String("poke", "", "RAM pokes ADDR:VALUE:WIDTH[,...] applied after -load")
 	rootS := flag.String("root", "8001BD80", "root function address (hex)")
 	n := flag.Int("n", 1, "how many invocations to trace")
 	window := flag.Uint64("window", 30_000_000, "max steps")
@@ -56,6 +58,18 @@ func main() {
 	m.LoadEXE(exe)
 	if err := m.LoadStateFile(*load); err != nil {
 		die("load state: %v", err)
+	}
+	for _, spec := range strings.Split(*pokeS, ",") {
+		if spec == "" {
+			continue
+		}
+		var addr, val, width uint32
+		if n, _ := fmt.Sscanf(spec, "%x:%x:%x", &addr, &val, &width); n != 3 {
+			die("bad -poke %q", spec)
+		}
+		for i := uint32(0); i < width; i++ {
+			m.Write(addr+i, byte(val>>(8*i)))
+		}
 	}
 
 	read32 := func(a uint32) uint32 {

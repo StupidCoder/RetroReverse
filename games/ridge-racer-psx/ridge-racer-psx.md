@@ -46,6 +46,10 @@ CD-audio tracks (the CD-swap feature) that are not part of this file.
   the engine/gear model, the polar-coordinate velocity core that produces the drift, the
   road-edge and car-to-car collision with its ×0.7 bump and damped-sine wobble, and the opponent
   AI — a centerline follower with a player-aware speed state machine (the rubber band).
+* **Part IX** — **course variants**: the four classes over one city (barrier dressing at the
+  junction, speed grades, laps, night for T.T.), the win-mask unlock, and the **EXTRA courses** —
+  the same roads driven in reverse from relocated grids, with their own checkpoint tables and,
+  for the upper classes, the extension leg the normal courses never visit.
 
 Addresses are MIPS virtual addresses (`0x8000xxxx` in the cached KSEG0 window) or byte offsets into
 a file (called out explicitly); bytes are little-endian.
@@ -764,10 +768,10 @@ as different object variants (e.g. 177 by day, 178 by night). The **structures d
 head of the scenery routine at `0x80015B98`) draws the start barriers (`0x80070360`, at night
 `0x80070468`) and the grandstand list (`0x800703C0` with objects 60/61; at night a pointer variable
 at `0x80079F98/9C` selects a single-record 61-variant list at `0x80070408/0x80070438`), then the
-course-length word at `0x80176CBC` picks the course-split barrier walls (`0x80070510` short courses,
-`0x800705E8` long), and at night `0x800706C0` adds translucent extras (101, 142, 165). The day pair
-and night pair carry the same 59 building placements, so a placement is uniquely
-`(id, X, Y, Z, yaw)`.
+course number at `0x80176CBC` picks the junction barrier dressing (`0x80070510` for classes 1–2,
+`0x800705E8` for classes 3–4 — Part IX §2), and the EXTRA-course flag (`0x80176BF8`, Part IX §3)
+adds the translucent extras at `0x800706C0` (101, 142, 165). The day pair and night pair carry the
+same 59 building placements, so a placement is uniquely `(id, X, Y, Z, yaw)`.
 
 **The placards are draw-only.** Watched over a full attract lap and a scripted drive through a
 placard relocated onto the racing line, table `0x8006E85C` is read by the draw iterator and the
@@ -824,8 +828,9 @@ and the airplane's glide; `geomoracle -only flight` verifies them (the airplane'
 bit-exact over 1591 ticks; the interpreter's waypoint-target sequence matches the decoded key list
 in order, 22/22 in the race window).
 
-The day/night split (`0x80176BF8`) is the race class — the higher classes run at dusk/night and
-swap models; `0x80176CBC` is the course length. `extract/rr/dynamics.go` decodes the catalog
+The day/night split is the halfword at `0x8017693C`, set from the class descriptor at race init
+(Part IX §1) — among the normal classes only T.T. runs at night; `0x80176CBC` is the course
+number and `0x80176BF8` the EXTRA-course flag (Part IX). `extract/rr/dynamics.go` decodes the catalog
 (positions from the EXE vectors, ids and behaviour from the traced blocks), and
 `geomoracle -only dynamics` verifies it: over the attract lap, each drawn dynamic object's
 GTE-recovered position (`R_obj·Rᵀ·TR`, camera cancelled against a same-frame static anchor) must
@@ -922,7 +927,7 @@ layout in an array at `0x801ECE34 + n × 0x114`. The fields that matter (offsets
 | Offset | Field |
 |---|---|
 | +00 | active flag; +02 car model index (0–12, the Part VI §5 table order) |
-| +08 | course progress: `gate × 256 + fraction`, **decreasing** as the car advances, wrapping at the course length (`[0x801FCC04]`) |
+| +08 | course progress: `gate × 256 + fraction`, **decreasing** as the car advances (increasing on the reversed EXTRA courses, Part IX §3), wrapping at the course length (`[0x801ECC04]`, in gates) |
 | +10/+14/+18 | world X, Y, Z (position units; the grid cell is 2,048) |
 | +20/+24/+28 | drawn pitch / **travel direction** / drawn roll (angles, 4096 = 360°) |
 | +38 | wheel-rotation accumulator (`+= speed`, bit 0x1000 flags "slow") |
@@ -1109,3 +1114,117 @@ a proximity-triggered chase state machine — while the player's car is a genuin
 simulation: polar-form velocity with vector-added thrust, emergent drift from the 20 % easing,
 data-driven jumps, and a collision response tuned to feel like a bump (decaying impulse), a
 wobble (damped sine on the body) and a penalty (×0.7) rather than a crash.
+
+---
+
+# Part IX — Course variants: classes, EXTRA courses, day and night
+
+The menu offers four courses over the one city of Parts V–VI, and each unlocks a hidden "EXTRA"
+twin. Everything here was established the same way as Part VIII — savestates at the menu and at
+race grids, `-poke` to force unlock flags and to teleport the car, RAM diffs to find the
+selection globals — plus decoding the course tables the selections switch between.
+
+## 1. The four classes
+
+The COURSE SELECT panel writes a **course number 1–8 to `[0x80080148]`**; the visible four are:
+
+| # | Menu name | Laps | Speed grade | Cars | Time of day |
+|---|---|---|---|---|---|
+| 1 | BEGINNER | 2 | 100 mph | 12 | day |
+| 2 | MID-LEVEL | 3 | 125 mph | 12 | day |
+| 3 | HIGH-LEVEL | 3 | 125 mph | 12 | day |
+| 4 | T.T. | 3 | 138 mph | **2** | **night** |
+
+Race init (`0x8001308C`) fans the number out: `0x80176CBC` gets the course number, and
+`0x800256C8(class−1)` walks a **per-class descriptor stream** (pointer table at `0x80071958` →
+blocks at `0x80071788/17A8/1828/18A8`) that seeds the race parameters — among them the
+**night halfword `[0x8017693C]`** (bit 15 of the descriptor's seventh halfword, inverted: only
+class 4 clears it… i.e. runs at night). That halfword is what the scenery dispatchers of
+Part VI §6–7 test to swap the building/banner/crowd placement tables between their day and night
+object variants; night races also spawn the hot-air balloons and the night airplane. The speed
+grades are real: the Part VIII gear/torque table at `0x801DB71C` is rebuilt per race
+(`0x8001A548`) from master curves in the EXE (`0x80070928`/`0x80070960`) scaled to the class,
+which is why the same car pulls 100 mph in BEGINNER and 138 in T.T. The T.T. grid holds only the
+player and one rival (the opponent array carries one active entry; a normal race activates
+eleven).
+
+## 2. One circuit, one junction, two walls of chevrons
+
+All four normal courses drive the **same 256-gate checkpoint loop** (`0x80059164`, Part VIII §4)
+in the same direction — descending gate order — for 2 or 3 laps. The circuits the classes
+*don't* share sit behind a **road fork**: south-west of the mid-map straight, the road splits in
+a Y (fork mouth at gates 76–77; the branches rejoin the east–west straight at gates 90–91), and
+the left branch leads into a long **extension leg** the normal gate table never routes through.
+
+The mouths are dressed shut with **chevron barrier walls** — object 187 (and one 186), the
+yellow/black arrow panels — placed by two 24-byte placement tables of the §VI.6 format:
+
+* `0x80070510` (**set A**, drawn when `[0x80176CBC] < 3`, i.e. BEGINNER/MID-LEVEL): four barriers
+  straight across each mouth;
+* `0x800705E8` (**set B**, HIGH-LEVEL/T.T.): the same two mouths closed as staggered diagonal
+  echelons (plus a 186 variant), tuned for the faster approach.
+
+Teleporting a car into them proves the walls are **draw-only** — like the §VI.6 placards, no
+collision system knows they exist; a car driven through the chevrons at 108 mph sails on
+unhindered. The route is enforced by the checkpoint table itself (the gate sequence and its
+per-gate lane bounds are what the road-edge rejection of Part VIII §5 tests) — the walls are
+scenery telling the player not to try.
+
+## 3. The EXTRA courses — the same city, driven backwards
+
+Courses 5–8 are the EXTRA variants. The records screen (`0x8001D5F4`) names courses by their
+speed-grade string (`0x800709E4` → "100/125/125/138") and stamps **"EXTRA"** (`0x80079FE0`) on
+indices ≥ 5; internally a course ≥ 5 immediately normalises (`0x8001F49C`) to `class = n − 4`
+plus the **EXTRA flag `[0x80176BF8]`**, which is what the race code tests everywhere (the
+reverse promotion happens at race entry, `0x8001EB0C`).
+
+**Unlock.** The win mask at `[0x80176C00]` collects first places: bit `class−1` for a normal
+win, bit `class+3` for an EXTRA win (`0x8001413C`). When the low four bits read `0xF`, the
+course-select limit `[0x801ECBC4]` becomes 8 instead of 4 (`0x8001EAC4`) and the panel cycles
+into the EXTRA variants; the mask persists in the memory-card settings block (loader
+`0x800312D0`), and full completion (`0xFF`) sets a tier word (`[0x80130E8C] = 2`) — the
+"LET'S PLAY EXTRA GAME!" string lives at `0x80010FC4`. (Under the oracle:
+`-poke 80176C00:F:2,801ECBC4:8:2`.)
+
+**What EXTRA actually is.** Nothing is mirrored — pixel-diffing the HUD course map against the
+normal one matches unflipped, the in-RAM course grid is byte-identical to `IDX.HED`, and the
+car's world coordinates match the normal decode. Instead, **EXTRA drives the circuit in the
+opposite direction**: the player's progress *increases* per frame where a normal race counts
+down, the grid moves to a different stretch of road (BEGINNER EXTRA starts at gate ~160, on the
+coast road; HIGH EXTRA grids on the seaside straight), and every course-position constant swaps
+to a reversed-course set (jump crests, grid-orientation points — the `0x9D00`/`0x10D00` cases of
+the Part VIII driver next to normal's `0x4500`).
+
+Race init selects one of **three checkpoint tables** (`0x800130A0`):
+
+| Table | Gates | Used by |
+|---|---|---|
+| `0x80059164` | 256 | all four normal courses |
+| `0x80057D64` | 256 | EXTRA BEGINNER / MID-LEVEL |
+| `0x8005A564` | **368** | EXTRA HIGH-LEVEL / T.T. |
+
+The EXTRA-short table is the normal loop with ~30 gates re-authored — the relocated grid areas
+and small racing-line changes — and a systematic tweak to the per-gate lane-bound pair (both
+edges −128 across the course: the reversed line hugs the other side). The EXTRA-long table is
+the same loop with normal gates 77–89 (the fork-to-straight curve) **replaced by a 126-gate
+detour through the extension leg** — the fork's left branch, closed by chevrons in every normal
+race, is EXTRA HIGH/T.T.'s road; it rejoins the straight at the other mouth (long-table gates
+202+ realign with normal 91+). That is also why the helicopter's waypoint script (§VI.7) carries
+a short-/long-course gate pair per waypoint. Time of day stays with the class (EXTRA
+BEGINNER/MID/HIGH by day, EXTRA T.T. at night), the draw distance drops (`0x80012D24`: fog at
+3000 instead of 10000), the EXTRA-only scenery table `0x800706C0` adds three translucent
+placements (101, 142, 165), and the class descriptor supplies different race clocks (60 s
+BEGINNER, 89 s its EXTRA, 92 s HIGH EXTRA…).
+
+Because the checkpoint table *is* the AI's racing line and speed data (Part VIII §6), the
+opponents need no special handling — they follow whichever table the race loaded, in the
+direction the progress arithmetic runs. The player-side direction handling is likewise data
+driven: the recorded per-gate headings describe normal (descending) travel, and the EXTRA path
+negates them — at the EXTRA grid the car spawns with heading `4096 − h` and drives the gate
+list ascending.
+
+So the complete variant matrix is: one city; one junction with class-dressed chevron walls;
+four classes = laps × speed grade × field size × time of day over the same lap; and four EXTRA
+courses = the two reversed gate tables (short, and long-through-the-extension) with relocated
+grids, reversed-line lane bounds, shorter fog, and their own crest/grid constants — all of it
+selected by three globals: the course number, the EXTRA flag, and the night halfword.

@@ -60,6 +60,8 @@ func main() {
 		"interrupt dispatcher, traced — the retail BIOS installs it via HookEntryInt into a slot "+
 		"the HLE BIOS leaves empty. Set 0 to use the (empty) registered chain handler")
 	saveS := flag.String("save", "", "after the run, write a machine savestate to this file")
+	pokeS := flag.String("poke", "", "before the run (after -load), write RAM: ADDR:VALUE:WIDTH[,...] "+
+		"(hex; WIDTH 1/2/4) — force a flag or unlock for an experiment")
 	loadS := flag.String("load", "", "before the run, restore a machine savestate from this file "+
 		"(the -steps budget then counts from the restored instruction count)")
 	press := flag.String("press", "", "scripted controller input: comma-separated BUTTON@STEP:HOLD "+
@@ -108,6 +110,24 @@ func main() {
 			die("load state: %v", err)
 		}
 		fmt.Fprintf(os.Stderr, "restored state: PC 0x%08X, %d instructions\n", m.CPU.PC, m.CPU.Steps)
+	}
+	if *pokeS != "" {
+		for _, spec := range strings.Split(*pokeS, ",") {
+			parts := strings.Split(spec, ":")
+			if len(parts) != 3 {
+				die("bad -poke entry %q: want ADDR:VALUE:WIDTH", spec)
+			}
+			addr, err1 := hx(parts[0])
+			val, err2 := hx(parts[1])
+			width, err3 := hx(parts[2])
+			if err1 != nil || err2 != nil || err3 != nil {
+				die("bad -poke entry %q", spec)
+			}
+			for i := uint32(0); i < width; i++ {
+				m.Write(addr+i, byte(val>>(8*i)))
+			}
+			fmt.Fprintf(os.Stderr, "poked [0x%08X] = 0x%X (%d bytes)\n", addr, val, width)
+		}
 	}
 
 	w := bufio.NewWriter(os.Stdout)
