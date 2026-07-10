@@ -5,8 +5,9 @@ that a future session (human or AI) can start a new project with a plan instead
 of a blank page. It distils what worked across the collection — C64 tape (Elite,
 Fort Apocalypse), Amiga disk (Marble Madness, Turrican, Stunt Car Racer),
 cartridge ROM (Sonic on Game Gear, Super Mario Land on Game Boy, Super Mario 64 DS
-and Mario Kart DS on the DS), optical disc (Ridge Racer on PlayStation, Need for
-Speed on 3DO), and a DOS x86 executable (Ultima Underworld) — and generalises the
+and Mario Kart DS on the DS, Pilotwings 64 on the N64), optical disc (Ridge Racer
+on PlayStation, Need for Speed on 3DO), and a DOS x86 executable (Ultima
+Underworld) — and generalises the
 moves that transfer to an unknown medium and unknown formats. §2 and §3 walk the
 two media worked in most depth (tape, disk); the cross-cutting sections §4–§7
 carry the transferable technique, and the per-game writeups hold the specifics.
@@ -439,6 +440,81 @@ for on any unknown format:
   linear reading said it was. When a hand-derived walk contradicts observed
   behaviour on a delay-slot ISA, re-read every branch with its slot before
   doubting the data.
+- **Log a routine's arguments at its entry PC — the argument log *is* the map.**
+  Between "who wrote X" (write-profiler) and full tracing sits a cheap, very
+  high-yield instrument: hook one PC (the loader, the decompressor, the copy
+  primitive) and print its argument registers plus the return address every time
+  it runs. Pilotwings' 8,016 raw PI DMAs collapsed into ~30 legible logical loads
+  once logged at the `load(dst, src, len)` primitive instead of the DMA engine
+  (the 4 KiB chunking was the *primitive's own* implementation detail, `ra`
+  distinguished self-recursion from real callers). Hooking **two** PCs into one
+  chronological log then binds producer to consumer with no code reading at all:
+  `load(bounce, cartOff)` → `decompress(bounce, window)` → `load(dest, window+off)`
+  interleaved in order is the complete asset pipeline, per asset, with every
+  address and length — the game narrates its own file directory.
+- **Prove ROM→RAM provenance by replaying it from the image, byte-for-byte.**
+  Deciding "where does this RAM region come from" has a ladder, each rung a
+  measurement: (1) a DMA log — a region *no* transfer covers verbatim was built
+  or unpacked at runtime, which is a finding, not a failure; (2) a **probe
+  search** — take 16- and 64-byte probes of the RAM region and search the
+  (byte-order-normalised) image: long probe absent + short probe found inside a
+  stream ⇒ a compressor's literal runs, i.e. the data *is* there, transformed;
+  (3) after reversing the transform, **replay the whole chain from the image
+  alone** (Pilotwings' `romtrace`: parse the argument log, decompress every blob
+  with the reimplemented codec, apply every copy) and byte-compare against a RAM
+  snapshot — then *explain the remainder* rather than rounding it up: the only
+  diffs were `G_SETTIMG` pointer words the loader patches into shipped DL
+  templates, which is itself format knowledge. Determinism makes the same trick
+  a pipeline proof: an export rebuilt from a cold boot matching the
+  savestate-derived one to float epsilon shows nothing was hand-carried.
+- **A silent fallback makes a broken decoder look finished.** Pilotwings' GLB
+  exports shipped *twice* with every texture silently replaced by the 1×1 white
+  fallback — and looked right, because the terrain's vertex colours carry most of
+  the image and texture-modulate-by-white degrades gracefully. "Coherent render ≠
+  proof" applies to *each decode stage separately*: the geometry being verified
+  says nothing about the texture path. Countermeasures, in order of cheapness:
+  count fallback hits and expect zero where content should be (a one-line print
+  would have caught this months earlier); make fallbacks loud (magenta, not
+  white); and for image data, actually *look at* one decoded artefact — a
+  software-rastered top view took 80 lines of Python and instantly showed
+  farmland vs. smooth gradients. The root cause is its own trap: on command sets
+  whose 64-bit words are handled as two 32-bit halves, a field index read from
+  the wrong half can alias the *opcode* into a valid-looking value (`0xF5 & 7 =
+  5` sent every Set_Tile to tile 5). When two independent decoders of the same
+  format exist in the repo (the oracle's RDP vs. the walker), diff their
+  interpretations — rdpdbg had the correct bit position the whole time.
+- **Verify a scene walker against the machine's own command stream — tolerances
+  declared before comparing.** To trust a display-list/scene-graph walker used
+  for export, run the same frame both ways: walk the snapshot and project every
+  triangle yourself, and capture what the hardware actually received (Pilotwings'
+  `dlverify`: RDP triangles up to Sync_Full, texture source tracked by TMEM
+  address, bounding boxes reconstructed from edge coefficients). Three practices
+  made it work: (a) *declare the tolerance model up front*, derived from the
+  hardware's number formats, not tuned to pass — count bands widened only by
+  clip-fan bounds and sub-quantum slivers, and a per-triangle displacement bound
+  computed from the s15.16 matrix quantum × vertex magnitude / w; (b) treat every
+  *systematic* mismatch as a semantic finding and iterate — each round of this
+  comparison pinned a real convention (screen-y maps with negated viewport scale;
+  front faces wind clockwise in that space; the viewport applies per *vertex*,
+  at G_VTX time, because the frame reprograms it between passes; texture-enable
+  state, not the bound tile, decides texturedness). Ambiguous conventions are
+  *pinned empirically*: implement one hypothesis and look for its failure
+  signature in the diff (a sign error mirrors every box about the viewport
+  centre; a cull error keeps exactly the triangles the stream lacks); (c) when
+  residuals survive, *attribute* them — cluster unmatched items by draw
+  group/matrix (17 leftovers all shared one group, which localised the next
+  question), use nearest-neighbour matching when near-duplicates chain greedy
+  first-fit into false failures, and leave the genuinely unexplained residue
+  **failing loudly** in the tool rather than absorbed into tolerance.
+- **A hypothesis must be possible under your own oracle's execution model.** Two
+  probes were burned testing whether the CPU rewrote matrices/vertices *while*
+  the RSP task ran — impossible by construction, because this oracle drains a
+  task synchronously before the CPU resumes, so task-time RAM always equals the
+  task-start snapshot. Before hypothesising races, mid-frame mutation, or
+  interleaving, check the machine model's scheduling invariants; they rule out
+  whole hypothesis families for free (and conversely, an artefact the real
+  console shows that *requires* interleaving is evidence about where the model
+  diverges from hardware).
 
 ---
 
@@ -573,6 +649,23 @@ cursor arithmetic). Injecting through the game's real input mechanism — not a
 synthetic poke of the resulting variable — is what keeps it clean-room: the game
 computes its own consequences, and the oracle only supplies the keystrokes a player
 would.
+
+**Every oracle dependency in an exporter is an undecoded format — enumerate them
+and retire them.** It is tempting to let the final asset exporter boot the machine
+and read what it needs from RAM; that is a scaffold, not a deliverable, because
+the project's product is *documented formats*, and each thing the boot supplies is
+precisely a format not yet decoded. Pilotwings' first `webexport` booted the
+cartridge to obtain three things, and naming them turned a vague dependency into a
+work list: the placement directory (which blob slice lands at which address — a
+table on the ROM, readable once decoded), the mesh connectivity (the CPU rebuilds
+display lists each frame from a packed patch stream in the blobs — a format whose
+consumer is disassemblable), and the attract's pose matrices (genuine runtime
+animation state). The ladder for each item: decode it from the image if it lives
+there; if it is truly runtime-only (a pose, a camera), capture it *once* from the
+oracle and bake it as a **documented constant** — Ridge Racer's start camera and
+the gyrocopters' attract poses are a few dozen numbers with a provenance note, not
+an emulator in the export path. State explicitly, in the writeup, which category
+each remaining dependency is in.
 
 ---
 
