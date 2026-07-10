@@ -188,3 +188,49 @@ func TestRomFSIVFCHashTree(t *testing.T) {
 		t.Fatal(err)
 	}
 }
+
+// The banner (CBMD) decompresses via LZ11 to a valid CGFX whose scene graph
+// enumerates: exactly one model, four textures, and a skeletal animation — the
+// animated 3-D scene the HOME Menu shows.
+func TestBannerScene(t *testing.T) {
+	n := loadImage(t)
+	c, err := n.Executable()
+	if err != nil {
+		t.Fatal(err)
+	}
+	efs, err := c.ExeFS()
+	if err != nil {
+		t.Fatal(err)
+	}
+	raw, err := efs.File("banner")
+	if err != nil {
+		t.Fatal(err)
+	}
+	bn, err := ParseBanner(raw)
+	if err != nil {
+		t.Fatal(err)
+	}
+	cgfx, err := bn.CommonModel()
+	if err != nil {
+		t.Fatal(err)
+	}
+	g, err := ParseCGFX(cgfx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := len(g.Resources["Models"]); got != 1 {
+		t.Errorf("Models = %d, want 1", got)
+	}
+	if got := len(g.Resources["Textures"]); got != 4 {
+		t.Errorf("Textures = %d, want 4", got)
+	}
+	if got := len(g.Resources["SkeletalAnimations"]); got != 1 {
+		t.Errorf("SkeletalAnimations = %d, want 1", got)
+	}
+	if g.IMAGOff == 0 {
+		t.Error("no IMAG data block found")
+	}
+	if m := g.Resources["Models"]; len(m) == 1 && m[0].Magic != "CMDL" {
+		t.Errorf("model magic = %q, want CMDL", m[0].Magic)
+	}
+}

@@ -14,8 +14,9 @@ machine oracle (`tools/platform/n3ds`) that loads the retail `.code` and runs it
 under a high-level-emulated Horizon kernel. This is the repository's first Nintendo 3DS title and
 its first ARMv6/VFP target.
 
-This file currently documents **Part I (the cartridge image and its containers)** and **Part II (the
-boot/execution bring-up)**; the asset formats (Part IV onward) follow in later work.
+This file currently documents **Part I (the cartridge image and its containers)**, **Part II (the
+boot/execution bring-up)**, and **Part III (the HOME-Menu banner — the animated 3-D scene)**; the
+in-game asset formats (Part IV onward) follow in later work.
 
 ---
 
@@ -182,12 +183,87 @@ kernel facility, not a mystery.
 
 ---
 
+## Part III — The HOME-Menu banner (the animated 3-D scene)
+
+When a title is highlighted in the 3DS HOME Menu, the top screen shows a small **animated 3-D scene** —
+for Super Mario 3D Land, a slowly turning logo lit and framed by a moving camera. That scene is the
+ExeFS **`banner`** file, and it is a complete little 3-D program: a model, its textures and materials,
+a camera, a light, a scene environment, and a skeletal animation. `bannerdump` runs the whole chain
+from the cartridge in one command.
+
+### CBMD → LZ11 → CGFX
+
+The `banner` file is a **CBMD** ("Common Banner Model Data") container:
+
+```
+0x00 "CBMD"
+0x04 u32   version
+0x08 u32   offset to the common CGFX
+0x0C u32[13] language-specific CGFX offsets (all 0 here — one shared scene)
+0x40 u32   CWAV audio offset (0 here — silent banner)
+0x88 …     the CGFX payload
+```
+
+The payload is not a raw CGFX: at `0x88` the bytes are `11 80 7d 04 …`, and the `0x11` type byte with
+a 24-bit size (`0x047D80` = 294,272) is Nintendo **LZ11**, a forward LZSS. The tell that it is
+compressed and not corrupt is exactly that the CGFX/DATA/DICT magics appear *interspersed* with binary:
+those are LZ literals between back-references. Decoding the first flag byte confirms it — `0x00` means
+eight literals, and they are `43 47 46 58 FF FE 14 00`, a clean CGFX header. LZ11 decompresses to
+294,272 bytes, the size the header promised.
+
+### CGFX — the scene graph
+
+The decompressed blob is a **CGFX** ("CTR Graphics", Nintendo's NW4C scene format). Its structure is a
+header, a **DATA** block of typed resource dictionaries, and a trailing **IMAG** block holding the raw
+vertex and texture bytes. Every internal pointer is *self-relative* (a field at P holding V points to
+P+V), and the dictionaries are **patricia trees** ("DICT") — but a linear walk of their nodes yields
+every named entry, which is all an extractor needs. For this banner the scene graph is:
+
+```
+CGFX  revision 0x05000000  fileSize 294272
+  IMAG (raw vertex/texture data) at 0x7878
+    Models              1   COMMON  (CMDL)
+    Textures            4   COMMON1 COMMON4 COMMON7 COMMON8  (TXOB)
+    LookupTables        1   COMMON  (LUTS — lighting)
+    Cameras             1   Camera1 (CCAM)
+    Lights              1   Light1  (CFLT)
+    Scenes              1   SceneEnvironment1 (CENV)
+    SkeletalAnimations  1   COMMON  (CANM)
+```
+
+The **model** (CMDL) resolves further: it carries **8 meshes** (each binding a shape to one of the **4
+materials**, MTOB) and **9 shapes** (SOBJ) that hold the geometry. A shape's vertex-buffer descriptor
+points into the IMAG block — the first shape's vertices are a 2,922-byte run at IMAG offset `0x8`, with
+16-bit (`GL_UNSIGNED_SHORT`) indices — and each material's texture reference names one of the four
+TXOBs. The **CANM** is what makes it move: a skeletal/transform animation over the scene, the reason the
+logo turns.
+
+### Storage summary
+
+```
+ExeFS/banner  =  CBMD
+                 └── LZ11-compressed  →  CGFX
+                     ├── DATA   descriptors: CMDL (8 meshes / 9 shapes / 4 materials),
+                     │          4× TXOB, LUTS, CCAM, CFLT, CENV, CANM
+                     └── IMAG   raw vertex streams + tiled texture pixels
+```
+
+Parts I–II's tooling handles all of the above end to end (`bannerdump game.cci` lists the scene, `-o`
+writes the decompressed CGFX). What remains for a **GLB export** — and is now a decode against a fully
+mapped layout rather than an unknown — is: reading each shape's vertex attributes (position/normal/uv/
+colour, with their PICA formats and scales) and 16-bit indices out of IMAG; decoding the four textures
+(the 3DS's tiled, Morton-ordered pixel layout, and ETC1 where used) to RGBA; binding materials to
+textures; and baking the CANM transform track. That is the next milestone.
+
+---
+
 ## Tooling
 
 | tool | role |
 |------|------|
-| `tools/platform/n3ds` | NCSD/NCCH/ExHeader/ExeFS/RomFS parsers, the BLZ decompressor, the machine + SVC HLE |
+| `tools/platform/n3ds` | NCSD/NCCH/ExHeader/ExeFS/RomFS parsers, BLZ + LZ11 decompressors, CBMD/CGFX banner parsing, the machine + SVC HLE |
 | `tools/platform/n3ds/cmd/n3dsdump` | list/extract the cartridge's containers (`-romfs`, `-verify`, `-code`, `-x`) |
+| `tools/platform/n3ds/cmd/bannerdump` | decode the HOME-Menu banner scene (`game.cci`; `-o` writes the CGFX) |
 | `tools/cpu/arm` (`V6K` variant) | ARMv6K + VFPv2 disassembler, code-tracer and execution core |
 | `tools/cmd/disarm -v6`, `codetracearm -v6` | ARM11 disassembly and recursive-descent tracing |
 | `games/super-mario-3d-land-3ds/extract/cmd/bootoracle` | boot and run the ARM11 program under the HLE kernel |
