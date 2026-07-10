@@ -245,9 +245,10 @@ const GAMES = [
     show: (v, item, i) => v.showItem(item),
     // Open on the City track rather than the car.
     defaultAsset: (models) => models.findIndex((m) => m.kind === 'nfs-course'),
-    // The object layer and wireframe apply to the track (nfs-course), not the car.
+    // The object/sky layers and wireframe apply to the track (nfs-course), not the car.
     layers: [
       { id: 'objects', label: 'Roadside objects', default: true, when: (m) => m.leaves?.[m.currentIdx]?.level?.kind === 'nfs-course' },
+      { id: 'sky', label: 'Horizon', default: true, when: (m) => m.leaves?.[m.currentIdx]?.level?.kind === 'nfs-course' },
       { id: 'wireframe', label: 'Wireframe', default: false },
     ],
     // Browse-list accordion: the manifest tags each model's section ("Tracks", "Cars").

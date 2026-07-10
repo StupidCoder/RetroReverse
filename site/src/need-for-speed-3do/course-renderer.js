@@ -54,6 +54,37 @@ export default {
     stage.frame(track); // fits near/far to the whole course
     const size = new THREE.Box3().setFromObject(track).getSize(new THREE.Vector3()).length() || 100;
 
+    // Horizon sky dome (models/sky-<course>.glb): the packet's two 6-cel
+    // panorama rings as concentric cylinders — the opaque far ring
+    // (sky + distant terrain) behind the alpha-cutout near ring (treeline).
+    // Camera-centred every frame and drawn behind everything with depth
+    // writes off, the same contract as the DS viewers' skyboxes; the GLB is
+    // authored around a unit radius, so scale it to sit inside the far plane.
+    let sky = null;
+    if (item.sky) {
+      try {
+        const g = await gltfLoader().loadAsync(base + item.sky);
+        sky = g.scene;
+        let order = -1004; // primitive order is paint order: far ring, caps, near ring
+        sky.traverse((n) => {
+          if (n.isMesh) {
+            n.frustumCulled = false;
+            n.renderOrder = order++;
+            if (n.material) {
+              n.material.depthWrite = false;
+              n.material.depthTest = false;
+              if (n.material.map) {
+                n.material.map.magFilter = THREE.NearestFilter;
+                n.material.map.needsUpdate = true;
+              }
+            }
+          }
+        });
+        sky.scale.setScalar(camera.far * 0.45);
+        stage.add(sky);
+      } catch { sky = null; }
+    }
+
     // Open at the race-start camera (captured from the game, manifest.camera):
     // the driver's-eye interior pose at the grid looking down the track, not a
     // fitted 3/4 overview. The FlyCam continues from whatever pose it holds.
@@ -73,10 +104,11 @@ export default {
     stage.fly = flycam;
     stage.hud = `${item.name} · ${flyHint}`;
 
-    // ---- Objects layer toggle ----
+    // ---- Objects / Horizon layer toggles ----
     let objectsOn = true;
     stage.setLayer = (id, on) => {
       if (id === 'objects') { objectsOn = on; objectsGroup.visible = on; }
+      if (id === 'sky' && sky) sky.visible = on;
     };
 
     // ---- click-to-inspect: def / type / segment card ----
@@ -93,7 +125,10 @@ export default {
         }),
       });
 
-    stage.onFrame = (camPos, dt) => { flycam.update(dt); };
+    stage.onFrame = (camPos, dt) => {
+      flycam.update(dt);
+      if (sky) sky.position.copy(camPos); // the dome rides the camera
+    };
 
     stage.disposePlugin = () => {
       picker.dispose();
@@ -105,6 +140,7 @@ export default {
       });
       dispose(track);
       dispose(objectsGroup);
+      if (sky) dispose(sky);
     };
 
     return track;

@@ -653,7 +653,27 @@ group 3 of the slice textures really resolves to group 0):
    (animation frames); face material → group, texture sub-index → cel.
 1. **object billboard textures** (168 slots = 42 × 4 mip cels).
 2. **3D scenery objects** — (ORI3 model, SHPM shape) pairs, car-style.
-3. 7 cels, 4. 6 cels (horizon backdrops).
+3. **near horizon ring** — 6 panorama cels + 1 preview, 4. **far horizon
+   ring** — 6 cels (see below).
+
+### The horizon: two 6-cel panorama rings
+
+Children 3 and 4 are the horizon backdrop, stored **rotated 90°** (cel
+columns are screen rows — the engine draws them with a swapped corner
+matrix). Child 4 is the opaque **far ring**: sky gradient plus distant
+terrain (City's hazy range, Alpine's snowy peaks). Child 3 is the **near
+ring**: the treeline/skyline silhouette with a PDEC-transparent sky, drawn
+over the far ring. Child 3 carries a seventh cel — an *unrotated* 128×64
+pre-composed preview of the two layers stacked (CCB flags 0x47EE4420,
+unlike the rings' 0x1FEE4620) — which is what pinned the layer order.
+Each ring is six 64×64 cels = a 384×64 panorama for the full circle;
+Coastal ships 128-row near cels (a taller band whose ocean drops below
+the horizon line) and collapses its far ring to a single 4×4
+**destination-shading** cel (PIXC 0x9F00 — it dims the framebuffer, not a
+picture). `cmd/webexport` bakes the rings into `models/sky-<id>.glb`, two
+concentric camera-centred cylinders (band heights matched to the in-race
+frame, ~7-13° above eye level; cone caps continue the rings' edge
+colours) that the Studio pins to the camera every frame, DS-viewer style.
 
 ### RoadObjects: 64 defs + ~1000 placements
 

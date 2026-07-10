@@ -47,6 +47,7 @@ type ModelIndex struct {
 	Kind        string      `json:"kind"`                  // routes to a Studio renderer plugin
 	Section     string      `json:"section,omitempty"`     // Studio browse-list group
 	ObjectsFile string      `json:"objectsFile,omitempty"` // placement manifest for the object layer
+	Sky         string      `json:"sky,omitempty"`         // camera-centred horizon dome GLB
 	Fly         bool        `json:"fly,omitempty"`         // present with the free-flight camera
 	Camera      *CameraPose `json:"camera,omitempty"`      // opening view (course only)
 }
@@ -132,10 +133,14 @@ func main() {
 		if err != nil {
 			die("objects %s: %v", c.id, err)
 		}
+		skyFile, err := exportSky(a, *out)
+		if err != nil {
+			die("sky %s: %v", c.id, err)
+		}
 		models = append(models, ModelIndex{
 			Name: c.name, File: courseFile,
 			Kind: "nfs-course", Section: "Tracks", ObjectsFile: objectsFile,
-			Fly: true, Camera: startCamera(a.track),
+			Sky: skyFile, Fly: true, Camera: startCamera(a.track),
 		})
 	}
 
