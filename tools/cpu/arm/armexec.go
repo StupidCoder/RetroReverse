@@ -345,21 +345,39 @@ func (c *CPU) execHalf(w uint32, sh uint32) {
 			c.setReg(rn, addr)
 		}
 	}
-	if l == 1 {
-		var v uint32
-		switch sh {
-		case 1: // LDRH
-			v = c.read16(addr)
-		case 2: // LDRSB
-			v = uint32(int32(int8(c.read8(addr))))
-		default: // LDRSH
-			v = uint32(int32(int16(c.read16(addr))))
-		}
+	// This "extra load/store" group is decoded by (L, sh=bits[6:5]) *together*,
+	// not by L alone: LDRD (L=0, sh=2) is a load despite L==0, and STRD (L=0,
+	// sh=3) stores a register pair. Treating every L==0 as STRH — as an earlier
+	// version did — silently corrupts memory on the doubleword forms the compiler
+	// emits for 64-bit loads and struct/memcpy tails.
+	switch {
+	case l == 1 && sh == 1: // LDRH
+		v := c.read16(addr)
 		writeback()
 		c.setReg(rd, v)
-	} else { // STRH
+	case l == 1 && sh == 2: // LDRSB
+		v := uint32(int32(int8(c.read8(addr))))
+		writeback()
+		c.setReg(rd, v)
+	case l == 1 && sh == 3: // LDRSH
+		v := uint32(int32(int16(c.read16(addr))))
+		writeback()
+		c.setReg(rd, v)
+	case l == 0 && sh == 1: // STRH
 		writeback()
 		c.write16(addr, c.reg(rd))
+	case l == 0 && sh == 2: // LDRD — load Rd, Rd+1 from [addr], [addr+4]
+		lo := c.read32(addr)
+		hi := c.read32(addr + 4)
+		writeback()
+		c.setReg(rd, lo)
+		c.setReg(rd+1, hi)
+	default: // l == 0 && sh == 3: STRD — store Rd, Rd+1 to [addr], [addr+4]
+		lo := c.reg(rd)
+		hi := c.reg(rd + 1)
+		writeback()
+		c.write32(addr, lo)
+		c.write32(addr+4, hi)
 	}
 }
 
