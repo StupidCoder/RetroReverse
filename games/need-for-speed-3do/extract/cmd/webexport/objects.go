@@ -53,7 +53,7 @@ func exportObjects(a *assets, out string) (string, error) {
 	written := map[int]string{}
 	for _, id := range ids {
 		def := &a.track.Objects.Defs[id]
-		file := fmt.Sprintf("models/obj-%02d.glb", id)
+		file := fmt.Sprintf("models/obj-%s-%02d.glb", a.course, id)
 		var err error
 		switch def.Type {
 		case 1:
@@ -62,7 +62,7 @@ func exportObjects(a *assets, out string) (string, error) {
 			err = writeBillboard(a, def, filepath.Join(out, file))
 		}
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "[objects] obj-%02d (type %d): %v — skipped\n", id, def.Type, err)
+			fmt.Fprintf(os.Stderr, "[objects] %s obj-%02d (type %d): %v — skipped\n", a.course, id, def.Type, err)
 			continue
 		}
 		written[id] = file

@@ -13,6 +13,7 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
+	"math"
 	"os"
 	"path/filepath"
 
@@ -56,15 +57,37 @@ type CameraPose struct {
 	Target [3]float64 `json:"target"`
 }
 
-// startCam is the City race's opening view: the driver's-eye interior camera
-// captured from the running game at the grid (camObj @[0x40014], position at
-// +0xDC/+0xE0/+0xE4 in 16.16 world units, orientation the identity matrix at
-// [0x4001C]=0x485A0). The camera sits 2.9 m left of centre, 0.94 m up, at the
-// start line, looking straight down the track's +Z. Converted to GLB axes
-// (x, y, -z); the target is 40 units down the captured forward.
-var startCam = CameraPose{
-	Pos:    [3]float64{-2.902, 0.940, -96.000},
-	Target: [3]float64{-2.902, 0.940, -136.000},
+// courses is the full course set — the disc's three runs (its own announcer
+// audio names them CITY/COASTAL/ALPINE) of three stages each.
+var courses = []struct{ id, name string }{
+	{"cy1", "City 1"}, {"cy2", "City 2"}, {"cy3", "City 3"},
+	{"cl1", "Coastal 1"}, {"cl2", "Coastal 2"}, {"cl3", "Coastal 3"},
+	{"al1", "Alpine 1"}, {"al2", "Alpine 2"}, {"al3", "Alpine 3"},
+}
+
+// startCamera derives a course's opening view from its spline. Calibration is
+// the City 1 driver's-eye camera captured from the running game at the grid
+// (camObj @[0x40014], position at +0xDC/+0xE0/+0xE4 in 16.16 world units,
+// orientation the identity matrix at [0x4001C]=0x485A0): it sits at segment 16
+// (96 m in), 2.10 m right of the track centreline, 0.94 m up, looking straight
+// down the heading. Every course starts near heading 0, so the same offsets
+// place the grid view on all nine; for City 1 this reproduces the captured
+// values. Heading units: 0x4000 per full circle (the billboard corner code
+// shifts heading<<10 into a 0x1000000 circle). GLB axes are (x, y, -z).
+func startCamera(t *nfs.Track) *CameraPose {
+	seg := t.Segments[16]
+	theta := float64(seg.Heading) / 0x4000 * 2 * math.Pi
+	fwd := [3]float64{math.Sin(theta), 0, math.Cos(theta)}
+	right := [3]float64{math.Cos(theta), 0, -math.Sin(theta)}
+	p := [3]float64{
+		nfs.Float(seg.Pos.X) + 2.098*right[0],
+		nfs.Float(seg.Pos.Y) + 0.94,
+		nfs.Float(seg.Pos.Z) + 2.098*right[2],
+	}
+	return &CameraPose{
+		Pos:    [3]float64{p[0], p[1], -p[2]},
+		Target: [3]float64{p[0] + 40*fwd[0], p[1], -(p[2] + 40*fwd[2])},
+	}
 }
 
 // assets bundles a course's decoded inputs.
@@ -80,10 +103,9 @@ type assets struct {
 func main() {
 	image := flag.String("image", "", "3DO disc image")
 	out := flag.String("o", "", "output directory")
-	course := flag.String("course", "cy1", "course to export (al1..cy3)")
 	flag.Parse()
 	if *image == "" || *out == "" {
-		die("usage: webexport -image DISC -o OUTDIR [-course cy1]")
+		die("usage: webexport -image DISC -o OUTDIR")
 	}
 
 	data, err := os.ReadFile(*image)
@@ -99,22 +121,23 @@ func main() {
 		die("%v", err)
 	}
 
-	a := loadCourse(vol, *course)
 	var models []ModelIndex
-
-	courseFile, err := exportCourse(a, *out)
-	if err != nil {
-		die("course: %v", err)
+	for _, c := range courses {
+		a := loadCourse(vol, c.id)
+		courseFile, err := exportCourse(a, *out)
+		if err != nil {
+			die("course %s: %v", c.id, err)
+		}
+		objectsFile, err := exportObjects(a, *out)
+		if err != nil {
+			die("objects %s: %v", c.id, err)
+		}
+		models = append(models, ModelIndex{
+			Name: c.name, File: courseFile,
+			Kind: "nfs-course", Section: "Tracks", ObjectsFile: objectsFile,
+			Fly: true, Camera: startCamera(a.track),
+		})
 	}
-	objectsFile, err := exportObjects(a, *out)
-	if err != nil {
-		die("objects: %v", err)
-	}
-	models = append(models, ModelIndex{
-		Name: "City", File: courseFile,
-		Kind: "nfs-course", Section: "Tracks", ObjectsFile: objectsFile,
-		Fly: true, Camera: &startCam,
-	})
 
 	cars, err := exportCars(vol, *out)
 	if err != nil {

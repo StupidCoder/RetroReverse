@@ -9,7 +9,7 @@
   "tickHz": 60,
   "models": [
     {
-      "name": "City",
+      "name": "City 1",
       "file": "models/course-cy1.glb",
       "kind": "nfs-course",
       "section": "Tracks",
@@ -19,12 +19,172 @@
         "pos": [
           -2.902,
           0.94,
-          -96
+          -95.99598693847656
         ],
         "target": [
           -2.902,
           0.94,
-          -136
+          -135.99598693847656
+        ]
+      }
+    },
+    {
+      "name": "City 2",
+      "file": "models/course-cy2.glb",
+      "kind": "nfs-course",
+      "section": "Tracks",
+      "objectsFile": "cy2.objects.json",
+      "fly": true,
+      "camera": {
+        "pos": [
+          -2.89998583984375,
+          0.9409918212890624,
+          -95.99598693847656
+        ],
+        "target": [
+          -2.89998583984375,
+          0.9409918212890624,
+          -135.99598693847656
+        ]
+      }
+    },
+    {
+      "name": "City 3",
+      "file": "models/course-cy3.glb",
+      "kind": "nfs-course",
+      "section": "Tracks",
+      "objectsFile": "cy3.objects.json",
+      "fly": true,
+      "camera": {
+        "pos": [
+          -2.902,
+          0.94,
+          -95.9949951171875
+        ],
+        "target": [
+          -2.902,
+          0.94,
+          -135.9949951171875
+        ]
+      }
+    },
+    {
+      "name": "Coastal 1",
+      "file": "models/course-cl1.glb",
+      "kind": "nfs-course",
+      "section": "Tracks",
+      "objectsFile": "cl1.objects.json",
+      "fly": true,
+      "camera": {
+        "pos": [
+          2.2989849126592854,
+          0.9419989013671874,
+          -96.01297542886455
+        ],
+        "target": [
+          2.3756839050535024,
+          0.9419989013671874,
+          -136.01290189460403
+        ]
+      }
+    },
+    {
+      "name": "Coastal 2",
+      "file": "models/course-cl2.glb",
+      "kind": "nfs-course",
+      "section": "Tracks",
+      "objectsFile": "cl2.objects.json",
+      "fly": true,
+      "camera": {
+        "pos": [
+          2.1299976806640624,
+          0.94299072265625,
+          -96.07398986816406
+        ],
+        "target": [
+          2.1299976806640624,
+          0.94299072265625,
+          -136.07398986816406
+        ]
+      }
+    },
+    {
+      "name": "Coastal 3",
+      "file": "models/course-cl3.glb",
+      "kind": "nfs-course",
+      "section": "Tracks",
+      "objectsFile": "cl3.objects.json",
+      "fly": true,
+      "camera": {
+        "pos": [
+          2.098,
+          0.94,
+          -95.99699401855469
+        ],
+        "target": [
+          2.098,
+          0.94,
+          -135.9969940185547
+        ]
+      }
+    },
+    {
+      "name": "Alpine 1",
+      "file": "models/course-al1.glb",
+      "kind": "nfs-course",
+      "section": "Tracks",
+      "objectsFile": "al1.objects.json",
+      "fly": true,
+      "camera": {
+        "pos": [
+          2.261983737656358,
+          1.0269903564453124,
+          -95.99377572812386
+        ],
+        "target": [
+          2.3233429451077487,
+          1.0269903564453124,
+          -135.99372866619194
+        ]
+      }
+    },
+    {
+      "name": "Alpine 2",
+      "file": "models/course-al2.glb",
+      "kind": "nfs-course",
+      "section": "Tracks",
+      "objectsFile": "al2.objects.json",
+      "fly": true,
+      "camera": {
+        "pos": [
+          2.0830006103515624,
+          0.9419989013671874,
+          -95.989990234375
+        ],
+        "target": [
+          2.0830006103515624,
+          0.9419989013671874,
+          -135.989990234375
+        ]
+      }
+    },
+    {
+      "name": "Alpine 3",
+      "file": "models/course-al3.glb",
+      "kind": "nfs-course",
+      "section": "Tracks",
+      "objectsFile": "al3.objects.json",
+      "fly": true,
+      "camera": {
+        "pos": [
+          2.633965245585608,
+          0.9409918212890624,
+          -96.00472724412704
+        ],
+        "target": [
+          2.848721524145462,
+          0.9409918212890624,
+          -136.00415073673278
         ]
       }
     },
