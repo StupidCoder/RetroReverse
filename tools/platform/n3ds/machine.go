@@ -80,9 +80,20 @@ type Machine struct {
 	ports      map[uint32]string // connected port handles → service name
 	services   map[uint32]string // srv:-acquired service handles → service name
 	tick       uint64            // GetSystemTick counter (advanced per step)
-	tpidr      uint32            // TPIDRURW/PRW writable per-thread scratch (CP15)
+
+	// Threads and the cooperative scheduler (thread.go). curThread's live state
+	// is in CPU; every other thread's state lives in its saved ctx. The main
+	// thread is created in NewMachine.
+	threads    []*thread
+	curThread  *thread
+	nextThread uint32 // thread id counter
+	nextTLS    uint32 // next per-thread TLS page base to hand out
+	rrCursor   int    // round-robin cursor into threads
+	reschedule bool   // an svc asks the scheduler to switch after this Step
+	stopped    bool   // a breakpoint asked the run loop to stop
 
 	// IPC / graphics bring-up.
+	notifyWaiters   []uint32 // thread ids parked in srv: ReceiveNotification
 	ipcLog          []ipcCall
 	gspShared       uint32 // the GSP shared-memory block handle, once registered
 	framesSubmitted int    // GSP TriggerCmdReqQueue calls (GPU command lists)
@@ -102,14 +113,30 @@ type Machine struct {
 	programID uint64
 }
 
-// kobject is a high-level-emulated kernel object (thread, event, mutex, …). The
-// HLE does not model their semantics; it hands out handles and, for the waitable
-// ones, reports them signalled so a runtime's init does not deadlock. Which
-// objects are stubbed this way is spelled out in svc.go.
+// kobject is a high-level-emulated kernel waitable object. Its semantics are real
+// (sync.go): a thread that waits on an unavailable object blocks and is woken when
+// the object is signalled. The fields used depend on kind:
+//
+//	event     — signal (set/clear), manualReset (sticky vs auto-clear on wake)
+//	timer     — signal (fired)
+//	mutex     — mutexOwner (holder thread id, 0 = free) + mutexDepth (recursion)
+//	semaphore — semCount (available permits)
+//	thread    — signal set true when the thread exits (WaitSync on a thread handle)
+//	memblock  — blockAddr/blockSize (the backing region, Phase 3)
+//
+// waiters holds the ids of threads blocked on this object.
 type kobject struct {
-	kind   string
-	name   string
-	signal bool
+	kind        string
+	name        string
+	signal      bool
+	manualReset bool
+	semCount    int32
+	mutexOwner  uint32
+	mutexDepth  int
+	waiters     []uint32
+	blockAddr   uint32
+	blockSize   uint32
+	thread      *thread // for kind=="thread": the thread this handle names
 }
 
 type watch struct {
@@ -200,6 +227,19 @@ func NewMachine(img []byte) (*Machine, error) {
 	cpu.SWI = m.handleSVC
 	cpu.Coproc = m.handleCP15
 	m.CPU = cpu
+
+	// The main thread: its live state is the CPU we just set up, and it uses the
+	// pre-mapped TLS page. Per-thread TLS for children is handed out above it.
+	m.nextTLS = tlsBase + tlsSize
+	main := &thread{
+		id: 1, handle: m.newHandle("thread", false), tlsBase: tlsBase,
+		priority: 0x30, state: ready,
+	}
+	main.ctx = *cpu
+	m.nextThread = 2
+	m.threads = []*thread{main}
+	m.curThread = main
+	m.handles[main.handle].thread = main
 
 	return m, nil
 }

@@ -7,27 +7,26 @@ import "retroreverse.com/tools/cpu/arm"
 // maintenance with no architectural effect on a core that models neither — those
 // are accepted and ignored. The one that carries real information a runtime reads
 // is the user read-only thread ID register (TPIDRURO, c13 c0 op2 3): the kernel
-// programs it with the address of the current thread's TLS block, and libctru and
-// official runtimes fetch the TLS base from it. We return the main thread's TLS
-// page so that read resolves to real, mapped memory.
+// programs it with the address of the *current thread's* TLS block, and libctru
+// and official runtimes fetch the TLS base from it. It therefore tracks the
+// running thread, which is what lets each thread find its own IPC command buffer.
 func (m *Machine) handleCP15(c *arm.CPU, load bool, cp, op1, crn, crm, op2 uint32, rd *uint32) {
 	if cp != 15 {
 		return
 	}
-	// TPIDRURO — user read-only thread ID (the TLS pointer).
+	// TPIDRURO — user read-only thread ID (the current thread's TLS pointer).
 	if crn == 13 && crm == 0 && op2 == 3 {
 		if load {
-			*rd = tlsBase
+			*rd = m.curThread.tlsBase
 		}
 		return
 	}
-	// TPIDRURW / TPIDRPRW (c13 c0 op2 2/4): a writable per-thread scratch word the
-	// runtime may use; back it with a field so a written value reads back.
+	// TPIDRURW / TPIDRPRW (c13 c0 op2 2/4): a writable per-thread scratch word.
 	if crn == 13 && crm == 0 && (op2 == 2 || op2 == 4) {
 		if load {
-			*rd = m.tpidr
+			*rd = m.curThread.tpidr
 		} else {
-			m.tpidr = *rd
+			m.curThread.tpidr = *rd
 		}
 		return
 	}

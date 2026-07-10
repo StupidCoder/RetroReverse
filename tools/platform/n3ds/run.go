@@ -6,30 +6,66 @@ import (
 	"retroreverse.com/tools/cpu/arm"
 )
 
-// Run executes up to budget instructions, honouring breakpoints and the trace
-// flag, and returns the number of instructions actually run. It stops early when
-// the core halts — an ExitProcess svc, an unimplemented svc, or an unmodelled
-// instruction — leaving the halt reason on CPU.HaltReason. Pacing is by
-// instruction count, which keeps a resumed savestate exactly deterministic (the
-// same discipline the N64 and DOS oracles use).
+// Run executes up to budget instructions across all threads and returns the
+// number actually run. It is the cooperative scheduler: each iteration picks the
+// highest-priority ready thread (thread.go), runs it a quantum, then reconsiders
+// — a blocked svc breaks the quantum early via m.reschedule. When every thread is
+// blocked it advances idle time (waking sleepers) or, if truly deadlocked, halts.
+// It stops early when the core halts. Pacing is by total instruction count, which
+// keeps a resumed savestate deterministic (the N64/DOS discipline).
 func (m *Machine) Run(budget int) int {
 	n := 0
-	for ; n < budget; n++ {
+	for n < budget {
 		if m.CPU.Halted {
 			break
 		}
-		pc := m.CPU.R[15]
-		if m.bps[pc] {
-			fmt.Printf("breakpoint at 0x%08X after %d instructions\n", pc, n)
+		t := m.pickRunnable()
+		if t == nil {
+			if !m.advanceIdle() {
+				m.CPU.Halt("all threads blocked (deadlock): %d live, none runnable, after %d instructions",
+					m.aliveThreads(), m.CPU.Instrs)
+				break
+			}
+			continue
+		}
+		m.switchTo(t)
+
+		for q := 0; q < quantum && n < budget; q++ {
+			if m.CPU.Halted {
+				break
+			}
+			pc := m.CPU.R[15]
+			if pc == threadExitSentinel { // a thread function returned to LR
+				m.svcExitThread(m.CPU)
+				break
+			}
+			if m.bps[pc] {
+				fmt.Printf("breakpoint at 0x%08X after %d instructions\n", pc, n)
+				m.stopped = true
+				break
+			}
+			if m.Trace && m.traceN < m.traceMax {
+				m.traceOne(pc)
+				m.traceN++
+			}
+			m.checkWatches(pc)
+			m.tick += 2 // GetSystemTick advances; nominal, like the PSX timer
+			m.reschedule = false
+			m.CPU.Step()
+			n++
+			if m.reschedule || t.state != running {
+				break
+			}
+		}
+		if m.stopped {
 			break
 		}
-		if m.Trace && m.traceN < m.traceMax {
-			m.traceOne(pc)
-			m.traceN++
+		// Save the thread's context back; if it is still running, it merely used
+		// up its quantum — return it to the ready pool.
+		t.ctx = *m.CPU
+		if t.state == running {
+			t.state = ready
 		}
-		m.checkWatches(pc)
-		m.tick += 2 // GetSystemTick advances; nominal, like the PSX timer
-		m.CPU.Step()
 	}
 	return n
 }

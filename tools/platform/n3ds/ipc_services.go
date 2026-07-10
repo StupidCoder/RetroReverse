@@ -52,23 +52,23 @@ func (m *Machine) ipcAPT(name string, hdr ipcHeader) bool {
 	switch hdr.Command {
 	case 0x0001: // GetLockHandle → APT mutex + applet attributes
 		h := m.newHandle("apt-lock", true)
-		m.WriteWord(tlsCmdBuf, uint32(hdr.Command)<<16|3<<6|2)
-		m.WriteWord(tlsCmdBuf+4, resultSuccess)
-		m.WriteWord(tlsCmdBuf+8, 0)  // applet attributes
-		m.WriteWord(tlsCmdBuf+12, 0) // APT state
-		m.WriteWord(tlsCmdBuf+16, 0)
-		m.WriteWord(tlsCmdBuf+20, 0) // translate: move handle
-		m.WriteWord(tlsCmdBuf+24, h)
+		m.WriteWord(m.cmdBuf(), uint32(hdr.Command)<<16|3<<6|2)
+		m.WriteWord(m.cmdBuf()+4, resultSuccess)
+		m.WriteWord(m.cmdBuf()+8, 0)  // applet attributes
+		m.WriteWord(m.cmdBuf()+12, 0) // APT state
+		m.WriteWord(m.cmdBuf()+16, 0)
+		m.WriteWord(m.cmdBuf()+20, 0) // translate: move handle
+		m.WriteWord(m.cmdBuf()+24, h)
 		return true
 	case 0x0002, 0x0003, 0x0004: // Initialize / Enable / Finalize
 		if hdr.Command == 0x0002 { // Initialize returns two event handles
 			ev1 := m.newHandle("apt-notify", true)
 			ev2 := m.newHandle("apt-resume", true)
-			m.WriteWord(tlsCmdBuf, uint32(hdr.Command)<<16|1<<6|4)
-			m.WriteWord(tlsCmdBuf+4, resultSuccess)
-			m.WriteWord(tlsCmdBuf+8, 0)
-			m.WriteWord(tlsCmdBuf+12, ev1)
-			m.WriteWord(tlsCmdBuf+16, ev2)
+			m.WriteWord(m.cmdBuf(), uint32(hdr.Command)<<16|1<<6|4)
+			m.WriteWord(m.cmdBuf()+4, resultSuccess)
+			m.WriteWord(m.cmdBuf()+8, 0)
+			m.WriteWord(m.cmdBuf()+12, ev1)
+			m.WriteWord(m.cmdBuf()+16, ev2)
 			return true
 		}
 		m.ipcReply(hdr.Command)
@@ -106,12 +106,12 @@ func (m *Machine) ipcGSP(hdr ipcHeader) bool {
 		if m.gspShared == 0 {
 			m.gspShared = m.newHandle("gsp-shared", false)
 		}
-		m.WriteWord(tlsCmdBuf, uint32(hdr.Command)<<16|2<<6|2)
-		m.WriteWord(tlsCmdBuf+4, resultSuccess)
-		m.WriteWord(tlsCmdBuf+8, 0) // FirstInitialization flag
-		m.WriteWord(tlsCmdBuf+12, 0) // thread index
-		m.WriteWord(tlsCmdBuf+16, 0)
-		m.WriteWord(tlsCmdBuf+20, m.gspShared)
+		m.WriteWord(m.cmdBuf(), uint32(hdr.Command)<<16|2<<6|2)
+		m.WriteWord(m.cmdBuf()+4, resultSuccess)
+		m.WriteWord(m.cmdBuf()+8, 0) // FirstInitialization flag
+		m.WriteWord(m.cmdBuf()+12, 0) // thread index
+		m.WriteWord(m.cmdBuf()+16, 0)
+		m.WriteWord(m.cmdBuf()+20, m.gspShared)
 		return true
 	case 0x0001, 0x0002, 0x0003, 0x0004, 0x0005: // Write/Read HW regs, flush cache
 		m.ipcReply(hdr.Command)
@@ -148,15 +148,15 @@ func (m *Machine) ipcHID(hdr ipcHeader) bool {
 	switch hdr.Command {
 	case 0x000A: // GetIPCHandles → shared-mem + 5 event handles
 		sh := m.newHandle("hid-shared", false)
-		m.WriteWord(tlsCmdBuf, uint32(hdr.Command)<<16|1<<6|(6<<1|1))
-		m.WriteWord(tlsCmdBuf+4, resultSuccess)
-		m.WriteWord(tlsCmdBuf+8, 0)
+		m.WriteWord(m.cmdBuf(), uint32(hdr.Command)<<16|1<<6|(6<<1|1))
+		m.WriteWord(m.cmdBuf()+4, resultSuccess)
+		m.WriteWord(m.cmdBuf()+8, 0)
 		for i := 0; i < 6; i++ {
 			h := sh
 			if i > 0 {
 				h = m.newHandle("hid-event", true)
 			}
-			m.WriteWord(tlsCmdBuf+12+uint32(i)*4, h)
+			m.WriteWord(m.cmdBuf()+12+uint32(i)*4, h)
 		}
 		return true
 	case 0x0011, 0x0012, 0x0013: // EnableAccelerometer / Gyroscope / etc.
@@ -187,10 +187,10 @@ func (m *Machine) ipcFS(hdr ipcHeader) bool {
 		return true
 	case 0x0802, 0x0803: // OpenFile / OpenFileDirectly → a file handle
 		h := m.newHandle("fs-file", false)
-		m.WriteWord(tlsCmdBuf, uint32(hdr.Command)<<16|1<<6|2)
-		m.WriteWord(tlsCmdBuf+4, resultSuccess)
-		m.WriteWord(tlsCmdBuf+8, 0)
-		m.WriteWord(tlsCmdBuf+12, h)
+		m.WriteWord(m.cmdBuf(), uint32(hdr.Command)<<16|1<<6|2)
+		m.WriteWord(m.cmdBuf()+4, resultSuccess)
+		m.WriteWord(m.cmdBuf()+8, 0)
+		m.WriteWord(m.cmdBuf()+12, h)
 		return true
 	case 0x080C, 0x0814, 0x0817, 0x0845, 0x0851: // OpenArchive / Format / etc.
 		m.ipcReply(hdr.Command, 0, 0)

@@ -24,9 +24,10 @@ import (
 	"retroreverse.com/tools/cpu/arm"
 )
 
-const snapshotVersion = 1
+const snapshotVersion = 2
 
-// cpuState is the serialisable ARM11 register/flag file.
+// cpuState is the serialisable ARM11 register/flag file, used for the running CPU
+// and for each thread's saved context.
 type cpuState struct {
 	R          [16]uint32
 	N, Z, C, V bool
@@ -46,6 +47,22 @@ type cpuState struct {
 	FPEXC uint32
 }
 
+func toCPUState(c *arm.CPU) cpuState {
+	return cpuState{
+		R: c.R, N: c.N, Z: c.Z, C: c.C, V: c.V, Q: c.Q, GE: c.GE,
+		Thumb: c.Thumb, BigEndian: c.BigEndian, IRQDisable: c.IRQDisable,
+		FIQDisable: c.FIQDisable, Mode: c.Mode, Arch: int(c.Arch), Instrs: c.Instrs,
+		VFP: c.VFP.S, FPSCR: c.VFP.FPSCR, FPEXC: c.VFP.FPEXC,
+	}
+}
+
+func (cs cpuState) into(c *arm.CPU) {
+	c.R, c.N, c.Z, c.C, c.V, c.Q, c.GE = cs.R, cs.N, cs.Z, cs.C, cs.V, cs.Q, cs.GE
+	c.Thumb, c.BigEndian, c.IRQDisable, c.FIQDisable = cs.Thumb, cs.BigEndian, cs.IRQDisable, cs.FIQDisable
+	c.Mode, c.Arch, c.Instrs = cs.Mode, arm.Variant(cs.Arch), cs.Instrs
+	c.VFP.S, c.VFP.FPSCR, c.VFP.FPEXC = cs.VFP, cs.FPSCR, cs.FPEXC
+}
+
 // regionState is one mapped span.
 type regionState struct {
 	Name string
@@ -55,10 +72,30 @@ type regionState struct {
 
 // kobjState is a serialised kernel object.
 type kobjState struct {
-	Handle uint32
-	Kind   string
-	Name   string
-	Signal bool
+	Handle      uint32
+	Kind        string
+	Name        string
+	Signal      bool
+	ManualReset bool
+	SemCount    int32
+	MutexOwner  uint32
+	MutexDepth  int
+	Waiters     []uint32
+	BlockAddr   uint32
+	BlockSize   uint32
+	ThreadID    uint32 // for kind=="thread": the thread's id (0 = none), relinked on load
+}
+
+// threadSnap is a serialised thread.
+type threadSnap struct {
+	ID, Handle, TLSBase, Tpidr uint32
+	Priority                   int32
+	State                      int
+	WakeTick                   uint64
+	WaitAll                    bool
+	WaitOn                     []uint32
+	ArbAddr                    uint32
+	Ctx                        cpuState
 }
 
 type snapshot struct {
@@ -72,40 +109,63 @@ type snapshot struct {
 	LinearPtr  uint32
 	NextHandle uint32
 	Tick       uint64
-	Tpidr      uint32
+
+	Threads     []threadSnap
+	CurThreadID uint32
+	NextThread  uint32
+	NextTLS     uint32
+	RRCursor    int
 
 	Objects  []kobjState
-	Ports     map[uint32]string
-	SVCLog    []svcEvent
-	DebugOut  []byte
+	Ports    map[uint32]string
+	Services map[uint32]string
+	SVCLog   []svcEvent
+	DebugOut []byte
 }
 
 // SaveState writes a gzip-compressed gob snapshot of the machine to path.
 func (m *Machine) SaveState(path string) error {
+	// The current thread's live state is in CPU; sync it back to its ctx so the
+	// snapshot is self-consistent.
+	m.curThread.ctx = *m.CPU
+
 	s := snapshot{
-		Version:    snapshotVersion,
-		ProgramID:  m.programID,
-		HeapPtr:    m.heapPtr,
-		LinearPtr:  m.linearPtr,
-		NextHandle: m.nextHandle,
-		Tick:       m.tick,
-		Tpidr:      m.tpidr,
-		Ports:      m.ports,
-		SVCLog:     m.svcLog,
-		DebugOut:   m.debugOut,
+		Version:     snapshotVersion,
+		ProgramID:   m.programID,
+		HeapPtr:     m.heapPtr,
+		LinearPtr:   m.linearPtr,
+		NextHandle:  m.nextHandle,
+		Tick:        m.tick,
+		CurThreadID: m.curThread.id,
+		NextThread:  m.nextThread,
+		NextTLS:     m.nextTLS,
+		RRCursor:    m.rrCursor,
+		Ports:       m.ports,
+		Services:    m.services,
+		SVCLog:      m.svcLog,
+		DebugOut:    m.debugOut,
 	}
-	c := m.CPU
-	s.CPU = cpuState{
-		R: c.R, N: c.N, Z: c.Z, C: c.C, V: c.V, Q: c.Q, GE: c.GE,
-		Thumb: c.Thumb, BigEndian: c.BigEndian, IRQDisable: c.IRQDisable,
-		FIQDisable: c.FIQDisable, Mode: c.Mode, Arch: int(c.Arch), Instrs: c.Instrs,
-		VFP: c.VFP.S, FPSCR: c.VFP.FPSCR, FPEXC: c.VFP.FPEXC,
-	}
+	s.CPU = toCPUState(m.CPU)
 	for _, r := range m.regions {
 		s.Regions = append(s.Regions, regionState{Name: r.name, Base: r.base, Data: r.data})
 	}
+	for _, t := range m.threads {
+		s.Threads = append(s.Threads, threadSnap{
+			ID: t.id, Handle: t.handle, TLSBase: t.tlsBase, Tpidr: t.tpidr,
+			Priority: t.priority, State: int(t.state), WakeTick: t.wakeTick,
+			WaitAll: t.waitAll, WaitOn: t.waitOn, ArbAddr: t.arbAddr, Ctx: toCPUState(&t.ctx),
+		})
+	}
 	for h, o := range m.handles {
-		s.Objects = append(s.Objects, kobjState{Handle: h, Kind: o.kind, Name: o.name, Signal: o.signal})
+		ks := kobjState{
+			Handle: h, Kind: o.kind, Name: o.name, Signal: o.signal, ManualReset: o.manualReset,
+			SemCount: o.semCount, MutexOwner: o.mutexOwner, MutexDepth: o.mutexDepth,
+			Waiters: o.waiters, BlockAddr: o.blockAddr, BlockSize: o.blockSize,
+		}
+		if o.thread != nil {
+			ks.ThreadID = o.thread.id
+		}
+		s.Objects = append(s.Objects, ks)
 	}
 
 	f, err := os.Create(path)
@@ -144,13 +204,8 @@ func (m *Machine) LoadState(path string) error {
 		return fmt.Errorf("n3ds: snapshot is for program %016x, this machine is %016x", s.ProgramID, m.programID)
 	}
 
-	c := m.CPU
-	cs := s.CPU
-	c.R, c.N, c.Z, c.C, c.V, c.Q, c.GE = cs.R, cs.N, cs.Z, cs.C, cs.V, cs.Q, cs.GE
-	c.Thumb, c.BigEndian, c.IRQDisable, c.FIQDisable = cs.Thumb, cs.BigEndian, cs.IRQDisable, cs.FIQDisable
-	c.Mode, c.Arch, c.Instrs = cs.Mode, arm.Variant(cs.Arch), cs.Instrs
-	c.VFP.S, c.VFP.FPSCR, c.VFP.FPEXC = cs.VFP, cs.FPSCR, cs.FPEXC
-	c.Halted, c.HaltReason = false, ""
+	s.CPU.into(m.CPU)
+	m.CPU.Halted, m.CPU.HaltReason = false, ""
 
 	m.regions = nil
 	m.codeReg, m.stackReg, m.tlsReg, m.heapReg, m.linearReg = nil, nil, nil, nil, nil
@@ -170,11 +225,35 @@ func (m *Machine) LoadState(path string) error {
 		}
 	}
 	m.heapPtr, m.linearPtr, m.nextHandle = s.HeapPtr, s.LinearPtr, s.NextHandle
-	m.tick, m.tpidr = s.Tick, s.Tpidr
-	m.ports, m.svcLog, m.debugOut = s.Ports, s.SVCLog, s.DebugOut
+	m.tick = s.Tick
+	m.nextThread, m.nextTLS, m.rrCursor = s.NextThread, s.NextTLS, s.RRCursor
+	m.ports, m.services, m.svcLog, m.debugOut = s.Ports, s.Services, s.SVCLog, s.DebugOut
+
+	m.threads = nil
+	for _, ts := range s.Threads {
+		t := &thread{
+			id: ts.ID, handle: ts.Handle, tlsBase: ts.TLSBase, tpidr: ts.Tpidr,
+			priority: ts.Priority, state: threadState(ts.State), wakeTick: ts.WakeTick,
+			waitAll: ts.WaitAll, waitOn: ts.WaitOn, arbAddr: ts.ArbAddr,
+		}
+		ts.Ctx.into(&t.ctx)
+		m.threads = append(m.threads, t)
+		if t.id == s.CurThreadID {
+			m.curThread = t
+		}
+	}
+
 	m.handles = map[uint32]*kobject{}
 	for _, o := range s.Objects {
-		m.handles[o.Handle] = &kobject{kind: o.Kind, name: o.Name, signal: o.Signal}
+		ko := &kobject{
+			kind: o.Kind, name: o.Name, signal: o.Signal, manualReset: o.ManualReset,
+			semCount: o.SemCount, mutexOwner: o.MutexOwner, mutexDepth: o.MutexDepth,
+			waiters: o.Waiters, blockAddr: o.BlockAddr, blockSize: o.BlockSize,
+		}
+		if o.ThreadID != 0 {
+			ko.thread = m.threadByID(o.ThreadID)
+		}
+		m.handles[o.Handle] = ko
 	}
 	return nil
 }

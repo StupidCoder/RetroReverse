@@ -32,25 +32,23 @@ func parseIPCHeader(w uint32) ipcHeader {
 	}
 }
 
-const tlsCmdBuf = tlsBase + 0x80
-
 // arg reads normal parameter i (1-based: arg 1 is the word after the header).
-func (m *Machine) ipcArg(i int) uint32 { return m.ReadWord(tlsCmdBuf + uint32(i)*4) }
+func (m *Machine) ipcArg(i int) uint32 { return m.ReadWord(m.cmdBuf() + uint32(i)*4) }
 
 // reply writes a standard response: the response header (same command ID, the
 // given result-word count, no translate), result code 0, then the values.
 func (m *Machine) ipcReply(cmd uint16, values ...uint32) {
-	m.WriteWord(tlsCmdBuf, uint32(cmd)<<16|uint32(len(values)+1)<<6)
-	m.WriteWord(tlsCmdBuf+4, resultSuccess)
+	m.WriteWord(m.cmdBuf(), uint32(cmd)<<16|uint32(len(values)+1)<<6)
+	m.WriteWord(m.cmdBuf()+4, resultSuccess)
 	for i, v := range values {
-		m.WriteWord(tlsCmdBuf+8+uint32(i)*4, v)
+		m.WriteWord(m.cmdBuf()+8+uint32(i)*4, v)
 	}
 }
 
 // handleIPC dispatches a SendSyncRequest. It replaces the halting stub: the
 // handle names a port ("srv:") or a service the game acquired from srv:.
 func (m *Machine) handleIPC(handle uint32) bool {
-	hdr := parseIPCHeader(m.ReadWord(tlsCmdBuf))
+	hdr := parseIPCHeader(m.ReadWord(m.cmdBuf()))
 	name := m.ports[handle]
 	if svc, ok := m.services[handle]; ok {
 		name = svc
@@ -76,29 +74,59 @@ func (m *Machine) ipcSrv(hdr ipcHeader) bool {
 		return true
 	case 0x0002: // EnableNotification → returns a semaphore handle (translate)
 		h := m.newHandle("notification-semaphore", true)
-		m.WriteWord(tlsCmdBuf, uint32(hdr.Command)<<16|1<<6|2)
-		m.WriteWord(tlsCmdBuf+4, resultSuccess)
-		m.WriteWord(tlsCmdBuf+8, 0) // translate header: move-handle
-		m.WriteWord(tlsCmdBuf+12, h)
+		m.WriteWord(m.cmdBuf(), uint32(hdr.Command)<<16|1<<6|2)
+		m.WriteWord(m.cmdBuf()+4, resultSuccess)
+		m.WriteWord(m.cmdBuf()+8, 0) // translate header: move-handle
+		m.WriteWord(m.cmdBuf()+12, h)
 		return true
 	case 0x0005: // GetServiceHandle(name[8], nameLen, flags)
 		name := m.readServiceName()
 		h := m.newHandle("service:"+name, false)
 		m.services[h] = name
-		m.WriteWord(tlsCmdBuf, uint32(hdr.Command)<<16|1<<6|2)
-		m.WriteWord(tlsCmdBuf+4, resultSuccess)
-		m.WriteWord(tlsCmdBuf+8, 0)
-		m.WriteWord(tlsCmdBuf+12, h)
+		m.WriteWord(m.cmdBuf(), uint32(hdr.Command)<<16|1<<6|2)
+		m.WriteWord(m.cmdBuf()+4, resultSuccess)
+		m.WriteWord(m.cmdBuf()+8, 0)
+		m.WriteWord(m.cmdBuf()+12, h)
 		if m.Verbose {
 			fmt.Printf("    GetServiceHandle %q -> 0x%08X\n", name, h)
 		}
 		return true
-	case 0x0009: // Subscribe
+	case 0x0009, 0x000A: // Subscribe / Unsubscribe
 		m.ipcReply(hdr.Command)
+		return true
+	case 0x000B: // ReceiveNotification — block until a notification is published.
+		// The APT notification thread parks here; nothing publishes notifications
+		// in this bring-up, so it idles while the other threads run. When a
+		// notification path is added it wakes via publishNotification.
+		m.notifyWaiters = append(m.notifyWaiters, m.curThread.id)
+		m.curThread.state = waiting
+		m.reschedule = true
 		return true
 	}
 	m.CPU.Halt("srv: command 0x%04X unimplemented at 0x%08X after %d instructions", hdr.Command, m.CPU.PC(), m.CPU.Instrs)
 	return true
+}
+
+// publishNotification wakes notification-waiting threads with the given id (the
+// srv: ReceiveNotification return). Used when a subsystem raises a notification
+// (e.g. APT). No-op if nothing is waiting.
+func (m *Machine) publishNotification(id uint32) {
+	rest := m.notifyWaiters[:0]
+	for _, tid := range m.notifyWaiters {
+		t := m.threadByID(tid)
+		if t == nil || t.state != waiting {
+			continue
+		}
+		// Reply into the parked thread's command buffer: header, result, id.
+		buf := t.tlsBase + 0x80
+		m.WriteWord(buf, uint32(0x000B)<<16|2<<6)
+		m.WriteWord(buf+4, resultSuccess)
+		m.WriteWord(buf+8, id)
+		if m.wake(t) {
+			m.reschedule = true
+		}
+	}
+	m.notifyWaiters = rest
 }
 
 // knownService reports whether name's family is one the HLE recognises — used to
@@ -132,13 +160,13 @@ func (m *Machine) readServiceName() string {
 }
 
 func (m *Machine) decodeName(swap bool) string {
-	n := int(m.ReadWord(tlsCmdBuf + 12)) // param 3: name length
+	n := int(m.ReadWord(m.cmdBuf() + 12)) // param 3: name length
 	if n <= 0 || n > 8 {
 		n = 8
 	}
 	var b []byte
 	for w := 0; w < 2; w++ {
-		word := m.ReadWord(tlsCmdBuf + 4 + uint32(w)*4)
+		word := m.ReadWord(m.cmdBuf() + 4 + uint32(w)*4)
 		if swap {
 			word = word>>16 | word<<16
 		}

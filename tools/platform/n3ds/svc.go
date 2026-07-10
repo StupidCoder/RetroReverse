@@ -102,22 +102,48 @@ func (m *Machine) handleSVC(c *arm.CPU, comment uint32) bool {
 	case svcGetProcessInfo, svcGetThreadInfo, svcGetHandleInfo:
 		c.R[0], c.R[1], c.R[2] = resultSuccess, 0, 0
 	case svcGetThreadPriority:
-		c.R[0], c.R[1] = resultSuccess, 0x30 // a mid default priority
-	case svcSetThreadPriority, svcSleepThread, svcSignalEvent, svcClearEvent,
-		svcReleaseMutex, svcReleaseSemaphore, svcArbitrateAddress:
+		c.R[0], c.R[1] = resultSuccess, uint32(m.curThread.priority)
+	case svcSetThreadPriority:
+		m.curThread.priority = int32(c.R[1])
 		c.R[0] = resultSuccess
-	case svcGetProcessId, svcGetThreadId:
+	case svcSleepThread:
+		m.svcSleepThread(c)
+	case svcExitThread:
+		m.svcExitThread(c)
+	case svcSignalEvent:
+		m.svcSignalEvent(c)
+	case svcClearEvent:
+		m.svcClearEvent(c)
+	case svcReleaseMutex:
+		m.svcReleaseMutex(c)
+	case svcReleaseSemaphore:
+		m.svcReleaseSemaphore(c)
+	case svcArbitrateAddress:
+		m.svcArbitrateAddress(c)
+	case svcGetProcessId:
 		c.R[0], c.R[1] = resultSuccess, 1
+	case svcGetThreadId:
+		c.R[0], c.R[1] = resultSuccess, m.curThread.id
 	case svcCreateThread:
-		m.svcCreateHandle(c, "thread", false, 1) // handle out in r1
+		// r0=priority, r1=entry, r2=arg, r3=stacktop.
+		h := m.createThread(int32(c.R[0]), c.R[1], c.R[2], c.R[3])
+		c.R[0], c.R[1] = resultSuccess, h
 	case svcCreateEvent:
-		m.svcCreateHandle(c, "event", true, 1)
+		h := m.newHandle("event", false)
+		m.handles[h].manualReset = c.R[1] != 0 // r1 = reset type (1 = sticky)
+		c.R[0], c.R[1] = resultSuccess, h
 	case svcCreateMutex:
-		m.svcCreateHandle(c, "mutex", true, 1)
+		h := m.newHandle("mutex", false)
+		if c.R[1] != 0 { // r1 = initially locked
+			m.handles[h].mutexOwner, m.handles[h].mutexDepth = m.curThread.id, 1
+		}
+		c.R[0], c.R[1] = resultSuccess, h
 	case svcCreateSemaphore:
-		m.svcCreateHandle(c, "semaphore", true, 1)
+		h := m.newHandle("semaphore", false)
+		m.handles[h].semCount = int32(c.R[1]) // r1 = initial count
+		c.R[0], c.R[1] = resultSuccess, h
 	case svcCreateTimer:
-		m.svcCreateHandle(c, "timer", true, 1)
+		m.svcCreateHandle(c, "timer", false, 1)
 	case svcCreateAddressArb:
 		m.svcCreateHandle(c, "arbiter", false, 1)
 	case svcCreateMemoryBlock:
@@ -127,9 +153,9 @@ func (m *Machine) handleSVC(c *arm.CPU, comment uint32) bool {
 	case svcConnectToPort:
 		m.svcConnectToPort(c)
 	case svcWaitSync1:
-		c.R[0] = resultSuccess // stubbed objects are always signalled
+		m.svcWaitSync1(c)
 	case svcWaitSyncN:
-		c.R[0], c.R[1] = resultSuccess, 0 // success, index 0
+		m.svcWaitSyncN(c)
 	case svcCloseHandle:
 		delete(m.handles, c.R[0])
 		delete(m.ports, c.R[0])
