@@ -437,6 +437,24 @@ units — 400 lines of 960 bytes in, a 1024-byte stride out: the rendered frame 
 primitive", meaningful only to a geometry shader; the draw-time check guarantees the geometry stage
 is off, so its vertices assemble as independent triangles).
 
+### The machine had no clock: `CPU.Instrs` is per-thread
+
+The VBlank heartbeat and the GX completion deadlines were paced on `CPU.Instrs` — and that is not a
+machine clock at all. A thread's whole `arm.CPU` *is* its context (`switchTo` does `*m.CPU = t.ctx`),
+retired-instruction counter included, so the value is saved and restored with every context switch and
+moves **backward** whenever the scheduler picks an older thread. The heartbeat was riding a counter
+that sawtooths. It happened to look sane while the boot ran mostly on one thread, and fell apart as
+soon as the frame machinery migrated onto the APT and worker threads: the frame clock stalled, which is
+why the render loop starved.
+
+`Machine` now carries a monotonic `instrs`, incremented once per retired instruction in the run loop
+and never restored from a context; VBlank and GX ride it, and it is serialised (old snapshots seed it
+from the live CPU). The `tick` that backs `GetSystemTick` stays separate — it is *jumped* forward by
+the idle-sleep fast-forward, so it must not pace frames either. On the same cold-boot budget the fix
+takes the run from 3,340 to **4,053 GPU command lists** and from ~320M to **941M pixels**. This is the
+kind of bug the port keeps producing: not a missing feature, but a core assumption that was quietly
+false.
+
 ### GX completion is now asynchronous — and a ruled-out hypothesis
 
 On hardware the GSP system process services the GX command FIFO and raises each command's completion
@@ -497,13 +515,31 @@ Three facts, established this session, pin the shape of the bug:
 
 So the ring is not a per-frame command queue that cycles; it accumulates roughly eight entries per
 onboarding *screen* and is meant to be drained by a flush the main thread never executes during
-onboarding. The open question is why: either these onboarding submissions are a **leak** — objects
-registered as a screen is built and meant to be retired when it is torn down, a teardown pop we are
-skipping (a plausible trigger is an APT/library-applet-return notification that drives the scene
-rebuild, which the stubbed Mii-selector path may not raise) — or they are legitimately deferred work
-that a *first-gameplay* flush should drain before the setup pushes onto it, and that flush is gated on
-state we still model wrong. Resolving it means tracing the onboarding→gameplay scene lifecycle to find
-the flush/teardown that should retire this ring; GX-completion timing has already been ruled out.
+onboarding.
+
+Chasing *why* that flush never runs led up the chain that actually paces the renderer, and turned up
+three real gaps — each fixed, none of them yet enough:
+
+- **The applet-exit resume order.** A library applet's exit is followed on hardware by a parameter
+  carrying **command 8**, the APT module's "resume the application". The game's registered APT callback
+  (`0x00104200`, run on its APT thread at each wake) dispatches parameter commands `{2,5,8,9}`
+  (`0x001044A4`), and **8 is the only path that re-arms the frame machinery** — `0x0028DBD0(0)` → the
+  frame-request walk `0x0028B9B0` → the per-VBlank latch that paces the render thread.
+  `StartLibraryApplet` now queues it after the exit answer, and it is verified firing.
+- **The DSP data-register handshake.** The resume path's audio restart polls dsp::DSP register 0 —
+  `RecvDataIsReady` then `RecvData` (wrappers `0x001F2FF4` / `0x001F3244`, answers read out of
+  `cmdbuf[2]` as a byte and a u16) — and spins in a retry loop (`0x001F9488`) until it reads 1, the
+  component's "running" word. Against a blanket ack it read a stale word and span forever. Answered,
+  the restart completes. (Reporting the component *absent* instead is worse: it regresses the boot's
+  own audio init — tried, and reverted.)
+- **`PrepareToStartLibraryApplet` (APT 0x0018)**, which the title only reaches now that the frame clock
+  runs at all.
+
+With these the resume chain runs much further: the audio restart finishes and the render threads park
+on `arb@0x00426B5C` — a frame-delivery condvar that nothing yet signals. But the ring still sits at 32
+and the main thread still blocks on its space condvar, so **the deadlock is not fixed**. What that
+condvar is, and who is supposed to signal it, is exactly where the next session starts. GX-completion
+timing has already been ruled out, and the machine clock is no longer a confound.
 
 One quirk is recorded and not yet explained — some `srv:GetServiceHandle` requests store the 8-byte
 service name with each 32-bit word's halves rotated ("APT:U" half-swapped, "fs:USER" byte-rotated,
