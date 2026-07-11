@@ -25,6 +25,155 @@ func (m *Machine) isFileSession(handle uint32) bool {
 	return ok
 }
 
+// fsDirEntry is one child of an open IDirectory session.
+type fsDirEntry struct {
+	name  string
+	isDir bool
+	size  int64
+}
+
+// fsDir is one open IDirectory session: the directory's children and the read
+// cursor.
+type fsDir struct {
+	path    string
+	entries []fsDirEntry
+	cursor  int
+}
+
+func (m *Machine) isDirSession(handle uint32) bool {
+	_, ok := m.fsDirs[handle]
+	return ok
+}
+
+// fsOpenDirectory services fs:USER OpenDirectory (0x080B): resolve the path in
+// the RomFS and hand back a directory session listing its immediate children.
+// Request: archive handle u64 (args 1-2), path type (3), path size (4), then a
+// static-buffer translate pair with the path pointer at arg 6.
+func (m *Machine) fsOpenDirectory(hdr ipcHeader) bool {
+	pathType, pathSize := m.ipcArg(3), m.ipcArg(4)
+	pathPtr := m.ipcArg(6)
+	path := m.readFSPath(pathPtr, pathType, pathSize)
+	if m.Verbose {
+		fmt.Printf("    fsOpenDirectory pathType=%d path=%q\n", pathType, path)
+	}
+
+	dir, ok := m.romfsChildren(path)
+	if !ok {
+		m.WriteWord(m.cmdBuf(), uint32(hdr.Command)<<16|1<<6)
+		m.WriteWord(m.cmdBuf()+4, resultFSNotFound)
+		return true
+	}
+	h := m.newHandle("fs-dir", false)
+	m.fsDirs[h] = dir
+	m.WriteWord(m.cmdBuf(), uint32(hdr.Command)<<16|1<<6|2)
+	m.WriteWord(m.cmdBuf()+4, resultSuccess)
+	m.WriteWord(m.cmdBuf()+8, 0) // translate descriptor: move 1 handle
+	m.WriteWord(m.cmdBuf()+12, h)
+	return true
+}
+
+// romfsChildren lists the immediate children of a RomFS directory path.
+func (m *Machine) romfsChildren(path string) (*fsDir, bool) {
+	if m.romfs == nil {
+		return nil, false
+	}
+	if path == "" {
+		return nil, false
+	}
+	if path[len(path)-1] != '/' {
+		path += "/"
+	}
+	if path == "/" {
+		// The root always exists.
+	} else {
+		found := false
+		for _, d := range m.romfs.Dirs {
+			if d+"/" == path {
+				found = true
+				break
+			}
+		}
+		if !found {
+			return nil, false
+		}
+	}
+	dir := &fsDir{path: path}
+	seen := map[string]bool{}
+	for _, d := range m.romfs.Dirs {
+		if len(d) > len(path) && d[:len(path)] == path && !containsSlash(d[len(path):]) {
+			name := d[len(path):]
+			if !seen[name] {
+				seen[name] = true
+				dir.entries = append(dir.entries, fsDirEntry{name: name, isDir: true})
+			}
+		}
+	}
+	for _, f := range m.romfs.Files {
+		if len(f.Path) > len(path) && f.Path[:len(path)] == path && !containsSlash(f.Path[len(path):]) {
+			dir.entries = append(dir.entries, fsDirEntry{name: f.Path[len(path):], size: f.Size})
+		}
+	}
+	return dir, true
+}
+
+func containsSlash(s string) bool {
+	for i := 0; i < len(s); i++ {
+		if s[i] == '/' {
+			return true
+		}
+	}
+	return false
+}
+
+// ipcDir services an open IDirectory session. Read (0x0801) fills the mapped
+// buffer with FS_DirectoryEntry records — 0x228 bytes each: UTF-16 name at
+// +0x000, an is-directory byte at +0x21C, the u64 file size at +0x220 — and
+// returns how many were written; 0 means end of listing. Close (0x0802) ends
+// the session.
+func (m *Machine) ipcDir(handle uint32, hdr ipcHeader) bool {
+	d := m.fsDirs[handle]
+	switch hdr.Command {
+	case 0x0801: // Read(count; mapped output buffer at arg 3)
+		count := int(m.ipcArg(1))
+		out := m.ipcArg(3)
+		n := 0
+		const entrySize = 0x228
+		for n < count && d.cursor < len(d.entries) {
+			e := d.entries[d.cursor]
+			base := out + uint32(n*entrySize)
+			for i := uint32(0); i < entrySize; i++ {
+				m.Write(base+i, 0)
+			}
+			// UTF-16LE name, capped to the 0x106-unit field (with terminator).
+			for i, r := range e.name {
+				if i >= 0x105 {
+					break
+				}
+				m.Write(base+uint32(i*2), byte(r))
+				m.Write(base+uint32(i*2)+1, byte(uint16(r)>>8))
+			}
+			if e.isDir {
+				m.Write(base+0x21C, 1)
+			}
+			m.WriteWord(base+0x220, uint32(e.size))
+			m.WriteWord(base+0x224, uint32(e.size>>32))
+			d.cursor++
+			n++
+		}
+		if m.Verbose {
+			fmt.Printf("    fsDirRead %q -> %d entries (cursor %d/%d)\n", d.path, n, d.cursor, len(d.entries))
+		}
+		m.ipcReply(hdr.Command, uint32(n))
+		return true
+	case 0x0802: // Close
+		delete(m.fsDirs, handle)
+		m.ipcReply(hdr.Command)
+		return true
+	}
+	m.CPU.Halt("fs dir command 0x%04X unimplemented at 0x%08X after %d instructions", hdr.Command, m.CPU.PC(), m.CPU.Instrs)
+	return true
+}
+
 // fsOpenFile services fs:USER OpenFile / OpenFileDirectly: it reads the requested
 // file path, resolves it in the RomFS, and returns a file-session handle.
 //

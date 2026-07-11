@@ -97,6 +97,7 @@ type Machine struct {
 	romfs    *RomFS
 	romfsRaw []byte
 	fsFiles  map[uint32]*fsFile
+	fsDirs   map[uint32]*fsDir
 
 	// The PICA200 GPU (gpu.go). Accessor: GPU().
 	gpu *GPU
@@ -210,6 +211,7 @@ func NewMachine(img []byte) (*Machine, error) {
 		ports:      map[uint32]string{},
 		services:   map[uint32]string{},
 		fsFiles:    map[uint32]*fsFile{},
+		fsDirs:     map[uint32]*fsDir{},
 		bps:        map[uint32]bool{},
 		programID:  cxi.ProgramID,
 		entry:      ex.Text.Address,

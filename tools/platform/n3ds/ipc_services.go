@@ -258,6 +258,8 @@ func (m *Machine) ipcFS(hdr ipcHeader) bool {
 		return true
 	case 0x0802, 0x0803: // OpenFile / OpenFileDirectly → a file session handle
 		return m.fsOpenFile(hdr)
+	case 0x080B: // OpenDirectory → a directory session handle
+		return m.fsOpenDirectory(hdr)
 	case 0x080C, 0x0814, 0x0817, 0x0845, 0x0851: // OpenArchive / Format / etc.
 		m.ipcReply(hdr.Command, 0, 0)
 		return true

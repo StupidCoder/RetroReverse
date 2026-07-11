@@ -58,9 +58,13 @@ func (m *Machine) handleIPC(handle uint32) bool {
 		fmt.Printf("  [t%d] IPC handle=0x%08X %-14s cmd 0x%04X (%d normal, %d translate)\n", m.curThread.id, handle, name, hdr.Command, hdr.Normal, hdr.Translate)
 	}
 
-	// A handle with no port/service name may be an open IFile session (fs.go).
+	// A handle with no port/service name may be an open IFile or IDirectory
+	// session (fs.go).
 	if name == "" && m.isFileSession(handle) {
 		return m.ipcFile(handle, hdr)
+	}
+	if name == "" && m.isDirSession(handle) {
+		return m.ipcDir(handle, hdr)
 	}
 
 	switch name {

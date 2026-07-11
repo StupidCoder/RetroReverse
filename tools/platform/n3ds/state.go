@@ -141,6 +141,22 @@ type snapshot struct {
 	// … and the PICA200 GPU (v3). The upload cursors and partial FIFO buffers
 	// matter: a snapshot can land mid-upload.
 	GPU gpuState
+
+	// Open fs sessions (v3): stored by path and re-resolved from the RomFS on
+	// load, so the snapshot stays small.
+	FSFiles []fsFileState
+	FSDirs  []fsDirState
+}
+
+type fsFileState struct {
+	Handle uint32
+	Path   string
+}
+
+type fsDirState struct {
+	Handle uint32
+	Path   string
+	Cursor int
 }
 
 // xferState mirrors xferRecord for the snapshot.
@@ -227,6 +243,12 @@ func (m *Machine) SaveState(path string) error {
 		GshCodeIdx: g.gshCodeIdx, GshOpdIdx: g.gshOpdIdx,
 		GshFltIdx: g.gshFltIdx, GshFltF32: g.gshFltF32, GshFltBuf: g.gshFltBuf,
 		Draws: g.Draws,
+	}
+	for h, f := range m.fsFiles {
+		s.FSFiles = append(s.FSFiles, fsFileState{Handle: h, Path: f.path})
+	}
+	for h, d := range m.fsDirs {
+		s.FSDirs = append(s.FSDirs, fsDirState{Handle: h, Path: d.path, Cursor: d.cursor})
 	}
 	s.CPU = toCPUState(m.CPU)
 	for _, r := range m.regions {
@@ -367,6 +389,31 @@ func (m *Machine) LoadState(path string) error {
 		}
 		if m.aptResumeEv == 0 && o.Kind == "apt-resume" {
 			m.aptResumeEv = o.Handle
+		}
+	}
+
+	// Re-open the fs sessions from their paths.
+	m.fsFiles = map[uint32]*fsFile{}
+	for _, fsSt := range s.FSFiles {
+		f := &fsFile{path: fsSt.Path}
+		if fsSt.Path == "<romfs-l3>" && m.romfsRaw != nil {
+			l3 := int64(0)
+			if m.romfs != nil {
+				l3 = m.romfs.Levels[2].Offset
+			}
+			f.data = m.romfsRaw[l3:]
+		} else if m.romfs != nil {
+			if d, err := m.romfs.File(fsSt.Path); err == nil {
+				f.data = d
+			}
+		}
+		m.fsFiles[fsSt.Handle] = f
+	}
+	m.fsDirs = map[uint32]*fsDir{}
+	for _, ds := range s.FSDirs {
+		if d, ok := m.romfsChildren(ds.Path); ok {
+			d.cursor = ds.Cursor
+			m.fsDirs[ds.Handle] = d
 		}
 	}
 	return nil
