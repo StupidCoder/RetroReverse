@@ -106,6 +106,9 @@ export class StageViewer {
     this.levelH = ex.max[1] - ex.min[1];
     this._origin = { x0: ex.min[0], y1: ex.max[1] };
 
+    // per-stage clear colour (the engine's sky fill); white when not exported
+    this.renderer.setClearColor(level.background ? parseInt(level.background.replace('#', ''), 16) : 0xffffff, 1);
+
     const loader = new GLTFLoader();
     const load = (path) => new Promise((res, rej) => loader.load(BASE + path, res, undefined, rej));
     // the engine draws the whole background pass before the foreground pass,

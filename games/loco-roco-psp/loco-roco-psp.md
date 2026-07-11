@@ -547,6 +547,17 @@ stage 1's batches use `stage_a_tex` (the foreground terrain) and twelve
 background flora, separated from the foreground by material and by the
 vertices' z.
 
+The engine clears each frame to a per-stage sky colour before the
+background pass. That colour is not stored in the scene or layout records
+(both hold only geometry and camera bounds); it is written once, at stage
+load, into a fixed sprite template in the module's BSS (`0x08A4EFB0`, the
+eight full-screen through-mode sprite columns of the first `PRIM` of every
+frame — flat white for the flower stages). The per-stage source of that
+value is not yet located; the exporter therefore leaves the field unset
+and the viewer clears white (correct for the flower world, visibly wrong
+for the dark nightmare world — an open item). The viewer reads an optional
+`background` colour from the level JSON when one is present.
+
 The scene root's second pointer is the **collision and entity subtree**:
 `{u32 pointCount, ptr points, u32 layerCount, ptr layers, u32 entityCount,
 ptr entities}` — the layer records sit inline between the header and the
