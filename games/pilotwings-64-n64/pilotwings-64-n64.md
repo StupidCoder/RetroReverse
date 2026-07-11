@@ -1103,16 +1103,49 @@ For end-to-end verification the oracle grew an ear. `ai.go`'s Audio Interface wa
 dropped every buffer; it now offers `OnAIBuffer(dramAddr, length, dacRate)`, called at each write
 to `AI_LEN` with the PCM the audio thread hands the DAC — the samples the game's own synth and RSP
 microcode produced. `bootoracle -pcmdump` writes that stream out with a sample-rate sidecar. A
-boot run captures 113 buffers at **22047 Hz** (the `AI_DACRATE` divisor resolves to the bank's
-22050), confirming samples play at their native rate. Those buffers are silent — no song is
-triggered during attract, and the song blob is never DMA'd in a plain boot — so the loop-state
-check above, not the capture, is what currently verifies the codec; driving the game to a screen
-with music (via `-keys`) is what turns the capture into an A/B reference for the sequencer.
+short boot captures only silence (the song blob is not DMA'd yet), but a longer attract run
+(`-steps 0x30000000`) reaches the point where the game loads **song 0** (cart `0x618C6C`, 2849
+bytes) and plays it: 967,680 stereo samples at **22047 Hz** (the `AI_DACRATE` divisor resolves to
+the bank's 22050). That capture is the A/B reference the sequencer is measured against.
 
-### What remains
+## Part VIII §2 — the sequence format, from the player's own disassembly
 
-The container, the instruments, the samples, and the codec are decoded and verified. Not yet
-written: the Type-0 sequence interpreter (delta-time, running status, the note-duration encoding,
-loop points and tempo) and the voice synth that renders a song to PCM — the same shape as the
-NDS `sdat` player, reading these banks — then the WAV→MP3 stage and the manifest wiring that puts
-the 31 songs in the Studio.
+The song bytes are not raw MIDI. Breaking on the event fetcher during song-0 playback and reading
+the interpreter overlay (`0x802376xx`–`0x80237Bxx`) settled the format exactly — and a from-scratch
+decoder built from it parses **190 of 190 tracks** with zero errors, where a shape-only guess had
+choked.
+
+- **`0xFE` is not an event — it is LZSS decompression.** Every byte the parser consumes passes
+  through `getByte` (`0x80237670`), which transparently expands a back-reference: `FE hi lo cnt`
+  copies `cnt` bytes from `(hi<<8|lo)` bytes before the marker; `FE FE` yields a literal `0xFE`.
+  The event grammar runs on the *decompressed* stream and never sees `0xFE`. This fires 998 times
+  across 20 of the 31 songs (song 0 included) — decompressing it is what makes the tracks parse.
+- **Events** (on the decompressed stream): a MIDI variable-length delta, then a status byte with
+  running status, then `9n note vel dur-VLQ` (a note with an explicit gate duration — there are no
+  note-offs), `Bn ctrl val` (controllers 7/10/64/91 only), `Cn prog`, `En lsb msb` (pitch bend),
+  `Dn val`. Meta: `FF 51` tempo (3 bytes, no length).
+- **Looping is an `FF 2E` / `FF 2D` pair**, not `FF 2E` alone. `FF 2F` ends a track. `FF 2E 00 FF`
+  marks a loop start (its two operands discarded, running status cleared). `FF 2D` carries a 6-byte
+  body `[init][remain][off32 BE]` read straight from the raw stream and jumps the pointer back by
+  the 32-bit offset; every loop in the game is infinite (`init=remain=0xFF`). All 87 `2D` targets
+  land exactly on the byte after a matching `2E`'s operands.
+- **The header is 17 words:** 16 channel byte-offsets plus a division word at `song+0x40` — **768
+  PPQN** for every song. Tempo (`FF 51`, µs/quarter) and division give ticks→seconds. The channel
+  is the header track index; the status byte's low nibble is redundant.
+
+### The synth, and how far it is verified
+
+`tools/platform/n64/audio` renders a song to stereo PCM: the interpreter above drives one
+sample-playback voice per note, each decoding its VADPCM sample, resampling to the played pitch
+(keymap base + detune + bend), shaping it with the `ALEnvelope` ADSR, and mixing with per-channel
+volume/pan. `cmd/musicrender` renders all 31 to WAV, then MP3 via ffmpeg, and merges a `music[]`
+array into the Studio manifest.
+
+What is *proven*: the parse is authoritative. For song 0 the synth consumes exactly **616 note-on
+events — the same count the independent decoder derives from the disassembly** — and the rendered
+length matches the song's own tick total (19.7 s at 768 PPQN). The samples underneath are the
+bit-exact VADPCM of §1. What is *approximate*: the mixer itself. The envelope shape, the
+nearest-to-linear interpolation, and the voice-gain law are our own, not the RSP microcode's, so
+the render is a faithful software synthesis of the score rather than a sample-identical copy of the
+hardware mix — the reason the energy envelope tracks the captured song without matching it bit for
+bit. All 31 songs are in the Studio's music player.

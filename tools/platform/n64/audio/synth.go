@@ -23,6 +23,10 @@ type Player struct {
 	tbl   []byte
 	rate  float64
 	cache map[int32][]int16 // decoded samples, keyed by wavetable base
+
+	// NotesPlayed counts note-on events consumed by the last Render — a cheap
+	// cross-check against an independent decoder.
+	NotesPlayed int
 }
 
 // NewPlayer builds a renderer for a bank and its ".TBL" at the given output rate.
@@ -43,14 +47,21 @@ func (p *Player) sample(w *WaveTable) []int16 {
 	return s
 }
 
-// track is one channel's playback cursor.
+// track is one channel's playback cursor. The player reads bytes through an
+// LZSS layer: a 0xFE in the raw stream is a back-reference (FE hi lo cnt = copy
+// cnt bytes from (hi<<8|lo) bytes before the marker; FE FE = a literal 0xFE),
+// so getByte serves either from the primary pointer or an active copy run.
 type track struct {
-	data    []byte
-	pc      int
-	status  byte
-	wait    int // ticks until the next event fires
-	done    bool
-	channel int
+	data       []byte
+	primary    int // raw stream index
+	copySrc    int // active LZ copy source
+	copyLen    int // bytes left in the copy run
+	status     byte
+	pending    byte // one-byte pushback for running status
+	hasPending bool
+	wait       int // ticks until the next event fires
+	done       bool
+	channel    int
 
 	program int
 	vol     float64 // channel volume (CC 7), 0..1
@@ -58,8 +69,65 @@ type track struct {
 	pan     float64 // 0..1, 0.5 = centre
 	bend    float64 // pitch bend in semitones
 
-	loopPC int  // stream position of the loop start
-	looped bool // loop start seen
+	maxLoops  int // render cap on loop-back iterations
+	loopCount int // FF 2D back-jumps taken
+}
+
+// getByte returns the next decompressed byte of the stream, or ok=false at end.
+func (t *track) getByte() (byte, bool) {
+	if t.hasPending {
+		t.hasPending = false
+		return t.pending, true
+	}
+	if t.copyLen > 0 {
+		if t.copySrc < 0 || t.copySrc >= len(t.data) {
+			return 0, false
+		}
+		b := t.data[t.copySrc]
+		t.copySrc++
+		t.copyLen--
+		return b, true
+	}
+	if t.primary >= len(t.data) {
+		return 0, false
+	}
+	b := t.data[t.primary]
+	t.primary++
+	if b != 0xFE {
+		return b, true
+	}
+	if t.primary >= len(t.data) {
+		return 0, false
+	}
+	hi := t.data[t.primary]
+	t.primary++
+	if hi == 0xFE {
+		return 0xFE, true // escaped literal
+	}
+	if t.primary+1 >= len(t.data) {
+		return 0, false
+	}
+	lo := t.data[t.primary]
+	cnt := t.data[t.primary+1]
+	t.primary += 2
+	// The source is (hi<<8|lo) bytes before the 0xFE marker (four bytes back).
+	t.copySrc = (t.primary - 4) - (int(hi)<<8 | int(lo))
+	t.copyLen = int(cnt)
+	return t.getByte()
+}
+
+func (t *track) getVLQ() int {
+	v := 0
+	for {
+		c, ok := t.getByte()
+		if !ok {
+			return v
+		}
+		v = v<<7 | int(c&0x7f)
+		if c&0x80 == 0 {
+			return v
+		}
+	}
 }
 
 // voice is one sounding note.
@@ -96,15 +164,15 @@ func (p *Player) Render(song *Song, loops int, maxSec float64) (L, R []float64) 
 		if song.Track[ch] == 0 {
 			continue
 		}
-		t := &track{data: song.Data, pc: song.Track[ch], channel: ch,
-			vol: 1, expr: 1, pan: 0.5}
-		t.wait = readVLQ(t.data, &t.pc) // first delta
+		t := &track{data: song.Data, primary: song.Track[ch], channel: ch,
+			vol: 1, expr: 1, pan: 0.5, maxLoops: loops}
+		t.wait = t.getVLQ() // first delta
 		tracks = append(tracks, t)
 	}
 
+	p.NotesPlayed = 0
 	var voices []*voice
 	frac := 0.0
-	loopCount := 0
 	ringOutStart := 0
 
 	for {
@@ -120,9 +188,7 @@ func (p *Player) Render(song *Song, loops int, maxSec float64) (L, R []float64) 
 				continue
 			}
 			for t.wait == 0 && !t.done {
-				if nt := p.step(t, &tempo, &voices); nt {
-					loopCount++
-				}
+				p.step(t, &tempo, &voices)
 			}
 		}
 		// Count down note gates; expired notes enter release.
@@ -141,12 +207,6 @@ func (p *Player) Render(song *Song, loops int, maxSec float64) (L, R []float64) 
 			// All tracks ended; let notes ring out at most ~2s — looping samples
 			// with slow releases would otherwise sound indefinitely.
 			break
-		}
-		if loops > 0 && loopCount >= loops*countLooping(tracks) && countLooping(tracks) > 0 {
-			// Enough repeats: let held notes ring out, then stop.
-			for _, t := range tracks {
-				t.done = true
-			}
 		}
 
 		// Render the samples that fall in this tick.
@@ -168,46 +228,39 @@ func (p *Player) Render(song *Song, loops int, maxSec float64) (L, R []float64) 
 }
 
 // step executes one event on a track and reads the following delta into wait.
-// It returns true when the track loops (hits an FF 2E end-with-loop).
-func (p *Player) step(t *track, tempo *float64, voices *[]*voice) (looped bool) {
-	d := t.data
-	if t.pc >= len(d) {
+func (p *Player) step(t *track, tempo *float64, voices *[]*voice) {
+	b, ok := t.getByte()
+	if !ok {
 		t.done = true
-		return
-	}
-	b := d[t.pc]
-	if b == 0xFE {
-		// Loop control (exact operands pending the player disasm); consume the
-		// event plus two payload bytes and note that this track loops.
-		t.pc++
-		t.loopPC = t.pc + 2
-		t.looped = true
-		t.pc += 2
-		if t.pc >= len(d) {
-			t.done = true
-			return
-		}
-		t.wait = readVLQ(d, &t.pc)
 		return
 	}
 	if b >= 0x80 {
 		t.status = b
-		t.pc++
+	} else {
+		// running status: b is already the first data byte — push it back.
+		t.pending, t.hasPending = b, true
 	}
 	switch {
 	case t.status == 0xFF:
-		typ := d[t.pc]
-		t.pc++
+		typ, _ := t.getByte()
 		switch typ {
-		case 0x2F: // end of track
+		case 0x2F: // end of track — the real end
 			t.done = true
 			return
-		case 0x2E: // end of track, looping
-			t.done = true
-			return true
+		case 0x2E: // loop START marker: two operand bytes (00 FF), reset status
+			t.getByte()
+			t.getByte()
+			t.status = 0
+		case 0x2D: // loop BACK: 6 raw body bytes [init][remain][off32 BE]
+			t.loopBack()
+			if t.done {
+				return
+			}
 		case 0x51: // tempo, 3 bytes, no length
-			*tempo = float64(int(d[t.pc])<<16 | int(d[t.pc+1])<<8 | int(d[t.pc+2]))
-			t.pc += 3
+			b0, _ := t.getByte()
+			b1, _ := t.getByte()
+			b2, _ := t.getByte()
+			*tempo = float64(int(b0)<<16 | int(b1)<<8 | int(b2))
 		default:
 			t.done = true
 			return
@@ -215,20 +268,20 @@ func (p *Player) step(t *track, tempo *float64, voices *[]*voice) (looped bool) 
 	default:
 		switch t.status & 0xF0 {
 		case 0x90: // note on: note, velocity, duration (VLQ)
-			note := d[t.pc]
-			vel := d[t.pc+1]
-			t.pc += 2
-			dur := readVLQ(d, &t.pc)
+			note, _ := t.getByte()
+			vel, _ := t.getByte()
+			dur := t.getVLQ()
 			p.noteOn(t, note, vel, dur, voices)
-		case 0x80, 0xA0, 0xE0: // note off / aftertouch / bend: 2 data bytes
-			if t.status&0xF0 == 0xE0 {
-				bend := (int(d[t.pc]) | int(d[t.pc+1])<<7) - 0x2000
-				t.bend = float64(bend) / 8192.0 * 2 // ±2 semitones
-			}
-			t.pc += 2
+		case 0x80, 0xA0: // note off / aftertouch: 2 data bytes (unused in data)
+			t.getByte()
+			t.getByte()
+		case 0xE0: // pitch bend: lsb msb
+			lsb, _ := t.getByte()
+			msb, _ := t.getByte()
+			t.bend = float64((int(lsb)|int(msb)<<7)-0x2000) / 8192.0 * 2 // ±2 semis
 		case 0xB0: // control change
-			ctrl, val := d[t.pc], d[t.pc+1]
-			t.pc += 2
+			ctrl, _ := t.getByte()
+			val, _ := t.getByte()
 			switch ctrl {
 			case 7:
 				t.vol = float64(val) / 127
@@ -238,26 +291,47 @@ func (p *Player) step(t *track, tempo *float64, voices *[]*voice) (looped bool) 
 				t.expr = float64(val) / 127
 			}
 		case 0xC0: // program change
-			t.program = int(d[t.pc])
-			t.pc++
+			prog, _ := t.getByte()
+			t.program = int(prog)
 		case 0xD0: // channel pressure
-			t.pc++
+			t.getByte()
 		default:
 			t.done = true
 			return
 		}
 	}
-	if t.pc >= len(d) {
+	// Look ahead to the next delta.
+	t.wait = t.getVLQ()
+}
+
+// loopBack reads the FF 2D body from the raw stream and jumps the primary
+// pointer back by the 32-bit big-endian offset, up to maxLoops times.
+func (t *track) loopBack() {
+	if t.primary+6 > len(t.data) {
 		t.done = true
 		return
 	}
-	t.wait = readVLQ(d, &t.pc)
-	return
+	body := t.data[t.primary : t.primary+6]
+	t.primary += 6
+	off := int(body[2])<<24 | int(body[3])<<16 | int(body[4])<<8 | int(body[5])
+	if t.loopCount >= t.maxLoops {
+		// Rendered enough repeats: fall through (the track ends after the loop).
+		t.done = true
+		return
+	}
+	t.loopCount++
+	t.copyLen = 0
+	t.primary = t.primary - off
+	t.status = 0
+	if t.primary < 0 || t.primary >= len(t.data) {
+		t.done = true
+	}
 }
 
 // noteOn spawns a voice for a note, choosing the instrument by program (channel
 // 9 uses the bank's percussion program, keyed by note).
 func (p *Player) noteOn(t *track, note, vel byte, dur int, voices *[]*voice) {
+	p.NotesPlayed++
 	var inst *Instrument
 	if t.channel == 9 && p.bank.Percussion != nil {
 		inst = p.bank.Percussion
@@ -391,28 +465,4 @@ func compact(voices []*voice) []*voice {
 		}
 	}
 	return out
-}
-
-func countLooping(tracks []*track) int {
-	n := 0
-	for _, t := range tracks {
-		if t.looped {
-			n++
-		}
-	}
-	return n
-}
-
-// readVLQ reads a MIDI variable-length quantity, advancing *pc.
-func readVLQ(d []byte, pc *int) int {
-	v := 0
-	for *pc < len(d) {
-		c := d[*pc]
-		*pc++
-		v = v<<7 | int(c&0x7f)
-		if c&0x80 == 0 {
-			break
-		}
-	}
-	return v
 }

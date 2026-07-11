@@ -309,6 +309,10 @@ const GAMES = [
       const label = item.name.startsWith(section + ' · ') ? item.name.slice(section.length + 3) : item.name;
       return { section, label };
     },
+    // The 31 songs of the "S1" sequence bank, rendered from the cartridge's own instrument
+    // bank and VADPCM samples through our Type-0 sequence synth (tools/platform/n64/audio).
+    music: async () => (await fetch('public/pilotwings-64-n64/manifest.json').then((r) => r.json()))
+      .music.map((t) => ({ name: t.name, url: 'public/pilotwings-64-n64/' + t.file })),
   },
   {
     id: 'super-mario-3d-land-3ds', name: 'Super Mario 3D Land', system: 'Nintendo 3DS', render: '3d',

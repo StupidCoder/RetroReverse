@@ -33,6 +33,8 @@ func main() {
 	rate := flag.Float64("rate", 22050, "output sample rate")
 	loops := flag.Int("loops", 2, "stop looping songs after N repeats")
 	maxSec := flag.Float64("max", 150, "hard length cap per song (seconds)")
+	fade := flag.Float64("fade", 3, "fade-out over this many seconds at the end")
+	manifest := flag.String("manifest", "", "if set, merge the rendered music[] into this manifest.json")
 	raw := flag.Bool("raw", false, "also write raw big-endian s16 stereo (for A/B vs the oracle capture)")
 	flag.Parse()
 	if *image == "" {
@@ -56,17 +58,14 @@ func main() {
 	tbl := rom.Data[musicTblOff:]
 	player := audio.NewPlayer(bank.Banks[0], tbl, *rate)
 
-	type track struct {
-		Name string `json:"name"`
-		File string `json:"file"`
-	}
-	var tracks []track
+	var tracks []musicTrack
 	from, to := 0, len(sb.Songs)
 	if *songN >= 0 {
 		from, to = *songN, *songN+1
 	}
 	for i := from; i < to; i++ {
 		L, R := player.Render(sb.Songs[i], *loops, *maxSec)
+		fadeOut(L, R, int(*fade**rate))
 		dur := float64(len(L)) / *rate
 		stem := fmt.Sprintf("song_%02d", i)
 		wav := filepath.Join(*outDir, stem+".wav")
@@ -82,12 +81,60 @@ func main() {
 		} else {
 			os.Remove(wav)
 		}
-		fmt.Printf("song %2d: %.1fs, %d samples\n", i, dur, len(L))
-		tracks = append(tracks, track{Name: fmt.Sprintf("Song %02d", i), File: "music/" + stem + ".mp3"})
+		fmt.Printf("song %2d: %.1fs, %d samples, %d notes\n", i, dur, len(L), player.NotesPlayed)
+		name := fmt.Sprintf("Song %02d · %d:%02d", i, int(dur)/60, int(dur)%60)
+		tracks = append(tracks, musicTrack{Name: name, File: "music/" + stem + ".mp3"})
 	}
 	if b, err := json.MarshalIndent(tracks, "", "  "); err == nil {
 		os.WriteFile(filepath.Join(*outDir, "tracks.json"), b, 0o644)
 	}
+	if *manifest != "" && *songN < 0 {
+		if err := mergeManifest(*manifest, tracks); err != nil {
+			fmt.Fprintf(os.Stderr, "musicrender: manifest merge: %v\n", err)
+		}
+	}
+}
+
+// fadeOut applies a linear fade to the last n samples.
+func fadeOut(L, R []float64, n int) {
+	if n <= 0 || n > len(L) {
+		n = len(L)
+	}
+	start := len(L) - n
+	for i := 0; i < n; i++ {
+		g := 1 - float64(i)/float64(n)
+		L[start+i] *= g
+		R[start+i] *= g
+	}
+}
+
+// musicTrack is one entry in the Studio's music[] manifest array.
+type musicTrack struct {
+	Name string `json:"name"`
+	File string `json:"file"`
+}
+
+// mergeManifest adds a music[] array to an existing manifest.json, preserving
+// its other keys.
+func mergeManifest(path string, tracks []musicTrack) error {
+	b, err := os.ReadFile(path)
+	if err != nil {
+		return err
+	}
+	var m map[string]json.RawMessage
+	if err := json.Unmarshal(b, &m); err != nil {
+		return err
+	}
+	music, err := json.Marshal(tracks)
+	if err != nil {
+		return err
+	}
+	m["music"] = music
+	out, err := json.MarshalIndent(m, "", "  ")
+	if err != nil {
+		return err
+	}
+	return os.WriteFile(path, append(out, '\n'), 0o644)
 }
 
 func writeWAV(path string, L, R []float64, rate int) error {
