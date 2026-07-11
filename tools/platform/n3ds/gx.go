@@ -17,11 +17,11 @@ package n3ds
 // The GX command queue lives at this offset in the GSP shared memory (GSP thread
 // index 0). A 0x20-byte header, then up to 15 command slots of 0x20 bytes each.
 const (
-	gxQueueOff   = 0x800
-	gxCmdStride  = 0x20
-	gxMaxCmds    = 15
-	gxHdrIndex   = 0 // byte: index of the first unprocessed command
-	gxHdrCount   = 1 // byte: number of queued commands
+	gxQueueOff  = 0x800
+	gxCmdStride = 0x20
+	gxMaxCmds   = 15
+	gxHdrIndex  = 0 // byte: index of the first unprocessed command
+	gxHdrCount  = 1 // byte: number of queued commands
 )
 
 // GX command ids (GXCommandId), in the low byte of a command's first word.
@@ -241,7 +241,6 @@ func (m *Machine) processGXQueue() {
 	}
 	idx := m.Read(hdr + gxHdrIndex)
 
-	var raised []byte
 	for i := byte(0); i < count; i++ {
 		slot := (uint32(idx) + uint32(i)) % gxMaxCmds
 		cmd := m.gspSharedAddr + gxQueueOff + gxCmdStride + slot*gxCmdStride
@@ -253,7 +252,76 @@ func (m *Machine) processGXQueue() {
 		for j := uint32(0); j < 8; j++ {
 			w[j] = m.ReadWord(cmd + j*4)
 		}
-		switch id {
+		// Completion is ASYNCHRONOUS, as on hardware: the command is queued
+		// with a deadline and executes (raising its interrupt) only when the
+		// instruction clock gets there — one engine, strictly in order. The
+		// game's own graphics driver depends on the in-flight window: it
+		// retires submissions on completion interrupts, and with synchronous
+		// completion its 32-entry submission ring only ever filled (13 → 32
+		// across the boot) until the first blocking submit deadlocked against
+		// it. The latencies are model parameters (hardware-plausible orders of
+		// magnitude), not measurements.
+		base := m.CPU.Instrs
+		if n := len(m.gxPending); n > 0 && m.gxPending[n-1].Deadline > base {
+			base = m.gxPending[n-1].Deadline
+		}
+		m.gxPending = append(m.gxPending, gxPendingCmd{Words: w, Deadline: base + gxLatency(id)})
+	}
+
+	// The queue is drained: advance the read index and zero the count, exactly
+	// as the GSP module does after servicing the batch (accepting a command is
+	// immediate; completing it is not).
+	m.Write(hdr+gxHdrIndex, byte((uint32(idx)+uint32(count))%gxMaxCmds))
+	m.Write(hdr+gxHdrCount, 0)
+
+	m.pumpGX()
+}
+
+// gxPendingCmd is one accepted-but-not-completed GX command. Fields are
+// exported for the savestate gob encoder.
+type gxPendingCmd struct {
+	Words    [8]uint32
+	Deadline uint64 // instruction count at which it executes and interrupts
+}
+
+// gxLatency is the modelled completion delay per command kind, in instructions.
+// What matters for correctness is that completion is visibly later than
+// submission and strictly ordered; the magnitudes are chosen so a frame's
+// worth of commands (~1 list + hundreds of DMAs) costs a few percent of the
+// ~4.5M-instruction frame, not more.
+func gxLatency(id uint32) uint64 {
+	switch id {
+	case gxCmdProcessCmdList:
+		return 16384
+	case gxCmdMemoryFill:
+		return 2048
+	case gxCmdDisplayTransfer, gxCmdTextureCopy:
+		return 4096
+	case gxCmdRequestDMA:
+		return 256
+	}
+	return 0 // FlushCache: cache maintenance, no work and no interrupt
+}
+
+// gxDeadline reports the earliest pending completion (and whether one exists),
+// so the run loop's idle fast-forward can jump to it instead of the next
+// VBlank.
+func (m *Machine) gxDeadline() (uint64, bool) {
+	if len(m.gxPending) == 0 {
+		return 0, false
+	}
+	return m.gxPending[0].Deadline, true
+}
+
+// pumpGX executes every pending GX command whose deadline has passed, raising
+// its completion interrupt at execution time.
+func (m *Machine) pumpGX() {
+	for len(m.gxPending) > 0 && m.CPU.Instrs >= m.gxPending[0].Deadline {
+		w := m.gxPending[0].Words
+		m.gxPending = m.gxPending[1:]
+
+		var raised []byte
+		switch w[0] & 0x1F {
 		case gxCmdProcessCmdList:
 			m.framesSubmitted++ // a PICA200 command list — a rendered frame's geometry
 			m.gpu.Execute(w[1], w[2])
@@ -294,20 +362,13 @@ func (m *Machine) processGXQueue() {
 			}
 			m.gpu.texCache = nil // texture memory changed under the cache
 			raised = append(raised, gspIntDMA)
-		case gxCmdFlushCache:
-			// Cache maintenance completes synchronously; no interrupt.
 		}
-	}
 
-	// The queue is drained: advance the read index and zero the count, exactly
-	// as the GSP module does after servicing the batch.
-	m.Write(hdr+gxHdrIndex, byte((uint32(idx)+uint32(count))%gxMaxCmds))
-	m.Write(hdr+gxHdrCount, 0)
-
-	for _, id := range raised {
-		m.pushGSPInterrupt(id)
-	}
-	if len(raised) > 0 {
-		m.signalGSPEvent()
+		for _, id := range raised {
+			m.pushGSPInterrupt(id)
+		}
+		if len(raised) > 0 {
+			m.signalGSPEvent()
+		}
 	}
 }

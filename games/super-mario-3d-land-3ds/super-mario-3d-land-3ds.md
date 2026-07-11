@@ -437,24 +437,49 @@ units — 400 lines of 960 bytes in, a 1024-byte stride out: the rendered frame 
 primitive", meaningful only to a geometry shader; the draw-time check guarantees the geometry stage
 is off, so its vertices assemble as independent triangles).
 
-### The current frontier: the graphics driver's submission-retire ring
+### GX completion is now asynchronous — and a ruled-out hypothesis
 
-Past the transition the screen clears and the main thread blocks inside the game's own graphics
+On hardware the GSP system process services the GX command FIFO and raises each command's completion
+interrupt *later* than the application posted it, while the CPU runs ahead; the application's command
+runner posts, marks the slot pending, and blocks on the interrupt. The oracle now models that: a GX
+command is **accepted** immediately (the FIFO index/count advance, as before) but **completes** on a
+deadline — a per-command latency (a `ProcessCommandList` list costs more than a bare `RequestDMA`),
+strictly in submission order — and only at that instruction boundary does it execute and raise its
+interrupt. The run loop treats the nearest pending completion as a wake source, jumping the clock to
+it when every thread is otherwise blocked (bounded by the VBlank heartbeat). The latencies are
+nominal model parameters (hardware-plausible magnitudes, the same footing as the instruction-paced
+`GetSystemTick`), not measurements; the pending queue rides the savestate. This is a faithfulness
+improvement, kept because it removes GX-timing as a variable in everything downstream.
+
+It was reached chasing the render-ring deadlock below — on the hypothesis that synchronous P3D
+completion was starving the driver's retire path — and it **did not** move the deadlock: a boot with
+async completion parks at the identical instruction. The negative result is itself informative. The
+game's GX P3D interrupt drives a *frame-counter* object (`0x0041D1B0`, updated by the handler thunk
+at `0x00107218`), which is a different structure from the stuck command ring (`0x00425814`); GX
+completion timing and the ring's retirement are orthogonal, so the ring stall is not a GPU-timing
+artefact.
+
+### The current frontier: the render-command ring, drained lazily, full before the first blocking push
+
+Past the transition the screen clears and the main thread blocks inside the game's own render-command
 driver (the singleton at `0x00425814`). Its shape, mapped from the disassembly: command chains are
-submitted through `0x0022B0CC`, which try-pushes each chain into a 32-entry FIFO ring at `+0xB4`
-(`0x004258C8`) — the *in-flight* list — while a fence counter (`+0x170`) names each submission; the
-retire path (`0x0022AF84`, and a pop-until-my-fence loop at `0x0022B2AC`) pops completed chains back
-out. Across the whole boot the ring only ever **filled** (13 entries at the first dialog, 21 after
-the StreetPass flow, 32 = full at the file-select): the sync-path submissions try-push and give up
-silently when full, and no retire ever ran. The first *blocking* push — the scene switch after the
-save — then deadlocks against a full ring whose only consumer is the pusher itself, a few
-instructions later. A probe (`bootoracle -poke`, a new instrument) that widens the ring lets the push
-through, after which the retire loop drains all the stale chains but never finds its own fence and
-ends waiting on pop-empty. The strong suspicion is timing: this HLE executes a `ProcessCommandList`
-*synchronously inside* the GX submission and raises P3D completion immediately, so the driver's
-in-flight bookkeeping — written for a GPU that is genuinely busy while the CPU runs ahead — never
-sees the states that would drive its retire path on hardware. Making GX completion honestly
-asynchronous (execute at a later instruction boundary, then interrupt) is the next piece of work.
+submitted through `0x0022B0CC`, which **try-pushes** each into a 32-entry FIFO ring at `+0xB4`
+(`0x004258C8`, count at `+0x28`) while a fence counter (`+0x170`) names each submission; retirement
+is a separate **pop** path (`0x0022AF84`, and a pop-until-my-fence loop at `0x0022B2AC`), the ring's
+consumer being the same main thread on its explicit flush/swap calls, not a worker. The telling fact:
+across the whole boot the ring only ever **grows** — 13 entries at the first dialog, 21 after the
+StreetPass flow, a full 32 at the file-select — and never drains, because the StreetPass/menu phase
+fills it (each try-push succeeds silently while there is room) but never reaches the flush that would
+retire. The menu still renders because that path submits GX directly; this ring is the *in-game*
+renderer's, seeded and left full before gameplay starts. The first **blocking** push — the scene
+switch after the save, when the ring is already at 32 — then waits on the ring's space semaphore
+(`0x004258D4`) for a retire that its own thread is a few instructions short of performing:
+self-deadlock. A probe (`bootoracle -poke`, a new instrument) that widens the ring lets that push
+through, after which the retire loop drains every stale chain but, none matching its fence, ends
+waiting on pop-empty. So the real question is why the ring is allowed to fill to capacity during
+onboarding without a retire — either the game expects a consumer we have not started, or an
+init-time flush is being skipped because of state we still model wrong. That trace is the next piece
+of work; GX timing has been ruled out.
 
 One quirk is recorded and not yet explained — some `srv:GetServiceHandle` requests store the 8-byte
 service name with each 32-bit word's halves rotated ("APT:U" half-swapped, "fs:USER" byte-rotated,

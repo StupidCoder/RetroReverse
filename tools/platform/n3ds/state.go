@@ -128,6 +128,7 @@ type snapshot struct {
 	APTResumeEv     uint32
 	APTWakePending  bool
 	APTParams       []aptParam
+	GXPending       []gxPendingCmd
 	GSPShared       uint32
 	GSPSharedAddr   uint32
 	GSPEvent        uint32
@@ -148,9 +149,9 @@ type snapshot struct {
 
 	// Open fs sessions (v3): stored by path and re-resolved from the RomFS on
 	// load, so the snapshot stays small.
-	FSFiles    []fsFileState
-	FSDirs     []fsDirState
-	FSArchives map[uint32]uint32
+	FSFiles        []fsFileState
+	FSDirs         []fsDirState
+	FSArchives     map[uint32]uint32
 	SaveFiles      map[string][]byte
 	SaveFormatted  bool
 	SaveFormatInfo [4]uint32
@@ -232,6 +233,7 @@ func (m *Machine) SaveState(path string) error {
 		APTResumeEv:     m.aptResumeEv,
 		APTWakePending:  m.aptWakePending,
 		APTParams:       m.aptParams,
+		GXPending:       m.gxPending,
 		GSPShared:       m.gspShared,
 		GSPSharedAddr:   m.gspSharedAddr,
 		GSPEvent:        m.gspEvent,
@@ -354,6 +356,7 @@ func (m *Machine) LoadState(path string) error {
 	m.aptNotifyEv, m.aptResumeEv = s.APTNotifyEv, s.APTResumeEv
 	m.aptWakePending = s.APTWakePending
 	m.aptParams = s.APTParams
+	m.gxPending = s.GXPending
 	m.gspShared, m.gspSharedAddr, m.gspEvent = s.GSPShared, s.GSPSharedAddr, s.GSPEvent
 	m.hidShared, m.hidSharedAddr, m.hidEvents = s.HIDShared, s.HIDSharedAddr, s.HIDEvents
 	// Older snapshots predate HID serialisation; recover the mapped address from the

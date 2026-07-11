@@ -29,9 +29,20 @@ func (m *Machine) Run(budget int) int {
 		if m.vblankDue() {
 			m.deliverVBlank()
 		}
-		m.processGXQueue() // drain any GPU commands the game posted, raise their interrupts
+		m.processGXQueue() // drain any GPU commands the game posted; completions are deadline-paced
 		t := m.pickRunnable()
 		if t == nil {
+			// A pending GX completion due before the next VBlank is the nearest
+			// wake source: jump the clock to it and execute (interrupting wakes
+			// the waiter). Real progress, not an idle frame.
+			if dl, ok := m.gxDeadline(); ok && dl < m.nextFrameInstr {
+				if m.CPU.Instrs < dl {
+					m.CPU.Instrs = dl
+				}
+				m.pumpGX()
+				idleFrames = 0
+				continue
+			}
 			if m.advanceIdle() {
 				continue
 			}

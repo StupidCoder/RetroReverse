@@ -128,59 +128,60 @@ type Machine struct {
 
 	// Filesystem (fs.go): the cartridge RomFS (parsed + the raw IVFC region a
 	// game opens to parse itself), and the open IFile sessions.
-	romfs    *RomFS
-	romfsRaw []byte
-	fsFiles     map[uint32]*fsFile
-	fsDirs      map[uint32]*fsDir
-	fsArchives  map[uint32]uint32 // archive handle → archive ID (OpenArchive)
-	saveFiles       map[string][]byte // the writable (save-data) archive's contents
-	saveFormatted   bool              // FormatSaveData (0x084C) seen; gates GetFormatInfo
-	saveFormatInfo  [4]uint32         // recorded format: size blocks, dirs, files, dup-data
+	romfs          *RomFS
+	romfsRaw       []byte
+	fsFiles        map[uint32]*fsFile
+	fsDirs         map[uint32]*fsDir
+	fsArchives     map[uint32]uint32 // archive handle → archive ID (OpenArchive)
+	saveFiles      map[string][]byte // the writable (save-data) archive's contents
+	saveFormatted  bool              // FormatSaveData (0x084C) seen; gates GetFormatInfo
+	saveFormatInfo [4]uint32         // recorded format: size blocks, dirs, files, dup-data
 
 	// The PICA200 GPU (gpu.go). Accessor: GPU().
 	gpu *GPU
 
 	// IPC / graphics bring-up.
-	notifyWaiters   []uint32 // thread ids parked in srv: ReceiveNotification
-	aptNotifyEv     uint32 // events APT Initialize returned; the deferred wake signals them
-	aptResumeEv     uint32
-	aptWakePending  bool // NotifyToWait seen; signal the APT events at the next VBlank
-	aptParams       []aptParam // queued applet answers ReceiveParameter delivers in order
-	ipcLog          []ipcCall
-	gspShared       uint32 // the GSP shared-memory block handle, once registered
-	gspSharedAddr   uint32 // where the game mapped the GSP shared memory
-	gspEvent        uint32 // event the GSP signals on each interrupt (VBlank)
-	hidShared       uint32 // the HID shared-memory block handle (pad/touch/accel state)
-	hidSharedAddr   uint32 // where the game mapped the HID shared memory
-	hidEvents       []uint32 // HID interrupt events (pad0..pad1, accel, gyro, debugpad, touch)
-	hidReadHist     map[uint32]int // instrumentation: HID-shared read histogram by offset
-	hidReadPC       map[uint32]uint32 // instrumentation: last PC that read each HID offset
-	HidTrace        bool // when set, tally reads within the HID shared block
-	hidButtons      uint32 // buttons to publish as held in the HID shared memory (SetKeys)
-	hidPrevButtons  uint32 // last frame's mask, for press/release edge computation
-	hidRingIdx      uint32 // current HID sample-ring index (0..7)
-	HidPulse        int    // if >0, release the injected buttons briefly every N frames (fresh edges)
-	nextFrameInstr  uint64 // instruction count at which to deliver the next VBlank
-	vblankCount     uint64 // VBlanks delivered
-	framesSubmitted  int // GSP TriggerCmdReqQueue calls (GPU command lists)
-	framesSwapped    int // GSP SetBufferSwap calls (frames presented)
-	displayTransfers int // GX DisplayTransfers executed (frames made visible)
+	notifyWaiters    []uint32 // thread ids parked in srv: ReceiveNotification
+	aptNotifyEv      uint32   // events APT Initialize returned; the deferred wake signals them
+	aptResumeEv      uint32
+	aptWakePending   bool           // NotifyToWait seen; signal the APT events at the next VBlank
+	aptParams        []aptParam     // queued applet answers ReceiveParameter delivers in order
+	gxPending        []gxPendingCmd // accepted GX commands awaiting their completion deadline
+	ipcLog           []ipcCall
+	gspShared        uint32            // the GSP shared-memory block handle, once registered
+	gspSharedAddr    uint32            // where the game mapped the GSP shared memory
+	gspEvent         uint32            // event the GSP signals on each interrupt (VBlank)
+	hidShared        uint32            // the HID shared-memory block handle (pad/touch/accel state)
+	hidSharedAddr    uint32            // where the game mapped the HID shared memory
+	hidEvents        []uint32          // HID interrupt events (pad0..pad1, accel, gyro, debugpad, touch)
+	hidReadHist      map[uint32]int    // instrumentation: HID-shared read histogram by offset
+	hidReadPC        map[uint32]uint32 // instrumentation: last PC that read each HID offset
+	HidTrace         bool              // when set, tally reads within the HID shared block
+	hidButtons       uint32            // buttons to publish as held in the HID shared memory (SetKeys)
+	hidPrevButtons   uint32            // last frame's mask, for press/release edge computation
+	hidRingIdx       uint32            // current HID sample-ring index (0..7)
+	HidPulse         int               // if >0, release the injected buttons briefly every N frames (fresh edges)
+	nextFrameInstr   uint64            // instruction count at which to deliver the next VBlank
+	vblankCount      uint64            // VBlanks delivered
+	framesSubmitted  int               // GSP TriggerCmdReqQueue calls (GPU command lists)
+	framesSwapped    int               // GSP SetBufferSwap calls (frames presented)
+	displayTransfers int               // GX DisplayTransfers executed (frames made visible)
 	lastXferTop      xferRecord
 	lastXferBottom   xferRecord
 
 	// Instrumentation.
-	GXCapture bool       // record GX commands + ProcessCommandList buffers (gx.go)
-	gxLog     []GXRecord // the captured commands, in submission order
-	Trace     bool
-	traceN    int
-	traceMax  int
+	GXCapture  bool       // record GX commands + ProcessCommandList buffers (gx.go)
+	gxLog      []GXRecord // the captured commands, in submission order
+	Trace      bool
+	traceN     int
+	traceMax   int
 	bps        map[uint32]bool
 	logpcs     map[uint32]bool
 	tracefroms map[uint32]bool
-	watches   []watch
-	svcLog    []svcEvent // every supervisor call, in order
-	debugOut  []byte     // svcOutputDebugString text
-	Verbose   bool
+	watches    []watch
+	svcLog     []svcEvent // every supervisor call, in order
+	debugOut   []byte     // svcOutputDebugString text
+	Verbose    bool
 
 	// Metadata pinned into a savestate so it cannot resume into another title.
 	programID uint64
