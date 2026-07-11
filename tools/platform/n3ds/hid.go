@@ -98,6 +98,14 @@ func (m *Machine) updateHIDShared() {
 	idx := m.hidRingIdx
 	tick := m.vblankCount + 1 // strictly increasing, and > the all-zero pre-injection tick
 	cur := m.hidButtons
+	// Optional auto-pulse: release the buttons for the last few frames of each
+	// HidPulse-frame period, so a fresh keys-DOWN edge keeps arriving. A held button
+	// only ever produces one edge, which a menu/dialog that ignores input during its
+	// open animation will swallow; pulsing lets the press land once the guard lifts,
+	// and advances a multi-screen flow one edge at a time. HidPulse=0 holds.
+	if m.HidPulse > 0 && cur != 0 && m.vblankCount%uint64(m.HidPulse) >= uint64(m.HidPulse)-3 {
+		cur = 0
+	}
 	m.hidPrevButtons = cur
 
 	writeHeader := func(sb uint32) {

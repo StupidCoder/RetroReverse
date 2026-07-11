@@ -130,6 +130,14 @@ func (m *Machine) ipcAPT(name string, hdr ipcHeader) bool {
 		}
 		m.ipcReply(hdr.Command)
 		return true
+	case 0x0016, 0x0017: // PreloadLibraryApplet / FinishPreloadingLibraryApplet
+		// The title preloads a library applet (an on-demand helper such as a
+		// keyboard or selector) ahead of the file-select menu. This HLE does not run
+		// library applets; acking success lets the game proceed. Actually STARTING
+		// one (PrepareToStart/StartLibraryApplet, 0x0018/0x001E) is a separate path
+		// that will halt loudly if the game takes it.
+		m.ipcReply(hdr.Command)
+		return true
 	case 0x003E: // Takes (u32, u8) and the wrapper (0x00107F28: header const
 		// 0x003E0080, STRB of a stacked byte into cmdbuf[2], then LDRPL r0 =
 		// cmdbuf[1]) consumes nothing from the reply but the result code —

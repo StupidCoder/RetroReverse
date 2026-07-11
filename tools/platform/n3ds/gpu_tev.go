@@ -56,6 +56,15 @@ func (g *GPU) fragment(col [4]float32, uv [3][2]float32) (r, gr, b, a uint8, dis
 			switch sel {
 			case 0:
 				return prim, true
+			case 1:
+				// PrimaryFragmentColor: the primary colour after fragment lighting.
+				// Fragment lighting being enabled halts the draw earlier (gpu.go), so
+				// here it is disabled and the primary (vertex) colour passes through.
+				return prim, true
+			case 2:
+				// SecondaryFragmentColor: the specular lighting term, zero with
+				// lighting disabled.
+				return rgba{0, 0, 0, 0}, true
 			case 3:
 				return tex[0], true
 			case 4:
