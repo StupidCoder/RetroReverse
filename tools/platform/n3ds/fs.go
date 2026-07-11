@@ -13,10 +13,13 @@ import "fmt"
 // Only the read path is modelled; a write halts, since a cartridge boot never
 // needs it.
 
-// fsFile is one open IFile session: the file's bytes and its rooted path.
+// fsFile is one open IFile session: the file's bytes and its rooted path. A
+// session into a writable archive (save data) carries the store key in save;
+// its data is read through the store so writes are visible to later opens.
 type fsFile struct {
 	data []byte
 	path string
+	save string // key into Machine.saveFiles ("" = read-only RomFS session)
 }
 
 // isFileSession reports whether a handle names an open IFile session.
@@ -183,19 +186,42 @@ func (m *Machine) ipcDir(handle uint32, hdr ipcHeader) bool {
 // omits the archive fields, shifting the file path two words earlier.
 func (m *Machine) fsOpenFile(hdr ipcHeader) bool {
 	var archive, pathType, pathSize, pathPtr uint32
+	saveArchive := false
 	if hdr.Command == 0x0803 { // OpenFileDirectly
 		archive = m.ipcArg(2)
 		pathType, pathSize = m.ipcArg(6), m.ipcArg(7)
 		pathPtr = m.ipcArg(13)
-	} else { // OpenFile: transaction, archive handle(2), path type/size, flags, attr, then translate
+	} else { // OpenFile: transaction, archive handle u64 (2-3), path type/size, flags, attr, then translate
+		archiveHandle := m.ipcArg(2)
+		if id, ok := m.fsArchives[archiveHandle]; ok && id != archiveRomFS {
+			saveArchive = true // an opened writable archive (save data)
+		}
 		pathType, pathSize = m.ipcArg(4), m.ipcArg(5)
 		pathPtr = m.ipcArg(9)
 	}
 
 	path := m.readFSPath(pathPtr, pathType, pathSize)
 	if m.Verbose {
-		fmt.Printf("    fsOpen cmd=0x%04X archive=0x%08X pathType=%d pathSize=%d path=%q\n", hdr.Command, archive, pathType, pathSize, path)
+		fmt.Printf("    fsOpen cmd=0x%04X archive=0x%08X save=%v pathType=%d pathSize=%d path=%q\n", hdr.Command, archive, saveArchive, pathType, pathSize, path)
 	}
+
+	if saveArchive {
+		data, ok := m.saveFiles[path]
+		if !ok {
+			m.WriteWord(m.cmdBuf(), uint32(hdr.Command)<<16|1<<6)
+			m.WriteWord(m.cmdBuf()+4, resultFSNotFound)
+			return true
+		}
+		sess := &fsFile{path: path, save: path, data: data}
+		h := m.newHandle("fs-file", false)
+		m.fsFiles[h] = sess
+		m.WriteWord(m.cmdBuf(), uint32(hdr.Command)<<16|1<<6|2)
+		m.WriteWord(m.cmdBuf()+4, resultSuccess)
+		m.WriteWord(m.cmdBuf()+8, 0)
+		m.WriteWord(m.cmdBuf()+12, h)
+		return true
+	}
+
 	var data []byte
 	found := false
 	switch {
@@ -286,6 +312,9 @@ func (m *Machine) ipcFile(handle uint32, hdr ipcHeader) bool {
 		size := int64(m.ipcArg(3))
 		bufPtr := m.ipcArg(5) // cmdbuf[5]: after the read-count descriptor
 		n := int64(0)
+		if f != nil && f.save != "" {
+			f.data = m.saveFiles[f.save] // writes since open are visible
+		}
 		if f != nil && off >= 0 && off < int64(len(f.data)) {
 			n = size
 			if off+n > int64(len(f.data)) {
@@ -307,6 +336,9 @@ func (m *Machine) ipcFile(handle uint32, hdr ipcHeader) bool {
 	case 0x0804: // GetSize → u64
 		var sz uint64
 		if f != nil {
+			if f.save != "" {
+				f.data = m.saveFiles[f.save]
+			}
 			sz = uint64(len(f.data))
 		}
 		m.ipcReply(hdr.Command, uint32(sz), uint32(sz>>32))
@@ -316,7 +348,33 @@ func (m *Machine) ipcFile(handle uint32, hdr ipcHeader) bool {
 		delete(m.handles, handle)
 		m.ipcReply(hdr.Command)
 		return true
-	case 0x0803, 0x0805, 0x0806, 0x0807: // Write / SetSize / GetAttributes / SetAttributes
+	case 0x0803: // Write(offset u64, size, flags) from the mapped buffer
+		off := int64(uint64(m.ipcArg(1)) | uint64(m.ipcArg(2))<<32)
+		size := int64(m.ipcArg(3))
+		bufPtr := m.ipcArg(6) // after the write-flags word and buffer descriptor
+		if f != nil && f.save != "" && off >= 0 && size >= 0 {
+			data := m.saveFiles[f.save]
+			if need := off + size; int64(len(data)) < need {
+				grown := make([]byte, need)
+				copy(grown, data)
+				data = grown
+			}
+			for i := int64(0); i < size; i++ {
+				data[off+i] = m.Read(bufPtr + uint32(i))
+			}
+			m.saveFiles[f.save] = data
+			f.data = data
+			if m.Verbose {
+				fmt.Printf("    IFile Write %q off=%d size=%d\n", f.save, off, size)
+			}
+			m.ipcReply(hdr.Command, uint32(size))
+			return true
+		}
+		// A write into a read-only (RomFS) session would be a game bug; a write
+		// into an unknown session is ours. Stop loudly.
+		m.CPU.Halt("IFile Write on non-writable session (path %q) at 0x%08X", filePath(f), m.CPU.PC())
+		return true
+	case 0x0805, 0x0806, 0x0807: // SetSize / GetAttributes / SetAttributes
 		m.ipcReply(hdr.Command)
 		return true
 	}
@@ -329,4 +387,65 @@ func fileLen(f *fsFile) int {
 		return -1
 	}
 	return len(f.data)
+}
+
+func filePath(f *fsFile) string {
+	if f == nil {
+		return "<nil>"
+	}
+	return f.path
+}
+
+// fsOpenArchive services fs:USER OpenArchive (0x080C): record which archive ID
+// the returned handle names, so OpenFile can route save-data opens to the
+// writable store. Request: archive ID (1), path type (2), path size (3), then
+// the path translate pair; reply carries the archive handle as a u64.
+func (m *Machine) fsOpenArchive(hdr ipcHeader) bool {
+	id := m.ipcArg(1)
+	h := m.newHandle("fs-archive", false)
+	m.fsArchives[h] = id
+	if m.Verbose {
+		fmt.Printf("    fsOpenArchive id=0x%X -> handle 0x%08X\n", id, h)
+	}
+	m.ipcReply(hdr.Command, h, 0)
+	return true
+}
+
+// fsDeleteFile services fs:USER DeleteFile (0x0804) on the writable archive.
+// Request (5 normal + 2 translate): transaction (1), archive handle u64 (2-3),
+// path type (4), path size (5), then the path translate pair (pointer at 7).
+func (m *Machine) fsDeleteFile(hdr ipcHeader) bool {
+	path := m.readFSPath(m.ipcArg(7), m.ipcArg(4), m.ipcArg(5))
+	if m.Verbose {
+		fmt.Printf("    fsDeleteFile %q\n", path)
+	}
+	if _, ok := m.saveFiles[path]; ok {
+		delete(m.saveFiles, path)
+		m.ipcReply(hdr.Command)
+	} else {
+		m.WriteWord(m.cmdBuf(), uint32(hdr.Command)<<16|1<<6)
+		m.WriteWord(m.cmdBuf()+4, resultFSNotFound)
+	}
+	return true
+}
+
+// fsCreateFile services fs:USER CreateFile (0x0808) on a writable archive: an
+// empty file of the requested size appears in the save store. Request layout,
+// from the game's wrapper at 0x001EDE30 (header 0x08080202, 8 normal + 2
+// translate): transaction (1), archive handle u64 (2-3), path type (4), path
+// size (5), attributes (6), file size u64 (7-8), path pointer (10).
+func (m *Machine) fsCreateFile(hdr ipcHeader) bool {
+	pathType, pathSize := m.ipcArg(4), m.ipcArg(5)
+	size := int64(uint64(m.ipcArg(7)) | uint64(m.ipcArg(8))<<32)
+	path := m.readFSPath(m.ipcArg(10), pathType, pathSize)
+	if m.Verbose {
+		fmt.Printf("    fsCreateFile %q size=%d\n", path, size)
+	}
+	if size < 0 || size > 1<<24 {
+		m.CPU.Halt("fs CreateFile %q with implausible size %d at 0x%08X", path, size, m.CPU.PC())
+		return true
+	}
+	m.saveFiles[path] = make([]byte, size)
+	m.ipcReply(hdr.Command)
+	return true
 }

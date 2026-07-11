@@ -144,13 +144,16 @@ type snapshot struct {
 
 	// Open fs sessions (v3): stored by path and re-resolved from the RomFS on
 	// load, so the snapshot stays small.
-	FSFiles []fsFileState
-	FSDirs  []fsDirState
+	FSFiles    []fsFileState
+	FSDirs     []fsDirState
+	FSArchives map[uint32]uint32
+	SaveFiles  map[string][]byte
 }
 
 type fsFileState struct {
 	Handle uint32
 	Path   string
+	Save   string
 }
 
 type fsDirState struct {
@@ -245,11 +248,13 @@ func (m *Machine) SaveState(path string) error {
 		Draws: g.Draws,
 	}
 	for h, f := range m.fsFiles {
-		s.FSFiles = append(s.FSFiles, fsFileState{Handle: h, Path: f.path})
+		s.FSFiles = append(s.FSFiles, fsFileState{Handle: h, Path: f.path, Save: f.save})
 	}
 	for h, d := range m.fsDirs {
 		s.FSDirs = append(s.FSDirs, fsDirState{Handle: h, Path: d.path, Cursor: d.cursor})
 	}
+	s.FSArchives = m.fsArchives
+	s.SaveFiles = m.saveFiles
 	s.CPU = toCPUState(m.CPU)
 	for _, r := range m.regions {
 		s.Regions = append(s.Regions, regionState{Name: r.name, Base: r.base, Data: r.data})
@@ -392,10 +397,24 @@ func (m *Machine) LoadState(path string) error {
 		}
 	}
 
+	m.fsArchives = s.FSArchives
+	if m.fsArchives == nil {
+		m.fsArchives = map[uint32]uint32{}
+	}
+	m.saveFiles = s.SaveFiles
+	if m.saveFiles == nil {
+		m.saveFiles = map[string][]byte{}
+	}
+
 	// Re-open the fs sessions from their paths.
 	m.fsFiles = map[uint32]*fsFile{}
 	for _, fsSt := range s.FSFiles {
-		f := &fsFile{path: fsSt.Path}
+		f := &fsFile{path: fsSt.Path, save: fsSt.Save}
+		if fsSt.Save != "" {
+			f.data = m.saveFiles[fsSt.Save]
+			m.fsFiles[fsSt.Handle] = f
+			continue
+		}
 		if fsSt.Path == "<romfs-l3>" && m.romfsRaw != nil {
 			l3 := int64(0)
 			if m.romfs != nil {

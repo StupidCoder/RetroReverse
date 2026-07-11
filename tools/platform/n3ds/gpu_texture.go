@@ -159,6 +159,12 @@ func (g *GPU) texture(addr, format, w, h uint32) (*texImage, bool) {
 		g.eachTexel(addr, w, h, 1, func(x, y, p uint32) {
 			put(x, y, 255, 255, 255, g.m.Read(p))
 		})
+	case 0x9: // LA4: 4-bit luminance + 4-bit alpha, one byte per texel
+		g.eachTexel(addr, w, h, 1, func(x, y, p uint32) {
+			v := g.m.Read(p)
+			l := v >> 4 * 17
+			put(x, y, l, l, l, v&0xF*17)
+		})
 	case 0xA: // L4: 4-bit luminance
 		g.decode4(addr, w, h, img, func(n byte) [4]byte { return [4]byte{n * 17, n * 17, n * 17, 255} })
 	case 0xB: // A4: 4-bit alpha

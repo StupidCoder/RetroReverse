@@ -96,8 +96,10 @@ type Machine struct {
 	// game opens to parse itself), and the open IFile sessions.
 	romfs    *RomFS
 	romfsRaw []byte
-	fsFiles  map[uint32]*fsFile
-	fsDirs   map[uint32]*fsDir
+	fsFiles     map[uint32]*fsFile
+	fsDirs      map[uint32]*fsDir
+	fsArchives  map[uint32]uint32 // archive handle → archive ID (OpenArchive)
+	saveFiles   map[string][]byte // the writable (save-data) archive's contents
 
 	// The PICA200 GPU (gpu.go). Accessor: GPU().
 	gpu *GPU
@@ -212,6 +214,8 @@ func NewMachine(img []byte) (*Machine, error) {
 		services:   map[uint32]string{},
 		fsFiles:    map[uint32]*fsFile{},
 		fsDirs:     map[uint32]*fsDir{},
+		fsArchives: map[uint32]uint32{},
+		saveFiles:  map[string][]byte{},
 		bps:        map[uint32]bool{},
 		programID:  cxi.ProgramID,
 		entry:      ex.Text.Address,
