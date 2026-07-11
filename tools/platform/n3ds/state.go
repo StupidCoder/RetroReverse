@@ -130,6 +130,9 @@ type snapshot struct {
 	GSPShared       uint32
 	GSPSharedAddr   uint32
 	GSPEvent        uint32
+	HIDShared       uint32
+	HIDSharedAddr   uint32
+	HIDEvents       []uint32
 	NextFrameInstr  uint64
 	VBlankCount     uint64
 	FramesSubmitted int
@@ -228,6 +231,9 @@ func (m *Machine) SaveState(path string) error {
 		GSPShared:       m.gspShared,
 		GSPSharedAddr:   m.gspSharedAddr,
 		GSPEvent:        m.gspEvent,
+		HIDShared:       m.hidShared,
+		HIDSharedAddr:   m.hidSharedAddr,
+		HIDEvents:       m.hidEvents,
 		NextFrameInstr:  m.nextFrameInstr,
 		VBlankCount:     m.vblankCount,
 		FramesSubmitted: m.framesSubmitted,
@@ -343,6 +349,17 @@ func (m *Machine) LoadState(path string) error {
 	m.aptNotifyEv, m.aptResumeEv = s.APTNotifyEv, s.APTResumeEv
 	m.aptWakePending = s.APTWakePending
 	m.gspShared, m.gspSharedAddr, m.gspEvent = s.GSPShared, s.GSPSharedAddr, s.GSPEvent
+	m.hidShared, m.hidSharedAddr, m.hidEvents = s.HIDShared, s.HIDSharedAddr, s.HIDEvents
+	// Older snapshots predate HID serialisation; recover the mapped address from the
+	// restored region so -hidtrace/-keys work on states saved before this field existed.
+	if m.hidSharedAddr == 0 {
+		for _, r := range m.regions {
+			if r.name == "hid-shared" {
+				m.hidSharedAddr = r.base
+				break
+			}
+		}
+	}
 	m.nextFrameInstr, m.vblankCount = s.NextFrameInstr, s.VBlankCount
 	m.framesSubmitted, m.framesSwapped = s.FramesSubmitted, s.FramesSwapped
 	m.displayTransfers = s.DisplayXfers

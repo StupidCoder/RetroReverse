@@ -19,6 +19,10 @@ import (
 // framebuffer-info structures.
 const gspSharedSize = 0x1000
 
+// hidSharedSize is the HID shared-memory block size (one page). It holds the pad,
+// touch-screen, accelerometer and gyroscope state rings the game polls each frame.
+const hidSharedSize = 0x1000
+
 // The console's dedicated video RAM. GPU render targets live here. Two address
 // spaces name it: the GPU (and the physical addresses a command list carries,
 // e.g. the colour-buffer register) uses the physical base 0x18000000, while the
@@ -78,6 +82,9 @@ func (m *Machine) svcMapMemoryBlock(c *arm.CPU) {
 	obj.blockSize = size
 	if obj.kind == "gsp-shared" {
 		m.gspSharedAddr = addr
+	}
+	if obj.kind == "hid-shared" {
+		m.hidSharedAddr = addr
 	}
 	if m.Verbose {
 		fmt.Printf("  MapMemoryBlock handle=0x%08X (%s) -> 0x%08X size=0x%X\n", handle, obj.kind, addr, size)

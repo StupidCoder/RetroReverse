@@ -69,6 +69,10 @@ func (m *Machine) Run(budget int) int {
 				m.stopped = true
 				break
 			}
+			if m.logpcs[pc] {
+				fmt.Printf("logpc [t%d] 0x%08X r0=%08X r1=%08X r2=%08X r3=%08X r4=%08X lr=%08X instr=%d\n",
+					m.curThread.id, pc, m.CPU.R[0], m.CPU.R[1], m.CPU.R[2], m.CPU.R[3], m.CPU.R[4], m.CPU.R[14], m.CPU.Instrs)
+			}
 			if m.Trace && m.traceN < m.traceMax {
 				m.traceOne(pc)
 				m.traceN++
@@ -103,6 +107,16 @@ func (m *Machine) SetTrace(on bool, max int) {
 
 // AddBreakpoint registers a PC breakpoint.
 func (m *Machine) AddBreakpoint(addr uint32) { m.bps[addr] = true }
+
+// AddLogPC registers a PC that logs register context each time it executes and
+// continues — the non-halting counterpart to a breakpoint, for watching how often
+// and with what arguments a routine runs during a long boot.
+func (m *Machine) AddLogPC(addr uint32) {
+	if m.logpcs == nil {
+		m.logpcs = map[uint32]bool{}
+	}
+	m.logpcs[addr] = true
+}
 
 // AddWatch registers a memory watch over [addr, addr+length).
 func (m *Machine) AddWatch(addr, length uint32) {

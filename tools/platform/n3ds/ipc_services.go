@@ -219,6 +219,9 @@ func (m *Machine) ipcHID(hdr ipcHeader) bool {
 	switch hdr.Command {
 	case 0x000A: // GetIPCHandles → shared-mem + 5 event handles
 		sh := m.newHandle("hid-shared", false)
+		m.handles[sh].blockSize = hidSharedSize
+		m.hidShared = sh
+		m.hidEvents = m.hidEvents[:0]
 		m.WriteWord(m.cmdBuf(), uint32(hdr.Command)<<16|1<<6|(6<<1|1))
 		m.WriteWord(m.cmdBuf()+4, resultSuccess)
 		m.WriteWord(m.cmdBuf()+8, 0)
@@ -226,6 +229,7 @@ func (m *Machine) ipcHID(hdr ipcHeader) bool {
 			h := sh
 			if i > 0 {
 				h = m.newHandle("hid-event", true)
+				m.hidEvents = append(m.hidEvents, h)
 			}
 			m.WriteWord(m.cmdBuf()+12+uint32(i)*4, h)
 		}
@@ -269,6 +273,10 @@ func (m *Machine) ipcFS(hdr ipcHeader) bool {
 		return m.fsOpenDirectory(hdr)
 	case 0x080C: // OpenArchive → an archive handle (routes save-data opens)
 		return m.fsOpenArchive(hdr)
+	case 0x080E: // CloseArchive(archive u64) → result — wrapper 0x0023E3D4, header 0x080E0080
+		delete(m.fsArchives, m.ipcArg(1))
+		m.ipcReply(hdr.Command)
+		return true
 	case 0x0814, 0x0817, 0x0845, 0x0851: // Format / control — ack
 		m.ipcReply(hdr.Command, 0, 0)
 		return true

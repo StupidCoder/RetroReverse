@@ -42,6 +42,10 @@ func (m *Machine) deliverVBlank() {
 	m.pushGSPInterrupt(gspIntVBlank1)
 	m.signalGSPEvent()
 
+	// Publish a fresh HID input sample (the input driver's per-frame job), so the
+	// game's pad polling sees live button state and any injected -keys press.
+	m.updateHIDShared()
+
 	// A pending APT wake (NotifyToWait) is delivered here, asynchronously to
 	// the request that armed it — by now the requester has released the APT
 	// session and parked (see ipcAPT 0x0043).

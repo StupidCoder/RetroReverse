@@ -52,8 +52,9 @@ func main() {
 	tracen := flag.Int("tracen", 200, "limit -trace to this many instructions")
 	verbose := flag.Bool("v", false, "log every supervisor call and unmapped access as it happens")
 	svclog := flag.Bool("svclog", false, "print the ordered supervisor-call log after the run")
-	var bps, watches multiFlag
+	var bps, watches, logpcs multiFlag
 	flag.Var(&bps, "bp", "breakpoint address (hex); repeatable")
+	flag.Var(&logpcs, "logpc", "log register context at this address and continue (hex); repeatable")
 	flag.Var(&watches, "watch", "memory watch ADDR[:LEN] (hex); repeatable")
 	saveState := flag.String("savestate", "", "after the run, dump the machine snapshot to this file")
 	loadState := flag.String("loadstate", "", "restore a machine snapshot before running")
@@ -61,6 +62,8 @@ func main() {
 	shot := flag.String("shot", "", "after the run, write the presented framebuffers to <base>_top.png / <base>_bottom.png")
 	gputrace := flag.Int("gputrace", 0, "print a summary of the first N GPU draws")
 	threads := flag.Bool("threads", false, "after the run, dump thread states and the handle table")
+	hidtrace := flag.Bool("hidtrace", false, "tally reads of the HID shared-memory block by offset, dump after the run")
+	keys := flag.String("keys", "", "inject HID pad input: comma-separated button names (a,b,x,y,l,r,up,down,left,right,start,select)")
 	flag.Parse()
 
 	if *image == "" {
@@ -68,13 +71,13 @@ func main() {
 		flag.Usage()
 		os.Exit(2)
 	}
-	if err := run(*image, *steps, *trace, *tracen, *verbose, *svclog, bps, watches, *saveState, *loadState, *gxdump, *shot, *gputrace, *threads); err != nil {
+	if err := run(*image, *steps, *trace, *tracen, *verbose, *svclog, bps, watches, logpcs, *saveState, *loadState, *gxdump, *shot, *gputrace, *threads, *hidtrace, *keys); err != nil {
 		fmt.Fprintln(os.Stderr, "bootoracle:", err)
 		os.Exit(1)
 	}
 }
 
-func run(imagePath, stepsStr string, trace bool, tracen int, verbose, svclog bool, bps, watches multiFlag, saveState, loadState, gxdump, shot string, gputrace int, threads bool) error {
+func run(imagePath, stepsStr string, trace bool, tracen int, verbose, svclog bool, bps, watches, logpcs multiFlag, saveState, loadState, gxdump, shot string, gputrace int, threads, hidtrace bool, keys string) error {
 	img, err := os.ReadFile(imagePath)
 	if err != nil {
 		return err
@@ -87,6 +90,12 @@ func run(imagePath, stepsStr string, trace bool, tracen int, verbose, svclog boo
 	m.SetTrace(trace, tracen)
 	m.GXCapture = gxdump != ""
 	m.GPU().TraceDraws = gputrace
+	m.HidTrace = hidtrace
+	if keys != "" {
+		if err := m.SetKeys(keys); err != nil {
+			return err
+		}
+	}
 
 	for _, b := range bps {
 		v, err := parseNum(b)
@@ -94,6 +103,13 @@ func run(imagePath, stepsStr string, trace bool, tracen int, verbose, svclog boo
 			return fmt.Errorf("bad -bp %q: %w", b, err)
 		}
 		m.AddBreakpoint(uint32(v))
+	}
+	for _, b := range logpcs {
+		v, err := parseNum(b)
+		if err != nil {
+			return fmt.Errorf("bad -logpc %q: %w", b, err)
+		}
+		m.AddLogPC(uint32(v))
 	}
 	for _, w := range watches {
 		addr, length := w, "4"
@@ -164,6 +180,9 @@ func run(imagePath, stepsStr string, trace bool, tracen int, verbose, svclog boo
 	}
 	if threads {
 		m.DumpThreads()
+	}
+	if hidtrace {
+		m.DumpHIDReads()
 	}
 	if gxdump != "" {
 		if err := dumpGX(m, gxdump); err != nil {
