@@ -91,3 +91,31 @@ func (m *Machine) svcMapMemoryBlock(c *arm.CPU) {
 	}
 	c.R[0] = resultSuccess
 }
+
+// svcUnmapMemoryBlock (0x20) removes a block's mapping from this process.
+// ABI mirrors svcMapMemoryBlock: r0=handle, r1=addr. The region is dropped so
+// a stray touch of the stale address faults loudly (first taken by the applet
+// reply block, which the game maps, reads and unmaps around 0x0023D600).
+func (m *Machine) svcUnmapMemoryBlock(c *arm.CPU) {
+	handle, addr := c.R[0], c.R[1]
+	obj := m.handles[handle]
+	if obj == nil {
+		c.Halt("UnmapMemoryBlock: unknown handle 0x%08X at 0x%08X after %d instructions", handle, c.PC(), c.Instrs)
+		return
+	}
+	if obj.blockAddr != addr {
+		c.Halt("UnmapMemoryBlock: handle 0x%08X (%s) mapped at 0x%08X, not 0x%08X, at 0x%08X", handle, obj.kind, obj.blockAddr, addr, c.PC())
+		return
+	}
+	for i, r := range m.regions {
+		if r.base == addr {
+			m.regions = append(m.regions[:i], m.regions[i+1:]...)
+			break
+		}
+	}
+	obj.blockAddr = 0
+	if m.Verbose {
+		fmt.Printf("  UnmapMemoryBlock handle=0x%08X (%s) from 0x%08X\n", handle, obj.kind, addr)
+	}
+	c.R[0] = resultSuccess
+}

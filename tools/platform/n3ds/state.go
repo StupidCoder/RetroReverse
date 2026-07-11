@@ -127,6 +127,7 @@ type snapshot struct {
 	APTNotifyEv     uint32
 	APTResumeEv     uint32
 	APTWakePending  bool
+	APTParams       []aptParam
 	GSPShared       uint32
 	GSPSharedAddr   uint32
 	GSPEvent        uint32
@@ -150,7 +151,9 @@ type snapshot struct {
 	FSFiles    []fsFileState
 	FSDirs     []fsDirState
 	FSArchives map[uint32]uint32
-	SaveFiles  map[string][]byte
+	SaveFiles      map[string][]byte
+	SaveFormatted  bool
+	SaveFormatInfo [4]uint32
 }
 
 type fsFileState struct {
@@ -228,6 +231,7 @@ func (m *Machine) SaveState(path string) error {
 		APTNotifyEv:     m.aptNotifyEv,
 		APTResumeEv:     m.aptResumeEv,
 		APTWakePending:  m.aptWakePending,
+		APTParams:       m.aptParams,
 		GSPShared:       m.gspShared,
 		GSPSharedAddr:   m.gspSharedAddr,
 		GSPEvent:        m.gspEvent,
@@ -261,6 +265,7 @@ func (m *Machine) SaveState(path string) error {
 	}
 	s.FSArchives = m.fsArchives
 	s.SaveFiles = m.saveFiles
+	s.SaveFormatted, s.SaveFormatInfo = m.saveFormatted, m.saveFormatInfo
 	s.CPU = toCPUState(m.CPU)
 	for _, r := range m.regions {
 		s.Regions = append(s.Regions, regionState{Name: r.name, Base: r.base, Data: r.data})
@@ -348,6 +353,7 @@ func (m *Machine) LoadState(path string) error {
 	m.notifyWaiters = s.NotifyWaiters
 	m.aptNotifyEv, m.aptResumeEv = s.APTNotifyEv, s.APTResumeEv
 	m.aptWakePending = s.APTWakePending
+	m.aptParams = s.APTParams
 	m.gspShared, m.gspSharedAddr, m.gspEvent = s.GSPShared, s.GSPSharedAddr, s.GSPEvent
 	m.hidShared, m.hidSharedAddr, m.hidEvents = s.HIDShared, s.HIDSharedAddr, s.HIDEvents
 	// Older snapshots predate HID serialisation; recover the mapped address from the
@@ -419,6 +425,7 @@ func (m *Machine) LoadState(path string) error {
 		m.fsArchives = map[uint32]uint32{}
 	}
 	m.saveFiles = s.SaveFiles
+	m.saveFormatted, m.saveFormatInfo = s.SaveFormatted, s.SaveFormatInfo
 	if m.saveFiles == nil {
 		m.saveFiles = map[string][]byte{}
 	}

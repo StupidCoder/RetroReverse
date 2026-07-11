@@ -133,7 +133,9 @@ type Machine struct {
 	fsFiles     map[uint32]*fsFile
 	fsDirs      map[uint32]*fsDir
 	fsArchives  map[uint32]uint32 // archive handle → archive ID (OpenArchive)
-	saveFiles   map[string][]byte // the writable (save-data) archive's contents
+	saveFiles       map[string][]byte // the writable (save-data) archive's contents
+	saveFormatted   bool              // FormatSaveData (0x084C) seen; gates GetFormatInfo
+	saveFormatInfo  [4]uint32         // recorded format: size blocks, dirs, files, dup-data
 
 	// The PICA200 GPU (gpu.go). Accessor: GPU().
 	gpu *GPU
@@ -143,6 +145,7 @@ type Machine struct {
 	aptNotifyEv     uint32 // events APT Initialize returned; the deferred wake signals them
 	aptResumeEv     uint32
 	aptWakePending  bool // NotifyToWait seen; signal the APT events at the next VBlank
+	aptParams       []aptParam // queued applet answers ReceiveParameter delivers in order
 	ipcLog          []ipcCall
 	gspShared       uint32 // the GSP shared-memory block handle, once registered
 	gspSharedAddr   uint32 // where the game mapped the GSP shared memory
@@ -207,6 +210,16 @@ type kobject struct {
 	blockAddr   uint32
 	blockSize   uint32
 	thread      *thread // for kind=="thread": the thread this handle names
+}
+
+// aptParam is a parameter queued for the app to receive — a library applet's
+// answer this HLE fabricates, since applets are not run. Fields are exported
+// for the savestate gob encoder.
+type aptParam struct {
+	Sender  uint32 // applet id the answer claims to come from
+	Command uint32 // parameter command the app's receive loops dispatch on
+	Handle  uint32 // shared-memory block handle carried along (0 = none)
+	Data    []byte // payload copied into the receiver's static buffer
 }
 
 type watch struct {

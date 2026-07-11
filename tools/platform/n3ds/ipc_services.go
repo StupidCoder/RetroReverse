@@ -85,8 +85,14 @@ func (m *Machine) ipcAPT(name string, hdr ipcHeader) bool {
 	case 0x0005: // GetAppletManInfo
 		m.ipcReply(hdr.Command, 0, 0, 0x300, 0x300) // active app id fields
 		return true
-	case 0x0006: // GetAppletInfo
-		m.ipcReply(hdr.Command, 0, 0, 1, 0, 0, 0)
+	case 0x0006: // GetAppletInfo(appId) → {u64, u8, u8, u8, u32}. The game's wrapper
+		// (0x00296E40) reads a u64 from cmdbuf[2/3], bytes from cmdbuf[4]/[5]/[6]
+		// and a word from cmdbuf[7]; after PreloadLibraryApplet its poll loop
+		// (0x002324FC) re-queries every 10ms and only proceeds once the cmdbuf[5]
+		// AND cmdbuf[6] bytes are both nonzero — the applet's "registered" and
+		// "loaded" flags. We ack preloads without running library applets, so
+		// report the queried applet as present and loaded.
+		m.ipcReply(hdr.Command, 0, 0, 1, 1, 1, 0)
 		return true
 	case 0x0009: // IsRegistered
 		m.ipcReply(hdr.Command, 1)
@@ -98,20 +104,79 @@ func (m *Machine) ipcAPT(name string, hdr ipcHeader) bool {
 		// (benign: the WAKEUP handler is idempotent and re-arms the wait).
 		m.ipcReply(hdr.Command, 1) // APTCMD_WAKEUP
 		return true
-	case 0x000C: // SendParameter
+	case 0x000C: // SendParameter(sender, dest applet, signal, size + handle/buffer):
+		// the app messages a library applet (file-select sends applet 0x402 a
+		// 32-byte parameter, signal 2) and then parks its main thread on the APT
+		// condvar 0x003E242C until the applet answers. We do not run library
+		// applets, so model the applet answering immediately: arm the deferred
+		// APT wake (next VBlank, same rule as NotifyToWait — waking inside the
+		// reply races the caller's cached session handle). The woken APT thread
+		// (loop 0x00102CB4) runs InquireNotification, whose WAKEUP(1) dispatches
+		// through the jump table 0x00102E9C to the handler that sets state
+		// [apt+0x2C]=6 and signals that condvar.
+		if m.Verbose {
+			fmt.Printf("    SendParameter sender=0x%X dest=0x%X signal=%d size=0x%X\n",
+				m.ReadWord(m.cmdBuf()+4), m.ReadWord(m.cmdBuf()+8),
+				m.ReadWord(m.cmdBuf()+12), m.ReadWord(m.cmdBuf()+16))
+		}
+		// The answer carries a shared-memory block the app maps whole (size 0)
+		// with rw permissions and reads the applet's response from — the map
+		// thunk at 0x00296D70 feeds svcMapMemoryBlock via 0x001EFBD4. Mint a
+		// zero-filled one-page block for it.
+		h := m.newHandle("apt-reply-shared", false)
+		m.handles[h].blockSize = 0x1000
+		m.aptParams = append(m.aptParams, aptParam{
+			Sender:  m.ReadWord(m.cmdBuf() + 8), // dest applet answers as sender
+			Command: 3,
+			Handle:  h,
+		})
+		m.aptWakePending = true
 		m.ipcReply(hdr.Command, 0)
 		return true
 	case 0x000D, 0x000E: // ReceiveParameter / GlanceParameter → the pending parameter.
 		// Wrapper (0x00107EF8) reads senderId=cmdbuf[2], command=cmdbuf[3],
-		// dataSize=cmdbuf[4], handle=cmdbuf[6]. Deliver the launch WAKEUP: no
-		// sender, command WAKEUP (1), no data, no handle.
+		// dataSize=cmdbuf[4], handle=cmdbuf[6]. Default: deliver the launch
+		// WAKEUP — no sender, command WAKEUP (1), no data, no handle.
+		//
+		// After a SendParameter to a library applet, deliver the applet's
+		// answer instead: the app's wait loop (0x00232BA0, via the deadline-
+		// receive 0x0028D750) re-parks until it sees sender == the applet it
+		// messaged AND command == 3 (checked at 0x00232C7C), with a NULL data
+		// buffer — only sender+command matter. Receive consumes the pending
+		// answer; Glance (the APT thread peeks first) leaves it pending.
+		p := aptParam{Sender: 0, Command: 1} // default: launch WAKEUP
+		if len(m.aptParams) > 0 {
+			p = m.aptParams[0]
+			if hdr.Command == 0x000D { // Receive consumes; Glance peeks
+				m.aptParams = m.aptParams[1:]
+				if len(m.aptParams) > 0 {
+					// More queued answers: arm the next deferred wake so the
+					// app's APT thread comes back for them.
+					m.aptWakePending = true
+				}
+			}
+		}
+		if len(p.Data) > 0 {
+			// The payload travels in the receiver's static buffer 0: the
+			// wrapper (0x00107F6C) declares it in the TLS descriptor pair at
+			// +0x180 (word0 = size<<14|2, word1 = pointer).
+			ptr := m.ReadWord(m.curThread.tlsBase + 0x184)
+			max := m.ReadWord(m.curThread.tlsBase+0x180) >> 14
+			n := uint32(len(p.Data))
+			if n > max {
+				n = max
+			}
+			for i := uint32(0); i < n; i++ {
+				m.Write(ptr+i, p.Data[i])
+			}
+		}
 		m.WriteWord(m.cmdBuf(), uint32(hdr.Command)<<16|4<<6|2)
 		m.WriteWord(m.cmdBuf()+4, resultSuccess)
-		m.WriteWord(m.cmdBuf()+8, 0)  // sender app id
-		m.WriteWord(m.cmdBuf()+12, 1) // command = APTCMD_WAKEUP
-		m.WriteWord(m.cmdBuf()+16, 0) // parameter data size
-		m.WriteWord(m.cmdBuf()+20, 0) // translate descriptor: move 1 handle
-		m.WriteWord(m.cmdBuf()+24, 0) // parameter handle (none for WAKEUP)
+		m.WriteWord(m.cmdBuf()+8, p.Sender)
+		m.WriteWord(m.cmdBuf()+12, p.Command)
+		m.WriteWord(m.cmdBuf()+16, uint32(len(p.Data))) // parameter data size
+		m.WriteWord(m.cmdBuf()+20, 0)                   // translate descriptor: move 1 handle
+		m.WriteWord(m.cmdBuf()+24, p.Handle)
 		return true
 	case 0x0043, 0x004B, 0x004C: // NotifyToWait / AppletUtility / SleepIfShellClosed
 		// NotifyToWait (0x0043) means "park me until APT wakes me": on hardware
@@ -133,9 +198,29 @@ func (m *Machine) ipcAPT(name string, hdr ipcHeader) bool {
 	case 0x0016, 0x0017: // PreloadLibraryApplet / FinishPreloadingLibraryApplet
 		// The title preloads a library applet (an on-demand helper such as a
 		// keyboard or selector) ahead of the file-select menu. This HLE does not run
-		// library applets; acking success lets the game proceed. Actually STARTING
-		// one (PrepareToStart/StartLibraryApplet, 0x0018/0x001E) is a separate path
-		// that will halt loudly if the game takes it.
+		// library applets; acking success lets the game proceed.
+		m.ipcReply(hdr.Command)
+		return true
+	case 0x001E: // StartLibraryApplet(appId, paramSize, handle, paramBuffer) —
+		// wrapper 0x00296F50, header 0x001E0084, reply is the result word only.
+		// We do not run the applet: treat it as starting and exiting at once.
+		// Queue the exit answer the app then waits for — its buffered receive
+		// loop (0x002915E4, buffer 0x84 bytes) loops until the parameter
+		// command is one it accepts ({1,0xA,0xB,0xC} or {0xD,0xE,0xF,0x11}),
+		// and the post-accept dispatch (0x002917D8) maps command 0xA to its
+		// own "applet finished" class. Response payload: zeros.
+		m.aptParams = append(m.aptParams, aptParam{
+			Sender:  m.ReadWord(m.cmdBuf() + 4),
+			Command: 0xA,
+			Data:    make([]byte, 0x84),
+		})
+		m.aptWakePending = true
+		m.ipcReply(hdr.Command)
+		return true
+	case 0x0040: // The app hands APT a buffer (wrapper 0x00296FD4: header
+		// 0x00400042 = size, static-buffer descriptor, pointer) and consumes
+		// only the result word — issued right after the library-applet answer
+		// during the file-select flow. Nothing to model: acknowledge.
 		m.ipcReply(hdr.Command)
 		return true
 	case 0x003E: // Takes (u32, u8) and the wrapper (0x00107F28: header const
@@ -209,6 +294,12 @@ func (m *Machine) ipcGSP(hdr ipcHeader) bool {
 		m.ipcReply(hdr.Command)
 		return true
 	case 0x001E, 0x0020: // SetInternalPriorities / config — no state to model, ack
+		m.ipcReply(hdr.Command)
+		return true
+	case 0x0019, 0x001A: // a paired save/restore issued around the library-applet
+		// hand-off after the file-select confirms a slot; both wrappers
+		// (0x002961D0, 0x00107C48) send a bare header — 0x00190000 / 0x001A0000,
+		// no arguments — and read only the result word: acknowledge.
 		m.ipcReply(hdr.Command)
 		return true
 	case 0x0018: // ImportDisplayCaptureInfo
@@ -334,8 +425,40 @@ func (m *Machine) ipcFS(hdr ipcHeader) bool {
 		delete(m.fsArchives, m.ipcArg(1))
 		m.ipcReply(hdr.Command)
 		return true
-	case 0x0814, 0x0817, 0x0845, 0x0851: // Format / control — ack
+	case 0x0814, 0x0817, 0x0851: // control — ack
 		m.ipcReply(hdr.Command, 0, 0)
+		return true
+	case 0x0845: // GetFormatInfo(archive, path) → {u32 size, u32 dirs, u32 files,
+		// u8 duplicateData}. The wrapper (0x001EDF50 site) reads cmdbuf[2..4]
+		// and a byte at cmdbuf[5]. An unformatted save must report "not found"
+		// — a bare success ack left stale request words in the reply, which the
+		// game took for a valid existing save: it skipped creation, opened
+		// /GameData.bin, got NotFound, and threw fatal 0xC8804478 (the "Saving…"
+		// hang after the file-select). The error must be the right CLASS: the
+		// game's handler (0x001A5A68) forgives an fs-module error only when its
+		// description is in [0x154,0x168) — the "save not formatted/absent"
+		// group — and throws anything else. Description 0x154 with NotFound's
+		// level/summary/module = 0xC8804554 routes it to FormatSaveData.
+		if !m.saveFormatted {
+			m.WriteWord(m.cmdBuf(), uint32(hdr.Command)<<16|1<<6)
+			m.WriteWord(m.cmdBuf()+4, resultFSSaveNotFound)
+			return true
+		}
+		m.ipcReply(hdr.Command, m.saveFormatInfo[0], m.saveFormatInfo[1], m.saveFormatInfo[2], m.saveFormatInfo[3])
+		return true
+	case 0x084C: // FormatSaveData(archive, path type/size, blocks, dirs, files,
+		// dir/file hash-buckets, duplicateData byte + path) — wrapper 0x001EE04C,
+		// header 0x084C0242, reply is the result word only. Formatting erases
+		// the archive and records the layout GetFormatInfo echoes back.
+		m.saveFormatted = true
+		m.saveFormatInfo = [4]uint32{
+			m.ipcArg(4),        // size in media blocks
+			m.ipcArg(5),        // directory count
+			m.ipcArg(6),        // file count
+			m.ipcArg(9) & 0xFF, // duplicate-data flag
+		}
+		m.saveFiles = map[string][]byte{}
+		m.ipcReply(hdr.Command)
 		return true
 	}
 	m.CPU.Halt("fs command 0x%04X unimplemented at 0x%08X after %d instructions", hdr.Command, m.CPU.PC(), m.CPU.Instrs)

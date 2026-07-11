@@ -62,8 +62,14 @@ func (m *Machine) fsOpenDirectory(hdr ipcHeader) bool {
 
 	dir, ok := m.romfsChildren(path)
 	if !ok {
+		// The save archive holds no directories; report a miss there with the
+		// save layer's error class (see resultFSSaveNotFound).
+		code := resultFSNotFound
+		if id, open := m.fsArchives[m.ipcArg(1)]; open && id != archiveRomFS {
+			code = resultFSSaveNotFound
+		}
 		m.WriteWord(m.cmdBuf(), uint32(hdr.Command)<<16|1<<6)
-		m.WriteWord(m.cmdBuf()+4, resultFSNotFound)
+		m.WriteWord(m.cmdBuf()+4, code)
 		return true
 	}
 	h := m.newHandle("fs-dir", false)
@@ -208,8 +214,12 @@ func (m *Machine) fsOpenFile(hdr ipcHeader) bool {
 	if saveArchive {
 		data, ok := m.saveFiles[path]
 		if !ok {
+			// A missing file in SAVE DATA is a different error class from a
+			// missing RomFS file: the game's save layer (0x001A5A68) only
+			// forgives fs errors with description in [0x154,0x168) — the
+			// raw NotFound (0x78) is thrown as a fatal.
 			m.WriteWord(m.cmdBuf(), uint32(hdr.Command)<<16|1<<6)
-			m.WriteWord(m.cmdBuf()+4, resultFSNotFound)
+			m.WriteWord(m.cmdBuf()+4, resultFSSaveNotFound)
 			return true
 		}
 		sess := &fsFile{path: path, save: path, data: data}
@@ -268,6 +278,12 @@ func (m *Machine) fsOpenFile(hdr ipcHeader) bool {
 
 // resultFSNotFound is the Horizon "file/path not found" result code.
 const resultFSNotFound uint32 = 0xC8804478
+
+// resultFSSaveNotFound is the "not found" of the save-data layer — same level/
+// summary/module as resultFSNotFound but description 0x154, the class the
+// game's save code (filter at 0x001A5A68, range [0x154,0x168)) treats as "the
+// save is fresh, create it" rather than a fatal error.
+const resultFSSaveNotFound uint32 = 0xC8804554
 
 // archiveRomFS is the FS_ArchiveID for a title's own RomFS.
 const archiveRomFS = 0x00000003

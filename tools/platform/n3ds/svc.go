@@ -48,6 +48,7 @@ const (
 	svcCreateTimer        = 0x1A
 	svcCreateMemoryBlock  = 0x1E
 	svcMapMemoryBlock     = 0x1F
+	svcUnmapMemoryBlock   = 0x20
 	svcCreateAddressArb   = 0x21
 	svcArbitrateAddress   = 0x22
 	svcCloseHandle        = 0x23
@@ -150,6 +151,8 @@ func (m *Machine) handleSVC(c *arm.CPU, comment uint32) bool {
 		m.svcCreateHandle(c, "memblock", false, 0) // handle out in r0
 	case svcMapMemoryBlock:
 		m.svcMapMemoryBlock(c)
+	case svcUnmapMemoryBlock:
+		m.svcUnmapMemoryBlock(c)
 	case svcDuplicateHandle:
 		m.svcCreateHandle(c, "dup", false, 1)
 	case svcConnectToPort:
