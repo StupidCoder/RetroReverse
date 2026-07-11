@@ -171,30 +171,58 @@ supervisor call returns. With the config field left zero the subtraction underfl
 budget (`APPMEMALLOC`, 64 MiB) and reporting the COMMIT figure as the committed base (code + stack, 4 MiB)
 makes the heap a clean, page-aligned **60 MiB** (`0x03C00000`) — and the whole init then flows through.
 
-### How far it runs
+### How far it runs — into the render loop
 
-From a cold boot the oracle runs the C runtime's segment/BSS setup, the VFP-heavy library init, the
-process-memory and resource-limit handshake, the heap allocation, and mutex/handle setup, and then
-enters the **OS service handshake**: it connects to the service-manager port **`srv:`**
-(`RegisterClient`, `EnableNotification`), and through it acquires and drives the first services — the
-applet manager **`APT:U`** (lock handle, Initialize with its notification/resume events), the network
-daemon **`ndm:u`**, and the system-config service **`cfg:u`**. `bootoracle` reports the whole service
-transcript. It reaches **~725,000 instructions** — roughly triple the pre-IPC reach — before halting
-on the next unimplemented service command, which is always named precisely.
+The oracle now carries the title from a cold boot all the way into its **render loop**: it runs the C
+runtime, the VFP-heavy library init, the process-memory/resource-limit handshake and heap allocation;
+it drives the full **OS service handshake** (`srv:` → `APT:U` applet lifecycle, `ndm:u`, `cfg:u`,
+`fs:USER`); it loads its **real assets** from the RomFS; it registers the **GSP** graphics shared
+memory and its VBlank interrupt relay; and it then runs its frame loop, **submitting PICA200 GPU
+command lists** — 5 command lists over the first ~600M instructions, with no halt. `bootoracle` reports
+the whole service transcript plus VBlanks delivered and GPU command lists submitted / buffer swaps.
 
-The Horizon IPC layer is high-level-emulated (`ipc.go`, `ipc_services.go`): a `SendSyncRequest` reads
-the caller's TLS command buffer, and each service is modelled just far enough to keep init moving.
+Getting there took an OS bring-up in five parts, each landing on a verifiable reach:
+
+- **A cooperative thread scheduler** (`thread.go`, `sync.go`). Horizon threads are kernel-scheduled, so
+  the HLE actually runs them: each thread is a whole-`arm.CPU` context snapshot plus its own TLS page,
+  run highest-priority-first for a quantum, with *real* synchronisation — events, mutexes, semaphores,
+  `WaitSynchronization1/N`, and the `ArbitrateAddress` futex/condvar path libctru's LightLock and
+  condition variables need. A blocked `svc` yields cleanly; a waker writes the ABI result into the
+  parked thread's saved context and marks it ready, so it resumes past the `svc` with the right
+  registers (the DS dual-core `deliver` shape).
+- **`fs` backed by the real RomFS.** A title opens `ARCHIVE_ROMFS` and expects `fs` to have stripped
+  the IVFC hash-tree wrapper and to present the **level-3 filesystem** directly (offset 0 = the RomFS
+  header). Handing back the raw IVFC container instead made the game's own directory hash-chain walk
+  read metadata 0x1000 bytes too early and loop forever; returning the region from the level-3 media
+  offset fixes it and the game loads its assets.
+- **Shared memory + the VBlank heartbeat** (`gsp_mem.go`, `gsp_vblank.go`). `svcMapMemoryBlock` binds a
+  block handle to real bytes, so the GSP shared memory maps. On an instruction-paced frame boundary
+  (deterministic for savestates) the machine pushes a VBlank into the shared-memory interrupt queue and
+  signals the GSP event — Horizon delivers GPU interrupts as event signals through shared memory, not
+  IRQ vectoring, so this rides the scheduler's event/wait path. Verified end to end by tracing: VBlank →
+  GSP event → the game's GSP event thread drains the queue → it signals the render condvar → the main
+  thread wakes.
+- **The GX command path** (`gx.go`). The game posts GX commands to a FIFO in GSP shared memory and
+  blocks on their completion interrupts. The machine emulates the GSP module's side: it drains the FIFO
+  and raises each command's interrupt — **P3D** for a PICA200 command list, **PPF** for a display
+  transfer, **PSC0/1** for a memory fill — which is what lets the render loop advance. This is the
+  analogue of the N64 RDP command reader, minus the rasteriser.
+- **Two synchronisation-correctness fixes**, both traced from concrete lock-ups. `ArbitrateAddress`
+  `DECREMENT_AND_WAIT_IF_LESS_THAN` must decrement *then* compare (park when `*addr <= value`), or the
+  first waiter on a locked LightLock never registers and spin-starves the holder. And the `LDREX`/`STREX`
+  exclusive monitor must be cleared on every context switch (as a real OS issues `CLREX`), or a `STREX`
+  straddling a switch mistakes another thread's write for its own and corrupts shared lock words.
+
+What remains for a **visible frame** is the **PICA200 GPU** (Phase 4): the render loop submits command
+lists but does not present a buffer (0 swaps) because, without a GPU to execute the lists into a
+framebuffer, the loop has no rendered result to check and advance on. Executing those command lists into
+pixels — an LLE vertex shader, a perspective-correct rasteriser, the 6-stage TEV combiner and the tiled
+framebuffer — is an effort on the scale of this repo's N64 RDP or PSX GPU, and is the next milestone.
+
 One quirk is recorded and not yet explained — some `srv:GetServiceHandle` requests store the 8-byte
-service name with each 32-bit word's halves swapped ("APT:U" arrives half-swapped, "ndm:u" straight,
-both from the same thread), so the reader tries both orders and takes the one whose family it knows.
-
-The remaining distance to a **rendered frame** is real work, not a mystery: completing the APT
-applet-lifecycle handshake (the app receiving its startup parameter and transitioning to the running
-state), the GSP graphics service (registering the shared command queue, then the game building GPU
-command lists), and — for actual pixels — a **PICA200 GPU** implementation to execute those command
-lists, an effort on the scale of this repo's N64 RDP or PSX GPU. The machine is built to reach the
-point of *submitting* the first frame and to report it (`bootoracle` counts GPU command lists and
-buffer swaps); producing the pixels is the next platform milestone.
+service name with each 32-bit word's halves rotated ("APT:U" half-swapped, "fs:USER" byte-rotated,
+"ndm:u" straight, all from the same thread), so the reader tries each rotation and takes the one whose
+service family it recognises.
 
 ---
 
