@@ -26,12 +26,10 @@ func decodeCop1(in Inst, w, rs, rt, rd, shamt uint32) Inst {
 		return set("mtc1", fmt.Sprintf("mtc1 %s, %s", reg(rt), fpr(fs)))
 	case 0x06:
 		return set("ctc1", fmt.Sprintf("ctc1 %s, $%d", reg(rt), fs))
-	case 0x08: // BC1
+	case 0x08: // BC1: bc1f/bc1t (+l likely variants)
 		in.Flow, in.Target, in.HasTarget, in.HasDelay = FlowBranch, in.Addr+4+uint32(int32(int16(w)))*4, true, true
-		if rt&1 != 0 {
-			return set("bc1t", fmt.Sprintf("bc1t $%08X", in.Target))
-		}
-		return set("bc1f", fmt.Sprintf("bc1f $%08X", in.Target))
+		mnem := [4]string{"bc1f", "bc1t", "bc1fl", "bc1tl"}[rt&3]
+		return set(mnem, fmt.Sprintf("%s $%08X", mnem, in.Target))
 	case 0x10, 0x14: // fmt = S / W
 		return decodeCop1Fmt(in, w, rs, rt, fs, fd)
 	}
@@ -82,7 +80,10 @@ func decodeCop1Fmt(in Inst, w, rs, ft, fs, fd uint32) Inst {
 		return set("cvt.w.s", fmt.Sprintf("cvt.w.s %s, %s", fpr(fd), fpr(fs)))
 	}
 	if funct >= 0x30 { // c.cond.s
-		return set("c.cond."+sfx, fmt.Sprintf("c.cond.%s %s, %s", sfx, fpr(fs), fpr(ft)))
+		cond := [16]string{"f", "un", "eq", "ueq", "olt", "ult", "ole", "ule",
+			"sf", "ngle", "seq", "ngl", "lt", "nge", "le", "ngt"}[funct&0xF]
+		mnem := "c." + cond + "." + sfx
+		return set(mnem, fmt.Sprintf("%s %s, %s", mnem, fpr(fs), fpr(ft)))
 	}
 	return word(in, w)
 }
@@ -110,11 +111,15 @@ func (c *CPU) cop1(w, rs, rt, rd, shamt uint32) {
 		if fs == 31 {
 			c.FCC = c.reg(rt)&(1<<23) != 0
 		}
-	case 0x08: // BC1
+	case 0x08: // BC1: bc1f/bc1t (+l likely variants)
 		simm := uint32(int32(int16(w)))
 		target := c.curPC + 4 + simm<<2
 		taken := (rt&1 != 0) == c.FCC // bc1t when FCC set, bc1f when clear
-		c.doBranch(taken, target)
+		if rt&0x02 != 0 && !taken {   // likely: not-taken nullifies the delay slot
+			c.nullifyNext = true
+		} else {
+			c.doBranch(taken, target)
+		}
 	case 0x10: // fmt = S
 		c.cop1S(w, ft, fs, fd)
 	case 0x14: // fmt = W
@@ -172,21 +177,17 @@ func (c *CPU) cop1W(w, ft, fs, fd uint32) {
 	}
 }
 
-// fcompare implements the MIPS c.cond.s predicate for the common conditions. The
-// low 4 bits of funct select the condition; bit 1 = "less", bit 0 = "equal".
+// fcompare implements the MIPS c.cond.s predicate. The low 4 bits of funct select
+// the condition: bit 2 = "less", bit 1 = "equal", bit 0 = "unordered" (bit 3 only
+// selects the signalling flavour, which does not change the predicate). So
+// c.eq.s = 0x32 (cond 2), c.lt.s = 0x3C (cond 12), c.le.s = 0x3E (cond 14).
 func fcompare(funct uint32, a, b float32) bool {
 	cond := funct & 0xF
 	if a != a || b != b { // unordered (NaN)
-		return cond&1 != 0 && cond&0x8 != 0 // only the unordered-signalling forms
+		return cond&1 != 0
 	}
-	lt := a < b
-	eq := a == b
-	res := false
-	if cond&2 != 0 {
-		res = res || lt
+	if cond&4 != 0 && a < b {
+		return true
 	}
-	if cond&1 != 0 {
-		res = res || eq
-	}
-	return res
+	return cond&2 != 0 && a == b
 }

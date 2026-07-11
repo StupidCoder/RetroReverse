@@ -7,39 +7,60 @@ package psp
 // through-mode (2D screen-space) and transformed (3D) triangles/strips/fans/sprites
 // with per-vertex or material colour. Texturing is sampled when a texture is bound.
 
-import "math"
+import (
+	"fmt"
+	"math"
+	"os"
+	"strconv"
+)
+
+// geDebugN: set PSP_GE_DEBUG=N to print the render state of the first N PRIMs.
+var geDebugN, _ = strconv.Atoi(os.Getenv("PSP_GE_DEBUG"))
 
 // GE register command numbers (subset; pspsdk guInternal names).
 const (
-	cVADDR     = 0x01
-	cPRIM      = 0x04
-	cBASE      = 0x10
-	cVTYPE     = 0x12
-	cOFFADDR   = 0x13
-	cWORLDN    = 0x3A
-	cWORLDD    = 0x3B
-	cVIEWN     = 0x3C
-	cVIEWD     = 0x3D
-	cPROJN     = 0x3E
-	cPROJD     = 0x3F
-	cVPXSCALE  = 0x42
-	cVPYSCALE  = 0x43
-	cVPZSCALE  = 0x44
-	cVPXCENTER = 0x45
-	cVPYCENTER = 0x46
-	cVPZCENTER = 0x47
-	cOFFSETX   = 0x4C
-	cOFFSETY   = 0x4D
-	cMATCOLOR  = 0x53
-	cTEXADDR0  = 0xA0
-	cTEXBW0    = 0xA8
-	cTEXSIZE0  = 0xB8
-	cTEXFORMAT = 0xC3
-	cTEXENABLE = 0x1E
-	cFBPTR     = 0x9C
-	cFBWIDTH   = 0x9D
-	cFBPIXFMT  = 0xD2
-	cCLEARMODE = 0xD3
+	cVADDR      = 0x01
+	cPRIM       = 0x04
+	cBASE       = 0x10
+	cVTYPE      = 0x12
+	cOFFADDR    = 0x13
+	cTEXENABLE  = 0x1E
+	cBLENDON    = 0x21
+	cWORLDN     = 0x3A
+	cWORLDD     = 0x3B
+	cVIEWN      = 0x3C
+	cVIEWD      = 0x3D
+	cPROJN      = 0x3E
+	cPROJD      = 0x3F
+	cVPXSCALE   = 0x42
+	cVPYSCALE   = 0x43
+	cVPZSCALE   = 0x44
+	cVPXCENTER  = 0x45
+	cVPYCENTER  = 0x46
+	cVPZCENTER  = 0x47
+	cTEXSCALEU  = 0x48
+	cTEXSCALEV  = 0x49
+	cTEXOFFSETU = 0x4A
+	cTEXOFFSETV = 0x4B
+	cOFFSETX    = 0x4C
+	cOFFSETY    = 0x4D
+	cBLENDMODE  = 0x50
+	cMATAMBIENT = 0x55 // material ambient RGB: the vertex colour when the format carries none
+	cMATALPHA   = 0x58 // material ambient alpha
+	cTEXADDR0   = 0xA0
+	cTEXBW0     = 0xA8
+	cCLUTADDR   = 0xB0
+	cCLUTADDRH  = 0xB1
+	cTEXSIZE0   = 0xB8
+	cTEXMODE    = 0xC2 // bit 0 = swizzled, bits 16-18 = mip count
+	cTEXFORMAT  = 0xC3
+	cLOADCLUT   = 0xC4 // latches CLUT data from CLUTADDR (arg = 32-byte blocks)
+	cCLUTFORMAT = 0xC5
+	cTEXFUNC    = 0xC9
+	cFBPTR      = 0x9C
+	cFBWIDTH    = 0x9D
+	cFBPIXFMT   = 0xD2
+	cCLEARMODE  = 0xD3
 )
 
 // geState is the render state accumulated while walking a list.
@@ -55,27 +76,47 @@ type geState struct {
 
 	vpXS, vpYS, vpZS float32 // viewport scale
 	vpXC, vpYC, vpZC float32 // viewport center
+	offX, offY       float32 // screen offset (OFFSETX/Y, 4-bit subpixel args)
 
 	world, view, proj          [16]float32
 	worldIdx, viewIdx, projIdx int
 
-	matColor uint32
+	matColor uint32 // material ambient RGBA (vertex colour when the format has none)
 	clearOn  bool
 
-	texEnable  bool
-	texAddr    uint32
-	texStride  uint32
-	texW, texH uint32
-	texFmt     uint32
+	texEnable            bool
+	texAddr              uint32
+	texStride            uint32
+	texW, texH           uint32
+	texFmt               uint32
+	texSwizzle           bool
+	texScaleU, texScaleV float32
+	texOffU, texOffV     float32
+
+	clutAddr uint32
+	clutFmt  uint32      // CLUTFORMAT: bits 0-1 entry format, 2-6 shift, 8-15 mask, 16-20 base
+	clut     [256]uint32 // decoded RGBA entries
+
+	blendOn bool
 }
 
 func (m *Machine) rasterList(list GeList) {
-	s := &geState{}
-	ident(&s.world)
-	ident(&s.view)
-	ident(&s.proj)
-	s.vpXS, s.vpYS = dispW/2, -dispH/2
-	s.vpXC, s.vpYC = 2048+dispW/2, 2048+dispH/2
+	// GE registers persist across list submissions (a frame's FBP/matrix setup
+	// list conditions the draw lists that follow), so the state lives on the
+	// machine and is created once.
+	if m.geSt == nil {
+		s := &geState{}
+		ident(&s.world)
+		ident(&s.view)
+		ident(&s.proj)
+		s.vpXS, s.vpYS = dispW/2, -dispH/2
+		s.vpXC, s.vpYC = 2048+dispW/2, 2048+dispH/2
+		s.offX, s.offY = 2048, 2048
+		s.texScaleU, s.texScaleV = 1, 1
+		s.matColor = 0xFFFFFFFF
+		m.geSt = s
+	}
+	s := m.geSt
 
 	for _, w := range list.Words {
 		cmd := w >> 24
@@ -98,8 +139,12 @@ func (m *Machine) rasterList(list GeList) {
 			s.fbFmt = arg & 3
 		case cCLEARMODE:
 			s.clearOn = arg&1 != 0
-		case cMATCOLOR:
-			s.matColor = arg
+		case cMATAMBIENT:
+			s.matColor = (s.matColor & 0xFF000000) | arg
+		case cMATALPHA:
+			s.matColor = (s.matColor & 0x00FFFFFF) | (arg&0xFF)<<24
+		case cBLENDON:
+			s.blendOn = arg&1 != 0
 		case cVPXSCALE:
 			s.vpXS = f24(arg)
 		case cVPYSCALE:
@@ -112,16 +157,20 @@ func (m *Machine) rasterList(list GeList) {
 			s.vpYC = f24(arg)
 		case cVPZCENTER:
 			s.vpZC = f24(arg)
+		case cOFFSETX:
+			s.offX = float32(arg) / 16 // 4-bit subpixel fixed point
+		case cOFFSETY:
+			s.offY = float32(arg) / 16
 		case cWORLDN:
-			s.worldIdx = 0
+			s.worldIdx = int(arg & 0xF) // write index 0-11 into the 4x3 matrix
 		case cWORLDD:
 			matPush(&s.world, &s.worldIdx, arg)
 		case cVIEWN:
-			s.viewIdx = 0
+			s.viewIdx = int(arg & 0xF)
 		case cVIEWD:
 			matPush(&s.view, &s.viewIdx, arg)
 		case cPROJN:
-			s.projIdx = 0
+			s.projIdx = int(arg & 0x1F) // write index 0-15 into the 4x4 matrix
 		case cPROJD:
 			matPush16(&s.proj, &s.projIdx, arg)
 		case cTEXENABLE:
@@ -136,6 +185,24 @@ func (m *Machine) rasterList(list GeList) {
 			s.texH = 1 << ((arg >> 8) & 0xFF)
 		case cTEXFORMAT:
 			s.texFmt = arg & 0xF
+		case cTEXMODE:
+			s.texSwizzle = arg&1 != 0
+		case cTEXSCALEU:
+			s.texScaleU = f24(arg)
+		case cTEXSCALEV:
+			s.texScaleV = f24(arg)
+		case cTEXOFFSETU:
+			s.texOffU = f24(arg)
+		case cTEXOFFSETV:
+			s.texOffV = f24(arg)
+		case cCLUTADDR:
+			s.clutAddr = (s.clutAddr & 0xFF000000) | (arg & 0xFFFFFF)
+		case cCLUTADDRH:
+			s.clutAddr = (s.clutAddr & 0x00FFFFFF) | ((arg & 0xFF0000) << 8)
+		case cCLUTFORMAT:
+			s.clutFmt = arg
+		case cLOADCLUT:
+			m.loadClut(s, arg&0x3F)
 		case cPRIM:
 			m.drawPrim(s, arg)
 		}
@@ -150,12 +217,49 @@ func (m *Machine) rasterList(list GeList) {
 // fbAddress is the CPU address of the current framebuffer.
 func (s *geState) fbAddress() uint32 { return vramBase | (s.fbHigh << 24) | s.fbLow }
 
+// loadClut latches CLUT entries from CLUTADDR into the state, decoded to RGBA.
+// blocks is the LOADCLUT argument: 32-byte units (8 entries of 32-bit, or 16 of
+// 16-bit, per the CLUTFORMAT entry format).
+func (m *Machine) loadClut(s *geState, blocks uint32) {
+	if s.clutAddr == 0 {
+		return
+	}
+	entryFmt := s.clutFmt & 3
+	n := blocks * 8
+	if entryFmt != 3 {
+		n = blocks * 16
+	}
+	if n > 256 {
+		n = 256
+	}
+	for i := uint32(0); i < n; i++ {
+		if entryFmt == 3 { // 8888 (RGBA byte order)
+			s.clut[i] = m.read32(s.clutAddr + i*4)
+		} else {
+			r, g, b, a := decode16a(u16(m, s.clutAddr+i*2), entryFmt)
+			s.clut[i] = uint32(r) | uint32(g)<<8 | uint32(b)<<16 | uint32(a)<<24
+		}
+	}
+}
+
 // drawPrim decodes and rasterizes one PRIM command (arg: bits 0-15 count, 16-18 type).
 func (m *Machine) drawPrim(s *geState, arg uint32) {
 	count := int(arg & 0xFFFF)
 	ptype := (arg >> 16) & 7
 	if count == 0 || s.vaddr == 0 {
 		return
+	}
+	if geDebugN > 0 {
+		geDebugN--
+		vs := m.decodeVerts(s, min(count, 2))
+		var v0 vert
+		if len(vs) > 0 {
+			v0 = vs[0]
+		}
+		fmt.Printf("PRIM t%d n%d vt=%06X va=%08X tex=%v@%08X f%d sw%v %dx%d clut@%08X mat=%08X wT=(%.1f,%.1f,%.1f) v0=(%.1f,%.1f,%.1f uv %.2f,%.2f)\n",
+			ptype, count, s.vtype, s.vaddr, s.texEnable, s.texAddr, s.texFmt, s.texSwizzle,
+			s.texW, s.texH, s.clutAddr, s.matColor,
+			s.world[12], s.world[13], s.world[14], v0.x, v0.y, v0.z, v0.u, v0.v)
 	}
 	verts := m.decodeVerts(s, count)
 	if len(verts) < 1 {
@@ -224,6 +328,26 @@ func (m *Machine) decodeVerts(s *geState, count int) []vert {
 		vv.a = 0xFF
 		if tfmt != 0 {
 			vv.u, vv.v = readUV(m, p, tfmt)
+			if through {
+				// through-mode texcoords are absolute texels; normalize for sampling
+				if s.texW != 0 && s.texH != 0 {
+					vv.u /= float32(s.texW)
+					vv.v /= float32(s.texH)
+				}
+			} else {
+				// transformed-mode fixed-point texcoords are fractional (u8/128,
+				// s16/32768), then scaled and offset by the texture matrix registers
+				switch tfmt {
+				case 1:
+					vv.u /= 128
+					vv.v /= 128
+				case 2:
+					vv.u /= 32768
+					vv.v /= 32768
+				}
+				vv.u = vv.u*s.texScaleU + s.texOffU
+				vv.v = vv.v*s.texScaleV + s.texOffV
+			}
 			p += texSz
 		}
 		if cfmt != 0 {
@@ -231,6 +355,7 @@ func (m *Machine) decodeVerts(s *geState, count int) []vert {
 			p += colSz
 		} else {
 			vv.r, vv.g, vv.b = byte(s.matColor), byte(s.matColor>>8), byte(s.matColor>>16)
+			vv.a = byte(s.matColor >> 24)
 		}
 		px, py, pz := readPos(m, p, pfmt)
 		if through {
@@ -307,8 +432,8 @@ func transform(mvp [16]float32, s *geState, x, y, z float32) (float32, float32, 
 		cw = 1
 	}
 	nx, ny, nz := cx/cw, cy/cw, cz/cw
-	sx := nx*s.vpXS + s.vpXC - 2048
-	sy := ny*s.vpYS + s.vpYC - 2048
+	sx := nx*s.vpXS + s.vpXC - s.offX
+	sy := ny*s.vpYS + s.vpYC - s.offY
 	sz := nz*s.vpZS + s.vpZC
 	return sx, sy, sz
 }

@@ -72,6 +72,7 @@ type Machine struct {
 	// GE (GPU) display lists submitted via sceGeListEnQueue.
 	GeLists  []GeList
 	OnGeList func(GeList)
+	geSt     *geState // persistent GE register state (survives across lists)
 
 	imageHash string // pinned into savestates
 

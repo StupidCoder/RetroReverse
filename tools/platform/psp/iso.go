@@ -15,6 +15,7 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
+	"strconv"
 	"strings"
 )
 
@@ -174,8 +175,13 @@ func splitPath(p string) []string {
 }
 
 // resolve walks a slash path and returns the matching entry. The empty path is the
-// root directory, returned as a synthetic entry.
+// root directory, returned as a synthetic entry. The umd9660 driver's raw-extent
+// syntax "sce_lbn0x<lbn>_size0x<size>" (a game opens a sector run directly, by the
+// LBN it read from a file's stat) resolves to a synthetic entry over that extent.
 func (v *Volume) resolve(path string) (Entry, error) {
+	if lbn, size, ok := parseLbnPath(path); ok {
+		return Entry{Name: path, Path: path, Block: lbn, Size: size}, nil
+	}
 	cur := Entry{Name: v.Name, Path: "", IsDir: true, Block: v.rootLBA, Size: v.rootSize}
 	for _, want := range splitPath(path) {
 		if !cur.IsDir {
@@ -197,6 +203,27 @@ func (v *Volume) resolve(path string) (Entry, error) {
 		}
 	}
 	return cur, nil
+}
+
+// parseLbnPath recognises the umd9660 raw-extent path "sce_lbn0x<lbn>_size0x<size>"
+// (both numbers hex, case-insensitive; the game's own format string is
+// "/sce_lbn0x%X_size0x%X").
+func parseLbnPath(path string) (lbn, size int, ok bool) {
+	p := strings.ToLower(strings.Trim(path, "/"))
+	if !strings.HasPrefix(p, "sce_lbn") {
+		return 0, 0, false
+	}
+	rest := p[len("sce_lbn"):]
+	i := strings.Index(rest, "_size")
+	if i < 0 {
+		return 0, 0, false
+	}
+	l, err1 := strconv.ParseInt(strings.TrimPrefix(rest[:i], "0x"), 16, 64)
+	s, err2 := strconv.ParseInt(strings.TrimPrefix(rest[i+len("_size"):], "0x"), 16, 64)
+	if err1 != nil || err2 != nil {
+		return 0, 0, false
+	}
+	return int(l), int(s), true
 }
 
 // ReadDir lists the entries of the directory at path ("" or "/" is the root).

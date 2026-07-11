@@ -287,6 +287,10 @@ func decodeSpecial(in Inst, w, rs, rt, rd, shamt, funct uint32) Inst {
 		return set("slt", fmt.Sprintf("slt %s, %s, %s", reg(rd), reg(rs), reg(rt)))
 	case 0x2B:
 		return set("sltu", fmt.Sprintf("sltu %s, %s, %s", reg(rd), reg(rs), reg(rt)))
+	case 0x16: // Allegrex
+		return set("clz", fmt.Sprintf("clz %s, %s", reg(rd), reg(rs)))
+	case 0x17: // Allegrex
+		return set("clo", fmt.Sprintf("clo %s, %s", reg(rd), reg(rs)))
 	case 0x2C: // Allegrex
 		return set("max", fmt.Sprintf("max %s, %s, %s", reg(rd), reg(rs), reg(rt)))
 	case 0x2D: // Allegrex

@@ -15,7 +15,8 @@ supply a dump with the MD5 above.
 - **Part III — Graphics engine (GE).** The display-list interpreter, the software
   rasterizer, and the framebuffer output.
 - **Part IV — Audio.** *(future)*
-- **Part V — Game data.** *(future)*
+- **Part V — Game data.** The resource pipeline: DATA.BIN raw-extent access by LBN,
+  the GPRS compressed container, the GARC archive, and the XUI screen resources.
 
 The toolchain — the Allegrex CPU core and its disassembler/tracer, the PSP machine
 oracle, and the `pspinfo`/`bootoracle` front-ends — is documented in Parts I and II.
@@ -132,8 +133,12 @@ COP1 FPU and a 128-bit COP2 vector unit (the VFPU). The core (`tools/cpu/allegre
 shares the R3000 skeleton of `tools/cpu/mips` — branch delay slots, the same `Bus`
 interface — but retires loads immediately (MIPS32R2 removed the load delay slot). It
 adds the MIPS32R2 integer group (`movz`/`movn`/`rotr`, SPECIAL2 `mul`/`madd`/`clz`,
-SPECIAL3 `ext`/`ins`/`seb`/`seh`/`wsbh`), the Allegrex `min`/`max` and likely
-branches, the FPU, and the full VFPU (below). Its disassembler (`disallegrex`) and
+SPECIAL3 `ext`/`ins`/`seb`/`seh`/`wsbh`), the Allegrex `min`/`max` and the SPECIAL
+encodings of `clz`/`clo` (funct `0x16`/`0x17`, distinct from the MIPS32 SPECIAL2
+pair), the likely branches, the FPU — the `c.cond.s` compare family maps condition
+bit 2 to *less*, bit 1 to *equal* and bit 0 to *unordered*, latched in FCC and
+consumed by `bc1t`/`bc1f` and their delay-slot-nullifying `bc1tl`/`bc1fl` forms —
+and the full VFPU (below). Its disassembler (`disallegrex`) and
 tracer (`codetraceallegrex`) follow the shared CPU-command layout; the machine
 oracle drives it through the memory map:
 
@@ -241,7 +246,13 @@ execution frame on a scratch stack.
 `sceIo` (`io.go`) is backed by the mounted UMD volume: `sceIoOpen`/`Read`/`Lseek`/
 `Close` resolve the disc path on the ISO 9660 filesystem and stream bytes through
 `ReadFileAt`; `sceKernelStdout`/`stderr` and `sceIoWrite` feed the TTY, and
-`sceKernelPrintf` renders the game's own debug logging. With these the boot runs the
+`sceKernelPrintf` renders the game's own debug logging. `sceIoGetstat` fills a
+0x58-byte `SceIoStat`; on the PSP's umd9660 driver the file's start sector (LBN)
+is reported in `st_private[0]`, and the game reads it there. The driver's
+raw-extent path syntax `disc0:/sce_lbn0x<lbn>_size0x<size>` — the game's own
+format string — opens a sector run directly, without a directory lookup; the
+volume resolver recognises it and serves the extent, which is how the game
+streams individual files out of the 445 MiB `DATA.BIN` pack (Part V). With these the boot runs the
 module entry and C runtime, brings up its six heap zones, loads its media PRXs from
 `USRDIR/modules`, starts its worker threads (`sgsfile-req-th`, the SAS mixer
 threads, `ptnCallbackTh`) and reaches its **per-frame render loop**: every frame it
@@ -264,29 +275,44 @@ VRAM.
 
 - **Capture (`ge.go`).** A submitted list is captured by following its control flow —
   `JUMP`/`CALL`/`RET`/`BASE` — to the `END`, flattening it to a command sequence.
-- **Interpret (`ge_raster.go`).** The commands set the framebuffer target
-  (`FRAME_BUF_PTR`/`FRAME_BUF_WIDTH`/`FRAMEBUF_PIX_FORMAT`), the viewport
-  (scale/center), the world/view/projection matrices, the vertex format
-  (`VERTEX_TYPE`) and the texture binding; `PRIM` triggers a draw. Vertices are decoded
-  per the vertex type (position s8/s16/float, colour 565/5551/4444/8888, texcoords),
-  and — for non-through primitives — transformed by model-view-projection and the
-  viewport, or taken as screen-space coordinates in through mode.
+- **Interpret (`ge_raster.go`).** The GE registers persist across list submissions
+  (a frame's framebuffer/viewport setup list conditions the draw lists that follow),
+  so the interpreter keeps one state on the machine. The commands set the framebuffer
+  target (`FRAME_BUF_PTR`/`FRAME_BUF_WIDTH`/`FRAMEBUF_PIX_FORMAT`), the viewport
+  (scale/center) and the screen offset (`OFFSETX`/`OFFSETY`, 4-bit-subpixel values
+  subtracted from viewport space to reach screen pixels), the world/view/projection
+  matrices (a matrix-number command sets the write index, data commands stream
+  elements), the vertex format (`VERTEX_TYPE`), the material ambient colour and alpha
+  (the vertex colour when the format carries none), the texture binding (address,
+  stride, size, format, swizzle mode, UV scale/offset), the CLUT (address and format;
+  `LOADCLUT` latches entries from memory at execution time), and alpha blending;
+  `PRIM` triggers a draw. Vertices are decoded per the vertex type (position
+  s8/s16/float, colour 565/5551/4444/8888 or material, texcoords u8/u16/float —
+  fixed-point texcoords are fractional, scaled by `TEXSCALEU/V`), and — for
+  non-through primitives — transformed by model-view-projection, the viewport and
+  the screen offset, or taken as screen-space coordinates in through mode.
 - **Rasterize (`ge_draw.go`).** Triangles (lists/strips/fans) fill by barycentric
-  interpolation of per-vertex colour; sprites fill axis-aligned rectangles; a bound
-  texture modulates the colour. Pixels are written in the framebuffer's PSP format.
+  interpolation of per-vertex colour; sprites fill axis-aligned rectangles. A bound
+  texture modulates the colour: the direct formats (5650/5551/4444/8888) and the
+  indexed ones (CLUT4/CLUT8) are sampled, honouring the PSP's swizzled block layout
+  (16-byte × 8-row tiles stored contiguously) and mapping indices through the
+  latched palette per `CLUTFORMAT` (shift, mask, base). With blending enabled the
+  source mixes over the destination by source alpha. Pixels are written in the
+  framebuffer's PSP format.
 - **Output (`framebuffer.go`).** The 480×272 framebuffer is decoded from VRAM to an
   RGBA image and written to PNG (`bootoracle -shot`).
 
-The GE pipeline is validated end to end by a rasterizer test that renders a list into
-VRAM and reads the result back. With the VFPU and kernel HLE in place the game now
-drives the GE from its own frame loop: each frame it sets the framebuffer pointer,
-clears the screen, and submits sprite primitives (`bootoracle -gelog N` prints a
-per-list command census). The rendered frame is presently the game's cleared
-background: the loading screen's imagery is streamed through the game's own
-asynchronous resource manager — a worker thread (`sgsfile-req-th`) that pulls load
-requests off a semaphore queue and reads `USRDIR/data/DATA.BIN` — and the
-request→completion handshake that populates the on-screen sprites is the current
-wall. Reaching textured content is the subject of Part V (game data).
+The GE pipeline is validated end to end by a rasterizer test that renders a list
+into VRAM and reads the result back, and by the game itself: the boot runs the
+publisher splash, streams the title assets (Part V) and renders the full animated
+title screen — the logo letters with their inhabitants, the singing LocoRocos on
+the hill, the crossfading menu — from its own display lists (~1,100 primitives per
+frame; `bootoracle -gelog N` prints a per-list command census, `-gedump N` the raw
+words, and `PSP_GE_DEBUG=N` the per-primitive render state).
+
+![Sony Computer Entertainment America Presents](figures/presents.png)
+
+![The title screen](figures/title.png)
 
 ---
 
@@ -297,4 +323,70 @@ wall. Reaching textured content is the subject of Part V (game data).
 
 ## Part V — Game data
 
-*(future)* `USRDIR/data/DATA.BIN` (445 MiB) and the `first_us.arc` archive.
+### 1. DATA.BIN and raw-extent access
+
+Nearly all game content lives in `USRDIR/data/DATA.BIN`, a 445 MiB pack of
+sector-aligned files. The game locates it once at boot: it stats
+`data/DATA.BIN`, reads the file's start sector from `SceIoStat.st_private[0]`
+(the umd9660 driver reports it there), stores it in a global and prints it —
+`DATA.BIN : LBN[23472]`. Individual files are then opened by raw disc extent:
+the file layer formats `disc0:/sce_lbn0x%X_size0x%X` from the pack's base LBN
+plus the file's relative sector offset, and streams the extent in 64 KiB
+chunks. The pack itself is never opened as a file.
+
+### 2. The file layer (sgsfile)
+
+File access goes through the game's own request layer, built at init
+(`sgsfile-*` configuration strings; the worker thread `sgsfile-req-th`, entry
+`0x0881AAF8`, and the `sgsfile-queue` semaphore set — one items-available
+counter and two 256-slot free-list counters). A request is a small command
+block (command 8 is "stat": resolve a path, return the 512-byte resolved name,
+the LBN and the size); the dispatcher (`0x08819A10`) either queues it to the
+worker or — when the device's synchronous flag is set (`0x088144B4`) — executes
+it inline on the calling thread and invokes the completion callback directly.
+`FileOpen` (`0x08846A14`) consults the loaded directory archive first: a hit
+resolves the name to an `sce_lbn` path into DATA.BIN (printed as
+`FileOpen: disc0:/sce_lbn0x6C50_size0xF694C[yel_locoroco.arc]`), a miss falls
+back to the literal disc path.
+
+### 3. GPRS containers and GARC archives
+
+Archive files are stored GPRS-compressed. The 8-byte header is the magic
+`GPRS` and the decompressed size; the game's decompressor (reached from the
+archive loader `0x088486A8`) inflates the stream into a heap buffer. The
+decompressed content of an `.arc` is a GARC archive:
+
+| offset | field |
+|--------|-------|
+| 0x00 | magic `GARC` |
+| 0x04 | version float 1.0 |
+| 0x14 | offset of the first chunk |
+
+Chunks are tagged blocks (`FILE`, …) walked by magic and next-offset; the
+`FILE` chunk is the file directory. The boot directory `data/first_us.arc`
+(98,275 bytes compressed) decompresses to the GARC naming 77 packed files;
+its entries carry each file's sector offset within DATA.BIN (`entry+4`) and
+byte size (`entry+12`), which is exactly what `FileOpen` needs to build the
+`sce_lbn` path. Loaded archives whose payload begins with `GARC` are
+registered in a global resource list (head `0x090EB8C8`, guarded by
+`garcListSema`), which resource queries walk by chunk magic and key.
+
+### 4. XUI screen resources
+
+The boot scene's on-screen content is an `XUI` resource served from a loaded
+GARC: magic `XUI\0`, version float 1.0, a 0x140-byte header, then a chain of
+typed nodes (type at `+0`, next-offset at `+4`, name-offset at `+8` — names
+like `Haikei` (background), `yajirusi` (arrow), `gengo_us`). The scene state
+machine (`0x0894D370`) parses the chain (`0x0894089C`), keeps per-type node
+pointers on the scene object (the type-3 node is the screen root it waits
+for), and advances from its loading state once the parse lands.
+
+### 5. The boot load chain
+
+The sequence from module start to the title screen, as the game's own log and
+the oracle's IO notes record it: `modules/module.cnf` and the media PRXs;
+`data/first_us.arc` (the GPRS→GARC directory); then by name through the
+directory — `system.arc`, `reside_us.arc`, `title_miyano_us.clv` (the title
+music stream) and `yel_locoroco.arc` — each an `sce_lbn` extent of DATA.BIN.
+With these streamed the game renders the publisher splash and the animated
+title screen of Part III's figures.

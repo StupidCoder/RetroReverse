@@ -92,25 +92,79 @@ func modTex(m *Machine, s *geState, u, v float32, r, g, b, a byte) (byte, byte, 
 	return mul8(tr, r), mul8(tg, g), mul8(tb, b), mul8(ta, a)
 }
 
-// sampleTex reads one texel from the bound texture (formats 5650/5551/4444/8888).
+// sampleTex reads one texel from the bound texture: the direct formats
+// (5650/5551/4444/8888) and the indexed ones (CLUT4/CLUT8), honouring the
+// swizzled block layout when TEXMODE selects it.
 func (m *Machine) sampleTex(s *geState, tx, ty uint32) (byte, byte, byte, byte) {
-	stride := s.texStride
+	stride := s.texStride // in pixels
 	if stride == 0 {
 		stride = s.texW
 	}
 	switch s.texFmt {
 	case 3: // 8888
-		c := m.read32(s.texAddr + (ty*stride+tx)*4)
+		off := m.texOff(s, tx*4, ty, stride*4)
+		c := m.read32(s.texAddr + off)
 		return byte(c), byte(c >> 8), byte(c >> 16), byte(c >> 24)
 	case 0, 1, 2: // 565 / 5551 / 4444
-		c := u16(m, s.texAddr+(ty*stride+tx)*2)
-		col := decode16(c, s.texFmt)
-		return col.R, col.G, col.B, col.A
+		off := m.texOff(s, tx*2, ty, stride*2)
+		return decode16a(u16(m, s.texAddr+off), s.texFmt)
+	case 4: // CLUT4: two texels per byte, low nibble first
+		off := m.texOff(s, tx/2, ty, stride/2)
+		raw := uint32(m.Read(s.texAddr+off)) >> (4 * (tx & 1)) & 0xF
+		return s.clutLookup(raw)
+	case 5: // CLUT8
+		off := m.texOff(s, tx, ty, stride)
+		return s.clutLookup(uint32(m.Read(s.texAddr + off)))
 	}
 	return 0xFF, 0xFF, 0xFF, 0xFF
 }
 
-// putPixel writes an RGBA pixel into the framebuffer in its PSP format.
+// texOff converts a (byte-x, y) texel position to a byte offset in the texture
+// buffer. Swizzled textures store 16-byte × 8-row blocks contiguously.
+func (m *Machine) texOff(s *geState, xb, y, rowBytes uint32) uint32 {
+	if !s.texSwizzle || rowBytes < 16 {
+		return y*rowBytes + xb
+	}
+	rowBlocks := rowBytes / 16
+	block := (y/8)*rowBlocks + xb/16
+	return block*128 + (y%8)*16 + xb%16
+}
+
+// clutLookup maps an index through CLUTFORMAT (shift, mask, base) into the
+// latched palette.
+func (s *geState) clutLookup(raw uint32) (byte, byte, byte, byte) {
+	shift := (s.clutFmt >> 2) & 0x1F
+	mask := (s.clutFmt >> 8) & 0xFF
+	base := (s.clutFmt >> 16) & 0x1F
+	c := s.clut[((raw>>shift)&mask+base<<4)&0xFF]
+	return byte(c), byte(c >> 8), byte(c >> 16), byte(c >> 24)
+}
+
+// decode16a decodes a 16-bit texel/palette entry with its true alpha bit(s)
+// (unlike the display path, which forces alpha opaque).
+func decode16a(p uint16, fmt uint32) (byte, byte, byte, byte) {
+	ext := func(v, bits uint16) byte {
+		v &= (1 << bits) - 1
+		return byte((uint32(v) * 255) / ((1 << bits) - 1))
+	}
+	switch fmt {
+	case psm5551:
+		a := byte(0)
+		if p&0x8000 != 0 {
+			a = 0xFF
+		}
+		return ext(p, 5), ext(p>>5, 5), ext(p>>10, 5), a
+	case psm4444:
+		return ext(p, 4), ext(p>>4, 4), ext(p>>8, 4), ext(p>>12, 4)
+	default: // psm5650
+		return ext(p, 5), ext(p>>5, 6), ext(p>>11, 5), 0xFF
+	}
+}
+
+// putPixel writes an RGBA pixel into the framebuffer in its PSP format. With
+// alpha blending enabled (and outside clear mode) the source is mixed over the
+// destination by source alpha — the src-alpha/one-minus-src-alpha rule the
+// game's UI lists set up.
 func (m *Machine) putPixel(s *geState, x, y int, r, g, b, a byte) {
 	base := s.fbAddress()
 	stride := s.fbStride
@@ -118,6 +172,17 @@ func (m *Machine) putPixel(s *geState, x, y int, r, g, b, a byte) {
 		stride = dispW
 	}
 	off := uint32(y)*stride + uint32(x)
+	if s.blendOn && !s.clearOn && a < 0xFF {
+		if a == 0 {
+			return
+		}
+		dr, dg, db := m.dstPixel(s, base, off)
+		mix := func(sc, dc byte) byte {
+			return byte((uint32(sc)*uint32(a) + uint32(dc)*uint32(255-a)) / 255)
+		}
+		r, g, b = mix(r, dr), mix(g, dg), mix(b, db)
+		a = 0xFF
+	}
 	switch s.fbFmt {
 	case psm8888:
 		m.write32(base+off*4, uint32(r)|uint32(g)<<8|uint32(b)<<16|uint32(a)<<24)
@@ -138,6 +203,16 @@ func (m *Machine) putPixel(s *geState, x, y int, r, g, b, a byte) {
 		m.Write(addr, byte(p))
 		m.Write(addr+1, byte(p>>8))
 	}
+}
+
+// dstPixel reads back the render-target pixel at linear offset off (for blending).
+func (m *Machine) dstPixel(s *geState, base, off uint32) (byte, byte, byte) {
+	if s.fbFmt == psm8888 {
+		c := m.read32(base + off*4)
+		return byte(c), byte(c >> 8), byte(c >> 16)
+	}
+	r, g, b, _ := decode16a(u16(m, base+off*2), s.fbFmt)
+	return r, g, b
 }
 
 // --- small helpers ---------------------------------------------------------

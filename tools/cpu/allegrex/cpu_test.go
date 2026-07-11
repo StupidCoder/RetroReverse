@@ -149,6 +149,56 @@ func TestFPUConvertAndCompare(t *testing.T) {
 	}
 }
 
+func TestFPUCompareConditions(t *testing.T) {
+	// The c.cond.s predicate: cond bit 2 = less, bit 1 = equal, bit 0 = unordered.
+	nan := float32(math.NaN())
+	cases := []struct {
+		funct uint32
+		a, b  float32
+		want  bool
+	}{
+		{0x32, 1.0, 1.0, true},  // c.eq.s equal
+		{0x32, 1.0, 2.0, false}, // c.eq.s not equal
+		{0x32, nan, 1.0, false}, // c.eq.s unordered
+		{0x3C, 1.0, 2.0, true},  // c.lt.s less
+		{0x3C, 2.0, 1.0, false}, // c.lt.s greater
+		{0x3C, 1.0, 1.0, false}, // c.lt.s equal
+		{0x3E, 1.0, 1.0, true},  // c.le.s equal
+		{0x3E, 1.0, 2.0, true},  // c.le.s less
+		{0x3E, 2.0, 1.0, false}, // c.le.s greater
+		{0x34, 1.0, 2.0, true},  // c.olt.s less
+		{0x35, nan, 1.0, true},  // c.ult.s unordered
+		{0x30, 1.0, 1.0, false}, // c.f.s always false
+		{0x31, nan, 1.0, true},  // c.un.s unordered
+		{0x31, 1.0, 1.0, false}, // c.un.s ordered
+	}
+	for _, tc := range cases {
+		if got := fcompare(tc.funct, tc.a, tc.b); got != tc.want {
+			t.Errorf("fcompare(0x%02X, %v, %v) = %v, want %v", tc.funct, tc.a, tc.b, got, tc.want)
+		}
+	}
+}
+
+func TestFPUCompareBranch(t *testing.T) {
+	const a, b, r = 4, 5, 6
+	const f0, f1 = 0, 1
+	// c.eq.s on equal values sets FCC; bc1t takes the branch.
+	_, c := run(t, func(m *memBus, c *CPU) {
+		c.SetReg(a, math.Float32bits(1.0))
+		c.SetReg(b, math.Float32bits(1.0))
+	},
+		rtype(0x11, 0x04, a, f0, 0, 0),     // mtc1 $a, $f0
+		rtype(0x11, 0x04, b, f1, 0, 0),     // mtc1 $b, $f1
+		rtype(0x11, 0x10, f1, f0, 0, 0x32), // c.eq.s $f0, $f1
+		itype(0x11, 0x08, 0x01, 2),         // bc1t +2
+		itype(0x09, 0, r, 99),              // delay slot: addiu $r,$0,99
+		itype(0x09, 0, r, 1),               // skipped when branch taken
+	)
+	if c.Reg(r) != 99 {
+		t.Errorf("bc1t after c.eq.s(1,1): r=%d, want 99 (delay slot then skip)", c.Reg(r))
+	}
+}
+
 func TestVFPUSingleLoadStore(t *testing.T) {
 	const base = 8
 	_, c := run(t, func(m *memBus, c *CPU) {

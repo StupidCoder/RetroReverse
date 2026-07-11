@@ -756,6 +756,8 @@ func handlerFor(name string) func(m *Machine) {
 			off := int64(uint64(m.arg(3))<<32 | uint64(m.arg(2)))
 			m.setRet64(uint64(m.ioLseek(m.arg(0), off, m.arg(4))))
 		}
+	case "sceIoGetstat":
+		return func(m *Machine) { m.setRet(m.ioGetstat(m.cstr(m.arg(0)), m.arg(1))) }
 	case "sceIoLseek32":
 		return func(m *Machine) {
 			m.setRet(uint32(m.ioLseek(m.arg(0), int64(int32(m.arg(1))), m.arg(2))))

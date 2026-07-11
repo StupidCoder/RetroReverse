@@ -362,6 +362,10 @@ func (c *CPU) special(w, rs, rt, rd, shamt uint32) {
 		c.set(rd, b2u(int32(c.reg(rs)) < int32(c.reg(rt))))
 	case 0x2B: // sltu
 		c.set(rd, b2u(c.reg(rs) < c.reg(rt)))
+	case 0x16: // clz (Allegrex: SPECIAL funct, unlike MIPS32's SPECIAL2)
+		c.set(rd, clz32(c.reg(rs)))
+	case 0x17: // clo (Allegrex)
+		c.set(rd, clz32(^c.reg(rs)))
 	case 0x2C: // max (Allegrex)
 		if int32(c.reg(rs)) > int32(c.reg(rt)) {
 			c.set(rd, c.reg(rs))

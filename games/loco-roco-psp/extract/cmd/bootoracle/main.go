@@ -10,10 +10,11 @@
 //	bootoracle -image image/LocoRoco.cso [-steps N] [-trace -tracen N]
 //	           [-bp ADDR] [-watch ADDR[:LEN]] [-savestate FILE] [-loadstate FILE]
 //
-// The oracle boots the C runtime and module start, creates and starts the main
-// thread, and runs until it reaches the kernel-HLE wall; -trace shows live execution,
-// -watch maps the code that produces a memory structure, and the syscall census names
-// the kernel functions the boot path invokes.
+// The oracle boots the C runtime and module start, streams the game's assets off
+// the UMD and renders its frames (-shot); -trace shows live execution, -watch maps
+// the code that produces a memory structure, -find locates byte patterns in RAM,
+// -gelog/-gedump summarize or dump the submitted GE display lists, and the syscall
+// census names the kernel functions the boot path invokes.
 package main
 
 import (
@@ -63,8 +64,10 @@ func main() {
 	loadS := flag.String("loadstate", "", "before the run, restore a machine savestate from this file")
 	shot := flag.String("shot", "", "after the run, write the display framebuffer to this PNG")
 	geLog := flag.Int("gelog", 0, "print a command summary of the first N GE display lists")
+	geDump := flag.Int("gedump", 0, "print every command word of the first N GE display lists")
 	disS := flag.String("dis", "", "disassemble ADDR:LEN of loaded memory and exit (after -loadstate)")
 	dumpS := flag.String("dump", "", "hex-dump ADDR:LEN of loaded memory and exit (after -loadstate)")
+	findS := flag.String("find", "", "search loaded RAM for hex bytes (e.g. F0208908) and exit (after -loadstate)")
 	showNotes := flag.Bool("notes", false, "print the machine's diagnostic notes")
 	flag.Parse()
 	if *image == "" {
@@ -114,6 +117,33 @@ func main() {
 		lo, ln := parseWatch(*disS)
 		for a := lo; a < lo+ln; a += 4 {
 			fmt.Fprintf(w, "%08X  %s\n", a, strings.TrimSpace(m.DisasmAt(a)))
+		}
+		return
+	}
+	if *findS != "" {
+		var pat []byte
+		for i := 0; i+1 < len(*findS); i += 2 {
+			v, err := strconv.ParseUint((*findS)[i:i+2], 16, 8)
+			if err != nil {
+				die("bad -find hex")
+			}
+			pat = append(pat, byte(v))
+		}
+		if len(pat) == 0 {
+			die("empty -find pattern")
+		}
+		const ramLo, ramHi = 0x08800000, 0x0A000000
+		for a := uint32(ramLo); a < ramHi-uint32(len(pat)); a++ {
+			hit := true
+			for i, b := range pat {
+				if m.Read(a+uint32(i)) != b {
+					hit = false
+					break
+				}
+			}
+			if hit {
+				fmt.Fprintf(w, "found at 0x%08X\n", a)
+			}
 		}
 		return
 	}
@@ -168,7 +198,19 @@ func main() {
 			}
 		}
 	}
-	if *geLog > 0 {
+	if *geDump > 0 {
+		dumped := 0
+		m.OnGeList = func(l psp.GeList) {
+			if dumped >= *geDump {
+				return
+			}
+			dumped++
+			fmt.Fprintf(w, "GE list %d @0x%08X: %d words\n", dumped, l.Start, len(l.Words))
+			for i, word := range l.Words {
+				fmt.Fprintf(w, "  [%4d] %08X  %-14s arg 0x%06X\n", i, word, psp.GeCmdName(word>>24), word&0xFFFFFF)
+			}
+		}
+	} else if *geLog > 0 {
 		logged := 0
 		m.OnGeList = func(l psp.GeList) {
 			if logged >= *geLog {
@@ -204,6 +246,17 @@ func main() {
 			if haveBP && !hitBP && (pc&0x1FFFFFFF) == (bp&0x1FFFFFFF) {
 				hitBP, bpPC = true, pc
 				mm.Halted, mm.HaltReason = true, "breakpoint"
+				names := [32]string{"zr", "at", "v0", "v1", "a0", "a1", "a2", "a3",
+					"t0", "t1", "t2", "t3", "t4", "t5", "t6", "t7",
+					"s0", "s1", "s2", "s3", "s4", "s5", "s6", "s7",
+					"t8", "t9", "k0", "k1", "gp", "sp", "fp", "ra"}
+				for r := 1; r < 32; r++ {
+					fmt.Fprintf(w, "$%s=%08X ", names[r], mm.CPU.Reg(uint32(r)))
+					if r%8 == 7 {
+						fmt.Fprintln(w)
+					}
+				}
+				fmt.Fprintf(w, "  thread=%s\n", mm.CurrentThread())
 			}
 			if *trace && traced < *tracen &&
 				(*traceThread == "" || mm.CurrentThread() == *traceThread) {
