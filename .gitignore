@@ -17,6 +17,8 @@ games/*/*.img
 games/*/*.z64
 games/*/*.v64
 games/*/*.n64
+games/*/*.cso
+games/*/*.cci
 # Ultima Underworld installed game tree (copyrighted commercial data)
 games/ultima-underworld-pc/game/
 
