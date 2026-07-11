@@ -44,14 +44,23 @@ func (m *Machine) fsOpenFile(hdr ipcHeader) bool {
 	}
 
 	path := m.readFSPath(pathPtr, pathType, pathSize)
+	if m.Verbose {
+		fmt.Printf("    fsOpen cmd=0x%04X archive=0x%08X pathType=%d pathSize=%d path=%q\n", hdr.Command, archive, pathType, pathSize, path)
+	}
 	var data []byte
 	found := false
 	switch {
 	case archive == archiveRomFS && m.romfsRaw != nil:
-		// The game opens ARCHIVE_ROMFS as one big file (a binary path) and walks
-		// the IVFC filesystem itself — hand it the raw RomFS region.
-		data, found = m.romfsRaw, true
-		path = "<romfs>"
+		// The game opens ARCHIVE_ROMFS and expects the *level-3 filesystem* image
+		// (the RomFS header + dir/file tables + file data), not the raw IVFC
+		// container — fs strips the IVFC hash-tree wrapper. Hand back the region
+		// starting at the level-3 media offset.
+		l3 := int64(0)
+		if m.romfs != nil {
+			l3 = m.romfs.Levels[2].Offset
+		}
+		data, found = m.romfsRaw[l3:], true
+		path = "<romfs-l3>"
 	case m.romfs != nil && path != "":
 		if d, err := m.romfs.File(path); err == nil {
 			data, found = d, true
@@ -137,6 +146,13 @@ func (m *Machine) ipcFile(handle uint32, hdr ipcHeader) bool {
 				m.Write(bufPtr+uint32(i), f.data[off+i])
 			}
 		}
+		if m.Verbose {
+			var head uint32
+			if f != nil && n >= 4 {
+				head = m.ReadWord(bufPtr)
+			}
+			fmt.Printf("    IFile Read h=0x%08X off=%d size=%d -> %d bytes (flen=%d) head=%08X\n", handle, off, size, n, fileLen(f), head)
+		}
 		m.ipcReply(hdr.Command, uint32(n))
 		return true
 	case 0x0804: // GetSize → u64
@@ -157,4 +173,11 @@ func (m *Machine) ipcFile(handle uint32, hdr ipcHeader) bool {
 	}
 	m.CPU.Halt("IFile command 0x%04X unimplemented at 0x%08X after %d instructions", hdr.Command, m.CPU.PC(), m.CPU.Instrs)
 	return true
+}
+
+func fileLen(f *fsFile) int {
+	if f == nil {
+		return -1
+	}
+	return len(f.data)
 }
