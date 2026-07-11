@@ -1149,3 +1149,11 @@ nearest-to-linear interpolation, and the voice-gain law are our own, not the RSP
 the render is a faithful software synthesis of the score rather than a sample-identical copy of the
 hardware mix — the reason the energy envelope tracks the captured song without matching it bit for
 bit. All 31 songs are in the Studio's music player.
+
+One ADSR subtlety was worth getting right. A note's release must ramp from the voice's *current*
+envelope level to zero, not from the instrument's fixed sustain level. Program 58 (a swell) decays
+to sustain 0 over six seconds with a release time of zero; a note released mid-decay, computing its
+release rate from that zero sustain, got a rate of zero — and because its sample loops, the voice
+never faded. Each such note stacked into a drone that grew and held under the whole song. Releasing
+from the level the voice is actually at (instantaneously when the release time is zero) is what
+makes a looping voice stop.
