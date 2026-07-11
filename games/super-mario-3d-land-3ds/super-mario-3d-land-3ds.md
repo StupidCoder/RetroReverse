@@ -294,9 +294,51 @@ dialog — rounded grey panel over a darker backdrop, a gradient-filled yellow *
 glyph-rendered text — every pixel produced by the LLE shader → rasteriser → TEV → texture pipeline
 (the button label sits in an LA4 glyph atlas, the panel in ETC1). Two byproducts of the milestone:
 the screen-rotation direction in the PNG capture was settled by the first mirrored text, and the
-dialog's body text resolves to "NULL", which points at one of the still-stubbed system services as
-the next thing to trace. The dialog waits on a button — **HID input injection is the next
-milestone**, the 3DS counterpart of the Ultima Underworld oracle playing itself into the game.
+dialog's body text resolves to "NULL".
+
+### HID input injection — the oracle drives the pad (verified into the game's key state)
+
+The `hid:USER` shared-memory block, once a dead zero page, is now a live pad-state ring the oracle
+publishes into every VBlank (the input driver's per-frame job). The layout was **not guessed**:
+`bootoracle -hidtrace` tallies the game's own reads of the block by offset (instrument-first), and
+the game's HID reader/copier/scan chain was disassembled (the sample copier at `0x00297698`,
+`hidScanInput` at `0x001F52F0`, the pad-manager update at `0x002DA504`) to pin the exact structure —
+per section, two 64-bit timestamps at `+0x00`/`+0x08` (the driver bumps them each sample; the game
+diffs them against its saved copy to count new entries), the latest-entry index at `+0x10`, then an
+8-slot ring of `0x10`-byte entries at `+0x28` whose first word is the current button mask (the game
+derives keys-down itself by diffing successive polls). `bootoracle` gained `-keys`
+(a/b/x/y/l/r/dpad/start/select) and `-hidtrace`; the block, its interrupt events and its mapped
+address ride the savestate (recovered from the region name for pre-HID snapshots). **Proof it
+works:** with `-keys a`, a memory watch shows the game's own derived held-buttons word (input
+context `+8`, at `0x15923700` in the dialog state) flip `0 → 1` — the A bit — exactly as on
+hardware. A first modelling pass wrote the button mask into the index field at `+0x10`; the
+disassembled reader corrected it. Injection reaching the game's key state was validated before it
+was claimed.
+
+### The dialog is an error/notice, not a press-A prompt — the "NULL" is the frontier
+
+With injection proven, the surprise: the dialog **ignores it**. Holding or pulsing A leaves the boot
+re-rendering the identical `"NULL"` frame, instruction-for-instruction — the draw count does not
+budge. So the dialog is not "press Ⓐ to continue"; it is a notice/error state whose body text is a
+message lookup that failed at construction (`-findutf16 NULL` locates the dialog's UTF-16 string
+object at `0x161B2954` in the snapshot, body length 8 = `"NULL"`, resolved once and cached — a
+breakpoint on the message getter never fires again during the render loop). The `err:f` fatal path
+is never invoked, so this is the game's **own** notice, not a Horizon fatal.
+
+Two boot regressions were fixed chasing it. **fs `CloseArchive` (0x080E)** was missing — the game
+closes its save archive after building the Mii database, and a cold boot halted there at 126M
+instructions (the dialog savestate had masked it). And **cfg:u was returning a zero page**:
+`GetConfigInfoBlk2` replied success while leaving the output buffer untouched, so the system-language
+block (`0x000A0002`), sound-output (`0x00070001`), agreed-EULA version (`0x00130000`) and
+stereo-camera (`0x00050005`) all read as zero. `writeConfigBlock` now fills them with a European
+English console's values. (An earlier trace shows the game already *defaults* its internal language
+to English from a zero config — mapping region/language 0 through its own table at `0x00100C7C` — so
+the message folder was already `EuEnglish`, which the cartridge does contain; the honest config is a
+correctness fix and the `"NULL"` root cause likely lies further into the message-archive parse, which
+the game does itself out of the whole RomFS-L3 blob it maps, not through per-file `fs` opens.) **The
+frontier is that message lookup**: catch the dialog's construction during the ~4.9B-instruction boot
+(the new `-logpc` log-and-continue breakpoint and `-dump` are the instruments) and find which message
+id resolves empty and why.
 
 One quirk is recorded and not yet explained — some `srv:GetServiceHandle` requests store the 8-byte
 service name with each 32-bit word's halves rotated ("APT:U" half-swapped, "fs:USER" byte-rotated,
