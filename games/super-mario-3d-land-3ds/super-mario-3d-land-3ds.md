@@ -335,11 +335,35 @@ English console's values. (An earlier trace shows the game already *defaults* it
 to English from a zero config — mapping region/language 0 through its own table at `0x00100C7C` — so
 the message folder was already `EuEnglish`, which the cartridge does contain; the honest config is a
 correctness fix, and a cold boot with it **confirms the dialog is unchanged** — same `"NULL"`, the
-same thirteen UTF-16 `"NULL"` occurrences at the same addresses. So the `"NULL"` root cause lies
-further into the message-archive parse, which the game does itself out of the whole RomFS-L3 blob it
-maps, not through per-file `fs` opens.) **The frontier is that message lookup**: catch the dialog's
-construction during the ~4.9B-instruction boot (the new `-logpc` log-and-continue breakpoint and
-`-dump` are the instruments) and find which message id resolves empty and why.
+same thirteen UTF-16 `"NULL"` occurrences at the same addresses. So the `"NULL"` was not a config
+failure.)
+
+### The dialog identified: the StreetPass first-launch welcome ("Welcome to Super Mario 3D Land.")
+
+Tracing the message getter (`0x00266DDC`, which returns a literal `"NULL"` when a lookup fails) with
+the new `-logpc` breakpoint pinned the dialog to a single builder — a generic **WindowConfirmSingle**
+layout window (body pane `TxtMessage`, button pane `WindowConfirmSingle_OK`) built at `0x00225554`.
+Breaking on its message-fetch call (`0x00225660`) and dumping the id-holder revealed the label it
+asks for: **`StreetPassBegin00`**. Decoding the cartridge's own message archive settled what that is.
+`LocalizedData/EuEnglish/MessageData/SystemMessage.szs` is Yaz0 → NARC → 24 MSBT (`MsgStdBn`) files;
+a new clean-room decoder (`tools/platform/n3ds/message.go` + `cmd/msgtool`) reads them, and
+`StreetPassBegin00` is `"Welcome to <title>."` — the first line of SM3DL's **StreetPass first-launch
+flow**: `StreetPassBegin00/01/02` (welcome + what StreetPass is) → `StreetPassSetting` ("Would you
+like to activate StreetPass for this game?" Activate / Cancel) → `StreetPassDisable` ("Did not
+activate StreetPass. You can activate StreetPass at any time from **the title screen**"). So the boot
+"dialog" is **not an error** — it is the normal first-launch StreetPass prompt, and the title screen
+lies just the other side of it.
+
+Why it renders `"NULL"`: the message data is genuinely loaded (the label `StreetPassBegin00` and its
+UTF-16 text sit in the heap at `0x158D50xx`, and the dialog's message manager points at that very
+MSBT file — `0x158D4C80`, the 16-message System file that holds the StreetPass strings). Yet the
+game's label→index resolution still returns null on present, correctly-loaded data — a subtle failure
+in its MSBT label search (or a service-gated late fill of the inserted `<title>` value). **The
+frontier is that resolution, or the flow's gate**: either make the label search succeed so the real
+welcome renders and drive the flow with the verified HID injection (Ⓐ through Begin00/01/02, then
+Cancel on the activate prompt), or make the first-launch StreetPass check report "already handled" so
+the game skips the flow straight to the title. Because the prompt ends "…from the title screen," both
+paths land there.
 
 One quirk is recorded and not yet explained — some `srv:GetServiceHandle` requests store the 8-byte
 service name with each 32-bit word's halves rotated ("APT:U" half-swapped, "fs:USER" byte-rotated,
