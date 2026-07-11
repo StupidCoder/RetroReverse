@@ -163,7 +163,10 @@ func (m *Machine) ipcGSP(hdr ipcHeader) bool {
 	case 0x000C, 0x000D, 0x000E: // Set/ClearInterrupt, register events
 		m.ipcReply(hdr.Command)
 		return true
-	case 0x0016: // AcquireRight
+	case 0x0016, 0x0017: // AcquireRight / ReleaseRight
+		m.ipcReply(hdr.Command)
+		return true
+	case 0x001E, 0x0020: // SetInternalPriorities / config — no state to model, ack
 		m.ipcReply(hdr.Command)
 		return true
 	case 0x0018: // ImportDisplayCaptureInfo

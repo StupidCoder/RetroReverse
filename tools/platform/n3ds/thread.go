@@ -158,6 +158,7 @@ func (m *Machine) switchTo(t *thread) {
 		return
 	}
 	*m.CPU = t.ctx
+	m.CPU.ClearExclusive() // a switch invalidates any pending LDREX (real OSes CLREX)
 	m.curThread = t
 	t.state = running
 }

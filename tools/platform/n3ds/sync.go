@@ -302,7 +302,7 @@ func (m *Machine) svcArbitrateAddress(c *arm.CPU) {
 		}
 	case 2, 4: // DECREMENT_AND_WAIT_IF_LESS_THAN
 		cur := int32(m.ReadWord(addr))
-		if cur < value {
+		if cur <= value {
 			m.WriteWord(addr, uint32(cur-1))
 			m.arbPark(addr)
 		} else {

@@ -63,6 +63,9 @@ type CPU struct {
 	// Exclusive-access monitor for LDREX/STREX. A local (non-shared) monitor is
 	// enough for a single-core HLE: LDREX tags an address, STREX succeeds only if
 	// the tag still stands, and any explicit clear (CLREX, an exception) drops it.
+	// A multi-threaded HLE that runs several contexts over this one core must also
+	// clear it on every context switch (ClearExclusive) — a real OS issues CLREX so
+	// a STREX cannot straddle a switch and see another thread's write as its own.
 	exclValid bool
 	exclAddr  uint32
 
@@ -399,3 +402,9 @@ func (c *CPU) shift(typ, amt, val uint32, regForm bool, cin uint32) (uint32, uin
 		return ror32(val, amt), (val >> (amt - 1)) & 1
 	}
 }
+
+// ClearExclusive drops the LDREX/STREX exclusive-access monitor. A cooperative
+// multi-threading HLE must call this on every context switch so an interrupted
+// LDREX…STREX sequence fails its STREX (spurious failure is architecturally
+// permitted, and the lock code always retries the LDREX).
+func (c *CPU) ClearExclusive() { c.exclValid = false }

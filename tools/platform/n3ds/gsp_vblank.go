@@ -40,7 +40,12 @@ func (m *Machine) deliverVBlank() {
 
 	m.pushGSPInterrupt(gspIntVBlank0)
 	m.pushGSPInterrupt(gspIntVBlank1)
+	m.signalGSPEvent()
+}
 
+// signalGSPEvent signals the per-process GSP event, waking the game's GSP event
+// thread to drain the shared-memory interrupt queue.
+func (m *Machine) signalGSPEvent() {
 	if obj := m.handles[m.gspEvent]; obj != nil {
 		obj.signal = true
 		if m.signalObject(obj) {

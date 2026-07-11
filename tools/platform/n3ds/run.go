@@ -13,8 +13,15 @@ import (
 // blocked it advances idle time (waking sleepers) or, if truly deadlocked, halts.
 // It stops early when the core halts. Pacing is by total instruction count, which
 // keeps a resumed savestate deterministic (the N64/DOS discipline).
+//
+// maxIdleFrames bounds how many successive VBlank-only wakeups (no thread makes
+// progress) the run tolerates before calling it a genuine deadlock rather than
+// an idle wait between frames.
+const maxIdleFrames = 8
+
 func (m *Machine) Run(budget int) int {
 	n := 0
+	idleFrames := 0
 	for n < budget {
 		if m.CPU.Halted {
 			break
@@ -22,6 +29,7 @@ func (m *Machine) Run(budget int) int {
 		if m.vblankDue() {
 			m.deliverVBlank()
 		}
+		m.processGXQueue() // drain any GPU commands the game posted, raise their interrupts
 		t := m.pickRunnable()
 		if t == nil {
 			if m.advanceIdle() {
@@ -30,7 +38,10 @@ func (m *Machine) Run(budget int) int {
 			// Every thread is blocked with no timed wake pending. If the graphics
 			// heartbeat is live, the game is waiting for the next VBlank — jump to
 			// the frame boundary and deliver it rather than declaring a deadlock.
-			if m.gspEvent != 0 {
+			// Bound it: if several successive VBlanks wake nothing, the game is
+			// genuinely stuck (not merely idling between frames) — report it.
+			if m.gspEvent != 0 && idleFrames < maxIdleFrames {
+				idleFrames++
 				m.CPU.Instrs = m.nextFrameInstr
 				m.deliverVBlank()
 				continue
@@ -40,6 +51,7 @@ func (m *Machine) Run(budget int) int {
 				m.aliveThreads(), m.CPU.Instrs)
 			break
 		}
+		idleFrames = 0 // a thread is runnable — real progress, not an idle frame
 		m.switchTo(t)
 
 		for q := 0; q < quantum && n < budget; q++ {
