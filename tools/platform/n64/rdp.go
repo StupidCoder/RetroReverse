@@ -243,7 +243,50 @@ func (m *Machine) runRDP() {
 		if m.CPU.Halted {
 			return
 		}
+		// The frame debugger replays a frame up to and including its k-th command,
+		// then wants the world stopped so it can read the half-drawn buffer. The RDP
+		// is driven from deep inside the RSP's interpreter loop (microcode → DPC_END
+		// write → here), so returning would only end this drain; the RSP would issue
+		// the next command straight away. A sentinel panic, recovered by
+		// RunStopAfterRDPCommand, unwinds the RSP and CPU loops together. The command
+		// just executed is kept; the RDP is left partway through its queue, so this
+		// is only sound on a machine that will be discarded (a replay scratch).
+		if m.rdpStopAt != 0 {
+			m.rdpCount++
+			if m.rdpCount >= m.rdpStopAt {
+				panic(rdpStop{})
+			}
+		}
 	}
+}
+
+// rdpStop is the sentinel RunStopAfterRDPCommand panics with to unwind the nested
+// interpreter loops once a replay has executed the command it was told to stop
+// after. Only RunStopAfterRDPCommand recovers it; any other panic passes through.
+type rdpStop struct{}
+
+// RunStopAfterRDPCommand runs the machine (up to budget instructions) until the
+// k-th RDP command of this run has executed, then stops the world immediately by
+// unwinding the interpreter loops. k is 1-based: k==1 stops right after the first
+// command; k<=0 runs the whole budget with no RDP stop. Because the RDP is left
+// partway through its queue, the machine must be discarded afterwards, never
+// resumed for normal play. Any OnRDPCmd/OnPixel hooks the caller installed still
+// fire during the replay, so per-pixel provenance can be gathered as it goes.
+func (m *Machine) RunStopAfterRDPCommand(k int, budget uint64) {
+	if k <= 0 {
+		m.Run(budget)
+		return
+	}
+	m.rdpStopAt, m.rdpCount = k, 0
+	defer func() {
+		m.rdpStopAt, m.rdpCount = 0, 0
+		if r := recover(); r != nil {
+			if _, ok := r.(rdpStop); !ok {
+				panic(r) // not ours — let it propagate
+			}
+		}
+	}()
+	m.Run(budget)
 }
 
 func cmdNameOf(op uint32) string {

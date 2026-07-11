@@ -121,8 +121,17 @@ func (m *Machine) fillRect(w uint64) {
 					v = uint16(r.FillColor)
 				}
 				m.storeRDRAM16(r.pixelAddr(x, y), v)
+				if m.OnPixel != nil {
+					c := fromRGBA16(v)
+					m.OnPixel(x, y, PixelEvent{Drawn: true, R: c.R, G: c.G, B: c.B, A: c.A})
+				}
 			case size32:
 				m.storeRDRAM32(r.pixelAddr(x, y), r.FillColor)
+				if m.OnPixel != nil {
+					m.OnPixel(x, y, PixelEvent{Drawn: true,
+						R: r.FillColor >> 24 & 0xFF, G: r.FillColor >> 16 & 0xFF,
+						B: r.FillColor >> 8 & 0xFF, A: r.FillColor & 0xFF})
+				}
 			default:
 				m.CPU.Halt("unmodelled Fill_Rectangle into a %d-bit colour image", 4<<r.Color.Size)
 				return

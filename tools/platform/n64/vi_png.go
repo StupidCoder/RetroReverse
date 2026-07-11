@@ -55,6 +55,52 @@ func (m *Machine) Framebuffer() (*image.RGBA, error) {
 	return img, nil
 }
 
+// RenderColorImage renders the RDP's current colour image — the buffer drawing
+// lands in. Mid-frame that is the back buffer, not what the VI is scanning out,
+// so this is what the frame debugger's command scrubber shows as it replays a
+// frame partway: the picture as it has been drawn so far, before any page flip.
+// Width comes from the colour image; height from the scissor's lower bound (the
+// drawn region), falling back to the VI's height when the scissor is unset.
+func (m *Machine) RenderColorImage() (*image.RGBA, error) {
+	r := &m.rdp
+	if r.Color.Addr == 0 || r.Color.Width == 0 {
+		return nil, fmt.Errorf("n64: the RDP has no colour image set")
+	}
+	width := r.Color.Width
+	height := r.Scissor.YL >> 2 // 10.2 fixed point → whole pixels
+	if height == 0 || height > 512 {
+		height = m.viHeight()
+	}
+
+	img := image.NewRGBA(image.Rect(0, 0, int(width), int(height)))
+	switch r.Color.Size {
+	case size16:
+		for y := uint32(0); y < height; y++ {
+			for x := uint32(0); x < width; x++ {
+				a := r.Color.Addr + (y*width+x)*2
+				if int(a)+1 >= len(m.RDRAM) {
+					continue
+				}
+				c := fromRGBA16(uint16(m.RDRAM[a])<<8 | uint16(m.RDRAM[a+1]))
+				img.Set(int(x), int(y), color.RGBA{uint8(c.R), uint8(c.G), uint8(c.B), 255})
+			}
+		}
+	case size32:
+		for y := uint32(0); y < height; y++ {
+			for x := uint32(0); x < width; x++ {
+				a := r.Color.Addr + (y*width+x)*4
+				if int(a)+3 >= len(m.RDRAM) {
+					continue
+				}
+				img.Set(int(x), int(y), color.RGBA{m.RDRAM[a], m.RDRAM[a+1], m.RDRAM[a+2], 255})
+			}
+		}
+	default:
+		return nil, fmt.Errorf("n64: colour image size %d is not renderable", r.Color.Size)
+	}
+	return img, nil
+}
+
 // viHeight derives the framebuffer's height from the VI's vertical start and end
 // registers and its vertical scale, which is how the hardware knows it too.
 func (m *Machine) viHeight() uint32 {

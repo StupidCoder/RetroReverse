@@ -153,6 +153,13 @@ type Machine struct {
 	// condition a step budget cannot express. Not part of the machine state.
 	StopRequested bool
 
+	// rdpStopAt/rdpCount drive RunStopAfterRDPCommand: while rdpStopAt is non-zero
+	// the RDP drain counts executed commands and unwinds (see rdpStop) once it
+	// reaches the target. Instrumentation only — neither is part of the machine
+	// state, so a restored snapshot never carries a half-armed stop.
+	rdpStopAt int
+	rdpCount  int
+
 	dpWriteHook func(addr, v uint32)
 	hookMuted   bool // suppresses hooks during machine-internal reads (DMA, disassembly)
 }
