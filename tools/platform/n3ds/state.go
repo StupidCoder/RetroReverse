@@ -331,6 +331,10 @@ func (m *Machine) LoadState(path string) error {
 			priority: ts.Priority, state: threadState(ts.State), wakeTick: ts.WakeTick,
 			waitAll: ts.WaitAll, waitOn: ts.WaitOn, arbAddr: ts.ArbAddr,
 		}
+		// Seed the context from the live CPU so the bus and the SWI/coproc
+		// hooks are populated — a context switch copies the whole CPU value,
+		// and a zero-value context would hand the core a nil bus.
+		t.ctx = *m.CPU
 		ts.Ctx.into(&t.ctx)
 		m.threads = append(m.threads, t)
 		if t.id == s.CurThreadID {
