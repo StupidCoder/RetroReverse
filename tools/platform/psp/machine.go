@@ -47,27 +47,30 @@ type Machine struct {
 	io map[uint32]uint32 // last-written value of otherwise-unmodelled I/O registers
 
 	// Kernel-HLE state (kernel.go).
-	syscalls     map[uint32]*syscall // synthetic code -> handler
-	nextSyscall  uint32
-	handles      map[uint32]*kobject
-	nextHandle   uint32
-	heapPtr      uint32
-	heapEnd      uint32
-	threadEntry  uint32   // entry of the "main thread" created by sceKernelCreateThread
-	current      *kobject // the running thread (nil = the initial module-start context)
-	doneReason   string   // set when scheduling finds nothing runnable
-	subIntrs     map[uint32]*subIntr
-	vblanks      uint32 // display VBlank counter (sceDisplayGetVcount)
-	pad          uint32 // current pad button bits (sceCtrl reads)
-	vol          *Volume
-	files        map[uint32]*ioFile
-	nextFd       uint32
-	audioCh      uint32
-	SyscallCalls map[string]int
-	tty          []byte
-	fbAddr       uint32 // framebuffer set via sceDisplaySetFrameBuf
-	fbWidth      uint32 // framebuffer line stride (pixels)
-	fbFormat     uint32 // pixel format from sceDisplaySetFrameBuf
+	syscalls       map[uint32]*syscall // synthetic code -> handler
+	nextSyscall    uint32
+	handles        map[uint32]*kobject
+	nextHandle     uint32
+	heapPtr        uint32
+	heapEnd        uint32
+	threadEntry    uint32   // entry of the "main thread" created by sceKernelCreateThread
+	current        *kobject // the running thread (nil = the initial module-start context)
+	doneReason     string   // set when scheduling finds nothing runnable
+	subIntrs       map[uint32]*subIntr
+	vblanks        uint32 // display VBlank counter (sceDisplayGetVcount)
+	pad            uint32 // current pad button bits (sceCtrl reads)
+	padPrev        uint32 // pad at the previous latch read (edge detection)
+	padScript      []PadEvent
+	savedataStatus uint32 // savedata-utility dialog status (0 none, 1 init, 2 running, 3 finished, 4 shutdown)
+	vol            *Volume
+	files          map[uint32]*ioFile
+	nextFd         uint32
+	audioCh        uint32
+	SyscallCalls   map[string]int
+	tty            []byte
+	fbAddr         uint32 // framebuffer set via sceDisplaySetFrameBuf
+	fbWidth        uint32 // framebuffer line stride (pixels)
+	fbFormat       uint32 // pixel format from sceDisplaySetFrameBuf
 
 	// GE (GPU) display lists submitted via sceGeListEnQueue.
 	GeLists  []GeList
@@ -112,6 +115,19 @@ func NewMachine() *Machine {
 	m.CPU.Syscall = m.handleSyscall
 	return m
 }
+
+// PadEvent sets the pad button state from a given VBlank on (the pad holds the
+// buttons until the next event). Events are applied in order of AtVblank.
+type PadEvent struct {
+	AtVblank uint32
+	Buttons  uint32
+}
+
+// SetPadScript installs a scheduled pad input script for this run.
+func (m *Machine) SetPadScript(evs []PadEvent) { m.padScript = evs }
+
+// Vblanks reports the display VBlank counter.
+func (m *Machine) Vblanks() uint32 { return m.vblanks }
 
 // note records a one-time diagnostic message.
 func (m *Machine) note(format string, a ...any) {

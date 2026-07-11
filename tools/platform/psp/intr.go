@@ -41,6 +41,10 @@ func (m *Machine) setSubIntrEnabled(intno, subno uint32, on bool) {
 // threads whose timed wait has expired.
 func (m *Machine) deliverVBlank() {
 	m.vblanks++
+	for len(m.padScript) > 0 && m.vblanks >= m.padScript[0].AtVblank {
+		m.pad = m.padScript[0].Buttons
+		m.padScript = m.padScript[1:]
+	}
 	for _, o := range m.handles {
 		if o.kind == "thread" && o.tstate == thWaiting && o.wakeVblank != 0 &&
 			m.vblanks >= o.wakeVblank {

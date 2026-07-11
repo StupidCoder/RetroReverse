@@ -39,6 +39,8 @@ type MachineState struct {
 	Current      uint32 // handle of the running thread (0 = the anonymous context)
 	Files        map[uint32]ioFileState
 	NextFd       uint32
+	Pad          uint32
+	Savedata     uint32 // savedata-utility dialog status (0 none .. 4 shutdown)
 }
 
 type ioFileState struct {
@@ -114,6 +116,7 @@ func (m *Machine) SaveState() MachineState {
 		FBAddr: m.fbAddr, TTY: m.tty, SyscallCalls: m.SyscallCalls,
 		SubIntrs: intrs, VBlanks: m.vblanks, Current: current,
 		Files: files, NextFd: m.nextFd,
+		Pad: m.pad, Savedata: m.savedataStatus,
 	}
 }
 
@@ -158,6 +161,7 @@ func (m *Machine) LoadState(s MachineState) error {
 		}
 	}
 	m.vblanks = s.VBlanks
+	m.pad, m.savedataStatus = s.Pad, s.Savedata
 	m.files = map[uint32]*ioFile{}
 	for fd, f := range s.Files {
 		if m.vol == nil {

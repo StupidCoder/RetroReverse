@@ -22,6 +22,7 @@ import (
 	"crypto/sha1"
 	"encoding/binary"
 	"fmt"
+	"strings"
 
 	"retroreverse.com/tools/cpu/allegrex"
 )
@@ -653,6 +654,18 @@ func handlerFor(name string) func(m *Machine) {
 			}
 			m.setRet(1) // one buffer read
 		}
+	case "sceCtrlReadLatch", "sceCtrlPeekLatch":
+		return func(m *Machine) { // fill a SceCtrlLatch (make/break/press/release)
+			p := m.arg(0)
+			m.write32(p+0, m.pad&^m.padPrev) // uiMake: newly pressed
+			m.write32(p+4, m.padPrev&^m.pad) // uiBreak: newly released
+			m.write32(p+8, m.pad)            // uiPress: currently down
+			m.write32(p+12, ^m.pad)          // uiRelease: currently up
+			if strings.HasSuffix(name, "ReadLatch") {
+				m.padPrev = m.pad // Read consumes the edge; Peek does not
+			}
+			m.setRet(1) // one latch sample
+		}
 	case "sceKernelSleepThread", "sceKernelSleepThreadCB":
 		return func(m *Machine) { m.yieldCurrent(thWaiting) }
 	case "sceKernelWakeupThread":
@@ -767,6 +780,45 @@ func handlerFor(name string) func(m *Machine) {
 		return func(m *Machine) { m.setRet(0) }
 	case "sceUmdCheckMedium":
 		return func(m *Machine) { m.setRet(1) } // medium present
+	case "sceUtilitySavedataInitStart":
+		return func(m *Machine) {
+			// (SceUtilitySavedataParam*): the dialog-common header is 48 bytes
+			// (size, language, buttonSwap, four thread priorities, result at
+			// +28, reserved); the operation mode follows at +48. There is no
+			// memory stick with save data, so the load modes complete with
+			// SCE_UTILITY_SAVEDATA_ERROR_LOAD_NO_DATA in the result field and
+			// the game proceeds as a fresh start.
+			p := m.arg(0)
+			mode := m.read32(p + 48)
+			var result uint32
+			switch mode {
+			case 0, 2, 4: // AUTOLOAD / LOAD / LISTLOAD
+				result = 0x80110307 // no save data
+			}
+			m.write32(p+28, result)
+			m.savedataStatus = 1 // INIT
+			m.setRet(0)
+		}
+	case "sceUtilitySavedataGetStatus":
+		return func(m *Machine) {
+			// The dialog runs without interaction: INIT is reported once, then
+			// RUNNING, then FINISHED until the game shuts the utility down.
+			st := m.savedataStatus
+			m.setRet(st)
+			switch st {
+			case 1, 2:
+				m.savedataStatus = st + 1
+			case 4:
+				m.savedataStatus = 0
+			}
+		}
+	case "sceUtilitySavedataUpdate":
+		return func(m *Machine) { m.setRet(0) }
+	case "sceUtilitySavedataShutdownStart":
+		return func(m *Machine) {
+			m.savedataStatus = 4
+			m.setRet(0)
+		}
 	case "sceUtilityGetSystemParamInt":
 		return func(m *Machine) {
 			// (id, *value): 8 = language (1 = English), 9 = button assign

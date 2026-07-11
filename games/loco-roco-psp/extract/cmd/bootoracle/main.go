@@ -11,10 +11,12 @@
 //	           [-bp ADDR] [-watch ADDR[:LEN]] [-savestate FILE] [-loadstate FILE]
 //
 // The oracle boots the C runtime and module start, streams the game's assets off
-// the UMD and renders its frames (-shot); -trace shows live execution, -watch maps
-// the code that produces a memory structure, -find locates byte patterns in RAM,
-// -gelog/-gedump summarize or dump the submitted GE display lists, and the syscall
-// census names the kernel functions the boot path invokes.
+// the UMD, renders its frames (-shot), and plays them: -keys schedules pad input
+// by VBlank (through the language screen, the title menu, the intro dialogue and
+// into the stage). -trace shows live execution, -watch maps the code that produces
+// a memory structure, -find locates byte patterns in RAM, -gelog/-gedump summarize
+// or dump the submitted GE display lists, and the syscall census names the kernel
+// functions the boot path invokes.
 package main
 
 import (
@@ -60,6 +62,7 @@ func main() {
 	watchS := flag.String("watch", "", "watch: log who writes ADDR or ADDR:LEN (hex)")
 	rwatchS := flag.String("rwatch", "", "watch: log who reads ADDR or ADDR:LEN (hex)")
 	watchN := flag.Int("watchn", 50, "with -watch/-rwatch, stop printing raw accesses after this many")
+	keysS := flag.String("keys", "", "pad input script: file of '<vblank> [buttons...]' lines (cross, start, up, ...)")
 	saveS := flag.String("savestate", "", "after the run, write a machine savestate to this file")
 	loadS := flag.String("loadstate", "", "before the run, restore a machine savestate from this file")
 	shot := flag.String("shot", "", "after the run, write the display framebuffer to this PNG")
@@ -68,6 +71,7 @@ func main() {
 	disS := flag.String("dis", "", "disassemble ADDR:LEN of loaded memory and exit (after -loadstate)")
 	dumpS := flag.String("dump", "", "hex-dump ADDR:LEN of loaded memory and exit (after -loadstate)")
 	findS := flag.String("find", "", "search loaded RAM for hex bytes (e.g. F0208908) and exit (after -loadstate)")
+	dumpBinS := flag.String("dumpbin", "", "write ADDR:LEN of loaded memory to a file (ADDR:LEN:FILE) and exit (after -loadstate)")
 	showNotes := flag.Bool("notes", false, "print the machine's diagnostic notes")
 	flag.Parse()
 	if *image == "" {
@@ -147,6 +151,23 @@ func main() {
 		}
 		return
 	}
+	if *dumpBinS != "" {
+		parts := strings.SplitN(*dumpBinS, ":", 3)
+		if len(parts) != 3 {
+			die("-dumpbin wants ADDR:LEN:FILE")
+		}
+		lo, _ := hx(parts[0])
+		ln, _ := hx(parts[1])
+		buf := make([]byte, ln)
+		for i := uint32(0); i < ln; i++ {
+			buf[i] = m.Read(lo + i)
+		}
+		if err := os.WriteFile(parts[2], buf, 0644); err != nil {
+			die("%v", err)
+		}
+		fmt.Fprintf(os.Stderr, "wrote 0x%X bytes at 0x%08X to %s\n", ln, lo, parts[2])
+		return
+	}
 	if *dumpS != "" {
 		lo, ln := parseWatch(*dumpS)
 		for a := lo; a < lo+ln; a += 16 {
@@ -165,6 +186,14 @@ func main() {
 			fmt.Fprintln(w)
 		}
 		return
+	}
+
+	if *keysS != "" {
+		evs, err := parseKeys(*keysS)
+		if err != nil {
+			die("%v", err)
+		}
+		m.SetPadScript(evs)
 	}
 
 	// Instrumentation.
@@ -286,7 +315,7 @@ func main() {
 	}
 
 	w.Flush()
-	fmt.Fprintf(os.Stderr, "\n%s\n", res)
+	fmt.Fprintf(os.Stderr, "\n%s (vblank %d)\n", res, m.Vblanks())
 	if tty := m.TTY(); tty != "" {
 		fmt.Fprintf(os.Stderr, "TTY:\n%s\n", tty)
 	}
@@ -318,6 +347,49 @@ func printCensus(m *psp.Machine) {
 	for _, e := range all {
 		fmt.Fprintf(os.Stderr, "  %5d  %s\n", e.n, e.name)
 	}
+}
+
+// padButtons maps script names to pspctrl button bits (platform spec).
+var padButtons = map[string]uint32{
+	"select": 0x000001, "start": 0x000008,
+	"up": 0x000010, "right": 0x000020, "down": 0x000040, "left": 0x000080,
+	"ltrigger": 0x000100, "rtrigger": 0x000200,
+	"triangle": 0x001000, "circle": 0x002000, "cross": 0x004000, "square": 0x008000,
+}
+
+// parseKeys reads a pad script: one event per line, "<vblank> [button ...]".
+// The named buttons are held from that VBlank until the next event (a line with
+// no buttons releases them all). '#' starts a comment.
+func parseKeys(path string) ([]psp.PadEvent, error) {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return nil, err
+	}
+	var evs []psp.PadEvent
+	for ln, line := range strings.Split(string(data), "\n") {
+		if i := strings.IndexByte(line, '#'); i >= 0 {
+			line = line[:i]
+		}
+		fields := strings.Fields(line)
+		if len(fields) == 0 {
+			continue
+		}
+		at, err := strconv.ParseUint(fields[0], 10, 32)
+		if err != nil {
+			return nil, fmt.Errorf("%s:%d: bad vblank %q", path, ln+1, fields[0])
+		}
+		var buttons uint32
+		for _, name := range fields[1:] {
+			bit, ok := padButtons[strings.ToLower(name)]
+			if !ok {
+				return nil, fmt.Errorf("%s:%d: unknown button %q", path, ln+1, name)
+			}
+			buttons |= bit
+		}
+		evs = append(evs, psp.PadEvent{AtVblank: uint32(at), Buttons: buttons})
+	}
+	sort.Slice(evs, func(i, j int) bool { return evs[i].AtVblank < evs[j].AtVblank })
+	return evs, nil
 }
 
 func parseWatch(s string) (lo, ln uint32) {

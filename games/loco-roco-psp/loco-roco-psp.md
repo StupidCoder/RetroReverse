@@ -11,12 +11,14 @@ supply a dump with the MD5 above.
   the `PSP_GAME/SYSDIR` boot files, the `~PSP` KIRK-encrypted executable and its
   decryption, the ELF/PRX module, and the Allegrex memory map.
 - **Part II — Boot chain.** Module relocation and load, register/stack seeding, the
-  kernel-HLE syscall-stub mechanism, and the surface reached.
+  kernel-HLE syscall-stub mechanism, scheduling and IO, and pad-input injection —
+  the oracle plays from the language screen into the first stage.
 - **Part III — Graphics engine (GE).** The display-list interpreter, the software
   rasterizer, and the framebuffer output.
 - **Part IV — Audio.** *(future)*
 - **Part V — Game data.** The resource pipeline: DATA.BIN raw-extent access by LBN,
-  the GPRS compressed container, the GARC archive, and the XUI screen resources.
+  the GPRS codec (reimplemented, byte-exact), the GARC archive, and the XUI screen
+  resources.
 
 The toolchain — the Allegrex CPU core and its disassembler/tracer, the PSP machine
 oracle, and the `pspinfo`/`bootoracle` front-ends — is documented in Parts I and II.
@@ -259,6 +261,32 @@ threads, `ptnCallbackTh`) and reaches its **per-frame render loop**: every frame
 builds transforms with the VFPU, reads the pad, and submits GE display lists via
 `sceGeListEnQueue`, flipping the framebuffer with `sceDisplaySetFrameBuf`.
 
+### 5. Input — the oracle plays the game
+
+The pad is modelled at both of the game's sampling points: `sceCtrlReadBufferPositive`
+fills a `SceCtrlData` (buttons, centred analog axes), and `sceCtrlReadLatch` fills a
+`SceCtrlLatch` with true edge data — make/break derived from the previous latch
+read's state, consumed by Read and preserved by Peek. The game polls both every
+frame; without a modelled latch its edge detection reads uninitialised memory, so
+the latch is load-bearing for any input at all.
+
+Input is injected on a VBlank schedule (`bootoracle -keys FILE`): each script line
+is `<vblank> [button ...]`, setting the held buttons from that VBlank until the next
+event. The savedata system-utility dialog is modelled to completion —
+`sceUtilitySavedataInitStart` reads the operation mode at `+48` of the parameter
+block and completes the load modes with `SCE_UTILITY_SAVEDATA_ERROR_LOAD_NO_DATA`
+in the result field at `+28` (there is no memory stick), and `GetStatus` walks the
+INIT → RUNNING → FINISHED → SHUTDOWN progression the game's poll loop expects.
+
+With those, a scripted run drives the boot the way a player would: cross on the
+language screen (left/right moves the selection — a press on Français loads
+`reside_fr.arc` in place of `reside_us.arc`), cross through the title menu's
+`◀ New ▶` selector, cross to advance the MuiMui intro dialogue, and the L/R
+triggers to tilt the world in the stage itself — the game's tutorial answers a
+too-short press with "Hold the L and R buttons down longer!". The savedata check
+runs at title entry; a "New" selection loads `st_flower01.clv` and enters the
+first stage playing.
+
 Savestates (`state.go`) snapshot the full machine (RAM, VRAM, scratchpad, the
 Allegrex register files including FPU/VFPU, the thread contexts and their wait
 state, the kernel objects, the sub-interrupt handlers, the open file descriptors and
@@ -349,12 +377,34 @@ resolves the name to an `sce_lbn` path into DATA.BIN (printed as
 `FileOpen: disc0:/sce_lbn0x6C50_size0xF694C[yel_locoroco.arc]`), a miss falls
 back to the literal disc path.
 
-### 3. GPRS containers and GARC archives
+### 3. The GPRS codec
 
 Archive files are stored GPRS-compressed. The 8-byte header is the magic
-`GPRS` and the decompressed size; the game's decompressor (reached from the
-archive loader `0x088486A8`) inflates the stream into a heap buffer. The
-decompressed content of an `.arc` is a GARC archive:
+`GPRS` and the big-endian decompressed size; the body is a byte-aligned LZSS
+stream driven by MSB-first control bits, decoded by the routine at
+`0x08846EDC` (reached from the archive loader `0x088486A8`; files larger than
+128 KiB stream through the same codec in chunks). The stream interleaves
+control bits with whole bytes:
+
+| bits | meaning |
+|------|---------|
+| `0` | literal: copy the next stream byte |
+| `1 0` | short match: offset byte `D` (`D = 0` terminates), source `dst − (256−D)`, 1-255 back |
+| `1 1` | long match: offset byte `D` plus four more bits `N`, source `dst + (((D−256)<<4) \| N) − 255`, 256-4351 back |
+
+A match's length is interleaved Elias-gamma — `len = 1`, then while the next
+control bit is 1, `len = len<<1 | following-bit` — and `len+1` bytes are
+copied source-forward (overlap allowed; the game unrolls the copy eight-wide
+through a jump table). The reimplementation (`extract/gprs`) is verified
+against the running game: the decoded `first_us.arc` matches the buffer the
+game's own decompressor produced (captured from the oracle at the loader's
+return, before the game patches runtime handles into it) byte-exact across
+all 392,304 bytes, and `system.arc` — a 1.9 MiB archive that takes the
+chunked path — decodes to a well-formed 3.1 MiB GARC.
+
+### 4. GARC archives
+
+The decompressed content of an `.arc` is a GARC archive:
 
 | offset | field |
 |--------|-------|
@@ -371,7 +421,7 @@ byte size (`entry+12`), which is exactly what `FileOpen` needs to build the
 registered in a global resource list (head `0x090EB8C8`, guarded by
 `garcListSema`), which resource queries walk by chunk magic and key.
 
-### 4. XUI screen resources
+### 5. XUI screen resources
 
 The boot scene's on-screen content is an `XUI` resource served from a loaded
 GARC: magic `XUI\0`, version float 1.0, a 0x140-byte header, then a chain of
@@ -381,12 +431,21 @@ machine (`0x0894D370`) parses the chain (`0x0894089C`), keeps per-type node
 pointers on the scene object (the type-3 node is the screen root it waits
 for), and advances from its loading state once the parse lands.
 
-### 5. The boot load chain
+### 6. The boot load chain
 
-The sequence from module start to the title screen, as the game's own log and
+The sequence from module start into the first stage, as the game's own log and
 the oracle's IO notes record it: `modules/module.cnf` and the media PRXs;
 `data/first_us.arc` (the GPRS→GARC directory); then by name through the
-directory — `system.arc`, `reside_us.arc`, `title_miyano_us.clv` (the title
-music stream) and `yel_locoroco.arc` — each an `sce_lbn` extent of DATA.BIN.
-With these streamed the game renders the publisher splash and the animated
-title screen of Part III's figures.
+directory — `system.arc`, the per-language `reside_us.arc` and
+`title_miyano_us.clv` (the title music stream; a language-select choice swaps
+the `_us` pair for `_fr`, `_de`, …), `yel_locoroco.arc` (the yellow LocoRoco's
+assets), and on starting a game `st_flower01.clv` (the first stage) — each an
+`sce_lbn` extent of DATA.BIN. Left idle at the title, the game runs an
+in-engine attract demo (`demo_start` in its log, demo characters from
+`data/reside/chara/*.txt`) and returns to the title; the intro movie
+(`data/movie/*.pmf`) is probed through `scePsmfPlayer`/`sceMpeg` and torn down
+without a file open.
+
+![The MuiMui intro dialogue](figures/muimui.png)
+
+![Stage 1, playing](figures/stage1.png)
