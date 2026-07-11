@@ -142,3 +142,31 @@ func TestVFPLoadStore(t *testing.T) {
 		t.Fatalf("VLDR s3 = %v, want 6.5", got)
 	}
 }
+
+// The multiply-accumulate family's sign conventions (ARM ARM A8.8): VMLA
+// Sd += Sn·Sm, VMLS Sd -= Sn·Sm, VNMLS Sd = -Sd + Sn·Sm, VNMLA Sd = -Sd −
+// Sn·Sm. VNMLS/VNMLA were once swapped — Super Mario 3D Land's random-point-
+// in-unit-sphere sampler computed -1-2u instead of 2u-1 and rejection-sampled
+// forever (an infinite boot hang traced to exactly this).
+func TestVFPMulAccSigns(t *testing.T) {
+	cases := []struct {
+		instr uint32
+		name  string
+		want  float32
+	}{
+		{0xEE000A81, "VMLA", 2.5},   // 1 + 1.5
+		{0xEE000AC1, "VMLS", -0.5},  // 1 - 1.5
+		{0xEE100A81, "VNMLS", 0.5},  // -1 + 1.5
+		{0xEE100AC1, "VNMLA", -2.5}, // -1 - 1.5
+	}
+	for _, tc := range cases {
+		c, b := vfpCPU()
+		c.sSet(0, 1)
+		c.sSet(1, 2)
+		c.sSet(2, 0.75)
+		stepOne(c, b, tc.instr) // <op>.F32 s0, s1, s2
+		if got := c.sGet(0); got != tc.want {
+			t.Errorf("%s.F32 s0,s1,s2 (s0=1, s1=2, s2=0.75) = %v, want %v", tc.name, got, tc.want)
+		}
+	}
+}

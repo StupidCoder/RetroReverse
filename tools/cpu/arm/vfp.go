@@ -409,8 +409,12 @@ func (c *CPU) execVFPData(w uint32) bool {
 	case 0b000: // VMLA / VMLS: Vd = Vd ± (Vn*Vm)
 		c.vfpMulAcc(vd, vn, vm, single, op == 1, false)
 		return true
-	case 0b001: // VNMLA / VNMLS
-		c.vfpMulAcc(vd, vn, vm, single, op == 0, true)
+	case 0b001: // VNMLA / VNMLS — both negate the accumulator; only VNMLA
+		// (op=1) also negates the product: VNMLS Vd = -Vd + Vn·Vm,
+		// VNMLA Vd = -Vd - Vn·Vm. (These were swapped: Super Mario 3D Land's
+		// random-point-in-sphere sampler computed -1-2u instead of 2u-1 and
+		// rejection-sampled forever.)
+		c.vfpMulAcc(vd, vn, vm, single, op == 1, true)
 		return true
 	case 0b111: // extension group (VABS/VNEG/VSQRT/VMOV/VCMP/VCVT)
 		return c.execVFPExt(w, single, vd, vm)
