@@ -34,6 +34,41 @@ const (
 	gxCmdFlushCache      = 5
 )
 
+// GXRecord is one GX command as the game posted it: the raw 8 words of its FIFO
+// slot, plus — for a ProcessCommandList — a copy of the PICA200 command buffer it
+// points at. Recorded when GXCapture is on; this is the Phase 4 instrument-first
+// step (log what the game actually submits before implementing the GPU).
+type GXRecord struct {
+	Instr uint64    // instruction count at capture
+	Words [8]uint32 // the raw command slot
+	Buf   []byte    // ProcessCommandList only: the command-list bytes at capture time
+}
+
+// GXLog returns the commands captured so far (GXCapture must be on).
+func (m *Machine) GXLog() []GXRecord { return m.gxLog }
+
+// captureGX snapshots one GX command slot, and for a ProcessCommandList also the
+// command-list buffer it references, before the FIFO is drained. The buffer copy
+// matters: the game reuses/overwrites list memory between frames, so the bytes
+// must be taken at submission time.
+func (m *Machine) captureGX(cmd uint32, id uint32) {
+	var r GXRecord
+	r.Instr = m.CPU.Instrs
+	for i := uint32(0); i < 8; i++ {
+		r.Words[i] = m.ReadWord(cmd + i*4)
+	}
+	if id == gxCmdProcessCmdList {
+		addr, size := r.Words[1], r.Words[2]
+		if size > 0 && size < 0x1000000 {
+			r.Buf = make([]byte, size)
+			for i := uint32(0); i < size; i++ {
+				r.Buf[i] = m.Read(addr + i)
+			}
+		}
+	}
+	m.gxLog = append(m.gxLog, r)
+}
+
 // processGXQueue drains any commands the game has posted to the GX FIFO and
 // raises their completion interrupts, so the render loop's per-command waits are
 // released. Cheap to call speculatively: it returns immediately when the queue
@@ -53,7 +88,10 @@ func (m *Machine) processGXQueue() {
 	for i := byte(0); i < count; i++ {
 		slot := (uint32(idx) + uint32(i)) % gxMaxCmds
 		cmd := m.gspSharedAddr + gxQueueOff + gxCmdStride + slot*gxCmdStride
-		id := m.Read(cmd) & 0x1F
+		id := uint32(m.Read(cmd)) & 0x1F
+		if m.GXCapture {
+			m.captureGX(cmd, id)
+		}
 		switch id {
 		case gxCmdProcessCmdList:
 			m.framesSubmitted++ // a PICA200 command list — a rendered frame's geometry

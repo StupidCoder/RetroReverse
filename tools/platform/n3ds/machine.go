@@ -110,6 +110,8 @@ type Machine struct {
 	framesSwapped   int    // GSP SetBufferSwap calls (frames presented)
 
 	// Instrumentation.
+	GXCapture bool       // record GX commands + ProcessCommandList buffers (gx.go)
+	gxLog     []GXRecord // the captured commands, in submission order
 	Trace     bool
 	traceN    int
 	traceMax  int

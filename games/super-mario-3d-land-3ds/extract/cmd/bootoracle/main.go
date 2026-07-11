@@ -21,6 +21,7 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 
@@ -56,6 +57,7 @@ func main() {
 	flag.Var(&watches, "watch", "memory watch ADDR[:LEN] (hex); repeatable")
 	saveState := flag.String("savestate", "", "after the run, dump the machine snapshot to this file")
 	loadState := flag.String("loadstate", "", "restore a machine snapshot before running")
+	gxdump := flag.String("gxdump", "", "capture GX commands; write ProcessCommandList buffers to this directory")
 	flag.Parse()
 
 	if *image == "" {
@@ -63,13 +65,13 @@ func main() {
 		flag.Usage()
 		os.Exit(2)
 	}
-	if err := run(*image, *steps, *trace, *tracen, *verbose, *svclog, bps, watches, *saveState, *loadState); err != nil {
+	if err := run(*image, *steps, *trace, *tracen, *verbose, *svclog, bps, watches, *saveState, *loadState, *gxdump); err != nil {
 		fmt.Fprintln(os.Stderr, "bootoracle:", err)
 		os.Exit(1)
 	}
 }
 
-func run(imagePath, stepsStr string, trace bool, tracen int, verbose, svclog bool, bps, watches multiFlag, saveState, loadState string) error {
+func run(imagePath, stepsStr string, trace bool, tracen int, verbose, svclog bool, bps, watches multiFlag, saveState, loadState, gxdump string) error {
 	img, err := os.ReadFile(imagePath)
 	if err != nil {
 		return err
@@ -80,6 +82,7 @@ func run(imagePath, stepsStr string, trace bool, tracen int, verbose, svclog boo
 	}
 	m.Verbose = verbose
 	m.SetTrace(trace, tracen)
+	m.GXCapture = gxdump != ""
 
 	for _, b := range bps {
 		v, err := parseNum(b)
@@ -151,12 +154,59 @@ func run(imagePath, stepsStr string, trace bool, tracen int, verbose, svclog boo
 	if svclog {
 		printSVCSummary(m)
 	}
+	if gxdump != "" {
+		if err := dumpGX(m, gxdump); err != nil {
+			return err
+		}
+	}
 
 	if saveState != "" {
 		if err := m.SaveState(saveState); err != nil {
 			return fmt.Errorf("saving state: %w", err)
 		}
 		fmt.Printf("\nwrote snapshot to %s\n", saveState)
+	}
+	return nil
+}
+
+// gxNames labels the GX command ids for the capture listing.
+var gxNames = map[uint32]string{
+	0: "RequestDMA", 1: "ProcessCommandList", 2: "MemoryFill",
+	3: "DisplayTransfer", 4: "TextureCopy", 5: "FlushCacheRegions",
+}
+
+// dumpGX prints every captured GX command's raw slot words and writes each
+// ProcessCommandList's PICA200 command buffer to dir/cmdlist_NN.bin — the
+// instrument-first artifact Phase 4 (the GPU) is built against.
+func dumpGX(m *n3ds.Machine, dir string) error {
+	log := m.GXLog()
+	if len(log) == 0 {
+		fmt.Println("\nGX capture: no commands seen")
+		return nil
+	}
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		return err
+	}
+	fmt.Printf("\nGX capture: %d commands\n", len(log))
+	lists := 0
+	for i, r := range log {
+		id := r.Words[0] & 0x1F
+		name := gxNames[id]
+		if name == "" {
+			name = fmt.Sprintf("cmd%d", id)
+		}
+		fmt.Printf("  %3d @%-11d %-18s %08X %08X %08X %08X %08X %08X %08X %08X\n",
+			i, r.Instr, name,
+			r.Words[0], r.Words[1], r.Words[2], r.Words[3],
+			r.Words[4], r.Words[5], r.Words[6], r.Words[7])
+		if r.Buf != nil {
+			path := filepath.Join(dir, fmt.Sprintf("cmdlist_%02d.bin", lists))
+			if err := os.WriteFile(path, r.Buf, 0o644); err != nil {
+				return err
+			}
+			fmt.Printf("        -> %s (%d bytes from 0x%08X)\n", path, len(r.Buf), r.Words[1])
+			lists++
+		}
 	}
 	return nil
 }
