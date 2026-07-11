@@ -1,4 +1,8 @@
 {
+ "collision": {
+  "glb": "models/bombmuch_collision.glb",
+  "kind": "outlines"
+ },
  "extents": {
   "max": [
    1200,
@@ -17,5 +21,11 @@
   "glb": "models/bombmuch.glb"
  },
  "name": "bombmuch",
- "sky": "models/bombmuch_bg.glb"
+ "sky": "models/bombmuch_bg.glb",
+ "view": {
+  "h": 272,
+  "w": 480,
+  "x": -17.308716,
+  "y": 2895.6072
+ }
 }

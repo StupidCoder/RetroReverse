@@ -1,4 +1,8 @@
 {
+ "collision": {
+  "glb": "models/snow02_collision.glb",
+  "kind": "outlines"
+ },
  "extents": {
   "max": [
    3800,
@@ -17,5 +21,11 @@
   "glb": "models/snow02.glb"
  },
  "name": "snow02",
- "sky": "models/snow02_bg.glb"
+ "sky": "models/snow02_bg.glb",
+ "view": {
+  "h": 272,
+  "w": 480,
+  "x": -127.91211,
+  "y": 795.35144
+ }
 }

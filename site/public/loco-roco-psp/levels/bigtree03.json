@@ -1,4 +1,8 @@
 {
+ "collision": {
+  "glb": "models/bigtree03_collision.glb",
+  "kind": "outlines"
+ },
  "extents": {
   "max": [
    1400,
@@ -17,5 +21,11 @@
   "glb": "models/bigtree03.glb"
  },
  "name": "bigtree03",
- "sky": "models/bigtree03_bg.glb"
+ "sky": "models/bigtree03_bg.glb",
+ "view": {
+  "h": 272,
+  "w": 480,
+  "x": 120.20203,
+  "y": 1917.8198
+ }
 }

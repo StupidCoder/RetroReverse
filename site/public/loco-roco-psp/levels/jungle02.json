@@ -1,4 +1,8 @@
 {
+ "collision": {
+  "glb": "models/jungle02_collision.glb",
+  "kind": "outlines"
+ },
  "extents": {
   "max": [
    2600,
@@ -17,5 +21,11 @@
   "glb": "models/jungle02.glb"
  },
  "name": "jungle02",
- "sky": "models/jungle02_bg.glb"
+ "sky": "models/jungle02_bg.glb",
+ "view": {
+  "h": 272,
+  "w": 480,
+  "x": -34.263184,
+  "y": 1830.4006
+ }
 }

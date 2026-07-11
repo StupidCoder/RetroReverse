@@ -547,6 +547,29 @@ stage 1's batches use `stage_a_tex` (the foreground terrain) and twelve
 background flora, separated from the foreground by material and by the
 vertices' z.
 
+The scene root's second pointer is the **collision and entity subtree**:
+`{u32 pointCount, ptr points, u32 layerCount, ptr layers, u32 entityCount,
+ptr entities}` — the layer records sit inline between the header and the
+point pool, and every field is arithmetic-checked (the four 32-byte layer
+records of stage 1 end exactly where its 1,473 points begin). The points
+are (x, y) float pairs, one shared pool; each layer is an indexed edge
+list — `{u32 edgeCount, ptr edges (u16 index pairs), f32 param, zeros,
+i32 -100000, 0}` — tracing the closed contours the soft-body physics
+rolls on. Stage 1 carries four layers (1,068 + 98 + 106 + 207 edges; the
+parameter float distinguishes surface classes — the large main-terrain
+layer, the climbing vine on the sprout, and two special-surface sets).
+Overlaying the decoded edges on the decoded geometry shows the contours
+hugging the drawn terrain silhouette exactly, two independent subtrees
+agreeing.
+
+The entity records (471 in stage 1) are the stage's scripted-logic layer:
+each instance points to a state-name table (`in_clear`, `out_finish`,
+`out_tarinai`, …), a Maya DAG path naming the trigger or group
+(`|grp_help_all|…|areatrig_bunretu_help`), and a runtime-binding record.
+The visible props (the sprout, grass tufts, pickups) hang under deeper
+node-tree bundles (`objectBundle`, the `.dlk` names of the S2 directory)
+whose decode is Part V work in progress.
+
 A material's texture chain has two hops. The material points to a
 **texture reference** — `{ptr name, u32 0, u32 0, u32 flags, u32 0, u32 0,
 float uscale, float vscale, ptr object}` — whose UV scale is exactly the
@@ -595,12 +618,15 @@ is Part V work in progress.
 (`st_flower01` … `st_yama03`, thirteen worlds named by the disc) and emits
 each stage to `site/public/loco-roco-psp/`: the foreground terrain as
 `models/<stage>.glb`, the background flora as `models/<stage>_bg.glb`
-(split on the material name — `stage*` vs the rest), a format-2 `mesh3d`
-level JSON with the world bounds as extents, and the manifest. Triangles
-are grouped per (texture, material colour) with the tint baked into the
-embedded PNG; translucent-class textures render with alpha blending;
-untextured materials become flat-colour groups. One strip of `st_jungle02`
-carries non-finite vertex floats and is dropped, reported.
+(split on the material name — `stage*` vs the rest), the collision
+contours as a line GLB (`models/<stage>_collision.glb`, one colour per
+layer), a format-2 `mesh3d` level JSON with the world bounds as extents
+and a default view rect (the PSP screen centred on the leftmost collision
+point — where play begins), and the manifest. Triangles are grouped per
+(texture, material colour) with the tint baked into the embedded PNG;
+translucent-class textures render with alpha blending; untextured
+materials become flat-colour groups. One strip of `st_jungle02` carries
+non-finite vertex floats and is dropped, reported.
 
 ### 8. XUI screen resources
 

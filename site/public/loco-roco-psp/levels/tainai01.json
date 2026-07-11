@@ -1,4 +1,8 @@
 {
+ "collision": {
+  "glb": "models/tainai01_collision.glb",
+  "kind": "outlines"
+ },
  "extents": {
   "max": [
    3200,
@@ -17,5 +21,11 @@
   "glb": "models/tainai01.glb"
  },
  "name": "tainai01",
- "sky": "models/tainai01_bg.glb"
+ "sky": "models/tainai01_bg.glb",
+ "view": {
+  "h": 272,
+  "w": 480,
+  "x": 206.88379,
+  "y": 2847.373
+ }
 }

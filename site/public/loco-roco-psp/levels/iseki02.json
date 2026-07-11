@@ -1,4 +1,8 @@
 {
+ "collision": {
+  "glb": "models/iseki02_collision.glb",
+  "kind": "outlines"
+ },
  "extents": {
   "max": [
    2400,
@@ -17,5 +21,11 @@
   "glb": "models/iseki02.glb"
  },
  "name": "iseki02",
- "sky": "models/iseki02_bg.glb"
+ "sky": "models/iseki02_bg.glb",
+ "view": {
+  "h": 272,
+  "w": 480,
+  "x": 112.489624,
+  "y": 170.29199
+ }
 }

@@ -1,4 +1,8 @@
 {
+ "collision": {
+  "glb": "models/africa02_collision.glb",
+  "kind": "outlines"
+ },
  "extents": {
   "max": [
    3000,
@@ -17,5 +21,11 @@
   "glb": "models/africa02.glb"
  },
  "name": "africa02",
- "sky": "models/africa02_bg.glb"
+ "sky": "models/africa02_bg.glb",
+ "view": {
+  "h": 272,
+  "w": 480,
+  "x": -227.49707,
+  "y": 119.314575
+ }
 }

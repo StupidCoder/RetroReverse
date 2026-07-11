@@ -172,6 +172,22 @@ func exportStage(im *psp.Image, st garc.GimgEntry, stem, out string) error {
 		},
 		"mesh": map[string]any{"glb": "models/" + stem + ".glb"},
 	}
+	if len(c.Collision.Points) > 0 {
+		// the default view: the PSP screen centred on the leftmost collision
+		// point — the stages run left to right, so that is where play begins.
+		// Map coordinates (y down from the stage's top edge), like a tilemap.
+		lm := c.Collision.Points[0]
+		for _, p := range c.Collision.Points {
+			if p[0] < lm[0] {
+				lm = p
+			}
+		}
+		lvl["view"] = map[string]any{
+			"x": lm[0] - c.Layout.X - 240,
+			"y": (c.Layout.Y + c.Layout.H - lm[1]) - 136,
+			"w": 480, "h": 272,
+		}
+	}
 	if fg.dropped+bg.dropped > 0 {
 		fmt.Fprintf(os.Stderr, "[levels] %s: dropped %d strips with non-finite vertices\n",
 			stem, fg.dropped+bg.dropped)
@@ -184,6 +200,27 @@ func exportStage(im *psp.Image, st garc.GimgEntry, stem, out string) error {
 			return err
 		}
 		lvl["sky"] = "models/" + stem + "_bg.glb"
+	}
+	if len(c.Collision.Points) > 0 {
+		// the collision contours as a line GLB the viewer toggles, one colour
+		// per layer, drawn just in front of the terrain plane
+		pos := make([][3]float32, len(c.Collision.Points))
+		for i, p := range c.Collision.Points {
+			pos[i] = [3]float32{p[0], p[1], 150}
+		}
+		cols := [][3]float32{{0.9, 0.1, 0.1}, {0.1, 0.6, 0.1}, {0.15, 0.25, 0.9}, {0.8, 0.1, 0.8}}
+		var lines []glb.LineGroup
+		for i, cl := range c.Collision.Layers {
+			g := glb.LineGroup{Color: cols[i%len(cols)]}
+			for _, e := range cl.Edges {
+				g.Lines = append(g.Lines, [2]uint32{uint32(e[0]), uint32(e[1])})
+			}
+			lines = append(lines, g)
+		}
+		if err := glb.WriteMixed(filepath.Join(out, "models", stem+"_collision.glb"), pos, nil, lines); err != nil {
+			return err
+		}
+		lvl["collision"] = map[string]any{"kind": "outlines", "glb": "models/" + stem + "_collision.glb"}
 	}
 	lf, err := os.Create(filepath.Join(out, "levels", stem+".json"))
 	if err != nil {

@@ -23,7 +23,24 @@ type Clv struct {
 	SceneOff uint32 // offset of the scene root record
 	RelocOff uint32 // offset of the relocation table
 
-	Layout Layout
+	Layout    Layout
+	Collision Collision
+}
+
+// Collision is the stage's physics geometry: one shared 2-D point pool and
+// per-layer indexed edge lists (the contours the soft-body physics rolls on),
+// plus the count of the scripted-entity records that share the subtree.
+type Collision struct {
+	Points      [][2]float32
+	Layers      []CollisionLayer
+	EntityCount int
+}
+
+// CollisionLayer is one edge list: vertex-index pairs into the point pool and
+// the layer's parameter float.
+type CollisionLayer struct {
+	Param float32
+	Edges [][2]uint16
 }
 
 // Layout is the stage's spatial organization: world bounds and a grid of
@@ -116,9 +133,15 @@ func Parse(raw []byte) (*Clv, error) {
 	return c, nil
 }
 
-// parseScene walks scene root -> layout -> cells -> batch lists -> strips.
+// parseScene walks scene root -> layout -> cells -> batch lists -> strips,
+// and the collision subtree.
 func (c *Clv) parseScene() error {
-	// scene root: {u32 type, u32 count, ptr materials, ptr objects, ptr layout}
+	// scene root: {u32 type, u32 count, ptr assets, ptr collision+entities, ptr layout}
+	if off := c.ptr(c.SceneOff + 0xC); off != 0 {
+		if err := c.parseCollision(off); err != nil {
+			return err
+		}
+	}
 	layoutOff := c.ptr(c.SceneOff + 0x10)
 	if layoutOff == 0 {
 		return fmt.Errorf("clv: no layout pointer")
@@ -203,6 +226,43 @@ func (c *Clv) parseBatchList(off uint32) (Cell, error) {
 		cell.Batches = append(cell.Batches, b)
 	}
 	return cell, nil
+}
+
+// parseCollision reads the collision root: {u32 pointCount, ptr points,
+// u32 layerCount, ptr layers, u32 entityCount, ptr entities}. Points are
+// (x, y) float pairs; a layer record is 32 bytes {u32 edgeCount, ptr edges,
+// f32 param, 12 zero bytes, i32 -100000, u32 0}, its edges u16 index pairs
+// into the shared pool.
+func (c *Clv) parseCollision(root uint32) error {
+	n := uint32(len(c.Data))
+	np, pp := c.u32(root), c.ptr(root+4)
+	nl, pl := c.u32(root+8), c.ptr(root+12)
+	c.Collision.EntityCount = int(c.u32(root + 16))
+	if np > 1<<20 || pp == 0 || pp+np*8 > n || nl > 64 || pl == 0 || pl+nl*32 > n {
+		return fmt.Errorf("clv: bad collision root (%d points @%#x, %d layers @%#x)", np, pp, nl, pl)
+	}
+	c.Collision.Points = make([][2]float32, np)
+	for i := uint32(0); i < np; i++ {
+		c.Collision.Points[i] = [2]float32{c.f32(pp + i*8), c.f32(pp + i*8 + 4)}
+	}
+	for i := uint32(0); i < nl; i++ {
+		o := pl + i*32
+		ec, ep := c.u32(o), c.ptr(o+4)
+		if ec > 1<<20 || ep == 0 || ep+ec*4 > n {
+			return fmt.Errorf("clv: bad collision layer %d (%d edges @%#x)", i, ec, ep)
+		}
+		L := CollisionLayer{Param: c.f32(o + 8), Edges: make([][2]uint16, ec)}
+		for k := uint32(0); k < ec; k++ {
+			a := binary.LittleEndian.Uint16(c.Data[ep+k*4 : ep+k*4+2])
+			b := binary.LittleEndian.Uint16(c.Data[ep+k*4+2 : ep+k*4+4])
+			if uint32(a) >= np || uint32(b) >= np {
+				return fmt.Errorf("clv: collision layer %d edge %d out of range", i, k)
+			}
+			L.Edges[k] = [2]uint16{a, b}
+		}
+		c.Collision.Layers = append(c.Collision.Layers, L)
+	}
+	return nil
 }
 
 func (c *Clv) cstr(o uint32) string {

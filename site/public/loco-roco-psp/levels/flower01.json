@@ -1,4 +1,8 @@
 {
+ "collision": {
+  "glb": "models/flower01_collision.glb",
+  "kind": "outlines"
+ },
  "extents": {
   "max": [
    1800,
@@ -17,5 +21,11 @@
   "glb": "models/flower01.glb"
  },
  "name": "flower01",
- "sky": "models/flower01_bg.glb"
+ "sky": "models/flower01_bg.glb",
+ "view": {
+  "h": 272,
+  "w": 480,
+  "x": -199.93982,
+  "y": 70.17554
+ }
 }

@@ -1,4 +1,8 @@
 {
+ "collision": {
+  "glb": "models/nightmare01_collision.glb",
+  "kind": "outlines"
+ },
  "extents": {
   "max": [
    3600,
@@ -17,5 +21,11 @@
   "glb": "models/nightmare01.glb"
  },
  "name": "nightmare01",
- "sky": "models/nightmare01_bg.glb"
+ "sky": "models/nightmare01_bg.glb",
+ "view": {
+  "h": 272,
+  "w": 480,
+  "x": 462.28687,
+  "y": 168.45288
+ }
 }

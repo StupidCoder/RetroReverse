@@ -1,4 +1,8 @@
 {
+ "collision": {
+  "glb": "models/star01_collision.glb",
+  "kind": "outlines"
+ },
  "extents": {
   "max": [
    2600,
@@ -17,5 +21,11 @@
   "glb": "models/star01.glb"
  },
  "name": "star01",
- "sky": "models/star01_bg.glb"
+ "sky": "models/star01_bg.glb",
+ "view": {
+  "h": 272,
+  "w": 480,
+  "x": 185.86646,
+  "y": 2415.2485
+ }
 }

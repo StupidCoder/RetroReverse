@@ -62,6 +62,17 @@ func main() {
 	}
 	fmt.Printf("%d non-empty cells, %d batches, %d strips, %d vertices\n",
 		countNonEmpty(L.Cells), nb, ns, nv)
+	col := &c.Collision
+	if len(col.Points) > 0 {
+		fmt.Printf("collision: %d points, %d layers (", len(col.Points), len(col.Layers))
+		for i, cl := range col.Layers {
+			if i > 0 {
+				fmt.Printf(", ")
+			}
+			fmt.Printf("%d edges p=%g", len(cl.Edges), cl.Param)
+		}
+		fmt.Printf("), %d entities\n", col.EntityCount)
+	}
 	fmt.Printf("materials used by batches:\n")
 	for m, n := range mats {
 		fmt.Printf("  %4d  %s\n", n, m)
@@ -171,6 +182,17 @@ func renderPreview(c *clv.Clv, path string) error {
 			}
 		}
 	}
+	// collision edges over the geometry, one colour per layer
+	layerCols := [][4]uint8{{255, 0, 0, 255}, {0, 160, 0, 255}, {0, 0, 255, 255}, {255, 0, 255, 255}}
+	for li, cl := range c.Collision.Layers {
+		col := layerCols[li%len(layerCols)]
+		for _, e := range cl.Edges {
+			a, b := c.Collision.Points[e[0]], c.Collision.Points[e[1]]
+			x0, y0 := px(a[0], a[1])
+			x1, y1 := px(b[0], b[1])
+			drawLine(img, x0, y0, x1, y1, col)
+		}
+	}
 	f, err := os.Create(path)
 	if err != nil {
 		return err
@@ -209,6 +231,29 @@ func fillTri(img *image.RGBA, x0, y0, x1, y1, x2, y2 int, col [4]uint8) {
 			}
 		}
 	}
+}
+
+// drawLine draws a 1-px Bresenham line, clipped to the image.
+func drawLine(img *image.RGBA, x0, y0, x1, y1 int, col [4]uint8) {
+	b := img.Bounds()
+	dx, dy := x1-x0, y1-y0
+	steps := max3(abs(dx), abs(dy), 1)
+	for i := 0; i <= steps; i++ {
+		x := x0 + dx*i/steps
+		y := y0 + dy*i/steps
+		if x < 0 || y < 0 || x >= b.Dx() || y >= b.Dy() {
+			continue
+		}
+		o := img.PixOffset(x, y)
+		img.Pix[o], img.Pix[o+1], img.Pix[o+2], img.Pix[o+3] = col[0], col[1], col[2], col[3]
+	}
+}
+
+func abs(v int) int {
+	if v < 0 {
+		return -v
+	}
+	return v
 }
 
 func min3(a, b, c int) int {

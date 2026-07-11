@@ -108,15 +108,20 @@ export class StageViewer {
 
     const loader = new GLTFLoader();
     const load = (path) => new Promise((res, rej) => loader.load(BASE + path, res, undefined, rej));
-    const parts = [level.sky, level.mesh?.glb].filter(Boolean);
-    for (const path of parts) {
+    // the engine draws the whole background pass before the foreground pass,
+    // then back-to-front by layer z within each; the render-order bias keeps
+    // the foreground on top even where a background piece has a larger z
+    const parts = [
+      { path: level.sky, bias: 0 },
+      { path: level.mesh?.glb, bias: 1000 },
+    ].filter((p) => p.path);
+    for (const { path, bias } of parts) {
       const gltf = await load(path);
       gltf.scene.traverse((o) => {
         if (!o.isMesh) return;
-        // painter's algorithm: no depth, back-to-front by the layer's own z
         o.geometry.computeBoundingBox();
         const bb = o.geometry.boundingBox;
-        o.renderOrder = (bb.min.z + bb.max.z) / 2;
+        o.renderOrder = bias + (bb.min.z + bb.max.z) / 2;
         for (const m of Array.isArray(o.material) ? o.material : [o.material]) {
           m.transparent = true;
           m.depthTest = false;
@@ -126,13 +131,37 @@ export class StageViewer {
       this.group.add(gltf.scene);
     }
 
-    // frame the stage's top-left at native zoom (the stages run left to
-    // right, descending), zoomable out to the whole stage
-    this.cam.fitView({ x: 0, y: 0, w: NATIVE.w, h: NATIVE.h }, { maxNativeFactor: 4 });
+    // the collision contours (a line GLB), a toggleable overlay above everything
+    this.collisionGroup = new THREE.Group();
+    this.collisionGroup.visible = this._collisionOn || false;
+    this.group.add(this.collisionGroup);
+    if (level.collision?.glb) {
+      const gltf = await load(level.collision.glb);
+      gltf.scene.traverse((o) => {
+        if (!o.isLine && !o.isLineSegments && !o.isMesh) return;
+        o.renderOrder = 1e6;
+        for (const m of Array.isArray(o.material) ? o.material : [o.material]) {
+          m.depthTest = false;
+          m.depthWrite = false;
+        }
+      });
+      this.collisionGroup.add(gltf.scene);
+    }
+
+    // frame the exported view rect — the PSP screen centred where play
+    // begins — zoomable out to the whole stage and in to 4x native
+    this.cam.fitView(level.view || { x: 0, y: 0, w: NATIVE.w, h: NATIVE.h }, { maxNativeFactor: 4 });
     if (this.hud) {
       this.hud.textContent = `${level.name} — ${Math.round(this.levelW)}×${Math.round(this.levelH)} world units`;
     }
     return level;
+  }
+
+  setLayer(name, on) {
+    if (name === 'collision') {
+      this._collisionOn = on;
+      if (this.collisionGroup) this.collisionGroup.visible = on;
+    }
   }
 
   // Map the shared camera's pan/zoom state onto the orthographic camera. The

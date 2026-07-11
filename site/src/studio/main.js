@@ -342,6 +342,7 @@ const GAMES = [
       section: lvl.section,
       label: lvl.name.startsWith(lvl.section) ? lvl.name.slice(lvl.section.length).trim() || lvl.name : lvl.name,
     }),
+    layers: [{ id: 'collision', label: 'Collision layer', default: false }],
   },
 ];
 

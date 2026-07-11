@@ -1,4 +1,8 @@
 {
+ "collision": {
+  "glb": "models/yama01_collision.glb",
+  "kind": "outlines"
+ },
  "extents": {
   "max": [
    4400,
@@ -17,5 +21,11 @@
   "glb": "models/yama01.glb"
  },
  "name": "yama01",
- "sky": "models/yama01_bg.glb"
+ "sky": "models/yama01_bg.glb",
+ "view": {
+  "h": 272,
+  "w": 480,
+  "x": -80.3125,
+  "y": 388.80487
+ }
 }
