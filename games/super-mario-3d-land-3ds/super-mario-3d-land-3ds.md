@@ -459,27 +459,51 @@ at `0x00107218`), which is a different structure from the stuck command ring (`0
 completion timing and the ring's retirement are orthogonal, so the ring stall is not a GPU-timing
 artefact.
 
-### The current frontier: the render-command ring, drained lazily, full before the first blocking push
+### The current frontier: the render-command ring, filled during onboarding and never drained
 
 Past the transition the screen clears and the main thread blocks inside the game's own render-command
-driver (the singleton at `0x00425814`). Its shape, mapped from the disassembly: command chains are
-submitted through `0x0022B0CC`, which **try-pushes** each into a 32-entry FIFO ring at `+0xB4`
-(`0x004258C8`, count at `+0x28`) while a fence counter (`+0x170`) names each submission; retirement
-is a separate **pop** path (`0x0022AF84`, and a pop-until-my-fence loop at `0x0022B2AC`), the ring's
-consumer being the same main thread on its explicit flush/swap calls, not a worker. The telling fact:
-across the whole boot the ring only ever **grows** — 13 entries at the first dialog, 21 after the
-StreetPass flow, a full 32 at the file-select — and never drains, because the StreetPass/menu phase
-fills it (each try-push succeeds silently while there is room) but never reaches the flush that would
-retire. The menu still renders because that path submits GX directly; this ring is the *in-game*
-renderer's, seeded and left full before gameplay starts. The first **blocking** push — the scene
-switch after the save, when the ring is already at 32 — then waits on the ring's space semaphore
-(`0x004258D4`) for a retire that its own thread is a few instructions short of performing:
-self-deadlock. A probe (`bootoracle -poke`, a new instrument) that widens the ring lets that push
-through, after which the retire loop drains every stale chain but, none matching its fence, ends
-waiting on pop-empty. So the real question is why the ring is allowed to fill to capacity during
-onboarding without a retire — either the game expects a consumer we have not started, or an
-init-time flush is being skipped because of state we still model wrong. That trace is the next piece
-of work; GX timing has been ruled out.
+driver (the singleton at `0x00425814`). The structure, mapped from the disassembly and a cold-boot
+construction trace: the driver embeds several FIFOs, all built once by a generic queue constructor
+(`0x003926BC` → `0x00392710`) — a pair of double-buffered command rings and a node free-list. The one
+that deadlocks is a **32-entry ring at `+0xB4`** (`0x004258C8`, its backing array at driver `+0xE8`,
+count at `+0x28`, capacity at `+0x20`). Commands are submitted through `0x0022B0CC` (grab a node from
+the free-list at `+0x168`, fill it, push), which **try-pushes** — silently succeeding while there is
+room — and retired through a separate **pop** path (`0x0022AF84`, and a pop-until-my-fence loop at
+`0x0022B2AC`).
+
+Three facts, established this session, pin the shape of the bug:
+
+- **The ring only ever grows.** A memory-watch on the count field across the whole boot shows
+  monotonic increase — 13 entries at the first dialog, 21 after the StreetPass flow, a full 32 at the
+  file-select — with every write coming from the push site and *not one* from a pop. It is never
+  drained, from cold boot onward.
+- **There is no dedicated consumer.** The ring's own condition variables — the "space available"
+  (`+0xC`, `0x004258D4`) the producer waits on when full, and the "data available" (`+0x4`) a consumer
+  would wait on when empty — are never signalled *or waited on* by any thread during onboarding
+  (watched: zero activity). The driver's init spawns no worker for it. The two threads that do park on
+  driver-relative arbiters (`+0x678`, `+0x1348`) are an idle job-pool, unrelated to this ring and
+  themselves never signalled. So the ring's only consumer is the **main thread's own inline flush**
+  (`0x0022AF84` / the pop-until-fence loop) — and that flush is *never reached* during the entire
+  onboarding (zero calls across the flow). The menu still renders because it submits GX directly; this
+  ring belongs to the *in-game* renderer, filled but never pumped before gameplay.
+- **The deadlock is that flush's absence catching up.** The post-save scene setup performs the first
+  **blocking** push — a render object's finalize (a vtable `+0xC` method invoked during a refcount
+  release, chain `0x0027B1B4` → … → `0x001DF5D8` → `0x0022B0CC`). Because the ring is already full of
+  never-retired onboarding commands, the blocking push waits on `+0xC` for a retire that only its own
+  now-parked thread can perform: a true self-deadlock. A probe (`bootoracle -poke`, a new instrument)
+  that widens the ring lets that push through, after which the retire loop finally runs but, finding
+  no chain matching its fence, ends waiting on pop-empty — confirming the ring was full of *stale*
+  work, not live work.
+
+So the ring is not a per-frame command queue that cycles; it accumulates roughly eight entries per
+onboarding *screen* and is meant to be drained by a flush the main thread never executes during
+onboarding. The open question is why: either these onboarding submissions are a **leak** — objects
+registered as a screen is built and meant to be retired when it is torn down, a teardown pop we are
+skipping (a plausible trigger is an APT/library-applet-return notification that drives the scene
+rebuild, which the stubbed Mii-selector path may not raise) — or they are legitimately deferred work
+that a *first-gameplay* flush should drain before the setup pushes onto it, and that flush is gated on
+state we still model wrong. Resolving it means tracing the onboarding→gameplay scene lifecycle to find
+the flush/teardown that should retire this ring; GX-completion timing has already been ruled out.
 
 One quirk is recorded and not yet explained — some `srv:GetServiceHandle` requests store the 8-byte
 service name with each 32-bit word's halves rotated ("APT:U" half-swapped, "fs:USER" byte-rotated,
