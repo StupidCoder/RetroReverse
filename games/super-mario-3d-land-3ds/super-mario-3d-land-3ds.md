@@ -334,11 +334,12 @@ stereo-camera (`0x00050005`) all read as zero. `writeConfigBlock` now fills them
 English console's values. (An earlier trace shows the game already *defaults* its internal language
 to English from a zero config — mapping region/language 0 through its own table at `0x00100C7C` — so
 the message folder was already `EuEnglish`, which the cartridge does contain; the honest config is a
-correctness fix and the `"NULL"` root cause likely lies further into the message-archive parse, which
-the game does itself out of the whole RomFS-L3 blob it maps, not through per-file `fs` opens.) **The
-frontier is that message lookup**: catch the dialog's construction during the ~4.9B-instruction boot
-(the new `-logpc` log-and-continue breakpoint and `-dump` are the instruments) and find which message
-id resolves empty and why.
+correctness fix, and a cold boot with it **confirms the dialog is unchanged** — same `"NULL"`, the
+same thirteen UTF-16 `"NULL"` occurrences at the same addresses. So the `"NULL"` root cause lies
+further into the message-archive parse, which the game does itself out of the whole RomFS-L3 blob it
+maps, not through per-file `fs` opens.) **The frontier is that message lookup**: catch the dialog's
+construction during the ~4.9B-instruction boot (the new `-logpc` log-and-continue breakpoint and
+`-dump` are the instruments) and find which message id resolves empty and why.
 
 One quirk is recorded and not yet explained — some `srv:GetServiceHandle` requests store the 8-byte
 service name with each 32-bit word's halves rotated ("APT:U" half-swapped, "fs:USER" byte-rotated,
