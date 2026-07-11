@@ -16,9 +16,10 @@ const seqBankMagic = 0x5331
 // begins (0 = channel unused). Channel 9 is the GM percussion track. Tempo and
 // timing live inline as FF-meta events, not in the header.
 type Song struct {
-	Index int
-	Data  []byte  // the song's own bytes, starting at its header
-	Track [16]int // byte offset of each channel's stream, 0 if absent
+	Index    int
+	Data     []byte  // the song's own bytes, starting at its header
+	Track    [16]int // byte offset of each channel's stream, 0 if absent
+	Division int     // ticks per quarter note (the word after the 16-track header)
 }
 
 // SeqBank is a parsed "S1" sequence bank: N songs carved out of one blob.
@@ -69,6 +70,14 @@ func (s *Song) parseHeader() error {
 			return fmt.Errorf("channel %d track offset 0x%x outside song (0x%x)", c, off, len(s.Data))
 		}
 		s.Track[c] = off
+	}
+	// A division word sits between the 16-track header (0x40) and the first
+	// track's stream (0x44), giving ticks per quarter note.
+	if len(s.Data) >= 0x44 {
+		s.Division = int(binary.BigEndian.Uint32(s.Data[0x40:]))
+	}
+	if s.Division == 0 {
+		s.Division = 48 // libultra's default, if the field is absent
 	}
 	return nil
 }
