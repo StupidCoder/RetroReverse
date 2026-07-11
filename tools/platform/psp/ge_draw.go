@@ -4,6 +4,8 @@ package psp
 // colour interpolation, optional texture modulation, and CLEAR-mode solid fills,
 // writing pixels into the framebuffer in its PSP pixel format.
 
+import "fmt"
+
 // rasterTri fills the triangle a,b,c with barycentric-interpolated colour (and
 // texcoords when textured). In clear mode it fills solid with a's colour.
 func (m *Machine) rasterTri(s *geState, a, b, c vert) {
@@ -172,6 +174,11 @@ func (m *Machine) putPixel(s *geState, x, y int, r, g, b, a byte) {
 		stride = dispW
 	}
 	off := uint32(y)*stride + uint32(x)
+	if x == geProbeX && y == geProbeY {
+		fmt.Printf("PIXEL(%d,%d) prim#%d rgba=%02X%02X%02X%02X fb=%08X clear=%v blend=%v tex=%v@%08X f%d clut@%08X mat=%08X\n",
+			x, y, gePrimSeq, r, g, b, a, base, s.clearOn, s.blendOn,
+			s.texEnable, s.texAddr, s.texFmt, s.clutAddr, s.matColor)
+	}
 	if s.blendOn && !s.clearOn && a < 0xFF {
 		if a == 0 {
 			return
@@ -182,6 +189,19 @@ func (m *Machine) putPixel(s *geState, x, y int, r, g, b, a byte) {
 		}
 		r, g, b = mix(r, dr), mix(g, dg), mix(b, db)
 		a = 0xFF
+	}
+	if s.maskRGB != 0 || s.maskA != 0 {
+		// PMSKC/PMSKA: framebuffer bits with a 1 in the mask keep their old value.
+		// The game's depth-only fills set the mask fully (write nothing).
+		if s.maskRGB == 0xFFFFFF && s.maskA == 0xFF {
+			return
+		}
+		dr, dg, db, da := m.dstPixel4(s, base, off)
+		mr, mg, mb, ma := byte(s.maskRGB), byte(s.maskRGB>>8), byte(s.maskRGB>>16), byte(s.maskA)
+		r = r&^mr | dr&mr
+		g = g&^mg | dg&mg
+		b = b&^mb | db&mb
+		a = a&^ma | da&ma
 	}
 	switch s.fbFmt {
 	case psm8888:
@@ -207,12 +227,17 @@ func (m *Machine) putPixel(s *geState, x, y int, r, g, b, a byte) {
 
 // dstPixel reads back the render-target pixel at linear offset off (for blending).
 func (m *Machine) dstPixel(s *geState, base, off uint32) (byte, byte, byte) {
+	r, g, b, _ := m.dstPixel4(s, base, off)
+	return r, g, b
+}
+
+// dstPixel4 reads back the render-target pixel including its stored alpha.
+func (m *Machine) dstPixel4(s *geState, base, off uint32) (byte, byte, byte, byte) {
 	if s.fbFmt == psm8888 {
 		c := m.read32(base + off*4)
-		return byte(c), byte(c >> 8), byte(c >> 16)
+		return byte(c), byte(c >> 8), byte(c >> 16), byte(c >> 24)
 	}
-	r, g, b, _ := decode16a(u16(m, base+off*2), s.fbFmt)
-	return r, g, b
+	return decode16a(u16(m, base+off*2), s.fbFmt)
 }
 
 // --- small helpers ---------------------------------------------------------

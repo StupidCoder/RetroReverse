@@ -17,6 +17,29 @@ import (
 // geDebugN: set PSP_GE_DEBUG=N to print the render state of the first N PRIMs.
 var geDebugN, _ = strconv.Atoi(os.Getenv("PSP_GE_DEBUG"))
 
+// gePixelProbe: set PSP_GE_PIXEL=x,y to log every PRIM that writes that pixel
+// (prim sequence number, render state, colour written). Correlate the seq
+// numbers with the PSP_GE_DEBUG PRIM lines to find which draw owns a pixel.
+var geProbeX, geProbeY = -1, -1
+
+// gePrimDump: set PSP_GE_PRIM=N to dump, when PRIM sequence number N executes,
+// the full render state, every vertex, and the raw command words issued since
+// the previous PRIM (the state delta that conditioned this draw).
+var gePrimDump = -1
+
+func init() {
+	if s := os.Getenv("PSP_GE_PIXEL"); s != "" {
+		if n, err := fmt.Sscanf(s, "%d,%d", &geProbeX, &geProbeY); n != 2 || err != nil {
+			geProbeX, geProbeY = -1, -1
+		}
+	}
+	if s := os.Getenv("PSP_GE_PRIM"); s != "" {
+		if v, err := strconv.Atoi(s); err == nil {
+			gePrimDump = v
+		}
+	}
+}
+
 // GE register command numbers (subset; pspsdk guInternal names).
 const (
 	cVADDR      = 0x01
@@ -61,6 +84,8 @@ const (
 	cFBWIDTH    = 0x9D
 	cFBPIXFMT   = 0xD2
 	cCLEARMODE  = 0xD3
+	cPMSKC      = 0xE8 // pixel colour write mask (1 bits = masked out; sceGuPixelMask)
+	cPMSKA      = 0xE9 // pixel alpha write mask
 )
 
 // geState is the render state accumulated while walking a list.
@@ -98,6 +123,9 @@ type geState struct {
 	clut     [256]uint32 // decoded RGBA entries
 
 	blendOn bool
+
+	maskRGB uint32 // PMSKC: colour bits masked out of framebuffer writes
+	maskA   uint32 // PMSKA: alpha bits masked out
 }
 
 func (m *Machine) rasterList(list GeList) {
@@ -121,6 +149,12 @@ func (m *Machine) rasterList(list GeList) {
 	for _, w := range list.Words {
 		cmd := w >> 24
 		arg := w & 0x00FFFFFF
+		if gePrimDump >= 0 {
+			geWordTrail = append(geWordTrail, w)
+			if len(geWordTrail) > 400 {
+				geWordTrail = geWordTrail[len(geWordTrail)-400:]
+			}
+		}
 		switch cmd {
 		case cBASE:
 			s.base = (arg << 8) & 0xFF000000
@@ -203,6 +237,10 @@ func (m *Machine) rasterList(list GeList) {
 			s.clutFmt = arg
 		case cLOADCLUT:
 			m.loadClut(s, arg&0x3F)
+		case cPMSKC:
+			s.maskRGB = arg
+		case cPMSKA:
+			s.maskA = arg & 0xFF
 		case cPRIM:
 			m.drawPrim(s, arg)
 		}
@@ -242,12 +280,47 @@ func (m *Machine) loadClut(s *geState, blocks uint32) {
 	}
 }
 
+// gePrimSeq numbers every PRIM drawn since process start, so the pixel probe
+// and the PSP_GE_DEBUG lines can be correlated.
+var gePrimSeq int
+
+// geWordTrail keeps the raw command words seen since the previous PRIM, for the
+// PSP_GE_PRIM deep dump.
+var geWordTrail []uint32
+
+// dumpPrim prints the full render state, the command trail since the previous
+// PRIM, and every decoded vertex of the target PRIM.
+func (m *Machine) dumpPrim(s *geState, ptype uint32, count int) {
+	fmt.Printf("=== PRIM#%d t%d n%d ===\n", gePrimSeq, ptype, count)
+	fmt.Printf("state: vt=%06X va=%08X clear=%v blend=%v texEn=%v tex@%08X f%d sw=%v %dx%d stride=%d clut@%08X clutFmt=%06X mat=%08X fb=%08X/%d fmt=%d\n",
+		s.vtype, s.vaddr, s.clearOn, s.blendOn, s.texEnable, s.texAddr, s.texFmt,
+		s.texSwizzle, s.texW, s.texH, s.texStride, s.clutAddr, s.clutFmt, s.matColor,
+		s.fbAddress(), s.fbStride, s.fbFmt)
+	fmt.Printf("viewport: S(%.1f,%.1f,%.1f) C(%.1f,%.1f,%.1f) off(%.1f,%.1f)\n",
+		s.vpXS, s.vpYS, s.vpZS, s.vpXC, s.vpYC, s.vpZC, s.offX, s.offY)
+	fmt.Printf("trail (%d words since previous PRIM):\n", len(geWordTrail))
+	for _, w := range geWordTrail {
+		fmt.Printf("  %08X  %s %06X\n", w, GeCmdName(w>>24), w&0xFFFFFF)
+	}
+	for i, v := range m.decodeVerts(s, count) {
+		fmt.Printf("  v%-3d (%8.2f,%8.2f,%8.2f) uv(%.3f,%.3f) rgba %02X%02X%02X%02X\n",
+			i, v.x, v.y, v.z, v.u, v.v, v.r, v.g, v.b, v.a)
+	}
+}
+
 // drawPrim decodes and rasterizes one PRIM command (arg: bits 0-15 count, 16-18 type).
 func (m *Machine) drawPrim(s *geState, arg uint32) {
 	count := int(arg & 0xFFFF)
 	ptype := (arg >> 16) & 7
 	if count == 0 || s.vaddr == 0 {
 		return
+	}
+	gePrimSeq++
+	if gePrimSeq == gePrimDump {
+		m.dumpPrim(s, ptype, count)
+	}
+	if gePrimDump >= 0 {
+		geWordTrail = geWordTrail[:0]
 	}
 	if geDebugN > 0 {
 		geDebugN--
@@ -256,8 +329,8 @@ func (m *Machine) drawPrim(s *geState, arg uint32) {
 		if len(vs) > 0 {
 			v0 = vs[0]
 		}
-		fmt.Printf("PRIM t%d n%d vt=%06X va=%08X tex=%v@%08X f%d sw%v %dx%d clut@%08X mat=%08X wT=(%.1f,%.1f,%.1f) v0=(%.1f,%.1f,%.1f uv %.2f,%.2f)\n",
-			ptype, count, s.vtype, s.vaddr, s.texEnable, s.texAddr, s.texFmt, s.texSwizzle,
+		fmt.Printf("PRIM#%d t%d n%d vt=%06X va=%08X tex=%v@%08X f%d sw%v %dx%d clut@%08X mat=%08X wT=(%.1f,%.1f,%.1f) v0=(%.1f,%.1f,%.1f uv %.2f,%.2f)\n",
+			gePrimSeq, ptype, count, s.vtype, s.vaddr, s.texEnable, s.texAddr, s.texFmt, s.texSwizzle,
 			s.texW, s.texH, s.clutAddr, s.matColor,
 			s.world[12], s.world[13], s.world[14], v0.x, v0.y, v0.z, v0.u, v0.v)
 	}

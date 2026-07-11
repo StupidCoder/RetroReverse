@@ -61,6 +61,7 @@ func main() {
 	bpS := flag.String("bp", "", "breakpoint: stop when PC reaches this address (hex)")
 	watchS := flag.String("watch", "", "watch: log who writes ADDR or ADDR:LEN (hex)")
 	rwatchS := flag.String("rwatch", "", "watch: log who reads ADDR or ADDR:LEN (hex)")
+	rprofS := flag.String("rprofile", "", "profile reads of ADDR:LEN: per reading PC, report count and lo..hi range at exit")
 	watchN := flag.Int("watchn", 50, "with -watch/-rwatch, stop printing raw accesses after this many")
 	keysS := flag.String("keys", "", "pad input script: file of '<vblank> [buttons...]' lines (cross, start, up, ...)")
 	saveS := flag.String("savestate", "", "after the run, write a machine savestate to this file")
@@ -111,7 +112,7 @@ func main() {
 		if err := m.LoadStateFile(*loadS); err != nil {
 			die("load state: %v", err)
 		}
-		fmt.Fprintf(os.Stderr, "restored state: PC 0x%08X, %d instructions\n", m.CPU.PC, m.CPU.Steps)
+		fmt.Fprintf(os.Stderr, "restored state: PC 0x%08X, %d instructions, vblank %d\n", m.CPU.PC, m.CPU.Steps, m.Vblanks())
 	}
 
 	w := bufio.NewWriter(os.Stdout)
@@ -227,6 +228,30 @@ func main() {
 			}
 		}
 	}
+	type rprof struct {
+		count  uint64
+		lo, hi uint32
+	}
+	var rprofile map[uint32]*rprof
+	if *rprofS != "" {
+		lo, ln := parseWatch(*rprofS)
+		m.RWatchLo, m.RWatchHi = lo, lo+ln
+		rprofile = make(map[uint32]*rprof)
+		m.OnRead = func(addr, val, pc uint32) {
+			p := rprofile[pc]
+			if p == nil {
+				p = &rprof{lo: addr, hi: addr}
+				rprofile[pc] = p
+			}
+			p.count++
+			if addr < p.lo {
+				p.lo = addr
+			}
+			if addr > p.hi {
+				p.hi = addr
+			}
+		}
+	}
 	if *geDump > 0 {
 		dumped := 0
 		m.OnGeList = func(l psp.GeList) {
@@ -314,6 +339,19 @@ func main() {
 		fmt.Fprintf(os.Stderr, "wrote framebuffer (%s) to %s\n", m.FramebufferInfo(), *shot)
 	}
 
+	if rprofile != nil {
+		var pcs []uint32
+		for pc := range rprofile {
+			pcs = append(pcs, pc)
+		}
+		sort.Slice(pcs, func(i, j int) bool { return pcs[i] < pcs[j] })
+		fmt.Fprintf(w, "read profile of 0x%08X..0x%08X: %d reading PCs\n", m.RWatchLo, m.RWatchHi, len(pcs))
+		for _, pc := range pcs {
+			p := rprofile[pc]
+			fmt.Fprintf(w, "  PC 0x%08X  %9d reads  0x%08X..0x%08X (+0x%06X..+0x%06X)\n",
+				pc, p.count, p.lo, p.hi, p.lo-m.RWatchLo, p.hi-m.RWatchLo)
+		}
+	}
 	w.Flush()
 	fmt.Fprintf(os.Stderr, "\n%s (vblank %d)\n", res, m.Vblanks())
 	if tty := m.TTY(); tty != "" {

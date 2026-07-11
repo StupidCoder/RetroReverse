@@ -287,6 +287,14 @@ too-short press with "Hold the L and R buttons down longer!". The savedata check
 runs at title entry; a "New" selection loads `st_flower01.clv` and enters the
 first stage playing.
 
+The stage is player-controlled gameplay, not the title's attract demo (the demo
+runs only when the title is left idle, logs `demo_start`, and reads its scripted
+characters from `data/reside/chara/*.txt` — none of which occurs on this path).
+Runs restored from the same in-stage savestate are deterministic, so differing
+pad input is the only cause of differing frames: with no input the LocoRoco sits
+by the sprout, and a held left trigger leaves the whole world visibly rotated
+with the LocoRoco swung against it.
+
 Savestates (`state.go`) snapshot the full machine (RAM, VRAM, scratchpad, the
 Allegrex register files including FPU/VFPU, the thread contexts and their wait
 state, the kernel objects, the sub-interrupt handlers, the open file descriptors and
@@ -326,7 +334,13 @@ VRAM.
   (16-byte × 8-row tiles stored contiguously) and mapping indices through the
   latched palette per `CLUTFORMAT` (shift, mask, base). With blending enabled the
   source mixes over the destination by source alpha. Pixels are written in the
-  framebuffer's PSP format.
+  framebuffer's PSP format, through the pixel write mask (`PMSKC`/`PMSKA`,
+  commands `0xE8`/`0xE9`): framebuffer bits with a 1 in the mask keep their old
+  value. The mask is load-bearing for the in-game scenes — between the background
+  and foreground passes of every stage frame the game draws a full-screen
+  through-mode sprite with texturing and blending off and the mask fully set, a
+  depth-only fill that writes no colour; a rasterizer that ignores the mask
+  paints the sky flat white.
 - **Output (`framebuffer.go`).** The 480×272 framebuffer is decoded from VRAM to an
   RGBA image and written to PNG (`bootoracle -shot`).
 
@@ -336,7 +350,14 @@ publisher splash, streams the title assets (Part V) and renders the full animate
 title screen — the logo letters with their inhabitants, the singing LocoRocos on
 the hill, the crossfading menu — from its own display lists (~1,100 primitives per
 frame; `bootoracle -gelog N` prints a per-list command census, `-gedump N` the raw
-words, and `PSP_GE_DEBUG=N` the per-primitive render state).
+words, and `PSP_GE_DEBUG=N` the per-primitive render state). Two pixel-level
+probes localize a wrong pixel to its producing draw: `PSP_GE_PIXEL=x,y` logs every
+primitive that writes that pixel (sequence number, render state, colour), and
+`PSP_GE_PRIM=N` dumps primitive *N* in full — the render state, every decoded
+vertex, and the raw command words issued since the previous primitive, i.e. the
+state delta that conditioned the draw. `-rprofile ADDR:LEN` aggregates reads of a
+memory range per reading PC (count and address range), the read-side complement
+of the write watch.
 
 ![Sony Computer Entertainment America Presents](figures/presents.png)
 
@@ -412,16 +433,93 @@ The decompressed content of an `.arc` is a GARC archive:
 | 0x04 | version float 1.0 |
 | 0x14 | offset of the first chunk |
 
-Chunks are tagged blocks (`FILE`, …) walked by magic and next-offset; the
-`FILE` chunk is the file directory. The boot directory `data/first_us.arc`
-(98,275 bytes compressed) decompresses to the GARC naming 77 packed files;
-its entries carry each file's sector offset within DATA.BIN (`entry+4`) and
-byte size (`entry+12`), which is exactly what `FileOpen` needs to build the
-`sce_lbn` path. Loaded archives whose payload begins with `GARC` are
-registered in a global resource list (head `0x090EB8C8`, guarded by
-`garcListSema`), which resource queries walk by chunk magic and key.
+Chunks are tagged blocks: magic at `+0`, the **absolute offset of the next
+chunk** at `+4`, an entry count at `+8`, walked to a `TERM` terminator. The
+boot archive `data/first_us.arc` (98,275 bytes compressed, 392,304
+decompressed) carries three chunks — `FILE` (the directory), `NAME` (the
+name-string blob) and `DATA` (the packed file bodies, stored inline) — over
+77 files. A `FILE` entry is 24 bytes:
 
-### 5. XUI screen resources
+| offset | field |
+|--------|-------|
+| +0 | extension tag (`tip\0`, `png\0`, `sgd\0`, `bin\0`, …) |
+| +4 | byte size |
+| +8 | absolute offset of the file's data within the archive |
+| +12 | absolute offset of the file's name (in the `NAME` chunk) |
+| +16 | unknown (monotonic per entry) |
+| +20 | `0xFFFFFFFF` — patched with a runtime handle after load |
+
+Loaded archives whose payload begins with `GARC` are registered in a global
+resource list (head `0x090EB8C8`, guarded by `garcListSema`), which resource
+queries walk by chunk magic and key.
+
+### 5. The DATA.BIN sector directory (GIMG)
+
+`FileOpen`'s name→extent resolution is served by `sector_usa.bin`, a `GIMG`
+file packed inside `first_us.arc`. The header is the magic, the version
+float 1.0, and the entry count at `+8` (249 files); entries of 16 bytes
+follow at `+0xC`:
+
+| offset | field |
+|--------|-------|
+| +0 | offset of the file's name (within `sector_usa.bin`) |
+| +4 | sector offset within DATA.BIN |
+| +8 | unknown (name hash) |
+| +12 | byte size |
+
+`FileOpen` adds the pack's base LBN (23472) to the sector offset and formats
+the `disc0:/sce_lbn0x%X_size0x%X` path from the result — for
+`yel_locoroco.arc` (sector `0x10A0`, size `0xF694C`) exactly the
+`sce_lbn0x6C50_size0xF694C` extent it prints. The directory names every
+stage file (`st_flower01.clv` = sector `0x11F90`, 992,475 bytes).
+
+### 6. Stage files (`.clv`)
+
+A stage file is GPRS-compressed; `st_flower01.clv` decompresses to a
+3,348,480-byte **pointer-patched image**: the game loads it contiguously
+into the `ptnHeapVpl` zone and fixes it up in place, after which the engine
+consumes the data directly — including the GE, whose display lists point
+straight into the loaded file.
+
+Every stored pointer is a **file offset + 1** (0 = NULL). The header holds a
+self-pointer slot at `+0`, a NULL at `+4`, and two biased offsets: `+8` the
+scene section, `+0xC` the relocation table. The relocation table is a u32
+array of pointer-slot locations (each itself offset+1, terminated by 0); the
+loader adds the load base − 1 to every listed slot. In `st_flower01.clv` the
+table lists 24,510 slots, and every one of them holds a valid biased offset —
+an arithmetic check of the whole scheme. The image has three regions:
+
+- **Textures** (`+0x10` … the scene section): the stage's texture bank. The
+  GE texture and CLUT addresses of the in-stage draws point into this region
+  of the loaded file (the terrain texture at image offset `+0x33F10`, its
+  palette at `+0x33ED0`).
+- **Scene** (`+0x245E40` … `+0x319774`): the geometry, materials and
+  animation data, plus the stage editor's own metadata — the records keep
+  their Maya export provenance (source-tree paths under
+  `D:\Develop\petton/petton_data/…`, shader names `lambert2…`, DAG paths like
+  `|p_toge`, and named object bundles such as `toge.dlk` with
+  `objectBundle`/`animation`/`visibility` keys; *petton* is the game's
+  development codename). A per-frame evaluator (`0x0884ED68`, reading a
+  rate at `+4`, period at `+12` and mode flags at `+20` of each curve
+  record, on a 30 Hz timebase) drives the animation curves.
+- **Relocation + directory** (`+0x319774` …): the relocation table, preceded
+  by a named-section directory ({pointer, name} pairs such as `toge_file`).
+
+The terrain geometry is stored as **precomputed triangle strips in the GE's
+own vertex format** — vertex type `0x182`, 16 bytes per vertex: `u16 u, v`
+texcoords (fractional s16, scaled by `TEXSCALEU/V`) and `float x, y, z` in
+world units. The engine does not tessellate or rebuild anything at runtime:
+each frame it emits `VADDR` commands whose addresses are the strips inside
+the loaded file (the world tilt is applied in the view matrix), and the
+strips' vertex floats read back byte-identical between the file and the
+running game's vertex pointers. A mesh record ends in four corner vertices
+(`float x,y,z` + packed texcoord) and a strip table of 8-byte entries —
+`u16 flags`, `u16 vertexCount`, `ptr strip` — whose counts match the
+submitted `PRIM` commands one for one. Mesh records are collected by
+pointer arrays that chain up to the scene root; the full record layout
+(materials, layers, object placement) is Part V work in progress.
+
+### 7. XUI screen resources
 
 The boot scene's on-screen content is an `XUI` resource served from a loaded
 GARC: magic `XUI\0`, version float 1.0, a 0x140-byte header, then a chain of
@@ -431,7 +529,7 @@ machine (`0x0894D370`) parses the chain (`0x0894089C`), keeps per-type node
 pointers on the scene object (the type-3 node is the screen root it waits
 for), and advances from its loading state once the parse lands.
 
-### 6. The boot load chain
+### 8. The boot load chain
 
 The sequence from module start into the first stage, as the game's own log and
 the oracle's IO notes record it: `modules/module.cnf` and the media PRXs;
@@ -449,3 +547,5 @@ without a file open.
 ![The MuiMui intro dialogue](figures/muimui.png)
 
 ![Stage 1, playing](figures/stage1.png)
+
+![Stage 1 with the left trigger held — the world tilts](figures/stage1-tilt.png)
