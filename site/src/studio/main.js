@@ -327,6 +327,22 @@ const GAMES = [
     layers: [{ id: 'wireframe', label: 'Wireframe', default: false }],
     group: (item) => ({ section: item.section || 'Banner', label: item.name }),
   },
+  {
+    // The stages are textured GLBs (foreground terrain + background flora) decoded
+    // from the st_*.clv level files. The game is 2-D, so the viewer renders the
+    // layered planes through an orthographic camera with the tilemap games'
+    // map-camera controls; render '3d' keeps the smooth (non-pixelated) canvas.
+    id: 'loco-roco-psp', name: 'LocoRoco', system: 'Sony PSP', render: '3d',
+    load: () => import('../loco-roco-psp/viewer.js').then(m => m.StageViewer),
+    make: (V, el, hud) => new V(el, hud),
+    list: async (v) => (await v.init()).levels,
+    show: (v, lvl) => v.loadLevel(lvl),
+    // one accordion section per world ("flower" -> stages "01", "02", ...)
+    group: (lvl) => ({
+      section: lvl.section,
+      label: lvl.name.startsWith(lvl.section) ? lvl.name.slice(lvl.section.length).trim() || lvl.name : lvl.name,
+    }),
+  },
 ];
 
 // Turrican's manifest labels worlds 0-based with hex start offsets; make them readable.
