@@ -92,6 +92,12 @@ type Machine struct {
 	reschedule bool   // an svc asks the scheduler to switch after this Step
 	stopped    bool   // a breakpoint asked the run loop to stop
 
+	// Filesystem (fs.go): the cartridge RomFS (parsed + the raw IVFC region a
+	// game opens to parse itself), and the open IFile sessions.
+	romfs    *RomFS
+	romfsRaw []byte
+	fsFiles  map[uint32]*fsFile
+
 	// IPC / graphics bring-up.
 	notifyWaiters   []uint32 // thread ids parked in srv: ReceiveNotification
 	ipcLog          []ipcCall
@@ -188,10 +194,16 @@ func NewMachine(img []byte) (*Machine, error) {
 		nextHandle: 0x00010000,
 		ports:      map[uint32]string{},
 		services:   map[uint32]string{},
+		fsFiles:    map[uint32]*fsFile{},
 		bps:        map[uint32]bool{},
 		programID:  cxi.ProgramID,
 		entry:      ex.Text.Address,
 	}
+	// The RomFS backs the fs service (fs.go). A title without one still boots;
+	// its file opens simply miss. The raw IVFC region is also kept: a game opens
+	// ARCHIVE_ROMFS as one big file and walks the filesystem itself.
+	m.romfs, _ = cxi.RomFS()
+	m.romfsRaw, _ = cxi.RomFSBytes()
 
 	// Code region: text..bss as one contiguous span (the segments tile without
 	// gaps; validate() in the ExHeader proved it). BSS is the zero tail past the

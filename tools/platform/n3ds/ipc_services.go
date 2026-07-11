@@ -22,6 +22,8 @@ func (m *Machine) ipcService(name string, hdr ipcHeader) bool {
 		return m.ipcCFG(hdr)
 	case "fs": // filesystem (RomFS, save data)
 		return m.ipcFS(hdr)
+	case "err": // fatal-error display — capture what the game is throwing
+		return m.ipcErr(hdr)
 	case "ndm", "ptm", "ac", "frd", "cecd", "boss", "nim", "mic", "csnd", "dsp", "y2r":
 		// Background/optional services: acknowledge init-shaped commands so the
 		// game's optional subsystems do not stall the boot.
@@ -210,13 +212,8 @@ func (m *Machine) ipcFS(hdr ipcHeader) bool {
 	case 0x0801: // Initialize
 		m.ipcReply(hdr.Command)
 		return true
-	case 0x0802, 0x0803: // OpenFile / OpenFileDirectly → a file handle
-		h := m.newHandle("fs-file", false)
-		m.WriteWord(m.cmdBuf(), uint32(hdr.Command)<<16|1<<6|2)
-		m.WriteWord(m.cmdBuf()+4, resultSuccess)
-		m.WriteWord(m.cmdBuf()+8, 0)
-		m.WriteWord(m.cmdBuf()+12, h)
-		return true
+	case 0x0802, 0x0803: // OpenFile / OpenFileDirectly → a file session handle
+		return m.fsOpenFile(hdr)
 	case 0x080C, 0x0814, 0x0817, 0x0845, 0x0851: // OpenArchive / Format / etc.
 		m.ipcReply(hdr.Command, 0, 0)
 		return true
@@ -231,3 +228,22 @@ func (m *Machine) FrameStats() (submitted, swapped int) {
 }
 
 var _ = fmt.Sprintf
+
+// ipcErr models the err:f fatal-error display. Cmd 0x0001 (ThrowFatalError) is
+// how a title reports an unrecoverable error; capturing its payload tells us what
+// the game objected to, so it is dumped and then halts loudly rather than being
+// silently swallowed.
+func (m *Machine) ipcErr(hdr ipcHeader) bool {
+	if hdr.Command == 0x0001 { // ThrowFatalError
+		errType := m.ipcArg(1)
+		code := m.ipcArg(3)
+		pc := m.ipcArg(5)
+		fmt.Printf("err:f ThrowFatalError type=0x%X resultCode=0x%08X pc=0x%08X; cmdbuf:", errType, code, pc)
+		for i := 1; i < 16; i++ {
+			fmt.Printf(" %08X", m.ReadWord(m.cmdBuf()+uint32(i)*4))
+		}
+		fmt.Println()
+	}
+	m.ipcReply(hdr.Command)
+	return true
+}
