@@ -41,7 +41,8 @@ func (m *Machine) Run(budget int) int {
 				break
 			}
 			if m.bps[pc] {
-				fmt.Printf("breakpoint at 0x%08X after %d instructions\n", pc, n)
+				fmt.Printf("breakpoint [t%d] at 0x%08X r0=%08X r1=%08X r4=%08X r5=%08X lr=%08X after %d\n",
+					m.curThread.id, pc, m.CPU.R[0], m.CPU.R[1], m.CPU.R[4], m.CPU.R[5], m.CPU.R[14], n)
 				m.stopped = true
 				break
 			}

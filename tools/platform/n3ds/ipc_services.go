@@ -50,19 +50,21 @@ func serviceBase(name string) string {
 // events, and an APT_Wrap-free "you are running" status.
 func (m *Machine) ipcAPT(name string, hdr ipcHeader) bool {
 	switch hdr.Command {
-	case 0x0001: // GetLockHandle → applet attributes + the APT lock mutex handle.
-		// Response header 0x00010102: 4 normal words (result, attributes, APT
-		// state, pad) then a moved handle — so the handle lands at cmdbuf[6]. A
-		// wrong normal count makes the app read the translate descriptor (0) as
-		// the handle and then WaitSync on handle 0 forever.
+	case 0x0001: // GetLockHandle → applet attributes, APT state, and the lock handle.
+		// Response header 0x00010082: 3 normal words (result, attributes, state)
+		// then a moved handle — the wrapper (0x00103108) reads attr from cmdbuf[2],
+		// state from cmdbuf[3] and the HANDLE from cmdbuf[5] (+0x14). The app stores
+		// that lock handle to a global and WaitSyncs on it, so it must be the real
+		// (signalled) handle — a wrong offset made it read 0 and block forever.
+		// Attributes: AppletPos = APP (0), so (attr&7) != 6 and the app takes the
+		// normal wait-on-the-lock path, which succeeds because apt-lock is signalled.
 		h := m.newHandle("apt-lock", true)
-		m.WriteWord(m.cmdBuf(), uint32(hdr.Command)<<16|4<<6|2)
+		m.WriteWord(m.cmdBuf(), uint32(hdr.Command)<<16|3<<6|2)
 		m.WriteWord(m.cmdBuf()+4, resultSuccess)
-		m.WriteWord(m.cmdBuf()+8, 0)  // applet attributes
+		m.WriteWord(m.cmdBuf()+8, 0)  // applet attributes (AppletPos APP)
 		m.WriteWord(m.cmdBuf()+12, 0) // APT state
-		m.WriteWord(m.cmdBuf()+16, 0) // pad
-		m.WriteWord(m.cmdBuf()+20, 0) // translate descriptor: move 1 handle
-		m.WriteWord(m.cmdBuf()+24, h)
+		m.WriteWord(m.cmdBuf()+16, 0) // translate descriptor: move 1 handle
+		m.WriteWord(m.cmdBuf()+20, h) // the lock handle (cmdbuf[5])
 		return true
 	case 0x0002, 0x0003, 0x0004: // Initialize / Enable / Finalize
 		if hdr.Command == 0x0002 { // Initialize returns two event handles
@@ -86,8 +88,27 @@ func (m *Machine) ipcAPT(name string, hdr ipcHeader) bool {
 	case 0x0009: // IsRegistered
 		m.ipcReply(hdr.Command, 1)
 		return true
-	case 0x000B, 0x000C, 0x000D: // InquireNotification / Send/ReceiveParameter
+	case 0x000B: // InquireNotification → the pending APT command. The app dispatches
+		// this through a jump table where 0 panics; a freshly launched application's
+		// first parameter is APTCMD_WAKEUP (1), delivered exactly once, after which
+		// the app proceeds to real init. Later inquiries report "none" as WAKEUP too
+		// (benign: the WAKEUP handler is idempotent and re-arms the wait).
+		m.ipcReply(hdr.Command, 1) // APTCMD_WAKEUP
+		return true
+	case 0x000C: // SendParameter
 		m.ipcReply(hdr.Command, 0)
+		return true
+	case 0x000D, 0x000E: // ReceiveParameter / GlanceParameter → the pending parameter.
+		// Wrapper (0x00107EF8) reads senderId=cmdbuf[2], command=cmdbuf[3],
+		// dataSize=cmdbuf[4], handle=cmdbuf[6]. Deliver the launch WAKEUP: no
+		// sender, command WAKEUP (1), no data, no handle.
+		m.WriteWord(m.cmdBuf(), uint32(hdr.Command)<<16|4<<6|2)
+		m.WriteWord(m.cmdBuf()+4, resultSuccess)
+		m.WriteWord(m.cmdBuf()+8, 0)  // sender app id
+		m.WriteWord(m.cmdBuf()+12, 1) // command = APTCMD_WAKEUP
+		m.WriteWord(m.cmdBuf()+16, 0) // parameter data size
+		m.WriteWord(m.cmdBuf()+20, 0) // translate descriptor: move 1 handle
+		m.WriteWord(m.cmdBuf()+24, 0) // parameter handle (none for WAKEUP)
 		return true
 	case 0x0043, 0x004B, 0x004C: // NotifyToWait / AppletUtility / SleepIfShellClosed
 		m.ipcReply(hdr.Command)

@@ -141,25 +141,23 @@ func knownService(name string) bool {
 }
 
 // readServiceName reads the service name from the srv: GetServiceHandle command
-// buffer (params 1..2, 8 bytes; param 3 the length). One unresolved quirk: some
-// requests store the name with each 32-bit word's two 16-bit halves swapped and
-// some do not — "APT:U" arrives as words 0x50413A54/0x00556663 (half-swapped)
-// while "ndm:u" arrives as 0x3A6D646E/0xFFFF0075 (straight), both from the same
-// thread. Until the cause is understood, both interpretations are read and the
-// one whose family the HLE knows is chosen (falling back to the straight order).
+// buffer (params 1..2, 8 bytes; param 3 the length). One unresolved quirk: the
+// name's two 32-bit words arrive rotated by a byte amount that varies by service
+// — "APT:U" is half-word-swapped (ROR 16), "fs:USER" is byte-rotated (ROR 8),
+// "ndm:u" is straight — all from the same thread. Until the cause is understood,
+// each per-word rotation is tried and the one whose family the HLE knows wins,
+// falling back to the straight order.
 func (m *Machine) readServiceName() string {
-	straight := m.decodeName(false)
-	if knownService(straight) {
-		return straight
+	for _, rot := range []uint{0, 16, 8, 24} {
+		if n := m.decodeName(rot); knownService(n) {
+			return n
+		}
 	}
-	swapped := m.decodeName(true)
-	if knownService(swapped) {
-		return swapped
-	}
-	return straight
+	return m.decodeName(0)
 }
 
-func (m *Machine) decodeName(swap bool) string {
+// decodeName reads the 8-byte name with each 32-bit word rotated right by rot bits.
+func (m *Machine) decodeName(rot uint) string {
 	n := int(m.ReadWord(m.cmdBuf() + 12)) // param 3: name length
 	if n <= 0 || n > 8 {
 		n = 8
@@ -167,9 +165,7 @@ func (m *Machine) decodeName(swap bool) string {
 	var b []byte
 	for w := 0; w < 2; w++ {
 		word := m.ReadWord(m.cmdBuf() + 4 + uint32(w)*4)
-		if swap {
-			word = word>>16 | word<<16
-		}
+		word = word>>rot | word<<(32-rot) // ROR by rot (rot 0 leaves it unchanged)
 		for i := 0; i < 4; i++ {
 			ch := byte(word >> (uint(i) * 8))
 			if ch == 0 || len(b) >= n {
