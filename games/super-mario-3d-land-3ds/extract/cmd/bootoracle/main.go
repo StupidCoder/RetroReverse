@@ -67,6 +67,7 @@ func main() {
 	hidtrace := flag.Bool("hidtrace", false, "tally reads of the HID shared-memory block by offset, dump after the run")
 	findAscii := flag.String("findascii", "", "after load/run, print addresses where this ASCII string occurs in memory")
 	findUtf16 := flag.String("findutf16", "", "after load/run, print addresses where this UTF-16LE string occurs in memory")
+	findWord := flag.String("findword", "", "after load/run, print addresses where this 32-bit little-endian word occurs in memory (hex)")
 	var dumps multiFlag
 	flag.Var(&dumps, "dump", "hex-dump ADDR:LEN of memory after load/run (hex); repeatable")
 	var pokes multiFlag
@@ -80,7 +81,7 @@ func main() {
 		flag.Usage()
 		os.Exit(2)
 	}
-	if err := run(*image, *steps, *trace, *tracen, *verbose, *svclog, bps, watches, logpcs, tracefroms, dumps, *saveState, *loadState, *gxdump, *shot, *gputrace, *threads, *hidtrace, *keys, *keypulse, *findAscii, *findUtf16, pokes); err != nil {
+	if err := run(*image, *steps, *trace, *tracen, *verbose, *svclog, bps, watches, logpcs, tracefroms, dumps, *saveState, *loadState, *gxdump, *shot, *gputrace, *threads, *hidtrace, *keys, *keypulse, *findAscii, *findUtf16, *findWord, pokes); err != nil {
 		fmt.Fprintln(os.Stderr, "bootoracle:", err)
 		os.Exit(1)
 	}
@@ -91,6 +92,17 @@ func asciiPattern(s string) []byte {
 		return nil
 	}
 	return []byte(s)
+}
+
+func wordPattern(s string) []byte {
+	if s == "" {
+		return nil
+	}
+	v, err := parseNum(s)
+	if err != nil {
+		return nil
+	}
+	return []byte{byte(v), byte(v >> 8), byte(v >> 16), byte(v >> 24)}
 }
 
 func utf16Pattern(s string) []byte {
@@ -104,7 +116,7 @@ func utf16Pattern(s string) []byte {
 	return b
 }
 
-func run(imagePath, stepsStr string, trace bool, tracen int, verbose, svclog bool, bps, watches, logpcs, tracefroms, dumps multiFlag, saveState, loadState, gxdump, shot string, gputrace int, threads, hidtrace bool, keys string, keypulse int, findAscii, findUtf16 string, pokes multiFlag) error {
+func run(imagePath, stepsStr string, trace bool, tracen int, verbose, svclog bool, bps, watches, logpcs, tracefroms, dumps multiFlag, saveState, loadState, gxdump, shot string, gputrace int, threads, hidtrace bool, keys string, keypulse int, findAscii, findUtf16, findWord string, pokes multiFlag) error {
 	img, err := os.ReadFile(imagePath)
 	if err != nil {
 		return err
@@ -274,7 +286,7 @@ func run(imagePath, stepsStr string, trace bool, tracen int, verbose, svclog boo
 	for _, spec := range []struct {
 		label string
 		pat   []byte
-	}{{"ASCII " + findAscii, asciiPattern(findAscii)}, {"UTF-16 " + findUtf16, utf16Pattern(findUtf16)}} {
+	}{{"ASCII " + findAscii, asciiPattern(findAscii)}, {"UTF-16 " + findUtf16, utf16Pattern(findUtf16)}, {"word " + findWord, wordPattern(findWord)}} {
 		if len(spec.pat) == 0 {
 			continue
 		}
