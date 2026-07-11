@@ -547,20 +547,62 @@ stage 1's batches use `stage_a_tex` (the foreground terrain) and twelve
 background flora, separated from the foreground by material and by the
 vertices' z.
 
+A material's texture chain has two hops. The material points to a
+**texture reference** — `{ptr name, u32 0, u32 0, u32 flags, u32 0, u32 0,
+float uscale, float vscale, ptr object}` — whose UV scale is exactly the
+`TEXSCALEU/V` the engine programs (the terrain repeats its texture 4×; a
+strip's texcoord is `s16/32768 × scale`). The reference points to the
+**texture object**:
+
+| offset | field |
+|--------|-------|
+| +0 | ptr → the source image's build path (`…/sourceimages/….tga`) |
+| +8 | width, height (u16) |
+| +12 | format class (u8), mip count (u8) |
+| +16 | ptr → pixel data |
+| +20 | ptr → next texture object |
+
+The pixel data is one allocation per texture: a 16-entry RGBA8888 palette
+(64 bytes), then the mip chain stored consecutively, each level CLUT4 in
+the GE's swizzled block layout — matching the `CLUTFORMAT 0x00FF03`,
+`TEXFORMAT 4` and per-level `TEXADDR` bindings the engine issues (the
+engine binds every level texture this way; the format classes 1 and 3
+share the storage, class 3 marking the translucent textures whose palette
+entries carry partial alpha — the membrane walls of the tainai stages).
+Materials with a NULL texture reference are flat-coloured (water surfaces,
+hidden-area shapes). The batch's material colour modulates the texel, GE
+`TFUNC` modulate — a near-white cloud texture under a lavender material
+renders lavender.
+
 The decoder (`extract/clv`, with the GARC/GIMG readers in `extract/garc`)
-parses the file from the image alone — decompression, header, relocation
-table (rejecting any invalid slot), layout, cells, batches, strips — and
-`cmd/clvdump` reports the stage (stage 1: 33 non-empty cells, 172 batches,
-3,157 strips, 15,308 vertices) and cross-checks the decode against the
-running game: every `PSP_GE_DEBUG` PRIM whose vertex address falls inside
-the loaded image must match a decoded strip's file offset and vertex count
-exactly (`-verify PRIMLOG -base HEX`). Over a multi-frame in-stage log,
-every grid-subtree draw matches; the remaining in-image draws are the
+parses all of this from the image alone — decompression, header, relocation
+table (rejecting any invalid slot), layout, cells, batches, strips,
+materials and textures — and `cmd/clvdump` reports a stage (stage 1: 33
+non-empty cells, 172 batches, 3,157 strips, 15,308 vertices), decodes its
+textures to PNG (`-textures DIR`), renders an orthographic preview
+(`-preview PNG`), and cross-checks the decode against the running game:
+every `PSP_GE_DEBUG` PRIM whose vertex address falls inside the loaded
+image must match a decoded strip's file offset and vertex count exactly
+(`-verify PRIMLOG -base HEX`). Over a multi-frame in-stage log, every
+grid-subtree draw matches; the remaining in-image draws are the
 world-translated **object** geometry (the sprout, grass tufts, pickups —
 records under the object table with their own strip tables), whose decode
 is Part V work in progress.
 
-### 7. XUI screen resources
+### 7. Web export
+
+`cmd/webexport` walks the GIMG directory for the 40 stage files
+(`st_flower01` … `st_yama03`, thirteen worlds named by the disc) and emits
+each stage to `site/public/loco-roco-psp/`: the foreground terrain as
+`models/<stage>.glb`, the background flora as `models/<stage>_bg.glb`
+(split on the material name — `stage*` vs the rest), a format-2 `mesh3d`
+level JSON with the world bounds as extents, and the manifest. Triangles
+are grouped per (texture, material colour) with the tint baked into the
+embedded PNG; translucent-class textures render with alpha blending;
+untextured materials become flat-colour groups. One strip of `st_jungle02`
+carries non-finite vertex floats and is dropped, reported.
+
+### 8. XUI screen resources
 
 The boot scene's on-screen content is an `XUI` resource served from a loaded
 GARC: magic `XUI\0`, version float 1.0, a 0x140-byte header, then a chain of
@@ -570,7 +612,7 @@ machine (`0x0894D370`) parses the chain (`0x0894089C`), keeps per-type node
 pointers on the scene object (the type-3 node is the screen root it waits
 for), and advances from its loading state once the parse lands.
 
-### 8. The boot load chain
+### 9. The boot load chain
 
 The sequence from module start into the first stage, as the game's own log and
 the oracle's IO notes record it: `modules/module.cnf` and the media PRXs;

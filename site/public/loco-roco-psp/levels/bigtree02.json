@@ -1,0 +1,21 @@
+{
+ "extents": {
+  "max": [
+   1600,
+   1400,
+   100.500145
+  ],
+  "min": [
+   -1600,
+   -1400,
+   -200.59367
+  ]
+ },
+ "format": 2,
+ "kind": "mesh3d",
+ "mesh": {
+  "glb": "models/bigtree02.glb"
+ },
+ "name": "bigtree02",
+ "sky": "models/bigtree02_bg.glb"
+}

@@ -1,0 +1,21 @@
+{
+ "extents": {
+  "max": [
+   3600,
+   1600,
+   100
+  ],
+  "min": [
+   -3600,
+   -1600,
+   -199
+  ]
+ },
+ "format": 2,
+ "kind": "mesh3d",
+ "mesh": {
+  "glb": "models/island01.glb"
+ },
+ "name": "island01",
+ "sky": "models/island01_bg.glb"
+}

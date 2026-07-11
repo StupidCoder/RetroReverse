@@ -1,0 +1,252 @@
+{
+ "format": 2,
+ "game": "loco-roco-psp",
+ "levels": [
+  {
+   "name": "africa01",
+   "section": "africa",
+   "file": "levels/africa01.json",
+   "kind": "mesh3d"
+  },
+  {
+   "name": "africa02",
+   "section": "africa",
+   "file": "levels/africa02.json",
+   "kind": "mesh3d"
+  },
+  {
+   "name": "africa03",
+   "section": "africa",
+   "file": "levels/africa03.json",
+   "kind": "mesh3d"
+  },
+  {
+   "name": "bigtree01",
+   "section": "bigtree",
+   "file": "levels/bigtree01.json",
+   "kind": "mesh3d"
+  },
+  {
+   "name": "bigtree02",
+   "section": "bigtree",
+   "file": "levels/bigtree02.json",
+   "kind": "mesh3d"
+  },
+  {
+   "name": "bigtree03",
+   "section": "bigtree",
+   "file": "levels/bigtree03.json",
+   "kind": "mesh3d"
+  },
+  {
+   "name": "bombmuch",
+   "section": "bombmuch",
+   "file": "levels/bombmuch.json",
+   "kind": "mesh3d"
+  },
+  {
+   "name": "flower01",
+   "section": "flower",
+   "file": "levels/flower01.json",
+   "kind": "mesh3d"
+  },
+  {
+   "name": "flower02",
+   "section": "flower",
+   "file": "levels/flower02.json",
+   "kind": "mesh3d"
+  },
+  {
+   "name": "flower03",
+   "section": "flower",
+   "file": "levels/flower03.json",
+   "kind": "mesh3d"
+  },
+  {
+   "name": "iseki01",
+   "section": "iseki",
+   "file": "levels/iseki01.json",
+   "kind": "mesh3d"
+  },
+  {
+   "name": "iseki02",
+   "section": "iseki",
+   "file": "levels/iseki02.json",
+   "kind": "mesh3d"
+  },
+  {
+   "name": "iseki04",
+   "section": "iseki",
+   "file": "levels/iseki04.json",
+   "kind": "mesh3d"
+  },
+  {
+   "name": "island01",
+   "section": "island",
+   "file": "levels/island01.json",
+   "kind": "mesh3d"
+  },
+  {
+   "name": "island02",
+   "section": "island",
+   "file": "levels/island02.json",
+   "kind": "mesh3d"
+  },
+  {
+   "name": "island03",
+   "section": "island",
+   "file": "levels/island03.json",
+   "kind": "mesh3d"
+  },
+  {
+   "name": "jungle01",
+   "section": "jungle",
+   "file": "levels/jungle01.json",
+   "kind": "mesh3d"
+  },
+  {
+   "name": "jungle02",
+   "section": "jungle",
+   "file": "levels/jungle02.json",
+   "kind": "mesh3d"
+  },
+  {
+   "name": "kinoko01",
+   "section": "kinoko",
+   "file": "levels/kinoko01.json",
+   "kind": "mesh3d"
+  },
+  {
+   "name": "kinoko02",
+   "section": "kinoko",
+   "file": "levels/kinoko02.json",
+   "kind": "mesh3d"
+  },
+  {
+   "name": "kinoko03",
+   "section": "kinoko",
+   "file": "levels/kinoko03.json",
+   "kind": "mesh3d"
+  },
+  {
+   "name": "nightmare01",
+   "section": "nightmare",
+   "file": "levels/nightmare01.json",
+   "kind": "mesh3d"
+  },
+  {
+   "name": "nightmare02",
+   "section": "nightmare",
+   "file": "levels/nightmare02.json",
+   "kind": "mesh3d"
+  },
+  {
+   "name": "nightmare03",
+   "section": "nightmare",
+   "file": "levels/nightmare03.json",
+   "kind": "mesh3d"
+  },
+  {
+   "name": "nightmare04",
+   "section": "nightmare",
+   "file": "levels/nightmare04.json",
+   "kind": "mesh3d"
+  },
+  {
+   "name": "snow01",
+   "section": "snow",
+   "file": "levels/snow01.json",
+   "kind": "mesh3d"
+  },
+  {
+   "name": "snow02",
+   "section": "snow",
+   "file": "levels/snow02.json",
+   "kind": "mesh3d"
+  },
+  {
+   "name": "snow03",
+   "section": "snow",
+   "file": "levels/snow03.json",
+   "kind": "mesh3d"
+  },
+  {
+   "name": "snow04",
+   "section": "snow",
+   "file": "levels/snow04.json",
+   "kind": "mesh3d"
+  },
+  {
+   "name": "snow05",
+   "section": "snow",
+   "file": "levels/snow05.json",
+   "kind": "mesh3d"
+  },
+  {
+   "name": "star01",
+   "section": "star",
+   "file": "levels/star01.json",
+   "kind": "mesh3d"
+  },
+  {
+   "name": "star02",
+   "section": "star",
+   "file": "levels/star02.json",
+   "kind": "mesh3d"
+  },
+  {
+   "name": "star03",
+   "section": "star",
+   "file": "levels/star03.json",
+   "kind": "mesh3d"
+  },
+  {
+   "name": "tainai01",
+   "section": "tainai",
+   "file": "levels/tainai01.json",
+   "kind": "mesh3d"
+  },
+  {
+   "name": "tainai02",
+   "section": "tainai",
+   "file": "levels/tainai02.json",
+   "kind": "mesh3d"
+  },
+  {
+   "name": "tainai03",
+   "section": "tainai",
+   "file": "levels/tainai03.json",
+   "kind": "mesh3d"
+  },
+  {
+   "name": "tainai04",
+   "section": "tainai",
+   "file": "levels/tainai04.json",
+   "kind": "mesh3d"
+  },
+  {
+   "name": "yama01",
+   "section": "yama",
+   "file": "levels/yama01.json",
+   "kind": "mesh3d"
+  },
+  {
+   "name": "yama02",
+   "section": "yama",
+   "file": "levels/yama02.json",
+   "kind": "mesh3d"
+  },
+  {
+   "name": "yama03",
+   "section": "yama",
+   "file": "levels/yama03.json",
+   "kind": "mesh3d"
+  }
+ ],
+ "native": {
+  "h": 272,
+  "w": 480
+ },
+ "platform": "Sony PSP",
+ "tickHz": 60
+}

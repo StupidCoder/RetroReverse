@@ -1,0 +1,21 @@
+{
+ "extents": {
+  "max": [
+   2600,
+   1800,
+   111
+  ],
+  "min": [
+   -2600,
+   -1800,
+   -199
+  ]
+ },
+ "format": 2,
+ "kind": "mesh3d",
+ "mesh": {
+  "glb": "models/star01.glb"
+ },
+ "name": "star01",
+ "sky": "models/star01_bg.glb"
+}

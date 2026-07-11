@@ -1,0 +1,21 @@
+{
+ "extents": {
+  "max": [
+   3800,
+   2000,
+   100
+  ],
+  "min": [
+   -3800,
+   -2000,
+   -199
+  ]
+ },
+ "format": 2,
+ "kind": "mesh3d",
+ "mesh": {
+  "glb": "models/snow02.glb"
+ },
+ "name": "snow02",
+ "sky": "models/snow02_bg.glb"
+}

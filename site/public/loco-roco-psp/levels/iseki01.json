@@ -1,0 +1,21 @@
+{
+ "extents": {
+  "max": [
+   1800,
+   1400,
+   120
+  ],
+  "min": [
+   -1800,
+   -1400,
+   -199
+  ]
+ },
+ "format": 2,
+ "kind": "mesh3d",
+ "mesh": {
+  "glb": "models/iseki01.glb"
+ },
+ "name": "iseki01",
+ "sky": "models/iseki01_bg.glb"
+}

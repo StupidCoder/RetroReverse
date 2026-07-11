@@ -1,0 +1,21 @@
+{
+ "extents": {
+  "max": [
+   3200,
+   800,
+   100
+  ],
+  "min": [
+   -3200,
+   -800,
+   -199
+  ]
+ },
+ "format": 2,
+ "kind": "mesh3d",
+ "mesh": {
+  "glb": "models/flower03.glb"
+ },
+ "name": "flower03",
+ "sky": "models/flower03_bg.glb"
+}

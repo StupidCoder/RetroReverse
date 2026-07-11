@@ -1,0 +1,21 @@
+{
+ "extents": {
+  "max": [
+   3400,
+   1200,
+   100
+  ],
+  "min": [
+   -3400,
+   -1200,
+   -199
+  ]
+ },
+ "format": 2,
+ "kind": "mesh3d",
+ "mesh": {
+  "glb": "models/nightmare03.glb"
+ },
+ "name": "nightmare03",
+ "sky": "models/nightmare03_bg.glb"
+}

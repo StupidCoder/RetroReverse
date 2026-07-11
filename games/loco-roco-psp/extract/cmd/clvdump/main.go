@@ -13,8 +13,11 @@ import (
 	"bufio"
 	"flag"
 	"fmt"
+	"image"
+	"image/png"
 	"os"
 	"regexp"
+	"sort"
 	"strconv"
 
 	"retroreverse.com/games/loco-roco-psp/extract/clv"
@@ -23,6 +26,8 @@ import (
 func main() {
 	in := flag.String("in", "", "stage file (.clv)")
 	cells := flag.Bool("cells", false, "list every cell's batches")
+	texDir := flag.String("textures", "", "decode every batch material's texture to PNGs in this directory")
+	preview := flag.String("preview", "", "render an orthographic flat-colour preview of the stage to this PNG")
 	verify := flag.String("verify", "", "PSP_GE_DEBUG PRIM log to cross-check strips against")
 	baseS := flag.String("base", "094400C0", "with -verify, RAM base the stage image was loaded at (hex)")
 	flag.Parse()
@@ -72,6 +77,46 @@ func main() {
 			}
 		}
 	}
+	if *texDir != "" {
+		if err := os.MkdirAll(*texDir, 0755); err != nil {
+			die(err)
+		}
+		done := map[string]bool{}
+		for i := range L.Cells {
+			for _, b := range L.Cells[i].Batches {
+				m, err := c.Material(b)
+				if err != nil {
+					fmt.Printf("material %q: %v\n", b.MaterialName, err)
+					continue
+				}
+				if done[m.TexName] {
+					continue
+				}
+				done[m.TexName] = true
+				img, err := c.DecodeTexture(m)
+				if err != nil {
+					fmt.Printf("texture %q: %v\n", m.TexName, err)
+					continue
+				}
+				p := *texDir + "/" + m.TexName + ".png"
+				f, err := os.Create(p)
+				if err != nil {
+					die(err)
+				}
+				if err := png.Encode(f, img); err != nil {
+					die(err)
+				}
+				f.Close()
+				fmt.Printf("wrote %s (%dx%d, %d mips, uv x%.1f,%.1f)\n", p, m.TexW, m.TexH, m.Mips, m.UScale, m.VScale)
+			}
+		}
+	}
+	if *preview != "" {
+		if err := renderPreview(c, *preview); err != nil {
+			die(err)
+		}
+		fmt.Printf("wrote %s\n", *preview)
+	}
 	if *verify != "" {
 		base, err := strconv.ParseUint(*baseS, 16, 32)
 		if err != nil {
@@ -79,6 +124,110 @@ func main() {
 		}
 		verifyLog(c, uint32(base), *verify)
 	}
+}
+
+// renderPreview draws every strip as flat-colour triangles in an orthographic
+// top view (world x right, world y up), batches in cell order — a quick visual
+// check that the decoded geometry is the stage.
+func renderPreview(c *clv.Clv, path string) error {
+	const W = 1040
+	L := &c.Layout
+	scale := float32(W) / L.W
+	H := int(L.H*scale) + 1
+	img := image.NewRGBA(image.Rect(0, 0, W, H))
+	// batches sorted back-to-front by their first vertex's z, as the painter
+	// order approximates the game's layering
+	type job struct {
+		z   float32
+		col [4]uint8
+		b   clv.Batch
+	}
+	var jobs []job
+	for i := range L.Cells {
+		for _, b := range L.Cells[i].Batches {
+			if len(b.Strips) == 0 || len(b.Strips[0].Verts) == 0 {
+				continue
+			}
+			m, _ := c.Material(b)
+			col := [4]uint8{byte(m.Color), byte(m.Color >> 8), byte(m.Color >> 16), 255}
+			if m.TexName != "" && m.Color == 0xFFFFFFFF {
+				// untinted textured batch: use a mid-grey so shape is visible
+				col = [4]uint8{160, 160, 160, 255}
+			}
+			jobs = append(jobs, job{b.Strips[0].Verts[0].Z, col, b})
+		}
+	}
+	sort.Slice(jobs, func(i, j int) bool { return jobs[i].z < jobs[j].z })
+	px := func(x, y float32) (int, int) {
+		return int((x - L.X) * scale), H - 1 - int((y-L.Y)*scale)
+	}
+	for _, j := range jobs {
+		for _, s := range j.b.Strips {
+			for i := 0; i+2 < len(s.Verts); i++ {
+				x0, y0 := px(s.Verts[i].X, s.Verts[i].Y)
+				x1, y1 := px(s.Verts[i+1].X, s.Verts[i+1].Y)
+				x2, y2 := px(s.Verts[i+2].X, s.Verts[i+2].Y)
+				fillTri(img, x0, y0, x1, y1, x2, y2, j.col)
+			}
+		}
+	}
+	f, err := os.Create(path)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+	return png.Encode(f, img)
+}
+
+func fillTri(img *image.RGBA, x0, y0, x1, y1, x2, y2 int, col [4]uint8) {
+	minX, maxX := min3(x0, x1, x2), max3(x0, x1, x2)
+	minY, maxY := min3(y0, y1, y2), max3(y0, y1, y2)
+	b := img.Bounds()
+	if minX < 0 {
+		minX = 0
+	}
+	if minY < 0 {
+		minY = 0
+	}
+	if maxX >= b.Dx() {
+		maxX = b.Dx() - 1
+	}
+	if maxY >= b.Dy() {
+		maxY = b.Dy() - 1
+	}
+	e := func(ax, ay, bx, by, px, py int) int { return (px-ax)*(by-ay) - (py-ay)*(bx-ax) }
+	area := e(x0, y0, x1, y1, x2, y2)
+	if area == 0 {
+		return
+	}
+	for y := minY; y <= maxY; y++ {
+		for x := minX; x <= maxX; x++ {
+			w0, w1, w2 := e(x0, y0, x1, y1, x, y), e(x1, y1, x2, y2, x, y), e(x2, y2, x0, y0, x, y)
+			if (w0 >= 0 && w1 >= 0 && w2 >= 0) || (w0 <= 0 && w1 <= 0 && w2 <= 0) {
+				i := img.PixOffset(x, y)
+				img.Pix[i], img.Pix[i+1], img.Pix[i+2], img.Pix[i+3] = col[0], col[1], col[2], col[3]
+			}
+		}
+	}
+}
+
+func min3(a, b, c int) int {
+	if b < a {
+		a = b
+	}
+	if c < a {
+		a = c
+	}
+	return a
+}
+func max3(a, b, c int) int {
+	if b > a {
+		a = b
+	}
+	if c > a {
+		a = c
+	}
+	return a
 }
 
 func countNonEmpty(cells []clv.Cell) int {

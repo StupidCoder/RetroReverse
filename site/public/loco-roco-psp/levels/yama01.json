@@ -1,0 +1,21 @@
+{
+ "extents": {
+  "max": [
+   4400,
+   1400,
+   100
+  ],
+  "min": [
+   -4400,
+   -1400,
+   -199
+  ]
+ },
+ "format": 2,
+ "kind": "mesh3d",
+ "mesh": {
+  "glb": "models/yama01.glb"
+ },
+ "name": "yama01",
+ "sky": "models/yama01_bg.glb"
+}

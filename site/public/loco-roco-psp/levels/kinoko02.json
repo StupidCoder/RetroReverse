@@ -1,0 +1,21 @@
+{
+ "extents": {
+  "max": [
+   3400,
+   1800,
+   100
+  ],
+  "min": [
+   -3400,
+   -1800,
+   -199
+  ]
+ },
+ "format": 2,
+ "kind": "mesh3d",
+ "mesh": {
+  "glb": "models/kinoko02.glb"
+ },
+ "name": "kinoko02",
+ "sky": "models/kinoko02_bg.glb"
+}

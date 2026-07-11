@@ -1,0 +1,21 @@
+{
+ "extents": {
+  "max": [
+   1200,
+   2400,
+   103
+  ],
+  "min": [
+   -1200,
+   -2400,
+   -160
+  ]
+ },
+ "format": 2,
+ "kind": "mesh3d",
+ "mesh": {
+  "glb": "models/bombmuch.glb"
+ },
+ "name": "bombmuch",
+ "sky": "models/bombmuch_bg.glb"
+}

@@ -1,0 +1,21 @@
+{
+ "extents": {
+  "max": [
+   3000,
+   1600,
+   100
+  ],
+  "min": [
+   -3000,
+   -1600,
+   -199
+  ]
+ },
+ "format": 2,
+ "kind": "mesh3d",
+ "mesh": {
+  "glb": "models/africa02.glb"
+ },
+ "name": "africa02",
+ "sky": "models/africa02_bg.glb"
+}
