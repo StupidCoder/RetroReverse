@@ -98,6 +98,9 @@ type Machine struct {
 	romfsRaw []byte
 	fsFiles  map[uint32]*fsFile
 
+	// The PICA200 GPU (gpu.go). Accessor: GPU().
+	gpu *GPU
+
 	// IPC / graphics bring-up.
 	notifyWaiters   []uint32 // thread ids parked in srv: ReceiveNotification
 	ipcLog          []ipcCall
@@ -106,8 +109,11 @@ type Machine struct {
 	gspEvent        uint32 // event the GSP signals on each interrupt (VBlank)
 	nextFrameInstr  uint64 // instruction count at which to deliver the next VBlank
 	vblankCount     uint64 // VBlanks delivered
-	framesSubmitted int    // GSP TriggerCmdReqQueue calls (GPU command lists)
-	framesSwapped   int    // GSP SetBufferSwap calls (frames presented)
+	framesSubmitted  int // GSP TriggerCmdReqQueue calls (GPU command lists)
+	framesSwapped    int // GSP SetBufferSwap calls (frames presented)
+	displayTransfers int // GX DisplayTransfers executed (frames made visible)
+	lastXferTop      xferRecord
+	lastXferBottom   xferRecord
 
 	// Instrumentation.
 	GXCapture bool       // record GX commands + ProcessCommandList buffers (gx.go)
@@ -205,6 +211,7 @@ func NewMachine(img []byte) (*Machine, error) {
 		programID:  cxi.ProgramID,
 		entry:      ex.Text.Address,
 	}
+	m.gpu = newGPU(m)
 	// The RomFS backs the fs service (fs.go). A title without one still boots;
 	// its file opens simply miss. The raw IVFC region is also kept: a game opens
 	// ARCHIVE_ROMFS as one big file and walks the filesystem itself.
@@ -234,6 +241,12 @@ func NewMachine(img []byte) (*Machine, error) {
 	// Config (shared) page and the main thread's TLS.
 	m.mapRegion("config", configPage, m.buildConfigPage())
 	m.tlsReg = m.mapRegion("tls", tlsBase, make([]byte, tlsSize))
+
+	// VRAM, at the fixed virtual window an application sees it through. The
+	// game DMAs its vertex/texture data here and points its render targets at
+	// it (as physical 0x18000000 addresses in the GPU registers; gsp_mem.go
+	// translates).
+	m.mapRegion("vram", vramVirtBase, make([]byte, vramSize))
 
 	// Boot the core: ARMv6K, User mode, PC at the entry, SP at the stack top.
 	cpu := arm.NewCPU(m)

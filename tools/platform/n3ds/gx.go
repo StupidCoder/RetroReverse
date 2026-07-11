@@ -69,6 +69,129 @@ func (m *Machine) captureGX(cmd uint32, id uint32) {
 	m.gxLog = append(m.gxLog, r)
 }
 
+// gxMemoryFill floods [start,end) with a constant — the render-target clear.
+// The control word's bits 8-9 give the fill width: 16, 24 or 32 bits (the
+// capture shows 2 = 32-bit for both the RGBA8 colour clear and the D24S8 depth
+// clear).
+func (m *Machine) gxMemoryFill(start, value, end, ctl uint32) {
+	start, end = m.gpuAddrToVirt(start), m.gpuAddrToVirt(end)
+	var unit uint32
+	switch ctl >> 8 & 3 {
+	case 0:
+		unit = 2
+	case 1:
+		unit = 3
+	case 2:
+		unit = 4
+	default:
+		m.CPU.Halt("gx: MemoryFill control 0x%04X has width code 3 after %d instructions", ctl, m.CPU.Instrs)
+		return
+	}
+	for a := start; a+unit <= end; a += unit {
+		for j := uint32(0); j < unit; j++ {
+			m.Write(a+j, byte(value>>(8*j)))
+		}
+	}
+}
+
+// gxDisplayTransfer converts a rendered (tiled, 8×8 Morton) colour buffer into
+// the linear framebuffer the LCD scans out — the step that makes a frame
+// visible. Dim words are height<<16|width; the screens are rotated, so a "row"
+// here is 240 pixels wide and the heights are 400 (top) / 320 (bottom). The
+// flags word carries the source and destination pixel formats (bits 8-10 and
+// 12-14). Only what the game has been seen to use is implemented; anything else
+// stops loudly.
+func (m *Machine) gxDisplayTransfer(src, dst, srcDims, dstDims, flags uint32) {
+	srcW, srcH := srcDims&0xFFFF, srcDims>>16
+	dstW, dstH := dstDims&0xFFFF, dstDims>>16
+	inFmt, outFmt := flags>>8&7, flags>>12&7
+	flip := flags&1 != 0
+	if inFmt != 0 || flags>>1&1 != 0 || flags>>24&3 != 0 {
+		m.CPU.Halt("gx: DisplayTransfer flags 0x%08X unimplemented (in-format %d, tiled-out %d, scale %d) after %d instructions",
+			flags, inFmt, flags>>1&1, flags>>24&3, m.CPU.Instrs)
+		return
+	}
+	src, dst = m.gpuAddrToVirt(src), m.gpuAddrToVirt(dst)
+
+	// Bytes per destination pixel by format: RGBA8, RGB8, RGB565/RGB5A1/RGBA4.
+	var dstBPP uint32
+	switch outFmt {
+	case 0:
+		dstBPP = 4
+	case 1:
+		dstBPP = 3
+	case 2, 3, 4:
+		dstBPP = 2
+	default:
+		m.CPU.Halt("gx: DisplayTransfer out-format %d unimplemented after %d instructions", outFmt, m.CPU.Instrs)
+		return
+	}
+
+	w, h := srcW, srcH
+	if dstW < w {
+		w = dstW
+	}
+	if dstH < h {
+		h = dstH
+	}
+	tilesPerRow := srcW / 8
+	for y := uint32(0); y < h; y++ {
+		for x := uint32(0); x < w; x++ {
+			// Source pixel from the tiled RGBA8 buffer; bytes are [A,B,G,R]
+			// (the PICA convention cgfx_texture.go established).
+			tile := (y/8)*tilesPerRow + x/8
+			mo := (x&1)&1 | (y&1)<<1 | (x&2)<<1 | (y&2)<<2 | (x&4)<<2 | (y&4)<<3
+			p := src + (tile*64+mo)*4
+			a, b := m.Read(p), m.Read(p+1)
+			g, r := m.Read(p+2), m.Read(p+3)
+
+			dy := y
+			if flip {
+				dy = h - 1 - y
+			}
+			q := dst + (dy*dstW+x)*dstBPP
+			switch outFmt {
+			case 0: // RGBA8
+				m.Write(q, a)
+				m.Write(q+1, b)
+				m.Write(q+2, g)
+				m.Write(q+3, r)
+			case 1: // RGB8, bytes [B,G,R]
+				m.Write(q, b)
+				m.Write(q+1, g)
+				m.Write(q+2, r)
+			case 2: // RGB565
+				v := uint32(r>>3)<<11 | uint32(g>>2)<<5 | uint32(b>>3)
+				m.Write(q, byte(v))
+				m.Write(q+1, byte(v>>8))
+			case 3: // RGB5A1
+				v := uint32(r>>3)<<11 | uint32(g>>3)<<6 | uint32(b>>3)<<1 | uint32(a>>7)
+				m.Write(q, byte(v))
+				m.Write(q+1, byte(v>>8))
+			case 4: // RGBA4
+				v := uint32(r>>4)<<12 | uint32(g>>4)<<8 | uint32(b>>4)<<4 | uint32(a>>4)
+				m.Write(q, byte(v))
+				m.Write(q+1, byte(v>>8))
+			}
+		}
+	}
+	m.displayTransfers++
+	// Remember where the frame went: the screenshot instrument (gpu_png.go)
+	// reads the most recent linear framebuffer per screen. The top screen is
+	// 400 lines tall, the bottom 320 — the height names the screen.
+	rec := xferRecord{dst: dst, w: w, h: h, format: outFmt, bpp: dstBPP, stride: dstW}
+	if dstH >= 400 {
+		m.lastXferTop = rec
+	} else {
+		m.lastXferBottom = rec
+	}
+}
+
+// xferRecord describes the last DisplayTransfer per screen — the visible frame.
+type xferRecord struct {
+	dst, w, h, format, bpp, stride uint32
+}
+
 // processGXQueue drains any commands the game has posted to the GX FIFO and
 // raises their completion interrupts, so the render loop's per-command waits are
 // released. Cheap to call speculatively: it returns immediately when the queue
@@ -92,20 +215,45 @@ func (m *Machine) processGXQueue() {
 		if m.GXCapture {
 			m.captureGX(cmd, id)
 		}
+		var w [8]uint32
+		for j := uint32(0); j < 8; j++ {
+			w[j] = m.ReadWord(cmd + j*4)
+		}
 		switch id {
 		case gxCmdProcessCmdList:
 			m.framesSubmitted++ // a PICA200 command list — a rendered frame's geometry
+			m.gpu.Execute(w[1], w[2])
+			if m.CPU.Halted {
+				return
+			}
 			raised = append(raised, gspIntP3D)
 		case gxCmdMemoryFill:
-			// A fill can target one or both memory-fill engines; the second
-			// address word being non-zero means PSC1 is used too.
-			raised = append(raised, gspIntPSC0)
-			if m.ReadWord(cmd+0xC) != 0 {
+			// Two independent fill engines; a zero start address disables one.
+			// Control word: low half engine 0, high half engine 1.
+			if w[1] != 0 {
+				m.gxMemoryFill(w[1], w[2], w[3], w[7]&0xFFFF)
+				raised = append(raised, gspIntPSC0)
+			}
+			if w[4] != 0 {
+				m.gxMemoryFill(w[4], w[5], w[6], w[7]>>16)
 				raised = append(raised, gspIntPSC1)
 			}
-		case gxCmdDisplayTransfer, gxCmdTextureCopy:
+		case gxCmdDisplayTransfer:
+			m.gxDisplayTransfer(w[1], w[2], w[3], w[4], w[5])
 			raised = append(raised, gspIntPPF)
+		case gxCmdTextureCopy:
+			// Not yet observed from the game; stop loudly rather than guess its
+			// slot layout.
+			m.CPU.Halt("gx: TextureCopy %08X %08X %08X %08X unimplemented after %d instructions",
+				w[1], w[2], w[3], w[4], m.CPU.Instrs)
+			return
 		case gxCmdRequestDMA:
+			// A plain memory move: the game stages vertex/texture data from its
+			// linear heap into VRAM with these before drawing.
+			for j := uint32(0); j < w[3]; j++ {
+				m.Write(w[2]+j, m.Read(w[1]+j))
+			}
+			m.gpu.texCache = nil // texture memory changed under the cache
 			raised = append(raised, gspIntDMA)
 		case gxCmdFlushCache:
 			// Cache maintenance completes synchronously; no interrupt.

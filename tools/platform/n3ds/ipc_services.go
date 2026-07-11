@@ -237,6 +237,10 @@ func (m *Machine) FrameStats() (submitted, swapped int) {
 	return m.framesSubmitted, m.framesSwapped
 }
 
+// DisplayTransfers counts the GX DisplayTransfers executed — each one turned a
+// rendered (tiled) colour buffer into a linear framebuffer the LCD scans out.
+func (m *Machine) DisplayTransfers() int { return m.displayTransfers }
+
 var _ = fmt.Sprintf
 
 // ipcErr models the err:f fatal-error display. Cmd 0x0001 (ThrowFatalError) is

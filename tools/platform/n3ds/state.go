@@ -24,7 +24,7 @@ import (
 	"retroreverse.com/tools/cpu/arm"
 )
 
-const snapshotVersion = 2
+const snapshotVersion = 3
 
 // cpuState is the serialisable ARM11 register/flag file, used for the running CPU
 // and for each thread's saved context.
@@ -121,6 +121,60 @@ type snapshot struct {
 	Services map[uint32]string
 	SVCLog   []svcEvent
 	DebugOut []byte
+
+	// Graphics: the GSP bring-up state (v3) …
+	NotifyWaiters   []uint32
+	GSPShared       uint32
+	GSPSharedAddr   uint32
+	GSPEvent        uint32
+	NextFrameInstr  uint64
+	VBlankCount     uint64
+	FramesSubmitted int
+	FramesSwapped   int
+	DisplayXfers    int
+	LastXferTop     xferState
+	LastXferBottom  xferState
+
+	// … and the PICA200 GPU (v3). The upload cursors and partial FIFO buffers
+	// matter: a snapshot can land mid-upload.
+	GPU gpuState
+}
+
+// xferState mirrors xferRecord for the snapshot.
+type xferState struct {
+	Dst, W, H, Format, BPP, Stride uint32
+}
+
+func toXferState(r xferRecord) xferState {
+	return xferState{Dst: r.dst, W: r.w, H: r.h, Format: r.format, BPP: r.bpp, Stride: r.stride}
+}
+
+func (x xferState) into() xferRecord {
+	return xferRecord{dst: x.Dst, w: x.W, h: x.H, format: x.Format, bpp: x.BPP, stride: x.Stride}
+}
+
+// gpuState is the serialised PICA200.
+type gpuState struct {
+	Regs   [0x300]uint32
+	Code   [4096]uint32
+	Opdesc [128]uint32
+	Float  [96][4]float32
+	Bool   uint32
+	Int    [4][4]uint8
+
+	CodeIdx, OpdIdx int
+	FltIdx          int
+	FltF32          bool
+	FltBuf          []uint32
+	FixedIdx        int
+	FixedBuf        []uint32
+	FixedVal        [16][4]float32
+
+	GshCodeIdx, GshOpdIdx, GshFltIdx int
+	GshFltF32                        bool
+	GshFltBuf                        []uint32
+
+	Draws int
 }
 
 // SaveState writes a gzip-compressed gob snapshot of the machine to path.
@@ -144,6 +198,29 @@ func (m *Machine) SaveState(path string) error {
 		Services:    m.services,
 		SVCLog:      m.svcLog,
 		DebugOut:    m.debugOut,
+
+		NotifyWaiters:   m.notifyWaiters,
+		GSPShared:       m.gspShared,
+		GSPSharedAddr:   m.gspSharedAddr,
+		GSPEvent:        m.gspEvent,
+		NextFrameInstr:  m.nextFrameInstr,
+		VBlankCount:     m.vblankCount,
+		FramesSubmitted: m.framesSubmitted,
+		FramesSwapped:   m.framesSwapped,
+		DisplayXfers:    m.displayTransfers,
+		LastXferTop:     toXferState(m.lastXferTop),
+		LastXferBottom:  toXferState(m.lastXferBottom),
+	}
+	g := m.gpu
+	s.GPU = gpuState{
+		Regs: g.Regs, Code: g.Code, Opdesc: g.Opdesc, Float: g.Float,
+		Bool: g.Bool, Int: g.Int,
+		CodeIdx: g.codeIdx, OpdIdx: g.opdIdx,
+		FltIdx: g.fltIdx, FltF32: g.fltF32, FltBuf: g.fltBuf,
+		FixedIdx: g.fixedIdx, FixedBuf: g.fixedBuf, FixedVal: g.fixedVal,
+		GshCodeIdx: g.gshCodeIdx, GshOpdIdx: g.gshOpdIdx,
+		GshFltIdx: g.gshFltIdx, GshFltF32: g.gshFltF32, GshFltBuf: g.gshFltBuf,
+		Draws: g.Draws,
 	}
 	s.CPU = toCPUState(m.CPU)
 	for _, r := range m.regions {
@@ -228,6 +305,24 @@ func (m *Machine) LoadState(path string) error {
 	m.tick = s.Tick
 	m.nextThread, m.nextTLS, m.rrCursor = s.NextThread, s.NextTLS, s.RRCursor
 	m.ports, m.services, m.svcLog, m.debugOut = s.Ports, s.Services, s.SVCLog, s.DebugOut
+
+	m.notifyWaiters = s.NotifyWaiters
+	m.gspShared, m.gspSharedAddr, m.gspEvent = s.GSPShared, s.GSPSharedAddr, s.GSPEvent
+	m.nextFrameInstr, m.vblankCount = s.NextFrameInstr, s.VBlankCount
+	m.framesSubmitted, m.framesSwapped = s.FramesSubmitted, s.FramesSwapped
+	m.displayTransfers = s.DisplayXfers
+	m.lastXferTop, m.lastXferBottom = s.LastXferTop.into(), s.LastXferBottom.into()
+
+	g := m.gpu
+	g.Regs, g.Code, g.Opdesc, g.Float = s.GPU.Regs, s.GPU.Code, s.GPU.Opdesc, s.GPU.Float
+	g.Bool, g.Int = s.GPU.Bool, s.GPU.Int
+	g.codeIdx, g.opdIdx = s.GPU.CodeIdx, s.GPU.OpdIdx
+	g.fltIdx, g.fltF32, g.fltBuf = s.GPU.FltIdx, s.GPU.FltF32, s.GPU.FltBuf
+	g.fixedIdx, g.fixedBuf, g.fixedVal = s.GPU.FixedIdx, s.GPU.FixedBuf, s.GPU.FixedVal
+	g.gshCodeIdx, g.gshOpdIdx = s.GPU.GshCodeIdx, s.GPU.GshOpdIdx
+	g.gshFltIdx, g.gshFltF32, g.gshFltBuf = s.GPU.GshFltIdx, s.GPU.GshFltF32, s.GPU.GshFltBuf
+	g.Draws = s.GPU.Draws
+	g.texCache = nil // rebuilt on demand from restored memory
 
 	m.threads = nil
 	for _, ts := range s.Threads {

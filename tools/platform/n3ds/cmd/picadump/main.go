@@ -24,6 +24,7 @@ import (
 
 func main() {
 	hist := flag.Bool("hist", false, "print a histogram of writes per register instead of the listing")
+	shader := flag.Bool("shader", false, "extract the vertex-shader upload from the list and disassemble it")
 	regFilter := flag.String("reg", "", "only show writes to this register id (hex with 0x, else decimal)")
 	flag.Parse()
 	if flag.NArg() < 1 {
@@ -49,9 +50,12 @@ func main() {
 		}
 		ws, derr := n3ds.DecodePICA(buf)
 		fmt.Printf("%s: %d bytes, %d register writes\n", path, len(buf), len(ws))
-		if *hist {
+		switch {
+		case *shader:
+			printShader(ws)
+		case *hist:
 			printHist(ws)
-		} else {
+		default:
 			printListing(ws, only)
 		}
 		if derr != nil {
@@ -92,6 +96,52 @@ func printHist(ws []n3ds.PICAWrite) {
 		fmt.Printf("  reg 0x%03X  ×%-6d %s\n", r, counts[r], groupOf(r))
 	}
 	fmt.Printf("  %d distinct registers\n", len(regs))
+}
+
+// printShader replays the list's shader-engine upload registers (code at
+// 0x2CB/0x2CC-0x2D3, operand descriptors at 0x2D5/0x2D6-0x2DD, the entry point
+// at 0x2BA) and disassembles the program — the check that the instruction
+// decode is right: a wrong field layout turns the game's own shader into
+// gibberish.
+func printShader(ws []n3ds.PICAWrite) {
+	var code [4096]uint32
+	var opdesc [128]uint32
+	codeIdx, opdIdx, entry, top := 0, 0, 0, 0
+	for _, w := range ws {
+		switch {
+		case w.Reg == 0x2CB:
+			codeIdx = int(w.Value & 0xFFF)
+		case w.Reg >= 0x2CC && w.Reg < 0x2D4:
+			if codeIdx < len(code) {
+				code[codeIdx] = w.Value
+				codeIdx++
+				if codeIdx > top {
+					top = codeIdx
+				}
+			}
+		case w.Reg == 0x2D5:
+			opdIdx = int(w.Value & 0x7F)
+		case w.Reg >= 0x2D6 && w.Reg < 0x2DE:
+			if opdIdx < len(opdesc) {
+				opdesc[opdIdx] = w.Value
+				opdIdx++
+			}
+		case w.Reg == 0x2BA:
+			entry = int(w.Value & 0xFFF)
+		}
+	}
+	if top == 0 {
+		fmt.Println("  no shader code uploaded in this list")
+		return
+	}
+	fmt.Printf("  %d code words uploaded, entry 0x%03X\n", top, entry)
+	for i := 0; i < top; i++ {
+		marker := "  "
+		if i == entry {
+			marker = "->"
+		}
+		fmt.Printf("  %s %03X: %08X  %s\n", marker, i, code[i], n3ds.ShaderDisasm(code[i], &opdesc))
+	}
 }
 
 // groupOf mirrors the platform package's register grouping for annotation.

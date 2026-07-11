@@ -1,0 +1,281 @@
+package n3ds
+
+// gpu.go is the PICA200 command processor: it executes the command lists the
+// game submits through GX ProcessCommandList. A command list is a register-
+// write stream (pica.go decodes it); most writes just latch state into the
+// register file, and a handful of registers have side effects — the shader
+// code/operand/uniform upload FIFOs, and the two draw triggers that run the
+// whole pipeline (vertex fetch → LLE vertex shader → primitive assembly →
+// rasterisation, in gpu_raster.go).
+//
+// This is the analogue of the N64 RDP command interpreter (n64/rdp.go): apply
+// each write, treat specific registers as triggers, and stop loudly at
+// anything structurally unknown rather than guessing. Register ids follow the
+// PICA200's register file layout (the platform's, not any game's); their
+// semantics here are the ones the captured Super Mario 3D Land lists exercise,
+// implemented one by one as the game demands them.
+
+import "fmt"
+
+// PICA register ids the interpreter gives side effects to. Pure-state
+// registers (culling, blending, TEV stages, texture config…) are read straight
+// from the register file by the pipeline stages that consume them.
+const (
+	regViewportWidth  = 0x041 // float24: half the viewport width
+	regViewportHeight = 0x043 // float24: half the viewport height
+	regDepthMapScale  = 0x04D // float24
+	regDepthMapOffset = 0x04E // float24
+	regShOutmapTotal  = 0x04F // number of vertex-shader output registers
+	regShOutmapO0     = 0x050 // 0x050-0x056: per-output semantic map
+
+	regLightingEnable = 0x08F // bit0: fragment lighting on
+
+	regDepthColorMask = 0x107 // depth test/func + colour/depth write masks
+	regDepthbufFormat = 0x116
+	regColorbufFormat = 0x117
+	regDepthbufLoc    = 0x11C // physical>>3
+	regColorbufLoc    = 0x11D // physical>>3
+	regFramebufDim    = 0x11E
+
+	regAttrBase    = 0x200 // physical>>3 of the attribute-buffer arena
+	regAttrFmtLow  = 0x201 // 12 × 4-bit component formats
+	regAttrFmtHigh = 0x202 // + fixed-attr mask + attribute count
+	regIndexConfig = 0x227 // index-buffer offset + 8/16-bit flag
+	regNumVertices = 0x228
+	regGeoConfig   = 0x229 // geometry-shader stage configuration
+	regVertexOff   = 0x22A // first vertex for DrawArrays
+	regDrawArrays  = 0x22E
+	regDrawElems   = 0x22F
+	regFixedIndex  = 0x232 // fixed-attribute index select
+	regFixedData0  = 0x233 // 0x233-0x235: 3 words = one packed float24 vec4
+	regPrimConfig  = 0x25E // bits 8-9: primitive type
+
+	regVshBool      = 0x2B0
+	regVshInt0      = 0x2B1
+	regVshEntry     = 0x2BA
+	regVshAttrPermL = 0x2BB // input register ← attribute slot map
+	regVshAttrPermH = 0x2BC
+	regVshFloatCfg  = 0x2C0 // uniform upload: start index + f32 flag
+	regVshFloatData = 0x2C1 // 0x2C1-0x2C8: uniform data FIFO
+	regVshCodeIdx   = 0x2CB
+	regVshCodeData  = 0x2CC // 0x2CC-0x2D3: code upload FIFO
+	regVshOpdescIdx = 0x2D5
+	regVshOpdescDat = 0x2D6 // 0x2D6-0x2DD: operand-descriptor upload FIFO
+)
+
+// GPU is the PICA200 model: the register file plus the shader engine's
+// uploaded state, owned by the Machine.
+type GPU struct {
+	m *Machine
+
+	Regs [0x300]uint32
+
+	// Vertex-shader engine memory (uploaded through the code/opdesc FIFOs).
+	Code    [4096]uint32
+	Opdesc  [128]uint32
+	Float   [96][4]float32 // c0-c95
+	Bool    uint32         // b0-b15 (bit i)
+	Int     [4][4]uint8    // i0-i3
+	codeIdx int
+	opdIdx  int
+
+	// Float-uniform upload state (register 0x2C0 + the 0x2C1-0x2C8 FIFO).
+	fltIdx int      // current destination uniform
+	fltF32 bool     // 32-bit float mode (vs packed float24)
+	fltBuf []uint32 // words accumulated toward one vec4
+
+	// Fixed-attribute upload state (0x232 + the 0x233-0x235 words).
+	fixedIdx int
+	fixedBuf []uint32
+	fixedVal [16][4]float32 // latched fixed/default attribute values
+
+	// The geometry-shader port mirrors the vertex-shader engine's upload
+	// registers at 0x280-0x2AF. The game only uses it to clear state (its
+	// draws keep the geometry stage off — checked at draw time); the uploads
+	// are latched so nothing is lost, but the unit is not executed.
+	gshCodeIdx int
+	gshOpdIdx  int
+	gshFltIdx  int
+	gshFltF32  bool
+	gshFltBuf  []uint32
+
+	Draws        int // draw triggers executed (both kinds)
+	RejectedTris int // triangles dropped by the w<=0 near-plane shortcut
+	ZeroAreaTris int
+	CulledTris   int
+	DepthKilled  int // fragments failing the depth test
+	PixelsDrawn  int // fragments written to the colour buffer
+
+	// TraceDraws > 0 prints a per-draw summary (vertex fetch, first clip
+	// positions, screen coords) for that many draws — the draw-path
+	// instrument.
+	TraceDraws int
+
+	// texCache holds decoded textures keyed by address/format/size. GX writes
+	// into texture memory (DMA, TextureCopy) invalidate it.
+	texCache map[texKey]*texImage
+}
+
+func newGPU(m *Machine) *GPU { return &GPU{m: m} }
+
+// GPU exposes the PICA200 model (counters, trace switches).
+func (m *Machine) GPU() *GPU { return m.gpu }
+
+// Execute runs one PICA200 command list (virtual address + byte size, as the
+// game's GX ProcessCommandList command carries them).
+func (g *GPU) Execute(addr, size uint32) {
+	buf := make([]byte, size)
+	for i := uint32(0); i < size; i++ {
+		buf[i] = g.m.Read(addr + i)
+	}
+	ws, err := DecodePICA(buf)
+	if err != nil {
+		g.m.CPU.Halt("gpu: %v (list at 0x%08X)", err, addr)
+		return
+	}
+	for _, w := range ws {
+		g.write(w)
+		if g.m.CPU.Halted {
+			return
+		}
+	}
+}
+
+// write applies one register write (with its byte-enable mask) and dispatches
+// the side effect if the register has one.
+func (g *GPU) write(w PICAWrite) {
+	if w.Mask == 0 || int(w.Reg) >= len(g.Regs) {
+		return // masked-out (alignment padding) or out of the register file
+	}
+	old := g.Regs[w.Reg]
+	v := old
+	for b := 0; b < 4; b++ {
+		if w.Mask&(1<<b) != 0 {
+			sh := uint(8 * b)
+			v = v&^(0xFF<<sh) | w.Value&(0xFF<<sh)
+		}
+	}
+	g.Regs[w.Reg] = v
+
+	switch {
+	case w.Reg == regDrawArrays && v != 0:
+		g.drawArrays()
+	case w.Reg == regDrawElems && v != 0:
+		g.drawElements()
+
+	// --- vertex-shader engine uploads ---
+	case w.Reg == regVshFloatCfg:
+		g.fltIdx = int(v & 0xFF)
+		g.fltF32 = v>>31 != 0
+		g.fltBuf = g.fltBuf[:0]
+	case w.Reg >= regVshFloatData && w.Reg < regVshFloatData+8:
+		g.floatUniformWord(v)
+	case w.Reg == regVshCodeIdx:
+		g.codeIdx = int(v & 0xFFF)
+	case w.Reg >= regVshCodeData && w.Reg < regVshCodeData+8:
+		if g.codeIdx < len(g.Code) {
+			g.Code[g.codeIdx] = v
+			g.codeIdx++
+		}
+	case w.Reg == regVshOpdescIdx:
+		g.opdIdx = int(v & 0x7F)
+	case w.Reg >= regVshOpdescDat && w.Reg < regVshOpdescDat+8:
+		if g.opdIdx < len(g.Opdesc) {
+			g.Opdesc[g.opdIdx] = v
+			g.opdIdx++
+		}
+	case w.Reg == regVshBool:
+		g.Bool = v & 0xFFFF
+	case w.Reg >= regVshInt0 && w.Reg < regVshInt0+4:
+		i := w.Reg - regVshInt0
+		g.Int[i] = [4]uint8{uint8(v), uint8(v >> 8), uint8(v >> 16), uint8(v >> 24)}
+
+	// --- fixed attributes ---
+	case w.Reg == regFixedIndex:
+		g.fixedIdx = int(v & 0xF)
+		g.fixedBuf = g.fixedBuf[:0]
+	case w.Reg >= regFixedData0 && w.Reg < regFixedData0+3:
+		g.fixedBuf = append(g.fixedBuf, v)
+		if len(g.fixedBuf) == 3 {
+			g.fixedVal[g.fixedIdx] = unpackF24x4(g.fixedBuf[0], g.fixedBuf[1], g.fixedBuf[2])
+			g.fixedBuf = g.fixedBuf[:0]
+		}
+
+	// --- geometry-shader port: latch, never execute (checked at draw) ---
+	case w.Reg == 0x290:
+		g.gshFltIdx = int(v & 0xFF)
+		g.gshFltF32 = v>>31 != 0
+		g.gshFltBuf = g.gshFltBuf[:0]
+	case w.Reg == 0x29B:
+		g.gshCodeIdx = int(v & 0xFFF)
+	case w.Reg >= 0x29C && w.Reg < 0x29C+8:
+		// The init list clears code memory through this port too (index 0x200
+		// continuing past the vertex-shader port's 512 words).
+		if g.gshCodeIdx < len(g.Code) {
+			g.Code[g.gshCodeIdx] = v
+			g.gshCodeIdx++
+		}
+	}
+}
+
+// floatUniformWord accumulates one word of the float-uniform FIFO; every 4
+// words (f32 mode) or 3 words (packed f24) completes a vec4 written to c[i].
+// Both modes upload w first, x last — the same order the shaders' pervasive
+// .wzyx matrix-row swizzles assume, and the same packing the fixed-attribute
+// words use.
+func (g *GPU) floatUniformWord(v uint32) {
+	g.fltBuf = append(g.fltBuf, v)
+	if g.fltF32 {
+		if len(g.fltBuf) == 4 {
+			if g.fltIdx < len(g.Float) {
+				c := &g.Float[g.fltIdx]
+				c[0] = f32bits(g.fltBuf[3])
+				c[1] = f32bits(g.fltBuf[2])
+				c[2] = f32bits(g.fltBuf[1])
+				c[3] = f32bits(g.fltBuf[0])
+			}
+			g.fltIdx++
+			g.fltBuf = g.fltBuf[:0]
+		}
+		return
+	}
+	if len(g.fltBuf) == 3 {
+		if g.fltIdx < len(g.Float) {
+			g.Float[g.fltIdx] = unpackF24x4(g.fltBuf[0], g.fltBuf[1], g.fltBuf[2])
+		}
+		g.fltIdx++
+		g.fltBuf = g.fltBuf[:0]
+	}
+}
+
+// drawArrays / drawElements run the pipeline (gpu_raster.go). Both first check
+// for machinery the model does not have yet.
+func (g *GPU) drawArrays() {
+	g.Draws++
+	g.draw(false)
+}
+
+func (g *GPU) drawElements() {
+	g.Draws++
+	g.draw(true)
+}
+
+// checkUnsupported halts on GPU features the pipeline does not model yet, so a
+// run's reach stays honest.
+func (g *GPU) checkUnsupported() bool {
+	if g.Regs[regGeoConfig]&3 != 0 {
+		g.m.CPU.Halt("gpu: draw with geometry-shader stage enabled (0x229=0x%08X) unimplemented", g.Regs[regGeoConfig])
+		return true
+	}
+	if g.Regs[regLightingEnable]&1 != 0 {
+		g.m.CPU.Halt("gpu: draw with fragment lighting enabled (0x08F=0x%08X) unimplemented", g.Regs[regLightingEnable])
+		return true
+	}
+	return false
+}
+
+// DumpState prints the GPU state a bring-up wants to see.
+func (g *GPU) DumpState() {
+	fmt.Printf("gpu: %d draws; colorbuf 0x%08X depthbuf 0x%08X dim 0x%08X\n",
+		g.Draws, g.Regs[regColorbufLoc]<<3, g.Regs[regDepthbufLoc]<<3, g.Regs[regFramebufDim])
+}

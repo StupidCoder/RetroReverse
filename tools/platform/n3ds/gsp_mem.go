@@ -19,12 +19,34 @@ import (
 // framebuffer-info structures.
 const gspSharedSize = 0x1000
 
-// vramBase/vramSize: the console's dedicated video RAM. GPU render targets and
-// the display framebuffers live here; DisplayTransfer/MemoryFill address it.
+// The console's dedicated video RAM. GPU render targets live here. Two address
+// spaces name it: the GPU (and the physical addresses a command list carries,
+// e.g. the colour-buffer register) uses the physical base 0x18000000, while the
+// application reads and writes it through a fixed virtual mapping at 0x1F000000
+// — the capture shows the game's GX MemoryFill/DisplayTransfer/DMA commands all
+// carrying 0x1F...... addresses, while the same buffers appear as 0x18......>>3
+// in the command lists' framebuffer registers.
 const (
-	vramBase = 0x18000000
-	vramSize = 0x00600000 // 6 MiB
+	vramPhysBase = 0x18000000
+	vramVirtBase = 0x1F000000
+	vramSize     = 0x00600000 // 6 MiB
 )
+
+// gpuAddrToVirt maps an address as the GPU sees it (physical: VRAM at
+// 0x18000000, FCRAM at 0x20000000) to the process virtual address this machine
+// has mapped (VRAM at 0x1F000000, the linear heap at 0x14000000 — the linear
+// heap's virtual↔physical offset is the fixed 0x0C000000 the kernel gives an
+// application). Addresses already in the virtual windows pass through: the
+// game's GX commands carry virtual addresses.
+func (m *Machine) gpuAddrToVirt(a uint32) uint32 {
+	switch {
+	case a >= vramPhysBase && a < vramPhysBase+vramSize:
+		return a - vramPhysBase + vramVirtBase
+	case a >= 0x20000000 && a < 0x28000000:
+		return a - 0x0C000000
+	}
+	return a
+}
 
 // svcMapMemoryBlock (0x1F) maps a memory-block handle into this process at the
 // requested address. ABI (from the wrapper at 0x0010B298): r0=handle, r1=addr,

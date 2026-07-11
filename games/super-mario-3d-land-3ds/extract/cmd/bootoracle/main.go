@@ -58,6 +58,8 @@ func main() {
 	saveState := flag.String("savestate", "", "after the run, dump the machine snapshot to this file")
 	loadState := flag.String("loadstate", "", "restore a machine snapshot before running")
 	gxdump := flag.String("gxdump", "", "capture GX commands; write ProcessCommandList buffers to this directory")
+	shot := flag.String("shot", "", "after the run, write the presented framebuffers to <base>_top.png / <base>_bottom.png")
+	gputrace := flag.Int("gputrace", 0, "print a summary of the first N GPU draws")
 	flag.Parse()
 
 	if *image == "" {
@@ -65,13 +67,13 @@ func main() {
 		flag.Usage()
 		os.Exit(2)
 	}
-	if err := run(*image, *steps, *trace, *tracen, *verbose, *svclog, bps, watches, *saveState, *loadState, *gxdump); err != nil {
+	if err := run(*image, *steps, *trace, *tracen, *verbose, *svclog, bps, watches, *saveState, *loadState, *gxdump, *shot, *gputrace); err != nil {
 		fmt.Fprintln(os.Stderr, "bootoracle:", err)
 		os.Exit(1)
 	}
 }
 
-func run(imagePath, stepsStr string, trace bool, tracen int, verbose, svclog bool, bps, watches multiFlag, saveState, loadState, gxdump string) error {
+func run(imagePath, stepsStr string, trace bool, tracen int, verbose, svclog bool, bps, watches multiFlag, saveState, loadState, gxdump, shot string, gputrace int) error {
 	img, err := os.ReadFile(imagePath)
 	if err != nil {
 		return err
@@ -83,6 +85,7 @@ func run(imagePath, stepsStr string, trace bool, tracen int, verbose, svclog boo
 	m.Verbose = verbose
 	m.SetTrace(trace, tracen)
 	m.GXCapture = gxdump != ""
+	m.GPU().TraceDraws = gputrace
 
 	for _, b := range bps {
 		v, err := parseNum(b)
@@ -149,7 +152,11 @@ func run(imagePath, stepsStr string, trace bool, tracen int, verbose, svclog boo
 	}
 	if vb := m.VBlanks(); vb > 0 {
 		sub, swp := m.FrameStats()
-		fmt.Printf("\ngraphics: %d VBlanks delivered, %d GPU command lists submitted, %d frame swaps\n", vb, sub, swp)
+		fmt.Printf("\ngraphics: %d VBlanks delivered, %d GPU command lists submitted, %d display transfers, %d frame swaps\n",
+			vb, sub, m.DisplayTransfers(), swp)
+		g := m.GPU()
+		fmt.Printf("gpu: %d draws, %d pixels drawn; tris: %d zero-area, %d culled, %d w-rejected; %d depth-killed frags\n",
+			g.Draws, g.PixelsDrawn, g.ZeroAreaTris, g.CulledTris, g.RejectedTris, g.DepthKilled)
 	}
 	if svclog {
 		printSVCSummary(m)
@@ -157,6 +164,13 @@ func run(imagePath, stepsStr string, trace bool, tracen int, verbose, svclog boo
 	if gxdump != "" {
 		if err := dumpGX(m, gxdump); err != nil {
 			return err
+		}
+	}
+	if shot != "" {
+		if err := m.Screenshot(shot); err != nil {
+			fmt.Printf("screenshot: %v\n", err)
+		} else {
+			fmt.Printf("wrote %s_top.png / %s_bottom.png\n", shot, shot)
 		}
 	}
 
