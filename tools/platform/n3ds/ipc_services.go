@@ -115,6 +115,12 @@ func (m *Machine) ipcAPT(name string, hdr ipcHeader) bool {
 	case 0x0043, 0x004B, 0x004C: // NotifyToWait / AppletUtility / SleepIfShellClosed
 		m.ipcReply(hdr.Command)
 		return true
+	case 0x003E: // Takes (u32, u8) and the wrapper (0x00107F28: header const
+		// 0x003E0080, STRB of a stacked byte into cmdbuf[2], then LDRPL r0 =
+		// cmdbuf[1]) consumes nothing from the reply but the result code —
+		// a screen-capture/permission-style setter. Acknowledge.
+		m.ipcReply(hdr.Command)
+		return true
 	}
 	m.CPU.Halt("APT command 0x%04X unimplemented at 0x%08X after %d instructions", hdr.Command, m.CPU.PC(), m.CPU.Instrs)
 	return true

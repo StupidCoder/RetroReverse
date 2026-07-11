@@ -205,19 +205,69 @@ Getting there took an OS bring-up in five parts, each landing on a verifiable re
 - **The GX command path** (`gx.go`). The game posts GX commands to a FIFO in GSP shared memory and
   blocks on their completion interrupts. The machine emulates the GSP module's side: it drains the FIFO
   and raises each command's interrupt — **P3D** for a PICA200 command list, **PPF** for a display
-  transfer, **PSC0/1** for a memory fill — which is what lets the render loop advance. This is the
-  analogue of the N64 RDP command reader, minus the rasteriser.
+  transfer, **PSC0/1** for a memory fill. Since Phase 4 the commands are also *executed* (the DMA
+  copies, the fills fill, the transfers detile, and a P3D list runs on the GPU model below).
 - **Two synchronisation-correctness fixes**, both traced from concrete lock-ups. `ArbitrateAddress`
   `DECREMENT_AND_WAIT_IF_LESS_THAN` must decrement *then* compare (park when `*addr <= value`), or the
   first waiter on a locked LightLock never registers and spin-starves the holder. And the `LDREX`/`STREX`
   exclusive monitor must be cleared on every context switch (as a real OS issues `CLREX`), or a `STREX`
   straddling a switch mistakes another thread's write for its own and corrupts shared lock words.
 
-What remains for a **visible frame** is the **PICA200 GPU** (Phase 4): the render loop submits command
-lists but does not present a buffer (0 swaps) because, without a GPU to execute the lists into a
-framebuffer, the loop has no rendered result to check and advance on. Executing those command lists into
-pixels — an LLE vertex shader, a perspective-correct rasteriser, the 6-stage TEV combiner and the tiled
-framebuffer — is an effort on the scale of this repo's N64 RDP or PSX GPU, and is the next milestone.
+### The PICA200 GPU (Phase 4) — command lists into pixels
+
+The render loop's `GX ProcessCommandList` submissions are now **executed**, not just acknowledged. The
+work was done instrument-first: `bootoracle -gxdump` captures every GX command's raw FIFO slot — and,
+for a ProcessCommandList, the command-list bytes at submission time, because the game reuses list
+memory between frames — and the `picadump` tool decodes a captured list into its **register-write
+stream** (a PICA200 command list is not drawing commands but a sequence of GPU register writes, the
+same idea as the N64 RDP command list: parameter + header entries with a register id, byte-enable
+mask, and burst extras).
+
+What the first frame's capture shows, all derived before implementing:
+
+- **~320 `RequestDMA` commands** stage vertex and texture data from the linear heap into **VRAM**,
+  which the game addresses through its fixed virtual window `0x1F000000‑0x1F5FFFFF`; the same buffers
+  appear as *physical* `0x18000000` addresses (`>>3`) in the command lists' framebuffer registers.
+  The machine now maps VRAM at that window and really executes the DMAs, fills and transfers.
+- An **all-state init list** (29,824 bytes, 6,590 writes, no draw trigger) touches every functional
+  block once and zeroes the full 4096-word shader code memory through two upload ports.
+- Per-frame lists upload the **real vertex shader** (code via `0x2CB/0x2CC`, operand descriptors via
+  `0x2D5/0x2D6`), set uniforms through the float FIFO (both 32-bit and packed-24-bit modes, **w
+  first** — the order the shaders' pervasive `.wzyx` matrix-row swizzles assume), configure the
+  attribute buffers, and fire `0x22E` draw triggers: 17+17 quad batches into the two 400×240 top-eye
+  targets and 3 into the bottom screen's, each preceded by a `MemoryFill` clear (colour `0x0000FFFF`
+  = opaque blue; depth `0x00FFFFFF` = far in D24S8) and followed by a `DisplayTransfer` that detiles
+  the rendered target into an RGB565 linear framebuffer.
+
+The GPU model executes all of it (`gpu.go`, `gpu_shader.go`, `gpu_raster.go`, `gpu_tev.go`,
+`gpu_texture.go`): the register-file interpreter with side-effecting upload FIFOs; an **LLE
+vertex-shader VM** — running the game's own uploaded shader binary, the clean-room equivalent of
+LLE'ing the N64 RSP microcode — whose instruction decode was validated by disassembling that shader
+(`picadump -shader`) into a coherent transform program (matrix `dp4` rows read `.wzyx`, `abs` as
+`max(a,−a)`, `ifc`-selected uniforms); a perspective-correct barycentric rasteriser (the PSX
+triangle's shape plus 1/w interpolation) with the viewport/depth-map transform, D24S8 depth testing
+and 8×8-Morton tiled RGBA8 writes; the six-stage TEV combiner (the N64 `(a−b)·c+d` family) with
+alpha test and the full blend unit; and texture units decoding the tiled PICA formats (RGBA8 … A4,
+ETC1 via the banner's decoder) with a per-address decode cache. Unknown structural features —
+geometry shader, fragment lighting, unseen formats — halt loudly, and get implemented as the game
+demands them (packed-f24 uniforms, then the L4 texture format, arrived exactly that way).
+
+A full boot now runs the five first-frame command lists — 37 draws, ~267k fragments — and
+**presents the frame**: `bootoracle -shot` writes both screens' framebuffers as PNGs (rotated from
+the panel's 240-wide column layout to natural landscape). The presented top frame is the game's blue
+clear: the capture shows the game deliberately **poisons its projection uniforms `c0‑c3` with NaN**
+at frame start, so those first-frame triangles fail clipping on real hardware exactly as they do
+here (the rasteriser rejects NaN/w≤0 triangles). The visible content comes in later frames, once the
+game's warmup (logo timers, asset decompression) finishes — the current frontier.
+
+Chasing why the loop stalled after its first frame found a real ARM-core bug, the Phase-4 analogue
+of Phase 0's LDRD/STRD find: **VFP `VNMLS`/`VNMLA` had swapped product signs**. The game's
+random-point-in-unit-sphere sampler maps uniform `u` to `2u−1` with `VNMLS` (acc=1, s17=2); the
+swapped sign computed `−1−2u`, every candidate had length > 1, and the rejection loop spun forever.
+The instruction-level trace of the spinning thread — an LCG at `0x0021F194` feeding a
+`VSQRT`-and-retry loop at `0x002EF810` whose lengths came out above √3 — identified it; the fix is
+unit-tested across all four multiply-accumulate sign conventions and the DS regression suite still
+passes on the shared core.
 
 One quirk is recorded and not yet explained — some `srv:GetServiceHandle` requests store the 8-byte
 service name with each 32-bit word's halves rotated ("APT:U" half-swapped, "fs:USER" byte-rotated,
