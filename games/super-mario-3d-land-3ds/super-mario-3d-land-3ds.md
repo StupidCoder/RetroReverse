@@ -269,6 +269,35 @@ The instruction-level trace of the spinning thread — an LCG at `0x0021F194` fe
 unit-tested across all four multiply-accumulate sign conventions and the DS regression suite still
 passes on the shared core.
 
+### To the first legible frame — the wakeup, the save archive, and a dialog box
+
+Past its warmup the game parks its whole main thread with **APT `NotifyToWait`**, expecting the APT
+module's wakeup — a signal on the events `Initialize` returned, which the app's APT handler thread
+answers by running its `InquireNotification`/`ReceiveParameter` path and releasing the parked
+thread. Two subtleties, both traced: the wake must be **asynchronous** (signalling inside the
+NotifyToWait reply races the caller, which still holds the library's cached APT session handle —
+global `0x003E2668` — for ~50 more instructions; a handler woken inside that window throws the
+applet-module fatal `0xE0A0CFF9`, found with a write-watch on that global), so the HLE arms it in
+the reply and delivers it at the next VBlank. With the wakeup delivered the render loop runs at
+full cadence — one command list per frame instead of five ever.
+
+The game then initialises its **save data**: it enumerates a RomFS directory (`OpenDirectory` and
+IDirectory `Read` now serve real `FS_DirectoryEntry` records), and creates, chunk-writes and
+re-reads `/CFL_DB.dat` — 310,560 bytes, its Mii face-library database — through a writable
+in-memory archive (`OpenArchive`/`CreateFile`/`DeleteFile`/`Write`; the command layouts came from
+the game's own IPC wrappers, e.g. CreateFile's at `0x001EDE30`, after a first-guess layout produced
+an empty path with a nonsense size). A lying `Write` ack would have failed the game's read-back
+verification, so the store is real and rides the savestate.
+
+**The run then renders the first legible frame**: the bottom screen presents a complete 3DS message
+dialog — rounded grey panel over a darker backdrop, a gradient-filled yellow **Ⓐ OK** button, and
+glyph-rendered text — every pixel produced by the LLE shader → rasteriser → TEV → texture pipeline
+(the button label sits in an LA4 glyph atlas, the panel in ETC1). Two byproducts of the milestone:
+the screen-rotation direction in the PNG capture was settled by the first mirrored text, and the
+dialog's body text resolves to "NULL", which points at one of the still-stubbed system services as
+the next thing to trace. The dialog waits on a button — **HID input injection is the next
+milestone**, the 3DS counterpart of the Ultima Underworld oracle playing itself into the game.
+
 One quirk is recorded and not yet explained — some `srv:GetServiceHandle` requests store the 8-byte
 service name with each 32-bit word's halves rotated ("APT:U" half-swapped, "fs:USER" byte-rotated,
 "ndm:u" straight, all from the same thread), so the reader tries each rotation and takes the one whose

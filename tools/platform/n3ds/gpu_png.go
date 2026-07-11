@@ -48,9 +48,10 @@ func (m *Machine) Framebuffer(screen string) *image.NRGBA {
 				v := uint16(m.Read(p)) | uint16(m.Read(p+1))<<8
 				r, g, b = byte(v>>12)*17, byte(v>>8&15)*17, byte(v>>4&15)*17
 			}
-			// Framebuffer (x, y) → screen (y, width-1-x): the panel scans the
-			// landscape image's columns bottom-up.
-			o := img.PixOffset(y, w-1-x)
+			// Framebuffer (x, y) → screen (height-1-y, width-1-x): framebuffer
+			// lines run right-to-left across the landscape image (the first
+			// capture of real content came out mirrored until this flip).
+			o := img.PixOffset(h-1-y, w-1-x)
 			img.Pix[o], img.Pix[o+1], img.Pix[o+2], img.Pix[o+3] = r, g, b, 255
 		}
 	}
