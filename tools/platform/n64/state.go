@@ -23,6 +23,7 @@ package n64
 // round-trip test is what enforces it.
 
 import (
+	"bytes"
 	"compress/gzip"
 	"encoding/gob"
 	"fmt"
@@ -76,8 +77,13 @@ type snapshot struct {
 	Controllers [4]Controller
 }
 
-// SaveState writes the machine's full state to path (gzip-compressed gob).
-func (m *Machine) SaveState(path string) error {
+// buildSnapshot captures the whole machine into a fresh snapshot. A few fields
+// still share a map with the live machine (PI.Regs is value-copied, so its map
+// is aliased); that is safe because every caller gob-encodes the result, and the
+// encoded bytes are the true deep copy. Callers must not mutate the returned
+// snapshot's maps directly. (RDP and ISV are intentionally left zero — the RDP is
+// rebuilt from the display list each frame, as the file header explains.)
+func (m *Machine) buildSnapshot() *snapshot {
 	s := &snapshot{
 		Version:  snapshotVersion,
 		ROMMD5:   m.romMD5,
@@ -106,35 +112,14 @@ func (m *Machine) SaveState(path string) error {
 	if m.RSP != nil {
 		s.RSP = m.RSP.Snapshot()
 	}
-
-	out, err := os.Create(path)
-	if err != nil {
-		return err
-	}
-	defer out.Close()
-	zw := gzip.NewWriter(out)
-	defer zw.Close()
-	return gob.NewEncoder(zw).Encode(s)
+	return s
 }
 
-// LoadState restores a snapshot into this Machine in place, so the CPU's bus and
-// the caller's hooks (OnStep, OnWrite, ...) stay wired to it.
-func (m *Machine) LoadState(path string) error {
-	in, err := os.Open(path)
-	if err != nil {
-		return err
-	}
-	defer in.Close()
-	zr, err := gzip.NewReader(in)
-	if err != nil {
-		return err
-	}
-	defer zr.Close()
-
-	var s snapshot
-	if err := gob.NewDecoder(zr).Decode(&s); err != nil {
-		return err
-	}
+// applySnapshot restores a decoded snapshot into this Machine in place, so the
+// CPU's bus and the caller's hooks (OnStep, OnWrite, ...) stay wired to it. s
+// must be freshly decoded (or otherwise independent of the live machine): its
+// maps and slices are installed directly, so a shared one would alias.
+func (m *Machine) applySnapshot(s *snapshot) error {
 	if s.Version != snapshotVersion {
 		return fmt.Errorf("n64: snapshot version %d, want %d", s.Version, snapshotVersion)
 	}
@@ -164,6 +149,67 @@ func (m *Machine) LoadState(path string) error {
 	m.sp, m.ri, m.rd, m.dp = s.SP, s.RI, s.RD, s.DP
 	m.Controllers = s.Controllers
 	return nil
+}
+
+// SaveState writes the machine's full state to path (gzip-compressed gob).
+func (m *Machine) SaveState(path string) error {
+	out, err := os.Create(path)
+	if err != nil {
+		return err
+	}
+	defer out.Close()
+	zw := gzip.NewWriter(out)
+	defer zw.Close()
+	return gob.NewEncoder(zw).Encode(m.buildSnapshot())
+}
+
+// LoadState restores a snapshot file into this Machine in place, so the CPU's bus
+// and the caller's hooks (OnStep, OnWrite, ...) stay wired to it.
+func (m *Machine) LoadState(path string) error {
+	in, err := os.Open(path)
+	if err != nil {
+		return err
+	}
+	defer in.Close()
+	zr, err := gzip.NewReader(in)
+	if err != nil {
+		return err
+	}
+	defer zr.Close()
+
+	var s snapshot
+	if err := gob.NewDecoder(zr).Decode(&s); err != nil {
+		return err
+	}
+	return m.applySnapshot(&s)
+}
+
+// MachineState is an in-memory snapshot of the whole machine, held as the same
+// gob encoding SaveState writes to disk (minus gzip and the file). It is fully
+// independent of the live Machine — gob deep-copies every field — so it can be
+// restored into a scratch Machine while the original keeps running, and restored
+// repeatedly without the scratch machine's mutations leaking back. This is what
+// the frame debugger's per-frame snapshot and command-replay rely on.
+type MachineState struct{ data []byte }
+
+// SnapshotState captures the machine's full state into memory. It routes through
+// the same gob serialisation as SaveState (so the round-trip test covers it and
+// new fields are carried automatically) but skips gzip and the filesystem, which
+// makes it cheap enough to call once per frame.
+func (m *Machine) SnapshotState() *MachineState {
+	var buf bytes.Buffer
+	// gob.Encode to a bytes.Buffer cannot fail for these types.
+	_ = gob.NewEncoder(&buf).Encode(m.buildSnapshot())
+	return &MachineState{data: buf.Bytes()}
+}
+
+// RestoreState restores an in-memory snapshot into this Machine in place.
+func (m *Machine) RestoreState(ms *MachineState) error {
+	var s snapshot
+	if err := gob.NewDecoder(bytes.NewReader(ms.data)).Decode(&s); err != nil {
+		return err
+	}
+	return m.applySnapshot(&s)
 }
 
 func (r regFile) clone() regFile {

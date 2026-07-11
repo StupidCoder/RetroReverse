@@ -372,6 +372,55 @@ func TestSaveStateRoundTrip(t *testing.T) {
 	}
 }
 
+// TestSnapshotStateRoundTrip covers the in-memory SnapshotState/RestoreState pair
+// the frame debugger uses. It must match the file-based round trip exactly, and —
+// the property the command-replay relies on — the same MachineState must restore
+// identically more than once, even though each restore runs the scratch machine
+// on (and mutates it) afterwards. If a restore aliased the snapshot's memory, the
+// second restore would start from a corrupted state and diverge.
+func TestSnapshotStateRoundTrip(t *testing.T) {
+	rom := loadTestROM(t)
+	const settle = 250_000
+
+	ref := NewMachine(rom)
+	if err := ref.Boot(rom, DefaultBoot()); err != nil {
+		t.Fatal(err)
+	}
+	ref.SetBreakpoint(rom.Header.Entry)
+	if res := ref.Run(50_000_000); res.PC != rom.Header.Entry {
+		t.Fatalf("reference boot did not reach the entry: %s", res)
+	}
+
+	snap := ref.SnapshotState()
+	ref.Run(settle)
+
+	// Restore the snapshot into a scratch machine twice, running it forward each
+	// time. Both runs must reach exactly the reference state.
+	for pass := 0; pass < 2; pass++ {
+		scratch := NewMachine(rom)
+		if err := scratch.Boot(rom, DefaultBoot()); err != nil {
+			t.Fatal(err)
+		}
+		if err := scratch.RestoreState(snap); err != nil {
+			t.Fatal(err)
+		}
+		scratch.Run(settle)
+
+		if ref.CPU.PC != scratch.CPU.PC {
+			t.Errorf("pass %d: PC diverged: reference %016X, restored %016X", pass, ref.CPU.PC, scratch.CPU.PC)
+		}
+		if ref.CPU.Steps != scratch.CPU.Steps {
+			t.Errorf("pass %d: Steps diverged: reference %d, restored %d", pass, ref.CPU.Steps, scratch.CPU.Steps)
+		}
+		if ref.CPU.R != scratch.CPU.R {
+			t.Errorf("pass %d: general registers diverged after a restore", pass)
+		}
+		if got, want := sha256.Sum256(scratch.RDRAM), sha256.Sum256(ref.RDRAM); got != want {
+			t.Errorf("pass %d: RDRAM diverged after a restore: %x != %x", pass, got[:8], want[:8])
+		}
+	}
+}
+
 // A snapshot must refuse to load into a different cartridge, since the ROM is
 // not carried in it.
 func TestSaveStateRejectsAnotherCartridge(t *testing.T) {
