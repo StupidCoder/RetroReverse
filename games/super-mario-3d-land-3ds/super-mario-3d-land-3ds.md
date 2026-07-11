@@ -371,9 +371,20 @@ the fix branches on the architecture, and the traced lookups go from 36 NULLs to
 general core fix, not a message-system patch — any unaligned `LDR` was corrupt, so it would have bitten
 elsewhere (the third such CPU find of the port, after the LDRD/STRD and VFP `VNMLS`/`VNMLA` bugs).
 
-With messages resolving, the boot dialog becomes the real StreetPass welcome, and **the next step is
-to drive the first-launch flow with the verified HID injection** (Ⓐ through Begin00/01/02, then Cancel
-on the activate prompt) — the prompt itself ends "…from the title screen," so that is where it leads.
+With messages resolving, the boot dialog becomes the real StreetPass welcome — the bottom screen reads
+**"Welcome to SUPER MARIO 3D LAND"** — and the HID injection drives the whole first-launch flow to the
+menu. A held button only produces one keys-down edge, which a dialog swallows during its open
+animation, so `-keypulse N` releases the injected keys briefly every N frames to keep fresh press
+edges arriving: **Welcome (Begin00) →Ⓐ→ Begin01 →Ⓐ→ Begin02 →Ⓐ→ "Would you like to activate
+StreetPass?" →Ⓑ Cancel→ "Did not activate StreetPass…" →Ⓐ→ the A/B/C NEW GAME file-select menu**,
+fully rendered. Two small unblocks were needed once past the dialogs: the PICA **TEV source 1
+(PrimaryFragmentColor)** the menu uses — with fragment lighting disabled (enabling it halts earlier)
+the primary colour passes through, and source 2 (secondary) is zero — and **APT `PreloadLibraryApplet`
+(0x0016)**, which the title issues to preload a helper applet before the menu (acked; we do not run
+library applets). The oracle now boots from cold, past the StreetPass onboarding, into the game's
+interactive save-slot menu. (The top screen's logo art stays on the clear colour there: the game
+issues no further GPU work while idle at the menu — the next frontier is selecting a file to start a
+new game, and rendering the first in-game frame.)
 
 One quirk is recorded and not yet explained — some `srv:GetServiceHandle` requests store the 8-byte
 service name with each 32-bit word's halves rotated ("APT:U" half-swapped, "fs:USER" byte-rotated,
