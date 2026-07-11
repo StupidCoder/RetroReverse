@@ -354,16 +354,26 @@ activate StreetPass. You can activate StreetPass at any time from **the title sc
 "dialog" is **not an error** — it is the normal first-launch StreetPass prompt, and the title screen
 lies just the other side of it.
 
-Why it renders `"NULL"`: the message data is genuinely loaded (the label `StreetPassBegin00` and its
-UTF-16 text sit in the heap at `0x158D50xx`, and the dialog's message manager points at that very
-MSBT file — `0x158D4C80`, the 16-message System file that holds the StreetPass strings). Yet the
-game's label→index resolution still returns null on present, correctly-loaded data — a subtle failure
-in its MSBT label search (or a service-gated late fill of the inserted `<title>` value). **The
-frontier is that resolution, or the flow's gate**: either make the label search succeed so the real
-welcome renders and drive the flow with the verified HID injection (Ⓐ through Begin00/01/02, then
-Cancel on the activate prompt), or make the first-launch StreetPass check report "already handled" so
-the game skips the flow straight to the title. Because the prompt ends "…from the title screen," both
-paths land there.
+Why it renders `"NULL"` — **a CPU bug, found and fixed.** The message data is genuinely loaded (the
+label `StreetPassBegin00` and its UTF-16 text sit in the heap at `0x158D50xx`, and the dialog's
+message manager points at that very MSBT file — `0x158D4C80`, the 16-message System file). Tracing the
+lookup (`-tracefrom 0x00225660`, the dialog's message fetch) through the MSBT resolver
+(`0x002842F0`) showed the hash (`hash*0x492 + char`) and the software modulo both compute correctly —
+`StreetPassBegin00` hashes to bucket 77, exactly where the file stores it, and the byte-compare
+matches. The failure was the very last step: the resolver loads the message **index** with
+`LDR r0, [r0, r1]` from `0x158D50D7` — an **unaligned** address, because an MSBT label entry is
+`{len:u8, name, index:u32}` and the u32 index follows the variable-length name. The bytes there are
+`06 00 00 00` = 6, but the core returned `0x600`: `read32` read the true unaligned bytes **and then**
+applied the ARMv5 rotate (`6 ROR 24 = 0x600`), a hybrid that is wrong both ways. The manager's bounds
+check (`count 16 <= 0x600`) then failed and the getter returned the literal `"NULL"`. ARMv6 (the
+3DS's ARM11, unaligned access enabled by Horizon) must do a **true** unaligned load with no rotation;
+the fix branches on the architecture, and the traced lookups go from 36 NULLs to zero. This is a
+general core fix, not a message-system patch — any unaligned `LDR` was corrupt, so it would have bitten
+elsewhere (the third such CPU find of the port, after the LDRD/STRD and VFP `VNMLS`/`VNMLA` bugs).
+
+With messages resolving, the boot dialog becomes the real StreetPass welcome, and **the next step is
+to drive the first-launch flow with the verified HID injection** (Ⓐ through Begin00/01/02, then Cancel
+on the activate prompt) — the prompt itself ends "…from the title screen," so that is where it leads.
 
 One quirk is recorded and not yet explained — some `srv:GetServiceHandle` requests store the 8-byte
 service name with each 32-bit word's halves rotated ("APT:U" half-swapped, "fs:USER" byte-rotated,
