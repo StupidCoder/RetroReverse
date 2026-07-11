@@ -515,19 +515,50 @@ an arithmetic check of the whole scheme. The image has three regions:
 - **Relocation + directory** (`+0x319774` …): the relocation table, preceded
   by a named-section directory ({pointer, name} pairs such as `toge_file`).
 
-The terrain geometry is stored as **precomputed triangle strips in the GE's
+The level geometry is stored as **precomputed triangle strips in the GE's
 own vertex format** — vertex type `0x182`, 16 bytes per vertex: `u16 u, v`
 texcoords (fractional s16, scaled by `TEXSCALEU/V`) and `float x, y, z` in
 world units. The engine does not tessellate or rebuild anything at runtime:
 each frame it emits `VADDR` commands whose addresses are the strips inside
 the loaded file (the world tilt is applied in the view matrix), and the
 strips' vertex floats read back byte-identical between the file and the
-running game's vertex pointers. A mesh record ends in four corner vertices
-(`float x,y,z` + packed texcoord) and a strip table of 8-byte entries —
-`u16 flags`, `u16 vertexCount`, `ptr strip` — whose counts match the
-submitted `PRIM` commands one for one. Mesh records are collected by
-pointer arrays that chain up to the scene root; the full record layout
-(materials, layers, object placement) is Part V work in progress.
+running game's vertex pointers.
+
+The scene root record (`{u32 type, u32 count, ptr, ptr, ptr}`) points to the
+material table, the object table, and the **stage layout**:
+
+| offset | field |
+|--------|-------|
+| +0 | world origin x, y (floats; stage 1: −1800, −1400) |
+| +8 | world size w, h (3600 × 2800) |
+| +16 | z range (−199 … 100) |
+| +24 | grid columns, rows (u32; 9 × 7) |
+| +32 | cell size (float; 400) |
+| +36 | ptr → cell array (cols × rows pointers, row-major) |
+
+Each non-empty cell points to a batch list — `{u16, u16 batchCount, u32 0,
+ptr entries}`, entries of 20 bytes `{u32 0, u32 0, ptr material,
+u32 stripCount, ptr stripTable}` — and each strip-table entry is 8 bytes,
+`{u16 flags, u16 vertexCount, ptr vertices}`. A material record is
+`{ptr name, u32, u32 rgba, ptr texture}`, named by its Maya shading group:
+stage 1's batches use `stage_a_tex` (the foreground terrain) and twelve
+`bg_*` materials (`bg_grass_a_tex`, `bg_sigemi_blue_tex`,
+`bg_cloud_purple_tex2/3`, `bg_warabi_a_tex`, `bg_shida_a/b_tex`, …) — the
+background flora, separated from the foreground by material and by the
+vertices' z.
+
+The decoder (`extract/clv`, with the GARC/GIMG readers in `extract/garc`)
+parses the file from the image alone — decompression, header, relocation
+table (rejecting any invalid slot), layout, cells, batches, strips — and
+`cmd/clvdump` reports the stage (stage 1: 33 non-empty cells, 172 batches,
+3,157 strips, 15,308 vertices) and cross-checks the decode against the
+running game: every `PSP_GE_DEBUG` PRIM whose vertex address falls inside
+the loaded image must match a decoded strip's file offset and vertex count
+exactly (`-verify PRIMLOG -base HEX`). Over a multi-frame in-stage log,
+every grid-subtree draw matches; the remaining in-image draws are the
+world-translated **object** geometry (the sprout, grass tufts, pickups —
+records under the object table with their own strip tables), whose decode
+is Part V work in progress.
 
 ### 7. XUI screen resources
 
