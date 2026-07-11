@@ -54,6 +54,7 @@ func main() {
 	stepsF := flag.String("steps", "20000000", "max instructions to run (hex or decimal)")
 	trace := flag.Bool("trace", false, "disassemble each executed instruction")
 	tracen := flag.Int("tracen", 200, "with -trace, stop printing after this many instructions")
+	traceThread := flag.String("tracethread", "", "with -trace, only print instructions of this thread")
 	bpS := flag.String("bp", "", "breakpoint: stop when PC reaches this address (hex)")
 	watchS := flag.String("watch", "", "watch: log who writes ADDR or ADDR:LEN (hex)")
 	rwatchS := flag.String("rwatch", "", "watch: log who reads ADDR or ADDR:LEN (hex)")
@@ -61,6 +62,9 @@ func main() {
 	saveS := flag.String("savestate", "", "after the run, write a machine savestate to this file")
 	loadS := flag.String("loadstate", "", "before the run, restore a machine savestate from this file")
 	shot := flag.String("shot", "", "after the run, write the display framebuffer to this PNG")
+	geLog := flag.Int("gelog", 0, "print a command summary of the first N GE display lists")
+	disS := flag.String("dis", "", "disassemble ADDR:LEN of loaded memory and exit (after -loadstate)")
+	dumpS := flag.String("dump", "", "hex-dump ADDR:LEN of loaded memory and exit (after -loadstate)")
 	showNotes := flag.Bool("notes", false, "print the machine's diagnostic notes")
 	flag.Parse()
 	if *image == "" {
@@ -92,6 +96,7 @@ func main() {
 
 	m := psp.NewMachine()
 	m.SetImageHash(fmt.Sprintf("%x", md5.Sum(data)))
+	m.SetVolume(im.Volume)
 	if err := m.LoadModule(mod); err != nil {
 		die("load module: %v", err)
 	}
@@ -104,6 +109,33 @@ func main() {
 
 	w := bufio.NewWriter(os.Stdout)
 	defer w.Flush()
+
+	if *disS != "" {
+		lo, ln := parseWatch(*disS)
+		for a := lo; a < lo+ln; a += 4 {
+			fmt.Fprintf(w, "%08X  %s\n", a, strings.TrimSpace(m.DisasmAt(a)))
+		}
+		return
+	}
+	if *dumpS != "" {
+		lo, ln := parseWatch(*dumpS)
+		for a := lo; a < lo+ln; a += 16 {
+			fmt.Fprintf(w, "%08X ", a)
+			for i := uint32(0); i < 16; i++ {
+				fmt.Fprintf(w, " %02X", m.Read(a+i))
+			}
+			fmt.Fprint(w, "  ")
+			for i := uint32(0); i < 16; i++ {
+				b := m.Read(a + i)
+				if b < 0x20 || b > 0x7E {
+					b = '.'
+				}
+				fmt.Fprintf(w, "%c", b)
+			}
+			fmt.Fprintln(w)
+		}
+		return
+	}
 
 	// Instrumentation.
 	var bp uint32
@@ -136,6 +168,34 @@ func main() {
 			}
 		}
 	}
+	if *geLog > 0 {
+		logged := 0
+		m.OnGeList = func(l psp.GeList) {
+			if logged >= *geLog {
+				return
+			}
+			logged++
+			counts := map[string]int{}
+			prims := ""
+			for _, word := range l.Words {
+				cmd := word >> 24
+				counts[psp.GeCmdName(cmd)]++
+				if cmd == 0x04 && len(prims) < 200 { // PRIM: type + vertex count
+					prims += fmt.Sprintf(" %d:%d", (word>>16)&7, word&0xFFFF)
+				}
+			}
+			fmt.Fprintf(w, "GE list %d @0x%08X: %d words:", logged, l.Start, len(l.Words))
+			for _, k := range []string{"PRIM", "VTYPE", "VADDR", "FBP", "CLEAR", "JUMP", "CALL", "FINISH", "END"} {
+				if counts[k] > 0 {
+					fmt.Fprintf(w, " %s=%d", k, counts[k])
+				}
+			}
+			if prims != "" {
+				fmt.Fprintf(w, " prim(type:n):%s", prims)
+			}
+			fmt.Fprintln(w)
+		}
+	}
 	traced := 0
 	hitBP := false
 	var bpPC uint32
@@ -143,8 +203,10 @@ func main() {
 		m.OnStep = func(mm *psp.Machine, pc uint32) {
 			if haveBP && !hitBP && (pc&0x1FFFFFFF) == (bp&0x1FFFFFFF) {
 				hitBP, bpPC = true, pc
+				mm.Halted, mm.HaltReason = true, "breakpoint"
 			}
-			if *trace && traced < *tracen {
+			if *trace && traced < *tracen &&
+				(*traceThread == "" || mm.CurrentThread() == *traceThread) {
 				fmt.Fprintf(w, "%08X  %s\n", pc, strings.TrimSpace(mm.DisasmAt(pc)))
 				traced++
 			}
@@ -176,6 +238,12 @@ func main() {
 		fmt.Fprintf(os.Stderr, "TTY:\n%s\n", tty)
 	}
 	printCensus(m)
+	for _, l := range m.Threads() {
+		fmt.Fprintln(os.Stderr, l)
+	}
+	for _, l := range m.KObjects() {
+		fmt.Fprintln(os.Stderr, l)
+	}
 	if *showNotes {
 		for _, l := range m.Log {
 			fmt.Fprintln(os.Stderr, "note:", l)

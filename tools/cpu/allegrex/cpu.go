@@ -75,14 +75,14 @@ type CPU struct {
 	FCC bool // FPU condition code (FCSR bit 23)
 
 	// COP2 VFPU: 128 32-bit registers (float bit patterns) addressed as
-	// matrices/rows/columns, plus the three operand-prefix latches. A prefix set by
-	// vpfxs/vpfxt/vpfxd applies to the next vector op and then clears.
-	V                            [128]uint32
-	vpfxS, vpfxT, vpfxD          uint32
-	vpfxSset, vpfxTset, vpfxDset bool
+	// matrices/rows/columns, plus the 16 control registers reachable by mtvc/mfvc
+	// (the vpfxs/vpfxt/vpfxd operand-prefix latches, the vcmp condition-code
+	// register, and the vrnd state). See vfpu.go.
+	V        [128]uint32
+	VfpuCtrl [16]uint32
 
 	// OnVFPU optionally handles an unimplemented VFPU compute op instead of halting
-	// (a soft no-op probe, or a later fuller implementation).
+	// (a soft no-op probe, or a census of the ops a program reaches).
 	OnVFPU func(w, op uint32)
 
 	// Syscall optionally handles the `syscall` instruction (return true if
@@ -121,6 +121,9 @@ func (c *CPU) Reset() {
 	c.PC, c.nextPC = 0xBFC00000, 0xBFC00004
 	c.COP0 = [32]uint32{}
 	c.COP0[cop0PRId] = 0x00005E00 // Allegrex revision id
+	c.VfpuCtrl = [16]uint32{}
+	c.VfpuCtrl[vfpuCtlSPfx] = pfxIdentity
+	c.VfpuCtrl[vfpuCtlTPfx] = pfxIdentity
 	c.ld = loadSlot{}
 	c.delaySlot, c.pendingDelay = false, false
 	c.Halted, c.HaltReason = false, ""

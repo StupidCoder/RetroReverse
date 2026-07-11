@@ -48,10 +48,18 @@ func Decode(code []byte, addr uint32) Inst {
 			set("bltz", fmt.Sprintf("bltz %s, $%08X", reg(rs), branchT))
 		case 0x01:
 			set("bgez", fmt.Sprintf("bgez %s, $%08X", reg(rs), branchT))
+		case 0x02:
+			set("bltzl", fmt.Sprintf("bltzl %s, $%08X", reg(rs), branchT))
+		case 0x03:
+			set("bgezl", fmt.Sprintf("bgezl %s, $%08X", reg(rs), branchT))
 		case 0x10:
 			set("bltzal", fmt.Sprintf("bltzal %s, $%08X", reg(rs), branchT))
 		case 0x11:
 			set("bgezal", fmt.Sprintf("bgezal %s, $%08X", reg(rs), branchT))
+		case 0x12:
+			set("bltzall", fmt.Sprintf("bltzall %s, $%08X", reg(rs), branchT))
+		case 0x13:
+			set("bgezall", fmt.Sprintf("bgezall %s, $%08X", reg(rs), branchT))
 		default:
 			return word(in, w)
 		}
@@ -279,6 +287,10 @@ func decodeSpecial(in Inst, w, rs, rt, rd, shamt, funct uint32) Inst {
 		return set("slt", fmt.Sprintf("slt %s, %s, %s", reg(rd), reg(rs), reg(rt)))
 	case 0x2B:
 		return set("sltu", fmt.Sprintf("sltu %s, %s, %s", reg(rd), reg(rs), reg(rt)))
+	case 0x2C: // Allegrex
+		return set("max", fmt.Sprintf("max %s, %s, %s", reg(rd), reg(rs), reg(rt)))
+	case 0x2D: // Allegrex
+		return set("min", fmt.Sprintf("min %s, %s, %s", reg(rd), reg(rs), reg(rt)))
 	}
 	return word(in, w)
 }

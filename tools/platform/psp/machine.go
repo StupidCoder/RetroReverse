@@ -56,6 +56,13 @@ type Machine struct {
 	threadEntry  uint32   // entry of the "main thread" created by sceKernelCreateThread
 	current      *kobject // the running thread (nil = the initial module-start context)
 	doneReason   string   // set when scheduling finds nothing runnable
+	subIntrs     map[uint32]*subIntr
+	vblanks      uint32 // display VBlank counter (sceDisplayGetVcount)
+	pad          uint32 // current pad button bits (sceCtrl reads)
+	vol          *Volume
+	files        map[uint32]*ioFile
+	nextFd       uint32
+	audioCh      uint32
 	SyscallCalls map[string]int
 	tty          []byte
 	fbAddr       uint32 // framebuffer set via sceDisplaySetFrameBuf
@@ -94,6 +101,9 @@ func NewMachine() *Machine {
 		nextSyscall:  0x1000,
 		handles:      map[uint32]*kobject{},
 		nextHandle:   1,
+		subIntrs:     map[uint32]*subIntr{},
+		files:        map[uint32]*ioFile{},
+		nextFd:       fdFirstFile,
 		SyscallCalls: map[string]int{},
 		logSeen:      map[string]bool{},
 	}
@@ -178,6 +188,67 @@ func (m *Machine) DisasmAt(addr uint32) string {
 // TTY returns the accumulated kernel stdout/Kprintf output.
 func (m *Machine) TTY() string { return string(m.tty) }
 
+// CurrentThread names the running thread ("" for the anonymous module-start
+// context), so a trace can be filtered to one thread.
+func (m *Machine) CurrentThread() string {
+	if m.current == nil {
+		return ""
+	}
+	return m.current.name
+}
+
+// KObjects describes every non-thread kernel object (semaphores, event flags,
+// pools) with its state, plus which object each waiting thread blocks on.
+func (m *Machine) KObjects() []string {
+	var out []string
+	for h, o := range m.handles {
+		switch o.kind {
+		case "sema":
+			out = append(out, fmt.Sprintf("sema %d %q count %d", h, o.name, o.count))
+		case "evflag":
+			out = append(out, fmt.Sprintf("evflag %d %q bits 0x%X", h, o.name, o.bits))
+		case "vpl":
+			out = append(out, fmt.Sprintf("vpl %d %q at 0x%08X used %d/%d", h, o.name, o.addr, o.used, o.size))
+		case "thread":
+			if o.tstate == thWaiting {
+				switch {
+				case o.waitEv != 0:
+					out = append(out, fmt.Sprintf("thread %q waits evflag %d (bits 0x%X mode 0x%X)",
+						o.name, o.waitEv, o.waitBits, o.waitMode))
+				case o.waitSema != 0:
+					out = append(out, fmt.Sprintf("thread %q waits sema %d (need %d)",
+						o.name, o.waitSema, o.waitNeed))
+				case o.wakeVblank != 0:
+					out = append(out, fmt.Sprintf("thread %q sleeps until vblank %d (now %d)",
+						o.name, o.wakeVblank, m.vblanks))
+				default:
+					out = append(out, fmt.Sprintf("thread %q sleeps (WakeupThread)", o.name))
+				}
+			}
+		}
+	}
+	return out
+}
+
+// Threads describes every thread kobject (name, entry, priority, state, and the
+// PC it is parked at), for the oracle's diagnostics.
+func (m *Machine) Threads() []string {
+	states := [...]string{"dormant", "ready", "running", "waiting"}
+	var out []string
+	for h, o := range m.handles {
+		if o.kind != "thread" {
+			continue
+		}
+		pc := o.ctx.PC
+		if o == m.current {
+			pc = m.CPU.PC
+		}
+		out = append(out, fmt.Sprintf("thread %d %q entry 0x%08X prio %d %s pc 0x%08X",
+			h, o.name, o.entry, o.priority, states[o.tstate], pc))
+	}
+	return out
+}
+
 // --- module loading --------------------------------------------------------
 
 // LoadModule relocates a module to the user partition, copies its segments into RAM,
@@ -192,10 +263,12 @@ func (m *Machine) LoadModule(mod *Module) error {
 		}
 		// The rest up to MemSize is bss (already zero in a fresh RAM).
 	}
+	k0 := m.threadK0(0x1000, stackTop) // the module-start context area ($k0)
 	m.CPU.SetPC(mod.EntryPC)
+	m.CPU.SetReg(26, k0)             // $k0
 	m.CPU.SetReg(28, mod.GP)         // $gp
-	m.CPU.SetReg(29, stackTop)       // $sp
-	m.CPU.SetReg(30, stackTop)       // $fp
+	m.CPU.SetReg(29, k0)             // $sp
+	m.CPU.SetReg(30, k0)             // $fp
 	m.CPU.SetReg(31, threadExitAddr) // $ra: module_start "returns" to the scheduler
 	m.CPU.SetReg(4, 0)               // $a0 = argc
 	m.CPU.SetReg(5, 0)               // $a1 = argv

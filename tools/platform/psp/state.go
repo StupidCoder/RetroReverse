@@ -34,6 +34,21 @@ type MachineState struct {
 	FBAddr       uint32
 	TTY          []byte
 	SyscallCalls map[string]int
+	SubIntrs     []subIntrState
+	VBlanks      uint32
+	Current      uint32 // handle of the running thread (0 = the anonymous context)
+	Files        map[uint32]ioFileState
+	NextFd       uint32
+}
+
+type ioFileState struct {
+	Path string
+	Pos  int64
+}
+
+type subIntrState struct {
+	Intno, Subno, Handler, Arg uint32
+	Enabled                    bool
 }
 
 type kobjectState struct {
@@ -41,6 +56,21 @@ type kobjectState struct {
 	Name  string
 	Entry uint32
 	Addr  uint32
+	Size  uint32
+	Used  uint32
+	Bits  uint32
+
+	// Thread fields (sched.go).
+	Priority uint32
+	StackTop uint32
+	Tstate   int
+	Ctx      allegrex.CPUState
+
+	WaitEv, WaitBits, WaitMode, WaitOutPtr uint32
+	Count                                  int32
+	WaitSema                               uint32
+	WaitNeed                               int32
+	WakeVblank                             uint32
 }
 
 // SaveState captures the machine.
@@ -50,8 +80,27 @@ func (m *Machine) SaveState() MachineState {
 		names[code] = sc.name
 	}
 	handles := make(map[uint32]kobjectState, len(m.handles))
+	var current uint32
 	for h, o := range m.handles {
-		handles[h] = kobjectState{o.kind, o.name, o.entry, o.addr}
+		handles[h] = kobjectState{
+			Kind: o.kind, Name: o.name, Entry: o.entry, Addr: o.addr,
+			Size: o.size, Used: o.used, Bits: o.bits,
+			Priority: o.priority, StackTop: o.stackTop, Tstate: int(o.tstate), Ctx: o.ctx,
+			WaitEv: o.waitEv, WaitBits: o.waitBits, WaitMode: o.waitMode, WaitOutPtr: o.waitOutPtr,
+			Count: o.count, WaitSema: o.waitSema, WaitNeed: o.waitNeed,
+			WakeVblank: o.wakeVblank,
+		}
+		if o == m.current {
+			current = h
+		}
+	}
+	var intrs []subIntrState
+	for _, si := range m.subIntrs {
+		intrs = append(intrs, subIntrState{si.intno, si.subno, si.handler, si.arg, si.enabled})
+	}
+	files := make(map[uint32]ioFileState, len(m.files))
+	for fd, f := range m.files {
+		files[fd] = ioFileState{Path: f.path, Pos: f.pos}
 	}
 	return MachineState{
 		ImageHash: m.imageHash,
@@ -63,6 +112,8 @@ func (m *Machine) SaveState() MachineState {
 		Handles: handles, NextHandle: m.nextHandle,
 		HeapPtr: m.heapPtr, HeapEnd: m.heapEnd, ThreadEntry: m.threadEntry,
 		FBAddr: m.fbAddr, TTY: m.tty, SyscallCalls: m.SyscallCalls,
+		SubIntrs: intrs, VBlanks: m.vblanks, Current: current,
+		Files: files, NextFd: m.nextFd,
 	}
 }
 
@@ -82,12 +133,47 @@ func (m *Machine) LoadState(s MachineState) error {
 		m.syscalls[code] = &syscall{name: name, handler: handlerFor(name)}
 	}
 	m.handles = make(map[uint32]*kobject, len(s.Handles))
+	m.current = nil
 	for h, o := range s.Handles {
-		m.handles[h] = &kobject{kind: o.Kind, name: o.Name, entry: o.Entry, addr: o.Addr}
+		ko := &kobject{
+			kind: o.Kind, name: o.Name, entry: o.Entry, addr: o.Addr,
+			size: o.Size, used: o.Used, bits: o.Bits,
+			priority: o.Priority, stackTop: o.StackTop, tstate: threadState(o.Tstate), ctx: o.Ctx,
+			waitEv: o.WaitEv, waitBits: o.WaitBits, waitMode: o.WaitMode, waitOutPtr: o.WaitOutPtr,
+			count: o.Count, waitSema: o.WaitSema, waitNeed: o.WaitNeed,
+			wakeVblank: o.WakeVblank,
+		}
+		m.handles[h] = ko
+		if h == s.Current && h != 0 {
+			m.current = ko
+		}
 	}
 	m.nextHandle = s.NextHandle
 	m.heapPtr, m.heapEnd, m.threadEntry = s.HeapPtr, s.HeapEnd, s.ThreadEntry
 	m.fbAddr, m.tty, m.SyscallCalls = s.FBAddr, s.TTY, s.SyscallCalls
+	m.subIntrs = map[uint32]*subIntr{}
+	for _, si := range s.SubIntrs {
+		m.subIntrs[si.Intno<<16|si.Subno] = &subIntr{
+			intno: si.Intno, subno: si.Subno, handler: si.Handler, arg: si.Arg, enabled: si.Enabled,
+		}
+	}
+	m.vblanks = s.VBlanks
+	m.files = map[uint32]*ioFile{}
+	for fd, f := range s.Files {
+		if m.vol == nil {
+			m.note("savestate open file %q dropped: no volume mounted", f.Path)
+			continue
+		}
+		e, err := m.vol.resolve(f.Path)
+		if err != nil {
+			m.note("savestate open file %q dropped: %v", f.Path, err)
+			continue
+		}
+		m.files[fd] = &ioFile{path: f.Path, ent: e, pos: f.Pos}
+	}
+	if s.NextFd >= fdFirstFile {
+		m.nextFd = s.NextFd
+	}
 	return nil
 }
 

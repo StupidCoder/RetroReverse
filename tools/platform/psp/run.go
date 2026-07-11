@@ -23,7 +23,17 @@ func (m *Machine) Run(maxSteps uint64) Result {
 	const spinWindow = 0x40000
 	var sinceReset uint64
 
+	var untilVBlank uint64 = stepsPerVBlank
 	for steps < maxSteps {
+		// The synthetic display VBlank: deliver the sub-interrupt callbacks games
+		// pace their frame loop on.
+		if untilVBlank--; untilVBlank == 0 {
+			untilVBlank = stepsPerVBlank
+			m.deliverVBlank()
+			if m.CPU.Halted {
+				return Result{steps, m.CPU.PC, "cpu halt in interrupt handler: " + m.CPU.HaltReason}
+			}
+		}
 		if m.CPU.PC == threadExitAddr { // a thread returned: hand to the scheduler
 			m.onThreadExit()
 			if m.Halted {

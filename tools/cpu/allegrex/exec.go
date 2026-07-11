@@ -68,14 +68,22 @@ func (c *CPU) execute(w uint32) {
 	switch op {
 	case 0x00:
 		c.special(w, rs, rt, rd, shamt)
-	case 0x01: // REGIMM: bltz/bgez/bltzal/bgezal
-		s := int32(c.reg(rs))
-		link := rt&0x1E == 0x10 // bltzal(0x10)/bgezal(0x11) link unconditionally
-		if link {
-			c.set(31, c.curPC+8)
+	case 0x01: // REGIMM: bltz/bgez (+al link, +l likely variants)
+		switch rt {
+		case 0x00, 0x01, 0x02, 0x03, 0x10, 0x11, 0x12, 0x13:
+			s := int32(c.reg(rs))
+			if rt&0x10 != 0 { // bltzal/bgezal/bltzall/bgezall link unconditionally
+				c.set(31, c.curPC+8)
+			}
+			taken := (rt&1 == 0 && s < 0) || (rt&1 == 1 && s >= 0)
+			if rt&0x02 != 0 && !taken { // likely: not-taken nullifies the delay slot
+				c.nullifyNext = true
+			} else {
+				c.doBranch(taken, branchT)
+			}
+		default:
+			c.Halt("unimplemented regimm rt=0x%02X (word 0x%08X) at 0x%08X", rt, w, c.curPC)
 		}
-		taken := (rt&1 == 0 && s < 0) || (rt&1 == 1 && s >= 0)
-		c.doBranch(taken, branchT)
 	case 0x02: // j
 		c.doBranch(true, jumpT)
 	case 0x03: // jal
@@ -354,6 +362,18 @@ func (c *CPU) special(w, rs, rt, rd, shamt uint32) {
 		c.set(rd, b2u(int32(c.reg(rs)) < int32(c.reg(rt))))
 	case 0x2B: // sltu
 		c.set(rd, b2u(c.reg(rs) < c.reg(rt)))
+	case 0x2C: // max (Allegrex)
+		if int32(c.reg(rs)) > int32(c.reg(rt)) {
+			c.set(rd, c.reg(rs))
+		} else {
+			c.set(rd, c.reg(rt))
+		}
+	case 0x2D: // min (Allegrex)
+		if int32(c.reg(rs)) < int32(c.reg(rt)) {
+			c.set(rd, c.reg(rs))
+		} else {
+			c.set(rd, c.reg(rt))
+		}
 	default:
 		c.Halt("unimplemented special funct 0x%02X (word 0x%08X) at 0x%08X", funct, w, c.curPC)
 	}

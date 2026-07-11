@@ -235,6 +235,27 @@ func (v *Volume) walk(lba, size int, dirPath string, fn func(Entry) error) error
 }
 
 // ReadFile returns the full contents of the file at path.
+// ReadFileAt reads len(p) bytes of the file entry e starting at byte offset off,
+// returning the count read (short at EOF).
+func (v *Volume) ReadFileAt(e Entry, off int, p []byte) (int, error) {
+	if off >= e.Size {
+		return 0, nil
+	}
+	if off+len(p) > e.Size {
+		p = p[:e.Size-off]
+	}
+	got := 0
+	for got < len(p) {
+		lba := e.Block + (off+got)/isoBlockSize
+		b, err := v.src.ReadBlock(lba)
+		if err != nil {
+			return got, err
+		}
+		got += copy(p[got:], b[(off+got)%isoBlockSize:])
+	}
+	return got, nil
+}
+
 func (v *Volume) ReadFile(path string) ([]byte, error) {
 	e, err := v.resolve(path)
 	if err != nil {

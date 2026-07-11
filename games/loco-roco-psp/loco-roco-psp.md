@@ -129,11 +129,13 @@ and others — each a list of function NIDs and a call-stub address. (`elf.go`.)
 
 The PSP CPU is the Allegrex: a little-endian MIPS32R2 core with a single-precision
 COP1 FPU and a 128-bit COP2 vector unit (the VFPU). The core (`tools/cpu/allegrex`)
-shares the R3000 skeleton of `tools/cpu/mips` — branch and load delay slots, the same
-`Bus` interface — and adds the MIPS32R2 integer group (`movz`/`movn`/`rotr`, SPECIAL2
-`mul`/`madd`/`clz`, SPECIAL3 `ext`/`ins`/`seb`/`seh`/`wsbh`), the FPU, and the VFPU
-load/stores. Its disassembler (`disallegrex`) and tracer (`codetraceallegrex`) follow
-the shared CPU-command layout; the machine oracle drives it through the memory map:
+shares the R3000 skeleton of `tools/cpu/mips` — branch delay slots, the same `Bus`
+interface — but retires loads immediately (MIPS32R2 removed the load delay slot). It
+adds the MIPS32R2 integer group (`movz`/`movn`/`rotr`, SPECIAL2 `mul`/`madd`/`clz`,
+SPECIAL3 `ext`/`ins`/`seb`/`seh`/`wsbh`), the Allegrex `min`/`max` and likely
+branches, the FPU, and the full VFPU (below). Its disassembler (`disallegrex`) and
+tracer (`codetraceallegrex`) follow the shared CPU-command layout; the machine
+oracle drives it through the memory map:
 
 | range | region |
 |-------|--------|
@@ -143,6 +145,30 @@ the shared CPU-command layout; the machine oracle drives it through the memory m
 | `0x1C000000`–`0x1FFFFFFF` | hardware I/O |
 
 Addresses fold through the MIPS kseg mirrors (`addr & 0x1FFFFFFF`).
+
+### 7. The VFPU
+
+The vector unit (`vfpu.go`) is 128 single-precision registers seen as eight 4×4
+matrices. A 7-bit register number selects a single/pair/triple/quad vector — a
+column, or a row through a transpose bit — and 2×2/3×3/4×4 matrices; the flat file
+is column-major within each matrix (`V[mtx*16 + col*4 + row]`). Three operand
+prefixes latch before an op and apply once: `vpfxs`/`vpfxt` swizzle, negate,
+take absolute value, or substitute a constant per source element; `vpfxd`
+saturates and write-masks the destination. The implemented set covers everything
+Loco Roco's transform and setup code issues: the element-wise arithmetic
+(`vadd`/`vsub`/`vmul`/`vdiv`/`vscl`), the reductions (`vdot`/`vhdp`/`vfad`/`vavg`),
+the matrix ops (`vmmul`/`vtfm`/`vhtfm`/`vmscl`/`vmmov`/`vmidt`/`vmzero`/`vmone`),
+the vector moves and transcendentals (`vmov`/`vabs`/`vneg`/`vrcp`/`vrsq`/`vsqrt`/
+`vsin`/`vcos`, the last two in the VFPU's quarter-turn angle convention),
+`vrot`, the comparisons and conditional moves (`vcmp`/`vcmov`/`vmin`/`vmax`/
+`vslt`/`vsge`), the conversions (`vi2f`/`vf2i`/`vcst`), the quaternion/cross
+products, the loads and stores (`lv.s`/`lv.q`/`sv.s`/`sv.q`/`lvl`/`lvr`) and the
+register moves and control registers (`mtv`/`mfv`/`mtvc`/`mfvc`, `bvf`/`bvt`). The
+encodings, register addressing and operation behaviour follow the PSP platform
+specification as documented by the PPSSPP interpreter, treated as a hardware
+reference (like the KIRK and GE constants); the tail of exotic ops halts with its
+word. Assembled-loop tests (`vfpu_test.go`) check the addressing, the prefixes and
+each executed op against independently computed values.
 
 `pspinfo` is the Part I inspector: `-ls` walks the disc, `-sfo` dumps the metadata,
 `-exe` KIRK-decrypts and describes the module, `-extract` pulls files.
@@ -182,38 +208,50 @@ syscall <synthetic code>
 and the code is mapped to a Go handler. Functions are identified by NID — the first
 four bytes (little-endian) of SHA-1(function name) — so hashing a curated name list
 gives the NID→name map used to label the trace and bind the modelled handlers. The
-CPU's syscall hook dispatches by code. Handlers follow three tiers: memory/thread/
-display/time calls the C runtime needs are modelled; kernel objects (semaphores,
-events, mutexes) are stubbed to hand out handles and report success; everything else
-logs its `(library, NID)` and returns 0, so one run enumerates the whole syscall
-surface the boot path reaches.
+CPU's syscall hook dispatches by code. Handlers are grown from the boot trace: the
+memory, threading, timing and display calls the runtime reads are modelled; kernel
+objects are given real behaviour where the game depends on it (below); everything
+else logs its `(library, NID)` and returns 0, so one run enumerates the whole
+syscall surface the boot path reaches.
 
-### 4. Scheduling and the surface reached
+### 4. Scheduling, synchronization and interrupts
 
-The MIPS32R2 core has no load delay slot (loads are interlocked), which the C runtime
-relies on: an init-array walk executes `lw $v0, 0($s0); jalr $v0`, expecting the loaded
-pointer immediately. A cooperative scheduler (`sched.go`) carries the boot through its
-thread hand-offs: `sceKernelStartThread` makes a thread runnable and lets the caller
-continue; when a thread sleeps or returns (to a sentinel `$ra`) the scheduler saves its
-register context and switches to the highest-priority ready thread.
+A cooperative scheduler (`sched.go`) carries the boot through its thread hand-offs:
+`sceKernelStartThread` makes a thread runnable and lets the caller continue; when a
+thread sleeps, blocks or returns (to a sentinel `$ra`) the scheduler saves its
+register context and switches to the highest-priority ready thread. Timed waits
+(`sceKernelDelayThread`, the audio-output and VBlank waits) park the thread until a
+future VBlank; when every thread is blocked on a timer, the scheduler idles forward
+VBlank by VBlank rather than declaring the machine dead, so lower-priority threads
+get their turn instead of starving behind a frame loop.
 
-With those, the boot runs the module entry and C runtime, creates and starts the main
-thread, brings up synchronization (`sceKernelCreateSema`/`CreateEventFlag`/`WaitSema`),
-and initializes the graphics engine — **submitting GE display lists** via
-`sceGeListEnQueue`. The kernel/GE functions reached in one run include:
+Each thread starts with a 256-byte `$k0` context area at the top of its stack — the
+kernel writes the thread uid at `+0xC0` and the stack base at `+0xC8`, which Sony's
+libc walks to find its per-thread reentrancy data (without it, `_getmodreent`
+fails and the heap zones never come up). Sony's kernel objects are modelled with
+real semantics because the runtime's heap zones and worker threads depend on them:
+semaphores (`WaitSema`/`SignalSema`/`PollSema` with a real count and a blocked-thread
+wake list), event flags (`WaitEventFlag`/`SetEventFlag`/`PollEventFlag` with the
+OR/AND/clear modes), variable-length pools (`sceKernelCreateVpl`/`AllocateVpl`,
+bump-allocated out of the heap), and callbacks. The display VBlank is delivered as a
+sub-interrupt: a game registers a handler with `sceKernelRegisterSubIntrHandler` and
+the run loop calls it on a cadence (`intr.go`), running it to completion in a nested
+execution frame on a scratch stack.
 
-```
-sceKernelCpuSuspendIntr / sceKernelCpuResumeIntr, sceKernelCreateThread / StartThread,
-sceKernelCreateSema / CreateEventFlag / WaitSema, sceKernelChangeThreadPriority,
-sceRtcGetCurrentTick, sceDisplaySetMode,
-sceGeEdramGetAddr, sceGeListEnQueue, sceGeListSync, sceGeDrawSync, sceGeSetCallback
-```
+`sceIo` (`io.go`) is backed by the mounted UMD volume: `sceIoOpen`/`Read`/`Lseek`/
+`Close` resolve the disc path on the ISO 9660 filesystem and stream bytes through
+`ReadFileAt`; `sceKernelStdout`/`stderr` and `sceIoWrite` feed the TTY, and
+`sceKernelPrintf` renders the game's own debug logging. With these the boot runs the
+module entry and C runtime, brings up its six heap zones, loads its media PRXs from
+`USRDIR/modules`, starts its worker threads (`sgsfile-req-th`, the SAS mixer
+threads, `ptnCallbackTh`) and reaches its **per-frame render loop**: every frame it
+builds transforms with the VFPU, reads the pad, and submits GE display lists via
+`sceGeListEnQueue`, flipping the framebuffer with `sceDisplaySetFrameBuf`.
 
-Execution then reaches the current wall — an unimplemented VFPU matrix op
-(`vmmul`) used to build the render transforms. The VFPU results feed control flow, so a
-correct VFPU is required to advance. Savestates (`state.go`) snapshot the full machine
-(RAM, VRAM, scratchpad, the Allegrex register files including FPU/VFPU, the thread
-contexts, kernel-object and syscall tables) with the image MD5 pinned.
+Savestates (`state.go`) snapshot the full machine (RAM, VRAM, scratchpad, the
+Allegrex register files including FPU/VFPU, the thread contexts and their wait
+state, the kernel objects, the sub-interrupt handlers, the open file descriptors and
+the syscall tables) with the image MD5 pinned.
 
 ---
 
@@ -240,10 +278,15 @@ VRAM.
   RGBA image and written to PNG (`bootoracle -shot`).
 
 The GE pipeline is validated end to end by a rasterizer test that renders a list into
-VRAM and reads the result back. The two lists Loco Roco submits before the VFPU wall
-are graphics-engine *state initialization* (every register reset), not draws, so the
-game's own first frame awaits the VFPU and the asset-loading path (`sceIo`, backed by
-the mounted UMD volume).
+VRAM and reads the result back. With the VFPU and kernel HLE in place the game now
+drives the GE from its own frame loop: each frame it sets the framebuffer pointer,
+clears the screen, and submits sprite primitives (`bootoracle -gelog N` prints a
+per-list command census). The rendered frame is presently the game's cleared
+background: the loading screen's imagery is streamed through the game's own
+asynchronous resource manager — a worker thread (`sgsfile-req-th`) that pulls load
+requests off a semaphore queue and reads `USRDIR/data/DATA.BIN` — and the
+request→completion handshake that populates the on-screen sprites is the current
+wall. Reaching textured content is the subject of Part V (game data).
 
 ---
 

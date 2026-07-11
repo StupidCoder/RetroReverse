@@ -9,24 +9,23 @@ package allegrex
 // CPUState is the complete programmer-visible and pipeline state of the core,
 // including the COP1 FPU and COP2 VFPU register files.
 type CPUState struct {
-	R, Out                       [32]uint32
-	HI, LO                       uint32
-	PC, NextPC                   uint32
-	COP0                         [32]uint32
-	F                            [32]uint32
-	FCC                          bool
-	V                            [128]uint32
-	VpfxS, VpfxT, VpfxD          uint32
-	VpfxSset, VpfxTset, VpfxDset bool
-	Halted                       bool
-	HaltReason                   string
-	Steps                        uint64
-	CurPC                        uint32
-	LdReg, LdVal                 uint32
-	DelaySlot                    bool
-	PendingDelay                 bool
-	BranchAddr                   uint32
-	NullifyNext                  bool
+	R, Out       [32]uint32
+	HI, LO       uint32
+	PC, NextPC   uint32
+	COP0         [32]uint32
+	F            [32]uint32
+	FCC          bool
+	V            [128]uint32
+	VfpuCtrl     [16]uint32
+	Halted       bool
+	HaltReason   string
+	Steps        uint64
+	CurPC        uint32
+	LdReg, LdVal uint32
+	DelaySlot    bool
+	PendingDelay bool
+	BranchAddr   uint32
+	NullifyNext  bool
 }
 
 // SaveState captures the core's state (the bus and hooks are not part of it).
@@ -34,9 +33,7 @@ func (c *CPU) SaveState() CPUState {
 	return CPUState{
 		R: c.R, Out: c.out, HI: c.HI, LO: c.LO,
 		PC: c.PC, NextPC: c.nextPC, COP0: c.COP0,
-		F: c.F, FCC: c.FCC, V: c.V,
-		VpfxS: c.vpfxS, VpfxT: c.vpfxT, VpfxD: c.vpfxD,
-		VpfxSset: c.vpfxSset, VpfxTset: c.vpfxTset, VpfxDset: c.vpfxDset,
+		F: c.F, FCC: c.FCC, V: c.V, VfpuCtrl: c.VfpuCtrl,
 		Halted: c.Halted, HaltReason: c.HaltReason, Steps: c.Steps,
 		CurPC: c.curPC, LdReg: c.ld.reg, LdVal: c.ld.val,
 		DelaySlot: c.delaySlot, PendingDelay: c.pendingDelay, BranchAddr: c.branchAddr,
@@ -48,9 +45,7 @@ func (c *CPU) SaveState() CPUState {
 func (c *CPU) LoadState(s CPUState) {
 	c.R, c.out, c.HI, c.LO = s.R, s.Out, s.HI, s.LO
 	c.PC, c.nextPC, c.COP0 = s.PC, s.NextPC, s.COP0
-	c.F, c.FCC, c.V = s.F, s.FCC, s.V
-	c.vpfxS, c.vpfxT, c.vpfxD = s.VpfxS, s.VpfxT, s.VpfxD
-	c.vpfxSset, c.vpfxTset, c.vpfxDset = s.VpfxSset, s.VpfxTset, s.VpfxDset
+	c.F, c.FCC, c.V, c.VfpuCtrl = s.F, s.FCC, s.V, s.VfpuCtrl
 	c.Halted, c.HaltReason, c.Steps = s.Halted, s.HaltReason, s.Steps
 	c.curPC, c.ld = s.CurPC, loadSlot{reg: s.LdReg, val: s.LdVal}
 	c.delaySlot, c.pendingDelay, c.branchAddr = s.DelaySlot, s.PendingDelay, s.BranchAddr
