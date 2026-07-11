@@ -21,6 +21,7 @@
   "glb": "models/nightmare03.glb"
  },
  "name": "nightmare03",
+ "objectsFile": "nightmare03.objects.json",
  "sky": "models/nightmare03_bg.glb",
  "view": {
   "h": 272,

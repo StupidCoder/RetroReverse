@@ -21,6 +21,7 @@
   "glb": "models/africa03.glb"
  },
  "name": "africa03",
+ "objectsFile": "africa03.objects.json",
  "sky": "models/africa03_bg.glb",
  "view": {
   "h": 272,

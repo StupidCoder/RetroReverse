@@ -21,6 +21,7 @@
   "glb": "models/kinoko01.glb"
  },
  "name": "kinoko01",
+ "objectsFile": "kinoko01.objects.json",
  "sky": "models/kinoko01_bg.glb",
  "view": {
   "h": 272,

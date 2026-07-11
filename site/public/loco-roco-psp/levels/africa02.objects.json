@@ -1,0 +1,996 @@
+{
+ "format": 2,
+ "level": "africa02",
+ "objects": [
+  {
+   "id": 0,
+   "name": "areatrig_kakushi",
+   "pos": [
+    0.096858,
+    -10.419074,
+    0
+   ],
+   "props": {
+    "dag": "|grp_hibi_set_2|kakushi_box_1|areatrig_kakushi",
+    "rotZ": 0,
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   }
+  },
+  {
+   "id": 1,
+   "name": "areatrig_kakushi",
+   "pos": [
+    0.096858,
+    0,
+    0
+   ],
+   "props": {
+    "dag": "|grp_kakushi|kakushi_box_3|areatrig_kakushi",
+    "rotZ": 0,
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   }
+  },
+  {
+   "id": 2,
+   "name": "delay",
+   "pos": [
+    -0.573647,
+    -10,
+    0
+   ],
+   "props": {
+    "dag": "delay",
+    "rotZ": 0,
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   }
+  },
+  {
+   "id": 3,
+   "name": "delay_bbb1111111",
+   "pos": [
+    0,
+    0,
+    64
+   ],
+   "props": {
+    "dag": "|grp_charactor|kabenyokki_2|delay_bbb1111111",
+    "rotZ": 0,
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   }
+  },
+  {
+   "id": 4,
+   "name": "delay_bbb5",
+   "pos": [
+    -0.000003,
+    0,
+    177
+   ],
+   "props": {
+    "dag": "|grp_charactor|sun_1|delay_bbb5",
+    "rotZ": 0,
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   }
+  },
+  {
+   "id": 5,
+   "name": "delay_switch_on_by_time",
+   "pos": [
+    0,
+    -9.84573,
+    0
+   ],
+   "props": {
+    "dag": "|delay_switch_on_by_time",
+    "rotZ": 0,
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   }
+  },
+  {
+   "id": 6,
+   "name": "gamumut",
+   "pos": [
+    -1512.4253,
+    -60.13086,
+    -45
+   ],
+   "props": {
+    "dag": "gamumut",
+    "rotZ": 0,
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   }
+  },
+  {
+   "id": 7,
+   "name": "kabenyokki",
+   "pos": [
+    1909.3698,
+    149.92163,
+    -12
+   ],
+   "props": {
+    "dag": "kabenyokki",
+    "rotZ": 0,
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   }
+  },
+  {
+   "id": 8,
+   "name": "kcoin_item",
+   "pos": [
+    -2217.3506,
+    -99.58276,
+    49
+   ],
+   "props": {
+    "dag": "kcoin_item",
+    "rotZ": 0,
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   }
+  },
+  {
+   "id": 9,
+   "name": "kerakera",
+   "pos": [
+    1885.1327,
+    149.92163,
+    -12
+   ],
+   "props": {
+    "dag": "kerakera",
+    "rotZ": 0,
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   }
+  },
+  {
+   "id": 10,
+   "name": "kerakera_4",
+   "pos": [
+    1679.5558,
+    149.92163,
+    -12
+   ],
+   "props": {
+    "dag": "|grp_charactor|kerakera_4",
+    "rotZ": 0,
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   }
+  },
+  {
+   "id": 11,
+   "name": "kerakera_5",
+   "pos": [
+    1655.3187,
+    149.92163,
+    -12
+   ],
+   "props": {
+    "dag": "|grp_charactor|kerakera_5",
+    "rotZ": 0,
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   }
+  },
+  {
+   "id": 12,
+   "name": "kerakera_6",
+   "pos": [
+    1724.7642,
+    -894.67896,
+    -67
+   ],
+   "props": {
+    "dag": "|grp_charactor|kerakera_6",
+    "rotZ": 0,
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   }
+  },
+  {
+   "id": 13,
+   "name": "kitem_mushi_muimui_2",
+   "pos": [
+    -520.89923,
+    293.62494,
+    49
+   ],
+   "props": {
+    "dag": "|grp_charactor|grp_muimui|grp_muimui_2|kitem_mushi_muimui_2",
+    "rotZ": 0,
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   }
+  },
+  {
+   "id": 14,
+   "name": "kitem_mushi_muimui_3",
+   "pos": [
+    2200.1426,
+    213.09766,
+    49
+   ],
+   "props": {
+    "dag": "|grp_charactor|grp_muimui|grp_muimui_3|kitem_mushi_muimui_3",
+    "rotZ": 0,
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   }
+  },
+  {
+   "id": 15,
+   "name": "linese_kaze_0",
+   "pos": [
+    -1604.7623,
+    598.41864,
+    -15
+   ],
+   "props": {
+    "dag": "|linese_kaze_0",
+    "rotZ": 0,
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   }
+  },
+  {
+   "id": 16,
+   "name": "mojya",
+   "pos": [
+    -1743.9708,
+    544.28204,
+    -15
+   ],
+   "props": {
+    "dag": "mojya",
+    "rotZ": 0,
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   }
+  },
+  {
+   "id": 17,
+   "name": "mojya_2",
+   "pos": [
+    -2504.6294,
+    1718.8987,
+    0
+   ],
+   "props": {
+    "dag": "|mojya_2",
+    "rotZ": 0,
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   }
+  },
+  {
+   "id": 18,
+   "name": "move_split05",
+   "pos": [
+    -2647.4136,
+    1194.334,
+    0
+   ],
+   "props": {
+    "dag": "|grp_split_b|move_split05",
+    "rotZ": 0,
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   }
+  },
+  {
+   "id": 19,
+   "name": "muimui",
+   "pos": [
+    -2217.5752,
+    -82.47827,
+    0
+   ],
+   "props": {
+    "dag": "muimui",
+    "rotZ": 0,
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   }
+  },
+  {
+   "id": 20,
+   "name": "muimui_2",
+   "pos": [
+    -521.1239,
+    310.72943,
+    0
+   ],
+   "props": {
+    "dag": "|grp_charactor|grp_muimui|grp_muimui_2|muimui_2",
+    "rotZ": 0,
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   }
+  },
+  {
+   "id": 21,
+   "name": "muimui_3",
+   "pos": [
+    2199.918,
+    230.20215,
+    0
+   ],
+   "props": {
+    "dag": "|grp_charactor|grp_muimui|grp_muimui_3|muimui_3",
+    "rotZ": 0,
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   }
+  },
+  {
+   "id": 22,
+   "name": "oneway",
+   "pos": [
+    -683.1962,
+    63.339478,
+    96
+   ],
+   "props": {
+    "dag": "oneway",
+    "rotZ": 0,
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   }
+  },
+  {
+   "id": 23,
+   "name": "poly_trigger",
+   "pos": [
+    0.096858,
+    0,
+    0
+   ],
+   "props": {
+    "dag": "poly_trigger",
+    "rotZ": 0,
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   }
+  },
+  {
+   "id": 24,
+   "name": "polytrig_kakushi",
+   "pos": [
+    0.096858,
+    0,
+    0
+   ],
+   "props": {
+    "dag": "|grp_kakushi|kakushi_3|polytrig_kakushi",
+    "rotZ": 0,
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   }
+  },
+  {
+   "id": 25,
+   "name": "polytrig_kakushi",
+   "pos": [
+    0.096858,
+    0,
+    0
+   ],
+   "props": {
+    "dag": "|grp_kakushi|kakushi_1|polytrig_kakushi",
+    "rotZ": 0,
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   }
+  },
+  {
+   "id": 26,
+   "name": "polytrig_kakushi",
+   "pos": [
+    0.096858,
+    0,
+    0
+   ],
+   "props": {
+    "dag": "|grp_kakushi|kakushi_4|polytrig_kakushi",
+    "rotZ": 0,
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   }
+  },
+  {
+   "id": 27,
+   "name": "polytrig_kakushi",
+   "pos": [
+    0.096858,
+    0,
+    0
+   ],
+   "props": {
+    "dag": "|grp_kakushi|kakushi_5|polytrig_kakushi",
+    "rotZ": 0,
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   }
+  },
+  {
+   "id": 28,
+   "name": "polytrig_kakushi",
+   "pos": [
+    0.096858,
+    0,
+    0
+   ],
+   "props": {
+    "dag": "|grp_kakushi|kakushi_2|polytrig_kakushi",
+    "rotZ": 0,
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   }
+  },
+  {
+   "id": 29,
+   "name": "reference_gameover",
+   "pos": [
+    -2647.4136,
+    1214.334,
+    0
+   ],
+   "props": {
+    "dag": "|grp_start_goal|grp_start|reference_gameover",
+    "rotZ": 0,
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   }
+  },
+  {
+   "id": 30,
+   "name": "reference_muimui",
+   "pos": [
+    689.7174,
+    83.89075,
+    46
+   ],
+   "props": {
+    "dag": "|grp_charactor|grp_muimui|grp_muimui_3|reference_muimui",
+    "rotZ": 0,
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   }
+  },
+  {
+   "id": 31,
+   "name": "reference_switch_2",
+   "pos": [
+    -1037.5388,
+    -188.73865,
+    80
+   ],
+   "props": {
+    "dag": "|grp_swich|reference_switch_2",
+    "rotZ": 0,
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   }
+  },
+  {
+   "id": 32,
+   "name": "se_score4",
+   "pos": [
+    72.64662,
+    -2.615,
+    -3
+   ],
+   "props": {
+    "dag": "|se_score4",
+    "rotZ": 0.139626,
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   }
+  },
+  {
+   "id": 33,
+   "name": "shukuhou",
+   "pos": [
+    43.0752,
+    -18.152,
+    -1
+   ],
+   "props": {
+    "dag": "shukuhou",
+    "rotZ": 0,
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   }
+  },
+  {
+   "id": 34,
+   "name": "shukuhou01",
+   "pos": [
+    -61.27682,
+    -8.712,
+    -2
+   ],
+   "props": {
+    "dag": "|shukuhou01",
+    "rotZ": 0.33273,
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   }
+  },
+  {
+   "id": 35,
+   "name": "shukuhou02",
+   "pos": [
+    -59.338066,
+    -7.169,
+    -3
+   ],
+   "props": {
+    "dag": "|shukuhou02",
+    "rotZ": 0,
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   }
+  },
+  {
+   "id": 36,
+   "name": "shukuhou03",
+   "pos": [
+    77.36388,
+    -3.37,
+    -2
+   ],
+   "props": {
+    "dag": "|shukuhou03",
+    "rotZ": -0.191986,
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   }
+  },
+  {
+   "id": 37,
+   "name": "start",
+   "pos": [
+    2191.914,
+    -1040.8882,
+    -29.999996
+   ],
+   "props": {
+    "dag": "start",
+    "rotZ": 0,
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   }
+  },
+  {
+   "id": 38,
+   "name": "stay_area_6",
+   "pos": [
+    -44.866394,
+    165.32312,
+    98
+   ],
+   "props": {
+    "dag": "|grp_stay|stay_area_6",
+    "rotZ": 0.597649,
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   }
+  },
+  {
+   "id": 39,
+   "name": "sun",
+   "pos": [
+    -1184.7126,
+    -208.11157,
+    -22
+   ],
+   "props": {
+    "dag": "sun",
+    "rotZ": 0,
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   }
+  },
+  {
+   "id": 40,
+   "name": "toge",
+   "pos": [
+    1778.4939,
+    161.68774,
+    80
+   ],
+   "props": {
+    "dag": "toge",
+    "rotZ": 0,
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   }
+  },
+  {
+   "id": 41,
+   "name": "toge_normal_10",
+   "pos": [
+    -1021.1293,
+    -188.73865,
+    80
+   ],
+   "props": {
+    "dag": "|grp_toge|toge_normal_10",
+    "rotZ": 0,
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   }
+  },
+  {
+   "id": 42,
+   "name": "toge_normal_11",
+   "pos": [
+    -2080.115,
+    -115.6239,
+    80
+   ],
+   "props": {
+    "dag": "|grp_toge|toge_normal_11",
+    "rotZ": 0,
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   }
+  },
+  {
+   "id": 43,
+   "name": "toge_normal_12",
+   "pos": [
+    -2063.898,
+    -115.6239,
+    80
+   ],
+   "props": {
+    "dag": "|grp_toge|toge_normal_12",
+    "rotZ": 0,
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   }
+  },
+  {
+   "id": 44,
+   "name": "toge_normal_13",
+   "pos": [
+    -2048.8071,
+    -115.6239,
+    80
+   ],
+   "props": {
+    "dag": "|grp_toge|toge_normal_13",
+    "rotZ": 0,
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   }
+  },
+  {
+   "id": 45,
+   "name": "toge_normal_14",
+   "pos": [
+    -2033.7163,
+    -115.6239,
+    80
+   ],
+   "props": {
+    "dag": "|grp_toge|toge_normal_14",
+    "rotZ": 0,
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   }
+  },
+  {
+   "id": 46,
+   "name": "toge_normal_15",
+   "pos": [
+    -2019.0544,
+    -116.4823,
+    80
+   ],
+   "props": {
+    "dag": "|grp_toge|toge_normal_15",
+    "rotZ": 0,
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   }
+  },
+  {
+   "id": 47,
+   "name": "toge_normal_16",
+   "pos": [
+    -1337.1445,
+    525.89087,
+    80
+   ],
+   "props": {
+    "dag": "|grp_toge|toge_normal_16",
+    "rotZ": 0,
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   }
+  },
+  {
+   "id": 48,
+   "name": "toge_normal_2",
+   "pos": [
+    2011.1605,
+    162.7251,
+    80
+   ],
+   "props": {
+    "dag": "|grp_toge|toge_normal_2",
+    "rotZ": 0,
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   }
+  },
+  {
+   "id": 49,
+   "name": "toge_normal_3",
+   "pos": [
+    -1136.7424,
+    -188.73865,
+    80
+   ],
+   "props": {
+    "dag": "|grp_toge|toge_normal_3",
+    "rotZ": 0,
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   }
+  },
+  {
+   "id": 50,
+   "name": "toge_normal_4",
+   "pos": [
+    -1119.5869,
+    -188.73865,
+    80
+   ],
+   "props": {
+    "dag": "|grp_toge|toge_normal_4",
+    "rotZ": 0,
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   }
+  },
+  {
+   "id": 51,
+   "name": "toge_normal_5",
+   "pos": [
+    -1103.1772,
+    -188.73865,
+    80
+   ],
+   "props": {
+    "dag": "|grp_toge|toge_normal_5",
+    "rotZ": 0,
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   }
+  },
+  {
+   "id": 52,
+   "name": "toge_normal_6",
+   "pos": [
+    -1086.7677,
+    -188.73865,
+    80
+   ],
+   "props": {
+    "dag": "|grp_toge|toge_normal_6",
+    "rotZ": 0,
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   }
+  },
+  {
+   "id": 53,
+   "name": "toge_normal_7",
+   "pos": [
+    -1070.358,
+    -188.73865,
+    80
+   ],
+   "props": {
+    "dag": "|grp_toge|toge_normal_7",
+    "rotZ": 0,
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   }
+  },
+  {
+   "id": 54,
+   "name": "toge_normal_8",
+   "pos": [
+    -1053.9485,
+    -188.73865,
+    80
+   ],
+   "props": {
+    "dag": "|grp_toge|toge_normal_8",
+    "rotZ": 0,
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   }
+  }
+ ]
+}

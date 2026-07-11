@@ -21,6 +21,7 @@
   "glb": "models/bombmuch.glb"
  },
  "name": "bombmuch",
+ "objectsFile": "bombmuch.objects.json",
  "sky": "models/bombmuch_bg.glb",
  "view": {
   "h": 272,

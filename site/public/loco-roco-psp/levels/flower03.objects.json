@@ -1,0 +1,1752 @@
+{
+ "format": 2,
+ "level": "flower03",
+ "objects": [
+  {
+   "id": 0,
+   "name": "C",
+   "pos": [
+    2475.3945,
+    -333.2218,
+    -29.999996
+   ],
+   "props": {
+    "dag": "C",
+    "rotZ": 0,
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   }
+  },
+  {
+   "id": 1,
+   "name": "bottyoro",
+   "pos": [
+    600.15625,
+    -104.555115,
+    -40
+   ],
+   "props": {
+    "dag": "bottyoro",
+    "rotZ": 0,
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   }
+  },
+  {
+   "id": 2,
+   "name": "camera_areatrig_",
+   "pos": [
+    518.05286,
+    -105.21796,
+    -40
+   ],
+   "props": {
+    "dag": "|grp_camera_offset|camera_areatrig_",
+    "rotZ": 0,
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   }
+  },
+  {
+   "id": 3,
+   "name": "countdown_bottyoro",
+   "pos": [
+    -473.05725,
+    -149.30597,
+    46
+   ],
+   "props": {
+    "dag": "|grp_chara|countdown_bottyoro",
+    "rotZ": 0,
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   }
+  },
+  {
+   "id": 4,
+   "name": "delay",
+   "pos": [
+    -0.573647,
+    -10,
+    0
+   ],
+   "props": {
+    "dag": "delay",
+    "rotZ": 0,
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   }
+  },
+  {
+   "id": 5,
+   "name": "delay_bbb4",
+   "pos": [
+    -0.000003,
+    0,
+    98
+   ],
+   "props": {
+    "dag": "|grp_chara|kunamama_1|delay_bbb4",
+    "rotZ": 0,
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   }
+  },
+  {
+   "id": 6,
+   "name": "delay_switch_on_by_time",
+   "pos": [
+    0,
+    -9.84573,
+    0
+   ],
+   "props": {
+    "dag": "|delay_switch_on_by_time",
+    "rotZ": 0,
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   }
+  },
+  {
+   "id": 7,
+   "name": "ikarinyokki",
+   "pos": [
+    1223.7136,
+    -108.79761,
+    -66
+   ],
+   "props": {
+    "dag": "ikarinyokki",
+    "rotZ": 0,
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   }
+  },
+  {
+   "id": 8,
+   "name": "kcoin_item",
+   "pos": [
+    -1493.3176,
+    220.60205,
+    49
+   ],
+   "props": {
+    "dag": "kcoin_item",
+    "rotZ": 0,
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   }
+  },
+  {
+   "id": 9,
+   "name": "kcoin_ten_1",
+   "pos": [
+    -303.4054,
+    177.65851,
+    88
+   ],
+   "props": {
+    "dag": "|grp_sigemikinomi_coin|grp_kinomi_c_coin10_1|kcoin_ten_1",
+    "rotZ": 0,
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   }
+  },
+  {
+   "id": 10,
+   "name": "kitem_mushi_muimui",
+   "pos": [
+    969.4772,
+    538.5054,
+    49
+   ],
+   "props": {
+    "dag": "|grp_muimui|grp_muimui_3|kitem_mushi_muimui",
+    "rotZ": 0,
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   }
+  },
+  {
+   "id": 11,
+   "name": "kitem_mushi_muimui",
+   "pos": [
+    164.99811,
+    330.44754,
+    49
+   ],
+   "props": {
+    "dag": "|grp_muimui|grp_muimui_2|kitem_mushi_muimui",
+    "rotZ": 0,
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   }
+  },
+  {
+   "id": 12,
+   "name": "mi_one_kakushi",
+   "pos": [
+    -918.98975,
+    -143.65112,
+    0
+   ],
+   "props": {
+    "dag": "mi_one_kakushi",
+    "rotZ": 0,
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   }
+  },
+  {
+   "id": 13,
+   "name": "movebg_kuti2",
+   "pos": [
+    27.403292,
+    229.93333,
+    -355
+   ],
+   "props": {
+    "dag": "|grp_chara|nyokki_1|movenull_nyokki|soft_nyokki|vertrider_|movebg_kuti2",
+    "rotZ": 0,
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   }
+  },
+  {
+   "id": 14,
+   "name": "muimui",
+   "pos": [
+    -1493.5422,
+    237.70654,
+    0
+   ],
+   "props": {
+    "dag": "muimui",
+    "rotZ": 0,
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   }
+  },
+  {
+   "id": 15,
+   "name": "muimui_1",
+   "pos": [
+    969.25256,
+    555.60986,
+    0
+   ],
+   "props": {
+    "dag": "|grp_muimui|grp_muimui_3|muimui_1",
+    "rotZ": 0,
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   }
+  },
+  {
+   "id": 16,
+   "name": "muimui_1",
+   "pos": [
+    164.77344,
+    347.552,
+    0
+   ],
+   "props": {
+    "dag": "|grp_muimui|grp_muimui_2|muimui_1",
+    "rotZ": 0,
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   }
+  },
+  {
+   "id": 17,
+   "name": "poly_trigger",
+   "pos": [
+    0.096858,
+    0,
+    0
+   ],
+   "props": {
+    "dag": "poly_trigger",
+    "rotZ": 0,
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   }
+  },
+  {
+   "id": 18,
+   "name": "polytrig_kakushi",
+   "pos": [
+    0.096858,
+    0,
+    0
+   ],
+   "props": {
+    "dag": "|grp_kakushi|kakushi_4|polytrig_kakushi",
+    "rotZ": 0,
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   }
+  },
+  {
+   "id": 19,
+   "name": "polytrig_kakushi",
+   "pos": [
+    0.096858,
+    0,
+    0
+   ],
+   "props": {
+    "dag": "|grp_kakushi|kakushi_5|polytrig_kakushi",
+    "rotZ": 0,
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   }
+  },
+  {
+   "id": 20,
+   "name": "polytrig_kakushi",
+   "pos": [
+    0.096858,
+    0,
+    0
+   ],
+   "props": {
+    "dag": "|grp_kakushi|kakushi_6|polytrig_kakushi",
+    "rotZ": 0,
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   }
+  },
+  {
+   "id": 21,
+   "name": "polytrig_kakushi",
+   "pos": [
+    0.096858,
+    0,
+    0
+   ],
+   "props": {
+    "dag": "|grp_hibi_set_2|kakushi_1|polytrig_kakushi",
+    "rotZ": 0,
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   }
+  },
+  {
+   "id": 22,
+   "name": "reference_gameover",
+   "pos": [
+    -2309.918,
+    351.98618,
+    0
+   ],
+   "props": {
+    "dag": "|grp_start|reference_gameover",
+    "rotZ": 0,
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   }
+  },
+  {
+   "id": 23,
+   "name": "reference_start",
+   "pos": [
+    -2253.9055,
+    479.336,
+    0
+   ],
+   "props": {
+    "dag": "|grp_start|reference_start",
+    "rotZ": 0,
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   }
+  },
+  {
+   "id": 24,
+   "name": "se_score4",
+   "pos": [
+    72.64662,
+    -2.615,
+    -3
+   ],
+   "props": {
+    "dag": "|se_score4",
+    "rotZ": 0.139626,
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   }
+  },
+  {
+   "id": 25,
+   "name": "shukuhou",
+   "pos": [
+    43.0752,
+    -18.152,
+    -1
+   ],
+   "props": {
+    "dag": "shukuhou",
+    "rotZ": 0,
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   }
+  },
+  {
+   "id": 26,
+   "name": "shukuhou01",
+   "pos": [
+    -61.27682,
+    -8.712,
+    -2
+   ],
+   "props": {
+    "dag": "|shukuhou01",
+    "rotZ": 0.33273,
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   }
+  },
+  {
+   "id": 27,
+   "name": "shukuhou02",
+   "pos": [
+    -59.338066,
+    -7.169,
+    -3
+   ],
+   "props": {
+    "dag": "|shukuhou02",
+    "rotZ": 0,
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   }
+  },
+  {
+   "id": 28,
+   "name": "shukuhou03",
+   "pos": [
+    77.36388,
+    -3.37,
+    -2
+   ],
+   "props": {
+    "dag": "|shukuhou03",
+    "rotZ": -0.191986,
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   }
+  },
+  {
+   "id": 29,
+   "name": "sigemi_1",
+   "pos": [
+    -2309.918,
+    331.98618,
+    0
+   ],
+   "props": {
+    "dag": "|grp_sigemikinomi_coin|grp_sigemi_coin50_1|sigemi_1",
+    "rotZ": 0,
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   }
+  },
+  {
+   "id": 30,
+   "name": "stay_area_9",
+   "pos": [
+    552.87494,
+    425.72513,
+    0
+   ],
+   "props": {
+    "dag": "|grp_stayarea|stay_area_9",
+    "rotZ": 0,
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   }
+  },
+  {
+   "id": 31,
+   "name": "toge",
+   "pos": [
+    1586.6168,
+    -248.62744,
+    0
+   ],
+   "props": {
+    "dag": "toge",
+    "rotZ": 0,
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   }
+  },
+  {
+   "id": 32,
+   "name": "toge_normal_1",
+   "pos": [
+    630.31757,
+    622.67505,
+    0
+   ],
+   "props": {
+    "dag": "|grp_toge|toge_normal_1",
+    "rotZ": 0,
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   }
+  },
+  {
+   "id": 33,
+   "name": "toge_normal_10",
+   "pos": [
+    561.3914,
+    344.25815,
+    0
+   ],
+   "props": {
+    "dag": "|grp_toge|toge_normal_10",
+    "rotZ": 0,
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   }
+  },
+  {
+   "id": 34,
+   "name": "toge_normal_11",
+   "pos": [
+    558.43933,
+    448.02344,
+    0
+   ],
+   "props": {
+    "dag": "|grp_toge|toge_normal_11",
+    "rotZ": 0,
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   }
+  },
+  {
+   "id": 35,
+   "name": "toge_normal_12",
+   "pos": [
+    565.7351,
+    470.25046,
+    0
+   ],
+   "props": {
+    "dag": "|grp_toge|toge_normal_12",
+    "rotZ": 0,
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   }
+  },
+  {
+   "id": 36,
+   "name": "toge_normal_13",
+   "pos": [
+    574.2229,
+    492.80295,
+    0
+   ],
+   "props": {
+    "dag": "|grp_toge|toge_normal_13",
+    "rotZ": 0,
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   }
+  },
+  {
+   "id": 37,
+   "name": "toge_normal_14",
+   "pos": [
+    582.98755,
+    515.7604,
+    0
+   ],
+   "props": {
+    "dag": "|grp_toge|toge_normal_14",
+    "rotZ": 0,
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   }
+  },
+  {
+   "id": 38,
+   "name": "toge_normal_15",
+   "pos": [
+    591.4146,
+    537.53064,
+    0
+   ],
+   "props": {
+    "dag": "|grp_toge|toge_normal_15",
+    "rotZ": 0,
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   }
+  },
+  {
+   "id": 39,
+   "name": "toge_normal_16",
+   "pos": [
+    600.03735,
+    559.5832,
+    0
+   ],
+   "props": {
+    "dag": "|grp_toge|toge_normal_16",
+    "rotZ": 0,
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   }
+  },
+  {
+   "id": 40,
+   "name": "toge_normal_17",
+   "pos": [
+    608.8663,
+    582.03906,
+    0
+   ],
+   "props": {
+    "dag": "|grp_toge|toge_normal_17",
+    "rotZ": 0,
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   }
+  },
+  {
+   "id": 41,
+   "name": "toge_normal_18",
+   "pos": [
+    617.307,
+    603.59644,
+    0
+   ],
+   "props": {
+    "dag": "|grp_toge|toge_normal_18",
+    "rotZ": 0,
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   }
+  },
+  {
+   "id": 42,
+   "name": "toge_normal_19",
+   "pos": [
+    -215.90002,
+    141.33582,
+    80
+   ],
+   "props": {
+    "dag": "|grp_toge|toge_normal_19",
+    "rotZ": 0,
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   }
+  },
+  {
+   "id": 43,
+   "name": "toge_normal_20",
+   "pos": [
+    648.9872,
+    636.66284,
+    0
+   ],
+   "props": {
+    "dag": "|grp_toge|toge_normal_20",
+    "rotZ": 0,
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   }
+  },
+  {
+   "id": 44,
+   "name": "toge_normal_21",
+   "pos": [
+    669.80774,
+    650.10767,
+    0
+   ],
+   "props": {
+    "dag": "|grp_toge|toge_normal_21",
+    "rotZ": 0,
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   }
+  },
+  {
+   "id": 45,
+   "name": "toge_normal_22",
+   "pos": [
+    688.6832,
+    664.6148,
+    0
+   ],
+   "props": {
+    "dag": "|grp_toge|toge_normal_22",
+    "rotZ": 0,
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   }
+  },
+  {
+   "id": 46,
+   "name": "toge_normal_23",
+   "pos": [
+    762.7046,
+    663.09686,
+    0
+   ],
+   "props": {
+    "dag": "|grp_toge|toge_normal_23",
+    "rotZ": 0,
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   }
+  },
+  {
+   "id": 47,
+   "name": "toge_normal_24",
+   "pos": [
+    777.7157,
+    639.24414,
+    0
+   ],
+   "props": {
+    "dag": "|grp_toge|toge_normal_24",
+    "rotZ": 0,
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   }
+  },
+  {
+   "id": 48,
+   "name": "toge_normal_25",
+   "pos": [
+    745.49414,
+    682.6106,
+    0
+   ],
+   "props": {
+    "dag": "|grp_toge|toge_normal_25",
+    "rotZ": 0,
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   }
+  },
+  {
+   "id": 49,
+   "name": "toge_normal_26",
+   "pos": [
+    1580.6182,
+    367.36206,
+    80
+   ],
+   "props": {
+    "dag": "|grp_toge|toge_normal_26",
+    "rotZ": 0,
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   }
+  },
+  {
+   "id": 50,
+   "name": "toge_normal_35",
+   "pos": [
+    1576.638,
+    347.36206,
+    80
+   ],
+   "props": {
+    "dag": "|grp_toge|toge_normal_35",
+    "rotZ": 0,
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   }
+  },
+  {
+   "id": 51,
+   "name": "toge_normal_36",
+   "pos": [
+    1580.4619,
+    326.46307,
+    80
+   ],
+   "props": {
+    "dag": "|grp_toge|toge_normal_36",
+    "rotZ": 0,
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   }
+  },
+  {
+   "id": 52,
+   "name": "toge_normal_37",
+   "pos": [
+    1581.5237,
+    305.11462,
+    80
+   ],
+   "props": {
+    "dag": "|grp_toge|toge_normal_37",
+    "rotZ": 0,
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   }
+  },
+  {
+   "id": 53,
+   "name": "toge_normal_38",
+   "pos": [
+    1579.9473,
+    285.11462,
+    80
+   ],
+   "props": {
+    "dag": "|grp_toge|toge_normal_38",
+    "rotZ": 0,
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   }
+  },
+  {
+   "id": 54,
+   "name": "toge_normal_39",
+   "pos": [
+    1576.9636,
+    266.0136,
+    80
+   ],
+   "props": {
+    "dag": "|grp_toge|toge_normal_39",
+    "rotZ": 0,
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   }
+  },
+  {
+   "id": 55,
+   "name": "toge_normal_40",
+   "pos": [
+    1577.3154,
+    247.36206,
+    80
+   ],
+   "props": {
+    "dag": "|grp_toge|toge_normal_40",
+    "rotZ": 0,
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   }
+  },
+  {
+   "id": 56,
+   "name": "toge_normal_41",
+   "pos": [
+    1580.5662,
+    226.9126,
+    80
+   ],
+   "props": {
+    "dag": "|grp_toge|toge_normal_41",
+    "rotZ": 0,
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   }
+  },
+  {
+   "id": 57,
+   "name": "toge_normal_42",
+   "pos": [
+    1576.7617,
+    207.36206,
+    80
+   ],
+   "props": {
+    "dag": "|grp_toge|toge_normal_42",
+    "rotZ": 0,
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   }
+  },
+  {
+   "id": 58,
+   "name": "toge_normal_43",
+   "pos": [
+    1578.1688,
+    187.36206,
+    80
+   ],
+   "props": {
+    "dag": "|grp_toge|toge_normal_43",
+    "rotZ": 0,
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   }
+  },
+  {
+   "id": 59,
+   "name": "toge_normal_44",
+   "pos": [
+    1579.9929,
+    167.36206,
+    80
+   ],
+   "props": {
+    "dag": "|grp_toge|toge_normal_44",
+    "rotZ": 0,
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   }
+  },
+  {
+   "id": 60,
+   "name": "toge_normal_45",
+   "pos": [
+    1583.7906,
+    147.36206,
+    80
+   ],
+   "props": {
+    "dag": "|grp_toge|toge_normal_45",
+    "rotZ": 0,
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   }
+  },
+  {
+   "id": 61,
+   "name": "toge_normal_46",
+   "pos": [
+    1581.2305,
+    127.36206,
+    80
+   ],
+   "props": {
+    "dag": "|grp_toge|toge_normal_46",
+    "rotZ": 0,
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   }
+  },
+  {
+   "id": 62,
+   "name": "toge_normal_47",
+   "pos": [
+    1580.6572,
+    106.9126,
+    80
+   ],
+   "props": {
+    "dag": "|grp_toge|toge_normal_47",
+    "rotZ": 0,
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   }
+  },
+  {
+   "id": 63,
+   "name": "toge_normal_48",
+   "pos": [
+    1563.8079,
+    -243.55359,
+    0
+   ],
+   "props": {
+    "dag": "|grp_toge|toge_normal_48",
+    "rotZ": 0,
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   }
+  },
+  {
+   "id": 64,
+   "name": "toge_normal_53",
+   "pos": [
+    1610.9944,
+    -248.31458,
+    0
+   ],
+   "props": {
+    "dag": "|grp_toge|toge_normal_53",
+    "rotZ": 0,
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   }
+  },
+  {
+   "id": 65,
+   "name": "toge_normal_54",
+   "pos": [
+    1635.3718,
+    -248.00171,
+    0
+   ],
+   "props": {
+    "dag": "|grp_toge|toge_normal_54",
+    "rotZ": 0,
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   }
+  },
+  {
+   "id": 66,
+   "name": "toge_normal_55",
+   "pos": [
+    1658.9512,
+    -245.8241,
+    0
+   ],
+   "props": {
+    "dag": "|grp_toge|toge_normal_55",
+    "rotZ": 0,
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   }
+  },
+  {
+   "id": 67,
+   "name": "toge_normal_56",
+   "pos": [
+    1682.3982,
+    -241.63367,
+    0
+   ],
+   "props": {
+    "dag": "|grp_toge|toge_normal_56",
+    "rotZ": 0,
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   }
+  },
+  {
+   "id": 68,
+   "name": "toge_normal_57",
+   "pos": [
+    1705.3433,
+    -235.61304,
+    0
+   ],
+   "props": {
+    "dag": "|grp_toge|toge_normal_57",
+    "rotZ": 0,
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   }
+  },
+  {
+   "id": 69,
+   "name": "toge_normal_58",
+   "pos": [
+    1726.8596,
+    -227.18835,
+    0
+   ],
+   "props": {
+    "dag": "|grp_toge|toge_normal_58",
+    "rotZ": 0,
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   }
+  },
+  {
+   "id": 70,
+   "name": "toge_normal_59",
+   "pos": [
+    1744.5618,
+    -209.8316,
+    0
+   ],
+   "props": {
+    "dag": "|grp_toge|toge_normal_59",
+    "rotZ": 0,
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   }
+  },
+  {
+   "id": 71,
+   "name": "toge_normal_60",
+   "pos": [
+    1762.378,
+    -194.85071,
+    0
+   ],
+   "props": {
+    "dag": "|grp_toge|toge_normal_60",
+    "rotZ": 0,
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   }
+  },
+  {
+   "id": 72,
+   "name": "toge_normal_61",
+   "pos": [
+    1770.0878,
+    -176.54108,
+    0
+   ],
+   "props": {
+    "dag": "|grp_toge|toge_normal_61",
+    "rotZ": 0,
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   }
+  },
+  {
+   "id": 73,
+   "name": "toge_normal_62",
+   "pos": [
+    1754.6948,
+    139.92175,
+    0
+   ],
+   "props": {
+    "dag": "|grp_toge|toge_normal_62",
+    "rotZ": 0,
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   }
+  },
+  {
+   "id": 74,
+   "name": "toge_normal_63",
+   "pos": [
+    1756.1597,
+    115.59326,
+    0
+   ],
+   "props": {
+    "dag": "|grp_toge|toge_normal_63",
+    "rotZ": 0,
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   }
+  },
+  {
+   "id": 75,
+   "name": "toge_normal_64",
+   "pos": [
+    1757.2153,
+    89.52075,
+    0
+   ],
+   "props": {
+    "dag": "|grp_toge|toge_normal_64",
+    "rotZ": 0,
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   }
+  },
+  {
+   "id": 76,
+   "name": "toge_normal_65",
+   "pos": [
+    1773.6813,
+    -155.06708,
+    0
+   ],
+   "props": {
+    "dag": "|grp_toge|toge_normal_65",
+    "rotZ": 0,
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   }
+  },
+  {
+   "id": 77,
+   "name": "toge_normal_66",
+   "pos": [
+    1775.2861,
+    -132.92706,
+    0
+   ],
+   "props": {
+    "dag": "|grp_toge|toge_normal_66",
+    "rotZ": 0,
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   }
+  },
+  {
+   "id": 78,
+   "name": "toge_normal_67",
+   "pos": [
+    1759.6447,
+    64.13324,
+    0
+   ],
+   "props": {
+    "dag": "|grp_toge|toge_normal_67",
+    "rotZ": 0,
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   }
+  },
+  {
+   "id": 79,
+   "name": "toge_normal_68",
+   "pos": [
+    1763.4797,
+    39.281494,
+    0
+   ],
+   "props": {
+    "dag": "|grp_toge|toge_normal_68",
+    "rotZ": 0,
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   }
+  },
+  {
+   "id": 80,
+   "name": "toge_normal_69",
+   "pos": [
+    1767.0559,
+    13.176147,
+    0
+   ],
+   "props": {
+    "dag": "|grp_toge|toge_normal_69",
+    "rotZ": 0,
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   }
+  },
+  {
+   "id": 81,
+   "name": "toge_normal_7",
+   "pos": [
+    1562.7863,
+    64.9845,
+    80
+   ],
+   "props": {
+    "dag": "|grp_toge|toge_normal_7",
+    "rotZ": 0,
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   }
+  },
+  {
+   "id": 82,
+   "name": "toge_normal_70",
+   "pos": [
+    1771.3676,
+    -12.302368,
+    0
+   ],
+   "props": {
+    "dag": "|grp_toge|toge_normal_70",
+    "rotZ": 0,
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   }
+  },
+  {
+   "id": 83,
+   "name": "toge_normal_71",
+   "pos": [
+    1774.9409,
+    -40.089783,
+    0
+   ],
+   "props": {
+    "dag": "|grp_toge|toge_normal_71",
+    "rotZ": 0,
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   }
+  },
+  {
+   "id": 84,
+   "name": "toge_normal_74",
+   "pos": [
+    1776.0322,
+    -63.918823,
+    0
+   ],
+   "props": {
+    "dag": "|grp_toge|toge_normal_74",
+    "rotZ": 0,
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   }
+  },
+  {
+   "id": 85,
+   "name": "toge_normal_75",
+   "pos": [
+    1775.3739,
+    -108.559814,
+    0
+   ],
+   "props": {
+    "dag": "|grp_toge|toge_normal_75",
+    "rotZ": 0,
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   }
+  },
+  {
+   "id": 86,
+   "name": "toge_normal_76",
+   "pos": [
+    1776.578,
+    -85.599915,
+    0
+   ],
+   "props": {
+    "dag": "|grp_toge|toge_normal_76",
+    "rotZ": 0,
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   }
+  },
+  {
+   "id": 87,
+   "name": "toge_normal_77",
+   "pos": [
+    1576.5332,
+    84.23016,
+    80
+   ],
+   "props": {
+    "dag": "|grp_toge|toge_normal_77",
+    "rotZ": 0,
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   }
+  },
+  {
+   "id": 88,
+   "name": "toge_normal_79",
+   "pos": [
+    549.47797,
+    382.7979,
+    0
+   ],
+   "props": {
+    "dag": "|grp_toge|toge_normal_79",
+    "rotZ": 0,
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   }
+  },
+  {
+   "id": 89,
+   "name": "toge_normal_8",
+   "pos": [
+    551.91327,
+    363.494,
+    0
+   ],
+   "props": {
+    "dag": "|grp_toge|toge_normal_8",
+    "rotZ": 0,
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   }
+  },
+  {
+   "id": 90,
+   "name": "toge_normal_80",
+   "pos": [
+    1542.1659,
+    50.550293,
+    80
+   ],
+   "props": {
+    "dag": "|grp_toge|toge_normal_80",
+    "rotZ": 0,
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   }
+  },
+  {
+   "id": 91,
+   "name": "toge_normal_81",
+   "pos": [
+    1522.9202,
+    35.42865,
+    80
+   ],
+   "props": {
+    "dag": "|grp_toge|toge_normal_81",
+    "rotZ": 0,
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   }
+  },
+  {
+   "id": 92,
+   "name": "toge_normal_82",
+   "pos": [
+    720.92786,
+    687.93823,
+    0
+   ],
+   "props": {
+    "dag": "|grp_toge|toge_normal_82",
+    "rotZ": 0,
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   }
+  },
+  {
+   "id": 93,
+   "name": "toge_normal_83",
+   "pos": [
+    704.353,
+    677.579,
+    0
+   ],
+   "props": {
+    "dag": "|grp_toge|toge_normal_83",
+    "rotZ": 0,
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   }
+  },
+  {
+   "id": 94,
+   "name": "toge_normal_84",
+   "pos": [
+    550.0495,
+    403.73178,
+    0
+   ],
+   "props": {
+    "dag": "|grp_toge|toge_normal_84",
+    "rotZ": 0,
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   }
+  },
+  {
+   "id": 95,
+   "name": "transition_3",
+   "pos": [
+    -1379.011,
+    -383.95715,
+    0
+   ],
+   "props": {
+    "dag": "|grp_chara|nyokki_1|transition_3",
+    "rotZ": 0,
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   }
+  },
+  {
+   "id": 96,
+   "name": "unfuku_01",
+   "pos": [
+    2331.6372,
+    -327.24475,
+    -22
+   ],
+   "props": {
+    "dag": "|grp_chara|unfuku_01",
+    "rotZ": 0,
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   }
+  }
+ ]
+}

@@ -222,6 +222,36 @@ func exportStage(im *psp.Image, st garc.GimgEntry, stem, out string) error {
 		}
 		lvl["collision"] = map[string]any{"kind": "outlines", "glb": "models/" + stem + "_collision.glb"}
 	}
+	// the prop placements as the machine-readable object DB
+	if pls := c.Placements(); len(pls) > 0 {
+		objs := make([]map[string]any, 0, len(pls))
+		for i, p := range pls {
+			o := map[string]any{
+				"id":   i,
+				"name": p.Name,
+				"pos":  []float32{p.Pos[0], p.Pos[1], p.Pos[2]},
+				"props": map[string]any{
+					"dag":   p.DagPath,
+					"rotZ":  p.RotZ,
+					"scale": []float32{p.Scale[0], p.Scale[1], p.Scale[2]},
+				},
+			}
+			objs = append(objs, o)
+		}
+		of, err := os.Create(filepath.Join(out, "levels", stem+".objects.json"))
+		if err != nil {
+			return err
+		}
+		enc := json.NewEncoder(of)
+		enc.SetIndent("", " ")
+		if err := enc.Encode(map[string]any{"format": 2, "level": stem, "objects": objs}); err != nil {
+			return err
+		}
+		if err := of.Close(); err != nil {
+			return err
+		}
+		lvl["objectsFile"] = stem + ".objects.json"
+	}
 	lf, err := os.Create(filepath.Join(out, "levels", stem+".json"))
 	if err != nil {
 		return err

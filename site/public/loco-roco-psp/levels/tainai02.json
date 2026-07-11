@@ -21,6 +21,7 @@
   "glb": "models/tainai02.glb"
  },
  "name": "tainai02",
+ "objectsFile": "tainai02.objects.json",
  "sky": "models/tainai02_bg.glb",
  "view": {
   "h": 272,

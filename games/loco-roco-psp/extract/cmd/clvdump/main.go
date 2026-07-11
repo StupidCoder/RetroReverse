@@ -28,6 +28,7 @@ func main() {
 	cells := flag.Bool("cells", false, "list every cell's batches")
 	texDir := flag.String("textures", "", "decode every batch material's texture to PNGs in this directory")
 	preview := flag.String("preview", "", "render an orthographic flat-colour preview of the stage to this PNG")
+	objects := flag.Bool("objects", false, "list the stage's prop placements")
 	verify := flag.String("verify", "", "PSP_GE_DEBUG PRIM log to cross-check strips against")
 	baseS := flag.String("base", "094400C0", "with -verify, RAM base the stage image was loaded at (hex)")
 	flag.Parse()
@@ -120,6 +121,14 @@ func main() {
 				f.Close()
 				fmt.Printf("wrote %s (%dx%d, %d mips, uv x%.1f,%.1f)\n", p, m.TexW, m.TexH, m.Mips, m.UScale, m.VScale)
 			}
+		}
+	}
+	if *objects {
+		pls := c.Placements()
+		fmt.Printf("%d prop placements:\n", len(pls))
+		for _, p := range pls {
+			fmt.Printf("  %-28s pos (%8.1f,%8.1f,%6.1f) rotZ %7.2f scale (%.2f,%.2f,%.2f)\n",
+				p.Name, p.Pos[0], p.Pos[1], p.Pos[2], p.RotZ, p.Scale[0], p.Scale[1], p.Scale[2])
 		}
 	}
 	if *preview != "" {

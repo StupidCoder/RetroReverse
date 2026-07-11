@@ -21,6 +21,7 @@
   "glb": "models/island01.glb"
  },
  "name": "island01",
+ "objectsFile": "island01.objects.json",
  "sky": "models/island01_bg.glb",
  "view": {
   "h": 272,

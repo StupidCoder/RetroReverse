@@ -21,6 +21,7 @@
   "glb": "models/jungle02.glb"
  },
  "name": "jungle02",
+ "objectsFile": "jungle02.objects.json",
  "sky": "models/jungle02_bg.glb",
  "view": {
   "h": 272,

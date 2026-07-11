@@ -21,6 +21,7 @@
   "glb": "models/bigtree02.glb"
  },
  "name": "bigtree02",
+ "objectsFile": "bigtree02.objects.json",
  "sky": "models/bigtree02_bg.glb",
  "view": {
   "h": 272,

@@ -21,6 +21,7 @@
   "glb": "models/snow02.glb"
  },
  "name": "snow02",
+ "objectsFile": "snow02.objects.json",
  "sky": "models/snow02_bg.glb",
  "view": {
   "h": 272,

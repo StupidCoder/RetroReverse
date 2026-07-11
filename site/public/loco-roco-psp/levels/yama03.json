@@ -21,6 +21,7 @@
   "glb": "models/yama03.glb"
  },
  "name": "yama03",
+ "objectsFile": "yama03.objects.json",
  "sky": "models/yama03_bg.glb",
  "view": {
   "h": 272,

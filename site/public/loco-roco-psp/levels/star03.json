@@ -21,6 +21,7 @@
   "glb": "models/star03.glb"
  },
  "name": "star03",
+ "objectsFile": "star03.objects.json",
  "sky": "models/star03_bg.glb",
  "view": {
   "h": 272,

@@ -1,0 +1,1248 @@
+{
+ "format": 2,
+ "level": "island01",
+ "objects": [
+  {
+   "id": 0,
+   "name": "areatrig_kakushi",
+   "pos": [
+    0.096858,
+    0,
+    0
+   ],
+   "props": {
+    "dag": "|grp_kakushi|kakushi_box_3|areatrig_kakushi",
+    "rotZ": 0,
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   }
+  },
+  {
+   "id": 1,
+   "name": "areatrig_kakushi",
+   "pos": [
+    0.096858,
+    0,
+    0
+   ],
+   "props": {
+    "dag": "|grp_kakushi|kakushi_box_2|areatrig_kakushi",
+    "rotZ": 0,
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   }
+  },
+  {
+   "id": 2,
+   "name": "delay",
+   "pos": [
+    -0.573647,
+    -10,
+    0
+   ],
+   "props": {
+    "dag": "delay",
+    "rotZ": 0,
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   }
+  },
+  {
+   "id": 3,
+   "name": "delay_bbb2",
+   "pos": [
+    0,
+    0,
+    66
+   ],
+   "props": {
+    "dag": "|grp_charactor|nenyokki_1|delay_bbb2",
+    "rotZ": 0,
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   }
+  },
+  {
+   "id": 4,
+   "name": "delay_bbb555",
+   "pos": [
+    0,
+    0,
+    68
+   ],
+   "props": {
+    "dag": "|konyokki_3|delay_bbb555",
+    "rotZ": 0,
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   }
+  },
+  {
+   "id": 5,
+   "name": "delay_switch_on_by_time",
+   "pos": [
+    0,
+    -9.84573,
+    0
+   ],
+   "props": {
+    "dag": "|delay_switch_on_by_time",
+    "rotZ": 0,
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   }
+  },
+  {
+   "id": 6,
+   "name": "kakushi_kaze_3",
+   "pos": [
+    1069.7831,
+    -1274.3213,
+    42
+   ],
+   "props": {
+    "dag": "|kakushi_kaze_3",
+    "rotZ": 0,
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   }
+  },
+  {
+   "id": 7,
+   "name": "kcoin_item",
+   "pos": [
+    -2544.6782,
+    -86.23456,
+    49
+   ],
+   "props": {
+    "dag": "kcoin_item",
+    "rotZ": 0,
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   }
+  },
+  {
+   "id": 8,
+   "name": "kinomi_a",
+   "pos": [
+    -106.69092,
+    -312.65747,
+    88
+   ],
+   "props": {
+    "dag": "kinomi_a",
+    "rotZ": -1.211082,
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   }
+  },
+  {
+   "id": 9,
+   "name": "kinomi_a_10",
+   "pos": [
+    -55.142822,
+    -319.9402,
+    88
+   ],
+   "props": {
+    "dag": "|grp_kinomi|kinomi_a_10",
+    "rotZ": 0.63781,
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   }
+  },
+  {
+   "id": 10,
+   "name": "kinomi_a_11",
+   "pos": [
+    -52.474487,
+    -315.3374,
+    88
+   ],
+   "props": {
+    "dag": "|grp_kinomi|kinomi_a_11",
+    "rotZ": -0.573272,
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   }
+  },
+  {
+   "id": 11,
+   "name": "kinomi_a_12",
+   "pos": [
+    -75.455444,
+    -295.19666,
+    88
+   ],
+   "props": {
+    "dag": "|grp_kinomi|kinomi_a_12",
+    "rotZ": 0.63781,
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   }
+  },
+  {
+   "id": 12,
+   "name": "kinomi_a_13",
+   "pos": [
+    -99.54004,
+    -319.6864,
+    88
+   ],
+   "props": {
+    "dag": "|grp_kinomi|kinomi_a_13",
+    "rotZ": -1.063639,
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   }
+  },
+  {
+   "id": 13,
+   "name": "kinomi_a_14",
+   "pos": [
+    -109.472534,
+    -319.3136,
+    88
+   ],
+   "props": {
+    "dag": "|grp_kinomi|kinomi_a_14",
+    "rotZ": 0,
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   }
+  },
+  {
+   "id": 14,
+   "name": "kinomi_a_2",
+   "pos": [
+    -101.823,
+    -308.187,
+    88
+   ],
+   "props": {
+    "dag": "|grp_kinomi|kinomi_a_2",
+    "rotZ": -1.063639,
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   }
+  },
+  {
+   "id": 15,
+   "name": "kinomi_a_3",
+   "pos": [
+    -99.04138,
+    -301.53088,
+    88
+   ],
+   "props": {
+    "dag": "|grp_kinomi|kinomi_a_3",
+    "rotZ": -2.27472,
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   }
+  },
+  {
+   "id": 16,
+   "name": "kinomi_a_4",
+   "pos": [
+    -87.02063,
+    -303.8158,
+    88
+   ],
+   "props": {
+    "dag": "|grp_kinomi|kinomi_a_4",
+    "rotZ": -1.063639,
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   }
+  },
+  {
+   "id": 17,
+   "name": "kinomi_a_5",
+   "pos": [
+    -84.23901,
+    -297.15967,
+    88
+   ],
+   "props": {
+    "dag": "|grp_kinomi|kinomi_a_5",
+    "rotZ": -2.27472,
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   }
+  },
+  {
+   "id": 18,
+   "name": "kinomi_a_6",
+   "pos": [
+    -71.52283,
+    -306.1007,
+    88
+   ],
+   "props": {
+    "dag": "|grp_kinomi|kinomi_a_6",
+    "rotZ": 0.63781,
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   }
+  },
+  {
+   "id": 19,
+   "name": "kinomi_a_7",
+   "pos": [
+    -68.74121,
+    -299.44458,
+    88
+   ],
+   "props": {
+    "dag": "|grp_kinomi|kinomi_a_7",
+    "rotZ": -0.573272,
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   }
+  },
+  {
+   "id": 20,
+   "name": "kinomi_a_8",
+   "pos": [
+    -62.085083,
+    -314.44568,
+    88
+   ],
+   "props": {
+    "dag": "|grp_kinomi|kinomi_a_8",
+    "rotZ": 0.63781,
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   }
+  },
+  {
+   "id": 21,
+   "name": "kinomi_a_9",
+   "pos": [
+    -54.034546,
+    -305.0504,
+    88
+   ],
+   "props": {
+    "dag": "|grp_kinomi|kinomi_a_9",
+    "rotZ": -0.573272,
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   }
+  },
+  {
+   "id": 22,
+   "name": "kinomi_b",
+   "pos": [
+    -101.422,
+    -309.9182,
+    88
+   ],
+   "props": {
+    "dag": "kinomi_b",
+    "rotZ": -1.211082,
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   }
+  },
+  {
+   "id": 23,
+   "name": "kinomi_b_10",
+   "pos": [
+    -51.0542,
+    -319.05798,
+    88
+   ],
+   "props": {
+    "dag": "|grp_kinomi|kinomi_b_10",
+    "rotZ": -0.573272,
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   }
+  },
+  {
+   "id": 24,
+   "name": "kinomi_b_11",
+   "pos": [
+    -60.103027,
+    -318.80554,
+    88
+   ],
+   "props": {
+    "dag": "|grp_kinomi|kinomi_b_11",
+    "rotZ": 0.63781,
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   }
+  },
+  {
+   "id": 25,
+   "name": "kinomi_b_12",
+   "pos": [
+    -104.203735,
+    -316.57434,
+    88
+   ],
+   "props": {
+    "dag": "|grp_kinomi|kinomi_b_12",
+    "rotZ": 0,
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   }
+  },
+  {
+   "id": 26,
+   "name": "kinomi_b_2",
+   "pos": [
+    -96.55408,
+    -305.44775,
+    88
+   ],
+   "props": {
+    "dag": "|grp_kinomi|kinomi_b_2",
+    "rotZ": -1.063639,
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   }
+  },
+  {
+   "id": 27,
+   "name": "kinomi_b_3",
+   "pos": [
+    -93.77246,
+    -298.79163,
+    88
+   ],
+   "props": {
+    "dag": "|grp_kinomi|kinomi_b_3",
+    "rotZ": -2.27472,
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   }
+  },
+  {
+   "id": 28,
+   "name": "kinomi_b_4",
+   "pos": [
+    -81.75171,
+    -301.07654,
+    88
+   ],
+   "props": {
+    "dag": "|grp_kinomi|kinomi_b_4",
+    "rotZ": -1.063639,
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   }
+  },
+  {
+   "id": 29,
+   "name": "kinomi_b_5",
+   "pos": [
+    -78.97009,
+    -294.4204,
+    88
+   ],
+   "props": {
+    "dag": "|grp_kinomi|kinomi_b_5",
+    "rotZ": -2.27472,
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   }
+  },
+  {
+   "id": 30,
+   "name": "kinomi_b_6",
+   "pos": [
+    -66.25391,
+    -303.36145,
+    88
+   ],
+   "props": {
+    "dag": "|grp_kinomi|kinomi_b_6",
+    "rotZ": 0.63781,
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   }
+  },
+  {
+   "id": 31,
+   "name": "kinomi_b_7",
+   "pos": [
+    -63.47229,
+    -296.70544,
+    88
+   ],
+   "props": {
+    "dag": "|grp_kinomi|kinomi_b_7",
+    "rotZ": -0.573272,
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   }
+  },
+  {
+   "id": 32,
+   "name": "kinomi_b_8",
+   "pos": [
+    -56.816162,
+    -311.70642,
+    88
+   ],
+   "props": {
+    "dag": "|grp_kinomi|kinomi_b_8",
+    "rotZ": 0.63781,
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   }
+  },
+  {
+   "id": 33,
+   "name": "kinomi_b_9",
+   "pos": [
+    -73.72363,
+    -300.11987,
+    88
+   ],
+   "props": {
+    "dag": "|grp_kinomi|kinomi_b_9",
+    "rotZ": 0.63781,
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   }
+  },
+  {
+   "id": 34,
+   "name": "kinomi_c",
+   "pos": [
+    -108.89172,
+    -306.67664,
+    88
+   ],
+   "props": {
+    "dag": "kinomi_c",
+    "rotZ": -1.211082,
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   }
+  },
+  {
+   "id": 35,
+   "name": "kinomi_c_10",
+   "pos": [
+    -70.94202,
+    -293.46387,
+    88
+   ],
+   "props": {
+    "dag": "|grp_kinomi|kinomi_c_10",
+    "rotZ": -0.573272,
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   }
+  },
+  {
+   "id": 36,
+   "name": "kinomi_c_11",
+   "pos": [
+    -61.90161,
+    -302.4049,
+    88
+   ],
+   "props": {
+    "dag": "|grp_kinomi|kinomi_c_11",
+    "rotZ": -0.573272,
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   }
+  },
+  {
+   "id": 37,
+   "name": "kinomi_c_12",
+   "pos": [
+    -64.28589,
+    -308.46484,
+    88
+   ],
+   "props": {
+    "dag": "|grp_kinomi|kinomi_c_12",
+    "rotZ": 0.63781,
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   }
+  },
+  {
+   "id": 38,
+   "name": "kinomi_c_13",
+   "pos": [
+    -61.50415,
+    -301.80884,
+    88
+   ],
+   "props": {
+    "dag": "|grp_kinomi|kinomi_c_13",
+    "rotZ": -0.573272,
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   }
+  },
+  {
+   "id": 39,
+   "name": "kinomi_c_14",
+   "pos": [
+    -52.463867,
+    -310.74988,
+    88
+   ],
+   "props": {
+    "dag": "|grp_kinomi|kinomi_c_14",
+    "rotZ": -0.573272,
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   }
+  },
+  {
+   "id": 40,
+   "name": "kinomi_c_15",
+   "pos": [
+    -58.921265,
+    -316.41248,
+    88
+   ],
+   "props": {
+    "dag": "|grp_kinomi|kinomi_c_15",
+    "rotZ": -0.573272,
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   }
+  },
+  {
+   "id": 41,
+   "name": "kinomi_c_16",
+   "pos": [
+    -103.93921,
+    -319.70886,
+    88
+   ],
+   "props": {
+    "dag": "|grp_kinomi|kinomi_c_16",
+    "rotZ": -1.063639,
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   }
+  },
+  {
+   "id": 42,
+   "name": "kinomi_c_17",
+   "pos": [
+    -111.67334,
+    -313.33276,
+    88
+   ],
+   "props": {
+    "dag": "|grp_kinomi|kinomi_c_17",
+    "rotZ": 0,
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   }
+  },
+  {
+   "id": 43,
+   "name": "kinomi_c_2",
+   "pos": [
+    -99.85132,
+    -315.61768,
+    88
+   ],
+   "props": {
+    "dag": "|grp_kinomi|kinomi_c_2",
+    "rotZ": -1.211082,
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   }
+  },
+  {
+   "id": 44,
+   "name": "kinomi_c_3",
+   "pos": [
+    -104.0238,
+    -302.20618,
+    88
+   ],
+   "props": {
+    "dag": "|grp_kinomi|kinomi_c_3",
+    "rotZ": -1.063639,
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   }
+  },
+  {
+   "id": 45,
+   "name": "kinomi_c_4",
+   "pos": [
+    -96.09656,
+    -297.37244,
+    88
+   ],
+   "props": {
+    "dag": "|grp_kinomi|kinomi_c_4",
+    "rotZ": -2.27472,
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   }
+  },
+  {
+   "id": 46,
+   "name": "kinomi_c_5",
+   "pos": [
+    -92.20178,
+    -304.4911,
+    88
+   ],
+   "props": {
+    "dag": "|grp_kinomi|kinomi_c_5",
+    "rotZ": -2.27472,
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   }
+  },
+  {
+   "id": 47,
+   "name": "kinomi_c_6",
+   "pos": [
+    -89.75745,
+    -299.65735,
+    88
+   ],
+   "props": {
+    "dag": "|grp_kinomi|kinomi_c_6",
+    "rotZ": -1.063639,
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   }
+  },
+  {
+   "id": 48,
+   "name": "kinomi_c_7",
+   "pos": [
+    -87.61902,
+    -294.82373,
+    88
+   ],
+   "props": {
+    "dag": "|grp_kinomi|kinomi_c_7",
+    "rotZ": -2.27472,
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   }
+  },
+  {
+   "id": 49,
+   "name": "kinomi_c_8",
+   "pos": [
+    -77.399414,
+    -300.11987,
+    88
+   ],
+   "props": {
+    "dag": "|grp_kinomi|kinomi_c_8",
+    "rotZ": -2.27472,
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   }
+  },
+  {
+   "id": 50,
+   "name": "kitem_mushi_muimui",
+   "pos": [
+    412.2469,
+    -907.6902,
+    49
+   ],
+   "props": {
+    "dag": "|grp_muimui_3|kitem_mushi_muimui",
+    "rotZ": 0,
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   }
+  },
+  {
+   "id": 51,
+   "name": "kitem_mushi_muimui",
+   "pos": [
+    703.5465,
+    98.01422,
+    49
+   ],
+   "props": {
+    "dag": "|grp_muimui_2|kitem_mushi_muimui",
+    "rotZ": 0,
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   }
+  },
+  {
+   "id": 52,
+   "name": "movebg_sirome_R",
+   "pos": [
+    0.000094,
+    9.999991,
+    0
+   ],
+   "props": {
+    "dag": "|movenull_togecchi_all|movenull_togecchi|movebg_sirome_R",
+    "rotZ": 0,
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   }
+  },
+  {
+   "id": 53,
+   "name": "muimui",
+   "pos": [
+    -2544.9028,
+    -69.130066,
+    0
+   ],
+   "props": {
+    "dag": "muimui",
+    "rotZ": 0,
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   }
+  },
+  {
+   "id": 54,
+   "name": "muimui_1",
+   "pos": [
+    412.02228,
+    -890.5857,
+    0
+   ],
+   "props": {
+    "dag": "|grp_muimui_3|muimui_1",
+    "rotZ": 0,
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   }
+  },
+  {
+   "id": 55,
+   "name": "muimui_1",
+   "pos": [
+    703.3219,
+    115.11865,
+    0
+   ],
+   "props": {
+    "dag": "|grp_muimui_2|muimui_1",
+    "rotZ": 0,
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   }
+  },
+  {
+   "id": 56,
+   "name": "musukusu",
+   "pos": [
+    1129.1274,
+    -436.31897,
+    44
+   ],
+   "props": {
+    "dag": "musukusu",
+    "rotZ": 0,
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   }
+  },
+  {
+   "id": 57,
+   "name": "nenyokki",
+   "pos": [
+    627.799,
+    174.58112,
+    -20
+   ],
+   "props": {
+    "dag": "nenyokki",
+    "rotZ": 3.141593,
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   }
+  },
+  {
+   "id": 58,
+   "name": "poly_trigger",
+   "pos": [
+    0.096858,
+    0,
+    0
+   ],
+   "props": {
+    "dag": "poly_trigger",
+    "rotZ": 0,
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   }
+  },
+  {
+   "id": 59,
+   "name": "polytrig_",
+   "pos": [
+    -2604.8242,
+    1874.0286,
+    0
+   ],
+   "props": {
+    "dag": "|polytrig_",
+    "rotZ": 0,
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   }
+  },
+  {
+   "id": 60,
+   "name": "polytrig_kakushi",
+   "pos": [
+    0.096858,
+    0,
+    0
+   ],
+   "props": {
+    "dag": "|grp_kakushi|kakushi_2|polytrig_kakushi",
+    "rotZ": 0,
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   }
+  },
+  {
+   "id": 61,
+   "name": "reference_gameover",
+   "pos": [
+    -3065.662,
+    1217.0995,
+    0
+   ],
+   "props": {
+    "dag": "|grp_start_goal|grp_start|reference_gameover",
+    "rotZ": 0,
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   }
+  },
+  {
+   "id": 62,
+   "name": "se_score4",
+   "pos": [
+    72.64662,
+    -2.615,
+    -3
+   ],
+   "props": {
+    "dag": "|se_score4",
+    "rotZ": 0.139626,
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   }
+  },
+  {
+   "id": 63,
+   "name": "shukuhou",
+   "pos": [
+    43.0752,
+    -18.152,
+    -1
+   ],
+   "props": {
+    "dag": "shukuhou",
+    "rotZ": 0,
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   }
+  },
+  {
+   "id": 64,
+   "name": "shukuhou01",
+   "pos": [
+    -61.27682,
+    -8.712,
+    -2
+   ],
+   "props": {
+    "dag": "|shukuhou01",
+    "rotZ": 0.33273,
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   }
+  },
+  {
+   "id": 65,
+   "name": "shukuhou02",
+   "pos": [
+    -59.338066,
+    -7.169,
+    -3
+   ],
+   "props": {
+    "dag": "|shukuhou02",
+    "rotZ": 0,
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   }
+  },
+  {
+   "id": 66,
+   "name": "shukuhou03",
+   "pos": [
+    77.36388,
+    -3.37,
+    -2
+   ],
+   "props": {
+    "dag": "|shukuhou03",
+    "rotZ": -0.191986,
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   }
+  },
+  {
+   "id": 67,
+   "name": "split_immediate_9",
+   "pos": [
+    -3065.662,
+    1197.0995,
+    0
+   ],
+   "props": {
+    "dag": "|grp_split|split_immediate_9",
+    "rotZ": 0,
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   }
+  },
+  {
+   "id": 68,
+   "name": "start",
+   "pos": [
+    3162.1147,
+    -802.64636,
+    -29.999996
+   ],
+   "props": {
+    "dag": "start",
+    "rotZ": 0,
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   }
+  }
+ ]
+}

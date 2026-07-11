@@ -21,6 +21,7 @@
   "glb": "models/flower02.glb"
  },
  "name": "flower02",
+ "objectsFile": "flower02.objects.json",
  "sky": "models/flower02_bg.glb",
  "view": {
   "h": 272,

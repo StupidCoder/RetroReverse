@@ -21,6 +21,7 @@
   "glb": "models/iseki04.glb"
  },
  "name": "iseki04",
+ "objectsFile": "iseki04.objects.json",
  "sky": "models/iseki04_bg.glb",
  "view": {
   "h": 272,

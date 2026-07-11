@@ -566,9 +566,19 @@ The entity records (471 in stage 1) are the stage's scripted-logic layer:
 each instance points to a state-name table (`in_clear`, `out_finish`,
 `out_tarinai`, …), a Maya DAG path naming the trigger or group
 (`|grp_help_all|…|areatrig_bunretu_help`), and a runtime-binding record.
-The visible props (the sprout, grass tufts, pickups) hang under deeper
-node-tree bundles (`objectBundle`, the `.dlk` names of the S2 directory)
-whose decode is Part V work in progress.
+An instance's data is a **property-tuple list**: 16-byte tuples
+`{ptr key, u32 typeId, u32 count, ptr value}` whose keys are shared
+strings — `pos` (an x, y, z float triple, preceded inline by the
+instance's DAG path), `rotZ`, `scale`, `visibility`, `direction`, and
+`object`, which points at the imported bundle the instance places (the
+`.dlk` object bundles of the tail directory — `toge_file` and its peers).
+Since every placement carries an `object` tuple, the placements are
+enumerable through the relocation table: the slots holding a pointer to
+an `object` key string are exactly the object tuples, one per instance
+(`clv.Placements`; stage 1 places 44 — thirteen `toge` spikes along the
+central column, the three `muimui`, the tutorial and goal area triggers,
+`kcoin_item`, `kitem_mushi_*` …). The bundles' own node trees (the
+geometry of a placed prop) remain Part V work in progress.
 
 A material's texture chain has two hops. The material points to a
 **texture reference** — `{ptr name, u32 0, u32 0, u32 flags, u32 0, u32 0,
@@ -620,9 +630,11 @@ each stage to `site/public/loco-roco-psp/`: the foreground terrain as
 `models/<stage>.glb`, the background flora as `models/<stage>_bg.glb`
 (split on the material name — `stage*` vs the rest), the collision
 contours as a line GLB (`models/<stage>_collision.glb`, one colour per
-layer), a format-2 `mesh3d` level JSON with the world bounds as extents
-and a default view rect (the PSP screen centred on the leftmost collision
-point — where play begins), and the manifest. Triangles are grouped per
+layer), the prop placements as a format-2 object DB
+(`levels/<stage>.objects.json` — name, position, `rotZ`/`scale`/DAG path
+under `props`), a format-2 `mesh3d` level JSON with the world bounds as
+extents and a default view rect (the PSP screen centred on the leftmost
+collision point — where play begins), and the manifest. Triangles are grouped per
 (texture, material colour) with the tint baked into the embedded PNG;
 translucent-class textures render with alpha blending; untextured
 materials become flat-colour groups. One strip of `st_jungle02` carries
