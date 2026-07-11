@@ -145,7 +145,8 @@ type voice struct {
 	phase   int     // 0 attack, 1 decay, 2 sustain, 3 release
 	atkRate float64 // per-sample env deltas
 	decRate float64
-	relRate float64
+	relRate float64 // set at release, from the current level over relSec
+	relSec  float64 // release time in seconds
 	sustain float64
 	peak    float64
 
@@ -198,6 +199,19 @@ func (p *Player) Render(song *Song, loops int, maxSec float64) (L, R []float64) 
 				if v.gate == 0 {
 					v.released = true
 					v.phase = 3
+					// Release ramps from the CURRENT level to zero over the
+					// envelope's release time; a zero time releases instantly.
+					// (Computing this from the fixed sustain level would freeze a
+					// note released mid-decay whose sustain is 0 — a looping voice
+					// would then ring forever.)
+					if v.relSec > 0 {
+						v.relRate = v.env / (v.relSec * p.rate)
+					} else {
+						v.relRate = v.env
+					}
+					if v.relRate <= 0 {
+						v.relRate = v.env
+					}
 				}
 			}
 		}
@@ -371,10 +385,10 @@ func (p *Player) noteOn(t *track, note, vel byte, dur int, voices *[]*voice) {
 		v.sustain = float64(env.DecayVolume) / 127 * amp
 		v.atkRate = ratePerSample(v.peak, env.AttackTime, p.rate)
 		v.decRate = ratePerSample(v.peak-v.sustain, env.DecayTime, p.rate)
-		v.relRate = ratePerSample(v.sustain, env.ReleaseTime, p.rate)
+		v.relSec = float64(env.ReleaseTime) / 1e6 // relRate is set at release
 	} else {
 		v.peak, v.sustain, amp = amp, amp, amp
-		v.atkRate, v.decRate, v.relRate = amp, 0, amp/2205
+		v.atkRate, v.decRate, v.relSec = amp, 0, 0.1
 	}
 	// Pan: instrument pan combined with the per-sound pan, equal-power.
 	pan := t.pan
