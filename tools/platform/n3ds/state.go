@@ -129,6 +129,8 @@ type snapshot struct {
 	APTWakePending  bool
 	APTParams       []aptParam
 	GXPending       []gxPendingCmd
+	DSPInterruptEv  uint32
+	DSPSemEv        uint32
 	GSPShared       uint32
 	GSPSharedAddr   uint32
 	GSPEvent        uint32
@@ -234,6 +236,8 @@ func (m *Machine) SaveState(path string) error {
 		APTWakePending:  m.aptWakePending,
 		APTParams:       m.aptParams,
 		GXPending:       m.gxPending,
+		DSPInterruptEv:  m.dspInterruptEv,
+		DSPSemEv:        m.dspSemEv,
 		GSPShared:       m.gspShared,
 		GSPSharedAddr:   m.gspSharedAddr,
 		GSPEvent:        m.gspEvent,
@@ -357,6 +361,7 @@ func (m *Machine) LoadState(path string) error {
 	m.aptWakePending = s.APTWakePending
 	m.aptParams = s.APTParams
 	m.gxPending = s.GXPending
+	m.dspInterruptEv, m.dspSemEv = s.DSPInterruptEv, s.DSPSemEv
 	m.gspShared, m.gspSharedAddr, m.gspEvent = s.GSPShared, s.GSPSharedAddr, s.GSPEvent
 	m.hidShared, m.hidSharedAddr, m.hidEvents = s.HIDShared, s.HIDSharedAddr, s.HIDEvents
 	// Older snapshots predate HID serialisation; recover the mapped address from the

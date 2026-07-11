@@ -24,7 +24,9 @@ func (m *Machine) ipcService(name string, hdr ipcHeader) bool {
 		return m.ipcFS(hdr)
 	case "err": // fatal-error display — capture what the game is throwing
 		return m.ipcErr(hdr)
-	case "ndm", "ptm", "ac", "frd", "cecd", "boss", "nim", "mic", "csnd", "dsp", "y2r":
+	case "dsp":
+		return m.ipcDSP(hdr)
+	case "ndm", "ptm", "ac", "frd", "cecd", "boss", "nim", "mic", "csnd", "y2r":
 		// Background/optional services: acknowledge init-shaped commands so the
 		// game's optional subsystems do not stall the boot.
 		m.ipcReply(hdr.Command)
@@ -32,6 +34,56 @@ func (m *Machine) ipcService(name string, hdr ipcHeader) bool {
 	}
 	m.CPU.Halt("service %q command 0x%04X unimplemented at 0x%08X after %d instructions",
 		name, hdr.Command, m.CPU.PC(), m.CPU.Instrs)
+	return true
+}
+
+// ipcDSP models the little of dsp::DSP the boot needs. The audio restart after
+// the applet-resume runs the DSP data-register handshake: the game's wrappers
+// (0x001F303C: header 0x00020040, RecvDataIsReady(u16 reg) → u8 at cmdbuf[2];
+// the RecvData(u16 reg) → u16 sibling above it) poll until the DSP component
+// echoes readiness, and the caller (0x001F94AC) proceeds only when
+// RecvData == 1 — the component's "running" word. Left as a bare ack these
+// reads returned stale request words and the game's APT thread span forever.
+// Anything beyond the register handshake still halts loudly.
+func (m *Machine) ipcDSP(hdr ipcHeader) bool {
+	switch hdr.Command {
+	case 0x0001: // RecvData(register u16) → u16
+		m.ipcReply(hdr.Command, 1)
+		return true
+	case 0x0002: // RecvDataIsReady(register u16) → u8
+		m.ipcReply(hdr.Command, 1)
+		return true
+	case 0x0011: // LoadComponent(size, prog mask, data mask + buffer) → loaded
+		m.ipcReply(hdr.Command, 1)
+		return true
+	case 0x0013: // ReadPipeIfPossible(channel, peer, size + out buffer) → u16
+		// length read. The component's pipe carries the audio framework's
+		// structure tables; this HLE runs no DSP, so the pipe is empty — the
+		// boot polls it a bounded number of times and proceeds.
+		m.ipcReply(hdr.Command, 0)
+		return true
+	case 0x0015: // RegisterInterruptEvents(interrupt, channel + event handle):
+		// the game hands over the kernel event its audio/frame machinery waits
+		// on; the DSP signals it per audio frame. Keep it and pulse it each
+		// VBlank (deliverVBlank) — the deterministic stand-in for the DSP
+		// frame clock that paces the game's render thread.
+		m.dspInterruptEv = m.ReadWord(m.cmdBuf() + 16) // after the copy-handle descriptor
+		m.ipcReply(hdr.Command)
+		return true
+	case 0x0016: // GetSemaphoreEventHandle → a moved event handle the DSP
+		// signals on semaphore updates; pulsed per VBlank alongside the
+		// interrupt event.
+		h := m.newHandle("dsp-sem-event", false)
+		m.dspSemEv = h
+		m.WriteWord(m.cmdBuf(), uint32(hdr.Command)<<16|1<<6|2)
+		m.WriteWord(m.cmdBuf()+4, resultSuccess)
+		m.WriteWord(m.cmdBuf()+8, 0) // translate descriptor: move 1 handle
+		m.WriteWord(m.cmdBuf()+12, h)
+		return true
+	}
+	// Everything the boot has previously exercised (init-shaped commands the
+	// blanket ack covered) keeps the plain acknowledgement.
+	m.ipcReply(hdr.Command)
 	return true
 }
 
@@ -209,11 +261,22 @@ func (m *Machine) ipcAPT(name string, hdr ipcHeader) bool {
 		// command is one it accepts ({1,0xA,0xB,0xC} or {0xD,0xE,0xF,0x11}),
 		// and the post-accept dispatch (0x002917D8) maps command 0xA to its
 		// own "applet finished" class. Response payload: zeros.
+		//
+		// The exit choreography then needs a SECOND parameter: command 8, the
+		// APT module's "resume the application" order. The game's registered
+		// APT callback (0x00104200, invoked from its APT thread on each wake)
+		// glances the pending parameter and dispatches commands {2,5,8,9}
+		// (0x001044A4); command 8 is the ONLY path that restarts the frame
+		// pacer (0x0028DBD0(0) → the frame-request walk 0x0028B9B0 → the
+		// per-VBlank latch that paces the game's render thread). Without it
+		// the in-game renderer never pumps its command ring, which fills and
+		// deadlocks the first gameplay scene switch.
 		m.aptParams = append(m.aptParams, aptParam{
 			Sender:  m.ReadWord(m.cmdBuf() + 4),
 			Command: 0xA,
 			Data:    make([]byte, 0x84),
-		})
+		},
+			aptParam{Command: 8})
 		m.aptWakePending = true
 		m.ipcReply(hdr.Command)
 		return true

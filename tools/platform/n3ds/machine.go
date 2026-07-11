@@ -147,6 +147,8 @@ type Machine struct {
 	aptWakePending   bool           // NotifyToWait seen; signal the APT events at the next VBlank
 	aptParams        []aptParam     // queued applet answers ReceiveParameter delivers in order
 	gxPending        []gxPendingCmd // accepted GX commands awaiting their completion deadline
+	dspInterruptEv   uint32         // event the game registered for DSP interrupts (pulsed per VBlank)
+	dspSemEv         uint32         // the DSP semaphore event handle handed to the game
 	ipcLog           []ipcCall
 	gspShared        uint32            // the GSP shared-memory block handle, once registered
 	gspSharedAddr    uint32            // where the game mapped the GSP shared memory

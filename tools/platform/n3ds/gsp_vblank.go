@@ -9,11 +9,14 @@ package n3ds
 // Phase-1 event/wait machinery — Horizon delivers GPU interrupts as event
 // signals through shared memory, not as ARM IRQ vectoring.
 //
-// Pacing is by retired-instruction count (not wall clock) so a resumed savestate
-// stays deterministic, mirroring the N64 VI's stepsPerField accumulator.
+// Pacing is by the machine's monotonic tick (not wall clock) so a resumed
+// savestate stays deterministic, mirroring the N64 VI's stepsPerField
+// accumulator. The tick — not CPU.Instrs — is the machine-global clock:
+// each thread context carries its own retired-instruction counter, so once
+// work migrates to younger threads (the frame pacer runs on the APT thread)
+// an Instrs comparison would freeze the heartbeat.
 
-// stepsPerFrame is how many retired ARM instructions correspond to one display
-// frame. The ARM11 runs at ~268 MHz and the LCDs refresh at ~60 Hz.
+// stepsPerFrame is one display frame in system ticks (~268 MHz / ~60 Hz).
 const stepsPerFrame = sysclockHz / 60
 
 // GSP interrupt ids (GSPGPU_Event), as delivered in the shared-memory queue.
@@ -29,14 +32,14 @@ const (
 
 // vblankDue reports whether it is time to deliver the next VBlank.
 func (m *Machine) vblankDue() bool {
-	return m.gspEvent != 0 && m.CPU.Instrs >= m.nextFrameInstr
+	return m.gspEvent != 0 && m.tick >= m.nextFrameInstr
 }
 
 // deliverVBlank pushes the VBlank interrupts into the GSP shared-memory queue
 // and signals the GSP event, waking the game's GSP event thread.
 func (m *Machine) deliverVBlank() {
 	m.vblankCount++
-	m.nextFrameInstr = m.CPU.Instrs + stepsPerFrame
+	m.nextFrameInstr = m.tick + stepsPerFrame
 
 	m.pushGSPInterrupt(gspIntVBlank0)
 	m.pushGSPInterrupt(gspIntVBlank1)
@@ -52,6 +55,19 @@ func (m *Machine) deliverVBlank() {
 	if m.aptWakePending {
 		m.aptWakePending = false
 		m.signalAPTEvents()
+	}
+
+	// Pulse the DSP events the game registered (ipcDSP 0x0015/0x0016): on
+	// hardware the DSP component signals them per audio frame, and the game's
+	// frame-delivery loop paces its render thread off them. One pulse per
+	// VBlank is the deterministic stand-in.
+	for _, h := range []uint32{m.dspInterruptEv, m.dspSemEv} {
+		if obj := m.handles[h]; obj != nil {
+			obj.signal = true
+			if m.signalObject(obj) {
+				m.reschedule = true
+			}
+		}
 	}
 }
 

@@ -261,7 +261,7 @@ func (m *Machine) processGXQueue() {
 		// across the boot) until the first blocking submit deadlocked against
 		// it. The latencies are model parameters (hardware-plausible orders of
 		// magnitude), not measurements.
-		base := m.CPU.Instrs
+		base := m.tick
 		if n := len(m.gxPending); n > 0 && m.gxPending[n-1].Deadline > base {
 			base = m.gxPending[n-1].Deadline
 		}
@@ -281,10 +281,10 @@ func (m *Machine) processGXQueue() {
 // exported for the savestate gob encoder.
 type gxPendingCmd struct {
 	Words    [8]uint32
-	Deadline uint64 // instruction count at which it executes and interrupts
+	Deadline uint64 // machine tick at which it executes and interrupts
 }
 
-// gxLatency is the modelled completion delay per command kind, in instructions.
+// gxLatency is the modelled completion delay per command kind, in system ticks.
 // What matters for correctness is that completion is visibly later than
 // submission and strictly ordered; the magnitudes are chosen so a frame's
 // worth of commands (~1 list + hundreds of DMAs) costs a few percent of the
@@ -316,7 +316,7 @@ func (m *Machine) gxDeadline() (uint64, bool) {
 // pumpGX executes every pending GX command whose deadline has passed, raising
 // its completion interrupt at execution time.
 func (m *Machine) pumpGX() {
-	for len(m.gxPending) > 0 && m.CPU.Instrs >= m.gxPending[0].Deadline {
+	for len(m.gxPending) > 0 && m.tick >= m.gxPending[0].Deadline {
 		w := m.gxPending[0].Words
 		m.gxPending = m.gxPending[1:]
 
