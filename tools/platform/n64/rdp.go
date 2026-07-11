@@ -296,6 +296,12 @@ func cmdNameOf(op uint32) string {
 	return "unknown"
 }
 
+// RDPName returns the human-readable name of an RDP command opcode (the six-bit
+// value in the top of a command's first word), or "unknown". It is the exported
+// face of the internal name table, for tools that display a captured command
+// stream — such as the frame debugger.
+func RDPName(op uint32) string { return cmdNameOf(op) }
+
 // execRDP applies one command.
 func (m *Machine) execRDP(op uint32, w []uint64) {
 	r := &m.rdp
