@@ -58,6 +58,40 @@ func (r *memRegion) contains(a uint32) bool {
 	return a >= r.base && a-r.base < uint32(len(r.data))
 }
 
+// ReadBytes copies length bytes starting at addr out of the mapped regions (zero
+// for any unmapped byte). A bring-up instrument for inspecting a structure found
+// in a loaded snapshot.
+func (m *Machine) ReadBytes(addr, length uint32) []byte {
+	b := make([]byte, length)
+	for i := uint32(0); i < length; i++ {
+		b[i] = m.Read(addr + i)
+	}
+	return b
+}
+
+// FindBytes scans every mapped region for the byte pattern and returns the
+// virtual addresses where it occurs (a bring-up instrument for locating a known
+// string or structure in a loaded snapshot). Capped so a common pattern does not
+// flood.
+func (m *Machine) FindBytes(pat []byte) []uint32 {
+	var hits []uint32
+	if len(pat) == 0 {
+		return hits
+	}
+	for _, r := range m.regions {
+		d := r.data
+		for i := 0; i+len(pat) <= len(d); i++ {
+			if d[i] == pat[0] && string(d[i:i+len(pat)]) == string(pat) {
+				hits = append(hits, r.base+uint32(i))
+				if len(hits) >= 256 {
+					return hits
+				}
+			}
+		}
+	}
+	return hits
+}
+
 // Machine is the 3DS process-level oracle.
 type Machine struct {
 	CPU      *arm.CPU

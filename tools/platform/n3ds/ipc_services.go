@@ -244,8 +244,10 @@ func (m *Machine) ipcHID(hdr ipcHeader) bool {
 
 func (m *Machine) ipcCFG(hdr ipcHeader) bool {
 	switch hdr.Command {
-	case 0x0001, 0x0002: // GetConfigInfoBlk2 / GetRegion — return a plausible EUR/EN config
-		m.ipcReply(hdr.Command, 0) // block contents are written to a mapped buffer we accept as zero
+	case 0x0001, 0x0002: // GetConfigInfoBlk2 / GetConfigInfoBlk8 — fill the block buffer
+		size, blkID, out := m.ipcArg(1), m.ipcArg(2), m.ipcArg(4)
+		m.writeConfigBlock(blkID, out, size)
+		m.ipcReply(hdr.Command, 0)
 		return true
 	case 0x0003, 0x0004, 0x0005, 0x0006, 0x0007, 0x0008:
 		m.ipcReply(hdr.Command, 0)
@@ -254,6 +256,53 @@ func (m *Machine) ipcCFG(hdr ipcHeader) bool {
 	m.CPU.Halt("cfg command 0x%04X unimplemented at 0x%08X after %d instructions", hdr.Command, m.CPU.PC(), m.CPU.Instrs)
 	return true
 }
+
+// writeConfigBlock fills a cfg configuration-block buffer with the value a
+// European, English-language console would hold. This matters for boot: the game
+// reads the system-language block (0x000A0002) to choose which LocalizedData/*
+// message archive to load; a zeroed buffer reads as language 0 (Japanese), whose
+// folder this European cartridge does not contain, so the message table loads
+// empty and every lookup renders "NULL". Values are the documented cfg block IDs;
+// unmodelled blocks are zero-filled and reported so the frontier stays explicit.
+func (m *Machine) writeConfigBlock(blkID, out, size uint32) {
+	if out == 0 {
+		return
+	}
+	buf := make([]byte, size)
+	switch blkID {
+	case 0x000A0002: // system language (u8): 1 = English (JP=0, EN=1, FR=2, DE=3, IT=4, ES=5, ZH=6, KO=7, NL=8, PT=9, RU=10)
+		if size >= 1 {
+			buf[0] = cfgLangEnglish
+		}
+	case 0x000B0000: // region/country code (u8): EUR = 2
+		if size >= 1 {
+			buf[0] = cfgRegionEUR
+		}
+	case 0x00070001: // sound output mode (u8): 1 = stereo
+		if size >= 1 {
+			buf[0] = 1
+		}
+	case 0x00130000: // agreed EULA version (u16 minor, u16 major or u32): nonzero = accepted
+		if size >= 4 {
+			buf[0], buf[1] = 0x01, 0x00 // minor
+			buf[2], buf[3] = 0x01, 0x00 // major
+		}
+	default:
+		// 0x00050005 (stereo-camera calibration, 32B) and any others: zero is
+		// benign for boot. Report once so an unexpected reliance shows up.
+		if m.Verbose {
+			fmt.Printf("cfg block 0x%08X (%d bytes) zero-filled\n", blkID, size)
+		}
+	}
+	for i := uint32(0); i < size; i++ {
+		m.Write(out+i, buf[i])
+	}
+}
+
+const (
+	cfgLangEnglish = 1
+	cfgRegionEUR   = 2
+)
 
 func (m *Machine) ipcFS(hdr ipcHeader) bool {
 	switch hdr.Command {

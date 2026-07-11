@@ -63,6 +63,10 @@ func main() {
 	gputrace := flag.Int("gputrace", 0, "print a summary of the first N GPU draws")
 	threads := flag.Bool("threads", false, "after the run, dump thread states and the handle table")
 	hidtrace := flag.Bool("hidtrace", false, "tally reads of the HID shared-memory block by offset, dump after the run")
+	findAscii := flag.String("findascii", "", "after load/run, print addresses where this ASCII string occurs in memory")
+	findUtf16 := flag.String("findutf16", "", "after load/run, print addresses where this UTF-16LE string occurs in memory")
+	var dumps multiFlag
+	flag.Var(&dumps, "dump", "hex-dump ADDR:LEN of memory after load/run (hex); repeatable")
 	keys := flag.String("keys", "", "inject HID pad input: comma-separated button names (a,b,x,y,l,r,up,down,left,right,start,select)")
 	flag.Parse()
 
@@ -71,13 +75,31 @@ func main() {
 		flag.Usage()
 		os.Exit(2)
 	}
-	if err := run(*image, *steps, *trace, *tracen, *verbose, *svclog, bps, watches, logpcs, *saveState, *loadState, *gxdump, *shot, *gputrace, *threads, *hidtrace, *keys); err != nil {
+	if err := run(*image, *steps, *trace, *tracen, *verbose, *svclog, bps, watches, logpcs, dumps, *saveState, *loadState, *gxdump, *shot, *gputrace, *threads, *hidtrace, *keys, *findAscii, *findUtf16); err != nil {
 		fmt.Fprintln(os.Stderr, "bootoracle:", err)
 		os.Exit(1)
 	}
 }
 
-func run(imagePath, stepsStr string, trace bool, tracen int, verbose, svclog bool, bps, watches, logpcs multiFlag, saveState, loadState, gxdump, shot string, gputrace int, threads, hidtrace bool, keys string) error {
+func asciiPattern(s string) []byte {
+	if s == "" {
+		return nil
+	}
+	return []byte(s)
+}
+
+func utf16Pattern(s string) []byte {
+	if s == "" {
+		return nil
+	}
+	b := make([]byte, 0, len(s)*2)
+	for _, r := range s {
+		b = append(b, byte(r), byte(r>>8))
+	}
+	return b
+}
+
+func run(imagePath, stepsStr string, trace bool, tracen int, verbose, svclog bool, bps, watches, logpcs, dumps multiFlag, saveState, loadState, gxdump, shot string, gputrace int, threads, hidtrace bool, keys, findAscii, findUtf16 string) error {
 	img, err := os.ReadFile(imagePath)
 	if err != nil {
 		return err
@@ -183,6 +205,54 @@ func run(imagePath, stepsStr string, trace bool, tracen int, verbose, svclog boo
 	}
 	if hidtrace {
 		m.DumpHIDReads()
+	}
+	for _, d := range dumps {
+		addr, length := d, "64"
+		if i := strings.IndexByte(d, ':'); i >= 0 {
+			addr, length = d[:i], d[i+1:]
+		}
+		a, err := parseNum(addr)
+		if err != nil {
+			return fmt.Errorf("bad -dump %q: %w", d, err)
+		}
+		l, err := parseNum(length)
+		if err != nil {
+			return fmt.Errorf("bad -dump length %q: %w", d, err)
+		}
+		fmt.Printf("\ndump 0x%08X (%d bytes):\n", a, l)
+		bytes := m.ReadBytes(uint32(a), uint32(l))
+		for i := 0; i < len(bytes); i += 16 {
+			end := i + 16
+			if end > len(bytes) {
+				end = len(bytes)
+			}
+			fmt.Printf("  0x%08X ", uint32(a)+uint32(i))
+			for j := i; j < end; j++ {
+				fmt.Printf("%02X ", bytes[j])
+			}
+			fmt.Print(" |")
+			for j := i; j < end; j++ {
+				c := bytes[j]
+				if c < 0x20 || c > 0x7E {
+					c = '.'
+				}
+				fmt.Printf("%c", c)
+			}
+			fmt.Println("|")
+		}
+	}
+	for _, spec := range []struct {
+		label string
+		pat   []byte
+	}{{"ASCII " + findAscii, asciiPattern(findAscii)}, {"UTF-16 " + findUtf16, utf16Pattern(findUtf16)}} {
+		if len(spec.pat) == 0 {
+			continue
+		}
+		hits := m.FindBytes(spec.pat)
+		fmt.Printf("\nfind %q: %d hit(s)\n", spec.label, len(hits))
+		for _, h := range hits {
+			fmt.Printf("  0x%08X\n", h)
+		}
 	}
 	if gxdump != "" {
 		if err := dumpGX(m, gxdump); err != nil {
