@@ -428,6 +428,12 @@ func (m *Machine) ipcFS(hdr ipcHeader) bool {
 	case 0x0814, 0x0817, 0x0851: // control — ack
 		m.ipcReply(hdr.Command, 0, 0)
 		return true
+	case 0x080D: // ControlArchive(archive u64, action, in/out sizes + mapped
+		// buffers) — wrapper 0x001EDFE8, reply is the result word only. The
+		// game issues it to commit the save archive after writing; the
+		// in-memory store needs no commit: acknowledge.
+		m.ipcReply(hdr.Command)
+		return true
 	case 0x0845: // GetFormatInfo(archive, path) → {u32 size, u32 dirs, u32 files,
 		// u8 duplicateData}. The wrapper (0x001EDF50 site) reads cmdbuf[2..4]
 		// and a byte at cmdbuf[5]. An unformatted save must report "not found"

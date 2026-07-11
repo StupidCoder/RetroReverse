@@ -386,6 +386,76 @@ interactive save-slot menu. (The top screen's logo art stays on the clear colour
 issues no further GPU work while idle at the menu — the next frontier is selecting a file to start a
 new game, and rendering the first in-game frame.)
 
+### Selecting a file: the library-applet conversation and the save-creation path
+
+Pressing Ⓐ on slot A surfaced a chain of unmodelled OS behaviour, each piece traced from the game's
+own wrappers before implementing:
+
+- **The menu was not idle — it was polling.** At the file-select the main thread re-queries **APT
+  `GetAppletInfo` (0x0006)** every 10 ms (the loop at `0x002324FC` sleeps `svcSleepThread(10^7 ns)`
+  between tries) until the reply's cmdbuf[5] and cmdbuf[6] bytes — the queried applet's *registered*
+  and *loaded* flags — both come back nonzero. The stub reply left them zero, so the boot span at the
+  menu forever. We ack `PreloadLibraryApplet` without running anything, so the HLE now reports the
+  applet present and loaded.
+- **The game then talks to library applet 0x402.** It sends a 32-byte parameter (**`SendParameter`
+  0x000C**, signal 2) and parks its main thread until the applet answers: the wait loop
+  (`0x00232BA0`, exit check at `0x00232C7C`) demands a received parameter with **sender = 0x402 and
+  command = 3**, and maps the carried shared-memory block whole (`svcMapMemoryBlock` with size 0,
+  then **`svcUnmapMemoryBlock` (0x20)**, now implemented). Then it **starts** the applet
+  (`StartLibraryApplet` 0x001E, wrapper `0x00296F50`) and waits again — this time in a buffered
+  receive loop (`0x002915E4`, an 0x84-byte response buffer) that accepts command values
+  {1,0xA,0xB,0xC,0xD,0xE,0xF,0x11}, with 0xA mapped to its own "applet finished" class
+  (`0x002917D8`). Since this HLE runs no applets, it fabricates the answers: a queue of pending
+  parameters (`aptParams`) delivers `{sender 0x402, command 3, minted memory block}` after
+  SendParameter and `{command 0xA, 0x84 zero bytes through the receiver's TLS static buffer}` after
+  Start, each consumption re-arming the deferred APT wake while more remain. `gsp` commands
+  **0x0019/0x001A** (bare-header, result-only — a save/restore pair around the applet hand-off) and
+  the send-only **APT 0x0040** buffer hand-off are acknowledged.
+- **The save-creation path is a state machine steered by fs error classes.** The flow is
+  `GetFormatInfo (0x0845)` → `FormatSaveData (0x084C)` → open-with-create → `ControlArchive (0x080D)`
+  commit. Three separate lies had to become truths:
+  1. `GetFormatInfo` was blanket-acked, leaving stale request words as the "format info"; the game
+     took the garbage for a valid save, opened `/GameData.bin`, got NotFound and threw fatal
+     `0xC8804478` under a "Saving…" toast that never finished. It now returns the info recorded by
+     `FormatSaveData` (newly implemented: records `{blocks, dirs, files, duplicateData}`, erases the
+     store) — and, before any format, an error of the right **class**: the game's save layer
+     (`0x001A5A68`) extracts the fs result's description field and forgives only **[0x154, 0x168)** —
+     the "save is fresh" group — so the unformatted reply is `0xC8804554`, not the RomFS NotFound
+     (description 0x78), which it throws as fatal.
+  2. The reverse mistake looped forever: reporting the 0x154 class *after* a successful format reads
+     as "format failed", and the game re-formats endlessly. Post-format misses are plain NotFound.
+  3. The game never calls CreateFile for its save — it opens `/GameData.bin` with **open flags
+     WRITE|CREATE (0x6)**, which the HLE had ignored. `OpenFile` now honours CREATE in the save
+     archive, and `IFile SetSize (0x0805)` really resizes (the game sizes the fresh file, chunk-writes
+     it, and verifies by read-back).
+
+With those, slot A relabels to **WORLD 1-1** with a "Saving…" toast, the save commits, and the game
+plays its screen transition — which needed two last GPU features: **GX `TextureCopy`** (the PPF
+engine's gap-aware byte copy; the observed slot pins the dim words as `gap<<16 | width` in 2-byte
+units — 400 lines of 960 bytes in, a 1024-byte stride out: the rendered frame grabbed as a
+256-px-wide power-of-two texture for the transition) and **primitive mode 3** (the "geometry
+primitive", meaningful only to a geometry shader; the draw-time check guarantees the geometry stage
+is off, so its vertices assemble as independent triangles).
+
+### The current frontier: the graphics driver's submission-retire ring
+
+Past the transition the screen clears and the main thread blocks inside the game's own graphics
+driver (the singleton at `0x00425814`). Its shape, mapped from the disassembly: command chains are
+submitted through `0x0022B0CC`, which try-pushes each chain into a 32-entry FIFO ring at `+0xB4`
+(`0x004258C8`) — the *in-flight* list — while a fence counter (`+0x170`) names each submission; the
+retire path (`0x0022AF84`, and a pop-until-my-fence loop at `0x0022B2AC`) pops completed chains back
+out. Across the whole boot the ring only ever **filled** (13 entries at the first dialog, 21 after
+the StreetPass flow, 32 = full at the file-select): the sync-path submissions try-push and give up
+silently when full, and no retire ever ran. The first *blocking* push — the scene switch after the
+save — then deadlocks against a full ring whose only consumer is the pusher itself, a few
+instructions later. A probe (`bootoracle -poke`, a new instrument) that widens the ring lets the push
+through, after which the retire loop drains all the stale chains but never finds its own fence and
+ends waiting on pop-empty. The strong suspicion is timing: this HLE executes a `ProcessCommandList`
+*synchronously inside* the GX submission and raises P3D completion immediately, so the driver's
+in-flight bookkeeping — written for a GPU that is genuinely busy while the CPU runs ahead — never
+sees the states that would drive its retire path on hardware. Making GX completion honestly
+asynchronous (execute at a later instruction boundary, then interrupt) is the next piece of work.
+
 One quirk is recorded and not yet explained — some `srv:GetServiceHandle` requests store the 8-byte
 service name with each 32-bit word's halves rotated ("APT:U" half-swapped, "fs:USER" byte-rotated,
 "ndm:u" straight, all from the same thread), so the reader tries each rotation and takes the one whose

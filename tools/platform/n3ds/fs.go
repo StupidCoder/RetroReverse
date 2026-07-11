@@ -63,9 +63,10 @@ func (m *Machine) fsOpenDirectory(hdr ipcHeader) bool {
 	dir, ok := m.romfsChildren(path)
 	if !ok {
 		// The save archive holds no directories; report a miss there with the
-		// save layer's error class (see resultFSSaveNotFound).
+		// class the save state machine expects (see the fsOpen comment):
+		// pre-format the save layer's own class, post-format plain NotFound.
 		code := resultFSNotFound
-		if id, open := m.fsArchives[m.ipcArg(1)]; open && id != archiveRomFS {
+		if id, open := m.fsArchives[m.ipcArg(1)]; open && id != archiveRomFS && !m.saveFormatted {
 			code = resultFSSaveNotFound
 		}
 		m.WriteWord(m.cmdBuf(), uint32(hdr.Command)<<16|1<<6)
@@ -208,18 +209,32 @@ func (m *Machine) fsOpenFile(hdr ipcHeader) bool {
 
 	path := m.readFSPath(pathPtr, pathType, pathSize)
 	if m.Verbose {
-		fmt.Printf("    fsOpen cmd=0x%04X archive=0x%08X save=%v pathType=%d pathSize=%d path=%q\n", hdr.Command, archive, saveArchive, pathType, pathSize, path)
+		fmt.Printf("    fsOpen cmd=0x%04X archive=0x%08X save=%v pathType=%d pathSize=%d flags=0x%X attr=0x%X path=%q\n", hdr.Command, archive, saveArchive, pathType, pathSize, m.ipcArg(6), m.ipcArg(7), path)
 	}
 
 	if saveArchive {
 		data, ok := m.saveFiles[path]
+		if !ok && hdr.Command == 0x0802 && m.ipcArg(6)&4 != 0 {
+			// OPEN_FLAG_CREATE: the game creates its save file by opening it
+			// with flags WRITE|CREATE (0x6) right after FormatSaveData —
+			// ignoring the flag returned NotFound, which the save layer threw
+			// as fatal 0xC8804478. Create it empty.
+			m.saveFiles[path] = []byte{}
+			data, ok = m.saveFiles[path], true
+		}
 		if !ok {
-			// A missing file in SAVE DATA is a different error class from a
-			// missing RomFS file: the game's save layer (0x001A5A68) only
-			// forgives fs errors with description in [0x154,0x168) — the
-			// raw NotFound (0x78) is thrown as a fatal.
+			// The error class steers the game's save state machine: before the
+			// archive is formatted, a miss must be the save layer's own class
+			// (description 0x154 — "save fresh", routes to FormatSaveData; a
+			// plain NotFound there is thrown as fatal by the filter at
+			// 0x001A5A68). AFTER a successful format, a miss must be the plain
+			// NotFound.
+			code := resultFSSaveNotFound
+			if m.saveFormatted {
+				code = resultFSNotFound
+			}
 			m.WriteWord(m.cmdBuf(), uint32(hdr.Command)<<16|1<<6)
-			m.WriteWord(m.cmdBuf()+4, resultFSSaveNotFound)
+			m.WriteWord(m.cmdBuf()+4, code)
 			return true
 		}
 		sess := &fsFile{path: path, save: path, data: data}
@@ -390,7 +405,24 @@ func (m *Machine) ipcFile(handle uint32, hdr ipcHeader) bool {
 		// into an unknown session is ours. Stop loudly.
 		m.CPU.Halt("IFile Write on non-writable session (path %q) at 0x%08X", filePath(f), m.CPU.PC())
 		return true
-	case 0x0805, 0x0806, 0x0807: // SetSize / GetAttributes / SetAttributes
+	case 0x0805: // SetSize(u64) — real for save sessions: the game sizes its
+		// fresh save file before chunk-writing it, and verifies by read-back.
+		if f != nil && f.save != "" {
+			size := int64(uint64(m.ipcArg(1)) | uint64(m.ipcArg(2))<<32)
+			data := m.saveFiles[f.save]
+			if int64(len(data)) != size {
+				resized := make([]byte, size)
+				copy(resized, data)
+				m.saveFiles[f.save] = resized
+				f.data = resized
+			}
+			if m.Verbose {
+				fmt.Printf("    IFile SetSize %q -> %d\n", f.save, size)
+			}
+		}
+		m.ipcReply(hdr.Command)
+		return true
+	case 0x0806, 0x0807: // GetAttributes / SetAttributes
 		m.ipcReply(hdr.Command)
 		return true
 	}

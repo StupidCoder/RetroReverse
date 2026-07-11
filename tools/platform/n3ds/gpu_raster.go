@@ -145,7 +145,12 @@ func (g *GPU) draw(indexed bool) {
 	n := len(outs)
 	emit := func(a, b, c int) { g.triangle(&outs[a], &outs[b], &outs[c]) }
 	switch prim {
-	case 0:
+	case 0, 3:
+		// Mode 3 is the "geometry primitive": meaningful only to a geometry
+		// shader. The draw-time check above guarantees the geometry stage is
+		// OFF (0x229&3 == 0) when we get here, so the vertices pass through
+		// assembly untouched — independent triangles, same as mode 0 (first
+		// seen in the save-complete screen transition after the file-select).
 		for i := 0; i+2 < n; i += 3 {
 			emit(i, i+1, i+2)
 		}

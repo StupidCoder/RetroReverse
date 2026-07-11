@@ -243,8 +243,8 @@ func (m *Machine) dumpThreads() {
 		if t.arbAddr != 0 {
 			wo += fmt.Sprintf(" arb@0x%08X", t.arbAddr)
 		}
-		fmt.Printf("  thread %d prio %d state %-8s pc=0x%08X waitOn:%s\n",
-			t.id, t.priority, t.state, t.ctx.R[15], wo)
+		fmt.Printf("  thread %d prio %d state %-8s pc=0x%08X sp=0x%08X lr=0x%08X waitOn:%s\n",
+			t.id, t.priority, t.state, t.ctx.R[15], t.ctx.R[13], t.ctx.R[14], wo)
 	}
 }
 

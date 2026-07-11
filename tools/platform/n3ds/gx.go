@@ -94,6 +94,40 @@ func (m *Machine) gxMemoryFill(start, value, end, ctl uint32) {
 	}
 }
 
+// gxTextureCopy streams size payload bytes from src to dst with per-line gaps:
+// each dim word is gap<<16 | width, both in 2-byte units (derivation at the
+// dispatch site). Zero dims degrade to a flat copy. Structural surprises halt.
+func (m *Machine) gxTextureCopy(src, dst, size, inDim, outDim uint32) {
+	src, dst = m.gpuAddrToVirt(src), m.gpuAddrToVirt(dst)
+	inW, inGap := inDim&0xFFFF*2, inDim>>16*2
+	outW, outGap := outDim&0xFFFF*2, outDim>>16*2
+	if inW == 0 && inGap == 0 {
+		inW = size
+	}
+	if outW == 0 && outGap == 0 {
+		outW = size
+	}
+	if inW == 0 || outW == 0 || size%inW != 0 {
+		m.CPU.Halt("gx: TextureCopy dims in=0x%08X out=0x%08X size=0x%X don't divide after %d instructions",
+			inDim, outDim, size, m.CPU.Instrs)
+		return
+	}
+	sp, dp := src, dst
+	sn, dn := uint32(0), uint32(0) // bytes into the current in/out line
+	for i := uint32(0); i < size; i++ {
+		m.Write(dp, m.Read(sp))
+		sp, sn = sp+1, sn+1
+		if sn == inW {
+			sp, sn = sp+inGap, 0
+		}
+		dp, dn = dp+1, dn+1
+		if dn == outW {
+			dp, dn = dp+outGap, 0
+		}
+	}
+	m.gpu.texCache = nil // the destination may be sampled as a texture
+}
+
 // gxDisplayTransfer converts a rendered (tiled, 8×8 Morton) colour buffer into
 // the linear framebuffer the LCD scans out — the step that makes a frame
 // visible. Dim words are height<<16|width; the screens are rotated, so a "row"
@@ -242,11 +276,16 @@ func (m *Machine) processGXQueue() {
 			m.gxDisplayTransfer(w[1], w[2], w[3], w[4], w[5])
 			raised = append(raised, gspIntPPF)
 		case gxCmdTextureCopy:
-			// Not yet observed from the game; stop loudly rather than guess its
-			// slot layout.
-			m.CPU.Halt("gx: TextureCopy %08X %08X %08X %08X unimplemented after %d instructions",
-				w[1], w[2], w[3], w[4], m.CPU.Instrs)
-			return
+			// Gap-aware byte copy (the PPF engine's "texture copy" mode). The
+			// first observed slot — 1F000080 → 1629FA80, size 0x5DC00, in dim
+			// 0x000001E0, out dim 0x002001E0 — pins the layout: dim = gap<<16 |
+			// width in 2-byte units; 0x1E0 units = 960 bytes = one 240-px RGBA8
+			// framebuffer line, 400 lines = the size exactly, and the output's
+			// 0x20-unit gap pads each line to a 1024-byte stride (a 256-px
+			// power-of-two texture): the game grabs the rendered frame as a
+			// texture for its screen transition.
+			m.gxTextureCopy(w[1], w[2], w[3], w[4], w[5])
+			raised = append(raised, gspIntPPF)
 		case gxCmdRequestDMA:
 			// A plain memory move: the game stages vertex/texture data from its
 			// linear heap into VRAM with these before drawing.

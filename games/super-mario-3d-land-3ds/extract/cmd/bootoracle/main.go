@@ -69,6 +69,8 @@ func main() {
 	findUtf16 := flag.String("findutf16", "", "after load/run, print addresses where this UTF-16LE string occurs in memory")
 	var dumps multiFlag
 	flag.Var(&dumps, "dump", "hex-dump ADDR:LEN of memory after load/run (hex); repeatable")
+	var pokes multiFlag
+	flag.Var(&pokes, "poke", "write a 32-bit word ADDR:VALUE (hex) after -loadstate, before running; repeatable (probe instrument)")
 	keys := flag.String("keys", "", "inject HID pad input: comma-separated button names (a,b,x,y,l,r,up,down,left,right,start,select)")
 	keypulse := flag.Int("keypulse", 0, "if >0, release the injected keys briefly every N frames so a fresh press edge keeps arriving (for advancing menus/dialogs)")
 	flag.Parse()
@@ -78,7 +80,7 @@ func main() {
 		flag.Usage()
 		os.Exit(2)
 	}
-	if err := run(*image, *steps, *trace, *tracen, *verbose, *svclog, bps, watches, logpcs, tracefroms, dumps, *saveState, *loadState, *gxdump, *shot, *gputrace, *threads, *hidtrace, *keys, *keypulse, *findAscii, *findUtf16); err != nil {
+	if err := run(*image, *steps, *trace, *tracen, *verbose, *svclog, bps, watches, logpcs, tracefroms, dumps, *saveState, *loadState, *gxdump, *shot, *gputrace, *threads, *hidtrace, *keys, *keypulse, *findAscii, *findUtf16, pokes); err != nil {
 		fmt.Fprintln(os.Stderr, "bootoracle:", err)
 		os.Exit(1)
 	}
@@ -102,7 +104,7 @@ func utf16Pattern(s string) []byte {
 	return b
 }
 
-func run(imagePath, stepsStr string, trace bool, tracen int, verbose, svclog bool, bps, watches, logpcs, tracefroms, dumps multiFlag, saveState, loadState, gxdump, shot string, gputrace int, threads, hidtrace bool, keys string, keypulse int, findAscii, findUtf16 string) error {
+func run(imagePath, stepsStr string, trace bool, tracen int, verbose, svclog bool, bps, watches, logpcs, tracefroms, dumps multiFlag, saveState, loadState, gxdump, shot string, gputrace int, threads, hidtrace bool, keys string, keypulse int, findAscii, findUtf16 string, pokes multiFlag) error {
 	img, err := os.ReadFile(imagePath)
 	if err != nil {
 		return err
@@ -165,6 +167,23 @@ func run(imagePath, stepsStr string, trace bool, tracen int, verbose, svclog boo
 			return fmt.Errorf("loading state: %w", err)
 		}
 		fmt.Printf("restored snapshot from %s (at %d instructions)\n", loadState, m.Instrs())
+	}
+
+	for _, pk := range pokes {
+		i := strings.IndexByte(pk, ':')
+		if i < 0 {
+			return fmt.Errorf("bad -poke %q: want ADDR:VALUE", pk)
+		}
+		a, err := parseNum(pk[:i])
+		if err != nil {
+			return fmt.Errorf("bad -poke addr %q: %w", pk, err)
+		}
+		v, err := parseNum(pk[i+1:])
+		if err != nil {
+			return fmt.Errorf("bad -poke value %q: %w", pk, err)
+		}
+		m.WriteWord(uint32(a), uint32(v))
+		fmt.Printf("poke [0x%08X] = 0x%08X\n", a, v)
 	}
 
 	budget, err := parseNum(stepsStr)
