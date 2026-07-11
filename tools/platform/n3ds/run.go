@@ -19,15 +19,26 @@ func (m *Machine) Run(budget int) int {
 		if m.CPU.Halted {
 			break
 		}
+		if m.vblankDue() {
+			m.deliverVBlank()
+		}
 		t := m.pickRunnable()
 		if t == nil {
-			if !m.advanceIdle() {
-				m.dumpThreads()
-				m.CPU.Halt("all threads blocked (deadlock): %d live, none runnable, after %d instructions",
-					m.aliveThreads(), m.CPU.Instrs)
-				break
+			if m.advanceIdle() {
+				continue
 			}
-			continue
+			// Every thread is blocked with no timed wake pending. If the graphics
+			// heartbeat is live, the game is waiting for the next VBlank — jump to
+			// the frame boundary and deliver it rather than declaring a deadlock.
+			if m.gspEvent != 0 {
+				m.CPU.Instrs = m.nextFrameInstr
+				m.deliverVBlank()
+				continue
+			}
+			m.dumpThreads()
+			m.CPU.Halt("all threads blocked (deadlock): %d live, none runnable, after %d instructions",
+				m.aliveThreads(), m.CPU.Instrs)
+			break
 		}
 		m.switchTo(t)
 
@@ -95,8 +106,8 @@ func (m *Machine) traceOne(pc uint32) {
 		buf[i] = m.Read(pc + i)
 	}
 	in := arm.DecodeVariant(buf[:], pc, m.CPU.Thumb, arm.V6K)
-	fmt.Printf("%08X: %-24s  r0=%08X r1=%08X r2=%08X r3=%08X sp=%08X lr=%08X\n",
-		pc, in.Text, m.CPU.R[0], m.CPU.R[1], m.CPU.R[2], m.CPU.R[3], m.CPU.R[13], m.CPU.R[14])
+	fmt.Printf("[t%d] %08X: %-22s  r0=%08X r1=%08X r2=%08X r3=%08X sp=%08X lr=%08X\n",
+		m.curThread.id, pc, in.Text, m.CPU.R[0], m.CPU.R[1], m.CPU.R[2], m.CPU.R[3], m.CPU.R[13], m.CPU.R[14])
 }
 
 // checkWatches reports each watched word whose value changed since the previous

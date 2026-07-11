@@ -148,6 +148,8 @@ func (m *Machine) handleSVC(c *arm.CPU, comment uint32) bool {
 		m.svcCreateHandle(c, "arbiter", false, 1)
 	case svcCreateMemoryBlock:
 		m.svcCreateHandle(c, "memblock", false, 0) // handle out in r0
+	case svcMapMemoryBlock:
+		m.svcMapMemoryBlock(c)
 	case svcDuplicateHandle:
 		m.svcCreateHandle(c, "dup", false, 1)
 	case svcConnectToPort:

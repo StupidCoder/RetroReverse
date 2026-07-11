@@ -144,8 +144,9 @@ func run(imagePath, stepsStr string, trace bool, tracen int, verbose, svclog boo
 			fmt.Printf("  %-10s %d requests\n", svc, n)
 		}
 	}
-	if sub, swp := m.FrameStats(); sub > 0 || swp > 0 {
-		fmt.Printf("\ngraphics: %d GPU command lists submitted, %d frame swaps\n", sub, swp)
+	if vb := m.VBlanks(); vb > 0 {
+		sub, swp := m.FrameStats()
+		fmt.Printf("\ngraphics: %d VBlanks delivered, %d GPU command lists submitted, %d frame swaps\n", vb, sub, swp)
 	}
 	if svclog {
 		printSVCSummary(m)

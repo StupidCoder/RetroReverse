@@ -129,16 +129,23 @@ func (m *Machine) ipcAPT(name string, hdr ipcHeader) bool {
 // framebuffer — that GPU is a later milestone.
 func (m *Machine) ipcGSP(hdr ipcHeader) bool {
 	switch hdr.Command {
-	case 0x0013: // RegisterInterruptRelayQueue → shared-mem handle + thread index
+	case 0x0013: // RegisterInterruptRelayQueue → thread index + shared-mem handle
+		// The request carries the event the GSP signals on each interrupt
+		// (1 normal flag word, then a move-handle translate pair: descriptor at
+		// cmdbuf[2], the event handle at cmdbuf[3]). The GSP event thread waits on
+		// it; VBlank delivery signals it (gsp_vblank.go).
+		m.gspEvent = m.ipcArg(3)
 		if m.gspShared == 0 {
 			m.gspShared = m.newHandle("gsp-shared", false)
+			m.handles[m.gspShared].blockSize = gspSharedSize
 		}
+		// Response (libctru reads cmdbuf[2]=threadID, cmdbuf[4]=handle): 2 normal
+		// words (result + threadID) then a move-handle translate pair.
 		m.WriteWord(m.cmdBuf(), uint32(hdr.Command)<<16|2<<6|2)
 		m.WriteWord(m.cmdBuf()+4, resultSuccess)
-		m.WriteWord(m.cmdBuf()+8, 0) // FirstInitialization flag
-		m.WriteWord(m.cmdBuf()+12, 0) // thread index
-		m.WriteWord(m.cmdBuf()+16, 0)
-		m.WriteWord(m.cmdBuf()+20, m.gspShared)
+		m.WriteWord(m.cmdBuf()+8, 0)  // GSP thread index (this process is thread 0)
+		m.WriteWord(m.cmdBuf()+12, 0) // translate descriptor: move 1 handle
+		m.WriteWord(m.cmdBuf()+16, m.gspShared)
 		return true
 	case 0x0001, 0x0002, 0x0003, 0x0004, 0x0005: // Write/Read HW regs, flush cache
 		m.ipcReply(hdr.Command)

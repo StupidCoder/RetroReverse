@@ -102,6 +102,10 @@ type Machine struct {
 	notifyWaiters   []uint32 // thread ids parked in srv: ReceiveNotification
 	ipcLog          []ipcCall
 	gspShared       uint32 // the GSP shared-memory block handle, once registered
+	gspSharedAddr   uint32 // where the game mapped the GSP shared memory
+	gspEvent        uint32 // event the GSP signals on each interrupt (VBlank)
+	nextFrameInstr  uint64 // instruction count at which to deliver the next VBlank
+	vblankCount     uint64 // VBlanks delivered
 	framesSubmitted int    // GSP TriggerCmdReqQueue calls (GPU command lists)
 	framesSwapped   int    // GSP SetBufferSwap calls (frames presented)
 
