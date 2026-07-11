@@ -113,7 +113,12 @@ type Machine struct {
 	nextHandle uint32
 	ports      map[uint32]string // connected port handles → service name
 	services   map[uint32]string // srv:-acquired service handles → service name
-	tick       uint64            // GetSystemTick counter (advanced per step)
+	tick       uint64            // GetSystemTick counter (advanced per step; JUMPED by idle sleeps)
+	instrs     uint64            // machine-monotonic retired instructions. CPU.Instrs is
+	// per-THREAD (switchTo does *m.CPU = t.ctx, so it moves backward on a
+	// context switch); anything pacing the machine — the VBlank heartbeat, GX
+	// completion deadlines — must ride this instead. Unlike tick it is never
+	// jumped by sleep fast-forward, only by the deliberate idle-frame skip.
 
 	// Threads and the cooperative scheduler (thread.go). curThread's live state
 	// is in CPU; every other thread's state lives in its saved ctx. The main
@@ -147,8 +152,6 @@ type Machine struct {
 	aptWakePending   bool           // NotifyToWait seen; signal the APT events at the next VBlank
 	aptParams        []aptParam     // queued applet answers ReceiveParameter delivers in order
 	gxPending        []gxPendingCmd // accepted GX commands awaiting their completion deadline
-	dspInterruptEv   uint32         // event the game registered for DSP interrupts (pulsed per VBlank)
-	dspSemEv         uint32         // the DSP semaphore event handle handed to the game
 	ipcLog           []ipcCall
 	gspShared        uint32            // the GSP shared-memory block handle, once registered
 	gspSharedAddr    uint32            // where the game mapped the GSP shared memory

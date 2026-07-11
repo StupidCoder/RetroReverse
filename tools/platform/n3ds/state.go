@@ -109,6 +109,7 @@ type snapshot struct {
 	LinearPtr  uint32
 	NextHandle uint32
 	Tick       uint64
+	Instrs     uint64
 
 	Threads     []threadSnap
 	CurThreadID uint32
@@ -129,8 +130,6 @@ type snapshot struct {
 	APTWakePending  bool
 	APTParams       []aptParam
 	GXPending       []gxPendingCmd
-	DSPInterruptEv  uint32
-	DSPSemEv        uint32
 	GSPShared       uint32
 	GSPSharedAddr   uint32
 	GSPEvent        uint32
@@ -221,6 +220,7 @@ func (m *Machine) SaveState(path string) error {
 		LinearPtr:   m.linearPtr,
 		NextHandle:  m.nextHandle,
 		Tick:        m.tick,
+		Instrs:      m.instrs,
 		CurThreadID: m.curThread.id,
 		NextThread:  m.nextThread,
 		NextTLS:     m.nextTLS,
@@ -236,8 +236,6 @@ func (m *Machine) SaveState(path string) error {
 		APTWakePending:  m.aptWakePending,
 		APTParams:       m.aptParams,
 		GXPending:       m.gxPending,
-		DSPInterruptEv:  m.dspInterruptEv,
-		DSPSemEv:        m.dspSemEv,
 		GSPShared:       m.gspShared,
 		GSPSharedAddr:   m.gspSharedAddr,
 		GSPEvent:        m.gspEvent,
@@ -353,6 +351,10 @@ func (m *Machine) LoadState(path string) error {
 	}
 	m.heapPtr, m.linearPtr, m.nextHandle = s.HeapPtr, s.LinearPtr, s.NextHandle
 	m.tick = s.Tick
+	m.instrs = s.Instrs
+	if m.instrs == 0 { // pre-v4 snapshot: seed from the live CPU so pacing resumes
+		m.instrs = m.CPU.Instrs
+	}
 	m.nextThread, m.nextTLS, m.rrCursor = s.NextThread, s.NextTLS, s.RRCursor
 	m.ports, m.services, m.svcLog, m.debugOut = s.Ports, s.Services, s.SVCLog, s.DebugOut
 
@@ -361,7 +363,6 @@ func (m *Machine) LoadState(path string) error {
 	m.aptWakePending = s.APTWakePending
 	m.aptParams = s.APTParams
 	m.gxPending = s.GXPending
-	m.dspInterruptEv, m.dspSemEv = s.DSPInterruptEv, s.DSPSemEv
 	m.gspShared, m.gspSharedAddr, m.gspEvent = s.GSPShared, s.GSPSharedAddr, s.GSPEvent
 	m.hidShared, m.hidSharedAddr, m.hidEvents = s.HIDShared, s.HIDSharedAddr, s.HIDEvents
 	// Older snapshots predate HID serialisation; recover the mapped address from the

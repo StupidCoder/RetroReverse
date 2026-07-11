@@ -32,14 +32,14 @@ const (
 
 // vblankDue reports whether it is time to deliver the next VBlank.
 func (m *Machine) vblankDue() bool {
-	return m.gspEvent != 0 && m.tick >= m.nextFrameInstr
+	return m.gspEvent != 0 && m.instrs >= m.nextFrameInstr
 }
 
 // deliverVBlank pushes the VBlank interrupts into the GSP shared-memory queue
 // and signals the GSP event, waking the game's GSP event thread.
 func (m *Machine) deliverVBlank() {
 	m.vblankCount++
-	m.nextFrameInstr = m.tick + stepsPerFrame
+	m.nextFrameInstr = m.instrs + stepsPerFrame
 
 	m.pushGSPInterrupt(gspIntVBlank0)
 	m.pushGSPInterrupt(gspIntVBlank1)
@@ -57,18 +57,6 @@ func (m *Machine) deliverVBlank() {
 		m.signalAPTEvents()
 	}
 
-	// Pulse the DSP events the game registered (ipcDSP 0x0015/0x0016): on
-	// hardware the DSP component signals them per audio frame, and the game's
-	// frame-delivery loop paces its render thread off them. One pulse per
-	// VBlank is the deterministic stand-in.
-	for _, h := range []uint32{m.dspInterruptEv, m.dspSemEv} {
-		if obj := m.handles[h]; obj != nil {
-			obj.signal = true
-			if m.signalObject(obj) {
-				m.reschedule = true
-			}
-		}
-	}
 }
 
 // signalGSPEvent signals the per-process GSP event, waking the game's GSP event

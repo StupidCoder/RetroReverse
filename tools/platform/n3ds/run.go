@@ -36,8 +36,8 @@ func (m *Machine) Run(budget int) int {
 			// wake source: jump the clock to it and execute (interrupting wakes
 			// the waiter). Real progress, not an idle frame.
 			if dl, ok := m.gxDeadline(); ok && dl < m.nextFrameInstr {
-				if m.tick < dl {
-					m.tick = dl
+				if m.instrs < dl {
+					m.instrs = dl
 				}
 				m.pumpGX()
 				idleFrames = 0
@@ -53,7 +53,7 @@ func (m *Machine) Run(budget int) int {
 			// genuinely stuck (not merely idling between frames) — report it.
 			if m.gspEvent != 0 && idleFrames < maxIdleFrames {
 				idleFrames++
-				m.tick = m.nextFrameInstr
+				m.instrs = m.nextFrameInstr
 				m.deliverVBlank()
 				continue
 			}
@@ -95,6 +95,7 @@ func (m *Machine) Run(budget int) int {
 				m.traceN++
 			}
 			m.checkWatches(pc)
+			m.instrs++  // machine-monotonic (CPU.Instrs is per-thread; see machine.go)
 			m.tick += 2 // GetSystemTick advances; nominal, like the PSX timer
 			m.reschedule = false
 			m.CPU.Step()
