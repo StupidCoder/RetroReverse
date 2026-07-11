@@ -143,17 +143,41 @@ func loop() {
 
 func drawControls(u *ui) {
 	imgui.SetNextWindowPosV(imgui.NewVec2(8, 8), imgui.CondFirstUseEver, imgui.NewVec2(0, 0))
-	imgui.SetNextWindowSizeV(imgui.NewVec2(392, 92), imgui.CondFirstUseEver)
+	imgui.SetNextWindowSizeV(imgui.NewVec2(480, 156), imgui.CondFirstUseEver)
 	imgui.Begin("Controls")
-	if imgui.Button("Step Frame") {
+
+	// Keyboard control, which is immune to any mouse hit-test offset:
+	//   Space / N = step one field, Enter = step to the next drawn frame.
+	if imgui.IsKeyPressedBool(imgui.KeySpace) || imgui.IsKeyPressedBool(imgui.KeyN) {
 		u.stepOne()
 	}
+	if imgui.IsKeyPressedBool(imgui.KeyEnter) {
+		u.stepToContent()
+	}
+
+	if imgui.ButtonV("Step Frame", imgui.NewVec2(150, 34)) {
+		u.stepOne()
+	}
+	stepHovered := imgui.IsItemHovered()
 	imgui.SameLine()
-	if imgui.Button("Step to drawn frame") {
+	if imgui.ButtonV("Step to drawn frame", imgui.NewVec2(190, 34)) {
 		u.stepToContent()
 	}
 	imgui.Separator()
 	text(u.status)
+	text("keys: Space/N = step one field · Enter = step to a drawn frame")
+
+	// Diagnostic for the mouse offset you saw. Move the cursor over the "Step
+	// Frame" button: if stepHovered flips to YES only when the cursor is somewhere
+	// else, imguiMouse vs your real cursor and contentScale tell us the factor.
+	sx, sy := be.ContentScale()
+	mp := imgui.MousePos()
+	hov := "no"
+	if stepHovered {
+		hov = "YES"
+	}
+	text(fmt.Sprintf("diag: contentScale=%.2fx%.2f  imguiMouse=(%.0f,%.0f)  stepHovered=%s",
+		sx, sy, mp.X, mp.Y, hov))
 	imgui.End()
 }
 
