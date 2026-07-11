@@ -43,8 +43,15 @@ func init() {
 // GE register command numbers (subset; pspsdk guInternal names).
 const (
 	cVADDR      = 0x01
+	cIADDR      = 0x02
 	cPRIM       = 0x04
+	cBEZIER     = 0x05
+	cSPLINE     = 0x06
 	cBASE       = 0x10
+	cLIGHTING   = 0x17
+	cPATCHDIV   = 0x36 // bits 0-7 u divisions per span, 8-15 v divisions
+	cPATCHPRIM  = 0x37 // 0 = triangles
+	cMATDIFFUSE = 0x56 // material diffuse RGB (the lit colour of colourless patches)
 	cVTYPE      = 0x12
 	cOFFADDR    = 0x13
 	cTEXENABLE  = 0x1E
@@ -96,8 +103,13 @@ type geState struct {
 
 	base    uint32
 	vaddr   uint32
+	iaddr   uint32
 	offAddr uint32
 	vtype   uint32
+
+	patchDivU, patchDivV uint32
+	lightOn              bool
+	matDiffuse           uint32 // material diffuse RGB (lit patches render with it)
 
 	vpXS, vpYS, vpZS float32 // viewport scale
 	vpXC, vpYC, vpZC float32 // viewport center
@@ -160,8 +172,17 @@ func (m *Machine) rasterList(list GeList) {
 			s.base = (arg << 8) & 0xFF000000
 		case cVADDR:
 			s.vaddr = s.base | arg
+		case cIADDR:
+			s.iaddr = s.base | arg
 		case cOFFADDR:
 			s.offAddr = arg << 8
+		case cLIGHTING:
+			s.lightOn = arg&1 != 0
+		case cPATCHDIV:
+			s.patchDivU = arg & 0xFF
+			s.patchDivV = (arg >> 8) & 0xFF
+		case cMATDIFFUSE:
+			s.matDiffuse = arg
 		case cVTYPE:
 			s.vtype = arg
 		case cFBPTR:
@@ -243,6 +264,8 @@ func (m *Machine) rasterList(list GeList) {
 			s.maskA = arg & 0xFF
 		case cPRIM:
 			m.drawPrim(s, arg)
+		case cBEZIER, cSPLINE:
+			m.drawPatch(s, arg, cmd == cSPLINE)
 		}
 	}
 	if s.fbStride != 0 {
@@ -375,6 +398,7 @@ func (m *Machine) decodeVerts(s *geState, count int) []vert {
 	tfmt := s.vtype & 3
 	cfmt := (s.vtype >> 2) & 7
 	pfmt := (s.vtype >> 7) & 3
+	idxFmt := (s.vtype >> 11) & 3
 	through := s.vtype&(1<<23) != 0
 
 	texSz := []uint32{0, 2, 4, 8}[tfmt]
@@ -397,6 +421,13 @@ func (m *Machine) decodeVerts(s *geState, count int) []vert {
 	addr := s.vaddr
 	for i := 0; i < count; i++ {
 		p := addr
+		// indexed vertices: the i-th index (u8/u16 at IADDR) selects the vertex
+		switch idxFmt {
+		case 1:
+			p = s.vaddr + uint32(m.Read(s.iaddr+uint32(i)))*stride
+		case 2:
+			p = s.vaddr + uint32(u16(m, s.iaddr+uint32(i)*2))*stride
+		}
 		var vv vert
 		vv.a = 0xFF
 		if tfmt != 0 {

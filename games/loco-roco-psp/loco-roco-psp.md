@@ -341,6 +341,16 @@ VRAM.
   through-mode sprite with texturing and blending off and the mask fully set, a
   depth-only fill that writes no colour; a rasterizer that ignores the mask
   paints the sky flat white.
+- **Tessellate (`ge_patch.go`).** The GE's curved-surface primitives — `SPLINE`
+  (0x06, a uniform cubic B-spline surface with per-axis clamp-edge flags) and
+  `BEZIER` (0x05, piecewise cubic Bézier patches) — are evaluated by Cox-de Boor
+  over the (ucount × vcount) control-point grid at the subdivision set by
+  `PATCH_DIVISION`, and the sample grid is rasterized as triangles. Vertices may
+  be **indexed**: vertex-type bits 11-12 select u8/u16 indices read from `IADDR`.
+  The player characters are drawn this way — each soft body is a 20×4-control-point
+  spline surface whose points the CPU physics writes to VRAM every frame, indexed
+  u8, coloured by the golden-yellow material (`0x1DBAF7`); a rasterizer without
+  spline evaluation shows a LocoRoco as floating face features with no body.
 - **Output (`framebuffer.go`).** The 480×272 framebuffer is decoded from VRAM to an
   RGBA image and written to PNG (`bootoracle -shot`).
 
