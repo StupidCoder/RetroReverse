@@ -60,6 +60,7 @@ func main() {
 	gxdump := flag.String("gxdump", "", "capture GX commands; write ProcessCommandList buffers to this directory")
 	shot := flag.String("shot", "", "after the run, write the presented framebuffers to <base>_top.png / <base>_bottom.png")
 	gputrace := flag.Int("gputrace", 0, "print a summary of the first N GPU draws")
+	threads := flag.Bool("threads", false, "after the run, dump thread states and the handle table")
 	flag.Parse()
 
 	if *image == "" {
@@ -67,13 +68,13 @@ func main() {
 		flag.Usage()
 		os.Exit(2)
 	}
-	if err := run(*image, *steps, *trace, *tracen, *verbose, *svclog, bps, watches, *saveState, *loadState, *gxdump, *shot, *gputrace); err != nil {
+	if err := run(*image, *steps, *trace, *tracen, *verbose, *svclog, bps, watches, *saveState, *loadState, *gxdump, *shot, *gputrace, *threads); err != nil {
 		fmt.Fprintln(os.Stderr, "bootoracle:", err)
 		os.Exit(1)
 	}
 }
 
-func run(imagePath, stepsStr string, trace bool, tracen int, verbose, svclog bool, bps, watches multiFlag, saveState, loadState, gxdump, shot string, gputrace int) error {
+func run(imagePath, stepsStr string, trace bool, tracen int, verbose, svclog bool, bps, watches multiFlag, saveState, loadState, gxdump, shot string, gputrace int, threads bool) error {
 	img, err := os.ReadFile(imagePath)
 	if err != nil {
 		return err
@@ -160,6 +161,9 @@ func run(imagePath, stepsStr string, trace bool, tracen int, verbose, svclog boo
 	}
 	if svclog {
 		printSVCSummary(m)
+	}
+	if threads {
+		m.DumpThreads()
 	}
 	if gxdump != "" {
 		if err := dumpGX(m, gxdump); err != nil {

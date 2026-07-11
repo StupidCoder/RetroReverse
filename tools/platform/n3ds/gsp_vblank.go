@@ -41,6 +41,14 @@ func (m *Machine) deliverVBlank() {
 	m.pushGSPInterrupt(gspIntVBlank0)
 	m.pushGSPInterrupt(gspIntVBlank1)
 	m.signalGSPEvent()
+
+	// A pending APT wake (NotifyToWait) is delivered here, asynchronously to
+	// the request that armed it — by now the requester has released the APT
+	// session and parked (see ipcAPT 0x0043).
+	if m.aptWakePending {
+		m.aptWakePending = false
+		m.signalAPTEvents()
+	}
 }
 
 // signalGSPEvent signals the per-process GSP event, waking the game's GSP event

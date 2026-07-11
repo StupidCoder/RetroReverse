@@ -103,6 +103,9 @@ type Machine struct {
 
 	// IPC / graphics bring-up.
 	notifyWaiters   []uint32 // thread ids parked in srv: ReceiveNotification
+	aptNotifyEv     uint32 // events APT Initialize returned; the deferred wake signals them
+	aptResumeEv     uint32
+	aptWakePending  bool // NotifyToWait seen; signal the APT events at the next VBlank
 	ipcLog          []ipcCall
 	gspShared       uint32 // the GSP shared-memory block handle, once registered
 	gspSharedAddr   uint32 // where the game mapped the GSP shared memory

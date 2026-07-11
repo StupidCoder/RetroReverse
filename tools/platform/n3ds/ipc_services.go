@@ -72,6 +72,7 @@ func (m *Machine) ipcAPT(name string, hdr ipcHeader) bool {
 		if hdr.Command == 0x0002 { // Initialize returns two event handles
 			ev1 := m.newHandle("apt-notify", true)
 			ev2 := m.newHandle("apt-resume", true)
+			m.aptNotifyEv, m.aptResumeEv = ev1, ev2
 			m.WriteWord(m.cmdBuf(), uint32(hdr.Command)<<16|1<<6|4)
 			m.WriteWord(m.cmdBuf()+4, resultSuccess)
 			m.WriteWord(m.cmdBuf()+8, 0)
@@ -113,6 +114,20 @@ func (m *Machine) ipcAPT(name string, hdr ipcHeader) bool {
 		m.WriteWord(m.cmdBuf()+24, 0) // parameter handle (none for WAKEUP)
 		return true
 	case 0x0043, 0x004B, 0x004C: // NotifyToWait / AppletUtility / SleepIfShellClosed
+		// NotifyToWait (0x0043) means "park me until APT wakes me": on hardware
+		// the APT module later posts a WAKEUP, which arrives as a signal on the
+		// events Initialize returned; the app's APT handler thread then runs
+		// InquireNotification / ReceiveParameter (both already deliver WAKEUP
+		// here) and releases the parked main thread. Without a wake the whole
+		// game slept forever after its warmup frames. The signal must be
+		// DEFERRED (next VBlank), not raised inside this reply: the caller
+		// still holds the library's cached APT session handle (global
+		// 0x003E2668) for ~50 more instructions, and a handler woken while it
+		// is set throws the applet-module fatal 0xE0A0CFF9 ("session busy") —
+		// traced with a write-watch on that global.
+		if hdr.Command == 0x0043 {
+			m.aptWakePending = true
+		}
 		m.ipcReply(hdr.Command)
 		return true
 	case 0x003E: // Takes (u32, u8) and the wrapper (0x00107F28: header const
@@ -124,6 +139,19 @@ func (m *Machine) ipcAPT(name string, hdr ipcHeader) bool {
 	}
 	m.CPU.Halt("APT command 0x%04X unimplemented at 0x%08X after %d instructions", hdr.Command, m.CPU.PC(), m.CPU.Instrs)
 	return true
+}
+
+// signalAPTEvents signals the notify/resume events APT Initialize handed the
+// app, waking its APT handler thread.
+func (m *Machine) signalAPTEvents() {
+	for _, h := range []uint32{m.aptNotifyEv, m.aptResumeEv} {
+		if obj := m.handles[h]; obj != nil {
+			obj.signal = true
+			if m.signalObject(obj) {
+				m.reschedule = true
+			}
+		}
+	}
 }
 
 // ipcGSP models the graphics service — the interface a title drives to present

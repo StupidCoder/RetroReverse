@@ -209,6 +209,24 @@ func (m *Machine) setResult(t *thread, reg int, v uint32) {
 	}
 }
 
+// DumpThreads prints every thread's scheduler state and what it waits on, plus
+// the handle table — the standard "what is everyone blocked on" bring-up
+// instrument (bootoracle -threads).
+func (m *Machine) DumpThreads() {
+	m.dumpThreads()
+	fmt.Printf("handles:\n")
+	for h, o := range m.handles {
+		extra := ""
+		if o.signal {
+			extra = " signalled"
+		}
+		if o.kind == "thread" && o.thread != nil {
+			extra += fmt.Sprintf(" (thread %d)", o.thread.id)
+		}
+		fmt.Printf("  0x%08X %-24s%s\n", h, o.kind, extra)
+	}
+}
+
 // dumpThreads prints each thread's state and what it is blocked on — the
 // diagnostic for a deadlock (which sync object nothing is signalling).
 func (m *Machine) dumpThreads() {

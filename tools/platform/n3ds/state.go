@@ -124,6 +124,9 @@ type snapshot struct {
 
 	// Graphics: the GSP bring-up state (v3) …
 	NotifyWaiters   []uint32
+	APTNotifyEv     uint32
+	APTResumeEv     uint32
+	APTWakePending  bool
 	GSPShared       uint32
 	GSPSharedAddr   uint32
 	GSPEvent        uint32
@@ -200,6 +203,9 @@ func (m *Machine) SaveState(path string) error {
 		DebugOut:    m.debugOut,
 
 		NotifyWaiters:   m.notifyWaiters,
+		APTNotifyEv:     m.aptNotifyEv,
+		APTResumeEv:     m.aptResumeEv,
+		APTWakePending:  m.aptWakePending,
 		GSPShared:       m.gspShared,
 		GSPSharedAddr:   m.gspSharedAddr,
 		GSPEvent:        m.gspEvent,
@@ -307,6 +313,8 @@ func (m *Machine) LoadState(path string) error {
 	m.ports, m.services, m.svcLog, m.debugOut = s.Ports, s.Services, s.SVCLog, s.DebugOut
 
 	m.notifyWaiters = s.NotifyWaiters
+	m.aptNotifyEv, m.aptResumeEv = s.APTNotifyEv, s.APTResumeEv
+	m.aptWakePending = s.APTWakePending
 	m.gspShared, m.gspSharedAddr, m.gspEvent = s.GSPShared, s.GSPSharedAddr, s.GSPEvent
 	m.nextFrameInstr, m.vblankCount = s.NextFrameInstr, s.VBlankCount
 	m.framesSubmitted, m.framesSwapped = s.FramesSubmitted, s.FramesSwapped
@@ -353,6 +361,13 @@ func (m *Machine) LoadState(path string) error {
 			ko.thread = m.threadByID(o.ThreadID)
 		}
 		m.handles[o.Handle] = ko
+		// Snapshots from before these fields existed recover them by kind.
+		if m.aptNotifyEv == 0 && o.Kind == "apt-notify" {
+			m.aptNotifyEv = o.Handle
+		}
+		if m.aptResumeEv == 0 && o.Kind == "apt-resume" {
+			m.aptResumeEv = o.Handle
+		}
 	}
 	return nil
 }
