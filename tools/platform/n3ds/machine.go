@@ -170,8 +170,9 @@ type Machine struct {
 	Trace     bool
 	traceN    int
 	traceMax  int
-	bps       map[uint32]bool
-	logpcs    map[uint32]bool
+	bps        map[uint32]bool
+	logpcs     map[uint32]bool
+	tracefroms map[uint32]bool
 	watches   []watch
 	svcLog    []svcEvent // every supervisor call, in order
 	debugOut  []byte     // svcOutputDebugString text

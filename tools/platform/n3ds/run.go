@@ -69,6 +69,10 @@ func (m *Machine) Run(budget int) int {
 				m.stopped = true
 				break
 			}
+			if m.tracefroms[pc] {
+				m.Trace = true
+				m.traceN = 0
+			}
 			if m.logpcs[pc] {
 				sp := m.CPU.R[13]
 				fmt.Printf("logpc [t%d] 0x%08X r0=%08X r1=%08X r2=%08X r3=%08X r4=%08X lr=%08X sp=[%08X %08X %08X] instr=%d\n",
@@ -109,6 +113,16 @@ func (m *Machine) SetTrace(on bool, max int) {
 
 // AddBreakpoint registers a PC breakpoint.
 func (m *Machine) AddBreakpoint(addr uint32) { m.bps[addr] = true }
+
+// AddTraceFrom registers a PC that, when first reached, switches on instruction
+// tracing for the next tracen instructions — a way to trace a specific routine
+// deep in a long boot without drowning in the millions of instructions before it.
+func (m *Machine) AddTraceFrom(addr uint32) {
+	if m.tracefroms == nil {
+		m.tracefroms = map[uint32]bool{}
+	}
+	m.tracefroms[addr] = true
+}
 
 // AddLogPC registers a PC that logs register context each time it executes and
 // continues — the non-halting counterpart to a breakpoint, for watching how often

@@ -235,9 +235,20 @@ func (c *CPU) write16(a, v uint32) {
 	c.bus.Write(a+1, byte(v>>8))
 }
 func (c *CPU) read32(a uint32) uint32 {
-	// Unaligned word reads on ARM rotate; game code is almost always aligned, but
-	// honour the rotate so an oracle matches hardware.
-	v := uint32(c.bus.Read(a)) | uint32(c.bus.Read(a+1))<<8 | uint32(c.bus.Read(a+2))<<16 | uint32(c.bus.Read(a+3))<<24
+	// Unaligned word LDR behaves differently by architecture. ARMv6 (the 3DS's
+	// ARM11, with unaligned access enabled by Horizon) performs a TRUE unaligned
+	// load: the four bytes at the exact address, no rotation. ARMv5 and earlier
+	// (the DS) cannot fetch across an alignment boundary — the addressed word is
+	// forced aligned and the result rotated right so the addressed byte lands in
+	// the low byte. The old code did a hybrid (true bytes THEN rotate), which for
+	// an unaligned address returned e.g. 6 ROR 24 = 0x600 instead of 6 — this
+	// broke the game's MSBT label→index lookup (an index stored at an unaligned
+	// offset), rendering every such message as "NULL".
+	if c.Arch >= V6K {
+		return uint32(c.bus.Read(a)) | uint32(c.bus.Read(a+1))<<8 | uint32(c.bus.Read(a+2))<<16 | uint32(c.bus.Read(a+3))<<24
+	}
+	aligned := a &^ 3
+	v := uint32(c.bus.Read(aligned)) | uint32(c.bus.Read(aligned+1))<<8 | uint32(c.bus.Read(aligned+2))<<16 | uint32(c.bus.Read(aligned+3))<<24
 	if r := (a & 3) * 8; r != 0 {
 		v = ror32(v, r)
 	}

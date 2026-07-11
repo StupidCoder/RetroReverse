@@ -55,6 +55,8 @@ func main() {
 	var bps, watches, logpcs multiFlag
 	flag.Var(&bps, "bp", "breakpoint address (hex); repeatable")
 	flag.Var(&logpcs, "logpc", "log register context at this address and continue (hex); repeatable")
+	var tracefroms multiFlag
+	flag.Var(&tracefroms, "tracefrom", "start instruction tracing (for -tracen instrs) when this address is first reached (hex); repeatable")
 	flag.Var(&watches, "watch", "memory watch ADDR[:LEN] (hex); repeatable")
 	saveState := flag.String("savestate", "", "after the run, dump the machine snapshot to this file")
 	loadState := flag.String("loadstate", "", "restore a machine snapshot before running")
@@ -75,7 +77,7 @@ func main() {
 		flag.Usage()
 		os.Exit(2)
 	}
-	if err := run(*image, *steps, *trace, *tracen, *verbose, *svclog, bps, watches, logpcs, dumps, *saveState, *loadState, *gxdump, *shot, *gputrace, *threads, *hidtrace, *keys, *findAscii, *findUtf16); err != nil {
+	if err := run(*image, *steps, *trace, *tracen, *verbose, *svclog, bps, watches, logpcs, tracefroms, dumps, *saveState, *loadState, *gxdump, *shot, *gputrace, *threads, *hidtrace, *keys, *findAscii, *findUtf16); err != nil {
 		fmt.Fprintln(os.Stderr, "bootoracle:", err)
 		os.Exit(1)
 	}
@@ -99,7 +101,7 @@ func utf16Pattern(s string) []byte {
 	return b
 }
 
-func run(imagePath, stepsStr string, trace bool, tracen int, verbose, svclog bool, bps, watches, logpcs, dumps multiFlag, saveState, loadState, gxdump, shot string, gputrace int, threads, hidtrace bool, keys, findAscii, findUtf16 string) error {
+func run(imagePath, stepsStr string, trace bool, tracen int, verbose, svclog bool, bps, watches, logpcs, tracefroms, dumps multiFlag, saveState, loadState, gxdump, shot string, gputrace int, threads, hidtrace bool, keys, findAscii, findUtf16 string) error {
 	img, err := os.ReadFile(imagePath)
 	if err != nil {
 		return err
@@ -132,6 +134,13 @@ func run(imagePath, stepsStr string, trace bool, tracen int, verbose, svclog boo
 			return fmt.Errorf("bad -logpc %q: %w", b, err)
 		}
 		m.AddLogPC(uint32(v))
+	}
+	for _, b := range tracefroms {
+		v, err := parseNum(b)
+		if err != nil {
+			return fmt.Errorf("bad -tracefrom %q: %w", b, err)
+		}
+		m.AddTraceFrom(uint32(v))
 	}
 	for _, w := range watches {
 		addr, length := w, "4"
