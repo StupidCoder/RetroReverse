@@ -70,8 +70,10 @@ func (m *Machine) Run(budget int) int {
 				break
 			}
 			if m.logpcs[pc] {
-				fmt.Printf("logpc [t%d] 0x%08X r0=%08X r1=%08X r2=%08X r3=%08X r4=%08X lr=%08X instr=%d\n",
-					m.curThread.id, pc, m.CPU.R[0], m.CPU.R[1], m.CPU.R[2], m.CPU.R[3], m.CPU.R[4], m.CPU.R[14], m.CPU.Instrs)
+				sp := m.CPU.R[13]
+				fmt.Printf("logpc [t%d] 0x%08X r0=%08X r1=%08X r2=%08X r3=%08X r4=%08X lr=%08X sp=[%08X %08X %08X] instr=%d\n",
+					m.curThread.id, pc, m.CPU.R[0], m.CPU.R[1], m.CPU.R[2], m.CPU.R[3], m.CPU.R[4], m.CPU.R[14],
+					m.ReadWord(sp), m.ReadWord(sp+4), m.ReadWord(sp+8), m.CPU.Instrs)
 			}
 			if m.Trace && m.traceN < m.traceMax {
 				m.traceOne(pc)
