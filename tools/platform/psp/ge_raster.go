@@ -26,6 +26,9 @@ var geNoCull = os.Getenv("PSP_GE_NOCULL") != ""
 // geNoZ: set PSP_GE_NOZ=1 to bypass the depth test (a bisection aid).
 var geNoZ = os.Getenv("PSP_GE_NOZ") != ""
 
+// geXferLog: set PSP_GE_XFER=1 to log every GE block transfer (src, dst, size).
+var geXferLog = os.Getenv("PSP_GE_XFER") != ""
+
 // geOnlyTex / geOnlyVA: set PSP_GE_ONLYTEX=<hex texaddr> or PSP_GE_ONLYVA=<hex
 // prefix> to draw ONLY primitives bound to that texture / reading vertices from
 // that 64 KiB region — isolates one object's geometry from everything drawn
@@ -280,6 +283,11 @@ func (m *Machine) blockTransfer(s *geState, is32 bool) {
 	bpp := uint32(2)
 	if is32 {
 		bpp = 4
+	}
+	if geXferLog {
+		fmt.Printf("XFER src=%08X(+%d,%d stride %d) -> dst=%08X(+%d,%d stride %d)  %dx%d  %d bpp\n",
+			s.trSrc, s.trSrcX, s.trSrcY, s.trSrcStride, s.trDst, s.trDstX, s.trDstY, s.trDstStride,
+			s.trW, s.trH, bpp)
 	}
 	for y := uint32(0); y < s.trH; y++ {
 		src := s.trSrc + ((s.trSrcY+y)*s.trSrcStride+s.trSrcX)*bpp

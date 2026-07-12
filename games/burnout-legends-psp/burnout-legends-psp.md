@@ -334,11 +334,9 @@ off-screen targets it composites for its blur and streak effects — and the
 only way to judge an off-screen pass is to look at it. `bootoracle -shotat
 ADDR[:STRIDE]:FILE.png` dumps any of them.
 
-With those in place, the oracle renders the first frame of gameplay: the
-player's car on the road, the city skyline behind it, the barrier along the
-right, the sunset on the horizon, and the HUD over the top.
-
-![The first frame of gameplay](figures/race-first-frame.png)
+With those in place, the oracle renders a recognisable frame of gameplay — but
+not yet a correct one; two more findings (below) stood between it and the real
+thing.
 
 ### 3. What the game actually asks the GE for
 
@@ -406,7 +404,34 @@ With the pointer advancing, the car is a car — bodywork, sponsor decals, the
 rear-window text legible, taillights — and the street arrives with it: lamp
 posts, traffic lights, the rival ahead on the grid, the overpass.
 
-### 5. The race is really running
+### 5. A savestate can outlive the bug that made it
+
+The road stayed wrong after all of that: a flat olive surface where the asphalt
+and its markings should be. The geometry was right, the vertex colours were pure
+white, the texture coordinates varied correctly across the surface — and the
+texture the road binds, a CLUT4 image at VRAM `0x04180E80`, was **all zeros**.
+We were sampling an empty texture through a perfectly good palette, and index
+zero is olive.
+
+Textures reach VRAM by **GE block transfer** — the 2-D blit (`TRANSFERSTART`,
+`0xEA`) — and the game runs 210 of them while the LOADING screen is up. We only
+implemented that blit today. Every in-race savestate in the scratchpad had been
+captured *after* the loading screen by a build that dropped those transfers on
+the floor, so each one carried a VRAM with no track textures in it — and no
+amount of fixing the renderer afterwards could put them back. A savestate
+outlives the bug that made it.
+
+Replaying from **car select**, upstream of the uploads, is what fixed it. The
+evidence that it had to be upstream: a write-watch on the texture's address
+across the entire post-brief load fired zero times, while `PSP_GE_XFER=1` showed
+the transfers running earlier and elsewhere.
+
+The lesson generalises past this disc: **when you fix a path that fills GPU
+memory, regenerate the savestate chain from a checkpoint before the fill.**
+
+![The race, textured: a city street](figures/race-first-frame.png)
+
+### 6. The race is really running
 
 A rendered frame could still be a still life. It is not: with the throttle
 held down from the countdown (a `-keys` script pressing cross every 20
