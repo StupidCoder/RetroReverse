@@ -19,9 +19,9 @@ import "fmt"
 
 // ipcHeader unpacks a command-buffer header word.
 type ipcHeader struct {
-	Command    uint16
-	Normal     int // normal parameter words
-	Translate  int // translate parameter words
+	Command   uint16
+	Normal    int // normal parameter words
+	Translate int // translate parameter words
 }
 
 func parseIPCHeader(w uint32) ipcHeader {
@@ -142,8 +142,8 @@ func (m *Machine) publishNotification(id uint32) {
 // disambiguate the service-name byte order (see readServiceName).
 func knownService(name string) bool {
 	switch serviceBase(name) {
-	case "APT", "gsp", "hid", "cfg", "fs", "ndm", "ptm", "ac", "frd", "cecd",
-		"boss", "nim", "mic", "csnd", "dsp", "y2r", "am", "ns", "pxi", "srv", "cam", "mcu":
+	case "APT", "gsp", "hid", "cfg", "fs", "ndm", "ptm", "ac", "act", "frd", "cecd",
+		"boss", "nim", "mic", "csnd", "dsp", "y2r", "am", "ns", "nfc", "pxi", "srv", "cam", "mcu":
 		return true
 	}
 	return false

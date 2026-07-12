@@ -576,6 +576,11 @@ Two things this title taught in return:
   with its audio init succeeding instead of failing-and-retrying, the game reaches its render loop
   markedly earlier and runs it at full cadence.
 
+  (Re-timed once more by the scheduler fix that followed — Captain Toad's writeup, Part VI: sleeping
+  threads had been starved by the DSP heartbeat, and with `svcSleepThread` honest again the same 6B
+  budget yields **84,806 lists / 84,767 transfers / 3.3M draws / ~20.6B pixels**, 6,141 dsp requests,
+  the identical welcome dialog. Each timing fix so far has only made this title run *more*.)
+
 Whether the real DSP moves the render-ring frontier above was then **verified rather than assumed**.
 The old savestates predate the DSP (restoring them resurrects a world where the game already holds
 garbage DSP handles), so the onboarding flow was re-driven from a post-DSP cold boot in one pass —

@@ -34,57 +34,64 @@ func (m *Machine) Run(budget int) int {
 		if m.dspDue() {
 			m.dspTick() // the audio-frame clock (dsp.go), independent of the VBlank
 		}
-		m.processGXQueue() // drain any GPU commands the game posted; completions are deadline-paced
+		m.wakeDueSleepers() // a sleep deadline can pass while other threads run
+		m.processGXQueue()  // drain any GPU commands the game posted; completions are deadline-paced
 		t := m.pickRunnable()
 		if t == nil {
-			// The nearest machine event due before the next VBlank — a pending GX
-			// completion or the DSP's audio frame — is the nearest wake source:
-			// jump the clock to it and deliver. A GX completion is one-shot (real
-			// progress, resets the idle bound); the DSP frame recurs whether or
-			// not anyone listens, so it counts toward the idle bound like a
-			// VBlank does — else a sound-less title would livelock here.
-			gxDl, gxOK := m.gxDeadline()
-			dl, ok, isGX := gxDl, gxOK, gxOK
-			if d, o := m.dspDeadline(); o && (!ok || d < dl) {
-				dl, ok, isGX = d, true, false
+			// Nothing is runnable: machine time passes until the nearest event —
+			// a GX completion, a DSP audio frame, a sleeping thread's deadline,
+			// or the VBlank. All are compared in ONE time base (instructions;
+			// the tick runs at exactly 2 per instruction, and both clocks jump
+			// together here). Sleepers MUST compete in this selection: waking
+			// them only when no timed event pends starves them outright once the
+			// DSP frame recurs and wakes the sound thread ~3.4× per VBlank —
+			// that starvation held Captain Toad's main thread in a single 10 ms
+			// sleep forever while its sound thread stayed perfectly healthy.
+			const never = ^uint64(0)
+			next, kind := never, ""
+			if dl, ok := m.gxDeadline(); ok && dl < next {
+				next, kind = dl, "gx"
 			}
-			bound := m.nextFrameInstr
-			if m.gspEvent == 0 {
-				bound = ^uint64(0) // no graphics heartbeat yet: the DSP paces itself
+			if dl, ok := m.dspDeadline(); ok && dl < next {
+				next, kind = dl, "dsp"
 			}
-			if ok && dl < bound && idleFrames < maxIdleFrames {
-				if m.instrs < dl {
-					m.instrs = dl
+			if wt, ok := m.soonestSleeper(); ok {
+				dl := m.instrs
+				if wt > m.tick {
+					dl += (wt - m.tick + 1) / 2 // tick runs at 2 per instruction
 				}
+				if dl < next {
+					next, kind = dl, "sleep"
+				}
+			}
+			if m.gspEvent != 0 && m.nextFrameInstr < next {
+				next, kind = m.nextFrameInstr, "vblank"
+			}
+			if kind == "" || idleFrames >= maxIdleFrames {
+				m.dumpThreads()
+				m.CPU.Halt("all threads blocked (deadlock): %d live, none runnable, after %d instructions",
+					m.aliveThreads(), m.CPU.Instrs)
+				break
+			}
+			if next > m.instrs {
+				m.tick += 2 * (next - m.instrs)
+				m.instrs = next
+			}
+			switch kind {
+			case "gx":
 				m.pumpGX()
-				if m.dspDue() {
-					m.dspTick()
-				}
-				if isGX {
-					idleFrames = 0
-				} else {
-					idleFrames++
-				}
-				continue
-			}
-			if m.advanceIdle() {
-				continue
-			}
-			// Every thread is blocked with no timed wake pending. If the graphics
-			// heartbeat is live, the game is waiting for the next VBlank — jump to
-			// the frame boundary and deliver it rather than declaring a deadlock.
-			// Bound it: if several successive VBlanks wake nothing, the game is
-			// genuinely stuck (not merely idling between frames) — report it.
-			if m.gspEvent != 0 && idleFrames < maxIdleFrames {
-				idleFrames++
-				m.instrs = m.nextFrameInstr
+				idleFrames = 0 // one-shot completion: real progress
+			case "dsp":
+				m.dspTick()
+				idleFrames++ // recurs whether or not anything listens
+			case "sleep":
+				idleFrames = 0 // a thread wakes: real progress
+			case "vblank":
 				m.deliverVBlank()
-				continue
+				idleFrames++
 			}
-			m.dumpThreads()
-			m.CPU.Halt("all threads blocked (deadlock): %d live, none runnable, after %d instructions",
-				m.aliveThreads(), m.CPU.Instrs)
-			break
+			m.wakeDueSleepers()
+			continue
 		}
 		idleFrames = 0 // a thread is runnable — real progress, not an idle frame
 		m.switchTo(t)

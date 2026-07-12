@@ -163,11 +163,9 @@ func (m *Machine) switchTo(t *thread) {
 	t.state = running
 }
 
-// advanceIdle handles the case where no thread is ready: wake the earliest
-// sleeping thread by jumping the tick forward. Returns false when every thread is
-// blocked with no timed wake pending (a genuine deadlock, until an external event
-// such as a Phase-3 VBlank signals).
-func (m *Machine) advanceIdle() bool {
+// soonestSleeper reports the earliest sleeping thread's wake tick, if any —
+// one of the timed events the run loop's idle selection compares (run.go).
+func (m *Machine) soonestSleeper() (uint64, bool) {
 	var soonest uint64
 	found := false
 	for _, t := range m.threads {
@@ -175,18 +173,19 @@ func (m *Machine) advanceIdle() bool {
 			soonest, found = t.wakeTick, true
 		}
 	}
-	if !found {
-		return false
-	}
-	if soonest > m.tick {
-		m.tick = soonest
-	}
+	return soonest, found
+}
+
+// wakeDueSleepers readies every sleeping thread whose wake tick has passed.
+// Called each scheduling iteration (not only when idle): a sleep deadline can
+// pass while other threads execute, and a machine with a recurring event (the
+// DSP audio frame) may never be idle at all.
+func (m *Machine) wakeDueSleepers() {
 	for _, t := range m.threads {
 		if t.state == sleeping && t.wakeTick <= m.tick {
 			t.state = ready
 		}
 	}
-	return true
 }
 
 // wake sets a blocked thread ready and returns whether a reschedule is warranted

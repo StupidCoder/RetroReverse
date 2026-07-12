@@ -20,6 +20,7 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
+	"strconv"
 	"strings"
 
 	"retroreverse.com/tools/platform/n3ds"
@@ -31,6 +32,7 @@ func main() {
 	extract := flag.String("x", "", "extract the ExeFS files and the RomFS tree into this directory")
 	part := flag.Int("p", 0, "NCSD partition to inspect")
 	verify := flag.Bool("verify", false, "verify the RomFS IVFC hash tree end to end (reads the whole region)")
+	at := flag.String("at", "", "comma-separated level-3 byte offsets (hex ok): name the RomFS file containing each — for identifying what a traced raw <romfs-l3> read streams")
 	flag.Usage = func() {
 		fmt.Fprintln(os.Stderr, "usage: n3dsdump [-romfs] [-verify] [-code FILE] [-x DIR] [-p N] game.cci")
 		flag.PrintDefaults()
@@ -41,13 +43,13 @@ func main() {
 		os.Exit(2)
 	}
 
-	if err := run(flag.Arg(0), *part, *listRomFS, *verify, *codeOut, *extract); err != nil {
+	if err := run(flag.Arg(0), *part, *listRomFS, *verify, *codeOut, *extract, *at); err != nil {
 		fmt.Fprintln(os.Stderr, "n3dsdump:", err)
 		os.Exit(1)
 	}
 }
 
-func run(path string, part int, listRomFS, verify bool, codeOut, extract string) error {
+func run(path string, part int, listRomFS, verify bool, codeOut, extract, at string) error {
 	img, err := os.ReadFile(path)
 	if err != nil {
 		return err
@@ -150,6 +152,19 @@ func run(path string, part int, listRomFS, verify bool, codeOut, extract string)
 				return err
 			}
 			fmt.Println("  IVFC hash tree verifies (master -> level 1 -> level 2 -> level 3)")
+		}
+		if at != "" {
+			for _, s := range strings.Split(at, ",") {
+				off, err := strconv.ParseInt(strings.TrimPrefix(strings.TrimSpace(s), "0x"), 16, 64)
+				if err != nil {
+					return fmt.Errorf("-at: bad offset %q (hex expected): %v", s, err)
+				}
+				if f, within, ok := rfs.FileAt(off); ok {
+					fmt.Printf("  l3 0x%09x = %s + 0x%x (file is %d bytes)\n", off, f.Path, within, f.Size)
+				} else {
+					fmt.Printf("  l3 0x%09x = (metadata or padding, no file)\n", off)
+				}
+			}
 		}
 		if listRomFS {
 			for _, f := range rfs.Files {

@@ -173,14 +173,60 @@ service commands, all traced. DSP: modelled; the sound system runs at full caden
 further IPC after init (39 requests total, then pure shared-memory exchange — exactly the firmware
 contract).
 
-**The frontier has moved past audio**, and its shape is pinned: the main thread loops a ~once-per-
-second timed poll (helper `0x001211A8` → sleep wrapper `0x003006D0(1)` → the poll object at heap
-`0x146EFE14`, vtable `0x004D7250`, poll function `0x0033AF78` — a 64-bit tick-delta dispatcher). The
-poll's argument points *into worker thread 4's live stack frame* (a condvar/critical-section pair
-around `arb@0x17BDFD08`, precisely where that prio-38 worker parks waiting for a job); worker 5
-(prio 35) parks the same way on `arb@0x0054F59C`. So the main thread awaits a completion its worker
-should produce, and the worker waits for a job nobody posts — only one file has been opened (~14
-reads), and GSP is never brought up. A 9-billion-instruction probe reaches the identical steady
-state, so this is not a timeout that expires. Tracing who was supposed to post that worker's job is
-the next session's work — note each poll second costs ~100M *executed* instructions now, because the
-game's own mixer really runs every audio frame.
+## Part VI — The "mystery poll" was the oracle's own bug: a sleeping thread nobody would wake
+
+The post-DSP frontier looked like a game-side puzzle: the main thread apparently polling a condition
+once a second forever, worker threads parked with no jobs, GSP never brought up. Unpicking it found
+something better — a **scheduler bug in the oracle**, introduced by the DSP itself.
+
+**What the "poll" really was.** The sleep helper (`0x001211A8`) is one iteration of the game's
+*synchronous file read*: submit an async fs request, then `svcSleepThread(10 ms)` and re-check until
+it completes (the 10 ms comes from a global at `0x004F81E8`, converted ×1,000,000 to nanoseconds —
+read straight out of the sleep wrapper `0x003006D0`). The "poll object" at `0x146EFE14` is the
+pool-recycled async request; its dispatcher (`0x0033AF78`) indexes a method table and its read
+method builds an `IFile Read` in the caller's TLS. Watching the request's offset field across the
+boot enumerated the whole conversation: 6 requests through the worker queue at `arb@0x17BDFD08`
+(each: main posts, t4 executes, one 10 ms wait) — and the new `-at` instrument on `n3dsdump` names
+them: `/SoundData/ADSRINFO.DAT`, two slices of `SFXSCRIPTFILES.DAT`, `STREAMFILEINFO.DAT`, two of
+`BgmRhythmInfo.szs`. Then request #7 is prepared: offset `0x0AF6E3C0`, end `0x0C34D828` — byte-exact
+the span of **`/SoundData/sound_data.bcsar`, the 20.8 MB sound archive** — the main thread issues
+its 10 ms sleep… and every later thread dump shows it still `sleeping`. One sleep, never completed,
+for billions of instructions.
+
+**The actual bug.** In the oracle, sleeping threads were only readied by the idle path's
+`advanceIdle`, which ran when no timed machine event fired first. The DSP's audio frame recurs every
+1.31 M instructions and *always wakes the sound thread* — so from the moment the DSP existed, the
+scheduler always had either a runnable thread or a nearer DSP deadline, `advanceIdle` was starved
+forever, and with it every `svcSleepThread` in the game. The healthier the sound system, the deader
+every sleeper. (This is the counterpart lesson to the DSP shortcuts: the DSP was necessary, and its
+correct heartbeat then exposed the run loop's idle logic as the next lie.) The fix unified the
+machine's clocks — the tick now advances at exactly 2 per instruction through idle jumps too — and
+made the idle path a single earliest-event selection over {GX completion, DSP frame, sleeper
+deadline, VBlank}, with due sleepers also woken inside the scheduling loop, since a machine with a
+recurring event may never be idle at all.
+
+**With sleepers alive, the boot sprints.** The bcsar read completes, the whole 31-machine-second
+stall collapses to a boot that reaches each next frontier in ~100 M instructions, and the frontiers
+fall one by one, each traced from its wrapper before answering: `act:u 0x0001` (NNID account init —
+version + ProcessId + a handle, result-only ack), APT `0x003B` (byte setter) and `0x002B` (bare
+query, result-only), APT `0x002C` (the app hands over a capture-info buffer), `nfc:u` `0x0001`
+(amiibo reader init) plus its bare status queries `0x000B/0x000C/0x000F` (zeros: no adapter
+activity, no tag). The game brings up **GSP**, spawns its full engine thread set (13 threads),
+submits its first GPU command list and starts swapping frames.
+
+**One frontier needed a policy decision: APT `0x0044` is `GetSharedFont`.** The wrapper reads a font
+address and a shared-memory-block *handle* from the reply; zeros sent the game straight into
+`svcMapMemoryBlock(0)`. The system shared font is **console firmware data** — it lives in NAND, not
+on the cartridge — so per the same policy as encrypted images and AES keys it is not fabricated:
+the reply is an explicit failure. **The title tolerates it**: the boot continues past the font.
+
+**Where the boot stands now.** With all of the above, an 8-billion-instruction run completes without
+a single halt: the game runs its full 15-thread complement, drives GSP (176 requests), keeps its
+sound system at cadence (88 dsp requests then pure shared memory), and presents ~98 frames (6 GPU
+command lists, 3 display transfers) — **still black: zero draws submitted**. This is not a deadlock:
+a memory watch on the global `0x004F35E4` the main thread appears parked on shows it is a hot,
+constantly cycled lock (tens of thousands of acquire/release pairs at `0x0030A208`/`0x0030AD5C`) —
+the engine's steady-state loop is alive and spinning around something that never becomes ready to
+render. What the render path is waiting for (a movie? a resource compile? the missing shared font's
+consumer after all?) is where the next session starts, and iteration is fast now — each probe run
+reaches this state in minutes.

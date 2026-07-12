@@ -28,6 +28,32 @@ func (m *Machine) ipcService(name string, hdr ipcHeader) bool {
 		// the pipe protocol, the shared-memory audio-frame exchange and the
 		// frame clock the sound threads block on
 		return m.ipcDSP(hdr)
+	case "act": // the NNID account service. Captain Toad initialises it during
+		// boot: command 0x0001 (wrapper 0x00107824, header 0x00010084 — an SDK
+		// version, a word, the ProcessId translate descriptor and a moved
+		// handle) reads back only the result word, so an ack is honest. Any
+		// other act command halts loudly — account DATA must not be faked from
+		// a stale reply buffer.
+		if hdr.Command == 0x0001 {
+			m.ipcReply(hdr.Command)
+			return true
+		}
+	case "nfc": // the NFC (amiibo) reader. Captain Toad initialises it at boot:
+		// command 0x0001 (wrapper 0x00340F98, header 0x00010040 — one byte, the
+		// communication type) reads back only the result word: acknowledge.
+		// 0x000B/0x000C/0x000F are bare status queries (adjacent wrappers
+		// 0x003410A0/0x003410D4/0x00341108, headers 0x000B0000/0x000C0000/
+		// 0x000F0000; the wrappers hand back cmdbuf[3] or cmdbuf[2]): report
+		// zeros — no adapter activity, no tag. Anything else halts loudly
+		// rather than fake a tag.
+		switch hdr.Command {
+		case 0x0001:
+			m.ipcReply(hdr.Command)
+			return true
+		case 0x000B, 0x000C, 0x000F:
+			m.ipcReply(hdr.Command, 0, 0)
+			return true
+		}
 	case "ndm", "ptm", "ac", "frd", "cecd", "boss", "nim", "mic", "csnd", "y2r":
 		// Background/optional services: acknowledge init-shaped commands so the
 		// game's optional subsystems do not stall the boot.
@@ -257,6 +283,32 @@ func (m *Machine) ipcAPT(name string, hdr ipcHeader) bool {
 		// const 0x00550040, STRB of a stacked byte into cmdbuf[1], and it reads
 		// nothing back but the result). Nothing to model: acknowledge.
 		m.ipcReply(hdr.Command)
+		return true
+	case 0x003B: // Same shape from Captain Toad's boot (wrapper 0x0011D11C:
+		// header const 0x003B0040, STRB of a stacked byte into cmdbuf[1], reply
+		// consumed is the result word only). Acknowledge.
+		m.ipcReply(hdr.Command)
+		return true
+	case 0x002B: // Bare query from Captain Toad's boot (wrapper 0x00343B48:
+		// header const 0x002B0000, no arguments, and the wrapper hands back
+		// only the result word). Acknowledge.
+		m.ipcReply(hdr.Command)
+		return true
+	case 0x002C: // The app hands APT a buffer (wrapper 0x00343994: header const
+		// 0x002C0044 — a size, a zero, a word, then a static-buffer descriptor
+		// and pointer; the capture-buffer-info shape) and consumes only the
+		// result word. Nothing to model: acknowledge.
+		m.ipcReply(hdr.Command)
+		return true
+	case 0x0044: // GetSharedFont (wrapper 0x0034394C: header const 0x00440000,
+		// no arguments; the wrapper reads the font address from cmdbuf[2] and a
+		// shared-memory-block HANDLE from cmdbuf[4] — a zero there sent the game
+		// into svcMapMemoryBlock(0)). The system font is console firmware data,
+		// not cartridge data: it is not here to hand out, and fabricating one is
+		// the garbage-handle trap again. Report failure and let the title decide
+		// whether it can live without it.
+		m.WriteWord(m.cmdBuf(), uint32(hdr.Command)<<16|1<<6)
+		m.WriteWord(m.cmdBuf()+4, 0xC8A0CFFC) // failure (bit 31 set): font not available
 		return true
 	case 0x003E: // Takes (u32, u8) and the wrapper (0x00107F28: header const
 		// 0x003E0080, STRB of a stacked byte into cmdbuf[2], then LDRPL r0 =
