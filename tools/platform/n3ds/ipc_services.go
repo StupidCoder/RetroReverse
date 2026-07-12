@@ -25,16 +25,20 @@ func (m *Machine) ipcService(name string, hdr ipcHeader) bool {
 	case "err": // fatal-error display — capture what the game is throwing
 		return m.ipcErr(hdr)
 	case "dsp":
-		// The audio component's data-register handshake. Everything else about
-		// dsp::DSP is an init-shaped command the plain ack covers, but these two
-		// are polled in a retry loop the boot cannot leave on a stale reply: the
-		// applet-resume path's audio restart (loop 0x001F9488) calls
-		// RecvDataIsReady(reg 0) and then RecvData(reg 0), and spins until that
-		// register reads 1 — the DSP's "component running" word. The wrappers
-		// (0x001F2FF4 / 0x001F3244, headers 0x00020040 / 0x00010040) take the
-		// register index in cmdbuf[1] and read the answer out of cmdbuf[2] — a
-		// byte for IsReady, a u16 for RecvData — which is exactly where ipcReply
-		// puts a returned value.
+		// The DSP is NOT modelled — see the writeup. Only the data-register
+		// handshake is answered, because Super Mario 3D Land's applet-resume path
+		// polls register 0 until it reads 1, the component's "running" word (retry
+		// loop 0x001F9488; the wrappers 0x001F2FF4 / 0x001F3244 read the answer out
+		// of cmdbuf[2] as a byte and a u16). Everything else keeps the plain ack.
+		//
+		// Deliberately NOT done: handing back a real event handle from
+		// GetSemaphoreEventHandle (0x0016). It looks like a bug fix — the plain ack
+		// leaves the game to read whatever is in the buffer as its handle — but a
+		// real handle that nothing ever signals is worse than a bogus one: the game
+		// blocks on it forever, where the bogus handle fails its wait immediately
+		// and the boot falls through. Verified: minting the handle costs SM3DL its
+		// whole render loop (4,053 command lists -> 1). The handle is only safe once
+		// there is a DSP to raise it.
 		switch hdr.Command {
 		case 0x0001: // RecvData(register) → u16
 			m.ipcReply(hdr.Command, 1)
@@ -261,6 +265,20 @@ func (m *Machine) ipcAPT(name string, hdr ipcHeader) bool {
 		// during the file-select flow. Nothing to model: acknowledge.
 		m.ipcReply(hdr.Command)
 		return true
+	case 0x0101, 0x0102: // Boolean capability queries: no arguments, and the
+		// wrapper (0x0010FC30, header 0x01010000) reads a single BYTE out of
+		// cmdbuf[2]. These are the New-3DS-class questions ("is this a New 3DS /
+		// an extended memory layout"). This machine models an ORIGINAL 3DS — one
+		// application core, the 64 MiB APPMEMALLOC budget the heap sizing assumes
+		// — so the honest answer is false. Answering true would promise a second
+		// core and a bigger budget that nothing here provides.
+		m.ipcReply(hdr.Command, 0)
+		return true
+	case 0x0055: // A one-byte setter (Captain Toad's wrapper 0x00104948: header
+		// const 0x00550040, STRB of a stacked byte into cmdbuf[1], and it reads
+		// nothing back but the result). Nothing to model: acknowledge.
+		m.ipcReply(hdr.Command)
+		return true
 	case 0x003E: // Takes (u32, u8) and the wrapper (0x00107F28: header const
 		// 0x003E0080, STRB of a stacked byte into cmdbuf[2], then LDRPL r0 =
 		// cmdbuf[1]) consumes nothing from the reply but the result code —
@@ -443,6 +461,16 @@ const (
 
 func (m *Machine) ipcFS(hdr ipcHeader) bool {
 	switch hdr.Command {
+	case 0x0861: // InitializeWithSdkVersion(version, ProcessId) — Captain Toad's
+		// wrapper (0x00114230) writes the version to cmdbuf[1] and the constant
+		// 0x20 to cmdbuf[2]: the ProcessId translate descriptor, which the kernel
+		// fills in for the caller. Reply is the result word only.
+		m.ipcReply(hdr.Command)
+		return true
+	case 0x0862, 0x0863: // SetPriority / GetPriority-shaped session setters
+		// (wrapper 0x0010EEE0, header 0x08620040: one word in, result only).
+		m.ipcReply(hdr.Command, 0)
+		return true
 	case 0x0801: // Initialize
 		m.ipcReply(hdr.Command)
 		return true
