@@ -48,64 +48,92 @@ func init() {
 
 // GE register command numbers (subset; pspsdk guInternal names).
 const (
-	cVADDR      = 0x01
-	cIADDR      = 0x02
-	cPRIM       = 0x04
-	cBEZIER     = 0x05
-	cSPLINE     = 0x06
-	cBASE       = 0x10
-	cLIGHTING   = 0x17
-	cPATCHDIV   = 0x36 // bits 0-7 u divisions per span, 8-15 v divisions
-	cPATCHPRIM  = 0x37 // 0 = triangles
-	cMATDIFFUSE = 0x56 // material diffuse RGB (the lit colour of colourless patches)
-	cVTYPE      = 0x12
-	cOFFADDR    = 0x13
-	cCULLON     = 0x1D // backface cull enable
-	cTEXENABLE  = 0x1E
-	cBLENDON    = 0x21
-	cCULLFACE   = 0x9B // which winding is the front face (0 = counter-clockwise)
-	cWORLDN     = 0x3A
-	cWORLDD     = 0x3B
-	cVIEWN      = 0x3C
-	cVIEWD      = 0x3D
-	cPROJN      = 0x3E
-	cPROJD      = 0x3F
-	cVPXSCALE   = 0x42
-	cVPYSCALE   = 0x43
-	cVPZSCALE   = 0x44
-	cVPXCENTER  = 0x45
-	cVPYCENTER  = 0x46
-	cVPZCENTER  = 0x47
-	cTEXSCALEU  = 0x48
-	cTEXSCALEV  = 0x49
-	cTEXOFFSETU = 0x4A
-	cTEXOFFSETV = 0x4B
-	cOFFSETX    = 0x4C
-	cOFFSETY    = 0x4D
-	cBLENDMODE  = 0x50
-	cMATAMBIENT = 0x55 // material ambient RGB: the vertex colour when the format carries none
-	cMATALPHA   = 0x58 // material ambient alpha
-	cTEXADDR0   = 0xA0
-	cTEXBW0     = 0xA8
-	cCLUTADDR   = 0xB0
-	cCLUTADDRH  = 0xB1
-	cTEXSIZE0   = 0xB8
-	cTEXMODE    = 0xC2 // bit 0 = swizzled, bits 16-18 = mip count
-	cTEXFORMAT  = 0xC3
-	cLOADCLUT   = 0xC4 // latches CLUT data from CLUTADDR (arg = 32-byte blocks)
-	cCLUTFORMAT = 0xC5
-	cTEXFUNC    = 0xC9
-	cFBPTR      = 0x9C
-	cFBWIDTH    = 0x9D
-	cZBPTR      = 0x9E // depth buffer pointer (VRAM offset)
-	cZBWIDTH    = 0x9F // depth buffer stride + high address bits
-	cZTESTON    = 0x23 // depth test enable
-	cFBPIXFMT   = 0xD2
-	cCLEARMODE  = 0xD3
-	cZTEST      = 0xE2 // depth test function (0 never .. 7 gequal)
-	cZMASK      = 0xE7 // depth write mask (1 = don't write z)
-	cPMSKC      = 0xE8 // pixel colour write mask (1 bits = masked out; sceGuPixelMask)
-	cPMSKA      = 0xE9 // pixel alpha write mask
+	cVADDR       = 0x01
+	cIADDR       = 0x02
+	cPRIM        = 0x04
+	cBEZIER      = 0x05
+	cSPLINE      = 0x06
+	cBASE        = 0x10
+	cLIGHTING    = 0x17
+	cPATCHDIV    = 0x36 // bits 0-7 u divisions per span, 8-15 v divisions
+	cPATCHPRIM   = 0x37 // 0 = triangles
+	cMATDIFFUSE  = 0x56 // material diffuse RGB (the lit colour of colourless patches)
+	cVTYPE       = 0x12
+	cOFFADDR     = 0x13
+	cCULLON      = 0x1D // backface cull enable
+	cTEXENABLE   = 0x1E
+	cBLENDON     = 0x21
+	cCULLFACE    = 0x9B // which winding is the front face (0 = counter-clockwise)
+	cTEXMTXN     = 0x40 // texture matrix write index
+	cTEXMTXD     = 0x41 // texture matrix element
+	cWORLDN      = 0x3A
+	cWORLDD      = 0x3B
+	cVIEWN       = 0x3C
+	cVIEWD       = 0x3D
+	cPROJN       = 0x3E
+	cPROJD       = 0x3F
+	cVPXSCALE    = 0x42
+	cVPYSCALE    = 0x43
+	cVPZSCALE    = 0x44
+	cVPXCENTER   = 0x45
+	cVPYCENTER   = 0x46
+	cVPZCENTER   = 0x47
+	cTEXSCALEU   = 0x48
+	cTEXSCALEV   = 0x49
+	cTEXOFFSETU  = 0x4A
+	cTEXOFFSETV  = 0x4B
+	cOFFSETX     = 0x4C
+	cOFFSETY     = 0x4D
+	cSHADEMODE   = 0x50 // 0 = flat, 1 = gouraud
+	cMATAMBIENT  = 0x55 // material ambient RGB: the vertex colour when the format carries none
+	cMATALPHA    = 0x58 // material ambient alpha
+	cTEXADDR0    = 0xA0
+	cTEXBW0      = 0xA8
+	cCLUTADDR    = 0xB0
+	cCLUTADDRH   = 0xB1
+	cTEXSIZE0    = 0xB8
+	cTEXMAPMODE  = 0xC0 // texcoord source: 0 = UV, 1 = texture matrix, 2 = env map
+	cTEXMODE     = 0xC2 // bit 0 = swizzled, bits 16-18 = mip count
+	cTEXFORMAT   = 0xC3
+	cLOADCLUT    = 0xC4 // latches CLUT data from CLUTADDR (arg = 32-byte blocks)
+	cCLUTFORMAT  = 0xC5
+	cTEXFILTER   = 0xC6 // min/mag filter (bit 0 of each: 1 = linear)
+	cTEXWRAP     = 0xC7 // u (bits 0-7) / v (bits 8-15) wrap: 0 = repeat, 1 = clamp
+	cTEXFUNC     = 0xC9 // bits 0-2 func, bit 8 use texture alpha, bit 16 colour double
+	cTEXENVCOL   = 0xCA
+	cTRSRC       = 0xB2 // block transfer: source address (low 24 bits)
+	cTRSRCW      = 0xB3 // source stride (bits 0-15) + high address byte (16-23)
+	cTRDST       = 0xB4
+	cTRDSTW      = 0xB5
+	cTRSRCPOS    = 0xEB // source x (bits 0-9), y (bits 10-19)
+	cTRDSTPOS    = 0xEC
+	cTRSIZE      = 0xEE // width-1 (bits 0-9), height-1 (bits 10-19)
+	cTRSTART     = 0xEA // bit 0: 0 = 16-bit pixels, 1 = 32-bit
+	cFOGON       = 0x1F
+	cFOG1        = 0xCD // fog end distance
+	cFOG2        = 0xCE // fog scale = 1/(end-start)
+	cFOGCOLOR    = 0xCF
+	cSTENCILON   = 0x24 // stencil test enable
+	cSTEST       = 0xDC // stencil test: bits 0-7 func, 8-15 ref, 16-23 mask
+	cSOP         = 0xDD // stencil ops: bits 0-7 sfail, 8-15 zfail, 16-23 zpass
+	cALPHATESTON = 0x22
+	cATEST       = 0xDB // alpha test: bits 0-2 func, 8-15 ref, 16-23 mask
+	cFBPTR       = 0x9C
+	cFBWIDTH     = 0x9D
+	cZBPTR       = 0x9E // depth buffer pointer (VRAM offset)
+	cZBWIDTH     = 0x9F // depth buffer stride + high address bits
+	cZTESTON     = 0x23 // depth test enable
+	cFBPIXFMT    = 0xD2
+	cCLEARMODE   = 0xD3
+	cSCISSOR1    = 0xD4 // scissor top-left (x bits 0-9, y bits 10-19)
+	cSCISSOR2    = 0xD5 // scissor bottom-right (inclusive)
+	cZTEST       = 0xDE // depth test function (0 never .. 7 gequal)
+	cBLENDFUNC   = 0xDF // blend: bits 0-3 src factor, 4-7 dst factor, 8-10 equation
+	cBLENDFIXA   = 0xE0 // fixed source colour (factor 10)
+	cBLENDFIXB   = 0xE1 // fixed destination colour (factor 10)
+	cZMASK       = 0xE7 // depth write mask (1 = don't write z)
+	cPMSKC       = 0xE8 // pixel colour write mask (1 bits = masked out; sceGuPixelMask)
+	cPMSKA       = 0xE9 // pixel alpha write mask
 )
 
 // geState is the render state accumulated while walking a list.
@@ -147,7 +175,31 @@ type geState struct {
 	clutFmt  uint32      // CLUTFORMAT: bits 0-1 entry format, 2-6 shift, 8-15 mask, 16-20 base
 	clut     [256]uint32 // decoded RGBA entries
 
-	blendOn bool
+	blendOn   bool
+	blendSrc  uint32 // BLENDFUNC src factor
+	blendDst  uint32 // BLENDFUNC dst factor
+	blendEq   uint32 // 0 add, 1 subtract, 2 reverse subtract, 3 min, 4 max, 5 abs
+	blendFixA uint32 // fixed colours for factor 10
+	blendFixB uint32
+
+	alphaTestOn   bool
+	alphaFunc     uint32 // 0 never, 1 always, 2 eq, 3 ne, 4 lt, 5 le, 6 gt, 7 ge
+	alphaRef      uint32
+	alphaTestMask uint32
+
+	texMapMode uint32 // 0 = UV as submitted, 1 = texture matrix, 2 = env map
+	texProjSrc uint32 // what the texture matrix transforms: 0 pos, 1 uv, 2 normalized normal, 3 normal
+	texWrapU   uint32 // 0 = repeat, 1 = clamp
+	texWrapV   uint32
+	texLinear  bool   // TEXFILTER: bilinear magnification
+	texFunc    uint32 // TEXFUNC: 0 modulate, 1 decal, 2 blend, 3 replace, 4 add
+	texUseA    bool   // TEXFUNC bit 8: sample the texture's alpha
+	texDouble  bool   // TEXFUNC bit 16: double the result (PSP's brightness trick)
+	texEnvCol  uint32 // TEXENVCOLOR (the "blend" function's constant)
+	texMtx     [16]float32
+	texMtxIdx  int
+
+	scX0, scY0, scX1, scY1 int // scissor rectangle (inclusive)
 
 	maskRGB uint32 // PMSKC: colour bits masked out of framebuffer writes
 	maskA   uint32 // PMSKA: alpha bits masked out
@@ -163,9 +215,55 @@ type geState struct {
 
 	cullOn   bool   // backface culling enabled
 	cullFace uint32 // 0 = cull clockwise (screen-space) faces
+
+	// The PSP's stencil buffer IS the framebuffer's alpha channel. Burnout uses
+	// it as a MASK: most scene geometry replaces alpha with 0x00, a few objects
+	// with 0xFF, and the post-process (the speed streaks, the bloom) reads that
+	// mask back through the downsampled render target to know where it may draw.
+	// Writing the fragment's own alpha instead let the streaks paint over the
+	// whole car as white slashes.
+	stencilOn                 bool
+	stFunc, stRef, stMask     uint32
+	stSFail, stZFail, stZPass uint32
+
+	fogOn    bool
+	fogEnd   float32
+	fogScale float32
+	fogColor uint32 // 0xBBGGRR
+
+	// GE block transfer (sceGuCopyImage): Burnout downsamples its back buffer
+	// into a 64x64 off-screen target and composites it back for the speed
+	// streaks. Never running the copy left that target holding uninitialised
+	// VRAM, which the streak quads then painted over the car as white slashes.
+	trSrc, trDst   uint32
+	trSrcStride    uint32
+	trDstStride    uint32
+	trSrcX, trSrcY uint32
+	trDstX, trDstY uint32
+	trW, trH       uint32
 }
 
 func (s *geState) zAddress() uint32 { return vramBase | (s.zHigh << 24) | s.zLow }
+
+// blockTransfer runs the GE's 2-D block copy (GE_CMD_TRANSFERSTART): a
+// rectangle of trW x trH pixels from (trSrcX, trSrcY) in the source buffer to
+// (trDstX, trDstY) in the destination, at 16 or 32 bits per pixel.
+func (m *Machine) blockTransfer(s *geState, is32 bool) {
+	if s.trSrcStride == 0 || s.trDstStride == 0 || s.trW == 0 || s.trH == 0 {
+		return
+	}
+	bpp := uint32(2)
+	if is32 {
+		bpp = 4
+	}
+	for y := uint32(0); y < s.trH; y++ {
+		src := s.trSrc + ((s.trSrcY+y)*s.trSrcStride+s.trSrcX)*bpp
+		dst := s.trDst + ((s.trDstY+y)*s.trDstStride+s.trDstX)*bpp
+		for x := uint32(0); x < s.trW*bpp; x++ {
+			m.Write(dst+x, m.Read(src+x))
+		}
+	}
+}
 
 // zPass runs the depth test for one pixel and, when it passes, writes z back
 // (unless ZMSK masks the write). Depth is 16-bit, one entry per zStride pixels.
@@ -235,11 +333,19 @@ func (m *Machine) rasterList(list GeList) {
 		s.offX, s.offY = 2048, 2048
 		s.texScaleU, s.texScaleV = 1, 1
 		s.matColor = 0xFFFFFFFF
+		// Stencil, like ZTST, is enabled once at engine init and never re-sent in
+		// a mid-run list. The game programs STENCILTEST/STENCILOP thousands of
+		// times per frame, which only means anything with the test enabled.
+		s.stencilOn = true
+		s.stFunc = 1 // always
+		s.stMask = 0xFF
 		// ZTST is programmed once at engine init, so a list captured mid-run
 		// never re-sends it. GEQUAL is what the viewport implies: Burnout maps
 		// z with scale -32767.5 / center +32767.5, i.e. near = 65535, so the
 		// nearer fragment is the one with the LARGER depth value.
 		s.zFunc = 7
+		// Scissor defaults to the whole screen; the game programs it per target.
+		s.scX1, s.scY1 = dispW-1, dispH-1
 		m.geSt = s
 	}
 	s := m.geSt
@@ -255,7 +361,7 @@ func (m *Machine) rasterList(list GeList) {
 		}
 		switch cmd {
 		case cBASE:
-			s.base = (arg << 8) & 0xFF000000
+			s.base = geBaseAddr(arg)
 		case cVADDR:
 			s.vaddr = s.base | arg
 		case cIADDR:
@@ -291,6 +397,77 @@ func (m *Machine) rasterList(list GeList) {
 			s.zFunc = arg & 7
 		case cZMASK:
 			s.zNoWrite = arg&1 != 0
+		case cTRSRC:
+			s.trSrc = (s.trSrc & 0xFF000000) | arg
+		case cTRSRCW:
+			s.trSrcStride = arg & 0xFFFF
+			s.trSrc = (s.trSrc & 0x00FFFFFF) | ((arg >> 16) & 0xFF << 24)
+		case cTRDST:
+			s.trDst = (s.trDst & 0xFF000000) | arg
+		case cTRDSTW:
+			s.trDstStride = arg & 0xFFFF
+			s.trDst = (s.trDst & 0x00FFFFFF) | ((arg >> 16) & 0xFF << 24)
+		case cTRSRCPOS:
+			s.trSrcX, s.trSrcY = arg&0x3FF, (arg>>10)&0x3FF
+		case cTRDSTPOS:
+			s.trDstX, s.trDstY = arg&0x3FF, (arg>>10)&0x3FF
+		case cTRSIZE:
+			s.trW, s.trH = (arg&0x3FF)+1, ((arg>>10)&0x3FF)+1
+		case cTRSTART:
+			m.blockTransfer(s, arg&1 != 0)
+		case cFOGON:
+			s.fogOn = arg&1 != 0
+		case cFOG1:
+			s.fogEnd = math.Float32frombits(arg << 8)
+		case cFOG2:
+			s.fogScale = math.Float32frombits(arg << 8)
+		case cFOGCOLOR:
+			s.fogColor = arg
+		case cSTENCILON:
+			s.stencilOn = arg&1 != 0
+		case cSTEST:
+			s.stFunc = arg & 7
+			s.stRef = (arg >> 8) & 0xFF
+			s.stMask = (arg >> 16) & 0xFF
+		case cSOP:
+			s.stSFail = arg & 0xFF
+			s.stZFail = (arg >> 8) & 0xFF
+			s.stZPass = (arg >> 16) & 0xFF
+		case cALPHATESTON:
+			s.alphaTestOn = arg&1 != 0
+		case cATEST:
+			s.alphaFunc = arg & 7
+			s.alphaRef = (arg >> 8) & 0xFF
+			s.alphaTestMask = (arg >> 16) & 0xFF
+		case cBLENDFUNC:
+			s.blendSrc = arg & 0xF
+			s.blendDst = (arg >> 4) & 0xF
+			s.blendEq = (arg >> 8) & 7
+		case cBLENDFIXA:
+			s.blendFixA = arg
+		case cBLENDFIXB:
+			s.blendFixB = arg
+		case cSCISSOR1:
+			s.scX0, s.scY0 = int(arg&0x3FF), int((arg>>10)&0x3FF)
+		case cSCISSOR2:
+			s.scX1, s.scY1 = int(arg&0x3FF), int((arg>>10)&0x3FF)
+		case cTEXMAPMODE:
+			s.texMapMode = arg & 3
+			s.texProjSrc = (arg >> 8) & 3
+		case cTEXWRAP:
+			s.texWrapU, s.texWrapV = arg&0xFF, (arg>>8)&0xFF
+		case cTEXFILTER:
+			s.texLinear = (arg>>8)&1 != 0 // magnification filter
+		case cTEXFUNC:
+			s.texFunc = arg & 7
+			s.texUseA = (arg>>8)&1 != 0
+			s.texDouble = (arg>>16)&1 != 0
+		case cTEXENVCOL:
+			s.texEnvCol = arg
+		case cTEXMTXN:
+			s.texMtxIdx = int(arg & 0xF)
+		case cTEXMTXD:
+			matPush(&s.texMtx, &s.texMtxIdx, arg)
 		case cFBPIXFMT:
 			s.fbFmt = arg & 3
 		case cCLEARMODE:
@@ -500,6 +677,8 @@ type vert struct {
 	r, g, b, a byte
 
 	cx, cy, cz, cw float32 // clip space (before the perspective divide)
+	invW           float32 // 1/w — the weight perspective-correct interpolation needs
+	fog            float32 // fog coefficient: 1 = unfogged, 0 = fully fogged
 	clip           bool    // clip coords are valid (non-through vertex)
 }
 
@@ -600,6 +779,41 @@ func (m *Machine) decodeVerts(s *geState, count int) []vert {
 				vv.v = vv.v*s.texScaleV + s.texOffV
 			}
 		}
+		// TEXMAPMODE 1: the texcoords are NOT the submitted UVs — they are a
+		// vertex attribute (chosen by the projection-source field) run through
+		// the texture matrix, then divided by the projected q. Burnout maps its
+		// car's reflections this way, with the NORMAL as the source: those
+		// vertices all carry the same dummy UV, so reading it gave one flat
+		// bright texel and painted white ribbons across the car.
+		if !through && s.texMapMode == 1 {
+			var sx, sy, sz float32
+			switch s.texProjSrc {
+			case 1: // the submitted texcoords
+				sx, sy, sz = vv.u, vv.v, 0
+			case 2, 3: // the normal (normalized for source 2)
+				sx, sy, sz = readNormal(m, p+offNrm, nfmt)
+				if s.texProjSrc == 2 {
+					if l := float32(math.Sqrt(float64(sx*sx + sy*sy + sz*sz))); l > 1e-8 {
+						sx, sy, sz = sx/l, sy/l, sz/l
+					}
+				}
+			default: // the model position
+				sx, sy, sz = readPos(m, p+offPos, pfmt)
+				switch pfmt {
+				case 1:
+					sx, sy, sz = sx/128, sy/128, sz/128
+				case 2:
+					sx, sy, sz = sx/32768, sy/32768, sz/32768
+				}
+			}
+			tu := s.texMtx[0]*sx + s.texMtx[4]*sy + s.texMtx[8]*sz + s.texMtx[12]
+			tv := s.texMtx[1]*sx + s.texMtx[5]*sy + s.texMtx[9]*sz + s.texMtx[13]
+			tq := s.texMtx[2]*sx + s.texMtx[6]*sy + s.texMtx[10]*sz + s.texMtx[14]
+			if tq > 1e-6 || tq < -1e-6 {
+				tu, tv = tu/tq, tv/tq
+			}
+			vv.u, vv.v = tu, tv
+		}
 		if cfmt != 0 {
 			vv.r, vv.g, vv.b, vv.a = readColor(m, p+offCol, cfmt)
 		} else {
@@ -623,6 +837,8 @@ func (m *Machine) decodeVerts(s *geState, count int) []vert {
 			vv.cx, vv.cy, vv.cz, vv.cw = clipCoords(mvp, px, py, pz)
 			vv.clip = true
 			vv.x, vv.y, vv.z = project(s, vv.cx, vv.cy, vv.cz, vv.cw)
+			vv.invW = invW(vv.cw)
+			vv.fog = fogCoef(s, vv.cw)
 		}
 		out = append(out, vv)
 		addr += stride
@@ -665,6 +881,20 @@ func readColor(m *Machine, p, fmt uint32) (byte, byte, byte, byte) {
 	}
 }
 
+// readNormal reads a vertex normal; like positions, the fixed-point forms are
+// fractional (s8/128, s16/32768).
+func readNormal(m *Machine, p, fmt uint32) (float32, float32, float32) {
+	switch fmt {
+	case 1: // s8
+		return float32(int8(m.Read(p))) / 128, float32(int8(m.Read(p+1))) / 128, float32(int8(m.Read(p+2))) / 128
+	case 2: // s16
+		return float32(int16(u16(m, p))) / 32768, float32(int16(u16(m, p+2))) / 32768, float32(int16(u16(m, p+4))) / 32768
+	case 3:
+		return f32(m, p), f32(m, p+4), f32(m, p+8)
+	}
+	return 0, 0, 0
+}
+
 func readPos(m *Machine, p, fmt uint32) (float32, float32, float32) {
 	switch fmt {
 	case 1: // s8
@@ -694,6 +924,27 @@ func project(s *geState, cx, cy, cz, cw float32) (float32, float32, float32) {
 	sy := ny*s.vpYS + s.vpYC - s.offY
 	sz := nz*s.vpZS + s.vpZC
 	return sx, sy, sz
+}
+
+// fogCoef computes the per-vertex fog coefficient from the view-space depth
+// (the clip w): 1 where the vertex is nearer than the fog start, falling to 0
+// at the fog end. Burnout fogs its city to a pale blue-grey; without it the
+// distance stays flat black.
+func fogCoef(s *geState, w float32) float32 {
+	if !s.fogOn {
+		return 1
+	}
+	f := (s.fogEnd - w) * s.fogScale
+	return clampF(f, 0, 1)
+}
+
+// invW returns 1/w, the weight that makes texture interpolation
+// perspective-correct. Through-mode vertices (w unset) get 1.
+func invW(w float32) float32 {
+	if w == 0 {
+		return 1
+	}
+	return 1 / w
 }
 
 // wNear is the near-plane epsilon in clip space: a vertex at or behind the eye
@@ -746,6 +997,8 @@ func lerpVert(s *geState, p, q vert, t float32) vert {
 	v.u, v.v = li(p.u, q.u), li(p.v, q.v)
 	v.r, v.g, v.b, v.a = lb(p.r, q.r), lb(p.g, q.g), lb(p.b, q.b), lb(p.a, q.a)
 	v.x, v.y, v.z = project(s, v.cx, v.cy, v.cz, v.cw)
+	v.invW = invW(v.cw)
+	v.fog = fogCoef(s, v.cw)
 	return v
 }
 

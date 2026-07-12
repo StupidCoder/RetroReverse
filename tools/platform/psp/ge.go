@@ -63,7 +63,7 @@ func (m *Machine) captureList(addr uint32) GeList {
 		seen++
 		switch cmd {
 		case geBASE:
-			base = (arg << 8) & 0xFF000000
+			base = geBaseAddr(arg)
 		case geJUMP:
 			pc = (base | (arg & 0x00FFFFFF)) &^ 3
 		case geCALL:
@@ -85,6 +85,15 @@ func (m *Machine) captureList(addr uint32) GeList {
 	}
 	return out
 }
+
+// geBaseAddr decodes the BASE register: it supplies the high address bits for
+// the 24-bit addresses in VADDR/IADDR/JUMP/CALL, but the GE only implements
+// bits 16-19 of the argument (address bits 24-27) — the memory map never goes
+// higher. Burnout sends BASE 0x480000 for geometry streamed into the volatile
+// block; taking the 0x40 literally addressed 0x484038FC (nowhere) instead of
+// 0x084038FC, so every primitive drawn out of the streaming buffers read
+// garbage vertices.
+func geBaseAddr(arg uint32) uint32 { return (arg & 0x000F0000) << 8 }
 
 // execGeList executes a captured display list into the framebuffer (ge_raster.go).
 func (m *Machine) execGeList(list GeList) { m.rasterList(list) }

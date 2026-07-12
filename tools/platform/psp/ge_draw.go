@@ -4,7 +4,10 @@ package psp
 // colour interpolation, optional texture modulation, and CLEAR-mode solid fills,
 // writing pixels into the framebuffer in its PSP pixel format.
 
-import "fmt"
+import (
+	"fmt"
+	"math"
+)
 
 // rasterTriClipped clips a triangle against the near plane, then rasterizes the
 // pieces that survive.
@@ -56,9 +59,25 @@ func (m *Machine) rasterTri(s *geState, a, b, c vert) {
 			bl := byte(l0*float32(a.b) + l1*float32(b.b) + l2*float32(c.b))
 			al := byte(l0*float32(a.a) + l1*float32(b.a) + l2*float32(c.a))
 			if s.texEnable && !s.clearOn {
-				u := l0*a.u + l1*b.u + l2*c.u
-				v := l0*a.v + l1*b.v + l2*c.v
+				// Texcoords interpolate PERSPECTIVE-CORRECTLY: weight each by
+				// 1/w, interpolate those linearly in screen space, then divide
+				// back. Interpolating u,v directly (affine) is what warps a
+				// surface receding to the horizon — the road was swimming.
+				var u, v float32
+				if a.clip {
+					iw := l0*a.invW + l1*b.invW + l2*c.invW
+					if iw != 0 {
+						u = (l0*a.u*a.invW + l1*b.u*b.invW + l2*c.u*c.invW) / iw
+						v = (l0*a.v*a.invW + l1*b.v*b.invW + l2*c.v*c.invW) / iw
+					}
+				} else {
+					u = l0*a.u + l1*b.u + l2*c.u
+					v = l0*a.v + l1*b.v + l2*c.v
+				}
 				r, g, bl, al = modTex(m, s, u, v, r, g, bl, al)
+			}
+			if s.fogOn && a.clip && !s.clearOn {
+				r, g, bl = applyFog(s, l0*a.fog+l1*b.fog+l2*c.fog, r, g, bl)
 			}
 			m.putPixel(s, x, y, r, g, bl, al)
 		}
@@ -94,28 +113,144 @@ func (m *Machine) rasterSprite(s *geState, a, b vert) {
 				v := v0 + (v1-v0)*(float32(y-y0)/dh)
 				r, g, bl, al = modTex(m, s, u, v, r, g, bl, al)
 			}
+			if s.fogOn && b.clip && !s.clearOn {
+				r, g, bl = applyFog(s, b.fog, r, g, bl)
+			}
 			m.putPixel(s, x, y, r, g, bl, al)
 		}
 	}
 }
 
-// modTex samples the bound texture at (u,v) and modulates it with the vertex colour.
-// Texcoords are normalized (0..1) in transformed mode, or absolute in through mode;
-// this handles the normalized case (the common one) and falls back to absolute.
+// applyFog mixes the fragment towards the fog colour (0xBBGGRR) by the
+// interpolated fog coefficient.
+func applyFog(s *geState, f float32, r, g, b byte) (byte, byte, byte) {
+	f = clampF(f, 0, 1)
+	fr, fg, fb := float32(byte(s.fogColor)), float32(byte(s.fogColor>>8)), float32(byte(s.fogColor>>16))
+	mix := func(c, fc float32) byte { return byte(c*f + fc*(1-f)) }
+	return mix(float32(r), fr), mix(float32(g), fg), mix(float32(b), fb)
+}
+
+// wrapTexel folds an integer texel coordinate per the TEXWRAP mode.
+func wrapTexel(i int, size uint32, clamp uint32) uint32 {
+	if clamp != 0 {
+		if i < 0 {
+			i = 0
+		}
+		if i > int(size)-1 {
+			i = int(size) - 1
+		}
+		return uint32(i)
+	}
+	i &= int(size - 1)
+	if i < 0 {
+		i += int(size)
+	}
+	return uint32(i)
+}
+
+// modTex samples the bound texture at (u,v) and combines it with the vertex
+// colour per TEXFUNC. Texcoords are normalized (0..1) in transformed mode, or
+// absolute in through mode. TEXWRAP decides repeat vs clamp per axis.
 func modTex(m *Machine, s *geState, u, v float32, r, g, b, a byte) (byte, byte, byte, byte) {
 	if s.texW == 0 || s.texH == 0 || s.texAddr == 0 {
 		return r, g, b, a
 	}
-	tx := int(u*float32(s.texW)) & int(s.texW-1)
-	ty := int(v*float32(s.texH)) & int(s.texH-1)
-	if tx < 0 {
-		tx += int(s.texW)
+	wrap := func(t float32, size uint32, clamp uint32) uint32 {
+		i := int(t * float32(size))
+		if clamp != 0 {
+			// CLAMP: the last texel is smeared outward. Repeating a clamped
+			// texture is what smeared road markings across the lanes.
+			if i < 0 {
+				i = 0
+			}
+			if i > int(size)-1 {
+				i = int(size) - 1
+			}
+			return uint32(i)
+		}
+		i &= int(size - 1)
+		if i < 0 {
+			i += int(size)
+		}
+		return uint32(i)
 	}
-	if ty < 0 {
-		ty += int(s.texH)
+	var tr, tg, tb, ta byte
+	if s.texLinear {
+		// TEXFILTER linear: bilinear blend of the four neighbouring texels. The
+		// game asks for it on nearly every 3-D primitive; sampling nearest left
+		// the road and car surfaces harshly blocky.
+		fu := u*float32(s.texW) - 0.5
+		fv := v*float32(s.texH) - 0.5
+		fx := fu - float32(math.Floor(float64(fu)))
+		fy := fv - float32(math.Floor(float64(fv)))
+		u0 := wrapTexel(int(math.Floor(float64(fu))), s.texW, s.texWrapU)
+		v0 := wrapTexel(int(math.Floor(float64(fv))), s.texH, s.texWrapV)
+		u1 := wrapTexel(int(math.Floor(float64(fu)))+1, s.texW, s.texWrapU)
+		v1 := wrapTexel(int(math.Floor(float64(fv)))+1, s.texH, s.texWrapV)
+		r00, g00, b00, a00 := m.sampleTex(s, u0, v0)
+		r10, g10, b10, a10 := m.sampleTex(s, u1, v0)
+		r01, g01, b01, a01 := m.sampleTex(s, u0, v1)
+		r11, g11, b11, a11 := m.sampleTex(s, u1, v1)
+		lerp := func(c00, c10, c01, c11 byte) byte {
+			top := float32(c00)*(1-fx) + float32(c10)*fx
+			bot := float32(c01)*(1-fx) + float32(c11)*fx
+			return byte(top*(1-fy) + bot*fy)
+		}
+		tr, tg, tb, ta = lerp(r00, r10, r01, r11), lerp(g00, g10, g01, g11),
+			lerp(b00, b10, b01, b11), lerp(a00, a10, a01, a11)
+	} else {
+		tr, tg, tb, ta = m.sampleTex(s, wrap(u, s.texW, s.texWrapU), wrap(v, s.texH, s.texWrapV))
 	}
-	tr, tg, tb, ta := m.sampleTex(s, uint32(tx), uint32(ty))
-	return mul8(tr, r), mul8(tg, g), mul8(tb, b), mul8(ta, a)
+
+	var or, og, ob, oa byte
+	switch s.texFunc {
+	case 1: // decal: texture replaces by its alpha
+		if s.texUseA {
+			or = byte((uint32(r)*(255-uint32(ta)) + uint32(tr)*uint32(ta)) / 255)
+			og = byte((uint32(g)*(255-uint32(ta)) + uint32(tg)*uint32(ta)) / 255)
+			ob = byte((uint32(b)*(255-uint32(ta)) + uint32(tb)*uint32(ta)) / 255)
+			oa = a
+		} else {
+			or, og, ob, oa = tr, tg, tb, a
+		}
+	case 2: // blend: mix vertex and env colour by the texel, per TEXENVCOLOR
+		er, eg, eb := byte(s.texEnvCol), byte(s.texEnvCol>>8), byte(s.texEnvCol>>16)
+		mix := func(c, e, t byte) byte {
+			return byte((uint32(c)*(255-uint32(t)) + uint32(e)*uint32(t)) / 255)
+		}
+		or, og, ob = mix(r, er, tr), mix(g, eg, tg), mix(b, eb, tb)
+		oa = a
+		if s.texUseA {
+			oa = mul8(ta, a)
+		}
+	case 3: // replace
+		or, og, ob = tr, tg, tb
+		oa = a
+		if s.texUseA {
+			oa = ta
+		}
+	case 4: // add
+		or, og, ob = clamp255(int32(r)+int32(tr)), clamp255(int32(g)+int32(tg)), clamp255(int32(b)+int32(tb))
+		oa = a
+		if s.texUseA {
+			oa = mul8(ta, a)
+		}
+	default: // 0: modulate
+		or, og, ob = mul8(tr, r), mul8(tg, g), mul8(tb, b)
+		oa = a
+		if s.texUseA {
+			oa = mul8(ta, a)
+		}
+	}
+	if s.texDouble {
+		// TEXFUNC bit 16: the PSP doubles the textured result. Games lean on it
+		// to get back the headroom that modulating by a mid-grey material costs;
+		// ignoring it renders everything at half brightness.
+		or = clamp255(int32(or) * 2)
+		og = clamp255(int32(og) * 2)
+		ob = clamp255(int32(ob) * 2)
+	}
+	return or, og, ob, oa
 }
 
 // sampleTex reads one texel from the bound texture: the direct formats
@@ -187,11 +322,153 @@ func decode16a(p uint16, fmt uint32) (byte, byte, byte, byte) {
 	}
 }
 
-// putPixel writes an RGBA pixel into the framebuffer in its PSP format. With
-// alpha blending enabled (and outside clear mode) the source is mixed over the
-// destination by source alpha — the src-alpha/one-minus-src-alpha rule the
-// game's UI lists set up.
+// stencilPass runs the stencil test against the destination alpha (which IS the
+// PSP's stencil buffer) and returns whether the fragment survives, plus the
+// stencil value to store. Only the pass/sfail paths arise here: the depth test
+// has already run, so a fragment reaching this point never takes the zfail op.
+func (s *geState) stencilPass(dstA byte) (bool, byte) {
+	if !s.stencilOn || s.clearOn {
+		return true, dstA
+	}
+	ref := s.stRef & s.stMask
+	cur := uint32(dstA) & s.stMask
+	pass := false
+	switch s.stFunc {
+	case 0: // never
+	case 1: // always
+		pass = true
+	case 2:
+		pass = ref == cur
+	case 3:
+		pass = ref != cur
+	case 4:
+		pass = ref < cur
+	case 5:
+		pass = ref <= cur
+	case 6:
+		pass = ref > cur
+	default:
+		pass = ref >= cur
+	}
+	op := s.stSFail
+	if pass {
+		op = s.stZPass
+	}
+	return pass, stencilOp(op, dstA, byte(s.stRef))
+}
+
+// stencilOp applies one stencil operation to the stored value.
+func stencilOp(op uint32, cur, ref byte) byte {
+	switch op {
+	case 1: // zero
+		return 0
+	case 2: // replace with the reference
+		return ref
+	case 3: // invert
+		return ^cur
+	case 4: // increment (saturating)
+		if cur < 0xFF {
+			return cur + 1
+		}
+		return 0xFF
+	case 5: // decrement (saturating)
+		if cur > 0 {
+			return cur - 1
+		}
+		return 0
+	default: // keep
+		return cur
+	}
+}
+
+// alphaPass runs the alpha test (ATE/ATST). Burnout alpha-tests its decals,
+// windows and foliage; without it their transparent texels paint solid, which
+// is what put stray triangles across the car.
+func (s *geState) alphaPass(a byte) bool {
+	if !s.alphaTestOn || s.clearOn {
+		return true
+	}
+	src := uint32(a) & s.alphaTestMask
+	ref := s.alphaRef & s.alphaTestMask
+	switch s.alphaFunc {
+	case 0:
+		return false
+	case 1:
+		return true
+	case 2:
+		return src == ref
+	case 3:
+		return src != ref
+	case 4:
+		return src < ref
+	case 5:
+		return src <= ref
+	case 6:
+		return src > ref
+	default:
+		return src >= ref
+	}
+}
+
+// blendFactor evaluates one PSP blend factor against the source and destination
+// colours (per channel).
+func blendFactor(f uint32, sc, sa, da byte, fix uint32, ch int) uint32 {
+	fixCh := byte(fix >> (8 * ch))
+	switch f {
+	case 0: // source colour
+		return uint32(sc)
+	case 1: // one minus source colour
+		return 255 - uint32(sc)
+	case 2: // source alpha
+		return uint32(sa)
+	case 3: // one minus source alpha
+		return 255 - uint32(sa)
+	case 4: // destination alpha
+		return uint32(da)
+	case 5: // one minus destination alpha
+		return 255 - uint32(da)
+	case 6: // double source alpha
+		return min32(2*uint32(sa), 255)
+	case 7: // one minus double source alpha
+		return 255 - min32(2*uint32(sa), 255)
+	case 8: // double destination alpha
+		return min32(2*uint32(da), 255)
+	case 9: // one minus double destination alpha
+		return 255 - min32(2*uint32(da), 255)
+	default: // 10: fixed colour
+		return uint32(fixCh)
+	}
+}
+
+func min32(a, b uint32) uint32 {
+	if a < b {
+		return a
+	}
+	return b
+}
+
+func clamp255(v int32) byte {
+	if v < 0 {
+		return 0
+	}
+	if v > 255 {
+		return 255
+	}
+	return byte(v)
+}
+
+// putPixel writes an RGBA pixel into the framebuffer in its PSP format, running
+// the alpha test, the blend equation (ALPHA/BLENDFIX: the game uses several
+// factor pairs, not just src-alpha), and the pixel write masks.
 func (m *Machine) putPixel(s *geState, x, y int, r, g, b, a byte) {
+	// Scissor: the game restricts drawing to a rectangle (its off-screen targets
+	// are smaller than the screen).
+	if !s.clearOn && (x < s.scX0 || x > s.scX1 || y < s.scY0 || y > s.scY1) && s.scX1 > 0 {
+		return
+	}
+	if !s.alphaPass(a) {
+		return
+	}
 	base := s.fbAddress()
 	stride := s.fbStride
 	if stride == 0 {
@@ -199,20 +476,49 @@ func (m *Machine) putPixel(s *geState, x, y int, r, g, b, a byte) {
 	}
 	off := uint32(y)*stride + uint32(x)
 	if x == geProbeX && y == geProbeY {
-		fmt.Printf("PIXEL(%d,%d) prim#%d rgba=%02X%02X%02X%02X fb=%08X clear=%v blend=%v tex=%v@%08X f%d clut@%08X mat=%08X\n",
-			x, y, gePrimSeq, r, g, b, a, base, s.clearOn, s.blendOn,
-			s.texEnable, s.texAddr, s.texFmt, s.clutAddr, s.matColor)
+		fmt.Printf("PIXEL(%d,%d) prim#%d rgba=%02X%02X%02X%02X fb=%08X fmt%d clear=%v blend=%v(%d,%d,%d fixA=%06X fixB=%06X) atest=%v tex=%v@%08X f%d fn%d dbl=%v lin=%v clut@%08X mat=%08X\n",
+			x, y, gePrimSeq, r, g, b, a, base, s.fbFmt, s.clearOn, s.blendOn, s.blendSrc, s.blendDst, s.blendEq,
+			s.blendFixA, s.blendFixB,
+			s.alphaTestOn, s.texEnable, s.texAddr, s.texFmt, s.texFunc, s.texDouble, s.texLinear, s.clutAddr, s.matColor)
 	}
-	if s.blendOn && !s.clearOn && a < 0xFF {
-		if a == 0 {
-			return
+	// Stencil test against the destination alpha (the PSP's stencil buffer), and
+	// the stencil value the fragment stores back there if it survives.
+	stPass, stVal := s.stencilPass(m.dstAlpha(s, base, off))
+	if !stPass {
+		if !s.clearOn {
+			m.storeAlpha(s, base, off, stVal)
 		}
-		dr, dg, db := m.dstPixel(s, base, off)
-		mix := func(sc, dc byte) byte {
-			return byte((uint32(sc)*uint32(a) + uint32(dc)*uint32(255-a)) / 255)
+		return
+	}
+	// The fragment's own alpha still drives blending; only the value STORED in
+	// the alpha channel is the stencil result.
+	outA := a
+	if s.stencilOn && !s.clearOn {
+		outA = stVal
+	}
+	if s.blendOn && !s.clearOn {
+		dr, dg, db, da := m.dstPixel4(s, base, off)
+		ch := func(sc, dc byte, i int) byte {
+			sf := blendFactor(s.blendSrc, sc, a, da, s.blendFixA, i)
+			df := blendFactor(s.blendDst, sc, a, da, s.blendFixB, i)
+			sv := int32(uint32(sc) * sf / 255)
+			dv := int32(uint32(dc) * df / 255)
+			switch s.blendEq {
+			case 1: // subtract
+				return clamp255(sv - dv)
+			case 2: // reverse subtract
+				return clamp255(dv - sv)
+			case 3: // min
+				return clamp255(minI32(int32(sc), int32(dc)))
+			case 4: // max
+				return clamp255(maxI32(int32(sc), int32(dc)))
+			case 5: // absolute difference
+				return clamp255(absI32(int32(sc) - int32(dc)))
+			default: // add
+				return clamp255(sv + dv)
+			}
 		}
-		r, g, b = mix(r, dr), mix(g, dg), mix(b, db)
-		a = 0xFF
+		r, g, b = ch(r, dr, 0), ch(g, dg, 1), ch(b, db, 2)
 	}
 	if s.maskRGB != 0 || s.maskA != 0 {
 		// PMSKC/PMSKA: framebuffer bits with a 1 in the mask keep their old value.
@@ -225,8 +531,13 @@ func (m *Machine) putPixel(s *geState, x, y int, r, g, b, a byte) {
 		r = r&^mr | dr&mr
 		g = g&^mg | dg&mg
 		b = b&^mb | db&mb
-		a = a&^ma | da&ma
+		outA = outA&^ma | da&ma
 	}
+	m.storePixel(s, base, off, r, g, b, outA)
+}
+
+// storePixel writes one pixel to the render target in its PSP format.
+func (m *Machine) storePixel(s *geState, base, off uint32, r, g, b, a byte) {
 	switch s.fbFmt {
 	case psm8888:
 		m.write32(base+off*4, uint32(r)|uint32(g)<<8|uint32(b)<<16|uint32(a)<<24)
@@ -247,6 +558,19 @@ func (m *Machine) putPixel(s *geState, x, y int, r, g, b, a byte) {
 		m.Write(addr, byte(p))
 		m.Write(addr+1, byte(p>>8))
 	}
+}
+
+// dstAlpha reads the destination alpha — the PSP's stencil buffer.
+func (m *Machine) dstAlpha(s *geState, base, off uint32) byte {
+	_, _, _, a := m.dstPixel4(s, base, off)
+	return a
+}
+
+// storeAlpha updates only the stencil (alpha) channel, for a fragment that
+// failed the stencil test but still applies its sfail operation.
+func (m *Machine) storeAlpha(s *geState, base, off uint32, a byte) {
+	r, g, b, _ := m.dstPixel4(s, base, off)
+	m.storePixel(s, base, off, r, g, b, a)
 }
 
 // dstPixel reads back the render-target pixel at linear offset off (for blending).
@@ -292,4 +616,25 @@ func clampI(v, lo, hi int) int {
 		return hi
 	}
 	return v
+}
+
+func minI32(a, b int32) int32 {
+	if a < b {
+		return a
+	}
+	return b
+}
+
+func maxI32(a, b int32) int32 {
+	if a > b {
+		return a
+	}
+	return b
+}
+
+func absI32(a int32) int32 {
+	if a < 0 {
+		return -a
+	}
+	return a
 }
