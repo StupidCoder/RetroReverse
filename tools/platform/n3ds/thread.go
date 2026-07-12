@@ -213,6 +213,8 @@ func (m *Machine) setResult(t *thread, reg int, v uint32) {
 // instrument (bootoracle -threads).
 func (m *Machine) DumpThreads() {
 	m.dumpThreads()
+	fmt.Printf("dsp: componentLoaded=%v state=%d semEvent=0x%08X nextFrame=%d (instrs=%d)\n",
+		m.dsp.ComponentLoaded, m.dsp.State, m.dsp.SemEvent, m.dsp.NextFrame, m.instrs)
 	fmt.Printf("handles:\n")
 	for h, o := range m.handles {
 		extra := ""

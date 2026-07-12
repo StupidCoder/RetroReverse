@@ -407,16 +407,18 @@ func (m *Machine) dspTick() {
 			m.dspWriteStatus(i, write)
 		}
 		m.WriteWord(write+dspOffDSPStatus, 0) // DspStatus: unknown, dropped_frames
+
+		// The audio frame IS the pipe-2 interrupt: that is the event the app's
+		// sound thread blocks on, and it is the one it hands to
+		// RegisterInterruptEvents. Captain Toad makes that unmissable — it
+		// registers an event, unregisters it, then registers a *different* one
+		// (0x54) and waits on exactly that handle forever. Do not "tidy" this
+		// signal away: without it the sound thread never wakes, and because that
+		// same thread is the engine's resource-loader producer, the whole scene
+		// build deadlocks behind it (its stage-init worker waits on a job whose
+		// worker waits on a load that never arrives).
+		m.dspSignalInterrupt(dspIntPipe, dspPipeAudio)
 	}
-	// The per-frame heartbeat is the SEMAPHORE alone. Pipe interrupts accompany
-	// actual pipe messages (the Initialize reply above) — raising one per frame
-	// with no data made Captain Toad's sound thread process TWO "frames" per
-	// DSP frame (region counters 2200 vs ~1000 real frames): its per-source
-	// command drain demands an exact sync-count echo, the double-paced app
-	// bumped the count twice per DSP consumption, the echo skipped the expected
-	// value, and the un-drained command queue eventually self-corrupted (a
-	// recycled voice node appended twice → next-pointer cycle → the sound
-	// thread spins forever and starves the whole game).
 	if m.dsp.SemEvent != 0 {
 		m.dspSignalHandle(m.dsp.SemEvent)
 	}

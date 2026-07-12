@@ -43,10 +43,16 @@ func (m *Machine) consume(obj *kobject, t *thread) {
 }
 
 // svcWaitSync1 blocks the current thread on one object until it is signalled.
-// r0 = handle, r1:r2 = s64 timeout ns.
+// r0 = handle, **r2:r3** = s64 timeout ns — the 64-bit value is register-pair
+// aligned, so it skips r1 (every one of the game's 33 call sites sets r2/r3 and
+// leaves r1 holding whatever was there before). Reading it from r1:r2 mostly
+// "worked", because an infinite wait (-1) still came out non-zero — but a
+// *try-wait* (timeout 0, which the game writes as MOV r2,#0; MOV r3,r2) then
+// read garbage from r1, looked like a long timeout, and blocked forever instead
+// of returning TIMEOUT at once.
 func (m *Machine) svcWaitSync1(c *arm.CPU) {
 	handle := c.R[0]
-	timeoutNs := int64(uint64(c.R[1]) | uint64(c.R[2])<<32)
+	timeoutNs := int64(uint64(c.R[2]) | uint64(c.R[3])<<32)
 	obj := m.handles[handle]
 	if obj == nil {
 		c.R[0] = resultTimeout // unknown handle: fail the wait rather than block forever

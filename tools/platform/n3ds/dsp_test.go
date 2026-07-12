@@ -192,17 +192,16 @@ func TestDSPStateMachine(t *testing.T) {
 	}
 	m.handles[ev].signal = false
 
-	// The per-frame heartbeat is the SEMAPHORE, and only the semaphore. A pipe
-	// interrupt means "there is a pipe message to read" — raising one every
-	// frame makes an app that counts signals run its audio frame twice per DSP
-	// frame (Captain Toad: its sync-count handshake then never re-matches and
-	// its voice-command list corrupts).
+	// Each audio frame raises BOTH the pipe-2 interrupt and the frame semaphore.
+	// The pipe interrupt is the one that matters: it is the event the app's sound
+	// thread blocks on (Captain Toad registers it, unregisters it, registers a
+	// second one, and waits on that handle forever).
 	m.instrs += dspFrameTicks
 	m.dspTick()
 	if !m.handles[sem].signal {
 		t.Fatal("pipeline On: each audio frame must raise the frame semaphore")
 	}
-	if m.handles[ev].signal {
-		t.Fatal("an audio frame carries no pipe message: it must NOT raise the pipe interrupt")
+	if !m.handles[ev].signal {
+		t.Fatal("pipeline On: each audio frame must raise the pipe-2 interrupt — the event the sound thread waits on")
 	}
 }

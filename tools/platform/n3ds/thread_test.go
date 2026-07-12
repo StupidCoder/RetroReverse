@@ -64,7 +64,7 @@ func TestEventWaitSignal(t *testing.T) {
 	h := m.newHandle("event", false) // auto-reset, not signalled
 
 	// Main waits on the unsignalled event → it blocks.
-	m.CPU.R[0], m.CPU.R[1], m.CPU.R[2] = h, 1, 0 // handle, timeout ns = 1 (nonzero)
+	m.CPU.R[0], m.CPU.R[2], m.CPU.R[3] = h, 1, 0 // handle, timeout ns = 1 in r2:r3 (the real ABI)
 	m.svcWaitSync1(m.CPU)
 	if m.curThread.state != waiting || !m.reschedule {
 		t.Fatalf("wait on an unsignalled event did not block (state %v)", m.curThread.state)
@@ -95,7 +95,7 @@ func TestMutexMutualExclusion(t *testing.T) {
 	h := m.newHandle("mutex", false)
 
 	// Main acquires the mutex (WaitSync1 on a free mutex).
-	m.CPU.R[0], m.CPU.R[1], m.CPU.R[2] = h, 0, 0
+	m.CPU.R[0], m.CPU.R[2], m.CPU.R[3] = h, 0, 0 // timeout 0: a try-wait must not block
 	m.svcWaitSync1(m.CPU)
 	if m.handles[h].mutexOwner != m.curThread.id {
 		t.Fatalf("mutex not owned after acquire")
@@ -103,7 +103,7 @@ func TestMutexMutualExclusion(t *testing.T) {
 
 	// `other` tries to acquire → it blocks.
 	m.curThread = other
-	m.CPU.R[0], m.CPU.R[1], m.CPU.R[2] = h, 1, 0
+	m.CPU.R[0], m.CPU.R[2], m.CPU.R[3] = h, 1, 0
 	m.svcWaitSync1(m.CPU)
 	if other.state != waiting {
 		t.Fatalf("second acquirer did not block on a held mutex")
@@ -131,7 +131,7 @@ func TestSemaphoreFanOut(t *testing.T) {
 	// Two threads wait on the empty semaphore.
 	for _, tr := range []*thread{a, b} {
 		m.curThread = tr
-		m.CPU.R[0], m.CPU.R[1], m.CPU.R[2] = h, 1, 0
+		m.CPU.R[0], m.CPU.R[2], m.CPU.R[3] = h, 1, 0
 		m.svcWaitSync1(m.CPU)
 		if tr.state != waiting {
 			t.Fatalf("thread %d did not block on the empty semaphore", tr.id)
