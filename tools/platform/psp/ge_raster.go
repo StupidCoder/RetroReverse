@@ -23,6 +23,16 @@ var geDebugN, _ = strconv.Atoi(os.Getenv("PSP_GE_DEBUG"))
 var geCullFlip = os.Getenv("PSP_GE_CULLFLIP") != ""
 var geNoCull = os.Getenv("PSP_GE_NOCULL") != ""
 
+// geNoZ: set PSP_GE_NOZ=1 to bypass the depth test (a bisection aid).
+var geNoZ = os.Getenv("PSP_GE_NOZ") != ""
+
+// geOnlyTex / geOnlyVA: set PSP_GE_ONLYTEX=<hex texaddr> or PSP_GE_ONLYVA=<hex
+// prefix> to draw ONLY primitives bound to that texture / reading vertices from
+// that 64 KiB region — isolates one object's geometry from everything drawn
+// over it.
+var geOnlyTex, _ = strconv.ParseUint(os.Getenv("PSP_GE_ONLYTEX"), 16, 32)
+var geOnlyVA, _ = strconv.ParseUint(os.Getenv("PSP_GE_ONLYVA"), 16, 32)
+
 // gePixelProbe: set PSP_GE_PIXEL=x,y to log every PRIM that writes that pixel
 // (prim sequence number, render state, colour written). Correlate the seq
 // numbers with the PSP_GE_DEBUG PRIM lines to find which draw owns a pixel.
@@ -296,7 +306,7 @@ func (m *Machine) zPass(s *geState, x, y int, z float32) bool {
 		}
 		return true
 	}
-	if !s.zTestOn {
+	if !s.zTestOn || geNoZ {
 		return true
 	}
 	old := uint32(u16(m, addr))
@@ -669,7 +679,30 @@ func (m *Machine) drawPrim(s *geState, arg uint32) {
 			s.texW, s.texH, s.clutAddr, s.matColor,
 			s.world[12], s.world[13], s.world[14], v0.x, v0.y, v0.z, v0.u, v0.v)
 	}
+	if geOnlyTex != 0 && uint64(s.texAddr) != geOnlyTex {
+		return
+	}
+	if geOnlyVA != 0 && uint64(s.vaddr)>>16 != geOnlyVA>>16 {
+		return
+	}
 	verts := m.decodeVerts(s, count)
+
+	// THE GE CONSUMES VERTICES: its vertex pointer advances by the vertices a
+	// primitive reads, so a mesh submitted as a run of PRIMs sets VADDR once and
+	// every following PRIM continues where the last left off. Burnout draws its
+	// cars that way — 10,416 primitives a frame behind a single VADDR. Re-reading
+	// from the same address each time drew the mesh's first strip over and over
+	// (the diagonal slashes across the car) and never drew the rest of it (the
+	// missing half). Indexed primitives advance the INDEX pointer instead; the
+	// vertex base stays put.
+	if l := layoutOf(s.vtype); l.stride != 0 {
+		if l.idxFmt != 0 {
+			s.iaddr += uint32(count) * l.idxFmt // idxFmt 1 = u8, 2 = u16
+		} else {
+			s.vaddr += uint32(count) * l.stride
+		}
+	}
+
 	if len(verts) < 1 {
 		return
 	}
@@ -718,33 +751,41 @@ func (v vert) through() bool { return !v.clip }
 
 // decodeVerts reads count vertices from s.vaddr per the vertex type, applying the
 // transform (world*view*proj*viewport) for non-through primitives.
-func (m *Machine) decodeVerts(s *geState, count int) []vert {
-	tfmt := s.vtype & 3
-	cfmt := (s.vtype >> 2) & 7
-	nfmt := (s.vtype >> 5) & 3
-	pfmt := (s.vtype >> 7) & 3
-	wfmt := (s.vtype >> 9) & 3
-	idxFmt := (s.vtype >> 11) & 3
-	wcount := ((s.vtype >> 14) & 7) + 1
-	through := s.vtype&(1<<23) != 0
+// vertexLayout describes how one vertex of the current VTYPE is packed.
+type vertexLayout struct {
+	tfmt, cfmt, nfmt, pfmt, idxFmt uint32
+	offTex, offCol, offNrm, offPos uint32
+	stride                         uint32
+	through                        bool
+}
 
-	// A PSP vertex lays its components out in a fixed order — weights, texcoord,
-	// colour, normal, position — each aligned to its own element size, and the
-	// whole vertex padded to the largest of those. Skipping the normal (which
-	// LocoRoco never had, and Burnout's post-process quads do) mis-strides every
-	// vertex after the first: that is what turned the race into giant polygons.
+// layoutOf computes the packing of the current vertex type. A PSP vertex lays
+// its components out in a fixed order — weights, texcoord, colour, normal,
+// position — each aligned to its own element size, and the whole vertex padded
+// to the largest of those.
+func layoutOf(vtype uint32) vertexLayout {
+	var l vertexLayout
+	l.tfmt = vtype & 3
+	l.cfmt = (vtype >> 2) & 7
+	l.nfmt = (vtype >> 5) & 3
+	l.pfmt = (vtype >> 7) & 3
+	wfmt := (vtype >> 9) & 3
+	l.idxFmt = (vtype >> 11) & 3
+	wcount := ((vtype >> 14) & 7) + 1
+	l.through = vtype&(1<<23) != 0
+
 	elem := []uint32{0, 1, 2, 4} // component element size by format (u8/u16/float)
-	texSz := elem[tfmt] * 2
-	colSz := map[uint32]uint32{0: 0, 4: 2, 5: 2, 6: 2, 7: 4}[cfmt]
-	nrmSz := elem[nfmt] * 3
-	posSz := elem[pfmt] * 3
+	texSz := elem[l.tfmt] * 2
+	colSz := map[uint32]uint32{0: 0, 4: 2, 5: 2, 6: 2, 7: 4}[l.cfmt]
+	nrmSz := elem[l.nfmt] * 3
+	posSz := elem[l.pfmt] * 3
 	wgtSz := elem[wfmt] * wcount
 	if wfmt == 0 {
 		wgtSz = 0
 	}
 
 	align := uint32(1)
-	for _, e := range []uint32{elem[tfmt], elem[nfmt], elem[pfmt], elem[wfmt], colSz} {
+	for _, e := range []uint32{elem[l.tfmt], elem[l.nfmt], elem[l.pfmt], elem[wfmt], colSz} {
 		if e > align {
 			align = e
 		}
@@ -755,19 +796,24 @@ func (m *Machine) decodeVerts(s *geState, count int) []vert {
 		}
 		return (off + a - 1) &^ (a - 1)
 	}
-	// component offsets within the vertex, in submission order
-	off := uint32(0)
-	off = pad(off, elem[wfmt])
-	off += wgtSz
-	offTex := pad(off, elem[tfmt])
-	off = offTex + texSz
-	offCol := pad(off, colSz)
-	off = offCol + colSz
-	offNrm := pad(off, elem[nfmt])
-	off = offNrm + nrmSz
-	offPos := pad(off, elem[pfmt])
-	off = offPos + posSz
-	stride := pad(off, align)
+	off := pad(0, elem[wfmt]) + wgtSz
+	l.offTex = pad(off, elem[l.tfmt])
+	off = l.offTex + texSz
+	l.offCol = pad(off, colSz)
+	off = l.offCol + colSz
+	l.offNrm = pad(off, elem[l.nfmt])
+	off = l.offNrm + nrmSz
+	l.offPos = pad(off, elem[l.pfmt])
+	off = l.offPos + posSz
+	l.stride = pad(off, align)
+	return l
+}
+
+func (m *Machine) decodeVerts(s *geState, count int) []vert {
+	l := layoutOf(s.vtype)
+	tfmt, cfmt, nfmt, pfmt, idxFmt := l.tfmt, l.cfmt, l.nfmt, l.pfmt, l.idxFmt
+	offTex, offCol, offNrm, offPos := l.offTex, l.offCol, l.offNrm, l.offPos
+	stride, through := l.stride, l.through
 	if stride == 0 {
 		return nil
 	}
