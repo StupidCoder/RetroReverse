@@ -342,10 +342,15 @@ right, the sunset on the horizon, and the HUD over the top.
 
 A rendered frame could still be a still life. It is not: with the throttle
 held down from the countdown (a `-keys` script pressing cross every 20
-vblanks and nothing else), the car pulls away, reaches speed, and — with
-nobody steering it — drives into a wall. The game answers with its crash
-mode: `CONCRETE KISS! 25`, a running score, and the impact-time counter of
-Burnout's aftertouch.
+vblanks and nothing else), the car pulls away and reaches speed — 121 mph,
+traffic sliding past, the boost streaks stretching from the edges of the
+screen, the HUD calling a `NEAR MISS`.
+
+![Driving: 121 mph, traffic, boost streaks](figures/race-driving.png)
+
+And then, with nobody steering it, the car drives into a wall. The game
+answers with its crash mode: `CONCRETE KISS! 25`, a running score, and the
+impact-time counter of Burnout's aftertouch.
 
 ![The crash mode, after driving into a wall with the throttle held](figures/race-crash.png)
 
