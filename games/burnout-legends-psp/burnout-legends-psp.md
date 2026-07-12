@@ -24,10 +24,12 @@ this disc.
   (sceMpeg/sceAtrac3plus HLE), and the scripted walk from the title screen
   through profile creation to the main menu.
 - **Part IV — Into the race.** The streaming wall (a half-answered
-  `sceKernelVolatileMemLock` left the track streamer with no memory) and the
-  four rasterizer gaps a 3-D scene exposes that a 2-D one never does — the
-  full vertex layout, the depth buffer, backface culling, and near-plane
-  clipping — ending at the first rendered frame of gameplay.
+  `sceKernelVolatileMemLock` left the track streamer with no memory); the
+  rasterizer gaps a 3-D scene exposes that a 2-D one never does, found by
+  censusing the game's own display lists against what we handled; and the one
+  that mattered most — the GE *consumes* vertices, so a mesh behind a single
+  `VADDR` was drawing its first strip over and over. Ends with the race
+  rendering and driving.
 
 ---
 
@@ -379,7 +381,32 @@ Lighting turned out to matter less than it looked: most of the world is drawn
 **unlit**, with its light baked into the vertex colours. Only the cars enable
 it, under a single directional sun.
 
-### 4. The race is really running
+### 4. The GE consumes vertices
+
+Even with all of that, the car was still wrong — half its geometry missing, and
+triangles slashing diagonally across what remained. Isolating it (drawing *only*
+the primitives that read from the car's vertex buffer, and nothing else) made
+the pattern obvious: the same small strip, over and over, at different angles.
+
+The census had the answer sitting in it. Ten thousand four hundred and sixteen
+primitives in one frame, **all reading from the same vertex address**, with
+nothing but the `PRIM` word between them — no `VADDR` in sight.
+
+The GE *consumes* vertices. Its vertex pointer advances by however many vertices
+a primitive reads, so a mesh submitted as a run of `PRIM`s sets `VADDR` once and
+every following primitive continues where the last one stopped. We re-read from
+the same address every time: the car's first strip drawn hundreds of times over,
+each with whatever state had accumulated — those were the diagonal slashes — and
+the rest of the mesh never drawn at all. The track was doing the same thing.
+LocoRoco never showed the bug because it re-emits `VADDR` per primitive.
+
+Indexed primitives advance the *index* pointer instead; the vertex base stays.
+
+With the pointer advancing, the car is a car — bodywork, sponsor decals, the
+rear-window text legible, taillights — and the street arrives with it: lamp
+posts, traffic lights, the rival ahead on the grid, the overpass.
+
+### 5. The race is really running
 
 A rendered frame could still be a still life. It is not: with the throttle
 held down from the countdown (a `-keys` script pressing cross every 20
