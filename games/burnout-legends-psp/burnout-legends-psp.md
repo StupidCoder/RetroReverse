@@ -23,6 +23,11 @@ this disc.
   (`sceIoDread`), the by-value thread argument, the movie player
   (sceMpeg/sceAtrac3plus HLE), and the scripted walk from the title screen
   through profile creation to the main menu.
+- **Part IV — Into the race.** The streaming wall (a half-answered
+  `sceKernelVolatileMemLock` left the track streamer with no memory) and the
+  four rasterizer gaps a 3-D scene exposes that a 2-D one never does — the
+  full vertex layout, the depth buffer, backface culling, and near-plane
+  clipping — ending at the first rendered frame of gameplay.
 
 ---
 
@@ -228,12 +233,122 @@ the thread, count and PC — the tool for a semaphore deadlock — and
 `PSP_SYSCALL_TRACE=<substring>` logs matching syscalls with their arguments,
 return value and caller.
 
-**The current wall.** On the loading screen the game opens the track's
-`streamed.dat` (3.9 MB), then polls that descriptor every frame forever — the
-read is never issued. Its stream object's `Read` method (vtable + 24,
-`0x08A44280`, which computes a length from the object's 64-bit position/limit
-pair and calls `sceIoReadAsync`) is never called; the frame loop only calls
-the sync/poll method (vtable + 48, `0x08A449F8`). Nothing is blocked — no
-semaphore is held, no thread is waiting — so the game is waiting on a
-completion its own producer never starts. The next step is to find what
-should drive that producer.
+---
+
+## Part IV — Into the race
+
+### 1. The streaming wall: a lock that answered without answering
+
+On the pre-race loading screen the game opened the track's `streamed.dat`
+(3.9 MB) and then polled that descriptor every frame forever. The read was
+never issued: the stream object's `Read` method (vtable + 24, `0x08A44280`)
+was never called, while the frame loop called only the poll method
+(vtable + 48, `0x08A449F8`). Nothing was blocked — no semaphore held, no
+thread waiting — so the game was waiting on a completion its own producer
+never started.
+
+Tracing up from the poll gives the chain. The frame loop calls a status
+wrapper (`0x08A42D30`), which dispatches through the stream vtable — whose
+slots are 8-byte `{s16 this-adjust, pointer}` pairs, the object's vtable
+pointer at `+40` — and returns the object's state word. Above it sits the
+loader state machine (its object at `0x08D5A8C8`; outer state at `+16`,
+dispatched at `0x08A1C2E0`; phase at `+56`). Its block-fetch routine,
+`0x08A1D014`, is the producer, and its first act is to bail out if
+`this+76` is zero.
+
+`+76` is the streamer's read-ahead ring, allocated at `0x08A1BE8C` out of a
+claim-once memory map. The front-end ring is planned from the ordinary heap.
+The two in-race rings — 2 MB each — are planned at `0x0883AC8C` from a block
+the game asks the OS for:
+
+```
+sceKernelVolatileMemLock(0, &ptr, &size)   // NID 0x3E0271D3, sceSuspendForUser
+```
+
+This is the PSP's 4 MiB *volatile* block at `0x08400000` — memory the OS
+lends out of its suspend buffer. Our oracle stubbed the call: it returned
+success and wrote nothing. So the planner read a null pointer, planned no
+memory at all, the ring allocation "succeeded" with nothing behind it, and
+the producer bailed at its first instruction forever after.
+
+It is the same lesson as the `NOASYNC` fix one part earlier, in a new
+costume: **a stub that half-answers is worse than one that fails.** The
+oracle now hands out the block honestly (with `TryLock`/`Unlock`, and the
+lock state carried in savestates), and the race load streams.
+
+Two smaller things fell out of the same run. Allegrex opcode `0x3F` is the
+VFPU pipeline-hint group (`vnop` = `0xFFFF0000`, `vsync`, `vflush`); Burnout
+parks `vnop` in the delay slots of its track-geometry loops, and the CPU
+halted on it. And a savestate now re-resolves syscall NIDs that have become
+known since it was written, and clears a saved halt on restore — so a state
+captured *at* an unimplemented instruction resumes once that instruction
+exists, instead of re-halting on the same word.
+
+### 2. Four things a 3-D scene needs that a 2-D one never asks for
+
+The race then loaded, started, and rendered — a mess. The HUD was live and
+correct (`POS 4/4`, `LAP 1/3`, `MPH 0`), and behind it the screen was filled
+with enormous flat polygons. Everything our rasterizer had learned from
+LocoRoco and from Burnout's own 2-D front end was intact; everything a 3-D
+scene additionally requires was missing.
+
+**The vertex layout.** A PSP vertex is a packed record in a fixed order —
+weights, texture coordinates, colour, normal, position — with each component
+aligned to its own element size and the whole vertex padded to the largest of
+them. Our decoder knew only texcoord, colour and position. Burnout's
+post-process quads (`vtype 0x122`) carry an 8-bit **normal**, three bytes we
+never skipped, so every vertex after the first in each such primitive was
+read from the wrong offset. That is what projected vertices to coordinates
+like `(17065, 350)` and painted the frame with giant polygons. Fixing the
+layout is what turned the mess into a scene; the other three fixes below make
+that scene correct.
+
+**A depth buffer.** The front end could rely on the painter's algorithm; a
+racer draws its world in no useful order. The commands are `ZBP`/`ZBW`
+(`0x9E`/`0x9F`), `ZTE` (`0x23`), `ZTST` (`0xE2`), `ZMSK` (`0xE7`), plus
+`CLEAR`'s depth bit. The test function had to be *derived* rather than read:
+the game programs `ZTST` once at engine init, so no list captured mid-race
+carries it. Its viewport does carry the answer — z scale `-32767.5`, z centre
+`+32767.5`, which maps the near plane to 65535 and the far plane to 0. With
+depth reversed like that, the nearer fragment is the one with the **larger**
+value, so the test is `GEQUAL`.
+
+**Backface culling** (`0x1D` enable, `0x9B` face). The game toggles it
+thousands of times per frame; ignoring it drew the inside of every closed
+object over the scene. The tell was a start-line banner whose text rendered
+mirror-reversed — we were looking at the back of it. The winding sign was
+settled the same way the depth function was: not assumed, but read off a
+frame rendered with culling disabled (`PSP_GE_NOCULL`), which showed the
+ground plane and horizon that the wrong sign had been culling away.
+
+**Near-plane clipping.** A vertex behind the eye has `w <= 0` and no
+meaningful projection — it wraps to a huge screen coordinate. Triangles
+crossing the eye plane are now clipped in clip space, with colour and
+texcoords interpolated there, before the perspective divide.
+
+A fifth thing was needed just to *see* what was happening: the game renders
+into five VRAM buffers — two display buffers, the depth buffer, and two
+off-screen targets it composites for its blur and streak effects — and the
+only way to judge an off-screen pass is to look at it. `bootoracle -shotat
+ADDR[:STRIDE]:FILE.png` dumps any of them.
+
+With those in place, the oracle renders the first frame of gameplay: the
+player's car on the road, the city skyline behind it, the barrier along the
+right, the sunset on the horizon, and the HUD over the top.
+
+![The first frame of gameplay](figures/race-first-frame.png)
+
+### 3. The race is really running
+
+A rendered frame could still be a still life. It is not: with the throttle
+held down from the countdown (a `-keys` script pressing cross every 20
+vblanks and nothing else), the car pulls away, reaches speed, and — with
+nobody steering it — drives into a wall. The game answers with its crash
+mode: `CONCRETE KISS! 25`, a running score, and the impact-time counter of
+Burnout's aftertouch.
+
+![The crash mode, after driving into a wall with the throttle held](figures/race-crash.png)
+
+That is the honest end of the boot chain: the oracle now boots the disc from
+cold, walks the front end, streams a track, starts a race, drives a car, and
+crashes it.
