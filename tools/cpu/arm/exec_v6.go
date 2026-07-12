@@ -73,13 +73,15 @@ func (c *CPU) execSync(w uint32) {
 		switch sz {
 		case 0:
 			c.setReg(rt, c.read32(addr))
+		case 1:
+			// LDREXD Rt, Rt2, [Rn]: the doubleword lands in the register pair
+			// Rt (even) and Rt+1, low word first — Rt2 is implicit, not encoded.
+			c.setReg(rt, c.read32(addr))
+			c.setReg(rt+1, c.read32(addr+4))
 		case 2:
 			c.setReg(rt, uint32(c.read8(addr)))
 		case 3:
 			c.setReg(rt, c.read16(addr))
-		default:
-			c.Halt("unimplemented LDREXD at 0x%08X", c.cur)
-			return
 		}
 		c.exclValid = true
 		c.exclAddr = addr
@@ -97,13 +99,15 @@ func (c *CPU) execSync(w uint32) {
 	switch sz {
 	case 0:
 		c.write32(addr, rt)
+	case 1:
+		// STREXD Rd, Rt, Rt2, [Rn]: the value is the pair Rt (encoded at 3:0,
+		// even) and Rt+1, low word first.
+		c.write32(addr, rt)
+		c.write32(addr+4, c.reg((w&0xF)+1))
 	case 2:
 		c.write8(addr, byte(rt))
 	case 3:
 		c.write16(addr, rt)
-	default:
-		c.Halt("unimplemented STREXD at 0x%08X", c.cur)
-		return
 	}
 	c.setReg(rd, 0) // succeeded
 	c.exclValid = false
@@ -139,11 +143,19 @@ func (c *CPU) execMedia(w uint32) bool {
 	return true
 }
 
-// execParallel runs the byte/halfword parallel add and subtract. The plain
-// signed/unsigned forms (classes S and U) are modelled, including the GE flags
-// they set for a following SEL; the saturating (Q/UQ) and halving (SH/UH) and
-// the exchange (ASX/SAX) variants Halt, so a program that needs them fails
-// explicitly rather than computing the wrong thing.
+// execParallel runs the ARMv6 byte/halfword parallel (SIMD) add and subtract
+// group. Three things vary independently and the encoding keeps them apart:
+//
+//   - the lane width and pairing (bits 7:5): ADD16, ASX, SAX, SUB16, ADD8, SUB8.
+//     The two "exchange" forms cross the halfwords of Rm — ASX subtracts the high
+//     halfword from the low lane and adds the low one into the high lane; SAX is
+//     the mirror.
+//   - signedness, and
+//   - what happens to a lane result that will not fit (bits 22:20, the class
+//     prefix): the plain forms (S, U) truncate and publish the per-lane GE flags
+//     that a following SEL consumes; the saturating forms (Q, UQ) clamp to the
+//     lane and leave GE alone; the halving forms (SH, UH) shift the full-precision
+//     result right by one, so no lane can overflow, and also leave GE alone.
 func (c *CPU) execParallel(w uint32) bool {
 	class := (w >> 20) & 7 // 1 S, 2 Q, 3 SH, 5 U, 6 UQ, 7 UH
 	op2 := (w >> 5) & 7
@@ -151,146 +163,160 @@ func (c *CPU) execParallel(w uint32) bool {
 	rm := c.reg(w & 0xF)
 	rd := (w >> 12) & 0xF
 
-	if class != 1 && class != 5 { // only plain S and U are modelled
+	var signed bool
+	var mode parMode
+	switch class {
+	case 1:
+		signed, mode = true, parWrap
+	case 2:
+		signed, mode = true, parSat
+	case 3:
+		signed, mode = true, parHalve
+	case 5:
+		signed, mode = false, parWrap
+	case 6:
+		signed, mode = false, parSat
+	case 7:
+		signed, mode = false, parHalve
+	default:
 		c.Halt("unimplemented parallel arithmetic 0x%08X (class %d) at 0x%08X", w, class, c.cur)
 		return true
 	}
-	signed := class == 1
+
+	// half picks halfword h (0 = low, 1 = high) out of a register.
+	half := func(v uint32, h uint) uint32 { return (v >> (16 * h)) & 0xFFFF }
 
 	var res uint32
-	var ge uint32
+	var ge uint32 // one bit per byte lane, as the GE field is laid out
+
 	switch op2 {
-	case 0b000: // ADD16
-		res, ge = par16(rn, rm, signed, addOp)
-	case 0b011: // SUB16
-		res, ge = par16(rn, rm, signed, subOp)
-	case 0b100: // ADD8
-		res, ge = par8(rn, rm, signed, addOp)
-	case 0b111: // SUB8
-		res, ge = par8(rn, rm, signed, subOp)
+	case 0b000, 0b011: // ADD16 / SUB16 — lane-aligned halfwords
+		sub := op2 == 0b011
+		for h := uint(0); h < 2; h++ {
+			v, g := parLane(half(rn, h), half(rm, h), 16, signed, mode, sub)
+			res |= v << (16 * h)
+			if g {
+				ge |= 0x3 << (2 * h) // a halfword lane owns two GE bits
+			}
+		}
+	case 0b001: // ASX: low lane subtracts Rm's HIGH half; high lane adds Rm's low
+		lo, glo := parLane(half(rn, 0), half(rm, 1), 16, signed, mode, true)
+		hi, ghi := parLane(half(rn, 1), half(rm, 0), 16, signed, mode, false)
+		res = lo | hi<<16
+		if glo {
+			ge |= 0x3
+		}
+		if ghi {
+			ge |= 0xC
+		}
+	case 0b010: // SAX: low lane adds Rm's high half; high lane subtracts Rm's low
+		lo, glo := parLane(half(rn, 0), half(rm, 1), 16, signed, mode, false)
+		hi, ghi := parLane(half(rn, 1), half(rm, 0), 16, signed, mode, true)
+		res = lo | hi<<16
+		if glo {
+			ge |= 0x3
+		}
+		if ghi {
+			ge |= 0xC
+		}
+	case 0b100, 0b111: // ADD8 / SUB8
+		sub := op2 == 0b111
+		for b := uint(0); b < 4; b++ {
+			av := (rn >> (8 * b)) & 0xFF
+			bv := (rm >> (8 * b)) & 0xFF
+			v, g := parLane(av, bv, 8, signed, mode, sub)
+			res |= v << (8 * b)
+			if g {
+				ge |= 1 << b
+			}
+		}
 	default:
 		c.Halt("unimplemented parallel op2=%d at 0x%08X", op2, c.cur)
 		return true
 	}
+
 	c.setReg(rd, res)
-	c.GE = ge
+	if mode == parWrap {
+		// Only the truncating forms publish GE; Q/UQ and SH/UH leave it as it was.
+		c.GE = ge
+	}
 	return true
 }
 
-type binOp int
+// parMode is what the class prefix does to a lane result that will not fit.
+type parMode int
 
 const (
-	addOp binOp = iota
-	subOp
+	parWrap  parMode = iota // S / U   — truncate, and set the GE flags
+	parSat                  // Q / UQ  — saturate to the lane, GE untouched
+	parHalve                // SH / UH — halve the full result, GE untouched
 )
 
-// par16 computes a two-lane 16-bit parallel add or subtract and the 4-bit GE
-// value (two bits repeated per lane). GE marks, per lane, "no borrow" for a
-// subtract or "carry/overflow-free non-negative" for an add — the exact rule the
-// architecture uses so SEL picks the right bytes.
-func par16(a, b uint32, signed bool, op binOp) (uint32, uint32) {
-	var res, ge uint32
-	for lane := 0; lane < 2; lane++ {
-		sh := uint(lane * 16)
-		av := (a >> sh) & 0xFFFF
-		bv := (b >> sh) & 0xFFFF
-		var lres uint32
-		var setGE bool
-		if op == addOp {
-			var sum int32
-			if signed {
-				sum = int16v(av) + int16v(bv)
-			} else {
-				sum = int32(av) + int32(bv)
-			}
-			lres = uint32(sum) & 0xFFFF
-			setGE = geAdd(av, bv, signed)
+// parLane computes one SIMD lane: av op bv at the given width, interpreted signed
+// or unsigned, with the class modifier applied. The bool is that lane's GE bit,
+// which is meaningful only for the truncating classes: for signed lanes GE means
+// "the result is not negative"; for unsigned it means a carry out of an add, or
+// the absence of a borrow from a subtract (i.e. the operation did not wrap).
+func parLane(av, bv uint32, width uint, signed bool, mode parMode, sub bool) (uint32, bool) {
+	mask := uint32(1)<<width - 1
+
+	var val int32
+	if signed {
+		a, b := signExtendLane(av, width), signExtendLane(bv, width)
+		if sub {
+			val = a - b
 		} else {
-			var diff int32
-			if signed {
-				diff = int16v(av) - int16v(bv)
-			} else {
-				diff = int32(av) - int32(bv)
-			}
-			lres = uint32(diff) & 0xFFFF
-			setGE = geSub(av, bv, signed)
+			val = a + b
 		}
-		res |= lres << sh
-		if setGE {
-			ge |= 0x3 << uint(lane*2)
-		}
+	} else if sub {
+		val = int32(av) - int32(bv)
+	} else {
+		val = int32(av) + int32(bv)
 	}
-	return res, ge
+
+	var ge bool
+	switch {
+	case signed:
+		ge = val >= 0
+	case sub:
+		ge = av >= bv // no borrow
+	default:
+		ge = val > int32(mask) // carry out
+	}
+
+	switch mode {
+	case parSat:
+		if signed {
+			hi := int32(1)<<(width-1) - 1
+			lo := -(int32(1) << (width - 1))
+			if val > hi {
+				val = hi
+			} else if val < lo {
+				val = lo
+			}
+		} else {
+			if val < 0 {
+				val = 0
+			} else if val > int32(mask) {
+				val = int32(mask)
+			}
+		}
+	case parHalve:
+		val >>= 1 // arithmetic for signed, and the unsigned value is non-negative
+	}
+	return uint32(val) & mask, ge
 }
 
-func par8(a, b uint32, signed bool, op binOp) (uint32, uint32) {
-	var res, ge uint32
-	for lane := 0; lane < 4; lane++ {
-		sh := uint(lane * 8)
-		av := (a >> sh) & 0xFF
-		bv := (b >> sh) & 0xFF
-		var lres uint32
-		var setGE bool
-		if op == addOp {
-			var sum int32
-			if signed {
-				sum = int8v(av) + int8v(bv)
-			} else {
-				sum = int32(av) + int32(bv)
-			}
-			lres = uint32(sum) & 0xFF
-			setGE = geAdd8(av, bv, signed)
-		} else {
-			var diff int32
-			if signed {
-				diff = int8v(av) - int8v(bv)
-			} else {
-				diff = int32(av) - int32(bv)
-			}
-			lres = uint32(diff) & 0xFF
-			setGE = geSub8(av, bv, signed)
-		}
-		res |= lres << sh
-		if setGE {
-			ge |= 1 << uint(lane)
-		}
-	}
-	return res, ge
-}
-
-func int8v(v uint32) int32  { return int32(int8(byte(v))) }
+// int16v sign-extends the low halfword of v — the lane accessor the signed dual
+// multiplies use.
 func int16v(v uint32) int32 { return int32(int16(uint16(v))) }
 
-// GE rules per the ARM ARM: for unsigned add, GE set if the sum did not carry
-// out of the lane width... actually "sum >= 2^n" sets GE (result is >= the
-// modulus, i.e. an unsigned carry). For unsigned sub, GE set if a >= b (no
-// borrow). For signed add/sub, GE set if the true result is >= 0.
-func geAdd(a, b uint32, signed bool) bool {
-	if signed {
-		return int16v(a)+int16v(b) >= 0
-	}
-	return a+b >= 0x10000
-}
-func geSub(a, b uint32, signed bool) bool {
-	if signed {
-		return int16v(a)-int16v(b) >= 0
-	}
-	return a >= b
-}
-func geAdd8(a, b uint32, signed bool) bool {
-	if signed {
-		return int8v(a)+int8v(b) >= 0
-	}
-	return a+b >= 0x100
-}
-func geSub8(a, b uint32, signed bool) bool {
-	if signed {
-		return int8v(a)-int8v(b) >= 0
-	}
-	return a >= b
+// signExtendLane sign-extends a width-bit lane to int32.
+func signExtendLane(v uint32, width uint) int32 {
+	sh := uint(32) - width
+	return int32(v<<sh) >> sh
 }
 
-// execMediaPack runs PKH, (U)SAT, the extends, SEL and the byte-reversals.
 func (c *CPU) execMediaPack(w uint32) bool {
 	op1 := (w >> 20) & 0x1F
 	op2 := (w >> 5) & 7
@@ -308,7 +334,7 @@ func (c *CPU) execMediaPack(w uint32) bool {
 			if imm == 0 {
 				imm = 32
 			}
-			res = (rnv & 0xFFFF0000) | ((uint32(int32(rmv)>>imm) & 0xFFFF))
+			res = (rnv & 0xFFFF0000) | (uint32(int32(rmv)>>imm) & 0xFFFF)
 		}
 		c.setReg(rd, res)
 		return true

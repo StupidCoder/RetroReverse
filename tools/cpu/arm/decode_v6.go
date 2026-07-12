@@ -56,11 +56,22 @@ func decodeSync(w uint32, in Inst) Inst {
 	rn := regName[(w>>16)&0xF]
 	if load {
 		in.Mnem = "LDREX" + suffix + cn(in.Cond)
-		in.Text = fmt.Sprintf("%s %s, [%s]", in.Mnem, regName[(w>>12)&0xF], rn)
+		rt := (w >> 12) & 0xF
+		if sz == 1 { // LDREXD Rt, Rt2, [Rn] — Rt2 = Rt+1, implicit in the encoding
+			in.Text = fmt.Sprintf("%s %s, %s, [%s]", in.Mnem, regName[rt], regName[(rt+1)&0xF], rn)
+		} else {
+			in.Text = fmt.Sprintf("%s %s, [%s]", in.Mnem, regName[rt], rn)
+		}
 	} else {
 		in.Mnem = "STREX" + suffix + cn(in.Cond)
 		// STREX Rd, Rt, [Rn]: Rd (result) at 15:12, Rt (value) at 3:0.
-		in.Text = fmt.Sprintf("%s %s, %s, [%s]", in.Mnem, regName[(w>>12)&0xF], regName[w&0xF], rn)
+		rt := w & 0xF
+		if sz == 1 { // STREXD Rd, Rt, Rt2, [Rn]
+			in.Text = fmt.Sprintf("%s %s, %s, %s, [%s]", in.Mnem,
+				regName[(w>>12)&0xF], regName[rt], regName[(rt+1)&0xF], rn)
+		} else {
+			in.Text = fmt.Sprintf("%s %s, %s, [%s]", in.Mnem, regName[(w>>12)&0xF], regName[rt], rn)
+		}
 	}
 	return in
 }
