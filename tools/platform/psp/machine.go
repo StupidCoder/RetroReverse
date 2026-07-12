@@ -61,7 +61,10 @@ type Machine struct {
 	pad            uint32 // current pad button bits (sceCtrl reads)
 	padPrev        uint32 // pad at the previous latch read (edge detection)
 	padScript      []PadEvent
-	savedataStatus uint32 // savedata-utility dialog status (0 none, 1 init, 2 running, 3 finished, 4 shutdown)
+	savedataStatus uint32    // savedata-utility dialog status (0 none, 1 init, 2 running, 3 finished, 4 shutdown)
+	mpeg           mpegState // the active sceMpeg session (movie playback)
+	atrac          map[uint32]*atracState
+	nextAtrac      uint32
 	vol            *Volume
 	files          map[uint32]*ioFile
 	nextFd         uint32
@@ -107,6 +110,7 @@ func NewMachine() *Machine {
 		nextHandle:   1,
 		subIntrs:     map[uint32]*subIntr{},
 		files:        map[uint32]*ioFile{},
+		atrac:        map[uint32]*atracState{},
 		nextFd:       fdFirstFile,
 		SyscallCalls: map[string]int{},
 		logSeen:      map[string]bool{},

@@ -19,6 +19,10 @@ this disc.
 - **Part II — Boot chain.** Module relocation (multi-segment, segment-index
   aware), the async IO the file manager runs on, and the boot to the first
   rendered frame.
+- **Part III — To the main menu.** The directory-scan file catalogue
+  (`sceIoDread`), the by-value thread argument, the movie player
+  (sceMpeg/sceAtrac3plus HLE), and the scripted walk from the title screen
+  through profile creation to the main menu.
 
 ---
 
@@ -109,6 +113,90 @@ frame.
 
 ![The Burnout Legends loading screen](figures/loading.png)
 
-Beyond it the boot walks into an uninitialized global (a game subsystem the
-current HLE surface does not yet bring up) — the next step of the boot to
-reverse.
+---
+
+## Part III — To the main menu
+
+### 1. The directory-scan file catalogue
+
+Past the loading screen the boot walked into a corrupt object and `jalr`'d
+into the exception vector. The trail (`-bp`/`-watch` on the pointer the
+crashing code loads, at `0x08C2C18C`) led back through the boot state machine
+at `0x0880E0xx`: the pointer is the loaded image of `Data/PrgData.bin`, a
+pointer-patched data file the game relocates in place (`0x089BB850` adds the
+load base to a table of offsets — the same trick LocoRoco's `.clv` levels
+use). The file "loaded" — but every one of the game's reads was **zero bytes
+long**: `sceIoRead(..., 0) -> 0`.
+
+The zero comes from the game's file catalogue. Burnout Legends does not ask
+for file sizes with `sceIoGetstat` or `sceIoLseek(END)`; at boot it walks the
+whole disc with **`sceIoDopen`/`sceIoDread`/`sceIoDclose`** (124 directories)
+and builds its file table — names *and sizes* — from the returned
+`SceIoDirent` entries. With those calls stubbed, every catalogued size was
+zero. The oracle now serves the scan from the ISO directory tree (`io.go`):
+each `sceIoDread` fills a dirent (a `SceIoStat` with the umd9660 driver's
+start-LBN in `st_private[0]`, plus the name), returning the number of entries
+still to read. After the fix the game streams every asset by raw sector
+extent — `disc0:/sce_lbn0x%X_size0x%X` paths, the same umd9660 contract the
+other disc uses — with correct sizes, and `PrgData.bin` relocates correctly.
+
+### 2. The by-value thread argument
+
+Next wall: the game's "SND ATRAC PACKET DECODER" thread dereferenced its
+argument into garbage and crashed. The thread is started with a **112-byte
+argument block** (`sceKernelStartThread(uid, 0x70, ptr)`) that lives on the
+*creator's* stack. The real kernel copies the block onto the new thread's
+stack before it first runs; the oracle's scheduler passed the original
+pointer, and by the time the thread was scheduled the creator's frame was
+long dead. `startThread` (`sched.go`) now copies the block below the thread's
+`$k0` context area and points `$a1` at the copy — the kernel contract.
+
+### 3. The movie player: sceMpeg + sceAtrac3plus
+
+The boot then reached the intro movies (`ovid/englis30.pmf` + its `.at3`
+audio) and parked: the game pumps its player loop off `sceMpegGetAvcAu`, and
+the ATRAC packet-decoder thread spun millions of calls into stubbed
+`sceAtracDecodeData`. The oracle now carries a **minimal, honest movie-player
+HLE** (`mpeg.go`) — no video or audio codec, but the real streaming contract:
+
+- **PSMF header** (big-endian): `sceMpegQueryStreamOffset`/`QueryStreamSize`
+  parse the magic and the offset/size fields of the header the game hands in,
+  and reject a buffer without the `PSMF` magic.
+- **Ringbuffer accounting**: `sceMpegRingbufferConstruct` records (and writes
+  into the guest struct) the packet capacity and the game's own packet-read
+  callback; `sceMpegRingbufferPut` *runs that callback* in a nested guest
+  frame (`callGuest`), so the movie data really is streamed by the game's
+  file manager; `sceMpegGetAvcAu` consumes buffered packets into access units
+  and reports `SCE_MPEG_ERROR_NO_DATA` when the stream drains — the signal
+  the player's end-of-movie logic runs on.
+- **Frames without pixels**: `sceMpegAvcDecodeYCbCr`/`sceMpegAvcCsc` report
+  every frame produced but write no pixels (there is no H.264 decoder here) —
+  a movie "plays" black, at the pace of the game's own pump, and terminates.
+- **ATRAC3+ as silence with real accounting** (`sceAtracSetDataAndGetID`,
+  `DecodeData`, `GetStreamDataInfo`, …): the RIFF header the game hands over
+  names the block align and data size, so the decode loop serves the true
+  number of frames — as silent PCM — sets the end flag on the last one, and
+  returns `SCE_ATRAC_ERROR_ALL_DATA_DECODED` past it.
+
+One more CPU op surfaced on the way: the sound mixer converts samples with
+the VFPU's packed-integer conversions — `vi2s.q` and family (`vi2s`/`vi2us`/
+`vi2c`/`vi2uc`, `vs2i`/`vus2i`) are now in `tools/cpu/allegrex/vfpu.go`.
+
+### 4. Title screen to main menu
+
+With movies completing, the attract sequence lands on the game's title screen
+— its own rendered "PRESS START BUTTON TO CONTINUE" frame:
+
+![The title screen](figures/title.png)
+
+From there a `-keys` pad script (VBlank-scheduled, the same mechanism the
+other PSP disc plays with) walks the front end: START → the profile dialog →
+NEW PROFILE → the on-screen keyboard's default name → save-to-memory-stick
+declined (the modelled savedata utility reports no memory stick data) →
+autosave-off confirmed → the **main menu**: WORLD TOUR, SINGLE EVENT,
+MULTIPLAYER, DRIVER DETAILS.
+
+![The main menu](figures/menu.png)
+
+Next: drive SINGLE EVENT into a race, and reverse the asset formats behind it
+(`.txd` texture dictionaries, the `Tracks/*/` geometry, `pveh` vehicles).

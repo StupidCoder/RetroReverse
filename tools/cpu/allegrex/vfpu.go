@@ -1078,6 +1078,69 @@ func (c *CPU) vfpu4(w, rs, rt uint32) {
 		c.vwrite(d, vd, n)
 		c.eatPfx()
 
+	case 0x01: // int <-> packed-integer conversions (bit data; prefixes don't apply)
+		switch rt {
+		case 27: // vs2i: unpack each s16 lane to the high half of an int
+			s := c.vreadBits(vs, n)
+			var bits [4]uint32
+			for i := uint32(0); i < n; i++ {
+				bits[2*i] = s[i] << 16
+				bits[2*i+1] = s[i] & 0xFFFF0000
+			}
+			c.vwriteBits(bits, vd, 2*n)
+			c.eatPfx()
+		case 26: // vus2i: unpack each u16 lane, expanded to the positive int range
+			s := c.vreadBits(vs, n)
+			var bits [4]uint32
+			for i := uint32(0); i < n; i++ {
+				bits[2*i] = (s[i] & 0xFFFF) << 15
+				bits[2*i+1] = (s[i] >> 16) << 15
+			}
+			c.vwriteBits(bits, vd, 2*n)
+			c.eatPfx()
+		case 30, 31: // vi2us / vi2s: pack int pairs to 16-bit halves
+			s := c.vreadBits(vs, n)
+			var bits [4]uint32
+			for i := uint32(0); i < n; i += 2 {
+				var lo, hi uint32
+				if rt == 31 { // vi2s: arithmetic >>16
+					lo = s[i] >> 16
+					hi = s[i+1] >> 16
+				} else { // vi2us: clamp negatives to 0, then >>15
+					if int32(s[i]) > 0 {
+						lo = s[i] >> 15
+					}
+					if int32(s[i+1]) > 0 {
+						hi = s[i+1] >> 15
+					}
+				}
+				bits[i/2] = lo&0xFFFF | hi<<16
+			}
+			c.vwriteBits(bits, vd, n/2)
+			c.eatPfx()
+		case 28, 29: // vi2uc / vi2c: pack four ints to bytes
+			s := c.vreadBits(vs, n)
+			var bits [4]uint32
+			var out uint32
+			for i := uint32(0); i < n; i++ {
+				var b uint32
+				if rt == 29 { // vi2c: top byte
+					b = s[i] >> 24
+				} else if int32(s[i]) > 0 { // vi2uc: clamp negatives, saturate via >>23
+					b = s[i] >> 23
+					if b > 0xFF {
+						b = 0xFF
+					}
+				}
+				out |= b << (8 * i)
+			}
+			bits[0] = out
+			c.vwriteBits(bits, vd, 1)
+			c.eatPfx()
+		default:
+			c.vfpuUnimpl(w, 0x34)
+		}
+
 	case 0x02: // VFPU9 subset
 		switch rt {
 		case 2: // vbfy1

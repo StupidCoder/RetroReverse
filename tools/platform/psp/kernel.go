@@ -182,6 +182,25 @@ var knownNIDs = []string{
 	"__sceSasGetPauseFlag", "__sceSasSetNoise", "__sceSasSetGrain", "__sceSasGetGrain",
 	"__sceSasSetOutputmode", "__sceSasGetOutputmode", "__sceSasRevType", "__sceSasRevParam",
 	"__sceSasRevEVOL", "__sceSasRevVON",
+	// sceMpeg (PSMF movie player)
+	"sceMpegInit", "sceMpegFinish", "sceMpegQueryMemSize", "sceMpegCreate", "sceMpegDelete",
+	"sceMpegRegistStream", "sceMpegUnRegistStream", "sceMpegMallocAvcEsBuf", "sceMpegFreeAvcEsBuf",
+	"sceMpegInitAu", "sceMpegGetAvcAu", "sceMpegGetAtracAu", "sceMpegGetPcmAu",
+	"sceMpegQueryStreamOffset", "sceMpegQueryStreamSize", "sceMpegQueryAtracEsSize",
+	"sceMpegAvcDecode", "sceMpegAvcDecodeMode", "sceMpegAvcDecodeStop", "sceMpegAvcDecodeYCbCr",
+	"sceMpegAvcDecodeStopYCbCr", "sceMpegAvcQueryYCbCrSize", "sceMpegAvcInitYCbCr",
+	"sceMpegAvcCsc", "sceMpegAtracDecode", "sceMpegChangeGetAvcAuMode", "sceMpegChangeGetAuMode",
+	"sceMpegRingbufferQueryMemSize", "sceMpegRingbufferConstruct", "sceMpegRingbufferDestruct",
+	"sceMpegRingbufferPut", "sceMpegRingbufferAvailableSize",
+	"sceMpegFlushStream", "sceMpegFlushAllStream",
+	// sceAtrac3plus
+	"sceAtracGetAtracID", "sceAtracSetDataAndGetID", "sceAtracSetHalfwayBufferAndGetID",
+	"sceAtracSetData", "sceAtracSetHalfwayBuffer", "sceAtracDecodeData", "sceAtracGetRemainFrame",
+	"sceAtracGetStreamDataInfo", "sceAtracAddStreamData", "sceAtracGetSecondBufferInfo",
+	"sceAtracSetSecondBuffer", "sceAtracGetNextDecodePosition", "sceAtracGetSoundSample",
+	"sceAtracGetChannel", "sceAtracGetMaxSample", "sceAtracGetNextSample", "sceAtracGetBitrate",
+	"sceAtracGetLoopStatus", "sceAtracSetLoopNum", "sceAtracResetPlayPosition",
+	"sceAtracGetInternalErrorInfo", "sceAtracReleaseAtracID",
 }
 
 // nidName maps a (library, NID) to a legible name, or "library:0xNID" if unknown.
@@ -771,6 +790,12 @@ func handlerFor(name string) func(m *Machine) {
 		}
 	case "sceIoGetstat":
 		return func(m *Machine) { m.setRet(m.ioGetstat(m.cstr(m.arg(0)), m.arg(1))) }
+	case "sceIoDopen":
+		return func(m *Machine) { m.setRet(m.ioDopen(m.cstr(m.arg(0)))) }
+	case "sceIoDread":
+		return func(m *Machine) { m.setRet(m.ioDread(m.arg(0), m.arg(1))) }
+	case "sceIoDclose":
+		return func(m *Machine) { m.setRet(m.ioDclose(m.arg(0))) }
 	case "sceIoOpenAsync":
 		return func(m *Machine) { m.setRet(m.ioOpenAsync(m.cstr(m.arg(0)))) }
 	case "sceIoReadAsync":
@@ -799,6 +824,199 @@ func handlerFor(name string) func(m *Machine) {
 	case "sceUmdActivate", "sceUmdDeactivate", "sceUmdWaitDriveStat",
 		"sceUmdWaitDriveStatCB", "sceUmdWaitDriveStatWithTimer":
 		return func(m *Machine) { m.setRet(0) }
+	case "sceMpegQueryMemSize":
+		return func(m *Machine) { m.setRet(0x10000) }
+	case "sceMpegRingbufferQueryMemSize":
+		// packets * (one 2048-byte packet + the 104-byte packet header)
+		return func(m *Machine) { m.setRet(m.arg(0) * (mpegPacketSize + 104)) }
+	case "sceMpegCreate":
+		// (SceMpeg*, data, size, SceMpegRingbuffer*, frameWidth, mode, ddrtop):
+		// the handle points at the caller's workspace.
+		return func(m *Machine) {
+			m.write32(m.arg(0), m.arg(1))
+			m.mpeg.Handle = m.arg(1)
+			if rb := m.arg(3); rb != 0 {
+				m.write32(rb+40, m.arg(1)) // ringbuffer's mpeg backlink
+			}
+			m.note("sceMpegCreate: handle 0x%08X, ringbuffer 0x%08X", m.arg(1), m.arg(3))
+			m.setRet(0)
+		}
+	case "sceMpegDelete", "sceMpegFinish", "sceMpegRingbufferDestruct":
+		return func(m *Machine) {
+			m.mpeg = mpegState{}
+			m.setRet(0)
+		}
+	case "sceMpegRingbufferConstruct":
+		return func(m *Machine) {
+			m.setRet(m.mpegRingbufferConstruct(m.arg(0), m.arg(1), m.arg(2), m.arg(3), m.arg(4), m.arg(5)))
+		}
+	case "sceMpegRingbufferAvailableSize":
+		return func(m *Machine) { m.setRet(m.mpeg.Packets - m.mpeg.In) }
+	case "sceMpegRingbufferPut":
+		return func(m *Machine) { m.setRet(m.mpegRingbufferPut(m.arg(0), m.arg(1), m.arg(2))) }
+	case "sceMpegQueryStreamOffset":
+		// (mpeg, buffer, offset*): the buffer holds the PSMF container header
+		// (big-endian): magic "PSMF", version +4, stream offset +8, size +12.
+		return func(m *Machine) {
+			buf, out := m.arg(1), m.arg(2)
+			if m.Read(buf) != 'P' || m.Read(buf+1) != 'S' || m.Read(buf+2) != 'M' || m.Read(buf+3) != 'F' {
+				m.note("sceMpegQueryStreamOffset: no PSMF magic at 0x%08X", buf)
+				m.write32(out, 0)
+				m.setRet(errMpegInvalid)
+				return
+			}
+			m.write32(out, m.beGuest32(buf+8))
+			m.setRet(0)
+		}
+	case "sceMpegQueryStreamSize":
+		return func(m *Machine) {
+			m.write32(m.arg(1), m.beGuest32(m.arg(0)+12))
+			m.setRet(0)
+		}
+	case "sceMpegAvcQueryYCbCrSize":
+		// (mpeg, mode, width, height, size*): a 4:2:0 YCbCr frame buffer
+		return func(m *Machine) {
+			w, h := m.arg(2), m.arg(3)
+			m.write32(m.arg(4), w*h*3/2)
+			m.setRet(0)
+		}
+	case "sceMpegRegistStream":
+		// (mpeg, streamType, streamNum) -> an opaque nonzero stream handle
+		return func(m *Machine) { m.setRet(0x2000 + m.arg(1)) }
+	case "sceMpegMallocAvcEsBuf":
+		return func(m *Machine) { m.setRet(1) }
+	case "sceMpegInitAu":
+		// (mpeg, esBuffer, SceMpegAu*): timestamps start out invalid (-1)
+		return func(m *Machine) {
+			au := m.arg(2)
+			for i := uint32(0); i < 16; i += 4 {
+				m.write32(au+i, 0xFFFFFFFF)
+			}
+			m.write32(au+16, m.arg(1))
+			m.write32(au+20, 0)
+			m.setRet(0)
+		}
+	case "sceMpegGetAvcAu", "sceMpegGetAtracAu", "sceMpegGetPcmAu":
+		// (mpeg, streamHandle, SceMpegAu*, attr*)
+		return func(m *Machine) {
+			r := m.mpegGetAu(m.arg(2))
+			if r == 0 && m.arg(3) != 0 {
+				m.write32(m.arg(3), 0)
+			}
+			m.setRet(r)
+		}
+	case "sceMpegAvcDecodeYCbCr", "sceMpegAtracDecode":
+		// (mpeg, au, buffer, init*): report a frame produced; no decoder here —
+		// the pixels are not modelled.
+		return func(m *Machine) {
+			if p := m.arg(3); p != 0 {
+				m.write32(p, 1)
+			}
+			m.setRet(0)
+		}
+	case "sceMpegAvcDecode":
+		// (mpeg, au, frameWidth, buffer, init*)
+		return func(m *Machine) {
+			if p := m.arg(4); p != 0 {
+				m.write32(p, 1)
+			}
+			m.setRet(0)
+		}
+	case "sceMpegFlushStream", "sceMpegFlushAllStream":
+		return func(m *Machine) {
+			m.mpeg.In = 0
+			if rb := m.mpeg.Ringbuf; rb != 0 {
+				m.write32(rb+12, m.mpeg.Packets)
+			}
+			m.setRet(0)
+		}
+	case "sceAtracSetDataAndGetID", "sceAtracSetHalfwayBufferAndGetID":
+		// (buffer, bufferSize[, readSize]) -> atrac id
+		return func(m *Machine) {
+			id := m.nextAtrac
+			m.nextAtrac++
+			a := &atracState{Buf: m.arg(0), Size: m.arg(1)}
+			m.atracParseRiff(a)
+			m.atrac[id] = a
+			m.note("sceAtracSetDataAndGetID(0x%08X, %d) -> id %d (%d frames, %d ch)",
+				a.Buf, a.Size, id, a.Frames, a.Channels)
+			m.setRet(id)
+		}
+	case "sceAtracDecodeData":
+		// (id, outPcm, samples*, end*, remainFrames*)
+		return func(m *Machine) {
+			m.setRet(m.atracDecode(m.arg(0), m.arg(1), m.arg(2), m.arg(3), m.arg(4)))
+		}
+	case "sceAtracGetRemainFrame":
+		return func(m *Machine) {
+			if a := m.atrac[m.arg(0)]; a != nil {
+				m.write32(m.arg(1), a.Frames-a.Pos)
+				m.setRet(0)
+			} else {
+				m.setRet(errAtracBadID)
+			}
+		}
+	case "sceAtracGetStreamDataInfo":
+		// (id, writePtr*, writableBytes*, readOffset*): the whole file is in the
+		// buffer already — nothing more to stream in.
+		return func(m *Machine) {
+			a := m.atrac[m.arg(0)]
+			if a == nil {
+				m.setRet(errAtracBadID)
+				return
+			}
+			if p := m.arg(1); p != 0 {
+				m.write32(p, a.Buf)
+			}
+			if p := m.arg(2); p != 0 {
+				m.write32(p, 0)
+			}
+			if p := m.arg(3); p != 0 {
+				m.write32(p, a.Size)
+			}
+			m.setRet(0)
+		}
+	case "sceAtracGetNextSample", "sceAtracGetMaxSample":
+		return func(m *Machine) {
+			if a := m.atrac[m.arg(0)]; a != nil {
+				n := uint32(atracMaxSamples)
+				if a.Pos >= a.Frames {
+					n = 0
+				}
+				m.write32(m.arg(1), n)
+				m.setRet(0)
+			} else {
+				m.setRet(errAtracBadID)
+			}
+		}
+	case "sceAtracGetChannel":
+		return func(m *Machine) {
+			if a := m.atrac[m.arg(0)]; a != nil {
+				m.write32(m.arg(1), a.Channels)
+				m.setRet(0)
+			} else {
+				m.setRet(errAtracBadID)
+			}
+		}
+	case "sceAtracGetNextDecodePosition":
+		return func(m *Machine) {
+			a := m.atrac[m.arg(0)]
+			if a == nil {
+				m.setRet(errAtracBadID)
+				return
+			}
+			if a.Pos >= a.Frames {
+				m.setRet(errAtracAllDecoded)
+				return
+			}
+			m.write32(m.arg(1), a.Pos*atracMaxSamples)
+			m.setRet(0)
+		}
+	case "sceAtracReleaseAtracID":
+		return func(m *Machine) {
+			delete(m.atrac, m.arg(0))
+			m.setRet(0)
+		}
 	case "sceUmdCheckMedium":
 		return func(m *Machine) { m.setRet(1) } // medium present
 	case "sceUtilitySavedataInitStart":

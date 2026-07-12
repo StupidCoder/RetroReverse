@@ -62,8 +62,10 @@ func (m *Machine) deliverVBlank() {
 // callGuest runs a guest function to completion in a nested execution frame: the
 // live CPU state is saved, the function runs with $ra at the intrExitAddr
 // sentinel on a scratch stack below the current one, and the state is restored.
-// A CPU halt inside the handler (an unimplemented op) is propagated.
-func (m *Machine) callGuest(entry uint32, args ...uint32) {
+// A CPU halt inside the handler (an unimplemented op) is propagated. The
+// function's $v0 is returned (callback contracts like the sceMpeg ringbuffer
+// feeder report a count there).
+func (m *Machine) callGuest(entry uint32, args ...uint32) uint32 {
 	saved := m.CPU.SaveState()
 	m.CPU.SetPC(entry)
 	for i, v := range args {
@@ -90,8 +92,10 @@ func (m *Machine) callGuest(entry uint32, args ...uint32) {
 		m.note("guest call 0x%08X did not return within budget", entry)
 	}
 	halted, reason := m.CPU.Halted, m.CPU.HaltReason
+	ret := m.CPU.Reg(2)
 	m.CPU.LoadState(saved)
 	if halted {
 		m.CPU.Halted, m.CPU.HaltReason = true, reason
 	}
+	return ret
 }

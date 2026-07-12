@@ -41,6 +41,9 @@ type MachineState struct {
 	NextFd       uint32
 	Pad          uint32
 	Savedata     uint32 // savedata-utility dialog status (0 none .. 4 shutdown)
+	Mpeg         mpegState
+	Atrac        map[uint32]atracState
+	NextAtrac    uint32
 }
 
 type ioFileState struct {
@@ -100,6 +103,10 @@ func (m *Machine) SaveState() MachineState {
 	for _, si := range m.subIntrs {
 		intrs = append(intrs, subIntrState{si.intno, si.subno, si.handler, si.arg, si.enabled})
 	}
+	atracs := make(map[uint32]atracState, len(m.atrac))
+	for id, a := range m.atrac {
+		atracs[id] = *a
+	}
 	files := make(map[uint32]ioFileState, len(m.files))
 	for fd, f := range m.files {
 		files[fd] = ioFileState{Path: f.path, Pos: f.pos}
@@ -116,7 +123,8 @@ func (m *Machine) SaveState() MachineState {
 		FBAddr: m.fbAddr, TTY: m.tty, SyscallCalls: m.SyscallCalls,
 		SubIntrs: intrs, VBlanks: m.vblanks, Current: current,
 		Files: files, NextFd: m.nextFd,
-		Pad: m.pad, Savedata: m.savedataStatus,
+		Pad: m.pad, Savedata: m.savedataStatus, Mpeg: m.mpeg,
+		Atrac: atracs, NextAtrac: m.nextAtrac,
 	}
 }
 
@@ -161,7 +169,13 @@ func (m *Machine) LoadState(s MachineState) error {
 		}
 	}
 	m.vblanks = s.VBlanks
-	m.pad, m.savedataStatus = s.Pad, s.Savedata
+	m.pad, m.savedataStatus, m.mpeg = s.Pad, s.Savedata, s.Mpeg
+	m.atrac = map[uint32]*atracState{}
+	for id, a := range s.Atrac {
+		a := a
+		m.atrac[id] = &a
+	}
+	m.nextAtrac = s.NextAtrac
 	m.files = map[uint32]*ioFile{}
 	for fd, f := range s.Files {
 		if m.vol == nil {

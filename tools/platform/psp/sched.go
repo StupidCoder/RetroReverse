@@ -37,10 +37,22 @@ func (m *Machine) startThread(uid uint32, o *kobject, argLen, argPtr uint32) {
 	k0 := m.threadK0(uid, o.stackTop)
 	ctx := allegrex.CPUState{}
 	ctx.VfpuCtrl[0], ctx.VfpuCtrl[1] = 0xE4, 0xE4 // vpfxs/vpfxt at their identity
-	ctx.R[26] = k0                                // $k0
-	ctx.R[28] = m.CPU.Reg(28)                     // $gp
-	ctx.R[29] = k0                                // $sp: below the context area
-	ctx.R[30] = k0                                // $fp
+	ctx.R[26] = k0            // $k0
+	ctx.R[28] = m.CPU.Reg(28) // $gp
+	sp := k0                  // $sp: below the context area
+	// The kernel copies the argument block onto the new thread's stack and points
+	// $a1 at the copy — the caller's block may be a by-value struct on its own
+	// stack frame, dead by the time this thread first runs.
+	if argLen > 0 && argPtr != 0 {
+		cp := (k0 - argLen) &^ 0xF
+		for i := uint32(0); i < argLen; i++ {
+			m.Write(cp+i, m.Read(argPtr+i))
+		}
+		argPtr = cp
+		sp = cp
+	}
+	ctx.R[29] = sp
+	ctx.R[30] = sp // $fp
 	ctx.R[31] = threadExitAddr
 	ctx.R[4] = argLen // $a0
 	ctx.R[5] = argPtr // $a1

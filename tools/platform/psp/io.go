@@ -14,6 +14,8 @@ type ioFile struct {
 	pos      int64
 	async    int64 // last async operation's 64-bit result (read now, reported later)
 	hasAsync bool  // an async result is pending retrieval
+	dir      []Entry // directory descriptors (sceIoDopen): the entries to hand out
+	dirPos   int     // next entry sceIoDread returns
 }
 
 const (
@@ -177,19 +179,10 @@ func (m *Machine) ioWrite(fd, buf, n uint32) uint32 {
 	return errIoBadFd
 }
 
-// ioGetstat fills a SceIoStat (0x58 bytes) for a volume path. The umd9660 driver
+// fillStat writes a SceIoStat (0x58 bytes) for an entry. The umd9660 driver
 // reports a file's start sector in st_private[0]; a game reads it there and opens
 // the raw extent back with the "sce_lbn0x%X_size0x%X" path syntax.
-func (m *Machine) ioGetstat(path string, stat uint32) uint32 {
-	if m.vol == nil {
-		return errIoNoEnt
-	}
-	vp := devicePath(path)
-	e, err := m.vol.resolve(vp)
-	if err != nil {
-		m.note("sceIoGetstat(%q): not found", path)
-		return errIoNoEnt
-	}
+func (m *Machine) fillStat(e Entry, stat uint32) {
 	for i := uint32(0); i < 0x58; i += 4 {
 		m.write32(stat+i, 0)
 	}
@@ -202,6 +195,84 @@ func (m *Machine) ioGetstat(path string, stat uint32) uint32 {
 	m.write32(stat+0x08, uint32(e.Size)) // st_size (s64)
 	m.write32(stat+0x0C, 0)
 	m.write32(stat+0x40, uint32(e.Block)) // st_private[0] = start LBN
+}
+
+// ioGetstat fills a SceIoStat for a volume path.
+func (m *Machine) ioGetstat(path string, stat uint32) uint32 {
+	if m.vol == nil {
+		return errIoNoEnt
+	}
+	vp := devicePath(path)
+	e, err := m.vol.resolve(vp)
+	if err != nil {
+		m.note("sceIoGetstat(%q): not found", path)
+		return errIoNoEnt
+	}
+	m.fillStat(e, stat)
+	return 0
+}
+
+// --- Directory enumeration --------------------------------------------------
+//
+// Games catalogue the disc with sceIoDopen/Dread/Dclose (Burnout Legends builds
+// its file table — names AND sizes — from a directory scan, then opens files by
+// name and reads exactly the catalogued size). A directory descriptor holds the
+// entry list; each sceIoDread fills one SceIoDirent (SceIoStat + 256-byte name +
+// d_private + dummy = 0x168 bytes) and the return value is the number of entries
+// still to read (>0), 0 once exhausted.
+
+func (m *Machine) ioDopen(path string) uint32 {
+	if m.vol == nil {
+		return errIoNoEnt
+	}
+	vp := devicePath(path)
+	ents, err := m.vol.ReadDir(vp)
+	if err != nil {
+		m.note("sceIoDopen(%q): %v", path, err)
+		return errIoNoEnt
+	}
+	fd := m.nextFd
+	m.nextFd++
+	m.files[fd] = &ioFile{path: vp, dir: ents}
+	m.note("sceIoDopen(%q) -> fd %d (%d entries)", path, fd, len(ents))
+	return fd
+}
+
+func (m *Machine) ioDread(fd, dirent uint32) uint32 {
+	f, ok := m.files[fd]
+	if !ok || f.dir == nil {
+		return errIoBadFd
+	}
+	left := len(f.dir) - f.dirPos
+	if left <= 0 {
+		return 0
+	}
+	e := f.dir[f.dirPos]
+	f.dirPos++
+	m.fillStat(e, dirent)
+	name := e.Name
+	if i := strings.IndexByte(name, ';'); i >= 0 {
+		name = name[:i] // strip the ISO version suffix (";1")
+	}
+	for i := 0; i < 256; i++ {
+		var b byte
+		if i < len(name) {
+			b = name[i]
+		}
+		m.Write(dirent+0x58+uint32(i), b)
+	}
+	m.write32(dirent+0x158, 0) // d_private
+	m.write32(dirent+0x15C, 0)
+	m.note("sceIoDread(fd %d) -> %q (size %d)", fd, name, e.Size)
+	return uint32(left)
+}
+
+func (m *Machine) ioDclose(fd uint32) uint32 {
+	f, ok := m.files[fd]
+	if !ok || f.dir == nil {
+		return errIoBadFd
+	}
+	delete(m.files, fd)
 	return 0
 }
 
