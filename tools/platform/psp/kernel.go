@@ -22,10 +22,19 @@ import (
 	"crypto/sha1"
 	"encoding/binary"
 	"fmt"
+	"os"
 	"strings"
 
 	"retroreverse.com/tools/cpu/allegrex"
 )
+
+// semaTrace: set PSP_SEMA_TRACE=<name> to log every take/give of that semaphore
+// (thread, count, PC) — the tool for a semaphore deadlock.
+var semaTrace = os.Getenv("PSP_SEMA_TRACE")
+
+// syscallTrace: set PSP_SYSCALL_TRACE=<substring> to log matching syscalls with
+// their arguments, return value and caller.
+var syscallTrace = os.Getenv("PSP_SYSCALL_TRACE")
 
 // syscall binds a synthetic code to a named handler.
 type syscall struct {
@@ -244,10 +253,17 @@ func (m *Machine) handleSyscall(c *allegrex.CPU, code uint32) bool {
 		return true
 	}
 	m.SyscallCalls[sc.name]++
+	if syscallTrace != "" && strings.Contains(sc.name, syscallTrace) {
+		m.note("SYSCALL %s(%08X, %08X, %08X, %08X) ra=%08X", sc.name,
+			m.arg(0), m.arg(1), m.arg(2), m.arg(3), m.CPU.Reg(31))
+	}
 	if sc.handler != nil {
 		sc.handler(m)
 	} else {
 		m.setRet(0) // stubbed / unmodelled: report success
+	}
+	if syscallTrace != "" && strings.Contains(sc.name, syscallTrace) {
+		m.note("SYSCALL %s -> %08X", sc.name, m.CPU.Reg(2))
 	}
 	return true
 }
@@ -387,6 +403,9 @@ func handlerFor(name string) func(m *Machine) {
 				return
 			}
 			need := int32(m.arg(1))
+			if semaTrace != "" && o.name == semaTrace {
+				m.note("TRACE take %q by %q count=%d need=%d pc=%08X ra=%08X s0=%08X", o.name, m.CurrentThread(), o.count, need, m.CPU.PC, m.CPU.Reg(31), m.CPU.Reg(16))
+			}
 			if o.count >= need {
 				o.count -= need
 				m.setRet(0)
@@ -425,6 +444,9 @@ func handlerFor(name string) func(m *Machine) {
 				return
 			}
 			o.count += int32(m.arg(1))
+			if semaTrace != "" && o.name == semaTrace {
+				m.note("TRACE give %q by %q count=%d pc=%08X", o.name, m.CurrentThread(), o.count, m.CPU.PC)
+			}
 			for _, th := range m.handles {
 				if th.kind == "thread" && th.tstate == thWaiting && th.waitSema == m.arg(0) &&
 					o.count >= th.waitNeed {

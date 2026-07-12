@@ -198,5 +198,42 @@ MULTIPLAYER, DRIVER DETAILS.
 
 ![The main menu](figures/menu.png)
 
-Next: drive SINGLE EVENT into a race, and reverse the asset formats behind it
-(`.txd` texture dictionaries, the `Tracks/*/` geometry, `pveh` vehicles).
+### 5. Into the race: the idle-descriptor poll
+
+Continuing the script — SINGLE EVENT → RACE → the race options (region, track,
+rivals) → **SELECT CAR**, whose 3-D car model the software rasterizer renders
+— the boot then deadlocked on the "Filesystem lock" semaphore: `user_main`
+took it, and took it again without releasing.
+
+The cause was a wrong answer from the oracle, not a missing one.
+Burnout's stream code **polls a descriptor before it queues work on it**, to
+ask "is an operation already running?" The oracle's `sceIoPollAsync` returned
+`1` — *still in progress* — for a descriptor with nothing outstanding. The
+game therefore believed a read it had never issued was in flight, waited for
+it, and `sceIoWaitAsync` handed back a stale zero, which failed the game's
+check against the byte count it expected; the error path then tore the stream
+down and re-entered the lock-holding close. One value, four symptoms.
+
+Both calls now report `SCE_KERNEL_ERROR_NOASYNC` (`0x80020321`) when no
+operation is outstanding, which is the honest answer: *nothing is running
+here*. The game then issues its reads, and the race load runs — `enviro.dat`,
+`Gamedata.bgd`, `static.dat`, the track texture packs — onto the pre-race
+loading screen, a full-colour rendered frame:
+
+![The pre-race loading screen](figures/loading-tip.png)
+
+Two diagnostics came out of the hunt and stay in the platform:
+`PSP_SEMA_TRACE=<name>` logs every take and release of a named semaphore with
+the thread, count and PC — the tool for a semaphore deadlock — and
+`PSP_SYSCALL_TRACE=<substring>` logs matching syscalls with their arguments,
+return value and caller.
+
+**The current wall.** On the loading screen the game opens the track's
+`streamed.dat` (3.9 MB), then polls that descriptor every frame forever — the
+read is never issued. Its stream object's `Read` method (vtable + 24,
+`0x08A44280`, which computes a length from the object's 64-bit position/limit
+pair and calls `sceIoReadAsync`) is never called; the frame loop only calls
+the sync/poll method (vtable + 48, `0x08A449F8`). Nothing is blocked — no
+semaphore is held, no thread is waiting — so the game is waiting on a
+completion its own producer never starts. The next step is to find what
+should drive that producer.

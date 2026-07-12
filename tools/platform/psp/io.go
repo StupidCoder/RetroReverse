@@ -23,8 +23,9 @@ const (
 	fdStderr    = 2
 	fdFirstFile = 4
 
-	errIoNoEnt = 0x80010002 // SCE_KERNEL_ERROR_ERRNO_FILE_NOT_FOUND
-	errIoBadFd = 0x80010009
+	errIoNoEnt   = 0x80010002 // SCE_KERNEL_ERROR_ERRNO_FILE_NOT_FOUND
+	errIoBadFd   = 0x80010009
+	errIoNoAsync = 0x80020321 // SCE_KERNEL_ERROR_NOASYNC: no async op in progress
 )
 
 // SetVolume attaches the mounted UMD so the IO syscalls can serve files.
@@ -113,12 +114,17 @@ func (m *Machine) ioCloseAsync(fd uint32) uint32 {
 	return 0
 }
 
-// ioWaitAsync writes the pending 64-bit result to *resPtr and returns 0. A
-// descriptor closed via ioCloseAsync is dropped once its result is collected.
+// ioWaitAsync writes the pending 64-bit result to *resPtr and returns 0. With no
+// operation outstanding it reports NOASYNC rather than a stale result — a game
+// that waits on a descriptor it never queued work on must not be handed a value
+// it will mistake for a completed read.
 func (m *Machine) ioWaitAsync(fd, resPtr uint32) uint32 {
 	f, ok := m.files[fd]
 	if !ok {
 		return errIoBadFd
+	}
+	if !f.hasAsync {
+		return errIoNoAsync
 	}
 	if resPtr != 0 {
 		m.write32(resPtr, uint32(f.async))
@@ -128,15 +134,17 @@ func (m *Machine) ioWaitAsync(fd, resPtr uint32) uint32 {
 	return 0
 }
 
-// ioPollAsync is the non-blocking form: it returns the result if one is pending
-// (0), or 1 when there is nothing outstanding.
+// ioPollAsync is the non-blocking form: 0 (with the result) when the operation
+// has completed, NOASYNC when none is outstanding. Reporting "still in progress"
+// (1) for an idle descriptor is what a game's stream loop reads as "my read is
+// already running" — it then never issues the read and waits forever.
 func (m *Machine) ioPollAsync(fd, resPtr uint32) uint32 {
 	f, ok := m.files[fd]
 	if !ok {
 		return errIoBadFd
 	}
 	if !f.hasAsync {
-		return 1 // no operation in progress
+		return errIoNoAsync
 	}
 	if resPtr != 0 {
 		m.write32(resPtr, uint32(f.async))
