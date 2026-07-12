@@ -51,9 +51,7 @@ func (m *Machine) rasterTri(s *geState, a, b, c vert) {
 				continue
 			}
 			l0, l1, l2 := w0/area, w1/area, w2/area
-			if !m.zPass(s, x, y, l0*a.z+l1*b.z+l2*c.z) {
-				continue
-			}
+			z := l0*a.z + l1*b.z + l2*c.z
 			r := byte(l0*float32(a.r) + l1*float32(b.r) + l2*float32(c.r))
 			g := byte(l0*float32(a.g) + l1*float32(b.g) + l2*float32(c.g))
 			bl := byte(l0*float32(a.b) + l1*float32(b.b) + l2*float32(c.b))
@@ -63,23 +61,30 @@ func (m *Machine) rasterTri(s *geState, a, b, c vert) {
 				// 1/w, interpolate those linearly in screen space, then divide
 				// back. Interpolating u,v directly (affine) is what warps a
 				// surface receding to the horizon — the road was swimming.
-				var u, v float32
-				if a.clip {
-					iw := l0*a.invW + l1*b.invW + l2*c.invW
-					if iw != 0 {
-						u = (l0*a.u*a.invW + l1*b.u*b.invW + l2*c.u*c.invW) / iw
-						v = (l0*a.v*a.invW + l1*b.v*b.invW + l2*c.v*c.invW) / iw
+				u, v := uvAt(s, a, b, c, area, float32(x)+0.5, float32(y)+0.5)
+				// rho: how far the texcoords move over one screen pixel, in
+				// texels — the quantity the mip level is chosen from. Sampling
+				// the neighbouring fragments' texcoords gives it exactly, even
+				// under perspective, which matters here: a railing receding to
+				// the horizon minifies enormously along its length.
+				var rho float32 = 1
+				if s.texMaxLvl > 0 {
+					ux, vx := uvAt(s, a, b, c, area, float32(x)+1.5, float32(y)+0.5)
+					uy, vy := uvAt(s, a, b, c, area, float32(x)+0.5, float32(y)+1.5)
+					fw, fh := float32(s.texW), float32(s.texH)
+					dx := hypot32((ux-u)*fw, (vx-v)*fh)
+					dy := hypot32((uy-u)*fw, (vy-v)*fh)
+					rho = dx
+					if dy > rho {
+						rho = dy
 					}
-				} else {
-					u = l0*a.u + l1*b.u + l2*c.u
-					v = l0*a.v + l1*b.v + l2*c.v
 				}
-				r, g, bl, al = modTex(m, s, u, v, r, g, bl, al)
+				r, g, bl, al = modTex(m, s, u, v, rho, r, g, bl, al)
 			}
 			if s.fogOn && a.clip && !s.clearOn {
 				r, g, bl = applyFog(s, l0*a.fog+l1*b.fog+l2*c.fog, r, g, bl)
 			}
-			m.putPixel(s, x, y, r, g, bl, al)
+			m.putPixel(s, x, y, z, r, g, bl, al)
 		}
 	}
 }
@@ -104,19 +109,16 @@ func (m *Machine) rasterSprite(s *geState, a, b vert) {
 	for y := y0c; y < y1c; y++ {
 		for x := x0c; x < x1c; x++ {
 			// A sprite carries the far corner's depth across the whole rect.
-			if !m.zPass(s, x, y, b.z) {
-				continue
-			}
 			r, g, bl, al := b.r, b.g, b.b, b.a
 			if s.texEnable && !s.clearOn && dw != 0 && dh != 0 {
 				u := u0 + (u1-u0)*(float32(x-x0)/dw)
 				v := v0 + (v1-v0)*(float32(y-y0)/dh)
-				r, g, bl, al = modTex(m, s, u, v, r, g, bl, al)
+				r, g, bl, al = modTex(m, s, u, v, 1, r, g, bl, al)
 			}
 			if s.fogOn && b.clip && !s.clearOn {
 				r, g, bl = applyFog(s, b.fog, r, g, bl)
 			}
-			m.putPixel(s, x, y, r, g, bl, al)
+			m.putPixel(s, x, y, b.z, r, g, bl, al)
 		}
 	}
 }
@@ -128,6 +130,28 @@ func applyFog(s *geState, f float32, r, g, b byte) (byte, byte, byte) {
 	fr, fg, fb := float32(byte(s.fogColor)), float32(byte(s.fogColor>>8)), float32(byte(s.fogColor>>16))
 	mix := func(c, fc float32) byte { return byte(c*f + fc*(1-f)) }
 	return mix(float32(r), fr), mix(float32(g), fg), mix(float32(b), fb)
+}
+
+// uvAt evaluates the perspective-correct texcoords of a triangle at a screen
+// point.
+func uvAt(s *geState, a, b, c vert, area, px, py float32) (float32, float32) {
+	p := vert{x: px, y: py}
+	l0 := edge(b, c, p) / area
+	l1 := edge(c, a, p) / area
+	l2 := edge(a, b, p) / area
+	if !a.clip {
+		return l0*a.u + l1*b.u + l2*c.u, l0*a.v + l1*b.v + l2*c.v
+	}
+	iw := l0*a.invW + l1*b.invW + l2*c.invW
+	if iw == 0 {
+		return 0, 0
+	}
+	return (l0*a.u*a.invW + l1*b.u*b.invW + l2*c.u*c.invW) / iw,
+		(l0*a.v*a.invW + l1*b.v*b.invW + l2*c.v*c.invW) / iw
+}
+
+func hypot32(x, y float32) float32 {
+	return float32(math.Hypot(float64(x), float64(y)))
 }
 
 // wrapTexel folds an integer texel coordinate per the TEXWRAP mode.
@@ -151,9 +175,18 @@ func wrapTexel(i int, size uint32, clamp uint32) uint32 {
 // modTex samples the bound texture at (u,v) and combines it with the vertex
 // colour per TEXFUNC. Texcoords are normalized (0..1) in transformed mode, or
 // absolute in through mode. TEXWRAP decides repeat vs clamp per axis.
-func modTex(m *Machine, s *geState, u, v float32, r, g, b, a byte) (byte, byte, byte, byte) {
+func modTex(m *Machine, s *geState, u, v, rho float32, r, g, b, a byte) (byte, byte, byte, byte) {
 	if s.texW == 0 || s.texH == 0 || s.texAddr == 0 {
 		return r, g, b, a
+	}
+	// Pick the mip level for this fragment and sample at THAT level's size.
+	lvl := s.texLevel(rho)
+	texW, texH := s.texW>>lvl, s.texH>>lvl
+	if lvl > 0 && s.texWN[lvl] != 0 {
+		texW, texH = s.texWN[lvl], s.texHN[lvl]
+	}
+	if texW == 0 || texH == 0 {
+		lvl, texW, texH = 0, s.texW, s.texH
 	}
 	wrap := func(t float32, size uint32, clamp uint32) uint32 {
 		i := int(t * float32(size))
@@ -179,18 +212,18 @@ func modTex(m *Machine, s *geState, u, v float32, r, g, b, a byte) (byte, byte, 
 		// TEXFILTER linear: bilinear blend of the four neighbouring texels. The
 		// game asks for it on nearly every 3-D primitive; sampling nearest left
 		// the road and car surfaces harshly blocky.
-		fu := u*float32(s.texW) - 0.5
-		fv := v*float32(s.texH) - 0.5
+		fu := u*float32(texW) - 0.5
+		fv := v*float32(texH) - 0.5
 		fx := fu - float32(math.Floor(float64(fu)))
 		fy := fv - float32(math.Floor(float64(fv)))
-		u0 := wrapTexel(int(math.Floor(float64(fu))), s.texW, s.texWrapU)
-		v0 := wrapTexel(int(math.Floor(float64(fv))), s.texH, s.texWrapV)
-		u1 := wrapTexel(int(math.Floor(float64(fu)))+1, s.texW, s.texWrapU)
-		v1 := wrapTexel(int(math.Floor(float64(fv)))+1, s.texH, s.texWrapV)
-		r00, g00, b00, a00 := m.sampleTex(s, u0, v0)
-		r10, g10, b10, a10 := m.sampleTex(s, u1, v0)
-		r01, g01, b01, a01 := m.sampleTex(s, u0, v1)
-		r11, g11, b11, a11 := m.sampleTex(s, u1, v1)
+		u0 := wrapTexel(int(math.Floor(float64(fu))), texW, s.texWrapU)
+		v0 := wrapTexel(int(math.Floor(float64(fv))), texH, s.texWrapV)
+		u1 := wrapTexel(int(math.Floor(float64(fu)))+1, texW, s.texWrapU)
+		v1 := wrapTexel(int(math.Floor(float64(fv)))+1, texH, s.texWrapV)
+		r00, g00, b00, a00 := m.sampleTexLvl(s, u0, v0, lvl)
+		r10, g10, b10, a10 := m.sampleTexLvl(s, u1, v0, lvl)
+		r01, g01, b01, a01 := m.sampleTexLvl(s, u0, v1, lvl)
+		r11, g11, b11, a11 := m.sampleTexLvl(s, u1, v1, lvl)
 		lerp := func(c00, c10, c01, c11 byte) byte {
 			top := float32(c00)*(1-fx) + float32(c10)*fx
 			bot := float32(c01)*(1-fx) + float32(c11)*fx
@@ -199,7 +232,7 @@ func modTex(m *Machine, s *geState, u, v float32, r, g, b, a byte) (byte, byte, 
 		tr, tg, tb, ta = lerp(r00, r10, r01, r11), lerp(g00, g10, g01, g11),
 			lerp(b00, b10, b01, b11), lerp(a00, a10, a01, a11)
 	} else {
-		tr, tg, tb, ta = m.sampleTex(s, wrap(u, s.texW, s.texWrapU), wrap(v, s.texH, s.texWrapV))
+		tr, tg, tb, ta = m.sampleTex(s, wrap(u, texW, s.texWrapU), wrap(v, texH, s.texWrapV))
 	}
 
 	var or, og, ob, oa byte
@@ -257,27 +290,61 @@ func modTex(m *Machine, s *geState, u, v float32, r, g, b, a byte) (byte, byte, 
 // (5650/5551/4444/8888) and the indexed ones (CLUT4/CLUT8), honouring the
 // swizzled block layout when TEXMODE selects it.
 func (m *Machine) sampleTex(s *geState, tx, ty uint32) (byte, byte, byte, byte) {
-	stride := s.texStride // in pixels
+	return m.sampleTexLvl(s, tx, ty, 0)
+}
+
+// sampleTexLvl reads one texel from mip level lvl: the direct formats
+// (5650/5551/4444/8888) and the indexed ones (CLUT4/CLUT8), honouring the
+// swizzled block layout when TEXMODE selects it.
+func (m *Machine) sampleTexLvl(s *geState, tx, ty, lvl uint32) (byte, byte, byte, byte) {
+	addr, stride := s.texAddr, s.texStride
+	if lvl > 0 && s.texAddrN[lvl] != 0 {
+		addr, stride = s.texAddrN[lvl], s.texStrideN[lvl]
+	}
 	if stride == 0 {
-		stride = s.texW
+		stride = s.texW >> lvl
+	}
+	if addr == 0 || stride == 0 {
+		return 0xFF, 0xFF, 0xFF, 0xFF
 	}
 	switch s.texFmt {
 	case 3: // 8888
 		off := m.texOff(s, tx*4, ty, stride*4)
-		c := m.read32(s.texAddr + off)
+		c := m.read32(addr + off)
 		return byte(c), byte(c >> 8), byte(c >> 16), byte(c >> 24)
 	case 0, 1, 2: // 565 / 5551 / 4444
 		off := m.texOff(s, tx*2, ty, stride*2)
-		return decode16a(u16(m, s.texAddr+off), s.texFmt)
+		return decode16a(u16(m, addr+off), s.texFmt)
 	case 4: // CLUT4: two texels per byte, low nibble first
 		off := m.texOff(s, tx/2, ty, stride/2)
-		raw := uint32(m.Read(s.texAddr+off)) >> (4 * (tx & 1)) & 0xF
+		raw := uint32(m.Read(addr+off)) >> (4 * (tx & 1)) & 0xF
 		return s.clutLookup(raw)
 	case 5: // CLUT8
 		off := m.texOff(s, tx, ty, stride)
-		return s.clutLookup(uint32(m.Read(s.texAddr + off)))
+		return s.clutLookup(uint32(m.Read(addr + off)))
 	}
 	return 0xFF, 0xFF, 0xFF, 0xFF
+}
+
+// texLevel picks the mip level for a fragment from rho — how many texels the
+// texcoords advance per screen pixel. LOD = log2(rho), plus the TEXLEVEL bias,
+// clamped to the levels the game actually supplied.
+func (s *geState) texLevel(rho float32) uint32 {
+	if s.texMaxLvl == 0 || rho <= 1 {
+		return 0
+	}
+	lod := float32(math.Log2(float64(rho))) + s.texLodBias
+	if lod <= 0 {
+		return 0
+	}
+	l := uint32(lod + 0.5)
+	if l > s.texMaxLvl {
+		l = s.texMaxLvl
+	}
+	if l > 7 {
+		l = 7
+	}
+	return l
 }
 
 // texOff converts a (byte-x, y) texel position to a byte offset in the texture
@@ -322,13 +389,12 @@ func decode16a(p uint16, fmt uint32) (byte, byte, byte, byte) {
 	}
 }
 
-// stencilPass runs the stencil test against the destination alpha (which IS the
-// PSP's stencil buffer) and returns whether the fragment survives, plus the
-// stencil value to store. Only the pass/sfail paths arise here: the depth test
-// has already run, so a fragment reaching this point never takes the zfail op.
-func (s *geState) stencilPass(dstA byte) (bool, byte) {
+// stencilTest runs the stencil test against the destination alpha (which IS the
+// PSP's stencil buffer). The caller applies the SFAIL / ZFAIL / ZPASS operation
+// once the depth test has also run.
+func (s *geState) stencilTest(dstA byte) bool {
 	if !s.stencilOn || s.clearOn {
-		return true, dstA
+		return true
 	}
 	ref := s.stRef & s.stMask
 	cur := uint32(dstA) & s.stMask
@@ -350,11 +416,7 @@ func (s *geState) stencilPass(dstA byte) (bool, byte) {
 	default:
 		pass = ref >= cur
 	}
-	op := s.stSFail
-	if pass {
-		op = s.stZPass
-	}
-	return pass, stencilOp(op, dstA, byte(s.stRef))
+	return pass
 }
 
 // stencilOp applies one stencil operation to the stored value.
@@ -457,10 +519,15 @@ func clamp255(v int32) byte {
 	return byte(v)
 }
 
-// putPixel writes an RGBA pixel into the framebuffer in its PSP format, running
-// the alpha test, the blend equation (ALPHA/BLENDFIX: the game uses several
-// factor pairs, not just src-alpha), and the pixel write masks.
-func (m *Machine) putPixel(s *geState, x, y int, r, g, b, a byte) {
+// putPixel runs the per-fragment pipeline in HARDWARE ORDER — scissor, alpha
+// test, stencil test, DEPTH test, blend, write — and stores the result.
+//
+// The order matters: the depth test comes AFTER the alpha test, so a fragment
+// killed by the alpha test never touches the depth buffer. Testing depth first
+// (as this did) let the fully transparent texels of an alpha-masked billboard —
+// Burnout's roadside trees — stamp their depth anyway, and everything behind
+// them was then rejected: the trees came out truncated, cut off against nothing.
+func (m *Machine) putPixel(s *geState, x, y int, z float32, r, g, b, a byte) {
 	// Scissor: the game restricts drawing to a rectangle (its off-screen targets
 	// are smaller than the screen).
 	if !s.clearOn && (x < s.scX0 || x > s.scX1 || y < s.scY0 || y > s.scY1) && s.scX1 > 0 {
@@ -476,25 +543,37 @@ func (m *Machine) putPixel(s *geState, x, y int, r, g, b, a byte) {
 	}
 	off := uint32(y)*stride + uint32(x)
 	if x == geProbeX && y == geProbeY {
-		fmt.Printf("PIXEL(%d,%d) prim#%d rgba=%02X%02X%02X%02X fb=%08X fmt%d clear=%v blend=%v(%d,%d,%d fixA=%06X fixB=%06X) atest=%v tex=%v@%08X f%d fn%d dbl=%v lin=%v clut@%08X mat=%08X\n",
-			x, y, gePrimSeq, r, g, b, a, base, s.fbFmt, s.clearOn, s.blendOn, s.blendSrc, s.blendDst, s.blendEq,
-			s.blendFixA, s.blendFixB,
-			s.alphaTestOn, s.texEnable, s.texAddr, s.texFmt, s.texFunc, s.texDouble, s.texLinear, s.clutAddr, s.matColor)
+		fmt.Printf("PIXEL(%d,%d) prim#%d rgba=%02X%02X%02X%02X blend=%v(%d,%d) atest=%v(fn%d ref%d) wrap=(%d,%d) map=%d/src%d maxlvl=%d bias=%.2f tex=%08X f%d fn%d dbl=%v mat=%08X\n",
+			x, y, gePrimSeq, r, g, b, a, s.blendOn, s.blendSrc, s.blendDst,
+			s.alphaTestOn, s.alphaFunc, s.alphaRef, s.texWrapU, s.texWrapV,
+			s.texMapMode, s.texProjSrc, s.texMaxLvl, s.texLodBias,
+			s.texAddr, s.texFmt, s.texFunc, s.texDouble, s.matColor)
 	}
-	// Stencil test against the destination alpha (the PSP's stencil buffer), and
-	// the stencil value the fragment stores back there if it survives.
-	stPass, stVal := s.stencilPass(m.dstAlpha(s, base, off))
+	// Stencil test against the destination alpha (the PSP's stencil buffer).
+	// A stencil failure applies the SFAIL op and stops; the depth test then
+	// decides between the ZFAIL and ZPASS ops.
+	dstA := m.dstAlpha(s, base, off)
+	stPass := s.stencilTest(dstA)
 	if !stPass {
 		if !s.clearOn {
-			m.storeAlpha(s, base, off, stVal)
+			m.storeAlpha(s, base, off, stencilOp(s.stSFail, dstA, byte(s.stRef)))
 		}
 		return
 	}
+	// Depth test — after the alpha and stencil tests, never before.
+	zPass := m.zTest(s, x, y, z)
+	if !zPass {
+		if !s.clearOn && s.stencilOn {
+			m.storeAlpha(s, base, off, stencilOp(s.stZFail, dstA, byte(s.stRef)))
+		}
+		return
+	}
+	m.zWrite(s, x, y, z)
 	// The fragment's own alpha still drives blending; only the value STORED in
 	// the alpha channel is the stencil result.
 	outA := a
 	if s.stencilOn && !s.clearOn {
-		outA = stVal
+		outA = stencilOp(s.stZPass, dstA, byte(s.stRef))
 	}
 	if s.blendOn && !s.clearOn {
 		dr, dg, db, da := m.dstPixel4(s, base, off)

@@ -26,6 +26,9 @@ var geNoCull = os.Getenv("PSP_GE_NOCULL") != ""
 // geNoZ: set PSP_GE_NOZ=1 to bypass the depth test (a bisection aid).
 var geNoZ = os.Getenv("PSP_GE_NOZ") != ""
 
+// geNoBias: set PSP_GE_NOBIAS=1 to ignore the TEXLEVEL LOD bias (a bisection aid).
+var geNoBias = os.Getenv("PSP_GE_NOBIAS") != ""
+
 // geXferLog: set PSP_GE_XFER=1 to log every GE block transfer (src, dst, size).
 var geXferLog = os.Getenv("PSP_GE_XFER") != ""
 
@@ -100,11 +103,12 @@ const (
 	cSHADEMODE   = 0x50 // 0 = flat, 1 = gouraud
 	cMATAMBIENT  = 0x55 // material ambient RGB: the vertex colour when the format carries none
 	cMATALPHA    = 0x58 // material ambient alpha
-	cTEXADDR0    = 0xA0
-	cTEXBW0      = 0xA8
+	cTEXADDR0    = 0xA0 // mip level addresses at 0xA0..0xA7
+	cTEXBW0      = 0xA8 // mip level strides + high address bits at 0xA8..0xAF
+	cTEXLEVEL    = 0xC8 // LOD mode (bits 0-1) + bias (bits 16-23, signed, 1/16ths)
 	cCLUTADDR    = 0xB0
 	cCLUTADDRH   = 0xB1
-	cTEXSIZE0    = 0xB8
+	cTEXSIZE0    = 0xB8 // mip level sizes at 0xB8..0xBF
 	cTEXMAPMODE  = 0xC0 // texcoord source: 0 = UV, 1 = texture matrix, 2 = env map
 	cTEXMODE     = 0xC2 // bit 0 = swizzled, bits 16-18 = mip count
 	cTEXFORMAT   = 0xC3
@@ -190,7 +194,19 @@ type geState struct {
 	matColor uint32 // material ambient RGBA (vertex colour when the format has none)
 	clearOn  bool
 
-	texEnable            bool
+	texEnable bool
+	// Mip levels. The GE picks a level from how fast the texcoords move across
+	// the screen; sampling level 0 for a minified surface aliases badly — the
+	// gaps in Burnout's roadside railings turned into 1-pixel black stripes
+	// across the road, and (writing depth) punched holes in it.
+	texAddrN   [8]uint32
+	texStrideN [8]uint32
+	texWN      [8]uint32
+	texHN      [8]uint32
+	texMaxLvl  uint32 // TEXMODE bits 16-18: highest level supplied
+	texLodMode uint32 // TEXLEVEL: 0 = auto, 1 = const, 2 = slope
+	texLodBias float32
+
 	texAddr              uint32
 	texStride            uint32
 	texW, texH           uint32
@@ -298,48 +314,51 @@ func (m *Machine) blockTransfer(s *geState, is32 bool) {
 	}
 }
 
-// zPass runs the depth test for one pixel and, when it passes, writes z back
-// (unless ZMSK masks the write). Depth is 16-bit, one entry per zStride pixels.
-// In CLEAR mode the test is bypassed: the clear either stamps z (bit 10 set) or
-// leaves the buffer alone.
-func (m *Machine) zPass(s *geState, x, y int, z float32) bool {
-	if s.zLow == 0 || s.zStride == 0 {
+// zTest runs the depth test for one pixel WITHOUT writing (the write happens
+// only once the fragment has survived every test — see putPixel). In CLEAR mode
+// the test is bypassed.
+func (m *Machine) zTest(s *geState, x, y int, z float32) bool {
+	if s.zLow == 0 || s.zStride == 0 || s.clearOn || !s.zTestOn || geNoZ {
 		return true
 	}
 	zi := uint32(clampF(z, 0, 65535))
-	addr := s.zAddress() + (uint32(y)*s.zStride+uint32(x))*2
-	if s.clearOn {
-		if s.clearDepth {
-			m.write16(addr, uint16(zi))
-		}
-		return true
-	}
-	if !s.zTestOn || geNoZ {
-		return true
-	}
-	old := uint32(u16(m, addr))
-	pass := false
+	old := uint32(u16(m, s.zAddress()+(uint32(y)*s.zStride+uint32(x))*2))
 	switch s.zFunc {
 	case 0: // never
+		return false
 	case 1: // always
-		pass = true
+		return true
 	case 2:
-		pass = zi == old
+		return zi == old
 	case 3:
-		pass = zi != old
+		return zi != old
 	case 4:
-		pass = zi < old
+		return zi < old
 	case 5:
-		pass = zi <= old
+		return zi <= old
 	case 6:
-		pass = zi > old
+		return zi > old
 	default: // 7: gequal — Burnout's convention (viewport z is reversed: near = 65535)
-		pass = zi >= old
+		return zi >= old
 	}
-	if pass && !s.zNoWrite {
-		m.write16(addr, uint16(zi))
+}
+
+// zWrite stores the fragment's depth, unless ZMSK masks it out. In CLEAR mode
+// the clear either stamps z (arg bit 10) or leaves the buffer alone.
+func (m *Machine) zWrite(s *geState, x, y int, z float32) {
+	if s.zLow == 0 || s.zStride == 0 {
+		return
 	}
-	return pass
+	if s.clearOn {
+		if s.clearDepth {
+			m.write16(s.zAddress()+(uint32(y)*s.zStride+uint32(x))*2, uint16(clampF(z, 0, 65535)))
+		}
+		return
+	}
+	if !s.zTestOn || s.zNoWrite {
+		return
+	}
+	m.write16(s.zAddress()+(uint32(y)*s.zStride+uint32(x))*2, uint16(clampF(z, 0, 65535)))
 }
 
 func clampF(v, lo, hi float32) float32 {
@@ -560,18 +579,40 @@ func (m *Machine) rasterList(list GeList) {
 			matPush16(&s.proj, &s.projIdx, arg)
 		case cTEXENABLE:
 			s.texEnable = arg&1 != 0
-		case cTEXADDR0:
-			s.texAddr = (s.texAddr & 0xFF000000) | (arg & 0xFFFFFF)
-		case cTEXBW0:
-			s.texStride = arg & 0xFFFF
-			s.texAddr = (s.texAddr & 0x00FFFFFF) | ((arg & 0xFF0000) << 8)
-		case cTEXSIZE0:
-			s.texW = 1 << (arg & 0xFF)
-			s.texH = 1 << ((arg >> 8) & 0xFF)
+		case cTEXADDR0, cTEXADDR0 + 1, cTEXADDR0 + 2, cTEXADDR0 + 3,
+			cTEXADDR0 + 4, cTEXADDR0 + 5, cTEXADDR0 + 6, cTEXADDR0 + 7:
+			l := cmd - cTEXADDR0
+			s.texAddrN[l] = (s.texAddrN[l] & 0xFF000000) | (arg & 0xFFFFFF)
+			if l == 0 {
+				s.texAddr = s.texAddrN[0]
+			}
+		case cTEXBW0, cTEXBW0 + 1, cTEXBW0 + 2, cTEXBW0 + 3,
+			cTEXBW0 + 4, cTEXBW0 + 5, cTEXBW0 + 6, cTEXBW0 + 7:
+			l := cmd - cTEXBW0
+			s.texStrideN[l] = arg & 0xFFFF
+			s.texAddrN[l] = (s.texAddrN[l] & 0x00FFFFFF) | ((arg & 0xFF0000) << 8)
+			if l == 0 {
+				s.texStride, s.texAddr = s.texStrideN[0], s.texAddrN[0]
+			}
+		case cTEXSIZE0, cTEXSIZE0 + 1, cTEXSIZE0 + 2, cTEXSIZE0 + 3,
+			cTEXSIZE0 + 4, cTEXSIZE0 + 5, cTEXSIZE0 + 6, cTEXSIZE0 + 7:
+			l := cmd - cTEXSIZE0
+			s.texWN[l] = 1 << (arg & 0xFF)
+			s.texHN[l] = 1 << ((arg >> 8) & 0xFF)
+			if l == 0 {
+				s.texW, s.texH = s.texWN[0], s.texHN[0]
+			}
+		case cTEXLEVEL:
+			s.texLodMode = arg & 3
+			s.texLodBias = float32(int8(byte(arg>>16))) / 16
+			if geNoBias {
+				s.texLodBias = 0
+			}
 		case cTEXFORMAT:
 			s.texFmt = arg & 0xF
 		case cTEXMODE:
 			s.texSwizzle = arg&1 != 0
+			s.texMaxLvl = (arg >> 16) & 7
 		case cTEXSCALEU:
 			s.texScaleU = f24(arg)
 		case cTEXSCALEV:
@@ -1076,9 +1117,24 @@ func invW(w float32) float32 {
 	return 1 / w
 }
 
-// wNear is the near-plane epsilon in clip space: a vertex at or behind the eye
-// (w <= wNear) cannot be projected.
-const wNear = 1e-4
+// nearDist is a vertex's signed distance to the NEAR PLANE in clip space. The
+// projection maps NDC z = -1 to the near plane, i.e. cz = -cw, so the plane is
+// cz + cw = 0 and anything with a negative value lies in front of it.
+//
+// Clipping only against w > 0 (the eye plane) is not enough: a vertex a hair in
+// front of the eye but still nearer than the near plane has a tiny w, and
+// dividing by it throws the projected coordinates out to millions. The triangle
+// then rasterizes with barycentric weights that lose all their precision — the
+// interpolated colours collapse towards zero. That is what painted the black
+// stripes across Burnout's road: a railing strip crossing the near plane came
+// out with vertex colours of 1/255 instead of white, so its (correctly sampled)
+// texels were modulated into black, and being opaque they took the depth buffer
+// with them.
+func nearDist(v vert) float32 { return v.cz + v.cw }
+
+// nearEps keeps the clipped vertex a hair inside the plane, so w stays safely
+// non-zero after the divide.
+const nearEps = 1e-5
 
 // clipTriNear clips a triangle against the near plane (w > wNear) and returns
 // the resulting screen-space triangles — none, one, or two. Vertices are
@@ -1089,19 +1145,23 @@ func clipTriNear(s *geState, a, b, c vert) [][3]vert {
 	if !a.clip || !b.clip || !c.clip {
 		return [][3]vert{{a, b, c}}
 	}
-	if a.cw > wNear && b.cw > wNear && c.cw > wNear {
+	da, db, dc := nearDist(a), nearDist(b), nearDist(c)
+	if da > nearEps && db > nearEps && dc > nearEps {
 		return [][3]vert{{a, b, c}}
 	}
 	in := []vert{a, b, c}
+	din := []float32{da, db, dc}
 	var out []vert
 	for i := 0; i < len(in); i++ {
-		cur, nxt := in[i], in[(i+1)%len(in)]
-		curIn, nxtIn := cur.cw > wNear, nxt.cw > wNear
+		j := (i + 1) % len(in)
+		cur, nxt := in[i], in[j]
+		dCur, dNxt := din[i], din[j]
+		curIn, nxtIn := dCur > nearEps, dNxt > nearEps
 		if curIn {
 			out = append(out, cur)
 		}
 		if curIn != nxtIn {
-			t := (wNear - cur.cw) / (nxt.cw - cur.cw)
+			t := (nearEps - dCur) / (dNxt - dCur)
 			out = append(out, lerpVert(s, cur, nxt, t))
 		}
 	}
