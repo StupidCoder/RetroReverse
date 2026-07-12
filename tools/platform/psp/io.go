@@ -9,9 +9,11 @@ import "strings"
 
 // ioFile is one open descriptor on the UMD volume.
 type ioFile struct {
-	path string // volume path (device prefix stripped)
-	ent  Entry
-	pos  int64
+	path     string // volume path (device prefix stripped)
+	ent      Entry
+	pos      int64
+	async    int64 // last async operation's 64-bit result (read now, reported later)
+	hasAsync bool  // an async result is pending retrieval
 }
 
 const (
@@ -58,6 +60,87 @@ func (m *Machine) ioClose(fd uint32) uint32 {
 		return errIoBadFd
 	}
 	delete(m.files, fd)
+	return 0
+}
+
+// --- Async IO -------------------------------------------------------------
+//
+// The PSP async IO calls queue an operation on a file descriptor and report its
+// result later through sceIoWaitAsync / sceIoPollAsync. This oracle's volume
+// reads complete instantly, so each async call performs the operation now and
+// stores its 64-bit result on the descriptor; the wait/poll calls hand that
+// result back and report "done".
+
+// ioOpenAsync opens a file and stores the fd as the pending async result, so a
+// following sceIoWaitAsync(fd, &res) reports the opened fd.
+func (m *Machine) ioOpenAsync(path string) uint32 {
+	fd := m.ioOpen(path)
+	if fd&0x80000000 == 0 { // a real fd, not an error code
+		f := m.files[fd]
+		f.async, f.hasAsync = int64(fd), true
+	}
+	return fd
+}
+
+func (m *Machine) ioReadAsync(fd, buf, n uint32) uint32 {
+	f, ok := m.files[fd]
+	if !ok {
+		return errIoBadFd
+	}
+	f.async, f.hasAsync = int64(int32(m.ioRead(fd, buf, n))), true
+	return 0
+}
+
+func (m *Machine) ioLseekAsync(fd uint32, off int64, whence uint32) uint32 {
+	f, ok := m.files[fd]
+	if !ok {
+		return errIoBadFd
+	}
+	f.async, f.hasAsync = m.ioLseek(fd, off, whence), true
+	return 0
+}
+
+func (m *Machine) ioCloseAsync(fd uint32) uint32 {
+	f, ok := m.files[fd]
+	if !ok {
+		return errIoBadFd
+	}
+	f.async, f.hasAsync = 0, true
+	// the close itself takes effect when the wait retrieves the result; keep
+	// the descriptor until then so the wait can find it
+	return 0
+}
+
+// ioWaitAsync writes the pending 64-bit result to *resPtr and returns 0. A
+// descriptor closed via ioCloseAsync is dropped once its result is collected.
+func (m *Machine) ioWaitAsync(fd, resPtr uint32) uint32 {
+	f, ok := m.files[fd]
+	if !ok {
+		return errIoBadFd
+	}
+	if resPtr != 0 {
+		m.write32(resPtr, uint32(f.async))
+		m.write32(resPtr+4, uint32(f.async>>32))
+	}
+	f.hasAsync = false
+	return 0
+}
+
+// ioPollAsync is the non-blocking form: it returns the result if one is pending
+// (0), or 1 when there is nothing outstanding.
+func (m *Machine) ioPollAsync(fd, resPtr uint32) uint32 {
+	f, ok := m.files[fd]
+	if !ok {
+		return errIoBadFd
+	}
+	if !f.hasAsync {
+		return 1 // no operation in progress
+	}
+	if resPtr != 0 {
+		m.write32(resPtr, uint32(f.async))
+		m.write32(resPtr+4, uint32(f.async>>32))
+	}
+	f.hasAsync = false
 	return 0
 }
 

@@ -32,7 +32,8 @@ type tagInfo struct {
 // game EBOOT.BIN uses tag 0xC0CB167C. Further tags (other firmwares / demo / update
 // modules) are added here as their seeds are transcribed.
 var tagTable = map[uint32]tagInfo{
-	0xC0CB167C: {seed: keyEBOOT2xx[:], code: 0x5D},
+	0xC0CB167C: {seed: keyEBOOT2xx[:], code: 0x5D}, // 2.xx retail EBOOT
+	0x08000000: {seed: keyEBOOT1xx[:], code: 0x4B}, // 1.xx retail EBOOT
 }
 
 // DecryptPRX strips a ~PSP KIRK-encrypted container and returns the plaintext ELF

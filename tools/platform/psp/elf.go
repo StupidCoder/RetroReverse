@@ -150,44 +150,64 @@ func (m *Module) Relocate(base uint32) {
 	if len(m.Segments) == 0 {
 		return
 	}
-	seg := &m.Segments[0]
-	segBase := base + seg.VAddr
 
-	read := func(off uint32) uint32 {
-		if int(off)+4 > len(seg.Data) {
+	// Each PSP PRX relocation names, in its r_info, the segment its offset is
+	// relative to (bits 8-15) and the segment whose load address is added
+	// (bits 16-23). Multi-segment modules rely on this: the same offset (e.g. 0)
+	// appears once relative to segment 0 and once relative to segment 1, so the
+	// indices must be honoured or a segment-1 fixup corrupts segment 0's code.
+	read := func(si int, off uint32) uint32 {
+		d := m.Segments[si].Data
+		if int(off)+4 > len(d) {
 			return 0
 		}
-		return binary.LittleEndian.Uint32(seg.Data[off:])
+		return binary.LittleEndian.Uint32(d[off:])
 	}
-	write := func(off, v uint32) {
-		if int(off)+4 <= len(seg.Data) {
-			binary.LittleEndian.PutUint32(seg.Data[off:], v)
+	write := func(si int, off, v uint32) {
+		d := m.Segments[si].Data
+		if int(off)+4 <= len(d) {
+			binary.LittleEndian.PutUint32(d[off:], v)
 		}
 	}
+	segAddr := func(si int) uint32 {
+		if si < len(m.Segments) {
+			return base + m.Segments[si].VAddr
+		}
+		return base
+	}
 
-	var hiPending []uint32 // offsets of HI16 relocations awaiting a LO16
+	type pend struct {
+		si  int
+		off uint32
+	}
+	var hiPending []pend // HI16 relocations awaiting their paired LO16
 	for _, r := range m.relocs {
-		off := r.offset // single-segment: offset is within seg
+		ofsSeg := int((r.info >> 8) & 0xFF)
+		addrBase := segAddr(int((r.info >> 16) & 0xFF))
+		if ofsSeg >= len(m.Segments) {
+			continue
+		}
+		off := r.offset // relative to segment ofsSeg
 		switch r.info & 0xFF {
 		case rMIPS32:
-			write(off, read(off)+segBase)
+			write(ofsSeg, off, read(ofsSeg, off)+addrBase)
 		case rMIPS26:
-			w := read(off)
-			target := ((w & 0x03FFFFFF) << 2) + segBase
-			write(off, (w&0xFC000000)|((target>>2)&0x03FFFFFF))
+			w := read(ofsSeg, off)
+			target := ((w & 0x03FFFFFF) << 2) + addrBase
+			write(ofsSeg, off, (w&0xFC000000)|((target>>2)&0x03FFFFFF))
 		case rMIPSHI16:
-			hiPending = append(hiPending, off)
+			hiPending = append(hiPending, pend{ofsSeg, off})
 		case rMIPSLO16:
-			lo := int32(int16(read(off)))
-			for _, hoff := range hiPending {
-				hi := read(hoff)
-				val := ((hi & 0xFFFF) << 16) + uint32(lo) + segBase
+			lo := int32(int16(read(ofsSeg, off)))
+			for _, h := range hiPending {
+				hi := read(h.si, h.off)
+				val := ((hi & 0xFFFF) << 16) + uint32(lo) + addrBase
 				// carry so the signed LO16 add reconstructs the address
 				hiField := (val - uint32(int32(int16(val)))) >> 16
-				write(hoff, (hi&0xFFFF0000)|(hiField&0xFFFF))
+				write(h.si, h.off, (hi&0xFFFF0000)|(hiField&0xFFFF))
 			}
 			hiPending = hiPending[:0]
-			write(off, (read(off)&0xFFFF0000)|(uint32(int32(int16(read(off)))+int32(segBase))&0xFFFF))
+			write(ofsSeg, off, (read(ofsSeg, off)&0xFFFF0000)|(uint32(int32(int16(read(ofsSeg, off)))+int32(addrBase))&0xFFFF))
 		}
 	}
 

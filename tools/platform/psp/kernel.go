@@ -771,6 +771,27 @@ func handlerFor(name string) func(m *Machine) {
 		}
 	case "sceIoGetstat":
 		return func(m *Machine) { m.setRet(m.ioGetstat(m.cstr(m.arg(0)), m.arg(1))) }
+	case "sceIoOpenAsync":
+		return func(m *Machine) { m.setRet(m.ioOpenAsync(m.cstr(m.arg(0)))) }
+	case "sceIoReadAsync":
+		return func(m *Machine) { m.setRet(m.ioReadAsync(m.arg(0), m.arg(1), m.arg(2))) }
+	case "sceIoCloseAsync":
+		return func(m *Machine) { m.setRet(m.ioCloseAsync(m.arg(0))) }
+	case "sceIoLseekAsync":
+		return func(m *Machine) {
+			off := int64(uint64(m.arg(3))<<32 | uint64(m.arg(2)))
+			m.setRet(m.ioLseekAsync(m.arg(0), off, m.arg(4)))
+		}
+	case "sceIoLseek32Async":
+		return func(m *Machine) {
+			m.setRet(m.ioLseekAsync(m.arg(0), int64(int32(m.arg(1))), m.arg(2)))
+		}
+	case "sceIoWaitAsync", "sceIoWaitAsyncCB", "sceIoGetAsyncStat":
+		return func(m *Machine) { m.setRet(m.ioWaitAsync(m.arg(0), m.arg(1))) }
+	case "sceIoPollAsync":
+		return func(m *Machine) { m.setRet(m.ioPollAsync(m.arg(0), m.arg(1))) }
+	case "sceIoChangeAsyncPriority", "sceIoSetAsyncCallback":
+		return func(m *Machine) { m.setRet(0) }
 	case "sceIoLseek32":
 		return func(m *Machine) {
 			m.setRet(uint32(m.ioLseek(m.arg(0), int64(int32(m.arg(1))), m.arg(2))))
