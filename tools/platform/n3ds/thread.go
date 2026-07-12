@@ -229,7 +229,7 @@ func (m *Machine) DumpThreads() {
 // dumpThreads prints each thread's state and what it is blocked on — the
 // diagnostic for a deadlock (which sync object nothing is signalling).
 func (m *Machine) dumpThreads() {
-	fmt.Printf("thread states at deadlock:\n")
+	fmt.Printf("thread states at deadlock (%d GX commands pending):\n", len(m.gxPending))
 	for _, t := range m.threads {
 		wo := ""
 		for _, h := range t.waitOn {

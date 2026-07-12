@@ -1,5 +1,7 @@
 package n3ds
 
+import "fmt"
+
 // gsp_vblank.go delivers the graphics heartbeat. On real hardware the GPU raises
 // a VBlank interrupt ~60 times a second; the GSP module relays it to the
 // application by pushing an entry into the interrupt queue in GSP shared memory
@@ -35,12 +37,25 @@ func (m *Machine) vblankDue() bool {
 	return m.gspEvent != 0 && m.instrs >= m.nextFrameInstr
 }
 
+// fbPresent is one consumed framebuffer-info entry — the framebuffer the GSP
+// module pointed the LCD at on behalf of the application.
+type fbPresent struct {
+	Active     uint32 // which of the entry's two framebuffers is front
+	AddrLeft   uint32 // framebuffer virtual address (left eye)
+	AddrRight  uint32 // right-eye address (2D: same as left)
+	Stride     uint32 // bytes per row
+	Format     uint32 // GSP framebuffer format word
+	DispSelect uint32
+	Valid      bool
+}
+
 // deliverVBlank pushes the VBlank interrupts into the GSP shared-memory queue
 // and signals the GSP event, waking the game's GSP event thread.
 func (m *Machine) deliverVBlank() {
 	m.vblankCount++
 	m.nextFrameInstr = m.instrs + stepsPerFrame
 
+	m.consumeFBInfo()
 	m.pushGSPInterrupt(gspIntVBlank0)
 	m.pushGSPInterrupt(gspIntVBlank1)
 	m.signalGSPEvent()
@@ -57,6 +72,43 @@ func (m *Machine) deliverVBlank() {
 		m.signalAPTEvents()
 	}
 
+}
+
+// consumeFBInfo is the GSP module's VBlank-side of the buffer-swap protocol.
+// The application presents a frame by writing a framebuffer-info entry into GSP
+// shared memory (top screen at +0x200, bottom at +0x240 for interrupt-relay
+// thread 0) and flagging it: header byte 0 = the index of the entry just
+// written, byte 1 = the new-data flag. Each VBlank the GSP module applies the
+// flagged entry to the LCD framebuffer registers and clears the flag — and the
+// game's present fence waits for exactly that clear before starting its next
+// frame (Captain Toad: writer 0x00126F28, fence loop 0x00271840 polling the
+// flag via 0x003428C8; leaving the flag set blocks the engine before its first
+// draw). Entry layout (traced from the writer): {active_framebuf, fb0_vaddr,
+// fb1_vaddr, stride, format, dispselect, attr}, 0x1C bytes, two entries after
+// the 4-byte header.
+func (m *Machine) consumeFBInfo() {
+	if m.gspSharedAddr == 0 {
+		return
+	}
+	for screen := uint32(0); screen < 2; screen++ {
+		base := m.gspSharedAddr + 0x200 + screen*0x40
+		if m.Read(base+1) == 0 {
+			continue
+		}
+		idx := uint32(m.Read(base)) & 1
+		e := base + 4 + idx*0x1C
+		m.screenFB[screen] = fbPresent{
+			Active:     m.ReadWord(e),
+			AddrLeft:   m.ReadWord(e + 4),
+			AddrRight:  m.ReadWord(e + 8),
+			Stride:     m.ReadWord(e + 0xC),
+			Format:     m.ReadWord(e + 0x10),
+			DispSelect: m.ReadWord(e + 0x14),
+			Valid:      true,
+		}
+		m.Write(base+1, 0)
+		m.framesSwapped++
+	}
 }
 
 // signalGSPEvent signals the per-process GSP event, waking the game's GSP event
@@ -83,6 +135,9 @@ func (m *Machine) pushGSPInterrupt(id byte) {
 	idx := m.Read(base + 0)
 	cnt := m.Read(base + 1)
 	const listLen = 0x34
+	if uint32(cnt) >= listLen {
+		fmt.Printf("GSP INTERRUPT QUEUE OVERFLOW: id=%d idx=%d cnt=%d at instr %d\n", id, idx, cnt, m.instrs)
+	}
 	pos := (uint32(idx) + uint32(cnt)) % listLen
 	m.Write(base+0xC+pos, id)
 	m.Write(base+1, cnt+1)

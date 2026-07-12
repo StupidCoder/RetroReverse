@@ -229,10 +229,10 @@ func (g *GPU) floatUniformWord(v uint32) {
 		if len(g.fltBuf) == 4 {
 			if g.fltIdx < len(g.Float) {
 				c := &g.Float[g.fltIdx]
-				c[0] = f32bits(g.fltBuf[3])
-				c[1] = f32bits(g.fltBuf[2])
-				c[2] = f32bits(g.fltBuf[1])
-				c[3] = f32bits(g.fltBuf[0])
+				c[0] = toF24(f32bits(g.fltBuf[3]))
+				c[1] = toF24(f32bits(g.fltBuf[2]))
+				c[2] = toF24(f32bits(g.fltBuf[1]))
+				c[3] = toF24(f32bits(g.fltBuf[0]))
 			}
 			g.fltIdx++
 			g.fltBuf = g.fltBuf[:0]

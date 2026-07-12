@@ -174,10 +174,11 @@ type Machine struct {
 	nextFrameInstr   uint64            // instruction count at which to deliver the next VBlank
 	vblankCount      uint64            // VBlanks delivered
 	framesSubmitted  int               // GSP TriggerCmdReqQueue calls (GPU command lists)
-	framesSwapped    int               // GSP SetBufferSwap calls (frames presented)
+	framesSwapped    int               // framebuffer-info entries consumed at VBlank (frames presented)
 	displayTransfers int               // GX DisplayTransfers executed (frames made visible)
 	lastXferTop      xferRecord
 	lastXferBottom   xferRecord
+	screenFB         [2]fbPresent      // last framebuffer-info entry consumed per screen (top, bottom)
 
 	// Instrumentation.
 	GXCapture  bool       // record GX commands + ProcessCommandList buffers (gx.go)

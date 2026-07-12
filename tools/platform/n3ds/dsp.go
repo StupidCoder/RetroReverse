@@ -407,8 +407,16 @@ func (m *Machine) dspTick() {
 			m.dspWriteStatus(i, write)
 		}
 		m.WriteWord(write+dspOffDSPStatus, 0) // DspStatus: unknown, dropped_frames
-		m.dspSignalInterrupt(dspIntPipe, dspPipeAudio)
 	}
+	// The per-frame heartbeat is the SEMAPHORE alone. Pipe interrupts accompany
+	// actual pipe messages (the Initialize reply above) — raising one per frame
+	// with no data made Captain Toad's sound thread process TWO "frames" per
+	// DSP frame (region counters 2200 vs ~1000 real frames): its per-source
+	// command drain demands an exact sync-count echo, the double-paced app
+	// bumped the count twice per DSP consumption, the echo skipped the expected
+	// value, and the un-drained command queue eventually self-corrupted (a
+	// recycled voice node appended twice → next-pointer cycle → the sound
+	// thread spins forever and starves the whole game).
 	if m.dsp.SemEvent != 0 {
 		m.dspSignalHandle(m.dsp.SemEvent)
 	}

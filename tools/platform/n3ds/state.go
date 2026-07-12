@@ -143,6 +143,7 @@ type snapshot struct {
 	DisplayXfers    int
 	LastXferTop     xferState
 	LastXferBottom  xferState
+	ScreenFB        [2]fbPresent // last framebuffer-info entry consumed per screen
 
 	// … and the PICA200 GPU (v3). The upload cursors and partial FIFO buffers
 	// matter: a snapshot can land mid-upload.
@@ -255,6 +256,7 @@ func (m *Machine) SaveState(path string) error {
 		DisplayXfers:    m.displayTransfers,
 		LastXferTop:     toXferState(m.lastXferTop),
 		LastXferBottom:  toXferState(m.lastXferBottom),
+		ScreenFB:        m.screenFB,
 	}
 	g := m.gpu
 	s.GPU = gpuState{
@@ -395,6 +397,7 @@ func (m *Machine) LoadState(path string) error {
 	m.framesSubmitted, m.framesSwapped = s.FramesSubmitted, s.FramesSwapped
 	m.displayTransfers = s.DisplayXfers
 	m.lastXferTop, m.lastXferBottom = s.LastXferTop.into(), s.LastXferBottom.into()
+	m.screenFB = s.ScreenFB
 
 	g := m.gpu
 	g.Regs, g.Code, g.Opdesc, g.Float = s.GPU.Regs, s.GPU.Code, s.GPU.Opdesc, s.GPU.Float

@@ -234,6 +234,14 @@ func (m *Machine) processGXQueue() {
 	if m.gspSharedAddr == 0 {
 		return
 	}
+	// Complete due in-flight commands BEFORE looking for new posts. Completion
+	// is paced by the machine clock alone; gating it behind "the game posted
+	// something new" hung Captain Toad's whole engine: its driver pauses the
+	// command-list thread until outstanding submissions retire, so once it
+	// stopped posting, the accepted-but-unpumped tail could never complete —
+	// and with the sound thread keeping some thread always runnable, the idle
+	// path (the only other pump site) never ran either.
+	m.pumpGX()
 	hdr := m.gspSharedAddr + gxQueueOff
 	count := m.Read(hdr + gxHdrCount)
 	if count == 0 {

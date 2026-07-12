@@ -425,6 +425,32 @@ func (m *Machine) ipcFile(handle uint32, hdr ipcHeader) bool {
 	case 0x0806, 0x0807: // GetAttributes / SetAttributes
 		m.ipcReply(hdr.Command)
 		return true
+	case 0x080A: // SetPriority(u32) — wrapper 0x0033C140, header 0x080A0040,
+		// reads only the result: a scheduling hint, acknowledge.
+		m.ipcReply(hdr.Command)
+		return true
+	case 0x080B: // GetPriority → u32
+		m.ipcReply(hdr.Command, 0)
+		return true
+	case 0x080C: // OpenLinkFile — a second session onto the same open file.
+		// Wrapper 0x0033C170 sends the bare header 0x080C0000 and reads the new
+		// session handle from the reply's translate slot (cmdbuf[3]). Captain
+		// Toad's streaming layer clones its RomFS session per in-flight read.
+		if f == nil {
+			m.CPU.Halt("IFile OpenLinkFile on unknown session 0x%08X at 0x%08X", handle, m.CPU.PC())
+			return true
+		}
+		link := &fsFile{path: f.path, data: f.data, save: f.save}
+		h := m.newHandle("fs-file", false)
+		m.fsFiles[h] = link
+		if m.Verbose {
+			fmt.Printf("    IFile OpenLinkFile %q -> handle 0x%08X\n", filePath(f), h)
+		}
+		m.WriteWord(m.cmdBuf(), uint32(hdr.Command)<<16|1<<6|2)
+		m.WriteWord(m.cmdBuf()+4, resultSuccess)
+		m.WriteWord(m.cmdBuf()+8, 0) // translate descriptor: move 1 handle
+		m.WriteWord(m.cmdBuf()+12, h)
+		return true
 	}
 	m.CPU.Halt("IFile command 0x%04X unimplemented at 0x%08X after %d instructions", hdr.Command, m.CPU.PC(), m.CPU.Instrs)
 	return true

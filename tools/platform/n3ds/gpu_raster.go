@@ -69,6 +69,17 @@ func (g *GPU) draw(indexed bool) {
 		for _, ci := range []int{0, 1, 2, 3, 4, 5, 6, 32, 33, 34, 35, 64, 65} {
 			fmt.Printf("  c%-2d = %v\n", ci, g.Float[ci])
 		}
+		var nan []int
+		for ci := range g.Float {
+			for k := 0; k < 4; k++ {
+				if g.Float[ci][k] != g.Float[ci][k] {
+					nan = append(nan, ci)
+					break
+				}
+			}
+		}
+		fmt.Printf("  NaN uniforms at draw: %v; bool=%04X entry=0x%03X\n",
+			nan, g.Bool, g.Regs[regVshEntry]&0xFFFF)
 	}
 
 	// Run every vertex through the shader, then assemble.

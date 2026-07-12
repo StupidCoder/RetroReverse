@@ -392,8 +392,11 @@ func (m *Machine) ipcGSP(hdr ipcHeader) bool {
 	case 0x0018: // ImportDisplayCaptureInfo
 		m.ipcReply(hdr.Command, 0, 0, 0, 0, 0, 0, 0, 0)
 		return true
-	case 0x001F: // SetBufferSwap — presents a finished frame
-		m.framesSwapped++
+	case 0x001F: // StoreDataCache(addr, size) — wrapper 0x00343AAC sends header
+		// 0x001F0084 with an address+length pair and the ProcessId translate;
+		// a cache maintenance hint, no state to model. (Long mislabeled as
+		// SetBufferSwap: real frame presentation never goes through IPC at all —
+		// it is the shared-memory framebuffer-info protocol, gsp_vblank.go.)
 		m.ipcReply(hdr.Command)
 		return true
 	}

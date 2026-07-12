@@ -214,7 +214,7 @@ func (m *Machine) checkWatches(pc uint32) {
 				continue
 			}
 			if v != w.last[a] {
-				fmt.Printf("watch 0x%08X: 0x%08X -> 0x%08X at pc=0x%08X\n", a, w.last[a], v, pc)
+				fmt.Printf("watch [t%d] 0x%08X: 0x%08X -> 0x%08X at pc=0x%08X\n", m.curThread.id, a, w.last[a], v, pc)
 				w.last[a] = v
 			}
 		}
