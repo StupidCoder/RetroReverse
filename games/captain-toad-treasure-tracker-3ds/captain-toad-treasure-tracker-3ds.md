@@ -220,13 +220,148 @@ address and a shared-memory-block *handle* from the reply; zeros sent the game s
 on the cartridge — so per the same policy as encrypted images and AES keys it is not fabricated:
 the reply is an explicit failure. **The title tolerates it**: the boot continues past the font.
 
-**Where the boot stands now.** With all of the above, an 8-billion-instruction run completes without
-a single halt: the game runs its full 15-thread complement, drives GSP (176 requests), keeps its
-sound system at cadence (88 dsp requests then pure shared memory), and presents ~98 frames (6 GPU
-command lists, 3 display transfers) — **still black: zero draws submitted**. This is not a deadlock:
-a memory watch on the global `0x004F35E4` the main thread appears parked on shows it is a hot,
-constantly cycled lock (tens of thousands of acquire/release pairs at `0x0030A208`/`0x0030AD5C`) —
-the engine's steady-state loop is alive and spinning around something that never becomes ready to
-render. What the render path is waiting for (a movie? a resource compile? the missing shared font's
-consumer after all?) is where the next session starts, and iteration is fast now — each probe run
-reaches this state in minutes.
+**Where the boot stood at the end of that session.** An 8-billion-instruction run completed without
+a single halt: the game ran its full 15-thread complement, drove GSP (176 requests), kept its
+sound system at cadence (88 dsp requests then pure shared memory), and appeared to present ~98
+frames (6 GPU command lists, 3 display transfers) — **still black: zero draws submitted**. Not a
+deadlock: a memory watch on the global `0x004F35E4` the main thread appeared parked on showed a
+hot, constantly cycled lock — the engine's steady-state loop alive and spinning around something
+that never became ready to render.
+
+## Part VII — Zero draws: the frame that could never finish presenting
+
+The suspects going in were game-side: the refused shared font's consumer, an intro movie, a
+resource-build job for the idle worker pool. All wrong — and the two instruments that proved it
+wrong were a one-line trace on the "swap" IPC command and a 500-instruction trace of the main
+thread's spin.
+
+**First, the font question closed quickly.** The `GetSharedFont` consumer is a font-manager init at
+`0x00225B14`: it builds the game's font table (its own `.bcfnt` files under `/LayoutData/FontData`),
+then calls the shared-font fetch (`0x0033DD44`) and polls a three-state getter (`0x0033DD94` — the
+mapped font's first word, or **3** if the font pointer is null) in a sleep loop at `0x00225DA4`:
+state 2 = ready, use it; state 3 = give up, return; anything else = sleep 10 ms and re-poll. With
+our explicit `0xC8A0CFFC` failure the pointer stays null, the getter returns 3 on the first poll,
+and the function returns cleanly — logpc probes confirm the loop ran exactly once and the state-2
+path never executed. The game genuinely tolerates the missing console font.
+
+**Then the "98 frame swaps" dissolved under one printf.** The gsp HLE had labeled command `0x001F`
+"SetBufferSwap" and counted it as frames presented. Logging each call's arguments showed address +
+length pairs (`0x14BC2380/0xA0`, … `0x14000010/0x21298`) from ten different call sites — that is
+**StoreDataCache**, a cache-maintenance hint. The mislabel had been harmless under SM3DL, but here
+it had manufactured the whole "engine presents black frames" narrative. The truth: **this game had
+never presented a single frame, and frame presentation never goes through IPC at all.**
+
+**What presentation actually is — and what the oracle wasn't doing.** A `-tracefrom` on the hot
+lock's acquire caught main's spin in the act, and it is a *present fence* at `0x00271840`: each
+iteration re-reads two per-screen counters (`+0x154/+0x158` of the screen manager at `0x004F3580`)
+and a byte via `0x003428C8(screen)` — `[ptr+1]` where ptr comes from the manager's per-screen table
+at `+0x5C`: `0x10002200` / `0x10002240`. Those addresses are **GSP shared memory +0x200/+0x240: the
+per-screen framebuffer-info structures** of the 3DS buffer-swap protocol. The writer
+(`0x00126F28`, caught by a memory watch) presents a frame by filling the entry at index
+`1 − current` — `{active_framebuf, fb0_vaddr, fb1_vaddr, stride, format, dispselect, attr}`,
+0x1C bytes, two entries after a 4-byte header — then LDREX/STREX-ing the header to
+`{byte0 = new index, byte1 = 1}`. On hardware the **GSP module consumes the flagged entry at the
+next VBlank: it points the LCD at the new framebuffer and clears byte 1**, and that clear is
+exactly what the fence polls for. The oracle's VBlank pushed interrupts and signalled events — but
+never consumed framebuffer info. So the game's *very first* present hung forever: frame 1 never
+finished presenting, the engine never started frame 2, and every screen stayed black. The six GPU
+command lists it did submit were pure state setup (list 0 alone is a 6,590-register pipeline
+init) — the game initialises the GPU, presents once, and waits.
+
+The fix is the GSP module's missing half: `consumeFBInfo` in `gsp_vblank.go` — each VBlank, for
+each screen with the new-data byte set, read entry `[header byte0]`, record it as the presented
+framebuffer (new machine state `screenFB`, on the savestate), clear the flag. "Frames swapped" now
+counts consumed framebuffer-info entries — the real thing — and gsp `0x001F` is relabeled the
+cache hint it always was.
+
+**With presents completing, the engine rendered its first draws immediately** — 913 of them, 3,400
+GPU command lists — and the boot ran into three further walls, each of a different character:
+
+*Two ordinary service gaps.* The streaming layer halted loudly on `IFile` commands SM3DL never
+sends: `0x080C` **OpenLinkFile** (a second session onto the same open file — its wrapper
+`0x0033C170` sends a bare header and reads a handle from the reply's translate slot; the streamer
+clones its RomFS session per in-flight read) and `0x080A/0x080B` **Set/GetPriority**. Both
+implemented from the wrappers, both routine.
+
+*An oracle bug: completions gated on submissions.* At ~590 presented frames the engine froze —
+every thread waiting, presentation stopped. The game's graphics driver runs a dedicated
+command-list thread (t10, stack-tagged `CmdL`) that it **pauses** (a flag polled through the frame
+pacer at `0x00303704`) whenever outstanding GPU submissions haven't retired; retirement is counted
+by the DMA-completion interrupt callback (registered, notably, on interrupt id 6 — *DMA*, not
+VBlank). The freeze: six GX commands sat accepted-but-never-completed in the oracle, because
+`processGXQueue` returned early when the game had posted nothing new — and the only other pump
+site, the idle path, never ran because the sound thread's cadence kept some thread always
+runnable. Main held the driver paused waiting for those six completions; paused, the driver could
+never post again. Completions are paced by the machine clock alone now — `pumpGX` runs
+unconditionally at the queue check.
+
+*A protocol fault in the DSP model: two heartbeats per frame.* The next freeze was nastier: the
+**sound thread spinning forever inside a linked-list append** — the list had acquired a cycle
+(a node whose `next` pointed at itself), and at priority 36 the spin starved every thread below
+it, main included. The corruption was reconstructed watch by watch: the sound system queues
+per-voice command nodes (fixed slots, `0x18` apart) onto a global list at `0x0054A020`, drained
+per audio frame by a routine that **requires the DSP's per-source status to echo an exact
+sync-count** before it will send. Our `dspTick` raised *both* the pipe-2 interrupt *and* the frame
+semaphore every audio frame; the game's sound thread treats each signal as a frame, ran its frame
+processing at double rate (the shared-region frame counters read ~2,200 after ~1,000 real DSP
+frames), bumped its sync-counts twice per DSP consumption — and the exact-match echo skipped past
+the expected value and never matched again. The drain wedged; five music-track starts later the
+voice allocator recycled a still-queued node, the append walked into `X.next = X`, and the game
+was gone. On hardware the per-frame heartbeat is the **semaphore alone** — pipe interrupts
+accompany actual pipe messages (the `Initialize` reply). One deleted signal call fixed it.
+
+**With those four fixed, the engine runs at full cadence.** A 2-billion-step run presents 63,020
+frames — one per VBlank, 60 fps for the entire run — with 157,676 GPU command lists, 78,832
+display transfers and 188,447 draws; the sound thread parks and wakes healthily on its event; no
+halts, no stalls. And yet every screen was still black, because **every single triangle the game
+submitted was being rejected**.
+
+## Part VIII — Black for one reason: a shader constant cannot hold a NaN
+
+The rejection was total and it was in the transform: the clip-space position of every vertex came
+out `NaN`. Tracing one draw's uniforms found exactly one poisoned constant — **`c4`** — and
+tracing the uploads found the game writing the quiet-NaN word `0x7FC00000` into it deliberately,
+every frame.
+
+`c4` is the **stereoscopic-3D parameter block**, and the vertex shader (entry `0x06D`) guards its
+use. Position is `dp4(c0..c3, r3)`, and `r3` is built by a subroutine that would apply a
+stereo eye-shift:
+
+```
+065: mov  r11, c4.wzyx            ; the stereo parameters
+066: add  r11.z, c34-.xxxx, r11.zzzz
+067: cmp  c5.xxxx ne|lt r11.xzzz  ; c5.x is the constant 0
+068: jmpc dst=0x6C                ; …skip the whole block
+069: rcp  r11.z, r11.zzzz         ; (the shift: r3.x += iod / (z − focus))
+06A: add  r3.x, r3.xxxx, r11.xxxx
+06B: mad  r3.x, r11-.yyyy, r11.zzzz, r3.xxxx
+```
+
+The guard reads *"skip the eye-shift unless this parameter differs from zero"* — the game's way of
+saying "3D slider off, don't shift". Writing a NaN into it is the game telling the hardware
+nothing at all: **a PICA200 shader constant is a float24** — one sign bit, seven exponent bits,
+sixteen mantissa bits — and that exponent field is too narrow to hold the f32's all-ones exponent.
+There is no NaN in float24. A uniform uploaded in the "f32 mode" of register `0x2C0` is converted
+on the way into the register file, the poison pattern does not survive the trip, the parameter
+reads as an ordinary finite number, the comparison behaves, and the block is skipped.
+
+Our model stored the constant as a true IEEE `float32`. IEEE says a NaN differs from *everything*,
+so the `ne` comparison came out true where hardware's is false, the guard did not skip, the stereo
+maths ran on a NaN, `r3.x` became NaN — and from there every vertex, every triangle, every frame.
+The fix is `toF24` in `gpu_float.go`: quantise an f32-mode uniform upload to what the register file
+can actually hold (rebias the exponent 127 → 63, keep sixteen mantissa bits; NaN, infinity and
+float24 underflow all fall to zero, because none of them have an encoding).
+
+The effect is not subtle. On one draw, before and after:
+
+| | before | after |
+|---|---|---|
+| triangles rejected at w ≤ 0 | 4,610 | **0** |
+| pixels drawn | 0 | **89,768,446** |
+
+This is the fifth core-assumption bug of the port, and it is the same shape as the others: not a
+missing feature, but a place where the model was *more* precise than the hardware and the game
+depended on the imprecision. It is also a clean example of why a second title matters — Super
+Mario 3D Land poisons `c0`–`c3` too, but only on warm-up frames, and always uploads real matrices
+before a real draw; it never *draws* through a poisoned uniform, so it never noticed that our
+uniforms could hold a value the hardware cannot.
