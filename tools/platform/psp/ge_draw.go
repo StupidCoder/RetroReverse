@@ -6,6 +6,14 @@ package psp
 
 import "fmt"
 
+// rasterTriClipped clips a triangle against the near plane, then rasterizes the
+// pieces that survive.
+func (m *Machine) rasterTriClipped(s *geState, a, b, c vert) {
+	for _, t := range clipTriNear(s, a, b, c) {
+		m.rasterTri(s, t[0], t[1], t[2])
+	}
+}
+
 // rasterTri fills the triangle a,b,c with barycentric-interpolated colour (and
 // texcoords when textured). In clear mode it fills solid with a's colour.
 func (m *Machine) rasterTri(s *geState, a, b, c vert) {
@@ -20,6 +28,15 @@ func (m *Machine) rasterTri(s *geState, a, b, c vert) {
 	if area == 0 {
 		return
 	}
+	// Backface culling. The winding was settled against a PSP_GE_NOCULL frame:
+	// with the sign the other way the race lost its ground plane and horizon
+	// (front faces were being culled), so with FACE=0 the culled face is the
+	// one with negative screen-space area.
+	if s.cullOn && !geNoCull && !s.clearOn && !a.through() {
+		if ((s.cullFace == 0) == (area < 0)) != geCullFlip {
+			return
+		}
+	}
 	for y := minY; y < maxY; y++ {
 		for x := minX; x < maxX; x++ {
 			px := vert{x: float32(x) + 0.5, y: float32(y) + 0.5}
@@ -31,6 +48,9 @@ func (m *Machine) rasterTri(s *geState, a, b, c vert) {
 				continue
 			}
 			l0, l1, l2 := w0/area, w1/area, w2/area
+			if !m.zPass(s, x, y, l0*a.z+l1*b.z+l2*c.z) {
+				continue
+			}
 			r := byte(l0*float32(a.r) + l1*float32(b.r) + l2*float32(c.r))
 			g := byte(l0*float32(a.g) + l1*float32(b.g) + l2*float32(c.g))
 			bl := byte(l0*float32(a.b) + l1*float32(b.b) + l2*float32(c.b))
@@ -64,6 +84,10 @@ func (m *Machine) rasterSprite(s *geState, a, b vert) {
 	dh := float32(y1 - y0)
 	for y := y0c; y < y1c; y++ {
 		for x := x0c; x < x1c; x++ {
+			// A sprite carries the far corner's depth across the whole rect.
+			if !m.zPass(s, x, y, b.z) {
+				continue
+			}
 			r, g, bl, al := b.r, b.g, b.b, b.a
 			if s.texEnable && !s.clearOn && dw != 0 && dh != 0 {
 				u := u0 + (u1-u0)*(float32(x-x0)/dw)

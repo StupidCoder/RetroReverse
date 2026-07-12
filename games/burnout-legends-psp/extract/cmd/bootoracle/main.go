@@ -67,6 +67,7 @@ func main() {
 	saveS := flag.String("savestate", "", "after the run, write a machine savestate to this file")
 	loadS := flag.String("loadstate", "", "before the run, restore a machine savestate from this file")
 	shot := flag.String("shot", "", "after the run, write the display framebuffer to this PNG")
+	shotAt := flag.String("shotat", "", "after the run, write VRAM buffer ADDR[:STRIDE]:FILE.png (an off-screen render target)")
 	geLog := flag.Int("gelog", 0, "print a command summary of the first N GE display lists")
 	geDump := flag.Int("gedump", 0, "print every command word of the first N GE display lists")
 	disS := flag.String("dis", "", "disassemble ADDR:LEN of loaded memory and exit (after -loadstate)")
@@ -337,6 +338,28 @@ func main() {
 			die("screenshot: %v", err)
 		}
 		fmt.Fprintf(os.Stderr, "wrote framebuffer (%s) to %s\n", m.FramebufferInfo(), *shot)
+	}
+
+	if *shotAt != "" {
+		// ADDR[:STRIDE]:FILE — dump any VRAM buffer (an off-screen render target).
+		parts := strings.Split(*shotAt, ":")
+		if len(parts) < 2 {
+			die("-shotat wants ADDR[:STRIDE]:FILE")
+		}
+		addr, err := hx(parts[0])
+		if err != nil {
+			die("-shotat address: %v", err)
+		}
+		stride, file := uint32(0), parts[len(parts)-1]
+		if len(parts) == 3 {
+			if stride, err = hx(parts[1]); err != nil {
+				die("-shotat stride: %v", err)
+			}
+		}
+		if err := m.ScreenshotAt(file, addr, stride); err != nil {
+			die("screenshot: %v", err)
+		}
+		fmt.Fprintf(os.Stderr, "wrote buffer 0x%08X (stride %d) to %s\n", addr, stride, file)
 	}
 
 	if rprofile != nil {

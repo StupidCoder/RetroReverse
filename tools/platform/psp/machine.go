@@ -191,6 +191,10 @@ func (m *Machine) Write(addr uint32, v byte) {
 func (m *Machine) read32(a uint32) uint32 {
 	return uint32(m.Read(a)) | uint32(m.Read(a+1))<<8 | uint32(m.Read(a+2))<<16 | uint32(m.Read(a+3))<<24
 }
+func (m *Machine) write16(a uint32, v uint16) {
+	m.Write(a, byte(v))
+	m.Write(a+1, byte(v>>8))
+}
 func (m *Machine) write32(a, v uint32) {
 	m.Write(a, byte(v))
 	m.Write(a+1, byte(v>>8))

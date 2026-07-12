@@ -89,6 +89,27 @@ func (m *Machine) Screenshot(path string) error {
 	return nil
 }
 
+// ScreenshotAt writes an arbitrary VRAM buffer to a PNG: a game may render its
+// scene into an off-screen target (Burnout Legends composites two of them) and
+// the only way to judge that pass is to look at it.
+func (m *Machine) ScreenshotAt(path string, addr, stride uint32) error {
+	if stride == 0 {
+		stride = dispW
+	}
+	img := image.NewRGBA(image.Rect(0, 0, dispW, dispH))
+	for y := 0; y < dispH; y++ {
+		for x := 0; x < dispW; x++ {
+			img.Set(x, y, m.readPixel(addr, stride, uint32(x), uint32(y)))
+		}
+	}
+	f, err := os.Create(path)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+	return png.Encode(f, img)
+}
+
 // FramebufferInfo describes the current display target for diagnostics.
 func (m *Machine) FramebufferInfo() string {
 	return fmt.Sprintf("fb=0x%08X stride=%d psm=%d", m.fbAddr, m.fbWidth, m.fbFormat)

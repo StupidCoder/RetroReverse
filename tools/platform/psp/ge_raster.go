@@ -17,6 +17,12 @@ import (
 // geDebugN: set PSP_GE_DEBUG=N to print the render state of the first N PRIMs.
 var geDebugN, _ = strconv.Atoi(os.Getenv("PSP_GE_DEBUG"))
 
+// geCullFlip / geNoCull: set PSP_GE_CULLFLIP=1 to invert the backface test and
+// PSP_GE_NOCULL=1 to disable it, to settle the winding convention against
+// rendered frames rather than assume it.
+var geCullFlip = os.Getenv("PSP_GE_CULLFLIP") != ""
+var geNoCull = os.Getenv("PSP_GE_NOCULL") != ""
+
 // gePixelProbe: set PSP_GE_PIXEL=x,y to log every PRIM that writes that pixel
 // (prim sequence number, render state, colour written). Correlate the seq
 // numbers with the PSP_GE_DEBUG PRIM lines to find which draw owns a pixel.
@@ -54,8 +60,10 @@ const (
 	cMATDIFFUSE = 0x56 // material diffuse RGB (the lit colour of colourless patches)
 	cVTYPE      = 0x12
 	cOFFADDR    = 0x13
+	cCULLON     = 0x1D // backface cull enable
 	cTEXENABLE  = 0x1E
 	cBLENDON    = 0x21
+	cCULLFACE   = 0x9B // which winding is the front face (0 = counter-clockwise)
 	cWORLDN     = 0x3A
 	cWORLDD     = 0x3B
 	cVIEWN      = 0x3C
@@ -89,8 +97,13 @@ const (
 	cTEXFUNC    = 0xC9
 	cFBPTR      = 0x9C
 	cFBWIDTH    = 0x9D
+	cZBPTR      = 0x9E // depth buffer pointer (VRAM offset)
+	cZBWIDTH    = 0x9F // depth buffer stride + high address bits
+	cZTESTON    = 0x23 // depth test enable
 	cFBPIXFMT   = 0xD2
 	cCLEARMODE  = 0xD3
+	cZTEST      = 0xE2 // depth test function (0 never .. 7 gequal)
+	cZMASK      = 0xE7 // depth write mask (1 = don't write z)
 	cPMSKC      = 0xE8 // pixel colour write mask (1 bits = masked out; sceGuPixelMask)
 	cPMSKA      = 0xE9 // pixel alpha write mask
 )
@@ -138,6 +151,74 @@ type geState struct {
 
 	maskRGB uint32 // PMSKC: colour bits masked out of framebuffer writes
 	maskA   uint32 // PMSKA: alpha bits masked out
+
+	// Depth buffer. A 3-D scene needs one: the front end got by on the painter's
+	// algorithm, but the race draws the world in no particular order.
+	zLow, zHigh uint32 // ZBP/ZBW: 16-bit depth buffer in VRAM
+	zStride     uint32
+	zTestOn     bool
+	zFunc       uint32 // ZTST: 0 never, 1 always, 2 eq, 3 ne, 4 lt, 5 le, 6 gt, 7 ge
+	zNoWrite    bool   // ZMSK
+	clearDepth  bool   // CLEAR mode also clears the depth buffer (arg bit 10)
+
+	cullOn   bool   // backface culling enabled
+	cullFace uint32 // 0 = cull clockwise (screen-space) faces
+}
+
+func (s *geState) zAddress() uint32 { return vramBase | (s.zHigh << 24) | s.zLow }
+
+// zPass runs the depth test for one pixel and, when it passes, writes z back
+// (unless ZMSK masks the write). Depth is 16-bit, one entry per zStride pixels.
+// In CLEAR mode the test is bypassed: the clear either stamps z (bit 10 set) or
+// leaves the buffer alone.
+func (m *Machine) zPass(s *geState, x, y int, z float32) bool {
+	if s.zLow == 0 || s.zStride == 0 {
+		return true
+	}
+	zi := uint32(clampF(z, 0, 65535))
+	addr := s.zAddress() + (uint32(y)*s.zStride+uint32(x))*2
+	if s.clearOn {
+		if s.clearDepth {
+			m.write16(addr, uint16(zi))
+		}
+		return true
+	}
+	if !s.zTestOn {
+		return true
+	}
+	old := uint32(u16(m, addr))
+	pass := false
+	switch s.zFunc {
+	case 0: // never
+	case 1: // always
+		pass = true
+	case 2:
+		pass = zi == old
+	case 3:
+		pass = zi != old
+	case 4:
+		pass = zi < old
+	case 5:
+		pass = zi <= old
+	case 6:
+		pass = zi > old
+	default: // 7: gequal — Burnout's convention (viewport z is reversed: near = 65535)
+		pass = zi >= old
+	}
+	if pass && !s.zNoWrite {
+		m.write16(addr, uint16(zi))
+	}
+	return pass
+}
+
+func clampF(v, lo, hi float32) float32 {
+	if v < lo {
+		return lo
+	}
+	if v > hi {
+		return hi
+	}
+	return v
 }
 
 func (m *Machine) rasterList(list GeList) {
@@ -154,6 +235,11 @@ func (m *Machine) rasterList(list GeList) {
 		s.offX, s.offY = 2048, 2048
 		s.texScaleU, s.texScaleV = 1, 1
 		s.matColor = 0xFFFFFFFF
+		// ZTST is programmed once at engine init, so a list captured mid-run
+		// never re-sends it. GEQUAL is what the viewport implies: Burnout maps
+		// z with scale -32767.5 / center +32767.5, i.e. near = 65535, so the
+		// nearer fragment is the one with the LARGER depth value.
+		s.zFunc = 7
 		m.geSt = s
 	}
 	s := m.geSt
@@ -190,10 +276,29 @@ func (m *Machine) rasterList(list GeList) {
 		case cFBWIDTH:
 			s.fbStride = arg & 0xFFFF
 			s.fbHigh = (arg >> 16) & 0xFF
+		case cCULLON:
+			s.cullOn = arg&1 != 0
+		case cCULLFACE:
+			s.cullFace = arg & 1
+		case cZBPTR:
+			s.zLow = arg
+		case cZBWIDTH:
+			s.zStride = arg & 0xFFFF
+			s.zHigh = (arg >> 16) & 0xFF
+		case cZTESTON:
+			s.zTestOn = arg&1 != 0
+		case cZTEST:
+			s.zFunc = arg & 7
+		case cZMASK:
+			s.zNoWrite = arg&1 != 0
 		case cFBPIXFMT:
 			s.fbFmt = arg & 3
 		case cCLEARMODE:
 			s.clearOn = arg&1 != 0
+			// CLEAR mode: bits 8-10 select the buffers the clear writes
+			// (colour / alpha / depth). Depth is written straight from the
+			// vertex z with the test bypassed.
+			s.clearDepth = arg&0x400 != 0
 		case cMATAMBIENT:
 			s.matColor = (s.matColor & 0xFF000000) | arg
 		case cMATALPHA:
@@ -364,7 +469,7 @@ func (m *Machine) drawPrim(s *geState, arg uint32) {
 	switch ptype {
 	case 3: // triangles
 		for i := 0; i+2 < len(verts); i += 3 {
-			m.rasterTri(s, verts[i], verts[i+1], verts[i+2])
+			m.rasterTriClipped(s, verts[i], verts[i+1], verts[i+2])
 		}
 	case 4: // triangle strip
 		for i := 0; i+2 < len(verts); i++ {
@@ -372,11 +477,11 @@ func (m *Machine) drawPrim(s *geState, arg uint32) {
 			if i&1 == 1 {
 				b, c = c, b
 			}
-			m.rasterTri(s, a, b, c)
+			m.rasterTriClipped(s, a, b, c)
 		}
 	case 5: // triangle fan
 		for i := 1; i+1 < len(verts); i++ {
-			m.rasterTri(s, verts[0], verts[i], verts[i+1])
+			m.rasterTriClipped(s, verts[0], verts[i], verts[i+1])
 		}
 	case 6: // sprites (pairs of corners)
 		for i := 0; i+1 < len(verts); i += 2 {
@@ -385,36 +490,78 @@ func (m *Machine) drawPrim(s *geState, arg uint32) {
 	}
 }
 
-// vert is a decoded, screen-space vertex.
+// vert is a decoded, screen-space vertex. For transformed primitives it also
+// carries its clip-space coordinates, which the near-plane clipper needs: a
+// vertex behind the eye has w <= 0 and its projection is meaningless (it wraps
+// to a huge screen coordinate), so such triangles must be clipped, not drawn.
 type vert struct {
 	x, y, z    float32
 	u, v       float32
 	r, g, b, a byte
+
+	cx, cy, cz, cw float32 // clip space (before the perspective divide)
+	clip           bool    // clip coords are valid (non-through vertex)
 }
+
+// through reports whether the vertex bypassed the transform (screen coords as
+// submitted): those are never culled.
+func (v vert) through() bool { return !v.clip }
 
 // decodeVerts reads count vertices from s.vaddr per the vertex type, applying the
 // transform (world*view*proj*viewport) for non-through primitives.
 func (m *Machine) decodeVerts(s *geState, count int) []vert {
 	tfmt := s.vtype & 3
 	cfmt := (s.vtype >> 2) & 7
+	nfmt := (s.vtype >> 5) & 3
 	pfmt := (s.vtype >> 7) & 3
+	wfmt := (s.vtype >> 9) & 3
 	idxFmt := (s.vtype >> 11) & 3
+	wcount := ((s.vtype >> 14) & 7) + 1
 	through := s.vtype&(1<<23) != 0
 
-	texSz := []uint32{0, 2, 4, 8}[tfmt]
+	// A PSP vertex lays its components out in a fixed order — weights, texcoord,
+	// colour, normal, position — each aligned to its own element size, and the
+	// whole vertex padded to the largest of those. Skipping the normal (which
+	// LocoRoco never had, and Burnout's post-process quads do) mis-strides every
+	// vertex after the first: that is what turned the race into giant polygons.
+	elem := []uint32{0, 1, 2, 4} // component element size by format (u8/u16/float)
+	texSz := elem[tfmt] * 2
 	colSz := map[uint32]uint32{0: 0, 4: 2, 5: 2, 6: 2, 7: 4}[cfmt]
-	posSz := []uint32{0, 3, 6, 12}[pfmt]
-	stride := texSz + colSz + posSz
+	nrmSz := elem[nfmt] * 3
+	posSz := elem[pfmt] * 3
+	wgtSz := elem[wfmt] * wcount
+	if wfmt == 0 {
+		wgtSz = 0
+	}
+
+	align := uint32(1)
+	for _, e := range []uint32{elem[tfmt], elem[nfmt], elem[pfmt], elem[wfmt], colSz} {
+		if e > align {
+			align = e
+		}
+	}
+	pad := func(off, a uint32) uint32 {
+		if a == 0 {
+			return off
+		}
+		return (off + a - 1) &^ (a - 1)
+	}
+	// component offsets within the vertex, in submission order
+	off := uint32(0)
+	off = pad(off, elem[wfmt])
+	off += wgtSz
+	offTex := pad(off, elem[tfmt])
+	off = offTex + texSz
+	offCol := pad(off, colSz)
+	off = offCol + colSz
+	offNrm := pad(off, elem[nfmt])
+	off = offNrm + nrmSz
+	offPos := pad(off, elem[pfmt])
+	off = offPos + posSz
+	stride := pad(off, align)
 	if stride == 0 {
 		return nil
 	}
-	align := uint32(1)
-	for _, s2 := range []uint32{texSz / uint32(max1(tfmt)), colSz, posSz / uint32(max1(pfmt))} {
-		if s2 > align {
-			align = s2
-		}
-	}
-	stride = (stride + align - 1) &^ (align - 1)
 
 	mvp := mul4(mul4(s.proj, s.view), s.world)
 	out := make([]vert, 0, count)
@@ -431,7 +578,7 @@ func (m *Machine) decodeVerts(s *geState, count int) []vert {
 		var vv vert
 		vv.a = 0xFF
 		if tfmt != 0 {
-			vv.u, vv.v = readUV(m, p, tfmt)
+			vv.u, vv.v = readUV(m, p+offTex, tfmt)
 			if through {
 				// through-mode texcoords are absolute texels; normalize for sampling
 				if s.texW != 0 && s.texH != 0 {
@@ -452,32 +599,35 @@ func (m *Machine) decodeVerts(s *geState, count int) []vert {
 				vv.u = vv.u*s.texScaleU + s.texOffU
 				vv.v = vv.v*s.texScaleV + s.texOffV
 			}
-			p += texSz
 		}
 		if cfmt != 0 {
-			vv.r, vv.g, vv.b, vv.a = readColor(m, p, cfmt)
-			p += colSz
+			vv.r, vv.g, vv.b, vv.a = readColor(m, p+offCol, cfmt)
 		} else {
 			vv.r, vv.g, vv.b = byte(s.matColor), byte(s.matColor>>8), byte(s.matColor>>16)
 			vv.a = byte(s.matColor >> 24)
 		}
-		px, py, pz := readPos(m, p, pfmt)
+		px, py, pz := readPos(m, p+offPos, pfmt)
 		if through {
+			// through-mode positions are absolute screen coordinates
 			vv.x, vv.y, vv.z = px, py, pz
 		} else {
-			vv.x, vv.y, vv.z = transform(mvp, s, px, py, pz)
+			// transformed-mode fixed-point positions are FRACTIONAL, like the
+			// texcoords: s8/128, s16/32768. The model matrix carries the scale
+			// back. Burnout's track and cars are s16 (vtype 0x116).
+			switch pfmt {
+			case 1:
+				px, py, pz = px/128, py/128, pz/128
+			case 2:
+				px, py, pz = px/32768, py/32768, pz/32768
+			}
+			vv.cx, vv.cy, vv.cz, vv.cw = clipCoords(mvp, px, py, pz)
+			vv.clip = true
+			vv.x, vv.y, vv.z = project(s, vv.cx, vv.cy, vv.cz, vv.cw)
 		}
 		out = append(out, vv)
 		addr += stride
 	}
 	return out
-}
-
-func max1(fmt uint32) uint32 {
-	if fmt == 0 {
-		return 1
-	}
-	return 3
 }
 
 func readUV(m *Machine, p, fmt uint32) (float32, float32) {
@@ -526,20 +676,77 @@ func readPos(m *Machine, p, fmt uint32) (float32, float32, float32) {
 	}
 }
 
-// transform applies the model-view-projection then the viewport to a model vertex.
-func transform(mvp [16]float32, s *geState, x, y, z float32) (float32, float32, float32) {
-	cx := mvp[0]*x + mvp[4]*y + mvp[8]*z + mvp[12]
-	cy := mvp[1]*x + mvp[5]*y + mvp[9]*z + mvp[13]
-	cz := mvp[2]*x + mvp[6]*y + mvp[10]*z + mvp[14]
-	cw := mvp[3]*x + mvp[7]*y + mvp[11]*z + mvp[15]
+// clipCoords applies the model-view-projection, leaving the vertex in clip space.
+func clipCoords(mvp [16]float32, x, y, z float32) (float32, float32, float32, float32) {
+	return mvp[0]*x + mvp[4]*y + mvp[8]*z + mvp[12],
+		mvp[1]*x + mvp[5]*y + mvp[9]*z + mvp[13],
+		mvp[2]*x + mvp[6]*y + mvp[10]*z + mvp[14],
+		mvp[3]*x + mvp[7]*y + mvp[11]*z + mvp[15]
+}
+
+// project applies the perspective divide and the viewport transform.
+func project(s *geState, cx, cy, cz, cw float32) (float32, float32, float32) {
 	if cw == 0 {
-		cw = 1
+		cw = 1e-6
 	}
 	nx, ny, nz := cx/cw, cy/cw, cz/cw
 	sx := nx*s.vpXS + s.vpXC - s.offX
 	sy := ny*s.vpYS + s.vpYC - s.offY
 	sz := nz*s.vpZS + s.vpZC
 	return sx, sy, sz
+}
+
+// wNear is the near-plane epsilon in clip space: a vertex at or behind the eye
+// (w <= wNear) cannot be projected.
+const wNear = 1e-4
+
+// clipTriNear clips a triangle against the near plane (w > wNear) and returns
+// the resulting screen-space triangles — none, one, or two. Vertices are
+// interpolated in clip space (colour and texcoords linearly with them) and only
+// then projected, which is what stops off-screen wraparound from painting the
+// whole frame.
+func clipTriNear(s *geState, a, b, c vert) [][3]vert {
+	if !a.clip || !b.clip || !c.clip {
+		return [][3]vert{{a, b, c}}
+	}
+	if a.cw > wNear && b.cw > wNear && c.cw > wNear {
+		return [][3]vert{{a, b, c}}
+	}
+	in := []vert{a, b, c}
+	var out []vert
+	for i := 0; i < len(in); i++ {
+		cur, nxt := in[i], in[(i+1)%len(in)]
+		curIn, nxtIn := cur.cw > wNear, nxt.cw > wNear
+		if curIn {
+			out = append(out, cur)
+		}
+		if curIn != nxtIn {
+			t := (wNear - cur.cw) / (nxt.cw - cur.cw)
+			out = append(out, lerpVert(s, cur, nxt, t))
+		}
+	}
+	if len(out) < 3 {
+		return nil
+	}
+	tris := make([][3]vert, 0, 2)
+	for i := 1; i+1 < len(out); i++ {
+		tris = append(tris, [3]vert{out[0], out[i], out[i+1]})
+	}
+	return tris
+}
+
+// lerpVert interpolates two clip-space vertices and projects the result.
+func lerpVert(s *geState, p, q vert, t float32) vert {
+	li := func(a, b float32) float32 { return a + (b-a)*t }
+	lb := func(a, b byte) byte { return byte(float32(a) + (float32(b)-float32(a))*t) }
+	var v vert
+	v.clip = true
+	v.cx, v.cy = li(p.cx, q.cx), li(p.cy, q.cy)
+	v.cz, v.cw = li(p.cz, q.cz), li(p.cw, q.cw)
+	v.u, v.v = li(p.u, q.u), li(p.v, q.v)
+	v.r, v.g, v.b, v.a = lb(p.r, q.r), lb(p.g, q.g), lb(p.b, q.b), lb(p.a, q.a)
+	v.x, v.y, v.z = project(s, v.cx, v.cy, v.cz, v.cw)
+	return v
 }
 
 // --- matrix helpers --------------------------------------------------------
