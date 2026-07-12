@@ -148,6 +148,12 @@ type snapshot struct {
 	// matter: a snapshot can land mid-upload.
 	GPU gpuState
 
+	// The DSP model (dsp.go), wholesale — pipes, registered events, sources and
+	// the frame-clock deadline. Snapshots from before the DSP decode it as the
+	// zero value: component not loaded, clock stopped — correct for them, since
+	// they were taken on a machine without a DSP.
+	DSP dspHLE
+
 	// Open fs sessions (v3): stored by path and re-resolved from the RomFS on
 	// load, so the snapshot stays small.
 	FSFiles        []fsFileState
@@ -261,6 +267,7 @@ func (m *Machine) SaveState(path string) error {
 		GshFltIdx: g.gshFltIdx, GshFltF32: g.gshFltF32, GshFltBuf: g.gshFltBuf,
 		Draws: g.Draws,
 	}
+	s.DSP = m.dsp
 	for h, f := range m.fsFiles {
 		s.FSFiles = append(s.FSFiles, fsFileState{Handle: h, Path: f.path, Save: f.save})
 	}
@@ -374,6 +381,15 @@ func (m *Machine) LoadState(path string) error {
 				break
 			}
 		}
+	}
+	m.dsp = s.DSP
+	if m.dsp.IntEvents == nil {
+		m.dsp.IntEvents = map[uint32]uint32{}
+	}
+	// Snapshots from before the DSP have no dspram region; map a fresh one so
+	// ConvertProcessAddressFromDspDram pointers resolve.
+	if m.regionOf(dspRAMBase) == nil {
+		m.mapRegion("dspram", dspRAMBase, make([]byte, dspRAMSize))
 	}
 	m.nextFrameInstr, m.vblankCount = s.NextFrameInstr, s.VBlankCount
 	m.framesSubmitted, m.framesSwapped = s.FramesSubmitted, s.FramesSwapped

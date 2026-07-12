@@ -24,31 +24,10 @@ func (m *Machine) ipcService(name string, hdr ipcHeader) bool {
 		return m.ipcFS(hdr)
 	case "err": // fatal-error display — capture what the game is throwing
 		return m.ipcErr(hdr)
-	case "dsp":
-		// The DSP is NOT modelled — see the writeup. Only the data-register
-		// handshake is answered, because Super Mario 3D Land's applet-resume path
-		// polls register 0 until it reads 1, the component's "running" word (retry
-		// loop 0x001F9488; the wrappers 0x001F2FF4 / 0x001F3244 read the answer out
-		// of cmdbuf[2] as a byte and a u16). Everything else keeps the plain ack.
-		//
-		// Deliberately NOT done: handing back a real event handle from
-		// GetSemaphoreEventHandle (0x0016). It looks like a bug fix — the plain ack
-		// leaves the game to read whatever is in the buffer as its handle — but a
-		// real handle that nothing ever signals is worse than a bogus one: the game
-		// blocks on it forever, where the bogus handle fails its wait immediately
-		// and the boot falls through. Verified: minting the handle costs SM3DL its
-		// whole render loop (4,053 command lists -> 1). The handle is only safe once
-		// there is a DSP to raise it.
-		switch hdr.Command {
-		case 0x0001: // RecvData(register) → u16
-			m.ipcReply(hdr.Command, 1)
-			return true
-		case 0x0002: // RecvDataIsReady(register) → u8
-			m.ipcReply(hdr.Command, 1)
-			return true
-		}
-		m.ipcReply(hdr.Command)
-		return true
+	case "dsp": // the audio coprocessor — modelled in dsp.go: component load,
+		// the pipe protocol, the shared-memory audio-frame exchange and the
+		// frame clock the sound threads block on
+		return m.ipcDSP(hdr)
 	case "ndm", "ptm", "ac", "frd", "cecd", "boss", "nim", "mic", "csnd", "y2r":
 		// Background/optional services: acknowledge init-shaped commands so the
 		// game's optional subsystems do not stall the boot.

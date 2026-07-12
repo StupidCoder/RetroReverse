@@ -10,11 +10,12 @@ package n3ds
 // kernel→user shared config page and a thread-local-storage page are mapped; and
 // the ARM11 boots at the code entry in User mode. The svc instruction traps to the
 // HLE kernel (svc.go), and SendSyncRequest into a partial Horizon service tree
-// (ipc.go / ipc_services.go: srv:, APT, GSP, hid, cfg, fs). It deliberately does
-// not model the PICA200 GPU, the DSP or the ARM9 — turning the game's GPU command
-// lists into pixels is a large separate effort — so this is a bring-up machine:
-// run the C runtime and the OS handshake, and stop *explicitly* at the first
-// kernel facility or service command not yet implemented rather than diverging.
+// (ipc.go / ipc_services.go: srv:, APT, GSP, hid, cfg, fs, dsp). The PICA200 GPU
+// is modelled (gpu*.go: LLE vertex shader, rasteriser, TEV) and so is the DSP's
+// firmware protocol (dsp.go: pipes, shared-memory audio frames, the frame clock);
+// the ARM9 is not. The discipline throughout: run the C runtime and the OS
+// handshake, and stop *explicitly* at the first kernel facility or service
+// command not yet implemented rather than diverging.
 //
 // Every unimplemented supervisor call or IPC command halts with its identity and
 // PC, so a run's reach is always a concrete, honest statement of what works.
@@ -144,6 +145,10 @@ type Machine struct {
 
 	// The PICA200 GPU (gpu.go). Accessor: GPU().
 	gpu *GPU
+
+	// The DSP audio coprocessor (dsp.go): the pipe protocol, the shared-memory
+	// audio-frame exchange and the frame clock the game's sound thread blocks on.
+	dsp dspHLE
 
 	// IPC / graphics bring-up.
 	notifyWaiters    []uint32 // thread ids parked in srv: ReceiveNotification
@@ -321,6 +326,12 @@ func NewMachine(img []byte) (*Machine, error) {
 	// it (as physical 0x18000000 addresses in the GPU registers; gsp_mem.go
 	// translates).
 	m.mapRegion("vram", vramVirtBase, make([]byte, vramSize))
+
+	// DSP RAM, likewise at its fixed window: the second half holds the two
+	// shared-memory regions the app and the DSP exchange audio frames through
+	// (dsp.go); ConvertProcessAddressFromDspDram hands the game pointers here.
+	m.mapRegion("dspram", dspRAMBase, make([]byte, dspRAMSize))
+	m.dsp.IntEvents = map[uint32]uint32{}
 
 	// Boot the core: ARMv6K, User mode, PC at the entry, SP at the stack top.
 	cpu := arm.NewCPU(m)

@@ -106,13 +106,81 @@ So the DSP is left honestly unmodelled, and the one thing that *is* answered is 
 handshake (`RecvData` / `RecvDataIsReady`), which SM3DL's applet-resume path polls until the component
 reports "running".
 
-The conclusion is a clean statement of the next piece of work: **Captain Toad needs a real `dsp::DSP`
+The conclusion was a clean statement of the next piece of work: **Captain Toad needs a real `dsp::DSP`
 model** — the component load, the pipe protocol, the shared-memory audio frame structures, and the
 frame interrupt — a subsystem of a scale comparable to the PICA200 GPU, and the natural next platform
 phase now that a second title demands it.
 
----
+## Part V — A real DSP, and the sound system comes alive
+
+The DSP model now exists (`tools/platform/n3ds/dsp.go`), and this title is what drove — and what
+validates — it.
+
+**The first decision was LLE versus HLE, settled by dumping what `LoadComponent` actually carries.**
+The buffer is 49,756 bytes: a 0x100-byte signature followed by a `DSP1` magic — Nintendo's *signed
+Teak firmware container*. The DSP is a CEVA TeakLite-class core; running that blob would mean building
+a second CPU emulator. So the model takes the same posture as the Horizon kernel HLE: don't run the
+firmware, implement what it *does*. (Clean-room note: the DSP is platform hardware, not game data, so
+platform-level documentation and other emulators' implementations were consulted under the same
+user-approved exception as the PSP KIRK keys — the protocol and structure layout follow 3dbrew and the
+Citra project's DSP HLE, reimplemented in Go; everything about what *this title* does still comes from
+tracing its code with our own tools.)
+
+**What the firmware does, and what the model therefore implements:**
+
+- A 512 KiB **DSP RAM window** at `0x1FF00000`. `ConvertProcessAddressFromDspDram` maps a DSP word
+  address to `(addr << 1) + 0x1FF40000` — this is the command Captain Toad hammered 7,504 times
+  against the old fabricated replies; against real ones it is called exactly 30 times (15 structure
+  addresses × 2 regions) and never again.
+- Two 0x8000-byte **shared-memory regions** (`0x1FF50000` / `0x1FF70000`) holding the 15 audio-frame
+  structures — per-source configurations and statuses, the DSP configuration and status, the mix
+  buffers, and a trailing **frame counter** per region. The app and the DSP double-buffer through
+  them: the DSP reads whichever region has the higher counter and answers into the other, and the app
+  increments the counter of the region it finishes.
+- **Pipes.** Pipe 2 (audio) carries the control protocol: the app writes a state change (Initialize /
+  Shutdown / Wakeup / Sleep); on Initialize the DSP resets the pipes, answers with a count and the 15
+  structure addresses as DSP words, raises the pipe-2 interrupt event, and starts running.
+- The **audio-frame clock**: 160 samples ≈ 1,310,720 ARM11 cycles per frame (Citra's
+  hardware-verified ratio), paced on the machine's monotonic instruction counter, *independent of the
+  VBlank* — the sound thread starts waiting before the game brings up graphics at all, so the run
+  loop's idle fast-forward now jumps to whichever machine event fires next (GX completion, DSP frame,
+  or VBlank). Each frame the DSP consumes the source configurations (clearing their dirty flags — the
+  app's protocol depends on that), advances each source's buffer queue by sample count, publishes the
+  per-source statuses (`sync_count` echo, play position, `current_buffer_id` / `last_buffer_id` with
+  the report-once dirty byte), raises the pipe-2 interrupt, and signals the **frame semaphore** —
+  the event `GetSemaphoreEventHandle` returns, and the thing Captain Toad's sound thread actually
+  blocks on.
+- What it deliberately does *not* do: decode or mix any PCM. The sources model the **control
+  protocol** — positions advance, buffer ids complete in order — not the audio. Fidelity is a later
+  phase.
+
+One delta from the Citra reference is deliberate and traced: the frame clock arms at **LoadComponent**
+(when the Teak core would boot), not at pipe Initialize — Super Mario 3D Land waits on the semaphore
+event without ever writing a pipe command, so a clock gated on Initialize would re-create failed
+shortcut #2 for it exactly.
+
+**Result, on this title.** The whole init conversation now runs clean — LoadComponent →
+RegisterInterruptEvents(pipe 2) → GetSemaphoreEventHandle → SetSemaphoreMask → Initialize →
+ReadPipeIfPossible → 30 address conversions — and then the sound thread enters its real frame loop:
+it **blocks on the semaphore, wakes once per audio frame, completes the shared-memory exchange, and
+parks again**. The proof is in DSP memory itself: after a boot the two frame counters read
+consecutive values in the thousands (7714/7715 after ~800M executed instructions), incremented by the
+*game's* sound thread once per frame, forever. No starvation — the main thread runs, finishes its
+init, and moves on; no crash-restart; no pipe-command hammering. Both prior failure modes are gone.
 
 **Status.** Container layer: complete, unchanged. CPU: two ARMv6K gaps found and closed. OS: four new
-service commands, all traced. Reach: the full OS handshake and six live threads, stopped by an absent
-DSP rather than by anything unknown.
+service commands, all traced. DSP: modelled; the sound system runs at full cadence and makes no
+further IPC after init (39 requests total, then pure shared-memory exchange — exactly the firmware
+contract).
+
+**The frontier has moved past audio**, and its shape is pinned: the main thread loops a ~once-per-
+second timed poll (helper `0x001211A8` → sleep wrapper `0x003006D0(1)` → the poll object at heap
+`0x146EFE14`, vtable `0x004D7250`, poll function `0x0033AF78` — a 64-bit tick-delta dispatcher). The
+poll's argument points *into worker thread 4's live stack frame* (a condvar/critical-section pair
+around `arb@0x17BDFD08`, precisely where that prio-38 worker parks waiting for a job); worker 5
+(prio 35) parks the same way on `arb@0x0054F59C`. So the main thread awaits a completion its worker
+should produce, and the worker waits for a job nobody posts — only one file has been opened (~14
+reads), and GSP is never brought up. A 9-billion-instruction probe reaches the identical steady
+state, so this is not a timeout that expires. Tracing who was supposed to post that worker's job is
+the next session's work — note each poll second costs ~100M *executed* instructions now, because the
+game's own mixer really runs every audio frame.

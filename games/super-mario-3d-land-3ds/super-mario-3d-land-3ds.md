@@ -546,6 +546,41 @@ service name with each 32-bit word's halves rotated ("APT:U" half-swapped, "fs:U
 "ndm:u" straight, all from the same thread), so the reader tries each rotation and takes the one whose
 service family it recognises.
 
+### The DSP becomes real — and this title's audio init turns out to have been bailing
+
+Captain Toad (the second 3DS title, see its own writeup) forced a real `dsp::DSP` model —
+`tools/platform/n3ds/dsp.go`: the DSP RAM window at `0x1FF00000`, the audio-pipe state machine, the
+two double-buffered shared-memory regions with their 15 announced structures, the per-source
+config→status protocol, and an audio-frame clock (160 samples ≈ 1,310,720 cycles) paced on the
+machine's monotonic counter and armed at `LoadComponent`. `RecvData(0)` is now a real state readout —
+0 while the pipeline runs, 1 once it is shut down or sleeping — which subsumes the hard-coded 1 the
+applet-resume retry loop (`0x001F9488`) was given earlier: this title only polls after ordering a
+stop, when the state machine genuinely answers 1.
+
+Two things this title taught in return:
+
+- **Its audio init had been bailing all along.** Pre-DSP, SM3DL's observed conversation was
+  `LoadComponent`, 79 × `FlushDataCache`, `RegisterInterruptEvents`, `GetSemaphoreEventHandle`,
+  `GetHeadphoneStatus` — no pipe traffic at all, which looked like "this title just doesn't use the
+  pipes". With coherent replies the same boot now runs the full standard protocol on its audio thread
+  (t7): … `GetSemaphoreEventHandle` → `SetSemaphoreMask` → **audio-pipe `Initialize`** →
+  `ReadPipeIfPossible` → 30 × `ConvertProcessAddressFromDspDram`. The old truncated list was the
+  *failure signature* of the fake DSP — the init aborted before ever writing a pipe — and it is also
+  why the earlier "just mint the semaphore-event handle" shortcut regressed this title: the handle was
+  real but nothing would ever signal it. The lesson generalises: a service's observed command list is
+  only as trustworthy as the replies it was observed against.
+- **The regression guard passed with a 5× improvement.** The same 6-billion-instruction cold boot
+  that produced 4,053 GPU command lists / 3,991 display transfers / ~941M pixels against the blanket
+  acks now produces **20,270 lists / 20,209 transfers / ~4.89B pixels**, with 1,559 dsp::DSP requests,
+  and still lands on the fully rendered StreetPass welcome dialog. The boot is not merely unharmed —
+  with its audio init succeeding instead of failing-and-retrying, the game reaches its render loop
+  markedly earlier and runs it at full cadence.
+
+Whether the real DSP moves the render-ring frontier above is **not yet settled**: the old savestates
+(title3, newgameL, …) predate the DSP — restoring them resurrects a world where the game already holds
+garbage DSP handles, so they cannot test it. The re-check needs the onboarding flow re-driven from a
+post-DSP cold boot (fresh staged savestates), which is where the next SM3DL session should start.
+
 ---
 
 ## Part III — The HOME-Menu banner (the animated 3-D scene)

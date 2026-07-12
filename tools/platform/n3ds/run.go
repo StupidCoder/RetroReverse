@@ -14,10 +14,12 @@ import (
 // It stops early when the core halts. Pacing is by total instruction count, which
 // keeps a resumed savestate deterministic (the N64/DOS discipline).
 //
-// maxIdleFrames bounds how many successive VBlank-only wakeups (no thread makes
-// progress) the run tolerates before calling it a genuine deadlock rather than
-// an idle wait between frames.
-const maxIdleFrames = 8
+// maxIdleFrames bounds how many successive timed wakeups that make no thread
+// runnable (VBlanks, and DSP audio frames — which recur ~3.4× per VBlank
+// whether or not anything listens) the run tolerates before calling it a
+// genuine deadlock rather than an idle wait between frames. 40 mixed wakeups
+// ≈ the 8 video frames the pre-DSP bound allowed.
+const maxIdleFrames = 40
 
 func (m *Machine) Run(budget int) int {
 	n := 0
@@ -29,18 +31,40 @@ func (m *Machine) Run(budget int) int {
 		if m.vblankDue() {
 			m.deliverVBlank()
 		}
+		if m.dspDue() {
+			m.dspTick() // the audio-frame clock (dsp.go), independent of the VBlank
+		}
 		m.processGXQueue() // drain any GPU commands the game posted; completions are deadline-paced
 		t := m.pickRunnable()
 		if t == nil {
-			// A pending GX completion due before the next VBlank is the nearest
-			// wake source: jump the clock to it and execute (interrupting wakes
-			// the waiter). Real progress, not an idle frame.
-			if dl, ok := m.gxDeadline(); ok && dl < m.nextFrameInstr {
+			// The nearest machine event due before the next VBlank — a pending GX
+			// completion or the DSP's audio frame — is the nearest wake source:
+			// jump the clock to it and deliver. A GX completion is one-shot (real
+			// progress, resets the idle bound); the DSP frame recurs whether or
+			// not anyone listens, so it counts toward the idle bound like a
+			// VBlank does — else a sound-less title would livelock here.
+			gxDl, gxOK := m.gxDeadline()
+			dl, ok, isGX := gxDl, gxOK, gxOK
+			if d, o := m.dspDeadline(); o && (!ok || d < dl) {
+				dl, ok, isGX = d, true, false
+			}
+			bound := m.nextFrameInstr
+			if m.gspEvent == 0 {
+				bound = ^uint64(0) // no graphics heartbeat yet: the DSP paces itself
+			}
+			if ok && dl < bound && idleFrames < maxIdleFrames {
 				if m.instrs < dl {
 					m.instrs = dl
 				}
 				m.pumpGX()
-				idleFrames = 0
+				if m.dspDue() {
+					m.dspTick()
+				}
+				if isGX {
+					idleFrames = 0
+				} else {
+					idleFrames++
+				}
 				continue
 			}
 			if m.advanceIdle() {
