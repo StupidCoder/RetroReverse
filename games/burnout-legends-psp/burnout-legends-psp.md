@@ -338,7 +338,48 @@ right, the sunset on the horizon, and the HUD over the top.
 
 ![The first frame of gameplay](figures/race-first-frame.png)
 
-### 3. The race is really running
+### 3. What the game actually asks the GE for
+
+The first race frames were legible but wrong: the car's panels came and went,
+triangles slashed across it, the road's texture swam, and everything sat too
+dark. Guessing at each artifact was getting nowhere, so instead: **dump the
+race's own display lists, census every command in them, and diff that against
+what the rasterizer handles.** Sixty-seven command types came back that we
+were ignoring. That list, not intuition, set the work.
+
+One of them was not a missing feature but a corruption. `BASE` supplies the
+high bits of the 24-bit addresses in `VADDR`/`IADDR`/`JUMP`/`CALL` — but the
+GE only implements **bits 16-19** of its argument. Burnout sends
+`BASE 0x480000` for the geometry it streams into the volatile block; we took
+the `0x40` literally and read vertices from `0x484038FC`, which is nowhere at
+all. Masked correctly it is `0x084038FC` — inside the streaming buffers. Every
+primitive drawn out of streamed memory, which is to say *the track*, had been
+decoding garbage.
+
+The rest were pipeline stages, each of them something a 2-D scene never asks
+for:
+
+| What was missing | What it cost |
+| --- | --- |
+| Alpha test (`ATE`/`ATST`) | 4,644 primitives a frame; transparent texels painted solid — the triangles across the car |
+| Real blend factors (`ALPHA`, `FIXA`/`FIXB`) | we hardcoded src-alpha; `0x50`, which we had labelled "blend", is shade mode |
+| Depth function at `0xDE` | we listened on `0xE2` — the dither table — so the game's GEQUAL/ALWAYS switches never arrived |
+| Perspective-correct texcoords | affine interpolation is what made the road swim |
+| `TEXFUNC` modes + colour-double | everything modulated at half brightness |
+| Texture-matrix projection from the **normal** | the car's reflection vertices all carry one dummy UV; reading it sampled a single bright texel and drew white ribbons over the car |
+| Stencil (`0xDC`/`0xDD`) | the PSP's stencil buffer *is* the framebuffer alpha, and the game writes a mask there for its post-process to read back |
+| Bilinear filtering, texture wrap/clamp, scissor, fog, GE block transfer | filtering, tiling, the blur target |
+
+Two values were *derived* rather than assumed, because the game programs them
+once at engine init and no mid-race list re-sends them: the depth function
+(GEQUAL, read off the viewport's reversed z) and the cull winding (settled
+against a frame rendered with culling disabled).
+
+Lighting turned out to matter less than it looked: most of the world is drawn
+**unlit**, with its light baked into the vertex colours. Only the cars enable
+it, under a single directional sun.
+
+### 4. The race is really running
 
 A rendered frame could still be a still life. It is not: with the throttle
 held down from the countdown (a `-keys` script pressing cross every 20
