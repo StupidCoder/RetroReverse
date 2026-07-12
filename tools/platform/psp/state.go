@@ -11,6 +11,8 @@ import (
 	"encoding/gob"
 	"fmt"
 	"os"
+	"strconv"
+	"strings"
 
 	"retroreverse.com/tools/cpu/allegrex"
 )
@@ -44,6 +46,7 @@ type MachineState struct {
 	Mpeg         mpegState
 	Atrac        map[uint32]atracState
 	NextAtrac    uint32
+	VolatileLock bool // the 4 MiB volatile block is held (sceKernelVolatileMemLock)
 }
 
 type ioFileState struct {
@@ -125,6 +128,7 @@ func (m *Machine) SaveState() MachineState {
 		Files: files, NextFd: m.nextFd,
 		Pad: m.pad, Savedata: m.savedataStatus, Mpeg: m.mpeg,
 		Atrac: atracs, NextAtrac: m.nextAtrac,
+		VolatileLock: m.volatileLocked,
 	}
 }
 
@@ -137,10 +141,24 @@ func (m *Machine) LoadState(s MachineState) error {
 	copy(m.vram, s.VRAM)
 	copy(m.scratch, s.Scratch)
 	m.CPU.LoadState(s.CPU)
+	// A halt stops the run BEFORE the faulting instruction retires, so a state
+	// saved at a halt resumes at that instruction. Clear the flag: with the
+	// cause fixed the run continues; without it, it re-halts on the same word.
+	m.CPU.Halted, m.CPU.HaltReason = false, ""
+	m.Halted, m.HaltReason = false, ""
 	m.io = s.IO
 	m.nextSyscall = s.NextSyscall
 	m.syscalls = make(map[uint32]*syscall, len(s.SyscallNames))
 	for code, name := range s.SyscallNames {
+		// A state may predate a NID becoming known: names were saved in the
+		// "library:0xNID" fallback form. Re-resolve so new handlers bind.
+		if i := strings.LastIndex(name, ":0x"); i >= 0 {
+			if nid, err := strconv.ParseUint(name[i+3:], 16, 32); err == nil {
+				if known, ok := nidLookup[uint32(nid)]; ok {
+					name = known
+				}
+			}
+		}
 		m.syscalls[code] = &syscall{name: name, handler: handlerFor(name)}
 	}
 	m.handles = make(map[uint32]*kobject, len(s.Handles))
@@ -170,6 +188,7 @@ func (m *Machine) LoadState(s MachineState) error {
 	}
 	m.vblanks = s.VBlanks
 	m.pad, m.savedataStatus, m.mpeg = s.Pad, s.Savedata, s.Mpeg
+	m.volatileLocked = s.VolatileLock
 	m.atrac = map[uint32]*atracState{}
 	for id, a := range s.Atrac {
 		a := a

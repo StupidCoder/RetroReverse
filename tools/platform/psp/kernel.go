@@ -177,6 +177,10 @@ var knownNIDs = []string{
 	"sceUmdRegisterUMDCallBack", "sceUmdUnRegisterUMDCallBack", "sceUmdGetErrorStat",
 	// sceRtc / scePower
 	"sceRtcGetCurrentTick", "scePowerGetCpuClockFrequency", "scePowerRegisterCallback",
+	// sceSuspendForUser: the 4 MiB volatile memory block (0x08400000) games borrow
+	// from the OS suspend buffer, plus the power-tick keepalive.
+	"sceKernelVolatileMemLock", "sceKernelVolatileMemTryLock", "sceKernelVolatileMemUnlock",
+	"sceKernelPowerTick", "sceKernelPowerLock", "sceKernelPowerUnlock",
 	// sceUtility
 	"sceUtilityGetSystemParamInt", "sceUtilityGetSystemParamString",
 	"sceUtilityMsgDialogInitStart", "sceUtilityMsgDialogGetStatus", "sceUtilityMsgDialogUpdate",
@@ -380,6 +384,35 @@ func handlerFor(name string) func(m *Machine) {
 	case "sceKernelMaxFreeMemSize", "sceKernelTotalFreeMemSize":
 		// Games size their heap zones from this; it must reflect the bump heap.
 		return func(m *Machine) { m.setRet(m.heapEnd - m.heapPtr) }
+	case "sceKernelVolatileMemLock", "sceKernelVolatileMemTryLock":
+		// (unk, void **ptr, int *size) — hand out the OS suspend buffer: 4 MiB at
+		// 0x08400000 (below the user partition, so nothing else of ours lives there).
+		// Burnout Legends carves its in-race streaming ring buffers from this block;
+		// a stub that returns 0 without writing the outs makes its loader plan NO
+		// memory for the race streamer and the load stalls forever.
+		return func(m *Machine) {
+			if m.volatileLocked {
+				// Already held. TryLock's documented failure; for the blocking Lock
+				// a wait would be honest, but a double-lock means a game state we
+				// haven't seen — surface it rather than model it.
+				m.note("sceKernelVolatileMemLock while already locked (caller 0x%08X)", m.CPU.Reg(31))
+				m.setRet(0x802B0200) // SCE_POWER_ERROR_VMEM_IN_USE
+				return
+			}
+			m.volatileLocked = true
+			if p := m.arg(1); p != 0 {
+				m.write32(p, 0x08400000)
+			}
+			if p := m.arg(2); p != 0 {
+				m.write32(p, 0x00400000)
+			}
+			m.setRet(0)
+		}
+	case "sceKernelVolatileMemUnlock":
+		return func(m *Machine) {
+			m.volatileLocked = false
+			m.setRet(0)
+		}
 	case "sceKernelCreateMutex",
 		"sceKernelCreateMsgPipe", "sceKernelCreateMbx", "sceKernelCreateVTimer":
 		// Kernel objects must be real positive uids: a returned 0 reads as failure

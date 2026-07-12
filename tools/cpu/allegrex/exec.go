@@ -164,6 +164,10 @@ func (c *CPU) execute(w uint32) {
 		c.write32(addr, c.F[rt&31])
 	case 0x32, 0x36, 0x35, 0x3A, 0x3E, 0x3D, 0x34, 0x37, 0x3C, 0x18, 0x19, 0x1B:
 		c.vfpuOp(w, op, rs, rt, simm)
+	case 0x3F: // VFPU pipeline hints: vnop (0xFFFF0000), vsync, vflush — no-ops here
+		if w>>16 != 0xFFFF {
+			c.Halt("unimplemented opcode 0x3F (word 0x%08X) at 0x%08X", w, c.curPC)
+		}
 	default:
 		c.Halt("unimplemented opcode 0x%02X (word 0x%08X) at 0x%08X", op, w, c.curPC)
 	}
