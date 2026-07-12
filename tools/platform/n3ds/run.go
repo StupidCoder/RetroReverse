@@ -117,9 +117,9 @@ func (m *Machine) Run(budget int) int {
 			}
 			if m.logpcs[pc] {
 				sp := m.CPU.R[13]
-				fmt.Printf("logpc [t%d] 0x%08X r0=%08X r1=%08X r2=%08X r3=%08X r4=%08X lr=%08X sp=[%08X %08X %08X] instr=%d\n",
+				fmt.Printf("logpc [t%d] 0x%08X r0=%08X r1=%08X r2=%08X r3=%08X r4=%08X lr=%08X sp=[%08X %08X %08X] instr=%d%s\n",
 					m.curThread.id, pc, m.CPU.R[0], m.CPU.R[1], m.CPU.R[2], m.CPU.R[3], m.CPU.R[4], m.CPU.R[14],
-					m.ReadWord(sp), m.ReadWord(sp+4), m.ReadWord(sp+8), m.CPU.Instrs)
+					m.ReadWord(sp), m.ReadWord(sp+4), m.ReadWord(sp+8), m.CPU.Instrs, m.argStrings())
 			}
 			if m.Trace && m.traceN < m.traceMax {
 				m.traceOne(pc)
@@ -232,3 +232,32 @@ func (m *Machine) Entry() uint32 { return m.entry }
 
 // Instrs is the total instructions the core has retired.
 func (m *Machine) Instrs() uint64 { return m.CPU.Instrs }
+
+// argStrings renders any of r0-r3 that points at a plausible C string, so a
+// -logpc on a path-building or resource-lookup site names what the game asked
+// for rather than just where it asked from.
+func (m *Machine) argStrings() string {
+	out := ""
+	for i := 0; i < 4; i++ {
+		p := m.CPU.R[i]
+		if p < 0x100000 {
+			continue
+		}
+		var b []byte
+		for n := uint32(0); n < 64; n++ {
+			c := m.Read(p + n)
+			if c == 0 {
+				break
+			}
+			if c < 0x20 || c > 0x7E {
+				b = nil
+				break
+			}
+			b = append(b, c)
+		}
+		if len(b) >= 3 {
+			out += fmt.Sprintf(" r%d=%q", i, string(b))
+		}
+	}
+	return out
+}
