@@ -113,6 +113,12 @@ const (
 	cFOG1        = 0xCD // fog end distance
 	cFOG2        = 0xCE // fog scale = 1/(end-start)
 	cFOGCOLOR    = 0xCF
+	cLIGHT0ON    = 0x18 // lights 0-3 enable at 0x18..0x1B
+	cAMBIENTCOL  = 0x5C // global ambient colour
+	cMATEMISSIVE = 0x54
+	cLIGHTTYPE0  = 0x5F // light types at 0x5F..0x62 (bits 8-9: 0 directional, 1 point, 2 spot)
+	cLIGHTPOS0   = 0x63 // light positions: 3 words per light, 0x63..0x6E
+	cLIGHTDIF0   = 0x90 // light diffuse colours: 3 words per light (amb/dif/spec) from 0x8F
 	cSTENCILON   = 0x24 // stencil test enable
 	cSTEST       = 0xDC // stencil test: bits 0-7 func, 8-15 ref, 16-23 mask
 	cSOP         = 0xDD // stencil ops: bits 0-7 sfail, 8-15 zfail, 16-23 zpass
@@ -151,6 +157,15 @@ type geState struct {
 	patchDivU, patchDivV uint32
 	lightOn              bool
 	matDiffuse           uint32 // material diffuse RGB (lit patches render with it)
+	matEmissive          uint32
+	ambientCol           uint32 // global ambient colour
+
+	// Per-light state. Burnout lights its cars with one directional sun; the
+	// unlit path (most of the world) bakes its light into vertex colours.
+	lightEnable [4]bool
+	lightType   [4]uint32
+	lightPos    [4][3]float32
+	lightDiff   [4]uint32
 
 	vpXS, vpYS, vpZS float32 // viewport scale
 	vpXC, vpYC, vpZC float32 // viewport center
@@ -370,6 +385,21 @@ func (m *Machine) rasterList(list GeList) {
 			s.offAddr = arg << 8
 		case cLIGHTING:
 			s.lightOn = arg&1 != 0
+		case cAMBIENTCOL:
+			s.ambientCol = arg
+		case cMATEMISSIVE:
+			s.matEmissive = arg
+		case cLIGHT0ON, cLIGHT0ON + 1, cLIGHT0ON + 2, cLIGHT0ON + 3:
+			s.lightEnable[cmd-cLIGHT0ON] = arg&1 != 0
+		case cLIGHTTYPE0, cLIGHTTYPE0 + 1, cLIGHTTYPE0 + 2, cLIGHTTYPE0 + 3:
+			s.lightType[cmd-cLIGHTTYPE0] = (arg >> 8) & 3
+		case cLIGHTPOS0, cLIGHTPOS0 + 1, cLIGHTPOS0 + 2, cLIGHTPOS0 + 3, cLIGHTPOS0 + 4,
+			cLIGHTPOS0 + 5, cLIGHTPOS0 + 6, cLIGHTPOS0 + 7, cLIGHTPOS0 + 8,
+			cLIGHTPOS0 + 9, cLIGHTPOS0 + 10, cLIGHTPOS0 + 11:
+			i := (cmd - cLIGHTPOS0) / 3
+			s.lightPos[i][(cmd-cLIGHTPOS0)%3] = math.Float32frombits(arg << 8)
+		case cLIGHTDIF0, cLIGHTDIF0 + 3, cLIGHTDIF0 + 6, cLIGHTDIF0 + 9:
+			s.lightDiff[(cmd-cLIGHTDIF0)/3] = arg
 		case cPATCHDIV:
 			s.patchDivU = arg & 0xFF
 			s.patchDivV = (arg >> 8) & 0xFF
@@ -820,6 +850,13 @@ func (m *Machine) decodeVerts(s *geState, count int) []vert {
 			vv.r, vv.g, vv.b = byte(s.matColor), byte(s.matColor>>8), byte(s.matColor>>16)
 			vv.a = byte(s.matColor >> 24)
 		}
+		// Per-vertex lighting. Most of Burnout's world is drawn UNLIT (its light
+		// is baked into the vertex colours), but the cars are lit by a single
+		// directional sun; unlit, they render as flat dark shapes.
+		if s.lightOn && !through && nfmt != 0 {
+			nx, ny, nz := readNormal(m, p+offNrm, nfmt)
+			vv.r, vv.g, vv.b = s.lightVertex(nx, ny, nz)
+		}
 		px, py, pz := readPos(m, p+offPos, pfmt)
 		if through {
 			// through-mode positions are absolute screen coordinates
@@ -879,6 +916,44 @@ func readColor(m *Machine, p, fmt uint32) (byte, byte, byte, byte) {
 		e := func(v uint16, b uint16) byte { return byte(uint32(v&((1<<b)-1)) * 255 / ((1 << b) - 1)) }
 		return e(c, 5), e(c>>5, 6), e(c>>11, 5), 0xFF
 	}
+}
+
+// lightVertex evaluates the lighting model for one vertex normal: the emissive
+// term, the global ambient against the material ambient, and each enabled
+// light's diffuse against the material diffuse by Lambert's cosine. Specular
+// and the attenuation/spot terms are not modelled.
+func (s *geState) lightVertex(nx, ny, nz float32) (byte, byte, byte) {
+	// The normal is a model-space direction: rotate it by the world matrix
+	// (its 3x3 part) to reach the space the lights live in.
+	wx := s.world[0]*nx + s.world[4]*ny + s.world[8]*nz
+	wy := s.world[1]*nx + s.world[5]*ny + s.world[9]*nz
+	wz := s.world[2]*nx + s.world[6]*ny + s.world[10]*nz
+	if l := float32(math.Sqrt(float64(wx*wx + wy*wy + wz*wz))); l > 1e-8 {
+		wx, wy, wz = wx/l, wy/l, wz/l
+	}
+	chOf := func(c uint32, i int) float32 { return float32(byte(c>>(8*i))) / 255 }
+
+	var out [3]float32
+	for i := 0; i < 3; i++ {
+		out[i] = chOf(s.matEmissive, i) + chOf(s.ambientCol, i)*chOf(s.matColor, i)
+	}
+	for li := 0; li < 4; li++ {
+		if !s.lightEnable[li] {
+			continue
+		}
+		lx, ly, lz := s.lightPos[li][0], s.lightPos[li][1], s.lightPos[li][2]
+		if l := float32(math.Sqrt(float64(lx*lx + ly*ly + lz*lz))); l > 1e-8 {
+			lx, ly, lz = lx/l, ly/l, lz/l
+		}
+		nd := wx*lx + wy*ly + wz*lz
+		if nd <= 0 {
+			continue
+		}
+		for i := 0; i < 3; i++ {
+			out[i] += chOf(s.lightDiff[li], i) * chOf(s.matDiffuse, i) * nd
+		}
+	}
+	return clamp255(int32(out[0] * 255)), clamp255(int32(out[1] * 255)), clamp255(int32(out[2] * 255))
 }
 
 // readNormal reads a vertex normal; like positions, the fixed-point forms are
