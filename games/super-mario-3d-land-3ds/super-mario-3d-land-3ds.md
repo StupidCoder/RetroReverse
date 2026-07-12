@@ -576,10 +576,17 @@ Two things this title taught in return:
   with its audio init succeeding instead of failing-and-retrying, the game reaches its render loop
   markedly earlier and runs it at full cadence.
 
-Whether the real DSP moves the render-ring frontier above is **not yet settled**: the old savestates
-(title3, newgameL, …) predate the DSP — restoring them resurrects a world where the game already holds
-garbage DSP handles, so they cannot test it. The re-check needs the onboarding flow re-driven from a
-post-DSP cold boot (fresh staged savestates), which is where the next SM3DL session should start.
+Whether the real DSP moves the render-ring frontier above was then **verified rather than assumed**.
+The old savestates predate the DSP (restoring them resurrects a world where the game already holds
+garbage DSP handles), so the onboarding flow was re-driven from a post-DSP cold boot in one pass —
+`-keys a -keypulse 30` holds Ⓐ through the whole flow, which takes the *activate*-StreetPass branch
+this time (cecd acked) and still reaches file-select, creates the save, and runs the post-save
+transition. The result is the identical end state: the game spawns its full in-game thread
+complement (14 threads), its sound thread parks healthily on the DSP event each audio frame — and
+the render thread parks on **the same frame-delivery condvar `arb@0x00426B5C`**. So the DSP was
+necessary (the resume chain's audio restart runs against a real state machine now) but **the
+render-ring deadlock is independent of it**, and remains the frontier: find what is supposed to
+signal `0x00426B5C`.
 
 ---
 
