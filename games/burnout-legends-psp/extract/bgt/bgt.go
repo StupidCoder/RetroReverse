@@ -108,9 +108,17 @@ type Mesh struct {
 }
 
 // Block is one streamed geometry block: the meshes of one cell of the world.
+//
+// A block also carries its cell's anchor — a point at ground level with a
+// radius, which the streamer uses to decide when the cell comes in. Taken in
+// order the anchors trace the circuit, which is the only road-level path through
+// the world the files give up without reversing the game's route data.
 type Block struct {
 	Offset int
 	Cell   int
+	Anchor [3]float32
+	Radius float32
+	Points [4][3]float32 // the four header points; Anchor is the first of them
 	Meshes []Mesh
 }
 
@@ -326,7 +334,17 @@ func (t *Track) ParseStreamed(data []byte) ([]Block, error) {
 		if size <= 0 || off+size > len(data) {
 			break
 		}
-		b := Block{Offset: off, Cell: int(le32(data, off+4))}
+		b := Block{
+			Offset: off,
+			Cell:   int(le32(data, off+4)),
+			Anchor: [3]float32{f32(data, off+0x10), f32(data, off+0x14), f32(data, off+0x18)},
+			Radius: f32(data, off+0x1C),
+		}
+		for k := 0; k < 4; k++ {
+			b.Points[k] = [3]float32{
+				f32(data, off+0x10+k*16), f32(data, off+0x14+k*16), f32(data, off+0x18+k*16),
+			}
+		}
 		recs := off + 0x50 + int(le32(data, off+0x50))
 		n := int(le32(data, off+0x54))
 		if n < 0 || n > 4096 || recs < off || recs+n*meshRecSize > off+size {

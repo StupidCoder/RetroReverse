@@ -67,6 +67,30 @@ func (t *Track) Texture(i int) (*image.RGBA, error) {
 	return img, nil
 }
 
+// alphaTestRef is the reference the engine programs into the GE's alpha test for
+// the world: a texel survives if its alpha is GREATER than this. The palettes are
+// full of middling alphas (the road's run 76..153) that mean nothing to a draw
+// with blending off — only alpha at or below the reference is a real cutout, and
+// 42 of a track's 134 textures have some: fences, foliage, signs.
+const alphaTestRef = 16
+
+// AlphaTest applies that test, leaving every surviving texel fully opaque. It is
+// what an exporter wants: a glTF alpha-mask cutoff of 0.5 over the raw decode
+// would throw away a fifth of the world, because most of the mid-alpha texels
+// are perfectly solid road.
+func AlphaTest(img *image.RGBA) *image.RGBA {
+	out := image.NewRGBA(img.Bounds())
+	copy(out.Pix, img.Pix)
+	for i := 3; i < len(out.Pix); i += 4 {
+		if out.Pix[i] > alphaTestRef {
+			out.Pix[i] = 0xFF
+		} else {
+			out.Pix[i] = 0
+		}
+	}
+	return out
+}
+
 // unswizzle maps a byte position to its offset in the GE's swizzled layout:
 // 16-byte wide, 8-row tall blocks stored one after another. Narrow textures
 // (under a block wide) are stored linearly.

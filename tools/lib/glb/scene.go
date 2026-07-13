@@ -243,6 +243,11 @@ func (s *Scene) Write(path, sceneName string) error {
 		"materials":   s.materials,
 		"bufferViews": s.b.views,
 		"accessors":   s.b.accessors,
+		// The BIN chunk still has to be declared: a loader resolves a bufferView
+		// through buffers[0], and without this every GLB this writer produced was
+		// unloadable ("cannot read properties of undefined"). Our own PNG-render
+		// checks never caught it because they read the structs, not the file.
+		"buffers": []map[string]int{{"byteLength": s.b.bin.Len()}},
 	}
 	if len(s.images) > 0 {
 		doc["images"] = s.images

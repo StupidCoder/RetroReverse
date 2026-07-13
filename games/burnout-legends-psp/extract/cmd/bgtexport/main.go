@@ -203,7 +203,9 @@ func build(t *bgt.Track, meshes []bgt.Mesh) ([]glb.Prim, int, error) {
 					if err != nil {
 						return nil, 0, err
 					}
-					tx = im
+					// Run the engine's own alpha test, so glTF's 0.5 mask cutoff
+					// keeps the solid world and cuts only the real cutouts.
+					tx = bgt.AlphaTest(im)
 					cache[ti] = tx
 				}
 				p.Image = tx

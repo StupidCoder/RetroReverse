@@ -344,6 +344,29 @@ const GAMES = [
     }),
     layers: [{ id: 'collision', label: 'Collision layer', default: false }],
   },
+  {
+    // The generic manifest-driven 3-D viewer again. The 89 cars are plain GLBs
+    // (builtin mesh3d); the 34 tracks route to the bl-track plugin, which loads
+    // the streamed world and flies through it, with static.dat's environment —
+    // terrain, cliffs, the mountain backdrop — behind a layer toggle. The two
+    // are separate because the game swaps between them rather than adding them.
+    id: 'burnout-legends-psp', name: 'Burnout Legends', system: 'Sony PSP', render: '3d',
+    load: () => import('../shared/viewer3d.js').then(m => m.Viewer3D),
+    make: (V, el, hud) => new V(el, hud, {
+      base: 'public/burnout-legends-psp/',
+      renderers: { 'bl-track': () => import('../burnout-legends-psp/track-renderer.js') },
+    }),
+    list: async (v) => await v.init(),
+    show: (v, item, i) => v.showItem(item),
+    // Open on a track rather than the first car.
+    defaultAsset: (models) => models.findIndex((m) => m.kind === 'bl-track'),
+    layers: [
+      { id: 'environment', label: 'Environment layer', default: false, when: (m) => m.leaves?.[m.currentIdx]?.level?.kind === 'bl-track' },
+      { id: 'wireframe', label: 'Wireframe', default: false },
+    ],
+    // Browse-list accordion: the manifest tags each model's section ("Tracks", "Cars").
+    group: (item) => ({ section: item.section, label: item.name }),
+  },
 ];
 
 // Turrican's manifest labels worlds 0-based with hex start offsets; make them readable.
