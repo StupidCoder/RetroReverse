@@ -97,6 +97,7 @@ func (m *Machine) FindBytes(pat []byte) []uint32 {
 type Machine struct {
 	CPU      *arm.CPU
 	regions  []*memRegion
+	pages    []*memRegion // addr>>12 -> the region it is in (an accelerator; see regionOf)
 	codeReg  *memRegion
 	stackReg *memRegion
 	tlsReg   *memRegion
@@ -407,6 +408,7 @@ func NewMachine(img []byte) (*Machine, error) {
 func (m *Machine) mapRegion(name string, base uint32, data []byte) *memRegion {
 	r := &memRegion{name: name, base: base, data: data}
 	m.regions = append(m.regions, r)
+	m.indexRegion(r)
 	return r
 }
 
@@ -434,8 +436,52 @@ const appMemAlloc = 0x04000000 // 64 MiB
 
 // --- arm.Bus ---------------------------------------------------------------
 
+// The address-space page table. The bus is byte-granular by construction — the ARM
+// core issues four Read calls for one LDR, and the rasteriser up to fourteen per
+// fragment — so regionOf is one of the most-executed functions in the machine, and
+// it used to be a linear scan over every mapped region, per byte.
+//
+// pages[a>>12] names the region a 4 KiB page lies in, or nil. A page is only
+// entered when it lies WHOLLY inside one region; anything straddling an edge (or
+// unmapped) stays nil and takes the scan, which is still correct. So the table is
+// an accelerator, never an authority — a page it does not know about is looked up
+// the old way rather than read as unmapped.
+//
+// It is rebuilt from the regions, so it is not machine state and is not in the
+// savestate. Every path that changes what is mapped must call indexRegion (or clear
+// the table): mapRegion does it for new regions, ControlMemory does it when the heap
+// or the linear heap grows (svc.go), and RestoreState clears it — a stale entry
+// would point into the memory of the machine that was replaced, which reads
+// perfectly and is entirely wrong.
+const pageShift = 12
+
+func (m *Machine) indexRegion(r *memRegion) {
+	if m.pages == nil {
+		m.pages = make([]*memRegion, 1<<(32-pageShift))
+	}
+	if len(r.data) == 0 {
+		return
+	}
+	lo := r.base >> pageShift
+	hi := (r.base + uint32(len(r.data))) >> pageShift // exclusive: a partial last page is left to the scan
+	if r.base&(1<<pageShift-1) != 0 {
+		lo++ // the first page starts inside the region: not wholly covered
+	}
+	for p := lo; p < hi; p++ {
+		m.pages[p] = r
+	}
+}
+
+// clearPages drops the whole table — the regions it described are gone.
+func (m *Machine) clearPages() { m.pages = nil }
+
 func (m *Machine) regionOf(a uint32) *memRegion {
-	// Small region count; linear scan is fine and keeps the map order-independent.
+	if m.pages != nil {
+		if r := m.pages[a>>pageShift]; r != nil {
+			return r
+		}
+	}
+	// Not in the table: a page that straddles a region edge, or an unmapped one.
 	for _, r := range m.regions {
 		if r.contains(a) {
 			return r

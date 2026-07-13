@@ -418,6 +418,7 @@ func (m *Machine) applySnapshot(s *snapshot) error {
 	m.CPU.Halted, m.CPU.HaltReason = false, ""
 
 	m.regions = nil
+	m.clearPages() // every entry points into the machine we are about to replace
 	m.codeReg, m.stackReg, m.tlsReg, m.heapReg, m.linearReg = nil, nil, nil, nil, nil
 	for _, rs := range s.Regions {
 		r := m.mapRegion(rs.Name, rs.Base, rs.Data)

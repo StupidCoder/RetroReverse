@@ -224,6 +224,7 @@ func (m *Machine) svcControlMemory(c *arm.CPU) {
 		addr = m.linearPtr
 		m.linearPtr += size
 		m.linearReg.data = append(m.linearReg.data, make([]byte, size)...)
+		m.indexRegion(m.linearReg) // the region grew: the new pages are now backed
 		if m.linearPtr > linearMax {
 			c.Halt("linear heap exhausted at 0x%08X", c.PC())
 			return
@@ -232,6 +233,7 @@ func (m *Machine) svcControlMemory(c *arm.CPU) {
 		addr = m.heapPtr
 		m.heapPtr += size
 		m.heapReg.data = append(m.heapReg.data, make([]byte, size)...)
+		m.indexRegion(m.heapReg) // the region grew: the new pages are now backed
 		if m.heapPtr > heapMax {
 			c.Halt("process heap exhausted at 0x%08X", c.PC())
 			return
