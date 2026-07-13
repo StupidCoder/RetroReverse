@@ -671,7 +671,13 @@ func TestServesThePage(t *testing.T) {
 	if resp.StatusCode != 200 || !bytes.Contains(body, []byte("framedbg")) {
 		t.Errorf("GET / = %d, %d bytes", resp.StatusCode, len(body))
 	}
-	for _, asset := range []string{"app.js", "conn.js", "store.js", "panels/viewport.js", "style.css"} {
+	// A module that fails to load shows up as a blank page and nothing else, so every one
+	// the page imports is checked here.
+	for _, asset := range []string{
+		"app.js", "conn.js", "store.js", "util.js", "style.css",
+		"panels/registry.js", "panels/dock.js", "panels/viewport.js", "panels/commands.js",
+		"panels/inspect.js", "panels/surface.js", "panels/files.js", "panels/states.js",
+	} {
 		r, err := http.Get(srv.URL + "/" + asset)
 		if err != nil {
 			t.Fatal(err)

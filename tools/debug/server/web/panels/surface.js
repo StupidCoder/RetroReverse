@@ -19,7 +19,6 @@ registerPanel({
   title: 'Memory as an image',
   slot: 'side',
   requires: 'surfaces',
-  grow: true,
   mount(body, ctx) {
     body.innerHTML = `
       <div class="surf-controls">

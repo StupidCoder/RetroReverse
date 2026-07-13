@@ -94,35 +94,108 @@ main {
   min-width: 0;
 }
 
+/* A slot is a group: a tab bar, and the panels it holds — one of them visible. That is
+   what buys the space back; eleven panels stacked in three regions left nothing
+   comfortable. */
 .slot {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 0;
   min-height: 0;
   min-width: 0;
-}
-
-/* The bottom row holds however many panels the target supports (CPU, memory,
-   watches, savestates). Rather than squeezing them all thinner as more appear, it
-   keeps them legible and scrolls sideways. */
-#slot-bottom {
-  flex-direction: row;
-  padding: 0 10px 10px;
-  height: 200px;
-  overflow-x: auto;
-}
-#slot-bottom .pane { flex: 1 0 280px; min-width: 280px; }
-
-.pane {
-  display: flex;
-  flex-direction: column;
-  min-height: 0;
   background: var(--panel);
   border: 1px solid var(--line);
   border-radius: 6px;
   overflow: hidden;
 }
-.grow-pane { flex: 1; }
+
+#slot-bottom {
+  margin: 0 10px 10px;
+  height: 210px;
+}
+
+.pane {
+  display: none;
+  flex-direction: column;
+  min-height: 0;
+  flex: 1;
+  overflow: hidden;
+}
+.pane.active { display: flex; }
+
+/* ---- tabs ---- */
+
+.tabs {
+  display: flex;
+  align-items: stretch;
+  gap: 2px;
+  padding: 3px 4px 0;
+  background: var(--panel-hi);
+  border-bottom: 1px solid var(--line);
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.tabs::-webkit-scrollbar { display: none; }
+
+.tab {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 8px;
+  border: 1px solid transparent;
+  border-bottom: none;
+  border-radius: 4px 4px 0 0;
+  background: none;
+  color: var(--muted);
+  font: inherit;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.tab:hover { color: var(--fg); background: #2a2f38; }
+.tab.sel {
+  background: var(--panel);
+  border-color: var(--line);
+  color: var(--accent);
+}
+
+/* Promote: give this panel the big region, and send the stage's panel back here. */
+.tab .promote {
+  opacity: 0;
+  padding: 0 2px;
+  border-radius: 3px;
+  color: var(--muted);
+}
+.tab:hover .promote { opacity: 1; }
+.tab .promote:hover { color: var(--hot); background: #3a2030; }
+
+/* A lone panel keeps its own header, title and all: a one-tab tab bar is noise. A tabbed
+   one drops the title (the tab already says it) but keeps the header, because panels hang
+   controls off it — the memory panel's address box, the notes several of them write. With
+   nothing in it, it collapses to nothing. */
+.pane.tabbed > h2 {
+  background: none;
+  border-bottom: none;
+  padding: 4px 10px 0;
+  min-height: 0;
+}
+.pane.tabbed > h2 .title { display: none; }
+
+/* ---- maximize ---- */
+
+/* The focused group covers the whole dock. Everything else stays mounted underneath —
+   nothing is rebuilt, so nothing loses its state. */
+.slot.maximized {
+  position: fixed;
+  top: var(--dock-top, 50px);
+  left: 10px;
+  right: 10px;
+  bottom: 10px;
+  z-index: 50;
+  box-shadow: 0 12px 48px #000a;
+}
+
+.slot.empty { display: none; }
+main.no-side { grid-template-columns: minmax(0, 1fr); }
 
 .pane h2 {
   display: flex;
@@ -150,9 +223,7 @@ main {
 .pane-body.nopad { padding: 0; }
 .pane-body p { margin: 4px 0; }
 
-/* the viewport panel has no chrome: it is the stage */
-[data-panel="viewport"] { border: none; background: none; }
-.stage-body { display: flex; flex-direction: column; gap: 10px; overflow: hidden; padding: 0; }
+.stage-body { display: flex; flex-direction: column; gap: 10px; overflow: hidden; padding: 8px; }
 
 /* ---- viewport ---- */
 

@@ -13,10 +13,9 @@ const HIGHLIGHT = [255, 46, 166]; // --hot
 
 registerPanel({
   id: 'viewport',
-  title: '',
+  title: 'Frame',
   slot: 'stage',
   requires: '',
-  grow: true,
   mount(body, ctx) {
     body.classList.add('stage-body');
     body.innerHTML = `

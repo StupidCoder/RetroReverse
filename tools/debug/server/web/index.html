@@ -40,15 +40,21 @@
 
   <span class="grow"></span>
   <span id="stats" class="muted"></span>
+  <button id="reset-layout" title="restore the default panel layout">⟲</button>
 </header>
 
-<!-- The dock. Panels mount themselves into these slots, and which ones exist depends
-     on what the target says it can do. -->
+<!-- The dock. Which panels exist depends on what the target says it can do; where they
+     sit is the saved layout's business (dock.js). A group shows one panel at a time and
+     any of them can be promoted to the stage. -->
 <main>
   <div id="slot-stage" class="slot"></div>
   <div id="slot-side" class="slot"></div>
 </main>
 <footer id="slot-bottom" class="slot"></footer>
+
+<!-- Panels are built here, where they can look their own elements up, before the dock
+     moves them to wherever the layout wants them. -->
+<div id="dock-staging" hidden></div>
 
 <script type="module" src="app.js"></script>
 </body>

@@ -15,7 +15,6 @@ registerPanel({
   title: 'Disc',
   slot: 'side',
   requires: 'files',
-  grow: true,
   mount(body, ctx) {
     body.classList.add('mono', 'nopad');
     body.innerHTML = `<div id="fs-list" class="pad muted">reading…</div><div id="fs-head"></div>`;

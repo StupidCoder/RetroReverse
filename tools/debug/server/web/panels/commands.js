@@ -16,7 +16,6 @@ registerPanel({
   title: 'GPU commands',
   slot: 'side',
   requires: 'frames',
-  grow: true,
   mount(body, ctx) {
     body.classList.add('nopad');
     body.innerHTML = `<div id="cmd-spacer"><div id="cmd-rows"></div></div>`;
@@ -52,6 +51,13 @@ registerPanel({
       const row = e.target.closest('.row');
       if (row) ctx.ui.selectCommand(Number(row.dataset.i));
     });
+
+    // The list only builds the rows that fit, so it needs its own height — which is zero
+    // while it sits behind another tab. Re-render whenever the pane actually has a size:
+    // that covers being shown for the first time, and being promoted to the stage.
+    new ResizeObserver(() => {
+      if (body.clientHeight) render();
+    }).observe(body);
 
     ctx.store.on('frame', (frame) => {
       cmds = frame ? frame.commands : [];

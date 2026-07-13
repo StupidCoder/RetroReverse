@@ -9,6 +9,7 @@
 import { Conn, KIND_IMAGE, KIND_PROV, STREAM_MAIN } from './conn.js';
 import { Store } from './store.js';
 import { mountPanels } from './panels/registry.js';
+import { reveal, resetLayout, toggleMaximize, unmaximize } from './panels/dock.js';
 
 // Importing a panel registers it. Order here is the order they appear in a slot.
 import './panels/viewport.js';
@@ -75,6 +76,11 @@ ctx.ui.setPlaying = (on) => {
 
 const status = (s) => ($('stats').textContent = s);
 ctx.ui.status = status;
+
+// reveal brings a panel's tab forward. A panel calls it when something arrives that the
+// user is waiting to see — the overdraw history of the pixel they just clicked — so the
+// answer lands in front of them rather than behind a tab they are not looking at.
+ctx.ui.reveal = reveal;
 
 function setBusy(b) {
   $('step').disabled = b;
@@ -231,6 +237,7 @@ $('scanout').onchange = () => {
 $('cpu-step').onclick = () => conn.send('cpu.step', { n: 1 });
 $('cpu-run').onclick = () => conn.send('cpu.continue');
 $('cpu-brk').onclick = () => conn.send('cpu.break');
+$('reset-layout').onclick = () => resetLayout();
 
 document.addEventListener('keydown', (e) => {
   if (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT') return;
@@ -261,6 +268,13 @@ document.addEventListener('keydown', (e) => {
       if (frame) ctx.ui.selectCommand(frame.commands.length - 1);
       break;
     }
+    case 'f':
+    case 'F':
+      toggleMaximize();
+      break;
+    case 'Escape':
+      unmaximize();
+      break;
   }
 });
 

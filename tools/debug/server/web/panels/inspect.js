@@ -13,13 +13,15 @@ import { esc, hex } from '../util.js';
 registerPanel({
   id: 'overdraw',
   title: 'Overdraw',
-  slot: 'stage',
+  slot: 'side',
   requires: 'frames',
   mount(body, ctx) {
     body.classList.add('mono');
     body.innerHTML = '<p class="muted">click a pixel to see every write to it, in order.</p>';
 
     ctx.conn.on('pixel', (m) => {
+      // The answer to a click should arrive in front of you, not behind a tab.
+      ctx.ui.reveal('overdraw');
       const note = document.getElementById('overdraw-note');
       note.textContent = `(${m.x}, ${m.y})`;
 
@@ -149,7 +151,6 @@ registerPanel({
   title: 'Disassembly',
   slot: 'side',
   requires: 'disasm',
-  grow: true,
   mount(body, ctx) {
     body.classList.add('mono', 'nopad');
     body.innerHTML = '<p class="muted pad">step the CPU to see where it is.</p>';
