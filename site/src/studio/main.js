@@ -405,6 +405,7 @@ const SYSTEMS = [
   { full: 'Nintendo DS', short: 'DS' },
   { full: 'MS-DOS', short: 'MS-DOS' },
   { full: 'Sony PlayStation', short: 'PSX' },
+  { full: 'Sony PSP', short: 'PSP' },
   { full: 'Nintendo 64', short: 'N64' },
   { full: 'Nintendo 3DS', short: '3DS' },
   { full: '3DO', short: '3DO' },
