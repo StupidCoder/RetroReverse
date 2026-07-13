@@ -15,7 +15,6 @@ import (
 	"sort"
 	"strings"
 
-	"retroreverse.com/games/burnout-legends-psp/extract/bgt"
 	"retroreverse.com/games/burnout-legends-psp/extract/bgv"
 	"retroreverse.com/tools/lib/glb"
 	"retroreverse.com/tools/platform/psp"
@@ -81,13 +80,13 @@ func main() {
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "%s: no texture (%v) — exporting untextured\n", name, err)
 		}
-		// Run the engine's alpha test before the atlas reaches a glTF material:
-		// a car's atlas is 15% middling alpha, and glTF's 0.5 mask cutoff punches
-		// every one of those texels out, returning the body as a shell full of
-		// holes. (The -png dump above stays the raw decode.)
+		// The car is drawn OPAQUE — the GE never reads the vehicle atlas's alpha
+		// (blend=false, atest=false on every car primitive) — so force it opaque
+		// before glTF's mask cutoff can act on it and eat the tyres, the glass,
+		// the lights and the grille. (The -png dump above stays the raw decode.)
 		masked := atlas
 		if atlas != nil {
-			masked = bgt.AlphaTest(atlas)
+			masked = bgv.Opaque(atlas)
 		}
 		if *pngDir != "" && atlas != nil {
 			f, err := os.Create(filepath.Join(*pngDir, name+".png"))

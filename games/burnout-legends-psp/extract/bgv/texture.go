@@ -18,6 +18,24 @@ import (
 // vehicle skins are one 256x256 atlas; every mesh of the car indexes into it.
 const texDataOffset = 0x110
 
+// Opaque returns the atlas with every texel forced opaque.
+//
+// The engine draws a car with the alpha test OFF and blending OFF: every
+// primitive that samples the vehicle atlas is blend=false, atest=false, so the
+// hardware never looks at the alpha channel at all. The atlas nevertheless has
+// one, and it is full of holes — a third of it is alpha 0 — which is fine for
+// texels nothing samples and fatal for the ones something does. Hand it to glTF
+// as-is and the mask cutoff eats the tyres, the glass, the lights and the
+// radiator grille, and leaves a car with bare rims.
+func Opaque(img *image.RGBA) *image.RGBA {
+	out := image.NewRGBA(img.Bounds())
+	copy(out.Pix, img.Pix)
+	for i := 3; i < len(out.Pix); i += 4 {
+		out.Pix[i] = 0xFF
+	}
+	return out
+}
+
 // Texture decodes the model's texture atlas into an image.
 func Texture(data []byte) (*image.RGBA, error) {
 	if len(data) < 0x64 {

@@ -231,10 +231,11 @@ func exportCars(im *psp.Image, dir string) []model {
 		if err != nil {
 			die("%s: %v", slug, err)
 		}
-		// The same GE alpha test the world needs. A car's atlas is 15% middling
-		// alpha, and glTF's 0.5 mask cutoff punches every one of those texels out
-		// — the body comes back as a shell full of holes.
-		atlas := bgt.AlphaTest(raw)
+		// The car is drawn OPAQUE — every primitive sampling the vehicle atlas is
+		// blend=false, atest=false, so the GE never reads its alpha channel. Any
+		// alpha we hand to glTF is therefore a lie the mask cutoff acts on: it
+		// eats the tyres, the glass, the lights and the grille.
+		atlas := bgv.Opaque(raw)
 
 		// The three mesh tables are detail levels, least detailed first; ship the
 		// one the game shows you in the car park.
