@@ -177,6 +177,10 @@ type GPU struct {
 	dec      [4096]shInst
 	decEpoch [4096]uint32
 	shEpoch  uint32
+	// decodedAll names the epoch the whole code memory has been decoded for. Once it
+	// matches, the cache is pure data and the vertex loop can read it from several
+	// goroutines at once (gpu_shader_cache.go's decodeAll).
+	decodedAll uint32
 
 	// Scratch buffers, reused across command lists and draws. Not machine state:
 	// their contents are rebuilt from scratch every time they are used, and they

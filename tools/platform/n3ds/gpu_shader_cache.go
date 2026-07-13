@@ -76,12 +76,37 @@ type shInst struct {
 
 // shaderInst returns the decoded instruction at pc, decoding it if this is the
 // first time it has been seen since the last upload.
+//
+// It MUTATES the cache, so it must not be called from a parallel vertex loop —
+// decodeAll is what makes the cache read-only for the duration of a draw.
 func (g *GPU) shaderInst(pc int) *shInst {
 	if g.decEpoch[pc] != g.shEpoch {
 		g.decode(pc)
 		g.decEpoch[pc] = g.shEpoch
 	}
 	return &g.dec[pc]
+}
+
+// decodeAll decodes the whole code memory, so that the cache is pure data for the
+// rest of this epoch and several goroutines may read it at once.
+//
+// Lazy decoding cannot be made safe for a parallel vertex loop by decoding "the
+// instructions the program reaches" up front, because which instructions it reaches
+// depends on the vertex: CMP and the conditional branches read per-vertex data. So
+// the whole 4,096-word code memory is decoded, once per upload. A decode is a few
+// nanoseconds of bit-twiddling and an upload happens a handful of times a frame,
+// against tens of thousands of vertices.
+func (g *GPU) decodeAll() {
+	if g.decodedAll == g.shEpoch {
+		return
+	}
+	for pc := range g.Code {
+		if g.decEpoch[pc] != g.shEpoch {
+			g.decode(pc)
+			g.decEpoch[pc] = g.shEpoch
+		}
+	}
+	g.decodedAll = g.shEpoch
 }
 
 // invalidateShaders drops every decoded instruction. Called from the code and

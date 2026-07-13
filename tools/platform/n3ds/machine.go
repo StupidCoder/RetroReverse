@@ -216,6 +216,11 @@ type Machine struct {
 	picaLimit int
 	picaCount int
 
+	// SingleThreaded forces every stage of the machine to run on this goroutine. The
+	// parallel stages are deterministic by construction, but a caller that wants to be
+	// certain — a bisect against a suspected race, a debugger capture — can say so.
+	SingleThreaded bool
+
 	// Per-subsystem frame timing (profile.go). Off by default; a run that does not
 	// ask for it pays one predictable branch per coarse boundary. Outside the
 	// savestate: it measures a run, it is not a property of the machine.

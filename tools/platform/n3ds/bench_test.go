@@ -176,6 +176,15 @@ func TestFrameHashes(t *testing.T) {
 	if testing.Short() {
 		t.Skip("the frame gate runs the GPU for several frames; -short skips it")
 	}
+	if raceBuild {
+		// Not a bug, and not a race: the race build inhibits FMA contraction, so the
+		// shader's MAD rounds differently and the frame differs in its last bits from
+		// the one these hashes were pinned on — with the machine running
+		// single-threaded, where a data race cannot exist. What -race is for here is
+		// TestParallelVertexMatchesSerial and TestFrameDeterminism, which compare a
+		// build against ITSELF.
+		t.Skip("-race changes the floating-point result (FMA contraction); the pins are for the ordinary build")
+	}
 	m := toadAtScene(t)
 
 	before := snapCounters(m.gpu)

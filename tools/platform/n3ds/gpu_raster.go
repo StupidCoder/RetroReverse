@@ -1,6 +1,10 @@
 package n3ds
 
-import "fmt"
+import (
+	"fmt"
+	"runtime"
+	"sync"
+)
 
 // gpu_raster.go runs a PICA200 draw: fetch vertices from the attribute
 // buffers, run each through the LLE vertex shader (gpu_shader.go), assemble
@@ -134,12 +138,18 @@ func (g *GPU) draw(indexed bool) {
 		g.outs = make([]vsOut, count)
 	}
 	outs := g.outs[:count]
-	// The shader's input and output register files, hoisted out of the loop: they
-	// are overwritten wholesale per vertex, and returning the output file by value
-	// (256 bytes) was 6% of the frame in runtime.duffcopy alone.
-	var vin, vout [16][4]float32
 	entry := int(g.Regs[regVshEntry] & 0xFFF) // draw-constant; nothing in the loop writes it
-	for i := uint32(0); i < count; i++ {
+	maxIn := int(g.Regs[regVshMaxInput]&0xF) + 1
+
+	// shadeVertex is the whole per-vertex pipeline: fetch the attributes, map them
+	// into the shader's input registers, run the program, apply the output map. It is
+	// a pure function of i — it reads the machine's memory and the GPU's registers,
+	// uniforms and decoded code, and it writes nothing but outs[i]. That is what makes
+	// the parallel path below safe, and it is worth keeping true.
+	//
+	// vin/vout are the shader's register files, handed in by the caller so that the
+	// serial path can reuse one pair and each worker its own.
+	shadeVertex := func(i uint32, vin, vout *[16][4]float32, attrs *[16][4]float32) bool {
 		vi := first + i
 		if indexed {
 			if idx16 {
@@ -150,7 +160,6 @@ func (g *GPU) draw(indexed bool) {
 		}
 
 		// Fetch the vertex's attributes (fixed values fill the gaps).
-		var attrs [16][4]float32
 		for a := 0; a < 16; a++ {
 			attrs[a] = [4]float32{0, 0, 0, 1}
 			if fixedMask>>uint(a)&1 != 0 {
@@ -188,12 +197,11 @@ func (g *GPU) draw(indexed bool) {
 			}
 		}
 
-		// Map attributes into the shader's input registers and run it.
-		mapAttrsToInputs(&vin, &attrs, inPerm, int(g.Regs[regVshMaxInput]&0xF)+1)
-		if !g.shaderRun(&vin, &vout, entry) {
-			return
+		mapAttrsToInputs(vin, attrs, inPerm, maxIn)
+		if !g.shaderRun(vin, vout, entry) {
+			return false
 		}
-		g.mapOutputs(&vout, &outs[i])
+		g.mapOutputs(vout, &outs[i])
 		if trace && i < 8 {
 			r := &outs[i]
 			fmt.Printf("  v%-3d (i=%d) clip=%v\n", vi, i, r.pos)
@@ -201,6 +209,66 @@ func (g *GPU) draw(indexed bool) {
 				if fmtWord>>(4*uint(a))&0xF != 0 || fixedMask>>uint(a)&1 != 0 {
 					fmt.Printf("       attr%-2d = %v\n", a, attrs[a])
 				}
+			}
+		}
+		return true
+	}
+
+	if workers := g.vertexWorkers(count); workers > 1 {
+		// The vertex stage is the one place in this machine where parallelism is free
+		// of the determinism problem: outs[i] is a pure function of i, so the workers
+		// cannot see each other, and the result does not depend on who finished first.
+		//
+		// The shader cannot halt the CPU from a worker (that would be a write to the
+		// machine from a goroutine that does not own it), so a failure is recorded and
+		// the halt is raised after the join — by the shader run itself, serially, on
+		// the offending vertex, so the halt message is the one it would always have
+		// been.
+		g.decodeAll() // make the decode cache pure data before anyone reads it in parallel
+
+		var wg sync.WaitGroup
+		failed := make([]bool, workers)
+		per := (count + uint32(workers) - 1) / uint32(workers)
+		for w := 0; w < workers; w++ {
+			lo := uint32(w) * per
+			hi := lo + per
+			if hi > count {
+				hi = count
+			}
+			if lo >= hi {
+				continue
+			}
+			wg.Add(1)
+			go func(w int, lo, hi uint32) {
+				defer wg.Done()
+				var vin, vout, attrs [16][4]float32
+				for i := lo; i < hi; i++ {
+					if !shadeVertex(i, &vin, &vout, &attrs) {
+						failed[w] = true
+						return
+					}
+				}
+			}(w, lo, hi)
+		}
+		wg.Wait()
+		for _, f := range failed {
+			if f {
+				// Re-run the shader serially so it halts the machine the way it always
+				// has, with its own message and its own state.
+				var vin, vout, attrs [16][4]float32
+				for i := uint32(0); i < count; i++ {
+					if !shadeVertex(i, &vin, &vout, &attrs) {
+						return
+					}
+				}
+				return
+			}
+		}
+	} else {
+		var vin, vout, attrs [16][4]float32
+		for i := uint32(0); i < count; i++ {
+			if !shadeVertex(i, &vin, &vout, &attrs) {
+				return
 			}
 		}
 	}
@@ -775,4 +843,35 @@ func max3f(a, b, c float32) float32 {
 		a = c
 	}
 	return a
+}
+
+// vertexWorkers decides how many goroutines a draw's vertex stage is worth, and it
+// returns 1 — meaning "run it serially, here, on this goroutine" — whenever anything
+// would make parallelism unfaithful rather than merely unprofitable:
+//
+//   - a debugger watch or the HID read histogram is installed, because those observe
+//     memory accesses from inside Machine.Read and are not written to be shared;
+//   - -gputrace is printing this draw, whose output would interleave;
+//   - the draw is too small for the goroutines to pay for themselves.
+//
+// The vertex stage is otherwise the one stage of this machine where parallelism costs
+// nothing in determinism: each vertex is an independent, side-effect-free function of
+// its index, so the answer does not depend on who ran first.
+func (g *GPU) vertexWorkers(count uint32) int {
+	const minPerWorker = 64 // below this a goroutine costs more than the work it takes
+	m := g.m
+	if m.OnRead != nil || m.OnWrite != nil || m.HidTrace || g.TraceDraws > 0 || m.SingleThreaded {
+		return 1
+	}
+	n := runtime.GOMAXPROCS(0)
+	if n > 8 {
+		n = 8 // past this the vertex stage is memory-bound and the shares get noisy
+	}
+	if w := int(count) / minPerWorker; w < n {
+		n = w
+	}
+	if n < 1 {
+		n = 1
+	}
+	return n
 }
