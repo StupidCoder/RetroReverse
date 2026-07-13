@@ -63,11 +63,16 @@ type Strip struct {
 // Mesh is one part of a vehicle at one detail level.
 type Mesh struct {
 	Offset int // the record's file offset, for diagnostics
-	Verts  []Vertex
-	Strips []Strip
-	ScaleX float32
-	ScaleY float32
-	ScaleZ float32
+	// VertOffset is where the vertex stream starts in the file. The GE fetches
+	// from exactly this address once the file is loaded, so it is what ties a
+	// decoded mesh to a primitive the running game drew — and thus to the world
+	// matrix the engine placed that part with.
+	VertOffset int
+	Verts      []Vertex
+	Strips     []Strip
+	ScaleX     float32
+	ScaleY     float32
+	ScaleZ     float32
 }
 
 // Model is a decoded .bgv: its meshes grouped by detail level (highest first
@@ -166,10 +171,11 @@ func parseMesh(data []byte, rec int) (*Mesh, error) {
 	}
 
 	m := &Mesh{
-		Offset: rec,
-		ScaleX: f32(data, rec+0x30),
-		ScaleY: f32(data, rec+0x34),
-		ScaleZ: f32(data, rec+0x38),
+		Offset:     rec,
+		VertOffset: vOff,
+		ScaleX:     f32(data, rec+0x30),
+		ScaleY:     f32(data, rec+0x34),
+		ScaleZ:     f32(data, rec+0x38),
 	}
 
 	// The strip list is a run of GE PRIM words, ending in RET. Vertices are
@@ -244,6 +250,27 @@ const wheelMatrices = 0xB80
 // Mat4 is a row-major 4x4 transform; the translation is the last row.
 type Mat4 [16]float32
 
+// panelMatrices is the array of body-part placements: one matrix per detachable
+// panel — the doors, the bonnet and boot lids, the bumpers — each of which is
+// modelled about its own origin and belongs somewhere on the car.
+const panelMatrices = 0xD00
+
+// Panels returns n placements, in the order the mesh table lists the parts. The
+// array is as long as the model has panels — a saloon carries six, a truck more
+// — so the caller passes the count it counted.
+func Panels(data []byte, n int) ([]Mat4, error) {
+	if n < 0 || panelMatrices+n*64 > len(data) {
+		return nil, fmt.Errorf("bgv: file too small for %d panel placements", n)
+	}
+	out := make([]Mat4, n)
+	for w := range out {
+		for i := 0; i < 16; i++ {
+			out[w][i] = f32(data, panelMatrices+w*64+i*4)
+		}
+	}
+	return out, nil
+}
+
 // Wheels returns the four wheel placements.
 func Wheels(data []byte) ([]Mat4, error) {
 	if wheelMatrices+4*64 > len(data) {
@@ -283,10 +310,86 @@ func (m Mat4) ApplyDir(x, y, z float32) (float32, float32, float32) {
 		m[2]*x + m[6]*y + m[10]*z
 }
 
+// Placements returns, for each mesh of the model's top detail level, the
+// transforms it should be drawn at.
+//
+// A vehicle is not one mesh in car space plus a wheel. It is a BODY, a set of
+// detachable PANELS — the doors, the bonnet and boot lids, the bumpers, the
+// parts that come off when you crash — and a WHEEL. Only the body carries its
+// position in its vertices. Every panel is modelled about its own origin and
+// belongs somewhere on the car, and the file says where: the array at 0xD00
+// holds one placement per panel, in the order the mesh table lists them. The
+// wheel is modelled about its axle and instanced at the four corners (0xB80).
+//
+// Without this, the panels all collapse onto the origin — doors in the middle of
+// the car, the bonnet on the floor.
+//
+// The wheel is several concentric parts (tyre, rim, brake disc), some of them
+// offset ALONG the axle, so what identifies one is not "centred on the origin"
+// but "a disc centred on the axle": thin across the car, round in the other two
+// axes, and small.
+func Placements(data []byte, level []Mesh) ([][]Mat4, error) {
+	wheels, err := Wheels(data)
+	if err != nil {
+		return nil, err
+	}
+	panels := 0
+	for i := range level {
+		if i > 0 && !isWheel(&level[i]) {
+			panels++
+		}
+	}
+	place, err := Panels(data, panels)
+	if err != nil {
+		return nil, err
+	}
+
+	out := make([][]Mat4, len(level))
+	next := 0
+	for i := range level {
+		switch {
+		case i == 0: // the body: its vertices already put it where it belongs
+			out[i] = []Mat4{Identity}
+		case isWheel(&level[i]):
+			out[i] = wheels
+		default:
+			out[i] = []Mat4{place[next]}
+			next++
+		}
+	}
+	return out, nil
+}
+
+// Identity leaves a mesh where its vertices already put it.
+var Identity = Mat4{1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1}
+
+// isWheel reports whether a mesh is one of the wheel's parts: a disc about the
+// axle. It may be offset along the axle (a brake disc sits inboard of the tyre),
+// so only the two axes it is round in have to be centred.
+func isWheel(m *Mesh) bool {
+	if len(m.Verts) == 0 {
+		return false
+	}
+	lo, hi := m.Verts[0], m.Verts[0]
+	for _, v := range m.Verts {
+		lo.X, lo.Y, lo.Z = min32(lo.X, v.X), min32(lo.Y, v.Y), min32(lo.Z, v.Z)
+		hi.X, hi.Y, hi.Z = max32(hi.X, v.X), max32(hi.Y, v.Y), max32(hi.Z, v.Z)
+	}
+	cx, cy, cz := (lo.X+hi.X)/2, (lo.Y+hi.Y)/2, (lo.Z+hi.Z)/2
+	sx, sy, sz := hi.X-lo.X, hi.Y-lo.Y, hi.Z-lo.Z
+	round := max32(sy, sz)
+	return abs32(cy) < 0.15 && abs32(cz) < 0.15 && // centred on the axle
+		abs32(cx) < 0.35 && // only just off it: a brake disc sits inboard of the tyre
+		round < 1.2 && sx < 0.6*round // small, and thin across the car
+}
+
 // AtOrigin reports whether the mesh is modelled about the origin rather than in
 // car space — which is what distinguishes the wheel, the one part the file
 // expects to be instanced at the placements above. Every other mesh already
 // carries its position in its vertices.
+//
+// Deprecated: use Placements, which also places the detachable panels. This
+// test only ever recognised the wheel, so every panel was left at the origin.
 func (m *Mesh) AtOrigin() bool {
 	if len(m.Verts) == 0 {
 		return false

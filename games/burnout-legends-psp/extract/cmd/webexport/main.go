@@ -2,7 +2,8 @@
 // and every track, decoded from the UMD and written as GLBs with a manifest.
 //
 // Vehicles come from the bgv package (89 cars, one GLB each, assembled from the
-// body meshes plus the wheel instanced at its four placements). Tracks come from
+// body, its detachable panels each at its own placement, and the wheel instanced
+// at all four corners). Tracks come from
 // the bgt package, and each ships as TWO GLBs — the streamed world you drive
 // through, and the static environment it sits in. The game swaps between those
 // layers rather than adding them, so the viewer keeps them apart too.
@@ -234,14 +235,17 @@ func exportCars(im *psp.Image, dir string) []model {
 		// alpha, and glTF's 0.5 mask cutoff punches every one of those texels out
 		// — the body comes back as a shell full of holes.
 		atlas := bgt.AlphaTest(raw)
-		wheels, err := bgv.Wheels(data)
-		if err != nil {
-			die("%s: %v", slug, err)
-		}
 
 		// The three mesh tables are detail levels, least detailed first; ship the
 		// one the game shows you in the car park.
 		meshes := mdl.Levels[len(mdl.Levels)-1]
+
+		// Where each part goes: the body where its own vertices already put it,
+		// every detachable panel at its placement, the wheel at all four corners.
+		places, err := bgv.Placements(data, meshes)
+		if err != nil {
+			die("%s: %v", slug, err)
+		}
 
 		var prims []glb.Prim
 		for mi := range meshes {
@@ -250,13 +254,7 @@ func exportCars(im *psp.Image, dir string) []model {
 			if len(t) == 0 {
 				continue
 			}
-			// Body parts carry their position in their vertices; the wheel is
-			// modelled about the origin and instanced at the four placements.
-			places := []bgv.Mat4{identity}
-			if me.AtOrigin() {
-				places = wheels
-			}
-			for _, w := range places {
+			for _, w := range places[mi] {
 				pos := make([][3]float32, len(me.Verts))
 				nrm := make([][3]float32, len(me.Verts))
 				uv := make([][2]float32, len(me.Verts))
@@ -384,9 +382,6 @@ func writeGLB(file, name string, t *bgt.Track, meshes []bgt.Mesh) {
 		die("%s: %v", name, err)
 	}
 }
-
-// identity leaves a mesh where its vertices already put it.
-var identity = bgv.Mat4{1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1}
 
 // wound returns the triangles with their winding reversed when asked. glTF's
 // front face is counter-clockwise, and any transform that flips handedness — the

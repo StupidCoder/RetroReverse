@@ -23,6 +23,13 @@ var geDebugN, _ = strconv.Atoi(os.Getenv("PSP_GE_DEBUG"))
 var geCullFlip = os.Getenv("PSP_GE_CULLFLIP") != ""
 var geNoCull = os.Getenv("PSP_GE_NOCULL") != ""
 
+// geWorldDump: set PSP_GE_WORLD=N to print, for the first N primitives, the
+// vertex address it fetches from and the FULL world matrix the engine placed it
+// with. Pairing those two is how a model's part-to-placement binding is
+// recovered: the vertex address names the mesh in the file, and the matrix is
+// the answer the game itself computed.
+var geWorldDump, _ = strconv.Atoi(os.Getenv("PSP_GE_WORLD"))
+
 // geNoZ: set PSP_GE_NOZ=1 to bypass the depth test (a bisection aid).
 var geNoZ = os.Getenv("PSP_GE_NOZ") != ""
 
@@ -728,6 +735,14 @@ func (m *Machine) drawPrim(s *geState, arg uint32) {
 	}
 	if gePrimDump >= 0 {
 		geWordTrail = geWordTrail[:0]
+	}
+	if geWorldDump > 0 {
+		geWorldDump--
+		fmt.Printf("WORLD va=%08X vt=%06X", s.vaddr, s.vtype)
+		for _, f := range s.world {
+			fmt.Printf(" %g", f)
+		}
+		fmt.Println()
 	}
 	if geDebugN > 0 {
 		geDebugN--

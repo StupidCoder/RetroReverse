@@ -106,7 +106,7 @@ func main() {
 		}
 		meshes := m.Levels[lvl]
 
-		wheels, err := bgv.Wheels(data)
+		places, err := bgv.Placements(data, meshes)
 		if err != nil {
 			die("%s: %v", name, err)
 		}
@@ -121,13 +121,9 @@ func main() {
 			if len(t) == 0 {
 				continue
 			}
-			// Body parts carry their position in their vertices; the wheel is
-			// modelled about the origin and instanced at the four placements.
-			placements := []bgv.Mat4{identity}
-			if me.AtOrigin() {
-				placements = wheels
-			}
-			for _, m := range placements {
+			// The body where its vertices already put it, each detachable panel
+			// at its own placement, the wheel at all four corners.
+			for _, m := range places[i] {
 				tris += len(t)
 				pos := make([][3]float32, len(me.Verts))
 				nrm := make([][3]float32, len(me.Verts))
@@ -174,9 +170,6 @@ func main() {
 	}
 	fmt.Printf("\nwrote %d vehicle GLBs to %s\n", written, *out)
 }
-
-// identity leaves a mesh where its vertices already put it.
-var identity = bgv.Mat4{1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1}
 
 // wound reverses a triangle list's winding when a transform has flipped
 // handedness, so glTF's counter-clockwise front face still faces out.
