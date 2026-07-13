@@ -845,3 +845,94 @@ And the lesson, which is the same one this document keeps having to relearn in a
 the artefact and look at it* only works if the looking ends in a judgement. "Not black" is not a
 judgement. The question a rendered frame has to survive is **"does this look like the game?"** — asked
 out loud, of the picture, before a single counter is quoted in its defence.
+
+## Part XVII — It was the vertices: a permutation read backwards, and a framebuffer anchored to the wrong edge
+
+Two bugs, found in that order, and the opening stage renders.
+
+### The permutation ran backwards
+
+The hypothesis inherited from Part XVI — a malformed vertex stream — was half right, and the wrong
+half of it was the half we would have spent the session on. The **fetch** was innocent, and it said so
+immediately. A scene draw's attribute-format word is `0x000DB7BB`, which decodes to five attributes —
+three floats, three floats, two floats, three floats, four unsigned bytes — totalling `12+12+8+12+4 =
+48` bytes, and the loader buffer's configured stride is **exactly 48**. A wrong stride cannot produce
+that agreement. The UVs came out inside `[0,1]` and the colours at 255. Whatever was broken, it was
+not the reading of the bytes.
+
+It was the step immediately after. Registers `0x2BB`/`0x2BC` map the fetched attributes onto the
+vertex shader's input registers `v0..v15`, and the map runs **attribute → register**: nibble *a* names
+the register that attribute *a* is delivered to. We had it as its inverse — register *j* takes
+attribute `perm[j]`.
+
+The game's own configuration settles the direction without needing a hardware reference, because the
+inverse of a permutation is not a permutation *of the same set* unless the map happens to be an
+involution. One draw fetches attributes 0–2 with `perm = 0x340`. Read backwards, that hands `v1` and
+`v2` attributes **4 and 3 — which this draw does not fetch at all** — while the UV and the colour it
+*does* fetch reach no register whatsoever, and `v5..v15` all quietly receive the position. That is not
+a permutation; it is lossy, and no shipping game configures a three-attribute fetch and then throws
+two of them away. Read forwards it is a clean bijection: `v0 ← position`, `v4 ← UV`, `v3 ← colour`.
+
+The evidence had been sitting in the trace the whole time, in plain sight. The shader was emitting
+texture coordinates of `[-19204.4, -34630.41]` — *the position values themselves*, because under the
+inverted map the register the shader read its UV from had been handed attribute 0.
+
+Fixed, the vertices decode into exactly what a vertex should be: a position, a **unit normal**
+(‖-0.62, 0.49, 0.61‖ ≈ 1.0), a UV, a **unit tangent**, and a grey vertex colour. And the scene
+rasterises into a Captain Toad diorama — blocky terrain, grass and dirt, a sky. Depth-kills fell from
+13.6 billion to 8.5 million and culled triangles from 27.5 million to 1.09 million, but those numbers
+are the *consequence* of looking at the picture, not the reason for believing it.
+
+Two claims from earlier parts die here, and both died of the same cause. **The stage's vertex colours
+are not black** — they are `(198,198,198)`; Part XIV's "Toad's world geometry has black vertex colours,
+so every pixel of it is coloured by the fragment-lighting unit" was reading the colour attribute out of
+a register that had been handed something else. The fragment-lighting unit is real and still does the
+work; the premise offered for *why* was an artefact of this bug.
+
+Super Mario 3D Land renders **pixel-identically** either way. Its permutation is an involution, so the
+inverse is invisible in it. That is how this survived an entire title.
+
+### The framebuffer is anchored to its bottom edge
+
+With the geometry coherent, the diorama was still shoved against the right of the top screen and cut
+off at the edge. Not the camera — *where in the render target we put the pixels*.
+
+The PICA anchors the viewport to the render target's **bottom** — an OpenGL-style bottom-left origin —
+so a viewport shorter than its buffer renders into the buffer's bottom, not its top. Both games'
+`DisplayTransfer` calls say so, and they say it three times without ambiguity; every one reads the
+bottom-aligned window:
+
+| screen | viewport | target | transfer source offset | target − viewport |
+|---|---|---|---|---|
+| Toad, top | 240×400 | 256×512 | `+0x1C000` = 112 rows | 512 − 400 = **112** |
+| Toad, bottom | 240×320 | 256×512 | `+0x30000` = 192 rows | 512 − 320 = **192** |
+| SM3DL, bottom | 240×320 | 240×400 | `+0x12C00` = 80 rows | 400 − 320 = **80** |
+
+We rasterised top-aligned, so any pass whose viewport was shorter than its buffer landed too high by
+exactly that difference and ran off the panel. The fix is one line — the target row is `height-1-y` —
+plus dropping the compensating flip the screenshot rotation had been carrying. The two cancel exactly
+whenever buffer height equals viewport height, which is the case for Super Mario 3D Land's *top*
+screen, and that is the whole reason this went unnoticed.
+
+### The regression gate was guarding a broken frame
+
+Its **bottom** screen had no such excuse, and this is the part worth sitting with.
+
+The pinned regression md5 `d8efe1f5b7baba85385dd2bb84b2b4d7` — quoted across several sessions as proof
+that the welcome dialog still rendered correctly, and used to clear every change to the GPU since —
+was guarding a **cropped image**. The dialog it locked in reads `SUPER MARIO 3D LAN`. The panel is
+shoved 80 pixels to the left with a black band down the edge. It now renders complete and centred:
+"Welcome to SUPER MARIO 3D LAND." with the Ⓐ OK button where it belongs. The new reference is
+`1a8e9853c14cbd67a4aeec1efc273dbb`.
+
+Nobody was careless. The hash was cut from a frame that *did* look like a 3DS dialog, and from then on
+it was quoted rather than looked at. **A pinned hash guards against change, not against being wrong.**
+It proved only that we were reproducing the same cropped picture with great consistency. A hash is
+worth exactly as much as the one look someone took at the image before pinning it — and that look, at
+a dialog whose text ran off the edge, is the one this project keeps having to learn to take.
+
+The display-path bug Part XVI queued behind the geometry — "our `DisplayTransfer` detiles the window
+with the wrong stride" — **does not exist**. The stride is taken from the transfer's source width,
+which is 256, which is right. What looked like a stride error was the geometry sitting 112 rows above
+where the panel reads. Diagnosing a symptom while a known-broken subsystem sits upstream of it produces
+a confident description of a bug that isn't there.
