@@ -28,7 +28,7 @@ type rgba struct{ r, g, b, a int32 } // 0-255 per lane
 // first because the lighting unit reads two texture units itself (the bump map
 // and the shadow attenuation), which is why it is evaluated here and not in the
 // rasteriser.
-func (g *GPU) fragment(vcol [4]float32, uv [3][2]float32, uv0w float32, ls *lightState, quat [4]float32, view [3]float32) (r, gr, b, a uint8, discard, ok bool) {
+func (g *GPU) fragment(vcol [4]float32, uv [3][2]float32, uv0w float32, ls *lightState, quat [4]float32, view [3]float32, st *rstats) (r, gr, b, a uint8, discard, ok bool) {
 	vertex := rgba{clamp255(vcol[0] * 255), clamp255(vcol[1] * 255), clamp255(vcol[2] * 255), clamp255(vcol[3] * 255)}
 
 	// Sample the enabled texture units (0x080 bits 0-2).
@@ -37,7 +37,7 @@ func (g *GPU) fragment(vcol [4]float32, uv [3][2]float32, uv0w float32, ls *ligh
 	for u := 0; u < 3; u++ {
 		if en>>uint(u)&1 != 0 {
 			var oks bool
-			tex[u], oks = g.sampleTexture(u, uv[u][0], uv[u][1], uv0w)
+			tex[u], oks = g.sampleTextureSt(u, uv[u][0], uv[u][1], uv0w, st)
 			if !oks {
 				return 0, 0, 0, 0, false, false
 			}

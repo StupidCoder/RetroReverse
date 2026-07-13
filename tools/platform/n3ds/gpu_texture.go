@@ -44,7 +44,7 @@ func texUnitRegs(u int) (dim, param, addr, typ uint32) {
 // two types that use q divide the coordinates by it (a projected texture), and
 // Shadow2D additionally treats it as the fragment's distance from the light and
 // compares it against the map.
-func (g *GPU) sampleTexture(u int, s, t, q float32) (rgba, bool) {
+func (g *GPU) sampleTextureSt(u int, s, t, q float32, st *rstats) (rgba, bool) {
 	dimR, paramR, addrR, typR := texUnitRegs(u)
 	w := g.Regs[dimR] >> 16 & 0x7FF
 	h := g.Regs[dimR] & 0x7FF
@@ -98,9 +98,9 @@ func (g *GPU) sampleTexture(u int, s, t, q float32) (rgba, bool) {
 
 	if typ == texTypeShadow2D {
 		c = shadowCompare(c, shadowZ, g.Regs[regShadowTex])
-		g.ShadowSamples++
+		st.shadowSamples++
 		if c.r != 0 {
-			g.ShadowOccluded++
+			st.shadowOccluded++
 		}
 	}
 	return c, true

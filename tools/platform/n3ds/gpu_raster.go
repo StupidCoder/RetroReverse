@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"runtime"
 	"sync"
+	"sync/atomic"
 )
 
 // gpu_raster.go runs a PICA200 draw: fetch vertices from the attribute
@@ -280,9 +281,24 @@ func (g *GPU) draw(indexed bool) {
 	// check local too).
 	tr := m.profStart()
 	defer m.profEnd(bucketRaster, tr)
+
+	// The render-target and lighting state are constant for the whole draw — nothing
+	// executes a register write while a draw runs — so they are resolved once here
+	// instead of once per triangle.
+	fb := g.fbstate()
+	ls := g.lightstate()
+
+	// Assemble, project and cull first, into a list; fill second. The split is what
+	// lets the fill be parallel: setting a triangle up is where the discarded-triangle
+	// counters live, so it stays serial, and after it the fill is pure pixel work.
 	prim := g.Regs[regPrimConfig] >> 8 & 3
 	n := len(outs)
-	emit := func(a, b, c int) { g.triangle(&outs[a], &outs[b], &outs[c]) }
+	tris := g.tris[:0]
+	emit := func(a, b, c int) {
+		if t, ok := g.setupTri(&outs[a], &outs[b], &outs[c], &fb); ok {
+			tris = append(tris, t)
+		}
+	}
 	switch prim {
 	case 0, 3:
 		// Mode 3 is the "geometry primitive": meaningful only to a geometry
@@ -307,6 +323,139 @@ func (g *GPU) draw(indexed bool) {
 		}
 	default:
 		m.CPU.Halt("gpu: primitive mode 3 (geometry) unimplemented")
+		return
+	}
+	g.tris = tris // keep the grown backing array
+	g.fill(&fb, &ls, tris)
+}
+
+// fill rasterises a draw's triangles, in parallel over disjoint bands of rows when
+// that is both safe and worth it.
+//
+// Determinism comes from the partition, not from luck: a band of rows is filled by
+// exactly one worker, so no two workers touch the same pixel, and within a band the
+// triangles are applied in submission order. The buffer the workers leave behind is
+// byte for byte the one the serial rasteriser leaves. Bands are handed out from a
+// shared counter rather than dealt out in advance, because the geometry is not spread
+// evenly down the screen — but which worker takes which band cannot change the result,
+// only how long it takes.
+func (g *GPU) fill(fb *fbState, ls *lightState, tris []rasterTri) {
+	if len(tris) == 0 {
+		return
+	}
+	workers := g.rasterWorkers(fb, tris)
+	if workers <= 1 {
+		var st rstats
+		for i := range tris {
+			g.fillTri(fb, ls, &tris[i], tris[i].minY, tris[i].maxY, &st)
+		}
+		g.mergeStats(&st)
+		return
+	}
+
+	// A texture cache miss WRITES the cache, which several workers must not do at
+	// once — and which would also make the decode happen on whichever worker got there
+	// first. Decode every texture this draw can sample, here, before they start.
+	g.warmTextures()
+
+	const bandRows = 16
+	height := int(fb.height)
+	bands := (height + bandRows - 1) / bandRows
+
+	stats := make([]rstats, workers)
+	var next int32
+	var wg sync.WaitGroup
+	for w := 0; w < workers; w++ {
+		wg.Add(1)
+		go func(st *rstats) {
+			defer wg.Done()
+			for {
+				b := int(atomic.AddInt32(&next, 1)) - 1
+				if b >= bands {
+					return
+				}
+				yLo := b * bandRows
+				yHi := yLo + bandRows
+				if yHi > height {
+					yHi = height
+				}
+				for i := range tris {
+					t := &tris[i]
+					if t.maxY <= yLo || t.minY >= yHi {
+						continue // this triangle does not reach this band
+					}
+					lo, hi := t.minY, t.maxY
+					if lo < yLo {
+						lo = yLo
+					}
+					if hi > yHi {
+						hi = yHi
+					}
+					g.fillTri(fb, ls, t, lo, hi, st)
+				}
+			}
+		}(&stats[w])
+	}
+	wg.Wait()
+	for i := range stats { // summed in worker order, so the totals are deterministic too
+		g.mergeStats(&stats[i])
+	}
+}
+
+// rasterWorkers decides how many goroutines a draw's fill is worth. It returns 1 —
+// meaning "fill it here, on this goroutine" — whenever parallelism would be
+// unfaithful rather than merely unprofitable:
+//
+//   - the debugger's per-pixel hook is installed (it records provenance into a shared
+//     plane, and a capture must stay exactly reproducible);
+//   - a memory watch or the HID histogram is on (they observe from inside the bus);
+//   - the frame is being traced, or the caller asked for a single thread;
+//   - the draw is too small for the goroutines to pay for themselves.
+func (g *GPU) rasterWorkers(fb *fbState, tris []rasterTri) int {
+	m := g.m
+	if m.OnPixel != nil || m.OnRead != nil || m.OnWrite != nil || m.HidTrace || m.SingleThreaded {
+		return 1
+	}
+	// The work a draw is about to do, measured in bounding-box pixels: goroutines are
+	// not free, and most of Captain Toad's draws are small.
+	const minPixels = 8192
+	work := 0
+	for i := range tris {
+		t := &tris[i]
+		work += (t.maxX - t.minX) * (t.maxY - t.minY)
+		if work >= minPixels*4 {
+			break
+		}
+	}
+	if work < minPixels {
+		return 1
+	}
+	n := runtime.GOMAXPROCS(0)
+	if n > 8 {
+		n = 8
+	}
+	// No more workers than there are bands to give them.
+	if b := (int(fb.height) + 15) / 16; n > b {
+		n = b
+	}
+	if n < 1 {
+		n = 1
+	}
+	return n
+}
+
+// warmTextures decodes every texture the draw's enabled units can sample, so the
+// texture cache is read-only while the workers run. The unit configuration cannot
+// change during a draw, so this is exactly the set of textures they will ask for.
+func (g *GPU) warmTextures() {
+	for u := 0; u < 3; u++ {
+		dimR, _, addrR, typR := texUnitRegs(u)
+		w := g.Regs[dimR] >> 16 & 0x7FF
+		h := g.Regs[dimR] & 0x7FF
+		if w == 0 || h == 0 {
+			continue
+		}
+		g.texture(g.m.gpuAddrToVirt(g.Regs[addrR]<<3), g.Regs[typR]&0xF, w, h)
 	}
 }
 
@@ -493,10 +642,41 @@ func (g *GPU) shadowMapWrite(fb *fbState, off uint32, depth float32, density uin
 	}
 }
 
-// triangle rasterises one clip-space triangle. Fixed-point barycentric fill
-// (the PSX shape) over the tiled render target, interpolating 1/w for
-// perspective correction.
-func (g *GPU) triangle(a, b, c *vsOut) {
+// rasterTri is a triangle that survived rejection and culling: its screen-space
+// vertices, its (positive) area and its clamped bounding box. Setting one up is
+// serial — it counts the triangles it throws away — and filling one is not.
+type rasterTri struct {
+	v0, v1, v2             scrVert
+	area                   float32
+	minX, maxX, minY, maxY int
+}
+
+// rstats are the rasteriser's tallies, kept per worker and summed in worker order
+// after the join. Adding to the GPU's counters directly from several goroutines
+// would be a race, and making them atomic would put a contended cache line in the
+// middle of the fragment loop.
+type rstats struct {
+	pixelsDrawn, depthKilled, shadowWrites int
+	shadowSamples, shadowOccluded          int
+}
+
+func (g *GPU) mergeStats(st *rstats) {
+	g.PixelsDrawn += st.pixelsDrawn
+	g.DepthKilled += st.depthKilled
+	g.ShadowWrites += st.shadowWrites
+	g.ShadowSamples += st.shadowSamples
+	g.ShadowOccluded += st.shadowOccluded
+}
+
+func edgeFn(ax, ay, bx, by, px, py float32) float32 {
+	return (bx-ax)*(py-ay) - (by-ay)*(px-ax)
+}
+
+// setupTri projects one clip-space triangle to the screen and decides whether it is
+// drawn at all. It runs serially, once per triangle, because it owns the counters
+// for the triangles it discards.
+func (g *GPU) setupTri(a, b, c *vsOut, fb *fbState) (rasterTri, bool) {
+	var t rasterTri
 	// Reject any triangle touching w<=0 rather than clip — a bring-up
 	// shortcut; counted so it can't hide. Written as !(w > 0) so NaN
 	// positions are rejected too: the game deliberately poisons its
@@ -505,10 +685,8 @@ func (g *GPU) triangle(a, b, c *vsOut) {
 	if !(a.pos[3] > 0) || !(b.pos[3] > 0) || !(c.pos[3] > 0) ||
 		a.pos[0] != a.pos[0] || b.pos[0] != b.pos[0] || c.pos[0] != c.pos[0] {
 		g.RejectedTris++
-		return
+		return t, false
 	}
-	fb := g.fbstate()
-	ls := g.lightstate()
 
 	toScreen := func(v *vsOut) scrVert {
 		iw := 1 / v.pos[3]
@@ -526,20 +704,17 @@ func (g *GPU) triangle(a, b, c *vsOut) {
 	}
 	v0, v1, v2 := toScreen(a), toScreen(b), toScreen(c)
 
-	edge := func(ax, ay, bx, by, px, py float32) float32 {
-		return (bx-ax)*(py-ay) - (by-ay)*(px-ax)
-	}
-	area := edge(v0.x, v0.y, v1.x, v1.y, v2.x, v2.y)
+	area := edgeFn(v0.x, v0.y, v1.x, v1.y, v2.x, v2.y)
 	if area == 0 {
 		g.ZeroAreaTris++
-		return
+		return t, false
 	}
 	// Face culling (0x040): 0 = none, 1 = cull front (CCW), 2 = cull back.
 	cull := g.Regs[0x040] & 3
 	ccw := area > 0
 	if (cull == 1 && ccw) || (cull == 2 && !ccw) {
 		g.CulledTris++
-		return
+		return t, false
 	}
 	if area < 0 { // orient so the inside test and interpolation share a sign
 		v1, v2 = v2, v1
@@ -562,6 +737,21 @@ func (g *GPU) triangle(a, b, c *vsOut) {
 	if maxY > int(fb.height) {
 		maxY = int(fb.height)
 	}
+	return rasterTri{v0: v0, v1: v1, v2: v2, area: area,
+		minX: minX, maxX: maxX, minY: minY, maxY: maxY}, true
+}
+
+// fillTri rasterises the rows [yLo, yHi) of a triangle. The row range is what makes
+// the parallel rasteriser possible: two workers given disjoint row bands cannot touch
+// the same pixel, and within a band the triangles are still applied in submission
+// order — so the buffer they leave behind is the one the serial rasteriser would have
+// left.
+func (g *GPU) fillTri(fb *fbState, ls *lightState, t *rasterTri, yLo, yHi int, st *rstats) {
+	v0, v1, v2 := &t.v0, &t.v1, &t.v2
+	area := t.area
+	minX, maxX := t.minX, t.maxX
+	minY, maxY := yLo, yHi
+	edge := edgeFn
 
 	// Rasterise the bounding box, row by row.
 	//
@@ -572,9 +762,6 @@ func (g *GPU) triangle(a, b, c *vsOut) {
 	// coverage, which is what the broken vertex permutation produced. The geometry is
 	// coherent now, the triangles are small, most blocks are partly covered, and the
 	// twelve extra edge evaluations per block buy nothing. Measured, not assumed.
-	//
-	// Hoisting this loop into a function of its own cost another 1% on its own, so it
-	// stays where it is.
 	for y := minY; y < maxY; y++ {
 		// The PICA's framebuffer origin is bottom-left: viewport y counts up from
 		// the buffer's LAST row, so a viewport shorter than the buffer renders
@@ -632,8 +819,8 @@ func (g *GPU) triangle(a, b, c *vsOut) {
 			if depth > 1 {
 				depth = 1
 			}
-			if !g.depthCompare(&fb, off, depth) {
-				g.DepthKilled++
+			if !g.depthCompare(fb, off, depth) {
+				st.depthKilled++
 				// A depth-killed fragment carries no colour: the PICA kills it
 				// before the TEV runs, so there is nothing to report but the
 				// rejection itself.
@@ -672,7 +859,7 @@ func (g *GPU) triangle(a, b, c *vsOut) {
 				}
 			}
 
-			r8, g8, b8, a8, discard, ok := g.fragment(col, uv, uv0w, &ls, q, vw)
+			r8, g8, b8, a8, discard, ok := g.fragment(col, uv, uv0w, ls, q, vw, st)
 			if !ok {
 				return // fragment stage halted
 			}
@@ -683,8 +870,8 @@ func (g *GPU) triangle(a, b, c *vsOut) {
 				// packed depth+density texel, and none of the alpha test, depth
 				// test or blender runs. This is the pass that draws Captain
 				// Toad's ShadowVolume geometry.
-				g.shadowMapWrite(&fb, off, depth, uint8(g8))
-				g.ShadowWrites++
+				g.shadowMapWrite(fb, off, depth, uint8(g8))
+				st.shadowWrites++
 				continue
 			}
 			if discard {
@@ -695,9 +882,9 @@ func (g *GPU) triangle(a, b, c *vsOut) {
 				})
 				continue
 			}
-			g.depthWrite(&fb, off, depth)
-			g.writePixel(&fb, uint32(x), ty, off, r8, g8, b8, a8)
-			g.PixelsDrawn++
+			g.depthWrite(fb, off, depth)
+			g.writePixel(fb, uint32(x), ty, off, r8, g8, b8, a8)
+			st.pixelsDrawn++
 		}
 	}
 }

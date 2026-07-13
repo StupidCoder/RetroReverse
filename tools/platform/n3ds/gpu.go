@@ -191,6 +191,7 @@ type GPU struct {
 	cmdBuf   []byte      // the command list, copied out of guest memory
 	cmdWrite []PICAWrite // its decoded register-write stream
 	outs     []vsOut     // one draw's shaded vertices
+	tris     []rasterTri // one draw's assembled, culled triangles
 	bufs     []loaderBuf // one draw's attribute-loader configuration
 	comps    []int       // the loaders' component lists, in one backing array
 }
