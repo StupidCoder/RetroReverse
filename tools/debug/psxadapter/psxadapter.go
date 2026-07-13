@@ -20,11 +20,30 @@ import (
 	"image"
 	"os"
 	"path/filepath"
+	"strconv"
+	"strings"
 
 	"retroreverse.com/tools/cpu/mips"
 	"retroreverse.com/tools/debug"
 	"retroreverse.com/tools/platform/psx"
 )
+
+// The debugger opens a PSX game through the registry. The interrupt handler is the one
+// thing the platform cannot work out for itself, and it is a property of the game, so
+// it arrives in the profile (games/<slug>/debug.json) rather than as a constant here.
+func init() {
+	debug.Register("psx", func(s debug.OpenSpec) (debug.Target, error) {
+		var opts Options
+		if v := s.Get("isr"); v != "" {
+			n, err := strconv.ParseUint(strings.TrimPrefix(strings.ToLower(v), "0x"), 16, 32)
+			if err != nil {
+				return nil, fmt.Errorf("psx profile: bad isr %q: %w", v, err)
+			}
+			opts.ISRHandler = uint32(n)
+		}
+		return New(s.Image, opts)
+	})
+}
 
 // runBudget bounds a single StepFrame or replay. A field is ~250k instructions
 // (stepsPerVBlank), and a boot to the first drawn frame is tens of millions, so this

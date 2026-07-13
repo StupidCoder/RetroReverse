@@ -109,8 +109,19 @@ func (rn *Runner) broadcast(v any) {
 
 func (rn *Runner) submit(s *session, r req) { rn.mb.push(request{from: s, req: r}) }
 
+// shutdown ends the runner. The loop closes the target on its own goroutine, so the
+// machine is never freed underneath a run in progress.
+func (rn *Runner) shutdown() { rn.mb.close() }
+
 func (rn *Runner) loop() {
 	for {
+		// A shutdown must be able to interrupt a machine that is free-running or
+		// running the CPU, not only one that is sitting waiting for a request.
+		if rn.mb.isClosed() {
+			rn.tgt.Close()
+			return
+		}
+
 		// Playing: run a frame, then pick up whatever arrived. Blocks instead when a
 		// frame is in flight — the next thing to come is its acknowledgement.
 		if rn.playing && !rn.inFlight {

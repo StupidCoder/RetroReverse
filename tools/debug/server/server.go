@@ -32,14 +32,25 @@ import (
 //go:embed web
 var webFS embed.FS
 
-// Server serves the debugger UI for one target.
+// Server serves the debugger UI.
 type Server struct {
-	rn *Runner
+	ws *Workspace
 }
 
-// New returns a Server driving a target.
+// New returns a Server with a target already open. The library is discovered from the
+// games/ tree if one can be found, so a session that started on one game can still
+// switch to another.
 func New(tgt debug.Target) *Server {
-	return &Server{rn: newRunner(tgt)}
+	s := &Server{ws: newWorkspace(debug.FindGamesRoot("."))}
+	if tgt != nil {
+		s.ws.setTarget(newRunner(tgt), nil)
+	}
+	return s
+}
+
+// NewLibrary returns a Server with nothing open: the page starts at the library.
+func NewLibrary(gamesRoot string) *Server {
+	return &Server{ws: newWorkspace(gamesRoot)}
 }
 
 // Handler is the debugger's HTTP surface: the embedded page, and the socket.
@@ -68,10 +79,10 @@ func (s *Server) serveWS(w http.ResponseWriter, r *http.Request) {
 	}
 	defer conn.Close()
 
-	// Several connections may attach to the same runner — a second tab, or the same
-	// tab after a reload. They all watch one machine; only the runner touches it.
+	// Several connections may attach at once — a second tab, or the same tab after a
+	// reload. They all watch one machine; only its runner touches it.
 	log.Printf("framedbg: session attached")
-	(&session{conn: conn, rn: s.rn}).serve()
+	(&session{conn: conn, ws: s.ws}).serve()
 	log.Printf("framedbg: session ended")
 }
 

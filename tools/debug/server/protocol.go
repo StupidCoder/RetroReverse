@@ -267,6 +267,37 @@ type (
 		Note   string `json:"note"`
 	}
 
+	libraryMsg struct {
+		Type    string     `json:"type"` // "library"
+		Seq     int        `json:"seq"`
+		Current string     `json:"current"` // the open game's slug
+		Games   []jsonGame `json:"games"`
+	}
+
+	jsonGame struct {
+		Slug     string `json:"slug"`
+		Platform string `json:"platform"`
+		Name     string `json:"name"`
+		Image    string `json:"image"`
+		Missing  bool   `json:"missing"` // the image is not on disk; they are gitignored
+	}
+
+	statesMsg struct {
+		Type   string      `json:"type"` // "states"
+		Seq    int         `json:"seq"`
+		Dir    string      `json:"dir"`
+		States []jsonState `json:"states"`
+		Note   string      `json:"note,omitempty"` // why there are none, when there cannot be
+	}
+
+	jsonState struct {
+		Name   string `json:"name"`
+		File   string `json:"file"`
+		Size   int64  `json:"size"`
+		When   string `json:"when"`
+		Resume string `json:"resume"` // the command line that reopens the game here
+	}
+
 	okMsg struct {
 		Type string `json:"type"` // "ok" — an op that has nothing to report
 		Seq  int    `json:"seq"`

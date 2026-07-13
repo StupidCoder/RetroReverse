@@ -8,19 +8,20 @@ import (
 	"retroreverse.com/tools/debug/wsock"
 )
 
-// A session is one browser connection. It does not own the machine — the Runner does
-// — so it is only a reader (parse a request, hand it to the runner) and a writer
-// (replies addressed to it, and events broadcast to everyone).
+// A session is one browser connection. It owns neither the machine (the Runner does)
+// nor the library (the Workspace does), so it is only a reader — parse a request and
+// hand it on — and a writer, for replies addressed to it and events broadcast to all.
 type session struct {
 	conn *wsock.Conn
-	rn   *Runner
+	ws   *Workspace
 }
 
-// serve reads the socket until it closes. Requests go to the runner's mailbox; the
-// runner answers on its own goroutine.
+// serve reads the socket until it closes. Ops about the library or the savestate files
+// are the workspace's; everything else goes to the current target's runner, which
+// answers on its own goroutine.
 func (s *session) serve() {
-	s.rn.attach(s)
-	defer s.rn.detach(s)
+	s.ws.attach(s)
+	defer s.ws.detach(s)
 
 	for {
 		op, msg, err := s.conn.Read()
@@ -35,7 +36,15 @@ func (s *session) serve() {
 			s.send(errMsg{Type: "error", Msg: "bad request: " + err.Error()})
 			continue
 		}
-		s.rn.submit(s, r)
+		if s.ws.handle(s, r) {
+			continue
+		}
+		rn := s.ws.runner()
+		if rn == nil {
+			s.send(errMsg{Type: "error", Seq: r.Seq, Msg: "no game is open — pick one from the library"})
+			continue
+		}
+		rn.submit(s, r)
 	}
 }
 
@@ -128,6 +137,12 @@ func (m *mailbox) close() {
 	m.closed = true
 	m.mu.Unlock()
 	m.wake()
+}
+
+func (m *mailbox) isClosed() bool {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	return m.closed
 }
 
 func (m *mailbox) wake() {

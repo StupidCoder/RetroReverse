@@ -24,12 +24,20 @@ import (
 // coreTarget implements debug.Target and nothing else — the honest minimum. It exists
 // to prove that a platform which can only show a screen and read memory still works,
 // and that the ops it cannot back are refused rather than half-served.
-type coreTarget struct{ steps int }
+type coreTarget struct {
+	steps int
+	title string
+}
 
 const fakeW, fakeH = 8, 4
 
-func (t *coreTarget) Platform() string             { return "fake" }
-func (t *coreTarget) Title() string                { return "Fake Game" }
+func (t *coreTarget) Platform() string { return "fake" }
+func (t *coreTarget) Title() string {
+	if t.title != "" {
+		return t.title
+	}
+	return "Fake Game"
+}
 func (t *coreTarget) Snapshot() debug.Snapshot     { return fakeSnap{} }
 func (t *coreTarget) Restore(debug.Snapshot) error { return nil }
 func (t *coreTarget) Close() error                 { return nil }
@@ -138,6 +146,21 @@ func (f *fakeTarget) SetWatch(w debug.Watch) (int, error) {
 func (f *fakeTarget) ClearWatch(id int)                    { f.watches = nil }
 func (f *fakeTarget) Watches() []debug.Watch               { return f.watches }
 func (f *fakeTarget) OnWatchHit(sink func(debug.WatchHit)) { f.watchSink = sink }
+
+// Savestates and the resume line: a real file, and a command line in this "platform's"
+// own flag vocabulary — which is the whole point of the handoff.
+func (f *fakeTarget) SaveStateFile(path string) error {
+	return os.WriteFile(path, []byte("fake savestate"), 0o644)
+}
+
+func (f *fakeTarget) LoadStateFile(path string) error {
+	_, err := os.ReadFile(path)
+	return err
+}
+
+func (f *fakeTarget) ResumeArgs(statePath string) []string {
+	return []string{"go", "run", "./cmd/bootoracle", "-image", "game.z64", "-loadstate", statePath}
+}
 
 // ---- a minimal websocket client, enough to drive the server ----
 
@@ -278,9 +301,14 @@ func (cl *wsClient) recvBinary(t *testing.T) (kind byte, seq int, w, h int, payl
 	}
 }
 
+// serveTarget serves one target with no library behind it, so these tests do not go
+// looking for the repository's real games/ tree (and do not change behaviour depending
+// on what happens to be checked out).
 func serveTarget(t *testing.T, tgt debug.Target) *httptest.Server {
 	t.Helper()
-	srv := httptest.NewServer(New(tgt).Handler())
+	ws := newWorkspace("")
+	ws.setTarget(newRunner(tgt), nil)
+	srv := httptest.NewServer((&Server{ws: ws}).Handler())
 	t.Cleanup(srv.Close)
 	return srv
 }
@@ -308,7 +336,7 @@ func TestCapabilitiesAdvertised(t *testing.T) {
 		got = append(got, c.(string))
 	}
 	sort.Strings(got)
-	want := []string{"break", "code", "disasm", "faststep", "frames", "replay", "watch"}
+	want := []string{"break", "code", "disasm", "faststep", "frames", "replay", "resume", "states", "watch"}
 	if strings.Join(got, ",") != strings.Join(want, ",") {
 		t.Errorf("caps = %v, want %v", got, want)
 	}
@@ -564,8 +592,8 @@ func TestUnknownOpIsAnError(t *testing.T) {
 	cl.recvType(t, "hello")
 
 	cl.send(t, "nonsense", 5, nil)
-	m := cl.recvJSON(t)
-	if m["type"] != "error" || int(m["seq"].(float64)) != 5 {
+	m := cl.recvType(t, "error")
+	if int(m["seq"].(float64)) != 5 {
 		t.Errorf("reply = %v, want an error echoing seq 5", m)
 	}
 }

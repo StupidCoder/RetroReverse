@@ -1,0 +1,8 @@
+{
+  "name": "Ridge Racer",
+  "platform": "psx",
+  "image": "Ridge Racer (Track 01).bin",
+  "profile": {
+    "isr": "8004DF48"
+  }
+}

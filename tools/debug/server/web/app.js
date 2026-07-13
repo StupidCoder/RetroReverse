@@ -14,6 +14,7 @@ import { mountPanels } from './panels/registry.js';
 import './panels/viewport.js';
 import './panels/commands.js';
 import './panels/inspect.js';
+import './panels/states.js';
 
 const $ = (id) => document.getElementById(id);
 
@@ -87,14 +88,24 @@ conn.onClose = () => {
 };
 
 conn.on('hello', (m) => {
-  store.set({ platform: m.platform, title: m.title, caps: new Set(m.caps) });
+  store.set({
+    platform: m.platform,
+    title: m.title,
+    caps: new Set(m.caps),
+    frame: null,
+    selected: -1,
+    prov: null,
+    pick: null,
+    playing: false,
+  });
   $('target').textContent = `${m.platform} — ${m.title}`;
   document.title = `framedbg — ${m.title}`;
 
-  // The target's capabilities decide what the page is.
+  // The target's capabilities decide what the page is. A different game means a
+  // different set of panels, so the dock is rebuilt from scratch.
   mountPanels(ctx);
-  for (const [id, cap] of Object.entries({ play: 'frames', step: 'frames', step1: 'frames' })) {
-    $(id).style.display = store.can(cap) ? '' : 'none';
+  for (const id of ['play', 'step', 'step1']) {
+    $(id).style.display = store.can('frames') ? '' : 'none';
   }
   $('cpu-controls').style.display = store.can('code') ? '' : 'none';
 
@@ -102,6 +113,30 @@ conn.on('hello', (m) => {
   if (ctx.ui.readMem) ctx.ui.readMem();
   if (!store.can('frames')) ctx.ui.showDisplay();
 });
+
+// The library: which games have an adapter and an image on disk.
+conn.on('library', (m) => {
+  const sel = $('game');
+  sel.innerHTML =
+    '<option value="">library…</option>' +
+    m.games
+      .map(
+        (g) =>
+          `<option value="${g.slug}"${g.slug === m.current ? ' selected' : ''}${g.missing ? ' disabled' : ''}>` +
+          `${g.name} (${g.platform})${g.missing ? ' — no image' : ''}</option>`
+      )
+      .join('');
+});
+
+// Loading a state moves the machine somewhere else entirely; the captured frame
+// belonged to where we were.
+ctx.ui.afterStateLoad = () => {
+  store.set({ frame: null, selected: -1, prov: null, pick: null });
+  conn.send('cpu.regs');
+  if (ctx.ui.readMem) ctx.ui.readMem();
+  if (ctx.ui.refreshDisasm) ctx.ui.refreshDisasm();
+  ctx.ui.showDisplay();
+};
 
 conn.on('frame', (m) => {
   store.set({ frame: m, selected: -1, prov: null, pick: null });
@@ -174,6 +209,14 @@ function showStats(meta) {
 }
 
 // ---- toolbar ----
+
+$('game').onchange = () => {
+  const slug = $('game').value;
+  if (!slug) return;
+  status(`opening ${slug}…`);
+  setBusy(true);
+  conn.send('target.open', { slug });
+};
 
 $('play').onclick = () => ctx.ui.setPlaying(!store.get('playing'));
 $('step').onclick = () => ctx.ui.stepFrame(0);

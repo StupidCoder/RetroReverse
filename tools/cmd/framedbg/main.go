@@ -69,9 +69,19 @@ func run() error {
 		serve   = flag.String("serve", "", "serve the interactive debugger on this address (e.g. -serve :8088)")
 	)
 	flag.Parse()
+
+	// With -serve and no image, the page starts at the library and you pick a game
+	// there. Without -serve there is nothing to report on, so an image is required.
 	if *image_ == "" {
-		flag.Usage()
-		return fmt.Errorf("-image is required")
+		if *serve == "" {
+			flag.Usage()
+			return fmt.Errorf("-image is required (or use -serve to pick a game in the browser)")
+		}
+		root := debug.FindGamesRoot(".")
+		if root == "" {
+			return fmt.Errorf("no games/ directory found above the working directory; pass -image")
+		}
+		return server.NewLibrary(root).ListenAndServe(*serve)
 	}
 
 	a, err := open(*image_, *isr)

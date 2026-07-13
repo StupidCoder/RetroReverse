@@ -22,6 +22,12 @@ import (
 	"retroreverse.com/tools/platform/n64"
 )
 
+// The debugger opens an N64 game through the registry, so nothing has to import this
+// package by name — importing it for its side effect is enough.
+func init() {
+	debug.Register("n64", func(s debug.OpenSpec) (debug.Target, error) { return New(s.Image) })
+}
+
 // runBudget bounds a single StepFrame/replay. A video field is ~750k instructions
 // and a from-reset boot to the first frame is tens of millions, so this leaves
 // generous headroom while still catching a machine that has wedged.

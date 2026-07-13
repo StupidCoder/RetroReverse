@@ -19,8 +19,16 @@ export function registerPanel(p) {
   panels.push(p);
 }
 
-// mountPanels builds the dock for the capabilities this target has.
+let disposePrevious = null;
+
+// mountPanels builds the dock for the capabilities this target has. It runs again
+// whenever the target changes, so the previous mount's subscriptions are disposed
+// first — a handler left over from the last game would fire against DOM that is gone.
 export function mountPanels(ctx) {
+  if (disposePrevious) disposePrevious();
+  ctx.conn.beginScope();
+  ctx.store.beginScope();
+
   const slots = {
     stage: document.getElementById('slot-stage'),
     side: document.getElementById('slot-side'),
@@ -55,5 +63,12 @@ export function mountPanels(ctx) {
     p.mount(body, ctx);
     mounted.push(p.id);
   }
+
+  const offConn = ctx.conn.endScope();
+  const offStore = ctx.store.endScope();
+  disposePrevious = () => {
+    offConn();
+    offStore();
+  };
   return mounted;
 }

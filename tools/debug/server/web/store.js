@@ -50,8 +50,27 @@ export class Store {
     for (const fn of this.subs.get(key) || []) fn(this.state[key], this.state);
   }
 
+  // on subscribes to a key. Scoped the same way as Conn.on, so a panel's subscriptions
+  // die with the panel when the target changes and the dock is rebuilt.
   on(key, fn) {
     if (!this.subs.has(key)) this.subs.set(key, []);
     this.subs.get(key).push(fn);
+    if (this.scope) this.scope.push({ key, fn });
+  }
+
+  beginScope() {
+    this.scope = [];
+  }
+
+  endScope() {
+    const taken = this.scope || [];
+    this.scope = null;
+    return () => {
+      for (const { key, fn } of taken) {
+        const arr = this.subs.get(key) || [];
+        const i = arr.indexOf(fn);
+        if (i >= 0) arr.splice(i, 1);
+      }
+    };
   }
 }

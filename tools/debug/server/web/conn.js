@@ -38,13 +38,36 @@ export class Conn {
   }
 
   // on subscribes to a message type. Several panels may listen to the same type.
+  //
+  // Panels are mounted afresh whenever the target changes, so their subscriptions have
+  // to go away with them — otherwise a handler from the last game keeps firing against
+  // DOM that no longer exists. beginScope/endScope let the registry dispose a whole
+  // mount's worth at once.
   on(type, fn) {
     if (!this.handlers.has(type)) this.handlers.set(type, []);
     this.handlers.get(type).push(fn);
+    if (this.scope) this.scope.push({ type, fn });
   }
 
   onBinary(fn) {
     this.binaryHandlers.push(fn);
+  }
+
+  beginScope() {
+    this.scope = [];
+  }
+
+  // endScope closes the scope and returns a function that removes everything in it.
+  endScope() {
+    const taken = this.scope || [];
+    this.scope = null;
+    return () => {
+      for (const { type, fn } of taken) {
+        const arr = this.handlers.get(type) || [];
+        const i = arr.indexOf(fn);
+        if (i >= 0) arr.splice(i, 1);
+      }
+    };
   }
 
   // send queues an op and returns the sequence number its reply will echo, so a caller
