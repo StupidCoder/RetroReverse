@@ -538,3 +538,31 @@ func (m *Machine) WriteWord(a, v uint32) {
 	m.Write(a+2, byte(v>>16))
 	m.Write(a+3, byte(v>>24))
 }
+
+// directRange resolves [addr, addr+size) to the backing slice of the region that
+// wholly contains it, plus the offset the range starts at — so a caller that hammers
+// one buffer (the rasteriser's render target, a GX transfer) can index bytes instead
+// of making a bus call each time.
+//
+// It returns nil whenever the direct path would not be faithful:
+//
+//   - the range is unmapped or straddles a region edge (the bus handles that; this
+//     does not have to);
+//   - a debugger has a read or write watch installed, or the HID read histogram is
+//     on. Those observe *through the bus*, and an optimisation that quietly stopped
+//     reporting the GPU's writes to the frame debugger would be trading the oracle's
+//     instruments for its speed.
+func (m *Machine) directRange(addr, size uint32) ([]byte, uint32) {
+	if m.OnRead != nil || m.OnWrite != nil || m.HidTrace {
+		return nil, 0
+	}
+	r := m.regionOf(addr)
+	if r == nil {
+		return nil, 0
+	}
+	off := addr - r.base
+	if uint64(off)+uint64(size) > uint64(len(r.data)) {
+		return nil, 0
+	}
+	return r.data, off
+}

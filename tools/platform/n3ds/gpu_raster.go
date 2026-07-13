@@ -310,6 +310,18 @@ type fbState struct {
 	depthScale, depthOff float32
 	depthZBuffer         bool // 0x06D bit 0: Z-buffering; clear means W-buffering
 	shadowMode           bool // 0x100's fragment-operation mode is Shadow
+
+	// The render target's backing memory, resolved once per triangle. A fragment
+	// costs up to fourteen byte-granular bus calls; against a target that sits
+	// wholly inside one region — it is VRAM, so it always does — the same bytes are
+	// reachable by indexing the region's slice directly.
+	//
+	// nil means "go through the bus": the target straddles a region edge, is
+	// unmapped, or a debugger has a memory watch installed, in which case the bus is
+	// the only path that reports the accesses. An oracle that stopped answering the
+	// debugger's questions when it got fast would be a poor trade.
+	colorBuf, depthBuf   []byte
+	colorOff, depthOff32 uint32 // where the buffer starts within its slice
 }
 
 func (g *GPU) fbstate() fbState {
@@ -329,7 +341,7 @@ func (g *GPU) fbstate() fbState {
 	if !colorWr {
 		cmask = 0
 	}
-	return fbState{
+	fb := fbState{
 		colorAddr:    g.m.gpuAddrToVirt(g.Regs[regColorbufLoc] << 3),
 		depthAddr:    g.m.gpuAddrToVirt(g.Regs[regDepthbufLoc] << 3),
 		width:        dim & 0x7FF,
@@ -345,6 +357,13 @@ func (g *GPU) fbstate() fbState {
 		depthZBuffer: g.Regs[regDepthMapMode]&1 != 0,
 		shadowMode:   g.Regs[regBlendConfig]&3 == 3,
 	}
+	// Resolve the two targets' backing memory once, here, instead of ~14 times per
+	// fragment. A tiled 4-byte-per-pixel buffer occupies whole 8×8 tiles, so round
+	// the dimensions up before asking whether it fits in one region.
+	size := ((fb.width + 7) &^ 7) * ((fb.height + 7) &^ 7) * 4
+	fb.colorBuf, fb.colorOff = g.m.directRange(fb.colorAddr, size)
+	fb.depthBuf, fb.depthOff32 = g.m.directRange(fb.depthAddr, size)
+	return fb
 }
 
 // shadowMapWrite is the output merger for a shadow pass. A shadow-map texel is
@@ -359,16 +378,31 @@ func (g *GPU) fbstate() fbState {
 // ratio of the two depths through a constant/linear curve (0x130) and keeps the
 // darkest, which is how a shadow volume produces a soft edge without a second
 // pass.
-func (g *GPU) shadowMapWrite(fb *fbState, x, y uint32, depth float32, density uint8) {
-	p := fb.colorAddr + tiledOffset(x, y, fb.width)
+func (g *GPU) shadowMapWrite(fb *fbState, off uint32, depth float32, density uint8) {
+	p := fb.colorAddr + off
+	var dst []byte
+	if fb.colorBuf != nil {
+		dst = fb.colorBuf[fb.colorOff+off:]
+	}
 	z := uint32(depth * 0xFFFFFF)
 
-	refZ := uint32(g.m.Read(p))<<16 | uint32(g.m.Read(p+1))<<8 | uint32(g.m.Read(p+2))
-	refS := g.m.Read(p + 3)
+	var refZ uint32
+	var refS uint8
+	if dst != nil {
+		refZ = uint32(dst[0])<<16 | uint32(dst[1])<<8 | uint32(dst[2])
+		refS = dst[3]
+	} else {
+		refZ = uint32(g.m.Read(p))<<16 | uint32(g.m.Read(p+1))<<8 | uint32(g.m.Read(p+2))
+		refS = g.m.Read(p + 3)
+	}
 	if z >= refZ {
 		return
 	}
 	if density == 0 {
+		if dst != nil {
+			dst[0], dst[1], dst[2] = byte(z>>16), byte(z>>8), byte(z)
+			return
+		}
 		g.m.Write(p, byte(z>>16))
 		g.m.Write(p+1, byte(z>>8))
 		g.m.Write(p+2, byte(z))
@@ -383,6 +417,10 @@ func (g *GPU) shadowMapWrite(fb *fbState, x, y uint32, depth float32, density ui
 		}
 	}
 	if s := uint8(clampf(d, 0, 255)); s < refS {
+		if dst != nil {
+			dst[3] = s
+			return
+		}
 		g.m.Write(p+3, s)
 	}
 }
@@ -404,17 +442,9 @@ func (g *GPU) triangle(a, b, c *vsOut) {
 	fb := g.fbstate()
 	ls := g.lightstate()
 
-	type sv struct {
-		x, y, z, iw float32
-		col         [4]float32
-		uv          [3][2]float32
-		uv0w        float32
-		quat        [4]float32
-		view        [3]float32
-	}
-	toScreen := func(v *vsOut) sv {
+	toScreen := func(v *vsOut) scrVert {
 		iw := 1 / v.pos[3]
-		return sv{
+		return scrVert{
 			x:    (v.pos[0]*iw + 1) * fb.vpHalfW,
 			y:    (v.pos[1]*iw + 1) * fb.vpHalfH,
 			z:    v.pos[2] * iw,
@@ -465,6 +495,18 @@ func (g *GPU) triangle(a, b, c *vsOut) {
 		maxY = int(fb.height)
 	}
 
+	// Rasterise the bounding box, row by row.
+	//
+	// 8×8 tile rejection was tried here — test the three edge functions at a block's
+	// corners and skip the block when it lies wholly outside one of them — and it was
+	// 1.4% SLOWER. It is the right optimisation for the workload this rasteriser used
+	// to have: long spiky triangles with enormous bounding boxes and slivers of
+	// coverage, which is what the broken vertex permutation produced. The geometry is
+	// coherent now, the triangles are small, most blocks are partly covered, and the
+	// twelve extra edge evaluations per block buy nothing. Measured, not assumed.
+	//
+	// Hoisting this loop into a function of its own cost another 1% on its own, so it
+	// stays where it is.
 	for y := minY; y < maxY; y++ {
 		// The PICA's framebuffer origin is bottom-left: viewport y counts up from
 		// the buffer's LAST row, so a viewport shorter than the buffer renders
@@ -478,6 +520,9 @@ func (g *GPU) triangle(a, b, c *vsOut) {
 		// its buffer is exactly its viewport (240×400), so the two anchors agree.
 		ty := uint32(int(fb.height) - 1 - y)
 		for x := minX; x < maxX; x++ {
+			// One tiled-offset computation per fragment, shared by the depth test,
+			// the depth write and the colour write — it used to be redone in each.
+			off := tiledOffset(uint32(x), ty, fb.width)
 			px, py := float32(x)+0.5, float32(y)+0.5
 			w0 := edge(v1.x, v1.y, v2.x, v2.y, px, py)
 			w1 := edge(v2.x, v2.y, v0.x, v0.y, px, py)
@@ -519,7 +564,7 @@ func (g *GPU) triangle(a, b, c *vsOut) {
 			if depth > 1 {
 				depth = 1
 			}
-			if !g.depthCompare(&fb, uint32(x), ty, depth) {
+			if !g.depthCompare(&fb, off, depth) {
 				g.DepthKilled++
 				// A depth-killed fragment carries no colour: the PICA kills it
 				// before the TEV runs, so there is nothing to report but the
@@ -570,7 +615,7 @@ func (g *GPU) triangle(a, b, c *vsOut) {
 				// packed depth+density texel, and none of the alpha test, depth
 				// test or blender runs. This is the pass that draws Captain
 				// Toad's ShadowVolume geometry.
-				g.shadowMapWrite(&fb, uint32(x), ty, depth, uint8(g8))
+				g.shadowMapWrite(&fb, off, depth, uint8(g8))
 				g.ShadowWrites++
 				continue
 			}
@@ -582,11 +627,22 @@ func (g *GPU) triangle(a, b, c *vsOut) {
 				})
 				continue
 			}
-			g.depthWrite(&fb, uint32(x), ty, depth)
-			g.writePixel(&fb, uint32(x), ty, r8, g8, b8, a8)
+			g.depthWrite(&fb, off, depth)
+			g.writePixel(&fb, uint32(x), ty, off, r8, g8, b8, a8)
 			g.PixelsDrawn++
 		}
 	}
+}
+
+// scrVert is a triangle vertex in screen space, with the attributes the fragment
+// stage interpolates.
+type scrVert struct {
+	x, y, z, iw float32
+	col         [4]float32
+	uv          [3][2]float32
+	uv0w        float32
+	quat        [4]float32
+	view        [3]float32
 }
 
 // tiledOffset returns the byte offset of pixel (x, y) in an 8×8-Morton-tiled
@@ -600,12 +656,22 @@ func tiledOffset(x, y, width uint32) uint32 {
 // depthCompare applies the depth test against the D24S8 depth buffer; the
 // write happens separately (depthWrite) so an alpha-discarded fragment leaves
 // the buffer untouched.
-func (g *GPU) depthCompare(fb *fbState, x, y uint32, depth float32) bool {
+//
+// off is the fragment's tiled byte offset, computed once by the caller: it used to
+// be recomputed here, in depthWrite and again in writePixel, three times for the
+// same pixel.
+func (g *GPU) depthCompare(fb *fbState, off uint32, depth float32) bool {
 	if !fb.depthTest {
 		return true
 	}
-	p := fb.depthAddr + tiledOffset(x, y, fb.width)
-	old := uint32(g.m.Read(p)) | uint32(g.m.Read(p+1))<<8 | uint32(g.m.Read(p+2))<<16
+	var old uint32
+	if fb.depthBuf != nil {
+		d := fb.depthBuf[fb.depthOff32+off:]
+		old = uint32(d[0]) | uint32(d[1])<<8 | uint32(d[2])<<16
+	} else {
+		p := fb.depthAddr + off
+		old = uint32(g.m.Read(p)) | uint32(g.m.Read(p+1))<<8 | uint32(g.m.Read(p+2))<<16
+	}
 	nv := uint32(depth * 0xFFFFFF)
 	switch fb.depthFunc {
 	case 0:
@@ -627,12 +693,17 @@ func (g *GPU) depthCompare(fb *fbState, x, y uint32, depth float32) bool {
 	}
 }
 
-func (g *GPU) depthWrite(fb *fbState, x, y uint32, depth float32) {
+func (g *GPU) depthWrite(fb *fbState, off uint32, depth float32) {
 	if !fb.depthTest || !fb.depthWr {
 		return
 	}
-	p := fb.depthAddr + tiledOffset(x, y, fb.width)
 	nv := uint32(depth * 0xFFFFFF)
+	if fb.depthBuf != nil {
+		d := fb.depthBuf[fb.depthOff32+off:]
+		d[0], d[1], d[2] = byte(nv), byte(nv>>8), byte(nv>>16)
+		return
+	}
+	p := fb.depthAddr + off
 	g.m.Write(p, byte(nv))
 	g.m.Write(p+1, byte(nv>>8))
 	g.m.Write(p+2, byte(nv>>16))
@@ -640,15 +711,38 @@ func (g *GPU) depthWrite(fb *fbState, x, y uint32, depth float32) {
 
 // writePixel blends the fragment with the destination and stores it in the
 // tiled RGBA8 colour buffer (bytes [A,B,G,R]).
-func (g *GPU) writePixel(fb *fbState, x, y uint32, r, gr, b, a uint8) {
-	p := fb.colorAddr + tiledOffset(x, y, fb.width)
-	da, db := g.m.Read(p), g.m.Read(p+1)
-	dg, dr := g.m.Read(p+2), g.m.Read(p+3)
+func (g *GPU) writePixel(fb *fbState, x, y, off uint32, r, gr, b, a uint8) {
+	var dst []byte
+	var da, db, dg, dr uint8
+	if fb.colorBuf != nil {
+		dst = fb.colorBuf[fb.colorOff+off:]
+		da, db, dg, dr = dst[0], dst[1], dst[2], dst[3]
+	} else {
+		p := fb.colorAddr + off
+		da, db = g.m.Read(p), g.m.Read(p+1)
+		dg, dr = g.m.Read(p+2), g.m.Read(p+3)
+	}
 	r, gr, b, a = g.blend(r, gr, b, a, dr, dg, db, da)
 	// What the debugger sees is the blended value, and it counts as drawn only if
 	// the colour mask actually lets some of it through — a pass with the mask at
 	// zero rasterises fragments that never reach memory.
 	g.pixelEvent(x, y, PixelEvent{R: r, G: gr, B: b, A: a, Drawn: fb.colorMask != 0})
+	if dst != nil {
+		if fb.colorMask&1 != 0 {
+			dst[3] = r
+		}
+		if fb.colorMask&2 != 0 {
+			dst[2] = gr
+		}
+		if fb.colorMask&4 != 0 {
+			dst[1] = b
+		}
+		if fb.colorMask&8 != 0 {
+			dst[0] = a
+		}
+		return
+	}
+	p := fb.colorAddr + off
 	if fb.colorMask&1 != 0 {
 		g.m.Write(p+3, r)
 	}
