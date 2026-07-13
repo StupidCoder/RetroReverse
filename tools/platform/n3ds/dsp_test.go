@@ -82,10 +82,19 @@ func TestDSPSourcePlaysOutBuffer(t *testing.T) {
 	m.dspWrite16(cfg+srcCfgEmbBufferID, 5)
 
 	st := uint32(dspRegion1 + dspOffSourceStatus) // write region is region 1
+
+	// The status a frame publishes describes the frame the DSP has ALREADY
+	// processed, so it lags the configuration by one: tick 1 consumes this
+	// configuration (and clears its dirty flags) but publishes the state as it
+	// was before; tick 2 is the first to report the source.
 	m.dspTick()
 	if m.ReadWord(cfg+srcCfgDirty) != 0 {
 		t.Fatal("the DSP must clear the config dirty flags after consuming them")
 	}
+	if m.Read(st) != 0 {
+		t.Fatal("the status lags by one frame: the first tick must not yet report the source")
+	}
+	m.dspTick()
 	if m.Read(st) != 1 {
 		t.Fatal("status must report the source enabled")
 	}
@@ -96,8 +105,8 @@ func TestDSPSourcePlaysOutBuffer(t *testing.T) {
 		t.Fatalf("current_buffer_id = %d, want 5", got)
 	}
 
-	// Frame 1 dequeues (no consumption), frames 2-4 consume 160+160+80; the
-	// frame after that finds the queue dry.
+	// Frames consume 160+160+80 samples; the frame after that finds the queue
+	// dry, and one more publishes that state.
 	for i := 0; i < 4; i++ {
 		m.dspTick()
 	}

@@ -398,13 +398,24 @@ func (m *Machine) dspTick() {
 	m.dsp.NextFrame = m.instrs + dspFrameTicks
 	if m.dsp.State == dspStateOn {
 		read, write := m.dspReadRegion(), m.dspWriteRegion()
+		// The status a frame publishes describes the frame the DSP has ALREADY
+		// processed — it lags the configuration the app is writing now by one
+		// frame. Publishing first, then consuming the new configuration, is what
+		// gives that one frame of latency; doing both in one pass ran the echo a
+		// frame ahead, and the app noticed: it stamps each voice's configuration
+		// with a sync count and retires that voice's queued commands only when
+		// the status echoes the count it is waiting for. Ahead by one, the number
+		// it wanted never appeared, no voice ever retired a command, and the
+		// per-voice lists grew until a still-linked node was recycled.
+		for i := 0; i < dspNumSources; i++ {
+			m.dspWriteStatus(i, write)
+		}
 		for i := 0; i < dspNumSources; i++ {
 			m.dspParseConfig(i, read)
 			s := &m.dsp.Sources[i]
 			if s.Enabled {
 				s.advanceFrame()
 			}
-			m.dspWriteStatus(i, write)
 		}
 		m.WriteWord(write+dspOffDSPStatus, 0) // DspStatus: unknown, dropped_frames
 
@@ -419,6 +430,10 @@ func (m *Machine) dspTick() {
 		// worker waits on a load that never arrives).
 		m.dspSignalInterrupt(dspIntPipe, dspPipeAudio)
 	}
+	// The semaphore event fires every frame from component boot: Super Mario 3D
+	// Land waits on it without ever writing a pipe command. (Scoping it to the
+	// pipeline-off phase was tried and changes nothing — the sound thread blocks
+	// on the pipe interrupt, not on this — so it stays as the simpler rule.)
 	if m.dsp.SemEvent != 0 {
 		m.dspSignalHandle(m.dsp.SemEvent)
 	}
@@ -500,9 +515,16 @@ func (m *Machine) dspParseConfig(i int, region uint32) {
 	if dirty&dirtyEnable != 0 {
 		s.Enabled = m.Read(cfg+srcCfgEnable) != 0
 	}
-	if dirty&dirtySyncCount != 0 {
-		s.SyncCount = m.dspRead16(cfg + srcCfgSyncCount)
-	}
+	// sync_count is a VALUE the DSP echoes back, not an event: read it from the
+	// configuration every frame, whether or not the dirty bit is set. The app
+	// stamps each voice's configuration with a sync count and then refuses to
+	// retire that voice's queued commands until it sees the same number come
+	// back in the status — Captain Toad's per-voice command drain (0x00131FAC)
+	// bails on the very first compare, so gating the echo on the dirty flag
+	// left every voice's command list to grow without bound until the allocator
+	// recycled a node that was still linked (X.next = X) and the sound thread
+	// spun forever.
+	s.SyncCount = m.dspRead16(cfg + srcCfgSyncCount)
 	if dirty&dirtyRate != 0 {
 		s.Rate = math.Float32frombits(m.ReadWord(cfg + srcCfgRate))
 		if !(s.Rate > 0) { // zero, negative or NaN: the firmware degrades; keep 1:1
