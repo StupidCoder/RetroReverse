@@ -504,3 +504,15 @@ This is the sixth core-assumption bug of the port, and — like the unaligned lo
 constant, and the per-thread instruction counter — it was found by a *second title* exercising a path
 the first one never took. Super Mario 3D Land never stores through an unaligned pointer; Captain Toad
 does it once per track in a table it parses at every stream start.
+
+**Where that leaves the boot.** A 1.6-billion-instruction run from the pre-stage snapshot now finishes
+with no spinning thread and no deadlock: all seventeen threads are parked on real objects (the sound
+thread on its DSP event, the render thread on the VBlank condvar, the workers on their queues), 24,731
+VBlanks are delivered, 107,305 GPU command lists are submitted, and the DSP mixes **65 seconds of
+continuous music** (peak 18,514). The engine is *alive* in a way it has never been.
+
+It is also still black — and now for a different reason than before. The command lists keep coming but
+carry **no draw calls**: the scene has no actors in it. That is the same loose thread the RomFS trace
+found earlier (the game reaches Season 1's opening stage, parses the map, and then loads four of its
+2,364 `/ObjectData` files), and with the sound system finally healthy — it is also the engine's
+resource-loader producer — it is the next thing to chase.
