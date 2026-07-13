@@ -365,3 +365,98 @@ depended on the imprecision. It is also a clean example of why a second title ma
 Mario 3D Land poisons `c0`–`c3` too, but only on warm-up frames, and always uploads real matrices
 before a real draw; it never *draws* through a poisoned uniform, so it never noticed that our
 uniforms could hold a value the hardware cannot.
+
+## Part IX — The DSP grows a voice: sample formats, resampling, a mixer, and actual sound
+
+The DSP model built in Part V spoke the *protocol* — pipes, the shared-memory frame exchange, the
+dirty-flag handshake — but it decoded nothing. A voice's play position advanced by a sample count
+against a buffer length, and no PCM was ever read. That was honest for bringing the sound thread to
+life, and useless for anything else: a model that never touches the audio cannot tell you whether
+the game's sequencer, its streaming or its effects are doing the right thing. So it now runs the
+firmware's real per-frame pipeline.
+
+**The format is in the configuration, and everything follows from it.** `flags1` at `+0xB4` carries
+the channel count (bits 0–1) and the codec (bits 2–3) — and the buffer's *length is in samples*, so
+until the codec is known, the byte arithmetic cannot be done at all. Three codecs, and Captain Toad
+uses the third for everything: PCM8 (one byte per sample per channel), PCM16 (two), and **GC-ADPCM**
+— eight-byte blocks, each a header byte and fourteen four-bit samples. The header's low nibble is a
+scale (a power of two), its high nibble an index into the sixteen coefficients that arrive in the
+ADPCM-coefficient structure — two taps of a second-order predictor, `y[n] = x[n]·scale + c1·y[n-1] +
+c2·y[n-2]`, computed in 11-bit fixed point. Its state (`y[n-1]`, `y[n-2]`) carries across blocks
+*and* across buffers, and a buffer may re-prime it from the ADPCM fields the app queued with it.
+
+**Resampling, and one detail that is load-bearing.** Each frame a voice produces exactly 160 output
+samples, stepping over its decoded buffer at its rate multiplier with a fixed-point position (24
+fractional bits) and interpolating between input samples. The position, *and the two input samples
+around it*, carry across the frame boundary — and also across the **buffer** boundary: consecutive
+buffers of a stream are one continuous signal, and an interpolator that restarted at each boundary
+would click at every buffer. Then the voice's two optional filters run, a single-pole and a biquad,
+both normalised with the feedback coefficients pre-negated by the application.
+
+**Then the mixers.** Each voice adds its frame into three quadraphonic intermediate mixes at twelve
+gains (four channels × three mixes). Two of those mixes can be routed through an **aux bus**, which
+is a round trip through the *application*: the DSP writes the mix into the shared region and takes
+back whatever the app's own effects code left there — the ARM11 is the effects processor, one frame
+late. Finally the three mixes are downmixed to stereo at their volumes (master, aux-return 0, aux-
+return 1) and summed into the 160-sample frame the region publishes. The firmware's limiter and
+compressor are *not* modelled; the mix is what a disabled limiter produces, and the code says so
+rather than pretending.
+
+**It makes sound.** `bootoracle -wav` captures the final mix to a playable file — Super Mario 3D
+Land's dialog scene yields 4.9 seconds (peak 5060), Captain Toad's opening stage 6.8 seconds (peak
+15,137). That mixer is the point: it is the verification oracle any future reimplementation of the
+game's sequencer or effects gets checked against. And the regression gate held — SM3DL's welcome
+dialog is still pixel-identical.
+
+One deviation from the protocol survives, and it is worth naming because it is *measured*, not
+assumed: `sync_count` is read out of the configuration **every frame**, not on its dirty bit. Gating
+it correctly was tried, and the game got *worse* — it stopped queueing buffers on its streaming
+voices altogether. The app writes each region with only the fields it has changed, so a region's
+`sync_count` word can belong to an older generation than its frame counter suggests; something about
+how the game reconciles that is still not understood, and the honest state of it is a flag in the
+code, not a silent choice.
+
+## Part X — One spinning thread, and the stream channel that was never started
+
+With a real voice model the boot still stops in the same place: 588 presented frames, then the sound
+thread (t6, priority 36) spins forever and starves every thread below it. The model didn't fix it —
+but it made the whole conversation visible (`-dsptrace` logs every configuration the DSP consumes
+and every status it publishes; none of it goes through IPC, so nothing else could see it), and the
+chase finally reached the bottom.
+
+**The spin, exactly.** `0x00132D2C` appends a command node to a voice: it null-terminates the node's
+`next` (`+0x14`), takes the voice's lock, and walks the list from the head (`voice+0x30`) to the tail
+to link it. Which means appending a node *that is already in the list* makes the tail's `next` point
+at the node itself. The live node at `0x140D96B0` has `+0x14` = `0x140D96B0`. Whoever walks the list
+next — the sound thread, every frame — never reaches the end.
+
+**Who appended it twice.** Logging every append across the boot: the node is appended to voice
+`0x0054A020` at instruction 10,989,842 and again at 11,997,688, with no retire in between. Nodes are
+pooled and re-used all the time — that is normal — but this one was never released, because the code
+that would release it never ran.
+
+**Why it never ran, in one chain.** Voice `0x0054A020` is DSP source 5. The per-frame flush that
+turns a voice's queued command nodes into a DSP buffer queue (`0x00132444`) is only called for a
+voice whose state byte `+0xD` is zero (`0x00132118`); the state is 2, meaning *allocated but not
+started*. The start (`setVoiceState(voice, 0)` at `0x001312B0`) is issued by the voice's **player
+object**, and only when the player's byte `+0x15` is non-zero. The two players are twins — the same
+stream's two channels, allocated 475 instructions apart, identical in every field but one:
+
+| | player `0x080C6568` (left) | player `0x080C6748` (right) |
+|---|---|---|
+| voice | `0x00549FA4` → DSP source 4 | `0x0054A020` → DSP source 5 |
+| `+0x15` (block ready) | **1** | **0** |
+| started | yes (instr 11,039,281) | **never** |
+| buffers flushed to the DSP | 4 | **0** |
+
+So: the right channel's player never receives its first decoded block, so it never starts its voice,
+so the voice is never flushed, so its five command nodes sit in the list forever, so the streamer —
+topping up a queue that never drains — appends node #1 a second time, and the list eats itself. One
+un-started stream channel is the entire black screen.
+
+That reframes the frontier, and it is a better place to stand than "the sound thread spins". The DSP
+side of this voice is *not* the problem: source 4, its twin, streams correctly through the same model
+— configuration consumed, buffers queued, statuses reported, buffers retired. What is missing is one
+step in the game's own stream pipeline: the block that should be handed to the second channel's
+player (a structure copy that sets `+0x15`, seen twice for the left channel and never for the right).
+The next question is who produces that block, and what it is waiting for.

@@ -34,7 +34,7 @@ operating system (Horizon), a GPU (PICA200, LLE shader + rasteriser), and an aud
 | flag | what it does |
 |---|---|
 | `-bp ADDR` | halting breakpoint |
-| `-logpc ADDR` | **non-halting breakpoint**: log registers and continue. The workhorse for "how often, and with what, does this routine run?" across a billion-instruction boot. Now also renders any of r0–r3 that points at a C string, so a `-logpc` on a path builder *names the resource the game asked for* |
+| `-logpc ADDR` | **non-halting breakpoint**: log registers (r0–r7, lr, top of stack) and continue. The workhorse for "how often, and with what, does this routine run?" across a billion-instruction boot. Also renders any of r0–r3 that points at a C string, so a `-logpc` on a path builder *names the resource the game asked for* |
 | `-tracefrom ADDR` | start instruction tracing when this address is first reached — trace a routine deep in a long boot without drowning in the millions of instructions before it |
 | `-watch ADDR[:LEN]` | report every change to a memory word, with the thread and PC that wrote it. Tagged by thread since the port went multi-threaded |
 | `-v` / `-svclog` | log every supervisor call and IPC request as it happens / dump the ordered log at the end |
@@ -52,6 +52,12 @@ operating system (Horizon), a GPU (PICA200, LLE shader + rasteriser), and an aud
 | `-shot BASE` | write both presented framebuffers as PNG (`_top`, `_bottom`), de-rotating the 3DS's column-major panels |
 | `-gxdump DIR` | capture GX commands and every submitted PICA command list **at submission time** (the game reuses list memory, so capturing later reads garbage) |
 | `-gputrace N` | per-draw summary: vertex fetch, uniforms, first clip positions, plus **which uniforms are NaN at draw time** — the instrument that found the float24 bug |
+
+**Audio**
+| flag | what it does |
+|---|---|
+| `-wav FILE` | capture the DSP's final stereo mix (32,728 Hz) for the whole run and write it as a WAV. The verification oracle for anything that makes sound |
+| `-dsptrace` | log every source configuration the DSP consumes and every status it publishes. The app↔DSP voice conversation happens entirely in shared memory with **no IPC to log**, so without this it is invisible |
 
 **Input**
 | flag | what it does |
