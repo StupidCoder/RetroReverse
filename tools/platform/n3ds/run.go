@@ -24,8 +24,11 @@ const maxIdleFrames = 40
 func (m *Machine) Run(budget int) int {
 	n := 0
 	idleFrames := 0
+	// Both stop flags are edge-triggered: a run that inherited them from the
+	// previous one would return without executing anything.
+	m.stopped, m.StopRequested = false, false
 	for n < budget {
-		if m.CPU.Halted {
+		if m.CPU.Halted || m.StopRequested {
 			break
 		}
 		if m.vblankDue() {
@@ -132,18 +135,22 @@ func (m *Machine) Run(budget int) int {
 			m.reschedule = false
 			m.CPU.Step()
 			n++
-			if m.reschedule || t.state != running {
+			if m.reschedule || t.state != running || m.StopRequested {
 				break
 			}
 		}
-		if m.stopped {
-			break
-		}
 		// Save the thread's context back; if it is still running, it merely used
-		// up its quantum — return it to the ready pool.
+		// up its quantum — return it to the ready pool. This happens even when a
+		// breakpoint or a debugger hook is stopping the run: leaving the context
+		// unsaved would rewind the thread to the top of its quantum the next time
+		// the scheduler switched to it, so a resumed run would re-execute
+		// instructions it had already run.
 		t.ctx = *m.CPU
 		if t.state == running {
 			t.state = ready
+		}
+		if m.stopped || m.StopRequested {
+			break
 		}
 	}
 	return n

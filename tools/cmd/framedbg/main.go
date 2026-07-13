@@ -33,6 +33,7 @@ import (
 	"strings"
 
 	"retroreverse.com/tools/debug"
+	"retroreverse.com/tools/debug/n3dsadapter"
 	"retroreverse.com/tools/debug/n64adapter"
 	"retroreverse.com/tools/debug/psxadapter"
 	"retroreverse.com/tools/debug/server"
@@ -126,11 +127,13 @@ func run() error {
 }
 
 // open picks the adapter from the image. The extension is enough today: a .z64 is a
-// cartridge, a .bin is a disc.
+// cartridge, a .bin is a disc, a .3ds is a 3DS card image.
 func open(path, isr string) (target, error) {
 	switch strings.ToLower(filepath.Ext(path)) {
 	case ".z64", ".n64", ".v64":
 		return n64adapter.New(path)
+	case ".3ds", ".cci":
+		return n3dsadapter.New(path)
 	case ".bin", ".iso", ".img":
 		var opts psxadapter.Options
 		if isr != "" {
@@ -142,7 +145,7 @@ func open(path, isr string) (target, error) {
 		}
 		return psxadapter.New(path, opts)
 	}
-	return nil, fmt.Errorf("cannot tell which platform %q is (want .z64 or .bin)", filepath.Base(path))
+	return nil, fmt.Errorf("cannot tell which platform %q is (want .z64, .bin or .3ds)", filepath.Base(path))
 }
 
 // advance steps the machine to a drawn frame. It first advances skip video fields

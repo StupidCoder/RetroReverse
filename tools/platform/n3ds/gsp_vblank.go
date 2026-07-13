@@ -72,6 +72,12 @@ func (m *Machine) deliverVBlank() {
 		m.signalAPTEvents()
 	}
 
+	// The debugger's frame boundary (debug.go). Last, so a hook that stops the run
+	// here sees a fully delivered VBlank: the swap consumed, the interrupts queued,
+	// the pad sampled.
+	if m.OnFrame != nil {
+		m.OnFrame(m)
+	}
 }
 
 // consumeFBInfo is the GSP module's VBlank-side of the buffer-swap protocol.

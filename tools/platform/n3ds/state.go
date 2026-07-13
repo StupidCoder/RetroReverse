@@ -16,6 +16,7 @@ package n3ds
 // refuses to load. The round-trip test enforces it.
 
 import (
+	"bytes"
 	"compress/gzip"
 	"encoding/gob"
 	"fmt"
@@ -216,6 +217,63 @@ type gpuState struct {
 
 // SaveState writes a gzip-compressed gob snapshot of the machine to path.
 func (m *Machine) SaveState(path string) error {
+	f, err := os.Create(path)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+	gz := gzip.NewWriter(f)
+	defer gz.Close()
+	return gob.NewEncoder(gz).Encode(m.buildSnapshot())
+}
+
+// MachineState is an in-memory snapshot: a machine state independent of the live
+// machine, which can be restored into it repeatedly. That is what makes
+// deterministic replay possible, and replay is what a frame debugger's command
+// scrubber is built on — restore the top of the frame, run the display processor
+// k commands, look at what it drew, repeat.
+//
+// It holds the gob encoding rather than a struct of live pointers, and it does so
+// on purpose. The snapshot has to be a genuine deep copy or a replay silently
+// scribbles on the machine it replayed from, and the regions, thread contexts,
+// kernel objects and DSP state are a graph of slices and maps whose deep copy is
+// precisely what the encoder already writes — and what the round-trip test
+// already polices. A hand-written copier would be a second place to forget a
+// field, and a snapshot that silently omits one resumes subtly wrong.
+type MachineState struct {
+	blob []byte
+}
+
+// SnapshotState captures the machine into memory. It skips the gzip the file
+// format uses: a debugger takes one of these per frame, and the compression costs
+// more than the memory it saves.
+func (m *Machine) SnapshotState() *MachineState {
+	var buf bytes.Buffer
+	if err := gob.NewEncoder(&buf).Encode(m.buildSnapshot()); err != nil {
+		// buildSnapshot produces only gob-encodable types and bytes.Buffer never
+		// fails a write, so this cannot happen without a programming error in the
+		// snapshot struct — which must be loud, not silent.
+		panic(fmt.Sprintf("n3ds: cannot encode a snapshot: %v", err))
+	}
+	return &MachineState{blob: buf.Bytes()}
+}
+
+// RestoreState puts an in-memory snapshot back. The snapshot stays valid: it is
+// decoded afresh each time, so one capture can be replayed as often as the
+// scrubber needs.
+func (m *Machine) RestoreState(ms *MachineState) error {
+	if ms == nil {
+		return fmt.Errorf("n3ds: nil snapshot")
+	}
+	var s snapshot
+	if err := gob.NewDecoder(bytes.NewReader(ms.blob)).Decode(&s); err != nil {
+		return err
+	}
+	return m.applySnapshot(&s)
+}
+
+// buildSnapshot captures the machine into a serialisable snapshot.
+func (m *Machine) buildSnapshot() *snapshot {
 	// The current thread's live state is in CPU; sync it back to its ctx so the
 	// snapshot is self-consistent.
 	m.curThread.ctx = *m.CPU
@@ -301,20 +359,10 @@ func (m *Machine) SaveState(path string) error {
 		}
 		s.Objects = append(s.Objects, ks)
 	}
-
-	f, err := os.Create(path)
-	if err != nil {
-		return err
-	}
-	defer f.Close()
-	gz := gzip.NewWriter(f)
-	defer gz.Close()
-	return gob.NewEncoder(gz).Encode(&s)
+	return &s
 }
 
-// LoadState restores a snapshot into the machine. It refuses a snapshot from a
-// different title (program ID) or an incompatible version — a mismatched restore
-// is a silent corruption, so it is made an error.
+// LoadState restores a snapshot file into the machine.
 func (m *Machine) LoadState(path string) error {
 	f, err := os.Open(path)
 	if err != nil {
@@ -331,6 +379,13 @@ func (m *Machine) LoadState(path string) error {
 	if err := gob.NewDecoder(gz).Decode(&s); err != nil {
 		return err
 	}
+	return m.applySnapshot(&s)
+}
+
+// applySnapshot restores a decoded snapshot into the machine. It refuses one from
+// a different title (program ID) or an incompatible version — a mismatched restore
+// is a silent corruption, so it is made an error.
+func (m *Machine) applySnapshot(s *snapshot) error {
 	if s.Version != snapshotVersion {
 		return fmt.Errorf("n3ds: snapshot version %d, want %d", s.Version, snapshotVersion)
 	}

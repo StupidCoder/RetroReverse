@@ -121,8 +121,9 @@ Now kept mainly as a *verification harness* — the webexport reads the cartridg
 Every other instrument in this file answers a question you already knew to ask. The frame debugger is
 for the questions you *don't* — you watch the frame being built and see what it does. It is the one
 oracle front-end with a user interface, and it is deliberately platform-agnostic: `tools/debug`
-defines a `DebugTarget` interface, `tools/debug/n64adapter` implements it, and any platform whose
-machine can capture a display-list and attribute pixels can follow (PICA200 next).
+defines a small `Target` interface plus a set of *optional capabilities*, and the page builds itself
+from whatever the current target says it can do — no empty panels, nothing faked. Three adapters back
+it today: `n64adapter`, `psxadapter` and `n3dsadapter` (RDP, GP0 and PICA200).
 
 ```
 framedbg -image ROM [-state FILE] -serve :8088     # the interactive debugger, in a browser
@@ -160,6 +161,33 @@ drag to the position the mouse actually landed on.
 **Why it is trustworthy.** The image the socket hands the browser for command k is verified
 byte-identical to the headless `RenderAfter(k)` on the same frame — the UI cannot quietly diverge
 from the core.
+
+**What the 3DS adapter had to do differently**, because it is the first target whose display processor
+is not a packet machine:
+
+- **A "command" is one register write.** A PICA200 frame is a *register-write stream*, not a command
+  list: the draw happens when the stream writes `0x22E`, and everything about it — which buffers the
+  vertices come from, which shader runs, whether colour is written at all — is state that the
+  preceding writes latched. So the scrubber's unit is the write (Captain Toad's opening stage: ~99k of
+  them in one frame), and scrubbing backwards from a draw is how you read the state it was made under.
+  Provenance still names only the draws, because only a draw can produce a pixel.
+- **The frame's picture is the render target, not the screen.** The GPU renders into a tiled, padded
+  VRAM buffer (Captain Toad's is 256×512 at `0x1F000000`); a `DisplayTransfer` later copies a rotated
+  240×400 crop of it to the LCD. They are different planes — different size, different orientation,
+  different contents — so the debugger builds the frame around the one the commands actually wrote,
+  and offers the scanout alongside it as a surface. **Comparing the two is how you catch a frame the
+  GPU drew and the transfer never delivered.**
+- **A frame ends at the VBlank**, where the GSP consumes the buffer swap — the 3DS has no scanout the
+  CPU can watch.
+- **The main pass is chosen by pixel census**, not by whichever buffer the register file happens to
+  point at when the frame ends: a frame can render a shadow pass into its own target, and at the
+  VBlank the registers still name whatever the last command list left behind.
+
+The last two mattered immediately. Provenance is a plane of *one* target, and the page had been
+indexing it by the displayed image's width — which is only correct where the scanout and the draw
+target coincide, as they do on N64 and PSX. On the 3DS it would have silently reported the wrong
+command for every pixel. The page now carries the provenance plane's own dimensions and refuses to
+answer when they disagree with the picture on screen.
 
 ---
 
@@ -292,6 +320,6 @@ and are **candidates to port**:
 | **Write-profiler (`-vgaprof`)** | DOS | "who wrote this value" up the call stack; catches self-modifying patchers. Would suit any framebuffer or command-ring investigation |
 | **`-spinbreak` / `-hot`** | 3DO | turns "hangs forever" into "here is the loop and why". The 3DS spent three sessions doing this by hand |
 | **Read-watch (`-rwatch`)** | PSX/PSP/N64 | the complement of `-watch`; the 3DS oracle still lacks it |
-| **The frame debugger (`framedbg -serve`)** | N64 | watch a frame being built, command by command; click a pixel to get the command that drew it and its overdraw history. Needs three things of a platform — a per-command hook, a per-pixel hook, and an in-memory snapshot — and every LLE machine here could offer them. `tools/debug` is platform-agnostic and wants adapters (PICA200 next) |
+| **The frame debugger (`framedbg -serve`)** | N64 | watch a frame being built, command by command; click a pixel to get the command that drew it and its overdraw history. Needs three things of a platform — a per-command hook, a per-pixel hook, and an in-memory snapshot — and every LLE machine here could offer them. Ported to PSX and to the 3DS; the remaining LLE machines (PSP's GE, 3DO's cel engine) want adapters next |
 | **`-poke`** | PSX/3DS | falsify a hypothesis in one run by forcing the value the game waits for |
 | **Pad/key scripts (`-keys`, `-keypulse`)** | DOS/PSP/3DS | an oracle that can *play* reaches states no boot ever will. `-keypulse` (fresh press edges) is the non-obvious part |

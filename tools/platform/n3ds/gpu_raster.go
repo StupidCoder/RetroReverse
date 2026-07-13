@@ -371,6 +371,10 @@ func (g *GPU) triangle(a, b, c *vsOut) {
 			}
 			if !g.depthCompare(&fb, uint32(x), uint32(y), depth) {
 				g.DepthKilled++
+				// A depth-killed fragment carries no colour: the PICA kills it
+				// before the TEV runs, so there is nothing to report but the
+				// rejection itself.
+				g.pixelEvent(uint32(x), uint32(y), PixelEvent{ZReject: true})
 				continue
 			}
 
@@ -412,7 +416,12 @@ func (g *GPU) triangle(a, b, c *vsOut) {
 				return // fragment stage halted
 			}
 			if discard {
-				continue // alpha-tested out: no colour and no depth write
+				// Alpha-tested out: no colour and no depth write, but the fragment
+				// was shaded, so the debugger gets the colour it would have had.
+				g.pixelEvent(uint32(x), uint32(y), PixelEvent{
+					R: r8, G: g8, B: b8, A: a8, AlphaReject: true,
+				})
+				continue
 			}
 			g.depthWrite(&fb, uint32(x), uint32(y), depth)
 			g.writePixel(&fb, uint32(x), uint32(y), r8, g8, b8, a8)
@@ -477,6 +486,10 @@ func (g *GPU) writePixel(fb *fbState, x, y uint32, r, gr, b, a uint8) {
 	da, db := g.m.Read(p), g.m.Read(p+1)
 	dg, dr := g.m.Read(p+2), g.m.Read(p+3)
 	r, gr, b, a = g.blend(r, gr, b, a, dr, dg, db, da)
+	// What the debugger sees is the blended value, and it counts as drawn only if
+	// the colour mask actually lets some of it through — a pass with the mask at
+	// zero rasterises fragments that never reach memory.
+	g.pixelEvent(x, y, PixelEvent{R: r, G: gr, B: b, A: a, Drawn: fb.colorMask != 0})
 	if fb.colorMask&1 != 0 {
 		g.m.Write(p+3, r)
 	}

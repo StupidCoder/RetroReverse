@@ -61,7 +61,14 @@ registerPanel({
       view.select(k);
     });
 
-    ctx.store.on('prov', (p) => view.setProv(p));
+    // The provenance buffer is a plane of the draw target, which is not always the
+    // picture on screen — the 3DS renders into a padded VRAM buffer a DisplayTransfer
+    // later crops. So it carries its own dimensions, and the view refuses to map a
+    // pixel when they disagree with the image it is showing.
+    ctx.store.on('prov', (p) => {
+      const frame = ctx.store.get('frame');
+      view.setProv(p, frame ? frame.w : 0, frame ? frame.h : 0);
+    });
     ctx.store.on('pick', (p) => view.setPick(p));
     ctx.store.on('playing', (on) => {
       if (on) hover.textContent = 'playing — no capture';
@@ -104,6 +111,8 @@ class Viewport {
     this.h = 0;
     this.zoom = 2;
     this.prov = null;
+    this.provW = 0;
+    this.provH = 0;
     this.selected = -1;
     this.pick = null;
 
@@ -162,15 +171,25 @@ class Viewport {
     this.redrawOverlay();
   }
 
-  setProv(prov) {
+  setProv(prov, w, h) {
     this.prov = prov;
+    this.provW = w;
+    this.provH = h;
     this.redrawOverlay();
+  }
+
+  // provAligned reports whether the provenance plane and the picture on screen are
+  // the same plane. When they are not, every answer provenance could give would be
+  // off by the difference — a pixel attributed to a command that never touched the
+  // buffer being shown. Better to say nothing than to say that.
+  provAligned() {
+    return !!this.prov && this.provW === this.w && this.provH === this.h;
   }
 
   // provAt is the whole reason the provenance buffer is shipped to the page: the
   // answer to "which command drew this pixel?" without a round trip.
   provAt(x, y) {
-    if (!this.prov || x < 0 || y < 0 || x >= this.w || y >= this.h) return -1;
+    if (!this.provAligned() || x < 0 || y < 0 || x >= this.w || y >= this.h) return -1;
     return this.prov[y * this.w + x];
   }
 
@@ -188,7 +207,7 @@ class Viewport {
     if (!this.w) return;
     this.octx.clearRect(0, 0, this.w, this.h);
 
-    if (this.prov && this.selected >= 0) {
+    if (this.provAligned() && this.selected >= 0) {
       const img = this.octx.createImageData(this.w, this.h);
       const px = img.data;
       let hits = 0;

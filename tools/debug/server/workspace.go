@@ -292,8 +292,13 @@ func resumeLine(rn *Runner, g *debug.Game, statePath string) string {
 			quoted[i] = a
 		}
 	}
-	return fmt.Sprintf("cd %s && %s",
-		filepath.Join(g.Dir, "extract"), strings.Join(quoted, " "))
+	dir := filepath.Join(g.Dir, "extract")
+	if rd, ok := rn.tgt.(debug.ResumeDirer); ok {
+		if d := rd.ResumeDir(); d != "" {
+			dir = d
+		}
+	}
+	return fmt.Sprintf("cd %s && %s", dir, strings.Join(quoted, " "))
 }
 
 // statePath turns a name from the page into a file, refusing anything that would climb

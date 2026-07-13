@@ -301,15 +301,26 @@ func (fs *RomFS) Data(f RomFSFile) []byte {
 	return fs.raw[start : start+f.Size]
 }
 
+// L3Offset is where a file's data begins in the level-3 filesystem image — the
+// coordinates a game's own reads use, and the ones FileAt resolves.
+//
+// RomFSFile.Offset is relative to the data area instead, which is a different
+// origin: the two differ by the level-3 header and metadata in front of it. Asking
+// FileAt about a RomFSFile.Offset directly therefore looks up the wrong file, or
+// none at all, so anything that reports a file position to be fed back in must
+// report this one.
+func (fs *RomFS) L3Offset(f RomFSFile) int64 {
+	return fs.dataStart - fs.Levels[2].Offset + f.Offset
+}
+
 // FileAt resolves a byte offset within the level-3 filesystem image — the view
 // a game reads through the whole-RomFS file — to the file whose data contains
 // it, and the offset within that file. The instrument for identifying what a
 // traced raw read on <romfs-l3> is actually streaming. ok is false when the
 // offset lands in metadata (headers, hash tables) or padding between files.
 func (fs *RomFS) FileAt(l3Off int64) (f RomFSFile, within int64, ok bool) {
-	base := fs.dataStart - fs.Levels[2].Offset // data-area start in l3 coordinates
 	for _, cand := range fs.Files {
-		if s := base + cand.Offset; l3Off >= s && l3Off < s+cand.Size {
+		if s := fs.L3Offset(cand); l3Off >= s && l3Off < s+cand.Size {
 			return cand, l3Off - s, true
 		}
 	}

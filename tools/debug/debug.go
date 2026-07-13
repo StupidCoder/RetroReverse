@@ -152,6 +152,14 @@ type (
 		ResumeArgs(statePath string) []string
 	}
 
+	// ResumeDirer says which directory a Resumer's command runs in, when it is not
+	// the game's own extract/. Platforms whose titles share one oracle need this:
+	// Captain Toad boots on Super Mario 3D Land's bootoracle, so a resume line that
+	// assumed its own game directory would cd into a directory that is not there.
+	ResumeDirer interface {
+		ResumeDir() string
+	}
+
 	// MemoryMapper names the regions of the address space, for the memory pane.
 	MemoryMapper interface {
 		Regions() []Region

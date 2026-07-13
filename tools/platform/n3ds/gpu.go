@@ -181,8 +181,23 @@ func (g *GPU) Execute(addr, size uint32) {
 			return
 		}
 		for _, w := range ws {
+			// The debugger sees each write before it executes, so the pixels a draw
+			// trigger produces are attributed to the write that triggered them; and
+			// picaLimit, when set, stops the list mid-stream, which is what lets the
+			// command scrubber render the frame as it stood after write k.
+			m := g.m
+			if m.picaLimit > 0 {
+				if m.picaCount >= m.picaLimit {
+					m.StopRequested = true
+					return
+				}
+				m.picaCount++
+			}
+			if m.OnPICACmd != nil {
+				m.OnPICACmd(w)
+			}
 			g.write(w)
-			if g.m.CPU.Halted {
+			if m.CPU.Halted {
 				return
 			}
 			if g.jumpPending {

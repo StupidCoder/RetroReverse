@@ -162,7 +162,7 @@ type Machine struct {
 	// it publishes (bootoracle -dsptrace) — the instrument for the app↔DSP voice
 	// conversation, which is otherwise invisible: it happens entirely in shared
 	// memory, with no IPC to log.
-	DSPTrace       bool
+	DSPTrace bool
 
 	// IPC / graphics bring-up.
 	notifyWaiters    []uint32 // thread ids parked in srv: ReceiveNotification
@@ -192,7 +192,28 @@ type Machine struct {
 	displayTransfers int               // GX DisplayTransfers executed (frames made visible)
 	lastXferTop      xferRecord
 	lastXferBottom   xferRecord
-	screenFB         [2]fbPresent      // last framebuffer-info entry consumed per screen (top, bottom)
+	screenFB         [2]fbPresent // last framebuffer-info entry consumed per screen (top, bottom)
+
+	// Debugger hooks (debug.go). All nil/zero unless a debugger installs them, and
+	// all deliberately outside the savestate: they observe a run, they are not a
+	// property of the machine.
+	OnPICACmd     func(w PICAWrite)                // each command-list register write, before it executes
+	OnPixel       func(x, y uint32, ev PixelEvent) // each fragment the rasteriser produced, kept or killed
+	OnFrame       func(m *Machine)                 // each VBlank, after the buffer swap is consumed
+	StopRequested bool                             // a hook asking Run to return at the next opportunity
+
+	// Memory watch windows. The ARM bus is byte-granular (the core issues four
+	// Read calls for one LDR), so these fire per byte, with the PC that issued the
+	// access — which is the question a watch is asked to answer.
+	WatchLo, WatchHi   uint32
+	OnWrite            func(addr, val, pc uint32)
+	RWatchLo, RWatchHi uint32
+	OnRead             func(addr, val, pc uint32)
+
+	// picaLimit > 0 stops the run once picaCount command-list writes have
+	// executed — the command scrubber's halt (RunStopAfterPICACommand).
+	picaLimit int
+	picaCount int
 
 	// Instrumentation.
 	GXCapture  bool       // record GX commands + ProcessCommandList buffers (gx.go)
@@ -428,7 +449,11 @@ func (m *Machine) Read(a uint32) byte {
 		m.hidReadPC[off] = m.CPU.PC()
 	}
 	if r := m.regionOf(a); r != nil {
-		return r.data[a-r.base]
+		v := r.data[a-r.base]
+		if m.OnRead != nil && a >= m.RWatchLo && a < m.RWatchHi {
+			m.OnRead(a, uint32(v), m.CPU.PC())
+		}
+		return v
 	}
 	if m.Verbose {
 		fmt.Printf("  [unmapped read  0x%08X pc=0x%08X]\n", a, m.CPU.PC())
@@ -439,6 +464,9 @@ func (m *Machine) Read(a uint32) byte {
 func (m *Machine) Write(a uint32, v byte) {
 	if r := m.regionOf(a); r != nil {
 		r.data[a-r.base] = v
+		if m.OnWrite != nil && a >= m.WatchLo && a < m.WatchHi {
+			m.OnWrite(a, uint32(v), m.CPU.PC())
+		}
 		return
 	}
 	if m.Verbose {
