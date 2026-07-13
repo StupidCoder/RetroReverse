@@ -339,6 +339,8 @@ func run(c cfg) error {
 	fmt.Println()
 	fmt.Print(m.Threads())
 	fmt.Println()
+	fmt.Print(m.SIFCensus())
+	fmt.Println()
 	fmt.Print(m.HardwareCensus())
 	if len(m.Log) > 0 {
 		fmt.Println("\nlog:")

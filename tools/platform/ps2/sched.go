@@ -166,31 +166,53 @@ func (m *Machine) wakeupThread(id uint32) {
 	m.setRet(id)
 }
 
-// wakeSleepers is called each vertical blank. It exists so a boot that sleeps waiting
-// for a frame makes progress even before the peripheral that would have woken it is
-// modelled — without it the machine would deadlock on the first SleepThread and the
-// run would end having proved nothing.
-func (m *Machine) wakeSleepers() {
-	for _, t := range m.threads {
-		if t.state == thSleeping {
-			t.state = thReady
-		}
-	}
-}
-
-// switchAway saves the running thread in the given state and picks another.
+// switchAway blocks the running thread in the given state and picks another. When
+// nothing else can run, the machine goes *idle*: the CPU stops entirely, and only the
+// clock advances until an interrupt or a reply from the IOP makes something ready.
+//
+// Idling is not an optimisation. A model that marks a thread blocked and then keeps
+// executing it has not blocked it at all: SleepThread returns immediately, and every
+// piece of code shaped like "ask the IOP, sleep, and read the answer when you wake" —
+// which is all of them — reads the answer before it has arrived. The symptom is a
+// blocking call that behaves like a polling one, and it is invisible until you notice
+// the game re-asking a question it should already have the answer to.
 func (m *Machine) switchAway(newState threadState) {
+	if cur := m.threads[m.currentThread]; cur != nil {
+		cur.ctx = m.CPU.Snapshot()
+		cur.state = newState
+	}
 	next := m.pickReady()
 	if next == nil {
-		// Nothing else can run. The machine is not wedged as long as a vertical blank
-		// is still coming, which will make a sleeper ready again; the run loop's spin
-		// detector is what catches a genuine deadlock.
-		if cur := m.threads[m.currentThread]; cur != nil {
-			cur.state = newState
-		}
+		m.idle = true // nothing to run; the run loop will wait for something to happen
 		return
 	}
-	m.switchTo(next, newState)
+	next.state = thRunning
+	m.currentThread = next.id
+	m.CPU.Restore(next.ctx)
+}
+
+// resume looks for a thread to run after the machine has been idle. It reports whether
+// one was found.
+func (m *Machine) resume() bool {
+	next := m.pickReady()
+	if next == nil {
+		return false
+	}
+	m.idle = false
+	next.state = thRunning
+	m.currentThread = next.id
+	m.CPU.Restore(next.ctx)
+	return true
+}
+
+// blocked reports whether anything could still wake the machine up. Nothing pending
+// from the IOP, no interrupt handler to run, and no ready thread is a genuine
+// deadlock rather than a wait.
+func (m *Machine) blocked() bool {
+	if len(m.sifPending) > 0 || len(m.intcHandlers) > 0 {
+		return false
+	}
+	return m.pickReady() == nil
 }
 
 // switchTo saves the current thread and resumes another.
@@ -203,6 +225,7 @@ func (m *Machine) switchTo(next *thread, curState threadState) {
 	}
 	next.state = thRunning
 	m.currentThread = next.id
+	m.idle = false
 	m.CPU.Restore(next.ctx)
 }
 
@@ -227,14 +250,9 @@ func (m *Machine) onThreadExit() {
 		t.state = thDead
 		m.note("thread %d exited", t.id)
 	}
-	next := m.pickReady()
-	if next == nil {
-		m.Halt("every thread has exited or is blocked")
-		return
+	if !m.resume() {
+		m.idle = true // maybe an interrupt or the IOP will make something runnable
 	}
-	next.state = thRunning
-	m.currentThread = next.id
-	m.CPU.Restore(next.ctx)
 }
 
 // Threads renders the thread table, the first thing to look at when a boot stops

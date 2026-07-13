@@ -58,6 +58,12 @@ func (m *Machine) Run(maxSteps uint64) Result {
 			return m.result(steps, "stop requested")
 		}
 
+		// The fake IOP's replies, which arrive a few thousand instructions after the EE
+		// asked for them rather than instantly.
+		if len(m.sifPending) > 0 {
+			m.sifTick()
+		}
+
 		// The frame clock. Everything time-based in this machine hangs off it.
 		vblAcc++
 		if vblAcc >= stepsPerVBlank {
@@ -65,6 +71,23 @@ func (m *Machine) Run(maxSteps uint64) Result {
 			m.deliverVBlank()
 			if m.Halted {
 				break
+			}
+		}
+
+		// Every thread is blocked. The CPU runs nothing at all — the clock above is the
+		// only thing still moving, and an interrupt or a reply from the IOP is what will
+		// make a thread ready again.
+		//
+		// If nothing *can* do that, the machine is genuinely deadlocked rather than
+		// waiting, and saying so is far more use than letting the step budget run out.
+		if m.idle {
+			steps++
+			m.steps++
+			if !m.resume() {
+				if m.blocked() {
+					return m.result(steps, "deadlocked: every thread is blocked, and nothing left can wake one")
+				}
+				continue
 			}
 		}
 
@@ -120,6 +143,7 @@ func (m *Machine) Run(maxSteps uint64) Result {
 
 		m.CPU.Step()
 		steps++
+		m.steps++
 	}
 
 	if m.CPU.Halted {

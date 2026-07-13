@@ -123,9 +123,36 @@ type Machine struct {
 	// The argument list SetupThread establishes for the program.
 	argc, argv uint32
 
-	// The SIF: the handshake registers and the DMA handle counter (sif.go).
-	sifRegs  [32]uint32
-	sifDmaID uint32
+	// DECI2 sockets handed out to the game's debug-output layer (kernel.go), and the
+	// descriptor each one was opened with.
+	deci2Sockets uint32
+	deci2Desc    map[uint32]uint32
+
+	// The SIF (sif.go): the handshake registers, the EE's command buffer and the
+	// handler it registered to consume packets, the queue of replies the fake IOP owes
+	// it, and the census of commands nobody answered.
+	sifRegs       [32]uint32
+	sifDmaID      uint32
+	sifCmdBuf     uint32
+	sifCmdHandler uint32
+	sifPending    []sifPacket
+	sifUnmodelled map[uint32]int
+
+	// The buffer of arguments the EE DMA'd across just before its last RPC call.
+	rpcSendBuf, rpcSendSize uint32
+
+	// The RPC servers the EE has bound to, and the calls it has made to them.
+	rpcServers  map[uint32]uint32 // server id -> synthetic handle
+	rpcServerOf map[uint32]uint32 // handle -> server id
+	rpcCalls    map[sifRPCKey]int
+
+	// idle is set when no thread can run. The CPU stops; only the clock advances, until
+	// an interrupt or a reply from the IOP makes something ready again.
+	idle bool
+
+	// steps counts every instruction the machine has run, across the whole session. The
+	// SIF's reply latency is measured in it.
+	steps uint64
 
 	vblanks uint32
 
@@ -157,18 +184,23 @@ type Machine struct {
 // NewMachine makes a PS2 with memory and a CPU, and nothing running on it.
 func NewMachine() *Machine {
 	m := &Machine{
-		ram:          make([]byte, ramSize),
-		spram:        make([]byte, spramSize),
-		iopRAM:       make([]byte, iopRAMSize),
-		io:           map[uint32]uint32{},
-		unmodelled:   map[uint32]int{},
-		SyscallCalls: map[string]int{},
-		breakpoints:  map[uint32]bool{},
-		logSeen:      map[string]bool{},
-		threads:      map[uint32]*thread{},
-		semas:        map[uint32]*sema{},
-		nextSemaID:   1,
-		userSyscalls: map[uint32]uint32{},
+		ram:           make([]byte, ramSize),
+		spram:         make([]byte, spramSize),
+		iopRAM:        make([]byte, iopRAMSize),
+		io:            map[uint32]uint32{},
+		unmodelled:    map[uint32]int{},
+		SyscallCalls:  map[string]int{},
+		breakpoints:   map[uint32]bool{},
+		logSeen:       map[string]bool{},
+		threads:       map[uint32]*thread{},
+		semas:         map[uint32]*sema{},
+		nextSemaID:    1,
+		userSyscalls:  map[uint32]uint32{},
+		sifUnmodelled: map[uint32]int{},
+		rpcServers:    map[uint32]uint32{},
+		rpcServerOf:   map[uint32]uint32{},
+		rpcCalls:      map[sifRPCKey]int{},
+		deci2Desc:     map[uint32]uint32{},
 	}
 	m.CPU = r5900.NewCPU(m)
 	m.CPU.Syscall = m.handleSyscall
@@ -257,8 +289,10 @@ func (m *Machine) mapMemory() {
 		page16M     = 0x1000                    // 16 MiB, counted in the 4 KiB frames a PFN counts
 		flags       = 0x01 | 0x02 | 0x04 | 0x18 // global | valid | dirty | cached
 	)
-	entry := func(i int, vaddr uint32) {
-		pfn := uint64(vaddr >> 12)
+	// entry maps 32 MiB of virtual space at vaddr onto 32 MiB of physical space at
+	// paddr. The two differ for the aliases below.
+	entry := func(i int, vaddr, paddr uint32) {
+		pfn := uint64(paddr >> 12)
 		m.CPU.SetTLB(i, r5900.TLBEntry{
 			PageMask: pageMask16M,
 			EntryHi:  uint64(vaddr),
@@ -267,16 +301,32 @@ func (m *Machine) mapMemory() {
 		})
 	}
 
-	// Main memory: 0x00000000..0x01FFFFFF.
-	entry(0, 0x00000000)
+	// Main memory: 0x00000000..0x01FFFFFF, cached.
+	entry(0, 0x00000000, 0x00000000)
 
 	// The peripherals and everything above them: 0x10000000..0x1FFFFFFF, in eight
 	// 32 MiB entries. Covering the range in one sweep — the EE's registers, the vector
 	// units' memories, the GS's privileged registers, the IOP's RAM — is cheaper than
 	// enumerating them and cannot leave a hole for a later peripheral to fall into.
 	for i := 0; i < 8; i++ {
-		entry(1+i, 0x10000000+uint32(i)*0x02000000)
+		entry(1+i, 0x10000000+uint32(i)*0x02000000, 0x10000000+uint32(i)*0x02000000)
 	}
+
+	// Main memory again, twice more.
+	//
+	// The kernel maps RAM at three virtual addresses, not one: cached at 0x00000000,
+	// *uncached* at 0x20000000, and uncached-accelerated at 0x30000000. They are the
+	// same 32 MiB seen through different cache behaviour, and PS2 code switches between
+	// them constantly — anything a DMA engine will read is written through an uncached
+	// alias, because a cached write might still be sitting in the cache when the DMA
+	// starts.
+	//
+	// This model has no caches, so the three are literally the same memory. But the
+	// *addresses* must translate, and a machine that maps only the cached one dies the
+	// first time the game touches a DMA structure. It is not a corner case: the EE's own
+	// SIF handler reads its command buffer through 0x2013B9C0.
+	entry(9, 0x20000000, 0x00000000)
+	entry(10, 0x30000000, 0x00000000)
 }
 
 // --- the bus ----------------------------------------------------------------

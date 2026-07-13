@@ -240,3 +240,176 @@ func TestSavestateRoundTrip(t *testing.T) {
 		t.Error("a savestate from another disc was accepted")
 	}
 }
+
+// --- the scheduler, the SIF and the RPC ---------------------------------------
+
+func TestBlockedThreadStopsRunning(t *testing.T) {
+	// The subtlest bug in the machine so far. A model that marks a thread blocked and
+	// then keeps executing it has not blocked it: SleepThread returns immediately, and
+	// every "ask the IOP, sleep, read the answer when you wake" sequence — which is all
+	// of them — reads the answer before it has arrived. The symptom is a *blocking* call
+	// that behaves like a polling one, and the game re-asking a question it should
+	// already have the answer to.
+	m := NewMachine()
+	m.LoadExecutable(&Executable{
+		Entry:    0x00100000,
+		Segments: []Segment{{VAddr: 0x00100000, Data: make([]byte, 16), MemSz: 16}},
+	})
+
+	m.sleepThread()
+
+	if got := m.threads[1].state; got != thSleeping {
+		t.Fatalf("SleepThread left the thread %v, not sleeping", got)
+	}
+	if !m.idle {
+		t.Fatal("every thread is blocked, but the machine is not idle — it will keep executing one of them")
+	}
+
+	// And a wakeup brings it back.
+	m.wakeupThread(1)
+	if !m.resume() {
+		t.Fatal("a woken thread did not become runnable")
+	}
+	if m.idle {
+		t.Error("the machine is still idle after a thread woke")
+	}
+}
+
+func TestWakeupBeforeSleepIsRemembered(t *testing.T) {
+	// The kernel counts wakeups; it does not flag them. A WakeupThread that lands before
+	// the matching SleepThread must make that sleep return at once, or the two race and
+	// the thread sleeps forever.
+	m := NewMachine()
+	m.LoadExecutable(&Executable{
+		Entry:    0x00100000,
+		Segments: []Segment{{VAddr: 0x00100000, Data: make([]byte, 16), MemSz: 16}},
+	})
+
+	m.wakeupThread(1) // arrives first
+	m.sleepThread()
+
+	if m.threads[1].state == thSleeping {
+		t.Error("a sleep after an early wakeup blocked anyway — the wakeup was not remembered")
+	}
+	if m.idle {
+		t.Error("the machine went idle on a sleep that should not have blocked")
+	}
+}
+
+func TestSifCommandAndDataDescriptorsAreToldApart(t *testing.T) {
+	// A SIF call hands over two buffers: the arguments, then the command packet. A
+	// command packet always has a cid with the top bit set; nothing else does. Feed the
+	// argument buffer to the command dispatcher and it reads a "command" of 0x6F726463 —
+	// "cdro", the first four bytes of the path the game was trying to pass.
+	m := NewMachine()
+	m.LoadExecutable(&Executable{
+		Entry:    0x00100000,
+		Segments: []Segment{{VAddr: 0x00100000, Data: make([]byte, 16), MemSz: 16}},
+	})
+
+	const args = 0x00110000
+	const pkt = 0x00120000
+	const desc = 0x00130000
+
+	copy(m.ram[args:], "cdrom0:\\DRIVERS\\SIO2MAN.IRX;1\x00")
+
+	// The command packet: CHANGE_SADDR, whose payload is the EE's command buffer.
+	m.Write32(pkt+0x00, 0x14)
+	m.Write32(pkt+0x08, sifCmdChangeSaddr)
+	m.Write32(pkt+0x10, 0x0013B9C0)
+
+	m.Write32(desc+0x00, args) // descriptor 0: the arguments
+	m.Write32(desc+0x08, 32)
+	m.Write32(desc+0x10, pkt) // descriptor 1: the command
+	m.Write32(desc+0x18, 0x14)
+
+	m.CPU.SetReg(4, desc)
+	m.CPU.SetReg(5, 2)
+	m.sifSetDma()
+
+	if m.sifCmdBuf != 0x0013B9C0 {
+		t.Errorf("the command packet was not processed: cmdBuf = 0x%08X", m.sifCmdBuf)
+	}
+	if len(m.sifUnmodelled) != 0 {
+		for cid := range m.sifUnmodelled {
+			t.Errorf("the argument buffer was dispatched as a command: 0x%08X (%q)",
+				cid, string([]byte{byte(cid), byte(cid >> 8), byte(cid >> 16), byte(cid >> 24)}))
+		}
+	}
+	if uint32(m.CPU.Reg(2)) == 0 {
+		t.Error("sceSifSetDma returned a zero handle, which the caller reads as failure")
+	}
+}
+
+func TestRPCBindAnswersWithANonNullServer(t *testing.T) {
+	// The EE tests the handle before it will call through it, so it must not be zero, and
+	// it must be stable — the same server id asked for twice is the same server.
+	m := NewMachine()
+	m.LoadExecutable(&Executable{
+		Entry:    0x00100000,
+		Segments: []Segment{{VAddr: 0x00100000, Data: make([]byte, 16), MemSz: 16}},
+	})
+
+	a := m.rpcServerHandle(0x80000006)
+	b := m.rpcServerHandle(0x80000001)
+	c := m.rpcServerHandle(0x80000006)
+
+	if a == 0 || b == 0 {
+		t.Fatal("a server handle is zero, which the EE reads as a failed bind")
+	}
+	if a == b {
+		t.Error("two different servers got the same handle")
+	}
+	if a != c {
+		t.Error("the same server got two different handles")
+	}
+	if m.rpcServerOf[a] != 0x80000006 {
+		t.Error("a handle does not map back to its server id")
+	}
+}
+
+func TestSifReplyWaitsForTheEEToConsumeTheLastOne(t *testing.T) {
+	// The EE's handler zeroes the packet's first byte when it has read it. A non-zero
+	// psize means the last packet is still there unread, and writing over it would lose
+	// a command.
+	m := NewMachine()
+	m.LoadExecutable(&Executable{
+		Entry:    0x00100000,
+		Segments: []Segment{{VAddr: 0x00100000, Data: make([]byte, 16), MemSz: 16}},
+	})
+	m.sifCmdBuf = 0x00110000
+	m.sifCmdHandler = 0x00100000 // a handler that does nothing (the memory is zeroed)
+
+	m.Write32(m.sifCmdBuf, 0x18) // an unconsumed packet is sitting there
+
+	if m.sifDeliver([]uint32{0x18, 0, sifCmdSetSreg, 0, 0, 1}) {
+		t.Error("a packet was written over one the EE had not consumed yet")
+	}
+
+	m.Write32(m.sifCmdBuf, 0) // now the EE has read it
+	if !m.sifDeliver([]uint32{0x18, 0, sifCmdSetSreg, 0, 0, 1}) {
+		t.Fatal("a packet was refused even though the buffer was free")
+	}
+	if got := m.Read32(m.sifCmdBuf + 8); got != sifCmdSetSreg {
+		t.Errorf("the delivered packet has cid 0x%08X, want SET_SREG", got)
+	}
+}
+
+func TestIOPReportsItselfReady(t *testing.T) {
+	// The EE will not talk to the IOP until register 0 says it is there, and it sits in a
+	// loop printing "Syncing..." until register 4 says it has finished rebooting. There is
+	// no IOP to be absent or to reboot — it is a Go program — so both are always true.
+	m := NewMachine()
+
+	m.CPU.SetReg(4, sifRegIOPAlive)
+	m.sifGetReg()
+	if uint32(m.CPU.Reg(2))&sifIOPAlive == 0 {
+		t.Error("the IOP does not report itself alive; the EE will never speak to it")
+	}
+
+	m.CPU.SetReg(4, sifRegIOPReset)
+	m.sifGetReg()
+	if uint32(m.CPU.Reg(2))&sifIOPRebootDone == 0 {
+		t.Error("the IOP does not report its reboot finished; the game syncs forever")
+	}
+}

@@ -50,8 +50,18 @@ func (m *Machine) addDmacHandler() {
 	cause, addr, _, arg := m.arg(0), m.arg(1), m.arg(2), m.arg(3)
 	m.dmacHandlers = append(m.dmacHandlers, handler{cause: cause, addr: addr, arg: arg})
 	m.note("AddDmacHandler channel=%d -> %s", cause, m.Sym(addr))
+
+	// Channel 5 is SIF0, the IOP-to-EE direction. The routine registered on it is how
+	// a command packet from the IOP gets read, so the fake IOP needs to know it: it is
+	// the only way anything this machine invents reaches the game.
+	if cause == dmacChannelSIF0 {
+		m.sifCmdHandler = addr
+	}
 	m.setRet(uint32(len(m.dmacHandlers)))
 }
+
+// dmacChannelSIF0 is the DMA channel carrying packets from the IOP to the EE.
+const dmacChannelSIF0 = 5
 
 // deliverVBlank advances the frame clock and runs whatever the game registered for
 // the vertical blank.
@@ -80,8 +90,6 @@ func (m *Machine) deliverVBlank() {
 		}
 		m.callGuest(h.addr, h.arg)
 	}
-
-	m.wakeSleepers()
 }
 
 // callGuest runs a guest routine to completion on the current stack and returns its
@@ -107,15 +115,41 @@ func (m *Machine) callGuest(entry uint32, args ...uint32) uint32 {
 
 	const budget = 8 << 20
 	var ret uint64
+	done := false
 	for i := 0; i < budget; i++ {
-		if uint32(m.CPU.PC) == intrExitAddr {
+		pc := uint32(m.CPU.PC)
+		if pc == intrExitAddr {
 			ret = m.CPU.Reg(2)
+			done = true
 			break
 		}
 		if m.CPU.Halted || m.Halted {
 			break
 		}
+		// The instrumentation hook runs here too. A handler the oracle cannot trace is
+		// an instrument with a hole in it: -trace and -logpc would go quiet for exactly
+		// the code that runs on an interrupt, which is the code hardest to reason about
+		// from a listing.
+		if m.OnStep != nil {
+			m.OnStep(m, pc)
+		}
+		// A fault inside a handler is silent otherwise: the CPU vectors to an empty
+		// exception vector, decodes zeroes as nops, and slides until the budget runs out.
+		// The handler simply "does nothing", which is indistinguishable from a handler
+		// that had nothing to do.
+		if r, faulted := m.unhandledException(pc); faulted {
+			m.note("callGuest: %s faulted — %s", m.Sym(entry), r)
+			break
+		}
+		if !m.mapped(phys(pc)) {
+			m.note("callGuest: %s left mapped memory at 0x%08X", m.Sym(entry), pc)
+			break
+		}
 		m.CPU.Step()
+		m.steps++
+	}
+	if !done {
+		m.note("callGuest: %s did not return within its budget", m.Sym(entry))
 	}
 
 	m.CPU.Restore(saved)

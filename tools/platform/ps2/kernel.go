@@ -205,7 +205,7 @@ var syscalls = map[uint32]syscallEntry{
 	122: {"sceSifGetReg", func(m *Machine) { m.sifGetReg() }},
 
 	123: {"ExecOSD", nil},
-	124: {"Deci2Call", func(m *Machine) { m.setRet(0) }},
+	124: {"Deci2Call", func(m *Machine) { m.deci2Call() }},
 	125: {"PSMode", func(m *Machine) { m.setRet(0) }},
 	126: {"MachineType", func(m *Machine) { m.setRet(0) }},
 	127: {"GetMemorySize", func(m *Machine) { m.setRet(ramSize) }},
@@ -292,6 +292,82 @@ func (m *Machine) setupHeap() {
 	}
 	m.note("SetupHeap: 0x%08X..0x%08X (%d KiB)", m.heapPtr, m.heapEnd, (m.heapEnd-m.heapPtr)/1024)
 	m.setRet(m.heapEnd)
+}
+
+// --- DECI2 -------------------------------------------------------------------
+
+// deci2Call is syscall 124, the debug link.
+//
+// DECI2 is how a development kit talks to a host PC, and it is where the game's own
+// debug output goes. There is no host here — but the game does not check for one. It
+// opens a socket, hands it a packet, and *waits for the send to complete*, so refusing
+// to open the socket sends it round sceDeci2Open forever and accepting the open but
+// never completing a send stalls it in sceTtyWrite.
+//
+// So the link is modelled as present and instantly drained, which is all a send needs
+// to mean. The reward is the game's debug output: GOAL's kernel narrates its own boot,
+// and the first thing it says is "Initializing CD drive".
+//
+// The wire format is the game's own, read off a stalled send rather than assumed:
+//
+//	socket descriptor (the `addr` passed to open)
+//	  +0x04  the message length
+//	  +0x0C  non-zero while a send is outstanding — this is what sceTtyWrite spins on
+//	  +0x10  the packet
+//
+//	packet
+//	  +0x00  u16 total length, header included
+//	  +0x04  u16 protocol
+//	  +0x06  source and destination bytes
+//	  +0x0C  the text
+func (m *Machine) deci2Call() {
+	fn, param := m.arg(0), m.arg(1)
+
+	const (
+		deci2Open    = 1
+		deci2Close   = 2
+		deci2ReqSend = 3
+		deci2Poll    = 4
+		deci2ExRecv  = 5
+		deci2ExSend  = 6
+		deci2KPuts   = 7
+
+		deci2HeaderSize = 12
+	)
+
+	switch fn {
+	case deci2Open:
+		// {protocol, addr, handler}. A socket id of zero reads as failure, so they start
+		// at one. The descriptor is kept: a send names only the socket.
+		m.deci2Sockets++
+		m.deci2Desc[m.deci2Sockets] = m.Read32(param + 4)
+		m.setRet(m.deci2Sockets)
+
+	case deci2ReqSend:
+		desc := m.deci2Desc[m.Read32(param)]
+		if desc == 0 {
+			m.setRet(0xFFFFFFFF)
+			return
+		}
+		pkt := m.Read32(desc + 0x10)
+		n := int(m.Read32(pkt) & 0xFFFF)
+		if n > deci2HeaderSize {
+			m.tty = append(m.tty, m.ReadMem(pkt+deci2HeaderSize, n-deci2HeaderSize)...)
+		}
+		// The send is complete. Clearing this is what releases sceTtyWrite.
+		m.Write32(desc+0x0C, 0)
+		m.setRet(0)
+
+	case deci2Poll:
+		m.setRet(0) // nothing outstanding: every send finished the moment it was made
+
+	case deci2KPuts:
+		m.tty = append(m.tty, m.CString(m.Read32(param))...)
+		m.setRet(1)
+
+	default:
+		m.setRet(0)
+	}
 }
 
 // --- the census ---------------------------------------------------------------

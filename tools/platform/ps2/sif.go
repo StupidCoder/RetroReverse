@@ -1,29 +1,341 @@
 package ps2
 
+import "sort"
+
 // sif.go is the boundary between the two processors, with the far side faked.
 //
 // A PS2 has a second CPU, the IOP — a MIPS R3000A, the PlayStation's chip — which
 // owns the disc drive, the sound chip and the controllers. The EE reaches it across
-// the SIF: a DMA path plus a remote-procedure-call protocol, and a set of shared
-// registers used as a handshake. The disc ships the IOP's own modules (OVERLORD.IRX,
+// the SIF: a DMA path carrying command packets, plus a remote-procedure-call layer
+// built on top of them. The disc ships the IOP's own modules (OVERLORD.IRX,
 // 989SND.IRX, PADMAN.IRX) to be uploaded and run there.
 //
-// None of that runs yet. This file is a stand-in: it answers the EE as the IOP would,
-// with Go, so the EE-side boot can be taken to the GOAL main loop without a second
-// interpreter in the way. Everything it does is logged, so the shape of the protocol
-// the game actually uses is measured rather than guessed — which is what the phase
-// that *does* run the IOP will be built from.
+// None of that runs yet. This file answers the EE as the IOP would, in Go.
 //
-// The real thing is not far off: tools/cpu/mips already models the R3000A exactly,
-// and IRX modules import from the IOP kernel through stub tables of the same shape
-// the PSP's PRX modules use, so the trick that HLEs those applies here too.
+// The pleasant surprise is how little forging that takes, because the EE does its own
+// unpacking. A command packet is:
+//
+//	+0x00  psize in the low byte, dsize in the upper three
+//	+0x04  dest        where the data half should land
+//	+0x08  cid         the command; bit 31 selects the system handler table
+//	+0x0C  opt
+//	+0x10  payload
+//
+// and the EE registers `_sceSifCmdIntrHdlr` on DMA channel 5 to consume them. That
+// routine reads psize from the packet's first *byte*, copies the packet out, zeroes
+// that byte to mark it consumed, and dispatches on cid. So the IOP's whole side of the
+// conversation is: write a packet into the buffer the EE nominated, and run the EE's
+// own handler over it. The game does the rest with its own code — nothing here has to
+// know where its SIF registers live or what its handlers do.
+//
+// The real thing is not far off: tools/cpu/mips already models the R3000A exactly, and
+// IRX modules import from the IOP kernel through stub tables of the same shape the
+// PSP's PRX modules use, so the trick that HLEs those applies here too. When that
+// lands, this file is what it replaces.
 
-// sifSetReg / sifGetReg are the shared handshake registers. The kernel keeps 32 of
-// them; the boot uses a couple to agree with the IOP that both sides are alive.
+// The system commands, indexed by the low bits of the cid.
+const (
+	sifCmdChangeSaddr = 0x80000000 // the EE tells the IOP where its command buffer is
+	sifCmdSetSreg     = 0x80000001 // the IOP writes one of the EE's SIF registers
+	sifCmdInitCmd     = 0x80000002 // the EE brings the command and RPC layers up
+	sifCmdReset       = 0x80000003
+
+	sifCmdRpcEnd   = 0x80000008 // the IOP: your request is finished
+	sifCmdRpcBind  = 0x80000009 // the EE: give me a handle for this server
+	sifCmdRpcCall  = 0x8000000A // the EE: run this function on that server
+	sifCmdRpcRData = 0x8000000C
+)
+
+// sifRPCInitSreg is the SIF register the EE polls to learn that the IOP's RPC layer is
+// up. sceSifInitRpc spins on it and will not return until it is non-zero — which,
+// with no IOP, it never would.
+const (
+	sifRPCInitSreg = 0
+	sifRPCReady    = 1
+)
+
+// sifLatency is how long the fake IOP takes to answer, in EE instructions.
+//
+// It is not zero on purpose. Answering inside the send would let a reply be processed
+// before the sender had finished updating the state the handler reads — a race that
+// cannot happen on hardware, where the IOP is a separate chip and the reply arrives as
+// an interrupt some time later. A few thousand instructions is short enough that a
+// polling loop does not trip the spin detector, and long enough that the sender always
+// finishes first.
+const sifLatency = 4000
+
+// sifPacket is one command packet on its way to the EE.
+type sifPacket struct {
+	at   uint64 // the step count at which it should arrive
+	data []uint32
+}
+
+// sifSetDma is syscall 119: the EE handing buffers to the IOP. Each descriptor is
+// {src, dest, size, attr}.
+//
+// A call carries two of them — the arguments and then the command packet — and telling
+// them apart matters. A command packet always has a cid with the top bit set at +0x08;
+// nothing else does. Feeding the argument buffer to the command dispatcher instead
+// yields a "command" of 0x6F726463, which is "cdro" — the first four bytes of
+// "cdrom0:\DRIVERS\SIO2MAN.IRX;1", the path the game was trying to pass.
+//
+// The argument buffer stays in EE memory, so remembering where it was is all a served
+// call needs to read it.
+func (m *Machine) sifSetDma() {
+	desc, count := m.arg(0), m.arg(1)
+	for i := uint32(0); i < count; i++ {
+		d := desc + i*16
+		src := m.Read32(d + 0x00)
+		size := m.Read32(d + 0x08)
+
+		if size >= 16 && m.Read32(src+0x08)&0x80000000 != 0 {
+			m.iopReceive(src, size)
+			m.rpcSendBuf, m.rpcSendSize = 0, 0
+			continue
+		}
+		m.rpcSendBuf, m.rpcSendSize = src, size
+	}
+	// A handle of zero means failure, and the caller checks. It must never be zero.
+	m.sifDmaID++
+	m.setRet(m.sifDmaID)
+}
+
+// iopReceive is the IOP's side: one command packet arrives from the EE.
+func (m *Machine) iopReceive(src, size uint32) {
+	if size < 16 {
+		return
+	}
+	cid := m.Read32(src + 0x08)
+	opt := m.Read32(src + 0x0C)
+
+	switch cid {
+	case sifCmdChangeSaddr:
+		// The EE nominates the buffer it wants replies written into. Everything this
+		// file sends goes here, and it is the only address it needs to know.
+		m.sifCmdBuf = m.Read32(src + 0x10)
+		m.note("SIF: the EE's command buffer is at 0x%08X", m.sifCmdBuf)
+
+	case sifCmdInitCmd:
+		// The EE is bringing its command and RPC layers up, and is about to spin waiting
+		// for the IOP to say its own RPC layer is ready. The IOP says so by writing the
+		// EE's SIF register 0 — which it does by sending a SET_SREG command back.
+		m.note("SIF: the EE initialised its RPC layer (opt=%d); answering that the IOP's is ready", opt)
+		m.sifSend(sifCmdSetSreg, 0, sifRPCInitSreg, sifRPCReady)
+
+	case sifCmdReset:
+		m.note("SIF: reset")
+
+	case sifCmdRpcBind:
+		m.rpcBind(src)
+
+	case sifCmdRpcCall:
+		m.rpcCall(src)
+
+	default:
+		m.note("SIF: unmodelled command 0x%08X (opt=0x%08X) from %s — %d bytes at 0x%08X",
+			cid, opt, m.Sym(uint32(m.CPU.CurPC())), size, src)
+		m.sifUnmodelled[cid]++
+	}
+}
+
+// --- the RPC layer -----------------------------------------------------------
+//
+// A remote call is two packets. The EE sends BIND (or CALL) and blocks; the IOP does
+// the work and sends END back, and the EE's `_request_end` handler unblocks the
+// waiting thread. END carries, at +0x20, the *kind* of request it is ending — which is
+// how one handler serves both.
+//
+// The layouts below were read out of `_request_end` itself rather than assumed: it is
+// the code that consumes these fields, so it is the authority on where they are.
+
+// rpcBind answers a bind request. The EE wants a handle for a server id; it gets a
+// synthetic one, stable per id, and the boot proceeds.
+func (m *Machine) rpcBind(src uint32) {
+	recID := m.Read32(src + 0x10)
+	pktAddr := m.Read32(src + 0x14)
+	rpcID := m.Read32(src + 0x18)
+	client := m.Read32(src + 0x1C)
+	sid := m.Read32(src + 0x20)
+
+	server := m.rpcServerHandle(sid)
+	m.note("SIF RPC: the EE bound to server 0x%08X (handle 0x%08X)", sid, server)
+
+	// _request_end reads: [+0x1C] client, [+0x20] which request, [+0x24] server,
+	// [+0x28] buff, [+0x2C] cbuff — and writes the last three into the client struct.
+	m.sifSend(sifCmdRpcEnd, 0,
+		recID, pktAddr, rpcID, client,
+		sifCmdRpcBind,
+		server, 0, 0)
+}
+
+// rpcServerHandle invents a stable, non-null handle for a server id. It must be
+// non-null: the EE tests the handle before it will call through it.
+func (m *Machine) rpcServerHandle(sid uint32) uint32 {
+	if h, ok := m.rpcServers[sid]; ok {
+		return h
+	}
+	h := rpcServerBase + uint32(len(m.rpcServers))*0x40
+	m.rpcServers[sid] = h
+	m.rpcServerOf[h] = sid
+	return h
+}
+
+// rpcServerBase is where the synthetic server handles live. They are never
+// dereferenced by the EE — it only passes them back — so they need to be distinct and
+// non-null, not real.
+const rpcServerBase = 0x1C100000
+
+// The IOP services the game binds to. The first two are Sony's; the 0x59x range is
+// Naughty Dog's own — those are the servers inside OVERLORD.IRX, and they are the ones
+// that will still need the real IOP.
+const (
+	rpcServerFileIO   = 0x80000001 // the file system
+	rpcServerLoadFile = 0x80000006 // the IOP module loader
+)
+
+// rpcVersion is the function every Sony IOP service answers with its version string.
+// The loader's is checked before a single module is loaded: `_lf_version` compares four
+// bytes against "2210", and a mismatch fails the load with "loading sio2man.irx failed"
+// and no further explanation. The number matches IOPRP221.IMG, the module archive on
+// this disc.
+const (
+	rpcVersion  = 255
+	loadFileVer = "2210"
+)
+
+// rpcCall answers a call request. Which server and which function are recorded, because
+// that census *is* the reverse engineering of the IOP's protocol: the game tells us its
+// own service interface, one call at a time.
+func (m *Machine) rpcCall(src uint32) {
+	recID := m.Read32(src + 0x10)
+	pktAddr := m.Read32(src + 0x14)
+	rpcID := m.Read32(src + 0x18)
+	client := m.Read32(src + 0x1C)
+	fno := m.Read32(src + 0x20)
+	sendSize := m.Read32(src + 0x24)
+	recv := m.Read32(src + 0x28)
+	recvSize := m.Read32(src + 0x2C)
+	server := m.Read32(src + 0x34)
+
+	sid := m.rpcServerOf[server]
+	key := sifRPCKey{sid: sid, fno: fno}
+	m.rpcCalls[key]++
+
+	if m.rpcCalls[key] == 1 {
+		m.note("SIF RPC: call server 0x%08X fn %d — %d bytes out, %d bytes back into 0x%08X",
+			sid, fno, sendSize, recvSize, recv)
+	}
+
+	m.rpcServe(sid, fno, recv, recvSize)
+
+	// The reply always goes out, answered or not. Without it the thread that made the
+	// call never wakes, and the boot stops there rather than going on to tell us what it
+	// wanted next.
+	m.sifSend(sifCmdRpcEnd, 0, recID, pktAddr, rpcID, client, sifCmdRpcCall)
+}
+
+// rpcServe is the IOP's side of a call: it writes the reply into the EE's receive
+// buffer. Anything not handled leaves the buffer alone, which the census records.
+//
+// The version answers here are the game's own minimums, read out of the code that
+// checks them rather than invented. Jak refuses to run against an IOP module it thinks
+// is too old, and says so — "libmc: too old release of mcserv.irx" — so each check is a
+// signpost. sceMcInit compares the memory-card service's version against 522 and gives
+// up below it; the loader compares four bytes against "2210".
+//
+// Reporting a number the game accepts is a stand-in, not an answer. The real version is
+// inside MCSERV.IRX, which is on the disc, and the module that would report it is the
+// module we are not running. This is the clearest argument in the whole machine for
+// running the IOP for real.
+func (m *Machine) rpcServe(sid, fno, recv, recvSize uint32) {
+	if recv == 0 || recvSize == 0 {
+		return
+	}
+	switch {
+	case sid == rpcServerLoadFile && fno == rpcVersion:
+		m.writeString(recv, loadFileVer, recvSize)
+
+	case sid == rpcServerMemCard && fno == mcFnInit && recvSize >= 12:
+		// The reply is {result, mcservVersion, mcmanVersion}. sceMcInit checks both, and
+		// names whichever one it dislikes.
+		m.Write32(recv+4, mcServMinVersion)
+		m.Write32(recv+8, mcManMinVersion)
+	}
+}
+
+const (
+	rpcServerMemCard = 0x80000400 // the memory-card service, in MCSERV.IRX
+	mcFnInit         = 254
+
+	// The lowest versions sceMcInit will accept, read off the two comparisons in it.
+	mcServMinVersion = 522
+	mcManMinVersion  = 526
+)
+
+// writeString writes at most n bytes of s into guest memory.
+func (m *Machine) writeString(addr uint32, s string, n uint32) {
+	for i := 0; i < len(s) && uint32(i) < n; i++ {
+		m.Write(addr+uint32(i), s[i])
+	}
+}
+
+// sifRPCKey names one remote procedure: a server and a function number.
+type sifRPCKey struct {
+	sid uint32
+	fno uint32
+}
+
+// sifSend queues a command packet for the EE. It is delivered by sifTick, once the
+// latency has elapsed.
+func (m *Machine) sifSend(cid, opt uint32, payload ...uint32) {
+	pkt := make([]uint32, 4+len(payload))
+	pkt[0] = uint32(16 + 4*len(payload)) // psize; dsize stays zero
+	pkt[1] = 0                           // dest: there is no data half
+	pkt[2] = cid
+	pkt[3] = opt
+	copy(pkt[4:], payload)
+	m.sifPending = append(m.sifPending, sifPacket{at: m.steps + sifLatency, data: pkt})
+}
+
+// sifTick delivers any packet whose time has come. The run loop calls it.
+func (m *Machine) sifTick() {
+	for len(m.sifPending) > 0 && m.steps >= m.sifPending[0].at {
+		p := m.sifPending[0]
+		if !m.sifDeliver(p.data) {
+			return // the EE has not consumed the last one yet; try again next step
+		}
+		m.sifPending = m.sifPending[1:]
+	}
+}
+
+// sifDeliver writes a packet into the EE's command buffer and runs the EE's own
+// interrupt handler over it. It reports false when the buffer is still occupied.
+func (m *Machine) sifDeliver(pkt []uint32) bool {
+	if m.sifCmdBuf == 0 || m.sifCmdHandler == 0 {
+		return true // nowhere to put it, and nobody to read it: drop it
+	}
+	// The handler zeroes the packet's first byte when it has consumed it. A non-zero
+	// psize means the last packet is still sitting there unread, and overwriting it
+	// would lose a command.
+	if m.Read32(m.sifCmdBuf)&0xFF != 0 {
+		return false
+	}
+	for i, w := range pkt {
+		m.Write32(m.sifCmdBuf+uint32(i)*4, w)
+	}
+	m.callGuest(m.sifCmdHandler, 0)
+	return true
+}
+
+// --- the shared registers ----------------------------------------------------
+//
+// These are the handshake registers the two chips read and write directly, distinct
+// from the SIF registers (SREGs) that live in EE memory and are kept in step by
+// SET_SREG packets.
+
 func (m *Machine) sifSetReg() {
 	reg, val := m.arg(0), m.arg(1)
 	m.sifRegs[reg&0x1F] = val
-	m.note("SifSetReg %d = 0x%08X", reg&0x1F, val)
 	m.setRet(0)
 }
 
@@ -31,30 +343,67 @@ func (m *Machine) sifGetReg() {
 	reg := m.arg(0) & 0x1F
 	v := m.sifRegs[reg]
 
-	// Register 0 is the one the EE polls to learn whether the IOP has finished
-	// booting. The IOP is not running, so nothing would ever set it — and the EE's
-	// wait loop would spin forever. Reporting it ready is the whole of the fake.
-	if reg == 0 && v == 0 {
-		v = sifIOPReady
+	switch reg {
+	case sifRegIOPAlive:
+		// The EE will not talk to the IOP at all until this says it is there. Nothing
+		// would ever set it, because nothing is there.
+		v |= sifIOPAlive
+
+	case sifRegIOPReset:
+		// The game reboots the IOP at boot — it loads a fresh set of modules over the
+		// ones the BIOS left — and then sits in a loop printing "Syncing..." until
+		// sceSifSyncIop sees this bit. There is no IOP to reboot: it is a Go program, and
+		// it is always finished starting. So the bit is always set.
+		v |= sifIOPRebootDone
 	}
 	m.setRet(v)
 }
 
-// sifIOPReady is the value the EE's synchronisation loop is waiting to see.
-const sifIOPReady = 0x00000001
+// The shared registers the EE reads to find out about the IOP.
+const (
+	sifRegIOPAlive = 0 // "the IOP is there"
+	sifRegIOPReset = 4 // "the IOP has finished rebooting"
 
-// sifSetDma queues a transfer to the IOP. There is nothing on the other end, so the
-// transfer is recorded and reported complete. A non-zero handle is required: the
-// caller passes it to SifDmaStat and treats zero as failure.
-func (m *Machine) sifSetDma() {
-	desc, count := m.arg(0), m.arg(1)
-	for i := uint32(0); i < count; i++ {
-		d := desc + i*32
-		src, dst, size := m.Read32(d+0x00), m.Read32(d+0x04), m.Read32(d+0x08)
-		m.note("SifSetDma: %d bytes from EE 0x%08X to IOP 0x%08X", size, src, dst)
-		_ = dst
-		_ = src
+	sifIOPAlive      = 0x00000001
+	sifIOPRebootDone = 0x00040000
+)
+
+// SIFCensus reports what the EE asked the IOP for: the remote calls it made, and any
+// SIF command nothing answered. It is the IOP's work list, exactly as the syscall
+// census is the kernel's — and, since the servers on the other side are the game's own
+// IOP modules, it is also the reverse engineering of their interface.
+func (m *Machine) SIFCensus() string {
+	if len(m.rpcCalls) == 0 && len(m.sifUnmodelled) == 0 {
+		return ""
 	}
-	m.sifDmaID++
-	m.setRet(m.sifDmaID)
+	s := "the EE's requests to the IOP:\n"
+
+	if len(m.rpcServers) > 0 {
+		var sids []uint32
+		for sid := range m.rpcServers {
+			sids = append(sids, sid)
+		}
+		sort.Slice(sids, func(i, j int) bool { return sids[i] < sids[j] })
+		for _, sid := range sids {
+			s += sprintf("  server 0x%08X\n", sid)
+			type fn struct {
+				fno uint32
+				n   int
+			}
+			var fns []fn
+			for k, n := range m.rpcCalls {
+				if k.sid == sid {
+					fns = append(fns, fn{k.fno, n})
+				}
+			}
+			sort.Slice(fns, func(i, j int) bool { return fns[i].n > fns[j].n })
+			for _, f := range fns {
+				s += sprintf("      fn %-4d  %d call%s\n", f.fno, f.n, plural(f.n))
+			}
+		}
+	}
+	for cid, n := range m.sifUnmodelled {
+		s += sprintf("  unanswered command 0x%08X  %d\n", cid, n)
+	}
+	return s
 }

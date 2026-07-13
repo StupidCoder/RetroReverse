@@ -79,8 +79,11 @@ type MachineState struct {
 
 	GsInterlace, GsVideoMode, GsFieldMode, GsIMR uint32
 
-	SifRegs  [32]uint32
-	SifDmaID uint32
+	SifRegs       [32]uint32
+	SifDmaID      uint32
+	SifCmdBuf     uint32
+	SifCmdHandler uint32
+	Steps         uint64
 
 	// The syscalls the game replaced with its own routines. Losing these on load is
 	// not a visible failure: the calls still "work", they just quietly do nothing,
@@ -119,6 +122,9 @@ func (m *Machine) SaveState() MachineState {
 		GsIMR:         m.gsIMR,
 		SifRegs:       m.sifRegs,
 		SifDmaID:      m.sifDmaID,
+		SifCmdBuf:     m.sifCmdBuf,
+		SifCmdHandler: m.sifCmdHandler,
+		Steps:         m.steps,
 		UserSyscalls:  map[uint32]uint32{},
 		NextSemaID:    m.nextSemaID,
 		HeapPtr:       m.heapPtr,
@@ -209,6 +215,9 @@ func (m *Machine) LoadState(s MachineState) error {
 	m.gsInterlace, m.gsVideoMode, m.gsFieldMode = s.GsInterlace, s.GsVideoMode, s.GsFieldMode
 	m.gsIMR = s.GsIMR
 	m.sifRegs, m.sifDmaID = s.SifRegs, s.SifDmaID
+	m.sifCmdBuf, m.sifCmdHandler = s.SifCmdBuf, s.SifCmdHandler
+	m.steps = s.Steps
+	m.sifPending = nil
 
 	m.userSyscalls = map[uint32]uint32{}
 	for k, v := range s.UserSyscalls {

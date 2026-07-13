@@ -8,14 +8,20 @@ package ps2
 // deadlocks — a semaphore nobody signals is a thread that never runs again — so the
 // count is modelled honestly rather than made permissive.
 
-// semaParam is the struct CreateSema is handed a pointer to.
+// The struct CreateSema is handed a pointer to:
 //
-//	0x00 count       the initial count
+//	0x00 count        the *live* count — output, not input
 //	0x04 maxCount
-//	0x08 initCount
+//	0x08 initCount    what the semaphore starts at
 //	0x0C waitThreads
 //	0x10 attr
 //	0x14 option
+//
+// The initial count comes from initCount, not from count. Jak creates two semaphores
+// at boot: one with initCount 0 (a signal, nobody may pass until someone posts) and one
+// with initCount 1 (a mutex, free). Read the wrong field and the mutex is born locked,
+// so the first thread to take it blocks forever — and the boot deadlocks with two
+// threads waiting on semaphores and no clue why.
 type sema struct {
 	id       uint32
 	count    int32
@@ -27,7 +33,7 @@ func (m *Machine) createSema() {
 	p := m.arg(0)
 	s := &sema{
 		id:       m.nextSemaID,
-		count:    int32(m.Read32(p + 0x00)),
+		count:    int32(m.Read32(p + 0x08)), // initCount
 		maxCount: int32(m.Read32(p + 0x04)),
 	}
 	m.nextSemaID++
