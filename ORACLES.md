@@ -146,7 +146,7 @@ behind a 16-byte header, aligned so the page wraps the bytes in an `ImageData` w
 |---|---|
 | **Frame-step** | one video field at a time, or "step to a drawn frame" — skip the idle fields a boot is full of |
 | **Play** | free-run the machine and stream the scanout (~20 fps on Pilotwings), capturing nothing. How you fast-forward to the part of the game you want to look at. Pausing lands on a full capture |
-| **Command scrub** | drag through the frame's RDP command stream and watch the picture assemble, command by command |
+| **Command scrub** | drag through the frame's RDP command stream and watch the picture assemble, command by command. On a target that backs `debug.BatchReplayer` (3DS), the positions a drag is about to land on are replayed **in parallel on independent scratch machines** and cached — 2.3× on an eight-position drag. Free of any determinism question: each replay restores the same snapshot into a machine of its own and throws it away |
 | **Click a pixel → the command that drew it** | plus its **full overdraw history**, including the writes the rasteriser produced and then *threw away* on a depth or alpha test — usually the answer to "why is this pixel not the colour I expect?" |
 | **Select a command → every pixel it drew** | highlighted as an overlay |
 | **Inspect** | CPU registers, RDRAM hex |

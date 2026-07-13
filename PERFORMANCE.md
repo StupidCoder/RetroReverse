@@ -1,9 +1,10 @@
 # Making the oracles faster
 
-**Status (2026-07-13): done for the 3DS. The frame went from 256.8 ms to 105.7 ms — 2.4× — and
-it is byte-identical.** Read *Phase 0 — the results* and *What was actually done* below; the
-original plan (kept, below the line) guessed the ordering and got most of it wrong, which is
-exactly what Phase 0 existed to find out.
+**Status (2026-07-13): done for the 3DS. The frame went from 256.8 ms to 93.3 ms — 2.75× — and
+it is byte-identical. The frame debugger's scrubber is 2.3× on top of that.**
+Read *Phase 0 — the results* and *What was actually done* below; the original plan (kept, below
+the line) guessed the ordering and got most of it wrong, which is exactly what Phase 0 existed to
+find out.
 
 A plan, ordered cheapest-and-safest first.
 
@@ -203,7 +204,7 @@ of times more than a clock read.
 
 ## What was actually done, and what it was actually worth (2026-07-13)
 
-**256.8 → 105.7 ms/frame: 2.43× faster, with the frame byte-identical.** Both screens were
+**256.8 → 93.3 ms/frame: 2.75× faster, with the frame byte-identical.** Both screens were
 compared image against image, not merely hashed, and Super Mario 3D Land's pinned md5 did not
 move. A drawing frame went from 460 ms to about 200 ms; fragments per millisecond went from
 989 to 2,235.
@@ -222,6 +223,8 @@ thing here.**
 | C1 one reciprocal instead of 11-18 divides per fragment | 10-20% | **0%** | *and it changed the output.* Reverted. |
 | B1 parallel vertex shading | ~30% | **25.7%** | |
 | B2 parallel tiled rasteriser | 1.7-2.2× | **27.6%** | |
+| a persistent worker pool + lower thresholds | — | **11.5%** | not in the plan; see below |
+| B3 parallel scrubber (framedbg) | "instant" | **2.3×** on a drag | 8 positions: 1.60 s → 0.70 s |
 
 ### The four things this taught, which are worth more than the 2.4×
 
@@ -257,17 +260,32 @@ band varies run to run — and cannot change the result, only the time. The thre
 to be fixed first were all writes hiding in read-shaped code: the lazily-filled shader decode
 cache, the GPU's counters, and **a texture cache miss, which is a write**.
 
+### The worker pool — the item that was not in the plan
+
+The parallel stages spawned their workers **per draw**: 143 draws a frame, so ~1,100 goroutine
+creations a frame. Cheap each, not free in aggregate — and expensive enough that both stages had
+to refuse to split a small draw at all, so **68 of the 143 draws ran serially for want of a few
+microseconds**. A pool (`workpool.go`) makes a fan-out a channel send instead, which let the
+thresholds come down (vertex: 64 → 16 vertices per worker; fill: 8,192 → 256 bounding-box
+pixels). **−11.5%.**
+
+Bands went from 16 rows to 8 (worth ~3%: more bands balance better). **Four-row bands measured a
+hair faster still and are deliberately not used** — an 8×8 Morton tile is eight rows tall, so a
+four-row band lets two workers write into the same tile and false-share its cache lines. Same
+speed, worse reason.
+
+The pool means a `Machine` now owns goroutines, and they keep it alive after the last reference
+is dropped. `Machine.Close()` stops them; the frame debugger's adapter calls it.
+
 ### What is left
 
 - The bucket shares now: rasterise 47%, vertex + shader 27%, the derived remainder 16% (which
   now includes goroutine scheduling), GX transfers 4%, texture decode 3.5%.
-- **Most draws are still serial.** 68 of Captain Toad's 143 draws per frame are too small to be
-  worth goroutines. A persistent worker pool instead of spawning per draw would take the
-  threshold down; ~1,100 goroutine spawns a frame is not free.
-- **B3 (free parallelism outside the machine)** is not done: framedbg's `RenderAfter(k)` replays
-  are independent and would make a scrub drag instant.
 - **The ARM11 is 0.6% of the frame.** It stays that way. Do not build the instruction-decode
   cache or the word-granular bus.
+- The remaining single-threaded work is the command decode and the GX transfers; neither is
+  large enough to be worth the next increment of complexity. **Stop here unless the frame
+  changes shape.**
 
 ---
 
