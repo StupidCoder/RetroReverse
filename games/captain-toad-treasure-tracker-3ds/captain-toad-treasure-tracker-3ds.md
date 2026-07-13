@@ -936,3 +936,154 @@ with the wrong stride" — **does not exist**. The stride is taken from the tran
 which is 256, which is right. What looked like a stride error was the geometry sitting 112 rows above
 where the panel reads. Diagnosing a symptom while a known-broken subsystem sits upstream of it produces
 a confident description of a bug that isn't there.
+
+---
+
+## Part XVIII — The shading: six bugs in the registers we had never read
+
+Part XVII got the diorama on screen. It was still wrong, and wrong in a way that a screenshot makes
+obvious and a counter never will: the stone read **black**, the cast shadows were **pitch**, the star
+sat **behind** the ruin it floats in front of, and the decorative ring around the archway — a half
+circle of voussoirs with triangular crenellations above it — **was not there at all**.
+
+Six bugs. Every one of them was a field in a register the model had never looked at. None of them was
+subtle once read. The pattern of this session is worth stating plainly: **we had implemented the
+registers we knew about and left the rest latching quietly into the register file, and every one of
+those was load-bearing.**
+
+### 1. A light colour is not a 10-bit fraction
+
+The light colour registers pack three channels into 10-bit fields. We divided by the field width. But
+**255, not 1023, is 1.0** — the extra two bits are headroom that lets a light be configured brighter
+than full white. Scaling by the field width made *every light in the game, and the global ambient with
+them, exactly four times too dark.*
+
+That is most of why the stone was black. Nothing else needed to be wrong.
+
+### 2. TEV sources 0, 1 and 2 are three different values
+
+`gpu_raster.go` overwrote the vertex colour with the lit colour before calling the fragment stage, so
+the TEV's PrimaryColor, PrimaryFragmentColor and SecondaryFragmentColor all returned the same thing.
+On the PICA they are the **interpolated vertex colour**, the **lighting unit's diffuse output**, and
+its **specular output**.
+
+Captain Toad's stone material is, verbatim from its registers:
+
+```
+stage0 rgb: fragpri × tex1          ← lit colour × albedo
+stage1 rgb: fragsec × tex1 + prev   ← specular × albedo, added
+stage2 rgb: prev × vtxcol           ← × the vertex colour
+```
+
+It needs all three to be distinct. Part XIV built the lighting unit on the premise that *Toad's world
+geometry has black vertex colours* — which is why collapsing them looked harmless. **That premise was
+false.** It was an artefact of the vertex-permutation bug Part XVII fixed: the colour attribute was
+being read out of a register holding something else. The vertex colours are `(198,198,198)`, and they
+are not decoration — they vary per vertex (238 here, 112 there) because the game **bakes ambient
+occlusion into them**.
+
+### 3. The lookup tables are consulted, not merely uploaded
+
+Decoding `0x1C3`/`0x1C4` — printed raw by `-gputrace` for sessions and decoded by nobody — says exactly
+what the game turns on:
+
+| | |
+|---|---|
+| `cfg0 = 90810401` | shadow enabled, applied to the primary colour, sampled from **texture unit 0**; **normal map** from **texture unit 2**; light environment 0 |
+| `cfg1 = F30EFBFC` | shadow for lights **0,1**; spotlight for light **2**; distance attenuation for lights **2,3**; the **D0** table live, the rest off |
+
+Which is a completely coherent lighting rig: **two shadowed directional key lights** (warm, sun-coloured)
+and **two unshadowed positional fill lights** that carry their falloff entirely in distance-attenuation
+tables. And the tables the game uploads through the `0x1C5`/`0x1C8` FIFO are *precisely* the ones those
+bits name — D0, RR, SP2, DA2, DA3, and nothing else.
+
+The configuration was self-consistent and sitting there unread. (The data FIFO is at `0x1C8`, not
+`0x1C6`; we had the address wrong too, so nothing was ever captured.)
+
+### 4. The shadow is a shadow *texture*, and it needs `texcoord0.w`
+
+Nobody had established how the shadow was consumed; stencil was the leading guess. It is neither
+stencil nor guesswork — **texture unit 0's type field says `2 = Shadow2D`**, and it says so in a
+register we were reading the low four bits of and ignoring the top three.
+
+The whole mechanism:
+
+- the shadow pass sets `0x100`'s **fragment-operation mode** to Shadow, which *replaces the output
+  merger*: no alpha test, no depth test, no blender. Each fragment writes a packed texel — 24 bits of
+  depth in the low three bytes, an 8-bit **density** in the fourth;
+- the scene draws bind that buffer as a Shadow2D texture. The sampler compares the fragment's own
+  distance from the light against the stored depth and returns the density, or zero if occluded;
+- the **lighting unit** multiplies the shadowed lights' diffuse by it.
+
+The fragment's distance from the light arrives in **`texcoord0.w`** — output semantic `0x10`, which
+the pipeline had a comment explaining it did not consume. The shadow projection is orthographic
+(`0x08B` bit 0), so the game puts the depth there deliberately.
+
+Captain Toad's shadow pass writes density **0** on every single fragment, so its shadow map is a pure
+depth map and its shadows are binary. That is the hardware's design, not a shortcut.
+
+### 5. The depth buffer was W-buffered, and we were Z-buffering
+
+This is the one that hid the geometry, and it is the best example in this port of a **default that is
+not neutral**.
+
+`0x06D` bit 0 selects the depth mode. **Clear means W-buffering** — the value the register holds if
+nobody ever writes it — and the game leaves it clear:
+
+```
+depth = z·scale + w·offset  ==  (z/w·scale + offset)·w
+```
+
+We were computing `z/w·scale + offset` and stopping. On its own that is a different depth curve; paired
+with the scale the game actually uses — **-1/110000** — it is a catastrophe. Under Z-buffering that
+scale crushes the entire scene into the **bottom 151 values of a 16.7-million-value depth buffer**.
+Every object in the diorama lands on top of every other one and the winner is decided by rounding.
+
+That is what put the star behind the ruin, the round pillar behind the wall it stands in front of, and
+deleted the archway's decorations into the stone. It looked like missing geometry. Rasterising with the
+depth test forced to always pass brought all of it back — which is how the model was convicted, before
+a line was changed.
+
+### 6. A negative attenuation does not dim a light. It inverts it.
+
+With everything above fixed the picture was right and the shadows were still far too dark — 9% of the
+lit value where the hardware gives 63%.
+
+The lighting probe said the two *unshadowed* fill lights were contributing **exactly nothing**, and
+then said something impossible: their distance attenuation was **-0.5001**.
+
+A LUT entry is a 12-bit unsigned value plus a 12-bit signed slope to the *next* entry. Both fill lights
+sit far outside their own falloff range, so both clamp to the very end of the table — index 255, delta
+1.0 — where the model dutifully applied the last entry's slope and **ran off the end of the table**
+into whatever the game had left in that field. Captain Toad leaves `-2048` there.
+
+An attenuation of -0.5 does not fail to light a surface. It **subtracts** light from it — and the fill
+lights are warm, so what it subtracted was red and green, which is why the shadows were not merely dark
+but dark *blue*. Clamping the lookup to what an unsigned 12-bit entry can actually hold took the
+shadows from **9% of the lit value to 49%**, against a hardware reference of **63%**.
+
+### What the hardware says, measured
+
+Sampling the real console's frame and ours at the same surface:
+
+| | lit stone | shadowed stone | ratio |
+|---|---|---|---|
+| hardware | (250, 234, 229) | (157, 147, 152) | **0.63** |
+| before | (237, 206, 211) | (21, 25, 58) | 0.09 |
+| after | (255, 224, 217) | (125, 118, 133) | **0.49** |
+
+Not yet exact. But it is a *measurement against the machine*, which is the thing this port kept
+skipping, and the shape is right: the shadow is cool because what it removes is warm.
+
+### The lesson, again, in a new costume
+
+Part XVI: *a zero is not a safe default.* Part XVII: *a pinned hash is not correctness.* This one:
+
+**An unread register is a decision, and the default is rarely the one the game wanted.** Five of these
+six bugs are fields we were latching into `g.Regs[]` and never looking at — the depth mode, the texture
+type, the two lighting config words, the LUT FIFO. The sixth is a table we ran off the end of. Nothing
+here required cleverness; it required *reading the registers the game writes and asking what each field
+means* — and then looking at the picture instead of the counters.
+
+The SM3DL regression md5 is unchanged through all of it. It would be: SM3DL never enables the depth
+test and has no fragment lighting. It is a floor, not a gate.
