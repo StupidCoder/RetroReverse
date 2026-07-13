@@ -58,6 +58,24 @@ func (m *Machine) Framebuffer(screen string) *image.NRGBA {
 	return img
 }
 
+// RenderTarget decodes a tiled RGBA8 colour buffer straight out of memory, at
+// the address and dimensions the PICA's own registers name — the GPU's view of
+// what it drew, before any DisplayTransfer moves it. This is the instrument for
+// "the draws report pixels but the screen is black": it separates *did we
+// rasterise it* from *did it reach the panel*, which no counter can.
+func (m *Machine) RenderTarget(addr, w, h uint32) *image.NRGBA {
+	img := image.NewNRGBA(image.Rect(0, 0, int(w), int(h)))
+	for y := uint32(0); y < h; y++ {
+		for x := uint32(0); x < w; x++ {
+			p := addr + tiledOffset(x, y, w)
+			b, g, r := m.Read(p+1), m.Read(p+2), m.Read(p+3)
+			o := img.PixOffset(int(x), int(y))
+			img.Pix[o], img.Pix[o+1], img.Pix[o+2], img.Pix[o+3] = r, g, b, 255
+		}
+	}
+	return img
+}
+
 // Screenshot writes both screens' framebuffers as PNGs: base_top.png and (if
 // the bottom screen has been presented) base_bottom.png.
 func (m *Machine) Screenshot(base string) error {

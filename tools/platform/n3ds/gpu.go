@@ -31,6 +31,17 @@ const (
 	regLightingEnable = 0x08F // bit0: fragment lighting on
 
 	regDepthColorMask = 0x107 // depth test/func + colour/depth write masks
+
+	// The buffer-access enables, a second gate in front of 0x107: they permit
+	// the memory traffic itself. A render pass that keeps the depth *test* bits
+	// set in 0x107 but zeroes these does no depth read or write at all — Captain
+	// Toad's shadow pass does exactly that, and honouring only 0x107 made us
+	// write a megabyte of depth over VRAM the game had put command buffers in.
+	regColorbufRead  = 0x112
+	regColorbufWrite = 0x113
+	regDepthbufRead  = 0x114
+	regDepthbufWrite = 0x115
+
 	regDepthbufFormat = 0x116
 	regColorbufFormat = 0x117
 	regDepthbufLoc    = 0x11C // physical>>3
@@ -48,7 +59,15 @@ const (
 	regDrawElems   = 0x22F
 	regFixedIndex  = 0x232 // fixed-attribute index select
 	regFixedData0  = 0x233 // 0x233-0x235: 3 words = one packed float24 vec4
-	regPrimConfig  = 0x25E // bits 8-9: primitive type
+
+	// The command processor's own chain registers: two preloaded buffer slots
+	// (address>>3, size-in-bytes>>3) and a trigger apiece. Writing a JUMP makes
+	// the processor continue in that buffer — it is a jump, not a call.
+	regCmdBufSize0 = 0x238
+	regCmdBufAddr0 = 0x23A
+	regCmdBufJump0 = 0x23C
+
+	regPrimConfig = 0x25E // bits 8-9: primitive type
 
 	regVshBool      = 0x2B0
 	regVshInt0      = 0x2B1
@@ -114,7 +133,19 @@ type GPU struct {
 	// texCache holds decoded textures keyed by address/format/size. GX writes
 	// into texture memory (DMA, TextureCopy) invalidate it.
 	texCache map[texKey]*texImage
+
+	// Set by a write to a CMDBUF_JUMP register: the buffer the command
+	// processor continues in when the current one ends.
+	jumpAddr, jumpSize uint32
+	jumpPending        bool
+
+	ListHops int // command buffers entered by a jump (instrument)
 }
+
+// maxCmdBufHops bounds a chain so a corrupt jump register (or a buffer that
+// jumps to itself) halts loudly instead of hanging the oracle. Captain Toad's
+// real chains are a handful of hops.
+const maxCmdBufHops = 4096
 
 func newGPU(m *Machine) *GPU { return &GPU{m: m} }
 
@@ -122,22 +153,47 @@ func newGPU(m *Machine) *GPU { return &GPU{m: m} }
 func (m *Machine) GPU() *GPU { return m.gpu }
 
 // Execute runs one PICA200 command list (virtual address + byte size, as the
-// game's GX ProcessCommandList command carries them).
+// game's GX ProcessCommandList command carries them) — and every buffer it
+// chains into. A list ends either by running out of bytes or by writing a
+// CMDBUF_JUMP register, which makes the command processor continue in a
+// preloaded buffer; the submitted list is only the head of the chain.
 func (g *GPU) Execute(addr, size uint32) {
-	buf := make([]byte, size)
-	for i := uint32(0); i < size; i++ {
-		buf[i] = g.m.Read(addr + i)
-	}
-	ws, err := DecodePICA(buf)
-	if err != nil {
-		g.m.CPU.Halt("gpu: %v (list at 0x%08X)", err, addr)
-		return
-	}
-	for _, w := range ws {
-		g.write(w)
-		if g.m.CPU.Halted {
+	g.jumpPending = false
+	for hop := 0; ; hop++ {
+		if hop > maxCmdBufHops {
+			g.m.CPU.Halt("gpu: command-buffer chain exceeded %d hops (at 0x%08X) after %d instructions",
+				maxCmdBufHops, addr, g.m.CPU.Instrs)
 			return
 		}
+		buf := make([]byte, size)
+		for i := uint32(0); i < size; i++ {
+			buf[i] = g.m.Read(addr + i)
+		}
+		if hop > 0 {
+			g.ListHops++
+			if g.m.GXCapture {
+				g.m.captureChainedList(addr, size, buf)
+			}
+		}
+		ws, err := DecodePICA(buf)
+		if err != nil {
+			g.m.CPU.Halt("gpu: %v (list at 0x%08X)", err, addr)
+			return
+		}
+		for _, w := range ws {
+			g.write(w)
+			if g.m.CPU.Halted {
+				return
+			}
+			if g.jumpPending {
+				break // the rest of this buffer is not executed
+			}
+		}
+		if !g.jumpPending {
+			return
+		}
+		addr, size = g.jumpAddr, g.jumpSize
+		g.jumpPending = false
 	}
 }
 
@@ -162,6 +218,13 @@ func (g *GPU) write(w PICAWrite) {
 		g.drawArrays()
 	case w.Reg == regDrawElems && v != 0:
 		g.drawElements()
+
+	// --- command-buffer chain: continue in the buffer this slot preloaded ---
+	case w.Reg == regCmdBufJump0 || w.Reg == regCmdBufJump0+1:
+		i := w.Reg - regCmdBufJump0
+		g.jumpAddr = g.m.gpuAddrToVirt(g.Regs[regCmdBufAddr0+i] << 3)
+		g.jumpSize = g.Regs[regCmdBufSize0+i] << 3
+		g.jumpPending = g.jumpSize != 0
 
 	// --- vertex-shader engine uploads ---
 	case w.Reg == regVshFloatCfg:
@@ -265,10 +328,6 @@ func (g *GPU) drawElements() {
 func (g *GPU) checkUnsupported() bool {
 	if g.Regs[regGeoConfig]&3 != 0 {
 		g.m.CPU.Halt("gpu: draw with geometry-shader stage enabled (0x229=0x%08X) unimplemented", g.Regs[regGeoConfig])
-		return true
-	}
-	if g.Regs[regLightingEnable]&1 != 0 {
-		g.m.CPU.Halt("gpu: draw with fragment lighting enabled (0x08F=0x%08X) unimplemented", g.Regs[regLightingEnable])
 		return true
 	}
 	return false

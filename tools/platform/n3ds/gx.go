@@ -42,10 +42,27 @@ type GXRecord struct {
 	Instr uint64    // instruction count at capture
 	Words [8]uint32 // the raw command slot
 	Buf   []byte    // ProcessCommandList only: the command-list bytes at capture time
+
+	// Chained marks a buffer the command processor reached by a CMDBUF_JUMP
+	// rather than one the game submitted. The game submits only the head of a
+	// chain, so without these the capture misses most of what the GPU runs.
+	Chained bool
 }
 
 // GXLog returns the commands captured so far (GXCapture must be on).
 func (m *Machine) GXLog() []GXRecord { return m.gxLog }
+
+// captureChainedList records a command buffer the GPU reached by a CMDBUF_JUMP.
+// Unlike a submitted list this one is captured at execution time, which is the
+// only time it exists as a coherent unit.
+func (m *Machine) captureChainedList(addr, size uint32, buf []byte) {
+	m.gxLog = append(m.gxLog, GXRecord{
+		Instr:   m.CPU.Instrs,
+		Words:   [8]uint32{gxCmdProcessCmdList, addr, size},
+		Buf:     append([]byte(nil), buf...),
+		Chained: true,
+	})
+}
 
 // captureGX snapshots one GX command slot, and for a ProcessCommandList also the
 // command-list buffer it references, before the FIFO is drained. The buffer copy

@@ -20,6 +20,7 @@ package main
 import (
 	"flag"
 	"fmt"
+	"image/png"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -63,6 +64,7 @@ func main() {
 	gxdump := flag.String("gxdump", "", "capture GX commands; write ProcessCommandList buffers to this directory")
 	shot := flag.String("shot", "", "after the run, write the presented framebuffers to <base>_top.png / <base>_bottom.png")
 	gputrace := flag.Int("gputrace", 0, "print a summary of the first N GPU draws")
+	rtshot := flag.String("rtshot", "", "after the run, decode a tiled RGBA8 render target straight from memory: ADDR:WxH[:FILE] (hex addr) — what the GPU drew, before any DisplayTransfer")
 	threads := flag.Bool("threads", false, "after the run, dump thread states and the handle table")
 	hidtrace := flag.Bool("hidtrace", false, "tally reads of the HID shared-memory block by offset, dump after the run")
 	findAscii := flag.String("findascii", "", "after load/run, print addresses where this ASCII string occurs in memory")
@@ -83,7 +85,7 @@ func main() {
 		flag.Usage()
 		os.Exit(2)
 	}
-	if err := run(*image, *steps, *trace, *tracen, *verbose, *svclog, bps, watches, logpcs, tracefroms, dumps, *saveState, *loadState, *gxdump, *shot, *gputrace, *threads, *hidtrace, *keys, *keypulse, *findAscii, *findUtf16, *findWord, pokes, *wav, *dsptrace); err != nil {
+	if err := run(*image, *steps, *trace, *tracen, *verbose, *svclog, bps, watches, logpcs, tracefroms, dumps, *saveState, *loadState, *gxdump, *shot, *rtshot, *gputrace, *threads, *hidtrace, *keys, *keypulse, *findAscii, *findUtf16, *findWord, pokes, *wav, *dsptrace); err != nil {
 		fmt.Fprintln(os.Stderr, "bootoracle:", err)
 		os.Exit(1)
 	}
@@ -118,7 +120,7 @@ func utf16Pattern(s string) []byte {
 	return b
 }
 
-func run(imagePath, stepsStr string, trace bool, tracen int, verbose, svclog bool, bps, watches, logpcs, tracefroms, dumps multiFlag, saveState, loadState, gxdump, shot string, gputrace int, threads, hidtrace bool, keys string, keypulse int, findAscii, findUtf16, findWord string, pokes multiFlag, wav string, dsptrace bool) error {
+func run(imagePath, stepsStr string, trace bool, tracen int, verbose, svclog bool, bps, watches, logpcs, tracefroms, dumps multiFlag, saveState, loadState, gxdump, shot, rtshot string, gputrace int, threads, hidtrace bool, keys string, keypulse int, findAscii, findUtf16, findWord string, pokes multiFlag, wav string, dsptrace bool) error {
 	img, err := os.ReadFile(imagePath)
 	if err != nil {
 		return err
@@ -314,6 +316,11 @@ func run(imagePath, stepsStr string, trace bool, tracen int, verbose, svclog boo
 		}
 	}
 
+	if rtshot != "" {
+		if err := writeRenderTarget(m, rtshot); err != nil {
+			fmt.Printf("rtshot: %v\n", err)
+		}
+	}
 	if shot != "" {
 		if err := m.Screenshot(shot); err != nil {
 			fmt.Printf("screenshot: %v\n", err)
@@ -357,6 +364,17 @@ func dumpGX(m *n3ds.Machine, dir string) error {
 		if name == "" {
 			name = fmt.Sprintf("cmd%d", id)
 		}
+		if r.Chained {
+			// Not a submitted command: a buffer the command processor jumped into.
+			path := filepath.Join(dir, fmt.Sprintf("cmdlist_%02d.bin", lists))
+			if err := os.WriteFile(path, r.Buf, 0o644); err != nil {
+				return err
+			}
+			fmt.Printf("  %3d @%-11d   ..chained  -> %s (%d bytes from 0x%08X)\n",
+				i, r.Instr, path, len(r.Buf), r.Words[1])
+			lists++
+			continue
+		}
 		fmt.Printf("  %3d @%-11d %-18s %08X %08X %08X %08X %08X %08X %08X %08X\n",
 			i, r.Instr, name,
 			r.Words[0], r.Words[1], r.Words[2], r.Words[3],
@@ -394,4 +412,35 @@ func printSVCSummary(m *n3ds.Machine) {
 	for name, n := range counts {
 		fmt.Printf("    %-24s %d\n", name, n)
 	}
+}
+
+// writeRenderTarget decodes ADDR:WxH[:FILE] and dumps that colour buffer as a
+// PNG, reading it as the PICA stores it (8x8 Morton tiles, RGBA8).
+func writeRenderTarget(m *n3ds.Machine, spec string) error {
+	name := "rendertarget.png"
+	parts := strings.Split(spec, ":")
+	if len(parts) == 3 {
+		name = parts[2]
+	} else if len(parts) != 2 {
+		return fmt.Errorf("want ADDR:WxH[:FILE], got %q", spec)
+	}
+	addr, err := strconv.ParseUint(strings.TrimPrefix(parts[0], "0x"), 16, 32)
+	if err != nil {
+		return fmt.Errorf("bad address in %q: %v", spec, err)
+	}
+	var w, h uint32
+	if _, err := fmt.Sscanf(parts[1], "%dx%d", &w, &h); err != nil {
+		return fmt.Errorf("bad dimensions in %q: %v", spec, err)
+	}
+	img := m.RenderTarget(uint32(addr), w, h)
+	f, err := os.Create(name)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+	if err := png.Encode(f, img); err != nil {
+		return err
+	}
+	fmt.Printf("wrote %s (%dx%d render target at 0x%08X)\n", name, w, h, addr)
+	return nil
 }

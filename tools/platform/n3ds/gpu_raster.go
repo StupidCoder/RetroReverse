@@ -15,10 +15,19 @@ type vsOut struct {
 	pos   [4]float32 // clip-space position
 	color [4]float32
 	uv    [3][2]float32
+
+	// The fragment-lighting inputs. The PICA does not carry a normal vector:
+	// the shader emits a tangent-space quaternion, and the fragment normal is
+	// that quaternion applied to (0,0,1). view is the fragment→eye vector.
+	quat [4]float32
+	view [3]float32
 }
 
 // draw executes one draw trigger against the current register state.
 func (g *GPU) draw(indexed bool) {
+	if g.TraceDraws > 0 && g.Regs[regLightingEnable]&1 != 0 {
+		g.dumpLighting()
+	}
 	if g.checkUnsupported() {
 		return
 	}
@@ -63,9 +72,11 @@ func (g *GPU) draw(indexed bool) {
 	trace := g.TraceDraws > 0
 	if trace {
 		g.TraceDraws--
-		fmt.Printf("gpu draw %d: indexed=%v count=%d first=%d base=0x%08X bufs=%d prim=%d vp=%.1fx%.1f fb=0x%08X\n",
+		tfb := g.fbstate()
+		fmt.Printf("gpu draw %d: indexed=%v count=%d first=%d base=0x%08X bufs=%d prim=%d vp=%.1fx%.1f color=0x%08X depth=0x%08X dim=%dx%d test=%v wr=%v\n",
 			g.Draws, indexed, count, first, base, len(bufs), g.Regs[regPrimConfig]>>8&3,
-			f24bits(g.Regs[regViewportWidth]), f24bits(g.Regs[regViewportHeight]), g.Regs[regColorbufLoc]<<3)
+			f24bits(g.Regs[regViewportWidth]), f24bits(g.Regs[regViewportHeight]),
+			tfb.colorAddr, tfb.depthAddr, tfb.width, tfb.height, tfb.depthTest, tfb.depthWr)
 		for _, ci := range []int{0, 1, 2, 3, 4, 5, 6, 32, 33, 34, 35, 64, 65} {
 			fmt.Printf("  c%-2d = %v\n", ci, g.Float[ci])
 		}
@@ -205,8 +216,11 @@ func (g *GPU) mapOutputs(o *[16][4]float32) vsOut {
 				out.uv[1][s-0x0E] = v
 			case s == 0x16 || s == 0x17: // texcoord 2
 				out.uv[2][s-0x16] = v
-				// 0x04-0x07 quaternion, 0x10 texcoord0.w, 0x12-0x14 view,
-				// 0x1F unused — not consumed by this pipeline.
+			case s >= 0x04 && s <= 0x07: // tangent-space normal quaternion
+				out.quat[s-0x04] = v
+			case s >= 0x12 && s <= 0x14: // view vector (fragment → eye)
+				out.view[s-0x12] = v
+				// 0x10 texcoord0.w, 0x1F unused — not consumed by this pipeline.
 			}
 		}
 	}
@@ -228,15 +242,29 @@ type fbState struct {
 func (g *GPU) fbstate() fbState {
 	dim := g.Regs[regFramebufDim]
 	dcm := g.Regs[regDepthColorMask]
+	// The access enables gate the memory traffic in front of 0x107's test/write
+	// bits. Zero means the pass touches that buffer not at all. (The individual
+	// bits distinguish depth from stencil, which this model does not separate —
+	// what is pinned, by the game's own VRAM map, is that zero means "no
+	// access": Captain Toad's shadow pass leaves 0x107's depth bits set and
+	// zeroes 0x114/0x115, and its depth buffer address still points at the main
+	// pass's — a megabyte that would land on its own colour buffer.)
+	colorWr := g.Regs[regColorbufWrite] != 0
+	depthRd := g.Regs[regDepthbufRead] != 0
+	depthWr := g.Regs[regDepthbufWrite] != 0
+	cmask := dcm >> 8 & 0xF
+	if !colorWr {
+		cmask = 0
+	}
 	return fbState{
 		colorAddr:  g.m.gpuAddrToVirt(g.Regs[regColorbufLoc] << 3),
 		depthAddr:  g.m.gpuAddrToVirt(g.Regs[regDepthbufLoc] << 3),
 		width:      dim & 0x7FF,
 		height:     (dim >> 12 & 0x3FF) + 1,
-		depthTest:  dcm&1 != 0,
+		depthTest:  dcm&1 != 0 && depthRd,
 		depthFunc:  dcm >> 4 & 7,
-		colorMask:  dcm >> 8 & 0xF,
-		depthWr:    dcm>>12&1 != 0,
+		colorMask:  cmask,
+		depthWr:    dcm>>12&1 != 0 && depthWr,
 		vpHalfW:    f24bits(g.Regs[regViewportWidth]),
 		vpHalfH:    f24bits(g.Regs[regViewportHeight]),
 		depthScale: f24bits(g.Regs[regDepthMapScale]),
@@ -259,21 +287,26 @@ func (g *GPU) triangle(a, b, c *vsOut) {
 		return
 	}
 	fb := g.fbstate()
+	ls := g.lightstate()
 
 	type sv struct {
 		x, y, z, iw float32
 		col         [4]float32
 		uv          [3][2]float32
+		quat        [4]float32
+		view        [3]float32
 	}
 	toScreen := func(v *vsOut) sv {
 		iw := 1 / v.pos[3]
 		return sv{
-			x:  (v.pos[0]*iw + 1) * fb.vpHalfW,
-			y:  (v.pos[1]*iw + 1) * fb.vpHalfH,
-			z:  v.pos[2] * iw,
-			iw: iw,
-			col: v.color,
-			uv:  v.uv,
+			x:    (v.pos[0]*iw + 1) * fb.vpHalfW,
+			y:    (v.pos[1]*iw + 1) * fb.vpHalfH,
+			z:    v.pos[2] * iw,
+			iw:   iw,
+			col:  v.color,
+			uv:   v.uv,
+			quat: v.quat,
+			view: v.view,
 		}
 	}
 	v0, v1, v2 := toScreen(a), toScreen(b), toScreen(c)
@@ -356,7 +389,25 @@ func (g *GPU) triangle(a, b, c *vsOut) {
 				uv[t][1] = pc(v0.uv[t][1], v1.uv[t][1], v2.uv[t][1])
 			}
 
-			r8, g8, b8, a8, discard, ok := g.fragment(col, uv)
+			// Fragment lighting: interpolate the quaternion and the view
+			// vector, rotate (0,0,1) by the quaternion to get the normal, and
+			// evaluate the light sources. This is where Captain Toad's world
+			// gets its colour — its vertex colours are black.
+			lit := col
+			if ls.enabled {
+				var q [4]float32
+				for i := 0; i < 4; i++ {
+					q[i] = pc(v0.quat[i], v1.quat[i], v2.quat[i])
+				}
+				var vw [3]float32
+				for i := 0; i < 3; i++ {
+					vw[i] = pc(v0.view[i], v1.view[i], v2.view[i])
+				}
+				p := ls.primary(quatNormal(q), vw)
+				lit = [4]float32{p[0], p[1], p[2], col[3]}
+			}
+
+			r8, g8, b8, a8, discard, ok := g.fragment(lit, uv)
 			if !ok {
 				return // fragment stage halted
 			}
