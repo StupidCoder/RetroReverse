@@ -72,6 +72,7 @@ var (
 	_ debug.StateFiler    = (*Adapter)(nil)
 	_ debug.Resumer       = (*Adapter)(nil)
 	_ debug.MemoryMapper  = (*Adapter)(nil)
+	_ debug.Surfacer      = (*Adapter)(nil)
 )
 
 // snap wraps an N64 in-memory savestate as an opaque debug.Snapshot.
@@ -434,6 +435,37 @@ func (a *Adapter) instrAt(pc uint64) string {
 		return ""
 	}
 	return in[0].Text
+}
+
+// Surfaces are the pictures this machine can show: what it is scanning out, what it is
+// drawing into, and — the one that earns its keep — any address in RDRAM read as a
+// texture. Point that at the address a DMA just landed on and you see whether what
+// arrived is the texture the game meant to upload.
+func (a *Adapter) Surfaces() []debug.Surface {
+	w, h := 0, 0
+	if img, err := a.live.Framebuffer(); err == nil {
+		w, h = img.Rect.Dx(), img.Rect.Dy()
+	}
+	return []debug.Surface{
+		{ID: "scanout", Name: "VI scanout", W: w, H: h},
+		{ID: "drawtarget", Name: "RDP draw target", W: w, H: h},
+		{ID: "rdram", Name: "RDRAM as a texture", Free: true, Formats: n64.RegionFormats()},
+	}
+}
+
+func (a *Adapter) RenderSurface(id string, v debug.View) (*image.RGBA, error) {
+	switch id {
+	case "scanout":
+		return a.live.Framebuffer()
+	case "drawtarget":
+		return a.live.RenderColorImage()
+	case "rdram":
+		return a.live.RenderRegion(n64.RegionSpec{
+			Addr: v.Addr, W: v.W, H: v.H, Stride: v.Stride,
+			Format: v.Format, Palette: v.Palette,
+		})
+	}
+	return nil, fmt.Errorf("n64adapter: no surface %q: %w", id, debug.ErrUnsupported)
 }
 
 // Regions names the N64's address space for the memory pane.

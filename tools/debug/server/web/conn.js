@@ -51,6 +51,7 @@ export class Conn {
 
   onBinary(fn) {
     this.binaryHandlers.push(fn);
+    if (this.scope) this.scope.push({ binary: fn });
   }
 
   beginScope() {
@@ -62,9 +63,9 @@ export class Conn {
     const taken = this.scope || [];
     this.scope = null;
     return () => {
-      for (const { type, fn } of taken) {
-        const arr = this.handlers.get(type) || [];
-        const i = arr.indexOf(fn);
+      for (const { type, fn, binary } of taken) {
+        const arr = binary ? this.binaryHandlers : this.handlers.get(type) || [];
+        const i = arr.indexOf(binary || fn);
         if (i >= 0) arr.splice(i, 1);
       }
     };

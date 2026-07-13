@@ -16,27 +16,27 @@
   <span class="sep"></span>
 
   <button id="play" title="free-run the machine (space)">▶ Play</button>
-  <button id="step">Step to drawn frame</button>
-  <button id="step1">Step 1 field</button>
-  <label class="check"><input type="checkbox" id="overdraw" checked> overdraw</label>
+  <button id="step" title="step until the game draws a scene (N)">Step frame</button>
+  <button id="step1" title="advance exactly one video field">+1 field</button>
+  <label class="check" title="record every write to every pixel, for the overdraw pane">
+    <input type="checkbox" id="overdraw" checked> overdraw</label>
 
   <span class="sep"></span>
   <span id="cpu-controls">
-    <button id="cpu-step" title="one instruction">Step instr</button>
+    <button id="cpu-step" title="one CPU instruction">Instr</button>
     <button id="cpu-run" title="run until a breakpoint or a breaking watch">Run</button>
     <button id="cpu-brk">Break</button>
     <span class="sep"></span>
   </span>
 
-  <label class="check"><input type="checkbox" id="scanout"> scanout</label>
-  <label>zoom
-    <select id="zoom">
-      <option value="1">1×</option>
-      <option value="2" selected>2×</option>
-      <option value="3">3×</option>
-      <option value="4">4×</option>
-    </select>
-  </label>
+  <label class="check" title="show what is being scanned out, not the buffer being drawn into">
+    <input type="checkbox" id="scanout"> scanout</label>
+  <select id="zoom" title="zoom">
+    <option value="1">1×</option>
+    <option value="2" selected>2×</option>
+    <option value="3">3×</option>
+    <option value="4">4×</option>
+  </select>
 
   <span class="grow"></span>
   <span id="stats" class="muted"></span>

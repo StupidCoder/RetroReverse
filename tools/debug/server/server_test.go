@@ -369,7 +369,10 @@ func TestCoreOnlyTarget(t *testing.T) {
 	}
 
 	// What it cannot do, it refuses — naming the capability, not panicking.
-	for _, op := range []string{"frame.step", "frame.scrub", "cpu.step", "cpu.disasm", "mem.watch", "state.save"} {
+	for _, op := range []string{
+		"frame.step", "frame.scrub", "cpu.step", "cpu.disasm",
+		"mem.watch", "state.save", "surface.list", "surface.render",
+	} {
 		cl.send(t, op, 9, nil)
 		m := cl.recvJSON(t)
 		if m["type"] != "error" {

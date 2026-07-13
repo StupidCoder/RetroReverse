@@ -31,10 +31,14 @@ body {
 
 /* ---- toolbar ---- */
 
+/* The toolbar grew a lot (a game picker, frame controls, CPU controls, view
+   controls). It wraps rather than pushing the window wide, and the two elastic
+   items — the game title and the status line — are the ones allowed to shrink. */
 #toolbar {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  gap: 10px;
+  gap: 6px 10px;
   padding: 8px 12px;
   background: var(--panel);
   border-bottom: 1px solid var(--line);
@@ -43,6 +47,16 @@ body {
 .brand { color: var(--accent); font-weight: 600; letter-spacing: .04em; }
 .sep { width: 1px; height: 18px; background: var(--line); }
 #cpu-controls { display: flex; align-items: center; gap: 10px; }
+
+#target, #stats {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+#target { max-width: 26ch; }
+#stats { flex: 0 1 auto; text-align: right; }
+#game { max-width: 22ch; }
 
 button {
   background: var(--panel-hi);
@@ -73,10 +87,11 @@ label.check { display: inline-flex; align-items: center; gap: 5px; color: var(--
 
 main {
   display: grid;
-  grid-template-columns: 1fr 400px;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 380px);
   gap: 10px;
   padding: 10px;
   min-height: 0;
+  min-width: 0;
 }
 
 .slot {
@@ -84,14 +99,19 @@ main {
   flex-direction: column;
   gap: 10px;
   min-height: 0;
+  min-width: 0;
 }
 
+/* The bottom row holds however many panels the target supports (CPU, memory,
+   watches, savestates). Rather than squeezing them all thinner as more appear, it
+   keeps them legible and scrolls sideways. */
 #slot-bottom {
   flex-direction: row;
   padding: 0 10px 10px;
   height: 200px;
+  overflow-x: auto;
 }
-#slot-bottom .pane { flex: 1; min-width: 0; }
+#slot-bottom .pane { flex: 1 0 280px; min-width: 280px; }
 
 .pane {
   display: flex;
@@ -218,6 +238,30 @@ main {
 .ins .a { color: var(--muted); }
 .ins.pc { background: #14364a; color: var(--accent); }
 .ins.pc .a { color: var(--accent); }
+
+/* ---- surfaces ---- */
+
+.surf-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 6px;
+  margin-bottom: 6px;
+  color: var(--muted);
+}
+.surf-controls label { display: inline-flex; align-items: center; gap: 4px; }
+#surf-free { display: contents; }
+
+#surf-stage {
+  background: #0d0f12;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  padding: 4px;
+  overflow: auto;
+  text-align: center;
+}
+#surf-canvas { image-rendering: pixelated; max-width: 100%; }
+#surf-note { margin-top: 4px; font-size: 11px; }
 
 /* ---- watches ---- */
 

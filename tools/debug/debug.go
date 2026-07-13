@@ -277,12 +277,17 @@ type Surface struct {
 }
 
 // View aims a free surface at memory.
+//
+// Addr is whatever addresses that surface's memory: a physical address in RAM, or —
+// where the memory is not byte-addressed at all — the platform's own index into it. The
+// PSX's VRAM is a 1024×512 grid of 16-bit pixels, for instance, so its surfaces read
+// Addr as y*1024+x. The adapter documents what it means; the debugger just passes it on.
 type View struct {
 	Addr    uint32
 	W, H    int
-	Stride  int    // bytes per row; 0 = W * bytes-per-pixel
+	Stride  int    // bytes per row; 0 = tightly packed
 	Format  string // one of the surface's Formats
-	Palette uint32 // palette/CLUT address, for indexed formats
+	Palette uint32 // where the palette lives, for the indexed formats
 }
 
 // FileEntry is one entry in a game's filesystem.

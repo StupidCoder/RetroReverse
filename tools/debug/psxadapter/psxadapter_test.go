@@ -61,11 +61,13 @@ func TestCapabilities(t *testing.T) {
 			t.Errorf("the PSX target does not advertise %q", want)
 		}
 	}
-	// It has no filesystem or surface panel yet, and must not pretend otherwise.
-	for _, no := range []string{debug.CapFiles, debug.CapSurfaces} {
-		if caps[no] {
-			t.Errorf("the PSX target advertises %q, which it does not implement", no)
-		}
+	if !caps[debug.CapSurfaces] {
+		t.Error("the PSX target does not advertise surfaces, and its VRAM is the most worth looking at")
+	}
+	// It has no file browser yet, and must not pretend otherwise — even though the disc
+	// it booted from plainly has a filesystem.
+	if caps[debug.CapFiles] {
+		t.Errorf("the PSX target advertises %q, which it does not implement", debug.CapFiles)
 	}
 }
 
@@ -219,6 +221,54 @@ func TestProvenanceNamesRealCommands(t *testing.T) {
 		if got, want := int32(writes[len(writes)-1].CmdIndex), fc.Prov[key]; got != want {
 			t.Fatalf("pixel %d: overdraw's last write is command %d, provenance says %d", key, got, want)
 		}
+	}
+}
+
+// TestSurfaces: the whole of VRAM is one picture — the displayed frame, the back buffer
+// and every texture page at once — and the machine must actually have drawn into it.
+func TestSurfaces(t *testing.T) {
+	a := open(t)
+	drawnFrame(t, a, false)
+
+	ids := map[string]debug.Surface{}
+	for _, s := range a.Surfaces() {
+		ids[s.ID] = s
+	}
+	for _, want := range []string{"scanout", "drawtarget", "vram", "vramrect"} {
+		if _, ok := ids[want]; !ok {
+			t.Errorf("the PSX offers no %q surface", want)
+		}
+	}
+	if !ids["vramrect"].Free {
+		t.Error("the vramrect surface is not aimable, which is the whole point of it")
+	}
+
+	vram, err := a.RenderSurface("vram", debug.View{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if vram.Rect.Dx() != 1024 || vram.Rect.Dy() != 512 {
+		t.Errorf("VRAM rendered as %v, want 1024x512", vram.Rect)
+	}
+	lit := 0
+	for i := 0; i < len(vram.Pix); i += 4 {
+		if vram.Pix[i] != 0 || vram.Pix[i+1] != 0 || vram.Pix[i+2] != 0 {
+			lit++
+		}
+	}
+	if lit == 0 {
+		t.Error("VRAM is entirely black after a drawn frame")
+	}
+	t.Logf("%d of %d VRAM pixels are non-black", lit, vram.Rect.Dx()*vram.Rect.Dy())
+
+	// The free surface reads a rectangle in whatever format a texture page is packed in.
+	if _, err := a.RenderSurface("vramrect", debug.View{
+		Addr: 0, W: 64, H: 64, Format: "clut4", Palette: 100 * 1024,
+	}); err != nil {
+		t.Errorf("rendering a 4-bit texture page: %v", err)
+	}
+	if _, err := a.RenderSurface("nosuch", debug.View{}); err == nil {
+		t.Error("an unknown surface id was accepted")
 	}
 }
 

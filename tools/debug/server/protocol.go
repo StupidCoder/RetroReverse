@@ -107,6 +107,15 @@ type (
 	stateArgs struct {
 		Path string `json:"path"`
 	}
+	surfaceArgs struct {
+		ID      string `json:"id"`
+		Addr    uint32 `json:"addr"`
+		W       int    `json:"w"`
+		H       int    `json:"h"`
+		Stride  int    `json:"stride"`
+		Format  string `json:"format"`
+		Palette uint32 `json:"palette"`
+	}
 )
 
 // decode unpacks an op's args, giving a legible error rather than a zero value.
@@ -265,6 +274,21 @@ type (
 		PC     string `json:"pc"`
 		Steps  uint64 `json:"steps"`
 		Note   string `json:"note"`
+	}
+
+	surfacesMsg struct {
+		Type     string        `json:"type"` // "surfaces"
+		Seq      int           `json:"seq"`
+		Surfaces []jsonSurface `json:"surfaces"`
+	}
+
+	jsonSurface struct {
+		ID      string   `json:"id"`
+		Name    string   `json:"name"`
+		Free    bool     `json:"free"` // the caller aims it: address, size, format
+		W       int      `json:"w"`
+		H       int      `json:"h"`
+		Formats []string `json:"formats"`
 	}
 
 	libraryMsg struct {

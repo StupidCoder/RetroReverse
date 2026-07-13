@@ -14,6 +14,7 @@ import { mountPanels } from './panels/registry.js';
 import './panels/viewport.js';
 import './panels/commands.js';
 import './panels/inspect.js';
+import './panels/surface.js';
 import './panels/states.js';
 
 const $ = (id) => document.getElementById(id);

@@ -213,6 +213,11 @@ func (rn *Runner) handle(r request) error {
 		return rn.disasm(r)
 	case "bp.set", "bp.clear":
 		return rn.breakpoint(r)
+	case "surface.list":
+		rn.sendSurfaces(r)
+		return nil
+	case "surface.render":
+		return rn.surface(r)
 	case "mem.read":
 		return rn.mem(r)
 	case "mem.watch":
@@ -231,19 +236,21 @@ func (rn *Runner) handle(r request) error {
 // opNeeds maps an op to the capability it requires, so an op a target cannot back is
 // refused in one place rather than crashing on a type assertion in ten.
 var opNeeds = map[string]string{
-	"frame.step":   debug.CapFrames,
-	"frame.play":   debug.CapFrames,
-	"frame.scrub":  debug.CapReplay,
-	"frame.pixel":  debug.CapFrames,
-	"cpu.step":     debug.CapCode,
-	"cpu.continue": debug.CapCode,
-	"cpu.disasm":   debug.CapDisasm,
-	"bp.set":       debug.CapBreak,
-	"bp.clear":     debug.CapBreak,
-	"mem.watch":    debug.CapWatch,
-	"mem.unwatch":  debug.CapWatch,
-	"state.save":   debug.CapStates,
-	"state.load":   debug.CapStates,
+	"frame.step":     debug.CapFrames,
+	"frame.play":     debug.CapFrames,
+	"frame.scrub":    debug.CapReplay,
+	"frame.pixel":    debug.CapFrames,
+	"cpu.step":       debug.CapCode,
+	"cpu.continue":   debug.CapCode,
+	"cpu.disasm":     debug.CapDisasm,
+	"bp.set":         debug.CapBreak,
+	"bp.clear":       debug.CapBreak,
+	"mem.watch":      debug.CapWatch,
+	"mem.unwatch":    debug.CapWatch,
+	"state.save":     debug.CapStates,
+	"state.load":     debug.CapStates,
+	"surface.list":   debug.CapSurfaces,
+	"surface.render": debug.CapSurfaces,
 }
 
 // ---- frames ----
@@ -505,6 +512,47 @@ func (rn *Runner) breakpoint(r request) error {
 		b.ClearBreakpoint(a.PC)
 	}
 	r.from.send(okMsg{Type: "ok", Seq: r.req.Seq, Op: r.req.Op})
+	return nil
+}
+
+// ---- surfaces ----
+//
+// A surface is memory drawn as a picture: the scanout, the buffer being drawn into, all
+// of VRAM, or an address read as a texture. The last is the one that earns its keep —
+// point it at where a DMA just landed and see whether what arrived is the texture the
+// game meant to upload.
+//
+// Surface images go out on their own stream, so the viewport and this panel can both
+// have an image in flight without either one drawing the other's.
+
+func (rn *Runner) sendSurfaces(r request) {
+	m := surfacesMsg{Type: "surfaces", Seq: r.req.Seq, Surfaces: []jsonSurface{}}
+	for _, s := range rn.tgt.(debug.Surfacer).Surfaces() {
+		m.Surfaces = append(m.Surfaces, jsonSurface{
+			ID: s.ID, Name: s.Name, Free: s.Free, W: s.W, H: s.H, Formats: s.Formats,
+		})
+	}
+	r.from.send(m)
+}
+
+func (rn *Runner) surface(r request) error {
+	var a surfaceArgs
+	if err := decodeArgs(r.req, &a); err != nil {
+		return err
+	}
+	start := time.Now()
+	img, err := rn.tgt.(debug.Surfacer).RenderSurface(a.ID, debug.View{
+		Addr: a.Addr, W: a.W, H: a.H, Stride: a.Stride, Format: a.Format, Palette: a.Palette,
+	})
+	if err != nil {
+		return err
+	}
+	payload := encodeImage(r.req.Seq, streamSurface, img)
+	r.from.send(renderMsg{
+		Type: "render", Seq: r.req.Seq, Stream: streamSurface, K: -1,
+		RenderMs: msSince(start), Bytes: len(payload),
+	})
+	r.from.sendBinary(payload)
 	return nil
 }
 

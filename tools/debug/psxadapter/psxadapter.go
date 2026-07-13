@@ -84,9 +84,9 @@ type Adapter struct {
 	stop      debug.StopReason
 }
 
-// The capabilities this target backs. The PSX has no filesystem panel gap — it has a
-// disc — but it is not a Surfacer yet, and it has no FileLister yet either; those
-// arrive with their milestones. What is absent here is absent from the page.
+// The capabilities this target backs. What is absent here is absent from the page: it
+// is not a FileLister yet, so it has no file browser, even though the disc it booted
+// from plainly has a filesystem.
 var (
 	_ debug.Target        = (*Adapter)(nil)
 	_ debug.FrameStepper  = (*Adapter)(nil)
@@ -99,6 +99,7 @@ var (
 	_ debug.StateFiler    = (*Adapter)(nil)
 	_ debug.Resumer       = (*Adapter)(nil)
 	_ debug.MemoryMapper  = (*Adapter)(nil)
+	_ debug.Surfacer      = (*Adapter)(nil)
 )
 
 // snap wraps a PSX in-memory savestate as an opaque debug.Snapshot. psx.SaveState
@@ -316,6 +317,43 @@ func (a *Adapter) ReadMem(addr uint32, n int) []byte {
 		out[i] = a.live.Read(addr + uint32(i))
 	}
 	return out
+}
+
+// Surfaces. On the PSX everything the GPU can see is in one 1024×512 frame buffer — the
+// picture, the back buffer, the texture pages and the palettes all at once — so the
+// whole of VRAM is worth looking at as one image, and a free surface reads a rectangle
+// of it in whichever format a texture page happens to be packed in.
+//
+// The free surface addresses VRAM the way the GPU does: View.Addr is y*1024+x, in
+// pixels, and View.Palette locates the CLUT the same way.
+func (a *Adapter) Surfaces() []debug.Surface {
+	w, h := psx.VRAMSize()
+	img := a.live.Framebuffer()
+	return []debug.Surface{
+		{ID: "scanout", Name: "Display", W: img.Rect.Dx(), H: img.Rect.Dy()},
+		{ID: "drawtarget", Name: "Draw target (back buffer)", W: img.Rect.Dx(), H: img.Rect.Dy()},
+		{ID: "vram", Name: "All of VRAM", W: w, H: h},
+		{ID: "vramrect", Name: "VRAM as a texture", Free: true, Formats: psx.RegionFormats()},
+	}
+}
+
+func (a *Adapter) RenderSurface(id string, v debug.View) (*image.RGBA, error) {
+	const vramW = 1024
+	switch id {
+	case "scanout":
+		return a.live.Framebuffer(), nil
+	case "drawtarget":
+		return a.live.RenderDrawTarget(), nil
+	case "vram":
+		return a.live.RenderVRAM(), nil
+	case "vramrect":
+		return a.live.RenderRegion(psx.RegionSpec{
+			X: int(v.Addr % vramW), Y: int(v.Addr / vramW),
+			W: v.W, H: v.H, Format: v.Format,
+			PalX: int(v.Palette % vramW), PalY: int(v.Palette / vramW),
+		})
+	}
+	return nil, fmt.Errorf("psxadapter: no surface %q: %w", id, debug.ErrUnsupported)
 }
 
 func (a *Adapter) Regions() []debug.Region {
