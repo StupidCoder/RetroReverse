@@ -797,9 +797,18 @@ counters invert:
 | depth-killed fragments | 0 | 13,619,400,772 |
 | w-rejected triangles | *every one* | 1,935,795 (a near-plane trickle) |
 
-And the render target has a stage in it. The opening stage draws — dark, because the fragment-lighting
-unit models ambient and diffuse and none of the specular LUTs, but unmistakably geometry: polygons,
-depth-sorted, textured, lit.
+And the render target has *something* in it.
+
+**Which is where I claimed victory, and was wrong.** The frame is not a stage. It is a thicket of long
+thin spiky triangles fanning in every direction — structure, certainly, but not the structure of a
+Captain Toad diorama. I read "no longer black" as "correct", and quoted the counters as if they
+corroborated it. They do not: thirteen billion depth-killed fragments and twenty-seven million culled
+back-faces are exactly what garbage geometry also produces. What the numbers above actually establish
+is narrower, and worth stating precisely: **the camera is no longer NaN, and the triangles are no
+longer all w-rejected.** Nothing in them says the triangles are the right triangles.
+
+So the fix stands — it is arithmetic, and the `0/0` is gone — but it bought a different frontier than
+the one I announced.
 
 Closing the NaN immediately exposed three things the scene had never been able to reach, each fixed
 here: texture format **0xD (ETC1A4)** — ETC1 colour blocks each preceded by a 4-bit alpha plane, the
@@ -808,7 +817,31 @@ a bump map (with these two, all fourteen PICA formats `0x0`–`0xD` now decode);
 `sampleTexture`, where border-wrap's "outside" sentinel (`-1`) was **y-flipped before the negative
 check** — `h-1-(-1) = h` slipped past the guard and indexed a row past the image.
 
-The next wall is the one the geometry now makes visible: the top screen shows the scene only in part,
-because the panel's image is the 240×400 sub-window at byte offset `0x1C000` of the 256×512 target and
-our `DisplayTransfer` detiles it with the wrong stride. That is a display-path bug, and it is the last
-thing standing between this and a screenshot of Captain Toad's opening stage.
+### The next question: the vertices, or the transform?
+
+Spiky triangles radiating from points are a signature, and it is not the signature of a bad matrix. A
+wrong matrix mangles a scene *coherently* — everything sheared the same way, scaled the same way,
+recognisably a world seen through a broken lens. What this looks like instead is a **malformed vertex
+stream**: a wrong stride, a wrong attribute format, a wrong index width, where some vertices decode to
+sane model-space positions and their neighbours decode to junk, and the triangles stretched between
+them go wherever the junk points. That is a hypothesis, and the next session's first job is to falsify
+it, not to build on it — which is cheap, because the two halves separate cleanly. Decode one draw's
+raw attributes by hand and ask whether the model-space positions are a plausible cluster. Poke the view
+matrix to identity and the projection to an orthographic and render again: if it is still a thicket,
+the vertices are wrong and the camera is innocent.
+
+There is one candidate that would explain the picture and links both halves. The scene's vertex shader
+does not simply multiply by a model matrix — it *indexes a matrix palette with the address register*
+(`code[007]` is a `MOVA`, and `code[008]` a `DP4` against `c25[a0.x]`). If `a0` is loaded from a vertex
+attribute the fetch decodes wrongly, every object picks a **random matrix out of the palette**, and
+the result would look precisely like this.
+
+The display path is broken too — the top screen shows only part of the target, because the panel's
+image is the 240×400 sub-window at byte offset `0x1C000` of the 256×512 buffer and our
+`DisplayTransfer` detiles it with the wrong stride — but that is queued behind this, and deliberately
+so. A correctly-strided window onto garbage is still garbage.
+
+And the lesson, which is the same one this document keeps having to relearn in a new costume: *render
+the artefact and look at it* only works if the looking ends in a judgement. "Not black" is not a
+judgement. The question a rendered frame has to survive is **"does this look like the game?"** — asked
+out loud, of the picture, before a single counter is quoted in its defence.
