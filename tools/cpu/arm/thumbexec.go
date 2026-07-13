@@ -290,7 +290,7 @@ func (c *CPU) thumbPushPop(h uint32) {
 			if mask&(1<<i) == 0 {
 				continue
 			}
-			c.write32(addr, c.R[i])
+			c.write32aligned(addr, c.R[i])
 			addr += 4
 		}
 	}
@@ -308,7 +308,7 @@ func (c *CPU) thumbBlock(h uint32) {
 		if load {
 			c.R[i] = c.read32aligned(addr)
 		} else {
-			c.write32(addr, c.R[i])
+			c.write32aligned(addr, c.R[i])
 		}
 		addr += 4
 	}

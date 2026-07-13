@@ -305,7 +305,7 @@ func (c *CPU) execSwap(w uint32) {
 		c.setReg(rd, old)
 	} else {
 		old := c.read32(rn)
-		c.write32(rn, c.reg(rm))
+		c.write32aligned(rn, c.reg(rm))
 		c.setReg(rd, old)
 	}
 }
@@ -498,7 +498,7 @@ func (c *CPU) execBlock(w uint32) {
 			if i == 15 {
 				v = c.cur + 12
 			}
-			c.write32(addr, v)
+			c.write32aligned(addr, v)
 		}
 		addr += 4
 	}

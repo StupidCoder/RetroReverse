@@ -254,12 +254,40 @@ func (c *CPU) read32(a uint32) uint32 {
 	}
 	return v
 }
+// write32aligned is the store side of read32aligned: block transfers (LDM/STM,
+// SWP) ignore the low address bits on every architecture, so they must not take
+// the ARMv6 true-unaligned path.
+func (c *CPU) write32aligned(a, v uint32) {
+	a &^= 3
+	c.bus.Write(a, byte(v))
+	c.bus.Write(a+1, byte(v>>8))
+	c.bus.Write(a+2, byte(v>>16))
+	c.bus.Write(a+3, byte(v>>24))
+}
+
 func (c *CPU) read32aligned(a uint32) uint32 {
 	a &^= 3
 	return uint32(c.bus.Read(a)) | uint32(c.bus.Read(a+1))<<8 | uint32(c.bus.Read(a+2))<<16 | uint32(c.bus.Read(a+3))<<24
 }
+// write32 is read32's counterpart, and splits the same way. ARMv6 (the 3DS's
+// ARM11, with unaligned access enabled by Horizon) performs a TRUE unaligned
+// word store: the four bytes at the exact address. ARMv5 and earlier (the DS)
+// cannot, and force the address aligned — silently writing the word BELOW the
+// one the program meant.
+//
+// Applying the ARMv5 rule on ARMv6 is not a rounding error, it is memory
+// corruption of whatever sits in the bytes before the target: Captain Toad
+// copies its stream-track table with a 13-byte stride, so every track after the
+// first is stored through an unaligned pointer, and each one wrote its first
+// word over the PREVIOUS track's last byte — the second channel's index. The
+// stream then resolved both of its channels to the same object, never started
+// its right channel, and its voice's command list grew until the allocator
+// re-appended a node that was still linked (X.next = X) and the sound thread
+// spun forever on the walk. One masked address, one dead game.
 func (c *CPU) write32(a, v uint32) {
-	a &^= 3
+	if c.Arch < V6K {
+		a &^= 3
+	}
 	c.bus.Write(a, byte(v))
 	c.bus.Write(a+1, byte(v>>8))
 	c.bus.Write(a+2, byte(v>>16))

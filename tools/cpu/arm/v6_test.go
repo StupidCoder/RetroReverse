@@ -163,3 +163,45 @@ func TestV6SelAfterParallel(t *testing.T) {
 		t.Fatalf("SEL = 0x%08X, want 0xAABBAABB", c.R[0])
 	}
 }
+
+// An unaligned word STORE splits by architecture exactly as the load does. On
+// ARMv6 (the 3DS's ARM11, unaligned access enabled by Horizon) `STR r1,[r0]`
+// with r0 = 0x2003 writes the four bytes AT 0x2003. On ARMv5 (the DS) the
+// address is forced aligned, so the same instruction writes the word at 0x2000 —
+// silently clobbering the three bytes BELOW the intended target. Applying the
+// ARMv5 rule on ARMv6 corrupted Captain Toad's stream-track table (a 13-byte
+// stride makes every store after the first unaligned), and the one byte it ate
+// deadlocked the whole game.
+func TestUnalignedWordStore(t *testing.T) {
+	for _, tc := range []struct {
+		name   string
+		arch   Variant
+		wantAt uint32 // where the word must land
+		keep   []uint32 // bytes that must NOT be touched
+	}{
+		{"v6k stores at the exact address", V6K, 0x2003, []uint32{0x2000, 0x2001, 0x2002, 0x2007}},
+		{"v5te forces the address aligned", V5TE, 0x2000, []uint32{0x2004, 0x2005, 0x2006, 0x2007}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			b := newBus(0x10000)
+			c := NewCPU(b)
+			c.Arch, c.Mode = tc.arch, ModeSYS
+			for a := uint32(0x2000); a < 0x2010; a++ {
+				b.Write(a, 0xEE)
+			}
+			c.R[0], c.R[1] = 0x2003, 0x11223344
+			stepOne(c, b, 0xE5801000) // STR r1, [r0]
+			if c.Halted {
+				t.Fatalf("core halted: %s", c.HaltReason)
+			}
+			if got := b.word(tc.wantAt); got != 0x11223344 {
+				t.Fatalf("word at 0x%04X = 0x%08X, want 0x11223344", tc.wantAt, got)
+			}
+			for _, a := range tc.keep {
+				if got := b.Read(a); got != 0xEE {
+					t.Fatalf("byte at 0x%04X = 0x%02X — the store spilled onto memory it must not touch", a, got)
+				}
+			}
+		})
+	}
+}
