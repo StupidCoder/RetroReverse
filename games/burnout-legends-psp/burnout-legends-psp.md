@@ -30,6 +30,9 @@ this disc.
   that mattered most — the GE *consumes* vertices, so a mesh behind a single
   `VADDR` was drawing its first strip over and over. Ends with the race
   rendering and driving.
+- **Part V — The vehicle format.** `.bgv`, the cars: a self-contained,
+  GPU-ready model container, decoded and exported — all 89 vehicles, with
+  their texture atlases and their wheels in the right places.
 
 ---
 
@@ -450,3 +453,115 @@ impact-time counter of Burnout's aftertouch.
 That is the honest end of the boot chain: the oracle now boots the disc from
 cold, walks the front end, streams a track, starts a race, drives a car, and
 crashes it.
+
+---
+
+## Part V — The vehicle format
+
+The disc keeps its cars under `PSP_GAME/USRDIR/pveh`, grouped into the six
+classes the SELECT CAR screen offers — `COMP`, `CUPE`, `HEVY`, `MSCL`, `SPRT`,
+`SUPR` — with the numbering restarting inside each. Every vehicle brings a
+`.bgv` (the model), `.hdt`/`.ldt` (detail data), and `.hwd`/`.lwd`, which the
+filenames tempt you to read as *wheel* data and which are in fact **wave**
+banks: sample rates and running indices, sound rather than geometry.
+
+### 1. The file is the vertex buffer
+
+The decisive question about any model format is whether the game transforms the
+data at load or hands it to the hardware as-is. This one is answered without
+guessing: dump the exact vertex bytes the GE fetched while the game was running,
+then search the file for them. They are there, **byte-identical**, at
+`0x33ED0` of `Car1.bgv`.
+
+So a `.bgv` is not a container to be unpacked — it *is* the thing the hardware
+reads. The engine loads the file verbatim at some base, patches about twenty
+pointer slots (each stored as a plain file offset, fixed up to `base + offset`),
+and points the GE at it. The vertex data in the file is the vertex buffer; the
+strip lists in the file are display-list fragments, each ending in a GE `RET`
+so the engine can simply *call* them.
+
+That also explains the renderer bug from Part IV: the file gives one `VADDR` and
+then a run of bare `PRIM` words, because the hardware's vertex pointer advances
+as primitives consume vertices. The format and the hardware behaviour are two
+views of the same fact.
+
+### 2. Layout
+
+```
+header  +0x08  file size
+        +0x4C  \
+        +0x50   >  three mesh tables — the three detail levels
+        +0x54  /
+        +0x60  the texture region
+        0x0B80 four 4x4 wheel placements
+
+mesh table   u32 offsets relative to the table, zero-terminated,
+             one per mesh record
+
+mesh record  its own offsets are relative to record + 0x10:
+        +0x00  a type id
+        +0x30  the model scale (three floats)
+        +0x44  vertex stream       +0x48  vertex count
+        +0x54  strip list          +0x58  strip list length
+
+strip list   GE PRIM words — 0x04<<24 | type<<16 | vertexCount —
+             terminated by RET (0x0B000000)
+
+vertices     GE-native, 14 bytes: u16 texcoords, an 8-bit normal,
+             16-bit positions. The fixed-point fields are fractional
+             exactly as the hardware reads them (u16/32768, s8/128,
+             s16/32768); the model scale then puts the mesh in world
+             units.
+```
+
+The record's vertex count and the strips agree exactly — the strips consume
+precisely the vertices the record declares, in all 30 records of Car1 and in
+every other car on the disc.
+
+### 3. The texture
+
+The texture region (header `+0x60`) is a small descriptor followed by the
+pixels: the palette offset at `+0x08`, the width and height at `+0x0C`/`+0x10`,
+the depth at `+0x14`, and the image itself at `+0x110`. The cars use one
+256×256 CLUT8 atlas apiece, stored **swizzled** in the GE's 16-byte by 8-row
+block order, with a 256-entry RGBA palette.
+
+Decoded, it is unmistakably the car's own skin — the same sponsor decals that
+are legible on the rendered car in the race:
+
+![The player car's texture atlas, decoded from its .bgv](figures/car-atlas.png)
+
+### 4. Where the wheels go
+
+The mesh records carry no transform, and for six of a car's seven body parts
+that is because none is needed: they already hold their position in their
+vertices. The wheel is the exception. It is modelled about the origin, and the
+file carries **four 4×4 matrices** — row-major, translation in the last row,
+the right-hand pair mirrored through a `-1` X basis — that place it at the
+corners.
+
+Two things establish that this is the real placement data rather than a lucky
+read of some plausible floats. It is **structural**: the same offset in every
+car, and the values track each car's own geometry — the heavy class is wider at
+±0.835, the supercar has the longer wheelbase. And the **running game confirms
+the binding**: replaying the race and pairing every drawn primitive with the
+world matrix the engine handed it shows the body drawn once at the car's origin
+and the wheel mesh drawn at exactly these four corners.
+
+### 5. Exported
+
+`bgvdump -all` parses every vehicle on the disc — **89 models, no failures,
+178,715 triangles** — and `bgvexport` writes them as GLBs with the atlas
+embedded.
+
+The check that matters is not that the parser is self-consistent but that the
+result is a car. Rendering an exported GLB back to an image gives one:
+
+![Car1 exported to GLB and rendered back](figures/car-export.png)
+
+That readback earned its place. An earlier export passed every internal
+consistency test — all 89 files, strips consuming exactly the declared vertices
+— while being geometrically wrong twice over: the wheels were stacked at the
+origin, and a Y-flip that assumed the PSP's screen-down convention had the car
+standing on its roof. The models are already Y-up; it is the handedness that
+needs flipping, not the up-axis. Only looking at the thing caught either.
