@@ -55,6 +55,9 @@ func main() {
 	dump := flag.String("dump", "", "hex-dump ADDR:LEN and exit (hex)")
 	files := flag.Bool("files", false, "list the disc's files and exit")
 	verbose := flag.Bool("v", false, "log every kernel call as it happens")
+	iopOnly := flag.Bool("iop", false, "boot the IOP alone, load its modules, and report — the second processor's bring-up harness")
+	iopMods := flag.String("iopmods", "", "extra IRX modules to load after the kernel, comma-separated (e.g. SIO2MAN,PADMAN,OVERLORD)")
+	iopDis := flag.String("iopdis", "", "disassemble IOP memory at ADDR[:N] after the IOP boots (hex) — reads the modules as loaded, with every kernel stub named")
 	flag.Parse()
 
 	if *image == "" {
@@ -67,6 +70,7 @@ func main() {
 		bps: bps, logpcs: logpcs, watches: watches, rwatches: rwatches, watchn: *watchn,
 		savestate: *savestate, loadstate: *loadstate, poke: *poke,
 		dis: *dis, dump: *dump, files: *files, verbose: *verbose,
+		iopOnly: *iopOnly, iopMods: *iopMods, iopDis: *iopDis,
 	}); err != nil {
 		fmt.Fprintln(os.Stderr, "bootoracle:", err)
 		os.Exit(1)
@@ -82,6 +86,8 @@ type cfg struct {
 	watchn                                int
 	savestate, loadstate, poke, dis, dump string
 	files, verbose                        bool
+	iopOnly                               bool
+	iopMods, iopDis                       string
 }
 
 func hx(s string) (uint32, error) {
@@ -180,6 +186,16 @@ func run(c cfg) error {
 	m.SetVolume(vol)
 	m.LoadExecutable(exe)
 	fmt.Fprintf(os.Stderr, "%s", exe.Describe())
+
+	// The IOP's bring-up harness: boot the second processor on the disc's own kernel
+	// modules, with the EE left standing at its entry point, and report what it did.
+	//
+	// It exists because the IOP is a machine you can be wrong about for a very long
+	// time if the only way to reach it is through a three-billion-instruction EE boot.
+	// This is the short way in.
+	if c.iopOnly {
+		return bootIOP(m, c.iopMods, c.iopDis)
+	}
 
 	if c.loadstate != "" {
 		if err := m.LoadStateFile(c.loadstate); err != nil {
@@ -370,4 +386,65 @@ func isPrintable(s string) bool {
 		}
 	}
 	return true
+}
+
+// bootIOP is the second processor's bring-up harness.
+//
+// It boots the IOP on IOPRP221.IMG — the kernel modules the game itself reboots it
+// onto — then loads whatever else was asked for, and prints three things: what the
+// modules printed, what they asked the kernel for that nothing answered, and what
+// hardware they touched. The middle one is the work list.
+func bootIOP(m *ps2.Machine, extra, dis string) error {
+	err := m.RebootIOP()
+
+	for _, mod := range m.IOP.Modules() {
+		fmt.Printf("  loaded %-10s at 0x%08X  %6d bytes\n", mod.Name, mod.Base, mod.Size)
+	}
+	if err != nil {
+		fmt.Printf("\nthe IOP's boot stopped: %v\n", err)
+	}
+
+	if err == nil && extra != "" {
+		for _, name := range strings.Split(extra, ",") {
+			name = strings.TrimSpace(name)
+			if name == "" {
+				continue
+			}
+			path := "/DRIVERS/" + strings.ToUpper(name)
+			if !strings.HasSuffix(path, ".IRX") {
+				path += ".IRX"
+			}
+			if err = m.IOP.LoadModuleFromDisc(path); err != nil {
+				fmt.Printf("\nloading %s: %v\n", name, err)
+				break
+			}
+			fmt.Printf("  loaded %s\n", name)
+		}
+	}
+
+	fmt.Printf("\n--- the log\n")
+	for _, l := range m.Log {
+		fmt.Printf("  %s\n", l)
+	}
+	if tty := m.IOP.TTY(); tty != "" {
+		fmt.Printf("\n--- what the IOP printed\n%s\n", tty)
+	}
+	if census := m.IOP.IOPCensus(); census != "" {
+		fmt.Printf("\n--- %s", census)
+	}
+
+	if dis != "" {
+		addr, n, err := parseRange(dis)
+		if err != nil {
+			return err
+		}
+		if n < 8 {
+			n = 32 * 4
+		}
+		fmt.Printf("\n--- IOP memory as loaded\n")
+		for a := addr; a < addr+n; a += 4 {
+			fmt.Printf("  %-24s %08X  %s\n", m.IOP.Sym(a), a, m.IOP.DisasmAt(a))
+		}
+	}
+	return nil
 }

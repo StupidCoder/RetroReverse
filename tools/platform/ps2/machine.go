@@ -22,6 +22,7 @@ package ps2
 // real IOP modules is a later phase rather than a rewrite.
 
 import (
+	"bytes"
 	"fmt"
 	"sort"
 
@@ -138,6 +139,10 @@ type Machine struct {
 	sifPending    []sifPacket
 	sifUnmodelled map[uint32]int
 
+	// The second processor (iop.go). It is nil until the game reboots the IOP, which
+	// is when the modules it will run are chosen.
+	IOP *IOP
+
 	// The buffer of arguments the EE DMA'd across just before its last RPC call.
 	rpcSendBuf, rpcSendSize uint32
 
@@ -174,6 +179,9 @@ type Machine struct {
 	// StopRequested ends the run at the next instruction boundary.
 	StopRequested bool
 
+	// The IOP's stdio output, buffered until it has a whole line to log.
+	iopTTYLine []byte
+
 	Log     []string
 	logSeen map[string]bool
 
@@ -209,6 +217,29 @@ func NewMachine() *Machine {
 
 // sprintf is fmt.Sprintf under a shorter name, used by the table renderers.
 func sprintf(format string, args ...interface{}) string { return fmt.Sprintf(format, args...) }
+
+// StartIOP builds the second processor over the memory the EE already shares with it.
+// It runs nothing until a module is loaded onto it (iopload.go).
+func (m *Machine) StartIOP() *IOP {
+	m.IOP = newIOP(m, m.iopRAM)
+	return m.IOP
+}
+
+// iopPrint receives what the IOP's modules print through stdio. It is the IOP's half
+// of the narration the EE's kernel already gives us over DECI2, and during bring-up it
+// is very often the only thing that will say what went wrong.
+func (m *Machine) iopPrint(s string) {
+	m.iopTTYLine = append(m.iopTTYLine, s...)
+	m.IOP.tty = append(m.IOP.tty, s...)
+	for {
+		i := bytes.IndexByte(m.iopTTYLine, '\n')
+		if i < 0 {
+			break
+		}
+		m.note("iop: %s", string(m.iopTTYLine[:i]))
+		m.iopTTYLine = m.iopTTYLine[i+1:]
+	}
+}
 
 // SetImageHash pins the disc's MD5 so a savestate cannot be loaded against a
 // different image.

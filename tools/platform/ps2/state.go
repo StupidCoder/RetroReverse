@@ -252,7 +252,18 @@ func (m *Machine) LoadState(s MachineState) error {
 }
 
 // SaveStateFile writes a snapshot, gzipped.
+//
+// It refuses while the IOP is running. The snapshot carries the IOP's *memory* — it
+// always has, because the EE can see it — but not the IOP's registers, its syscall
+// bindings, its heaps or its interrupt handlers, and a snapshot that silently dropped
+// half of a second processor would restore into a machine that looked right and was
+// not. Extending it is the price of turning the IOP on in the main boot, and this is
+// the reminder to pay it rather than discover it.
 func (m *Machine) SaveStateFile(path string) error {
+	if m.IOP != nil {
+		return fmt.Errorf("ps2: the IOP is running, and the savestate does not carry it yet — " +
+			"its registers, syscall bindings, heaps and interrupt handlers would be lost")
+	}
 	f, err := os.Create(path)
 	if err != nil {
 		return err

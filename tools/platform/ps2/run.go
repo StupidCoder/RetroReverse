@@ -45,6 +45,7 @@ func (m *Machine) Run(maxSteps uint64) Result {
 	var (
 		steps    uint64
 		vblAcc   uint64
+		iopAcc   uint64
 		spinSeen = map[uint32]int{}
 		spinAcc  int
 	)
@@ -62,6 +63,18 @@ func (m *Machine) Run(maxSteps uint64) Result {
 		// asked for them rather than instantly.
 		if len(m.sifPending) > 0 {
 			m.sifTick()
+		}
+
+		// The second processor. It runs at about an eighth of the EE's clock, and it runs
+		// whether or not the EE does — a machine whose every thread is blocked is very
+		// often a machine waiting on the IOP, and an IOP that only ticked when the EE did
+		// would never arrive.
+		if m.IOP != nil {
+			iopAcc++
+			if iopAcc >= iopStepRatio {
+				iopAcc = 0
+				m.IOP.Step()
+			}
 		}
 
 		// The frame clock. Everything time-based in this machine hangs off it.

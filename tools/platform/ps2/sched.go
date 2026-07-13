@@ -212,6 +212,11 @@ func (m *Machine) blocked() bool {
 	if len(m.sifPending) > 0 || len(m.intcHandlers) > 0 {
 		return false
 	}
+	// A second processor that is still executing can always wake this one: the EE
+	// waiting on the IOP is the *normal* state of a PS2 boot, not a deadlock.
+	if m.IOP != nil && m.IOP.running && !m.IOP.Halted && !m.IOP.CPU.Halted {
+		return false
+	}
 	return m.pickReady() == nil
 }
 
