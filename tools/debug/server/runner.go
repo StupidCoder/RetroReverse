@@ -218,6 +218,10 @@ func (rn *Runner) handle(r request) error {
 		return nil
 	case "surface.render":
 		return rn.surface(r)
+	case "fs.list":
+		return rn.fsList(r)
+	case "fs.read":
+		return rn.fsRead(r)
 	case "mem.read":
 		return rn.mem(r)
 	case "mem.watch":
@@ -251,6 +255,8 @@ var opNeeds = map[string]string{
 	"state.load":     debug.CapStates,
 	"surface.list":   debug.CapSurfaces,
 	"surface.render": debug.CapSurfaces,
+	"fs.list":        debug.CapFiles,
+	"fs.read":        debug.CapFiles,
 }
 
 // ---- frames ----
@@ -553,6 +559,58 @@ func (rn *Runner) surface(r request) error {
 		RenderMs: msSince(start), Bytes: len(payload),
 	})
 	r.from.sendBinary(payload)
+	return nil
+}
+
+// ---- the game's own filesystem ----
+//
+// A cartridge has none; a disc has one, and the game reads it as it runs. So this is
+// where you go to see what the machine could be loading — and, paired with a read-watch
+// on the drive, what it is loading right now.
+
+// fileHead caps how much of a file is sent. The browser is for identifying a file, not
+// for extracting it — the extract tools already do that properly.
+const fileHead = 4096
+
+func (rn *Runner) fsList(r request) error {
+	var a fsArgs
+	if err := decodeArgs(r.req, &a); err != nil {
+		return err
+	}
+	if a.Path == "" {
+		a.Path = "/"
+	}
+	entries, err := rn.tgt.(debug.FileLister).ListDir(a.Path)
+	if err != nil {
+		return err
+	}
+	m := filesMsg{Type: "files", Seq: r.req.Seq, Path: a.Path, Entries: []jsonFile{}}
+	for _, e := range entries {
+		m.Entries = append(m.Entries, jsonFile{
+			Name: e.Name, Path: e.Path, Dir: e.Dir, Size: e.Size, Offset: e.Offset,
+		})
+	}
+	r.from.send(m)
+	return nil
+}
+
+func (rn *Runner) fsRead(r request) error {
+	var a fsArgs
+	if err := decodeArgs(r.req, &a); err != nil {
+		return err
+	}
+	b, err := rn.tgt.(debug.FileLister).ReadFile(a.Path)
+	if err != nil {
+		return err
+	}
+	head := b
+	if len(head) > fileHead {
+		head = head[:fileHead]
+	}
+	r.from.send(fileMsg{
+		Type: "file", Seq: r.req.Seq, Path: a.Path,
+		Size: int64(len(b)), Data: hex.EncodeToString(head),
+	})
 	return nil
 }
 

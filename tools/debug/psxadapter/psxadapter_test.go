@@ -3,6 +3,7 @@ package psxadapter
 import (
 	"bytes"
 	"os"
+	"strings"
 	"testing"
 
 	"retroreverse.com/tools/debug"
@@ -61,13 +62,12 @@ func TestCapabilities(t *testing.T) {
 			t.Errorf("the PSX target does not advertise %q", want)
 		}
 	}
-	if !caps[debug.CapSurfaces] {
-		t.Error("the PSX target does not advertise surfaces, and its VRAM is the most worth looking at")
-	}
-	// It has no file browser yet, and must not pretend otherwise — even though the disc
-	// it booted from plainly has a filesystem.
-	if caps[debug.CapFiles] {
-		t.Errorf("the PSX target advertises %q, which it does not implement", debug.CapFiles)
+	// VRAM is the most worth looking at on this machine, and the disc it boots from has
+	// a filesystem the game reads as it runs.
+	for _, want := range []string{debug.CapSurfaces, debug.CapFiles, debug.CapFileAt} {
+		if !caps[want] {
+			t.Errorf("the PSX target does not advertise %q", want)
+		}
 	}
 }
 
@@ -269,6 +269,57 @@ func TestSurfaces(t *testing.T) {
 	}
 	if _, err := a.RenderSurface("nosuch", debug.View{}); err == nil {
 		t.Error("an unknown surface id was accepted")
+	}
+}
+
+// TestFilesystem: the disc the game boots from is browsable, and a sector can be traced
+// back to the file that occupies it — which is what turns a read-watch on the drive from
+// "block 4711" into "the game is streaming this file".
+func TestFilesystem(t *testing.T) {
+	a := open(t)
+
+	root, err := a.ListDir("/")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(root) == 0 {
+		t.Fatal("the disc root is empty")
+	}
+
+	// Every PSX disc has SYSTEM.CNF: it is how the BIOS finds the boot executable, and
+	// it is how this adapter found it too.
+	var cnf debug.FileEntry
+	for _, e := range root {
+		t.Logf("  %-16s dir=%v %8d bytes  sector %d", e.Name, e.Dir, e.Size, e.Offset)
+		if strings.HasPrefix(e.Name, "SYSTEM.CNF") {
+			cnf = e
+		}
+	}
+	if cnf.Name == "" {
+		t.Fatal("no SYSTEM.CNF on the disc root")
+	}
+
+	b, err := a.ReadFile(cnf.Path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// SYSTEM.CNF is a text file naming the boot executable.
+	if !strings.Contains(strings.ToUpper(string(b)), "BOOT") {
+		t.Errorf("SYSTEM.CNF does not look like itself: %q", b)
+	}
+
+	// The sector SYSTEM.CNF starts at must name SYSTEM.CNF.
+	got, within, ok := a.FileAt(cnf.Offset)
+	if !ok {
+		t.Fatalf("sector %d is where SYSTEM.CNF starts, but no file was found there", cnf.Offset)
+	}
+	if got.Name != cnf.Name || within != 0 {
+		t.Errorf("sector %d = %q at +%d, want %q at +0", cnf.Offset, got.Name, within, cnf.Name)
+	}
+
+	// A sector no file occupies is honestly reported as such rather than guessed at.
+	if _, _, ok := a.FileAt(0); ok {
+		t.Error("sector 0 is the volume header, not a file, but a file was claimed for it")
 	}
 }
 

@@ -263,6 +263,25 @@ main {
 #surf-canvas { image-rendering: pixelated; max-width: 100%; }
 #surf-note { margin-top: 4px; font-size: 11px; }
 
+/* ---- the game's filesystem ---- */
+
+.frow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 18px;
+  padding: 0 10px;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.frow:hover { background: var(--panel-hi); }
+.frow .fn { overflow: hidden; text-overflow: ellipsis; }
+.frow .grow { flex: 1; }
+#fs-head { border-top: 1px solid var(--line); padding: 6px 10px; }
+#fs-head .fhead { margin-bottom: 4px; }
+#fs-head .line .a { color: var(--muted); margin-right: 8px; }
+#fs-head .line .asc { color: var(--muted); margin-left: 8px; }
+
 /* ---- watches ---- */
 
 .watch-add { display: flex; align-items: center; gap: 6px; margin-bottom: 6px; }

@@ -84,22 +84,24 @@ type Adapter struct {
 	stop      debug.StopReason
 }
 
-// The capabilities this target backs. What is absent here is absent from the page: it
-// is not a FileLister yet, so it has no file browser, even though the disc it booted
-// from plainly has a filesystem.
+// The capabilities this target backs. What is absent here is absent from the page — the
+// N64 has no FileLister, because a cartridge has no filesystem, and so it simply has no
+// file browser rather than an empty one.
 var (
-	_ debug.Target        = (*Adapter)(nil)
-	_ debug.FrameStepper  = (*Adapter)(nil)
-	_ debug.FastStepper   = (*Adapter)(nil)
-	_ debug.FrameReplayer = (*Adapter)(nil)
-	_ debug.CodeStepper   = (*Adapter)(nil)
-	_ debug.Breakpointer  = (*Adapter)(nil)
-	_ debug.Disassembler  = (*Adapter)(nil)
-	_ debug.Watcher       = (*Adapter)(nil)
-	_ debug.StateFiler    = (*Adapter)(nil)
-	_ debug.Resumer       = (*Adapter)(nil)
-	_ debug.MemoryMapper  = (*Adapter)(nil)
-	_ debug.Surfacer      = (*Adapter)(nil)
+	_ debug.Target         = (*Adapter)(nil)
+	_ debug.FrameStepper   = (*Adapter)(nil)
+	_ debug.FastStepper    = (*Adapter)(nil)
+	_ debug.FrameReplayer  = (*Adapter)(nil)
+	_ debug.CodeStepper    = (*Adapter)(nil)
+	_ debug.Breakpointer   = (*Adapter)(nil)
+	_ debug.Disassembler   = (*Adapter)(nil)
+	_ debug.Watcher        = (*Adapter)(nil)
+	_ debug.StateFiler     = (*Adapter)(nil)
+	_ debug.Resumer        = (*Adapter)(nil)
+	_ debug.MemoryMapper   = (*Adapter)(nil)
+	_ debug.Surfacer       = (*Adapter)(nil)
+	_ debug.FileLister     = (*Adapter)(nil)
+	_ debug.FileAttributer = (*Adapter)(nil)
 )
 
 // snap wraps a PSX in-memory savestate as an opaque debug.Snapshot. psx.SaveState
@@ -354,6 +356,56 @@ func (a *Adapter) RenderSurface(id string, v debug.View) (*image.RGBA, error) {
 		})
 	}
 	return nil, fmt.Errorf("psxadapter: no surface %q: %w", id, debug.ErrUnsupported)
+}
+
+// The disc's filesystem. The PSX reads its data straight off the disc as the game runs,
+// so being able to look at what is on it — and, with a read-watch, at what the machine
+// is reading right now — is the other half of "why is this texture wrong".
+//
+// Entry.Block is the sector a file starts at, which is how a disc addresses its own
+// contents; FileAt turns a sector back into the file that contains it.
+func (a *Adapter) ListDir(path string) ([]debug.FileEntry, error) {
+	if path == "" {
+		path = "/"
+	}
+	entries, err := a.disc.ReadDir(path)
+	if err != nil {
+		return nil, err
+	}
+	out := make([]debug.FileEntry, 0, len(entries))
+	for _, e := range entries {
+		out = append(out, debug.FileEntry{
+			Path: e.Path, Name: e.Name, Dir: e.IsDir,
+			Size: int64(e.Size), Offset: int64(e.Block),
+		})
+	}
+	return out, nil
+}
+
+func (a *Adapter) ReadFile(path string) ([]byte, error) { return a.disc.ReadFile(path) }
+
+// FileAt names the file containing a disc sector — so a read-watch on the CD can say
+// which file the game is streaming, rather than which block number.
+func (a *Adapter) FileAt(sector int64) (debug.FileEntry, int64, bool) {
+	var found debug.FileEntry
+	var within int64
+	ok := false
+	a.disc.Walk(func(e psx.Entry) error {
+		if e.IsDir || e.Size == 0 {
+			return nil
+		}
+		// A file occupies ceil(size / 2048) sectors from its extent.
+		blocks := int64((e.Size + 2047) / 2048)
+		if sector >= int64(e.Block) && sector < int64(e.Block)+blocks {
+			found = debug.FileEntry{
+				Path: e.Path, Name: e.Name, Size: int64(e.Size), Offset: int64(e.Block),
+			}
+			within = sector - int64(e.Block)
+			ok = true
+		}
+		return nil
+	})
+	return found, within, ok
 }
 
 func (a *Adapter) Regions() []debug.Region {

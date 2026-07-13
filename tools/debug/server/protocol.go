@@ -107,6 +107,9 @@ type (
 	stateArgs struct {
 		Path string `json:"path"`
 	}
+	fsArgs struct {
+		Path string `json:"path"`
+	}
 	surfaceArgs struct {
 		ID      string `json:"id"`
 		Addr    uint32 `json:"addr"`
@@ -274,6 +277,29 @@ type (
 		PC     string `json:"pc"`
 		Steps  uint64 `json:"steps"`
 		Note   string `json:"note"`
+	}
+
+	filesMsg struct {
+		Type    string     `json:"type"` // "files"
+		Seq     int        `json:"seq"`
+		Path    string     `json:"path"`
+		Entries []jsonFile `json:"entries"`
+	}
+
+	jsonFile struct {
+		Name   string `json:"name"`
+		Path   string `json:"path"`
+		Dir    bool   `json:"dir"`
+		Size   int64  `json:"size"`
+		Offset int64  `json:"offset"` // where it lives in the image (a disc sector, say)
+	}
+
+	fileMsg struct {
+		Type string `json:"type"` // "file" — the head of a file, as hex
+		Seq  int    `json:"seq"`
+		Path string `json:"path"`
+		Size int64  `json:"size"` // the file's real size, not the size of this excerpt
+		Data string `json:"data"` // hex, capped
 	}
 
 	surfacesMsg struct {
