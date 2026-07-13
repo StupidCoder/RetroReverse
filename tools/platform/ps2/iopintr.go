@@ -256,21 +256,34 @@ func (p *IOP) sysmemKprintf() {
 
 // --- heaplib ----------------------------------------------------------------------
 
-// iopHeap is one heap: a slab taken from the allocator and handed out of.
+// iopHeap is one heap: a chunk taken from the allocator and handed out of, and grown
+// with another chunk when it runs out.
+//
+// The growth is the whole point, and it was learned the hard way. THREADMAN creates its
+// heap with a *chunk* size, not a total — 2 KiB — and then takes every thread control
+// block, every semaphore and every event flag in the machine out of it. A heap that
+// stops at its first chunk runs dry about the time OVERLORD starts up, and what you see
+// then is not "out of memory": it is CreateSema quietly returning an error code, and
+// OVERLORD, which checks, jumping to itself forever. Two instructions, no message, in a
+// module whose sound initialisation is the last thing it printed.
 type iopHeap struct {
-	base, size, ptr uint32
+	chunk uint32 // how much to take from sysmem each time it grows
+	base  uint32 // the current chunk
+	size  uint32
+	ptr   uint32 // the bump pointer within it
+	total uint32 // handed out, over the heap's life
 }
 
 // heapCreate is CreateHeap(size, flags). It returns the heap's address, which is also
 // the handle every later call passes back.
 func (p *IOP) heapCreate() {
-	size := p.arg(0)
-	base := p.alloc(size)
+	chunk := p.arg(0)
+	base := p.alloc(chunk)
 	if base == 0 {
 		p.setRet(0)
 		return
 	}
-	p.heaps[base] = &iopHeap{base: base, size: size, ptr: base}
+	p.heaps[base] = &iopHeap{chunk: chunk, base: base, size: chunk, ptr: base}
 	p.setRet(base)
 }
 
@@ -285,12 +298,24 @@ func (p *IOP) heapAlloc() {
 		p.setRet(0)
 		return
 	}
+
 	a := (h.ptr + 7) &^ 7
 	if a+size > h.base+h.size {
-		p.setRet(0) // the heap is full; the caller checks
-		return
+		// Grow it. A fresh chunk, at least as big as the request.
+		n := h.chunk
+		if size > n {
+			n = size
+		}
+		base := p.alloc(n)
+		if base == 0 {
+			p.setRet(0)
+			return
+		}
+		h.base, h.size, h.ptr = base, n, base
+		a = base
 	}
 	h.ptr = a + size
+	h.total += size
 	p.setRet(a)
 }
 

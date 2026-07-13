@@ -75,6 +75,16 @@ func (m *Machine) RebootIOP() error {
 		byName[e.Name] = e.Data
 	}
 
+	// The EE's half of the SIF is up before the IOP's is: a game does not reboot the
+	// second processor until its own side can talk to it. On a retail machine the EE's
+	// BIOS kernel raises this bit; here the EE's kernel is Go, so this is where it gets
+	// raised — and *which* bit was read out of SIFMAN, which is the module that waits
+	// for it (sifbus.go).
+	//
+	// Without it the IOP boots as far as SIFCMD and stops there forever, in a loop four
+	// instructions long.
+	m.sbusSetFlag(sbusMSFLG, sifEESIFReady)
+
 	m.StartIOP()
 	for _, name := range iopBootOrder {
 		raw, ok := byName[name]

@@ -143,6 +143,9 @@ type Machine struct {
 	// is when the modules it will run are chosen.
 	IOP *IOP
 
+	// The six registers both processors can see (sifbus.go).
+	sbus [sbusRegs]uint32
+
 	// The buffer of arguments the EE DMA'd across just before its last RPC call.
 	rpcSendBuf, rpcSendSize uint32
 
@@ -471,11 +474,18 @@ func (m *Machine) noteWrite(p, v uint32) {
 // "unmodelled tier" the PSP kernel uses to enumerate its syscall surface, applied to
 // hardware.
 func (m *Machine) ioRead(p uint32) uint32 {
+	if p >= sbusEEBase && p < sbusEEBase+sbusSpan {
+		return m.sbusRead(p - sbusEEBase)
+	}
 	m.unmodelled[p]++
 	return m.io[p]
 }
 
 func (m *Machine) ioWrite(p, v uint32) {
+	if p >= sbusEEBase && p < sbusEEBase+sbusSpan {
+		m.sbusWrite(p-sbusEEBase, v)
+		return
+	}
 	m.unmodelled[p]++
 	m.io[p] = v
 }

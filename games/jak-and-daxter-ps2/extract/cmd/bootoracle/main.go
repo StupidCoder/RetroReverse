@@ -397,9 +397,6 @@ func isPrintable(s string) bool {
 func bootIOP(m *ps2.Machine, extra, dis string) error {
 	err := m.RebootIOP()
 
-	for _, mod := range m.IOP.Modules() {
-		fmt.Printf("  loaded %-10s at 0x%08X  %6d bytes\n", mod.Name, mod.Base, mod.Size)
-	}
 	if err != nil {
 		fmt.Printf("\nthe IOP's boot stopped: %v\n", err)
 	}
@@ -418,8 +415,11 @@ func bootIOP(m *ps2.Machine, extra, dis string) error {
 				fmt.Printf("\nloading %s: %v\n", name, err)
 				break
 			}
-			fmt.Printf("  loaded %s\n", name)
 		}
+	}
+
+	for _, mod := range m.IOP.Modules() {
+		fmt.Printf("  loaded %-14s at 0x%08X  %6d bytes\n", mod.Name, mod.Base, mod.Size)
 	}
 
 	fmt.Printf("\n--- the log\n")

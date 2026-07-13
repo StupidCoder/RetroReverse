@@ -161,34 +161,62 @@ func (p *IOP) Write(addr uint32, v byte) {
 		p.spr[a-iopSPRAMBase] = v
 		return
 	}
+	// A byte write to a register: merge it into the word. The word it merges into has to
+	// be the register's *current* value — which for a register the other processor also
+	// writes is not the same as the last value this one wrote. The R3000A's bus is
+	// byte-wide, so every `sw` to a SIF doorbell arrives here four times, and a merge
+	// against a stale word would drop half of it.
 	sh := 8 * (a & 3)
-	w := p.io[a&^3]&^(0xFF<<sh) | uint32(v)<<sh
+	w := p.ioPeek(a&^3)&^(0xFF<<sh) | uint32(v)<<sh
 	p.ioWrite(a&^3, w)
+}
+
+// ioPeek reads a register without counting the access. It is for the read half of a
+// read-modify-write, which is not the guest asking for anything.
+func (p *IOP) ioPeek(a uint32) uint32 {
+	if a >= sbusIOPBase && a < sbusIOPBase+sbusSpan {
+		return p.ps2.sbusRead(a - sbusIOPBase)
+	}
+	return p.io[a]
 }
 
 // Read32 and Write32 are for the machine's own use — the loader, the kernel HLE and
 // the instruments. The core composes its own words a byte at a time.
+//
+// A register write must go through as *one word*, not as four bytes. The byte path
+// merges its byte into the last value written to that address, and a shared register is
+// one the other processor may have changed since — so four byte-writes to the SIF's
+// doorbell would compose the new word out of a stale one and drop half of it. It is the
+// kind of mistake that leaves a handshake that works locally and means nothing.
 func (p *IOP) Read32(addr uint32) uint32 {
 	a := iopPhys(addr)
-	if a+4 <= iopRAMSizeBytes {
+	switch {
+	case a+4 <= iopRAMSizeBytes:
 		return uint32(p.ram[a]) | uint32(p.ram[a+1])<<8 | uint32(p.ram[a+2])<<16 | uint32(p.ram[a+3])<<24
+	case a >= iopSPRAMBase && a+4 <= iopSPRAMBase+iopSPRAMSize:
+		o := a - iopSPRAMBase
+		return uint32(p.spr[o]) | uint32(p.spr[o+1])<<8 | uint32(p.spr[o+2])<<16 | uint32(p.spr[o+3])<<24
 	}
-	return uint32(p.Read(addr)) | uint32(p.Read(addr+1))<<8 | uint32(p.Read(addr+2))<<16 | uint32(p.Read(addr+3))<<24
+	return p.ioRead(a &^ 3)
 }
 
 func (p *IOP) Write32(addr, v uint32) {
 	a := iopPhys(addr)
-	if a+4 <= iopRAMSizeBytes {
+	switch {
+	case a+4 <= iopRAMSizeBytes:
 		p.ram[a] = byte(v)
 		p.ram[a+1] = byte(v >> 8)
 		p.ram[a+2] = byte(v >> 16)
 		p.ram[a+3] = byte(v >> 24)
-		return
+	case a >= iopSPRAMBase && a+4 <= iopSPRAMBase+iopSPRAMSize:
+		o := a - iopSPRAMBase
+		p.spr[o] = byte(v)
+		p.spr[o+1] = byte(v >> 8)
+		p.spr[o+2] = byte(v >> 16)
+		p.spr[o+3] = byte(v >> 24)
+	default:
+		p.ioWrite(a&^3, v)
 	}
-	p.Write(addr, byte(v))
-	p.Write(addr+1, byte(v>>8))
-	p.Write(addr+2, byte(v>>16))
-	p.Write(addr+3, byte(v>>24))
 }
 
 // CString reads a NUL-terminated string out of IOP memory.
@@ -208,11 +236,18 @@ func (p *IOP) CString(addr uint32) string {
 // The tally is the same instrument the EE's has: it says which silicon the modules
 // actually drive, and therefore what to model next.
 func (p *IOP) ioRead(a uint32) uint32 {
+	if a >= sbusIOPBase && a < sbusIOPBase+sbusSpan {
+		return p.ps2.sbusRead(a - sbusIOPBase)
+	}
 	p.unmodelledIO[a]++
 	return p.io[a]
 }
 
 func (p *IOP) ioWrite(a, v uint32) {
+	if a >= sbusIOPBase && a < sbusIOPBase+sbusSpan {
+		p.ps2.sbusWrite(a-sbusIOPBase, v)
+		return
+	}
 	p.unmodelledIO[a]++
 	p.io[a] = v
 }
