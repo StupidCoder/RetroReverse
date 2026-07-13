@@ -276,6 +276,7 @@ func (g *GPU) draw(indexed bool) {
 	// instead of once per triangle.
 	fb := g.fbstate()
 	ls := g.lightstate()
+	tev := g.tevstate()
 
 	// Assemble, project and cull first, into a list; fill second. The split is what
 	// lets the fill be parallel: setting a triangle up is where the discarded-triangle
@@ -315,7 +316,7 @@ func (g *GPU) draw(indexed bool) {
 		return
 	}
 	g.tris = tris // keep the grown backing array
-	g.fill(&fb, &ls, tris)
+	g.fill(&fb, &ls, &tev, tris)
 }
 
 // fill rasterises a draw's triangles, in parallel over disjoint bands of rows when
@@ -328,7 +329,7 @@ func (g *GPU) draw(indexed bool) {
 // shared counter rather than dealt out in advance, because the geometry is not spread
 // evenly down the screen — but which worker takes which band cannot change the result,
 // only how long it takes.
-func (g *GPU) fill(fb *fbState, ls *lightState, tris []rasterTri) {
+func (g *GPU) fill(fb *fbState, ls *lightState, tv *tevState, tris []rasterTri) {
 	if len(tris) == 0 {
 		return
 	}
@@ -336,7 +337,7 @@ func (g *GPU) fill(fb *fbState, ls *lightState, tris []rasterTri) {
 	if workers <= 1 {
 		var st rstats
 		for i := range tris {
-			g.fillTri(fb, ls, &tris[i], tris[i].minY, tris[i].maxY, &st)
+			g.fillTri(fb, ls, tv, &tris[i], tris[i].minY, tris[i].maxY, &st)
 		}
 		g.mergeStats(&st)
 		return
@@ -377,7 +378,7 @@ func (g *GPU) fill(fb *fbState, ls *lightState, tris []rasterTri) {
 				if hi > yHi {
 					hi = yHi
 				}
-				g.fillTri(fb, ls, t, lo, hi, st)
+				g.fillTri(fb, ls, tv, t, lo, hi, st)
 			}
 		}
 	})
@@ -727,7 +728,7 @@ func (g *GPU) setupTri(a, b, c *vsOut, fb *fbState) (rasterTri, bool) {
 // the same pixel, and within a band the triangles are still applied in submission
 // order — so the buffer they leave behind is the one the serial rasteriser would have
 // left.
-func (g *GPU) fillTri(fb *fbState, ls *lightState, t *rasterTri, yLo, yHi int, st *rstats) {
+func (g *GPU) fillTri(fb *fbState, ls *lightState, tv *tevState, t *rasterTri, yLo, yHi int, st *rstats) {
 	v0, v1, v2 := &t.v0, &t.v1, &t.v2
 	area := t.area
 	minX, maxX := t.minX, t.maxX
@@ -840,7 +841,7 @@ func (g *GPU) fillTri(fb *fbState, ls *lightState, t *rasterTri, yLo, yHi int, s
 				}
 			}
 
-			r8, g8, b8, a8, discard, ok := g.fragment(col, uv, uv0w, ls, q, vw, st)
+			r8, g8, b8, a8, discard, ok := g.fragment(col, uv, uv0w, ls, tv, q, vw, st)
 			if !ok {
 				return // fragment stage halted
 			}

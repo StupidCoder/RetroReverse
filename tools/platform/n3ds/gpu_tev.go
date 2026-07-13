@@ -28,14 +28,13 @@ type rgba struct{ r, g, b, a int32 } // 0-255 per lane
 // first because the lighting unit reads two texture units itself (the bump map
 // and the shadow attenuation), which is why it is evaluated here and not in the
 // rasteriser.
-func (g *GPU) fragment(vcol [4]float32, uv [3][2]float32, uv0w float32, ls *lightState, quat [4]float32, view [3]float32, st *rstats) (r, gr, b, a uint8, discard, ok bool) {
+func (g *GPU) fragment(vcol [4]float32, uv [3][2]float32, uv0w float32, ls *lightState, tv *tevState, quat [4]float32, view [3]float32, st *rstats) (r, gr, b, a uint8, discard, ok bool) {
 	vertex := rgba{clamp255(vcol[0] * 255), clamp255(vcol[1] * 255), clamp255(vcol[2] * 255), clamp255(vcol[3] * 255)}
 
 	// Sample the enabled texture units (0x080 bits 0-2).
 	var tex [3]rgba
-	en := g.Regs[0x080]
 	for u := 0; u < 3; u++ {
-		if en>>uint(u)&1 != 0 {
+		if tv.texEnable>>uint(u)&1 != 0 {
 			var oks bool
 			tex[u], oks = g.sampleTextureSt(u, uv[u][0], uv[u][1], uv0w, st)
 			if !oks {
@@ -49,9 +48,9 @@ func (g *GPU) fragment(vcol [4]float32, uv [3][2]float32, uv0w float32, ls *ligh
 	// and there is no secondary colour.
 	fragPrim, fragSec := vertex, rgba{0, 0, 0, 0}
 	if ls.enabled {
-		p, s := g.shade(ls, quat, view, &tex)
+		p, sc := g.shade(ls, quat, view, &tex)
 		fragPrim = rgba{clamp255(p[0] * 255), clamp255(p[1] * 255), clamp255(p[2] * 255), clamp255(p[3] * 255)}
-		fragSec = rgba{clamp255(s[0] * 255), clamp255(s[1] * 255), clamp255(s[2] * 255), clamp255(s[3] * 255)}
+		fragSec = rgba{clamp255(sc[0] * 255), clamp255(sc[1] * 255), clamp255(sc[2] * 255), clamp255(sc[3] * 255)}
 	}
 
 	prev := vertex
@@ -62,100 +61,90 @@ func (g *GPU) fragment(vcol [4]float32, uv [3][2]float32, uv0w float32, ls *ligh
 	// it, but to the one after that. Only the first four stages can write it at
 	// all: the update masks are four bits wide, not six.
 	var buf rgba
-	next := rgba{ // the configured buffer colour (0x0FD)
-		int32(g.Regs[0x0FD] & 0xFF), int32(g.Regs[0x0FD] >> 8 & 0xFF),
-		int32(g.Regs[0x0FD] >> 16 & 0xFF), int32(g.Regs[0x0FD] >> 24 & 0xFF),
+	next := tv.bufColor
+
+	// fetch resolves a TEV source id. It was a closure, called 36 times per fragment;
+	// the sources it selects between are all in hand here, so it is a plain switch.
+	fetch := func(sel uint8) (rgba, bool) {
+		switch sel {
+		case 0: // PrimaryColor: the interpolated vertex colour
+			return vertex, true
+		case 1: // PrimaryFragmentColor: the lighting unit's diffuse output
+			return fragPrim, true
+		case 2: // SecondaryFragmentColor: the lighting unit's specular output
+			return fragSec, true
+		case 3:
+			return tex[0], true
+		case 4:
+			return tex[1], true
+		case 5:
+			return tex[2], true
+		case 13:
+			return buf, true
+		case 15:
+			return prev, true
+		}
+		return rgba{}, false
 	}
-	upd := g.Regs[0x0E0] // buffer-update flags: colour bits 8-11, alpha 12-15
 
-	for st := 0; st < 6; st++ {
-		base := tevStageBase[st]
-		src := g.Regs[base]
-		opd := g.Regs[base+1]
-		cmb := g.Regs[base+2]
-		konst := rgba{
-			int32(g.Regs[base+3] & 0xFF), int32(g.Regs[base+3] >> 8 & 0xFF),
-			int32(g.Regs[base+3] >> 16 & 0xFF), int32(g.Regs[base+3] >> 24 & 0xFF),
-		}
-		scale := g.Regs[base+4]
+	for i := range tv.stages {
+		s := &tv.stages[i]
 
-		fetch := func(sel uint32) (rgba, bool) {
-			switch sel {
-			case 0: // PrimaryColor: the interpolated vertex colour
-				return vertex, true
-			case 1: // PrimaryFragmentColor: the lighting unit's diffuse output
-				return fragPrim, true
-			case 2: // SecondaryFragmentColor: the lighting unit's specular output
-				return fragSec, true
-			case 3:
-				return tex[0], true
-			case 4:
-				return tex[1], true
-			case 5:
-				return tex[2], true
-			case 13:
-				return buf, true
-			case 14:
-				return konst, true
-			case 15:
-				return prev, true
-			}
-			g.m.CPU.Halt("gpu tev: stage %d source %d unimplemented", st, sel)
-			return rgba{}, false
-		}
-
-		// Colour lanes.
 		var cin [3]rgba
-		for i := 0; i < 3; i++ {
-			s, okf := fetch(src >> (4 * uint(i)) & 0xF)
-			if !okf {
+		for j := 0; j < 3; j++ {
+			o := s.colr[j]
+			src, okf := rgba{}, true
+			if o.src == 14 { // Constant: decoded per stage, not a shared source
+				src = s.konst
+			} else if src, okf = fetch(o.src); !okf {
+				g.m.CPU.Halt("gpu tev: stage %d source %d unimplemented", i, o.src)
 				return 0, 0, 0, 0, false, false
 			}
-			cin[i] = tevColorOperand(s, opd>>(4*uint(i))&0xF)
+			cin[j] = tevColorOperand(src, uint32(o.op))
 		}
-		// Alpha lanes.
 		var ain [3]int32
-		for i := 0; i < 3; i++ {
-			s, okf := fetch(src >> (16 + 4*uint(i)) & 0xF)
-			if !okf {
+		for j := 0; j < 3; j++ {
+			o := s.alph[j]
+			src, okf := rgba{}, true
+			if o.src == 14 {
+				src = s.konst
+			} else if src, okf = fetch(o.src); !okf {
+				g.m.CPU.Halt("gpu tev: stage %d source %d unimplemented", i, o.src)
 				return 0, 0, 0, 0, false, false
 			}
-			ain[i] = tevAlphaOperand(s, opd>>(12+4*uint(i))&7)
+			ain[j] = tevAlphaOperand(src, uint32(o.op))
 		}
 
-		cr, okc := tevCombine(cmb&0xF, cin[0].r, cin[1].r, cin[2].r)
-		cg, _ := tevCombine(cmb&0xF, cin[0].g, cin[1].g, cin[2].g)
-		cb, _ := tevCombine(cmb&0xF, cin[0].b, cin[1].b, cin[2].b)
-		ca, oka := tevCombine(cmb>>16&0xF, ain[0], ain[1], ain[2])
+		cr, okc := tevCombine(uint32(s.combC), cin[0].r, cin[1].r, cin[2].r)
+		cg, _ := tevCombine(uint32(s.combC), cin[0].g, cin[1].g, cin[2].g)
+		cb, _ := tevCombine(uint32(s.combC), cin[0].b, cin[1].b, cin[2].b)
+		ca, oka := tevCombine(uint32(s.combA), ain[0], ain[1], ain[2])
 		if !okc || !oka {
-			g.m.CPU.Halt("gpu tev: stage %d combine op (0x%08X) unimplemented", st, cmb)
+			g.m.CPU.Halt("gpu tev: stage %d combine op unimplemented", i)
 			return 0, 0, 0, 0, false, false
 		}
 
 		out := rgba{
-			clampi(cr<<(scale&3), 0, 255),
-			clampi(cg<<(scale&3), 0, 255),
-			clampi(cb<<(scale&3), 0, 255),
-			clampi(ca<<(scale>>16&3), 0, 255),
+			clampi(cr<<s.scaleC, 0, 255),
+			clampi(cg<<s.scaleC, 0, 255),
+			clampi(cb<<s.scaleC, 0, 255),
+			clampi(ca<<s.scaleA, 0, 255),
 		}
 		buf = next
-		if st < 4 {
-			if upd>>(8+uint(st))&1 != 0 {
-				next.r, next.g, next.b = out.r, out.g, out.b
-			}
-			if upd>>(12+uint(st))&1 != 0 {
-				next.a = out.a
-			}
+		if s.updC {
+			next.r, next.g, next.b = out.r, out.g, out.b
+		}
+		if s.updA {
+			next.a = out.a
 		}
 		prev = out
 	}
 
 	// Alpha test (0x104): bit0 enable, bits 4-6 func, bits 8-15 reference.
-	at := g.Regs[0x104]
-	if at&1 != 0 {
-		ref := int32(at >> 8 & 0xFF)
+	if tv.alphaTest {
+		ref := tv.alphaRef
 		var pass bool
-		switch at >> 4 & 7 {
+		switch tv.alphaFunc {
 		case 0:
 			pass = false
 		case 1:
