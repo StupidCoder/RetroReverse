@@ -213,13 +213,13 @@ func (m *Machine) setResult(t *thread, reg int, v uint32) {
 // instrument (bootoracle -threads).
 func (m *Machine) DumpThreads() {
 	m.dumpThreads()
-	fmt.Printf("dsp: componentLoaded=%v state=%d semEvent=0x%08X nextFrame=%d (instrs=%d)\n",
-		m.dsp.ComponentLoaded, m.dsp.State, m.dsp.SemEvent, m.dsp.NextFrame, m.instrs)
+	fmt.Printf("dsp: componentLoaded=%v state=%d semEvent=0x%08X ticks=%d (instrs=%d)\n",
+		m.dsp.ComponentLoaded, m.dsp.State, m.dsp.SemEvent, m.dsp.Ticks, m.instrs)
 	for i := range m.dsp.Sources {
 		s := &m.dsp.Sources[i]
 		if s.Enabled || len(s.Queue) > 0 || s.CurBufferID != 0 {
-			fmt.Printf("  dsp src %2d: enabled=%v sync=%d pos=%.0f cur=%d last=%d queued=%d update=%v\n",
-				i, s.Enabled, s.SyncCount, s.Pos, s.CurBufferID, s.LastBufferID, len(s.Queue), s.BufferUpdate)
+			fmt.Printf("  dsp src %2d: enabled=%v sync=%d rate=%g pos=%.0f len=%d cur=%d last=%d queued=%d update=%v\n",
+				i, s.Enabled, s.SyncCount, s.Rate, s.Pos, s.CurLength, s.CurBufferID, s.LastBufferID, len(s.Queue), s.BufferUpdate)
 		}
 	}
 	fmt.Printf("handles:\n")

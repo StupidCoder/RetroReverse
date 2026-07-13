@@ -122,6 +122,7 @@ type dspHLE struct {
 	Semaphore       uint32            // last SetSemaphore value (app → DSP; recorded, unused)
 	SemMask         uint32            // SetSemaphoreMask value (recorded, unused)
 	NextFrame       uint64            // m.instrs deadline of the next audio frame
+	Ticks           uint64            // audio frames delivered (instrumentation)
 	Sources         [dspNumSources]dspSource
 }
 
@@ -396,26 +397,16 @@ func (m *Machine) dspDeadline() (uint64, bool) {
 // fires every frame from component boot, pipeline running or not.
 func (m *Machine) dspTick() {
 	m.dsp.NextFrame = m.instrs + dspFrameTicks
+	m.dsp.Ticks++
 	if m.dsp.State == dspStateOn {
 		read, write := m.dspReadRegion(), m.dspWriteRegion()
-		// The status a frame publishes describes the frame the DSP has ALREADY
-		// processed — it lags the configuration the app is writing now by one
-		// frame. Publishing first, then consuming the new configuration, is what
-		// gives that one frame of latency; doing both in one pass ran the echo a
-		// frame ahead, and the app noticed: it stamps each voice's configuration
-		// with a sync count and retires that voice's queued commands only when
-		// the status echoes the count it is waiting for. Ahead by one, the number
-		// it wanted never appeared, no voice ever retired a command, and the
-		// per-voice lists grew until a still-linked node was recycled.
-		for i := 0; i < dspNumSources; i++ {
-			m.dspWriteStatus(i, write)
-		}
 		for i := 0; i < dspNumSources; i++ {
 			m.dspParseConfig(i, read)
 			s := &m.dsp.Sources[i]
 			if s.Enabled {
 				s.advanceFrame()
 			}
+			m.dspWriteStatus(i, write)
 		}
 		m.WriteWord(write+dspOffDSPStatus, 0) // DspStatus: unknown, dropped_frames
 
