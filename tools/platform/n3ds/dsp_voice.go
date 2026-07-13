@@ -25,7 +25,10 @@ package n3ds
 // (3dbrew's DSP memory-region documentation and the Citra/Azahar HLE) under the
 // user-approved platform exception, reimplemented in Go.
 
-import "math"
+import (
+	"fmt"
+	"math"
+)
 
 const dspSamplesPerFrame = 160
 
@@ -293,6 +296,10 @@ func (m *Machine) dspDequeue(s *dspSource) bool {
 	buf := s.Queue[best]
 	s.Queue = append(s.Queue[:best], s.Queue[best+1:]...)
 
+	if m.DSPTrace {
+		fmt.Printf("    dsp DEQUEUE src? id=%d addr=%08X len=%d loop=%v fromQueue=%v played=%v (queue left %d, frame %d)\n",
+			buf.BufferID, buf.PhysAddr, buf.Length, buf.IsLooping, buf.FromQueue, buf.HasPlayed, len(s.Queue), m.dsp.Ticks)
+	}
 	if buf.AdpcmDirty {
 		s.AdpcmYn1, s.AdpcmYn2 = buf.AdpcmYn[0], buf.AdpcmYn[1]
 	}

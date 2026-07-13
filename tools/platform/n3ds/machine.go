@@ -163,7 +163,6 @@ type Machine struct {
 	// conversation, which is otherwise invisible: it happens entirely in shared
 	// memory, with no IPC to log.
 	DSPTrace       bool
-	dspLastCounter uint16
 
 	// IPC / graphics bring-up.
 	notifyWaiters    []uint32 // thread ids parked in srv: ReceiveNotification

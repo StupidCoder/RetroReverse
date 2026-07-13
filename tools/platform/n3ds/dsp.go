@@ -382,14 +382,6 @@ func (m *Machine) dspTick() {
 	m.dsp.Ticks++
 	if m.dsp.State == dspStateOn {
 		read, write := m.dspReadRegion(), m.dspWriteRegion()
-		if m.DSPTrace {
-			c := m.dspRead16(read + dspOffFrameCounter)
-			if m.dspLastCounter != 0 && uint16(c-m.dspLastCounter) != 1 {
-				fmt.Printf("    dsp REGION STEP %d -> %d (skipped %d app frames) at frame %d\n",
-					m.dspLastCounter, c, uint16(c-m.dspLastCounter), m.dsp.Ticks)
-			}
-			m.dspLastCounter = c
-		}
 		var mixes [3]dspQuadFrame
 		for i := 0; i < dspNumSources; i++ {
 			m.dspParseConfig(i, read)
@@ -532,15 +524,12 @@ func (m *Machine) dspParseConfig(i int, region uint32) {
 	if dirty&dirtyEnable != 0 {
 		s.Enabled = m.Read(cfg+srcCfgEnable) != 0
 	}
-	// sync_count is a VALUE the DSP echoes back, not an event: read it from the
-	// configuration every frame, whether or not the dirty bit is set. Gating it
-	// on the dirty bit was tried and MEASURED WORSE — the game then stops
-	// queueing buffers on its streaming voices at all (source 4's buffer-queue
-	// writes vanish). The app's per-voice update (0x00131FAC) compares the echo
-	// against its own count before it will look at anything else, so the echo has
-	// to track the configuration it can see, not the one whose dirty bit we last
-	// caught.
-	s.SyncCount = m.dspRead16(cfg + srcCfgSyncCount)
+	// sync_count latches on its dirty bit, like every other field: the app writes
+	// each region with only the fields it has changed, so a region's sync word can
+	// belong to an older generation than its frame counter suggests.
+	if dirty&dirtySyncCount != 0 {
+		s.SyncCount = m.dspRead16(cfg + srcCfgSyncCount)
+	}
 
 	if dirty&dirtyRate != 0 {
 		s.Rate = math.Float32frombits(m.ReadWord(cfg + srcCfgRate))
@@ -629,6 +618,13 @@ func (m *Machine) dspParseConfig(i int, region uint32) {
 	}
 	if dirty&dirtyBufferQueue != 0 {
 		mask := m.dspRead16(cfg + srcCfgBuffersDirty)
+		if m.DSPTrace {
+			fmt.Printf("    dsp[%d] ENQUEUE r%d mask=%04X ids=[%d %d %d %d] (frame %d)\n", i,
+				(region-dspRegion0)/(dspRegion1-dspRegion0), mask,
+				m.dspRead16(cfg+srcCfgBuffers+0*20+srcBufBufferID), m.dspRead16(cfg+srcCfgBuffers+1*20+srcBufBufferID),
+				m.dspRead16(cfg+srcCfgBuffers+2*20+srcBufBufferID), m.dspRead16(cfg+srcCfgBuffers+3*20+srcBufBufferID),
+				m.dsp.Ticks)
+		}
 		for b := uint32(0); b < 4; b++ {
 			if mask&(1<<b) == 0 {
 				continue
