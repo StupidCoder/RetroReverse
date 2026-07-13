@@ -58,12 +58,14 @@ func (g *GPU) fragment(col [4]float32, uv [3][2]float32) (r, gr, b, a uint8, dis
 				return prim, true
 			case 1:
 				// PrimaryFragmentColor: the primary colour after fragment lighting.
-				// Fragment lighting being enabled halts the draw earlier (gpu.go), so
-				// here it is disabled and the primary (vertex) colour passes through.
+				// The rasteriser evaluates the lighting unit (gpu_light.go) and passes
+				// the result in as col, so this is the vertex colour when lighting is
+				// off and the lit colour when it is on.
 				return prim, true
 			case 2:
-				// SecondaryFragmentColor: the specular lighting term, zero with
-				// lighting disabled.
+				// SecondaryFragmentColor: the specular term. The lighting model is
+				// ambient+diffuse only (gpu_light.go names what it leaves out), so this
+				// is zero — a missing highlight, not a missing image.
 				return rgba{0, 0, 0, 0}, true
 			case 3:
 				return tex[0], true
