@@ -560,3 +560,148 @@ measurement was taken against a game whose memory was being corrupted by the una
 Part XI. With the store fixed, the protocol-correct latch is not merely safe, it is the fix. The
 workaround was the bug wearing a disguise, and the only thing that unmasked it was listening to the
 output.
+
+## Part XIII — 107,000 command lists, no draws: the game submits only the head of its display list
+
+The engine was alive — no spinning thread, no deadlock, every thread parked on a real object, 24,729
+VBlanks, sixty-five seconds of correct music — and both screens were black. 107,271 GPU command lists
+had been submitted and not one pixel had been drawn. That is a strange shape of failure, and it has a
+cheap first fork: *look at what is actually in the lists.* `-gxdump` captures every submitted PICA
+command buffer at submission time; `picadump` decodes one.
+
+**The answer was in the first pass.** Of 795 captured lists, **zero** contained a draw register
+(`0x22E`/`0x22F`). So we were not dropping draws — the game was not sending any. But 383 of those 795
+ended the same way:
+
+```
+reg 0x238 = 000000EA      CMDBUF_SIZE0   (bytes >> 3)
+reg 0x239 = 00000004      CMDBUF_SIZE1
+reg 0x23A = 029784FC      CMDBUF_ADDR0   (address >> 3)
+reg 0x23B = 029255C6      CMDBUF_ADDR1
+reg 0x23C = 00000001      CMDBUF_JUMP0   ← trigger
+```
+
+Those are the PICA command processor's **own chain registers**: two preloaded buffer slots and a
+trigger apiece. Writing a JUMP makes the processor continue in that buffer — and it is a *jump*, not
+a call: the rest of the current buffer is never executed. We had never implemented them, so the GPU
+ran the buffer the game submitted and stopped at its end.
+
+The game's frames are not lists, they are **chains**. Following the jumps showed the shape: a *spine*
+of 32-byte buffers in FCRAM, each one preloading a content buffer and jumping into it; each content
+buffer ends by jumping back to the next spine entry. One frame is **1,633 hops** deep. Here is a
+content buffer, 96 bytes, entire — a complete draw and the jump out:
+
+```
+7fff0001 000f02b0    vertex-shader bools
+00000001 000f025f    restart primitive
+00583b84 000f0227    index buffer
+00000198 000f0228    408 vertices
+00000001 000f022f    ← DrawElements
+00000001 000f0231    clear post-vertex cache
+00000001 000f023d    ← CMDBUF_JUMP1: onward
+```
+
+`Execute` now follows the chain (bounded, so a corrupt jump register halts loudly instead of hanging).
+The draws appeared immediately. **Super Mario 3D Land had been missing most of its buffers too** —
+45,000 draws became 3.4 million, and its welcome dialog came out pixel-identical, which is exactly
+what you want from a fix like this: much more work, byte-for-byte the same picture.
+
+## Part XIV — Two more, found by the draws that now existed
+
+**A megabyte of depth over the game's own command buffers.** With the chain followed, the boot began
+halting inside VRAM: a chained buffer that had executed cleanly a hundred times decoded as garbage on
+a later pass. Its contents had changed under us. The culprit was our own rasteriser.
+
+Captain Toad's shadow pass renders a 512×512 map, and it *keeps the depth-test bits set in `0x107`*
+while never re-pointing the depth buffer — so it inherited the main pass's depth address and we wrote
+512×512×4 = one megabyte of depth from `0x1F300000`, straight over the main pass's depth buffer, over
+the command buffers the game keeps in VRAM, and over the shadow pass's own colour target. The game's
+own memory map proves it can't have meant that: main depth *ends* at `0x1F380000`, and the command
+buffer sits at `0x1F380720`, in the gap.
+
+What the shadow pass does instead is switch the depth buffer off one level lower down:
+
+```
+reg 0x112 = 0000000F   colour buffer read   enabled
+reg 0x113 = 0000000F   colour buffer write  enabled
+reg 0x114 = 00000000   depth buffer read    DISABLED
+reg 0x115 = 00000000   depth buffer write   DISABLED
+```
+
+These are the **buffer access enables**, a second gate in front of `0x107` that permits the memory
+traffic itself. Zero means the pass does not touch that buffer at all. Honouring them: 3,052,450
+bogus depth kills → **0**, and pixels drawn 482,438 → **103 million**. (Super Mario 3D Land writes
+zero to both, always — it never enables the depth test either. It is a game that never used a depth
+buffer, which is why the gap survived a whole title.)
+
+**And the scene is coloured by a unit we had stubbed.** With the draws landing and the depth correct,
+the colour buffer filled with `FD 00 00 00` per pixel: alpha, and **no colour at all**. Captain Toad's
+world geometry carries *black vertex colours* — every pixel of it is coloured by the PICA's
+**fragment-lighting unit**, which we had been halting on. It is now implemented (`gpu_light.go`), and
+the interesting part is the normal: the PICA does not carry one. The vertex shader emits a
+**tangent-space quaternion** (output semantics `0x04`-`0x07`, next to the view vector at `0x12`-`0x14`)
+and the fragment normal is that quaternion applied to `(0,0,1)`. The game's own output map says so:
+
+```
+o0 = 03020100   position x,y,z,w
+o1 = 07060504   quaternion          ← the normal
+o2 = 1F141312   view vector
+o3 = 0B0A0908   colour
+```
+
+Four lights, warm diffuse, a global ambient. Ambient and diffuse are modelled; the specular lookup
+tables are named and left out, and the code says which — a missing highlight, not a missing image.
+
+## Part XV — The frontier: the game poisons its view matrix, and then draws with it
+
+The scene now rasterises: 11,200 draws a frame into a 256×512 render target, correctly depth-sorted.
+It is still black, and the reason is now located to a single uniform.
+
+Every one of the scene's draws runs its vertex shader from entry `0x000`, which is a dispatcher — five
+`call`s and an `end`. Every path through it finishes the same way:
+
+```
+0A7: dp4  r15.x, c90, r10      ← r15 = the view matrix × the model-space position
+0A8: dp4  r15.y, c91, r10
+0A9: dp4  r15.z, c92, r10
+0AE: dp4  o0.x, c86, r15       ← then the projection
+0B1: dp4  o0.w, c89, r15
+```
+
+The projection (`c86`–`c89`) arrives correct and recognisable: `c86 = [0, 3.732, 0, 0]` and
+`c89 = [0, 0, -1, 0]` — a 30° perspective rotated for the 3DS's portrait framebuffer, with the y-scale
+3.732 in the x-row because the screen is turned on its side. But `c90`–`c92`, the **view matrix**, is
+all zeros in our register file, so `r15` comes out `[0,0,0,1]`, `o0` collapses to the projection's
+translation column — exactly the `[0, -0, 100.087, 0]` every vertex reports — `w` is zero, and every
+triangle in the scene is rejected.
+
+It is zero because **the game deliberately writes NaN into it**, in the same command buffer that
+uploads the projection:
+
+```
+8000005a 000f02c0    uniform upload: index 0x5A = c90, f32 mode
+ffc00000 00bf02c1    12 words follow
+7fc00000 7fc00000 7fc00000 ffc00000
+7fc00000 7fc00000 7fc00000 ffc00000     ← c90, c91, c92: all quiet NaN
+```
+
+And logging the uploads against the draws shows the order is not an accident:
+
+```
+identity × 5
+REAL view matrix (43AC59BE …)
+POISON (FFC00000 …)          ← immediately after the real one
+88 lit draws                 ← every one of them drawn with the poison live
+```
+
+The game uploads its real view matrix, poisons it, and *then* draws eighty-eight objects — and on
+hardware those objects appear. So the poison is not poison to the hardware, and our `toF24` (Part
+VIII: a float24 has no NaN, so NaN → 0) cannot be the whole rule for the uniform path. Part VIII was
+*measured* — it took one draw's rejected-triangle count from 4,610 to zero — so the answer is not to
+undo it but to find what distinguishes the two cases. That is the next question, and it is a small,
+sharp one: **what does a PICA200 uniform upload actually do with an all-ones exponent, such that
+`c4`'s stereo sentinel reads as "disabled" and `c90`'s view matrix still transforms?**
+
+Everything downstream of it is now standing and waiting: the chain executes, the depth is right, the
+lighting unit is built, the quaternion normals are wired, and the moment `r15` is a real position the
+frame has somewhere to go.
