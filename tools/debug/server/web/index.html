@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>framedbg</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<header id="toolbar">
+  <span class="brand">framedbg</span>
+  <span id="target" class="muted">connecting…</span>
+  <span class="sep"></span>
+  <button id="step">Step to drawn frame</button>
+  <button id="step1">Step 1 field</button>
+  <label class="check"><input type="checkbox" id="overdraw" checked> overdraw</label>
+  <span class="sep"></span>
+  <label class="check"><input type="checkbox" id="scanout"> scanout</label>
+  <label>zoom
+    <select id="zoom">
+      <option value="1">1×</option>
+      <option value="2" selected>2×</option>
+      <option value="3">3×</option>
+      <option value="4">4×</option>
+    </select>
+  </label>
+  <span class="grow"></span>
+  <span id="stats" class="muted"></span>
+</header>
+
+<main>
+  <section id="left">
+    <div id="stage">
+      <div id="canvas-wrap">
+        <canvas id="view"></canvas>
+        <canvas id="overlay"></canvas>
+      </div>
+    </div>
+
+    <div id="scrubber">
+      <button id="prev" title="previous command (←)">◀</button>
+      <input type="range" id="slider" min="0" max="0" value="0" disabled>
+      <button id="next" title="next command (→)">▶</button>
+      <span id="scrub-label" class="mono muted">—</span>
+    </div>
+
+    <div id="hover" class="mono muted">hover a pixel</div>
+
+    <div class="pane" id="overdraw-pane">
+      <h2>Overdraw <span id="picked" class="muted"></span></h2>
+      <div class="pane-body mono" id="overdraw-list">
+        <p class="muted">click a pixel to see every write to it, in order.</p>
+      </div>
+    </div>
+  </section>
+
+  <section id="right">
+    <div class="pane grow-pane">
+      <h2>RDP commands <span id="cmd-count" class="muted"></span></h2>
+      <div class="pane-body" id="cmd-scroll">
+        <div id="cmd-spacer"><div id="cmd-rows"></div></div>
+      </div>
+    </div>
+
+    <div class="pane">
+      <h2>Command detail</h2>
+      <div class="pane-body mono" id="cmd-detail">
+        <p class="muted">select a command.</p>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <div class="pane">
+    <h2>CPU</h2>
+    <div class="pane-body mono" id="cpu"><p class="muted">—</p></div>
+  </div>
+  <div class="pane">
+    <h2>Memory
+      <input type="text" id="mem-addr" class="mono" value="00100000" size="8" spellcheck="false">
+    </h2>
+    <div class="pane-body mono" id="mem"><p class="muted">—</p></div>
+  </div>
+</footer>
+
+<script type="module" src="app.js"></script>
+</body>
+</html>

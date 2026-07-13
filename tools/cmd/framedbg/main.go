@@ -1,15 +1,18 @@
-// framedbg is a headless driver for the frame debugger's core: it advances the
-// N64 oracle to a frame, then reports on how that frame was drawn — the same
-// pipeline the ImGui GUI will present interactively, but verifiable from a script.
+// framedbg drives the frame debugger's core: it advances the N64 oracle to a frame,
+// then reports on how that frame was drawn.
 //
-// It exists to prove (and regression-guard) the debug adapter end to end without a
-// window: dump the captured RDP command stream, write the draw target as it stood
-// after each of a range of commands (the command scrubber, as PNGs), and answer
-// "which command drew this pixel?" for a chosen pixel (the pixel picker), with its
-// full overdraw history.
+// With -serve it hosts the interactive debugger as a local web page — step a frame,
+// scrub through its RDP command stream and watch the picture assemble, click a pixel
+// to see which command drew it and its full overdraw history.
+//
+// Without -serve it is the same pipeline headless, verifiable from a script: dump the
+// captured command stream, write the draw target as it stood after each of a range of
+// commands (the command scrubber, as PNGs), and answer "which command drew this
+// pixel?" for a chosen pixel.
 //
 // Usage:
 //
+//	framedbg -image ROM [-state FILE] -serve [ADDR]
 //	framedbg -image ROM [-state FILE] [-skip N]
 //	         [-list] [-listmax M]
 //	         [-scrub STEP] [-o DIR]
@@ -30,6 +33,7 @@ import (
 
 	"retroreverse.com/tools/debug"
 	"retroreverse.com/tools/debug/n64adapter"
+	"retroreverse.com/tools/debug/server"
 )
 
 func main() {
@@ -49,6 +53,7 @@ func run() error {
 		scrub   = flag.Int("scrub", 0, "write the draw target after every Nth command as a PNG (0 = off)")
 		out     = flag.String("o", ".", "output directory for PNGs")
 		pixel   = flag.String("pixel", "", "report which command drew pixel X,Y (e.g. -pixel 160,120)")
+		serve   = flag.String("serve", "", "serve the interactive debugger on this address (e.g. -serve :8088)")
 	)
 	flag.Parse()
 	if *image_ == "" {
@@ -64,6 +69,10 @@ func run() error {
 		if err := a.LoadStateFile(*state); err != nil {
 			return fmt.Errorf("loading state: %w", err)
 		}
+	}
+
+	if *serve != "" {
+		return server.New(a, filepath.Base(*image_)).ListenAndServe(*serve)
 	}
 
 	withOverdraw := *pixel != ""
