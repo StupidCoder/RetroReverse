@@ -460,3 +460,47 @@ side of this voice is *not* the problem: source 4, its twin, streams correctly t
 step in the game's own stream pipeline: the block that should be handed to the second channel's
 player (a structure copy that sets `+0x15`, seen twice for the left channel and never for the right).
 The next question is who produces that block, and what it is waiting for.
+
+## Part XI — The sixth core-assumption bug: an unaligned word store
+
+The producer of the missing block was worth chasing one hop further, and the hop ended somewhere that
+had nothing to do with audio.
+
+The stream's channel table (`0x140DB120`) holds two channel entries — and both pointed at the *same*
+object. The two entries are written from a **track descriptor**, whose two channel-index bytes sit at
+`+0xB` and `+0xC`; both read 0, where the second should read 1. The descriptor is filled by a copy
+loop at `0x0012D5BC` that walks the game's track table with a **13-byte stride** — three words and a
+byte per track — so every track after the first is written through an *unaligned* pointer. Watching
+the byte itself settled it in two lines:
+
+```
+watch 0x140D9180: 0x00000000 -> 0x00000001 at pc=0x0012D5F4   # track 0's second channel index: 1 ✓
+watch 0x140D9180: 0x00000001 -> 0x00000000 at pc=0x0012D5DC   # track 1's first word store: ate it
+```
+
+Track 1's word store lands at `0x140D9181`, one byte past track 0's last byte. It should write the
+four bytes *at* `0x140D9181`. Our core wrote the word at `0x140D9180` — the address rounded down.
+
+`read32` was split by architecture when the message-archive bug was found: ARMv6 (the ARM11, with
+unaligned access enabled by Horizon) does a **true unaligned load**; ARMv5 (the DS) forces the address
+aligned and rotates. **`write32` never got the same treatment** — it masked the address on every
+architecture. On ARMv6 that is not a rounding error, it is silent corruption of the three bytes *in
+front of* the target.
+
+So the whole chain, end to end, from one masked address:
+
+> unaligned `STR` writes low → track 0's second channel index is overwritten with 0 → the stream
+> resolves both channels to the same object → the right channel's player never receives a decoded
+> block → it never starts its voice → that voice is never flushed to the DSP → its command nodes
+> accumulate → the streamer re-appends a node that is still linked → `X.next = X` → the sound thread
+> spins forever on the list walk → every thread below priority 36 starves → black screen.
+
+With the store fixed, the sound thread **parks on its DSP interrupt event** instead of spinning, and
+**DSP source 5 streams in lockstep with source 4** — the stereo stream has both of its channels for
+the first time. `LDM`/`STM` and `SWP` keep the aligned path (they ignore the low address bits on every
+architecture). The DS regressions pass and Super Mario 3D Land's welcome dialog is pixel-identical.
+
+This is the sixth core-assumption bug of the port, and — like the unaligned load, the float24
+constant, and the per-thread instruction counter — it was found by a *second title* exercising a path
+the first one never took. Super Mario 3D Land never stores through an unaligned pointer; Captain Toad
+does it once per track in a table it parses at every stream start.
