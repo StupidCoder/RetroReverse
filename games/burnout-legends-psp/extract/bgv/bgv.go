@@ -228,3 +228,87 @@ func decodeVertex(data []byte, p int, m *Mesh) Vertex {
 func le32(b []byte, o int) uint32 { return binary.LittleEndian.Uint32(b[o:]) }
 
 func f32(b []byte, o int) float32 { return math.Float32frombits(le32(b, o)) }
+
+// Wheels are placed, not baked: the wheel mesh sits at the origin and the file
+// carries four 4x4 matrices that put it at the corners. They live at a fixed
+// offset — verified across the fleet, where they track each car's own geometry
+// (the heavy class is wider at +-0.835, the supercar has a longer wheelbase) —
+// and the right-hand pair carries a mirrored X basis.
+//
+// The engine's own behaviour confirms the binding: replaying the game and
+// pairing every drawn primitive with the world matrix the engine gave it shows
+// the body drawn once at the car's origin and the wheel mesh drawn at exactly
+// these four corners.
+const wheelMatrices = 0xB80
+
+// Mat4 is a row-major 4x4 transform; the translation is the last row.
+type Mat4 [16]float32
+
+// Wheels returns the four wheel placements.
+func Wheels(data []byte) ([]Mat4, error) {
+	if wheelMatrices+4*64 > len(data) {
+		return nil, fmt.Errorf("bgv: file too small for wheel placements")
+	}
+	out := make([]Mat4, 4)
+	for w := 0; w < 4; w++ {
+		for i := 0; i < 16; i++ {
+			out[w][i] = f32(data, wheelMatrices+w*64+i*4)
+		}
+	}
+	return out, nil
+}
+
+// Apply transforms a point by the matrix (row-major, translation in row 3).
+func (m Mat4) Apply(x, y, z float32) (float32, float32, float32) {
+	return m[0]*x + m[4]*y + m[8]*z + m[12],
+		m[1]*x + m[5]*y + m[9]*z + m[13],
+		m[2]*x + m[6]*y + m[10]*z + m[14]
+}
+
+// ApplyDir transforms a direction (no translation), for normals.
+func (m Mat4) ApplyDir(x, y, z float32) (float32, float32, float32) {
+	return m[0]*x + m[4]*y + m[8]*z,
+		m[1]*x + m[5]*y + m[9]*z,
+		m[2]*x + m[6]*y + m[10]*z
+}
+
+// AtOrigin reports whether the mesh is modelled about the origin rather than in
+// car space — which is what distinguishes the wheel, the one part the file
+// expects to be instanced at the placements above. Every other mesh already
+// carries its position in its vertices.
+func (m *Mesh) AtOrigin() bool {
+	if len(m.Verts) == 0 {
+		return false
+	}
+	lo, hi := m.Verts[0], m.Verts[0]
+	for _, v := range m.Verts {
+		lo.X, lo.Y, lo.Z = min32(lo.X, v.X), min32(lo.Y, v.Y), min32(lo.Z, v.Z)
+		hi.X, hi.Y, hi.Z = max32(hi.X, v.X), max32(hi.Y, v.Y), max32(hi.Z, v.Z)
+	}
+	cx, cy, cz := (lo.X+hi.X)/2, (lo.Y+hi.Y)/2, (lo.Z+hi.Z)/2
+	sx, sy, sz := hi.X-lo.X, hi.Y-lo.Y, hi.Z-lo.Z
+	centred := abs32(cx) < 0.1 && abs32(cy) < 0.1 && abs32(cz) < 0.1
+	small := sx < 0.9 && sy < 0.9 && sz < 0.9
+	return centred && small
+}
+
+func min32(a, b float32) float32 {
+	if a < b {
+		return a
+	}
+	return b
+}
+
+func max32(a, b float32) float32 {
+	if a > b {
+		return a
+	}
+	return b
+}
+
+func abs32(a float32) float32 {
+	if a < 0 {
+		return -a
+	}
+	return a
+}

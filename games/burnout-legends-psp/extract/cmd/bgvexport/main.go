@@ -97,6 +97,11 @@ func main() {
 		}
 		meshes := m.Levels[lvl]
 
+		wheels, err := bgv.Wheels(data)
+		if err != nil {
+			die("%s: %v", name, err)
+		}
+
 		sc := glb.NewScene()
 		node := sc.AddNode(name, -1, [3]float32{}, [4]float32{0, 0, 0, 1}, [3]float32{1, 1, 1})
 		var prims []glb.Prim
@@ -107,25 +112,36 @@ func main() {
 			if len(t) == 0 {
 				continue
 			}
-			tris += len(t)
-			pos := make([][3]float32, len(me.Verts))
-			nrm := make([][3]float32, len(me.Verts))
-			uv := make([][2]float32, len(me.Verts))
-			for j, v := range me.Verts {
-				// The PSP's Y runs down the screen and its Z into the scene;
-				// glTF is Y-up, right-handed. Flip Y to stand the car upright.
-				pos[j] = [3]float32{v.X, -v.Y, v.Z}
-				nrm[j] = [3]float32{v.NX, -v.NY, v.NZ}
-				uv[j] = [2]float32{v.U, v.V}
+			// Body parts carry their position in their vertices; the wheel is
+			// modelled about the origin and instanced at the four placements.
+			placements := []bgv.Mat4{identity}
+			if me.AtOrigin() {
+				placements = wheels
 			}
-			prims = append(prims, glb.Prim{
-				Positions: pos,
-				Normals:   nrm,
-				UVs:       uv,
-				Tris:      t,
-				Image:     atlas,
-				BaseColor: [4]float32{1, 1, 1, 1},
-			})
+			for _, m := range placements {
+				tris += len(t)
+				pos := make([][3]float32, len(me.Verts))
+				nrm := make([][3]float32, len(me.Verts))
+				uv := make([][2]float32, len(me.Verts))
+				for j, v := range me.Verts {
+					x, y, z := m.Apply(v.X, v.Y, v.Z)
+					nx, ny, nz := m.ApplyDir(v.NX, v.NY, v.NZ)
+					// The model's own axes are already Y-up (the body's vertices
+					// run from the floor up to +1.08); glTF is Y-up too. Flip Z
+					// instead, to swap the handedness.
+					pos[j] = [3]float32{x, y, -z}
+					nrm[j] = [3]float32{nx, ny, -nz}
+					uv[j] = [2]float32{v.U, v.V}
+				}
+				prims = append(prims, glb.Prim{
+					Positions: pos,
+					Normals:   nrm,
+					UVs:       uv,
+					Tris:      t,
+					Image:     atlas,
+					BaseColor: [4]float32{1, 1, 1, 1},
+				})
+			}
 		}
 		if len(prims) == 0 {
 			fmt.Fprintf(os.Stderr, "%s: nothing to export\n", name)
@@ -145,6 +161,9 @@ func main() {
 	}
 	fmt.Printf("\nwrote %d vehicle GLBs to %s\n", written, *out)
 }
+
+// identity leaves a mesh where its vertices already put it.
+var identity = bgv.Mat4{1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1}
 
 func die(format string, a ...any) {
 	fmt.Fprintf(os.Stderr, "bgvexport: "+format+"\n", a...)
