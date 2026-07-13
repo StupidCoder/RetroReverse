@@ -477,6 +477,10 @@ func (m *Machine) applySnapshot(s *snapshot) error {
 
 	g := m.gpu
 	g.Regs, g.Code, g.Opdesc, g.Float = s.GPU.Regs, s.GPU.Code, s.GPU.Opdesc, s.GPU.Float
+	// The shader decode cache is derived from Code/Opdesc, which we have just
+	// replaced wholesale — every decode in it now describes a program that is no
+	// longer there (gpu_shader_cache.go).
+	g.invalidateShaders()
 	g.Bool, g.Int = s.GPU.Bool, s.GPU.Int
 	g.codeIdx, g.opdIdx = s.GPU.CodeIdx, s.GPU.OpdIdx
 	g.fltIdx, g.fltF32, g.fltBuf = s.GPU.FltIdx, s.GPU.FltF32, s.GPU.FltBuf

@@ -29,6 +29,16 @@ type vsOut struct {
 	view [3]float32
 }
 
+// loaderBuf is one attribute-loader configuration: where its vertex data starts,
+// which attributes it supplies (a run in the draw's shared comps slice — an index
+// rather than a sub-slice, so appending to comps cannot leave a loader pointing at
+// a stale backing array), and its stride.
+type loaderBuf struct {
+	off      uint32
+	first, n int
+	stride   uint32
+}
+
 // draw executes one draw trigger against the current register state.
 func (g *GPU) draw(indexed bool) {
 	if g.TraceDraws > 0 && g.Regs[regLightingEnable]&1 != 0 {
@@ -45,13 +55,9 @@ func (g *GPU) draw(indexed bool) {
 	fixedMask := g.Regs[regAttrFmtHigh] >> 16 & 0xFFF
 
 	// Loader buffers: offset, component list (attribute indices; 12-15 are
-	// padding), stride.
-	type loaderBuf struct {
-		off    uint32
-		comps  []int
-		stride uint32
-	}
-	var bufs []loaderBuf
+	// padding), stride. The two slices are scratch (gpu.go), rebuilt per draw and
+	// reused across draws.
+	bufs, comps := g.bufs[:0], g.comps[:0]
 	for b := 0; b < 12; b++ {
 		cfg1 := g.Regs[0x204+uint32(b)*3]
 		cfg2 := g.Regs[0x205+uint32(b)*3]
@@ -60,12 +66,13 @@ func (g *GPU) draw(indexed bool) {
 			continue
 		}
 		perm := uint64(cfg1) | uint64(cfg2&0xFFFF)<<32
-		comps := make([]int, n)
-		for j := range comps {
-			comps[j] = int(perm >> (4 * uint(j)) & 0xF)
+		start := len(comps)
+		for j := 0; j < n; j++ {
+			comps = append(comps, int(perm>>(4*uint(j))&0xF))
 		}
-		bufs = append(bufs, loaderBuf{off: g.Regs[0x203+uint32(b)*3], comps: comps, stride: cfg2 >> 16 & 0xFF})
+		bufs = append(bufs, loaderBuf{off: g.Regs[0x203+uint32(b)*3], first: start, n: n, stride: cfg2 >> 16 & 0xFF})
 	}
+	g.bufs, g.comps = bufs, comps // keep the grown backing arrays
 
 	count := g.Regs[regNumVertices]
 	first := g.Regs[regVertexOff]
@@ -89,7 +96,7 @@ func (g *GPU) draw(indexed bool) {
 			g.Regs[regVshAttrPermH], g.Regs[regVshAttrPermL], g.Regs[0x2B9]&0xF)
 		for bi, b := range bufs {
 			fmt.Printf("    buf%d off=0x%06X stride=%d comps=%v -> addr(v0)=0x%08X\n",
-				bi, b.off, b.stride, b.comps, base+b.off)
+				bi, b.off, b.stride, comps[b.first:b.first+b.n], base+b.off)
 		}
 		for a := 0; a < 12; a++ {
 			if fixedMask>>uint(a)&1 != 0 {
@@ -120,9 +127,18 @@ func (g *GPU) draw(indexed bool) {
 			nan, g.Bool, g.Regs[regVshEntry]&0xFFFF)
 	}
 
-	// Run every vertex through the shader, then assemble.
+	// Run every vertex through the shader, then assemble. outs is scratch (gpu.go),
+	// grown once and reused by every later draw.
 	tv := m.profStart() // one clock read per draw (profile.go)
-	outs := make([]vsOut, 0, count)
+	if uint32(cap(g.outs)) < count {
+		g.outs = make([]vsOut, count)
+	}
+	outs := g.outs[:count]
+	// The shader's input and output register files, hoisted out of the loop: they
+	// are overwritten wholesale per vertex, and returning the output file by value
+	// (256 bytes) was 6% of the frame in runtime.duffcopy alone.
+	var vin, vout [16][4]float32
+	entry := int(g.Regs[regVshEntry] & 0xFFF) // draw-constant; nothing in the loop writes it
 	for i := uint32(0); i < count; i++ {
 		vi := first + i
 		if indexed {
@@ -143,7 +159,7 @@ func (g *GPU) draw(indexed bool) {
 		}
 		for _, b := range bufs {
 			p := base + b.off + vi*b.stride
-			for _, c := range b.comps {
+			for _, c := range comps[b.first : b.first+b.n] {
 				if c >= 12 { // padding component: skip (c-11)*4 bytes
 					p += uint32(c-11) * 4
 					continue
@@ -173,14 +189,13 @@ func (g *GPU) draw(indexed bool) {
 		}
 
 		// Map attributes into the shader's input registers and run it.
-		v := mapAttrsToInputs(&attrs, inPerm, int(g.Regs[regVshMaxInput]&0xF)+1)
-		o, ok := g.shaderRun(&v)
-		if !ok {
+		mapAttrsToInputs(&vin, &attrs, inPerm, int(g.Regs[regVshMaxInput]&0xF)+1)
+		if !g.shaderRun(&vin, &vout, entry) {
 			return
 		}
-		outs = append(outs, g.mapOutputs(&o))
+		g.mapOutputs(&vout, &outs[i])
 		if trace && i < 8 {
-			r := &outs[len(outs)-1]
+			r := &outs[i]
 			fmt.Printf("  v%-3d (i=%d) clip=%v\n", vi, i, r.pos)
 			for a := 0; a < 12; a++ {
 				if fmtWord>>(4*uint(a))&0xF != 0 || fixedMask>>uint(a)&1 != 0 {
@@ -239,21 +254,19 @@ func (g *GPU) draw(indexed bool) {
 // reach no register. Run the right way it is a bijection onto v0/v4/v3. (The
 // inverse is only visible when the permutation is not an involution, which is
 // why Super Mario 3D Land renders pixel-identically either way.)
-func mapAttrsToInputs(attrs *[16][4]float32, perm uint64, nAttr int) [16][4]float32 {
-	var v [16][4]float32
+func mapAttrsToInputs(v *[16][4]float32, attrs *[16][4]float32, perm uint64, nAttr int) {
 	for j := range v {
 		v[j] = [4]float32{0, 0, 0, 1}
 	}
 	for a := 0; a < nAttr && a < 16; a++ {
 		v[perm>>(4*uint(a))&0xF] = attrs[a]
 	}
-	return v
 }
 
 // mapOutputs routes the shader's output registers to their semantics via the
 // output map (registers 0x050-0x056): each mapped output register's word
 // holds one semantic byte per component.
-func (g *GPU) mapOutputs(o *[16][4]float32) vsOut {
+func (g *GPU) mapOutputs(o *[16][4]float32, dst *vsOut) {
 	var out vsOut
 	out.color = [4]float32{1, 1, 1, 1}
 	total := int(g.Regs[regShOutmapTotal] & 7)
@@ -282,7 +295,7 @@ func (g *GPU) mapOutputs(o *[16][4]float32) vsOut {
 			}
 		}
 	}
-	return out
+	*dst = out
 }
 
 // fbState is the output-merger state a triangle fill needs, resolved once per

@@ -21,11 +21,18 @@ import (
 
 // shaderRun executes the uploaded program from the entry point for one vertex.
 // v holds the input attributes; the return is the 16 output registers.
-func (g *GPU) shaderRun(v *[16][4]float32) (o [16][4]float32, ok bool) {
-	s := shaderState{g: g, v: v, o: &o}
-	entry := g.Regs[regVshEntry] & 0xFFF
-	ok = s.exec(int(entry), len(g.Code))
-	return o, ok
+// shaderRun runs the vertex shader for one vertex: v is the input register file,
+// out the output register file, entry the program's entry point (draw-constant, so
+// the caller hoists it out of the vertex loop).
+//
+// out is caller-owned and reused across the vertices of a draw, so it is cleared
+// here: an output register the program never writes must read as zero, which it
+// did for free when this returned a fresh array by value — and returning that
+// array by value cost 6% of the frame in runtime.duffcopy.
+func (g *GPU) shaderRun(v, out *[16][4]float32, entry int) bool {
+	*out = [16][4]float32{}
+	s := shaderState{g: g, v: v, o: out}
+	return s.exec(entry, len(g.Code))
 }
 
 type shaderState struct {
@@ -49,16 +56,25 @@ func (s *shaderState) exec(pc, end int) bool {
 			g.m.CPU.Halt("gpu shader: runaway program (no END after 1M steps)")
 			return false
 		}
-		in := g.Code[pc]
-		op := in >> 26
-		switch op {
-		case 0x21: // NOP
+		d := g.shaderInst(pc)
+		switch d.kind {
+		case shNop:
 			pc++
 			continue
-		case 0x22: // END
+		case shEnd:
 			return true
+		case shArith, shMad, shCmp:
+			if !s.arith(d) {
+				return false
+			}
+			pc++
+			continue
 		}
 
+		// Flow control: rare, and its fields are cheap bit extracts, so it is
+		// decoded here rather than cached.
+		in := g.Code[pc]
+		op := in >> 26
 		switch op {
 		case 0x24: // CALL num@dst
 			dst, num := int(in>>10&0xFFF), int(in&0xFF)
@@ -126,10 +142,10 @@ func (s *shaderState) exec(pc, end int) bool {
 				pc++
 			}
 		default:
-			if !s.arith(in, op) {
-				return false
-			}
-			pc++
+			// shaderInst classed this as neither flow nor arithmetic: an opcode the
+			// interpreter does not implement. Halt, loudly, as it always has.
+			g.m.CPU.Halt("gpu shader: opcode 0x%02X unimplemented (instr 0x%08X)", op, in)
+			return false
 		}
 	}
 	return true
@@ -157,57 +173,30 @@ func (s *shaderState) boolReg(in uint32) bool {
 	return s.g.Bool>>(in>>22&0xF)&1 != 0
 }
 
-// arith executes one arithmetic-format instruction.
-func (s *shaderState) arith(in, op uint32) bool {
-	g := s.g
+// arith executes one arithmetic-format instruction from its decoded form
+// (gpu_shader_cache.go). The arithmetic is unchanged; what is gone is the
+// re-derivation of the operands from the instruction word on every vertex.
+func (s *shaderState) arith(d *shInst) bool {
+	op := uint32(d.op)
 
-	// MAD/MADI occupy the whole 0x30-0x3F opcode space (the descriptor field
-	// shrinks to 5 bits to fit three sources).
-	if op >= 0x30 {
-		desc := g.Opdesc[in&0x1F]
-		dst := int(in >> 24 & 0x1F)
-		s1 := s.readSrc(int(in>>17&0x1F), 0, desc, 0)
-		var s2, s3 [4]float32
-		if op >= 0x38 { // MAD: wide src2, idx applies to it
-			s2 = s.readSrc(int(in>>10&0x7F), int(in>>22&3), desc, 1)
-			s3 = s.readSrc(int(in>>5&0x1F), 0, desc, 2)
-		} else { // MADI: wide src3
-			s2 = s.readSrc(int(in>>12&0x1F), 0, desc, 1)
-			s3 = s.readSrc(int(in>>5&0x7F), int(in>>22&3), desc, 2)
-		}
+	switch d.kind {
+	case shMad:
+		s1, s2, s3 := s.src(&d.src[0]), s.src(&d.src[1]), s.src(&d.src[2])
 		var out [4]float32
 		for i := 0; i < 4; i++ {
 			out[i] = s1[i]*s2[i] + s3[i]
 		}
-		s.writeDst(dst, desc, out)
+		s.writeDst(d, out)
+		return true
+
+	case shCmp:
+		s1, s2 := s.src(&d.src[0]), s.src(&d.src[1])
+		s.cc[0] = compare(uint32(d.cmpX), s1[0], s2[0])
+		s.cc[1] = compare(uint32(d.cmpY), s1[1], s2[1])
 		return true
 	}
 
-	// CMP spills its first comparison operator into the opcode's low bit.
-	if op>>1 == 0x17 {
-		desc := g.Opdesc[in&0x7F]
-		s1 := s.readSrc(int(in>>12&0x7F), int(in>>19&3), desc, 0)
-		s2 := s.readSrc(int(in>>7&0x1F), 0, desc, 1)
-		s.cc[0] = compare(in>>24&7, s1[0], s2[0])
-		s.cc[1] = compare(in>>21&7, s1[1], s2[1])
-		return true
-	}
-
-	desc := g.Opdesc[in&0x7F]
-	dst := int(in >> 21 & 0x1F)
-	idx := int(in >> 19 & 3)
-
-	// The "inverted" variants swap which source gets the wide (constant-capable)
-	// field.
-	var s1, s2 [4]float32
-	switch op {
-	case 0x18, 0x19, 0x1A, 0x1B: // DPHI, DSTI, SGEI, SLTI
-		s1 = s.readSrc(int(in>>14&0x1F), 0, desc, 0)
-		s2 = s.readSrc(int(in>>7&0x7F), idx, desc, 1)
-	default:
-		s1 = s.readSrc(int(in>>12&0x7F), idx, desc, 0)
-		s2 = s.readSrc(int(in>>7&0x1F), 0, desc, 1)
-	}
+	s1, s2 := s.src(&d.src[0]), s.src(&d.src[1])
 
 	var out [4]float32
 	switch op {
@@ -216,14 +205,14 @@ func (s *shaderState) arith(in, op uint32) bool {
 			out[i] = s1[i] + s2[i]
 		}
 	case 0x01: // DP3
-		d := s1[0]*s2[0] + s1[1]*s2[1] + s1[2]*s2[2]
-		out = [4]float32{d, d, d, d}
+		dp := s1[0]*s2[0] + s1[1]*s2[1] + s1[2]*s2[2]
+		out = [4]float32{dp, dp, dp, dp}
 	case 0x02: // DP4
-		d := s1[0]*s2[0] + s1[1]*s2[1] + s1[2]*s2[2] + s1[3]*s2[3]
-		out = [4]float32{d, d, d, d}
+		dp := s1[0]*s2[0] + s1[1]*s2[1] + s1[2]*s2[2] + s1[3]*s2[3]
+		out = [4]float32{dp, dp, dp, dp}
 	case 0x03, 0x18: // DPH / DPHI: dp4 with src1.w forced to 1
-		d := s1[0]*s2[0] + s1[1]*s2[1] + s1[2]*s2[2] + s2[3]
-		out = [4]float32{d, d, d, d}
+		dp := s1[0]*s2[0] + s1[1]*s2[1] + s1[2]*s2[2] + s2[3]
+		out = [4]float32{dp, dp, dp, dp}
 	case 0x08: // MUL
 		for i := range out {
 			out[i] = s1[i] * s2[i]
@@ -266,38 +255,36 @@ func (s *shaderState) arith(in, op uint32) bool {
 	case 0x0F: // RSQ
 		d := rsqrt32(s1[0])
 		out = [4]float32{d, d, d, d}
-	case 0x12: // MOVA: latch a0 from src1.xy per the dest mask
-		if desc>>3&1 != 0 {
+	case 0x12: // MOVA: latch a0 from src1.xy per the destination mask
+		if d.mask[0] {
 			s.a0[0] = int32(s1[0])
 		}
-		if desc>>2&1 != 0 {
+		if d.mask[1] {
 			s.a0[1] = int32(s1[1])
 		}
 		return true
 	case 0x13: // MOV
 		out = s1
 	default:
-		g.m.CPU.Halt("gpu shader: opcode 0x%02X unimplemented (instr 0x%08X)", op, in)
+		s.g.m.CPU.Halt("gpu shader: opcode 0x%02X unimplemented", op)
 		return false
 	}
-	s.writeDst(dst, desc, out)
+	s.writeDst(d, out)
 	return true
 }
 
-// readSrc fetches a source register through the descriptor's swizzle/negate
-// for operand slot n (0-2). Register space: 0x00-0x0F inputs, 0x10-0x1F
-// temporaries, 0x20-0x7F float uniforms; relative addressing (idx) applies to
-// uniform reads only.
-func (s *shaderState) readSrc(reg, idx int, desc uint32, n int) [4]float32 {
-	var base [4]float32
-	switch {
-	case reg < 0x10:
-		base = s.v[reg]
-	case reg < 0x20:
-		base = s.r[reg-0x10]
+// src fetches a decoded source operand: pick the register file, apply relative
+// addressing (uniforms only), swizzle, negate.
+func (s *shaderState) src(o *shSrc) [4]float32 {
+	var base *[4]float32
+	switch o.bank {
+	case shBankIn:
+		base = &s.v[o.reg]
+	case shBankTmp:
+		base = &s.r[o.reg]
 	default:
-		c := reg - 0x20
-		switch idx {
+		c := int(o.reg)
+		switch o.idx {
 		case 1:
 			c += int(s.a0[0])
 		case 2:
@@ -305,40 +292,44 @@ func (s *shaderState) readSrc(reg, idx int, desc uint32, n int) [4]float32 {
 		case 3:
 			c += int(s.aL)
 		}
-		if c >= 0 && c < len(s.g.Float) {
-			base = s.g.Float[c]
+		if c < 0 || c >= len(s.g.Float) {
+			return [4]float32{} // out of range reads as zero, as it always has
 		}
+		base = &s.g.Float[c]
 	}
-	// Descriptor layout per operand: negate bit then an 8-bit swizzle (2 bits
-	// per destination component, x first in the high bits).
-	shift := []uint{4, 13, 22}[n]
-	neg := desc>>shift&1 != 0
-	sw := desc >> (shift + 1) & 0xFF
-	var out [4]float32
-	for i := uint(0); i < 4; i++ {
-		out[i] = base[sw>>(6-2*i)&3]
+	if o.plain { // the identity swizzle, unnegated: the register itself
+		return *base
 	}
-	if neg {
-		for i := range out {
-			out[i] = -out[i]
-		}
+	out := [4]float32{base[o.sw[0]], base[o.sw[1]], base[o.sw[2]], base[o.sw[3]]}
+	if o.neg {
+		out[0], out[1], out[2], out[3] = -out[0], -out[1], -out[2], -out[3]
 	}
 	return out
 }
 
-// writeDst stores to an output (0x00-0x0F) or temporary (0x10-0x1F) register
-// under the descriptor's component mask (bit 3 = x).
-func (s *shaderState) writeDst(reg int, desc uint32, val [4]float32) {
+// writeDst stores to the decoded destination register under its component mask.
+func (s *shaderState) writeDst(d *shInst, val [4]float32) {
 	var t *[4]float32
-	if reg < 0x10 {
-		t = &s.o[reg]
+	if d.dstTmp {
+		t = &s.r[d.dst]
 	} else {
-		t = &s.r[reg-0x10]
+		t = &s.o[d.dst]
 	}
-	for i := uint(0); i < 4; i++ {
-		if desc>>(3-i)&1 != 0 {
-			t[i] = val[i]
-		}
+	if d.maskAll { // the common case: a whole-vector store
+		*t = val
+		return
+	}
+	if d.mask[0] {
+		t[0] = val[0]
+	}
+	if d.mask[1] {
+		t[1] = val[1]
+	}
+	if d.mask[2] {
+		t[2] = val[2]
+	}
+	if d.mask[3] {
+		t[3] = val[3]
 	}
 }
 

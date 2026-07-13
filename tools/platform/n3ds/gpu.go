@@ -168,6 +168,27 @@ type GPU struct {
 	jumpPending        bool
 
 	ListHops int // command buffers entered by a jump (instrument)
+
+	// The decoded-instruction cache for the vertex shader (gpu_shader_cache.go).
+	// dec[pc] is valid only while decEpoch[pc] == shEpoch; every code or operand-
+	// descriptor upload — and every savestate restore — bumps shEpoch. Not machine
+	// state: it is derived from Code/Opdesc and rebuilt on demand, so it is
+	// deliberately outside the savestate.
+	dec      [4096]shInst
+	decEpoch [4096]uint32
+	shEpoch  uint32
+
+	// Scratch buffers, reused across command lists and draws. Not machine state:
+	// their contents are rebuilt from scratch every time they are used, and they
+	// are deliberately outside the savestate. They exist because Captain Toad runs
+	// ~2,500 command lists and 143 draws per frame, and allocating each one's
+	// working memory afresh put the Go allocator — not the PICA — at a tenth of the
+	// frame's cost.
+	cmdBuf   []byte      // the command list, copied out of guest memory
+	cmdWrite []PICAWrite // its decoded register-write stream
+	outs     []vsOut     // one draw's shaded vertices
+	bufs     []loaderBuf // one draw's attribute-loader configuration
+	comps    []int       // the loaders' component lists, in one backing array
 }
 
 // maxCmdBufHops bounds a chain so a corrupt jump register (or a buffer that
@@ -175,7 +196,10 @@ type GPU struct {
 // real chains are a handful of hops.
 const maxCmdBufHops = 4096
 
-func newGPU(m *Machine) *GPU { return &GPU{m: m} }
+// newGPU builds the PICA200 model. shEpoch starts at 1, never 0: a zero epoch
+// would compare equal to the zero value of decEpoch, and every cache slot would
+// pass as a validly-decoded instruction it had never decoded.
+func newGPU(m *Machine) *GPU { return &GPU{m: m, shEpoch: 1} }
 
 // GPU exposes the PICA200 model (counters, trace switches).
 func (m *Machine) GPU() *GPU { return m.gpu }
@@ -194,17 +218,23 @@ func (g *GPU) Execute(addr, size uint32) {
 			return
 		}
 		t := g.m.profStart() // one clock read per command list (profile.go)
-		buf := make([]byte, size)
+		if uint32(cap(g.cmdBuf)) < size {
+			g.cmdBuf = make([]byte, size)
+		}
+		buf := g.cmdBuf[:size]
 		for i := uint32(0); i < size; i++ {
 			buf[i] = g.m.Read(addr + i)
 		}
 		if hop > 0 {
 			g.ListHops++
 			if g.m.GXCapture {
-				g.m.captureChainedList(addr, size, buf)
+				// The capture keeps the buffer; hand it a copy, since the scratch one
+				// is overwritten by the next list.
+				g.m.captureChainedList(addr, size, append([]byte(nil), buf...))
 			}
 		}
-		ws, err := DecodePICA(buf)
+		ws, err := DecodePICAInto(g.cmdWrite[:0], buf)
+		g.cmdWrite = ws // keep the grown backing array for the next list
 		g.m.profEnd(bucketCmd, t)
 		if err != nil {
 			g.m.CPU.Halt("gpu: %v (list at 0x%08X)", err, addr)
@@ -291,6 +321,7 @@ func (g *GPU) write(w PICAWrite) {
 		if g.codeIdx < len(g.Code) {
 			g.Code[g.codeIdx] = v
 			g.codeIdx++
+			g.invalidateShaders() // the decode cache is derived from this word
 		}
 	case w.Reg == regVshOpdescIdx:
 		g.opdIdx = int(v & 0x7F)
@@ -298,6 +329,9 @@ func (g *GPU) write(w PICAWrite) {
 		if g.opdIdx < len(g.Opdesc) {
 			g.Opdesc[g.opdIdx] = v
 			g.opdIdx++
+			// A descriptor carries the swizzle, negate and write mask of every
+			// instruction that names it — so this invalidates decodes anywhere.
+			g.invalidateShaders()
 		}
 	case w.Reg == regVshBool:
 		g.Bool = v & 0xFFFF
@@ -329,6 +363,7 @@ func (g *GPU) write(w PICAWrite) {
 		if g.gshCodeIdx < len(g.Code) {
 			g.Code[g.gshCodeIdx] = v
 			g.gshCodeIdx++
+			g.invalidateShaders() // the same Code array the vertex shader executes
 		}
 	}
 }

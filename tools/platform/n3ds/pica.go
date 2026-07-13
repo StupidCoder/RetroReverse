@@ -38,10 +38,20 @@ type PICAWrite struct {
 // A malformed entry (running past the buffer) stops the walk with an error and
 // the writes decoded so far — deliberately loud, never a silent truncation.
 func DecodePICA(buf []byte) ([]PICAWrite, error) {
+	return DecodePICAInto(nil, buf)
+}
+
+// DecodePICAInto is DecodePICA appending into a caller-owned slice, so the
+// command processor can keep one buffer and reuse it. Captain Toad decodes ~2,500
+// command lists a frame; allocating each one's write stream afresh made the Go
+// allocator a tenth of the frame's cost.
+//
+// Call it as `ws, err = DecodePICAInto(ws[:0], buf)`.
+func DecodePICAInto(dst []PICAWrite, buf []byte) ([]PICAWrite, error) {
 	word := func(off uint32) uint32 {
 		return uint32(buf[off]) | uint32(buf[off+1])<<8 | uint32(buf[off+2])<<16 | uint32(buf[off+3])<<24
 	}
-	var ws []PICAWrite
+	ws := dst
 	off := uint32(0)
 	for off+8 <= uint32(len(buf)) {
 		param, hdr := word(off), word(off+4)

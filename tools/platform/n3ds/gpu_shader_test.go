@@ -39,7 +39,7 @@ func TestShaderMovAddMul(t *testing.T) {
 	var v [16][4]float32
 	v[0] = [4]float32{1, 2, 3, 4}
 	v[1] = [4]float32{10, 20, 30, 40}
-	o, ok := g.shaderRun(&v)
+	o, ok := runShader(g, &v)
 	if !ok {
 		t.Fatal("shader halted")
 	}
@@ -70,7 +70,7 @@ func TestShaderDP4MatrixRow(t *testing.T) {
 
 	var v [16][4]float32
 	v[0] = [4]float32{3, 7, 11, 1}
-	o, ok := g.shaderRun(&v)
+	o, ok := runShader(g, &v)
 	if !ok {
 		t.Fatal("shader halted")
 	}
@@ -95,7 +95,7 @@ func TestShaderMAD(t *testing.T) {
 	v[0] = [4]float32{2, 3, 4, 5}
 	v[1] = [4]float32{10, 10, 10, 10}
 	v[2] = [4]float32{1, 1, 1, 1}
-	o, ok := g.shaderRun(&v)
+	o, ok := runShader(g, &v)
 	if !ok {
 		t.Fatal("shader halted")
 	}
@@ -118,7 +118,7 @@ func TestShaderCMPAndIFC(t *testing.T) {
 	var v [16][4]float32
 	v[0] = [4]float32{5, 5, 5, 5}
 	v[1] = [4]float32{5, 9, 9, 9}
-	o, ok := g.shaderRun(&v)
+	o, ok := runShader(g, &v)
 	if !ok {
 		t.Fatal("shader halted")
 	}
@@ -174,7 +174,8 @@ func TestAttrInputPermutation(t *testing.T) {
 	col := [4]float32{198, 198, 198, 255}
 	attrs[0], attrs[1], attrs[2] = pos, uv, col
 
-	v := mapAttrsToInputs(&attrs, 0x340, 3)
+	var v [16][4]float32
+	mapAttrsToInputs(&v, &attrs, 0x340, 3)
 	if v[0] != pos {
 		t.Errorf("v0 = %v, want the position %v", v[0], pos)
 	}
@@ -192,4 +193,13 @@ func TestAttrInputPermutation(t *testing.T) {
 			t.Errorf("v%d = %v, want the unwritten default", j, v[j])
 		}
 	}
+}
+
+// runShader is the tests' hand on shaderRun, which the draw path calls with a
+// caller-owned output file and a hoisted entry point (both per draw, not per
+// vertex). Here each case wants a fresh output and the entry from the registers.
+func runShader(g *GPU, v *[16][4]float32) ([16][4]float32, bool) {
+	var o [16][4]float32
+	ok := g.shaderRun(v, &o, int(g.Regs[regVshEntry]&0xFFF))
+	return o, ok
 }
