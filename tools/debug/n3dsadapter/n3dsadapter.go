@@ -139,9 +139,17 @@ func (a *Adapter) Title() string    { return filepath.Base(a.imagePath) }
 // surface does not cover — pad injection (SetKeys), the GX capture log.
 func (a *Adapter) Machine() *n3ds.Machine { return a.live }
 
-// Close drops the machines. The 3DS machine holds no OS resources, so this only
-// releases the memory for the garbage collector.
+// Close drops the machines.
 func (a *Adapter) Close() error {
+	// A 3DS machine owns worker goroutines for the GPU's parallel stages, and they
+	// keep it alive after the last reference to it is dropped. Dropping a machine is
+	// not enough; it has to be told.
+	if a.live != nil {
+		a.live.Close()
+	}
+	if a.scratch != nil {
+		a.scratch.Close()
+	}
 	a.live, a.scratch, a.img = nil, nil, nil
 	return nil
 }

@@ -2,8 +2,6 @@ package n3ds
 
 import (
 	"fmt"
-	"runtime"
-	"sync"
 	"sync/atomic"
 )
 
@@ -227,31 +225,22 @@ func (g *GPU) draw(indexed bool) {
 		// been.
 		g.decodeAll() // make the decode cache pure data before anyone reads it in parallel
 
-		var wg sync.WaitGroup
 		failed := make([]bool, workers)
 		per := (count + uint32(workers) - 1) / uint32(workers)
-		for w := 0; w < workers; w++ {
+		g.pool().run(workers, func(w int) {
 			lo := uint32(w) * per
 			hi := lo + per
 			if hi > count {
 				hi = count
 			}
-			if lo >= hi {
-				continue
-			}
-			wg.Add(1)
-			go func(w int, lo, hi uint32) {
-				defer wg.Done()
-				var vin, vout, attrs [16][4]float32
-				for i := lo; i < hi; i++ {
-					if !shadeVertex(i, &vin, &vout, &attrs) {
-						failed[w] = true
-						return
-					}
+			var vin, vout, attrs [16][4]float32
+			for i := lo; i < hi; i++ {
+				if !shadeVertex(i, &vin, &vout, &attrs) {
+					failed[w] = true
+					return
 				}
-			}(w, lo, hi)
-		}
-		wg.Wait()
+			}
+		})
 		for _, f := range failed {
 			if f {
 				// Re-run the shader serially so it halts the machine the way it always
@@ -358,45 +347,40 @@ func (g *GPU) fill(fb *fbState, ls *lightState, tris []rasterTri) {
 	// first. Decode every texture this draw can sample, here, before they start.
 	g.warmTextures()
 
-	const bandRows = 16
+	const bandRows = 8
 	height := int(fb.height)
 	bands := (height + bandRows - 1) / bandRows
 
 	stats := make([]rstats, workers)
 	var next int32
-	var wg sync.WaitGroup
-	for w := 0; w < workers; w++ {
-		wg.Add(1)
-		go func(st *rstats) {
-			defer wg.Done()
-			for {
-				b := int(atomic.AddInt32(&next, 1)) - 1
-				if b >= bands {
-					return
-				}
-				yLo := b * bandRows
-				yHi := yLo + bandRows
-				if yHi > height {
-					yHi = height
-				}
-				for i := range tris {
-					t := &tris[i]
-					if t.maxY <= yLo || t.minY >= yHi {
-						continue // this triangle does not reach this band
-					}
-					lo, hi := t.minY, t.maxY
-					if lo < yLo {
-						lo = yLo
-					}
-					if hi > yHi {
-						hi = yHi
-					}
-					g.fillTri(fb, ls, t, lo, hi, st)
-				}
+	g.pool().run(workers, func(w int) {
+		st := &stats[w]
+		for {
+			b := int(atomic.AddInt32(&next, 1)) - 1
+			if b >= bands {
+				return
 			}
-		}(&stats[w])
-	}
-	wg.Wait()
+			yLo := b * bandRows
+			yHi := yLo + bandRows
+			if yHi > height {
+				yHi = height
+			}
+			for i := range tris {
+				t := &tris[i]
+				if t.maxY <= yLo || t.minY >= yHi {
+					continue // this triangle does not reach this band
+				}
+				lo, hi := t.minY, t.maxY
+				if lo < yLo {
+					lo = yLo
+				}
+				if hi > yHi {
+					hi = yHi
+				}
+				g.fillTri(fb, ls, t, lo, hi, st)
+			}
+		}
+	})
 	for i := range stats { // summed in worker order, so the totals are deterministic too
 		g.mergeStats(&stats[i])
 	}
@@ -418,7 +402,7 @@ func (g *GPU) rasterWorkers(fb *fbState, tris []rasterTri) int {
 	}
 	// The work a draw is about to do, measured in bounding-box pixels: goroutines are
 	// not free, and most of Captain Toad's draws are small.
-	const minPixels = 8192
+	const minPixels = 256
 	work := 0
 	for i := range tris {
 		t := &tris[i]
@@ -430,10 +414,7 @@ func (g *GPU) rasterWorkers(fb *fbState, tris []rasterTri) int {
 	if work < minPixels {
 		return 1
 	}
-	n := runtime.GOMAXPROCS(0)
-	if n > 8 {
-		n = 8
-	}
+	n := maxWorkers
 	// No more workers than there are bands to give them.
 	if b := (int(fb.height) + 15) / 16; n > b {
 		n = b
@@ -1045,15 +1026,14 @@ func max3f(a, b, c float32) float32 {
 // nothing in determinism: each vertex is an independent, side-effect-free function of
 // its index, so the answer does not depend on who ran first.
 func (g *GPU) vertexWorkers(count uint32) int {
-	const minPerWorker = 64 // below this a goroutine costs more than the work it takes
+	// With the pool (workpool.go) a worker costs a channel send rather than a
+	// goroutine, so this is far lower than it was when each one had to be created.
+	const minPerWorker = 8
 	m := g.m
 	if m.OnRead != nil || m.OnWrite != nil || m.HidTrace || g.TraceDraws > 0 || m.SingleThreaded {
 		return 1
 	}
-	n := runtime.GOMAXPROCS(0)
-	if n > 8 {
-		n = 8 // past this the vertex stage is memory-bound and the shares get noisy
-	}
+	n := maxWorkers
 	if w := int(count) / minPerWorker; w < n {
 		n = w
 	}

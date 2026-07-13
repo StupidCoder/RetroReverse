@@ -192,8 +192,13 @@ type GPU struct {
 	cmdWrite []PICAWrite // its decoded register-write stream
 	outs     []vsOut     // one draw's shaded vertices
 	tris     []rasterTri // one draw's assembled, culled triangles
-	bufs     []loaderBuf // one draw's attribute-loader configuration
-	comps    []int       // the loaders' component lists, in one backing array
+
+	// The worker goroutines the parallel vertex and raster stages run on
+	// (workpool.go). Started on first use, and outside the savestate: how a stage
+	// executes is not a property of the machine's state.
+	workers *workPool
+	bufs    []loaderBuf // one draw's attribute-loader configuration
+	comps   []int       // the loaders' component lists, in one backing array
 }
 
 // maxCmdBufHops bounds a chain so a corrupt jump register (or a buffer that
