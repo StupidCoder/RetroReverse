@@ -97,10 +97,13 @@ func PICARegGroup(reg uint16) string {
 		return "tev" // the six texture-environment (combiner) stages
 	case reg < 0x140:
 		return "framebuffer" // output merger: blend, alpha/depth test, color/depth targets
-	case reg < 0x180:
-		return "fragment-lighting"
 	case reg < 0x200:
-		return "unknown-180"
+		// The whole 0x140-0x1FF block is the fragment-lighting unit, and most of the
+		// traffic in it is ONE register: the lookup-table data FIFO at 0x1C8-0x1CF
+		// (gpu_light.go), through which the game re-uploads a 256-entry table at a
+		// time. Calling 0x180-0x1FF "unknown" made the single busiest register in a
+		// Captain Toad frame — 14,592 writes, 30% of the list — look unexplained.
+		return "fragment-lighting"
 	case reg < 0x228:
 		return "geometry-pipeline" // attribute buffers: base, formats, strides
 	case reg < 0x260:
@@ -108,7 +111,18 @@ func PICARegGroup(reg uint16) string {
 	case reg < 0x280:
 		return "geometry-shader"
 	case reg < 0x2C0:
-		return "vertex-shader" // code/operand-descriptor/uniform uploads, entry, input map
+		return "vertex-shader" // entry point, input map, bool/int uniforms
+	case reg < 0x2E0:
+		// The vertex shader's UPLOAD PORTS, and the other two thirds of a frame's
+		// register traffic: the float-uniform FIFO (0x2C0-0x2C8), the code FIFO
+		// (0x2CB-0x2D3) and the operand-descriptor FIFO (0x2D5-0x2DD). The PICA has no
+		// shader cache, so an engine re-uploads a program whenever it binds a material
+		// — Captain Toad uploads 20 programs a frame of which only 11 are distinct —
+		// and every word of that upload is one register write to the same FIFO.
+		//
+		// This block was labelled "unknown-2C0" while being 32% of a frame's list, and
+		// gpu.go has named every one of these registers since the shader was written.
+		return "vertex-shader-upload"
 	default:
 		return "unknown-2C0"
 	}

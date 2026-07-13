@@ -232,8 +232,15 @@ func (g *GPU) Execute(addr, size uint32) {
 			g.cmdBuf = make([]byte, size)
 		}
 		buf := g.cmdBuf[:size]
-		for i := uint32(0); i < size; i++ {
-			buf[i] = g.m.Read(addr + i)
+		// A frame's command lists are a quarter of a megabyte, and the command
+		// processor used to fetch them a byte at a time through the bus. When the list
+		// sits inside one region — it always does — copy it.
+		if src, off := g.m.directRange(addr, size); src != nil {
+			copy(buf, src[off:off+size])
+		} else {
+			for i := uint32(0); i < size; i++ {
+				buf[i] = g.m.Read(addr + i)
+			}
 		}
 		if hop > 0 {
 			g.ListHops++

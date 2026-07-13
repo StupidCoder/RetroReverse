@@ -49,7 +49,22 @@ func main() {
 			os.Exit(1)
 		}
 		ws, derr := n3ds.DecodePICA(buf)
-		fmt.Printf("%s: %d bytes, %d register writes\n", path, len(buf), len(ws))
+		// Entries and register writes are not the same number, and confusing them is
+		// how a command list comes to look absurd. One entry can carry a burst of
+		// hundreds of words into a FIFO — a 396-word vertex-shader upload is ONE entry
+		// and 396 register writes. Report both, plus the padding, which is written to
+		// register 0 with an empty byte-enable mask and does nothing at all.
+		entries, padding := 0, 0
+		for _, w := range ws {
+			if !w.Burst {
+				entries++
+			}
+			if w.Mask == 0 {
+				padding++
+			}
+		}
+		fmt.Printf("%s: %d bytes, %d entries, %d register writes (%d are FIFO burst words, %d are padding)\n",
+			path, len(buf), entries, len(ws), len(ws)-entries, padding)
 		switch {
 		case *shader:
 			printShader(ws)
