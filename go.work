@@ -6,6 +6,7 @@ use (
 	./games/elite-c64/extract
 	./games/fort-apocalypse-c64/extract
 	./games/marble-madness-amiga/extract
+	./games/jak-and-daxter-ps2/extract
 	./games/loco-roco-psp/extract
 	./games/mario-kart-ds/extract
 	./games/need-for-speed-3do/extract
