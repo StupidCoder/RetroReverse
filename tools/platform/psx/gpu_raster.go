@@ -136,7 +136,7 @@ func (g *gpu) tri(a, b, c vert, textured bool, clut uint32) {
 			} else {
 				px = uint16(r>>3) | uint16(gg>>3)<<5 | uint16(bb>>3)<<10
 			}
-			g.vram[y*vramW+x] = px
+			g.store(x, y, px)
 		}
 	}
 }
@@ -227,7 +227,7 @@ func (g *gpu) rect(op byte) {
 					out = modulate(t, int(col&0xFF), int((col>>8)&0xFF), int((col>>16)&0xFF))
 				}
 			}
-			g.vram[py*vramW+px] = out
+			g.store(px, py, out)
 		}
 	}
 }

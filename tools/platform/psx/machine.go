@@ -13,6 +13,7 @@ package psx
 
 import (
 	"fmt"
+	"image"
 
 	"retroreverse.com/tools/cpu/mips"
 )
@@ -119,6 +120,17 @@ type Machine struct {
 	OnDMA     func(ch int, madr, bcr, chcr uint32, lba int)
 	hookMuted bool // suppresses OnRead during machine-internal reads (DMA walks, disassembly)
 
+	// OnDisplay is called once per synthetic vertical blank — the machine's frame
+	// boundary. A frame-stepping debugger sets StopRequested from it.
+	OnDisplay func(m *Machine)
+
+	// StopRequested ends the run at the next instruction boundary. A hook sets it to
+	// hand control back (the frame debugger stops at a field); Run clears it.
+	StopRequested bool
+
+	// breakpoints halt the run when the CPU reaches one, before the instruction.
+	breakpoints map[uint32]bool
+
 	Halted     bool
 	HaltReason string
 }
@@ -175,9 +187,39 @@ func (m *Machine) SetDisc(v *Volume) { m.disc = v }
 // Screenshot renders the GPU's active display area to a PNG.
 func (m *Machine) Screenshot(path string) error { return m.gpu.Screenshot(path) }
 
+// Framebuffer renders the active display area — what the console is scanning out —
+// as an RGBA image.
+func (m *Machine) Framebuffer() *image.RGBA { return m.gpu.image() }
+
 // VRAM returns the GPU's live 1024×512 16-bit frame buffer (row-major, 5:5:5
 // pixels). It is the backing store, not a copy — treat it as read-only.
 func (m *Machine) VRAM() []uint16 { return m.gpu.vram }
+
+// VRAMSize is the GPU frame buffer's shape, for a caller decoding it.
+func VRAMSize() (w, h int) { return vramW, vramH }
+
+// DisplayOrigin is the top-left of the shown area within VRAM.
+func (m *Machine) DisplayOrigin() (x, y int) { return m.gpu.dispX, m.gpu.dispY }
+
+// DrawOrigin is the top-left of the buffer the GPU is currently drawing into.
+//
+// The PSX has no "current framebuffer" register: the GPU draws at absolute VRAM
+// coordinates, and a double-buffering game puts its back buffer somewhere else in
+// VRAM and adds the drawing offset (GP0 0xE5) to every vertex to land there. So the
+// drawing offset *is* the back buffer's origin, and it is what a debugger must render
+// to watch a frame being built — the display window is showing the previous frame.
+func (m *Machine) DrawOrigin() (x, y int) { return m.gpu.offX, m.gpu.offY }
+
+// RenderDrawTarget renders the buffer the GPU is drawing into — the back buffer,
+// mid-frame — as opposed to Framebuffer, which renders what is being scanned out.
+// The buffer is the display's size anchored at the drawing offset.
+func (m *Machine) RenderDrawTarget() *image.RGBA {
+	return m.gpu.readRect(m.gpu.offX, m.gpu.offY, m.gpu.dispW, m.gpu.dispH)
+}
+
+// RGB15 expands a 15-bit VRAM pixel to 8-bit RGB — the PSX's only pixel format, and
+// the platform's business rather than a caller's.
+func RGB15(px uint16) (r, g, b byte) { return rgb15(px) }
 
 // OnGP0 registers a callback invoked with each completed GP0 drawing command
 // (the opcode word plus its parameter words) before it executes — every
@@ -185,6 +227,66 @@ func (m *Machine) VRAM() []uint16 { return m.gpu.vram }
 // ordering table. An image load (0xA0) fires once with its 3-word header; the
 // pixel run does not. The slice is reused: copy it to retain it.
 func (m *Machine) OnGP0(fn func(words []uint32)) { m.gpu.onPrim = fn }
+
+// PixelEvent is one pixel the GPU stored, as reported to OnPixel. The PSX rasteriser
+// keeps no depth buffer and discards a transparent texel before it reaches a store,
+// so every reported pixel was drawn — Drawn exists so the shape matches the other
+// platforms, where a pixel can be produced and then rejected.
+type PixelEvent struct {
+	Drawn      bool
+	R, G, B, A uint8
+}
+
+// OnPixel registers a callback invoked for every pixel the GPU writes to VRAM,
+// whatever drew it — a primitive, a fill, a VRAM copy, or a texture upload. It is
+// what lets a debugger attribute a pixel to the command that drew it.
+func (m *Machine) OnPixel(fn func(x, y uint32, ev PixelEvent)) {
+	if fn == nil {
+		m.gpu.onPixel = nil
+		return
+	}
+	m.gpu.onPixel = func(x, y int, px uint16) {
+		r, g, b := rgb15(px)
+		fn(uint32(x), uint32(y), PixelEvent{Drawn: true, R: r, G: g, B: b, A: 255})
+	}
+}
+
+// SetBreakpoint halts a run when the CPU reaches vaddr; ClearBreakpoints drops them
+// all.
+func (m *Machine) SetBreakpoint(vaddr uint32) {
+	if m.breakpoints == nil {
+		m.breakpoints = map[uint32]bool{}
+	}
+	m.breakpoints[vaddr] = true
+}
+
+func (m *Machine) ClearBreakpoints() { m.breakpoints = nil }
+
+// RunStopAfterGP0Command runs until the GPU has executed k GP0 commands, then returns
+// — the command itself has run. It is how a debugger renders "the frame as it stood
+// after command k".
+//
+// The stop cannot be a plain return: a DMA burst executes many GP0 commands inside a
+// single CPU instruction, so the GPU is entered from deep inside the bus write. It
+// unwinds with a sentinel panic instead, which leaves the GPU partway through its
+// queue — sound only on a machine that will be discarded (a replay scratch), never on
+// one you intend to keep running.
+func (m *Machine) RunStopAfterGP0Command(k int, budget uint64) (res Result) {
+	if k <= 0 {
+		return m.Run(budget)
+	}
+	m.gpu.stopAt, m.gpu.count = k, 0
+	defer func() {
+		m.gpu.stopAt, m.gpu.count = 0, 0
+		if r := recover(); r != nil {
+			if _, ok := r.(gp0Stop); !ok {
+				panic(r) // not ours — let it propagate
+			}
+			res = Result{PC: m.CPU.PC, Reason: "stopped after a GP0 command"}
+		}
+	}()
+	return m.Run(budget)
+}
 
 // LoadEXE copies a parsed PS-X EXE into RAM and seeds the entry state the BIOS
 // would hand the program (PC, gp, sp, fp).

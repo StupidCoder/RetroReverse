@@ -26,6 +26,7 @@ func (m *Machine) Run(maxSteps uint64) Result {
 	const spinWindow = 0x40000
 	var sinceReset uint64
 
+	m.StopRequested = false
 	for steps < maxSteps {
 		// Apply any scripted controller input whose step has been reached.
 		for m.padCursor < len(m.PadScript) && m.CPU.Steps >= m.PadScript[m.padCursor].AtStep {
@@ -38,6 +39,11 @@ func (m *Machine) Run(maxSteps uint64) Result {
 			m.vblankAcc = 0
 			m.raiseIRQ(0)
 			m.writePad() // refresh the controller buffer, as the BIOS would
+			// The vertical blank is this machine's frame boundary — the only one it
+			// has, since the display is a window onto VRAM and nothing "presents".
+			if m.OnDisplay != nil {
+				m.OnDisplay(m)
+			}
 		}
 		// Advance the CD-ROM controller's queued interrupt responses.
 		m.cd.tick()
@@ -70,6 +76,14 @@ func (m *Machine) Run(maxSteps uint64) Result {
 		}
 		if m.CPU.PC == 0 { // returned to the null $ra: program exit
 			return Result{steps, m.CPU.PC, "program returned to $ra=0 (exit)"}
+		}
+
+		if m.StopRequested {
+			m.StopRequested = false
+			return Result{steps, m.CPU.PC, "stop requested"}
+		}
+		if m.breakpoints != nil && m.breakpoints[m.CPU.PC] {
+			return Result{steps, m.CPU.PC, "breakpoint"}
 		}
 
 		if m.OnStep != nil {

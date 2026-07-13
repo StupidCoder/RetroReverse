@@ -13,6 +13,7 @@ package psx
 // Colours in VRAM are 16-bit 5:5:5 (bit0-4 R, 5-9 G, 10-14 B, bit15 mask).
 
 import (
+	"fmt"
 	"image"
 	"image/color"
 	"image/png"
@@ -57,6 +58,25 @@ type gpu struct {
 	// onPrim, when set, observes each completed GP0 command before it executes
 	// (see Machine.OnGP0). The slice is g.fifo — valid only during the call.
 	onPrim func(words []uint32)
+
+	// onPixel, when set, observes every pixel the GPU stores to VRAM (see
+	// Machine.OnPixel). It is what lets a debugger attribute a pixel to the command
+	// that drew it, so every store goes through g.store rather than writing g.vram
+	// directly — a store that bypassed it would read as "nothing drew this".
+	onPixel func(x, y int, px uint16)
+
+	// stopAt, when non-zero, is the number of GP0 commands to execute before
+	// unwinding out of the run (see Machine.RunStopAfterGP0Command). count is how
+	// many have run.
+	stopAt, count int
+}
+
+// store writes one pixel to VRAM. Every path that draws goes through here.
+func (g *gpu) store(x, y int, px uint16) {
+	g.vram[y*vramW+x] = px
+	if g.onPixel != nil {
+		g.onPixel(x, y, px)
+	}
 }
 
 func newGPU() *gpu {
@@ -187,7 +207,7 @@ func (g *gpu) pushImage(w uint32) {
 		}
 		x := (g.imgX + g.imgCurX) & (vramW - 1)
 		y := (g.imgY + g.imgCurY) & (vramH - 1)
-		g.vram[y*vramW+x] = px
+		g.store(x, y, px)
 		g.imgPx--
 		if g.imgCurX++; g.imgCurX >= g.imgW {
 			g.imgCurX = 0
@@ -252,6 +272,7 @@ func (g *gpu) exec() {
 	if g.onPrim != nil {
 		g.onPrim(g.fifo)
 	}
+	defer g.afterExec()
 	op := byte(g.fifo[0] >> 24)
 	switch {
 	case op == 0x02:
@@ -270,6 +291,116 @@ func (g *gpu) exec() {
 		g.drawSetting(op)
 	}
 	g.need = 0
+}
+
+// GP0Name names a GP0 command by its opcode byte, for a debugger's command list. The
+// PSX encodes a primitive's shape in the opcode's bits rather than in a table, so the
+// name is built from them: the family, then shaded/textured/semi-transparent.
+func GP0Name(op uint32) string {
+	o := byte(op)
+	switch {
+	case o == 0x00:
+		return "NOP"
+	case o == 0x01:
+		return "Clear_Cache"
+	case o == 0x02:
+		return "Fill_Rect"
+	case o >= 0x20 && o <= 0x3F:
+		return "Polygon" + polyFlags(o)
+	case o >= 0x40 && o <= 0x5F:
+		return "Line" + lineFlags(o)
+	case o >= 0x60 && o <= 0x7F:
+		return "Rect" + rectFlags(o)
+	case o >= 0x80 && o <= 0x9F:
+		return "Copy_VRAM_to_VRAM"
+	case o >= 0xA0 && o <= 0xBF:
+		return "Copy_CPU_to_VRAM"
+	case o >= 0xC0 && o <= 0xDF:
+		return "Copy_VRAM_to_CPU"
+	case o == 0xE1:
+		return "Draw_Mode"
+	case o == 0xE2:
+		return "Texture_Window"
+	case o == 0xE3:
+		return "Draw_Area_TL"
+	case o == 0xE4:
+		return "Draw_Area_BR"
+	case o == 0xE5:
+		return "Draw_Offset"
+	case o == 0xE6:
+		return "Mask_Bits"
+	}
+	return fmt.Sprintf("GP0_%02X", o)
+}
+
+func polyFlags(o byte) string {
+	s := "_"
+	if o&0x08 != 0 {
+		s += "Quad"
+	} else {
+		s += "Tri"
+	}
+	if o&0x10 != 0 {
+		s += "_Gouraud"
+	}
+	if o&0x04 != 0 {
+		s += "_Textured"
+	}
+	if o&0x02 != 0 {
+		s += "_SemiTrans"
+	}
+	return s
+}
+
+func lineFlags(o byte) string {
+	s := ""
+	if o&0x08 != 0 {
+		s += "_Poly"
+	}
+	if o&0x10 != 0 {
+		s += "_Gouraud"
+	}
+	return s
+}
+
+func rectFlags(o byte) string {
+	s := ""
+	switch (o >> 3) & 3 {
+	case 1:
+		s += "_1x1"
+	case 2:
+		s += "_8x8"
+	case 3:
+		s += "_16x16"
+	}
+	if o&0x04 != 0 {
+		s += "_Textured"
+	}
+	if o&0x02 != 0 {
+		s += "_SemiTrans"
+	}
+	return s
+}
+
+// gp0Stop is the sentinel RunStopAfterGP0Command panics with, to unwind out of the
+// GPU write / DMA burst that is executing commands once the one it was told to stop
+// after has run. A DMA burst executes many GP0 commands inside a single CPU
+// instruction, so returning normally is not enough: the burst would keep going.
+// Only RunStopAfterGP0Command recovers it; any other panic passes through.
+type gp0Stop struct{}
+
+// afterExec counts an executed command and unwinds if this was the one we were asked
+// to stop after. The command has already run, and the GPU is left partway through
+// whatever queue was feeding it — which is only sound on a machine that will be
+// thrown away (a replay scratch).
+func (g *gpu) afterExec() {
+	if g.stopAt == 0 {
+		return
+	}
+	g.count++
+	if g.count >= g.stopAt {
+		panic(gp0Stop{})
+	}
 }
 
 func (g *gpu) drawSetting(op byte) {
@@ -339,7 +470,7 @@ func (g *gpu) fillRect() {
 	h := int((g.fifo[2] >> 16) & 0x1FF)
 	for y := y0; y < y0+h && y < vramH; y++ {
 		for x := x0; x < x0+w && x < vramW; x++ {
-			g.vram[y*vramW+x] = c
+			g.store(x, y, c)
 		}
 	}
 }
@@ -351,32 +482,40 @@ func (g *gpu) copyVRAM() {
 	w, h := int(size&0x3FF), int((size>>16)&0x1FF)
 	for y := 0; y < h; y++ {
 		for x := 0; x < w; x++ {
-			g.vram[((dy+y)&(vramH-1))*vramW+((dx+x)&(vramW-1))] =
-				g.vram[((sy+y)&(vramH-1))*vramW+((sx+x)&(vramW-1))]
+			g.store((dx+x)&(vramW-1), (dy+y)&(vramH-1),
+				g.vram[((sy+y)&(vramH-1))*vramW+((sx+x)&(vramW-1))])
 		}
 	}
 }
 
-// --- Screenshot ------------------------------------------------------------
+// --- display readout -------------------------------------------------------
 
-// Screenshot renders the active display area (dispW×dispH from the VRAM
-// display start) to a 24-bit PNG.
-func (g *gpu) Screenshot(path string) error {
-	w, h := g.dispW, g.dispH
+// readRect renders a w×h rectangle of VRAM at (x0, y0) as an RGBA image.
+func (g *gpu) readRect(x0, y0, w, h int) *image.RGBA {
 	img := image.NewRGBA(image.Rect(0, 0, w, h))
 	for y := 0; y < h; y++ {
 		for x := 0; x < w; x++ {
-			px := g.vram[((g.dispY+y)&(vramH-1))*vramW+((g.dispX+x)&(vramW-1))]
+			px := g.vram[((y0+y)&(vramH-1))*vramW+((x0+x)&(vramW-1))]
 			r, gr, b := rgb15(px)
 			img.Set(x, y, color.RGBA{r, gr, b, 255})
 		}
 	}
+	return img
+}
+
+// image renders the active display area — the picture the console is scanning out.
+func (g *gpu) image() *image.RGBA {
+	return g.readRect(g.dispX, g.dispY, g.dispW, g.dispH)
+}
+
+// Screenshot writes the active display area to a 24-bit PNG.
+func (g *gpu) Screenshot(path string) error {
 	f, err := os.Create(path)
 	if err != nil {
 		return err
 	}
 	defer f.Close()
-	return png.Encode(f, img)
+	return png.Encode(f, g.image())
 }
 
 // --- helpers ---------------------------------------------------------------

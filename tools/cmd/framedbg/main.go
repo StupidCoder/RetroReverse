@@ -1,9 +1,10 @@
-// framedbg drives the frame debugger's core: it advances the N64 oracle to a frame,
-// then reports on how that frame was drawn.
+// framedbg drives the frame debugger: it advances an oracle to a frame, then reports
+// on how that frame was drawn. It opens an N64 cartridge (.z64) or a PlayStation disc
+// (.bin), choosing the adapter from the image.
 //
 // With -serve it hosts the interactive debugger as a local web page — step a frame,
-// scrub through its RDP command stream and watch the picture assemble, click a pixel
-// to see which command drew it and its full overdraw history.
+// scrub through its display-processor command stream and watch the picture assemble,
+// click a pixel to see which command drew it and its full overdraw history.
 //
 // Without -serve it is the same pipeline headless, verifiable from a script: dump the
 // captured command stream, write the draw target as it stood after each of a range of
@@ -33,6 +34,7 @@ import (
 
 	"retroreverse.com/tools/debug"
 	"retroreverse.com/tools/debug/n64adapter"
+	"retroreverse.com/tools/debug/psxadapter"
 	"retroreverse.com/tools/debug/server"
 )
 
@@ -43,12 +45,23 @@ func main() {
 	}
 }
 
+// target is what framedbg drives: a machine that can step frames and replay them.
+// Both adapters back all of it; a platform that could not would still serve the
+// interactive debugger, just with fewer panels.
+type target interface {
+	debug.Target
+	debug.FrameStepper
+	debug.FrameReplayer
+	debug.StateFiler
+}
+
 func run() error {
 	var (
-		image_  = flag.String("image", "", "path to the N64 ROM (.z64) — required")
+		image_  = flag.String("image", "", "game image — an N64 ROM (.z64) or a PSX disc (.bin) — required")
 		state   = flag.String("state", "", "savestate file to load before stepping (skips the boot)")
+		isr     = flag.String("isr", "", "PSX only: the game's vectored-interrupt handler, hex (Ridge Racer: 8004DF48)")
 		skip    = flag.Int("skip", -1, "advance this many frames before capturing; -1 = step until a drawn frame")
-		list    = flag.Bool("list", false, "print the captured frame's RDP command stream")
+		list    = flag.Bool("list", false, "print the captured frame's display-processor command stream")
 		listmax = flag.Int("listmax", 0, "cap -list to the first M commands (0 = all)")
 		scrub   = flag.Int("scrub", 0, "write the draw target after every Nth command as a PNG (0 = off)")
 		out     = flag.String("o", ".", "output directory for PNGs")
@@ -61,7 +74,7 @@ func run() error {
 		return fmt.Errorf("-image is required")
 	}
 
-	a, err := n64adapter.New(*image_)
+	a, err := open(*image_, *isr)
 	if err != nil {
 		return err
 	}
@@ -80,8 +93,8 @@ func run() error {
 	if err != nil {
 		return err
 	}
-	fmt.Printf("captured frame: %d RDP commands, %dx%d draw target\n",
-		len(fc.Commands), fc.Width, fc.Height)
+	fmt.Printf("captured frame: %d %s commands, %dx%d draw target\n",
+		len(fc.Commands), a.Platform(), fc.Width, fc.Height)
 
 	if *list {
 		printCommands(fc, *listmax)
@@ -102,10 +115,30 @@ func run() error {
 	return nil
 }
 
+// open picks the adapter from the image. The extension is enough today: a .z64 is a
+// cartridge, a .bin is a disc.
+func open(path, isr string) (target, error) {
+	switch strings.ToLower(filepath.Ext(path)) {
+	case ".z64", ".n64", ".v64":
+		return n64adapter.New(path)
+	case ".bin", ".iso", ".img":
+		var opts psxadapter.Options
+		if isr != "" {
+			v, err := strconv.ParseUint(strings.TrimPrefix(isr, "0x"), 16, 32)
+			if err != nil {
+				return nil, fmt.Errorf("bad -isr %q: %w", isr, err)
+			}
+			opts.ISRHandler = uint32(v)
+		}
+		return psxadapter.New(path, opts)
+	}
+	return nil, fmt.Errorf("cannot tell which platform %q is (want .z64 or .bin)", filepath.Base(path))
+}
+
 // advance steps the machine to a drawn frame. It first advances skip video fields
 // (skip<=0 advances none), then steps until a frame draws a real scene — so the
 // captured frame is always one worth inspecting, however far in you jump.
-func advance(a *n64adapter.Adapter, skip int, withOverdraw bool) (*debug.FrameCapture, error) {
+func advance(a target, skip int, withOverdraw bool) (*debug.FrameCapture, error) {
 	for i := 0; i < skip; i++ {
 		if _, err := a.StepFrame(false); err != nil {
 			return nil, err
@@ -169,7 +202,7 @@ func reportPixel(fc *debug.FrameCapture, spec string) error {
 
 // writeScrub writes the draw target after commands 0, step, 2*step, ... and the
 // last command — the command scrubber, frame by frame, as PNGs.
-func writeScrub(a *n64adapter.Adapter, fc *debug.FrameCapture, step int, dir string) error {
+func writeScrub(a target, fc *debug.FrameCapture, step int, dir string) error {
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		return err
 	}
@@ -194,7 +227,7 @@ func writeScrub(a *n64adapter.Adapter, fc *debug.FrameCapture, step int, dir str
 	return nil
 }
 
-func writeFinalFrames(a *n64adapter.Adapter, fc *debug.FrameCapture, dir string) error {
+func writeFinalFrames(a target, fc *debug.FrameCapture, dir string) error {
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		return err
 	}
