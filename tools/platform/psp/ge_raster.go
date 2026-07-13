@@ -692,6 +692,19 @@ func (m *Machine) dumpPrim(s *geState, ptype uint32, count int) {
 		s.fbAddress(), s.fbStride, s.fbFmt)
 	fmt.Printf("viewport: S(%.1f,%.1f,%.1f) C(%.1f,%.1f,%.1f) off(%.1f,%.1f)\n",
 		s.vpXS, s.vpYS, s.vpZS, s.vpXC, s.vpYC, s.vpZC, s.offX, s.offY)
+	// The transform matrices, so a decoded model can be re-rendered through the
+	// exact camera the game drew it with — the check that a mesh is not merely
+	// self-consistent but in the right place.
+	for _, m := range []struct {
+		name string
+		v    [16]float32
+	}{{"world", s.world}, {"view", s.view}, {"proj", s.proj}} {
+		fmt.Printf("%s:", m.name)
+		for _, f := range m.v {
+			fmt.Printf(" %g", f)
+		}
+		fmt.Println()
+	}
 	fmt.Printf("trail (%d words since previous PRIM):\n", len(geWordTrail))
 	for _, w := range geWordTrail {
 		fmt.Printf("  %08X  %s %06X\n", w, GeCmdName(w>>24), w&0xFFFFFF)
