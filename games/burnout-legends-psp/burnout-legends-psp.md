@@ -33,6 +33,12 @@ this disc.
 - **Part V — The vehicle format.** `.bgv`, the cars: a self-contained,
   GPU-ready model container, decoded and exported — all 89 vehicles, with
   their texture atlases and their wheels in the right places.
+- **Part VI — The track format.** `static.dat` and `streamed.dat`: a
+  position-independent, GPU-native world whose every offset is relative to
+  whatever owns it. The transform read out of the engine's own command words
+  rather than guessed from a 4x4 that turns out to be a bounding box. All 34
+  tracks decoded, verified against the running game, and shipped to the Studio
+  with all 89 cars.
 
 ---
 
@@ -565,3 +571,211 @@ consistency test — all 89 files, strips consuming exactly the declared vertice
 origin, and a Y-flip that assumed the PSP's screen-down convention had the car
 standing on its roof. The models are already Y-up; it is the handedness that
 needs flipping, not the up-axis. Only looking at the thing caught either.
+
+---
+
+## Part VI — The track format
+
+A track lives in `PSP_GAME/USRDIR/Tracks/<REGION>/<TRACK>/`, and the race we
+replay is `US/C3_V1` — identified not by name but by tracing `sceIoOpen`'s LBAs
+against the ISO listing, because the game opens its files by raw `sce_lbn`
+extent and never by path. Four files sit there: `static.dat`, `streamed.dat`,
+`Gamedata.bgd`, and `enviro.dat`.
+
+Scanning for runs of GE `PRIM` words ending in a `RET` finds geometry in the
+first two and none at all in `Gamedata.bgd`, so the tracks are the same
+GPU-native family as the cars. Everything after that was harder than it looked.
+
+### 1. Why the car's playbook failed
+
+Two things that worked on `.bgv` fail here, and both fail in a way that looks
+like something else.
+
+The first: **searching the file for the vertex bytes the GE fetched**. For a car
+that is decisive — the bytes are right there. For a track it finds nothing, and
+the reason is a trap. The GE is drawing the track out of the PSP's 4 MiB
+volatile block at `0x08400000`, and that block also holds the display list, so
+RAM at the address you land on decodes as `FBPIXFMT`/`FBP`/`FBW`/`ZBP` rather
+than as vertices. It looks exactly like a compressed file whose bytes never
+appear on disc. It is not: `streamed.dat`'s entropy is 4.0–6.4 bits per byte and
+the geometry is raw in the file.
+
+The second: **the car's record layout**. Zero of the track's strip runs sit at
+the `.bgv` offsets, and — the real tell — none of the strip lists are referenced
+by an absolute `u32` anywhere in the file. Nothing points at them.
+
+That is the whole shape of the format, stated backwards. **Every offset in a
+track is relative — to the record, to the slot, or to the section that owns
+it.** A structure built that way is position independent, which is exactly what
+you need if you are going to stream a block into whatever memory is free. The
+cars can afford plain file offsets because a car is loaded once, at a base, and
+patched. A track cannot.
+
+The way in was the same one that cracked `.bgv`: find where the file lands in
+RAM and diff the loaded image against it. `static.dat` sits at `0x09549E80` in
+the in-race savestate, and 227 words differ by exactly that base — the pointer
+slots, in plain sight.
+
+### 2. static.dat
+
+```
+header  +0x04  file size
+        +0x08  material table
+        +0x16  texture count (u16)
+        +0x18  texture table — one u32 record offset per texture
+        +0x24  \
+        +0x28   >  geometry section lists
+        +0x2C  /
+
+texture record   +0x08  palette, from the record   +0x0C/+0x10  w, h
+                 +0x14  bits per texel: 4, 8 or 32
+                 +0x38  the mip chain — four level offsets, 8 bytes apart
+                 mip 0 always lands at +0x110, and the levels tile exactly up
+                 to the palette (2^bpp RGBA8888 entries). Texels are SWIZZLED
+                 in the GE's 16-byte by 8-row blocks, as the hardware reads them.
+
+material (0x28)  +0x08  a parameter   +0x0C  a slot, from the record
+                 the slot holds a SIGNED offset, from the material record, to a
+                 texture record — so the binding resolves from the file alone
+
+section list     {u32 groupCount, u32 nodeArray} entries, each offset taken from
+                 the entry; the list ends where its first node array begins
+
+node (0x50)      +0x00  a bounding box: three axis rows and a centre row
+                 +0x40  mesh record array (offset from this slot)
+                 +0x44  mesh count
+                 +0x48  a u16 material index per mesh — offset from the section
+                        list ENTRY that owns the node, not from the section
+
+mesh (0xA0)      +0x44  vertex count   +0x48  vertex stream (from the record)
+                 +0x50  world centre   +0x60  half-extent
+                 +0x8C  strip list (from the record)   +0x90  word count
+```
+
+Vertices are GE-native vertex type `0x116` — u16 texcoords, a 5551 colour, s16
+positions, twelve bytes to a vertex — and the strip lists are display-list
+fragments ending in `RET`, exactly as the cars' are. The arithmetic closes
+without slack: the `PRIM` words of `US/C3_V1` consume 15,019 vertices and the
+records declare 15,019.
+
+### 3. The transform, and the 4x4 that is not one
+
+Every mesh record opens with sixteen floats laid out like a row-major matrix
+with a translation in the last row — the same convention the cars' wheel
+placements use. Decoding through it produces vertices that land inside the
+mesh's own bounding box, in a plausible part of the world, on a decode that
+passes every consistency check in the format.
+
+It is wrong. That 4x4 is a tight **oriented bounding box** — three orthogonal
+half-axis vectors and a centre, for culling — and the axes being nearly
+world-aligned is what makes the results look sane.
+
+The engine settles it, because the engine writes the matrix down. Dumping the
+GE command words that condition one road primitive gives its world matrix
+directly:
+
+```
+world:  473  0    0     0
+        0    353  0     0
+        0    0    1761  0
+        2713 99  -2083  1
+```
+
+`diag(473, 353, 1761)` is the record's `+0x60` half-extent to the unit, and the
+translation is the record's `+0x50` centre less a constant. So:
+
+> **world = centre + (position / 32768) × halfExtent**
+
+with the s16 positions fractional, as everything else on this hardware is. The
+constant is a **world-origin rebase**: the engine draws each cell relative to a
+nearby origin to keep float precision up near the car, and folds the difference
+into the view matrix. Take `centre − engineTranslation` across every drawn mesh
+and the values collapse onto a handful of origins, one per cell — which is why a
+single view matrix reproduces the frame from absolute coordinates.
+
+### 4. streamed.dat
+
+`streamed.dat` is the bulk of the world and it is a plain chain of blocks:
+
+```
+block  +0x04  cell index   +0x08  block size (the chain step)
+       +0x10  four points at ground level, with a radius
+       +0x50  mesh record array (from this slot)   +0x54  mesh count
+```
+
+Two blocks per cell, one of which carries the geometry and one of which carries
+none. The mesh records are the same 0xA0 bytes as static's, with no node layer
+above them; they name their material directly at `+0x88`, indexing `static.dat`'s
+table. The blocks need no fixing up at all, which is the point of all those
+relative offsets — the resident copies in RAM are byte-identical to the file.
+
+### 5. Verified against the game, not against itself
+
+A decode can satisfy every internal check and still be geometrically wrong; it
+happened twice with the cars. So each claim above was put to the running game.
+
+- **Placement.** 3,864 of 3,962 `static.dat` primitives are drawn at exactly
+  `centre − origin`. The 98 that are not are all one mesh, drawn repeatedly at
+  transforms the record does not give — an instanced prop whose placements live
+  somewhere we have not looked.
+- **The road.** Its centre and extent equal the world matrix the GE was handed,
+  to the unit. Its four texcoords match the engine's decoded UVs exactly. Its
+  texture bytes are byte-identical to the VRAM the GE sampled, and its palette
+  is at the address the GE bound its CLUT from.
+- **Materials.** 16 of 16 streamed meshes resolve, through the slot indirection,
+  to the textures the engine actually bound.
+- **All 34 tracks** parse, every strip list ending in a `RET` and consuming
+  exactly the vertices its record declares.
+
+And then the check that no amount of arithmetic substitutes for: render the
+decode through the camera the oracle was using, and put the two frames side by
+side. The game's own frame, and ours:
+
+![The oracle's frame](figures/track-oracle.png)
+
+![The same street, decoded from the files and rendered through the same camera](figures/track-decoded.png)
+
+Same street, same shopfronts, same signage, same crosswalk, same barrier
+chevrons, same mountain. (Ours has no car and no HUD — those come from
+elsewhere — and no fog or sky.)
+
+### 6. Two worlds, and the one the engine hides
+
+The two files are not two halves of one scene; they are two **layers**, and the
+engine swaps between them. `streamed.dat` is the city you drive through.
+`static.dat` is the environment it sits in — terrain, cliffs, forest, a lake,
+the mountain backdrop:
+
+![static.dat: the environment the track is built in, from above](figures/track-environment.png)
+
+But `static.dat` *also* carries a coarse stand-in for the ground the streamed
+cells cover, and the engine draws a static group only where its cell is not
+resident. Of 142 static meshes in `US/C3_V1`, 37 are drawn in our reference
+frame and 105 are not — and the ones that are not include a slab that sits above
+the real road. Draw both layers at once and that slab wins the depth test over
+the tarmac.
+
+Which groups the engine suppresses is a runtime decision we have not reversed —
+the cell data lives in `Gamedata.bgd`, the file with no geometry in it. The
+obvious rule, *drop a static mesh wherever streamed geometry covers it*, is
+**wrong**: tested against the engine's own draw list it would discard 20 meshes
+the game does draw. So the export ships the two layers as separate GLBs and the
+viewer keeps them apart, which is honest about what is known and what is not.
+
+### 7. Shipped
+
+`extract/bgt` decodes both files; `bgtdump -verify` runs every track on the disc
+and `-preview` renders one from above. `webexport` writes the Studio's assets:
+34 tracks (each a streamed world plus an environment layer) and all 89 cars.
+
+![Burnout Legends in the Studio, environment layer on](figures/track-studio.png)
+
+Two things the Studio taught us that the decode never would have. The shared GLB
+writer had **never emitted a `buffers` array** — a glTF loader resolves every
+bufferView through `buffers[0]`, so every file it wrote was unloadable, and one
+was already shipped broken. Our verification renders had always drawn the decoded
+structs, never opened the file we wrote. And the world came out nearly black
+until the alpha was taken from the engine rather than from glTF's default: these
+palettes are full of middling alphas (the road's run 76 to 153) that mean nothing
+to a draw with blending off, and a 0.5 mask cutoff throws a fifth of the world
+away. The GE's own alpha test cuts at 16.
