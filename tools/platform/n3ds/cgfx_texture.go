@@ -182,6 +182,38 @@ func decodeETC1(data []byte, w, h int) *image.NRGBA {
 	return img
 }
 
+// decodeETC1A4 decodes the ETC1A4 variant: the same 4×4 ETC1 colour blocks, each
+// preceded by eight bytes carrying a 4-bit alpha per texel. The alpha nibbles use
+// ETC1's own column-major pixel numbering (i = x*4 + y), so the two halves of a
+// sub-block index their texels the same way. Sixteen bytes per block — one byte
+// per texel, twice ETC1's size.
+func decodeETC1A4(data []byte, w, h int) *image.NRGBA {
+	img := image.NewNRGBA(image.Rect(0, 0, w, h))
+	p := 0
+	for ty := 0; ty < h; ty += 8 {
+		for tx := 0; tx < w; tx += 8 {
+			for _, sub := range [4][2]int{{0, 0}, {4, 0}, {0, 4}, {4, 4}} {
+				alpha := binary.LittleEndian.Uint64(data[p:])
+				colour := binary.LittleEndian.Uint64(data[p+8:])
+				p += 16
+				bx, by := tx+sub[0], ty+sub[1]
+				decodeETC1Block(img, bx, by, colour)
+				for x := 0; x < 4; x++ {
+					for y := 0; y < 4; y++ {
+						px, py := bx+x, by+y
+						if px >= w || py >= h {
+							continue
+						}
+						a := byte(alpha>>uint(4*(x*4+y))) & 0xF
+						img.Pix[img.PixOffset(px, py)+3] = a * 17
+					}
+				}
+			}
+		}
+	}
+	return img
+}
+
 // decodeETC1Block expands one 4×4 ETC1 block at (bx, by). Bit layout per the
 // ETC1 specification, taking the u64 as its big-endian byte sequence b0..b7:
 // b0..b2 base colours, b3 = table codes | diff | flip, b4..b7 the 2-bit pixel

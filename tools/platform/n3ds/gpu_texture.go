@@ -58,12 +58,16 @@ func (g *GPU) sampleTexture(u int, s, t float32) (rgba, bool) {
 	// repeat, mirrored repeat.
 	param := g.Regs[paramR]
 	x := wrapCoord(s, int32(w), param>>12&7)
-	// t=0 is the bottom row in PICA texture space; the decoded image is
-	// top-down.
-	y := int32(h) - 1 - wrapCoord(t, int32(h), param>>8&7)
-	if x < 0 || y < 0 { // border mode outside: transparent black
+	v := wrapCoord(t, int32(h), param>>8&7)
+	// Test the border-mode "outside" sentinel BEFORE the flip below: negating it
+	// into h-1-(-1) = h hides it from a v < 0 check and indexes a row past the
+	// image.
+	if x < 0 || v < 0 { // border mode outside: transparent black
 		return rgba{}, true
 	}
+	// t=0 is the bottom row in PICA texture space; the decoded image is
+	// top-down.
+	y := int32(h) - 1 - v
 	p := (uint32(y)*w + uint32(x)) * 4
 	return rgba{int32(img.pix[p]), int32(img.pix[p+1]), int32(img.pix[p+2]), int32(img.pix[p+3])}, true
 }
@@ -150,6 +154,10 @@ func (g *GPU) texture(addr, format, w, h uint32) (*texImage, bool) {
 			l, a := g.m.Read(p+1), g.m.Read(p)
 			put(x, y, l, l, l, a)
 		})
+	case 0x6: // HILO8: two 8-bit channels (a bump/normal map), high byte first
+		g.eachTexel(addr, w, h, 2, func(x, y, p uint32) {
+			put(x, y, g.m.Read(p+1), g.m.Read(p), 0, 255)
+		})
 	case 0x7: // L8
 		g.eachTexel(addr, w, h, 1, func(x, y, p uint32) {
 			l := g.m.Read(p)
@@ -176,6 +184,13 @@ func (g *GPU) texture(addr, format, w, h uint32) (*texImage, bool) {
 			data[i] = g.m.Read(addr + i)
 		}
 		copy(img.pix, decodeETC1(data, int(w), int(h)).Pix)
+	case 0xD: // ETC1A4: ETC1 colour blocks with a 4-bit alpha plane apiece
+		size := w * h
+		data := make([]byte, size)
+		for i := uint32(0); i < size; i++ {
+			data[i] = g.m.Read(addr + i)
+		}
+		copy(img.pix, decodeETC1A4(data, int(w), int(h)).Pix)
 	default:
 		g.m.CPU.Halt("gpu: texture format 0x%X unimplemented (%dx%d at 0x%08X)", format, w, h, addr)
 		return nil, false

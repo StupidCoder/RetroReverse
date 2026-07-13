@@ -1,6 +1,10 @@
 package n3ds
 
-import "fmt"
+import (
+	"encoding/binary"
+	"fmt"
+	"math"
+)
 
 // ipc_services.go implements the individual OS services, grown lazily. Each is
 // modelled just far enough to keep a title's init moving toward its first frame;
@@ -476,9 +480,24 @@ func (m *Machine) writeConfigBlock(blkID, out, size uint32) {
 			buf[0], buf[1] = 0x01, 0x00 // minor
 			buf[2], buf[3] = 0x01, 0x00 // major
 		}
+	case 0x00050005: // stereo-camera calibration: 8 floats of display geometry
+		// A zero here is NOT benign, which is what an earlier pass assumed. The
+		// game divides by float[2] to scale the stereoscopic eye separation
+		// (0x004015E8: s2 = cam.depth / calib[2]), and float[4] seeds cam.depth
+		// itself. With the block zeroed that division is 0/0 — a NaN, which then
+		// survives the multiply by the 3D slider (NaN×0 = NaN, not 0), floods the
+		// view matrix the engine bakes into its command buffers, and w-rejects
+		// every triangle in the scene: a black screen from one unfilled config
+		// block. The exact calibration only scales a term the slider zeroes, so
+		// what the render depends on is that these are real, non-zero numbers.
+		for i, f := range cfgStereoCamera {
+			if off := uint32(i) * 4; off+4 <= size {
+				binary.LittleEndian.PutUint32(buf[off:], math.Float32bits(f))
+			}
+		}
 	default:
-		// 0x00050005 (stereo-camera calibration, 32B) and any others: zero is
-		// benign for boot. Report once so an unexpected reliance shows up.
+		// Unmodelled blocks are zero-filled and reported, so the frontier stays
+		// explicit rather than silently wrong.
 		if m.Verbose {
 			fmt.Printf("cfg block 0x%08X (%d bytes) zero-filled\n", blkID, size)
 		}
@@ -492,6 +511,13 @@ const (
 	cfgLangEnglish = 1
 	cfgRegionEUR   = 2
 )
+
+// cfgStereoCamera is config block 0x00050005: the console's factory-calibrated
+// stereoscopic display geometry, as every 3DS ships it (platform data, like the
+// language and region blocks beside it — not the game's). The game reads two of
+// the eight: [2] as the divisor that scales eye separation, and [4] as the
+// default camera depth.
+var cfgStereoCamera = [8]float32{62.0, 289.0, 76.80, 46.08, 10.0, 5.0, 55.58, 21.56}
 
 func (m *Machine) ipcFS(hdr ipcHeader) bool {
 	switch hdr.Command {

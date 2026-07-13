@@ -705,3 +705,110 @@ sharp one: **what does a PICA200 uniform upload actually do with an all-ones exp
 Everything downstream of it is now standing and waiting: the chain executes, the depth is right, the
 lighting unit is built, the quaternion normals are wired, and the moment `r15` is a real position the
 frame has somewhere to go.
+
+## Part XVI — The NaN was ours: an unfilled config block, a 0/0, and a camera full of nothing
+
+The question Part XV left was the wrong question. It assumed the poison was the game's, and asked what
+hardware does with it. The game never wrote it.
+
+The tell was in the arithmetic, and it was decisive before a single line of the GPU was touched. Look
+again at what reaches the projection register `c87`, and at what the game's *own* projection matrix
+holds in memory at the same moment:
+
+```
+the game's struct @0x1504ECE4        what reaches the GPU
+row0  [0, 3.732, 0, 0]               [0, 3.732, 0, 0]        identical
+row1  [-2.2392, -0, -0, -0]          [NaN, -0, NaN, -0]      ← two NaNs
+row2  [-0, -0, 1.00087, 100.087]     [0, 0, 1.00087, 100.087]
+row3  [0, 0, -1, 0]                  [0, 0, -1, 0]           identical
+```
+
+The game has the right number. `-2.2392` is exactly `-3.732 × (240/400)` — the y-scale divided by the
+screen's aspect, which is what row 1 of a portrait-rotated perspective must be. And now the trap in
+Part XV's framing springs shut: row 1 needs `-2.2392` in its `x` and `0` in its `z`, and the buffer
+holds **the same NaN word in both**. No conversion function — flush-to-zero, exponent wrap, saturate,
+preserve — can turn one bit pattern into two different numbers. There was never a float24 rule that
+could explain this. The uniform path was never the bug.
+
+So where does a NaN come from, if not from a constant? It comes from arithmetic. A NaN is *born*, in
+an invalid operation, and there are only so many of those. So the ARM core got an instrument: report
+any VFP operation whose result is NaN when neither of its inputs was. Across two million instructions
+of a running frame, in a machine drawing eleven thousand times a frame, it fired on exactly **one**
+instruction:
+
+```
+$004015D4: LDR   r1, =0x00546348      ← a global
+$004015D8: VLDR  s0, [r0, #+0x48]     ← the camera's depth
+$004015E4: VLDR  s1, [r1, #+0x8]      ← a float from that global — reads ZERO
+$004015E8: VDIV.F32 s2, s0, s1        ← 0 / 0  =  NaN
+$004015EC: LDRB  r1, [0x1FF81084]     ← the 3D LED state
+$004015F8: VMUL.F32 s1, s2, s3        ← × 0.5
+$004015FC: VLDREQ s0, [0x1FF81080]    ← the 3D depth slider = 0.0
+$00401600: VMUL.F32 s0, s1, s0        ← NaN × 0 = NaN, not 0
+```
+
+This is the stereoscopic eye separation. The console's 3D slider is all the way down — we report it as
+`0.0`, correctly, because this machine has no 3D — and the routine dutifully multiplies the separation
+by zero. On hardware that yields `0.0`: no stereo, mono camera, done. Here it yields NaN, because IEEE
+754 says `NaN × 0` is NaN, and the NaN was already there. **The multiply that was supposed to make
+stereo a no-op cannot switch off a NaN.** From there it flows into the camera, and the engine bakes the
+camera once, at scene setup, into static command buffers (a `VLDM`/`VSTR` serializer at `0x003091CC`
+that loads twelve floats and stores them out reversed, w-first). Baked once, never rewritten — so the
+whole opening stage was frozen around a view matrix of nothing, and every triangle in it was
+w-rejected.
+
+That leaves the divisor. `0x00546348` is a 32-byte singleton in `.bss`, lazily constructed, and the
+constructor is an IPC wrapper: header `0x00010082`, a 32-byte write buffer, block id `0x00050005` —
+**`cfg:u GetConfigInfoBlk2`, the console's factory stereo-camera calibration.** Our `cfg` HLE
+implemented four config blocks and zero-filled the rest, and this is what an earlier pass wrote beside
+the one that mattered:
+
+```go
+// 0x00050005 (stereo-camera calibration, 32B) and any others: zero is
+// benign for boot.
+```
+
+It was not benign. It was the black screen. The block is eight floats of display geometry; the game
+reads two of them — `[2]` as that divisor, `[4]` as the camera's default depth. Fill them with the
+numbers every 3DS ships with and the division is an ordinary small number, the slider multiplies it to
+a clean zero, and the camera is a camera. What the render depends on is not the exact calibration — the
+slider annihilates that term — but simply that the numbers are *real*, and non-zero.
+
+Two lessons, and they are the same lesson twice. **A zero is not a safe default; it is a value, and the
+game will do arithmetic with it.** Every stub that "returns zeros for now" is a claim that zero is in
+the domain of whatever consumes it, and here that claim was false in the one way floating point
+punishes hardest. And: when a measurement (Part VIII's NaN → 0, which really did take one draw's
+rejected triangles from 4,610 to zero) contradicts new evidence, the resolution may be that the
+measurement was real and its *explanation* was invented. `toF24` was fitting a rule to a symptom whose
+cause was three subsystems away.
+
+### What the fix reached
+
+The block is eight floats; fill them and the camera is a camera. A cold boot — and it has to be a cold
+boot, because the `cfg` read happens early and the poison is *baked* into static command buffers, so
+every savestate we had was already contaminated — now runs the full budget with no halt, and the
+counters invert:
+
+| | before | after |
+|---|---|---|
+| pixels drawn | 0 | **13,346,300,283** |
+| draws | (all rejected) | 789,590 |
+| back-faces culled | 0 | 27,556,096 |
+| depth-killed fragments | 0 | 13,619,400,772 |
+| w-rejected triangles | *every one* | 1,935,795 (a near-plane trickle) |
+
+And the render target has a stage in it. The opening stage draws — dark, because the fragment-lighting
+unit models ambient and diffuse and none of the specular LUTs, but unmistakably geometry: polygons,
+depth-sorted, textured, lit.
+
+Closing the NaN immediately exposed three things the scene had never been able to reach, each fixed
+here: texture format **0xD (ETC1A4)** — ETC1 colour blocks each preceded by a 4-bit alpha plane, the
+nibbles in ETC1's own column-major pixel order; texture format **0x6 (HILO8)**, two 8-bit channels for
+a bump map (with these two, all fourteen PICA formats `0x0`–`0xD` now decode); and a real bounds bug in
+`sampleTexture`, where border-wrap's "outside" sentinel (`-1`) was **y-flipped before the negative
+check** — `h-1-(-1) = h` slipped past the guard and indexed a row past the image.
+
+The next wall is the one the geometry now makes visible: the top screen shows the scene only in part,
+because the panel's image is the 240×400 sub-window at byte offset `0x1C000` of the 256×512 target and
+our `DisplayTransfer` detiles it with the wrong stride. That is a display-path bug, and it is the last
+thing standing between this and a screenshot of Captain Toad's opening stage.
