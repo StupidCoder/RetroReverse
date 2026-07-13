@@ -1,12 +1,11 @@
 # Making the oracles faster
 
-A plan, ordered cheapest-and-safest first.
+**Status (2026-07-13): done for the 3DS. The frame went from 256.8 ms to 105.7 ms — 2.4× — and
+it is byte-identical.** Read *Phase 0 — the results* and *What was actually done* below; the
+original plan (kept, below the line) guessed the ordering and got most of it wrong, which is
+exactly what Phase 0 existed to find out.
 
-**Status: Phase 0 is done (2026-07-13).** It was worth doing: it overturned most of the
-ordering below. Read [Phase 0 — the results](#phase-0--the-results-what-the-measurements-say)
-before starting anything, because three of the five items in Phase 1 are now known to be
-worth about 1% between them, and the largest single cost in a frame — the vertex-shader
-interpreter — is not in the plan at all.
+A plan, ordered cheapest-and-safest first.
 
 ## Why this is worth doing
 
@@ -200,14 +199,77 @@ asserted.** Stripping every hook out of the machine (and then the struct fields 
 is what makes that true: the clocks are only read at boundaries that already cost thousands
 of times more than a clock read.
 
-### The ordering Phase 0 recommends
+---
 
-1. Kill the hot-path allocations and the 256-byte value copies (items 5 and 6). Free, safe.
-2. Cache the decoded PICA shader instruction stream (item 2). The biggest single win.
-3. Page-table the address space (1.1). ~10%, cheap, helps CPU and GPU alike.
-4. The rasteriser's inner loop (2.1, 2.2) — now that the workload is honest.
-5. Direct target access for the rasteriser (1.2) — worth ~7%, so it is not first.
-6. **Do not** build the ARM instruction-decode cache or the word-granular bus (1.3, 1.4).
+## What was actually done, and what it was actually worth (2026-07-13)
+
+**256.8 → 105.7 ms/frame: 2.43× faster, with the frame byte-identical.** Both screens were
+compared image against image, not merely hashed, and Super Mario 3D Land's pinned md5 did not
+move. A drawing frame went from 460 ms to about 200 ms; fragments per millisecond went from
+989 to 2,235.
+
+Every item was measured A/B, back to back, in one sitting. **Predictions are in the table
+because most of them were wrong, and the pattern in how they were wrong is the most useful
+thing here.**
+
+| item | predicted | measured | |
+|---|---|---|---|
+| A1 hot-path allocations + 256-byte value copies | 10-15% | **0.8%** | the estimate was nonsense; see below |
+| A2 shader decoded-instruction cache | 12-18% | **9.3%** | |
+| A3 page-table the address space | 6-9% | **13%** | the one that beat its estimate |
+| A4+A5 direct target access, one tiled offset per fragment | 7-14% | **2.3%** | A3 had already taken most of it |
+| A4 8×8 tile rejection | included above | **−1.4%** | *slower*. Reverted. |
+| C1 one reciprocal instead of 11-18 divides per fragment | 10-20% | **0%** | *and it changed the output.* Reverted. |
+| B1 parallel vertex shading | ~30% | **25.7%** | |
+| B2 parallel tiled rasteriser | 1.7-2.2× | **27.6%** | |
+
+### The four things this taught, which are worth more than the 2.4×
+
+**1. A CPU-sample share is an upper bound on a wall-clock win, and often a wild one.** A1 was
+predicted at 10-15% because pprof put that many samples in `mallocgc`/`madvise`/`mspan`. But
+pprof samples *every OS thread*, and Go's garbage collector runs on its own: `GOGC=off` changes
+the frame time by **nothing**, and `gctrace` shows the GC running twice in a ten-frame run.
+Those samples were real CPU and zero wall clock. Only what runs on the goroutine the machine
+runs on can be saved by making it cheaper.
+
+**2. Two of the plan's most confident items were worth nothing, and one of them was worse than
+nothing.** The 8×8 tile rejection and the reciprocal-instead-of-divide are both textbook. Both
+are *right for a rasteriser that is not this one*: tile rejection pays against long spiky
+triangles with huge bounding boxes and slivers of coverage — the workload the *broken* geometry
+produced — and the divides are pipelined and overlapped on an M3, so removing them saved zero.
+The reciprocal would also have moved the oracle's output. It was reverted for a 0% gain that
+cost a pixel.
+
+**3. `go test -race` changes the floating-point result.** The race build inhibits FMA
+contraction, which arm64 applies to the shader's MAD, so it computes a frame that differs in
+its last bits — *with the machine forced single-threaded, where a data race cannot exist*. The
+pinned hashes are a property of the ordinary build; the gate skips under `-race` and says why.
+What `-race` is for here is proving there is no data race (there is none), and the correctness
+claim for the parallel stages is not a hash from last week but
+`TestParallelVertexMatchesSerial`: the parallel machine agrees, bit for bit, with what *this
+build* computes serially.
+
+**4. Parallelism was the biggest win, and it cost nothing in determinism — because the
+partition, not the scheduler, decides the answer.** A vertex is a pure function of its index. A
+band of 16 rows is filled by exactly one worker, and within a band the triangles are applied in
+submission order. Bands are handed out from a shared counter, so *which* worker takes *which*
+band varies run to run — and cannot change the result, only the time. The three things that had
+to be fixed first were all writes hiding in read-shaped code: the lazily-filled shader decode
+cache, the GPU's counters, and **a texture cache miss, which is a write**.
+
+### What is left
+
+- The bucket shares now: rasterise 47%, vertex + shader 27%, the derived remainder 16% (which
+  now includes goroutine scheduling), GX transfers 4%, texture decode 3.5%.
+- **Most draws are still serial.** 68 of Captain Toad's 143 draws per frame are too small to be
+  worth goroutines. A persistent worker pool instead of spawning per draw would take the
+  threshold down; ~1,100 goroutine spawns a frame is not free.
+- **B3 (free parallelism outside the machine)** is not done: framedbg's `RenderAfter(k)` replays
+  are independent and would make a scrub drag instant.
+- **The ARM11 is 0.6% of the frame.** It stays that way. Do not build the instruction-decode
+  cache or the word-granular bus.
+
+---
 
 Everything below this line is the original plan, written before any of it was measured. It is
 left as it was, and wrong where the results say so.
