@@ -124,33 +124,15 @@ type dspHLE struct {
 	NextFrame       uint64            // m.instrs deadline of the next audio frame
 	Ticks           uint64            // audio frames delivered (instrumentation)
 	Sources         [dspNumSources]dspSource
-}
 
-// dspSource is one of the 24 voices' control state (Citra's Source::state,
-// minus everything that touches PCM).
-type dspSource struct {
-	Enabled      bool
-	SyncCount    uint16
-	Rate         float32 // rate multiplier (input samples per output sample)
-	Queue        []dspBuffer
-	HasCurrent   bool
-	Pos          float64 // play position in the current buffer, in samples
-	CurLength    uint32
-	CurPhysAddr  uint32
-	CurBufferID  uint16
-	LastBufferID uint16
-	BufferUpdate bool // current_buffer_id changed; reported once then cleared
-}
-
-// dspBuffer is one queued audio buffer's metadata (contents are never read).
-type dspBuffer struct {
-	PhysAddr     uint32
-	Length       uint32 // in samples
-	BufferID     uint16
-	IsLooping    bool
-	FromQueue    bool // came from the buffer queue (vs the embedded buffer)
-	PlayPosition uint32
-	HasPlayed    bool
+	// The mixers (dsp_voice.go): the volume each of the three intermediate
+	// mixes carries into the final mix, the two aux busses that route a mix out
+	// through the application, and the output format.
+	MixVolume    [3]float32
+	AuxBusEnable [2]bool
+	OutputFormat uint16
+	ClippingMode uint16
+	Headphones   bool
 }
 
 // --- service commands --------------------------------------------------------
@@ -400,14 +382,28 @@ func (m *Machine) dspTick() {
 	m.dsp.Ticks++
 	if m.dsp.State == dspStateOn {
 		read, write := m.dspReadRegion(), m.dspWriteRegion()
+		if m.DSPTrace {
+			c := m.dspRead16(read + dspOffFrameCounter)
+			if m.dspLastCounter != 0 && uint16(c-m.dspLastCounter) != 1 {
+				fmt.Printf("    dsp REGION STEP %d -> %d (skipped %d app frames) at frame %d\n",
+					m.dspLastCounter, c, uint16(c-m.dspLastCounter), m.dsp.Ticks)
+			}
+			m.dspLastCounter = c
+		}
+		var mixes [3]dspQuadFrame
 		for i := 0; i < dspNumSources; i++ {
 			m.dspParseConfig(i, read)
-			s := &m.dsp.Sources[i]
-			if s.Enabled {
-				s.advanceFrame()
+			if m.dsp.Sources[i].Enabled {
+				m.dspSourceFrame(i)
 			}
 			m.dspWriteStatus(i, write)
+			for mix := 0; mix < 3; mix++ {
+				m.dsp.Sources[i].mixInto(&mixes[mix], mix)
+			}
 		}
+		m.dspMixerConfig(read)
+		final := m.dspMix(read, write, &mixes)
+		m.dspWriteFinal(write, &final)
 		m.WriteWord(write+dspOffDSPStatus, 0) // DspStatus: unknown, dropped_frames
 
 		// The audio frame IS the pipe-2 interrupt: that is the event the app's
@@ -459,28 +455,49 @@ func (m *Machine) dspWriteRegion() uint32 {
 // bits (the DSP clears the whole dirty word each frame after acting on it).
 const (
 	srcCfgDirty        = 0x00 // u32 dirty flags
+	srcCfgGain         = 0x04 // f32[3][4]: per intermediate mixer, per channel
 	srcCfgRate         = 0x34 // f32 rate multiplier
+	srcCfgInterp       = 0x38 // u8 interpolation mode
+	srcCfgFiltersOn    = 0x3A // u16: bit0 simple, bit1 biquad
+	srcCfgSimpleFilter = 0x3C // s16 b0, s16 a1 (s1.15)
+	srcCfgBiquadFilter = 0x40 // s16 a2, a1, b2, b1, b0 (s2.14)
 	srcCfgBuffersDirty = 0x4A // u16 bitmap over the 4 queued buffers
 	srcCfgBuffers      = 0x4C // 4 × 20-byte Buffer
 	srcCfgEnable       = 0xA0 // u8
 	srcCfgSyncCount    = 0xA2 // u16
 	srcCfgPlayPosition = 0xA4 // u32-dsp (embedded buffer start sample)
 	srcCfgEmbPhysAddr  = 0xAC // u32-dsp
-	srcCfgEmbLength    = 0xB0 // u32-dsp, in samples
+	srcCfgEmbLength    = 0xB0 // u32-dsp, IN SAMPLES
+	srcCfgFlags1       = 0xB4 // u16: bits0-1 channels, bits2-3 codec, bit5 fade-in
+	srcCfgEmbAdpcmPS   = 0xB6 // u16: predictor (bits 4-7) and scale (bits 0-3)
+	srcCfgEmbAdpcmYn   = 0xB8 // s16[2]: y[n-1], y[n-2]
 	srcCfgFlags2       = 0xBC // u16: bit0 adpcm_dirty, bit1 is_looping
 	srcCfgEmbBufferID  = 0xBE // u16
 
-	srcBufPhysAddr  = 0x00 // u32-dsp
-	srcBufLength    = 0x04 // u32-dsp
-	srcBufIsLooping = 0x0F // u8
-	srcBufBufferID  = 0x10 // u16
+	srcBufPhysAddr   = 0x00 // u32-dsp
+	srcBufLength     = 0x04 // u32-dsp, IN SAMPLES
+	srcBufAdpcmPS    = 0x08 // u16
+	srcBufAdpcmYn    = 0x0A // s16[2]
+	srcBufAdpcmDirty = 0x0E // u8
+	srcBufIsLooping  = 0x0F // u8
+	srcBufBufferID   = 0x10 // u16
 
+	dirtyFormat          = 1 << 0
+	dirtyMonoStereo      = 1 << 1
+	dirtyAdpcmCoeffs     = 1 << 2
 	dirtyPartialEmbedded = 1 << 3
 	dirtyPartialReset    = 1 << 4
 	dirtyEnable          = 1 << 16
+	dirtyInterp          = 1 << 17
 	dirtyRate            = 1 << 18
 	dirtyBufferQueue     = 1 << 19
 	dirtyPlayPosition    = 1 << 21
+	dirtyFiltersEnabled  = 1 << 22
+	dirtySimpleFilter    = 1 << 23
+	dirtyBiquadFilter    = 1 << 24
+	dirtyGain0           = 1 << 25
+	dirtyGain1           = 1 << 26
+	dirtyGain2           = 1 << 27
 	dirtySyncCount       = 1 << 28
 	dirtyReset           = 1 << 29
 	dirtyEmbeddedBuffer  = 1 << 30
@@ -497,8 +514,17 @@ func (m *Machine) dspParseConfig(i int, region uint32) {
 		return
 	}
 	s := &m.dsp.Sources[i]
+	if m.DSPTrace {
+		fmt.Printf("    dsp[%d] cfg r%d(c=%d/%d) dirty=%08X enable=%d sync=%d flags1=%04X len=%d id=%d buffers=%04X (frame %d)\n",
+			i, (region-dspRegion0)/(dspRegion1-dspRegion0),
+			m.dspRead16(dspRegion0+dspOffFrameCounter), m.dspRead16(dspRegion1+dspOffFrameCounter),
+			dirty, m.Read(cfg+srcCfgEnable), m.dspRead16(cfg+srcCfgSyncCount),
+			m.dspRead16(cfg+srcCfgFlags1), m.dspRead32(cfg+srcCfgEmbLength),
+			m.dspRead16(cfg+srcCfgEmbBufferID), m.dspRead16(cfg+srcCfgBuffersDirty), m.dsp.Ticks)
+	}
 	if dirty&dirtyReset != 0 {
 		*s = dspSource{Rate: 1}
+		s.Filters.reset()
 	}
 	if dirty&dirtyPartialReset != 0 {
 		s.Queue = nil
@@ -507,20 +533,60 @@ func (m *Machine) dspParseConfig(i int, region uint32) {
 		s.Enabled = m.Read(cfg+srcCfgEnable) != 0
 	}
 	// sync_count is a VALUE the DSP echoes back, not an event: read it from the
-	// configuration every frame, whether or not the dirty bit is set. The app
-	// stamps each voice's configuration with a sync count and then refuses to
-	// retire that voice's queued commands until it sees the same number come
-	// back in the status — Captain Toad's per-voice command drain (0x00131FAC)
-	// bails on the very first compare, so gating the echo on the dirty flag
-	// left every voice's command list to grow without bound until the allocator
-	// recycled a node that was still linked (X.next = X) and the sound thread
-	// spun forever.
+	// configuration every frame, whether or not the dirty bit is set. Gating it
+	// on the dirty bit was tried and MEASURED WORSE — the game then stops
+	// queueing buffers on its streaming voices at all (source 4's buffer-queue
+	// writes vanish). The app's per-voice update (0x00131FAC) compares the echo
+	// against its own count before it will look at anything else, so the echo has
+	// to track the configuration it can see, not the one whose dirty bit we last
+	// caught.
 	s.SyncCount = m.dspRead16(cfg + srcCfgSyncCount)
+
 	if dirty&dirtyRate != 0 {
 		s.Rate = math.Float32frombits(m.ReadWord(cfg + srcCfgRate))
 		if !(s.Rate > 0) { // zero, negative or NaN: the firmware degrades; keep 1:1
 			s.Rate = 1
 		}
+	}
+	if dirty&dirtyInterp != 0 {
+		s.Interp = m.Read(cfg + srcCfgInterp)
+	}
+	// Format and channel count latch on their own dirty bits AND with a new
+	// embedded buffer: the app declares them alongside it.
+	if dirty&(dirtyFormat|dirtyEmbeddedBuffer) != 0 {
+		s.Format = uint8(m.dspRead16(cfg+srcCfgFlags1) >> 2 & 3)
+	}
+	if dirty&(dirtyMonoStereo|dirtyEmbeddedBuffer) != 0 {
+		s.Stereo = m.dspRead16(cfg+srcCfgFlags1)&3 == 2
+	}
+	if dirty&dirtyAdpcmCoeffs != 0 {
+		co := region + dspOffAdpcmCoeffs + uint32(i)*32
+		for k := 0; k < 16; k++ {
+			s.AdpcmCoeffs[k] = int16(m.dspRead16(co + uint32(k)*2))
+		}
+	}
+	for g := 0; g < 3; g++ {
+		if dirty&(dirtyGain0<<g) == 0 {
+			continue
+		}
+		for c := 0; c < 4; c++ {
+			s.Gain[g][c] = dspFloat(m.ReadWord(cfg + srcCfgGain + uint32(g*4+c)*4))
+		}
+	}
+	if dirty&dirtyFiltersEnabled != 0 {
+		en := m.dspRead16(cfg + srcCfgFiltersOn)
+		s.Filters.enable(en&1 != 0, en&2 != 0)
+	}
+	if dirty&dirtySimpleFilter != 0 {
+		s.Filters.SB0 = int32(int16(m.dspRead16(cfg + srcCfgSimpleFilter)))
+		s.Filters.SA1 = int32(int16(m.dspRead16(cfg + srcCfgSimpleFilter + 2)))
+	}
+	if dirty&dirtyBiquadFilter != 0 {
+		s.Filters.BA2 = int16(m.dspRead16(cfg + srcCfgBiquadFilter))
+		s.Filters.BA1 = int16(m.dspRead16(cfg + srcCfgBiquadFilter + 2))
+		s.Filters.BB2 = int16(m.dspRead16(cfg + srcCfgBiquadFilter + 4))
+		s.Filters.BB1 = int16(m.dspRead16(cfg + srcCfgBiquadFilter + 6))
+		s.Filters.BB0 = int16(m.dspRead16(cfg + srcCfgBiquadFilter + 8))
 	}
 	// The play position applies to the embedded buffer's first playthrough
 	// and defaults to 0 without its dirty bit.
@@ -528,22 +594,36 @@ func (m *Machine) dspParseConfig(i int, region uint32) {
 	if dirty&dirtyPlayPosition != 0 {
 		playPos = m.dspRead32(cfg + srcCfgPlayPosition)
 	}
-	if dirty&dirtyPartialEmbedded != 0 && s.HasCurrent {
-		// The app re-declared the length of the buffer currently playing
-		// (how looped streams are extended in place).
-		newLen := m.dspRead32(cfg + srcCfgEmbLength)
-		if float64(newLen) < s.Pos {
-			s.Pos = 0
-		} else {
-			s.CurLength = newLen
+	if dirty&dirtyPartialEmbedded != 0 && len(s.CurBuf) > 0 {
+		// The app re-declared the length of the buffer currently playing — how a
+		// looped stream is extended in place. Re-decode it at the new length from
+		// the LATCHED address (the configuration's may already point elsewhere)
+		// and re-consume what has already been played.
+		buf := dspBuffer{
+			PhysAddr: s.CurPhysAddr,
+			Length:   m.dspRead32(cfg + srcCfgEmbLength),
+			Stereo:   s.Stereo,
+			Format:   s.Format,
+		}
+		if pcm := m.dspDecodeBuffer(s, buf); pcm != nil {
+			if int(s.CurSample) < len(pcm) {
+				s.CurBuf = pcm[s.CurSample:]
+			} else {
+				s.CurSample, s.CurBuf = 0, pcm
+			}
 		}
 	}
 	if dirty&dirtyEmbeddedBuffer != 0 {
 		s.Queue = append(s.Queue, dspBuffer{
 			PhysAddr:     m.dspRead32(cfg + srcCfgEmbPhysAddr),
 			Length:       m.dspRead32(cfg + srcCfgEmbLength),
-			BufferID:     m.dspRead16(cfg + srcCfgEmbBufferID),
+			AdpcmPS:      uint8(m.dspRead16(cfg + srcCfgEmbAdpcmPS)),
+			AdpcmYn:      [2]int16{int16(m.dspRead16(cfg + srcCfgEmbAdpcmYn)), int16(m.dspRead16(cfg + srcCfgEmbAdpcmYn + 2))},
+			AdpcmDirty:   m.dspRead16(cfg+srcCfgFlags2)&1 != 0,
 			IsLooping:    m.dspRead16(cfg+srcCfgFlags2)&2 != 0,
+			BufferID:     m.dspRead16(cfg + srcCfgEmbBufferID),
+			Stereo:       s.Stereo,
+			Format:       s.Format,
 			PlayPosition: playPos,
 		})
 	}
@@ -555,11 +635,16 @@ func (m *Machine) dspParseConfig(i int, region uint32) {
 			}
 			bb := cfg + srcCfgBuffers + b*20
 			s.Queue = append(s.Queue, dspBuffer{
-				PhysAddr:  m.dspRead32(bb + srcBufPhysAddr),
-				Length:    m.dspRead32(bb + srcBufLength),
-				BufferID:  m.dspRead16(bb + srcBufBufferID),
-				IsLooping: m.Read(bb+srcBufIsLooping) != 0,
-				FromQueue: true,
+				PhysAddr:   m.dspRead32(bb + srcBufPhysAddr),
+				Length:     m.dspRead32(bb + srcBufLength),
+				AdpcmPS:    uint8(m.dspRead16(bb + srcBufAdpcmPS)),
+				AdpcmYn:    [2]int16{int16(m.dspRead16(bb + srcBufAdpcmYn)), int16(m.dspRead16(bb + srcBufAdpcmYn + 2))},
+				AdpcmDirty: m.Read(bb+srcBufAdpcmDirty) != 0,
+				IsLooping:  m.Read(bb+srcBufIsLooping) != 0,
+				BufferID:   m.dspRead16(bb + srcBufBufferID),
+				Stereo:     s.Stereo,
+				Format:     s.Format,
+				FromQueue:  true,
 			})
 		}
 		m.dspWrite16(cfg+srcCfgBuffersDirty, 0)
@@ -574,6 +659,10 @@ func (m *Machine) dspParseConfig(i int, region uint32) {
 func (m *Machine) dspWriteStatus(i int, region uint32) {
 	st := region + dspOffSourceStatus + uint32(i)*12
 	s := &m.dsp.Sources[i]
+	if m.DSPTrace && (s.Enabled || s.BufferUpdate || len(s.Queue) > 0) {
+		fmt.Printf("    dsp[%d] status enabled=%v update=%v sync=%d pos=%d cur=%d last=%d queued=%d (frame %d)\n",
+			i, s.Enabled, s.BufferUpdate, s.SyncCount, s.CurSample, s.CurBufferID, s.LastBufferID, len(s.Queue), m.dsp.Ticks)
+	}
 	enabled, update := byte(0), byte(0)
 	if s.Enabled {
 		enabled = 1
@@ -585,84 +674,9 @@ func (m *Machine) dspWriteStatus(i int, region uint32) {
 	m.Write(st+0, enabled)
 	m.Write(st+1, update)
 	m.dspWrite16(st+2, s.SyncCount)
-	m.dspWrite32(st+4, uint32(s.Pos))
+	m.dspWrite32(st+4, s.CurSample)
 	m.dspWrite16(st+8, s.CurBufferID)
 	m.dspWrite16(st+10, s.LastBufferID)
-}
-
-// advanceFrame moves an enabled source one audio frame forward: 160 output
-// samples' worth of input is consumed from the current buffer, dequeuing the
-// next (lowest buffer id first) as buffers run out. A source whose queue runs
-// dry disables itself and reports the final buffer id in last_buffer_id —
-// the "everything finished" signal streaming code watches for.
-func (s *dspSource) advanceFrame() {
-	if !s.HasCurrent {
-		if !s.dequeue() {
-			s.Enabled = false
-			s.BufferUpdate = true
-			s.LastBufferID = s.CurBufferID
-			s.CurBufferID = 0
-		}
-		return
-	}
-	rate := float64(s.Rate)
-	if !(rate > 0) {
-		rate = 1
-	}
-	need := 160.0 // output samples per frame
-	for need > 0 {
-		if !s.HasCurrent && !s.dequeue() {
-			break
-		}
-		remain := float64(s.CurLength) - s.Pos
-		if remain <= 0 {
-			s.HasCurrent = false
-			continue
-		}
-		take := need
-		if avail := remain / rate; avail < take {
-			take = avail
-		}
-		s.Pos += take * rate
-		need -= take
-		if s.Pos >= float64(s.CurLength) {
-			s.HasCurrent = false
-		}
-	}
-}
-
-// dequeue pops the lowest-buffer-id entry into the current-buffer slot. A
-// looping buffer re-queues itself (marked played, so it restarts at 0).
-func (s *dspSource) dequeue() bool {
-	if len(s.Queue) == 0 {
-		return false
-	}
-	best := 0
-	for i := range s.Queue {
-		if s.Queue[i].BufferID < s.Queue[best].BufferID {
-			best = i
-		}
-	}
-	buf := s.Queue[best]
-	s.Queue = append(s.Queue[:best], s.Queue[best+1:]...)
-
-	start := uint32(0)
-	if !buf.HasPlayed {
-		start = buf.PlayPosition
-	}
-	s.Pos = float64(start)
-	s.CurLength = buf.Length
-	s.CurPhysAddr = buf.PhysAddr
-	s.CurBufferID = buf.BufferID
-	s.LastBufferID = 0
-	s.BufferUpdate = buf.FromQueue && !buf.HasPlayed
-	s.HasCurrent = s.Pos < float64(s.CurLength)
-
-	if buf.IsLooping {
-		buf.HasPlayed = true
-		s.Queue = append(s.Queue, buf)
-	}
-	return true
 }
 
 // --- event plumbing and DSP-endian helpers -----------------------------------

@@ -218,8 +218,9 @@ func (m *Machine) DumpThreads() {
 	for i := range m.dsp.Sources {
 		s := &m.dsp.Sources[i]
 		if s.Enabled || len(s.Queue) > 0 || s.CurBufferID != 0 {
-			fmt.Printf("  dsp src %2d: enabled=%v sync=%d rate=%g pos=%.0f len=%d cur=%d last=%d queued=%d update=%v\n",
-				i, s.Enabled, s.SyncCount, s.Rate, s.Pos, s.CurLength, s.CurBufferID, s.LastBufferID, len(s.Queue), s.BufferUpdate)
+			fmt.Printf("  dsp src %2d: enabled=%v sync=%d rate=%g fmt=%d stereo=%v pos=%d remain=%d cur=%d last=%d queued=%d update=%v\n",
+				i, s.Enabled, s.SyncCount, s.Rate, s.Format, s.Stereo, s.CurSample, len(s.CurBuf),
+				s.CurBufferID, s.LastBufferID, len(s.Queue), s.BufferUpdate)
 		}
 	}
 	fmt.Printf("handles:\n")

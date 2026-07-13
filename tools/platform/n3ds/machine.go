@@ -146,9 +146,24 @@ type Machine struct {
 	// The PICA200 GPU (gpu.go). Accessor: GPU().
 	gpu *GPU
 
-	// The DSP audio coprocessor (dsp.go): the pipe protocol, the shared-memory
-	// audio-frame exchange and the frame clock the game's sound thread blocks on.
+	// The DSP audio coprocessor (dsp.go / dsp_voice.go): the pipe protocol, the
+	// shared-memory audio-frame exchange, the frame clock the game's sound thread
+	// blocks on, and the 24-voice mixer behind it.
 	dsp dspHLE
+
+	// Audio capture (instrumentation, not machine state): when AudioCapture is
+	// set, every audio frame's final stereo mix is appended to AudioPCM, which
+	// bootoracle -wav writes out. Deliberately outside the savestate — it is a
+	// recording of a run, not a property of the machine.
+	AudioCapture bool
+	AudioPCM     []int16
+
+	// DSPTrace logs every source configuration the DSP consumes and every status
+	// it publishes (bootoracle -dsptrace) — the instrument for the app↔DSP voice
+	// conversation, which is otherwise invisible: it happens entirely in shared
+	// memory, with no IPC to log.
+	DSPTrace       bool
+	dspLastCounter uint16
 
 	// IPC / graphics bring-up.
 	notifyWaiters    []uint32 // thread ids parked in srv: ReceiveNotification

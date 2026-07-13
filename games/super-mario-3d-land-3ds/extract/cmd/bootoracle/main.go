@@ -74,6 +74,8 @@ func main() {
 	flag.Var(&pokes, "poke", "write a 32-bit word ADDR:VALUE (hex) after -loadstate, before running; repeatable (probe instrument)")
 	keys := flag.String("keys", "", "inject HID pad input: comma-separated button names (a,b,x,y,l,r,up,down,left,right,start,select)")
 	keypulse := flag.Int("keypulse", 0, "if >0, release the injected keys briefly every N frames so a fresh press edge keeps arriving (for advancing menus/dialogs)")
+	wav := flag.String("wav", "", "capture the DSP's final mix during the run and write it to this .wav file")
+	dsptrace := flag.Bool("dsptrace", false, "log every source configuration the DSP consumes and every status it publishes")
 	flag.Parse()
 
 	if *image == "" {
@@ -81,7 +83,7 @@ func main() {
 		flag.Usage()
 		os.Exit(2)
 	}
-	if err := run(*image, *steps, *trace, *tracen, *verbose, *svclog, bps, watches, logpcs, tracefroms, dumps, *saveState, *loadState, *gxdump, *shot, *gputrace, *threads, *hidtrace, *keys, *keypulse, *findAscii, *findUtf16, *findWord, pokes); err != nil {
+	if err := run(*image, *steps, *trace, *tracen, *verbose, *svclog, bps, watches, logpcs, tracefroms, dumps, *saveState, *loadState, *gxdump, *shot, *gputrace, *threads, *hidtrace, *keys, *keypulse, *findAscii, *findUtf16, *findWord, pokes, *wav, *dsptrace); err != nil {
 		fmt.Fprintln(os.Stderr, "bootoracle:", err)
 		os.Exit(1)
 	}
@@ -116,7 +118,7 @@ func utf16Pattern(s string) []byte {
 	return b
 }
 
-func run(imagePath, stepsStr string, trace bool, tracen int, verbose, svclog bool, bps, watches, logpcs, tracefroms, dumps multiFlag, saveState, loadState, gxdump, shot string, gputrace int, threads, hidtrace bool, keys string, keypulse int, findAscii, findUtf16, findWord string, pokes multiFlag) error {
+func run(imagePath, stepsStr string, trace bool, tracen int, verbose, svclog bool, bps, watches, logpcs, tracefroms, dumps multiFlag, saveState, loadState, gxdump, shot string, gputrace int, threads, hidtrace bool, keys string, keypulse int, findAscii, findUtf16, findWord string, pokes multiFlag, wav string, dsptrace bool) error {
 	img, err := os.ReadFile(imagePath)
 	if err != nil {
 		return err
@@ -130,6 +132,8 @@ func run(imagePath, stepsStr string, trace bool, tracen int, verbose, svclog boo
 	m.GXCapture = gxdump != ""
 	m.GPU().TraceDraws = gputrace
 	m.HidTrace = hidtrace
+	m.AudioCapture = wav != ""
+	m.DSPTrace = dsptrace
 	m.HidPulse = keypulse
 	if keys != "" {
 		if err := m.SetKeys(keys); err != nil {
@@ -301,6 +305,15 @@ func run(imagePath, stepsStr string, trace bool, tracen int, verbose, svclog boo
 			return err
 		}
 	}
+	if wav != "" {
+		fmt.Printf("dsp audio: %s\n", m.AudioSummary())
+		if err := m.WriteWAV(wav); err != nil {
+			fmt.Printf("wav: %v\n", err)
+		} else {
+			fmt.Printf("wrote %s\n", wav)
+		}
+	}
+
 	if shot != "" {
 		if err := m.Screenshot(shot); err != nil {
 			fmt.Printf("screenshot: %v\n", err)
