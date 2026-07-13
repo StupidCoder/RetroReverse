@@ -69,10 +69,13 @@ const (
 
 	regPrimConfig = 0x25E // bits 8-9: primitive type
 
-	regVshBool      = 0x2B0
-	regVshInt0      = 0x2B1
-	regVshEntry     = 0x2BA
-	regVshAttrPermL = 0x2BB // input register ← attribute slot map
+	regVshBool     = 0x2B0
+	regVshInt0     = 0x2B1
+	regVshMaxInput = 0x2B9 // highest attribute index delivered to the shader
+	regVshEntry    = 0x2BA
+	// The attribute → input-register map: nibble a names the register attribute
+	// a is delivered to (not the attribute register a takes — the inverse).
+	regVshAttrPermL = 0x2BB
 	regVshAttrPermH = 0x2BC
 	regVshFloatCfg  = 0x2C0 // uniform upload: start index + f32 flag
 	regVshFloatData = 0x2C1 // 0x2C1-0x2C8: uniform data FIFO

@@ -73,6 +73,22 @@ func (g *GPU) draw(indexed bool) {
 	if trace {
 		g.TraceDraws--
 		tfb := g.fbstate()
+		// The vertex-fetch configuration, as raw registers: the whole question
+		// of whether the geometry or the camera is wrong turns on reading these
+		// as numbers rather than trusting the decode.
+		fmt.Printf("  FETCH base=0x%08X (reg 0x200=0x%08X) fmt=%08X/%08X fixedMask=%03X nattr=%d idxCfg=0x%08X (16bit=%v addr=0x%08X) inPerm=%08X_%08X maxIn=%d\n",
+			base, g.Regs[regAttrBase], g.Regs[regAttrFmtLow], g.Regs[regAttrFmtHigh],
+			fixedMask, g.Regs[regAttrFmtHigh]>>28&0xF+1, idxCfg, idx16, idxAddr,
+			g.Regs[regVshAttrPermH], g.Regs[regVshAttrPermL], g.Regs[0x2B9]&0xF)
+		for bi, b := range bufs {
+			fmt.Printf("    buf%d off=0x%06X stride=%d comps=%v -> addr(v0)=0x%08X\n",
+				bi, b.off, b.stride, b.comps, base+b.off)
+		}
+		for a := 0; a < 12; a++ {
+			if fixedMask>>uint(a)&1 != 0 {
+				fmt.Printf("    fixed attr%d = %v\n", a, g.fixedVal[a])
+			}
+		}
 		fmt.Printf("gpu draw %d: indexed=%v count=%d first=%d base=0x%08X bufs=%d prim=%d vp=%.1fx%.1f color=0x%08X depth=0x%08X dim=%dx%d test=%v wr=%v\n",
 			g.Draws, indexed, count, first, base, len(bufs), g.Regs[regPrimConfig]>>8&3,
 			f24bits(g.Regs[regViewportWidth]), f24bits(g.Regs[regViewportHeight]),
@@ -145,18 +161,20 @@ func (g *GPU) draw(indexed bool) {
 		}
 
 		// Map attributes into the shader's input registers and run it.
-		var v [16][4]float32
-		for j := 0; j < 16; j++ {
-			v[j] = attrs[inPerm>>(4*uint(j))&0xF]
-		}
+		v := mapAttrsToInputs(&attrs, inPerm, int(g.Regs[regVshMaxInput]&0xF)+1)
 		o, ok := g.shaderRun(&v)
 		if !ok {
 			return
 		}
 		outs = append(outs, g.mapOutputs(&o))
-		if trace && i < 4 {
+		if trace && i < 8 {
 			r := &outs[len(outs)-1]
-			fmt.Printf("  v%-3d in=%v  clip=%v col=%v uv0=%v\n", vi, attrs[0], r.pos, r.color, r.uv[0])
+			fmt.Printf("  v%-3d (i=%d) clip=%v\n", vi, i, r.pos)
+			for a := 0; a < 12; a++ {
+				if fmtWord>>(4*uint(a))&0xF != 0 || fixedMask>>uint(a)&1 != 0 {
+					fmt.Printf("       attr%-2d = %v\n", a, attrs[a])
+				}
+			}
 		}
 	}
 
@@ -191,6 +209,29 @@ func (g *GPU) draw(indexed bool) {
 	default:
 		m.CPU.Halt("gpu: primitive mode 3 (geometry) unimplemented")
 	}
+}
+
+// mapAttrsToInputs delivers the fetched vertex attributes to the shader's input
+// registers through the permutation in 0x2BB/0x2BC.
+//
+// The permutation runs ATTRIBUTE → REGISTER: nibble a names the input register
+// attribute a is delivered to. Reading it the other way round (register j takes
+// attribute perm[j]) yields the inverse permutation, and the game's own
+// configuration says which is meant. A Captain Toad draw fetches attributes 0-2
+// with perm 0x340; inverted, that hands v1 and v2 attributes 4 and 3 — which
+// this draw does not fetch at all — while the UV and the colour it *does* fetch
+// reach no register. Run the right way it is a bijection onto v0/v4/v3. (The
+// inverse is only visible when the permutation is not an involution, which is
+// why Super Mario 3D Land renders pixel-identically either way.)
+func mapAttrsToInputs(attrs *[16][4]float32, perm uint64, nAttr int) [16][4]float32 {
+	var v [16][4]float32
+	for j := range v {
+		v[j] = [4]float32{0, 0, 0, 1}
+	}
+	for a := 0; a < nAttr && a < 16; a++ {
+		v[perm>>(4*uint(a))&0xF] = attrs[a]
+	}
+	return v
 }
 
 // mapOutputs routes the shader's output registers to their semantics via the

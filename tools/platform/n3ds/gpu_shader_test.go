@@ -158,3 +158,38 @@ func TestUnpackF24x4(t *testing.T) {
 		t.Errorf("unpackF24x4 = %v, want %v", got, want)
 	}
 }
+
+// TestAttrInputPermutation pins the direction of the vertex-attribute → shader
+// input-register map (registers 0x2BB/0x2BC). Captain Toad's opening stage is
+// the case that settles it: a draw fetching attributes 0-2 (position, UV,
+// colour) with permutation 0x340. Delivered attribute-first, every fetched
+// attribute lands in a distinct register. Register-first — the inverse — v1 and
+// v2 would take attributes 4 and 3, which this draw never fetches, and the UV
+// and colour would reach no register at all. That inversion is what turned the
+// stage into spiky radiating triangles.
+func TestAttrInputPermutation(t *testing.T) {
+	var attrs [16][4]float32
+	pos := [4]float32{-601.65, 448.437, 22.0549, 1}
+	uv := [4]float32{0.0054, 0.7544, 0, 1}
+	col := [4]float32{198, 198, 198, 255}
+	attrs[0], attrs[1], attrs[2] = pos, uv, col
+
+	v := mapAttrsToInputs(&attrs, 0x340, 3)
+	if v[0] != pos {
+		t.Errorf("v0 = %v, want the position %v", v[0], pos)
+	}
+	if v[4] != uv {
+		t.Errorf("v4 = %v, want the UV %v", v[4], uv)
+	}
+	if v[3] != col {
+		t.Errorf("v3 = %v, want the colour %v", v[3], col)
+	}
+	// Registers no attribute names keep the default, and in particular the
+	// position must not leak into them: reading the permutation backwards fed
+	// v5-v15 the position, which is exactly how the UV came out as coordinates.
+	for _, j := range []int{1, 2, 5, 15} {
+		if v[j] != ([4]float32{0, 0, 0, 1}) {
+			t.Errorf("v%d = %v, want the unwritten default", j, v[j])
+		}
+	}
+}
