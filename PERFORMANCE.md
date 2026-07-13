@@ -1,6 +1,6 @@
 # Making the oracles faster
 
-**Status (2026-07-13): done for the 3DS. The frame went from 256.8 ms to 93.3 ms — 2.75× — and
+**Status (2026-07-13): done for the 3DS. The frame went from 256.8 ms to 77.6 ms — 3.3× — and
 it is byte-identical. The frame debugger's scrubber is 2.3× on top of that.**
 Read *Phase 0 — the results* and *What was actually done* below; the original plan (kept, below
 the line) guessed the ordering and got most of it wrong, which is exactly what Phase 0 existed to
@@ -204,7 +204,7 @@ of times more than a clock read.
 
 ## What was actually done, and what it was actually worth (2026-07-13)
 
-**256.8 → 93.3 ms/frame: 2.75× faster, with the frame byte-identical.** Both screens were
+**256.8 → 77.6 ms/frame: 3.3× faster, with the frame byte-identical.** Both screens were
 compared image against image, not merely hashed, and Super Mario 3D Land's pinned md5 did not
 move. A drawing frame went from 460 ms to about 200 ms; fragments per millisecond went from
 989 to 2,235.
@@ -225,6 +225,10 @@ thing here.**
 | B2 parallel tiled rasteriser | 1.7-2.2× | **27.6%** | |
 | a persistent worker pool + lower thresholds | — | **11.5%** | not in the plan; see below |
 | B3 parallel scrubber (framedbg) | "instant" | **2.3×** on a drag | 8 positions: 1.60 s → 0.70 s |
+| **TEV decoded once per draw, not per fragment** | — | **14.2%** | the biggest single win after the parallel stages |
+| command lists copied, not fetched byte-by-byte | — | **3.1%** | |
+| precise texture-cache invalidation | — | 1% wall, but 2,216 → 2 decodes/frame | *and it exposed a real bug* |
+| per-draw vertex-fetch plan | — | **−1.7%** | *slower*. Reverted. |
 
 ### The four things this taught, which are worth more than the 2.4×
 
@@ -277,10 +281,36 @@ speed, worse reason.
 The pool means a `Machine` now owns goroutines, and they keep it alive after the last reference
 is dropped. `Machine.Close()` stops them; the frame debugger's adapter calls it.
 
+### The fragment stage — the same argument, three times
+
+The one optimisation that keeps paying on this machine is **decode the thing once, where it stops
+being per-anything**: the vertex shader's instructions (−9.3%), the TEV's six stages (−14.2%), and
+the render-target/lighting state (folded into the draw). All three were re-deriving, per vertex or
+per fragment, something that cannot change while a draw runs — a register write only happens in
+the command processor, and the command processor is not running.
+
+**It does not generalise, and that is the point.** The same trick applied to the vertex *attribute
+fetch* was 1.7% SLOWER: the format decode there is a few shifts, and the indirection of a
+precomputed plan cost more than it saved. Measured, reverted.
+
+### The texture cache, and a bug the gate caught
+
+Every GX DMA and TextureCopy dropped the **whole** texture cache, and Captain Toad issues those
+constantly — so it was rebuilt from scratch several times a frame: 2,216 whole-texture decodes a
+frame for a scene with a few dozen textures. Invalidating only what a write overlapped brings that
+to **2.2 a frame**.
+
+And the gate immediately failed — because the blanket clears were **hiding a real bug**. The shadow
+map is written by the *rasteriser*, not by the GX engine, so nothing invalidated it; the scene draws
+sample it back through a Shadow2D unit, and a stale decode simply never survived long enough to be
+seen. The moment the cache stopped being thrown away, it was. A draw that writes its colour target
+now invalidates what overlaps it. **The gate moved, the frame was written out, the cause was a bug —
+not a re-pin.**
+
 ### What is left
 
-- The bucket shares now: rasterise 47%, vertex + shader 27%, the derived remainder 16% (which
-  now includes goroutine scheduling), GX transfers 4%, texture decode 3.5%.
+- The bucket shares now: rasterise 43%, vertex + shader 29%, the derived remainder 20% (mostly the
+  parallel stages' scheduling), GX transfers 4.7%, texture decode 2.6%, command decode 0.5%.
 - **The ARM11 is 0.6% of the frame.** It stays that way. Do not build the instruction-decode
   cache or the word-granular bus.
 - The remaining single-threaded work is the command decode and the GX transfers; neither is
