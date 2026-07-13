@@ -66,9 +66,15 @@ type Adapter struct {
 	live      *n3ds.Machine
 	scratch   *n3ds.Machine // reused across RenderAfter; its state is always disposable
 
-	// mainPass is the colour buffer the last capture's draws landed in — the plane
-	// its provenance is recorded in, and so the plane the scrubber must render.
+	// mainPass is the colour buffer the last capture's draws landed in. It is the
+	// plane the frame falls back to before the game has presented a screen.
 	mainPass target
+
+	// places is the screen layout the last capture was composed in, and the plane
+	// its provenance is recorded in — so the scrubber must render THIS layout, not
+	// whatever the replayed machine has presented by command k. See composeAt.
+	places         []screenPlace
+	frameW, frameH int
 
 	watches   []debug.Watch
 	nextWatch int
@@ -142,14 +148,16 @@ func (a *Adapter) Restore(s debug.Snapshot) error {
 	if !ok {
 		return fmt.Errorf("n3dsadapter: snapshot is from %q, not 3ds", platformOf(s))
 	}
-	a.mainPass = target{} // the restored frame has its own; the previous one's is not it
+	a.mainPass = target{}
+	a.places, a.frameW, a.frameH = nil, 0, 0 // the restored frame has its own; the previous one's is not it
 	return a.live.RestoreState(ns.ms)
 }
 
 func (a *Adapter) SaveStateFile(path string) error { return a.live.SaveState(path) }
 
 func (a *Adapter) LoadStateFile(path string) error {
-	a.mainPass = target{} // a state load lands in another frame; the old plane means nothing there
+	a.mainPass = target{}
+	a.places, a.frameW, a.frameH = nil, 0, 0 // a state load lands in another frame; the old plane means nothing there
 	return a.live.LoadState(path)
 }
 
@@ -160,19 +168,24 @@ type target struct{ addr, w, h uint32 }
 // command-list writes that executed on the way and per-pixel last-writer
 // provenance.
 //
-// A frame can render into more than one colour buffer — a shadow or reflection
-// pass into its own target, then the scene into the main one — and provenance is a
-// single plane, so it has to be a plane of *one* target. Which one is decided by
-// the pixels: the buffer that received the most drawn fragments is the frame's main
-// pass, and that is the one reported, in its own coordinates. Pixels drawn into any
-// other target are left out rather than folded in, because two targets' coordinates
-// mean different things and overlaying them would attribute a pixel to a command
-// that never touched the buffer you are looking at.
+// The frame is the picture the player looks at — the two screens, composed in the
+// console's own layout — and provenance is laid out in ITS coordinates, not the
+// render target's. That is not a cosmetic choice. A frame can render into more than
+// one colour buffer (a shadow pass into its own target, then the scene into the
+// main one), the buffers are tiled and padded, and each screen is a rotated crop of
+// a window inside one of them. So provenance is gathered per target while the frame
+// draws, and then every panel pixel is pushed back through its own DisplayTransfer
+// — the window's row offset into the buffer, and the rotation — to find the
+// fragment that produced it. Fragments drawn into a buffer no screen reads simply
+// have no home on the panel, and are reported as untouched rather than folded into
+// a plane whose coordinates mean something else.
 //
-// Choosing by pixel census rather than by "the target bound when the frame ended"
-// matters here: Captain Toad's register file, at the VBlank, still points at
-// whatever the last command list left behind, which need not be the buffer the
-// scene was drawn in.
+// Before the game has presented anything there are no screens to compose, and the
+// frame falls back to the target that received the most drawn fragments, in its own
+// coordinates. Choosing that by pixel census rather than by "the target bound when
+// the frame ended" matters: Captain Toad's register file, at the VBlank, still
+// points at whatever the last command list left behind, which need not be the
+// buffer the scene was drawn in.
 func (a *Adapter) StepFrame(withOverdraw bool) (*debug.FrameCapture, error) {
 	fc := &debug.FrameCapture{Start: snap{ms: a.live.SnapshotState()}}
 
@@ -229,9 +242,8 @@ func (a *Adapter) StepFrame(withOverdraw bool) (*debug.FrameCapture, error) {
 	// run is not paying for a census nobody is reading.
 	a.live.OnPICACmd, a.live.OnPixel, a.live.OnFrame = nil, nil, nil
 
-	// The main pass is the target that received the most drawn fragments. With no
-	// draws at all, fall back to whatever the register file points at, so the frame
-	// still reports the size of the buffer the next draw would land in.
+	// The main pass is the target that received the most drawn fragments. It is the
+	// fallback plane — what the frame is, before the game has presented anything.
 	main, best := target{}, -1
 	for t, n := range drawn {
 		if n > best {
@@ -243,9 +255,61 @@ func (a *Adapter) StepFrame(withOverdraw bool) (*debug.FrameCapture, error) {
 		main = target{addr, tw, th}
 	}
 	a.mainPass = main
-	w, h := int(main.w), int(main.h)
-	fc.Width, fc.Height = w, h
 
+	// The frame is the composed screens, so provenance is laid out in THEIR
+	// coordinates: every panel pixel is pushed back through its own transfer — the
+	// window's row offset into the render target, and the rotation — to the pixel
+	// the fragment actually landed on. That is what keeps "which draw made this?"
+	// answerable on the picture the player sees, instead of only on the raw buffer.
+	//
+	// A panel whose window lies in a buffer this frame never drew into contributes
+	// no provenance (it is a screen the frame did not touch — a still bottom screen
+	// over a moving top one is normal), and the gap between the panels belongs to no
+	// buffer at all. Both stay -1: untouched, which is the truth.
+	places, w, h := a.screenLayout(a.live)
+	a.places, a.frameW, a.frameH = places, w, h
+	if places != nil {
+		fc.Width, fc.Height = w, h
+		fc.Prov = make([]int32, w*h)
+		for i := range fc.Prov {
+			fc.Prov[i] = -1
+		}
+		if withOverdraw {
+			fc.Overdraw = map[int][]debug.PixelWrite{}
+		}
+		for _, p := range places {
+			t, rows, ok := provTarget(p.geom, drawn)
+			if !ok {
+				continue
+			}
+			pv, ov := prov[t], over[t]
+			for sy := 0; sy < p.h; sy++ {
+				for sx := 0; sx < p.w; sx++ {
+					x, y, ok := p.geom.Source(sx, sy)
+					if !ok {
+						continue
+					}
+					key := (y + rows) << 16 // the window's origin within the buffer
+					key |= x & 0xFFFF
+					di := (p.y0+sy)*w + (p.x0 + sx)
+					if c, hit := pv[key]; hit {
+						fc.Prov[di] = c
+					}
+					if withOverdraw {
+						if ws, hit := ov[key]; hit {
+							fc.Overdraw[di] = ws
+						}
+					}
+				}
+			}
+		}
+		return fc, nil
+	}
+
+	// Nothing presented yet: the frame is the render target itself, in its own
+	// coordinates, exactly as it was before the screens existed.
+	w, h = int(main.w), int(main.h)
+	fc.Width, fc.Height = w, h
 	if w > 0 && h > 0 && len(prov[main]) > 0 {
 		fc.Prov = make([]int32, w*h)
 		for i := range fc.Prov {
@@ -278,6 +342,7 @@ func (a *Adapter) StepFast() error {
 	// other buffer, and holding on to the last capture's plane would leave the
 	// debugger showing a buffer the frame it just ran never wrote.
 	a.mainPass = target{}
+	a.places, a.frameW, a.frameH = nil, 0, 0
 	a.live.OnPICACmd, a.live.OnPixel = nil, nil
 	a.live.OnFrame = func(m *n3ds.Machine) { m.StopRequested = true }
 	a.live.Run(runBudget)
@@ -314,6 +379,15 @@ func (a *Adapter) RenderAfter(fc *debug.FrameCapture, k int) (*image.RGBA, error
 	// other targets (and, between lists, through none at all), and following it
 	// would scrub the picture out from under the overlay — the frame would appear
 	// to change size and the pixel-to-command mapping would stop meaning anything.
+	//
+	// So: the screens, composed from the render target as it stands at command k.
+	// The transfer that will deliver this frame has not run yet — it runs at the end
+	// — so the panels are decoded from the target directly, through the geometry the
+	// LAST transfer established. That geometry is stable frame to frame, and it is
+	// what makes the scrubber show the screen filling in draw by draw.
+	if a.places != nil && a.frameW == fc.Width && a.frameH == fc.Height {
+		return a.composeAt(sc, a.places, a.frameW, a.frameH), nil
+	}
 	addr, w, h := a.mainPass.addr, a.mainPass.w, a.mainPass.h
 	if w == 0 || h == 0 || int(w) != fc.Width || int(h) != fc.Height {
 		addr, w, h = sc.GPU().ColorTarget()
@@ -322,6 +396,121 @@ func (a *Adapter) RenderAfter(fc *debug.FrameCapture, k int) (*image.RGBA, error
 		return nil, fmt.Errorf("n3dsadapter: the GPU has no colour target at command %d", k)
 	}
 	return toRGBA(sc.RenderTarget(addr, w, h)), nil
+}
+
+// --- the console's own screen layout -----------------------------------------
+//
+// The debugger's frame is the picture the player looks at: the top screen above
+// the bottom one, each centred, which is how the two panels physically sit on a
+// 3DS. That is a composition of two DisplayTransfers, and it is emphatically not
+// the plane the GPU draws into — so everything the frame carries *about* itself,
+// the per-pixel command provenance above all, has to be carried across with it.
+//
+// It is: screenPlace maps each panel back to the render-target pixels it was
+// copied from, and StepFrame lays provenance out in these composed coordinates.
+// A click on the diorama still names the draw that produced it.
+
+// screenGap is the dead space between the panels, matching the console's bezel.
+const screenGap = 8
+
+// screenPlace is one panel inside the composed frame.
+type screenPlace struct {
+	geom   n3ds.ScreenGeom
+	x0, y0 int // top-left of this panel in the composed image
+	w, h   int
+}
+
+// screenLayout resolves the panels the machine has actually presented and where
+// they sit. It returns nil before the first DisplayTransfer of the top screen —
+// there is no frame to compose yet, and inventing one would be a lie.
+func (a *Adapter) screenLayout(m *n3ds.Machine) (places []screenPlace, w, h int) {
+	for _, name := range []string{"top", "bottom"} {
+		g, ok := m.ScreenGeom(name)
+		if !ok {
+			continue
+		}
+		pw, ph := g.Size()
+		places = append(places, screenPlace{geom: g, w: pw, h: ph})
+	}
+	if len(places) == 0 {
+		return nil, 0, 0
+	}
+	for _, p := range places {
+		if p.w > w {
+			w = p.w
+		}
+	}
+	for i := range places {
+		places[i].x0 = (w - places[i].w) / 2 // horizontally centred, as on the console
+		places[i].y0 = h
+		h += places[i].h
+		if i < len(places)-1 {
+			h += screenGap
+		}
+	}
+	return places, w, h
+}
+
+// composeScreens draws the panels the machine is presenting right now.
+func (a *Adapter) composeScreens(m *n3ds.Machine) (*image.RGBA, []screenPlace) {
+	places, w, h := a.screenLayout(m)
+	if places == nil {
+		return nil, nil
+	}
+	return a.composeAt(m, places, w, h), places
+}
+
+// composeAt draws a GIVEN layout from a machine's memory. The layout is passed in
+// rather than re-read because the scrubber must not re-derive it: replaying a frame
+// stops before the DisplayTransfer that would establish it, so on the frame where a
+// screen is first presented the geometry does not exist yet at command 0 and does by
+// command n. Re-deriving it would change the frame's size mid-scrub — the picture
+// would jump and the provenance overlay would land in the wrong plane. The frame's
+// geometry is the frame's, fixed when it was captured.
+//
+// The panels are decoded from the tiled render target as it stands now, NOT from the
+// linear framebuffers the last transfer wrote — so replaying a command list makes the
+// screen fill in draw by draw instead of sitting frozen a frame behind.
+func (a *Adapter) composeAt(m *n3ds.Machine, places []screenPlace, w, h int) *image.RGBA {
+	out := image.NewRGBA(image.Rect(0, 0, w, h))
+	for _, p := range places {
+		src := m.ScreenImage(p.geom)
+		for y := 0; y < p.h; y++ {
+			for x := 0; x < p.w; x++ {
+				si := src.PixOffset(x, y)
+				di := out.PixOffset(p.x0+x, p.y0+y)
+				copy(out.Pix[di:di+4], src.Pix[si:si+4])
+			}
+		}
+	}
+	return out
+}
+
+// provTarget finds the render target a panel's window lies inside, among the ones
+// this frame actually drew into, and how many rows into it the window starts.
+//
+// The transfer names its window by address, not by buffer, so the row offset has
+// to be recovered: Captain Toad's top screen reads 0x1C000 bytes into a 256-wide
+// buffer, which is 112 rows down — the bottom-anchored window a shorter viewport
+// renders into. Without this the provenance would be offset by exactly the amount
+// that made the diorama look right and hover wrong.
+func provTarget(g n3ds.ScreenGeom, targets map[target]int) (t target, rows uint32, ok bool) {
+	for c := range targets {
+		if c.w != g.SrcW || c.w == 0 || c.h == 0 {
+			continue
+		}
+		size := c.w * c.h * 4
+		if g.Src < c.addr || g.Src >= c.addr+size {
+			continue
+		}
+		off := g.Src - c.addr
+		rowBytes := c.w * 4
+		if off%rowBytes != 0 {
+			continue // not a whole number of rows into it: not a window of this buffer
+		}
+		return c, off / rowBytes, true
+	}
+	return target{}, 0, false
 }
 
 // picaCommand renders one command-list register write as a debug command. The
@@ -374,37 +563,34 @@ func (a *Adapter) CPU() debug.CPUReg {
 	}
 }
 
-// Display is the frame's picture: the colour buffer the PICA rendered into.
+// Display is the frame's picture: the two screens, in the console's own layout.
 //
-// On this platform that is not the same plane as the scanout, and the difference
-// is not cosmetic. The GPU draws into a tiled, padded VRAM buffer (Captain Toad's
-// is 256×512 at 0x1F000000); a DisplayTransfer later copies a 240×400 crop of it
-// into a linear framebuffer, rotated, and the GSP points the LCD at that. The two
-// pictures have different sizes, different orientations and different contents —
-// the screen is always at least one transfer behind the GPU.
+// On this platform the screen is not the plane the GPU draws into, and the
+// difference is not cosmetic. The GPU renders into a tiled, padded VRAM buffer
+// (Captain Toad's is 256×512 at 0x1F000000); a DisplayTransfer copies a 240×400
+// window of it into a linear framebuffer, rotated, and the GSP points the LCD at
+// that. The two pictures have different sizes, different orientations and different
+// contents.
 //
-// The debugger builds a frame around the plane the frame's commands actually wrote,
-// because that is the plane provenance is recorded in: a click on this image maps
-// to the command that drew that pixel. Handing back the scanout instead would put
-// the overlay in a coordinate system the provenance buffer does not share, and the
-// answers would be wrong rather than absent. The scanout is not lost — it is the
-// "scanout" surface, and comparing the two is how you catch a frame that the GPU
-// drew and the transfer never delivered.
+// The debugger shows the screens because that is the picture a human can judge —
+// "does this look like the game?" is a question about the panel, not about a
+// rotated crop of a padded buffer. What it does NOT do is give up provenance to get
+// there: StepFrame carries the per-pixel command attribution across the same
+// transfer, so a click on the diorama still names the draw that made it. The raw
+// buffer is not lost either — it is the "drawtarget" surface, and comparing the two
+// is how you catch a frame the GPU drew and the transfer never delivered.
 func (a *Adapter) Display() (*image.RGBA, error) {
-	// After a capture, this is the plane that capture's provenance is in — the same
-	// buffer the scrubber renders — so a click on the picture and the overlay drawn
-	// over it are talking about the same pixels. Between captures, it is whatever
-	// the register file currently points at.
+	if img, _ := a.composeScreens(a.live); img != nil {
+		return img, nil
+	}
+	// Before the game has presented anything there are no screens to compose, so
+	// the frame is the plane the draws are landing in — which is also the plane
+	// StepFrame reports provenance in until the first transfer, so the two agree.
 	addr, w, h := a.mainPass.addr, a.mainPass.w, a.mainPass.h
 	if w == 0 || h == 0 {
 		addr, w, h = a.live.GPU().ColorTarget()
 	}
 	if w == 0 || h == 0 {
-		// Before the first draw there is no render target; the screen is all there
-		// is to show.
-		if img := a.live.Framebuffer("top"); img != nil {
-			return toRGBA(img), nil
-		}
 		return nil, fmt.Errorf("n3dsadapter: nothing rendered yet (no draw and no DisplayTransfer)")
 	}
 	return toRGBA(a.live.RenderTarget(addr, w, h)), nil

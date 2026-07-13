@@ -108,3 +108,89 @@ func (m *Machine) Screenshot(base string) error {
 	}
 	return nil
 }
+
+// ScreenGeom is where one panel's picture comes from: the window of the tiled
+// render target the last DisplayTransfer copied out, and how that window becomes
+// the landscape image the LCD shows.
+//
+// It exists so a caller can do two things the linear framebuffer cannot support.
+// It can decode the screen from the render target *as it stands right now* —
+// mid-frame, before the transfer that would deliver it — which is what lets a
+// debugger scrub through a frame and watch the panel fill in. And it can run a
+// pixel BACKWARDS through the transform, from the panel the player looks at to
+// the render-target pixel the fragment landed on, which is what lets per-pixel
+// draw provenance be shown on the screen image rather than only on the raw buffer.
+type ScreenGeom struct {
+	Src    uint32 // virtual address of the window's first tiled pixel
+	SrcW   uint32 // the source buffer's width in pixels — its tiling stride
+	W, H   uint32 // the window: W framebuffer columns (240) by H rows (400/320)
+	Flip   bool
+	Bottom bool
+}
+
+// Size is the landscape image's size: the framebuffer's rows become the screen's
+// columns, so a 240x400 window is a 400x240 picture.
+func (g ScreenGeom) Size() (w, h int) { return int(g.H), int(g.W) }
+
+// Source maps a pixel of the landscape screen image back to the pixel of the
+// tiled source buffer it was copied from — the inverse of gxDisplayTransfer's
+// copy composed with Framebuffer's rotation, and it must stay the inverse of both.
+func (g ScreenGeom) Source(sx, sy int) (x, y uint32, ok bool) {
+	iw, ih := g.Size()
+	if sx < 0 || sy < 0 || sx >= iw || sy >= ih {
+		return 0, 0, false
+	}
+	// Framebuffer draws fb(x, y) at screen(y, W-1-x): so the screen column is the
+	// fb row, and the screen row counts back along the fb column.
+	fx := int(g.W) - 1 - sy
+	fy := sx
+	if g.Flip { // the transfer wrote its rows bottom-up
+		fy = int(g.H) - 1 - fy
+	}
+	if fx < 0 || fy < 0 || fx >= int(g.W) || fy >= int(g.H) {
+		return 0, 0, false
+	}
+	return uint32(fx), uint32(fy), true
+}
+
+// ScreenGeom returns the geometry of the last DisplayTransfer for a screen ("top"
+// or "bottom"), or false if that screen has never been presented.
+func (m *Machine) ScreenGeom(screen string) (ScreenGeom, bool) {
+	rec := m.lastXferTop
+	if screen == "bottom" {
+		rec = m.lastXferBottom
+	}
+	// srcW is the tiling stride and a zero one cannot be divided by; a record from
+	// an old snapshot (written before the source geometry was kept) has none, and
+	// says so rather than decoding garbage.
+	if rec.dst == 0 || rec.srcW == 0 || rec.w == 0 || rec.h == 0 {
+		return ScreenGeom{}, false
+	}
+	return ScreenGeom{
+		Src: rec.src, SrcW: rec.srcW, W: rec.w, H: rec.h, Flip: rec.flip,
+		Bottom: screen == "bottom",
+	}, true
+}
+
+// ScreenImage decodes a screen straight from its tiled source buffer, as that
+// buffer stands NOW — not from the linear framebuffer the last DisplayTransfer
+// wrote. The difference is the whole point: the linear framebuffer only changes
+// when the game presents, so replaying a frame's command list would leave it
+// frozen a frame behind, while this shows the panel filling in draw by draw.
+func (m *Machine) ScreenImage(g ScreenGeom) *image.NRGBA {
+	iw, ih := g.Size()
+	img := image.NewNRGBA(image.Rect(0, 0, iw, ih))
+	for sy := 0; sy < ih; sy++ {
+		for sx := 0; sx < iw; sx++ {
+			x, y, ok := g.Source(sx, sy)
+			if !ok {
+				continue
+			}
+			p := g.Src + tiledOffset(x, y, g.SrcW)
+			b, gr, r := m.Read(p+1), m.Read(p+2), m.Read(p+3)
+			o := img.PixOffset(sx, sy)
+			img.Pix[o], img.Pix[o+1], img.Pix[o+2], img.Pix[o+3] = r, gr, b, 255
+		}
+	}
+	return img
+}

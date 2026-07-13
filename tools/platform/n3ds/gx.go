@@ -230,7 +230,10 @@ func (m *Machine) gxDisplayTransfer(src, dst, srcDims, dstDims, flags uint32) {
 	// Remember where the frame went: the screenshot instrument (gpu_png.go)
 	// reads the most recent linear framebuffer per screen. The top screen is
 	// 400 lines tall, the bottom 320 — the height names the screen.
-	rec := xferRecord{dst: dst, w: w, h: h, format: outFmt, bpp: dstBPP, stride: dstW}
+	rec := xferRecord{
+		dst: dst, w: w, h: h, format: outFmt, bpp: dstBPP, stride: dstW,
+		src: src, srcW: srcW, flip: flip,
+	}
 	if dstH >= 400 {
 		m.lastXferTop = rec
 	} else {
@@ -239,8 +242,17 @@ func (m *Machine) gxDisplayTransfer(src, dst, srcDims, dstDims, flags uint32) {
 }
 
 // xferRecord describes the last DisplayTransfer per screen — the visible frame.
+// It keeps the SOURCE geometry as well as the destination, because that is what
+// maps a pixel of the panel back to the pixel of the render target it came from:
+// the debugger pushes its per-pixel command provenance through exactly this
+// transform so that a click on the screen the player sees can still name the draw
+// that produced it.
 type xferRecord struct {
 	dst, w, h, format, bpp, stride uint32
+
+	src  uint32 // virtual address of the window's first tiled pixel
+	srcW uint32 // the source buffer's width — its tiling stride, not the window's
+	flip bool
 }
 
 // processGXQueue drains any commands the game has posted to the GX FIFO and

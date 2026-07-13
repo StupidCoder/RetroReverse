@@ -178,17 +178,28 @@ type fsDirState struct {
 	Cursor int
 }
 
-// xferState mirrors xferRecord for the snapshot.
+// xferState mirrors xferRecord for the snapshot. Src/SrcW/Flip are absent from
+// snapshots written before the source geometry was kept; they restore as zero, and
+// ScreenGeom reports "no geometry" rather than dividing by a zero tiling stride.
 type xferState struct {
 	Dst, W, H, Format, BPP, Stride uint32
+
+	Src, SrcW uint32
+	Flip      bool
 }
 
 func toXferState(r xferRecord) xferState {
-	return xferState{Dst: r.dst, W: r.w, H: r.h, Format: r.format, BPP: r.bpp, Stride: r.stride}
+	return xferState{
+		Dst: r.dst, W: r.w, H: r.h, Format: r.format, BPP: r.bpp, Stride: r.stride,
+		Src: r.src, SrcW: r.srcW, Flip: r.flip,
+	}
 }
 
 func (x xferState) into() xferRecord {
-	return xferRecord{dst: x.Dst, w: x.W, h: x.H, format: x.Format, bpp: x.BPP, stride: x.Stride}
+	return xferRecord{
+		dst: x.Dst, w: x.W, h: x.H, format: x.Format, bpp: x.BPP, stride: x.Stride,
+		src: x.Src, srcW: x.SrcW, flip: x.Flip,
+	}
 }
 
 // gpuState is the serialised PICA200.

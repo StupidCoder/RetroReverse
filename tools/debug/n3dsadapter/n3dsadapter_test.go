@@ -339,3 +339,113 @@ func TestWatchReportsTheWriter(t *testing.T) {
 	}
 	t.Logf("%d writes into the first page of VRAM, first from pc=%#x (%s)", len(hits), hits[0].PC, hits[0].Instr)
 }
+
+// TestFrameIsTheScreenLayout checks the frame is the console's picture: the top
+// screen (400x240) above the bottom (320x240), each horizontally centred.
+func TestFrameIsTheScreenLayout(t *testing.T) {
+	a := atScene(t)
+	defer a.Close()
+
+	fc, err := a.StepFrame(false)
+	if err != nil {
+		t.Fatalf("StepFrame: %v", err)
+	}
+	m := a.Machine()
+	top, ok := m.ScreenGeom("top")
+	if !ok {
+		t.Fatal("the top screen has no transfer geometry")
+	}
+	bot, ok := m.ScreenGeom("bottom")
+	if !ok {
+		t.Fatal("the bottom screen has no transfer geometry")
+	}
+	tw, th := top.Size()
+	bw, bh := bot.Size()
+	if tw != 400 || th != 240 {
+		t.Errorf("top screen is %dx%d, want 400x240", tw, th)
+	}
+	if bw != 320 || bh != 240 {
+		t.Errorf("bottom screen is %dx%d, want 320x240", bw, bh)
+	}
+	if fc.Width != 400 {
+		t.Errorf("composed frame is %d wide, want the wider screen's 400", fc.Width)
+	}
+	if fc.Height < th+bh {
+		t.Errorf("composed frame is %d tall, too short to stack %d over %d", fc.Height, th, bh)
+	}
+}
+
+// TestScreenDecodeMatchesTheTransfer is the cross-check on the whole mapping. The
+// debugger decodes a screen straight from the tiled render target (so a replayed
+// frame can fill in draw by draw); the machine's own Framebuffer decodes it from the
+// linear buffer the DisplayTransfer wrote. Those are two independent paths through
+// the crop, the row offset and the rotation, and they must land on the same picture —
+// if they disagree, the provenance the debugger maps through the first path is
+// pointing at pixels the player never saw.
+func TestScreenDecodeMatchesTheTransfer(t *testing.T) {
+	a := atScene(t)
+	defer a.Close()
+
+	if _, err := a.StepFrame(false); err != nil {
+		t.Fatalf("StepFrame: %v", err)
+	}
+	m := a.Machine()
+	for _, name := range []string{"top", "bottom"} {
+		g, ok := m.ScreenGeom(name)
+		if !ok {
+			t.Fatalf("%s screen has no transfer geometry", name)
+		}
+		ours := m.ScreenImage(g)
+		theirs := m.Framebuffer(name)
+		if ours.Rect != theirs.Rect {
+			t.Fatalf("%s: decoded %v, the transfer's framebuffer is %v", name, ours.Rect, theirs.Rect)
+		}
+		diff := 0
+		for i := range ours.Pix {
+			if ours.Pix[i] != theirs.Pix[i] {
+				diff++
+			}
+		}
+		if diff != 0 {
+			t.Errorf("%s: %d of %d bytes differ between the render-target decode and the presented framebuffer",
+				name, diff, len(ours.Pix))
+		}
+	}
+}
+
+// TestProvenanceReachesTheScreen checks that provenance survives the trip into
+// screen space: the whole point of composing the frame from the panels is that a
+// click on the picture still names the draw that made it, so the top screen must be
+// substantially attributed rather than a plane of -1.
+func TestProvenanceReachesTheScreen(t *testing.T) {
+	a := atScene(t)
+	defer a.Close()
+
+	fc, err := a.StepFrame(false)
+	if err != nil {
+		t.Fatalf("StepFrame: %v", err)
+	}
+	if fc.Prov == nil {
+		t.Skip("the savestate's next frame drew no pixels")
+	}
+	top, ok := a.Machine().ScreenGeom("top")
+	if !ok {
+		t.Skip("nothing presented")
+	}
+	tw, th := top.Size()
+	x0 := (fc.Width - tw) / 2 // the top screen sits at the top, horizontally centred
+	attributed := 0
+	for sy := 0; sy < th; sy++ {
+		for sx := 0; sx < tw; sx++ {
+			if fc.ProvAt(x0+sx, sy) >= 0 {
+				attributed++
+			}
+		}
+	}
+	total := tw * th
+	if attributed*4 < total { // the scene covers the screen; a quarter is a floor, not a target
+		t.Errorf("only %d of %d top-screen pixels carry provenance — the mapping into screen space is losing them",
+			attributed, total)
+	}
+	t.Logf("%d of %d top-screen pixels attributed to a draw", attributed, total)
+}
