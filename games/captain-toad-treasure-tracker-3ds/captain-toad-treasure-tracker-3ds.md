@@ -516,3 +516,47 @@ carry **no draw calls**: the scene has no actors in it. That is the same loose t
 found earlier (the game reaches Season 1's opening stage, parses the map, and then loads four of its
 2,364 `/ObjectData` files), and with the sound system finally healthy — it is also the engine's
 resource-loader producer — it is the next thing to chase.
+
+## Part XII — Listening to the mix finds the last lie
+
+The captured WAV is not a souvenir, it is an instrument, and playing it back caught something no
+counter had: the music plays for about two seconds, jumps back a second, and repeats — 1,2,3 then
+2,3,4 then 3,4,5. Tempo perfect, sound effects in place, and the whole thing sliding backwards.
+
+Hashing the mix frame by frame ruled out the easy explanation immediately: **no audio frame is ever
+emitted twice** (only silence repeats). Nothing in the DSP was re-publishing frames — a *voice* was
+replaying its buffers. The new `-dsptrace` DEQUEUE log said so in one glance:
+
+```
+1 2 3 4 5 6   3 4 5 6 7   4 5 6 7 8   5 6 7 ...
+```
+
+The stream plays six buffers, then goes back to buffer 3. Buffers play lowest-id-first, so this means
+buffers were being **enqueued twice** — and the ENQUEUE log showed the application doing it: at frame
+1582 it marks its queue slots dirty again with ids **4, 5, 6**, all of which it had already handed over
+five hundred frames earlier, and only then appends the new id 7.
+
+**Why would the app re-declare buffers it has already played?** Because it did not know it had played
+them. Its per-voice update (`0x00131FAC`) compares the DSP's `sync_count` echo against its own count on
+the *first instruction* and bails if they differ — and our echo was stale, because `sync_count` was the
+one field the model deliberately read **every frame** rather than on its dirty bit. The application
+writes each shared-memory region with only the fields it has changed, so that word can belong to an
+older generation than the region's frame counter suggests. Measured, on the streaming voice:
+
+| | stale echo (read every frame) | dirty-gated echo (the protocol) |
+|---|---|---|
+| update calls that pass the sync gate | 363 / 3,280 | **2,596 / 3,280** |
+| buffer completions the app actually sees | 6 | **25** (all of them) |
+| stream dequeue order | 1,2,3,4,5,6, **3**,4,5,6,7… | **1,2,3,4,5,6,7,8,9,10…** |
+
+Missing the completions, the app's command nodes never retired; and when the voice then ran dry, the
+DSP reported `current_buffer_id = 0` — which is the app's signal to **zero its in-flight count**
+(`0x001320A0`) and re-push every node still in its list, including the ones already played. Hence the
+slide backwards.
+
+**And the deviation was never real.** Part IX recorded, honestly, that gating `sync_count` on its dirty
+bit had been *measured worse* — the game stopped queueing buffers on its streaming voices. That
+measurement was taken against a game whose memory was being corrupted by the unaligned-store bug of
+Part XI. With the store fixed, the protocol-correct latch is not merely safe, it is the fix. The
+workaround was the bug wearing a disguise, and the only thing that unmasked it was listening to the
+output.
