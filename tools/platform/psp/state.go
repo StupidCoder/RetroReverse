@@ -34,6 +34,9 @@ type MachineState struct {
 	HeapEnd      uint32
 	ThreadEntry  uint32
 	FBAddr       uint32
+	FBWidth      uint32
+	FBFormat     uint32
+	GE           *geWire // the GE register file; nil before the first display list
 	TTY          []byte
 	SyscallCalls map[string]int
 	SubIntrs     []subIntrState
@@ -114,22 +117,45 @@ func (m *Machine) SaveState() MachineState {
 	for fd, f := range m.files {
 		files[fd] = ioFileState{Path: f.path, Pos: f.pos}
 	}
+	// The GE register file. It survives across display lists, so it is machine state
+	// and belongs here; a restore without it silently falls back to the executor's
+	// defaults (see ge_wire.go).
+	var ge *geWire
+	if m.geSt != nil {
+		ge = geWireOf(m.geSt)
+	}
+	// The maps and slices below are copied, not shared. A snapshot has to be
+	// independent of the machine that made it — framedbg restores one repeatedly while
+	// the live machine runs on, and an aliased map would let the present rewrite the
+	// past. (The file format never noticed, because gob copies on the way out.)
 	return MachineState{
 		ImageHash: m.imageHash,
 		RAM:       append([]byte(nil), m.ram...),
 		VRAM:      append([]byte(nil), m.vram...),
 		Scratch:   append([]byte(nil), m.scratch...),
 		CPU:       m.CPU.SaveState(),
-		IO:        m.io, NextSyscall: m.nextSyscall, SyscallNames: names,
+		IO:        copyMap(m.io), NextSyscall: m.nextSyscall, SyscallNames: names,
 		Handles: handles, NextHandle: m.nextHandle,
 		HeapPtr: m.heapPtr, HeapEnd: m.heapEnd, ThreadEntry: m.threadEntry,
-		FBAddr: m.fbAddr, TTY: m.tty, SyscallCalls: m.SyscallCalls,
-		SubIntrs: intrs, VBlanks: m.vblanks, Current: current,
+		FBAddr: m.fbAddr, FBWidth: m.fbWidth, FBFormat: m.fbFormat, GE: ge,
+		TTY:          append([]byte(nil), m.tty...),
+		SyscallCalls: copyMap(m.SyscallCalls),
+		SubIntrs:     intrs, VBlanks: m.vblanks, Current: current,
 		Files: files, NextFd: m.nextFd,
 		Pad: m.pad, Savedata: m.savedataStatus, Mpeg: m.mpeg,
 		Atrac: atracs, NextAtrac: m.nextAtrac,
 		VolatileLock: m.volatileLocked,
 	}
+}
+
+// copyMap returns an independent copy of a map, so a snapshot does not alias the live
+// machine's.
+func copyMap[K comparable, V any](in map[K]V) map[K]V {
+	out := make(map[K]V, len(in))
+	for k, v := range in {
+		out[k] = v
+	}
+	return out
 }
 
 // LoadState restores a state, rebuilding the syscall handler table from its names.
@@ -146,7 +172,10 @@ func (m *Machine) LoadState(s MachineState) error {
 	// cause fixed the run continues; without it, it re-halts on the same word.
 	m.CPU.Halted, m.CPU.HaltReason = false, ""
 	m.Halted, m.HaltReason = false, ""
-	m.io = s.IO
+	// Copy, do not alias: the same snapshot is restored again and again (every command
+	// the frame debugger's scrubber lands on is a fresh replay from one capture), so a
+	// map taken by reference would carry the last replay's writes into the next one.
+	m.io = copyMap(s.IO)
 	m.nextSyscall = s.NextSyscall
 	m.syscalls = make(map[uint32]*syscall, len(s.SyscallNames))
 	for code, name := range s.SyscallNames {
@@ -179,7 +208,14 @@ func (m *Machine) LoadState(s MachineState) error {
 	}
 	m.nextHandle = s.NextHandle
 	m.heapPtr, m.heapEnd, m.threadEntry = s.HeapPtr, s.HeapEnd, s.ThreadEntry
-	m.fbAddr, m.tty, m.SyscallCalls = s.FBAddr, s.TTY, s.SyscallCalls
+	m.fbAddr, m.fbWidth, m.fbFormat = s.FBAddr, s.FBWidth, s.FBFormat
+	m.tty, m.SyscallCalls = append([]byte(nil), s.TTY...), copyMap(s.SyscallCalls)
+	// The GE register file, restored as it stood — not rebuilt from defaults.
+	if s.GE != nil {
+		m.geSt = s.GE.state()
+	} else {
+		m.geSt = nil // a state taken before the first display list
+	}
 	m.subIntrs = map[uint32]*subIntr{}
 	for _, si := range s.SubIntrs {
 		m.subIntrs[si.Intno<<16|si.Subno] = &subIntr{

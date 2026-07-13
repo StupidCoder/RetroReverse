@@ -303,6 +303,8 @@ func (m *Machine) blockTransfer(s *geState, is32 bool) {
 	if s.trSrcStride == 0 || s.trDstStride == 0 || s.trW == 0 || s.trH == 0 {
 		return
 	}
+	m.geCnt.xfers++
+	defer m.profEnd(bucketXfer, m.profStart())
 	bpp := uint32(2)
 	if is32 {
 		bpp = 4
@@ -412,6 +414,29 @@ func (m *Machine) rasterList(list GeList) {
 	for _, w := range list.Words {
 		cmd := w >> 24
 		arg := w & 0x00FFFFFF
+
+		// The debugger watches the command stream here, and stops it here. A "command"
+		// on this machine is one GE word — the PSP is a register-write machine like the
+		// PICA200, not a packet machine like the RDP, and the writes that configure a
+		// draw are as much a part of the frame as the draw itself.
+		//
+		// The limit is checked BEFORE the hook fires, so the hook only ever announces a
+		// command that is about to execute. Checking it after would report one command
+		// too many — the one the scrubber stopped in front of — and a debugger that
+		// tells you a command ran when it did not is worse than one that says nothing.
+		if m.geLimit > 0 && m.geCount >= m.geLimit {
+			// The scrubber has seen enough of this frame. Abandon the rest of the list
+			// and ask the run to end: the machine is now mid-list and its state is a
+			// lie the game would notice, which is why only a scratch machine is ever
+			// run this way, and never resumed.
+			m.StopRequested = true
+			return
+		}
+		if m.OnGeCmd != nil {
+			m.OnGeCmd(w)
+		}
+		m.geCount++
+
 		if gePrimDump >= 0 {
 			geWordTrail = append(geWordTrail, w)
 			if len(geWordTrail) > 400 {
@@ -643,7 +668,10 @@ func (m *Machine) rasterList(list GeList) {
 		case cPRIM:
 			m.drawPrim(s, arg)
 		case cBEZIER, cSPLINE:
+			// A patch decodes and rasterises inside itself; it is its own leaf.
+			tp := m.profStart()
 			m.drawPatch(s, arg, cmd == cSPLINE)
+			m.profEnd(bucketRaster, tp)
 		}
 	}
 	if s.fbStride != 0 {
@@ -762,7 +790,11 @@ func (m *Machine) drawPrim(s *geState, arg uint32) {
 	if geOnlyVA != 0 && uint64(s.vaddr)>>16 != geOnlyVA>>16 {
 		return
 	}
+	m.geCnt.prims++
+	m.geCnt.verts += count
+	tv := m.profStart()
 	verts := m.decodeVerts(s, count)
+	m.profEnd(bucketVertex, tv)
 
 	// THE GE CONSUMES VERTICES: its vertex pointer advances by the vertices a
 	// primitive reads, so a mesh submitted as a run of PRIMs sets VADDR once and
@@ -783,6 +815,7 @@ func (m *Machine) drawPrim(s *geState, arg uint32) {
 	if len(verts) < 1 {
 		return
 	}
+	tr := m.profStart()
 	switch ptype {
 	case 3: // triangles
 		for i := 0; i+2 < len(verts); i += 3 {
@@ -805,6 +838,7 @@ func (m *Machine) drawPrim(s *geState, arg uint32) {
 			m.rasterSprite(s, verts[i], verts[i+1])
 		}
 	}
+	m.profEnd(bucketRaster, tr)
 }
 
 // vert is a decoded, screen-space vertex. For transformed primitives it also

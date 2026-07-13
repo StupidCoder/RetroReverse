@@ -46,9 +46,15 @@ func (m *Machine) Framebuffer() *image.RGBA {
 	return img
 }
 
-// readPixel reads and decodes one framebuffer pixel.
+// readPixel reads and decodes one pixel of the display framebuffer.
 func (m *Machine) readPixel(base, stride, x, y uint32) color.RGBA {
-	switch m.fbFormat {
+	return m.readPixelFmt(base, stride, m.fbFormat, x, y)
+}
+
+// readPixelFmt reads and decodes one pixel of any buffer, in any display format — the
+// debugger points it at render targets the screen never shows.
+func (m *Machine) readPixelFmt(base, stride, format, x, y uint32) color.RGBA {
+	switch format {
 	case psm8888:
 		a := base + (y*stride+x)*4
 		p := m.read32(a)
@@ -56,7 +62,7 @@ func (m *Machine) readPixel(base, stride, x, y uint32) color.RGBA {
 	default: // 16-bit formats
 		a := base + (y*stride+x)*2
 		p := uint16(m.Read(a)) | uint16(m.Read(a+1))<<8
-		return decode16(p, m.fbFormat)
+		return decode16(p, format)
 	}
 }
 

@@ -98,39 +98,74 @@ func geBaseAddr(arg uint32) uint32 { return (arg & 0x000F0000) << 8 }
 // execGeList executes a captured display list into the framebuffer (ge_raster.go).
 func (m *Machine) execGeList(list GeList) { m.rasterList(list) }
 
+// geCmdNames names every GE command the rasteriser acts on, and the well-known ones it
+// ignores. A frame debugger lists the whole command stream, not just the draws — the
+// register writes that conditioned a draw are as much a part of the frame as the draw,
+// and a list of anonymous hex bytes is a list nobody can read. What is genuinely unknown
+// stays unknown (an empty entry prints as its hex opcode), because inventing a name for
+// a register we have not reversed would be the one thing worse than not naming it.
+var geCmdNames = func() [256]string {
+	n := [256]string{
+		0x00: "NOP", 0x01: "VADDR", 0x02: "IADDR", 0x04: "PRIM", 0x05: "BEZIER",
+		0x06: "SPLINE", 0x07: "BBOX", 0x08: "JUMP", 0x09: "BJUMP", 0x0A: "CALL",
+		0x0B: "RET", 0x0C: "END", 0x0F: "FINISH", 0x10: "BASE", 0x12: "VTYPE",
+		0x13: "OFFADDR", 0x14: "ORIGIN", 0x15: "REGION1", 0x16: "REGION2",
+		0x17: "LIGHTING", 0x1C: "CLUTON", 0x1D: "CULLON", 0x1E: "TEXENABLE",
+		0x1F: "FOGON", 0x20: "DITHERON", 0x21: "BLENDON", 0x22: "ALPHATESTON",
+		0x23: "ZTESTON", 0x24: "STENCILON", 0x25: "AAON", 0x26: "PATCHCULLON",
+		0x27: "COLORTESTON", 0x28: "LOGICOPON", 0x2E: "BONEMTXN", 0x2F: "BONEMTXD",
+		0x36: "PATCHDIV", 0x37: "PATCHPRIM", 0x38: "PATCHFACE",
+		0x3A: "WORLDN", 0x3B: "WORLDD", 0x3C: "VIEWN", 0x3D: "VIEWD",
+		0x3E: "PROJN", 0x3F: "PROJD", 0x40: "TEXMTXN", 0x41: "TEXMTXD",
+		0x42: "VPXSCALE", 0x43: "VPYSCALE", 0x44: "VPZSCALE",
+		0x45: "VPXCENTER", 0x46: "VPYCENTER", 0x47: "VPZCENTER",
+		0x48: "TEXSCALEU", 0x49: "TEXSCALEV", 0x4A: "TEXOFFSETU", 0x4B: "TEXOFFSETV",
+		0x4C: "OFFSETX", 0x4D: "OFFSETY", 0x50: "SHADEMODE", 0x51: "NORMALREV",
+		0x53: "MATCOLORMODE", 0x54: "MATEMISSIVE", 0x55: "MATAMBIENT",
+		0x56: "MATDIFFUSE", 0x57: "MATSPECULAR", 0x58: "MATALPHA",
+		0x5B: "MATSPECCOEF", 0x5C: "AMBIENTCOL", 0x5D: "AMBIENTALPHA",
+		0x5E: "LIGHTMODE", 0x8F: "SPOTCOEF",
+		0x9B: "CULLFACE", 0x9C: "FBP", 0x9D: "FBW", 0x9E: "ZBP", 0x9F: "ZBW",
+		0xB0: "CLUTADDR", 0xB1: "CLUTADDRH", 0xB2: "TRSRC", 0xB3: "TRSRCW",
+		0xB4: "TRDST", 0xB5: "TRDSTW", 0xC0: "TEXMAPMODE", 0xC1: "TEXSHADELS",
+		0xC2: "TEXMODE", 0xC3: "TEXFORMAT", 0xC4: "LOADCLUT", 0xC5: "CLUTFORMAT",
+		0xC6: "TEXFILTER", 0xC7: "TEXWRAP", 0xC8: "TEXLEVEL", 0xC9: "TEXFUNC",
+		0xCA: "TEXENVCOL", 0xCB: "TEXFLUSH", 0xCC: "TEXSYNC",
+		0xCD: "FOG1", 0xCE: "FOG2", 0xCF: "FOGCOLOR",
+		0xD2: "FBPIXFMT", 0xD3: "CLEARMODE", 0xD4: "SCISSOR1", 0xD5: "SCISSOR2",
+		0xD6: "NEARZ", 0xD7: "FARZ", 0xDB: "ATEST", 0xDC: "STEST", 0xDD: "SOP",
+		0xDE: "ZTEST", 0xDF: "BLENDFUNC", 0xE0: "BLENDFIXA", 0xE1: "BLENDFIXB",
+		0xE2: "DITH0", 0xE3: "DITH1", 0xE4: "DITH2", 0xE5: "DITH3",
+		0xE6: "LOGICOP", 0xE7: "ZMASK", 0xE8: "PMSKC", 0xE9: "PMSKA",
+		0xEA: "TRSTART", 0xEB: "TRSRCPOS", 0xEC: "TRDSTPOS", 0xEE: "TRSIZE",
+	}
+	// The indexed families: eight texture levels, four lights.
+	for i := 0; i < 8; i++ {
+		n[0xA0+i] = fmt.Sprintf("TEXADDR%d", i)
+		n[0xA8+i] = fmt.Sprintf("TEXBW%d", i)
+		n[0xB8+i] = fmt.Sprintf("TEXSIZE%d", i)
+	}
+	for i := 0; i < 4; i++ {
+		n[0x18+i] = fmt.Sprintf("LIGHT%dON", i)
+		n[0x5F+i] = fmt.Sprintf("LIGHTTYPE%d", i)
+		n[0x90+i] = fmt.Sprintf("LIGHTDIF%d", i)
+		n[0x94+i] = fmt.Sprintf("LIGHTSPC%d", i)
+		n[0x98+i] = fmt.Sprintf("LIGHTAMB%d", i)
+		for c := 0; c < 3; c++ {
+			n[0x63+i*3+c] = fmt.Sprintf("LIGHTPOS%d%c", i, "XYZ"[c])
+			n[0x6F+i*3+c] = fmt.Sprintf("LIGHTDIR%d%c", i, "XYZ"[c])
+			n[0x7B+i*3+c] = fmt.Sprintf("LIGHTATT%d%c", i, "XYZ"[c])
+		}
+	}
+	return n
+}()
+
 // GeCmdName returns a short mnemonic for a GE command byte, for list dumps.
 func GeCmdName(cmd uint32) string {
-	switch cmd {
-	case geNOP:
-		return "NOP"
-	case geVADDR:
-		return "VADDR"
-	case geIADDR:
-		return "IADDR"
-	case gePRIM:
-		return "PRIM"
-	case geJUMP:
-		return "JUMP"
-	case geCALL:
-		return "CALL"
-	case geRET:
-		return "RET"
-	case geFINISH:
-		return "FINISH"
-	case geEND:
-		return "END"
-	case geBASE:
-		return "BASE"
-	case geVTYPE:
-		return "VTYPE"
-	case geOFFADDR:
-		return "OFFADDR"
-	case geFBP:
-		return "FBP"
-	case geFBW:
-		return "FBW"
-	case geCLEAR:
-		return "CLEAR"
+	if cmd < 256 {
+		if s := geCmdNames[cmd]; s != "" {
+			return s
+		}
 	}
 	return fmt.Sprintf("0x%02X", cmd)
 }

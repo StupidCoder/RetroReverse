@@ -531,9 +531,11 @@ func (m *Machine) putPixel(s *geState, x, y int, z float32, r, g, b, a byte) {
 	// Scissor: the game restricts drawing to a rectangle (its off-screen targets
 	// are smaller than the screen).
 	if !s.clearOn && (x < s.scX0 || x > s.scX1 || y < s.scY0 || y > s.scY1) && s.scX1 > 0 {
+		m.pixelEvent(x, y, PixelEvent{ScissorReject: true, R: r, G: g, B: b, A: a})
 		return
 	}
 	if !s.alphaPass(a) {
+		m.pixelEvent(x, y, PixelEvent{AlphaReject: true, R: r, G: g, B: b, A: a})
 		return
 	}
 	base := s.fbAddress()
@@ -558,6 +560,7 @@ func (m *Machine) putPixel(s *geState, x, y int, z float32, r, g, b, a byte) {
 		if !s.clearOn {
 			m.storeAlpha(s, base, off, stencilOp(s.stSFail, dstA, byte(s.stRef)))
 		}
+		m.pixelEvent(x, y, PixelEvent{StencilReject: true, R: r, G: g, B: b, A: a})
 		return
 	}
 	// Depth test — after the alpha and stencil tests, never before.
@@ -566,6 +569,7 @@ func (m *Machine) putPixel(s *geState, x, y int, z float32, r, g, b, a byte) {
 		if !s.clearOn && s.stencilOn {
 			m.storeAlpha(s, base, off, stencilOp(s.stZFail, dstA, byte(s.stRef)))
 		}
+		m.pixelEvent(x, y, PixelEvent{ZReject: true, R: r, G: g, B: b, A: a})
 		return
 	}
 	m.zWrite(s, x, y, z)
@@ -603,6 +607,7 @@ func (m *Machine) putPixel(s *geState, x, y int, z float32, r, g, b, a byte) {
 		// PMSKC/PMSKA: framebuffer bits with a 1 in the mask keep their old value.
 		// The game's depth-only fills set the mask fully (write nothing).
 		if s.maskRGB == 0xFFFFFF && s.maskA == 0xFF {
+			m.pixelEvent(x, y, PixelEvent{MaskReject: true, R: r, G: g, B: b, A: a})
 			return
 		}
 		dr, dg, db, da := m.dstPixel4(s, base, off)
@@ -613,6 +618,9 @@ func (m *Machine) putPixel(s *geState, x, y int, z float32, r, g, b, a byte) {
 		outA = outA&^ma | da&ma
 	}
 	m.storePixel(s, base, off, r, g, b, outA)
+	// Drawn: the colour reported is the one that actually reached memory, after
+	// blending — which is what "why is this pixel this colour" is asking about.
+	m.pixelEvent(x, y, PixelEvent{Drawn: true, R: r, G: g, B: b, A: outA})
 }
 
 // storePixel writes one pixel to the render target in its PSP format.

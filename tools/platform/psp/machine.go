@@ -81,6 +81,10 @@ type Machine struct {
 	OnGeList func(GeList)
 	geSt     *geState // persistent GE register state (survives across lists)
 
+	// The command scrubber's halt: stop the GE after geLimit command words have
+	// executed (see RunStopAfterGeCommand in debug.go). Zero means no limit.
+	geLimit, geCount int
+
 	imageHash string // pinned into savestates
 
 	// Instrumentation (opt-in; checked in Read/Write and the run loop).
@@ -89,6 +93,25 @@ type Machine struct {
 	RWatchLo, RWatchHi uint32
 	OnRead             func(addr, val, pc uint32)
 	OnStep             func(m *Machine, pc uint32)
+
+	// The debugger's hooks (debug.go). Nil by default, outside the savestate, and
+	// they observe without perturbing: the same three questions the N64, PSX and 3DS
+	// answer — what did the display processor execute, which command drew this pixel,
+	// and when does a frame end.
+	OnGeCmd   func(word uint32)                // one GE command word, before it executes
+	OnPixel   func(x, y uint32, ev PixelEvent) // one fragment, kept or killed
+	OnDisplay func(m *Machine)                 // sceDisplaySetFrameBuf: the flip
+
+	// StopRequested ends the run at the next instruction boundary. It is how a hook
+	// stops the machine: a flag the run loop reads, rather than a call that unwinds
+	// the stack from inside a syscall.
+	StopRequested bool
+
+	// Per-subsystem frame timing (profile.go). Live behind Profile: a run that does
+	// not ask for it pays a predictable branch per boundary and nothing else.
+	Profile bool
+	prof    profState
+	geCnt   geCounters
 
 	// Diagnostics.
 	Log     []string

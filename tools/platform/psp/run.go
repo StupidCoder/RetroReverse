@@ -18,6 +18,11 @@ func (r Result) String() string {
 
 // Run executes up to maxSteps instructions and returns why it stopped.
 func (m *Machine) Run(maxSteps uint64) Result {
+	// Time only while the machine is actually running: a debugger paused at a frame
+	// boundary for ten minutes must not report ten minutes of Allegrex.
+	m.profRunEnter()
+	defer m.profRunExit()
+
 	var steps uint64
 	spin := map[uint32]bool{}
 	const spinWindow = 0x40000
@@ -51,6 +56,16 @@ func (m *Machine) Run(maxSteps uint64) Result {
 		}
 		if m.OnStep != nil {
 			m.OnStep(m, m.CPU.PC)
+		}
+
+		// A hook asked the run to end. The check sits here, before the instruction
+		// executes, so both of its callers get what they mean: a breakpoint stops AT
+		// its instruction rather than after it, and a frame-boundary or GE-command
+		// stop set inside a syscall takes effect at the next clean instruction
+		// boundary rather than unwinding out of the middle of the kernel.
+		if m.StopRequested {
+			m.StopRequested = false
+			return Result{steps, m.CPU.PC, "stop requested"}
 		}
 
 		// Tight-spin detection: if only a couple of PCs recur across a whole window,

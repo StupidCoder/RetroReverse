@@ -261,11 +261,16 @@ func (m *Machine) handleSyscall(c *allegrex.CPU, code uint32) bool {
 		m.note("SYSCALL %s(%08X, %08X, %08X, %08X) ra=%08X", sc.name,
 			m.arg(0), m.arg(1), m.arg(2), m.arg(3), m.CPU.Reg(31))
 	}
+	// Time the HLE, less any GE work done inside it. sceGeListEnQueue draws the whole
+	// frame without returning, so a syscall bucket that did not subtract the GE would
+	// count every triangle twice and drive the derived remainder negative.
+	ts, geBefore := m.profStart(), m.profGeNs()
 	if sc.handler != nil {
 		sc.handler(m)
 	} else {
 		m.setRet(0) // stubbed / unmodelled: report success
 	}
+	m.profEndSyscall(ts, geBefore)
 	if syscallTrace != "" && strings.Contains(sc.name, syscallTrace) {
 		m.note("SYSCALL %s -> %08X", sc.name, m.CPU.Reg(2))
 	}
@@ -782,6 +787,17 @@ func handlerFor(name string) func(m *Machine) {
 			m.fbWidth = m.arg(1)
 			m.fbFormat = m.arg(2)
 			m.setRet(0)
+			// The flip: the game has finished a frame and is putting it on screen.
+			// This is the PSP's frame boundary — there is no scanout interrupt that
+			// means "a frame was drawn", only this, the moment the game says which
+			// buffer to show.
+			//
+			// The profile closes BEFORE the hook, so a debugger that stops the machine
+			// on the hook reads the frame it just watched, not the one before it.
+			m.profFrame()
+			if m.OnDisplay != nil {
+				m.OnDisplay(m)
+			}
 		}
 	case "sceDisplayGetFrameBuf":
 		return func(m *Machine) {
@@ -795,7 +811,10 @@ func handlerFor(name string) func(m *Machine) {
 	case "sceGeListEnQueue", "sceGeListEnQueueHead":
 		return func(m *Machine) {
 			// (list, stall, cbid, arg): capture and execute the display list.
+			tl := m.profStart()
 			list := m.captureList(m.arg(0))
+			m.profEnd(bucketList, tl)
+			m.geCnt.lists++
 			m.GeLists = append(m.GeLists, list)
 			if m.OnGeList != nil {
 				m.OnGeList(list)
