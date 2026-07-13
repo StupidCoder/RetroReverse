@@ -31,6 +31,11 @@ type PadStep struct {
 // stops on a program exit, an unmodelled instruction (CPU halt), a tight self-
 // branch spin, or the step budget.
 func (m *Machine) Run(maxSteps uint64) Result {
+	// Time only while the machine is actually running: a debugger paused at a frame
+	// boundary for ten minutes must not report ten minutes of ARM60.
+	m.profRunEnter()
+	defer m.profRunExit()
+
 	var steps uint64
 	// Forward-progress tracking: a task that executes no never-before-seen
 	// instruction for a while is busy-waiting; if it's a flag spin we switch to
@@ -46,6 +51,16 @@ func (m *Machine) Run(maxSteps uint64) Result {
 	var unstickTries int
 	var stallSwitches int // context switches since the last real progress
 	for steps < maxSteps {
+		// A hook asked the run to end — DisplayScreen closing a frame, or the cel
+		// scrubber reaching its limit. Both fire from inside a folio call, which
+		// returns to the top of this loop rather than to the interpreter, so this is
+		// where the request is honoured: at a clean instruction boundary, with nothing
+		// half-done.
+		if m.StopRequested {
+			m.StopRequested = false
+			return Result{steps, m.CPU.Reg(15), "stop requested"}
+		}
+
 		// Advance the virtual VBlank counter the game reads out of the OS context
 		// struct (osCtx +0xA), so timer/VBlank waits see fields elapse. ~60 Hz is
 		// modelled as one field per vblankPeriod instructions.
@@ -88,6 +103,11 @@ func (m *Machine) Run(maxSteps uint64) Result {
 		}
 		if m.OnStep != nil {
 			m.OnStep(m, pc)
+			// A breakpoint stops AT its instruction, not after it.
+			if m.StopRequested {
+				m.StopRequested = false
+				return Result{steps, pc, "stop requested"}
+			}
 		}
 
 		ring[ri&63] = pc
@@ -149,6 +169,13 @@ func (m *Machine) Run(maxSteps uint64) Result {
 // folio offset was invoked and its arguments, stubs a zero result and returns to
 // the caller (LR).
 func (m *Machine) serviceKernelCall(pc uint32) {
+	// Time the folio HLE, less any cel work done inside it. DrawCels draws a whole
+	// chain without returning, so a folio bucket that did not subtract the cel engine
+	// would count every cel twice and drive the derived remainder negative.
+	m.celCnt.folios++
+	tf, gfxBefore, gen := m.profStart(), m.profGfxNs(), m.prof.gen
+	defer m.profEndFolio(tf, gfxBefore, gen) // a method value, not a closure: no allocation
+
 	off := pc - hleBase
 	m.KernelCalls = append(m.KernelCalls, KernelCall{
 		Offset: off,

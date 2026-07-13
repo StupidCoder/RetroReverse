@@ -96,6 +96,10 @@ type profState struct {
 	base      geCounters // the counters at the last frame boundary
 	baseInstr uint64
 
+	// gen counts frames closed. A syscall that was in flight when the frame closed
+	// belongs to a frame that has already been reported — see profEndSyscall.
+	gen int
+
 	last FrameProfile // the last completed frame
 	has  bool
 }
@@ -127,8 +131,17 @@ func (m *Machine) profGeNs() int64 {
 }
 
 // profEndSyscall books a syscall's time, less whatever GE work ran inside it.
-func (m *Machine) profEndSyscall(t time.Time, geBefore int64) {
-	if t.IsZero() {
+//
+// The gen check is not decoration. sceDisplaySetFrameBuf is itself a syscall, and it
+// closes the frame from inside — profFrame runs, reports the buckets and zeroes them, and
+// only then does this deferred call return. Its geBefore baseline now refers to counters
+// that no longer exist, so the subtraction below would ADD the whole frame's GE time
+// rather than remove it, and dump it into the NEXT frame's syscall bucket. (It hid here:
+// a PSP frame's total is large enough that the inflated bucket still fit inside it. The
+// 3DO, whose frame is mostly cel drawing, failed the disjointness test outright and gave
+// this away.)
+func (m *Machine) profEndSyscall(t time.Time, geBefore int64, gen int) {
+	if t.IsZero() || gen != m.prof.gen {
 		return
 	}
 	ns := int64(time.Since(t)) - (m.profGeNs() - geBefore)
@@ -218,6 +231,7 @@ func (m *Machine) profFrame() {
 
 	p.ns, p.count = [numBuckets]int64{}, [numBuckets]int64{}
 	p.base, p.baseInstr = now, m.CPU.Steps
+	p.gen++
 }
 
 // FrameProfile reports the last completed frame's cost by subsystem. The zero value

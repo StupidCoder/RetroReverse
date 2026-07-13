@@ -422,3 +422,33 @@ func (fc *FrameCapture) ProvAt(x, y int) int {
 	}
 	return int(fc.Prov[y*fc.Width+x])
 }
+
+// Drawn reports whether this capture is a frame worth stopping on: one that actually put
+// a picture on the screen, rather than a field the game spent setting up.
+//
+// The obvious test — "did it issue a lot of commands?" — is a packet machine's idea of a
+// frame, and it is wrong on a machine whose commands are big. A whole Need for Speed
+// frame is THIRTEEN cels, because a 3DO cel is a textured quad and thirteen of them cover
+// the screen; a Ridge Racer frame is thousands of GP0 packets, and a 3DS frame is a
+// hundred thousand register writes. Counting commands would make the debugger skip past
+// every frame the 3DO ever draws.
+//
+// So the question is asked of the pixels instead: did this frame's commands cover a
+// meaningful part of the picture? A platform whose rasteriser reports no pixels at all
+// (Prov nil is allowed) has nothing to answer with, and falls back to the command count.
+func (fc *FrameCapture) Drawn() bool {
+	if len(fc.Commands) == 0 {
+		return false
+	}
+	if fc.Prov == nil {
+		return len(fc.Commands) > 100
+	}
+	n := 0
+	for _, c := range fc.Prov {
+		if c >= 0 {
+			n++
+		}
+	}
+	// One percent of the frame, or a command list long enough to speak for itself.
+	return n*100 >= len(fc.Prov) || len(fc.Commands) > 100
+}

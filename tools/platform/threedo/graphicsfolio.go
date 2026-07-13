@@ -74,6 +74,8 @@ const (
 // Without it, regions the frame doesn't repaint keep stale content — a
 // hall-of-mirrors — and the sky, which is a clear rather than a cel, is absent.
 func (m *Machine) flashClearRange(dest, bytes uint32, val uint16) {
+	m.celCnt.clears++
+	defer m.profEnd(bucketClear, m.profStart())
 	hi, lo := byte(val>>8), byte(val)
 	end := dest + bytes
 	for a := dest; a+1 < end; a += 2 {
@@ -149,6 +151,9 @@ func (m *Machine) serviceGraphicsFolio(foff uint32) {
 			}
 		}
 		m.frame++
+		// The profile closes BEFORE the hook, so a debugger that stops the machine on
+		// the hook reads the frame it just watched, not the one before it.
+		m.profFrame()
 		if m.OnDisplay != nil {
 			m.OnDisplay(m, m.frame, m.displayBuf)
 		}
@@ -279,6 +284,7 @@ func (m *Machine) drawCels(bitmapItem int32, ccb uint32) uint32 {
 		m.note(fmt.Sprintf("DrawCels: unknown bitmap item %d", bitmapItem))
 		return 0
 	}
+	m.celCnt.chains++
 	drawn, skipped, total := 0, 0, 0
 	for n := 0; ccb != 0 && n < 4096; n++ {
 		total++
@@ -296,9 +302,22 @@ func (m *Machine) drawCels(bitmapItem int32, ccb uint32) uint32 {
 			plut = ccb + 0x0C + plut + 4
 		}
 		if flags&ccbSkip == 0 {
+			// The frame debugger's halt. A cel is this machine's drawing command, so
+			// this is where the command scrubber stops: the chain is abandoned mid-way
+			// and the run asked to end. The machine left behind is one the game would
+			// not recognise — it thinks it drew a whole chain — which is why only a
+			// scratch machine is ever run this way, and never resumed.
+			if m.celLimit > 0 && m.celCount >= m.celLimit {
+				m.StopRequested = true
+				return 0
+			}
+			m.celCount++
+			m.celDraw(bm, ccb, flags, src, plut)
+			tc := m.profStart()
 			if m.drawOneCel(bm, ccb, flags, src, plut) {
 				drawn++
 			}
+			m.profEnd(bucketCel, tc)
 		} else {
 			skipped++
 		}
@@ -614,19 +633,20 @@ func (m *Machine) blendPixel(bm gfxBitmap, x, y int, pix uint16, amv, pixc, flag
 		}
 	}
 
-	s1 := word&0x8000 != 0     // first source: destination, not the cel pixel
-	ms := (word >> 13) & 3     // multiply source: MF / AMV / pixel
-	mxf := (word >> 10) & 7    // MF multiply factor (Mult+1)
-	dv1 := (word >> 8) & 3     // first-source divide (PDV)
-	s2 := (word >> 6) & 3      // second source select
-	avf := (word >> 1) & 0x1F  // AV field (constant, or control signals if USEAV)
-	dv2 := word & 1            // final divide shift
+	s1 := word&0x8000 != 0    // first source: destination, not the cel pixel
+	ms := (word >> 13) & 3    // multiply source: MF / AMV / pixel
+	mxf := (word >> 10) & 7   // MF multiply factor (Mult+1)
+	dv1 := (word >> 8) & 3    // first-source divide (PDV)
+	s2 := (word >> 6) & 3     // second source select
+	avf := (word >> 1) & 0x1F // AV field (constant, or control signals if USEAV)
+	dv2 := word & 1           // final divide shift
 
 	// Fast path: opaque source copy (NORMAL and its P-mode twins) — no blend, so
 	// the destination need not be read.
 	if !s1 && ms == 0 && s2 == 0 && dv2 == 0 && mxf == 7 && dv1 == 3 {
 		m.Write(a, byte(pix>>8))
 		m.Write(a+1, byte(pix))
+		m.celPixel(bm, x, y, pix)
 		return
 	}
 
@@ -689,6 +709,7 @@ func (m *Machine) blendPixel(bm gfxBitmap, x, y int, pix uint16, amv, pixc, flag
 	out := clampOr((c1r+c2r)>>dv2)<<10 | clampOr((c1g+c2g)>>dv2)<<5 | clampOr((c1b+c2b)>>dv2)
 	m.Write(a, byte(out>>8))
 	m.Write(a+1, byte(out))
+	m.celPixel(bm, x, y, uint16(out))
 }
 
 // pdv is the cel engine's PDV divide-shift: PDV(n) = ((n-1)&3)+1, range 1..4.

@@ -7,6 +7,7 @@
 package main
 
 import (
+	"crypto/md5"
 	"flag"
 	"fmt"
 	"image/png"
@@ -39,6 +40,8 @@ func main() {
 	movies := flag.Bool("movies", false, "let the game open .stream movies (FMV subsystem not modelled yet: crashes in the movie player)")
 	pad := flag.String("pad", "", "control-pad script: STEP:btn+btn,STEP:0,... (btns: a b c start x up down left right ls rs; 0=release)")
 	celDebugAt := flag.Uint64("celdebug", 0, "record a per-cel render summary for the frames after this step")
+	saveS := flag.String("savestate", "", "after the run, write a machine savestate to this file")
+	loadS := flag.String("loadstate", "", "before the run, restore a machine savestate from this file")
 	sportDebug := flag.Bool("sportdebug", false, "log the full IOInfo of every SPORT request")
 	perspTint := flag.Bool("persptint", false, "paint perspective cels solid magenta")
 	probeX := flag.Uint64("probex", 0, "log cels writing this pixel (with -celdebug)")
@@ -49,12 +52,14 @@ func main() {
 	flag.Parse()
 
 	var data []byte
+	var discData []byte
 	var err error
 	var vol *threedo.Volume
 	if *file != "" {
 		data, err = os.ReadFile(*file)
 	} else if *image != "" {
 		if data, err = os.ReadFile(*image); err == nil {
+			discData = data
 			var v *threedo.Volume
 			if v, err = threedo.Open(data); err == nil {
 				vol = v
@@ -114,6 +119,20 @@ func main() {
 	m.SetVBLMirror(uint32(*vblMirror))
 	m.LoadAIF(aif)
 
+	// A savestate carries the whole machine — including the Portfolio HLE's item table
+	// and task list, which no memory dump would hold — so a state written by the frame
+	// debugger resumes here exactly where it was taken.
+	if *image != "" {
+		m.SetImageHash(fmt.Sprintf("%x", md5.Sum(discData)))
+	}
+	if *loadS != "" {
+		if err := m.LoadStateFile(*loadS); err != nil {
+			die(err)
+		}
+		fmt.Fprintf(os.Stderr, "restored state: PC 0x%08X, %d instructions, frame %d\n",
+			m.CPU.Reg(15), m.CPU.Instrs, m.Frames())
+	}
+
 	if *trace || *tracen > 0 {
 		var n uint64
 		limit := *tracen
@@ -162,6 +181,13 @@ func main() {
 	fmt.Printf("\n--- running (max %d steps) ---\n", *steps)
 	res := m.Run(*steps)
 	fmt.Printf("stopped: %s  after %d steps, pc=0x%08X\n", res.Reason, res.Steps, res.PC)
+
+	if *saveS != "" {
+		if err := m.SaveStateFile(*saveS); err != nil {
+			die(err)
+		}
+		fmt.Fprintf(os.Stderr, "wrote savestate %s\n", *saveS)
+	}
 
 	if len(brk) > 0 {
 		fmt.Printf("\n--- breakpoint hits at 0x%X (last 12 of %d) ---\n", *breakAt, len(brk))

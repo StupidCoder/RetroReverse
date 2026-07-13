@@ -315,7 +315,7 @@ func (rn *Runner) stepToDrawn(fs debug.FrameStepper, withOverdraw bool) (*debug.
 			return nil, err
 		}
 		rn.frameNo++
-		if len(fc.Commands) > 100 && fc.Prov != nil {
+		if fc.Drawn() {
 			return fc, nil
 		}
 	}

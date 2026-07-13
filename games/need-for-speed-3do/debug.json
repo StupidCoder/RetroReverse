@@ -1,0 +1,10 @@
+{
+  "name": "Need for Speed",
+  "platform": "3do",
+  "image": "Need for Speed.bin",
+  "profile": {
+    "prog": "LaunchMe",
+    "vblmirror": "42734",
+    "stall": "8"
+  }
+}

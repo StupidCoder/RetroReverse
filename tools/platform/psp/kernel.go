@@ -264,13 +264,13 @@ func (m *Machine) handleSyscall(c *allegrex.CPU, code uint32) bool {
 	// Time the HLE, less any GE work done inside it. sceGeListEnQueue draws the whole
 	// frame without returning, so a syscall bucket that did not subtract the GE would
 	// count every triangle twice and drive the derived remainder negative.
-	ts, geBefore := m.profStart(), m.profGeNs()
+	ts, geBefore, gen := m.profStart(), m.profGeNs(), m.prof.gen
 	if sc.handler != nil {
 		sc.handler(m)
 	} else {
 		m.setRet(0) // stubbed / unmodelled: report success
 	}
-	m.profEndSyscall(ts, geBefore)
+	m.profEndSyscall(ts, geBefore, gen)
 	if syscallTrace != "" && strings.Contains(sc.name, syscallTrace) {
 		m.note("SYSCALL %s -> %08X", sc.name, m.CPU.Reg(2))
 	}

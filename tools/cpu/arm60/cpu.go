@@ -76,14 +76,19 @@ func (c *CPU) CurPC() uint32 { return c.cur }
 // Context is a full snapshot of the programmer-visible CPU state — everything
 // needed to suspend and resume a thread of execution. A machine model uses it to
 // implement cooperative multitasking (context switching between tasks).
+//
+// Its fields are exported because a Context is machine state, and machine state has to
+// survive a savestate: the 3DO's tasks each hold one, and gob only encodes what it can
+// see. Nothing reads these fields but SaveContext and RestoreContext — but a snapshot
+// has to be able to write them down.
 type Context struct {
 	R                      [16]uint32
 	N, Z, C, V             bool
 	IRQDisable, FIQDisable bool
 	Mode                   uint32
-	bankR13, bankR14       [6]uint32
-	bankSPSR               [6]uint32
-	fiqR8_12, usrR8_12     [5]uint32
+	BankR13, BankR14       [6]uint32
+	BankSPSR               [6]uint32
+	FIQR8_12, USRR8_12     [5]uint32
 }
 
 // SaveContext captures the CPU state for later resumption.
@@ -91,8 +96,8 @@ func (c *CPU) SaveContext() Context {
 	return Context{
 		R: c.R, N: c.N, Z: c.Z, C: c.C, V: c.V,
 		IRQDisable: c.IRQDisable, FIQDisable: c.FIQDisable, Mode: c.Mode,
-		bankR13: c.bankR13, bankR14: c.bankR14, bankSPSR: c.bankSPSR,
-		fiqR8_12: c.fiqR8_12, usrR8_12: c.usrR8_12,
+		BankR13: c.bankR13, BankR14: c.bankR14, BankSPSR: c.bankSPSR,
+		FIQR8_12: c.fiqR8_12, USRR8_12: c.usrR8_12,
 	}
 }
 
@@ -100,9 +105,39 @@ func (c *CPU) SaveContext() Context {
 func (c *CPU) RestoreContext(x Context) {
 	c.R, c.N, c.Z, c.C, c.V = x.R, x.N, x.Z, x.C, x.V
 	c.IRQDisable, c.FIQDisable, c.Mode = x.IRQDisable, x.FIQDisable, x.Mode
-	c.bankR13, c.bankR14, c.bankSPSR = x.bankR13, x.bankR14, x.bankSPSR
-	c.fiqR8_12, c.usrR8_12 = x.fiqR8_12, x.usrR8_12
+	c.bankR13, c.bankR14, c.bankSPSR = x.BankR13, x.BankR14, x.BankSPSR
+	c.fiqR8_12, c.usrR8_12 = x.FIQR8_12, x.USRR8_12
 	c.branched = false
+}
+
+// CPUState is a Context plus the bookkeeping that is not part of a thread's context but
+// is part of the machine's: whether the core has halted and why, how far it has run, and
+// which instruction it is standing on.
+//
+// The distinction matters. A context switch swaps Contexts between tasks and must NOT
+// carry a halt across; a savestate has to carry everything, or a restored machine is not
+// the machine that was saved.
+type CPUState struct {
+	Ctx        Context
+	Halted     bool
+	HaltReason string
+	Instrs     uint64
+	Cur        uint32
+}
+
+// SaveState captures the whole core, for a savestate.
+func (c *CPU) SaveState() CPUState {
+	return CPUState{
+		Ctx: c.SaveContext(), Halted: c.Halted, HaltReason: c.HaltReason,
+		Instrs: c.Instrs, Cur: c.cur,
+	}
+}
+
+// LoadState restores a core saved by SaveState.
+func (c *CPU) LoadState(s CPUState) {
+	c.RestoreContext(s.Ctx)
+	c.Halted, c.HaltReason = s.Halted, s.HaltReason
+	c.Instrs, c.cur = s.Instrs, s.Cur
 }
 
 // SetPC / SetReg seed state before entering a program.

@@ -85,8 +85,8 @@ const (
 	// corruption; the real fix is a faithful OS MemList so manager 1's allocation
 	// resolves the way it does on hardware (a valid region that doesn't orphan the
 	// first manager's normal-path frees) — see the game's InitMemMgr flow.
-	dheapBase = 0x00080000 // DRAM AllocMem pool: above the image + BSS
-	dheapTop  = 0x0017D000 // ends below the OS context struct + folio vector tables
+	dheapBase   = 0x00080000 // DRAM AllocMem pool: above the image + BSS
+	dheapTop    = 0x0017D000 // ends below the OS context struct + folio vector tables
 	vheapBase   = vramBase
 	vramReserve = 0x4000 // reserve a VRAM sliver (over-commit workaround, see git log)
 	vheapTop    = vramBase + vramSize - vramReserve
@@ -157,7 +157,7 @@ type Machine struct {
 	OnWrite            func(addr, val, pc uint32)
 	RWatchLo, RWatchHi uint32
 	OnRead             func(addr, val, pc uint32)
-	OnStep           func(m *Machine, pc uint32)
+	OnStep             func(m *Machine, pc uint32)
 	// OnSWI is called before each kernel SWI is serviced (from = the SWI
 	// instruction's PC); OnMsgQueue whenever a message lands on a port queue —
 	// via PutMsg, ReplyMsg or an HLE-internal send (why says which).
@@ -192,8 +192,8 @@ type Machine struct {
 	// through the game's own missing-file fallback (see loadDiscFile). Set it
 	// until the audio folio + DataStreamer are modelled well enough to play them.
 	NoStreams bool
-	simTime    uint64 // virtual microsecond clock (folio SampleSystemTimeTT)
-	vblank     uint32 // virtual VBlank/field counter (osCtx +0xA)
+	simTime   uint64 // virtual microsecond clock (folio SampleSystemTimeTT)
+	vblank    uint32 // virtual VBlank/field counter (osCtx +0xA)
 	// vblMirror, if non-zero, is a game global the VBL manager must keep in step
 	// with the elapsed-field count. On real hardware the graphics folio's VBL
 	// interrupt increments a monotonic field counter that the game's frame/timer
@@ -202,12 +202,32 @@ type Machine struct {
 	// writes wherever the program registered its counter), so the program's oracle
 	// configures it via SetVBLMirror; the mechanism (advance every field) is generic.
 	vblMirror uint32
-	tty        []byte
-	Log        []string
-	logSeen    map[string]bool
+	tty       []byte
+	Log       []string
+	logSeen   map[string]bool
 
 	Halted     bool
 	HaltReason string
+
+	imageHash string // pinned into savestates (state.go)
+
+	// The debugger's hooks (debug.go). Nil by default, outside the savestate, and they
+	// observe without perturbing. OnDisplay above is the third of them — this machine
+	// already had a frame boundary before it had a debugger.
+	OnCel   func(c CelDraw)                  // one cel, before it is drawn
+	OnPixel func(x, y uint32, ev PixelEvent) // one pixel written into a bitmap
+
+	// The command scrubber's halt: stop after celLimit cels have been drawn.
+	celLimit, celCount int
+
+	// StopRequested ends the run at the next instruction boundary. It is how a hook
+	// stops the machine, rather than unwinding the stack out of a folio call.
+	StopRequested bool
+
+	// Per-subsystem frame timing (profile.go).
+	Profile bool
+	prof    profState
+	celCnt  celCounters
 }
 
 // NewMachine builds a reset 3DO machine with DRAM, VRAM and an ARM60 core.
@@ -448,6 +468,8 @@ func (m *Machine) breakSpin(pcs []uint32) []uint32 {
 // swi services the ARM SWI gate. The AIF exit SWI (#0x11) stops the machine;
 // other SWIs are the Portfolio kernel calls, logged with their arguments.
 func (m *Machine) swi(c *arm60.CPU, comment uint32) bool {
+	m.celCnt.swis++
+	defer m.profEnd(bucketSWI, m.profStart())
 	if comment == 0x11 { // program exit
 		m.Halted, m.HaltReason = true, "program exit (SWI #0x11)"
 		return true

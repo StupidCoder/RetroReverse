@@ -38,6 +38,7 @@ import (
 	"retroreverse.com/tools/debug/pspadapter"
 	"retroreverse.com/tools/debug/psxadapter"
 	"retroreverse.com/tools/debug/server"
+	"retroreverse.com/tools/debug/threedoadapter"
 )
 
 func main() {
@@ -62,7 +63,7 @@ func run() error {
 		image_   = flag.String("image", "", "game image — an N64 ROM (.z64) or a PSX disc (.bin) — required")
 		state    = flag.String("state", "", "savestate file to load before stepping (skips the boot)")
 		isr      = flag.String("isr", "", "PSX only: the game's vectored-interrupt handler, hex (Ridge Racer: 8004DF48)")
-		platform = flag.String("platform", "", "force the platform (n64, psx, psp, 3ds); by default it is read off the image's extension")
+		platform = flag.String("platform", "", "force the platform (n64, psx, psp, 3ds, 3do); by default it is read off the image's extension")
 		skip     = flag.Int("skip", -1, "advance this many frames before capturing; -1 = step until a drawn frame")
 		list     = flag.Bool("list", false, "print the captured frame's display-processor command stream")
 		listmax  = flag.Int("listmax", 0, "cap -list to the first M commands (0 = all)")
@@ -146,7 +147,7 @@ func open(path, platform, isr string) (target, error) {
 		case ".bin", ".iso", ".img":
 			platform = "psx"
 		default:
-			return nil, fmt.Errorf("cannot tell which platform %q is: name it with -platform (n64, psx, psp, 3ds)", filepath.Base(path))
+			return nil, fmt.Errorf("cannot tell which platform %q is: name it with -platform (n64, psx, psp, 3ds, 3do)", filepath.Base(path))
 		}
 	}
 	switch platform {
@@ -156,6 +157,8 @@ func open(path, platform, isr string) (target, error) {
 		return n3dsadapter.New(path)
 	case "psp":
 		return pspadapter.New(path, pspadapter.Options{})
+	case "3do":
+		return threedoadapter.New(path, threedoadapter.Options{})
 	case "psx":
 		var opts psxadapter.Options
 		if isr != "" {
@@ -167,7 +170,7 @@ func open(path, platform, isr string) (target, error) {
 		}
 		return psxadapter.New(path, opts)
 	}
-	return nil, fmt.Errorf("unknown -platform %q (want n64, psx, psp or 3ds)", platform)
+	return nil, fmt.Errorf("unknown -platform %q (want n64, psx, psp, 3ds or 3do)", platform)
 }
 
 // advance steps the machine to a drawn frame. It first advances skip video fields
@@ -184,7 +187,7 @@ func advance(a target, skip int, withOverdraw bool) (*debug.FrameCapture, error)
 		if err != nil {
 			return nil, err
 		}
-		if len(fc.Commands) > 100 && fc.Prov != nil {
+		if fc.Drawn() {
 			return fc, nil
 		}
 	}
