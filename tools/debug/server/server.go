@@ -1,13 +1,18 @@
 // Package server hosts the frame debugger's user interface as a local web page.
 //
-// The debugger binary serves both the page (embedded, no build step, no network)
-// and a WebSocket the page drives the emulator over. The browser earns its keep on
-// the pixel side: it gets the frame's whole provenance buffer once, so hovering a
-// pixel names the command that drew it with no round trip, and selecting a command
-// can light up every pixel it touched.
+// The debugger binary serves both the page (embedded, no build step, no network) and
+// a WebSocket the page drives the emulator over. The browser earns its keep on the
+// pixel side: it gets a frame's whole provenance buffer once, so hovering a pixel
+// names the command that drew it with no round trip, and selecting a command can
+// light up every pixel it touched.
 //
-// The server binds to loopback and accepts one session at a time — a DebugTarget is
-// a single stateful machine, not something two pages can meaningfully share.
+// A Runner owns the target and outlives any connection, so reloading the page does
+// not throw the machine away. The target tells the page what it can do (see
+// debug.Capabilities) and the page builds itself from that list — a platform without
+// per-pixel provenance simply has no overdraw panel, rather than an empty one.
+//
+// The server binds to loopback: it exposes a machine's whole memory and deserves no
+// listener on a public interface.
 package server
 
 import (
@@ -19,7 +24,6 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
-	"sync/atomic"
 
 	"retroreverse.com/tools/debug"
 	"retroreverse.com/tools/debug/wsock"
@@ -30,14 +34,12 @@ var webFS embed.FS
 
 // Server serves the debugger UI for one target.
 type Server struct {
-	tgt  debug.DebugTarget
-	rom  string
-	busy atomic.Bool // one session at a time
+	rn *Runner
 }
 
-// New returns a Server for a target. rom is a label for the page's title bar.
-func New(tgt debug.DebugTarget, rom string) *Server {
-	return &Server{tgt: tgt, rom: rom}
+// New returns a Server driving a target.
+func New(tgt debug.Target) *Server {
+	return &Server{rn: newRunner(tgt)}
 }
 
 // Handler is the debugger's HTTP surface: the embedded page, and the socket.
@@ -59,20 +61,17 @@ func (s *Server) serveWS(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "cross-origin websocket rejected", http.StatusForbidden)
 		return
 	}
-	if !s.busy.CompareAndSwap(false, true) {
-		http.Error(w, "a debugger session is already attached", http.StatusConflict)
-		return
-	}
-	defer s.busy.Store(false)
-
 	conn, err := wsock.Upgrade(w, r)
 	if err != nil {
 		log.Printf("framedbg: upgrade: %v", err)
 		return
 	}
 	defer conn.Close()
+
+	// Several connections may attach to the same runner — a second tab, or the same
+	// tab after a reload. They all watch one machine; only the runner touches it.
 	log.Printf("framedbg: session attached")
-	newSession(s.tgt, s.rom, conn).serve()
+	(&session{conn: conn, rn: s.rn}).serve()
 	log.Printf("framedbg: session ended")
 }
 
@@ -90,9 +89,8 @@ func sameOrigin(r *http.Request) bool {
 	return strings.EqualFold(u.Host, r.Host)
 }
 
-// ListenAndServe serves the debugger on addr and blocks. A bare port (":8088")
-// binds loopback only: this exposes a machine's whole memory and deserves no
-// listener on a public interface.
+// ListenAndServe serves the debugger on addr and blocks. A bare port (":8088") binds
+// loopback only.
 func (s *Server) ListenAndServe(addr string) error {
 	if strings.HasPrefix(addr, ":") {
 		addr = "127.0.0.1" + addr

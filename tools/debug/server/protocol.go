@@ -2,6 +2,7 @@ package server
 
 import (
 	"encoding/binary"
+	"encoding/json"
 	"fmt"
 	"image"
 
@@ -10,51 +11,126 @@ import (
 
 // The wire protocol.
 //
-// Client to server is always a JSON text message: {"op":"scrub","seq":9,"k":412}.
-// Server to client is JSON text for structure, and a binary message for pixels —
-// a raw framebuffer is incompressible, and base64 in JSON would cost a third more
-// bytes and a decode pass for nothing.
+// Client to server is a JSON text message with a namespaced op and a per-op payload:
 //
-// A binary message is a 16-byte header followed by the payload:
+//	{"op":"frame.scrub","seq":9,"args":{"k":412}}
+//
+// A flat struct with a field per op does not survive twenty ops, so args is left raw
+// and decoded by whoever handles the op.
+//
+// Server to client is JSON text for structure and a binary message for pixels — a
+// framebuffer is incompressible, and base64 in JSON would cost a third more bytes and
+// a decode pass for nothing. A reply carries the seq of the request it answers; an
+// *event* (a watch hit, a breakpoint stop, a free-running frame) carries no seq and
+// goes to every attached session.
+//
+// A binary message is a 24-byte header followed by the payload:
 //
 //	off  size  field
-//	 0    4    magic "RDB1"
-//	 4    1    kind (kindImage | kindProv)
-//	 5    1    flags (reserved, 0)
-//	 6    2    seq — echoes the request that asked for it, so a stale reply from an
-//	           abandoned scrub can be dropped by the page
-//	 8    4    width
-//	12    4    height
-//	16    ...  payload
+//	 0    4    magic "RDB2"
+//	 4    1    kind   (kindImage | kindProv)
+//	 5    1    flags  (reserved, 0)
+//	 6    2    seq    — the request this answers; 0 for an unsolicited event
+//	 8    2    stream — which consumer it is for, so a viewport and a VRAM panel can
+//	                    both have images in flight without confusing each other
+//	10    2    (pad)
+//	12    4    width
+//	16    4    height
+//	20    4    (reserved)
+//	24    ...  payload
 //
-// All little-endian. The header is 16 bytes so the payload lands 4-byte aligned and
+// All little-endian. The header is 24 bytes so the payload lands 4-byte aligned and
 // the browser can wrap the received ArrayBuffer in a Uint8ClampedArray (for
 // ImageData) or an Int32Array (for provenance) with no copy.
 const (
-	hdrSize = 16
+	hdrSize = 24
 
 	kindImage byte = 1 // payload: width*height*4 bytes, RGBA8888
 	kindProv  byte = 2 // payload: width*height int32, the command that last wrote each pixel (-1 = none)
 )
 
-// req is a client request. Only the fields an op uses are set.
+// Streams. A binary message says which panel asked for it.
+const (
+	streamMain    uint16 = 0 // the frame viewport
+	streamSurface uint16 = 1 // the memory/VRAM surface panel
+)
+
+// req is a client request. Args is decoded per op.
 type req struct {
-	Op   string `json:"op"`
-	Seq  int    `json:"seq"`
-	K    int    `json:"k"`        // scrub: command index
-	X    int    `json:"x"`        // pixel: coordinates
-	Y    int    `json:"y"`        //
-	Addr uint32 `json:"addr"`     // mem: physical address
-	Len  int    `json:"len"`      // mem: byte count
-	Over bool   `json:"overdraw"` // step: record the full overdraw history
-	N    int    `json:"n"`        // step: fields to advance (0 = step to a drawn frame)
-	On   bool   `json:"on"`       // play: start (true) or stop (false)
+	Op   string          `json:"op"`
+	Seq  int             `json:"seq"`
+	Args json.RawMessage `json:"args"`
 }
 
-// coalescable reports whether a queued request of this op may be replaced by a
-// newer one. A scrubber drag fires an op per mouse-move and only the last one
-// matters; a step or a memory read must not be dropped.
-func coalescable(op string) bool { return op == "scrub" }
+// The per-op argument payloads.
+type (
+	stepArgs struct {
+		N        int  `json:"n"`        // fields to advance; 0 = step to a drawn frame
+		Overdraw bool `json:"overdraw"` // record the full per-pixel write history
+	}
+	playArgs struct {
+		On bool `json:"on"`
+		// Overdraw applies to the capture that pausing does, so stopping lands on a
+		// frame recorded with the detail the page asked for.
+		Overdraw bool `json:"overdraw"`
+	}
+	scrubArgs struct {
+		K int `json:"k"`
+	}
+	pixelArgs struct {
+		X int `json:"x"`
+		Y int `json:"y"`
+	}
+	memArgs struct {
+		Addr uint32 `json:"addr"`
+		Len  int    `json:"len"`
+	}
+	disasmArgs struct {
+		Addr uint64 `json:"addr"`
+		N    int    `json:"n"`
+	}
+	cpuRunArgs struct {
+		N int `json:"n"` // instructions to step
+	}
+	bpArgs struct {
+		PC uint64 `json:"pc"`
+	}
+	watchArgs struct {
+		Kind  string `json:"kind"` // "read" | "write"
+		Lo    uint32 `json:"lo"`
+		Hi    uint32 `json:"hi"`
+		Break bool   `json:"break"`
+	}
+	unwatchArgs struct {
+		ID int `json:"id"`
+	}
+	stateArgs struct {
+		Path string `json:"path"`
+	}
+)
+
+// decode unpacks an op's args, giving a legible error rather than a zero value.
+func decodeArgs(r req, v any) error {
+	if len(r.Args) == 0 {
+		return nil // an op with no args is fine; the zero value is the default
+	}
+	if err := json.Unmarshal(r.Args, v); err != nil {
+		return fmt.Errorf("bad args for %s: %w", r.Op, err)
+	}
+	return nil
+}
+
+// coalescable reports whether a queued request may be replaced by a newer one of the
+// same op. A scrubber drag fires an op per mouse-move and only the last one matters;
+// the same is true of aiming a surface or scrolling a disassembly. A step, a state
+// save or a watch must never be dropped.
+func coalescable(op string) bool {
+	switch op {
+	case "frame.scrub", "surface.render", "cpu.disasm", "mem.read":
+		return true
+	}
+	return false
+}
 
 // jsonCommand is a GPUCommand as the page sees it. Words are hex strings: a raw
 // uint64 would lose its low bits passing through a JSON double.
@@ -77,19 +153,20 @@ type jsonWrite struct {
 	Rejected bool   `json:"rejected"`
 }
 
-// The server-to-client JSON messages. Each carries Type and, when it answers a
-// request, that request's Seq.
+// The server-to-client messages. Each carries Type, and a reply also carries the Seq
+// of the request it answers.
 type (
 	helloMsg struct {
-		Type   string `json:"type"` // "hello"
-		Target string `json:"target"`
-		ROM    string `json:"rom"`
+		Type     string   `json:"type"` // "hello"
+		Platform string   `json:"platform"`
+		Title    string   `json:"title"`
+		Caps     []string `json:"caps"` // what this target can do; the page builds itself from this
 	}
 
 	frameMsg struct {
 		Type     string        `json:"type"` // "frame"
 		Seq      int           `json:"seq"`
-		Frame    int           `json:"frame"` // how many frames we have stepped
+		Frame    int           `json:"frame"`
 		Commands []jsonCommand `json:"commands"`
 		W        int           `json:"w"`
 		H        int           `json:"h"`
@@ -101,12 +178,13 @@ type (
 	renderMsg struct {
 		Type     string  `json:"type"` // "render" — announces the binary image that follows
 		Seq      int     `json:"seq"`
+		Stream   uint16  `json:"stream"`
 		K        int     `json:"k"` // -1 when the image is a scanout, not a command's draw target
 		RenderMs float64 `json:"renderMs"`
 		Bytes    int     `json:"bytes"`
 		Cached   bool    `json:"cached"`
-		Play     bool    `json:"play,omitempty"`  // a free-running frame: unrequested, so never stale
-		Frame    int     `json:"frame,omitempty"` // fields stepped so far, for the play counter
+		Play     bool    `json:"play,omitempty"`  // a free-running frame: unrequested, never stale
+		Frame    int     `json:"frame,omitempty"` // fields stepped so far
 	}
 
 	cpuMsg struct {
@@ -118,11 +196,31 @@ type (
 		Extra map[string]string `json:"extra"`
 	}
 
+	disasmMsg struct {
+		Type  string      `json:"type"` // "disasm"
+		Seq   int         `json:"seq"`
+		PC    string      `json:"pc"`
+		Instr []jsonInstr `json:"instr"`
+		BPs   []string    `json:"bps"`
+	}
+
+	jsonInstr struct {
+		Addr string `json:"addr"`
+		Text string `json:"text"`
+	}
+
 	memMsg struct {
-		Type string `json:"type"` // "mem"
-		Seq  int    `json:"seq"`
-		Addr uint32 `json:"addr"`
-		Data string `json:"data"` // hex
+		Type    string       `json:"type"` // "mem"
+		Seq     int          `json:"seq"`
+		Addr    uint32       `json:"addr"`
+		Data    string       `json:"data"` // hex
+		Regions []jsonRegion `json:"regions,omitempty"`
+	}
+
+	jsonRegion struct {
+		Name string `json:"name"`
+		Lo   string `json:"lo"`
+		Hi   string `json:"hi"`
 	}
 
 	pixelMsg struct {
@@ -134,6 +232,48 @@ type (
 		Writes []jsonWrite `json:"writes"`
 	}
 
+	watchesMsg struct {
+		Type    string      `json:"type"` // "watches"
+		Seq     int         `json:"seq"`
+		Watches []jsonWatch `json:"watches"`
+	}
+
+	jsonWatch struct {
+		ID    int    `json:"id"`
+		Kind  string `json:"kind"`
+		Lo    string `json:"lo"`
+		Hi    string `json:"hi"`
+		Break bool   `json:"break"`
+		Hits  uint64 `json:"hits"`
+	}
+
+	// hitMsg is an event: a watch fired. It carries no seq — nobody asked for it.
+	hitMsg struct {
+		Type  string `json:"type"` // "hit"
+		ID    int    `json:"id"`
+		Kind  string `json:"kind"`
+		Addr  string `json:"addr"`
+		Val   string `json:"val"`
+		PC    string `json:"pc"`
+		Instr string `json:"instr"`
+	}
+
+	// stoppedMsg is an event: a CPU run ended, and why.
+	stoppedMsg struct {
+		Type   string `json:"type"` // "stopped"
+		Reason string `json:"reason"`
+		PC     string `json:"pc"`
+		Steps  uint64 `json:"steps"`
+		Note   string `json:"note"`
+	}
+
+	okMsg struct {
+		Type string `json:"type"` // "ok" — an op that has nothing to report
+		Seq  int    `json:"seq"`
+		Op   string `json:"op"`
+		Note string `json:"note,omitempty"`
+	}
+
 	errMsg struct {
 		Type string `json:"type"` // "error"
 		Seq  int    `json:"seq"`
@@ -142,11 +282,11 @@ type (
 )
 
 // encodeImage packs an RGBA image into a binary message.
-func encodeImage(seq int, img *image.RGBA) []byte {
+func encodeImage(seq int, stream uint16, img *image.RGBA) []byte {
 	w := img.Rect.Dx()
 	h := img.Rect.Dy()
 	out := make([]byte, hdrSize+w*h*4)
-	putHeader(out, kindImage, seq, w, h)
+	putHeader(out, kindImage, seq, stream, w, h)
 	// image.NewRGBA gives Stride == 4*w, but a sub-image would not; copy row-wise so
 	// the payload is always tightly packed.
 	for y := 0; y < h; y++ {
@@ -160,20 +300,21 @@ func encodeImage(seq int, img *image.RGBA) []byte {
 func encodeProv(seq int, fc *debug.FrameCapture) []byte {
 	w, h := fc.Width, fc.Height
 	out := make([]byte, hdrSize+w*h*4)
-	putHeader(out, kindProv, seq, w, h)
+	putHeader(out, kindProv, seq, streamMain, w, h)
 	for i, v := range fc.Prov {
 		binary.LittleEndian.PutUint32(out[hdrSize+i*4:], uint32(v))
 	}
 	return out
 }
 
-func putHeader(b []byte, kind byte, seq, w, h int) {
-	copy(b, "RDB1")
+func putHeader(b []byte, kind byte, seq int, stream uint16, w, h int) {
+	copy(b, "RDB2")
 	b[4] = kind
 	b[5] = 0
 	binary.LittleEndian.PutUint16(b[6:], uint16(seq))
-	binary.LittleEndian.PutUint32(b[8:], uint32(w))
-	binary.LittleEndian.PutUint32(b[12:], uint32(h))
+	binary.LittleEndian.PutUint16(b[8:], stream)
+	binary.LittleEndian.PutUint32(b[12:], uint32(w))
+	binary.LittleEndian.PutUint32(b[16:], uint32(h))
 }
 
 // toJSONCommands converts a capture's command stream for the command pane.

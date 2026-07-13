@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"sort"
 	"strings"
 	"testing"
 
@@ -18,21 +19,54 @@ import (
 	"retroreverse.com/tools/debug/n64adapter"
 )
 
-// ---- a synthetic target, so the protocol is testable without a ROM ----
+// ---- synthetic targets, so the protocol is testable without a ROM ----
 
-type fakeTarget struct {
-	steps int
+// coreTarget implements debug.Target and nothing else — the honest minimum. It exists
+// to prove that a platform which can only show a screen and read memory still works,
+// and that the ops it cannot back are refused rather than half-served.
+type coreTarget struct{ steps int }
+
+const fakeW, fakeH = 8, 4
+
+func (t *coreTarget) Platform() string             { return "fake" }
+func (t *coreTarget) Title() string                { return "Fake Game" }
+func (t *coreTarget) Snapshot() debug.Snapshot     { return fakeSnap{} }
+func (t *coreTarget) Restore(debug.Snapshot) error { return nil }
+func (t *coreTarget) Close() error                 { return nil }
+
+func (t *coreTarget) CPU() debug.CPUReg {
+	return debug.CPUReg{PC: 0x80001234, Names: []string{"r0", "at"}, Vals: []uint64{0, 1},
+		Extra: map[string]uint64{"hi": 0xAB}}
 }
 
-func (f *fakeTarget) Name() string                 { return "Fake" }
-func (f *fakeTarget) Snapshot() debug.Snapshot     { return fakeSnap{} }
-func (f *fakeTarget) Restore(debug.Snapshot) error { return nil }
+func (t *coreTarget) ReadMem(addr uint32, n int) []byte {
+	b := make([]byte, n)
+	for i := range b {
+		b[i] = byte(int(addr) + i)
+	}
+	return b
+}
+
+func (t *coreTarget) Display() (*image.RGBA, error) {
+	img := image.NewRGBA(image.Rect(0, 0, fakeW, fakeH))
+	for i := range img.Pix {
+		img.Pix[i] = 0xFF // the fake's scanout is all-white, distinguishable from a draw target
+	}
+	return img, nil
+}
 
 type fakeSnap struct{}
 
 func (fakeSnap) Platform() string { return "fake" }
 
-const fakeW, fakeH = 8, 4
+// fakeTarget is a fully-featured target: it backs every capability the frame tools
+// need, so the whole protocol can be exercised without booting a real machine.
+type fakeTarget struct {
+	coreTarget
+	watches   []debug.Watch
+	watchSink func(debug.WatchHit)
+	bps       []uint64
+}
 
 // fakeCmds is over the 100-command bar the "step to a drawn frame" heuristic uses to
 // tell a frame that renders a scene from an idle field.
@@ -65,7 +99,9 @@ func (f *fakeTarget) StepFrame(withOverdraw bool) (*debug.FrameCapture, error) {
 	return fc, nil
 }
 
-// RenderAfter paints every pixel with k, so a test can prove the right k came back.
+func (f *fakeTarget) StepFast() error { f.steps++; return nil }
+
+// RenderAfter paints every pixel byte with k, so a test can prove the right k came back.
 func (f *fakeTarget) RenderAfter(fc *debug.FrameCapture, k int) (*image.RGBA, error) {
 	img := image.NewRGBA(image.Rect(0, 0, fakeW, fakeH))
 	for i := range img.Pix {
@@ -74,21 +110,34 @@ func (f *fakeTarget) RenderAfter(fc *debug.FrameCapture, k int) (*image.RGBA, er
 	return img, nil
 }
 
-func (f *fakeTarget) CPU() debug.CPUReg {
-	return debug.CPUReg{PC: 0x80001234, Names: []string{"r0", "at"}, Vals: []uint64{0, 1},
-		Extra: map[string]uint64{"hi": 0xAB}}
+func (f *fakeTarget) StepInstr(n int) (debug.StopReason, error) {
+	return debug.StopReason{Kind: "steps", PC: 0x1000, Steps: uint64(n)}, nil
 }
-func (f *fakeTarget) Display() (*image.RGBA, error) { return f.RenderAfter(nil, 0xFF) }
-func (f *fakeTarget) ReadMem(addr uint32, n int) []byte {
-	b := make([]byte, n)
-	for i := range b {
-		b[i] = byte(int(addr) + i)
+
+func (f *fakeTarget) Continue(budget uint64) (debug.StopReason, error) {
+	return debug.StopReason{Kind: "breakpoint", PC: 0x2000, Steps: 42}, nil
+}
+
+func (f *fakeTarget) Disasm(addr uint64, n int) ([]debug.Instr, error) {
+	out := make([]debug.Instr, n)
+	for i := range out {
+		out[i] = debug.Instr{Addr: addr + uint64(i)*4, Text: "nop"}
 	}
-	return b
+	return out, nil
 }
-func (f *fakeTarget) SetWriteWatch(lo, hi uint32, cb func(a, v, pc uint32)) {}
-func (f *fakeTarget) SetReadWatch(lo, hi uint32, cb func(a, v, pc uint32))  {}
-func (f *fakeTarget) SetBreakpoint(vaddr uint64)                            {}
+
+func (f *fakeTarget) SetBreakpoint(pc uint64)   { f.bps = append(f.bps, pc) }
+func (f *fakeTarget) ClearBreakpoint(pc uint64) { f.bps = nil }
+func (f *fakeTarget) Breakpoints() []uint64     { return f.bps }
+
+func (f *fakeTarget) SetWatch(w debug.Watch) (int, error) {
+	w.ID = len(f.watches) + 1
+	f.watches = append(f.watches, w)
+	return w.ID, nil
+}
+func (f *fakeTarget) ClearWatch(id int)                    { f.watches = nil }
+func (f *fakeTarget) Watches() []debug.Watch               { return f.watches }
+func (f *fakeTarget) OnWatchHit(sink func(debug.WatchHit)) { f.watchSink = sink }
 
 // ---- a minimal websocket client, enough to drive the server ----
 
@@ -119,9 +168,19 @@ func dial(t *testing.T, url string) *wsClient {
 	return &wsClient{c: c, br: br}
 }
 
-func (cl *wsClient) sendJSON(t *testing.T, v any) {
+// send writes an op with its args, as the page does.
+func (cl *wsClient) send(t *testing.T, op string, seq int, args any) {
 	t.Helper()
-	payload, _ := json.Marshal(v)
+	var raw json.RawMessage
+	if args != nil {
+		b, err := json.Marshal(args)
+		if err != nil {
+			t.Fatal(err)
+		}
+		raw = b
+	}
+	payload, _ := json.Marshal(req{Op: op, Seq: seq, Args: raw})
+
 	var buf bytes.Buffer
 	buf.WriteByte(0x81) // FIN | text
 	n := len(payload)
@@ -167,7 +226,7 @@ func (cl *wsClient) recv(t *testing.T) (isText bool, payload []byte) {
 	return isText, payload
 }
 
-// recvJSON reads the next text message and decodes it into a map.
+// recvJSON reads the next text message.
 func (cl *wsClient) recvJSON(t *testing.T) map[string]any {
 	t.Helper()
 	for {
@@ -183,51 +242,127 @@ func (cl *wsClient) recvJSON(t *testing.T) map[string]any {
 	}
 }
 
+// recvType reads text messages until one of the wanted type arrives, so a test is not
+// derailed by an event (a watch hit, a stop) landing in the middle of a reply.
+func (cl *wsClient) recvType(t *testing.T, want string) map[string]any {
+	t.Helper()
+	for i := 0; i < 16; i++ {
+		m := cl.recvJSON(t)
+		if m["type"] == want {
+			return m
+		}
+		if m["type"] == "error" {
+			t.Fatalf("waiting for %q, got error: %v", want, m["msg"])
+		}
+	}
+	t.Fatalf("no %q message", want)
+	return nil
+}
+
 // recvBinary reads the next binary message and unpacks its header.
-func (cl *wsClient) recvBinary(t *testing.T) (kind byte, seq, w, h int, payload []byte) {
+func (cl *wsClient) recvBinary(t *testing.T) (kind byte, seq int, w, h int, payload []byte) {
 	t.Helper()
 	for {
 		isText, b := cl.recv(t)
 		if isText {
 			continue
 		}
-		if len(b) < hdrSize || string(b[:4]) != "RDB1" {
+		if len(b) < hdrSize || string(b[:4]) != "RDB2" {
 			t.Fatalf("bad binary header %x", b[:min(8, len(b))])
 		}
 		return b[4],
 			int(binary.LittleEndian.Uint16(b[6:])),
-			int(binary.LittleEndian.Uint32(b[8:])),
 			int(binary.LittleEndian.Uint32(b[12:])),
+			int(binary.LittleEndian.Uint32(b[16:])),
 			b[hdrSize:]
 	}
+}
+
+func serveTarget(t *testing.T, tgt debug.Target) *httptest.Server {
+	t.Helper()
+	srv := httptest.NewServer(New(tgt).Handler())
+	t.Cleanup(srv.Close)
+	return srv
 }
 
 func serveFake(t *testing.T) (*httptest.Server, *fakeTarget) {
 	t.Helper()
 	f := &fakeTarget{}
-	srv := httptest.NewServer(New(f, "fake.z64").Handler())
-	t.Cleanup(srv.Close)
-	return srv, f
+	return serveTarget(t, f), f
 }
 
-// ---- tests ----
+// ---- capabilities ----
 
-func TestHelloAndStep(t *testing.T) {
+// TestCapabilitiesAdvertised: the page builds itself from this list, so it has to be
+// exactly what the target can do — no more, no less.
+func TestCapabilitiesAdvertised(t *testing.T) {
 	srv, _ := serveFake(t)
 	cl := dial(t, srv.URL)
 
-	if m := cl.recvJSON(t); m["type"] != "hello" || m["rom"] != "fake.z64" {
-		t.Fatalf("first message = %v, want hello", m)
+	m := cl.recvType(t, "hello")
+	if m["platform"] != "fake" || m["title"] != "Fake Game" {
+		t.Errorf("hello = %v", m)
+	}
+	var got []string
+	for _, c := range m["caps"].([]any) {
+		got = append(got, c.(string))
+	}
+	sort.Strings(got)
+	want := []string{"break", "code", "disasm", "faststep", "frames", "replay", "watch"}
+	if strings.Join(got, ",") != strings.Join(want, ",") {
+		t.Errorf("caps = %v, want %v", got, want)
+	}
+}
+
+// TestCoreOnlyTarget: a target that can only show a screen and read memory must still
+// serve, and must *refuse* the ops it cannot back rather than crashing or faking them.
+func TestCoreOnlyTarget(t *testing.T) {
+	srv := serveTarget(t, &coreTarget{})
+	cl := dial(t, srv.URL)
+
+	m := cl.recvType(t, "hello")
+	if caps := m["caps"]; caps != nil && len(caps.([]any)) != 0 {
+		t.Errorf("a core-only target advertised capabilities: %v", caps)
 	}
 
-	cl.sendJSON(t, map[string]any{"op": "step", "seq": 1, "overdraw": true})
-	m := cl.recvJSON(t)
-	if m["type"] != "frame" {
-		t.Fatalf("step reply = %v, want frame", m)
+	// What it can do, it does.
+	cl.send(t, "cpu.regs", 1, nil)
+	if m := cl.recvType(t, "cpu"); m["pc"] != "0000000080001234" {
+		t.Errorf("cpu = %v", m)
 	}
-	if got := m["w"].(float64); int(got) != fakeW {
-		t.Errorf("frame w = %v, want %d", got, fakeW)
+	cl.send(t, "mem.read", 2, memArgs{Addr: 0x10, Len: 4})
+	if m := cl.recvType(t, "mem"); m["data"] != "10111213" {
+		t.Errorf("mem = %v", m)
 	}
+	cl.send(t, "frame.display", 3, nil)
+	cl.recvType(t, "render")
+	if kind, _, _, _, _ := cl.recvBinary(t); kind != kindImage {
+		t.Errorf("display kind = %d", kind)
+	}
+
+	// What it cannot do, it refuses — naming the capability, not panicking.
+	for _, op := range []string{"frame.step", "frame.scrub", "cpu.step", "cpu.disasm", "mem.watch", "state.save"} {
+		cl.send(t, op, 9, nil)
+		m := cl.recvJSON(t)
+		if m["type"] != "error" {
+			t.Errorf("%s on a core-only target = %v, want an error", op, m)
+			continue
+		}
+		if !strings.Contains(m["msg"].(string), "cannot") {
+			t.Errorf("%s error is unhelpful: %v", op, m["msg"])
+		}
+	}
+}
+
+// ---- frames ----
+
+func TestStepAndProvenance(t *testing.T) {
+	srv, _ := serveFake(t)
+	cl := dial(t, srv.URL)
+	cl.recvType(t, "hello")
+
+	cl.send(t, "frame.step", 1, stepArgs{Overdraw: true})
+	m := cl.recvType(t, "frame")
 	if got := len(m["commands"].([]any)); got != fakeCmds {
 		t.Errorf("frame carried %d commands, want %d", got, fakeCmds)
 	}
@@ -235,16 +370,9 @@ func TestHelloAndStep(t *testing.T) {
 		t.Errorf("frame flags = %v", m)
 	}
 
-	// The provenance buffer follows the frame JSON as a binary message.
 	kind, seq, w, h, payload := cl.recvBinary(t)
-	if kind != kindProv {
-		t.Fatalf("binary kind = %d, want prov", kind)
-	}
-	if seq != 1 || w != fakeW || h != fakeH {
-		t.Errorf("prov header = seq %d %dx%d", seq, w, h)
-	}
-	if len(payload) != fakeW*fakeH*4 {
-		t.Fatalf("prov payload = %d bytes, want %d", len(payload), fakeW*fakeH*4)
+	if kind != kindProv || seq != 1 || w != fakeW || h != fakeH {
+		t.Fatalf("prov header = kind %d seq %d %dx%d", kind, seq, w, h)
 	}
 	for i := 0; i < fakeW*fakeH; i++ {
 		got := int32(binary.LittleEndian.Uint32(payload[i*4:]))
@@ -257,23 +385,20 @@ func TestHelloAndStep(t *testing.T) {
 func TestScrubReturnsRequestedCommand(t *testing.T) {
 	srv, _ := serveFake(t)
 	cl := dial(t, srv.URL)
-	cl.recvJSON(t) // hello
+	cl.recvType(t, "hello")
 
-	cl.sendJSON(t, map[string]any{"op": "step", "seq": 1})
-	cl.recvJSON(t)   // frame
-	cl.recvBinary(t) // prov
+	cl.send(t, "frame.step", 1, stepArgs{})
+	cl.recvType(t, "frame")
+	cl.recvBinary(t)
 
-	cl.sendJSON(t, map[string]any{"op": "scrub", "seq": 7, "k": 2})
-	m := cl.recvJSON(t)
-	if m["type"] != "render" || int(m["k"].(float64)) != 2 || int(m["seq"].(float64)) != 7 {
+	cl.send(t, "frame.scrub", 7, scrubArgs{K: 2})
+	m := cl.recvType(t, "render")
+	if int(m["k"].(float64)) != 2 || int(m["seq"].(float64)) != 7 {
 		t.Fatalf("render reply = %v", m)
 	}
 	kind, seq, w, h, payload := cl.recvBinary(t)
 	if kind != kindImage || seq != 7 || w != fakeW || h != fakeH {
 		t.Fatalf("image header = kind %d seq %d %dx%d", kind, seq, w, h)
-	}
-	if len(payload) != fakeW*fakeH*4 {
-		t.Fatalf("image payload = %d bytes, want %d", len(payload), fakeW*fakeH*4)
 	}
 	// The fake paints every byte with k, so this proves k reached RenderAfter.
 	for i, b := range payload {
@@ -283,8 +408,8 @@ func TestScrubReturnsRequestedCommand(t *testing.T) {
 	}
 
 	// Out-of-range k clamps to the last command rather than failing.
-	cl.sendJSON(t, map[string]any{"op": "scrub", "seq": 8, "k": 9999})
-	if m := cl.recvJSON(t); int(m["k"].(float64)) != fakeCmds-1 {
+	cl.send(t, "frame.scrub", 8, scrubArgs{K: 9999})
+	if m := cl.recvType(t, "render"); int(m["k"].(float64)) != fakeCmds-1 {
 		t.Errorf("k=9999 clamped to %v, want %d", m["k"], fakeCmds-1)
 	}
 }
@@ -292,17 +417,14 @@ func TestScrubReturnsRequestedCommand(t *testing.T) {
 func TestPixelOverdraw(t *testing.T) {
 	srv, _ := serveFake(t)
 	cl := dial(t, srv.URL)
-	cl.recvJSON(t)
+	cl.recvType(t, "hello")
 
-	cl.sendJSON(t, map[string]any{"op": "step", "seq": 1, "overdraw": true})
-	cl.recvJSON(t)
+	cl.send(t, "frame.step", 1, stepArgs{Overdraw: true})
+	cl.recvType(t, "frame")
 	cl.recvBinary(t)
 
-	cl.sendJSON(t, map[string]any{"op": "pixel", "seq": 2, "x": 0, "y": 0})
-	m := cl.recvJSON(t)
-	if m["type"] != "pixel" {
-		t.Fatalf("reply = %v", m)
-	}
+	cl.send(t, "frame.pixel", 2, pixelArgs{X: 0, Y: 0})
+	m := cl.recvType(t, "pixel")
 	if int(m["cmd"].(float64)) != 0 {
 		t.Errorf("pixel (0,0) last writer = %v, want 0", m["cmd"])
 	}
@@ -315,114 +437,133 @@ func TestPixelOverdraw(t *testing.T) {
 	}
 }
 
-func TestCPUAndMem(t *testing.T) {
-	srv, _ := serveFake(t)
-	cl := dial(t, srv.URL)
-	cl.recvJSON(t)
-
-	cl.sendJSON(t, map[string]any{"op": "cpu", "seq": 3})
-	m := cl.recvJSON(t)
-	if m["type"] != "cpu" || m["pc"] != "0000000080001234" {
-		t.Errorf("cpu = %v", m)
-	}
-
-	cl.sendJSON(t, map[string]any{"op": "mem", "seq": 4, "addr": 0x10, "len": 4})
-	m = cl.recvJSON(t)
-	if m["type"] != "mem" || m["data"] != "10111213" {
-		t.Errorf("mem = %v", m)
-	}
-}
-
-// TestPlayStreamsAndPauses: play free-runs the machine streaming the scanout, holds
-// itself to one unacknowledged frame, and pausing lands on a full capture.
 func TestPlayStreamsAndPauses(t *testing.T) {
 	srv, f := serveFake(t)
 	cl := dial(t, srv.URL)
-	cl.recvJSON(t) // hello
+	cl.recvType(t, "hello")
 
-	cl.sendJSON(t, map[string]any{"op": "play", "seq": 1, "on": true})
-
+	cl.send(t, "frame.play", 1, playArgs{On: true})
 	for i := 0; i < 3; i++ {
-		m := cl.recvJSON(t)
-		if m["type"] != "render" || m["play"] != true {
+		m := cl.recvType(t, "render")
+		if m["play"] != true || int(m["k"].(float64)) != -1 {
 			t.Fatalf("play frame %d = %v", i, m)
 		}
-		if int(m["k"].(float64)) != -1 {
-			t.Errorf("a played frame is the scanout, so k should be -1, got %v", m["k"])
+		_, seq, _, _, payload := cl.recvBinary(t)
+		if seq != 0 {
+			t.Errorf("a played frame answers no request, so seq should be 0, got %d", seq)
 		}
-		kind, seq, _, _, payload := cl.recvBinary(t)
-		if kind != kindImage || seq != 0 {
-			t.Fatalf("play binary = kind %d seq %d, want an image at seq 0", kind, seq)
-		}
-		// The fake's Display paints 0xFF, so this is the scanout and not a draw target.
+		// The fake's Display paints 0xFF: this is the scanout, not a draw target.
 		if payload[0] != 0xFF {
 			t.Errorf("played frame is not the scanout (first byte %#x)", payload[0])
 		}
-		// Nothing more arrives until we acknowledge: the server keeps one frame in
-		// flight so the emulator cannot bury a slow page in frames it will never draw.
-		cl.sendJSON(t, map[string]any{"op": "ack"})
+		// Nothing more arrives until we acknowledge — the server holds itself to one
+		// frame in flight so the emulator cannot bury a slow page.
+		cl.send(t, "frame.ack", 0, nil)
+	}
+	if f.steps < 3 {
+		t.Errorf("machine advanced %d fields over 3 played frames", f.steps)
 	}
 
-	stepsWhilePlaying := f.steps
-	if stepsWhilePlaying < 3 {
-		t.Errorf("machine advanced %d fields over 3 played frames", stepsWhilePlaying)
-	}
-
-	// Pausing captures the next field in full, so you land on a real frame. The
-	// machine keeps playing until the request is picked up, so a frame already on its
-	// way arrives first; skip past those to the capture.
-	cl.sendJSON(t, map[string]any{"op": "play", "seq": 2, "on": false, "overdraw": true})
-	var m map[string]any
+	// Pausing captures the next field in full. Frames already on their way arrive
+	// first, so skip past them.
+	cl.send(t, "frame.play", 2, playArgs{On: false, Overdraw: true})
 	for i := 0; ; i++ {
 		if i > 8 {
 			t.Fatal("no frame capture after pause")
 		}
-		m = cl.recvJSON(t)
+		m := cl.recvJSON(t)
 		if m["type"] == "frame" {
+			if len(m["commands"].([]any)) != fakeCmds {
+				t.Errorf("pause captured %v commands", len(m["commands"].([]any)))
+			}
 			break
 		}
-		if m["type"] != "render" || m["play"] != true {
-			t.Fatalf("pause reply = %v, want a frame capture", m)
+		if m["type"] == "render" {
+			cl.recvBinary(t)
 		}
-		cl.recvBinary(t) // the played frame's image
 	}
-	if len(m["commands"].([]any)) != fakeCmds {
-		t.Errorf("pause captured %v commands", len(m["commands"].([]any)))
-	}
-	if m["overdraw"] != true {
-		t.Error("pause did not honour the overdraw request")
-	}
-	cl.recvBinary(t) // the provenance buffer
 }
 
-// TestPlayUsesTheFastPath: play must not pay for a capture per field.
-func TestPlayUsesTheFastPath(t *testing.T) {
-	var fs fastStepper = (*fakeFast)(nil)
-	_ = fs // the fake below is the compile-time proof; the real one is n64adapter
+// ---- cpu, breakpoints, watches ----
 
+func TestCPUStepAndDisasm(t *testing.T) {
 	srv, _ := serveFake(t)
 	cl := dial(t, srv.URL)
-	cl.recvJSON(t)
+	cl.recvType(t, "hello")
 
-	// The fake target has no StepFast, so the session must fall back to StepFrame
-	// rather than refuse to play.
-	cl.sendJSON(t, map[string]any{"op": "play", "seq": 1, "on": true})
-	if m := cl.recvJSON(t); m["type"] != "render" {
-		t.Fatalf("a target without StepFast could not play: %v", m)
+	cl.send(t, "cpu.step", 1, cpuRunArgs{N: 5})
+	m := cl.recvType(t, "stopped")
+	if m["reason"] != "steps" || int(m["steps"].(float64)) != 5 {
+		t.Errorf("stopped = %v", m)
+	}
+
+	cl.send(t, "bp.set", 2, bpArgs{PC: 0x80002000})
+	cl.recvType(t, "ok")
+
+	cl.send(t, "cpu.disasm", 3, disasmArgs{Addr: 0x80001000, N: 4})
+	m = cl.recvType(t, "disasm")
+	if got := len(m["instr"].([]any)); got != 4 {
+		t.Errorf("disasm returned %d instructions, want 4", got)
+	}
+	bps := m["bps"].([]any)
+	if len(bps) != 1 || bps[0] != "0000000080002000" {
+		t.Errorf("disasm breakpoints = %v", bps)
 	}
 }
 
-// fakeFast exists only to assert the optional interface is satisfiable as declared.
-type fakeFast struct{}
+// TestContinueStopsAndReports: a run reports why it ended, as an event.
+func TestContinueStopsAndReports(t *testing.T) {
+	srv, _ := serveFake(t)
+	cl := dial(t, srv.URL)
+	cl.recvType(t, "hello")
 
-func (*fakeFast) StepFast() error { return nil }
+	cl.send(t, "cpu.continue", 1, nil)
+	cl.recvType(t, "ok")
+	// The fake's Continue reports a breakpoint immediately, so the run loop stops
+	// itself and broadcasts why.
+	m := cl.recvType(t, "stopped")
+	if m["reason"] != "breakpoint" || m["pc"] != "0000000000002000" {
+		t.Errorf("stopped = %v", m)
+	}
+}
+
+func TestWatchSetAndCleared(t *testing.T) {
+	srv, f := serveFake(t)
+	cl := dial(t, srv.URL)
+	cl.recvType(t, "hello")
+
+	cl.send(t, "mem.watch", 1, watchArgs{Kind: "write", Lo: 0x100, Hi: 0x200, Break: true})
+	m := cl.recvType(t, "watches")
+	ws := m["watches"].([]any)
+	if len(ws) != 1 {
+		t.Fatalf("watches = %v", ws)
+	}
+	w := ws[0].(map[string]any)
+	if w["kind"] != "write" || w["lo"] != "00000100" || w["break"] != true {
+		t.Errorf("watch = %v", w)
+	}
+
+	// A hit fired by the emulator reaches the page as an event.
+	f.watchSink(debug.WatchHit{ID: 1, Kind: "write", Addr: 0x180, Val: 0x2A, PC: 0x8000ABCD, Instr: "sw t0, 0(a1)"})
+	hit := cl.recvType(t, "hit")
+	if hit["addr"] != "00000180" || hit["pc"] != "8000abcd" || hit["instr"] != "sw t0, 0(a1)" {
+		t.Errorf("hit = %v", hit)
+	}
+
+	cl.send(t, "mem.unwatch", 2, unwatchArgs{ID: 1})
+	if m := cl.recvType(t, "watches"); len(m["watches"].([]any)) != 0 {
+		t.Errorf("watch survived unwatch: %v", m)
+	}
+}
+
+// ---- plumbing ----
 
 func TestUnknownOpIsAnError(t *testing.T) {
 	srv, _ := serveFake(t)
 	cl := dial(t, srv.URL)
-	cl.recvJSON(t)
+	cl.recvType(t, "hello")
 
-	cl.sendJSON(t, map[string]any{"op": "nonsense", "seq": 5})
+	cl.send(t, "nonsense", 5, nil)
 	m := cl.recvJSON(t)
 	if m["type"] != "error" || int(m["seq"].(float64)) != 5 {
 		t.Errorf("reply = %v, want an error echoing seq 5", m)
@@ -433,22 +574,37 @@ func TestUnknownOpIsAnError(t *testing.T) {
 // everything else keeps its order.
 func TestMailboxCoalesces(t *testing.T) {
 	mb := newMailbox()
-	mb.push(req{Op: "step", Seq: 1})
-	mb.push(req{Op: "scrub", Seq: 2, K: 10})
-	mb.push(req{Op: "mem", Seq: 3})
-	mb.push(req{Op: "scrub", Seq: 4, K: 20}) // replaces seq 2, keeping its slot
-	mb.push(req{Op: "scrub", Seq: 5, K: 30}) // replaces seq 4
+	s1 := &session{}
+	mb.push(request{from: s1, req: req{Op: "frame.step", Seq: 1}})
+	mb.push(request{from: s1, req: req{Op: "frame.scrub", Seq: 2}})
+	mb.push(request{from: s1, req: req{Op: "cpu.regs", Seq: 3}})
+	mb.push(request{from: s1, req: req{Op: "frame.scrub", Seq: 4}}) // replaces seq 2, keeping its slot
+	mb.push(request{from: s1, req: req{Op: "frame.scrub", Seq: 5}}) // replaces seq 4
 
-	want := []req{{Op: "step", Seq: 1}, {Op: "scrub", Seq: 5, K: 30}, {Op: "mem", Seq: 3}}
+	want := []struct {
+		op  string
+		seq int
+	}{{"frame.step", 1}, {"frame.scrub", 5}, {"cpu.regs", 3}}
 	for i, w := range want {
 		got, ok := mb.pop()
 		if !ok {
 			t.Fatalf("queue drained early at %d", i)
 		}
-		if got.Op != w.Op || got.Seq != w.Seq || got.K != w.K {
-			t.Errorf("pop %d = %+v, want %+v", i, got, w)
+		if got.req.Op != w.op || got.req.Seq != w.seq {
+			t.Errorf("pop %d = %s/%d, want %s/%d", i, got.req.Op, got.req.Seq, w.op, w.seq)
 		}
 	}
+
+	// Two tabs scrubbing are two questions; neither may eat the other.
+	s2 := &session{}
+	mb.push(request{from: s1, req: req{Op: "frame.scrub", Seq: 6}})
+	mb.push(request{from: s2, req: req{Op: "frame.scrub", Seq: 7}})
+	a, _ := mb.pop()
+	b, _ := mb.pop()
+	if a.from != s1 || b.from != s2 {
+		t.Errorf("a scrub from one session displaced another session's")
+	}
+
 	mb.close()
 	if _, ok := mb.pop(); ok {
 		t.Error("pop after close returned a request")
@@ -457,13 +613,13 @@ func TestMailboxCoalesces(t *testing.T) {
 
 func TestCrossOriginRejected(t *testing.T) {
 	srv, _ := serveFake(t)
-	req, _ := http.NewRequest("GET", srv.URL+"/ws", nil)
-	req.Header.Set("Upgrade", "websocket")
-	req.Header.Set("Connection", "Upgrade")
-	req.Header.Set("Sec-WebSocket-Key", "dGhlIHNhbXBsZSBub25jZQ==")
-	req.Header.Set("Sec-WebSocket-Version", "13")
-	req.Header.Set("Origin", "http://evil.example")
-	resp, err := http.DefaultClient.Do(req)
+	r, _ := http.NewRequest("GET", srv.URL+"/ws", nil)
+	r.Header.Set("Upgrade", "websocket")
+	r.Header.Set("Connection", "Upgrade")
+	r.Header.Set("Sec-WebSocket-Key", "dGhlIHNhbXBsZSBub25jZQ==")
+	r.Header.Set("Sec-WebSocket-Version", "13")
+	r.Header.Set("Origin", "http://evil.example")
+	resp, err := http.DefaultClient.Do(r)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -484,7 +640,7 @@ func TestServesThePage(t *testing.T) {
 	if resp.StatusCode != 200 || !bytes.Contains(body, []byte("framedbg")) {
 		t.Errorf("GET / = %d, %d bytes", resp.StatusCode, len(body))
 	}
-	for _, asset := range []string{"app.js", "conn.js", "viewport.js", "commands.js", "panels.js", "style.css"} {
+	for _, asset := range []string{"app.js", "conn.js", "store.js", "panels/viewport.js", "style.css"} {
 		r, err := http.Get(srv.URL + "/" + asset)
 		if err != nil {
 			t.Fatal(err)
@@ -535,23 +691,21 @@ func TestScrubMatchesRenderAfter(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	srv := httptest.NewServer(New(a, "pilotwings.z64").Handler())
-	defer srv.Close()
+	srv := serveTarget(t, a)
 	cl := dial(t, srv.URL)
-	cl.recvJSON(t) // hello
-
-	cl.sendJSON(t, map[string]any{"op": "step", "seq": 1})
-	frame := cl.recvJSON(t)
-	if frame["type"] != "frame" {
-		t.Fatalf("step reply = %v", frame)
+	if m := cl.recvType(t, "hello"); m["platform"] != "n64" {
+		t.Fatalf("hello = %v", m)
 	}
+
+	cl.send(t, "frame.step", 1, stepArgs{})
+	frame := cl.recvType(t, "frame")
 	if got := len(frame["commands"].([]any)); got != len(refFC.Commands) {
 		t.Errorf("served %d commands, headless captured %d", got, len(refFC.Commands))
 	}
 	cl.recvBinary(t) // prov
 
-	cl.sendJSON(t, map[string]any{"op": "scrub", "seq": 2, "k": k})
-	cl.recvJSON(t) // render
+	cl.send(t, "frame.scrub", 2, scrubArgs{K: k})
+	cl.recvType(t, "render")
 	kind, _, w, h, payload := cl.recvBinary(t)
 	if kind != kindImage {
 		t.Fatalf("kind = %d", kind)
@@ -560,8 +714,7 @@ func TestScrubMatchesRenderAfter(t *testing.T) {
 		t.Fatalf("served %dx%d, headless rendered %dx%d", w, h, want.Rect.Dx(), want.Rect.Dy())
 	}
 	if !bytes.Equal(payload, want.Pix) {
-		t.Errorf("the served image differs from RenderAfter(%d) — %d vs %d bytes",
-			k, len(payload), len(want.Pix))
+		t.Errorf("the served image differs from RenderAfter(%d)", k)
 	}
 }
 

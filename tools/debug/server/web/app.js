@@ -1,177 +1,158 @@
-// framedbg — the frame debugger's page.
+// framedbg — the debugger's shell.
 //
-// The loop is: step a frame (the emulator captures its command stream and per-pixel
-// provenance), then scrub through that frame command by command. Every scrub position
-// is a real replay in the emulator; everything about *pixels* — which command drew
-// one, which pixels a command drew — is answered here from the provenance buffer.
+// The shell owns the connection, the shared store, and the handful of actions panels
+// invoke (step a frame, select a command, play). It does not know what panels exist:
+// the target says what it can do, and the registry mounts the panels those
+// capabilities support. So a platform with no per-pixel provenance simply has no
+// overdraw panel, and adding a tool means registering it, not editing this file.
 
-import { Conn, KIND_IMAGE, KIND_PROV } from './conn.js';
-import { Viewport } from './viewport.js';
-import { CommandList } from './commands.js';
-import { renderCPU, renderMem, renderOverdraw } from './panels.js';
+import { Conn, KIND_IMAGE, KIND_PROV, STREAM_MAIN } from './conn.js';
+import { Store } from './store.js';
+import { mountPanels } from './panels/registry.js';
+
+// Importing a panel registers it. Order here is the order they appear in a slot.
+import './panels/viewport.js';
+import './panels/commands.js';
+import './panels/inspect.js';
 
 const $ = (id) => document.getElementById(id);
 
-const ui = {
-  target: $('target'),
-  play: $('play'),
-  step: $('step'),
-  step1: $('step1'),
-  overdraw: $('overdraw'),
-  scanout: $('scanout'),
-  zoom: $('zoom'),
-  stats: $('stats'),
-  slider: $('slider'),
-  prev: $('prev'),
-  next: $('next'),
-  scrubLabel: $('scrub-label'),
-  hover: $('hover'),
-  memAddr: $('mem-addr'),
-};
-
-const view = new Viewport();
-const cmds = new CommandList(selectCommand);
 const conn = new Conn();
+const store = new Store();
+const ctx = { conn, store, ui: {}, viewport: null };
 
-let frame = null; // the last frameMsg
-let selected = -1; // current command index
 let wantSeq = -1; // the image request whose reply we still want; older ones are stale
-let playing = false;
 let fps = { n: 0, t: 0, rate: 0 };
-const pending = new Map(); // seq -> renderMsg, so the binary that follows knows its own cost
+const pending = new Map(); // seq -> renderMsg, so the binary that follows knows its cost
 
-conn.onOpen = () => {
-  setBusy(false);
-  ui.target.textContent = 'connected';
+// ---- actions the panels call ----
+
+ctx.ui.stepFrame = (n) => {
+  if (store.get('playing')) return;
+  setBusy(true);
+  status('stepping…');
+  conn.send('frame.step', { n, overdraw: $('overdraw').checked });
 };
 
+// selectCommand is the hub: it selects a command, moves the scrubber to it, asks the
+// emulator for the draw target as it stood after it, and lights up the pixels it drew.
+ctx.ui.selectCommand = (k) => {
+  const frame = store.get('frame');
+  if (!frame || k < 0 || k >= frame.commands.length) return;
+  store.set({ selected: k });
+  if (store.can('replay') && !$('scanout').checked) {
+    wantSeq = conn.send('frame.scrub', { k });
+  }
+};
+
+ctx.ui.showDisplay = () => {
+  wantSeq = conn.send('frame.display');
+};
+
+// Play free-runs the machine, streaming the scanout and capturing nothing — the way to
+// reach the part of the game you actually want to look at. Stopping captures the next
+// field in full, so you land on a real frame with its commands and provenance.
+ctx.ui.setPlaying = (on) => {
+  store.set({ playing: on });
+  $('play').textContent = on ? '⏸ Pause' : '▶ Play';
+  $('play').classList.toggle('active', on);
+  setBusy(on);
+
+  if (on) {
+    // Nothing is captured while playing, so a command list or an overlay left on
+    // screen would be a lie. Clear them.
+    store.set({ frame: null, selected: -1, prov: null, pick: null });
+    fps = { n: 0, t: performance.now(), rate: 0 };
+    conn.send('frame.play', { on: true });
+  } else {
+    status('capturing…');
+    conn.send('frame.play', { on: false, overdraw: $('overdraw').checked });
+  }
+};
+
+const status = (s) => ($('stats').textContent = s);
+ctx.ui.status = status;
+
+function setBusy(b) {
+  $('step').disabled = b;
+  $('step1').disabled = b;
+}
+
+// ---- wiring ----
+
+conn.onOpen = () => setBusy(false);
 conn.onClose = () => {
-  ui.target.textContent = 'disconnected — restart framedbg and reload';
+  $('target').textContent = 'disconnected — restart framedbg and reload';
   setBusy(true);
 };
 
-conn.onJSON = (m) => {
-  switch (m.type) {
-    case 'hello':
-      ui.target.textContent = `${m.target} — ${m.rom}`;
-      document.title = `framedbg — ${m.rom}`;
-      break;
+conn.on('hello', (m) => {
+  store.set({ platform: m.platform, title: m.title, caps: new Set(m.caps) });
+  $('target').textContent = `${m.platform} — ${m.title}`;
+  document.title = `framedbg — ${m.title}`;
 
-    case 'frame':
-      frame = m;
-      selected = -1;
-      view.setProv(null);
-      view.select(-1);
-      cmds.setCommands(m.commands);
-      ui.slider.max = Math.max(0, m.commands.length - 1);
-      ui.slider.disabled = m.commands.length === 0;
-      setBusy(false);
-      if (m.commands.length) {
-        selectCommand(m.commands.length - 1);
-      } else {
-        // A field the game drew nothing in — common during boot, and not a failure.
-        // Show what is on screen rather than a blank canvas and an empty list.
-        ui.scrubLabel.textContent = '—';
-        ui.stats.textContent = `field ${m.frame} · nothing drawn`;
-        ui.hover.textContent = 'no commands in this field';
-        showDisplay();
-      }
-      conn.send('cpu');
-      readMem();
-      break;
-
-    case 'render':
-      pending.set(m.seq, m);
-      break;
-
-    case 'cpu':
-      renderCPU(m);
-      break;
-
-    case 'mem':
-      renderMem(m);
-      break;
-
-    case 'pixel':
-      renderOverdraw(m, (k) => selectCommand(k));
-      break;
-
-    case 'error':
-      ui.stats.textContent = `error: ${m.msg}`;
-      setBusy(false);
-      break;
+  // The target's capabilities decide what the page is.
+  mountPanels(ctx);
+  for (const [id, cap] of Object.entries({ play: 'frames', step: 'frames', step1: 'frames' })) {
+    $(id).style.display = store.can(cap) ? '' : 'none';
   }
-};
+  $('cpu-controls').style.display = store.can('code') ? '' : 'none';
 
-conn.onBinary = (m) => {
+  conn.send('cpu.regs');
+  if (ctx.ui.readMem) ctx.ui.readMem();
+  if (!store.can('frames')) ctx.ui.showDisplay();
+});
+
+conn.on('frame', (m) => {
+  store.set({ frame: m, selected: -1, prov: null, pick: null });
+  setBusy(false);
+  if (m.commands.length) {
+    ctx.ui.selectCommand(m.commands.length - 1);
+  } else {
+    // A field the game drew nothing in — common during boot, and not a failure. Show
+    // what is on screen rather than a blank canvas and an empty list.
+    status(`field ${m.frame} · nothing drawn`);
+    ctx.ui.showDisplay();
+  }
+  conn.send('cpu.regs');
+  if (ctx.ui.readMem) ctx.ui.readMem();
+  if (ctx.ui.refreshDisasm) ctx.ui.refreshDisasm();
+});
+
+conn.on('render', (m) => pending.set(m.seq, m));
+conn.on('error', (m) => {
+  status(`error: ${m.msg}`);
+  setBusy(false);
+});
+conn.on('stopped', (m) => {
+  status(`stopped: ${m.reason}${m.note ? ` (${m.note})` : ''} at ${m.pc.slice(-8)}`);
+});
+
+conn.onBinary((m) => {
   if (m.kind === KIND_PROV) {
-    view.setProv(m.prov);
+    store.set({ prov: m.prov });
     return;
   }
-  if (m.kind !== KIND_IMAGE) return;
+  if (m.kind !== KIND_IMAGE || m.stream !== STREAM_MAIN) return;
 
   const meta = pending.get(m.seq);
   pending.delete(m.seq);
 
   if (meta && meta.play) {
     // A free-running frame. Draw it and acknowledge: the server holds itself to one
-    // unacknowledged frame, so this is what keeps the stream paced to what the page
-    // can actually paint.
-    view.drawImage(m.image);
-    conn.send('ack');
+    // unacknowledged frame, so this is what paces the stream to what the page can paint.
+    ctx.viewport.drawImage(m.image);
+    conn.send('frame.ack');
     countFPS(meta);
     return;
   }
-
-  // A scrubber drag outruns the emulator, so replies to positions the mouse has
-  // already left arrive after we have asked for a newer one. Drop those.
+  // A scrubber drag outruns the emulator, so replies to positions the mouse has already
+  // left arrive after we have asked for a newer one. Drop those.
   if (m.seq !== wantSeq) return;
 
-  view.drawImage(m.image);
-  view.redrawOverlay();
+  ctx.viewport.drawImage(m.image);
   if (meta) showStats(meta);
-};
-
-// ---- actions ----
-
-function stepFrame(n) {
-  if (playing) return;
-  setBusy(true);
-  ui.stats.textContent = 'stepping…';
-  conn.send('step', { overdraw: ui.overdraw.checked, n });
-}
-
-// Play free-runs the machine, streaming the scanout and capturing nothing — the way
-// to get to the part of the game you actually want to look at. Stopping captures the
-// next field in full, so you land on a real frame with its commands and provenance.
-function setPlaying(on) {
-  playing = on;
-  ui.play.textContent = on ? '⏸ Pause' : '▶ Play';
-  ui.play.classList.toggle('active', on);
-  ui.step.disabled = on;
-  ui.step1.disabled = on;
-  ui.slider.disabled = on || !frame || !frame.commands.length;
-  ui.prev.disabled = on;
-  ui.next.disabled = on;
-
-  if (on) {
-    // Nothing captured while playing, so the command list, provenance and overlay
-    // would all be lies. Clear them rather than leave a stale frame on screen.
-    frame = null;
-    selected = -1;
-    view.setProv(null);
-    view.select(-1);
-    view.setPick(null);
-    cmds.setCommands([]);
-    ui.scrubLabel.textContent = '—';
-    ui.hover.textContent = 'playing — no capture';
-    fps = { n: 0, t: performance.now(), rate: 0 };
-    conn.send('play', { on: true });
-  } else {
-    ui.stats.textContent = 'capturing…';
-    conn.send('play', { on: false, overdraw: ui.overdraw.checked });
-  }
-}
+});
 
 function countFPS(meta) {
   const now = performance.now();
@@ -181,112 +162,61 @@ function countFPS(meta) {
     fps.n = 0;
     fps.t = now;
   }
-  ui.stats.textContent = `playing · field ${meta.frame.toLocaleString()} · ${fps.rate.toFixed(0)} fps`;
-}
-
-// selectCommand is the hub: it picks a command in the list, rewinds the scrubber to
-// it, asks the emulator for the draw target as it stood after it, and lights up the
-// pixels it drew.
-function selectCommand(k) {
-  if (!frame || k < 0 || k >= frame.commands.length) return;
-  selected = k;
-  cmds.select(k);
-  view.select(k);
-  ui.slider.value = k;
-  ui.scrubLabel.textContent = `${k} / ${frame.commands.length - 1}`;
-  if (!ui.scanout.checked) wantSeq = conn.send('scrub', { k });
-}
-
-function showDisplay() {
-  wantSeq = conn.send('display');
-}
-
-function readMem() {
-  const addr = parseInt(ui.memAddr.value, 16);
-  if (!Number.isNaN(addr)) conn.send('mem', { addr, len: 256 });
+  status(`playing · field ${meta.frame.toLocaleString()} · ${fps.rate.toFixed(0)} fps`);
 }
 
 function showStats(meta) {
-  const kb = (meta.bytes / 1024).toFixed(0);
+  const frame = store.get('frame');
   const where = meta.k < 0 ? 'scanout' : `cmd ${meta.k}`;
   const how = meta.cached ? 'cached' : `${meta.renderMs.toFixed(1)} ms`;
   const n = frame ? `${frame.commands.length.toLocaleString()} cmds · ` : '';
-  ui.stats.textContent = `${n}${where} · ${how} · ${kb} KB`;
+  status(`${n}${where} · ${how} · ${(meta.bytes / 1024).toFixed(0)} KB`);
 }
 
-function setBusy(b) {
-  ui.step.disabled = b;
-  ui.step1.disabled = b;
-}
+// ---- toolbar ----
 
-// ---- wiring ----
-
-ui.play.onclick = () => setPlaying(!playing);
-ui.step.onclick = () => stepFrame(0);
-ui.step1.onclick = () => stepFrame(1);
-
-ui.slider.oninput = () => selectCommand(Number(ui.slider.value));
-ui.prev.onclick = () => selectCommand(selected - 1);
-ui.next.onclick = () => selectCommand(selected + 1);
-
-ui.zoom.onchange = () => view.setZoom(Number(ui.zoom.value));
-
-ui.scanout.onchange = () => {
-  if (ui.scanout.checked) showDisplay();
-  else selectCommand(selected);
+$('play').onclick = () => ctx.ui.setPlaying(!store.get('playing'));
+$('step').onclick = () => ctx.ui.stepFrame(0);
+$('step1').onclick = () => ctx.ui.stepFrame(1);
+$('zoom').onchange = () => ctx.viewport.setZoom(Number($('zoom').value));
+$('scanout').onchange = () => {
+  if ($('scanout').checked) ctx.ui.showDisplay();
+  else ctx.ui.selectCommand(store.get('selected'));
 };
-
-ui.memAddr.onchange = readMem;
-
-view.onHover = (x, y) => {
-  if (playing) return; // nothing is captured while playing, so there is nothing to name
-  if (x < 0) {
-    ui.hover.textContent = 'hover a pixel';
-    return;
-  }
-  const k = view.provAt(x, y);
-  const name = frame && k >= 0 && frame.commands[k] ? frame.commands[k].name : null;
-  ui.hover.textContent = name
-    ? `pixel (${x}, ${y}) ← #${k} ${name}`
-    : `pixel (${x}, ${y}) — untouched`;
-};
-
-view.onPick = (x, y) => {
-  if (playing) return;
-  view.setPick({ x, y });
-  conn.send('pixel', { x, y });
-  const k = view.provAt(x, y);
-  if (k >= 0) selectCommand(k);
-};
+$('cpu-step').onclick = () => conn.send('cpu.step', { n: 1 });
+$('cpu-run').onclick = () => conn.send('cpu.continue');
+$('cpu-brk').onclick = () => conn.send('cpu.break');
 
 document.addEventListener('keydown', (e) => {
   if (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT') return;
   const stride = e.shiftKey ? 10 : 1;
+  const selected = store.get('selected');
   switch (e.key) {
     case ' ':
-      setPlaying(!playing);
+      ctx.ui.setPlaying(!store.get('playing'));
       e.preventDefault();
       break;
     case 'n':
     case 'N':
-      stepFrame(0);
+      ctx.ui.stepFrame(0);
       break;
     case 'ArrowLeft':
-      selectCommand(selected - stride);
+      ctx.ui.selectCommand(selected - stride);
       e.preventDefault();
       break;
     case 'ArrowRight':
-      selectCommand(selected + stride);
+      ctx.ui.selectCommand(selected + stride);
       e.preventDefault();
       break;
     case 'Home':
-      selectCommand(0);
+      ctx.ui.selectCommand(0);
       break;
-    case 'End':
-      if (frame) selectCommand(frame.commands.length - 1);
+    case 'End': {
+      const frame = store.get('frame');
+      if (frame) ctx.ui.selectCommand(frame.commands.length - 1);
       break;
+    }
   }
 });
 
 setBusy(true);
-view.setZoom(Number(ui.zoom.value));

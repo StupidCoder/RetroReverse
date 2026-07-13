@@ -72,7 +72,7 @@ func run() error {
 	}
 
 	if *serve != "" {
-		return server.New(a, filepath.Base(*image_)).ListenAndServe(*serve)
+		return server.New(a).ListenAndServe(*serve)
 	}
 
 	withOverdraw := *pixel != ""
