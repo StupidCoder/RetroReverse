@@ -390,11 +390,9 @@ func (rn *Runner) scrub(r request) error {
 	img, cached := rn.cache[k]
 	if !cached {
 		var err error
-		img, err = rn.tgt.(debug.FrameReplayer).RenderAfter(rn.fc, k)
-		if err != nil {
+		if img, err = rn.replay(k); err != nil {
 			return fmt.Errorf("render after command %d: %w", k, err)
 		}
-		rn.put(k, img)
 	}
 	payload := encodeImage(r.req.Seq, streamMain, img)
 	r.from.send(renderMsg{
@@ -403,6 +401,58 @@ func (rn *Runner) scrub(r request) error {
 	})
 	r.from.sendBinary(payload)
 	return nil
+}
+
+// replay renders the frame as it stood after command k — and, on a target that can
+// replay several points at once, renders the positions the drag is about to land on at
+// the same time.
+//
+// A scrub is a drag: the page sends a stream of positions and only the last one
+// matters, but the ones in between are exactly where it is about to ask next. Each
+// replay is an independent restore-and-run on a disposable machine, so a batch of them
+// costs about what one of them costs, and the rest of the drag is then served out of
+// the cache with no round trip to the emulator at all.
+func (rn *Runner) replay(k int) (*image.RGBA, error) {
+	rp, ok := rn.tgt.(debug.BatchReplayer)
+	if !ok {
+		img, err := rn.tgt.(debug.FrameReplayer).RenderAfter(rn.fc, k)
+		if err != nil {
+			return nil, err
+		}
+		rn.put(k, img)
+		return img, nil
+	}
+
+	// k first, then a spread of nearby positions that are not already cached. The
+	// spread is proportional to the list, so it is a fraction of the drag rather than a
+	// fixed number of register writes — which on a 100,000-write frame would be nothing.
+	n := len(rn.fc.Commands)
+	ks := []int{k}
+	step := n / 64
+	if step < 1 {
+		step = 1
+	}
+	for _, d := range []int{1, -1, 2, -2, 3, -3, 4} {
+		p := k + d*step
+		if p < 0 || p >= n {
+			continue
+		}
+		if _, hit := rn.cache[p]; hit {
+			continue
+		}
+		ks = append(ks, p)
+	}
+
+	imgs, err := rp.RenderAfterBatch(rn.fc, ks)
+	if err != nil {
+		return nil, err
+	}
+	for i, img := range imgs {
+		if img != nil {
+			rn.put(ks[i], img)
+		}
+	}
+	return imgs[0], nil
 }
 
 func (rn *Runner) display(r request) error {

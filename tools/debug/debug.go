@@ -165,6 +165,20 @@ type (
 		Regions() []Region
 	}
 
+	// BatchReplayer renders several points of the command stream at once.
+	//
+	// Every RenderAfter(k) is an independent replay of the same frame from the same
+	// snapshot, on a machine the caller throws away — so they can run at the same
+	// time, on as many machines as the target cares to keep, with no determinism
+	// question to answer at all. A target that offers this makes the command scrubber
+	// stop costing one full replay per position dragged over.
+	//
+	// The results are returned in the order the keys were given. A target without it
+	// is simply asked for one k at a time.
+	BatchReplayer interface {
+		RenderAfterBatch(fc *FrameCapture, ks []int) ([]*image.RGBA, error)
+	}
+
 	// Profiler reports where the last stepped frame's time went, by subsystem.
 	//
 	// The times are the emulator's own, not a sampling profiler's: only a machine

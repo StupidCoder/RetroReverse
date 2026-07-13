@@ -510,3 +510,94 @@ func drew(p debug.FrameProfile) bool {
 	}
 	return false
 }
+
+// TestRenderAfterBatchMatchesSerial is the whole correctness claim for the parallel
+// scrubber: a batch of replays must produce exactly the images the same replays
+// produce one at a time. They run on different machines, so if any state leaked
+// between them — a shared scratch machine, a cached texture, a snapshot restored into
+// the wrong place — this is what would show it.
+func TestRenderAfterBatchMatchesSerial(t *testing.T) {
+	a := atScene(t)
+	defer a.Close()
+
+	fc, err := a.StepFrame(false)
+	if err != nil {
+		t.Fatalf("StepFrame: %v", err)
+	}
+	n := len(fc.Commands)
+	if n < 8 {
+		t.Skip("the frame has too few commands to scrub")
+	}
+	ks := []int{n / 8, n / 4, n / 2, 3 * n / 4, n - 1, n / 3}
+
+	want := make([]string, len(ks))
+	for i, k := range ks {
+		img, err := a.RenderAfter(fc, k)
+		if err != nil {
+			t.Fatalf("RenderAfter(%d): %v", k, err)
+		}
+		want[i] = string(img.Pix)
+	}
+
+	got, err := a.RenderAfterBatch(fc, ks)
+	if err != nil {
+		t.Fatalf("RenderAfterBatch: %v", err)
+	}
+	if len(got) != len(ks) {
+		t.Fatalf("batch returned %d images for %d keys", len(got), len(ks))
+	}
+	for i, k := range ks {
+		if string(got[i].Pix) != want[i] {
+			t.Errorf("command %d: the batched replay differs from the serial one", k)
+		}
+	}
+}
+
+// BenchmarkScrub is what the parallel scrubber is for: dragging over the command
+// stream. Serial is one full frame replay per position; batched is several at once.
+func BenchmarkScrub(b *testing.B) {
+	a := atSceneB(b)
+	defer a.Close()
+	fc, err := a.StepFrame(false)
+	if err != nil {
+		b.Fatal(err)
+	}
+	n := len(fc.Commands)
+	if n < 8 {
+		b.Skip("nothing to scrub")
+	}
+	ks := []int{n / 8, n / 4, 3 * n / 8, n / 2, 5 * n / 8, 3 * n / 4, 7 * n / 8, n - 1}
+
+	b.Run("serial", func(b *testing.B) {
+		for i := 0; i < b.N; i++ {
+			for _, k := range ks {
+				if _, err := a.RenderAfter(fc, k); err != nil {
+					b.Fatal(err)
+				}
+			}
+		}
+	})
+	b.Run("batched", func(b *testing.B) {
+		for i := 0; i < b.N; i++ {
+			if _, err := a.RenderAfterBatch(fc, ks); err != nil {
+				b.Fatal(err)
+			}
+		}
+	})
+}
+
+// atSceneB is atScene for a benchmark.
+func atSceneB(b *testing.B) *n3dsadapter.Adapter {
+	b.Helper()
+	if _, err := os.Stat(imagePath); os.IsNotExist(err) {
+		b.Skip("Captain Toad image not present")
+	}
+	a, err := n3dsadapter.New(imagePath)
+	if err != nil {
+		b.Fatalf("New: %v", err)
+	}
+	if err := a.LoadStateFile(statePath); err != nil {
+		b.Fatalf("LoadStateFile: %v", err)
+	}
+	return a
+}
