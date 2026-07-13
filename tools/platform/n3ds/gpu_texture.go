@@ -316,3 +316,48 @@ func (g *GPU) decode4(addr, w, h uint32, img *texImage, px func(byte) [4]byte) {
 }
 
 var _ = fmt.Sprintf
+
+// texBytes is how many bytes a decoded texture occupies in guest memory. The cache
+// key carries the format and the dimensions, so the span a cached texture was decoded
+// from can be reconstructed from the key alone — which is what lets an invalidation be
+// precise instead of total.
+func texBytes(k texKey) uint32 {
+	var bpp uint32 // bits per texel
+	switch k.fmt {
+	case 0x0: // RGBA8
+		bpp = 32
+	case 0x1: // RGB8
+		bpp = 24
+	case 0x2, 0x3, 0x4, 0x5, 0x6: // RGBA5551, RGB565, RGBA4, LA8, HILO8
+		bpp = 16
+	case 0x7, 0x8, 0x9, 0xD: // L8, A8, LA4, ETC1A4
+		bpp = 8
+	default: // L4, A4, ETC1 — 4 bits, and anything unknown treated as the largest
+		bpp = 8
+	}
+	return k.w * k.h * bpp / 8
+}
+
+// invalidateTextures drops the decoded textures that a write to [addr, addr+size)
+// could have changed — and only those.
+//
+// It used to drop ALL of them. Every GX RequestDMA and TextureCopy set texCache to
+// nil, and Captain Toad issues those constantly (it streams texture and vertex data
+// into VRAM as it draws), so the cache was being thrown away several times a frame and
+// rebuilt from scratch: 2,216 whole-texture decodes a frame, for a scene that samples
+// a few dozen distinct textures.
+//
+// A texture whose bytes the transfer did not touch is still exactly the texture it was.
+func (g *GPU) invalidateTextures(addr, size uint32) {
+	if g.texCache == nil || size == 0 {
+		return
+	}
+	lo, hi := addr, addr+size
+	for k := range g.texCache {
+		klo := k.addr
+		khi := klo + texBytes(k)
+		if klo < hi && lo < khi { // the spans overlap
+			delete(g.texCache, k)
+		}
+	}
+}

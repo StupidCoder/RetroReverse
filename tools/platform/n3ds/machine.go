@@ -571,3 +571,25 @@ func (m *Machine) directRange(addr, size uint32) ([]byte, uint32) {
 	}
 	return r.data, off
 }
+
+// copyRange moves size bytes from src to dst. It is a bulk move, so it takes the
+// direct path when both ends sit inside mapped regions and falls back to the bus
+// otherwise (and always, when a debugger watch wants to see the accesses).
+//
+// The GX engine's DMA used to do this a byte at a time through Read/Write; a game that
+// streams its textures and vertices into VRAM as it draws — which Captain Toad does,
+// constantly — pays that on every frame.
+func (m *Machine) copyRange(dst, src, size uint32) {
+	if size == 0 {
+		return
+	}
+	d, doff := m.directRange(dst, size)
+	s, soff := m.directRange(src, size)
+	if d != nil && s != nil {
+		copy(d[doff:doff+size], s[soff:soff+size])
+		return
+	}
+	for i := uint32(0); i < size; i++ {
+		m.Write(dst+i, m.Read(src+i))
+	}
+}

@@ -110,6 +110,7 @@ func (m *Machine) gxMemoryFill(start, value, end, ctl uint32) {
 			m.Write(a+j, byte(value>>(8*j)))
 		}
 	}
+	m.gpu.invalidateTextures(start, end-start) // a cleared buffer may be sampled as a texture
 }
 
 // gxTextureCopy streams size payload bytes from src to dst with per-line gaps:
@@ -144,7 +145,11 @@ func (m *Machine) gxTextureCopy(src, dst, size, inDim, outDim uint32) {
 			dp, dn = dp+outGap, 0
 		}
 	}
-	m.gpu.texCache = nil // the destination may be sampled as a texture
+	// Only the textures this copy actually landed on: the destination may be sampled
+	// as a texture, but the rest of texture memory is untouched (gpu_texture.go). The
+	// span is [dst, dp): conservative, because it includes the inter-line gaps the copy
+	// skipped over, which is the right way to be wrong here.
+	m.gpu.invalidateTextures(dst, dp-dst)
 }
 
 // gxDisplayTransfer converts a rendered (tiled, 8×8 Morton) colour buffer into
@@ -397,10 +402,8 @@ func (m *Machine) pumpGX() {
 		case gxCmdRequestDMA:
 			// A plain memory move: the game stages vertex/texture data from its
 			// linear heap into VRAM with these before drawing.
-			for j := uint32(0); j < w[3]; j++ {
-				m.Write(w[2]+j, m.Read(w[1]+j))
-			}
-			m.gpu.texCache = nil // texture memory changed under the cache
+			m.copyRange(w[2], w[1], w[3])
+			m.gpu.invalidateTextures(w[2], w[3])
 			raised = append(raised, gspIntDMA)
 		}
 

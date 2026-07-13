@@ -317,6 +317,20 @@ func (g *GPU) draw(indexed bool) {
 	}
 	g.tris = tris // keep the grown backing array
 	g.fill(&fb, &ls, &tev, tris)
+
+	// The GPU has just written its colour target, and a later draw may SAMPLE that
+	// memory as a texture — which is exactly what Captain Toad's shadow pass does: it
+	// rasterises a shadow map and the scene draws read it back through a Shadow2D
+	// texture unit. Nothing else invalidates it, because the write came from the
+	// rasteriser and not from the GX engine.
+	//
+	// This was hidden until the texture-cache invalidation became precise: every GX
+	// DMA used to drop the WHOLE cache several times a frame, so a stale shadow map
+	// could never survive long enough to be seen. It survived immediately once the
+	// cache stopped being thrown away, and the frame gate caught it.
+	if fb.colorMask != 0 || fb.shadowMode {
+		g.invalidateTextures(fb.colorAddr, ((fb.width+7)&^7)*((fb.height+7)&^7)*4)
+	}
 }
 
 // fill rasterises a draw's triangles, in parallel over disjoint bands of rows when
