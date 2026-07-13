@@ -361,3 +361,26 @@ main.no-side { grid-template-columns: minmax(0, 1fr); }
 .wrow { display: flex; align-items: center; gap: 6px; height: 20px; }
 .hit { color: var(--muted); height: 18px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .hit:first-child { color: var(--fg); }
+
+/* ---- the frame profile ---- */
+
+/* One stacked bar first, then the numbers: the shape of a frame should read before any
+   figure is parsed, and a change in that shape is the thing an optimisation is judged by. */
+.prof-bar {
+  display: flex;
+  height: 10px;
+  border-radius: 2px;
+  overflow: hidden;
+  background: var(--panel-hi);
+  margin: 2px 0 8px;
+}
+.prof-seg { height: 100%; }
+.prow { display: flex; align-items: center; gap: 6px; height: 18px; white-space: nowrap; }
+.prow .grow { flex: 1; }
+.pkey { width: 8px; height: 8px; border-radius: 2px; flex: none; }
+.pname { flex: 1; overflow: hidden; text-overflow: ellipsis; }
+.pms { width: 62px; text-align: right; }
+.ppct { width: 34px; text-align: right; color: var(--muted); }
+.pcount { width: 68px; text-align: right; }
+#prof-counters { border-top: 1px solid var(--line); margin-top: 8px; padding-top: 6px; }
+.prate { border-top: 1px solid var(--line); margin-top: 4px; padding-top: 4px; color: var(--accent); }

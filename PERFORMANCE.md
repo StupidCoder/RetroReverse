@@ -1,6 +1,12 @@
 # Making the oracles faster
 
-A plan, ordered cheapest-and-safest first. Nothing here is started.
+A plan, ordered cheapest-and-safest first.
+
+**Status: Phase 0 is done (2026-07-13).** It was worth doing: it overturned most of the
+ordering below. Read [Phase 0 — the results](#phase-0--the-results-what-the-measurements-say)
+before starting anything, because three of the five items in Phase 1 are now known to be
+worth about 1% between them, and the largest single cost in a frame — the vertex-shader
+interpreter — is not in the plan at all.
 
 ## Why this is worth doing
 
@@ -99,6 +105,112 @@ frame 12 — 812 ms
 
 That is the artefact you asked for, and it is also the thing that will keep every later phase
 honest.
+
+---
+
+## Phase 0 — the results (what the measurements say)
+
+All three deliverables are built and in the tree:
+
+| | where | how to run it |
+|---|---|---|
+| 0.1 pprof | `bootoracle -cpuprofile F` (+ `-frames N`, a frame-bounded run) | `bootoracle -image toad.cci -loadstate …/toadstereo4.state -frames 60 -cpuprofile toad.prof` |
+| 0.2 gate + bench | `tools/platform/n3ds/bench_test.go` | `go test ./tools/platform/n3ds/ -run TestFrameHashes` / `-bench BenchmarkFrame` |
+| 0.3 per-subsystem timing | `tools/platform/n3ds/profile.go`, `bootoracle -profile`, and a `profile` panel in framedbg | `bootoracle … -frames 60 -profile` |
+
+The gate pins three hashes (VRAM, the two presented screens, every thread's register file)
+after four frames from `toadstereo4.state`. `TestFrameDeterminism` proves the property the
+gate rests on — the same state, run twice, is the same machine — and it passes, so the
+oracle is genuinely replayable and the pins mean something. The frame the pins defend was
+looked at, on both screens, before they were written down; on a mismatch the test writes the
+frame it actually produced and says so, because [[pinned-hash-guards-change]].
+
+### The frame, measured (Captain Toad, opening stage, M3 Pro, darwin/arm64)
+
+**234 ms/frame** over 60 frames — and only **30 of the 60 frames draw anything** (the game
+renders at 30 Hz), so a *drawing* frame costs about **460 ms**. Per drawing frame: 143 draws,
+187,899 fragments written, 39,214 depth-killed, 2,507 command-buffer hops, 4.46M ARM11
+instructions.
+
+pprof and the machine's own buckets were built independently and agree:
+
+| bucket (machine, wall) | | pprof (CPU samples) | |
+|---|---|---|---|
+| rasterise | 44.9% | `GPU.triangle` | 41.9% |
+| vertex + shader | 41.1% | `GPU.shaderRun` 23.1% + fetch/copies | ~39% |
+| gx transfers | 3.9% | `gxDisplayTransfer`/`MemoryFill`/`TextureCopy` | ~2% |
+| texture decode | 2.0% | `GPU.texture` miss | ~2% |
+| command decode | 1.3% | `DecodePICA` + the buffer read | ~3% |
+| svc + ipc | 0.1% | `handleSVC` | <1% |
+| dsp | 0.0% | `dspTick` | <1% |
+| arm11 + rest (derived) | 6.7% | `CPU.execARMv6` | **0.6%** |
+
+(The two disagree in detail because pprof samples every OS thread — the garbage collector's
+workers included — while the buckets time the goroutine the machine runs on. They agree on
+everything that matters.)
+
+### What this changes — read before doing Phase 1
+
+1. **The ARM interpreter is ~1% of the frame.** `execARMv6` is 0.6% of samples. **Phase 1.3
+   (word-granular bus) and Phase 1.4 (instruction-decode cache) are capped at about 1%
+   between them and should not be done** — 1.4 in particular is described below as "worth a
+   lot", and against this workload it is worth almost nothing. This is the single biggest
+   correction Phase 0 makes.
+
+2. **The biggest cost in a frame is not in this document at all: the PICA vertex shader.**
+   41% of the frame is the vertex path, and 23% is the shader *interpreter* — `readSrc`
+   (9.3% on its own), `arith`, `exec` — re-decoding the same shader instruction for every
+   vertex of every draw. The instruction-decode-cache argument of 1.4 is the right argument
+   pointed at the wrong CPU: it belongs here, where it pays an order of magnitude more.
+
+3. **The memory bus is real but it is not the ballgame.** `Machine.Read` + `Write` are 14% of
+   samples, of which the linear `regionOf` scan is ~10%. Phase 1.1 (page table) is worth
+   roughly that, and it is cheap and safe — do it. But Phase 1.2's premise is weaker than it
+   reads: the framebuffer traffic specifically (`writePixel` + `depthCompare` + `depthWrite`
+   + `shadowMapWrite`) is only **~7%** of the frame, not the "whole ballgame" the section
+   claims.
+
+4. **Phase 2.3 is stale — its premise is gone.** It says the workload is 85% garbage (2.9M
+   depth-killed against 520k drawn). That was the *broken-geometry* frame. Since the vertex
+   permutation and framebuffer-origin fixes (Parts XVII/XVIII), the frame is **187,899 drawn
+   against 39,214 killed — 17% killed**, which is an ordinary overdraw figure. The rasteriser
+   is now a legitimate optimisation target and does not need to wait for a geometry fix.
+
+5. **New, cheap, and not in the plan: the allocator.** ~10-15% of samples are in
+   `mallocgc`/`madvise`/`mspan.init`/`memclr`, from three allocations on the hot path —
+   `buf := make([]byte, size)` per command list (2,500 of them a frame), `DecodePICA`'s
+   `append`, and `outs := make([]vsOut, …)` per draw. All three can be reused buffers on the
+   GPU struct. Bit-exact by construction, an afternoon's work.
+
+6. **Also new: 6% of the frame is `runtime.duffcopy`, almost all of it in `GPU.draw`** —
+   `shaderRun` returns `[16][4]float32` (256 bytes) by value, per vertex, and `mapOutputs`
+   copies it again. Write into a caller-owned buffer instead.
+
+### Two caveats the measuring itself taught
+
+**The benchmark's variance between machine states is bigger than several of the wins on this
+list.** The same commit, the same frame, the same 143 draws, measured 225 ms/frame on a cold
+laptop and 257 ms/frame on a warm one — 14%, which is more than Phase 1.2 is worth in total.
+An A/B run back-to-back is stable to well under 1%. So: **never compare a number to one from
+an earlier session.** Measure before and after, in the same sitting, and quote the delta.
+
+**The per-subsystem timing costs nothing when it is off, and that was checked rather than
+asserted.** Stripping every hook out of the machine (and then the struct fields too, and then
+`profile.go` entirely) left the benchmark at 256 ms — unchanged. The `Machine.Profile` bool
+is what makes that true: the clocks are only read at boundaries that already cost thousands
+of times more than a clock read.
+
+### The ordering Phase 0 recommends
+
+1. Kill the hot-path allocations and the 256-byte value copies (items 5 and 6). Free, safe.
+2. Cache the decoded PICA shader instruction stream (item 2). The biggest single win.
+3. Page-table the address space (1.1). ~10%, cheap, helps CPU and GPU alike.
+4. The rasteriser's inner loop (2.1, 2.2) — now that the workload is honest.
+5. Direct target access for the rasteriser (1.2) — worth ~7%, so it is not first.
+6. **Do not** build the ARM instruction-decode cache or the word-granular bus (1.3, 1.4).
+
+Everything below this line is the original plan, written before any of it was measured. It is
+left as it was, and wrong where the results say so.
 
 ---
 

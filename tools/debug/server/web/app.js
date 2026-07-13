@@ -18,6 +18,7 @@ import './panels/inspect.js';
 import './panels/surface.js';
 import './panels/files.js';
 import './panels/states.js';
+import './panels/profile.js';
 
 const $ = (id) => document.getElementById(id);
 

@@ -79,6 +79,7 @@ const (
 // handleSVC is the CPU's SWI hook. Returning true tells the core the call was
 // serviced (so it does not vector to the ARM exception base).
 func (m *Machine) handleSVC(c *arm.CPU, comment uint32) bool {
+	defer m.profEnd(bucketSVC, m.profStart()) // profile.go
 	num := comment & 0xFF
 	ev := svcEvent{PC: c.PC(), Num: num, Name: svcName(num)}
 	ev.Args = [4]uint32{c.R[0], c.R[1], c.R[2], c.R[3]}

@@ -72,6 +72,10 @@ func (m *Machine) deliverVBlank() {
 		m.signalAPTEvents()
 	}
 
+	// Close the frame's timing buckets (profile.go) before the hook below, so a
+	// debugger that stops on the frame boundary reads the frame it just watched.
+	m.profFrame()
+
 	// The debugger's frame boundary (debug.go). Last, so a hook that stops the run
 	// here sees a fully delivered VBlank: the swap consumed, the interrupts queued,
 	// the pad sampled.

@@ -193,6 +193,7 @@ func (g *GPU) Execute(addr, size uint32) {
 				maxCmdBufHops, addr, g.m.CPU.Instrs)
 			return
 		}
+		t := g.m.profStart() // one clock read per command list (profile.go)
 		buf := make([]byte, size)
 		for i := uint32(0); i < size; i++ {
 			buf[i] = g.m.Read(addr + i)
@@ -204,6 +205,7 @@ func (g *GPU) Execute(addr, size uint32) {
 			}
 		}
 		ws, err := DecodePICA(buf)
+		g.m.profEnd(bucketCmd, t)
 		if err != nil {
 			g.m.CPU.Halt("gpu: %v (list at 0x%08X)", err, addr)
 			return

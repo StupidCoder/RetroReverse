@@ -215,6 +215,12 @@ type Machine struct {
 	picaLimit int
 	picaCount int
 
+	// Per-subsystem frame timing (profile.go). Off by default; a run that does not
+	// ask for it pays one predictable branch per coarse boundary. Outside the
+	// savestate: it measures a run, it is not a property of the machine.
+	Profile bool
+	prof    profState
+
 	// Instrumentation.
 	GXCapture  bool       // record GX commands + ProcessCommandList buffers (gx.go)
 	gxLog      []GXRecord // the captured commands, in submission order

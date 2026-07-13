@@ -53,7 +53,7 @@ func TestCapabilities(t *testing.T) {
 		debug.CapFrames, debug.CapFastStep, debug.CapReplay, debug.CapCode,
 		debug.CapBreak, debug.CapDisasm, debug.CapWatch, debug.CapSurfaces,
 		debug.CapFiles, debug.CapFileAt, debug.CapStates, debug.CapResume,
-		debug.CapRegions,
+		debug.CapRegions, debug.CapProfile,
 	}
 	got := map[string]bool{}
 	for _, c := range debug.Capabilities(a) {
@@ -448,4 +448,65 @@ func TestProvenanceReachesTheScreen(t *testing.T) {
 			attributed, total)
 	}
 	t.Logf("%d of %d top-screen pixels attributed to a draw", attributed, total)
+}
+
+// TestFrameProfile checks that a stepped frame reports where its time went, and —
+// the part that is easy to get wrong — that the buckets are disjoint: they must
+// add up to the total, because the panel draws them as one stacked bar and a bar
+// whose segments overlap is a lie told in colour.
+func TestFrameProfile(t *testing.T) {
+	a := atScene(t)
+	defer a.Close()
+
+	// Step until a frame that actually drew: Captain Toad renders in bursts, so the
+	// first frame after a restore is quite often an idle one.
+	var p debug.FrameProfile
+	for i := 0; i < 8; i++ {
+		if _, err := a.StepFrame(false); err != nil {
+			t.Fatalf("StepFrame: %v", err)
+		}
+		p = a.FrameProfile()
+		if drew(p) {
+			break
+		}
+	}
+	if !drew(p) {
+		t.Fatal("no frame drew anything in 8 steps; the profile has nothing to say")
+	}
+	if p.TotalMs <= 0 {
+		t.Fatalf("TotalMs = %v, want > 0", p.TotalMs)
+	}
+
+	var sum float64
+	for _, b := range p.Buckets {
+		if b.Millis < 0 {
+			t.Errorf("bucket %q reports negative time %v", b.Name, b.Millis)
+		}
+		sum += b.Millis
+	}
+	// The buckets are disjoint leaves plus a derived remainder, so they sum to the
+	// total by construction. Allow a hair for the float arithmetic.
+	if d := sum - p.TotalMs; d > 0.5 || d < -0.5 {
+		t.Errorf("buckets sum to %.2f ms but the frame took %.2f ms (%.2f unaccounted) — they are overlapping or a path is unbucketed",
+			sum, p.TotalMs, d)
+	}
+	if len(p.Counters) == 0 {
+		t.Error("no counters: milliseconds alone cannot tell a faster rasteriser from a frame that drew less")
+	}
+	for _, b := range p.Buckets {
+		t.Logf("  %-24s %7.1f ms  ×%d", b.Name, b.Millis, b.Count)
+	}
+	for _, c := range p.Counters {
+		t.Logf("  %-24s %d", c.Name, c.Value)
+	}
+}
+
+// drew reports whether the profiled frame did any drawing.
+func drew(p debug.FrameProfile) bool {
+	for _, c := range p.Counters {
+		if c.Name == "draws" && c.Value > 0 {
+			return true
+		}
+	}
+	return false
 }

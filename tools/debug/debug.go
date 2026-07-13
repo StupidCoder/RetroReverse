@@ -164,6 +164,18 @@ type (
 	MemoryMapper interface {
 		Regions() []Region
 	}
+
+	// Profiler reports where the last stepped frame's time went, by subsystem.
+	//
+	// The times are the emulator's own, not a sampling profiler's: only a machine
+	// knows that this stretch of nanoseconds was its rasteriser and that one was its
+	// audio DSP. A target offers this only if it can time its subsystems without
+	// distorting them — timing every fragment costs more than the fragment does — so
+	// the honest granularity is a draw, a command list, a supervisor call, and the
+	// interpreter's share is a remainder rather than a measurement.
+	Profiler interface {
+		FrameProfile() FrameProfile
+	}
 )
 
 // Capability names, as sent to the page. A panel declares which one it needs.
@@ -181,6 +193,7 @@ const (
 	CapStates   = "states"   // StateFiler
 	CapResume   = "resume"   // Resumer
 	CapRegions  = "regions"  // MemoryMapper
+	CapProfile  = "profile"  // Profiler
 	CapOverdraw = "overdraw" // reported per capture, not per target — see FrameCapture
 )
 
@@ -205,6 +218,7 @@ func Capabilities(t Target) []string {
 	_, states := t.(StateFiler)
 	_, resume := t.(Resumer)
 	_, regions := t.(MemoryMapper)
+	_, prof := t.(Profiler)
 
 	add(frames, CapFrames)
 	add(fast, CapFastStep)
@@ -219,7 +233,37 @@ func Capabilities(t Target) []string {
 	add(states, CapStates)
 	add(resume, CapResume)
 	add(regions, CapRegions)
+	add(prof, CapProfile)
 	return caps
+}
+
+// FrameProfile is where one frame's time went.
+//
+// Buckets are disjoint and sum to TotalMs, so they can be drawn as one bar. What a
+// target cannot attribute it reports as a bucket that says so, rather than
+// distributing it and calling the result a measurement.
+//
+// Counters carry the work the frame did — fragments, draws, instructions — because
+// milliseconds alone cannot tell a faster rasteriser from a frame that drew less,
+// and that is the mistake this panel exists to prevent.
+type FrameProfile struct {
+	TotalMs  float64
+	Buckets  []ProfileBucket
+	Counters []ProfileCounter
+}
+
+// ProfileBucket is one subsystem's share of the frame. Count is how many of the
+// thing it did: draws, command lists, cache misses, supervisor calls.
+type ProfileBucket struct {
+	Name   string
+	Millis float64
+	Count  int
+}
+
+// ProfileCounter is one tally for the frame.
+type ProfileCounter struct {
+	Name  string
+	Value int
 }
 
 // Snapshot is an opaque, in-memory machine state, independent of the live machine,

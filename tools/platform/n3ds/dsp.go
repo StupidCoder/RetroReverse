@@ -378,6 +378,7 @@ func (m *Machine) dspDeadline() (uint64, bool) {
 // the other region — and raises the audio-pipe interrupt. The frame semaphore
 // fires every frame from component boot, pipeline running or not.
 func (m *Machine) dspTick() {
+	defer m.profEnd(bucketDSP, m.profStart()) // profile.go
 	m.dsp.NextFrame = m.instrs + dspFrameTicks
 	m.dsp.Ticks++
 	if m.dsp.State == dspStateOn {

@@ -103,6 +103,7 @@ var (
 	_ debug.StateFiler     = (*Adapter)(nil)
 	_ debug.Resumer        = (*Adapter)(nil)
 	_ debug.MemoryMapper   = (*Adapter)(nil)
+	_ debug.Profiler       = (*Adapter)(nil)
 )
 
 // snap wraps a 3DS in-memory savestate as an opaque debug.Snapshot.
@@ -124,6 +125,10 @@ func New(imagePath string) (*Adapter, error) {
 	if err != nil {
 		return nil, err
 	}
+	// Per-subsystem frame timing, on for the debugger's whole life. It costs a few
+	// hundred clock reads a frame — nothing beside the per-pixel provenance hook the
+	// debugger already installs — and it is what the profile panel reads.
+	live.SetProfile(true)
 	return &Adapter{imagePath: imagePath, img: img, live: live}, nil
 }
 
@@ -150,7 +155,14 @@ func (a *Adapter) Restore(s debug.Snapshot) error {
 	}
 	a.mainPass = target{}
 	a.places, a.frameW, a.frameH = nil, 0, 0 // the restored frame has its own; the previous one's is not it
-	return a.live.RestoreState(ns.ms)
+	if err := a.live.RestoreState(ns.ms); err != nil {
+		return err
+	}
+	// Re-arm the profiler: a restore brings the snapshot's own GPU tallies with it,
+	// and the first frame after one would otherwise report the difference between
+	// two unrelated machines as its own work.
+	a.live.SetProfile(true)
+	return nil
 }
 
 func (a *Adapter) SaveStateFile(path string) error { return a.live.SaveState(path) }
@@ -158,7 +170,28 @@ func (a *Adapter) SaveStateFile(path string) error { return a.live.SaveState(pat
 func (a *Adapter) LoadStateFile(path string) error {
 	a.mainPass = target{}
 	a.places, a.frameW, a.frameH = nil, 0, 0 // a state load lands in another frame; the old plane means nothing there
-	return a.live.LoadState(path)
+	if err := a.live.LoadState(path); err != nil {
+		return err
+	}
+	a.live.SetProfile(true) // rebase the counters on the state we just landed in
+	return nil
+}
+
+// FrameProfile reports where the last stepped frame's time went (n3ds/profile.go).
+// The machine times its own subsystems at boundaries that are already coarse — a
+// command list, a draw, a texture cache miss, an audio frame, a supervisor call —
+// and what is left over is the ARM11 interpreter and the HLE around it, reported
+// as the remainder it is.
+func (a *Adapter) FrameProfile() debug.FrameProfile {
+	p := a.live.FrameProfile()
+	out := debug.FrameProfile{TotalMs: p.TotalMs}
+	for _, b := range p.Buckets {
+		out.Buckets = append(out.Buckets, debug.ProfileBucket{Name: b.Name, Millis: b.Millis, Count: b.Count})
+	}
+	for _, c := range p.Counters {
+		out.Counters = append(out.Counters, debug.ProfileCounter{Name: c.Name, Value: c.Value})
+	}
+	return out
 }
 
 // target identifies one colour buffer a frame drew into.

@@ -121,6 +121,7 @@ func (g *GPU) draw(indexed bool) {
 	}
 
 	// Run every vertex through the shader, then assemble.
+	tv := m.profStart() // one clock read per draw (profile.go)
 	outs := make([]vsOut, 0, count)
 	for i := uint32(0); i < count; i++ {
 		vi := first + i
@@ -189,9 +190,13 @@ func (g *GPU) draw(indexed bool) {
 		}
 	}
 
+	m.profEnd(bucketVertex, tv)
+
 	// Primitive assembly. 0x25E bits 8-9: triangles / strip / fan; mode 3 is
 	// the geometry-shader path (already rejected above via 0x229, but keep the
 	// check local too).
+	tr := m.profStart()
+	defer m.profEnd(bucketRaster, tr)
 	prim := g.Regs[regPrimConfig] >> 8 & 3
 	n := len(outs)
 	emit := func(a, b, c int) { g.triangle(&outs[a], &outs[b], &outs[c]) }

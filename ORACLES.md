@@ -26,6 +26,7 @@ operating system (Horizon), a GPU (PICA200, LLE shader + rasteriser), and an aud
 | flag | what it does |
 |---|---|
 | `-steps N` | instruction budget (hex or decimal) |
+| `-frames N` | **stop after N VBlanks**, with `-steps` as a ceiling. A graphics workload is measured in frames; an instruction budget only contains one by guesswork, and the guess moves whenever the idle skipping does |
 | `-savestate F` / `-loadstate F` | full deterministic snapshot: memory, threads, GPU, GSP, APT, DSP, fs sessions, save store. **The fast-iteration workhorse** — a cold boot to a menu is billions of instructions; a savestate replays it in seconds |
 | `-poke ADDR:VALUE` | write a word after `-loadstate`, before running. A probe instrument: falsify a hypothesis by forcing the value the game is waiting for |
 | `-threads` | dump every thread (state, pc, sp, lr, what it waits on) + the handle table + pending GX commands. The first thing to run when a boot stops making progress |
@@ -53,6 +54,12 @@ operating system (Horizon), a GPU (PICA200, LLE shader + rasteriser), and an aud
 | `-rtshot ADDR:WxH[:FILE]` | decode a tiled render target **straight out of memory**, at the address and dimensions the GPU's own registers name — what the rasteriser drew, *before* any DisplayTransfer moves it. This is what separates "did we rasterise it" from "did it reach the panel", which no counter can: it is how the black-screen chase found that the pixels were landing correctly and were simply being shaded black |
 | `-gxdump DIR` | capture GX commands and every PICA command list. Submitted lists are captured **at submission time** (the game reuses list memory, so capturing later reads garbage); buffers the command processor reaches by a **CMDBUF_JUMP** are captured at execution time — the only moment they exist as a unit — and marked `..chained`. Without those you see roughly 1/200th of what the GPU runs |
 | `-gputrace N` | per-draw summary: vertex fetch, uniforms, first clip positions, the colour/depth targets and dims, the fragment-lighting block, plus **which uniforms are NaN at draw time** — the instrument that found the float24 bug |
+
+**Performance** — an oracle nobody can afford to run is an oracle nobody runs; see `PERFORMANCE.md`
+| flag | what it does |
+|---|---|
+| `-profile` | time each subsystem and print the run's cost by bucket — command decode, vertex+shader, rasterise, texture decode, GX transfers, DSP, svc/IPC, and the ARM11 as a *derived remainder*. Times only boundaries that are already coarse (a list, a draw, a cache miss, an svc), because a clock read per fragment costs more than the fragment. Totals every frame rather than the last one: the game renders in bursts, and the frame a run stops on is as likely as not to have drawn nothing. Prints the work alongside the time — **fragments per millisecond is the number that moves when an optimisation lands**; milliseconds alone cannot tell a faster rasteriser from a frame that drew less |
+| `-cpuprofile F` | write a pprof CPU profile of the run (`go tool pprof -top`). Brackets the run only, not the image load or the PNG writing |
 
 **Audio**
 | flag | what it does |
@@ -143,6 +150,7 @@ behind a 16-byte header, aligned so the page wraps the bytes in an `ImageData` w
 | **Click a pixel → the command that drew it** | plus its **full overdraw history**, including the writes the rasteriser produced and then *threw away* on a depth or alpha test — usually the answer to "why is this pixel not the colour I expect?" |
 | **Select a command → every pixel it drew** | highlighted as an overlay |
 | **Inspect** | CPU registers, RDRAM hex |
+| **Profile** (3DS) | where the stepped frame's time went, by subsystem — one stacked bar plus the counters. Capability-gated on `debug.Profiler`, so a target that cannot honestly time its own subsystems simply has no panel rather than an empty one reading "0 ms". The times are the *machine's*, not a sampling profiler's: only the emulator knows which nanoseconds were its rasteriser and which its DSP. Counters ride alongside, because a bucket that got faster while the frame drew less has not got faster |
 
 **Why the pixel questions are instant.** A frame capture carries a *provenance buffer* — one command
 index per pixel — built in a single pass by the machine's own `OnPixel` hook while the frame draws.

@@ -185,6 +185,29 @@ type (
 		HasProv  bool          `json:"hasProv"`
 		Overdraw bool          `json:"overdraw"`
 		StepMs   float64       `json:"stepMs"`
+
+		// Profile is where the machine says the frame's time went, when the target
+		// can say (debug.Profiler). It rides the frame message rather than being a
+		// request of its own: it is a property of the frame just stepped, and asking
+		// for it separately would invite reading it against a different frame.
+		Profile *jsonProfile `json:"profile,omitempty"`
+	}
+
+	jsonProfile struct {
+		TotalMs  float64           `json:"totalMs"`
+		Buckets  []jsonProfBucket  `json:"buckets"`
+		Counters []jsonProfCounter `json:"counters"`
+	}
+
+	jsonProfBucket struct {
+		Name   string  `json:"name"`
+		Millis float64 `json:"ms"`
+		Count  int     `json:"count"`
+	}
+
+	jsonProfCounter struct {
+		Name  string `json:"name"`
+		Value int    `json:"value"`
 	}
 
 	renderMsg struct {
@@ -197,6 +220,10 @@ type (
 		Cached   bool    `json:"cached"`
 		Play     bool    `json:"play,omitempty"`  // a free-running frame: unrequested, never stale
 		Frame    int     `json:"frame,omitempty"` // fields stepped so far
+
+		// Profile rides a played frame too, so the profile panel stays live while the
+		// machine free-runs — which is when a performance question is usually asked.
+		Profile *jsonProfile `json:"profile,omitempty"`
 	}
 
 	cpuMsg struct {

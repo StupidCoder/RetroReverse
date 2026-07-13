@@ -295,6 +295,7 @@ func (rn *Runner) step(r request) error {
 		HasProv:  fc.Prov != nil,
 		Overdraw: fc.Overdraw != nil,
 		StepMs:   msSince(start),
+		Profile:  frameProfile(rn.tgt),
 	})
 	// The provenance buffer goes over once per capture. From then on the page answers
 	// "which command drew this pixel?" locally, with no round trip — which is what
@@ -363,6 +364,7 @@ func (rn *Runner) playFrame() error {
 	rn.broadcast(renderMsg{
 		Type: "render", Seq: 0, Stream: streamMain, K: -1, Play: true,
 		Frame: rn.frameNo, RenderMs: msSince(start), Bytes: len(payload),
+		Profile: frameProfile(rn.tgt), // free-running frames keep the profile panel live
 	})
 	rn.inFlight = true
 	rn.broadcastBinary(payload)
@@ -733,6 +735,28 @@ func stopped(sr debug.StopReason) stoppedMsg {
 	return stoppedMsg{
 		Type: "stopped", Reason: sr.Kind, PC: hex64(sr.PC), Steps: sr.Steps, Note: sr.Note,
 	}
+}
+
+// frameProfile asks the target where the frame's time went, if it can say. A
+// target that cannot implement debug.Profiler sends nothing, and the page shows no
+// profile panel — rather than an empty one that reads as "the frame cost nothing".
+func frameProfile(t debug.Target) *jsonProfile {
+	p, ok := t.(debug.Profiler)
+	if !ok {
+		return nil
+	}
+	fp := p.FrameProfile()
+	if fp.TotalMs == 0 && len(fp.Buckets) == 0 {
+		return nil
+	}
+	out := &jsonProfile{TotalMs: fp.TotalMs}
+	for _, b := range fp.Buckets {
+		out.Buckets = append(out.Buckets, jsonProfBucket{Name: b.Name, Millis: b.Millis, Count: b.Count})
+	}
+	for _, c := range fp.Counters {
+		out.Counters = append(out.Counters, jsonProfCounter{Name: c.Name, Value: c.Value})
+	}
+	return out
 }
 
 func msSince(t time.Time) float64 { return float64(time.Since(t).Microseconds()) / 1000 }

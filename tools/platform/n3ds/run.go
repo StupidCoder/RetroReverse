@@ -24,6 +24,10 @@ const maxIdleFrames = 40
 func (m *Machine) Run(budget int) int {
 	n := 0
 	idleFrames := 0
+	// Frame timing counts run time, not wall time, so a debugger paused at a frame
+	// boundary does not bill the pause to the ARM11 (profile.go).
+	m.profRunEnter()
+	defer m.profRunExit()
 	// Both stop flags are edge-triggered: a run that inherited them from the
 	// previous one would return without executing anything.
 	m.stopped, m.StopRequested = false, false
@@ -79,6 +83,7 @@ func (m *Machine) Run(budget int) int {
 			if next > m.instrs {
 				m.tick += 2 * (next - m.instrs)
 				m.instrs = next
+				m.prof.idleSkips++
 			}
 			switch kind {
 			case "gx":
@@ -150,6 +155,41 @@ func (m *Machine) Run(budget int) int {
 			t.state = ready
 		}
 		if m.stopped || m.StopRequested {
+			break
+		}
+	}
+	return n
+}
+
+// RunFrames runs until frames further VBlanks have been delivered, or the
+// instruction budget runs out, whichever comes first; it returns the instructions
+// actually run. It is the unit a graphics workload is honestly measured in — an
+// instruction budget only contains a frame by guesswork, and the guess changes
+// every time the machine's idle skipping does.
+//
+// It rides the debugger's frame hook, chaining rather than replacing whatever is
+// already installed, and puts it back afterwards.
+func (m *Machine) RunFrames(frames, budget int) int {
+	if frames <= 0 {
+		return 0
+	}
+	target := m.vblankCount + uint64(frames)
+	prev := m.OnFrame
+	m.OnFrame = func(mm *Machine) {
+		if prev != nil {
+			prev(mm)
+		}
+		if mm.vblankCount >= target {
+			mm.StopRequested = true
+		}
+	}
+	defer func() { m.OnFrame = prev }()
+
+	n := 0
+	for n < budget && m.vblankCount < target && !m.CPU.Halted && !m.stopped {
+		ran := m.Run(budget - n)
+		n += ran
+		if ran == 0 { // no progress: halted, or a breakpoint that stays hit
 			break
 		}
 	}

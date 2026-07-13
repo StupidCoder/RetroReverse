@@ -176,6 +176,10 @@ func (g *GPU) texture(addr, format, w, h uint32) (*texImage, bool) {
 	if img, hit := g.texCache[k]; hit {
 		return img, true
 	}
+	// A miss decodes the whole texture: coarse enough to time (profile.go), and
+	// the one part of the fragment path whose cost is not per fragment.
+	t := g.m.profStart()
+	defer g.m.profEnd(bucketTexture, t)
 	img := &texImage{w: w, h: h, pix: make([]byte, w*h*4)}
 
 	put := func(x, y uint32, r, gr, b, a byte) {

@@ -14,7 +14,7 @@
 // Usage:
 //
 //	bootoracle -image game.cci [-steps N] [-trace] [-tracen N] [-bp A]... [-watch A[:L]]...
-//	           [-svclog] [-savestate F] [-loadstate F]
+//	           [-svclog] [-savestate F] [-loadstate F] [-frames N] [-cpuprofile F]
 package main
 
 import (
@@ -23,8 +23,10 @@ import (
 	"image/png"
 	"os"
 	"path/filepath"
+	"runtime/pprof"
 	"strconv"
 	"strings"
+	"time"
 
 	"retroreverse.com/tools/platform/n3ds"
 )
@@ -78,6 +80,9 @@ func main() {
 	keypulse := flag.Int("keypulse", 0, "if >0, release the injected keys briefly every N frames so a fresh press edge keeps arriving (for advancing menus/dialogs)")
 	wav := flag.String("wav", "", "capture the DSP's final mix during the run and write it to this .wav file")
 	dsptrace := flag.Bool("dsptrace", false, "log every source configuration the DSP consumes and every status it publishes")
+	frames := flag.Int("frames", 0, "if >0, stop after this many VBlanks (a frame-bounded run: what a profile wants to measure), still capped by -steps")
+	cpuprofile := flag.String("cpuprofile", "", "write a pprof CPU profile of the run to this file")
+	profile := flag.Bool("profile", false, "time each subsystem and print the last frame's cost by bucket")
 	flag.Parse()
 
 	if *image == "" {
@@ -85,9 +90,26 @@ func main() {
 		flag.Usage()
 		os.Exit(2)
 	}
-	if err := run(*image, *steps, *trace, *tracen, *verbose, *svclog, bps, watches, logpcs, tracefroms, dumps, *saveState, *loadState, *gxdump, *shot, *rtshot, *gputrace, *threads, *hidtrace, *keys, *keypulse, *findAscii, *findUtf16, *findWord, pokes, *wav, *dsptrace); err != nil {
+
+	// The profile brackets the run only — not the image read, the state restore or
+	// the PNG/WAV writing, none of which is the thing being optimised.
+	var profOut *os.File
+	if *cpuprofile != "" {
+		f, err := os.Create(*cpuprofile)
+		if err != nil {
+			fmt.Fprintln(os.Stderr, "bootoracle: cpuprofile:", err)
+			os.Exit(1)
+		}
+		profOut = f
+	}
+
+	if err := run(*image, *steps, *trace, *tracen, *verbose, *svclog, bps, watches, logpcs, tracefroms, dumps, *saveState, *loadState, *gxdump, *shot, *rtshot, *gputrace, *threads, *hidtrace, *keys, *keypulse, *findAscii, *findUtf16, *findWord, pokes, *wav, *dsptrace, *frames, profOut, *profile); err != nil {
 		fmt.Fprintln(os.Stderr, "bootoracle:", err)
 		os.Exit(1)
+	}
+	if profOut != nil {
+		profOut.Close()
+		fmt.Printf("wrote CPU profile to %s\n", *cpuprofile)
 	}
 }
 
@@ -120,7 +142,7 @@ func utf16Pattern(s string) []byte {
 	return b
 }
 
-func run(imagePath, stepsStr string, trace bool, tracen int, verbose, svclog bool, bps, watches, logpcs, tracefroms, dumps multiFlag, saveState, loadState, gxdump, shot, rtshot string, gputrace int, threads, hidtrace bool, keys string, keypulse int, findAscii, findUtf16, findWord string, pokes multiFlag, wav string, dsptrace bool) error {
+func run(imagePath, stepsStr string, trace bool, tracen int, verbose, svclog bool, bps, watches, logpcs, tracefroms, dumps multiFlag, saveState, loadState, gxdump, shot, rtshot string, gputrace int, threads, hidtrace bool, keys string, keypulse int, findAscii, findUtf16, findWord string, pokes multiFlag, wav string, dsptrace bool, frames int, profOut *os.File, profile bool) error {
 	img, err := os.ReadFile(imagePath)
 	if err != nil {
 		return err
@@ -209,10 +231,41 @@ func run(imagePath, stepsStr string, trace bool, tracen int, verbose, svclog boo
 		return fmt.Errorf("bad -steps: %w", err)
 	}
 
-	fmt.Printf("boot: entry 0x%08X, running up to %d instructions\n", m.Entry(), budget)
-	ran := m.Run(int(budget))
+	// After -loadstate: the profiler's counter baseline is taken when it is armed,
+	// and a restore brings the snapshot's own GPU tallies with it.
+	m.SetProfile(profile)
+	var profFrames []n3ds.FrameProfile
+	if profile {
+		// Every frame, not the last one: a game does not draw evenly, and the frame
+		// a run happens to stop on is as likely as not to be one that drew nothing.
+		m.OnFrame = func(mm *n3ds.Machine) { profFrames = append(profFrames, mm.FrameProfile()) }
+	}
 
-	fmt.Printf("\nran %d instructions (%d total)\n", ran, m.Instrs())
+	fmt.Printf("boot: entry 0x%08X, running up to %d instructions\n", m.Entry(), budget)
+	vb0 := m.VBlanks()
+	if profOut != nil {
+		if err := pprof.StartCPUProfile(profOut); err != nil {
+			return fmt.Errorf("starting CPU profile: %w", err)
+		}
+	}
+	start := time.Now()
+	var ran int
+	if frames > 0 {
+		// A frame-bounded run: what a profile actually wants to measure. -steps
+		// stays a ceiling.
+		ran = m.RunFrames(frames, int(budget))
+	} else {
+		ran = m.Run(int(budget))
+	}
+	elapsed := time.Since(start)
+	if profOut != nil {
+		pprof.StopCPUProfile()
+	}
+
+	fmt.Printf("\nran %d instructions (%d total) in %s\n", ran, m.Instrs(), elapsed.Round(time.Millisecond))
+	if vb := m.VBlanks() - vb0; vb > 0 {
+		fmt.Printf("wall clock: %d VBlanks this run, %s/frame\n", vb, (elapsed / time.Duration(vb)).Round(time.Millisecond))
+	}
 	if r := m.HaltReason(); r != "" {
 		fmt.Printf("halt: %s\n", r)
 	} else {
@@ -246,6 +299,9 @@ func run(imagePath, stepsStr string, trace bool, tracen int, verbose, svclog boo
 			g.Draws, g.PixelsDrawn, g.ZeroAreaTris, g.CulledTris, g.RejectedTris, g.DepthKilled)
 		fmt.Printf("shadow: %d map writes, %d samples (%d occluded)\n",
 			g.ShadowWrites, g.ShadowSamples, g.ShadowOccluded)
+	}
+	if profile {
+		printFrameProfile(profFrames)
 	}
 	if svclog {
 		printSVCSummary(m)
@@ -391,6 +447,71 @@ func dumpGX(m *n3ds.Machine, dir string) error {
 		}
 	}
 	return nil
+}
+
+// printFrameProfile prints the run's cost by subsystem — the answer to "is it 90%
+// rasterising?", asked of the machine rather than of a profiler, and alongside the
+// work the frames actually did: a bucket that got faster while the frame drew
+// fewer fragments has not got faster.
+//
+// It totals every frame rather than reporting the last one. Captain Toad does not
+// draw evenly — it renders in bursts and parks on a fence — so a single frame is a
+// lottery, and the frame a run happens to stop on is quite often one that drew
+// nothing at all.
+func printFrameProfile(frames []n3ds.FrameProfile) {
+	if len(frames) == 0 {
+		fmt.Println("\nframe profile: no frame completed during the run")
+		return
+	}
+	var total float64
+	drew := 0
+	buckets := map[string]*n3ds.ProfileBucket{}
+	var order []string
+	counters := map[string]int{}
+	var corder []string
+	for _, f := range frames {
+		total += f.TotalMs
+		for _, b := range f.Buckets {
+			acc, ok := buckets[b.Name]
+			if !ok {
+				acc = &n3ds.ProfileBucket{Name: b.Name}
+				buckets[b.Name], order = acc, append(order, b.Name)
+			}
+			acc.Millis += b.Millis
+			acc.Count += b.Count
+		}
+		for _, c := range f.Counters {
+			if _, ok := counters[c.Name]; !ok {
+				corder = append(corder, c.Name)
+			}
+			counters[c.Name] += c.Value
+			if c.Name == "draws" && c.Value > 0 {
+				drew++
+			}
+		}
+	}
+	n := float64(len(frames))
+	fmt.Printf("\nframe profile — %d frames, %.0f ms total, %.1f ms/frame (%d frames drew, %d were idle)\n",
+		len(frames), total, total/n, drew, len(frames)-drew)
+	for _, name := range order {
+		b := buckets[name]
+		pct := 0.0
+		if total > 0 {
+			pct = 100 * b.Millis / total
+		}
+		count := ""
+		if b.Count > 0 {
+			count = fmt.Sprintf("  ×%d", b.Count)
+		}
+		fmt.Printf("  %-24s %8.1f ms  %5.1f%%   %6.1f ms/frame%s\n", name, b.Millis, pct, b.Millis/n, count)
+	}
+	fmt.Println("  counters (whole run, per frame):")
+	for _, name := range corder {
+		fmt.Printf("    %-22s %10d  %10.0f\n", name, counters[name], float64(counters[name])/n)
+	}
+	if frags := counters["fragments drawn"] + counters["depth-killed"]; frags > 0 && total > 0 {
+		fmt.Printf("  fragments per millisecond: %.0f\n", float64(frags)/total)
+	}
 }
 
 func printSVCSummary(m *n3ds.Machine) {

@@ -91,6 +91,7 @@ func (m *Machine) captureGX(cmd uint32, id uint32) {
 // capture shows 2 = 32-bit for both the RGBA8 colour clear and the D24S8 depth
 // clear).
 func (m *Machine) gxMemoryFill(start, value, end, ctl uint32) {
+	defer m.profEnd(bucketGX, m.profStart()) // profile.go
 	start, end = m.gpuAddrToVirt(start), m.gpuAddrToVirt(end)
 	var unit uint32
 	switch ctl >> 8 & 3 {
@@ -115,6 +116,7 @@ func (m *Machine) gxMemoryFill(start, value, end, ctl uint32) {
 // each dim word is gap<<16 | width, both in 2-byte units (derivation at the
 // dispatch site). Zero dims degrade to a flat copy. Structural surprises halt.
 func (m *Machine) gxTextureCopy(src, dst, size, inDim, outDim uint32) {
+	defer m.profEnd(bucketGX, m.profStart()) // profile.go
 	src, dst = m.gpuAddrToVirt(src), m.gpuAddrToVirt(dst)
 	inW, inGap := inDim&0xFFFF*2, inDim>>16*2
 	outW, outGap := outDim&0xFFFF*2, outDim>>16*2
@@ -153,6 +155,7 @@ func (m *Machine) gxTextureCopy(src, dst, size, inDim, outDim uint32) {
 // 12-14). Only what the game has been seen to use is implemented; anything else
 // stops loudly.
 func (m *Machine) gxDisplayTransfer(src, dst, srcDims, dstDims, flags uint32) {
+	defer m.profEnd(bucketGX, m.profStart()) // profile.go
 	srcW, srcH := srcDims&0xFFFF, srcDims>>16
 	dstW, dstH := dstDims&0xFFFF, dstDims>>16
 	inFmt, outFmt := flags>>8&7, flags>>12&7
