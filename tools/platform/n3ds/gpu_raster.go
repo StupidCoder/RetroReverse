@@ -89,6 +89,8 @@ func (g *GPU) draw(indexed bool) {
 				fmt.Printf("    fixed attr%d = %v\n", a, g.fixedVal[a])
 			}
 		}
+		fmt.Printf("  VIEWPORT offset x=%d y=%d (reg 0x068=0x%08X)\n",
+			g.Regs[regViewportXY]&0x3FF, g.Regs[regViewportXY]>>16&0x3FF, g.Regs[regViewportXY])
 		fmt.Printf("gpu draw %d: indexed=%v count=%d first=%d base=0x%08X bufs=%d prim=%d vp=%.1fx%.1f color=0x%08X depth=0x%08X dim=%dx%d test=%v wr=%v\n",
 			g.Draws, indexed, count, first, base, len(bufs), g.Regs[regPrimConfig]>>8&3,
 			f24bits(g.Regs[regViewportWidth]), f24bits(g.Regs[regViewportHeight]),
@@ -390,6 +392,17 @@ func (g *GPU) triangle(a, b, c *vsOut) {
 	}
 
 	for y := minY; y < maxY; y++ {
+		// The PICA's framebuffer origin is bottom-left: viewport y counts up from
+		// the buffer's LAST row, so a viewport shorter than the buffer renders
+		// into its bottom, not its top. Captain Toad is the case that shows it —
+		// it draws a 240×400 viewport into a 256×512 target and then display-
+		// transfers the window at byte offset 0x1C000, which is exactly the
+		// 512-400 = 112 rows the image is pushed down by (its bottom screen: a
+		// 320-row viewport, a 0x30000 = 192-row offset, and 512-320 = 192).
+		// Rasterising top-aligned put the diorama 112 rows above the panel's
+		// window and ran it off the edge. Super Mario 3D Land cannot show this:
+		// its buffer is exactly its viewport (240×400), so the two anchors agree.
+		ty := uint32(int(fb.height) - 1 - y)
 		for x := minX; x < maxX; x++ {
 			px, py := float32(x)+0.5, float32(y)+0.5
 			w0 := edge(v1.x, v1.y, v2.x, v2.y, px, py)
@@ -410,12 +423,12 @@ func (g *GPU) triangle(a, b, c *vsOut) {
 			if depth > 1 {
 				depth = 1
 			}
-			if !g.depthCompare(&fb, uint32(x), uint32(y), depth) {
+			if !g.depthCompare(&fb, uint32(x), ty, depth) {
 				g.DepthKilled++
 				// A depth-killed fragment carries no colour: the PICA kills it
 				// before the TEV runs, so there is nothing to report but the
 				// rejection itself.
-				g.pixelEvent(uint32(x), uint32(y), PixelEvent{ZReject: true})
+				g.pixelEvent(uint32(x), ty, PixelEvent{ZReject: true})
 				continue
 			}
 
@@ -459,13 +472,13 @@ func (g *GPU) triangle(a, b, c *vsOut) {
 			if discard {
 				// Alpha-tested out: no colour and no depth write, but the fragment
 				// was shaded, so the debugger gets the colour it would have had.
-				g.pixelEvent(uint32(x), uint32(y), PixelEvent{
+				g.pixelEvent(uint32(x), ty, PixelEvent{
 					R: r8, G: g8, B: b8, A: a8, AlphaReject: true,
 				})
 				continue
 			}
-			g.depthWrite(&fb, uint32(x), uint32(y), depth)
-			g.writePixel(&fb, uint32(x), uint32(y), r8, g8, b8, a8)
+			g.depthWrite(&fb, uint32(x), ty, depth)
+			g.writePixel(&fb, uint32(x), ty, r8, g8, b8, a8)
 			g.PixelsDrawn++
 		}
 	}

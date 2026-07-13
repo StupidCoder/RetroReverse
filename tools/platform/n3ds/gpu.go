@@ -23,6 +23,7 @@ import "fmt"
 const (
 	regViewportWidth  = 0x041 // float24: half the viewport width
 	regViewportHeight = 0x043 // float24: half the viewport height
+	regViewportXY     = 0x068 // viewport origin within the render target
 	regDepthMapScale  = 0x04D // float24
 	regDepthMapOffset = 0x04E // float24
 	regShOutmapTotal  = 0x04F // number of vertex-shader output registers

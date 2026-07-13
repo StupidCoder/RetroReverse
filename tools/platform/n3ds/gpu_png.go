@@ -48,10 +48,15 @@ func (m *Machine) Framebuffer(screen string) *image.NRGBA {
 				v := uint16(m.Read(p)) | uint16(m.Read(p+1))<<8
 				r, g, b = byte(v>>12)*17, byte(v>>8&15)*17, byte(v>>4&15)*17
 			}
-			// Framebuffer (x, y) → screen (height-1-y, width-1-x): framebuffer
-			// lines run right-to-left across the landscape image (the first
-			// capture of real content came out mirrored until this flip).
-			o := img.PixOffset(h-1-y, w-1-x)
+			// Framebuffer (x, y) → screen (y, width-1-x): framebuffer lines run
+			// right-to-left across the landscape image, and the buffer's first
+			// line is the screen's first column because the rasteriser now
+			// anchors the viewport to the buffer's bottom (the PICA's bottom-left
+			// origin — see gpu_raster.go). The two flips cancel exactly whenever
+			// the render target is no taller than the viewport, which is why
+			// Super Mario 3D Land is pixel-identical across this change and only
+			// Captain Toad's 256×512 target could reveal the anchor.
+			o := img.PixOffset(y, w-1-x)
 			img.Pix[o], img.Pix[o+1], img.Pix[o+2], img.Pix[o+3] = r, g, b, 255
 		}
 	}
