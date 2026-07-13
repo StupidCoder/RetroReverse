@@ -169,9 +169,14 @@ func build(t *bgt.Track, meshes []bgt.Mesh) ([]glb.Prim, int, error) {
 		}
 		base := uint32(len(b.pos))
 		for _, v := range m.Verts {
-			// The track's own axes are already Y-up (heights run positive), as
-			// glTF's are. Flip Z to swap the handedness, exactly as the vehicles do.
-			b.pos = append(b.pos, [3]float32{v.X, v.Y, -v.Z})
+			// No axis flip. The game's world is RIGHT-HANDED and Y-up — glTF's
+			// convention exactly: the view matrix the GE is handed is a proper
+			// rotation (determinant +1) and its projection is the standard
+			// right-handed one, so there is nothing to convert. Negating Z
+			// mirrors the world instead — it reverses every triangle's winding
+			// (the road visible only from below, the buildings only from behind)
+			// and it reverses the lettering on every sign.
+			b.pos = append(b.pos, [3]float32{v.X, v.Y, v.Z})
 			b.uv = append(b.uv, [2]float32{v.U, v.V})
 			b.col = append(b.col, [4]uint8{v.R, v.G, v.B, v.A})
 		}

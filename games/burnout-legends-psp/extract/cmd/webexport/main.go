@@ -53,8 +53,8 @@ type spawn struct {
 	Target [3]float32 `json:"target"`
 }
 
-// roadFrom returns a point on the road in a cell, in glTF coordinates (Z
-// flipped, as the meshes are).
+// roadFrom returns a point on the road in a cell, in world coordinates (which
+// are glTF's coordinates: the game is right-handed and Y-up already).
 //
 // The road is the one thing in a cell shaped like a road: WIDE and FLAT. Score
 // each mesh by its footprint over its thickness and the tarmac wins outright —
@@ -75,7 +75,7 @@ func roadFrom(b bgt.Block) ([3]float32, bool) {
 		return [3]float32{}, false
 	}
 	m := &b.Meshes[best]
-	return [3]float32{m.Centre[0], m.Centre[1] + 3*max(m.Extent[1], 1), -m.Centre[2]}, true
+	return [3]float32{m.Centre[0], m.Centre[1] + 3*max(m.Extent[1], 1), m.Centre[2]}, true
 }
 
 type manifest struct {
@@ -226,10 +226,14 @@ func exportCars(im *psp.Image, dir string) []model {
 		if err != nil {
 			die("%s: %v", slug, err)
 		}
-		atlas, err := bgv.Texture(data)
+		raw, err := bgv.Texture(data)
 		if err != nil {
 			die("%s: %v", slug, err)
 		}
+		// The same GE alpha test the world needs. A car's atlas is 15% middling
+		// alpha, and glTF's 0.5 mask cutoff punches every one of those texels out
+		// — the body comes back as a shell full of holes.
+		atlas := bgt.AlphaTest(raw)
 		wheels, err := bgv.Wheels(data)
 		if err != nil {
 			die("%s: %v", slug, err)
@@ -242,8 +246,8 @@ func exportCars(im *psp.Image, dir string) []model {
 		var prims []glb.Prim
 		for mi := range meshes {
 			me := &meshes[mi]
-			tris := me.Tris()
-			if len(tris) == 0 {
+			t := me.Tris()
+			if len(t) == 0 {
 				continue
 			}
 			// Body parts carry their position in their vertices; the wheel is
@@ -259,10 +263,13 @@ func exportCars(im *psp.Image, dir string) []model {
 				for j, v := range me.Verts {
 					x, y, z := w.Apply(v.X, v.Y, v.Z)
 					nx, ny, nz := w.ApplyDir(v.NX, v.NY, v.NZ)
-					pos[j] = [3]float32{x, y, -z} // the models are already Y-up; flip Z
-					nrm[j] = [3]float32{nx, ny, -nz}
+					pos[j] = [3]float32{x, y, z} // right-handed and Y-up already: no flip
+					nrm[j] = [3]float32{nx, ny, nz}
 					uv[j] = [2]float32{v.U, v.V}
 				}
+				// Only a genuinely mirroring placement — the wheels on one side of
+				// the car are instanced through a negated basis — reverses winding.
+				tris := wound(t, w.Mirrors())
 				// Unlit, like everything else the Studio ships: the stage carries
 				// no lights, so a PBR material renders black. The car's paint,
 				// decals and lettering are all in its atlas anyway.
@@ -321,8 +328,14 @@ func writeGLB(file, name string, t *bgt.Track, meshes []bgt.Mesh) {
 		}
 		base := uint32(len(b.pos))
 		for _, v := range m.Verts {
-			// The track's axes are already Y-up, as glTF's are; flip Z for handedness.
-			b.pos = append(b.pos, [3]float32{v.X, v.Y, -v.Z})
+			// No axis flip. The game's world is RIGHT-HANDED and Y-up — glTF's
+			// convention exactly: the view matrix the GE is given is a proper
+			// rotation (determinant +1) and its projection is the standard
+			// right-handed one, so there is nothing to convert. Negating Z, as
+			// the vehicles used to, converts nothing and MIRRORS the world — it
+			// reverses every triangle's winding (the road visible only from
+			// below) and it reverses the lettering on every sign.
+			b.pos = append(b.pos, [3]float32{v.X, v.Y, v.Z})
 			b.uv = append(b.uv, [2]float32{v.U, v.V})
 			b.col = append(b.col, [4]uint8{v.R, v.G, v.B, v.A})
 		}
@@ -374,6 +387,21 @@ func writeGLB(file, name string, t *bgt.Track, meshes []bgt.Mesh) {
 
 // identity leaves a mesh where its vertices already put it.
 var identity = bgv.Mat4{1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1}
+
+// wound returns the triangles with their winding reversed when asked. glTF's
+// front face is counter-clockwise, and any transform that flips handedness — the
+// Z-flip we apply to every model, or a mirrored wheel placement — turns a
+// front face into a back one.
+func wound(t [][3]uint32, reverse bool) [][3]uint32 {
+	if !reverse {
+		return t
+	}
+	out := make([][3]uint32, len(t))
+	for i, f := range t {
+		out[i] = [3]uint32{f[0], f[2], f[1]}
+	}
+	return out
+}
 
 func die(format string, a ...any) {
 	fmt.Fprintf(os.Stderr, "webexport: "+format+"\n", a...)

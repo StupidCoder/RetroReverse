@@ -15,6 +15,7 @@ import (
 	"sort"
 	"strings"
 
+	"retroreverse.com/games/burnout-legends-psp/extract/bgt"
 	"retroreverse.com/games/burnout-legends-psp/extract/bgv"
 	"retroreverse.com/tools/lib/glb"
 	"retroreverse.com/tools/platform/psp"
@@ -80,6 +81,14 @@ func main() {
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "%s: no texture (%v) — exporting untextured\n", name, err)
 		}
+		// Run the engine's alpha test before the atlas reaches a glTF material:
+		// a car's atlas is 15% middling alpha, and glTF's 0.5 mask cutoff punches
+		// every one of those texels out, returning the body as a shell full of
+		// holes. (The -png dump above stays the raw decode.)
+		masked := atlas
+		if atlas != nil {
+			masked = bgt.AlphaTest(atlas)
+		}
 		if *pngDir != "" && atlas != nil {
 			f, err := os.Create(filepath.Join(*pngDir, name+".png"))
 			if err != nil {
@@ -129,17 +138,21 @@ func main() {
 					// The model's own axes are already Y-up (the body's vertices
 					// run from the floor up to +1.08); glTF is Y-up too. Flip Z
 					// instead, to swap the handedness.
-					pos[j] = [3]float32{x, y, -z}
-					nrm[j] = [3]float32{nx, ny, -nz}
+					pos[j] = [3]float32{x, y, z}
+					nrm[j] = [3]float32{nx, ny, nz}
 					uv[j] = [2]float32{v.U, v.V}
 				}
+				// The models are right-handed and Y-up already — glTF's convention
+				// — so no axis flip. Only a mirroring placement (the wheels on one
+				// side, instanced through a negated basis) reverses winding.
 				prims = append(prims, glb.Prim{
 					Positions: pos,
 					Normals:   nrm,
 					UVs:       uv,
-					Tris:      t,
-					Image:     atlas,
+					Tris:      wound(t, m.Mirrors()),
+					Image:     masked,
 					BaseColor: [4]float32{1, 1, 1, 1},
+					Unlit:     true,
 				})
 			}
 		}
@@ -164,6 +177,19 @@ func main() {
 
 // identity leaves a mesh where its vertices already put it.
 var identity = bgv.Mat4{1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1}
+
+// wound reverses a triangle list's winding when a transform has flipped
+// handedness, so glTF's counter-clockwise front face still faces out.
+func wound(t [][3]uint32, reverse bool) [][3]uint32 {
+	if !reverse {
+		return t
+	}
+	out := make([][3]uint32, len(t))
+	for i, f := range t {
+		out[i] = [3]uint32{f[0], f[2], f[1]}
+	}
+	return out
+}
 
 func die(format string, a ...any) {
 	fmt.Fprintf(os.Stderr, "bgvexport: "+format+"\n", a...)

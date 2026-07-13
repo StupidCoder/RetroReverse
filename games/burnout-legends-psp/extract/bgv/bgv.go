@@ -265,6 +265,17 @@ func (m Mat4) Apply(x, y, z float32) (float32, float32, float32) {
 		m[2]*x + m[6]*y + m[10]*z + m[14]
 }
 
+// Mirrors reports whether the placement flips handedness — the wheels on one
+// side of the car are instanced through a matrix with a negated basis. That
+// matters to anyone re-winding triangles: a mirroring transform reverses a
+// triangle's winding, so it cancels a Z-flip instead of compounding with it.
+func (m Mat4) Mirrors() bool {
+	det := m[0]*(m[5]*m[10]-m[9]*m[6]) -
+		m[4]*(m[1]*m[10]-m[9]*m[2]) +
+		m[8]*(m[1]*m[6]-m[5]*m[2])
+	return det < 0
+}
+
 // ApplyDir transforms a direction (no translation), for normals.
 func (m Mat4) ApplyDir(x, y, z float32) (float32, float32, float32) {
 	return m[0]*x + m[4]*y + m[8]*z,
