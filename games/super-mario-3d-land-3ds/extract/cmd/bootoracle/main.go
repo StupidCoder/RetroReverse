@@ -244,6 +244,8 @@ func run(imagePath, stepsStr string, trace bool, tracen int, verbose, svclog boo
 		g := m.GPU()
 		fmt.Printf("gpu: %d draws, %d pixels drawn; tris: %d zero-area, %d culled, %d w-rejected; %d depth-killed frags\n",
 			g.Draws, g.PixelsDrawn, g.ZeroAreaTris, g.CulledTris, g.RejectedTris, g.DepthKilled)
+		fmt.Printf("shadow: %d map writes, %d samples (%d occluded)\n",
+			g.ShadowWrites, g.ShadowSamples, g.ShadowOccluded)
 	}
 	if svclog {
 		printSVCSummary(m)

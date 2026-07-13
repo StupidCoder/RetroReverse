@@ -26,11 +26,19 @@ const (
 	regViewportXY     = 0x068 // viewport origin within the render target
 	regDepthMapScale  = 0x04D // float24
 	regDepthMapOffset = 0x04E // float24
+	regDepthMapMode   = 0x06D // bit0: 1 = Z-buffering, 0 = W-buffering
 	regShOutmapTotal  = 0x04F // number of vertex-shader output registers
 	regShOutmapO0     = 0x050 // 0x050-0x056: per-output semantic map
 
+	regTexUnitConfig  = 0x080 // bits 0-2: texture unit enables
+	regTex0Param      = 0x083 // texture unit 0: wrap/filter + the texture TYPE
+	regShadowTex      = 0x08B // shadow texture: bit0 orthographic, bits 1-23 bias
 	regLightingEnable = 0x08F // bit0: fragment lighting on
 
+	// The output merger's mode lives in the low bits of the blend register: 0 is
+	// the ordinary colour pipeline, 3 replaces it with the shadow-map writer.
+	regBlendConfig    = 0x100
+	regShadowDensity  = 0x130 // two float16s: the shadow density curve's constant, linear
 	regDepthColorMask = 0x107 // depth test/func + colour/depth write masks
 
 	// The buffer-access enables, a second gate in front of 0x107: they permit
@@ -112,6 +120,15 @@ type GPU struct {
 	fixedBuf []uint32
 	fixedVal [16][4]float32 // latched fixed/default attribute values
 
+	// The fragment-lighting lookup tables (gpu_light.go): 24 tables of 256
+	// entries, each entry a value and the slope to the next, uploaded through
+	// the 0x1C5 index/type register and the 0x1C8-0x1CF data FIFO.
+	LUT     [numLUT][256]float32
+	LUTDiff [numLUT][256]float32
+	lutSet  [numLUT]bool // uploaded at least once (an instrument, not state)
+	lutIdx  uint32
+	lutType uint32
+
 	// The geometry-shader port mirrors the vertex-shader engine's upload
 	// registers at 0x280-0x2AF. The game only uses it to clear state (its
 	// draws keep the geometry stage off — checked at draw time); the uploads
@@ -128,6 +145,13 @@ type GPU struct {
 	CulledTris   int
 	DepthKilled  int // fragments failing the depth test
 	PixelsDrawn  int // fragments written to the colour buffer
+
+	// The shadow path (gpu_raster.go's shadowMapWrite, gpu_texture.go's
+	// shadowCompare): fragments the shadow pass contributed to a shadow map, and
+	// how many of the fragments that later sampled one came back occluded.
+	ShadowWrites   int
+	ShadowSamples  int
+	ShadowOccluded int
 
 	// TraceDraws > 0 prints a per-draw summary (vertex fetch, first clip
 	// positions, screen coords) for that many draws — the draw-path
@@ -244,6 +268,13 @@ func (g *GPU) write(w PICAWrite) {
 		g.jumpAddr = g.m.gpuAddrToVirt(g.Regs[regCmdBufAddr0+i] << 3)
 		g.jumpSize = g.Regs[regCmdBufSize0+i] << 3
 		g.jumpPending = g.jumpSize != 0
+
+	// --- fragment-lighting lookup-table upload ---
+	case w.Reg == regLightLUTIndex:
+		g.lutIdx = v & 0xFF
+		g.lutType = v >> 8 & 0x1F
+	case w.Reg >= regLightLUTData && w.Reg < regLightLUTData+8:
+		g.lutWrite(v)
 
 	// --- vertex-shader engine uploads ---
 	case w.Reg == regVshFloatCfg:

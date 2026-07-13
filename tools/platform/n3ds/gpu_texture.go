@@ -39,7 +39,12 @@ func texUnitRegs(u int) (dim, param, addr, typ uint32) {
 
 // sampleTexture samples unit u at (s, t) in texture coordinates. Nearest-
 // neighbour: filtering quality is not what the bring-up verifies.
-func (g *GPU) sampleTexture(u int, s, t float32) (rgba, bool) {
+//
+// q is texcoord0's w. Only unit 0 has a texture *type* (0x083 bits 28-30); the
+// two types that use q divide the coordinates by it (a projected texture), and
+// Shadow2D additionally treats it as the fragment's distance from the light and
+// compares it against the map.
+func (g *GPU) sampleTexture(u int, s, t, q float32) (rgba, bool) {
 	dimR, paramR, addrR, typR := texUnitRegs(u)
 	w := g.Regs[dimR] >> 16 & 0x7FF
 	h := g.Regs[dimR] & 0x7FF
@@ -48,6 +53,26 @@ func (g *GPU) sampleTexture(u int, s, t float32) (rgba, bool) {
 	}
 	format := g.Regs[typR] & 0xF
 	addr := g.m.gpuAddrToVirt(g.Regs[addrR] << 3)
+
+	typ := uint32(texType2D)
+	if u == 0 {
+		typ = g.Regs[regTex0Param] >> 28 & 7
+	}
+	var shadowZ float32
+	switch typ {
+	case texTypeShadow2D:
+		// The perspective divide is the sampler's, not the rasteriser's: the
+		// shader hands the unit a *projected* coordinate and the divide happens
+		// here, unless the shadow is configured orthographic.
+		if g.Regs[regShadowTex]&1 == 0 && q != 0 {
+			s, t = s/q, t/q
+		}
+		shadowZ = absf(q)
+	case texTypeProjection2D:
+		if q != 0 {
+			s, t = s/q, t/q
+		}
+	}
 
 	img, ok := g.texture(addr, format, w, h)
 	if !ok {
@@ -69,7 +94,46 @@ func (g *GPU) sampleTexture(u int, s, t float32) (rgba, bool) {
 	// top-down.
 	y := int32(h) - 1 - v
 	p := (uint32(y)*w + uint32(x)) * 4
-	return rgba{int32(img.pix[p]), int32(img.pix[p+1]), int32(img.pix[p+2]), int32(img.pix[p+3])}, true
+	c := rgba{int32(img.pix[p]), int32(img.pix[p+1]), int32(img.pix[p+2]), int32(img.pix[p+3])}
+
+	if typ == texTypeShadow2D {
+		c = shadowCompare(c, shadowZ, g.Regs[regShadowTex])
+		g.ShadowSamples++
+		if c.r != 0 {
+			g.ShadowOccluded++
+		}
+	}
+	return c, true
+}
+
+// Texture unit 0's type (0x083 bits 28-30).
+const (
+	texType2D           = 0
+	texTypeCube         = 1
+	texTypeShadow2D     = 2
+	texTypeProjection2D = 3
+	texTypeShadowCube   = 4
+	texTypeDisabled     = 5
+)
+
+// shadowCompare turns a shadow-map texel into an attenuation. The texel is not
+// a colour: its low three bytes (which the RGBA8 decode delivers as alpha, blue
+// and green, because PICA colour texels are stored ABGR) are a 24-bit depth,
+// and the fourth (red) is the shadow's density. The fragment's own distance
+// from the light is compared against that depth: if the map's caster is nearer,
+// the fragment is behind it and gets the stored density; otherwise it is lit.
+//
+// The result goes back as a grey RGBA so it can multiply a light's diffuse term
+// channel-wise (gpu_light.go's shade()).
+func shadowCompare(c rgba, z float32, cfg uint32) rgba {
+	zi := int32(clampf(z, 0, 1) * 0xFFFFFF)
+	zi -= int32(cfg>>1&0x7FFFFF) << 1 // the depth bias, a 23-bit fraction
+	zref := c.a<<16 | c.b<<8 | c.g
+	d := int32(0)
+	if zref >= zi {
+		d = c.r
+	}
+	return rgba{d, d, d, d}
 }
 
 func wrapCoord(f float32, n int32, mode uint32) int32 {

@@ -15,11 +15,21 @@ var tevStageBase = [6]uint32{0x0C0, 0x0C8, 0x0D0, 0x0D8, 0x0F0, 0x0F8}
 
 type rgba struct{ r, g, b, a int32 } // 0-255 per lane
 
-// fragment computes the pixel colour for the interpolated vertex colour and
-// texture coordinates. discard=true means the alpha test rejected the pixel;
-// ok=false means the machine halted (unknown feature).
-func (g *GPU) fragment(col [4]float32, uv [3][2]float32) (r, gr, b, a uint8, discard, ok bool) {
-	prim := rgba{clamp255(col[0] * 255), clamp255(col[1] * 255), clamp255(col[2] * 255), clamp255(col[3] * 255)}
+// fragment computes the pixel colour for one fragment. discard=true means the
+// alpha test rejected the pixel; ok=false means the machine halted (unknown
+// feature).
+//
+// The three colour inputs the TEV can select are distinct and are kept distinct
+// here — collapsing them is what made Captain Toad's stone black. Source 0 is
+// the interpolated *vertex* colour; source 1 is the fragment-lighting unit's
+// primary (diffuse) output; source 2 is its secondary (specular) output. A
+// material that modulates its texture against the vertex colour and *adds* the
+// lit colour needs all three to be different values. Texture sampling happens
+// first because the lighting unit reads two texture units itself (the bump map
+// and the shadow attenuation), which is why it is evaluated here and not in the
+// rasteriser.
+func (g *GPU) fragment(vcol [4]float32, uv [3][2]float32, uv0w float32, ls *lightState, quat [4]float32, view [3]float32) (r, gr, b, a uint8, discard, ok bool) {
+	vertex := rgba{clamp255(vcol[0] * 255), clamp255(vcol[1] * 255), clamp255(vcol[2] * 255), clamp255(vcol[3] * 255)}
 
 	// Sample the enabled texture units (0x080 bits 0-2).
 	var tex [3]rgba
@@ -27,19 +37,36 @@ func (g *GPU) fragment(col [4]float32, uv [3][2]float32) (r, gr, b, a uint8, dis
 	for u := 0; u < 3; u++ {
 		if en>>uint(u)&1 != 0 {
 			var oks bool
-			tex[u], oks = g.sampleTexture(u, uv[u][0], uv[u][1])
+			tex[u], oks = g.sampleTexture(u, uv[u][0], uv[u][1], uv0w)
 			if !oks {
 				return 0, 0, 0, 0, false, false
 			}
 		}
 	}
 
-	prev := prim
-	buf := rgba{ // combiner buffer initial colour (0x0FD)
+	// Fragment lighting. Off, the primary colour is the vertex colour passed
+	// straight through (that is what the hardware does with the unit disabled)
+	// and there is no secondary colour.
+	fragPrim, fragSec := vertex, rgba{0, 0, 0, 0}
+	if ls.enabled {
+		p, s := g.shade(ls, quat, view, &tex)
+		fragPrim = rgba{clamp255(p[0] * 255), clamp255(p[1] * 255), clamp255(p[2] * 255), clamp255(p[3] * 255)}
+		fragSec = rgba{clamp255(s[0] * 255), clamp255(s[1] * 255), clamp255(s[2] * 255), clamp255(s[3] * 255)}
+	}
+
+	prev := vertex
+
+	// The combiner buffer is delayed by one stage. Stage 0 reads zero (not the
+	// configured buffer colour — that only reaches stage 1), and a stage's
+	// contribution to the buffer is not visible to the stage immediately after
+	// it, but to the one after that. Only the first four stages can write it at
+	// all: the update masks are four bits wide, not six.
+	var buf rgba
+	next := rgba{ // the configured buffer colour (0x0FD)
 		int32(g.Regs[0x0FD] & 0xFF), int32(g.Regs[0x0FD] >> 8 & 0xFF),
 		int32(g.Regs[0x0FD] >> 16 & 0xFF), int32(g.Regs[0x0FD] >> 24 & 0xFF),
 	}
-	upd := g.Regs[0x0E0] // buffer-update flags: color bits 8-11, alpha 12-15
+	upd := g.Regs[0x0E0] // buffer-update flags: colour bits 8-11, alpha 12-15
 
 	for st := 0; st < 6; st++ {
 		base := tevStageBase[st]
@@ -54,19 +81,12 @@ func (g *GPU) fragment(col [4]float32, uv [3][2]float32) (r, gr, b, a uint8, dis
 
 		fetch := func(sel uint32) (rgba, bool) {
 			switch sel {
-			case 0:
-				return prim, true
-			case 1:
-				// PrimaryFragmentColor: the primary colour after fragment lighting.
-				// The rasteriser evaluates the lighting unit (gpu_light.go) and passes
-				// the result in as col, so this is the vertex colour when lighting is
-				// off and the lit colour when it is on.
-				return prim, true
-			case 2:
-				// SecondaryFragmentColor: the specular term. The lighting model is
-				// ambient+diffuse only (gpu_light.go names what it leaves out), so this
-				// is zero — a missing highlight, not a missing image.
-				return rgba{0, 0, 0, 0}, true
+			case 0: // PrimaryColor: the interpolated vertex colour
+				return vertex, true
+			case 1: // PrimaryFragmentColor: the lighting unit's diffuse output
+				return fragPrim, true
+			case 2: // SecondaryFragmentColor: the lighting unit's specular output
+				return fragSec, true
 			case 3:
 				return tex[0], true
 			case 4:
@@ -118,13 +138,14 @@ func (g *GPU) fragment(col [4]float32, uv [3][2]float32) (r, gr, b, a uint8, dis
 			clampi(cb<<(scale&3), 0, 255),
 			clampi(ca<<(scale>>16&3), 0, 255),
 		}
-		// The next stage's "buffer" source sees this stage's input buffer;
-		// the update flags decide whether this stage's result replaces it.
-		if upd>>(8+uint(st))&1 != 0 {
-			buf.r, buf.g, buf.b = out.r, out.g, out.b
-		}
-		if upd>>(12+uint(st))&1 != 0 {
-			buf.a = out.a
+		buf = next
+		if st < 4 {
+			if upd>>(8+uint(st))&1 != 0 {
+				next.r, next.g, next.b = out.r, out.g, out.b
+			}
+			if upd>>(12+uint(st))&1 != 0 {
+				next.a = out.a
+			}
 		}
 		prev = out
 	}

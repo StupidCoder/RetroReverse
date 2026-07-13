@@ -223,6 +223,15 @@ type gpuState struct {
 	GshFltF32                        bool
 	GshFltBuf                        []uint32
 
+	// The fragment-lighting lookup tables and their upload cursor (v4). A
+	// snapshot taken between a table's upload and the draw that reads it would
+	// otherwise resume with a zeroed table — which is not a neutral value: a
+	// zero distance-attenuation curve puts the whole scene in the dark.
+	LUT     [numLUT][256]float32
+	LUTDiff [numLUT][256]float32
+	LUTIdx  uint32
+	LUTType uint32
+
 	Draws int
 }
 
@@ -334,6 +343,7 @@ func (m *Machine) buildSnapshot() *snapshot {
 		CodeIdx: g.codeIdx, OpdIdx: g.opdIdx,
 		FltIdx: g.fltIdx, FltF32: g.fltF32, FltBuf: g.fltBuf,
 		FixedIdx: g.fixedIdx, FixedBuf: g.fixedBuf, FixedVal: g.fixedVal,
+		LUT: g.LUT, LUTDiff: g.LUTDiff, LUTIdx: g.lutIdx, LUTType: g.lutType,
 		GshCodeIdx: g.gshCodeIdx, GshOpdIdx: g.gshOpdIdx,
 		GshFltIdx: g.gshFltIdx, GshFltF32: g.gshFltF32, GshFltBuf: g.gshFltBuf,
 		Draws: g.Draws,
@@ -471,6 +481,11 @@ func (m *Machine) applySnapshot(s *snapshot) error {
 	g.codeIdx, g.opdIdx = s.GPU.CodeIdx, s.GPU.OpdIdx
 	g.fltIdx, g.fltF32, g.fltBuf = s.GPU.FltIdx, s.GPU.FltF32, s.GPU.FltBuf
 	g.fixedIdx, g.fixedBuf, g.fixedVal = s.GPU.FixedIdx, s.GPU.FixedBuf, s.GPU.FixedVal
+	g.LUT, g.LUTDiff = s.GPU.LUT, s.GPU.LUTDiff
+	g.lutIdx, g.lutType = s.GPU.LUTIdx, s.GPU.LUTType
+	for t := range g.lutSet {
+		g.lutSet[t] = g.LUT[t] != [256]float32{}
+	}
 	g.gshCodeIdx, g.gshOpdIdx = s.GPU.GshCodeIdx, s.GPU.GshOpdIdx
 	g.gshFltIdx, g.gshFltF32, g.gshFltBuf = s.GPU.GshFltIdx, s.GPU.GshFltF32, s.GPU.GshFltBuf
 	g.Draws = s.GPU.Draws

@@ -16,6 +16,12 @@ type vsOut struct {
 	color [4]float32
 	uv    [3][2]float32
 
+	// texcoord0's w. Not a texture coordinate: it is the projective divisor for
+	// texture unit 0's Projection2D and Shadow2D modes, and in the latter it is
+	// also the depth the shadow map is compared against. Captain Toad's world
+	// draws sample a shadow map through it.
+	uv0w float32
+
 	// The fragment-lighting inputs. The PICA does not carry a normal vector:
 	// the shader emits a tangent-space quaternion, and the fragment normal is
 	// that quaternion applied to (0,0,1). view is the fragment→eye vector.
@@ -27,6 +33,7 @@ type vsOut struct {
 func (g *GPU) draw(indexed bool) {
 	if g.TraceDraws > 0 && g.Regs[regLightingEnable]&1 != 0 {
 		g.dumpLighting()
+		g.dumpFragment()
 	}
 	if g.checkUnsupported() {
 		return
@@ -89,8 +96,10 @@ func (g *GPU) draw(indexed bool) {
 				fmt.Printf("    fixed attr%d = %v\n", a, g.fixedVal[a])
 			}
 		}
-		fmt.Printf("  VIEWPORT offset x=%d y=%d (reg 0x068=0x%08X)\n",
-			g.Regs[regViewportXY]&0x3FF, g.Regs[regViewportXY]>>16&0x3FF, g.Regs[regViewportXY])
+		fmt.Printf("  VIEWPORT offset x=%d y=%d (reg 0x068=0x%08X) depthmap=0x%08X(%s) scale=%f off=%f 0x107=%08X\n",
+			g.Regs[regViewportXY]&0x3FF, g.Regs[regViewportXY]>>16&0x3FF, g.Regs[regViewportXY],
+			g.Regs[regDepthMapMode], map[bool]string{true: "Z", false: "W"}[g.Regs[regDepthMapMode]&1 != 0],
+			f24bits(g.Regs[regDepthMapScale]), f24bits(g.Regs[regDepthMapOffset]), g.Regs[regDepthColorMask])
 		fmt.Printf("gpu draw %d: indexed=%v count=%d first=%d base=0x%08X bufs=%d prim=%d vp=%.1fx%.1f color=0x%08X depth=0x%08X dim=%dx%d test=%v wr=%v\n",
 			g.Draws, indexed, count, first, base, len(bufs), g.Regs[regPrimConfig]>>8&3,
 			f24bits(g.Regs[regViewportWidth]), f24bits(g.Regs[regViewportHeight]),
@@ -261,9 +270,10 @@ func (g *GPU) mapOutputs(o *[16][4]float32) vsOut {
 				out.uv[2][s-0x16] = v
 			case s >= 0x04 && s <= 0x07: // tangent-space normal quaternion
 				out.quat[s-0x04] = v
+			case s == 0x10: // texcoord0.w: the projective/shadow divisor
+				out.uv0w = v
 			case s >= 0x12 && s <= 0x14: // view vector (fragment → eye)
 				out.view[s-0x12] = v
-				// 0x10 texcoord0.w, 0x1F unused — not consumed by this pipeline.
 			}
 		}
 	}
@@ -280,6 +290,8 @@ type fbState struct {
 	colorMask            uint32 // bits 0-3 = RGBA write enables
 	vpHalfW, vpHalfH     float32
 	depthScale, depthOff float32
+	depthZBuffer         bool // 0x06D bit 0: Z-buffering; clear means W-buffering
+	shadowMode           bool // 0x100's fragment-operation mode is Shadow
 }
 
 func (g *GPU) fbstate() fbState {
@@ -300,18 +312,60 @@ func (g *GPU) fbstate() fbState {
 		cmask = 0
 	}
 	return fbState{
-		colorAddr:  g.m.gpuAddrToVirt(g.Regs[regColorbufLoc] << 3),
-		depthAddr:  g.m.gpuAddrToVirt(g.Regs[regDepthbufLoc] << 3),
-		width:      dim & 0x7FF,
-		height:     (dim >> 12 & 0x3FF) + 1,
-		depthTest:  dcm&1 != 0 && depthRd,
-		depthFunc:  dcm >> 4 & 7,
-		colorMask:  cmask,
-		depthWr:    dcm>>12&1 != 0 && depthWr,
-		vpHalfW:    f24bits(g.Regs[regViewportWidth]),
-		vpHalfH:    f24bits(g.Regs[regViewportHeight]),
-		depthScale: f24bits(g.Regs[regDepthMapScale]),
-		depthOff:   f24bits(g.Regs[regDepthMapOffset]),
+		colorAddr:    g.m.gpuAddrToVirt(g.Regs[regColorbufLoc] << 3),
+		depthAddr:    g.m.gpuAddrToVirt(g.Regs[regDepthbufLoc] << 3),
+		width:        dim & 0x7FF,
+		height:       (dim >> 12 & 0x3FF) + 1,
+		depthTest:    dcm&1 != 0 && depthRd,
+		depthFunc:    dcm >> 4 & 7,
+		colorMask:    cmask,
+		depthWr:      dcm>>12&1 != 0 && depthWr,
+		vpHalfW:      f24bits(g.Regs[regViewportWidth]),
+		vpHalfH:      f24bits(g.Regs[regViewportHeight]),
+		depthScale:   f24bits(g.Regs[regDepthMapScale]),
+		depthOff:     f24bits(g.Regs[regDepthMapOffset]),
+		depthZBuffer: g.Regs[regDepthMapMode]&1 != 0,
+		shadowMode:   g.Regs[regBlendConfig]&3 == 3,
+	}
+}
+
+// shadowMapWrite is the output merger for a shadow pass. A shadow-map texel is
+// not a colour: it is a 24-bit depth in the low three bytes and an 8-bit
+// density in the fourth — the same four bytes a colour texel occupies, read
+// back by the Shadow2D sampler (gpu_texture.go) as depth+density rather than
+// as RGBA.
+//
+// A fragment only contributes if it is nearer than what is already there. A
+// zero density means "fully opaque shadow caster": it just deepens the map. A
+// non-zero density is a *partial* shadow — the hardware attenuates it by the
+// ratio of the two depths through a constant/linear curve (0x130) and keeps the
+// darkest, which is how a shadow volume produces a soft edge without a second
+// pass.
+func (g *GPU) shadowMapWrite(fb *fbState, x, y uint32, depth float32, density uint8) {
+	p := fb.colorAddr + tiledOffset(x, y, fb.width)
+	z := uint32(depth * 0xFFFFFF)
+
+	refZ := uint32(g.m.Read(p))<<16 | uint32(g.m.Read(p+1))<<8 | uint32(g.m.Read(p+2))
+	refS := g.m.Read(p + 3)
+	if z >= refZ {
+		return
+	}
+	if density == 0 {
+		g.m.Write(p, byte(z>>16))
+		g.m.Write(p+1, byte(z>>8))
+		g.m.Write(p+2, byte(z))
+		return
+	}
+	cfg := g.Regs[regShadowDensity]
+	k, lin := f16(cfg), f16(cfg>>16)
+	d := float32(density)
+	if refZ != 0 {
+		if den := k + lin*float32(z)/float32(refZ); den != 0 {
+			d = float32(density) / den
+		}
+	}
+	if s := uint8(clampf(d, 0, 255)); s < refS {
+		g.m.Write(p+3, s)
 	}
 }
 
@@ -336,6 +390,7 @@ func (g *GPU) triangle(a, b, c *vsOut) {
 		x, y, z, iw float32
 		col         [4]float32
 		uv          [3][2]float32
+		uv0w        float32
 		quat        [4]float32
 		view        [3]float32
 	}
@@ -348,6 +403,7 @@ func (g *GPU) triangle(a, b, c *vsOut) {
 			iw:   iw,
 			col:  v.color,
 			uv:   v.uv,
+			uv0w: v.uv0w,
 			quat: v.quat,
 			view: v.view,
 		}
@@ -413,10 +469,32 @@ func (g *GPU) triangle(a, b, c *vsOut) {
 			}
 			l0, l1, l2 := w0/area, w1/area, w2/area
 
-			// Depth: interpolated linearly in screen space (PICA's depth is
-			// ndc z, not 1/w), mapped by the depth-map scale/offset.
+			// The perspective-correct 1/w at this pixel: the depth needs it too,
+			// so it is computed before the depth test rather than with the other
+			// interpolated attributes.
+			iw := l0*v0.iw + l1*v1.iw + l2*v2.iw
+
+			// Depth. z/w interpolates linearly in screen space, and the depth-map
+			// registers scale and bias it — but only in Z-buffering mode. Captain
+			// Toad's scene runs the PICA's other mode, W-buffering (0x06D bit 0
+			// clear, which is also the value nobody writing the register leaves
+			// behind), where the result is multiplied back by w:
+			//
+			//	z·scale + w·offset  ==  (z/w·scale + offset)·w
+			//
+			// so the stored depth is linear in eye-space distance instead of in
+			// screen space. It is not a subtle difference here. The game pairs it
+			// with a depth scale of -1/110000, which in Z mode compresses the
+			// entire scene into the bottom 151 of the depth buffer's 16.7M
+			// values: every object lands on top of every other and the winner is
+			// decided by rounding. The star sank behind the ruin, the pillar
+			// behind the wall it stands in front of, and the arch's decorations
+			// vanished into the stone.
 			z := l0*v0.z + l1*v1.z + l2*v2.z
 			depth := z*fb.depthScale + fb.depthOff
+			if !fb.depthZBuffer && iw != 0 {
+				depth /= iw
+			}
 			if depth < 0 {
 				depth = 0
 			}
@@ -433,7 +511,6 @@ func (g *GPU) triangle(a, b, c *vsOut) {
 			}
 
 			// Perspective-correct attributes via 1/w.
-			iw := l0*v0.iw + l1*v1.iw + l2*v2.iw
 			pc := func(a0, a1, a2 float32) float32 {
 				return (l0*a0*v0.iw + l1*a1*v1.iw + l2*a2*v2.iw) / iw
 			}
@@ -446,28 +523,38 @@ func (g *GPU) triangle(a, b, c *vsOut) {
 				uv[t][0] = pc(v0.uv[t][0], v1.uv[t][0], v2.uv[t][0])
 				uv[t][1] = pc(v0.uv[t][1], v1.uv[t][1], v2.uv[t][1])
 			}
+			uv0w := pc(v0.uv0w, v1.uv0w, v2.uv0w)
 
-			// Fragment lighting: interpolate the quaternion and the view
-			// vector, rotate (0,0,1) by the quaternion to get the normal, and
-			// evaluate the light sources. This is where Captain Toad's world
-			// gets its colour — its vertex colours are black.
-			lit := col
+			// The fragment-lighting inputs: the tangent-space quaternion that
+			// carries the normal, and the fragment→eye vector that positions the
+			// lights. They go to the fragment stage as inputs — the lighting unit
+			// is evaluated there, after the texture units, because it reads two of
+			// them (the bump map and the shadow attenuation).
+			var q [4]float32
+			var vw [3]float32
 			if ls.enabled {
-				var q [4]float32
 				for i := 0; i < 4; i++ {
 					q[i] = pc(v0.quat[i], v1.quat[i], v2.quat[i])
 				}
-				var vw [3]float32
 				for i := 0; i < 3; i++ {
 					vw[i] = pc(v0.view[i], v1.view[i], v2.view[i])
 				}
-				p := ls.primary(quatNormal(q), vw)
-				lit = [4]float32{p[0], p[1], p[2], col[3]}
 			}
 
-			r8, g8, b8, a8, discard, ok := g.fragment(lit, uv)
+			r8, g8, b8, a8, discard, ok := g.fragment(col, uv, uv0w, &ls, q, vw)
 			if !ok {
 				return // fragment stage halted
+			}
+			if fb.shadowMode {
+				// Shadow rendering: the output merger is replaced wholesale. The
+				// TEV's green channel is the shadow's density and the fragment's
+				// depth is its distance; they go into the render target as a
+				// packed depth+density texel, and none of the alpha test, depth
+				// test or blender runs. This is the pass that draws Captain
+				// Toad's ShadowVolume geometry.
+				g.shadowMapWrite(&fb, uint32(x), ty, depth, uint8(g8))
+				g.ShadowWrites++
+				continue
 			}
 			if discard {
 				// Alpha-tested out: no colour and no depth write, but the fragment
