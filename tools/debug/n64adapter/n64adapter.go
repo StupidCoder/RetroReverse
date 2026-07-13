@@ -150,6 +150,22 @@ func (a *Adapter) StepFrame(withOverdraw bool) (*debug.FrameCapture, error) {
 	return fc, nil
 }
 
+// StepFast advances the live machine one video field, capturing nothing: no
+// frame-start snapshot, no command stream, no per-pixel census. It exists for
+// fast-forwarding — running to the point in the game you actually want to look at —
+// where a full StepFrame would pay for a 4 MiB gob snapshot and a census of every
+// pixel that nobody is going to read.
+//
+// It is not part of debug.DebugTarget: a target that cannot offer it simply steps
+// normally instead.
+func (a *Adapter) StepFast() error {
+	a.live.OnRDPCmd, a.live.OnPixel = nil, nil
+	a.live.OnDisplay = func(m *n64.Machine) { m.StopRequested = true }
+	a.live.Run(runBudget)
+	a.live.OnDisplay = nil
+	return nil
+}
+
 // RenderAfter replays fc.Start in the scratch machine and returns the draw target
 // exactly after command k executed.
 func (a *Adapter) RenderAfter(fc *debug.FrameCapture, k int) (*image.RGBA, error) {

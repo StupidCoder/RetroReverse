@@ -48,6 +48,7 @@ type req struct {
 	Len  int    `json:"len"`      // mem: byte count
 	Over bool   `json:"overdraw"` // step: record the full overdraw history
 	N    int    `json:"n"`        // step: fields to advance (0 = step to a drawn frame)
+	On   bool   `json:"on"`       // play: start (true) or stop (false)
 }
 
 // coalescable reports whether a queued request of this op may be replaced by a
@@ -100,10 +101,12 @@ type (
 	renderMsg struct {
 		Type     string  `json:"type"` // "render" — announces the binary image that follows
 		Seq      int     `json:"seq"`
-		K        int     `json:"k"`
+		K        int     `json:"k"` // -1 when the image is a scanout, not a command's draw target
 		RenderMs float64 `json:"renderMs"`
 		Bytes    int     `json:"bytes"`
 		Cached   bool    `json:"cached"`
+		Play     bool    `json:"play,omitempty"`  // a free-running frame: unrequested, so never stale
+		Frame    int     `json:"frame,omitempty"` // fields stepped so far, for the play counter
 	}
 
 	cpuMsg struct {

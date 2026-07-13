@@ -53,6 +53,7 @@ button {
 }
 button:hover:not(:disabled) { border-color: var(--accent); color: var(--accent); }
 button:disabled { opacity: .4; cursor: default; }
+button.active { border-color: var(--hot); color: var(--hot); }
 
 select, input[type=text] {
   background: var(--panel-hi);

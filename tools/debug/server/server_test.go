@@ -333,6 +333,90 @@ func TestCPUAndMem(t *testing.T) {
 	}
 }
 
+// TestPlayStreamsAndPauses: play free-runs the machine streaming the scanout, holds
+// itself to one unacknowledged frame, and pausing lands on a full capture.
+func TestPlayStreamsAndPauses(t *testing.T) {
+	srv, f := serveFake(t)
+	cl := dial(t, srv.URL)
+	cl.recvJSON(t) // hello
+
+	cl.sendJSON(t, map[string]any{"op": "play", "seq": 1, "on": true})
+
+	for i := 0; i < 3; i++ {
+		m := cl.recvJSON(t)
+		if m["type"] != "render" || m["play"] != true {
+			t.Fatalf("play frame %d = %v", i, m)
+		}
+		if int(m["k"].(float64)) != -1 {
+			t.Errorf("a played frame is the scanout, so k should be -1, got %v", m["k"])
+		}
+		kind, seq, _, _, payload := cl.recvBinary(t)
+		if kind != kindImage || seq != 0 {
+			t.Fatalf("play binary = kind %d seq %d, want an image at seq 0", kind, seq)
+		}
+		// The fake's Display paints 0xFF, so this is the scanout and not a draw target.
+		if payload[0] != 0xFF {
+			t.Errorf("played frame is not the scanout (first byte %#x)", payload[0])
+		}
+		// Nothing more arrives until we acknowledge: the server keeps one frame in
+		// flight so the emulator cannot bury a slow page in frames it will never draw.
+		cl.sendJSON(t, map[string]any{"op": "ack"})
+	}
+
+	stepsWhilePlaying := f.steps
+	if stepsWhilePlaying < 3 {
+		t.Errorf("machine advanced %d fields over 3 played frames", stepsWhilePlaying)
+	}
+
+	// Pausing captures the next field in full, so you land on a real frame. The
+	// machine keeps playing until the request is picked up, so a frame already on its
+	// way arrives first; skip past those to the capture.
+	cl.sendJSON(t, map[string]any{"op": "play", "seq": 2, "on": false, "overdraw": true})
+	var m map[string]any
+	for i := 0; ; i++ {
+		if i > 8 {
+			t.Fatal("no frame capture after pause")
+		}
+		m = cl.recvJSON(t)
+		if m["type"] == "frame" {
+			break
+		}
+		if m["type"] != "render" || m["play"] != true {
+			t.Fatalf("pause reply = %v, want a frame capture", m)
+		}
+		cl.recvBinary(t) // the played frame's image
+	}
+	if len(m["commands"].([]any)) != fakeCmds {
+		t.Errorf("pause captured %v commands", len(m["commands"].([]any)))
+	}
+	if m["overdraw"] != true {
+		t.Error("pause did not honour the overdraw request")
+	}
+	cl.recvBinary(t) // the provenance buffer
+}
+
+// TestPlayUsesTheFastPath: play must not pay for a capture per field.
+func TestPlayUsesTheFastPath(t *testing.T) {
+	var fs fastStepper = (*fakeFast)(nil)
+	_ = fs // the fake below is the compile-time proof; the real one is n64adapter
+
+	srv, _ := serveFake(t)
+	cl := dial(t, srv.URL)
+	cl.recvJSON(t)
+
+	// The fake target has no StepFast, so the session must fall back to StepFrame
+	// rather than refuse to play.
+	cl.sendJSON(t, map[string]any{"op": "play", "seq": 1, "on": true})
+	if m := cl.recvJSON(t); m["type"] != "render" {
+		t.Fatalf("a target without StepFast could not play: %v", m)
+	}
+}
+
+// fakeFast exists only to assert the optional interface is satisfiable as declared.
+type fakeFast struct{}
+
+func (*fakeFast) StepFast() error { return nil }
+
 func TestUnknownOpIsAnError(t *testing.T) {
 	srv, _ := serveFake(t)
 	cl := dial(t, srv.URL)

@@ -20,6 +20,14 @@ import (
 // requests over through a mailbox, which is also where a scrubber drag gets
 // collapsed to its newest request instead of queueing a hundred replays nobody will
 // look at.
+// fastStepper is an optional target capability: advance a field capturing nothing.
+// Play mode uses it to fast-forward — a full StepFrame would snapshot the machine and
+// run a per-pixel census for a frame nobody is going to inspect. A target that does
+// not offer it falls back to a normal capture step.
+type fastStepper interface {
+	StepFast() error
+}
+
 type session struct {
 	tgt  debug.DebugTarget
 	rom  string
@@ -27,6 +35,12 @@ type session struct {
 
 	fc      *debug.FrameCapture
 	frameNo int
+
+	// Play mode. inFlight holds the loop to one unacknowledged frame at a time: the
+	// emulator can outrun the browser's ability to draw, and without this the socket
+	// would grow a backlog of frames nobody will ever see.
+	playing  bool
+	inFlight bool
 
 	// cache holds draw targets already replayed for the current capture, so
 	// nudging the scrubber back and forth over ground already covered is free.
@@ -50,6 +64,26 @@ func (s *session) serve() {
 	s.send(helloMsg{Type: "hello", Target: s.tgt.Name(), ROM: s.rom})
 
 	for {
+		// While playing, the session must not block waiting for a request: it runs a
+		// frame, then picks up whatever has arrived. It only blocks when there is a
+		// frame in flight (the next thing to arrive will be its ack) or when paused.
+		if s.playing && !s.inFlight {
+			if err := s.playFrame(); err != nil {
+				s.playing = false
+				s.send(errMsg{Type: "error", Msg: err.Error()})
+			}
+			for {
+				r, ok := mb.tryPop()
+				if !ok {
+					break
+				}
+				if err := s.handle(r); err != nil {
+					s.send(errMsg{Type: "error", Seq: r.Seq, Msg: err.Error()})
+				}
+			}
+			continue
+		}
+
 		r, ok := mb.pop()
 		if !ok {
 			return
@@ -84,6 +118,11 @@ func (s *session) handle(r req) error {
 	switch r.Op {
 	case "step":
 		return s.step(r)
+	case "play":
+		return s.play(r)
+	case "ack":
+		s.inFlight = false
+		return nil
 	case "scrub":
 		return s.scrub(r)
 	case "display":
@@ -142,6 +181,71 @@ func (s *session) step(r req) error {
 		s.conn.WriteBinary(encodeProv(r.Seq, fc))
 	}
 	return nil
+}
+
+// play starts or stops free-running the machine.
+//
+// While it runs, nothing is captured: each field is stepped with no snapshot and no
+// census, and the page is sent the VI scanout — what the console would actually be
+// showing. That is the point, since play mode is how you fast-forward to the part of
+// the game you want to look at (the logo appearing, a particular menu).
+//
+// Stopping does a full capture step, so the moment you pause you get a real frame:
+// its command stream, its provenance, its overdraw. That capture is the *next* field
+// after the last one played, not a re-examination of it — a played field left no
+// record behind to go back to.
+func (s *session) play(r req) error {
+	if r.On {
+		if _, ok := s.tgt.(fastStepper); !ok {
+			log.Printf("framedbg: target has no fast step; playing at capture speed")
+		}
+		s.playing = true
+		s.inFlight = false
+		return nil
+	}
+	if !s.playing {
+		return nil
+	}
+	s.playing = false
+	s.inFlight = false
+	return s.step(req{Op: "step", Seq: r.Seq, N: 1, Over: r.Over})
+}
+
+// playFrame advances one field and streams the scanout. The binary carries seq 0:
+// it answers no request, so the page draws it unconditionally.
+func (s *session) playFrame() error {
+	start := time.Now()
+	if err := s.stepFast(); err != nil {
+		return err
+	}
+	img, err := s.tgt.Display()
+	if err != nil {
+		// Early in a boot there is nothing being scanned out yet. Keep running — this
+		// is exactly the stretch play mode exists to get through — just show nothing.
+		return nil
+	}
+	payload := encodeImage(0, img)
+	s.send(renderMsg{
+		Type:     "render",
+		Seq:      0,
+		K:        -1,
+		Play:     true,
+		Frame:    s.frameNo,
+		RenderMs: msSince(start),
+		Bytes:    len(payload),
+	})
+	s.inFlight = true
+	return s.conn.WriteBinary(payload)
+}
+
+// stepFast advances one field as cheaply as the target allows.
+func (s *session) stepFast() error {
+	s.frameNo++
+	if f, ok := s.tgt.(fastStepper); ok {
+		return f.StepFast()
+	}
+	_, err := s.tgt.StepFrame(false)
+	return err
 }
 
 // stepToDrawn steps until a frame actually renders a scene, so a fresh boot lands
@@ -320,6 +424,19 @@ func (m *mailbox) push(r req) {
 	m.q = append(m.q, r)
 	m.mu.Unlock()
 	m.wake()
+}
+
+// tryPop takes the next request if one is waiting, and never blocks — the play loop
+// uses it to stay responsive between frames.
+func (m *mailbox) tryPop() (req, bool) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if len(m.q) == 0 {
+		return req{}, false
+	}
+	r := m.q[0]
+	m.q = m.q[1:]
+	return r, true
 }
 
 // pop blocks for the next request; ok is false once the mailbox is closed and drained.

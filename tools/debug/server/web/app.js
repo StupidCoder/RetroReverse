@@ -14,6 +14,7 @@ const $ = (id) => document.getElementById(id);
 
 const ui = {
   target: $('target'),
+  play: $('play'),
   step: $('step'),
   step1: $('step1'),
   overdraw: $('overdraw'),
@@ -35,6 +36,8 @@ const conn = new Conn();
 let frame = null; // the last frameMsg
 let selected = -1; // current command index
 let wantSeq = -1; // the image request whose reply we still want; older ones are stale
+let playing = false;
+let fps = { n: 0, t: 0, rate: 0 };
 const pending = new Map(); // seq -> renderMsg, so the binary that follows knows its own cost
 
 conn.onOpen = () => {
@@ -58,11 +61,21 @@ conn.onJSON = (m) => {
       frame = m;
       selected = -1;
       view.setProv(null);
+      view.select(-1);
       cmds.setCommands(m.commands);
       ui.slider.max = Math.max(0, m.commands.length - 1);
       ui.slider.disabled = m.commands.length === 0;
       setBusy(false);
-      if (m.commands.length) selectCommand(m.commands.length - 1);
+      if (m.commands.length) {
+        selectCommand(m.commands.length - 1);
+      } else {
+        // A field the game drew nothing in — common during boot, and not a failure.
+        // Show what is on screen rather than a blank canvas and an empty list.
+        ui.scrubLabel.textContent = '—';
+        ui.stats.textContent = `field ${m.frame} · nothing drawn`;
+        ui.hover.textContent = 'no commands in this field';
+        showDisplay();
+      }
       conn.send('cpu');
       readMem();
       break;
@@ -99,6 +112,17 @@ conn.onBinary = (m) => {
 
   const meta = pending.get(m.seq);
   pending.delete(m.seq);
+
+  if (meta && meta.play) {
+    // A free-running frame. Draw it and acknowledge: the server holds itself to one
+    // unacknowledged frame, so this is what keeps the stream paced to what the page
+    // can actually paint.
+    view.drawImage(m.image);
+    conn.send('ack');
+    countFPS(meta);
+    return;
+  }
+
   // A scrubber drag outruns the emulator, so replies to positions the mouse has
   // already left arrive after we have asked for a newer one. Drop those.
   if (m.seq !== wantSeq) return;
@@ -111,9 +135,53 @@ conn.onBinary = (m) => {
 // ---- actions ----
 
 function stepFrame(n) {
+  if (playing) return;
   setBusy(true);
   ui.stats.textContent = 'stepping…';
   conn.send('step', { overdraw: ui.overdraw.checked, n });
+}
+
+// Play free-runs the machine, streaming the scanout and capturing nothing — the way
+// to get to the part of the game you actually want to look at. Stopping captures the
+// next field in full, so you land on a real frame with its commands and provenance.
+function setPlaying(on) {
+  playing = on;
+  ui.play.textContent = on ? '⏸ Pause' : '▶ Play';
+  ui.play.classList.toggle('active', on);
+  ui.step.disabled = on;
+  ui.step1.disabled = on;
+  ui.slider.disabled = on || !frame || !frame.commands.length;
+  ui.prev.disabled = on;
+  ui.next.disabled = on;
+
+  if (on) {
+    // Nothing captured while playing, so the command list, provenance and overlay
+    // would all be lies. Clear them rather than leave a stale frame on screen.
+    frame = null;
+    selected = -1;
+    view.setProv(null);
+    view.select(-1);
+    view.setPick(null);
+    cmds.setCommands([]);
+    ui.scrubLabel.textContent = '—';
+    ui.hover.textContent = 'playing — no capture';
+    fps = { n: 0, t: performance.now(), rate: 0 };
+    conn.send('play', { on: true });
+  } else {
+    ui.stats.textContent = 'capturing…';
+    conn.send('play', { on: false, overdraw: ui.overdraw.checked });
+  }
+}
+
+function countFPS(meta) {
+  const now = performance.now();
+  fps.n++;
+  if (now - fps.t >= 500) {
+    fps.rate = (fps.n * 1000) / (now - fps.t);
+    fps.n = 0;
+    fps.t = now;
+  }
+  ui.stats.textContent = `playing · field ${meta.frame.toLocaleString()} · ${fps.rate.toFixed(0)} fps`;
 }
 
 // selectCommand is the hub: it picks a command in the list, rewinds the scrubber to
@@ -153,6 +221,7 @@ function setBusy(b) {
 
 // ---- wiring ----
 
+ui.play.onclick = () => setPlaying(!playing);
 ui.step.onclick = () => stepFrame(0);
 ui.step1.onclick = () => stepFrame(1);
 
@@ -170,6 +239,7 @@ ui.scanout.onchange = () => {
 ui.memAddr.onchange = readMem;
 
 view.onHover = (x, y) => {
+  if (playing) return; // nothing is captured while playing, so there is nothing to name
   if (x < 0) {
     ui.hover.textContent = 'hover a pixel';
     return;
@@ -182,6 +252,7 @@ view.onHover = (x, y) => {
 };
 
 view.onPick = (x, y) => {
+  if (playing) return;
   view.setPick({ x, y });
   conn.send('pixel', { x, y });
   const k = view.provAt(x, y);
@@ -192,6 +263,10 @@ document.addEventListener('keydown', (e) => {
   if (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT') return;
   const stride = e.shiftKey ? 10 : 1;
   switch (e.key) {
+    case ' ':
+      setPlaying(!playing);
+      e.preventDefault();
+      break;
     case 'n':
     case 'N':
       stepFrame(0);

@@ -110,9 +110,55 @@ Now kept mainly as a *verification harness* — the webexport reads the cartridg
 | `-keys` | controller script |
 
 **Companions:** `rdpdbg` (`-px X,Y` — *click a pixel, get the RDP command that drew it*, plus
-`-dumpram`), `dlwalk` (walk display lists), `dmamap`, `texdump`. Plus **`tools/debug` + `cmd/framedbg`**:
-a platform-agnostic frame-debugger core (frame-step, inspect, command-scrub, click-pixel → command →
-overdraw → rewind) with an N64 adapter — designed to take other platforms' adapters.
+`-dumpram`), `dlwalk` (walk display lists), `dmamap`, `texdump`. Plus the **frame debugger**
+(`tools/cmd/framedbg`), below — an interactive front-end onto the same machine.
+
+---
+
+## The frame debugger — `tools/cmd/framedbg`
+
+Every other instrument in this file answers a question you already knew to ask. The frame debugger is
+for the questions you *don't* — you watch the frame being built and see what it does. It is the one
+oracle front-end with a user interface, and it is deliberately platform-agnostic: `tools/debug`
+defines a `DebugTarget` interface, `tools/debug/n64adapter` implements it, and any platform whose
+machine can capture a display-list and attribute pixels can follow (PICA200 next).
+
+```
+framedbg -image ROM [-state FILE] -serve :8088     # the interactive debugger, in a browser
+framedbg -image ROM -list | -scrub N | -pixel X,Y  # the same pipeline, headless and scriptable
+```
+
+**The UI is a local web page the oracle binary serves itself** — no cgo, no GUI toolkit, no build
+step, no network. `tools/debug/wsock` is a server-side RFC 6455 implementation in stdlib Go, so the
+`tools` module keeps its zero-dependency property. Framebuffers go over the socket as raw binary
+behind a 16-byte header, aligned so the page wraps the bytes in an `ImageData` with no copy.
+
+| what it does | how |
+|---|---|
+| **Frame-step** | one video field at a time, or "step to a drawn frame" — skip the idle fields a boot is full of |
+| **Play** | free-run the machine and stream the scanout (~20 fps on Pilotwings), capturing nothing. How you fast-forward to the part of the game you want to look at. Pausing lands on a full capture |
+| **Command scrub** | drag through the frame's RDP command stream and watch the picture assemble, command by command |
+| **Click a pixel → the command that drew it** | plus its **full overdraw history**, including the writes the rasteriser produced and then *threw away* on a depth or alpha test — usually the answer to "why is this pixel not the colour I expect?" |
+| **Select a command → every pixel it drew** | highlighted as an overlay |
+| **Inspect** | CPU registers, RDRAM hex |
+
+**Why the pixel questions are instant.** A frame capture carries a *provenance buffer* — one command
+index per pixel — built in a single pass by the machine's own `OnPixel` hook while the frame draws.
+It is handed to the page once per capture, so hovering a pixel or highlighting a command's coverage
+is a local array lookup, not a request to the emulator.
+
+**Why the scrubber is exact rather than approximate.** "The framebuffer after command k" is produced
+by *replaying the frame* from an in-memory snapshot taken at its start, halting right after command k
+(`Machine.RunStopAfterRDPCommand`, which unwinds the nested RSP/CPU interpreter loops with a sentinel
+panic). Execution is deterministic, so this is the real thing — no per-command framebuffer copies, and
+FILL/COPY writes straight to RDRAM are handled correctly, which a history-replay could not do. The
+replay restarts from the snapshot every time (the scratch machine is left mid-queue and is
+discarded), so the session caches the replays it has already paid for and collapses a fast scrubber
+drag to the position the mouse actually landed on.
+
+**Why it is trustworthy.** The image the socket hands the browser for command k is verified
+byte-identical to the headless `RenderAfter(k)` on the same frame — the UI cannot quietly diverge
+from the core.
 
 ---
 
@@ -245,6 +291,6 @@ and are **candidates to port**:
 | **Write-profiler (`-vgaprof`)** | DOS | "who wrote this value" up the call stack; catches self-modifying patchers. Would suit any framebuffer or command-ring investigation |
 | **`-spinbreak` / `-hot`** | 3DO | turns "hangs forever" into "here is the loop and why". The 3DS spent three sessions doing this by hand |
 | **Read-watch (`-rwatch`)** | PSX/PSP/N64 | the complement of `-watch`; the 3DS oracle still lacks it |
-| **Click-pixel → command (`rdpdbg -px`, `framedbg`)** | N64 | the fastest path from "this pixel is wrong" to "this command drew it". `tools/debug` is deliberately platform-agnostic and wants adapters (PICA200 next) |
+| **The frame debugger (`framedbg -serve`)** | N64 | watch a frame being built, command by command; click a pixel to get the command that drew it and its overdraw history. Needs three things of a platform — a per-command hook, a per-pixel hook, and an in-memory snapshot — and every LLE machine here could offer them. `tools/debug` is platform-agnostic and wants adapters (PICA200 next) |
 | **`-poke`** | PSX/3DS | falsify a hypothesis in one run by forcing the value the game waits for |
 | **Pad/key scripts (`-keys`, `-keypulse`)** | DOS/PSP/3DS | an oracle that can *play* reaches states no boot ever will. `-keypulse` (fresh press edges) is the non-obvious part |
