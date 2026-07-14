@@ -1087,3 +1087,55 @@ means* — and then looking at the picture instead of the counters.
 
 The SM3DL regression md5 is unchanged through all of it. It would be: SM3DL never enables the depth
 test and has no fragment lighting. It is a floor, not a gate.
+
+## Part XIX — The title screen was in Japanese, and the language block was innocent
+
+Booting the European cartridge, the splash that flashes before the title is the *Japanese* logo:
+進め！キノピオ隊長, `CAPTAIN KINOPIO`. The cart is `(Europe) (En,Fr,De,Es,It,Nl)` and our config
+service has been answering `cfg` block `0x000A0002` — system language — with **English** since Part XVI.
+So the language was right and the logo was Japanese anyway, which means the logo is not chosen by
+the language.
+
+A print in `ipcCFG` says what the game actually asks for. Two commands, not one:
+
+```
+CFGTRACE cmd=0001 args=00000001 000A0002 ...   ← GetConfigInfoBlk2(size=1, blk=language)
+CFGTRACE cmd=0002 args=00000000 00000000 ...   ← ???  (no arguments at all)
+```
+
+Command `0x0002` takes no arguments. We were treating it as a second config-block read
+(`GetConfigInfoBlk2 / Blk8`), passing it a block ID scraped from a word the caller never wrote, and
+acking with a single zero value word. Its wrapper says what it really is:
+
+```
+$00116140: MOV  r0, #0x20000        ; IPC header 0x00020000 — command 2, no params
+$00116144: STR  r0, [r4, #0x80]!    ; …into the command buffer
+$00116150: SWI  #0x32               ; SendSyncRequest
+$0011615C: LDRB r0, [r4, #0x8]      ; cmdbuf[2], low BYTE
+$00116160: STRB r0, [r5]            ; → the caller's u8
+```
+
+A byte out, nothing in: `SecureInfoGetRegion`. And the zero we were answering with is `JPN`. **The
+region, not the language, picks the logo** — so a European console that spoke English booted a
+Japanese title screen. Answer it with the same console the language and country blocks already
+describe (`EUR` = 2) and the splash is English.
+
+### The blanket ack was hiding a second one
+
+The old handler also had a catch-all: commands `0x0003`–`0x0008`, all acked with one zero word.
+Deleting it — the frontier is supposed to halt loudly — made 3D Land halt on `0x0003`, which it had
+been calling all along, silently, for ~200M instructions. Its wrapper (`0x001F2A30`) sends one salt
+word and reads the reply with **`LDRD r0, [r4, #0x8]`**: a *64-bit* value from `cmdbuf[2..3]`. That is
+`GenHashConsoleUnique`, the console's factory `LocalFriendCodeSeed` hashed with the caller's salt —
+and our ack filled `cmdbuf[2]` only, so the top half of the hash 3D Land took home was whatever bytes
+of its own *request* were still sitting in the command buffer. It is modelled now: one fixed synthetic
+console seed, mixed with the salt, deterministic across runs (savestates and the frame debugger's
+replays require that much).
+
+### The lesson
+
+**A reply the caller believes is data, whatever we meant it as.** The zero we sent as "success, no
+value" was read as a region; the word we never wrote was read as half a hash. Both games booted
+through both bugs — the only symptom either ever produced was a logo in the wrong language, and only
+because someone looked at the screen. *Answer the command the game sent, not the one whose number you
+recognise.*

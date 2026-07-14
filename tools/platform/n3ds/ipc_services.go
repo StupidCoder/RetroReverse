@@ -465,13 +465,36 @@ func (m *Machine) ipcHID(hdr ipcHeader) bool {
 
 func (m *Machine) ipcCFG(hdr ipcHeader) bool {
 	switch hdr.Command {
-	case 0x0001, 0x0002: // GetConfigInfoBlk2 / GetConfigInfoBlk8 — fill the block buffer
+	case 0x0001: // GetConfigInfoBlk2(size, blkID, <out buffer>) — fill the block buffer
 		size, blkID, out := m.ipcArg(1), m.ipcArg(2), m.ipcArg(4)
 		m.writeConfigBlock(blkID, out, size)
 		m.ipcReply(hdr.Command, 0)
 		return true
-	case 0x0003, 0x0004, 0x0005, 0x0006, 0x0007, 0x0008:
-		m.ipcReply(hdr.Command, 0)
+	case 0x0002: // SecureInfoGetRegion() → the console's region as a u8 in cmdbuf[2].
+		// NOT a config block: it takes no arguments and answers in the reply itself
+		// (Captain Toad's wrapper at 0x00116134 sends header 0x00020000 and copies
+		// cmdbuf[2]'s low byte straight to its caller). Reading it as a block-2 call
+		// and acking with a zero value word said JAPAN — and the region, not the
+		// language block beside it, is what picks the title logo, so a European
+		// cartridge that speaks English opened on the Japanese "進め！キノピオ隊長"
+		// splash. Answer with the same console the language and country blocks
+		// describe: Europe.
+		m.ipcReply(hdr.Command, uint32(cfgRegionEUR))
+		return true
+	case 0x0003: // GenHashConsoleUnique(salt) → a u64 in cmdbuf[2..3]: a hash of the
+		// console's factory-secret LocalFriendCodeSeed with the caller's salt, which
+		// 3D Land asks for during boot (wrapper 0x001F2A30 — header 0x00030040, one
+		// salt word in, an LDRD of cmdbuf[2..3] out). No game can check it against
+		// anything, so any stable answer is honest as long as it IS one console: mix
+		// a fixed synthetic seed with the salt (splitmix64) and stay deterministic
+		// across runs, which savestates and the frame debugger's replays require.
+		// The blanket ack this replaces filled only cmdbuf[2] and left cmdbuf[3]
+		// holding leftover request bytes — half of that "hash" was our own cmdbuf.
+		h := cfgConsoleSeed ^ uint64(m.ipcArg(1))
+		h = (h ^ (h >> 30)) * 0xBF58476D1CE4E5B9
+		h = (h ^ (h >> 27)) * 0x94D049BB133111EB
+		h ^= h >> 31
+		m.ipcReply(hdr.Command, uint32(h), uint32(h>>32))
 		return true
 	}
 	m.CPU.Halt("cfg command 0x%04X unimplemented at 0x%08X after %d instructions", hdr.Command, m.CPU.PC(), m.CPU.Instrs)
@@ -538,6 +561,10 @@ func (m *Machine) writeConfigBlock(blkID, out, size uint32) {
 const (
 	cfgLangEnglish = 1
 	cfgRegionEUR   = 2
+
+	// cfgConsoleSeed stands in for this machine's factory LocalFriendCodeSeed:
+	// the one console-unique secret the config service hashes for its callers.
+	cfgConsoleSeed = 0x52657472_6F526576 // "RetroRev"
 )
 
 // cfgStereoCamera is config block 0x00050005: the console's factory-calibrated
