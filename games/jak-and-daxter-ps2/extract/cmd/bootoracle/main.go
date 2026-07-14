@@ -472,13 +472,27 @@ func bootIOP(m *ps2.Machine, c cfg) error {
 		}
 	}
 
-	err := m.RebootIOP()
-
-	if err != nil {
-		fmt.Printf("\nthe IOP's boot stopped: %v\n", err)
+	// A snapshot resumes the second processor where it was left, with its modules resident,
+	// its threads scheduled and its timers running — which turns a boot that costs minutes
+	// into one that costs nothing, and is the whole reason the state carries the IOP.
+	var err error
+	if c.loadstate != "" {
+		if err = m.LoadStateFile(c.loadstate); err != nil {
+			return err
+		}
+		if m.IOP == nil {
+			return fmt.Errorf("%s holds no IOP: it was taken before the second processor was started", c.loadstate)
+		}
+		fmt.Printf("resumed the IOP from %s: %d modules, %d instructions in\n",
+			c.loadstate, len(m.IOP.Modules()), m.IOP.Steps())
+	} else {
+		err = m.RebootIOP()
+		if err != nil {
+			fmt.Printf("\nthe IOP's boot stopped: %v\n", err)
+		}
 	}
 
-	if err == nil && extra != "" {
+	if err == nil && c.loadstate == "" && extra != "" {
 		for _, name := range strings.Split(extra, ",") {
 			name = strings.TrimSpace(name)
 			if name == "" {
@@ -506,6 +520,14 @@ func bootIOP(m *ps2.Machine, c cfg) error {
 	if err == nil {
 		fmt.Printf("\nrunning the IOP on its own for %d instructions\n", iopFreeRun)
 		m.IOP.Run(iopFreeRun)
+	}
+
+	if c.savestate != "" {
+		if e := m.SaveStateFile(c.savestate); e != nil {
+			return e
+		}
+		fmt.Printf("wrote %s (the IOP at %d instructions, PC %s)\n",
+			c.savestate, m.IOP.Steps(), m.IOP.Sym(m.IOP.CPU.PC))
 	}
 
 	fmt.Printf("\n--- the log\n")

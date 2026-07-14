@@ -178,7 +178,13 @@ func (p *IOP) addCall(name string, fn func(*IOP)) uint32 {
 // call. The PC is not touched.
 func (p *IOP) handleSyscall(c *mips.CPU) bool {
 	code := (p.Read32(c.CurPC()) >> 6) & 0xFFFFF
-	if code == 0 || int(code) >= len(p.calls) {
+	if code == 0 {
+		// A `syscall` with no code in the instruction is not one of ours. It is a module
+		// asking the *kernel* for something, in the way MIPS has always done it: the service
+		// number in $v0. See iopSyscall.
+		return p.kernelSyscall()
+	}
+	if int(code) >= len(p.calls) {
 		return false // not ours: let the core take the exception
 	}
 	call := p.calls[code]

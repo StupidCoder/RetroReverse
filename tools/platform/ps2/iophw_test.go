@@ -318,3 +318,109 @@ func TestInterruptsAreOnBeforeTheFirstModuleRuns(t *testing.T) {
 		t.Fatal("CpuEnableIntr did not re-enable them")
 	}
 }
+
+func TestASnapshotCarriesTheWholeSecondProcessor(t *testing.T) {
+	// The snapshot always carried the IOP's *memory*, because the EE can see it. Carrying
+	// the memory and not the processor is the worst of both: the restored machine has all
+	// the right code in all the right places and no registers, no syscall bindings, no heaps
+	// and no interrupt handlers to run it with. It does not fail. It resumes, and goes wrong
+	// somewhere else.
+	m := NewMachine()
+	p := m.StartIOP()
+	p.running = true
+
+	// A machine with something in every part of it that has to survive.
+	p.CPU.SetReg(16, 0xCAFEBABE)
+	p.CPU.SetPC(0x00012345 &^ 3)
+	p.allocPtr = 0x00050000
+	p.imask = 1<<9 | 1<<36
+	p.handlers[36] = iopHandler{fn: 0x00051B7C, arg: 0x1234}
+	p.schedSwitch, p.schedResched = 0x13040, 0x132C4
+	p.timers[5] = iopTimer{count: 42, mode: 0x70, target: 0x1CCC}
+	p.spu.ram[0x11040] = 0x5A
+	p.steps = 999
+
+	// A heap that has grown, so its handle and its base are different numbers.
+	p.CPU.SetReg(4, 2048)
+	p.CPU.SetReg(5, 1)
+	p.heapCreate()
+	handle := p.CPU.Reg(2)
+	for i := 0; i < 40; i++ {
+		p.CPU.SetReg(4, handle)
+		p.CPU.SetReg(5, 192)
+		p.heapAlloc()
+	}
+	if p.heaps[handle].base == handle {
+		t.Fatal("the heap never grew, so this test is not testing what it says it is")
+	}
+
+	// And a syscall binding, which is the one thing that cannot be serialised as it stands:
+	// its handler is a Go function.
+	code := p.bindCall("intrman", 17)
+
+	wantAlloc := p.allocPtr // the heap moved it; the point is that it comes back where it was
+
+	before := m.SaveState()
+	if before.IOP == nil {
+		t.Fatal("the machine's snapshot does not carry the IOP at all")
+	}
+
+	// Restore into a fresh machine, as loading a file does.
+	m2 := NewMachine()
+	if err := m2.LoadState(before); err != nil {
+		t.Fatal(err)
+	}
+	q := m2.IOP
+	if q == nil {
+		t.Fatal("the restored machine has no IOP")
+	}
+
+	if got := q.CPU.Reg(16); got != 0xCAFEBABE {
+		t.Errorf("$s0 came back as 0x%08X", got)
+	}
+	if q.allocPtr != wantAlloc {
+		t.Errorf("the allocator came back at 0x%08X, want 0x%08X — a restored machine that hands "+
+			"out memory it has already given away is one that corrupts a module at random",
+			q.allocPtr, wantAlloc)
+	}
+	if q.imask != 1<<9|1<<36 {
+		t.Errorf("the interrupt mask came back as 0x%X — and an interrupt number past 32 is a "+
+			"DMA channel, which is where the sound chip reports", q.imask)
+	}
+	if q.handlers[36].fn != 0x00051B7C || q.handlers[36].arg != 0x1234 {
+		t.Error("the sound chip's DMA handler did not survive")
+	}
+	if q.schedSwitch != 0x13040 || q.schedResched != 0x132C4 {
+		t.Error("THREADMAN's scheduler hooks did not survive: the restored machine cannot preempt")
+	}
+	if q.timers[5].target != 0x1CCC || q.timers[5].count != 42 {
+		t.Error("the clock did not survive")
+	}
+	if q.spu.ram[0x11040] != 0x5A {
+		t.Error("the sound memory did not survive")
+	}
+	if q.steps != 999 {
+		t.Errorf("the instruction count came back as %d", q.steps)
+	}
+
+	// The heap, by the handle the guest is holding — not by its base, which has moved.
+	h := q.heaps[handle]
+	if h == nil {
+		t.Fatal("the heap is gone from under its handle: every AllocHeapMemory from it now " +
+			"comes back null, and THREADMAN runs out of thread control blocks")
+	}
+	if h.base == handle {
+		t.Error("the heap came back at its handle rather than at the chunk it had grown into")
+	}
+
+	// And the syscall table, rebuilt: the code is baked into the `syscall` instruction in a
+	// patched stub sitting in the RAM we just restored, so it has to come back as the same
+	// number, bound to the same function.
+	if got := q.bound[iopBinding{"intrman", 17}]; got != code {
+		t.Errorf("intrman #17 was syscall %d and came back as %d: the stubs in memory still say %d",
+			code, got, code)
+	}
+	if q.calls[code].fn == nil {
+		t.Error("the rebuilt syscall has no handler: CpuSuspendIntr would return zero and do nothing")
+	}
+}

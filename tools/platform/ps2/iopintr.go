@@ -1,5 +1,7 @@
 package ps2
 
+import "fmt"
+
 // iopintr.go is intrman, sysmem, heaplib and sysclib: the four libraries the IOP's
 // modules cannot take a step without, and the four we have to write.
 //
@@ -44,7 +46,7 @@ func init() {
 		7:  {"DisableIntr", (*IOP).intrDisable},
 		8:  {"CpuDisableIntr", (*IOP).intrCpuDisable},
 		9:  {"CpuEnableIntr", (*IOP).intrCpuEnable},
-		14: unknown(),
+		14: {"CpuInvokeInKmode", (*IOP).intrInvokeInKmode},
 		17: {"CpuSuspendIntr", (*IOP).intrSuspend},
 		18: {"CpuResumeIntr", (*IOP).intrResume},
 		23: {"QueryIntrContext", (*IOP).intrQueryContext},
@@ -239,6 +241,43 @@ func (p *IOP) intrSetReschedHook() {
 // intrQueryContext is QueryIntrContext(): non-zero while an interrupt handler is running.
 func (p *IOP) intrQueryContext() { p.setRet(b2u(p.inIntr > 0)) }
 
+// intrInvokeInKmode is #14: run this function, and give me back what it returns.
+//
+// The first argument is a function pointer and the rest are its arguments, and that is the
+// whole shape of it — THREADMAN wraps it in a three-line exported routine that passes one
+// of its own functions and the caller's value, and the function it passes goes straight on
+// to call a timer routine through timrman. So the name is about *where* the call runs, and
+// the answer here is that it does not matter: this machine has no privilege levels to cross
+// and no kernel mode to enter, so an invocation in kernel mode is an invocation.
+//
+// What matters is that it happens. Answering zero and calling nothing — which is what an
+// unmodelled function does, and what this one did — quietly deletes whatever the caller
+// asked to have run. Here it deleted the routine that arms THREADMAN's timer, and the
+// second processor lost its heartbeat: the scheduler ran out of ready threads, fell into
+// its idle loop, and waited for a clock that nobody had started.
+func (p *IOP) intrInvokeInKmode() {
+	fn := p.arg(0)
+	if fn == 0 {
+		p.setRet(0)
+		return
+	}
+	a1, a2, a3 := p.arg(1), p.arg(2), p.arg(3)
+
+	p.CPU.SetReg(4, a1)
+	p.CPU.SetReg(5, a2)
+	p.CPU.SetReg(6, a3)
+	p.CPU.SetReg(7, 0)
+
+	// On the caller's own stack, below its frame: this is a call the caller made, and it
+	// returns to the caller. It is not an interrupt and it does not get a stack of its own.
+	res, err := p.callGuestOn(fn, (p.CPU.Reg(29)-64)&^7)
+	if err != nil {
+		p.halt("the routine %s, invoked through intrman #14, did not return: %v", p.Sym(fn), err)
+		return
+	}
+	p.setRet(res)
+}
+
 // --- delivering an interrupt ---------------------------------------------------------
 
 // iopIntrStack is where an interrupt handler runs.
@@ -408,6 +447,18 @@ func (p *IOP) intrReschedule(frame uint32) (uint32, bool) {
 func (p *IOP) tick() {
 	p.ioTraceFlush()
 	p.steps++
+
+	// The dead zone. Below the first module is the kernel's own memory, and on this machine
+	// it is empty — which is worse than it sounds, because a word of zero is a `nop` on
+	// MIPS. A processor that jumps to null does not fault here; it nops its way up through
+	// sixty-four kilobytes of nothing and falls into the first module's code sideways, and
+	// the boot goes on being wrong for a very long time. Catching the jump is the only way
+	// to hear about it, and the address it came *from* is the only thing worth knowing.
+	if pc := iopPhys(p.CPU.PC); pc < iopModuleBase && pc != iopIdleLoop && pc != iopIdleLoop+4 {
+		p.halt("jumped into the empty kernel area at 0x%08X, from %s", p.CPU.PC, p.Sym(p.lastPC))
+		return
+	}
+	p.lastPC = p.CPU.PC
 	if p.steps%iopProfileEvery == 0 {
 		if p.prof == nil {
 			p.prof = map[string]int{}
@@ -577,4 +628,68 @@ func (p *IOP) clibMemset() {
 		p.Write(dst+i, byte(c))
 	}
 	p.setRet(dst)
+}
+
+// --- the kernel's own syscall --------------------------------------------------------
+
+// iopSyscallReschedule is the service number THREADMAN asks the kernel for, and the only
+// one anything on this disc asks for at all.
+//
+// It is the missing half of the scheduler, and its absence was invisible for a long time
+// because of an accident of the instruction set. THREADMAN has exactly one `syscall` in
+// twenty-eight kilobytes of code:
+//
+//	THREADMAN+0x46C   addiu $v0, $zero, 32
+//	THREADMAN+0x470   syscall
+//	THREADMAN+0x474   jr $ra
+//
+// — a three-instruction exported function that takes no arguments, returns nothing, and
+// asks the kernel for service 32. The interrupt-exit path already had the machinery this
+// needs: a predicate that says whether a switch is wanted and a routine that performs one,
+// both of them THREADMAN's own, registered through intrman (iopframe.go). What was missing
+// was the *other* door into it — the one a thread uses when it gives up the processor of
+// its own accord rather than being taken off it. A thread that blocks on a semaphore does
+// not wait for a timer; it asks to be rescheduled now.
+//
+// With no exception handler at 0x80000080 — and there is none, because intrman is Go — the
+// core took the exception into empty memory. And a word of zero is a `nop` on MIPS, so the
+// processor did not fault. It nopped its way up through sixty-four kilobytes of nothing and
+// fell sideways into the first module's code, and the boot went on, wrongly, for a very
+// long time. It took putting an idle loop in that empty memory to hear about it at all.
+const iopSyscallReschedule = 32
+
+// kernelSyscall serves a `syscall` whose service number is in $v0.
+func (p *IOP) kernelSyscall() bool {
+	switch svc := p.CPU.Reg(2); svc {
+	case iopSyscallReschedule:
+		p.yield()
+
+	default:
+		// Counted, not guessed at, and above all not taken as an exception into memory that
+		// does not fault. The census is the work list.
+		name := fmt.Sprintf("kernel syscall %d", svc)
+		p.unmodelledCalls[name]++
+		if p.unmodelledCalls[name] == 1 {
+			p.ps2.note("IOP: %s from %s — unmodelled", name, p.Sym(p.CPU.CurPC()))
+		}
+	}
+	return true
+}
+
+// yield is a thread giving up the processor: the synchronous twin of intrDeliver's exit
+// path, and the same steps without the handler in front of them.
+//
+// The program counter saved is the instruction *after* the syscall, which is where the core
+// has already advanced to — so a thread resumed from this frame comes back to the `jr $ra`
+// and returns to whoever asked to be rescheduled, with no idea it was ever away.
+func (p *IOP) yield() {
+	frame := (p.CPU.Reg(29) - iopFrameSize) &^ 7
+	p.saveFrame(frame)
+
+	if next, ok := p.intrReschedule(frame); ok {
+		p.loadFrame(next)
+	}
+	// And if the scheduler does not want a switch, nothing at all happens: the processor is
+	// already running the thread it ought to be, and the frame just written is so much dead
+	// wood below the stack pointer.
 }

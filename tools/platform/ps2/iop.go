@@ -167,6 +167,10 @@ type IOP struct {
 	// instruction is over and the register has settled. See ioTrace.
 	ioPend []ioTouch
 
+	// lastPC is where the processor was an instruction ago, kept for one purpose: to say
+	// where a jump into nothing came from.
+	lastPC uint32
+
 	// running is false until the first module is loaded. The machine does not step a
 	// processor that has nothing on it.
 	running bool
@@ -244,6 +248,7 @@ func newIOP(m *Machine, ram []byte) *IOP {
 	p.CPU = mips.NewCPU(p)
 	p.CPU.Syscall = p.handleSyscall
 	p.registerLibraries()
+	p.installIdle()
 	return p
 }
 
@@ -425,12 +430,52 @@ func (p *IOP) alloc(n uint32) uint32 {
 
 // iopStackArea is where the allocator has to stop.
 //
-// The top 64 KiB of IOP memory belongs to the machine rather than to the guest: the
-// stack a routine called from Go runs on, and the separate one an interrupt handler runs
-// on. They are not allocations and nothing on the IOP knows they are there, so the
-// allocator has to be told — a heap that grew into them would corrupt the stack of the
-// very code that asked it to grow.
-const iopStackArea = iopRAMSizeBytes - 0x10000
+// The top 64 KiB of IOP memory belongs to the machine rather than to the guest: the stack
+// a routine called from Go runs on, the separate one an interrupt handler runs on, and the
+// one the idle loop sits on. They are not allocations and nothing on the IOP knows they are
+// there, so the allocator has to be told — a heap that grew into them would corrupt the
+// stack of the very code that asked it to grow.
+const (
+	iopStackArea = iopRAMSizeBytes - 0x10000
+	iopIdleStack = iopRAMSizeBytes - 0x4400
+)
+
+// --- the idle loop ------------------------------------------------------------------
+
+// iopIdleLoop is where the second processor goes when it has nothing else to do.
+//
+// It needs one, and the need is not obvious until the IOP is asked to run on its own for
+// the first time. Every module's entry point is called from Go and returns to Go, and when
+// the last one has returned the processor's program counter is back at its reset vector —
+// which on this machine is a BIOS we do not have. Step it from there and it reads zeroes,
+// executes them, and walks up through memory four bytes at a time, and the profile of a
+// perfectly healthy boot is a list of addresses beginning at zero.
+//
+// A real IOP does not have this problem, because the kernel that loaded the modules is
+// itself a thread, and when it has finished loading them it goes round an idle loop
+// forever. So this is that loop: two instructions, in the low 64 KiB where a real IOP keeps
+// its kernel, and the machine parks the processor there whenever it is not inside a call.
+//
+// What happens next is the entire scheduler, and none of it is ours. The loop spins with
+// interrupts on. The timer fires. THREADMAN's handler runs and makes some thread ready. On
+// the way out, the predicate says the running thread is no longer the one that ought to be
+// running — and the thread it names is a real one, and the frame the machine is holding
+// (the idle loop's) is filed away as the outgoing thread's, exactly as it should be,
+// because idling *is* what that thread was doing.
+const (
+	iopIdleLoop = 0x00000200
+
+	// `beq $zero, $zero, -1` — a branch to itself, with a nop in its delay slot.
+	iopIdleInsn = 0x1000FFFF
+)
+
+// installIdle writes the idle loop into memory and parks the processor on it.
+func (p *IOP) installIdle() {
+	p.Write32(iopIdleLoop, iopIdleInsn)
+	p.Write32(iopIdleLoop+4, insnNop())
+	p.CPU.SetPC(iopIdleLoop)
+	p.CPU.SetReg(29, iopIdleStack)
+}
 
 // --- running ---------------------------------------------------------------------
 
@@ -767,3 +812,6 @@ func (p *IOP) Run(n uint64) {
 		p.CPU.Step()
 	}
 }
+
+// Steps reports how many instructions the second processor has retired.
+func (p *IOP) Steps() uint64 { return p.steps }

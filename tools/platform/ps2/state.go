@@ -97,6 +97,15 @@ type MachineState struct {
 	VBlanks          uint32
 	TTY              []byte
 	SyscallCalls     map[string]int
+
+	// The six registers both processors can see. They are shared silicon, and a snapshot
+	// that dropped them would restore a machine in which one side of a handshake had
+	// happened and the other had forgotten.
+	SBus [sbusRegs]uint32
+
+	// The second processor, entire (iopstate.go). Nil when the IOP was never started —
+	// which is a state a PS2 really is in, right up until the game reboots it.
+	IOP *IOPState
 }
 
 // SaveState captures the machine.
@@ -132,6 +141,11 @@ func (m *Machine) SaveState() MachineState {
 		VBlanks:       m.vblanks,
 		TTY:           append([]byte(nil), m.tty...),
 		SyscallCalls:  map[string]int{},
+		SBus:          m.sbus,
+	}
+	if m.IOP != nil {
+		iop := m.IOP.SaveState()
+		s.IOP = &iop
 	}
 	for k, v := range m.io {
 		s.IO[k] = v
@@ -238,6 +252,17 @@ func (m *Machine) LoadState(s MachineState) error {
 	m.heapPtr, m.heapEnd = s.HeapPtr, s.HeapEnd
 	m.vblanks = s.VBlanks
 	m.tty = append([]byte(nil), s.TTY...)
+	m.sbus = s.SBus
+
+	// The second processor. It is rebuilt over the same 2 MiB the EE shares with it, which
+	// LoadState has already restored above — so the modules' code, their patched stubs and
+	// every thread's stack are in place before the CPU that runs them exists.
+	m.IOP = nil
+	if s.IOP != nil {
+		if err := m.LoadIOPState(*s.IOP); err != nil {
+			return err
+		}
+	}
 
 	m.SyscallCalls = map[string]int{}
 	for k, v := range s.SyscallCalls {
@@ -253,16 +278,19 @@ func (m *Machine) LoadState(s MachineState) error {
 
 // SaveStateFile writes a snapshot, gzipped.
 //
-// It refuses while the IOP is running. The snapshot carries the IOP's *memory* — it
-// always has, because the EE can see it — but not the IOP's registers, its syscall
-// bindings, its heaps or its interrupt handlers, and a snapshot that silently dropped
-// half of a second processor would restore into a machine that looked right and was
-// not. Extending it is the price of turning the IOP on in the main boot, and this is
-// the reminder to pay it rather than discover it.
+// It used to refuse while the IOP was running, because the snapshot carried the IOP's
+// memory and not the IOP. It carries the IOP now (iopstate.go).
+//
+// What it still refuses is a snapshot taken from *inside* a routine the machine itself
+// called — a module's entry point, an interrupt handler, a scheduler hook. That is not a
+// state the second processor is ever in on its own account; it is a state the host has put
+// it in, half way down a Go call stack that no file can hold. A snapshot taken there would
+// restore a processor mid-call with nothing to return to.
 func (m *Machine) SaveStateFile(path string) error {
-	if m.IOP != nil {
-		return fmt.Errorf("ps2: the IOP is running, and the savestate does not carry it yet — " +
-			"its registers, syscall bindings, heaps and interrupt handlers would be lost")
+	if m.IOP != nil && m.IOP.callDepth > 0 {
+		return fmt.Errorf("ps2: the IOP is inside a routine the machine called (%s), and there is "+
+			"no way to carry a Go call stack in a savestate — snapshot it between calls",
+			m.IOP.Sym(m.IOP.CPU.PC))
 	}
 	f, err := os.Create(path)
 	if err != nil {
