@@ -93,6 +93,9 @@ func (m *Machine) runQuantum(c *core, n int, milestones map[uint32]string, hit m
 			return
 		}
 		pc := c.cpu.R[15]
+		if m.OnStep != nil {
+			m.OnStep(c.arm9, pc)
+		}
 		if c.arm9 && m.visited != nil {
 			m.visited[pc>>8] = true
 		}
@@ -142,6 +145,9 @@ func (m *Machine) deliver(c *core) {
 	if c.waiting {
 		ret = c.resumePC
 		c.waiting = false
+	}
+	if m.OnIRQ != nil {
+		m.OnIRQ(c.arm9, pending, handler, ret)
 	}
 	// the handler returns via `subs pc, lr, #4`, so LR = returnAddr + 4
 	c.cpu.Exception(arm.ModeIRQ, handler, ret+4)

@@ -15,6 +15,7 @@ const (
 	regIE         = 0x04000210
 	regIF         = 0x04000214
 	regIPCFIFORCV = 0x04100000
+	regWRAMCNT    = 0x04000247 // ARM9-only: the shared-WRAM split
 	regSPICNT     = 0x040001C0
 	regAUXSPICNT  = 0x04000040 // touch/backup SPI on some maps; harmless stub
 )
@@ -36,6 +37,9 @@ func (c *core) other() *core {
 
 func (c *core) ioRead(a uint32) uint32 {
 	m := c.m
+	if m.OnIO != nil {
+		defer func() { m.OnIO(c.arm9, false, a, c.io[a], c.cpu.R[15]) }()
+	}
 	switch a {
 	case regIME:
 		if c.ime {
@@ -76,6 +80,9 @@ func (c *core) ioRead(a uint32) uint32 {
 }
 
 func (c *core) ioWrite(a uint32, v byte) {
+	if c.m.OnIO != nil {
+		c.m.OnIO(c.arm9, true, a, uint32(v), c.cpu.R[15])
+	}
 	base := a &^ 3
 	if _, seen := c.io[base]; !seen {
 		c.ioseq = append(c.ioseq, base)
@@ -122,6 +129,11 @@ func (c *core) ioWrite(a uint32, v byte) {
 		if lane == 1 {
 			c.fifoCntWrite(uint16(w))
 		}
+	}
+	// WRAMCNT is a byte register inside the 0x04000244 word (VRAMCNT_A..D), and only
+	// the ARM9 may write it.
+	if a == regWRAMCNT && c.arm9 {
+		c.m.wramcnt = v
 	}
 }
 

@@ -56,9 +56,27 @@ type Machine struct {
 	vcount   uint16
 	vblankAt uint64 // next step count at which to raise a synthetic VBlank
 
+	// wramcnt is the shared-WRAM split (WRAMCNT, 0x04000247 — ARM9-only). 0 at reset,
+	// which gives the ARM9 all 32 KiB and leaves the ARM7's window mirroring its own
+	// WRAM. See bus.wramSlot.
+	wramcnt uint8
+
 	// SyncTrace, if set, is called on every IPCSYNC nibble write (for diagnostics).
 	SyncTrace func(core string, nibble uint8, pc uint32)
-	visited   map[uint32]bool // ARM9 code pages entered (progress watchdog)
+
+	// OnStep, if set, is called before every instruction on either core — the seam a
+	// tracer, a breakpoint or a frame debugger hangs off.
+	OnStep func(arm9 bool, pc uint32)
+
+	// OnIO, if set, observes every memory-mapped I/O access either core makes.
+	OnIO func(arm9 bool, write bool, addr, val uint32, pc uint32)
+
+	// OnWrite, if set, observes every memory write either core makes.
+	OnWrite func(arm9 bool, addr uint32, v byte, pc uint32)
+
+	// OnIRQ, if set, observes every interrupt the model dispatches.
+	OnIRQ   func(arm9 bool, sources, handler, ret uint32)
+	visited map[uint32]bool // ARM9 code pages entered (progress watchdog)
 }
 
 // core is one processor: its CPU, its private memory, and its interrupt state.
@@ -115,6 +133,20 @@ func New(rom *nds.ROM, dtcm9Base uint32) *Machine {
 		logSeen: map[string]bool{},
 	}
 	m.ipc.cnt9, m.ipc.cnt7 = 0x0101, 0x0101 // both send FIFOs empty at reset
+
+	// WRAMCNT = 3: the whole 32 KiB shared block belongs to the ARM7. This is the state
+	// the cartridge boot leaves behind, and it is not an arbitrary default — it is what
+	// makes the ARM7's memory map make sense at all. The DS boot loads most ARM7
+	// binaries at 0x037F8000, and SM64DS's ARM7 relocates itself into one CONTIGUOUS
+	// run from 0x037F8000 to 0x03809903 (~72 KiB). That only holds if the shared block's
+	// last mirror (0x037F8000..0x037FFFFF) sits directly below the ARM7's private 64 KiB
+	// at 0x03800000 — 96 KiB of contiguous WRAM, which is exactly the layout NitroSDK
+	// links its ARM7 for.
+	//
+	// Boot with the block unassigned instead and that copy silently wraps around a 64 KiB
+	// mirror, laying the back half of the ARM7's own code over its front half. It then
+	// runs off into the data it just corrupted, and nothing about the crash points here.
+	m.wramcnt = 3
 
 	// ARM9: private ITCM + DTCM, high BIOS vectors.
 	a9 := &core{m: m, name: "ARM9", arm9: true, io: map[uint32]uint32{},
