@@ -216,6 +216,19 @@ func (m *Machine) Snapshot(arm9 bool, addr, n uint32) []byte {
 	return out
 }
 
+// Poke writes n bytes at addr as the given core sees them — an experiment hook (and
+// what a debugger's memory editor needs).
+func (m *Machine) Poke(arm9 bool, addr uint32, data []byte) {
+	c := m.ARM7
+	if arm9 {
+		c = m.ARM9
+	}
+	b := &bus{c: c}
+	for i, v := range data {
+		b.Write(addr+uint32(i), v)
+	}
+}
+
 // Parked reports whether a core is idle in an interrupt wait (for diagnostics).
 func (m *Machine) Parked(arm9 bool) bool {
 	if arm9 {
