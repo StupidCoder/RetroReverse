@@ -129,8 +129,9 @@ Every other instrument in this file answers a question you already knew to ask. 
 for the questions you *don't* — you watch the frame being built and see what it does. It is the one
 oracle front-end with a user interface, and it is deliberately platform-agnostic: `tools/debug`
 defines a small `Target` interface plus a set of *optional capabilities*, and the page builds itself
-from whatever the current target says it can do — no empty panels, nothing faked. Three adapters back
-it today: `n64adapter`, `psxadapter` and `n3dsadapter` (RDP, GP0 and PICA200).
+from whatever the current target says it can do — no empty panels, nothing faked. Four adapters back
+it today: `n64adapter`, `psxadapter`, `n3dsadapter` and `ndsadapter` (RDP, GP0, PICA200 and the DS's
+geometry engine).
 
 ```
 framedbg -image ROM [-state FILE] -serve :8088     # the interactive debugger, in a browser
@@ -196,6 +197,34 @@ indexing it by the displayed image's width — which is only correct where the s
 target coincide, as they do on N64 and PSX. On the 3DS it would have silently reported the wrong
 command for every pixel. The page now carries the provenance plane's own dimensions and refuses to
 answer when they disagree with the picture on screen.
+
+**What the DS adapter had to do differently**, because it is the first target whose rasteriser does
+not run while the commands do:
+
+- **The frame is TWO SCREENS.** A DS game puts its world on one panel and its menu, its map, its
+  stylus target on the other; a debugger showing one of them shows half the picture. So the frame is
+  the console's own composition — 256×392, the top panel above the bottom one with the bezel's gap.
+  Which engine drives which panel is not a constant: POWCNT1 bit 15 says, and SM64DS flips it, so the
+  composition asks the machine rather than assuming.
+- **The scrubber replays the GEOMETRY, not the picture.** The DS's geometry engine accumulates
+  polygons all frame and the rasteriser runs once, at the buffer swap. There is no partial framebuffer
+  to halt at, because there is no framebuffer yet — so the scrubber stops after command k and then
+  *rasterises the polygon list as it stands*. Dragging it watches a frame's geometry accumulate, which
+  on this machine is the right question: the geometry **is** the frame, and the rasteriser is a
+  formality that happens at the end. What it shows at command k is not "the frame, half-drawn"; it is
+  "the frame, if the game stopped submitting geometry here".
+- **The halt is a sentinel panic, not a flag.** One mode-7 DMA burst pushes 112 words into the GXFIFO
+  *inside the store that triggered it*, so a scrubber that could only stop between instructions would
+  overshoot its position by most of a display list — and the picture it drew would not be the picture
+  it claimed. The panic unwinds out of the middle of the DMA, which is safe precisely because the
+  machine it unwinds is a scratch replay about to be thrown away.
+- **Provenance is gated on visibility.** Every polygon remembers the command that closed it, so a
+  pixel names a command — but only where the 3D layer actually *won* the 2D compositor's priority
+  fight. A 3D pixel with a background on top of it is one the player cannot see, and naming a draw for
+  it would be a confident wrong answer, which is the worst kind a debugger can give.
+
+Clicking Mario's face on SM64DS's title screen (12,311 geometry commands in the frame) names
+`VTX_XZ` #11679 and shows seven writes to that pixel — one of them depth-rejected.
 
 ---
 
@@ -307,6 +336,11 @@ kernel), as the PSX BIOS is.
 | `-log` | **the hardware the model did NOT implement.** The honest half of every run: a register this machine does not model is logged, not quietly read back as the last value written, because on a machine whose boot polls status bits a stub that happens to read "ready" is indistinguishable from working silicon right up until the frame it isn't |
 | `-bp` / `-logpc` / `-trace` / `-tracefrom` / `-dump` | halting and non-halting breakpoints, tracing, memory |
 
+**The frame debugger** — `framedbg -image rom.nds -dtcm 023C0000 -state title.state -serve :8088`.
+The DS backs the full 3DS capability set; what it had to do differently (a frame that is two screens,
+a scrubber that replays *geometry* because the rasteriser only runs at the buffer swap) is in the
+frame-debugger section above.
+
 **Declared gaps** (all logged by `-log`, none faked): the sound *mixer* — the register file is real and
 the ARM7's sound driver runs and sequences, but no samples are fetched; display capture; anti-aliasing;
 and toon-shaded polygons currently render pink (the toon table and the skin palette are both correct in
@@ -374,7 +408,7 @@ and are **candidates to port**:
 | **Write-profiler (`-vgaprof`)** | DOS | "who wrote this value" up the call stack; catches self-modifying patchers. Would suit any framebuffer or command-ring investigation |
 | **`-spinbreak` / `-hot`** | 3DO | turns "hangs forever" into "here is the loop and why". The 3DS spent three sessions doing this by hand |
 | **Read-watch (`-rwatch`)** | PSX/PSP/N64 | the complement of `-watch`; the 3DS oracle still lacks it |
-| **The frame debugger (`framedbg -serve`)** | N64 | watch a frame being built, command by command; click a pixel to get the command that drew it and its overdraw history. Needs three things of a platform — a per-command hook, a per-pixel hook, and an in-memory snapshot — and every LLE machine here could offer them. Ported to PSX and to the 3DS; the remaining LLE machines (**the DS's 3D engine**, PSP's GE, 3DO's cel engine) want adapters next. The DS now has all three prerequisites: `gpu3d.OnCmd`, a rasteriser, and `SaveState` |
+| **The frame debugger (`framedbg -serve`)** | N64 | watch a frame being built, command by command; click a pixel to get the command that drew it and its overdraw history. Needs three things of a platform — a per-command hook, a per-pixel hook, and an in-memory snapshot — and every LLE machine here could offer them. Ported to PSX, the 3DS and **the DS**; the remaining LLE machines (PSP's GE, 3DO's cel engine) want adapters next |
 | **The "gap log" (`-log`)** | DS | an I/O register the machine does not implement is *logged*, not quietly read back as the last value written. Every stub that reads "ready" is a lie the boot believes until the frame it doesn't, and the log is what turns a run's reach into a claim you can check. Cheap to add anywhere |
 | **`-rtshot` / the render target on its own** | 3DS, DS | a black screen is two different bugs wearing one face — the GPU drew nothing, or it drew and the compositor threw it away. No counter separates them; looking at the plane the rasteriser wrote does, instantly |
 | **`-poke`** | PSX/3DS | falsify a hypothesis in one run by forcing the value the game waits for |
