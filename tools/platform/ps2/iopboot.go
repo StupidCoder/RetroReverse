@@ -106,6 +106,25 @@ func (m *Machine) RebootIOPFrom(image string) error {
 		}
 	}
 	m.note("IOP: booted on %s — %d modules", image, len(m.IOP.modules))
+
+	// And now hand the processor over to its own scheduler.
+	//
+	// This is the last act of the loader, and without it the second processor never runs a
+	// single one of its threads. Every module's entry point has been called and has returned;
+	// each one created the threads it wanted and started them, and they are all sitting ready.
+	// But nothing has *asked* THREADMAN to run them. The machine is parked in the idle loop the
+	// kernel HLE keeps at 0x200, which is not a thread and which THREADMAN has never heard of,
+	// and THREADMAN goes on believing that the thread it last saw running is still running —
+	// so its predicate says no switch is wanted, and on the way out of every interrupt it
+	// declines to schedule anybody. The profile is unambiguous about it: ninety-five per cent
+	// of the IOP's life at 0x00000204, and zero thread switches in a boot with twelve modules
+	// and a dozen threads in it.
+	//
+	// On the board there is no such gap, because the code that loads the modules is itself a
+	// thread: when it has finished, it blocks or it exits, and the scheduler picks up the next
+	// one as a matter of course. Here the loader is Go, and Go cannot block on a semaphore. So
+	// the loader does what a thread does when it has finished: it exits.
+	m.IOP.exitLoaderThread()
 	return nil
 }
 

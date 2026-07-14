@@ -391,7 +391,6 @@ func (p *IOP) intrDeliver(irq uint32) {
 	// are delivered, and it belongs with the work that turns the IOP on in the main boot.
 	preemptible := p.callDepth == 0
 
-	wasEnabled := p.intrEnabled
 	p.inIntr++
 	p.intrEnabled = false // a handler runs masked, as on the hardware
 
@@ -406,21 +405,20 @@ func (p *IOP) intrDeliver(irq uint32) {
 	}
 
 	p.inIntr--
-	p.loadFrame(resume)
 
-	// The interrupt returns to the state it found, and *this* is the line that restores
-	// it — not the handler, and not the scheduler hooks. Both of those are kernel code
-	// that brackets its own critical sections with CpuSuspendIntr and CpuResumeIntr, and
-	// both are entitled to leave the processor masked when they hand back, because on the
-	// board what re-enables interrupts is the exception return itself, restoring the
-	// status register the exception saved. There is no status register here, so the
-	// restore has to be written down.
+	// The exception return. It restores the registers, the program counter *and* the
+	// interrupt-enable, all three from the frame — which after a switch is a different thread's
+	// frame, and that is the point.
 	//
-	// Getting this the wrong way round — restoring the enable and *then* running the
-	// hooks — costs the machine every interrupt after the first one that reschedules. The
-	// timer goes on raising its line thirteen hundred times and not one of them is
-	// delivered, because the scheduler quietly left the door shut on its way out.
-	p.intrEnabled = wasEnabled
+	// The enable used to be restored here instead, from a variable saved on the way in, and the
+	// comment explained that the handler and the scheduler hooks are kernel code entitled to
+	// leave the processor masked, so the restore had to be written down because there was no
+	// status register to take it from. There is one: it is in the frame, at offset 136, and
+	// THREADMAN has been putting the right value in it all along. Restoring from the variable
+	// gives the *incoming* thread the *outgoing* one's interrupt state, which is right only
+	// because it is usually the same thread — and wrong, silently and permanently, on exactly
+	// the switches that are not preemptions.
+	p.loadFrame(resume)
 
 	if err != nil {
 		p.halt("the handler for interrupt %d (%s) did not return: %v", irq, p.Sym(h.fn), err)

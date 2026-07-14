@@ -157,6 +157,11 @@ type Machine struct {
 	// is told when it asks. sceSifSyncIop spins until it is true.
 	iopRebooted bool
 
+	// How many packets have actually crossed the SIF in each direction. The pair is the
+	// instrument: a machine sending and never receiving is a machine talking to itself.
+	sifToIOPCount   int
+	sifFromIOPCount int
+
 	// The six registers both processors can see (sifbus.go).
 	sbus [sbusRegs]uint32
 

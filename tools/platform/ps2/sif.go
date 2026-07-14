@@ -109,6 +109,34 @@ func (m *Machine) iopReceive(src, size uint32) {
 	cid := m.Read32(src + 0x08)
 	opt := m.Read32(src + 0x0C)
 
+	// The reset is the one command the second processor cannot serve, because it is the
+	// command that creates it. Everything after this can go to the real IOP.
+	if cid == sifCmdReset {
+		m.iopReset(src)
+		return
+	}
+
+	// The EE nominates the buffer it wants the IOP's packets written into, and the machine has
+	// to know it too — not to answer with, but to *route* with: it is where a SIF0 transfer
+	// out of the IOP is going to land. The IOP's own SIFCMD is told the same thing by the same
+	// packet, and keeps its own copy; this is the wire noting the address on the envelope.
+	if cid == sifCmdChangeSaddr {
+		m.sifCmdBuf = m.Read32(src + 0x10)
+		m.note("SIF: the EE's command buffer is at 0x%08X", m.sifCmdBuf)
+	}
+
+	// And here is where the packet will one day go to the second processor instead of to the
+	// Go handlers below — sifToIOP carries it, and it works: the bytes land in SIFCMD's own
+	// receive buffer at the address SIFCMD published in SMCOM, interrupt 43 is raised, and
+	// SIFCMD's handler runs on the IOP and consumes them.
+	//
+	// What does not work yet is the answer. SIFCMD takes the packet and sends nothing back, so
+	// the EE waits for a reply that never comes — and until it *does* come, switching the wire
+	// on would only replace a machine that lies with a machine that stops. The fakes stay until
+	// both halves of the conversation are real. That is the next piece of work and it is a
+	// short one: find out what SIFCMD does with a command packet it has accepted, and why it
+	// does not start its SIF0 channel afterwards.
+
 	switch cid {
 	case sifCmdChangeSaddr:
 		// The EE nominates the buffer it wants replies written into. Everything this
@@ -173,6 +201,74 @@ func (m *Machine) iopReset(src uint32) {
 		return
 	}
 	m.iopRebooted = true
+}
+
+// --- the transport ------------------------------------------------------------------
+//
+// Two directions, two DMA channels, and one buffer that both processors can see. Everything
+// below was read off the modules rather than assumed, and SIFMAN is the authority on all of it
+// (the trace is in sifbus.go and iopdma.go):
+//
+//	SIF1   EE -> IOP   the EE's DMA channel 6; the IOP's channel 10, interrupt 43.
+//	SIF0   IOP -> EE   the IOP's DMA channel 9; the EE's channel 5, whose handler the EE
+//	                   registers by name — _sceSifCmdIntrHdlr.
+//
+// The destination of a SIF1 transfer does not come from the IOP's side. SIFMAN arms channel 10
+// with a block size and a start bit and *never writes MADR* — so the receiving end does not
+// choose where the data lands; the sender does. What it does instead is publish the address:
+// it writes SIFCMD's receive buffer into SMCOM, the word the IOP hands the EE, and raises
+// SMFLG's bit 0x00010000 to say its half is up. So the address on the envelope is the IOP's
+// own, and this reads it from the register the IOP wrote it in rather than from anywhere else.
+//
+// A transfer is a copy. The two processors are two Go objects over two byte slices in one
+// process, and the SIF is the wire between them; there is no third thing for the data to sit
+// in, and modelling a FIFO would model the wire rather than the message.
+
+// sifToIOP carries one command packet across SIF1 and rings the IOP's doorbell.
+func (m *Machine) sifToIOP(src, size uint32) {
+	dest := m.sbusRead(sbusSMCOM)
+	if dest == 0 {
+		m.note("SIF: the EE sent the IOP a packet before the IOP said where to put it (SMCOM is 0)")
+		return
+	}
+	for i := uint32(0); i < size; i++ {
+		m.IOP.Write(dest+i, m.Read(src+i))
+	}
+
+	// The transfer the IOP armed has now happened. Its channel is no longer busy, and its MADR
+	// holds the address the data went to — which is the *sender's* choice, and therefore
+	// something only the completed transfer can tell the receiver. SIFMAN never writes this
+	// register; it only ever reads it back. That is what says the hardware writes it.
+	c := &m.IOP.dma[iopDMAChSIF1]
+	c.madr = dest + size
+	c.chcr &^= iopChcrStart | iopChcrTrigger
+
+	// And the interrupt SIFCMD is waiting on. It is raised, not run: the handler belongs to the
+	// IOP and runs on the IOP's own interrupt path, on the IOP's own stack, the next time that
+	// processor takes a step. Which is the whole difference between the two machines talking and
+	// one of them ventriloquising the other.
+	m.IOP.raiseIRQ(iopDMAIRQ(iopDMAChSIF1))
+	m.sifToIOPCount++
+}
+
+// sifFromIOP carries a transfer the other way: the IOP has started its SIF0 channel, and what
+// it is sending is a command packet for the EE.
+//
+// It lands in the buffer the EE nominated with CHANGE_SADDR, and then the EE's own handler runs
+// over it — the same handler, reached the same way, as when the fake IOP wrote the packet. That
+// is the point: nothing on the EE's side had to change for the IOP to become real. The EE was
+// always reading its command buffer and dispatching on the cid it found there. All that has
+// changed is who wrote it.
+func (m *Machine) sifFromIOP(madr, n uint32) {
+	if m.sifCmdBuf == 0 || m.sifCmdHandler == 0 {
+		m.note("SIF: the IOP sent %d bytes, and the EE has not said where its command buffer is", n)
+		return
+	}
+	for i := uint32(0); i < n; i++ {
+		m.Write(m.sifCmdBuf+i, m.IOP.Read(madr+i))
+	}
+	m.sifFromIOPCount++
+	m.callGuest(m.sifCmdHandler, 0)
 }
 
 // --- the RPC layer -----------------------------------------------------------
@@ -421,7 +517,8 @@ func (m *Machine) SIFCensus() string {
 	if len(m.rpcCalls) == 0 && len(m.sifUnmodelled) == 0 {
 		return ""
 	}
-	s := "the EE's requests to the IOP:\n"
+	s := sprintf("the EE's requests to the IOP (%d packets crossed to it, %d came back):\n",
+		m.sifToIOPCount, m.sifFromIOPCount)
 
 	if len(m.rpcServers) > 0 {
 		var sids []uint32

@@ -392,6 +392,20 @@ func run(c cfg) error {
 	fmt.Print(m.SIFCensus())
 	fmt.Println()
 	fmt.Print(m.HardwareCensus())
+
+	// The second processor, if the game brought it up. It does now — the reboot is a SIF
+	// packet the game sends — so the full boot has an IOP in it, and an IOP nobody reports on
+	// is an IOP that can be blocked, halted or idle for a whole run without anyone noticing.
+	if m.IOP != nil {
+		if tty := m.IOP.TTY(); tty != "" {
+			fmt.Printf("\n--- what the IOP printed\n%s\n", tty)
+		}
+		fmt.Printf("\n--- %s", m.IOP.IOPInterrupts())
+		if prof := m.IOP.IOPProfile(); prof != "" {
+			fmt.Printf("\n--- %s", prof)
+		}
+	}
+
 	if len(m.Log) > 0 {
 		fmt.Println("\nlog:")
 		for _, l := range m.Log {

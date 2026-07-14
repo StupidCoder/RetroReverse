@@ -236,6 +236,29 @@ func (p *IOP) dmaStart(ch int) {
 	case iopDMAChSPU1:
 		p.spu.dma(1, p, c.madr, n, toRAM)
 
+	case iopDMAChSIF0:
+		// The second processor is sending the first one something. This is the only channel on
+		// the IOP whose other end is a CPU rather than a device, and the transfer is a copy into
+		// the buffer the EE nominated (sif.go).
+		if !toRAM {
+			p.ps2.sifFromIOP(c.madr, n)
+		}
+
+	case iopDMAChSIF1:
+		// The receiving half of EE -> IOP, and the one channel here that does not complete when
+		// it is started.
+		//
+		// Starting it is not a transfer. SIFMAN arms it — a block size, a start bit, and no MADR
+		// at all — and what that means is "I am ready for the next packet"; the transfer happens
+		// later, when the *other* processor sends one. So there is no completion to schedule and
+		// no interrupt to raise, and raising one anyway is not a harmless approximation. It is a
+		// doorbell rung by nobody: SIFCMD's handler runs, finds no packet, arms the channel
+		// again, and is rung again — which it did, three hundred and eighty-seven times, and
+		// which looks from the outside like a machine hard at work.
+		//
+		// The bytes and the interrupt both arrive in sifToIOP, which is the sender's side.
+		return
+
 	default:
 		// A channel we have no evidence about. It completes — refusing to would hang the
 		// module rather than teach us anything — but it is counted and named, and the
