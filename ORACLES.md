@@ -264,13 +264,59 @@ it walks character creation, types a name, and Journeys Onward into the first-pe
 
 ## Nintendo DS — `games/{mario-kart-ds,super-mario-64-ds}/extract/cmd/bootoracle`
 
-Dual ARM9/ARM7 on `tools/platform/nds/dsmachine`. Deliberately minimal (`-image -steps -io`), because
-the DS work is driven by two *special-purpose* oracles instead:
+Dual ARM9/ARM7 on `tools/platform/nds/dsmachine` + `tools/cpu/arm` (V5TE). **The oracle boots the
+game and draws it**: Super Mario 64 DS runs from cold through its OS bring-up, reads 2,731 files off
+the cartridge, and renders its title sequence — the Nintendo legal screen, the TOUCH TO START star,
+and (after a scripted stylus tap) the SUPER MARIO 64 DS logo with Mario's 3D face and the menu.
 
+Unlike the 3DS there is no operating system to HLE, only hardware, so this is an LLE machine like
+`n64` and `psx`: scanline timing, eight DMA channels, eight timers, the ARM9's hardware divider and
+square-root units, the nine VRAM banks and the mapping register that decides what each of them
+currently *is*, the cartridge port, the ARM7's SPI bus (a synthesised firmware, the power chip, the
+touchscreen), and both graphics engines — the two 2D controllers and the 3D geometry/rasterising
+pipeline. Only the BIOS's software interrupts are lifted above the metal (they are a library, not a
+kernel), as the PSX BIOS is.
+
+**Execution & state**
+| flag | what it does |
+|---|---|
+| `-frames N` | stop after N frames — a graphics workload is measured in frames, not instructions |
+| `-savestate F` / `-loadstate F` | full snapshot. **The workhorse**: a cold boot to the title screen is 1.2 billion scheduler steps and 42 seconds; restoring it takes one. Captures the ARM's *banked* registers, without which the first interrupt after a restore runs on a stack pointer of zero |
+| `-steps N` / `-quantum N` | instruction budget; how long a core runs before the other gets a turn |
+
+**Input** — the oracle plays the game
+| flag | what it does |
+|---|---|
+| `-keys FILE` | **a timed input script**: `320 touch 128,120` / `340 release` / `120 press a,start`. The point is the press EDGE — a DS game asks "did this go down since last frame", so a stylus held from reset gives the title screen nothing and it waits for ever |
+| `-keys a,start` | or just buttons to hold, when that is enough |
+| `-touch X,Y` | hold the stylus for the whole run |
+
+**Graphics**
+| flag | what it does |
+|---|---|
+| `-shot BASE` / `-shotevery N` | both screens as PNG (`_top`, `_bottom`), with POWCNT1's engine→panel swap applied — "the top screen" is a question about a register, not about an engine |
+| `-rtshot F` | the **3D engine's own render target**, before the 2D engine composites it as engine A's BG0. Pixels the rasteriser never touched come out magenta, so "drew nothing" cannot be mistaken for "drew black" — the DS's answer to the 3DS's `-rtshot`, and for the same reason |
+| `-gfx` | both engines, the VRAM bank mapping, and the 3D engine's frame: polygons at the last swap, and how many primitives the clipper rejected. *95% clipped* is a transform bug; *0 polygons* is a geometry bug; they are not investigated the same way |
+| `-gxdump` | histogram of the 3D commands actually executed. A 3D game that never issues `MTX_MULT` is not a 3D game — it is a FIFO that is dropping words |
+
+**Loading & tracing**
+| flag | what it does |
+|---|---|
+| `-cardlog` | every cartridge transfer: command, ROM address, size. The map of what the game loads, when, drawn by its own loader |
+| `-io` | the I/O registers the run programmed |
+| `-log` | **the hardware the model did NOT implement.** The honest half of every run: a register this machine does not model is logged, not quietly read back as the last value written, because on a machine whose boot polls status bits a stub that happens to read "ready" is indistinguishable from working silicon right up until the frame it isn't |
+| `-bp` / `-logpc` / `-trace` / `-tracefrom` / `-dump` | halting and non-halting breakpoints, tracing, memory |
+
+**Declared gaps** (all logged by `-log`, none faked): the sound *mixer* — the register file is real and
+the ARM7's sound driver runs and sequences, but no samples are fetched; display capture; anti-aliasing;
+and toon-shaded polygons currently render pink (the toon table and the skin palette are both correct in
+VRAM, so the fault is in the shading, not the data).
+
+**Companion oracles**, still the right shape for questions about *data*:
 - **`actororacle`** (SM64DS) — the strongest "reimplement, don't scrape" instrument in the repo. It
   runs the game's own actor create/init code natively for each of 4,048 of 4,350 actors, so behaviour
   comes from the game rather than from heuristics. `-boot`, `-actor ID`, `-ovl`, `-par`.
-- **`dualoracle`** — dual-CPU scheduling harness (`-budget`, `-quantum`, `-log`).
+- **`dualoracle`** — the original dual-CPU scheduling harness (`-budget`, `-quantum`, `-log`).
 
 ---
 
@@ -328,6 +374,8 @@ and are **candidates to port**:
 | **Write-profiler (`-vgaprof`)** | DOS | "who wrote this value" up the call stack; catches self-modifying patchers. Would suit any framebuffer or command-ring investigation |
 | **`-spinbreak` / `-hot`** | 3DO | turns "hangs forever" into "here is the loop and why". The 3DS spent three sessions doing this by hand |
 | **Read-watch (`-rwatch`)** | PSX/PSP/N64 | the complement of `-watch`; the 3DS oracle still lacks it |
-| **The frame debugger (`framedbg -serve`)** | N64 | watch a frame being built, command by command; click a pixel to get the command that drew it and its overdraw history. Needs three things of a platform — a per-command hook, a per-pixel hook, and an in-memory snapshot — and every LLE machine here could offer them. Ported to PSX and to the 3DS; the remaining LLE machines (PSP's GE, 3DO's cel engine) want adapters next |
+| **The frame debugger (`framedbg -serve`)** | N64 | watch a frame being built, command by command; click a pixel to get the command that drew it and its overdraw history. Needs three things of a platform — a per-command hook, a per-pixel hook, and an in-memory snapshot — and every LLE machine here could offer them. Ported to PSX and to the 3DS; the remaining LLE machines (**the DS's 3D engine**, PSP's GE, 3DO's cel engine) want adapters next. The DS now has all three prerequisites: `gpu3d.OnCmd`, a rasteriser, and `SaveState` |
+| **The "gap log" (`-log`)** | DS | an I/O register the machine does not implement is *logged*, not quietly read back as the last value written. Every stub that reads "ready" is a lie the boot believes until the frame it doesn't, and the log is what turns a run's reach into a claim you can check. Cheap to add anywhere |
+| **`-rtshot` / the render target on its own** | 3DS, DS | a black screen is two different bugs wearing one face — the GPU drew nothing, or it drew and the compositor threw it away. No counter separates them; looking at the plane the rasteriser wrote does, instantly |
 | **`-poke`** | PSX/3DS | falsify a hypothesis in one run by forcing the value the game waits for |
 | **Pad/key scripts (`-keys`, `-keypulse`)** | DOS/PSP/3DS | an oracle that can *play* reaches states no boot ever will. `-keypulse` (fresh press edges) is the non-obvious part |

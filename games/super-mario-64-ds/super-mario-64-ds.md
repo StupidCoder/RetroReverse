@@ -18,6 +18,7 @@ Image: `Super Mario 64 DS (Europe) (En,Fr,De,Es,It).nds`, 16 MiB, game code **AS
 * **Part VI** — collision: the `.kcl` mesh format (vertices, packed normals, prism records and the octree the queries walk), the external `CLPS` surface-attribute table, the ITCM query walkers — all pinned by running the game's own collision code in the oracle and reimplemented bit-exactly in Go.
 * **Part VII** — the music: the `SDAT` sound archive (the same NitroSDK format as Mario Kart DS's, but shipped *with* its symbol block, so every tune carries the game's own name), rendered to MP3 through the shared `tools/platform/nds/sdat` sequencer and synth.
 * **Part VIII** — the message system and the game's own course names: the `BMG` text containers, the font-derived character encoding, the level→course table the save system uses, and the per-level music binding — the cartridge's own course names.
+* **Part IX** — **the machine**: the DS model grows from two CPUs and a stub into a console — timing, DMA, timers, the maths units, the nine VRAM banks, the cartridge port, the ARM7's SPI bus, and both graphics engines — until the game boots from cold, loads its 2,731 files, and draws its own title screen. Eight bugs, every one of which looked like something else.
 
 Methods: purely static analysis of the `.nds` image. All addresses are 32-bit ARM addresses (`$02000000`-style main-RAM addresses, or the BIOS and I/O regions) unless a *file offset* into the ROM image is explicitly called out; bytes are little-endian.
 
@@ -648,3 +649,126 @@ Toolchain (shared `retroreverse.com/tools`, this repository):
 - **`supermario64ds/extract/cmd/musicrender`** — Part VII: renders every sequence to MP3 (via ffmpeg), named from the `SYMB` symbols, and writes the Studio music panel's `tracks.json`.
 
 Rendered figures will go in `Super Mario 64 DS (DS)/work/`; annotated disassembly in `disasm/`.
+
+---
+
+# Part IX — The machine: booting the game and drawing its title
+
+Parts I–VIII read the cartridge. This part *runs* it.
+
+The DS model up to now was two ARM cores, the inter-processor block, and stubs for
+everything else. It could clear the ARM9↔ARM7 rendezvous (Part III §4) and no further:
+`main()` was never reached. The distance from there to a title screen is not a bug list,
+it is a console — the display and its timing, eight DMA channels, eight timers, the
+ARM9's hardware divider and square-root units, the nine VRAM banks and the register that
+decides what each of them currently *is*, the cartridge port, the ARM7's SPI bus, and both
+graphics engines. That machine is `tools/platform/nds/dsmachine`, and it is a low-level
+emulation like the N64's and the PSX's: a DS has no operating system to high-level-emulate,
+only hardware. The one thing lifted above the metal is the BIOS's software interrupts —
+they are a library, not a kernel.
+
+It works. Super Mario 64 DS boots from cold, brings up its OS, reads **2,731 files** off
+the cartridge, and renders its title sequence: the ©2004-2005 Nintendo legal screen, the
+TOUCH TO START star, and — after a scripted stylus tap — the SUPER MARIO 64 DS logo with
+Mario's 3D face and the VS / ADVENTURE / REC ROOM menu.
+
+    bootoracle -image rom.nds -frames 1100 -keys start.keys -shot title
+
+## 1. What each bug looked like
+
+The interesting thing about the eight bugs that stood between the rendezvous and the title
+screen is that not one of them *looked like what it was*. They are worth recording in that
+form, because the shape of the symptom is the part that transfers.
+
+**The boot hangs, and the ARM7 is waiting for a value nobody writes.** The ARM7 polls a
+halfword at `$027FFFF4` for `$7F` and reads zero for ever. That address is past the end of
+main RAM — and main RAM is **mirrored** every 4 MiB. The DS's boot parameter block lives in
+the top mirror (`$027FFxxx`), and NitroSDK hard-codes it there. Map only the first 4 MiB and
+the ARM9 writes the handshake to an address the ARM7 cannot see.
+
+**The ARM7 swallows four IPC messages to receive one.** The CPU core composes a 32-bit load
+out of four byte reads, and both the IPC receive FIFO and the cartridge data port are
+*read to pop*. So every word read popped four, and every word the game read off the card was
+assembled from the bytes of four different words. This is why `arm.BusWide` exists: a machine
+whose registers have side effects on read must service wide accesses itself. It is not a
+performance interface.
+
+**The ARM7 executes its own BIOS thunk table as garbage.** The game's interrupt handler ends
+with `ldr pc, [sp], #4` — a plain load, restoring nothing. It is therefore not the interrupt
+*vector*; it is a routine the BIOS *calls*, and the BIOS's own epilogue (`subs pc, lr, #4`)
+is what restores the CPSR, and with it the **Thumb bit**. Jump straight to the game's handler
+and the ARM7 — interrupted out of Thumb code, as it usually is, because the BIOS call thunks
+are Thumb — comes back in ARM state on a Thumb address and decodes the thunk table as ARM.
+
+**The ARM7's thread scheduler spins between two threads without executing an instruction of
+either.** `LDMIA r0, {r0-lr}^`. The `^`, with no PC in the list, means *transfer the user-mode
+bank* — which is exactly how an OS restores a thread's context from Supervisor mode without
+touching the Supervisor LR it is about to return through. Treat the `^` as a no-op and the load
+clobbers that LR, and the context switch returns into its own middle.
+
+**Every ARM9 interrupt is latched and none is dispatched.** The guard was "is a handler
+installed?", implemented as "does the pointer look like a code address?" — rejecting anything
+below main RAM. SM64DS's handler is at `$01FFD97C`: in **ITCM**, which is below main RAM and is
+precisely where a DS game wants its interrupt handler, because ITCM is the only memory the ARM9
+reaches in a single cycle. The sanity check was the bug.
+
+**The filesystem asserts, and every byte it read was correct.** The card's block-size field is
+`0x100 << n`, not `0x100 << (n-1)`. SM64DS's FS takes the name table's ROM offset (`$1D9324`),
+rounds it down to a 512-byte boundary (`$1D9200`), reads that block, and indexes `$124` into what
+comes back. With the off-by-one the read returns 256 bytes — all of them right — and simply stops
+short of the offset the game is about to read from. It resolves its first path against padding and
+hangs in `myFS_ConvertPathToFileID`.
+
+**The ARM7 puts the console to sleep, correctly.** `EXTKEYIN` bit 7 is **0 for lid OPEN**. Every
+other bit in that register reads 1 for "not pressed", so setting the lid bit the same way is the
+natural mistake — and the ARM7 then does exactly the right thing with a console it believes has
+been folded shut.
+
+**The 3D engine draws, swaps, and is missing most of its own command stream.** The GXFIFO is not
+one address: it is the whole 64-byte window `$04000400`–`$0400043F`, because a game feeds the
+geometry engine with burst stores and an `STMIA` (or a DMA) walks the destination address up as it
+goes. Match only the first address and you accept the first word of every burst and drop the rest.
+What survives still decodes cleanly, still builds polygons, still swaps buffers — and never once
+multiplies a matrix. The camera never arrives, and 95% of the geometry lands behind the eye and is
+clipped away. The tell was in the `-gxdump` histogram: **a 3D game that never issues `MTX_MULT` is
+not a 3D game.**
+
+**The stylus works, reports a position, and the title screen ignores it.** The ARM7 asks for a
+VCount-match interrupt at line 197 to sample the touchscreen. `DISPSTAT` splits that 9-bit line
+number across the register — bits 15..8 hold the low eight, and bit **7**, nowhere near them, holds
+the ninth. Reassemble it as `(d >> 7) & 0x100` and it lands on bit 15, so any line ≥ 128 quietly
+acquires an extra 256: the ARM7 asks for line 197 and gets 453, a line the display never reaches.
+
+## 2. The instruments the chase produced
+
+Each of these exists because a run lied and something had to make it stop.
+
+* **`-log`** — the honest half of every run: the hardware the model does *not* implement. A DS boot
+  polls status bits constantly, so a stub that happens to read "ready" is indistinguishable from
+  working silicon right up until the frame it isn't. The model logs; it does not fake.
+* **`-rtshot`** — the 3D engine's render target on its own, before the 2D engine composites it.
+  Untouched pixels come out magenta. A black screen is two entirely different bugs wearing one face
+  (the GPU drew nothing / the GPU drew and the compositor threw it away) and no counter separates them.
+* **`-gfx`** — polygons at the last swap, and how many primitives the clipper rejected. *95% clipped*
+  and *0 polygons* are not the same bug and are not investigated the same way.
+* **`-gxdump`** — the geometry commands actually executed. See above.
+* **`-cardlog`** — every cartridge transfer, drawn by the game's own loader.
+* **`-keys FILE`** — a *timed* input script. The point is the press **edge**: a DS game asks "did this
+  go down since last frame", so a stylus held from reset gives the title screen nothing, and it waits
+  for ever with TOUCH TO START on the screen.
+* **`-savestate` / `-loadstate`** — a cold boot to the title is 1.2 billion scheduler steps and 42
+  seconds; restoring it takes one. Every question asked of the title screen used to cost 42 seconds
+  before it could be asked.
+
+## 3. What is not yet right
+
+Stated plainly, because a screenshot that looks correct is not an argument:
+
+* **Toon-shaded polygons render pink.** A third of the title screen's polygons use polygon mode 2.
+  The toon table in the registers is a clean grey ramp and Mario's skin palette in VRAM is a correct
+  peach ramp — both verified — so the data is right and the *shading* is wrong. Open.
+* **No sound.** The register file is real and the ARM7's sound driver runs and sequences its music;
+  no samples are fetched. (The music itself is already rendered, by a different route: Part VII.)
+* **Display capture, anti-aliasing, edge marking, fog** — declared, logged, not implemented.
+* The 2D engines compose a whole frame from one register snapshot at line 0, so a mid-frame raster
+  split would not appear. Nothing in this title needs one.
