@@ -8,6 +8,7 @@ use (
 	./games/marble-madness-amiga/extract
 	./games/jak-and-daxter-ps2/extract
 	./games/loco-roco-psp/extract
+	./games/luigis-mansion-gc/extract
 	./games/mario-kart-ds/extract
 	./games/need-for-speed-3do/extract
 	./games/pilotwings-64-n64/extract
