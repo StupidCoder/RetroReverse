@@ -120,6 +120,9 @@ func (p *IOP) LoadAndStart(name string, raw []byte) error {
 	if err != nil {
 		return err
 	}
+	if p.ps2.OnIOPModule != nil {
+		p.ps2.OnIOPModule(p, name)
+	}
 	res, err := p.Start(mod)
 	if err != nil {
 		return err

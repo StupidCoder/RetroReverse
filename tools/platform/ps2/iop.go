@@ -163,6 +163,16 @@ type IOP struct {
 	WatchLo, WatchHi uint32
 	OnWrite          func(addr, val uint32, pc uint32)
 
+	// OnCall, if set, receives every call that goes through an import stub: the library and
+	// function number asked for, the arguments, and the routine that asked.
+	//
+	// This is the instrument for the one thing the IOP does that nothing else shows — the
+	// protocol *between* the modules. A module imports by number, so a call to a semaphore is
+	// a `jal` to an address in the middle of another module's .text, and neither the profile
+	// nor the register trace nor the disassembly says what was wanted. This does: it is the
+	// only way to watch 989SND ask THREADMAN for something and see what it asked for.
+	OnCall func(name string, args [4]uint32, from uint32)
+
 	// ioPend holds the register access the current instruction made, until the
 	// instruction is over and the register has settled. See ioTrace.
 	ioPend []ioTouch
@@ -170,6 +180,27 @@ type IOP struct {
 	// lastPC is where the processor was an instruction ago, kept for one purpose: to say
 	// where a jump into nothing came from.
 	lastPC uint32
+
+	// The trail: the last few instructions the processor retired, oldest overwritten first.
+	//
+	// A jump to a bad address is the one bug where the destination tells you nothing and the
+	// approach tells you everything. `j .` at THREADMAN+0x464 is reached by no jump anywhere
+	// in THREADMAN's code — so the question is never "what is at 0x464", it is "what was the
+	// machine doing four instructions ago", and a single lastPC cannot answer it: the
+	// instruction before a jump's target is the jump's *delay slot*, which is the one
+	// instruction that does not say where it came from.
+	trail  [iopTrailLen]uint32
+	trailN int
+
+	// Trap is an address the second processor is not expected to reach. When the PC arrives
+	// there the machine halts and prints the trail.
+	//
+	// TrapSym is the same thing named rather than numbered, and it has to be resolved late:
+	// an instrument is armed before the IOP has any modules in it, and a symbol does not
+	// exist until the module carrying it has been placed. So the loader re-tries the lookup
+	// as each module lands, and the trap arms itself the moment its module arrives.
+	Trap    uint32
+	TrapSym string
 
 	// running is false until the first module is loaded. The machine does not step a
 	// processor that has nothing on it.
@@ -462,6 +493,23 @@ const (
 // running — and the thread it names is a real one, and the frame the machine is holding
 // (the idle loop's) is filed away as the outgoing thread's, exactly as it should be,
 // because idling *is* what that thread was doing.
+// THREADMAN has an idle thread of its own, and it is not this one. It is worth saying where,
+// because a machine sitting in it looks exactly like a machine that has crashed into a wall.
+//
+// THREADMAN+0x464 is a single instruction, `j .`, sitting on its own after a function's
+// epilogue. Nothing in twenty-eight kilobytes of THREADMAN jumps to it and no instruction
+// anywhere constructs its address, so it reads like a panic stub — and for a while that is
+// what it was taken for. It is not. It is reached the only other way an address can be
+// reached: it is a *thread's entry point*, loaded out of a fresh register frame by the
+// scheduler, and the thread it belongs to is the one THREADMAN runs when nothing else is
+// ready. The frames give it away — every thread StartThread builds carries the thread-exit
+// routine in its $ra slot and its entry point in its EPC slot, and this one's EPC is 0x464.
+//
+// So an IOP spinning at THREADMAN+0x464 is not stuck. It is *idle*, which is a different
+// thing and needs a different question asked: not "what broke", but "what is every thread
+// waiting for". On this disc, at the end of the kernel's boot, the answer is the EE — every
+// module finishes its initialisation inside SIFCMD, waiting on an event flag that the other
+// processor's first doorbell will set.
 const (
 	iopIdleLoop = 0x00000200
 
@@ -613,6 +661,31 @@ func (p *IOP) SymAddr(name string) (uint32, bool) {
 }
 
 // --- the census -------------------------------------------------------------------
+
+// iopTrailLen is how many instructions of history the trail keeps. Enough to see a call
+// set up its arguments, a branch decide, and the jump that left.
+const iopTrailLen = 24
+
+// IOPTrail renders the last instructions the second processor retired, oldest first.
+//
+// It is a trail and not a backtrace, and the difference is the point: the IOP's stack has
+// been cut about by an interrupt or a thread switch by the time anything goes wrong, so a
+// walk of saved $ra values is a walk of some other thread's frames. What actually happened
+// is the sequence of instructions that actually ran, and this is that sequence.
+func (p *IOP) IOPTrail() string {
+	n := iopTrailLen
+	if p.trailN < n {
+		n = p.trailN
+	}
+	s := fmt.Sprintf("the last %d instructions the IOP ran:\n", n)
+	for i := n; i > 0; i-- {
+		pc := p.trail[(p.trailN-i)%iopTrailLen]
+		s += fmt.Sprintf("      %-24s %08X  %s\n", p.Sym(pc), pc, p.DisasmAt(pc))
+	}
+	s += fmt.Sprintf("      with $sp=%08X $ra=%s $v0=%08X, %d deep in a call, %d deep in an interrupt\n",
+		p.CPU.Reg(29), p.Sym(p.CPU.Reg(31)), p.CPU.Reg(2), p.callDepth, p.inIntr)
+	return s
+}
 
 // iopProfileEvery is how often the profiler takes a sample, in instructions. It is a
 // power of two so the test is a mask, and coarse enough that the sampling costs nothing

@@ -85,6 +85,15 @@ func (p *IOP) LoadIRX(name string, raw []byte) (*IOPModule, error) {
 	if err := p.link(mod); err != nil {
 		return nil, err
 	}
+
+	// A trap named for a symbol arms as soon as the module carrying that symbol is resident.
+	if p.Trap == 0 && p.TrapSym != "" {
+		if a, ok := p.SymAddr(p.TrapSym); ok {
+			p.Trap = a
+			p.ps2.note("IOP: the trap is armed at %s (0x%08X)", p.TrapSym, a)
+		}
+	}
+
 	p.running = true
 	return mod, nil
 }

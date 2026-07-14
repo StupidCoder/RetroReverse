@@ -148,6 +148,11 @@ type Machine struct {
 	// hardware inside the very entry points RebootIOP calls.
 	OnIOPStart func(*IOP)
 
+	// OnIOPModule, if set, is told each time a module is about to be started. It is what lets
+	// an instrument arm itself partway through a boot: the twelve kernel modules make tens of
+	// thousands of calls between them, and the one worth watching is usually the last.
+	OnIOPModule func(p *IOP, name string)
+
 	// The six registers both processors can see (sifbus.go).
 	sbus [sbusRegs]uint32
 

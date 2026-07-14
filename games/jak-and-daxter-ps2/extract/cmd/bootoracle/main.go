@@ -61,6 +61,9 @@ func main() {
 	iopIO := flag.Bool("iopio", false, "trace every IOP peripheral-register access, with the routine that made it")
 	iopION := flag.Int("iopion", 400, "limit traced IOP register accesses")
 	iopWatch := flag.String("iopwatch", "", "write-watch on IOP memory: ADDR[:LEN] (hex)")
+	iopTrap := flag.String("ioptrap", "", "halt the IOP when it reaches ADDR (hex or symbol) and print the instructions that led there")
+	iopCalls := flag.Int("iopcalls", 0, "trace the first N calls the IOP's modules make through their import stubs — the protocol between the modules")
+	iopCallsFrom := flag.String("iopcallsfrom", "", "only trace stub calls once this module has started (e.g. 989SND.IRX)")
 	flag.Parse()
 
 	if *image == "" {
@@ -74,7 +77,8 @@ func main() {
 		savestate: *savestate, loadstate: *loadstate, poke: *poke,
 		dis: *dis, dump: *dump, files: *files, verbose: *verbose,
 		iopOnly: *iopOnly, iopMods: *iopMods, iopDis: *iopDis,
-		iopIO: *iopIO, iopION: *iopION, iopWatch: *iopWatch,
+		iopIO: *iopIO, iopION: *iopION, iopWatch: *iopWatch, iopTrap: *iopTrap,
+		iopCalls: *iopCalls, iopCallsFrom: *iopCallsFrom,
 	}); err != nil {
 		fmt.Fprintln(os.Stderr, "bootoracle:", err)
 		os.Exit(1)
@@ -95,6 +99,9 @@ type cfg struct {
 	iopIO                                 bool
 	iopION                                int
 	iopWatch                              string
+	iopTrap                               string
+	iopCalls                              int
+	iopCallsFrom                          string
 }
 
 func hx(s string) (uint32, error) {
@@ -446,6 +453,50 @@ func bootIOP(m *ps2.Machine, c cfg) error {
 				}
 				fmt.Printf("  io %s 0x%08X = %08X  %-10s %s\n",
 					op, addr, val, ps2.IOPRegionName(addr), p.Sym(pc))
+			}
+		}
+	}
+
+	// The stub-call trace: what the modules ask each other for. It can be held back until a
+	// named module starts, because the interesting protocol is usually the last module's and
+	// the ones before it produce thousands of calls to wade through.
+	if c.iopCalls > 0 {
+		n := 0
+		armed := c.iopCallsFrom == ""
+		prev := m.OnIOPStart
+		m.OnIOPStart = func(p *ps2.IOP) {
+			if prev != nil {
+				prev(p)
+			}
+			p.OnCall = func(name string, args [4]uint32, from uint32) {
+				if !armed || n >= c.iopCalls {
+					return
+				}
+				n++
+				fmt.Printf("  call %-16s (0x%X, 0x%X, 0x%X, 0x%X)  from %s\n",
+					name, args[0], args[1], args[2], args[3], p.Sym(from))
+			}
+		}
+		m.OnIOPModule = func(p *ps2.IOP, name string) {
+			if name == c.iopCallsFrom {
+				armed = true
+			}
+		}
+	}
+
+	// The trap. It takes a hex address or a symbol, and a symbol cannot be resolved here —
+	// the IOP has no modules in it yet. So the name is handed to the loader, which arms the
+	// trap as soon as the module carrying that symbol is placed.
+	if c.iopTrap != "" {
+		prev := m.OnIOPStart
+		m.OnIOPStart = func(p *ps2.IOP) {
+			if prev != nil {
+				prev(p)
+			}
+			if a, e := hx(c.iopTrap); e == nil {
+				p.Trap = a
+			} else {
+				p.TrapSym = c.iopTrap
 			}
 		}
 	}

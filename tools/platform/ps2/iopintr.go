@@ -164,17 +164,33 @@ func (p *IOP) intrRelease() {
 	p.setRet(0)
 }
 
+// intrLine reads the interrupt line out of an argument to EnableIntr or DisableIntr.
+//
+// The line is in the low bits, and the bits above it are not part of it. SIFCMD is the only
+// module on the disc that sets any: it registers its handler on 43, and its teardown disables
+// 43 and releases 43 — but the call that *enables* it passes 555, which is 43 with bit 9 set,
+// as a literal in the delay slot. Three calls name the line plainly and one decorates it, so
+// the decoration cannot itself be a line; it is a flag the real intrman masks away. SIFMAN,
+// doing the same job one DMA channel along, passes a plain 42 — which is what says the flag is
+// not required, and that nothing is lost by ignoring it.
+//
+// Range-checking the raw argument instead — which is what this did — silently drops the call.
+// And of everything that can be dropped silently on this machine, this is the worst, because
+// interrupt 43 is the EE's doorbell into the IOP. Every module that talks to the other
+// processor ends its initialisation in SIFCMD, waiting on an event flag that SIFCMD's handler
+// sets; that handler is on 43; and a masked 43 means it never runs. What that looks like from
+// outside is not a masked interrupt. It is five threads and a module entry point all blocked,
+// and a scheduler quite correctly running its idle thread — a machine that is doing exactly
+// what it should, and getting nowhere.
+func (p *IOP) intrLine(arg uint32) uint32 { return arg & (iopIRQs - 1) }
+
 func (p *IOP) intrEnable() {
-	if irq := p.arg(0); irq < iopIRQs {
-		p.imask |= 1 << uint64(irq)
-	}
+	p.imask |= 1 << uint64(p.intrLine(p.arg(0)))
 	p.setRet(0)
 }
 
 func (p *IOP) intrDisable() {
-	if irq := p.arg(0); irq < iopIRQs {
-		p.imask &^= 1 << uint64(irq)
-	}
+	p.imask &^= 1 << uint64(p.intrLine(p.arg(0)))
 	p.setRet(0)
 }
 
@@ -459,6 +475,23 @@ func (p *IOP) tick() {
 		return
 	}
 	p.lastPC = p.CPU.PC
+	p.trail[p.trailN%iopTrailLen] = p.CPU.PC
+	p.trailN++
+
+	if p.Trap != 0 && p.CPU.PC == p.Trap {
+		p.halt("reached the trap at %s\n%s", p.Sym(p.Trap), p.IOPTrail())
+		return
+	}
+	// Every call through an import stub, as it is made. A stub is the one place the caller
+	// and the callee are both named — the address is in the middle of somebody's .text, but
+	// the linker knows which (library, function) it patched there.
+	if p.OnCall != nil {
+		if name, ok := p.stubName[iopPhys(p.CPU.PC)]; ok {
+			p.OnCall(name,
+				[4]uint32{p.CPU.Reg(4), p.CPU.Reg(5), p.CPU.Reg(6), p.CPU.Reg(7)},
+				p.CPU.Reg(31))
+		}
+	}
 	if p.steps%iopProfileEvery == 0 {
 		if p.prof == nil {
 			p.prof = map[string]int{}
