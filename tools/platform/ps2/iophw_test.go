@@ -233,10 +233,30 @@ func TestReadingATimersModeClearsItsFlagsButPeekingDoesNot(t *testing.T) {
 		t.Fatal("peeking the mode register cleared the flag: the machine's own reads are stealing " +
 			"the guest's interrupts")
 	}
-	// Reading it does.
-	if v, _ := p.timerRead(base + iopTimerMode); v&iopTimerHitTarget == 0 {
-		t.Fatal("the guest's read did not see the flag")
+
+	// The guest reads the mode with an `lw`, and on this bus an `lw` is four reads of the
+	// same word. Every one of them has to see the flag, because the flag is bit 11 — byte 1
+	// — and a register that cleared itself on the first byte's read would hand the driver a
+	// word in which nothing had ever happened.
+	//
+	// That is not a hypothetical. THREADMAN's alarm handler dispatches on exactly this bit,
+	// and clearing it three bytes early meant the handler was told the alarm it had just been
+	// interrupted for had not gone off. Every thread that ever called DelayThread slept for
+	// ever, on a machine where the interrupt was raised, delivered, and handled.
+	var w uint32
+	for i := uint32(0); i < 4; i++ {
+		w |= uint32(p.Read(base+iopTimerMode+i)) << (8 * i)
 	}
+	if w&iopTimerHitTarget == 0 {
+		t.Fatal("the word the guest loaded did not carry the flag: the read cleared it by the byte")
+	}
+	if v, _ := p.timerPeek(base + iopTimerMode); v&iopTimerHitTarget == 0 {
+		t.Error("the flag went out in the middle of the load that was reading it")
+	}
+
+	// And it goes out when the instruction is over — which is what IOP.tick does before the
+	// next one begins.
+	p.timerAckFlush()
 	if v, _ := p.timerPeek(base + iopTimerMode); v&iopTimerHitTarget != 0 {
 		t.Error("the flag survived the read that should have cleared it")
 	}

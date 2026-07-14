@@ -115,7 +115,8 @@ type IOP struct {
 	pending uint64
 	inIntr  int
 
-	// The DMA controller (iopdma.go) and the sound chip (iopspu.go).
+	// The DMA controller (iopdma.go), the sound chip (iopspu.go) and the disc drive
+	// (iopcdvd.go).
 	dma        [iopDMAChannels]iopDMAChan
 	dpcr       uint32
 	dpcr2      uint32
@@ -123,10 +124,17 @@ type IOP struct {
 	dicr2      uint32
 	dmaPending []iopDMADone
 	spu        *spu2
+	cdvd       *cdvd
 
 	// The six counters (ioptimer.go). They are the second processor's only sense of time
 	// passing, and THREADMAN's scheduler runs on them.
-	timers [iopTimers]iopTimer
+	//
+	// timerAck is the set of counters whose mode register was read by the instruction now
+	// executing, and whose "it happened" flags therefore go out when it finishes. See
+	// timerRead: on a byte-wide bus a word read is four reads, and a register that clears
+	// itself on being read must clear itself once per instruction, not once per byte.
+	timers   [iopTimers]iopTimer
+	timerAck uint32
 
 	// steps counts the instructions this processor has retired. A DMA's latency is
 	// measured in it.
@@ -279,6 +287,7 @@ func newIOP(m *Machine, ram []byte) *IOP {
 		// it is OVERLORD spinning on a sound-transfer flag that the transfer really did set.
 		intrEnabled: true,
 	}
+	p.cdvd = newCDVD(m)
 	p.CPU = mips.NewCPU(p)
 	p.CPU.Syscall = p.handleSyscall
 	p.registerLibraries()
@@ -300,6 +309,12 @@ func (p *IOP) Read(addr uint32) byte {
 		return p.ram[a]
 	case a >= iopSPRAMBase && a < iopSPRAMBase+iopSPRAMSize:
 		return p.spr[a-iopSPRAMBase]
+	// The disc drive is a byte device and is served as one. See iopcdvd.go: a command
+	// register and its parameter FIFO share a 32-bit word, so the word path — which merges a
+	// byte into the word it reads back — cannot touch it without re-issuing the command.
+	case p.cdvd.contains(a):
+		p.ioTrace(a, false)
+		return p.cdvd.read(a)
 	}
 	v := p.ioRead(a &^ 3)
 	p.ioTrace(a&^3, false)
@@ -318,6 +333,10 @@ func (p *IOP) Write(addr uint32, v byte) {
 	case a >= iopSPRAMBase && a < iopSPRAMBase+iopSPRAMSize:
 		p.spr[a-iopSPRAMBase] = v
 		return
+	case p.cdvd.contains(a):
+		p.cdvd.write(a, v)
+		p.ioTrace(a, true)
+		return
 	}
 	// A byte write to a register: merge it into the word. The word it merges into has to
 	// be the register's *current* value — which for a register the other processor also
@@ -335,6 +354,12 @@ func (p *IOP) Write(addr uint32, v byte) {
 func (p *IOP) ioPeek(a uint32) uint32 {
 	if a >= sbusIOPBase && a < sbusIOPBase+sbusSpan {
 		return p.ps2.sbusRead(a - sbusIOPBase)
+	}
+	// The drive, without disturbing it: this is also the path the register trace takes when
+	// it comes back an instruction later to report what was left in a register, and a trace
+	// that popped the result FIFO would be an instrument that changed the thing it measured.
+	if p.cdvd.contains(a) {
+		return uint32(p.cdvd.peek(a))
 	}
 	// Every modelled register has to answer here too, and not just in ioRead. This is the
 	// read half of a byte-store's read-modify-write, and a word merged against the wrong
@@ -760,6 +785,10 @@ func (p *IOP) IOPCensus() string {
 		for _, e := range all {
 			s += fmt.Sprintf("      %-20s %d call%s\n", e.name, e.n, plural(e.n))
 		}
+	}
+
+	if d := p.cdvd.census(); d != "" {
+		s += "  " + d
 	}
 
 	if len(p.unmodelledIO) > 0 {

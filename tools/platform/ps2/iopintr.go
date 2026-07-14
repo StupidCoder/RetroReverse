@@ -88,16 +88,84 @@ func init() {
 
 	// sysclib. The C library.
 	//
+	// Four of these are earned, and the three new ones were all earned from IOMAN, which is
+	// the module that turns a path into a device. Between them they are the reason the second
+	// processor could not open a file — any file, on any device — and the reason it said so
+	// in a message that named the path and blamed the disc.
+	//
 	// #14 is memset: THREADMAN's first act is to call it with its own .bss, a zero, and
 	// 1220 — which is exactly the size of its .bss — and then to rely on the result
 	// being clear.
+	//
+	// #12 is memcpy: FILEIO calls it with the RPC buffer the EE has just DMA'd 32 bytes into,
+	// a length of exactly 32, and then opens the path at dst+20 — which is exactly where the
+	// path sits in the source.
+	//
+	// #17 is bzero: IOMAN's first act after registering its library is #17(0x1F1A0, 64), and
+	// 0x1F1A0 is the address IOMAN later reads as the head of its driver list (IOMAN+0x1854).
+	// A 64-byte table, cleared once, before anything can be added to it.
+	//
+	// #22 is strcmp: IOMAN walks that list of drivers (IOMAN+0x186C loads each one's name) and
+	// calls #22(the device it is looking for, this driver's name), taking a *zero* answer as a
+	// match and any other as "try the next one". Answered with zero it matched the first driver
+	// in the list, whatever it was — which is a lie that would have been much harder to see
+	// than the one in front of it.
+	//
+	// #25 is strchr: IOMAN calls #25(path, 58) — and 58 is ':'. If the answer is null it
+	// prints "Unknown device '%s'" and gives up, which is precisely what the second processor
+	// had been doing for rom0:, tty00: and, once the drive was working, for the game's own
+	// cdrom0:\DRIVERS\SIO2MAN.IRX;1. Every path on this machine was a path with no device in
+	// it, because the function that finds the colon always said there wasn't one.
+	// And the two that finish the job, both from the same six instructions of IOMAN:
+	//
+	//	IOMAN+0x1694   #30(sp+16, path, colon - path)   copy the device name out of the path
+	//	IOMAN+0x16A4   a0 = the LAST byte of that copy
+	//	IOMAN+0x16A8   #8(a0)
+	//	IOMAN+0x16B0   v0 & 4
+	//
+	// #30 is strncpy: the length is the distance from the start of the path to the colon that
+	// #25 just found, and the instruction in the call's delay slot writes the NUL terminator
+	// by hand at dst[n] — which is exactly the thing strncpy leaves for you to do.
+	//
+	// #8 is a character-class lookup. It is handed one character — the last of "cdrom0" — and
+	// IOMAN tests bit 2 of the answer, which is how it decides that the trailing 0 is a unit
+	// number and the driver it wants is called "cdrom". So bit 2 means "digit". That is the
+	// only bit any caller on this disc tests, and the only one that has been earned; the rest
+	// of the table is left clear rather than filled in from what a C library usually looks
+	// like, because a bit invented here is a bit that will be believed later.
+	// And two more from CDVDMAN's open, which is the routine that decides whether a filename
+	// on this disc is a filename at all:
+	//
+	//	CDVDMAN+0x510   n = #27(path)          one argument, and the answer is a length
+	//	CDVDMAN+0x520   if n < 3: goto append
+	//	CDVDMAN+0x528   the character at path[n-2] — is it ';' ?
+	//	CDVDMAN+0x538   the character at path[n-1] — is it '1' ?
+	//	CDVDMAN+0x550   append: #20(path, ";1")
+	//
+	// #27 is strlen. #20 is strcat, and the string it is handed is at 0x29128 and reads ";1" —
+	// ISO 9660's version suffix. CDVDMAN is checking that the name ends in ";1" and adding it
+	// if it does not.
+	//
+	// Answered with zero, strlen made every path shorter than three characters, so CDVDMAN
+	// skipped the check it could not do and appended ";1" to a name that already had one. What
+	// it said afterwards was "open fail name \DRIVERS\SIO2MAN.IRX;1" — a message that names the
+	// file, blames the disc, and is off by two characters it printed before it added them.
 	lib("sysclib", map[uint16]iopFunc{
-		8: unknown(), 11: unknown(),
+		8:  {"look_ctype_table", (*IOP).clibCtype},
+		11: unknown(),
 		12: {"memcpy", (*IOP).clibMemcpy},
 		13: unknown(),
 		14: {"memset", (*IOP).clibMemset},
-		17: unknown(), 19: unknown(), 20: unknown(), 22: unknown(), 23: unknown(),
-		25: unknown(), 27: unknown(), 29: unknown(), 30: unknown(), 36: unknown(),
+		17: {"bzero", (*IOP).clibBzero},
+		19: unknown(),
+		20: {"strcat", (*IOP).clibStrcat},
+		22: {"strcmp", (*IOP).clibStrcmp},
+		23: unknown(),
+		25: {"strchr", (*IOP).clibStrchr},
+		27: {"strlen", (*IOP).clibStrlen},
+		29: {"strncmp", (*IOP).clibStrncmp},
+		30: {"strncpy", (*IOP).clibStrncpy},
+		36: unknown(),
 	})
 }
 
@@ -462,6 +530,9 @@ func (p *IOP) intrReschedule(frame uint32) (uint32, bool) {
 // Every loop that steps the IOP goes through it.
 func (p *IOP) tick() {
 	p.ioTraceFlush()
+	if p.timerAck != 0 {
+		p.timerAckFlush()
+	}
 	p.steps++
 
 	// The dead zone. Below the first module is the kernel's own memory, and on this machine
@@ -499,6 +570,9 @@ func (p *IOP) tick() {
 		p.prof[p.symFunc(p.CPU.PC)]++
 	}
 	p.timerTick()
+	if p.cdvd.nBusy {
+		p.cdvd.tick(p)
+	}
 	if len(p.dmaPending) > 0 {
 		p.dmaTick()
 	}
@@ -679,6 +753,139 @@ func (p *IOP) clibMemcpy() {
 		p.Write(dst+i, p.Read(src+i))
 	}
 	p.setRet(dst)
+}
+
+// clibBzero is bzero(dst, n) — memset's two-argument cousin, and the one IOMAN clears its
+// driver table with.
+func (p *IOP) clibBzero() {
+	dst, n := p.arg(0), p.arg(1)
+	for i := uint32(0); i < n; i++ {
+		p.Write(dst+i, 0)
+	}
+	p.setRet(dst)
+}
+
+// clibStrcmp is strcmp(a, b): zero when they are the same, and IOMAN takes zero as the match
+// that ends its walk of the driver list.
+func (p *IOP) clibStrcmp() {
+	a, b := p.arg(0), p.arg(1)
+	for i := uint32(0); ; i++ {
+		ca, cb := p.Read(a+i), p.Read(b+i)
+		if ca != cb {
+			p.setRet(uint32(int32(ca) - int32(cb)))
+			return
+		}
+		if ca == 0 {
+			p.setRet(0)
+			return
+		}
+	}
+}
+
+// clibStrncpy is strncpy(dst, src, n). It does not terminate the copy when it fills it, and
+// IOMAN relies on that: it writes the NUL itself, at dst[n], in the call's delay slot.
+func (p *IOP) clibStrncpy() {
+	dst, src, n := p.arg(0), p.arg(1), p.arg(2)
+	for i := uint32(0); i < n; i++ {
+		c := p.Read(src + i)
+		p.Write(dst+i, c)
+		if c == 0 {
+			for ; i < n; i++ { // strncpy pads the rest with NULs
+				p.Write(dst+i, 0)
+			}
+			break
+		}
+	}
+	p.setRet(dst)
+}
+
+// iopCtypeDigit is the one bit of the character-class table that has been earned: IOMAN tests
+// it on the last character of a device name to find the unit number. See the note above the
+// sysclib table — nothing else on this disc asks this function anything.
+const iopCtypeDigit = 0x04
+
+// clibCtype is the character-class lookup.
+func (p *IOP) clibCtype() {
+	c := byte(p.arg(0))
+	var class uint32
+	if c >= '0' && c <= '9' {
+		class |= iopCtypeDigit
+	}
+	p.setRet(class)
+}
+
+// clibStrncmp is strncmp(a, b, n), and it is CDVDMAN's check that the disc has a filesystem
+// on it: #29(sector + 1, "CD001", 5), against the volume descriptor it has just read out of
+// LBA 16 (CDVDMAN+0x6520).
+//
+// Answered with zero it did not fail that check — it PASSED it, unconditionally, because zero
+// is what "these are the same" means. CDVDMAN went on to read the path table's address out of
+// a buffer nobody had checked, got 48, read sector 48, and reported that it could not find the
+// file. The reads it made were the only sign, and they were three plausible-looking numbers.
+//
+// Whether it is strncmp or memcmp cannot be told from this call — five bytes of text with no
+// NUL in them, and the two agree. It stops at a NUL, which is the reading that also puts it
+// next to strcmp at #22 and strncpy at #30 in a table that is otherwise in C-library order.
+func (p *IOP) clibStrncmp() {
+	a, b, n := p.arg(0), p.arg(1), p.arg(2)
+	for i := uint32(0); i < n; i++ {
+		ca, cb := p.Read(a+i), p.Read(b+i)
+		if ca != cb {
+			p.setRet(uint32(int32(ca) - int32(cb)))
+			return
+		}
+		if ca == 0 {
+			break
+		}
+	}
+	p.setRet(0)
+}
+
+// clibStrlen is strlen(s).
+func (p *IOP) clibStrlen() {
+	s := p.arg(0)
+	n := uint32(0)
+	for ; n < iopCStringMax && p.Read(s+n) != 0; n++ {
+	}
+	p.setRet(n)
+}
+
+// clibStrcat is strcat(dst, src).
+func (p *IOP) clibStrcat() {
+	dst, src := p.arg(0), p.arg(1)
+	end := dst
+	for ; end-dst < iopCStringMax && p.Read(end) != 0; end++ {
+	}
+	for i := uint32(0); i < iopCStringMax; i++ {
+		c := p.Read(src + i)
+		p.Write(end+i, c)
+		if c == 0 {
+			break
+		}
+	}
+	p.setRet(dst)
+}
+
+// iopCStringMax bounds the C library's walks. A string with no terminator is a bug in the
+// guest or in us, and either way an unbounded loop over 2 MiB of IOP memory is a hang rather
+// than a diagnosis.
+const iopCStringMax = 1024
+
+// clibStrchr is strchr(s, c): a pointer to the first c in s, or null. IOMAN asks it for the
+// colon, and a null answer is what "Unknown device" means.
+func (p *IOP) clibStrchr() {
+	s, c := p.arg(0), byte(p.arg(1))
+	for i := uint32(0); i < 1024; i++ {
+		ch := p.Read(s + i)
+		if ch == c {
+			p.setRet(s + i)
+			return
+		}
+		if ch == 0 {
+			break
+		}
+	}
+	p.setRet(0)
 }
 
 // clibMemset is memset(dst, c, n).

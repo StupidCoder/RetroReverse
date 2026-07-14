@@ -105,12 +105,23 @@ func (m *Machine) RebootIOPFrom(image string) error {
 			return err
 		}
 	}
-	m.note("IOP: booted on %s — %d modules", image, len(m.IOP.modules))
+	m.note("IOP: booted on %s — %d modules, SMFLG now 0x%08X", image, len(m.IOP.modules), m.sbus[sbusSMFLG/0x10])
 
 	// Every module is loaded, so the boot is over — and the modules that asked to be told
 	// that are now told (loadcore#20, iopkernel.go). It is EESYNC that cares: its callback
 	// raises the flag that says the reboot has finished, and the EE is spinning on it.
 	m.IOP.runBootCallbacks()
+
+	// Anything the harness wants written into the second processor's memory once its modules
+	// are in place. Sony's modules carry their own tracing, behind a verbosity level that a
+	// retail boot leaves at zero — CDVDMAN's is a word it tests before every message it has —
+	// and turning one on is the most direct instrument there is for a module we cannot read the
+	// source of: it stops being a black box and starts narrating. It has to happen here, after
+	// the modules have landed and before any of their threads run.
+	for addr, val := range m.IOPPokes {
+		m.IOP.Write32(addr, val)
+		m.note("IOP: poked 0x%08X = 0x%08X (%s)", addr, val, m.IOP.Sym(addr))
+	}
 
 	// And now hand the processor over to its own scheduler.
 	//

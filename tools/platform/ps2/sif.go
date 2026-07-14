@@ -192,10 +192,37 @@ func (m *Machine) iopReset(src uint32) {
 	}
 	m.note("SIF: the EE is rebooting the IOP — %q, so the image is %s", cmd, image)
 
-	if err := m.RebootIOPFrom(image); err != nil {
-		m.note("SIF: the IOP did not reboot: %v", err)
-	}
+	// THE REBOOT DOES NOT HAPPEN NOW. It is asked for now, and it happens later, and the
+	// difference is the whole of sceSifResetIop.
+	//
+	// This is reached from inside sceSifSetDma — the EE handing a packet to a DMA channel.
+	// On the board that is all it is: the packet is queued, the call returns, and the IOP has
+	// not yet so much as looked at it. sceSifResetIop then does the last thing it has to do,
+	// which is to CLEAR SMFLG's 0x10000 and 0x20000 — the old IOP's "I am up" bits — so that
+	// the new one can raise them, and only then does it start waiting.
+	//
+	// Reboot here, synchronously, and the order inverts. The fresh IOP boots inside the store,
+	// raises all three of its flags, and *then* sceSifResetIop's two clears arrive and wipe
+	// them; sceSifSyncIop's acknowledgement takes the third. SMFLG comes back to zero and the
+	// EE waits forever for a reboot that had already finished — nine million times round a
+	// four-instruction loop, on a machine where everything worked.
+	//
+	// So it is queued, and the machine performs it a little later (run.go). How much later
+	// does not matter, and the game says why: it will not touch the IOP again until the IOP
+	// tells it the reboot is done. A processor that is allowed to take as long as it likes is
+	// a processor whose boot cannot race anything.
+	m.iopRebootImage = image
+	m.iopRebootAt = m.steps + iopRebootLatency
 }
+
+// iopRebootLatency is how long the second processor takes to come back, in EE instructions.
+//
+// A real one takes on the order of a hundred milliseconds — it is a cold boot of a whole
+// processor. This is far shorter than that and enormously longer than it needs to be, and
+// both halves of that are deliberate: it has only to outlast the thirty-odd instructions
+// sceSifResetIop has left to run, and nothing else in the machine is entitled to care,
+// because the game is blocked on the IOP's own word that it is ready.
+const iopRebootLatency = 100000
 
 // --- the transport ------------------------------------------------------------------
 //

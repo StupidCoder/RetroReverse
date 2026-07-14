@@ -65,6 +65,8 @@ func main() {
 	iopCalls := flag.Int("iopcalls", 0, "trace the first N calls the IOP's modules make through their import stubs — the protocol between the modules")
 	iopDump := flag.String("iopdump", "", "dump IOP memory as words at ADDR[:LEN] (hex or symbol), naming any word that points into a module")
 	iopCallsFrom := flag.String("iopcallsfrom", "", "only trace stub calls once this module has started (e.g. 989SND.IRX)")
+	var iopPokes multiFlag
+	flag.Var(&iopPokes, "ioppoke", "write ADDR:VALUE (hex) into IOP memory every time the IOP finishes booting; repeatable. Sony's modules carry their own tracing behind a verbosity word — CDVDMAN's is at 0x29F90 — and turning one on makes a stripped module narrate itself")
 	flag.Parse()
 
 	if *image == "" {
@@ -79,7 +81,7 @@ func main() {
 		dis: *dis, dump: *dump, files: *files, verbose: *verbose,
 		iopOnly: *iopOnly, iopMods: *iopMods, iopDis: *iopDis,
 		iopIO: *iopIO, iopION: *iopION, iopWatch: *iopWatch, iopTrap: *iopTrap,
-		iopCalls: *iopCalls, iopCallsFrom: *iopCallsFrom,
+		iopCalls: *iopCalls, iopCallsFrom: *iopCallsFrom, iopPokes: iopPokes,
 		iopDump: *iopDump,
 	}); err != nil {
 		fmt.Fprintln(os.Stderr, "bootoracle:", err)
@@ -105,6 +107,7 @@ type cfg struct {
 	iopCalls                              int
 	iopCallsFrom                          string
 	iopDump                               string
+	iopPokes                              multiFlag
 }
 
 func hx(s string) (uint32, error) {
@@ -309,6 +312,22 @@ func run(c cfg) error {
 		return nil
 	}
 
+	if len(c.iopPokes) > 0 {
+		m.IOPPokes = map[uint32]uint32{}
+		for _, s := range c.iopPokes {
+			parts := strings.SplitN(s, ":", 2)
+			if len(parts) != 2 {
+				return fmt.Errorf("bad -ioppoke %q (want ADDR:VALUE)", s)
+			}
+			a, err1 := hx(parts[0])
+			v, err2 := hx(parts[1])
+			if err1 != nil || err2 != nil {
+				return fmt.Errorf("bad -ioppoke %q", s)
+			}
+			m.IOPPokes[a] = v
+		}
+	}
+
 	if c.poke != "" {
 		parts := strings.SplitN(c.poke, ":", 2)
 		if len(parts) != 2 {
@@ -443,6 +462,12 @@ func run(c cfg) error {
 		fmt.Printf("\n--- %s", m.IOP.IOPInterrupts())
 		if prof := m.IOP.IOPProfile(); prof != "" {
 			fmt.Printf("\n--- %s", prof)
+		}
+		// The second processor's work list. It was printed only by the -iop harness, which is
+		// exactly the run in which the interesting half of it cannot appear: the calls and the
+		// registers that only happen once the EE has asked the IOP for something.
+		if census := m.IOP.IOPCensus(); census != "" {
+			fmt.Printf("\n--- %s", census)
 		}
 	}
 

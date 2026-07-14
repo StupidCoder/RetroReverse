@@ -236,6 +236,25 @@ func (p *IOP) dmaStart(ch int) {
 	case iopDMAChSPU1:
 		p.spu.dma(1, p, c.madr, n, toRAM)
 
+	case iopDMAChCDVD:
+		// The disc, into IOP memory — and the one channel besides SIF1 whose arming is not a
+		// transfer.
+		//
+		// CDVDMAN programs this channel *before* it writes the command that will fill it: the
+		// DMA-start routine runs at CDVDMAN+0x2928 and the command byte does not reach 0x2004
+		// for another couple of hundred instructions. So at this moment the drive has nothing,
+		// and a controller that moved the bytes now would move whatever was left in the staging
+		// buffer from last time and report a transfer that never happened.
+		//
+		// What it means is "I am ready for the sectors". The bytes and the completion both
+		// arrive later, when the drive has read them — see cdvd.pump — and the module is
+		// watching for exactly that: it spins on this channel's start bit (CDVDMAN+0x2048)
+		// rather than taking its interrupt, which is why nothing ever registered a handler on
+		// interrupt 35.
+		p.cdvd.arm(c.madr, n)
+		p.cdvd.pump(p)
+		return
+
 	case iopDMAChSIF0:
 		// The second processor is sending the first one something, and it is the only channel on
 		// the IOP whose other end is a CPU rather than a device.

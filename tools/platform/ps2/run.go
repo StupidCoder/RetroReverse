@@ -59,6 +59,17 @@ func (m *Machine) Run(maxSteps uint64) Result {
 			return m.result(steps, "stop requested")
 		}
 
+		// The reboot the EE asked for, once the second processor has had time to perform it.
+		// It happens here rather than where it was requested because it must not finish before
+		// the routine that asked for it has — see iopReset.
+		if m.iopRebootImage != "" && m.steps >= m.iopRebootAt {
+			image := m.iopRebootImage
+			m.iopRebootImage = ""
+			if err := m.RebootIOPFrom(image); err != nil {
+				m.note("SIF: the IOP did not reboot: %v", err)
+			}
+		}
+
 		// The second processor. It runs at about an eighth of the EE's clock, and it runs
 		// whether or not the EE does — a machine whose every thread is blocked is very
 		// often a machine waiting on the IOP, and an IOP that only ticked when the EE did

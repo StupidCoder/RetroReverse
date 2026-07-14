@@ -105,18 +105,46 @@ func (p *IOP) timerRead(a uint32) (uint32, bool) {
 	}
 	v, _ := p.timerPeek(a)
 	if reg == iopTimerMode {
-		// Reading the mode clears the two "it happened" bits. That is how the hardware
-		// works and it is how the driver expects to be told: TIMEMANI reads this register
-		// to find out *why* it was interrupted, and a bit that did not clear would have it
-		// answer the same question the same way forever.
+		// Reading the mode clears the two "it happened" bits. That is how the hardware works
+		// and it is how the driver expects to be told: TIMEMANI reads this register to find
+		// out *why* it was interrupted, and a bit that did not clear would have it answer the
+		// same question the same way forever.
 		//
-		// It is also why this is not timerPeek. The machine itself reads these registers —
-		// on the read half of every byte-store's read-modify-write, and whenever an
-		// instrument prints one — and a read that the guest did not make must not clear a
-		// flag the guest has not seen.
-		p.timers[n].mode &^= iopTimerHitTarget | iopTimerHitOverflow
+		// But THE CLEAR CANNOT HAPPEN NOW, and this is the whole reason the arming is
+		// deferred rather than done here.
+		//
+		// The R3000A's bus is byte-wide. TIMEMANI reads this register with an `lw`, and an
+		// `lw` arrives as four separate reads of the same word — and "reading the mode clears
+		// the flags" applied to each of them means the *first* byte's read clears them and the
+		// other three see a register in which nothing ever happened. The flags live in bits 11
+		// and 12, which is byte 1: the byte that carries the answer is read second, and by
+		// then the answer is gone. The mode comes back 0x0070 instead of 0x0870 on the one
+		// read that mattered — THREADMAN's alarm handler, which dispatches on exactly that bit
+		// — so the handler concluded that the alarm it had just been interrupted for had not
+		// gone off, and every thread that ever called DelayThread slept for ever.
+		//
+		// It is invisible from every other angle. The interrupt is raised, and delivered, and
+		// the handler runs, and the counter really did reach its target; the machine looks
+		// like one whose threads have simply nothing to do.
+		//
+		// So the clear settles at the end of the instruction, exactly as the register trace
+		// does (see ioTrace): every byte of one load sees the same register, and the flags go
+		// out once the load is over.
+		p.timerAck |= 1 << uint(n)
 	}
 	return v, true
+}
+
+// timerAckFlush clears the "it happened" bits of any timer whose mode was read during the
+// instruction that has just finished. See timerRead.
+func (p *IOP) timerAckFlush() {
+	for n := 0; p.timerAck != 0 && n < iopTimers; n++ {
+		if p.timerAck&(1<<uint(n)) == 0 {
+			continue
+		}
+		p.timers[n].mode &^= iopTimerHitTarget | iopTimerHitOverflow
+	}
+	p.timerAck = 0
 }
 
 // timerPeek reads a timer register without disturbing it.

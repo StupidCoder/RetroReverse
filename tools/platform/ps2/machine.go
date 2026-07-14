@@ -203,6 +203,17 @@ type Machine struct {
 	// The IOP's stdio output, buffered until it has a whole line to log.
 	iopTTYLine []byte
 
+	// The reboot the EE has asked for and the IOP has not yet performed. The image is the one
+	// the game names in the packet, and the step count is when the second processor comes
+	// back — see iopReset, which explains at length why it is not "immediately".
+	iopRebootImage string
+	iopRebootAt    uint64
+
+	// IOPPokes are written into IOP memory every time the second processor finishes booting —
+	// including after the game reboots it, which is when the interesting modules are there. See
+	// RebootIOPFrom.
+	IOPPokes map[uint32]uint32
+
 	Log     []string
 	logSeen map[string]bool
 
@@ -606,6 +617,19 @@ func RegionName(p uint32) string {
 }
 
 // --- diagnostics --------------------------------------------------------------
+
+// iopUnknownCDVD records an access to a register of the disc drive that nothing claims.
+// The drive's register file is sparse — CDVDMAN drives ten of the thirty-two bytes in the
+// block — and a register nobody has accounted for is a register we would otherwise answer
+// with a zero and never hear about again.
+func (m *Machine) iopUnknownCDVD(a uint32, write bool) {
+	rw := "read"
+	if write {
+		rw = "written"
+	}
+	m.note("CDVD: register 0x%08X %s, and nothing models it", a, rw)
+	m.IOP.unmodelledIO[a]++
+}
 
 func (m *Machine) note(format string, args ...interface{}) {
 	s := fmt.Sprintf(format, args...)

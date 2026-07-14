@@ -142,6 +142,13 @@ type Volume struct {
 	rootSize int
 }
 
+// ReadBlock returns one 2048-byte logical block by LBA, whatever the image's geometry.
+//
+// It is the volume as a *disc* rather than as a filesystem, and it is what a machine that
+// models the drive needs: a guest asks its CD/DVD controller for a sector number, not for a
+// file, and the filesystem it is walking is its own business.
+func (v *Volume) ReadBlock(n int) ([]byte, error) { return v.src.ReadBlock(n) }
+
 // Entry is one directory entry — a file or a subdirectory.
 type Entry struct {
 	Name  string // ISO identifier, e.g. "SCUS_971.24;1" (directories carry no version)
