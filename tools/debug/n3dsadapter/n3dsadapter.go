@@ -78,10 +78,21 @@ type Adapter struct {
 	places         []screenPlace
 	frameW, frameH int
 
+	// passes is the last capture's PASS STRUCTURE: each DisplayTransfer the frame made,
+	// which screen it put on the LCD, and the command it happened after. See composeAt —
+	// this is what lets a scrubbed frame show each panel as the machine would have had it
+	// at that moment, on a game that renders both screens through one buffer.
+	passes []screenPass
+
 	watches   []debug.Watch
 	nextWatch int
 	watchSink func(debug.WatchHit)
 	bps       []uint64
+
+	// replayBlank makes a scrub start from a black screen: a screen this frame has not
+	// drawn yet reads as black rather than as whatever the last frame left on the panel.
+	// See debug.BlankReplayer — a deliberate lie, and the user's switch.
+	replayBlank bool
 
 	// stop is filled in by a hook that halted the run (a breaking watch), so the
 	// reason survives the return from Run, which only reports that it stopped.
@@ -107,7 +118,11 @@ var (
 	_ debug.MemoryMapper   = (*Adapter)(nil)
 	_ debug.Profiler       = (*Adapter)(nil)
 	_ debug.BatchReplayer  = (*Adapter)(nil)
+	_ debug.BlankReplayer  = (*Adapter)(nil)
 )
+
+// SetReplayBlank starts a scrub from a black screen (debug.BlankReplayer).
+func (a *Adapter) SetReplayBlank(on bool) { a.replayBlank = on }
 
 // snap wraps a 3DS in-memory savestate as an opaque debug.Snapshot.
 type snap struct{ ms *n3ds.MachineState }
@@ -168,7 +183,7 @@ func (a *Adapter) Restore(s debug.Snapshot) error {
 		return fmt.Errorf("n3dsadapter: snapshot is from %q, not 3ds", platformOf(s))
 	}
 	a.mainPass = target{}
-	a.places, a.frameW, a.frameH = nil, 0, 0 // the restored frame has its own; the previous one's is not it
+	a.places, a.frameW, a.frameH, a.passes = nil, 0, 0, nil // the restored frame has its own; the previous one's is not it
 	if err := a.live.RestoreState(ns.ms); err != nil {
 		return err
 	}
@@ -183,7 +198,7 @@ func (a *Adapter) SaveStateFile(path string) error { return a.live.SaveState(pat
 
 func (a *Adapter) LoadStateFile(path string) error {
 	a.mainPass = target{}
-	a.places, a.frameW, a.frameH = nil, 0, 0 // a state load lands in another frame; the old plane means nothing there
+	a.places, a.frameW, a.frameH, a.passes = nil, 0, 0, nil // a state load lands in another frame; the old plane means nothing there
 	if err := a.live.LoadState(path); err != nil {
 		return err
 	}
@@ -198,7 +213,7 @@ func (a *Adapter) LoadStateFile(path string) error {
 // as the remainder it is.
 func (a *Adapter) FrameProfile() debug.FrameProfile {
 	p := a.live.FrameProfile()
-	out := debug.FrameProfile{TotalMs: p.TotalMs}
+	out := debug.FrameProfile{TotalMs: p.TotalMs, Drew: p.Drew}
 	for _, b := range p.Buckets {
 		out.Buckets = append(out.Buckets, debug.ProfileBucket{Name: b.Name, Millis: b.Millis, Count: b.Count})
 	}
@@ -235,6 +250,7 @@ type target struct{ addr, w, h uint32 }
 // buffer the scene was drawn in.
 func (a *Adapter) StepFrame(withOverdraw bool) (*debug.FrameCapture, error) {
 	fc := &debug.FrameCapture{Start: snap{ms: a.live.SnapshotState()}}
+	fc.CountWrites() // this machine reports every fragment, so it can say which commands drew
 
 	// Provenance is gathered per target, keyed by packed (y<<16|x) while the frame
 	// draws, then laid out row-major once the main pass is known.
@@ -262,6 +278,10 @@ func (a *Adapter) StepFrame(withOverdraw bool) (*debug.FrameCapture, error) {
 		}
 		key := y<<16 | (x & 0xFFFF)
 		if ev.Drawn {
+			// A write is a write wherever it lands: this counts fragments stored into ANY
+			// colour buffer, not only the one the frame is composed from. A shadow pass into
+			// its own target built this frame as much as the scene pass did.
+			fc.MarkWrite(cmd)
 			drawn[cur]++
 			p := prov[cur]
 			if p == nil {
@@ -284,10 +304,26 @@ func (a *Adapter) StepFrame(withOverdraw bool) (*debug.FrameCapture, error) {
 	}
 	a.live.OnFrame = func(m *n3ds.Machine) { m.StopRequested = true }
 
+	// A DisplayTransfer ends a pass. Take the pass's provenance with it and leave the map
+	// empty for the next one: the next pass clears the buffer and draws a different screen
+	// into it, and its writes must not be read as this screen's.
+	a.passes = nil
+	a.live.OnPresent = func(screen string, g n3ds.ScreenGeom) {
+		p := screenPass{screen: screen, geom: g, cmd: len(fc.Commands) - 1}
+		if t, rows, ok := provTarget(g, drawn); ok {
+			p.prov, p.over, p.rows, p.ok = prov[t], over[t], rows, true
+			prov[t] = map[uint32]int32{}
+			if withOverdraw {
+				over[t] = map[uint32][]debug.PixelWrite{}
+			}
+		}
+		a.passes = append(a.passes, p)
+	}
+
 	a.live.Run(runBudget)
 	// Leave any user watches wired, but drop the per-frame capture hooks so a later
 	// run is not paying for a census nobody is reading.
-	a.live.OnPICACmd, a.live.OnPixel, a.live.OnFrame = nil, nil, nil
+	a.live.OnPICACmd, a.live.OnPixel, a.live.OnFrame, a.live.OnPresent = nil, nil, nil, nil
 
 	// The main pass is the target that received the most drawn fragments. It is the
 	// fallback plane — what the frame is, before the game has presented anything.
@@ -325,11 +361,16 @@ func (a *Adapter) StepFrame(withOverdraw bool) (*debug.FrameCapture, error) {
 			fc.Overdraw = map[int][]debug.PixelWrite{}
 		}
 		for _, p := range places {
-			t, rows, ok := provTarget(p.geom, drawn)
-			if !ok {
-				continue
+			// A panel's provenance is its OWN pass's — the pass that ended by putting it on
+			// that screen. Reading it out of the render target's final state would attribute
+			// the top screen's pixels to the draws of whichever pass wrote those bytes last,
+			// which on a game that renders both screens through one buffer is the bottom
+			// screen's draws.
+			pass, ok := a.panelPass(a.live, p.screen)
+			if !ok || !pass.ok {
+				continue // a screen this frame did not draw: still on the LCD, but not ours
 			}
-			pv, ov := prov[t], over[t]
+			rows := pass.rows
 			for sy := 0; sy < p.h; sy++ {
 				for sx := 0; sx < p.w; sx++ {
 					x, y, ok := p.geom.Source(sx, sy)
@@ -339,11 +380,11 @@ func (a *Adapter) StepFrame(withOverdraw bool) (*debug.FrameCapture, error) {
 					key := (y + rows) << 16 // the window's origin within the buffer
 					key |= x & 0xFFFF
 					di := (p.y0+sy)*w + (p.x0 + sx)
-					if c, hit := pv[key]; hit {
+					if c, hit := pass.prov[key]; hit {
 						fc.Prov[di] = c
 					}
 					if withOverdraw {
-						if ws, hit := ov[key]; hit {
+						if ws, hit := pass.over[key]; hit {
 							fc.Overdraw[di] = ws
 						}
 					}
@@ -389,8 +430,8 @@ func (a *Adapter) StepFast() error {
 	// other buffer, and holding on to the last capture's plane would leave the
 	// debugger showing a buffer the frame it just ran never wrote.
 	a.mainPass = target{}
-	a.places, a.frameW, a.frameH = nil, 0, 0
-	a.live.OnPICACmd, a.live.OnPixel = nil, nil
+	a.places, a.frameW, a.frameH, a.passes = nil, 0, 0, nil
+	a.live.OnPICACmd, a.live.OnPixel, a.live.OnPresent = nil, nil, nil
 	a.live.OnFrame = func(m *n3ds.Machine) { m.StopRequested = true }
 	a.live.Run(runBudget)
 	a.live.OnFrame = nil
@@ -440,8 +481,33 @@ const screenGap = 8
 // screenPlace is one panel inside the composed frame.
 type screenPlace struct {
 	geom   n3ds.ScreenGeom
+	screen string
 	x0, y0 int // top-left of this panel in the composed image
 	w, h   int
+}
+
+// screenPass is one of a frame's render passes: the game drew something, and ended it by
+// transferring the result to a screen.
+//
+// A 3DS frame is not one render. Super Mario 3D Land's is three passes THROUGH THE SAME
+// RENDER TARGET — clear, draw the top screen, transfer it out; clear, draw the top screen
+// again for the other eye, transfer; clear, draw the BOTTOM screen, transfer. Captain
+// Toad's is the same shape. So the render target at the end of a frame holds only the last
+// pass, and a debugger that reads "the top screen" out of it reads the bottom screen's
+// pixels — which is exactly what it used to do, and why both panels showed the same thing.
+//
+// A pass carries the command it ended after, so a scrub knows which pass it is inside; and
+// its own provenance, so a pixel of the top screen names the draw that made THE TOP SCREEN,
+// not the one that happened to write those bytes last.
+type screenPass struct {
+	screen string
+	geom   n3ds.ScreenGeom
+	cmd    int // the command index this pass's transfer happened after
+
+	prov map[uint32]int32 // this pass's per-pixel last writer, in its target's coords
+	over map[uint32][]debug.PixelWrite
+	rows uint32 // the window's row offset into the render target
+	ok   bool   // the window lies in a buffer this pass drew into
 }
 
 // screenLayout resolves the panels the machine has actually presented and where
@@ -454,7 +520,7 @@ func (a *Adapter) screenLayout(m *n3ds.Machine) (places []screenPlace, w, h int)
 			continue
 		}
 		pw, ph := g.Size()
-		places = append(places, screenPlace{geom: g, w: pw, h: ph})
+		places = append(places, screenPlace{geom: g, screen: name, w: pw, h: ph})
 	}
 	if len(places) == 0 {
 		return nil, 0, 0
@@ -481,7 +547,55 @@ func (a *Adapter) composeScreens(m *n3ds.Machine) (*image.RGBA, []screenPlace) {
 	if places == nil {
 		return nil, nil
 	}
-	return a.composeAt(m, places, w, h), places
+	return a.composeAt(m, places, w, h, -1), places
+}
+
+// panelPass is the pass whose picture a panel shows: THIS FRAME's render of that screen.
+//
+// Not the last pass for the screen, and not "whatever the LCD is scanning". The top screen
+// is rendered once per EYE, so the last top pass is the right eye — a picture the player
+// does not look at, and whose provenance would answer for a frame nobody saw. And the LCD
+// can be a frame behind: a game whose render loop is not aligned to the VBlank finishes a
+// screen and swaps to it at the NEXT one, so matching on the scanout address would find no
+// pass at all and attribute nothing, on a frame that drew the whole screen.
+//
+// So: the pass whose buffer the LCD is scanning if the swap has happened, and otherwise
+// the frame's FIRST pass for that screen — which is the left eye, the one that will be
+// scanned. A screen the frame never drew has no pass, and that is the truth about it.
+func (a *Adapter) panelPass(m *n3ds.Machine, screen string) (screenPass, bool) {
+	idx := 0
+	if screen == "bottom" {
+		idx = 1
+	}
+	shown := m.Scanout(idx).AddrLeft
+	var first screenPass
+	found := false
+	for _, p := range a.passes {
+		if p.screen != screen {
+			continue
+		}
+		if p.geom.Dst == shown {
+			return p, true
+		}
+		if !found {
+			first, found = p, true
+		}
+	}
+	return first, found
+}
+
+// passAt reports which screen the machine is in the middle of rendering at command k —
+// the pass whose transfer has not happened yet, and will present that screen.
+//
+// The capture knows this in advance, which is the whole trick: replaying to the middle of
+// a frame, we already know what the buffer being drawn is GOING to be transferred to.
+func (a *Adapter) passAt(k int) (screenPass, bool) {
+	for _, p := range a.passes {
+		if p.cmd >= k {
+			return p, true
+		}
+	}
+	return screenPass{}, false
 }
 
 // composeAt draws a GIVEN layout from a machine's memory. The layout is passed in
@@ -492,15 +606,59 @@ func (a *Adapter) composeScreens(m *n3ds.Machine) (*image.RGBA, []screenPlace) {
 // would jump and the provenance overlay would land in the wrong plane. The frame's
 // geometry is the frame's, fixed when it was captured.
 //
-// The panels are decoded from the tiled render target as it stands now, NOT from the
-// linear framebuffers the last transfer wrote — so replaying a command list makes the
-// screen fill in draw by draw instead of sitting frozen a frame behind.
-func (a *Adapter) composeAt(m *n3ds.Machine, places []screenPlace, w, h int) *image.RGBA {
+// Each panel is drawn from the right thing FOR THAT PANEL, and which thing that is depends
+// on where in the frame we are (k; -1 means the finished frame):
+//
+//   - The screen whose pass is in flight at k is decoded from the tiled RENDER TARGET as it
+//     stands right now, so it fills in draw by draw as you scrub. That is what makes the
+//     scrubber worth having.
+//   - Every other screen is decoded from its own LINEAR FRAMEBUFFER — what the LCD is
+//     actually scanning out. A screen already transferred this frame shows what it was
+//     transferred with; a screen not reached yet still shows the previous frame, which is
+//     precisely what the console shows.
+//
+// Reading every panel from the render target — which is what this used to do — is only
+// right for a game that keeps one buffer per screen. Super Mario 3D Land and Captain Toad
+// both render every screen through ONE buffer, so at the end of a frame that buffer holds
+// the bottom screen and both panels came out showing it.
+//
+// The replay machine has really executed the transfers it has reached (replayOn runs the
+// machine, not just the command list), so its framebuffers are the truth at k, and no
+// picture has to be carried over from the capture.
+func (a *Adapter) composeAt(m *n3ds.Machine, places []screenPlace, w, h int, k int) *image.RGBA {
+	inFlight := ""
+	if k >= 0 {
+		if p, ok := a.passAt(k); ok {
+			inFlight = p.screen
+		}
+	}
 	out := image.NewRGBA(image.Rect(0, 0, w, h))
 	for _, p := range places {
-		src := m.ScreenImage(p.geom)
-		for y := 0; y < p.h; y++ {
-			for x := 0; x < p.w; x++ {
+		var src *image.NRGBA
+		switch pass, ok := a.panelPass(m, p.screen); {
+		case p.screen == inFlight:
+			// The screen being drawn right now: decode the render target as it stands, so
+			// the panel fills in draw by draw as you scrub. This is what the scrubber is for.
+			src = m.ScreenImage(p.geom)
+		case ok && (k < 0 || pass.cmd <= k):
+			// A screen this frame has already finished and transferred: the picture is the
+			// one ITS pass produced, which the render target no longer holds — the next pass
+			// cleared it and drew another screen into it.
+			src = m.PresentedImage(pass.geom)
+		case a.replayBlank:
+			// Asked for: a screen this frame has not drawn yet reads as black, so what the
+			// frame is responsible for is not mixed with what the last one left behind.
+			continue
+		default:
+			// A screen this frame has not reached yet, or never draws: what the LCD is still
+			// showing from before, which is exactly what the console shows.
+			src = m.Framebuffer(p.screen)
+		}
+		if src == nil {
+			continue // a screen with nothing on it yet: black, not somebody else's pixels
+		}
+		for y := 0; y < p.h && y < src.Rect.Dy(); y++ {
+			for x := 0; x < p.w && x < src.Rect.Dx(); x++ {
 				si := src.PixOffset(x, y)
 				di := out.PixOffset(p.x0+x, p.y0+y)
 				copy(out.Pix[di:di+4], src.Pix[si:si+4])
@@ -1161,7 +1319,7 @@ func (a *Adapter) replayOn(sc *n3ds.Machine, ms *n3ds.MachineState, fc *debug.Fr
 	sc.RunStopAfterPICACommand(k+1, runBudget) // 1-based count → stop after index k
 
 	if a.places != nil && a.frameW == fc.Width && a.frameH == fc.Height {
-		return a.composeAt(sc, a.places, a.frameW, a.frameH), nil
+		return a.composeAt(sc, a.places, a.frameW, a.frameH, k), nil
 	}
 	addr, w, h := a.mainPass.addr, a.mainPass.w, a.mainPass.h
 	if w == 0 || h == 0 || int(w) != fc.Width || int(h) != fc.Height {

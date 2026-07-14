@@ -19,6 +19,7 @@ export class Conn {
     this.seq = 0;
     this.handlers = new Map(); // type -> [fn]
     this.binaryHandlers = [];
+    this.claimed = new Map(); // seq -> fn, for a request whose failure is its asker's business
     this.onOpen = () => {};
     this.onClose = () => {};
 
@@ -29,12 +30,30 @@ export class Conn {
     this.ws.onmessage = (e) => {
       if (typeof e.data === 'string') {
         const m = JSON.parse(e.data);
+        if (m.seq && this.claimed.has(m.seq)) {
+          const fn = this.claimed.get(m.seq);
+          this.claimed.delete(m.seq);
+          if (m.type === 'error') {
+            fn(m); // claimed: the asker answers for it, and the page says nothing
+            return;
+          }
+        }
         for (const fn of this.handlers.get(m.type) || []) fn(m);
       } else {
         const m = decode(e.data);
         for (const fn of this.binaryHandlers) fn(m);
       }
     };
+  }
+
+  // onError claims the failure of one request, by seq.
+  //
+  // Not every error is the page's business. Asking a machine that has only just booted for
+  // its scanout fails, and it SHOULD — it has drawn nothing yet — but that is an answer to
+  // the panel that asked, not a red line across the toolbar. A claimed error goes to the
+  // asker and no further; a claim is spent on the first reply, error or not.
+  onError(seq, fn) {
+    this.claimed.set(seq, fn);
   }
 
   // on subscribes to a message type. Several panels may listen to the same type.

@@ -110,9 +110,9 @@ func TestShaderCMPAndIFC(t *testing.T) {
 	g.Opdesc[0] = swizIdentity
 	// cmp v0 eq|eq v1 ; ifc(x) → o0 = v0 else o0 = v1
 	g.Code[0] = 0x2E<<26 | 0<<24 | 0<<21 | 0x00<<12 | 0x01<<7 | 0 // cmp eq,eq
-	g.Code[1] = 0x28<<26 | 1<<25 | 2<<22 | 3<<10 | 1             // ifc x==true: else at 3, num 1
-	g.Code[2] = fmt1(0x13, 0x00, 0, 0x00, 0, 0)                  // then: mov o0, v0
-	g.Code[3] = fmt1(0x13, 0x00, 0, 0x01, 0, 0)                  // else: mov o0, v1
+	g.Code[1] = 0x28<<26 | 1<<25 | 2<<22 | 3<<10 | 1              // ifc x==true: else at 3, num 1
+	g.Code[2] = fmt1(0x13, 0x00, 0, 0x00, 0, 0)                   // then: mov o0, v0
+	g.Code[3] = fmt1(0x13, 0x00, 0, 0x01, 0, 0)                   // else: mov o0, v1
 	g.Code[4] = 0x22 << 26
 
 	var v [16][4]float32

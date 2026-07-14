@@ -16,6 +16,7 @@ import { esc } from '../util.js';
 
 registerPanel({
   id: 'surface',
+  rank: 30,
   title: 'Memory as an image',
   slot: 'side',
   requires: 'surfaces',
@@ -74,6 +75,14 @@ registerPanel({
         });
       }
       want = ctx.conn.send('surface.render', args);
+
+      // A surface a machine has not made yet cannot be drawn, and on a game that has only
+      // just been opened that is every surface: it has presented no frame and has no colour
+      // target. That is this panel's news to report, not an error across the whole page.
+      ctx.conn.onError(want, (m) => {
+        note.textContent = m.msg.replace(/^\w+adapter: /, '');
+        cctx.clearRect(0, 0, canvas.width, canvas.height);
+      });
     };
 
     const onPick = () => {
@@ -106,7 +115,7 @@ registerPanel({
     });
 
     ctx.conn.on('render', (m) => {
-      if (m.stream !== STREAM_SURFACE) return;
+      if (m.stream !== STREAM_SURFACE || m.seq !== want) return; // the viewport renders surfaces too
       note.textContent = `${(m.bytes / 1024).toFixed(0)} KB · ${m.renderMs.toFixed(1)} ms`;
     });
 

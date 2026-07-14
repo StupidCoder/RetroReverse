@@ -239,6 +239,10 @@ func (m *Machine) svcControlMemory(c *arm.CPU) {
 			return
 		}
 	}
+	if m.MemTrace {
+		fmt.Printf("[mem] ControlMemory op=%06X addr0=%08X addr1=%08X size=%08X %s -> %08X (linear now %08X)\n",
+			memop, c.R[1], c.R[2], size, map[bool]string{true: "LINEAR", false: "heap"}[linear], addr, m.linearPtr)
+	}
 	c.R[0] = resultSuccess
 	c.R[1] = addr
 }
@@ -255,12 +259,15 @@ func (m *Machine) svcQueryMemory(c *arm.CPU) {
 		c.R[0], c.R[1], c.R[2], c.R[3], c.R[4], c.R[5] = resultSuccess, addr, 0x1000, 0, 0, 0
 		return
 	}
+	if m.MemTrace {
+		fmt.Printf("[mem] QueryMemory(%08X) -> region %q base=%08X size=%08X\n", addr, r.name, r.base, len(r.data))
+	}
 	c.R[0] = resultSuccess
-	c.R[1] = r.base            // base address
+	c.R[1] = r.base              // base address
 	c.R[2] = uint32(len(r.data)) // size
-	c.R[3] = 3                 // MEMSTATE_PRIVATE-ish
-	c.R[4] = 3                 // permission RW
-	c.R[5] = 0                 // page flags
+	c.R[3] = 3                   // MEMSTATE_PRIVATE-ish
+	c.R[4] = 3                   // permission RW
+	c.R[5] = 0                   // page flags
 }
 
 // svcCreateHandle allocates a stub kernel object and returns its handle. handleReg

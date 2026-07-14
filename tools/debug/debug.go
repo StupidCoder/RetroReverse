@@ -79,6 +79,22 @@ type (
 		RenderAfter(fc *FrameCapture, k int) (*image.RGBA, error)
 	}
 
+	// BlankReplayer can start a replay from a blank screen instead of from what the
+	// previous frame left behind.
+	//
+	// It exists because a console's screen is not cleared between frames: a scrub to the
+	// top of a frame shows the PREVIOUS frame, and what this frame goes on to draw appears
+	// over it, which makes it hard to see what this frame is actually responsible for. With
+	// this on, anything the frame has not drawn yet reads as black.
+	//
+	// It is a debugging lie, and a deliberate one: a game that deliberately builds on the
+	// previous frame's buffer (a cheap motion blur, an accumulation pass) really does depend
+	// on those pixels, and with this on its frame will look wrong. Hence a switch, off by
+	// default, rather than a decision.
+	BlankReplayer interface {
+		SetReplayBlank(on bool)
+	}
+
 	// CodeStepper runs the CPU rather than the video hardware. Both calls are
 	// bounded: they execute at most budget instructions and return, stopping early
 	// on a breakpoint, a halt, or a watch marked to break.
@@ -297,6 +313,14 @@ type FrameProfile struct {
 	TotalMs  float64
 	Buckets  []ProfileBucket
 	Counters []ProfileCounter
+
+	// Drew says whether this field put a picture on the screen. A console's profiler
+	// measures a FIELD — one VBlank — and a field is not a frame: a game rendering at
+	// 30 Hz on a 60 Hz console draws in every other one and spends the rest on logic
+	// alone. Only the caller can know what to do about that, so the target reports it
+	// rather than deciding, and the debugger folds the fields that drew nothing into
+	// the next one that did.
+	Drew bool
 }
 
 // ProfileBucket is one subsystem's share of the frame. Count is how many of the
@@ -445,6 +469,60 @@ type FrameCapture struct {
 	// Overdraw, when requested, is the full ordered write history of each pixel,
 	// keyed by y*Width+x. Nil when not recorded.
 	Overdraw map[int][]PixelWrite
+
+	// Writers are the commands that actually put pixels into memory, in execution order.
+	//
+	// Most of a display processor's command stream does not draw. A 3DS frame is a hundred
+	// thousand PICA register writes and a few hundred of them are draws; the rest set up the
+	// state the draws run against. Scrubbing through all of them is scrubbing through mostly
+	// nothing — the picture stands still for thousands of positions and then jumps. Writers
+	// is what makes the scrubber a tour of how the frame was BUILT.
+	//
+	// The test is a write to VRAM, not a write to the picture. A command that draws into an
+	// off-screen target, a shadow map, a buffer no screen ever reads, or that uploads a
+	// texture into a corner of VRAM, wrote — and you may well be looking at that corner. A
+	// fragment the rasteriser produced and then discarded (a depth or alpha failure) did not
+	// write, and is not one.
+	//
+	// Nil means the platform does not report pixels at all, and a reader should fall back to
+	// the whole command stream. Empty means it reports them and this frame stored none.
+	Writers []int
+
+	// lastWrite makes MarkWrite cheap enough to call per fragment — which is how it is
+	// called, several hundred thousand times in a 3DS frame.
+	lastWrite int
+	wrote     map[int]bool
+}
+
+// MarkWrite records that command i stored a pixel in memory. Adapters call it from their
+// pixel hook, for stored fragments only.
+//
+// A command's fragments are contiguous — a draw rasterises before the next command runs —
+// so the common case is the same index as last time, and that costs one comparison. The
+// order Writers comes out in is therefore execution order, with no sort.
+func (fc *FrameCapture) MarkWrite(i int) {
+	if i < 0 || i == fc.lastWrite {
+		return
+	}
+	fc.lastWrite = i
+	if fc.wrote == nil {
+		fc.wrote = map[int]bool{}
+	}
+	if fc.wrote[i] {
+		return // a platform that interleaves two commands' fragments: seen, already listed
+	}
+	fc.wrote[i] = true
+	fc.Writers = append(fc.Writers, i)
+}
+
+// CountWrites tells a capture that this platform counts writes, so an empty Writers means
+// "nothing drew" rather than "nobody was counting". Adapters that call MarkWrite call this
+// once, whether or not the frame drew anything.
+func (fc *FrameCapture) CountWrites() {
+	fc.lastWrite = -1
+	if fc.Writers == nil {
+		fc.Writers = []int{}
+	}
 }
 
 // ProvAt returns the index of the last command to write pixel (x, y), or -1 if none

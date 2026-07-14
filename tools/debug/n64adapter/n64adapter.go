@@ -128,6 +128,7 @@ func (a *Adapter) Restore(s debug.Snapshot) error {
 // field's RDP command stream and per-pixel last-writer provenance.
 func (a *Adapter) StepFrame(withOverdraw bool) (*debug.FrameCapture, error) {
 	fc := &debug.FrameCapture{Start: snap{ms: a.live.SnapshotState()}}
+	fc.CountWrites()
 
 	// Provenance is gathered keyed by packed (y<<16|x) while the frame draws, then
 	// laid out into a row-major slice once the draw target's size is known. Both x
@@ -154,6 +155,7 @@ func (a *Adapter) StepFrame(withOverdraw bool) (*debug.FrameCapture, error) {
 		}
 		key := y<<16 | (x & 0xFFFF)
 		if ev.Drawn {
+			fc.MarkWrite(cmd)
 			prov[key] = int32(cmd)
 		}
 		if over != nil {

@@ -14,24 +14,69 @@ import (
 	"os"
 )
 
-// Framebuffer decodes the last-presented framebuffer for a screen ("top" or
-// "bottom") into a natural-orientation image, or nil if no DisplayTransfer
-// has happened yet.
+// Framebuffer decodes what a screen ("top" or "bottom") is SHOWING, into a
+// natural-orientation image, or nil if nothing has been presented yet.
+//
+// What the screen shows is the GSP's answer, not the last DisplayTransfer's. The two
+// differ, and on a stereoscopic console they differ every frame: the top screen is
+// rendered and transferred once per EYE, so the last transfer to it is the right eye —
+// which with the 3D slider down can be a buffer the game cleared and never drew into. The
+// panel scans the left one (Machine.Scanout). Reading the last transfer instead put an
+// empty blue buffer on Super Mario 3D Land's top screen.
+// PresentedImage decodes the picture ONE PASS produced: the linear framebuffer its own
+// DisplayTransfer wrote. On a game that renders every screen through one buffer this is the
+// only way to get a pass's picture back after a later pass has reused the render target —
+// and it is what the frame the debugger just stepped actually drew, whether or not the LCD
+// has swapped to it yet.
+func (m *Machine) PresentedImage(g ScreenGeom) *image.NRGBA {
+	if g.Dst == 0 || g.DstBPP == 0 || g.W == 0 || g.H == 0 {
+		return nil
+	}
+	return m.decodeFB(g.Dst, g.W, g.H, g.DstStride, g.DstFmt, g.DstBPP)
+}
+
 func (m *Machine) Framebuffer(screen string) *image.NRGBA {
 	rec := m.lastXferTop
+	idx := 0
 	if screen == "bottom" {
-		rec = m.lastXferBottom
+		rec, idx = m.lastXferBottom, 1
+	}
+	// The transfer records give the geometry (the panel's size and the framebuffer's
+	// stride); the GSP gives the address the panel actually reads.
+	if fb := m.Scanout(idx); fb.Valid && fb.AddrLeft != 0 {
+		rec.dst = fb.AddrLeft
+		if bpp := fbBPP(fb.Format); bpp != 0 {
+			rec.bpp = bpp
+			rec.format = fb.Format & 7
+			if bpp != 0 && fb.Stride != 0 {
+				rec.stride = fb.Stride / bpp
+			}
+		}
+		if rec.w == 0 || rec.h == 0 {
+			rec.w = 240
+			rec.h = 400
+			if idx == 1 {
+				rec.h = 320
+			}
+		}
 	}
 	if rec.dst == 0 {
 		return nil
 	}
-	w, h := int(rec.w), int(rec.h)
+	return m.decodeFB(rec.dst, rec.w, rec.h, rec.stride, rec.format, rec.bpp)
+}
+
+// decodeFB turns a linear framebuffer into the landscape picture the panel shows. A 3DS
+// framebuffer is stored rotated — 240 pixels wide by 400 (top) or 320 (bottom) lines,
+// scanning the physical panel's columns — so this rotates it back.
+func (m *Machine) decodeFB(addr, fw, fh, stride, format, bpp uint32) *image.NRGBA {
+	w, h := int(fw), int(fh)
 	img := image.NewNRGBA(image.Rect(0, 0, h, w)) // rotated: fb lines become columns
 	for y := 0; y < h; y++ {
 		for x := 0; x < w; x++ {
-			p := rec.dst + uint32(y*int(rec.stride)+x)*rec.bpp
+			p := addr + uint32(y*int(stride)+x)*bpp
 			var r, g, b byte
-			switch rec.format {
+			switch format {
 			case 0: // RGBA8 bytes [A,B,G,R]
 				b, g, r = m.Read(p+1), m.Read(p+2), m.Read(p+3)
 			case 1: // RGB8 bytes [B,G,R]
@@ -49,13 +94,9 @@ func (m *Machine) Framebuffer(screen string) *image.NRGBA {
 				r, g, b = byte(v>>12)*17, byte(v>>8&15)*17, byte(v>>4&15)*17
 			}
 			// Framebuffer (x, y) → screen (y, width-1-x): framebuffer lines run
-			// right-to-left across the landscape image, and the buffer's first
-			// line is the screen's first column because the rasteriser now
-			// anchors the viewport to the buffer's bottom (the PICA's bottom-left
-			// origin — see gpu_raster.go). The two flips cancel exactly whenever
-			// the render target is no taller than the viewport, which is why
-			// Super Mario 3D Land is pixel-identical across this change and only
-			// Captain Toad's 256×512 target could reveal the anchor.
+			// right-to-left across the landscape image, and the buffer's first line is
+			// the screen's first column because the rasteriser anchors the viewport to
+			// the buffer's bottom (the PICA's bottom-left origin — gpu_raster.go).
 			o := img.PixOffset(y, w-1-x)
 			img.Pix[o], img.Pix[o+1], img.Pix[o+2], img.Pix[o+3] = r, g, b, 255
 		}
@@ -126,6 +167,15 @@ type ScreenGeom struct {
 	W, H   uint32 // the window: W framebuffer columns (240) by H rows (400/320)
 	Flip   bool
 	Bottom bool
+
+	// Dst is the linear framebuffer this transfer wrote, with the format it wrote in. It is
+	// what says WHICH picture a pass produced, and the LCD scans out only one of them: the
+	// top screen is transferred once per eye, and the eye the panel shows is the GSP's (see
+	// Machine.Scanout).
+	Dst       uint32
+	DstStride uint32 // in pixels
+	DstFmt    uint32
+	DstBPP    uint32
 }
 
 // Size is the landscape image's size: the framebuffer's rows become the screen's
@@ -169,6 +219,7 @@ func (m *Machine) ScreenGeom(screen string) (ScreenGeom, bool) {
 	return ScreenGeom{
 		Src: rec.src, SrcW: rec.srcW, W: rec.w, H: rec.h, Flip: rec.flip,
 		Bottom: screen == "bottom",
+		Dst:    rec.dst, DstStride: rec.stride, DstFmt: rec.format, DstBPP: rec.bpp,
 	}, true
 }
 
@@ -193,4 +244,19 @@ func (m *Machine) ScreenImage(g ScreenGeom) *image.NRGBA {
 		}
 	}
 	return img
+}
+
+// fbBPP is the byte width of a GSP framebuffer format word's pixel format (its low three
+// bits, the same codes a DisplayTransfer's output format uses): RGBA8, RGB8, then the
+// 16-bit trio. Zero for a format word that names none of them.
+func fbBPP(format uint32) uint32 {
+	switch format & 7 {
+	case 0:
+		return 4
+	case 1:
+		return 3
+	case 2, 3, 4:
+		return 2
+	}
+	return 0
 }

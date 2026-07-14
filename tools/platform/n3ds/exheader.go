@@ -26,18 +26,18 @@ func (s CodeSegInfo) Extent() uint32 { return s.NumPages * PageSize }
 // package parses the SCI (the part the loader needs); the access-control info
 // that follows it is exposed raw.
 type ExHeader struct {
-	Title          string
-	Flag           byte
-	RemasterVer    uint16
-	Text           CodeSegInfo
-	StackSize      uint32
-	ROData         CodeSegInfo
-	Data           CodeSegInfo
-	BSSSize        uint32
-	Dependencies   []uint64 // program IDs of the sysmodules this title links against
-	SaveDataSize   uint64
-	JumpID         uint64
-	ACI            []byte // access-control info, unparsed
+	Title        string
+	Flag         byte
+	RemasterVer  uint16
+	Text         CodeSegInfo
+	StackSize    uint32
+	ROData       CodeSegInfo
+	Data         CodeSegInfo
+	BSSSize      uint32
+	Dependencies []uint64 // program IDs of the sysmodules this title links against
+	SaveDataSize uint64
+	JumpID       uint64
+	ACI          []byte // access-control info, unparsed
 }
 
 // CompressedExeFSCode reports whether ExeFS/.code is BLZ-compressed (flag bit 0).

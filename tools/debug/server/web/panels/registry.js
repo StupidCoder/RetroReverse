@@ -16,13 +16,20 @@ const panels = [];
 //
 //   id       unique, also the prefix of its DOM ids ("<id>-body", "<id>-note")
 //   title    the tab label, and the pane's own header when it is alone in a group
-//   slot     "stage" | "side" | "bottom" — where it goes unless the saved layout says
-//            otherwise
+//   slot     "stage" | "side" | "bottom-left" | "bottom-right" — where it goes unless the
+//            saved layout says otherwise
+//   rank     where it sits among its group's tabs; the first one is the tab you land on.
+//            Without it a panel would sit wherever its import happened to fall, which is
+//            an ordering nobody chose.
 //   requires a capability name, or "" for a panel every target can back
 //   mount(body, ctx) -> void; ctx = { conn, store, ui, viewport }
 export function registerPanel(p) {
   panels.push(p);
 }
+
+// byRank orders the panels within their groups. Array.prototype.sort is stable, so panels
+// that declare no rank keep the order they were registered in.
+const byRank = () => [...panels].sort((a, b) => (a.rank ?? 50) - (b.rank ?? 50));
 
 let disposePrevious = null;
 
@@ -35,6 +42,16 @@ export function mountPanels(ctx) {
   ctx.conn.beginScope();
   ctx.store.beginScope();
 
+  // The previous target's panes are still in the dock, and they carry the same element ids
+  // as the ones about to be built — every panel names its nodes after itself. getElementById
+  // returns the FIRST match in the document, so a panel mounting now would capture the OLD
+  // target's node and write everything it ever renders into DOM the dock is about to throw
+  // away: a savestate list nobody sees, and a viewport whose canvas is not on the page.
+  //
+  // So the old panes leave the document before the new ones are built. A pane belongs to
+  // exactly one mount, and while a mount is in progress its ids must be the only ones.
+  for (const pane of document.querySelectorAll('.pane')) pane.remove();
+
   // Panels look their own elements up with getElementById while mounting, so a pane has
   // to be in the document before it is mounted — even though the dock has not decided
   // where it goes yet. It is parked here first, then moved.
@@ -42,7 +59,7 @@ export function mountPanels(ctx) {
   staging.innerHTML = '';
 
   const built = [];
-  for (const p of panels) {
+  for (const p of byRank()) {
     if (p.requires && !ctx.store.can(p.requires)) continue;
 
     const pane = document.createElement('section');

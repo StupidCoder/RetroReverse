@@ -131,12 +131,19 @@ func (m *Machine) ipcAPT(name string, hdr ipcHeader) bool {
 	case 0x0009: // IsRegistered
 		m.ipcReply(hdr.Command, 1)
 		return true
-	case 0x000B: // InquireNotification → the pending APT command. The app dispatches
-		// this through a jump table where 0 panics; a freshly launched application's
-		// first parameter is APTCMD_WAKEUP (1), delivered exactly once, after which
-		// the app proceeds to real init. Later inquiries report "none" as WAKEUP too
-		// (benign: the WAKEUP handler is idempotent and re-arms the wait).
-		m.ipcReply(hdr.Command, 1) // APTCMD_WAKEUP
+	case 0x000B: // InquireNotification → the pending APT notification. The app asks once
+		// during init, unprompted, and dispatches the answer through a jump table in
+		// which 0 ("none") is a can't-happen that panics through svcBreak — so 0 is not
+		// available to us, and 1 is what it has always been answered with, and boots.
+		//
+		// What matters is not this reply but WHO ASKS. The app is supposed to come here
+		// only when the notify event has told it a notification is pending, and 1 in the
+		// notification enum is HomeButton — so every spurious signal of that event
+		// summoned the title to collect a HOME press it never got, and it suspended
+		// itself. signalAPTEvents no longer rings that bell (this machine has no HOME
+		// button and never asks a title to sleep), which leaves this call as the single
+		// harmless one the app makes on its own.
+		m.ipcReply(hdr.Command, 1)
 		return true
 	case 0x000C: // SendParameter(sender, dest applet, signal, size + handle/buffer):
 		// the app messages a library applet (file-select sends applet 0x402 a
@@ -325,15 +332,36 @@ func (m *Machine) ipcAPT(name string, hdr ipcHeader) bool {
 	return true
 }
 
-// signalAPTEvents signals the notify/resume events APT Initialize handed the
-// app, waking its APT handler thread.
+// signalAPTEvents wakes the app's APT handler thread by signalling the RESUME
+// event — and only that one.
+//
+// The two events APT Initialize hands back are not interchangeable, and signalling
+// both is not "belt and braces", it is a lie told twice. The resume event means *a
+// parameter is waiting for you*, and the handler answers it by calling
+// ReceiveParameter/GlanceParameter. The notify event means *a NOTIFICATION is
+// pending* — the HOME button, a sleep query, a shutdown order — and the handler
+// answers THAT by calling InquireNotification.
+//
+// We never generate notifications: there is no HOME button on this machine and
+// nothing ever asks the title to sleep. So ringing the notify bell on every deferred
+// wake summoned the app to collect a notification that did not exist, and the reply
+// it got (1) is HomeButton1 in the notification enum — a different enum from the
+// command one, where 1 is the harmless WAKEUP this code meant. Super Mario 3D Land
+// did precisely what a console does when HOME is pressed: it SUSPENDED ITSELF. It
+// put the DSP to sleep, and its APT handler thread parked in the sound library
+// waiting for the sound thread to acknowledge the shutdown. That thread is also the
+// one that services the APT resume, so nothing could ever wake it again: no draws,
+// no display transfers, the machine free-running through empty fields at 500+ fps
+// while the game waited to come back from a HOME menu that was never opened.
+//
+// (Answering "none" (0) instead is not the fix and proves the point: the app only
+// inquires when it has been TOLD a notification is pending, so 0 is a can't-happen
+// and it panics through svcBreak. The bell is what is wrong, not the answer.)
 func (m *Machine) signalAPTEvents() {
-	for _, h := range []uint32{m.aptNotifyEv, m.aptResumeEv} {
-		if obj := m.handles[h]; obj != nil {
-			obj.signal = true
-			if m.signalObject(obj) {
-				m.reschedule = true
-			}
+	if obj := m.handles[m.aptResumeEv]; obj != nil {
+		obj.signal = true
+		if m.signalObject(obj) {
+			m.reschedule = true
 		}
 	}
 }

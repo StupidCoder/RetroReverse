@@ -4,6 +4,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"image"
+	"sort"
 	"sync"
 	"time"
 
@@ -38,6 +39,12 @@ type Runner struct {
 
 	// CPU run state.
 	running bool
+
+	// prof folds fields into frames — see profAccum.
+	prof profAccum
+
+	// blank is the replay's "start from a black screen" setting, as the page last set it.
+	blank bool
 
 	// touchQ holds stylus states the page has sent but the machine has not seen yet.
 	// They are handed over one per frame — see applyTouch.
@@ -290,6 +297,7 @@ func (rn *Runner) step(r request) error {
 				return err
 			}
 			rn.frameNo++
+			rn.prof.observe(rn.tgt)
 		}
 	} else {
 		fc, err = rn.stepToDrawn(fs, a.Overdraw)
@@ -306,8 +314,9 @@ func (rn *Runner) step(r request) error {
 		W:        fc.Width, H: fc.Height,
 		HasProv:  fc.Prov != nil,
 		Overdraw: fc.Overdraw != nil,
+		Writers:  fc.Writers,
 		StepMs:   msSince(start),
-		Profile:  frameProfile(rn.tgt),
+		Profile:  rn.prof.emit(),
 	})
 	// The provenance buffer goes over once per capture. From then on the page answers
 	// "which command drew this pixel?" locally, with no round trip — which is what
@@ -327,6 +336,7 @@ func (rn *Runner) stepToDrawn(fs debug.FrameStepper, withOverdraw bool) (*debug.
 			return nil, err
 		}
 		rn.frameNo++
+		rn.prof.observe(rn.tgt)
 		if fc.Drawn() {
 			return fc, nil
 		}
@@ -338,6 +348,12 @@ func (rn *Runner) stepToDrawn(fs debug.FrameStepper, withOverdraw bool) (*debug.
 // each field is stepped with no snapshot and no census, and the page is sent the
 // scanout. Stopping does a full capture step, so you land on a real frame — the next
 // field, not the last one played, which left no record behind to go back to.
+//
+// The capture is a step-to-drawn, not a single field. Pausing lands wherever the game
+// happens to be, and that is as likely to be a field it spent setting up as one it drew
+// in — so capturing exactly one field would hand back an empty command list about as
+// often as not, and leave you pressing Step to get something to look at. Pause means
+// stop AND give me a frame I can trace, so it steps until the machine draws one.
 func (rn *Runner) play(r request) error {
 	var a playArgs
 	if err := decodeArgs(r.req, &a); err != nil {
@@ -352,7 +368,7 @@ func (rn *Runner) play(r request) error {
 	}
 	rn.playing, rn.inFlight = false, false
 	return rn.step(request{from: r.from, req: req{
-		Op: "frame.step", Seq: r.req.Seq, Args: mustJSON(stepArgs{N: 1, Overdraw: overdrawOf(r.req)}),
+		Op: "frame.step", Seq: r.req.Seq, Args: mustJSON(stepArgs{N: 0, Overdraw: overdrawOf(r.req)}),
 	}})
 }
 
@@ -367,6 +383,7 @@ func (rn *Runner) playFrame() error {
 	} else if _, err := rn.tgt.(debug.FrameStepper).StepFrame(false); err != nil {
 		return err
 	}
+	rn.prof.observe(rn.tgt)
 	img, err := rn.tgt.Display()
 	if err != nil {
 		// Early in a boot nothing is being scanned out yet. Keep running — this is
@@ -377,7 +394,7 @@ func (rn *Runner) playFrame() error {
 	rn.broadcast(renderMsg{
 		Type: "render", Seq: 0, Stream: streamMain, K: -1, Play: true,
 		Frame: rn.frameNo, RenderMs: msSince(start), Bytes: len(payload),
-		Profile: frameProfile(rn.tgt), // free-running frames keep the profile panel live
+		Profile: rn.prof.emit(), // free-running frames keep the profile panel live
 	})
 	rn.inFlight = true
 	rn.broadcastBinary(payload)
@@ -391,6 +408,14 @@ func (rn *Runner) scrub(r request) error {
 	}
 	if rn.fc == nil {
 		return fmt.Errorf("no captured frame yet")
+	}
+	// "Start the frame blank" is a property of the replay, not of one position in it, so it
+	// is set on the target rather than threaded through RenderAfter — and it invalidates the
+	// cache, whose images were rendered under the other setting.
+	if b, ok := rn.tgt.(debug.BlankReplayer); ok && a.Blank != rn.blank {
+		rn.blank = a.Blank
+		b.SetReplayBlank(a.Blank)
+		rn.clearCache()
 	}
 	k := a.K
 	if k < 0 {
@@ -436,21 +461,37 @@ func (rn *Runner) replay(k int) (*image.RGBA, error) {
 		return img, nil
 	}
 
-	// k first, then a spread of nearby positions that are not already cached. The
-	// spread is proportional to the list, so it is a fraction of the drag rather than a
-	// fixed number of register writes — which on a 100,000-write frame would be nothing.
+	// k first, then a spread of nearby positions that are not already cached. The spread is
+	// proportional to the list, so it is a fraction of the drag rather than a fixed number
+	// of steps — which on a 100,000-command frame would be nothing.
+	//
+	// The spread runs over the frame's WRITERS, because those are the scrubber's positions.
+	// Spreading over the command stream instead would prefetch register writes the drag is
+	// never going to stop on, and the cache would miss on every one that it does.
+	stops := rn.fc.Writers
+	if len(stops) == 0 {
+		stops = nil // no writer list: the page is scrubbing the whole stream
+	}
 	n := len(rn.fc.Commands)
+	at := k
+	if stops != nil {
+		n = len(stops)
+		at = sort.SearchInts(stops, k) // where the drag is, in the positions it can stop at
+	}
 	ks := []int{k}
 	step := n / 64
 	if step < 1 {
 		step = 1
 	}
 	for _, d := range []int{1, -1, 2, -2, 3, -3, 4} {
-		p := k + d*step
+		p := at + d*step
 		if p < 0 || p >= n {
 			continue
 		}
-		if _, hit := rn.cache[p]; hit {
+		if stops != nil {
+			p = stops[p]
+		}
+		if _, hit := rn.cache[p]; hit || p == k {
 			continue
 		}
 		ks = append(ks, p)
@@ -816,9 +857,10 @@ func (rn *Runner) stateLoad(r request) error {
 		return err
 	}
 	// The machine is somewhere else entirely now; the captured frame belongs to the
-	// state we left.
+	// state we left, and so does the frame the profiler was adding fields up towards.
 	rn.fc = nil
 	rn.clearCache()
+	rn.prof.reset()
 	r.from.send(okMsg{Type: "ok", Seq: r.req.Seq, Op: r.req.Op, Note: a.Path})
 	return nil
 }
@@ -854,26 +896,88 @@ func stopped(sr debug.StopReason) stoppedMsg {
 	}
 }
 
-// frameProfile asks the target where the frame's time went, if it can say. A
-// target that cannot implement debug.Profiler sends nothing, and the page shows no
-// profile panel — rather than an empty one that reads as "the frame cost nothing".
-func frameProfile(t debug.Target) *jsonProfile {
+// ---- the profile: a field is not a frame ----
+//
+// The machine profiles a FIELD, because a field — one VBlank — is the only boundary it
+// has. A game does not have to draw in every one, and a 3DS game typically does not:
+// Captain Toad renders at 30 Hz on a 60 Hz console, so it rasterises 383,000 fragments in
+// one field and, in the next, draws nothing at all and only runs its game logic.
+//
+// Reported field by field, that is a profile panel flipping between 145 ms and 2 ms twice
+// a frame — numbers that are individually true and together useless, because neither one
+// is the cost of the picture on the screen.
+//
+// So a field the game drew nothing in is not published as a frame. Its time is carried and
+// added to the next field that draws, and what the panel is shown is the cost of a picture:
+// everything the machine did since the last one. Nothing is discarded — the logic-only
+// field's ARM11 time is part of what that frame cost — the buckets still sum to the total,
+// and between two pictures the panel simply holds the last frame's numbers rather than
+// blinking through an empty field's.
+type profAccum struct {
+	carry *jsonProfile // fields drawn in nothing yet, waiting for the one that draws
+	last  *jsonProfile // the last frame that drew, with those fields folded into it
+}
+
+// observe reads the profile of the field just advanced and folds it into the frame being
+// built. It must be called once per field the machine advances, played or captured, or the
+// time in the fields it misses is lost.
+func (pa *profAccum) observe(t debug.Target) {
 	p, ok := t.(debug.Profiler)
 	if !ok {
-		return nil
+		return
 	}
 	fp := p.FrameProfile()
 	if fp.TotalMs == 0 && len(fp.Buckets) == 0 {
-		return nil
+		return // profiling is off, or no field has completed yet
 	}
-	out := &jsonProfile{TotalMs: fp.TotalMs}
+	pa.carry = addProfile(pa.carry, fp)
+	if fp.Drew {
+		pa.last, pa.carry = pa.carry, nil
+	}
+}
+
+// emit is the frame to report: the last one that put a picture on the screen. A target
+// that cannot profile sends nothing, and the page shows no profile panel — rather than an
+// empty one that reads as "the frame cost nothing".
+func (pa *profAccum) emit() *jsonProfile { return pa.last }
+
+// reset drops the accumulation. The machine is somewhere else now, and the fields we were
+// folding together were on the way to a picture that will never be drawn.
+func (pa *profAccum) reset() { pa.carry, pa.last = nil, nil }
+
+// addProfile adds a field's profile into the frame being accumulated, matching buckets and
+// counters by name so a field that ran no draws (and so reports no vertex bucket) still
+// lands in the right place.
+func addProfile(acc *jsonProfile, fp debug.FrameProfile) *jsonProfile {
+	if acc == nil {
+		acc = &jsonProfile{}
+	}
+	acc.TotalMs += fp.TotalMs
 	for _, b := range fp.Buckets {
-		out.Buckets = append(out.Buckets, jsonProfBucket{Name: b.Name, Millis: b.Millis, Count: b.Count})
+		if i := indexOf(len(acc.Buckets), func(i int) bool { return acc.Buckets[i].Name == b.Name }); i >= 0 {
+			acc.Buckets[i].Millis += b.Millis
+			acc.Buckets[i].Count += b.Count
+			continue
+		}
+		acc.Buckets = append(acc.Buckets, jsonProfBucket{Name: b.Name, Millis: b.Millis, Count: b.Count})
 	}
 	for _, c := range fp.Counters {
-		out.Counters = append(out.Counters, jsonProfCounter{Name: c.Name, Value: c.Value})
+		if i := indexOf(len(acc.Counters), func(i int) bool { return acc.Counters[i].Name == c.Name }); i >= 0 {
+			acc.Counters[i].Value += c.Value
+			continue
+		}
+		acc.Counters = append(acc.Counters, jsonProfCounter{Name: c.Name, Value: c.Value})
 	}
-	return out
+	return acc
+}
+
+func indexOf(n int, match func(int) bool) int {
+	for i := 0; i < n; i++ {
+		if match(i) {
+			return i
+		}
+	}
+	return -1
 }
 
 func msSince(t time.Time) float64 { return float64(time.Since(t).Microseconds()) / 1000 }

@@ -12,8 +12,9 @@ import { esc, hex } from '../util.js';
 
 registerPanel({
   id: 'overdraw',
+  rank: 10,
   title: 'Overdraw',
-  slot: 'side',
+  slot: 'bottom-right',
   requires: 'frames',
   mount(body, ctx) {
     body.classList.add('mono');
@@ -57,8 +58,9 @@ registerPanel({
 
 registerPanel({
   id: 'cpu',
+  rank: 20,
   title: 'CPU',
-  slot: 'bottom',
+  slot: 'bottom-left',
   requires: '',
   mount(body, ctx) {
     body.classList.add('mono');
@@ -93,8 +95,9 @@ registerPanel({
 
 registerPanel({
   id: 'memory',
+  rank: 30,
   title: 'Memory',
-  slot: 'bottom',
+  slot: 'bottom-left',
   requires: '',
   mount(body, ctx) {
     body.classList.add('mono');
@@ -148,6 +151,7 @@ registerPanel({
 
 registerPanel({
   id: 'disasm',
+  rank: 20,
   title: 'Disassembly',
   slot: 'side',
   requires: 'disasm',
@@ -196,8 +200,9 @@ registerPanel({
 
 registerPanel({
   id: 'watches',
+  rank: 40,
   title: 'Watches',
-  slot: 'bottom',
+  slot: 'bottom-left',
   requires: 'watch',
   mount(body, ctx) {
     body.classList.add('mono');

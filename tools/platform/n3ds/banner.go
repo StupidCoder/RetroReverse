@@ -19,11 +19,11 @@ import (
 //	0x40 u32   offset to the CWAV audio (0 if absent)
 //	0x44 …     padding to 0x88, where the first CGFX begins
 const (
-	cbmdMagic       = "CBMD"
-	cbmdNumLangs    = 13
-	cbmdCommonOff   = 0x08
-	cbmdLangOff     = 0x0C
-	cbmdCWAVOff     = 0x40
+	cbmdMagic     = "CBMD"
+	cbmdNumLangs  = 13
+	cbmdCommonOff = 0x08
+	cbmdLangOff   = 0x0C
+	cbmdCWAVOff   = 0x40
 )
 
 // Banner is a parsed CBMD container.

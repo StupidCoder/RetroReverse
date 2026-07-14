@@ -69,8 +69,8 @@ func toF24(v float32) float32 {
 		} else if e >= 0x7F { // overflows → the largest finite float24
 			exp, man = 127+63-1, 0x7F0000
 		} else {
-			exp = e + 64      // back to an f32 exponent
-			man &^= 0x7F      // float24 keeps 16 mantissa bits; drop the low 7
+			exp = e + 64 // back to an f32 exponent
+			man &^= 0x7F // float24 keeps 16 mantissa bits; drop the low 7
 		}
 	}
 	if exp == 0 && man == 0 {

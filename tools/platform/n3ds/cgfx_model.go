@@ -55,12 +55,12 @@ type Material struct {
 
 // Bone is one skeleton joint. Rotation is the CGFX XYZ Euler triple.
 type Bone struct {
-	Name    string
-	Index   int
-	Parent  int // -1 for the root
-	Scale   [3]float32
-	Rot     [3]float32
-	Trans   [3]float32
+	Name   string
+	Index  int
+	Parent int // -1 for the root
+	Scale  [3]float32
+	Rot    [3]float32
+	Trans  [3]float32
 }
 
 // Model is a fully decoded CMDL.

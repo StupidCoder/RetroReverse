@@ -76,6 +76,9 @@ type (
 	}
 	scrubArgs struct {
 		K int `json:"k"`
+		// Blank starts the replay from a black screen, so what this frame draws is not
+		// mixed with what the last one left on the panel.
+		Blank bool `json:"blank"`
 	}
 	pixelArgs struct {
 		X int `json:"x"`
@@ -196,6 +199,19 @@ type (
 		HasProv  bool          `json:"hasProv"`
 		Overdraw bool          `json:"overdraw"`
 		StepMs   float64       `json:"stepMs"`
+
+		// Writers are the commands that actually wrote pixels into memory, in execution
+		// order — what the scrubber walks, because the rest of the stream is setup and
+		// scrubbing through it is scrubbing through a picture that does not change.
+		//
+		// A list of indices rather than a flag on each command, and for a reason: a 3DS
+		// frame is two hundred thousand commands and a few hundred writers, so a flag per
+		// command would put a megabyte of "false" on the wire to say what this says in a
+		// few kilobytes.
+		//
+		// null means the platform does not report pixels and the page must fall back to the
+		// whole stream; [] means it does report them and this frame wrote nothing.
+		Writers []int `json:"writers"`
 
 		// Profile is where the machine says the frame's time went, when the target
 		// can say (debug.Profiler). It rides the frame message rather than being a

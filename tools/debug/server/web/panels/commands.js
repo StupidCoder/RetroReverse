@@ -13,6 +13,7 @@ const ROW = 18; // px, must match .row height in style.css
 
 registerPanel({
   id: 'commands',
+  rank: 10,
   title: 'GPU commands',
   slot: 'side',
   requires: 'frames',
@@ -24,6 +25,10 @@ registerPanel({
     const rows = document.getElementById('cmd-rows');
 
     let cmds = [];
+    // The commands that actually put pixels in memory. They are marked here and they are
+    // what the scrubber walks; the rest of the stream is the state they ran against, which
+    // is worth reading and not worth scrubbing through.
+    let wrote = new Set();
 
     const render = () => {
       const selected = ctx.store.get('selected');
@@ -32,8 +37,8 @@ registerPanel({
       rows.style.top = `${first * ROW}px`;
       let html = '';
       for (let i = first; i < last; i++) {
-        const sel = i === selected ? ' sel' : '';
-        html += `<div class="row${sel}" data-i="${i}"><span class="idx">${i}</span><span class="nm">${esc(cmds[i].name)}</span></div>`;
+        const cls = (i === selected ? ' sel' : '') + (wrote.has(i) ? ' wrote' : '');
+        html += `<div class="row${cls}" data-i="${i}"><span class="idx">${i}</span><span class="nm">${esc(cmds[i].name)}</span></div>`;
       }
       rows.innerHTML = html;
     };
@@ -61,8 +66,15 @@ registerPanel({
 
     ctx.store.on('frame', (frame) => {
       cmds = frame ? frame.commands : [];
+      wrote = new Set((frame && frame.writers) || []);
+      // Only mark when the platform actually reports its writes: with no list, every command
+      // is a scrubber stop and none of them is special.
+      rows.classList.toggle('marks', !!(frame && frame.writers));
       spacer.style.height = `${cmds.length * ROW}px`;
-      note.textContent = cmds.length ? `${cmds.length.toLocaleString()} commands` : 'nothing drawn';
+      note.textContent = cmds.length
+        ? `${cmds.length.toLocaleString()} commands` +
+          (frame.writers ? ` · ${frame.writers.length.toLocaleString()} drew` : '')
+        : 'nothing drawn';
       body.scrollTop = 0;
       render();
       detail(null);
@@ -80,8 +92,9 @@ registerPanel({
 
 registerPanel({
   id: 'detail',
+  rank: 20,
   title: 'Command detail',
-  slot: 'side',
+  slot: 'bottom-right',
   requires: 'frames',
   mount(body) {
     body.classList.add('mono');

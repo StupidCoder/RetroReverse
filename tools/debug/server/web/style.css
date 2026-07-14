@@ -109,10 +109,18 @@ main {
   overflow: hidden;
 }
 
-#slot-bottom {
+/* Two groups side by side: the machine on the left, the frame on the stage on the right.
+   Flex, not a two-column grid, so a target that fills only one of them (no savestates, no
+   profile) gives the whole strip to the group it does have rather than half a strip and a
+   hole — .slot.empty takes itself out of the document flow. */
+#dock-bottom {
+  display: flex;
+  gap: 10px;
   margin: 0 10px 10px;
   height: 210px;
+  min-width: 0;
 }
+#dock-bottom > .slot { flex: 1; min-width: 0; }
 
 .pane {
   display: none;
@@ -212,6 +220,8 @@ main.no-side { grid-template-columns: minmax(0, 1fr); }
   border-bottom: 1px solid var(--line);
 }
 .pane h2 .muted { text-transform: none; letter-spacing: 0; font-weight: 400; }
+/* The buffer picker names what the stage is showing, so it sits with the title. */
+#vp-buffer { margin-left: 2px; }
 .pane h2 input, .pane h2 select { text-transform: none; letter-spacing: 0; }
 
 .pane-body {
@@ -253,7 +263,6 @@ main.no-side { grid-template-columns: minmax(0, 1fr); }
 #scrubber { display: flex; align-items: center; gap: 8px; }
 #slider { flex: 1; accent-color: var(--accent); }
 #scrub-label { min-width: 12ch; text-align: right; }
-#hover { min-height: 1.45em; color: var(--muted); }
 
 /* ---- command list (windowed) ---- */
 
@@ -270,6 +279,13 @@ main.no-side { grid-template-columns: minmax(0, 1fr); }
   cursor: pointer;
 }
 .row:hover { background: var(--panel-hi); }
+
+/* A command that actually wrote pixels to memory — one of the scrubber's stops. The rest of
+   the stream is the state it ran against, and reads as the quieter thing it is.
+   Only when the platform SAYS which commands wrote (#cmd-rows.marks); without that, dimming
+   every row would be claiming that none of them drew. */
+#cmd-rows.marks .row { color: var(--muted); }
+#cmd-rows.marks .row.wrote { color: var(--fg); box-shadow: inset 2px 0 0 var(--accent); }
 .row.sel { background: #14364a; color: var(--accent); }
 .row .idx { width: 5ch; text-align: right; color: var(--muted); }
 .row.sel .idx { color: var(--accent); }

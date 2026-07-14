@@ -68,8 +68,8 @@ func DecompressBLZ(pak []byte) ([]byte, error) {
 		return nil, fmt.Errorf("blz: compressed size 0x%x out of range [0x%x, 0x%x]", compressedSize, footerSize, n)
 	}
 
-	headSize := n - compressedSize      // bytes stored verbatim at the front
-	rawLen := n + int(originalBottom)   // total decompressed length
+	headSize := n - compressedSize    // bytes stored verbatim at the front
+	rawLen := n + int(originalBottom) // total decompressed length
 
 	out := make([]byte, rawLen)
 	copy(out, pak)

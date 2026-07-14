@@ -173,6 +173,7 @@ func (a *Adapter) LoadStateFile(path string) error { return a.live.LoadStateFile
 // GP0 command stream and per-pixel provenance along the way.
 func (a *Adapter) StepFrame(withOverdraw bool) (*debug.FrameCapture, error) {
 	fc := &debug.FrameCapture{Start: snap{ms: a.live.SaveState()}}
+	fc.CountWrites()
 
 	// Provenance is gathered keyed by packed (y<<16|x) while the frame draws, then
 	// laid out row-major once the display size is known.
@@ -201,6 +202,11 @@ func (a *Adapter) StepFrame(withOverdraw bool) (*debug.FrameCapture, error) {
 			return
 		}
 		key := y<<16 | (x & 0xFFFF)
+		if ev.Drawn {
+			// Anywhere in VRAM: this machine's hook fires for a texture upload into a corner
+			// of VRAM as much as for a triangle in the back buffer, and both wrote.
+			fc.MarkWrite(cmd)
+		}
 		prov[key] = int32(cmd)
 		if over != nil {
 			over[key] = append(over[key], debug.PixelWrite{

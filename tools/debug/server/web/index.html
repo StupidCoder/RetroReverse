@@ -31,7 +31,10 @@
 
   <label class="check" title="show what is being scanned out, not the buffer being drawn into">
     <input type="checkbox" id="scanout"> scanout</label>
+  <label class="check" title="start the scrub from a black screen, so this frame's drawing is not mixed with the last frame's">
+    <input type="checkbox" id="blank"> blank</label>
   <select id="zoom" title="zoom">
+    <option value="fit">Fit</option>
     <option value="1">1×</option>
     <option value="2" selected>2×</option>
     <option value="3">3×</option>
@@ -50,7 +53,10 @@
   <div id="slot-stage" class="slot"></div>
   <div id="slot-side" class="slot"></div>
 </main>
-<footer id="slot-bottom" class="slot"></footer>
+<footer id="dock-bottom">
+  <div id="slot-bottom-left" class="slot"></div>
+  <div id="slot-bottom-right" class="slot"></div>
+</footer>
 
 <!-- Panels are built here, where they can look their own elements up, before the dock
      moves them to wherever the layout wants them. -->

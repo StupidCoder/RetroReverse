@@ -93,6 +93,7 @@ type threadSnap struct {
 	Priority                   int32
 	State                      int
 	WakeTick                   uint64
+	WaitDeadline               uint64 // tick a timed wait expires at (0 = none); see thread.go
 	WaitAll                    bool
 	WaitOn                     []uint32
 	ArbAddr                    uint32
@@ -157,7 +158,7 @@ type snapshot struct {
 	DisplayXfers    int
 	LastXferTop     xferState
 	LastXferBottom  xferState
-	ScreenFB        [2]fbPresent // last framebuffer-info entry consumed per screen
+	ScreenFB        [2]FBPresent // last framebuffer-info entry consumed per screen
 
 	// … and the PICA200 GPU (v3). The upload cursors and partial FIFO buffers
 	// matter: a snapshot can land mid-upload.
@@ -384,7 +385,8 @@ func (m *Machine) buildSnapshot() *snapshot {
 		s.Threads = append(s.Threads, threadSnap{
 			ID: t.id, Handle: t.handle, TLSBase: t.tlsBase, Tpidr: t.tpidr,
 			Priority: t.priority, State: int(t.state), WakeTick: t.wakeTick,
-			WaitAll: t.waitAll, WaitOn: t.waitOn, ArbAddr: t.arbAddr, Ctx: toCPUState(&t.ctx),
+			WaitDeadline: t.waitDeadline,
+			WaitAll:      t.waitAll, WaitOn: t.waitOn, ArbAddr: t.arbAddr, Ctx: toCPUState(&t.ctx),
 		})
 	}
 	for h, o := range m.handles {
@@ -521,7 +523,8 @@ func (m *Machine) applySnapshot(s *snapshot) error {
 		t := &thread{
 			id: ts.ID, handle: ts.Handle, tlsBase: ts.TLSBase, tpidr: ts.Tpidr,
 			priority: ts.Priority, state: threadState(ts.State), wakeTick: ts.WakeTick,
-			waitAll: ts.WaitAll, waitOn: ts.WaitOn, arbAddr: ts.ArbAddr,
+			waitDeadline: ts.WaitDeadline,
+			waitAll:      ts.WaitAll, waitOn: ts.WaitOn, arbAddr: ts.ArbAddr,
 		}
 		// Seed the context from the live CPU so the bus and the SWI/coproc
 		// hooks are populated — a context switch copies the whole CPU value,

@@ -37,9 +37,9 @@ func (m *Machine) vblankDue() bool {
 	return m.gspEvent != 0 && m.instrs >= m.nextFrameInstr
 }
 
-// fbPresent is one consumed framebuffer-info entry — the framebuffer the GSP
+// FBPresent is one consumed framebuffer-info entry — the framebuffer the GSP
 // module pointed the LCD at on behalf of the application.
-type fbPresent struct {
+type FBPresent struct {
 	Active     uint32 // which of the entry's two framebuffers is front
 	AddrLeft   uint32 // framebuffer virtual address (left eye)
 	AddrRight  uint32 // right-eye address (2D: same as left)
@@ -47,6 +47,22 @@ type fbPresent struct {
 	Format     uint32 // GSP framebuffer format word
 	DispSelect uint32
 	Valid      bool
+}
+
+// Scanout is what the LCD is pointed at for a screen, as the GSP last applied it.
+//
+// This is the only authority on "what is on the screen". A DisplayTransfer writes a
+// framebuffer; it does not make it visible. The game double-buffers, and it renders the
+// top screen TWICE — once per eye — so the last transfer to a screen is not the picture
+// being shown, it is the right eye of it, which with the 3D slider down is a cleared
+// buffer nobody looks at. AddrLeft is the one the panel scans.
+//
+// screen is 0 for the top, 1 for the bottom.
+func (m *Machine) Scanout(screen int) FBPresent {
+	if screen < 0 || screen > 1 {
+		return FBPresent{}
+	}
+	return m.screenFB[screen]
 }
 
 // deliverVBlank pushes the VBlank interrupts into the GSP shared-memory queue
@@ -107,7 +123,7 @@ func (m *Machine) consumeFBInfo() {
 		}
 		idx := uint32(m.Read(base)) & 1
 		e := base + 4 + idx*0x1C
-		m.screenFB[screen] = fbPresent{
+		m.screenFB[screen] = FBPresent{
 			Active:     m.ReadWord(e),
 			AddrLeft:   m.ReadWord(e + 4),
 			AddrRight:  m.ReadWord(e + 8),
@@ -146,7 +162,21 @@ func (m *Machine) pushGSPInterrupt(id byte) {
 	cnt := m.Read(base + 1)
 	const listLen = 0x34
 	if uint32(cnt) >= listLen {
-		fmt.Printf("GSP INTERRUPT QUEUE OVERFLOW: id=%d idx=%d cnt=%d at instr %d\n", id, idx, cnt, m.instrs)
+		// The queue is full: the app's GSP event thread has stopped draining it. The
+		// hardware queue cannot grow, so neither may this one — the old code carried
+		// on writing, running the count past 0x34 (cnt=98 was seen) and scribbling
+		// interrupt ids through whatever follows the ring in GSP shared memory. Drop
+		// the interrupt, as a full queue must, and say so once: an overflow is never
+		// the disease, it is the sign that something upstream has parked the thread
+		// that should be consuming (for a whole session, that was the title
+		// suspending itself — see signalAPTEvents).
+		if !m.gspOverflowed {
+			m.gspOverflowed = true
+			fmt.Printf("GSP interrupt queue overflow (id=%d idx=%d cnt=%d at instr %d): the app has stopped "+
+				"draining it — interrupts are being dropped, and something has blocked its GSP thread\n",
+				id, idx, cnt, m.instrs)
+		}
+		return
 	}
 	pos := (uint32(idx) + uint32(cnt)) % listLen
 	m.Write(base+0xC+pos, id)

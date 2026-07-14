@@ -78,6 +78,11 @@ type FrameProfile struct {
 	TotalMs  float64
 	Buckets  []ProfileBucket
 	Counters []ProfileCounter
+
+	// Drew says whether the game drew anything in this field. It renders at 30 Hz on a
+	// 60 Hz console, so half the fields are logic alone — and a reader that does not
+	// know which is which cannot tell a cheap frame from an empty one.
+	Drew bool
 }
 
 type profState struct {
@@ -194,6 +199,7 @@ func (m *Machine) profFrame() {
 
 	p.last = FrameProfile{
 		TotalMs: ms(total),
+		Drew:    d.draws > 0,
 		Buckets: buckets,
 		Counters: []ProfileCounter{
 			{"draws", d.draws},

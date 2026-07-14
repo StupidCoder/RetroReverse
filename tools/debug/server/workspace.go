@@ -63,6 +63,13 @@ func (w *Workspace) setTarget(rn *Runner, g *debug.Game) {
 	w.mu.Unlock()
 
 	if old != nil {
+		// Detach before shutting down. A runner that was free-running has a frame in
+		// flight on its own goroutine, and it will finish it and broadcast it — a picture
+		// from the machine we just closed, arriving after the new machine's hello and
+		// painting over it. Detaching first means it broadcasts to nobody.
+		for _, s := range subs {
+			old.detach(s)
+		}
 		old.shutdown() // closes the machine on its own goroutine
 	}
 	for _, s := range subs {

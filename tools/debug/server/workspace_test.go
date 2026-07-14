@@ -85,6 +85,81 @@ func TestLibraryAndOpen(t *testing.T) {
 	cl.recvType(t, "frame")
 }
 
+// Switching games hands the page to the new machine — and, just as importantly, takes it
+// away from the old one. A runner that was free-running has a frame in flight on its own
+// goroutine; if the page is still attached when that frame lands, the game we just left
+// paints over the game we just opened, which reads as "switching targets is broken".
+func TestSwitchingTargetsTakesThePageAwayFromTheOldMachine(t *testing.T) {
+	root := gamesTree(t)
+	s := NewLibrary(root)
+	srv := httptest.NewServer(s.Handler())
+	defer srv.Close()
+
+	cl := dial(t, srv.URL)
+	cl.recvType(t, "library")
+	cl.send(t, "target.open", 1, map[string]any{"slug": "test-game-wsfake"})
+	cl.recvType(t, "hello")
+
+	old := s.ws.runner()
+	if old == nil {
+		t.Fatal("no runner after opening a game")
+	}
+
+	// Free-run it, so the old machine is mid-frame when we switch away.
+	cl.send(t, "frame.play", 2, playArgs{On: true})
+	if m := cl.recvType(t, "render"); m["play"] != true {
+		t.Fatalf("not a played frame: %v", m)
+	}
+	cl.recvBinary(t)
+
+	cl.send(t, "target.open", 3, map[string]any{"slug": "test-game-wsfake"})
+	for i := 0; ; i++ {
+		if i > 16 {
+			t.Fatal("no hello after switching targets")
+		}
+		m := cl.recvJSON(t)
+		if m["type"] == "hello" {
+			break
+		}
+		if m["type"] == "render" {
+			cl.recvBinary(t)
+		}
+	}
+
+	old.mu.Lock()
+	subs := len(old.subs)
+	old.mu.Unlock()
+	if subs != 0 {
+		t.Errorf("the closed machine still has %d page(s) attached: its last frame will paint over the new game", subs)
+	}
+
+	rn := s.ws.runner()
+	if rn == old {
+		t.Fatal("the workspace still points at the old runner")
+	}
+
+	// And the new machine answers. It is a fresh boot, playing nothing.
+	if rn.playing {
+		t.Error("the new machine inherited the old one's play state")
+	}
+	cl.send(t, "frame.step", 4, stepArgs{})
+	for i := 0; ; i++ {
+		if i > 16 {
+			t.Fatal("the new machine never answered a step")
+		}
+		m := cl.recvJSON(t)
+		if m["type"] == "frame" {
+			if len(m["commands"].([]any)) != fakeCmds {
+				t.Errorf("the new machine captured %v commands", len(m["commands"].([]any)))
+			}
+			break
+		}
+		if m["type"] == "render" {
+			cl.recvBinary(t)
+		}
+	}
+}
+
 func TestOpenUnknownGame(t *testing.T) {
 	srv, _ := serveLibrary(t)
 	cl := dial(t, srv.URL)

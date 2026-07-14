@@ -53,7 +53,18 @@ func (g *GPU) draw(indexed bool) {
 	}
 	m := g.m
 
-	base := m.gpuAddrToVirt(g.Regs[regAttrBase] << 3)
+	// The vertex-fetch addresses are computed in the GPU's own PHYSICAL address space and
+	// mapped into the process's virtual one at the end — not the other way round.
+	//
+	// It matters because the GPU's space is flat and the process's is not. Captain Toad's
+	// bottom-screen blit sets the attribute base to VRAM (physical 0x18000000) and puts its
+	// index array at an offset of 0x0CBC233C from it — which lands at physical 0x24BC233C,
+	// in FCRAM, a region the process sees at an entirely unrelated virtual address. Adding
+	// that offset to VRAM's VIRTUAL base instead walked off the end of VRAM into unmapped
+	// memory, every index read back as zero, all six vertices of the quad collapsed onto
+	// vertex 0, and the whole bottom screen rasterised nothing.
+	physBase := g.Regs[regAttrBase] << 3
+	base := m.gpuAddrToVirt(physBase)
 	fmtWord := uint64(g.Regs[regAttrFmtLow]) | uint64(g.Regs[regAttrFmtHigh]&0xFFFF)<<32
 	fixedMask := g.Regs[regAttrFmtHigh] >> 16 & 0xFFF
 
@@ -80,7 +91,7 @@ func (g *GPU) draw(indexed bool) {
 	count := g.Regs[regNumVertices]
 	first := g.Regs[regVertexOff]
 	idxCfg := g.Regs[regIndexConfig]
-	idxAddr := base + idxCfg&0x0FFFFFFF
+	idxAddr := m.gpuAddrToVirt(physBase + idxCfg&0x0FFFFFFF)
 	idx16 := idxCfg>>31 != 0
 
 	// Shader input map: input register j ← attribute (perm >> 4j) & 0xF.
@@ -99,7 +110,7 @@ func (g *GPU) draw(indexed bool) {
 			g.Regs[regVshAttrPermH], g.Regs[regVshAttrPermL], g.Regs[0x2B9]&0xF)
 		for bi, b := range bufs {
 			fmt.Printf("    buf%d off=0x%06X stride=%d comps=%v -> addr(v0)=0x%08X\n",
-				bi, b.off, b.stride, comps[b.first:b.first+b.n], base+b.off)
+				bi, b.off, b.stride, comps[b.first:b.first+b.n], m.gpuAddrToVirt(physBase+b.off))
 		}
 		for a := 0; a < 12; a++ {
 			if fixedMask>>uint(a)&1 != 0 {
@@ -166,7 +177,7 @@ func (g *GPU) draw(indexed bool) {
 			}
 		}
 		for _, b := range bufs {
-			p := base + b.off + vi*b.stride
+			p := m.gpuAddrToVirt(physBase + b.off + vi*b.stride)
 			for _, c := range comps[b.first : b.first+b.n] {
 				if c >= 12 { // padding component: skip (c-11)*4 bytes
 					p += uint32(c-11) * 4

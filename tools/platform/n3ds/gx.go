@@ -242,10 +242,30 @@ func (m *Machine) gxDisplayTransfer(src, dst, srcDims, dstDims, flags uint32) {
 		dst: dst, w: w, h: h, format: outFmt, bpp: dstBPP, stride: dstW,
 		src: src, srcW: srcW, flip: flip,
 	}
+	screen := "top"
 	if dstH >= 400 {
 		m.lastXferTop = rec
 	} else {
 		m.lastXferBottom = rec
+		screen = "bottom"
+	}
+
+	// A transfer is the END OF A PASS, and that is the structure a frame actually has on
+	// this console: a game renders a screen, transfers it out, and is free to render the
+	// next screen INTO THE SAME BUFFER. Super Mario 3D Land does exactly that — clear,
+	// draw the top screen, transfer it; clear, draw it again for the other eye, transfer;
+	// clear, draw the BOTTOM screen, transfer — three passes through one render target.
+	//
+	// So "what is on the top screen" cannot be answered by looking at the render target
+	// once the frame has ended: by then it holds the bottom screen. It is answered by the
+	// linear framebuffer this transfer just wrote — and, for a debugger replaying the
+	// frame, by knowing which pass it is in the middle of. Hence this hook.
+	if m.OnPresent != nil {
+		m.OnPresent(screen, ScreenGeom{
+			Src: rec.src, SrcW: rec.srcW, W: rec.w, H: rec.h,
+			Flip: rec.flip, Bottom: screen == "bottom",
+			Dst: rec.dst, DstStride: rec.stride, DstFmt: rec.format, DstBPP: rec.bpp,
+		})
 	}
 }
 

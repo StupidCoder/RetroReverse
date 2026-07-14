@@ -226,6 +226,7 @@ func (a *Adapter) LoadStateFile(path string) error {
 func (a *Adapter) StepFrame(withOverdraw bool) (*debug.FrameCapture, error) {
 	ms := a.live.SaveState()
 	fc := &debug.FrameCapture{Start: snap{ms: &ms}, Width: dispW, Height: dispH}
+	fc.CountWrites()
 
 	// Provenance is gathered per render target, because a frame is drawn into several
 	// of them and only one of them is the picture. Keyed by packed (y<<16|x) while the
@@ -264,6 +265,7 @@ func (a *Adapter) StepFrame(withOverdraw bool) (*debug.FrameCapture, error) {
 		}
 		key := y<<16 | (x & 0xFFFF)
 		if ev.Drawn {
+			fc.MarkWrite(cmd) // into any render target, not only the one that gets presented
 			if prov[cur] == nil {
 				prov[cur] = map[uint32]int32{}
 			}

@@ -1,6 +1,6 @@
-// The dock: three groups, each holding several panels and showing one.
+// The dock: four groups, each holding several panels and showing one.
 //
-// The debugger has eleven panels now, and stacking them all in three fixed regions left
+// The debugger has eleven panels now, and stacking them all in a few fixed regions left
 // nothing legible. So a group is a tab bar plus its panels, only one of them visible —
 // and any panel can be *promoted* to the stage, the big region on the left, swapping
 // places with whatever was there.
@@ -10,7 +10,13 @@
 // viewport keeps the frame it was showing and the pixel it had picked. Nothing in any
 // panel had to change to make this work.
 
-const GROUPS = ['stage', 'side', 'bottom'];
+// The stage is the big region; the rest are tab groups. The two bottom groups are
+// deliberately separate rather than one wide strip of tabs: the left one is about the
+// MACHINE (its states, its CPU, its memory, its files) and the right one about the FRAME
+// on the stage (what overdrew what, what the selected command was, what it all cost). Side
+// by side, you can watch one while reading the other.
+const GROUPS = ['stage', 'side', 'bottom-left', 'bottom-right'];
+const TABBED = GROUPS.filter((g) => g !== 'stage');
 
 // panes maps a panel id to its <section>, homes to the group it belongs to by default,
 // and titles to what its tab says. All three are rebuilt whenever the target changes.
@@ -21,12 +27,16 @@ let layout = null;
 let platform = '';
 
 // layoutKey remembers an arrangement per platform: the N64 and the PSX have different
-// panels and you want different habits on each.
-const layoutKey = (p) => `framedbg.layout.${p || 'unknown'}`;
+// panels and you want different habits on each. The version is part of the key, so a
+// layout saved against a different set of groups is not reconciled, it is simply not
+// found — the old one would have been read as "the user put everything on the left".
+const layoutKey = (p) => `framedbg.layout.v2.${p || 'unknown'}`;
+
+const emptyGroups = () => Object.fromEntries(TABBED.map((g) => [g, []]));
 
 // defaultLayout puts every panel in the group it declared, with the viewport on the stage.
 function defaultLayout(ids) {
-  const l = { stage: '', groups: { side: [], bottom: [] }, active: {} };
+  const l = { stage: '', groups: emptyGroups(), active: {} };
   for (const id of ids) {
     const home = homes.get(id);
     if (home === 'stage' && !l.stage) l.stage = id;
@@ -34,8 +44,7 @@ function defaultLayout(ids) {
     else l.groups[home].push(id);
   }
   if (!l.stage) l.stage = ids[0] || '';
-  l.active.side = l.groups.side[0] || '';
-  l.active.bottom = l.groups.bottom[0] || '';
+  for (const g of TABBED) l.active[g] = l.groups[g][0] || '';
   return l;
 }
 
@@ -46,13 +55,13 @@ function reconcile(saved, ids) {
   const have = new Set(ids);
   const l = {
     stage: have.has(saved.stage) ? saved.stage : '',
-    groups: { side: [], bottom: [] },
+    groups: emptyGroups(),
     active: {},
   };
   const placed = new Set();
   if (l.stage) placed.add(l.stage);
 
-  for (const g of ['side', 'bottom']) {
+  for (const g of TABBED) {
     for (const id of saved.groups?.[g] || []) {
       if (have.has(id) && !placed.has(id)) {
         l.groups[g].push(id);
@@ -69,14 +78,14 @@ function reconcile(saved, ids) {
   }
   // The stage must never be empty: something has to hold the big region.
   if (!l.stage) {
-    for (const g of ['side', 'bottom']) {
+    for (const g of TABBED) {
       if (l.groups[g].length) {
         l.stage = l.groups[g].shift();
         break;
       }
     }
   }
-  for (const g of ['side', 'bottom']) {
+  for (const g of TABBED) {
     const a = saved.active?.[g];
     l.active[g] = l.groups[g].includes(a) ? a : l.groups[g][0] || '';
   }
@@ -123,7 +132,7 @@ export function resetLayout() {
 // arrives in front of you rather than behind a tab you are not looking at.
 export function reveal(id) {
   if (!layout || !panes.has(id) || layout.stage === id) return;
-  for (const g of ['side', 'bottom']) {
+  for (const g of TABBED) {
     if (layout.groups[g].includes(id)) {
       layout.active[g] = id;
       save();
@@ -153,7 +162,7 @@ function promote(id) {
 
 function groupOf(id) {
   if (layout.stage === id) return 'stage';
-  for (const g of ['side', 'bottom']) {
+  for (const g of TABBED) {
     if (layout.groups[g].includes(id)) return g;
   }
   return '';

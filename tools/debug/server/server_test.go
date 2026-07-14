@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"reflect"
 	"sort"
 	"strings"
 	"testing"
@@ -115,6 +116,12 @@ func (f *fakeTarget) StepFrame(withOverdraw bool) (*debug.FrameCapture, error) {
 	}
 	for i := range fc.Prov {
 		fc.Prov[i] = int32(i % 3)
+	}
+	// Only three of this frame's 128 commands ever put a pixel anywhere — which is the whole
+	// point of the writer list, and roughly the ratio a real machine has.
+	fc.CountWrites()
+	for i := 0; i < fakeW*fakeH; i++ {
+		fc.MarkWrite(i % 3)
 	}
 	if withOverdraw {
 		fc.Overdraw = map[int][]debug.PixelWrite{
@@ -573,8 +580,8 @@ func TestPlayStreamsAndPauses(t *testing.T) {
 		t.Errorf("machine advanced %d fields over 3 played frames", f.steps)
 	}
 
-	// Pausing captures the next field in full. Frames already on their way arrive
-	// first, so skip past them.
+	// Pausing captures a drawn field in full, so the pause alone leaves you on a frame
+	// worth tracing. Frames already on their way arrive first, so skip past them.
 	cl.send(t, "frame.play", 2, playArgs{On: false, Overdraw: true})
 	for i := 0; ; i++ {
 		if i > 8 {
@@ -838,4 +845,122 @@ func min(a, b int) int {
 		return a
 	}
 	return b
+}
+
+// The scrubber walks the commands that wrote pixels, so the frame message has to carry
+// them. The fake's frame runs 128 commands and three of them ever put a pixel anywhere.
+func TestFrameCarriesItsWriters(t *testing.T) {
+	srv, _ := serveFake(t)
+	cl := dial(t, srv.URL)
+	cl.recvType(t, "hello")
+
+	cl.send(t, "frame.step", 1, stepArgs{N: 1})
+	m := cl.recvType(t, "frame")
+
+	if len(m["commands"].([]any)) != fakeCmds {
+		t.Fatalf("commands = %d", len(m["commands"].([]any)))
+	}
+	w, ok := m["writers"].([]any)
+	if !ok {
+		t.Fatalf("writers = %v, want the list of commands that drew", m["writers"])
+	}
+	got := make([]int, len(w))
+	for i, v := range w {
+		got[i] = int(v.(float64))
+	}
+	if want := []int{0, 1, 2}; !reflect.DeepEqual(got, want) {
+		t.Errorf("writers = %v, want %v — the whole stream is 128 commands and only these drew", got, want)
+	}
+}
+
+// ---- the profile ----
+
+// profTarget draws in every other field, which is what a 30 Hz game on a 60 Hz console
+// does — and the reason a field's profile is not a frame's.
+type profTarget struct {
+	coreTarget
+	field int
+}
+
+func (p *profTarget) FrameProfile() debug.FrameProfile {
+	p.field++
+	if p.field%2 == 0 { // the logic-only field: no draws, but real time spent
+		return debug.FrameProfile{
+			TotalMs:  2,
+			Drew:     false,
+			Buckets:  []debug.ProfileBucket{{Name: "arm11", Millis: 2}},
+			Counters: []debug.ProfileCounter{{Name: "draws", Value: 0}},
+		}
+	}
+	return debug.FrameProfile{
+		TotalMs: 100,
+		Drew:    true,
+		Buckets: []debug.ProfileBucket{
+			{Name: "rasterise", Millis: 80, Count: 4},
+			{Name: "arm11", Millis: 20},
+		},
+		Counters: []debug.ProfileCounter{{Name: "draws", Value: 4}},
+	}
+}
+
+// A field a game drew nothing in is not a frame. Its time belongs to the picture it was
+// working towards, so it is carried and added to the next field that draws — otherwise the
+// panel flips between the drawing field's cost and the idle one's, twice per frame, and
+// neither number is what the frame cost.
+func TestProfileFoldsIdleFieldsIntoTheFrameTheyBelongTo(t *testing.T) {
+	tgt := &profTarget{}
+	var pa profAccum
+
+	if pa.emit() != nil {
+		t.Error("a profile before any field has been observed")
+	}
+
+	pa.observe(tgt) // field 1: drew
+	p := pa.emit()
+	if p == nil {
+		t.Fatal("no profile after a field that drew")
+	}
+	if p.TotalMs != 100 {
+		t.Errorf("first frame = %v ms, want 100", p.TotalMs)
+	}
+
+	pa.observe(tgt) // field 2: drew nothing — not a frame, and not published as one
+	if got := pa.emit(); got != p || got.TotalMs != 100 {
+		t.Errorf("an idle field replaced the frame's profile: %v", got)
+	}
+
+	pa.observe(tgt) // field 3: drew — the idle field's time lands here
+	p = pa.emit()
+	if p.TotalMs != 102 {
+		t.Errorf("frame = %v ms, want 102: the idle field's 2 ms is part of what this picture cost", p.TotalMs)
+	}
+	var sum float64
+	for _, b := range p.Buckets {
+		sum += b.Millis
+	}
+	if sum != p.TotalMs {
+		t.Errorf("buckets sum to %v but the frame took %v — the bar would not add up", sum, p.TotalMs)
+	}
+	if len(p.Buckets) != 2 {
+		t.Fatalf("buckets = %v, want them merged by name", p.Buckets)
+	}
+	// arm11 appears in both fields and must be added, not replaced or duplicated.
+	for _, b := range p.Buckets {
+		if b.Name == "arm11" && b.Millis != 22 {
+			t.Errorf("arm11 = %v ms, want 22 (20 drawing + 2 idle)", b.Millis)
+		}
+		if b.Name == "rasterise" && b.Count != 4 {
+			t.Errorf("rasterise count = %d, want 4", b.Count)
+		}
+	}
+	if p.Counters[0].Value != 4 {
+		t.Errorf("draws = %d, want 4", p.Counters[0].Value)
+	}
+
+	// A state load lands in another machine; the fields we were adding up were on the way
+	// to a picture that is never going to be drawn.
+	pa.reset()
+	if pa.emit() != nil {
+		t.Error("the profile survived a reset")
+	}
 }

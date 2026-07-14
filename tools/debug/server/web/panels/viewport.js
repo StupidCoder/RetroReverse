@@ -14,7 +14,8 @@
 // pick path already bails while playing, and the touch path only exists while playing.
 
 import { registerPanel } from './registry.js';
-import { KIND_IMAGE, KIND_PROV, STREAM_MAIN } from '../conn.js';
+import { KIND_IMAGE, KIND_PROV, STREAM_MAIN, STREAM_SURFACE } from '../conn.js';
+import { esc } from '../util.js';
 
 const HIGHLIGHT = [255, 46, 166]; // --hot
 
@@ -37,34 +38,57 @@ registerPanel({
         <input type="range" id="slider" min="0" max="0" value="0" disabled>
         <button id="next" title="next command (→)">▶</button>
         <span id="scrub-label" class="mono muted">—</span>
-      </div>
-      <div id="hover" class="mono muted">hover a pixel</div>`;
+      </div>`;
 
     const view = new Viewport(ctx);
     ctx.viewport = view; // the shell needs it to draw incoming images
 
     const slider = document.getElementById('slider');
     const label = document.getElementById('scrub-label');
-    const hover = document.getElementById('hover');
     const canScrub = ctx.store.can('replay');
 
-    slider.disabled = !canScrub;
-    slider.oninput = () => ctx.ui.selectCommand(Number(slider.value));
-    document.getElementById('prev').onclick = () => ctx.ui.selectCommand(ctx.store.get('selected') - 1);
-    document.getElementById('next').onclick = () => ctx.ui.selectCommand(ctx.store.get('selected') + 1);
+    // What the pixel under the cursor was drawn by goes in the panel's own header, where
+    // there is already a line, rather than on a line of its own under the scrubber — the
+    // stage is the one place worth spending vertical space on.
+    const hover = document.getElementById('viewport-note');
+    const say = (s) => (hover.textContent = s);
 
-    ctx.store.on('frame', (frame) => {
-      const n = frame ? frame.commands.length : 0;
-      slider.max = Math.max(0, n - 1);
-      slider.disabled = !canScrub || n === 0;
-      if (!n) label.textContent = '—';
+    // The buffer selector: the frame is the default, and everything else the machine can
+    // show as a picture is one pick away — the two screens of a DS or a 3DS, the 3D core's
+    // own render buffer, the PICA's draw target and its depth buffer, all of the PSX's
+    // VRAM. It is the same list the "Memory as an image" panel offers, less the free
+    // texture surface, which needs an address and a format and so needs that panel's boxes.
+    mountBufferPicker(ctx, view, say);
+
+    // The scrubber's positions are the commands that WROTE to memory (ctx.ui.scrubList), so
+    // dragging it walks the frame being built rather than the register writes that set it
+    // up. The command list is still the whole stream, and picking any command from it still
+    // shows the frame as it stood after it — the handle then rests on the last write before
+    // it, which is the picture you are looking at.
+    slider.disabled = !canScrub;
+    slider.oninput = () => ctx.ui.selectCommand(ctx.ui.scrubList().at(Number(slider.value)));
+    document.getElementById('prev').onclick = () => ctx.ui.stepScrub(-1);
+    document.getElementById('next').onclick = () => ctx.ui.stepScrub(1);
+
+    ctx.store.on('frame', () => {
+      const s = ctx.ui.scrubList();
+      slider.max = Math.max(0, s.n - 1);
+      slider.disabled = !canScrub || s.n === 0;
+      if (!s.n) label.textContent = '—';
     });
 
     ctx.store.on('selected', (k) => {
       const frame = ctx.store.get('frame');
       if (!frame || k < 0) return;
-      slider.value = k;
-      label.textContent = `${k} / ${frame.commands.length - 1}`;
+      const s = ctx.ui.scrubList();
+      const at = s.indexOf(k);
+      if (at >= 0) slider.value = at;
+      // What the handle is at, and what it is at OF: "#1,182 · draw 7/243" — the command,
+      // then where that sits among the frame's writes. On a platform that does not report
+      // pixels there are no writes to count, and it says the plain thing.
+      label.textContent = s.all
+        ? `${k} / ${frame.commands.length - 1}`
+        : `#${k} · draw ${at + 1}/${s.n}`;
       view.select(k);
     });
 
@@ -79,23 +103,19 @@ registerPanel({
     ctx.store.on('pick', (p) => view.setPick(p));
     ctx.store.on('playing', (on) => {
       if (!on) return;
-      hover.textContent = ctx.store.can('touch')
-        ? 'playing — drag the touch screen to use the stylus'
-        : 'playing — no capture';
+      say(ctx.store.can('touch') ? 'playing — drag the touch screen to use the stylus' : 'playing — no capture');
     });
 
     view.onHover = (x, y) => {
       if (ctx.store.get('playing')) return; // nothing is captured while playing
       if (x < 0) {
-        hover.textContent = 'hover a pixel';
+        say('');
         return;
       }
       const k = view.provAt(x, y);
       const frame = ctx.store.get('frame');
       const name = frame && k >= 0 && frame.commands[k] ? frame.commands[k].name : null;
-      hover.textContent = name
-        ? `pixel (${x}, ${y}) ← #${k} ${name}`
-        : `pixel (${x}, ${y}) — untouched`;
+      say(name ? `pixel (${x}, ${y}) ← #${k} ${name}` : `pixel (${x}, ${y}) — untouched`);
     };
 
     view.onPick = (x, y) => {
@@ -124,6 +144,62 @@ registerPanel({
   },
 });
 
+// mountBufferPicker puts the buffer selector in the panel's header, ahead of everything
+// else it says — it names what you are looking at, so it reads first.
+//
+// The surfaces are the target's own answer (debug.Surfacer), which is why this is one
+// control rather than a per-platform list: the DS offers its two screens and the 3D core's
+// render buffer, the 3DS its PICA draw target and depth buffer, the PSX all of VRAM, and
+// none of that is written down here.
+function mountBufferPicker(ctx, view, say) {
+  if (!ctx.store.can('surfaces')) return;
+
+  const head = document.querySelector('[data-panel="viewport"] h2');
+  const sel = document.createElement('select');
+  sel.id = 'vp-buffer';
+  sel.title = 'which buffer of the machine to show';
+  sel.innerHTML = '<option value="">Frame</option>';
+  head.insertBefore(sel, document.getElementById('viewport-note'));
+
+  ctx.conn.on('surfaces', (m) => {
+    const fixed = m.surfaces.filter((s) => !s.free); // the free one needs an address and a format
+    sel.innerHTML =
+      '<option value="">Frame</option>' +
+      fixed.map((s) => `<option value="${esc(s.id)}">${esc(s.name)}</option>`).join('');
+    sel.value = view.buffer; // a re-listed surface set must not silently change what is shown
+  });
+
+  sel.onchange = () => {
+    view.setBuffer(sel.value);
+    say('');
+    if (view.buffer) {
+      view.drawBuffer();
+      return;
+    }
+    ctx.ui.redraw(); // back to the frame: whatever the scrubber and the scanout box say
+  };
+
+  // Surface images ride their own stream, so this and the "Memory as an image" panel can
+  // each have one in flight without drawing the other's.
+  ctx.conn.onBinary((m) => {
+    if (m.kind !== KIND_IMAGE || m.stream !== STREAM_SURFACE) return;
+    if (!view.buffer || m.seq !== view.bufSeq) return;
+    view.drawImage(m.image);
+  });
+
+  // While the machine free-runs there is no capture and the stream is the scanout, so a
+  // buffer cannot be held on screen — and a half-drawn one would be a lie about a machine
+  // that has moved on. Pausing captures a frame, and the frame redraws the buffer.
+  ctx.store.on('playing', (on) => {
+    sel.disabled = on;
+  });
+
+  // A step, a pause, a state load: memory has moved on and so has the buffer.
+  ctx.store.on('frame', () => view.drawBuffer());
+
+  ctx.conn.send('surface.list');
+}
+
 class Viewport {
   constructor(ctx) {
     this.ctx = ctx;
@@ -136,6 +212,9 @@ class Viewport {
     this.w = 0;
     this.h = 0;
     this.zoom = 2;
+    this.fit = false; // scale the picture to the panel instead of to a whole number
+    this.buffer = ''; // a buffer of the machine instead of the frame, by surface id
+    this.bufSeq = -1;
     this.prov = null;
     this.provW = 0;
     this.provH = 0;
@@ -151,6 +230,12 @@ class Viewport {
     this.onPick = () => {};
     this.onTouch = () => {};
     this.onResize = () => {};
+
+    // Fit is a rule about the panel, so the panel changing size re-applies it: promoting
+    // the viewport to the stage, maximizing it, dragging the window narrower.
+    new ResizeObserver(() => {
+      if (this.fit) this.applyZoom();
+    }).observe(document.getElementById('stage-area'));
 
     this.overlay.addEventListener('mousemove', (e) => {
       const p = this.pointAt(e);
@@ -251,12 +336,30 @@ class Viewport {
     this.onResize();
   }
 
+  // setZoom takes the toolbar's value: a whole-number zoom, or "fit".
+  //
+  // Fit is not a zoom level, it is a rule — as large as the panel allows, aspect kept — so
+  // it has to be recomputed whenever either side of that changes: a new picture (a DS frame
+  // grows when the game presents its second screen) or a new panel size (promoting the
+  // viewport to the stage, maximizing it, resizing the window).
   setZoom(z) {
-    this.zoom = z;
+    this.fit = z === 'fit';
+    if (!this.fit) this.zoom = Number(z) || 1;
     this.applyZoom();
   }
 
+  fitScale() {
+    const area = document.getElementById('stage-area');
+    if (!area || !this.w || !this.h) return 1;
+    const pad = 8; // the checkered surround should stay visible as a surround
+    const aw = area.clientWidth - pad;
+    const ah = area.clientHeight - pad;
+    if (aw <= 0 || ah <= 0) return 1;
+    return Math.max(0.05, Math.min(aw / this.w, ah / this.h));
+  }
+
   applyZoom() {
+    if (this.fit) this.zoom = this.fitScale();
     const cssW = `${this.w * this.zoom}px`;
     const cssH = `${this.h * this.zoom}px`;
     for (const c of [this.view, this.overlay]) {
@@ -265,6 +368,25 @@ class Viewport {
     }
     this.wrap.style.width = cssW;
     this.wrap.style.height = cssH;
+  }
+
+  // setBuffer switches the stage between the frame and one of the machine's own buffers.
+  setBuffer(id) {
+    this.buffer = id;
+    // Provenance is a plane of the frame's DRAW TARGET. Another buffer is another plane —
+    // and one that is often the same size, which is worse than a different one, because the
+    // overlay would happily light up pixels of a picture those commands never touched.
+    if (id) this.setProv(null, 0, 0);
+  }
+
+  // drawBuffer asks for the selected buffer as it stands now. This is a read of live memory
+  // rather than a replay, which is exactly what makes it worth having: it says where the
+  // machine IS, even while the scrubber has the frame wound back into the middle.
+  drawBuffer() {
+    if (!this.buffer) return false;
+    this.bufSeq = this.ctx.conn.send('surface.render', { id: this.buffer });
+    this.ctx.conn.onError(this.bufSeq, (m) => this.ctx.ui.status(m.msg.replace(/^\w+adapter: /, '')));
+    return true;
   }
 
   drawImage(imageData) {

@@ -1,6 +1,10 @@
 package n3ds
 
-import "retroreverse.com/tools/cpu/arm"
+import (
+	"fmt"
+
+	"retroreverse.com/tools/cpu/arm"
+)
 
 // sync.go implements the real Horizon synchronization primitives over kobjects:
 // a thread that waits on an unavailable object blocks (thread.go), and a signaller
@@ -70,9 +74,21 @@ func (m *Machine) svcWaitSync1(c *arm.CPU) {
 	// Block: park the thread and register it as a waiter.
 	m.curThread.waitOn = []uint32{handle}
 	m.curThread.waitAll = false
+	m.armWaitDeadline(timeoutNs)
 	obj.waiters = append(obj.waiters, m.curThread.id)
 	m.curThread.state = waiting
 	m.reschedule = true
+}
+
+// armWaitDeadline bounds the running thread's wait when the caller asked for a
+// finite timeout. A negative timeout is Horizon's "wait for ever" (the callers
+// write -1); only a positive one is a deadline. thread.go expires it.
+func (m *Machine) armWaitDeadline(ns int64) {
+	if ns > 0 {
+		m.curThread.waitDeadline = m.tick + nsToTick(ns)
+		return
+	}
+	m.curThread.waitDeadline = 0
 }
 
 // svcWaitSyncN blocks on a set of objects. r0/r1 = handles ptr / result-index out
@@ -120,6 +136,7 @@ func (m *Machine) svcWaitSyncN(c *arm.CPU) {
 	}
 	m.curThread.waitOn = handles
 	m.curThread.waitAll = waitAll
+	m.armWaitDeadline(timeoutNs)
 	for _, h := range handles {
 		if obj := m.handles[h]; obj != nil {
 			obj.waiters = append(obj.waiters, m.curThread.id)
@@ -289,9 +306,24 @@ func (m *Machine) signalThreadExit(t *thread) {
 }
 
 // svcArbitrateAddress is the address arbiter — the futex/condition-variable path
-// libctru uses (LightLock contention, cond_wait). r1 = addr, r2 = type,
-// r3 = value. Types: 0 SIGNAL (wake up to `value` parked threads, <0 = all),
-// 1/3 WAIT_IF_LESS_THAN, 2/4 DECREMENT_AND_WAIT_IF_LESS_THAN.
+// libctru uses (LightLock contention, cond_wait). r1 = addr, r2 = type, r3 = value.
+//
+// The type numbering, and how it was pinned. The obvious reading — that the types come
+// in two pairs, wait and decrement-and-wait, each with a timeout variant "next to" it —
+// is wrong, and it was briefly coded here before the machine was asked. The order is:
+//
+//	0 SIGNAL                                  wake up to `value` parked threads (<0 = all)
+//	1 WAIT_IF_LESS_THAN                       park iff *addr < value
+//	2 DECREMENT_AND_WAIT_IF_LESS_THAN         the same, decrementing the word first
+//	3 WAIT_IF_LESS_THAN_TIMEOUT               1, bounded by an s64 ns timeout
+//	4 DECREMENT_AND_WAIT_IF_LESS_THAN_TIMEOUT 2, bounded by an s64 ns timeout
+//
+// The timeout is what the HIGH numbers add; the decrement is what the EVEN ones add.
+// The game settles it: at a type-2 call the register file holds no timeout at all (r4
+// is a copy of the address, r5 is 1 — leftovers, not an s64 in r4:r5, which is where a
+// wrapper that had one would have put it). A caller that meant "wait with a timeout"
+// would have loaded one. So 2 is the untimed decrement-and-wait, and this is what the
+// code always did.
 func (m *Machine) svcArbitrateAddress(c *arm.CPU) {
 	addr := c.R[1]
 	typ := c.R[2]
@@ -300,17 +332,17 @@ func (m *Machine) svcArbitrateAddress(c *arm.CPU) {
 	case 0: // SIGNAL
 		m.arbSignal(addr, value)
 		c.R[0] = resultSuccess
-	case 1, 3: // WAIT_IF_LESS_THAN
+	case 1, 3: // WAIT_IF_LESS_THAN (3: with timeout)
 		if int32(m.ReadWord(addr)) < value {
-			m.arbPark(addr)
+			m.arbPark(addr, typ == 3)
 		} else {
 			c.R[0] = resultSuccess
 		}
-	case 2, 4: // DECREMENT_AND_WAIT_IF_LESS_THAN
+	case 2, 4: // DECREMENT_AND_WAIT_IF_LESS_THAN (4: with timeout)
 		cur := int32(m.ReadWord(addr))
 		if cur <= value {
 			m.WriteWord(addr, uint32(cur-1))
-			m.arbPark(addr)
+			m.arbPark(addr, typ == 4)
 		} else {
 			c.R[0] = resultSuccess
 		}
@@ -319,7 +351,22 @@ func (m *Machine) svcArbitrateAddress(c *arm.CPU) {
 	}
 }
 
-func (m *Machine) arbPark(addr uint32) {
+// arbPark blocks the running thread on an arbiter address until someone signals it.
+//
+// The timed variants (3, 4) are not modelled: no title has been seen to use them, and a
+// deadline written against no observation is a guess. But an unmodelled timeout degrades
+// into a thread that waits for ever — which is how this platform's worst bugs present —
+// so it says so out loud rather than hanging quietly. If this ever prints, read the
+// timeout out of the caller's registers and implement it.
+func (m *Machine) arbPark(addr uint32, timed bool) {
+	if timed && !m.arbTimedWarned[addr] {
+		if m.arbTimedWarned == nil {
+			m.arbTimedWarned = map[uint32]bool{}
+		}
+		m.arbTimedWarned[addr] = true
+		fmt.Printf("n3ds: thread %d parked on a TIMED arbiter wait (arb@0x%08X) — the timeout is not modelled, "+
+			"so this thread will only wake if something signals the address\n", m.curThread.id, addr)
+	}
 	m.curThread.arbAddr = addr
 	m.curThread.state = waiting
 	m.reschedule = true // result (success) delivered on wake

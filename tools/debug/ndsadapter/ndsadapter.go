@@ -206,6 +206,7 @@ func (a *Adapter) StepFrame(withOverdraw bool) (*debug.FrameCapture, error) {
 		Width:  frameW,
 		Height: frameH,
 	}
+	fc.CountWrites()
 
 	// Provenance is gathered in the 3D plane's own coordinates (256x192) while the frame
 	// draws, and moved onto the composed frame afterwards — once we know which panel
@@ -230,6 +231,7 @@ func (a *Adapter) StepFrame(withOverdraw bool) (*debug.FrameCapture, error) {
 		}
 		i := y*panelW + x
 		if ev.Drawn {
+			fc.MarkWrite(cur)
 			prov[i] = int32(cur)
 		}
 		if withOverdraw {

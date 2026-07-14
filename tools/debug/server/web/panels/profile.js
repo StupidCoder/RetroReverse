@@ -28,8 +28,9 @@ const COLORS = [
 
 registerPanel({
   id: 'profile',
+  rank: 30,
   title: 'Profile',
-  slot: 'side',
+  slot: 'bottom-right',
   requires: 'profile',
   mount(body, ctx) {
     body.classList.add('mono');

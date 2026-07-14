@@ -11,8 +11,9 @@ import { esc } from '../util.js';
 
 registerPanel({
   id: 'states',
+  rank: 10,
   title: 'Savestates',
-  slot: 'bottom',
+  slot: 'bottom-left',
   requires: 'states',
   mount(body, ctx) {
     body.classList.add('mono');

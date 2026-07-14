@@ -450,14 +450,14 @@ func (s *dspSource) mixInto(dest *dspQuadFrame, mix int) {
 
 // DspConfiguration field offsets, within the structure at dspOffDSPConfig.
 const (
-	cfgDirty          = 0x00 // u32
-	cfgMasterVolume   = 0x04 // f32 — the volume of intermediate mix 0 at the final mixer
-	cfgAuxReturnVol   = 0x08 // f32[2] — of mixes 1 and 2
-	cfgOutputFormat   = 0x16 // u16: 0 mono, 1 stereo, 2 surround
-	cfgClippingMode   = 0x18 // u16 (the limiter — not modelled; see mixFinal)
-	cfgHeadphones     = 0x1A // u16
-	cfgAuxBusEnable   = 0x28 // u16[2]
-	cfgDirty2         = 0xC0 // u32
+	cfgDirty        = 0x00 // u32
+	cfgMasterVolume = 0x04 // f32 — the volume of intermediate mix 0 at the final mixer
+	cfgAuxReturnVol = 0x08 // f32[2] — of mixes 1 and 2
+	cfgOutputFormat = 0x16 // u16: 0 mono, 1 stereo, 2 surround
+	cfgClippingMode = 0x18 // u16 (the limiter — not modelled; see mixFinal)
+	cfgHeadphones   = 0x1A // u16
+	cfgAuxBusEnable = 0x28 // u16[2]
+	cfgDirty2       = 0xC0 // u32
 
 	cfgDirtyAuxBus0    = 1 << 8
 	cfgDirtyAuxBus1    = 1 << 9

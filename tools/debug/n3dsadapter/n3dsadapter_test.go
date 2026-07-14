@@ -8,6 +8,7 @@ import (
 
 	"retroreverse.com/tools/debug"
 	"retroreverse.com/tools/debug/n3dsadapter"
+	"retroreverse.com/tools/platform/n3ds"
 )
 
 // The Captain Toad image and the savestate that reaches its opening stage. Neither
@@ -423,41 +424,107 @@ func TestTouchPanelIsTheBottomScreen(t *testing.T) {
 	}
 }
 
-// TestScreenDecodeMatchesTheTransfer is the cross-check on the whole mapping. The
-// debugger decodes a screen straight from the tiled render target (so a replayed
-// frame can fill in draw by draw); the machine's own Framebuffer decodes it from the
-// linear buffer the DisplayTransfer wrote. Those are two independent paths through
-// the crop, the row offset and the rotation, and they must land on the same picture —
-// if they disagree, the provenance the debugger maps through the first path is
-// pointing at pixels the player never saw.
+// TestScreenDecodeMatchesTheTransfer is the cross-check on the whole mapping. The debugger
+// decodes a screen straight from the tiled render target (so a replayed frame can fill in
+// draw by draw); the machine's own transfer wrote it into a linear framebuffer. Those are
+// two independent paths through the crop, the row offset and the rotation, and they must
+// land on the same picture — if they disagree, the provenance the debugger maps through the
+// first path is pointing at pixels the player never saw.
+//
+// The cross-check is made on the frame's LAST pass, and only on that one, because a 3DS
+// frame is a sequence of passes THROUGH ONE RENDER TARGET: SM3DL clears and reuses the same
+// buffer for the top screen, the other eye, and the bottom screen. So only the last pass's
+// picture is still in the render target when the frame ends. Comparing an earlier pass would
+// be comparing a screen against the pixels of the screen that overwrote it — which is exactly
+// the bug this pass model exists to fix, and it used to be what this test asserted.
 func TestScreenDecodeMatchesTheTransfer(t *testing.T) {
 	a := atScene(t)
 	defer a.Close()
 
+	m := a.Machine()
+	var last n3ds.ScreenGeom
+	var lastScreen string
+	m.OnPresent = func(screen string, g n3ds.ScreenGeom) { last, lastScreen = g, screen }
 	if _, err := a.StepFrame(false); err != nil {
 		t.Fatalf("StepFrame: %v", err)
 	}
-	m := a.Machine()
-	for _, name := range []string{"top", "bottom"} {
-		g, ok := m.ScreenGeom(name)
-		if !ok {
-			t.Fatalf("%s screen has no transfer geometry", name)
+	m.OnPresent = nil
+	if last.Dst == 0 {
+		t.Skip("the savestate's next frame presented nothing")
+	}
+
+	ours := m.ScreenImage(last)      // the render target, as it stands
+	theirs := m.PresentedImage(last) // what this pass's own transfer produced
+	if theirs == nil {
+		t.Fatalf("%s: the last pass has no presented picture", lastScreen)
+	}
+	if ours.Rect != theirs.Rect {
+		t.Fatalf("%s: decoded %v, the transfer's framebuffer is %v", lastScreen, ours.Rect, theirs.Rect)
+	}
+	diff := 0
+	for i := range ours.Pix {
+		if ours.Pix[i] != theirs.Pix[i] {
+			diff++
 		}
-		ours := m.ScreenImage(g)
-		theirs := m.Framebuffer(name)
-		if ours.Rect != theirs.Rect {
-			t.Fatalf("%s: decoded %v, the transfer's framebuffer is %v", name, ours.Rect, theirs.Rect)
+	}
+	if diff != 0 {
+		t.Errorf("%s (the frame's last pass): %d of %d bytes differ between the render-target decode and the picture its transfer produced",
+			lastScreen, diff, len(ours.Pix))
+	}
+}
+
+// TestTheScreensAreNotTheSamePicture is the bug this pass model was built for.
+//
+// Both games render every screen through ONE render target — clear, draw the top screen,
+// transfer it out, clear, draw the bottom screen into the same buffer, transfer it out. A
+// debugger that reads both panels out of the render target at the end of the frame reads
+// the same bytes twice, and shows the bottom screen on both panels. On Super Mario 3D Land
+// that meant the welcome dialog appeared where the logo should be.
+func TestTheScreensAreNotTheSamePicture(t *testing.T) {
+	a := atScene(t)
+	defer a.Close()
+
+	// Several frames: the first ones after a restore are mid-render, and the LCD is still
+	// pointed at a buffer from before the state.
+	drawn := 0
+	for i := 0; i < 24 && drawn < 4; i++ {
+		fc, err := a.StepFrame(false)
+		if err != nil {
+			t.Fatalf("StepFrame: %v", err)
 		}
-		diff := 0
-		for i := range ours.Pix {
-			if ours.Pix[i] != theirs.Pix[i] {
-				diff++
+		if fc.Drawn() {
+			drawn++
+		}
+	}
+	img, err := a.Display()
+	if err != nil {
+		t.Skip("nothing presented yet")
+	}
+
+	// The panels sit one above the other, each centred: compare the rows they share.
+	const gap = 8
+	top, ok := a.Machine().ScreenGeom("top")
+	if !ok {
+		t.Skip("no top screen")
+	}
+	_, topH := top.Size()
+	same, n := 0, 0
+	for y := 0; y+topH+gap < img.Rect.Dy() && y < topH; y++ {
+		for x := 0; x < img.Rect.Dx(); x++ {
+			ti := img.PixOffset(x, y)
+			bi := img.PixOffset(x, y+topH+gap)
+			n++
+			if img.Pix[ti] == img.Pix[bi] && img.Pix[ti+1] == img.Pix[bi+1] && img.Pix[ti+2] == img.Pix[bi+2] {
+				same++
 			}
 		}
-		if diff != 0 {
-			t.Errorf("%s: %d of %d bytes differ between the render-target decode and the presented framebuffer",
-				name, diff, len(ours.Pix))
-		}
+	}
+	if n == 0 {
+		t.Skip("only one screen is presented")
+	}
+	if same*2 > n {
+		t.Errorf("%d of %d pixels are identical on both panels — the two screens are being decoded from the same buffer",
+			same, n)
 	}
 }
 
@@ -514,6 +581,11 @@ func TestFrameProfile(t *testing.T) {
 			t.Fatalf("StepFrame: %v", err)
 		}
 		p = a.FrameProfile()
+		// Drew is what the debugger folds fields into frames on, so it has to agree with
+		// the frame's own draw count — on the idle fields as much as on the drawing ones.
+		if p.Drew != drew(p) {
+			t.Errorf("field %d: Drew = %v but the frame reports %d draws", i, p.Drew, draws(p))
+		}
 		if drew(p) {
 			break
 		}
@@ -550,13 +622,15 @@ func TestFrameProfile(t *testing.T) {
 }
 
 // drew reports whether the profiled frame did any drawing.
-func drew(p debug.FrameProfile) bool {
+func drew(p debug.FrameProfile) bool { return draws(p) > 0 }
+
+func draws(p debug.FrameProfile) int {
 	for _, c := range p.Counters {
-		if c.Name == "draws" && c.Value > 0 {
-			return true
+		if c.Name == "draws" {
+			return c.Value
 		}
 	}
-	return false
+	return 0
 }
 
 // TestRenderAfterBatchMatchesSerial is the whole correctness claim for the parallel
@@ -648,4 +722,55 @@ func atSceneB(b *testing.B) *n3dsadapter.Adapter {
 		b.Fatalf("LoadStateFile: %v", err)
 	}
 	return a
+}
+
+// The scrubber walks the commands that WROTE, so what the capture calls a writer had better
+// be a command that draws. On this machine a "command" is a single PICA register write, and
+// the only ones that put a fragment anywhere are the two draw triggers — so the writer list
+// is a small subset of a very large stream, and every member of it is a DRAW.
+func TestWritersAreTheDrawCommands(t *testing.T) {
+	a := atScene(t)
+	defer a.Close()
+
+	var fc *debug.FrameCapture
+	for i := 0; i < 8; i++ {
+		var err error
+		if fc, err = a.StepFrame(false); err != nil {
+			t.Fatalf("StepFrame: %v", err)
+		}
+		if fc.Drawn() {
+			break
+		}
+	}
+	if !fc.Drawn() {
+		t.Fatal("no drawn frame in 8 steps")
+	}
+	if fc.Writers == nil {
+		t.Fatal("a machine that reports every fragment reported no writer list")
+	}
+	if len(fc.Writers) == 0 {
+		t.Fatal("a frame that drew a picture wrote nothing")
+	}
+
+	last := -1
+	for _, k := range fc.Writers {
+		if k <= last {
+			t.Fatalf("writers are not in execution order: %d after %d", k, last)
+		}
+		last = k
+		if k < 0 || k >= len(fc.Commands) {
+			t.Fatalf("writer %d is not a command of this frame (%d commands)", k, len(fc.Commands))
+		}
+		if n := fc.Commands[k].Name; n != "DRAWARRAYS" && n != "DRAWELEMENTS" {
+			t.Errorf("command %d (%s) is listed as writing pixels, but only a draw can", k, n)
+		}
+	}
+
+	// The point of the whole exercise: the scrubber's stops are a tiny fraction of the
+	// stream it used to walk.
+	t.Logf("%d commands, %d of them wrote (%.2f%%)",
+		len(fc.Commands), len(fc.Writers), 100*float64(len(fc.Writers))/float64(len(fc.Commands)))
+	if len(fc.Writers) >= len(fc.Commands)/10 {
+		t.Errorf("%d of %d commands wrote: that is not the machine we think it is", len(fc.Writers), len(fc.Commands))
+	}
 }

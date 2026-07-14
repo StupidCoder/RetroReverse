@@ -49,10 +49,14 @@ type thread struct {
 	tpidr    uint32  // per-thread TPIDRURW scratch (CP15)
 	priority int32   // lower is higher priority (Horizon convention)
 	state    threadState
-	wakeTick uint64   // tick to wake at, for sleeping threads
-	waitAll  bool     // WaitSyncN: wait for all vs any
-	waitOn   []uint32 // object handles being waited on
-	arbAddr  uint32   // address-arbiter park address (0 = none)
+	wakeTick uint64 // tick to wake at, for sleeping threads
+	// waitDeadline is the tick a TIMED wait expires at (0 = wait for ever). A
+	// bounded WaitSynchronization is not a sleep — the thread must still be wakeable
+	// by a signal — so it is an ordinary waiter that additionally has a deadline.
+	waitDeadline uint64
+	waitAll      bool     // WaitSyncN: wait for all vs any
+	waitOn       []uint32 // object handles being waited on
+	arbAddr      uint32   // address-arbiter park address (0 = none)
 }
 
 // quantum is how many instructions a thread runs before the scheduler reconsiders.
@@ -163,27 +167,56 @@ func (m *Machine) switchTo(t *thread) {
 	t.state = running
 }
 
-// soonestSleeper reports the earliest sleeping thread's wake tick, if any —
-// one of the timed events the run loop's idle selection compares (run.go).
+// soonestSleeper reports the earliest thread deadline, if any — one of the timed
+// events the run loop's idle selection compares (run.go). Both kinds of deadline
+// count: a sleeping thread's wake tick AND a timed wait's expiry. Leaving the
+// latter out would let the idle loop skip machine time straight past an expiry it
+// was supposed to deliver, and the wait would overrun by however far the next
+// event happened to be.
 func (m *Machine) soonestSleeper() (uint64, bool) {
 	var soonest uint64
 	found := false
+	at := func(tick uint64) {
+		if !found || tick < soonest {
+			soonest, found = tick, true
+		}
+	}
 	for _, t := range m.threads {
-		if t.state == sleeping && (!found || t.wakeTick < soonest) {
-			soonest, found = t.wakeTick, true
+		switch {
+		case t.state == sleeping:
+			at(t.wakeTick)
+		case t.state == waiting && t.waitDeadline != 0:
+			at(t.waitDeadline)
 		}
 	}
 	return soonest, found
 }
 
-// wakeDueSleepers readies every sleeping thread whose wake tick has passed.
-// Called each scheduling iteration (not only when idle): a sleep deadline can
-// pass while other threads execute, and a machine with a recurring event (the
-// DSP audio frame) may never be idle at all.
+// wakeDueSleepers readies every sleeping thread whose wake tick has passed, and
+// expires every timed wait whose deadline has passed. Called each scheduling
+// iteration (not only when idle): a deadline can pass while other threads execute,
+// and a machine with a recurring event (the DSP audio frame) may never be idle at
+// all.
+//
+// The expiry half is not a nicety. A wait with a finite timeout that never expires
+// is a wait that blocks for ever, and Horizon's callers lean on the timeout as
+// control flow: Super Mario 3D Land's sound thread bounds its wait for the DSP's
+// acknowledgement of an audio-pipe Sleep at ~9.8 ms, and when that never came back
+// the thread stopped for good — taking the render loop with it, because the same
+// thread produces the frame token the renderer arbitrates on. The game drew nothing
+// from that moment on and the machine free-ran through empty fields.
 func (m *Machine) wakeDueSleepers() {
 	for _, t := range m.threads {
-		if t.state == sleeping && t.wakeTick <= m.tick {
+		switch {
+		case t.state == sleeping && t.wakeTick <= m.tick:
 			t.state = ready
+		case t.state == waiting && t.waitDeadline != 0 && t.waitDeadline <= m.tick:
+			// The waiter's objects were never signalled: it comes back with
+			// TIMEOUT, exactly as the kernel would deliver it. Its stale entries in
+			// the objects' waiter lists are pruned lazily by signalObject, which
+			// already drops any waiter that is no longer waiting.
+			m.setResult(t, 0, resultTimeout)
+			m.wake(t)
 		}
 	}
 }
@@ -194,6 +227,7 @@ func (m *Machine) wake(t *thread) bool {
 	t.state = ready
 	t.waitOn = nil
 	t.arbAddr = 0
+	t.waitDeadline = 0
 	return m.curThread == nil || t.priority < m.curThread.priority
 }
 

@@ -12,8 +12,9 @@ import { esc } from '../util.js';
 
 registerPanel({
   id: 'files',
-  title: 'Disc',
-  slot: 'side',
+  rank: 50,
+  title: 'Files',
+  slot: 'bottom-left',
   requires: 'files',
   mount(body, ctx) {
     body.classList.add('mono', 'nopad');

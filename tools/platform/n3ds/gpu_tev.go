@@ -241,16 +241,57 @@ func tevCombine(op uint32, a, b, c int32) (int32, bool) {
 	return 0, false
 }
 
+// logicOp combines one source channel with one destination channel bitwise, by the
+// PICA's logic-op number (the OpenGL table: 0 CLEAR … 15 OR_INVERTED).
+func logicOp(op uint32, s, d uint8) uint8 {
+	switch op {
+	case 0: // CLEAR
+		return 0
+	case 1: // AND
+		return s & d
+	case 2: // AND_REVERSE
+		return s &^ d
+	case 3: // COPY
+		return s
+	case 4: // SET
+		return 0xFF
+	case 5: // COPY_INVERTED
+		return ^s
+	case 6: // NOOP — the destination survives untouched
+		return d
+	case 7: // INVERT
+		return ^d
+	case 8: // NAND
+		return ^(s & d)
+	case 9: // OR
+		return s | d
+	case 10: // NOR
+		return ^(s | d)
+	case 11: // XOR
+		return s ^ d
+	case 12: // EQUIV
+		return ^(s ^ d)
+	case 13: // AND_INVERTED
+		return d &^ s
+	case 14: // OR_REVERSE
+		return s | ^d
+	}
+	return ^s | d // 15: OR_INVERTED
+}
+
 // blend applies the 0x100/0x101 blending config to a fragment against the
 // destination pixel.
 func (g *GPU) blend(sr, sg, sb, sa, dr, dg, db, da uint8) (uint8, uint8, uint8, uint8) {
 	if g.Regs[0x100]>>8&1 == 0 {
-		// Logic-op mode; op 3 (copy) is the only one seen. Others: halt.
-		if lop := g.Regs[0x102] & 0xF; lop != 3 {
-			g.m.CPU.Halt("gpu: logic op %d unimplemented", lop)
-			return sr, sg, sb, sa
-		}
-		return sr, sg, sb, sa
+		// Logic-op mode: the fragment and the destination pixel are combined
+		// BITWISE, per channel, by one of the sixteen operations — the same table
+		// (and the same numbering) as OpenGL's. Only COPY had ever been seen, so
+		// the rest halted; Super Mario 3D Land uses NOOP (6) — "keep the
+		// destination" — to render a pass for its depth/stencil side effects while
+		// leaving the colour buffer alone, and halting on it stopped the game dead
+		// the moment it started drawing the world.
+		lop := g.Regs[0x102] & 0xF
+		return logicOp(lop, sr, dr), logicOp(lop, sg, dg), logicOp(lop, sb, db), logicOp(lop, sa, da)
 	}
 	cfg := g.Regs[0x101]
 	eqC, eqA := cfg&7, cfg>>8&7

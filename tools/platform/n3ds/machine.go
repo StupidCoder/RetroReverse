@@ -159,6 +159,13 @@ type Machine struct {
 	AudioCapture bool
 	AudioPCM     []int16
 
+	// MemTrace logs every memory request the game makes of the kernel — what it asked
+	// for, and what address it got back. The instrument for "the game is reading from an
+	// address nobody ever gave it": the GPU is programmed with PHYSICAL addresses the game
+	// derives from its own pointers, so a heap whose layout differs from the console's
+	// makes the game hand the GPU an address that lands nowhere.
+	MemTrace bool
+
 	// DSPTrace logs every source configuration the DSP consumes and every status
 	// it publishes (bootoracle -dsptrace) — the instrument for the app↔DSP voice
 	// conversation, which is otherwise invisible: it happens entirely in shared
@@ -189,22 +196,25 @@ type Machine struct {
 	hidTouchX        uint16            // stylus position on the bottom screen, in its own pixels (SetTouch)
 	hidTouchY        uint16
 	hidTouchDown     bool   // whether the stylus is on the screen at all
-	nextFrameInstr   uint64 // instruction count at which to deliver the next VBlank
+	arbTimedWarned   map[uint32]bool // arbiter addresses whose unmodelled timeout has been reported (sync.go)
+	gspOverflowed    bool            // the GSP interrupt queue has overflowed once; do not repeat the report
+	nextFrameInstr   uint64          // instruction count at which to deliver the next VBlank
 	vblankCount      uint64 // VBlanks delivered
 	framesSubmitted  int    // GSP TriggerCmdReqQueue calls (GPU command lists)
 	framesSwapped    int    // framebuffer-info entries consumed at VBlank (frames presented)
 	displayTransfers int    // GX DisplayTransfers executed (frames made visible)
 	lastXferTop      xferRecord
 	lastXferBottom   xferRecord
-	screenFB         [2]fbPresent // last framebuffer-info entry consumed per screen (top, bottom)
+	screenFB         [2]FBPresent // last framebuffer-info entry consumed per screen (top, bottom)
 
 	// Debugger hooks (debug.go). All nil/zero unless a debugger installs them, and
 	// all deliberately outside the savestate: they observe a run, they are not a
 	// property of the machine.
-	OnPICACmd     func(w PICAWrite)                // each command-list register write, before it executes
-	OnPixel       func(x, y uint32, ev PixelEvent) // each fragment the rasteriser produced, kept or killed
-	OnFrame       func(m *Machine)                 // each VBlank, after the buffer swap is consumed
-	StopRequested bool                             // a hook asking Run to return at the next opportunity
+	OnPICACmd     func(w PICAWrite)                 // each command-list register write, before it executes
+	OnPixel       func(x, y uint32, ev PixelEvent)  // each fragment the rasteriser produced, kept or killed
+	OnFrame       func(m *Machine)                  // each VBlank, after the buffer swap is consumed
+	OnPresent     func(screen string, g ScreenGeom) // each DisplayTransfer: a pass ends, a screen is shown
+	StopRequested bool                              // a hook asking Run to return at the next opportunity
 
 	// Memory watch windows. The ARM bus is byte-granular (the core issues four
 	// Read calls for one LDR), so these fire per byte, with the PC that issued the
