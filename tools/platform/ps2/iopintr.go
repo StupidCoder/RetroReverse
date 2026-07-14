@@ -92,7 +92,9 @@ func init() {
 	// 1220 — which is exactly the size of its .bss — and then to rely on the result
 	// being clear.
 	lib("sysclib", map[uint16]iopFunc{
-		8: unknown(), 11: unknown(), 12: unknown(), 13: unknown(),
+		8: unknown(), 11: unknown(),
+		12: {"memcpy", (*IOP).clibMemcpy},
+		13: unknown(),
 		14: {"memset", (*IOP).clibMemset},
 		17: unknown(), 19: unknown(), 20: unknown(), 22: unknown(), 23: unknown(),
 		25: unknown(), 27: unknown(), 29: unknown(), 30: unknown(), 36: unknown(),
@@ -651,6 +653,33 @@ func (p *IOP) heapAlloc() {
 }
 
 // --- sysclib ----------------------------------------------------------------------
+
+// clibMemcpy is memcpy(dst, src, n), and it is the function that was opening a file called "".
+//
+// The argument is FILEIO's, and it is the cleanest one on this processor. FILEIO's remote-call
+// handler is passed the buffer the EE has just DMA'd its request into, and the first thing it
+// does with it is
+//
+//	sysclib#12(0x53340, 0x4CFB8, 0x20)
+//
+// where 0x4CFB8 is that buffer, 0x20 is exactly the number of bytes the EE transferred into it,
+// and 0x53340 is a block FILEIO allocated for itself. It then opens the path at 0x53354 —
+// twenty bytes into the destination, which is exactly where the path sits in the source. Three
+// arguments, a destination, a source, and a length that is the length of the thing at the
+// source: there is no other function this can be, and memset is already #14, which is where a
+// C library keeps its neighbour.
+//
+// Answered with zero, it copied nothing, and FILEIO opened the empty string it found in a
+// buffer nobody had written. The failure surfaced four layers away and looked nothing like a
+// missing memcpy: the EE's threads sat on a semaphore waiting for a file operation that had
+// been dispatched correctly, executed faithfully, and asked for a file whose name was "".
+func (p *IOP) clibMemcpy() {
+	dst, src, n := p.arg(0), p.arg(1), p.arg(2)
+	for i := uint32(0); i < n; i++ {
+		p.Write(dst+i, p.Read(src+i))
+	}
+	p.setRet(dst)
+}
 
 // clibMemset is memset(dst, c, n).
 func (p *IOP) clibMemset() {
