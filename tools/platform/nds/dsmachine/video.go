@@ -18,10 +18,10 @@ package dsmachine
 // of TCM/cache, and DS software is written against the video clock rather than
 // against an instruction count, so it tolerates the difference.
 const (
-	dotsPerLine  = 355
+	dotsPerLine   = 355
 	linesPerFrame = 263
-	visibleLines = 192
-	visibleDots  = 256
+	visibleLines  = 192
+	visibleDots   = 256
 
 	cyclesPerLine9 = 4260 // ARM9 instruction budget for one scanline
 	cyclesPerLine7 = 2130 // ARM7 instruction budget for one scanline
@@ -39,12 +39,12 @@ const (
 
 // interrupt-source bits in IE/IF.
 const (
-	irqVBlank = 1 << 0
-	irqHBlank = 1 << 1
-	irqVMatch = 1 << 2
-	irqTimer0 = 1 << 3
-	irqDMA0   = 1 << 8
-	irqCard   = 1 << 19 // card transfer complete
+	irqVBlank  = 1 << 0
+	irqHBlank  = 1 << 1
+	irqVMatch  = 1 << 2
+	irqTimer0  = 1 << 3
+	irqDMA0    = 1 << 8
+	irqCard    = 1 << 19 // card transfer complete
 	irqIPCSync = 1 << 16
 	irqIPCSend = 1 << 17
 	irqIPCRecv = 1 << 18

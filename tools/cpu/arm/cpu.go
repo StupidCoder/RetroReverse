@@ -289,6 +289,7 @@ func (c *CPU) read32(a uint32) uint32 {
 	}
 	return v
 }
+
 // write32aligned is the store side of read32aligned: block transfers (LDM/STM,
 // SWP) ignore the low address bits on every architecture, so they must not take
 // the ARMv6 true-unaligned path.
@@ -311,6 +312,7 @@ func (c *CPU) read32aligned(a uint32) uint32 {
 	}
 	return uint32(c.bus.Read(a)) | uint32(c.bus.Read(a+1))<<8 | uint32(c.bus.Read(a+2))<<16 | uint32(c.bus.Read(a+3))<<24
 }
+
 // write32 is read32's counterpart, and splits the same way. ARMv6 (the 3DS's
 // ARM11, with unaligned access enabled by Horizon) performs a TRUE unaligned
 // word store: the four bytes at the exact address. ARMv5 and earlier (the DS)
@@ -493,3 +495,43 @@ func (c *CPU) shift(typ, amt, val uint32, regForm bool, cin uint32) (uint32, uin
 // LDREX…STREX sequence fails its STREX (spurious failure is architecturally
 // permitted, and the lock code always retries the LDREX).
 func (c *CPU) ClearExclusive() { c.exclValid = false }
+
+// Banks is the CPU's banked register file: the per-mode R13/R14 and SPSR (indexed by
+// mode bank, USR and SYS sharing slot 0), FIQ's private R8-R12, and the USR/SYS
+// R8-R12 that FIQ displaces.
+//
+// A machine model needs these to snapshot a processor, and it needs them even when it
+// looks as if it does not. A snapshot that captures only the visible sixteen registers
+// restores a core whose *current* mode is right and whose every other mode is empty —
+// so the first interrupt after a restore runs on an IRQ stack pointer of zero. That is
+// invisible on a machine whose code lives in User mode and immediate on a DS, whose
+// ARM7 keeps a thread scheduler's context in the user bank and takes an interrupt every
+// scanline.
+type Banks struct {
+	R13, R14, SPSR [6]uint32
+	FIQR8_12       [5]uint32
+	USRR8_12       [5]uint32
+}
+
+// SaveBanks captures the banked registers. The *current* mode's R13/R14 live in R[13]
+// and R[14] rather than in the bank array, so they are folded in here — otherwise a
+// restore silently reverts them to whatever the last mode switch happened to leave.
+func (c *CPU) SaveBanks() Banks {
+	b := Banks{R13: c.bankR13, R14: c.bankR14, SPSR: c.bankSPSR,
+		FIQR8_12: c.fiqR8_12, USRR8_12: c.usrR8_12}
+	i := modeIndex(c.Mode)
+	b.R13[i], b.R14[i] = c.R[13], c.R[14]
+	if c.Mode == ModeFIQ {
+		copy(b.FIQR8_12[:], c.R[8:13])
+	} else {
+		copy(b.USRR8_12[:], c.R[8:13])
+	}
+	return b
+}
+
+// RestoreBanks puts the banked registers back. It does not touch R[0..15] or the mode:
+// the caller restores those, and the current mode's R13/R14 come from there.
+func (c *CPU) RestoreBanks(b Banks) {
+	c.bankR13, c.bankR14, c.bankSPSR = b.R13, b.R14, b.SPSR
+	c.fiqR8_12, c.usrR8_12 = b.FIQR8_12, b.USRR8_12
+}

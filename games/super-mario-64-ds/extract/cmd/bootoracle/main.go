@@ -58,6 +58,8 @@ func main() {
 	gxdump := flag.Bool("gxdump", false, "histogram of the 3D commands the geometry engine executed")
 	cardlog := flag.Bool("cardlog", false, "log every cartridge transfer: the map of what the game loads, when")
 	rtshot := flag.String("rtshot", "", "write the 3D engine's own render target as a PNG, before the 2D engine composites it")
+	savestate := flag.String("savestate", "", "write a snapshot of the machine when the run ends")
+	loadstate := flag.String("loadstate", "", "start from a snapshot instead of from reset")
 	trace := flag.Bool("trace", false, "trace instructions")
 	tracen := flag.Int("tracen", 200, "with -trace: how many instructions to trace")
 	traceFrom := flag.String("tracefrom", "", "start tracing when this ARM9 address is first reached")
@@ -93,6 +95,17 @@ func main() {
 	}
 
 	m := dsmachine.New(rom, dtcm9)
+
+	// A cold boot to the title screen is over a billion scheduler steps. Restoring one
+	// is the difference between asking a question of the title screen in a second and
+	// asking it in a minute, which in practice is the difference between asking it and
+	// not bothering.
+	if *loadstate != "" {
+		if err := m.LoadState(*loadstate); err != nil {
+			die(err)
+		}
+		fmt.Printf("restored %s: frame %d\n", *loadstate, m.Frame())
+	}
 
 	// -keys takes either an input script or a list of buttons to hold. Which one it is
 	// is decided by whether the argument names a file, so the common case (hold Start)
@@ -241,6 +254,13 @@ func main() {
 			fmt.Printf(" (+%d numbered captures)", shots)
 		}
 		fmt.Println()
+	}
+
+	if *savestate != "" {
+		if err := m.SaveState(*savestate); err != nil {
+			die(err)
+		}
+		fmt.Printf("wrote %s (frame %d)\n", *savestate, m.Frame())
 	}
 
 	if *rtshot != "" {

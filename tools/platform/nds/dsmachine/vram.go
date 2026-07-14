@@ -26,10 +26,10 @@ const vramPage = 0x2000 // 8 KiB
 // The banks, in VRAMCNT_A..I order. Sizes are the hardware's.
 var bankSizes = [9]int{
 	0x20000, 0x20000, 0x20000, 0x20000, // A B C D — 128 KiB
-	0x10000,         // E — 64 KiB
-	0x4000, 0x4000,  // F G — 16 KiB
-	0x8000,          // H — 32 KiB
-	0x4000,          // I — 16 KiB
+	0x10000,        // E — 64 KiB
+	0x4000, 0x4000, // F G — 16 KiB
+	0x8000, // H — 32 KiB
+	0x4000, // I — 16 KiB
 }
 
 // Each bank's fixed address in the LCDC window, where it is directly visible to
@@ -41,17 +41,17 @@ var lcdcBase = [9]uint32{
 
 // The address spaces a bank can be mapped into.
 const (
-	spBGA = iota // engine A background   — 0x06000000, 512 KiB
-	spBGB        // engine B background   — 0x06200000, 128 KiB
-	spOBJA       // engine A sprites      — 0x06400000, 256 KiB
-	spOBJB       // engine B sprites      — 0x06600000, 128 KiB
-	spTex        // 3D texture image      — 512 KiB (four 128 KiB slots)
-	spTexPal     // 3D texture palette    — 128 KiB (six 16 KiB slots)
-	spBGExtA     // engine A BG extended palette  — 32 KiB (four 8 KiB slots)
-	spBGExtB     // engine B BG extended palette  — 32 KiB
-	spOBJExtA    // engine A OBJ extended palette — 8 KiB
-	spOBJExtB    // engine B OBJ extended palette — 8 KiB
-	spARM7       // the ARM7's VRAM window — 256 KiB at 0x06000000 on its bus
+	spBGA     = iota // engine A background   — 0x06000000, 512 KiB
+	spBGB            // engine B background   — 0x06200000, 128 KiB
+	spOBJA           // engine A sprites      — 0x06400000, 256 KiB
+	spOBJB           // engine B sprites      — 0x06600000, 128 KiB
+	spTex            // 3D texture image      — 512 KiB (four 128 KiB slots)
+	spTexPal         // 3D texture palette    — 128 KiB (six 16 KiB slots)
+	spBGExtA         // engine A BG extended palette  — 32 KiB (four 8 KiB slots)
+	spBGExtB         // engine B BG extended palette  — 32 KiB
+	spOBJExtA        // engine A OBJ extended palette — 8 KiB
+	spOBJExtB        // engine B OBJ extended palette — 8 KiB
+	spARM7           // the ARM7's VRAM window — 256 KiB at 0x06000000 on its bus
 	numSpaces
 )
 

@@ -141,7 +141,7 @@ type core struct {
 	io          map[uint32]uint32 // the register file (and the last value written)
 	lastRecv    uint32            // last word popped from the recv FIFO
 
-	sleep       int               // WaitByLoop budget: skip this core while > 0
+	sleep int // WaitByLoop budget: skip this core while > 0
 }
 
 // ipc is the shared IPCSYNC mailbox and the two directional FIFOs.
@@ -375,3 +375,7 @@ func (m *Machine) GXRegs() map[uint32]uint32 { return m.gpu3d.regs }
 // OnGXCmd installs a hook reporting every 3D command the FIFO decodes, with its
 // parameters — the DS's command-list dump.
 func (m *Machine) OnGXCmd(f func(cmd uint8, p []uint32)) { m.gpu3d.OnCmd = f }
+
+// VRAMTexPal reads a halfword of the 3D texture-palette space — for inspecting the
+// colours a texture actually resolves to.
+func (m *Machine) VRAMTexPal(off uint32) uint16 { return m.vram.read16(spTexPal, off) }

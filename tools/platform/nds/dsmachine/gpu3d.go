@@ -14,14 +14,14 @@ package dsmachine
 // part the CPU can see: what it writes, and what it can read back.
 
 const (
-	regGXFIFO   = 0x04000400
-	regGXCMDPORT = 0x04000440 // MTX_MODE; one port per command, four bytes apart...
-	regGXCMDPORTEnd = 0x040005C8 // ...up to VEC_TEST, the last of them
-	regGXSTAT   = 0x04000600
-	regRAMCOUNT = 0x04000604
-	regDISP3DCNT = 0x04000060
-	regCLEARCOLOR = 0x04000350
-	regCLEARDEPTH = 0x04000354
+	regGXFIFO        = 0x04000400
+	regGXCMDPORT     = 0x04000440 // MTX_MODE; one port per command, four bytes apart...
+	regGXCMDPORTEnd  = 0x040005C8 // ...up to VEC_TEST, the last of them
+	regGXSTAT        = 0x04000600
+	regRAMCOUNT      = 0x04000604
+	regDISP3DCNT     = 0x04000060
+	regCLEARCOLOR    = 0x04000350
+	regCLEARDEPTH    = 0x04000354
 	regCLIPMTXRESULT = 0x04000640
 	regVECMTXRESULT  = 0x04000680
 	regPOSRESULT     = 0x04000620
@@ -34,12 +34,12 @@ const (
 type gpu3d struct {
 	fifo []uint32 // unprocessed command+parameter words
 
-	packed  []uint8  // the command bytes still to be consumed from a packed word
-	cmd     uint8    // the command currently collecting parameters
-	params  []uint32 // parameters collected so far
-	need    int      // how many that command wants
+	packed []uint8  // the command bytes still to be consumed from a packed word
+	cmd    uint8    // the command currently collecting parameters
+	params []uint32 // parameters collected so far
+	need   int      // how many that command wants
 
-	geom geom  // the matrix stacks and the vertex pipeline (gpu3d_geom.go)
+	geom geom   // the matrix stacks and the vertex pipeline (gpu3d_geom.go)
 	rast raster // the rasteriser's buffers (gpu3d_raster.go)
 
 	// The registers the CPU writes and reads back.
@@ -76,43 +76,43 @@ func newGPU3D() *gpu3d {
 // parameters executes the moment it is decoded; the rest wait for their words.
 // (Index by command byte; commands not listed take no parameters.)
 var gxParams = map[uint8]int{
-	0x10: 1, // MTX_MODE
-	0x11: 0, // MTX_PUSH
-	0x12: 1, // MTX_POP
-	0x13: 1, // MTX_STORE
-	0x14: 1, // MTX_RESTORE
-	0x15: 0, // MTX_IDENTITY
+	0x10: 1,  // MTX_MODE
+	0x11: 0,  // MTX_PUSH
+	0x12: 1,  // MTX_POP
+	0x13: 1,  // MTX_STORE
+	0x14: 1,  // MTX_RESTORE
+	0x15: 0,  // MTX_IDENTITY
 	0x16: 16, // MTX_LOAD_4x4
 	0x17: 12, // MTX_LOAD_4x3
 	0x18: 16, // MTX_MULT_4x4
 	0x19: 12, // MTX_MULT_4x3
-	0x1A: 9, // MTX_MULT_3x3
-	0x1B: 3, // MTX_SCALE
-	0x1C: 3, // MTX_TRANS
-	0x20: 1, // COLOR
-	0x21: 1, // NORMAL
-	0x22: 1, // TEXCOORD
-	0x23: 2, // VTX_16
-	0x24: 1, // VTX_10
-	0x25: 1, // VTX_XY
-	0x26: 1, // VTX_XZ
-	0x27: 1, // VTX_YZ
-	0x28: 1, // VTX_DIFF
-	0x29: 1, // POLYGON_ATTR
-	0x2A: 1, // TEXIMAGE_PARAM
-	0x2B: 1, // PLTT_BASE
-	0x30: 1, // DIF_AMB
-	0x31: 1, // SPE_EMI
-	0x32: 1, // LIGHT_VECTOR
-	0x33: 1, // LIGHT_COLOR
+	0x1A: 9,  // MTX_MULT_3x3
+	0x1B: 3,  // MTX_SCALE
+	0x1C: 3,  // MTX_TRANS
+	0x20: 1,  // COLOR
+	0x21: 1,  // NORMAL
+	0x22: 1,  // TEXCOORD
+	0x23: 2,  // VTX_16
+	0x24: 1,  // VTX_10
+	0x25: 1,  // VTX_XY
+	0x26: 1,  // VTX_XZ
+	0x27: 1,  // VTX_YZ
+	0x28: 1,  // VTX_DIFF
+	0x29: 1,  // POLYGON_ATTR
+	0x2A: 1,  // TEXIMAGE_PARAM
+	0x2B: 1,  // PLTT_BASE
+	0x30: 1,  // DIF_AMB
+	0x31: 1,  // SPE_EMI
+	0x32: 1,  // LIGHT_VECTOR
+	0x33: 1,  // LIGHT_COLOR
 	0x34: 32, // SHININESS
-	0x40: 1, // BEGIN_VTXS
-	0x41: 0, // END_VTXS
-	0x50: 1, // SWAP_BUFFERS
-	0x60: 1, // VIEWPORT
-	0x70: 3, // BOX_TEST
-	0x71: 2, // POS_TEST
-	0x72: 1, // VEC_TEST
+	0x40: 1,  // BEGIN_VTXS
+	0x41: 0,  // END_VTXS
+	0x50: 1,  // SWAP_BUFFERS
+	0x60: 1,  // VIEWPORT
+	0x70: 3,  // BOX_TEST
+	0x71: 2,  // POS_TEST
+	0x72: 1,  // VEC_TEST
 }
 
 // fifoBelowHalf reports whether the command FIFO has drained below half full — the

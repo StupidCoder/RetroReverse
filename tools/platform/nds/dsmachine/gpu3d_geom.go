@@ -96,11 +96,11 @@ type geom struct {
 	clipMtx   mtx
 
 	// The vertex assembler.
-	begun     bool
-	primMode  int        // BEGIN_VTXS: 0 tris, 1 quads, 2 tri strip, 3 quad strip
-	strip     []gxVertex // vertices accumulated for the current primitive
-	stripLen  int        // how many vertices the strip has seen in total
-	lastVtx   [3]int32   // the last vertex's raw coordinates, for VTX_DIFF/VTX_XY etc.
+	begun    bool
+	primMode int        // BEGIN_VTXS: 0 tris, 1 quads, 2 tri strip, 3 quad strip
+	strip    []gxVertex // vertices accumulated for the current primitive
+	stripLen int        // how many vertices the strip has seen in total
+	lastVtx  [3]int32   // the last vertex's raw coordinates, for VTX_DIFF/VTX_XY etc.
 
 	// Per-vertex state, latched by the commands that set it.
 	color    [3]int32 // 0..63
