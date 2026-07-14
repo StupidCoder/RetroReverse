@@ -98,6 +98,13 @@ func (p *IOP) link(mod *IOPModule) error {
 			id := imp.IDs[i]
 			addr := mod.Base + stub
 
+			// Name the stub before patching it. A stub is not a function and no symbol
+			// covers it, so a `jal` to one disassembles as an address in the middle of some
+			// unrelated routine's .text — which is exactly the call whose identity we are
+			// trying to establish. Recording (library, id) here is what lets DisasmAt print
+			// `jal libsd#7` instead.
+			p.stubName[addr] = fmt.Sprintf("%s#%d", imp.Library, id)
+
 			switch {
 			case onDisc:
 				// The real module is resident. Resolution is by index: function id is the
@@ -202,11 +209,21 @@ const (
 // call a module's entry and really does wait for it, and nothing else on the IOP runs
 // while it does.
 func (p *IOP) callGuest(entry uint32) (uint32, error) {
+	return p.callGuestOn(entry, iopCallStack)
+}
+
+// callGuestOn is callGuest on a nominated stack. An interrupt handler needs one of its
+// own: it runs *inside* another routine's call, and the stack that routine is using is
+// the one thing it must not touch.
+func (p *IOP) callGuestOn(entry, stack uint32) (uint32, error) {
+	p.callDepth++
+	defer func() { p.callDepth-- }()
+
 	saved := p.CPU.PC
 	savedSP := p.CPU.Reg(29)
 	savedRA := p.CPU.Reg(31)
 
-	p.CPU.SetReg(29, iopCallStack)
+	p.CPU.SetReg(29, stack)
 	p.CPU.SetReg(31, iopReturnSentinel)
 	p.CPU.SetPC(entry)
 
@@ -242,6 +259,7 @@ func (p *IOP) callGuest(entry uint32) (uint32, error) {
 			acc = 0
 		}
 
+		p.tick()
 		p.CPU.Step()
 	}
 	return 0, fmt.Errorf("the routine at %s ran %d instructions without returning, and is at %s",

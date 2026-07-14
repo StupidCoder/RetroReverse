@@ -82,21 +82,64 @@ type IOP struct {
 	calls []*iopCall
 	bound map[iopBinding]uint32
 
+	// stubName names every import stub the linker patched, by the library and function
+	// number it was patched to serve. It is what turns `jal 0x00088670` — an address in
+	// the middle of a module's .text, which no symbol covers because a stub is not a
+	// function anybody named — into `libsd#7`. Both kinds of stub are in here: the ones
+	// bound into Go and the ones linked to a real module on the disc. The second kind is
+	// the one that matters, because those are the calls whose meaning has to be earned.
+	stubName map[uint32]string
+
 	// Whatever the IOP's modules have printed through stdio.
 	tty []byte
 
 	// The kernel HLE's state (iopintr.go): the interrupt controller, the allocator's
 	// blocks, and the heaps.
 	handlers    [iopIRQs]iopHandler
+	imask       uint64 // which lines are unmasked: the interrupt controller's I_MASK
 	intrEnabled bool
 	blocks      []iopBlock
 	heaps       map[uint32]*iopHeap
 
 	// THREADMAN's two hooks into the interrupt-exit path: the predicate that says
 	// whether a thread switch is wanted, and the routine that performs one. Registered
-	// through intrman, and the contract the interrupt path will have to keep.
+	// through intrman, and the contract the interrupt path has to keep.
 	schedSwitch  uint32
 	schedResched uint32
+
+	// The interrupt controller (iopintr.go). pending is the set of lines raised and not
+	// yet delivered — the hardware's I_STAT, except that intrman is ours, so no module
+	// ever looks at it and it does not need to live at an address. inIntr counts how deep
+	// in a handler we are: it is what QueryIntrContext answers, and what stops an
+	// interrupt from being delivered inside one.
+	pending uint64
+	inIntr  int
+
+	// The DMA controller (iopdma.go) and the sound chip (iopspu.go).
+	dma        [iopDMAChannels]iopDMAChan
+	dpcr       uint32
+	dpcr2      uint32
+	dicr       uint32
+	dicr2      uint32
+	dmaPending []iopDMADone
+	spu        *spu2
+
+	// The six counters (ioptimer.go). They are the second processor's only sense of time
+	// passing, and THREADMAN's scheduler runs on them.
+	timers [iopTimers]iopTimer
+
+	// steps counts the instructions this processor has retired. A DMA's latency is
+	// measured in it.
+	steps uint64
+
+	// prof is a sampling profile: every so many instructions, the routine the IOP is in.
+	//
+	// It answers the one question a bring-up asks over and over — "it is running, but what
+	// is it running?" — which the spin detector cannot, because a machine going round a
+	// large enough loop is not spinning by any definition it can apply. It is the only
+	// instrument that tells the difference between a scheduler idling and a scheduler
+	// working.
+	prof map[string]int
 
 	// The census: every call to a function nothing models, and every peripheral
 	// register nobody has claimed. This is the work list, and it is the only honest
@@ -105,12 +148,71 @@ type IOP struct {
 	io              map[uint32]uint32
 	unmodelledIO    map[uint32]int
 
+	// OnIO, if set, receives every access the IOP's own code makes to a peripheral
+	// register: the address, the value, whether it was a write, and the PC that did it.
+	//
+	// This is the instrument the DMA controller and the SPU were built from. Sony's
+	// modules are stripped, so the only account of how a transfer is programmed is the
+	// order in which the registers are written — and that is a thing you watch, not a
+	// thing you look up.
+	OnIO func(addr, val uint32, write bool, pc uint32)
+
+	// OnWrite, if set, reports every store the IOP makes into the window [WatchLo, WatchHi).
+	// It is the same instrument the EE has, and it answers the same question: who wrote
+	// this, and from where.
+	WatchLo, WatchHi uint32
+	OnWrite          func(addr, val uint32, pc uint32)
+
+	// ioPend holds the register access the current instruction made, until the
+	// instruction is over and the register has settled. See ioTrace.
+	ioPend []ioTouch
+
 	// running is false until the first module is loaded. The machine does not step a
 	// processor that has nothing on it.
 	running bool
 
+	// What the interrupt controller actually did: how often each line was raised, how
+	// often it was delivered, and how many times THREADMAN chose to switch threads on the
+	// way out. The gap between raised and delivered is the instrument that matters — a line
+	// raised thirteen hundred times and delivered none is a masked interrupt, and it looks
+	// from every other angle like a machine that is simply busy.
+	raised    [iopIRQs]int
+	delivered [iopIRQs]int
+	switches  int
+
+	// callDepth counts how deep we are inside a guest routine the *machine* called — a
+	// module entry point, an interrupt handler, a scheduler hook. At depth zero the IOP is
+	// running its own threads under THREADMAN and may be preempted freely; above zero it
+	// is running something Go asked for, and the context is not one THREADMAN can file.
+	// See intrDeliver.
+	callDepth int
+
 	Halted     bool
 	HaltReason string
+}
+
+// IOPInterrupts reports what the second processor's interrupt controller did: every line
+// that was raised, how many of those were delivered, and whether the scheduler switched
+// threads as a result.
+//
+// The raised-versus-delivered column is the whole point of it. An interrupt that is raised
+// and never delivered is not a quiet machine; it is a masked one, and from every other
+// vantage point — the profile, the trace, the census — it looks exactly like a processor
+// that is merely busy.
+func (p *IOP) IOPInterrupts() string {
+	s := fmt.Sprintf("the IOP's interrupts (%d thread switches by THREADMAN on interrupt exit):\n", p.switches)
+	for i := 0; i < iopIRQs; i++ {
+		if p.raised[i] == 0 && p.delivered[i] == 0 {
+			continue
+		}
+		masked := ""
+		if p.imask>>uint64(i)&1 == 0 {
+			masked = "  [masked]"
+		}
+		s += fmt.Sprintf("      %2d  raised %7d  delivered %7d   %s%s\n",
+			i, p.raised[i], p.delivered[i], p.Sym(p.handlers[i].fn), masked)
+	}
+	return s
 }
 
 // newIOP makes the second processor over the memory the EE already shares with it.
@@ -126,6 +228,18 @@ func newIOP(m *Machine, ram []byte) *IOP {
 		io:              map[uint32]uint32{},
 		unmodelledIO:    map[uint32]int{},
 		heaps:           map[uint32]*iopHeap{},
+		stubName:        map[uint32]string{},
+		spu:             newSPU2(),
+
+		// Interrupts are on before the first module runs, because on the board the kernel
+		// that loads a module has already armed them — the module is being called, not
+		// booted. Starting this at false is a trap that closes silently: every module
+		// brackets its critical sections with CpuSuspendIntr/CpuResumeIntr, and Resume is
+		// passed *the value Suspend saved*. Suspend saves false, Resume restores false, the
+		// round trip is faithful, and the processor never takes an interrupt again as long
+		// as it lives. What that looks like from outside is not "interrupts are disabled";
+		// it is OVERLORD spinning on a sound-transfer flag that the transfer really did set.
+		intrEnabled: true,
 	}
 	p.CPU = mips.NewCPU(p)
 	p.CPU.Syscall = p.handleSyscall
@@ -148,11 +262,16 @@ func (p *IOP) Read(addr uint32) byte {
 	case a >= iopSPRAMBase && a < iopSPRAMBase+iopSPRAMSize:
 		return p.spr[a-iopSPRAMBase]
 	}
-	return byte(p.ioRead(a&^3) >> (8 * (a & 3)))
+	v := p.ioRead(a &^ 3)
+	p.ioTrace(a&^3, false)
+	return byte(v >> (8 * (a & 3)))
 }
 
 func (p *IOP) Write(addr uint32, v byte) {
 	a := iopPhys(addr)
+	if p.OnWrite != nil && a >= p.WatchLo && a < p.WatchHi {
+		p.OnWrite(a, uint32(v), p.CPU.CurPC())
+	}
 	switch {
 	case a < iopRAMSizeBytes:
 		p.ram[a] = v
@@ -169,6 +288,7 @@ func (p *IOP) Write(addr uint32, v byte) {
 	sh := 8 * (a & 3)
 	w := p.ioPeek(a&^3)&^(0xFF<<sh) | uint32(v)<<sh
 	p.ioWrite(a&^3, w)
+	p.ioTrace(a&^3, true)
 }
 
 // ioPeek reads a register without counting the access. It is for the read half of a
@@ -176,6 +296,19 @@ func (p *IOP) Write(addr uint32, v byte) {
 func (p *IOP) ioPeek(a uint32) uint32 {
 	if a >= sbusIOPBase && a < sbusIOPBase+sbusSpan {
 		return p.ps2.sbusRead(a - sbusIOPBase)
+	}
+	// Every modelled register has to answer here too, and not just in ioRead. This is the
+	// read half of a byte-store's read-modify-write, and a word merged against the wrong
+	// old value is a word half of which is nonsense — which for a DMA channel's CHCR
+	// means a transfer with the right start bit and the wrong direction.
+	if v, ok := p.dmaRead(a); ok {
+		return v
+	}
+	if v, ok := p.timerPeek(a); ok {
+		return v
+	}
+	if a >= iopSPU2Base && a < iopSPU2End {
+		return p.spu.read(a - iopSPU2Base)
 	}
 	return p.io[a]
 }
@@ -239,6 +372,15 @@ func (p *IOP) ioRead(a uint32) uint32 {
 	if a >= sbusIOPBase && a < sbusIOPBase+sbusSpan {
 		return p.ps2.sbusRead(a - sbusIOPBase)
 	}
+	if v, ok := p.dmaRead(a); ok {
+		return v
+	}
+	if v, ok := p.timerRead(a); ok {
+		return v
+	}
+	if a >= iopSPU2Base && a < iopSPU2End {
+		return p.spu.read(a - iopSPU2Base)
+	}
 	p.unmodelledIO[a]++
 	return p.io[a]
 }
@@ -246,6 +388,16 @@ func (p *IOP) ioRead(a uint32) uint32 {
 func (p *IOP) ioWrite(a, v uint32) {
 	if a >= sbusIOPBase && a < sbusIOPBase+sbusSpan {
 		p.ps2.sbusWrite(a-sbusIOPBase, v)
+		return
+	}
+	if p.dmaWrite(a, v) {
+		return
+	}
+	if p.timerWrite(a, v) {
+		return
+	}
+	if a >= iopSPU2Base && a < iopSPU2End {
+		p.spu.write(a-iopSPU2Base, v)
 		return
 	}
 	p.unmodelledIO[a]++
@@ -263,12 +415,22 @@ func (p *IOP) ioWrite(a, v uint32) {
 func (p *IOP) alloc(n uint32) uint32 {
 	a := (p.allocPtr + 63) &^ 63
 	p.allocPtr = a + n
-	if p.allocPtr > iopRAMSizeBytes {
-		p.halt("out of IOP memory: %d bytes wanted, past the end of the 2 MiB", n)
+	if p.allocPtr > iopStackArea {
+		p.halt("out of IOP memory: %d bytes wanted, and the allocator has reached the stacks at 0x%08X",
+			n, uint32(iopStackArea))
 		return 0
 	}
 	return a
 }
+
+// iopStackArea is where the allocator has to stop.
+//
+// The top 64 KiB of IOP memory belongs to the machine rather than to the guest: the
+// stack a routine called from Go runs on, and the separate one an interrupt handler runs
+// on. They are not allocations and nothing on the IOP knows they are there, so the
+// allocator has to be told — a heap that grew into them would corrupt the stack of the
+// very code that asked it to grow.
+const iopStackArea = iopRAMSizeBytes - 0x10000
 
 // --- running ---------------------------------------------------------------------
 
@@ -285,6 +447,7 @@ func (p *IOP) Step() {
 	if !p.running || p.Halted || p.CPU.Halted {
 		return
 	}
+	p.tick()
 	p.CPU.Step()
 }
 
@@ -316,11 +479,28 @@ func (p *IOP) DisasmAt(addr uint32) string {
 		if name := p.callName(in.Target); name != "" {
 			return fmt.Sprintf("%-28s ; %s", in.Text, name)
 		}
+		// A stub linked to a real module on the disc. The linker rewrote it to jump
+		// straight into the callee, so following the target lands inside the *other*
+		// module and tells you nothing about what was asked for; the library and the
+		// function number are what was asked for.
+		if name := p.stubName[in.Target]; name != "" {
+			return fmt.Sprintf("%-28s ; %s -> %s", in.Text, name, p.Sym(p.stubTarget(in.Target)))
+		}
 		if s := p.Sym(in.Target); s != "" {
 			return fmt.Sprintf("%-28s ; %s", in.Text, s)
 		}
 	}
 	return in.Text
+}
+
+// stubTarget follows a direct-linked stub to the code it jumps to, so the disassembly
+// can show both what was imported and where it went.
+func (p *IOP) stubTarget(addr uint32) uint32 {
+	w := p.Read32(addr)
+	if w>>26 != 0x02 { // j
+		return addr
+	}
+	return (addr &^ 0x0FFFFFFF) | (w&0x03FFFFFF)<<2
 }
 
 // callName reports the kernel function a stub address stands for, if it is one.
@@ -370,7 +550,62 @@ func (p *IOP) Sym(addr uint32) string {
 	return fmt.Sprintf("0x%08X", addr)
 }
 
+// SymAddr resolves a symbol name to its address in IOP memory, as loaded.
+//
+// It is the inverse of Sym, and it exists so that an instrument can be pointed at
+// `DMA_SendToSPUAndSync` rather than at a number that changes the moment a module ahead
+// of it in the load order grows by a byte. Only the game's modules carry symbols;
+// Sony's are stripped, and for those the address is still the only handle there is.
+func (p *IOP) SymAddr(name string) (uint32, bool) {
+	for _, m := range p.modules {
+		for i := range m.IRX.Symbols {
+			if s := &m.IRX.Symbols[i]; s.Name == name {
+				return m.Base + s.Addr, true
+			}
+		}
+	}
+	return 0, false
+}
+
 // --- the census -------------------------------------------------------------------
+
+// iopProfileEvery is how often the profiler takes a sample, in instructions. It is a
+// power of two so the test is a mask, and coarse enough that the sampling costs nothing
+// next to the work being sampled.
+const iopProfileEvery = 4096
+
+// IOPProfile reports where the second processor spent its time, hottest first.
+func (p *IOP) IOPProfile() string {
+	if len(p.prof) == 0 {
+		return ""
+	}
+	type kv struct {
+		name string
+		n    int
+	}
+	var all []kv
+	total := 0
+	for k, n := range p.prof {
+		all = append(all, kv{k, n})
+		total += n
+	}
+	sort.Slice(all, func(i, j int) bool {
+		if all[i].n != all[j].n {
+			return all[i].n > all[j].n
+		}
+		return all[i].name < all[j].name
+	})
+	s := fmt.Sprintf("where the IOP spent its time (%d samples, one per %d instructions):\n",
+		total, iopProfileEvery)
+	for i, e := range all {
+		if i == 12 {
+			s += fmt.Sprintf("      ... and %d more routines\n", len(all)-12)
+			break
+		}
+		s += fmt.Sprintf("      %5.1f%%  %s\n", 100*float64(e.n)/float64(total), e.name)
+	}
+	return s
+}
 
 // IOPCensus reports what the IOP asked for that nothing answered: the kernel
 // functions still unmodelled, and the hardware registers still unclaimed.
@@ -418,14 +653,14 @@ func (p *IOP) IOPCensus() string {
 				s += fmt.Sprintf("      ... and %d more\n", len(regs)-8)
 				break
 			}
-			s += fmt.Sprintf("      0x%08X  %s  %d\n", a, iopRegionName(a), p.unmodelledIO[a])
+			s += fmt.Sprintf("      0x%08X  %s  %d\n", a, IOPRegionName(a), p.unmodelledIO[a])
 		}
 	}
 	return s
 }
 
-// iopRegionName labels an IOP peripheral, so the census reads as hardware.
-func iopRegionName(a uint32) string {
+// IOPRegionName labels an IOP peripheral, so the census reads as hardware.
+func IOPRegionName(a uint32) string {
 	switch {
 	case a >= 0x1F801040 && a < 0x1F801060:
 		return "SIO"
@@ -449,4 +684,86 @@ func iopRegionName(a uint32) string {
 		return "SIF"
 	}
 	return "?"
+}
+
+// symFunc names the routine containing an address, without the offset. It is Sym for a
+// profile, where "ISOThread+0x1c" and "ISOThread+0x20" are the same answer.
+func (p *IOP) symFunc(addr uint32) string {
+	s := p.Sym(addr)
+	if i := len(s) - 1; i > 0 {
+		if j := indexByte(s, '+'); j > 0 {
+			return s[:j]
+		}
+	}
+	return s
+}
+
+func indexByte(s string, c byte) int {
+	for i := 0; i < len(s); i++ {
+		if s[i] == c {
+			return i
+		}
+	}
+	return -1
+}
+
+// --- the register trace ------------------------------------------------------------
+//
+// The R3000A's bus is byte-wide, so one `sw` to a register arrives at the bus four
+// times and one `sh` twice, and neither announces how wide it was. A trace that fired on
+// every byte would print four lines for one store, each carrying a partly-merged word; a
+// trace that fired only on the byte that completes a *word* would print nothing at all
+// for the halfword stores that drive the timers' mode registers — which is exactly the
+// register whose absence from an earlier trace sent this bring-up looking in the wrong
+// place.
+//
+// So the trace is deferred instead. An access records which register was touched, and the
+// line is emitted at the start of the next instruction, by which time every byte of the
+// access has landed and the register holds the value the guest meant to leave in it. One
+// instruction that touches a register produces exactly one line, whatever its width.
+
+// ioTrace records that the current instruction touched a register.
+func (p *IOP) ioTrace(a uint32, write bool) {
+	if p.OnIO == nil {
+		return
+	}
+	p.ioPend = append(p.ioPend[:0], ioTouch{addr: a, write: write, pc: p.CPU.CurPC()})
+}
+
+// ioTouch is one register access, waiting for the instruction to finish.
+type ioTouch struct {
+	addr  uint32
+	pc    uint32
+	write bool
+}
+
+// ioTraceFlush emits the previous instruction's register access, if it made one.
+func (p *IOP) ioTraceFlush() {
+	if p.OnIO == nil || len(p.ioPend) == 0 {
+		return
+	}
+	t := p.ioPend[0]
+	p.ioPend = p.ioPend[:0]
+	p.OnIO(t.addr, p.ioPeek(t.addr), t.write, t.pc)
+}
+
+// Run steps the IOP on its own, for up to n instructions.
+//
+// This is the second processor running as a processor rather than as a called routine:
+// its threads are scheduled by THREADMAN, its interrupts arrive from its own timers and
+// devices, and nothing outside it is driving. It is what the IOP does for the whole of a
+// game — the EE asks it for things across the SIF, and the rest of the time it is simply
+// alive.
+//
+// It stops early if the machine halts. It does not stop when there is nothing to do:
+// an IOP with every thread blocked is an IOP waiting for an interrupt, and the interrupt
+// is on its way.
+func (p *IOP) Run(n uint64) {
+	for i := uint64(0); i < n; i++ {
+		if !p.running || p.Halted || p.CPU.Halted {
+			return
+		}
+		p.tick()
+		p.CPU.Step()
+	}
 }

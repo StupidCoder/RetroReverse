@@ -57,7 +57,10 @@ func main() {
 	verbose := flag.Bool("v", false, "log every kernel call as it happens")
 	iopOnly := flag.Bool("iop", false, "boot the IOP alone, load its modules, and report — the second processor's bring-up harness")
 	iopMods := flag.String("iopmods", "", "extra IRX modules to load after the kernel, comma-separated (e.g. SIO2MAN,PADMAN,OVERLORD)")
-	iopDis := flag.String("iopdis", "", "disassemble IOP memory at ADDR[:N] after the IOP boots (hex) — reads the modules as loaded, with every kernel stub named")
+	iopDis := flag.String("iopdis", "", "disassemble IOP memory at ADDR[:N] after the IOP boots (hex or symbol) — reads the modules as loaded, with every kernel stub named")
+	iopIO := flag.Bool("iopio", false, "trace every IOP peripheral-register access, with the routine that made it")
+	iopION := flag.Int("iopion", 400, "limit traced IOP register accesses")
+	iopWatch := flag.String("iopwatch", "", "write-watch on IOP memory: ADDR[:LEN] (hex)")
 	flag.Parse()
 
 	if *image == "" {
@@ -71,6 +74,7 @@ func main() {
 		savestate: *savestate, loadstate: *loadstate, poke: *poke,
 		dis: *dis, dump: *dump, files: *files, verbose: *verbose,
 		iopOnly: *iopOnly, iopMods: *iopMods, iopDis: *iopDis,
+		iopIO: *iopIO, iopION: *iopION, iopWatch: *iopWatch,
 	}); err != nil {
 		fmt.Fprintln(os.Stderr, "bootoracle:", err)
 		os.Exit(1)
@@ -88,6 +92,9 @@ type cfg struct {
 	files, verbose                        bool
 	iopOnly                               bool
 	iopMods, iopDis                       string
+	iopIO                                 bool
+	iopION                                int
+	iopWatch                              string
 }
 
 func hx(s string) (uint32, error) {
@@ -124,6 +131,26 @@ func parseRange(s string) (lo, ln uint32, err error) {
 	parts := strings.SplitN(s, ":", 2)
 	if lo, err = hx(parts[0]); err != nil {
 		return
+	}
+	ln = 4
+	if len(parts) == 2 {
+		ln, err = hx(parts[1])
+	}
+	return
+}
+
+// parseIOPRange is parseRange over IOP memory, and it accepts a symbol name where the
+// EE's takes only a number. The modules the game ships are not stripped, so
+// `-iopdis DMA_SendToSPUAndSync:40` says what it means — and says it against whatever
+// address the module landed at this run, which changes whenever the load order does.
+func parseIOPRange(m *ps2.Machine, s string) (lo, ln uint32, err error) {
+	parts := strings.SplitN(s, ":", 2)
+	if lo, err = hx(parts[0]); err != nil {
+		a, ok := m.IOP.SymAddr(parts[0])
+		if !ok {
+			return 0, 0, fmt.Errorf("%q is neither a hex address nor a symbol in any loaded IOP module", parts[0])
+		}
+		lo, err = a, nil
 	}
 	ln = 4
 	if len(parts) == 2 {
@@ -194,7 +221,7 @@ func run(c cfg) error {
 	// time if the only way to reach it is through a three-billion-instruction EE boot.
 	// This is the short way in.
 	if c.iopOnly {
-		return bootIOP(m, c.iopMods, c.iopDis)
+		return bootIOP(m, c)
 	}
 
 	if c.loadstate != "" {
@@ -394,7 +421,57 @@ func isPrintable(s string) bool {
 // onto — then loads whatever else was asked for, and prints three things: what the
 // modules printed, what they asked the kernel for that nothing answered, and what
 // hardware they touched. The middle one is the work list.
-func bootIOP(m *ps2.Machine, extra, dis string) error {
+// iopFreeRun is how long the harness lets the IOP run once its modules are up. It is
+// long enough for the scheduler to make many passes and for every thread to reach the
+// place where it waits for the EE, which is where a healthy IOP with no EE ends up.
+const iopFreeRun = 20_000_000
+
+func bootIOP(m *ps2.Machine, c cfg) error {
+	extra, dis := c.iopMods, c.iopDis
+
+	// The register trace has to be armed before the IOP exists, because StartIOP is
+	// inside RebootIOP and the modules begin driving hardware in their entry points —
+	// TIMEMANI is programming a timer before the boot is four modules old.
+	if c.iopIO {
+		n := 0
+		m.OnIOPStart = func(p *ps2.IOP) {
+			p.OnIO = func(addr, val uint32, write bool, pc uint32) {
+				if n >= c.iopION {
+					return
+				}
+				n++
+				op := "read "
+				if write {
+					op = "write"
+				}
+				fmt.Printf("  io %s 0x%08X = %08X  %-10s %s\n",
+					op, addr, val, ps2.IOPRegionName(addr), p.Sym(pc))
+			}
+		}
+	}
+
+	if c.iopWatch != "" {
+		lo, ln, e := parseRange(c.iopWatch)
+		if e != nil {
+			return e
+		}
+		n := 0
+		prev := m.OnIOPStart
+		m.OnIOPStart = func(p *ps2.IOP) {
+			if prev != nil {
+				prev(p)
+			}
+			p.WatchLo, p.WatchHi = lo, lo+ln
+			p.OnWrite = func(addr, val, pc uint32) {
+				if n >= 200 {
+					return
+				}
+				n++
+				fmt.Printf("  iop write 0x%08X = %02X  from %s\n", addr, val, p.Sym(pc))
+			}
+		}
+	}
+
 	err := m.RebootIOP()
 
 	if err != nil {
@@ -422,6 +499,15 @@ func bootIOP(m *ps2.Machine, extra, dis string) error {
 		fmt.Printf("  loaded %-14s at 0x%08X  %6d bytes\n", mod.Name, mod.Base, mod.Size)
 	}
 
+	// Every module is loaded and every entry point has returned. Now let the second
+	// processor simply run: its threads are THREADMAN's to schedule, its interrupts come
+	// from its own timers, and nothing is driving it. This is the IOP being a processor
+	// rather than a library, and it is the state it spends a whole game in.
+	if err == nil {
+		fmt.Printf("\nrunning the IOP on its own for %d instructions\n", iopFreeRun)
+		m.IOP.Run(iopFreeRun)
+	}
+
 	fmt.Printf("\n--- the log\n")
 	for _, l := range m.Log {
 		fmt.Printf("  %s\n", l)
@@ -429,12 +515,16 @@ func bootIOP(m *ps2.Machine, extra, dis string) error {
 	if tty := m.IOP.TTY(); tty != "" {
 		fmt.Printf("\n--- what the IOP printed\n%s\n", tty)
 	}
+	fmt.Printf("\n--- %s", m.IOP.IOPInterrupts())
+	if prof := m.IOP.IOPProfile(); prof != "" {
+		fmt.Printf("\n--- %s", prof)
+	}
 	if census := m.IOP.IOPCensus(); census != "" {
 		fmt.Printf("\n--- %s", census)
 	}
 
 	if dis != "" {
-		addr, n, err := parseRange(dis)
+		addr, n, err := parseIOPRange(m, dis)
 		if err != nil {
 			return err
 		}

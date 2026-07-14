@@ -143,6 +143,11 @@ type Machine struct {
 	// is when the modules it will run are chosen.
 	IOP *IOP
 
+	// OnIOPStart, if set, is handed the second processor the moment it is built — which
+	// is the only chance to attach an instrument to it, because the modules start driving
+	// hardware inside the very entry points RebootIOP calls.
+	OnIOPStart func(*IOP)
+
 	// The six registers both processors can see (sifbus.go).
 	sbus [sbusRegs]uint32
 
@@ -225,6 +230,9 @@ func sprintf(format string, args ...interface{}) string { return fmt.Sprintf(for
 // It runs nothing until a module is loaded onto it (iopload.go).
 func (m *Machine) StartIOP() *IOP {
 	m.IOP = newIOP(m, m.iopRAM)
+	if m.OnIOPStart != nil {
+		m.OnIOPStart(m.IOP)
+	}
 	return m.IOP
 }
 

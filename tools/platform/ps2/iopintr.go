@@ -23,25 +23,31 @@ func init() {
 	// CpuSuspendIntr(int *old) / CpuResumeIntr(int old), and nothing else has that
 	// shape.
 	//
-	// The two that will matter most later are #28 and #30. THREADMAN hands each of them
-	// one of its own functions, and the function it hands to #30 is four instructions
-	// long: it compares two of THREADMAN's globals and returns whether they differ.
-	// That is "does the scheduler want to switch threads?" — so #30 registers the
-	// predicate the kernel consults on the way out of an interrupt, and #28 registers
-	// the routine that acts on it. They are recorded rather than called, because nothing
-	// delivers an interrupt to the IOP yet; when something does, this is the contract it
-	// has to honour, and honouring it is what will make the real THREADMAN schedule.
+	// #23 is QueryIntrContext, and it is named by the only use its answer is ever put to.
+	// LIBSD calls it at the top of its transfer routine and branches on the result to one
+	// of *two versions of the same THREADMAN call* — thevent#8 on one side, thevent#9 on
+	// the other, with identical arguments. A kernel exports a pair like that for exactly
+	// one reason: one of them is safe to call from inside an interrupt and the other is
+	// not, and the caller has to know which it is. So the question being asked is "am I in
+	// an interrupt?", and the answer is how deep in a handler we are.
+	//
+	// #28 and #30 are THREADMAN's hooks into interrupt exit. It hands each of them one of
+	// its own functions, and the one it hands to #30 is four instructions long: it compares
+	// two of THREADMAN's globals and returns whether they differ. That is "does the
+	// scheduler want to switch threads?" — so #30 registers the predicate the kernel
+	// consults on the way out of an interrupt, and #28 the routine that acts on it. Both
+	// are called now, on the path in intrDeliver.
 	lib("intrman", map[uint16]iopFunc{
 		4:  {"RegisterIntrHandler", (*IOP).intrRegister},
 		5:  {"ReleaseIntrHandler", (*IOP).intrRelease},
 		6:  {"EnableIntr", (*IOP).intrEnable},
 		7:  {"DisableIntr", (*IOP).intrDisable},
-		8:  unknown(),
-		9:  unknown(),
+		8:  {"CpuDisableIntr", (*IOP).intrCpuDisable},
+		9:  {"CpuEnableIntr", (*IOP).intrCpuEnable},
 		14: unknown(),
 		17: {"CpuSuspendIntr", (*IOP).intrSuspend},
 		18: {"CpuResumeIntr", (*IOP).intrResume},
-		23: unknown(),
+		23: {"QueryIntrContext", (*IOP).intrQueryContext},
 		28: {"<register scheduler hook>", (*IOP).intrSetSwitchHook},
 		30: {"<register reschedule predicate>", (*IOP).intrSetReschedHook},
 	})
@@ -93,21 +99,54 @@ func init() {
 
 // --- intrman ----------------------------------------------------------------------
 
-// iopIRQs is how many interrupt lines the IOP has. The modules on this disc register
-// handlers on lines up to 0x10; the controller has 32 and there is no reason to model
-// fewer.
-const iopIRQs = 32
+// iopIRQs is how big intrman's vector table is, and it is bigger than the interrupt
+// controller.
+//
+// The chip has 32 lines. intrman offers more, and the extra ones are the DMA channels:
+// the controller raises a single line for "some channel finished" and the kernel demuxes
+// it, so from a driver's point of view each channel has an interrupt of its own. The
+// numbers were read off the registrations, and four modules agree:
+//
+//	36  LIBSD    channel 4    the sound chip's first core
+//	40  LIBSD    channel 7    its second
+//	42  SIFMAN   channel 9    SIF0
+//	43  SIFCMD   channel 10   SIF1
+//
+// which is 32 + n for the first block of channels and 40 + (n-7) for the second — eight
+// numbers to a block, with the second block's numbering starting at a round 40 rather than
+// carrying on from the first. That is not a guess between two readings; it is the only
+// arithmetic that fits all four, and it independently confirms the channel identities
+// derived from DPCR (iopdma.go), which were established from an entirely different
+// register by an entirely different argument.
+//
+// A table of 32 does not merely lose these. It loses them *silently*: RegisterIntrHandler
+// is handed 36, finds it out of range, returns an error the caller does not check, and the
+// sound chip's completion interrupt is never registered at all. The handler that would have
+// run is the one that calls the callback that sets the flag OVERLORD is spinning on.
+const iopIRQs = 64
 
-// iopHandler is one registered interrupt handler.
+// iopHandler is one registered interrupt handler: an entry in the vector table, and
+// nothing more.
+//
+// Whether the line is *unmasked* is deliberately not in here, and the reason is worth
+// recording, because putting it here is a bug that hides perfectly. On the hardware the
+// vector table and the mask register are two different pieces of state, and a driver may
+// write them in either order — LIBSD writes them in the order nobody expects, calling
+// EnableIntr(9) and only then RegisterIntrHandler(9). With the two conflated in one
+// struct, registering the handler stores a fresh record over the top of the enable that
+// had already happened, and the sound chip's line is masked from that moment on. The
+// symptom is not a masked interrupt. The symptom is OVERLORD waiting forever for a DMA
+// that completed, on a machine where the DMA controller, the SPU and the interrupt path
+// are all working.
 type iopHandler struct {
-	fn      uint32 // the module's own routine
-	arg     uint32
-	enabled bool
+	fn  uint32 // the module's own routine
+	arg uint32
 }
 
 func (p *IOP) intrRegister() {
 	irq, _, fn, arg := p.arg(0), p.arg(1), p.arg(2), p.arg(3)
 	if irq >= iopIRQs {
+		p.ps2.note("IOP: a handler was registered on interrupt %d, which is past the end of the table", irq)
 		p.setRet(0xFFFFFF9A) // out of range; the caller checks
 		return
 	}
@@ -125,14 +164,14 @@ func (p *IOP) intrRelease() {
 
 func (p *IOP) intrEnable() {
 	if irq := p.arg(0); irq < iopIRQs {
-		p.handlers[irq].enabled = true
+		p.imask |= 1 << uint64(irq)
 	}
 	p.setRet(0)
 }
 
 func (p *IOP) intrDisable() {
 	if irq := p.arg(0); irq < iopIRQs {
-		p.handlers[irq].enabled = false
+		p.imask &^= 1 << uint64(irq)
 	}
 	p.setRet(0)
 }
@@ -157,11 +196,34 @@ func (p *IOP) intrResume() {
 	p.setRet(0)
 }
 
+// intrCpuDisable and intrCpuEnable are CpuDisableIntr() and CpuEnableIntr(): the
+// processor's master interrupt switch, as against the per-line mask that #6 and #7 drive.
+//
+// Neither takes an argument — both are called with a `nop` in the delay slot and no
+// register set up before them — and they bracket a module's *initialisation*, which is
+// what distinguishes them from the suspend/resume pair. 989SND calls #8 as the first
+// thing it does; THREADMAN calls #9 as the last instruction before its entry point
+// returns.
+//
+// THREADMAN is the argument. Its entry point opens by calling CpuSuspendIntr, and it
+// never calls CpuResumeIntr — not once, anywhere. If #9 is not the thing that turns the
+// processor's interrupts back on, then nothing is, and the IOP runs the rest of its life
+// with them off: every module's Suspend faithfully saves "disabled", every matching Resume
+// faithfully restores it, and the machine looks entirely healthy while the sound chip's
+// completed transfer waits at a masked door forever. Which is exactly what it did.
+func (p *IOP) intrCpuDisable() {
+	p.intrEnabled = false
+	p.setRet(0)
+}
+
+func (p *IOP) intrCpuEnable() {
+	p.intrEnabled = true
+	p.setRet(0)
+}
+
 // intrSetSwitchHook and intrSetReschedHook record THREADMAN's two hooks into the
-// interrupt-exit path. See the note at the top of the file: they are stored, not
-// called, because nothing delivers an interrupt to this IOP yet. When something does,
-// the contract is: run the handler, ask the predicate, and if it says yes, call the
-// switcher.
+// interrupt-exit path. The contract they describe is kept in intrDeliver: run the
+// handler, ask the predicate, and if it says yes, call the switcher.
 func (p *IOP) intrSetSwitchHook() {
 	p.schedSwitch = p.arg(0)
 	p.ps2.note("IOP: the scheduler's switch routine is %s", p.Sym(p.schedSwitch))
@@ -172,6 +234,193 @@ func (p *IOP) intrSetReschedHook() {
 	p.schedResched = p.arg(0)
 	p.ps2.note("IOP: the scheduler's reschedule predicate is %s", p.Sym(p.schedResched))
 	p.setRet(0)
+}
+
+// intrQueryContext is QueryIntrContext(): non-zero while an interrupt handler is running.
+func (p *IOP) intrQueryContext() { p.setRet(b2u(p.inIntr > 0)) }
+
+// --- delivering an interrupt ---------------------------------------------------------
+
+// iopIntrStack is where an interrupt handler runs.
+//
+// It cannot be the stack callGuest uses, and that is not a detail. An interrupt arrives
+// in the middle of whatever was running, so a handler starting at the top of the shared
+// call stack would lay its own frame straight over the frames of the routine it
+// interrupted — and the routine it interrupts is, almost always, the one waiting for it.
+const iopIntrStack = iopRAMSizeBytes - 0x8400
+
+// raiseIRQ marks an interrupt line. It is the hardware's I_STAT, and it is a Go field
+// rather than a register because intrman is ours: no module on this disc reads the
+// interrupt controller's registers, because none of them has to.
+func (p *IOP) raiseIRQ(irq uint32) {
+	p.pending |= 1 << uint64(irq)
+	p.raised[irq]++
+}
+
+// serviceIntr delivers one pending interrupt, if the processor will take it.
+//
+// A line whose handler is not enabled stays raised. That is what the hardware does, and
+// it is also the honest thing: the interrupt has happened whether or not anyone is
+// listening yet, and a module that enables its handler afterwards should see it.
+func (p *IOP) serviceIntr() {
+	if p.inIntr > 0 || !p.intrEnabled || p.pending == 0 {
+		return
+	}
+
+	// Not in the shadow of a branch, and not with a load still in the air.
+	//
+	// The frame a context is saved into holds one program counter, and one program counter
+	// cannot describe a processor that is about to execute a delay slot — the branch it
+	// belongs to has already gone, and the address it is going to is nowhere in the frame.
+	// The same is true of the R3000A's load delay: the value is in flight, not in the
+	// register file, and the frame has no room for it either.
+	//
+	// Both resolve in a single instruction, so declining here costs the interrupt one step
+	// of latency and buys the guarantee that every context this machine ever saves is one
+	// it can restore exactly. It is the same guarantee the hardware gives itself with the
+	// BD bit, arrived at from the other side.
+	if st := p.CPU.SaveState(); st.PendingDelay || st.LdReg != 0 {
+		return
+	}
+
+	for irq := uint32(0); irq < iopIRQs; irq++ {
+		bit := uint64(1) << uint64(irq)
+		if p.pending&bit == 0 || p.imask&bit == 0 || p.handlers[irq].fn == 0 {
+			continue
+		}
+		p.pending &^= bit
+		p.delivered[irq]++
+		p.intrDeliver(irq)
+		return
+	}
+}
+
+// intrDeliver is the exception path: save the interrupted thread into a frame on its own
+// stack, run the handler, ask THREADMAN whether the interrupt has made a different thread
+// the one that ought to be running, and resume whichever thread it names.
+//
+// The frame is not a Go struct, and that is the whole point. It lives in IOP memory, in
+// the layout THREADMAN builds for a thread it starts (iopframe.go), because THREADMAN is
+// going to be handed a pointer to it and is going to file it in the outgoing thread's
+// control block. A context saved anywhere else would be a context Sony's scheduler could
+// not put away — which is why the hooks sat recorded and uncalled for so long.
+func (p *IOP) intrDeliver(irq uint32) {
+	h := p.handlers[irq]
+
+	// The frame goes below the interrupted thread's stack pointer, which is where the
+	// kernel's exception prologue puts it and where THREADMAN's stack-overflow check
+	// expects to find it.
+	frame := (p.CPU.Reg(29) - iopFrameSize) &^ 7
+	p.saveFrame(frame)
+
+	// Whether the interrupted context is a thread at all.
+	//
+	// A module's entry point is not one. loadcore calls it, and here "loadcore" is Go, so
+	// the entry runs as a nested interpreter loop on a stack of the machine's own —
+	// whereas on the board it would be running on whichever thread called LoadModule, and
+	// THREADMAN would know all about it. That difference is invisible until the scheduler
+	// tries to *put the context away*: the switch routine files the frame in the control
+	// block of the thread it believes is current, and the thread it believes is current is
+	// not the one that is actually running. The frame goes to the wrong owner, the entry
+	// point is never resumed, and the machine wanders into the low 64 KiB and executes
+	// zeroes.
+	//
+	// So while a module is starting, the interrupt is delivered — the handler runs, the
+	// DMA completion is seen, the flag the entry is spinning on gets set — but the thread
+	// switch is declined. Nothing is lost by declining it: the interrupt has already made
+	// its thread ready, and THREADMAN will pick it up at the next scheduling point, which
+	// is the moment the entry point returns and the machine goes back to stepping threads.
+	//
+	// The honest fix is to give the loader a thread of its own, so there is always a real
+	// context to file. That is a change to how modules are started, not to how interrupts
+	// are delivered, and it belongs with the work that turns the IOP on in the main boot.
+	preemptible := p.callDepth == 0
+
+	wasEnabled := p.intrEnabled
+	p.inIntr++
+	p.intrEnabled = false // a handler runs masked, as on the hardware
+
+	p.CPU.SetReg(4, h.arg) // the handler's one argument, given at registration
+	_, err := p.callGuestOn(h.fn, iopIntrStack)
+
+	resume := frame
+	if err == nil && preemptible {
+		if next, ok := p.intrReschedule(frame); ok {
+			resume = next
+		}
+	}
+
+	p.inIntr--
+	p.loadFrame(resume)
+
+	// The interrupt returns to the state it found, and *this* is the line that restores
+	// it — not the handler, and not the scheduler hooks. Both of those are kernel code
+	// that brackets its own critical sections with CpuSuspendIntr and CpuResumeIntr, and
+	// both are entitled to leave the processor masked when they hand back, because on the
+	// board what re-enables interrupts is the exception return itself, restoring the
+	// status register the exception saved. There is no status register here, so the
+	// restore has to be written down.
+	//
+	// Getting this the wrong way round — restoring the enable and *then* running the
+	// hooks — costs the machine every interrupt after the first one that reschedules. The
+	// timer goes on raising its line thirteen hundred times and not one of them is
+	// delivered, because the scheduler quietly left the door shut on its way out.
+	p.intrEnabled = wasEnabled
+
+	if err != nil {
+		p.halt("the handler for interrupt %d (%s) did not return: %v", irq, p.Sym(h.fn), err)
+	}
+}
+
+// intrReschedule asks THREADMAN whether to switch threads, and switches if it says so.
+// It returns the frame the processor should resume from.
+//
+// The predicate and the switch routine are THREADMAN's own, registered through intrman
+// #30 and #28. The kernel does not need to understand the scheduler — it only has to ask
+// the question the scheduler asked to be asked, and to believe the answer.
+func (p *IOP) intrReschedule(frame uint32) (uint32, bool) {
+	if p.schedResched == 0 || p.schedSwitch == 0 {
+		return 0, false
+	}
+	want, err := p.callGuestOn(p.schedResched, iopIntrStack)
+	if err != nil || want == 0 {
+		return 0, false
+	}
+
+	// Hand the switch routine the frame we saved. It files it in the outgoing thread's
+	// control block, makes the incoming thread current, and returns *its* frame.
+	p.CPU.SetReg(4, frame)
+	next, err := p.callGuestOn(p.schedSwitch, iopIntrStack)
+	if err != nil {
+		p.halt("THREADMAN's thread switch did not return: %v", err)
+		return 0, false
+	}
+	if next == 0 {
+		return 0, false
+	}
+	p.switches++
+	return next, true
+}
+
+// tick advances the second processor's own clocks by one instruction: it finishes any
+// DMA whose latency has run out, and delivers any interrupt that has become deliverable.
+// Every loop that steps the IOP goes through it.
+func (p *IOP) tick() {
+	p.ioTraceFlush()
+	p.steps++
+	if p.steps%iopProfileEvery == 0 {
+		if p.prof == nil {
+			p.prof = map[string]int{}
+		}
+		p.prof[p.symFunc(p.CPU.PC)]++
+	}
+	p.timerTick()
+	if len(p.dmaPending) > 0 {
+		p.dmaTick()
+	}
+	if p.pending != 0 {
+		p.serviceIntr()
+	}
 }
 
 func b2u(b bool) uint32 {
