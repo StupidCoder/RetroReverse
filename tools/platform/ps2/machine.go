@@ -153,6 +153,10 @@ type Machine struct {
 	// thousands of calls between them, and the one worth watching is usually the last.
 	OnIOPModule func(p *IOP, name string)
 
+	// iopRebooted is whether the second processor has actually come up, and it is what the EE
+	// is told when it asks. sceSifSyncIop spins until it is true.
+	iopRebooted bool
+
 	// The six registers both processors can see (sifbus.go).
 	sbus [sbusRegs]uint32
 

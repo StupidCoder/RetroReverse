@@ -88,6 +88,7 @@ func (m *Machine) sifSetDma() {
 		src := m.Read32(d + 0x00)
 		size := m.Read32(d + 0x08)
 
+
 		if size >= 16 && m.Read32(src+0x08)&0x80000000 != 0 {
 			m.iopReceive(src, size)
 			m.rpcSendBuf, m.rpcSendSize = 0, 0
@@ -123,7 +124,7 @@ func (m *Machine) iopReceive(src, size uint32) {
 		m.sifSend(sifCmdSetSreg, 0, sifRPCInitSreg, sifRPCReady)
 
 	case sifCmdReset:
-		m.note("SIF: reset")
+		m.iopReset(src)
 
 	case sifCmdRpcBind:
 		m.rpcBind(src)
@@ -136,6 +137,42 @@ func (m *Machine) iopReceive(src, size uint32) {
 			cid, opt, m.Sym(uint32(m.CPU.CurPC())), size, src)
 		m.sifUnmodelled[cid]++
 	}
+}
+
+// iopReset is the EE rebooting the second processor — and it is where the IOP on this machine
+// actually comes to life.
+//
+// The request arrives as an ordinary SIF command packet, cid 0x80000003, sent by the game's own
+// sceSifResetIop. That routine is worth following, because it says what a reboot *is* here: it
+// calls sceSifSetDma, and nothing else. There is no special register and no back door. The EE
+// asks the IOP to reboot by sending it a message, exactly as it asks it for anything else, and
+// the message carries the request as a string:
+//
+//	rom0:UDNL cdrom0:\DRIVERS\IOPRP221.IMG;1
+//
+// So the image the second processor boots is not a constant this machine keeps; it is a
+// sentence the game says. The path is read out of the packet (iopRebootImage) and the disc is
+// asked for that file.
+//
+// Afterwards the EE spins in sceSifSyncIop, which reads SIF register 4 and tests bit 0x40000 —
+// "the IOP has finished rebooting". It used to be answered with a lie, because there was
+// nothing to reboot. Now it is answered with the truth.
+func (m *Machine) iopReset(src uint32) {
+	// The payload is a length, a mode, and then the command itself.
+	cmd := m.CString(src + 0x18)
+
+	image, err := iopRebootImage(cmd)
+	if err != nil {
+		m.note("SIF: %v", err)
+		return
+	}
+	m.note("SIF: the EE is rebooting the IOP — %q, so the image is %s", cmd, image)
+
+	if err := m.RebootIOPFrom(image); err != nil {
+		m.note("SIF: the IOP did not reboot: %v", err)
+		return
+	}
+	m.iopRebooted = true
 }
 
 // --- the RPC layer -----------------------------------------------------------
@@ -350,11 +387,19 @@ func (m *Machine) sifGetReg() {
 		v |= sifIOPAlive
 
 	case sifRegIOPReset:
-		// The game reboots the IOP at boot — it loads a fresh set of modules over the
-		// ones the BIOS left — and then sits in a loop printing "Syncing..." until
-		// sceSifSyncIop sees this bit. There is no IOP to reboot: it is a Go program, and
-		// it is always finished starting. So the bit is always set.
-		v |= sifIOPRebootDone
+		// The game reboots the IOP at boot — it loads a fresh set of modules over the ones the
+		// BIOS left — and then sits in a loop printing "Syncing..." until sceSifSyncIop sees
+		// this bit.
+		//
+		// It used to be set unconditionally, and the comment here said why: there was no IOP to
+		// reboot, so it was always finished rebooting. That is no longer true. The reboot now
+		// happens (iopReset) — the EE names an image, the disc is asked for it, and twelve
+		// modules are loaded and started on a real R3000A — so the bit says what it means, and
+		// an IOP that fails to come up is an IOP the EE will wait for rather than one it is
+		// told a comfortable story about.
+		if m.iopRebooted {
+			v |= sifIOPRebootDone
+		}
 	}
 	m.setRet(v)
 }

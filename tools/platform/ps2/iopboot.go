@@ -57,17 +57,27 @@ const iopBootImage = "/DRIVERS/IOPRP221.IMG"
 // It returns the modules it started, in the order it started them. A module that fails
 // to load stops the boot then and there and says why: the alternative is an IOP that
 // runs with a hole in it, which looks exactly like an IOP that is merely slow.
-func (m *Machine) RebootIOP() error {
+func (m *Machine) RebootIOP() error { return m.RebootIOPFrom(iopBootImage) }
+
+// RebootIOPFrom boots the second processor on a nominated image.
+//
+// The image is nominated by the *game*, and that is the point of this being a parameter. The
+// EE asks for the reboot by sending the IOP a command packet, and the packet carries the
+// request as a string — "rom0:UDNL cdrom0:\DRIVERS\IOPRP221.IMG;1". So the boot image is not
+// something this machine has to know in advance; it is something the game says out loud, and
+// reading it out of the request rather than out of a constant is the difference between
+// running the game's boot and reproducing it from memory.
+func (m *Machine) RebootIOPFrom(image string) error {
 	if m.vol == nil {
 		return fmt.Errorf("ps2: no disc is mounted, so the IOP has nothing to boot from")
 	}
-	raw, err := m.vol.ReadFile(iopBootImage)
+	raw, err := m.vol.ReadFile(image)
 	if err != nil {
-		return fmt.Errorf("ps2: reading the IOP's boot image: %w", err)
+		return fmt.Errorf("ps2: reading the IOP's boot image %s: %w", image, err)
 	}
 	entries, err := ROMDIRModules(raw)
 	if err != nil {
-		return fmt.Errorf("ps2: %s is not a ROMDIR archive: %w", iopBootImage, err)
+		return fmt.Errorf("ps2: %s is not a ROMDIR archive: %w", image, err)
 	}
 
 	byName := map[string][]byte{}
@@ -89,14 +99,43 @@ func (m *Machine) RebootIOP() error {
 	for _, name := range iopBootOrder {
 		raw, ok := byName[name]
 		if !ok {
-			return fmt.Errorf("ps2: %s holds no module called %s", iopBootImage, name)
+			return fmt.Errorf("ps2: %s holds no module called %s", image, name)
 		}
 		if err := m.IOP.LoadAndStart(name, raw); err != nil {
 			return err
 		}
 	}
-	m.note("IOP: booted on %s — %d modules", iopBootImage, len(m.IOP.modules))
+	m.note("IOP: booted on %s — %d modules", image, len(m.IOP.modules))
 	return nil
+}
+
+// iopRebootImage reads the boot image out of the EE's reset request.
+//
+// The request is one string, and it names two things: the loader in the IOP's own ROM that is
+// to perform the reboot, and the image it is to boot. `rom0:UDNL` is the first; the rest is
+// the second, and it is a path on this disc in the game's own notation —
+// `cdrom0:\DRIVERS\IOPRP221.IMG;1`, which is `/DRIVERS/IOPRP221.IMG` written the way the CD
+// filesystem writes it. Nothing here is guessed at: the drive, the separators and the version
+// suffix are all conventions of the disc, and the disc is what will be asked for the file.
+//
+// An unrecognised request is answered with an error rather than the image we happen to expect.
+// A machine that boots the right file for the wrong reason is one that will boot the wrong
+// file the moment the game asks for a different one — and the whole reason to read the name is
+// that the game is the authority on it.
+func iopRebootImage(cmd string) (string, error) {
+	arg := cmd
+	if i := strings.IndexByte(arg, ' '); i >= 0 {
+		arg = arg[i+1:] // drop the ROM loader that is to do the rebooting
+	}
+	if !strings.HasPrefix(arg, "cdrom0:") {
+		return "", fmt.Errorf("ps2: the EE asked the IOP to boot %q, which is not on the disc", cmd)
+	}
+	path := strings.TrimPrefix(arg, "cdrom0:")
+	path = strings.ReplaceAll(path, "\\", "/")
+	if i := strings.IndexByte(path, ';'); i >= 0 {
+		path = path[:i] // the ISO version suffix
+	}
+	return path, nil
 }
 
 // LoadModuleFromDisc loads an IRX off the disc by path and starts it. This is what the

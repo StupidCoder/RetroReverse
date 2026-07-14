@@ -396,9 +396,14 @@ func TestSifReplyWaitsForTheEEToConsumeTheLastOne(t *testing.T) {
 }
 
 func TestIOPReportsItselfReady(t *testing.T) {
-	// The EE will not talk to the IOP until register 0 says it is there, and it sits in a
-	// loop printing "Syncing..." until register 4 says it has finished rebooting. There is
-	// no IOP to be absent or to reboot — it is a Go program — so both are always true.
+	// The EE will not talk to the IOP until register 0 says it is there, and it sits in a loop
+	// printing "Syncing..." until register 4 says it has finished rebooting.
+	//
+	// Register 4 used to be answered yes unconditionally, and this test used to insist on it:
+	// there was no IOP to reboot, so it was always finished rebooting. That was true of the
+	// machine at the time and it is a lie about the machine now. The reboot happens — the EE
+	// names an image, the disc is asked for it, and the modules are started — so the bit is
+	// false until it has, and the test is the one that had to change.
 	m := NewMachine()
 
 	m.CPU.SetReg(4, sifRegIOPAlive)
@@ -409,7 +414,32 @@ func TestIOPReportsItselfReady(t *testing.T) {
 
 	m.CPU.SetReg(4, sifRegIOPReset)
 	m.sifGetReg()
+	if uint32(m.CPU.Reg(2))&sifIOPRebootDone != 0 {
+		t.Error("the IOP says it has rebooted before it has — the EE will talk to a processor that is not there")
+	}
+
+	m.iopRebooted = true
+	m.CPU.SetReg(4, sifRegIOPReset)
+	m.sifGetReg()
 	if uint32(m.CPU.Reg(2))&sifIOPRebootDone == 0 {
-		t.Error("the IOP does not report its reboot finished; the game syncs forever")
+		t.Error("the IOP has rebooted and does not say so; the game syncs forever")
+	}
+}
+
+func TestIOPRebootImageIsTheOneTheGameNames(t *testing.T) {
+	// The reboot request is a sentence, and the image is in it. This is the exact string the
+	// game's sceSifResetIop sends, read off the packet.
+	got, err := iopRebootImage(`rom0:UDNL cdrom0:\DRIVERS\IOPRP221.IMG;1`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if want := "/DRIVERS/IOPRP221.IMG"; got != want {
+		t.Errorf("the EE asked for %s and the disc was asked for %s", want, got)
+	}
+
+	// And a request naming something that is not on the disc is an error, not a shrug that
+	// boots the file we were expecting anyway.
+	if _, err := iopRebootImage("rom0:UDNL rom0:SOMETHING"); err == nil {
+		t.Error("a reboot from somewhere other than the disc was accepted")
 	}
 }
