@@ -474,6 +474,22 @@ func (c *CPU) execBlock(w uint32) {
 		}
 	}
 
+	// The S bit ("^") has two entirely different meanings, decided by whether R15 is
+	// in the register list:
+	//
+	//	with PC   — an exception return: also restore CPSR from SPSR
+	//	without PC — transfer the USER-MODE BANK, whatever mode we are actually in
+	//
+	// The second is the one that is easy to miss, and it is not exotic: it is how an
+	// operating system saves and restores a *thread*. SM64DS's ARM7 kernel switches
+	// context with `LDMIA r0, {r0-lr}^` executed in Supervisor mode, precisely so that
+	// the load lands in the thread's user-bank R13/R14 and leaves the Supervisor LR
+	// alone — because the very next instruction, `SUBS pc, lr, #4`, returns through
+	// that Supervisor LR. Treat the "^" as a no-op and the load clobbers it: the
+	// context switch returns into its own middle, and the ARM7 spins between two
+	// threads for ever without executing a single instruction of either.
+	userBank := s == 1 && mask&(1<<15) == 0
+
 	addr := start
 	loadedRn := false
 	for i := uint32(0); i < 16; i++ {
@@ -482,21 +498,29 @@ func (c *CPU) execBlock(w uint32) {
 		}
 		if l == 1 {
 			v := c.read32aligned(addr)
-			if i == 15 {
+			switch {
+			case i == 15:
 				if s == 1 { // restore CPSR from SPSR (exception return form)
 					c.SetCPSR(c.SPSR())
 				}
 				c.bxTo(v)
-			} else {
+			case userBank:
+				c.setUserReg(i, v)
+			default:
 				c.R[i] = v
 				if i == rn {
 					loadedRn = true
 				}
 			}
 		} else {
-			v := c.R[i]
-			if i == 15 {
+			var v uint32
+			switch {
+			case i == 15:
 				v = c.cur + 12
+			case userBank:
+				v = c.userReg(i)
+			default:
+				v = c.R[i]
 			}
 			c.write32aligned(addr, v)
 		}
@@ -504,5 +528,39 @@ func (c *CPU) execBlock(w uint32) {
 	}
 	if wbit == 1 && !(l == 1 && loadedRn) { // a loaded base isn't overwritten by write-back
 		c.setReg(rn, final)
+	}
+}
+
+// userReg and setUserReg reach the USER-mode bank of a register from whatever mode
+// the core is currently in — what an LDM/STM with the "^" suffix (and no PC in its
+// list) transfers.
+//
+// R0-R7 are never banked. R8-R12 are banked only in FIQ mode, so outside FIQ they
+// already *are* the user copies. R13 and R14 are banked in every exception mode, and
+// are the whole point of the instruction.
+func (c *CPU) inUserBank() bool { return c.Mode == ModeUSR || c.Mode == ModeSYS }
+
+func (c *CPU) userReg(i uint32) uint32 {
+	switch {
+	case i >= 8 && i <= 12 && c.Mode == ModeFIQ:
+		return c.usrR8_12[i-8]
+	case i == 13 && !c.inUserBank():
+		return c.bankR13[0] // slot 0 is the shared USR/SYS bank
+	case i == 14 && !c.inUserBank():
+		return c.bankR14[0]
+	}
+	return c.R[i]
+}
+
+func (c *CPU) setUserReg(i, v uint32) {
+	switch {
+	case i >= 8 && i <= 12 && c.Mode == ModeFIQ:
+		c.usrR8_12[i-8] = v
+	case i == 13 && !c.inUserBank():
+		c.bankR13[0] = v
+	case i == 14 && !c.inUserBank():
+		c.bankR14[0] = v
+	default:
+		c.R[i] = v
 	}
 }

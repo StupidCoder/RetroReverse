@@ -27,6 +27,27 @@ type Bus interface {
 	Write(addr uint32, v byte)
 }
 
+// BusWide is an optional Bus that services an aligned halfword or word access in a
+// single call, instead of having the core compose it out of byte accesses.
+//
+// A machine whose registers have SIDE EFFECTS ON READ must implement this, and the
+// requirement is not a performance one. Composing a 32-bit load out of four byte
+// reads performs four reads of the same register — so a receive FIFO pops four
+// entries and returns a word assembled from the wrong ones, and a cartridge port
+// hands back four different words' bytes glued together. On the DS, where the IPC
+// FIFO and the card port are both read-to-pop, that is the difference between a
+// machine that boots and one that cannot load a file.
+//
+// The core uses this only for ALIGNED accesses; unaligned ones keep the byte path,
+// where the architecture's own rotate/force-align rules apply (see read32).
+type BusWide interface {
+	Bus
+	Read16(addr uint32) uint16
+	Read32(addr uint32) uint32
+	Write16(addr uint32, v uint16)
+	Write32(addr uint32, v uint32)
+}
+
 // Processor modes (CPSR bits 4:0).
 const (
 	ModeUSR = 0x10
@@ -83,6 +104,7 @@ type CPU struct {
 	Coproc func(c *CPU, load bool, cp, op1, crn, crm, op2 uint32, rd *uint32)
 
 	bus        Bus
+	wide       BusWide // non-nil when the machine services aligned wide accesses itself
 	Halted     bool
 	HaltReason string
 	Instrs     uint64
@@ -94,6 +116,9 @@ type CPU struct {
 // NewCPU makes a core over bus in a reset ARM/System-mode state.
 func NewCPU(bus Bus) *CPU {
 	c := &CPU{bus: bus}
+	if w, ok := bus.(BusWide); ok {
+		c.wide = w
+	}
 	c.Reset()
 	return c
 }
@@ -228,9 +253,16 @@ func (c *CPU) read8(a uint32) byte     { return c.bus.Read(a) }
 func (c *CPU) write8(a uint32, v byte) { c.bus.Write(a, v) }
 
 func (c *CPU) read16(a uint32) uint32 {
+	if c.wide != nil && a&1 == 0 {
+		return uint32(c.wide.Read16(a))
+	}
 	return uint32(c.bus.Read(a)) | uint32(c.bus.Read(a+1))<<8
 }
 func (c *CPU) write16(a, v uint32) {
+	if c.wide != nil && a&1 == 0 {
+		c.wide.Write16(a, uint16(v))
+		return
+	}
 	c.bus.Write(a, byte(v))
 	c.bus.Write(a+1, byte(v>>8))
 }
@@ -245,10 +277,13 @@ func (c *CPU) read32(a uint32) uint32 {
 	// broke the game's MSBT label→index lookup (an index stored at an unaligned
 	// offset), rendering every such message as "NULL".
 	if c.Arch >= V6K {
+		if c.wide != nil && a&3 == 0 {
+			return c.wide.Read32(a)
+		}
 		return uint32(c.bus.Read(a)) | uint32(c.bus.Read(a+1))<<8 | uint32(c.bus.Read(a+2))<<16 | uint32(c.bus.Read(a+3))<<24
 	}
 	aligned := a &^ 3
-	v := uint32(c.bus.Read(aligned)) | uint32(c.bus.Read(aligned+1))<<8 | uint32(c.bus.Read(aligned+2))<<16 | uint32(c.bus.Read(aligned+3))<<24
+	v := c.read32aligned(aligned)
 	if r := (a & 3) * 8; r != 0 {
 		v = ror32(v, r)
 	}
@@ -259,6 +294,10 @@ func (c *CPU) read32(a uint32) uint32 {
 // the ARMv6 true-unaligned path.
 func (c *CPU) write32aligned(a, v uint32) {
 	a &^= 3
+	if c.wide != nil {
+		c.wide.Write32(a, v)
+		return
+	}
 	c.bus.Write(a, byte(v))
 	c.bus.Write(a+1, byte(v>>8))
 	c.bus.Write(a+2, byte(v>>16))
@@ -267,6 +306,9 @@ func (c *CPU) write32aligned(a, v uint32) {
 
 func (c *CPU) read32aligned(a uint32) uint32 {
 	a &^= 3
+	if c.wide != nil {
+		return c.wide.Read32(a)
+	}
 	return uint32(c.bus.Read(a)) | uint32(c.bus.Read(a+1))<<8 | uint32(c.bus.Read(a+2))<<16 | uint32(c.bus.Read(a+3))<<24
 }
 // write32 is read32's counterpart, and splits the same way. ARMv6 (the 3DS's
@@ -287,6 +329,10 @@ func (c *CPU) read32aligned(a uint32) uint32 {
 func (c *CPU) write32(a, v uint32) {
 	if c.Arch < V6K {
 		a &^= 3
+	}
+	if c.wide != nil && a&3 == 0 {
+		c.wide.Write32(a, v)
+		return
 	}
 	c.bus.Write(a, byte(v))
 	c.bus.Write(a+1, byte(v>>8))

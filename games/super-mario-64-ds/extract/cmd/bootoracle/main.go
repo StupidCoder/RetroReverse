@@ -1,15 +1,15 @@
-// bootoracle runs the Super Mario 64 DS ARM9 boot binary on the tools/arm CPU core, over
-// a flat DS-like address space, and observes what it does: it lets the game's own
-// crt0 self-decompress (a cross-check of tools/nds' DecompressBLZ against the game's
-// decompressor), reach main, and program its hardware, logging every I/O-register
-// write, until it hits a hardware wait (a VBlank/IRQ-wait BIOS call) it cannot satisfy
-// without a full machine. It is the DS analogue of the Amiga physoracle: real code on
-// our own core, used to confirm structure read out of the code — not to scrape data.
+// bootoracle boots Super Mario 64 DS on the Nintendo DS machine model
+// (tools/platform/nds/dsmachine): both CPUs, the display and its timing, DMA, the
+// timers, the cartridge, the ARM7's SPI bus, and both graphics engines. It runs the
+// game's own code — nothing here knows anything about Mario — and lets us watch what
+// it loads, what it computes and what it draws.
 //
-//	bootoracle [-steps N] [-io] rom.nds
+//	bootoracle -image rom.nds -frames 600 -shot title
 //
-// -steps caps the instruction budget; -io prints the sorted set of I/O addresses the
-// boot wrote (with the last value), which reveals the interrupt/display setup.
+// The flag vocabulary is the one every oracle in this repo shares (STANDARDS §3),
+// plus the instruments the DS wanted: -io to see the hardware the boot programmed,
+// -log to see the hardware we did NOT model (an honest list of gaps, not a silence),
+// and -logpc to watch a routine run without halting on it.
 package main
 
 import (
@@ -17,74 +17,62 @@ import (
 	"fmt"
 	"os"
 	"sort"
+	"strconv"
+	"strings"
 
 	"retroreverse.com/tools/cpu/arm"
 	"retroreverse.com/tools/platform/nds"
+	"retroreverse.com/tools/platform/nds/dsmachine"
 )
 
-// bus is a flat little-endian memory covering ITCM/main-RAM/DTCM/WRAM (0..0x03FFFFFF),
-// with the I/O block at 0x04000000 logged rather than modelled.
-type bus struct {
-	mem    []byte
-	io     map[uint32]uint32 // last value written to each I/O register
-	ioseq  []uint32          // I/O addresses in first-write order
-	vcount uint32            // a fake, ever-advancing VCOUNT so simple poll loops progress
-}
+// The ARM9 DTCM base this game programs through CP15 (established in Part II). The
+// machine needs it up front because the BIOS interrupt vectors live at the top of
+// DTCM, and an interrupt delivered to the wrong address is an interrupt the game
+// never takes.
+const dtcm9 = 0x023C0000
 
-func newBus() *bus { return &bus{mem: make([]byte, 0x04000000), io: map[uint32]uint32{}} }
+type addrList []uint32
 
-func (b *bus) Read(a uint32) byte {
-	if a < uint32(len(b.mem)) {
-		return b.mem[a]
+func (a *addrList) String() string { return "" }
+func (a *addrList) Set(s string) error {
+	v, err := parseAddr(s)
+	if err != nil {
+		return err
 	}
-	if a>>24 == 0x04 { // I/O
-		switch a &^ 3 {
-		case 0x04000006: // VCOUNT — return an advancing value so a poll doesn't spin forever
-			b.vcount = (b.vcount + 1) & 0x1FF
-			return byte(b.vcount >> (8 * (a & 3)))
-		}
-		if v, ok := b.io[a&^3]; ok {
-			return byte(v >> (8 * (a & 3)))
-		}
-	}
-	return 0
-}
-
-func (b *bus) Write(a uint32, v byte) {
-	if a < uint32(len(b.mem)) {
-		b.mem[a] = v
-		return
-	}
-	if a>>24 == 0x04 { // I/O register: record it
-		base := a &^ 3
-		if _, seen := b.io[base]; !seen {
-			b.ioseq = append(b.ioseq, base)
-		}
-		shift := 8 * (a & 3)
-		b.io[base] = b.io[base]&^(0xFF<<shift) | uint32(v)<<shift
-	}
-}
-
-func (b *bus) r32(a uint32) uint32 {
-	return uint32(b.Read(a)) | uint32(b.Read(a+1))<<8 | uint32(b.Read(a+2))<<16 | uint32(b.Read(a+3))<<24
-}
-func (b *bus) w32(a, v uint32) {
-	for i := uint32(0); i < 4; i++ {
-		b.Write(a+i, byte(v>>(8*i)))
-	}
+	*a = append(*a, v)
+	return nil
 }
 
 func main() {
-	image := flag.String("image", "", "ROM image (.nds); or pass as a positional arg")
-	steps := flag.Int("steps", 30_000_000, "instruction budget")
-	showIO := flag.Bool("io", false, "list the I/O registers the boot programmed")
+	image := flag.String("image", "", "ROM image (.nds)")
+	steps := flag.String("steps", "0", "instruction budget (hex or decimal; 0 = no limit)")
+	frames := flag.Uint64("frames", 0, "stop after N frames (a graphics workload is measured in frames)")
+	quantum := flag.Int("quantum", 64, "ARM9 instructions per scheduler quantum")
+	shot := flag.String("shot", "", "write both screens as PNG (BASE_top.png, BASE_bottom.png)")
+	shotEvery := flag.Uint64("shotevery", 0, "with -shot: also write a numbered capture every N frames")
+	keys := flag.String("keys", "", "an input script FILE, or buttons to hold (a,b,start,…). A game waits for a press EDGE, so a held button is usually not enough — see dsmachine/script.go")
+	touch := flag.String("touch", "", "hold the stylus at X,Y for the whole run")
+	showIO := flag.Bool("io", false, "list the I/O registers the run programmed")
+	showLog := flag.Bool("log", false, "list the hardware the model did NOT implement")
+	gfx := flag.Bool("gfx", false, "dump the graphics state: both engines, VRAM banks, the 3D engine's frame")
+	gxdump := flag.Bool("gxdump", false, "histogram of the 3D commands the geometry engine executed")
+	cardlog := flag.Bool("cardlog", false, "log every cartridge transfer: the map of what the game loads, when")
+	rtshot := flag.String("rtshot", "", "write the 3D engine's own render target as a PNG, before the 2D engine composites it")
+	trace := flag.Bool("trace", false, "trace instructions")
+	tracen := flag.Int("tracen", 200, "with -trace: how many instructions to trace")
+	traceFrom := flag.String("tracefrom", "", "start tracing when this ARM9 address is first reached")
+	dump := flag.String("dump", "", "hex-dump memory after the run: ADDR:LEN")
+	var bps, logpcs addrList
+	flag.Var(&bps, "bp", "halting breakpoint (ARM9 address; repeatable)")
+	flag.Var(&logpcs, "logpc", "non-halting breakpoint: log registers and continue (repeatable)")
 	flag.Parse()
+
 	romPath := *image
 	if romPath == "" && flag.NArg() == 1 {
 		romPath = flag.Arg(0)
 	}
 	if romPath == "" {
-		fmt.Fprintln(os.Stderr, "usage: bootoracle -image rom.nds [-steps N] [-io]")
+		fmt.Fprintln(os.Stderr, "usage: bootoracle -image rom.nds [-frames N] [-shot BASE] ...")
 		os.Exit(2)
 	}
 	data, err := os.ReadFile(romPath)
@@ -96,185 +84,304 @@ func main() {
 		die(err)
 	}
 
-	b := newBus()
-	// Load the ARM9 binary exactly as the BIOS would: the compressed image at its RAM
-	// address. The crt0 will decompress it itself.
-	arm9 := rom.ARM9()
-	copy(b.mem[rom.Header.ARM9RAMAddr:], arm9)
+	budget, err := parseUint(*steps)
+	if err != nil {
+		die(fmt.Errorf("-steps: %v", err))
+	}
+	if budget == 0 {
+		budget = 1 << 62
+	}
 
-	c := arm.NewCPU(b)
-	c.Mode = arm.ModeSVC
-	c.R[15] = rom.Header.ARM9Entry
+	m := dsmachine.New(rom, dtcm9)
 
-	// Milestones we want to notice the PC crossing.
+	// -keys takes either an input script or a list of buttons to hold. Which one it is
+	// is decided by whether the argument names a file, so the common case (hold Start)
+	// stays a one-liner and the case that actually reaches new states (a timed
+	// sequence with real press edges) is available under the same flag.
+	if *keys != "" {
+		if _, err := os.Stat(*keys); err == nil {
+			sc, err := dsmachine.LoadScript(*keys)
+			if err != nil {
+				die(err)
+			}
+			m.Play(sc)
+		} else {
+			mask, ok := dsmachine.ParseKeys(*keys)
+			if !ok {
+				die(fmt.Errorf("-keys: %q is neither a script file nor a list of buttons", *keys))
+			}
+			m.SetKeys(mask)
+		}
+	}
+	if *touch != "" {
+		var x, y int
+		if _, err := fmt.Sscanf(*touch, "%d,%d", &x, &y); err != nil {
+			die(fmt.Errorf("-touch: want X,Y"))
+		}
+		m.SetTouch(x, y, true)
+	}
+
+	// The instruments. Each is a hook on the machine, so they compose: a breakpoint
+	// and a trace and an I/O log can all be live in one run.
+	ioSeen := map[uint32]uint32{}
+	ioCore := map[uint32]string{}
+	m.OnIO = func(arm9, write bool, addr, val, pc uint32) {
+		if write {
+			ioSeen[addr] = val
+			if arm9 {
+				ioCore[addr] = "ARM9"
+			} else {
+				ioCore[addr] = "ARM7"
+			}
+		}
+	}
+
+	bpSet := map[uint32]bool{}
+	for _, a := range bps {
+		bpSet[a] = true
+	}
+	logSet := map[uint32]bool{}
+	for _, a := range logpcs {
+		logSet[a] = true
+	}
+	var from uint32
+	tracing := *trace
+	if *traceFrom != "" {
+		from, err = parseAddr(*traceFrom)
+		if err != nil {
+			die(fmt.Errorf("-tracefrom: %v", err))
+		}
+		tracing = false
+	}
+	traced := 0
+	stop := ""
+
+	if tracing || from != 0 || len(bpSet) > 0 || len(logSet) > 0 {
+		m.OnStep = func(arm9 bool, pc uint32) {
+			if !arm9 {
+				return
+			}
+			if from != 0 && pc == from {
+				tracing = true
+			}
+			if bpSet[pc] {
+				stop = fmt.Sprintf("breakpoint at 0x%08X", pc)
+			}
+			if logSet[pc] {
+				r := m.Regs(true)
+				fmt.Printf("  logpc 0x%08X  r0=%08X r1=%08X r2=%08X r3=%08X lr=%08X\n",
+					pc, r[0], r[1], r[2], r[3], r[14])
+			}
+			if tracing && traced < *tracen {
+				code := m.Snapshot(true, pc, 4)
+				in := arm.DecodeARM(code, pc)
+				fmt.Printf("  %08X  %s\n", pc, in.Text)
+				traced++
+			}
+		}
+	}
+
+	shots := 0
+	if *shot != "" && *shotEvery > 0 {
+		prev := m.OnFrame // the input script may already be on this hook
+		m.OnFrame = func() {
+			if prev != nil {
+				prev()
+			}
+			if m.Frame()%*shotEvery == 0 {
+				name := fmt.Sprintf("%s_f%04d", *shot, m.Frame())
+				if err := m.WriteShot(name); err != nil {
+					die(err)
+				}
+				shots++
+			}
+		}
+	}
+
+	cards := 0
+	if *cardlog {
+		m.OnCardXfer(func(cmd [8]byte, addr uint32, size int) {
+			cards++
+			if cards <= 40 {
+				fmt.Printf("  card: cmd=%02X addr=%08X size=%d\n", cmd[0], addr, size)
+			}
+		})
+	}
+
 	milestones := map[uint32]string{
 		0x02007000: "main()",
 	}
-	hit := map[uint32]uint64{}
 
-	stop := ""
-	c.SWI = func(cpu *arm.CPU, comment uint32) bool {
-		n := comment & 0xFF
-		if n == 0 {
-			n = (comment >> 16) & 0xFF
-		}
-		switch n {
-		case 0x03: // WaitByLoop — skip the busy-wait
-			return true
-		case 0x0B: // CpuSet
-			cpuSet(b, cpu, false)
-			return true
-		case 0x0C: // CpuFastSet
-			cpuSet(b, cpu, true)
-			return true
-		case 0x04, 0x05, 0x06, 0x07: // IntrWait / VBlankIntrWait / Halt / Stop — a hardware wait
-			stop = fmt.Sprintf("BIOS wait (SWI 0x%02X) — needs interrupts/ARM7", n)
-			return true
-		default:
-			return true // log-and-continue for anything else
+	var res dsmachine.Result
+	if *frames > 0 {
+		res = m.RunFrames(*frames, budget, *quantum)
+	} else {
+		res = m.Run(budget, *quantum, milestones)
+	}
+	if stop != "" {
+		res.Reason = stop
+	}
+
+	fmt.Printf("\nstopped: %s\n", res.Reason)
+	fmt.Printf("frames: %d   scheduler steps: %d\n", res.Frames, res.Steps)
+	fmt.Printf("ARM9 PC 0x%08X (parked=%v)   ARM7 PC 0x%08X (parked=%v)\n",
+		m.ARM9PC(), m.Parked(true), m.ARM7PC(), m.Parked(false))
+	for pc, name := range milestones {
+		if at, ok := res.ARM9Milest[pc]; ok {
+			fmt.Printf("reached %-8s 0x%08X after %d steps\n", name, pc, at)
 		}
 	}
 
-	var executed, lastProgress uint64
-	// Enable spin detection once the boot has programmed the interrupt/IPC block
-	// (IE at 0x04000210). On this game the ARM9 blocks on the ARM7 rendezvous
-	// *inside* crt0 init, before main() is ever reached, so gating on main() alone
-	// would miss it; the IPC-interrupt enable is the reliable "ready to rendezvous"
-	// marker on both this game and Mario Kart DS.
-	ipcReady := false
-	const spinIdle = 1_500_000 // idle instrs (no I/O, no milestone) after init ⇒ a poll loop
-	for i := 0; i < *steps; i++ {
-		pc := c.R[15]
-		if m, ok := milestones[pc]; ok && hit[pc] == 0 {
-			hit[pc] = executed
-			lastProgress = executed
-			fmt.Printf("  reached %-24s at 0x%08X  (after %d instrs)\n", m, pc, executed)
+	if *shot != "" {
+		if err := m.WriteShot(*shot); err != nil {
+			die(err)
 		}
-		before := len(b.ioseq)
-		c.Step()
-		executed++
-		if len(b.ioseq) != before {
-			lastProgress = executed
-			if _, ok := b.io[0x04000210]; ok {
-				ipcReady = true
+		fmt.Printf("wrote %s_top.png and %s_bottom.png", *shot, *shot)
+		if shots > 0 {
+			fmt.Printf(" (+%d numbered captures)", shots)
+		}
+		fmt.Println()
+	}
+
+	if *rtshot != "" {
+		if err := m.Write3DShot(*rtshot); err != nil {
+			die(err)
+		}
+		fmt.Printf("wrote %s (the 3D render target; magenta = the rasteriser drew nothing there)\n", *rtshot)
+	}
+
+	if *cardlog {
+		fmt.Printf("cartridge transfers: %d\n", cards)
+	}
+
+	if *gfx {
+		a, b := m.EngineStats()
+		polys, swaps := m.GX()
+		emitted, clipped := m.GXClip()
+		fmt.Println("\ngraphics state:")
+		fmt.Printf("  POWCNT1     = %04X   (engine A drives the %s screen)\n",
+			m.Reg(0x04000304), map[bool]string{true: "TOP", false: "BOTTOM"}[m.Reg(0x04000304)&0x8000 != 0])
+		fmt.Printf("  DISPCNT A   = %08X   B = %08X\n", m.Reg(0x04000000), m.Reg(0x04001000))
+		fmt.Printf("  VRAMCNT A-D = %08X   E-G = %06X   H,I = %04X\n",
+			m.Reg(0x04000240), m.Reg(0x04000244)&0xFFFFFF, m.Reg(0x04000248)&0xFFFF)
+		fmt.Printf("  non-black pixels: engine A %5d/49152   engine B %5d/49152\n", a, b)
+		fmt.Printf("  3D: %d polygons at the last buffer swap, %d swaps\n", polys, swaps)
+		fmt.Printf("  3D: %d primitives assembled, %d rejected by the clipper", emitted, clipped)
+		if emitted > 0 {
+			fmt.Printf(" (%.1f%%)", 100*float64(clipped)/float64(emitted))
+		}
+		fmt.Println()
+	}
+
+	if *gxdump {
+		h := m.GXHist()
+		fmt.Println("\n3D commands executed:")
+		for c := 0; c < 256; c++ {
+			if h[c] > 0 {
+				fmt.Printf("  %02X %-16s x%d\n", c, gxName(uint8(c)), h[c])
 			}
 		}
-		if c.Halted {
-			stop = "core halted: " + c.HaltReason
-			break
+	}
+
+	if *dump != "" {
+		parts := strings.SplitN(*dump, ":", 2)
+		addr, err := parseAddr(parts[0])
+		if err != nil {
+			die(err)
 		}
-		if stop != "" {
-			break
-		}
-		if ipcReady && executed-lastProgress > spinIdle {
-			reached := "before main()"
-			if hit[0x02007000] != 0 {
-				reached = "after main()"
+		n := uint32(64)
+		if len(parts) == 2 {
+			v, err := parseUint(parts[1])
+			if err != nil {
+				die(err)
 			}
-			stop = fmt.Sprintf("spinning at 0x%08X (%s) — an IPC poll the ARM7 must answer; this is the ARM9↔ARM7 rendezvous", c.R[15], reached)
-			break
+			n = uint32(v)
 		}
-	}
-	if stop == "" {
-		stop = fmt.Sprintf("step budget (%d) exhausted", *steps)
+		hexdump(m.Snapshot(true, addr, n), addr)
 	}
 
-	fmt.Printf("\nstopped: %s\n", stop)
-	fmt.Printf("instructions executed: %d   final PC: 0x%08X   Thumb=%v\n", executed, c.R[15], c.Thumb)
-
-	// Cross-check: the game's own decompressor should have produced exactly what our
-	// tools/nds DecompressBLZ produces.
-	if nds.IsBLZ(arm9) {
-		want := nds.DecompressBLZ(arm9)
-		got := b.mem[rom.Header.ARM9RAMAddr : rom.Header.ARM9RAMAddr+uint32(len(want))]
-		mism := -1
-		for i := range want {
-			if want[i] != got[i] {
-				mism = i
-				break
-			}
-		}
-		if mism < 0 {
-			fmt.Printf("BLZ cross-check: game's decompressor output == DecompressBLZ (%d bytes) ✓\n", len(want))
-		} else {
-			// The crt0 zero-fills .bss after decompressing, so divergence begins at
-			// .bss start — the code+data below it is the real cross-check.
-			fmt.Printf("BLZ cross-check: game's decompressor == DecompressBLZ for the first 0x%X bytes"+
-				" (all code+data, through .bss start); the crt0 then zero-fills .bss above ✓\n", mism)
-		}
-	}
-
-	fmt.Printf("I/O registers written: %d\n", len(b.ioseq))
 	if *showIO {
-		addrs := append([]uint32(nil), b.ioseq...)
+		addrs := make([]uint32, 0, len(ioSeen))
+		for a := range ioSeen {
+			addrs = append(addrs, a)
+		}
 		sort.Slice(addrs, func(i, j int) bool { return addrs[i] < addrs[j] })
+		fmt.Printf("\nI/O registers written (%d):\n", len(addrs))
 		for _, a := range addrs {
-			fmt.Printf("  0x%08X = 0x%08X   %s\n", a, b.io[a], ioName(a))
+			fmt.Printf("  %s 0x%08X = 0x%08X   %s\n", ioCore[a], a, ioSeen[a], ioName(a))
+		}
+	}
+
+	// The gap list. This is the honest half of the run: everything the game asked of
+	// the hardware that we do not implement. A short list is a claim; a silent run
+	// would be an assumption.
+	if *showLog || len(m.Log) > 0 {
+		fmt.Printf("\nhardware the model did not implement (%d):\n", len(m.Log))
+		for _, s := range m.Log {
+			fmt.Println("  " + s)
 		}
 	}
 }
 
-// cpuSet implements the CpuSet / CpuFastSet BIOS memory copy/fill.
-func cpuSet(b *bus, c *arm.CPU, fast bool) {
-	src, dst, ctrl := c.R[0], c.R[1], c.R[2]
-	fill := ctrl&(1<<24) != 0
-	if fast { // CpuFastSet: count in 32-bit words (rounded to 8)
-		n := ctrl & 0x1FFFFF
-		var v uint32
-		if fill {
-			v = b.r32(src)
-		}
-		for i := uint32(0); i < n; i++ {
-			if !fill {
-				v = b.r32(src + i*4)
-			}
-			b.w32(dst+i*4, v)
-		}
-		return
+// gxName labels the 3D engine's commands, so a -gxdump reads as the geometry the
+// game submitted rather than as a column of opcodes.
+func gxName(c uint8) string {
+	names := map[uint8]string{
+		0x10: "MTX_MODE", 0x11: "MTX_PUSH", 0x12: "MTX_POP", 0x13: "MTX_STORE",
+		0x14: "MTX_RESTORE", 0x15: "MTX_IDENTITY", 0x16: "MTX_LOAD_4x4", 0x17: "MTX_LOAD_4x3",
+		0x18: "MTX_MULT_4x4", 0x19: "MTX_MULT_4x3", 0x1A: "MTX_MULT_3x3", 0x1B: "MTX_SCALE",
+		0x1C: "MTX_TRANS", 0x20: "COLOR", 0x21: "NORMAL", 0x22: "TEXCOORD",
+		0x23: "VTX_16", 0x24: "VTX_10", 0x25: "VTX_XY", 0x26: "VTX_XZ", 0x27: "VTX_YZ",
+		0x28: "VTX_DIFF", 0x29: "POLYGON_ATTR", 0x2A: "TEXIMAGE_PARAM", 0x2B: "PLTT_BASE",
+		0x30: "DIF_AMB", 0x31: "SPE_EMI", 0x32: "LIGHT_VECTOR", 0x33: "LIGHT_COLOR",
+		0x34: "SHININESS", 0x40: "BEGIN_VTXS", 0x41: "END_VTXS", 0x50: "SWAP_BUFFERS",
+		0x60: "VIEWPORT", 0x70: "BOX_TEST", 0x71: "POS_TEST", 0x72: "VEC_TEST",
 	}
-	// CpuSet: count in bit 0..20; bit26 selects 32-bit vs 16-bit units.
-	n := ctrl & 0x1FFFFF
-	if ctrl&(1<<26) != 0 { // 32-bit
-		var v uint32
-		if fill {
-			v = b.r32(src)
+	if n, ok := names[c]; ok {
+		return n
+	}
+	return "?"
+}
+
+func hexdump(b []byte, base uint32) {
+	for i := 0; i < len(b); i += 16 {
+		fmt.Printf("  %08X ", base+uint32(i))
+		for j := 0; j < 16 && i+j < len(b); j++ {
+			fmt.Printf(" %02X", b[i+j])
 		}
-		for i := uint32(0); i < n; i++ {
-			if !fill {
-				v = b.r32(src + i*4)
-			}
-			b.w32(dst+i*4, v)
-		}
-	} else { // 16-bit
-		var v uint32
-		if fill {
-			v = uint32(b.Read(src)) | uint32(b.Read(src+1))<<8
-		}
-		for i := uint32(0); i < n; i++ {
-			if !fill {
-				v = uint32(b.Read(src+i*2)) | uint32(b.Read(src+i*2+1))<<8
-			}
-			b.Write(dst+i*2, byte(v))
-			b.Write(dst+i*2+1, byte(v>>8))
-		}
+		fmt.Println()
 	}
 }
 
-// ioName labels the best-known DS ARM9 I/O registers for readability.
+func parseAddr(s string) (uint32, error) {
+	v, err := parseUint(s)
+	return uint32(v), err
+}
+
+func parseUint(s string) (uint64, error) {
+	s = strings.TrimSpace(s)
+	if strings.HasPrefix(s, "0x") || strings.HasPrefix(s, "0X") {
+		return strconv.ParseUint(s[2:], 16, 64)
+	}
+	return strconv.ParseUint(s, 10, 64)
+}
+
+// ioName labels the DS I/O registers, so an -io listing reads as the hardware the
+// boot programmed rather than as a column of addresses.
 func ioName(a uint32) string {
 	switch a {
 	case 0x04000000:
 		return "DISPCNT (engine A)"
 	case 0x04000004:
 		return "DISPSTAT"
+	case 0x04000060:
+		return "DISP3DCNT"
 	case 0x04000208:
 		return "IME"
 	case 0x04000210:
 		return "IE"
 	case 0x04000214:
 		return "IF"
-	case 0x04000240:
-		return "VRAMCNT_A.."
 	case 0x04000247:
 		return "WRAMCNT"
 	case 0x04000304:
@@ -283,14 +390,30 @@ func ioName(a uint32) string {
 		return "DISPCNT (engine B)"
 	}
 	switch {
-	case a >= 0x040000B0 && a < 0x04000100:
+	case a >= 0x04000008 && a < 0x04000060:
+		return "engine-A BG/affine"
+	case a >= 0x040000B0 && a < 0x040000E0:
 		return "DMA"
 	case a >= 0x04000100 && a < 0x04000110:
 		return "timers"
+	case a >= 0x04000130 && a < 0x04000140:
+		return "keys / RTC"
 	case a >= 0x04000180 && a < 0x04000190:
 		return "IPC (sync/FIFO)"
-	case a >= 0x04000008 && a < 0x04000060:
-		return "engine-A BG/affine"
+	case a >= 0x040001A0 && a < 0x040001B0:
+		return "cartridge"
+	case a >= 0x040001C0 && a < 0x040001C4:
+		return "SPI (firmware/touch/power)"
+	case a >= 0x04000240 && a < 0x0400024A:
+		return "VRAMCNT"
+	case a >= 0x04000280 && a < 0x040002C0:
+		return "divide / sqrt"
+	case a >= 0x04000320 && a < 0x040006A4:
+		return "3D engine"
+	case a >= 0x04000400 && a < 0x04000520:
+		return "sound"
+	case a >= 0x04001008 && a < 0x04001060:
+		return "engine-B BG/affine"
 	}
 	return ""
 }
