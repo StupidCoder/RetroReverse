@@ -125,18 +125,31 @@ type snapshot struct {
 	DebugOut []byte
 
 	// Graphics: the GSP bring-up state (v3) …
-	NotifyWaiters   []uint32
-	APTNotifyEv     uint32
-	APTResumeEv     uint32
-	APTWakePending  bool
-	APTParams       []aptParam
-	GXPending       []gxPendingCmd
-	GSPShared       uint32
-	GSPSharedAddr   uint32
-	GSPEvent        uint32
-	HIDShared       uint32
-	HIDSharedAddr   uint32
-	HIDEvents       []uint32
+	NotifyWaiters  []uint32
+	APTNotifyEv    uint32
+	APTResumeEv    uint32
+	APTWakePending bool
+	APTParams      []aptParam
+	GXPending      []gxPendingCmd
+	GSPShared      uint32
+	GSPSharedAddr  uint32
+	GSPEvent       uint32
+	HIDShared      uint32
+	HIDSharedAddr  uint32
+	HIDEvents      []uint32
+
+	// The injected input rides the snapshot. It is host state, not the console's, so it
+	// is tempting to leave out — but the frame debugger replays a captured frame on a
+	// scratch machine restored from that frame's snapshot, and a replay whose pen is up
+	// when the live machine's was down does not draw the frame that was captured. A
+	// state saved from an older build simply has none of these, and resumes with the pen
+	// lifted and no buttons held, which is what it was.
+	HIDButtons uint32
+	HIDRingIdx uint32
+	HIDTouchX  uint16
+	HIDTouchY  uint16
+	HIDTouchDn bool
+
 	NextFrameInstr  uint64
 	VBlankCount     uint64
 	FramesSubmitted int
@@ -327,6 +340,11 @@ func (m *Machine) buildSnapshot() *snapshot {
 		HIDShared:       m.hidShared,
 		HIDSharedAddr:   m.hidSharedAddr,
 		HIDEvents:       m.hidEvents,
+		HIDButtons:      m.hidButtons,
+		HIDRingIdx:      m.hidRingIdx,
+		HIDTouchX:       m.hidTouchX,
+		HIDTouchY:       m.hidTouchY,
+		HIDTouchDn:      m.hidTouchDown,
 		NextFrameInstr:  m.nextFrameInstr,
 		VBlankCount:     m.vblankCount,
 		FramesSubmitted: m.framesSubmitted,
@@ -451,6 +469,8 @@ func (m *Machine) applySnapshot(s *snapshot) error {
 	m.gxPending = s.GXPending
 	m.gspShared, m.gspSharedAddr, m.gspEvent = s.GSPShared, s.GSPSharedAddr, s.GSPEvent
 	m.hidShared, m.hidSharedAddr, m.hidEvents = s.HIDShared, s.HIDSharedAddr, s.HIDEvents
+	m.hidButtons, m.hidRingIdx = s.HIDButtons, s.HIDRingIdx
+	m.hidTouchX, m.hidTouchY, m.hidTouchDown = s.HIDTouchX, s.HIDTouchY, s.HIDTouchDn
 	// Older snapshots predate HID serialisation; recover the mapped address from the
 	// restored region so -hidtrace/-keys work on states saved before this field existed.
 	if m.hidSharedAddr == 0 {

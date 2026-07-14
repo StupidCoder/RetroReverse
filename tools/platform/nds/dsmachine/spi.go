@@ -131,6 +131,11 @@ func (m *Machine) SetTouch(x, y int, down bool) {
 	m.spi.touchX, m.spi.touchY, m.spi.touchDown = x, y, down
 }
 
+// Touch reports where the stylus is being held, and whether it is on the screen at all.
+func (m *Machine) Touch() (x, y int, down bool) {
+	return m.spi.touchX, m.spi.touchY, m.spi.touchDown
+}
+
 // spiTransfer exchanges one byte with the selected device and latches the reply.
 func (c *core) spiTransfer(v byte) {
 	s := c.m.spi

@@ -53,7 +53,7 @@ func TestCapabilities(t *testing.T) {
 		debug.CapFrames, debug.CapFastStep, debug.CapReplay, debug.CapCode,
 		debug.CapBreak, debug.CapDisasm, debug.CapWatch, debug.CapSurfaces,
 		debug.CapFiles, debug.CapFileAt, debug.CapStates, debug.CapResume,
-		debug.CapRegions, debug.CapProfile,
+		debug.CapRegions, debug.CapProfile, debug.CapTouch,
 	}
 	got := map[string]bool{}
 	for _, c := range debug.Capabilities(a) {
@@ -372,6 +372,54 @@ func TestFrameIsTheScreenLayout(t *testing.T) {
 	}
 	if fc.Height < th+bh {
 		t.Errorf("composed frame is %d tall, too short to stack %d over %d", fc.Height, th, bh)
+	}
+}
+
+// TestTouchPanelIsTheBottomScreen pins where the stylus can reach. Getting the rectangle
+// wrong is worse than getting it missing: every click would land somewhere the player
+// never clicked, and the game would respond to it perfectly happily.
+//
+// The bottom screen is 320 wide under a 400-wide top one and the frame centres both, so
+// the panel's origin is 40 pixels in — it is emphatically not (0, 240).
+func TestTouchPanelIsTheBottomScreen(t *testing.T) {
+	a := atScene(t)
+	defer a.Close()
+
+	// A cold machine has presented nothing, so there is nowhere to touch, and saying so is
+	// the honest answer rather than a rectangle over a picture that is not the touchscreen.
+	if cold := newAdapter(t); len(cold.TouchPanels()) != 0 {
+		t.Errorf("a machine that has presented no screen offered a touch panel: %+v", cold.TouchPanels())
+	} else {
+		cold.Close()
+	}
+
+	if _, err := a.StepFrame(false); err != nil {
+		t.Fatalf("StepFrame: %v", err)
+	}
+	panels := a.TouchPanels()
+	if len(panels) != 1 {
+		t.Fatalf("touch panels = %+v, want the bottom screen alone", panels)
+	}
+	p := panels[0]
+	if p.ID != "bottom" || p.W != 320 || p.H != 240 {
+		t.Errorf("touch panel = %+v, want the 320x240 bottom screen", p)
+	}
+	if p.X != 40 {
+		t.Errorf("touch panel starts at x=%d; the 320-wide screen is centred under the 400-wide one, so it is 40", p.X)
+	}
+	img, err := a.Display()
+	if err != nil {
+		t.Fatalf("Display: %v", err)
+	}
+	if b := img.Bounds(); p.X+p.W > b.Dx() || p.Y+p.H > b.Dy() {
+		t.Errorf("touch panel %+v does not fit the composed frame %v", p, b)
+	}
+
+	if err := a.Touch(debug.Touch{Panel: "bottom", X: 160, Y: 120, Down: true}); err != nil {
+		t.Fatalf("Touch: %v", err)
+	}
+	if err := a.Touch(debug.Touch{Panel: "top", X: 1, Y: 1, Down: true}); err == nil {
+		t.Error("touching the top screen was accepted; the digitiser is not on it")
 	}
 }
 

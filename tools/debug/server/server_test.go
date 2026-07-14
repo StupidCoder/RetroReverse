@@ -74,6 +74,23 @@ type fakeTarget struct {
 	watches   []debug.Watch
 	watchSink func(debug.WatchHit)
 	bps       []uint64
+
+	// touched is every stylus state the machine was actually handed, in order — which is
+	// the thing worth asserting, because the runner does not hand over everything it is
+	// sent, and must not.
+	touched []debug.Touch
+}
+
+func (f *fakeTarget) TouchPanels() []debug.TouchPanel {
+	return []debug.TouchPanel{{ID: "bottom", Name: "Touch screen", X: 0, Y: 2, W: fakeW, H: 2}}
+}
+
+func (f *fakeTarget) Touch(t debug.Touch) error {
+	if t.Panel != "bottom" {
+		return debug.ErrUnsupported
+	}
+	f.touched = append(f.touched, t)
+	return nil
 }
 
 // fakeCmds is over the 100-command bar the "step to a drawn frame" heuristic uses to
@@ -336,9 +353,70 @@ func TestCapabilitiesAdvertised(t *testing.T) {
 		got = append(got, c.(string))
 	}
 	sort.Strings(got)
-	want := []string{"break", "code", "disasm", "faststep", "frames", "replay", "resume", "states", "watch"}
+	want := []string{"break", "code", "disasm", "faststep", "frames", "replay", "resume", "states", "touch", "watch"}
 	if strings.Join(got, ",") != strings.Join(want, ",") {
 		t.Errorf("caps = %v, want %v", got, want)
+	}
+}
+
+// ---- input ----
+
+// TestTouchPanels: the page cannot know where the stylus can reach — the target says, in
+// the coordinates of the frame the page is already drawing.
+func TestTouchPanels(t *testing.T) {
+	srv, _ := serveFake(t)
+	cl := dial(t, srv.URL)
+	cl.recvType(t, "hello")
+
+	cl.send(t, "input.panels", 1, nil)
+	m := cl.recvType(t, "touchpanels")
+	panels := m["panels"].([]any)
+	if len(panels) != 1 {
+		t.Fatalf("panels = %v, want one", panels)
+	}
+	p := panels[0].(map[string]any)
+	if p["id"] != "bottom" || p["y"].(float64) != 2 || p["w"].(float64) != fakeW {
+		t.Errorf("panel = %v", p)
+	}
+}
+
+// TestTouchLatch is the point of queueing input rather than poking it straight in.
+//
+// A game does not ask whether the pen is down, it asks whether the pen WENT down since it
+// last looked — so a state the machine never publishes a sample for is a state the game
+// never sees. A mouse click is over in tens of milliseconds; a 3DS frame takes about a
+// hundred. Apply the events as they arrive and the press and the release both land between
+// two frames, and the tap simply never happened.
+//
+// So: at most one state per frame, and every state gets a frame. A drag's moves — same
+// state, new position — collapse, because within one frame only where the pen ended up
+// matters.
+func TestTouchLatch(t *testing.T) {
+	f := &fakeTarget{}
+	rn := &Runner{tgt: f, caps: map[string]bool{debug.CapTouch: true}, mb: newMailbox()}
+	defer rn.mb.close()
+
+	// A tap: down, a drag across the panel, and a release — all arriving before the
+	// machine has advanced a single frame, which is exactly what a real click does.
+	rn.touchQ = []debug.Touch{
+		{Panel: "bottom", X: 10, Y: 10, Down: true},
+		{Panel: "bottom", X: 20, Y: 20, Down: true},
+		{Panel: "bottom", X: 30, Y: 30, Down: true},
+		{Panel: "bottom", X: 30, Y: 30, Down: false},
+	}
+
+	rn.applyTouch()
+	if len(f.touched) != 1 || !f.touched[0].Down || f.touched[0].X != 30 {
+		t.Fatalf("first frame saw %+v, want the pen down at the end of the drag (30,30)", f.touched)
+	}
+	rn.applyTouch()
+	if len(f.touched) != 2 || f.touched[1].Down {
+		t.Fatalf("second frame saw %+v, want the pen lifted", f.touched)
+	}
+	// The press and the release landed on different frames, so the game got both edges.
+	rn.applyTouch()
+	if len(f.touched) != 2 {
+		t.Errorf("an empty queue handed the machine something: %+v", f.touched)
 	}
 }
 

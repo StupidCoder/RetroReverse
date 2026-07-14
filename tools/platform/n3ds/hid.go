@@ -78,10 +78,53 @@ const (
 	hidTouchBase = 0x0A8 // TouchData
 	hidAccelBase = 0x108 // Accelerometer
 	hidHdrIndex  = 0x10  // u32 latest-entry index within a section
-	hidEntries   = 0x28  // ring start within a section
-	hidEntSz     = 0x10  // one sample
+	hidEntries   = 0x28  // PadData's ring start within its section
+	hidEntSz     = 0x10  // one PadData sample
 	hidRingLen   = 8
 )
+
+// TouchData's ring is NOT PadData's, and reusing PadData's constants here would put the
+// eighth touch sample 0x48 bytes past the end of the section, in the middle of the
+// accelerometer's ring — the game would read a stylus position out of its own motion state.
+//
+// The shape is not guessed. It is read straight off the game's own touch-sample copy loop
+// (disassembled at 0x00344204, the reader -hidtrace names for these offsets):
+//
+//	BIC  r3, r3, #7          ; the index, modulo 8   -> a ring of 8
+//	ADD  r3, r0, r2, LSL #3  ; entry = section + idx*8 -> an 8-byte stride
+//	LDRH r6, [r3, #0x20]     ; x      at entry+0      -> the ring starts at +0x20
+//	LDRH r2, [r3, #0x22]     ; y      at entry+2
+//	LDRB r2, [r3, #0x24]     ; the flag at entry+4, read as a BYTE
+//
+// and the section bases traced from the same loop corroborate it, because each section's
+// span is exactly what its ring shape predicts:
+//
+//	PadData        0x28 header + 8 x 0x10 = 0xA8 = 0x0A8 - 0x000  ✓
+//	TouchData      0x20 header + 8 x 0x08 = 0x60 = 0x108 - 0x0A8  ✓
+const (
+	hidTouchEntries = 0x20 // TouchData's ring start within its section
+	hidTouchEntSz   = 0x08 // one touch sample: u16 x, u16 y, then the flag
+)
+
+// SetTouch puts the stylus down at a pixel of the bottom screen (320x240), or lifts it.
+// The coordinates are the panel's own: the HID module publishes screen pixels, having
+// already put the digitiser's reading through the console's calibration, so unlike the
+// DS's SPI touchscreen there is no ADC value to convert back to.
+func (m *Machine) SetTouch(x, y int, down bool) {
+	m.hidTouchX = uint16(clampInt(x, 0, 319))
+	m.hidTouchY = uint16(clampInt(y, 0, 239))
+	m.hidTouchDown = down
+}
+
+func clampInt(v, lo, hi int) int {
+	if v < lo {
+		return lo
+	}
+	if v > hi {
+		return hi
+	}
+	return v
+}
 
 // updateHIDShared publishes one fresh input sample into the HID shared memory —
 // the job the HID module does each frame on hardware. It advances the ring index
@@ -125,8 +168,24 @@ func (m *Machine) updateHIDShared() {
 	m.WriteWord(ent+0x8, 0)
 	m.WriteWord(ent+0xC, 0) // circle pad neutral
 
-	// Touch and accelerometer: fresh headers, entries left zero (no input).
+	// TouchData: header + the newest entry carrying the pen. A lifted pen is a published
+	// sample too — "nothing is touching me" is what the digitiser reports when it is not
+	// being touched, and it is how the game sees the RELEASE edge. The flag the game reads
+	// with LDRB is the low byte of this word.
 	writeHeader(hidTouchBase)
+	tent := m.hidSharedAddr + hidTouchBase + hidTouchEntries + idx*hidTouchEntSz
+	pos, valid := uint32(0), uint32(0)
+	if m.hidTouchDown {
+		// A lifted pen reports the origin, not the last place it was: a game that trusts
+		// the position without testing the valid flag would otherwise keep being touched
+		// where it was last touched.
+		pos = uint32(m.hidTouchX) | uint32(m.hidTouchY)<<16
+		valid = 1
+	}
+	m.WriteWord(tent+0x0, pos)
+	m.WriteWord(tent+0x4, valid)
+
+	// Accelerometer: a fresh header, entry left zero (no motion).
 	writeHeader(hidAccelBase)
 
 	m.hidRingIdx = (idx + 1) & (hidRingLen - 1)

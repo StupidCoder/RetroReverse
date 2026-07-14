@@ -110,6 +110,12 @@ type (
 	fsArgs struct {
 		Path string `json:"path"`
 	}
+	touchArgs struct {
+		Panel string `json:"panel"`
+		X     int    `json:"x"` // panel-local pixels
+		Y     int    `json:"y"`
+		Down  bool   `json:"down"`
+	}
 	surfaceArgs struct {
 		ID      string `json:"id"`
 		Addr    uint32 `json:"addr"`
@@ -136,6 +142,11 @@ func decodeArgs(r req, v any) error {
 // same op. A scrubber drag fires an op per mouse-move and only the last one matters;
 // the same is true of aiming a surface or scrolling a disassembly. A step, a state
 // save or a watch must never be dropped.
+//
+// Nor must a stylus event. Dragging the pen also fires an op per mouse-move, but the
+// release that ends the drag is the same op as the moves before it, and dropping the
+// wrong one would leave the pen down for ever. The runner collapses a drag itself, where
+// it can tell a move from a lift — see Runner.applyTouch.
 func coalescable(op string) bool {
 	switch op {
 	case "frame.scrub", "surface.render", "cpu.disasm", "mem.read":
@@ -342,6 +353,25 @@ type (
 		W       int      `json:"w"`
 		H       int      `json:"h"`
 		Formats []string `json:"formats"`
+	}
+
+	// touchPanelsMsg says where the stylus can reach, in the coordinates of the frame
+	// the page is already drawing. It is a reply rather than part of hello because the
+	// 3DS's layout is not fixed: the bottom screen exists once the game has presented
+	// it, and not before.
+	touchPanelsMsg struct {
+		Type   string           `json:"type"` // "touchpanels"
+		Seq    int              `json:"seq"`
+		Panels []jsonTouchPanel `json:"panels"`
+	}
+
+	jsonTouchPanel struct {
+		ID   string `json:"id"`
+		Name string `json:"name"`
+		X    int    `json:"x"`
+		Y    int    `json:"y"`
+		W    int    `json:"w"`
+		H    int    `json:"h"`
 	}
 
 	libraryMsg struct {

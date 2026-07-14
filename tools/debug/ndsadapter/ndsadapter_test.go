@@ -77,7 +77,7 @@ func TestCapabilities(t *testing.T) {
 		debug.CapBreak, debug.CapCode, debug.CapDisasm, debug.CapFastStep,
 		debug.CapFileAt, debug.CapFiles, debug.CapFrames, debug.CapProfile,
 		debug.CapRegions, debug.CapReplay, debug.CapResume, debug.CapStates,
-		debug.CapSurfaces, debug.CapWatch,
+		debug.CapSurfaces, debug.CapTouch, debug.CapWatch,
 	}
 	sort.Strings(want)
 	if !reflect.DeepEqual(got, want) {
@@ -469,6 +469,43 @@ func contains(s, sub string) bool {
 		}
 	}
 	return false
+}
+
+// TestTouchPanel pins the stylus to the lower panel of the composed frame, and checks that
+// a touch on it reaches the machine's digitiser. The rect matters as much as the touch: if
+// it is wrong, every click lands somewhere the player never clicked, and the game will
+// happily respond to it — a wrong answer that looks like a working feature.
+func TestTouchPanel(t *testing.T) {
+	a := newAdapter(t)
+	defer a.Close()
+
+	panels := a.TouchPanels()
+	if len(panels) != 1 {
+		t.Fatalf("touch panels = %d, want 1", len(panels))
+	}
+	p := panels[0]
+	// The composed frame is 256 x 392: the top panel, an 8px bezel, then the touchscreen.
+	if p.ID != "bottom" || p.X != 0 || p.Y != 200 || p.W != 256 || p.H != 192 {
+		t.Errorf("touch panel = %+v, want {bottom 0 200 256 192}", p)
+	}
+	img, err := a.Display()
+	if err != nil {
+		t.Fatalf("Display: %v", err)
+	}
+	if b := img.Bounds(); p.X+p.W > b.Dx() || p.Y+p.H > b.Dy() {
+		t.Errorf("touch panel %+v does not fit the composed frame %v", p, b)
+	}
+
+	if err := a.Touch(debug.Touch{Panel: "bottom", X: 128, Y: 96, Down: true}); err != nil {
+		t.Fatalf("Touch: %v", err)
+	}
+	if x, y, down := a.Machine().Touch(); x != 128 || y != 96 || !down {
+		t.Errorf("stylus = (%d,%d) down=%v, want (128,96) down=true", x, y, down)
+	}
+
+	if err := a.Touch(debug.Touch{Panel: "top", X: 1, Y: 1, Down: true}); err == nil {
+		t.Error("touching the top panel was accepted; the digitiser is not on it")
+	}
 }
 
 func sameImage(a, b *image.RGBA) bool {

@@ -5,6 +5,13 @@
 // The coverage overlay is the point of shipping the provenance buffer to the page: it
 // holds one command index per pixel, so lighting up every pixel a command drew is a
 // single local pass, with no request to the emulator at all.
+//
+// The same canvas is also where you TOUCH the machine, and the mode decides which. Paused,
+// a click asks a question about a pixel that has already been drawn — which command drew
+// it, what else wrote it — and that only means anything because there is a capture to ask
+// of. Playing, there is no capture and no question; there is a machine running, and a
+// click on the panel the stylus can reach is the stylus. So the two never contend: the
+// pick path already bails while playing, and the touch path only exists while playing.
 
 import { registerPanel } from './registry.js';
 import { KIND_IMAGE, KIND_PROV, STREAM_MAIN } from '../conn.js';
@@ -71,7 +78,10 @@ registerPanel({
     });
     ctx.store.on('pick', (p) => view.setPick(p));
     ctx.store.on('playing', (on) => {
-      if (on) hover.textContent = 'playing — no capture';
+      if (!on) return;
+      hover.textContent = ctx.store.can('touch')
+        ? 'playing — drag the touch screen to use the stylus'
+        : 'playing — no capture';
     });
 
     view.onHover = (x, y) => {
@@ -95,6 +105,22 @@ registerPanel({
       const k = view.provAt(x, y);
       if (k >= 0) ctx.ui.selectCommand(k);
     };
+
+    if (!ctx.store.can('touch')) return;
+
+    // Where the stylus can reach is the target's answer, not ours, and on the 3DS it is
+    // not fixed: the bottom screen joins the composed frame the first time the game
+    // presents it, which changes the frame's size. So ask again whenever the size changes,
+    // and whenever play begins.
+    ctx.conn.on('touchpanels', (m) => view.setPanels(m.panels));
+    view.onResize = () => ctx.conn.send('input.panels');
+    view.onTouch = (panel, x, y, down) => ctx.conn.send('input.touch', { panel, x, y, down });
+
+    ctx.store.on('playing', (on) => {
+      view.setTouchable(on);
+      if (on) ctx.conn.send('input.panels');
+    });
+    ctx.conn.send('input.panels');
   },
 });
 
@@ -116,25 +142,98 @@ class Viewport {
     this.selected = -1;
     this.pick = null;
 
+    this.panels = []; // where the stylus can reach, in composed-frame coordinates
+    this.touchable = false; // the machine is running, so a click is a touch
+    this.pen = null; // the panel the pen is currently down on
+    this.penPos = { x: 0, y: 0 }; // where it is, so pausing can lift it from there
+
     this.onHover = () => {};
     this.onPick = () => {};
+    this.onTouch = () => {};
+    this.onResize = () => {};
 
     this.overlay.addEventListener('mousemove', (e) => {
       const p = this.pointAt(e);
-      if (p) this.onHover(p.x, p.y);
+      if (!p) return;
+      this.onHover(p.x, p.y);
+      if (this.touchable) {
+        this.overlay.style.cursor = this.panelAt(p.x, p.y) ? 'crosshair' : '';
+      }
     });
     this.overlay.addEventListener('mouseleave', () => this.onHover(-1, -1));
     this.overlay.addEventListener('click', (e) => {
       const p = this.pointAt(e);
       if (p) this.onPick(p.x, p.y);
     });
+
+    // The stylus. Pointer capture is what makes a drag behave like a stylus rather than
+    // like a mouse: once the pen is down, every move belongs to the panel it went down on
+    // — and, above all, the pen comes UP wherever the button is released, even if that is
+    // outside the canvas or outside the window. A release that got lost would leave the
+    // machine being touched for ever.
+    this.overlay.addEventListener('pointerdown', (e) => {
+      if (!this.touchable) return;
+      const p = this.pointAt(e);
+      const panel = p && this.panelAt(p.x, p.y);
+      if (!panel) return;
+      e.preventDefault();
+      this.overlay.setPointerCapture(e.pointerId);
+      this.pen = panel;
+      this.emitTouch(panel, p, true);
+    });
+    this.overlay.addEventListener('pointermove', (e) => {
+      if (!this.pen) return;
+      this.emitTouch(this.pen, this.pointAt(e, true), true);
+    });
+    for (const ev of ['pointerup', 'pointercancel']) {
+      this.overlay.addEventListener(ev, (e) => {
+        if (!this.pen) return;
+        this.emitTouch(this.pen, this.pointAt(e, true), false);
+        this.pen = null;
+      });
+    }
   }
 
-  pointAt(e) {
+  // emitTouch reports the pen in the PANEL's own pixels, which are the touchscreen's own,
+  // clamped to it: a drag that slides off the edge of the screen keeps the pen at the edge
+  // rather than teleporting to wherever the mouse went.
+  emitTouch(panel, p, down) {
+    const x = clamp(p.x - panel.x, 0, panel.w - 1);
+    const y = clamp(p.y - panel.y, 0, panel.h - 1);
+    this.penPos = { x, y };
+    this.onTouch(panel.id, x, y, down);
+  }
+
+  panelAt(x, y) {
+    return this.panels.find((p) => x >= p.x && y >= p.y && x < p.x + p.w && y < p.y + p.h);
+  }
+
+  setPanels(panels) {
+    this.panels = panels;
+    this.redrawOverlay();
+  }
+
+  setTouchable(on) {
+    this.touchable = on;
+    // Pausing with the pen down would leave the machine touched at the moment it stopped,
+    // and nothing would ever lift it. Lift it here.
+    if (!on && this.pen) {
+      this.onTouch(this.pen.id, this.penPos.x, this.penPos.y, false);
+      this.pen = null;
+    }
+    if (!on) this.overlay.style.cursor = '';
+    this.redrawOverlay();
+  }
+
+  // pointAt maps a mouse event to a pixel of the image. It returns null for a point
+  // outside it — unless the caller says otherwise, which a stylus drag does: once the pen
+  // is down, a move past the edge of the canvas is still a move of that pen, and it is
+  // clamped onto the panel rather than dropped.
+  pointAt(e, allowOutside = false) {
     const r = this.overlay.getBoundingClientRect();
     const x = Math.floor((e.clientX - r.left) / this.zoom);
     const y = Math.floor((e.clientY - r.top) / this.zoom);
-    if (x < 0 || y < 0 || x >= this.w || y >= this.h) return null;
+    if (!allowOutside && (x < 0 || y < 0 || x >= this.w || y >= this.h)) return null;
     return { x, y };
   }
 
@@ -147,6 +246,9 @@ class Viewport {
       c.height = h;
     }
     this.applyZoom();
+    // The frame changed shape, so anything positioned within it may have moved. On the
+    // 3DS this is exactly what happens the first time the game presents the bottom screen.
+    this.onResize();
   }
 
   setZoom(z) {
@@ -229,7 +331,24 @@ class Viewport {
       this.octx.lineWidth = 1;
       this.octx.strokeRect(x - 1.5, y - 1.5, 4, 4);
     }
+
+    // The touch zone, while the machine is running: the stylus can only reach one of the
+    // two panels, and which one is not something the picture itself tells you.
+    if (this.touchable) {
+      this.octx.save();
+      this.octx.strokeStyle = 'rgba(255, 46, 166, 0.55)';
+      this.octx.lineWidth = 1;
+      this.octx.setLineDash([3, 3]);
+      for (const p of this.panels) {
+        this.octx.strokeRect(p.x + 0.5, p.y + 0.5, p.w - 1, p.h - 1);
+      }
+      this.octx.restore();
+    }
   }
+}
+
+function clamp(v, lo, hi) {
+  return v < lo ? lo : v > hi ? hi : v;
 }
 
 export { Viewport, KIND_IMAGE, KIND_PROV, STREAM_MAIN };

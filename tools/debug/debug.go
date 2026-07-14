@@ -179,6 +179,20 @@ type (
 		RenderAfterBatch(fc *FrameCapture, ks []int) ([]*image.RGBA, error)
 	}
 
+	// Toucher accepts stylus input.
+	//
+	// A touch panel is a region of the composed frame — the DS's lower LCD, the 3DS's
+	// bottom screen — so a click on the picture the debugger is already showing IS the
+	// touch, and there is no second coordinate system to reconcile.
+	//
+	// Panels are asked for rather than declared once, because on the 3DS the frame's
+	// layout is not fixed: it is whatever DisplayTransfers the game has made, and before
+	// it has presented the bottom screen there is no panel to touch.
+	Toucher interface {
+		TouchPanels() []TouchPanel
+		Touch(t Touch) error
+	}
+
 	// Profiler reports where the last stepped frame's time went, by subsystem.
 	//
 	// The times are the emulator's own, not a sampling profiler's: only a machine
@@ -208,6 +222,7 @@ const (
 	CapResume   = "resume"   // Resumer
 	CapRegions  = "regions"  // MemoryMapper
 	CapProfile  = "profile"  // Profiler
+	CapTouch    = "touch"    // Toucher
 	CapOverdraw = "overdraw" // reported per capture, not per target — see FrameCapture
 )
 
@@ -233,6 +248,7 @@ func Capabilities(t Target) []string {
 	_, resume := t.(Resumer)
 	_, regions := t.(MemoryMapper)
 	_, prof := t.(Profiler)
+	_, touch := t.(Toucher)
 
 	add(frames, CapFrames)
 	add(fast, CapFastStep)
@@ -248,7 +264,24 @@ func Capabilities(t Target) []string {
 	add(resume, CapResume)
 	add(regions, CapRegions)
 	add(prof, CapProfile)
+	add(touch, CapTouch)
 	return caps
+}
+
+// TouchPanel is a panel the stylus can reach, located in the plane Display() returns —
+// so the debugger can hand a click on the frame it is showing straight to the machine.
+type TouchPanel struct {
+	ID   string // "bottom"
+	Name string
+	X, Y int // origin within the composed frame
+	W, H int // size: the panel's own pixels, which are the touchscreen's own
+}
+
+// Touch is one stylus state: where the pen is on a panel, or that it is lifted.
+type Touch struct {
+	Panel string
+	X, Y  int // panel-local pixels
+	Down  bool
 }
 
 // FrameProfile is where one frame's time went.

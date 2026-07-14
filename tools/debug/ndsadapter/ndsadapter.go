@@ -444,6 +444,32 @@ func (a *Adapter) compose(m *dsmachine.Machine, aTop bool) *image.RGBA {
 
 func (a *Adapter) Display() (*image.RGBA, error) { return a.compose(a.live, a.aTop), nil }
 
+// --- the stylus ------------------------------------------------------------------
+//
+// The touchscreen is bonded to the console's LOWER panel, and it stays there whatever
+// POWCNT1 says: flipping the engines swaps which picture is drawn on the lower LCD, not
+// which LCD the digitiser is glued to. So the touch panel sits at a fixed place in the
+// composed frame — unlike provenance, which has to follow engine A around (panelOriginY).
+
+func (a *Adapter) TouchPanels() []debug.TouchPanel {
+	return []debug.TouchPanel{{
+		ID: "bottom", Name: "Touch screen",
+		X: 0, Y: panelH + screenGap, W: panelW, H: panelH,
+	}}
+}
+
+// Touch puts the stylus down on the lower panel, or lifts it. The panel's pixels are the
+// touchscreen's own, and dsmachine.SetTouch runs them back through the firmware
+// calibration the machine synthesised — so the game's own calibration arithmetic lands on
+// the pixel that was clicked.
+func (a *Adapter) Touch(t debug.Touch) error {
+	if t.Panel != "bottom" {
+		return fmt.Errorf("%w: no touch panel %q", debug.ErrUnsupported, t.Panel)
+	}
+	a.live.SetTouch(t.X, t.Y, t.Down)
+	return nil
+}
+
 // --- commands -------------------------------------------------------------------
 
 // gxNames labels the geometry engine's commands, so a command list reads as the

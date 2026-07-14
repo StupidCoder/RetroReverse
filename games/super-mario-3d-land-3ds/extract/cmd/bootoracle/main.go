@@ -78,6 +78,7 @@ func main() {
 	flag.Var(&pokes, "poke", "write a 32-bit word ADDR:VALUE (hex) after -loadstate, before running; repeatable (probe instrument)")
 	keys := flag.String("keys", "", "inject HID pad input: comma-separated button names (a,b,x,y,l,r,up,down,left,right,start,select)")
 	keypulse := flag.Int("keypulse", 0, "if >0, release the injected keys briefly every N frames so a fresh press edge keeps arriving (for advancing menus/dialogs)")
+	touch := flag.String("touch", "", "hold the stylus at X,Y (bottom-screen pixels, 320x240) for the whole run")
 	wav := flag.String("wav", "", "capture the DSP's final mix during the run and write it to this .wav file")
 	dsptrace := flag.Bool("dsptrace", false, "log every source configuration the DSP consumes and every status it publishes")
 	frames := flag.Int("frames", 0, "if >0, stop after this many VBlanks (a frame-bounded run: what a profile wants to measure), still capped by -steps")
@@ -103,7 +104,7 @@ func main() {
 		profOut = f
 	}
 
-	if err := run(*image, *steps, *trace, *tracen, *verbose, *svclog, bps, watches, logpcs, tracefroms, dumps, *saveState, *loadState, *gxdump, *shot, *rtshot, *gputrace, *threads, *hidtrace, *keys, *keypulse, *findAscii, *findUtf16, *findWord, pokes, *wav, *dsptrace, *frames, profOut, *profile); err != nil {
+	if err := run(*image, *steps, *trace, *tracen, *verbose, *svclog, bps, watches, logpcs, tracefroms, dumps, *saveState, *loadState, *gxdump, *shot, *rtshot, *gputrace, *threads, *hidtrace, *keys, *keypulse, *touch, *findAscii, *findUtf16, *findWord, pokes, *wav, *dsptrace, *frames, profOut, *profile); err != nil {
 		fmt.Fprintln(os.Stderr, "bootoracle:", err)
 		os.Exit(1)
 	}
@@ -142,7 +143,7 @@ func utf16Pattern(s string) []byte {
 	return b
 }
 
-func run(imagePath, stepsStr string, trace bool, tracen int, verbose, svclog bool, bps, watches, logpcs, tracefroms, dumps multiFlag, saveState, loadState, gxdump, shot, rtshot string, gputrace int, threads, hidtrace bool, keys string, keypulse int, findAscii, findUtf16, findWord string, pokes multiFlag, wav string, dsptrace bool, frames int, profOut *os.File, profile bool) error {
+func run(imagePath, stepsStr string, trace bool, tracen int, verbose, svclog bool, bps, watches, logpcs, tracefroms, dumps multiFlag, saveState, loadState, gxdump, shot, rtshot string, gputrace int, threads, hidtrace bool, keys string, keypulse int, touch string, findAscii, findUtf16, findWord string, pokes multiFlag, wav string, dsptrace bool, frames int, profOut *os.File, profile bool) error {
 	img, err := os.ReadFile(imagePath)
 	if err != nil {
 		return err
@@ -158,12 +159,6 @@ func run(imagePath, stepsStr string, trace bool, tracen int, verbose, svclog boo
 	m.HidTrace = hidtrace
 	m.AudioCapture = wav != ""
 	m.DSPTrace = dsptrace
-	m.HidPulse = keypulse
-	if keys != "" {
-		if err := m.SetKeys(keys); err != nil {
-			return err
-		}
-	}
 
 	for _, b := range bps {
 		v, err := parseNum(b)
@@ -207,6 +202,23 @@ func run(imagePath, stepsStr string, trace bool, tracen int, verbose, svclog boo
 			return fmt.Errorf("loading state: %w", err)
 		}
 		fmt.Printf("restored snapshot from %s (at %d instructions)\n", loadState, m.Instrs())
+	}
+
+	// The injected input is applied AFTER -loadstate, because a snapshot now carries the
+	// pad and stylus state it was saved with, and the flags on this command line are what
+	// the caller is asking for now — they should win over what the state remembers.
+	m.HidPulse = keypulse
+	if keys != "" {
+		if err := m.SetKeys(keys); err != nil {
+			return err
+		}
+	}
+	if touch != "" {
+		var x, y int
+		if _, err := fmt.Sscanf(touch, "%d,%d", &x, &y); err != nil {
+			return fmt.Errorf("bad -touch %q: want X,Y", touch)
+		}
+		m.SetTouch(x, y, true)
 	}
 
 	for _, pk := range pokes {

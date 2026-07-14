@@ -620,6 +620,39 @@ func (a *Adapter) Display() (*image.RGBA, error) {
 	return toRGBA(a.live.RenderTarget(addr, w, h)), nil
 }
 
+// --- the stylus ------------------------------------------------------------------
+//
+// Where the touch panel is depends on what the game has presented: the composed frame
+// centres each screen it has, so the bottom screen's origin moves with the width of the
+// widest one, and before the game has ever transferred it there is no panel at all. So the
+// layout is asked of the live machine each time rather than being a constant — and saying
+// "no panel yet" is the honest answer, rather than inventing a rectangle over a picture
+// that is not the touchscreen.
+
+func (a *Adapter) TouchPanels() []debug.TouchPanel {
+	places, _, _ := a.screenLayout(a.live)
+	for _, p := range places {
+		if p.geom.Bottom {
+			return []debug.TouchPanel{{
+				ID: "bottom", Name: "Touch screen",
+				X: p.x0, Y: p.y0, W: p.w, H: p.h,
+			}}
+		}
+	}
+	return nil
+}
+
+// Touch puts the stylus down on the bottom screen, or lifts it. The panel's pixels ARE
+// the touchscreen's: the HID module publishes calibrated screen coordinates, so unlike the
+// DS's SPI digitiser there is no ADC reading to work back to.
+func (a *Adapter) Touch(t debug.Touch) error {
+	if t.Panel != "bottom" {
+		return fmt.Errorf("%w: no touch panel %q", debug.ErrUnsupported, t.Panel)
+	}
+	a.live.SetTouch(t.X, t.Y, t.Down)
+	return nil
+}
+
 func (a *Adapter) ReadMem(addr uint32, n int) []byte {
 	if n <= 0 {
 		return nil

@@ -186,11 +186,14 @@ type Machine struct {
 	hidPrevButtons   uint32            // last frame's mask, for press/release edge computation
 	hidRingIdx       uint32            // current HID sample-ring index (0..7)
 	HidPulse         int               // if >0, release the injected buttons briefly every N frames (fresh edges)
-	nextFrameInstr   uint64            // instruction count at which to deliver the next VBlank
-	vblankCount      uint64            // VBlanks delivered
-	framesSubmitted  int               // GSP TriggerCmdReqQueue calls (GPU command lists)
-	framesSwapped    int               // framebuffer-info entries consumed at VBlank (frames presented)
-	displayTransfers int               // GX DisplayTransfers executed (frames made visible)
+	hidTouchX        uint16            // stylus position on the bottom screen, in its own pixels (SetTouch)
+	hidTouchY        uint16
+	hidTouchDown     bool   // whether the stylus is on the screen at all
+	nextFrameInstr   uint64 // instruction count at which to deliver the next VBlank
+	vblankCount      uint64 // VBlanks delivered
+	framesSubmitted  int    // GSP TriggerCmdReqQueue calls (GPU command lists)
+	framesSwapped    int    // framebuffer-info entries consumed at VBlank (frames presented)
+	displayTransfers int    // GX DisplayTransfers executed (frames made visible)
 	lastXferTop      xferRecord
 	lastXferBottom   xferRecord
 	screenFB         [2]fbPresent // last framebuffer-info entry consumed per screen (top, bottom)

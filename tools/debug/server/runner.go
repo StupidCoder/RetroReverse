@@ -39,6 +39,10 @@ type Runner struct {
 	// CPU run state.
 	running bool
 
+	// touchQ holds stylus states the page has sent but the machine has not seen yet.
+	// They are handed over one per frame — see applyTouch.
+	touchQ []debug.Touch
+
 	// cache holds draw targets already replayed for the current capture, so nudging
 	// the scrubber back over ground already covered is free. Every RenderAfter is a
 	// full replay from the frame-start snapshot, which is what makes this worth it.
@@ -196,6 +200,11 @@ func (rn *Runner) handle(r request) error {
 		return rn.display(r)
 	case "frame.pixel":
 		return rn.pixel(r)
+	case "input.panels":
+		rn.sendTouchPanels(r)
+		return nil
+	case "input.touch":
+		return rn.touch(r)
 	case "cpu.regs":
 		rn.sendCPU(r)
 		return nil
@@ -257,6 +266,8 @@ var opNeeds = map[string]string{
 	"surface.render": debug.CapSurfaces,
 	"fs.list":        debug.CapFiles,
 	"fs.read":        debug.CapFiles,
+	"input.panels":   debug.CapTouch,
+	"input.touch":    debug.CapTouch,
 }
 
 // ---- frames ----
@@ -268,6 +279,7 @@ func (rn *Runner) step(r request) error {
 	}
 	fs := rn.tgt.(debug.FrameStepper)
 	start := time.Now()
+	rn.applyTouch()
 
 	var fc *debug.FrameCapture
 	var err error
@@ -346,6 +358,7 @@ func (rn *Runner) play(r request) error {
 
 func (rn *Runner) playFrame() error {
 	start := time.Now()
+	rn.applyTouch()
 	rn.frameNo++
 	if f, ok := rn.tgt.(debug.FastStepper); ok {
 		if err := f.StepFast(); err != nil {
@@ -496,6 +509,60 @@ func (rn *Runner) pixel(r request) error {
 	}
 	r.from.send(m)
 	return nil
+}
+
+// ---- input ----
+//
+// The debugger does not only watch a machine, it plays it: while the machine free-runs, a
+// drag on the picture is a drag of the stylus on the panel under it.
+//
+// Input is queued rather than poked straight into the machine, and the reason is the press
+// EDGE. A game does not ask "is the pen down", it asks "did the pen go down since I last
+// looked" — so a state the machine never publishes a sample for is a state the game never
+// sees. A mouse click is over in tens of milliseconds and the 3DS oracle spends about a
+// hundred on a frame, so a press applied and released between two frames would be a press
+// that never happened. applyTouch is the fix: the machine is handed at most one state per
+// frame, and every state gets a frame.
+
+func (rn *Runner) sendTouchPanels(r request) {
+	m := touchPanelsMsg{Type: "touchpanels", Seq: r.req.Seq, Panels: []jsonTouchPanel{}}
+	for _, p := range rn.tgt.(debug.Toucher).TouchPanels() {
+		m.Panels = append(m.Panels, jsonTouchPanel{
+			ID: p.ID, Name: p.Name, X: p.X, Y: p.Y, W: p.W, H: p.H,
+		})
+	}
+	r.from.send(m)
+}
+
+func (rn *Runner) touch(r request) error {
+	var a touchArgs
+	if err := decodeArgs(r.req, &a); err != nil {
+		return err
+	}
+	rn.touchQ = append(rn.touchQ, debug.Touch{Panel: a.Panel, X: a.X, Y: a.Y, Down: a.Down})
+	return nil
+}
+
+// applyTouch hands the machine at most one stylus state, and is called once per frame
+// advance — played or captured — so no state can be skipped over.
+//
+// A run of same-state events collapses into its latest: a drag fires an event per
+// mouse-move, and within one frame only where the pen ended up matters. A change of state
+// does not collapse, so a press and the release that follows it always land on different
+// frames, and the press is one the game can actually poll.
+func (rn *Runner) applyTouch() {
+	if len(rn.touchQ) == 0 {
+		return
+	}
+	t := rn.touchQ[0]
+	rn.touchQ = rn.touchQ[1:]
+	for len(rn.touchQ) > 0 && rn.touchQ[0].Down == t.Down {
+		t = rn.touchQ[0]
+		rn.touchQ = rn.touchQ[1:]
+	}
+	if err := rn.tgt.(debug.Toucher).Touch(t); err != nil {
+		rn.broadcast(errMsg{Type: "error", Msg: err.Error()})
+	}
 }
 
 // ---- cpu ----
