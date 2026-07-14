@@ -123,6 +123,7 @@ func (m *Machine) startLine() {
 		m.runDMA(dmaVBlank)
 		m.gpu3d.vblank(m) // the 3D engine's buffer swap is consumed here
 		m.onFrame()
+		m.prof.reset(m) // a new frame's accounting starts here
 	case 0: // a new frame's first line: the display-capture/scroll latches reload
 		m.gpu2d.beginFrame(m)
 	}

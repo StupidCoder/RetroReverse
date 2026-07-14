@@ -208,6 +208,37 @@ func loadVerts(vs []vtxSave) []gxVertex {
 	return out
 }
 
+// MachineState is an in-memory snapshot: the same state SaveState writes, kept in RAM
+// rather than on disk.
+//
+// The frame debugger needs this and a file will not do. Its command scrubber replays
+// one frame from its start state again and again — once per position the mouse drags
+// over, on several scratch machines at once — and a round trip through gzip and gob for
+// each of them would make the scrubber cost more than the emulation it is scrubbing.
+type MachineState struct{ s *snapshot }
+
+// SnapshotState captures the machine in memory. The result is independent of the live
+// machine — a deep copy — so it can be restored repeatedly, into other machines, while
+// this one keeps running. That independence is what makes deterministic replay possible
+// at all.
+func (m *Machine) SnapshotState() *MachineState { return &MachineState{s: m.snapshot()} }
+
+// RestoreState puts an in-memory snapshot back.
+func (m *Machine) RestoreState(ms *MachineState) error {
+	if ms == nil || ms.s == nil {
+		return fmt.Errorf("dsmachine: nil snapshot")
+	}
+	if got := m.gameCode(); ms.s.GameCode != got {
+		return fmt.Errorf("dsmachine: snapshot is for game %q, this machine is running %q", ms.s.GameCode, got)
+	}
+	m.restore(ms.s)
+	return nil
+}
+
+// GameCode reports the four-character cartridge code, so a caller can reject a foreign
+// snapshot before trying to restore it.
+func (m *Machine) GameCode() string { return m.gameCode() }
+
 const stateVersion = 1
 
 // SaveState writes the machine to a gzipped gob file.

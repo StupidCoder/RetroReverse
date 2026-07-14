@@ -1,5 +1,7 @@
 package dsmachine
 
+import "time"
+
 // Direct memory access. Each core has four channels; each is a source, a
 // destination, a word count and a control word that says when it should fire.
 //
@@ -106,6 +108,11 @@ func (m *Machine) runDMA(mode int) {
 // difference as long as the CPU is stopped for the duration — which it is, because
 // we run the whole transfer inside the instruction that started it.
 func (c *core) runDMAChan(n int) {
+	if c.m.prof.on {
+		t0 := time.Now()
+		defer func() { c.m.prof.dma += time.Since(t0) }()
+	}
+	c.m.prof.xfers++
 	ch := &c.dma[n]
 	b := &bus{c: c}
 	word := ch.ctrl&0x0400 != 0 // bit 26: 32-bit units

@@ -63,10 +63,18 @@ type gpu3d struct {
 	// OnCmd, if set, reports every command the FIFO decodes with its parameters — the
 	// DS's command-list dump.
 	OnCmd func(cmd uint8, p []uint32)
+
+	// count is how many commands have executed this run, and limit is where the
+	// command scrubber wants the machine to stop (-1 = no limit). cur is the index of
+	// the command currently executing, which every polygon it produces remembers, so a
+	// pixel can be traced back to the command that drew it.
+	count int
+	limit int
+	cur   int
 }
 
 func newGPU3D() *gpu3d {
-	g := &gpu3d{regs: map[uint32]uint32{}}
+	g := &gpu3d{regs: map[uint32]uint32{}, limit: -1}
 	g.geom.reset()
 	g.rast.reset()
 	return g

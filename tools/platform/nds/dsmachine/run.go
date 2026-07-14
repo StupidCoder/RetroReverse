@@ -30,6 +30,12 @@ type Result struct {
 // machine settles into a mutual spin. milestones are ARM9 PCs to report the first
 // time each is reached; quantum is how many ARM9 instructions run before the ARM7
 // gets a turn.
+//
+// The budget is RELATIVE: it is how many more steps to run, not a ceiling on the
+// machine's lifetime step count. That distinction is invisible from reset, where the
+// two are the same number, and it is fatal afterwards — a machine restored from a
+// savestate is already a billion steps old, so an absolute ceiling of forty million is
+// a ceiling it is already past, and the run returns having executed nothing at all.
 func (m *Machine) Run(budget uint64, quantum int, milestones map[uint32]string) Result {
 	return m.run(budget, quantum, milestones, 0)
 }
@@ -64,9 +70,15 @@ func (m *Machine) run(budget uint64, quantum int, milestones map[uint32]string, 
 	lastProgress := m.Steps
 	prevSig := m.progressSig()
 	prevPages := len(m.visited)
+	m.stop, m.stopped, m.stoppedPC = false, false, 0
+	end := m.Steps + budget
 
-	for m.Steps < budget {
+	for m.Steps < end {
 		m.startLine()
+		if m.stop { // OnFrame (the debugger's frame boundary) asked to halt here
+			res.Reason = "stopped"
+			break
+		}
 		if untilFrame != 0 && m.vid.frames >= untilFrame {
 			res.Reason = fmt.Sprintf("reached frame %d", m.vid.frames)
 			break
@@ -85,9 +97,16 @@ func (m *Machine) run(budget uint64, quantum int, milestones map[uint32]string, 
 			m.runQuantum(m.ARM9, quantum, milestones, res.ARM9Milest)
 			m.runQuantum(m.ARM7, quantum/2, nil, nil) // the ARM7 clocks at half the ARM9
 			m.Steps += uint64(quantum)
-			if m.ARM9.cpu.Halted || m.ARM7.cpu.Halted {
+			if m.ARM9.cpu.Halted || m.ARM7.cpu.Halted || m.stop {
 				break
 			}
+		}
+		if m.stop {
+			res.Reason = "stopped"
+			if m.stopped {
+				res.Reason = fmt.Sprintf("breakpoint at 0x%08X", m.stoppedPC)
+			}
+			break
 		}
 		if !hb {
 			m.hblankNow()
@@ -135,7 +154,7 @@ func (m *Machine) runQuantum(c *core, n int, milestones map[uint32]string, hit m
 		return
 	}
 	for i := 0; i < n; i++ {
-		if c.waiting || c.sleep > 0 || c.cpu.Halted {
+		if c.waiting || c.sleep > 0 || c.cpu.Halted || m.stop {
 			return
 		}
 		if c.cpu.R[15] == biosIRQReturn {
@@ -147,6 +166,13 @@ func (m *Machine) runQuantum(c *core, n int, milestones map[uint32]string, hit m
 			m.OnStep(c.arm9, pc)
 		}
 		if c.arm9 {
+			// Breakpoints are the ARM9's: it is the core a debugger is looking at, and a
+			// breakpoint that could also fire on the ARM7's identical address would stop
+			// the machine somewhere the user was not looking.
+			if m.bps[pc] {
+				m.stop, m.stopped, m.stoppedPC = true, true, pc
+				return
+			}
 			m.visited[pc>>8] = true
 			if milestones != nil {
 				if _, ok := milestones[pc]; ok {
@@ -287,4 +313,38 @@ func parkState(c *core) string {
 		return fmt.Sprintf("IntrWait 0x%X", c.waitMask)
 	}
 	return "running"
+}
+
+// runInstrs steps the machine by n ARM9 instructions, keeping the ARM7 and the display
+// running alongside at their own rates — a debugger's single-step, which on a two-core
+// machine cannot mean "step one core and freeze the world" without inventing a machine
+// that does not exist. It returns how many ARM9 instructions actually ran (fewer if the
+// core parked in an interrupt wait, or a breakpoint fired).
+func (m *Machine) runInstrs(n int) int {
+	m.stop, m.stopped, m.stoppedPC = false, false, 0
+	if m.visited == nil {
+		m.visited = map[uint32]bool{}
+	}
+	ran := 0
+	prev := m.OnStep
+	m.OnStep = func(arm9 bool, pc uint32) {
+		if arm9 {
+			ran++
+			if ran > n {
+				m.stop = true
+			}
+		}
+		if prev != nil {
+			prev(arm9, pc)
+		}
+	}
+	defer func() { m.OnStep = prev }()
+
+	// A generous ceiling: a parked ARM9 executes nothing, and the scheduler must still
+	// be allowed to advance the display far enough to wake it.
+	m.run(uint64(n)*64+4_000_000, 64, nil, 0)
+	if ran > n {
+		ran = n
+	}
+	return ran
 }

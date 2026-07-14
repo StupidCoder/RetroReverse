@@ -66,6 +66,10 @@ type gxPolygon struct {
 	texParam uint32 // TEXIMAGE_PARAM
 	pltt     uint32 // PLTT_BASE
 	wbuffer  bool   // depth-buffer the W coordinate rather than Z
+
+	// cmd is the index of the geometry command that completed this polygon — the
+	// vertex that closed it. It is what lets a pixel name the command that drew it.
+	cmd int
 }
 
 // Matrix modes.
@@ -185,6 +189,15 @@ func (g *geom) current() []*mtx {
 
 // exec runs one geometry command with its parameters.
 func (g *gpu3d) exec(cmd uint8, p []uint32) {
+	// The command scrubber's halt, thrown BEFORE the command runs: a limit of k leaves
+	// the machine holding exactly the geometry of commands 0..k-1. See debug.go for why
+	// this is a panic and not a flag.
+	if g.limit >= 0 && g.count >= g.limit {
+		panic(gxHalt{})
+	}
+	g.cur = g.count
+	g.count++
+
 	g.cmdHist[cmd]++
 	if g.OnCmd != nil {
 		g.OnCmd(cmd, p)
@@ -640,6 +653,7 @@ func (g *geom) emit(gp *gpu3d, vs ...gxVertex) {
 	}
 	g.polys = append(g.polys, gxPolygon{
 		verts: poly, attr: g.attr, texParam: g.texParam, pltt: g.pltt, wbuffer: g.wbuffer,
+		cmd: gp.cur,
 	})
 }
 

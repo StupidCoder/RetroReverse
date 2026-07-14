@@ -97,6 +97,15 @@ func (c *core) wramSlot(a uint32) ([]byte, uint32) {
 
 func (b *bus) Read(a uint32) byte {
 	c := b.c
+	v := b.read(a)
+	if c.m.OnRead != nil {
+		c.m.OnRead(c.arm9, a, v, c.cpu.R[15])
+	}
+	return v
+}
+
+func (b *bus) read(a uint32) byte {
+	c := b.c
 	switch a >> 24 {
 	case 0x04:
 		return byte(c.ioRead(a&^3) >> (8 * (a & 3)))
@@ -175,16 +184,29 @@ func (c *core) vramWrite(a uint32, b byte) {
 
 func (b *bus) Read16(a uint32) uint16 {
 	if a>>24 == 0x04 {
-		return uint16(b.c.ioRead(a&^3) >> (8 * (a & 2)))
+		v := uint16(b.c.ioRead(a&^3) >> (8 * (a & 2)))
+		b.watchRead(a, byte(v))
+		return v
 	}
 	return uint16(b.Read(a)) | uint16(b.Read(a+1))<<8
 }
 
 func (b *bus) Read32(a uint32) uint32 {
 	if a>>24 == 0x04 {
-		return b.c.ioRead(a) // one read, one pop
+		v := b.c.ioRead(a) // one read, one pop
+		b.watchRead(a, byte(v))
+		return v
 	}
 	return uint32(b.Read(a)) | uint32(b.Read(a+1))<<8 | uint32(b.Read(a+2))<<16 | uint32(b.Read(a+3))<<24
+}
+
+// watchRead reports a wide I/O read to the read hook. The wide paths do not go through
+// Read (that is the whole point of them — see above), so without this a read-watch on an
+// I/O register would be the one watch that silently never fires.
+func (b *bus) watchRead(a uint32, v byte) {
+	if b.c.m.OnRead != nil {
+		b.c.m.OnRead(b.c.arm9, a, v, b.c.cpu.R[15])
+	}
 }
 
 func (b *bus) Write16(a uint32, v uint16) {

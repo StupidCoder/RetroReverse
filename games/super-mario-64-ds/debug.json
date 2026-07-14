@@ -1,0 +1,8 @@
+{
+  "platform": "ds",
+  "name": "Super Mario 64 DS",
+  "image": "Super Mario 64 DS (Europe) (En,Fr,De,Es,It).nds",
+  "profile": {
+    "dtcm": "023C0000"
+  }
+}

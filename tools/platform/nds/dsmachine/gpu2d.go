@@ -29,6 +29,8 @@ package dsmachine
 // Pixels leave here as RGBA8888 packed R<<24 | G<<16 | B<<8 | A — the same packing
 // the 3D engine must use for the frame it hands us in gpu2d.threeD.
 
+import "time"
+
 const (
 	screenW = 256
 	screenH = 192
@@ -139,6 +141,17 @@ type engine struct {
 
 	win  [screenW]uint8 // per-pixel window mask: bits 0..4 layers, bit 5 effects
 	line [screenW]uint16
+
+	// vis3D marks the pixels of the finished frame where the 3D layer actually WON the
+	// priority fight — where the player is looking at the 3D engine's work rather than
+	// at a background sitting on top of it.
+	//
+	// A frame debugger needs this and cannot infer it. The rasteriser knows which
+	// command drew each pixel of the 3D plane; it does not know that a 2D background
+	// later covered half of them. Report provenance for a covered pixel and clicking it
+	// names a draw the player cannot see, which is a confident wrong answer — the worst
+	// kind a debugger can give.
+	vis3D [screenW * screenH]bool
 }
 
 func newGPU2D() *gpu2d {
@@ -166,6 +179,10 @@ func (g *gpu2d) beginFrame(m *Machine) { g.render(m) }
 
 // render composes both engines' output for the frame into their 256x192 buffers.
 func (g *gpu2d) render(m *Machine) {
+	if m.prof.on {
+		t0 := time.Now()
+		defer func() { m.prof.compose += time.Since(t0) }()
+	}
 	g.swap = m.powcnt&(1<<15) != 0
 	g.a.threeD = g.threeD
 	g.a.frame(m)
@@ -366,6 +383,9 @@ func (e *engine) graphics(dispcnt uint32) {
 		e.shown[n] = dispcnt&(1<<(8+uint(n))) != 0
 	}
 
+	for i := range e.vis3D {
+		e.vis3D[i] = false
+	}
 	for y := 0; y < screenH; y++ {
 		e.clearLayers()
 		if dispcnt&(1<<12) != 0 || dispcnt&(1<<15) != 0 {
@@ -1161,6 +1181,9 @@ func (e *engine) composite(y int) {
 		n++
 
 		top := cs[0]
+		if top.layer == lyBG0 && e.is3D {
+			e.vis3D[y*screenW+x] = true
+		}
 		below := cs[1] // always valid: the backdrop is never absent
 		if n == 1 {
 			below = cand{c: backdrop, layer: lyBackdrop}

@@ -71,6 +71,7 @@ type Machine struct {
 	vid  video
 	div  divider
 	sqrt sqrter
+	prof profiler
 
 	powcnt  uint32
 	keys    uint32
@@ -102,6 +103,26 @@ type Machine struct {
 
 	// OnIRQ observes every interrupt the model dispatches.
 	OnIRQ func(arm9 bool, sources, handler, ret uint32)
+
+	// OnRead observes every memory read either core makes — the complement of
+	// OnWrite, and what a read-watch is made of.
+	OnRead func(arm9 bool, addr uint32, v byte, pc uint32)
+
+	// OnPixel, if set, observes every fragment the 3D rasteriser produced, kept or
+	// killed. This is the per-pixel provenance a frame debugger is built on.
+	OnPixel func(x, y int, ev PixelEvent)
+
+	// OnPoly, if set, is called before each polygon is rasterised, with the index of the
+	// geometry command that closed it. A fragment reported by OnPixel belongs to the last
+	// polygon announced here — which is how a pixel comes to name a command.
+	OnPoly func(cmdIndex int)
+
+	// Debugger control: an execution breakpoint set, a stop request honoured at the
+	// next instruction boundary, and where the last run actually stopped.
+	bps       map[uint32]bool
+	stop      bool
+	stopped   bool
+	stoppedPC uint32
 
 	// OnFrame, if set, is called once per frame at the vertical blank — after the 3D
 	// engine has swapped its buffers, and before the CPUs run the new frame. This is

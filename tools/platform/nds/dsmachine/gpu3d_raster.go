@@ -29,6 +29,8 @@ package dsmachine
 // rear-plane bitmap. Drawing a shadow polygon as an ordinary one would paint a black
 // quad across the scene, which is worse than not drawing it.
 
+import "time"
+
 const (
 	rastW = 256
 	rastH = 192
@@ -96,11 +98,20 @@ func lerpRV(a, b rvert, u float64) rvert {
 
 // render rasterises the frame's polygons and publishes the result to the 2D engine.
 func (g *gpu3d) render(m *Machine) {
+	if m.prof.on {
+		t0 := time.Now()
+		defer func() { m.prof.raster += time.Since(t0) }()
+	}
+	m.prof.polys += len(g.geom.polys)
+
 	disp3d := m.ARM9.io[regDISP3DCNT]
 
 	g.clear(m, disp3d)
 
 	for i := range g.geom.polys {
+		if m.OnPoly != nil {
+			m.OnPoly(g.geom.polys[i].cmd)
+		}
 		g.drawPoly(m, &g.geom.polys[i], disp3d)
 	}
 
@@ -453,6 +464,15 @@ func (g *gpu3d) polyState(m *Machine, p *gxPolygon, disp3d uint32) polyState {
 // shade computes and writes one pixel: depth test, texture fetch, the polygon's
 // blending mode, then the alpha blend into the colour buffer.
 func (g *gpu3d) shade(m *Machine, st *polyState, p *gxPolygon, f rvert, idx int) {
+	// The frame debugger's per-pixel provenance. A fragment is reported whether it was
+	// kept or killed, because "the rasteriser produced this pixel and then threw it
+	// away" is usually the answer to why a pixel is not the colour it should be — and it
+	// is an answer no colour buffer can give, having never held it.
+	reject := func(z, a bool) {
+		if m.OnPixel != nil {
+			m.OnPixel(idx%rastW, idx/rastW, PixelEvent{ZReject: z, AlphaReject: a})
+		}
+	}
 	// Undo the perspective division. Everything interpolated across the span was
 	// premultiplied by 1/w, so the varyings are linear in screen space and this one
 	// divide recovers them — this, and not the interpolation, is what keeps a texture
@@ -501,9 +521,11 @@ func (g *gpu3d) shade(m *Machine, st *polyState, p *gxPolygon, f rvert, idx int)
 			diff = -diff
 		}
 		if diff > 0x200 {
+			reject(true, false)
 			return
 		}
 	} else if depth >= old {
+		reject(true, false)
 		return
 	}
 
@@ -521,7 +543,8 @@ func (g *gpu3d) shade(m *Machine, st *polyState, p *gxPolygon, f rvert, idx int)
 		t := int(f.t * w)
 		tr, tg, tb, ta, ok := g.sampleTex(m, &st.tex, s>>4, t>>4)
 		if !ok {
-			return // a transparent texel is not drawn at all, and writes no depth
+			reject(false, true) // a transparent texel is not drawn at all, and writes no depth
+			return
 		}
 		switch st.mode {
 		case 0: // modulation: texture * vertex colour, and the alphas multiply too
@@ -545,9 +568,11 @@ func (g *gpu3d) shade(m *Machine, st *polyState, p *gxPolygon, f rvert, idx int)
 	// The alpha test. A zero-alpha fragment is always discarded; with DISP3DCNT bit 2
 	// set the game supplies its own threshold in ALPHA_TEST_REF.
 	if ca == 0 {
+		reject(false, true)
 		return
 	}
 	if st.alphaTe && ca <= st.alphaRf {
+		reject(false, true)
 		return
 	}
 
@@ -573,9 +598,15 @@ func (g *gpu3d) shade(m *Machine, st *polyState, p *gxPolygon, f rvert, idx int)
 	// With DISP3DCNT bit 3 clear the blender is off and a translucent polygon is simply
 	// written opaque — that is the hardware's behaviour, not a shortcut.
 
+	m.prof.frags++
 	g.rast.col[idx] = out
 	if st.depthWr {
 		g.rast.depth[idx] = depth
+	}
+	if m.OnPixel != nil {
+		m.OnPixel(idx%rastW, idx/rastW, PixelEvent{
+			Drawn: true, R: out.r, G: out.g, B: out.b, A: out.a,
+		})
 	}
 }
 
