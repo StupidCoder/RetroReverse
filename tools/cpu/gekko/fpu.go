@@ -206,8 +206,19 @@ func sign(v float64) int {
 }
 
 // fmadd is a×c + b with ONE rounding, of the exact product-plus-addend. math.FMA is
-// precisely that; writing a*c + b instead would round the product first, and be wrong in
-// the last bit on every frame a 3-D game draws.
+// precisely that; rounding the product first would be wrong in the last bit, on an
+// operation a 3-D game runs millions of times per frame.
+//
+// Do not "simplify" this to a*cc + b, and be careful how you convince yourself it is
+// safe. The Go specification lets an implementation fuse a multiply and an add on its own,
+// and on arm64 it does: `a*cc + b` compiles to a hardware FMADD, gives the fused answer,
+// and passes this core's entire vector suite. On amd64 it does not fuse, and the same
+// source would round twice and produce different results — so the "simplification" would
+// be a real bug that a Mac would never show you and a Linux box would. math.FMA is the
+// only spelling that means the same thing on both.
+//
+// (This is not hypothetical. Mutation-testing the suite found it: the naive rewrite failed
+// nothing on this machine, which is what sent us looking for why.)
 func (c *CPU) fmaddRaw(a, cc, b float64) float64 {
 	if isSNaN(a) || isSNaN(b) || isSNaN(cc) {
 		c.setFPSCRBit(FPSCRVXSNAN)
