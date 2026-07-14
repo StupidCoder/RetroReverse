@@ -237,11 +237,16 @@ func (p *IOP) dmaStart(ch int) {
 		p.spu.dma(1, p, c.madr, n, toRAM)
 
 	case iopDMAChSIF0:
-		// The second processor is sending the first one something. This is the only channel on
-		// the IOP whose other end is a CPU rather than a device, and the transfer is a copy into
-		// the buffer the EE nominated (sif.go).
+		// The second processor is sending the first one something, and it is the only channel on
+		// the IOP whose other end is a CPU rather than a device.
+		//
+		// It is also the only one that is a *chain*: SIFMAN writes this channel's TADR and never
+		// its MADR, so neither the source nor the destination is in the registers — both are in
+		// the tag the channel points at, and sifFromIOP reads them from there. Which is why n,
+		// computed above from BCR, is not passed on: BCR describes the chain buffer, not the
+		// transfer, and 128 bytes from address zero is what believing otherwise looks like.
 		if !toRAM {
-			p.ps2.sifFromIOP(c.madr, n)
+			p.ps2.sifFromIOP()
 		}
 
 	case iopDMAChSIF1:
@@ -256,7 +261,10 @@ func (p *IOP) dmaStart(ch int) {
 		// again, and is rung again — which it did, three hundred and eighty-seven times, and
 		// which looks from the outside like a machine hard at work.
 		//
-		// The bytes and the interrupt both arrive in sifToIOP, which is the sender's side.
+		// The bytes and the interrupt both arrive in sifPump, which is the sender's side — and
+		// arming this channel is precisely the event it waits for, so it is asked now whether
+		// the EE has anything for a receiver that is finally listening.
+		p.ps2.sifPump()
 		return
 
 	default:

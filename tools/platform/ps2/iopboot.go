@@ -93,7 +93,7 @@ func (m *Machine) RebootIOPFrom(image string) error {
 	//
 	// Without it the IOP boots as far as SIFCMD and stops there forever, in a loop four
 	// instructions long.
-	m.sbusSetFlag(sbusMSFLG, sifEESIFReady)
+	m.sbusFlagSet(sbusMSFLG, sifEESIFReady)
 
 	m.StartIOP()
 	for _, name := range iopBootOrder {
@@ -106,6 +106,11 @@ func (m *Machine) RebootIOPFrom(image string) error {
 		}
 	}
 	m.note("IOP: booted on %s — %d modules", image, len(m.IOP.modules))
+
+	// Every module is loaded, so the boot is over — and the modules that asked to be told
+	// that are now told (loadcore#20, iopkernel.go). It is EESYNC that cares: its callback
+	// raises the flag that says the reboot has finished, and the EE is spinning on it.
+	m.IOP.runBootCallbacks()
 
 	// And now hand the processor over to its own scheduler.
 	//
@@ -173,6 +178,23 @@ func (p *IOP) LoadModuleFromDisc(path string) error {
 }
 
 // LoadAndStart places a module, links it and runs its entry point.
+// runBootCallbacks calls the routines the modules registered with loadcore#20, in the order
+// they registered them.
+//
+// It is the loader's last duty before it stands down, and the loader is the only thing that
+// can do it: a boot callback exists precisely because the module registering it cannot see the
+// end of the boot from where it stands. See loadcoreRegisterBootCallback for how the identity
+// was earned, and what EESYNC's callback says to the EE.
+func (p *IOP) runBootCallbacks() {
+	for _, fn := range p.bootCallbacks {
+		if _, err := p.callGuest(fn); err != nil {
+			p.ps2.note("IOP: the boot callback at %s did not return: %v", p.Sym(fn), err)
+			return
+		}
+		p.ps2.note("IOP: the boot is over, and %s was told so", p.Sym(fn))
+	}
+}
+
 func (p *IOP) LoadAndStart(name string, raw []byte) error {
 	mod, err := p.LoadIRX(name, raw)
 	if err != nil {

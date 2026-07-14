@@ -17,9 +17,10 @@ package ps2
 // stand in for what the kernel *did* before it handed over — chiefly installing the
 // TLB entries that map main memory. See mapMemory.
 //
-// The IOP. The second processor is faked at the SIF boundary for now (sif.go), not
-// executed. It is a MIPS R3000A, which tools/cpu/mips already models, so running the
-// real IOP modules is a later phase rather than a rewrite.
+// The IOP. The second processor is real (iop.go): a MIPS R3000A executing Sony's own
+// kernel modules, taken off the disc, with the EE talking to it across the SIF exactly
+// as it would on the board. It is not faked at any boundary. What stands in for the ROM
+// there is only the base libraries a module imports by number (iopkernel.go).
 
 import (
 	"bytes"
@@ -129,15 +130,17 @@ type Machine struct {
 	deci2Sockets uint32
 	deci2Desc    map[uint32]uint32
 
-	// The SIF (sif.go): the handshake registers, the EE's command buffer and the
-	// handler it registered to consume packets, the queue of replies the fake IOP owes
-	// it, and the census of commands nobody answered.
-	sifRegs       [32]uint32
-	sifDmaID      uint32
-	sifCmdBuf     uint32
-	sifCmdHandler uint32
-	sifPending    []sifPacket
-	sifUnmodelled map[uint32]int
+	// The SIF (sif.go): the kernel's SIF registers, and the EE's command buffer with the
+	// handler it registered to consume what the IOP writes into it.
+	sifRegs          map[uint32]uint32
+	sifUnmodelledReg map[uint32]int
+	sifDmaID         uint32
+	sifCmdBuf        uint32
+	sifCmdHandler    uint32
+
+	// The packets the EE has handed to SIF1 and the IOP has not taken yet. SIFCMD has one
+	// receive slot, so they queue until it says it is listening (sifPump).
+	sifToIOPQueue []sifPacket
 
 	// The second processor (iop.go). It is nil until the game reboots the IOP, which
 	// is when the modules it will run are chosen.
@@ -153,10 +156,6 @@ type Machine struct {
 	// thousands of calls between them, and the one worth watching is usually the last.
 	OnIOPModule func(p *IOP, name string)
 
-	// iopRebooted is whether the second processor has actually come up, and it is what the EE
-	// is told when it asks. sceSifSyncIop spins until it is true.
-	iopRebooted bool
-
 	// How many packets have actually crossed the SIF in each direction. The pair is the
 	// instrument: a machine sending and never receiving is a machine talking to itself.
 	sifToIOPCount   int
@@ -165,13 +164,13 @@ type Machine struct {
 	// The six registers both processors can see (sifbus.go).
 	sbus [sbusRegs]uint32
 
-	// The buffer of arguments the EE DMA'd across just before its last RPC call.
-	rpcSendBuf, rpcSendSize uint32
-
-	// The RPC servers the EE has bound to, and the calls it has made to them.
-	rpcServers  map[uint32]uint32 // server id -> synthetic handle
-	rpcServerOf map[uint32]uint32 // handle -> server id
-	rpcCalls    map[sifRPCKey]int
+	// What the EE has asked the IOP for, counted as it went past (sif.go). Nothing here
+	// answers anything; it is a census, and since the servers on the other side are the
+	// game's own IOP modules, it is the record of their interface.
+	sifSent  map[uint32]int // command id -> how many the EE sent
+	sifBack  map[uint32]int // command id -> how many came back
+	rpcBinds map[uint32]int // server id -> how many times the EE bound to it
+	rpcCalls map[sifRPCKey]int
 
 	// idle is set when no thread can run. The CPU stops; only the clock advances, until
 	// an interrupt or a reply from the IOP makes something ready again.
@@ -214,23 +213,25 @@ type Machine struct {
 // NewMachine makes a PS2 with memory and a CPU, and nothing running on it.
 func NewMachine() *Machine {
 	m := &Machine{
-		ram:           make([]byte, ramSize),
-		spram:         make([]byte, spramSize),
-		iopRAM:        make([]byte, iopRAMSize),
-		io:            map[uint32]uint32{},
-		unmodelled:    map[uint32]int{},
-		SyscallCalls:  map[string]int{},
-		breakpoints:   map[uint32]bool{},
-		logSeen:       map[string]bool{},
-		threads:       map[uint32]*thread{},
-		semas:         map[uint32]*sema{},
-		nextSemaID:    1,
-		userSyscalls:  map[uint32]uint32{},
-		sifUnmodelled: map[uint32]int{},
-		rpcServers:    map[uint32]uint32{},
-		rpcServerOf:   map[uint32]uint32{},
-		rpcCalls:      map[sifRPCKey]int{},
-		deci2Desc:     map[uint32]uint32{},
+		ram:              make([]byte, ramSize),
+		spram:            make([]byte, spramSize),
+		iopRAM:           make([]byte, iopRAMSize),
+		io:               map[uint32]uint32{},
+		unmodelled:       map[uint32]int{},
+		SyscallCalls:     map[string]int{},
+		breakpoints:      map[uint32]bool{},
+		logSeen:          map[string]bool{},
+		threads:          map[uint32]*thread{},
+		semas:            map[uint32]*sema{},
+		nextSemaID:       1,
+		userSyscalls:     map[uint32]uint32{},
+		sifRegs:          map[uint32]uint32{},
+		sifUnmodelledReg: map[uint32]int{},
+		sifSent:          map[uint32]int{},
+		sifBack:          map[uint32]int{},
+		rpcBinds:         map[uint32]int{},
+		rpcCalls:         map[sifRPCKey]int{},
+		deci2Desc:        map[uint32]uint32{},
 	}
 	m.CPU = r5900.NewCPU(m)
 	m.CPU.Syscall = m.handleSyscall

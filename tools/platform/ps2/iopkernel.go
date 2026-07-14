@@ -93,7 +93,7 @@ func init() {
 		12: unknown(),
 		16: unknown(),
 		17: unknown(),
-		20: unknown(),
+		20: {"RegisterBootCallback", (*IOP).loadcoreRegisterBootCallback},
 		21: unknown(),
 		22: unknown(),
 		23: unknown(),
@@ -227,6 +227,37 @@ func (p *IOP) setRet(v uint32) { p.CPU.SetReg(2, v) }
 // news. What matters is the return value: a module whose registration *fails* takes
 // itself back out of memory, so this has to say yes.
 func (p *IOP) loadcoreRegisterLibrary() { p.setRet(0) }
+
+// loadcoreRegisterBootCallback is loadcore #20: a module asking to be called back when the
+// boot is over.
+//
+// The identity is EESYNC's, and EESYNC is 688 bytes long, which makes it readable in one
+// sitting. Its entry point does three things: register its library, open a file, and call
+//
+//	loadcore#20(EESYNC+0x80, 2, 0)
+//
+// EESYNC+0x80 is nine instructions, and all it does is `sifman#24(0x40000)` — raise SMFLG bit
+// 0x40000, the bit the EE's sceSifSyncIop is at that very moment spinning on, which means
+// "the IOP has finished rebooting". That statement is a lie at the moment EESYNC's entry runs:
+// EESYNC is one module of twelve and the boot is not over. So it cannot be called then, and it
+// is not — it is handed to loadcore instead. Nothing else on the IOP calls it, and it is not
+// even exported (EESYNC's export table is its entry point and five bare `jr $ra`), so loadcore
+// is the only thing that can ever run it. A routine that must run at the end of the boot,
+// registered by a module that has no way of knowing when the end is, is a boot callback.
+//
+// THREADMAN registers one too — with the same second argument, 2 — which is the second
+// witness. What that argument selects is not yet known, and it is not guessed at here: both
+// callbacks are kept in the order they were registered and both are run.
+//
+// The loader runs them (bootCallbacks, in iopboot.go), because on the board the loader is what
+// finishes the boot. Getting this wrong is not a small thing. Without it EESYNC's routine
+// never runs, SMFLG's 0x40000 is never raised, and the EE waits for a reboot that has in fact
+// already happened — which is the exact shape of every other bug on this processor: a machine
+// that is working perfectly and has not been told.
+func (p *IOP) loadcoreRegisterBootCallback() {
+	p.bootCallbacks = append(p.bootCallbacks, p.arg(0))
+	p.setRet(0)
+}
 
 // stdioPrintf is the IOP's printf. Every module on the disc imports exactly this one
 // function of stdio, and it is how the IOP kernel narrates itself — the counterpart of

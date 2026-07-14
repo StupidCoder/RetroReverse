@@ -59,12 +59,6 @@ func (m *Machine) Run(maxSteps uint64) Result {
 			return m.result(steps, "stop requested")
 		}
 
-		// The fake IOP's replies, which arrive a few thousand instructions after the EE
-		// asked for them rather than instantly.
-		if len(m.sifPending) > 0 {
-			m.sifTick()
-		}
-
 		// The second processor. It runs at about an eighth of the EE's clock, and it runs
 		// whether or not the EE does — a machine whose every thread is blocked is very
 		// often a machine waiting on the IOP, and an IOP that only ticked when the EE did

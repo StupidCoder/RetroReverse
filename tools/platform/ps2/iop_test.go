@@ -60,7 +60,7 @@ func TestTheTwoProcessorsSeeOneSetOfSIFRegisters(t *testing.T) {
 	p := m.StartIOP()
 
 	// The EE raises the bit that says its half of the SIF is up.
-	m.sbusSetFlag(sbusMSFLG, sifEESIFReady)
+	m.sbusFlagSet(sbusMSFLG, sifEESIFReady)
 
 	// The IOP reads it, through its own address for the register, in KSEG1 — which is how
 	// SIFMAN reads it.

@@ -209,7 +209,7 @@ func (m *Machine) resume() bool {
 // from the IOP, no interrupt handler to run, and no ready thread is a genuine
 // deadlock rather than a wait.
 func (m *Machine) blocked() bool {
-	if len(m.sifPending) > 0 || len(m.intcHandlers) > 0 {
+	if m.IOP != nil || len(m.intcHandlers) > 0 {
 		return false
 	}
 	// A second processor that is still executing can always wake this one: the EE

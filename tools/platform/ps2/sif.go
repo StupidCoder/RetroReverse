@@ -1,19 +1,22 @@
 package ps2
 
-import "sort"
+import (
+	"sort"
+	"strings"
+)
 
-// sif.go is the boundary between the two processors, with the far side faked.
+// sif.go is the boundary between the two processors — and it is now only a boundary. Nothing
+// in this file answers the EE any more; it carries what the EE says to the IOP, and what the
+// IOP says back, and counts both on the way past.
 //
-// A PS2 has a second CPU, the IOP — a MIPS R3000A, the PlayStation's chip — which
-// owns the disc drive, the sound chip and the controllers. The EE reaches it across
-// the SIF: a DMA path carrying command packets, plus a remote-procedure-call layer
-// built on top of them. The disc ships the IOP's own modules (OVERLORD.IRX,
-// 989SND.IRX, PADMAN.IRX) to be uploaded and run there.
+// A PS2 has a second CPU, the IOP — a MIPS R3000A, the PlayStation's chip — which owns the disc
+// drive, the sound chip and the controllers. The EE reaches it across the SIF: two DMA channels
+// carrying command packets, with a remote-procedure-call layer built on top of them. This file
+// used to fake the far side, because there was no far side. There is now (iop.go): the IOP runs
+// Sony's own kernel modules off the disc, and the servers the EE binds to are those modules,
+// running. The handles it gets back are addresses in their memory.
 //
-// None of that runs yet. This file answers the EE as the IOP would, in Go.
-//
-// The pleasant surprise is how little forging that takes, because the EE does its own
-// unpacking. A command packet is:
+// A command packet is:
 //
 //	+0x00  psize in the low byte, dsize in the upper three
 //	+0x04  dest        where the data half should land
@@ -21,17 +24,24 @@ import "sort"
 //	+0x0C  opt
 //	+0x10  payload
 //
-// and the EE registers `_sceSifCmdIntrHdlr` on DMA channel 5 to consume them. That
-// routine reads psize from the packet's first *byte*, copies the packet out, zeroes
-// that byte to mark it consumed, and dispatches on cid. So the IOP's whole side of the
-// conversation is: write a packet into the buffer the EE nominated, and run the EE's
-// own handler over it. The game does the rest with its own code — nothing here has to
-// know where its SIF registers live or what its handlers do.
+// and both processors have a handler that reads exactly that and dispatches on the cid — the
+// EE's is _sceSifCmdIntrHdlr on DMA channel 5, the IOP's is SIFCMD+0x6AC on interrupt 43. They
+// are the same routine written twice, which is the clue that the protocol is symmetric.
 //
-// The real thing is not far off: tools/cpu/mips already models the R3000A exactly, and
-// IRX modules import from the IOP kernel through stub tables of the same shape the
-// PSP's PRX modules use, so the trick that HLEs those applies here too. When that
-// lands, this file is what it replaces.
+// The two directions are not, though, and the asymmetry is the thing worth knowing:
+//
+//	SIF1   EE -> IOP   the IOP's channel 10. SIFMAN arms it — a start bit, a block size, no
+//	                   MADR — and it stays armed until something lands. The *sender* names the
+//	                   destination, in the DMA descriptor. There is one receive slot, so there
+//	                   is flow control: SIFCMD empties the slot and re-arms (sifPump).
+//
+//	SIF0   IOP -> EE   the IOP's channel 9, and a chain rather than a burst. SIFMAN writes TADR,
+//	                   never MADR, and the tag carries the source, the length, the EE address to
+//	                   put it at, and a DMA tag for the EE's own controller (sifFromIOP).
+//
+// Neither channel's MADR is ever written by the module that starts it, and for a while that
+// looked like two separate puzzles. It is one fact: on this bus the sender always says where the
+// data goes, and the receiver is a channel that is merely listening.
 
 // The system commands, indexed by the low bits of the cid.
 const (
@@ -46,63 +56,68 @@ const (
 	sifCmdRpcRData = 0x8000000C
 )
 
-// sifRPCInitSreg is the SIF register the EE polls to learn that the IOP's RPC layer is
-// up. sceSifInitRpc spins on it and will not return until it is non-zero — which,
-// with no IOP, it never would.
-const (
-	sifRPCInitSreg = 0
-	sifRPCReady    = 1
-)
-
-// sifLatency is how long the fake IOP takes to answer, in EE instructions.
-//
-// It is not zero on purpose. Answering inside the send would let a reply be processed
-// before the sender had finished updating the state the handler reads — a race that
-// cannot happen on hardware, where the IOP is a separate chip and the reply arrives as
-// an interrupt some time later. A few thousand instructions is short enough that a
-// polling loop does not trip the spin detector, and long enough that the sender always
-// finishes first.
-const sifLatency = 4000
-
-// sifPacket is one command packet on its way to the EE.
-type sifPacket struct {
-	at   uint64 // the step count at which it should arrive
-	data []uint32
-}
-
 // sifSetDma is syscall 119: the EE handing buffers to the IOP. Each descriptor is
-// {src, dest, size, attr}.
+// {src, dest, size, attr}, and every one of them is a transfer.
 //
-// A call carries two of them — the arguments and then the command packet — and telling
-// them apart matters. A command packet always has a cid with the top bit set at +0x08;
-// nothing else does. Feeding the argument buffer to the command dispatcher instead
-// yields a "command" of 0x6F726463, which is "cdro" — the first four bytes of
-// "cdrom0:\DRIVERS\SIO2MAN.IRX;1", the path the game was trying to pass.
+// That last clause is the whole of it, and it was not always true here. A remote call carries
+// two descriptors — the arguments, and then the command packet that says a call has been made —
+// and this routine used to move only the second. It could afford to: the thing serving the call
+// was a Go function on this side of the wire, which could read the arguments out of EE memory
+// where they lay. The IOP cannot. It is a separate processor with its own two megabytes, and a
+// pointer into the EE's memory means nothing to it at all.
 //
-// The argument buffer stays in EE memory, so remembering where it was is all a served
-// call needs to read it.
+// So an argument buffer that is never transferred arrives on the IOP as whatever was in that
+// memory before, and FILEIO opens a file called "". The symptom is quiet and a long way from
+// the cause: the game's threads sit on a semaphore that the reply to a file operation would
+// have signalled, and the file operation is a real one, correctly dispatched, on a path made
+// entirely of nothing.
+//
+// The two are told apart by attr, and the command bit is set only on the packet. Both are
+// queued, in the order the EE listed them, because the arguments must be in IOP memory before
+// SIFCMD's handler dispatches the command that refers to them — which on the wire they are,
+// necessarily, since the EE sends them first.
 func (m *Machine) sifSetDma() {
 	desc, count := m.arg(0), m.arg(1)
 	for i := uint32(0); i < count; i++ {
 		d := desc + i*16
 		src := m.Read32(d + 0x00)
+		dest := m.Read32(d + 0x04)
 		size := m.Read32(d + 0x08)
+		attr := m.Read32(d + 0x0C)
 
-
-		if size >= 16 && m.Read32(src+0x08)&0x80000000 != 0 {
-			m.iopReceive(src, size)
-			m.rpcSendBuf, m.rpcSendSize = 0, 0
+		if attr&sifDmaInt != 0 {
+			m.iopReceive(src, dest, size)
 			continue
 		}
-		m.rpcSendBuf, m.rpcSendSize = src, size
+		m.sifData(src, dest, size)
 	}
 	// A handle of zero means failure, and the caller checks. It must never be zero.
 	m.sifDmaID++
 	m.setRet(m.sifDmaID)
 }
 
+// sifDmaInt is the bit in a descriptor's attr that says "and interrupt the IOP when this
+// lands". Only the command packet of a remote call has it; the arguments that precede it do
+// not, and must not — an interrupt per buffer would have SIFCMD dispatching a command out of
+// somebody's file path.
+const sifDmaInt = 0x40
+
+// sifData queues a plain transfer: bytes from the EE into the IOP's memory, at the address the
+// EE names, with no doorbell at the end. This is what a remote call's arguments are.
+func (m *Machine) sifData(src, dest, size uint32) {
+	if dest == 0 || size == 0 {
+		return
+	}
+	p := sifPacket{dest: dest, data: make([]byte, size)}
+	for i := uint32(0); i < size; i++ {
+		p.data[i] = m.Read(src + i)
+	}
+	m.sifToIOPQueue = append(m.sifToIOPQueue, p)
+	m.sifPump()
+}
+
 // iopReceive is the IOP's side: one command packet arrives from the EE.
-func (m *Machine) iopReceive(src, size uint32) {
+func (m *Machine) iopReceive(src, dest, size uint32) {
 	if size < 16 {
 		return
 	}
@@ -116,55 +131,36 @@ func (m *Machine) iopReceive(src, size uint32) {
 		return
 	}
 
-	// The EE nominates the buffer it wants the IOP's packets written into, and the machine has
-	// to know it too — not to answer with, but to *route* with: it is where a SIF0 transfer
-	// out of the IOP is going to land. The IOP's own SIFCMD is told the same thing by the same
-	// packet, and keeps its own copy; this is the wire noting the address on the envelope.
-	if cid == sifCmdChangeSaddr {
-		m.sifCmdBuf = m.Read32(src + 0x10)
-		m.note("SIF: the EE's command buffer is at 0x%08X", m.sifCmdBuf)
-	}
-
-	// And here is where the packet will one day go to the second processor instead of to the
-	// Go handlers below — sifToIOP carries it, and it works: the bytes land in SIFCMD's own
-	// receive buffer at the address SIFCMD published in SMCOM, interrupt 43 is raised, and
-	// SIFCMD's handler runs on the IOP and consumes them.
+	// Two commands carry the EE's own command buffer, in the same place — at +0x10 — and the
+	// machine has to note it as it goes past. Not to answer with: to *route* with. It is where
+	// a SIF0 transfer out of the IOP is going to land, and the IOP is about to make one.
 	//
-	// What does not work yet is the answer. SIFCMD takes the packet and sends nothing back, so
-	// the EE waits for a reply that never comes — and until it *does* come, switching the wire
-	// on would only replace a machine that lies with a machine that stops. The fakes stay until
-	// both halves of the conversation are real. That is the next piece of work and it is a
-	// short one: find out what SIFCMD does with a command packet it has accepted, and why it
-	// does not start its SIF0 channel afterwards.
-
-	switch cid {
-	case sifCmdChangeSaddr:
-		// The EE nominates the buffer it wants replies written into. Everything this
-		// file sends goes here, and it is the only address it needs to know.
+	// Which of the two the EE sends says whether it has met this IOP before. CHANGE_SADDR means
+	// it has, and is only moving its buffer; INIT_CMD with opt = 0 means it has not, and is
+	// introducing itself — and that one is the packet the whole second processor is waiting for
+	// (see sifGetReg).
+	//
+	// INIT_CMD is sent a *second* time, with opt = 1, to say that the EE's RPC layer is up. That
+	// one is sixteen bytes: a header and nothing else. Reading a buffer address out of it reads
+	// off the end of the packet, and what is off the end of the packet is zero — so the EE's
+	// address gets replaced by nothing at the exact moment the IOP is about to use it. The
+	// condition below is not defensive; it is what SIFCMD's own handler does, which takes the
+	// address in its opt == 0 branch and not in its opt != 0 one.
+	if cid == sifCmdChangeSaddr || (cid == sifCmdInitCmd && opt == 0) {
 		m.sifCmdBuf = m.Read32(src + 0x10)
-		m.note("SIF: the EE's command buffer is at 0x%08X", m.sifCmdBuf)
-
-	case sifCmdInitCmd:
-		// The EE is bringing its command and RPC layers up, and is about to spin waiting
-		// for the IOP to say its own RPC layer is ready. The IOP says so by writing the
-		// EE's SIF register 0 — which it does by sending a SET_SREG command back.
-		m.note("SIF: the EE initialised its RPC layer (opt=%d); answering that the IOP's is ready", opt)
-		m.sifSend(sifCmdSetSreg, 0, sifRPCInitSreg, sifRPCReady)
-
-	case sifCmdReset:
-		m.iopReset(src)
-
-	case sifCmdRpcBind:
-		m.rpcBind(src)
-
-	case sifCmdRpcCall:
-		m.rpcCall(src)
-
-	default:
-		m.note("SIF: unmodelled command 0x%08X (opt=0x%08X) from %s — %d bytes at 0x%08X",
-			cid, opt, m.Sym(uint32(m.CPU.CurPC())), size, src)
-		m.sifUnmodelled[cid]++
 	}
+
+	// And the packet goes to the second processor. The bytes land in SIFCMD's own receive
+	// buffer at the address SIFCMD published in SMCOM, interrupt 43 is raised, and SIFCMD's
+	// handler runs on the IOP — on the IOP's stack, in the IOP's own interrupt path.
+	//
+	// There is no other branch. There used to be: a switch, below this, that answered each
+	// command in Go — bound a synthetic handle for every RPC server the EE asked for, and told
+	// it the version numbers it wanted to hear. It is gone. Every one of those answers is now
+	// given by the module that owns it, running.
+	m.sifSent[cid]++
+	m.sifWatch(src, cid, true)
+	m.sifToIOP(src, dest, size)
 }
 
 // iopReset is the EE rebooting the second processor — and it is where the IOP on this machine
@@ -198,9 +194,7 @@ func (m *Machine) iopReset(src uint32) {
 
 	if err := m.RebootIOPFrom(image); err != nil {
 		m.note("SIF: the IOP did not reboot: %v", err)
-		return
 	}
-	m.iopRebooted = true
 }
 
 // --- the transport ------------------------------------------------------------------
@@ -224,191 +218,307 @@ func (m *Machine) iopReset(src uint32) {
 // process, and the SIF is the wire between them; there is no third thing for the data to sit
 // in, and modelling a FIFO would model the wire rather than the message.
 
-// sifToIOP carries one command packet across SIF1 and rings the IOP's doorbell.
-func (m *Machine) sifToIOP(src, size uint32) {
-	dest := m.sbusRead(sbusSMCOM)
+// sifPacket is one transfer the EE has handed to the SIF and the IOP has not taken yet.
+type sifPacket struct {
+	dest uint32 // where in IOP memory the EE says it goes
+	data []byte
+	cmd  bool // a command packet, which rings SIFCMD's doorbell; otherwise plain data
+}
+
+// sifToIOP hands one command packet to SIF1. It does not deliver it.
+//
+// The distinction is the whole of the flow control on this channel, and there is flow control,
+// because SIFCMD has exactly one receive slot. Its interrupt handler reads the packet from the
+// single address it published in SMCOM, marks the slot free by zeroing the packet's first byte,
+// and only then calls sifman#6 to arm the receive channel again. Until it does, the channel is
+// not armed and nothing can land.
+//
+// So the sequence on the board is: the EE's DMA waits for an armed channel, fills the slot, and
+// the IOP's handler empties it and re-arms. A model that copies the bytes in the instant the EE
+// asks skips the wait — and the EE, which runs eight times faster here, sends its second packet
+// before the IOP has executed a single instruction. The second overwrites the first in the one
+// slot they share.
+//
+// That is not a subtle failure. The first packet is INIT_CMD with opt = 0, which releases every
+// thread on the second processor, and the second is INIT_CMD with opt = 1, which tells them the
+// EE's own RPC layer is up. Deliver both to the same address and one of them simply never
+// happened — and which one you lose decides which half of the machine waits forever.
+func (m *Machine) sifToIOP(src, dest, size uint32) {
 	if dest == 0 {
-		m.note("SIF: the EE sent the IOP a packet before the IOP said where to put it (SMCOM is 0)")
+		m.note("SIF: the EE sent the IOP a packet before it knew where the IOP wanted it (dest is 0)")
 		return
 	}
+	p := sifPacket{dest: dest, data: make([]byte, size), cmd: true}
 	for i := uint32(0); i < size; i++ {
-		m.IOP.Write(dest+i, m.Read(src+i))
+		p.data[i] = m.Read(src + i)
 	}
+	m.sifToIOPQueue = append(m.sifToIOPQueue, p)
+	m.sifPump()
+}
 
-	// The transfer the IOP armed has now happened. Its channel is no longer busy, and its MADR
-	// holds the address the data went to — which is the *sender's* choice, and therefore
-	// something only the completed transfer can tell the receiver. SIFMAN never writes this
-	// register; it only ever reads it back. That is what says the hardware writes it.
+// sifPump delivers the next queued packet, if the IOP is ready for one.
+//
+// "Ready" is the IOP's own statement, and the only one available: its receive channel is armed.
+// SIFMAN arms it with a start bit and a block size and no MADR at all — which is exactly what an
+// armed receiver looks like, and why this is the one channel that does not complete when it is
+// started (iopdma.go). It completes here, when something arrives for it.
+//
+// It is called from two places and needs both: from sifToIOP, for a packet arriving at a channel
+// that is already waiting, and from the DMA controller, for a channel being armed with a packet
+// already waiting.
+func (m *Machine) sifPump() {
+	if m.IOP == nil || len(m.sifToIOPQueue) == 0 {
+		return
+	}
 	c := &m.IOP.dma[iopDMAChSIF1]
-	c.madr = dest + size
-	c.chcr &^= iopChcrStart | iopChcrTrigger
 
-	// And the interrupt SIFCMD is waiting on. It is raised, not run: the handler belongs to the
-	// IOP and runs on the IOP's own interrupt path, on the IOP's own stack, the next time that
-	// processor takes a step. Which is the whole difference between the two machines talking and
-	// one of them ventriloquising the other.
-	m.IOP.raiseIRQ(iopDMAIRQ(iopDMAChSIF1))
-	m.sifToIOPCount++
+	// The queue drains in order, and stops at the first thing the IOP is not ready for. Only a
+	// command needs an armed channel, because only a command lands in the single slot SIFCMD
+	// polls; the arguments that precede it go to a buffer of the server's own, and nothing on
+	// the IOP is looking at it until the command tells it to.
+	for len(m.sifToIOPQueue) > 0 {
+		p := m.sifToIOPQueue[0]
+		if p.cmd && c.chcr&iopChcrStart == 0 {
+			return // the IOP is not listening; the packet waits, as it would on the wire
+		}
+		m.sifToIOPQueue = m.sifToIOPQueue[1:]
+
+		for i, b := range p.data {
+			m.IOP.Write(p.dest+uint32(i), b)
+		}
+		m.sifToIOPCount++
+		if !p.cmd {
+			continue
+		}
+
+		// The transfer the IOP armed has now happened. Its channel is no longer busy, and its
+		// MADR holds the address the data went to — which is the *sender's* choice, and so
+		// something only the completed transfer can tell the receiver. SIFMAN never writes this
+		// register; it only ever reads it back. That is what says the hardware writes it.
+		c.madr = p.dest + uint32(len(p.data))
+		c.chcr &^= iopChcrStart | iopChcrTrigger
+
+		// And the interrupt SIFCMD is waiting on. It is raised, not run: the handler belongs to
+		// the IOP and runs on the IOP's own interrupt path, on the IOP's own stack, the next
+		// time that processor takes a step. Which is the whole difference between the two
+		// machines talking and one of them ventriloquising the other.
+		m.IOP.raiseIRQ(iopDMAIRQ(iopDMAChSIF1))
+	}
 }
 
 // sifFromIOP carries a transfer the other way: the IOP has started its SIF0 channel, and what
 // it is sending is a command packet for the EE.
 //
-// It lands in the buffer the EE nominated with CHANGE_SADDR, and then the EE's own handler runs
-// over it — the same handler, reached the same way, as when the fake IOP wrote the packet. That
-// is the point: nothing on the EE's side had to change for the IOP to become real. The EE was
-// always reading its command buffer and dispatching on the cid it found there. All that has
-// changed is who wrote it.
-func (m *Machine) sifFromIOP(madr, n uint32) {
-	if m.sifCmdBuf == 0 || m.sifCmdHandler == 0 {
-		m.note("SIF: the IOP sent %d bytes, and the EE has not said where its command buffer is", n)
-		return
-	}
-	for i := uint32(0); i < n; i++ {
-		m.Write(m.sifCmdBuf+i, m.IOP.Read(madr+i))
-	}
-	m.sifFromIOPCount++
-	m.callGuest(m.sifCmdHandler, 0)
-}
-
-// --- the RPC layer -----------------------------------------------------------
+// SIF0 is not a burst, and this is where that turns out to matter. SIFMAN never writes the
+// channel's MADR — it writes its TADR — and a controller that reads MADR anyway finds a zero
+// there and dutifully sends the EE 128 bytes of address nought. What it writes instead is a
+// chain, and the chain is worth reading, because it is the whole protocol in four words:
 //
-// A remote call is two packets. The EE sends BIND (or CALL) and blocks; the IOP does
-// the work and sends END back, and the EE's `_request_end` handler unblocks the
-// waiting thread. END carries, at +0x20, the *kind* of request it is ending — which is
-// how one handler serves both.
+//	8001BC20   the source, in IOP memory, with a flag in the top byte
+//	00000006   six words of it — twenty-four bytes, which is one command packet
+//	90000002   a DMA tag for the *EE's* controller: two quadwords, and raise an interrupt
+//	0013B9C0   and the address in EE memory to put them at
 //
-// The layouts below were read out of `_request_end` itself rather than assumed: it is
-// the code that consumes these fields, so it is the authority on where they are.
+// So the destination does not come from anything on this side. It rides in front of the data,
+// and the EE's DMA channel 5 — which sceSifInitCmd put into destination-chain mode with
+// sceSifSetDChain, and which is the one call in that routine that had no purpose until now —
+// reads it out and obeys it. That is the exact mirror of SIF1, where the destination comes
+// from the sender too (sifToIOP), and it is why neither channel ever needed a MADR.
+//
+// Taking the address from the tag rather than from a variable of our own is not tidiness. It
+// is what makes CHANGE_SADDR work: when the EE moves its command buffer, the IOP is told, and
+// the next tag simply says somewhere else.
+func (m *Machine) sifFromIOP() {
+	c := &m.IOP.dma[iopDMAChSIF0]
 
-// rpcBind answers a bind request. The EE wants a handle for a server id; it gets a
-// synthetic one, stable per id, and the boot proceeds.
-func (m *Machine) rpcBind(src uint32) {
-	recID := m.Read32(src + 0x10)
-	pktAddr := m.Read32(src + 0x14)
-	rpcID := m.Read32(src + 0x18)
-	client := m.Read32(src + 0x1C)
-	sid := m.Read32(src + 0x20)
+	for tag := c.tadr; ; tag += sifChainTagSize {
+		src := m.IOP.Read32(tag+0) & sifChainAddrMask
+		words := m.IOP.Read32(tag + 4)
+		eeTag := m.IOP.Read32(tag + 8)
+		dest := m.IOP.Read32(tag + 12)
+		if words == 0 || dest == 0 {
+			break
+		}
 
-	server := m.rpcServerHandle(sid)
-	m.note("SIF RPC: the EE bound to server 0x%08X (handle 0x%08X)", sid, server)
+		for i := uint32(0); i < words*4; i++ {
+			m.Write(dest+i, m.IOP.Read(src+i))
+		}
+		m.sifFromIOPCount++
 
-	// _request_end reads: [+0x1C] client, [+0x20] which request, [+0x24] server,
-	// [+0x28] buff, [+0x2C] cbuff — and writes the last three into the client struct.
-	m.sifSend(sifCmdRpcEnd, 0,
-		recID, pktAddr, rpcID, client,
-		sifCmdRpcBind,
-		server, 0, 0)
-}
+		// Not everything that crosses is a command. A remote call's *reply* comes back the same
+		// way, in a transfer of its own, straight into the buffer the caller nominated — which
+		// is why the census asks where the bytes landed rather than what they say. Only what
+		// lands in the EE's command buffer is a command packet; everything else is the answer
+		// to one, and reading a cid out of it would invent a command from somebody's payload.
+		if dest == m.sifCmdBuf {
+			m.sifBack[m.Read32(dest+0x08)]++
+		}
 
-// rpcServerHandle invents a stable, non-null handle for a server id. It must be
-// non-null: the EE tests the handle before it will call through it.
-func (m *Machine) rpcServerHandle(sid uint32) uint32 {
-	if h, ok := m.rpcServers[sid]; ok {
-		return h
+		// And the EE's handler — but only when the tag asks for it. The word at +8 is a DMA tag
+		// for the *EE's* controller, and its top bit is that controller's interrupt-on-completion
+		// flag. So the IOP is not merely sending bytes; it is saying, in the EE's own register
+		// format, whether this transfer is worth waking the EE for. Honouring that bit rather
+		// than running the handler after every tag is the difference between the EE's interrupt
+		// happening because the IOP asked for it and happening because we felt like it.
+		//
+		// It is the same handler, reached the same way, as when the fake IOP forged the packet.
+		// Nothing on the EE's side had to change for the second processor to become real: the EE
+		// was always reading its command buffer and dispatching on the cid it found there. All
+		// that has changed is who wrote it.
+		if eeTag&sifEETagIRQ != 0 && m.sifCmdHandler != 0 {
+			m.callGuest(m.sifCmdHandler, 0)
+		}
+
+		if m.IOP.Read32(tag+0)&sifChainEnd != 0 {
+			break
+		}
 	}
-	h := rpcServerBase + uint32(len(m.rpcServers))*0x40
-	m.rpcServers[sid] = h
-	m.rpcServerOf[h] = sid
-	return h
 }
 
-// rpcServerBase is where the synthetic server handles live. They are never
-// dereferenced by the EE — it only passes them back — so they need to be distinct and
-// non-null, not real.
-const rpcServerBase = 0x1C100000
-
-// The IOP services the game binds to. The first two are Sony's; the 0x59x range is
-// Naughty Dog's own — those are the servers inside OVERLORD.IRX, and they are the ones
-// that will still need the real IOP.
+// The SIF0 chain tag, as SIFMAN builds it.
 const (
-	rpcServerFileIO   = 0x80000001 // the file system
-	rpcServerLoadFile = 0x80000006 // the IOP module loader
+	sifChainTagSize  = 16
+	sifChainAddrMask = 0x00FFFFFF // the IOP has 2 MiB; the address is 24 bits of it
+	sifChainEnd      = 1 << 31    // the last tag in the chain
+
+	// The EE's DMA tag rides in the third word, and this is its interrupt bit: the IOP telling
+	// the EE's DMA controller to raise channel 5 when this transfer lands.
+	sifEETagIRQ = 1 << 31
 )
 
-// rpcVersion is the function every Sony IOP service answers with its version string.
-// The loader's is checked before a single module is loaded: `_lf_version` compares four
-// bytes against "2210", and a mismatch fails the load with "loading sio2man.irx failed"
-// and no further explanation. The number matches IOPRP221.IMG, the module archive on
-// this disc.
+// --- the RPC layer, as it goes past ------------------------------------------
+//
+// There used to be one of these here, written in Go: it bound a synthetic handle for every
+// server the EE asked for, and answered the two version checks the game makes with numbers
+// chosen to get past them ("2210" for the module loader, 522 and 526 for the memory card).
+// The comment above it conceded the point — "reporting a number the game accepts is a stand-in,
+// not an answer" — and it is gone. The versions are now reported by the modules that have them,
+// because the modules are running.
+//
+// What is left is the part that was always worth having: the census. A remote call is two
+// packets, BIND or CALL out and END back, and reading the cid as each one crosses costs
+// nothing and says exactly what the two processors are doing. Since the servers on the other
+// side are the game's own IOP modules, this census *is* the reverse engineering of their
+// interface — it is the game telling us its service protocol, one call at a time.
+
+// The offsets inside a BIND and a CALL packet, read out of the routines that build them
+// (sceSifBindRpc and sceSifCallRpc) and consumed by the ones that serve them.
 const (
-	rpcVersion  = 255
-	loadFileVer = "2210"
+	rpcPktServerID = 0x20 // BIND: which server the EE wants
+	rpcPktFuncNo   = 0x20 // CALL: which function on it
+	rpcPktServer   = 0x34 // CALL: the handle BIND gave back
 )
 
-// rpcCall answers a call request. Which server and which function are recorded, because
-// that census *is* the reverse engineering of the IOP's protocol: the game tells us its
-// own service interface, one call at a time.
-func (m *Machine) rpcCall(src uint32) {
-	recID := m.Read32(src + 0x10)
-	pktAddr := m.Read32(src + 0x14)
-	rpcID := m.Read32(src + 0x18)
-	client := m.Read32(src + 0x1C)
-	fno := m.Read32(src + 0x20)
-	sendSize := m.Read32(src + 0x24)
-	recv := m.Read32(src + 0x28)
-	recvSize := m.Read32(src + 0x2C)
-	server := m.Read32(src + 0x34)
-
-	sid := m.rpcServerOf[server]
-	key := sifRPCKey{sid: sid, fno: fno}
-	m.rpcCalls[key]++
-
-	if m.rpcCalls[key] == 1 {
-		m.note("SIF RPC: call server 0x%08X fn %d — %d bytes out, %d bytes back into 0x%08X",
-			sid, fno, sendSize, recvSize, recv)
-	}
-
-	m.rpcServe(sid, fno, recv, recvSize)
-
-	// The reply always goes out, answered or not. Without it the thread that made the
-	// call never wakes, and the boot stops there rather than going on to tell us what it
-	// wanted next.
-	m.sifSend(sifCmdRpcEnd, 0, recID, pktAddr, rpcID, client, sifCmdRpcCall)
-}
-
-// rpcServe is the IOP's side of a call: it writes the reply into the EE's receive
-// buffer. Anything not handled leaves the buffer alone, which the census records.
-//
-// The version answers here are the game's own minimums, read out of the code that
-// checks them rather than invented. Jak refuses to run against an IOP module it thinks
-// is too old, and says so — "libmc: too old release of mcserv.irx" — so each check is a
-// signpost. sceMcInit compares the memory-card service's version against 522 and gives
-// up below it; the loader compares four bytes against "2210".
-//
-// Reporting a number the game accepts is a stand-in, not an answer. The real version is
-// inside MCSERV.IRX, which is on the disc, and the module that would report it is the
-// module we are not running. This is the clearest argument in the whole machine for
-// running the IOP for real.
-func (m *Machine) rpcServe(sid, fno, recv, recvSize uint32) {
-	if recv == 0 || recvSize == 0 {
-		return
-	}
+// sifWatch records a packet on its way past, in either direction. It never answers one.
+func (m *Machine) sifWatch(src, cid uint32, toIOP bool) {
 	switch {
-	case sid == rpcServerLoadFile && fno == rpcVersion:
-		m.writeString(recv, loadFileVer, recvSize)
+	case toIOP && cid == sifCmdRpcBind:
+		m.rpcBinds[m.Read32(src+rpcPktServerID)]++
 
-	case sid == rpcServerMemCard && fno == mcFnInit && recvSize >= 12:
-		// The reply is {result, mcservVersion, mcmanVersion}. sceMcInit checks both, and
-		// names whichever one it dislikes.
-		m.Write32(recv+4, mcServMinVersion)
-		m.Write32(recv+8, mcManMinVersion)
+	case toIOP && cid == sifCmdRpcCall:
+		// The server *handle*, not its id: the EE calls through the handle the IOP gave it.
+		// Which handle belongs to which server is something only the IOP knows, so the census
+		// records both and does not pretend to join them.
+		m.rpcCalls[sifRPCKey{
+			sid: m.Read32(src + rpcPktServer),
+			fno: m.Read32(src + rpcPktFuncNo),
+		}]++
 	}
 }
 
-const (
-	rpcServerMemCard = 0x80000400 // the memory-card service, in MCSERV.IRX
-	mcFnInit         = 254
+// --- the shared registers ----------------------------------------------------
+//
+// These are the handshake registers the two chips read and write directly, distinct
+// from the SIF registers (SREGs) that live in EE memory and are kept in step by
+// SET_SREG packets.
 
-	// The lowest versions sceMcInit will accept, read off the two comparisons in it.
-	mcServMinVersion = 522
-	mcManMinVersion  = 526
+// sceSifSetReg and sceSifGetReg are syscalls 121 and 122 — the EE kernel's SIF registers,
+// and the machinery by which the two processors first find each other. The boot ELF names
+// them, and the game's own use of them is the whole specification.
+//
+// The argument is a *register number*, and it is emphatically not an index into an array of
+// thirty-two. Four numbers appear in the whole boot, and two of them have the top bit set:
+//
+//	2             the IOP's command buffer, which is to say SMCOM
+//	4             the IOP's flags, which is to say SMFLG
+//	0x80000000    the kernel's cache of the first of those
+//	0x80000001    the EE's own command block, published for the IOP
+//	0x80000002    "the RPC layer is up"
+//
+// This mattered more than anything else in the SIF, because reading the argument as an index
+// and masking it to five bits turns 0x80000000 into register 0 — and register 0 used to
+// answer with a constant. See sifRegIOPCmdBuf below: that constant chose the wrong branch of
+// sceSifInitCmd for the entire boot, and the IOP waited for a packet the EE had been talked
+// out of sending.
+const (
+	// The two that are hardware: the IOP writes them across the SBUS, and reading them here
+	// is reading what the second processor actually put there.
+	sifRegIOPCmdBufHW = 2 // SMCOM: SIFCMD's receive buffer, published by sifman#27
+	sifRegIOPFlags    = 4 // SMFLG: the IOP's flags to the EE
+
+	// The three that are software: slots the EE kernel keeps for the EE's own use. No IOP
+	// module reads or writes any of them.
+	sifRegIOPCmdBuf = 0x80000000 // the cache of SMCOM — see below
+	sifRegEECmdBuf  = 0x80000001 // the EE's command block, for the IOP to find
+	sifRegRPCUp     = 0x80000002 // guards sceSifInitRpc against running twice
 )
 
-// writeString writes at most n bytes of s into guest memory.
-func (m *Machine) writeString(addr uint32, s string, n uint32) {
-	for i := 0; i < len(s) && uint32(i) < n; i++ {
-		m.Write(addr+uint32(i), s[i])
+// The bits of SMFLG, each one traced to the module that raises it (sifbus.go).
+const (
+	sifIOPSIFUp      = 0x00010000 // SIFMAN's init
+	sifIOPCmdUp      = 0x00020000 // SIFCMD, just before it blocks waiting for the EE
+	sifIOPRebootDone = 0x00040000 // EESYNC, once every module has loaded
+)
+
+// sifSetReg writes one of them.
+//
+// Register 4 is the exception, and it is the interesting one: the EE does not *own* SMFLG, it
+// reads it, so a write from this side clears the bits it names rather than storing them.
+// sceSifSyncIop is the proof — it tests bit 0x40000 and then writes that same bit back, which
+// is an acknowledgement or a self-inflicted wound, and only one of those is a kernel.
+func (m *Machine) sifSetReg() {
+	reg, val := m.arg(0), m.arg(1)
+	switch reg {
+	case sifRegIOPFlags:
+		m.sbusFlagClear(sbusSMFLG, val)
+	case sifRegIOPCmdBufHW:
+		m.sbusWrite(sbusSMCOM, val)
+	case sifRegIOPCmdBuf, sifRegEECmdBuf, sifRegRPCUp:
+		m.sifRegs[reg] = val
+	default:
+		m.sifUnmodelledReg[reg]++
+	}
+	m.setRet(0)
+}
+
+// sifGetReg reads one.
+//
+// sifRegIOPCmdBuf is worth reading sceSifInitCmd for, because the whole handshake turns on it
+// and it is not the register it looks like. It is the kernel's *cache* of the IOP's command
+// buffer, and what the EE is really asking is "have I met this IOP before?".
+//
+//   - Not zero: yes. Just tell it where my buffer has moved to — CHANGE_SADDR — and carry on.
+//   - Zero: no. Wait for the IOP to raise SMFLG's 0x20000 ("my command layer is listening"),
+//     read its buffer out of SMCOM, cache it here, and send it INIT_CMD with opt = 0.
+//
+// That second packet is the one that matters. On the IOP, INIT_CMD(opt=0) sets event-flag bit
+// 0x100 — and every module on the second processor ends its initialisation blocked on that
+// bit, including SIFCMD's own RPC layer, which cannot announce itself to the EE until it is
+// released. sceSifResetIop clears this register precisely so that the next IOP gets the long
+// branch. An emulator that answers it with anything non-zero gets the short one, and the IOP
+// then waits forever for a packet that the EE has been told it does not need to send.
+func (m *Machine) sifGetReg() {
+	reg := m.arg(0)
+	switch reg {
+	case sifRegIOPFlags:
+		m.setRet(m.sbusRead(sbusSMFLG))
+	case sifRegIOPCmdBufHW:
+		m.setRet(m.sbusRead(sbusSMCOM))
+	case sifRegIOPCmdBuf, sifRegEECmdBuf, sifRegRPCUp:
+		m.setRet(m.sifRegs[reg])
+	default:
+		m.sifUnmodelledReg[reg]++
+		m.setRet(0)
 	}
 }
 
@@ -418,134 +528,118 @@ type sifRPCKey struct {
 	fno uint32
 }
 
-// sifSend queues a command packet for the EE. It is delivered by sifTick, once the
-// latency has elapsed.
-func (m *Machine) sifSend(cid, opt uint32, payload ...uint32) {
-	pkt := make([]uint32, 4+len(payload))
-	pkt[0] = uint32(16 + 4*len(payload)) // psize; dsize stays zero
-	pkt[1] = 0                           // dest: there is no data half
-	pkt[2] = cid
-	pkt[3] = opt
-	copy(pkt[4:], payload)
-	m.sifPending = append(m.sifPending, sifPacket{at: m.steps + sifLatency, data: pkt})
+// sifCmdName names a command id, so the census reads as a conversation rather than a column
+// of numbers. Every name here was earned from the code that serves it — see sifGetReg for
+// INIT_CMD, which is the one that matters.
+func sifCmdName(cid uint32) string {
+	switch cid {
+	case sifCmdChangeSaddr:
+		return "CHANGE_SADDR"
+	case sifCmdSetSreg:
+		return "SET_SREG"
+	case sifCmdInitCmd:
+		return "INIT_CMD"
+	case sifCmdReset:
+		return "RESET"
+	case sifCmdRpcEnd:
+		return "RPC_END"
+	case sifCmdRpcBind:
+		return "RPC_BIND"
+	case sifCmdRpcCall:
+		return "RPC_CALL"
+	case sifCmdRpcRData:
+		return "RPC_RDATA"
+	}
+	return "?"
 }
 
-// sifTick delivers any packet whose time has come. The run loop calls it.
-func (m *Machine) sifTick() {
-	for len(m.sifPending) > 0 && m.steps >= m.sifPending[0].at {
-		p := m.sifPending[0]
-		if !m.sifDeliver(p.data) {
-			return // the EE has not consumed the last one yet; try again next step
+// smflgBits names the bits the IOP has raised, because the number alone says nothing and each
+// of the three was traced to the module that raises it (sifbus.go).
+func smflgBits(v uint32) string {
+	var names []string
+	for _, b := range []struct {
+		bit  uint32
+		name string
+	}{
+		{sifIOPSIFUp, "SIF up"},
+		{sifIOPCmdUp, "command layer listening"},
+		{sifIOPRebootDone, "reboot done"},
+	} {
+		if v&b.bit != 0 {
+			names = append(names, b.name)
 		}
-		m.sifPending = m.sifPending[1:]
 	}
+	if len(names) == 0 {
+		return "  (the IOP has raised nothing)"
+	}
+	return "  (" + strings.Join(names, ", ") + ")"
 }
 
-// sifDeliver writes a packet into the EE's command buffer and runs the EE's own
-// interrupt handler over it. It reports false when the buffer is still occupied.
-func (m *Machine) sifDeliver(pkt []uint32) bool {
-	if m.sifCmdBuf == 0 || m.sifCmdHandler == 0 {
-		return true // nowhere to put it, and nobody to read it: drop it
-	}
-	// The handler zeroes the packet's first byte when it has consumed it. A non-zero
-	// psize means the last packet is still sitting there unread, and overwriting it
-	// would lose a command.
-	if m.Read32(m.sifCmdBuf)&0xFF != 0 {
-		return false
-	}
-	for i, w := range pkt {
-		m.Write32(m.sifCmdBuf+uint32(i)*4, w)
-	}
-	m.callGuest(m.sifCmdHandler, 0)
-	return true
-}
-
-// --- the shared registers ----------------------------------------------------
+// SIFCensus reports the conversation between the two processors: the commands that crossed in
+// each direction, the servers the EE bound to, and the functions it called on them.
 //
-// These are the handshake registers the two chips read and write directly, distinct
-// from the SIF registers (SREGs) that live in EE memory and are kept in step by
-// SET_SREG packets.
+// Nothing in this machine answers any of it any more, so this is a record rather than a work
+// list — and it is a better one for that. The servers are the game's own IOP modules and the
+// functions are their interface, so what it prints is Naughty Dog's service protocol, observed
+// rather than assumed.
+func (m *Machine) SIFCensus() string {
+	// The two counts are printed always, and never suppressed when they are zero, because a
+	// zero is the finding. Two processors that have exchanged nothing look exactly like two
+	// processors getting on with it, from every other angle in this machine — and a machine
+	// that sends and never receives is a machine talking to itself.
+	s := sprintf("the SIF: %d packets crossed to the IOP, %d came back.\n",
+		m.sifToIOPCount, m.sifFromIOPCount)
+	s += sprintf("  SMCOM 0x%08X (the IOP's command buffer)   SMFLG 0x%08X%s\n",
+		m.sbusRead(sbusSMCOM), m.sbusRead(sbusSMFLG), smflgBits(m.sbusRead(sbusSMFLG)))
+	s += sprintf("  the EE's command buffer 0x%08X, its handler %s\n",
+		m.sifCmdBuf, m.Sym(m.sifCmdHandler))
 
-func (m *Machine) sifSetReg() {
-	reg, val := m.arg(0), m.arg(1)
-	m.sifRegs[reg&0x1F] = val
-	m.setRet(0)
-}
-
-func (m *Machine) sifGetReg() {
-	reg := m.arg(0) & 0x1F
-	v := m.sifRegs[reg]
-
-	switch reg {
-	case sifRegIOPAlive:
-		// The EE will not talk to the IOP at all until this says it is there. Nothing
-		// would ever set it, because nothing is there.
-		v |= sifIOPAlive
-
-	case sifRegIOPReset:
-		// The game reboots the IOP at boot — it loads a fresh set of modules over the ones the
-		// BIOS left — and then sits in a loop printing "Syncing..." until sceSifSyncIop sees
-		// this bit.
-		//
-		// It used to be set unconditionally, and the comment here said why: there was no IOP to
-		// reboot, so it was always finished rebooting. That is no longer true. The reboot now
-		// happens (iopReset) — the EE names an image, the disc is asked for it, and twelve
-		// modules are loaded and started on a real R3000A — so the bit says what it means, and
-		// an IOP that fails to come up is an IOP the EE will wait for rather than one it is
-		// told a comfortable story about.
-		if m.iopRebooted {
-			v |= sifIOPRebootDone
+	for _, d := range []struct {
+		way string
+		m   map[uint32]int
+	}{{"->", m.sifSent}, {"<-", m.sifBack}} {
+		var cids []uint32
+		for cid := range d.m {
+			cids = append(cids, cid)
+		}
+		sort.Slice(cids, func(i, j int) bool { return cids[i] < cids[j] })
+		for _, cid := range cids {
+			s += sprintf("  %s  %-13s 0x%08X  %d\n", d.way, sifCmdName(cid), cid, d.m[cid])
 		}
 	}
-	m.setRet(v)
-}
 
-// The shared registers the EE reads to find out about the IOP.
-const (
-	sifRegIOPAlive = 0 // "the IOP is there"
-	sifRegIOPReset = 4 // "the IOP has finished rebooting"
-
-	sifIOPAlive      = 0x00000001
-	sifIOPRebootDone = 0x00040000
-)
-
-// SIFCensus reports what the EE asked the IOP for: the remote calls it made, and any
-// SIF command nothing answered. It is the IOP's work list, exactly as the syscall
-// census is the kernel's — and, since the servers on the other side are the game's own
-// IOP modules, it is also the reverse engineering of their interface.
-func (m *Machine) SIFCensus() string {
-	if len(m.rpcCalls) == 0 && len(m.sifUnmodelled) == 0 {
-		return ""
-	}
-	s := sprintf("the EE's requests to the IOP (%d packets crossed to it, %d came back):\n",
-		m.sifToIOPCount, m.sifFromIOPCount)
-
-	if len(m.rpcServers) > 0 {
+	if len(m.rpcBinds) > 0 {
+		s += "  the servers the EE bound to, on the IOP:\n"
 		var sids []uint32
-		for sid := range m.rpcServers {
+		for sid := range m.rpcBinds {
 			sids = append(sids, sid)
 		}
 		sort.Slice(sids, func(i, j int) bool { return sids[i] < sids[j] })
 		for _, sid := range sids {
-			s += sprintf("  server 0x%08X\n", sid)
-			type fn struct {
-				fno uint32
-				n   int
-			}
-			var fns []fn
-			for k, n := range m.rpcCalls {
-				if k.sid == sid {
-					fns = append(fns, fn{k.fno, n})
-				}
-			}
-			sort.Slice(fns, func(i, j int) bool { return fns[i].n > fns[j].n })
-			for _, f := range fns {
-				s += sprintf("      fn %-4d  %d call%s\n", f.fno, f.n, plural(f.n))
-			}
+			s += sprintf("      0x%08X  bound %d time%s\n", sid, m.rpcBinds[sid], plural(m.rpcBinds[sid]))
 		}
 	}
-	for cid, n := range m.sifUnmodelled {
-		s += sprintf("  unanswered command 0x%08X  %d\n", cid, n)
+	if len(m.rpcCalls) > 0 {
+		s += "  and the functions it called, by the handle the IOP gave it:\n"
+		var keys []sifRPCKey
+		for k := range m.rpcCalls {
+			keys = append(keys, k)
+		}
+		sort.Slice(keys, func(i, j int) bool {
+			if keys[i].sid != keys[j].sid {
+				return keys[i].sid < keys[j].sid
+			}
+			return keys[i].fno < keys[j].fno
+		})
+		for _, k := range keys {
+			s += sprintf("      handle 0x%08X  fn %-4d  %d call%s\n",
+				k.sid, k.fno, m.rpcCalls[k], plural(m.rpcCalls[k]))
+		}
+	}
+
+	for reg, n := range m.sifUnmodelledReg {
+		s += sprintf("  SIF register 0x%08X asked for %d time%s, and nothing models it\n",
+			reg, n, plural(n))
 	}
 	return s
 }

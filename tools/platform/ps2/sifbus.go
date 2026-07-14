@@ -61,6 +61,30 @@ const (
 // initialisation. The module that waits for the bit is the authority on which bit it is.
 const sifEESIFReady = 0x00010000
 
+// The two flag registers are not stores. Each belongs to one processor, and the two sides
+// write it for opposite reasons:
+//
+//	the owner  sets   a bit, to raise a flag the other side is waiting for
+//	the reader clears a bit, to say it has seen it
+//
+// SMFLG belongs to the IOP, MSFLG to the EE. That is not a convention borrowed from
+// anywhere: it is the only reading under which the modules on this disc make sense. Three
+// of them raise a bit in SMFLG, each with a plain `sw` of a single bit and none of them
+// reading it first —
+//
+//	SIFMAN's init   0x10000   "the IOP's SIF is up"
+//	SIFCMD+0x2D8    0x20000   "my command layer is listening" (set just before it blocks)
+//	EESYNC+0x80     0x40000   "the reboot has finished"
+//
+// — and the EE tests each of those three bits on its own, expecting the other two to still
+// be there. A store cannot produce that; an or can. And the EE writes the register back with
+// exactly the bit it just tested (sceSifSyncIop reads 0x40000 and writes 0x40000), which is a
+// store only if the intent is to lose the other bits, and an acknowledgement if it is not.
+// sceSifResetIop settles it: it clears 0x10000 and 0x20000 before rebooting, so that the
+// fresh IOP can raise them again. Clearing is what that write does.
+func (m *Machine) sbusFlagSet(reg, bits uint32)   { m.sbus[reg/0x10] |= bits }
+func (m *Machine) sbusFlagClear(reg, bits uint32) { m.sbus[reg/0x10] &^= bits }
+
 // sbusRead serves a read of the shared registers from either side.
 func (m *Machine) sbusRead(off uint32) uint32 {
 	if i := off / 0x10; i < sbusRegs {
@@ -69,16 +93,24 @@ func (m *Machine) sbusRead(off uint32) uint32 {
 	return 0
 }
 
-// sbusWrite serves a write from either side.
+// sbusWriteIOP serves a write from the second processor — which is the side that *owns*
+// SMFLG and merely *reads* MSFLG, so the same instruction means "raise" on one and
+// "acknowledge" on the other.
+func (m *Machine) sbusWriteIOP(off, v uint32) {
+	switch off {
+	case sbusSMFLG:
+		m.sbusFlagSet(sbusSMFLG, v)
+	case sbusMSFLG:
+		m.sbusFlagClear(sbusMSFLG, v)
+	default:
+		m.sbusWrite(off, v)
+	}
+}
+
+// sbusWrite stores one of the shared registers. It is the plain path, for the four that are
+// words rather than flags: MSCOM, SMCOM, CTRL and BD6.
 func (m *Machine) sbusWrite(off, v uint32) {
 	if i := off / 0x10; i < sbusRegs {
 		m.sbus[i] = v
 	}
-}
-
-// sbusSetFlag raises bits in one of the flag registers. The flags are doorbells: a
-// processor sets a bit and the other one notices, so the operation that matters is
-// "or", not "store".
-func (m *Machine) sbusSetFlag(reg, bits uint32) {
-	m.sbus[reg/0x10] |= bits
 }

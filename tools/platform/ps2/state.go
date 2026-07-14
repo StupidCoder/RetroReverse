@@ -79,7 +79,13 @@ type MachineState struct {
 
 	GsInterlace, GsVideoMode, GsFieldMode, GsIMR uint32
 
-	SifRegs       [32]uint32
+	SifRegs map[uint32]uint32
+
+	// The six registers both processors can see. They were not in the snapshot until they
+	// held anything worth losing: SMCOM carries the address the IOP publishes its command
+	// buffer at, and SMFLG the three bits that say how far the second processor has got.
+	// A snapshot without them resumes into a machine whose two halves have never met.
+	Sbus          [sbusRegs]uint32
 	SifDmaID      uint32
 	SifCmdBuf     uint32
 	SifCmdHandler uint32
@@ -130,6 +136,7 @@ func (m *Machine) SaveState() MachineState {
 		GsFieldMode:   m.gsFieldMode,
 		GsIMR:         m.gsIMR,
 		SifRegs:       m.sifRegs,
+		Sbus:          m.sbus,
 		SifDmaID:      m.sifDmaID,
 		SifCmdBuf:     m.sifCmdBuf,
 		SifCmdHandler: m.sifCmdHandler,
@@ -228,10 +235,14 @@ func (m *Machine) LoadState(s MachineState) error {
 	m.vsyncFlagPtr, m.vsyncFlag2Ptr = s.VSyncFlagPtr, s.VSyncFlag2Ptr
 	m.gsInterlace, m.gsVideoMode, m.gsFieldMode = s.GsInterlace, s.GsVideoMode, s.GsFieldMode
 	m.gsIMR = s.GsIMR
-	m.sifRegs, m.sifDmaID = s.SifRegs, s.SifDmaID
+	m.sifDmaID = s.SifDmaID
+	m.sbus = s.Sbus
+	m.sifRegs = map[uint32]uint32{}
+	for k, v := range s.SifRegs {
+		m.sifRegs[k] = v
+	}
 	m.sifCmdBuf, m.sifCmdHandler = s.SifCmdBuf, s.SifCmdHandler
 	m.steps = s.Steps
-	m.sifPending = nil
 
 	m.userSyscalls = map[uint32]uint32{}
 	for k, v := range s.UserSyscalls {

@@ -296,11 +296,15 @@ func TestWakeupBeforeSleepIsRemembered(t *testing.T) {
 	}
 }
 
-func TestSifCommandAndDataDescriptorsAreToldApart(t *testing.T) {
-	// A SIF call hands over two buffers: the arguments, then the command packet. A
-	// command packet always has a cid with the top bit set; nothing else does. Feed the
-	// argument buffer to the command dispatcher and it reads a "command" of 0x6F726463 —
-	// "cdro", the first four bytes of the path the game was trying to pass.
+func TestSifCommandAndDataDescriptorsAreBothTransferred(t *testing.T) {
+	// A remote call hands over two buffers: the arguments, then the command packet saying a
+	// call has been made. Both cross. Only the second rings the doorbell.
+	//
+	// This test used to assert the opposite of half of that — that the arguments stayed in EE
+	// memory and only the command was carried — and it was right about the machine it was
+	// written for, where the thing serving the call was a Go function that could read EE
+	// memory. The IOP cannot. An argument buffer that never crosses arrives on the second
+	// processor as whatever was there before, and FILEIO opens a file called "".
 	m := NewMachine()
 	m.LoadExecutable(&Executable{
 		Entry:    0x00100000,
@@ -318,111 +322,121 @@ func TestSifCommandAndDataDescriptorsAreToldApart(t *testing.T) {
 	m.Write32(pkt+0x08, sifCmdChangeSaddr)
 	m.Write32(pkt+0x10, 0x0013B9C0)
 
-	m.Write32(desc+0x00, args) // descriptor 0: the arguments
+	m.Write32(desc+0x00, args) // descriptor 0: the arguments, with no interrupt
+	m.Write32(desc+0x04, 0x00050000)
 	m.Write32(desc+0x08, 32)
-	m.Write32(desc+0x10, pkt) // descriptor 1: the command
+	m.Write32(desc+0x0C, 0)
+	m.Write32(desc+0x10, pkt) // descriptor 1: the command, with one
+	m.Write32(desc+0x14, 0x0001B9B0)
 	m.Write32(desc+0x18, 0x14)
+	m.Write32(desc+0x1C, 0x44)
 
 	m.CPU.SetReg(4, desc)
 	m.CPU.SetReg(5, 2)
 	m.sifSetDma()
 
 	if m.sifCmdBuf != 0x0013B9C0 {
-		t.Errorf("the command packet was not processed: cmdBuf = 0x%08X", m.sifCmdBuf)
+		t.Errorf("the command packet was not read: cmdBuf = 0x%08X", m.sifCmdBuf)
 	}
-	if len(m.sifUnmodelled) != 0 {
-		for cid := range m.sifUnmodelled {
-			t.Errorf("the argument buffer was dispatched as a command: 0x%08X (%q)",
-				cid, string([]byte{byte(cid), byte(cid >> 8), byte(cid >> 16), byte(cid >> 24)}))
-		}
+	if len(m.sifToIOPQueue) != 2 {
+		t.Fatalf("%d transfers are queued for the IOP, want 2 — the arguments and the command",
+			len(m.sifToIOPQueue))
+	}
+	if m.sifToIOPQueue[0].cmd {
+		t.Error("the argument buffer will ring SIFCMD's doorbell; it will dispatch a command out of a file path")
+	}
+	if !m.sifToIOPQueue[1].cmd {
+		t.Error("the command packet will not ring SIFCMD's doorbell, so the IOP will never look at it")
+	}
+	if got := string(m.sifToIOPQueue[0].data[:7]); got != "cdrom0:" {
+		t.Errorf("the arguments queued for the IOP are %q, not the path the EE passed", got)
 	}
 	if uint32(m.CPU.Reg(2)) == 0 {
 		t.Error("sceSifSetDma returned a zero handle, which the caller reads as failure")
 	}
 }
 
-func TestRPCBindAnswersWithANonNullServer(t *testing.T) {
-	// The EE tests the handle before it will call through it, so it must not be zero, and
-	// it must be stable — the same server id asked for twice is the same server.
+func TestSifCommandWaitsForTheIOPToBeListening(t *testing.T) {
+	// SIFCMD has one receive slot. Its handler empties the slot and only then re-arms the
+	// receive channel, so nothing can land until it has. The EE runs eight times faster than
+	// the IOP here and sends INIT_CMD(opt=0) and INIT_CMD(opt=1) back to back; deliver both
+	// the instant they are asked for and the second overwrites the first in the slot they
+	// share. The first is the packet that releases every thread on the second processor.
 	m := NewMachine()
 	m.LoadExecutable(&Executable{
 		Entry:    0x00100000,
 		Segments: []Segment{{VAddr: 0x00100000, Data: make([]byte, 16), MemSz: 16}},
 	})
+	m.StartIOP()
 
-	a := m.rpcServerHandle(0x80000006)
-	b := m.rpcServerHandle(0x80000001)
-	c := m.rpcServerHandle(0x80000006)
+	const dest = 0x0001B9B0
+	m.Write32(0x00110000, 0x18)
+	m.Write32(0x00110008, sifCmdInitCmd)
 
-	if a == 0 || b == 0 {
-		t.Fatal("a server handle is zero, which the EE reads as a failed bind")
+	m.sifToIOP(0x00110000, dest, 0x18)
+	if m.IOP.Read32(dest) != 0 {
+		t.Fatal("the packet landed in a receive slot the IOP had not armed")
 	}
-	if a == b {
-		t.Error("two different servers got the same handle")
-	}
-	if a != c {
-		t.Error("the same server got two different handles")
-	}
-	if m.rpcServerOf[a] != 0x80000006 {
-		t.Error("a handle does not map back to its server id")
-	}
-}
-
-func TestSifReplyWaitsForTheEEToConsumeTheLastOne(t *testing.T) {
-	// The EE's handler zeroes the packet's first byte when it has read it. A non-zero
-	// psize means the last packet is still there unread, and writing over it would lose
-	// a command.
-	m := NewMachine()
-	m.LoadExecutable(&Executable{
-		Entry:    0x00100000,
-		Segments: []Segment{{VAddr: 0x00100000, Data: make([]byte, 16), MemSz: 16}},
-	})
-	m.sifCmdBuf = 0x00110000
-	m.sifCmdHandler = 0x00100000 // a handler that does nothing (the memory is zeroed)
-
-	m.Write32(m.sifCmdBuf, 0x18) // an unconsumed packet is sitting there
-
-	if m.sifDeliver([]uint32{0x18, 0, sifCmdSetSreg, 0, 0, 1}) {
-		t.Error("a packet was written over one the EE had not consumed yet")
+	if len(m.sifToIOPQueue) != 1 {
+		t.Fatal("the packet was dropped rather than held for a receiver that is not listening")
 	}
 
-	m.Write32(m.sifCmdBuf, 0) // now the EE has read it
-	if !m.sifDeliver([]uint32{0x18, 0, sifCmdSetSreg, 0, 0, 1}) {
-		t.Fatal("a packet was refused even though the buffer was free")
+	// SIFMAN arms the channel: a start bit, a block size, and no MADR at all.
+	m.IOP.dma[iopDMAChSIF1].chcr = iopChcrStart
+	m.sifPump()
+
+	if m.IOP.Read32(dest+8) != sifCmdInitCmd {
+		t.Error("the channel was armed and the waiting packet was not delivered")
 	}
-	if got := m.Read32(m.sifCmdBuf + 8); got != sifCmdSetSreg {
-		t.Errorf("the delivered packet has cid 0x%08X, want SET_SREG", got)
+	if m.IOP.dma[iopDMAChSIF1].chcr&iopChcrStart != 0 {
+		t.Error("the channel is still armed after a transfer landed in it")
 	}
 }
 
-func TestIOPReportsItselfReady(t *testing.T) {
-	// The EE will not talk to the IOP until register 0 says it is there, and it sits in a loop
-	// printing "Syncing..." until register 4 says it has finished rebooting.
+func TestTheIOPsCommandBufferIsNotCachedUntilTheHandshake(t *testing.T) {
+	// The whole SIF handshake turns on this register, and it is not the register it looks
+	// like. sceSifGetReg(0x80000000) is the EE kernel's *cache* of the IOP's command buffer,
+	// and what sceSifInitCmd is really asking with it is "have I met this IOP before?".
 	//
-	// Register 4 used to be answered yes unconditionally, and this test used to insist on it:
-	// there was no IOP to reboot, so it was always finished rebooting. That was true of the
-	// machine at the time and it is a lie about the machine now. The reboot happens — the EE
-	// names an image, the disc is asked for it, and the modules are started — so the bit is
-	// false until it has, and the test is the one that had to change.
+	//   not zero: yes — just send CHANGE_SADDR and carry on.
+	//   zero:     no  — wait for the IOP, then send INIT_CMD with opt = 0.
+	//
+	// Only the second releases the second processor: INIT_CMD(opt=0) is what sets the event
+	// flag every module on the IOP blocks on. Answer this register with anything non-zero and
+	// the EE takes the short branch, the IOP is never introduced to it, and both processors
+	// wait for each other forever while looking, from every other angle, perfectly busy.
+	//
+	// It used to be answered with a constant 1, because the argument was masked to five bits
+	// and collapsed onto register 0. That constant reached the IOP as the destination address
+	// of every packet the EE sent.
 	m := NewMachine()
 
-	m.CPU.SetReg(4, sifRegIOPAlive)
+	m.CPU.SetReg(4, sifRegIOPCmdBuf)
 	m.sifGetReg()
-	if uint32(m.CPU.Reg(2))&sifIOPAlive == 0 {
-		t.Error("the IOP does not report itself alive; the EE will never speak to it")
+	if got := uint32(m.CPU.Reg(2)); got != 0 {
+		t.Errorf("the EE thinks it already knows the IOP's command buffer (0x%08X); it will never send INIT_CMD", got)
 	}
 
-	m.CPU.SetReg(4, sifRegIOPReset)
+	// The flags come from the IOP, across the SBUS, and each bit has a module that raises it.
+	m.CPU.SetReg(4, sifRegIOPFlags)
 	m.sifGetReg()
 	if uint32(m.CPU.Reg(2))&sifIOPRebootDone != 0 {
-		t.Error("the IOP says it has rebooted before it has — the EE will talk to a processor that is not there")
+		t.Error("the IOP says it has finished rebooting before it has started")
 	}
 
-	m.iopRebooted = true
-	m.CPU.SetReg(4, sifRegIOPReset)
+	m.sbusFlagSet(sbusSMFLG, sifIOPRebootDone) // EESYNC's boot callback
+	m.CPU.SetReg(4, sifRegIOPFlags)
 	m.sifGetReg()
 	if uint32(m.CPU.Reg(2))&sifIOPRebootDone == 0 {
 		t.Error("the IOP has rebooted and does not say so; the game syncs forever")
+	}
+
+	// And the EE clears the bit it has acted on, which is what sceSifSyncIop does with it.
+	m.CPU.SetReg(4, sifRegIOPFlags)
+	m.CPU.SetReg(5, sifIOPRebootDone)
+	m.sifSetReg()
+	if m.sbusRead(sbusSMFLG)&sifIOPRebootDone != 0 {
+		t.Error("the EE acknowledged the reboot flag and it is still raised")
 	}
 }
 

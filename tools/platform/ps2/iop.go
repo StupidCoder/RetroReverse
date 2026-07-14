@@ -145,8 +145,11 @@ type IOP struct {
 	// register nobody has claimed. This is the work list, and it is the only honest
 	// account of how much of the IOP is still missing.
 	unmodelledCalls map[string]int
-	io              map[uint32]uint32
-	unmodelledIO    map[uint32]int
+
+	// The routines the modules asked to have called once the boot is over (loadcore#20).
+	bootCallbacks []uint32
+	io            map[uint32]uint32
+	unmodelledIO  map[uint32]int
 
 	// OnIO, if set, receives every access the IOP's own code makes to a peripheral
 	// register: the address, the value, whether it was a write, and the PC that did it.
@@ -423,7 +426,7 @@ func (p *IOP) ioRead(a uint32) uint32 {
 
 func (p *IOP) ioWrite(a, v uint32) {
 	if a >= sbusIOPBase && a < sbusIOPBase+sbusSpan {
-		p.ps2.sbusWrite(a-sbusIOPBase, v)
+		p.ps2.sbusWriteIOP(a-sbusIOPBase, v)
 		return
 	}
 	if p.dmaWrite(a, v) {

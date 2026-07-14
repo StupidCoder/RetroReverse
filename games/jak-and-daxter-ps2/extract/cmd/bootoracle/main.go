@@ -63,6 +63,7 @@ func main() {
 	iopWatch := flag.String("iopwatch", "", "write-watch on IOP memory: ADDR[:LEN] (hex)")
 	iopTrap := flag.String("ioptrap", "", "halt the IOP when it reaches ADDR (hex or symbol) and print the instructions that led there")
 	iopCalls := flag.Int("iopcalls", 0, "trace the first N calls the IOP's modules make through their import stubs — the protocol between the modules")
+	iopDump := flag.String("iopdump", "", "dump IOP memory as words at ADDR[:LEN] (hex or symbol), naming any word that points into a module")
 	iopCallsFrom := flag.String("iopcallsfrom", "", "only trace stub calls once this module has started (e.g. 989SND.IRX)")
 	flag.Parse()
 
@@ -79,6 +80,7 @@ func main() {
 		iopOnly: *iopOnly, iopMods: *iopMods, iopDis: *iopDis,
 		iopIO: *iopIO, iopION: *iopION, iopWatch: *iopWatch, iopTrap: *iopTrap,
 		iopCalls: *iopCalls, iopCallsFrom: *iopCallsFrom,
+		iopDump: *iopDump,
 	}); err != nil {
 		fmt.Fprintln(os.Stderr, "bootoracle:", err)
 		os.Exit(1)
@@ -102,6 +104,7 @@ type cfg struct {
 	iopTrap                               string
 	iopCalls                              int
 	iopCallsFrom                          string
+	iopDump                               string
 }
 
 func hx(s string) (uint32, error) {
@@ -132,6 +135,22 @@ func parseAddr(m *ps2.Machine, s string) (uint32, error) {
 		}
 	}
 	return 0, fmt.Errorf("%q is neither a hex address nor a symbol in this executable", s)
+}
+
+// parseSymRange is parseRange over the executable, and it takes a symbol name where the
+// plain one takes only a number. The boot ELF ships its symbol table, so there is no reason
+// `-dis sceSifInitRpc` should have to be spelled as an address the reader looked up by hand —
+// the IOP's disassembler has taken symbols since it was written, and this is that parity.
+func parseSymRange(m *ps2.Machine, s string) (lo, ln uint32, err error) {
+	parts := strings.SplitN(s, ":", 2)
+	if lo, err = parseAddr(m, parts[0]); err != nil {
+		return
+	}
+	ln = 4
+	if len(parts) == 2 {
+		ln, err = hx(parts[1])
+	}
+	return
 }
 
 func parseRange(s string) (lo, ln uint32, err error) {
@@ -231,6 +250,27 @@ func run(c cfg) error {
 		return bootIOP(m, c)
 	}
 
+	// The full boot has an IOP in it — the game reboots it itself — so the second processor's
+	// instruments belong here too, and the SIF is the reason: the conversation between the two
+	// chips is the one thing the bring-up harness structurally cannot show.
+	if err := armIOP(m, c); err != nil {
+		return err
+	}
+
+	// The second processor is already running when the game's first instruction executes, and
+	// the game proves it: before it ever reboots the IOP it initialises the SIF, binds to the
+	// file-system and CD services and reads the disc — "Initializing CD drive", "Disk type 0" —
+	// and only then prints "Rebooting IOP...". All of that is a conversation with an IOP that
+	// the BIOS booted at power-on, and it happens before the game has named an image.
+	//
+	// We have no BIOS. What we have is the module set the game itself asks for a moment later,
+	// on its own disc, so that is what the IOP is booted on here. It is not the ROM's kernel
+	// and this does not pretend it is; it is Sony's kernel, off this disc, chosen by the game.
+	// The reboot that follows is then the second boot, exactly as it is on the board.
+	if err := m.RebootIOP(); err != nil {
+		return fmt.Errorf("bringing the IOP up before the EE runs: %w", err)
+	}
+
 	if c.loadstate != "" {
 		if err := m.LoadStateFile(c.loadstate); err != nil {
 			return err
@@ -241,7 +281,7 @@ func run(c cfg) error {
 	// The probes that answer without running: they operate on the machine as loaded
 	// (or as restored from a savestate) and exit.
 	if c.dis != "" {
-		addr, n, err := parseRange(c.dis)
+		addr, n, err := parseSymRange(m, c.dis)
 		if err != nil {
 			return err
 		}
@@ -254,7 +294,7 @@ func run(c cfg) error {
 		return nil
 	}
 	if c.dump != "" {
-		addr, n, err := parseRange(c.dump)
+		addr, n, err := parseSymRange(m, c.dump)
 		if err != nil {
 			return err
 		}
@@ -447,9 +487,17 @@ func isPrintable(s string) bool {
 // place where it waits for the EE, which is where a healthy IOP with no EE ends up.
 const iopFreeRun = 20_000_000
 
-func bootIOP(m *ps2.Machine, c cfg) error {
-	extra, dis := c.iopMods, c.iopDis
-
+// armIOP attaches the second processor's instruments.
+//
+// It is called by both harnesses, and it has to be, because the IOP the *game* boots is the
+// same processor as the one `-iop` boots — and the interesting half of its life, the half
+// where it talks to the EE, only happens in the full boot. An instrument that exists only in
+// the bring-up harness cannot see the conversation it was built to watch.
+//
+// Everything here hangs off OnIOPStart because the IOP does not exist yet: it is created
+// inside the reboot, and its modules are driving hardware inside the very entry points the
+// reboot calls. By the time a caller could reach for the processor, the boot is over.
+func armIOP(m *ps2.Machine, c cfg) error {
 	// The register trace has to be armed before the IOP exists, because StartIOP is
 	// inside RebootIOP and the modules begin driving hardware in their entry points —
 	// TIMEMANI is programming a timer before the boot is four modules old.
@@ -536,6 +584,15 @@ func bootIOP(m *ps2.Machine, c cfg) error {
 			}
 		}
 	}
+	return nil
+}
+
+func bootIOP(m *ps2.Machine, c cfg) error {
+	extra, dis := c.iopMods, c.iopDis
+
+	if err := armIOP(m, c); err != nil {
+		return err
+	}
 
 	// A snapshot resumes the second processor where it was left, with its modules resident,
 	// its threads scheduled and its timers running — which turns a boot that costs minutes
@@ -621,6 +678,23 @@ func bootIOP(m *ps2.Machine, c cfg) error {
 		fmt.Printf("\n--- IOP memory as loaded\n")
 		for a := addr; a < addr+n; a += 4 {
 			fmt.Printf("  %-24s %08X  %s\n", m.IOP.Sym(a), a, m.IOP.DisasmAt(a))
+		}
+	}
+
+	// -iopdump prints words rather than instructions, and it names any word that is an
+	// address inside a loaded module. The IOP's interesting state is not code: it is the
+	// control blocks the modules pass each other by pointer — a dispatch table whose entries
+	// are {function, argument} says what a module will answer and what it will ignore, and it
+	// is unreadable as instructions.
+	if c.iopDump != "" {
+		addr, n, err := parseIOPRange(m, c.iopDump)
+		if err != nil {
+			return err
+		}
+		fmt.Printf("\n--- IOP memory at 0x%08X\n", addr)
+		for a := addr; a < addr+n; a += 4 {
+			v := m.IOP.Read32(a)
+			fmt.Printf("  %08X  +%-4d  %08X  %s\n", a, a-addr, v, m.IOP.Sym(v))
 		}
 	}
 	return nil
