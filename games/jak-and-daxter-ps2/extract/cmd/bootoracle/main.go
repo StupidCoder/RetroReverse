@@ -73,6 +73,8 @@ func main() {
 	iopIELog := flag.String("iopielog", "", "log every IOP interrupt-enable event (suspend/resume/deliver/frame save+load) to FILE — the instrument for an enable bit lost across a thread switch")
 	gsFrame := flag.String("gsframe", "", "write the frame the GS would be scanning out (the DISPFB rectangle, deswizzled) to FILE.png at the end of the run")
 	vu1Micro := flag.String("vu1micro", "", "write VU1's program memory (as the VIF filled it) to FILE at the end of the run — the input for sizing up the vector unit")
+	var gsFBs multiFlag
+	flag.Var(&gsFBs, "gsfb", "dump a PSMCT32 buffer of GS memory as BASE:FBW:H:FILE.png (base = word address as the census prints, FBW in 64px units, H in pixels); repeatable")
 	flag.Parse()
 
 	if *image == "" {
@@ -89,6 +91,7 @@ func main() {
 		iopIO: *iopIO, iopION: *iopION, iopWatch: *iopWatch, iopTrap: *iopTrap,
 		iopCalls: *iopCalls, iopCallsFrom: *iopCallsFrom, iopPokes: iopPokes,
 		iopDump: *iopDump, iopIELog: *iopIELog, gsFrame: *gsFrame, vu1Micro: *vu1Micro,
+		gsFBs: gsFBs,
 	}); err != nil {
 		fmt.Fprintln(os.Stderr, "bootoracle:", err)
 		os.Exit(1)
@@ -117,6 +120,7 @@ type cfg struct {
 	iopIELog                              string
 	gsFrame                               string
 	vu1Micro                              string
+	gsFBs                                 multiFlag
 }
 
 // ieLogFlush, if the interrupt-enable log is on, flushes it. It is set by armIOP and
@@ -526,6 +530,48 @@ func run(c cfg) error {
 			fmt.Printf("vu1micro: wrote %d bytes to %s\n", len(micro), c.vu1Micro)
 		}
 	}
+	for _, spec := range c.gsFBs {
+		if err := writeGSBuffer(m, spec); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// writeGSBuffer dumps an arbitrary PSMCT32 buffer named as BASE:FBW:H:FILE.png.
+func writeGSBuffer(m *ps2.Machine, spec string) error {
+	parts := strings.SplitN(spec, ":", 4)
+	if len(parts) != 4 {
+		return fmt.Errorf("bad -gsfb %q (want BASE:FBW:H:FILE.png)", spec)
+	}
+	base, err1 := hx(parts[0])
+	fbw, err2 := strconv.Atoi(parts[1])
+	h, err3 := strconv.Atoi(parts[2])
+	if err1 != nil || err2 != nil || err3 != nil {
+		return fmt.Errorf("bad -gsfb %q", spec)
+	}
+	pix, w := m.GSBuffer(base, uint32(fbw), h)
+	if pix == nil {
+		fmt.Printf("gsfb %s: nothing to dump\n", spec)
+		return nil
+	}
+	img := image.NewRGBA(image.Rect(0, 0, w, h))
+	copy(img.Pix, pix)
+	f, err := os.Create(parts[3])
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+	if err := png.Encode(f, img); err != nil {
+		return err
+	}
+	nonBlack := 0
+	for i := 0; i < len(pix); i += 4 {
+		if pix[i] != 0 || pix[i+1] != 0 || pix[i+2] != 0 {
+			nonBlack++
+		}
+	}
+	fmt.Printf("gsfb: wrote %dx%d to %s (%d non-black)\n", w, h, parts[3], nonBlack)
 	return nil
 }
 
@@ -548,7 +594,15 @@ func writeGSFrame(m *ps2.Machine, path string) error {
 	if err := png.Encode(f, img); err != nil {
 		return err
 	}
-	fmt.Printf("gsframe: wrote %dx%d to %s\n", w, h, path)
+	// Whether the frame is black because black was drawn or because nothing was is
+	// the difference between a colour bug and a missing draw; say which.
+	nonBlack := 0
+	for i := 0; i < len(pix); i += 4 {
+		if pix[i] != 0 || pix[i+1] != 0 || pix[i+2] != 0 {
+			nonBlack++
+		}
+	}
+	fmt.Printf("gsframe: wrote %dx%d to %s (%d of %d pixels non-black)\n", w, h, path, nonBlack, w*h)
 	return nil
 }
 

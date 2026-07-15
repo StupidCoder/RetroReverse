@@ -319,6 +319,15 @@ func (gs *GS) clutLoad(t gsTex) {
 		return // not an index format; nothing to load
 	}
 	base := t.csa * 16
+	gs.count(sprintf("clut load cld=%d cbp=0x%05X cpsm=0x%02X csa=%d for psm 0x%02X",
+		t.cld, t.cbp*64, t.cpsm, t.csa, t.psm))
+	defer func() {
+		// The first few entries, once per CLUT: black output with a loaded CLUT is
+		// either an empty table or a wrong read, and this line says which.
+		gs.m.note("GS: clut at 0x%05X loads %08X %08X %08X %08X %08X %08X %08X %08X",
+			t.cbp*64, gs.clut[base], gs.clut[base+1], gs.clut[base+2], gs.clut[base+3],
+			gs.clut[base+4], gs.clut[base+5], gs.clut[base+6], gs.clut[base+7])
+	}()
 
 	for i := uint32(0); i < n && base+i < uint32(len(gs.clut)); i++ {
 		var x, y uint32
@@ -535,6 +544,13 @@ func (s *gsSampler) at(u, v int32) uint32 {
 // fragment's colour make the pixel the tests and the blender see. The GS's colour scale
 // puts 1.0 at 0x80, so a modulate is >>7 with a clamp at 255.
 func (s *gsSampler) combine(tex, frag uint32) uint32 {
+	if tex&0xFFFFFF == 0 {
+		s.gs.texBlackPSM[s.tex.psm&0x3F]++
+		s.gs.texBlack++
+	} else {
+		s.gs.texColorPSM[s.tex.psm&0x3F]++
+		s.gs.texColor++
+	}
 	tr, tg, tb, ta := unpackRGBA(tex)
 	fr, fg, fb, fa := unpackRGBA(frag)
 	var r, g, b, a int64

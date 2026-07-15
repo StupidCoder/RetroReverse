@@ -36,6 +36,15 @@ type VU struct {
 	Status uint16
 	Clip   uint32 // 24 bits, shifted 6 per CLIP
 
+	// The FMAC pipeline is four stages deep, and the flag registers a LOWER instruction
+	// reads (FMAND, FSAND, FCAND...) are the flags of the upper instruction four pairs
+	// BACK — the microcode is scheduled around that latency, and a kernel's cull branch
+	// tests a specific instruction's flags by position. flagPipe carries the in-flight
+	// values; vis* are what this pair's lower half sees.
+	flagPipe                    [4]flagVals
+	visMac, visStatus           uint16
+	visClip                     uint32
+
 	// Top and ITop are the VIF's double-buffer pointers, latched at MSCAL and read by
 	// XTOP/XITOP.
 	Top, ITop uint16
@@ -51,6 +60,13 @@ type VU struct {
 	StartVU1 func(startPair uint32)
 
 	Steps uint64
+}
+
+// flagVals is one pipeline stage's worth of flag state.
+type flagVals struct {
+	mac    uint16
+	status uint16
+	clip   uint32
 }
 
 // New makes a VU over the two memories the VIF fills.
@@ -78,6 +94,11 @@ func (v *VU) Run(start uint32, maxSteps int) (int, bool) {
 		up := uint32(raw >> 32)
 		lo := uint32(raw)
 
+		// What this pair's lower half sees of the flags is the pipeline's oldest stage.
+		v.visMac = v.flagPipe[0].mac
+		v.visStatus = v.flagPipe[0].status
+		v.visClip = v.flagPipe[0].clip
+
 		v.execUpper(up, &res)
 		var taken int64 = -1
 		if up&(1<<31) != 0 { // I: the lower word is the I register's new value
@@ -86,6 +107,8 @@ func (v *VU) Run(start uint32, maxSteps int) (int, bool) {
 			taken = v.execLower(lo)
 		}
 		v.commitUpper(&res)
+		v.flagPipe[0], v.flagPipe[1], v.flagPipe[2] = v.flagPipe[1], v.flagPipe[2], v.flagPipe[3]
+		v.flagPipe[3] = flagVals{mac: v.Mac, status: v.Status, clip: v.Clip}
 		v.Steps++
 
 		next := (v.PC + 8) & mask
@@ -500,29 +523,35 @@ func (v *VU) execLower(i uint32) int64 {
 	case 0x09:
 		v.setVI(t, v.VI[s&15]-uint16(imm15))
 	case 0x10: // FCEQ
-		v.setVI(1, b2u(v.Clip&0xFFFFFF == i&0xFFFFFF))
-	case 0x11: // FCSET
+		v.setVI(1, b2u(v.visClip&0xFFFFFF == i&0xFFFFFF))
+	case 0x11: // FCSET: an architectural write — the whole pipeline sees it
 		v.Clip = i & 0xFFFFFF
+		for st := range v.flagPipe {
+			v.flagPipe[st].clip = v.Clip
+		}
 	case 0x12: // FCAND
-		v.setVI(1, b2u(v.Clip&i&0xFFFFFF != 0))
+		v.setVI(1, b2u(v.visClip&i&0xFFFFFF != 0))
 	case 0x13: // FCOR
-		v.setVI(1, b2u((v.Clip|i&0xFFFFFF)&0xFFFFFF == 0xFFFFFF))
+		v.setVI(1, b2u((v.visClip|i&0xFFFFFF)&0xFFFFFF == 0xFFFFFF))
 	case 0x14: // FSEQ
-		v.setVI(t, b2u(uint32(v.Status) == i>>10&0x800|i&0x7FF))
-	case 0x15: // FSSET: only the sticky bits are writable
+		v.setVI(t, b2u(uint32(v.visStatus) == i>>10&0x800|i&0x7FF))
+	case 0x15: // FSSET: only the sticky bits are writable, everywhere in the pipe
 		v.Status = v.Status&0x3F | uint16(i>>10&0x800|i&0x7FF)&0xFC0
+		for st := range v.flagPipe {
+			v.flagPipe[st].status = v.flagPipe[st].status&0x3F | v.Status&0xFC0
+		}
 	case 0x16: // FSAND
-		v.setVI(t, v.Status&uint16(i>>10&0x800|i&0x7FF))
+		v.setVI(t, v.visStatus&uint16(i>>10&0x800|i&0x7FF))
 	case 0x17: // FSOR
-		v.setVI(t, v.Status|uint16(i>>10&0x800|i&0x7FF))
+		v.setVI(t, v.visStatus|uint16(i>>10&0x800|i&0x7FF))
 	case 0x18: // FMEQ
-		v.setVI(t, b2u(v.Mac == v.VI[s&15]))
+		v.setVI(t, b2u(v.visMac == v.VI[s&15]))
 	case 0x1A: // FMAND
-		v.setVI(t, v.Mac&v.VI[s&15])
+		v.setVI(t, v.visMac&v.VI[s&15])
 	case 0x1B: // FMOR
-		v.setVI(t, v.Mac|v.VI[s&15])
+		v.setVI(t, v.visMac|v.VI[s&15])
 	case 0x1C: // FCGET
-		v.setVI(t, uint16(v.Clip&0xFFF))
+		v.setVI(t, uint16(v.visClip&0xFFF))
 	case 0x20: // B
 		return target()
 	case 0x21: // BAL

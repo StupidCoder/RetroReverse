@@ -105,6 +105,18 @@ type GS struct {
 	clut       [512]uint32
 	cbp0, cbp1 uint32
 
+	// The per-pixel outcome tally: where a frame's pixels actually went. A buffer that
+	// stays empty despite thousands of primitives is explained by exactly one of these.
+	plotted        uint64
+	rejScissor     uint64
+	rejZ           uint64
+	rejAlpha       uint64
+	rejDate        uint64
+	plotNonBlack   [8]uint64
+	rgbaqA0, rgbaqA uint64 // vertex colours with zero vs non-zero alpha: a fade reads here
+	texBlack, texColor       uint64 // texel samples that came back black vs coloured
+	texBlackPSM, texColorPSM [64]uint64
+
 	m *Machine
 }
 
@@ -140,6 +152,8 @@ func (gs *GS) write(reg uint8, val uint64) {
 	switch reg {
 	case gsPRIM:
 		gs.vqN = 0 // starting a primitive resets the queue
+	case gsRGBAQ:
+		gs.q = uint32(val >> 32) // a direct RGBAQ write is also the current Q
 	case gsTEX0_1, gsTEX0_2:
 		gs.clutLoad(decodeTEX0(val))
 	case gsTEX2_1, gsTEX2_2:
@@ -181,6 +195,11 @@ func (gs *GS) writePacked(reg uint8, lo, hi uint64) {
 	case gifRegRGBAQ:
 		r, g := lo&0xFF, lo>>32&0xFF
 		b, a := hi&0xFF, hi>>32&0xFF
+		if a == 0 {
+			gs.rgbaqA0++
+		} else {
+			gs.rgbaqA++
+		}
 		gs.write(gsRGBAQ, r|g<<8|b<<16|a<<24|uint64(gs.q)<<32)
 
 	case gifRegST:
@@ -609,6 +628,20 @@ func (m *Machine) GSStatus() string {
 		m.io[gsPMODE],
 		uint32(dispfb1)&0x1FF*2048, uint32(dispfb1>>15)&0x1F,
 		uint32(dispfb2)&0x1FF*2048, uint32(dispfb2>>15)&0x1F)
+	s += sprintf("      pixels: %d plotted; rejected %d scissor, %d ztest, %d alphatest, %d datest\n",
+		m.gs.plotted, m.gs.rejScissor, m.gs.rejZ, m.gs.rejAlpha, m.gs.rejDate)
+	for i, n := range m.gs.plotNonBlack {
+		if n > 0 {
+			s += sprintf("      non-black pixels by %-10s %d\n", primNames[i], n)
+		}
+	}
+	s += sprintf("      vertex colours: %d with alpha 0, %d with alpha > 0\n", m.gs.rgbaqA0, m.gs.rgbaqA)
+	s += sprintf("      texel samples: %d black, %d coloured\n", m.gs.texBlack, m.gs.texColor)
+	for psm := 0; psm < 64; psm++ {
+		if m.gs.texBlackPSM[psm]+m.gs.texColorPSM[psm] > 0 {
+			s += sprintf("        psm 0x%02X: %d black, %d coloured\n", psm, m.gs.texBlackPSM[psm], m.gs.texColorPSM[psm])
+		}
+	}
 	for i, n := range m.gs.primCount {
 		if n > 0 {
 			s += sprintf("      %-24s %d\n", primNames[i], n)
@@ -675,6 +708,30 @@ func (m *Machine) GSFrame() (pix []byte, w, h int) {
 		}
 	}
 	return pix, w, h
+}
+
+// GSBuffer reads back an arbitrary PSMCT32 rectangle of GS memory — any buffer the
+// draw-target census names, displayed or not. base is a word address (the unit the
+// census prints), bw the buffer width in 64-pixel units, h the height in pixels.
+func (m *Machine) GSBuffer(base, bw uint32, h int) (pix []byte, w int) {
+	if m.gs == nil || bw == 0 || h <= 0 {
+		return nil, 0
+	}
+	w = int(bw) * 64
+	pix = make([]byte, w*h*4)
+	for y := 0; y < h; y++ {
+		for x := 0; x < w; x++ {
+			addr := addrPSMCT32(base/64, bw, uint32(x), uint32(y))
+			o := (y*w + x) * 4
+			if addr+4 <= uint32(len(m.gs.vram)) {
+				pix[o+0] = m.gs.vram[addr+0]
+				pix[o+1] = m.gs.vram[addr+1]
+				pix[o+2] = m.gs.vram[addr+2]
+				pix[o+3] = 0xFF
+			}
+		}
+	}
+	return pix, w
 }
 
 // gsVSync toggles the CSR bits the frame clock owns, called once per synthetic vertical

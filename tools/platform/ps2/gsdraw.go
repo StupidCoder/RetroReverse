@@ -76,7 +76,12 @@ func (gs *GS) pushVertex(x, y int32, z uint32, kick bool) {
 		v:    int32(uint32(uv>>16) & 0x3FFF),
 		s:    math.Float32frombits(uint32(st)),
 		t:    math.Float32frombits(uint32(st >> 32)),
-		q:    math.Float32frombits(uint32(gs.reg[gsRGBAQ] >> 32)),
+		// Q comes from the LATCH, not the RGBAQ register: a perspective stream is
+		// RGBAQ once then ST,XYZF2 per vertex, and each PACKED ST carries the Q its
+		// vertex divides by. Reading the register here left every vertex with a stale
+		// Q of zero — and a zero Q maps every sample to texel (0,0), which is how a
+		// whole title screen sampled a black border pixel.
+		q: math.Float32frombits(gs.q),
 	}
 	if gs.vqN < len(gs.vq) {
 		gs.vq[gs.vqN] = v
@@ -194,6 +199,8 @@ type gsTarget struct {
 	zpsm uint32
 	zmsk bool // don't write Z
 	ztst uint32
+
+	primType int // for the per-type pixel tallies
 }
 
 // target reads the current context's FRAME, SCISSOR and per-pixel-pipeline registers.
@@ -237,6 +244,8 @@ func (gs *GS) target(p uint64) gsTarget {
 		colclamp: gs.reg[gsCOLCLAMP]&1 != 0,
 		fba:      uint32(fba) & 1,
 		test:     test,
+
+		primType: int(p & 7),
 	}
 }
 
@@ -245,6 +254,7 @@ func (gs *GS) target(p uint64) gsTarget {
 // the pixel's depth.
 func (gs *GS) plot(t *gsTarget, x, y int32, z uint32, rgba uint32) {
 	if x < t.sx0 || x > t.sx1 || y < t.sy0 || y > t.sy1 || x < 0 || y < 0 {
+		gs.rejScissor++
 		return
 	}
 	if t.psm != psmCT32 && t.psm != psmCT24 {
@@ -281,6 +291,7 @@ func (gs *GS) plot(t *gsTarget, x, y int32, z uint32, rgba uint32) {
 		if !pass {
 			switch t.test >> 12 & 3 {
 			case 0: // KEEP: nothing is written
+				gs.rejAlpha++
 				return
 			case 1: // FB_ONLY: the frame is written, the Z buffer is not
 				writeZ = false
@@ -320,13 +331,16 @@ func (gs *GS) plot(t *gsTarget, x, y int32, z uint32, rgba uint32) {
 		}
 		switch t.ztst {
 		case 0: // NEVER
+			gs.rejZ++
 			return
 		case 2: // GEQUAL
 			if z < zold {
+				gs.rejZ++
 				return
 			}
 		case 3: // GREATER
 			if z <= zold {
+				gs.rejZ++
 				return
 			}
 		}
@@ -342,10 +356,12 @@ func (gs *GS) plot(t *gsTarget, x, y int32, z uint32, rgba uint32) {
 	if t.test>>14&1 != 0 {
 		datm := uint32(t.test>>15) & 1
 		if old>>31 != datm {
+			gs.rejDate++
 			return
 		}
 	}
 
+	gs.plotted++
 	if t.abe && (!t.pabe || srcA&0x80 != 0) {
 		dstA := int64(old >> 24)
 		if t.psm == psmCT24 {
@@ -376,6 +392,9 @@ func (gs *GS) plot(t *gsTarget, x, y int32, z uint32, rgba uint32) {
 	}
 
 	px := rgba&^fbmsk | old&fbmsk
+	if px&0xFFFFFF != 0 {
+		gs.plotNonBlack[t.primType]++
+	}
 	gs.vram[addr+0] = byte(px)
 	gs.vram[addr+1] = byte(px >> 8)
 	gs.vram[addr+2] = byte(px >> 16)
@@ -548,7 +567,8 @@ func (gs *GS) noteFeatures(p uint64) {
 		// Each distinct texture, so the bases can be laid against the uploads': a
 		// texture whose page nothing ever filled samples black, and this line is how
 		// that is seen rather than suspected.
-		gs.count(sprintf("  tex base 0x%05X %dx%d psm 0x%02X", t.tbp*64, 1<<t.tw, 1<<t.th, t.psm))
+		gs.count(sprintf("  tex base 0x%05X %dx%d psm 0x%02X tfx %d cbp 0x%05X csa %d cld %d",
+			t.tbp*64, 1<<t.tw, 1<<t.th, t.psm, t.tfx, t.cbp*64, t.csa, t.cld))
 	}
 	if p&(1<<6) != 0 {
 		gs.count("alpha-blended")
