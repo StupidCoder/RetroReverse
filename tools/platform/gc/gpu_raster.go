@@ -75,6 +75,7 @@ func (g *gpu) drawTriangle(m *Machine, v0, v1, v2 screenVertex) {
 			z := uint32(b0*v0.z + b1*v1.z + b2*v2.z)
 			idx := y*efbWidth + x
 			if z > g.ZBuf[idx] { // fixed less-or-equal depth test
+				g.pixZRej++
 				continue
 			}
 
@@ -89,11 +90,13 @@ func (g *gpu) drawTriangle(m *Machine, v0, v1, v2 screenVertex) {
 
 			fr, fg, fb, fa, pass := g.shade(m, r, gg, bb, a, u, v)
 			if !pass { // the alpha test rejected the pixel
+				g.pixARej++
 				continue
 			}
 
 			g.EFB[idx] = g.blend(g.EFB[idx], fr, fg, fb, fa)
 			g.ZBuf[idx] = z
+			g.pixWritten++
 		}
 	}
 }

@@ -362,3 +362,7 @@ func (m *Machine) logf(format string, args ...interface{}) {
 // Census returns the unmodelled-hardware log — what the game asked for that the machine
 // could not answer. An empty census after a boot is the goal.
 func (m *Machine) Census() []string { return m.Log }
+
+// GPUCensus returns how many of each opcode the graphics FIFO has carried — the quick
+// answer to "is the game drawing at all, and with what".
+func (m *Machine) GPUCensus() [256]uint64 { return m.gpu.Census }

@@ -30,6 +30,20 @@ type di struct {
 	CR     uint32    // control: the "go" bit and the DMA direction
 	ImmBuf uint32    // the immediate result of a non-DMA command
 	Cfg    uint32
+
+	// The transfer clock. A real drive takes time, and the game's own code depends on it:
+	// Luigi's Mansion mounts its master archive (game_usa.szp) on a loader thread whose
+	// completion callback registers a singleton, and the per-scene heap teardown frees
+	// groups 1..26 at every scene transition — the design only works because the 2.6 MB
+	// read is still in flight when the first transition happens, so the mount allocates
+	// into the NEXT scene's heap. An instant drive completes the mount a scene early and
+	// the game's own teardown destroys its own singleton. So a read command holds the
+	// drive busy for a realistic count of instructions and completes from tickDI.
+	BusyInstr int64  // instructions until the in-flight command completes (0 = idle)
+	PendOff   int64  // the in-flight read's disc byte offset
+	PendLen   uint32 // its length
+	PendMAR   uint32 // its DMA target
+	LastEnd   int64  // one past the previous read's end, for the sequential-read discount
 }
 
 // The DI status-register bits.
@@ -125,16 +139,19 @@ func (d *di) exec(m *Machine) {
 		if m.OnDVDRead != nil {
 			m.OnDVDRead(discOff, length, d.MAR)
 		}
-		if m.disc != nil {
-			data, err := m.disc.Read(discOff, int(length))
-			if err != nil {
-				m.logf("DI read past the disc: offset 0x%X length %d: %v", discOff, length, err)
-				d.raiseError(m)
-				return
-			}
-			m.dmaToRAM(d.MAR, data)
+		if d.BusyInstr != 0 {
+			// The SDK waits for the transfer-complete interrupt before issuing the next
+			// command, so this should be unreachable; if it fires, the model is wrong.
+			m.logf("DI read issued while a transfer is in flight (offset 0x%X)", discOff)
 		}
-		d.complete(m)
+		d.PendOff, d.PendLen, d.PendMAR = discOff, length, d.MAR
+		d.BusyInstr = diCmdInstr + int64(length)*diInstrPerByte
+		if discOff != d.LastEnd {
+			d.BusyInstr += diSeekInstr
+		}
+		if diInstant {
+			d.BusyInstr = 1
+		}
 	case 0xE0: // request error / get status — answered from the immediate buffer
 		d.ImmBuf = 0
 		d.complete(m)
@@ -148,6 +165,45 @@ func (d *di) exec(m *Machine) {
 		m.logf("DI unimplemented command 0x%02X (0x%08X 0x%08X 0x%08X)", opcode, d.Cmd[0], d.Cmd[1], d.Cmd[2])
 		d.complete(m) // complete it anyway, so the game does not wait forever on a stub
 	}
+}
+
+// The drive's pace, on the instruction clock (fieldInstructions per 1/60 s field, so one
+// emulated second is 60*fieldInstructions instructions). The real drive is CAV — roughly
+// 2.0 MB/s at the inner edge to 3.1 MB/s at the outer — modelled here as a flat 2.5 MB/s;
+// each command costs about a millisecond of handling, and a non-sequential offset pays a
+// seek. RR_GC_DIINSTANT restores the old zero-time drive — a debug fiction, not hardware
+// (it is what let the archive mount finish a scene early; see the di struct comment).
+const (
+	diInstrPerSec  = 60 * fieldInstructions
+	diInstrPerByte = diInstrPerSec / 2_500_000 // ~2.5 MB/s
+	diCmdInstr     = diInstrPerSec / 1000      // ~1 ms per command
+	diSeekInstr    = 30 * diInstrPerSec / 1000 // ~30 ms per seek
+)
+
+var diInstant = os.Getenv("RR_GC_DIINSTANT") != ""
+
+// tickDI advances the in-flight transfer one instruction; at zero the data lands and the
+// transfer-complete interrupt fires.
+func (m *Machine) tickDI() {
+	d := &m.di
+	if d.BusyInstr == 0 {
+		return
+	}
+	d.BusyInstr--
+	if d.BusyInstr != 0 {
+		return
+	}
+	d.LastEnd = d.PendOff + int64(d.PendLen)
+	if m.disc != nil {
+		data, err := m.disc.Read(d.PendOff, int(d.PendLen))
+		if err != nil {
+			m.logf("DI read past the disc: offset 0x%X length %d: %v", d.PendOff, d.PendLen, err)
+			d.raiseError(m)
+			return
+		}
+		m.dmaToRAM(d.PendMAR, data)
+	}
+	d.complete(m)
 }
 
 // complete finishes a command: clear the go bit, set transfer-complete, and interrupt if

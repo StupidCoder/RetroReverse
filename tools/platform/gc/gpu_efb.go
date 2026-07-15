@@ -41,12 +41,22 @@ func (g *gpu) clearColor() (r, gg, b, a uint8) {
 	return uint8(ar & 0xFF), uint8(gb >> 8), uint8(gb & 0xFF), uint8(ar >> 8)
 }
 
-// clearEFB fills the whole embedded framebuffer with the clear colour.
+// clearEFB fills the whole embedded framebuffer with the clear colour, and the depth
+// buffer with the clear Z (BP 0x51, 24-bit). Forgetting the depth half of the clear is
+// not a cosmetic gap: the stale Z from the previous scene's draws rejects every pixel of
+// the next scene — the title screen was black because the boot logo's depths were still
+// in the buffer.
 func (g *gpu) clearEFB() {
 	r, gg, b, a := g.clearColor()
 	px := packRGBA(r, gg, b, a)
 	for i := range g.EFB {
 		g.EFB[i] = px
+	}
+	if g.ZBuf != nil {
+		z := g.BP[0x51] & 0x00FFFFFF
+		for i := range g.ZBuf {
+			g.ZBuf[i] = z
+		}
 	}
 }
 

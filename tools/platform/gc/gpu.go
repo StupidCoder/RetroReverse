@@ -21,6 +21,10 @@ package gc
 type gpu struct {
 	Buf    []byte         // command bytes not yet assembled into a whole command
 	Census [256]uint64    // how many of each opcode the FIFO has carried — the plumbing gate
+
+	// Per-primitive pixel accounting for the RR_GC_DRAWTRACE line: where a draw's pixels
+	// went. Unexported — diagnostic state, not machine state, so it stays out of snapshots.
+	pixWritten, pixZRej, pixARej int
 	CPReg  [0x100]uint32  // the CP registers loaded from the stream (vertex descriptors etc.)
 	BP     [0x100]uint32  // the BP (pixel-engine) registers loaded from the stream
 	XFMem  [0x1060]uint32 // the XF registers and matrix memory (see gpu_xf.go)

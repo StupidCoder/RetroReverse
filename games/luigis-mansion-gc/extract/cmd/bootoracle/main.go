@@ -401,6 +401,14 @@ func run(c cfg) error {
 			fmt.Fprintf(os.Stderr, "  %s\n", s)
 		}
 	}
+	if c.verbose {
+		fmt.Fprintf(os.Stderr, "bootoracle: GX FIFO opcode census:\n")
+		for op, n := range m.GPUCensus() {
+			if n != 0 {
+				fmt.Fprintf(os.Stderr, "  0x%02X: %d\n", op, n)
+			}
+		}
+	}
 	return nil
 }
 

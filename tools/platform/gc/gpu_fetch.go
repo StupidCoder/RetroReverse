@@ -12,7 +12,15 @@ package gc
 // fetched; a draw that needs one is left undrawn and logged, rather than read from the wrong
 // place, so the gap is visible instead of a scramble of triangles.
 
-import "math"
+import (
+	"fmt"
+	"math"
+	"os"
+)
+
+// drawTrace prints one line per draw primitive — vertices, texture base, and the pixel
+// accounting that says where a draw's pixels went (written / z-rejected / alpha-rejected).
+var drawTrace = os.Getenv("RR_GC_DRAWTRACE") != ""
 
 // attrLayout is where each attribute a draw needs sits within one vertex, and how to read it.
 type attrLayout struct {
@@ -169,6 +177,15 @@ func (g *gpu) drawPrimitive(m *Machine, prim uint32, vat, vsize int, data []byte
 		verts[i] = screenVertex{x: sx, y: sy, z: sz, r: r, g: gg, b: b, a: a, u: tu, v: tv}
 	}
 
+	if drawTrace {
+		g.pixZRej, g.pixARej, g.pixWritten = 0, 0, 0
+		g.rasterPrimitive(m, prim, verts)
+		v0 := verts[0]
+		fmt.Fprintf(os.Stderr, "DRAW prim 0x%02X vat %d n %d  v0 (%.1f,%.1f,z%.0f) rgba %d,%d,%d,%d uv (%.2f,%.2f)  texbase 0x%06X  px w=%d zrej=%d arej=%d\n",
+			prim, vat, count, v0.x, v0.y, v0.z, v0.r, v0.g, v0.b, v0.a, v0.u, v0.v,
+			(g.BP[0x94]&0x00FFFFFF)<<5, g.pixWritten, g.pixZRej, g.pixARej)
+		return
+	}
 	g.rasterPrimitive(m, prim, verts)
 }
 
