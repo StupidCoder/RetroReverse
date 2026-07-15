@@ -50,7 +50,7 @@ const (
 	dENABLEW = 0x1000F590
 )
 
-// A channel's registers, at dmacBase + 0x1000*channel.
+// A channel's registers, at its base (dmacChanBase) + the register offset.
 const (
 	dChcr = 0x00 // direction, mode, and the start bit
 	dMadr = 0x10 // the address in memory the data is at
@@ -60,6 +60,26 @@ const (
 	dAsr1 = 0x50
 	dSadr = 0x80 // the scratchpad address, for the SPR channels
 )
+
+// The channel register blocks are NOT uniformly spaced. Channels 0-2 sit 0x1000
+// apart, but from IPU onward the EE packs them 0x400 apart in three groups. Decoding
+// by (addr-base)/0x1000 — as if the spacing were uniform — folds 0x1000D000/D400 (the
+// scratchpad channels) onto channel 5, so a scratchpad transfer arrives looking like a
+// SIF start and moves nothing. This is the map the silicon actually uses, read off the
+// addresses the game's own `ultimate-memcpy` writes (0x1000D400 SPR_TO, 0x1000D000
+// SPR_FROM): the bases are a table, not an arithmetic progression.
+var dmacChanBase = [dmacChannels]uint32{
+	0x10008000, // 0  VIF0
+	0x10009000, // 1  VIF1
+	0x1000A000, // 2  GIF
+	0x1000B000, // 3  IPU_FROM
+	0x1000B400, // 4  IPU_TO
+	0x1000C000, // 5  SIF0
+	0x1000C400, // 6  SIF1
+	0x1000C800, // 7  SIF2
+	0x1000D000, // 8  SPR_FROM (scratchpad -> memory)
+	0x1000D400, // 9  SPR_TO   (memory -> scratchpad)
+}
 
 // CHCR's bits. STR is the one that matters: the game sets it to start a transfer and
 // polls it to learn the transfer is done.
@@ -88,16 +108,19 @@ type dmacChan struct {
 }
 
 // dmacChanReg decodes an address into a channel and a register, or reports that it is
-// one of the controller-wide registers above the channel block.
+// one of the controller-wide registers above the channel block. A channel's register
+// window is the 0x100 bytes at its base (registers run 0x00..0x80); the bases are the
+// non-uniform table above, so the decode is a lookup, not a division.
 func dmacChanReg(a uint32) (ch int, reg uint32, ok bool) {
 	if a < dmacBase || a >= dCTRL {
 		return 0, 0, false
 	}
-	ch = int(a-dmacBase) / 0x1000
-	if ch >= dmacChannels {
-		return 0, 0, false
+	for i, base := range dmacChanBase {
+		if a >= base && a < base+0x100 {
+			return i, a - base, true
+		}
 	}
-	return ch, a & 0xFF, true
+	return 0, 0, false
 }
 
 // dmacRead serves a read of the controller.
@@ -211,6 +234,21 @@ func (m *Machine) dmacStart(ch int) {
 		// by another road. It only has to complete, so the kernel's "is the channel idle?"
 		// check reads idle.
 
+	case dmacChSPRto:
+		// Memory -> scratchpad. The GOAL runtime's `ultimate-memcpy` bounces every large,
+		// aligned block through the 16 KiB scratchpad: this channel reads main memory at
+		// MADR into the scratchpad at SADR, and channel 8 reads it back out to the
+		// destination. It is a real mover of bytes, and the kernel links against it — once
+		// the GOAL `ultimate-memcpy` is defined it becomes the copy for every object main
+		// segment 4 KiB and up, which is most of them. Left unmodelled, the segment arrives
+		// as zeros and the first method that runs from it nop-slides into a break.
+		m.dmacSPR(c, false)
+
+	case dmacChSPRfrom:
+		// Scratchpad -> memory, the second half of the bounce: SADR in the scratchpad out
+		// to MADR in main memory.
+		m.dmacSPR(c, true)
+
 	default:
 		// A channel we have no evidence this game drives. It completes — refusing would hang
 		// the caller rather than teach anything — but it is named once, the same way the IOP's
@@ -235,6 +273,34 @@ func (m *Machine) dmacStart(ch int) {
 func (m *Machine) dmacComplete(ch int) {
 	m.dmac[ch].chcr &^= dChcrStart
 	m.dmacStat |= 1 << uint(ch)
+}
+
+// dmacSPR moves a scratchpad channel's quadwords between main memory (MADR) and the
+// scratchpad (SADR). fromSPR picks the direction: false is channel 9 (SPR_TO, memory ->
+// scratchpad), true is channel 8 (SPR_FROM, scratchpad -> memory).
+//
+// The scratchpad address is its own register here, not the top-bit-of-MADR encoding
+// sceGsExecLoadImage uses for the GIF channel — the SPR channels have a real SADR (reg
+// 0x80). MADR is a plain main-memory address. The transfer is n = QWC*16 bytes, byte at
+// a time so it goes through the same memory path (and the same write hook) as any other
+// store; these copies happen at link time, not per frame, so the cost does not matter.
+func (m *Machine) dmacSPR(c *dmacChan, fromSPR bool) {
+	n := c.qwc * 16
+	madr := c.madr & 0x0FFFFFFF
+	for i := uint32(0); i < n; i++ {
+		s := (c.sadr + i) & (spramSize - 1)
+		if fromSPR {
+			// Scratchpad -> memory: the destination store is a real write, so leave the
+			// write hook live for a watch to see the copy land.
+			m.Write(madr+i, m.spram[s])
+		} else {
+			// Memory -> scratchpad: mute the read hook so a data watch is not drowned by
+			// the source read; the scratchpad store fires no hook of its own.
+			m.hookMuted = true
+			m.spram[s] = m.Read(madr + i)
+			m.hookMuted = false
+		}
+	}
 }
 
 // dmaBytes reads a channel's source data out of memory: n quadwords from MADR, honouring

@@ -148,3 +148,71 @@ func TestDMACDrivesGIF(t *testing.T) {
 func putLE32(b []byte, v uint32) {
 	b[0], b[1], b[2], b[3] = byte(v), byte(v>>8), byte(v>>16), byte(v>>24)
 }
+
+// TestDMACChannelDecode pins the non-uniform channel layout. Channels 0-2 are 0x1000
+// apart but the rest are packed 0x400 apart, so the old (addr-base)/0x1000 decode folded
+// the scratchpad channels (0xD000/0xD400) onto channel 5 and their transfers vanished.
+func TestDMACChannelDecode(t *testing.T) {
+	cases := []struct {
+		addr uint32
+		ch   int
+		reg  uint32
+	}{
+		{0x1000A000, 2, dChcr}, // GIF, the one channel the old decode got right
+		{0x1000C000, 5, dChcr}, // SIF0 — 0x1000C000/0x1000 would be 4, not 5
+		{0x1000C400, 6, dChcr}, // SIF1
+		{0x1000D000, 8, dChcr}, // SPR_FROM
+		{0x1000D400, 9, dChcr}, // SPR_TO
+		{0x1000D410, 9, dMadr}, // a register inside the SPR_TO block
+		{0x1000D480, 9, dSadr}, // its scratchpad-address register
+	}
+	for _, c := range cases {
+		ch, reg, ok := dmacChanReg(c.addr)
+		if !ok || ch != c.ch || reg != c.reg {
+			t.Errorf("dmacChanReg(0x%08X) = ch %d reg 0x%X ok=%v, want ch %d reg 0x%X",
+				c.addr, ch, reg, ok, c.ch, c.reg)
+		}
+	}
+	// The controller-wide registers must not decode as a channel.
+	if _, _, ok := dmacChanReg(dSTAT); ok {
+		t.Errorf("D_STAT decoded as a channel")
+	}
+}
+
+// TestSPRBounceCopy runs the exact round trip the GOAL runtime's ultimate-memcpy uses:
+// memory -> scratchpad on channel 9, then scratchpad -> a different memory address on
+// channel 8. Without a real scratchpad mover the destination stays zero, which is what
+// dropped whole object main segments on the floor and broke the GOAL linker.
+func TestSPRBounceCopy(t *testing.T) {
+	m := NewMachine()
+
+	const src, dst = 0x00200000, 0x00280000
+	const qwc = 4 // 64 bytes
+	for i := 0; i < qwc*16; i++ {
+		m.ram[src+i] = byte(0x40 + i)
+	}
+
+	// Channel 9 (SPR_TO): main memory at MADR -> scratchpad at SADR.
+	m.Write32(0x1000D410, src)        // MADR
+	m.Write32(0x1000D480, 0)          // SADR
+	m.Write32(0x1000D420, qwc)        // QWC
+	m.Write32(0x1000D400, dChcrStart) // CHCR: start
+
+	// Channel 8 (SPR_FROM): scratchpad at SADR -> main memory at MADR.
+	m.Write32(0x1000D010, dst)        // MADR
+	m.Write32(0x1000D080, 0)          // SADR
+	m.Write32(0x1000D020, qwc)        // QWC
+	m.Write32(0x1000D000, dChcrStart) // CHCR: start
+
+	for i := 0; i < qwc*16; i++ {
+		if got, want := m.ram[dst+i], byte(0x40+i); got != want {
+			t.Fatalf("byte %d: got 0x%02X, want 0x%02X (the scratchpad bounce did not move the data)", i, got, want)
+		}
+	}
+	if v, _ := m.dmacRead(0x1000D400); v&dChcrStart != 0 {
+		t.Errorf("SPR_TO STR still set after transfer; CHCR = 0x%08X", v)
+	}
+	if v, _ := m.dmacRead(0x1000D000); v&dChcrStart != 0 {
+		t.Errorf("SPR_FROM STR still set after transfer; CHCR = 0x%08X", v)
+	}
+}
