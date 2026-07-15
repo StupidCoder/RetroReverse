@@ -18,19 +18,24 @@ package gc
 // what a stage's two combiner registers (colour and alpha) encode. The inputs, the scale/bias
 // codes, and the blend equation are hardware facts; the arithmetic is reimplemented here.
 //
-// The loading screen this stage first draws is a two-stage program: stage 0 puts the texture
-// colour into the working register, and stage 1 interpolates between two constant colours using
-// that as the weight — which, when the two constants are momentarily equal (a crossfade at rest),
-// discards the texture and leaves a flat colour. That the texture is nonetheless sampled and
-// decoded correctly is what gpu_texture.go's gate proves; that the combiner reproduces the flat
-// result the hardware would is what this file is for.
+// The boot logo this stage first draws is a two-stage program that uses the texture as a
+// coverage mask: stage 0 puts the texture (a white "Nintendo" logo on black) into the working
+// register, and stage 1 interpolates between two constant colours with that as the weight — a
+// black background constant where the texture is black, a red logo constant where it is white.
+// The result is the red logo on black the console shows. Reproducing it exactly is what this
+// file is for, and it is unforgiving: the two constants differ only in their red channel, so a
+// register-decode that misplaced red would collapse the mask and paint the screen flat.
 
 // tevColorReg decodes one of the TEV colour/output registers into its four channels. The
-// register is two words: the low word packs alpha and red, the high word blue and green, each
-// an eleven-bit signed value (the registers can hold out-of-range intermediates).
+// register is two words: the low word packs red in its low eleven bits and alpha in its high
+// eleven, the high word blue then green the same way — each an eleven-bit signed value, since
+// the registers hold out-of-range intermediates. Getting this order backwards (reading red from
+// the high half) turned the boot's black background constant into a second red, so the logo
+// mask composited red-on-red and the whole screen came out flat red instead of a red logo on
+// black.
 func tevColorReg(w [2]uint32) (r, g, b, a float32) {
-	a = float32(sext11(w[0] & 0x7FF))
-	r = float32(sext11((w[0] >> 12) & 0x7FF))
+	r = float32(sext11(w[0] & 0x7FF))
+	a = float32(sext11((w[0] >> 12) & 0x7FF))
 	b = float32(sext11(w[1] & 0x7FF))
 	g = float32(sext11((w[1] >> 12) & 0x7FF))
 	return

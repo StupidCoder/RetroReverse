@@ -234,11 +234,13 @@ func TestTexturedQuadRenders(t *testing.T) {
 	}
 }
 
-// TestTEVReproducesBootQuad pins the combiner against the exact registers the game's loading
-// quad programs (captured from the FIFO): two stages that, with the texture put into PREV and
-// then interpolated between two equal constant reds, produce a flat red regardless of the
-// texture — the faithful result the hardware computes.
-func TestTEVReproducesBootQuad(t *testing.T) {
+// TestTEVReproducesBootLogo pins the combiner against the exact registers the game's boot quad
+// programs (captured from the FIFO): two stages that put the texture into PREV and then use it
+// as a coverage mask, interpolating between a black background constant (C0) and a red logo
+// constant (C1). Where the logo texture is white the pixel must come out red, where it is black
+// the pixel must come out black — the red logo on black the console shows, and the assertion
+// that would have caught the red/alpha decode swap that once flattened it.
+func TestTEVReproducesBootLogo(t *testing.T) {
 	g := &gpu{}
 	g.BP[0x00] = 0x000411                            // two TEV stages
 	g.BP[0x28] = 0x3803C0                            // stage 0 texmap0/tc0 enabled, stage 1 texture disabled
@@ -247,30 +249,30 @@ func TestTEVReproducesBootQuad(t *testing.T) {
 	g.BP[0xC2] = 0x08240F                            // stage 1 colour = lerp(C0, C1, CPREV)
 	g.BP[0xC3] = 0x082870                            // stage 1 alpha  = lerp(A0, A1, APREV)
 	g.BP[0xF3] = 0x240000                            // alpha test: alpha > 0
-	g.TevColorReg[1] = [2]uint32{0x0FF000, 0x000000} // C0 = (255,0,0,0)
-	g.TevColorReg[2] = [2]uint32{0x0FF0DC, 0x000000} // C1 = (255,0,0,220)
-	g.TevColorReg[3] = [2]uint32{0x0FF0FF, 0x0FF0FF} // C2 = white
+	g.TevColorReg[1] = [2]uint32{0x0FF000, 0x000000} // C0 = (r=0, a=255) — black background
+	g.TevColorReg[2] = [2]uint32{0x0FF0DC, 0x000000} // C1 = (r=220, a=255) — red logo
+	g.TevColorReg[3] = [2]uint32{0x0FF0FF, 0x0FF0FF} // C2 = white (its alpha 255 is stage 0's A2)
 
 	m := testMachine()
-	// Bind a texture whose colour varies, to prove it does NOT reach the output.
+	// A logo-shaped mask: the left half white (logo), the right half black (background).
 	base := uint32(0x4000)
 	copy(m.RAM[base:], encodeRGB565Tiled(8, 8, func(x, y int) (uint8, uint8, uint8) {
-		return uint8(x * 30), uint8(y * 30), 90
+		if x < 4 {
+			return 255, 255, 255
+		}
+		return 0, 0, 0
 	}))
 	g.bindTexture0RGB565(base, 8, 8)
 	m.gpu = *g
 
-	for _, uv := range [][2]float32{{0.1, 0.2}, {0.5, 0.5}, {0.9, 0.7}} {
-		r, gg, b, a, pass := m.gpu.shade(m, 255, 255, 255, 255, uv[0], uv[1])
-		if !pass {
-			t.Fatalf("uv %v: alpha test rejected the pixel", uv)
-		}
-		if r != 255 || gg != 0 || b != 0 {
-			t.Errorf("uv %v: colour (%d,%d,%d), want (255,0,0) — the texture must not reach the output", uv, r, gg, b)
-		}
-		if absU8(a, 220) > 1 {
-			t.Errorf("uv %v: alpha %d, want ~220", uv, a)
-		}
+	// A coordinate over the white half must shade red; one over the black half must shade black.
+	r, gg, b, _, pass := m.gpu.shade(m, 255, 255, 255, 255, 0.1, 0.5)
+	if !pass || absU8(r, 220) > 2 || gg != 0 || b != 0 {
+		t.Errorf("logo texel: colour (%d,%d,%d) pass=%v, want ~(220,0,0)", r, gg, b, pass)
+	}
+	r, gg, b, _, pass = m.gpu.shade(m, 255, 255, 255, 255, 0.9, 0.5)
+	if !pass || r != 0 || gg != 0 || b != 0 {
+		t.Errorf("background texel: colour (%d,%d,%d) pass=%v, want (0,0,0)", r, gg, b, pass)
 	}
 }
 
