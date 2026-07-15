@@ -51,6 +51,8 @@ func main() {
 	tracen := flag.Int("tracen", 200, "limit -trace to this many instructions")
 	savestate := flag.String("savestate", "", "after the run, write a machine snapshot to this file")
 	loadstate := flag.String("loadstate", "", "restore a machine snapshot before running")
+	gpu := flag.Bool("gpu", false, "Phase C: run the NV2A DMA pusher on each kick (do not stop at first push)")
+	survey := flag.Bool("survey", false, "with -gpu: record the PGRAPH method surface and print it")
 	var dumps multiFlag
 	flag.Var(&dumps, "dump", "hex-dump ADDR:LEN of memory after the run (hex); repeatable")
 	flag.Parse()
@@ -90,6 +92,12 @@ func main() {
 		os.Exit(1)
 	}
 	m.SetVerbose(*verbose)
+	if *gpu {
+		m.EnableGPU()
+		if *survey {
+			m.PGraph().SetSurvey(true)
+		}
+	}
 
 	if *loadstate != "" {
 		if err := m.LoadStateFile(*loadstate); err != nil {
@@ -138,6 +146,13 @@ func main() {
 	if *ordinals {
 		fmt.Println("\nxboxkrnl ordinals reached:")
 		for _, line := range m.OrdinalHistogram() {
+			fmt.Println(line)
+		}
+	}
+
+	if *gpu && *survey {
+		fmt.Println()
+		for _, line := range m.PGraph().SurveyReport() {
 			fmt.Println(line)
 		}
 	}

@@ -44,6 +44,7 @@ var verifiedNames = map[uint16]string{
 	168: "MmClaimGpuInstanceMemory",        // f(bytes, &padding) -> end of retained GPU block
 	182: "MmSetAddressProtect",             // f(base, bytes, newProtect); void (no-op here)
 	184: "NtAllocateVirtualMemory",         // f(base**, zerobits, size*, type, protect)
+	199: "NtFreeVirtualMemory",             // f(base**, size*, freeType) (Nt block drifts +5)
 	202: "NtOpenFile",                      // f(handle*, access, objattr, iosb, share, opts)
 	301: "RtlNtStatusToDosError",           // f(NTSTATUS)
 	160: "MmAllocateContiguousMemory",

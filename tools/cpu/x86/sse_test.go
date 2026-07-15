@@ -95,3 +95,56 @@ func TestSSEPacked(t *testing.T) {
 		}
 	}
 }
+
+// TestSSEShuffleMoveMMX covers the ops the Xbox D3D vertex/matrix code and the XDK fast
+// memcpy add on top of the scalar/packed core: SHUFPS (lane select), MOVDQU (128-bit
+// integer move), and the MMX MOVQ/EMMS 64-bit copy. None appear in real mode.
+func TestSSEShuffleMoveMMX(t *testing.T) {
+	m := &flatRAM{b: make([]byte, 16<<20)}
+	for i, v := range []float32{1, 2, 3, 4} { // xmm0 source
+		putF32(m.b[0x2000+i*4:], v)
+	}
+	for i, v := range []float32{5, 6, 7, 8} { // xmm1 source
+		putF32(m.b[0x2010+i*4:], v)
+	}
+	for i := 0; i < 8; i++ { // 8 bytes for the MMX copy
+		m.b[0x2020+i] = byte(0xA0 + i)
+	}
+	code := []byte{
+		0x0F, 0x10, 0x05, 0x00, 0x20, 0x00, 0x00, // MOVUPS xmm0, [0x2000] = {1,2,3,4}
+		0x0F, 0x10, 0x0D, 0x10, 0x20, 0x00, 0x00, // MOVUPS xmm1, [0x2010] = {5,6,7,8}
+		0x0F, 0xC6, 0xC1, 0x4E, //                   SHUFPS xmm0, xmm1, 0x4E -> {3,4,5,6}
+		0x0F, 0x11, 0x05, 0x00, 0x30, 0x00, 0x00, // MOVUPS [0x3000], xmm0
+		0xF3, 0x0F, 0x6F, 0x15, 0x00, 0x20, 0x00, 0x00, // MOVDQU xmm2, [0x2000]
+		0xF3, 0x0F, 0x7F, 0x15, 0x10, 0x30, 0x00, 0x00, // MOVDQU [0x3010], xmm2 = {1,2,3,4}
+		0x0F, 0x6F, 0x05, 0x20, 0x20, 0x00, 0x00, // MOVQ mm0, [0x2020]
+		0x0F, 0x7F, 0x05, 0x20, 0x30, 0x00, 0x00, // MOVQ [0x3020], mm0
+		0x0F, 0x77, // EMMS
+		0xF4, // HLT
+	}
+	copy(m.b[0x1000:], code)
+	c := NewCPU(m)
+	c.Mode = ModeProt
+	c.Seg[CS], c.Seg[DS], c.Seg[ES], c.Seg[SS] = 0x08, 0x10, 0x10, 0x10
+	c.IP = 0x1000
+	c.Regs[SP] = 0x8000
+	c.Run(100000)
+	if !c.Halted {
+		t.Fatalf("shuffle/move program did not halt (EIP=%08X reason=%q)", c.IP, c.HaltReason)
+	}
+	for i, w := range []float32{3, 4, 5, 6} {
+		if got := getF32(m.b[0x3000+i*4:]); got != w {
+			t.Errorf("SHUFPS lane %d = %v, want %v", i, got, w)
+		}
+	}
+	for i, w := range []float32{1, 2, 3, 4} {
+		if got := getF32(m.b[0x3010+i*4:]); got != w {
+			t.Errorf("MOVDQU lane %d = %v, want %v", i, got, w)
+		}
+	}
+	for i := 0; i < 8; i++ {
+		if got := m.b[0x3020+i]; got != byte(0xA0+i) {
+			t.Errorf("MMX MOVQ byte %d = %02X, want %02X", i, got, 0xA0+i)
+		}
+	}
+}

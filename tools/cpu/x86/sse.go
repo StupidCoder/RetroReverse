@@ -57,6 +57,29 @@ func (c *CPU) sseRM(o ea, n int) [16]byte {
 	return b
 }
 
+// mmxRM reads an MMX r/m operand: the 64-bit MMX register, or 8 bytes from memory.
+func (c *CPU) mmxRM(o ea) [8]byte {
+	var b [8]byte
+	if o.isReg {
+		return c.MMX[o.reg&7]
+	}
+	for i := 0; i < 8; i++ {
+		b[i] = byte(c.memRead(o.base, o.off+uint32(i), 1))
+	}
+	return b
+}
+
+// mmxStoreRM writes a 64-bit MMX value to an r/m operand (register or 8 bytes of memory).
+func (c *CPU) mmxStoreRM(o ea, v [8]byte) {
+	if o.isReg {
+		c.MMX[o.reg&7] = v
+		return
+	}
+	for i := 0; i < 8; i++ {
+		c.memWrite(o.base, o.off+uint32(i), 1, uint32(v[i]))
+	}
+}
+
 // sseStoreRM writes n bytes of v to an SSE r/m operand (all 16 to a register).
 func (c *CPU) sseStoreRM(o ea, v [16]byte, n int) {
 	if o.isReg {
@@ -142,6 +165,11 @@ func (c *CPU) execSSE(op, rep byte) bool {
 			c.sseStoreRM(o, c.XMM[reg], 16)
 		}
 		return true
+	case 0x2B: // MOVNTPS/MOVNTPD: non-temporal aligned store — no cache modelled, so a
+		// plain aligned store. The XDK vertex/matrix code streams results out this way.
+		reg, o := c.modrmE()
+		c.sseStoreRM(o, c.XMM[reg], 16)
+		return true
 	case 0x12, 0x16: // MOVLPS (12) / MOVHPS (16): load 8 bytes into low/high half
 		reg, o := c.modrmE()
 		src := c.sseRM(o, 8)
@@ -188,6 +216,24 @@ func (c *CPU) execSSE(op, rep byte) bool {
 			return true
 		}
 		return false
+	case 0x77: // EMMS: leave MMX state — a no-op here (separate MMX/x87 files)
+		return true
+	case 0x6F: // MOVDQA (66) / MOVDQU (F3) xmm <- m128 ; no-prefix: MMX MOVQ mm <- mm/m64
+		reg, o := c.modrmE()
+		if k == ssePD || rep == 0xF3 {
+			c.XMM[reg] = c.sseRM(o, 16)
+		} else {
+			c.MMX[reg&7] = c.mmxRM(o)
+		}
+		return true
+	case 0x7F: // MOVDQA (66) / MOVDQU (F3) m128 <- xmm ; no-prefix: MMX MOVQ mm/m64 <- mm
+		reg, o := c.modrmE()
+		if k == ssePD || rep == 0xF3 {
+			c.sseStoreRM(o, c.XMM[reg], 16)
+		} else {
+			c.mmxStoreRM(o, c.MMX[reg&7])
+		}
+		return true
 	case 0xD6: // MOVQ r/m64 <- xmm (66 prefix)
 		if k != ssePD {
 			return false
@@ -196,6 +242,26 @@ func (c *CPU) execSSE(op, rep byte) bool {
 		var v [16]byte
 		copy(v[0:8], c.XMM[reg][0:8])
 		c.sseStoreRM(o, v, 8)
+		return true
+	case 0xC6: // SHUFPS / SHUFPD: select lanes from dest and src per imm8
+		reg, o := c.modrmE()
+		a, b := c.XMM[reg], c.sseRM(o, 16)
+		imm := byte(c.fetch8())
+		var r [16]byte
+		if k == ssePD { // SHUFPD: 2 doubleword-pair lanes (8 bytes each)
+			copy(r[0:8], a[(imm&1)*8:(imm&1)*8+8])
+			copy(r[8:16], b[((imm>>1)&1)*8:((imm>>1)&1)*8+8])
+		} else { // SHUFPS: 4 single lanes (4 bytes each); low two from dest, high two from src
+			l0 := (imm >> 0) & 3
+			l1 := (imm >> 2) & 3
+			l2 := (imm >> 4) & 3
+			l3 := (imm >> 6) & 3
+			copy(r[0:4], a[l0*4:l0*4+4])
+			copy(r[4:8], a[l1*4:l1*4+4])
+			copy(r[8:12], b[l2*4:l2*4+4])
+			copy(r[12:16], b[l3*4:l3*4+4])
+		}
+		c.XMM[reg] = r
 		return true
 	case 0x14: // UNPCKLPS/UNPCKLPD: interleave low lanes
 		reg, o := c.modrmE()

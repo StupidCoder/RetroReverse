@@ -107,8 +107,11 @@ type Machine struct {
 	tickCountAddr  uint32 // guest address of the live KeTickCount data export (0 if none)
 	systemTimeAddr uint32 // guest address of the live KeSystemTime data export (0 if none)
 
-	// NV2A MMIO (nv2a.go).
-	nv nv2a
+	// NV2A MMIO (nv2a.go), the PFIFO DMA pusher (nv2a_pfifo.go), and the graphics
+	// engine (nv2a_pgraph.go).
+	nv     nv2a
+	push   pusherState
+	pgraph *pgraph
 
 	pciAddr uint32 // last value written to the PCI config-address port 0xCF8 (ports.go)
 
@@ -121,9 +124,10 @@ type Machine struct {
 	Log         []string
 	OrdinalHits map[uint16]int  // xboxkrnl ordinal -> call count
 	dataDeref   map[uint16]bool // data-export ordinals that have been dereferenced (log-once)
-	Halted      bool
-	HaltReason  string
-	firstPush   bool // the first NV2A push-buffer kick has been observed
+	Halted        bool
+	HaltReason    string
+	firstPush     bool // the first NV2A push-buffer kick has been observed
+	pusherEnabled bool // Phase C: run the DMA pusher on each DMA_PUT write (nv2a_pfifo.go)
 
 	// Memory watches (the debugger's Watcher), same shape as the DOS host.
 	wWLo, wWHi uint32
@@ -150,6 +154,7 @@ func NewMachine(xbe *XBE, disc *Image) (*Machine, error) {
 	}
 	m.nv.reg = map[uint32]uint32{}
 	m.pciSpace = map[uint32]byte{}
+	m.pgraph = newPgraph(m)
 
 	if err := m.loadImage(); err != nil {
 		return nil, err
@@ -382,6 +387,15 @@ func (m *Machine) logf(format string, args ...interface{}) {
 
 // SetVerbose toggles live logging of kernel calls and events.
 func (m *Machine) SetVerbose(v bool) { m.verbose = v }
+
+// EnableGPU turns on the NV2A DMA pusher (Phase C): from now on a DMA_PUT write runs the
+// push-buffer parser and the graphics engine, rather than only flagging the first kick.
+// Run() then no longer stops at firstPush — it runs the title on so the pusher sees the
+// real rendering command stream.
+func (m *Machine) EnableGPU() { m.pusherEnabled = true }
+
+// PGraph exposes the NV2A graphics engine (counters, method survey, framebuffer export).
+func (m *Machine) PGraph() *pgraph { return m.pgraph }
 
 // SetTrace prints the next n executed instructions (PC + disassembly), for bring-up.
 func (m *Machine) SetTrace(n int) { m.traceLeft = n }

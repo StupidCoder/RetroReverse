@@ -186,6 +186,35 @@ func kernelObjectHandler(ord uint16) func(*Machine) int {
 			return 5
 		}
 
+	case 193: // NtCreateSemaphore(Handle*, ObjectAttributes, InitialCount, MaximumCount)
+		// Canonical xboxkrnl ordinal (the verified Nt anchors 184/187/199/202 all match the
+		// real table, so 193 is not drifted). The call site pushes 4 args with arg0 an
+		// out-handle and checks the status for STATUS_OBJECT_NAME_EXISTS — a named object.
+		// Mint a semaphore object; the HLE's wait logic (satisfyWait) reads its count.
+		return func(m *Machine) int {
+			handleOut := m.arg(0)
+			initial := int32(m.arg(2))
+			limit := int32(m.arg(3))
+			h := m.newObject("semaphore", 5, initial > 0, initial, limit)
+			if handleOut != 0 {
+				m.write32(handleOut, h)
+			}
+			m.setRet(0) // STATUS_SUCCESS
+			return 4
+		}
+
+	case 199: // NtFreeVirtualMemory(BaseAddress**, RegionSize*, FreeType) -> NTSTATUS
+		// Verified from its call site: 3 stdcall args wrapped in a lock/unlock pair, with
+		// FreeType = 0x4000 (MEM_DECOMMIT) — not a PAGE_* value, so this is free, not the
+		// 4-arg NtProtectVirtualMemory the reconstructed table names here. The Nt block's
+		// +5 drift (194 -> 199) agrees with the verified NtAllocateVirtualMemory at 184. Our
+		// allocators bump and never reclaim, so a decommit/release is a no-op success; leave
+		// the caller's base/size in place.
+		return func(m *Machine) int {
+			m.setRet(0) // STATUS_SUCCESS
+			return 3
+		}
+
 	// --- Handles (Nt) — verified: 187 is a 1-arg NtClose ------------------
 	case 187: // NtClose(Handle) -> NTSTATUS. Verified from five live call sites, each
 		// passing a single handle immediately after an open/create that returned it

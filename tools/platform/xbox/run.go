@@ -37,7 +37,7 @@ func (m *Machine) Run(maxSteps uint64) (StopReason, uint64) {
 		if m.CPU.Halted {
 			return StopHalt, n
 		}
-		if m.firstPush {
+		if m.firstPush && !m.pusherEnabled {
 			return StopFirstPush, n
 		}
 		m.CPU.Step()

@@ -123,6 +123,17 @@ type CPU struct {
 	// stores them with MOVSS. Held as raw bytes; sse.go interprets lanes as f32/f64.
 	XMM [8][16]byte
 
+	// MMX is the eight 64-bit MMX registers (mm0-mm7). Architecturally they alias the x87
+	// mantissas, but titles that use MMX bracket it with EMMS and never interleave x87, so
+	// a separate file is safe and simpler. The XDK's fast memory copy loads/stores 64 bytes
+	// at a time through mm0-mm7.
+	MMX [8][8]byte
+
+	// MXCSR is the SSE control/status word (LDMXCSR/STMXCSR). We do not act on its
+	// rounding/exception bits — every SSE op computes in Go's default mode — but the XDK
+	// CRT saves and restores it, so it must round-trip. 0x1F80 is the reset value.
+	MXCSR uint32
+
 	// transient per-instruction decode state (segment override / sizes)
 	dSeg      int // segment-override index, or -1
 	dOpsize   int // 16 or 32
@@ -133,6 +144,7 @@ type CPU struct {
 func NewCPU(bus Bus) *CPU {
 	c := &CPU{bus: bus}
 	c.FPU.finit()
+	c.MXCSR = 0x1F80 // SSE control/status reset value (all exceptions masked)
 	return c
 }
 

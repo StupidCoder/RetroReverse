@@ -520,6 +520,30 @@ func (c *CPU) exec0F(op, rep byte) {
 		return
 	}
 	switch op {
+	case 0x08, 0x09: // INVD / WBINVD — cache maintenance; no caches modelled, so no-ops.
+		// The XDK graphics init flushes the CPU cache (WBINVD) before it kicks the NV2A so
+		// the pusher sees coherent push-buffer bytes; with one flat RAM backing the flush
+		// is already a no-op for us.
+	case 0x18, 0x19, 0x1A, 0x1B, 0x1C, 0x1D, 0x1E, 0x1F:
+		// PREFETCH* (0F 18) and the reserved multi-byte NOP group (0F 19-1F, incl. the
+		// canonical long-NOP 0F 1F). All carry a ModR/M operand and have no architectural
+		// effect but consuming it; decode and discard. The XDK inserts prefetch hints
+		// throughout its vertex/matrix code.
+		c.modrmE()
+	case 0xAE: // group 15: fences / LDMXCSR / STMXCSR / CLFLUSH / FXSAVE / FXRSTOR
+		reg, o := c.modrmE()
+		switch {
+		case o.isReg:
+			// mod=11: reg 5 LFENCE, 6 MFENCE, 7 SFENCE — memory ordering barriers, and no-ops
+			// on an in-order single-core model. The XDK kickoff SFENCEs before writing PUT.
+		case reg == 2: // LDMXCSR m32
+			c.MXCSR = c.rEA(o, 4)
+		case reg == 3: // STMXCSR m32
+			c.wEA(o, 4, c.MXCSR)
+		case reg == 7: // CLFLUSH m8 — flush a cache line; no-op with flat RAM
+		default:
+			c.Halt("unimplemented 0F AE /%d (FXSAVE/FXRSTOR) at %s", reg, c.at())
+		}
 	case 0xA0:
 		c.push(c.osz(), uint32(c.Seg[FS]))
 	case 0xA1:

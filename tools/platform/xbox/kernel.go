@@ -206,6 +206,17 @@ func kernelHandler(ord uint16) func(*Machine) int {
 		return h
 	}
 	switch ord {
+	case 2: // AvSendTVEncoderOption(RegisterBase, Option, Param, Result*)
+		// Verified from its call site: 4 stdcall args; arg3 is a ULONG* the caller reads
+		// back. The XDK queries the TV-encoder/AV-pack configuration here during display
+		// setup. With no physical AV pack, report the default (0).
+		return func(m *Machine) int {
+			if p := m.arg(3); p != 0 {
+				m.write32(p, 0)
+			}
+			m.setRet(0)
+			return 4
+		}
 	case 8: // DbgPrint(format, ...) — cdecl/varargs. Stack-safe even if the low-block
 		// numbering is off, because a cdecl callee pops nothing (the caller cleans up).
 		return func(m *Machine) int {
