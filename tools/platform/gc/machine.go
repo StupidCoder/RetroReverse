@@ -82,6 +82,7 @@ type Machine struct {
 	OnDVDRead          func(discOffset int64, length uint32, memAddr uint32) // every disc read, for the FST log
 	OnDisplay          func(m *Machine)                                      // once per video field
 	OnFIFO             func(data []byte)                                     // graphics FIFO bytes, for the GPU
+	AIDTap             func(block []byte)                                    // every 32-byte audio-DMA block as it drains — the DAC's ear
 
 	StopRequested bool
 

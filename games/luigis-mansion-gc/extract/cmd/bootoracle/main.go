@@ -62,6 +62,7 @@ func main() {
 	nospin := flag.Bool("nospin", false, "do not stop on a tight loop (the OS idle/scheduler loop looks like one)")
 	fifodump := flag.String("fifodump", "", "capture the write-gather FIFO byte stream to this file")
 	texdump := flag.String("texdump", "", "decode the currently-bound texture map 0 to this PNG when the run ends")
+	aidwav := flag.String("aidwav", "", "record the audio-DMA stream (what the DAC plays) to this WAV when the run ends")
 	flag.Parse()
 
 	if *image == "" {
@@ -74,7 +75,7 @@ func main() {
 		loadDOL: *loadDOL, dvd: *dvd, lowmem: *lowmem, shot: *shot,
 		savestate: *savestate, loadstate: *loadstate, poke: *poke,
 		dis: *dis, dump: *dump, threads: *threads, files: *files, verbose: *verbose, nospin: *nospin,
-		fifodump: *fifodump, texdump: *texdump,
+		fifodump: *fifodump, texdump: *texdump, aidwav: *aidwav,
 	}); err != nil {
 		fmt.Fprintln(os.Stderr, "bootoracle:", err)
 		os.Exit(1)
@@ -94,7 +95,7 @@ type cfg struct {
 	shot, savestate, loadstate, poke     string
 	dis, dump                            string
 	threads                              bool
-	fifodump, texdump                    string
+	fifodump, texdump, aidwav            string
 }
 
 func run(c cfg) error {
@@ -154,6 +155,11 @@ func run(c cfg) error {
 	var fifoBuf []byte
 	if c.fifodump != "" {
 		m.OnFIFO = func(line []byte) { fifoBuf = append(fifoBuf, line...) }
+	}
+
+	var aidBuf []byte
+	if c.aidwav != "" {
+		m.AIDTap = func(block []byte) { aidBuf = append(aidBuf, block...) }
 	}
 
 	if c.lowmem {
@@ -222,6 +228,9 @@ func run(c cfg) error {
 		m.OnWrite = func(addr, val, pc uint32) {
 			if n < c.watchn {
 				fmt.Printf("  write 0x%08X = 0x%08X (pc 0x%08X)\n", addr, val, pc)
+				if os.Getenv("RR_GC_WATCHBT") != "" {
+					fmt.Printf("    at:\n%s", m.BacktraceString())
+				}
 				n++
 			}
 		}
@@ -301,6 +310,13 @@ func run(c cfg) error {
 	if c.shot != "" {
 		if err := writeShot(m, c.shot); err != nil {
 			fmt.Fprintln(os.Stderr, "bootoracle: -shot:", err)
+		}
+	}
+	if c.aidwav != "" {
+		if err := writeWAV(c.aidwav, aidBuf); err != nil {
+			fmt.Fprintln(os.Stderr, "bootoracle: -aidwav:", err)
+		} else {
+			fmt.Fprintf(os.Stderr, "bootoracle: wrote %d AID samples to %s\n", len(aidBuf)/4, c.aidwav)
 		}
 	}
 	if c.texdump != "" {
@@ -446,4 +462,30 @@ func parseAddrN(spec string, def int) (addr uint32, n int, err error) {
 		n = n64
 	}
 	return
+}
+
+// writeWAV writes the captured audio-DMA stream as a standard WAV. The DMA carries what the
+// DAC plays: 48 kHz stereo, 16-bit big-endian samples interleaved left/right — WAV wants them
+// little-endian, so each halfword swaps on the way out.
+func writeWAV(path string, data []byte) error {
+	const hdr = 44
+	n := len(data) &^ 1
+	buf := make([]byte, hdr+n)
+	copy(buf, "RIFF")
+	le32 := func(off int, v uint32) {
+		buf[off], buf[off+1], buf[off+2], buf[off+3] = byte(v), byte(v>>8), byte(v>>16), byte(v>>24)
+	}
+	le32(4, uint32(36+n))
+	copy(buf[8:], "WAVEfmt ")
+	le32(16, 16)
+	buf[20], buf[22] = 1, 2 // PCM, stereo
+	le32(24, 48000)
+	le32(28, 48000*4) // byte rate
+	buf[32], buf[34] = 4, 16 // block align, bits per sample
+	copy(buf[36:], "data")
+	le32(40, uint32(n))
+	for i := 0; i+1 < n; i += 2 {
+		buf[hdr+i], buf[hdr+i+1] = data[i+1], data[i] // big-endian -> little-endian
+	}
+	return os.WriteFile(path, buf, 0o644)
 }

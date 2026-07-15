@@ -451,6 +451,12 @@ func (m *Machine) tickAID() {
 	d.AIDAccum = 0
 	if d.AIDRemaining > 0 {
 		d.AIDRemaining--
+		if m.AIDTap != nil {
+			a := phys(d.AIDCur)
+			if int(a)+32 <= len(m.RAM) {
+				m.AIDTap(m.RAM[a : a+32])
+			}
+		}
 		d.AIDCur += 32
 	}
 	if d.AIDRemaining == 0 {
