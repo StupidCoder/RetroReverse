@@ -7,14 +7,26 @@
 // proven here first, on a DOS-extender game (Quake shareware) that needs no NV2A
 // and no Xbox kernel.
 //
-// Memory model. A go32 image sees a *flat* 32-bit address space: every segment
-// selector has linear base 0 and a 4 GiB limit, so a linear address is just an
-// index into one backing slice (identity mapping). The COFF sections load at
-// their own virtual addresses; the DPMI memory services hand out further linear
-// ranges from bump arenas above the image. There is no paging and no real->PM
-// mode switch here — the go32 stub already made the switch before the COFF entry,
-// and the HLE'd DPMI host presents identity-mapped memory (paging and the mode
-// switch move to the Xbox phase, where the kernel sets up PM regardless).
+// Memory model. A go32 image sees a *flat* 32-bit address space, but not an
+// identity-mapped one: under real CWSDPMI the program's segments (CS/DS/ES/SS)
+// carry a non-zero linear base `__djgpp_base_address` (B), so a program virtual
+// address v is backed at linear B+v, while physical/conventional memory — the BIOS
+// data area, the DOS transfer buffer, DPMI conventional blocks, and the VGA
+// framebuffer at 0xA0000 — lives at its *true* low linear address, below B. The
+// program reaches that low memory two ways: through a separate base-0 selector
+// (`_dos_ds`, the info block's selector_for_linear_memory) for absolute linear
+// access, or as a near pointer via `__djgpp_conventional_base` = -B, which the
+// C library adds to a physical address so that (phys + (-B)) through DS base B
+// folds back to linear phys.
+//
+// We mirror that layout exactly. The COFF sections load at B + their virtual
+// address; the segment bases are B; DPMI 0006h (Get Segment Base) hands the crt0
+// B, from which nearptr derives conventional_base = -B. Loading the program high,
+// with conventional memory and video low and distinct, is what keeps the mode-13h
+// framebuffer at 0xA0000 from aliasing the program's own .bss (which, at base 0,
+// spanned 0xA0000). There is still no paging and no real->PM mode switch — the
+// go32 stub already switched before the COFF entry — only a non-zero segment base,
+// which the Xbox phase will also use once its kernel sets up PM.
 package dos
 
 import (
@@ -24,34 +36,63 @@ import (
 	"retroreverse.com/tools/cpu/x86"
 )
 
-// Flat go32 memory layout (all linear addresses into PM.Mem):
+// go32 memory layout. Two regions of the one backing slice:
 //
-//	[0,        imgEnd)    the COFF image: .text, .data, zeroed .bss
-//	[imgEnd,   0x100000)  conventional DOS memory arena (DPMI 0100h AllocDOSMem),
-//	                      if the image ends below 1 MiB — its returned real-mode
-//	                      segment is (base>>4), so seg<<4 == base and go32's near-
-//	                      pointer transfer-buffer access lands on the same bytes.
-//	[0x100000, stackFloor) the extended-memory heap arena (DPMI 0501h AllocMem)
-//	[stackFloor, stackTop) the initial protected-mode stack (ESP starts at its top,
-//	                      grows DOWN through this region)
-//	[stackTop, MemSize)   the go32 info block, reserved at the very top
+//	LOW — physical/conventional memory, at true linear addresses [0, go32ImgBase):
+//	  [0,        0x00500)  BIOS data area (the 0040:006C timer tick lives here)
+//	  [convBase, convTop)  conventional DOS memory: the transfer buffer __tb, then
+//	                       DPMI 0100h AllocDOSMem blocks. Its real-mode segment is
+//	                       (base>>4), so seg<<4 == base; the game reaches it via the
+//	                       base-0 _dos_ds selector or a conventional_base near pointer.
+//	  [0xA0000,  0xC0000)  the VGA framebuffer window (mode-13h back-buffer target)
 //
-// The stack lives HIGH in extended memory, above the heap — as it does under real
-// CWSDPMI, where the DPMI client's stack is far above the conventional-memory
-// transfer buffer. An earlier layout put a small stack just above 1 MiB and let it
-// grow DOWN into conventional memory; a deep frame (Quake's COM_LoadPackFile reads
-// the pak directory into a 128 KiB stack buffer) then descended straight through
-// __tb at ~0xE4000, and DOS file I/O reading into __tb clobbered the frame's locals.
-// Placing the stack high, with megabytes of headroom below the info block, keeps it
-// clear of __tb and the image no matter how deep the game recurses.
+//	HIGH — the program's virtual-address space, backed at [go32ImgBase, MemSize),
+//	i.e. program VA v is at linear go32ImgBase+v (segment bases = go32ImgBase):
+//	  [B+0,       B+imgEnd)     the COFF image: .text, .data, zeroed .bss
+//	  [B+heapBase,B+stackFloor) the extended-memory heap arena (DPMI 0501h AllocMem)
+//	  [B+stackFloor,B+stackTop) the initial protected-mode stack (ESP at its top,
+//	                            grows DOWN); the crt0 soon re-points ESP at a stack
+//	                            it sbrk's just above the image (minstack bytes tall)
+//	  [MemSize-go32InfoBytes, MemSize) the go32 info block, reserved at the very top
+//
+// The VA-space quantities (imgEnd, heapBase, stackFloor, stackTop) are computed as
+// offsets and read exactly as they did in the old base-0 model — only the backing
+// is shifted up by go32ImgBase. A tall (minstack) runtime stack keeps deep frames
+// (Quake's COM_LoadPackFile reads the pak directory into a 128 KiB stack buffer)
+// from descending into the image; __tb now lives in the LOW region, unreachable
+// from the program stack no matter how deep the game recurses.
 const (
-	go32MemSize    = 64 << 20  // flat linear space (image + conv + heap + stack)
-	go32StackBytes = 8 << 20   // 8 MiB initial PM stack, high in extended memory
+	go32ImgBase    = 0x100000  // linear base of the program's VA space (__djgpp_base_address); conventional memory + video live below it
+	go32VASize     = 64 << 20  // size of the program's virtual-address space (image + heap + stack + info)
+	go32MemSize    = go32ImgBase + go32VASize // total backing: low physical region + high VA space
+	go32StackBytes = 8 << 20   // 8 MiB initial PM stack, high in the VA space
 	go32PageSize   = 0x1000
 	go32InfoBytes  = 0x4000    // reserved region at the top of memory for the go32 info block + transfer buffer
 	go32XferBytes  = 0x2000    // size of the DOS transfer buffer the info block advertises
 	go32InfoSel    = 0x0040    // fabricated selector whose base is the info block (FS at entry)
+	go32DosDS      = 0x0018    // base-0 selector the info block advertises for absolute linear/conventional access (_dos_ds)
 	go32MinStack   = 8 << 20   // stubinfo minstack: the crt0 sbrk's this many bytes for the runtime stack
+	go32ConvBase   = 0x10000   // start of the low conventional arena (below the 0xA0000 video window)
+
+	// go32BaseAddrVA is the virtual address of the DJGPP runtime's
+	// __djgpp_base_address global in the staged Quake image — the linear base of the
+	// program's data segment. DJGPP derives every conventional/physical *near
+	// pointer* from it: the C library sets __djgpp_conventional_base = -__djgpp_base_
+	// address, and a physical address `phys` becomes the near pointer phys +
+	// conventional_base = phys - base, which through the DS base (= base) folds back
+	// to linear phys. So the mode-13h framebuffer (physical 0xA0000) only reaches the
+	// low video window — instead of aliasing the program's own .bss — when this global
+	// holds the true base go32ImgBase.
+	//
+	// On real CWSDPMI the crt0 learns the base as a side effect of its real-mode
+	// memory-grow trampoline; we deliberately bypass that path (info block +0x1C is
+	// set to the whole heap so growth never switches to 16-bit mode), so the crt0
+	// leaves the global zero and every near pointer would collapse onto the program.
+	// The host therefore maintains the invariant itself (see enforceBaseAddress). The
+	// address was recovered from the image by disassembly — it is the operand of the
+	// `NEG`/store that computes __djgpp_conventional_base — not from any external
+	// source; a stripped go32 COFF carries no symbol table to look it up in.
+	go32BaseAddrVA = 0x6D6CC
 )
 
 // PM is a loaded go32/COFF program ready to run in flat 32-bit protected mode.
@@ -129,13 +170,15 @@ func LoadGo32Bytes(data []byte, gameDir string) (*PM, error) {
 		DPMICounts: map[uint16]int{},
 		IntCounts:  map[byte]int{},
 		DOSCounts:  map[byte]int{},
-		sels:       map[uint16]uint32{0x08: 0, 0x10: 0}, // flat code/data selectors, base 0 (info-block sel added below)
+		sels:       map[uint16]uint32{0x08: go32ImgBase, 0x10: go32ImgBase, go32DosDS: 0}, // program code/data at base B; _dos_ds at base 0 (info-block sel added below)
 		nextSel:    0x0100,                              // first fabricated selector (LDT-ish)
 		virtIF:     true,                                // interrupts virtually enabled at entry
 	}
 
-	// Place each section at its virtual address; .bss is left zeroed (make() did
-	// that), matching what the crt0's own REP STOSD would produce.
+	// Place each section at go32ImgBase + its virtual address; .bss is left zeroed
+	// (make() did that), matching what the crt0's own REP STOSD would produce.
+	// imgEnd stays a *virtual* address (the largest section end), read the same way
+	// the base-0 model read it — only the backing is shifted up by go32ImgBase.
 	var imgEnd uint32
 	for _, s := range coff.Sections {
 		end := s.VAddr + s.Size
@@ -145,32 +188,29 @@ func LoadGo32Bytes(data []byte, gameDir string) (*PM, error) {
 		if s.IsBSS() || s.Data == nil {
 			continue
 		}
-		if int(s.VAddr)+len(s.Data) > len(p.Mem) {
-			return nil, fmt.Errorf("go32: section %q at %#x..%#x exceeds %d MiB flat memory",
-				s.Name, s.VAddr, s.VAddr+s.Size, go32MemSize>>20)
+		if int(go32ImgBase)+int(s.VAddr)+len(s.Data) > len(p.Mem) {
+			return nil, fmt.Errorf("go32: section %q at VA %#x..%#x exceeds backing memory",
+				s.Name, s.VAddr, s.VAddr+s.Size)
 		}
-		copy(p.Mem[s.VAddr:], s.Data)
+		copy(p.Mem[go32ImgBase+s.VAddr:], s.Data)
 	}
 
-	// Conventional-memory arena: the gap between the image end and 1 MiB, if any.
-	// (Quake's image ends near 0xE3400, leaving ~112 KiB here.) The first slice of
-	// it backs the DOS transfer buffer the info block advertises.
-	p.convBase = align(imgEnd, go32PageSize)
-	p.convTop = 0x100000
-	xferLinear := uint32(0)
-	if p.convBase < p.convTop {
-		xferLinear = p.convBase
-		p.convNext = p.convBase + go32XferBytes // 0100h blocks start past the transfer buffer
-	} else {
-		p.convBase, p.convTop = 0, 0 // image fills conventional memory; 0100h will fail
-	}
+	// Conventional-memory arena: the low region below the 0xA0000 video window. The
+	// transfer buffer __tb sits at its base (segment base>>4, so seg<<4 recovers it),
+	// and DPMI 0100h blocks follow. This is genuine physical memory — the program
+	// reaches it through the base-0 _dos_ds selector or a conventional_base near
+	// pointer, both of which fold to these true low linear addresses.
+	p.convBase = go32ConvBase
+	p.convTop = 0xA0000
+	xferLinear := p.convBase
+	p.convNext = p.convBase + go32XferBytes // 0100h blocks start past the transfer buffer
 
-	// The heap grows UP from just above 1 MiB (or the image, if it overran 1 MiB); the
-	// stack lives HIGH, growing DOWN from just below the info block, with the whole gap
-	// between them for headroom. The info block is reserved at the very top of memory.
+	// The heap and stack are virtual addresses in the program's VA space; the info
+	// block is reserved at the very top of the (linear) backing, its own FS-based
+	// selector, so it can sit at a fixed high linear address independent of the base.
 	p.infoBase = uint32(len(p.Mem)) - go32InfoBytes
-	stackTop := p.infoBase
-	p.stackFloor = stackTop - go32StackBytes
+	stackTopVA := uint32(go32VASize) - go32InfoBytes // VA whose backing is just below the info block
+	p.stackFloor = stackTopVA - go32StackBytes
 	p.heapBase = align(maxu32(imgEnd, 0x100000), go32PageSize)
 	p.heapNext = p.heapBase
 	p.setupInfoBlock(xferLinear)
@@ -178,24 +218,25 @@ func LoadGo32Bytes(data []byte, gameDir string) (*PM, error) {
 
 	c := x86.NewCPU(p)
 	c.Mode = x86.ModeProt
-	// Flat selectors: all bases 0, limit 4 GiB. The selector *values* are cosmetic
-	// (a flat model resolves every segment to base 0 via SegBase), but we set the
-	// conventional 08h code / 10h data pair a go32 program expects.
+	// The program's code/data selectors carry linear base go32ImgBase (the real
+	// CWSDPMI __djgpp_base_address), so a virtual address v is fetched/loaded at
+	// linear go32ImgBase+v. We set the conventional 08h code / 10h data pair a go32
+	// program expects; their bases come from the sels map via SegResolve.
 	c.Seg[x86.CS] = 0x08
 	c.Seg[x86.DS] = 0x10
 	c.Seg[x86.ES] = 0x10
 	c.Seg[x86.SS] = 0x10
 	c.Seg[x86.GS] = 0x10
-	// SegBase already zero from the zero value; make the flat base explicit.
 	for i := range c.SegBase {
-		c.SegBase[i] = 0
+		c.SegBase[i] = go32ImgBase
 	}
-	// FS points at the go32 info block, the way the go32-v2 stub leaves it: the
-	// crt0 reads the transfer-buffer size and the memory top through FS.
+	// FS points at the go32 info block, the way the go32-v2 stub leaves it: the crt0
+	// reads the transfer-buffer size and the memory top through FS. Its base is the
+	// info block's fixed high linear address, independent of go32ImgBase.
 	c.Seg[x86.FS] = go32InfoSel
 	c.SegBase[x86.FS] = p.infoBase
 	c.IP = coff.Entry
-	c.Regs[x86.SP] = stackTop
+	c.Regs[x86.SP] = stackTopVA
 	c.IF = true
 	c.IntHook = p.handleInt
 	c.SegResolve = p.resolveSel
@@ -254,7 +295,7 @@ func (p *PM) setupInfoBlock(xferLinear uint32) {
 	p.w32(b+0x14, go32MinStack)  // minstack: the crt0 sbrk's this for the runtime stack (see below)
 	p.Write(b+0x18, 0x08)        // master_interrupt_controller_base
 	p.Write(b+0x19, 0x70)        // slave_interrupt_controller_base
-	p.Write(b+0x1A, 0x10)        // selector_for_linear_memory (flat data)
+	p.Write(b+0x1A, go32DosDS)   // selector_for_linear_memory: base-0 _dos_ds, distinct from the program's DS (base go32ImgBase)
 	p.w32(b+0x1C, p.stackFloor)  // memory top the sbrk grows toward (the heap/stack boundary)
 	p.w16(b+0x20, go32XferBytes) // stubinfo.minkeep — transfer-buffer size (__tb_size)
 	p.w16(b+0x24, uint16(xferLinear>>4)) // stubinfo.ds_segment — __tb = seg<<4
@@ -273,9 +314,10 @@ func (p *PM) setupInfoBlock(xferLinear uint32) {
 // handler, installed later, is what actually delivers keys.
 func (p *PM) setupDefaultIntVec() {
 	// Placed in the reserved info-block region (past the ~0x30-byte stubinfo), which
-	// nothing else uses. CS 0x08 has linear base 0, so the handler offset == its
-	// linear address.
-	off := p.infoBase + 0x200
+	// nothing else uses. The bytes go at their true high linear address; CS 0x08 has
+	// base go32ImgBase, so the vector's offset is that linear address minus the base,
+	// making CS_base+offset resolve back to where the bytes actually are.
+	stubLinear := p.infoBase + 0x200
 	stub := []byte{
 		0xE4, 0x60, // IN AL, 0x60      — acknowledge the keyboard controller
 		0xB0, 0x20, // MOV AL, 0x20     — non-specific EOI
@@ -284,9 +326,9 @@ func (p *PM) setupDefaultIntVec() {
 		0xCF, //       IRETD            — pop the 32-bit interrupt frame
 	}
 	for i, b := range stub {
-		p.Write(off+uint32(i), b)
+		p.Write(stubLinear+uint32(i), b)
 	}
-	p.defIntVec = pmVector{sel: 0x08, off: off, set: true}
+	p.defIntVec = pmVector{sel: 0x08, off: stubLinear - go32ImgBase, set: true}
 }
 
 const (
@@ -354,6 +396,20 @@ func (p *PM) writeDOSStructures() bool {
 	}
 	p.lolSeg, p.lolOff = uint16(lol>>4), uint16(lol&0xF)
 	return true
+}
+
+// enforceBaseAddress keeps the DJGPP __djgpp_base_address global equal to the true
+// linear base go32ImgBase. The crt0 would set it via the real-mode memory-grow
+// trampoline we bypass, so it stays zero on its own — which would make every
+// conventional/physical near pointer (the mode-13h framebuffer above all) collapse
+// onto the program's own address space. Writing go32ImgBase each step is cheap and
+// idempotent: it is the correct permanent value (the program's data segment really
+// is based there), the game never writes the global itself, and it is read only far
+// later (the __djgpp_conventional_base computation and the linear-address helpers),
+// so the invariant simply needs to hold by the time anything reads it. Written high
+// (at go32ImgBase + the global's virtual address) since the global lives in .bss.
+func (p *PM) enforceBaseAddress() {
+	p.w32(go32ImgBase+go32BaseAddrVA, go32ImgBase)
 }
 
 // --- x86.Bus (flat identity mapping, bounds-checked) ---

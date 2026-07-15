@@ -63,6 +63,11 @@ func (p *PM) KeysPending() bool { return len(p.keyEvents) > 0 }
 // an IRQ1 through the game's recorded PM INT 9 handler, retrying every step until
 // interrupts are open so a keystroke is never starved by a masked instant.
 func (p *PM) PumpInput(c *x86.CPU) {
+	// Per-step host upkeep that must run regardless of scripted input: hold the
+	// DJGPP base-address invariant the bypassed grow trampoline would otherwise set,
+	// without which conventional/physical near pointers (the framebuffer) alias the
+	// program's memory. Cheap and idempotent; see enforceBaseAddress.
+	p.enforceBaseAddress()
 	if len(p.keyEvents) == 0 {
 		return
 	}
