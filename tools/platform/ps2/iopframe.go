@@ -66,6 +66,11 @@ const (
 	iopFrameLO  = 132
 	iopFrameSR  = 136 // the status the thread runs with,
 	iopFrameEPC = 140 // and where it resumes.
+
+	// iopFrameWaitResult is where a blocking reschedule syscall keeps the pointer the waker
+	// will deposit the sleeper's result at — the +8 slot, which in a syscall frame is not a
+	// saved register but the wait-result pointer (see yield). SetEventFlag reads it there.
+	iopFrameWaitResult = 8
 )
 
 // iopFrameFresh is what THREADMAN writes into the tag slot of a frame it has just built.

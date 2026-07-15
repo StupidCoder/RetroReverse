@@ -226,6 +226,20 @@ type IOP struct {
 	trail  [iopTrailLen]uint32
 	trailN int
 
+	// The scheduler's is-running pointer, and a short history of who has changed it.
+	//
+	// [schedIsRun] is the global the reschedule predicate reads as "the thread that is
+	// running" (the word four bytes below the "ought to run" pointer the predicate's own
+	// lui/addiu forms). A whole class of scheduler bug is invisible from every angle except
+	// this one: a thread that is *executing* while this pointer names a different thread —
+	// which makes the running thread's own block operate on the wrong control block. The
+	// ring records the last few writes to it, with the instruction that made each, so a
+	// halt can show how it came to disagree with reality. Derived from schedResched when
+	// that hook is registered, so it costs nothing until the scheduler is up.
+	schedIsRun uint32
+	isRunLog   [iopIsRunLogLen]isRunWrite
+	isRunLogN  int
+
 	// Trap is an address the second processor is not expected to reach. When the PC arrives
 	// there the machine halts and prints the trail.
 	//
@@ -388,6 +402,21 @@ func (p *IOP) Write(addr uint32, v byte) {
 	switch {
 	case a < iopRAMSizeBytes:
 		p.ram[a] = v
+		// The scheduler's is-running and ought-to-run pointers, watched. The R3000A stores a
+		// word low byte first, so the high byte lands last and the word is settled when it
+		// does; record it then, with the instruction that wrote it. Both pointers are logged
+		// because a thread blocking itself is a change to ought-to-run, and a switch that does
+		// not happen is precisely ought-to-run failing to move off the running thread.
+		if p.schedIsRun != 0 {
+			switch a {
+			case p.schedIsRun + 3:
+				p.isRunLog[p.isRunLogN%iopIsRunLogLen] = isRunWrite{p.CPU.CurPC(), p.Read32(p.schedIsRun), false}
+				p.isRunLogN++
+			case p.schedIsRun + 7:
+				p.isRunLog[p.isRunLogN%iopIsRunLogLen] = isRunWrite{p.CPU.CurPC(), p.Read32(p.schedIsRun + 4), true}
+				p.isRunLogN++
+			}
+		}
 		return
 	case a >= iopSPRAMBase && a < iopSPRAMBase+iopSPRAMSize:
 		p.spr[a-iopSPRAMBase] = v
@@ -780,6 +809,16 @@ func (p *IOP) resolveTrap() {
 // set up its arguments, a branch decide, and the jump that left.
 const iopTrailLen = 24
 
+// iopIsRunLogLen is how many changes to the scheduler's is-running pointer the ring keeps.
+const iopIsRunLogLen = 40
+
+// isRunWrite is one change to a scheduler pointer: which pointer (is-running or
+// ought-to-run), its new value, and the instruction that wrote it.
+type isRunWrite struct {
+	pc, val uint32
+	ought   bool // false = is-running (schedIsRun), true = ought-to-run (schedIsRun+4)
+}
+
 // IOPTrail renders the last instructions the second processor retired, oldest first.
 //
 // It is a trail and not a backtrace, and the difference is the point: the IOP's stack has
@@ -801,7 +840,41 @@ func (p *IOP) IOPTrail() string {
 	s += fmt.Sprintf("      args $a0=%08X $a1=%08X $a2=%08X $a3=%08X\n",
 		p.CPU.Reg(4), p.CPU.Reg(5), p.CPU.Reg(6), p.CPU.Reg(7))
 	s += fmt.Sprintf("      intrEnabled=%v pending=%016X imask=%016X\n", p.intrEnabled, p.pending, p.imask)
+	s += p.isRunHistory()
 	return s
+}
+
+// isRunHistory renders the recent changes to the scheduler's is-running pointer, oldest
+// first, each with the thread it named and the instruction that set it. Empty until the
+// scheduler is up. It is what turns "a thread is running that the scheduler does not think
+// is running" from a contradiction into a sequence.
+func (p *IOP) isRunHistory() string {
+	if p.schedIsRun == 0 || p.isRunLogN == 0 {
+		return ""
+	}
+	n := iopIsRunLogLen
+	if p.isRunLogN < n {
+		n = p.isRunLogN
+	}
+	s := fmt.Sprintf("      the scheduler's is-running/ought-to-run pointers (at %08X), oldest first:\n", p.schedIsRun)
+	for i := n; i > 0; i-- {
+		w := p.isRunLog[(p.isRunLogN-i)%iopIsRunLogLen]
+		which := "is-run"
+		if w.ought {
+			which = "ought "
+		}
+		s += fmt.Sprintf("        %s = %-28s by %s\n", which, p.threadLabel(w.val), p.Sym(w.pc))
+	}
+	return s
+}
+
+// threadLabel names a thread control block by its entry point, for the is-running log — a
+// bare pointer says nothing, but "0003CFE0 (sio2man+0x3B4)" says which thread it is.
+func (p *IOP) threadLabel(tcb uint32) string {
+	if tcb == 0 {
+		return "0"
+	}
+	return fmt.Sprintf("%08X (%s)", tcb, p.Sym(p.Read32(tcb+iopTCBEntry)))
 }
 
 // iopProfileEvery is how often the profiler takes a sample, in instructions. It is a

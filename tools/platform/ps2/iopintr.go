@@ -326,7 +326,26 @@ func (p *IOP) intrSetSwitchHook() {
 func (p *IOP) intrSetReschedHook() {
 	p.schedResched = p.arg(0)
 	p.ps2.note("IOP: the scheduler's reschedule predicate is %s", p.Sym(p.schedResched))
+
+	p.deriveSchedIsRun()
 	p.setRet(0)
+}
+
+// deriveSchedIsRun works out the address of the scheduler's "is running" pointer from the
+// reschedule predicate's own code, so the is-running write log (and the thread inspector)
+// need no hardcoded address. The predicate's first two instructions form the "ought to run"
+// pointer — lui HI; addiu LO — and the predicate reads 0($v1) for ought-to-run and -4($v1)
+// for is-running, so the is-running pointer is that address minus four. Called both when
+// the hook registers on a fresh boot and after a resume, where the hook does not re-run.
+func (p *IOP) deriveSchedIsRun() {
+	if p.schedResched == 0 {
+		return
+	}
+	lui, addiu := p.Read32(p.schedResched), p.Read32(p.schedResched+4)
+	if lui>>26 == 0x0F && addiu>>26 == 0x09 {
+		g := (lui&0xFFFF)<<16 + uint32(int32(int16(uint16(addiu&0xFFFF))))
+		p.schedIsRun = g - 4
+	}
 }
 
 // intrQueryContext is QueryIntrContext(): non-zero while an interrupt handler is running.
@@ -1178,6 +1197,23 @@ func (p *IOP) yield() {
 	frame := (p.CPU.Reg(29) - iopFrameSize) &^ 7
 	p.saveFrame(frame)
 	p.Write32(frame+iopFrameSR, b2u(p.CPU.Reg(6) != 0)<<2)
+
+	// The wait-result pointer, and it is the other half of the reschedule contract.
+	//
+	// A blocking primitive that owes the sleeper a value when it wakes — WaitEventFlag,
+	// WaitSema — passes the address to deposit it at in $a0 and then blocks through the
+	// reschedule leaf. The waker looks for that address in the sleeping thread's frame at
+	// +8: SetEventFlag does `lw v1, 8(frame); if v1: sw flagbits, 0(v1); sw zero, 8(frame)`.
+	// So the syscall frame's +8 is not a saved register — it is the wait-result pointer,
+	// and it differs from the interrupt frame there. Our saveFrame writes the *interrupt*
+	// layout, which puts the caller's $v0 (= 32, the reschedule service number) in that slot,
+	// and the waker was dutifully writing the answer to address 0x20 and leaving the sleeper
+	// to read a stale word off its own stack. That is what killed the memory-card worker:
+	// woken with a result of 0x1800 left over from a previous transfer wait, it matched none
+	// of its request bits and ran off the end of its loop into ExitThread. $a0 is that
+	// pointer (0 when the caller wants nothing back, which the waker treats as "skip").
+	p.Write32(frame+iopFrameWaitResult, p.CPU.Reg(4))
+
 	p.ieEvent("yield", frame, p.CPU.Reg(6), p.CPU.Reg(31))
 
 	resume := frame

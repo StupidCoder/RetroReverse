@@ -71,6 +71,7 @@ func main() {
 	iopTrap := flag.String("ioptrap", "", "halt the IOP when it reaches ADDR (hex or symbol) and print the instructions that led there")
 	iopCalls := flag.Int("iopcalls", 0, "trace the first N calls the IOP's modules make through their import stubs — the protocol between the modules")
 	iopDump := flag.String("iopdump", "", "dump IOP memory as words at ADDR[:LEN] (hex or symbol), naming any word that points into a module")
+	iopThreads := flag.Bool("iopthreads", false, "walk THREADMAN's control blocks and report every thread's state and the PC it is parked at — the blocked-thread inspector for a deadlock")
 	iopCallsFrom := flag.String("iopcallsfrom", "", "only trace stub calls once this module has started (e.g. 989SND.IRX)")
 	var iopPokes multiFlag
 	flag.Var(&iopPokes, "ioppoke", "write ADDR:VALUE (hex) into IOP memory every time the IOP finishes booting; repeatable. Sony's modules carry their own tracing behind a verbosity word — CDVDMAN's is at 0x29F90 — and turning one on makes a stripped module narrate itself")
@@ -97,7 +98,7 @@ func main() {
 		iopOnly: *iopOnly, iopMods: *iopMods, iopDis: *iopDis,
 		iopIO: *iopIO, iopION: *iopION, iopWatch: *iopWatch, iopTrap: *iopTrap,
 		iopCalls: *iopCalls, iopCallsFrom: *iopCallsFrom, iopPokes: iopPokes,
-		iopDump: *iopDump, iopIELog: *iopIELog, goalSyms: *goalSyms, goalNames: *goalNames, eeProf: *eeProf, gsFrame: *gsFrame, vu1Micro: *vu1Micro,
+		iopDump: *iopDump, iopThreads: *iopThreads, iopIELog: *iopIELog, goalSyms: *goalSyms, goalNames: *goalNames, eeProf: *eeProf, gsFrame: *gsFrame, vu1Micro: *vu1Micro,
 		gsFBs: gsFBs,
 	}); err != nil {
 		fmt.Fprintln(os.Stderr, "bootoracle:", err)
@@ -125,6 +126,7 @@ type cfg struct {
 	iopCalls                              int
 	iopCallsFrom                          string
 	iopDump                               string
+	iopThreads                            bool
 	iopPokes                              multiFlag
 	iopIELog                              string
 	goalSyms                              string
@@ -1124,6 +1126,10 @@ func bootIOP(m *ps2.Machine, c cfg) error {
 	}
 	if census := m.IOP.IOPCensus(); census != "" {
 		fmt.Printf("\n--- %s", census)
+	}
+
+	if c.iopThreads {
+		fmt.Printf("\n--- %s", m.IOP.IOPThreads())
 	}
 
 	if dis != "" {

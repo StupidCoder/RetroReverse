@@ -261,6 +261,7 @@ func (m *Machine) LoadIOPState(s IOPState) error {
 	p.intrEnabled = s.IntrEnabled
 	p.pending = s.Pending
 	p.schedSwitch, p.schedResched = s.SchedSwitch, s.SchedResched
+	p.deriveSchedIsRun() // the is-running pointer, re-derived after a resume (the hook does not re-run)
 
 	for _, b := range s.Blocks {
 		p.blocks = append(p.blocks, iopBlock{base: b.Base, size: b.Size})
