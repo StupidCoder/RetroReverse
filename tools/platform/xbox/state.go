@@ -69,6 +69,7 @@ type XboxState struct {
 	// MCPX audio latch apertures (apu.go). The log-once bookkeeping is not state.
 	APUReg  map[uint32]uint32
 	AC97Reg map[uint32]uint32
+	USBReg  map[uint32]uint32
 
 	PCIAddr  uint32
 	PCISpace map[uint32]byte
@@ -161,8 +162,9 @@ func (m *Machine) SaveState() *XboxState {
 		NVReg: copyU32Map(m.nv.reg), NVPut: m.nv.dmaPut, NVGet: m.nv.dmaGet, NVKicked: m.nv.kicked,
 		APUReg:    copyU32Map(m.apu.reg),
 		AC97Reg:   copyU32Map(m.ac97.reg),
+		USBReg:    copyU32Map(m.usb.reg),
 		FirstPush: m.firstPush, PCIAddr: m.pciAddr, PCISpace: copyByteMap(m.pciSpace),
-		PoolSizes: copyU32Map(m.poolSizes),
+		PoolSizes:   copyU32Map(m.poolSizes),
 		OrdinalHits: copyOrdMap(m.OrdinalHits),
 		NextTID:     m.nextTID, RRCursor: m.rrCursor, QuantumLeft: m.quantumLeft,
 		CurThread: curIdx,
@@ -212,6 +214,7 @@ func (m *Machine) LoadState(st *XboxState) error {
 	m.nv.dmaPut, m.nv.dmaGet, m.nv.kicked = st.NVPut, st.NVGet, st.NVKicked
 	m.apu.reg = copyU32Map(st.APUReg)
 	m.ac97.reg = copyU32Map(st.AC97Reg)
+	m.usb.reg = copyU32Map(st.USBReg)
 	m.firstPush, m.pciAddr = st.FirstPush, st.PCIAddr
 	m.pciSpace = copyByteMap(st.PCISpace)
 	m.poolSizes = copyU32Map(st.PoolSizes)

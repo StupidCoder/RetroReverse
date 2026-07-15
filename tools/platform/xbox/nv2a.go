@@ -29,7 +29,7 @@ const (
 
 	// PFIFO CACHE1 DMA engine. These are the REAL NV2A offsets (envytools/nouveau):
 	// 0x3220 is DMA_PUSH (enable), NOT the put pointer — an earlier stub mislabelled it.
-	nvPFIFO_RUNOUT   = 0x002400 // RUNOUT_STATUS: bit4 LOW_MARK (empty)
+	nvPFIFO_RUNOUT    = 0x002400 // RUNOUT_STATUS: bit4 LOW_MARK (empty)
 	nvPFIFO_C1_STATUS = 0x003214 // CACHE1_STATUS: bit4 LOW_MARK (empty), bit8 HIGH_MARK (full)
 	nvPFIFO_DMA_PUSH  = 0x003220 // CACHE1_DMA_PUSH: bit0 enables the pusher
 	nvPFIFO_DMA_PUT   = 0x003240 // CACHE1_DMA_PUT: the push-buffer write pointer

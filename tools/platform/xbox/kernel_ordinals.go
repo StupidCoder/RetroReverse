@@ -34,6 +34,7 @@ var verifiedNames = map[uint16]string{
 	44:  "HalGetInterruptVector",           // f(busLevel, &irql) -> vector (Hal block drifts +2)
 	46:  "HalReadWritePCISpace",            // f(bus, slot, reg, buf, len, write)
 	47:  "HalRegisterShutdownNotification", // f(&HAL_SHUTDOWN_REGISTRATION, TRUE), returns
+	65:  "IoCreateDevice",                  // 6 args; MU-probe site 0x23F705 (Io block drifts +2)
 	98:  "KeConnectInterrupt",              // f(KINTERRUPT) -> BOOLEAN
 	107: "KeInitializeDpc",                 // f(KDPC, routine, context)
 	109: "KeInitializeInterrupt",           // f(kint, routine, ctx, vector, irql, mode, share)
@@ -43,6 +44,7 @@ var verifiedNames = map[uint16]string{
 	166: "MmAllocateContiguousMemoryEx",    // f(bytes, lowAddr, highAddr, align, protect) -> base
 	168: "MmClaimGpuInstanceMemory",        // f(bytes, &padding) -> end of retained GPU block
 	173: "MmGetPhysicalAddress",            // f(va) -> pa (stored next to the va by DSOUND)
+	175: "MmLockUnlockBufferPages",         // f(base, bytes, unlock); lock-before-DMA no-op
 	180: "MmQueryAllocationSize",           // f(block) -> SIZE_T (result summed into a global)
 	182: "MmSetAddressProtect",             // f(base, bytes, newProtect); void (no-op here)
 	184: "NtAllocateVirtualMemory",         // f(base**, zerobits, size*, type, protect)
@@ -56,11 +58,17 @@ var verifiedNames = map[uint16]string{
 	151: "KeStallExecutionProcessor",       // f(microseconds); 1 arg, spun in the APU bring-up's
 	// timeout loop (call sites 0x1DE566 PUSH 1 / 0x1DE58B PUSH 0x29B, result ignored) —
 	// the Ke block's +5 drift (107/113/149/160/161 all +5) lands table-146 here.
-	160: "KfRaiseIrql", // fastcall(CL=newIrql) -> oldIrql (was mis-guessed as Mm)
-	161: "KfLowerIrql", // fastcall(CL=newIrql) -> void
-	193: "NtCreateSemaphore",               // f(handle*, objattr, initial, max)
-	222: "NtReleaseSemaphore",              // f(handle, releaseCount, prev*) -> NTSTATUS
-	234: "NtWaitForSingleObjectEx",         // f(handle, waitMode, alertable, timeout*) -> NTSTATUS
+	160: "KfRaiseIrql",                  // fastcall(CL=newIrql) -> oldIrql (was mis-guessed as Mm)
+	161: "KfLowerIrql",                  // fastcall(CL=newIrql) -> void
+	190: "NtCreateFile",                 // 9 args; XAPI CreateFile wrapper site 0x43D08
+	193: "NtCreateSemaphore",            // f(handle*, objattr, initial, max)
+	211: "NtQueryInformationFile",       // 5 args, class 0x22 (site 0x445F6)
+	219: "NtReadFile",                   // 8 args, OVERLAPPED shape (site 0x440C1)
+	222: "NtReleaseSemaphore",           // f(handle, releaseCount, prev*) -> NTSTATUS
+	224: "NtResumeThread",               // f(handle, prevCount*); pair w/ 231 (site 0x44F56)
+	226: "NtSetInformationFile",         // 5 args, class 0xE seek (site 0x44378)
+	231: "NtSuspendThread",              // f(handle, prevCount*); pair w/ 224 (site 0x44F30)
+	234: "NtWaitForSingleObjectEx",      // f(handle, waitMode, alertable, timeout*) -> NTSTATUS
 	187: "NtClose",                      // f(handle) -> NTSTATUS (Nt block drifts +5)
 	255: "PsCreateSystemThreadEx",       // the CRT's 10-arg main-thread spawn
 	277: "RtlEnterCriticalSection",      // census-anchored

@@ -106,11 +106,125 @@ func kernelObjectHandler(ord uint16) func(*Machine) int {
 			m.openFile(m.arg(0), m.arg(2), m.arg(3))
 			return 6
 		}
-	case 203: // NtReadFile(FileHandle, Event, ApcRoutine, ApcContext, IoStatusBlock,
-		// Buffer, Length, ByteOffset*) — provisional pending its own call-site check.
+	case 190: // NtCreateFile(FileHandle*, DesiredAccess, ObjectAttributes, IoStatusBlock,
+		// AllocationSize*, FileAttributes, ShareAccess, CreateDisposition, CreateOptions)
+		// -> NTSTATUS. Verified from its call site (0x43D08): nine pushes ending in the
+		// out-handle, an access mask OR'd with SYNCHRONIZE|0x80, the OBJECT_ATTRIBUTES and
+		// IOSB locals, and the caller comparing the status against 0xC0000035
+		// (STATUS_OBJECT_NAME_COLLISION) — XAPI's CreateFile wrapper; table-185 + the Nt
+		// block's +5 drift = 190. Disc paths open read-only through the XISO; anything
+		// else (HDD cache/save partitions) reports STATUS_OBJECT_NAME_NOT_FOUND, as a
+		// freshly-formatted console with no title data would.
+		return func(m *Machine) int {
+			m.openFile(m.arg(0), m.arg(2), m.arg(3))
+			return 9
+		}
+
+	case 219: // NtReadFile(FileHandle, Event, ApcRoutine, ApcContext, IoStatusBlock,
+		// Buffer, Length, ByteOffset*) — verified from its call site (0x440C1): eight args
+		// in the OVERLAPPED shape (the caller pre-stores STATUS_PENDING 0x103 into the
+		// IOSB's Internal field and passes the same block as ApcContext and IoStatusBlock,
+		// Win32 ReadFile-over-lapped style), buffer 0x6B4430, length 0x10000, an explicit
+		// ByteOffset pointer; table-214 + the Nt block's +5 drift = 219. The old provisional
+		// binding of this function at ordinal 203 (never called — confirmed by the ordinal
+		// histogram) is removed; 203 stays a halting frontier until a live site names it.
 		return func(m *Machine) int {
 			m.readFile(m.arg(0), m.arg(4), m.arg(5), m.arg(6), m.arg(7))
 			return 8
+		}
+
+	case 226: // NtSetInformationFile(FileHandle, IoStatusBlock, FileInformation, Length,
+		// FileInformationClass) -> NTSTATUS. Verified from its call site (0x44378): the
+		// same five-arg shape as NtQueryInformationFile but writing — a file handle from
+		// the CreateFile wrapper, two locals, length 8, class 0xE (FilePositionInformation,
+		// an 8-byte LARGE_INTEGER) — the XAPI SetFilePointer path; table-221 + the Nt
+		// block's +5 drift = 226. Only the position class is modelled; others halt.
+		return func(m *Machine) int {
+			h, iosb, buf, ln, class := m.arg(0), m.arg(1), m.arg(2), m.arg(3), m.arg(4)
+			fo := m.files[h]
+			if fo == nil {
+				m.finishOpen(iosb, h, 0, 0xC0000008) // STATUS_INVALID_HANDLE
+				return 5
+			}
+			if class != 0xE || ln < 8 {
+				m.CPU.Halt("NtSetInformationFile: unmodelled class %d (len %d) from %08X",
+					class, ln, m.retAddr())
+				return 5
+			}
+			fo.off = m.read32(buf) // low dword; disc files stay under 4 GB
+			m.finishOpen(iosb, h, 0, 0)
+			return 5
+		}
+
+	case 224, 231: // NtResumeThread / NtSuspendThread (ThreadHandle, PreviousSuspendCount*).
+		// Verified as a pair from twin 2-arg wrappers at 0x44F30/0x44F56 — each passes a
+		// handle plus an out-count and maps failure to -1; slots 0x248370/0x248374 hold
+		// 231/224, landing exactly on table 226/219 (NtSuspendThread/NtResumeThread) with
+		// the Nt block's +5 drift. XAPI's create-suspended → resume pattern. The model has
+		// no nested suspend count: suspended is tsWaiting, prev reports 1/0.
+		ord := ord
+		return func(m *Machine) int {
+			h, prevOut := m.arg(0), m.arg(1)
+			o := m.objects[h]
+			if o == nil || o.thread == nil {
+				m.setRet(0xC0000008) // STATUS_INVALID_HANDLE
+				return 2
+			}
+			t := o.thread
+			prev := uint32(0)
+			if t.state == tsWaiting {
+				prev = 1
+			}
+			if ord == 224 { // resume
+				if t.state == tsWaiting {
+					t.state = tsReady
+				}
+			} else { // suspend
+				if t.state == tsReady || t.state == tsRunning {
+					t.state = tsWaiting
+					if t == m.current {
+						m.reschedule = true // parks after the trap return
+					}
+				}
+			}
+			if prevOut != 0 {
+				m.write32(prevOut, prev)
+			}
+			m.setRet(0)
+			return 2
+		}
+
+	case 211: // NtQueryInformationFile(FileHandle, IoStatusBlock, FileInformation, Length,
+		// FileInformationClass) -> NTSTATUS. Verified from its call site (0x445F6): five
+		// args — a handle, two stack locals, length 0x38 and class 0x22
+		// (FileNetworkOpenInformation, whose fixed size is exactly 0x38) — right after the
+		// XAPI CreateFile wrapper; table-206 + the Nt block's +5 drift = 211. Times are 0
+		// (the XISO carries none we have decoded), sizes are the disc entry's; any other
+		// class halts and names itself.
+		return func(m *Machine) int {
+			h, iosb, buf, ln, class := m.arg(0), m.arg(1), m.arg(2), m.arg(3), m.arg(4)
+			fo := m.files[h]
+			if fo == nil {
+				m.finishOpen(iosb, h, 0, 0xC0000008) // STATUS_INVALID_HANDLE
+				return 5
+			}
+			if class != 0x22 || ln < 0x38 {
+				m.CPU.Halt("NtQueryInformationFile: unmodelled class %d (len %d) from %08X",
+					class, ln, m.retAddr())
+				return 5
+			}
+			for i := uint32(0); i < 0x38; i += 4 {
+				m.write32(buf+i, 0)
+			}
+			m.write32(buf+0x20, fo.entry.Size) // AllocationSize (low; high already 0)
+			m.write32(buf+0x28, fo.entry.Size) // EndOfFile
+			attrs := uint32(0x01 | 0x80)       // READONLY|NORMAL (a DVD file)
+			if fo.entry.IsDir {
+				attrs = 0x11 // READONLY|DIRECTORY
+			}
+			m.write32(buf+0x30, attrs)
+			m.finishOpen(iosb, h, 0x38, 0)
+			return 5
 		}
 
 	// --- Memory (Mm) — verified: 165 is a 1-arg allocation (the Mm block drifts +5) --
@@ -157,6 +271,42 @@ func kernelObjectHandler(ord uint16) func(*Machine) int {
 			return 2
 		}
 
+	case 65: // IoCreateDevice(DriverObject, DeviceExtensionSize, DeviceName(ANSI_STRING*),
+		// DeviceType, Exclusive, DeviceObject**) -> NTSTATUS. Verified from its call site
+		// (0x23F705): six args (obj 0x23F458 is a DRIVER_OBJECT with dispatch pointers at
+		// +0x10/+0x14, ext size 0x170, the "\Device\MU_n" name, type 0x3A, FALSE, &local);
+		// the caller reads the new device's +0x18 as the DeviceExtension pointer and zeroes
+		// exactly DeviceExtensionSize bytes there — table-63 with the Io block's +2 drift
+		// (the same +2 as Hal). XAPI creates one device object per memory-unit port; the
+		// objects are bookkeeping (no MU media ever mounts here). Layout: a 0x40-byte
+		// header with Type/Size and the extension pointer, the extension right behind it.
+		return func(m *Machine) int {
+			extSize := m.arg(1)
+			out := m.arg(5)
+			const hdr = 0x40
+			dev := m.allocPool(hdr + extSize)
+			if dev == 0 {
+				m.setRet(0xC000009A) // STATUS_INSUFFICIENT_RESOURCES
+				return 6
+			}
+			for i := uint32(0); i < hdr+extSize; i += 4 {
+				m.write32(dev+i, 0)
+			}
+			m.write16(dev+0, 3)          // Type = IO_TYPE_DEVICE
+			m.write16(dev+2, hdr)        // Size
+			m.write32(dev+0x18, dev+hdr) // DeviceExtension
+			if out != 0 {
+				m.write32(out, dev)
+			}
+			name := ""
+			if ns := m.arg(2); ns != 0 {
+				name = m.cstr(m.read32(ns + 4))
+			}
+			m.logf("IoCreateDevice: %q type %02X ext %d -> %08X", name, m.arg(3), extSize, dev)
+			m.setRet(0)
+			return 6
+		}
+
 	case 173: // MmGetPhysicalAddress(BaseAddress) -> physical address. Verified from its
 		// live call site (0x1DE100): one argument — the pointer the preceding contiguous
 		// allocation returned — with the result stored alongside that pointer
@@ -174,6 +324,14 @@ func kernelObjectHandler(ord uint16) func(*Machine) int {
 			m.setRet(phys)
 			return 1
 		}
+
+	case 175: // MmLockUnlockBufferPages(BaseAddress, NumberOfBytes, UnlockPages) — verified
+		// from its call site (0x2401F1): three args (a fresh page-rounded allocation, its
+		// size, FALSE), immediately followed by MmGetPhysicalAddress on the same base with
+		// the virt-phys delta stored to a global — the canonical lock-before-DMA sequence;
+		// table-170 + the Mm block's +5 drift = 175. Our flat RAM has no paging to lock:
+		// success no-op, result unread by the caller.
+		return func(m *Machine) int { m.setRet(0); return 3 }
 
 	case 180: // MmQueryAllocationSize(BaseAddress) -> SIZE_T. Verified from its live call
 		// site (0x1D6ADF): the single argument is the pointer the immediately preceding

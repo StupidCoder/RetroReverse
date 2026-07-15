@@ -114,9 +114,10 @@ type Machine struct {
 	push   pusherState
 	pgraph *pgraph
 
-	// MCPX audio MMIO (apu.go): the APU's and the AC'97 codec's latch-model apertures.
+	// MCPX device MMIO (apu.go): the APU's, AC'97 codec's, and USB OHCI's latch apertures.
 	apu  mmioLatch
 	ac97 mmioLatch
+	usb  mmioLatch
 
 	pciAddr uint32 // last value written to the PCI config-address port 0xCF8 (ports.go)
 
@@ -126,9 +127,9 @@ type Machine struct {
 	pciSpace map[uint32]byte
 
 	// Instrumentation.
-	Log         []string
-	OrdinalHits map[uint16]int  // xboxkrnl ordinal -> call count
-	dataDeref   map[uint16]bool // data-export ordinals that have been dereferenced (log-once)
+	Log           []string
+	OrdinalHits   map[uint16]int  // xboxkrnl ordinal -> call count
+	dataDeref     map[uint16]bool // data-export ordinals that have been dereferenced (log-once)
 	Halted        bool
 	HaltReason    string
 	firstPush     bool // the first NV2A push-buffer kick has been observed
@@ -161,6 +162,7 @@ func NewMachine(xbe *XBE, disc *Image) (*Machine, error) {
 	m.nv.reg = map[uint32]uint32{}
 	m.apu = newMMIOLatch("APU")
 	m.ac97 = newMMIOLatch("AC97")
+	m.usb = newMMIOLatch("USB")
 	m.pciSpace = map[uint32]byte{}
 	m.pgraph = newPgraph(m)
 
@@ -305,6 +307,9 @@ func (m *Machine) Read(a uint32) byte {
 	if a >= ac97Base && a < ac97Top {
 		return m.ac97Read(a - ac97Base)
 	}
+	if a >= usbBase && a < usbTop {
+		return m.usbRead(a - usbBase)
+	}
 	phys, mmio, ok := m.translate(a)
 	if !ok {
 		m.fault("read", a)
@@ -330,6 +335,10 @@ func (m *Machine) Write(a uint32, v byte) {
 	}
 	if a >= ac97Base && a < ac97Top {
 		m.ac97Write(a-ac97Base, v)
+		return
+	}
+	if a >= usbBase && a < usbTop {
+		m.usbWrite(a-usbBase, v)
 		return
 	}
 	phys, mmio, ok := m.translate(a)

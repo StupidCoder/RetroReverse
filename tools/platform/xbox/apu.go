@@ -48,6 +48,21 @@ const (
 	ac97Size = 0x1000     // 4 KB
 	ac97Top  = ac97Base + ac97Size
 
+	usbBase = 0xFED00000 // the MCPX USB OHCI host controller (the game-pad ports)
+	usbSize = 0x1000     // one OHCI register file
+	usbTop  = usbBase + usbSize
+
+	// OHCI operational registers with answers beyond the latch (generic OHCI spec —
+	// platform knowledge, like the AC'97 semaphore): HcRevision reads 1.0, and
+	// HcCommandStatus reads 0 — every self-clearing command bit (HCR reset, list
+	// fills, OCR) has already completed in a synchronous model. XAPI's controller
+	// stack (call site 0x2403B8) checks HcControl's InterruptRouting bit and HCFS
+	// state, both satisfied by the latch's zero default (USBReset state, no SMM
+	// ownership). No devices ever appear on the root hub — no pads yet; input is a
+	// later phase, exactly like the GameCube SI.
+	usbHcRevision      = 0x00
+	usbHcCommandStatus = 0x08
+
 	// The progressing DSP counter the bring-up polls (see the file comment).
 	apuHandshake    = 0x20010
 	apuCounterShift = 10 // counter = tick >> 10
@@ -108,3 +123,17 @@ func (m *Machine) ac97Read(off uint32) byte {
 	return m.latchRead(&m.ac97, off, dw, written)
 }
 func (m *Machine) ac97Write(off uint32, v byte) { m.latchWrite(&m.ac97, off, v) }
+
+// usbRead / usbWrite are the USB OHCI host controller: a latch with the two
+// spec-mandated answers above.
+func (m *Machine) usbRead(off uint32) byte {
+	dw, written := m.usb.reg[off>>2]
+	switch off &^ 3 {
+	case usbHcRevision:
+		dw, written = 0x10, true // OHCI 1.0
+	case usbHcCommandStatus:
+		dw, written = 0, true // all self-clearing command bits already done
+	}
+	return m.latchRead(&m.usb, off, dw, written)
+}
+func (m *Machine) usbWrite(off uint32, v byte) { m.latchWrite(&m.usb, off, v) }
