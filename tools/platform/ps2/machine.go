@@ -84,6 +84,10 @@ type Machine struct {
 	// name an address instead of printing a number.
 	exe *Executable
 
+	// extraSyms names runtime-linked code the ELF's table cannot — the GOAL
+	// engine's own functions, fed in by the harness (AddSymbols).
+	extraSyms []Symbol
+
 	// The mounted disc.
 	vol *iso9660.Volume
 
@@ -745,7 +749,27 @@ func (m *Machine) Sym(addr uint32) string {
 			return fmt.Sprintf("%s+0x%X", name, off)
 		}
 	}
+	if len(m.extraSyms) > 0 {
+		i := sort.Search(len(m.extraSyms), func(i int) bool { return m.extraSyms[i].Addr > addr }) - 1
+		// GOAL functions carry no size, so a name covers up to the next named address,
+		// capped: a hit 16 KiB past the nearest name is not a hit.
+		if i >= 0 && addr-m.extraSyms[i].Addr < 0x4000 {
+			s := m.extraSyms[i]
+			if s.Addr == addr {
+				return s.Name
+			}
+			return fmt.Sprintf("%s+0x%X", s.Name, addr-s.Addr)
+		}
+	}
 	return fmt.Sprintf("0x%08X", addr)
+}
+
+// AddSymbols teaches the machine extra names — the GOAL engine's runtime-linked
+// functions, recovered from its own symbol table — so every instrument that prints
+// a PC can name engine code the boot ELF's table cannot cover.
+func (m *Machine) AddSymbols(syms []Symbol) {
+	m.extraSyms = append(m.extraSyms, syms...)
+	sort.Slice(m.extraSyms, func(i, j int) bool { return m.extraSyms[i].Addr < m.extraSyms[j].Addr })
 }
 
 // Registers renders the CPU's general registers, for a breakpoint dump.

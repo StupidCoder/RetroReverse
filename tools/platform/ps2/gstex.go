@@ -319,9 +319,17 @@ func (gs *GS) clutLoad(t gsTex) {
 		return // not an index format; nothing to load
 	}
 	base := t.csa * 16
-	gs.count(sprintf("clut load cld=%d cbp=0x%05X cpsm=0x%02X csa=%d for psm 0x%02X",
-		t.cld, t.cbp*64, t.cpsm, t.csa, t.psm))
 	defer func() {
+		// Count the entries that carry colour: a CLUT that loads mostly zeros makes
+		// every glyph sample black, and no dump of the first eight entries shows it.
+		nz := uint32(0)
+		for i := uint32(0); i < n && base+i < uint32(len(gs.clut)); i++ {
+			if gs.clut[base+i]&0xFFFFFF != 0 {
+				nz++
+			}
+		}
+		gs.count(sprintf("clut load cld=%d cbp=0x%05X cpsm=0x%02X csa=%d for psm 0x%02X rgb-nonzero %d/%d",
+			t.cld, t.cbp*64, t.cpsm, t.csa, t.psm, nz, n))
 		// The first few entries, once per CLUT: black output with a loaded CLUT is
 		// either an empty table or a wrong read, and this line says which.
 		gs.m.note("GS: clut at 0x%05X loads %08X %08X %08X %08X %08X %08X %08X %08X",
@@ -514,7 +522,17 @@ func (s *gsSampler) at(u, v int32) uint32 {
 	case psmT8:
 		a := addrPSMT8(t.tbp, t.tbw, x, y)
 		if a < uint32(len(gs.vram)) {
-			return gs.clutEntry(t, uint32(gs.vram[a]))
+			idx := uint32(gs.vram[a])
+			entry := gs.clutEntry(t, idx)
+			// The first few resolved samples, once: a texture whose CLUT is loaded
+			// and coloured but whose samples come back black is indexing the wrong
+			// entries, and this line shows the index and where it landed.
+			if entry&0xFFFFFF == 0 && gs.t8Dumped < 16 {
+				gs.t8Dumped++
+				gs.m.note("GS: T8 sample tbp 0x%05X (%d,%d) -> idx %d entry %08X (csa %d)",
+					t.tbp*64, x, y, idx, entry, t.csa)
+			}
+			return entry
 		}
 	case psmT4:
 		a, nib := addrPSMT4(t.tbp, t.tbw, x, y)

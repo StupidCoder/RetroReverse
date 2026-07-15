@@ -20,6 +20,7 @@ import (
 	"image"
 	"image/png"
 	"os"
+	"sort"
 	"strconv"
 	"strings"
 
@@ -56,7 +57,10 @@ func main() {
 	poke := flag.String("poke", "", "write ADDR:VALUE (hex) after loading, before running")
 	dis := flag.String("dis", "", "disassemble ADDR[:N] and exit (hex)")
 	dump := flag.String("dump", "", "hex-dump ADDR:LEN and exit (hex)")
+	scan := flag.String("scan", "", "scan EE memory for 32-bit WORD[:MASK] (hex) and name every hit — finds every instruction that references a GOAL symbol cell")
+	goalPS := flag.String("goalps", "", "walk a GOAL process tree from ROOT (hex or symbol, e.g. *active-pool*) and print every process — the walk search-process-tree performs, done from outside")
 	files := flag.Bool("files", false, "list the disc's files and exit")
+	syms := flag.Bool("syms", false, "list the boot ELF's symbols (addr size F name) and exit — the map of the engine's named C surface")
 	verbose := flag.Bool("v", false, "log every kernel call as it happens")
 	iopOnly := flag.Bool("iop", false, "boot the IOP alone, load its modules, and report — the second processor's bring-up harness")
 	iopMods := flag.String("iopmods", "", "extra IRX modules to load after the kernel, comma-separated (e.g. SIO2MAN,PADMAN,OVERLORD)")
@@ -71,6 +75,9 @@ func main() {
 	var iopPokes multiFlag
 	flag.Var(&iopPokes, "ioppoke", "write ADDR:VALUE (hex) into IOP memory every time the IOP finishes booting; repeatable. Sony's modules carry their own tracing behind a verbosity word — CDVDMAN's is at 0x29F90 — and turning one on makes a stripped module narrate itself")
 	iopIELog := flag.String("iopielog", "", "log every IOP interrupt-enable event (suspend/resume/deliver/frame save+load) to FILE — the instrument for an enable bit lost across a thread switch")
+	goalSyms := flag.String("goalsyms", "", "write the GOAL symbol table (name, address, value) to FILE at the end of the run — the runtime-linked engine's own names, read the way find_symbol_from_c reads them")
+	eeProf := flag.Int("eeprof", 0, "sample the EE's PC every N steps and report where the time goes, by symbol (use with -goalnames to see engine code) — the only thing that tells an engine idling from an engine working")
+	goalNames := flag.String("goalnames", "", "read a -goalsyms dump back in, so -dis/-bp/-logpc and every trace can name GOAL engine code (symbol values that point into RAM become function names)")
 	gsFrame := flag.String("gsframe", "", "write the frame the GS would be scanning out (the DISPFB rectangle, deswizzled) to FILE.png at the end of the run")
 	vu1Micro := flag.String("vu1micro", "", "write VU1's program memory (as the VIF filled it) to FILE at the end of the run — the input for sizing up the vector unit")
 	var gsFBs multiFlag
@@ -86,11 +93,11 @@ func main() {
 		trace: *trace, tracen: *tracen, tracefrom: *tracefrom,
 		bps: bps, logpcs: logpcs, watches: watches, rwatches: rwatches, watchn: *watchn,
 		savestate: *savestate, loadstate: *loadstate, poke: *poke,
-		dis: *dis, dump: *dump, files: *files, verbose: *verbose,
+		dis: *dis, dump: *dump, scan: *scan, goalPS: *goalPS, files: *files, syms: *syms, verbose: *verbose,
 		iopOnly: *iopOnly, iopMods: *iopMods, iopDis: *iopDis,
 		iopIO: *iopIO, iopION: *iopION, iopWatch: *iopWatch, iopTrap: *iopTrap,
 		iopCalls: *iopCalls, iopCallsFrom: *iopCallsFrom, iopPokes: iopPokes,
-		iopDump: *iopDump, iopIELog: *iopIELog, gsFrame: *gsFrame, vu1Micro: *vu1Micro,
+		iopDump: *iopDump, iopIELog: *iopIELog, goalSyms: *goalSyms, goalNames: *goalNames, eeProf: *eeProf, gsFrame: *gsFrame, vu1Micro: *vu1Micro,
 		gsFBs: gsFBs,
 	}); err != nil {
 		fmt.Fprintln(os.Stderr, "bootoracle:", err)
@@ -106,7 +113,9 @@ type cfg struct {
 	bps, logpcs, watches, rwatches        multiFlag
 	watchn                                int
 	savestate, loadstate, poke, dis, dump string
-	files, verbose                        bool
+	scan                                  string
+	goalPS                                string
+	files, syms, verbose                  bool
 	iopOnly                               bool
 	iopMods, iopDis                       string
 	iopIO                                 bool
@@ -118,6 +127,9 @@ type cfg struct {
 	iopDump                               string
 	iopPokes                              multiFlag
 	iopIELog                              string
+	goalSyms                              string
+	goalNames                             string
+	eeProf                                int
 	gsFrame                               string
 	vu1Micro                              string
 	gsFBs                                 multiFlag
@@ -140,6 +152,81 @@ func parseCount(s string) (uint64, error) {
 	return strconv.ParseUint(s, 10, 64)
 }
 
+// goalName maps a GOAL symbol name to the address its value held in the -goalnames
+// dump, so -bp/-logpc/-dis can be set on "display-loop" rather than a number.
+var goalName = map[string]uint32{}
+
+// loadGoalNames reads a -goalsyms dump back in: symbol values that point into RAM
+// become names for the machine's Sym, and entries for parseAddr. The dump line is
+// "CELLADDR OFFSET VALUE name"; the value is what names code, the cell is not code.
+func loadGoalNames(m *ps2.Machine, path string) error {
+	f, err := os.Open(path)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+	var syms []ps2.Symbol
+	sc := bufio.NewScanner(f)
+	for sc.Scan() {
+		fields := strings.Fields(sc.Text())
+		if len(fields) != 4 {
+			continue
+		}
+		v, err := strconv.ParseUint(fields[2], 16, 32)
+		if err != nil {
+			continue
+		}
+		val := uint32(v)
+		name := fields[3]
+		if off, err := strconv.ParseInt(fields[1], 10, 32); err == nil {
+			goalCell[int32(off)] = name
+		}
+		// Only values that can be code name addresses: the GOAL heaps live above
+		// the C kernel. Small ints, #f/#t (symbol addresses) and zeros do not.
+		if val < 0x100000 || val >= 0x02000000 {
+			continue
+		}
+		syms = append(syms, ps2.Symbol{Name: name, Addr: val, Func: true})
+		if _, dup := goalName[name]; !dup {
+			goalName[name] = val
+		}
+	}
+	m.AddSymbols(syms)
+	fmt.Fprintf(os.Stderr, "goalnames: %d named addresses from %s\n", len(syms), path)
+	return sc.Err()
+}
+
+// goalCell maps a GOAL symbol-table offset (from $s7) to its name, for annotating
+// the `lw $v1, -17128($s7)` idiom GOAL compiles every symbol reference into.
+var goalCell = map[int32]string{}
+
+// goalRefNote annotates a disassembled instruction that references OFFSET($s7)
+// with the GOAL symbol that offset is — the difference between reading engine
+// code and reading numbers.
+func goalRefNote(m *ps2.Machine, a uint32) string {
+	if len(goalCell) == 0 {
+		return ""
+	}
+	w := m.Fetch32(a)
+	op := w >> 26
+	// The loads and stores GOAL uses on symbol cells (lw/lwu/sw/ld/sd/lq/sq and
+	// daddiu for taking a symbol's address), base register $s7 (23).
+	base := (w >> 21) & 31
+	if base != 23 {
+		return ""
+	}
+	switch op {
+	case 0x23, 0x27, 0x2B, 0x37, 0x3F, 0x1E, 0x1F, 0x19, 0x09: // lw lwu sw ld sd lq sq daddiu addiu
+	default:
+		return ""
+	}
+	off := int32(int16(w))
+	if name, ok := goalCell[off]; ok {
+		return "    ; " + name
+	}
+	return ""
+}
+
 // parseAddr accepts a hex address or a symbol name from the executable, so a
 // breakpoint can be set on "KernelCheckAndDispatch__Fv" rather than on a number
 // looked up by hand.
@@ -153,6 +240,9 @@ func parseAddr(m *ps2.Machine, s string) (uint32, error) {
 				return sym.Addr, nil
 			}
 		}
+	}
+	if a, ok := goalName[s]; ok {
+		return a, nil
 	}
 	return 0, fmt.Errorf("%q is neither a hex address nor a symbol in this executable", s)
 }
@@ -254,11 +344,28 @@ func run(c cfg) error {
 		return err
 	}
 
+	if c.syms {
+		for _, s := range exe.Symbols {
+			kind := " "
+			if s.Func {
+				kind = "F"
+			}
+			fmt.Printf("%08X %6d %s %s\n", s.Addr, s.Size, kind, s.Name)
+		}
+		return nil
+	}
+
 	m := ps2.NewMachine()
 	m.SetImageHash(sum)
 	m.SetVolume(vol)
 	m.LoadExecutable(exe)
 	fmt.Fprintf(os.Stderr, "%s", exe.Describe())
+
+	if c.goalNames != "" {
+		if err := loadGoalNames(m, c.goalNames); err != nil {
+			return err
+		}
+	}
 
 	// The pokes are wired in here, before either path forks, because both need them: the
 	// full boot applies them on the game's own IOP reboot, and the -iop bring-up harness
@@ -330,8 +437,39 @@ func run(c cfg) error {
 			n = 32 * 4
 		}
 		for a := addr; a < addr+n; a += 4 {
-			fmt.Printf("%-40s %08X  %s\n", m.Sym(a), a, m.DisasmAt(a))
+			fmt.Printf("%-40s %08X  %s%s\n", m.Sym(a), a, m.DisasmAt(a), goalRefNote(m, a))
 		}
+		return nil
+	}
+	if c.scan != "" {
+		parts := strings.SplitN(c.scan, ":", 2)
+		word, err := hx(parts[0])
+		if err != nil {
+			return fmt.Errorf("bad -scan %q", c.scan)
+		}
+		mask := ^uint32(0)
+		if len(parts) == 2 {
+			if mask, err = hx(parts[1]); err != nil {
+				return fmt.Errorf("bad -scan mask %q", parts[1])
+			}
+		}
+		n := 0
+		for a := uint32(0x80000); a < 0x02000000 && n < 500; a += 4 {
+			if w := m.Read32(a); w&mask == word&mask {
+				fmt.Printf("%08X  %08X  %s\n", a, w, m.Sym(a))
+				n++
+			}
+		}
+		fmt.Printf("scan: %d hits\n", n)
+		return nil
+	}
+	if c.goalPS != "" {
+		root, err := parseAddr(m, c.goalPS)
+		if err != nil {
+			return err
+		}
+		s7 := uint32(m.CPU.Reg(23))
+		dumpGoalTree(m, s7, root, 0)
 		return nil
 	}
 	if c.dump != "" {
@@ -421,8 +559,16 @@ func run(c cfg) error {
 	}
 
 	traced := 0
-	if tracing || traceFrom != 0 || len(logAt) > 0 {
+	profSamples := map[uint32]int{}
+	profTick := 0
+	if tracing || traceFrom != 0 || len(logAt) > 0 || c.eeProf > 0 {
 		m.OnStep = func(mm *ps2.Machine, pc uint32) {
+			if c.eeProf > 0 {
+				if profTick++; profTick >= c.eeProf {
+					profTick = 0
+					profSamples[pc]++
+				}
+			}
 			if traceFrom != 0 && pc == traceFrom {
 				tracing = true
 			}
@@ -465,6 +611,42 @@ func run(c cfg) error {
 	fmt.Println(res)
 	fmt.Printf("reached: %s\n", m.Sym(res.PC))
 	fmt.Printf("vblanks: %d\n", m.VBlanks())
+	// A halting breakpoint is a question about state; answer it without a second run.
+	if len(c.bps) > 0 {
+		fmt.Println()
+		fmt.Print(m.Registers())
+	}
+
+	if c.eeProf > 0 {
+		// Aggregate the PC samples by the function that owns them. The name is
+		// resolved here, not at sample time, so sampling stays cheap.
+		byFunc := map[string]int{}
+		total := 0
+		for pc, n := range profSamples {
+			name := m.Sym(pc)
+			if i := strings.IndexByte(name, '+'); i > 0 {
+				name = name[:i]
+			}
+			byFunc[name] += n
+			total += n
+		}
+		type fn struct {
+			name string
+			n    int
+		}
+		var fns []fn
+		for name, n := range byFunc {
+			fns = append(fns, fn{name, n})
+		}
+		sort.Slice(fns, func(i, j int) bool { return fns[i].n > fns[j].n })
+		fmt.Printf("\nEE profile: %d samples, every %d steps\n", total, c.eeProf)
+		for i, f := range fns {
+			if i >= 40 || f.n*1000 < total {
+				break
+			}
+			fmt.Printf("  %6.2f%%  %s\n", 100*float64(f.n)/float64(total), f.name)
+		}
+	}
 	if tty := m.TTY(); tty != "" {
 		fmt.Printf("\n--- the game's own output ---\n%s\n", tty)
 	}
@@ -515,6 +697,11 @@ func run(c cfg) error {
 		fmt.Fprintf(os.Stderr, "\nwrote state to %s\n", c.savestate)
 	}
 
+	if c.goalSyms != "" {
+		if err := writeGoalSyms(m, c.goalSyms); err != nil {
+			return err
+		}
+	}
 	if c.gsFrame != "" {
 		if err := writeGSFrame(m, c.gsFrame); err != nil {
 			return err
@@ -535,6 +722,100 @@ func run(c cfg) error {
 			return err
 		}
 	}
+	return nil
+}
+
+// goalObjName renders a GOAL name field: a gstring's chars live at +4; a symbol's
+// name is found through the parallel table find_symbol_in_area reads (+0xFF38).
+func goalObjName(m *ps2.Machine, ref uint32) string {
+	if ref == 0 || ref >= 0x02000000 {
+		return sprintfHex(ref)
+	}
+	if s := m.CString(ref + 4); isPrintable(s) && s != "" {
+		return s
+	}
+	if strp := m.Read32(ref + 0xFF38); strp > 0x80000 && strp < 0x02000000 {
+		if s := m.CString(strp + 4); isPrintable(s) && s != "" {
+			return s
+		}
+	}
+	return sprintfHex(ref)
+}
+
+func sprintfHex(v uint32) string { return fmt.Sprintf("0x%08X", v) }
+
+// dumpGoalTree walks a GOAL process tree the way search-process-tree does:
+// child handle at [node+16], each entry's process at [handle+0], the brother
+// handle at [process+12]. Mask bit 0x100 marks a container rather than a process.
+func dumpGoalTree(m *ps2.Machine, s7, node uint32, depth int) {
+	if depth > 12 || node == 0 || node == s7 || node >= 0x02000000 {
+		return
+	}
+	typ := m.Read32(node - 4)
+	typeName := "?"
+	if typ > 0x80000 && typ < 0x02000000 {
+		typeName = goalObjName(m, m.Read32(typ))
+	}
+	mask := m.Read32(node + 4)
+	fmt.Printf("%*s%08X  %-24s mask 0x%08X  %s\n",
+		depth*2, "", node, goalObjName(m, m.Read32(node)), mask, typeName)
+	h := m.Read32(node + 16)
+	for n := 0; h != 0 && h != s7 && h < 0x02000000 && n < 512; n++ {
+		p := m.Read32(h)
+		if p == 0 || p == s7 || p >= 0x02000000 {
+			break
+		}
+		dumpGoalTree(m, s7, p, depth+1)
+		h = m.Read32(p + 12)
+	}
+}
+
+// writeGoalSyms dumps the GOAL symbol table: every runtime-linked name the engine
+// knows itself by, with its current value. The layout is the game's own, read off
+// find_symbol_from_c / find_symbol_in_area (boot ELF, symbols shipped):
+//
+//	offset = (hash << 19) >> 16          — 8-byte cells spanning $s7 ± 0x8000
+//	[cell + 0xFF34] = the name's hash    — the parallel info table
+//	[cell + 0xFF38] = gstring*, chars at +4
+//	[cell]          = the symbol's value
+//
+// $s7 is the GOAL symbol-base register (the C kernel itself indexes off it), so the
+// base is read from the CPU, not guessed.
+func writeGoalSyms(m *ps2.Machine, path string) error {
+	s7 := uint32(m.CPU.Reg(23))
+	f, err := os.Create(path)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+	w := bufio.NewWriter(f)
+	defer w.Flush()
+	fmt.Fprintf(w, "s7 (symbol base) = 0x%08X\n", s7)
+	n := 0
+	for off := int32(-0x8000); off < 0x8000; off += 8 {
+		cell := s7 + uint32(off)
+		strp := m.Read32(cell + 0xFF38)
+		if strp < 0x80000 || strp >= 0x02000000 {
+			continue
+		}
+		name := m.CString(strp + 4)
+		if name == "" || len(name) > 96 {
+			continue
+		}
+		ok := true
+		for _, ch := range name {
+			if ch < 0x21 || ch > 0x7E {
+				ok = false
+				break
+			}
+		}
+		if !ok {
+			continue
+		}
+		fmt.Fprintf(w, "%08X %+6d %08X %s\n", cell, off, m.Read32(cell), name)
+		n++
+	}
+	fmt.Printf("goalsyms: %d symbols to %s\n", n, path)
 	return nil
 }
 

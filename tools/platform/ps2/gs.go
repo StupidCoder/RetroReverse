@@ -113,7 +113,9 @@ type GS struct {
 	rejAlpha       uint64
 	rejDate        uint64
 	plotNonBlack   [8]uint64
-	rgbaqA0, rgbaqA uint64 // vertex colours with zero vs non-zero alpha: a fade reads here
+	rgbaqA0, rgbaqA     uint64 // vertex colours with zero vs non-zero alpha: a fade reads here
+	rgbaqRGB0, rgbaqRGB uint64 // vertex colours with black vs non-black RGB: a modulate to black reads here
+	t8Dumped            int    // one-shot budget for the T8 sample dump
 	texBlack, texColor       uint64 // texel samples that came back black vs coloured
 	texBlackPSM, texColorPSM [64]uint64
 
@@ -199,6 +201,11 @@ func (gs *GS) writePacked(reg uint8, lo, hi uint64) {
 			gs.rgbaqA0++
 		} else {
 			gs.rgbaqA++
+		}
+		if r|g|b == 0 {
+			gs.rgbaqRGB0++
+		} else {
+			gs.rgbaqRGB++
 		}
 		gs.write(gsRGBAQ, r|g<<8|b<<16|a<<24|uint64(gs.q)<<32)
 
@@ -635,7 +642,8 @@ func (m *Machine) GSStatus() string {
 			s += sprintf("      non-black pixels by %-10s %d\n", primNames[i], n)
 		}
 	}
-	s += sprintf("      vertex colours: %d with alpha 0, %d with alpha > 0\n", m.gs.rgbaqA0, m.gs.rgbaqA)
+	s += sprintf("      vertex colours: %d with alpha 0, %d with alpha > 0; %d with black RGB, %d with colour\n",
+		m.gs.rgbaqA0, m.gs.rgbaqA, m.gs.rgbaqRGB0, m.gs.rgbaqRGB)
 	s += sprintf("      texel samples: %d black, %d coloured\n", m.gs.texBlack, m.gs.texColor)
 	for psm := 0; psm < 64; psm++ {
 		if m.gs.texBlackPSM[psm]+m.gs.texColorPSM[psm] > 0 {
