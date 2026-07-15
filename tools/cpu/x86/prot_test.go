@@ -113,6 +113,56 @@ func TestProtRepStosd(t *testing.T) {
 	}
 }
 
+// TestProtSelectorBase proves that in protected mode loading a selector into a
+// segment register refreshes that segment's cached linear base from SegResolve —
+// the mechanism go32 needs, where the DPMI host hands out selectors (DOS-memory
+// blocks, code aliases) with non-zero descriptor bases and the program accesses
+// memory through them. Without it, an access through such a selector lands at the
+// wrong linear address (a bug this guards against).
+func TestProtSelectorBase(t *testing.T) {
+	// Selector 0x0100 has descriptor base 0x00050000.
+	// entry:
+	//   MOV EAX, 0xCAFEF00D
+	//   MOV BX, 0x0100
+	//   MOV ES, BX             ; loadSeg -> SegBase[ES] = 0x50000
+	//   MOV [ES:0x24], EAX     ; must write linear 0x50024, not 0x24
+	//   HLT
+	code := []byte{
+		0xB8, 0x0D, 0xF0, 0xFE, 0xCA, // MOV EAX, 0xCAFEF00D
+		0x66, 0xBB, 0x00, 0x01, // MOV BX, 0x0100
+		0x8E, 0xC3, // MOV ES, BX
+		0x26, 0xA3, 0x24, 0x00, 0x00, 0x00, // MOV [ES:0x24], EAX
+		0xF4, // HLT
+	}
+	m := &flatRAM{b: make([]byte, 16<<20)}
+	copy(m.b[0x100000:], code)
+	c := NewCPU(m)
+	c.Mode = ModeProt
+	c.SegResolve = func(sel uint16) uint32 {
+		if sel == 0x0100 {
+			return 0x00050000
+		}
+		return 0
+	}
+	c.Seg[CS], c.Seg[DS], c.Seg[SS] = 0x08, 0x10, 0x10
+	c.IP = 0x100000
+	c.Regs[SP] = 0x00300000
+	c.Run(100000)
+	if !c.Halted {
+		t.Fatalf("did not halt (EIP=%08X)", c.IP)
+	}
+	if c.SegBase[ES] != 0x00050000 {
+		t.Errorf("SegBase[ES] = %08X, want 00050000 after loading selector 0x0100", c.SegBase[ES])
+	}
+	// The store landed at the descriptor base + offset, not the bare offset.
+	if got := uint32(m.b[0x50024]) | uint32(m.b[0x50025])<<8 | uint32(m.b[0x50026])<<16 | uint32(m.b[0x50027])<<24; got != 0xCAFEF00D {
+		t.Errorf("mem[0x50024] = %08X, want CAFEF00D (write through a based selector)", got)
+	}
+	if m.b[0x24] != 0 {
+		t.Errorf("mem[0x24] = %02X, want 0 — the write must not land at the bare offset", m.b[0x24])
+	}
+}
+
 // TestProt66Prefix checks that in protected mode a 0x66 prefix selects 16-bit
 // operands (the inverse of real mode), and a bare opcode uses 32-bit.
 func TestProt66Prefix(t *testing.T) {

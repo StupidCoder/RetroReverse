@@ -83,6 +83,14 @@ type CPU struct {
 	Mode    int
 	SegBase [8]uint32 // per-segment linear base, used in ModeProt (real mode derives Seg<<4)
 
+	// SegResolve maps a protected-mode selector to its descriptor's linear base.
+	// It is consulted every time a segment register is loaded in ModeProt, so a
+	// machine model that hands out selectors with non-zero bases (e.g. the go32
+	// DPMI host's DOS-memory and info-block descriptors) sees accesses land at the
+	// right linear address. Nil means every selector is flat (base 0). Unused in
+	// real mode, where the base is Seg<<4 derived on the fly.
+	SegResolve func(sel uint16) uint32
+
 	// IntHook services a software INT n. Returning true means the interrupt was
 	// fully emulated (registers/flags set, IP already past the INT); returning
 	// false falls back to the real-mode IVT dispatch. Nil = always IVT.
@@ -124,6 +132,17 @@ const (
 func (c *CPU) Halt(format string, args ...interface{}) {
 	c.Halted = true
 	c.HaltReason = fmt.Sprintf(format, args...)
+}
+
+// at renders the address of the instruction currently executing — CS:IP in real
+// mode, the flat 32-bit EIP in protected mode. It uses instrIP (the start of the
+// instruction), so a halt message points at the offending opcode itself rather
+// than wherever decoding left IP.
+func (c *CPU) at() string {
+	if c.Mode == ModeProt {
+		return fmt.Sprintf("%08X", c.instrIP)
+	}
+	return fmt.Sprintf("%04X:%04X", c.Seg[CS], c.instrIP&0xFFFF)
 }
 
 // --- linear addressing (mode-aware) ---
@@ -228,6 +247,18 @@ func (c *CPU) fetchImm() uint32 {
 }
 
 // --- register access ---
+
+// loadSeg loads selector sel into segment register idx. In protected mode with
+// a descriptor resolver installed, it also refreshes the segment's cached linear
+// base from the selector. Real mode derives the base from the selector value
+// itself (Seg<<4) on every access, so there the cache is unused and this is a
+// plain store — keeping every segment write on one path.
+func (c *CPU) loadSeg(idx int, sel uint16) {
+	c.Seg[idx] = sel
+	if c.Mode == ModeProt && c.SegResolve != nil {
+		c.SegBase[idx] = c.SegResolve(sel)
+	}
+}
 
 func (c *CPU) g8(i byte) uint32 {
 	if i < 4 {

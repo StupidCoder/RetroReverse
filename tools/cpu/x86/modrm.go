@@ -133,6 +133,22 @@ func Disassemble(code []byte, base uint32) []string {
 	return out
 }
 
+// Disassemble32 is Disassemble with a 32-bit default operand/address size, for
+// flat protected-mode / go32 code (the CS descriptor's D bit is 1).
+func Disassemble32(code []byte, base uint32) []string {
+	var out []string
+	for off := 0; off < len(code); {
+		in := Decode32(code[off:], base+uint32(off))
+		if in.Len <= 0 {
+			break
+		}
+		raw := code[off : off+in.Len]
+		out = append(out, fmt.Sprintf("%08X  %-18s  %s", in.Addr, hexBytes(raw), in.Text))
+		off += in.Len
+	}
+	return out
+}
+
 func hexBytes(b []byte) string {
 	s := ""
 	for i, x := range b {

@@ -323,18 +323,18 @@ func (c *CPU) exec(op, rep byte) {
 	case 0x06:
 		c.push(c.osz(), uint32(c.Seg[ES]))
 	case 0x07:
-		c.Seg[ES] = uint16(c.pop(c.osz()))
+		c.loadSeg(ES, uint16(c.pop(c.osz())))
 	case 0x0E:
 		c.push(c.osz(), uint32(c.Seg[CS]))
 	case 0x16:
 		c.push(c.osz(), uint32(c.Seg[SS]))
 	case 0x17:
-		c.Seg[SS] = uint16(c.pop(c.osz()))
+		c.loadSeg(SS, uint16(c.pop(c.osz())))
 		c.ssShadow = true
 	case 0x1E:
 		c.push(c.osz(), uint32(c.Seg[DS]))
 	case 0x1F:
-		c.Seg[DS] = uint16(c.pop(c.osz()))
+		c.loadSeg(DS, uint16(c.pop(c.osz())))
 
 	case 0x27:
 		c.daa(false)
@@ -443,7 +443,7 @@ func (c *CPU) exec(op, rep byte) {
 		c.setReg(reg, c.osz(), o.off)
 	case 0x8E: // MOV sreg, r/m16
 		reg, o := c.modrmE()
-		c.Seg[reg&7] = uint16(c.rEA(o, 2))
+		c.loadSeg(int(reg&7), uint16(c.rEA(o, 2)))
 		if reg&7 == SS {
 			c.ssShadow = true
 		}
@@ -475,7 +475,7 @@ func (c *CPU) exec(op, rep byte) {
 		seg := c.fetch16()
 		c.push(c.osz(), uint32(c.Seg[CS]))
 		c.push(c.osz(), c.IP)
-		c.Seg[CS] = uint16(seg)
+		c.loadSeg(CS, uint16(seg))
 		c.IP = c.ipMask(off)
 	case 0x9C: // PUSHF / PUSHFD
 		c.push(c.osz(), uint32(c.EFlags()))
@@ -517,11 +517,11 @@ func (c *CPU) exec(op, rep byte) {
 	case 0xC4: // LES r, m
 		reg, o := c.modrmE()
 		c.setReg(reg, c.osz(), c.rEA(o, 2))
-		c.Seg[ES] = uint16(c.memRead(o.base, o.off+2, 2))
+		c.loadSeg(ES, uint16(c.memRead(o.base, o.off+2, 2)))
 	case 0xC5: // LDS r, m
 		reg, o := c.modrmE()
 		c.setReg(reg, c.osz(), c.rEA(o, 2))
-		c.Seg[DS] = uint16(c.memRead(o.base, o.off+2, 2))
+		c.loadSeg(DS, uint16(c.memRead(o.base, o.off+2, 2)))
 	case 0xC6: // MOV r/m8, imm8
 		_, o := c.modrmE()
 		c.wEA(o, 1, c.fetch8())
@@ -550,11 +550,11 @@ func (c *CPU) exec(op, rep byte) {
 	case 0xCA: // RETF imm16
 		n := c.fetch16()
 		c.IP = c.ipMask(c.pop(c.osz()))
-		c.Seg[CS] = uint16(c.pop(c.osz()))
+		c.loadSeg(CS, uint16(c.pop(c.osz())))
 		c.spAdd(n)
 	case 0xCB: // RETF
 		c.IP = c.ipMask(c.pop(c.osz()))
-		c.Seg[CS] = uint16(c.pop(c.osz()))
+		c.loadSeg(CS, uint16(c.pop(c.osz())))
 	case 0xCC: // INT3
 		c.doInt(3)
 	case 0xCD: // INT imm8
@@ -565,7 +565,7 @@ func (c *CPU) exec(op, rep byte) {
 		}
 	case 0xCF: // IRET / IRETD
 		c.IP = c.ipMask(c.pop(c.osz()))
-		c.Seg[CS] = uint16(c.pop(c.osz()))
+		c.loadSeg(CS, uint16(c.pop(c.osz())))
 		c.SetEFlags(uint16(c.pop(c.osz())))
 
 	case 0xD0: // grp2 r/m8, 1
@@ -614,7 +614,7 @@ func (c *CPU) exec(op, rep byte) {
 	case 0xEA: // JMP far ptr16:16 / ptr16:32
 		off := c.fetchImm()
 		seg := c.fetch16()
-		c.Seg[CS] = uint16(seg)
+		c.loadSeg(CS, uint16(seg))
 		c.IP = c.ipMask(off)
 	case 0xEB: // JMP rel8
 		rel := signExtByte(c.fetch8())
@@ -638,7 +638,7 @@ func (c *CPU) exec(op, rep byte) {
 		c.outPort(uint16(c.gw(DX)), c.osz(), c.getReg(AX, c.osz()))
 
 	case 0xF4: // HLT
-		c.Halt("HLT at %04X:%04X", c.Seg[CS], c.IP-1)
+		c.Halt("HLT at %s", c.at())
 	case 0xF5: // CMC
 		c.CF = !c.CF
 	case 0xF6: // grp3 r/m8
@@ -665,7 +665,7 @@ func (c *CPU) exec(op, rep byte) {
 		c.grp5()
 
 	default:
-		c.Halt("unimplemented opcode $%02X at %04X:%04X", op, c.Seg[CS], (c.IP-1)&0xFFFF)
+		c.Halt("unimplemented opcode $%02X at %s", op, c.at())
 	}
 }
 

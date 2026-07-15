@@ -173,19 +173,19 @@ func (c *CPU) grp5() {
 		seg := c.memRead(o.base, o.off+uint32(w), 2)
 		c.push(c.osz(), uint32(c.Seg[CS]))
 		c.push(c.osz(), c.IP)
-		c.Seg[CS] = uint16(seg)
+		c.loadSeg(CS, uint16(seg))
 		c.IP = c.ipMask(off)
 	case 4: // JMP near indirect
 		c.IP = c.ipMask(c.rEA(o, w))
 	case 5: // JMPF m16:16 / m16:32
 		off := c.rEA(o, w)
 		seg := c.memRead(o.base, o.off+uint32(w), 2)
-		c.Seg[CS] = uint16(seg)
+		c.loadSeg(CS, uint16(seg))
 		c.IP = c.ipMask(off)
 	case 6: // PUSH r/m
 		c.push(w, c.rEA(o, w))
 	default:
-		c.Halt("grp5 /7 (invalid) at %04X:%04X", c.Seg[CS], c.IP)
+		c.Halt("grp5 /7 (invalid) at %s", c.at())
 	}
 }
 
@@ -485,7 +485,7 @@ func (c *CPU) aaa(sub bool) {
 // aam/aad (0xD4/0xD5): ASCII-adjust for multiply/divide (base usually 10).
 func (c *CPU) aam(base byte) {
 	if base == 0 {
-		c.Halt("AAM by zero at %04X:%04X", c.Seg[CS], c.IP)
+		c.Halt("AAM by zero at %s", c.at())
 		return
 	}
 	al := c.g8(0)
@@ -521,11 +521,11 @@ func (c *CPU) exec0F(op byte) {
 	case 0xA0:
 		c.push(c.osz(), uint32(c.Seg[FS]))
 	case 0xA1:
-		c.Seg[FS] = uint16(c.pop(c.osz()))
+		c.loadSeg(FS, uint16(c.pop(c.osz())))
 	case 0xA8:
 		c.push(c.osz(), uint32(c.Seg[GS]))
 	case 0xA9:
-		c.Seg[GS] = uint16(c.pop(c.osz()))
+		c.loadSeg(GS, uint16(c.pop(c.osz())))
 	case 0xAF: // IMUL r, r/m
 		reg, o := c.modrmE()
 		w := c.osz()
@@ -543,6 +543,6 @@ func (c *CPU) exec0F(op byte) {
 		reg, o := c.modrmE()
 		c.setReg(reg, c.osz(), signExtWord(c.rEA(o, 2)))
 	default:
-		c.Halt("unimplemented 0F opcode $%02X at %04X:%04X", op, c.Seg[CS], c.IP)
+		c.Halt("unimplemented 0F opcode $%02X at %s", op, c.at())
 	}
 }
