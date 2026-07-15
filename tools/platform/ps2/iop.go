@@ -504,6 +504,9 @@ func (p *IOP) ioRead(a uint32) uint32 {
 	if a >= iopSPU2Base && a < iopSPU2End {
 		return p.spu.read(a - iopSPU2Base)
 	}
+	if sio2Contains(a) {
+		return p.sio2Read(a)
+	}
 	p.unmodelledIO[a]++
 	return p.io[a]
 }
@@ -521,6 +524,10 @@ func (p *IOP) ioWrite(a, v uint32) {
 	}
 	if a >= iopSPU2Base && a < iopSPU2End {
 		p.spu.write(a-iopSPU2Base, v)
+		return
+	}
+	if sio2Contains(a) {
+		p.sio2Write(a, v)
 		return
 	}
 	p.unmodelledIO[a]++
