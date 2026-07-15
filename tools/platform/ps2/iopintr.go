@@ -154,7 +154,7 @@ func init() {
 		8:  {"look_ctype_table", (*IOP).clibCtype},
 		11: unknown(),
 		12: {"memcpy", (*IOP).clibMemcpy},
-		13: unknown(),
+		13: {"memmove", (*IOP).clibMemmove},
 		14: {"memset", (*IOP).clibMemset},
 		17: {"bzero", (*IOP).clibBzero},
 		19: unknown(),
@@ -897,6 +897,29 @@ func (p *IOP) clibMemcpy() {
 	dst, src, n := p.arg(0), p.arg(1), p.arg(2)
 	for i := uint32(0); i < n; i++ {
 		p.Write(dst+i, p.Read(src+i))
+	}
+	p.setRet(dst)
+}
+
+// clibMemmove is memmove(dst, src, n) — sysclib's copy that lives one index above memcpy (#12),
+// which is where a C library keeps memmove. Both of its call sites are in 989snd's sound-bank
+// block reader: the header pull `#13(sp+24, ring, 0x20)` (32 bytes from the streaming ring
+// buffer into a stack header) and the body copy that walks the ring in <=2048-byte chunks —
+// (dst, src, len) each time. Left unmodelled it copied nothing, so the block header the parser
+// read back was uninitialised stack; its type word was neither of the 1/3 it accepts, and 989snd
+// printed "cause 84" and retried, forever — a busy-wait that pinned the IOP in CheckDiscID and
+// starved the RPC-server threads the EE was waiting on. Copied overlap-safe because a ring the
+// reader also advances through can hand back a source below the destination.
+func (p *IOP) clibMemmove() {
+	dst, src, n := p.arg(0), p.arg(1), p.arg(2)
+	if dst > src && dst < src+n {
+		for i := n; i > 0; i-- {
+			p.Write(dst+i-1, p.Read(src+i-1))
+		}
+	} else {
+		for i := uint32(0); i < n; i++ {
+			p.Write(dst+i, p.Read(src+i))
+		}
 	}
 	p.setRet(dst)
 }
