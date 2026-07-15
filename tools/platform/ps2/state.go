@@ -287,6 +287,14 @@ func (m *Machine) LoadState(s MachineState) error {
 		// IOP loads no modules, so it is resolved here instead, now the hook above has
 		// named it.
 		m.IOP.resolveTrap()
+		// Pokes apply on a resume too, for the same reason the instruments do: the state
+		// you snapshot to examine the frontier is exactly the one where you want to turn a
+		// module's tracing on or nudge a global and watch what unblocks. On a boot they are
+		// written in RebootIOPFrom; a resume never passes through it.
+		for addr, val := range m.IOPPokes {
+			m.IOP.Write32(addr, val)
+			m.note("IOP: poked 0x%08X = 0x%08X (%s) on resume", addr, val, m.IOP.Sym(addr))
+		}
 	}
 
 	m.SyscallCalls = map[string]int{}
