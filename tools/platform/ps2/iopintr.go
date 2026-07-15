@@ -160,7 +160,7 @@ func init() {
 		19: unknown(),
 		20: {"strcat", (*IOP).clibStrcat},
 		22: {"strcmp", (*IOP).clibStrcmp},
-		23: unknown(),
+		23: {"strcpy", (*IOP).clibStrcpy},
 		25: {"strchr", (*IOP).clibStrchr},
 		27: {"strlen", (*IOP).clibStrlen},
 		29: {"strncmp", (*IOP).clibStrncmp},
@@ -1028,6 +1028,33 @@ func (p *IOP) clibStrcat() {
 	for i := uint32(0); i < iopCStringMax; i++ {
 		c := p.Read(src + i)
 		p.Write(end+i, c)
+		if c == 0 {
+			break
+		}
+	}
+	p.setRet(dst)
+}
+
+// clibStrcpy is strcpy(dst, src). It sits at #23, one below strchr (#25) and above the block
+// of comparison/copy routines, in a table that is otherwise in C-library order.
+//
+// This is what makes the sound-bank NAME arrive. OVERLORD's LoadSoundBank (0xA72F8) copies the
+// bank name out of the EE's RPC request (record+16 = "common") into the ISO command's inline
+// name field (CMD+40) with #23; FS_LoadSoundBank then reads CMD+40, appends ".sbk" and FS_Finds
+// it. Left unmodelled, CMD+40 stayed empty, FS_Find failed, and the game fell back to loading
+// "empty1" into bank slot 0 — a slot whose header-skip is 10, which walks four sectors into VAG
+// data and makes 989snd's block parser SndError(84) for ever. A no-op copy here, four calls and
+// two modules away, presented as an interrupt storm that never resolved. The earlier reading —
+// that strcpy "copies from the already-empty a0" and so cannot matter — looked only at
+// FS_LoadSoundBank's own downstream strcpy and missed this upstream one. See
+// [[hle-fictions-become-evidence]]. (Modelling it clears the SndError-84 hog; the real "common"
+// bank then loads and the boot advances to a deeper, pre-existing scheduler bug — a thread
+// busy-waits on the SPU-DMA completion interrupt with global interrupts disabled.)
+func (p *IOP) clibStrcpy() {
+	dst, src := p.arg(0), p.arg(1)
+	for i := uint32(0); i < iopCStringMax; i++ {
+		c := p.Read(src + i)
+		p.Write(dst+i, c)
 		if c == 0 {
 			break
 		}

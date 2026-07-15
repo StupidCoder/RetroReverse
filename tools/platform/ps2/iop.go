@@ -742,6 +742,9 @@ func (p *IOP) IOPTrail() string {
 	}
 	s += fmt.Sprintf("      with $sp=%08X $ra=%s $v0=%08X, %d deep in a call, %d deep in an interrupt\n",
 		p.CPU.Reg(29), p.Sym(p.CPU.Reg(31)), p.CPU.Reg(2), p.callDepth, p.inIntr)
+	s += fmt.Sprintf("      args $a0=%08X $a1=%08X $a2=%08X $a3=%08X\n",
+		p.CPU.Reg(4), p.CPU.Reg(5), p.CPU.Reg(6), p.CPU.Reg(7))
+	s += fmt.Sprintf("      intrEnabled=%v pending=%016X imask=%016X\n", p.intrEnabled, p.pending, p.imask)
 	return s
 }
 
