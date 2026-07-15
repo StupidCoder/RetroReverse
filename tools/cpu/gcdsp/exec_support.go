@@ -36,8 +36,8 @@ func (c *CPU) dataRead(a uint16) uint16 {
 		}
 		c.Halt("DSP read of coefficient ROM @0x%04X — DROM not present (a resampling table the ucode wants)", a)
 	case a >= 0xFF00:
-		if c.Bus != nil {
-			return c.Bus.HWRead(a)
+		if c.bus != nil {
+			return c.bus.HWRead(a)
 		}
 		c.Halt("DSP hardware read @0x%04X — no bus attached", a)
 	default:
@@ -52,8 +52,8 @@ func (c *CPU) dataWrite(a, v uint16) {
 	case a < 0x1000:
 		c.DRAM[a] = v
 	case a >= 0xFF00:
-		if c.Bus != nil {
-			c.Bus.HWWrite(a, v)
+		if c.bus != nil {
+			c.bus.HWWrite(a, v)
 			return
 		}
 		c.Halt("DSP hardware write @0x%04X — no bus attached", a)
@@ -112,18 +112,18 @@ func (c *CPU) arStep(n int, delta int) {
 // --- hardware stacks ---------------------------------------------------------------------
 
 func (c *CPU) push(reg, v uint16) {
-	s := &c.stacks[reg-regST0]
-	s.data = append(s.data, v)
+	i := reg - regST0
+	c.Stacks[i] = append(c.Stacks[i], v)
 }
 
 func (c *CPU) pop(reg uint16) uint16 {
-	s := &c.stacks[reg-regST0]
-	if len(s.data) == 0 {
-		c.Halt("DSP stack ST%d underflow at 0x%04X", reg-regST0, c.PC)
+	i := reg - regST0
+	if len(c.Stacks[i]) == 0 {
+		c.Halt("DSP stack ST%d underflow at 0x%04X", i, c.PC)
 		return 0
 	}
-	v := s.data[len(s.data)-1]
-	s.data = s.data[:len(s.data)-1]
+	v := c.Stacks[i][len(c.Stacks[i])-1]
+	c.Stacks[i] = c.Stacks[i][:len(c.Stacks[i])-1]
 	return v
 }
 
@@ -135,25 +135,25 @@ func (c *CPU) startLoop(start, end, count uint16) {
 		c.Halt("DSP loop with count 0 at 0x%04X — not yet modelled", c.PC)
 		return
 	}
-	c.loops = append(c.loops, loopFrame{start: start, end: end, count: count})
+	c.Loops = append(c.Loops, LoopFrame{Start: start, End: end, Count: count})
 }
 
 // serviceLoops runs after each instruction. If the instruction just executed sits at the end
 // of the innermost active loop and did not itself branch away, the loop either jumps back to
 // its start (another iteration remains) or finishes and is popped.
 func (c *CPU) serviceLoops(execAddr uint16, branched bool) {
-	if len(c.loops) == 0 || branched {
+	if len(c.Loops) == 0 || branched {
 		return
 	}
-	top := &c.loops[len(c.loops)-1]
-	if execAddr != top.end {
+	top := &c.Loops[len(c.Loops)-1]
+	if execAddr != top.End {
 		return
 	}
-	top.count--
-	if top.count > 0 {
-		c.PC = top.start
+	top.Count--
+	if top.Count > 0 {
+		c.PC = top.Start
 	} else {
-		c.loops = c.loops[:len(c.loops)-1]
+		c.Loops = c.Loops[:len(c.Loops)-1]
 	}
 }
 

@@ -24,8 +24,8 @@ func (c *CPU) Step() bool {
 	}
 	// A branch or return sets branched and leaves PC where it wants; otherwise advance past
 	// this instruction (one or two words).
-	branched := c.branched
-	c.branched = false
+	branched := c.Branched
+	c.Branched = false
 	if !branched {
 		c.PC = pc + span
 	}
@@ -36,7 +36,7 @@ func (c *CPU) Step() bool {
 }
 
 // execute runs the instruction word op fetched at pc and returns its length in words. It sets
-// c.branched when it has already placed PC at the destination.
+// c.Branched when it has already placed PC at the destination.
 func (c *CPU) execute(pc, op uint16) (span uint16) {
 	switch {
 	case op == 0x0000: // nop
@@ -171,7 +171,7 @@ func (c *CPU) execute(pc, op uint16) (span uint16) {
 		dst := c.imem(pc + 1)
 		if c.cond(op & 0xF) {
 			c.PC = dst
-			c.branched = true
+			c.Branched = true
 		}
 		return 2
 	case op&0xFFF0 == 0x02B0: // call cc, addr
@@ -179,33 +179,33 @@ func (c *CPU) execute(pc, op uint16) (span uint16) {
 		if c.cond(op & 0xF) {
 			c.push(regST0, pc+2)
 			c.PC = dst
-			c.branched = true
+			c.Branched = true
 		}
 		return 2
 	case op&0xFFF0 == 0x02D0: // ret cc
 		if c.cond(op & 0xF) {
 			c.PC = c.pop(regST0)
-			c.branched = true
+			c.Branched = true
 		}
 		return 1
 	case op&0xFFF0 == 0x02F0: // rti cc — return from interrupt
 		if c.cond(op & 0xF) {
 			c.PC = c.pop(regST0)
-			c.branched = true
-			c.inInterrupt = false
+			c.Branched = true
+			c.InInterrupt = false
 		}
 		return 1
 	case op&0xFFF0 == 0x1700: // jmpr $R
 		if c.cond(op & 0xF) {
 			c.PC = c.Reg[(op>>5)&7]
-			c.branched = true
+			c.Branched = true
 		}
 		return 1
 	case op&0xFFF0 == 0x1710: // callr $R
 		if c.cond(op & 0xF) {
 			c.push(regST0, pc+1)
 			c.PC = c.Reg[(op>>5)&7]
-			c.branched = true
+			c.Branched = true
 		}
 		return 1
 	}

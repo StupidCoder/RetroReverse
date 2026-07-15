@@ -35,30 +35,26 @@ type CPU struct {
 	IROM []uint16 // instruction ROM at 0x8000
 	DROM []uint16 // coefficient ROM at 0x1000 in the data space
 
-	Bus Bus // hardware registers in the data space (mailboxes, DMA, accelerator)
+	bus Bus // hardware registers in the data space (mailboxes, DMA, accelerator)
 
 	Halted bool   // set when the core hits something it cannot model; Reason says what
 	Reason string // the halt message
 
-	branched    bool // the instruction just run has already placed PC; do not advance
-	inInterrupt bool // an interrupt handler is running (until RTI)
-
-	stacks [4]stack     // the four hardware stacks, indexed as ST0..ST3
-	loops  []loopFrame  // active hardware loops, innermost last
+	// The remaining execution state, exported so the default gob encoder carries the whole core
+	// in a savestate. Only bus is left out (it is a back-reference to the host, reattached with
+	// SetBus after a load).
+	Branched    bool          // the instruction just run has already placed PC; do not advance
+	InInterrupt bool          // an interrupt handler is running (until RTI)
+	Stacks      [4][]uint16   // the four hardware stacks, indexed as ST0..ST3
+	Loops       []LoopFrame   // active hardware loops, innermost last
 }
 
-// stack is one of the DSP's four small hardware stacks (call, data, loop-address,
-// loop-counter). Reading an ST register pops it; writing pushes.
-type stack struct {
-	data []uint16
-}
-
-// loopFrame is one running hardware loop: the first and last instruction addresses of the body
+// LoopFrame is one running hardware loop: the first and last instruction addresses of the body
 // and the number of iterations still to run.
-type loopFrame struct {
-	start uint16
-	end   uint16
-	count uint16
+type LoopFrame struct {
+	Start uint16
+	End   uint16
+	Count uint16
 }
 
 // Register indices, named so the interpreter and disassembler agree.
@@ -115,6 +111,33 @@ const (
 type Bus interface {
 	HWRead(addr uint16) uint16
 	HWWrite(addr uint16, val uint16)
+}
+
+// New makes a DSP core reaching hardware through bus. The bus is kept out of the serialized
+// state (it points back at the host); a reloaded core is reattached with SetBus.
+func New(bus Bus) *CPU {
+	return &CPU{bus: bus}
+}
+
+// SetBus attaches (or reattaches, after a savestate load) the hardware bus.
+func (c *CPU) SetBus(bus Bus) { c.bus = bus }
+
+// Clone deep-copies the core so an in-memory savestate does not share mutable state with the
+// live machine. The register file and RAM are arrays, copied by the struct assignment; the
+// slices are copied explicitly; the bus is dropped (a loaded core is reattached with SetBus).
+func (c *CPU) Clone() *CPU {
+	if c == nil {
+		return nil
+	}
+	n := *c
+	n.IROM = append([]uint16(nil), c.IROM...)
+	n.DROM = append([]uint16(nil), c.DROM...)
+	for i := range c.Stacks {
+		n.Stacks[i] = append([]uint16(nil), c.Stacks[i]...)
+	}
+	n.Loops = append([]LoopFrame(nil), c.Loops...)
+	n.bus = nil
+	return &n
 }
 
 // Halt stops the core and records why. Every unmodelled encoding and every access to absent

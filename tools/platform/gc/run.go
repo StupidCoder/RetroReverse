@@ -68,6 +68,7 @@ func (m *Machine) Run(maxSteps uint64) Result {
 		}
 
 		m.tickVI()
+		m.tickDSP()
 
 		if !m.noSpin {
 			spin[pc] = true

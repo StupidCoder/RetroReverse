@@ -66,6 +66,9 @@ func (m *Machine) SaveState() MachineState {
 		PI:      m.pi, MI: m.mi, VI: m.vi, DI: m.di, SI: m.si,
 		EXI: m.exi, AI: m.ai, DSP: m.dsp, CP: m.cp, PE: m.pe, GPU: m.gpu, WG: m.wgFIFO,
 	}
+	// The DSP device is copied by value, but it holds a pointer to the running DSP core; deep-
+	// copy that so the snapshot does not share mutable core state with the live machine.
+	s.DSP.Core = m.dsp.Core.Clone()
 	return s
 }
 
@@ -82,6 +85,12 @@ func (m *Machine) LoadState(s MachineState) error {
 	m.CPU.Restore(s.CPU)
 	m.pi, m.mi, m.vi, m.di, m.si = s.PI, s.MI, s.VI, s.DI, s.SI
 	m.exi, m.ai, m.dsp, m.cp, m.pe, m.gpu, m.wgFIFO = s.EXI, s.AI, s.DSP, s.CP, s.PE, s.GPU, s.WG
+	// Deep-copy the DSP core out of the snapshot (the device was copied by value, sharing the
+	// core pointer) and reattach its hardware bus, the back-reference left out of the state.
+	if s.DSP.Core != nil {
+		m.dsp.Core = s.DSP.Core.Clone()
+		m.dsp.Core.SetBus(dspBus{m})
+	}
 	return nil
 }
 

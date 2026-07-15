@@ -12,7 +12,7 @@ func (b nullBus) HWWrite(a uint16, v uint16) { b.t.Fatalf("unexpected HW write @
 // run loads a program into IRAM and steps until PC reaches stopAt, the core halts, or the step
 // budget is spent. It returns the CPU for inspection.
 func run(t *testing.T, prog []uint16, stopAt uint16) *CPU {
-	c := &CPU{Bus: nullBus{t}}
+	c := New(nullBus{t})
 	copy(c.IRAM[:], prog)
 	for i := 0; i < 100000; i++ {
 		if c.PC == stopAt {

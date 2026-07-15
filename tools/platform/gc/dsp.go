@@ -3,6 +3,8 @@ package gc
 import (
 	"fmt"
 	"os"
+
+	"retroreverse.com/tools/cpu/gcdsp"
 )
 
 // dsp.go is the sound processor's front door: a pair of mailboxes, a control register, and
@@ -36,8 +38,26 @@ type dsp struct {
 	// command sequence that loads a microcode and starts it. Once a ucode is "running" the
 	// boot ROM's own re-post-on-halt behaviour is no longer what answers the mailbox.
 	UcodeRunning  bool // the boot ROM has loaded a ucode image and jumped to it
-	AwaitValue    bool // the previous mail was a load command; this next mail is its parameter
-	AwaitStartArg bool // the "start" command was seen; its parameter completes the load
+	AwaitValue    bool   // the previous mail was a load command; this next mail is its parameter
+	AwaitStartArg bool   // the "start" command was seen; its parameter completes the load
+	LoadCmd       uint32 // the load command whose parameter mail is expected next
+
+	// The parameters the boot-ROM load protocol carries, captured so the real DMA can be
+	// performed when the "start" command arrives: the microcode's source in main memory, its
+	// length in bytes, its destination in the DSP's instruction memory, and its entry point.
+	UcodeSrc   uint32
+	UcodeLen   uint32
+	UcodeDst   uint32
+	UcodeEntry uint32
+
+	// The real DSP core, once the microcode is loaded and running. Until then the synthesized
+	// boot-ROM handshake answers the mailbox; after, this core does, running the game's own
+	// microcode. CoreHalt mirrors the CSR halt bit that pauses it.
+	Core     *gcdsp.CPU
+	CoreHalt bool
+
+	CoreBlocked     bool // the core is waiting on an empty command mailbox; do not step it
+	corePolledEmpty bool // the core just read the command mailbox and found no mail
 
 	ARMMAddr uint32
 	ARARAddr uint32
@@ -140,9 +160,10 @@ func (d *dsp) write(m *Machine, off uint32, v uint32, size int) {
 		d.ToDSP = (d.ToDSP & 0xFFFF) | (v << 16)
 	case 0x002:
 		d.ToDSP = (d.ToDSP & 0xFFFF0000) | (v & 0xFFFF) | (1 << 31)
-		// The CPU has posted a full mail (it writes the high half then the low). The
-		// synthesized boot ROM consumes it and, where the handshake calls for a reply,
-		// posts one.
+		// The CPU has posted a full mail (it writes the high half then the low). A running
+		// core was waiting on this mail — wake it. In boot-ROM mode the synthesized handshake
+		// consumes it and, where the protocol calls for a reply, posts one.
+		d.CoreBlocked = false
 		d.consumeMail(m)
 	case 0x00A:
 		// The control/status register. Three kinds of bit: the write-one-to-clear
@@ -162,6 +183,10 @@ func (d *dsp) write(m *Machine, off uint32, v uint32, size int) {
 			d.UcodeRunning = false
 			d.AwaitValue = false
 			d.AwaitStartArg = false
+			// A reset discards any running core; the boot handshake starts over and a fresh
+			// microcode is loaded before the core runs again.
+			d.Core = nil
+			d.CoreBlocked = false
 			// RES self-clears, so it is simply never set in d.CSR.
 		}
 		// The boot-ROM handshake is a sequence of ready mails, one per run of the DSP. The
@@ -226,6 +251,12 @@ func (d *dsp) write(m *Machine, off uint32, v uint32, size int) {
 // and, for anything it does not recognise, logs the value so the true protocol can be read
 // off a run rather than guessed at.
 func (d *dsp) consumeMail(m *Machine) {
+	// Once the real core runs, it takes the mail from its own side (reading the mailbox low
+	// half clears the present bit). Leave the mail present and let the core see it.
+	if d.Core != nil {
+		return
+	}
+
 	mail := d.ToDSP &^ (1 << 31) // the write path always tags the mail present; the value is the low 31 bits
 	d.ToDSP &^= 1 << 31          // the DSP has taken it
 
@@ -247,14 +278,24 @@ func (d *dsp) consumeMail(m *Machine) {
 	// driver would then observe: the ucode comes up and posts its first mail.
 	if d.AwaitValue {
 		d.AwaitValue = false
+		if dspTrace {
+			fmt.Fprintf(os.Stderr, "  DSP ucode-load param for cmd 0x%08X = 0x%08X\n", d.LoadCmd, mail)
+		}
+		// Record the parameter against the load command it belongs to. Which command carries
+		// which value is read straight off the boot protocol: the source address, the byte
+		// length, the DSP-memory destination and the entry point.
+		switch d.LoadCmd {
+		case 0x00F3A001:
+			d.UcodeSrc = mail
+		case 0x00F3A002:
+			d.UcodeLen = mail
+		case 0x00F3C002:
+			d.UcodeDst = mail
+		}
 		if d.AwaitStartArg {
 			d.AwaitStartArg = false
-			d.UcodeRunning = true
-			// The ucode's power-on mail. The driver polls for it exactly as it polled for the
-			// boot ROM's ready mail, so it is delivered the same way — set present, no
-			// interrupt. Raising the mailbox interrupt here instead lets the interrupt handler
-			// race the polling loop for the same mail, and the loser spins.
-			d.FromDSP = 0x80000000 | (1 << 31)
+			d.UcodeEntry = mail
+			d.startCore(m)
 		}
 		return
 	}
@@ -267,9 +308,11 @@ func (d *dsp) consumeMail(m *Machine) {
 	switch mail {
 	case 0x00F3A001, 0x00F3A002, 0x00F3C002, 0x00F3B002:
 		d.AwaitValue = true // its parameter follows
+		d.LoadCmd = mail
 	case 0x00F3D001:
 		d.AwaitValue = true // its parameter follows, and completes the load
 		d.AwaitStartArg = true
+		d.LoadCmd = mail
 	default:
 		m.logf("DSP mail from CPU: 0x%08X (boot step %d) — acknowledged; the exact protocol is a work item", mail, d.BootStep)
 	}
@@ -331,6 +374,103 @@ func (m *Machine) dspRefreshIRQ() {
 		m.raiseInt(IntDSP)
 	} else {
 		m.clearInt(IntDSP)
+	}
+}
+
+// startCore loads the microcode the boot protocol described into a fresh DSP core and starts it
+// at its entry point. From here the real core, not the synthesized handshake, answers the
+// mailbox — running the game's own microcode, which is what the audio system is waiting for.
+func (d *dsp) startCore(m *Machine) {
+	src := d.UcodeSrc & 0x03FFFFFF
+	core := gcdsp.New(dspBus{m})
+	// DMA the microcode from main memory into instruction RAM as big-endian 16-bit words.
+	dst := uint16(d.UcodeDst)
+	for i := uint32(0); i+1 < d.UcodeLen; i += 2 {
+		if int(src+i)+1 >= len(m.RAM) {
+			break
+		}
+		w := uint16(m.RAM[src+i])<<8 | uint16(m.RAM[src+i+1])
+		if wi := dst + uint16(i/2); int(wi) < len(core.IRAM) {
+			core.IRAM[wi] = w
+		}
+	}
+	core.PC = uint16(d.UcodeEntry)
+	d.Core = core
+	d.UcodeRunning = true
+	m.logf("DSP: real core started — %d-word ucode from 0x%08X, entry 0x%04X", d.UcodeLen/2, src, d.UcodeEntry)
+}
+
+// dspBus lets the DSP core reach the console hardware it addresses through the top of its data
+// space: the mailboxes to and from the CPU, and — as they are implemented — the DMA engine and
+// the sample accelerator.
+type dspBus struct{ m *Machine }
+
+func (b dspBus) HWRead(a uint16) uint16     { return b.m.dsp.hwRead(b.m, a) }
+func (b dspBus) HWWrite(a uint16, v uint16) { b.m.dsp.hwWrite(b.m, a, v) }
+
+// hwRead answers a DSP-side hardware read. The mailboxes are the shared state the CPU-facing
+// registers also touch; anything else halts the core, naming the register, so the protocol is
+// discovered from a run rather than guessed.
+func (d *dsp) hwRead(m *Machine, a uint16) uint16 {
+	switch a {
+	case 0xFFFC: // DMBH: the mail the DSP queued to the CPU, read back — bit 15 is "present",
+		// which the CPU clears by reading; the ucode polls this waiting for the CPU to consume.
+		return uint16(d.FromDSP >> 16)
+	case 0xFFFD: // DMBL
+		return uint16(d.FromDSP)
+	case 0xFFFE: // CMBH: mail from the CPU, high half — bit 15 is "mail present"
+		if d.ToDSP&(1<<31) == 0 {
+			d.corePolledEmpty = true // an empty poll: the core is waiting for a command
+		}
+		return uint16(d.ToDSP >> 16)
+	case 0xFFFF: // CMBL: reading the low half consumes the mail
+		v := uint16(d.ToDSP)
+		d.ToDSP &^= 1 << 31
+		return v
+	}
+	d.Core.Halt("DSP read of unmodelled hardware register 0x%04X at ucode 0x%04X", a, d.Core.PC)
+	return 0
+}
+
+// hwWrite answers a DSP-side hardware write. Writing the outgoing mailbox (DMBH then DMBL)
+// posts a mail to the CPU; the present bit rides in DMBH's high bit, and completing the low
+// half raises the DSP interrupt if the CPU has unmasked it.
+func (d *dsp) hwWrite(m *Machine, a uint16, v uint16) {
+	switch a {
+	case 0xFFFC: // DMBH: queue the high half of a mail to the CPU (its bit 15 is "present")
+		d.FromDSP = (d.FromDSP & 0xFFFF) | (uint32(v) << 16)
+		return
+	case 0xFFFD: // DMBL: complete the mail — interrupt the CPU if unmasked
+		d.FromDSP = (d.FromDSP &^ 0xFFFF) | uint32(v)
+		if d.CSR&dspCSRDSPMask != 0 {
+			d.CSR |= dspCSRDSPInt
+			m.dspRefreshIRQ()
+		}
+		return
+	}
+	d.Core.Halt("DSP write of unmodelled hardware register 0x%04X = 0x%04X at ucode 0x%04X", a, v, d.Core.PC)
+}
+
+// tickDSP steps the running DSP core. It is called from the machine's main loop alongside the
+// video tick. The core runs in short bursts and stops the moment it polls an empty command
+// mailbox — it is then waiting on the CPU, and stays parked until the CPU posts the next mail,
+// which keeps an idle DSP from spinning through the whole run. A core halt (an unmodelled op or
+// register) stops the whole machine, surfacing the reason.
+func (m *Machine) tickDSP() {
+	d := &m.dsp
+	if d.Core == nil || d.CoreHalt || d.CoreBlocked || d.Core.Halted {
+		return
+	}
+	for i := 0; i < 64; i++ {
+		d.corePolledEmpty = false
+		if !d.Core.Step() {
+			m.CPU.Halt("DSP core halted: %s", d.Core.Reason)
+			return
+		}
+		if d.corePolledEmpty {
+			d.CoreBlocked = true
+			return
+		}
 	}
 }
 
