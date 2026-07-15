@@ -243,6 +243,27 @@ func run(c cfg) error {
 	m.LoadExecutable(exe)
 	fmt.Fprintf(os.Stderr, "%s", exe.Describe())
 
+	// The pokes are wired in here, before either path forks, because both need them: the
+	// full boot applies them on the game's own IOP reboot, and the -iop bring-up harness
+	// applies them on its boot and on a -loadstate resume. Populating them after the fork
+	// (as this once did) left the harness path with an empty map, so -ioppoke silently did
+	// nothing there — the one path where turning a module's tracing on matters most.
+	if len(c.iopPokes) > 0 {
+		m.IOPPokes = map[uint32]uint32{}
+		for _, s := range c.iopPokes {
+			parts := strings.SplitN(s, ":", 2)
+			if len(parts) != 2 {
+				return fmt.Errorf("bad -ioppoke %q (want ADDR:VALUE)", s)
+			}
+			a, err1 := hx(parts[0])
+			v, err2 := hx(parts[1])
+			if err1 != nil || err2 != nil {
+				return fmt.Errorf("bad -ioppoke %q", s)
+			}
+			m.IOPPokes[a] = v
+		}
+	}
+
 	// The IOP's bring-up harness: boot the second processor on the disc's own kernel
 	// modules, with the EE left standing at its entry point, and report what it did.
 	//
@@ -310,22 +331,6 @@ func run(c cfg) error {
 			fmt.Printf("%08X  % x\n", addr+uint32(i), b[i:end])
 		}
 		return nil
-	}
-
-	if len(c.iopPokes) > 0 {
-		m.IOPPokes = map[uint32]uint32{}
-		for _, s := range c.iopPokes {
-			parts := strings.SplitN(s, ":", 2)
-			if len(parts) != 2 {
-				return fmt.Errorf("bad -ioppoke %q (want ADDR:VALUE)", s)
-			}
-			a, err1 := hx(parts[0])
-			v, err2 := hx(parts[1])
-			if err1 != nil || err2 != nil {
-				return fmt.Errorf("bad -ioppoke %q", s)
-			}
-			m.IOPPokes[a] = v
-		}
 	}
 
 	if c.poke != "" {
