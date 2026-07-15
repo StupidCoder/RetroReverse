@@ -117,6 +117,54 @@ func kernelObjectHandler(ord uint16) func(*Machine) int {
 	case 165: // MmAllocateContiguousMemory(NumberOfBytes) -> physical base
 		return func(m *Machine) int { m.setRet(m.allocPool(m.arg(0))); return 1 }
 
+	case 166: // MmAllocateContiguousMemoryEx(NumberOfBytes, LowestAcceptableAddress,
+		// HighestAcceptableAddress, Alignment, ProtectionType) -> physical base.
+		// Verified from four live call sites (a 4-arg and a 5-arg .text wrapper, plus the
+		// DSOUND and XONLINE callers): 5 stdcall args in the shape
+		// (size, 0, 0xFFFFFFFF, align, PAGE_READWRITE|PAGE_WRITECOMBINE). The leading
+		// PUSH ESI at the wrappers is a register save (balanced by POP ESI after the
+		// call), not a sixth argument. We back it from the same down-growing contiguous
+		// pool as ordinal 165, honouring the requested alignment; the [Lowest,Highest]
+		// physical bounds are advisory (our pool already lives in low RAM under 0xFFFFFFFF)
+		// so we do not constrain the base to them. Returns 0 on exhaustion, which the
+		// callers treat as an allocation failure.
+		return func(m *Machine) int {
+			m.setRet(m.allocPoolAligned(m.arg(0), m.arg(3)))
+			return 5
+		}
+
+	case 168: // MmClaimGpuInstanceMemory(NumberOfBytes, PSIZE_T PaddingBytes) -> end address.
+		// Verified from its live call at the D3D device-init site: 2 args (0x5000, &pad),
+		// the caller reads back (result - 0x5000) as the base of the GPU instance-memory
+		// block and derives an NV2A DMA-object register from *pad. The kernel retains a
+		// contiguous block at the top of physical RAM for the GPU (RAMIN: hash table, DMA
+		// contexts) and returns the address just past its end. We back it from the same
+		// down-growing contiguous pool (which lives near the top of RAM) and return
+		// base+size so (result - size) is the claimed base; *pad = 0 (no alignment
+		// remainder). Phase C (the NV2A) may refine the placement/padding to match the
+		// instance-memory contract the GPU reads.
+		return func(m *Machine) int {
+			size := m.arg(0)
+			base := m.allocPool(size)
+			if p := m.arg(1); p != 0 {
+				m.write32(p, 0) // NumberOfPaddingBytes
+			}
+			if base == 0 {
+				m.setRet(0)
+			} else {
+				m.setRet(base + align32(size, 16))
+			}
+			return 2
+		}
+
+	case 182: // MmSetAddressProtect(BaseAddress, NumberOfBytes, NewProtect) — verified from
+		// its one live call site: a 3-arg tail-call wrapper (JMP [slot]) that guards on
+		// NumberOfBytes != 0, invoked here as (0x0128D000, 0x00280000, 0x404) right after
+		// a contiguous allocation. Our RAM is flat with no page-protection enforcement and
+		// the write-combine cache attribute does not change functional behaviour, so this
+		// is a success no-op; the void return leaves EAX unused by the caller.
+		return func(m *Machine) int { m.setRet(0); return 3 }
+
 	// --- Virtual memory (Nt) — verified: 184 is a 5-arg reserve/commit ---
 	case 184: // NtAllocateVirtualMemory(BaseAddress**, ZeroBits, RegionSize*, Type, Protect)
 		return func(m *Machine) int {
@@ -138,17 +186,89 @@ func kernelObjectHandler(ord uint16) func(*Machine) int {
 			return 5
 		}
 
-	// --- Dispatcher objects (Nt) — verified: 187 is a 3-arg create -------
-	case 187: // NtCreateMutant(MutantHandle*, ObjectAttributes, InitialOwner) — verified
+	// --- Handles (Nt) — verified: 187 is a 1-arg NtClose ------------------
+	case 187: // NtClose(Handle) -> NTSTATUS. Verified from five live call sites, each
+		// passing a single handle immediately after an open/create that returned it
+		// (e.g. 0x427BF closes the handle from ordinal 207; 0x42846 closes the thread
+		// handle from PsCreateSystemThreadEx). One argument — the earlier reading of 187
+		// as a 3-arg NtCreateMutant was wrong and its over-pop derailed the boot thread.
+		// The Nt block drifts +5 (the reconstructed table's NtClose at 182 lands at 187),
+		// matching NtOpenFile at 202. We drop any open file backing the handle and report
+		// success; other handle kinds (objects, threads) are reference-released as a
+		// no-op since the HLE does not refcount them.
 		return func(m *Machine) int {
-			initialOwner := m.arg(2) != 0
-			h := m.newObject("mutant", 2, !initialOwner, 0, 0)
-			if p := m.arg(0); p != 0 {
-				m.write32(p, h)
+			h := m.arg(0)
+			delete(m.files, h)
+			m.setRet(0) // STATUS_SUCCESS
+			return 1
+		}
+
+	// --- PCI config space (Hal) — verified -------------------------------
+	case 46: // HalReadWritePCISpace(BusNumber, SlotNumber, RegisterNumber, Buffer, Length,
+		// WritePCISpace). Verified from the D3D device-init read-modify-write: it reads 4
+		// bytes of config register 0x4C into a local, ORs a bit, and writes them back
+		// (arg5 selects read vs write). Six args. The reconstructed Hal block drifts +2
+		// (HalRegisterShutdownNotification at table index 45 is verified ordinal 47), so
+		// table index 44 (HalReadWritePCISpace) lands at ordinal 46. We back config space
+		// in a byte map keyed by (bus<<24|slot<<16|reg) so the read-after-write is coherent.
+		return func(m *Machine) int {
+			bus, slot, reg := m.arg(0), m.arg(1), m.arg(2)
+			buf, length, write := m.arg(3), m.arg(4), m.arg(5)
+			base := bus<<24 | slot<<16
+			for i := uint32(0); i < length; i++ {
+				key := base | ((reg + i) & 0xFFFF)
+				if write != 0 {
+					m.pciSpace[key] = m.Read(buf + i)
+				} else {
+					m.Write(buf+i, m.pciSpace[key])
+				}
 			}
 			m.setRet(0)
-			return 3
+			return 6
 		}
+
+	// --- Interrupts (Hal/Ke) — verified ----------------------------------
+	case 44: // HalGetInterruptVector(BusInterruptLevel, PKIRQL Irql) -> Vector. Verified
+		// two ways: (1) the live call at the D3D device-init site feeds its return value
+		// (Vector) and its out-param (*Irql) straight into a 7-arg KeInitializeInterrupt
+		// (ordinal 109) and then a 1-arg KeConnectInterrupt (ordinal 98) — the canonical
+		// interrupt-hookup sequence; (2) the reconstructed Hal block drifts a uniform +2
+		// (table's HalRegisterShutdownNotification at index 45 is verified ordinal 47), so
+		// table index 42 (HalGetInterruptVector) lands at ordinal 44. Three of its five
+		// call sites push exactly 2 args; the semantic arg count is 2.
+		//
+		// We do not dispatch hardware interrupts in this synchronous boot model (the
+		// KeInitializeInterrupt/KeConnectInterrupt that consume these values only record
+		// them), so the Vector/Irql are inert tokens: return the level as the vector and
+		// write the level as the IRQL.
+		return func(m *Machine) int {
+			level := m.arg(0)
+			if p := m.arg(1); p != 0 {
+				m.Write(p, byte(level)) // *Irql (a KIRQL is one byte)
+			}
+			m.setRet(level)
+			return 2
+		}
+
+	case 109: // KeInitializeInterrupt(Interrupt, ServiceRoutine, ServiceContext, Vector,
+		// Irql, InterruptMode, ShareVector) — verified: the 7-arg call that consumes
+		// HalGetInterruptVector's (Vector, Irql) at the D3D device-init site, immediately
+		// before KeConnectInterrupt (ordinal 98). We do not dispatch hardware interrupts,
+		// so this records the routine and context into the KINTERRUPT block (the two
+		// leading fields, canonical across NT/Xbox) for coherence and returns void.
+		return func(m *Machine) int {
+			ki := m.arg(0)
+			if ki != 0 {
+				m.write32(ki+0x00, m.arg(1)) // ServiceRoutine
+				m.write32(ki+0x04, m.arg(2)) // ServiceContext
+			}
+			m.setRet(0)
+			return 7
+		}
+	case 98: // KeConnectInterrupt(Interrupt) -> BOOLEAN. Verified: the 1-arg call right
+		// after KeInitializeInterrupt on the same KINTERRUPT, whose AL result the caller
+		// tests to decide success. Nothing fires the interrupt here, so report connected.
+		return func(m *Machine) int { m.setRet(1); return 1 }
 
 	// --- DPC / timers (Ke) — verified ------------------------------------
 	case 107: // KeInitializeDpc(Dpc, DeferredRoutine, DeferredContext) — verified: 3 args,

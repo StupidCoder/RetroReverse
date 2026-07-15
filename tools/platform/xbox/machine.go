@@ -112,6 +112,11 @@ type Machine struct {
 
 	pciAddr uint32 // last value written to the PCI config-address port 0xCF8 (ports.go)
 
+	// PCI configuration space, byte-addressed by (bus<<24 | slot<<16 | register). The
+	// D3D device init read-modify-writes a few NV2A config registers through
+	// HalReadWritePCISpace; backing them here keeps a read-after-write coherent.
+	pciSpace map[uint32]byte
+
 	// Instrumentation.
 	Log         []string
 	OrdinalHits map[uint16]int  // xboxkrnl ordinal -> call count
@@ -144,6 +149,7 @@ func NewMachine(xbe *XBE, disc *Image) (*Machine, error) {
 		dataDeref:   map[uint16]bool{},
 	}
 	m.nv.reg = map[uint32]uint32{}
+	m.pciSpace = map[uint32]byte{}
 
 	if err := m.loadImage(); err != nil {
 		return nil, err
@@ -170,7 +176,14 @@ func NewMachine(xbe *XBE, disc *Image) (*Machine, error) {
 	c.SegBase[x86.FS] = kpcrAddr
 	c.SegResolve = m.resolveSel
 	c.IP = xbe.Entry
-	c.Regs[x86.SP] = titleStackTop
+	// Seed the boot stack with the thread-exit sentinel as the entry's return address:
+	// the XBE entry is a launcher that spawns the game's main thread (PsCreateSystemThreadEx),
+	// closes its handle, and returns — on hardware into a kernel thread-terminate stub. With
+	// the sentinel on top, that outermost RET lands on threadExitAddr and onStep retires
+	// thread 0 cleanly (like createThread does for spawned threads), handing the machine to
+	// the main thread. Without it the RET popped 0 and derailed the boot into low memory.
+	c.Regs[x86.SP] = titleStackTop - 4
+	m.write32(titleStackTop-4, threadExitAddr)
 	c.IF = true
 	c.OnStep = m.onStep
 	c.PortIn = m.portIn

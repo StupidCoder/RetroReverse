@@ -149,13 +149,26 @@ func (m *Machine) kret(argWords int) {
 
 // allocPool bump-allocates size bytes of physical RAM from the down-growing
 // contiguous/pool arena, 16-byte aligned. Returns 0 on exhaustion.
-func (m *Machine) allocPool(size uint32) uint32 {
+func (m *Machine) allocPool(size uint32) uint32 { return m.allocPoolAligned(size, 16) }
+
+// allocPoolAligned is allocPool with an explicit result alignment — the Alignment
+// argument MmAllocateContiguousMemoryEx carries. The arena grows DOWN, so the base is
+// (poolNext-size) rounded down to the alignment. An alignment of 0 means the default 16.
+// Returns 0 on exhaustion.
+func (m *Machine) allocPoolAligned(size, align uint32) uint32 {
+	if align < 16 {
+		align = 16
+	}
 	size = align32(size, 16)
-	if size == 0 || m.poolNext-size < m.heapNext {
+	if size == 0 || size > m.poolNext {
 		return 0
 	}
-	m.poolNext -= size
-	return m.poolNext
+	base := (m.poolNext - size) &^ (align - 1)
+	if base < m.heapNext {
+		return 0
+	}
+	m.poolNext = base
+	return base
 }
 
 // allocVirtual bump-allocates from the up-growing heap arena, page aligned.

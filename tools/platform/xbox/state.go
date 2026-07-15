@@ -66,7 +66,8 @@ type XboxState struct {
 	NVKicked  bool
 	FirstPush bool
 
-	PCIAddr uint32
+	PCIAddr  uint32
+	PCISpace map[uint32]byte
 
 	// Kernel HLE bookkeeping
 	OrdinalHits map[uint16]int
@@ -152,7 +153,7 @@ func (m *Machine) SaveState() *XboxState {
 		PoolNext: m.poolNext, HeapNext: m.heapNext, HeapTop: m.heapTop,
 		NextObjAddr: m.nextObjAddr, KbandNext: m.kbandNext, Tick: m.tick,
 		NVReg: copyU32Map(m.nv.reg), NVPut: m.nv.dmaPut, NVGet: m.nv.dmaGet, NVKicked: m.nv.kicked,
-		FirstPush: m.firstPush, PCIAddr: m.pciAddr,
+		FirstPush: m.firstPush, PCIAddr: m.pciAddr, PCISpace: copyByteMap(m.pciSpace),
 		OrdinalHits: copyOrdMap(m.OrdinalHits),
 		NextTID:     m.nextTID, RRCursor: m.rrCursor, QuantumLeft: m.quantumLeft,
 		CurThread: curIdx,
@@ -201,6 +202,7 @@ func (m *Machine) LoadState(st *XboxState) error {
 	m.nv.reg = copyU32Map(st.NVReg)
 	m.nv.dmaPut, m.nv.dmaGet, m.nv.kicked = st.NVPut, st.NVGet, st.NVKicked
 	m.firstPush, m.pciAddr = st.FirstPush, st.PCIAddr
+	m.pciSpace = copyByteMap(st.PCISpace)
 	m.Halted, m.HaltReason = st.Halted, st.HaltReason
 	m.OrdinalHits = copyOrdMap(st.OrdinalHits)
 	m.nextTID, m.rrCursor, m.quantumLeft = st.NextTID, st.RRCursor, st.QuantumLeft
@@ -276,6 +278,13 @@ func (m *Machine) LoadStateFile(path string) error {
 
 func copyU32Map(src map[uint32]uint32) map[uint32]uint32 {
 	dst := make(map[uint32]uint32, len(src))
+	for k, v := range src {
+		dst[k] = v
+	}
+	return dst
+}
+func copyByteMap(src map[uint32]byte) map[uint32]byte {
+	dst := make(map[uint32]byte, len(src))
 	for k, v := range src {
 		dst[k] = v
 	}

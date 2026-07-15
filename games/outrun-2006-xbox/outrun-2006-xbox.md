@@ -274,17 +274,41 @@ gzip'd `gob` snapshot of the whole 64 MB, the CPU (registers, x87 stack, the new
 allocators and clock, and the thread and object graphs — a deep copy that restores bit-identically
 and resumes deterministically, as `TestSaveStateRoundTrip` checks against the real disc.
 
-### Where the boot reaches
+### Where the boot reaches — the first NV2A push (Phase B milestone)
 
-`bootoracle -image "…OutRun 2006…iso"` runs **28,522 instructions** of the title's own XDK/CRT
-boot code — spawning the main thread, standing up the DPC/timer/critical-section machinery,
-querying system config, opening and probing the disc and HDD, and reaching the C runtime's
-SSE-driven object initialisation — before it halts at the current frontier: a `Mm`-family
-allocation call whose exact signature is left unpinned rather than guessed (its call site pushes a
-64-bit value split across registers, so the argument count is ambiguous and a wrong count would
-desync the stack). Fifteen `xboxkrnl` ordinals are modelled and verified. The next steps are to
-pin that call and continue the empirical march through the XDK's Direct3D 8 device creation toward
-the first NV2A push-buffer kick — after which the **NV2A LLE GPU (Phase C)** renders the frame.
+`bootoracle -image "…OutRun 2006…iso"` now runs **130,371 instructions** of the title's own
+XDK/CRT/Direct3D-8 boot code — spawning the game's main thread, retiring the launcher thread,
+standing up the DPC/timer/critical-section machinery, querying system config, opening and probing
+the disc and HDD, reserving the contiguous framebuffer and GPU instance-memory pools, hooking the
+NV2A interrupt, and programming the PFIFO — until it **reaches the first NV2A push-buffer kick**
+(`DMA_PUT` advanced past `DMA_GET` at PC `0x1B5CAB`). That is the Phase-B goal: the title's own
+code has stood up its Direct3D device and submitted its first command. **Twenty-one `xboxkrnl`
+ordinals** are modelled, every one pinned empirically from its live call site.
+
+Getting here past the earlier `Mm` frontier turned on four things, each an instance of *read the
+call, do not guess the name*:
+
+- The frontier `Mm` call was **`MmAllocateContiguousMemoryEx`** (ordinal 166), a 5-arg allocation
+  — the "64-bit split" that made its argument count look ambiguous was a `PUSH ESI` register-save
+  the compiler tucked into the argument block so the callee's arg-pop leaves it on top for a
+  matching `POP ESI`. The stack math (a `POP ESI` at the epilogue) proves the count is 5, not 6;
+  four call sites agree once the save is excluded.
+- The reconstructed ordinal table's **`187` was mislabelled `NtCreateMutant`** (3 args). Five live
+  call sites each pass it a single handle straight after an open/create — it is **`NtClose`**, and
+  the old 3-arg binding over-popped 8 bytes every call, derailing the boot thread into low memory.
+- The XBE **entry is a launcher**: it spawns the game's main thread with `PsCreateSystemThreadEx`,
+  `NtClose`s the handle, and returns — on hardware into a kernel thread-terminate stub. The boot
+  stack needed the `threadExitAddr` sentinel seeded as that outermost return address, so the entry
+  retires thread 0 cleanly and the scheduler hands the machine to the main thread.
+- Six more ordinals fell out of the Direct3D device-creation path, each read off its call site:
+  `MmClaimGpuInstanceMemory` (168), `MmSetAddressProtect` (182), `HalGetInterruptVector` (44),
+  `KeInitializeInterrupt` (109), `KeConnectInterrupt` (98), and `HalReadWritePCISpace` (46, a
+  read-modify-write of NV2A PCI config register `0x4C`, backed by a byte-addressed config map).
+
+The `Mm`/`Nt` blocks drift a uniform **+5** and the `Hal` block **+2** off the reconstructed table;
+the `Ke` block does not drift. Each binding is anchored to a verified neighbour and to the argument
+shapes at its live site, never to the table alone. The next step is **Phase C — the NV2A LLE GPU**
+(`tools/platform/xbox/nv2a*.go`), which parses that push buffer and renders the frame.
 
 ### Tooling
 

@@ -31,16 +31,23 @@ func ordinalName(ord uint16) string {
 // reconstructed table wherever the two disagree.
 var verifiedNames = map[uint16]string{
 	24:  "ExQueryNonVolatileSetting",       // 5-arg config read (index, type*, value*, len, resultLen*)
+	44:  "HalGetInterruptVector",           // f(busLevel, &irql) -> vector (Hal block drifts +2)
+	46:  "HalReadWritePCISpace",            // f(bus, slot, reg, buf, len, write)
 	47:  "HalRegisterShutdownNotification", // f(&HAL_SHUTDOWN_REGISTRATION, TRUE), returns
+	98:  "KeConnectInterrupt",              // f(KINTERRUPT) -> BOOLEAN
 	107: "KeInitializeDpc",                 // f(KDPC, routine, context)
+	109: "KeInitializeInterrupt",           // f(kint, routine, ctx, vector, irql, mode, share)
 	113: "KeInitializeTimerEx",             // f(KTIMER, type)
 	149: "KeSetTimer",                      // f(KTIMER, dueTime64, KDPC)
 	165: "MmAllocateContiguousMemory",      // f(bytes) -> physical base (Mm block drifts +5)
+	166: "MmAllocateContiguousMemoryEx",    // f(bytes, lowAddr, highAddr, align, protect) -> base
+	168: "MmClaimGpuInstanceMemory",        // f(bytes, &padding) -> end of retained GPU block
+	182: "MmSetAddressProtect",             // f(base, bytes, newProtect); void (no-op here)
 	184: "NtAllocateVirtualMemory",         // f(base**, zerobits, size*, type, protect)
 	202: "NtOpenFile",                      // f(handle*, access, objattr, iosb, share, opts)
 	301: "RtlNtStatusToDosError",           // f(NTSTATUS)
 	160: "MmAllocateContiguousMemory",
-	187: "NtCreateMutant",               // f(handle*, objattr, initialOwner)
+	187: "NtClose",                      // f(handle) -> NTSTATUS (Nt block drifts +5)
 	255: "PsCreateSystemThreadEx",       // the CRT's 10-arg main-thread spawn
 	277: "RtlEnterCriticalSection",      // census-anchored
 	291: "RtlInitializeCriticalSection", // census-anchored
