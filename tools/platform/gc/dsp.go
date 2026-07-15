@@ -65,6 +65,23 @@ type dsp struct {
 	ARSize   uint32
 	AIAddr   uint32
 	AILen    uint32
+
+	// The DSP's own memory-DMA engine, which the running microcode drives through the
+	// registers at the top of its data space (0xFFC9..0xFFCF): DSMAH/DSMAL are the main-memory
+	// byte address, DSPA the DSP-memory word address, DSCR the control (direction and which DSP
+	// memory), and DSBL the byte length whose write triggers the transfer. This is how the
+	// mixing ucode pulls voice parameter blocks and sample data in from main RAM and writes its
+	// results back out — distinct from the AR (auxiliary-RAM) DMA above.
+	DSMAAddr uint32 // DSMAH:DSMAL, the main-memory byte address
+	DSPAddr  uint16 // DSPA, the DSP-memory word address
+	DSCtrl   uint16 // DSCR, the control word (bit 0 direction, bit 1 IMEM vs DRAM)
+
+	// The sample accelerator's ADPCM predictor-coefficient table, sixteen words at
+	// 0xFFA0..0xFFAF. The mixing ucode uploads it (DMA'd in from main memory, then block-copied
+	// register by register) before it decodes any ADPCM voice; the accelerator reads it back
+	// when it expands a sample. Latched here so a later accelerator model has the coefficients
+	// the game actually programmed.
+	Coef [16]uint16
 }
 
 // The control/status register bits (the 16-bit register at offset 0x00A). RES is the
@@ -427,6 +444,14 @@ func (d *dsp) hwRead(m *Machine, a uint16) uint16 {
 		v := uint16(d.ToDSP)
 		d.ToDSP &^= 1 << 31
 		return v
+	case 0xFFC9: // DSCR: the memory-DMA control. Bit 2 is "DMA in progress"; the ucode polls it
+		// waiting for a transfer to finish. This engine transfers instantaneously, so the busy
+		// bit is never set and the poll exits at once — the stored control word reads back with
+		// bit 2 clear.
+		return d.DSCtrl
+	}
+	if a >= 0xFFA0 && a <= 0xFFAF { // the ADPCM coefficient table, read back
+		return d.Coef[a-0xFFA0]
 	}
 	d.Core.Halt("DSP read of unmodelled hardware register 0x%04X at ucode 0x%04X", a, d.Core.PC)
 	return 0
@@ -456,8 +481,63 @@ func (d *dsp) hwWrite(m *Machine, a uint16, v uint16) {
 		// it does not interrupt the CPU (see DIRQ above).
 		d.FromDSP = (d.FromDSP &^ 0xFFFF) | uint32(v)
 		return
+
+	// The memory-DMA registers. The address and control registers are latched; writing the
+	// block-length register DSBL is what starts the transfer.
+	case 0xFFC9: // DSCR: control (direction in bit 0, IMEM vs DRAM in bit 1)
+		d.DSCtrl = v
+		return
+	case 0xFFCD: // DSPA: DSP-memory word address
+		d.DSPAddr = v
+		return
+	case 0xFFCE: // DSMAH: main-memory address, high half
+		d.DSMAAddr = (d.DSMAAddr & 0x0000FFFF) | (uint32(v) << 16)
+		return
+	case 0xFFCF: // DSMAL: main-memory address, low half
+		d.DSMAAddr = (d.DSMAAddr & 0xFFFF0000) | uint32(v)
+		return
+	case 0xFFCB: // DSBL: block length in bytes — writing it triggers the transfer
+		d.runMemDMA(m, v)
+		return
+	}
+	if a >= 0xFFA0 && a <= 0xFFAF { // the ADPCM coefficient table, uploaded before decoding
+		d.Coef[a-0xFFA0] = v
+		return
 	}
 	d.Core.Halt("DSP write of unmodelled hardware register 0x%04X = 0x%04X at ucode 0x%04X", a, v, d.Core.PC)
+}
+
+// runMemDMA performs the DSP's memory DMA: it moves lenBytes between main memory (a big-endian
+// byte address in DSMAH:DSMAL) and the DSP's own memory (a word address in DSPA), the direction
+// and target chosen by the control word DSCR. Bit 0 of DSCR is the direction — 0 pulls data from
+// main memory into the DSP, 1 pushes it back out — and bit 1 selects instruction memory over
+// data memory, which the mixing ucode does not use, so that case halts loudly rather than moving
+// data into the wrong space. The transfer is instantaneous, so no busy bit is ever raised.
+func (d *dsp) runMemDMA(m *Machine, lenBytes uint16) {
+	if lenBytes == 0 {
+		return
+	}
+	if d.DSCtrl&0x2 != 0 {
+		d.Core.Halt("DSP memory DMA into instruction memory (DSCR=0x%04X) not modelled", d.DSCtrl)
+		return
+	}
+	toDSP := d.DSCtrl&0x1 == 0 // bit 0 clear = main memory -> DSP; set = DSP -> main memory
+	main := d.DSMAAddr & 0x03FFFFFF
+	words := uint32(lenBytes) / 2
+	for i := uint32(0); i < words; i++ {
+		mb := main + i*2
+		dw := d.DSPAddr + uint16(i)
+		if int(mb)+1 >= len(m.RAM) || int(dw) >= len(d.Core.DRAM) {
+			break
+		}
+		if toDSP {
+			d.Core.DRAM[dw] = uint16(m.RAM[mb])<<8 | uint16(m.RAM[mb+1])
+		} else {
+			w := d.Core.DRAM[dw]
+			m.RAM[mb] = byte(w >> 8)
+			m.RAM[mb+1] = byte(w)
+		}
+	}
 }
 
 // tickDSP steps the running DSP core. It is called from the machine's main loop alongside the

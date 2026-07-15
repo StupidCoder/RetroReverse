@@ -49,24 +49,27 @@ func TestInitIdiom(t *testing.T) {
 	}
 }
 
-// TestBlockLoop runs a block loop that stores a counter to consecutive DRAM words, stepping the
-// address register and incrementing the accumulator each pass — the shape of the ucode's DRAM
-// clear and table fills.
+// TestBlockLoop runs a block loop that stores a counter to consecutive DRAM words and increments
+// the accumulator each pass — the shape of the ucode's DRAM clear and table fills. The store
+// (srri) post-increments the address register itself, walking the buffer with no separate step;
+// getting that auto-increment right is what lets the real DRAM-clear loop cover all of memory.
 func TestBlockLoop(t *testing.T) {
 	c := run(t, []uint16{
 		0x0088, 0xFFFF, // 0000: lri wr0, #0xFFFF (no-wrap, as the ucode sets up)
 		0x0080, 0x0100, // 0002: lri ar0, #0x0100
 		0x009E, 0x0000, // 0004: lri ac0.m, #0x0000
-		0x1104, 0x000A, // 0006: bloopi #4, 0x000A  (body 0x0008..0x000A)
-		0x1B1E,         // 0008: srr @ar0, ac0.m
-		0x0008,         // 0009: iar ar0
-		0x0200, 0x0001, // 000A: addi ac0, #0x0001  (loop end)
-		0x0021,         // 000C: halt (sentinel)
-	}, 0x000C)
+		0x1104, 0x0009, // 0006: bloopi #4, 0x0009  (body 0x0008..0x0009)
+		0x1B1E,         // 0008: srri @ar0, ac0.m  (store and post-increment ar0)
+		0x0200, 0x0001, // 0009: addi ac0, #0x0001  (loop end)
+		0x0021,         // 000B: halt (sentinel)
+	}, 0x000B)
 	for i := uint16(0); i < 4; i++ {
 		if got := c.DRAM[0x100+i]; got != i {
 			t.Errorf("DRAM[0x%03X] = 0x%04X, want 0x%04X", 0x100+i, got, i)
 		}
+	}
+	if c.Reg[regAR0] != 0x0104 {
+		t.Errorf("ar0 = 0x%04X, want 0x0104 (post-incremented four times)", c.Reg[regAR0])
 	}
 	if c.Reg[regAC0M] != 4 {
 		t.Errorf("ac0.m = 0x%04X, want 4", c.Reg[regAC0M])
@@ -169,6 +172,58 @@ func (b *mailboxBus) HWRead(a uint16) uint16 {
 	return 0
 }
 func (b *mailboxBus) HWWrite(a uint16, v uint16) {}
+
+// TestShiftAccumulator pins the shift group's semantics on the full 40-bit accumulator: a
+// positive amount shifts left, a negative one shifts right; the logical form zero-fills a right
+// shift while the arithmetic form carries the sign; and bit 8 selects the accumulator. Each case
+// sets the accumulator directly, steps the single shift word, and reads the 40-bit result back.
+func TestShiftAccumulator(t *testing.T) {
+	cases := []struct {
+		name string
+		op   uint16
+		in   int64
+		want int64
+	}{
+		{"lsl-1", 0x1401, 0x0000001234, 0x0000002468},
+		{"lsr-4", 0x147C, 0x0000012340, 0x0000001234},
+		// The command-dispatch shift: ac0.m=0x8000 sign-extends to -0x80000000; LSR by 7
+		// zero-fills to 0x01FF000000, whose middle word (0xFF00) the ucode then masks away.
+		{"lsr-7-of-neg", 0x1479, -0x80000000, 0x01FF000000},
+		{"asr-4-neg", 0x14FC, -0x10000000, -0x1000000},
+		{"lsr-4-of-neg-zerofills", 0x147C, -0x10000000, 0x0FFF000000},
+		{"lsl-1-ac1", 0x1501, 0x0000001234, 0x0000002468},
+	}
+	for _, tc := range cases {
+		c := New(nullBus{t})
+		r := int((tc.op >> 8) & 1)
+		c.setAc(r, tc.in)
+		c.IRAM[0] = tc.op
+		c.IRAM[1] = 0x0000 // nop sentinel
+		if !c.Step() {
+			t.Fatalf("%s: core halted: %s", tc.name, c.Reason)
+		}
+		if got := c.ac(r); got != tc.want {
+			t.Errorf("%s: ac%d = 0x%010X, want 0x%010X", tc.name, r, uint64(got)&0xFFFFFFFFFF, uint64(tc.want)&0xFFFFFFFFFF)
+		}
+	}
+}
+
+// TestCommandDispatchShift runs the exact command-dispatch idiom at ucode 0x0040: the mailbox
+// command word in ac0.m is shifted, masked to an even jump-table index, and offset by the table
+// base. For command 0 (mailbox high = 0x8000, present bit only) the computed target is the table
+// base 0x0062 itself — the first entry. A wrong shift lands on a different entry.
+func TestCommandDispatchShift(t *testing.T) {
+	c := run(t, []uint16{
+		0x009E, 0x8000, // 0000: lri ac0.m, #0x8000 (the mailbox-high command word)
+		0x1479,         // 0002: lsr ac0, #7
+		0x0240, 0x007E, // 0003: andi ac0.m, #0x007E
+		0x0200, 0x0062, // 0005: addi ac0, #0x0062
+		0x0000,         // 0007: nop sentinel
+	}, 0x0007)
+	if c.Reg[regAC0M] != 0x0062 {
+		t.Errorf("dispatch target ac0.m = 0x%04X, want 0x0062 (jump-table entry 0 for command 0)", c.Reg[regAC0M])
+	}
+}
 
 // TestCallRet checks the call stack: a call runs a subroutine that loads a register, and the
 // ret returns to the instruction after the call.

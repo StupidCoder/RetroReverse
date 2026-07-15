@@ -109,27 +109,62 @@ func (c *CPU) execute(pc, op uint16) (span uint16) {
 		return 1
 
 	// --- register-indirect loads and stores (via an address register) --------------------
-	case op&0xFF00 == 0x1900: // lrr reg, @arS
+	case op&0xFC00 == 0x1800:
+		// The register-indirect memory family: load or store a register through an address
+		// register, with an optional post-modification of that address register. Encoding
+		// 0001 10L MN ssd dddd — bit 9 (L) stores rather than loads, bits 8..7 (MN) choose the
+		// post-modify (00 none, 01 decrement, 10 increment, 11 add the index register), bits
+		// 6..5 select the address register, bits 4..0 the data register. Getting the increment
+		// right is what makes the DRAM-clear loop, the two-word address fetches, and the block
+		// copies to the hardware registers walk their buffers instead of hammering one cell.
 		s := int((op >> 5) & 3)
-		c.setReg(op&0x1F, c.dataRead(c.Reg[regAR0+s]))
-		return 1
-	case op&0xFF00 == 0x1A00: // lrri/lrrd reg, @arS (post-increment/decrement)
-		s := int((op >> 5) & 3)
-		c.setReg(op&0x1F, c.dataRead(c.Reg[regAR0+s]))
-		if op&0x0080 != 0 { // bit 7 chooses decrement vs increment in this row
-			c.arStep(s, -1)
-		} else {
-			c.arStep(s, +1)
+		reg := op & 0x1F
+		addr := c.Reg[regAR0+s]
+		if op&0x0200 != 0 { // store
+			c.dataWrite(addr, c.getReg(reg))
+		} else { // load
+			c.setReg(reg, c.dataRead(addr))
 		}
-		return 1
-	case op&0xFF00 == 0x1B00: // srr @arS, reg
-		s := int((op >> 5) & 3)
-		c.dataWrite(c.Reg[regAR0+s], c.getReg(op&0x1F))
+		switch op & 0x0180 {
+		case 0x0080: // post-decrement
+			c.arStep(s, -1)
+		case 0x0100: // post-increment
+			c.arStep(s, +1)
+		case 0x0180: // post-add the index register
+			c.arStep(s, int(int16(c.Reg[regIX0+s])))
+		}
 		return 1
 
 	// --- register to register ------------------------------------------------------------
 	case op&0xFC00 == 0x1C00: // mrr d, s
 		c.setReg((op>>5)&0x1F, c.getReg(op&0x1F))
+		return 1
+
+	// --- accumulator shift by immediate --------------------------------------------------
+	case op&0xFE00 == 0x1400: // shifti: LSL/LSR/ASL/ASR acR, #shift
+		// Encoding 0001 010r aiii iiii: bit 8 selects the accumulator, bit 7 the arithmetic
+		// (sign-preserving) vs logical form, and bits 6..0 are a SIGNED 7-bit shift amount —
+		// positive shifts the 40-bit accumulator left, negative shifts it right by the
+		// magnitude. So 0x1479 (a=0, imm=0x79=-7) is a logical right shift by 7, and 0x1501
+		// (r=1, imm=+1) a logical left shift by 1. The command dispatch at ucode 0x0040 leans
+		// on exactly this: it normalises the mailbox command word with a shift before masking
+		// out the jump-table index, so a wrong amount or direction lands on the wrong entry.
+		r := int((op >> 8) & 1)
+		arith := op&0x0080 != 0
+		amt := int(op & 0x7F)
+		if amt&0x40 != 0 { // sign-extend the 7-bit field
+			amt -= 0x80
+		}
+		c.shiftAcc(r, arith, amt)
+		return 1
+
+	// --- load short immediate ------------------------------------------------------------
+	case op&0xF800 == 0x0800: // lris reg(0x18+d), #imm8 (sign-extended)
+		// Encoding 0000 1ddd iiii iiii: an 8-bit signed immediate into one of the eight
+		// short registers 0x18..0x1F (the ax and accumulator low/mid words). The DMA-setup
+		// helpers use it to drop a small direction constant into ac1.m between programming the
+		// DSP-DMA address and control registers.
+		c.setReg(0x18+((op>>8)&7), uint16(int16(int8(op&0xFF))))
 		return 1
 
 	// --- immediate ALU to accumulator middle ---------------------------------------------

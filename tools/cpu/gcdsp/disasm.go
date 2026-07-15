@@ -154,16 +154,56 @@ func Disasm(read func(uint16) uint16, pc uint16) (text string, words uint16) {
 		return fmt.Sprintf("sr     @0x%04X, %s", next(), regName(op&0x1F)), 2
 	case op&0xFF00 == 0x1600:
 		return fmt.Sprintf("si     @0x%02X, #0x%04X", op&0xFF, next()), 2
-	case op&0xFF00 == 0x1B00:
-		return fmt.Sprintf("srr    @%s, %s", regName((op>>5)&3), regName(op&0x1F)), 1
-	case op&0xFF00 == 0x1900:
-		return fmt.Sprintf("lrr    %s, @%s", regName(op&0x1F), regName((op>>5)&3)), 1
-	case op&0xFF00 == 0x1A00:
-		return fmt.Sprintf("lrrd/lrri %s, @%s", regName(op&0x1F), regName((op>>5)&3)), 1
+	case op&0xFC00 == 0x1800:
+		// Register-indirect load/store with an optional post-modify of the address register:
+		// bit 9 = store, bits 8..7 = modify (00 none, 01 decrement, 10 increment, 11 +index).
+		ar := regName((op >> 5) & 3)
+		reg := regName(op & 0x1F)
+		store := op&0x0200 != 0
+		var suffix string
+		switch op & 0x0180 {
+		case 0x0080:
+			suffix = "d" // post-decrement
+		case 0x0100:
+			suffix = "i" // post-increment
+		case 0x0180:
+			suffix = "n" // post-add index register
+		}
+		if store {
+			return fmt.Sprintf("%-6s @%s, %s", "srr"+suffix, ar, reg), 1
+		}
+		return fmt.Sprintf("%-6s %s, @%s", "lrr"+suffix, reg, ar), 1
 
 	// --- move register to register -------------------------------------------------------
 	case op&0xFC00 == 0x1C00:
 		return fmt.Sprintf("mrr    %s, %s", regName((op>>5)&0x1F), regName(op&0x1F)), 1
+
+	// --- accumulator shift by immediate (signed 7-bit amount, +left/-right) ---------------
+	case op&0xFE00 == 0x1400:
+		r := (op >> 8) & 1
+		arith := op&0x0080 != 0
+		amt := int(op & 0x7F)
+		if amt&0x40 != 0 {
+			amt -= 0x80
+		}
+		var mn string
+		switch {
+		case arith && amt >= 0:
+			mn = "asl"
+		case arith:
+			mn = "asr"
+			amt = -amt
+		case amt >= 0:
+			mn = "lsl"
+		default:
+			mn = "lsr"
+			amt = -amt
+		}
+		return fmt.Sprintf("%-6s ac%d, #%d", mn, r, amt), 1
+
+	// --- load short immediate (8-bit signed into register 0x18..0x1F) ---------------------
+	case op&0xF800 == 0x0800:
+		return fmt.Sprintf("lris   %s, #0x%02X", regName(0x18+((op>>8)&7)), op&0xFF), 1
 
 	// --- load/store a short register to a hardware/data address (0xFF00|M) ----------------
 	case op&0xF800 == 0x2000:

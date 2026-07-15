@@ -157,6 +157,30 @@ func (c *CPU) serviceLoops(execAddr uint16, branched bool) {
 	}
 }
 
+// --- accumulator shift -------------------------------------------------------------------
+
+// shiftAcc shifts the 40-bit accumulator acR by a signed amount: positive shifts left,
+// negative shifts right by the magnitude. The logical form treats the accumulator as an
+// unsigned 40-bit quantity (zero-fill on the right shift); the arithmetic form preserves the
+// sign (bit 39 replicated on the right shift). A left shift is the same bit operation either
+// way. The result is written back sign-extended and the zero/sign flags are set from it.
+func (c *CPU) shiftAcc(r int, arith bool, amt int) {
+	switch {
+	case amt >= 0:
+		v := (uint64(c.ac(r)) << uint(amt)) & 0xFFFFFFFFFF
+		c.setAc(r, int64(v))
+	case arith:
+		// Arithmetic right: c.ac already returns the value sign-extended into an int64, so a
+		// Go arithmetic shift carries the sign; setAc masks it back to 40 bits.
+		c.setAc(r, c.ac(r)>>uint(-amt))
+	default:
+		// Logical right: shift the unsigned 40-bit value, zero-filling from the top.
+		v := (uint64(c.ac(r)) & 0xFFFFFFFFFF) >> uint(-amt)
+		c.setAc(r, int64(v))
+	}
+	c.setArithFlags(r)
+}
+
 // --- status flags ------------------------------------------------------------------------
 
 // setArithFlags sets the zero and sign flags from a full 40-bit accumulator result. The finer

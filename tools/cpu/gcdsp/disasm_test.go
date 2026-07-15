@@ -41,12 +41,27 @@ func TestDecode(t *testing.T) {
 		{[]uint16{0x00FE, 0x0343}, "sr     @0x0343, ac0.m", 2},
 		{[]uint16{0x16FC, 0x8888}, "si     @0xFC, #0x8888", 2},
 		{[]uint16{0x005F}, "loop   ac1.m", 1},
-		{[]uint16{0x1B1E}, "srr    @ar0, ac0.m", 1},
+		// The register-indirect load/store family: bit 9 = store, bits 8..7 = post-modify.
+		{[]uint16{0x1B1E}, "srri   @ar0, ac0.m", 1}, // store, post-increment (the DRAM-clear idiom)
+		{[]uint16{0x1A5E}, "srr    @ar2, ac0.m", 1}, // store, no modify
+		{[]uint16{0x1ABC}, "srrd   @ar1, ac0.l", 1}, // store, post-decrement
+		{[]uint16{0x193E}, "lrri   ac0.m, @ar1", 1}, // load, post-increment
+		{[]uint16{0x199E}, "lrrn   ac0.m, @ar0", 1}, // load, post-add index
+		{[]uint16{0x181E}, "lrr    ac0.m, @ar0", 1}, // load, no modify
 		{[]uint16{0x26FF}, "lrs    ac0.m, @0xFFFF", 1},
 		{[]uint16{0x2800}, "srs    @0xFF00, ax0.l", 1},
 		{[]uint16{0x0200, 0x0062}, "addi   ac0, #0x0062", 2},
 		{[]uint16{0x0240, 0x007E}, "andi   ac0.m, #0x007E", 2},
 		{[]uint16{0x170F}, "jmpr   ar0", 1},
+		// The shift group: bit 8 = accumulator, bit 7 = arithmetic, bits 6..0 signed amount.
+		{[]uint16{0x1401}, "lsl    ac0, #1", 1},
+		{[]uint16{0x1479}, "lsr    ac0, #7", 1},  // -7 in the 7-bit field
+		{[]uint16{0x147F}, "lsr    ac0, #1", 1},
+		{[]uint16{0x1488}, "asl    ac0, #8", 1},
+		{[]uint16{0x14FB}, "asr    ac0, #5", 1},  // arithmetic, -5
+		{[]uint16{0x1501}, "lsl    ac1, #1", 1},
+		{[]uint16{0x1570}, "lsr    ac1, #16", 1}, // -16
+		{[]uint16{0x1585}, "asl    ac1, #5", 1},
 	}
 	for _, c := range cases {
 		got, span := Disasm(reader(c.words), 0)
