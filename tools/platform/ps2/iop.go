@@ -704,6 +704,20 @@ func (p *IOP) SymAddr(name string) (uint32, bool) {
 	return 0, false
 }
 
+// resolveTrap turns a symbol-named trap into an address once the module carrying that
+// symbol is resident. It is idempotent, so it can be called from the two places a trap
+// can become armable: when a module is loaded (the boot path), and when the whole IOP is
+// restored from a snapshot with its modules already in place (the resume path).
+func (p *IOP) resolveTrap() {
+	if p.Trap != 0 || p.TrapSym == "" {
+		return
+	}
+	if a, ok := p.SymAddr(p.TrapSym); ok {
+		p.Trap = a
+		p.ps2.note("IOP: the trap is armed at %s (0x%08X)", p.TrapSym, a)
+	}
+}
+
 // --- the census -------------------------------------------------------------------
 
 // iopTrailLen is how many instructions of history the trail keeps. Enough to see a call

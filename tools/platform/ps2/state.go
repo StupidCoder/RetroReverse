@@ -273,6 +273,20 @@ func (m *Machine) LoadState(s MachineState) error {
 		if err := m.LoadIOPState(*s.IOP); err != nil {
 			return err
 		}
+		// The second processor is restored, not started — so it never passed through
+		// StartIOP, where the harness's instruments (the trap, the write-watch, the
+		// register and stub-call traces) attach to it. Without this they silently do
+		// nothing on a `-loadstate` resume: the very state you snapshot in order to
+		// examine the frontier is the one state in which you cannot watch the IOP. So
+		// the same hook StartIOP fires runs here too, and a resumed IOP is instrumented
+		// exactly as a booted one is.
+		if m.OnIOPStart != nil {
+			m.OnIOPStart(m.IOP)
+		}
+		// A symbol-named trap is resolved to an address when its module loads; a resumed
+		// IOP loads no modules, so it is resolved here instead, now the hook above has
+		// named it.
+		m.IOP.resolveTrap()
 	}
 
 	m.SyscallCalls = map[string]int{}
