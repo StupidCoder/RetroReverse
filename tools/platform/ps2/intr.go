@@ -73,6 +73,7 @@ const dmacChannelSIF0 = 5
 // everything else right.
 func (m *Machine) deliverVBlank() {
 	m.vblanks++
+	m.gsVSync()
 
 	if m.vsyncFlagPtr != 0 {
 		m.Write32(m.vsyncFlagPtr, 1)

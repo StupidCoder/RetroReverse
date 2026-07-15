@@ -40,14 +40,26 @@ const (
 	spinDistinct = 6
 )
 
+// trailLen is how many recent control-transfer edges the run keeps, to print as a trail
+// when it stops somewhere it should not have — a wild jump, an unhandled exception, a PC
+// off the map. Recording *edges* (the instruction that branched and the address it
+// branched to) rather than every PC is what makes a wild jump legible: a jump into a
+// nop-slide of zeroed heap can slide for thousands of instructions, and a ring of raw PCs
+// fills with the slide; the edge that entered it is the one line that matters. It is the
+// EE's version of the IOP's -ioptrap trail.
+const trailLen = 24
+
 // Run steps the machine until the budget is spent or something stops it.
 func (m *Machine) Run(maxSteps uint64) Result {
 	var (
-		steps    uint64
-		vblAcc   uint64
-		iopAcc   uint64
-		spinSeen = map[uint32]int{}
-		spinAcc  int
+		steps     uint64
+		vblAcc    uint64
+		iopAcc    uint64
+		spinSeen  = map[uint32]int{}
+		spinAcc   int
+		trail     [trailLen][2]uint32 // {from, to} for each control transfer
+		trailPos  int
+		trailPrev uint32
 	)
 
 	for steps < maxSteps {
@@ -129,14 +141,24 @@ func (m *Machine) Run(maxSteps uint64) Result {
 		// memory until it falls into something. That failure is silent and looks like a
 		// hang somewhere else entirely, so it is caught here and named.
 		if r, caught := m.unhandledException(pc); caught {
+			m.note("jump trail before the exception:%s", m.formatTrail(trail[:], trailPos))
 			return m.result(steps, r)
 		}
 
 		if !m.mapped(phys(pc)) {
+			m.note("jump trail before the PC left memory:%s", m.formatTrail(trail[:], trailPos))
 			return m.result(steps, fmt.Sprintf(
 				"the PC left mapped memory (0x%08X) — an unimplemented kernel call, or a jump through an unwritten pointer",
 				pc))
 		}
+
+		// Record a control-transfer edge: any step where the PC is not the previous one plus
+		// four is a branch, jump or exception return, and its {from, to} is what the trail is.
+		if trailPrev != 0 && pc != trailPrev+4 {
+			trail[trailPos] = [2]uint32{trailPrev, pc}
+			trailPos = (trailPos + 1) % trailLen
+		}
+		trailPrev = pc
 
 		if m.OnStep != nil {
 			m.OnStep(m, pc)
@@ -175,6 +197,21 @@ func (m *Machine) Run(maxSteps uint64) Result {
 
 func (m *Machine) result(steps uint64, reason string) Result {
 	return Result{Steps: steps, PC: uint32(m.CPU.PC), Reason: reason}
+}
+
+// formatTrail renders the ring of recent control-transfer edges oldest-first, each as the
+// instruction that branched and the address it reached. The last line is the transfer that
+// ended the run — for a wild jump, the routine it left from and the garbage it landed in.
+func (m *Machine) formatTrail(trail [][2]uint32, pos int) string {
+	s := ""
+	for i := 0; i < len(trail); i++ {
+		e := trail[(pos+i)%len(trail)]
+		if e[0] == 0 && e[1] == 0 {
+			continue
+		}
+		s += fmt.Sprintf("\n  %-34s -> %s", m.Sym(e[0]), m.Sym(e[1]))
+	}
+	return s
 }
 
 // The three addresses the EE vectors an exception to, with Status BEV clear.

@@ -106,6 +106,20 @@ type Machine struct {
 	dmacMask     uint32
 	dmacStat     uint32
 
+	// The DMA controller (dmac.go): ten channels and the controller-wide registers.
+	// dmacStat/dmacMask above are the two halves of D_STAT (the channel interrupt
+	// status and its mask), shared with the kernel's EnableDmac.
+	dmac  [dmacChannels]dmacChan
+	dCtrl uint32
+	dPcr  uint32
+	dSqwc uint32
+	dRbsr uint32
+	dRbor uint32
+
+	// The Graphics Synthesizer (gs.go): 4 MiB of video memory and the register state
+	// the GIF and the privileged register block drive. Nil until first touched.
+	gs *GS
+
 	// The vertical-sync flags the kernel writes each frame on the game's behalf
 	// (SetVSyncFlag). A game's idle loop spins on one of these.
 	vsyncFlagPtr  uint32
@@ -511,6 +525,16 @@ func (m *Machine) ioRead(p uint32) uint32 {
 	if p >= sbusEEBase && p < sbusEEBase+sbusSpan {
 		return m.sbusRead(p - sbusEEBase)
 	}
+	if p >= dmacBase && p < dmacEnd {
+		if v, ok := m.dmacRead(p); ok {
+			return v
+		}
+	}
+	if p >= gsRegBase && p < gsRegEnd {
+		if v, ok := m.gsPrivRead(p); ok {
+			return v
+		}
+	}
 	m.unmodelled[p]++
 	return m.io[p]
 }
@@ -519,6 +543,16 @@ func (m *Machine) ioWrite(p, v uint32) {
 	if p >= sbusEEBase && p < sbusEEBase+sbusSpan {
 		m.sbusWrite(p-sbusEEBase, v)
 		return
+	}
+	if p >= dmacBase && p < dmacEnd {
+		if m.dmacWrite(p, v) {
+			return
+		}
+	}
+	if p >= gsRegBase && p < gsRegEnd {
+		if m.gsPrivWrite(p, v) {
+			return
+		}
 	}
 	m.unmodelled[p]++
 	m.io[p] = v
