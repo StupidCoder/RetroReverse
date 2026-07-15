@@ -365,11 +365,60 @@ Direct3D-8 runtime submits **128 methods across 5 objects** — validated as rea
 DMA-context bindings at Kelvin methods `0x180`–`0x1A8`; and identity 4×4 transform matrices at
 `0x840`/`0x880`/`0x8C0` (the `0x3F800000 = 1.0` diagonal). These are the device-init pipeline state,
 not geometry — no `BEGIN`/`END` or `DrawArrays` yet. The title then goes CPU-bound loading and
-initialising resources, and halts at a **new device region: an out-of-range read at `0xFE801100`,
-the MCPX APU (audio) MMIO at `0xFE800000`**, entirely separate from the NV2A. Past the APU
-bring-up lies the render loop that submits geometry, and then the Kelvin pipeline itself
-(`nv2a_kelvin.go` is a latch-only stub today): vertex-program interpreter, register combiners,
-swizzled texture sampling, banded rasteriser → PNG.
+initialising resources.
+
+### Past the audio frontier — the title runs its own game threads
+
+The `0xFE801100` fault was the **MCPX southbridge**, a cluster of device apertures separate from
+the NV2A. Three of them are modelled as latches in `apu.go` — sparse write-then-read-back stores,
+unwritten registers reading `0` and logged once (`RR_APU_TRACE=1` traces all traffic), because we
+render frames, not audio, and nothing downstream consumes what the sound library programs:
+
+- the **APU** (audio processing unit) at `0xFE800000`. Its one register with behaviour is the DSP
+  counter at `+0x20010` the DirectSound bring-up polls — first to `≥4`, later to `≥0x20`. It is a
+  *progressing* counter, not a ready flag: a constant `4` cleared the first gate and spun the
+  second forever (the fiction surfaced exactly as the log-once guard intends). It reads the machine
+  clock scaled (`tick>>10`), monotonic and savestate-stable.
+- the **AC'97 codec** at `0xFEC00000` (the register-access semaphore poll is satisfied by the zero
+  default).
+- the **USB OHCI** host controller at `0xFED00000` (`HcRevision` reads 1.0, `HcCommandStatus` reads
+  0 — every self-clearing command bit already done in a synchronous model; no pads on the root hub,
+  input is a later phase like the GameCube SI).
+
+Past audio the boot runs a long tail of subsystem init, and each frontier is a kernel ordinal
+pinned from its live call site (the reconstructed table drifts `+5` in the Ke/Mm/Nt/Ob blocks and
+`+2` in the Hal/Io blocks — always anchored to a verified neighbour and the live argument shapes).
+This session pinned **twenty more**: `FscSetCacheSize` (37), `IoCreateDevice` (65),
+`KeQueryPerformanceCounter`/`Frequency` (126/127), `KeRaiseIrqlToDpcLevel` (129),
+`KeSetBasePriorityThread` (143), `KeStallExecutionProcessor` (151), `MmGetPhysicalAddress` (173),
+`MmLockUnlockBufferPages` (175), `MmQueryAllocationSize` (180), `NtCreateFile` (190),
+`NtQueryInformationFile` (211), `NtReadFile` (219, the OVERLAPPED-shape *real* one — the earlier
+provisional binding at 203 was never called and was removed), `NtResume`/`SuspendThread` (224/231),
+`NtSetInformationFile` (226), `ObReferenceObjectByHandle` (246), `ObfDereferenceObject` (250),
+`RtlInitAnsiString` (289), and the `IdexChannelObject` **data** export (357, whose queued-IRP list
+head must point at itself).
+
+Two of these turned a fiction into real behaviour. The wait model used to report every
+`NtWaitForSingleObjectEx` as already satisfied; that spun a worker thread hot through its
+wait-then-check loop while the producer starved, and the boot made no progress past resource load.
+`doWaitTimed` is the honest wait now — signalled objects satisfy immediately, otherwise the thread
+parks until a signal or a real relative/absolute timeout. And the CPU gained the P6 opcodes the
+title's own interlocked and timing code reaches: **CMPXCHG** (`0F B0/B1`), **XADD** (`0F C0/C1`),
+and **RDTSC** (`0F 31`), the last scaled by a new `CPU.TSCMul` so the time-stamp counter tells the
+same time as `KeTickCount` (367 = a 733 MHz TSC against 2000 instructions/ms).
+
+With all of it the title's **own game threads run**: it opens `d:\text\english_us.bin` (87,952
+bytes) off the XISO and streams it through `NtReadFile` — the first real game asset loaded. The
+`-gpu` boot now runs **284,019,155 instructions** and reaches **49 distinct ordinals**, halting at
+the **crypto frontier**: ordinal 340, which the reconstructed table calls `XcKeyTable` but which is
+really **`XcHMAC`** — two wrappers pass it seven arguments and copy a 20-byte SHA-1 digest out of
+the last, then compare it (`REP CMPSB`). That is a content/save-integrity path (HMAC-SHA1, a
+platform-spec standard algorithm), the next frontier to implement — carefully, since a wrong digest
+is a fiction the game would compare against. The render loop that submits `BEGIN`/`END` + vertex
+data + `DrawArrays` lies past it, and then the Kelvin pipeline itself (`nv2a_kelvin.go` is a
+latch-only stub today): vertex-program interpreter, register combiners, swizzled texture sampling,
+banded rasteriser → PNG. Savestate now covers the PGRAPH engine and the PFIFO pusher position so a
+render pass resumes with the 128 device-init methods' register state intact.
 
 ### Tooling
 
@@ -377,6 +426,8 @@ swizzled texture sampling, banded rasteriser → PNG.
 - `tools/platform/xbox/{nv2a_pfifo,nv2a_pgraph,nv2a_ramht,nv2a_kelvin}.go` — the Phase-C GPU: the
   PFIFO DMA pusher, the PGRAPH method dispatch + survey, RAMHT handle→class resolution, and the
   Kelvin (3D) object (a latch-only stub pending the pipeline).
+- `tools/platform/xbox/apu.go` — the MCPX audio/USB latch apertures (APU, AC'97, USB OHCI);
+  `RR_APU_TRACE=1` traces their traffic.
 - `games/outrun-2006-xbox/extract/cmd/bootoracle` — the boot driver, standard oracle flags
   (`-image -steps -trace -stack -ordinals -dump -savestate -loadstate -v`), plus `-gpu` (run the
   NV2A pusher on each kick, do not stop at the first push) and `-survey` (record and print the
