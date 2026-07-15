@@ -15,6 +15,9 @@ package main
 import (
 	"flag"
 	"fmt"
+	"image"
+	"image/color"
+	"image/png"
 	"os"
 	"sort"
 
@@ -31,6 +34,7 @@ func main() {
 	bp := flag.String("bp", "", "halt when EIP reaches this flat linear address (hex)")
 	dis := flag.String("dis", "", "after the run, disassemble ADDR:LEN (hex) from live memory")
 	dump := flag.String("dump", "", "after the run, hex-dump ADDR:LEN (hex)")
+	pngOut := flag.String("png", "", "after the run, write the VGA mode-13h framebuffer (0xA0000, 320x200) to this PNG")
 	showLog := flag.Bool("log", false, "print the full event log")
 	flag.Parse()
 	if *image == "" {
@@ -188,6 +192,14 @@ func main() {
 		}
 	}
 
+	if *pngOut != "" {
+		if err := writeMode13PNG(m, *pngOut); err != nil {
+			fmt.Fprintln(os.Stderr, "go32run: -png:", err)
+		} else {
+			fmt.Printf("\nwrote mode-13h framebuffer to %s\n", *pngOut)
+		}
+	}
+
 	if *showLog {
 		fmt.Printf("\n== event log (%d) ==\n", len(m.Log))
 		for _, l := range m.Log {
@@ -221,6 +233,29 @@ func memRange(m *dos.PM, a, ln uint32) []byte {
 		end = uint32(len(m.Mem))
 	}
 	return m.Mem[a:end]
+}
+
+// writeMode13PNG renders the VGA mode-13h framebuffer (256-colour, 320x200 at
+// linear 0xA0000) to a PNG, colouring each byte through the DAC palette the game
+// programmed via ports 0x3C8/0x3C9 (6-bit components, scaled to 8-bit).
+func writeMode13PNG(m *dos.PM, path string) error {
+	const w, h, fb = 320, 200, 0xA0000
+	var pal [256]color.RGBA
+	for i := 0; i < 256; i++ {
+		pal[i] = color.RGBA{m.Pal[i*3] << 2, m.Pal[i*3+1] << 2, m.Pal[i*3+2] << 2, 255}
+	}
+	img := image.NewRGBA(image.Rect(0, 0, w, h))
+	for y := 0; y < h; y++ {
+		for x := 0; x < w; x++ {
+			img.Set(x, y, pal[m.Mem[fb+y*w+x]])
+		}
+	}
+	f, err := os.Create(path)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+	return png.Encode(f, img)
 }
 
 func dirOf(path string) string {

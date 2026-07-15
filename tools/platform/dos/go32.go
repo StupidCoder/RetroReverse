@@ -76,6 +76,11 @@ type PM struct {
 	lolSeg, lolOff uint16 // real-mode far pointer to the fabricated DOS List of Lists (INT 21h AH=52h)
 	dtaSeg, dtaOff uint16 // real-mode far pointer to the Disk Transfer Address (INT 21h AH=1Ah)
 
+	pit      pitState  // 8254 timer counter 0, the game's clock (see go32_ports.go)
+	retrace  bool      // VGA 0x3DA vertical-retrace toggle
+	dacIndex int       // VGA DAC write cursor (register×3 + component), ports 0x3C8/0x3C9
+	Pal      [768]byte // VGA DAC palette the game programs via 0x3C8/0x3C9 (for framebuffer export)
+
 	// instrumentation
 	Log        []string
 	DPMICounts map[uint16]int // INT 31h function (AX) call histogram
@@ -181,6 +186,8 @@ func LoadGo32Bytes(data []byte, gameDir string) (*PM, error) {
 	c.IF = true
 	c.IntHook = p.handleInt
 	c.SegResolve = p.resolveSel
+	c.PortIn = p.portIn
+	c.PortOut = p.portOut
 	p.CPU = c
 	return p, nil
 }
