@@ -78,6 +78,18 @@ type PM struct {
 
 	pit      pitState  // 8254 timer counter 0, the game's clock (see go32_ports.go)
 	retrace  bool      // VGA 0x3DA vertical-retrace toggle
+
+	// scripted keyboard injection (see go32_input.go)
+	pmVectors  [256]pmVector // PM interrupt handlers recorded from DPMI 0205h
+	defIntVec  pmVector      // synthesized default PM interrupt handler (IN 60h/EOI/IRETD)
+	keyEvents []injEvent    // remaining scripted input events
+	keyWait   int           // injection periods to pause before the next event
+	keyRetry  bool          // a key is pending re-delivery until interrupts open
+	injTick   int           // retired-instruction counter toward go32InjectPeriod
+	keyHits   int           // delivered keystrokes (for capped logging)
+	kbdData   byte          // 8042 output buffer (byte the game reads from 0x60)
+	kbdFull   bool          // 8042 output-buffer-full status (bit0 of 0x64)
+
 	dacIndex int       // VGA DAC write cursor (register×3 + component), ports 0x3C8/0x3C9
 	Pal      [768]byte // VGA DAC palette the game programs via 0x3C8/0x3C9 (for framebuffer export)
 
@@ -162,6 +174,7 @@ func LoadGo32Bytes(data []byte, gameDir string) (*PM, error) {
 	p.heapBase = align(maxu32(imgEnd, 0x100000), go32PageSize)
 	p.heapNext = p.heapBase
 	p.setupInfoBlock(xferLinear)
+	p.setupDefaultIntVec()
 
 	c := x86.NewCPU(p)
 	c.Mode = x86.ModeProt
@@ -245,6 +258,35 @@ func (p *PM) setupInfoBlock(xferLinear uint32) {
 	p.w32(b+0x1C, p.stackFloor)  // memory top the sbrk grows toward (the heap/stack boundary)
 	p.w16(b+0x20, go32XferBytes) // stubinfo.minkeep — transfer-buffer size (__tb_size)
 	p.w16(b+0x24, uint16(xferLinear>>4)) // stubinfo.ds_segment — __tb = seg<<4
+}
+
+// setupDefaultIntVec plants a minimal default protected-mode hardware-interrupt
+// handler in guest memory and points defIntVec at it. On a real DPMI host, before
+// a program hooks a hardware IRQ, its PM vector already holds the host's default
+// reflector; DPMI 0204h (Get PM Interrupt Vector) returns that so the program can
+// chain to it. go32 games do exactly this — Quake's Ctrl-C keyboard filter saves
+// the previous INT 9 vector and JMPFs to it for every key it does not consume — so
+// a null default sends the chain to linear 0 and crashes. This stub stands in for
+// the reflector: read the keyboard data port (so the 8042 is acknowledged), send
+// EOI to both PICs, and IRETD. It discards the scancode (nothing here reflects to a
+// BIOS buffer the game reads), but it makes the chain safe; the game's own IRQ
+// handler, installed later, is what actually delivers keys.
+func (p *PM) setupDefaultIntVec() {
+	// Placed in the reserved info-block region (past the ~0x30-byte stubinfo), which
+	// nothing else uses. CS 0x08 has linear base 0, so the handler offset == its
+	// linear address.
+	off := p.infoBase + 0x200
+	stub := []byte{
+		0xE4, 0x60, // IN AL, 0x60      — acknowledge the keyboard controller
+		0xB0, 0x20, // MOV AL, 0x20     — non-specific EOI
+		0xE6, 0xA0, // OUT 0xA0, AL     — EOI to the slave PIC
+		0xE6, 0x20, // OUT 0x20, AL     — EOI to the master PIC
+		0xCF, //       IRETD            — pop the 32-bit interrupt frame
+	}
+	for i, b := range stub {
+		p.Write(off+uint32(i), b)
+	}
+	p.defIntVec = pmVector{sel: 0x08, off: off, set: true}
 }
 
 const (

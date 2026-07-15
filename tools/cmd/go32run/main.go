@@ -35,6 +35,7 @@ func main() {
 	dis := flag.String("dis", "", "after the run, disassemble ADDR:LEN (hex) from live memory")
 	dump := flag.String("dump", "", "after the run, hex-dump ADDR:LEN (hex)")
 	pngOut := flag.String("png", "", "after the run, write the VGA mode-13h framebuffer (0xA0000, 320x200) to this PNG")
+	keys := flag.String("keys", "", "scripted keyboard input (e.g. \"enter,wait:30,space\") injected via IRQ1")
 	showLog := flag.Bool("log", false, "print the full event log")
 	flag.Parse()
 	if *image == "" {
@@ -52,6 +53,15 @@ func main() {
 		os.Exit(1)
 	}
 	c := m.CPU
+
+	if *keys != "" {
+		events, err := dos.ParseKeys(*keys)
+		if err != nil {
+			fmt.Fprintln(os.Stderr, "go32run: -keys:", err)
+			os.Exit(2)
+		}
+		m.SetKeys(events)
+	}
 
 	var bpAddr uint32
 	bpSet := false
@@ -71,6 +81,11 @@ func main() {
 	spinPC, spinN := uint32(0xFFFFFFFF), 0
 
 	c.OnStep = func(cpu *x86.CPU) {
+		// Deliver scripted keyboard input (IRQ1 through the game's PM INT 9). This
+		// runs at an instruction boundary before the step, the way the real-mode CPU
+		// drives Machine.onStep; go32run owns OnStep, so the PM machine can't set its
+		// own — it exposes PumpInput for the run loop to call here.
+		m.PumpInput(cpu)
 		// The linear PC is CS's descriptor base plus EIP — not EIP alone: go32
 		// executes its real-mode trampolines through code-selector aliases whose
 		// base is a DOS-memory block, so a bare-EIP trace decodes the wrong bytes.

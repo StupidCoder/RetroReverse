@@ -113,6 +113,58 @@ func TestProtRepStosd(t *testing.T) {
 	}
 }
 
+// TestProtDoubleShiftBitOps exercises the 386 opcodes the go32 core gained to
+// carry Quake past its startup: SHLD/SHRD (double-precision shift), the BT/BTS/BTR
+// immediate group, and BSF. Compilers emit these in hash/cache and bitmap code —
+// Quake's model cache is the first to reach them.
+func TestProtDoubleShiftBitOps(t *testing.T) {
+	// MOV EAX, 0x12345678
+	// MOV EDX, 0x9ABCDEF0
+	// SHLD EAX, EDX, 4        ; EAX = 0x23456789
+	// MOV EBX, 0x12345678
+	// MOV ECX, 0x9ABCDEF0
+	// SHRD EBX, ECX, 4        ; EBX = 0x01234567
+	// MOV ESI, 0x00000100
+	// BTS ESI, 0              ; set bit 0  -> ESI = 0x101, CF = 0
+	// BTR ESI, 8              ; clear bit 8 -> ESI = 0x001, CF = 1
+	// MOV EDI, 0x00000080
+	// BSF EBP, EDI            ; EBP = 7 (lowest set bit)
+	// HLT
+	code := []byte{
+		0xB8, 0x78, 0x56, 0x34, 0x12, // MOV EAX, 0x12345678
+		0xBA, 0xF0, 0xDE, 0xBC, 0x9A, // MOV EDX, 0x9ABCDEF0
+		0x0F, 0xA4, 0xD0, 0x04, // SHLD EAX, EDX, 4
+		0xBB, 0x78, 0x56, 0x34, 0x12, // MOV EBX, 0x12345678
+		0xB9, 0xF0, 0xDE, 0xBC, 0x9A, // MOV ECX, 0x9ABCDEF0
+		0x0F, 0xAC, 0xCB, 0x04, // SHRD EBX, ECX, 4
+		0xBE, 0x00, 0x01, 0x00, 0x00, // MOV ESI, 0x00000100
+		0x0F, 0xBA, 0xEE, 0x00, // BTS ESI, 0
+		0x0F, 0xBA, 0xF6, 0x08, // BTR ESI, 8
+		0xBF, 0x80, 0x00, 0x00, 0x00, // MOV EDI, 0x00000080
+		0x0F, 0xBC, 0xEF, // BSF EBP, EDI
+		0xF4, // HLT
+	}
+	c, _ := runProt(t, 0x100000, 0x00300000, code)
+	if c.Regs[AX] != 0x23456789 {
+		t.Errorf("SHLD: EAX = %08X, want 23456789", c.Regs[AX])
+	}
+	if c.Regs[BX] != 0x01234567 {
+		t.Errorf("SHRD: EBX = %08X, want 01234567", c.Regs[BX])
+	}
+	if c.Regs[SI] != 0x00000001 {
+		t.Errorf("BTS/BTR: ESI = %08X, want 00000001", c.Regs[SI])
+	}
+	if !c.CF { // the final BTR cleared bit 8, which was set
+		t.Errorf("BTR: CF = false, want true (bit 8 was set)")
+	}
+	if c.Regs[BP] != 7 {
+		t.Errorf("BSF: EBP = %08X, want 7", c.Regs[BP])
+	}
+	if c.ZF {
+		t.Errorf("BSF: ZF = true, want false (source was nonzero)")
+	}
+}
+
 // TestProtSelectorBase proves that in protected mode loading a selector into a
 // segment register refreshes that segment's cached linear base from SegResolve —
 // the mechanism go32 needs, where the DPMI host hands out selectors (DOS-memory

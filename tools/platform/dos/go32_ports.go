@@ -77,9 +77,13 @@ func (p *PM) portIn(port uint16, size int) uint32 {
 			return 0x09 // display-disabled | vertical-retrace
 		}
 		return 0x00
-	case 0x60: // keyboard data: nothing pending
-		return 0
-	case 0x64: // keyboard status: input/output buffers empty (ready)
+	case 0x60: // keyboard data: the injected scancode (its ISR reads it here)
+		p.kbdFull = false
+		return uint32(p.kbdData)
+	case 0x64: // keyboard status: bit0 = output buffer full (a scancode is waiting)
+		if p.kbdFull {
+			return 0x01
+		}
 		return 0
 	case 0x20, 0x21, 0xA0, 0xA1: // PIC
 		return 0

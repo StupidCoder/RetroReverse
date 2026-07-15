@@ -84,10 +84,15 @@ func (p *PM) dpmi(c *x86.CPU) bool {
 	case 0x0200: // Get Real Mode Interrupt Vector -> CX:DX = 0:0
 		setPair(x86.CX, x86.DX, 0)
 	case 0x0201: // Set Real Mode Interrupt Vector — ignore
-	case 0x0204: // Get PM Interrupt Vector -> CX = selector, EDX = 0
-		set16(x86.CX, 0x08)
-		c.Regs[x86.DX] = 0
-	case 0x0205: // Set PM Interrupt Vector — ignore
+	case 0x0204: // Get PM Interrupt Vector (BL = vector) -> CX = selector, EDX = offset
+		v := p.pmVectors[c.Reg8(x86.BL)]
+		if !v.set {
+			v = p.defIntVec // hand back the safe default reflector, not a null vector
+		}
+		set16(x86.CX, v.sel)
+		c.Regs[x86.DX] = v.off
+	case 0x0205: // Set PM Interrupt Vector (BL = vector, CX = selector, EDX = offset)
+		p.setPMVector(c.Reg8(x86.BL), c.Reg16(x86.CX), get32(x86.DX))
 	case 0x0202, 0x0203: // Get/Set PM Exception handler — ignore
 
 	// --- DOS (conventional) memory ---

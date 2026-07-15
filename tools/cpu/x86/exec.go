@@ -785,3 +785,22 @@ func (c *CPU) Interrupt(n byte) bool {
 	c.dispatchIVT(n)
 	return true
 }
+
+// InterruptPM delivers a maskable hardware interrupt in protected mode: it pushes
+// the 32-bit interrupt frame (EFLAGS, CS, EIP) and vectors to the handler at
+// cs:eip, clearing IF/TF — the counterpart to Interrupt for a flat 32-bit client
+// whose handler ends in IRETD (which pops that same frame, see 0xCF). The vector
+// is not in any IVT here: a DPMI host records its clients' PM handlers (INT 31h
+// 0205h), so the caller supplies the recorded cs:eip. Masking matches Interrupt.
+func (c *CPU) InterruptPM(cs uint16, eip uint32) bool {
+	if !c.IF || c.Halted || c.ssShadow {
+		return false
+	}
+	c.push(4, uint32(c.EFlags()))
+	c.IF, c.TF = false, false
+	c.push(4, uint32(c.Seg[CS]))
+	c.push(4, c.IP)
+	c.loadSeg(CS, cs)
+	c.IP = eip
+	return true
+}

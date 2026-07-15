@@ -526,6 +526,40 @@ func (c *CPU) exec0F(op byte) {
 		c.push(c.osz(), uint32(c.Seg[GS]))
 	case 0xA9:
 		c.loadSeg(GS, uint16(c.pop(c.osz())))
+	case 0xA4: // SHLD r/m, r, imm8
+		reg, o := c.modrmE()
+		c.doubleShift(true, o, reg, c.fetch8(), c.osz())
+	case 0xA5: // SHLD r/m, r, CL
+		reg, o := c.modrmE()
+		c.doubleShift(true, o, reg, c.g8(1), c.osz())
+	case 0xAC: // SHRD r/m, r, imm8
+		reg, o := c.modrmE()
+		c.doubleShift(false, o, reg, c.fetch8(), c.osz())
+	case 0xAD: // SHRD r/m, r, CL
+		reg, o := c.modrmE()
+		c.doubleShift(false, o, reg, c.g8(1), c.osz())
+	case 0xA3: // BT  r/m, r
+		reg, o := c.modrmE()
+		c.bitOp(o, c.getReg(reg, c.osz()), c.osz(), 0, true)
+	case 0xAB: // BTS r/m, r
+		reg, o := c.modrmE()
+		c.bitOp(o, c.getReg(reg, c.osz()), c.osz(), 1, true)
+	case 0xB3: // BTR r/m, r
+		reg, o := c.modrmE()
+		c.bitOp(o, c.getReg(reg, c.osz()), c.osz(), 2, true)
+	case 0xBB: // BTC r/m, r
+		reg, o := c.modrmE()
+		c.bitOp(o, c.getReg(reg, c.osz()), c.osz(), 3, true)
+	case 0xBA: // grp8: BT/BTS/BTR/BTC r/m, imm8 (reg field 4/5/6/7)
+		sub, o := c.modrmE()
+		imm := c.fetch8()
+		c.bitOp(o, imm, c.osz(), int(sub&3), false)
+	case 0xBC: // BSF r, r/m
+		reg, o := c.modrmE()
+		c.bitScan(reg, c.rEA(o, c.osz()), c.osz(), false)
+	case 0xBD: // BSR r, r/m
+		reg, o := c.modrmE()
+		c.bitScan(reg, c.rEA(o, c.osz()), c.osz(), true)
 	case 0xAF: // IMUL r, r/m
 		reg, o := c.modrmE()
 		w := c.osz()
@@ -545,4 +579,114 @@ func (c *CPU) exec0F(op byte) {
 	default:
 		c.Halt("unimplemented 0F opcode $%02X at %s", op, c.at())
 	}
+}
+
+// bitOp implements BT/BTS/BTR/BTC (mode 0/1/2/3). CF receives the selected bit;
+// BTS/BTR/BTC then set/clear/complement it. With a register destination the bit
+// index is taken modulo the operand width. With a memory destination and a
+// register-sourced index (memBitString), the index is a *signed* bit-string
+// offset that selects a byte away from the operand address — the addressing an
+// assembler-level `bt [mem], eax` uses to walk a bitmap. The imm8 form
+// (memBitString false) instead operates on the whole operand at its own address.
+func (c *CPU) bitOp(o ea, idx uint32, w, mode int, memBitString bool) {
+	if o.isReg {
+		b := idx % uint32(w*8)
+		v := c.getReg(o.reg, w)
+		c.CF = (v>>b)&1 != 0
+		if mode != 0 {
+			c.setReg(o.reg, w, applyBit(v, b, mode))
+		}
+		return
+	}
+	base, off, b := o.base, o.off, idx
+	bw := w
+	if memBitString {
+		off += uint32(int32(idx) >> 3) // arithmetic shift: negative offsets walk back
+		b = idx & 7
+		bw = 1 // a memory bit string is addressed a byte at a time
+	} else {
+		b = idx % uint32(w*8)
+	}
+	v := c.memRead(base, off, bw)
+	c.CF = (v>>b)&1 != 0
+	if mode != 0 {
+		c.memWrite(base, off, bw, applyBit(v, b, mode))
+	}
+}
+
+func applyBit(v, b uint32, mode int) uint32 {
+	switch mode {
+	case 1: // BTS
+		return v | (1 << b)
+	case 2: // BTR
+		return v &^ (1 << b)
+	case 3: // BTC
+		return v ^ (1 << b)
+	}
+	return v
+}
+
+// bitScan implements BSF (forward) and BSR (reverse): find the index of the
+// lowest / highest set bit of src. ZF is set when src is zero (and the
+// destination is left unchanged, matching the architectural "undefined but in
+// practice preserved" behaviour); otherwise ZF is cleared and the index is stored.
+func (c *CPU) bitScan(reg byte, src uint32, w int, reverse bool) {
+	src &= widthMask(w)
+	if src == 0 {
+		c.ZF = true
+		return
+	}
+	c.ZF = false
+	var idx uint32
+	if reverse {
+		idx = uint32(w*8) - 1
+		for src&(1<<idx) == 0 {
+			idx--
+		}
+	} else {
+		for src&(1<<idx) == 0 {
+			idx++
+		}
+	}
+	c.setReg(reg, w, idx)
+}
+
+// doubleShift implements SHLD (left) and SHRD (!left): a double-precision shift of
+// the destination r/m by count bit positions, feeding in bits from the source
+// register at the vacated end. The count is masked to 5 bits and a zero count is a
+// no-op that leaves the flags untouched (as on real hardware). CF takes the last
+// bit shifted out of the destination; SF/ZF/PF follow the result; OF is defined
+// only for a count of 1 (a sign change), AF is left undefined.
+func (c *CPU) doubleShift(left bool, o ea, reg byte, count uint32, w int) {
+	count &= 0x1F
+	dst := c.rEA(o, w)
+	if count == 0 {
+		return
+	}
+	bits := uint(w * 8)
+	if count > uint32(bits) {
+		count = uint32(bits) // a 16-bit count > 16 is architecturally undefined; clamp
+	}
+	n := uint(count)
+	src := c.getReg(reg, w)
+	var res uint32
+	if left {
+		res = dst << n
+		if n < bits {
+			res |= src >> (bits - n)
+		}
+		c.CF = (dst>>(bits-n))&1 != 0
+	} else {
+		res = dst >> n
+		if n < bits {
+			res |= src << (bits - n)
+		}
+		c.CF = (dst>>(n-1))&1 != 0
+	}
+	res &= widthMask(w)
+	if count == 1 {
+		c.OF = (res^dst)&signMask(w) != 0
+	}
+	c.setSZP(res, w)
+	c.wEA(o, w, res)
 }
