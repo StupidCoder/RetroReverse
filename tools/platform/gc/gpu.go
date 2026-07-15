@@ -19,12 +19,21 @@ package gc
 // command has arrived — which also means Buf is part of the machine's saved state.
 
 type gpu struct {
-	Buf    []byte        // command bytes not yet assembled into a whole command
-	Census [256]uint64   // how many of each opcode the FIFO has carried — the plumbing gate
-	CPReg  [0x100]uint32 // the CP registers loaded from the stream (vertex descriptors etc.)
-	BP     [0x100]uint32 // the BP (pixel-engine) registers loaded from the stream
+	Buf    []byte         // command bytes not yet assembled into a whole command
+	Census [256]uint64    // how many of each opcode the FIFO has carried — the plumbing gate
+	CPReg  [0x100]uint32  // the CP registers loaded from the stream (vertex descriptors etc.)
+	BP     [0x100]uint32  // the BP (pixel-engine) registers loaded from the stream
+	XFMem  [0x1060]uint32 // the XF registers and matrix memory (see gpu_xf.go)
 
-	EFB []uint32 // Flipper's embedded framebuffer, RGBA8888 per pixel (see gpu_efb.go)
+	EFB  []uint32 // Flipper's embedded framebuffer, RGBA8888 per pixel (see gpu_efb.go)
+	ZBuf []uint32 // the 24-bit depth buffer that pairs with the EFB (see gpu_raster.go)
+}
+
+// xfStore records one XF register or matrix-memory word the command stream loaded.
+func (g *gpu) xfStore(addr int, val uint32) {
+	if addr >= 0 && addr < len(g.XFMem) {
+		g.XFMem[addr] = val
+	}
 }
 
 // feed takes the next burst of FIFO bytes and consumes every complete command in it.
@@ -60,10 +69,15 @@ func (g *gpu) step(m *Machine) bool {
 		if len(g.Buf) < 5 {
 			return false
 		}
-		cnt := int((be32(g.Buf[1:])>>16)&0x0F) + 1
+		cmd := be32(g.Buf[1:])
+		cnt := int((cmd>>16)&0x0F) + 1
 		total := 5 + 4*cnt
 		if len(g.Buf) < total {
 			return false
+		}
+		addr := int(cmd & 0xFFFF)
+		for k := 0; k < cnt; k++ {
+			g.xfStore(addr+k, be32(g.Buf[5+4*k:]))
 		}
 		g.Census[0x10]++
 		g.Buf = g.Buf[total:]
@@ -114,12 +128,10 @@ func (g *gpu) step(m *Machine) bool {
 			return false
 		}
 		g.Census[op]++
-		// Stage two of the pipe steps over the vertices rather than fetching them: reaching the
-		// pixel-engine copy that ends the frame is what the clear-colour picture needs, and the
-		// fetch and raster of these vertices is the next stage. The size is computed exactly so
-		// the parser lands on the next real command; if it is wrong the stream desynchronises
-		// and the very next opcode halts the run, which is the check that keeps this honest.
-		m.logf("CP: draw primitive stepped over (primitive 0x%02X, vat %d, %d bytes/vertex)", op&0xF8, vat, vsize)
+		// The vertex size is computed exactly so the parser lands on the next real command; if
+		// it is wrong the stream desynchronises and the very next opcode halts the run, which is
+		// the check that keeps this honest.
+		g.drawPrimitive(m, uint32(op&0xF8), vat, vsize, g.Buf[3:total])
 		g.Buf = g.Buf[total:]
 
 	default:
