@@ -168,6 +168,9 @@ func (m *Machine) tickVI() {
 	if fired {
 		m.raiseInt(IntVI)
 	}
+	// The serial interface auto-polls the controllers on the field boundary, latching each
+	// pad's state where PADRead will read it — the same VBlank cadence real hardware uses.
+	m.tickSI()
 	if m.OnDisplay != nil {
 		m.OnDisplay(m)
 	}

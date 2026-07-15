@@ -63,6 +63,7 @@ func main() {
 	fifodump := flag.String("fifodump", "", "capture the write-gather FIFO byte stream to this file")
 	texdump := flag.String("texdump", "", "decode the currently-bound texture map 0 to this PNG when the run ends")
 	aidwav := flag.String("aidwav", "", "record the audio-DMA stream (what the DAC plays) to this WAV when the run ends")
+	keys := flag.String("keys", "", "controller-1 input script: BUTTON@FIELD[,...] — presses BUTTON from that VI field onward (held). Buttons: start,a,b,x,y,z,l,r,up,down,left,right. e.g. -keys start@240")
 	flag.Parse()
 
 	if *image == "" {
@@ -75,7 +76,7 @@ func main() {
 		loadDOL: *loadDOL, dvd: *dvd, lowmem: *lowmem, shot: *shot,
 		savestate: *savestate, loadstate: *loadstate, poke: *poke,
 		dis: *dis, dump: *dump, threads: *threads, files: *files, verbose: *verbose, nospin: *nospin,
-		fifodump: *fifodump, texdump: *texdump, aidwav: *aidwav,
+		fifodump: *fifodump, texdump: *texdump, aidwav: *aidwav, keys: *keys,
 	}); err != nil {
 		fmt.Fprintln(os.Stderr, "bootoracle:", err)
 		os.Exit(1)
@@ -95,7 +96,46 @@ type cfg struct {
 	shot, savestate, loadstate, poke     string
 	dis, dump                            string
 	threads                              bool
-	fifodump, texdump, aidwav            string
+	fifodump, texdump, aidwav, keys      string
+}
+
+// padButtonNames maps the -keys button names to the standard-controller button bits the game
+// reads (the same values PADRead delivers: A=0x0100, START=0x1000, …).
+var padButtonNames = map[string]uint16{
+	"a": 0x0100, "b": 0x0200, "x": 0x0400, "y": 0x0800, "start": 0x1000,
+	"z": 0x0010, "r": 0x0020, "l": 0x0040,
+	"up": 0x0008, "down": 0x0004, "right": 0x0002, "left": 0x0001,
+}
+
+// keyPress is one scheduled controller input: press `buttons` from VI field `atField` onward.
+type keyPress struct {
+	atField uint64
+	buttons uint16
+}
+
+// parseKeys turns a "-keys start@240,a@240" spec into a schedule.
+func parseKeys(spec string) ([]keyPress, error) {
+	var sched []keyPress
+	for _, tok := range strings.Split(spec, ",") {
+		tok = strings.TrimSpace(tok)
+		if tok == "" {
+			continue
+		}
+		name, fieldS, ok := strings.Cut(tok, "@")
+		if !ok {
+			return nil, fmt.Errorf("bad -keys token %q, want BUTTON@FIELD", tok)
+		}
+		b, ok := padButtonNames[strings.ToLower(strings.TrimSpace(name))]
+		if !ok {
+			return nil, fmt.Errorf("unknown button %q in -keys", name)
+		}
+		f, err := parseUint(strings.TrimSpace(fieldS))
+		if err != nil {
+			return nil, fmt.Errorf("bad field in -keys token %q: %w", tok, err)
+		}
+		sched = append(sched, keyPress{atField: f, buttons: b})
+	}
+	return sched, nil
 }
 
 func run(c cfg) error {
@@ -282,6 +322,29 @@ func run(c cfg) error {
 				fmt.Printf("  logpc 0x%08X: r3=0x%08X r4=0x%08X r5=0x%08X lr=0x%08X\n",
 					pc, mm.CPU.GPR[3], mm.CPU.GPR[4], mm.CPU.GPR[5], mm.CPU.LR)
 			}
+		}
+	}
+
+	// Controller input: apply the -keys schedule once per video field. Each entry presses its
+	// buttons from its field onward (held), and the next auto-poll delivers them to the game.
+	if c.keys != "" {
+		sched, err := parseKeys(c.keys)
+		if err != nil {
+			return err
+		}
+		prev := m.OnDisplay
+		m.OnDisplay = func(mm *gc.Machine) {
+			if prev != nil {
+				prev(mm)
+			}
+			field := mm.VIField()
+			var buttons uint16
+			for _, k := range sched {
+				if field >= k.atField {
+					buttons |= k.buttons
+				}
+			}
+			mm.SetPadButtons(0, buttons)
 		}
 	}
 
