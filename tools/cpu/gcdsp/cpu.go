@@ -40,9 +40,25 @@ type CPU struct {
 	Halted bool   // set when the core hits something it cannot model; Reason says what
 	Reason string // the halt message
 
-	// Loop state: the DSP has a hardware repeat/block-loop built on the ST2/ST3 stacks. These
-	// mirror the top of those stacks for the running loop so a step can test them cheaply.
-	loopActive bool
+	branched    bool // the instruction just run has already placed PC; do not advance
+	inInterrupt bool // an interrupt handler is running (until RTI)
+
+	stacks [4]stack     // the four hardware stacks, indexed as ST0..ST3
+	loops  []loopFrame  // active hardware loops, innermost last
+}
+
+// stack is one of the DSP's four small hardware stacks (call, data, loop-address,
+// loop-counter). Reading an ST register pops it; writing pushes.
+type stack struct {
+	data []uint16
+}
+
+// loopFrame is one running hardware loop: the first and last instruction addresses of the body
+// and the number of iterations still to run.
+type loopFrame struct {
+	start uint16
+	end   uint16
+	count uint16
 }
 
 // Register indices, named so the interpreter and disassembler agree.
@@ -83,6 +99,14 @@ const (
 	srTopTwo    = 1 << 5 // TT: the top two bits of the accumulator are equal
 	srLogicZero = 1 << 6 // OK/LZ: set by the logic ops when the result is zero
 	srOverSticky = 1 << 7 // OS: overflow, sticky until cleared
+
+	// The arithmetic-mode bits in the status register's high half, set and cleared by the
+	// dedicated mode ops (set40/set16, clr15/set15, m0/m2). Their exact hardware positions
+	// matter only to the multiply/accumulate ops that read them; the internal representation
+	// here is consistent with those ops.
+	srMulSigned = 1 << 13 // set15/clr15: multiplier operands unsigned vs signed
+	srMode40    = 1 << 14 // set40/set16: 40-bit accumulator mode vs 16-bit saturation
+	srMulShift  = 1 << 15 // m2/m0: multiply result shifted left one, or not
 )
 
 // Bus is the hardware the DSP reaches through the high end of its data address space

@@ -1,0 +1,228 @@
+package gcdsp
+
+// exec_support.go holds the machinery the interpreter leans on: the three memory spaces, the
+// register file's read/write side effects, the four hardware stacks, the block-loop service,
+// the status-flag computations, and the branch-condition test. Kept apart from exec.go so that
+// file reads as the instruction set and this one as the plumbing beneath it.
+
+// --- memory ------------------------------------------------------------------------------
+
+// imem fetches an instruction word. Instructions live in IRAM at 0x0000 and in the absent boot
+// IROM at 0x8000; a fetch from anywhere else, or from the IROM this core does not carry, halts.
+func (c *CPU) imem(a uint16) uint16 {
+	switch {
+	case a < 0x1000:
+		return c.IRAM[a]
+	case a >= 0x8000:
+		if c.IROM != nil && int(a-0x8000) < len(c.IROM) {
+			return c.IROM[a-0x8000]
+		}
+		c.Halt("instruction fetch from boot IROM @0x%04X — IROM not present", a)
+	default:
+		c.Halt("instruction fetch @0x%04X — unmapped", a)
+	}
+	return 0
+}
+
+// dataRead reads a data word. DRAM is at 0x0000, the coefficient DROM at 0x1000, and the
+// hardware registers at 0xFF00 and up; a read of the absent DROM or of unmapped space halts.
+func (c *CPU) dataRead(a uint16) uint16 {
+	switch {
+	case a < 0x1000:
+		return c.DRAM[a]
+	case a < 0x2000:
+		if c.DROM != nil && int(a-0x1000) < len(c.DROM) {
+			return c.DROM[a-0x1000]
+		}
+		c.Halt("DSP read of coefficient ROM @0x%04X — DROM not present (a resampling table the ucode wants)", a)
+	case a >= 0xFF00:
+		if c.Bus != nil {
+			return c.Bus.HWRead(a)
+		}
+		c.Halt("DSP hardware read @0x%04X — no bus attached", a)
+	default:
+		c.Halt("DSP data read @0x%04X — unmapped", a)
+	}
+	return 0
+}
+
+// dataWrite writes a data word to DRAM or, at the top of the space, to a hardware register.
+func (c *CPU) dataWrite(a, v uint16) {
+	switch {
+	case a < 0x1000:
+		c.DRAM[a] = v
+	case a >= 0xFF00:
+		if c.Bus != nil {
+			c.Bus.HWWrite(a, v)
+			return
+		}
+		c.Halt("DSP hardware write @0x%04X — no bus attached", a)
+	default:
+		c.Halt("DSP data write @0x%04X = 0x%04X — unmapped", a, v)
+	}
+}
+
+// --- register file with side effects -----------------------------------------------------
+
+// getReg reads a register-file entry. Reading one of the four ST registers pops its hardware
+// stack; every other register reads plainly.
+func (c *CPU) getReg(r uint16) uint16 {
+	if r >= regST0 && r <= regST3 {
+		return c.pop(r)
+	}
+	return c.Reg[r]
+}
+
+// setReg writes a register-file entry. Writing an ST register pushes its stack; writing an
+// accumulator middle word sign-extends the accumulator's high byte to match, which is the
+// hardware's behaviour and is what keeps a value loaded into acX.m readable as a signed 40-bit
+// accumulator.
+func (c *CPU) setReg(r, v uint16) {
+	switch {
+	case r >= regST0 && r <= regST3:
+		c.push(r, v)
+	case r == regAC0M || r == regAC1M:
+		n := int(r - regAC0M)
+		c.Reg[regAC0M+n] = v
+		if v&0x8000 != 0 {
+			c.Reg[regAC0H+n] = 0xFFFF
+		} else {
+			c.Reg[regAC0H+n] = 0x0000
+		}
+	default:
+		c.Reg[r] = v
+	}
+}
+
+// --- address registers -------------------------------------------------------------------
+
+// arStep advances address register n by a signed delta. The wrapping register wr bounds the
+// step modulo a circular buffer; the common configuration this ucode sets is wr = 0xFFFF, no
+// wrap, a plain add. A non-trivial wrap is not yet modelled and halts, naming the register,
+// rather than stepping wrong.
+func (c *CPU) arStep(n int, delta int) {
+	wr := c.Reg[regWR0+n]
+	if wr == 0xFFFF {
+		c.Reg[regAR0+n] = uint16(int32(c.Reg[regAR0+n]) + int32(delta))
+		return
+	}
+	c.Halt("DSP address-register wrap (ar%d, wr=0x%04X) not yet modelled at 0x%04X", n, wr, c.PC)
+}
+
+// --- hardware stacks ---------------------------------------------------------------------
+
+func (c *CPU) push(reg, v uint16) {
+	s := &c.stacks[reg-regST0]
+	s.data = append(s.data, v)
+}
+
+func (c *CPU) pop(reg uint16) uint16 {
+	s := &c.stacks[reg-regST0]
+	if len(s.data) == 0 {
+		c.Halt("DSP stack ST%d underflow at 0x%04X", reg-regST0, c.PC)
+		return 0
+	}
+	v := s.data[len(s.data)-1]
+	s.data = s.data[:len(s.data)-1]
+	return v
+}
+
+// --- hardware loops ----------------------------------------------------------------------
+
+// startLoop begins a repeat of the instructions from start to end (inclusive), count times.
+func (c *CPU) startLoop(start, end, count uint16) {
+	if count == 0 {
+		c.Halt("DSP loop with count 0 at 0x%04X — not yet modelled", c.PC)
+		return
+	}
+	c.loops = append(c.loops, loopFrame{start: start, end: end, count: count})
+}
+
+// serviceLoops runs after each instruction. If the instruction just executed sits at the end
+// of the innermost active loop and did not itself branch away, the loop either jumps back to
+// its start (another iteration remains) or finishes and is popped.
+func (c *CPU) serviceLoops(execAddr uint16, branched bool) {
+	if len(c.loops) == 0 || branched {
+		return
+	}
+	top := &c.loops[len(c.loops)-1]
+	if execAddr != top.end {
+		return
+	}
+	top.count--
+	if top.count > 0 {
+		c.PC = top.start
+	} else {
+		c.loops = c.loops[:len(c.loops)-1]
+	}
+}
+
+// --- status flags ------------------------------------------------------------------------
+
+// setArithFlags sets the zero and sign flags from a full 40-bit accumulator result. The finer
+// carry/overflow bits are added as the ops that produce them are implemented.
+func (c *CPU) setArithFlags(n int) {
+	v := c.ac(n)
+	c.setFlag(srZero, v == 0)
+	c.setFlag(srSign, v < 0)
+}
+
+// setLogicFlags sets the zero and sign flags from an accumulator after a logic op. The DSP
+// judges these on the whole accumulator, so read it back the same way.
+func (c *CPU) setLogicFlags(n int) {
+	v := c.ac(n)
+	c.setFlag(srZero, v == 0)
+	c.setFlag(srSign, v < 0)
+	c.setFlag(srLogicZero, uint16(v>>16) == 0)
+}
+
+// subFlags sets the flags a compare produces: the zero, sign, carry and overflow of a-b, taken
+// over the 40-bit accumulator width. It does not store the difference.
+func (c *CPU) subFlags(a, b int64) {
+	d := a - b
+	c.setFlag(srZero, (d&0xFFFFFFFFFF) == 0)
+	c.setFlag(srSign, d < 0)
+	c.setFlag(srCarry, uint64(a&0xFFFFFFFFFF) >= uint64(b&0xFFFFFFFFFF))
+	// Signed overflow: operands differ in sign and the result takes the subtrahend's sign.
+	c.setFlag(srOverflow, ((a^b)&(a^d))&(1<<39) != 0)
+}
+
+// --- branch conditions -------------------------------------------------------------------
+
+// cond evaluates a 4-bit branch condition against the status flags. The unconditional code and
+// the arithmetic/logic conditions the microcode uses are implemented; an unrecognised code
+// halts rather than guess a direction and corrupt control flow.
+func (c *CPU) cond(cc uint16) bool {
+	sr := c.Reg[regSR]
+	z := sr&srZero != 0
+	s := sr&srSign != 0
+	o := sr&srOverflow != 0
+	cf := sr&srCarry != 0
+	lz := sr&srLogicZero != 0
+	switch cc {
+	case 0x0: // GE: sign == overflow
+		return s == o
+	case 0x1: // L: sign != overflow
+		return s != o
+	case 0x2: // G: greater and not zero
+		return s == o && !z
+	case 0x3: // LE: less or zero
+		return s != o || z
+	case 0x4: // NZ
+		return !z
+	case 0x5: // Z
+		return z
+	case 0x6: // NC: carry clear
+		return !cf
+	case 0x7: // C: carry set
+		return cf
+	case 0xC: // LNZ: logic result not zero
+		return !lz
+	case 0xD: // LZ: logic result zero
+		return lz
+	case 0xF: // always
+		return true
+	}
+	c.Halt("unmodelled branch condition 0x%X at 0x%04X", cc, c.PC)
+	return false
+}
