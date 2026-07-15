@@ -194,7 +194,22 @@ func (c *CPU) cop2(w, rs, rt, rd uint32, branchT uint64) {
 		return
 	}
 	if c.COP2 == nil {
-		return // no vector unit attached: the operation is dropped
+		// No vector unit attached. Writes and operations are dropped, but the READS must
+		// still write their destination: cfc2 and qmfc2 are register writes whatever the
+		// coprocessor holds, and skipping them leaves the destination with whatever it held
+		// before — a stale value that then gets believed. Jak and Daxter's sceGsSyncPath
+		// polls `cfc2 $a2, $vi29` (VPU_STAT) for VU1's busy bit, and with the write dropped
+		// it read its own leftover $a2, whose bit 8 happened to be set, and concluded "VU1
+		// does not terminate" every frame — a vector unit that did not exist reported busy
+		// forever. Zero is the honest answer this machine can give: no VU is attached, so
+		// no VU is running.
+		switch rs {
+		case 0x01: // qmfc2
+			c.setQ(rt, 0, 0)
+		case 0x02: // cfc2
+			c.set(rt, 0)
+		}
+		return
 	}
 
 	if w&(1<<25) != 0 { // a vector operation

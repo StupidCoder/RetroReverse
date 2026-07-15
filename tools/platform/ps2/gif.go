@@ -46,15 +46,35 @@ const (
 	gifRegNOP   = 0xF
 )
 
-// gifStart runs a transfer the DMA controller has handed the GIF. The channel is in
-// normal mode for an image upload — a flat run of quadwords — so the whole transfer is
-// one buffer, which may hold several GIFtags one after another.
+// gifStart runs a transfer the DMA controller has handed the GIF. An image upload uses
+// normal mode — a flat run of quadwords at MADR — and the render path uses a source
+// chain: the game builds its display list as scattered buffers linked by DMAtags, and
+// the channel walks them. Either way the GIF sees one stream; the chain's links are
+// gathered before parsing because a GIFtag's loop may run across a link boundary, and
+// the parser holds no state between calls.
 func (m *Machine) gifStart(c *dmacChan) {
-	if c.qwc == 0 {
-		return
+	switch (c.chcr & dChcrModeM) >> 2 {
+	case 1: // source chain
+		var all []byte
+		m.dmacSourceChain(dmacChGIF, c, func(b []byte) {
+			if len(b) == 8 {
+				// A TTE tag-forward. The GIF is a quadword device and PATH3 chains do not
+				// ride codes on their tags; a game that sets TTE here would be saying
+				// something new, so it is a note, not a silent append.
+				m.note("GS: the GIF channel forwarded a chain tag (TTE) — unhandled")
+				return
+			}
+			all = append(all, b...)
+		})
+		if len(all) > 0 {
+			m.gifPacket(all)
+		}
+	default:
+		if c.qwc == 0 {
+			return
+		}
+		m.gifPacket(m.dmaBytes(c.madr, c.qwc))
 	}
-	data := m.dmaBytes(c.madr, c.qwc)
-	m.gifPacket(data)
 }
 
 // gifPacket unpacks a buffer of GIFtags into GS register writes.

@@ -227,6 +227,12 @@ func (m *Machine) dmacStart(ch int) {
 	case dmacChGIF:
 		m.gifStart(c)
 
+	case dmacChVIF0:
+		m.vifStart(0, c)
+
+	case dmacChVIF1:
+		m.vifStart(1, c)
+
 	case dmacChSIF0, dmacChSIF1:
 		// The SIF is moved by its own high-level path (sif.go): the reply from the IOP is
 		// carried by sifFromIOP, the request to it by the sceSifSetDma syscall. So starting
@@ -299,6 +305,101 @@ func (m *Machine) dmacSPR(c *dmacChan, fromSPR bool) {
 			m.hookMuted = true
 			m.spram[s] = m.Read(madr + i)
 			m.hookMuted = false
+		}
+	}
+}
+
+// The source-chain DMAtag IDs. A chain is a linked list the game builds in memory: each
+// tag says where this link's quadwords are and where the next tag is, and the DMA
+// controller walks it so the CPU can hand over a whole frame's worth of scattered
+// buffers in one start. This is how the render channels are driven — the GOAL engine
+// never uses the flat mode for drawing.
+const (
+	dtagREFE = 0 // data at ADDR, then end
+	dtagCNT  = 1 // data follows this tag; the next tag follows the data
+	dtagNEXT = 2 // data follows this tag; the next tag is at ADDR
+	dtagREF  = 3 // data at ADDR; the next tag follows this one
+	dtagREFS = 4 // REF, with the stall control watching it
+	dtagCALL = 5 // data follows; push the after-data address, continue at ADDR
+	dtagRET  = 6 // data follows; continue at the pushed address
+	dtagEND  = 7 // data follows, then end
+)
+
+// dmacSourceChain walks a source chain from the channel's TADR, handing each link's data
+// to feed. It is the shape both render channels share; what the bytes mean is the
+// device's business (the GIF parses GIFtags, the VIF parses VIFcodes).
+//
+// The tag is a quadword. Its low 64 bits belong to the DMA controller — QWC in the low
+// halfword, the ID in bits 28..30, the interrupt request in bit 31, the address in bits
+// 32..62 and the scratchpad flag in bit 63. The high 64 bits belong to the DEVICE: with
+// CHCR's TTE bit set the controller forwards them, which is how a VIF chain rides two
+// VIFcodes along on every tag without spending a link on them.
+//
+// The scratchpad flag is folded into bit 31 of the address, which is the encoding
+// dmaBytes already understands (it is the one sceGsExecLoadImage uses for MADR).
+func (m *Machine) dmacSourceChain(ch int, c *dmacChan, feed func([]byte)) {
+	tte := c.chcr&dChcrTTE != 0
+
+	// The walk is bounded, and the bound is reported when hit rather than silently
+	// truncating a frame: a chain that long is a corrupt chain, and the address where it
+	// happened is the diagnosis.
+	const maxLinks = 1 << 16
+	for i := 0; i < maxLinks; i++ {
+		tag := m.dmaBytes(c.tadr, 1)
+		lo := le64(tag)
+
+		qwc := uint32(lo & 0xFFFF)
+		id := uint32(lo>>28) & 7
+		irq := lo&(1<<31) != 0
+		addr := uint32(lo>>32) &^ 0xF & 0x7FFFFFFF
+		if lo&(1<<63) != 0 {
+			addr |= 0x80000000 // the scratchpad, in dmaBytes' encoding
+		}
+
+		if tte {
+			feed(tag[8:16])
+		}
+
+		data := c.tadr&0x80000000 | (c.tadr&0x7FFFFFFF + 16) // "follows the tag", staying in the tag's memory
+		end := false
+		switch id {
+		case dtagREFE:
+			data = addr
+			end = true
+		case dtagCNT:
+			c.tadr = data + qwc*16
+		case dtagNEXT:
+			c.tadr = addr
+		case dtagREF, dtagREFS:
+			data = addr
+			c.tadr += 16
+		case dtagCALL:
+			c.asr1 = c.asr0
+			c.asr0 = data&0x80000000 | (data&0x7FFFFFFF + qwc*16)
+			c.tadr = addr
+		case dtagRET:
+			if c.asr0 == 0 && c.asr1 == 0 {
+				end = true
+				break
+			}
+			c.tadr = c.asr0
+			c.asr0, c.asr1 = c.asr1, 0
+		case dtagEND:
+			end = true
+		}
+
+		if qwc > 0 {
+			feed(m.dmaBytes(data, qwc))
+		}
+		if end {
+			return
+		}
+		if irq && c.chcr&dChcrTIE != 0 {
+			return // the tag asked for an interrupt and the channel honours it: stop here
+		}
+		if i == maxLinks-1 {
+			m.note("EE DMA: channel %d's chain ran %d links without ending — truncated at TADR 0x%08X",
+				ch, maxLinks, c.tadr)
 		}
 	}
 }

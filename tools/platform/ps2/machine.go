@@ -120,6 +120,10 @@ type Machine struct {
 	// the GIF and the privileged register block drive. Nil until first touched.
 	gs *GS
 
+	// The two VPU interfaces (vif.go), created when their DMA channel first starts.
+	// VIF1 is the second road into the GS (PATH2 DIRECT) and the road to VU1.
+	vifs [2]*vif
+
 	// The vertical-sync flags the kernel writes each frame on the game's behalf
 	// (SetVSyncFlag). A game's idle loop spins on one of these.
 	vsyncFlagPtr  uint32

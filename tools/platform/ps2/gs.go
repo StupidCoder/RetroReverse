@@ -73,6 +73,14 @@ type GS struct {
 	uploads int
 	prims   int
 
+	// The vertex queue (gsdraw.go): the positions pushed and not yet consumed by a kick,
+	// and the per-type and per-feature tallies of what was drawn.
+	vq         [3]gsVertex
+	vqN        int
+	q          uint32 // the Q latched by a PACKED ST, applied by the next PACKED RGBAQ
+	primCount  [8]int
+	drawCensus map[string]int
+
 	m *Machine
 }
 
@@ -98,16 +106,26 @@ func (m *Machine) ensureGS() *GS {
 	return m.gs
 }
 
-// write stores a GS register and acts on the ones that do something when written.
+// write stores a GS register and acts on the ones that do something when written. The
+// value is in the register's own layout (an A+D or REGLIST write); the PACKED layouts
+// are decoded by writePacked before they arrive here.
 func (gs *GS) write(reg uint8, val uint64) {
 	if int(reg) < len(gs.reg) {
 		gs.reg[reg] = val
 	}
 	switch reg {
+	case gsPRIM:
+		gs.vqN = 0 // starting a primitive resets the queue
+	case gsXYZ2:
+		gs.pushVertex(int32(val&0xFFFF), int32(val>>16&0xFFFF), uint32(val>>32), true)
+	case gsXYZ3:
+		gs.pushVertex(int32(val&0xFFFF), int32(val>>16&0xFFFF), uint32(val>>32), false)
+	case gsXYZF2:
+		gs.pushVertex(int32(val&0xFFFF), int32(val>>16&0xFFFF), uint32(val>>32&0xFFFFFF), true)
+	case gsXYZF3:
+		gs.pushVertex(int32(val&0xFFFF), int32(val>>16&0xFFFF), uint32(val>>32&0xFFFFFF), false)
 	case gsTRXDIR:
 		gs.beginTransfer(val & 3)
-	case gsXYZ2:
-		gs.prims++
 	case gsHWREG:
 		gs.imageData(u64bytes(val))
 	case gsFINISH:
@@ -117,15 +135,57 @@ func (gs *GS) write(reg uint8, val uint64) {
 	}
 }
 
-// writePacked records a PACKED drawing-register write. The rasteriser is not built yet, so
-// this only counts the primitive stream; the fields are decoded once there is something to
-// draw with them.
+// writePacked decodes one PACKED-format register write into the register's own layout.
+// PACKED spreads a register's fields across the quadword — a colour byte per word, a
+// position halfword per word — and two descriptors are not registers at all: A+D (0xE)
+// is handled by the caller, and 4/5 carry an ADC bit that turns the kicking write into
+// the non-kicking one, which is how a PACKED stream breaks a strip.
 func (gs *GS) writePacked(reg uint8, lo, hi uint64) {
-	if reg == gsXYZ2 {
-		gs.prims++
-	}
-	if int(reg) < len(gs.reg) {
-		gs.reg[reg] = lo
+	switch reg {
+	case gifRegPrim:
+		gs.write(gsPRIM, lo&0x7FF)
+
+	case gifRegRGBAQ:
+		r, g := lo&0xFF, lo>>32&0xFF
+		b, a := hi&0xFF, hi>>32&0xFF
+		gs.write(gsRGBAQ, r|g<<8|b<<16|a<<24|uint64(gs.q)<<32)
+
+	case gifRegST:
+		gs.q = uint32(hi) // latched; the next PACKED RGBAQ carries it
+		gs.write(gsST, lo)
+
+	case gifRegUV:
+		u, v := lo&0x3FFF, lo>>32&0x3FFF
+		gs.write(gsUV, u|v<<16)
+
+	case gifRegXYZF2:
+		x, y := lo&0xFFFF, lo>>32&0xFFFF
+		z := hi >> 4 & 0xFFFFFF
+		f := hi >> 36 & 0xFF
+		val := x | y<<16 | z<<32 | f<<56
+		if hi&(1<<47) != 0 { // ADC: push, do not kick
+			gs.write(gsXYZF3, val)
+		} else {
+			gs.write(gsXYZF2, val)
+		}
+
+	case gifRegXYZ2:
+		x, y := lo&0xFFFF, lo>>32&0xFFFF
+		z := hi & 0xFFFFFFFF
+		val := x | y<<16 | z<<32
+		if hi&(1<<47) != 0 {
+			gs.write(gsXYZ3, val)
+		} else {
+			gs.write(gsXYZ2, val)
+		}
+
+	case gsFOG:
+		gs.write(gsFOG, hi>>36&0xFF<<56)
+
+	default:
+		// Descriptors 0x6..0xD are the register at that address, value in the low half
+		// (TEX0, CLAMP, XYZF3/XYZ3 in their raw layouts).
+		gs.write(reg, lo)
 	}
 }
 
@@ -311,6 +371,83 @@ func (m *Machine) gsPrivWrite(a, v uint32) bool {
 	}
 	m.io[a] = v
 	return true
+}
+
+// GSStatus reports what reached the Graphics Synthesizer: uploads and primitives. It is
+// the render path's bottom line — a boot that uploads and never draws says the transport
+// above the GS is the gap, and one that drives prims into an empty rasteriser says the
+// rasteriser is.
+func (m *Machine) GSStatus() string {
+	if m.gs == nil {
+		return "the GS was never touched\n"
+	}
+	s := sprintf("the GS: %d image uploads, %d vertex kicks\n", m.gs.uploads, m.gs.prims)
+	for i, n := range m.gs.primCount {
+		if n > 0 {
+			s += sprintf("      %-24s %d\n", primNames[i], n)
+		}
+	}
+	for _, kv := range sortedCounts(m.gs.drawCensus) {
+		s += sprintf("      %-24s %d\n", kv.name, kv.n)
+	}
+	return s
+}
+
+// GSFrame reads back the frame the CRTC would be scanning out: the rectangle DISPFB
+// points at, deswizzled from GS memory into plain RGBA rows. It is the instrument that
+// turns "the GS has state" into a picture — the same job the 3DS's framedbg does — and
+// it reads the SHIPPED thing: the memory the uploads and the rasteriser actually wrote,
+// through the same swizzle the hardware would scan it out with.
+//
+// DISPFB (one per read circuit; circuit 2 is the one this game drives): FBP in units of
+// 2048 words (32 blocks), FBW in units of 64 pixels, PSM in bits 15..19, and the DBX/DBY
+// offset in the upper word. DISPLAY gives the magnified screen size; the height here is
+// taken from DISPLAY's DH so the dump is the visible frame, not the whole buffer.
+func (m *Machine) GSFrame() (pix []byte, w, h int) {
+	if m.gs == nil {
+		return nil, 0, 0
+	}
+	// Prefer the circuit PMODE enables; this game uses circuit 2.
+	dispfb := uint64(m.io[gsDISPFB2]) | uint64(m.io[gsDISPFB2+4])<<32
+	display := uint64(m.io[gsDISPLAY2]) | uint64(m.io[gsDISPLAY2+4])<<32
+	if pmode := m.io[gsPMODE]; pmode&2 == 0 && pmode&1 != 0 {
+		dispfb = uint64(m.io[gsDISPFB1]) | uint64(m.io[gsDISPFB1+4])<<32
+		display = uint64(m.io[gsDISPLAY1]) | uint64(m.io[gsDISPLAY1+4])<<32
+	}
+
+	fbp := uint32(dispfb) & 0x1FF       // pages of 2048 words
+	fbw := uint32(dispfb>>9) & 0x3F     // width, units of 64 pixels
+	psm := uint32(dispfb>>15) & 0x1F    //
+	dbx := uint32(dispfb>>32) & 0x7FF   //
+	dby := uint32(dispfb>>43) & 0x7FF   //
+	magh := uint32(display>>23)&0xF + 1 //
+	magv := uint32(display>>27)&0x3 + 1 //
+	dw := (uint32(display>>32)&0xFFF + 1) / magh
+	dh := (uint32(display>>44)&0x7FF + 1) / magv
+
+	if fbw == 0 || dw == 0 || dh == 0 {
+		return nil, 0, 0
+	}
+	if psm != psmCT32 && psm != psmCT24 {
+		m.note("GS: GSFrame asked to read a PSM 0x%X display buffer — only CT32/CT24 read back yet", psm)
+		return nil, 0, 0
+	}
+
+	w, h = int(dw), int(dh)
+	pix = make([]byte, w*h*4)
+	for y := 0; y < h; y++ {
+		for x := 0; x < w; x++ {
+			addr := addrPSMCT32(fbp*32, fbw, dbx+uint32(x), dby+uint32(y))
+			o := (y*w + x) * 4
+			if addr+4 <= uint32(len(m.gs.vram)) {
+				pix[o+0] = m.gs.vram[addr+0]
+				pix[o+1] = m.gs.vram[addr+1]
+				pix[o+2] = m.gs.vram[addr+2]
+				pix[o+3] = 0xFF // GS alpha is not display alpha; the dump is opaque
+			}
+		}
+	}
+	return pix, w, h
 }
 
 // gsVSync toggles the CSR bits the frame clock owns, called once per synthetic vertical

@@ -17,6 +17,8 @@ import (
 	"crypto/md5"
 	"flag"
 	"fmt"
+	"image"
+	"image/png"
 	"os"
 	"strconv"
 	"strings"
@@ -69,6 +71,7 @@ func main() {
 	var iopPokes multiFlag
 	flag.Var(&iopPokes, "ioppoke", "write ADDR:VALUE (hex) into IOP memory every time the IOP finishes booting; repeatable. Sony's modules carry their own tracing behind a verbosity word — CDVDMAN's is at 0x29F90 — and turning one on makes a stripped module narrate itself")
 	iopIELog := flag.String("iopielog", "", "log every IOP interrupt-enable event (suspend/resume/deliver/frame save+load) to FILE — the instrument for an enable bit lost across a thread switch")
+	gsFrame := flag.String("gsframe", "", "write the frame the GS would be scanning out (the DISPFB rectangle, deswizzled) to FILE.png at the end of the run")
 	flag.Parse()
 
 	if *image == "" {
@@ -84,7 +87,7 @@ func main() {
 		iopOnly: *iopOnly, iopMods: *iopMods, iopDis: *iopDis,
 		iopIO: *iopIO, iopION: *iopION, iopWatch: *iopWatch, iopTrap: *iopTrap,
 		iopCalls: *iopCalls, iopCallsFrom: *iopCallsFrom, iopPokes: iopPokes,
-		iopDump: *iopDump, iopIELog: *iopIELog,
+		iopDump: *iopDump, iopIELog: *iopIELog, gsFrame: *gsFrame,
 	}); err != nil {
 		fmt.Fprintln(os.Stderr, "bootoracle:", err)
 		os.Exit(1)
@@ -111,6 +114,7 @@ type cfg struct {
 	iopDump                               string
 	iopPokes                              multiFlag
 	iopIELog                              string
+	gsFrame                               string
 }
 
 // ieLogFlush, if the interrupt-enable log is on, flushes it. It is set by armIOP and
@@ -466,6 +470,11 @@ func run(c cfg) error {
 	fmt.Print(m.SIFCensus())
 	fmt.Println()
 	fmt.Print(m.HardwareCensus())
+	fmt.Println()
+	fmt.Print(m.GSStatus())
+	if v := m.VIFCensus(); v != "" {
+		fmt.Print(v)
+	}
 
 	// The second processor, if the game brought it up. It does now — the reboot is a SIF
 	// packet the game sends — so the full boot has an IOP in it, and an IOP nobody reports on
@@ -499,6 +508,35 @@ func run(c cfg) error {
 		}
 		fmt.Fprintf(os.Stderr, "\nwrote state to %s\n", c.savestate)
 	}
+
+	if c.gsFrame != "" {
+		if err := writeGSFrame(m, c.gsFrame); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// writeGSFrame dumps the frame the GS would be scanning out as a PNG — the eyes of the
+// render bring-up, and it reads what is actually in GS memory through the real deswizzle,
+// not a re-render of anything.
+func writeGSFrame(m *ps2.Machine, path string) error {
+	pix, w, h := m.GSFrame()
+	if pix == nil {
+		fmt.Println("gsframe: the GS has no displayable frame (no DISPFB set, or an unread format)")
+		return nil
+	}
+	img := image.NewRGBA(image.Rect(0, 0, w, h))
+	copy(img.Pix, pix)
+	f, err := os.Create(path)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+	if err := png.Encode(f, img); err != nil {
+		return err
+	}
+	fmt.Printf("gsframe: wrote %dx%d to %s\n", w, h, path)
 	return nil
 }
 
