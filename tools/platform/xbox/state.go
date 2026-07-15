@@ -71,6 +71,15 @@ type XboxState struct {
 	AC97Reg map[uint32]uint32
 	USBReg  map[uint32]uint32
 
+	// NV2A graphics engine (nv2a_pgraph.go) + the PFIFO pusher's decode position
+	// (nv2a_pfifo.go). The survey/unhandled instrumentation maps are NOT state.
+	PgSubObject [8]uint32
+	PgSubClass  [8]uint32
+	PgRegs      [0x800]uint32
+	PgMethods   int
+	PgSetObjs   int
+	Push        pusherSnap
+
 	PCIAddr  uint32
 	PCISpace map[uint32]byte
 
@@ -86,6 +95,15 @@ type XboxState struct {
 	Threads   []threadSnap
 	CurThread int // index into Threads, or -1
 	Objects   []objSnap
+}
+
+// pusherSnap mirrors pusherState (all unexported), so a savestate resumes mid-method
+// if a batch was split across two DMA_PUT writes.
+type pusherSnap struct {
+	Method, Subchan, Count uint32
+	NonInc                 bool
+	SubReturn              uint32
+	SubActive              bool
 }
 
 // threadSnap mirrors thread with its saved CPU context.
@@ -160,9 +178,15 @@ func (m *Machine) SaveState() *XboxState {
 		PoolNext: m.poolNext, HeapNext: m.heapNext, HeapTop: m.heapTop,
 		NextObjAddr: m.nextObjAddr, KbandNext: m.kbandNext, Tick: m.tick,
 		NVReg: copyU32Map(m.nv.reg), NVPut: m.nv.dmaPut, NVGet: m.nv.dmaGet, NVKicked: m.nv.kicked,
-		APUReg:    copyU32Map(m.apu.reg),
-		AC97Reg:   copyU32Map(m.ac97.reg),
-		USBReg:    copyU32Map(m.usb.reg),
+		APUReg:      copyU32Map(m.apu.reg),
+		AC97Reg:     copyU32Map(m.ac97.reg),
+		USBReg:      copyU32Map(m.usb.reg),
+		PgSubObject: m.pgraph.subObject, PgSubClass: m.pgraph.subClass, PgRegs: m.pgraph.Regs,
+		PgMethods: m.pgraph.Methods, PgSetObjs: m.pgraph.SetObjs,
+		Push: pusherSnap{
+			Method: m.push.method, Subchan: m.push.subchan, Count: m.push.count,
+			NonInc: m.push.nonInc, SubReturn: m.push.subReturn, SubActive: m.push.subActive,
+		},
 		FirstPush: m.firstPush, PCIAddr: m.pciAddr, PCISpace: copyByteMap(m.pciSpace),
 		PoolSizes:   copyU32Map(m.poolSizes),
 		OrdinalHits: copyOrdMap(m.OrdinalHits),
@@ -215,6 +239,12 @@ func (m *Machine) LoadState(st *XboxState) error {
 	m.apu.reg = copyU32Map(st.APUReg)
 	m.ac97.reg = copyU32Map(st.AC97Reg)
 	m.usb.reg = copyU32Map(st.USBReg)
+	m.pgraph.subObject, m.pgraph.subClass, m.pgraph.Regs = st.PgSubObject, st.PgSubClass, st.PgRegs
+	m.pgraph.Methods, m.pgraph.SetObjs = st.PgMethods, st.PgSetObjs
+	m.push = pusherState{
+		method: st.Push.Method, subchan: st.Push.Subchan, count: st.Push.Count,
+		nonInc: st.Push.NonInc, subReturn: st.Push.SubReturn, subActive: st.Push.SubActive,
+	}
 	m.firstPush, m.pciAddr = st.FirstPush, st.PCIAddr
 	m.pciSpace = copyByteMap(st.PCISpace)
 	m.poolSizes = copyU32Map(st.PoolSizes)
