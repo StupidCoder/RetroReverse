@@ -73,6 +73,21 @@ var (
 func Decode(code []byte, addr uint32) Inst {
 	d := &dec{mem: code, addr: addr}
 	in := d.run()
+	return d.finish(code, addr, in)
+}
+
+// Decode32 is Decode with a 32-bit default operand/address size — for flat
+// protected-mode / go32 code, where the CS descriptor's D bit is 1 and a 0x66/
+// 0x67 prefix selects 16-bit rather than 32-bit. Real-mode callers use Decode.
+func Decode32(code []byte, addr uint32) Inst {
+	d := &dec{mem: code, addr: addr, defSize: 32}
+	in := d.run()
+	return d.finish(code, addr, in)
+}
+
+// finish applies the common post-decode fix-ups (bad-opcode fallback, length,
+// prefix text) shared by Decode and Decode32.
+func (d *dec) finish(code []byte, addr uint32, in Inst) Inst {
 	if d.bad {
 		b := byte(0)
 		if len(code) > 0 {
@@ -95,8 +110,9 @@ type dec struct {
 	addr uint32 // linear address of mem[0]
 	p    int    // read cursor, an offset into mem
 
-	opsize   int    // 16 or 32 (default 16; a 0x66 prefix toggles it)
-	addrsize int    // 16 or 32 (default 16; a 0x67 prefix toggles it)
+	defSize  int    // default operand/address size: 0 or 16 => 16-bit, 32 => 32-bit (flat PM)
+	opsize   int    // 16 or 32 (default from defSize; a 0x66 prefix toggles it)
+	addrsize int    // 16 or 32 (default from defSize; a 0x67 prefix toggles it)
 	seg      string // segment-override display prefix ("ES:"…) or ""
 	lock     bool
 	rep      string // "REP "/"REPNE "/"" (rendered ahead of string ops)
@@ -154,7 +170,17 @@ func (d *dec) jrel(size int) uint32 {
 
 // run consumes the prefix bytes then dispatches the opcode.
 func (d *dec) run() Inst {
-	d.opsize, d.addrsize = 16, 16
+	if d.defSize == 32 {
+		d.opsize, d.addrsize = 32, 32
+	} else {
+		d.opsize, d.addrsize = 16, 16
+	}
+	// alt is the operand/address size a 0x66/0x67 prefix selects: the opposite of
+	// the current default (32-bit code toggles down to 16, real-mode up to 32).
+	alt := 32
+	if d.defSize == 32 {
+		alt = 16
+	}
 	for {
 		if d.p >= len(d.mem) {
 			d.bad = true
@@ -167,11 +193,11 @@ func (d *dec) run() Inst {
 			d.p++
 			continue
 		case 0x66:
-			d.opsize = 32
+			d.opsize = alt
 			d.p++
 			continue
 		case 0x67:
-			d.addrsize = 32
+			d.addrsize = alt
 			d.p++
 			continue
 		case 0xF0:
