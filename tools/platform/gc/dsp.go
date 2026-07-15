@@ -31,6 +31,14 @@ type dsp struct {
 	FromDSP  uint32 // DSP -> CPU; bit 31 = the DSP has posted mail
 	CSR      uint32 // control/status: reset, halt, and the interrupt bits
 	BootStep int    // where the synthesized boot-ROM handshake has got to
+
+	// The synthesized boot ROM understands one more thing than its ready handshake: the
+	// command sequence that loads a microcode and starts it. Once a ucode is "running" the
+	// boot ROM's own re-post-on-halt behaviour is no longer what answers the mailbox.
+	UcodeRunning  bool // the boot ROM has loaded a ucode image and jumped to it
+	AwaitValue    bool // the previous mail was a load command; this next mail is its parameter
+	AwaitStartArg bool // the "start" command was seen; its parameter completes the load
+
 	ARMMAddr uint32
 	ARARAddr uint32
 	ARCtrl   uint32
@@ -112,6 +120,10 @@ func (d *dsp) read(m *Machine, off uint32, size int) uint32 {
 		return 1
 	case 0x01A:
 		return d.ARCtrl // AR DMA control / "is it running" — 0 means idle, i.e. done
+	case 0x030:
+		return d.AIAddr >> 16
+	case 0x032:
+		return d.AIAddr & 0xFFFF
 	case 0x036:
 		return d.AILen
 	}
@@ -144,9 +156,12 @@ func (d *dsp) write(m *Machine, off uint32, v uint32, size int) {
 		if v&dspCSRReset != 0 {
 			// The reset was requested. It completes at once — the bit reads back clear,
 			// which is exactly what the boot loop is waiting for — and the boot-ROM
-			// handshake restarts from the top.
+			// handshake restarts from the top, with any loaded ucode discarded.
 			d.BootStep = 1
 			d.FromDSP = 0x8071FEED
+			d.UcodeRunning = false
+			d.AwaitValue = false
+			d.AwaitStartArg = false
 			// RES self-clears, so it is simply never set in d.CSR.
 		}
 		// The boot-ROM handshake is a sequence of ready mails, one per run of the DSP. The
@@ -154,8 +169,9 @@ func (d *dsp) write(m *Machine, off uint32, v uint32, size int) {
 		// the ROM comes back to the top and posts its ready mail again. So the falling edge
 		// of the halt bit — the CPU letting the DSP run — is where the next mail appears,
 		// and modelling exactly that carries the handshake past its first exchange without a
-		// full DSP behind it.
-		if prevHalt != 0 && d.CSR&dspCSRHalt == 0 && d.FromDSP&(1<<31) == 0 {
+		// full DSP behind it. Once a ucode is running this no longer applies: the halt then
+		// belongs to the ucode, not the boot ROM's ready loop.
+		if !d.UcodeRunning && prevHalt != 0 && d.CSR&dspCSRHalt == 0 && d.FromDSP&(1<<31) == 0 {
 			d.FromDSP = 0x8071FEED
 		}
 		m.dspRefreshIRQ()
@@ -210,21 +226,52 @@ func (d *dsp) write(m *Machine, off uint32, v uint32, size int) {
 // and, for anything it does not recognise, logs the value so the true protocol can be read
 // off a run rather than guessed at.
 func (d *dsp) consumeMail(m *Machine) {
-	mail := d.ToDSP &^ (1 << 31)
-	d.ToDSP &^= 1 << 31 // the DSP has taken it
+	mail := d.ToDSP &^ (1 << 31) // the write path always tags the mail present; the value is the low 31 bits
+	d.ToDSP &^= 1 << 31          // the DSP has taken it
 
-	// The well-known init exchange: the driver, having seen 0x8071FEED, sends a task
-	// pointer and then a "run" mail; the ROM acknowledges. The exact values a specific
-	// game uses are what the instrumentation is for, so an unrecognised mail is noted but
-	// still acknowledged, to keep the boot moving.
-	switch {
-	case mail == 0x80F3A001, mail == 0x80F3C002, mail == 0x80F3B002, mail == 0x80F3D001:
-		// The classic AR/DMA setup mails. Acknowledge by posting a benign reply.
-		d.post(m, 0x80F3_5000)
+	// Once a ucode is running the driver talks to it in a command/reply rhythm: it sends a
+	// command mail and polls for the ucode's answer, rejecting only a "busy" sentinel. We do
+	// not run the ucode, so we synthesize the answer — a benign present mail that reads as
+	// "accepted". This is a substitution in the same class as the boot-ROM handshake, not a
+	// working audio DSP: it carries the audio system's init far enough to stop blocking the
+	// boot, and the values are fictional. A real DSP core is the honest fix.
+	if d.UcodeRunning {
+		d.FromDSP = 0x80000000 | (1 << 31)
+		return
+	}
+
+	// A command mail is followed by its parameter mail. When the previous mail was a load
+	// command, this one is its value and carries no command of its own — except that the
+	// value after the "start" command is the point at which the boot ROM would have finished
+	// the DMA and jumped to the ucode. We cannot run the ucode, so we synthesize what the
+	// driver would then observe: the ucode comes up and posts its first mail.
+	if d.AwaitValue {
+		d.AwaitValue = false
+		if d.AwaitStartArg {
+			d.AwaitStartArg = false
+			d.UcodeRunning = true
+			// The ucode's power-on mail. The driver polls for it exactly as it polled for the
+			// boot ROM's ready mail, so it is delivered the same way — set present, no
+			// interrupt. Raising the mailbox interrupt here instead lets the interrupt handler
+			// race the polling loop for the same mail, and the loser spins.
+			d.FromDSP = 0x80000000 | (1 << 31)
+		}
+		return
+	}
+
+	// The boot ROM's microcode-load protocol: a short run of commands (high half 0x80F3),
+	// each with a parameter mail, ending in the "start" command. The parameters — the source
+	// address in main memory, the length, the destination in DSP memory — are what a real
+	// boot ROM would DMA; here they are recognised so the sequence is followed rather than
+	// logged as a mystery, and the "start" command is what arms the ucode-came-up reply.
+	switch mail {
+	case 0x00F3A001, 0x00F3A002, 0x00F3C002, 0x00F3B002:
+		d.AwaitValue = true // its parameter follows
+	case 0x00F3D001:
+		d.AwaitValue = true // its parameter follows, and completes the load
+		d.AwaitStartArg = true
 	default:
 		m.logf("DSP mail from CPU: 0x%08X (boot step %d) — acknowledged; the exact protocol is a work item", mail, d.BootStep)
-		// Post nothing by default: many mails expect no reply, and a spurious one can
-		// confuse the driver more than silence.
 	}
 }
 
