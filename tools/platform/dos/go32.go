@@ -26,20 +26,32 @@ import (
 
 // Flat go32 memory layout (all linear addresses into PM.Mem):
 //
-//	[0,       imgEnd)   the COFF image: .text, .data, zeroed .bss
-//	[imgEnd,  0x100000) conventional DOS memory arena (DPMI 0100h AllocDOSMem),
-//	                    if the image ends below 1 MiB — its returned real-mode
-//	                    segment is (base>>4), so seg<<4 == base and go32's near-
-//	                    pointer transfer-buffer access lands on the same bytes.
-//	[base1M,  +stack)   the initial protected-mode stack (ESP starts at its top)
-//	[stackTop, MemSize) the extended-memory heap arena (DPMI 0501h AllocMem)
+//	[0,        imgEnd)    the COFF image: .text, .data, zeroed .bss
+//	[imgEnd,   0x100000)  conventional DOS memory arena (DPMI 0100h AllocDOSMem),
+//	                      if the image ends below 1 MiB — its returned real-mode
+//	                      segment is (base>>4), so seg<<4 == base and go32's near-
+//	                      pointer transfer-buffer access lands on the same bytes.
+//	[0x100000, stackFloor) the extended-memory heap arena (DPMI 0501h AllocMem)
+//	[stackFloor, stackTop) the initial protected-mode stack (ESP starts at its top,
+//	                      grows DOWN through this region)
+//	[stackTop, MemSize)   the go32 info block, reserved at the very top
+//
+// The stack lives HIGH in extended memory, above the heap — as it does under real
+// CWSDPMI, where the DPMI client's stack is far above the conventional-memory
+// transfer buffer. An earlier layout put a small stack just above 1 MiB and let it
+// grow DOWN into conventional memory; a deep frame (Quake's COM_LoadPackFile reads
+// the pak directory into a 128 KiB stack buffer) then descended straight through
+// __tb at ~0xE4000, and DOS file I/O reading into __tb clobbered the frame's locals.
+// Placing the stack high, with megabytes of headroom below the info block, keeps it
+// clear of __tb and the image no matter how deep the game recurses.
 const (
-	go32MemSize    = 64 << 20 // flat linear space (image + conv + stack + heap)
-	go32StackBytes = 0x80000  // 512 KiB initial PM stack
+	go32MemSize    = 64 << 20  // flat linear space (image + conv + heap + stack)
+	go32StackBytes = 8 << 20   // 8 MiB initial PM stack, high in extended memory
 	go32PageSize   = 0x1000
-	go32InfoBytes  = 0x4000   // reserved region at the top of memory for the go32 info block + transfer buffer
-	go32XferBytes  = 0x2000   // size of the DOS transfer buffer the info block advertises
-	go32InfoSel    = 0x0040   // fabricated selector whose base is the info block (FS at entry)
+	go32InfoBytes  = 0x4000    // reserved region at the top of memory for the go32 info block + transfer buffer
+	go32XferBytes  = 0x2000    // size of the DOS transfer buffer the info block advertises
+	go32InfoSel    = 0x0040    // fabricated selector whose base is the info block (FS at entry)
+	go32MinStack   = 8 << 20   // stubinfo minstack: the crt0 sbrk's this many bytes for the runtime stack
 )
 
 // PM is a loaded go32/COFF program ready to run in flat 32-bit protected mode.
@@ -53,7 +65,8 @@ type PM struct {
 	// bump arenas (all linear addresses into Mem)
 	convBase, convNext, convTop uint32 // conventional DOS memory (DPMI 0100h)
 	heapBase, heapNext          uint32 // extended-memory heap (DPMI 0501h)
-	infoBase                    uint32 // linear base of the go32 info block (also the heap ceiling)
+	stackFloor                  uint32 // bottom of the PM stack region; the heap ceiling
+	infoBase                    uint32 // linear base of the go32 info block (top of memory)
 
 	nextSel      uint16            // next fabricated LDT selector to hand out
 	nextCallback uint16            // next real-mode callback offset (DPMI 0303h)
@@ -134,13 +147,14 @@ func LoadGo32Bytes(data []byte, gameDir string) (*PM, error) {
 		p.convBase, p.convTop = 0, 0 // image fills conventional memory; 0100h will fail
 	}
 
-	// Stack then heap live at/above 1 MiB (or above the image if it overran 1 MiB);
-	// the go32 info block is a reserved region at the very top of memory.
-	base1M := align(maxu32(imgEnd, 0x100000), go32PageSize)
-	stackTop := base1M + go32StackBytes
-	p.heapBase = stackTop
-	p.heapNext = p.heapBase
+	// The heap grows UP from just above 1 MiB (or the image, if it overran 1 MiB); the
+	// stack lives HIGH, growing DOWN from just below the info block, with the whole gap
+	// between them for headroom. The info block is reserved at the very top of memory.
 	p.infoBase = uint32(len(p.Mem)) - go32InfoBytes
+	stackTop := p.infoBase
+	p.stackFloor = stackTop - go32StackBytes
+	p.heapBase = align(maxu32(imgEnd, 0x100000), go32PageSize)
+	p.heapNext = p.heapBase
 	p.setupInfoBlock(xferLinear)
 
 	c := x86.NewCPU(p)
@@ -187,7 +201,15 @@ func (p *PM) mapSel(sel uint16, base uint32) { p.sels[sel] = base }
 // boot are:
 //
 //	+0x10 size       — copy length and the sbrk size the crt0 requests
-//	+0x14 minstack   — minimum stack (compared, then reserved)
+//	+0x14 minstack   — minimum runtime stack. The crt0 sbrk's max(its built-in
+//	                  default, this) bytes for the stack and points ESP at the top,
+//	                  so the stack lives at the BOTTOM of the sbrk arena, just above
+//	                  the image and the conventional-memory transfer buffer __tb. A
+//	                  small stack there overflows down through __tb (Quake's
+//	                  COM_LoadPackFile alone reads the pak directory into a 128 KiB
+//	                  stack buffer); a DOS read into __tb then clobbers the frame's
+//	                  locals. Making minstack multi-megabyte pushes ESP megabytes
+//	                  above __tb, so __tb sits in dead space below the active stack.
 //	+0x18 memory_handle — DPMI handle of the DOS-memory block (opaque to us)
 //	+0x1C            — the ceiling the sbrk compares the break against; set to the
 //	                  top of our flat heap so growth always takes the fast path and
@@ -208,11 +230,11 @@ func (p *PM) setupInfoBlock(xferLinear uint32) {
 	p.w32(b+0x08, 0x000B0000)    // linear_address_of_secondary_screen
 	p.w32(b+0x0C, xferLinear)    // linear_address_of_transfer_buffer
 	p.w32(b+0x10, go32XferBytes) // stubinfo.size — crt0 copy length / sbrk request
-	p.w32(b+0x14, 1)             // minstack (kept minimal, as before)
+	p.w32(b+0x14, go32MinStack)  // minstack: the crt0 sbrk's this for the runtime stack (see below)
 	p.Write(b+0x18, 0x08)        // master_interrupt_controller_base
 	p.Write(b+0x19, 0x70)        // slave_interrupt_controller_base
 	p.Write(b+0x1A, 0x10)        // selector_for_linear_memory (flat data)
-	p.w32(b+0x1C, p.infoBase)    // memory top the sbrk grows toward (never exceeded)
+	p.w32(b+0x1C, p.stackFloor)  // memory top the sbrk grows toward (the heap/stack boundary)
 	p.w16(b+0x20, go32XferBytes) // stubinfo.minkeep — transfer-buffer size (__tb_size)
 	p.w16(b+0x24, uint16(xferLinear>>4)) // stubinfo.ds_segment — __tb = seg<<4
 }

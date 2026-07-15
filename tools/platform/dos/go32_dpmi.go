@@ -245,7 +245,7 @@ func (p *PM) allocConv(paras uint16) (seg, sel uint16, ok bool) {
 func (p *PM) allocHeap(size uint32) (base uint32, ok bool) {
 	base = p.heapNext
 	next := align(base+size, 16)
-	if next > p.infoBase { // keep the heap below the reserved info-block region
+	if next > p.stackFloor { // keep the heap below the high PM stack region
 		return 0, false
 	}
 	p.heapNext = next
@@ -267,7 +267,7 @@ const go32MaxFreeReport = 16 << 20
 // address a. Only the fields go32's allocator reads matter: the largest free
 // block and the total free/physical counts, all set to the heap remaining.
 func (p *PM) freeMemInfo(a uint32) {
-	free := uint32(len(p.Mem)) - p.heapNext
+	free := p.stackFloor - p.heapNext
 	if free > go32MaxFreeReport {
 		free = go32MaxFreeReport
 	}
