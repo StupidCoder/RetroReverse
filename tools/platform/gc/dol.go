@@ -28,7 +28,7 @@ const (
 
 // Segment is one loadable piece of the executable.
 type Segment struct {
-	Index  int    // 0..6 are text, 7..17 are data
+	Index  int // 0..6 are text, 7..17 are data
 	Text   bool
 	Offset uint32 // byte offset within the DOL
 	Addr   uint32 // where it loads

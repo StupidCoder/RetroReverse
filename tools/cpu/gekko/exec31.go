@@ -234,11 +234,13 @@ func (c *CPU) exec31(w, pc uint32) {
 		c.GPR[d] = c.readSPR(sprOf(w), pc)
 	case 467: // mtspr
 		c.writeSPR(sprOf(w), c.GPR[d], pc)
-	case 371: // mftb
+	case 371: // mftb — the time base, read through its OWN SPR numbers (268/269), which are
+		// not the ones mtspr writes it through (284/285). Conflating the two is an easy
+		// mistake, and it halts a game the moment it reads the clock.
 		switch sprOf(w) {
-		case SPRTBL:
+		case 268: // TBL
 			c.GPR[d] = uint32(c.TB)
-		case SPRTBU:
+		case 269: // TBU
 			c.GPR[d] = uint32(c.TB >> 32)
 		default:
 			c.Halt("gekko: mftb of SPR %d at 0x%08X", sprOf(w), pc)

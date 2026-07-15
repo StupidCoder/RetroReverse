@@ -143,8 +143,8 @@ func fstEntry(dir bool, nameOff, a, c uint32) []byte {
 func TestParseFSTHierarchy(t *testing.T) {
 	names := []byte("dir\x00a.bin\x00b.bin\x00")
 	var b []byte
-	b = append(b, fstEntry(true, 0, 0, 4)...)  // root: 4 entries
-	b = append(b, fstEntry(true, 0, 0, 3)...)  // dir/, ends before 3
+	b = append(b, fstEntry(true, 0, 0, 4)...) // root: 4 entries
+	b = append(b, fstEntry(true, 0, 0, 3)...) // dir/, ends before 3
 	b = append(b, fstEntry(false, 4, 0x1000, 0x10)...)
 	b = append(b, fstEntry(false, 10, 0x2000, 0x20)...)
 	b = append(b, names...)

@@ -1,0 +1,228 @@
+package gc
+
+// devices.go holds the register blocks that are, for now, thin: they keep their registers
+// so a read returns what was written, they satisfy the accesses the boot path makes, and
+// they log once anything the model does not yet answer for. Each will grow its own file
+// when a phase needs it — the pixel engine and the command processor when the graphics
+// pipe is built, the audio interface when sound is wanted. Until then, a thin device that
+// does not stall the boot is exactly right, and a stub that lied would not be.
+
+// --- MI: the Memory Interface -------------------------------------------------------
+//
+// It configures the memory protection regions and reports memory errors. The boot path
+// programs it and moves on; nothing here needs to do more than remember what it was told.
+
+type mi struct {
+	Reg [0x40]uint16
+}
+
+func (d *mi) read(m *Machine, off uint32, size int) uint32 {
+	i := (off & 0xFFF) / 2
+	if int(i) < len(d.Reg) {
+		return uint32(d.Reg[i])
+	}
+	m.logf("MI read unmodelled 0x%03X", off&0xFFF)
+	return 0
+}
+
+func (d *mi) write(m *Machine, off uint32, v uint32, size int) {
+	i := (off & 0xFFF) / 2
+	if int(i) < len(d.Reg) {
+		d.Reg[i] = uint16(v)
+		return
+	}
+	m.logf("MI write unmodelled 0x%03X = 0x%08X", off&0xFFF, v)
+}
+
+// --- SI: the Serial Interface -------------------------------------------------------
+//
+// It polls the four controller ports. No controller is attached by default, so a poll
+// reads back "nothing there", which is what a console with empty ports reports — and a
+// game reads that and simply shows no player rather than waiting. The -keys path (a later
+// phase) attaches a controller and fills these in.
+
+type si struct {
+	Reg [0x40]uint32
+}
+
+func (d *si) read(m *Machine, off uint32, size int) uint32 {
+	r := off & 0xFF
+	// The four channel input registers report the pad state. Zero — no buttons, sticks
+	// centred at zero — is a plausible idle pad; a game reads it without stalling.
+	if r < 0x30 {
+		return 0
+	}
+	switch r {
+	case 0x30:
+		// The poll/status register. Report "no response error", so a game does not treat
+		// the empty ports as a fault.
+		return 0
+	}
+	i := r / 4
+	if int(i) < len(d.Reg) {
+		return d.Reg[i]
+	}
+	m.logf("SI read unmodelled 0x%02X", r)
+	return 0
+}
+
+func (d *si) write(m *Machine, off uint32, v uint32, size int) {
+	i := (off & 0xFF) / 4
+	if int(i) < len(d.Reg) {
+		d.Reg[i] = v
+		return
+	}
+	m.logf("SI write unmodelled 0x%02X = 0x%08X", off&0xFF, v)
+}
+
+// --- AI: the Audio Interface --------------------------------------------------------
+//
+// The streaming DAC's sample clock and volume. Sound is a later phase; for now the
+// registers are kept so a program that configures the DAC and reads back its settings sees
+// what it wrote, and the sample-count register advances so a poll on it makes progress.
+
+type ai struct {
+	Control uint32
+	Volume  uint32
+	SCnt    uint32 // the running sample counter
+	ITCnt   uint32 // the interrupt-trigger count
+}
+
+func (d *ai) read(m *Machine, off uint32, size int) uint32 {
+	switch off & 0xFF {
+	case 0x00:
+		return d.Control
+	case 0x04:
+		return d.Volume
+	case 0x08:
+		d.SCnt++ // a poll on the sample counter must see it move
+		return d.SCnt
+	case 0x0C:
+		return d.ITCnt
+	}
+	m.logf("AI read unmodelled 0x%02X", off&0xFF)
+	return 0
+}
+
+func (d *ai) write(m *Machine, off uint32, v uint32, size int) {
+	switch off & 0xFF {
+	case 0x00:
+		d.Control = v
+	case 0x04:
+		d.Volume = v
+	case 0x08:
+		d.SCnt = v
+	case 0x0C:
+		d.ITCnt = v
+	default:
+		m.logf("AI write unmodelled 0x%02X = 0x%08X", off&0xFF, v)
+	}
+}
+
+// --- CP: the Command Processor ------------------------------------------------------
+//
+// The graphics FIFO's control: where it reads from, how full it is, and whether it is
+// running. The graphics pipe is Phase 3; here the CP keeps its registers and reports the
+// FIFO as empty and idle, so a program that waits for the pipe to drain is not told it is
+// perpetually busy.
+
+type cp struct {
+	Status  uint16
+	Control uint16
+	Clear   uint16
+	Reg     [0x40]uint16
+}
+
+func (d *cp) read(m *Machine, off uint32, size int) uint32 {
+	switch off & 0xFFF {
+	case 0x00:
+		// The status register. Report the FIFO empty and the pipe idle: bit for
+		// "read-idle" and "command-idle" set, "overflow"/"underflow" clear.
+		return 0x0006
+	case 0x02:
+		return uint32(d.Control)
+	}
+	i := (off & 0xFFF) / 2
+	if int(i) < len(d.Reg) {
+		return uint32(d.Reg[i])
+	}
+	m.logf("CP read unmodelled 0x%03X", off&0xFFF)
+	return 0
+}
+
+func (d *cp) write(m *Machine, off uint32, v uint32, size int) {
+	i := (off & 0xFFF) / 2
+	if int(i) < len(d.Reg) {
+		d.Reg[i] = uint16(v)
+		return
+	}
+	m.logf("CP write unmodelled 0x%03X = 0x%08X", off&0xFFF, v)
+}
+
+// --- PE: the Pixel Engine -----------------------------------------------------------
+//
+// The end of the graphics pipe, and the source of the two interrupts a frame-timed game
+// waits on: the token (a marker the game plants in the command stream) and the finish
+// (the pipe has drained). Phase 3 raises these for real; the registers live here so the
+// configuration a game writes is remembered.
+
+type pe struct {
+	Reg   [0x20]uint16
+	Token uint16
+}
+
+func (d *pe) read(m *Machine, off uint32, size int) uint32 {
+	switch off & 0xFFF {
+	case 0x0E:
+		return uint32(d.Token) // the last token the pipe passed
+	}
+	i := (off & 0xFFF) / 2
+	if int(i) < len(d.Reg) {
+		return uint32(d.Reg[i])
+	}
+	m.logf("PE read unmodelled 0x%03X", off&0xFFF)
+	return 0
+}
+
+func (d *pe) write(m *Machine, off uint32, v uint32, size int) {
+	i := (off & 0xFFF) / 2
+	if int(i) < len(d.Reg) {
+		d.Reg[i] = uint16(v)
+		return
+	}
+	m.logf("PE write unmodelled 0x%03X = 0x%08X", off&0xFFF, v)
+}
+
+// --- The write-gather pipe ----------------------------------------------------------
+//
+// The Gekko has a special store path: writes to one physical address (0x0C008000) are not
+// stored, they are gathered into 32-byte bursts and pushed into the graphics FIFO. It is
+// how a GameCube program feeds the graphics pipe at speed, without the CPU addressing the
+// FIFO word by word.
+//
+// In Phase 2 the pipe counts its bytes and hands them to OnFIFO if anyone is listening;
+// Phase 3's command processor is what consumes them. Counting them is enough to prove the
+// path works and to see the game beginning to draw.
+
+type wgPipe struct {
+	Bytes uint64 // total bytes pushed, across the run
+	Buf   []byte // the current burst, handed to OnFIFO in 32-byte lines
+}
+
+func (w *wgPipe) push(m *Machine, b []byte) {
+	w.Bytes += uint64(len(b))
+	if m.OnFIFO == nil {
+		return
+	}
+	w.Buf = append(w.Buf, b...)
+	for len(w.Buf) >= 32 {
+		m.OnFIFO(w.Buf[:32])
+		w.Buf = w.Buf[32:]
+	}
+}
+
+func (w *wgPipe) write8(m *Machine, v uint8)   { w.push(m, []byte{v}) }
+func (w *wgPipe) write16(m *Machine, v uint16) { w.push(m, []byte{uint8(v >> 8), uint8(v)}) }
+func (w *wgPipe) write32(m *Machine, v uint32) {
+	w.push(m, []byte{uint8(v >> 24), uint8(v >> 16), uint8(v >> 8), uint8(v)})
+}
