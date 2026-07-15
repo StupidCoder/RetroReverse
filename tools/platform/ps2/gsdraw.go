@@ -188,6 +188,12 @@ type gsTarget struct {
 	colclamp bool
 	fba      uint32 // force the written alpha's MSB
 	test     uint64 // the context's TEST register
+
+	// The Z buffer, from the context's ZBUF register and TEST's ZTE/ZTST.
+	zbp  uint32 // base, in 64-word blocks (the register speaks 2048-word pages)
+	zpsm uint32
+	zmsk bool // don't write Z
+	ztst uint32
 }
 
 // target reads the current context's FRAME, SCISSOR and per-pixel-pipeline registers.
@@ -197,14 +203,25 @@ func (gs *GS) target(p uint64) gsTarget {
 	alpha := gs.reg[gsALPHA1]
 	test := gs.reg[gsTEST1]
 	fba := gs.reg[gsFBA1]
+	zbuf := gs.reg[gsZBUF1]
 	if p>>9&1 == 1 {
 		frame = gs.reg[gsFRAME2]
 		scis = gs.reg[gsSCISSOR2]
 		alpha = gs.reg[gsALPHA2]
 		test = gs.reg[gsTEST2]
 		fba = gs.reg[gsFBA2]
+		zbuf = gs.reg[gsZBUF2]
+	}
+	ztst := uint32(1) // ZTE off is "always pass" too
+	if test>>16&1 != 0 {
+		ztst = uint32(test>>17) & 3
 	}
 	return gsTarget{
+		zbp:  uint32(zbuf) & 0x1FF * 32,
+		zpsm: uint32(zbuf>>24)&0xF | 0x30, // the register stores the low nibble of a Z PSM
+		zmsk: zbuf>>32&1 != 0,
+		ztst: ztst,
+
 		fbp:   uint32(frame) & 0x1FF * 32, // FBP is in 2048-word pages; addrPSMCT32 wants 64-word blocks
 		fbw:   uint32(frame>>16) & 0x3F,
 		psm:   uint32(frame>>24) & 0x3F,
@@ -223,9 +240,10 @@ func (gs *GS) target(p uint64) gsTarget {
 	}
 }
 
-// plot writes one pixel: the alpha and destination-alpha tests, the blend, then the
-// frame's format, mask and scissor. rgba is the source colour after texturing.
-func (gs *GS) plot(t *gsTarget, x, y int32, rgba uint32) {
+// plot writes one pixel: the alpha, destination-alpha and depth tests, the blend, then
+// the frame's format, mask and scissor. rgba is the source colour after texturing; z is
+// the pixel's depth.
+func (gs *GS) plot(t *gsTarget, x, y int32, z uint32, rgba uint32) {
 	if x < t.sx0 || x > t.sx1 || y < t.sy0 || y > t.sy1 || x < 0 || y < 0 {
 		return
 	}
@@ -234,6 +252,7 @@ func (gs *GS) plot(t *gsTarget, x, y int32, rgba uint32) {
 	}
 
 	fbmsk := t.fbmsk
+	writeZ := !t.zmsk
 	srcA := rgba >> 24
 
 	// The alpha test compares the source alpha against AREF; a failing pixel is dropped
@@ -263,11 +282,52 @@ func (gs *GS) plot(t *gsTarget, x, y int32, rgba uint32) {
 			switch t.test >> 12 & 3 {
 			case 0: // KEEP: nothing is written
 				return
-			case 1: // FB_ONLY: the frame is written, the Z buffer is not — no Z buffer yet
+			case 1: // FB_ONLY: the frame is written, the Z buffer is not
+				writeZ = false
 			case 2: // ZB_ONLY: only the Z buffer is written
-				return
+				fbmsk = 0xFFFFFFFF
 			case 3: // RGB_ONLY: the colour is written, the alpha and Z are not
 				fbmsk |= 0xFF000000
+				writeZ = false
+			}
+		}
+	}
+
+	// The depth test, against the context's Z buffer.
+	zaddr := uint32(0xFFFFFFFF)
+	if t.ztst != 1 || writeZ {
+		var zold uint32
+		switch t.zpsm {
+		case psmZ32, psmZ24:
+			zaddr = addrPSMZ32(t.zbp, t.fbw, uint32(x), uint32(y))
+			if zaddr+4 > uint32(len(gs.vram)) {
+				return
+			}
+			zold = le32gs(gs.vram[zaddr:])
+			if t.zpsm == psmZ24 {
+				zold &= 0xFFFFFF
+				z &= 0xFFFFFF
+			}
+		case psmZ16, psmZ16S:
+			zaddr = addrPSMZ16(t.zbp, t.fbw, uint32(x), uint32(y), t.zpsm == psmZ16S)
+			if zaddr+2 > uint32(len(gs.vram)) {
+				return
+			}
+			zold = uint32(gs.vram[zaddr]) | uint32(gs.vram[zaddr+1])<<8
+			if z > 0xFFFF {
+				z = 0xFFFF
+			}
+		}
+		switch t.ztst {
+		case 0: // NEVER
+			return
+		case 2: // GEQUAL
+			if z < zold {
+				return
+			}
+		case 3: // GREATER
+			if z <= zold {
+				return
 			}
 		}
 	}
@@ -297,6 +357,24 @@ func (gs *GS) plot(t *gsTarget, x, y int32, rgba uint32) {
 		rgba |= 0x80000000
 	}
 
+	if writeZ && zaddr != 0xFFFFFFFF {
+		switch t.zpsm {
+		case psmZ32, psmZ24:
+			gs.vram[zaddr+0] = byte(z)
+			gs.vram[zaddr+1] = byte(z >> 8)
+			gs.vram[zaddr+2] = byte(z >> 16)
+			if t.zpsm == psmZ32 {
+				gs.vram[zaddr+3] = byte(z >> 24)
+			}
+		case psmZ16, psmZ16S:
+			gs.vram[zaddr+0] = byte(z)
+			gs.vram[zaddr+1] = byte(z >> 8)
+		}
+	}
+	if fbmsk == 0xFFFFFFFF {
+		return
+	}
+
 	px := rgba&^fbmsk | old&fbmsk
 	gs.vram[addr+0] = byte(px)
 	gs.vram[addr+1] = byte(px >> 8)
@@ -308,7 +386,7 @@ func (gs *GS) plot(t *gsTarget, x, y int32, rgba uint32) {
 func (gs *GS) point(v gsVertex) {
 	p := gs.prim()
 	t := gs.target(p)
-	gs.plot(&t, v.x>>4, v.y>>4, v.rgba)
+	gs.plot(&t, v.x>>4, v.y>>4, v.z, v.rgba)
 }
 
 // texAxis interpolates one texture-coordinate axis of a sprite: the texel coordinate
@@ -364,7 +442,7 @@ func (gs *GS) sprite(a, b gsVertex, p uint64) {
 				u := texAxis(x<<4+8, a.x, b.x, au, bu)
 				rgba = smp.combine(smp.at(u>>4, v>>4), rgba)
 			}
-			gs.plot(&t, x, y, rgba)
+			gs.plot(&t, x, y, b.z, rgba) // a sprite is flat in Z: the second vertex's
 		}
 	}
 }
@@ -451,7 +529,8 @@ func (gs *GS) triangle(v0, v1, v2 gsVertex, p uint64) {
 				}
 				rgba = smp.combine(smp.at(tu, tv), rgba)
 			}
-			gs.plot(&t, x, y, rgba)
+			z := uint32((w0*int64(v0.z) + w1*int64(v1.z) + w2*int64(v2.z)) / area)
+			gs.plot(&t, x, y, z, rgba)
 		}
 	}
 }
@@ -481,12 +560,20 @@ func (gs *GS) noteFeatures(p uint64) {
 		gs.count("context 2")
 	}
 	test := gs.reg[gsTEST1]
+	frame := gs.reg[gsFRAME1]
+	zbuf := gs.reg[gsZBUF1]
 	if p>>9&1 == 1 {
 		test = gs.reg[gsTEST2]
+		frame = gs.reg[gsFRAME2]
+		zbuf = gs.reg[gsZBUF2]
 	}
 	if test>>16&1 != 0 && test>>17&3 >= 2 {
-		gs.count("depth-tested (no Z buffer — drawn)")
+		gs.count("depth-tested")
 	}
+	// Each distinct render target, laid against the texture bases above: a page that
+	// is drawn into and then sampled is a dynamic texture, and this pair of lines is
+	// how that is seen.
+	gs.count(sprintf("  draw target fb 0x%05X z 0x%05X", uint32(frame)&0x1FF*2048, uint32(zbuf)&0x1FF*2048))
 }
 
 func unpackRGBA(c uint32) (r, g, b, a int64) {

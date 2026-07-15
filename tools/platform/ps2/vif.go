@@ -76,8 +76,9 @@ type vif struct {
 	tops uint32
 
 	// The vector unit itself (VIF1's runs; VU0's macro mode belongs to the EE's COP2).
-	vu      *vu.VU
-	vuSteps uint64
+	vu         *vu.VU
+	vuSteps    uint64
+	kickDumped bool
 
 	// The command in flight: its code word, the bytes its payload still needs, and the
 	// payload gathered so far.
@@ -109,14 +110,18 @@ type mpgInfo struct {
 	count int
 }
 
-// ensureVIF creates a VPU interface the first time its channel starts.
+// ensureVIF creates a VPU interface — and its vector unit — the first time anything
+// needs it. VU0 doubles as the EE's COP2: the same instance the VIF fills is the one
+// the EE's macro-mode instructions execute on, which is the whole point — GOAL runs its
+// matrix and lighting math through COP2, and the results land in registers a VCALLMS
+// program then reads.
 func (m *Machine) ensureVIF(idx int) *vif {
 	if m.vifs[idx] == nil {
 		size := uint32(vu0MemSize)
 		if idx == 1 {
 			size = vu1MemSize
 		}
-		m.vifs[idx] = &vif{
+		v := &vif{
 			idx: idx, m: m, cl: 1, wl: 1,
 			micro:   make([]byte, size),
 			data:    make([]byte, size),
@@ -124,6 +129,13 @@ func (m *Machine) ensureVIF(idx int) *vif {
 			mscal:   map[uint32]int{},
 			mpgSeen: map[uint64]*mpgInfo{},
 		}
+		v.vu = vu.New(v.micro, v.data)
+		if idx == 1 {
+			v.vu.XGKick = v.xgkick
+		} else {
+			m.CPU.COP2 = v.vu
+		}
+		m.vifs[idx] = v
 	}
 	return m.vifs[idx]
 }
@@ -353,9 +365,6 @@ func (v *vif) unpack(cmd uint32, data []byte) {
 	flg := v.cmd&(1<<15) != 0
 
 	v.count(sprintf("unpack V%d-%d", vn+1, 32>>vl))
-	if v.mode != 0 {
-		v.count("unpack with STMOD (addition not applied)")
-	}
 	if v.mask != 0 && v.cmd&(1<<28) != 0 {
 		v.count("unpack with STMASK (mask not applied)")
 	}
@@ -424,6 +433,24 @@ func (v *vif) unpack(cmd uint32, data []byte) {
 			if vn == 0 {
 				f[1], f[2], f[3] = f[0], f[0], f[0]
 			}
+			// STMOD: offset mode adds ROW to what the stream supplied; difference mode
+			// also makes the sum the new ROW — a delta-compressed stream reconstructing
+			// itself. The addition is a plain 32-bit add, whatever the bits mean.
+			last := vn
+			if vn == 0 {
+				last = 3
+			}
+			switch v.mode {
+			case 1:
+				for e := uint32(0); e <= last; e++ {
+					f[e] += v.row[e]
+				}
+			case 2:
+				for e := uint32(0); e <= last; e++ {
+					f[e] += v.row[e]
+					v.row[e] = f[e]
+				}
+			}
 		}
 		at := addr + i*16
 		if int(at)+16 <= len(v.data) {
@@ -446,16 +473,6 @@ func (v *vif) unpack(cmd uint32, data []byte) {
 // ended. Running to completion at the MSCAL is the same ordering contract with the wait
 // collapsed to zero.
 func (v *vif) runVU(start uint32, cont bool) {
-	if v.idx != 1 {
-		// VU0's microprograms are started by the EE through COP2 (CTC2 CMSAR / VCALLMS),
-		// not modelled yet; the census keeps what VIF0 asked for.
-		v.count("mscal (VU0 — not run)")
-		return
-	}
-	if v.vu == nil {
-		v.vu = vu.New(v.micro, v.data)
-		v.vu.XGKick = v.xgkick
-	}
 	v.vu.Top = uint16(v.tops)
 	v.vu.ITop = uint16(v.itop)
 	if v.ofst != 0 {
@@ -481,7 +498,21 @@ func (v *vif) runVU(start uint32, cont bool) {
 func (v *vif) xgkick(qw uint32) {
 	v.count("xgkick")
 	data := v.data[qw*16:]
-	v.m.gifPacket(data[:gifPacketLen(data)])
+	n := gifPacketLen(data)
+	if !v.kickDumped {
+		// The first packet, once, in the raw: what the microprogram actually builds is
+		// the specification for everything downstream of it.
+		v.kickDumped = true
+		dump := n
+		if dump > 192 {
+			dump = 192
+		}
+		for o := 0; o < dump; o += 16 {
+			v.m.note("VU1 first XGKICK qw+%d: %08X %08X %08X %08X", o/16,
+				le32gs(data[o:]), le32gs(data[o+4:]), le32gs(data[o+8:]), le32gs(data[o+12:]))
+		}
+	}
+	v.m.gifPacket(data[:n])
 }
 
 func (v *vif) count(what string) { v.census[sprintf("VIF%d %s", v.idx, what)]++ }

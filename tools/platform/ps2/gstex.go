@@ -35,6 +35,10 @@ const (
 	psmT8H   = 0x1B // the index lives in bits 24..31 of a CT32 word
 	psmT4HL  = 0x24 // bits 24..27
 	psmT4HH  = 0x2C // bits 28..31
+	psmZ32   = 0x30
+	psmZ24   = 0x31
+	psmZ16   = 0x32
+	psmZ16S  = 0x3A
 )
 
 // gsTex is TEX0, decoded.
@@ -209,6 +213,45 @@ func addrPSMT4(bp, bw, x, y uint32) (uint32, uint32) {
 	cw := columnWordT4[column&1][cy*32+cx]
 	cn := columnNibbleT4[cy*32+cx]
 	return bp*256 + page*8192 + uint32(block)*256 + column*64 + uint32(cw)*4 + uint32(cn>>1), uint32(cn & 1)
+}
+
+// addrPSMZ32 returns the byte offset of (x, y) in a 32-bit Z buffer. The Z formats tile
+// exactly like their colour counterparts except the block index has bits 3 and 4
+// inverted — the hardware's way of interleaving a frame and its Z so they never collide
+// in a page.
+func addrPSMZ32(bp, bw, x, y uint32) uint32 {
+	if bw == 0 {
+		bw = 1
+	}
+	const pageW, pageH = 64, 32
+	page := (y/pageH)*bw + x/pageW
+	px, py := x%pageW, y%pageH
+	block := blockPSMCT32[py/8][px/8] ^ 0x18
+	cx, cy := px%8, py%8
+	col := columnPSMCT32[cy][cx]
+	return (bp*64 + page*2048 + uint32(block)*64 + uint32(col)) * 4
+}
+
+// addrPSMZ16 is the 16-bit Z buffer's swizzle: PSMCT16's with the same block inversion.
+// s selects the Z16S block table (PSMCT16S's, inverted).
+func addrPSMZ16(bp, bw, x, y uint32, s bool) uint32 {
+	if bw == 0 {
+		bw = 1
+	}
+	page := (y/64)*bw + x/64
+	px, py := x%64, y%64
+	var block uint8
+	if s {
+		block = blockPSMCT16S[py/8][px/16] ^ 0x18
+	} else {
+		block = blockPSMCT16[py/8][px/16] ^ 0x18
+	}
+	bx, by := px%16, py%8
+	column := by / 2
+	cx, cy := bx, by%2
+	cw := columnWordCT16[cy*16+cx]
+	ch := columnHalfCT16[cy*16+cx]
+	return bp*256 + page*8192 + uint32(block)*256 + column*64 + uint32(cw)*4 + uint32(ch)*2
 }
 
 // addrPSMCT16 returns the byte offset of texel (x, y) in a 16-bit buffer. A PSMCT16 page

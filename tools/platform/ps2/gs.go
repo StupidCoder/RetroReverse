@@ -56,6 +56,7 @@ const (
 	gsFBA2       = 0x4B
 	gsFRAME1     = 0x4C
 	gsZBUF1      = 0x4E
+	gsZBUF2      = 0x4F
 	gsBITBLTBUF  = 0x50
 	gsTRXPOS     = 0x51
 	gsTRXREG     = 0x52
@@ -602,6 +603,12 @@ func (m *Machine) GSStatus() string {
 		return "the GS was never touched\n"
 	}
 	s := sprintf("the GS: %d image uploads, %d vertex kicks\n", m.gs.uploads, m.gs.prims)
+	dispfb2 := uint64(m.io[gsDISPFB2]) | uint64(m.io[gsDISPFB2+4])<<32
+	dispfb1 := uint64(m.io[gsDISPFB1]) | uint64(m.io[gsDISPFB1+4])<<32
+	s += sprintf("      display: PMODE 0x%X, DISPFB1 fb 0x%05X psm 0x%02X, DISPFB2 fb 0x%05X psm 0x%02X\n",
+		m.io[gsPMODE],
+		uint32(dispfb1)&0x1FF*2048, uint32(dispfb1>>15)&0x1F,
+		uint32(dispfb2)&0x1FF*2048, uint32(dispfb2>>15)&0x1F)
 	for i, n := range m.gs.primCount {
 		if n > 0 {
 			s += sprintf("      %-24s %d\n", primNames[i], n)

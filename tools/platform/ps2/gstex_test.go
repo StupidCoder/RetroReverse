@@ -194,3 +194,36 @@ func TestAlphaTestCutsOut(t *testing.T) {
 		t.Errorf("alpha-0x80 pixel = %08X, want 80FF00FF", got)
 	}
 }
+
+// TestDepthTestOrdersSprites draws a near sprite then a far one with ZTST=GREATER: the
+// far one must lose, and the Z buffer must hold the near depth.
+func TestDepthTestOrdersSprites(t *testing.T) {
+	m := NewMachine()
+	gs := m.ensureGS()
+	gs.write(gsFRAME1, 1<<16) // FBP=0, FBW=1
+	gs.write(gsSCISSOR1, 63<<16|uint64(31)<<48)
+	gs.write(gsPRMODECONT, 1)
+	gs.write(gsZBUF1, 8|0<<24)     // Z buffer at page 8, Z32
+	gs.write(gsTEST1, 1<<16|3<<17) // ZTE, GREATER
+	gs.write(gsPRIM, 6)            // flat sprite
+
+	draw := func(z uint64, rgba uint64) {
+		gs.write(gsRGBAQ, rgba)
+		gs.write(gsXYZ3, z<<32)
+		gs.write(gsXYZ2, 8*16|8*16<<16|z<<32)
+	}
+	draw(1000, 0x800000FF) // near, red
+	draw(500, 0x8000FF00)  // far, green — must lose
+
+	if got := le32gs(gs.vram[addrPSMCT32(0, 1, 4, 4):]); got != 0x800000FF {
+		t.Errorf("far sprite won the depth test: %08X, want 800000FF", got)
+	}
+	if got := le32gs(gs.vram[addrPSMZ32(8*32, 1, 4, 4):]); got != 1000 {
+		t.Errorf("Z buffer holds %d, want 1000", got)
+	}
+
+	draw(2000, 0x80FF0000) // nearer, blue — must win
+	if got := le32gs(gs.vram[addrPSMCT32(0, 1, 4, 4):]); got != 0x80FF0000 {
+		t.Errorf("nearer sprite lost: %08X, want 80FF0000", got)
+	}
+}

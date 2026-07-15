@@ -264,6 +264,9 @@ func NewMachine() *Machine {
 	}
 	m.CPU = r5900.NewCPU(m)
 	m.CPU.Syscall = m.handleSyscall
+	// VU0 doubles as the EE's COP2 (macro mode); building it with the machine means
+	// the very first COP2 instruction has a unit behind it.
+	m.ensureVIF(0)
 	return m
 }
 

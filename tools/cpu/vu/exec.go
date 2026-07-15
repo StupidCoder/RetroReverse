@@ -44,6 +44,12 @@ type VU struct {
 	// program has finished building.
 	XGKick func(qwAddr uint32)
 
+	// CMSAR0 is VCALLMSR's start address (64-bit pairs); StartVU1, if set, serves a
+	// macro-mode write of CMSAR1 — the EE starting the OTHER unit. Both belong to the
+	// macro face (macro.go).
+	CMSAR0   uint16
+	StartVU1 func(startPair uint32)
+
 	Steps uint64
 }
 
