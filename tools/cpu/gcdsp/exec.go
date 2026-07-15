@@ -236,15 +236,14 @@ func (c *CPU) execute(pc, op uint16) (span uint16) {
 			c.InInterrupt = false
 		}
 		return 1
-	case op&0xFFF0 == 0x1700: // jmpr $R
+	case op&0xFF00 == 0x1700: // jmpr/callr $R, cc — the register-indirect control transfer.
+		// bits 7..5 select the address register, bit 4 is the call flag (a call stacks the
+		// return address), bits 3..0 are the condition. The register holds a code address the
+		// ucode computed — the jump-table dispatch at ucode 0x0276 builds it with mrr then callr.
 		if c.cond(op & 0xF) {
-			c.PC = c.Reg[(op>>5)&7]
-			c.Branched = true
-		}
-		return 1
-	case op&0xFFF0 == 0x1710: // callr $R
-		if c.cond(op & 0xF) {
-			c.push(regST0, pc+1)
+			if op&0x10 != 0 { // callr: stack the return (this op is one word)
+				c.push(regST0, pc+1)
+			}
 			c.PC = c.Reg[(op>>5)&7]
 			c.Branched = true
 		}

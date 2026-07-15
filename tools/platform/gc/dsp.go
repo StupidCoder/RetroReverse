@@ -63,8 +63,19 @@ type dsp struct {
 	ARARAddr uint32
 	ARCtrl   uint32
 	ARSize   uint32
-	AIAddr   uint32
-	AILen    uint32
+
+	// The audio-DMA (AID) engine at 0x030..0x03A. It streams 32-byte blocks of stereo PCM from
+	// main memory to the DAC and, each time it drains its programmed block count, raises the AID
+	// interrupt (DSP CSR bit 3) and reloads from the start/length shadow registers — a continuous
+	// loop. That recurring interrupt is the audio-frame clock the AX sound driver schedules
+	// against: its handler mixes and queues the next buffer, so without it the frame cadence
+	// never advances. The counter advances on the instruction clock (paced like the video field),
+	// so it is part of the savestate — every field here is exported for that reason.
+	AIDStart     uint32 // AUDIO_DMA_START: the buffer's main-memory address (the shadow reloaded each loop)
+	AIDControl   uint16 // AUDIO_DMA_CONTROL_LEN: bit 15 = enable, bits[14:0] = block count
+	AIDRemaining uint16 // blocks left before the next interrupt
+	AIDCur       uint32 // the address the DMA has advanced to within the current buffer
+	AIDAccum     uint64 // instructions accumulated toward draining the next block
 
 	// The DSP's own memory-DMA engine, which the running microcode drives through the
 	// registers at the top of its data space (0xFFC9..0xFFCF): DSMAH/DSMAL are the main-memory
@@ -158,11 +169,15 @@ func (d *dsp) read(m *Machine, off uint32, size int) uint32 {
 	case 0x01A:
 		return d.ARCtrl // AR DMA control / "is it running" — 0 means idle, i.e. done
 	case 0x030:
-		return d.AIAddr >> 16
+		return d.AIDStart >> 16
 	case 0x032:
-		return d.AIAddr & 0xFFFF
+		return d.AIDStart & 0xFFFF
 	case 0x036:
-		return d.AILen
+		return uint32(d.AIDControl)
+	case 0x03A:
+		// AUDIO_DMA_BYTES_LEFT reads back the blocks still to play in the current buffer; a
+		// driver can poll it instead of taking the interrupt.
+		return uint32(d.AIDRemaining)
 	}
 	m.logf("DSP read unmodelled 0x%03X", off&0xFFF)
 	return 0
@@ -253,11 +268,17 @@ func (d *dsp) write(m *Machine, off uint32, v uint32, size int) {
 	case 0x01A:
 		d.ARCtrl = v // the ARAM DMA control mirror the init sequence writes and reads back
 	case 0x030:
-		d.AIAddr = (d.AIAddr & 0xFFFF) | (v << 16)
+		d.AIDStart = (d.AIDStart & 0xFFFF) | (v << 16)
 	case 0x032:
-		d.AIAddr = (d.AIAddr & 0xFFFF0000) | (v & 0xFFFF)
+		d.AIDStart = (d.AIDStart & 0xFFFF0000) | (v & 0xFFFF)
 	case 0x036:
-		d.AILen = v
+		// The control/length register: bit 15 enables the DMA, the low 15 bits are the block
+		// count. Writing it (re)loads the counter from the shadow start and length — which is
+		// how the interrupt handler queues the next buffer, by writing START then this.
+		d.AIDControl = uint16(v)
+		d.AIDRemaining = d.AIDControl & 0x7FFF
+		d.AIDCur = d.AIDStart
+		d.AIDAccum = 0
 	default:
 		m.logf("DSP write unmodelled 0x%03X = 0x%08X", off&0xFFF, v)
 	}
@@ -378,6 +399,47 @@ func (d *dsp) runARAMDMA(m *Machine) {
 	// — the earlier mistake — leaves a polling loop waiting forever.
 	d.CSR |= dspCSRARInt
 	if d.CSR&dspCSRARMask != 0 {
+		m.dspRefreshIRQ()
+	}
+}
+
+// The audio DAC plays a fixed 48 kHz; one DMA block is 32 bytes = 8 stereo 16-bit samples.
+// Pacing the block drain against the same instruction clock the video field uses (one field of
+// fieldInstructions is ~1/60 s) keeps the audio-frame interrupt proportional to the display, so
+// a game that counts audio frames to time an intro — play the "Nintendo" voice, wait for it, then
+// leave the logo — advances at the right rate relative to what is on screen.
+const (
+	aidSamplesPerBlock = 8
+	aidInstrPerSample  = fieldInstructions * 60 / 48000 // instructions per DAC sample
+	aidInstrPerBlock   = aidInstrPerSample * aidSamplesPerBlock
+)
+
+// tickAID advances the audio DMA one instruction's worth. When enabled it drains a block every
+// aidInstrPerBlock instructions; when the whole buffer has drained it raises the AID interrupt
+// (DSP CSR bit 3) and reloads from the shadow start/length, so the interrupt recurs on the audio
+// frame period — the heartbeat the AX driver's completion callback rides to queue the next frame.
+func (m *Machine) tickAID() {
+	d := &m.dsp
+	if d.AIDControl&0x8000 == 0 || d.AIDControl&0x7FFF == 0 {
+		return // the DMA is disabled or has no blocks to play
+	}
+	d.AIDAccum++
+	if d.AIDAccum < aidInstrPerBlock {
+		return
+	}
+	d.AIDAccum = 0
+	if d.AIDRemaining > 0 {
+		d.AIDRemaining--
+		d.AIDCur += 32
+	}
+	if d.AIDRemaining == 0 {
+		// The buffer finished. Reload it and raise the AID interrupt, which the sound driver's
+		// callback services — mixing and queueing the next buffer. The status bit is set whether
+		// or not the interrupt is unmasked (a driver may poll AUDIO_DMA_BYTES_LEFT instead); the
+		// mask only decides whether it also reaches the CPU, gated in dspRefreshIRQ.
+		d.AIDCur = d.AIDStart
+		d.AIDRemaining = d.AIDControl & 0x7FFF
+		d.CSR |= dspCSRAIInt
 		m.dspRefreshIRQ()
 	}
 }

@@ -237,10 +237,12 @@ func Disasm(read func(uint16) uint16, pc uint16) (text string, words uint16) {
 		return cond("ret", op&0xF), 1
 	case op&0xFFF0 == 0x02F0:
 		return cond("rti", op&0xF), 1
-	case op&0xFFF0 == 0x1700:
-		return fmt.Sprintf("%-6s %s", cond("jmpr", op&0xF), regName((op>>5)&7)), 1
-	case op&0xFFF0 == 0x1710:
-		return fmt.Sprintf("%-6s %s", cond("callr", op&0xF), regName((op>>5)&7)), 1
+	case op&0xFF00 == 0x1700:
+		mn := "jmpr"
+		if op&0x10 != 0 { // bit 4 = call flag
+			mn = "callr"
+		}
+		return fmt.Sprintf("%-6s %s", cond(mn, op&0xF), regName((op>>5)&7)), 1
 
 	// --- interrupt-enable / misc single-word control -------------------------------------
 	case op == 0x1201: // (some ucodes) — fall through to raw if unmatched

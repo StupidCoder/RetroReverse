@@ -53,6 +53,10 @@ func TestDecode(t *testing.T) {
 		{[]uint16{0x0200, 0x0062}, "addi   ac0, #0x0062", 2},
 		{[]uint16{0x0240, 0x007E}, "andi   ac0.m, #0x007E", 2},
 		{[]uint16{0x170F}, "jmpr   ar0", 1},
+		// The register-indirect control family: bits 7..5 register, bit 4 = call flag, cond 0xF.
+		{[]uint16{0x173F}, "callr  ar1", 1}, // the callr at ucode 0x04E0
+		{[]uint16{0x175F}, "callr  ar2", 1}, // the jump-table dispatch at ucode 0x0276
+		{[]uint16{0x174F}, "jmpr   ar2", 1},
 		// The shift group: bit 8 = accumulator, bit 7 = arithmetic, bits 6..0 signed amount.
 		{[]uint16{0x1401}, "lsl    ac0, #1", 1},
 		{[]uint16{0x1479}, "lsr    ac0, #7", 1},  // -7 in the 7-bit field

@@ -322,3 +322,38 @@ func TestCallRet(t *testing.T) {
 		t.Errorf("ac1.m = 0x%04X, want 0xBEEF (returned to caller)", c.Reg[regAC1M])
 	}
 }
+
+// TestCallrJmpr covers the register-indirect control transfer the mixer's command decode uses.
+// callr $ar1 (0x173F) stacks the return and jumps to the address the register holds; the handler
+// rets back to the instruction after the callr — the idiom at ucode 0x04E0 and the 0x0276 jump
+// table. jmpr $ar2 (0x174F) transfers with nothing stacked.
+func TestCallrJmpr(t *testing.T) {
+	c := run(t, []uint16{
+		0x0081, 0x0006, // 0000: lri ar1, #0x0006
+		0x173F,         // 0002: callr ar1  -> 0x0006, returns to 0x0003
+		0x009F, 0xBEEF, // 0003: lri ac1.m, #0xBEEF (runs after the handler returns)
+		0x0021,         // 0005: halt sentinel
+		0x009D, 0xCAFE, // 0006: lri ac1.l, #0xCAFE (the handler)
+		0x02DF,         // 0008: ret
+	}, 0x0005)
+	if c.Reg[regAC1L] != 0xCAFE {
+		t.Errorf("ac1.l = 0x%04X, want 0xCAFE (callr handler ran)", c.Reg[regAC1L])
+	}
+	if c.Reg[regAC1M] != 0xBEEF {
+		t.Errorf("ac1.m = 0x%04X, want 0xBEEF (returned to the caller)", c.Reg[regAC1M])
+	}
+
+	c2 := run(t, []uint16{
+		0x0082, 0x0004, // 0000: lri ar2, #0x0004
+		0x174F,         // 0002: jmpr ar2 -> 0x0004 (no return stacked)
+		0x0021,         // 0003: halt (skipped over)
+		0x009F, 0xF00D, // 0004: lri ac1.m, #0xF00D
+		0x0021,         // 0006: halt sentinel
+	}, 0x0006)
+	if c2.Reg[regAC1M] != 0xF00D {
+		t.Errorf("ac1.m = 0x%04X, want 0xF00D (jmpr landed)", c2.Reg[regAC1M])
+	}
+	if len(c2.Stacks[regST0-regST0]) != 0 {
+		t.Errorf("jmpr pushed a return address (stack depth %d), want none", len(c2.Stacks[0]))
+	}
+}
