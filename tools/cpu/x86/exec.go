@@ -5,11 +5,12 @@ package x86
 // instruction subset (see the package/cpu.go scope note). Effective addresses
 // go through a small ea value so register and memory operands share one path.
 
-// ea is a decoded ModR/M operand: a register index, or a seg:off memory ref.
+// ea is a decoded ModR/M operand: a register index, or a base:off memory ref
+// (base is the resolved segment linear base; see segBase).
 type ea struct {
 	isReg bool
 	reg   byte
-	seg   uint16
+	base  uint32
 	off   uint32
 }
 
@@ -17,14 +18,14 @@ func (c *CPU) rEA(o ea, b int) uint32 {
 	if o.isReg {
 		return c.getReg(o.reg, b)
 	}
-	return c.memRead(o.seg, o.off, b)
+	return c.memRead(o.base, o.off, b)
 }
 func (c *CPU) wEA(o ea, b int, v uint32) {
 	if o.isReg {
 		c.setReg(o.reg, b, v)
 		return
 	}
-	c.memWrite(o.seg, o.off, b, v)
+	c.memWrite(o.base, o.off, b, v)
 }
 
 // osz is the current operand size in bytes (2 or 4).
@@ -33,6 +34,24 @@ func (c *CPU) osz() int {
 		return 4
 	}
 	return 2
+}
+
+// asz is the current address size in bytes (2 or 4) — the width of the string
+// index registers (SI/DI), REP/LOOP counters (CX), and XLAT's base register.
+func (c *CPU) asz() int {
+	if c.dAddrsize == 32 {
+		return 4
+	}
+	return 2
+}
+
+// segBaseFor returns the linear base of segment def, or of the override segment
+// when a segment-prefix is active.
+func (c *CPU) segBaseFor(def int) uint32 {
+	if c.dSeg >= 0 {
+		return c.segBase(c.dSeg)
+	}
+	return c.segBase(def)
 }
 
 func b2u(b bool) uint32 {
@@ -118,7 +137,7 @@ func (c *CPU) ea16(mod, rm byte) ea {
 	if c.dSeg >= 0 {
 		seg = c.dSeg
 	}
-	return ea{seg: c.Seg[seg], off: off & 0xFFFF}
+	return ea{base: c.segBase(seg), off: off & 0xFFFF}
 }
 
 func (c *CPU) ea32(mod, rm byte) ea {
@@ -157,7 +176,7 @@ func (c *CPU) ea32(mod, rm byte) ea {
 	if c.dSeg >= 0 {
 		seg = c.dSeg
 	}
-	return ea{seg: c.Seg[seg], off: off}
+	return ea{base: c.segBase(seg), off: off}
 }
 
 // Step executes one instruction (prefixes + opcode).
@@ -173,8 +192,18 @@ func (c *CPU) Step() {
 	}
 	c.ssShadow = false // the shadow blocks only the single boundary above
 	c.Steps++
-	c.instrIP = c.IP & 0xFFFF // start of this instruction, for a fault's pushed CS:IP
-	c.dSeg, c.dOpsize, c.dAddrsize = -1, 16, 16
+	c.instrIP = c.IP // start of this instruction, for a fault's pushed CS:(E)IP
+	// Default operand/address size follows the mode (the CS descriptor's D bit):
+	// 16-bit in real mode, 32-bit in flat protected mode. A 0x66/0x67 prefix
+	// selects the opposite size.
+	c.dSeg = -1
+	alt := 32
+	if c.Mode == ModeProt {
+		c.dOpsize, c.dAddrsize = 32, 32
+		alt = 16
+	} else {
+		c.dOpsize, c.dAddrsize = 16, 16
+	}
 	var rep byte
 	var op byte
 	for {
@@ -194,10 +223,10 @@ func (c *CPU) Step() {
 		case 0x65:
 			c.dSeg = GS
 		case 0x66:
-			c.dOpsize = 32
+			c.dOpsize = alt
 			c.Ext386++
 		case 0x67:
-			c.dAddrsize = 32
+			c.dAddrsize = alt
 			c.Ext386++
 		case 0xF0: // LOCK — no effect on a single-core model
 		case 0xF2:
@@ -272,7 +301,7 @@ func (c *CPU) exec(op, rep byte) {
 	case op >= 0x70 && op <= 0x7F: // Jcc rel8
 		rel := signExtByte(c.fetch8())
 		if c.cond(op & 0x0F) {
-			c.IP = (c.IP + rel) & 0xFFFF
+			c.IP = c.ipMask(c.IP + rel)
 		}
 		return
 	case op >= 0x91 && op <= 0x97: // XCHG AX, r16
@@ -292,20 +321,20 @@ func (c *CPU) exec(op, rep byte) {
 
 	switch op {
 	case 0x06:
-		c.push16(uint32(c.Seg[ES]))
+		c.push(c.osz(), uint32(c.Seg[ES]))
 	case 0x07:
-		c.Seg[ES] = uint16(c.pop16())
+		c.Seg[ES] = uint16(c.pop(c.osz()))
 	case 0x0E:
-		c.push16(uint32(c.Seg[CS]))
+		c.push(c.osz(), uint32(c.Seg[CS]))
 	case 0x16:
-		c.push16(uint32(c.Seg[SS]))
+		c.push(c.osz(), uint32(c.Seg[SS]))
 	case 0x17:
-		c.Seg[SS] = uint16(c.pop16())
+		c.Seg[SS] = uint16(c.pop(c.osz()))
 		c.ssShadow = true
 	case 0x1E:
-		c.push16(uint32(c.Seg[DS]))
+		c.push(c.osz(), uint32(c.Seg[DS]))
 	case 0x1F:
-		c.Seg[DS] = uint16(c.pop16())
+		c.Seg[DS] = uint16(c.pop(c.osz()))
 
 	case 0x27:
 		c.daa(false)
@@ -441,32 +470,32 @@ func (c *CPU) exec(op, rep byte) {
 		} else {
 			c.s16(DX, 0)
 		}
-	case 0x9A: // CALL far ptr16:16
+	case 0x9A: // CALL far ptr16:16 / ptr16:32
 		off := c.fetchImm()
 		seg := c.fetch16()
-		c.push16(uint32(c.Seg[CS]))
-		c.push16(c.IP)
+		c.push(c.osz(), uint32(c.Seg[CS]))
+		c.push(c.osz(), c.IP)
 		c.Seg[CS] = uint16(seg)
-		c.IP = off & 0xFFFF
-	case 0x9C: // PUSHF
-		c.push16(uint32(c.EFlags()))
-	case 0x9D: // POPF
-		c.SetEFlags(uint16(c.pop16()))
+		c.IP = c.ipMask(off)
+	case 0x9C: // PUSHF / PUSHFD
+		c.push(c.osz(), uint32(c.EFlags()))
+	case 0x9D: // POPF / POPFD
+		c.SetEFlags(uint16(c.pop(c.osz())))
 	case 0x9E: // SAHF
 		c.SetEFlags((c.EFlags() &^ 0xFF) | uint16(c.g8(4))) // AH into low byte
 	case 0x9F: // LAHF
 		c.s8(4, uint32(byte(c.EFlags())))
 
 	case 0xA0: // MOV AL, moffs8
-		c.s8(0, c.memRead(c.segFor(DS), c.moffs(), 1))
+		c.s8(0, c.memRead(c.segBaseFor(DS), c.moffs(), 1))
 	case 0xA1: // MOV eAX, moffs
 		w := c.osz()
-		c.setReg(AX, w, c.memRead(c.segFor(DS), c.moffs(), w))
+		c.setReg(AX, w, c.memRead(c.segBaseFor(DS), c.moffs(), w))
 	case 0xA2: // MOV moffs8, AL
-		c.memWrite(c.segFor(DS), c.moffs(), 1, c.g8(0))
+		c.memWrite(c.segBaseFor(DS), c.moffs(), 1, c.g8(0))
 	case 0xA3: // MOV moffs, eAX
 		w := c.osz()
-		c.memWrite(c.segFor(DS), c.moffs(), w, c.getReg(AX, w))
+		c.memWrite(c.segBaseFor(DS), c.moffs(), w, c.getReg(AX, w))
 	case 0xA4, 0xA5, 0xA6, 0xA7, 0xAA, 0xAB, 0xAC, 0xAD, 0xAE, 0xAF:
 		c.stringOp(op, rep)
 	case 0xA8: // TEST AL, imm8
@@ -481,18 +510,18 @@ func (c *CPU) exec(op, rep byte) {
 		c.grp2(c.osz(), func() uint32 { return c.fetch8() })
 	case 0xC2: // RET imm16
 		n := c.fetch16()
-		c.IP = c.pop16()
-		c.sw(SP, c.gw(SP)+n)
+		c.IP = c.ipMask(c.pop(c.osz()))
+		c.spAdd(n)
 	case 0xC3: // RET
-		c.IP = c.pop16()
+		c.IP = c.ipMask(c.pop(c.osz()))
 	case 0xC4: // LES r, m
 		reg, o := c.modrmE()
 		c.setReg(reg, c.osz(), c.rEA(o, 2))
-		c.Seg[ES] = uint16(c.memRead(o.seg, o.off+2, 2))
+		c.Seg[ES] = uint16(c.memRead(o.base, o.off+2, 2))
 	case 0xC5: // LDS r, m
 		reg, o := c.modrmE()
 		c.setReg(reg, c.osz(), c.rEA(o, 2))
-		c.Seg[DS] = uint16(c.memRead(o.seg, o.off+2, 2))
+		c.Seg[DS] = uint16(c.memRead(o.base, o.off+2, 2))
 	case 0xC6: // MOV r/m8, imm8
 		_, o := c.modrmE()
 		c.wEA(o, 1, c.fetch8())
@@ -501,29 +530,31 @@ func (c *CPU) exec(op, rep byte) {
 		c.wEA(o, c.osz(), c.fetchImm())
 	case 0xC8: // ENTER imm16, imm8
 		sz := c.fetch16()
-		lvl := c.fetch8() & 0x1F
-		c.push16(c.gw(BP))
-		frame := c.gw(SP)
+		lvl := uint32(c.fetch8() & 0x1F)
+		w := c.osz()
+		c.push(w, c.getReg(BP, w))
+		frame := c.getReg(SP, w)
 		for i := uint32(1); i < lvl; i++ {
-			c.sw(BP, c.gw(BP)-2)
-			c.push16(c.gw(BP))
+			c.setReg(BP, w, c.getReg(BP, w)-uint32(w))
+			c.push(w, c.getReg(BP, w))
 		}
 		if lvl > 0 {
-			c.push16(frame)
+			c.push(w, frame)
 		}
-		c.sw(BP, frame)
-		c.sw(SP, c.gw(SP)-sz)
+		c.setReg(BP, w, frame)
+		c.setReg(SP, w, c.getReg(SP, w)-sz)
 	case 0xC9: // LEAVE
-		c.sw(SP, c.gw(BP))
-		c.sw(BP, c.pop16())
+		w := c.osz()
+		c.setReg(SP, w, c.getReg(BP, w))
+		c.setReg(BP, w, c.pop(w))
 	case 0xCA: // RETF imm16
 		n := c.fetch16()
-		c.IP = c.pop16()
-		c.Seg[CS] = uint16(c.pop16())
-		c.sw(SP, c.gw(SP)+n)
+		c.IP = c.ipMask(c.pop(c.osz()))
+		c.Seg[CS] = uint16(c.pop(c.osz()))
+		c.spAdd(n)
 	case 0xCB: // RETF
-		c.IP = c.pop16()
-		c.Seg[CS] = uint16(c.pop16())
+		c.IP = c.ipMask(c.pop(c.osz()))
+		c.Seg[CS] = uint16(c.pop(c.osz()))
 	case 0xCC: // INT3
 		c.doInt(3)
 	case 0xCD: // INT imm8
@@ -532,10 +563,10 @@ func (c *CPU) exec(op, rep byte) {
 		if c.OF {
 			c.doInt(4)
 		}
-	case 0xCF: // IRET
-		c.IP = c.pop16()
-		c.Seg[CS] = uint16(c.pop16())
-		c.SetEFlags(uint16(c.pop16()))
+	case 0xCF: // IRET / IRETD
+		c.IP = c.ipMask(c.pop(c.osz()))
+		c.Seg[CS] = uint16(c.pop(c.osz()))
+		c.SetEFlags(uint16(c.pop(c.osz())))
 
 	case 0xD0: // grp2 r/m8, 1
 		c.grp2(1, func() uint32 { return 1 })
@@ -546,46 +577,48 @@ func (c *CPU) exec(op, rep byte) {
 	case 0xD3: // grp2 r/m, CL
 		c.grp2(c.osz(), func() uint32 { return c.g8(1) })
 	case 0xD7: // XLAT
-		c.s8(0, c.memRead(c.segFor(DS), (c.gw(BX)+c.g8(0))&0xFFFF, 1))
+		aw := c.asz()
+		c.s8(0, c.memRead(c.segBaseFor(DS), c.getReg(BX, aw)+c.g8(0), 1))
 
 	case 0xE0, 0xE1, 0xE2: // LOOPNE / LOOPE / LOOP
 		rel := signExtByte(c.fetch8())
-		c.sw(CX, c.gw(CX)-1)
-		take := c.gw(CX) != 0
+		aw := c.asz()
+		c.setReg(CX, aw, c.getReg(CX, aw)-1)
+		take := c.getReg(CX, aw) != 0
 		if op == 0xE1 {
 			take = take && c.ZF
 		} else if op == 0xE0 {
 			take = take && !c.ZF
 		}
 		if take {
-			c.IP = (c.IP + rel) & 0xFFFF
+			c.IP = c.ipMask(c.IP + rel)
 		}
-	case 0xE3: // JCXZ
+	case 0xE3: // JCXZ / JECXZ
 		rel := signExtByte(c.fetch8())
-		if c.gw(CX) == 0 {
-			c.IP = (c.IP + rel) & 0xFFFF
+		if c.getReg(CX, c.asz()) == 0 {
+			c.IP = c.ipMask(c.IP + rel)
 		}
 	case 0xE8: // CALL rel
 		rel := c.fetchImm()
 		if c.dOpsize != 32 {
 			rel = signExtWord(rel)
 		}
-		c.push16(c.IP)
-		c.IP = (c.IP + rel) & 0xFFFF
+		c.push(c.osz(), c.IP)
+		c.IP = c.ipMask(c.IP + rel)
 	case 0xE9: // JMP rel
 		rel := c.fetchImm()
 		if c.dOpsize != 32 {
 			rel = signExtWord(rel)
 		}
-		c.IP = (c.IP + rel) & 0xFFFF
-	case 0xEA: // JMP far ptr16:16
+		c.IP = c.ipMask(c.IP + rel)
+	case 0xEA: // JMP far ptr16:16 / ptr16:32
 		off := c.fetchImm()
 		seg := c.fetch16()
 		c.Seg[CS] = uint16(seg)
-		c.IP = off & 0xFFFF
+		c.IP = c.ipMask(off)
 	case 0xEB: // JMP rel8
 		rel := signExtByte(c.fetch8())
-		c.IP = (c.IP + rel) & 0xFFFF
+		c.IP = c.ipMask(c.IP + rel)
 
 	case 0xE4: // IN AL, imm8
 		c.s8(0, c.inPort(uint16(c.fetch8()), 1))
@@ -634,14 +667,6 @@ func (c *CPU) exec(op, rep byte) {
 	default:
 		c.Halt("unimplemented opcode $%02X at %04X:%04X", op, c.Seg[CS], (c.IP-1)&0xFFFF)
 	}
-}
-
-// segFor returns the value of segment def unless a segment override is active.
-func (c *CPU) segFor(def int) uint16 {
-	if c.dSeg >= 0 {
-		return c.Seg[c.dSeg]
-	}
-	return c.Seg[def]
 }
 
 // moffs fetches a MOV moffs direct offset (address-size wide).
@@ -708,9 +733,16 @@ func (c *CPU) incDec(v uint32, w int, inc bool) uint32 {
 	return res
 }
 
-// doInt services a software interrupt, preferring the IntHook.
+// doInt services a software interrupt, preferring the IntHook. In protected
+// mode there is no real-mode IVT to fall back to (a flat go32/Xbox image routes
+// every INT through the host's IntHook), so an unhandled INT halts with a clear
+// reason rather than vectoring through low-memory garbage.
 func (c *CPU) doInt(n byte) {
 	if c.IntHook != nil && c.IntHook(c, n) {
+		return
+	}
+	if c.Mode == ModeProt {
+		c.Halt("unhandled INT $%02X in protected mode at %08X", n, c.instrIP)
 		return
 	}
 	c.dispatchIVT(n)

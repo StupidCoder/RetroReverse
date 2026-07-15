@@ -75,6 +75,14 @@ type CPU struct {
 	Steps      uint64
 	Ext386     uint64 // count of 0x0F two-byte / 0x66 / 0x67 (386) instructions executed
 
+	// Mode selects the addressing model. In ModeReal the CPU folds seg:off with
+	// 8086 20-bit wrap (the default, as the DOS layer needs). In ModeProt it runs
+	// a flat 32-bit protected-mode model: a segment's linear base comes from
+	// SegBase[idx] (0 for the flat go32/Xbox selectors), offsets and EIP/ESP are
+	// full 32-bit with no wrap, and 0x66/0x67 select 16-bit rather than 32-bit.
+	Mode    int
+	SegBase [8]uint32 // per-segment linear base, used in ModeProt (real mode derives Seg<<4)
+
 	// IntHook services a software INT n. Returning true means the interrupt was
 	// fully emulated (registers/flags set, IP already past the INT); returning
 	// false falls back to the real-mode IVT dispatch. Nil = always IVT.
@@ -106,26 +114,58 @@ type CPU struct {
 // NewCPU returns a CPU bound to bus.
 func NewCPU(bus Bus) *CPU { return &CPU{bus: bus} }
 
+// Mode values.
+const (
+	ModeReal = 0 // 8086 real mode: seg<<4 base, 20-bit wrap, 16-bit IP/SP
+	ModeProt = 1 // flat 32-bit protected mode: SegBase[] base, full 32-bit
+)
+
 // Halt stops execution and records why.
 func (c *CPU) Halt(format string, args ...interface{}) {
 	c.Halted = true
 	c.HaltReason = fmt.Sprintf(format, args...)
 }
 
-// --- linear addressing (20-bit real-mode wrap) ---
+// --- linear addressing (mode-aware) ---
 
-func (c *CPU) lin(seg uint16, off uint32) uint32 {
-	return ((uint32(seg) << 4) + (off & 0xFFFF)) & 0xFFFFF
+// segBase returns the linear base of segment index idx: Seg[idx]<<4 in real
+// mode, or the cached descriptor base SegBase[idx] in protected mode.
+func (c *CPU) segBase(idx int) uint32 {
+	if c.Mode == ModeReal {
+		return uint32(c.Seg[idx]) << 4
+	}
+	return c.SegBase[idx]
 }
 
-func (c *CPU) rd8(a uint32) uint32 { return uint32(c.bus.Read(a & 0xFFFFF)) }
+// linear folds a segment base and an offset to a physical byte address. Real
+// mode wraps the offset to 16 bits (8086 segment wrap) and truncates the sum to
+// 20 bits; protected mode is a flat 32-bit sum.
+func (c *CPU) linear(base, off uint32) uint32 {
+	if c.Mode == ModeReal {
+		return (base + (off & 0xFFFF)) & 0xFFFFF
+	}
+	return base + off
+}
+
+// ipMask truncates an instruction pointer: 16-bit in real mode, 32-bit in PM.
+func (c *CPU) ipMask(ip uint32) uint32 {
+	if c.Mode == ModeReal {
+		return ip & 0xFFFF
+	}
+	return ip
+}
+
+// asz/osz-independent: whether the stack uses 32-bit ESP (flat PM) or 16-bit SP.
+func (c *CPU) stack32() bool { return c.Mode == ModeProt }
+
+func (c *CPU) rd8(a uint32) uint32 { return uint32(c.bus.Read(a)) }
 func (c *CPU) rd16(a uint32) uint32 {
 	return c.rd8(a) | c.rd8(a+1)<<8
 }
 func (c *CPU) rd32(a uint32) uint32 {
 	return c.rd16(a) | c.rd16(a+2)<<16
 }
-func (c *CPU) wr8(a, v uint32) { c.bus.Write(a&0xFFFFF, byte(v)) }
+func (c *CPU) wr8(a, v uint32) { c.bus.Write(a, byte(v)) }
 func (c *CPU) wr16(a, v uint32) {
 	c.wr8(a, v)
 	c.wr8(a+1, v>>8)
@@ -135,37 +175,37 @@ func (c *CPU) wr32(a, v uint32) {
 	c.wr16(a+2, v>>16)
 }
 
-// memRead/memWrite access a seg:off operand at a byte width (1/2/4). Each byte's
-// address is computed from the wrapped 16-bit offset (real-mode segment wrap), so
-// a word/dword straddling offset 0xFFFF reads/writes its high byte(s) from the
-// start of the same segment — not the next linear paragraph (8086 semantics,
-// verified against the SingleStepTests suite).
-func (c *CPU) memRead(seg uint16, off uint32, b int) uint32 {
-	v := c.rd8(c.lin(seg, off))
+// memRead/memWrite access a base:off operand at a byte width (1/2/4). Each
+// byte's linear address goes through linear(), so in real mode a word/dword
+// straddling offset 0xFFFF reads/writes its high byte(s) from the start of the
+// same segment (8086 wrap, verified against SingleStepTests); in protected mode
+// it is a flat 32-bit access.
+func (c *CPU) memRead(base, off uint32, b int) uint32 {
+	v := c.rd8(c.linear(base, off))
 	if b >= 2 {
-		v |= c.rd8(c.lin(seg, off+1)) << 8
+		v |= c.rd8(c.linear(base, off+1)) << 8
 	}
 	if b == 4 {
-		v |= c.rd8(c.lin(seg, off+2))<<16 | c.rd8(c.lin(seg, off+3))<<24
+		v |= c.rd8(c.linear(base, off+2))<<16 | c.rd8(c.linear(base, off+3))<<24
 	}
 	return v
 }
-func (c *CPU) memWrite(seg uint16, off uint32, b int, v uint32) {
-	c.wr8(c.lin(seg, off), v)
+func (c *CPU) memWrite(base, off uint32, b int, v uint32) {
+	c.wr8(c.linear(base, off), v)
 	if b >= 2 {
-		c.wr8(c.lin(seg, off+1), v>>8)
+		c.wr8(c.linear(base, off+1), v>>8)
 	}
 	if b == 4 {
-		c.wr8(c.lin(seg, off+2), v>>16)
-		c.wr8(c.lin(seg, off+3), v>>24)
+		c.wr8(c.linear(base, off+2), v>>16)
+		c.wr8(c.linear(base, off+3), v>>24)
 	}
 }
 
 // --- instruction fetch (CS:IP) ---
 
 func (c *CPU) fetch8() uint32 {
-	v := c.rd8(c.lin(c.Seg[CS], c.IP))
-	c.IP = (c.IP + 1) & 0xFFFF
+	v := c.rd8(c.linear(c.segBase(CS), c.IP))
+	c.IP = c.ipMask(c.IP + 1)
 	return v
 }
 func (c *CPU) fetch16() uint32 {
@@ -247,30 +287,39 @@ func (c *CPU) SetReg16(i int, v uint16) { c.sw(i, uint32(v)) }
 
 // --- stack ---
 
-func (c *CPU) push16(v uint32) {
-	c.sw(SP, c.gw(SP)-2)
-	c.memWrite(c.Seg[SS], c.gw(SP), 2, v)
-}
-func (c *CPU) pop16() uint32 {
-	v := c.memRead(c.Seg[SS], c.gw(SP), 2)
-	c.sw(SP, c.gw(SP)+2)
-	return v
-}
+// push/pop move b bytes (2 or 4) on the stack. In real mode the stack pointer is
+// 16-bit SP and SS folds seg<<4; in flat protected mode it is 32-bit ESP with a
+// flat SS base. push16/pop16 are the 2-byte forms.
 func (c *CPU) push(b int, v uint32) {
-	if b == 4 {
-		c.sw(SP, c.gw(SP)-4)
-		c.memWrite(c.Seg[SS], c.gw(SP), 4, v)
+	if c.stack32() {
+		c.Regs[SP] -= uint32(b)
+		c.memWrite(c.segBase(SS), c.Regs[SP], b, v)
 		return
 	}
-	c.push16(v)
+	c.sw(SP, c.gw(SP)-uint32(b))
+	c.memWrite(c.segBase(SS), c.gw(SP), b, v)
 }
 func (c *CPU) pop(b int) uint32 {
-	if b == 4 {
-		v := c.memRead(c.Seg[SS], c.gw(SP), 4)
-		c.sw(SP, c.gw(SP)+4)
+	if c.stack32() {
+		v := c.memRead(c.segBase(SS), c.Regs[SP], b)
+		c.Regs[SP] += uint32(b)
 		return v
 	}
-	return c.pop16()
+	v := c.memRead(c.segBase(SS), c.gw(SP), b)
+	c.sw(SP, c.gw(SP)+uint32(b))
+	return v
+}
+func (c *CPU) push16(v uint32) { c.push(2, v) }
+func (c *CPU) pop16() uint32   { return c.pop(2) }
+
+// spAdd adjusts the stack pointer by n (RET imm / stack cleanup), honouring the
+// 16- vs 32-bit stack width.
+func (c *CPU) spAdd(n uint32) {
+	if c.stack32() {
+		c.Regs[SP] += n
+	} else {
+		c.sw(SP, c.gw(SP)+n)
+	}
 }
 
 // --- flags ---

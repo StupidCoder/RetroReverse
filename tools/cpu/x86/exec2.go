@@ -165,23 +165,23 @@ func (c *CPU) grp5() {
 	case 1:
 		c.wEA(o, w, c.incDec(c.rEA(o, w), w, false))
 	case 2: // CALL near indirect
-		t := c.rEA(o, w) & 0xFFFF
-		c.push16(c.IP)
-		c.IP = t
-	case 3: // CALLF m16:16
-		off := c.rEA(o, 2)
-		seg := c.memRead(o.seg, o.off+2, 2)
-		c.push16(uint32(c.Seg[CS]))
-		c.push16(c.IP)
+		t := c.rEA(o, w)
+		c.push(c.osz(), c.IP)
+		c.IP = c.ipMask(t)
+	case 3: // CALLF m16:16 / m16:32
+		off := c.rEA(o, w)
+		seg := c.memRead(o.base, o.off+uint32(w), 2)
+		c.push(c.osz(), uint32(c.Seg[CS]))
+		c.push(c.osz(), c.IP)
 		c.Seg[CS] = uint16(seg)
-		c.IP = off & 0xFFFF
+		c.IP = c.ipMask(off)
 	case 4: // JMP near indirect
-		c.IP = c.rEA(o, w) & 0xFFFF
-	case 5: // JMPF m16:16
-		off := c.rEA(o, 2)
-		seg := c.memRead(o.seg, o.off+2, 2)
+		c.IP = c.ipMask(c.rEA(o, w))
+	case 5: // JMPF m16:16 / m16:32
+		off := c.rEA(o, w)
+		seg := c.memRead(o.base, o.off+uint32(w), 2)
 		c.Seg[CS] = uint16(seg)
-		c.IP = off & 0xFFFF
+		c.IP = c.ipMask(off)
 	case 6: // PUSH r/m
 		c.push(w, c.rEA(o, w))
 	default:
@@ -336,31 +336,37 @@ func (c *CPU) imulTrunc(a, b uint32, w int) uint32 {
 }
 
 // stringOp executes one string primitive, honouring a REP/REPE/REPNE prefix.
+// The operand width w (1/2/4) is the data size; the address width aw (2/4) is
+// the size of the SI/DI pointers and the CX counter — so REP STOSD (w=4, aw=4
+// in 32-bit code) walks ESI/EDI/ECX, the very first thing a go32 crt0 does.
 func (c *CPU) stringOp(op, rep byte) {
 	w := 1
 	switch op {
 	case 0xA5, 0xA7, 0xAB, 0xAD, 0xAF:
 		w = c.osz()
 	}
+	aw := c.asz()
+	dsBase := c.segBaseFor(DS)
+	esBase := c.segBase(ES)
 	step := func() {
 		switch op {
 		case 0xA4, 0xA5: // MOVS  ES:DI <- DS:SI
-			c.memWrite(c.Seg[ES], c.gw(DI), w, c.memRead(c.segFor(DS), c.gw(SI), w))
-			c.advSI(w)
-			c.advDI(w)
+			c.memWrite(esBase, c.getReg(DI, aw), w, c.memRead(dsBase, c.getReg(SI, aw), w))
+			c.advSI(w, aw)
+			c.advDI(w, aw)
 		case 0xA6, 0xA7: // CMPS  DS:SI ? ES:DI
-			c.flagsSub(c.memRead(c.segFor(DS), c.gw(SI), w), c.memRead(c.Seg[ES], c.gw(DI), w), 0, w)
-			c.advSI(w)
-			c.advDI(w)
+			c.flagsSub(c.memRead(dsBase, c.getReg(SI, aw), w), c.memRead(esBase, c.getReg(DI, aw), w), 0, w)
+			c.advSI(w, aw)
+			c.advDI(w, aw)
 		case 0xAA, 0xAB: // STOS  ES:DI <- eAX
-			c.memWrite(c.Seg[ES], c.gw(DI), w, c.getReg(AX, w))
-			c.advDI(w)
+			c.memWrite(esBase, c.getReg(DI, aw), w, c.getReg(AX, w))
+			c.advDI(w, aw)
 		case 0xAC, 0xAD: // LODS  eAX <- DS:SI
-			c.setReg(AX, w, c.memRead(c.segFor(DS), c.gw(SI), w))
-			c.advSI(w)
+			c.setReg(AX, w, c.memRead(dsBase, c.getReg(SI, aw), w))
+			c.advSI(w, aw)
 		case 0xAE, 0xAF: // SCAS  eAX ? ES:DI
-			c.flagsSub(c.getReg(AX, w), c.memRead(c.Seg[ES], c.gw(DI), w), 0, w)
-			c.advDI(w)
+			c.flagsSub(c.getReg(AX, w), c.memRead(esBase, c.getReg(DI, aw), w), 0, w)
+			c.advDI(w, aw)
 		}
 	}
 	if rep == 0 {
@@ -368,9 +374,9 @@ func (c *CPU) stringOp(op, rep byte) {
 		return
 	}
 	isCmp := op == 0xA6 || op == 0xA7 || op == 0xAE || op == 0xAF
-	for c.gw(CX) != 0 {
+	for c.getReg(CX, aw) != 0 {
 		step()
-		c.sw(CX, c.gw(CX)-1)
+		c.setReg(CX, aw, c.getReg(CX, aw)-1)
 		if isCmp {
 			if rep == 0xF3 && !c.ZF { // REPE: stop when a mismatch appears
 				break
@@ -388,39 +394,44 @@ func (c *CPU) stringPortOp(op, rep byte) {
 	if op == 0x6D || op == 0x6F {
 		w = c.osz()
 	}
+	aw := c.asz()
+	dsBase := c.segBaseFor(DS)
+	esBase := c.segBase(ES)
 	port := c.Reg16(DX)
 	step := func() {
 		switch op {
 		case 0x6C, 0x6D: // INS: ES:DI <- port[DX]
-			c.memWrite(c.Seg[ES], c.gw(DI), w, c.inPort(port, w))
-			c.advDI(w)
+			c.memWrite(esBase, c.getReg(DI, aw), w, c.inPort(port, w))
+			c.advDI(w, aw)
 		default: // 0x6E,0x6F OUTS: port[DX] <- DS:SI
-			c.outPort(port, w, c.memRead(c.segFor(DS), c.gw(SI), w))
-			c.advSI(w)
+			c.outPort(port, w, c.memRead(dsBase, c.getReg(SI, aw), w))
+			c.advSI(w, aw)
 		}
 	}
 	if rep == 0 {
 		step()
 		return
 	}
-	for c.gw(CX) != 0 {
+	for c.getReg(CX, aw) != 0 {
 		step()
-		c.sw(CX, c.gw(CX)-1)
+		c.setReg(CX, aw, c.getReg(CX, aw)-1)
 	}
 }
 
-func (c *CPU) advSI(w int) {
+// advSI/advDI step the string index register by the data width w (up or down
+// per DF), at address width aw (SI vs ESI).
+func (c *CPU) advSI(w, aw int) {
 	if c.DF {
-		c.sw(SI, c.gw(SI)-uint32(w))
+		c.setReg(SI, aw, c.getReg(SI, aw)-uint32(w))
 	} else {
-		c.sw(SI, c.gw(SI)+uint32(w))
+		c.setReg(SI, aw, c.getReg(SI, aw)+uint32(w))
 	}
 }
-func (c *CPU) advDI(w int) {
+func (c *CPU) advDI(w, aw int) {
 	if c.DF {
-		c.sw(DI, c.gw(DI)-uint32(w))
+		c.setReg(DI, aw, c.getReg(DI, aw)-uint32(w))
 	} else {
-		c.sw(DI, c.gw(DI)+uint32(w))
+		c.setReg(DI, aw, c.getReg(DI, aw)+uint32(w))
 	}
 }
 
@@ -498,7 +509,7 @@ func (c *CPU) exec0F(op byte) {
 			rel = signExtWord(rel)
 		}
 		if c.cond(op & 0x0F) {
-			c.IP = (c.IP + rel) & 0xFFFF
+			c.IP = c.ipMask(c.IP + rel)
 		}
 		return
 	case op >= 0x90 && op <= 0x9F: // SETcc r/m8
@@ -508,13 +519,13 @@ func (c *CPU) exec0F(op byte) {
 	}
 	switch op {
 	case 0xA0:
-		c.push16(uint32(c.Seg[FS]))
+		c.push(c.osz(), uint32(c.Seg[FS]))
 	case 0xA1:
-		c.Seg[FS] = uint16(c.pop16())
+		c.Seg[FS] = uint16(c.pop(c.osz()))
 	case 0xA8:
-		c.push16(uint32(c.Seg[GS]))
+		c.push(c.osz(), uint32(c.Seg[GS]))
 	case 0xA9:
-		c.Seg[GS] = uint16(c.pop16())
+		c.Seg[GS] = uint16(c.pop(c.osz()))
 	case 0xAF: // IMUL r, r/m
 		reg, o := c.modrmE()
 		w := c.osz()
