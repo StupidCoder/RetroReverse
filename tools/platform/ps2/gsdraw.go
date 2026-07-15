@@ -11,12 +11,14 @@ package ps2
 // for a strip, the middle vertex for a fan). The "3" registers (XYZ3, XYZF3) push without
 // kicking, which is how a strip is broken without drawing.
 //
-// What is rasterised here is the part the game has shown it needs first: flat and gouraud
-// sprites and triangles (and their strips and fans) into a PSMCT32 frame buffer, honouring
-// XYOFFSET, SCISSOR and FBMSK. Texturing, blending and the depth test are recorded per
-// primitive in the census and drawn WITHOUT their effect for now — a textured HUD quad
-// appears as its vertex colour, which is visible and wrong in an honest way, where a
-// skipped primitive is invisible in a misleading one.
+// What is rasterised here: flat and gouraud sprites and triangles (and their strips and
+// fans) into a PSMCT32 frame buffer, honouring XYOFFSET, SCISSOR and FBMSK — now with
+// texture sampling (gstex.go), the alpha and destination-alpha tests, and alpha blending.
+// The depth test is still recorded per primitive and not applied (there is no Z buffer
+// yet), and anything the sampler cannot serve draws as its vertex colour — visible and
+// wrong in an honest way, where a skipped primitive is invisible in a misleading one.
+
+import "math"
 
 // The GS drawing registers beyond those gs.go already names.
 const (
@@ -45,11 +47,15 @@ const (
 var primNames = [8]string{"point", "line", "linestrip", "tri", "tristrip", "trifan", "sprite", "prim7"}
 
 // gsVertex is one entry of the vertex queue: a position in window space (12.4 fixed,
-// XYOFFSET already subtracted), a depth, and the attributes latched when it was pushed.
+// XYOFFSET already subtracted), a depth, and the attributes latched when it was pushed —
+// the colour, and both kinds of texture coordinate (UV when PRIM.FST says texel space,
+// STQ when it says perspective).
 type gsVertex struct {
-	x, y int32 // 12.4 fixed point
-	z    uint32
-	rgba uint32
+	x, y    int32 // 12.4 fixed point
+	z       uint32
+	rgba    uint32
+	u, v    int32 // 10.4 fixed texels, from the UV register
+	s, t, q float32
 }
 
 // pushVertex latches the current attributes with a position and, on a kicking write,
@@ -59,11 +65,18 @@ func (gs *GS) pushVertex(x, y int32, z uint32, kick bool) {
 	if gs.ctxt() == 1 {
 		xyoff = gs.reg[gsXYOFFSET2]
 	}
+	uv := gs.reg[gsUV]
+	st := gs.reg[gsST]
 	v := gsVertex{
 		x:    x - int32(uint32(xyoff)&0xFFFF),
 		y:    y - int32(uint32(xyoff>>32)&0xFFFF),
 		z:    z,
 		rgba: uint32(gs.reg[gsRGBAQ]),
+		u:    int32(uint32(uv) & 0x3FFF),
+		v:    int32(uint32(uv>>16) & 0x3FFF),
+		s:    math.Float32frombits(uint32(st)),
+		t:    math.Float32frombits(uint32(st >> 32)),
+		q:    math.Float32frombits(uint32(gs.reg[gsRGBAQ] >> 32)),
 	}
 	if gs.vqN < len(gs.vq) {
 		gs.vq[gs.vqN] = v
@@ -160,22 +173,36 @@ func (gs *GS) count(what string) {
 	gs.drawCensus[what]++
 }
 
-// target describes the frame buffer the current context draws into.
+// target describes the frame buffer the current context draws into, and the per-pixel
+// state the current primitive draws with: the tests, the blend, and the write masks.
 type gsTarget struct {
 	fbp, fbw uint32 // base (64-word blocks) and width (units of 64px)
 	psm      uint32
 	fbmsk    uint32
 	sx0, sy0 int32 // the scissor, inclusive, in pixels
 	sx1, sy1 int32
+
+	abe      bool   // PRIM: blend this primitive
+	alpha    uint64 // the context's ALPHA register
+	pabe     bool   // blend only pixels whose source alpha has its MSB set
+	colclamp bool
+	fba      uint32 // force the written alpha's MSB
+	test     uint64 // the context's TEST register
 }
 
-// target reads the current context's FRAME and SCISSOR.
-func (gs *GS) target() gsTarget {
+// target reads the current context's FRAME, SCISSOR and per-pixel-pipeline registers.
+func (gs *GS) target(p uint64) gsTarget {
 	frame := gs.reg[gsFRAME1]
 	scis := gs.reg[gsSCISSOR1]
-	if gs.ctxt() == 1 {
+	alpha := gs.reg[gsALPHA1]
+	test := gs.reg[gsTEST1]
+	fba := gs.reg[gsFBA1]
+	if p>>9&1 == 1 {
 		frame = gs.reg[gsFRAME2]
 		scis = gs.reg[gsSCISSOR2]
+		alpha = gs.reg[gsALPHA2]
+		test = gs.reg[gsTEST2]
+		fba = gs.reg[gsFBA2]
 	}
 	return gsTarget{
 		fbp:   uint32(frame) & 0x1FF * 32, // FBP is in 2048-word pages; addrPSMCT32 wants 64-word blocks
@@ -186,10 +213,18 @@ func (gs *GS) target() gsTarget {
 		sx1:   int32(uint32(scis>>16) & 0x7FF),
 		sy0:   int32(uint32(scis>>32) & 0x7FF),
 		sy1:   int32(uint32(scis>>48) & 0x7FF),
+
+		abe:      p&(1<<6) != 0,
+		alpha:    alpha,
+		pabe:     gs.reg[gsPABE]&1 != 0,
+		colclamp: gs.reg[gsCOLCLAMP]&1 != 0,
+		fba:      uint32(fba) & 1,
+		test:     test,
 	}
 }
 
-// plot writes one pixel through the frame's format, mask and scissor.
+// plot writes one pixel: the alpha and destination-alpha tests, the blend, then the
+// frame's format, mask and scissor. rgba is the source colour after texturing.
 func (gs *GS) plot(t *gsTarget, x, y int32, rgba uint32) {
 	if x < t.sx0 || x > t.sx1 || y < t.sy0 || y > t.sy1 || x < 0 || y < 0 {
 		return
@@ -197,12 +232,72 @@ func (gs *GS) plot(t *gsTarget, x, y int32, rgba uint32) {
 	if t.psm != psmCT32 && t.psm != psmCT24 {
 		return // counted at the primitive level; a wrong-format write is worse than none
 	}
+
+	fbmsk := t.fbmsk
+	srcA := rgba >> 24
+
+	// The alpha test compares the source alpha against AREF; a failing pixel is dropped
+	// or writes partially, by AFAIL.
+	if t.test&1 != 0 {
+		atst := t.test >> 1 & 7
+		aref := uint32(t.test>>4) & 0xFF
+		pass := false
+		switch atst {
+		case 0: // NEVER
+		case 1:
+			pass = true
+		case 2:
+			pass = srcA < aref
+		case 3:
+			pass = srcA <= aref
+		case 4:
+			pass = srcA == aref
+		case 5:
+			pass = srcA >= aref
+		case 6:
+			pass = srcA > aref
+		case 7:
+			pass = srcA != aref
+		}
+		if !pass {
+			switch t.test >> 12 & 3 {
+			case 0: // KEEP: nothing is written
+				return
+			case 1: // FB_ONLY: the frame is written, the Z buffer is not — no Z buffer yet
+			case 2: // ZB_ONLY: only the Z buffer is written
+				return
+			case 3: // RGB_ONLY: the colour is written, the alpha and Z are not
+				fbmsk |= 0xFF000000
+			}
+		}
+	}
+
 	addr := addrPSMCT32(t.fbp, t.fbw, uint32(x), uint32(y))
 	if addr+4 > uint32(len(gs.vram)) {
 		return
 	}
 	old := le32gs(gs.vram[addr:])
-	px := rgba&^t.fbmsk | old&t.fbmsk
+
+	// The destination-alpha test keys on the frame's own alpha MSB.
+	if t.test>>14&1 != 0 {
+		datm := uint32(t.test>>15) & 1
+		if old>>31 != datm {
+			return
+		}
+	}
+
+	if t.abe && (!t.pabe || srcA&0x80 != 0) {
+		dstA := int64(old >> 24)
+		if t.psm == psmCT24 {
+			dstA = 0x80 // a frame with no alpha reads as 1.0
+		}
+		rgba = blendPixel(t.alpha, rgba, old, dstA, t.colclamp)
+	}
+	if t.fba != 0 {
+		rgba |= 0x80000000
+	}
+
+	px := rgba&^fbmsk | old&fbmsk
 	gs.vram[addr+0] = byte(px)
 	gs.vram[addr+1] = byte(px >> 8)
 	gs.vram[addr+2] = byte(px >> 16)
@@ -211,16 +306,44 @@ func (gs *GS) plot(t *gsTarget, x, y int32, rgba uint32) {
 
 // point draws the one-vertex primitive.
 func (gs *GS) point(v gsVertex) {
-	t := gs.target()
+	p := gs.prim()
+	t := gs.target(p)
 	gs.plot(&t, v.x>>4, v.y>>4, v.rgba)
+}
+
+// texAxis interpolates one texture-coordinate axis of a sprite: the texel coordinate
+// (10.4 fixed) at pixel-centre pc, on the line from (p0, uv0) to (p1, uv1) in 12.4
+// window space.
+func texAxis(pc, p0, p1, uv0, uv1 int32) int32 {
+	if p1 == p0 {
+		return uv0
+	}
+	return uv0 + int32(int64(pc-p0)*int64(uv1-uv0)/int64(p1-p0))
 }
 
 // sprite fills the axis-aligned rectangle between its two vertices. The GS takes the
 // SECOND vertex's colour for a flat sprite, and the rectangle excludes its right and
-// bottom edges (the same half-open rule the triangles use).
+// bottom edges (the same half-open rule the triangles use). Texture coordinates map
+// linearly from the first vertex's to the second's — a sprite is never perspective, so
+// STQ divides once per vertex and interpolates like UV.
 func (gs *GS) sprite(a, b gsVertex, p uint64) {
 	gs.noteFeatures(p)
-	t := gs.target()
+	t := gs.target(p)
+	smp := gs.sampler(p)
+	fst := p&(1<<8) != 0
+
+	au, av, bu, bv := a.u, a.v, b.u, b.v
+	if smp != nil && !fst {
+		// STQ: perspective-divide at the two corners, into 10.4 texels.
+		if a.q != 0 {
+			au = int32(a.s / a.q * float32(int32(1)<<smp.tex.tw) * 16)
+			av = int32(a.t / a.q * float32(int32(1)<<smp.tex.th) * 16)
+		}
+		if b.q != 0 {
+			bu = int32(b.s / b.q * float32(int32(1)<<smp.tex.tw) * 16)
+			bv = int32(b.t / b.q * float32(int32(1)<<smp.tex.th) * 16)
+		}
+	}
 
 	x0, x1 := a.x>>4, b.x>>4
 	y0, y1 := a.y>>4, b.y>>4
@@ -231,17 +354,30 @@ func (gs *GS) sprite(a, b gsVertex, p uint64) {
 		y0, y1 = y1, y0
 	}
 	for y := y0; y < y1; y++ {
+		var v int32
+		if smp != nil {
+			v = texAxis(y<<4+8, a.y, b.y, av, bv)
+		}
 		for x := x0; x < x1; x++ {
-			gs.plot(&t, x, y, b.rgba)
+			rgba := b.rgba
+			if smp != nil {
+				u := texAxis(x<<4+8, a.x, b.x, au, bu)
+				rgba = smp.combine(smp.at(u>>4, v>>4), rgba)
+			}
+			gs.plot(&t, x, y, rgba)
 		}
 	}
 }
 
 // triangle rasterises with the half-open edge rule, flat or gouraud by PRIM's IIP bit.
-// Positions are 12.4; the walk is per-pixel at pixel centres.
+// Positions are 12.4; the walk is per-pixel at pixel centres. Texture coordinates
+// interpolate barycentrically — UV directly, STQ as three linear terms divided per pixel,
+// which is what makes the perspective correct.
 func (gs *GS) triangle(v0, v1, v2 gsVertex, p uint64) {
 	gs.noteFeatures(p)
-	t := gs.target()
+	t := gs.target(p)
+	smp := gs.sampler(p)
+	fst := p&(1<<8) != 0
 	gouraud := p&(1<<3) != 0
 
 	// Bounding box in whole pixels, clipped by the scissor.
@@ -297,22 +433,59 @@ func (gs *GS) triangle(v0, v1, v2 gsVertex, p uint64) {
 				a := (w0*c0a + w1*c1a + w2*c2a) / area
 				rgba = uint32(r) | uint32(g)<<8 | uint32(b)<<16 | uint32(a)<<24
 			}
+			if smp != nil {
+				var tu, tv int32
+				if fst {
+					tu = int32((w0*int64(v0.u) + w1*int64(v1.u) + w2*int64(v2.u)) / area >> 4)
+					tv = int32((w0*int64(v0.v) + w1*int64(v1.v) + w2*int64(v2.v)) / area >> 4)
+				} else {
+					fw0, fw1, fw2 := float32(w0), float32(w1), float32(w2)
+					fa := float32(area)
+					s := (fw0*v0.s + fw1*v1.s + fw2*v2.s) / fa
+					tt := (fw0*v0.t + fw1*v1.t + fw2*v2.t) / fa
+					q := (fw0*v0.q + fw1*v1.q + fw2*v2.q) / fa
+					if q != 0 {
+						tu = int32(s / q * float32(int32(1)<<smp.tex.tw))
+						tv = int32(tt / q * float32(int32(1)<<smp.tex.th))
+					}
+				}
+				rgba = smp.combine(smp.at(tu, tv), rgba)
+			}
 			gs.plot(&t, x, y, rgba)
 		}
 	}
 }
 
-// noteFeatures records the PRIM features a drawn primitive asked for that the rasteriser
-// does not apply yet — the work list for the next pass.
+// noteFeatures tallies what a drawn primitive asked for — the applied features by name,
+// and the ones the rasteriser records but does not apply yet, marked so.
 func (gs *GS) noteFeatures(p uint64) {
 	if p&(1<<4) != 0 {
-		gs.count("textured (drawn as vertex colour)")
+		tex0 := gs.reg[gsTEX0_1]
+		if p>>9&1 == 1 {
+			tex0 = gs.reg[gsTEX0_2]
+		}
+		t := decodeTEX0(tex0)
+		gs.count(sprintf("textured PSM 0x%02X", t.psm))
+		// Each distinct texture, so the bases can be laid against the uploads': a
+		// texture whose page nothing ever filled samples black, and this line is how
+		// that is seen rather than suspected.
+		gs.count(sprintf("  tex base 0x%05X %dx%d psm 0x%02X", t.tbp*64, 1<<t.tw, 1<<t.th, t.psm))
 	}
 	if p&(1<<6) != 0 {
-		gs.count("alpha-blended (drawn opaque)")
+		gs.count("alpha-blended")
+	}
+	if p&(1<<5) != 0 {
+		gs.count("fogged (fog not applied)")
 	}
 	if p&(1<<9) != 0 {
 		gs.count("context 2")
+	}
+	test := gs.reg[gsTEST1]
+	if p>>9&1 == 1 {
+		test = gs.reg[gsTEST2]
+	}
+	if test>>16&1 != 0 && test>>17&3 >= 2 {
+		gs.count("depth-tested (no Z buffer — drawn)")
 	}
 }
 

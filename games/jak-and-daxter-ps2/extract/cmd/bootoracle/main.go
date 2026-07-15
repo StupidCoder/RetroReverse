@@ -72,6 +72,7 @@ func main() {
 	flag.Var(&iopPokes, "ioppoke", "write ADDR:VALUE (hex) into IOP memory every time the IOP finishes booting; repeatable. Sony's modules carry their own tracing behind a verbosity word — CDVDMAN's is at 0x29F90 — and turning one on makes a stripped module narrate itself")
 	iopIELog := flag.String("iopielog", "", "log every IOP interrupt-enable event (suspend/resume/deliver/frame save+load) to FILE — the instrument for an enable bit lost across a thread switch")
 	gsFrame := flag.String("gsframe", "", "write the frame the GS would be scanning out (the DISPFB rectangle, deswizzled) to FILE.png at the end of the run")
+	vu1Micro := flag.String("vu1micro", "", "write VU1's program memory (as the VIF filled it) to FILE at the end of the run — the input for sizing up the vector unit")
 	flag.Parse()
 
 	if *image == "" {
@@ -87,7 +88,7 @@ func main() {
 		iopOnly: *iopOnly, iopMods: *iopMods, iopDis: *iopDis,
 		iopIO: *iopIO, iopION: *iopION, iopWatch: *iopWatch, iopTrap: *iopTrap,
 		iopCalls: *iopCalls, iopCallsFrom: *iopCallsFrom, iopPokes: iopPokes,
-		iopDump: *iopDump, iopIELog: *iopIELog, gsFrame: *gsFrame,
+		iopDump: *iopDump, iopIELog: *iopIELog, gsFrame: *gsFrame, vu1Micro: *vu1Micro,
 	}); err != nil {
 		fmt.Fprintln(os.Stderr, "bootoracle:", err)
 		os.Exit(1)
@@ -115,6 +116,7 @@ type cfg struct {
 	iopPokes                              multiFlag
 	iopIELog                              string
 	gsFrame                               string
+	vu1Micro                              string
 }
 
 // ieLogFlush, if the interrupt-enable log is on, flushes it. It is set by armIOP and
@@ -512,6 +514,16 @@ func run(c cfg) error {
 	if c.gsFrame != "" {
 		if err := writeGSFrame(m, c.gsFrame); err != nil {
 			return err
+		}
+	}
+	if c.vu1Micro != "" {
+		micro := m.VUMicro(1)
+		if micro == nil {
+			fmt.Println("vu1micro: VIF1 never started; no program memory to dump")
+		} else if err := os.WriteFile(c.vu1Micro, micro, 0o644); err != nil {
+			return err
+		} else {
+			fmt.Printf("vu1micro: wrote %d bytes to %s\n", len(micro), c.vu1Micro)
 		}
 	}
 	return nil

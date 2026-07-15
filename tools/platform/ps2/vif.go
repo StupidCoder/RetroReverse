@@ -83,6 +83,19 @@ type vif struct {
 	// for the vector unit this machine does not have yet.
 	census map[string]int
 	mscal  map[uint32]int
+
+	// Each distinct MPG payload, keyed by content hash. A frame re-uploads its
+	// microcode constantly (half a million MPGs a boot), but the set of distinct
+	// programs is small — and that set, not the upload count, is the size of the
+	// vector unit's workload.
+	mpgSeen map[uint64]*mpgInfo
+}
+
+// mpgInfo is one distinct microprogram the stream delivered.
+type mpgInfo struct {
+	addr  uint32 // VU micro byte address it loads at
+	size  int
+	count int
 }
 
 // ensureVIF creates a VPU interface the first time its channel starts.
@@ -94,10 +107,11 @@ func (m *Machine) ensureVIF(idx int) *vif {
 		}
 		m.vifs[idx] = &vif{
 			idx: idx, m: m, cl: 1, wl: 1,
-			micro:  make([]byte, size),
-			data:   make([]byte, size),
-			census: map[string]int{},
-			mscal:  map[uint32]int{},
+			micro:   make([]byte, size),
+			data:    make([]byte, size),
+			census:  map[string]int{},
+			mscal:   map[uint32]int{},
+			mpgSeen: map[uint64]*mpgInfo{},
 		}
 	}
 	return m.vifs[idx]
@@ -255,6 +269,12 @@ func (v *vif) finish() {
 		// to disassemble now and to run later.
 		v.count("mpg")
 		copy(v.micro[min32(imm*8, uint32(len(v.micro))):], v.buf)
+		h := fnv64(v.buf)
+		if info := v.mpgSeen[h]; info != nil {
+			info.count++
+		} else {
+			v.mpgSeen[h] = &mpgInfo{addr: imm * 8, size: len(v.buf), count: 1}
+		}
 
 	case vifDIRECT, vifDIRECTHL:
 		// PATH2: the payload is GIF packets, straight to the GS.
@@ -400,6 +420,33 @@ func (v *vif) unpack(cmd uint32, data []byte) {
 
 func (v *vif) count(what string) { v.census[sprintf("VIF%d %s", v.idx, what)]++ }
 
+// fnv64 hashes an MPG payload, for the distinct-program census.
+func fnv64(b []byte) uint64 {
+	h := uint64(14695981039346656037)
+	for _, c := range b {
+		h = (h ^ uint64(c)) * 1099511628211
+	}
+	return h
+}
+
+// VUMicro returns a vector unit's program memory as the VIF has filled it — what an
+// MSCAL would run, and therefore what a disassembler reads to size up building the unit.
+func (m *Machine) VUMicro(idx int) []byte {
+	if idx < 0 || idx > 1 || m.vifs[idx] == nil {
+		return nil
+	}
+	return m.vifs[idx].micro
+}
+
+// VUDataMem returns a vector unit's data memory, the other half of what a microprogram
+// sees.
+func (m *Machine) VUDataMem(idx int) []byte {
+	if idx < 0 || idx > 1 || m.vifs[idx] == nil {
+		return nil
+	}
+	return m.vifs[idx].data
+}
+
 // VIFCensus reports what the two VPU interfaces were asked to do — the only account of
 // how much of a frame goes to the vector units (PATH1, a unit not built yet) and how
 // much comes straight through to the GS (PATH2 DIRECT).
@@ -411,6 +458,22 @@ func (m *Machine) VIFCensus() string {
 		}
 		for _, kv := range sortedCounts(v.census) {
 			s += sprintf("      %-24s %d\n", kv.name, kv.n)
+		}
+		if len(v.mpgSeen) > 0 {
+			var progs []*mpgInfo
+			for _, i := range v.mpgSeen {
+				progs = append(progs, i)
+			}
+			for i := 1; i < len(progs); i++ { // insertion sort by address, then size
+				for j := i; j > 0 && (progs[j].addr < progs[j-1].addr ||
+					(progs[j].addr == progs[j-1].addr && progs[j].size < progs[j-1].size)); j-- {
+					progs[j], progs[j-1] = progs[j-1], progs[j]
+				}
+			}
+			s += sprintf("      VIF%d distinct microprograms: %d\n", v.idx, len(progs))
+			for _, i := range progs {
+				s += sprintf("        micro 0x%04X  %5d bytes  uploaded %d times\n", i.addr, i.size, i.count)
+			}
 		}
 	}
 	if s == "" {

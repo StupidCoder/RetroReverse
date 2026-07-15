@@ -32,11 +32,28 @@ const (
 	gsRGBAQ      = 0x01
 	gsXYZ2       = 0x05
 	gsTEX0_1     = 0x06
+	gsTEX0_2     = 0x07
+	gsCLAMP1     = 0x08
+	gsCLAMP2     = 0x09
 	gsFOG        = 0x0A
+	gsTEX1_1     = 0x14
+	gsTEX1_2     = 0x15
+	gsTEX2_1     = 0x16
+	gsTEX2_2     = 0x17
 	gsXYOFFSET1  = 0x18
 	gsPRMODECONT = 0x1A
+	gsTEXCLUT    = 0x1C
+	gsTEXA       = 0x3B
+	gsTEXFLUSH   = 0x3F
 	gsSCISSOR1   = 0x40
+	gsALPHA1     = 0x42
+	gsALPHA2     = 0x43
+	gsCOLCLAMP   = 0x46
 	gsTEST1      = 0x47
+	gsTEST2      = 0x48
+	gsPABE       = 0x49
+	gsFBA1       = 0x4A
+	gsFBA2       = 0x4B
 	gsFRAME1     = 0x4C
 	gsZBUF1      = 0x4E
 	gsBITBLTBUF  = 0x50
@@ -81,6 +98,12 @@ type GS struct {
 	primCount  [8]int
 	drawCensus map[string]int
 
+	// The CLUT buffer (gstex.go): the hardware's on-chip 1 KiB, loaded from GS memory
+	// when TEX0 is written with a CLD that says load, plus the CBP0/CBP1 the conditional
+	// load modes compare against.
+	clut       [512]uint32
+	cbp0, cbp1 uint32
+
 	m *Machine
 }
 
@@ -116,6 +139,15 @@ func (gs *GS) write(reg uint8, val uint64) {
 	switch reg {
 	case gsPRIM:
 		gs.vqN = 0 // starting a primitive resets the queue
+	case gsTEX0_1, gsTEX0_2:
+		gs.clutLoad(decodeTEX0(val))
+	case gsTEX2_1, gsTEX2_2:
+		// TEX2 is a window onto TEX0: only PSM and the CLUT fields (CBP..CLD) are its
+		// to write; the rest keep TEX0's values. It exists so a game can switch CLUTs
+		// without respecifying the texture.
+		const tex2Mask = uint64(0x3F)<<20 | ^(uint64(1)<<37 - 1)
+		t0 := gsTEX0_1 + (reg - gsTEX2_1)
+		gs.write(t0, gs.reg[t0]&^tex2Mask|val&tex2Mask)
 	case gsXYZ2:
 		gs.pushVertex(int32(val&0xFFFF), int32(val>>16&0xFFFF), uint32(val>>32), true)
 	case gsXYZ3:
@@ -189,17 +221,25 @@ func (gs *GS) writePacked(reg uint8, lo, hi uint64) {
 	}
 }
 
-// beginTransfer arms an image transfer from the BITBLTBUF/TRXPOS/TRXREG registers. Only
-// the host-to-local direction (0) is the upload the boot uses; the others are named and
-// left for when the game reaches them.
+// beginTransfer arms an image transfer from the BITBLTBUF/TRXPOS/TRXREG registers.
+// Direction 0 is the host-to-local upload; direction 2 is a local-to-local copy the GS
+// performs by itself the moment it is armed — the road a game uses to rearrange texture
+// data already in GS memory. Local-to-host (1) needs a reader on the other end and is
+// only counted.
 func (gs *GS) beginTransfer(dir uint64) {
-	if dir != 0 { // 1 local->host, 2 local->local; not on the boot path yet
-		gs.xfer.active = false
-		return
-	}
 	bitbltbuf := gs.reg[gsBITBLTBUF]
 	trxpos := gs.reg[gsTRXPOS]
 	trxreg := gs.reg[gsTRXREG]
+
+	if dir != 0 {
+		gs.xfer.active = false
+		if dir == 2 {
+			gs.localCopy(bitbltbuf, trxpos, trxreg)
+		} else {
+			gs.count("local->host transfer (not served)")
+		}
+		return
+	}
 
 	gs.xfer = gsXfer{
 		active: true,
@@ -217,6 +257,139 @@ func (gs *GS) beginTransfer(dir uint64) {
 		gs.xfer.dsax, gs.xfer.dsay)
 }
 
+// localCopy performs a local-to-local transfer: the source rectangle read texel by texel
+// through its format's swizzle, the destination written through its own. This is how a
+// game rearranges what is already in GS memory — this one repacks 4-bit textures into
+// the high byte of CT32 pages (PSMT4 -> T4HL/T4HH).
+func (gs *GS) localCopy(bitbltbuf, trxpos, trxreg uint64) {
+	sbp := uint32(bitbltbuf) & 0x3FFF
+	sbw := uint32(bitbltbuf>>16) & 0x3F
+	spsm := uint32(bitbltbuf>>24) & 0x3F
+	dbp := uint32(bitbltbuf>>32) & 0x3FFF
+	dbw := uint32(bitbltbuf>>48) & 0x3F
+	dpsm := uint32(bitbltbuf>>56) & 0x3F
+	ssax := uint32(trxpos) & 0x7FF
+	ssay := uint32(trxpos>>16) & 0x7FF
+	dsax := uint32(trxpos>>32) & 0x7FF
+	dsay := uint32(trxpos>>48) & 0x7FF
+	rrw := uint32(trxreg) & 0xFFF
+	rrh := uint32(trxreg>>32) & 0xFFF
+
+	gs.m.note("GS: local copy %dx%d from 0x%X (psm 0x%02X) to 0x%X (psm 0x%02X)",
+		rrw, rrh, sbp*64, spsm, dbp*64, dpsm)
+	gs.count(sprintf("local->local 0x%02X->0x%02X", spsm, dpsm))
+
+	// TRXPOS's DIR field (bits 59..60) orders the walk for overlapping copies; a
+	// straight top-left walk with a row buffer is exact for the non-overlapping case
+	// and close enough until a game shows it overlapping.
+	row := make([]uint32, rrw)
+	for y := uint32(0); y < rrh; y++ {
+		for x := uint32(0); x < rrw; x++ {
+			row[x], _ = gs.readTexel(spsm, sbp, sbw, ssax+x, ssay+y)
+		}
+		for x := uint32(0); x < rrw; x++ {
+			gs.writeTexel(dpsm, dbp, dbw, dsax+x, dsay+y, row[x])
+		}
+	}
+}
+
+// readTexel reads one texel's raw value through a format's swizzle: a word for the
+// 32-bit formats, a halfword for the 16-bit ones, an index for the indexed ones.
+func (gs *GS) readTexel(psm, bp, bw, x, y uint32) (uint32, bool) {
+	switch psm {
+	case psmCT32, psmCT24:
+		a := addrPSMCT32(bp, bw, x, y)
+		if a+4 <= uint32(len(gs.vram)) {
+			return le32gs(gs.vram[a:]), true
+		}
+	case psmCT16, psmCT16S:
+		a := addrPSMCT16(bp, bw, x, y, psm == psmCT16S)
+		if a+2 <= uint32(len(gs.vram)) {
+			return uint32(gs.vram[a]) | uint32(gs.vram[a+1])<<8, true
+		}
+	case psmT8:
+		a := addrPSMT8(bp, bw, x, y)
+		if a < uint32(len(gs.vram)) {
+			return uint32(gs.vram[a]), true
+		}
+	case psmT4:
+		a, nib := addrPSMT4(bp, bw, x, y)
+		if a < uint32(len(gs.vram)) {
+			return uint32(gs.vram[a]) >> (4 * nib) & 0xF, true
+		}
+	case psmT8H:
+		a := addrPSMCT32(bp, bw, x, y)
+		if a+4 <= uint32(len(gs.vram)) {
+			return uint32(gs.vram[a+3]), true
+		}
+	case psmT4HL:
+		a := addrPSMCT32(bp, bw, x, y)
+		if a+4 <= uint32(len(gs.vram)) {
+			return uint32(gs.vram[a+3]) & 0xF, true
+		}
+	case psmT4HH:
+		a := addrPSMCT32(bp, bw, x, y)
+		if a+4 <= uint32(len(gs.vram)) {
+			return uint32(gs.vram[a+3]) >> 4, true
+		}
+	}
+	return 0, false
+}
+
+// writeTexel writes one texel's raw value through a format's swizzle. The partial
+// formats touch only their own bits: CT24 leaves the top byte, the H formats live
+// entirely inside it.
+func (gs *GS) writeTexel(psm, bp, bw, x, y, v uint32) {
+	switch psm {
+	case psmCT32:
+		a := addrPSMCT32(bp, bw, x, y)
+		if a+4 <= uint32(len(gs.vram)) {
+			gs.vram[a+0] = byte(v)
+			gs.vram[a+1] = byte(v >> 8)
+			gs.vram[a+2] = byte(v >> 16)
+			gs.vram[a+3] = byte(v >> 24)
+		}
+	case psmCT24:
+		a := addrPSMCT32(bp, bw, x, y)
+		if a+4 <= uint32(len(gs.vram)) {
+			gs.vram[a+0] = byte(v)
+			gs.vram[a+1] = byte(v >> 8)
+			gs.vram[a+2] = byte(v >> 16)
+		}
+	case psmCT16, psmCT16S:
+		a := addrPSMCT16(bp, bw, x, y, psm == psmCT16S)
+		if a+2 <= uint32(len(gs.vram)) {
+			gs.vram[a+0] = byte(v)
+			gs.vram[a+1] = byte(v >> 8)
+		}
+	case psmT8:
+		a := addrPSMT8(bp, bw, x, y)
+		if a < uint32(len(gs.vram)) {
+			gs.vram[a] = byte(v)
+		}
+	case psmT4:
+		a, nib := addrPSMT4(bp, bw, x, y)
+		if a < uint32(len(gs.vram)) {
+			gs.vram[a] = gs.vram[a]&^(0xF<<(4*nib)) | byte(v&0xF)<<(4*nib)
+		}
+	case psmT8H:
+		a := addrPSMCT32(bp, bw, x, y)
+		if a+4 <= uint32(len(gs.vram)) {
+			gs.vram[a+3] = byte(v)
+		}
+	case psmT4HL:
+		a := addrPSMCT32(bp, bw, x, y)
+		if a+4 <= uint32(len(gs.vram)) {
+			gs.vram[a+3] = gs.vram[a+3]&0xF0 | byte(v&0xF)
+		}
+	case psmT4HH:
+		a := addrPSMCT32(bp, bw, x, y)
+		if a+4 <= uint32(len(gs.vram)) {
+			gs.vram[a+3] = gs.vram[a+3]&0x0F | byte(v&0xF)<<4
+		}
+	}
+}
+
 // imageData writes the pixels of an image transfer into GS memory, walking the destination
 // rectangle in raster order. It handles the 32-bit format (PSMCT32/PSMCT24) the boot uploads
 // in; other formats consume the data and are logged, so a wrong guess is visible rather than
@@ -229,13 +402,27 @@ func (gs *GS) imageData(data []byte) {
 	buf := append(x.partial, data...)
 	x.partial = nil
 
+	// advance moves the raster cursor one texel; it reports false when the rectangle
+	// is complete.
+	advance := func() bool {
+		x.x++
+		if x.x >= x.rrw {
+			x.x = 0
+			x.y++
+			if x.y >= x.rrh {
+				x.active = false
+				return false
+			}
+		}
+		return true
+	}
+
 	switch x.dpsm {
 	case psmCT32, psmCT24:
-		const bpp = 4
 		i := 0
-		for i+bpp <= len(buf) {
+		for i+4 <= len(buf) && x.active {
 			px := le32gs(buf[i:])
-			i += bpp
+			i += 4
 			addr := addrPSMCT32(x.dbp, x.dbw, x.dsax+x.x, x.dsay+x.y)
 			if addr+4 <= uint32(len(gs.vram)) {
 				gs.vram[addr+0] = byte(px)
@@ -243,17 +430,50 @@ func (gs *GS) imageData(data []byte) {
 				gs.vram[addr+2] = byte(px >> 16)
 				gs.vram[addr+3] = byte(px >> 24)
 			}
-			x.x++
-			if x.x >= x.rrw {
-				x.x = 0
-				x.y++
-				if x.y >= x.rrh {
-					x.active = false
-					break
-				}
-			}
+			advance()
 		}
 		x.partial = append(x.partial, buf[i:]...)
+
+	case psmCT16, psmCT16S:
+		i := 0
+		for i+2 <= len(buf) && x.active {
+			px := uint32(buf[i]) | uint32(buf[i+1])<<8
+			i += 2
+			addr := addrPSMCT16(x.dbp, x.dbw, x.dsax+x.x, x.dsay+x.y, x.dpsm == psmCT16S)
+			if addr+2 <= uint32(len(gs.vram)) {
+				gs.vram[addr+0] = byte(px)
+				gs.vram[addr+1] = byte(px >> 8)
+			}
+			advance()
+		}
+		x.partial = append(x.partial, buf[i:]...)
+
+	case psmT8:
+		i := 0
+		for i < len(buf) && x.active {
+			addr := addrPSMT8(x.dbp, x.dbw, x.dsax+x.x, x.dsay+x.y)
+			if addr < uint32(len(gs.vram)) {
+				gs.vram[addr] = buf[i]
+			}
+			i++
+			advance()
+		}
+
+	case psmT4:
+		// Two texels ride each byte, low nibble first, packed continuously in raster
+		// order across the whole rectangle.
+		i := 0
+		for i < len(buf) && x.active {
+			for half := 0; half < 2 && x.active; half++ {
+				addr, nib := addrPSMT4(x.dbp, x.dbw, x.dsax+x.x, x.dsay+x.y)
+				if addr < uint32(len(gs.vram)) {
+					v := buf[i] >> (4 * half) & 0xF
+					gs.vram[addr] = gs.vram[addr]&^(0xF<<(4*nib)) | v<<(4*nib)
+				}
+				advance()
+			}
+			i++
+		}
 
 	default:
 		gs.m.note("GS: image upload in format 0x%X (%d bytes) — consumed, not yet placed", x.dpsm, len(buf))
