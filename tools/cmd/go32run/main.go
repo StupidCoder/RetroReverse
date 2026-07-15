@@ -142,6 +142,21 @@ func main() {
 		}
 		fmt.Println()
 	}
+	if len(m.Console) > 0 {
+		fmt.Printf("\n== program console output (%d bytes) ==\n%s\n", len(m.Console), m.Console)
+	}
+	if len(m.DOSCounts) > 0 {
+		fmt.Printf("\nDOS (INT 21h) AH functions used:")
+		ahs := make([]int, 0, len(m.DOSCounts))
+		for ah := range m.DOSCounts {
+			ahs = append(ahs, int(ah))
+		}
+		sort.Ints(ahs)
+		for _, ah := range ahs {
+			fmt.Printf(" %02X(%d)", ah, m.DOSCounts[byte(ah)])
+		}
+		fmt.Println()
+	}
 	if len(m.IntCounts) > 0 {
 		fmt.Printf("other INTs (stubbed):")
 		for n, cnt := range m.IntCounts {

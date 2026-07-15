@@ -90,6 +90,7 @@ func (p *PM) simulateRealInt(c *x86.CPU) bool {
 // caller halts with the concrete AH — the next DOS service to implement.
 func (p *PM) rmDOS(r *rmcs) bool {
 	ah := byte(r.eax >> 8)
+	p.DOSCounts[ah]++
 	switch ah {
 	case 0x30: // Get DOS version -> 7.0 in AL:AH
 		r.eax = (r.eax & 0xFFFF0000) | 0x0007
@@ -98,6 +99,17 @@ func (p *PM) rmDOS(r *rmcs) bool {
 		r.es, r.ebx = 0, 0
 	case 0x19: // Get current drive -> C:
 		r.eax = (r.eax & 0xFFFFFF00) | 2
+	case 0x52: // Get DOS "list of lists" (SysVars) -> ES:BX; hand back a null pointer
+		r.es, r.ebx = 0, 0
+	case 0x33: // Get/set Ctrl-Break flag
+		switch byte(r.eax) {
+		case 0x00: // get -> DL = state (off)
+			r.edx = r.edx & 0xFFFFFF00
+		case 0x05: // get boot drive -> DL = C:
+			r.edx = (r.edx & 0xFFFFFF00) | 2
+		} // set (AL=01) and others: no-op success
+	case 0x3C, 0x3D, 0x3E, 0x3F, 0x40, 0x41, 0x42, 0x43, 0x44, 0x47, 0x4E, 0x4F: // file I/O
+		return p.dosFile(r)
 	default:
 		return false
 	}

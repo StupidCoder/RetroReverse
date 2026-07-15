@@ -64,8 +64,10 @@ type PM struct {
 	Log        []string
 	DPMICounts map[uint16]int // INT 31h function (AX) call histogram
 	IntCounts  map[byte]int   // direct software-INT histogram (non-DPMI)
+	DOSCounts  map[byte]int   // real-mode INT 21h AH histogram (via DPMI 0300h)
 	Terminated bool
 	ExitCode   byte
+	Console    []byte // bytes the program wrote to stdout/stderr (DOS handles 1/2)
 }
 
 // LoadGo32 reads the go32 executable at exePath, places its COFF image flat in a
@@ -93,6 +95,7 @@ func LoadGo32Bytes(data []byte, gameDir string) (*PM, error) {
 		files:      map[uint16]*os.File{},
 		DPMICounts: map[uint16]int{},
 		IntCounts:  map[byte]int{},
+		DOSCounts:  map[byte]int{},
 		sels:       map[uint16]uint32{0x08: 0, 0x10: 0}, // flat code/data selectors, base 0 (info-block sel added below)
 		nextSel:    0x0100,                              // first fabricated selector (LDT-ish)
 		virtIF:     true,                                // interrupts virtually enabled at entry
@@ -174,28 +177,42 @@ func (p *PM) resolveSel(sel uint16) uint32 { return p.sels[sel] }
 // mapSel records selector -> linear base in the modelled LDT.
 func (p *PM) mapSel(sel uint16, base uint32) { p.sels[sel] = base }
 
-// setupInfoBlock fills the go32 "_go32_info_block" the crt0 reads through FS and
-// registers its selector. Only a few fields are load-bearing for boot: the
-// transfer-buffer address/size (the crt0 copies the buffer during startup) and,
-// crucially, the memory top at +0x1C — which the sbrk compares the break against
-// to decide whether to *grow committed memory* via a real-mode-switch trampoline.
-// Set to the top of our flat heap, that comparison always takes the fast path, so
-// the trampoline (16-bit real-mode code we would otherwise have to run in place)
-// never executes: our whole address space is already backed.
+// setupInfoBlock fills the structure the go32-v2 crt0 reads through FS. Despite
+// its name, that structure is the go32-v2 STUBINFO — the block the real stub
+// prepends and hands the program — not the runtime _go32_info_block (the crt0
+// builds that one separately from DPMI queries). The crt0 copies [FS:0x10] bytes
+// of it to a heap buffer and reads individual fields; the load-bearing ones for
+// boot are:
+//
+//	+0x10 size       — copy length and the sbrk size the crt0 requests
+//	+0x14 minstack   — minimum stack (compared, then reserved)
+//	+0x18 memory_handle — DPMI handle of the DOS-memory block (opaque to us)
+//	+0x1C            — the ceiling the sbrk compares the break against; set to the
+//	                  top of our flat heap so growth always takes the fast path and
+//	                  the real-mode-switch trampoline never runs (our space is
+//	                  already backed)
+//	+0x20 minkeep    — size of the DOS transfer buffer; the C library keeps it as
+//	                  __tb_size and chunks every fread/fwrite to it
+//	+0x24 ds_segment — real-mode segment of the transfer buffer; __tb = it<<4, the
+//	                  conventional-memory address DOS file I/O reads and writes
+//
+// The +0x20/+0x24 pair is what makes DOS file I/O work: without it __tb and
+// __tb_size are zero, and write() loops forever writing zero-length chunks.
 func (p *PM) setupInfoBlock(xferLinear uint32) {
 	p.mapSel(go32InfoSel, p.infoBase)
 	b := p.infoBase
-	p.w32(b+0x00, 0x30)          // size_of_this_structure_in_bytes
+	p.w32(b+0x00, 0x30)          // size_of_this_structure_in_bytes (unused by crt0)
 	p.w32(b+0x04, 0x000B8000)    // linear_address_of_primary_screen
 	p.w32(b+0x08, 0x000B0000)    // linear_address_of_secondary_screen
 	p.w32(b+0x0C, xferLinear)    // linear_address_of_transfer_buffer
-	p.w32(b+0x10, go32XferBytes) // size_of_transfer_buffer
-	p.w32(b+0x14, 1)             // pid
+	p.w32(b+0x10, go32XferBytes) // stubinfo.size — crt0 copy length / sbrk request
+	p.w32(b+0x14, 1)             // minstack (kept minimal, as before)
 	p.Write(b+0x18, 0x08)        // master_interrupt_controller_base
 	p.Write(b+0x19, 0x70)        // slave_interrupt_controller_base
 	p.Write(b+0x1A, 0x10)        // selector_for_linear_memory (flat data)
 	p.w32(b+0x1C, p.infoBase)    // memory top the sbrk grows toward (never exceeded)
-	p.w32(b+0x20, 0)             // linear_address_of_original_psp
+	p.w16(b+0x20, go32XferBytes) // stubinfo.minkeep — transfer-buffer size (__tb_size)
+	p.w16(b+0x24, uint16(xferLinear>>4)) // stubinfo.ds_segment — __tb = seg<<4
 }
 
 // --- x86.Bus (flat identity mapping, bounds-checked) ---
@@ -246,6 +263,10 @@ func (p *PM) w32(a, v uint32) {
 	p.Write(a+1, byte(v>>8))
 	p.Write(a+2, byte(v>>16))
 	p.Write(a+3, byte(v>>24))
+}
+func (p *PM) w16(a uint32, v uint16) {
+	p.Write(a, byte(v))
+	p.Write(a+1, byte(v>>8))
 }
 
 // asciiz reads a NUL-terminated string at flat linear address a.
