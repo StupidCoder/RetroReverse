@@ -253,11 +253,24 @@ func (p *PM) allocHeap(size uint32) (base uint32, ok bool) {
 	return base, true
 }
 
+// go32MaxFreeReport caps the free memory DPMI 0500h advertises. Quake sizes its
+// main heap to the free memory it sees (COM_Init/Memory_Init), and reporting the
+// whole ~62 MiB backing makes it reserve a heap that nearly fills the flat space —
+// so its startup CRC over that heap reads off the top of memory. Real Quake
+// shareware ran happily on 8–16 MiB; capping the report to 16 MiB keeps the heap
+// well inside the arena and cuts the multi-second Sys_PageIn on every boot. This is
+// a behavioral change, but a legitimate one — it is exactly what a smaller DOS box
+// would report.
+const go32MaxFreeReport = 16 << 20
+
 // freeMemInfo fills the DPMI 0500h information block (0x30 bytes) at flat linear
 // address a. Only the fields go32's allocator reads matter: the largest free
 // block and the total free/physical counts, all set to the heap remaining.
 func (p *PM) freeMemInfo(a uint32) {
 	free := uint32(len(p.Mem)) - p.heapNext
+	if free > go32MaxFreeReport {
+		free = go32MaxFreeReport
+	}
 	for i := uint32(0); i < 0x30; i += 4 {
 		p.w32(a+i, 0xFFFFFFFF) // "unknown" for the fields we don't track
 	}

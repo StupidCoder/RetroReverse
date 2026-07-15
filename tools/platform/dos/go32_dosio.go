@@ -31,8 +31,11 @@ func (p *PM) dosErr(r *rmcs, code uint16) bool {
 	return true
 }
 
-// setAX / setDX write the 16-bit result registers, preserving the high halves.
+// setAX / setBX / setCX / setDX write the 16-bit result registers, preserving the
+// high halves.
 func setAX(r *rmcs, v uint16) { r.eax = (r.eax & 0xFFFF0000) | uint32(v) }
+func setBX(r *rmcs, v uint16) { r.ebx = (r.ebx & 0xFFFF0000) | uint32(v) }
+func setCX(r *rmcs, v uint16) { r.ecx = (r.ecx & 0xFFFF0000) | uint32(v) }
 func setDX(r *rmcs, v uint16) { r.edx = (r.edx & 0xFFFF0000) | uint32(v) }
 
 // allocHandle returns the lowest free DOS handle >= 5 (0..4 are the standard
@@ -110,6 +113,8 @@ func (p *PM) dosFile(r *rmcs) bool {
 		return p.dosSeek(r)
 	case 0x44:
 		return p.dosIoctl(r)
+	case 0x57:
+		return p.dosFileTime(r)
 	case 0x41: // Delete file
 		os.Remove(p.resolveHostPath(p.asciiz(p.rmLinear(r.ds, r.edx))))
 		return true
@@ -246,6 +251,44 @@ func (p *PM) dosSeek(r *rmcs) bool {
 	setAX(r, uint16(pos))
 	setDX(r, uint16(pos>>16))
 	return true
+}
+
+// dosFileTime handles AH=57h — get/set a handle's last-write date and time. DJGPP's
+// fstat calls the get subfunction (AL=00) to fill st_mtime, reading DX = date and
+// CX = time in packed DOS format. We answer from the real host file's mod time, so
+// the timestamp fstat reports is the actual file's — no fabricated metadata.
+func (p *PM) dosFileTime(r *rmcs) bool {
+	h := uint16(r.ebx)
+	f, ok := p.files[h]
+	if !ok {
+		return p.dosErr(r, 6) // invalid handle
+	}
+	switch byte(r.eax) { // AL subfunction
+	case 0x00: // get -> DX = date, CX = time
+		date, tm := dosDateTime(f)
+		setDX(r, date)
+		setCX(r, tm)
+		return true
+	default: // set (AL=01) and others: accept and ignore
+		return true
+	}
+}
+
+// dosDateTime packs a file's modification time into the DOS date/time words:
+// date = (year-1980)<<9 | month<<5 | day, time = hour<<11 | minute<<5 | second/2.
+func dosDateTime(f *os.File) (date, tm uint16) {
+	st, err := f.Stat()
+	if err != nil {
+		return 0x0021, 0 // 1980-01-01 00:00:00 fallback
+	}
+	t := st.ModTime()
+	y := t.Year()
+	if y < 1980 {
+		y = 1980
+	}
+	date = uint16((y-1980)<<9) | uint16(int(t.Month())<<5) | uint16(t.Day())
+	tm = uint16(t.Hour()<<11) | uint16(t.Minute()<<5) | uint16(t.Second()/2)
+	return date, tm
 }
 
 // dosIoctl handles AH=44h. Only the device-info subfunctions matter here: DJGPP's

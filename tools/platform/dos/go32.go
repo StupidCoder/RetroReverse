@@ -60,6 +60,8 @@ type PM struct {
 	sels         map[uint16]uint32 // selector -> descriptor linear base (the modelled LDT)
 	virtIF  bool              // DPMI virtual interrupt flag (go32 brackets critical sections with it)
 
+	lolSeg, lolOff uint16 // real-mode far pointer to the fabricated DOS List of Lists (INT 21h AH=52h)
+
 	// instrumentation
 	Log        []string
 	DPMICounts map[uint16]int // INT 31h function (AX) call histogram
@@ -213,6 +215,73 @@ func (p *PM) setupInfoBlock(xferLinear uint32) {
 	p.w32(b+0x1C, p.infoBase)    // memory top the sbrk grows toward (never exceeded)
 	p.w16(b+0x20, go32XferBytes) // stubinfo.minkeep — transfer-buffer size (__tb_size)
 	p.w16(b+0x24, uint16(xferLinear>>4)) // stubinfo.ds_segment — __tb = seg<<4
+}
+
+const (
+	dosJFTSize      = 64   // handles the fabricated Job File Table / SFT can size
+	dosSFTEntrySize = 0x3B // System File Table entry stride DJGPP assumes for DOS 4+
+)
+
+// writeDOSStructures fabricates, on demand, the DOS kernel structures DJGPP's
+// fstat walks to validate an open handle: the Program Segment Prefix's Job File
+// Table (JFT), the DOS List of Lists (LoL), and a System File Table (SFT). On real
+// DOS these are genuine kernel data; a go32 program reaches them because the
+// transfer-buffer paragraph sits just above the PSP, so DJGPP derives the PSP as
+// (stubinfo.ds_segment<<4)-0x100 == convBase-0x100 (see setupInfoBlock's +0x24).
+//
+// These are written *transiently*, from the INT 21h AH=52h handler, rather than
+// once at load: in this flat model the DJGPP malloc heap begins right above the
+// image and grows to tens of megabytes, so it owns every conventional address a
+// real-mode far pointer can reach — nothing persistent survives there. But fstat's
+// SFT walk reads the whole chain synchronously right after its AH=52h call, with no
+// allocation in between, so writing the structures into the transfer-buffer scratch
+// region at AH=52h time makes them valid exactly when they are read. The scratch is
+// reused by the next file read, which is fine — the structures are needed only for
+// the duration of one walk.
+//
+// The walk only proves the handle is open and yields its SFT index (st_ino); fstat
+// still reads the file's *size* through lseek (AH=42h) and its *date* through AH=57h
+// against the real host file, so these entries carry no real metadata.
+//
+// Returns false if there is no conventional transfer buffer to build them in, in
+// which case AH=52h hands back a null pointer and fstat's SFT path stays disabled.
+func (p *PM) writeDOSStructures() bool {
+	if p.convTop == 0 {
+		return false
+	}
+	psp := p.convBase - 0x100 // DJGPP's derived PSP, just below the transfer buffer
+	// JFT, LoL and SFT live in the transfer buffer — scratch that nothing touches
+	// between this AH=52h call and the walk's reads. All are 16-aligned (convBase is
+	// page-aligned), so each far pointer's offset is zero and its segment is base>>4.
+	jft := p.convBase
+	lol := p.convBase + 0x40
+	sft := p.convBase + 0x80
+	sftCount := uint32(dosJFTSize)
+	if sft+6+sftCount*dosSFTEntrySize > p.convBase+go32XferBytes {
+		return false // transfer buffer too small (never true at current sizes)
+	}
+
+	// PSP: only the JFT size (+0x32) and the JFT far pointer (+0x34) are read.
+	p.w16(psp+0x32, dosJFTSize)      // number of handles this process may hold
+	p.w16(psp+0x34, uint16(jft&0xF)) // JFT far pointer: offset
+	p.w16(psp+0x36, uint16(jft>>4))  // JFT far pointer: segment
+	// JFT: map each handle to its own SFT slot (identity), so any handle below the
+	// table size resolves to a valid, in-range SFT entry.
+	for i := uint32(0); i < dosJFTSize; i++ {
+		p.Write(jft+i, byte(i))
+	}
+	// List of Lists: fstat only follows the first-SFT far pointer at +0x04.
+	p.w16(lol+0x04, uint16(sft&0xF)) // first SFT block far pointer: offset
+	p.w16(lol+0x06, uint16(sft>>4))  // first SFT block far pointer: segment
+	// SFT: a single block of sftCount entries; DJGPP indexes it by the JFT value.
+	p.w16(sft+0x00, 0xFFFF)           // next-block offset = end of chain
+	p.w16(sft+0x02, 0xFFFF)           // next-block segment
+	p.w16(sft+0x04, uint16(sftCount)) // entries held in this block
+	for i := uint32(0); i < sftCount; i++ {
+		p.w16(sft+6+i*dosSFTEntrySize, 1) // reference count = 1 (entry in use)
+	}
+	p.lolSeg, p.lolOff = uint16(lol>>4), uint16(lol&0xF)
+	return true
 }
 
 // --- x86.Bus (flat identity mapping, bounds-checked) ---

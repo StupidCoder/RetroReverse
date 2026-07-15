@@ -42,8 +42,11 @@ func (p *PM) readRMCS(a uint32) rmcs {
 	return r
 }
 
-// writeBack stores the (possibly modified) general registers and flags back into
-// the RMCS. Segment/pointer fields are left as the caller set them.
+// writeBack stores the (possibly modified) general registers, flags and segment
+// registers back into the RMCS. Persisting the segment words matters for services
+// that return a far pointer in a segment register — AH=52h (List of Lists) and
+// AH=35h (interrupt vector) return ES:BX. Unmodified fields are written back with
+// the values just read, so the store is a no-op for the common case.
 func (p *PM) writeBack(r *rmcs) {
 	p.w32(r.addr+0x00, r.edi)
 	p.w32(r.addr+0x04, r.esi)
@@ -54,6 +57,10 @@ func (p *PM) writeBack(r *rmcs) {
 	p.w32(r.addr+0x1C, r.eax)
 	p.Write(r.addr+0x20, byte(r.flags))
 	p.Write(r.addr+0x21, byte(r.flags>>8))
+	p.w16(r.addr+0x22, r.es)
+	p.w16(r.addr+0x24, r.ds)
+	p.w16(r.addr+0x26, r.fs)
+	p.w16(r.addr+0x28, r.gs)
 }
 
 // simulateRealInt services DPMI 0300h. The real-mode call structure is at ES:EDI
@@ -99,8 +106,13 @@ func (p *PM) rmDOS(r *rmcs) bool {
 		r.es, r.ebx = 0, 0
 	case 0x19: // Get current drive -> C:
 		r.eax = (r.eax & 0xFFFFFF00) | 2
-	case 0x52: // Get DOS "list of lists" (SysVars) -> ES:BX; hand back a null pointer
-		r.es, r.ebx = 0, 0
+	case 0x52: // Get DOS "list of lists" (SysVars) -> ES:BX = fabricated LoL (fstat walks it)
+		if p.writeDOSStructures() {
+			r.es = p.lolSeg
+			r.ebx = (r.ebx & 0xFFFF0000) | uint32(p.lolOff)
+		} else {
+			r.es, r.ebx = 0, 0 // no transfer buffer to build them in
+		}
 	case 0x33: // Get/set Ctrl-Break flag
 		switch byte(r.eax) {
 		case 0x00: // get -> DL = state (off)
@@ -108,7 +120,7 @@ func (p *PM) rmDOS(r *rmcs) bool {
 		case 0x05: // get boot drive -> DL = C:
 			r.edx = (r.edx & 0xFFFFFF00) | 2
 		} // set (AL=01) and others: no-op success
-	case 0x3C, 0x3D, 0x3E, 0x3F, 0x40, 0x41, 0x42, 0x43, 0x44, 0x47, 0x4E, 0x4F: // file I/O
+	case 0x3C, 0x3D, 0x3E, 0x3F, 0x40, 0x41, 0x42, 0x43, 0x44, 0x47, 0x4E, 0x4F, 0x57: // file I/O
 		return p.dosFile(r)
 	default:
 		return false
