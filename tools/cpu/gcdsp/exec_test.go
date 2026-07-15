@@ -145,14 +145,16 @@ func TestMailboxWaitIdiom(t *testing.T) {
 	bus := &mailboxBus{cmbh: 0x8000} // present bit set
 	c := New(bus)
 	copy(c.IRAM[:], []uint16{
-		0x8100,         // 0000: clr ac0
-		0x26FE,         // 0001: lrs ac0.m, @0xFFFE (read CMBH)
-		0x02C0, 0x8000, // 0002: andcf ac0.m, #0x8000
-		0x029C, 0x0000, // 0004: jmplnz 0x0000 (loop while present bit clear)
-		0x27FF, // 0006: lrs ac1.m, @0xFFFF (consume CMBL)
-		0x0021, // 0007: halt (sentinel)
+		0x0092, 0x00FF, // 0000: lri config, #0x00FF — page lrs/srs at the hardware registers,
+		//                       exactly as the real ucode does at its own 0x001E
+		0x8100,         // 0002: clr ac0
+		0x26FE,         // 0003: lrs ac0.m, @CR:FE (read CMBH)
+		0x02C0, 0x8000, // 0004: andcf ac0.m, #0x8000
+		0x029C, 0x0002, // 0006: jmplnz 0x0002 (loop while present bit clear)
+		0x27FF, // 0008: lrs ac1.m, @CR:FF (consume CMBL)
+		0x0021, // 0009: halt (sentinel)
 	})
-	for i := 0; i < 100000 && c.PC != 0x0007; i++ {
+	for i := 0; i < 100000 && c.PC != 0x0009; i++ {
 		if !c.Step() {
 			break
 		}
@@ -160,7 +162,7 @@ func TestMailboxWaitIdiom(t *testing.T) {
 	if c.Halted {
 		t.Fatalf("core halted: %s (PC=0x%04X)", c.Reason, c.PC)
 	}
-	if c.PC != 0x0007 {
+	if c.PC != 0x0009 {
 		t.Fatalf("mailbox wait did not exit (PC=0x%04X); present bit was not detected", c.PC)
 	}
 	if !bus.consumed {
@@ -1067,5 +1069,88 @@ func TestAcHighWrite(t *testing.T) {
 	}, 0x0002)
 	if got := c.Reg[regAC0H]; got != 0xFF80 {
 		t.Errorf("ac0.h = 0x%04X, want 0xFF80 (sign-extended from the low byte)", got)
+	}
+}
+
+// TestShortAddressPaging pins the addressing of the short load/store forms. lrs and srs page
+// their 8-bit address with the CONFIG register — (CR & 0xFF) << 8 | M — which the ucode switches
+// between 0x00FF (the hardware registers) and 0x0004 (its state block in DRAM page 4); si
+// instead sign-extends, reaching only pages 0x00 and 0xFF. Hardwiring the hardware page in
+// lrs/srs read the mixer's own state words as phantom registers (a "read of 0xFF01" that is
+// really DRAM 0x0401).
+func TestShortAddressPaging(t *testing.T) {
+	c := run(t, []uint16{
+		0x0092, 0x0004, // 0000: lri config, #0x0004 — short page = DRAM page 4
+		0x009E, 0xBEEF, // 0002: lri ac0.m, #0xBEEF
+		0x2E01,         // 0004: srs @CR:0x01, ac0.m — writes DRAM 0x0401
+		0x2701,         // 0005: lrs ac1.m, @CR:0x01 — reads it back
+		0x1610, 0x1234, // 0006: si @0x0010, #0x1234 — sign-extends to DRAM 0x0010
+		0x0000, // 0008: nop sentinel
+	}, 0x0008)
+	if got := c.DRAM[0x0401]; got != 0xBEEF {
+		t.Errorf("srs through CR page: DRAM[0x0401] = 0x%04X, want 0xBEEF", got)
+	}
+	if got := c.Reg[regAC1M]; got != 0xBEEF {
+		t.Errorf("lrs through CR page: ac1.m = 0x%04X, want 0xBEEF", got)
+	}
+	if got := c.DRAM[0x0010]; got != 0x1234 {
+		t.Errorf("si low page: DRAM[0x0010] = 0x%04X, want 0x1234", got)
+	}
+}
+
+// TestZeroCountLoop pins the zero-iteration hardware loop: the body runs zero times and
+// execution resumes past the loop's last instruction — for `loop` past the single body word,
+// for `bloopi` past the (possibly two-word) instruction its end address names. A core that
+// halts or runs the body once here breaks the mixer's block-copy helpers on empty tail runs.
+func TestZeroCountLoop(t *testing.T) {
+	c := run(t, []uint16{
+		0x0080, 0x0000, // 0000: lri ar0, #0 (loop count 0)
+		0x0040,         // 0002: loop ar0
+		0x009E, 0xDEAD, // 0003: lri ac0.m, #0xDEAD (the body — must be skipped)
+		0x0000, // 0005: nop (sentinel)
+	}, 0x0005)
+	if c.Reg[regAC0M] == 0xDEAD {
+		t.Error("loop with count 0 executed its body")
+	}
+
+	c2 := run(t, []uint16{
+		0x1100, 0x0006, // 0000: bloopi #0, 0x0006 (body 0x0002..0x0006)
+		0x009E, 0xDEAD, // 0002: lri ac0.m, #0xDEAD (must be skipped)
+		0x0000,         // 0004: nop
+		0x0000,         // 0005: nop
+		0x009F, 0xBEEF, // 0006: lri ac1.m, #0xBEEF (the end instruction, two words — skipped too)
+		0x0000, // 0008: nop (sentinel)
+	}, 0x0008)
+	if c2.Reg[regAC0M] == 0xDEAD || c2.Reg[regAC1M] == 0xBEEF {
+		t.Error("bloopi with count 0 executed its body or its end instruction")
+	}
+	if len(c2.Loops) != 0 {
+		t.Error("bloopi with count 0 left a loop frame")
+	}
+}
+
+// TestCmp pins cmp (0x8200): ac0 compared with ac1, result discarded, flags set from the
+// 40-bit subtraction — equal accumulators set zero, a smaller ac0 sets sign.
+func TestCmp(t *testing.T) {
+	c := run(t, []uint16{
+		0x009E, 0x0005, // 0000: lri ac0.m, #5
+		0x009F, 0x0005, // 0002: lri ac1.m, #5
+		0x8200,         // 0004: cmp
+		0x0000, // 0005: nop (sentinel)
+	}, 0x0005)
+	if c.Reg[regSR]&srZero == 0 {
+		t.Error("cmp of equal accumulators did not set zero")
+	}
+	c2 := run(t, []uint16{
+		0x009E, 0x0002, // ac0.m = 2
+		0x009F, 0x0007, // ac1.m = 7
+		0x8200,
+		0x0000,
+	}, 0x0005)
+	if c2.Reg[regSR]&srSign == 0 {
+		t.Error("cmp with ac0 < ac1 did not set sign")
+	}
+	if c2.Reg[regAC0M] != 2 || c2.Reg[regAC1M] != 7 {
+		t.Error("cmp modified an accumulator")
 	}
 }

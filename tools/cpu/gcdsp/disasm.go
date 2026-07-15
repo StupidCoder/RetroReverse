@@ -161,7 +161,12 @@ func Disasm(read func(uint16) uint16, pc uint16) (text string, words uint16) {
 	case op&0xFFE0 == 0x00E0:
 		return fmt.Sprintf("sr     @0x%04X, %s", next(), regName(op&0x1F)), 2
 	case op&0xFF00 == 0x1600:
-		return fmt.Sprintf("si     @0x%02X, #0x%04X", op&0xFF, next()), 2
+		// The 8-bit address sign-extends: 0x80..0xFF land in the hardware page 0xFFxx.
+		si := op & 0xFF
+		if si >= 0x80 {
+			si |= 0xFF00
+		}
+		return fmt.Sprintf("si     @0x%04X, #0x%04X", si, next()), 2
 	case op&0xFC00 == 0x1800:
 		// Register-indirect load/store with an optional post-modify of the address register:
 		// bit 9 = store, bits 8..7 = modify (00 none, 01 decrement, 10 increment, 11 +index).
@@ -213,11 +218,11 @@ func Disasm(read func(uint16) uint16, pc uint16) (text string, words uint16) {
 	case op&0xF800 == 0x0800:
 		return fmt.Sprintf("lris   %s, #0x%02X", regName(0x18+((op>>8)&7)), op&0xFF), 1
 
-	// --- load/store a short register to a hardware/data address (0xFF00|M) ----------------
+	// --- load/store a short register through the CONFIG-paged short address ((CR<<8)|M) ---
 	case op&0xF800 == 0x2000:
-		return fmt.Sprintf("lrs    %s, @0xFF%02X", regName(0x18+((op>>8)&7)), op&0xFF), 1
+		return fmt.Sprintf("lrs    %s, @CR:0x%02X", regName(0x18+((op>>8)&7)), op&0xFF), 1
 	case op&0xF800 == 0x2800:
-		return fmt.Sprintf("srs    @0xFF%02X, %s", op&0xFF, regName(0x18+((op>>8)&7))), 1
+		return fmt.Sprintf("srs    @CR:0x%02X, %s", op&0xFF, regName(0x18+((op>>8)&7))), 1
 
 	// --- immediate arithmetic to accumulator (two-word) ----------------------------------
 	// These sit below the branch group in the 0x02xx/0x03xx space; each takes a data word.

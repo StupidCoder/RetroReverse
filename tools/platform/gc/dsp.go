@@ -93,6 +93,27 @@ type dsp struct {
 	// when it expands a sample. Latched here so a later accelerator model has the coefficients
 	// the game actually programmed.
 	Coef [16]uint16
+
+	// The sample accelerator itself (0xFFD1..0xFFDE): the engine that serves ARAM samples to
+	// the mixer, one per read of its data ports. The format word's low two bits are the sample
+	// size (nibble/byte/word — and the address registers count in those units, which is why the
+	// ucode shifts a byte address by (format&3)-1 before programming the current address); bits
+	// 2..3 pick the decode (ADPCM or PCM, from ARAM or the input register); bits 4..5 scale the
+	// PCM gain. Reading 0xFFD3 returns raw samples; reading 0xFFDD runs the ADPCM/PCM decode
+	// with the coefficient table above. Writing 0xFFD3 stores a 16-bit word to ARAM, accepted
+	// only when the current address carries its write flag in bit 31 — the flag the ucode sets
+	// with `ori ac0.m, #0x8000` before its ARAM write loops. Semantics from Dolphin's
+	// hardware-verified accelerator model, under the approved DSP exception (see gcdsp/doc.go);
+	// reimplemented, not copied. All fields exported for the savestate.
+	AccFormat  uint16 // 0xFFD1: sample format
+	AccStart   uint32 // 0xFFD4/D5: loop start, in sample units (masked to 30 bits)
+	AccEnd     uint32 // 0xFFD6/D7: end, in sample units (masked to 30 bits)
+	AccCur     uint32 // 0xFFD8/D9: current position (bit 31 = raw-write enable, bit 30 masked)
+	AccPred    uint16 // 0xFFDA: ADPCM predictor/scale byte (7 bits)
+	AccYn1     uint16 // 0xFFDB: decode history y[n-1]
+	AccYn2     uint16 // 0xFFDC: decode history y[n-2]; writing it re-arms a stopped accelerator
+	AccGain    uint16 // 0xFFDE: PCM gain
+	AccStopped bool   // a sample read hit the end address; reads return 0 until YN2 is rewritten
 }
 
 // The control/status register bits (the 16-bit register at offset 0x00A). RES is the
@@ -515,6 +536,34 @@ func (d *dsp) hwRead(m *Machine, a uint16) uint16 {
 	if a >= 0xFFA0 && a <= 0xFFAF { // the ADPCM coefficient table, read back
 		return d.Coef[a-0xFFA0]
 	}
+	switch a { // the sample accelerator
+	case 0xFFD1:
+		return d.AccFormat
+	case 0xFFD3: // the raw data port: the next sample, undecoded
+		return d.accReadRaw(m)
+	case 0xFFD4:
+		return uint16(d.AccStart >> 16)
+	case 0xFFD5:
+		return uint16(d.AccStart)
+	case 0xFFD6:
+		return uint16(d.AccEnd >> 16)
+	case 0xFFD7:
+		return uint16(d.AccEnd)
+	case 0xFFD8:
+		return uint16(d.AccCur >> 16)
+	case 0xFFD9:
+		return uint16(d.AccCur)
+	case 0xFFDA:
+		return d.AccPred
+	case 0xFFDB:
+		return d.AccYn1
+	case 0xFFDC:
+		return d.AccYn2
+	case 0xFFDD: // the decoding data port: the next sample, through the ADPCM/PCM decoder
+		return d.accReadSample(m)
+	case 0xFFDE:
+		return d.AccGain
+	}
 	d.Core.Halt("DSP read of unmodelled hardware register 0x%04X at ucode 0x%04X", a, d.Core.PC)
 	return 0
 }
@@ -566,7 +615,202 @@ func (d *dsp) hwWrite(m *Machine, a uint16, v uint16) {
 		d.Coef[a-0xFFA0] = v
 		return
 	}
+	switch a { // the sample accelerator. Start and end mask to 30 bits; the current address
+	// keeps bit 31, the raw-write enable.
+	case 0xFFD1:
+		d.AccFormat = v
+		return
+	case 0xFFD3:
+		d.accWriteRaw(m, v)
+		return
+	case 0xFFD4:
+		d.AccStart = (d.AccStart&0xFFFF | uint32(v)<<16) & 0x3FFFFFFF
+		return
+	case 0xFFD5:
+		d.AccStart = (d.AccStart&0xFFFF0000 | uint32(v)) & 0x3FFFFFFF
+		return
+	case 0xFFD6:
+		d.AccEnd = (d.AccEnd&0xFFFF | uint32(v)<<16) & 0x3FFFFFFF
+		return
+	case 0xFFD7:
+		d.AccEnd = (d.AccEnd&0xFFFF0000 | uint32(v)) & 0x3FFFFFFF
+		return
+	case 0xFFD8:
+		d.AccCur = (d.AccCur&0xFFFF | uint32(v)<<16) & 0xBFFFFFFF
+		return
+	case 0xFFD9:
+		d.AccCur = (d.AccCur&0xFFFF0000 | uint32(v)) & 0xBFFFFFFF
+		return
+	case 0xFFDA:
+		d.AccPred = v & 0x7F
+		return
+	case 0xFFDB:
+		d.AccYn1 = v
+		return
+	case 0xFFDC:
+		d.AccYn2 = v
+		d.AccStopped = false // rewriting the history re-arms a stopped accelerator
+		return
+	case 0xFFDE:
+		d.AccGain = v
+		return
+	}
 	d.Core.Halt("DSP write of unmodelled hardware register 0x%04X = 0x%04X at ucode 0x%04X", a, v, d.Core.PC)
+}
+
+// aramByte reads one byte of auxiliary RAM for the accelerator, bounds-checked the same way the
+// AR DMA is — a run past the end reads zero rather than crashing.
+func (d *dsp) aramByte(m *Machine, addr uint32) uint8 {
+	if int(addr) >= len(m.ARAM) {
+		return 0
+	}
+	return m.ARAM[addr]
+}
+
+// accCurrentSample fetches the sample the accelerator's current address points at, in the width
+// the format's low two bits select — and those bits also fix the unit the address registers
+// count in: nibbles, bytes or 16-bit words. A format with both bits set is not a real width;
+// it halts rather than serve garbage.
+func (d *dsp) accCurrentSample(m *Machine) uint16 {
+	switch d.AccFormat & 3 {
+	case 0: // 4-bit: the address counts nibbles, high nibble of each byte first
+		v := d.aramByte(m, d.AccCur>>1)
+		if d.AccCur&1 != 0 {
+			return uint16(v & 0xF)
+		}
+		return uint16(v >> 4)
+	case 1: // 8-bit: the address counts bytes
+		return uint16(d.aramByte(m, d.AccCur))
+	case 2: // 16-bit: the address counts big-endian words
+		return uint16(d.aramByte(m, d.AccCur*2))<<8 | uint16(d.aramByte(m, d.AccCur*2+1))
+	default:
+		d.Core.Halt("DSP accelerator: invalid sample width in format 0x%04X", d.AccFormat)
+		return 0
+	}
+}
+
+// accReadRaw serves one undecoded sample from the raw data port (0xFFD3) and advances the
+// current address. Reading the sample at the end address wraps the accelerator back to the
+// start — the microcode's ARAM block reads size their loops to stay inside, so the wrap is the
+// contract, not a corner. This is the port the mixing ucode moves whole buffers through.
+func (d *dsp) accReadRaw(m *Machine) uint16 {
+	v := d.accCurrentSample(m)
+	if d.Core.Halted {
+		return 0
+	}
+	d.AccCur++
+	if d.AccCur-1 == d.AccEnd {
+		// Wrap to the start. The overflow exception this raises on hardware lands on a bare
+		// rti in this game's ucode, so it is not modelled.
+		d.AccCur = d.AccStart
+	}
+	d.AccCur &= 0xBFFFFFFF
+	return v
+}
+
+// accWriteRaw stores one 16-bit word to ARAM through the raw data port. The hardware accepts
+// the write only when the current address carries its write flag in bit 31 — the ucode sets it
+// with `ori ac0.m, #0x8000` before a write loop — and the address is then treated as 16-bit
+// units regardless of the format width. Multiplying the flagged address by two drops the flag
+// out of the top bit and lands on the byte address, exactly as the hardware's adder does.
+func (d *dsp) accWriteRaw(m *Machine, v uint16) {
+	if d.AccCur&0x80000000 == 0 {
+		m.logf("DSP accelerator: raw write without the address write flag (cur=0x%08X)", d.AccCur)
+		return
+	}
+	byteAddr := d.AccCur * 2
+	if int(byteAddr)+1 < len(m.ARAM) {
+		m.ARAM[byteAddr] = byte(v >> 8)
+		m.ARAM[byteAddr+1] = byte(v)
+	}
+	d.AccCur++
+}
+
+// accReadSample serves one decoded sample from the decoding data port (0xFFDD): ADPCM expansion
+// or PCM scaling, both filtered through the predictor history. Reaching the end address stops
+// the accelerator — reads return zero until the driver rewrites YN2 — which is how a one-shot
+// voice goes quiet instead of looping.
+func (d *dsp) accReadSample(m *Machine) uint16 {
+	if d.AccStopped {
+		return 0
+	}
+	decode := (d.AccFormat >> 2) & 3
+	if decode == 1 || decode == 3 {
+		// The MMIO-input modes decode a sample the CPU wrote to the input register rather than
+		// one fetched from ARAM; nothing has written that register yet, so the path waits for
+		// the first user rather than inventing one.
+		d.Core.Halt("DSP accelerator: MMIO-input PCM decode (format 0x%04X) not yet implemented", d.AccFormat)
+		return 0
+	}
+	raw := int32(d.accCurrentSample(m))
+	if d.Core.Halted {
+		return 0
+	}
+	coefIdx := (d.AccPred >> 4) & 7
+	c1 := int32(int16(d.Coef[coefIdx*2]))
+	c2 := int32(int16(d.Coef[coefIdx*2+1]))
+	yn1 := int32(int16(d.AccYn1))
+	yn2 := int32(int16(d.AccYn2))
+
+	var val uint16
+	step := uint32(2)
+	if decode == 0 { // ADPCM: 4-bit deltas against the predictor pair, scaled by the frame header
+		raw &= 0xF
+		if raw >= 8 {
+			raw -= 16
+		}
+		scale := int32(1) << (d.AccPred & 0xF)
+		v32 := scale*raw + ((0x400 + c1*yn1 + c2*yn2) >> 11)
+		if v32 > 0x7FFF {
+			v32 = 0x7FFF
+		} else if v32 < -0x7FFF {
+			v32 = -0x7FFF
+		}
+		val = uint16(int16(v32))
+		d.AccYn2, d.AccYn1 = d.AccYn1, val
+		d.AccCur++
+		switch {
+		// A frame-aligned end is handled apart from the plain wrap: the predictor byte is not
+		// reloaded and the restart lands just past the header nibble.
+		case d.AccEnd&0xF == 0x0 && d.AccCur == d.AccEnd:
+			d.AccCur = d.AccStart + 1
+		case d.AccEnd&0xF == 0x1 && d.AccCur == d.AccEnd-1:
+			d.AccCur = d.AccStart
+		case d.AccCur&15 == 0:
+			// Every 16 nibbles the next frame's predictor/scale byte is consumed in-line.
+			d.AccPred = uint16(d.aramByte(m, (d.AccCur&^15)>>1)) & 0x7F
+			d.AccCur += 2
+			step += 2
+		}
+	} else { // PCM: the sample scaled by the gain, plus the filtered history
+		var gainShift uint
+		switch (d.AccFormat >> 4) & 3 {
+		case 0:
+			gainShift = 11 // gain counts in 1/2048ths
+		case 1:
+			gainShift = 0
+		case 2:
+			gainShift = 16
+		default:
+			d.Core.Halt("DSP accelerator: invalid gain scale in format 0x%04X", d.AccFormat)
+			return 0
+		}
+		v32 := (int32(int16(d.AccGain))*int32(int16(raw)))>>gainShift +
+			(c1*yn1)>>gainShift + (c2*yn2)>>gainShift
+		val = uint16(int16(v32))
+		d.AccYn2, d.AccYn1 = d.AccYn1, val
+		d.AccCur++
+	}
+
+	if d.AccCur == d.AccEnd+step-1 {
+		// The voice ran off its end: back to the start and stop serving samples until the
+		// driver rewrites the history registers. The overflow exception lands on a bare rti in
+		// this ucode, so only the stop is modelled.
+		d.AccCur = d.AccStart
+		d.AccStopped = true
+	}
+	d.AccCur &= 0xBFFFFFFF
+	return val
 }
 
 // runMemDMA performs the DSP's memory DMA: it moves lenBytes between main memory (a big-endian

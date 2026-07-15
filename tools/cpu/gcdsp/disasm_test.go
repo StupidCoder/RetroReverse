@@ -39,7 +39,8 @@ func TestDecode(t *testing.T) {
 		{[]uint16{0x1D1E}, "mrr    wr0, ac0.m", 1},
 		{[]uint16{0x00DC, 0x0343}, "lr     ac0.l, @0x0343", 2},
 		{[]uint16{0x00FE, 0x0343}, "sr     @0x0343, ac0.m", 2},
-		{[]uint16{0x16FC, 0x8888}, "si     @0xFC, #0x8888", 2},
+		{[]uint16{0x16FC, 0x8888}, "si     @0xFFFC, #0x8888", 2},
+		{[]uint16{0x1610, 0x1234}, "si     @0x0010, #0x1234", 2},
 		{[]uint16{0x005F}, "loop   ac1.m", 1},
 		// The register-indirect load/store family: bit 9 = store, bits 8..7 = post-modify.
 		{[]uint16{0x1B1E}, "srri   @ar0, ac0.m", 1}, // store, post-increment (the DRAM-clear idiom)
@@ -48,8 +49,8 @@ func TestDecode(t *testing.T) {
 		{[]uint16{0x193E}, "lrri   ac0.m, @ar1", 1}, // load, post-increment
 		{[]uint16{0x199E}, "lrrn   ac0.m, @ar0", 1}, // load, post-add index
 		{[]uint16{0x181E}, "lrr    ac0.m, @ar0", 1}, // load, no modify
-		{[]uint16{0x26FF}, "lrs    ac0.m, @0xFFFF", 1},
-		{[]uint16{0x2800}, "srs    @0xFF00, ax0.l", 1},
+		{[]uint16{0x26FF}, "lrs    ac0.m, @CR:0xFF", 1},
+		{[]uint16{0x2800}, "srs    @CR:0x00, ax0.l", 1},
 		{[]uint16{0x0200, 0x0062}, "addi   ac0, #0x0062", 2},
 		{[]uint16{0x0240, 0x007E}, "andi   ac0.m, #0x007E", 2},
 		{[]uint16{0x170F}, "jmpr   ar0", 1},

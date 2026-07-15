@@ -96,14 +96,24 @@ func (c *CPU) execute(pc, op uint16) (span uint16) {
 	case op&0xFFE0 == 0x00E0: // sr @addr, reg
 		c.dataWrite(c.imem(pc+1), c.getReg(op&0x1F))
 		return 2
-	case op&0xFF00 == 0x1600: // si @M, #imm  — store immediate to 0xFF00|M
-		c.dataWrite(0xFF00|(op&0xFF), c.imem(pc+1))
+	case op&0xFF00 == 0x1600: // si @M, #imm — the 8-bit address sign-extends: page 0x00 or 0xFF
+		addr := op & 0xFF
+		if addr >= 0x80 {
+			addr |= 0xFF00
+		}
+		c.dataWrite(addr, c.imem(pc+1))
 		return 2
-	case op&0xF800 == 0x2000: // lrs reg(0x18+r), @0xFF00|M
-		c.setRegExtend(0x18+((op>>8)&7), c.dataRead(0xFF00|(op&0xFF)))
+	// lrs and srs page their 8-bit short address with the CONFIG register: the effective
+	// address is (CR & 0xFF) << 8 | M. The ucode switches the page deliberately — 0x00FF for a
+	// run of hardware-register accesses, 0x0004 for its own state block in DRAM page 4 — so a
+	// core that hardwires the hardware page reads state words as registers the moment the mixer
+	// touches its bookkeeping (the first symptom: a phantom read of "register" 0xFF01 that is
+	// really DRAM 0x0401).
+	case op&0xF800 == 0x2000: // lrs reg(0x18+r), @(CR<<8)|M
+		c.setRegExtend(0x18+((op>>8)&7), c.dataRead((c.Reg[regCONFIG]&0xFF)<<8|(op&0xFF)))
 		return 1
-	case op&0xF800 == 0x2800: // srs @0xFF00|M, reg(0x18+r)
-		c.dataWrite(0xFF00|(op&0xFF), c.getReg(0x18+((op>>8)&7)))
+	case op&0xF800 == 0x2800: // srs @(CR<<8)|M, reg(0x18+r)
+		c.dataWrite((c.Reg[regCONFIG]&0xFF)<<8|(op&0xFF), c.getReg(0x18+((op>>8)&7)))
 		return 1
 
 	// --- register-indirect loads and stores (via an address register) --------------------
@@ -394,6 +404,8 @@ func (c *CPU) execArith(pc, op uint16) uint16 {
 		c.setFlag(srOverflow, false)
 	case op&0xF700 == 0xB100: // tst acR (bit 11) — flags from the accumulator vs zero
 		c.setTestFlags(int((op >> 11) & 1))
+	case op&0xFF00 == 0x8200: // cmp — compare ac0 with ac1, flags only
+		c.subFlags(c.ac(0), c.ac(1))
 	case op&0xE700 == 0xC100: // cmpaxh acS, axR.h (s=bit11, r=bit12 — NOT the devkitPro table's
 		// assignment, which has these two swapped) — compare the accumulator with an ax high
 		// half taken into the middle word, the same alignment addr/cmpis use

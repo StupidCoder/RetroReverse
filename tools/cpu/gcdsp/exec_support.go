@@ -222,7 +222,13 @@ func (c *CPU) pop(reg uint16) uint16 {
 // startLoop begins a repeat of the instructions from start to end (inclusive), count times.
 func (c *CPU) startLoop(start, end, count uint16) {
 	if count == 0 {
-		c.Halt("DSP loop with count 0 at 0x%04X — not yet modelled", c.PC)
+		// A zero count runs the body zero times: execution resumes past the loop's last
+		// instruction, with no frame pushed. The mixer's copy helpers reach this when a
+		// buffer's tail run is empty (a `loop` register holding length-2 with a two-word
+		// buffer).
+		_, words := Disasm(func(a uint16) uint16 { return c.imem(a) }, end)
+		c.PC = end + words
+		c.Branched = true
 		return
 	}
 	c.Loops = append(c.Loops, LoopFrame{Start: start, End: end, Count: count})
