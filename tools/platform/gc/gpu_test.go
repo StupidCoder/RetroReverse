@@ -3,6 +3,8 @@ package gc
 import (
 	"math"
 	"testing"
+
+	"retroreverse.com/tools/cpu/gekko"
 )
 
 // The transform and raster are validated against the vertex format and coordinate space the
@@ -90,7 +92,9 @@ func encodeRGB565Tiled(w, h int, at func(x, y int) (r, g, b uint8)) []byte {
 // testMachine is a bare machine with just enough memory for the graphics unit to read textures
 // out of — no disc, no CPU stepping.
 func testMachine() *Machine {
-	return &Machine{RAM: make([]byte, 2*1024*1024), logSeen: map[string]bool{}}
+	m := &Machine{RAM: make([]byte, 2*1024*1024), logSeen: map[string]bool{}}
+	m.CPU = gekko.NewCPU(m)
+	return m
 }
 
 // bindTexture programs texture map 0's registers for a w x h RGB565 texture at physical base.
@@ -281,4 +285,102 @@ func absU8(a, b uint8) int {
 		return int(a - b)
 	}
 	return int(b - a)
+}
+
+// TestCopyTextureRoundTrip is the stage-5 gate for the pixel-engine copy-to-texture: the EFB is
+// filled with a gradient whose four channels all differ, copied out in each destination format
+// the encoder carries, then read back through the TX unit's decoders — which were themselves
+// validated against an independent encoder in the stage-4 gate — and compared against the
+// format's quantisation computed here from the channel values alone. A wrong tile geometry, a
+// swapped channel, or a misplaced stride would each break a different case.
+func TestCopyTextureRoundTrip(t *testing.T) {
+	const w, h = 32, 24
+	base := uint32(0x8000)
+	// Source pattern: all channels differ, and alpha sweeps 0..255 so both RGB5A3 arms run.
+	src := func(x, y int) (r, g, b, a uint8) {
+		return uint8(x * 8), uint8(y * 10), uint8((x + y) * 4), uint8(x * y * 255 / (w * h))
+	}
+
+	cases := []struct {
+		name    string
+		copyFmt int // the GXTexFmt low nibble as GXSetTexCopyDst encodes it
+		texFmt  int // the TX format the readback binds (channel copies read back as I8)
+		stride  int // tiles-per-row x bytes-per-tile for a packed w-wide destination
+		want    func(r, g, b, a uint8) (uint8, uint8, uint8, uint8)
+	}{
+		{"R4", 0x0, texI4, (w / 8) * 32, func(r, g, b, a uint8) (uint8, uint8, uint8, uint8) {
+			i := expand4(uint16(r >> 4))
+			return i, i, i, i
+		}},
+		{"RA4", 0x2, texIA4, (w / 8) * 32, func(r, g, b, a uint8) (uint8, uint8, uint8, uint8) {
+			i := expand4(uint16(r >> 4))
+			return i, i, i, expand4(uint16(a >> 4))
+		}},
+		{"RA8", 0x3, texIA8, (w / 4) * 32, func(r, g, b, a uint8) (uint8, uint8, uint8, uint8) {
+			return r, r, r, a
+		}},
+		{"RGB565", 0x4, texRGB565, (w / 4) * 32, func(r, g, b, a uint8) (uint8, uint8, uint8, uint8) {
+			return expand5(uint16(r >> 3)), expand6(uint16(g >> 2)), expand5(uint16(b >> 3)), 255
+		}},
+		{"RGB5A3", 0x5, texRGB5A3, (w / 4) * 32, func(r, g, b, a uint8) (uint8, uint8, uint8, uint8) {
+			if a >= 0xE0 {
+				return expand5(uint16(r >> 3)), expand5(uint16(g >> 3)), expand5(uint16(b >> 3)), 255
+			}
+			return expand4(uint16(r >> 4)), expand4(uint16(g >> 4)), expand4(uint16(b >> 4)), expand3(uint16(a >> 5))
+		}},
+		{"RGBA8", 0x6, texRGBA8, (w / 4) * 64, func(r, g, b, a uint8) (uint8, uint8, uint8, uint8) {
+			return r, g, b, a
+		}},
+		{"A8", 0x7, texI8, (w / 8) * 32, func(r, g, b, a uint8) (uint8, uint8, uint8, uint8) {
+			return a, a, a, a
+		}},
+		{"R8", 0x8, texI8, (w / 8) * 32, func(r, g, b, a uint8) (uint8, uint8, uint8, uint8) {
+			return r, r, r, r
+		}},
+		{"G8", 0x9, texI8, (w / 8) * 32, func(r, g, b, a uint8) (uint8, uint8, uint8, uint8) {
+			return g, g, g, g
+		}},
+		{"B8", 0xA, texI8, (w / 8) * 32, func(r, g, b, a uint8) (uint8, uint8, uint8, uint8) {
+			return b, b, b, b
+		}},
+	}
+
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			m := testMachine()
+			g := &m.gpu
+			g.ensureEFB()
+			for y := 0; y < h; y++ {
+				for x := 0; x < w; x++ {
+					r, gg, b, a := src(x, y)
+					g.EFB[y*efbWidth+x] = packRGBA(r, gg, b, a)
+				}
+			}
+			// Program the copy: source rect at (0,0), dest base and stride, then trigger with
+			// the control word GXSetTexCopyDst/GXCopyTex compose (bit 16 always set, format
+			// bit 3 at bit 3, format low bits at 4..6, bit 14 clear = to texture).
+			g.BP[0x49] = 0
+			g.BP[0x4A] = uint32(w-1) | uint32(h-1)<<10
+			g.BP[0x4B] = base >> 5
+			g.BP[0x4D] = uint32(c.stride) >> 5
+			params := uint32(c.copyFmt&7)<<4 | uint32(c.copyFmt>>3)<<3 | 1<<16 | 3
+			g.copyDisplay(m, params)
+			if m.CPU.Halted {
+				t.Fatalf("copy halted: format 0x%X", c.copyFmt)
+			}
+
+			tx := texState{format: c.texFmt, width: w, height: h, base: base}
+			for y := 0; y < h; y++ {
+				for x := 0; x < w; x++ {
+					r, gg, b, a := src(x, y)
+					er, eg, eb, ea := c.want(r, gg, b, a)
+					gr, ggg, gb, ga := g.decodeTexel(m, tx, x, y)
+					if gr != er || ggg != eg || gb != eb || ga != ea {
+						t.Fatalf("texel (%d,%d) = (%d,%d,%d,%d), want (%d,%d,%d,%d)",
+							x, y, gr, ggg, gb, ga, er, eg, eb, ea)
+					}
+				}
+			}
+		})
+	}
 }
