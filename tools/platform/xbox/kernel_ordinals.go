@@ -42,6 +42,8 @@ var verifiedNames = map[uint16]string{
 	165: "MmAllocateContiguousMemory",      // f(bytes) -> physical base (Mm block drifts +5)
 	166: "MmAllocateContiguousMemoryEx",    // f(bytes, lowAddr, highAddr, align, protect) -> base
 	168: "MmClaimGpuInstanceMemory",        // f(bytes, &padding) -> end of retained GPU block
+	173: "MmGetPhysicalAddress",            // f(va) -> pa (stored next to the va by DSOUND)
+	180: "MmQueryAllocationSize",           // f(block) -> SIZE_T (result summed into a global)
 	182: "MmSetAddressProtect",             // f(base, bytes, newProtect); void (no-op here)
 	184: "NtAllocateVirtualMemory",         // f(base**, zerobits, size*, type, protect)
 	199: "NtFreeVirtualMemory",             // f(base**, size*, freeType) (Nt block drifts +5)
@@ -50,14 +52,19 @@ var verifiedNames = map[uint16]string{
 	2:   "AvSendTVEncoderOption",           // f(regbase, option, param, result*) -> void
 	15:  "ExAllocatePoolWithTag",           // f(bytes, tag) -> PVOID (2-arg; 3rd push is a save)
 	23:  "ExQueryPoolBlockSize",            // f(block) -> SIZE_T
-	160: "KfRaiseIrql",                     // fastcall(CL=newIrql) -> oldIrql (was mis-guessed as Mm)
-	161: "KfLowerIrql",                     // fastcall(CL=newIrql) -> void
+	129: "KeRaiseIrqlToDpcLevel",           // f() -> oldIrql in AL (paired w/ KfLowerIrql(CL))
+	151: "KeStallExecutionProcessor",       // f(microseconds); 1 arg, spun in the APU bring-up's
+	// timeout loop (call sites 0x1DE566 PUSH 1 / 0x1DE58B PUSH 0x29B, result ignored) —
+	// the Ke block's +5 drift (107/113/149/160/161 all +5) lands table-146 here.
+	160: "KfRaiseIrql", // fastcall(CL=newIrql) -> oldIrql (was mis-guessed as Mm)
+	161: "KfLowerIrql", // fastcall(CL=newIrql) -> void
 	193: "NtCreateSemaphore",               // f(handle*, objattr, initial, max)
 	222: "NtReleaseSemaphore",              // f(handle, releaseCount, prev*) -> NTSTATUS
 	234: "NtWaitForSingleObjectEx",         // f(handle, waitMode, alertable, timeout*) -> NTSTATUS
 	187: "NtClose",                      // f(handle) -> NTSTATUS (Nt block drifts +5)
 	255: "PsCreateSystemThreadEx",       // the CRT's 10-arg main-thread spawn
 	277: "RtlEnterCriticalSection",      // census-anchored
+	289: "RtlInitAnsiString",            // f(ANSI_STRING*, PCSZ); MU-probe call site 0x23F6D2
 	291: "RtlInitializeCriticalSection", // census-anchored
 	294: "RtlLeaveCriticalSection",      // census-anchored
 }

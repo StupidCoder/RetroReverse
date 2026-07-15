@@ -157,6 +157,36 @@ func kernelObjectHandler(ord uint16) func(*Machine) int {
 			return 2
 		}
 
+	case 173: // MmGetPhysicalAddress(BaseAddress) -> physical address. Verified from its
+		// live call site (0x1DE100): one argument — the pointer the preceding contiguous
+		// allocation returned — with the result stored alongside that pointer
+		// (MOV [EDI],va; MOV [EDI+4],result); table-168 + the Mm block's +5 drift = 173.
+		// The DSOUND library programs the APU's DMA with physical addresses. Our address
+		// space folds the RAM windows onto one backing, so the physical address is the
+		// translate() fold; a non-RAM argument would be a caller bug and halts.
+		return func(m *Machine) int {
+			va := m.arg(0)
+			phys, mmio, ok := m.translate(va)
+			if !ok || mmio {
+				m.CPU.Halt("MmGetPhysicalAddress of non-RAM address %08X (from %08X)", va, m.retAddr())
+				return 1
+			}
+			m.setRet(phys)
+			return 1
+		}
+
+	case 180: // MmQueryAllocationSize(BaseAddress) -> SIZE_T. Verified from its live call
+		// site (0x1D6ADF): the single argument is the pointer the immediately preceding
+		// MmAllocateContiguousMemoryEx (slot 0x248334, ordinal 166) returned, null-checked,
+		// and the result is accumulated into a global allocated-bytes counter
+		// (ADD [[0x1E0E3C]], EAX) — the Mm twin of the ExAllocatePoolWithTag /
+		// ExQueryPoolBlockSize pair; table-175 + the Mm block's +5 drift = 180. Return the
+		// size recorded at allocation (allocPoolAligned), 0 for an untracked block.
+		return func(m *Machine) int {
+			m.setRet(m.poolSizes[m.arg(0)])
+			return 1
+		}
+
 	case 182: // MmSetAddressProtect(BaseAddress, NumberOfBytes, NewProtect) — verified from
 		// its one live call site: a 3-arg tail-call wrapper (JMP [slot]) that guards on
 		// NumberOfBytes != 0, invoked here as (0x0128D000, 0x00280000, 0x404) right after

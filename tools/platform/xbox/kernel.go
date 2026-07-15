@@ -168,6 +168,9 @@ func (m *Machine) allocPoolAligned(size, align uint32) uint32 {
 		return 0
 	}
 	m.poolNext = base
+	// Record the block's size for the two size queries the title accounts memory
+	// with (ExQueryPoolBlockSize on pool blocks, MmQueryAllocationSize on Mm blocks).
+	m.poolSizes[base] = size
 	return base
 }
 
@@ -224,13 +227,30 @@ func kernelHandler(ord uint16) func(*Machine) int {
 		// manages, NOT an argument — popping it as one (argc=3) desynced the stack and
 		// returned into the tag bytes. Record the block's size for the size query.
 		return func(m *Machine) int {
-			size := m.arg(0)
-			addr := m.allocPool(size)
-			if addr != 0 {
-				m.poolSizes[addr] = align32(size, 16)
-			}
-			m.setRet(addr)
+			m.setRet(m.allocPool(m.arg(0))) // allocPoolAligned records the size
 			return 2
+		}
+	case 151: // KeStallExecutionProcessor(Microseconds) -> void
+		// Verified from the APU bring-up's timeout loop (0x1DE566: PUSH 1 / 0x1DE58B:
+		// PUSH 0x29B, one stdcall arg, result ignored); the Ke block's +5 ordinal drift
+		// corroborates. A stall is a busy-wait, not a sleep — no yield, just advance the
+		// synthetic clock by the stall's worth so the live counters (KeTickCount) move.
+		return func(m *Machine) int {
+			us := m.arg(0)
+			m.tick += uint64(us) * instrsPerMs / 1000
+			m.setRet(0)
+			return 1
+		}
+	case 129: // KeRaiseIrqlToDpcLevel() -> OldIrql. Verified from its call site (0x241AA4):
+		// no argument pushes, the result consumed from AL (MOV CL,AL) and later restored
+		// through KfLowerIrql(CL) at slot 0x248300 (ordinal 161) — the canonical raise/lower
+		// pair with the raise fixed at DISPATCH_LEVEL (2); the Ke block's +5 drift lands
+		// table-124 (KeRaiseIrqlToDpcLevel) here.
+		return func(m *Machine) int {
+			old := m.Read(kpcrAddr + kpcrIrql)
+			m.Write(kpcrAddr+kpcrIrql, 2) // DISPATCH_LEVEL
+			m.setRet(uint32(old))
+			return 0
 		}
 	case 160: // KfRaiseIrql(NewIrql) -> OldIrql (fastcall: NewIrql in CL, no stack args)
 		// From the call site: it reads the current IRQL from KPCR+0x24, and when below
@@ -290,6 +310,22 @@ func kernelHandler(ord uint16) func(*Machine) int {
 		// not run shutdown, so recording the registration is unnecessary — accept it.
 		return func(m *Machine) int { m.setRet(0); return 2 }
 
+	case 289: // RtlInitAnsiString(ANSI_STRING*, PCSZ) — census-anchored Rtl block (277/291/294),
+		// corroborated by its call site (0x23F6D2): two args, a stack local and the literal
+		// "\Device\MU_0", with the caller reading the Buffer field back out of the struct
+		// (+4) to patch the unit digit — XAPI's memory-unit probe loop. Fill the
+		// { Length, MaximumLength, Buffer } header exactly as the kernel would.
+		return func(m *Machine) int {
+			dst, src := m.arg(0), m.arg(1)
+			if dst != 0 {
+				n := uint32(len(m.cstr(src)))
+				m.write16(dst+0, uint16(n))
+				m.write16(dst+2, uint16(n+1))
+				m.write32(dst+4, src)
+			}
+			m.setRet(0)
+			return 2
+		}
 	case 255: // PsCreateSystemThreadEx — verified from the CRT's 10-arg call pattern
 		// (ThreadHandle, ThreadExtSize, KernelStackSize, TlsDataSize, ThreadId,
 		//  StartContext1, StartContext2, CreateSuspended, DebuggerThread, StartRoutine)

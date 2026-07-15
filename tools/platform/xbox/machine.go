@@ -114,6 +114,10 @@ type Machine struct {
 	push   pusherState
 	pgraph *pgraph
 
+	// MCPX audio MMIO (apu.go): the APU's and the AC'97 codec's latch-model apertures.
+	apu  mmioLatch
+	ac97 mmioLatch
+
 	pciAddr uint32 // last value written to the PCI config-address port 0xCF8 (ports.go)
 
 	// PCI configuration space, byte-addressed by (bus<<24 | slot<<16 | register). The
@@ -155,6 +159,8 @@ func NewMachine(xbe *XBE, disc *Image) (*Machine, error) {
 		dataDeref:   map[uint16]bool{},
 	}
 	m.nv.reg = map[uint32]uint32{}
+	m.apu = newMMIOLatch("APU")
+	m.ac97 = newMMIOLatch("AC97")
 	m.pciSpace = map[uint32]byte{}
 	m.pgraph = newPgraph(m)
 
@@ -293,6 +299,12 @@ func (m *Machine) Read(a uint32) byte {
 		}
 		return 0
 	}
+	if a >= apuBase && a < apuTop {
+		return m.apuRead(a - apuBase)
+	}
+	if a >= ac97Base && a < ac97Top {
+		return m.ac97Read(a - ac97Base)
+	}
 	phys, mmio, ok := m.translate(a)
 	if !ok {
 		m.fault("read", a)
@@ -311,6 +323,14 @@ func (m *Machine) Read(a uint32) byte {
 func (m *Machine) Write(a uint32, v byte) {
 	if a >= trapBase && a < trapTop {
 		return // a write through a data-export slot: discard (nothing reads it back)
+	}
+	if a >= apuBase && a < apuTop {
+		m.apuWrite(a-apuBase, v)
+		return
+	}
+	if a >= ac97Base && a < ac97Top {
+		m.ac97Write(a-ac97Base, v)
+		return
 	}
 	phys, mmio, ok := m.translate(a)
 	if !ok {

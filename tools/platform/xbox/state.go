@@ -66,8 +66,14 @@ type XboxState struct {
 	NVKicked  bool
 	FirstPush bool
 
+	// MCPX audio latch apertures (apu.go). The log-once bookkeeping is not state.
+	APUReg  map[uint32]uint32
+	AC97Reg map[uint32]uint32
+
 	PCIAddr  uint32
 	PCISpace map[uint32]byte
+
+	PoolSizes map[uint32]uint32 // ExAllocatePoolWithTag block -> size
 
 	// Kernel HLE bookkeeping
 	OrdinalHits map[uint16]int
@@ -153,7 +159,10 @@ func (m *Machine) SaveState() *XboxState {
 		PoolNext: m.poolNext, HeapNext: m.heapNext, HeapTop: m.heapTop,
 		NextObjAddr: m.nextObjAddr, KbandNext: m.kbandNext, Tick: m.tick,
 		NVReg: copyU32Map(m.nv.reg), NVPut: m.nv.dmaPut, NVGet: m.nv.dmaGet, NVKicked: m.nv.kicked,
+		APUReg:    copyU32Map(m.apu.reg),
+		AC97Reg:   copyU32Map(m.ac97.reg),
 		FirstPush: m.firstPush, PCIAddr: m.pciAddr, PCISpace: copyByteMap(m.pciSpace),
+		PoolSizes: copyU32Map(m.poolSizes),
 		OrdinalHits: copyOrdMap(m.OrdinalHits),
 		NextTID:     m.nextTID, RRCursor: m.rrCursor, QuantumLeft: m.quantumLeft,
 		CurThread: curIdx,
@@ -201,8 +210,11 @@ func (m *Machine) LoadState(st *XboxState) error {
 	m.nextObjAddr, m.kbandNext, m.tick = st.NextObjAddr, st.KbandNext, st.Tick
 	m.nv.reg = copyU32Map(st.NVReg)
 	m.nv.dmaPut, m.nv.dmaGet, m.nv.kicked = st.NVPut, st.NVGet, st.NVKicked
+	m.apu.reg = copyU32Map(st.APUReg)
+	m.ac97.reg = copyU32Map(st.AC97Reg)
 	m.firstPush, m.pciAddr = st.FirstPush, st.PCIAddr
 	m.pciSpace = copyByteMap(st.PCISpace)
+	m.poolSizes = copyU32Map(st.PoolSizes)
 	m.Halted, m.HaltReason = st.Halted, st.HaltReason
 	m.OrdinalHits = copyOrdMap(st.OrdinalHits)
 	m.nextTID, m.rrCursor, m.quantumLeft = st.NextTID, st.RRCursor, st.QuantumLeft
