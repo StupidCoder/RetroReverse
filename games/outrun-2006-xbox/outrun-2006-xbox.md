@@ -31,6 +31,11 @@ roadmap.)
   memory model, the function/data-export split, the empirical way each `xboxkrnl` ordinal is
   identified from its live call site, the SSE core the boot demands, and the scheduler and
   savestate. *(this document)*
+* **Part III** — the **NV2A push buffer** (Phase C, in progress): the corrected PFIFO register map,
+  the DMA pusher that decodes the command stream and dispatches methods to the graphics engine, the
+  register-model corrections (write-1-to-clear interrupts, FIFO-empty status) and CPU opcodes
+  (SSE2/MMX) that carry the title through Direct3D device init, and the 128 Kelvin methods it
+  submits. *(this document)*
 
 ---
 
@@ -307,13 +312,74 @@ call, do not guess the name*:
 
 The `Mm`/`Nt` blocks drift a uniform **+5** and the `Hal` block **+2** off the reconstructed table;
 the `Ke` block does not drift. Each binding is anchored to a verified neighbour and to the argument
-shapes at its live site, never to the table alone. The next step is **Phase C — the NV2A LLE GPU**
-(`tools/platform/xbox/nv2a*.go`), which parses that push buffer and renders the frame.
+shapes at its live site, never to the table alone.
+
+## Part III — the NV2A push buffer (Phase C, in progress)
+
+The Phase-B "first push" was a fiction. The stub had labelled PFIFO register `0x3220` as
+`DMA_PUT`, but `0x3220` is **`CACHE1_DMA_PUSH`** — the pusher *enable* bit. So the title writing
+`1` to enable the DMA pusher looked like a push-buffer submission (the reported `DMA_PUT=1 at PC
+0x1B5CAB` was that enable write). Corrected against the NV2A register map: the real `DMA_PUT` is
+`0x3240`, `DMA_GET` `0x3244`. The **genuine** first kick is a write of `PUT = 0x0128D000` through
+the USER-area channel alias `0xFD800040` (`MOV [ECX+0x40],EDX` at PC `0x1AE668`). The channel's DMA
+object (PRAMIN `0x11C0`) has base 0 and a ~128 MB limit, so `GET`/`PUT` are plain physical
+addresses; physical address 0 holds `0x0128D001`, a **JUMP to 0x0128D000** — the first kick is a
+*ring-priming jump* that submits no work and points the pusher at the push-buffer base. Real
+commands arrive in later kicks.
+
+The **PFIFO DMA pusher** (`nv2a_pfifo.go`, the analogue of the PICA200 command processor) walks the
+stream from `GET` to `PUT`, decoding NV2A command headers — increasing methods
+(`word & 0xE0030003 == 0`), non-increasing (`== 0x40000000`), old/new jumps, call, and return — and
+dispatches each `(subchannel, method, argument)` to the graphics engine `PGRAPH` (`nv2a_pgraph.go`),
+resolving the subchannel's object class through **RAMHT** (`nv2a_ramht.go`). It is driven
+synchronously by the `DMA_PUT` write, so `GET` catches up to `PUT` at once and a title polling the
+FIFO never sees it full. An unknown command halts loudly.
+
+Reaching the title's first real submission from the kick took four register-model corrections, each
+the *idle/empty/no-pending truth* of a synchronous model rather than a guessed value:
+
+- The `DMA_PUT` write is a 32-bit store, delivered a byte at a time. Kicking the pusher on **each
+  byte** ran it with a half-written pointer (`PUT = 0x0000D000`) that jumped off into the stack; the
+  pusher now runs only once the aligned dword's top byte lands.
+- The interrupt-status registers (`PMC`/`PFIFO`/`PGRAPH`/`PCRTC_INTR`) are **write-1-to-clear**. The
+  driver acks by writing `0xFFFFFFFF`; storing that made `PGRAPH_INTR` read perpetually pending, and
+  its ISR recursed until the stack overflowed *into the Direct3D device object*, corrupting the
+  register-base pointer it held. They read **0** — nothing is ever pending, because the engine
+  raises nothing.
+- `CACHE1_STATUS` (`0x3214`) and `RUNOUT_STATUS` (`0x2400`) report the **`LOW_MARK` (empty)** bit:
+  the synchronous pusher has always drained, and the XDK's post-kick "wait for FIFO empty" loop
+  needs it.
+- The `PFB` flush register (`0x100410` bit 16) **self-clears** — an instantaneous flush.
+
+The x86 core gained the opcodes the Direct3D vertex/matrix path and the XDK fast memory copy use:
+`INVD`/`WBINVD`, the `0F AE` group (`LFENCE`/`MFENCE`/`SFENCE`, `LDMXCSR`/`STMXCSR` with a real
+`MXCSR`, `CLFLUSH`), the `PREFETCH`/long-`NOP` group, `SHUFPS`/`SHUFPD`, `MOVNTPS`, `MOVDQA`/`MOVDQU`,
+and an **MMX register file** with `MOVQ`/`EMMS`. Several more kernel ordinals were pinned from their
+call sites: `AvSendTVEncoderOption` (2), `NtFreeVirtualMemory` (199), `NtCreateSemaphore` (193),
+`NtReleaseSemaphore` (222), `NtWaitForSingleObjectEx` (234), `ExAllocatePoolWithTag` (15, the
+2-argument form), `ExQueryPoolBlockSize` (23), and `KfRaiseIrql`/`KfLowerIrql` (160/161).
+
+**Result:** `bootoracle -gpu` runs **283 million instructions** of the title's own code, and its
+Direct3D-8 runtime submits **128 methods across 5 objects** — validated as real NV2A: class
+**`0x0097` (NV20_KELVIN_PRIMITIVE / 3D)** alongside the M2MF (`0x39`) and 2D (`0x62`) helper classes;
+DMA-context bindings at Kelvin methods `0x180`–`0x1A8`; and identity 4×4 transform matrices at
+`0x840`/`0x880`/`0x8C0` (the `0x3F800000 = 1.0` diagonal). These are the device-init pipeline state,
+not geometry — no `BEGIN`/`END` or `DrawArrays` yet. The title then goes CPU-bound loading and
+initialising resources, and halts at a **new device region: an out-of-range read at `0xFE801100`,
+the MCPX APU (audio) MMIO at `0xFE800000`**, entirely separate from the NV2A. Past the APU
+bring-up lies the render loop that submits geometry, and then the Kelvin pipeline itself
+(`nv2a_kelvin.go` is a latch-only stub today): vertex-program interpreter, register combiners,
+swizzled texture sampling, banded rasteriser → PNG.
 
 ### Tooling
 
 - `tools/platform/xbox/{machine,nv2a,kernel,kernel_ordinals,kernel_objects,kernel_data,kernel_file,thread,sched,state,ports,run}.go` — the machine and its HLE.
+- `tools/platform/xbox/{nv2a_pfifo,nv2a_pgraph,nv2a_ramht,nv2a_kelvin}.go` — the Phase-C GPU: the
+  PFIFO DMA pusher, the PGRAPH method dispatch + survey, RAMHT handle→class resolution, and the
+  Kelvin (3D) object (a latch-only stub pending the pipeline).
 - `games/outrun-2006-xbox/extract/cmd/bootoracle` — the boot driver, standard oracle flags
-  (`-image -steps -trace -stack -ordinals -dump -savestate -loadstate -v`). `-stack` on a halt
-  disassembles the call site so the next ordinal's signature reads straight off the pushes.
-- `tools/cpu/x86/sse.go` — the SSE/SSE2 execution subset (the Xbox-only CPU addition).
+  (`-image -steps -trace -stack -ordinals -dump -savestate -loadstate -v`), plus `-gpu` (run the
+  NV2A pusher on each kick, do not stop at the first push) and `-survey` (record and print the
+  PGRAPH method surface). `-stack` on a halt disassembles the call site so the next ordinal's
+  signature reads straight off the pushes. `RR_NV_TRACE=1` traces every NV2A MMIO access.
+- `tools/cpu/x86/sse.go` — the SSE/SSE2 + MMX execution subset (the Xbox-only CPU addition).
