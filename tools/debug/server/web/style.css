@@ -258,6 +258,11 @@ main.no-side { grid-template-columns: minmax(0, 1fr); }
 
 #canvas-wrap { position: relative; line-height: 0; }
 #canvas-wrap canvas { display: block; image-rendering: pixelated; }
+/* A frame that takes keyboard input shows it has focus, so it is clear when typing
+   drives the game rather than the debugger's own shortcuts. */
+#canvas-wrap.keyable { outline: 1px solid transparent; }
+#canvas-wrap.keyable:focus { outline: 2px solid var(--hot, #ff2ea6); outline-offset: 2px; }
+#canvas-wrap.keyable:focus-visible { outline: 2px solid var(--hot, #ff2ea6); outline-offset: 2px; }
 #overlay { position: absolute; inset: 0; cursor: crosshair; }
 
 #scrubber { display: flex; align-items: center; gap: 8px; }

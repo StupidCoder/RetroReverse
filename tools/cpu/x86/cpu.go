@@ -143,6 +143,13 @@ func (c *CPU) Halt(format string, args ...interface{}) {
 	c.HaltReason = fmt.Sprintf(format, args...)
 }
 
+// LinearPC is the linear address of the instruction currently executing: the CS
+// descriptor base plus the instruction's start offset (instrIP). A debugger reports
+// a watch hit against it — the instruction that made the access, not wherever
+// decoding has since left IP. In real mode SegBase[CS] is unused and zero, so a
+// caller there should form Seg[CS]<<4+IP itself; this is for the flat PM hosts.
+func (c *CPU) LinearPC() uint32 { return c.SegBase[CS] + c.instrIP }
+
 // at renders the address of the instruction currently executing — CS:IP in real
 // mode, the flat 32-bit EIP in protected mode. It uses instrIP (the start of the
 // instruction), so a halt message points at the offending opcode itself rather

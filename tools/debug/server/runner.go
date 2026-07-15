@@ -38,7 +38,8 @@ type Runner struct {
 	inFlight bool // a played frame the page has not acknowledged yet
 
 	// CPU run state.
-	running bool
+	running    bool
+	lastStream time.Time // last scanout pushed while free-running the CPU (throttle)
 
 	// prof folds fields into frames — see profAccum.
 	prof profAccum
@@ -158,6 +159,14 @@ func (rn *Runner) loop() {
 				rn.broadcast(stopped(sr))
 			}
 			rn.drain()
+			// A CPU-run target with no frame stepper (the DOS/go32 host) never plays,
+			// so nothing else keeps its screen alive while it runs. Stream its scanout
+			// between slices — throttled, and paced by the page's acknowledgement the
+			// same way play mode is — so you can watch the picture change as the CPU
+			// runs (and as injected keys drive a menu).
+			if rn.running {
+				rn.streamScanout()
+			}
 			continue
 		}
 
@@ -212,6 +221,8 @@ func (rn *Runner) handle(r request) error {
 		return nil
 	case "input.touch":
 		return rn.touch(r)
+	case "input.key":
+		return rn.key(r)
 	case "cpu.regs":
 		rn.sendCPU(r)
 		return nil
@@ -219,6 +230,7 @@ func (rn *Runner) handle(r request) error {
 		return rn.cpuStep(r)
 	case "cpu.continue":
 		rn.running = true
+		rn.inFlight = false // a fresh run: no streamed frame is outstanding
 		r.from.send(okMsg{Type: "ok", Seq: r.req.Seq, Op: r.req.Op, Note: "running"})
 		return nil
 	case "cpu.break":
@@ -275,6 +287,7 @@ var opNeeds = map[string]string{
 	"fs.read":        debug.CapFiles,
 	"input.panels":   debug.CapTouch,
 	"input.touch":    debug.CapTouch,
+	"input.key":      debug.CapKeys,
 }
 
 // ---- frames ----
@@ -399,6 +412,37 @@ func (rn *Runner) playFrame() error {
 	rn.inFlight = true
 	rn.broadcastBinary(payload)
 	return nil
+}
+
+// streamScanout pushes the machine's current screen to the page while the CPU
+// free-runs, for a target that has no frame stepper of its own (the DOS/go32 host).
+// It reuses play mode's machinery: the image goes out as a play frame, and the page
+// acknowledges it, so the runner holds at most one unacknowledged frame and the
+// stream paces itself to what the page can paint. It is throttled in wall-time too,
+// because a CPU slice can be far shorter than a frame and there is no point sending
+// the same 256 KB image sixty times between two paints.
+//
+// A target that can already frame-step (and therefore play) does not use this — its
+// screen is kept alive by play mode — so this only fires for a CPU-only machine.
+func (rn *Runner) streamScanout() {
+	if rn.inFlight || rn.caps[debug.CapFrames] {
+		return
+	}
+	if !rn.lastStream.IsZero() && time.Since(rn.lastStream) < 33*time.Millisecond {
+		return
+	}
+	img, err := rn.tgt.Display()
+	if err != nil {
+		return // nothing on screen yet — a cold boot, not a fault
+	}
+	rn.lastStream = time.Now()
+	payload := encodeImage(0, streamMain, img)
+	rn.broadcast(renderMsg{
+		Type: "render", Seq: 0, Stream: streamMain, K: -1, Play: true,
+		Frame: int(rn.tgt.CPU().PC), Bytes: len(payload),
+	})
+	rn.inFlight = true
+	rn.broadcastBinary(payload)
 }
 
 func (rn *Runner) scrub(r request) error {
@@ -604,6 +648,22 @@ func (rn *Runner) applyTouch() {
 	if err := rn.tgt.(debug.Toucher).Touch(t); err != nil {
 		rn.broadcast(errMsg{Type: "error", Msg: err.Error()})
 	}
+}
+
+// key delivers one keyboard event to the machine. Unlike a touch it is NOT queued
+// for one-per-frame release: a key press and its release are a make and a break
+// scancode, and dropping or coalescing either desyncs the game's key state — so
+// every event is handed straight to the target, in the order it arrived, and the
+// target's own input path paces delivery (a PC keyboard ISR runs with interrupts
+// masked until it returns, which serialises make from break on its own). This runs
+// on the runner goroutine — the only one that touches the target — so a direct call
+// is safe, and a CPU run picks the queued scancodes up on its next slice.
+func (rn *Runner) key(r request) error {
+	var a keyArgs
+	if err := decodeArgs(r.req, &a); err != nil {
+		return err
+	}
+	return rn.tgt.(debug.Keyer).Key(debug.Key{Name: a.Name, Code: a.Code, Down: a.Down})
 }
 
 // ---- cpu ----

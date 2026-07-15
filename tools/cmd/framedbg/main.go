@@ -33,6 +33,7 @@ import (
 	"strings"
 
 	"retroreverse.com/tools/debug"
+	"retroreverse.com/tools/debug/dosadapter"
 	"retroreverse.com/tools/debug/n3dsadapter"
 	"retroreverse.com/tools/debug/n64adapter"
 	"retroreverse.com/tools/debug/ndsadapter"
@@ -88,6 +89,26 @@ func run() error {
 			return fmt.Errorf("no games/ directory found above the working directory; pass -image")
 		}
 		return server.NewLibrary(root).ListenAndServe(*serve)
+	}
+
+	// The DOS/go32 host (platform "pc") is CPU-only: it has no frame stepper, so it does
+	// not satisfy the headless report path's target interface and is served interactively
+	// only. It is reached from the library the usual way (games/quake-pc/debug.json names
+	// platform "pc"); this branch is the direct -image form.
+	if *platform == "pc" || (*platform == "" && strings.EqualFold(filepath.Ext(*image_), ".exe")) {
+		d, err := dosadapter.New(*image_, dosadapter.Options{})
+		if err != nil {
+			return err
+		}
+		if *state != "" {
+			if err := d.LoadStateFile(*state); err != nil {
+				return fmt.Errorf("loading state: %w", err)
+			}
+		}
+		if *serve == "" {
+			return fmt.Errorf("the pc (DOS) target has no frames to report headless; run it with -serve")
+		}
+		return server.New(d).ListenAndServe(*serve)
 	}
 
 	a, err := open(*image_, *platform, *isr, *dtcm)

@@ -231,6 +231,7 @@ conn.on('hello', (m) => {
     prov: null,
     pick: null,
     playing: false,
+    cpuRunning: false,
   });
   $('target').textContent = `${m.platform} — ${m.title}`;
   document.title = `framedbg — ${m.title}`;
@@ -333,6 +334,15 @@ conn.on('ok', (m) => {
 });
 conn.on('stopped', (m) => {
   status(`stopped: ${m.reason}${m.note ? ` (${m.note})` : ''} at ${m.pc.slice(-8)}`);
+  // The CPU stopped free-running (a breakpoint, a watch, or Break). Turn off the
+  // live-scanout draw path, then take one last look at where it landed: the screen,
+  // the registers, and memory.
+  if (store.get('cpuRunning')) {
+    store.set({ cpuRunning: false });
+    if (!store.can('frames')) ctx.ui.showDisplay();
+  }
+  conn.send('cpu.regs');
+  if (ctx.ui.readMem) ctx.ui.readMem();
 });
 
 conn.onBinary((m) => {
@@ -346,16 +356,19 @@ conn.onBinary((m) => {
   pending.delete(m.seq);
 
   if (meta && meta.play) {
-    // A free-running frame from a machine we are no longer running: the last one, still
-    // finishing the frame it was in when we closed it. Drawing it would paint the game we
-    // just left over the one we just opened.
-    if (!store.get('playing')) return;
+    // A "play" frame streams both from play mode and from a free-running CPU on a
+    // CPU-only target (the DOS host, which has no frames to play). Either way it is a
+    // live scanout; draw it only while we are actually running, so a straggler from a
+    // machine we just closed does not paint over the one we just opened.
+    const live = store.get('playing') || store.get('cpuRunning');
+    if (!live) return;
 
     // Draw it and acknowledge: the server holds itself to one unacknowledged frame, so
     // this is what paces the stream to what the page can paint.
     ctx.viewport.drawImage(m.image);
     conn.send('frame.ack');
-    countFPS(meta);
+    if (store.get('playing')) countFPS(meta);
+    else status(`running · ${store.get('pc') || ''}`);
     return;
   }
   // Anything we no longer want — a display request superseded by a newer one — is stale.
@@ -410,8 +423,17 @@ $('scanout').onchange = () => {
 // one thing it cannot leave alone.
 $('blank').onchange = () => ctx.ui.redraw();
 $('cpu-step').onclick = () => conn.send('cpu.step', { n: 1 });
-$('cpu-run').onclick = () => conn.send('cpu.continue');
-$('cpu-brk').onclick = () => conn.send('cpu.break');
+$('cpu-run').onclick = () => {
+  // A CPU-only target streams its scanout while it runs; the flag is what lets the
+  // render path draw those unrequested frames (see onBinary). A frame-stepping target
+  // keeps its screen alive through play mode instead, so the flag is harmless there.
+  store.set({ cpuRunning: true });
+  conn.send('cpu.continue');
+};
+$('cpu-brk').onclick = () => {
+  store.set({ cpuRunning: false });
+  conn.send('cpu.break');
+};
 $('reset-layout').onclick = () => resetLayout();
 
 document.addEventListener('keydown', (e) => {

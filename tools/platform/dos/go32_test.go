@@ -118,3 +118,117 @@ func TestGo32DescriptorAlias(t *testing.T) {
 		t.Error("store landed at linear 0 — the descriptor base collapsed to flat zero (the original bug)")
 	}
 }
+
+// TestGo32StateRoundTrip proves the PM savestate is a faithful, independent copy:
+// run a synthetic image partway, snapshot it, run it to a different state, then
+// restore — the machine must be bit-for-bit back where the snapshot was taken, and
+// running on from there must reach the same place the uninterrupted run did.
+func TestGo32StateRoundTrip(t *testing.T) {
+	// A loop that writes a walking value into .bss and decrements a counter, so both
+	// memory and registers evolve step by step and a mismatch is easy to see.
+	//   MOV ECX, 8 ; MOV EBX, 0x2000
+	// loop: MOV [EBX], CL ; INC EBX ; DEC ECX ; JNZ loop ; HLT
+	prog := []byte{
+		0xB9, 0x08, 0x00, 0x00, 0x00, // MOV ECX, 8
+		0xBB, 0x00, 0x20, 0x00, 0x00, // MOV EBX, 0x2000
+		0x88, 0x0B, // MOV [EBX], CL   (loop: at VA 0x100A)
+		0x43,       // INC EBX
+		0x49,       // DEC ECX
+		0x75, 0xFA, // JNZ loop (-6, back to 0x100A)
+		0xF4, // HLT
+	}
+	build := func() *PM {
+		m, err := LoadGo32Bytes(buildGo32(prog, 0x1000), "")
+		if err != nil {
+			t.Fatal(err)
+		}
+		return m
+	}
+
+	// A reference run to the halt, for the register/memory fingerprint at the end.
+	ref := build()
+	ref.CPU.Run(10_000)
+	if !ref.CPU.Halted {
+		t.Fatal("reference run did not halt")
+	}
+
+	// Run partway, snapshot, then run on and diverge.
+	m := build()
+	m.CPU.Run(9) // mid-loop: some bytes written, ECX partly counted down
+	st := m.SaveState()
+	midIP, midECX := m.CPU.IP, m.CPU.Regs[x86.CX]
+	midB := m.Mem[go32ImgBase+0x2000]
+
+	m.CPU.Run(10_000) // run to the end, changing everything the snapshot captured
+	if !m.CPU.Halted {
+		t.Fatal("second run did not halt")
+	}
+
+	// Restore: the machine must be exactly back at the snapshot.
+	if err := m.LoadState(st); err != nil {
+		t.Fatal(err)
+	}
+	if m.CPU.IP != midIP || m.CPU.Regs[x86.CX] != midECX {
+		t.Errorf("after restore IP=%08X ECX=%d, want %08X %d", m.CPU.IP, m.CPU.Regs[x86.CX], midIP, midECX)
+	}
+	if m.Mem[go32ImgBase+0x2000] != midB {
+		t.Errorf("restored memory byte = %02X, want %02X", m.Mem[go32ImgBase+0x2000], midB)
+	}
+	if m.CPU.Halted {
+		t.Error("restore left the CPU halted; it should be mid-run")
+	}
+
+	// Running on from the restored snapshot must reach the same end state as the
+	// uninterrupted reference run — proving the CPU's hooks are still wired and the
+	// state is genuinely resumable, not just readable.
+	m.CPU.Run(10_000)
+	if !m.CPU.Halted {
+		t.Fatal("resumed run did not halt")
+	}
+	for i := 0; i < 8; i++ {
+		if got, want := m.Mem[go32ImgBase+0x2000+uint32(i)], ref.Mem[go32ImgBase+0x2000+uint32(i)]; got != want {
+			t.Errorf("resumed Mem[%d] = %02X, ref = %02X", i, got, want)
+		}
+	}
+	if m.CPU.Regs[x86.CX] != ref.CPU.Regs[x86.CX] {
+		t.Errorf("resumed ECX = %d, ref = %d", m.CPU.Regs[x86.CX], ref.CPU.Regs[x86.CX])
+	}
+}
+
+// TestGo32InteractiveKey drives the interactive Keyer path: a tiny program installs a
+// PM INT 9 handler on the heap that reads the scancode from port 0x60 into a fixed
+// slot, then spins with interrupts enabled. A scancode queued with EnqueueScancode
+// must be delivered (an IRQ1 through that handler) as the loop runs.
+func TestGo32InteractiveKey(t *testing.T) {
+	// The ISR (placed at a heap address so deliverScancode's "ISR installed" gate opens):
+	//   IN AL, 0x60 ; MOV [0x3000], AL ; MOV AL, 0x20 ; OUT 0x20, AL ; IRETD
+	isr := []byte{0xE4, 0x60, 0xA2, 0x00, 0x30, 0x00, 0x00, 0xB0, 0x20, 0xE6, 0x20, 0xCF}
+	// The program: record the ISR's PM vector via DPMI 0205h (BL=9, CX=CS, EDX=heap
+	// offset), STI, then spin. We hand-build it so the vector points into the heap.
+	//   STI ; JMP $ (EB FE)
+	prog := []byte{0xFB, 0xEB, 0xFE}
+	m, err := LoadGo32Bytes(buildGo32(prog, 0x1000), "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Plant the ISR in the heap and register it as the PM INT 9 handler, as a DPMI
+	// 0205h call would. off must be >= heapBase for deliverScancode to accept it.
+	isrOff := m.heapBase
+	for i, b := range isr {
+		m.Write(go32ImgBase+isrOff+uint32(i), b)
+	}
+	m.setPMVector(9, 0x08, isrOff)
+
+	m.CPU.OnStep = func(c *x86.CPU) { m.PumpInput(c) }
+	m.EnqueueScancode(0x48) // Up make code
+	if !m.InteractiveKeysPending() {
+		t.Fatal("scancode not queued")
+	}
+	m.CPU.Run(200_000)
+	if m.InteractiveKeysPending() {
+		t.Fatal("scancode was never delivered (still queued)")
+	}
+	if got := m.Mem[go32ImgBase+0x3000]; got != 0x48 {
+		t.Errorf("ISR recorded scancode %02X, want 48 — the key did not reach the handler", got)
+	}
+}

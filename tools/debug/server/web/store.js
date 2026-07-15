@@ -16,6 +16,7 @@ export class Store {
       selected: -1, // the current command
       pick: null, // the picked pixel {x, y}
       playing: false,
+      cpuRunning: false, // the CPU is free-running (Continue) on a CPU-only target, streaming its scanout
       pc: null, // the CPU's program counter, as a hex string
       status: '',
     };

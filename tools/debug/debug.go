@@ -209,6 +209,22 @@ type (
 		Touch(t Touch) error
 	}
 
+	// Keyer accepts keyboard input.
+	//
+	// It is the keyboard counterpart to Toucher: where a touch is a point on a panel of
+	// the composed frame, a key is a whole-keyboard event with no place on the picture —
+	// so it carries a key identity rather than coordinates. A press is a Key with Down
+	// set, a release one with it clear, and BOTH must be delivered: on a machine that
+	// tracks make/break scancodes (a PC keyboard) dropping either desyncs the key state,
+	// so unlike a touch drag these events never collapse to the latest.
+	//
+	// It is named generically — Keyer, not "DOSKeyboard" — because it is the first input
+	// capability of its shape, and a console's button input should slot in beside it
+	// later exactly as this did beside Toucher.
+	Keyer interface {
+		Key(k Key) error
+	}
+
 	// Profiler reports where the last stepped frame's time went, by subsystem.
 	//
 	// The times are the emulator's own, not a sampling profiler's: only a machine
@@ -239,6 +255,7 @@ const (
 	CapRegions  = "regions"  // MemoryMapper
 	CapProfile  = "profile"  // Profiler
 	CapTouch    = "touch"    // Toucher
+	CapKeys     = "keys"     // Keyer
 	CapOverdraw = "overdraw" // reported per capture, not per target — see FrameCapture
 )
 
@@ -265,6 +282,7 @@ func Capabilities(t Target) []string {
 	_, regions := t.(MemoryMapper)
 	_, prof := t.(Profiler)
 	_, touch := t.(Toucher)
+	_, keys := t.(Keyer)
 
 	add(frames, CapFrames)
 	add(fast, CapFastStep)
@@ -281,6 +299,7 @@ func Capabilities(t Target) []string {
 	add(regions, CapRegions)
 	add(prof, CapProfile)
 	add(touch, CapTouch)
+	add(keys, CapKeys)
 	return caps
 }
 
@@ -298,6 +317,17 @@ type Touch struct {
 	Panel string
 	X, Y  int // panel-local pixels
 	Down  bool
+}
+
+// Key is one keyboard event: a key going down (Down) or coming up. Name is a
+// platform-neutral key identity the target maps to its own key coding — the browser
+// sends the same names the machine's scripted-input vocabulary uses ("up", "enter",
+// "esc", "a"), and the adapter translates. Code carries the raw browser key code
+// when a name is not enough, but Name is what targets key off.
+type Key struct {
+	Name string
+	Code int
+	Down bool
 }
 
 // FrameProfile is where one frame's time went.

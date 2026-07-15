@@ -108,6 +108,16 @@ type PM struct {
 	heapBase, heapNext          uint32 // extended-memory heap (DPMI 0501h)
 	stackFloor                  uint32 // bottom of the PM stack region; the heap ceiling
 	infoBase                    uint32 // linear base of the go32 info block (top of memory)
+	imgEnd                      uint32 // virtual end of the loaded COFF image (largest section end), for the memory map
+
+	// memory watches (the debugger's Watcher): a single write window and a single
+	// read window, each firing its callback when a byte in [lo,hi) is accessed. The
+	// range is held here so the per-byte check in Read/Write is a cheap compare, not
+	// a closure call on every access.
+	wWLo, wWHi uint32
+	onW        func(addr, val, pc uint32)
+	wRLo, wRHi uint32
+	onR        func(addr, val, pc uint32)
 
 	nextSel      uint16            // next fabricated LDT selector to hand out
 	nextCallback uint16            // next real-mode callback offset (DPMI 0303h)
@@ -124,6 +134,7 @@ type PM struct {
 	pmVectors  [256]pmVector // PM interrupt handlers recorded from DPMI 0205h
 	defIntVec  pmVector      // synthesized default PM interrupt handler (IN 60h/EOI/IRETD)
 	keyEvents []injEvent    // remaining scripted input events
+	injKeys   []byte        // interactive make/break scancodes queued for ASAP delivery (the debugger's Keyer)
 	keyWait   int           // injection periods to pause before the next event
 	keyRetry  bool          // a key is pending re-delivery until interrupts open
 	injTick   int           // retired-instruction counter toward go32InjectPeriod
@@ -211,6 +222,7 @@ func LoadGo32Bytes(data []byte, gameDir string) (*PM, error) {
 	p.infoBase = uint32(len(p.Mem)) - go32InfoBytes
 	stackTopVA := uint32(go32VASize) - go32InfoBytes // VA whose backing is just below the info block
 	p.stackFloor = stackTopVA - go32StackBytes
+	p.imgEnd = imgEnd
 	p.heapBase = align(maxu32(imgEnd, 0x100000), go32PageSize)
 	p.heapNext = p.heapBase
 	p.setupInfoBlock(xferLinear)
@@ -416,7 +428,11 @@ func (p *PM) enforceBaseAddress() {
 
 func (p *PM) Read(a uint32) byte {
 	if int(a) < len(p.Mem) {
-		return p.Mem[a]
+		v := p.Mem[a]
+		if p.onR != nil && a >= p.wRLo && a < p.wRHi {
+			p.onR(a, uint32(v), p.watchPC())
+		}
+		return v
 	}
 	p.fault("read", a)
 	return 0xFF
@@ -425,9 +441,59 @@ func (p *PM) Read(a uint32) byte {
 func (p *PM) Write(a uint32, v byte) {
 	if int(a) < len(p.Mem) {
 		p.Mem[a] = v
+		if p.onW != nil && a >= p.wWLo && a < p.wWHi {
+			p.onW(a, uint32(v), p.watchPC())
+		}
 		return
 	}
 	p.fault("write", a)
+}
+
+// watchPC is the linear address of the instruction responsible for a watched
+// access, for a hit report. Before the CPU is wired (during load) it is zero.
+func (p *PM) watchPC() uint32 {
+	if p.CPU == nil {
+		return 0
+	}
+	return p.CPU.LinearPC()
+}
+
+// SetWriteWatch and SetReadWatch install the debugger's memory watches. A nil
+// callback clears the window. The range is [lo,hi); the callback is handed the
+// byte address, the byte value, and the linear PC of the accessing instruction.
+func (p *PM) SetWriteWatch(lo, hi uint32, cb func(addr, val, pc uint32)) {
+	p.wWLo, p.wWHi, p.onW = lo, hi, cb
+}
+func (p *PM) SetReadWatch(lo, hi uint32, cb func(addr, val, pc uint32)) {
+	p.wRLo, p.wRHi, p.onR = lo, hi, cb
+}
+
+// MemRegion is a named span of the flat linear address space, for the debugger's
+// memory map. Kept as a plain platform type so tools/platform/dos need not import
+// the debug package (adapters depend on this package, not the other way round).
+type MemRegion struct {
+	Name   string
+	Lo, Hi uint32
+}
+
+// MemRegions describes the go32 machine's address-space layout — the two regions
+// the loader lays down (LOW physical/conventional/video, HIGH program VA space),
+// broken into the spans a person reading a hex dump wants named. See go32.go's
+// layout comment for what backs each one.
+func (p *PM) MemRegions() []MemRegion {
+	b := uint32(go32ImgBase)
+	return []MemRegion{
+		{Name: "BIOS data / low", Lo: 0x00000, Hi: p.convBase},
+		{Name: "conventional (DOS mem, __tb)", Lo: p.convBase, Hi: p.convTop},
+		{Name: "VGA framebuffer", Lo: 0xA0000, Hi: 0xC0000},
+		{Name: "program image", Lo: b, Hi: b + p.imgEnd},
+		// The extended-memory arena the program owns: the crt0 sbrk's its malloc heap and
+		// runtime stack into it, and DPMI 0501h blocks come from its low end. Bounded by
+		// the PM stack region above, not by heapNext (which tracks only the 0501h blocks).
+		{Name: "heap / extended memory", Lo: b + p.heapBase, Hi: b + p.stackFloor},
+		{Name: "PM stack", Lo: b + p.stackFloor, Hi: p.infoBase},
+		{Name: "go32 info block", Lo: p.infoBase, Hi: uint32(len(p.Mem))},
+	}
 }
 
 // fault records (once) an access outside the backing store and halts the CPU, so

@@ -108,6 +108,7 @@ registerPanel({
 
     view.onHover = (x, y) => {
       if (ctx.store.get('playing')) return; // nothing is captured while playing
+      if (!ctx.store.can('frames')) return; // a CPU-only target has no per-pixel provenance to hover
       if (x < 0) {
         say('');
         return;
@@ -120,11 +121,38 @@ registerPanel({
 
     view.onPick = (x, y) => {
       if (ctx.store.get('playing')) return;
+      if (!ctx.store.can('frames')) return; // no capture to interrogate on a CPU-only target
       ctx.store.set({ pick: { x, y } });
       ctx.conn.send('frame.pixel', { x, y });
       const k = view.provAt(x, y);
       if (k >= 0) ctx.ui.selectCommand(k);
     };
+
+    // Keyboard input (the Keyer). When the target takes keys, the frame panel captures
+    // keydown/keyup while it is focused and forwards each as input.key — click the picture
+    // to focus it, then type to drive the game's menus. Focus-gating is what keeps the
+    // debugger's own shortcuts (space, arrows) usable: a keystroke meant for the game is
+    // stopped from bubbling to the document handler, but ONLY while the frame has focus, so
+    // clicking away hands the keyboard back to the debugger.
+    //
+    // A press and its release are a make and a break scancode, and both must reach the
+    // machine — so nothing is coalesced here, and hardware auto-repeat (e.repeat) is
+    // dropped: one physical press is one make, held until the key comes up.
+    if (ctx.store.can('keys')) {
+      const wrap = document.getElementById('canvas-wrap');
+      wrap.tabIndex = 0;
+      wrap.classList.add('keyable');
+      view.overlay.addEventListener('pointerdown', () => wrap.focus());
+      const sendKey = (e, down) => {
+        if (e.repeat) return;
+        ctx.conn.send('input.key', { name: e.key, code: e.keyCode || 0, down });
+        e.preventDefault();
+        e.stopPropagation();
+      };
+      wrap.addEventListener('keydown', (e) => sendKey(e, true));
+      wrap.addEventListener('keyup', (e) => sendKey(e, false));
+      say('click the frame, then type to drive the game (↑↓ Enter Esc)');
+    }
 
     if (!ctx.store.can('touch')) return;
 

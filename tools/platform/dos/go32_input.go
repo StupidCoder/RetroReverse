@@ -68,6 +68,9 @@ func (p *PM) PumpInput(c *x86.CPU) {
 	// without which conventional/physical near pointers (the framebuffer) alias the
 	// program's memory. Cheap and idempotent; see enforceBaseAddress.
 	p.enforceBaseAddress()
+	// Interactive keys (the debugger's Keyer) are delivered ASAP, ahead of any
+	// scripted schedule and without its instruction pacing.
+	p.pumpInteractiveKeys(c)
 	if len(p.keyEvents) == 0 {
 		return
 	}
@@ -97,10 +100,43 @@ func (p *PM) PumpInput(c *x86.CPU) {
 	p.popKeyEvent()
 }
 
-// deliverKey latches the current event's scancode at the 8042 output buffer and
-// raises IRQ1 through the recorded PM INT 9 handler. It returns false (to retry)
-// until the game has installed its real keyboard IRQ handler and interrupts are
-// open.
+// EnqueueScancode adds one make or break scancode to the interactive input queue,
+// delivered ASAP by the run loop (see pumpInteractiveKeys). A key press is the make
+// code; a release is make|0x80. This is the on-demand path the debugger's Keyer
+// drives — unlike the scripted schedule it carries no pacing, since it is paced by a
+// human at the keyboard rather than by a fixed instruction budget.
+func (p *PM) EnqueueScancode(sc byte) { p.injKeys = append(p.injKeys, sc) }
+
+// InteractiveKeysPending reports whether interactive scancodes are still undelivered.
+func (p *PM) InteractiveKeysPending() bool { return len(p.injKeys) > 0 }
+
+// pumpInteractiveKeys delivers the head of the interactive queue as soon as the game
+// can take it, one scancode per successful delivery. Two gates keep every make and
+// break intact and in order:
+//
+//   - kbdFull: a scancode already latched but not yet read by the game's ISR must not
+//     be overwritten, so nothing is delivered while the output buffer is full.
+//   - IF (inside deliverScancode via InterruptPM): the ISR runs with interrupts
+//     masked until its IRETD, so the next scancode cannot land until the previous
+//     one's handler has returned — which serialises make/break with no pacing needed.
+func (p *PM) pumpInteractiveKeys(c *x86.CPU) {
+	if len(p.injKeys) == 0 || p.kbdFull {
+		return
+	}
+	if p.deliverScancode(c, p.injKeys[0]) {
+		p.injKeys = p.injKeys[1:]
+	}
+}
+
+// deliverKey latches the current SCRIPTED event's scancode; deliverScancode does the
+// work and is shared with the interactive path.
+func (p *PM) deliverKey(c *x86.CPU) bool { return p.deliverScancode(c, p.keyEvents[0].code) }
+
+// deliverScancode latches scancode sc at the 8042 output buffer and raises IRQ1
+// through the recorded PM INT 9 handler. It returns false (to retry) until the game
+// has installed its real keyboard IRQ handler and interrupts are open, rolling the
+// output-buffer-full flag back on failure so a later attempt is not blocked by a
+// latch that never reached the game.
 //
 // Timing matters: at startup INT 9 briefly points at the CRT's in-image Ctrl-C
 // filter, which stores nothing to the game's own key ring and only chains onward.
@@ -109,18 +145,19 @@ func (p *PM) PumpInput(c *x86.CPU) {
 // until INT 9 points into the heap delivers it to that real handler, exactly when
 // the game is ready to receive it — and never fires a stray IRQ into the CRT filter
 // during the long init.
-func (p *PM) deliverKey(c *x86.CPU) bool {
+func (p *PM) deliverScancode(c *x86.CPU, sc byte) bool {
 	v := p.pmVectors[9]
 	if !v.set || v.off < p.heapBase {
 		return false
 	}
-	p.kbdData, p.kbdFull = p.keyEvents[0].code, true
+	p.kbdData, p.kbdFull = sc, true
 	if !c.InterruptPM(v.sel, v.off) {
+		p.kbdFull = false // interrupts masked: the latch never reached the game — roll back
 		return false
 	}
 	p.keyHits++
 	if p.keyHits <= 40 {
-		p.logf("INJECT KEY scancode %02X via INT9 %04X:%08X", p.kbdData, v.sel, v.off)
+		p.logf("INJECT KEY scancode %02X via INT9 %04X:%08X", sc, v.sel, v.off)
 	}
 	return true
 }

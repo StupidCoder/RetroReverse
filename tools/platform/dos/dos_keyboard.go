@@ -63,6 +63,15 @@ var makeScancodes = map[string]byte{
 	"f7": 0x41, "f8": 0x42, "f9": 0x43, "f10": 0x44,
 }
 
+// Scancode returns the US-layout Set-1 (XT) make scancode for a key token — the
+// same names ParseKeys accepts ("up", "enter", "a", "esc"). The break code is the
+// make code | 0x80. It is exported so a debugger adapter can translate an interactive
+// keypress into a scancode without duplicating the table.
+func Scancode(token string) (byte, bool) {
+	sc, ok := makeScancodes[token]
+	return sc, ok
+}
+
 // ParseKeys compiles a comma-separated input script into an injection schedule.
 // Tokens:
 //

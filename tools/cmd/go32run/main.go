@@ -36,6 +36,8 @@ func main() {
 	dump := flag.String("dump", "", "after the run, hex-dump ADDR:LEN (hex)")
 	pngOut := flag.String("png", "", "after the run, write the VGA mode-13h framebuffer (0xA0000, 320x200) to this PNG")
 	keys := flag.String("keys", "", "scripted keyboard input (e.g. \"enter,wait:30,space\") injected via IRQ1")
+	loadState := flag.String("loadstate", "", "restore a PM savestate before running (skips the boot)")
+	saveState := flag.String("savestate", "", "after the run, write a PM savestate to this file")
 	showLog := flag.Bool("log", false, "print the full event log")
 	flag.Parse()
 	if *image == "" {
@@ -53,6 +55,14 @@ func main() {
 		os.Exit(1)
 	}
 	c := m.CPU
+
+	if *loadState != "" {
+		if err := m.LoadStateFile(*loadState); err != nil {
+			fmt.Fprintln(os.Stderr, "go32run: -loadstate:", err)
+			os.Exit(1)
+		}
+		fmt.Printf("restored state from %s (EIP=%08X, %d instructions in)\n", *loadState, c.IP, c.Steps)
+	}
 
 	if *keys != "" {
 		events, err := dos.ParseKeys(*keys)
@@ -204,6 +214,14 @@ func main() {
 				}
 				fmt.Println()
 			}
+		}
+	}
+
+	if *saveState != "" {
+		if err := m.SaveStateFile(*saveState); err != nil {
+			fmt.Fprintln(os.Stderr, "go32run: -savestate:", err)
+		} else {
+			fmt.Printf("\nwrote PM savestate to %s\n", *saveState)
 		}
 	}
 

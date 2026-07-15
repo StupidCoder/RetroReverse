@@ -119,6 +119,11 @@ type (
 		Y     int    `json:"y"`
 		Down  bool   `json:"down"`
 	}
+	keyArgs struct {
+		Name string `json:"name"` // key identity ("up", "enter", "esc", "a")
+		Code int    `json:"code"` // raw browser key code, when a name is not enough
+		Down bool   `json:"down"` // press (true) or release (false)
+	}
 	surfaceArgs struct {
 		ID      string `json:"id"`
 		Addr    uint32 `json:"addr"`

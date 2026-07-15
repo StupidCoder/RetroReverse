@@ -80,6 +80,16 @@ type fakeTarget struct {
 	// the thing worth asserting, because the runner does not hand over everything it is
 	// sent, and must not.
 	touched []debug.Touch
+
+	// keyed is every keyboard event the machine was handed, in order. Unlike touch, the
+	// runner must hand over EVERY one — a make and a break both matter — so this is
+	// asserted to be the exact sequence sent, with nothing dropped or collapsed.
+	keyed []debug.Key
+}
+
+func (f *fakeTarget) Key(k debug.Key) error {
+	f.keyed = append(f.keyed, k)
+	return nil
 }
 
 func (f *fakeTarget) TouchPanels() []debug.TouchPanel {
@@ -360,7 +370,7 @@ func TestCapabilitiesAdvertised(t *testing.T) {
 		got = append(got, c.(string))
 	}
 	sort.Strings(got)
-	want := []string{"break", "code", "disasm", "faststep", "frames", "replay", "resume", "states", "touch", "watch"}
+	want := []string{"break", "code", "disasm", "faststep", "frames", "keys", "replay", "resume", "states", "touch", "watch"}
 	if strings.Join(got, ",") != strings.Join(want, ",") {
 		t.Errorf("caps = %v, want %v", got, want)
 	}
@@ -424,6 +434,44 @@ func TestTouchLatch(t *testing.T) {
 	rn.applyTouch()
 	if len(f.touched) != 2 {
 		t.Errorf("an empty queue handed the machine something: %+v", f.touched)
+	}
+}
+
+// TestKeyDelivered is the counterpart to TestTouchLatch, and its opposite: where touch
+// collapses same-state events to the latest, keys must NOT — a press and its release are
+// a make and a break scancode, and dropping or coalescing either desyncs the game's key
+// state. So every key event is handed to the machine, in the order it arrived.
+func TestKeyDelivered(t *testing.T) {
+	f := &fakeTarget{}
+	rn := &Runner{tgt: f, caps: map[string]bool{debug.CapKeys: true}, mb: newMailbox()}
+	defer rn.mb.close()
+
+	// A tap on Up, then Enter: four make/break events, none of which may be dropped —
+	// including the two presses of different keys and the two releases.
+	events := []keyArgs{
+		{Name: "up", Down: true},
+		{Name: "up", Down: false},
+		{Name: "enter", Down: true},
+		{Name: "enter", Down: false},
+	}
+	for _, e := range events {
+		if err := rn.key(request{req: req{Op: "input.key", Args: mustJSON(e)}}); err != nil {
+			t.Fatalf("key %+v: %v", e, err)
+		}
+	}
+	if len(f.keyed) != len(events) {
+		t.Fatalf("machine saw %d keys, want %d (%+v)", len(f.keyed), len(events), f.keyed)
+	}
+	for i, e := range events {
+		if f.keyed[i].Name != e.Name || f.keyed[i].Down != e.Down {
+			t.Errorf("key %d = %+v, want %+v", i, f.keyed[i], e)
+		}
+	}
+
+	// The mailbox must never coalesce a key the way it coalesces a scrub — that is what
+	// would silently drop a make or a break in transit.
+	if coalescable("input.key") {
+		t.Error("input.key is coalescable; a make or break could be dropped")
 	}
 }
 
