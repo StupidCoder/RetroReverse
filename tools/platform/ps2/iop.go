@@ -194,6 +194,19 @@ type IOP struct {
 	// only way to watch 989SND ask THREADMAN for something and see what it asked for.
 	OnCall func(name string, args [4]uint32, from uint32)
 
+	// OnIntrState, if set, receives every event in the life of the processor's
+	// interrupt-enable bit: each CpuSuspendIntr/CpuResumeIntr and CpuDisableIntr/
+	// CpuEnableIntr, each interrupt delivery, and each register frame saved or loaded
+	// (which is where the enable rides across a thread switch, in SR bit 2).
+	//
+	// It exists because the enable's failure mode is invisible from every other angle. The
+	// bit is a single boolean threaded through frames, saved-old stack slots and the
+	// scheduler's switch path, and when it goes wrong it goes wrong *quietly*: every
+	// Suspend faithfully saves "off", every Resume faithfully restores "off", and the
+	// machine spins on a completion interrupt that is pending, unmasked, and undeliverable.
+	// The only way to find the first wrong transition is to have written all of them down.
+	OnIntrState func(ev IOPIntrEvent)
+
 	// ioPend holds the register access the current instruction made, until the
 	// instruction is over and the register has settled. See ioTrace.
 	ioPend []ioTouch
@@ -245,6 +258,42 @@ type IOP struct {
 
 	Halted     bool
 	HaltReason string
+}
+
+// IOPIntrEvent is one event in the interrupt-enable's history. Kind says what happened;
+// which of the other fields mean anything depends on it:
+//
+//	suspend   CpuSuspendIntr: Addr = the pointer the old state was saved through, Val = that state
+//	resume    CpuResumeIntr: Val = the state restored
+//	cpu-off   CpuDisableIntr
+//	cpu-on    CpuEnableIntr
+//	deliver   an interrupt is being delivered: Val = the line, Addr = the frame just saved
+//	save      a frame was written: Addr = the frame, Val = the EPC in it
+//	load      a frame was restored: Addr = the frame, Val = the EPC in it, RA = the $ra in it
+//
+// PC is where the processor was; RA is the caller (or, for load, the resumed thread's $ra —
+// the two addresses that name a frame's owner). Enabled is the state *after* the event.
+type IOPIntrEvent struct {
+	Step    uint64
+	Kind    string
+	PC, RA  uint32
+	Addr    uint32
+	Val     uint32
+	Enabled bool
+	Depth   int // callDepth, to tell a thread's own doing from a handler's or a hook's
+	InIntr  int
+}
+
+// ieEvent reports one interrupt-enable event, if anything is listening.
+func (p *IOP) ieEvent(kind string, addr, val uint32, ra uint32) {
+	if p.OnIntrState == nil {
+		return
+	}
+	p.OnIntrState(IOPIntrEvent{
+		Step: p.steps, Kind: kind, PC: p.CPU.CurPC(), RA: ra,
+		Addr: addr, Val: val, Enabled: p.intrEnabled,
+		Depth: p.callDepth, InIntr: p.inIntr,
+	})
 }
 
 // IOPInterrupts reports what the second processor's interrupt controller did: every line

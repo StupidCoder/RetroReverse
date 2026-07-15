@@ -163,6 +163,8 @@ func (p *IOP) saveFrame(at uint32) {
 	// which is exactly the right answer — provided it is not a branch delay slot, and
 	// serviceIntr guarantees that by declining to interrupt one.
 	p.Write32(at+iopFrameEPC, st.PC)
+
+	p.ieEvent("save", at, st.PC, st.R[31])
 }
 
 // loadFrame restores a context from a frame — which, after a switch, is a different
@@ -207,4 +209,6 @@ func (p *IOP) loadFrame(at uint32) {
 	// delivered never. Every thread THREADMAN starts is meant to run with interrupts on — it
 	// says so, in bit 2 of every frame it builds — and now it does.
 	p.intrEnabled = p.Read32(at+iopFrameSR)>>2&1 != 0
+
+	p.ieEvent("load", at, pc, st.R[31])
 }

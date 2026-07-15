@@ -13,6 +13,7 @@
 package main
 
 import (
+	"bufio"
 	"crypto/md5"
 	"flag"
 	"fmt"
@@ -67,6 +68,7 @@ func main() {
 	iopCallsFrom := flag.String("iopcallsfrom", "", "only trace stub calls once this module has started (e.g. 989SND.IRX)")
 	var iopPokes multiFlag
 	flag.Var(&iopPokes, "ioppoke", "write ADDR:VALUE (hex) into IOP memory every time the IOP finishes booting; repeatable. Sony's modules carry their own tracing behind a verbosity word — CDVDMAN's is at 0x29F90 — and turning one on makes a stripped module narrate itself")
+	iopIELog := flag.String("iopielog", "", "log every IOP interrupt-enable event (suspend/resume/deliver/frame save+load) to FILE — the instrument for an enable bit lost across a thread switch")
 	flag.Parse()
 
 	if *image == "" {
@@ -82,7 +84,7 @@ func main() {
 		iopOnly: *iopOnly, iopMods: *iopMods, iopDis: *iopDis,
 		iopIO: *iopIO, iopION: *iopION, iopWatch: *iopWatch, iopTrap: *iopTrap,
 		iopCalls: *iopCalls, iopCallsFrom: *iopCallsFrom, iopPokes: iopPokes,
-		iopDump: *iopDump,
+		iopDump: *iopDump, iopIELog: *iopIELog,
 	}); err != nil {
 		fmt.Fprintln(os.Stderr, "bootoracle:", err)
 		os.Exit(1)
@@ -108,7 +110,12 @@ type cfg struct {
 	iopCallsFrom                          string
 	iopDump                               string
 	iopPokes                              multiFlag
+	iopIELog                              string
 }
+
+// ieLogFlush, if the interrupt-enable log is on, flushes it. It is set by armIOP and
+// called once the run is over, from whichever harness ran.
+var ieLogFlush func()
 
 func hx(s string) (uint32, error) {
 	v, err := strconv.ParseUint(strings.TrimPrefix(strings.TrimPrefix(s, "$"), "0x"), 16, 64)
@@ -440,6 +447,9 @@ func run(c cfg) error {
 	}
 
 	res := m.Run(steps)
+	if ieLogFlush != nil {
+		ieLogFlush()
+	}
 
 	fmt.Println()
 	fmt.Println(res)
@@ -490,6 +500,13 @@ func run(c cfg) error {
 		fmt.Fprintf(os.Stderr, "\nwrote state to %s\n", c.savestate)
 	}
 	return nil
+}
+
+func b2i(b bool) int {
+	if b {
+		return 1
+	}
+	return 0
 }
 
 // isPrintable reports whether a string read out of guest memory looks like text
@@ -593,6 +610,30 @@ func armIOP(m *ps2.Machine, c cfg) error {
 		}
 	}
 
+	// The interrupt-enable log: every suspend/resume/deliver/save/load, one line each,
+	// with the PC and the caller. It is the instrument for the one bug family nothing
+	// else can see — an enable bit that goes false and stays false across a thread
+	// switch, faithfully saved and faithfully restored by everything downstream.
+	if c.iopIELog != "" {
+		f, e := os.Create(c.iopIELog)
+		if e != nil {
+			return e
+		}
+		w := bufio.NewWriterSize(f, 1<<20)
+		ieLogFlush = func() { w.Flush(); f.Close() }
+		prev := m.OnIOPStart
+		m.OnIOPStart = func(p *ps2.IOP) {
+			if prev != nil {
+				prev(p)
+			}
+			p.OnIntrState = func(ev ps2.IOPIntrEvent) {
+				fmt.Fprintf(w, "%d %s pc=%s ra=%s addr=%08X val=%08X ie=%d d=%d i=%d\n",
+					ev.Step, ev.Kind, p.Sym(ev.PC), p.Sym(ev.RA), ev.Addr, ev.Val,
+					b2i(ev.Enabled), ev.Depth, ev.InIntr)
+			}
+		}
+	}
+
 	if c.iopWatch != "" {
 		lo, ln, e := parseRange(c.iopWatch)
 		if e != nil {
@@ -672,6 +713,9 @@ func bootIOP(m *ps2.Machine, c cfg) error {
 	if err == nil {
 		fmt.Printf("\nrunning the IOP on its own for %d instructions\n", iopFreeRun)
 		m.IOP.Run(iopFreeRun)
+	}
+	if ieLogFlush != nil {
+		ieLogFlush()
 	}
 
 	if c.savestate != "" {

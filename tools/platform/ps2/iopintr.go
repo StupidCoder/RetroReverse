@@ -271,16 +271,19 @@ func (p *IOP) intrDisable() {
 // sections with this and its partner, and the partner is passed exactly the word this
 // one wrote.
 func (p *IOP) intrSuspend() {
+	old := b2u(p.intrEnabled)
 	if ptr := p.arg(0); ptr != 0 {
-		p.Write32(ptr, b2u(p.intrEnabled))
+		p.Write32(ptr, old)
 	}
 	p.intrEnabled = false
+	p.ieEvent("suspend", p.arg(0), old, p.CPU.Reg(31))
 	p.setRet(0)
 }
 
 // intrResume is CpuResumeIntr(int old).
 func (p *IOP) intrResume() {
 	p.intrEnabled = p.arg(0) != 0
+	p.ieEvent("resume", 0, p.arg(0), p.CPU.Reg(31))
 	p.setRet(0)
 }
 
@@ -301,11 +304,13 @@ func (p *IOP) intrResume() {
 // completed transfer waits at a masked door forever. Which is exactly what it did.
 func (p *IOP) intrCpuDisable() {
 	p.intrEnabled = false
+	p.ieEvent("cpu-off", 0, 0, p.CPU.Reg(31))
 	p.setRet(0)
 }
 
 func (p *IOP) intrCpuEnable() {
 	p.intrEnabled = true
+	p.ieEvent("cpu-on", 0, 0, p.CPU.Reg(31))
 	p.setRet(0)
 }
 
@@ -463,6 +468,7 @@ func (p *IOP) intrDeliver(irq uint32) {
 
 	p.inIntr++
 	p.intrEnabled = false // a handler runs masked, as on the hardware
+	p.ieEvent("deliver", frame, irq, p.CPU.Reg(31))
 
 	p.CPU.SetReg(4, h.arg) // the handler's one argument, given at registration
 	_, err := p.callGuestOn(h.fn, iopIntrStack)
@@ -1145,14 +1151,42 @@ func (p *IOP) kernelSyscall() bool {
 // The program counter saved is the instruction *after* the syscall, which is where the core
 // has already advanced to — so a thread resumed from this frame comes back to the `jr $ra`
 // and returns to whoever asked to be rescheduled, with no idea it was ever away.
+//
+// The service takes an argument, and it is the one this machine deadlocked without: $a2 is
+// the interrupt-enable state the calling thread is to RESUME with. The contract is written
+// all over THREADMAN. Every one of its blocking primitives opens with CpuSuspendIntr(&old)
+// and then leaves one of two ways — the paths that keep the thread running end in
+// CpuResumeIntr(old), and the paths that give the processor up end in the reschedule leaf
+// (THREADMAN+0x46C: $v0=32, syscall) with *that same old* loaded into $a2 (sixteen sites
+// load it straight from the CpuSuspendIntr slot; the wake-a-better-thread path at
+// THREADMAN+0x5D0 is the proof in one screenful, passing one value to CpuResumeIntr on its
+// no-switch exit and to $a2 on its switch exit). The restore is DELEGATED to the kernel:
+// the thread sleeps inside its critical section, and the kernel dissolves the section on
+// its behalf, filing the frame with SR's IEp = $a2 so the eventual exception return brings
+// interrupts back to what they were before the Suspend. (The one caller that passes 0 is
+// THREADMAN's stack-overflow trap — CpuDisableIntr, Kprintf, park forever — a thread that
+// is meant to stay masked.)
+//
+// Saving the live intrEnabled instead — which is what this did — parked every blocked
+// thread with the enable OFF, since a blocking thread is always inside a Suspend when it
+// yields. Mostly that healed itself: the woken thread soon blocked again and the next
+// thread's frame carried a 1. It became a deadlock the day a woken thread BUSY-WAITED on
+// an interrupt-fed flag — 989snd spinning on its SPU-DMA completion with the completion
+// pending, unmasked, and undeliverable behind the very bit the kernel had been told to
+// restore.
 func (p *IOP) yield() {
 	frame := (p.CPU.Reg(29) - iopFrameSize) &^ 7
 	p.saveFrame(frame)
+	p.Write32(frame+iopFrameSR, b2u(p.CPU.Reg(6) != 0)<<2)
+	p.ieEvent("yield", frame, p.CPU.Reg(6), p.CPU.Reg(31))
 
+	resume := frame
 	if next, ok := p.intrReschedule(frame); ok {
-		p.loadFrame(next)
+		resume = next
 	}
-	// And if the scheduler does not want a switch, nothing at all happens: the processor is
-	// already running the thread it ought to be, and the frame just written is so much dead
-	// wood below the stack pointer.
+	// The exception return, from whichever frame won. When no switch was wanted this is the
+	// frame just saved, and restoring it is not a no-op: it is the rfe that carries $a2 into
+	// the caller's interrupt-enable, exactly as it would have been on the way out of the
+	// syscall exception.
+	p.loadFrame(resume)
 }

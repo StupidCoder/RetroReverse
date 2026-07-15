@@ -74,3 +74,56 @@ func TestTheTwoProcessorsSeeOneSetOfSIFRegisters(t *testing.T) {
 		t.Errorf("the EE reads SMFLG as 0x%08X, want 0x1234", got)
 	}
 }
+
+func TestRescheduleRestoresTheEnableDelegatedInA2(t *testing.T) {
+	// THREADMAN's blocking primitives sleep INSIDE a CpuSuspendIntr critical section, and
+	// they never call CpuResumeIntr on the way out — the paths that keep running restore
+	// the saved enable themselves, and the paths that block hand that same saved value to
+	// the reschedule syscall in $a2, delegating the restore to the kernel (sixteen call
+	// sites load $a2 straight from the CpuSuspendIntr slot; THREADMAN+0x5D0 passes one
+	// value to CpuResumeIntr on its no-switch exit and to $a2 on its switch exit). A yield
+	// that saves the live enable instead parks every blocked thread with interrupts off —
+	// which mostly heals, because the thread soon blocks again, and deadlocks the day a
+	// woken thread busy-waits on an interrupt-fed flag. 989snd's SPU-DMA completion spin
+	// was that day.
+	m := NewMachine()
+	p := m.StartIOP()
+
+	const sp = 0x00100000
+	frame := (uint32(sp) - iopFrameSize) &^ 7
+
+	// The thread suspends interrupts, saving "they were on" — and then blocks, passing
+	// what it saved in $a2, exactly as THREADMAN does.
+	p.intrEnabled = true
+	p.CPU.SetReg(4, 0x00100100) // CpuSuspendIntr's out-pointer
+	p.intrSuspend()
+	if p.intrEnabled {
+		t.Fatal("CpuSuspendIntr left interrupts on")
+	}
+
+	p.CPU.SetReg(29, sp)
+	p.CPU.SetReg(6, p.Read32(0x00100100)) // $a2 = the saved enable
+	p.CPU.SetPC(0x00200000)
+	p.yield()
+
+	// No scheduler hooks are registered, so no switch happens — which on the hardware is
+	// still an exception return, and the rfe brings $a2 into the enable.
+	if !p.intrEnabled {
+		t.Error("the reschedule returned with interrupts off: the enable delegated in $a2 was dropped")
+	}
+	// And the frame carries it too, so a real switch resumes this thread the same way.
+	if sr := p.Read32(frame + iopFrameSR); sr>>2&1 != 1 {
+		t.Errorf("the yielded frame's SR is 0x%08X: bit 2 should carry the $a2 enable", sr)
+	}
+
+	// The one caller that passes 0 — THREADMAN's stack-overflow trap, parking a dead
+	// thread — must stay masked.
+	p.intrEnabled = false
+	p.CPU.SetReg(29, sp)
+	p.CPU.SetReg(6, 0)
+	p.CPU.SetPC(0x00200000)
+	p.yield()
+	if p.intrEnabled {
+		t.Error("a reschedule with $a2=0 turned interrupts on")
+	}
+}
