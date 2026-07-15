@@ -65,6 +65,7 @@ type Machine struct {
 	dsp    dsp
 	cp     cp
 	pe     pe
+	gpu    gpu
 	wgFIFO wgPipe
 
 	// Diagnostics. Each distinct message is logged once, so a register touched in a loop

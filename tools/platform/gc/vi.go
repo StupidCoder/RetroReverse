@@ -44,7 +44,17 @@ func (v *vi) read(m *Machine, off uint32, size int) uint32 {
 		// this to sync finely; returning a moving value keeps such a poll from spinning.
 		return v.Line
 	case r >= 0x30 && r < 0x40:
-		return v.DI[(r-0x30)/4]
+		// The display-interrupt registers are 32 bits but the game accesses them a halfword
+		// at a time: the high halfword (offset 0/4/8/C) holds the enable, the status bit and
+		// the vertical position; the low halfword holds the horizontal position.
+		full := v.DI[(r-0x30)/4]
+		if size == 2 {
+			if r&2 == 0 {
+				return full >> 16
+			}
+			return full & 0xFFFF
+		}
+		return full
 	}
 	// The many timing registers a game writes and never reads back: report them once, but
 	// do not pretend the read means something.
@@ -63,12 +73,23 @@ func (v *vi) write(m *Machine, off uint32, val uint32, size int) {
 		v.BFBL = val
 	case r >= 0x30 && r < 0x40:
 		i := (r - 0x30) / 4
-		// Writing a display-interrupt register: the handler clears the pending bit (31)
-		// by writing it back as zero, which is its acknowledgement.
-		v.DI[i] = val
-		if val&(1<<31) == 0 {
-			// The pending bit was cleared. If no display interrupt is still pending,
-			// lower the shared VI line.
+		// The display-interrupt registers are 32 bits, but the game programs them a halfword
+		// at a time. The high halfword (offset 0/4/8/C into the block) carries the enable
+		// (bit 28), the status/pending bit (31) and the vertical position; the low halfword
+		// carries the horizontal position. Composing the full register from its halves is
+		// what makes the enable bit visible — a whole-word view of a high-halfword write puts
+		// the enable at bit 12, where nothing looks for it, and the retrace never arms.
+		switch {
+		case size == 2 && r&2 == 0:
+			v.DI[i] = (v.DI[i] & 0x0000FFFF) | (val&0xFFFF)<<16
+		case size == 2:
+			v.DI[i] = (v.DI[i] & 0xFFFF0000) | (val & 0xFFFF)
+		default:
+			v.DI[i] = val
+		}
+		if v.DI[i]&(1<<31) == 0 {
+			// The status bit is clear — either never set, or just acknowledged by the
+			// handler. If no display interrupt is still pending, lower the shared VI line.
 			m.viRefreshIRQ()
 		}
 	default:

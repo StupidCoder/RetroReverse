@@ -59,6 +59,7 @@ func main() {
 	files := flag.Bool("files", false, "list the disc's files and exit")
 	verbose := flag.Bool("v", false, "report the unmodelled-hardware census at the end")
 	nospin := flag.Bool("nospin", false, "do not stop on a tight loop (the OS idle/scheduler loop looks like one)")
+	fifodump := flag.String("fifodump", "", "capture the write-gather FIFO byte stream to this file")
 	flag.Parse()
 
 	if *image == "" {
@@ -71,6 +72,7 @@ func main() {
 		loadDOL: *loadDOL, dvd: *dvd, lowmem: *lowmem, shot: *shot,
 		savestate: *savestate, loadstate: *loadstate, poke: *poke,
 		dis: *dis, dump: *dump, files: *files, verbose: *verbose, nospin: *nospin,
+		fifodump: *fifodump,
 	}); err != nil {
 		fmt.Fprintln(os.Stderr, "bootoracle:", err)
 		os.Exit(1)
@@ -89,6 +91,7 @@ type cfg struct {
 	nospin                               bool
 	shot, savestate, loadstate, poke     string
 	dis, dump                            string
+	fifodump                             string
 }
 
 func run(c cfg) error {
@@ -130,6 +133,11 @@ func run(c cfg) error {
 				fmt.Printf("  DVD read: 0x%X  (%d bytes -> 0x%08X) — not in any file\n", off, length, memAddr)
 			}
 		}
+	}
+
+	var fifoBuf []byte
+	if c.fifodump != "" {
+		m.OnFIFO = func(line []byte) { fifoBuf = append(fifoBuf, line...) }
 	}
 
 	if c.lowmem {
@@ -264,6 +272,13 @@ func run(c cfg) error {
 	if c.verbose {
 		fmt.Fprintf(os.Stderr, "bootoracle: intr: %s\n", m.IntrState())
 		fmt.Fprintf(os.Stderr, "bootoracle: backtrace:\n%s", m.BacktraceString())
+	}
+
+	if c.fifodump != "" {
+		if err := os.WriteFile(c.fifodump, fifoBuf, 0o644); err != nil {
+			return err
+		}
+		fmt.Fprintf(os.Stderr, "bootoracle: wrote %d FIFO bytes to %s\n", len(fifoBuf), c.fifodump)
 	}
 
 	if c.shot != "" {

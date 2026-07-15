@@ -163,16 +163,42 @@ func (d *cp) write(m *Machine, off uint32, v uint32, size int) {
 //
 // The end of the graphics pipe, and the source of the two interrupts a frame-timed game
 // waits on: the token (a marker the game plants in the command stream) and the finish
-// (the pipe has drained). Phase 3 raises these for real; the registers live here so the
-// configuration a game writes is remembered.
+// (the pipe has drained). The command processor (gpu.go) reaches those markers as it walks
+// the FIFO and calls setToken/setFinish here; this is where the interrupt is actually
+// raised, gated by the enables the game programmed, and later acknowledged.
+//
+// The control register at 0x0A is the whole of that protocol. Its low two bits enable the
+// token and finish interrupts; its next two are write-one-to-clear acknowledgements that a
+// handler uses to dismiss the interrupt it is servicing. The interrupt line itself is the
+// shared PE cause in the processor interface, so raising and clearing here is level-driven
+// through pi.go exactly as every other device is.
 
 type pe struct {
-	Reg   [0x20]uint16
-	Token uint16
+	Reg          [0x20]uint16
+	Token        uint16
+	TokenEnable  bool
+	FinishEnable bool
 }
 
 func (d *pe) read(m *Machine, off uint32, size int) uint32 {
 	switch off & 0xFFF {
+	case 0x0A:
+		// The control register reads back the enables it was given and the pending status
+		// of each interrupt, which is what a handler inspects to tell token from finish.
+		var v uint16
+		if d.TokenEnable {
+			v |= 1 << 0
+		}
+		if d.FinishEnable {
+			v |= 1 << 1
+		}
+		if m.pi.Cause&(1<<IntPEToken) != 0 {
+			v |= 1 << 2
+		}
+		if m.pi.Cause&(1<<IntPEFinish) != 0 {
+			v |= 1 << 3
+		}
+		return uint32(v)
 	case 0x0E:
 		return uint32(d.Token) // the last token the pipe passed
 	}
@@ -185,12 +211,42 @@ func (d *pe) read(m *Machine, off uint32, size int) uint32 {
 }
 
 func (d *pe) write(m *Machine, off uint32, v uint32, size int) {
+	switch off & 0xFFF {
+	case 0x0A:
+		d.TokenEnable = v&(1<<0) != 0
+		d.FinishEnable = v&(1<<1) != 0
+		if v&(1<<2) != 0 { // acknowledge the token interrupt
+			m.clearInt(IntPEToken)
+		}
+		if v&(1<<3) != 0 { // acknowledge the finish interrupt
+			m.clearInt(IntPEFinish)
+		}
+		return
+	}
 	i := (off & 0xFFF) / 2
 	if int(i) < len(d.Reg) {
 		d.Reg[i] = uint16(v)
 		return
 	}
 	m.logf("PE write unmodelled 0x%03X = 0x%08X", off&0xFFF, v)
+}
+
+// setFinish is called by the command processor when it reaches the draw-done marker in the
+// FIFO: the pipe has drained to that point. It raises the finish interrupt if the game
+// enabled it — a game that polls instead simply leaves it disabled and reads the status.
+func (d *pe) setFinish(m *Machine) {
+	if d.FinishEnable {
+		m.raiseInt(IntPEFinish)
+	}
+}
+
+// setToken records a token the pipe passed (readable at 0x0E) and, for the interrupting
+// form, raises the token interrupt if the game enabled it.
+func (d *pe) setToken(m *Machine, tok uint16, raise bool) {
+	d.Token = tok
+	if raise && d.TokenEnable {
+		m.raiseInt(IntPEToken)
+	}
 }
 
 // --- The write-gather pipe ----------------------------------------------------------
@@ -211,6 +267,9 @@ type wgPipe struct {
 
 func (w *wgPipe) push(m *Machine, b []byte) {
 	w.Bytes += uint64(len(b))
+	// The command processor consumes the stream: this is what feeds the graphics pipe.
+	m.gpu.feed(m, b)
+	// The capture tool, if one is listening, gets the same bytes in 32-byte lines.
 	if m.OnFIFO == nil {
 		return
 	}

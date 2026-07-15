@@ -45,6 +45,7 @@ type MachineState struct {
 	DSP dsp
 	CP  cp
 	PE  pe
+	GPU gpu
 	WG  wgPipe
 }
 
@@ -63,7 +64,7 @@ func (m *Machine) SaveState() MachineState {
 		ARAM:    append([]byte(nil), m.ARAM...),
 		CPU:     m.CPU.Snapshot(),
 		PI:      m.pi, MI: m.mi, VI: m.vi, DI: m.di, SI: m.si,
-		EXI: m.exi, AI: m.ai, DSP: m.dsp, CP: m.cp, PE: m.pe, WG: m.wgFIFO,
+		EXI: m.exi, AI: m.ai, DSP: m.dsp, CP: m.cp, PE: m.pe, GPU: m.gpu, WG: m.wgFIFO,
 	}
 	return s
 }
@@ -80,7 +81,7 @@ func (m *Machine) LoadState(s MachineState) error {
 	copy(m.ARAM, s.ARAM)
 	m.CPU.Restore(s.CPU)
 	m.pi, m.mi, m.vi, m.di, m.si = s.PI, s.MI, s.VI, s.DI, s.SI
-	m.exi, m.ai, m.dsp, m.cp, m.pe, m.wgFIFO = s.EXI, s.AI, s.DSP, s.CP, s.PE, s.WG
+	m.exi, m.ai, m.dsp, m.cp, m.pe, m.gpu, m.wgFIFO = s.EXI, s.AI, s.DSP, s.CP, s.PE, s.GPU, s.WG
 	return nil
 }
 
