@@ -6,8 +6,10 @@ import "testing"
 // reaches a hardware address the test fails loudly rather than reading a silent zero.
 type nullBus struct{ t *testing.T }
 
-func (b nullBus) HWRead(a uint16) uint16  { b.t.Fatalf("unexpected HW read @0x%04X", a); return 0 }
-func (b nullBus) HWWrite(a uint16, v uint16) { b.t.Fatalf("unexpected HW write @0x%04X = 0x%04X", a, v) }
+func (b nullBus) HWRead(a uint16) uint16 { b.t.Fatalf("unexpected HW read @0x%04X", a); return 0 }
+func (b nullBus) HWWrite(a uint16, v uint16) {
+	b.t.Fatalf("unexpected HW write @0x%04X = 0x%04X", a, v)
+}
 
 // run loads a program into IRAM and steps until PC reaches stopAt, the core halts, or the step
 // budget is spent. It returns the CPU for inspection.
@@ -37,9 +39,9 @@ func run(t *testing.T, prog []uint16, stopAt uint16) *CPU {
 func TestInitIdiom(t *testing.T) {
 	c := run(t, []uint16{
 		0x009E, 0xFFFF, // 0000: lri ac0.m, #0xFFFF
-		0x1D1E,         // 0002: mrr wr0, ac0.m
-		0x1D3E,         // 0003: mrr wr1, ac0.m
-		0x0021,         // 0004: halt (sentinel; run stops before executing it)
+		0x1D1E, // 0002: mrr wr0, ac0.m
+		0x1D3E, // 0003: mrr wr1, ac0.m
+		0x0021, // 0004: halt (sentinel; run stops before executing it)
 	}, 0x0004)
 	if c.Reg[regWR0] != 0xFFFF || c.Reg[regWR0+1] != 0xFFFF {
 		t.Errorf("wr0/wr1 = 0x%04X/0x%04X, want 0xFFFF", c.Reg[regWR0], c.Reg[regWR0+1])
@@ -61,7 +63,7 @@ func TestBlockLoop(t *testing.T) {
 		0x1104, 0x0009, // 0006: bloopi #4, 0x0009  (body 0x0008..0x0009)
 		0x1B1E,         // 0008: srri @ar0, ac0.m  (store and post-increment ar0)
 		0x0200, 0x0001, // 0009: addi ac0, #0x0001  (loop end)
-		0x0021,         // 000B: halt (sentinel)
+		0x0021, // 000B: halt (sentinel)
 	}, 0x000B)
 	for i := uint16(0); i < 4; i++ {
 		if got := c.DRAM[0x100+i]; got != i {
@@ -83,9 +85,9 @@ func TestCompareBranch(t *testing.T) {
 		0x009E, 0x0004, // 0000: lri ac0.m, #0x0004
 		0x0280, 0x0004, // 0002: cmpi ac0, #0x0004  (ac0 == 4<<16, equal)
 		0x0295, 0x0008, // 0004: jmpz 0x0008
-		0x0021,         // 0006: halt (must be skipped)
-		0x0021,         // 0007: pad
-		0x0000,         // 0008: nop (sentinel)
+		0x0021, // 0006: halt (must be skipped)
+		0x0021, // 0007: pad
+		0x0000, // 0008: nop (sentinel)
 	}, 0x0008)
 	if c.Reg[regSR]&srZero == 0 {
 		t.Error("zero flag not set after equal compare")
@@ -98,11 +100,11 @@ func TestCompareBranch(t *testing.T) {
 // present bit, so the microcode's "wait until the mailbox present bit is set" loop never exits.
 func TestAndfAndcfFlags(t *testing.T) {
 	cases := []struct {
-		name    string
-		op      uint16 // 0x02A0 andf, 0x02C0 andcf
-		acm     uint16
-		imm     uint16
-		wantLZ  bool
+		name   string
+		op     uint16 // 0x02A0 andf, 0x02C0 andcf
+		acm    uint16
+		imm    uint16
+		wantLZ bool
 	}{
 		{"andf/bit-clear-sets-LZ", 0x02A0, 0x0000, 0x8000, true},
 		{"andf/bit-set-clears-LZ", 0x02A0, 0x8000, 0x8000, false},
@@ -134,8 +136,8 @@ func TestMailboxWaitIdiom(t *testing.T) {
 		0x26FE,         // 0001: lrs ac0.m, @0xFFFE (read CMBH)
 		0x02C0, 0x8000, // 0002: andcf ac0.m, #0x8000
 		0x029C, 0x0000, // 0004: jmplnz 0x0000 (loop while present bit clear)
-		0x27FF,         // 0006: lrs ac1.m, @0xFFFF (consume CMBL)
-		0x0021,         // 0007: halt (sentinel)
+		0x27FF, // 0006: lrs ac1.m, @0xFFFF (consume CMBL)
+		0x0021, // 0007: halt (sentinel)
 	})
 	for i := 0; i < 100000 && c.PC != 0x0007; i++ {
 		if !c.Step() {
@@ -218,7 +220,7 @@ func TestCommandDispatchShift(t *testing.T) {
 		0x1479,         // 0002: lsr ac0, #7
 		0x0240, 0x007E, // 0003: andi ac0.m, #0x007E
 		0x0200, 0x0062, // 0005: addi ac0, #0x0062
-		0x0000,         // 0007: nop sentinel
+		0x0000, // 0007: nop sentinel
 	}, 0x0007)
 	if c.Reg[regAC0M] != 0x0062 {
 		t.Errorf("dispatch target ac0.m = 0x%04X, want 0x0062 (jump-table entry 0 for command 0)", c.Reg[regAC0M])
@@ -367,17 +369,16 @@ func TestMul(t *testing.T) {
 }
 
 // TestExtParallelStore pins the hazard-free timing of a parallel store: it must capture the
-// accumulator's value from BEFORE the main op changes it. The instruction is `not ac0.m : sl`
-// (0x32B2) — the sl stores ac0.m and the not complements it; the stored word must be the original.
+// accumulator's value from BEFORE the main op changes it. Two instructions pin it: the ucode's
+// own `not ac0.m : s @ar2, ac0.m` (0x32B2, at 0x03B7 — a 7-bit extension; the stored word must
+// be the original), and an ls pair on a row with the full 8-bit field (0x64B1: movr overwrites
+// ac0 while the ls stores its pre-op middle and loads ax0.h).
 func TestExtParallelStore(t *testing.T) {
 	c := New(nullBus{t})
+	noWrap(c)
 	c.setReg(regAC0M, 0x1234)
-	c.Reg[regAR0] = 0x0100 // load source
-	c.Reg[regAR0+3] = 0x0200 // store destination (ar3)
-	c.Reg[regWR0] = 0xFFFF
-	c.Reg[regWR0+3] = 0xFFFF
-	c.DRAM[0x0100] = 0xBEEF // ax1.h will be loaded from here
-	c.IRAM[0] = 0x32B2      // not ac0.m : sl r=ax1.h, ac0.m
+	c.Reg[regAR0+2] = 0x0200 // store destination (ar2)
+	c.IRAM[0] = 0x32B2       // not ac0.m : s @ar2, ac0.m
 	c.Step()
 	if got := c.DRAM[0x0200]; got != 0x1234 {
 		t.Errorf("parallel store wrote 0x%04X, want 0x1234 (the pre-op accumulator middle)", got)
@@ -385,12 +386,33 @@ func TestExtParallelStore(t *testing.T) {
 	if got := c.Reg[regAC0M]; got != 0xEDCB {
 		t.Errorf("not left ac0.m = 0x%04X, want 0xEDCB", got)
 	}
-	if got := c.Reg[regAX1H]; got != 0xBEEF {
-		t.Errorf("parallel load left ax1.h = 0x%04X, want 0xBEEF", got)
+	if c.Reg[regAR0+2] != 0x0201 {
+		t.Errorf("parallel store did not post-increment ar2: 0x%04X", c.Reg[regAR0+2])
 	}
-	if c.Reg[regAR0] != 0x0101 || c.Reg[regAR0+3] != 0x0201 {
-		t.Errorf("parallel move did not post-increment both address registers: ar0=0x%04X ar3=0x%04X",
-			c.Reg[regAR0], c.Reg[regAR0+3])
+
+	// The full-8-bit row: movr ac0, ax1.l : ls ax0.h, ac0.m (0x62B1 with the ls in the low
+	// byte) — the ls stores the PRE-movr ac0.m through AR3 and loads ax0.h through AR0.
+	c2 := New(nullBus{t})
+	noWrap(c2)
+	c2.setReg(regAC0M, 0x4321)
+	c2.Reg[regAX1L] = 0x0055
+	c2.Reg[regAR0] = 0x0100   // load source
+	c2.Reg[regAR0+3] = 0x0200 // store destination
+	c2.DRAM[0x0100] = 0xBEEF
+	c2.IRAM[0] = 0x62A0 // movr ac0, ax1.l : ls ax0.h, ac0.m
+	c2.Step()
+	if got := c2.DRAM[0x0200]; got != 0x4321 {
+		t.Errorf("ls stored 0x%04X, want 0x4321 (the pre-movr accumulator middle)", got)
+	}
+	if got := c2.Reg[regAC0M]; got != 0x0055 {
+		t.Errorf("movr left ac0.m = 0x%04X, want 0x0055", got)
+	}
+	if got := c2.Reg[regAX0H]; got != 0xBEEF {
+		t.Errorf("ls loaded ax0.h = 0x%04X, want 0xBEEF", got)
+	}
+	if c2.Reg[regAR0] != 0x0101 || c2.Reg[regAR0+3] != 0x0201 {
+		t.Errorf("ls did not post-increment both pointers: ar0=0x%04X ar3=0x%04X",
+			c2.Reg[regAR0], c2.Reg[regAR0+3])
 	}
 }
 
@@ -422,24 +444,36 @@ func TestAddisCmpis(t *testing.T) {
 // TestTstBranch runs the mixer's "is this sample negative" idiom: tst the accumulator then take
 // a GE branch, which with overflow cleared reduces to the sign. A negative accumulator must fall
 // through (not GE); a non-negative one must branch.
+// TestTstBranch pins the two distinct test ops: 0xB100 is tst acR (flags from the 40-bit
+// accumulator, selector in bit 11), 0x8600 is tstaxh axR.h (flags from the 16-bit HIGH half of
+// an ax register, selector in bit 8). An earlier build ran 0x8600 as the accumulator test —
+// self-consistent with its own version of this test, silently wrong against the ISA — so the
+// two cases here deliberately disagree: the accumulator is set opposite in sign to ax0.h and
+// each op must follow its own operand.
 func TestTstBranch(t *testing.T) {
 	for _, tc := range []struct {
 		name   string
+		op     uint16
 		ac     int64
+		axh    uint16
 		wantGE bool
 	}{
-		{"negative", -0x0010000, false},
-		{"positive", 0x0010000, true},
-		{"zero", 0, true},
+		{"tst-negative", 0xB100, -0x0010000, 0x0001, false}, // ac0 < 0 while ax0.h > 0
+		{"tst-positive", 0xB100, 0x0010000, 0x8000, true},   // ac0 > 0 while ax0.h < 0
+		{"tst-zero", 0xB100, 0, 0x8000, true},
+		{"tstaxh-negative", 0x8600, 0x0010000, 0x8000, false}, // ax0.h < 0 while ac0 > 0
+		{"tstaxh-positive", 0x8600, -0x0010000, 0x0001, true}, // ax0.h > 0 while ac0 < 0
+		{"tstaxh-zero", 0x8600, -0x0010000, 0x0000, true},
 	} {
 		c := New(nullBus{t})
 		c.setAc(0, tc.ac)
+		c.Reg[regAX0H] = tc.axh
 		copy(c.IRAM[:], []uint16{
-			0x8600,         // 0000: tst ac0
+			tc.op,          // 0000: tst ac0 / tstaxh ax0.h
 			0x0290, 0x0005, // 0001: jmpge 0x0005
-			0x0021,         // 0003: halt (taken when not GE)
-			0x0000,         // 0004: pad
-			0x0000,         // 0005: nop (GE lands here)
+			0x0021, // 0003: halt (taken when not GE)
+			0x0000, // 0004: pad
+			0x0000, // 0005: nop (GE lands here)
 		})
 		for i := 0; i < 100 && c.PC != 0x0005 && !c.Halted; i++ {
 			c.Step()
@@ -460,7 +494,7 @@ func TestCallRet(t *testing.T) {
 		0x0021,         // 0004: halt (sentinel)
 		0x0000,         // 0005: pad
 		0x009D, 0xCAFE, // 0006: lri ac1.l, #0xCAFE
-		0x02DF,         // 0008: ret
+		0x02DF, // 0008: ret
 	}, 0x0004)
 	if c.Reg[regAC1L] != 0xCAFE {
 		t.Errorf("ac1.l = 0x%04X, want 0xCAFE (subroutine ran)", c.Reg[regAC1L])
@@ -481,7 +515,7 @@ func TestCallrJmpr(t *testing.T) {
 		0x009F, 0xBEEF, // 0003: lri ac1.m, #0xBEEF (runs after the handler returns)
 		0x0021,         // 0005: halt sentinel
 		0x009D, 0xCAFE, // 0006: lri ac1.l, #0xCAFE (the handler)
-		0x02DF,         // 0008: ret
+		0x02DF, // 0008: ret
 	}, 0x0005)
 	if c.Reg[regAC1L] != 0xCAFE {
 		t.Errorf("ac1.l = 0x%04X, want 0xCAFE (callr handler ran)", c.Reg[regAC1L])
@@ -495,12 +529,395 @@ func TestCallrJmpr(t *testing.T) {
 		0x174F,         // 0002: jmpr ar2 -> 0x0004 (no return stacked)
 		0x0021,         // 0003: halt (skipped over)
 		0x009F, 0xF00D, // 0004: lri ac1.m, #0xF00D
-		0x0021,         // 0006: halt sentinel
+		0x0021, // 0006: halt sentinel
 	}, 0x0006)
 	if c2.Reg[regAC1M] != 0xF00D {
 		t.Errorf("ac1.m = 0x%04X, want 0xF00D (jmpr landed)", c2.Reg[regAC1M])
 	}
 	if len(c2.Stacks[regST0-regST0]) != 0 {
 		t.Errorf("jmpr pushed a return address (stack depth %d), want none", len(c2.Stacks[0]))
+	}
+}
+
+// runOn steps a pre-configured CPU (registers and DRAM already set) until PC reaches stopAt.
+func runOn(t *testing.T, c *CPU, stopAt uint16) {
+	t.Helper()
+	for i := 0; i < 200000; i++ {
+		if c.PC == stopAt {
+			return
+		}
+		if !c.Step() {
+			break
+		}
+	}
+	if c.Halted {
+		t.Fatalf("core halted: %s (PC=0x%04X)", c.Reason, c.PC)
+	}
+	t.Fatalf("did not reach 0x%04X (stopped at 0x%04X)", stopAt, c.PC)
+}
+
+// noWrap puts every address register in the no-wrap configuration the ucode's init sets.
+func noWrap(c *CPU) {
+	for i := 0; i < 4; i++ {
+		c.Reg[regWR0+i] = 0xFFFF
+	}
+}
+
+// TestExtDualLoad pins the plain LD extension (11mn barr): one half of AX0 (bit 5) loads
+// through arS, one half of AX1 (bit 4) through AR3, both post-modified — and, like every
+// parallel load, the writes land only after the main op has read the old register values.
+func TestExtDualLoad(t *testing.T) {
+	c := New(nullBus{t})
+	noWrap(c)
+	c.Reg[regAR0+1] = 0x140
+	c.Reg[regAR0+3] = 0x180
+	c.Reg[regAX0L] = 0x5678 // the value the main op must still see
+	c.DRAM[0x140] = 0x1111
+	c.DRAM[0x180] = 0x2222
+	copy(c.IRAM[:], []uint16{
+		0x60C1, // movr ac0, ax0.l : ld ax0.l, ax1.l, @ar1
+		0x0021,
+	})
+	runOn(t, c, 0x0001)
+	if c.Reg[regAC0M] != 0x5678 {
+		t.Errorf("main op saw ax0.l = 0x%04X, want the pre-load 0x5678", c.Reg[regAC0M])
+	}
+	if c.Reg[regAX0L] != 0x1111 || c.Reg[regAX1L] != 0x2222 {
+		t.Errorf("ld loaded ax0.l/ax1.l = 0x%04X/0x%04X, want 0x1111/0x2222", c.Reg[regAX0L], c.Reg[regAX1L])
+	}
+	if c.Reg[regAR0+1] != 0x141 || c.Reg[regAR0+3] != 0x181 {
+		t.Errorf("ld stepped ar1/ar3 to 0x%04X/0x%04X, want 0x0141/0x0181", c.Reg[regAR0+1], c.Reg[regAR0+3])
+	}
+
+	// The M variant the resampler uses (ext 0xE8 = ldm ax0.h, ax1.l, @ar0): AR3 steps by IX3.
+	c2 := New(nullBus{t})
+	noWrap(c2)
+	c2.Reg[regAR0] = 0x100
+	c2.Reg[regAR0+3] = 0x180
+	c2.Reg[regIX0+3] = 0x0005
+	c2.DRAM[0x100] = 0xAAAA
+	c2.DRAM[0x180] = 0xBBBB
+	copy(c2.IRAM[:], []uint16{
+		0x80E8, // nx : ldm ax0.h, ax1.l, @ar0
+		0x0021,
+	})
+	runOn(t, c2, 0x0001)
+	if c2.Reg[regAX0H] != 0xAAAA || c2.Reg[regAX1L] != 0xBBBB {
+		t.Errorf("ldm loaded ax0.h/ax1.l = 0x%04X/0x%04X, want 0xAAAA/0xBBBB", c2.Reg[regAX0H], c2.Reg[regAX1L])
+	}
+	if c2.Reg[regAR0] != 0x101 || c2.Reg[regAR0+3] != 0x185 {
+		t.Errorf("ldm stepped ar0/ar3 to 0x%04X/0x%04X, want 0x0101/0x0185 (+1, +ix3)", c2.Reg[regAR0], c2.Reg[regAR0+3])
+	}
+}
+
+// TestExtDualLoadBothHalves pins the LD2 form (low bits 11): BOTH halves of one ax register
+// load at once — the high half through arS (bit 5), the low through AR3 — with bit 4 choosing
+// the ax. This is the FIR's per-tap fetch (coefficient into .h via the circular AR0, sample
+// into .l via AR3) and the volume loop's stream refresh.
+func TestExtDualLoadBothHalves(t *testing.T) {
+	for _, tc := range []struct {
+		ext   uint16
+		wantH uint16 // register receiving [arS]
+		wantL uint16 // register receiving [AR3]
+		arS   int
+	}{
+		{0xC3, regAX0H, regAX0L, 0}, // ld2 ax0, @ar0 — the FIR's
+		{0xD3, regAX1H, regAX1L, 0}, // ld2 ax1, @ar0 — the volume loop's
+		{0xE3, regAX0H, regAX0L, 1}, // ld2 ax0, @ar1
+	} {
+		c := New(nullBus{t})
+		noWrap(c)
+		c.Reg[regAR0+tc.arS] = 0x100
+		c.Reg[regAR0+3] = 0x180
+		c.DRAM[0x100] = 0xC0EF // the arS-side value (a coefficient in the FIR)
+		c.DRAM[0x180] = 0x5A5A // the AR3-side value (a sample)
+		copy(c.IRAM[:], []uint16{
+			0x8000 | tc.ext, // nx : ld2
+			0x0021,
+		})
+		runOn(t, c, 0x0001)
+		if c.Reg[tc.wantH] != 0xC0EF {
+			t.Errorf("ext 0x%02X: high-half reg = 0x%04X, want 0xC0EF from [ar%d]", tc.ext, c.Reg[tc.wantH], tc.arS)
+		}
+		if c.Reg[tc.wantL] != 0x5A5A {
+			t.Errorf("ext 0x%02X: low-half reg = 0x%04X, want 0x5A5A from [ar3]", tc.ext, c.Reg[tc.wantL])
+		}
+		if c.Reg[regAR0+tc.arS] != 0x101 || c.Reg[regAR0+3] != 0x181 {
+			t.Errorf("ext 0x%02X: ar%d/ar3 = 0x%04X/0x%04X, want both post-incremented",
+				tc.ext, tc.arS, c.Reg[regAR0+tc.arS], c.Reg[regAR0+3])
+		}
+	}
+}
+
+// TestClrpMovpz pins the product-register idioms around the FIR: clrp sets the documented
+// biased pieces that read back as zero, movpz moves prod into an accumulator with the low
+// word cleared, and movp moves it exactly.
+func TestClrpMovpz(t *testing.T) {
+	c := New(nullBus{t})
+	noWrap(c)
+	c.setAc(0, 0x123456789A) // must be overwritten
+	copy(c.IRAM[:], []uint16{
+		0x8400, // clrp
+		0xFE00, // movpz ac0
+		0x0021,
+	})
+	runOn(t, c, 0x0002)
+	if c.Reg[regPRODL] != 0x0000 || c.Reg[regPRODM1] != 0xFFF0 || c.Reg[regPRODH] != 0x00FF || c.Reg[regPRODM2] != 0x0010 {
+		t.Errorf("clrp pieces = %04X/%04X/%04X/%04X, want 0000/FFF0/00FF/0010",
+			c.Reg[regPRODL], c.Reg[regPRODM1], c.Reg[regPRODH], c.Reg[regPRODM2])
+	}
+	if got := c.ac(0); got != 0 {
+		t.Errorf("movpz after clrp: ac0 = 0x%X, want 0 (the biased pieces must sum to zero)", got)
+	}
+
+	// clrp; madd; movp — the product lands exactly (signed operands, m0: no doubling).
+	c2 := New(nullBus{t})
+	noWrap(c2)
+	c2.Reg[regAX0L] = 0x4000 // +16384
+	c2.Reg[regAX0H] = 0xE000 // -8192
+	copy(c2.IRAM[:], []uint16{
+		0x8400, // clrp
+		0xF200, // madd ax0.l, ax0.h
+		0x6E00, // movp ac0
+		0x0021,
+	})
+	runOn(t, c2, 0x0003)
+	if want := int64(16384) * -8192; c2.ac(0) != want {
+		t.Errorf("clrp; madd; movp: ac0 = %d, want %d", c2.ac(0), want)
+	}
+}
+
+// TestMulcac pins MULCAC (110s t10r): the old product is added into acR while a new product
+// acS.m * axT.h starts — the volume loop's pipeline.
+func TestMulcac(t *testing.T) {
+	c := New(nullBus{t})
+	noWrap(c)
+	c.Reg[regAC1M] = 0x4000 // the volume, in ac1.m
+	c.Reg[regAX1H] = 0x0100 // first sample
+	copy(c.IRAM[:], []uint16{
+		0xD800,         // mulc ac1.m, ax1.h — prod = vol * s1
+		0x009B, 0xFF00, // lri ax1.h, #0xFF00 — second sample (-256)
+		0xDC00, // mulcac ac1.m, ax1.h, ac0 — ac0 += old prod; prod = vol * s2
+		0x0021,
+	})
+	runOn(t, c, 0x0004)
+	if want := int64(0x4000) * 0x0100; c.ac(0) != want {
+		t.Errorf("mulcac accumulated ac0 = %d, want the FIRST product %d", c.ac(0), want)
+	}
+	if want := int64(0x4000) * -256; c.prod() != want {
+		t.Errorf("mulcac left prod = %d, want the SECOND product %d", c.prod(), want)
+	}
+}
+
+// TestMaddcMaddx pins the two-operand multiply-accumulates: maddc (acS.m * axT.h) and maddx
+// (a half of ax0 times a half of ax1), both adding into prod.
+func TestMaddcMaddx(t *testing.T) {
+	c := New(nullBus{t})
+	noWrap(c)
+	c.Reg[regAC1M] = 0x0123
+	c.Reg[regAX0H] = 0xFFFE // -2
+	c.Reg[regAX0L] = 0x0040
+	c.Reg[regAX1H] = 0x0010
+	copy(c.IRAM[:], []uint16{
+		0x8400, // clrp
+		0xEB00, // maddc ac1.m, ax1.h — prod += 0x0123 * 0x0010
+		0xE100, // maddx ax0.l, ax1.h — prod += 0x0040 * 0x0010
+		0xE600, // msubx ax0.h, ax1.l — prod -= (-2) * ax1.l(0)
+		0x6E00, // movp ac0
+		0x0021,
+	})
+	runOn(t, c, 0x0005)
+	want := int64(0x0123)*0x0010 + int64(0x0040)*0x0010
+	if c.ac(0) != want {
+		t.Errorf("maddc+maddx: ac0 = %d, want %d", c.ac(0), want)
+	}
+}
+
+// TestFIR runs the game's own 8-tap FIR routine (ucode 0x01C2..0x01E0, lifted verbatim with
+// only the bloopi target rebased): copy 8 coefficients into the circular table at 0x03E8,
+// then filter 0x50 samples in place through `clrp:ld2; (madd:ld2)x7; madd; movpz; srri`,
+// with AR0 circling the coefficients under wr0=7 and AR3 walking the sample window. Verified
+// against a direct Go convolution in the DSP's fixed-point convention (signed 16x16, m2
+// product doubling, the result word taken from prod bits 16..31).
+func TestFIR(t *testing.T) {
+	coefs := []uint16{0x0100, 0xFF00, 0x2000, 0x8000, 0x0001, 0x7FFF, 0xF000, 0x0800}
+	const nOut = 0x50
+	samples := make([]uint16, nOut+8)
+	for k := range samples {
+		samples[k] = uint16(0x1234*k + 0x89)
+	}
+
+	c := New(nullBus{t})
+	noWrap(c)
+	c.Reg[regAR0] = 0x100   // the caller's coefficient list
+	c.Reg[regAR0+1] = 0x200 // the sample buffer, filtered in place
+	copy(c.DRAM[0x100:], coefs)
+	copy(c.DRAM[0x200:], samples)
+	copy(c.IRAM[:], []uint16{
+		0x8A00,         // 00: m2
+		0x0083, 0x03E8, // 01: lri ar3, #0x03E8
+		0x191E,         // 03: lrri ac0.m, @ar0
+		0x191A,         // 04: lrri ax0.h, @ar0
+		0x1006,         // 05: loopi #6
+		0x64A0,         // 06: movr ac0, ax0.h : ls ax0.h, ac0.m
+		0x1B7E,         // 07: srri @ar3, ac0.m
+		0x1B7A,         // 08: srri @ar3, ax0.h
+		0x0080, 0x03E8, // 09: lri ar0, #0x03E8
+		0x0088, 0x0007, // 0B: lri wr0, #0x0007
+		0x1150, 0x001A, // 0D: bloopi #0x50, 0x001A
+		0x1C61,                                         // 0F: mrr ar3, ar1
+		0x84C3,                                         // 10: clrp : ld2 ax0, @ar0
+		0xF2C3,                                         // 11: madd ax0 : ld2 ax0, @ar0
+		0xF2C3, 0xF2C3, 0xF2C3, 0xF2C3, 0xF2C3, 0xF2C3, // 12..17
+		0xF200,         // 18: madd ax0
+		0xFE00,         // 19: movpz ac0
+		0x1B3E,         // 1A: srri @ar1, ac0.m (loop end)
+		0x0088, 0xFFFF, // 1B: lri wr0, #0xFFFF
+		0x8B00, // 1D: m0
+		0x0021, // 1E: halt sentinel
+	})
+	runOn(t, c, 0x001E)
+
+	// The coefficient table must have been copied in caller order.
+	for i, want := range coefs {
+		if got := c.DRAM[0x3E8+i]; got != want {
+			t.Fatalf("coefficient table [%d] = 0x%04X, want 0x%04X", i, got, want)
+		}
+	}
+	// Every output: the Q15 MAC over the original window (outputs land at index n, windows
+	// read n..n+7, so the in-place write never aliases a later read).
+	for n := 0; n < nOut; n++ {
+		var acc int64
+		for i := 0; i < 8; i++ {
+			acc += 2 * int64(int16(coefs[i])) * int64(int16(samples[n+i]))
+		}
+		if got, want := c.DRAM[0x200+n], uint16(acc>>16); got != want {
+			t.Fatalf("output %d = 0x%04X, want 0x%04X", n, got, want)
+		}
+	}
+	if c.Reg[regAR0] != 0x3E8 {
+		t.Errorf("ar0 = 0x%04X, want 0x03E8 (80 full circles of the 8-word table)", c.Reg[regAR0])
+	}
+	if c.Reg[regWR0] != 0xFFFF {
+		t.Errorf("wr0 = 0x%04X, want restored 0xFFFF", c.Reg[regWR0])
+	}
+}
+
+// TestIfCC runs the ucode's sign-tracked step idiom (0x0616: ifg incm / ifl decm): after a
+// tst, exactly one of the two guarded single-word steps must execute.
+func TestIfCC(t *testing.T) {
+	for _, tc := range []struct {
+		name string
+		ac1  int64
+		want uint16 // ac0.m after the pair
+	}{
+		{"positive-increments", 0x10000, 0x0011},
+		{"negative-decrements", -0x10000, 0x000F},
+		{"zero-does-neither", 0, 0x0010},
+	} {
+		c := New(nullBus{t})
+		noWrap(c)
+		c.setAc(1, tc.ac1)
+		c.Reg[regAC0M] = 0x0010
+		copy(c.IRAM[:], []uint16{
+			0xB900, // tst ac1
+			0x0272, // ifg
+			0x7400, // incm ac0.m
+			0x0271, // ifl
+			0x7800, // decm ac0.m
+			0x0021,
+		})
+		runOn(t, c, 0x0005)
+		if c.Reg[regAC0M] != tc.want {
+			t.Errorf("%s: ac0.m = 0x%04X, want 0x%04X", tc.name, c.Reg[regAC0M], tc.want)
+		}
+	}
+}
+
+// TestArWrap pins the carry-detect wrap on the two rings the ucode actually configures: the
+// FIR's 8-word coefficient table (wr=7, 0x03E8..0x03EF) stepped +1, and the pitch resampler's
+// 160-word sample ring (wr=0x9F, 0x0B60..0x0BFF) stepped by an arbitrary positive ix — the
+// wrap fires when the step flips an address bit above the ring's span, which is why the ucode
+// parks both rings' ends just below aligned boundaries.
+func TestArWrap(t *testing.T) {
+	for _, tc := range []struct {
+		name  string
+		wr    uint16
+		ar    uint16
+		delta int
+		want  uint16
+	}{
+		{"fir-mid", 7, 0x03EB, 1, 0x03EC},
+		{"fir-end-wraps", 7, 0x03EF, 1, 0x03E8},
+		{"ring-mid", 0x9F, 0x0B9F, 1, 0x0BA0}, // low byte passes 0x9F mid-ring: NOT a wrap point
+		{"ring-end-wraps", 0x9F, 0x0BFF, 1, 0x0B60},
+		{"ring-step-2-over-end", 0x9F, 0x0BFE, 3, 0x0B61},
+		{"ring-step-mid", 0x9F, 0x0BE0, 0x30, 0x0B70},
+		{"ring-step-zero", 0x9F, 0x0BFF, 0, 0x0BFF},
+	} {
+		c := New(nullBus{t})
+		c.Reg[regWR0+3] = tc.wr
+		c.Reg[regAR0+3] = tc.ar
+		c.arStep(3, tc.delta)
+		if c.Halted {
+			t.Fatalf("%s: halted: %s", tc.name, c.Reason)
+		}
+		if got := c.Reg[regAR0+3]; got != tc.want {
+			t.Errorf("%s: ar3 = 0x%04X, want 0x%04X", tc.name, got, tc.want)
+		}
+	}
+}
+
+// TestSevenBitExtRow pins the 0x3xxx row's SEVEN-bit extension field: `not ac0.m` at 0x3280
+// has bit 7 as opcode, not an `ls` extension — it must execute as a pure register op (no
+// store through AR3, no load into ax0.l, no pointer steps). An 8-bit misread here performs a
+// phantom memory store the ucode never asked for. A real 7-bit extension (0x3644: andr with
+// a parallel load) must still run.
+func TestSevenBitExtRow(t *testing.T) {
+	c := New(nullBus{t})
+	noWrap(c)
+	c.Reg[regAR0] = 0x100
+	c.Reg[regAR0+3] = 0x180
+	c.Reg[regAX0L] = 0x5A5A
+	c.Reg[regAC0M] = 0x00FF
+	c.DRAM[0x100] = 0x1111
+	c.DRAM[0x180] = 0x2222
+	copy(c.IRAM[:], []uint16{
+		0x3280, // not ac0.m — ext field is 0x00, NOT "ls"
+		0x0021,
+	})
+	runOn(t, c, 0x0001)
+	if c.Reg[regAC0M] != 0xFF00 {
+		t.Errorf("not ac0.m = 0x%04X, want 0xFF00", c.Reg[regAC0M])
+	}
+	if c.Reg[regAX0L] != 0x5A5A {
+		t.Errorf("ax0.l = 0x%04X, want untouched 0x5A5A (phantom ls load)", c.Reg[regAX0L])
+	}
+	if c.DRAM[0x180] != 0x2222 {
+		t.Errorf("[ar3] = 0x%04X, want untouched 0x2222 (phantom ls store)", c.DRAM[0x180])
+	}
+	if c.Reg[regAR0] != 0x100 || c.Reg[regAR0+3] != 0x180 {
+		t.Errorf("ar0/ar3 = 0x%04X/0x%04X, want unstepped 0x100/0x180", c.Reg[regAR0], c.Reg[regAR0+3])
+	}
+
+	// A genuine 7-bit extension on the same row: andr with a parallel 'ln (ucode 0x3644 —
+	// ext 0x44 loads ax0.l through AR0 and steps AR0 by its index register).
+	c2 := New(nullBus{t})
+	noWrap(c2)
+	c2.Reg[regAR0] = 0x100
+	c2.Reg[regIX0] = 0x0002
+	c2.Reg[regAC0M] = 0x0F0F
+	c2.Reg[regAX1H] = 0x00FF
+	c2.DRAM[0x100] = 0x7777
+	copy(c2.IRAM[:], []uint16{
+		0x3644, // andr ac0.m, ax1.h : ln ax0.l, @ar0
+		0x0021,
+	})
+	runOn(t, c2, 0x0001)
+	if c2.Reg[regAC0M] != 0x000F {
+		t.Errorf("andr ac0.m = 0x%04X, want 0x000F", c2.Reg[regAC0M])
+	}
+	if c2.Reg[regAX0L] != 0x7777 || c2.Reg[regAR0] != 0x102 {
+		t.Errorf("parallel ln: ax0.l = 0x%04X ar0 = 0x%04X, want 0x7777/0x0102 (stepped by ix0)", c2.Reg[regAX0L], c2.Reg[regAR0])
 	}
 }

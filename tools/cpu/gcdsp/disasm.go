@@ -66,6 +66,14 @@ func regName(r uint16) string {
 	return fmt.Sprintf("r%d", r)
 }
 
+// lowHigh names an ax half-selector bit: 0 is the low word, 1 the high.
+func lowHigh(bit uint16) string {
+	if bit != 0 {
+		return "h"
+	}
+	return "l"
+}
+
 // condName names a 4-bit branch condition. 0xF is unconditional (empty suffix); the rest carry
 // their documented mnemonic, with an unidentified code shown as its number.
 func condName(cc uint16) string {
@@ -229,6 +237,8 @@ func Disasm(read func(uint16) uint16, pc uint16) (text string, words uint16) {
 		return fmt.Sprintf("andcf  ac%d.m, #0x%04X", (op>>8)&1, next()), 2
 
 	// --- branches, calls, returns --------------------------------------------------------
+	case op&0xFFF0 == 0x0270:
+		return cond("if", op&0xF), 1
 	case op&0xFFF0 == 0x0290:
 		return fmt.Sprintf("%-6s 0x%04X", cond("jmp", op&0xF), next()), 2
 	case op&0xFFF0 == 0x02B0:
@@ -255,10 +265,14 @@ func Disasm(read func(uint16) uint16, pc uint16) (text string, words uint16) {
 	}
 
 	// --- arithmetic / logic / multiply / move ops (0x3000 and up): operation in the high bits,
-	// a parallel extension in the low byte (for the ops that carry one). Single-word. --------
+	// a parallel extension in the low byte (for the ops that carry one). Single-word. The 0x3xxx
+	// logic row carries only a 7-bit extension — bit 7 there is opcode (see exec.go). ---------
 	if op >= 0x3000 {
 		main := arithMnemonic(op)
 		ext := op & 0xFF
+		if op&0xF000 == 0x3000 {
+			ext = op & 0x7F
+		}
 		if ext != 0 {
 			return fmt.Sprintf("%-18s : %s", main, extMnemonic(ext)), 1
 		}
@@ -293,7 +307,9 @@ func arithMnemonic(op uint16) string {
 	case op&0xFF00 == 0x8400:
 		return "clrp"
 
-	// Logic ops on an accumulator middle word.
+	// Logic ops on an accumulator middle word. Bit 7 is opcode in this row (7-bit extension):
+	// the bit7=1 rows other than NOT are undocumented ops discovered after the manual — shown
+	// by their row value until their semantics are pinned.
 	case op&0xFE80 == 0x3280:
 		return fmt.Sprintf("not    ac%d.m", d)
 	case op&0xFC80 == 0x3000:
@@ -302,6 +318,8 @@ func arithMnemonic(op uint16) string {
 		return fmt.Sprintf("andr   ac%d.m, ax%d.h", d, (op>>9)&1)
 	case op&0xFC80 == 0x3800:
 		return fmt.Sprintf("orr    ac%d.m, ax%d.h", d, (op>>9)&1)
+	case op&0xF080 == 0x3080:
+		return fmt.Sprintf("op_%04X ac%d?", op&0xFF80&^0x0100, d)
 
 	// clr / cmp / tst.
 	case op&0xF700 == 0x8100:
@@ -309,7 +327,13 @@ func arithMnemonic(op uint16) string {
 	case op&0xFF00 == 0x8200:
 		return "cmp"
 	case op&0xFE00 == 0x8600:
-		return fmt.Sprintf("tst    ac%d", d)
+		return fmt.Sprintf("tstaxh ax%d.h", d)
+	case op&0xF700 == 0xB100:
+		return fmt.Sprintf("tst    ac%d", (op>>11)&1)
+	case op&0xE700 == 0xC100:
+		return fmt.Sprintf("cmpaxh ac%d, ax%d.h", (op>>12)&1, (op>>11)&1)
+	case op&0xF700 == 0x9100:
+		return fmt.Sprintf("asr16  ac%d", (op>>11)&1)
 
 	// The multiply / multiply-accumulate family.
 	case op&0xF700 == 0x9000:
@@ -329,17 +353,21 @@ func arithMnemonic(op uint16) string {
 	case op&0xE600 == 0xA600:
 		return fmt.Sprintf("mulxmv ac%d", d)
 	case op&0xE700 == 0xC000:
-		return "mulc"
+		return fmt.Sprintf("mulc   ac%d.m, ax%d.h", (op>>12)&1, (op>>11)&1)
+	case op&0xE600 == 0xC200:
+		return fmt.Sprintf("mulcmvz ac%d.m, ax%d.h, ac%d", (op>>12)&1, (op>>11)&1, d)
 	case op&0xE600 == 0xC400:
-		return fmt.Sprintf("mulcac ac%d", d)
+		return fmt.Sprintf("mulcac ac%d.m, ax%d.h, ac%d", (op>>12)&1, (op>>11)&1, d)
+	case op&0xE600 == 0xC600:
+		return fmt.Sprintf("mulcmv ac%d.m, ax%d.h, ac%d", (op>>12)&1, (op>>11)&1, d)
 	case op&0xFC00 == 0xE000:
-		return "maddx"
+		return fmt.Sprintf("maddx  ax0.%s, ax1.%s", lowHigh((op>>9)&1), lowHigh((op>>8)&1))
 	case op&0xFC00 == 0xE400:
-		return "msubx"
+		return fmt.Sprintf("msubx  ax0.%s, ax1.%s", lowHigh((op>>9)&1), lowHigh((op>>8)&1))
 	case op&0xFC00 == 0xE800:
-		return "maddc"
+		return fmt.Sprintf("maddc  ac%d.m, ax%d.h", (op>>9)&1, (op>>8)&1)
 	case op&0xFC00 == 0xEC00:
-		return "msubc"
+		return fmt.Sprintf("msubc  ac%d.m, ax%d.h", (op>>9)&1, (op>>8)&1)
 	case op&0xFE00 == 0xF200:
 		return fmt.Sprintf("madd   ax%d", d)
 	case op&0xFE00 == 0xF600:
@@ -368,6 +396,20 @@ func arithMnemonic(op uint16) string {
 		return fmt.Sprintf("mov    ac%d", d)
 	case op&0xFE00 == 0x6E00:
 		return fmt.Sprintf("movp   ac%d", d)
+	case op&0xFE00 == 0x7E00:
+		return fmt.Sprintf("movnp  ac%d", d)
+	case op&0xFE00 == 0xFE00:
+		return fmt.Sprintf("movpz  ac%d", d)
+	case op&0xFE00 == 0x7400:
+		return fmt.Sprintf("incm   ac%d.m", d)
+	case op&0xFE00 == 0x7600:
+		return fmt.Sprintf("inc    ac%d", d)
+	case op&0xFE00 == 0x7800:
+		return fmt.Sprintf("decm   ac%d.m", d)
+	case op&0xFE00 == 0x7A00:
+		return fmt.Sprintf("dec    ac%d", d)
+	case op&0xFE00 == 0x7C00:
+		return fmt.Sprintf("neg    ac%d", d)
 	case op&0xFC00 == 0x7000:
 		return fmt.Sprintf("addaxl ac%d, ax%d", d, (op>>9)&1)
 	case op&0xFC00 == 0xF800:
@@ -398,15 +440,31 @@ func extMnemonic(ext uint16) string {
 			name += "m"
 		}
 		return fmt.Sprintf("%s r%d, ac%d.m", name, 0x18+((ext>>4)&3), ext&1)
-	case ext&0xC0 == 0xC0: // ld/ldx: dual load through address registers
-		return fmt.Sprintf("ld r?, r?, @ar%d", ext&3)
-	case ext&0xC4 == 0x40: // l/ln: load a register
+	case ext&0xC0 == 0xC0: // the dual-load family (see exec_ext.go): LD = 11mn barr, LD2 = 11rm ba11
+		suffix := ""
+		if ext&0x04 != 0 {
+			suffix += "n"
+		}
+		if ext&0x08 != 0 {
+			suffix += "m"
+		}
+		half := func(bit uint16) string {
+			if bit != 0 {
+				return "h"
+			}
+			return "l"
+		}
+		if ext&0x03 == 0x03 { // LD2: both halves of one ax — high from arS, low from ar3
+			return fmt.Sprintf("ld2%s ax%d, @ar%d", suffix, (ext>>4)&1, (ext>>5)&1)
+		}
+		return fmt.Sprintf("ld%s ax0.%s, ax1.%s, @ar%d", suffix, half(ext&0x20), half(ext&0x10), ext&3)
+	case ext&0xC0 == 0x40: // l/ln: load a register
 		name := "l"
 		if ext&0x04 != 0 {
 			name = "ln"
 		}
 		return fmt.Sprintf("%s r%d, @ar%d", name, 0x18+((ext>>3)&7), ext&3)
-	case ext&0xE4 == 0x20: // s/sn: store a register
+	case ext&0xE0 == 0x20: // s/sn: store a register
 		name := "s"
 		if ext&0x04 != 0 {
 			name = "sn"

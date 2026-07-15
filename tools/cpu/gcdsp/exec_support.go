@@ -97,16 +97,37 @@ func (c *CPU) setReg(r, v uint16) {
 // --- address registers -------------------------------------------------------------------
 
 // arStep advances address register n by a signed delta. The wrapping register wr bounds the
-// step modulo a circular buffer; the common configuration this ucode sets is wr = 0xFFFF, no
-// wrap, a plain add. A non-trivial wrap is not yet modelled and halts, naming the register,
-// rather than stepping wrong.
+// step to a circular buffer of wr+1 words; the common configuration this ucode sets is
+// wr = 0xFFFF, no wrap, a plain add.
+//
+// The wrap is a carry detector, not a true modulo: a forward step wraps (subtracts the buffer
+// length) when it flips an address bit above the buffer's span — (ar^nar) > (wr|1)<<1 — which
+// is only equivalent to a circular buffer when the ring's END sits just below a sufficiently
+// aligned boundary. The manual predates the wrapping registers entirely (it leaves $8..$11
+// unnamed), so this rule is pinned by the ucode's own buffer placements, which are load-bearing
+// exactly under it: the FIR's 8-word coefficient table at 0x03E8 ends at the 16-boundary 0x3F0
+// (wr0=7), and the pitch resampler's 160-word sample ring ends at the 1024-boundary 0x0C00
+// (wr3=0x9F, base 0x0B60 — the base the ucode itself subtracts from AR3 at 0x0B72 to read the
+// ring position back). Under a plain-modulo misreading those placements would be coincidences.
+// A backward step presumably mirrors the rule (add the length when the borrow crosses the
+// boundary), but no wrap-configured backward step occurs in this ucode to corroborate it, so
+// that case still halts rather than carry an untested formula.
 func (c *CPU) arStep(n int, delta int) {
 	wr := c.Reg[regWR0+n]
-	if wr == 0xFFFF {
-		c.Reg[regAR0+n] = uint16(int32(c.Reg[regAR0+n]) + int32(delta))
-		return
+	ar := c.Reg[regAR0+n]
+	switch {
+	case wr == 0xFFFF: // no wrap — a plain add
+		c.Reg[regAR0+n] = uint16(int32(ar) + int32(delta))
+	case delta == 0: // an index step of zero (the resampler parks AR3 with ix3 = 0)
+	case delta > 0:
+		nar := uint32(ar) + uint32(delta)
+		if (uint32(ar)^nar) > uint32(wr|1)<<1 {
+			nar -= uint32(wr) + 1
+		}
+		c.Reg[regAR0+n] = uint16(nar)
+	default:
+		c.Halt("DSP address-register wrap (ar%d, wr=0x%04X, step %d) not yet modelled at 0x%04X", n, wr, delta, c.PC)
 	}
-	c.Halt("DSP address-register wrap (ar%d, wr=0x%04X) not yet modelled at 0x%04X", n, wr, c.PC)
 }
 
 // --- hardware stacks ---------------------------------------------------------------------

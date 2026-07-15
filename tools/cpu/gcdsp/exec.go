@@ -220,6 +220,21 @@ func (c *CPU) execute(pc, op uint16) (span uint16) {
 		return 1
 
 	// --- branches, calls, returns --------------------------------------------------------
+	case op&0xFFF0 == 0x0270: // if cc — execute the next instruction only when the condition
+		// holds (manual p.75: IF(cc) EXECUTE($pc+1) ELSE $pc+=2). The ucode's idioms are
+		// conditional single-word steps (ifg incm / ifl decm at 0x0616, the conditional stores
+		// at 0x02A5, the abs-value ifg neg at 0x0BDB). Every guarded instruction seen is one
+		// word, where the manual's flat +2 and "skip the whole next instruction" agree; a
+		// two-word guarded instruction would split them, so that halts rather than guess.
+		if !c.cond(op & 0xF) {
+			_, span := Disasm(func(a uint16) uint16 { return c.imem(a) }, pc+1)
+			if span != 1 {
+				c.Halt("if-cc at 0x%04X skips a %d-word instruction — flat +2 vs full skip not pinned", pc, span)
+				return 1
+			}
+			return 2
+		}
+		return 1
 	case op&0xFFF0 == 0x0290: // jmp cc, addr
 		dst := c.imem(pc + 1)
 		if c.cond(op & 0xF) {
@@ -302,9 +317,27 @@ func (c *CPU) execArith(pc, op uint16) uint16 {
 	}
 
 	// Everything below may carry a parallel extension: read phase, main op, write phase.
-	p := c.extBegin(op & 0xFF)
+	// The 0x3xxx logic row carries only a SEVEN-bit extension — bit 7 there is opcode, doubling
+	// the row (NOT lives at 0x3280 above XORR at 0x3000, and several rows above ANDR/ORR are
+	// ops the documentation predates). The proof is in the table masks (every documented 0x3xxx
+	// op masks 0x..80) and in the ucode: read with an 8-bit field, `not ac0.m` at 0x075A would
+	// carry a phantom `ls` (a store through AR3 that nothing set up), and the interpolator's
+	// 0x38C3 would dual-load over the constant its own preamble just placed in ax0.h.
+	extBits := op & 0xFF
+	if op&0xF000 == 0x3000 {
+		extBits = op & 0x7F
+	}
+	p := c.extBegin(extBits)
 	switch {
 	case op&0xFF00 == 0x8000: // nx — no arithmetic, the extension is the whole instruction
+
+	case op&0xFF00 == 0x8400: // clrp — clear the product register. The hardware's "zero" is a
+		// biased set of the four pieces (manual p.66: l=0x0000, m1=0xfff0, h=0x00ff, m2=0x0010),
+		// which sums to zero through prod()'s 40-bit read. The FIR prologue is `clrp : ld`.
+		c.Reg[regPRODL] = 0x0000
+		c.Reg[regPRODM1] = 0xFFF0
+		c.Reg[regPRODH] = 0x00FF
+		c.Reg[regPRODM2] = 0x0010
 
 	// --- logic ops on an accumulator middle word (bit 8 selects the accumulator) ---------
 	case op&0xFE80 == 0x3280: // not acD.m
@@ -329,8 +362,20 @@ func (c *CPU) execArith(pc, op uint16) uint16 {
 		r := int((op >> 11) & 1)
 		c.setAc(r, 0)
 		c.setArithFlags(r)
-	case op&0xFE00 == 0x8600: // tst acR (bit 8) — flags from the accumulator vs zero
-		c.setTestFlags(int((op >> 8) & 1))
+	case op&0xFE00 == 0x8600: // tstaxh axR.h (bit 8) — flags from the 16-bit HIGH HALF of an ax
+		// register, not from an accumulator: the accumulator test (tst acR) is 0xB100, with its
+		// selector up in bit 11. Both appear in this ucode. (An earlier build ran 0x8600 as
+		// "tst acR" — self-consistent with its own test, silently wrong against the ISA.)
+		v := int16(c.Reg[regAX0H+((op>>8)&1)])
+		c.setFlag(srZero, v == 0)
+		c.setFlag(srSign, v < 0)
+		c.setFlag(srCarry, false)
+		c.setFlag(srOverflow, false)
+	case op&0xF700 == 0xB100: // tst acR (bit 11) — flags from the accumulator vs zero
+		c.setTestFlags(int((op >> 11) & 1))
+	case op&0xE700 == 0xC100: // cmpaxh acS, axR.h (s=bit12, r=bit11) — compare the accumulator
+		// with an ax high half taken into the middle word, the same alignment addr/cmpis use
+		c.subFlags(c.ac(int((op>>12)&1)), int64(int16(c.Reg[regAX0H+((op>>11)&1)]))<<16)
 	case op&0xF800 == 0x4000: // addr acD, reg — add a register (bits 10..9 -> 0x18+field) into the middle
 		d := int((op >> 8) & 1)
 		reg := 0x18 + ((op >> 9) & 3)
@@ -353,6 +398,28 @@ func (c *CPU) execArith(pc, op uint16) uint16 {
 		d := int((op >> 8) & 1)
 		s := int((op >> 9) & 1)
 		c.aluAddSub(d, int64(c.Reg[regAX0L+s]), false)
+
+	// --- single-accumulator steps (0111 0/1 rows) -----------------------------------------
+	case op&0xFE00 == 0x7400: // incm acD — +1 in the middle word (a pointer step)
+		c.aluAddSub(int((op>>8)&1), 1<<16, false)
+	case op&0xFE00 == 0x7600: // inc acD
+		c.aluAddSub(int((op>>8)&1), 1, false)
+	case op&0xFE00 == 0x7800: // decm acD — −1 in the middle word
+		c.aluAddSub(int((op>>8)&1), 1<<16, true)
+	case op&0xFE00 == 0x7A00: // dec acD
+		c.aluAddSub(int((op>>8)&1), 1, true)
+	case op&0xFE00 == 0x7C00: // neg acD
+		d := int((op >> 8) & 1)
+		c.setAc(d, -c.ac(d))
+		c.setArithFlags(d)
+
+	// --- accumulator shifts by a fixed 16 --------------------------------------------------
+	case op&0xFE00 == 0xF000: // lsl16 acR
+		c.shiftAcc(int((op>>8)&1), false, 16)
+	case op&0xFE00 == 0xF400: // lsr16 acR
+		c.shiftAcc(int((op>>8)&1), false, -16)
+	case op&0xF700 == 0x9100: // asr16 acR (bit 11)
+		c.shiftAcc(int((op>>11)&1), true, -16)
 
 	// --- moves into the accumulator ------------------------------------------------------
 	case op&0xF800 == 0x6000: // movr acD, reg (reg = bits 10..9 -> 0x18+field) — into the middle
@@ -396,6 +463,38 @@ func (c *CPU) execArith(pc, op uint16) uint16 {
 		s1 := int((op >> 12) & 1)
 		s2 := int((op >> 11) & 1)
 		c.setProd(c.mul16(c.Reg[regAC0M+s1], c.Reg[regAX0H+s2]))
+	case op&0xE600 == 0xC200: // mulcmvz acR: acR = prod with the low word cleared; prod = new product
+		s1 := int((op >> 12) & 1)
+		s2 := int((op >> 11) & 1)
+		r := int((op >> 8) & 1)
+		c.setAc(r, c.prod()&^0xFFFF)
+		c.setArithFlags(r)
+		c.setProd(c.mul16(c.Reg[regAC0M+s1], c.Reg[regAX0H+s2]))
+	case op&0xE600 == 0xC400: // mulcac acR: acR += prod; prod = acS.m * axT.h — the volume loop
+		// at ucode 0x011E rides this with the LD2 dual load refreshing ax1 each pass.
+		s1 := int((op >> 12) & 1)
+		s2 := int((op >> 11) & 1)
+		r := int((op >> 8) & 1)
+		c.setAc(r, c.ac(r)+c.prod())
+		c.setArithFlags(r)
+		c.setProd(c.mul16(c.Reg[regAC0M+s1], c.Reg[regAX0H+s2]))
+	case op&0xE600 == 0xC600: // mulcmv acR: acR = prod; prod = new product
+		s1 := int((op >> 12) & 1)
+		s2 := int((op >> 11) & 1)
+		r := int((op >> 8) & 1)
+		c.setAc(r, c.prod())
+		c.setArithFlags(r)
+		c.setProd(c.mul16(c.Reg[regAC0M+s1], c.Reg[regAX0H+s2]))
+
+	// --- multiply-accumulate into prod without touching an accumulator --------------------
+	case op&0xFC00 == 0xE000: // maddx — prod += (ax0 half S) * (ax1 half T), s=bit9, t=bit8
+		c.setProd(c.prod() + c.mul16(c.Reg[regAX0L+((op>>9)&1)*2], c.Reg[regAX1L+((op>>8)&1)*2]))
+	case op&0xFC00 == 0xE400: // msubx
+		c.setProd(c.prod() - c.mul16(c.Reg[regAX0L+((op>>9)&1)*2], c.Reg[regAX1L+((op>>8)&1)*2]))
+	case op&0xFC00 == 0xE800: // maddc — prod += acS.m * axT.h, s=bit9, t=bit8
+		c.setProd(c.prod() + c.mul16(c.Reg[regAC0M+((op>>9)&1)], c.Reg[regAX0H+((op>>8)&1)]))
+	case op&0xFC00 == 0xEC00: // msubc
+		c.setProd(c.prod() - c.mul16(c.Reg[regAC0M+((op>>9)&1)], c.Reg[regAX0H+((op>>8)&1)]))
 
 	// --- the cross-multiply family: a half of ax0 times a half of ax1. The two selector bits
 	// pick low vs high as a register offset (0 -> ax_.l at 0x18/0x19, 2 -> ax_.h at 0x1A/0x1B).
@@ -431,10 +530,23 @@ func (c *CPU) execArith(pc, op uint16) uint16 {
 		s := int((op >> 8) & 1)
 		c.setProd(c.prod() - c.mul16(c.Reg[regAX0L+s], c.Reg[regAX0H+s]))
 
-	// --- add the product into the accumulator --------------------------------------------
+	// --- move / add the product into the accumulator -------------------------------------
 	case op&0xFE00 == 0x4E00: // addp acD — acD += prod
 		d := int((op >> 8) & 1)
 		c.setAc(d, c.ac(d)+c.prod())
+		c.setArithFlags(d)
+	case op&0xFE00 == 0x6E00: // movp acD — the product into the accumulator
+		d := int((op >> 8) & 1)
+		c.setAc(d, c.prod())
+		c.setArithFlags(d)
+	case op&0xFE00 == 0x7E00: // movnp acD — the negated product
+		d := int((op >> 8) & 1)
+		c.setAc(d, -c.prod())
+		c.setArithFlags(d)
+	case op&0xFE00 == 0xFE00: // movpz acD — the product with the low word cleared: the FIR
+		// epilogue (clrp; madd×8; movpz; store acD.m) reads its Q15 result out of prod.hm.
+		d := int((op >> 8) & 1)
+		c.setAc(d, c.prod()&^0xFFFF)
 		c.setArithFlags(d)
 	case op&0xFC00 == 0xF800: // addpaxz acD, axS (d=bit9, s=bit8) — acD = prod + axS.h<<16, low cleared
 		d := int((op >> 9) & 1)
