@@ -75,7 +75,10 @@ var verifiedNames = map[uint16]string{
 	234: "NtWaitForSingleObjectEx",   // f(handle, waitMode, alertable, timeout*) -> NTSTATUS
 	246: "ObReferenceObjectByHandle", // f(handle, type, obj**) (site 0x45291)
 	250: "ObfDereferenceObject",      // fastcall(ECX=object) (site 0x45331)
-	357: "IdexChannelObject",         // DATA export: disk channel object (name inferred from
+	340: "XcHMAC",                    // 7 args (key,keyLen,data,dataLen,data2,data2Len,digest*),
+	// a 20-byte SHA-1 digest written to the out buffer (site 0x20CB09) — NOT the table's
+	// 3-arg XcKeyTable; the Xc block drifts. Frontier: no handler yet (halts and names it).
+	357: "IdexChannelObject", // DATA export: disk channel object (name inferred from
 	// usage shape — dispatch slots +0x10/+0x14, busy flag +0x20, queued-IRP list +0x28)
 	187: "NtClose",                      // f(handle) -> NTSTATUS (Nt block drifts +5)
 	255: "PsCreateSystemThreadEx",       // the CRT's 10-arg main-thread spawn
