@@ -125,6 +125,19 @@ func init() {
 		8: unknown(), 9: unknown(),
 	})
 
+	// secrman — the memory card's MagicGate authentication. Left unmodelled on purpose,
+	// and that is now known to be correct rather than merely untried.
+	//
+	// The 19th pass blamed these for the never-concluding slot-0 card probe. It was wrong.
+	// #4 and #5 are mcman's init *registering* its MagicGate command tables (a table pointer,
+	// a 0xFCFFFFFF mask and a count; mcman ignores both returns — the `sw $v0` after each is
+	// the jal's delay slot, storing the pre-call value). #6 is the card authentication, called
+	// in mcman's probe (mcman_tool+0x343C) only *after* a card is detected — and on a console
+	// with no card the probe returns via its RECV1 "no device" checks (mcman_tool+0x2498/+0x3264)
+	// long before it, so secrman#6 is never reached (verified: a trap on it never fired across a
+	// whole boot). The real missing piece for the probe was the SIO2 controller and interrupt 17
+	// (iopsio2.go), not this. When a real card is present, #6 returning zero would make the read
+	// fail with -90 (mcman_tool+0x3450), so it will have to be modelled then — but not for boot.
 	lib("secrman", map[uint16]iopFunc{
 		4: unknown(), 5: unknown(), 6: unknown(),
 	})
