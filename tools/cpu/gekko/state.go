@@ -91,5 +91,9 @@ func (c *CPU) Restore(s State) {
 	c.LC.Base, c.LC.Enabled_ = s.LCBase, s.LCEnabled
 	copy(c.LC.Data[:], s.LCData)
 	c.ExtInt, c.Steps = s.ExtInt, s.Steps
-	c.Halted, c.HaltReason = false, ""
+	// Restore the halted flag faithfully: a snapshot taken after the core stopped must resume
+	// stopped, or a run continued from it diverges from the one that never stopped (which is
+	// exactly what the machine's savestate round-trip test enforces). Snapshot saves these;
+	// clearing them here — the old behaviour — silently let a restored machine run past a halt.
+	c.Halted, c.HaltReason = s.Halted, s.HaltReason
 }

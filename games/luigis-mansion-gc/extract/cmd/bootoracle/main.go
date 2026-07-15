@@ -115,8 +115,14 @@ func run(c cfg) error {
 	}
 
 	// -dis and -dump answer without running: they load the executable and inspect it.
+	// With -loadstate they inspect a snapshot's memory instead — the way to see the
+	// runtime-built low-memory exception vectors, which the DOL does not carry statically.
 	if c.dis != "" || c.dump != "" {
-		if _, err := m.LoadDOL(); err != nil {
+		if c.loadstate != "" {
+			if err := m.LoadStateFile(c.loadstate); err != nil {
+				return err
+			}
+		} else if _, err := m.LoadDOL(); err != nil {
 			return err
 		}
 		if c.dis != "" {

@@ -89,6 +89,87 @@ func TestCompareBranch(t *testing.T) {
 	}
 }
 
+// TestAndfAndcfFlags pins the sibling logic-test ops that the mailbox handshake turns on.
+// andf sets the logic-zero flag when NONE of the immediate's bits are present in acD.m; andcf
+// sets it when ALL of them are. Reading andcf as an OR (the old bug) never sets the flag for a
+// present bit, so the microcode's "wait until the mailbox present bit is set" loop never exits.
+func TestAndfAndcfFlags(t *testing.T) {
+	cases := []struct {
+		name    string
+		op      uint16 // 0x02A0 andf, 0x02C0 andcf
+		acm     uint16
+		imm     uint16
+		wantLZ  bool
+	}{
+		{"andf/bit-clear-sets-LZ", 0x02A0, 0x0000, 0x8000, true},
+		{"andf/bit-set-clears-LZ", 0x02A0, 0x8000, 0x8000, false},
+		{"andcf/bit-set-sets-LZ", 0x02C0, 0x8000, 0x8000, true},
+		{"andcf/bit-clear-clears-LZ", 0x02C0, 0x0000, 0x8000, false},
+		{"andcf/partial-clears-LZ", 0x02C0, 0x8000, 0xC000, false},
+	}
+	for _, tc := range cases {
+		c := run(t, []uint16{
+			0x009E, tc.acm, // 0000: lri ac0.m, #acm
+			tc.op, tc.imm, //  0002: andf/andcf ac0.m, #imm
+			0x0000, //         0004: nop (sentinel)
+		}, 0x0004)
+		if gotLZ := c.Reg[regSR]&srLogicZero != 0; gotLZ != tc.wantLZ {
+			t.Errorf("%s: logic-zero=%v, want %v", tc.name, gotLZ, tc.wantLZ)
+		}
+	}
+}
+
+// TestMailboxWaitIdiom runs the exact wait-for-CPU-mail loop the AX microcode boots into: read
+// the from-CPU mailbox high half, andcf its present bit, and loop while it is clear. With the
+// mailbox reporting a present bit the loop must exit and consume the low half; the old orf
+// reading of andcf spun here forever, which stalled the whole audio bring-up.
+func TestMailboxWaitIdiom(t *testing.T) {
+	bus := &mailboxBus{cmbh: 0x8000} // present bit set
+	c := New(bus)
+	copy(c.IRAM[:], []uint16{
+		0x8100,         // 0000: clr ac0
+		0x26FE,         // 0001: lrs ac0.m, @0xFFFE (read CMBH)
+		0x02C0, 0x8000, // 0002: andcf ac0.m, #0x8000
+		0x029C, 0x0000, // 0004: jmplnz 0x0000 (loop while present bit clear)
+		0x27FF,         // 0006: lrs ac1.m, @0xFFFF (consume CMBL)
+		0x0021,         // 0007: halt (sentinel)
+	})
+	for i := 0; i < 100000 && c.PC != 0x0007; i++ {
+		if !c.Step() {
+			break
+		}
+	}
+	if c.Halted {
+		t.Fatalf("core halted: %s (PC=0x%04X)", c.Reason, c.PC)
+	}
+	if c.PC != 0x0007 {
+		t.Fatalf("mailbox wait did not exit (PC=0x%04X); present bit was not detected", c.PC)
+	}
+	if !bus.consumed {
+		t.Error("loop exited but never read the mailbox low half")
+	}
+}
+
+// mailboxBus answers the CPU-mailbox reads the wait idiom makes: the high half carries the
+// present bit, and reading the low half consumes the mail.
+type mailboxBus struct {
+	cmbh     uint16
+	consumed bool
+}
+
+func (b *mailboxBus) HWRead(a uint16) uint16 {
+	switch a {
+	case 0xFFFE: // CMBH
+		return b.cmbh
+	case 0xFFFF: // CMBL — consume
+		b.consumed = true
+		b.cmbh &^= 0x8000
+		return 0
+	}
+	return 0
+}
+func (b *mailboxBus) HWWrite(a uint16, v uint16) {}
+
 // TestCallRet checks the call stack: a call runs a subroutine that loads a register, and the
 // ret returns to the instruction after the call.
 func TestCallRet(t *testing.T) {

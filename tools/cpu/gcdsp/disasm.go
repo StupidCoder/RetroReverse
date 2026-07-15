@@ -186,7 +186,7 @@ func Disasm(read func(uint16) uint16, pc uint16) (text string, words uint16) {
 	case op&0xFEFF == 0x02A0:
 		return fmt.Sprintf("andf   ac%d.m, #0x%04X", (op>>8)&1, next()), 2
 	case op&0xFEFF == 0x02C0:
-		return fmt.Sprintf("orf    ac%d.m, #0x%04X", (op>>8)&1, next()), 2
+		return fmt.Sprintf("andcf  ac%d.m, #0x%04X", (op>>8)&1, next()), 2
 
 	// --- branches, calls, returns --------------------------------------------------------
 	case op&0xFFF0 == 0x0290:

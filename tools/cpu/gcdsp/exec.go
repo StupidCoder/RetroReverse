@@ -161,9 +161,15 @@ func (c *CPU) execute(pc, op uint16) (span uint16) {
 		d := int((op >> 8) & 1)
 		c.setFlag(srLogicZero, c.Reg[regAC0M+d]&c.imem(pc+1) == 0)
 		return 2
-	case op&0xFEFF == 0x02C0: // orf acD.m — test OR
+	case op&0xFEFF == 0x02C0: // andcf acD.m, #I — test AND, set the logic-zero flag when ALL the
+		// immediate's bits are present in acD.m, i.e. (acD.m & I) == I. It is the mirror of andf
+		// (0x02A0), which sets the flag when NONE are (the AND is zero); together they are the
+		// DSP's "spin until these bits are set / clear" idiom. The microcode's wait for the CPU
+		// mailbox present bit (andcf ac0.m, #0x8000; jmplnz) is exactly this test — read as an OR
+		// it never sees the bit and the mailbox handshake spins forever.
 		d := int((op >> 8) & 1)
-		c.setFlag(srLogicZero, c.Reg[regAC0M+d]|c.imem(pc+1) == 0)
+		imm := c.imem(pc + 1)
+		c.setFlag(srLogicZero, c.Reg[regAC0M+d]&imm == imm)
 		return 2
 
 	// --- branches, calls, returns --------------------------------------------------------

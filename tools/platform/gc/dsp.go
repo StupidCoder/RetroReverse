@@ -433,19 +433,28 @@ func (d *dsp) hwRead(m *Machine, a uint16) uint16 {
 }
 
 // hwWrite answers a DSP-side hardware write. Writing the outgoing mailbox (DMBH then DMBL)
-// posts a mail to the CPU; the present bit rides in DMBH's high bit, and completing the low
-// half raises the DSP interrupt if the CPU has unmasked it.
+// posts a mail to the CPU, whose present bit rides in DMBH's high bit and which the CPU reads
+// or polls. Posting a mailbox does NOT interrupt the CPU on this hardware: the interrupt is a
+// separate signal the microcode raises explicitly by writing DIRQ. Conflating the two — raising
+// the interrupt on the mailbox write — storms the CPU with an interrupt it has no handler for
+// during the boot handshake, when the driver means to consume the ready mail by polling.
 func (d *dsp) hwWrite(m *Machine, a uint16, v uint16) {
 	switch a {
-	case 0xFFFC: // DMBH: queue the high half of a mail to the CPU (its bit 15 is "present")
-		d.FromDSP = (d.FromDSP & 0xFFFF) | (uint32(v) << 16)
-		return
-	case 0xFFFD: // DMBL: complete the mail — interrupt the CPU if unmasked
-		d.FromDSP = (d.FromDSP &^ 0xFFFF) | uint32(v)
-		if d.CSR&dspCSRDSPMask != 0 {
+	case 0xFFFB: // DIRQ: raise the DSP -> CPU interrupt. Bit 0 asserts it; the CPU takes it only
+		// if it has unmasked the DSP interrupt (dspRefreshIRQ gates on the mask). The microcode
+		// writes this after it has serviced a command — never during the ready-mail handshake,
+		// which is why the driver's synchronous poll of that mail must not be preempted here.
+		if v&1 != 0 {
 			d.CSR |= dspCSRDSPInt
 			m.dspRefreshIRQ()
 		}
+		return
+	case 0xFFFC: // DMBH: queue the high half of a mail to the CPU (its bit 15 is "present")
+		d.FromDSP = (d.FromDSP & 0xFFFF) | (uint32(v) << 16)
+		return
+	case 0xFFFD: // DMBL: complete the mail. This makes it present for the CPU to read or poll;
+		// it does not interrupt the CPU (see DIRQ above).
+		d.FromDSP = (d.FromDSP &^ 0xFFFF) | uint32(v)
 		return
 	}
 	d.Core.Halt("DSP write of unmodelled hardware register 0x%04X = 0x%04X at ucode 0x%04X", a, v, d.Core.PC)
