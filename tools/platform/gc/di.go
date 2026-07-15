@@ -1,5 +1,12 @@
 package gc
 
+import (
+	"fmt"
+	"os"
+)
+
+var diTrace = os.Getenv("RR_GC_DITRACE") != ""
+
 // di.go is the Disc Interface: the drive, as the game's own code drives it.
 //
 // A GameCube reads its disc by writing a command into three registers, a memory address
@@ -81,6 +88,10 @@ func (d *di) write(m *Machine, off uint32, v uint32, size int) {
 		d.Cover &^= v & 0x4 // the cover-change interrupt flag
 	case 0x08, 0x0C, 0x10:
 		d.Cmd[(off&0xFF-0x08)/4] = v
+		if diTrace && (off&0xFF) == 0x10 {
+			fmt.Fprintf(os.Stderr, "DI Cmd2(offset word)=0x%08X -> byte 0x%X (pc 0x%08X)\n%s",
+				v, int64(v)<<2, m.CPU.PC, m.BacktraceString())
+		}
 	case 0x14:
 		d.MAR = v & 0x03FFFFE0
 	case 0x18:
@@ -103,8 +114,13 @@ func (d *di) exec(m *Machine) {
 	opcode := d.Cmd[0] >> 24
 	switch opcode {
 	case 0xA8: // read
-		// The offset is in 4-byte units: the drive addresses the disc in words, not bytes.
-		discOff := int64(d.Cmd[2]) << 2
+		// The command block is three words: the opcode in CMDBUF0, the disc offset in CMDBUF1
+		// (Cmd[1]), and the length in CMDBUF2 (Cmd[2]). The offset is in 4-byte units — the
+		// drive addresses the disc in words, not bytes. Reading it from Cmd[2] instead — the
+		// length register — is the bug that made every game-issued read fetch from
+		// length<<2 and hand the decompressor pure garbage; the apploader never caught it
+		// because its reads are serviced directly, not through this command block.
+		discOff := int64(d.Cmd[1]) << 2
 		length := d.Length
 		if m.OnDVDRead != nil {
 			m.OnDVDRead(discOff, length, d.MAR)

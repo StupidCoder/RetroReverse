@@ -131,6 +131,9 @@ func run(c cfg) error {
 				fmt.Printf("  DVD read: %s + 0x%X  (%d bytes -> 0x%08X)\n", f.Path, within, length, memAddr)
 			} else {
 				fmt.Printf("  DVD read: 0x%X  (%d bytes -> 0x%08X) — not in any file\n", off, length, memAddr)
+				if os.Getenv("RR_GC_DVDBT") != "" {
+					fmt.Fprintf(os.Stderr, "    at:\n%s", m.BacktraceString())
+				}
 			}
 		}
 	}
