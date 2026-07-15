@@ -1,5 +1,12 @@
 package gc
 
+import (
+	"fmt"
+	"os"
+)
+
+var siTrace = os.Getenv("RR_GC_SITRACE") != ""
+
 // devices.go holds the register blocks that are, for now, thin: they keep their registers
 // so a read returns what was written, they satisfy the accesses the boot path makes, and
 // they log once anything the model does not yet answer for. Each will grow its own file
@@ -36,10 +43,33 @@ func (d *mi) write(m *Machine, off uint32, v uint32, size int) {
 
 // --- SI: the Serial Interface -------------------------------------------------------
 //
-// It polls the four controller ports. No controller is attached by default, so a poll
-// reads back "nothing there", which is what a console with empty ports reports — and a
-// game reads that and simply shows no player rather than waiting. The -keys path (a later
-// phase) attaches a controller and fills these in.
+// It polls the four controller ports. No controller is attached yet, so a poll reads back
+// "nothing there". For the boot up to the title that was harmless — but it is exactly what
+// now gates further progress, and the mechanism is worth recording because it looked for a
+// long time like a hang.
+//
+// Luigi's Mansion boots cleanly all the way through: the apploader runs, the DOL loads, the
+// four boot loader-tasks stream every asset off the disc (game_usa.szp + all the audio
+// banks — 486 reads), and the game's scene director reaches its first *interactive* screen
+// and **waits for the player to press Start or A**. That wait is not a bug and not an I/O
+// race (an earlier theory blamed instant disc completion; pacing the drive changes nothing —
+// all four tasks complete and are consumed, the last by the director's own PHASE-1 poll).
+// It is the game correctly parked on a press-Start screen. Proof: forcing the director's
+// PHASE-2 advance makes it immediately load /Kawano/ENGLISH/res_slct.szp — the select screen.
+//
+// The director advances when the pad object's per-frame event field carries button bits
+// 0x1100 (START|A). It never does because PADRead skips every port: PADReset leaves each
+// channel's bit set in its "reset pending" mask (0xF0000000) and only the SI reset/probe
+// *completing* — the transfer raising its interrupt so PADReset's callback clears the bit
+// and records a standard-controller type — takes a port out of that mask. Our SI completes
+// no transfers and raises no interrupt, so the ports stay perpetually pending.
+//
+// So the real next step is a faithful SI: model the transfer engine (SICOMCSR at +0x30 with
+// its TSTART/channel/length fields, SISR at +0x38 for SIGetStatus's per-channel OK bit) and
+// the VBLANK auto-poll (SIPOLL at +0x34) so that a connected standard controller answers
+// each poll into the channel INBUF registers (+0x04/+0x08, read by SIGetResponse at
+// 0x801E0010), raises the SI interrupt, and lets the game's own PADReset/PADRead deliver a
+// scripted Start press. RR_GC_SITRACE dumps every SI register access for that work.
 
 type si struct {
 	Reg [0x40]uint32
@@ -47,6 +77,15 @@ type si struct {
 
 func (d *si) read(m *Machine, off uint32, size int) uint32 {
 	r := off & 0xFF
+	if siTrace {
+		v := uint32(0)
+		if r < 0x30 {
+			v = 0
+		} else if int(r/4) < len(d.Reg) {
+			v = d.Reg[r/4]
+		}
+		fmt.Fprintf(os.Stderr, "SI rd 0x%02X -> 0x%08X (pc 0x%08X)\n", r, v, m.CPU.PC)
+	}
 	// The four channel input registers report the pad state. Zero — no buttons, sticks
 	// centred at zero — is a plausible idle pad; a game reads it without stalling.
 	if r < 0x30 {
@@ -67,6 +106,9 @@ func (d *si) read(m *Machine, off uint32, size int) uint32 {
 }
 
 func (d *si) write(m *Machine, off uint32, v uint32, size int) {
+	if siTrace {
+		fmt.Fprintf(os.Stderr, "SI wr 0x%02X = 0x%08X (pc 0x%08X)\n", off&0xFF, v, m.CPU.PC)
+	}
 	i := (off & 0xFF) / 4
 	if int(i) < len(d.Reg) {
 		d.Reg[i] = v
