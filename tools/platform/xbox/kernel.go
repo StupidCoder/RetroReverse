@@ -305,6 +305,13 @@ func kernelHandler(ord uint16) func(*Machine) int {
 			m.setRet(0) // STATUS_SUCCESS
 			return 5
 		}
+	case 37: // FscSetCacheSize(NumberOfCachePages) -> NTSTATUS. Verified from its call
+		// site (0x4477C): one argument, a byte count the wrapper converts to pages
+		// (SHR 12, round up; 0x19000 -> 0x19), result checked as an NTSTATUS — XAPI
+		// sizing the filesystem cache; table-35 + the low block's +2 drift = 37. Our
+		// disc I/O reads straight from the image with no cache to size: success no-op.
+		return func(m *Machine) int { m.setRet(0); return 1 }
+
 	case 47: // HalRegisterShutdownNotification(&HAL_SHUTDOWN_REGISTRATION, Register)
 		// Verified from its call site: 2 stdcall args, arg1 = TRUE, returns void. We do
 		// not run shutdown, so recording the registration is unnecessary — accept it.

@@ -200,6 +200,10 @@ func NewMachine(xbe *XBE, disc *Image) (*Machine, error) {
 	c.Regs[x86.SP] = titleStackTop - 4
 	m.write32(titleStackTop-4, threadExitAddr)
 	c.IF = true
+	// RDTSC: a 733 MHz Pentium III TSC against this machine's 2000-instructions-per-
+	// millisecond clock (sched.go instrsPerMs) is 366.6 counts per instruction; 367
+	// keeps the TSC and KeTickCount telling the same time to 0.1%.
+	c.TSCMul = 367
 	c.OnStep = m.onStep
 	c.PortIn = m.portIn
 	c.PortOut = m.portOut

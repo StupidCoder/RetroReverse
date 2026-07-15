@@ -31,6 +31,7 @@ func ordinalName(ord uint16) string {
 // reconstructed table wherever the two disagree.
 var verifiedNames = map[uint16]string{
 	24:  "ExQueryNonVolatileSetting",       // 5-arg config read (index, type*, value*, len, resultLen*)
+	37:  "FscSetCacheSize",                 // f(pages) -> NTSTATUS (site 0x4477C, +2 drift)
 	44:  "HalGetInterruptVector",           // f(busLevel, &irql) -> vector (Hal block drifts +2)
 	46:  "HalReadWritePCISpace",            // f(bus, slot, reg, buf, len, write)
 	47:  "HalRegisterShutdownNotification", // f(&HAL_SHUTDOWN_REGISTRATION, TRUE), returns
@@ -54,21 +55,28 @@ var verifiedNames = map[uint16]string{
 	2:   "AvSendTVEncoderOption",           // f(regbase, option, param, result*) -> void
 	15:  "ExAllocatePoolWithTag",           // f(bytes, tag) -> PVOID (2-arg; 3rd push is a save)
 	23:  "ExQueryPoolBlockSize",            // f(block) -> SIZE_T
+	126: "KeQueryPerformanceCounter",       // f() -> EDX:EAX (site 0x214B80)
+	127: "KeQueryPerformanceFrequency",     // f() -> EDX:EAX (site 0x214B94)
 	129: "KeRaiseIrqlToDpcLevel",           // f() -> oldIrql in AL (paired w/ KfLowerIrql(CL))
+	143: "KeSetBasePriorityThread",         // f(thread, increment) -> old (site 0x44F10)
 	151: "KeStallExecutionProcessor",       // f(microseconds); 1 arg, spun in the APU bring-up's
 	// timeout loop (call sites 0x1DE566 PUSH 1 / 0x1DE58B PUSH 0x29B, result ignored) —
 	// the Ke block's +5 drift (107/113/149/160/161 all +5) lands table-146 here.
-	160: "KfRaiseIrql",                  // fastcall(CL=newIrql) -> oldIrql (was mis-guessed as Mm)
-	161: "KfLowerIrql",                  // fastcall(CL=newIrql) -> void
-	190: "NtCreateFile",                 // 9 args; XAPI CreateFile wrapper site 0x43D08
-	193: "NtCreateSemaphore",            // f(handle*, objattr, initial, max)
-	211: "NtQueryInformationFile",       // 5 args, class 0x22 (site 0x445F6)
-	219: "NtReadFile",                   // 8 args, OVERLAPPED shape (site 0x440C1)
-	222: "NtReleaseSemaphore",           // f(handle, releaseCount, prev*) -> NTSTATUS
-	224: "NtResumeThread",               // f(handle, prevCount*); pair w/ 231 (site 0x44F56)
-	226: "NtSetInformationFile",         // 5 args, class 0xE seek (site 0x44378)
-	231: "NtSuspendThread",              // f(handle, prevCount*); pair w/ 224 (site 0x44F30)
-	234: "NtWaitForSingleObjectEx",      // f(handle, waitMode, alertable, timeout*) -> NTSTATUS
+	160: "KfRaiseIrql",               // fastcall(CL=newIrql) -> oldIrql (was mis-guessed as Mm)
+	161: "KfLowerIrql",               // fastcall(CL=newIrql) -> void
+	190: "NtCreateFile",              // 9 args; XAPI CreateFile wrapper site 0x43D08
+	193: "NtCreateSemaphore",         // f(handle*, objattr, initial, max)
+	211: "NtQueryInformationFile",    // 5 args, class 0x22 (site 0x445F6)
+	219: "NtReadFile",                // 8 args, OVERLAPPED shape (site 0x440C1)
+	222: "NtReleaseSemaphore",        // f(handle, releaseCount, prev*) -> NTSTATUS
+	224: "NtResumeThread",            // f(handle, prevCount*); pair w/ 231 (site 0x44F56)
+	226: "NtSetInformationFile",      // 5 args, class 0xE seek (site 0x44378)
+	231: "NtSuspendThread",           // f(handle, prevCount*); pair w/ 224 (site 0x44F30)
+	234: "NtWaitForSingleObjectEx",   // f(handle, waitMode, alertable, timeout*) -> NTSTATUS
+	246: "ObReferenceObjectByHandle", // f(handle, type, obj**) (site 0x45291)
+	250: "ObfDereferenceObject",      // fastcall(ECX=object) (site 0x45331)
+	357: "IdexChannelObject",         // DATA export: disk channel object (name inferred from
+	// usage shape — dispatch slots +0x10/+0x14, busy flag +0x20, queued-IRP list +0x28)
 	187: "NtClose",                      // f(handle) -> NTSTATUS (Nt block drifts +5)
 	255: "PsCreateSystemThreadEx",       // the CRT's 10-arg main-thread spawn
 	277: "RtlEnterCriticalSection",      // census-anchored

@@ -524,6 +524,43 @@ func (c *CPU) exec0F(op, rep byte) {
 		// The XDK graphics init flushes the CPU cache (WBINVD) before it kicks the NV2A so
 		// the pusher sees coherent push-buffer bytes; with one flat RAM backing the flush
 		// is already a no-op for us.
+	case 0x31: // RDTSC — EDX:EAX = the time-stamp counter. Modelled as the retired-
+		// instruction count scaled by TSCMul, so guest-visible time advances at a rate
+		// the host machine chooses consistently with its other clocks (the Xbox sets
+		// 367: a 733 MHz TSC against its 2000-instructions-per-millisecond tick).
+		mul := c.TSCMul
+		if mul == 0 {
+			mul = 1
+		}
+		tsc := c.Steps * mul
+		c.Regs[AX] = uint32(tsc)
+		c.Regs[DX] = uint32(tsc >> 32)
+	case 0xB0, 0xB1: // CMPXCHG r/m, r — compare the accumulator with r/m: equal (ZF=1)
+		// stores r into r/m, else (ZF=0) loads r/m into the accumulator. Flags as CMP.
+		// The single-core model needs no LOCK semantics. OutRun's own interlocked paths
+		// are the first user.
+		w := 1
+		if op == 0xB1 {
+			w = c.osz()
+		}
+		reg, o := c.modrmE()
+		dst := c.rEA(o, w)
+		c.flagsSub(c.getReg(0, w), dst, 0, w)
+		if c.ZF {
+			c.wEA(o, w, c.getReg(reg, w))
+		} else {
+			c.setReg(0, w, dst)
+		}
+	case 0xC0, 0xC1: // XADD r/m, r — exchange and add: r/m gets the sum, r the old r/m.
+		w := 1
+		if op == 0xC1 {
+			w = c.osz()
+		}
+		reg, o := c.modrmE()
+		dst := c.rEA(o, w)
+		sum := c.flagsAdd(dst, c.getReg(reg, w), 0, w)
+		c.setReg(reg, w, dst)
+		c.wEA(o, w, sum)
 	case 0x18, 0x19, 0x1A, 0x1B, 0x1C, 0x1D, 0x1E, 0x1F:
 		// PREFETCH* (0F 18) and the reserved multi-byte NOP group (0F 19-1F, incl. the
 		// canonical long-NOP 0F 1F). All carry a ModR/M operand and have no architectural

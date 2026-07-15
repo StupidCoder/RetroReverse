@@ -26,6 +26,18 @@ package xbox
 // ordinal appears; everything else is a code trap that reads back zero when used as
 // data.
 func dataExportSize(ord uint16) (int, bool) {
+	switch ord {
+	case 357:
+		// The disk channel object (IdexChannelObject-shaped; name inferred from usage,
+		// behaviour bound by number). Three live sites pin the block's shape: XAPI
+		// installs its own routines at +0x10/+0x14 (0x48A4B), tests a busy flag at
+		// +0x20 (0x48A61), and walks the queued-IRP LIST_ENTRY at +0x28 to cancel a
+		// file's IRPs (0x452AE, entries embedded at -0x3C, status +0x10 set to
+		// STATUS_CANCELLED). The zero-on-deref default made the empty list read as a
+		// node at address 0 — this export needs a real block whose list head points
+		// at itself.
+		return 0x40, true
+	}
 	return 0, false
 }
 
@@ -50,12 +62,14 @@ func (m *Machine) initDataExport(ord uint16, addr uint32) {
 		// rather than inventing feature bits — a fabricated flag steers title logic down
 		// paths the real value would not (the HLE-fiction-becomes-evidence trap). The
 		// boot's config query for setting 0x11 runs on the zero-flags path.
-	case 344: // IdexChannelObject — a nonzero, otherwise-zeroed object is enough
+	case 357: // the disk channel object: an empty queued-IRP list head at +0x28
+		m.write32(addr+0x28, addr+0x28) // Flink -> self
+		m.write32(addr+0x2C, addr+0x28) // Blink -> self
 	}
-	if ord == 151 {
-		m.tickCountAddr = addr // KeTickCount: keep it live (schedTick updates it)
+	if ord == 156 {
+		m.tickCountAddr = addr // KeTickCount (table-151 + the Ke +5 drift): kept live by schedTick
 	}
-	if ord == 149 {
-		m.systemTimeAddr = addr
+	if ord == 154 {
+		m.systemTimeAddr = addr // KeSystemTime (table-149 + 5)
 	}
 }

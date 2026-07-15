@@ -112,11 +112,19 @@ func (m *Machine) switchTo(t *thread) {
 	m.write32(kpcrAddr+kpcrPrcbData+prcbCurrentThread, t.kthread)
 }
 
-// wakeDueSleepers readies every sleeping thread whose wake tick has passed.
+// wakeDueSleepers readies every sleeping thread whose wake tick has passed, and expires
+// timed waits (doWaitTimed): a waiting thread with a nonzero wakeTick whose deadline has
+// passed resumes with the STATUS_TIMEOUT its parked context already carries. Suspended
+// threads (create-suspended, NtSuspendThread) are tsWaiting with wakeTick 0 — untouched.
 func (m *Machine) wakeDueSleepers() {
 	for _, t := range m.threads {
-		if t.state == tsSleeping && t.wakeTick <= m.tick {
+		switch {
+		case t.state == tsSleeping && t.wakeTick <= m.tick:
 			t.state = tsReady
+		case t.state == tsWaiting && t.wakeTick != 0 && t.wakeTick <= m.tick:
+			t.state = tsReady
+			t.waitObjs = nil
+			t.wakeTick = 0
 		}
 	}
 }

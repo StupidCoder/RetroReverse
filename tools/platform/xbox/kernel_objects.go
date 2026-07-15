@@ -16,6 +16,8 @@ package xbox
 // block's guest address is its handle. Waits check the signal state: satisfied waits
 // return immediately; unsatisfied ones park the thread for the scheduler.
 
+import "retroreverse.com/tools/cpu/x86"
+
 // dispatcher-header offsets (KEVENT/KSEMAPHORE/KMUTANT share the leading header).
 const (
 	dhType         = 0x00 // byte: object type
@@ -132,6 +134,72 @@ func kernelObjectHandler(ord uint16) func(*Machine) int {
 			m.readFile(m.arg(0), m.arg(4), m.arg(5), m.arg(6), m.arg(7))
 			return 8
 		}
+
+	case 246: // ObReferenceObjectByHandle(Handle, ObjectType, Object**) -> NTSTATUS.
+		// Verified from its call site (0x45291): three args — a handle, the *value* of a
+		// data-export IAT slot (an OBJECT_TYPE pointer, ordinal 71, opaque here), and an
+		// out-pointer the caller uses as the object body; table-241 + the Ob block's +5
+		// drift = 246. Our handles ARE the guest addresses of their object blocks, so the
+		// referenced object is the handle itself; the HLE does not refcount.
+		return func(m *Machine) int {
+			h, out := m.arg(0), m.arg(2)
+			if m.objects[h] == nil {
+				m.setRet(0xC0000008) // STATUS_INVALID_HANDLE
+				return 3
+			}
+			if out != 0 {
+				m.write32(out, h)
+			}
+			m.setRet(0)
+			return 3
+		}
+
+	case 126, 127: // KeQueryPerformanceCounter / KeQueryPerformanceFrequency() -> ULONGLONG.
+		// Verified from twin call sites (0x214B80/0x214B94): no argument pushes, the
+		// 64-bit result taken from EDX:EAX and stored to the caller's out pointer —
+		// exactly QueryPerformanceCounter/Frequency's kernel side; table-121/122 + the
+		// Ke block's +5 drift. On hardware both ride the CPU's 733 MHz TSC; here the
+		// counter is the machine tick scaled by the same 367 the RDTSC model uses, and
+		// the frequency is that counter's true rate (367 x 2000 instrs/ms x 1000 =
+		// 734 MHz) so guest-computed delta/frequency seconds match the tick clock.
+		ord := ord
+		return func(m *Machine) int {
+			v := m.tick * 367
+			if ord == 127 {
+				v = 734000000
+			}
+			m.CPU.Regs[x86.AX] = uint32(v)
+			m.CPU.Regs[x86.DX] = uint32(v >> 32)
+			return 0
+		}
+
+	case 143: // KeSetBasePriorityThread(Thread, Increment) -> LONG (old priority).
+		// Verified from its call site (0x44F10): XAPI's SetThreadPriority wrapper —
+		// ObReferenceObjectByHandle with the thread type export (slot 0x24836C), the
+		// Win32 priority mapped 15->16 / -15->-16, two args, result unread; table-138 +
+		// the Ke block's +5 drift = 143. The increment offsets the normal base (16).
+		return func(m *Machine) int {
+			kt, inc := m.arg(0), int32(m.arg(1))
+			old := int32(16)
+			if o := m.objects[kt]; o != nil && o.thread != nil {
+				old = o.thread.priority
+				p := 16 + inc
+				if p < 0 {
+					p = 0
+				} else if p > 31 {
+					p = 31
+				}
+				o.thread.priority = p
+			}
+			m.setRet(uint32(old))
+			return 2
+		}
+
+	case 250: // ObfDereferenceObject(Object@ECX) — fastcall, no stack args. Verified from
+		// its call site (0x45331: MOV ECX,[EBP+8] then the call, at the tail of the
+		// cancel-io path whose head is ObReferenceObjectByHandle); table-245 + the Ob
+		// block's +5 drift = 250. The HLE does not refcount: success no-op.
+		return func(m *Machine) int { m.setRet(0); return 0 }
 
 	case 226: // NtSetInformationFile(FileHandle, IoStatusBlock, FileInformation, Length,
 		// FileInformationClass) -> NTSTATUS. Verified from its call site (0x44378): the
@@ -417,12 +485,12 @@ func kernelObjectHandler(ord uint16) func(*Machine) int {
 		// Identified from the call site (NOT the reconstructed table, which misnames it
 		// ObCreateObject): 4 args as (Handle, 1, Alertable, &Timeout), where the timeout
 		// argument is built by a helper that multiplies a millisecond count by 10000 and
-		// negates it — a relative LARGE_INTEGER. Whatever the title waits on here is work
-		// our model completes synchronously, so report the object signalled (STATUS_WAIT_0).
-		// doWait keeps the semaphore/event semantics (consumes the signal) when the object
-		// is one the HLE tracks.
+		// negates it — a relative LARGE_INTEGER. The wait is real (doWaitTimed): signalled
+		// objects satisfy immediately, otherwise the thread parks until a signal or the
+		// timeout — the earlier always-satisfied answer was a fiction that spun the
+		// title's worker loops hot and starved its own producers.
 		return func(m *Machine) int {
-			doWaitSatisfy(m, m.arg(0))
+			m.doWaitTimed(m.arg(0), m.arg(3))
 			return 4
 		}
 
@@ -615,16 +683,45 @@ func (m *Machine) doWait(handle uint32, reg int) {
 	m.yieldCurrent(tsWaiting)
 }
 
-// doWaitSatisfy reports a timed single-object wait as satisfied (EAX = STATUS_WAIT_0),
-// consuming the object's signal if the handle names an object the HLE tracks. Used for the
-// timed waits the boot path makes on work our synchronous model has already completed;
-// unlike doWait it never parks the thread, so it cannot deadlock a title that expects the
-// wait to return promptly.
-func doWaitSatisfy(m *Machine, handle uint32) {
-	if o := m.objAt(handle); o != nil {
-		m.satisfyWait(o) // consume one count/signal, matching a real satisfied wait
+// doWaitTimed is the honest timed single-object wait: satisfy it now (STATUS_WAIT_0),
+// or park the thread until the object is signalled (wakeWaiters -> WAIT_0) or the
+// relative timeout expires (wakeDueSleepers -> STATUS_TIMEOUT). The predecessor of this
+// function reported every timed wait as already satisfied; that fiction let a consumer
+// thread spin hot through its wait-then-check-queue loop while the producer starved —
+// the boot made no progress past resource loading until the wait actually waited.
+func (m *Machine) doWaitTimed(handle, timeoutPtr uint32) {
+	o := m.objAt(handle)
+	if m.satisfyWait(o) {
+		m.setRet(0) // STATUS_WAIT_0
+		return
 	}
-	m.setRet(0) // STATUS_WAIT_0
+	if m.current == nil {
+		m.setRet(0) // no scheduler context (boot thread pre-spawn): do not deadlock
+		return
+	}
+	wake := uint64(0) // 0 = wait forever (NULL timeout)
+	if timeoutPtr != 0 {
+		v := int64(uint64(m.read32(timeoutPtr+4))<<32 | uint64(m.read32(timeoutPtr)))
+		switch {
+		case v < 0: // relative, 100 ns units (the ms*10000-negate helper's shape)
+			wake = m.tick + uint64(-v)/10000*instrsPerMs + 1
+		case v == 0: // poll: no signal available right now
+			m.setRet(0x102) // STATUS_TIMEOUT
+			return
+		default: // absolute system time, against the same clock sched.go publishes
+			now := m.tick / instrsPerMs * 10000
+			if uint64(v) <= now {
+				m.setRet(0x102)
+				return
+			}
+			wake = m.tick + (uint64(v)-now)/10000*instrsPerMs + 1
+		}
+	}
+	t := m.current
+	t.waitObjs = []uint32{handle}
+	t.wakeTick = wake
+	m.setRet(0x102) // the timeout result; a signal wake overwrites saved EAX with WAIT_0
+	m.yieldCurrent(tsWaiting)
 }
 
 // wakeWaiters readies any thread blocked on the given object handle whose wait is now
@@ -639,6 +736,10 @@ func (m *Machine) wakeWaiters(handle uint32) {
 			if h == handle && m.satisfyWait(o) {
 				t.state = tsReady
 				t.waitObjs = nil
+				t.wakeTick = 0
+				// A signal wake returns STATUS_WAIT_0; the parked context carries the
+				// timeout result (doWaitTimed), so overwrite its saved EAX.
+				t.ctx.Regs[x86.AX] = 0
 				break
 			}
 		}

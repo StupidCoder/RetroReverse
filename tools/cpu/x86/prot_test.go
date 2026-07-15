@@ -232,3 +232,44 @@ func TestProt66Prefix(t *testing.T) {
 		t.Errorf("EAX = %08X, want 11113333 (0x66 selected 16-bit MOV)", got)
 	}
 }
+
+// TestProtCmpxchgXaddRdtsc exercises the P6-era opcodes the Xbox title's own
+// interlocked and timing paths are the first to reach: CMPXCHG (0F B1), XADD
+// (0F C1), and RDTSC (0F 31, with the host's TSCMul scaling).
+func TestProtCmpxchgXaddRdtsc(t *testing.T) {
+	// MOV EAX, 5          ; accumulator
+	// MOV EBX, 5          ; destination (matches)
+	// MOV ECX, 9
+	// CMPXCHG EBX, ECX    ; ZF=1 -> EBX = 9
+	// MOV EAX, 1
+	// CMPXCHG EBX, ECX    ; 1 != 9 -> ZF=0, EAX = 9
+	// MOV ESI, 100
+	// MOV EDI, 3
+	// XADD ESI, EDI       ; ESI = 103, EDI = 100
+	// RDTSC               ; EDX:EAX = Steps * TSCMul
+	// HLT
+	code := []byte{
+		0xB8, 0x05, 0x00, 0x00, 0x00, // MOV EAX, 5
+		0xBB, 0x05, 0x00, 0x00, 0x00, // MOV EBX, 5
+		0xB9, 0x09, 0x00, 0x00, 0x00, // MOV ECX, 9
+		0x0F, 0xB1, 0xCB, // CMPXCHG EBX, ECX
+		0xB8, 0x01, 0x00, 0x00, 0x00, // MOV EAX, 1
+		0x0F, 0xB1, 0xCB, // CMPXCHG EBX, ECX
+		0xBE, 0x64, 0x00, 0x00, 0x00, // MOV ESI, 100
+		0xBF, 0x03, 0x00, 0x00, 0x00, // MOV EDI, 3
+		0x0F, 0xC1, 0xFE, // XADD ESI, EDI
+		0x0F, 0x31, // RDTSC
+		0xF4, // HLT
+	}
+	c, _ := runProt(t, 0x100000, 0x00300000, code)
+	if c.Regs[BX] != 9 {
+		t.Errorf("CMPXCHG (equal): EBX = %d, want 9", c.Regs[BX])
+	}
+	if c.Regs[SI] != 103 || c.Regs[DI] != 100 {
+		t.Errorf("XADD: ESI=%d EDI=%d, want 103/100", c.Regs[SI], c.Regs[DI])
+	}
+	// RDTSC ran as the 10th instruction with TSCMul=1: EDX:EAX = Steps at that point.
+	if c.Regs[DX] != 0 || c.Regs[AX] == 0 || c.Regs[AX] > 100 {
+		t.Errorf("RDTSC: EDX:EAX = %08X:%08X, want a small nonzero step count", c.Regs[DX], c.Regs[AX])
+	}
+}

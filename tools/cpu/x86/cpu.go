@@ -134,6 +134,11 @@ type CPU struct {
 	// CRT saves and restores it, so it must round-trip. 0x1F80 is the reset value.
 	MXCSR uint32
 
+	// TSCMul scales the retired-instruction count into RDTSC's time-stamp counter
+	// (0 means 1: the TSC is the instruction count). A host sets it so the TSC's
+	// apparent frequency is consistent with its other guest clocks.
+	TSCMul uint64
+
 	// transient per-instruction decode state (segment override / sizes)
 	dSeg      int // segment-override index, or -1
 	dOpsize   int // 16 or 32
@@ -145,6 +150,7 @@ func NewCPU(bus Bus) *CPU {
 	c := &CPU{bus: bus}
 	c.FPU.finit()
 	c.MXCSR = 0x1F80 // SSE control/status reset value (all exceptions masked)
+	c.TSCMul = 1
 	return c
 }
 
