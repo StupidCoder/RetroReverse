@@ -191,6 +191,53 @@ func (c *CPU) setArithFlags(n int) {
 	c.setFlag(srSign, v < 0)
 }
 
+// aluAddSub adds (or, when sub, subtracts) a 40-bit operand into accumulator d, stores the
+// result, and sets the zero, sign, carry and overflow flags the branch conditions read. The
+// carry means "no borrow" for a subtract; overflow is the ordinary two's-complement signed
+// overflow, taken over the 40-bit accumulator width, and is also latched into the sticky
+// overflow bit. b is the operand already sign-extended into an int64.
+func (c *CPU) aluAddSub(d int, b int64, sub bool) {
+	a := c.ac(d)
+	var res int64
+	if sub {
+		res = a - b
+	} else {
+		res = a + b
+	}
+	c.setAc(d, res)
+	v := c.ac(d) // the stored 40-bit signed result
+
+	c.setFlag(srZero, v == 0)
+	c.setFlag(srSign, v < 0)
+
+	ua := uint64(a) & 0xFFFFFFFFFF
+	ub := uint64(b) & 0xFFFFFFFFFF
+	if sub {
+		c.setFlag(srCarry, ua >= ub) // no borrow out of bit 39
+		// overflow: operands differ in sign and the result took the subtrahend's sign
+		c.setFlag(srOverflow, (a^b)&(a^v)&(1<<39) != 0)
+	} else {
+		c.setFlag(srCarry, ua+ub > 0xFFFFFFFFFF) // carry out of bit 39
+		// overflow: operands share a sign and the result's sign flipped
+		c.setFlag(srOverflow, ^(a^b)&(a^v)&(1<<39) != 0)
+	}
+	if c.Reg[regSR]&srOverflow != 0 {
+		c.Reg[regSR] |= srOverSticky
+	}
+}
+
+// setTestFlags sets the flags a tst produces: it compares the accumulator with zero, so the
+// zero and sign flags come straight from the value and the carry and overflow are cleared. With
+// overflow clear, the GE/LE branch conditions reduce to the accumulator's sign, which is what
+// the mixer's "is this sample negative" tests rely on.
+func (c *CPU) setTestFlags(n int) {
+	v := c.ac(n)
+	c.setFlag(srZero, v == 0)
+	c.setFlag(srSign, v < 0)
+	c.setFlag(srCarry, false)
+	c.setFlag(srOverflow, false)
+}
+
 // setLogicFlags sets the zero and sign flags from an accumulator after a logic op. The DSP
 // judges these on the whole accumulator, so read it back the same way.
 func (c *CPU) setLogicFlags(n int) {

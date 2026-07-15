@@ -293,6 +293,25 @@ func (c *CPU) execArith(pc, op uint16) uint16 {
 		c.setArithFlags(r)
 		c.runExt(op & 0xFF)
 		return 1
+
+	// --- accumulator add/subtract of an extended (ax) register ---------------------------
+	// Encoding oooo osad ...: bit 9 (s) selects ax0 vs ax1, bit 8 (d) the accumulator. The ax
+	// register is the 32-bit ax.h:ax.l, sign-extended into the 40-bit accumulator. Each use
+	// site in the ucode loads exactly the ax half it then adds, which pins the ax-select bit.
+	case op&0xFC00 == 0x4400: // addax acD, axS
+		c.aluAddSub(int((op>>8)&1), c.ax(int((op>>9)&1)), false)
+		c.runExt(op & 0xFF)
+		return 1
+	case op&0xFC00 == 0x5400: // subax acD, axS
+		c.aluAddSub(int((op>>8)&1), c.ax(int((op>>9)&1)), true)
+		c.runExt(op & 0xFF)
+		return 1
+
+	// --- test / compare (flags only) -----------------------------------------------------
+	case op&0xFE00 == 0x8600: // tst acR — set flags from the accumulator (compare with zero)
+		c.setTestFlags(int((op >> 8) & 1))
+		c.runExt(op & 0xFF)
+		return 1
 	}
 	c.Halt("unmodelled DSP arithmetic op 0x%04X at 0x%04X (%s)", op, pc, mustText(c.imem, pc))
 	return 1

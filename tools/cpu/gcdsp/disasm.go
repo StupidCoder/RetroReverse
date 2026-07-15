@@ -287,10 +287,8 @@ func arithMnemonic(op uint16) string {
 		return fmt.Sprintf("clr    ac%d", (op>>11)&1)
 	case op&0xFF00 == 0x8200:
 		return "cmp"
-	case op&0xFF00 == 0x8600:
-		return "tst    ac0"
-	case op&0xFF00 == 0x8700:
-		return "tst    ac1"
+	case op&0xFE00 == 0x8600:
+		return fmt.Sprintf("tst    ac%d", (op>>8)&1)
 	case op&0xF800 == 0x9000:
 		return fmt.Sprintf("mul    ax%d", (op>>11)&1)
 	case op&0xF800 == 0x9800:
@@ -306,7 +304,7 @@ func arithMnemonic(op uint16) string {
 	case op&0xFC00 == 0x4000:
 		return fmt.Sprintf("addr   ac%d", d)
 	case op&0xFC00 == 0x4400:
-		return fmt.Sprintf("addax  ac%d", d)
+		return fmt.Sprintf("addax  ac%d, ax%d", d, (op>>9)&1)
 	case op&0xFE00 == 0x4800:
 		return fmt.Sprintf("add    ac%d", d)
 	case op&0xFE00 == 0x4A00:
@@ -314,7 +312,7 @@ func arithMnemonic(op uint16) string {
 	case op&0xFC00 == 0x5000:
 		return fmt.Sprintf("subr   ac%d", d)
 	case op&0xFC00 == 0x5400:
-		return fmt.Sprintf("subax  ac%d", d)
+		return fmt.Sprintf("subax  ac%d, ax%d", d, (op>>9)&1)
 	case op&0xFE00 == 0x5800:
 		return fmt.Sprintf("sub    ac%d", d)
 	case op&0xFC00 == 0x6000:

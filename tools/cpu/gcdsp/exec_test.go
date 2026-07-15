@@ -225,6 +225,85 @@ func TestCommandDispatchShift(t *testing.T) {
 	}
 }
 
+// TestAddSubAx pins the accumulator add/subtract of an extended register and the flags the
+// branch conditions read. addax/subax take the 32-bit ax.h:ax.l, sign-extended into the 40-bit
+// accumulator; the ax-select bit picks ax0 or ax1. Each case sets up the operands, runs the one
+// op, and checks the accumulator and the sign/zero flags.
+func TestAddSubAx(t *testing.T) {
+	cases := []struct {
+		name     string
+		op       uint16
+		ac       int64
+		axh, axl uint16
+		axsel    int // which ax register to load
+		want     int64
+		wantZero bool
+		wantSign bool
+	}{
+		// subax ac0, ax0: 0x00010000 - 0x00008000 = 0x00008000
+		{"subax-ac0-ax0", 0x5400, 0x00010000, 0x0000, 0x8000, 0, 0x00008000, false, false},
+		// subax ac0, ax0 to zero
+		{"subax-to-zero", 0x5400, 0x00008000, 0x0000, 0x8000, 0, 0x0000000000, true, false},
+		// addax ac0, ax1: negative result
+		{"addax-ac0-ax1-neg", 0x4600, -0x00010000, 0xFFFF, 0x0000, 1, -0x00020000, false, true},
+		// subax ac1, ax1
+		{"subax-ac1-ax1", 0x5700, 0x00040000, 0x0001, 0x0000, 1, 0x00030000, false, false},
+	}
+	for _, tc := range cases {
+		c := New(nullBus{t})
+		d := int((tc.op >> 8) & 1)
+		c.setAc(d, tc.ac)
+		c.Reg[regAX0H+tc.axsel] = tc.axh
+		c.Reg[regAX0L+tc.axsel] = tc.axl
+		c.IRAM[0] = tc.op
+		c.IRAM[1] = 0x0000
+		if !c.Step() {
+			t.Fatalf("%s: core halted: %s", tc.name, c.Reason)
+		}
+		if got := c.ac(d); got != tc.want {
+			t.Errorf("%s: ac%d = 0x%010X, want 0x%010X", tc.name, d, uint64(got)&0xFFFFFFFFFF, uint64(tc.want)&0xFFFFFFFFFF)
+		}
+		if z := c.Reg[regSR]&srZero != 0; z != tc.wantZero {
+			t.Errorf("%s: zero=%v, want %v", tc.name, z, tc.wantZero)
+		}
+		if s := c.Reg[regSR]&srSign != 0; s != tc.wantSign {
+			t.Errorf("%s: sign=%v, want %v", tc.name, s, tc.wantSign)
+		}
+	}
+}
+
+// TestTstBranch runs the mixer's "is this sample negative" idiom: tst the accumulator then take
+// a GE branch, which with overflow cleared reduces to the sign. A negative accumulator must fall
+// through (not GE); a non-negative one must branch.
+func TestTstBranch(t *testing.T) {
+	for _, tc := range []struct {
+		name   string
+		ac     int64
+		wantGE bool
+	}{
+		{"negative", -0x0010000, false},
+		{"positive", 0x0010000, true},
+		{"zero", 0, true},
+	} {
+		c := New(nullBus{t})
+		c.setAc(0, tc.ac)
+		copy(c.IRAM[:], []uint16{
+			0x8600,         // 0000: tst ac0
+			0x0290, 0x0005, // 0001: jmpge 0x0005
+			0x0021,         // 0003: halt (taken when not GE)
+			0x0000,         // 0004: pad
+			0x0000,         // 0005: nop (GE lands here)
+		})
+		for i := 0; i < 100 && c.PC != 0x0005 && !c.Halted; i++ {
+			c.Step()
+		}
+		gotGE := c.PC == 0x0005 && !c.Halted
+		if gotGE != tc.wantGE {
+			t.Errorf("%s: GE-branch taken=%v, want %v (PC=0x%04X)", tc.name, gotGE, tc.wantGE, c.PC)
+		}
+	}
+}
+
 // TestCallRet checks the call stack: a call runs a subroutine that loads a register, and the
 // ret returns to the instruction after the call.
 func TestCallRet(t *testing.T) {
