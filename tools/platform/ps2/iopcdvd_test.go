@@ -112,7 +112,7 @@ func TestADVDSectorCarriesItsOwnNumber(t *testing.T) {
 	_, p := newDriveOverAFakeDisc(t)
 	c := p.cdvd
 
-	c.readSectors(fakeDiscMarkerLBA, 1)
+	c.readSectors(fakeDiscMarkerLBA, 1, true)
 
 	if n := len(c.data); n != cdvdRawSectorBytes {
 		t.Fatalf("the drive staged %d bytes for one sector, not %d", n, cdvdRawSectorBytes)
@@ -130,6 +130,24 @@ func TestADVDSectorCarriesItsOwnNumber(t *testing.T) {
 	}
 	if got := string(sec[cdvdSectorHeader : cdvdSectorHeader+len(fakeDiscMarker)]); got != fakeDiscMarker {
 		t.Errorf("the user data is not twelve bytes into the sector; found %q", got)
+	}
+}
+
+func TestTheCDReadHasNoFraming(t *testing.T) {
+	// The CD read (N-command 6) is the one OVERLORD walks the file system with, and its DMA is
+	// sized at 2048 bytes a sector — the drive hands over the user data and nothing else, no
+	// header and no sector-id check. A drive that framed it like the DVD read would overrun
+	// OVERLORD's buffer by sixteen bytes a sector and put the data where nothing reads it.
+	_, p := newDriveOverAFakeDisc(t)
+	c := p.cdvd
+
+	c.readSectors(fakeDiscMarkerLBA, 1, false)
+
+	if n := len(c.data); n != cdvdSectorBytes {
+		t.Fatalf("the CD read staged %d bytes for one sector, not %d", n, cdvdSectorBytes)
+	}
+	if got := string(c.data[:len(fakeDiscMarker)]); got != fakeDiscMarker {
+		t.Errorf("the CD read's data is not at the very start of the sector; found %q", got)
 	}
 }
 

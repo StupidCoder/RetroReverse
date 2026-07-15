@@ -55,13 +55,27 @@ func insnJR(reg uint32) uint32    { return (reg << 21) | 0x08 }
 func regRA() uint32               { return 31 }
 
 // LoadIRX places a module in IOP memory, links it, and returns it without starting it.
+//
+// It is the machine's own loader — the one that boots IOPRP221.IMG's modules before the
+// game's first instruction. It takes the base from its own bump allocator. The game's
+// runtime loads go a different way (loadcoreLinkModule): the guest's own MODLOAD allocates
+// the memory and calls loadcore to place the image on it. Both roads end at placeAndLink,
+// because relocating an image and wiring its imports is the same job whoever picked the
+// address.
 func (p *IOP) LoadIRX(name string, raw []byte) (*IOPModule, error) {
 	x, err := ReadIRX(raw)
 	if err != nil {
 		return nil, fmt.Errorf("%s: %w", name, err)
 	}
-
 	base := p.alloc(x.MemSz)
+	return p.placeAndLink(name, x, base)
+}
+
+// placeAndLink relocates a parsed module onto base, registers its exports, patches its
+// imports, and adds it to the resident set. It is everything loading an IRX is except
+// choosing where it goes — which LoadIRX does from its own allocator and MODLOAD does from
+// sysmem, and which is the whole of the difference between them.
+func (p *IOP) placeAndLink(name string, x *IRX, base uint32) (*IOPModule, error) {
 	img, err := x.Relocate(base)
 	if err != nil {
 		return nil, fmt.Errorf("%s: %w", name, err)
@@ -145,6 +159,180 @@ func (p *IOP) link(mod *IOPModule) error {
 		}
 	}
 	return nil
+}
+
+// --- loadcore's module-load primitives, as MODLOAD drives them ------------------------
+//
+// The game loads its own IRX modules at runtime — SIO2MAN and the rest — and it does not do
+// it the way the machine boots IOPRP221.IMG. The EE asks the IOP across the SIF, LOADFILE
+// reads the file off the disc into a buffer, and then MODLOAD, running for real on the
+// R3000A, links it. MODLOAD is Sony's, and it is logic, so it runs; the thing it calls to
+// turn a buffer of ELF into resident code is loadcore, and loadcore is ours.
+//
+// The contract between them was read out of MODLOAD's own loader (MODLOAD+0xE9C), because
+// the info struct they pass back and forth is loadcore's private format — MODLOAD only ever
+// peeks at three of its fields:
+//
+//	#22(image, info)   probe. Fill info+28 with the memory the module needs, and return a
+//	                   type code: 2 = relocatable, which steers MODLOAD to allocate the
+//	                   memory itself and place the module wherever it lands.
+//	MODLOAD            AllocSysMemory(0, info+28 + 48, 0) -> base, and writes base+48 into
+//	                   info+12. The 48 bytes at [base, base+48) are the module's registration
+//	                   record; the image goes just above it.
+//	#23(image, info)   relocate the image onto info+12 (= base+48) and wire its imports.
+//	#8(base+48, ...)   the link check. MODLOAD frees the block and fails with -200 if this
+//	                   returns negative, so it is where an unresolvable import is reported —
+//	                   but placeAndLink has already resolved them, and would have errored, so
+//	                   here it only confirms.
+//	#4()               flush the instruction cache. The machine has no cache to flush.
+//	#16(base)          register the module. MODLOAD keeps its own list keyed on base and
+//	                   returns base as the handle regardless of what this answers.
+//
+// info is loadcore's, so its layout is chosen here and only these offsets are load-bearing.
+
+// The info struct MODLOAD and loadcore pass between them. Only three fields are read by
+// MODLOAD; the rest is ours to use as scratch between #22 and #23.
+const (
+	iopModInfoInit = 0x0C // MODLOAD writes base+48 here for #23 to read
+	iopModInfoText = 0x10 // #23 leaves the module base here, for #8
+	iopModInfoSize = 0x1C // #22 leaves the module's memory size here, for MODLOAD's alloc
+)
+
+// The module registration record: the 48 bytes at [base, base+48) that MODLOAD keeps ahead
+// of the image. It is loadcore's own structure, and MODLOAD reads exactly these fields — the
+// entry point and $gp it starts the module with, and the pair it hands to the unlink routine
+// if the module declines to stay resident. loadcore fills them; the offsets are MODLOAD's.
+const (
+	iopModRecEntry = 0x10 // the module's entry point, absolute
+	iopModRecGP    = 0x14 // its $gp, absolute
+	iopModRecArg0  = 0x18 // passed to loadcore#9 when a non-resident module unloads
+	iopModRecArg1  = 0x1C
+	iopModRecSize  = 48
+)
+
+// The type codes #22 returns. Only "relocatable" is exercised; a fixed-address module would
+// return one of the others and steer MODLOAD down its other allocation path.
+const (
+	iopModRelocatable = 2
+	iopModBadImage    = ^uint32(0) - 200 // -201: MODLOAD reports exactly this if the code is not 1..4
+)
+
+// loadcoreProbeModule is loadcore #22: examine the ELF in the guest's buffer and report how
+// much memory it needs.
+func (p *IOP) loadcoreProbeModule() {
+	image, info := p.arg(0), p.arg(1)
+
+	x, err := p.readGuestIRX(image)
+	if err != nil {
+		p.ps2.note("IOP: loadcore#22: %s is not a loadable module: %v", p.Sym(image), err)
+		p.setRet(iopModBadImage)
+		return
+	}
+	p.Write32(info+iopModInfoSize, x.MemSz)
+	p.setRet(iopModRelocatable)
+}
+
+// loadcoreLinkModule is loadcore #23: place the module on the memory MODLOAD allocated for
+// it, and wire it into everything resident.
+func (p *IOP) loadcoreLinkModule() {
+	image, info := p.arg(0), p.arg(1)
+	base := p.Read32(info + iopModInfoInit)
+
+	x, err := p.readGuestIRX(image)
+	if err != nil {
+		p.ps2.note("IOP: loadcore#23: %s: %v", p.Sym(image), err)
+		p.setRet(iopModBadImage)
+		return
+	}
+	mod, err := p.placeAndLink(p.guestModuleName(image, x), x, base)
+	if err != nil {
+		p.ps2.note("IOP: loadcore#23: %v", err)
+		p.setRet(iopModBadImage)
+		return
+	}
+
+	// Fill the registration record MODLOAD placed just below the image. MODLOAD starts the
+	// module by reading its entry and $gp out of this record — leave them and it jumps to
+	// whatever the freshly-allocated memory happened to hold, which is exactly the wild jump
+	// this was found by.
+	rec := base - iopModRecSize
+	p.Write32(rec+iopModRecEntry, mod.Base+x.Entry)
+	p.Write32(rec+iopModRecGP, mod.Base+x.GP)
+	p.Write32(rec+iopModRecArg0, mod.Base)
+	p.Write32(rec+iopModRecArg1, mod.Size)
+
+	p.Write32(info+iopModInfoText, mod.Base)
+	p.ps2.note("IOP: MODLOAD loaded %s at 0x%08X (%d KiB) via loadcore", mod.Name, mod.Base, mod.Size/1024)
+	p.setRet(0)
+}
+
+// loadcoreLinkCheck is loadcore #8: MODLOAD's gate on the load. placeAndLink resolves every
+// import as it goes and errors if it cannot, so a module that reaches here has already
+// linked; this only has to answer "not negative".
+func (p *IOP) loadcoreLinkCheck() { p.setRet(0) }
+
+// loadcoreFlushIcache is loadcore #4: flush the instruction cache after new code has been
+// written. There is no cache in this model — an instruction fetch reads memory as it stands
+// — so there is nothing to flush.
+func (p *IOP) loadcoreFlushIcache() { p.setRet(0) }
+
+// loadcoreRegisterModule is loadcore #16: enter the module in the registry. Ours is the Go
+// slice placeAndLink already appended to, and MODLOAD returns the handle it computed itself,
+// so this only has to succeed.
+func (p *IOP) loadcoreRegisterModule() { p.setRet(0) }
+
+// readGuestIRX reads and parses the ELF image the guest has placed in IOP memory at addr.
+//
+// The length is the ELF's own, and it has to be computed rather than guessed: the caller
+// does not pass it, and the section-header table is *not* at the end of the file — SIO2MAN's
+// relocation sections live past it. So the file ends wherever the furthest-reaching part of
+// it does, which is the largest `offset + size` over every section (except .bss, which takes
+// no file space), every program segment, and the two header tables themselves. Read that many
+// bytes out of IOP RAM and ReadIRX has exactly the file LOADFILE fetched off the disc.
+func (p *IOP) readGuestIRX(addr uint32) (*IRX, error) {
+	if m := p.Read32(addr); m != 0x464C457F { // "\x7FELF", little-endian
+		return nil, fmt.Errorf("no ELF magic at 0x%08X (found 0x%08X)", addr, m)
+	}
+	rd16 := func(o uint32) uint32 { return uint32(p.Read(addr+o)) | uint32(p.Read(addr+o+1))<<8 }
+
+	phoff, phentsize, phnum := p.Read32(addr+0x1C), rd16(0x2A), rd16(0x2C)
+	shoff, shentsize, shnum := p.Read32(addr+0x20), rd16(0x2E), rd16(0x30)
+
+	size := phoff + phentsize*phnum
+	if e := shoff + shentsize*shnum; e > size {
+		size = e
+	}
+	for i := uint32(0); i < shnum; i++ {
+		sh := addr + shoff + i*shentsize
+		if p.Read32(sh+0x04) == 8 { // SHT_NOBITS — .bss, no bytes in the file
+			continue
+		}
+		if e := p.Read32(sh+0x10) + p.Read32(sh+0x14); e > size {
+			size = e
+		}
+	}
+	for i := uint32(0); i < phnum; i++ {
+		ph := addr + phoff + i*phentsize
+		if e := p.Read32(ph+0x04) + p.Read32(ph+0x10); e > size {
+			size = e
+		}
+	}
+
+	if size == 0 || addr+size > iopRAMSizeBytes {
+		return nil, fmt.Errorf("the ELF header at 0x%08X gives an implausible file size of %d bytes", addr, size)
+	}
+	raw := make([]byte, size)
+	copy(raw, p.ram[addr:addr+size])
+	return ReadIRX(raw)
+}
+
+// guestModuleName is the module's own name, out of its .iopmod record, so a module loaded at
+// runtime is named in the trace the same way one loaded at boot is.
+func (p *IOP) guestModuleName(addr uint32, x *IRX) string {
+	if x.Name != "" {
+		return x.Name
+	}
+	return fmt.Sprintf("module@0x%08X", addr)
 }
 
 // exportAddr is the address of function id in a resident library.

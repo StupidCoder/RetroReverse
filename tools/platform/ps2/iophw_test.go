@@ -11,6 +11,48 @@ package ps2
 
 import "testing"
 
+func TestFreeingAHighBufferReturnsItsSpace(t *testing.T) {
+	// The game loads a dozen modules by reading each into a high-end buffer and freeing it the
+	// moment the module is placed low. If a freed buffer's space is not genuinely returned, the
+	// buffers pile up on the free list in the wrong sizes to reuse, the high pointer never
+	// recovers, and OVERLORD's 811 KiB ramdisk cannot find room in a two-megabyte machine with
+	// half of it still free. The retraction in freeInsert is what makes the two ends work.
+	m := NewMachine()
+	p := m.StartIOP()
+
+	high := func(size uint32) uint32 { // AllocSysMemory(mode=1)
+		p.CPU.SetReg(4, iopAllocHigh)
+		p.CPU.SetReg(5, size)
+		p.CPU.SetReg(6, 0)
+		p.sysmemAlloc()
+		return p.CPU.Reg(2)
+	}
+	free := func(ptr uint32) {
+		p.CPU.SetReg(4, ptr)
+		p.sysmemFree()
+	}
+
+	before := p.allocHighPtr
+	if before == 0 {
+		before = iopStackArea
+	}
+	// A run of differently-sized buffers, each freed before the next — the module-load pattern.
+	for _, n := range []uint32{6161, 43861, 26245, 139052, 124132} {
+		b := high(n)
+		if b == 0 {
+			t.Fatalf("the high allocator could not place %d bytes", n)
+		}
+		free(b)
+	}
+	if p.allocHighPtr != before {
+		t.Errorf("after freeing every high buffer, the high pointer is at 0x%X, not back at 0x%X: %d bytes stranded",
+			p.allocHighPtr, before, before-p.allocHighPtr)
+	}
+	if len(p.freeBlocks) != 0 {
+		t.Errorf("%d free block(s) stranded on the list after everything was freed", len(p.freeBlocks))
+	}
+}
+
 func TestEachDMAChannelHasAnInterruptOfItsOwn(t *testing.T) {
 	// intrman does not hand a driver the controller's single DMA line. It demuxes it, and
 	// gives each channel an interrupt number of its own — 32 + n for the first block of

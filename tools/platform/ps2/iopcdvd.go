@@ -98,10 +98,15 @@ const (
 
 // The N-commands this disc issues.
 const (
-	// #8 is the DVD read, and CDVDMAN+0x4024 is the routine that builds it. It takes eleven
-	// parameter bytes — the LBA as a little-endian word, the sector count as another, and then
-	// three bytes of mode (a spindle speed chosen from a jump table, and two flags) — and it
-	// carries a DMA descriptor, because this is the command that moves the disc into memory.
+	// #6 is the CD read — the ordinary sceCdRead. OVERLORD issues it to walk the ISO 9660
+	// file system in "iso_cd" mode, with the same eleven-byte parameter block as the DVD read
+	// (LBA, count, three mode bytes) but a DMA sized at 2048 bytes a sector: the drive hands
+	// over the user data and no framing.
+	cdvdNCmdReadCD = 0x06
+
+	// #8 is the DVD read, and CDVDMAN+0x4024 is the routine that builds it. Same parameters,
+	// but the drive delivers whole 2064-byte physical sectors, because CDVDMAN's DVD path
+	// checks the header on each one. It is the read the boot uses.
 	cdvdNCmdReadDVD = 0x08
 )
 
@@ -367,13 +372,18 @@ func (c *cdvd) startN(cmd byte) {
 // a gap that stays where you left it, it is a lie that surfaces layers away.
 func (c *cdvd) exec(cmd byte, params []byte) bool {
 	switch cmd {
-	case cdvdNCmdReadDVD:
+	case cdvdNCmdReadCD, cdvdNCmdReadDVD:
 		if len(params) < 8 {
 			return false
 		}
 		lba := le32(params[0:])
 		count := le32(params[4:])
-		c.readSectors(lba, count)
+		// The two reads differ only in what the drive puts round the data. The DVD read hands
+		// over whole physical sectors, header and all, because CDVDMAN's own DVD path checks
+		// the header; the CD read hands over the 2048 bytes and nothing else, which is what
+		// OVERLORD's file system asks for and what its DMA is sized for (2048 a sector, not
+		// 2064). So the framing is the command, and the sector data is the same disc.
+		c.readSectors(lba, count, cmd == cdvdNCmdReadDVD)
 		return true
 	}
 	return false
@@ -394,40 +404,47 @@ func (c *cdvd) exec(cmd byte, params []byte) bool {
 // twelve and the four are the disc's own framing and nothing on this disc reads them; they
 // are handed over as zeroes rather than invented, and if something ever turns out to want
 // them it will want them here.
-func (c *cdvd) readSectors(lba, count uint32) {
+func (c *cdvd) readSectors(lba, count uint32, dvd bool) {
 	vol := c.ps2.vol
 	if vol == nil {
 		c.ps2.note("CDVD: asked to read %d sectors at LBA %d, and no disc is mounted", count, lba)
 		return
 	}
 	for i := uint32(0); i < count; i++ {
-		sec := make([]byte, cdvdRawSectorBytes)
+		data := cdvdSectorHeader // where the 2048 bytes of user data begin in the staged sector
+		secLen := cdvdRawSectorBytes
+		if !dvd {
+			data, secLen = 0, cdvdSectorBytes // the CD read hands over the data and nothing else
+		}
+		sec := make([]byte, secLen)
 
-		// The sector's own ID, and CDVDMAN checks it. This is not framing we can leave as
-		// zeroes: CDVDMAN+0x3960 reads bytes 1..3 of the header as a big-endian number, adds
-		// 0xFFFD0000 — which is -0x30000 — and compares what comes out against the LBA it
-		// asked for. If they differ it retries, drifts, and gives up with "Read error in
-		// disc_read(PVD)".
-		//
-		// So the number in the header is not the LBA; it is the LBA plus 0x30000, which is
-		// where a DVD's data area begins. The module's own arithmetic is the whole derivation:
-		// it subtracts exactly 196608 and expects the sector it asked for. A header of zeroes
-		// makes that come out as -196608, and that is precisely the number CDVDMAN printed
-		// when it was asked to narrate itself.
-		//
-		// Byte 0 is a flags byte; CDVDMAN takes bit 0 of it as the layer (CDVDMAN+0x39A4).
-		// This disc is single-layer, so it is zero. Bytes 4..11 are the sector's other framing
-		// and nothing on this disc reads them.
-		phys := cdvdDVDDataStart + lba + i
-		sec[1] = byte(phys >> 16)
-		sec[2] = byte(phys >> 8)
-		sec[3] = byte(phys)
+		if dvd {
+			// The sector's own ID, and CDVDMAN checks it. This is not framing we can leave as
+			// zeroes: CDVDMAN+0x3960 reads bytes 1..3 of the header as a big-endian number, adds
+			// 0xFFFD0000 — which is -0x30000 — and compares what comes out against the LBA it
+			// asked for. If they differ it retries, drifts, and gives up with "Read error in
+			// disc_read(PVD)".
+			//
+			// So the number in the header is not the LBA; it is the LBA plus 0x30000, which is
+			// where a DVD's data area begins. The module's own arithmetic is the whole
+			// derivation: it subtracts exactly 196608 and expects the sector it asked for. A
+			// header of zeroes makes that come out as -196608, and that is precisely the number
+			// CDVDMAN printed when it was asked to narrate itself.
+			//
+			// Byte 0 is a flags byte; CDVDMAN takes bit 0 of it as the layer (CDVDMAN+0x39A4).
+			// This disc is single-layer, so it is zero. Bytes 4..11 are other framing nothing
+			// on this disc reads.
+			phys := cdvdDVDDataStart + lba + i
+			sec[1] = byte(phys >> 16)
+			sec[2] = byte(phys >> 8)
+			sec[3] = byte(phys)
+		}
 
 		blk, err := vol.ReadBlock(int(lba + i))
 		if err != nil {
 			c.ps2.note("CDVD: reading LBA %d: %v", lba+i, err)
 		} else {
-			copy(sec[cdvdSectorHeader:], blk)
+			copy(sec[data:], blk)
 		}
 		c.data = append(c.data, sec...)
 	}

@@ -542,7 +542,7 @@ func (p *IOP) tick() {
 	// the boot goes on being wrong for a very long time. Catching the jump is the only way
 	// to hear about it, and the address it came *from* is the only thing worth knowing.
 	if pc := iopPhys(p.CPU.PC); pc < iopModuleBase && pc != iopIdleLoop && pc != iopIdleLoop+4 {
-		p.halt("jumped into the empty kernel area at 0x%08X, from %s", p.CPU.PC, p.Sym(p.lastPC))
+		p.halt("jumped into the empty kernel area at 0x%08X, from %s\n%s", p.CPU.PC, p.Sym(p.lastPC), p.IOPTrail())
 		return
 	}
 	p.lastPC = p.CPU.PC
@@ -591,25 +591,71 @@ func b2u(b bool) uint32 {
 // --- sysmem -----------------------------------------------------------------------
 
 // iopBlock is one allocation, remembered so that the two functions that ask about a
-// block — its base and its size — can answer.
+// block — its base and its size — can answer, and so that freeing one returns its space.
 type iopBlock struct {
 	base, size uint32
 }
 
 // sysmemAlloc is AllocSysMemory(mode, size, addr).
 //
-// The mode chooses where in the free list the block comes from; this allocator has no
-// free list, so it bumps. The one part of the mode that cannot be ignored is an
-// explicit address, because a caller that asked for a *particular* address is a caller
-// that will use it whatever we return, so if one is given it is honoured.
-func (p *IOP) sysmemAlloc() {
-	size, addr := p.arg(1), p.arg(2)
+// It has a free list now, and it must. For the boot it did not: the twelve kernel modules
+// are loaded once and kept, so a bump allocator that never reclaims is a set of addresses
+// that never move, which during bring-up is worth more than the memory. But the game loads
+// its own modules at runtime, and it does it by reading each file into a buffer, handing the
+// buffer to MODLOAD, and *freeing it* — so a machine that never frees leaks one buffer per
+// module, and runs out of its two megabytes somewhere around OVERLORD with every resident
+// module still comfortably fitting. The leaked buffers, not the modules, are what overflow.
+//
+// So a freed block goes on a list and the next allocation that fits is served from it. New
+// space is still bumped when nothing on the list will do. The mode chooses a free-list
+// strategy on the real allocator; here best-fit stands in for all of it, and an explicit
+// address is still honoured because a caller that named one will use it whatever we say.
+// The allocation modes AllocSysMemory is called with on this disc, read off the callers:
+//
+//	0  from the LOW end. The modules (MODLOAD+0xFA4), and the big persistent buffers a
+//	   module allocates at startup — OVERLORD's 811 KiB ramdisk (InitRamdisk).
+//	1  from the HIGH end. The file MODLOAD reads each module out of (MODLOAD+0xDF0), and
+//	   every thread's stack (THREADMAN+0xD10).
+//	2  at an explicit address (the `addr` argument).
+//
+// The two ends are the whole point, and this disc proves why. The file buffers are allocated,
+// used and freed once per module; the modules are allocated and kept. Grow both from the same
+// end and a freed file buffer leaves a hole no later module is the right size to fill, and the
+// two megabytes are exhausted with everything that is meant to stay resident still fitting
+// twice over. Grow the transient allocations down from the top and the permanent ones up from
+// the bottom, and the transient end reclaims itself completely — which is exactly what a real
+// IOP's sysmem does, and why the mode argument exists.
+const (
+	iopAllocLow  = 0
+	iopAllocHigh = 1
+	iopAllocAddr = 2
+)
 
-	base := addr
+func (p *IOP) sysmemAlloc() {
+	mode, size, addr := p.arg(0), p.arg(1), p.arg(2)
+	size = (size + 63) &^ 63 // the allocator's granularity, as p.alloc's is
+
+	if mode == iopAllocAddr && addr != 0 {
+		p.blocks = append(p.blocks, iopBlock{base: addr, size: size})
+		p.setRet(addr)
+		return
+	}
+
+	base := p.allocReuse(size, mode == iopAllocHigh)
 	if base == 0 {
-		base = p.alloc(size)
+		if mode == iopAllocHigh {
+			base = p.allocHigh(size)
+		} else {
+			base = p.alloc(size)
+		}
 	}
 	if base == 0 {
+		var free uint32
+		for _, f := range p.freeBlocks {
+			free += f.size
+		}
+		p.ps2.note("IOP: AllocSysMemory(mode=%d) could not find %d bytes; low=0x%X high=0x%X free-list=%d bytes in %d blocks",
+			mode, size, p.allocPtr, p.allocHighPtr, free, len(p.freeBlocks))
 		p.setRet(0)
 		return
 	}
@@ -617,11 +663,111 @@ func (p *IOP) sysmemAlloc() {
 	p.setRet(base)
 }
 
-// sysmemFree succeeds and does nothing. Nothing on this disc's boot path frees memory
-// it will miss: the modules allocate their threads and buffers once and keep them, and
-// a 2 MiB arena that is never reclaimed is one that never moves, which during bring-up
-// is worth more than the memory.
-func (p *IOP) sysmemFree() { p.setRet(0) }
+// allocHigh bumps a block off the top of the arena, growing down. It is the mirror of
+// p.alloc, and the two must not cross: the low allocations grow up and the high ones grow
+// down, and when they meet the machine is out of memory.
+func (p *IOP) allocHigh(size uint32) uint32 {
+	top := p.allocHighPtr
+	if top == 0 {
+		top = iopStackArea
+	}
+	base := (top - size) &^ 63
+	if base < p.allocPtr {
+		p.halt("out of IOP memory: %d bytes wanted from the high end, and it has reached the low allocations at 0x%08X",
+			size, p.allocPtr)
+		return 0
+	}
+	p.allocHighPtr = base
+	return base
+}
+
+// allocReuse serves size from the smallest free block that will hold it, splitting off the
+// remainder. Best-fit, and from the end the caller asked for: a high request takes the top of
+// its chosen hole and a low request the bottom, so a reused block stays on the side of memory
+// its neighbours are on and the two ends do not interleave through the free list.
+func (p *IOP) allocReuse(size uint32, high bool) uint32 {
+	best := -1
+	for i, f := range p.freeBlocks {
+		if f.size >= size && (best < 0 || f.size < p.freeBlocks[best].size) {
+			best = i
+		}
+	}
+	if best < 0 {
+		return 0
+	}
+	f := p.freeBlocks[best]
+	if f.size == size {
+		p.freeBlocks = append(p.freeBlocks[:best], p.freeBlocks[best+1:]...)
+		return f.base
+	}
+	if high {
+		p.freeBlocks[best] = iopBlock{base: f.base, size: f.size - size}
+		return f.base + f.size - size
+	}
+	p.freeBlocks[best] = iopBlock{base: f.base + size, size: f.size - size}
+	return f.base
+}
+
+// sysmemFree is FreeSysMemory(ptr): return a block's space to the free list, coalescing it
+// with any neighbour so that a run of freed load buffers becomes one hole big enough for the
+// next module rather than a scatter of small ones.
+func (p *IOP) sysmemFree() {
+	ptr := p.arg(0)
+	for i, b := range p.blocks {
+		if b.base == ptr {
+			p.blocks = append(p.blocks[:i], p.blocks[i+1:]...)
+			p.freeInsert(b)
+			p.setRet(0)
+			return
+		}
+	}
+	// A free of something we never handed out. Harmless, and worth a note rather than a
+	// crash, because it means either a double free or a pointer we lost track of.
+	p.setRet(0)
+}
+
+// freeInsert adds a block to the free list, merges it with any adjacent free block, and — if
+// the result sits at either bump frontier — gives the space back to the bump pointer.
+//
+// The giving-back is what makes the two ends work under churn. The game loads a dozen modules,
+// each read into a high-end buffer that is freed the moment the module is placed; without
+// retraction those freed buffers pile up on the free list in the wrong sizes to be reused,
+// and the high pointer never recovers, so it meets the rising low pointer with hundreds of
+// kilobytes of dead holes between them. Retract the high pointer past a freed block on its
+// frontier and the buffer space is genuinely returned, which is the difference between
+// OVERLORD's 811 KiB ramdisk fitting and the machine reporting itself full with room to spare.
+func (p *IOP) freeInsert(b iopBlock) {
+	for {
+		merged := false
+		for i, f := range p.freeBlocks {
+			if f.base+f.size == b.base {
+				b.base, b.size = f.base, f.size+b.size
+			} else if b.base+b.size == f.base {
+				b.size += f.size
+			} else {
+				continue
+			}
+			p.freeBlocks = append(p.freeBlocks[:i], p.freeBlocks[i+1:]...)
+			merged = true
+			break
+		}
+		if !merged {
+			break
+		}
+	}
+
+	// At the low frontier: the block ends where the low bump pointer is, so retract it.
+	if b.base+b.size == p.allocPtr {
+		p.allocPtr = b.base
+		return
+	}
+	// At the high frontier: the block begins where the high bump pointer is, so retract it.
+	if p.allocHighPtr != 0 && b.base == p.allocHighPtr {
+		p.allocHighPtr = b.base + b.size
+		return
+	}
+	p.freeBlocks = append(p.freeBlocks, b)
+}
 
 // sysmemBlockTop and sysmemBlockSize answer for the block containing a pointer.
 //

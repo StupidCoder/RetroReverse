@@ -53,10 +53,18 @@ const (
 
 // iopModuleBase is where the first module is placed.
 //
-// The low 64 KiB is left alone: it is where the exception vectors live and where a
-// real IOP keeps its kernel, and a module loaded over the top of them would work
-// right up until the first interrupt.
-const iopModuleBase = 0x00010000
+// A real IOP keeps its kernel in low memory, so a game's modules load above it; here the
+// kernel is Go, and the only things that genuinely live down here are the exception vectors
+// at the bottom of the address space and the idle loop at 0x200. So the reserve is small —
+// enough to hold those and no more.
+//
+// It used to be 64 KiB, which was simply cautious, and the caution had a cost this game
+// found: the IOP has exactly two megabytes, the game loads a megabyte of modules and then
+// OVERLORD asks for an 811 KiB ramdisk, and the sum fits under 2 MiB only if the arena is
+// nearly all of it. Reserving 64 KiB at the bottom and 64 KiB at the top left the allocator
+// 48 KiB short of a boot that fits comfortably on real hardware. The bottom reserve is the
+// one that was pure slack.
+const iopModuleBase = 0x00001000
 
 // IOP is the second processor.
 type IOP struct {
@@ -95,11 +103,13 @@ type IOP struct {
 
 	// The kernel HLE's state (iopintr.go): the interrupt controller, the allocator's
 	// blocks, and the heaps.
-	handlers    [iopIRQs]iopHandler
-	imask       uint64 // which lines are unmasked: the interrupt controller's I_MASK
-	intrEnabled bool
-	blocks      []iopBlock
-	heaps       map[uint32]*iopHeap
+	handlers     [iopIRQs]iopHandler
+	imask        uint64 // which lines are unmasked: the interrupt controller's I_MASK
+	intrEnabled  bool
+	blocks       []iopBlock
+	freeBlocks   []iopBlock // space returned by FreeSysMemory, waiting to be handed out again
+	allocHighPtr uint32     // the high-end bump pointer, growing down from the stacks
+	heaps        map[uint32]*iopHeap
 
 	// THREADMAN's two hooks into the interrupt-exit path: the predicate that says
 	// whether a thread switch is wanted, and the routine that performs one. Registered
@@ -479,9 +489,15 @@ func (p *IOP) ioWrite(a, v uint32) {
 func (p *IOP) alloc(n uint32) uint32 {
 	a := (p.allocPtr + 63) &^ 63
 	p.allocPtr = a + n
-	if p.allocPtr > iopStackArea {
-		p.halt("out of IOP memory: %d bytes wanted, and the allocator has reached the stacks at 0x%08X",
-			n, uint32(iopStackArea))
+	// The ceiling is the stacks, or — once the high-end allocator has handed anything out —
+	// the bottom of the high allocations, which have grown down to meet these. See allocHigh.
+	ceiling := uint32(iopStackArea)
+	if p.allocHighPtr != 0 && p.allocHighPtr < ceiling {
+		ceiling = p.allocHighPtr
+	}
+	if p.allocPtr > ceiling {
+		p.halt("out of IOP memory: %d bytes wanted, and the low allocations have reached 0x%08X",
+			n, ceiling)
 		return 0
 	}
 	return a

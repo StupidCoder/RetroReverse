@@ -82,21 +82,26 @@ func init() {
 	// done both — LoadIRX registers a module's exports the moment it is placed, from
 	// the export tables in its own image, which is the same information by a shorter
 	// road.
+	// The module-load primitives (#4/#8/#16/#22/#23) are how the game loads its own IRX
+	// modules at runtime: MODLOAD runs for real and calls loadcore to turn a buffer of ELF
+	// into resident, linked code. The contract between MODLOAD and loadcore is derived from
+	// MODLOAD's own loader and lives in iopload.go, next to the machinery it shares with the
+	// boot-time loader.
 	lib("loadcore", map[uint16]iopFunc{
 		3:  unknown(),
-		4:  unknown(),
+		4:  {"FlushIcache", (*IOP).loadcoreFlushIcache},
 		5:  unknown(),
 		6:  {"RegisterLibraryEntries", (*IOP).loadcoreRegisterLibrary},
-		8:  unknown(),
+		8:  {"LinkImports", (*IOP).loadcoreLinkCheck},
 		9:  unknown(),
 		10: unknown(),
 		12: unknown(),
-		16: unknown(),
+		16: {"RegisterModule", (*IOP).loadcoreRegisterModule},
 		17: unknown(),
 		20: {"RegisterBootCallback", (*IOP).loadcoreRegisterBootCallback},
 		21: unknown(),
-		22: unknown(),
-		23: unknown(),
+		22: {"ProbeModule", (*IOP).loadcoreProbeModule},
+		23: {"LinkModule", (*IOP).loadcoreLinkModule},
 		24: unknown(),
 	})
 
