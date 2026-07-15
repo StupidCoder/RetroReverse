@@ -60,6 +60,7 @@ func main() {
 	verbose := flag.Bool("v", false, "report the unmodelled-hardware census at the end")
 	nospin := flag.Bool("nospin", false, "do not stop on a tight loop (the OS idle/scheduler loop looks like one)")
 	fifodump := flag.String("fifodump", "", "capture the write-gather FIFO byte stream to this file")
+	texdump := flag.String("texdump", "", "decode the currently-bound texture map 0 to this PNG when the run ends")
 	flag.Parse()
 
 	if *image == "" {
@@ -72,7 +73,7 @@ func main() {
 		loadDOL: *loadDOL, dvd: *dvd, lowmem: *lowmem, shot: *shot,
 		savestate: *savestate, loadstate: *loadstate, poke: *poke,
 		dis: *dis, dump: *dump, files: *files, verbose: *verbose, nospin: *nospin,
-		fifodump: *fifodump,
+		fifodump: *fifodump, texdump: *texdump,
 	}); err != nil {
 		fmt.Fprintln(os.Stderr, "bootoracle:", err)
 		os.Exit(1)
@@ -91,7 +92,7 @@ type cfg struct {
 	nospin                               bool
 	shot, savestate, loadstate, poke     string
 	dis, dump                            string
-	fifodump                             string
+	fifodump, texdump                    string
 }
 
 func run(c cfg) error {
@@ -290,6 +291,11 @@ func run(c cfg) error {
 			fmt.Fprintln(os.Stderr, "bootoracle: -shot:", err)
 		}
 	}
+	if c.texdump != "" {
+		if err := writeTexture(m, c.texdump); err != nil {
+			fmt.Fprintln(os.Stderr, "bootoracle: -texdump:", err)
+		}
+	}
 	if c.savestate != "" {
 		if err := m.SaveStateFile(c.savestate); err != nil {
 			return err
@@ -311,6 +317,19 @@ func run(c cfg) error {
 
 func writeShot(m *gc.Machine, path string) error {
 	img, err := m.RenderXFB()
+	if err != nil {
+		return err
+	}
+	f, err := os.Create(path)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+	return png.Encode(f, img)
+}
+
+func writeTexture(m *gc.Machine, path string) error {
+	img, err := m.DumpTexture(0)
 	if err != nil {
 		return err
 	}

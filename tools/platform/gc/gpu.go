@@ -25,6 +25,14 @@ type gpu struct {
 	BP     [0x100]uint32  // the BP (pixel-engine) registers loaded from the stream
 	XFMem  [0x1060]uint32 // the XF registers and matrix memory (see gpu_xf.go)
 
+	// The TEV colour and constant registers share the same eight BP addresses (0xE0..0xE7),
+	// told apart by a type bit in each write, so they cannot both live in BP[] — the last
+	// write of either kind would clobber the other. They are routed to these two banks at
+	// load time (see loadBP) and read back by the combiner in gpu_tev.go. Each register is a
+	// low/high word pair.
+	TevColorReg [4][2]uint32 // PREV, REG0, REG1, REG2 — the combiner's C0/C1/C2 inputs
+	TevKonstReg [4][2]uint32 // KONST0..3 — the combiner's KONST input, selected by KSEL
+
 	EFB  []uint32 // Flipper's embedded framebuffer, RGBA8888 per pixel (see gpu_efb.go)
 	ZBuf []uint32 // the 24-bit depth buffer that pairs with the EFB (see gpu_raster.go)
 }
@@ -158,6 +166,20 @@ func (g *gpu) loadBP(m *Machine, reg uint8, data uint32) {
 		m.pe.setToken(m, uint16(data), true)
 	case 0x52: // BPMEM_TRIGGER_EFB_COPY — execute the pixel-engine copy that ends a frame
 		g.copyDisplay(m, data)
+	}
+
+	// The eight TEV register addresses carry either a colour/output register or a constant,
+	// distinguished by bit 23 of the payload. Route each to its own bank so one kind does not
+	// overwrite the other in BP[]. Bits [22:23] would select which register; the low bit of
+	// the address is the low/high word.
+	if reg >= 0xE0 && reg <= 0xE7 {
+		pair := (reg - 0xE0) / 2
+		word := (reg - 0xE0) & 1
+		if data&(1<<23) != 0 {
+			g.TevKonstReg[pair][word] = data
+		} else {
+			g.TevColorReg[pair][word] = data
+		}
 	}
 }
 

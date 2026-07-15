@@ -1,18 +1,19 @@
 package gc
 
-// gpu_raster.go fills triangles into the embedded framebuffer. It is the plainest form of the
-// setup/rasteriser at the end of the graphics pipe: for each triangle it walks the pixels of
-// the triangle's bounding box, keeps the ones inside all three edges, interpolates depth and
-// colour across them, and writes the ones that pass the depth test. Perspective-correct
-// interpolation, texture sampling and the full TEV blend are later stages; this stage draws
-// the geometry's silhouette in its interpolated vertex colour, which is what proves the vertex
-// fetch and the transform put the triangle where the hardware would.
+// gpu_raster.go fills triangles into the embedded framebuffer. It is the setup/rasteriser at
+// the end of the graphics pipe: for each triangle it walks the pixels of the triangle's
+// bounding box, keeps the ones inside all three edges, interpolates depth, colour and texture
+// coordinate across them, runs each surviving pixel through the TEV (gpu_tev.go) to get its
+// final colour, and blends that into the framebuffer under the depth test.
 //
-// Two faithfulness gaps are deliberate and named here rather than hidden: back-face culling is
-// not applied, so a triangle of either winding is drawn (a wrong guess at winding would make
-// geometry silently vanish, which is worse than drawing a back face while the pipe is young),
-// and the depth test is a fixed less-or-equal with depth writes on, the common default, rather
-// than the mode the game programmed. Both become real once a frame needs them to look right.
+// Perspective-correct interpolation is still a later refinement: the barycentric weights are
+// taken in screen space, which is exact for the screen-aligned blits the boot draws and only
+// skews texturing on triangles seen at a steep angle. Two other faithfulness gaps are
+// deliberate and named rather than hidden: back-face culling is not applied, so a triangle of
+// either winding is drawn (a wrong guess at winding would make geometry silently vanish, which
+// is worse than drawing a back face while the pipe is young), and the depth test is a fixed
+// less-or-equal with depth writes on, the common default, rather than the mode the game
+// programmed. Each becomes real once a frame needs it to look right.
 
 // ensureRaster makes sure the embedded framebuffer and its depth buffer exist before a draw.
 func (g *gpu) ensureRaster() {
@@ -26,7 +27,7 @@ func (g *gpu) ensureRaster() {
 }
 
 // drawTriangle rasterises one triangle of three transformed vertices.
-func (g *gpu) drawTriangle(v0, v1, v2 screenVertex) {
+func (g *gpu) drawTriangle(m *Machine, v0, v1, v2 screenVertex) {
 	g.ensureRaster()
 
 	// The bounding box, clamped to the framebuffer.
@@ -77,12 +78,21 @@ func (g *gpu) drawTriangle(v0, v1, v2 screenVertex) {
 				continue
 			}
 
+			// The interpolated rasteriser colour (the vertex colour) and texture coordinate,
+			// which the TEV combines into the final pixel.
 			r := uint8(b0*float32(v0.r) + b1*float32(v1.r) + b2*float32(v2.r))
 			gg := uint8(b0*float32(v0.g) + b1*float32(v1.g) + b2*float32(v2.g))
 			bb := uint8(b0*float32(v0.b) + b1*float32(v1.b) + b2*float32(v2.b))
 			a := uint8(b0*float32(v0.a) + b1*float32(v1.a) + b2*float32(v2.a))
+			u := b0*v0.u + b1*v1.u + b2*v2.u
+			v := b0*v0.v + b1*v1.v + b2*v2.v
 
-			g.EFB[idx] = packRGBA(r, gg, bb, a)
+			fr, fg, fb, fa, pass := g.shade(m, r, gg, bb, a, u, v)
+			if !pass { // the alpha test rejected the pixel
+				continue
+			}
+
+			g.EFB[idx] = g.blend(g.EFB[idx], fr, fg, fb, fa)
 			g.ZBuf[idx] = z
 		}
 	}

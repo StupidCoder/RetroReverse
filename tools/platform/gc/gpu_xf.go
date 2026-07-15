@@ -24,10 +24,12 @@ func (g *gpu) xfFloat(addr int) float32 {
 }
 
 // screenVertex is a vertex after transform: its pixel position, its depth in the 24-bit range
-// the framebuffer keeps, and the colour the rasteriser interpolates across the triangle.
+// the framebuffer keeps, the colour the rasteriser interpolates across the triangle, and the
+// first texture coordinate it interpolates alongside so the TEV can sample a texture per pixel.
 type screenVertex struct {
 	x, y, z    float32
 	r, g, b, a uint8
+	u, v       float32
 }
 
 // transform takes a model-space position through the position matrix, the projection, the

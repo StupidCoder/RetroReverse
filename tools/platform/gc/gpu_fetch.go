@@ -30,6 +30,12 @@ type attrLayout struct {
 	col0Off  int
 	col0Desc uint32
 	col0Comp uint32
+
+	tex0Off  int
+	tex0Desc uint32
+	tex0Fmt  uint32
+	tex0Elem uint32
+	tex0Frac uint32
 }
 
 // layout computes the attribute layout for a vertex-attribute-table index, walking the
@@ -41,7 +47,7 @@ func (g *gpu) layout(vat int) attrLayout {
 	g1 := g.CPReg[0x80+uint32(vat)]
 	g2 := g.CPReg[0x90+uint32(vat)]
 
-	a := attrLayout{matIdxOff: -1, posOff: -1, col0Off: -1}
+	a := attrLayout{matIdxOff: -1, posOff: -1, col0Off: -1, tex0Off: -1}
 	off := 0
 
 	// The position matrix index, then eight texture matrix indices, are each one inline byte.
@@ -96,7 +102,7 @@ func (g *gpu) layout(vat int) attrLayout {
 		off += sizeOf(a.col0Desc, colorBytes(a.col0Comp))
 	}
 
-	// Colour 1 and the eight texture coordinates, stepped over.
+	// Colour 1, stepped over.
 	off += sizeOf((lo>>15)&3, colorBytes((g0>>18)&7))
 	texBytes := func(elem, format uint32) int {
 		comps := 1
@@ -106,7 +112,18 @@ func (g *gpu) layout(vat int) attrLayout {
 		return comps * componentBytes(format)
 	}
 	tex := func(k int) uint32 { return (hi >> (2 * uint32(k))) & 3 }
-	off += sizeOf(tex(0), texBytes((g0>>21)&1, (g0>>22)&7))
+
+	// Texture coordinate 0: captured so the rasteriser can interpolate it and the TEV can
+	// sample a texture. The remaining seven coordinates are stepped over — the boot draws use
+	// only coordinate 0, and a stage that reads another is logged as a ticket in gpu_tev.go.
+	a.tex0Desc = tex(0)
+	a.tex0Elem = (g0 >> 21) & 1
+	a.tex0Fmt = (g0 >> 22) & 7
+	a.tex0Frac = (g0 >> 25) & 0x1F
+	if a.tex0Desc != descNone {
+		a.tex0Off = off
+		off += sizeOf(a.tex0Desc, texBytes(a.tex0Elem, a.tex0Fmt))
+	}
 	off += sizeOf(tex(1), texBytes((g1>>0)&1, (g1>>1)&7))
 	off += sizeOf(tex(2), texBytes((g1>>9)&1, (g1>>10)&7))
 	off += sizeOf(tex(3), texBytes((g1>>18)&1, (g1>>19)&7))
@@ -145,10 +162,26 @@ func (g *gpu) drawPrimitive(m *Machine, prim uint32, vat, vsize int, data []byte
 		if lay.col0Off >= 0 {
 			r, gg, b, a = readColor(v[lay.col0Off:], lay.col0Comp)
 		}
-		verts[i] = screenVertex{x: sx, y: sy, z: sz, r: r, g: gg, b: b, a: a}
+		var tu, tv float32
+		if lay.tex0Off >= 0 && lay.tex0Desc == descDirect {
+			tu, tv = g.readTexCoord(v[lay.tex0Off:], lay)
+		}
+		verts[i] = screenVertex{x: sx, y: sy, z: sz, r: r, g: gg, b: b, a: a, u: tu, v: tv}
 	}
 
-	g.rasterPrimitive(prim, verts)
+	g.rasterPrimitive(m, prim, verts)
+}
+
+// readTexCoord reads texture coordinate 0 and scales it by its fixed-point fraction. A
+// single-component coordinate leaves the second axis at zero.
+func (g *gpu) readTexCoord(b []byte, lay attrLayout) (u, v float32) {
+	scale := float32(1) / float32(uint32(1)<<lay.tex0Frac)
+	sz := componentBytes(lay.tex0Fmt)
+	u = readComponent(b, lay.tex0Fmt) * scale
+	if lay.tex0Elem != 0 {
+		v = readComponent(b[sz:], lay.tex0Fmt) * scale
+	}
+	return u, v
 }
 
 // readPos reads a direct position attribute and scales it by its fixed-point fraction.
@@ -205,28 +238,28 @@ func expand6(v uint16) uint8 { return uint8(v<<2 | v>>4) }
 // rasterPrimitive turns a primitive's vertex list into triangles and draws each. The
 // triangle-forming primitives are handled; lines and points wait for a frame that uses them,
 // and are logged once when one appears rather than drawn wrong.
-func (g *gpu) rasterPrimitive(prim uint32, v []screenVertex) {
+func (g *gpu) rasterPrimitive(m *Machine, prim uint32, v []screenVertex) {
 	switch prim {
 	case 0x80, 0x88: // quads
 		for i := 0; i+4 <= len(v); i += 4 {
-			g.drawTriangle(v[i], v[i+1], v[i+2])
-			g.drawTriangle(v[i], v[i+2], v[i+3])
+			g.drawTriangle(m, v[i], v[i+1], v[i+2])
+			g.drawTriangle(m, v[i], v[i+2], v[i+3])
 		}
 	case 0x90: // triangles
 		for i := 0; i+2 < len(v); i += 3 {
-			g.drawTriangle(v[i], v[i+1], v[i+2])
+			g.drawTriangle(m, v[i], v[i+1], v[i+2])
 		}
 	case 0x98: // triangle strip
 		for i := 0; i+2 < len(v); i++ {
 			if i&1 == 0 {
-				g.drawTriangle(v[i], v[i+1], v[i+2])
+				g.drawTriangle(m, v[i], v[i+1], v[i+2])
 			} else {
-				g.drawTriangle(v[i+1], v[i], v[i+2])
+				g.drawTriangle(m, v[i+1], v[i], v[i+2])
 			}
 		}
 	case 0xA0: // triangle fan
 		for i := 1; i+1 < len(v); i++ {
-			g.drawTriangle(v[0], v[i], v[i+1])
+			g.drawTriangle(m, v[0], v[i], v[i+1])
 		}
 	}
 }
