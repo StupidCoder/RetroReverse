@@ -19,9 +19,12 @@ package gc
 // command has arrived — which also means Buf is part of the machine's saved state.
 
 type gpu struct {
-	Buf    []byte       // command bytes not yet assembled into a whole command
-	Census [256]uint64  // how many of each opcode the FIFO has carried — the plumbing gate
+	Buf    []byte        // command bytes not yet assembled into a whole command
+	Census [256]uint64   // how many of each opcode the FIFO has carried — the plumbing gate
 	CPReg  [0x100]uint32 // the CP registers loaded from the stream (vertex descriptors etc.)
+	BP     [0x100]uint32 // the BP (pixel-engine) registers loaded from the stream
+
+	EFB []uint32 // Flipper's embedded framebuffer, RGBA8888 per pixel (see gpu_efb.go)
 }
 
 // feed takes the next burst of FIFO bytes and consumes every complete command in it.
@@ -96,11 +99,28 @@ func (g *gpu) step(m *Machine) bool {
 		g.loadBP(m, uint8(v>>24), v&0x00FFFFFF)
 
 	case op >= 0x80: // a draw primitive: opcode, u16 vertex count, then the vertices
-		// Vertex fetch is the next stage of the pipe. Until it exists the command processor
-		// cannot know how many bytes a primitive occupies, so it stops here — naming the
-		// opcode — rather than guess and lose the rest of the stream.
-		m.CPU.Halt("CP: draw primitive 0x%02X reached — vertex fetch not yet implemented", op)
-		return false
+		if len(g.Buf) < 3 {
+			return false
+		}
+		vat := int(op & 0x07)
+		vsize := g.vertexSize(vat)
+		if vsize == 0 {
+			m.CPU.Halt("CP: draw 0x%02X has zero-size vertices — VCD/VAT not decoded (CP regs 0x50/0x60/0x70)", op)
+			return false
+		}
+		count := int(be16(g.Buf[1:]))
+		total := 3 + count*vsize
+		if len(g.Buf) < total {
+			return false
+		}
+		g.Census[op]++
+		// Stage two of the pipe steps over the vertices rather than fetching them: reaching the
+		// pixel-engine copy that ends the frame is what the clear-colour picture needs, and the
+		// fetch and raster of these vertices is the next stage. The size is computed exactly so
+		// the parser lands on the next real command; if it is wrong the stream desynchronises
+		// and the very next opcode halts the run, which is the check that keeps this honest.
+		m.logf("CP: draw primitive stepped over (primitive 0x%02X, vat %d, %d bytes/vertex)", op&0xF8, vat, vsize)
+		g.Buf = g.Buf[total:]
 
 	default:
 		m.CPU.Halt("CP: unknown FIFO opcode 0x%02X", op)
@@ -114,6 +134,7 @@ func (g *gpu) step(m *Machine) bool {
 // and the two token forms. The rest configure blending and are the graphics stage's to
 // interpret; here they are simply counted by their opcode.
 func (g *gpu) loadBP(m *Machine, reg uint8, data uint32) {
+	g.BP[reg] = data
 	switch reg {
 	case 0x45: // BPMEM_SETDRAWDONE — value 2 means "the pipe has drained to here": finish
 		if data&0xFF == 0x02 {
@@ -123,5 +144,10 @@ func (g *gpu) loadBP(m *Machine, reg uint8, data uint32) {
 		m.pe.setToken(m, uint16(data), false)
 	case 0x48: // BPMEM_PE_TOKEN_INT — plant a token value and raise the token interrupt
 		m.pe.setToken(m, uint16(data), true)
+	case 0x52: // BPMEM_TRIGGER_EFB_COPY — execute the pixel-engine copy that ends a frame
+		g.copyDisplay(m, data)
 	}
 }
+
+// be16 reads a big-endian halfword from the head of a byte slice.
+func be16(b []byte) uint16 { return uint16(b[0])<<8 | uint16(b[1]) }

@@ -35,10 +35,10 @@ func (v *vi) read(m *Machine, off uint32, size int) uint32 {
 	switch {
 	case r == 0x02:
 		return v.DCR
-	case r == 0x1C:
-		return v.TFBL
-	case r == 0x24:
-		return v.BFBL
+	case r == 0x1C || r == 0x1E:
+		return halfword(v.TFBL, r, size)
+	case r == 0x24 || r == 0x26:
+		return halfword(v.BFBL, r, size)
 	case r == 0x2C:
 		// Display position, vertical: which scanline is being scanned out. A game polls
 		// this to sync finely; returning a moving value keeps such a poll from spinning.
@@ -67,10 +67,15 @@ func (v *vi) write(m *Machine, off uint32, val uint32, size int) {
 	switch {
 	case r == 0x02:
 		v.DCR = val
-	case r == 0x1C:
-		v.TFBL = val
-	case r == 0x24:
-		v.BFBL = val
+	case r == 0x1C || r == 0x1E:
+		// The framebuffer address is a 32-bit register the game programs a halfword at a time:
+		// offset 0x1C is its high half, 0x1E its low half. Composing the whole register from
+		// both — rather than taking a halfword store as the entire value — is what keeps the
+		// low half of the address, without which the video interface scans out of the wrong
+		// place. This is the same halfword hazard the display-interrupt registers carry.
+		v.TFBL = composeHalfword(v.TFBL, val, r, size)
+	case r == 0x24 || r == 0x26:
+		v.BFBL = composeHalfword(v.BFBL, val, r, size)
 	case r >= 0x30 && r < 0x40:
 		i := (r - 0x30) / 4
 		// The display-interrupt registers are 32 bits, but the game programs them a halfword
@@ -96,6 +101,30 @@ func (v *vi) write(m *Machine, off uint32, val uint32, size int) {
 		// The timing registers, the horizontal scan configuration, the filter
 		// coefficients: all written at init and not modelled here.
 	}
+}
+
+// composeHalfword updates one half of a 32-bit VI register from a halfword store, or the
+// whole register from a word store. The even offset within the register's pair (2-aligned) is
+// the high half, the odd is the low half, on this big-endian machine.
+func composeHalfword(reg, val, r uint32, size int) uint32 {
+	if size != 2 {
+		return val
+	}
+	if r&2 == 0 {
+		return (reg & 0x0000FFFF) | (val&0xFFFF)<<16
+	}
+	return (reg & 0xFFFF0000) | (val & 0xFFFF)
+}
+
+// halfword reads one half of a 32-bit VI register, or the whole register for a word read.
+func halfword(reg, r uint32, size int) uint32 {
+	if size != 2 {
+		return reg
+	}
+	if r&2 == 0 {
+		return reg >> 16
+	}
+	return reg & 0xFFFF
 }
 
 // XFBAddr resolves the framebuffer address VI is scanning out. The addressing has a
