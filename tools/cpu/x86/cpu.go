@@ -113,6 +113,11 @@ type CPU struct {
 	// injected IRQ can't land between a MOV SS / MOV SP stack switch.
 	ssShadow bool
 
+	// FPU is the x87 floating-point stack machine (see fpuexec.go). It is reset to
+	// its FNINIT power-on state by NewCPU, so code that reads the control word
+	// before its own FNINIT sees the architectural 0x037F default.
+	FPU FPUState
+
 	// transient per-instruction decode state (segment override / sizes)
 	dSeg      int // segment-override index, or -1
 	dOpsize   int // 16 or 32
@@ -120,7 +125,11 @@ type CPU struct {
 }
 
 // NewCPU returns a CPU bound to bus.
-func NewCPU(bus Bus) *CPU { return &CPU{bus: bus} }
+func NewCPU(bus Bus) *CPU {
+	c := &CPU{bus: bus}
+	c.FPU.finit()
+	return c
+}
 
 // Mode values.
 const (
