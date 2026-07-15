@@ -56,6 +56,7 @@ func main() {
 	poke := flag.String("poke", "", "write ADDR:VALUE (hex) after loading, before running")
 	dis := flag.String("dis", "", "disassemble ADDR[:N] and exit (hex)")
 	dump := flag.String("dump", "", "hex-dump ADDR:LEN and exit (hex)")
+	threads := flag.Bool("threads", false, "walk the OS active-thread list and print each thread's state and stack, then exit")
 	files := flag.Bool("files", false, "list the disc's files and exit")
 	verbose := flag.Bool("v", false, "report the unmodelled-hardware census at the end")
 	nospin := flag.Bool("nospin", false, "do not stop on a tight loop (the OS idle/scheduler loop looks like one)")
@@ -72,7 +73,7 @@ func main() {
 		bps: bps, logpcs: logpcs, watches: watches, rwatches: rwatches, watchn: *watchn,
 		loadDOL: *loadDOL, dvd: *dvd, lowmem: *lowmem, shot: *shot,
 		savestate: *savestate, loadstate: *loadstate, poke: *poke,
-		dis: *dis, dump: *dump, files: *files, verbose: *verbose, nospin: *nospin,
+		dis: *dis, dump: *dump, threads: *threads, files: *files, verbose: *verbose, nospin: *nospin,
 		fifodump: *fifodump, texdump: *texdump,
 	}); err != nil {
 		fmt.Fprintln(os.Stderr, "bootoracle:", err)
@@ -92,6 +93,7 @@ type cfg struct {
 	nospin                               bool
 	shot, savestate, loadstate, poke     string
 	dis, dump                            string
+	threads                              bool
 	fifodump, texdump                    string
 }
 
@@ -114,10 +116,10 @@ func run(c cfg) error {
 		return err
 	}
 
-	// -dis and -dump answer without running: they load the executable and inspect it.
-	// With -loadstate they inspect a snapshot's memory instead — the way to see the
+	// -dis, -dump and -threads answer without running: they load the executable and inspect
+	// it. With -loadstate they inspect a snapshot's memory instead — the way to see the
 	// runtime-built low-memory exception vectors, which the DOL does not carry statically.
-	if c.dis != "" || c.dump != "" {
+	if c.dis != "" || c.dump != "" || c.threads {
 		if c.loadstate != "" {
 			if err := m.LoadStateFile(c.loadstate); err != nil {
 				return err
@@ -127,6 +129,10 @@ func run(c cfg) error {
 		}
 		if c.dis != "" {
 			return doDis(m, c.dis)
+		}
+		if c.threads {
+			fmt.Print(m.ThreadsString())
+			return nil
 		}
 		return doDump(m, c.dump)
 	}

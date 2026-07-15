@@ -591,6 +591,9 @@ func (d *dsp) hwWrite(m *Machine, a uint16, v uint16) {
 	case 0xFFFD: // DMBL: complete the mail. This makes it present for the CPU to read or poll;
 		// it does not interrupt the CPU (see DIRQ above).
 		d.FromDSP = (d.FromDSP &^ 0xFFFF) | uint32(v)
+		if dspTrace {
+			fmt.Fprintf(os.Stderr, "  DSP mail out 0x%08X (ucode pc 0x%04X)\n", d.FromDSP, d.Core.PC)
+		}
 		return
 
 	// The memory-DMA registers. The address and control registers are latched; writing the
@@ -858,6 +861,9 @@ func (m *Machine) tickDSP() {
 	}
 	for i := 0; i < 64; i++ {
 		d.corePolledEmpty = false
+		if dspPCTrace {
+			fmt.Fprintf(os.Stderr, "  ucode pc 0x%04X\n", d.Core.PC)
+		}
 		if !d.Core.Step() {
 			m.CPU.Halt("DSP core halted: %s", d.Core.Reason)
 			return
@@ -868,5 +874,7 @@ func (m *Machine) tickDSP() {
 		}
 	}
 }
+
+var dspPCTrace = os.Getenv("RR_GC_DSPPC") != ""
 
 var dspTrace = os.Getenv("RR_GC_DSPTRACE") != ""

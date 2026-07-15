@@ -20,15 +20,33 @@ package gc
 // out of the same data register. So a transaction is a tiny state machine per channel, and
 // most of this file is that machine for the two devices boot depends on.
 
+import (
+	"fmt"
+	"os"
+)
+
+var exiTrace = os.Getenv("RR_GC_EXITRACE") != ""
+
 type exiChannel struct {
 	CSR     uint32 // channel status/control: the selected device and the interrupts
 	Data    uint32 // the shift register
 	CR      uint32 // transfer control: length, direction, and the go bit
+	DMAAddr uint32 // main-memory address for a DMA transfer
+	DMALen  uint32 // DMA length in bytes
 	Dev     int    // the selected device
-	Addr    uint32 // the offset a read/write command named
 	Phase   int    // words into a multi-word transaction
 	Command uint32
 }
+
+// The channel status register's bit layout: interrupt masks and their write-one-to-clear
+// status bits, the clock divisor, the one-hot chip select, and the read-only device-present
+// bit. The three status bits and the present bit must survive a control write — the SDK
+// acknowledges an interrupt by writing its bit back, not by rewriting the whole register.
+const (
+	exiCSRTCIntMask = 1 << 2  // transfer-complete interrupt enable
+	exiCSRTCInt     = 1 << 3  // transfer-complete status (write one to clear)
+	exiCSRStatus    = 1<<1 | 1<<3 | 1<<11 // EXIINT, TCINT, EXTINT — the w1c bits
+)
 
 type exi struct {
 	Ch   [3]exiChannel
@@ -76,6 +94,10 @@ func (e *exi) read(m *Machine, off uint32, size int) uint32 {
 	switch (off & 0xFF) % 0x14 {
 	case 0x00:
 		return c.CSR
+	case 0x04:
+		return c.DMAAddr
+	case 0x08:
+		return c.DMALen
 	case 0x0C:
 		return c.CR
 	case 0x10:
@@ -91,12 +113,17 @@ func (e *exi) write(m *Machine, off uint32, v uint32, size int) {
 		m.logf("EXI write unmodelled 0x%02X = 0x%08X", off&0xFF, v)
 		return
 	}
+	if exiTrace {
+		fmt.Fprintf(os.Stderr, "  EXI wr ch%d 0x%02X = 0x%08X (pc 0x%08X)\n", ch, (off&0xFF)%0x14, v, m.CPU.PC)
+	}
 	c := &e.Ch[ch]
 	switch (off & 0xFF) % 0x14 {
 	case 0x00:
 		// The channel status/control register. Bit 7 downward selects the chip; writing
-		// zero to the select deasserts it, which ends a transaction.
-		c.CSR = v
+		// zero to the select deasserts it, which ends a transaction. The three interrupt
+		// status bits acknowledge (clear) when written with a one and otherwise persist.
+		ack := v & exiCSRStatus
+		c.CSR = (v &^ exiCSRStatus) | (c.CSR & exiCSRStatus &^ ack)
 		if v&(0x380) == 0 { // no device selected
 			c.Dev = exiDevNone
 			c.Phase = 0
@@ -112,16 +139,50 @@ func (e *exi) write(m *Machine, off uint32, v uint32, size int) {
 			}
 			c.Phase = 0
 		}
+		e.refreshIRQ(m)
+	case 0x04:
+		c.DMAAddr = v & 0x03FFFFE0
+	case 0x08:
+		c.DMALen = v & 0x03FFFFE0
 	case 0x0C:
 		c.CR = v
 		if v&1 != 0 { // the transfer go bit
-			e.transfer(m, ch)
+			if v&2 != 0 { // DMA mode: bits 2-3 are the direction, 0 read / 1 write
+				e.dmaTransfer(m, ch, (v>>2)&3 == 1)
+			} else {
+				e.transfer(m, ch)
+			}
 			c.CR &^= 1
+			// Completing a transfer raises the transfer-complete status; whether it also
+			// interrupts the CPU is the mask's decision. The SDK's asynchronous SRAM sync
+			// and the memory-card driver both ride this interrupt — a transfer that
+			// completes without it leaves their callbacks waiting forever.
+			c.CSR |= exiCSRTCInt
+			e.refreshIRQ(m)
 		}
 	case 0x10:
 		c.Data = v
 	default:
 		m.logf("EXI write unmodelled channel %d 0x%02X = 0x%08X", ch, (off&0xFF)%0x14, v)
+	}
+}
+
+// refreshIRQ recomputes the EXI line to the CPU: any channel with an interrupt status bit
+// whose mask (the bit below it) is set holds the line up.
+func (e *exi) refreshIRQ(m *Machine) {
+	pending := false
+	for i := range e.Ch {
+		csr := e.Ch[i].CSR
+		// Each status bit (1, 3, 11) is enabled by the mask bit directly below it (0, 2, 10);
+		// shifting the register left one aligns each mask under its status.
+		if csr&(csr<<1)&exiCSRStatus != 0 {
+			pending = true
+		}
+	}
+	if pending {
+		m.raiseInt(IntEXI)
+	} else {
+		m.clearInt(IntEXI)
 	}
 }
 
@@ -140,37 +201,79 @@ func (e *exi) transfer(m *Machine, ch uint32) {
 	}
 }
 
-// rtcTransfer is the clock-and-SRAM device's protocol: the first word is a command whose
-// top bits select read or write and whose address picks the RTC counter, the SRAM, or the
-// flash. The second word carries the data.
+// dmaTransfer runs a whole-block exchange between main memory and the selected device — the
+// form the SDK uses for the 64-byte SRAM block (an immediate command word, then one DMA).
+// asWrite is the direction from the CPU's side: true pushes main memory into the device.
+func (e *exi) dmaTransfer(m *Machine, ch uint32, asWrite bool) {
+	c := &e.Ch[ch]
+	addr, n := c.DMAAddr, c.DMALen
+	if int(addr)+int(n) > len(m.RAM) {
+		m.logf("EXI DMA out of range 0x%08X+0x%X", addr, n)
+		return
+	}
+	switch c.Dev {
+	case exiDevRTC:
+		dev := rtcDevAddr(c.Command)
+		if dev < 4 {
+			m.logf("EXI DMA to RTC device address %d (command 0x%08X) unmodelled", dev, c.Command)
+			return
+		}
+		off := dev - 4 // SRAM starts at device address 4
+		for i := uint32(0); i < n && off+i < uint32(len(e.SRAM)); i++ {
+			if asWrite {
+				e.SRAM[off+i] = m.RAM[addr+i]
+			} else {
+				m.RAM[addr+i] = e.SRAM[off+i]
+			}
+		}
+	case exiDevMemCard:
+		// No card is fitted: a read shifts in all-ones, and a write falls off the end of
+		// the bus. The probe reads an ID of ones and reports the slot empty.
+		if !asWrite {
+			for i := uint32(0); i < n; i++ {
+				m.RAM[addr+i] = 0xFF
+			}
+		}
+	default:
+		m.logf("EXI DMA with no device selected (channel %d)", ch)
+	}
+}
+
+// rtcDevAddr extracts the device address from a clock-chip command word: bits 6 and up
+// (the 0x20000000 command prefix masked away). Address 0 is the RTC counter; the SRAM
+// block begins at 4 — the observed SRAM-block command is 0x20000100, device address 4.
+func rtcDevAddr(cmd uint32) uint32 { return (cmd >> 6) & 0x7FFF }
+
+// rtcTransfer is the clock-and-SRAM device's protocol, one immediate word at a time: the
+// first word is a command — bit 31 selects write, bits 6.. the device address — and the
+// words after it carry the data, the device address advancing a word per exchange.
 func (e *exi) rtcTransfer(m *Machine, c *exiChannel) {
 	if c.Phase == 0 {
 		c.Command = c.Data
-		c.Addr = (c.Data >> 8) & 0x7FFFFFFF
 		c.Phase = 1
 		// The reply to the command word is not meaningful; the data comes next.
 		return
 	}
 	write := c.Command&0x80000000 != 0
+	dev := rtcDevAddr(c.Command)
+	word := uint32(c.Phase-1) * 4
+	c.Phase++
 	switch {
-	case c.Addr == 0x20000000: // the RTC counter
+	case dev == 0: // the RTC counter
 		if !write {
 			c.Data = e.RTC
 		}
-	case c.Addr >= 0x20000100 && c.Addr < 0x20000140: // the SRAM
-		idx := (c.Addr - 0x20000100)
+	case dev >= 4 && dev-4+word+3 < uint32(len(e.SRAM)): // the SRAM, a word per exchange
+		idx := dev - 4 + word
 		if write {
-			if idx+3 < uint32(len(e.SRAM)) {
-				writeBE32(e.SRAM[idx:], c.Data)
-			}
+			writeBE32(e.SRAM[idx:], c.Data)
 		} else {
-			if idx+3 < uint32(len(e.SRAM)) {
-				c.Data = beU32(e.SRAM[idx:])
-			}
+			c.Data = beU32(e.SRAM[idx:])
 		}
 	default:
 		// The flash, the UART, the diagnostics: read back zero, and note it once so an
 		// unexpected access is visible rather than silently satisfied.
+		m.logf("EXI RTC-device access at device address %d (command 0x%08X) unmodelled", dev, c.Command)
 		if !write {
 			c.Data = 0
 		}

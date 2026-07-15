@@ -32,9 +32,10 @@ func (m *Machine) VIField() uint64 { return m.vi.Field }
 // Backtrace walks the stack frames from the current one, returning the return addresses,
 // caller by caller. It stops at a null back-chain, a wild pointer, or a depth limit —
 // whichever comes first — so a corrupt stack yields a short trace rather than a loop.
-func (m *Machine) Backtrace() []uint32 {
+func (m *Machine) Backtrace() []uint32 { return m.backtraceFrom(m.CPU.GPR[1]) }
+
+func (m *Machine) backtraceFrom(sp uint32) []uint32 {
 	var out []uint32
-	sp := m.CPU.GPR[1]
 	for depth := 0; depth < 64; depth++ {
 		if sp == 0 || sp&3 != 0 || sp >= 0x81800000 || sp < 0x80000000 {
 			break
@@ -63,6 +64,37 @@ func (m *Machine) BacktraceString() string {
 		s += fmt.Sprintf("  #%d  0x%08X\n", i, a)
 	}
 	return s
+}
+
+// ThreadsString walks the OS's active-thread list and renders each thread's identity: its
+// state, what it sleeps on, and the call stack frozen in its saved context. The offsets are
+// the game's own — read out of its OSExitThread (state at +0x2C8, the active-list links at
+// +0x2FC/+0x300, the list head in the OS global 0x800000E0) and the SDK OSContext layout the
+// exception path saves (GPR1 at +0x04, LR at +0x84, SRR0 at +0x198). When every thread is
+// asleep this is the report that says who is waiting for what.
+func (m *Machine) ThreadsString() string {
+	var b strings.Builder
+	seen := map[uint32]bool{}
+	for t := m.ReadVirt32(0x800000E0); t >= 0x80000000 && t < 0x81800000 && !seen[t]; t = m.ReadVirt32(t + 0x300) {
+		seen[t] = true
+		state := m.ReadVirt32(t+0x2C8) >> 16
+		queue := m.ReadVirt32(t + 0x2DC)
+		srr0 := m.ReadVirt32(t + 0x198)
+		lr := m.ReadVirt32(t + 0x84)
+		sp := m.ReadVirt32(t + 0x04)
+		fmt.Fprintf(&b, "thread 0x%08X state=0x%04X queue=0x%08X SRR0=0x%08X LR=0x%08X\n",
+			t, state, queue, srr0, lr)
+		for i, a := range m.backtraceFrom(sp) {
+			fmt.Fprintf(&b, "    #%d  0x%08X\n", i, a)
+			if i >= 9 {
+				break
+			}
+		}
+	}
+	if b.Len() == 0 {
+		return "  (no threads found at 0x800000E0)\n"
+	}
+	return b.String()
 }
 
 // RenderXFB decodes the framebuffer VI is scanning out — the picture that is on screen —
