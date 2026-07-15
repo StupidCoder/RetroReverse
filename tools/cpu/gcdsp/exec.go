@@ -207,6 +207,18 @@ func (c *CPU) execute(pc, op uint16) (span uint16) {
 		c.setFlag(srLogicZero, c.Reg[regAC0M+d]&imm == imm)
 		return 2
 
+	// --- single-word short-immediate arithmetic (an 8-bit immediate into the middle word) ---
+	case op&0xFE00 == 0x0400: // addis acD, #imm8 — add a signed 8-bit immediate, shifted into the
+		// accumulator middle word. The mixer builds a second buffer address 0x50 words along by
+		// addis-ing 0x50 to a pointer held in an accumulator middle (ucode 0x0464).
+		d := int((op >> 8) & 1)
+		c.aluAddSub(d, int64(int8(op))<<16, false)
+		return 1
+	case op&0xFE00 == 0x0600: // cmpis acD, #imm8 — compare the accumulator with imm<<16 (flags only)
+		d := int((op >> 8) & 1)
+		c.subFlags(c.ac(d), int64(int8(op))<<16)
+		return 1
+
 	// --- branches, calls, returns --------------------------------------------------------
 	case op&0xFFF0 == 0x0290: // jmp cc, addr
 		dst := c.imem(pc + 1)
@@ -250,9 +262,9 @@ func (c *CPU) execute(pc, op uint16) (span uint16) {
 		return 1
 	}
 
-	// --- arithmetic ops (0x4000 and up), operation in the high bits, a parallel extension in
-	// the low byte. The extension runs alongside the main op. -----------------------------
-	if op >= 0x4000 {
+	// --- arithmetic/logic/multiply/move ops (0x3000 and up), operation in the high bits, a
+	// parallel extension in the low byte. The extension runs alongside the main op. ---------
+	if op >= 0x3000 {
 		return c.execArith(pc, op)
 	}
 
@@ -260,70 +272,183 @@ func (c *CPU) execute(pc, op uint16) (span uint16) {
 	return 1
 }
 
-// execArith handles the 0x4000+ arithmetic family. Only the ops the microcode has been seen to
-// run are implemented; the rest halt loudly with their disassembly so they can be added when a
-// run reaches them.
+// execArith handles the 0x3000+ family: the logic ops, the accumulator arithmetic, the multiply/
+// accumulate ops, and the moves — each of which may carry a parallel extension in its low byte.
+// The extension's read phase runs before the main op and its write phase after (see exec_ext.go),
+// so a caller runs `p := c.extBegin(op&0xFF)`, the main op, then `p.commit(c)`. Opcodes and their
+// operand bit-fields are the documented set (gamecube-tools). Ops not yet reached halt loudly.
 func (c *CPU) execArith(pc, op uint16) uint16 {
+	// The mode and standalone ops that carry no accumulator write are matched first, before the
+	// wider masks below could swallow them. They take no parallel extension.
 	switch {
-	case op&0xFF00 == 0x8000: // nx — no arithmetic, extension only
-		c.runExt(op & 0xFF)
-		return 1
-	case op&0xFF00 == 0x8A00: // m2 — multiply results shift left one (x2 mode)
+	case op&0xFF00 == 0x8A00: // m2 — products doubled
 		c.setFlag(srMulShift, true)
 		return 1
-	case op&0xFF00 == 0x8B00: // m0 — multiply results not shifted
+	case op&0xFF00 == 0x8B00: // m0 — products not shifted
 		c.setFlag(srMulShift, false)
 		return 1
-	case op&0xFF00 == 0x8C00: // clr15 — operands signed
+	case op&0xFF00 == 0x8C00: // clr15 — multiplier operands signed
 		c.setFlag(srMulSigned, false)
 		return 1
-	case op&0xFF00 == 0x8D00: // set15 — operands unsigned
+	case op&0xFF00 == 0x8D00: // set15 — multiplier operands unsigned
 		c.setFlag(srMulSigned, true)
 		return 1
 	case op&0xFF00 == 0x8E00: // set40 — 40-bit accumulator mode
 		c.setFlag(srMode40, true)
 		return 1
-	case op&0xFF00 == 0x8F00: // set16 — 16-bit accumulator saturation mode
+	case op&0xFF00 == 0x8F00: // set16 — 16-bit saturation mode
 		c.setFlag(srMode40, false)
 		return 1
-	case op&0xF700 == 0x8100: // clr acR
+	}
+
+	// Everything below may carry a parallel extension: read phase, main op, write phase.
+	p := c.extBegin(op & 0xFF)
+	switch {
+	case op&0xFF00 == 0x8000: // nx — no arithmetic, the extension is the whole instruction
+
+	// --- logic ops on an accumulator middle word (bit 8 selects the accumulator) ---------
+	case op&0xFE80 == 0x3280: // not acD.m
+		d := int((op >> 8) & 1)
+		c.setReg(uint16(regAC0M+d), ^c.Reg[regAC0M+d])
+		c.setLogicFlags(d)
+	case op&0xFC80 == 0x3000: // xorr acD.m, axS.h
+		d := int((op >> 8) & 1)
+		c.setReg(uint16(regAC0M+d), c.Reg[regAC0M+d]^c.Reg[regAX0H+((op>>9)&1)])
+		c.setLogicFlags(d)
+	case op&0xFC80 == 0x3400: // andr acD.m, axS.h
+		d := int((op >> 8) & 1)
+		c.setReg(uint16(regAC0M+d), c.Reg[regAC0M+d]&c.Reg[regAX0H+((op>>9)&1)])
+		c.setLogicFlags(d)
+	case op&0xFC80 == 0x3800: // orr acD.m, axS.h
+		d := int((op >> 8) & 1)
+		c.setReg(uint16(regAC0M+d), c.Reg[regAC0M+d]|c.Reg[regAX0H+((op>>9)&1)])
+		c.setLogicFlags(d)
+
+	// --- clr / add / sub of an accumulator or extended register --------------------------
+	case op&0xF700 == 0x8100: // clr acR (bit 11)
 		r := int((op >> 11) & 1)
 		c.setAc(r, 0)
 		c.setArithFlags(r)
-		c.runExt(op & 0xFF)
-		return 1
-
-	// --- accumulator add/subtract of an extended (ax) register ---------------------------
-	// Encoding oooo osad ...: bit 9 (s) selects ax0 vs ax1, bit 8 (d) the accumulator. The ax
-	// register is the 32-bit ax.h:ax.l, sign-extended into the 40-bit accumulator. Each use
-	// site in the ucode loads exactly the ax half it then adds, which pins the ax-select bit.
-	case op&0xFC00 == 0x4400: // addax acD, axS
-		c.aluAddSub(int((op>>8)&1), c.ax(int((op>>9)&1)), false)
-		c.runExt(op & 0xFF)
-		return 1
-	case op&0xFC00 == 0x5400: // subax acD, axS
-		c.aluAddSub(int((op>>8)&1), c.ax(int((op>>9)&1)), true)
-		c.runExt(op & 0xFF)
-		return 1
-
-	// --- test / compare (flags only) -----------------------------------------------------
-	case op&0xFE00 == 0x8600: // tst acR — set flags from the accumulator (compare with zero)
+	case op&0xFE00 == 0x8600: // tst acR (bit 8) — flags from the accumulator vs zero
 		c.setTestFlags(int((op >> 8) & 1))
-		c.runExt(op & 0xFF)
+	case op&0xF800 == 0x4000: // addr acD, reg — add a register (bits 10..9 -> 0x18+field) into the middle
+		d := int((op >> 8) & 1)
+		reg := 0x18 + ((op >> 9) & 3)
+		c.aluAddSub(d, int64(int16(c.getReg(reg)))<<16, false)
+	case op&0xFC00 == 0x4800: // addax acD, axS (s=bit9, d=bit8) — add the full 32-bit ax
+		c.aluAddSub(int((op>>8)&1), c.ax(int((op>>9)&1)), false)
+	case op&0xFE00 == 0x4C00: // add acD — add the other accumulator
+		d := int((op >> 8) & 1)
+		c.aluAddSub(d, c.ac(1-d), false)
+	case op&0xF800 == 0x5000: // subr acD, reg — subtract a register (into the middle)
+		d := int((op >> 8) & 1)
+		reg := 0x18 + ((op >> 9) & 3)
+		c.aluAddSub(d, int64(int16(c.getReg(reg)))<<16, true)
+	case op&0xFC00 == 0x5800: // subax acD, axS — subtract the full 32-bit ax
+		c.aluAddSub(int((op>>8)&1), c.ax(int((op>>9)&1)), true)
+	case op&0xFE00 == 0x5C00: // sub acD — subtract the other accumulator
+		d := int((op >> 8) & 1)
+		c.aluAddSub(d, c.ac(1-d), true)
+	case op&0xFC00 == 0x7000: // addaxl acD, axS.l — add the low 16 bits of an ax register
+		d := int((op >> 8) & 1)
+		s := int((op >> 9) & 1)
+		c.aluAddSub(d, int64(c.Reg[regAX0L+s]), false)
+
+	// --- moves into the accumulator ------------------------------------------------------
+	case op&0xF800 == 0x6000: // movr acD, reg (reg = bits 10..9 -> 0x18+field) — into the middle
+		d := int((op >> 8) & 1)
+		reg := 0x18 + ((op >> 9) & 3)
+		c.Reg[regAC0L+d] = 0
+		c.setReg(uint16(regAC0M+d), c.Reg[reg])
+		c.setArithFlags(d)
+	case op&0xFC00 == 0x6800: // movax acD, axS — the full 32-bit ax, sign-extended
+		d := int((op >> 8) & 1)
+		c.setAc(d, c.ax(int((op>>9)&1)))
+		c.setArithFlags(d)
+	case op&0xFE00 == 0x6C00: // mov acD, ac(1-d) — copy the other 40-bit accumulator
+		d := int((op >> 8) & 1)
+		c.setAc(d, c.ac(1-d))
+		c.setArithFlags(d)
+
+	// --- the multiply / multiply-accumulate family ---------------------------------------
+	case op&0xF700 == 0x9000: // mul axS.l, axS.h (s=bit11) — prod = product
+		s := int((op >> 11) & 1)
+		c.setProd(c.mul16(c.Reg[regAX0L+s], c.Reg[regAX0H+s]))
+	case op&0xF600 == 0x9400: // mulac acD: acD += prod; prod = new product
+		s := int((op >> 11) & 1)
+		d := int((op >> 8) & 1)
+		c.setAc(d, c.ac(d)+c.prod())
+		c.setArithFlags(d)
+		c.setProd(c.mul16(c.Reg[regAX0L+s], c.Reg[regAX0H+s]))
+	case op&0xF600 == 0x9600: // mulmv acD: acD = prod; prod = new product
+		s := int((op >> 11) & 1)
+		d := int((op >> 8) & 1)
+		c.setAc(d, c.prod())
+		c.setArithFlags(d)
+		c.setProd(c.mul16(c.Reg[regAX0L+s], c.Reg[regAX0H+s]))
+	case op&0xF600 == 0x9200: // mulmvz acD: acD = prod with the low word cleared; prod = product
+		s := int((op >> 11) & 1)
+		d := int((op >> 8) & 1)
+		c.setAc(d, c.prod()&^0xFFFF)
+		c.setArithFlags(d)
+		c.setProd(c.mul16(c.Reg[regAX0L+s], c.Reg[regAX0H+s]))
+	case op&0xE700 == 0xC000: // mulc acS1.m, axS2.h (s1=bit12, s2=bit11) — prod = product
+		s1 := int((op >> 12) & 1)
+		s2 := int((op >> 11) & 1)
+		c.setProd(c.mul16(c.Reg[regAC0M+s1], c.Reg[regAX0H+s2]))
+
+	// --- the cross-multiply family: a half of ax0 times a half of ax1. The two selector bits
+	// pick low vs high as a register offset (0 -> ax_.l at 0x18/0x19, 2 -> ax_.h at 0x1A/0x1B).
+	case op&0xE700 == 0xA000: // mulx ax0.[lh], ax1.[lh] — prod = product
+		a := c.Reg[regAX0L+((op&0x1000)>>11)]
+		b := c.Reg[regAX1L+((op&0x0800)>>10)]
+		c.setProd(c.mul16(a, b))
+	case op&0xE600 == 0xA400: // mulxac acD: acD += prod; prod = new product
+		d := int((op >> 8) & 1)
+		a := c.Reg[regAX0L+((op&0x1000)>>11)]
+		b := c.Reg[regAX1L+((op&0x0800)>>10)]
+		c.setAc(d, c.ac(d)+c.prod())
+		c.setArithFlags(d)
+		c.setProd(c.mul16(a, b))
+	case op&0xE600 == 0xA600: // mulxmv acD: acD = prod; prod = new product
+		d := int((op >> 8) & 1)
+		a := c.Reg[regAX0L+((op&0x1000)>>11)]
+		b := c.Reg[regAX1L+((op&0x0800)>>10)]
+		c.setAc(d, c.prod())
+		c.setArithFlags(d)
+		c.setProd(c.mul16(a, b))
+	case op&0xE600 == 0xA200: // mulxmvz acD: acD = prod with the low word cleared; prod = product
+		d := int((op >> 8) & 1)
+		a := c.Reg[regAX0L+((op&0x1000)>>11)]
+		b := c.Reg[regAX1L+((op&0x0800)>>10)]
+		c.setAc(d, c.prod()&^0xFFFF)
+		c.setArithFlags(d)
+		c.setProd(c.mul16(a, b))
+	case op&0xFE00 == 0xF200: // madd axS.l, axS.h (s=bit8) — prod += product
+		s := int((op >> 8) & 1)
+		c.setProd(c.prod() + c.mul16(c.Reg[regAX0L+s], c.Reg[regAX0H+s]))
+	case op&0xFE00 == 0xF600: // msub axS.l, axS.h — prod -= product
+		s := int((op >> 8) & 1)
+		c.setProd(c.prod() - c.mul16(c.Reg[regAX0L+s], c.Reg[regAX0H+s]))
+
+	// --- add the product into the accumulator --------------------------------------------
+	case op&0xFE00 == 0x4E00: // addp acD — acD += prod
+		d := int((op >> 8) & 1)
+		c.setAc(d, c.ac(d)+c.prod())
+		c.setArithFlags(d)
+	case op&0xFC00 == 0xF800: // addpaxz acD, axS (d=bit9, s=bit8) — acD = prod + axS.h<<16, low cleared
+		d := int((op >> 9) & 1)
+		s := int((op >> 8) & 1)
+		v := c.prod() + (int64(int16(c.Reg[regAX0H+s])) << 16)
+		c.setAc(d, v&^0xFFFF)
+		c.setArithFlags(d)
+
+	default:
+		c.Halt("unmodelled DSP arithmetic op 0x%04X at 0x%04X (%s)", op, pc, mustText(c.imem, pc))
 		return 1
 	}
-	c.Halt("unmodelled DSP arithmetic op 0x%04X at 0x%04X (%s)", op, pc, mustText(c.imem, pc))
+	p.commit(c)
 	return 1
-}
-
-// runExt executes a parallel extension carried in an arithmetic op's low byte. Only the empty
-// extension is a no-op; any real extension halts until modelled, so a silent wrong move never
-// slips through.
-func (c *CPU) runExt(ext uint16) {
-	if ext == 0 {
-		return
-	}
-	c.Halt("unmodelled parallel extension 0x%02X at 0x%04X", ext, c.PC)
 }
 
 // mustText disassembles for a halt message; it never fails.

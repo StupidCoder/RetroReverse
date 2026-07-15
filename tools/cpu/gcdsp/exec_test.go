@@ -240,14 +240,19 @@ func TestAddSubAx(t *testing.T) {
 		wantZero bool
 		wantSign bool
 	}{
-		// subax ac0, ax0: 0x00010000 - 0x00008000 = 0x00008000
-		{"subax-ac0-ax0", 0x5400, 0x00010000, 0x0000, 0x8000, 0, 0x00008000, false, false},
+		// subax ac0, ax0 (0x5800): 0x00010000 - 0x00008000 = 0x00008000 (the full 32-bit ax)
+		{"subax-ac0-ax0", 0x5800, 0x00010000, 0x0000, 0x8000, 0, 0x00008000, false, false},
 		// subax ac0, ax0 to zero
-		{"subax-to-zero", 0x5400, 0x00008000, 0x0000, 0x8000, 0, 0x0000000000, true, false},
-		// addax ac0, ax1: negative result
-		{"addax-ac0-ax1-neg", 0x4600, -0x00010000, 0xFFFF, 0x0000, 1, -0x00020000, false, true},
-		// subax ac1, ax1
-		{"subax-ac1-ax1", 0x5700, 0x00040000, 0x0001, 0x0000, 1, 0x00030000, false, false},
+		{"subax-to-zero", 0x5800, 0x00008000, 0x0000, 0x8000, 0, 0x0000000000, true, false},
+		// addax ac0, ax1 (0x4A00: d=0,s=1): negative result
+		{"addax-ac0-ax1-neg", 0x4A00, -0x00010000, 0xFFFF, 0x0000, 1, -0x00020000, false, true},
+		// subax ac1, ax1 (0x5B00: d=1,s=1)
+		{"subax-ac1-ax1", 0x5B00, 0x00040000, 0x0001, 0x0000, 1, 0x00030000, false, false},
+		// addr ac0, ax0.h (0x4400: reg=ax0.h): adds only the high 16 bits, shifted into the
+		// middle — distinct from addax, which would also add ax0.l. Here ax0.l is set but ignored.
+		{"addr-ac0-ax0h", 0x4400, 0x00000000, 0x0002, 0x8000, 0, 0x00020000, false, false},
+		// subr ac0, ax0.h (0x5400): subtract only the high 16 bits
+		{"subr-ac0-ax0h", 0x5400, 0x00030000, 0x0001, 0xFFFF, 0, 0x00020000, false, false},
 	}
 	for _, tc := range cases {
 		c := New(nullBus{t})
@@ -269,6 +274,148 @@ func TestAddSubAx(t *testing.T) {
 		if s := c.Reg[regSR]&srSign != 0; s != tc.wantSign {
 			t.Errorf("%s: sign=%v, want %v", tc.name, s, tc.wantSign)
 		}
+	}
+}
+
+// TestMixerLogicAndMoves pins the logic ops and the moves the mixer's format-conversion routines
+// use (ucode 0x03B3 and the copy loops). The opcodes and their operand bits are the documented set.
+func TestMixerLogicAndMoves(t *testing.T) {
+	// not ac0.m (0x3280): complement the middle word, sign-extending the high byte.
+	c := New(nullBus{t})
+	c.setReg(regAC0M, 0x1234)
+	c.IRAM[0] = 0x3280
+	c.Step()
+	if got := c.Reg[regAC0M]; got != 0xEDCB {
+		t.Errorf("not ac0.m = 0x%04X, want 0xEDCB", got)
+	}
+
+	// xorr ac1.m, ax0.h (0x3100: d=bit8=1 ac1, s=bit9=0 ax0): ac1.m ^= ax0.h.
+	c = New(nullBus{t})
+	c.setReg(regAC1M, 0xFF00)
+	c.Reg[regAX0H] = 0x0F0F
+	c.IRAM[0] = 0x3100
+	c.Step()
+	if got := c.Reg[regAC1M]; got != 0xF00F {
+		t.Errorf("xorr ac1.m = 0x%04X, want 0xF00F", got)
+	}
+
+	// movr ac0, ax1.h (0x6000 | reg field 3 in bits 10..9 = 0x0600): middle = ax1.h, low = 0, sign.
+	c = New(nullBus{t})
+	c.Reg[regAX1H] = 0x8001
+	c.setAc(0, 0x00FFFFFFFF)
+	c.IRAM[0] = 0x6000 | 0x0600
+	c.Step()
+	if got := c.ac(0); got != -0x7FFF0000 {
+		t.Errorf("movr ac0 = 0x%010X, want the sign-extended ax1.h in the middle", uint64(got)&0xFFFFFFFFFF)
+	}
+
+	// movax ac1, ax0 (0x6800 | d=1 in bit8 = 0x0100): full 32-bit ax into the 40-bit accumulator.
+	c = New(nullBus{t})
+	c.Reg[regAX0H] = 0xFFFF
+	c.Reg[regAX0L] = 0x0001
+	c.IRAM[0] = 0x6800 | 0x0100
+	c.Step()
+	if got := c.ac(1); got != -0xFFFF {
+		t.Errorf("movax ac1 = 0x%010X, want -0xFFFF (sign-extended ax0)", uint64(got)&0xFFFFFFFFFF)
+	}
+}
+
+// TestMul pins the multiplier: prod = a signed 16x16 product, doubled in m2 mode. The mixer's
+// resampling loops depend on both the product value and the m0/m2 shift.
+func TestMul(t *testing.T) {
+	// mul ax0 (0x9000) in m0 mode: prod = ax0.l * ax0.h, no shift.
+	c := New(nullBus{t})
+	c.setFlag(srMulShift, false)
+	c.Reg[regAX0L] = 0x0004
+	c.Reg[regAX0H] = 0x0100
+	c.IRAM[0] = 0x9000
+	c.Step()
+	if got := c.prod(); got != 0x400 {
+		t.Errorf("mul m0 prod = 0x%X, want 0x400", got)
+	}
+
+	// The same in m2 mode: the product is doubled.
+	c = New(nullBus{t})
+	c.setFlag(srMulShift, true)
+	c.Reg[regAX0L] = 0x0004
+	c.Reg[regAX0H] = 0x0100
+	c.IRAM[0] = 0x9000
+	c.Step()
+	if got := c.prod(); got != 0x800 {
+		t.Errorf("mul m2 prod = 0x%X, want 0x800", got)
+	}
+
+	// A signed product: -2 * 3 = -6.
+	c = New(nullBus{t})
+	c.Reg[regAX0L] = 0xFFFE // -2
+	c.Reg[regAX0H] = 0x0003
+	c.IRAM[0] = 0x9000
+	c.Step()
+	if got := c.prod(); got != -6 {
+		t.Errorf("mul signed prod = %d, want -6", got)
+	}
+
+	// mulx ax0.h, ax1.h (0xB800): the cross product uses a half of ax0 and a half of ax1.
+	c = New(nullBus{t})
+	c.Reg[regAX0H] = 0x0002
+	c.Reg[regAX1H] = 0x0003
+	c.IRAM[0] = 0xB800 // bit12,11 set -> ax0.h, ax1.h
+	c.Step()
+	if got := c.prod(); got != 6 {
+		t.Errorf("mulx prod = %d, want 6", got)
+	}
+}
+
+// TestExtParallelStore pins the hazard-free timing of a parallel store: it must capture the
+// accumulator's value from BEFORE the main op changes it. The instruction is `not ac0.m : sl`
+// (0x32B2) — the sl stores ac0.m and the not complements it; the stored word must be the original.
+func TestExtParallelStore(t *testing.T) {
+	c := New(nullBus{t})
+	c.setReg(regAC0M, 0x1234)
+	c.Reg[regAR0] = 0x0100 // load source
+	c.Reg[regAR0+3] = 0x0200 // store destination (ar3)
+	c.Reg[regWR0] = 0xFFFF
+	c.Reg[regWR0+3] = 0xFFFF
+	c.DRAM[0x0100] = 0xBEEF // ax1.h will be loaded from here
+	c.IRAM[0] = 0x32B2      // not ac0.m : sl r=ax1.h, ac0.m
+	c.Step()
+	if got := c.DRAM[0x0200]; got != 0x1234 {
+		t.Errorf("parallel store wrote 0x%04X, want 0x1234 (the pre-op accumulator middle)", got)
+	}
+	if got := c.Reg[regAC0M]; got != 0xEDCB {
+		t.Errorf("not left ac0.m = 0x%04X, want 0xEDCB", got)
+	}
+	if got := c.Reg[regAX1H]; got != 0xBEEF {
+		t.Errorf("parallel load left ax1.h = 0x%04X, want 0xBEEF", got)
+	}
+	if c.Reg[regAR0] != 0x0101 || c.Reg[regAR0+3] != 0x0201 {
+		t.Errorf("parallel move did not post-increment both address registers: ar0=0x%04X ar3=0x%04X",
+			c.Reg[regAR0], c.Reg[regAR0+3])
+	}
+}
+
+// TestAddisCmpis pins the single-word short-immediate ops: addis adds an 8-bit immediate into the
+// accumulator middle (how the mixer builds a second buffer pointer 0x50 words along), cmpis
+// compares against imm<<16.
+func TestAddisCmpis(t *testing.T) {
+	c := New(nullBus{t})
+	c.setAc(1, 0x00_0010_0000)
+	c.IRAM[0] = 0x0500 | 0x0050 // addis ac1, #0x50
+	c.Step()
+	if got := c.ac(1); got != 0x00_0060_0000 {
+		t.Errorf("addis ac1 = 0x%010X, want 0x0000600000", uint64(got)&0xFFFFFFFFFF)
+	}
+
+	// cmpis ac1, #0x60 against a middle of 0x60 -> zero flag set, no store.
+	c = New(nullBus{t})
+	c.setAc(1, 0x00_0060_0000)
+	c.IRAM[0] = 0x0700 | 0x0060 // cmpis ac1, #0x60
+	c.Step()
+	if c.Reg[regSR]&srZero == 0 {
+		t.Error("cmpis did not set the zero flag on an equal compare")
+	}
+	if got := c.ac(1); got != 0x00_0060_0000 {
+		t.Errorf("cmpis modified the accumulator (0x%010X)", uint64(got)&0xFFFFFFFFFF)
 	}
 }
 

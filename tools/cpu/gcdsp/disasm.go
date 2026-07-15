@@ -246,11 +246,17 @@ func Disasm(read func(uint16) uint16, pc uint16) (text string, words uint16) {
 
 	// --- interrupt-enable / misc single-word control -------------------------------------
 	case op == 0x1201: // (some ucodes) — fall through to raw if unmatched
+
+	// --- short-immediate arithmetic (single word, an 8-bit immediate into the middle) -----
+	case op&0xFE00 == 0x0400:
+		return fmt.Sprintf("addis  ac%d, #0x%02X", (op>>8)&1, op&0xFF), 1
+	case op&0xFE00 == 0x0600:
+		return fmt.Sprintf("cmpis  ac%d, #0x%02X", (op>>8)&1, op&0xFF), 1
 	}
 
-	// --- arithmetic ops (0x4000 and up): operation in the high bits, low byte a parallel
-	// extension. All single-word. ---------------------------------------------------------
-	if op >= 0x4000 {
+	// --- arithmetic / logic / multiply / move ops (0x3000 and up): operation in the high bits,
+	// a parallel extension in the low byte (for the ops that carry one). Single-word. --------
+	if op >= 0x3000 {
 		main := arithMnemonic(op)
 		ext := op & 0xFF
 		if ext != 0 {
@@ -263,14 +269,13 @@ func Disasm(read func(uint16) uint16, pc uint16) (text string, words uint16) {
 	return fmt.Sprintf(".word  0x%04X", op), 1
 }
 
-// arithMnemonic names the arithmetic op in the high bits of a 0x4000+ instruction. The common
-// mixing-ucode ops are named; anything else is shown by its high byte so a run is still
-// readable and correctly sized.
+// arithMnemonic names the arithmetic/logic/multiply/move op in the high bits of a 0x3000+
+// instruction. The opcodes and masks are the documented set (gamecube-tools' opcode table);
+// anything unmatched is shown by its high byte so a run is still readable and correctly sized.
 func arithMnemonic(op uint16) string {
-	d := (op >> 8) & 1 // most of these select an accumulator in bit 8
+	d := (op >> 8) & 1 // most accumulator-writing ops select the accumulator in bit 8
 	switch {
-	// The standalone mode ops occupy fixed high bytes 0x8A..0x8F and must be matched exactly,
-	// before the accumulator-paired ops below, whose masks would otherwise swallow them.
+	// The standalone mode ops occupy fixed high bytes and must be matched first.
 	case op&0xFF00 == 0x8A00:
 		return "m2"
 	case op&0xFF00 == 0x8B00:
@@ -285,69 +290,136 @@ func arithMnemonic(op uint16) string {
 		return "set16"
 	case op&0xFF00 == 0x8000:
 		return "nx"
-	case op&0xF700 == 0x8100: // 0x8100 / 0x8900, accumulator in bit 11
+	case op&0xFF00 == 0x8400:
+		return "clrp"
+
+	// Logic ops on an accumulator middle word.
+	case op&0xFE80 == 0x3280:
+		return fmt.Sprintf("not    ac%d.m", d)
+	case op&0xFC80 == 0x3000:
+		return fmt.Sprintf("xorr   ac%d.m, ax%d.h", d, (op>>9)&1)
+	case op&0xFC80 == 0x3400:
+		return fmt.Sprintf("andr   ac%d.m, ax%d.h", d, (op>>9)&1)
+	case op&0xFC80 == 0x3800:
+		return fmt.Sprintf("orr    ac%d.m, ax%d.h", d, (op>>9)&1)
+
+	// clr / cmp / tst.
+	case op&0xF700 == 0x8100:
 		return fmt.Sprintf("clr    ac%d", (op>>11)&1)
 	case op&0xFF00 == 0x8200:
 		return "cmp"
 	case op&0xFE00 == 0x8600:
-		return fmt.Sprintf("tst    ac%d", (op>>8)&1)
-	case op&0xF800 == 0x9000:
+		return fmt.Sprintf("tst    ac%d", d)
+
+	// The multiply / multiply-accumulate family.
+	case op&0xF700 == 0x9000:
 		return fmt.Sprintf("mul    ax%d", (op>>11)&1)
-	case op&0xF800 == 0x9800:
-		return fmt.Sprintf("mulmv? ax%d", (op>>11)&1)
-	case op&0xFC00 == 0xA000:
+	case op&0xF600 == 0x9200:
+		return fmt.Sprintf("mulmvz ac%d", d)
+	case op&0xF600 == 0x9400:
+		return fmt.Sprintf("mulac  ac%d", d)
+	case op&0xF600 == 0x9600:
+		return fmt.Sprintf("mulmv  ac%d", d)
+	case op&0xE700 == 0xA000:
 		return "mulx"
-	case op&0xFC00 == 0xA400:
-		return "mulxmv?"
-	case op&0xF000 == 0xB000:
-		return "mulc?"
-	case op&0xF800 == 0xC000:
-		return fmt.Sprintf("mulcac? ac%d", (op>>11)&1)
-	case op&0xFC00 == 0x4000:
+	case op&0xE600 == 0xA200:
+		return fmt.Sprintf("mulxmvz ac%d", d)
+	case op&0xE600 == 0xA400:
+		return fmt.Sprintf("mulxac ac%d", d)
+	case op&0xE600 == 0xA600:
+		return fmt.Sprintf("mulxmv ac%d", d)
+	case op&0xE700 == 0xC000:
+		return "mulc"
+	case op&0xE600 == 0xC400:
+		return fmt.Sprintf("mulcac ac%d", d)
+	case op&0xFC00 == 0xE000:
+		return "maddx"
+	case op&0xFC00 == 0xE400:
+		return "msubx"
+	case op&0xFC00 == 0xE800:
+		return "maddc"
+	case op&0xFC00 == 0xEC00:
+		return "msubc"
+	case op&0xFE00 == 0xF200:
+		return fmt.Sprintf("madd   ax%d", d)
+	case op&0xFE00 == 0xF600:
+		return fmt.Sprintf("msub   ax%d", d)
+
+	// The accumulator arithmetic and moves.
+	case op&0xF800 == 0x4000:
 		return fmt.Sprintf("addr   ac%d", d)
-	case op&0xFC00 == 0x4400:
+	case op&0xFC00 == 0x4800:
 		return fmt.Sprintf("addax  ac%d, ax%d", d, (op>>9)&1)
-	case op&0xFE00 == 0x4800:
+	case op&0xFE00 == 0x4C00:
 		return fmt.Sprintf("add    ac%d", d)
-	case op&0xFE00 == 0x4A00:
+	case op&0xFE00 == 0x4E00:
 		return fmt.Sprintf("addp   ac%d", d)
-	case op&0xFC00 == 0x5000:
+	case op&0xF800 == 0x5000:
 		return fmt.Sprintf("subr   ac%d", d)
-	case op&0xFC00 == 0x5400:
+	case op&0xFC00 == 0x5800:
 		return fmt.Sprintf("subax  ac%d, ax%d", d, (op>>9)&1)
-	case op&0xFE00 == 0x5800:
+	case op&0xFE00 == 0x5C00:
 		return fmt.Sprintf("sub    ac%d", d)
-	case op&0xFC00 == 0x6000:
-		return fmt.Sprintf("movr   ac%d", d)
-	case op&0xFC00 == 0x6400:
-		return fmt.Sprintf("movax  ac%d", d)
-	case op&0xFE00 == 0x6800:
-		return fmt.Sprintf("addaxl ac%d", d)
+	case op&0xF800 == 0x6000:
+		return fmt.Sprintf("movr   ac%d, r%d", d, 0x18+((op>>9)&3))
+	case op&0xFC00 == 0x6800:
+		return fmt.Sprintf("movax  ac%d, ax%d", d, (op>>9)&1)
 	case op&0xFE00 == 0x6C00:
 		return fmt.Sprintf("mov    ac%d", d)
+	case op&0xFE00 == 0x6E00:
+		return fmt.Sprintf("movp   ac%d", d)
 	case op&0xFC00 == 0x7000:
-		return fmt.Sprintf("addpaxz ac%d", d)
-	case op&0xFE00 == 0x7800:
-		return fmt.Sprintf("decm/inc ac%d", d)
-	case op&0xF000 == 0xE000:
-		return "maddx?"
-	case op&0xF000 == 0xF000:
-		return "madd?"
+		return fmt.Sprintf("addaxl ac%d, ax%d", d, (op>>9)&1)
+	case op&0xFC00 == 0xF800:
+		return fmt.Sprintf("addpaxz ac%d, ax%d", (op>>9)&1, d)
+	case op&0xFE00 == 0xF000:
+		return fmt.Sprintf("lsl16  ac%d", d)
+	case op&0xFE00 == 0xF400:
+		return fmt.Sprintf("lsr16  ac%d", d)
 	}
 	return fmt.Sprintf("op8_%02X", op>>8)
 }
 
-// extMnemonic names the parallel extension carried in the low byte of an arithmetic op — a
-// simultaneous load, store, or register move. The common forms are named; the rest shown raw.
+// extMnemonic names the parallel extension carried in the low byte — a simultaneous load, store,
+// register move, or address-register step. The encodings are the documented opcodes_ext table.
 func extMnemonic(ext uint16) string {
 	switch {
 	case ext == 0x00:
 		return ""
-	case ext&0xC0 == 0x40 && ext&0x30 != 0x30:
-		// 01ssdddd style loads/stores through address registers — shown generically.
-		return fmt.Sprintf("mv? r%d", ext&0x0F)
-	case ext&0xF0 == 0x80:
-		return fmt.Sprintf("ls @ar%d", ext&3)
+	case ext&0xC0 == 0x80: // ls/sl and their n/m variants: load AR0, store AR3
+		name := "ls"
+		if ext&0x02 != 0 {
+			name = "sl"
+		}
+		if ext&0x04 != 0 {
+			name += "n"
+		}
+		if ext&0x08 != 0 {
+			name += "m"
+		}
+		return fmt.Sprintf("%s r%d, ac%d.m", name, 0x18+((ext>>4)&3), ext&1)
+	case ext&0xC0 == 0xC0: // ld/ldx: dual load through address registers
+		return fmt.Sprintf("ld r?, r?, @ar%d", ext&3)
+	case ext&0xC4 == 0x40: // l/ln: load a register
+		name := "l"
+		if ext&0x04 != 0 {
+			name = "ln"
+		}
+		return fmt.Sprintf("%s r%d, @ar%d", name, 0x18+((ext>>3)&7), ext&3)
+	case ext&0xE4 == 0x20: // s/sn: store a register
+		name := "s"
+		if ext&0x04 != 0 {
+			name = "sn"
+		}
+		return fmt.Sprintf("%s @ar%d, r%d", name, ext&3, 0x1C+((ext>>3)&3))
+	case ext&0xF0 == 0x10: // mv: register move
+		return fmt.Sprintf("mv r%d, r%d", 0x18+((ext>>2)&3), 0x1C+(ext&3))
+	case ext&0xFC == 0x04:
+		return fmt.Sprintf("dr ar%d", ext&3)
+	case ext&0xFC == 0x08:
+		return fmt.Sprintf("ir ar%d", ext&3)
+	case ext&0xFC == 0x0C:
+		return fmt.Sprintf("nr ar%d", ext&3)
 	}
 	return fmt.Sprintf("ext 0x%02X", ext)
 }

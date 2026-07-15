@@ -189,7 +189,11 @@ func (c *CPU) prod() int64 {
 	m2 := int64(c.Reg[regPRODM2])
 	p := (h << 32) | (m1 << 16) | l
 	p += m2 << 16
-	return p & 0xFFFFFFFFFF
+	p &= 0xFFFFFFFFFF
+	if p&(1<<39) != 0 { // sign-extend the 40-bit product so it adds into the accumulator correctly
+		p -= 1 << 40
+	}
+	return p
 }
 
 // sr reads and writes the status register conveniently.
