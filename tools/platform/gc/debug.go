@@ -13,6 +13,7 @@ package gc
 import (
 	"fmt"
 	"image"
+	"strings"
 )
 
 // ReadVirt8 and ReadVirt32 read the game's memory through the CPU's translation and locked
@@ -149,4 +150,18 @@ func (m *Machine) IntrState() string {
 	}
 	return fmt.Sprintf("PI cause=0x%08X mask=0x%08X | CPU ExtInt=%v MSR[EE]=%v | VI armed=%v field=%d | PE reg0=0x%04X",
 		m.pi.Cause, m.pi.Mask, m.CPU.ExtInt, m.CPU.MSR&(1<<15) != 0, viArmed, m.vi.Field, m.pe.Reg[0])
+}
+
+// RegString is the integer register file, for reading a fault: when the machine halts on a
+// bad access, the offending pointer is in one of these, and its neighbours usually say where
+// it came from.
+func (m *Machine) RegString() string {
+	var b strings.Builder
+	for i := 0; i < 32; i += 4 {
+		fmt.Fprintf(&b, "  r%-2d %08X  r%-2d %08X  r%-2d %08X  r%-2d %08X\n",
+			i, m.CPU.GPR[i], i+1, m.CPU.GPR[i+1], i+2, m.CPU.GPR[i+2], i+3, m.CPU.GPR[i+3])
+	}
+	fmt.Fprintf(&b, "  PC %08X  LR %08X  CTR %08X  SRR0 %08X  SRR1 %08X\n",
+		m.CPU.PC, m.CPU.LR, m.CPU.CTR, m.CPU.SRR0, m.CPU.SRR1)
+	return b.String()
 }

@@ -271,6 +271,7 @@ func run(c cfg) error {
 	fmt.Fprintf(os.Stderr, "bootoracle: VI fields elapsed: %d\n", m.VIField())
 	if c.verbose {
 		fmt.Fprintf(os.Stderr, "bootoracle: intr: %s\n", m.IntrState())
+		fmt.Fprintf(os.Stderr, "bootoracle: registers:\n%s", m.RegString())
 		fmt.Fprintf(os.Stderr, "bootoracle: backtrace:\n%s", m.BacktraceString())
 	}
 
