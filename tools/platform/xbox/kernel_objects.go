@@ -203,6 +203,41 @@ func kernelObjectHandler(ord uint16) func(*Machine) int {
 			return 4
 		}
 
+	case 222: // NtReleaseSemaphore(Handle, ReleaseCount, PreviousCount*) -> NTSTATUS
+		// Identified from the call site: 3 args forwarded through a wrapper that returns a
+		// bool, in the same sync library as NtCreateSemaphore (193) and the timed wait (234)
+		// — not the 5-arg NtSetIoCompletion the reconstructed table names. Raise the
+		// semaphore's count, wake any thread blocked on it, and report the previous count.
+		return func(m *Machine) int {
+			handle, release, prevOut := m.arg(0), m.arg(1), m.arg(2)
+			if o := m.objAt(handle); o != nil {
+				if prevOut != 0 {
+					m.write32(prevOut, uint32(o.count))
+				}
+				o.count += int32(release)
+				o.signaled = o.count > 0
+				m.writeSignal(o.addr, o.signaled)
+				m.wakeWaiters(handle)
+			} else if prevOut != 0 {
+				m.write32(prevOut, 0)
+			}
+			m.setRet(0) // STATUS_SUCCESS
+			return 3
+		}
+
+	case 234: // NtWaitForSingleObjectEx(Handle, WaitMode, Alertable, Timeout) -> NTSTATUS
+		// Identified from the call site (NOT the reconstructed table, which misnames it
+		// ObCreateObject): 4 args as (Handle, 1, Alertable, &Timeout), where the timeout
+		// argument is built by a helper that multiplies a millisecond count by 10000 and
+		// negates it — a relative LARGE_INTEGER. Whatever the title waits on here is work
+		// our model completes synchronously, so report the object signalled (STATUS_WAIT_0).
+		// doWait keeps the semaphore/event semantics (consumes the signal) when the object
+		// is one the HLE tracks.
+		return func(m *Machine) int {
+			doWaitSatisfy(m, m.arg(0))
+			return 4
+		}
+
 	case 199: // NtFreeVirtualMemory(BaseAddress**, RegionSize*, FreeType) -> NTSTATUS
 		// Verified from its call site: 3 stdcall args wrapped in a lock/unlock pair, with
 		// FreeType = 0x4000 (MEM_DECOMMIT) — not a PAGE_* value, so this is free, not the
@@ -390,6 +425,18 @@ func (m *Machine) doWait(handle uint32, reg int) {
 	m.current.waitObjs = []uint32{handle}
 	m.setRet(0) // committed into the saved context; refined to STATUS_WAIT_0 on wake
 	m.yieldCurrent(tsWaiting)
+}
+
+// doWaitSatisfy reports a timed single-object wait as satisfied (EAX = STATUS_WAIT_0),
+// consuming the object's signal if the handle names an object the HLE tracks. Used for the
+// timed waits the boot path makes on work our synchronous model has already completed;
+// unlike doWait it never parks the thread, so it cannot deadlock a title that expects the
+// wait to return promptly.
+func doWaitSatisfy(m *Machine, handle uint32) {
+	if o := m.objAt(handle); o != nil {
+		m.satisfyWait(o) // consume one count/signal, matching a real satisfied wait
+	}
+	m.setRet(0) // STATUS_WAIT_0
 }
 
 // wakeWaiters readies any thread blocked on the given object handle whose wait is now

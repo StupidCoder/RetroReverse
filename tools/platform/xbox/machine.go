@@ -91,6 +91,7 @@ type Machine struct {
 	// into the reserved band; objects are looked up by handle.
 	objects     map[uint32]*kobject
 	files       map[uint32]*fileObject // open disc file handles (kernel_file.go)
+	poolSizes   map[uint32]uint32      // ExAllocatePoolWithTag block -> byte size (ExQueryPoolBlockSize)
 	nextObjAddr uint32                 // bump pointer within the kernel band for new dispatcher objects
 	kbandNext   uint32                 // general bump pointer within the kernel band (KPCR follows, then objects)
 
@@ -149,6 +150,7 @@ func NewMachine(xbe *XBE, disc *Image) (*Machine, error) {
 		Disc:        disc,
 		objects:     map[uint32]*kobject{},
 		files:       map[uint32]*fileObject{},
+		poolSizes:   map[uint32]uint32{},
 		OrdinalHits: map[uint16]int{},
 		dataDeref:   map[uint16]bool{},
 	}

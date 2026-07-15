@@ -47,7 +47,14 @@ var verifiedNames = map[uint16]string{
 	199: "NtFreeVirtualMemory",             // f(base**, size*, freeType) (Nt block drifts +5)
 	202: "NtOpenFile",                      // f(handle*, access, objattr, iosb, share, opts)
 	301: "RtlNtStatusToDosError",           // f(NTSTATUS)
-	160: "MmAllocateContiguousMemory",
+	2:   "AvSendTVEncoderOption",           // f(regbase, option, param, result*) -> void
+	15:  "ExAllocatePoolWithTag",           // f(bytes, tag) -> PVOID (2-arg; 3rd push is a save)
+	23:  "ExQueryPoolBlockSize",            // f(block) -> SIZE_T
+	160: "KfRaiseIrql",                     // fastcall(CL=newIrql) -> oldIrql (was mis-guessed as Mm)
+	161: "KfLowerIrql",                     // fastcall(CL=newIrql) -> void
+	193: "NtCreateSemaphore",               // f(handle*, objattr, initial, max)
+	222: "NtReleaseSemaphore",              // f(handle, releaseCount, prev*) -> NTSTATUS
+	234: "NtWaitForSingleObjectEx",         // f(handle, waitMode, alertable, timeout*) -> NTSTATUS
 	187: "NtClose",                      // f(handle) -> NTSTATUS (Nt block drifts +5)
 	255: "PsCreateSystemThreadEx",       // the CRT's 10-arg main-thread spawn
 	277: "RtlEnterCriticalSection",      // census-anchored

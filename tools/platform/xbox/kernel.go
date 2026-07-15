@@ -217,6 +217,50 @@ func kernelHandler(ord uint16) func(*Machine) int {
 			m.setRet(0)
 			return 4
 		}
+	case 15: // ExAllocatePoolWithTag(NumberOfBytes, Tag) -> PVOID
+		// The canonical 2-arg Xbox form (size=0x30, tag "DSob"): a pointer returned and
+		// null-checked, its size accumulated into a global counter (via ExQueryPoolBlockSize,
+		// ordinal 23). The 3rd value pushed at the call site is a register save the caller
+		// manages, NOT an argument — popping it as one (argc=3) desynced the stack and
+		// returned into the tag bytes. Record the block's size for the size query.
+		return func(m *Machine) int {
+			size := m.arg(0)
+			addr := m.allocPool(size)
+			if addr != 0 {
+				m.poolSizes[addr] = align32(size, 16)
+			}
+			m.setRet(addr)
+			return 2
+		}
+	case 160: // KfRaiseIrql(NewIrql) -> OldIrql (fastcall: NewIrql in CL, no stack args)
+		// From the call site: it reads the current IRQL from KPCR+0x24, and when below
+		// DISPATCH_LEVEL calls this and stores the returned old IRQL for a later KfLowerIrql
+		// — the classic raise/lower pair bracketing a critical region. Set the KPCR IRQL to
+		// the requested level and return the old one. Purely bookkeeping in our cooperative
+		// model, but the caller round-trips it, so it must be faithful.
+		return func(m *Machine) int {
+			old := m.Read(kpcrAddr + kpcrIrql)
+			m.Write(kpcrAddr+kpcrIrql, byte(m.CPU.Regs[x86.CX]))
+			m.setRet(uint32(old))
+			return 0
+		}
+	case 161: // KfLowerIrql(NewIrql) -> void (fastcall: NewIrql in CL, no stack args)
+		// The partner of KfRaiseIrql: restore the saved IRQL at the end of the critical
+		// region. Write it back to the KPCR; nothing to return.
+		return func(m *Machine) int {
+			m.Write(kpcrAddr+kpcrIrql, byte(m.CPU.Regs[x86.CX]))
+			m.setRet(0)
+			return 0
+		}
+	case 23: // ExQueryPoolBlockSize(PoolBlock) -> SIZE_T
+		// From the call site: 1 arg (a pool pointer just returned by ordinal 15), the result
+		// accumulated into a global allocated-bytes counter — a size query, not the table's
+		// ExReadWriteRefurbInfo. Return the size recorded at allocation (0 for an untracked
+		// block, which the counter treats as nothing).
+		return func(m *Machine) int {
+			m.setRet(m.poolSizes[m.arg(0)])
+			return 1
+		}
 	case 8: // DbgPrint(format, ...) — cdecl/varargs. Stack-safe even if the low-block
 		// numbering is off, because a cdecl callee pops nothing (the caller cleans up).
 		return func(m *Machine) int {
