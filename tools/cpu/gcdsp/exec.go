@@ -47,21 +47,19 @@ func (c *CPU) execute(pc, op uint16) (span uint16) {
 
 	// --- address-register arithmetic -----------------------------------------------------
 	case op&0xFFFC == 0x0004: // dar
-		n := int(op & 3)
-		c.arStep(n, -1)
+		c.arDec(int(op & 3))
 		return 1
 	case op&0xFFFC == 0x0008: // iar
-		n := int(op & 3)
-		c.arStep(n, +1)
+		c.arInc(int(op & 3))
 		return 1
 	case op&0xFFFC == 0x000C: // subarn
 		n := int(op & 3)
-		c.arStep(n, -int(int16(c.Reg[regIX0+n])))
+		c.arSub(n, int16(c.Reg[regIX0+n]))
 		return 1
 	case op&0xFFF0 == 0x0010: // addarn ar[d] += ix[s]
 		d := int(op & 3)
 		s := int((op >> 2) & 3)
-		c.arStep(d, int(int16(c.Reg[regIX0+s])))
+		c.arAdd(d, int16(c.Reg[regIX0+s]))
 		return 1
 
 	// --- hardware loops ------------------------------------------------------------------
@@ -90,10 +88,10 @@ func (c *CPU) execute(pc, op uint16) (span uint16) {
 
 	// --- immediate / direct loads and stores ---------------------------------------------
 	case op&0xFFE0 == 0x0080: // lri reg, #imm
-		c.setReg(op&0x1F, c.imem(pc+1))
+		c.setRegExtend(op&0x1F, c.imem(pc+1))
 		return 2
 	case op&0xFFE0 == 0x00C0: // lr reg, @addr
-		c.setReg(op&0x1F, c.dataRead(c.imem(pc+1)))
+		c.setRegExtend(op&0x1F, c.dataRead(c.imem(pc+1)))
 		return 2
 	case op&0xFFE0 == 0x00E0: // sr @addr, reg
 		c.dataWrite(c.imem(pc+1), c.getReg(op&0x1F))
@@ -102,7 +100,7 @@ func (c *CPU) execute(pc, op uint16) (span uint16) {
 		c.dataWrite(0xFF00|(op&0xFF), c.imem(pc+1))
 		return 2
 	case op&0xF800 == 0x2000: // lrs reg(0x18+r), @0xFF00|M
-		c.setReg(0x18+((op>>8)&7), c.dataRead(0xFF00|(op&0xFF)))
+		c.setRegExtend(0x18+((op>>8)&7), c.dataRead(0xFF00|(op&0xFF)))
 		return 1
 	case op&0xF800 == 0x2800: // srs @0xFF00|M, reg(0x18+r)
 		c.dataWrite(0xFF00|(op&0xFF), c.getReg(0x18+((op>>8)&7)))
@@ -123,21 +121,21 @@ func (c *CPU) execute(pc, op uint16) (span uint16) {
 		if op&0x0200 != 0 { // store
 			c.dataWrite(addr, c.getReg(reg))
 		} else { // load
-			c.setReg(reg, c.dataRead(addr))
+			c.setRegExtend(reg, c.dataRead(addr))
 		}
 		switch op & 0x0180 {
 		case 0x0080: // post-decrement
-			c.arStep(s, -1)
+			c.arDec(s)
 		case 0x0100: // post-increment
-			c.arStep(s, +1)
+			c.arInc(s)
 		case 0x0180: // post-add the index register
-			c.arStep(s, int(int16(c.Reg[regIX0+s])))
+			c.arAdd(s, int16(c.Reg[regIX0+s]))
 		}
 		return 1
 
 	// --- register to register ------------------------------------------------------------
 	case op&0xFC00 == 0x1C00: // mrr d, s
-		c.setReg((op>>5)&0x1F, c.getReg(op&0x1F))
+		c.setRegExtend((op>>5)&0x1F, c.getReg(op&0x1F))
 		return 1
 
 	// --- accumulator shift by immediate --------------------------------------------------
@@ -164,7 +162,7 @@ func (c *CPU) execute(pc, op uint16) (span uint16) {
 		// short registers 0x18..0x1F (the ax and accumulator low/mid words). The DMA-setup
 		// helpers use it to drop a small direction constant into ac1.m between programming the
 		// DSP-DMA address and control registers.
-		c.setReg(0x18+((op>>8)&7), uint16(int16(int8(op&0xFF))))
+		c.setRegExtend(0x18+((op>>8)&7), uint16(int16(int8(op&0xFF))))
 		return 1
 
 	// --- immediate ALU to accumulator middle ---------------------------------------------
@@ -221,19 +219,22 @@ func (c *CPU) execute(pc, op uint16) (span uint16) {
 
 	// --- branches, calls, returns --------------------------------------------------------
 	case op&0xFFF0 == 0x0270: // if cc — execute the next instruction only when the condition
-		// holds (manual p.75: IF(cc) EXECUTE($pc+1) ELSE $pc+=2). The ucode's idioms are
-		// conditional single-word steps (ifg incm / ifl decm at 0x0616, the conditional stores
-		// at 0x02A5, the abs-value ifg neg at 0x0BDB). Every guarded instruction seen is one
-		// word, where the manual's flat +2 and "skip the whole next instruction" agree; a
-		// two-word guarded instruction would split them, so that halts rather than guess.
+		// holds; a false condition skips the WHOLE next instruction (one or two words). The
+		// ucode's idioms are conditional single-word steps (ifg incm / ifl decm at 0x0616, the
+		// conditional stores at 0x02A5, the abs-value ifg neg at 0x0BDB).
 		if !c.cond(op & 0xF) {
 			_, span := Disasm(func(a uint16) uint16 { return c.imem(a) }, pc+1)
-			if span != 1 {
-				c.Halt("if-cc at 0x%04X skips a %d-word instruction — flat +2 vs full skip not pinned", pc, span)
-				return 1
-			}
-			return 2
+			return 1 + span
 		}
+		return 1
+
+	// --- shift the accumulator by a register amount (the 7-bit signed convention: zero low
+	// six bits mean no shift regardless of the sign bit; POSITIVE means RIGHT here) ----------
+	case op == 0x02CA: // lsrn — ac0 logically shifted by ac1.m
+		c.shiftAcc(0, false, -shiftAmount7(c.Reg[regAC1M]))
+		return 1
+	case op == 0x02CB: // asrn — ac0 arithmetically shifted by ac1.m
+		c.shiftAcc(0, true, -shiftAmount7(c.Reg[regAC1M]))
 		return 1
 	case op&0xFFF0 == 0x0290: // jmp cc, addr
 		dst := c.imem(pc + 1)
@@ -296,23 +297,25 @@ func (c *CPU) execArith(pc, op uint16) uint16 {
 	// The mode and standalone ops that carry no accumulator write are matched first, before the
 	// wider masks below could swallow them. They take no parallel extension.
 	switch {
-	case op&0xFF00 == 0x8A00: // m2 — products doubled
-		c.setFlag(srMulShift, true)
+	case op&0xFF00 == 0x8A00: // m2 — products doubled (clears the modify bit; doubling is default)
+		c.setFlag(srMulNoDouble, false)
 		return 1
-	case op&0xFF00 == 0x8B00: // m0 — products not shifted
-		c.setFlag(srMulShift, false)
+	case op&0xFF00 == 0x8B00: // m0 — products as-is
+		c.setFlag(srMulNoDouble, true)
 		return 1
-	case op&0xFF00 == 0x8C00: // clr15 — multiplier operands signed
-		c.setFlag(srMulSigned, false)
+	case op&0xFF00 == 0x8C00: // clr15 — MULX low halves signed
+		c.setFlag(srMulUnsigned, false)
 		return 1
-	case op&0xFF00 == 0x8D00: // set15 — multiplier operands unsigned
-		c.setFlag(srMulSigned, true)
+	case op&0xFF00 == 0x8D00: // set15 — MULX low halves unsigned
+		c.setFlag(srMulUnsigned, true)
 		return 1
-	case op&0xFF00 == 0x8E00: // set40 — 40-bit accumulator mode
-		c.setFlag(srMode40, true)
-		return 1
-	case op&0xFF00 == 0x8F00: // set16 — 16-bit saturation mode
+	case op&0xFF00 == 0x8E00: // set16 — plain mid loads, no read saturation. NOTE: 0x8E is SET16
+		// and 0x8F is SET40 (hardware-verified) — the manual's "SET40/16 1000 111x" line reads
+		// the other way around and had these swapped here for a while.
 		c.setFlag(srMode40, false)
+		return 1
+	case op&0xFF00 == 0x8F00: // set40 — mid loads extend + clear low, mid reads saturate
+		c.setFlag(srMode40, true)
 		return 1
 	}
 
@@ -356,6 +359,24 @@ func (c *CPU) execArith(pc, op uint16) uint16 {
 		d := int((op >> 8) & 1)
 		c.setReg(uint16(regAC0M+d), c.Reg[regAC0M+d]|c.Reg[regAX0H+((op>>9)&1)])
 		c.setLogicFlags(d)
+	case op&0xFE80 == 0x3080: // xorc acD.m — XOR with the OTHER accumulator's middle
+		d := int((op >> 8) & 1)
+		c.setReg(uint16(regAC0M+d), c.Reg[regAC0M+d]^c.Reg[regAC0M+(1-d)])
+		c.setLogicFlags(d)
+
+	// --- shift the accumulator by a register amount (bit7=1 rows of the logic space; the
+	// 7-bit signed amount convention, POSITIVE meaning LEFT for these — the opposite of
+	// lsrn/asrn). The interpolator at ucode 0x013B rides asrnrx with its constant 4 in ax0.h.
+	case op&0xFC80 == 0x3480: // lsrnrx acD, axS.h (s=bit9) — logical shift by the ax high
+		c.shiftAcc(int((op>>8)&1), false, shiftAmount7(c.Reg[regAX0H+((op>>9)&1)]))
+	case op&0xFC80 == 0x3880: // asrnrx acD, axS.h — arithmetic shift by the ax high
+		c.shiftAcc(int((op>>8)&1), true, shiftAmount7(c.Reg[regAX0H+((op>>9)&1)]))
+	case op&0xFE80 == 0x3C80: // lsrnr acD — logical shift by the OTHER accumulator's middle
+		d := int((op >> 8) & 1)
+		c.shiftAcc(d, false, shiftAmount7(c.Reg[regAC0M+(1-d)]))
+	case op&0xFE80 == 0x3E80: // asrnr acD — arithmetic shift by the other accumulator's middle
+		d := int((op >> 8) & 1)
+		c.shiftAcc(d, true, shiftAmount7(c.Reg[regAC0M+(1-d)]))
 
 	// --- clr / add / sub of an accumulator or extended register --------------------------
 	case op&0xF700 == 0x8100: // clr acR (bit 11)
@@ -373,9 +394,10 @@ func (c *CPU) execArith(pc, op uint16) uint16 {
 		c.setFlag(srOverflow, false)
 	case op&0xF700 == 0xB100: // tst acR (bit 11) — flags from the accumulator vs zero
 		c.setTestFlags(int((op >> 11) & 1))
-	case op&0xE700 == 0xC100: // cmpaxh acS, axR.h (s=bit12, r=bit11) — compare the accumulator
-		// with an ax high half taken into the middle word, the same alignment addr/cmpis use
-		c.subFlags(c.ac(int((op>>12)&1)), int64(int16(c.Reg[regAX0H+((op>>11)&1)]))<<16)
+	case op&0xE700 == 0xC100: // cmpaxh acS, axR.h (s=bit11, r=bit12 — NOT the devkitPro table's
+		// assignment, which has these two swapped) — compare the accumulator with an ax high
+		// half taken into the middle word, the same alignment addr/cmpis use
+		c.subFlags(c.ac(int((op>>11)&1)), int64(int16(c.Reg[regAX0H+((op>>12)&1)]))<<16)
 	case op&0xF800 == 0x4000: // addr acD, reg — add a register (bits 10..9 -> 0x18+field) into the middle
 		d := int((op >> 8) & 1)
 		reg := 0x18 + ((op >> 9) & 3)
@@ -422,11 +444,11 @@ func (c *CPU) execArith(pc, op uint16) uint16 {
 		c.shiftAcc(int((op>>11)&1), true, -16)
 
 	// --- moves into the accumulator ------------------------------------------------------
-	case op&0xF800 == 0x6000: // movr acD, reg (reg = bits 10..9 -> 0x18+field) — into the middle
+	case op&0xF800 == 0x6000: // movr acD, reg (reg = bits 10..9 -> 0x18+field) — the value lands
+		// in the middle with the low cleared and the sign extended, regardless of mode
 		d := int((op >> 8) & 1)
 		reg := 0x18 + ((op >> 9) & 3)
-		c.Reg[regAC0L+d] = 0
-		c.setReg(uint16(regAC0M+d), c.Reg[reg])
+		c.setAc(d, int64(int16(c.Reg[reg]))<<16)
 		c.setArithFlags(d)
 	case op&0xFC00 == 0x6800: // movax acD, axS — the full 32-bit ax, sign-extended
 		d := int((op >> 8) & 1)
@@ -497,32 +519,28 @@ func (c *CPU) execArith(pc, op uint16) uint16 {
 		c.setProd(c.prod() - c.mul16(c.Reg[regAC0M+((op>>9)&1)], c.Reg[regAX0H+((op>>8)&1)]))
 
 	// --- the cross-multiply family: a half of ax0 times a half of ax1. The two selector bits
-	// pick low vs high as a register offset (0 -> ax_.l at 0x18/0x19, 2 -> ax_.h at 0x1A/0x1B).
+	// pick low vs high as a register offset (0 -> ax_.l at 0x18/0x19, 2 -> ax_.h at 0x1A/0x1B);
+	// which halves are used also decides the set15 unsigned treatment (see mulx16).
 	case op&0xE700 == 0xA000: // mulx ax0.[lh], ax1.[lh] — prod = product
-		a := c.Reg[regAX0L+((op&0x1000)>>11)]
-		b := c.Reg[regAX1L+((op&0x0800)>>10)]
-		c.setProd(c.mul16(a, b))
+		c.setProd(c.mulxProd(op))
 	case op&0xE600 == 0xA400: // mulxac acD: acD += prod; prod = new product
 		d := int((op >> 8) & 1)
-		a := c.Reg[regAX0L+((op&0x1000)>>11)]
-		b := c.Reg[regAX1L+((op&0x0800)>>10)]
+		p := c.mulxProd(op)
 		c.setAc(d, c.ac(d)+c.prod())
 		c.setArithFlags(d)
-		c.setProd(c.mul16(a, b))
+		c.setProd(p)
 	case op&0xE600 == 0xA600: // mulxmv acD: acD = prod; prod = new product
 		d := int((op >> 8) & 1)
-		a := c.Reg[regAX0L+((op&0x1000)>>11)]
-		b := c.Reg[regAX1L+((op&0x0800)>>10)]
+		p := c.mulxProd(op)
 		c.setAc(d, c.prod())
 		c.setArithFlags(d)
-		c.setProd(c.mul16(a, b))
+		c.setProd(p)
 	case op&0xE600 == 0xA200: // mulxmvz acD: acD = prod with the low word cleared; prod = product
 		d := int((op >> 8) & 1)
-		a := c.Reg[regAX0L+((op&0x1000)>>11)]
-		b := c.Reg[regAX1L+((op&0x0800)>>10)]
+		p := c.mulxProd(op)
 		c.setAc(d, c.prod()&^0xFFFF)
 		c.setArithFlags(d)
-		c.setProd(c.mul16(a, b))
+		c.setProd(p)
 	case op&0xFE00 == 0xF200: // madd axS.l, axS.h (s=bit8) — prod += product
 		s := int((op >> 8) & 1)
 		c.setProd(c.prod() + c.mul16(c.Reg[regAX0L+s], c.Reg[regAX0H+s]))
@@ -543,17 +561,25 @@ func (c *CPU) execArith(pc, op uint16) uint16 {
 		d := int((op >> 8) & 1)
 		c.setAc(d, -c.prod())
 		c.setArithFlags(d)
-	case op&0xFE00 == 0xFE00: // movpz acD — the product with the low word cleared: the FIR
-		// epilogue (clrp; madd×8; movpz; store acD.m) reads its Q15 result out of prod.hm.
+	case op&0xFE00 == 0xFE00: // movpz acD — the product ROUNDED to its middle word (round half
+		// to even at bit 16, not a truncation): the FIR epilogue (clrp; madd×8; movpz; store
+		// acD.m) reads its Q15 result out this way.
 		d := int((op >> 8) & 1)
-		c.setAc(d, c.prod()&^0xFFFF)
+		c.setAc(d, c.prodRounded())
 		c.setArithFlags(d)
-	case op&0xFC00 == 0xF800: // addpaxz acD, axS (d=bit9, s=bit8) — acD = prod + axS.h<<16, low cleared
-		d := int((op >> 9) & 1)
-		s := int((op >> 8) & 1)
-		v := c.prod() + (int64(int16(c.Reg[regAX0H+s])) << 16)
-		c.setAc(d, v&^0xFFFF)
-		c.setArithFlags(d)
+	case op&0xFC00 == 0xF800: // addpaxz acD, axS (d=bit8, s=bit9) — acD = rounded prod + the ax
+		// high half <<16, the low word landing zero; carry compares the unrounded product
+		// against the result
+		d := int((op >> 8) & 1)
+		s := int((op >> 9) & 1)
+		oldProd := c.prod()
+		v := c.prodRounded() + (c.ax(s) &^ 0xFFFF)
+		c.setAc(d, v)
+		res := c.ac(d)
+		c.setFlag(srZero, res == 0)
+		c.setFlag(srSign, res < 0)
+		c.setFlag(srCarry, uint64(oldProd) > uint64(res))
+		c.setFlag(srOverflow, false)
 
 	default:
 		c.Halt("unmodelled DSP arithmetic op 0x%04X at 0x%04X (%s)", op, pc, mustText(c.imem, pc))

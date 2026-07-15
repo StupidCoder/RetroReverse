@@ -24,7 +24,7 @@ import "fmt"
 // AX1 are 32-bit: high 16, low 16. PROD is 40-bit, held as low/mid1/high/mid2 so the two
 // middle contributions a multiply-accumulate produces can be summed on read.
 type CPU struct {
-	PC  uint16    // program counter, a word address into instruction memory
+	PC  uint16     // program counter, a word address into instruction memory
 	Reg [32]uint16 // the register file, indexed as above
 
 	IRAM [0x1000]uint16 // instruction RAM: the microcode runs from here
@@ -43,10 +43,10 @@ type CPU struct {
 	// The remaining execution state, exported so the default gob encoder carries the whole core
 	// in a savestate. Only bus is left out (it is a back-reference to the host, reattached with
 	// SetBus after a load).
-	Branched    bool          // the instruction just run has already placed PC; do not advance
-	InInterrupt bool          // an interrupt handler is running (until RTI)
-	Stacks      [4][]uint16   // the four hardware stacks, indexed as ST0..ST3
-	Loops       []LoopFrame   // active hardware loops, innermost last
+	Branched    bool        // the instruction just run has already placed PC; do not advance
+	InInterrupt bool        // an interrupt handler is running (until RTI)
+	Stacks      [4][]uint16 // the four hardware stacks, indexed as ST0..ST3
+	Loops       []LoopFrame // active hardware loops, innermost last
 }
 
 // LoopFrame is one running hardware loop: the first and last instruction addresses of the body
@@ -59,50 +59,51 @@ type LoopFrame struct {
 
 // Register indices, named so the interpreter and disassembler agree.
 const (
-	regAR0 = 0
-	regIX0 = 4
-	regWR0 = 8
-	regST0 = 12
-	regST1 = 13
-	regST2 = 14
-	regST3 = 15
-	regAC0H = 16
-	regAC1H = 17
+	regAR0    = 0
+	regIX0    = 4
+	regWR0    = 8
+	regST0    = 12
+	regST1    = 13
+	regST2    = 14
+	regST3    = 15
+	regAC0H   = 16
+	regAC1H   = 17
 	regCONFIG = 18
-	regSR   = 19
+	regSR     = 19
 	regPRODL  = 20
 	regPRODM1 = 21
 	regPRODH  = 22
 	regPRODM2 = 23
-	regAX0L = 24
-	regAX1L = 25
-	regAX0H = 26
-	regAX1H = 27
-	regAC0L = 28
-	regAC1L = 29
-	regAC0M = 30
-	regAC1M = 31
+	regAX0L   = 24
+	regAX1L   = 25
+	regAX0H   = 26
+	regAX1H   = 27
+	regAC0L   = 28
+	regAC1L   = 29
+	regAC0M   = 30
+	regAC1M   = 31
 )
 
 // Status-register flag bits (the low byte). The high byte carries the arithmetic mode bits,
 // added as the multiply/accumulate ops that consult them are implemented.
 const (
-	srCarry     = 1 << 0 // CF: carry out of the last add/subtract
-	srOverflow  = 1 << 1 // OF: signed overflow
-	srZero      = 1 << 2 // ZF: the result was zero
-	srSign      = 1 << 3 // SF: the result was negative
-	srAboveS32  = 1 << 4 // AS: the accumulator does not fit in 32 bits
-	srTopTwo    = 1 << 5 // TT: the top two bits of the accumulator are equal
-	srLogicZero = 1 << 6 // OK/LZ: set by the logic ops when the result is zero
+	srCarry      = 1 << 0 // CF: carry out of the last add/subtract
+	srOverflow   = 1 << 1 // OF: signed overflow
+	srZero       = 1 << 2 // ZF: the result was zero
+	srSign       = 1 << 3 // SF: the result was negative
+	srAboveS32   = 1 << 4 // AS: the accumulator does not fit in 32 bits
+	srTopTwo     = 1 << 5 // TT: the top two bits of the accumulator are equal
+	srLogicZero  = 1 << 6 // OK/LZ: set by the logic ops when the result is zero
 	srOverSticky = 1 << 7 // OS: overflow, sticky until cleared
 
-	// The arithmetic-mode bits in the status register's high half, set and cleared by the
-	// dedicated mode ops (set40/set16, clr15/set15, m0/m2). Their exact hardware positions
-	// matter only to the multiply/accumulate ops that read them; the internal representation
-	// here is consistent with those ops.
-	srMulSigned = 1 << 13 // set15/clr15: multiplier operands unsigned vs signed
-	srMode40    = 1 << 14 // set40/set16: 40-bit accumulator mode vs 16-bit saturation
-	srMulShift  = 1 << 15 // m2/m0: multiply result shifted left one, or not
+	// The arithmetic-mode bits in the status register's high half, at their hardware positions
+	// (the ucode can read and write SR wholesale, so the positions are guest-visible). Note the
+	// polarities: products are doubled BY DEFAULT — M0 sets the modify bit to turn the doubling
+	// off, M2 clears it; and the unsigned-multiply mode affects only the MULX cross-multiply
+	// family (every other multiply is always signed).
+	srMulNoDouble = 0x2000 // M0 sets (products as-is), M2 clears (products doubled — the default)
+	srMode40      = 0x4000 // SET40 sets, SET16 clears: mid-accumulator load extension + read saturation
+	srMulUnsigned = 0x8000 // SET15 sets, CLR15 clears: ax low halves unsigned, MULX family only
 )
 
 // Bus is the hardware the DSP reaches through the high end of its data address space
@@ -181,24 +182,29 @@ func (c *CPU) ax(n int) int64 {
 	return (h << 16) | l
 }
 
-// prod reads the 40-bit product, summing the two middle contributions.
+// prod reads the product, summing the two middle contributions: the high piece is signed from
+// its LOW BYTE only, and the middle sum's carry is kept rather than wrapped at 40 bits (the
+// hardware's read composition — the biased clrp pieces rely on exactly this to read as zero).
 func (c *CPU) prod() int64 {
-	l := int64(c.Reg[regPRODL])
-	m1 := int64(c.Reg[regPRODM1])
-	h := int64(int16(c.Reg[regPRODH]))
-	m2 := int64(c.Reg[regPRODM2])
-	p := (h << 32) | (m1 << 16) | l
-	p += m2 << 16
-	p &= 0xFFFFFFFFFF
-	if p&(1<<39) != 0 { // sign-extend the 40-bit product so it adds into the accumulator correctly
-		p -= 1 << 40
-	}
+	p := int64(int8(c.Reg[regPRODH])) << 32
+	p += (int64(c.Reg[regPRODM1]) + int64(c.Reg[regPRODM2])) << 16
+	p += int64(c.Reg[regPRODL])
 	return p
 }
 
+// prodRounded reads the product rounded to its middle word: round half toward even at bit 16,
+// the convention movpz and addpaxz read the Q15 result out with.
+func (c *CPU) prodRounded() int64 {
+	p := c.prod()
+	if p&0x10000 != 0 {
+		return (p + 0x8000) &^ 0xFFFF
+	}
+	return (p + 0x7FFF) &^ 0xFFFF
+}
+
 // sr reads and writes the status register conveniently.
-func (c *CPU) sr() uint16      { return c.Reg[regSR] }
-func (c *CPU) setSR(v uint16)  { c.Reg[regSR] = v }
+func (c *CPU) sr() uint16     { return c.Reg[regSR] }
+func (c *CPU) setSR(v uint16) { c.Reg[regSR] = v }
 func (c *CPU) setFlag(bit uint16, on bool) {
 	if on {
 		c.Reg[regSR] |= bit

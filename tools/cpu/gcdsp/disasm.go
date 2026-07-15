@@ -235,6 +235,10 @@ func Disasm(read func(uint16) uint16, pc uint16) (text string, words uint16) {
 		return fmt.Sprintf("andf   ac%d.m, #0x%04X", (op>>8)&1, next()), 2
 	case op&0xFEFF == 0x02C0:
 		return fmt.Sprintf("andcf  ac%d.m, #0x%04X", (op>>8)&1, next()), 2
+	case op == 0x02CA:
+		return "lsrn   ac0, ac1.m", 1
+	case op == 0x02CB:
+		return "asrn   ac0, ac1.m", 1
 
 	// --- branches, calls, returns --------------------------------------------------------
 	case op&0xFFF0 == 0x0270:
@@ -299,9 +303,9 @@ func arithMnemonic(op uint16) string {
 	case op&0xFF00 == 0x8D00:
 		return "set15"
 	case op&0xFF00 == 0x8E00:
-		return "set40"
-	case op&0xFF00 == 0x8F00:
 		return "set16"
+	case op&0xFF00 == 0x8F00:
+		return "set40"
 	case op&0xFF00 == 0x8000:
 		return "nx"
 	case op&0xFF00 == 0x8400:
@@ -318,8 +322,16 @@ func arithMnemonic(op uint16) string {
 		return fmt.Sprintf("andr   ac%d.m, ax%d.h", d, (op>>9)&1)
 	case op&0xFC80 == 0x3800:
 		return fmt.Sprintf("orr    ac%d.m, ax%d.h", d, (op>>9)&1)
-	case op&0xF080 == 0x3080:
-		return fmt.Sprintf("op_%04X ac%d?", op&0xFF80&^0x0100, d)
+	case op&0xFE80 == 0x3080:
+		return fmt.Sprintf("xorc   ac%d.m", d)
+	case op&0xFC80 == 0x3480:
+		return fmt.Sprintf("lsrnrx ac%d, ax%d.h", d, (op>>9)&1)
+	case op&0xFC80 == 0x3880:
+		return fmt.Sprintf("asrnrx ac%d, ax%d.h", d, (op>>9)&1)
+	case op&0xFE80 == 0x3C80:
+		return fmt.Sprintf("lsrnr  ac%d", d)
+	case op&0xFE80 == 0x3E80:
+		return fmt.Sprintf("asrnr  ac%d", d)
 
 	// clr / cmp / tst.
 	case op&0xF700 == 0x8100:
@@ -331,7 +343,7 @@ func arithMnemonic(op uint16) string {
 	case op&0xF700 == 0xB100:
 		return fmt.Sprintf("tst    ac%d", (op>>11)&1)
 	case op&0xE700 == 0xC100:
-		return fmt.Sprintf("cmpaxh ac%d, ax%d.h", (op>>12)&1, (op>>11)&1)
+		return fmt.Sprintf("cmpaxh ac%d, ax%d.h", (op>>11)&1, (op>>12)&1)
 	case op&0xF700 == 0x9100:
 		return fmt.Sprintf("asr16  ac%d", (op>>11)&1)
 
@@ -413,7 +425,7 @@ func arithMnemonic(op uint16) string {
 	case op&0xFC00 == 0x7000:
 		return fmt.Sprintf("addaxl ac%d, ax%d", d, (op>>9)&1)
 	case op&0xFC00 == 0xF800:
-		return fmt.Sprintf("addpaxz ac%d, ax%d", (op>>9)&1, d)
+		return fmt.Sprintf("addpaxz ac%d, ax%d", d, (op>>9)&1)
 	case op&0xFE00 == 0xF000:
 		return fmt.Sprintf("lsl16  ac%d", d)
 	case op&0xFE00 == 0xF400:

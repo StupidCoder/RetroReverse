@@ -30,7 +30,7 @@ func TestDecode(t *testing.T) {
 		{[]uint16{0x029C, 0x002C}, "jmplnz 0x002C", 2},
 		{[]uint16{0x1302}, "sbset  #2", 1},
 		{[]uint16{0x1204}, "sbclr  #4", 1},
-		{[]uint16{0x8E00}, "set40", 1},
+		{[]uint16{0x8E00}, "set16", 1},
 		{[]uint16{0x8C00}, "clr15", 1},
 		{[]uint16{0x8B00}, "m0", 1},
 		{[]uint16{0x8100}, "clr    ac0", 1},
@@ -59,10 +59,10 @@ func TestDecode(t *testing.T) {
 		{[]uint16{0x174F}, "jmpr   ar2", 1},
 		// The shift group: bit 8 = accumulator, bit 7 = arithmetic, bits 6..0 signed amount.
 		{[]uint16{0x1401}, "lsl    ac0, #1", 1},
-		{[]uint16{0x1479}, "lsr    ac0, #7", 1},  // -7 in the 7-bit field
+		{[]uint16{0x1479}, "lsr    ac0, #7", 1}, // -7 in the 7-bit field
 		{[]uint16{0x147F}, "lsr    ac0, #1", 1},
 		{[]uint16{0x1488}, "asl    ac0, #8", 1},
-		{[]uint16{0x14FB}, "asr    ac0, #5", 1},  // arithmetic, -5
+		{[]uint16{0x14FB}, "asr    ac0, #5", 1}, // arithmetic, -5
 		{[]uint16{0x1501}, "lsl    ac1, #1", 1},
 		{[]uint16{0x1570}, "lsr    ac1, #16", 1}, // -16
 		{[]uint16{0x1585}, "asl    ac1, #5", 1},
@@ -86,12 +86,12 @@ func TestAlignment(t *testing.T) {
 		0x02FF, 0x0000, // 0002: rti / nop
 		0x02FF, 0x0000, // 0004: rti / nop
 		0x02FF, 0x0000, // 0006: rti / nop
-		0x8E00,         // 0008: set40
+		0x8E00,         // 0008: set16
 		0x009E, 0xFFFF, // 0009: lri ac0.m,#0xFFFF (two words)
 		0x1100, 0x0010, // 000B: bloopi #0, 0x0010
 		0x1B1E,         // 000D: srr @ar0, ac0.m
 		0x02BF, 0x0008, // 000E: call 0x0008
-		0x02DF,         // 0010: ret
+		0x02DF, // 0010: ret
 	}
 	mis, boundaries, overrun := DisasmValidate(reader(prog), uint16(len(prog)))
 	if len(mis) != 0 {

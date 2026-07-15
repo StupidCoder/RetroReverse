@@ -34,8 +34,9 @@ func run(t *testing.T, prog []uint16, stopAt uint16) *CPU {
 }
 
 // TestInitIdiom runs the register-init idiom the real ucode opens with: load 0xFFFF into an
-// accumulator middle word and copy it into the wrapping registers. It checks the value moves
-// and that writing acX.m sign-extends the high word.
+// accumulator middle word and copy it into the wrapping registers. The mid-load extension is
+// MODE-DEPENDENT: at power-on (set16) the rest of the accumulator is untouched; under set40 a
+// mid load sign-extends the high byte and clears the low word.
 func TestInitIdiom(t *testing.T) {
 	c := run(t, []uint16{
 		0x009E, 0xFFFF, // 0000: lri ac0.m, #0xFFFF
@@ -46,8 +47,20 @@ func TestInitIdiom(t *testing.T) {
 	if c.Reg[regWR0] != 0xFFFF || c.Reg[regWR0+1] != 0xFFFF {
 		t.Errorf("wr0/wr1 = 0x%04X/0x%04X, want 0xFFFF", c.Reg[regWR0], c.Reg[regWR0+1])
 	}
-	if c.Reg[regAC0H] != 0xFFFF {
-		t.Errorf("ac0.h = 0x%04X, want 0xFFFF (sign-extended from ac0.m)", c.Reg[regAC0H])
+	if c.Reg[regAC0H] != 0x0000 {
+		t.Errorf("ac0.h = 0x%04X, want untouched 0x0000 (set16 is the power-on mode)", c.Reg[regAC0H])
+	}
+
+	// The same load under set40: the high byte extends and the low word clears.
+	c2 := run(t, []uint16{
+		0x8F00,         // 0000: set40
+		0x009C, 0x1234, // 0001: lri ac0.l, #0x1234 (must be cleared by the mid load)
+		0x009E, 0xFFFF, // 0003: lri ac0.m, #0xFFFF
+		0x0021, // 0005: halt (sentinel)
+	}, 0x0005)
+	if c2.Reg[regAC0H] != 0xFFFF || c2.Reg[regAC0L] != 0x0000 {
+		t.Errorf("set40 mid load: ac0.h/l = 0x%04X/0x%04X, want 0xFFFF/0x0000",
+			c2.Reg[regAC0H], c2.Reg[regAC0L])
 	}
 }
 
@@ -325,9 +338,9 @@ func TestMixerLogicAndMoves(t *testing.T) {
 // TestMul pins the multiplier: prod = a signed 16x16 product, doubled in m2 mode. The mixer's
 // resampling loops depend on both the product value and the m0/m2 shift.
 func TestMul(t *testing.T) {
-	// mul ax0 (0x9000) in m0 mode: prod = ax0.l * ax0.h, no shift.
+	// mul ax0 (0x9000) in m0 mode: prod = ax0.l * ax0.h, no doubling (M0 SETS the modify bit).
 	c := New(nullBus{t})
-	c.setFlag(srMulShift, false)
+	c.setFlag(srMulNoDouble, true)
 	c.Reg[regAX0L] = 0x0004
 	c.Reg[regAX0H] = 0x0100
 	c.IRAM[0] = 0x9000
@@ -336,19 +349,19 @@ func TestMul(t *testing.T) {
 		t.Errorf("mul m0 prod = 0x%X, want 0x400", got)
 	}
 
-	// The same in m2 mode: the product is doubled.
+	// In m2 mode (the modify bit clear — the POWER-ON DEFAULT) the product is doubled.
 	c = New(nullBus{t})
-	c.setFlag(srMulShift, true)
 	c.Reg[regAX0L] = 0x0004
 	c.Reg[regAX0H] = 0x0100
 	c.IRAM[0] = 0x9000
 	c.Step()
 	if got := c.prod(); got != 0x800 {
-		t.Errorf("mul m2 prod = 0x%X, want 0x800", got)
+		t.Errorf("mul m2/default prod = 0x%X, want 0x800 (doubling is the default)", got)
 	}
 
-	// A signed product: -2 * 3 = -6.
+	// A signed product under m0: -2 * 3 = -6.
 	c = New(nullBus{t})
+	c.setFlag(srMulNoDouble, true)
 	c.Reg[regAX0L] = 0xFFFE // -2
 	c.Reg[regAX0H] = 0x0003
 	c.IRAM[0] = 0x9000
@@ -359,12 +372,36 @@ func TestMul(t *testing.T) {
 
 	// mulx ax0.h, ax1.h (0xB800): the cross product uses a half of ax0 and a half of ax1.
 	c = New(nullBus{t})
+	c.setFlag(srMulNoDouble, true)
 	c.Reg[regAX0H] = 0x0002
 	c.Reg[regAX1H] = 0x0003
 	c.IRAM[0] = 0xB800 // bit12,11 set -> ax0.h, ax1.h
 	c.Step()
 	if got := c.prod(); got != 6 {
 		t.Errorf("mulx prod = %d, want 6", got)
+	}
+
+	// set15 makes the MULX low halves unsigned — and ONLY the MULX family; a plain mul stays
+	// signed even in set15.
+	c = New(nullBus{t})
+	c.setFlag(srMulNoDouble, true)
+	c.setFlag(srMulUnsigned, true)
+	c.Reg[regAX0L] = 0xFFFE // 65534 unsigned
+	c.Reg[regAX1L] = 0x0002
+	c.IRAM[0] = 0xA000 // mulx ax0.l, ax1.l
+	c.Step()
+	if got := c.prod(); got != 65534*2 {
+		t.Errorf("set15 mulx .l*.l prod = %d, want %d (fully unsigned)", got, 65534*2)
+	}
+	c = New(nullBus{t})
+	c.setFlag(srMulNoDouble, true)
+	c.setFlag(srMulUnsigned, true)
+	c.Reg[regAX0L] = 0xFFFE // -2 — plain mul is signed regardless of set15
+	c.Reg[regAX0H] = 0x0003
+	c.IRAM[0] = 0x9000
+	c.Step()
+	if got := c.prod(); got != -6 {
+		t.Errorf("set15 plain mul prod = %d, want -6 (set15 is MULX-only)", got)
 	}
 }
 
@@ -670,18 +707,19 @@ func TestClrpMovpz(t *testing.T) {
 		t.Errorf("movpz after clrp: ac0 = 0x%X, want 0 (the biased pieces must sum to zero)", got)
 	}
 
-	// clrp; madd; movp — the product lands exactly (signed operands, m0: no doubling).
+	// m0; clrp; madd; movp — the product lands exactly (signed operands, no doubling).
 	c2 := New(nullBus{t})
 	noWrap(c2)
 	c2.Reg[regAX0L] = 0x4000 // +16384
 	c2.Reg[regAX0H] = 0xE000 // -8192
 	copy(c2.IRAM[:], []uint16{
+		0x8B00, // m0 (doubling is otherwise the power-on default)
 		0x8400, // clrp
 		0xF200, // madd ax0.l, ax0.h
 		0x6E00, // movp ac0
 		0x0021,
 	})
-	runOn(t, c2, 0x0003)
+	runOn(t, c2, 0x0004)
 	if want := int64(16384) * -8192; c2.ac(0) != want {
 		t.Errorf("clrp; madd; movp: ac0 = %d, want %d", c2.ac(0), want)
 	}
@@ -695,12 +733,13 @@ func TestMulcac(t *testing.T) {
 	c.Reg[regAC1M] = 0x4000 // the volume, in ac1.m
 	c.Reg[regAX1H] = 0x0100 // first sample
 	copy(c.IRAM[:], []uint16{
+		0x8B00,         // m0
 		0xD800,         // mulc ac1.m, ax1.h — prod = vol * s1
 		0x009B, 0xFF00, // lri ax1.h, #0xFF00 — second sample (-256)
 		0xDC00, // mulcac ac1.m, ax1.h, ac0 — ac0 += old prod; prod = vol * s2
 		0x0021,
 	})
-	runOn(t, c, 0x0004)
+	runOn(t, c, 0x0005)
 	if want := int64(0x4000) * 0x0100; c.ac(0) != want {
 		t.Errorf("mulcac accumulated ac0 = %d, want the FIRST product %d", c.ac(0), want)
 	}
@@ -719,6 +758,7 @@ func TestMaddcMaddx(t *testing.T) {
 	c.Reg[regAX0L] = 0x0040
 	c.Reg[regAX1H] = 0x0010
 	copy(c.IRAM[:], []uint16{
+		0x8B00, // m0
 		0x8400, // clrp
 		0xEB00, // maddc ac1.m, ax1.h — prod += 0x0123 * 0x0010
 		0xE100, // maddx ax0.l, ax1.h — prod += 0x0040 * 0x0010
@@ -726,7 +766,7 @@ func TestMaddcMaddx(t *testing.T) {
 		0x6E00, // movp ac0
 		0x0021,
 	})
-	runOn(t, c, 0x0005)
+	runOn(t, c, 0x0006)
 	want := int64(0x0123)*0x0010 + int64(0x0040)*0x0010
 	if c.ac(0) != want {
 		t.Errorf("maddc+maddx: ac0 = %d, want %d", c.ac(0), want)
@@ -785,11 +825,17 @@ func TestFIR(t *testing.T) {
 		}
 	}
 	// Every output: the Q15 MAC over the original window (outputs land at index n, windows
-	// read n..n+7, so the in-place write never aliases a later read).
+	// read n..n+7, so the in-place write never aliases a later read), read out through
+	// movpz's ROUNDING of the product to its middle word.
 	for n := 0; n < nOut; n++ {
 		var acc int64
 		for i := 0; i < 8; i++ {
 			acc += 2 * int64(int16(coefs[i])) * int64(int16(samples[n+i]))
+		}
+		if acc&0x10000 != 0 {
+			acc += 0x8000
+		} else {
+			acc += 0x7FFF
 		}
 		if got, want := c.DRAM[0x200+n], uint16(acc>>16); got != want {
 			t.Fatalf("output %d = 0x%04X, want 0x%04X", n, got, want)
@@ -858,7 +904,11 @@ func TestArWrap(t *testing.T) {
 		c := New(nullBus{t})
 		c.Reg[regWR0+3] = tc.wr
 		c.Reg[regAR0+3] = tc.ar
-		c.arStep(3, tc.delta)
+		if tc.delta == 1 {
+			c.arInc(3) // the dedicated +1 form srri/lrri use
+		} else {
+			c.arAdd(3, int16(tc.delta)) // the index form addarn uses
+		}
 		if c.Halted {
 			t.Fatalf("%s: halted: %s", tc.name, c.Reason)
 		}
@@ -919,5 +969,103 @@ func TestSevenBitExtRow(t *testing.T) {
 	}
 	if c2.Reg[regAX0L] != 0x7777 || c2.Reg[regAR0] != 0x102 {
 		t.Errorf("parallel ln: ax0.l = 0x%04X ar0 = 0x%04X, want 0x7777/0x0102 (stepped by ix0)", c2.Reg[regAX0L], c2.Reg[regAR0])
+	}
+}
+
+// TestShiftByRegister pins the register-amount shift family found by hardware testing (absent
+// from both paper sources): the 7-bit signed amount convention (low six bits of zero mean NO
+// shift even with the sign bit set), and the direction split — lsrn/asrn (0x02CA/CB, amount in
+// ac1.m, acting on ac0) shift RIGHT for positive amounts, while lsrnrx/asrnrx (amount in an ax
+// high) and lsrnr/asrnr (amount in the other accumulator's middle) shift LEFT.
+func TestShiftByRegister(t *testing.T) {
+	for _, tc := range []struct {
+		name   string
+		op     uint16
+		amtReg uint16 // where the amount goes
+		amt    uint16
+		in     int64 // preset into the target accumulator
+		want   int64
+	}{
+		{"lsrn-right-4", 0x02CA, regAC1M, 0x0004, 0x0000012340, 0x0000001234},
+		{"lsrn-left-neg4", 0x02CA, regAC1M, 0x7C, 0x0000001234, 0x0000012340}, // -4 in 7 bits
+		{"lsrn-zero-low-bits", 0x02CA, regAC1M, 0x0040, 0x0000001234, 0x0000001234},
+		{"lsrn-logical-zero-fill", 0x02CA, regAC1M, 0x0004, -0x1000000000, 0x0F00000000},
+		{"asrn-arith-sign-fill", 0x02CB, regAC1M, 0x0004, -0x1000000000, -0x0100000000},
+		{"asrnrx-ax0h-left-4", 0x3880, regAX0H, 0x0004, 0x0000001234, 0x0000012340},
+		{"asrnrx-ax0h-right-neg8", 0x3880, regAX0H, 0x78, -0x1000000000, -0x0010000000},
+		{"asrnrx-ax1h-ac1", 0x3B80, regAX1H, 0x0004, 0x0000001234, 0x0000012340},
+		{"lsrnrx-ax0h-right-neg8-zerofill", 0x3480, regAX0H, 0x78, -0x1000000000, 0x00F0000000},
+		{"lsrnr-by-other-mid", 0x3C80, regAC1M, 0x0004, 0x0000001234, 0x0000012340},
+		{"asrnr-ac1-by-ac0m", 0x3E80 | 0x0100, regAC0M, 0x0004, 0x0000001234, 0x0000012340},
+	} {
+		c := New(nullBus{t})
+		noWrap(c)
+		d := 0
+		if tc.op&0x0100 != 0 && tc.op != 0x02CA && tc.op != 0x02CB {
+			d = 1
+		}
+		c.setAc(d, tc.in)
+		c.Reg[tc.amtReg] = tc.amt
+		copy(c.IRAM[:], []uint16{tc.op, 0x0021})
+		runOn(t, c, 0x0001)
+		if got := c.ac(d); got != tc.want {
+			t.Errorf("%s: ac%d = 0x%010X, want 0x%010X", tc.name, d, uint64(got)&0xFFFFFFFFFF, uint64(tc.want)&0xFFFFFFFFFF)
+		}
+	}
+}
+
+// TestXorc pins xorc acD.m ^= ac(1-D).m — the bit7=1 sibling of the xorr row.
+func TestXorc(t *testing.T) {
+	c := New(nullBus{t})
+	noWrap(c)
+	c.Reg[regAC0M] = 0xFF00
+	c.Reg[regAC1M] = 0x0F0F
+	copy(c.IRAM[:], []uint16{0x3080, 0x0021})
+	runOn(t, c, 0x0001)
+	if got := c.Reg[regAC0M]; got != 0xF00F {
+		t.Errorf("xorc ac0.m = 0x%04X, want 0xF00F", got)
+	}
+}
+
+// TestMidReadSaturation pins the mode-dependent accumulator-middle READ: in set40 a middle
+// whose accumulator does not fit in 32 bits reads clamped to 0x7FFF/0x8000 (the mixer's MAC
+// results clip through exactly this on their way to memory); in set16 it reads plainly.
+func TestMidReadSaturation(t *testing.T) {
+	for _, tc := range []struct {
+		name string
+		mode uint16 // 0x8F00 set40 / 0x8E00 set16
+		in   int64
+		want uint16
+	}{
+		{"set40-positive-clamps", 0x8F00, 0x0123456789, 0x7FFF},
+		{"set40-negative-clamps", 0x8F00, -0x0123456789, 0x8000},
+		{"set40-fitting-plain", 0x8F00, 0x00003456 << 16, 0x3456},
+		{"set16-overflow-plain", 0x8E00, 0x0123456789, 0x2345},
+	} {
+		c := New(nullBus{t})
+		noWrap(c)
+		c.setAc(0, tc.in)
+		c.Reg[regAR0+2] = 0x0100
+		copy(c.IRAM[:], []uint16{
+			tc.mode,
+			0x1B5E, // srri @ar2, ac0.m — a store reads the middle through the register file
+			0x0021,
+		})
+		runOn(t, c, 0x0002)
+		if got := c.DRAM[0x100]; got != tc.want {
+			t.Errorf("%s: stored 0x%04X, want 0x%04X", tc.name, got, tc.want)
+		}
+	}
+}
+
+// TestAcHighWrite pins that a write to ac?.h keeps only its signed low byte — only 8 bits of
+// the high word are real.
+func TestAcHighWrite(t *testing.T) {
+	c := run(t, []uint16{
+		0x0090, 0x1280, // lri ac0.h, #0x1280 — only the 0x80 byte is real, sign-extended
+		0x0021,
+	}, 0x0002)
+	if got := c.Reg[regAC0H]; got != 0xFF80 {
+		t.Errorf("ac0.h = 0x%04X, want 0xFF80 (sign-extended from the low byte)", got)
 	}
 }

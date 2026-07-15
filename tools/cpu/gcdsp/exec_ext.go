@@ -48,9 +48,9 @@ func (p extPending) commit(c *CPU) {
 // the post-modification the parallel two-address moves apply to AR0 (load) and AR3 (store).
 func (c *CPU) extStep(n int, byIndex bool) {
 	if byIndex {
-		c.arStep(n, int(int16(c.Reg[regIX0+n])))
+		c.arAdd(n, int16(c.Reg[regIX0+n]))
 	} else {
-		c.arStep(n, +1)
+		c.arInc(n)
 	}
 }
 
@@ -131,12 +131,12 @@ func (c *CPU) extBegin(ext uint16) extPending {
 		}
 
 	case ext&0xFC == 0x04: // DR: decrement address register (bits 1..0)
-		c.arStep(int(ext&3), -1)
+		c.arDec(int(ext & 3))
 	case ext&0xFC == 0x08: // IR: increment address register
-		c.arStep(int(ext&3), +1)
+		c.arInc(int(ext & 3))
 	case ext&0xFC == 0x0C: // NR: step address register by its index register
 		n := int(ext & 3)
-		c.arStep(n, int(int16(c.Reg[regIX0+n])))
+		c.arAdd(n, int16(c.Reg[regIX0+n]))
 
 	default:
 		c.Halt("unmodelled parallel extension 0x%02X at 0x%04X", ext, c.PC)
@@ -146,28 +146,60 @@ func (c *CPU) extBegin(ext uint16) extPending {
 
 // --- the multiplier ----------------------------------------------------------------------
 //
-// The DSP multiplies two 16-bit operands into the 40-bit PROD register. clr15/set15 choose signed
-// or unsigned operands (the mixing ucode multiplies signed samples), and m0/m2 choose whether the
-// product is used as-is or doubled (the fractional-format left shift). These are documented mode
-// bits; the exact fixed-point conventions are the part most worth checking against a reference DSP.
+// The DSP multiplies two 16-bit operands into the 40-bit PROD register. The product is DOUBLED
+// unless the M0 mode bit is set (the fractional-format free left shift — doubling is the power-on
+// default, M2 restores it). The unsigned mode (set15) applies ONLY to the MULX cross-multiply
+// family, and there only to the ax LOW halves: .l×.l is fully unsigned, .l×.h multiplies an
+// unsigned low by a signed high, .h×.h stays signed. Every other multiply is always signed.
 
-// mul16 forms the 16x16 product under the current sign (set15) and shift (m2) modes.
+// mul16 forms the signed 16x16 product under the current doubling mode — the multiply every
+// non-MULX op uses.
 func (c *CPU) mul16(a, b uint16) int64 {
-	var p int64
-	if c.sr()&srMulSigned != 0 { // set15: unsigned operands
-		p = int64(uint32(a)) * int64(uint32(b))
-	} else { // clr15 (default): signed operands
-		p = int64(int16(a)) * int64(int16(b))
-	}
-	if c.sr()&srMulShift != 0 { // m2: product doubled
+	p := int64(int16(a)) * int64(int16(b))
+	if c.sr()&srMulNoDouble == 0 {
 		p <<= 1
 	}
 	return p
 }
 
-// setProd writes a 40-bit value into the product register's four pieces, clearing the second
-// middle word so a later prod() read returns exactly this value.
+// mulx16 forms a MULX-family product: aHigh/bHigh say which half of ax0/ax1 each operand came
+// from, which under set15 decides how much of the multiply is unsigned.
+func (c *CPU) mulx16(a, b uint16, aHigh, bHigh bool) int64 {
+	if c.sr()&srMulUnsigned == 0 {
+		return c.mul16(a, b)
+	}
+	var p int64
+	switch {
+	case !aHigh && !bHigh: // both low halves: fully unsigned
+		p = int64(uint32(a)) * int64(uint32(b))
+	case !aHigh && bHigh: // mixed: unsigned low times signed high
+		p = int64(uint32(a)) * int64(int16(b))
+	case aHigh && !bHigh:
+		p = int64(uint32(b)) * int64(int16(a))
+	default: // both high halves: signed
+		p = int64(int16(a)) * int64(int16(b))
+	}
+	if c.sr()&srMulNoDouble == 0 {
+		p <<= 1
+	}
+	return p
+}
+
+// mulxProd forms the product a MULX-family instruction (101b axxr) asks for: bit 12 selects the
+// half of ax0, bit 11 the half of ax1, and the chosen halves drive the set15 unsigned rules.
+func (c *CPU) mulxProd(op uint16) int64 {
+	aHigh := op&0x1000 != 0
+	bHigh := op&0x0800 != 0
+	a := c.Reg[regAX0L+((op&0x1000)>>11)]
+	b := c.Reg[regAX1L+((op&0x0800)>>10)]
+	return c.mulx16(a, b, aHigh, bHigh)
+}
+
+// setProd writes a value into the product register's four pieces, masked to 40 bits (the high
+// piece holds only bits 32..39) with the second middle word cleared, so a later prod() read
+// returns exactly this value.
 func (c *CPU) setProd(v int64) {
+	v &= 0xFFFFFFFFFF
 	c.Reg[regPRODL] = uint16(v)
 	c.Reg[regPRODM1] = uint16(v >> 16)
 	c.Reg[regPRODH] = uint16(v >> 32)

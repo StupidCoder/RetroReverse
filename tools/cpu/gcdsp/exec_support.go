@@ -65,69 +65,138 @@ func (c *CPU) dataWrite(a, v uint16) {
 // --- register file with side effects -----------------------------------------------------
 
 // getReg reads a register-file entry. Reading one of the four ST registers pops its hardware
-// stack; every other register reads plainly.
+// stack, and reading an accumulator MIDDLE word in 40-bit mode saturates: a value that does not
+// fit in 32 bits reads as 0x7FFF/0x8000 — the clamp the mixer's stores of MAC results ride on.
+// In 16-bit mode the middle reads plainly.
 func (c *CPU) getReg(r uint16) uint16 {
-	if r >= regST0 && r <= regST3 {
+	switch {
+	case r >= regST0 && r <= regST3:
 		return c.pop(r)
+	case (r == regAC0M || r == regAC1M) && c.sr()&srMode40 != 0:
+		n := int(r - regAC0M)
+		v := c.ac(n)
+		if v != int64(int32(v)) {
+			if v > 0 {
+				return 0x7FFF
+			}
+			return 0x8000
+		}
+		return c.Reg[r]
+	default:
+		return c.Reg[r]
 	}
-	return c.Reg[r]
 }
 
-// setReg writes a register-file entry. Writing an ST register pushes its stack; writing an
-// accumulator middle word sign-extends the accumulator's high byte to match, which is the
-// hardware's behaviour and is what keeps a value loaded into acX.m readable as a signed 40-bit
-// accumulator.
+// setReg writes a register-file entry, with the hardware's canonicalisations: an ST write pushes
+// its stack, an accumulator HIGH write sign-extends from its low byte (only 8 bits are real),
+// the product high keeps only its low byte, the config register its low byte, and an SR write
+// drops the always-zero bit 8. An accumulator MIDDLE write is plain here — the mode-dependent
+// whole-accumulator extension belongs to the plain load instructions (setRegExtend), NOT to the
+// parallel-extension loads, which land as bare register writes.
 func (c *CPU) setReg(r, v uint16) {
 	switch {
 	case r >= regST0 && r <= regST3:
 		c.push(r, v)
-	case r == regAC0M || r == regAC1M:
-		n := int(r - regAC0M)
-		c.Reg[regAC0M+n] = v
-		if v&0x8000 != 0 {
-			c.Reg[regAC0H+n] = 0xFFFF
-		} else {
-			c.Reg[regAC0H+n] = 0x0000
-		}
+	case r == regAC0H || r == regAC1H:
+		c.Reg[r] = uint16(int16(int8(v)))
+	case r == regPRODH:
+		c.Reg[r] = v & 0x00FF
+	case r == regCONFIG:
+		c.Reg[r] = v & 0x00FF
+	case r == regSR:
+		c.Reg[r] = v &^ 0x0100
 	default:
 		c.Reg[r] = v
 	}
 }
 
+// setRegExtend is setReg plus the load-instruction rule for accumulator middles: in 40-bit mode
+// (set40) a mid load sign-extends the high byte AND CLEARS THE LOW WORD, making the accumulator
+// the loaded value <<16; in 16-bit mode (set16, the power-on state) the mid loads plainly and
+// the rest of the accumulator keeps its old bits. lri/lris/lr/lrs/lrr/mrr use this; the parallel
+// extensions do not.
+func (c *CPU) setRegExtend(r, v uint16) {
+	c.setReg(r, v)
+	if (r == regAC0M || r == regAC1M) && c.sr()&srMode40 != 0 {
+		n := int(r - regAC0M)
+		if v&0x8000 != 0 {
+			c.Reg[regAC0H+n] = 0xFFFF
+		} else {
+			c.Reg[regAC0H+n] = 0x0000
+		}
+		c.Reg[regAC0L+n] = 0
+	}
+}
+
 // --- address registers -------------------------------------------------------------------
 
-// arStep advances address register n by a signed delta. The wrapping register wr bounds the
-// step to a circular buffer of wr+1 words; the common configuration this ucode sets is
-// wr = 0xFFFF, no wrap, a plain add.
-//
-// The wrap is a carry detector, not a true modulo: a forward step wraps (subtracts the buffer
-// length) when it flips an address bit above the buffer's span — (ar^nar) > (wr|1)<<1 — which
-// is only equivalent to a circular buffer when the ring's END sits just below a sufficiently
-// aligned boundary. The manual predates the wrapping registers entirely (it leaves $8..$11
-// unnamed), so this rule is pinned by the ucode's own buffer placements, which are load-bearing
-// exactly under it: the FIR's 8-word coefficient table at 0x03E8 ends at the 16-boundary 0x3F0
-// (wr0=7), and the pitch resampler's 160-word sample ring ends at the 1024-boundary 0x0C00
-// (wr3=0x9F, base 0x0B60 — the base the ucode itself subtracts from AR3 at 0x0B72 to read the
-// ring position back). Under a plain-modulo misreading those placements would be coincidences.
-// A backward step presumably mirrors the rule (add the length when the borrow crosses the
-// boundary), but no wrap-configured backward step occurs in this ucode to corroborate it, so
-// that case still halts rather than carry an untested formula.
-func (c *CPU) arStep(n int, delta int) {
-	wr := c.Reg[regWR0+n]
-	ar := c.Reg[regAR0+n]
-	switch {
-	case wr == 0xFFFF: // no wrap — a plain add
-		c.Reg[regAR0+n] = uint16(int32(ar) + int32(delta))
-	case delta == 0: // an index step of zero (the resampler parks AR3 with ix3 = 0)
-	case delta > 0:
-		nar := uint32(ar) + uint32(delta)
-		if (uint32(ar)^nar) > uint32(wr|1)<<1 {
-			nar -= uint32(wr) + 1
-		}
-		c.Reg[regAR0+n] = uint16(nar)
-	default:
-		c.Halt("DSP address-register wrap (ar%d, wr=0x%04X, step %d) not yet modelled at 0x%04X", n, wr, delta, c.PC)
+// The address registers step under the wrapping registers, which bound each step to a circular
+// buffer of wr+1 words (wr = 0xFFFF, the ucode's usual setting, is a plain 16-bit add). The
+// wrap is a carry detector, not a true modulo: a step wraps by the buffer length when it flips
+// an address bit above the buffer's span, which is only equivalent to a circular buffer when
+// the ring sits against a suitably aligned boundary — and this ucode's rings do exactly that
+// (the FIR's 8-word table at 0x03E8 ends at the 16-boundary 0x3F0; the pitch resampler's
+// 160-word ring, wr3=0x9F, ends at the 1024-boundary 0x0C00). The manual predates the wrapping
+// registers entirely (it leaves $8..$11 unnamed); the four formulas below are the
+// hardware-verified ones, adopted from Dolphin's DSP-LLE interpreter with the user's approval
+// (see doc.go). The single-step forms and the add-index forms detect the carry differently, so
+// they are kept as four distinct operations, matching which instruction uses which.
+
+// arInc post-increments address register n (the +1 of lrri/srri and the plain extension steps).
+func (c *CPU) arInc(n int) {
+	ar, wr := uint32(c.Reg[regAR0+n]), uint32(c.Reg[regWR0+n])
+	nar := ar + 1
+	if (nar ^ ar) > (wr|1)<<1 {
+		nar -= wr + 1
 	}
+	c.Reg[regAR0+n] = uint16(nar)
+}
+
+// arDec post-decrements address register n (dar and the decrementing loads/stores).
+func (c *CPU) arDec(n int) {
+	ar, wr := uint32(c.Reg[regAR0+n]), uint32(c.Reg[regWR0+n])
+	nar := ar + wr
+	if (nar^ar)&((wr|1)<<1) > wr {
+		nar -= wr + 1
+	}
+	c.Reg[regAR0+n] = uint16(nar)
+}
+
+// arAdd steps address register n by the signed index amount ix (addarn and the N-variant
+// extension steps).
+func (c *CPU) arAdd(n int, ix int16) {
+	ar, wr := uint32(c.Reg[regAR0+n]), uint32(c.Reg[regWR0+n])
+	mx := (wr | 1) << 1
+	nar := ar + uint32(int32(ix))
+	dar := (nar ^ ar ^ uint32(int32(ix))) & mx
+	if ix >= 0 {
+		if dar > wr { // carried past the ring
+			nar -= wr + 1
+		}
+	} else {
+		if ((nar+wr+1)^nar)&dar <= wr { // borrowed past it
+			nar += wr + 1
+		}
+	}
+	c.Reg[regAR0+n] = uint16(nar)
+}
+
+// arSub steps address register n by minus the signed index amount (subarn).
+func (c *CPU) arSub(n int, ix int16) {
+	ar, wr := uint32(c.Reg[regAR0+n]), uint32(c.Reg[regWR0+n])
+	mx := (wr | 1) << 1
+	nar := ar - uint32(int32(ix))
+	dar := (nar ^ ar ^ ^uint32(int32(ix))) & mx
+	if ix < 0 && ix != -0x8000 {
+		if dar > wr {
+			nar -= wr + 1
+		}
+	} else {
+		if ((nar+wr+1)^nar)&dar <= wr {
+			nar += wr + 1
+		}
+	}
+	c.Reg[regAR0+n] = uint16(nar)
 }
 
 // --- hardware stacks ---------------------------------------------------------------------
@@ -202,46 +271,55 @@ func (c *CPU) shiftAcc(r int, arith bool, amt int) {
 	c.setArithFlags(r)
 }
 
+// shiftAmount7 decodes the register-shift ops' 7-bit signed amount: low six bits of zero mean
+// no shift regardless of the sign bit; otherwise bit 6 makes the low six bits negative.
+func shiftAmount7(v uint16) int {
+	switch {
+	case v&0x3F == 0:
+		return 0
+	case v&0x40 != 0:
+		return -0x40 + int(v&0x3F)
+	default:
+		return int(v & 0x3F)
+	}
+}
+
 // --- status flags ------------------------------------------------------------------------
 
-// setArithFlags sets the zero and sign flags from a full 40-bit accumulator result. The finer
-// carry/overflow bits are added as the ops that produce them are implemented.
+// setArithFlags sets the compare flags from a full 40-bit accumulator result the way the moves,
+// shifts and multiply-accumulates do: zero and sign from the value, carry and overflow CLEARED
+// (every flag-writing op rewrites the whole compare group; only the adds and subtracts put
+// something in the carry/overflow bits).
 func (c *CPU) setArithFlags(n int) {
 	v := c.ac(n)
 	c.setFlag(srZero, v == 0)
 	c.setFlag(srSign, v < 0)
+	c.setFlag(srCarry, false)
+	c.setFlag(srOverflow, false)
 }
 
 // aluAddSub adds (or, when sub, subtracts) a 40-bit operand into accumulator d, stores the
 // result, and sets the zero, sign, carry and overflow flags the branch conditions read. The
-// carry means "no borrow" for a subtract; overflow is the ordinary two's-complement signed
-// overflow, taken over the 40-bit accumulator width, and is also latched into the sticky
-// overflow bit. b is the operand already sign-extended into an int64.
+// carry compares the first operand against the sign-extended result (add carries when the
+// result dropped below the operand, a subtract's carry means "no borrow"); overflow is the
+// two's-complement sign rule over the sign-extended values, latched into the sticky bit. b is
+// the operand already sign-extended into an int64.
 func (c *CPU) aluAddSub(d int, b int64, sub bool) {
 	a := c.ac(d)
-	var res int64
 	if sub {
-		res = a - b
-	} else {
-		res = a + b
+		b = -b
 	}
-	c.setAc(d, res)
-	v := c.ac(d) // the stored 40-bit signed result
+	c.setAc(d, a+b)
+	v := c.ac(d) // the stored 40-bit sign-extended result
 
 	c.setFlag(srZero, v == 0)
 	c.setFlag(srSign, v < 0)
-
-	ua := uint64(a) & 0xFFFFFFFFFF
-	ub := uint64(b) & 0xFFFFFFFFFF
 	if sub {
-		c.setFlag(srCarry, ua >= ub) // no borrow out of bit 39
-		// overflow: operands differ in sign and the result took the subtrahend's sign
-		c.setFlag(srOverflow, (a^b)&(a^v)&(1<<39) != 0)
+		c.setFlag(srCarry, uint64(a) >= uint64(v))
 	} else {
-		c.setFlag(srCarry, ua+ub > 0xFFFFFFFFFF) // carry out of bit 39
-		// overflow: operands share a sign and the result's sign flipped
-		c.setFlag(srOverflow, ^(a^b)&(a^v)&(1<<39) != 0)
+		c.setFlag(srCarry, uint64(a) > uint64(v))
 	}
+	c.setFlag(srOverflow, (a^v)&(b^v) < 0)
 	if c.Reg[regSR]&srOverflow != 0 {
 		c.Reg[regSR] |= srOverSticky
 	}
@@ -259,24 +337,31 @@ func (c *CPU) setTestFlags(n int) {
 	c.setFlag(srOverflow, false)
 }
 
-// setLogicFlags sets the zero and sign flags from an accumulator after a logic op. The DSP
-// judges these on the whole accumulator, so read it back the same way.
+// setLogicFlags sets the compare flags from an accumulator MIDDLE word after a logic op: zero
+// and sign are judged on the 16-bit result alone, carry and overflow are cleared, and the
+// LOGIC-ZERO flag is NOT touched — only andf/andcf write that one (the mailbox-wait idiom
+// depends on it surviving the surrounding logic ops).
 func (c *CPU) setLogicFlags(n int) {
-	v := c.ac(n)
+	v := int16(c.Reg[regAC0M+n])
 	c.setFlag(srZero, v == 0)
 	c.setFlag(srSign, v < 0)
-	c.setFlag(srLogicZero, uint16(v>>16) == 0)
+	c.setFlag(srCarry, false)
+	c.setFlag(srOverflow, false)
 }
 
-// subFlags sets the flags a compare produces: the zero, sign, carry and overflow of a-b, taken
-// over the 40-bit accumulator width. It does not store the difference.
+// subFlags sets the flags a compare produces: the zero, sign, carry and overflow of a-b over
+// the 40-bit accumulator width, without storing the difference. The carry compares the first
+// operand against the sign-extended result ("no borrow"); overflow is the two's-complement
+// sign rule.
 func (c *CPU) subFlags(a, b int64) {
-	d := a - b
-	c.setFlag(srZero, (d&0xFFFFFFFFFF) == 0)
-	c.setFlag(srSign, d < 0)
-	c.setFlag(srCarry, uint64(a&0xFFFFFFFFFF) >= uint64(b&0xFFFFFFFFFF))
-	// Signed overflow: operands differ in sign and the result takes the subtrahend's sign.
-	c.setFlag(srOverflow, ((a^b)&(a^d))&(1<<39) != 0)
+	res := ((a - b) << 24) >> 24 // sign-extend the 40-bit difference
+	c.setFlag(srZero, res == 0)
+	c.setFlag(srSign, res < 0)
+	c.setFlag(srCarry, uint64(a) >= uint64(res))
+	c.setFlag(srOverflow, (a^res)&(-b^res) < 0)
+	if c.Reg[regSR]&srOverflow != 0 {
+		c.Reg[regSR] |= srOverSticky
+	}
 }
 
 // --- branch conditions -------------------------------------------------------------------

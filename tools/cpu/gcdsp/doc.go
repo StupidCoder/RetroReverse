@@ -21,6 +21,11 @@
 // naming the address, rather than returning a plausible zero.
 //
 // The register file is 32 entries, most of them 16-bit, with the accumulators built from
-// several of them (see cpu.go). The instruction set is documented hardware — encodings, not
-// any game's or emulator's code — and is implemented here from that documentation.
+// several of them (see cpu.go). The instruction set is documented hardware, implemented here
+// from that documentation: the Duddie/Tratax DSP manual and the gamecube-tools opcode table
+// for the paper-documented core, and — for the corners the paper predates (the shift-by-
+// register family, the address-register wrap formulas, the mode-bit polarities, rounding and
+// saturation details) — the hardware-verified behaviour recorded in Dolphin's DSP-LLE
+// interpreter, consulted with the user's explicit approval as the ground truth of record
+// where the documentation runs out. Everything is reimplemented; nothing is copied.
 package gcdsp
