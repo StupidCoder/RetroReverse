@@ -101,6 +101,8 @@ func (p *PM) rmDOS(r *rmcs) bool {
 	switch ah {
 	case 0x30: // Get DOS version -> 7.0 in AL:AH
 		r.eax = (r.eax & 0xFFFF0000) | 0x0007
+	case 0x1A: // Set Disk Transfer Address — record it (FindFirst/Next would fill it)
+		p.dtaSeg, p.dtaOff = r.ds, uint16(r.edx)
 	case 0x25: // Set interrupt vector — ignore
 	case 0x35: // Get interrupt vector -> ES:BX = 0
 		r.es, r.ebx = 0, 0
@@ -120,7 +122,7 @@ func (p *PM) rmDOS(r *rmcs) bool {
 		case 0x05: // get boot drive -> DL = C:
 			r.edx = (r.edx & 0xFFFFFF00) | 2
 		} // set (AL=01) and others: no-op success
-	case 0x3C, 0x3D, 0x3E, 0x3F, 0x40, 0x41, 0x42, 0x43, 0x44, 0x47, 0x4E, 0x4F, 0x57: // file I/O
+	case 0x3C, 0x3D, 0x3E, 0x3F, 0x40, 0x41, 0x42, 0x43, 0x44, 0x47, 0x4E, 0x4F, 0x57, 0x60: // file I/O
 		return p.dosFile(r)
 	default:
 		return false

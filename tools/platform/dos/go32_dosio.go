@@ -129,9 +129,57 @@ func (p *PM) dosFile(r *rmcs) bool {
 		return true
 	case 0x4E, 0x4F: // Find first / find next -> "no more files"
 		return p.dosErr(r, 18)
+	case 0x60: // TRUENAME — canonicalize DS:SI path into the ES:DI buffer
+		return p.dosTruename(r)
 	default:
 		return false
 	}
+}
+
+// dosTruename services INT 21h AH=60h (canonicalize filename): it reads the source
+// path at DS:SI and writes its fully-qualified form to the 128-byte buffer at ES:DI.
+// DJGPP's _truename/__solve_dir_links calls this to normalize paths (e.g. resolving
+// the game directory). We return a canonical DOS path rooted on drive C: — uppercase,
+// backslash-separated, with "." and ".." collapsed — which is the shape the C library
+// expects; the drive and root are the fabricated ones the rest of the bridge assumes.
+func (p *PM) dosTruename(r *rmcs) bool {
+	src := p.asciiz(p.rmLinear(r.ds, r.esi))
+	canon := canonicalizeDOSPath(src)
+	dst := p.rmLinear(r.es, r.edi)
+	for i := 0; i < len(canon); i++ {
+		p.Write(dst+uint32(i), canon[i])
+	}
+	p.Write(dst+uint32(len(canon)), 0)
+	p.logf("DOS truename %q -> %q", src, canon)
+	return true
+}
+
+// canonicalizeDOSPath folds a DOS path to its TRUENAME form: uppercase, backslash
+// separators, an explicit drive letter (defaulting to C:), rooted at the drive root
+// (a relative path resolves against the drive's root, our only "current directory"),
+// and with empty / "." components dropped and ".." popping the previous component.
+func canonicalizeDOSPath(s string) string {
+	s = strings.ReplaceAll(s, "/", "\\")
+	drive := "C"
+	rest := s
+	if len(s) >= 2 && s[1] == ':' {
+		drive = strings.ToUpper(s[:1])
+		rest = s[2:]
+	}
+	var stack []string
+	for _, comp := range strings.Split(rest, "\\") {
+		switch comp {
+		case "", ".":
+			// skip
+		case "..":
+			if len(stack) > 0 {
+				stack = stack[:len(stack)-1]
+			}
+		default:
+			stack = append(stack, comp)
+		}
+	}
+	return strings.ToUpper(drive + ":\\" + strings.Join(stack, "\\"))
 }
 
 func (p *PM) dosOpen(r *rmcs) bool {

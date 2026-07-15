@@ -74,6 +74,7 @@ type PM struct {
 	virtIF  bool              // DPMI virtual interrupt flag (go32 brackets critical sections with it)
 
 	lolSeg, lolOff uint16 // real-mode far pointer to the fabricated DOS List of Lists (INT 21h AH=52h)
+	dtaSeg, dtaOff uint16 // real-mode far pointer to the Disk Transfer Address (INT 21h AH=1Ah)
 
 	// instrumentation
 	Log        []string
