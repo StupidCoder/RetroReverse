@@ -24,6 +24,8 @@ package ps2
 // DIRECT another link began), so the parser is a stream: what a feed cannot finish it
 // carries, and the next feed completes.
 
+import "retroreverse.com/tools/cpu/vu"
+
 // The VIFcode commands, by number.
 const (
 	vifNOP      = 0x00
@@ -67,6 +69,15 @@ type vif struct {
 	row, col   [4]uint32
 	base, ofst uint32 // VIF1's double buffer registers
 	itop, mark uint32
+
+	// The double-buffer state MSCAL owns: UNPACK writes land at TOPS (with the FLG
+	// bit); MSCAL hands TOPS to the program as TOP (read by XTOP) and flips TOPS to
+	// the other buffer. itop above is the staging ITOPS the same way.
+	tops uint32
+
+	// The vector unit itself (VIF1's runs; VU0's macro mode belongs to the EE's COP2).
+	vu      *vu.VU
+	vuSteps uint64
 
 	// The command in flight: its code word, the bytes its payload still needs, and the
 	// payload gathered so far.
@@ -184,6 +195,7 @@ func (v *vif) code(w uint32) {
 		v.ofst = imm
 	case vifBASE:
 		v.base = imm
+		v.tops = imm // TOPS starts at BASE; MSCAL flips it between the two buffers
 	case vifITOP:
 		v.itop = imm
 	case vifSTMOD:
@@ -198,16 +210,17 @@ func (v *vif) code(w uint32) {
 		// nothing waits.
 
 	case vifMSCAL, vifMSCALF:
-		// Run the microprogram at IMMEDIATE (in 64-bit units). There is no vector unit to
-		// run it on; the census records what a frame asked for, which is the specification
-		// for building one.
+		// Run the microprogram at IMMEDIATE (in 64-bit units).
 		v.count("mscal")
 		if v.mscal[imm]++; v.mscal[imm] == 1 {
 			v.m.note("VIF%d: MSCAL of the microprogram at 0x%X (VU%d micro address 0x%X)",
 				v.idx, imm, v.idx, imm*8)
 		}
+		v.runVU(imm*8, false)
 	case vifMSCNT:
+		// Run the microprogram from where the last one ended.
 		v.count("mscnt")
+		v.runVU(0, true)
 
 	case vifSTMASK:
 		v.arm(w, 4)
@@ -340,10 +353,16 @@ func (v *vif) unpack(cmd uint32, data []byte) {
 	flg := v.cmd&(1<<15) != 0
 
 	v.count(sprintf("unpack V%d-%d", vn+1, 32>>vl))
+	if v.mode != 0 {
+		v.count("unpack with STMOD (addition not applied)")
+	}
+	if v.mask != 0 && v.cmd&(1<<28) != 0 {
+		v.count("unpack with STMASK (mask not applied)")
+	}
 
 	addr := (imm & 0x3FF) * 16
 	if flg {
-		addr += v.ofst * 16 // double-buffer offset: TOPS = BASE + OFFSET, applied by flag
+		addr += v.tops * 16 // the double buffer MSCAL is filling next (TOPS)
 	}
 
 	// The read cursor over the payload and the element reader for the format.
@@ -418,6 +437,53 @@ func (v *vif) unpack(cmd uint32, data []byte) {
 	}
 }
 
+// runVU is the MSCAL family: latch the double-buffer pointers for the program to read
+// (XTOP/XITOP), flip TOPS to the buffer the next UNPACKs fill, and run the microprogram
+// to its E bit. cont is MSCNT — continue at the address the last program ended at.
+//
+// The run is synchronous where the hardware's is parallel: on the board the VIF goes on
+// feeding while the program runs, and MSCAL *waits* if the previous program hasn't
+// ended. Running to completion at the MSCAL is the same ordering contract with the wait
+// collapsed to zero.
+func (v *vif) runVU(start uint32, cont bool) {
+	if v.idx != 1 {
+		// VU0's microprograms are started by the EE through COP2 (CTC2 CMSAR / VCALLMS),
+		// not modelled yet; the census keeps what VIF0 asked for.
+		v.count("mscal (VU0 — not run)")
+		return
+	}
+	if v.vu == nil {
+		v.vu = vu.New(v.micro, v.data)
+		v.vu.XGKick = v.xgkick
+	}
+	v.vu.Top = uint16(v.tops)
+	v.vu.ITop = uint16(v.itop)
+	if v.ofst != 0 {
+		if v.tops == v.base {
+			v.tops = v.base + v.ofst
+		} else {
+			v.tops = v.base
+		}
+	}
+	if cont {
+		start = v.vu.PC
+	}
+	// The budget is a corrupt-program guard, far above any real program (the biggest
+	// ones here are a few thousand steps over a full input buffer).
+	steps, ended := v.vu.Run(start, 1<<20)
+	v.vuSteps += uint64(steps)
+	if !ended {
+		v.count("vu1 program hit the step budget")
+	}
+}
+
+// xgkick is PATH1: the program hands the GS a GIF packet it built in data memory.
+func (v *vif) xgkick(qw uint32) {
+	v.count("xgkick")
+	data := v.data[qw*16:]
+	v.m.gifPacket(data[:gifPacketLen(data)])
+}
+
 func (v *vif) count(what string) { v.census[sprintf("VIF%d %s", v.idx, what)]++ }
 
 // fnv64 hashes an MPG payload, for the distinct-program census.
@@ -458,6 +524,9 @@ func (m *Machine) VIFCensus() string {
 		}
 		for _, kv := range sortedCounts(v.census) {
 			s += sprintf("      %-24s %d\n", kv.name, kv.n)
+		}
+		if v.vuSteps > 0 {
+			s += sprintf("      VU%d instructions run    %d\n", v.idx, v.vuSteps)
 		}
 		if len(v.mpgSeen) > 0 {
 			var progs []*mpgInfo

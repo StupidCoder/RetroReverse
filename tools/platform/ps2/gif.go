@@ -169,6 +169,40 @@ func (m *Machine) gifPacked(gs *GS, desc uint64, lo, hi uint64) {
 	}
 }
 
+// gifPacketLen walks GIFtags from the start of data to the end of the packet — through
+// the tag whose EOP bit is set — and returns its byte length. XGKICK needs it: the
+// program names where its packet starts, and the packet itself says where it ends.
+func gifPacketLen(data []byte) int {
+	pos := 0
+	for pos+16 <= len(data) {
+		lo := le64(data[pos:])
+		nloop := int(lo & 0x7FFF)
+		eop := lo&(1<<15) != 0
+		flg := lo >> 58 & 3
+		nreg := int(lo>>60) & 0xF
+		if nreg == 0 {
+			nreg = 16
+		}
+		pos += 16
+		switch flg {
+		case gifPacked:
+			pos += nloop * nreg * 16
+		case gifReglist:
+			n := nloop * nreg
+			pos += (n + n&1) * 8
+		default: // IMAGE and the disabled alias both carry NLOOP quadwords
+			pos += nloop * 16
+		}
+		if eop {
+			break
+		}
+	}
+	if pos > len(data) {
+		pos = len(data)
+	}
+	return pos
+}
+
 // le64 reads a little-endian 64-bit word out of a byte slice.
 func le64(b []byte) uint64 {
 	return uint64(b[0]) | uint64(b[1])<<8 | uint64(b[2])<<16 | uint64(b[3])<<24 |
