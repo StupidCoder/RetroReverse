@@ -25,6 +25,12 @@ roadmap.)
   descriptor and its magic, the binary-tree directory format, the XBE header, its sections, the
   XOR-de-obfuscated entry point and kernel-thunk table, and the imported-ordinal census. *(this
   document)*
+* **Part II** — the **machine**: 64 MB of RAM behind the Pentium III's address windows, the XBE
+  loaded at its fixed base, every kernel import thunk-patched to a Go trap, and the title's own
+  XDK/CRT boot code run until it reaches the C runtime's SSE object initialisation. Covers the
+  memory model, the function/data-export split, the empirical way each `xboxkrnl` ordinal is
+  identified from its live call site, the SSE core the boot demands, and the scheduler and
+  savestate. *(this document)*
 
 ---
 
@@ -164,3 +170,126 @@ $ xbeinfo -image "…iso" -extract /default.xbe -o default.xbe
 The tests (`tools/platform/xbox/xbox_test.go`) build a synthetic XBE and a synthetic one-file
 XISO in memory — so the parse logic, the XOR-key selection, and the tree walk are exercised on a
 clean checkout — plus a `TestRealDisc` that opens the image when present and skips when it is not.
+
+---
+
+## Part II — the machine
+
+Part I read the disc without running a single instruction. Part II runs the title's own code.
+`tools/platform/xbox` is now a **machine**: 64 MB of RAM, the shared `tools/cpu/x86` core in flat
+32-bit protected mode (the Pentium III), and the NV2A's MMIO aperture. It loads `default.xbe` at
+its fixed base, replaces every kernel-import thunk with a trap into a Go handler, and runs the
+XDK/C-runtime boot code until it reaches a facility not yet modelled — stopping there and naming
+it, so each run is a concrete statement of how far the boot got.
+
+### The address space
+
+The Xbox is a flat 32-bit machine with a handful of fixed windows onto the same 64 MB of physical
+RAM. `translate` (in `machine.go`) folds them all onto one backing slice:
+
+```
+0x00000000..0x03FFFFFF  physical RAM, identity (the title at 0x10000, stacks, heap)
+0x80000000..0x83FFFFFF  cached kernel window    -> phys = va - 0x80000000
+0xB0000000..0xB3FFFFFF  uncached kernel window   -> phys = va - 0xB0000000
+0xD0000000..0xD3FFFFFF  physical / write-back    -> phys = va & 0x03FFFFFF
+0xFD000000..0xFDFFFFFF  the NV2A MMIO aperture (nv2a.go)
+```
+
+Kernel bookkeeping — the KPCR that FS points at, the dispatcher and thread objects the HLE hands
+out — lives in a reserved band at the very top of RAM, so it never collides with what the title
+allocates from below. The XBE's sections load at their virtual addresses (Xbox VAs *are* low
+physical addresses), the segment registers are flat (base 0) except FS, which carries the KPCR
+base the way the real kernel leaves it.
+
+### Trapping the kernel: functions and data
+
+A title imports `xboxkrnl.exe` by ordinal — its IAT (the thunk table from Part I) is an array of
+DWORDs, each the ordinal with its high bit set. The loader would overwrite each slot with the real
+function pointer; the machine overwrites it with a unique **sentinel** address in a trap region
+(`patchThunks`). When title code does `CALL DWORD PTR [slot]` the program counter lands on the
+sentinel; the CPU's per-instruction hook recognises the trap range, decodes the ordinal, runs its
+Go handler, and simulates the `__stdcall` return (pop the return address, drop the callee's
+arguments). The sentinel bytes are never fetched. This is the x86 analogue of the PSP HLE's
+`jr $ra; syscall` stub patch.
+
+Not every import is a function. The kernel also exports **data** by ordinal — the OBJECT_TYPE tags
+the object manager compares against, the debugger-present flags, the running tick counters, the
+console's version and hardware structures. A title imports these the same way but then
+*dereferences* the slot to read the data rather than CALLing through it. The first sign of one was
+a fault: `MOV EAX,[slot]; MOV EAX,[EAX]` read straight into the trap region. The resolution is
+clean: reads that land in the trap region return **zero** — the safe default for a flag, a handle,
+or a pointer that a title mostly checks for bits or passes straight back to an `Nt*`/`Ob*` call —
+while execution in that region still dispatches the function. Functions dispatch; data reads zero;
+nothing is guessed. (A data export that genuinely needs a non-zero value gets an explicit populated
+block instead; only the kernel version struct has needed one so far.)
+
+### Reading the ordinal table off the running title
+
+The `xboxkrnl` export table is fixed platform ABI, but a table reconstructed from memory drifts by
+a few entries in several blocks — enough that binding a handler by a guessed number is a coin
+flip, and a *wrong* binding is worse than none (a function pointed at a data block is CALLed
+straight into it and executes garbage). So every ordinal is pinned the honest way: from its **live
+call site**. The argument count comes from the pushes before the `CALL`; the identity comes from
+the argument shapes and how the caller consumes the result. A few examples from this boot:
+
+| Ordinal | Pinned as | The evidence |
+|---|---|---|
+| 255 | `PsCreateSystemThreadEx` | a 10-argument call spawning the main thread (start routine, stack size, two contexts, a CreateSuspended flag) |
+| 24  | `ExQueryNonVolatileSetting` | a 5-arg tail-call reading system config: `(index 0x11, Type*, Value*, len 4, ResultLen*)` |
+| 47  | `HalRegisterShutdownNotification` | `(&HAL_SHUTDOWN_REGISTRATION, TRUE)` — and it *returns* (so not `HalReturnToFirmware`, which never does) |
+| 107 | `KeInitializeDpc` | `(KDPC, routine-in-.text, context)` |
+| 149 | `KeSetTimer` | `(KTIMER, negative relative due time as two dwords, KDPC)` |
+| 165 | `MmAllocateContiguousMemory` | a 1-arg allocation returning a pointer |
+| 184 | `NtAllocateVirtualMemory` | `(base**, zerobits, size*, MEM_RESERVE=0x2000, PAGE_READWRITE=4)` |
+| 187 | `NtCreateMutant` | `(handle*, ObjectAttributes, InitialOwner)` |
+| 202 | `NtOpenFile` | `(handle*, access, ObjectAttributes, IoStatusBlock, share, options)` |
+
+These pins also *measure* the table's drift: `NtCreateMutant` sits at 187 (where the reconstructed
+table puts it), but `NtOpenFile` at 202 is five higher than the reconstruction, and the `Mm` block
+(`MmAllocateContiguousMemory` at 165) and the `Ke` block are shifted too. So only ordinals promoted
+into a verified list are trusted; the reconstructed names elsewhere are labels for a log line, and
+the machine halts rather than run a handler it has not confirmed.
+
+`NtOpenFile` is disc-backed: it resolves an Xbox object path (`\Device\CdRom0\…`, `\??\D:\…`)
+against the mounted XISO and streams the file with `NtReadFile`; a path on the HDD
+(`\Device\Harddisk0\…`) reports "not found", exactly as a freshly-formatted console would.
+
+### SSE — the Xbox-only CPU piece
+
+The boot runs cleanly through the thread spawn, the DPC/timer/critical-section setup, and the
+config queries, and then hits `0F 57` — **XORPS**. The XDK C runtime zeroes an object's float
+members with `XORPS xmm0, xmm0` and stores them with `MOVSS`. This is the one piece of the CPU no
+DOS-era game reaches, so it is added to `tools/cpu/x86` behind the two-byte page's mandatory-prefix
+decode (`sse.go`): eight 128-bit XMM registers and the scalar/packed single- and double-precision
+moves, bitwise logic, arithmetic, conversions, and ordered compares. The real-mode SingleStepTests
+harness and the protected-mode/x87 suites stay green; two new tests (`sse_test.go`) guard the
+scalar and packed paths.
+
+### The scheduler and the savestate
+
+`PsCreateSystemThreadEx` materialises the title's main thread as a saved `x86.CPU` context; the
+preemptive scheduler (`sched.go`) runs the highest-priority ready thread for a quantum and switches
+between them, following the shape proven on the 3DS. The savestate (`state.go`) is a versioned,
+gzip'd `gob` snapshot of the whole 64 MB, the CPU (registers, x87 stack, the new XMM file), the
+allocators and clock, and the thread and object graphs — a deep copy that restores bit-identically
+and resumes deterministically, as `TestSaveStateRoundTrip` checks against the real disc.
+
+### Where the boot reaches
+
+`bootoracle -image "…OutRun 2006…iso"` runs **28,522 instructions** of the title's own XDK/CRT
+boot code — spawning the main thread, standing up the DPC/timer/critical-section machinery,
+querying system config, opening and probing the disc and HDD, and reaching the C runtime's
+SSE-driven object initialisation — before it halts at the current frontier: a `Mm`-family
+allocation call whose exact signature is left unpinned rather than guessed (its call site pushes a
+64-bit value split across registers, so the argument count is ambiguous and a wrong count would
+desync the stack). Fifteen `xboxkrnl` ordinals are modelled and verified. The next steps are to
+pin that call and continue the empirical march through the XDK's Direct3D 8 device creation toward
+the first NV2A push-buffer kick — after which the **NV2A LLE GPU (Phase C)** renders the frame.
+
+### Tooling
+
+- `tools/platform/xbox/{machine,nv2a,kernel,kernel_ordinals,kernel_objects,kernel_data,kernel_file,thread,sched,state,ports,run}.go` — the machine and its HLE.
+- `games/outrun-2006-xbox/extract/cmd/bootoracle` — the boot driver, standard oracle flags
+  (`-image -steps -trace -stack -ordinals -dump -savestate -loadstate -v`). `-stack` on a halt
+  disassembles the call site so the next ordinal's signature reads straight off the pushes.
+- `tools/cpu/x86/sse.go` — the SSE/SSE2 execution subset (the Xbox-only CPU addition).

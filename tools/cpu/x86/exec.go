@@ -351,7 +351,7 @@ func (c *CPU) exec(op, rep byte) {
 
 	case 0x0F:
 		c.Ext386++
-		c.exec0F(byte(c.fetch8()))
+		c.exec0F(byte(c.fetch8()), rep)
 	case 0xD8, 0xD9, 0xDA, 0xDB, 0xDC, 0xDD, 0xDE, 0xDF: // x87 escape
 		c.fpuExec(op)
 

@@ -118,6 +118,11 @@ type CPU struct {
 	// before its own FNINIT sees the architectural 0x037F default.
 	FPU FPUState
 
+	// XMM is the eight 128-bit SSE registers (see sse.go). The Pentium III's SSE unit
+	// is a Xbox-era requirement: the XDK C runtime zeroes float members with XORPS and
+	// stores them with MOVSS. Held as raw bytes; sse.go interprets lanes as f32/f64.
+	XMM [8][16]byte
+
 	// transient per-instruction decode state (segment override / sizes)
 	dSeg      int // segment-override index, or -1
 	dOpsize   int // 16 or 32

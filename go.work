@@ -11,6 +11,7 @@ use (
 	./games/luigis-mansion-gc/extract
 	./games/mario-kart-ds/extract
 	./games/need-for-speed-3do/extract
+	./games/outrun-2006-xbox/extract
 	./games/pilotwings-64-n64/extract
 	./games/ridge-racer-psx/extract
 	./games/sonic-gg/extract

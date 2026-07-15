@@ -500,8 +500,10 @@ func (c *CPU) aad(base byte) {
 	c.setSZP(res, 1)
 }
 
-// exec0F executes the implemented subset of the 0x0F two-byte page.
-func (c *CPU) exec0F(op byte) {
+// exec0F executes the implemented subset of the 0x0F two-byte page. rep carries any
+// 0xF2/0xF3 prefix (a REP byte in the string ops, a mandatory prefix in SSE); a 0x66
+// prefix is visible as dOpsize==16.
+func (c *CPU) exec0F(op, rep byte) {
 	switch {
 	case op >= 0x80 && op <= 0x8F: // Jcc near
 		rel := c.fetchImm()
@@ -577,6 +579,9 @@ func (c *CPU) exec0F(op byte) {
 		reg, o := c.modrmE()
 		c.setReg(reg, c.osz(), signExtWord(c.rEA(o, 2)))
 	default:
+		if c.execSSE(op, rep) {
+			return
+		}
 		c.Halt("unimplemented 0F opcode $%02X at %s", op, c.at())
 	}
 }
