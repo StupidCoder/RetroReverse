@@ -147,10 +147,24 @@ func (a *Adapter) Title() string    { return filepath.Base(a.imagePath) }
 // interface does not cover.
 func (a *Adapter) Machine() *gc.Machine { return a.live }
 
-// Close drops the machines. The disc file handle goes with them.
+// Close drops the machines. The disc file handle goes with them, and so — since the
+// rasteriser learned to fan out — do their worker goroutines.
+//
+// Closing each machine BEFORE dropping the reference is the whole point: a Machine's worker
+// pool holds its goroutines, and the goroutines hold the pool, so a machine that is merely
+// set to nil leaks its workers for the life of the process. The debugger is where that would
+// bite, because it is the one caller that makes machines and throws them away — a scratch
+// machine per command replay, a live machine per game opened.
 func (a *Adapter) Close() error {
 	if a.live != nil {
+		a.live.Close()
 		if d := a.live.Disc(); d != nil {
+			d.Close()
+		}
+	}
+	if a.scratch != nil {
+		a.scratch.Close()
+		if d := a.scratch.Disc(); d != nil {
 			d.Close()
 		}
 	}

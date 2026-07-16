@@ -109,6 +109,13 @@ type Machine struct {
 
 	StopRequested bool
 
+	// SingleThreaded forces every stage of the machine onto this goroutine. The parallel
+	// stages are deterministic by construction — the partition decides the answer, not the
+	// scheduler — but a caller that wants to be certain can say so: a bisect against a
+	// suspected race, a debugger capture, or a replayer that is already one of eight and
+	// should not ask for eight more of its own.
+	SingleThreaded bool
+
 	// Instrs counts Gekko instructions retired since the machine was built. It is the
 	// emulator's own tally, not guest state: it is not in the savestate, and a restore does
 	// not rewind it — a profile counter wants to know how much work this process has done.

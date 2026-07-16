@@ -20,6 +20,7 @@ package gc
 import (
 	"fmt"
 	"os"
+	"sync/atomic"
 )
 
 // pixDbg, when set to "x,y", logs every draw that touches that one pixel: the interpolated
@@ -85,10 +86,33 @@ func perspTexCoords(b0, b1, b2 float32, v0, v1, v2 screenVertex, out *[maxTexCoo
 	}
 }
 
-// drawTriangle rasterises one triangle of three transformed vertices.
-func (g *gpu) drawTriangle(m *Machine, tev *tevState, v0, v1, v2 screenVertex) {
-	g.ensureRaster()
+// rasterTri is one triangle that has survived setup: projected, wound, bounded and not
+// culled, carrying the depth mode the draw was issued under. It is the unit the fill works
+// on, and it exists so that the fill can be handed a ROW RANGE — which is what makes the
+// partition below possible.
+type rasterTri struct {
+	v0, v1, v2      screenVertex
+	area            float32
+	minX, maxX      int
+	minY, maxY      int
+	zEnable, zWrite bool
+	zFunc           int
+}
 
+// rstats is one worker's tally of where its fragments went. The counters used to be
+// incremented straight into the gpu, which is a write, and a write is what a fan-out cannot
+// share. Making them atomic would have put a contended cache line in the middle of the
+// fragment loop; these are merged after the join, IN WORKER ORDER, so the totals are as
+// deterministic as the picture.
+type rstats struct {
+	written, zRej, aRej int
+}
+
+// setupTri projects one triangle into a rasterTri, or reports that it covers nothing.
+//
+// It stays SERIAL, and it has to: it owns the culled counter, and cullTest reads an
+// environment override that exists to answer "is this geometry missing because of culling?".
+func (g *gpu) setupTri(v0, v1, v2 screenVertex) (rasterTri, bool) {
 	// The bounding box, clamped to the framebuffer.
 	minX := int(min3(v0.x, v1.x, v2.x))
 	maxX := int(max3(v0.x, v1.x, v2.x)) + 1
@@ -111,11 +135,11 @@ func (g *gpu) drawTriangle(m *Machine, tev *tevState, v0, v1, v2 screenVertex) {
 	// Its SIGN is the triangle's winding on screen, which is what the cull test reads.
 	area := edge(v0.x, v0.y, v1.x, v1.y, v2.x, v2.y)
 	if area == 0 {
-		return
+		return rasterTri{}, false
 	}
 	if g.cullTest(area) {
 		g.profCulled++
-		return
+		return rasterTri{}, false
 	}
 
 	// The depth mode the game programmed (BP 0x40) — layout pinned from the game's own
@@ -125,10 +149,28 @@ func (g *gpu) drawTriangle(m *Machine, tev *tevState, v0, v1, v2 screenVertex) {
 	// passes and none is recorded.
 	zm := g.BP[0x40]
 	zEnable := zm&1 != 0
-	zFunc := int((zm >> 1) & 7)
-	zWrite := zEnable && zm&(1<<4) != 0
 
-	for y := minY; y < maxY; y++ {
+	return rasterTri{
+		v0: v0, v1: v1, v2: v2, area: area,
+		minX: minX, maxX: maxX, minY: minY, maxY: maxY,
+		zEnable: zEnable,
+		zFunc:   int((zm >> 1) & 7),
+		zWrite:  zEnable && zm&(1<<4) != 0,
+	}, true
+}
+
+// fillTri rasterises one set-up triangle, but only the rows in [yLo, yHi).
+//
+// The row range is the whole point: it is what lets a band of the screen be filled by exactly
+// one worker. Called serially it is handed the triangle's own bounds and behaves as the
+// single loop it replaced.
+func (g *gpu) fillTri(m *Machine, tev *tevState, t *rasterTri, yLo, yHi int, st *rstats) {
+	v0, v1, v2 := t.v0, t.v1, t.v2
+	area := t.area
+	zEnable, zFunc, zWrite := t.zEnable, t.zFunc, t.zWrite
+	minX, maxX := t.minX, t.maxX
+
+	for y := yLo; y < yHi; y++ {
 		py := float32(y) + 0.5
 		for x := minX; x < maxX; x++ {
 			px := float32(x) + 0.5
@@ -149,7 +191,7 @@ func (g *gpu) drawTriangle(m *Machine, tev *tevState, v0, v1, v2 screenVertex) {
 			z := uint32(b0*v0.z + b1*v1.z + b2*v2.z)
 			idx := y*efbWidth + x
 			if zEnable && !depthCompare(z, g.ZBuf[idx], zFunc) {
-				g.pixZRej++
+				st.zRej++
 				if m.OnPixel != nil {
 					m.OnPixel(x, y, PixelEvent{})
 				}
@@ -178,7 +220,7 @@ func (g *gpu) drawTriangle(m *Machine, tev *tevState, v0, v1, v2 screenVertex) {
 					tr, tg, tb, ta, fr, fg, fb, fa, pass, g.EFB[idx])
 			}
 			if !pass { // the alpha test rejected the pixel
-				g.pixARej++
+				st.aRej++
 				if m.OnPixel != nil {
 					m.OnPixel(x, y, PixelEvent{R: fr, G: fg, B: fb, A: fa})
 				}
@@ -189,12 +231,138 @@ func (g *gpu) drawTriangle(m *Machine, tev *tevState, v0, v1, v2 screenVertex) {
 			if zWrite {
 				g.ZBuf[idx] = z
 			}
-			g.pixWritten++
+			st.written++
 			if m.OnPixel != nil {
 				m.OnPixel(x, y, PixelEvent{R: fr, G: fg, B: fb, A: fa, Drawn: true})
 			}
 		}
 	}
+}
+
+// bandRows is how many screen rows one worker takes at a time.
+//
+// The 3DS uses eight and deliberately refuses four, even though four measured a hair faster:
+// its render target is Morton-tiled and an 8x8 tile is eight rows tall, so a four-row band
+// lets two workers write into the same tile and false-share its cache lines. Same speed,
+// worse reason.
+//
+// THAT CONSTRAINT DOES NOT EXIST HERE. Flipper's embedded framebuffer is a flat []uint32
+// indexed y*efbWidth+x, not tiled, and a row is 640*4 = 2560 bytes = 40 cache lines exactly —
+// so EVERY row boundary is 64-byte aligned and bands of any height never share a line. The
+// value is therefore free to be chosen by measurement alone, and was.
+const bandRows = 8
+
+// fill rasterises a draw's triangles, in parallel when it is faithful to do so.
+//
+// DETERMINISM COMES FROM THE PARTITION, NOT FROM THE SCHEDULER. A band of rows is filled by
+// exactly one worker, so no two workers touch the same pixel; within a band the triangles are
+// applied in submission order, because every worker walks tris in index order. The buffer the
+// workers leave behind is byte for byte the one the serial loop leaves. Bands are handed out
+// from a shared counter rather than dealt out in advance, because geometry is not spread
+// evenly down the screen — but WHICH worker takes WHICH band cannot change the result, only
+// how long it takes.
+func (g *gpu) fill(m *Machine, tev *tevState, tris []rasterTri) {
+	if len(tris) == 0 {
+		return
+	}
+	// Before any worker starts: allocating the framebuffer is a write, and it was sitting on
+	// the per-triangle path.
+	g.ensureRaster()
+
+	workers := g.rasterWorkers(m, tev, tris)
+	if workers <= 1 {
+		g.profSerFills++
+		var st rstats
+		for i := range tris {
+			t := &tris[i]
+			g.fillTri(m, tev, t, t.minY, t.maxY, &st)
+		}
+		g.mergeStats(&st)
+		return
+	}
+	g.profParFills++
+
+	bands := (efbHeight + bandRows - 1) / bandRows
+	stats := make([]rstats, workers)
+	var next int32
+	g.pool().run(workers, func(w int) {
+		st := &stats[w]
+		for {
+			b := int(atomic.AddInt32(&next, 1)) - 1
+			if b >= bands {
+				return
+			}
+			yLo := b * bandRows
+			yHi := min(yLo+bandRows, efbHeight)
+			for i := range tris {
+				t := &tris[i]
+				if t.maxY <= yLo || t.minY >= yHi {
+					continue
+				}
+				g.fillTri(m, tev, t, max(t.minY, yLo), min(t.maxY, yHi), st)
+			}
+		}
+	})
+	// Merged in worker order, so the totals do not depend on who finished first.
+	for i := range stats {
+		g.mergeStats(&stats[i])
+	}
+}
+
+func (g *gpu) mergeStats(st *rstats) {
+	g.pixWritten += st.written
+	g.pixZRej += st.zRej
+	g.pixARej += st.aRej
+}
+
+// rasterWorkers decides how many workers may fill this draw. One means "here, on this
+// goroutine".
+//
+// The first group is not about profit, it is about FAITHFULNESS: each of these is something
+// that observes the fill as it happens, or that the fill can do to the machine, and a
+// partition would either race on it or reorder what it reports.
+//
+//   - OnPixel is the frame debugger's per-pixel hook (the capture that answers "which draw
+//     made this pixel"). It fires per fragment, in raster order, and a capture must be exactly
+//     reproducible.
+//   - OnRead/OnWrite are the watch windows. Strictly the fill does not go through them —
+//     texByte indexes RAM directly and never calls readWatch — but a watch session should be
+//     exactly reproducible, and this is one branch per draw to buy that.
+//   - drawTrace and pixDbg print, per draw and per pixel, and their order is their content.
+//   - canHalt is the one that would be a real bug rather than a muddle: decodeTexel and
+//     tlutColor call CPU.Halt on a format they do not know, and A WORKER MUST NOT HALT THE
+//     MACHINE. Rather than teach the fragment path not to halt, a draw that COULD halt is run
+//     serially, so the halt happens on the machine's own goroutine at exactly the fragment it
+//     always did.
+//   - SingleThreaded is the caller saying so.
+//
+// Only then the work threshold, which is about profit.
+func (g *gpu) rasterWorkers(m *Machine, tev *tevState, tris []rasterTri) int {
+	if m.OnPixel != nil || m.OnRead != nil || m.OnWrite != nil || m.SingleThreaded ||
+		drawTrace || pixDbgX >= 0 || cullExperiment != "" || tev.canHalt {
+		return 1
+	}
+	// The bounding boxes are what the fill will actually walk. A draw of a few small
+	// triangles costs less than the fan-out that would split it.
+	//
+	// A box can be EMPTY IN THE NEGATIVE: a triangle entirely off one edge has its near
+	// bound clamped to the screen and its far bound left outside, so maxX < minX. The fill
+	// loops zero times for it, which is right, but a naive sum would let such a triangle
+	// subtract from the tally and talk the threshold out of splitting a draw that needed it.
+	const minPixels = 256
+	px := 0
+	for i := range tris {
+		t := &tris[i]
+		w, h := t.maxX-t.minX, t.maxY-t.minY
+		if w <= 0 || h <= 0 {
+			continue
+		}
+		px += w * h
+		if px >= minPixels {
+			return maxWorkers
+		}
+	}
+	return 1
 }
 
 // The cull modes, as they appear in GEN_MODE's two-bit field (bits 14..15).

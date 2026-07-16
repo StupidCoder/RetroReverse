@@ -56,6 +56,37 @@ type tevState struct {
 	// and not a phantom this decode invented.
 	tex      [8]texState
 	texValid [8]bool
+
+	// canHalt says whether sampling this draw's textures could reach a CPU.Halt — an unknown
+	// texture format, or a paletted one with an unknown palette format. It is asked here,
+	// serially, so that the fill can refuse to fan out a draw that might halt: a worker
+	// goroutine must not halt the machine, and the alternative (teaching the whole fragment
+	// path to defer a halt) would put an error check in the hottest loop for a case that
+	// never happens in a working scene.
+	//
+	// The halt then lands on the machine's own goroutine, at exactly the fragment it always
+	// did — this decides HOW a draw runs, never WHETHER it faults.
+	canHalt bool
+}
+
+// texCanHalt reports whether sampling this map could reach a CPU.Halt.
+//
+// It mirrors decodeTexel's format switch and tlutColor's palette switch, which is a
+// duplication and therefore a liability: the two must agree or a worker can halt. Its
+// direction of failure is safe — a format this does not recognise is treated as "could halt"
+// and merely costs the draw its parallelism — but agreement is pinned by
+// TestTexCanHaltAgreesWithDecoder, which asks the decoder itself, for every format and every
+// palette format, rather than trusting this list to have been kept up to date.
+func texCanHalt(tx *texState) bool {
+	switch tx.format {
+	case texI4, texI8, texIA4, texIA8, texRGB565, texRGB5A3, texRGBA8, texCMPR:
+		return false
+	case texC4, texC8, texC14X2:
+		// A paletted format reaches tlutColor, which knows three entry formats.
+		return tx.tlutFmt > 2
+	default:
+		return true
+	}
 }
 
 // tevstate decodes the TEV as the registers currently stand. Call it once per draw.
@@ -99,6 +130,9 @@ func (g *gpu) tevstate() tevState {
 		if st.texEnable && !t.texValid[st.texmap] {
 			t.tex[st.texmap] = g.texSetup(st.texmap)
 			t.texValid[st.texmap] = true
+			if texCanHalt(&t.tex[st.texmap]) {
+				t.canHalt = true
+			}
 		}
 	}
 	return t

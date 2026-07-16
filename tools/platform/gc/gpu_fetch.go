@@ -432,7 +432,11 @@ func (g *gpu) rasterPrimitive(m *Machine, prim uint32, v []clipVertex) {
 	// this runs: only the command processor writes a BP register, and it is not running.
 	tev := g.tevstate()
 
-	draw := func(a, b, c clipVertex) { buf, scratch = g.clipAndDraw(m, buf, scratch, &tev, a, b, c) }
+	// The setup stage's output, reused draw to draw so a strip of hundreds of triangles does
+	// not allocate. The fill takes the whole primitive at once — that is what lets it split
+	// the screen between workers instead of splitting the triangles.
+	g.tris = g.tris[:0]
+	draw := func(a, b, c clipVertex) { buf, scratch = g.clipAndSetup(m, buf, scratch, a, b, c) }
 
 	switch prim {
 	case 0x80, 0x88: // quads
@@ -457,4 +461,6 @@ func (g *gpu) rasterPrimitive(m *Machine, prim uint32, v []clipVertex) {
 			draw(v[0], v[i], v[i+1])
 		}
 	}
+
+	g.fill(m, &tev, g.tris)
 }

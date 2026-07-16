@@ -29,6 +29,12 @@ type gpu struct {
 	pixWritten, pixZRej, pixARej int
 	profDraws, profCulled        int
 
+	// How the fill decided, per draw: fanned out, or run here. Diagnostic like the rest, and
+	// load-bearing for one test in particular — a rasterWorkers that quietly returned 1 for
+	// everything would pass every hash and every agreement check in the package and simply be
+	// slow, so TestParallelIsActuallyUsed reads these to prove the fan-out is alive.
+	profParFills, profSerFills int
+
 	// inDisplayList guards against a display list calling another — the hardware forbids
 	// it, and honouring the same limit keeps the interpreter non-recursive. Transient within
 	// one feed, so it is not machine state.
@@ -54,6 +60,18 @@ type gpu struct {
 	// own GXInitTlutObj/GXLoadTlut at 0x801F6F24/0x801F7128). Indexed by the offset within
 	// the high TMEM bank, i.e. tmem address minus 0x80000. Allocated on the first load.
 	Tlut []byte
+
+	// tris is the setup stage's output, reused across draws: the primitive's triangles,
+	// projected and culled, waiting for the fill. Unexported and scratch, so gob skips it
+	// and a snapshot does not carry a draw's working set.
+	tris []rasterTri
+
+	// workers is the fill's fan-out (workpool.go). It is NOT machine state — it is a
+	// property of this Machine object, not of the console's condition — so it is deliberately
+	// unexported (gob drops it) and is carried ACROSS a state restore by hand rather than
+	// being replaced by the snapshot's nil. See SaveState/LoadState, which are the two places
+	// this pointer could be lost or shared, and both say so.
+	workers *workPool
 }
 
 // xfStore records one XF register or matrix-memory word the command stream loaded.

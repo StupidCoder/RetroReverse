@@ -136,10 +136,14 @@ func clipTriangle(dst, scratch []clipVertex, tri [3]clipVertex) ([]clipVertex, [
 	return poly, other
 }
 
-// clipAndDraw cuts a triangle against the frustum and rasterises whatever survives, dividing
-// and viewport-mapping each surviving vertex on the way — so the divide only ever sees a vertex
-// the clipper has vouched for. It returns the two buffers for the next triangle to reuse.
-func (g *gpu) clipAndDraw(m *Machine, dst, scratch []clipVertex, tev *tevState, v0, v1, v2 clipVertex) ([]clipVertex, []clipVertex) {
+// clipAndSetup cuts a triangle against the frustum and SETS UP whatever survives, dividing and
+// viewport-mapping each surviving vertex on the way — so the divide only ever sees a vertex the
+// clipper has vouched for. It returns the two buffers for the next triangle to reuse.
+//
+// It sets up rather than draws: the triangles land in g.tris and the whole primitive's worth is
+// filled together, which is what lets the fill partition the screen between workers rather than
+// hand each triangle its own. See gpu.fill.
+func (g *gpu) clipAndSetup(m *Machine, dst, scratch []clipVertex, v0, v1, v2 clipVertex) ([]clipVertex, []clipVertex) {
 	poly, scratch := clipTriangle(dst, scratch, [3]clipVertex{v0, v1, v2})
 	if len(poly) < 3 {
 		return poly, scratch
@@ -155,7 +159,9 @@ func (g *gpu) clipAndDraw(m *Machine, dst, scratch []clipVertex, tev *tevState, 
 	// matters, because back-face culling reads that winding.
 	a := toScreen(poly[0])
 	for i := 1; i+1 < len(poly); i++ {
-		g.drawTriangle(m, tev, a, toScreen(poly[i]), toScreen(poly[i+1]))
+		if t, ok := g.setupTri(a, toScreen(poly[i]), toScreen(poly[i+1])); ok {
+			g.tris = append(g.tris, t)
+		}
 	}
 	return poly, scratch
 }

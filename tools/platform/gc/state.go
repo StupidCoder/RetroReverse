@@ -67,11 +67,19 @@ type MachineState struct {
 
 // cloneGPU deep-copies the GPU's slice-typed fields. A nil slice stays nil: EFB nil means
 // "not allocated yet" and ensureEFB tests for it.
+//
+// The worker pool and the setup stage's scratch are dropped rather than copied. Neither is
+// the console's condition: the pool is a set of goroutines belonging to one Machine object,
+// and a snapshot that carried the pointer would hand every restored machine a pool it does
+// not own and must not close. The clone is a SNAPSHOT of a GameCube, and a GameCube has no
+// worker goroutines.
 func cloneGPU(g gpu) gpu {
 	g.Buf = append([]byte(nil), g.Buf...)
 	g.EFB = append([]uint32(nil), g.EFB...)
 	g.ZBuf = append([]uint32(nil), g.ZBuf...)
 	g.Tlut = append([]byte(nil), g.Tlut...)
+	g.workers = nil
+	g.tris = nil
 	return g
 }
 
@@ -114,7 +122,14 @@ func (m *Machine) LoadState(s MachineState) error {
 	m.CPU.Restore(s.CPU)
 	m.pi, m.mi, m.vi, m.di, m.si = s.PI, s.MI, s.VI, s.DI, s.SI
 	m.exi, m.ai, m.dsp, m.cp, m.pe = s.EXI, s.AI, s.DSP, s.CP, s.PE
+
+	// The worker pool survives the restore. It belongs to this Machine object rather than to
+	// the console's condition, and assigning the whole gpu struct over the top of it would
+	// drop the pointer on the floor with the goroutines still running — a leak that no test
+	// would see, because the machine restored perfectly well without them.
+	workers := m.gpu.workers
 	m.gpu, m.wgFIFO = cloneGPU(s.GPU), cloneWG(s.WG)
+	m.gpu.workers = workers
 	// Deep-copy the DSP core out of the snapshot (the device was copied by value, sharing the
 	// core pointer) and reattach its hardware bus, the back-reference left out of the state.
 	if s.DSP.Core != nil {
