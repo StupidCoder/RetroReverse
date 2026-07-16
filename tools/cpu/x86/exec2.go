@@ -650,7 +650,7 @@ func (c *CPU) exec0F(op, rep byte) {
 		reg, o := c.modrmE()
 		c.setReg(reg, c.osz(), signExtWord(c.rEA(o, 2)))
 	default:
-		if c.execSSE(op, rep) {
+		if c.execSSE(op, rep) || c.execMMXInt(op, rep) {
 			return
 		}
 		c.Halt("unimplemented 0F opcode $%02X at %s", op, c.at())

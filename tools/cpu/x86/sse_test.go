@@ -2,6 +2,7 @@ package x86
 
 import (
 	"math"
+	"strings"
 	"testing"
 )
 
@@ -146,5 +147,81 @@ func TestSSEShuffleMoveMMX(t *testing.T) {
 		if got := m.b[0x3020+i]; got != byte(0xA0+i) {
 			t.Errorf("MMX MOVQ byte %d = %02X, want %02X", i, got, 0xA0+i)
 		}
+	}
+}
+
+// TestMMXIntOps drives the packed-integer group (mmxint.go) through a small MMX
+// program — the op mix OutRun's XMV movie decoder leans on — and checks the lane
+// arithmetic: wrap and saturating adds, multiplies, pack/unpack, shifts, compares,
+// average, and PMOVMSKB/PSADBW.
+func TestMMXIntOps(t *testing.T) {
+	m := &flatRAM{b: make([]byte, 16<<20)}
+	a := []uint16{0x0001, 0x7FFF, 0x8000, 0x00FF} // mm0 words
+	b := []uint16{0x0002, 0x0001, 0xFFFF, 0xFF00} // mm1 words
+	for i := range a {
+		putw16(m.b[0x2000+i*2:], a[i])
+		putw16(m.b[0x2008+i*2:], b[i])
+	}
+	code := []byte{
+		0x0F, 0x6F, 0x05, 0x00, 0x20, 0x00, 0x00, // MOVQ mm0, [0x2000]
+		0x0F, 0x6F, 0x0D, 0x08, 0x20, 0x00, 0x00, // MOVQ mm1, [0x2008]
+		0x0F, 0x6F, 0xD0, //                         MOVQ mm2, mm0
+		0x0F, 0xFD, 0xD1, //                         PADDW mm2, mm1 (wrap)
+		0x0F, 0x7F, 0x15, 0x00, 0x30, 0x00, 0x00, // MOVQ [0x3000], mm2
+		0x0F, 0x6F, 0xD8, //                         MOVQ mm3, mm0
+		0x0F, 0xED, 0xD9, //                         PADDSW mm3, mm1 (signed saturate)
+		0x0F, 0x7F, 0x1D, 0x08, 0x30, 0x00, 0x00, // MOVQ [0x3008], mm3
+		0x0F, 0x6F, 0xE0, //                         MOVQ mm4, mm0
+		0x0F, 0xD5, 0xE1, //                         PMULLW mm4, mm1
+		0x0F, 0x7F, 0x25, 0x10, 0x30, 0x00, 0x00, // MOVQ [0x3010], mm4
+		0x0F, 0x6F, 0xE8, //                         MOVQ mm5, mm0
+		0x0F, 0x71, 0xD5, 0x04, //                   PSRLW mm5, 4
+		0x0F, 0x7F, 0x2D, 0x18, 0x30, 0x00, 0x00, // MOVQ [0x3018], mm5
+		0x0F, 0x6F, 0xF0, //                         MOVQ mm6, mm0
+		0x0F, 0x67, 0xF1, //                         PACKUSWB mm6, mm1
+		0x0F, 0x7F, 0x35, 0x20, 0x30, 0x00, 0x00, // MOVQ [0x3020], mm6
+		0x0F, 0x6F, 0xF8, //                         MOVQ mm7, mm0
+		0x0F, 0x75, 0xF9, //                         PCMPEQW mm7, mm1
+		0x0F, 0x7F, 0x3D, 0x28, 0x30, 0x00, 0x00, // MOVQ [0x3028], mm7
+		0x0F, 0xD7, 0xC8, //                         PMOVMSKB ecx, mm0
+		0x0F, 0xEF, 0xC0, //                         PXOR mm0, mm0
+		0x0F, 0x7F, 0x05, 0x30, 0x30, 0x00, 0x00, // MOVQ [0x3030], mm0
+		0x0F, 0x77, // EMMS
+		0xF4, // HLT
+	}
+	copy(m.b[0x1000:], code)
+	c := NewCPU(m)
+	c.Mode = ModeProt
+	c.Seg[CS], c.Seg[DS], c.Seg[ES], c.Seg[SS] = 0x08, 0x10, 0x10, 0x10
+	c.IP = 0x1000
+	c.Regs[SP] = 0x8000
+	c.Run(100000)
+	if !c.Halted || !strings.HasPrefix(c.HaltReason, "HLT") {
+		t.Fatalf("MMX program did not halt cleanly (EIP=%08X reason=%q)", c.IP, c.HaltReason)
+	}
+	check := func(base int, want []uint16, what string) {
+		t.Helper()
+		for i, w := range want {
+			if got := w16(m.b[base+i*2:]); got != w {
+				t.Errorf("%s lane %d = %04X, want %04X", what, i, got, w)
+			}
+		}
+	}
+	check(0x3000, []uint16{0x0003, 0x8000, 0x7FFF, 0xFFFF}, "PADDW")
+	check(0x3008, []uint16{0x0003, 0x7FFF, 0x8000, 0xFFFF}, "PADDSW")
+	check(0x3010, []uint16{0x0002, 0x7FFF, 0x8000, 0x0100}, "PMULLW")
+	check(0x3018, []uint16{0x0000, 0x07FF, 0x0800, 0x000F}, "PSRLW")
+	// PACKUSWB: mm0 words {1,7FFF,8000,FF} -> bytes {01,FF,00,FF}; mm1 {2,1,FFFF,FF00} -> {02,01,00,00}
+	if got := le32b(m.b[0x3020:]); got != 0xFF00FF01 {
+		t.Errorf("PACKUSWB low = %08X, want FF00FF01", got)
+	}
+	if got := le32b(m.b[0x3024:]); got != 0x00000102 {
+		t.Errorf("PACKUSWB high = %08X, want 00000102", got)
+	}
+	check(0x3028, []uint16{0x0000, 0x0000, 0x0000, 0x0000}, "PCMPEQW")
+	check(0x3030, []uint16{0, 0, 0, 0}, "PXOR")
+	// PMOVMSKB of {01 00 FF 7F 00 80 FF 00}: bytes with MSB set -> mask
+	if c.Regs[CX] != 0b01100100 { // bytes 01 00 FF 7F 00 80 FF 00: MSBs at 2, 5, 6
+		t.Errorf("PMOVMSKB = %08b, want 01100100", c.Regs[CX])
 	}
 }

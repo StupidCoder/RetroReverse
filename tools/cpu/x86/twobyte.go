@@ -139,9 +139,57 @@ func (d *dec) twoByte(op byte) Inst {
 		return op2("XADD", rm.at(d.opsize), gpr(reg, d.opsize))
 	}
 
+	// The MMX / SSE-integer group (mmxint.go executes it): named so a census of a
+	// codec's inner loops reads as instructions, not `.byte` noise. Register names
+	// stay generic ("mmN") — the 0x66 xmm forms share the opcodes.
+	if mnem, ok := mmxIntName[op]; ok {
+		switch op {
+		case 0x70, 0xC4, 0xC5: // shuffle/insert/extract carry an imm8
+			reg, rm := d.modrm()
+			return Inst{Mnem: mnem, Text: fmt.Sprintf("%s mm%d, %s, $%02X", mnem, reg, rm.atHint(32), d.imm8())}
+		case 0x71, 0x72, 0x73: // shift-by-imm groups: reg field selects the op
+			reg, rm := d.modrm()
+			grp := map[byte]string{2: "PSRL", 3: "PSRLDQ", 4: "PSRA", 6: "PSLL", 7: "PSLLDQ"}
+			sz := map[byte]string{0x71: "W", 0x72: "D", 0x73: "Q"}
+			if g, ok := grp[reg]; ok {
+				n := g + sz[op]
+				if reg == 3 || reg == 7 {
+					n = g
+				}
+				return Inst{Mnem: n, Text: fmt.Sprintf("%s %s, $%02X", n, rm.atHint(32), d.imm8())}
+			}
+		default:
+			reg, rm := d.modrm()
+			return Inst{Mnem: mnem, Text: fmt.Sprintf("%s mm%d, %s", mnem, reg, rm.atHint(32))}
+		}
+	}
+
 	// Unrecognised 0x0F opcode: emit a two-byte data stop so the caller stays
 	// aligned rather than mis-decoding the following byte.
 	return Inst{Mnem: ".byte", Text: fmt.Sprintf(".byte $0F,$%02X", op), Flow: FlowStop}
+}
+
+// mmxIntName names the packed-integer opcodes (the no-prefix mm forms; the 0x66 xmm
+// variants share the bytes and read fine under the same names).
+var mmxIntName = map[byte]string{
+	0x2A: "CVTPI2PS", 0x2C: "CVTTPS2PI", 0x2D: "CVTPS2PI",
+	0x6E: "MOVD", 0x7E: "MOVD", 0x6F: "MOVQ", 0x7F: "MOVQ",
+	0x60: "PUNPCKLBW", 0x61: "PUNPCKLWD", 0x62: "PUNPCKLDQ", 0x63: "PACKSSWB",
+	0x64: "PCMPGTB", 0x65: "PCMPGTW", 0x66: "PCMPGTD", 0x67: "PACKUSWB",
+	0x68: "PUNPCKHBW", 0x69: "PUNPCKHWD", 0x6A: "PUNPCKHDQ", 0x6B: "PACKSSDW",
+	0x6C: "PUNPCKLQDQ", 0x6D: "PUNPCKHQDQ",
+	0x70: "PSHUFW", 0x71: "PSHIFTW", 0x72: "PSHIFTD", 0x73: "PSHIFTQ",
+	0x74: "PCMPEQB", 0x75: "PCMPEQW", 0x76: "PCMPEQD",
+	0xC4: "PINSRW", 0xC5: "PEXTRW",
+	0xD1: "PSRLW", 0xD2: "PSRLD", 0xD3: "PSRLQ", 0xD4: "PADDQ", 0xD5: "PMULLW",
+	0xD7: "PMOVMSKB", 0xD8: "PSUBUSB", 0xD9: "PSUBUSW", 0xDA: "PMINUB", 0xDB: "PAND",
+	0xDC: "PADDUSB", 0xDD: "PADDUSW", 0xDE: "PMAXUB", 0xDF: "PANDN",
+	0xE0: "PAVGB", 0xE1: "PSRAW", 0xE2: "PSRAD", 0xE3: "PAVGW", 0xE4: "PMULHUW",
+	0xE5: "PMULHW", 0xE7: "MOVNTQ", 0xE8: "PSUBSB", 0xE9: "PSUBSW", 0xEA: "PMINSW",
+	0xEB: "POR", 0xEC: "PADDSB", 0xED: "PADDSW", 0xEE: "PMAXSW", 0xEF: "PXOR",
+	0xF1: "PSLLW", 0xF2: "PSLLD", 0xF3: "PSLLQ", 0xF4: "PMULUDQ", 0xF5: "PMADDWD",
+	0xF6: "PSADBW", 0xF8: "PSUBB", 0xF9: "PSUBW", 0xFA: "PSUBD", 0xFB: "PSUBQ",
+	0xFC: "PADDB", 0xFD: "PADDW", 0xFE: "PADDD",
 }
 
 // grp6 decodes 0x0F 0x00: SLDT/STR/LLDT/LTR/VERR/VERW r/m16.

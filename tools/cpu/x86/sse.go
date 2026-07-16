@@ -192,15 +192,18 @@ func (c *CPU) execSSE(op, rep byte) bool {
 		copy(v[0:8], src[half:half+8])
 		c.sseStoreRM(o, v, 8)
 		return true
-	case 0x6E: // MOVD xmm <- r/m32 (66 prefix)
-		if k != ssePD {
-			return false
-		}
+	case 0x6E: // MOVD xmm <- r/m32 (66 prefix) ; no prefix: MOVD mm <- r/m32
 		reg, o := c.modrmE()
 		v := c.rEA(o, 4)
-		var b [16]byte
-		putle32(b[0:], v)
-		c.XMM[reg] = b
+		if k == ssePD {
+			var b [16]byte
+			putle32(b[0:], v)
+			c.XMM[reg] = b
+		} else {
+			var b [8]byte
+			putle32(b[0:], v)
+			c.MMX[reg&7] = b
+		}
 		return true
 	case 0x7E: // 66: MOVD r/m32 <- xmm ; F3: MOVQ xmm <- xmm/m64
 		reg, o := c.modrmE()
@@ -215,7 +218,9 @@ func (c *CPU) execSSE(op, rep byte) bool {
 			c.wEA(o, 4, le32b(c.XMM[reg][0:]))
 			return true
 		}
-		return false
+		// no prefix: MOVD r/m32 <- mm (the XMV decoder's scalar extract)
+		c.wEA(o, 4, le32b(c.MMX[reg&7][0:]))
+		return true
 	case 0x77: // EMMS: leave MMX state — a no-op here (separate MMX/x87 files)
 		return true
 	case 0x6F: // MOVDQA (66) / MOVDQU (F3) xmm <- m128 ; no-prefix: MMX MOVQ mm <- mm/m64
@@ -318,27 +323,69 @@ func (c *CPU) execSSE(op, rep byte) bool {
 		return true
 
 	// --- conversions ---
-	case 0x2A: // CVTSI2SS/CVTSI2SD  xmm <- r/m32 (integer)
+	case 0x2A: // F3/F2: CVTSI2SS/SD xmm <- r/m32 ; no prefix / 66: CVTPI2PS/PD xmm <- mm/m64
 		reg, o := c.modrmE()
-		iv := int32(c.rEA(o, 4))
 		dst := c.XMM[reg]
-		if k == sseSD {
-			setF64Lane(&dst, 0, float64(iv))
-		} else {
-			setF32Lane(&dst, 0, float32(iv))
+		switch k {
+		case sseSS, sseSD:
+			iv := int32(c.rEA(o, 4))
+			if k == sseSD {
+				setF64Lane(&dst, 0, float64(iv))
+			} else {
+				setF32Lane(&dst, 0, float32(iv))
+			}
+		default: // packed: source is an MMX register or m64 holding two int32s.
+			// The scalar handler this replaced read a GPR here — for the packed
+			// forms that is the WRONG FILE, and the XMV movie decoder is full of
+			// them (its int<->float stages run through mm registers).
+			src := c.mmxRM(o)
+			a, b := int32(le32b(src[0:])), int32(le32b(src[4:]))
+			if k == ssePD {
+				setF64Lane(&dst, 0, float64(a))
+				setF64Lane(&dst, 1, float64(b))
+			} else {
+				setF32Lane(&dst, 0, float32(a))
+				setF32Lane(&dst, 1, float32(b))
+			}
 		}
 		c.XMM[reg] = dst
 		return true
-	case 0x2C, 0x2D: // CVTTSS2SI/CVTSS2SI (2C truncates)  r32 <- xmm
+	case 0x2C, 0x2D: // F3/F2: CVT(T)SS/SD2SI r32 <- xmm ; no prefix / 66: CVT(T)PS/PD2PI mm <- xmm/m64
 		reg, o := c.modrmE()
-		src := c.sseRM(o, sseWidth(k))
-		var f float64
-		if k == sseSD {
-			f = f64Lane(src, 0)
-		} else {
-			f = float64(f32Lane(src, 0))
+		trunc := op == 0x2C
+		cvt := func(f float64) uint32 {
+			if trunc {
+				return uint32(int32(f)) // Go float->int conversion truncates
+			}
+			return uint32(int32(math.RoundToEven(f)))
 		}
-		c.setReg(reg, 4, uint32(int32(f)))
+		switch k {
+		case sseSS, sseSD:
+			src := c.sseRM(o, sseWidth(k))
+			var f float64
+			if k == sseSD {
+				f = f64Lane(src, 0)
+			} else {
+				f = float64(f32Lane(src, 0))
+			}
+			c.setReg(reg, 4, cvt(f))
+		default: // packed: destination is an MMX register (two int32 lanes) — the
+			// scalar handler wrote a GPR here, silently clobbering a live pointer.
+			n := 8 // CVT(T)PS2PI reads xmm/m64
+			if k == ssePD {
+				n = 16 // CVT(T)PD2PI reads xmm/m128
+			}
+			src := c.sseRM(o, n)
+			var m [8]byte
+			if k == ssePD {
+				putle32(m[0:], cvt(f64Lane(src, 0)))
+				putle32(m[4:], cvt(f64Lane(src, 1)))
+			} else {
+				putle32(m[0:], cvt(float64(f32Lane(src, 0))))
+				putle32(m[4:], cvt(float64(f32Lane(src, 1))))
+			}
+			c.MMX[reg&7] = m
+		}
 		return true
 	case 0x5A: // CVTSS2SD / CVTSD2SS / CVTPS2PD / CVTPD2PS
 		reg, o := c.modrmE()

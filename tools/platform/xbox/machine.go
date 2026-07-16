@@ -40,6 +40,7 @@ const (
 	cachedBase   = 0x80000000
 	uncachedBase = 0xB0000000
 	physBase     = 0xD0000000
+	wcBase       = 0xF0000000 // write-combined RAM alias (D3D texture/surface pointers)
 	windowMask   = 0x03FFFFFF // low 26 bits select a physical byte within a window
 
 	// The NV2A lives at the top of the address space; its register aperture is 16 MB
@@ -159,6 +160,7 @@ type Machine struct {
 	Log           []string
 	OrdinalHits   map[uint16]int  // xboxkrnl ordinal -> call count
 	dataDeref     map[uint16]bool // data-export ordinals that have been dereferenced (log-once)
+	dosErrWarned  map[uint32]bool // NTSTATUS values RtlNtStatusToDosError could not map (log-once)
 	Halted        bool
 	HaltReason    string
 	firstPush     bool // the first NV2A push-buffer kick has been observed
@@ -322,6 +324,12 @@ func (m *Machine) translate(a uint32) (phys uint32, mmio, ok bool) {
 		return a - uncachedBase, false, true
 	case a >= physBase && a < physBase+ramSize:
 		return a & windowMask, false, true
+	case a >= wcBase && a < wcBase+ramSize:
+		// The write-combined RAM alias: Xbox D3D hands out texture/surface
+		// pointers as 0xF0000000 | physical so CPU writes bypass the cache. The
+		// XMV movie player's YUV->RGB blit writes its locked texture through this
+		// window — the first code to reach it.
+		return a - wcBase, false, true
 	case a >= mmioBase && a < mmioTop:
 		return a - mmioBase, true, true
 	default:

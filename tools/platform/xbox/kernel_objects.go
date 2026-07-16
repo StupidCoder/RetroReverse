@@ -348,7 +348,7 @@ func kernelObjectHandler(ord uint16) func(*Machine) int {
 			}
 			m.write32(buf+0x20, fo.size()) // AllocationSize (low; high already 0)
 			m.write32(buf+0x28, fo.size()) // EndOfFile
-			attrs := uint32(0x01 | 0x80)       // READONLY|NORMAL (a DVD file)
+			attrs := uint32(0x01 | 0x80)   // READONLY|NORMAL (a DVD file)
 			if fo.entry.IsDir {
 				attrs = 0x11 // READONLY|DIRECTORY
 			}
@@ -498,13 +498,13 @@ func kernelObjectHandler(ord uint16) func(*Machine) int {
 				poolPages := (uint32(kernelBandBase) - m.poolNext) >> pageShift
 				m.write32(p+0x00, 0x24) // Length = sizeof(MM_STATISTICS)
 				m.write32(p+0x04, total)
-				m.write32(p+0x08, free)      // AvailablePages (read at +8 by the caller)
+				m.write32(p+0x08, free)       // AvailablePages (read at +8 by the caller)
 				m.write32(p+0x0C, total-free) // VirtualMemoryBytesCommitted (pages)
-				m.write32(p+0x10, 0)         // VirtualMemoryBytesReserved
-				m.write32(p+0x14, 0)         // CachePagesCommitted
-				m.write32(p+0x18, poolPages) // PoolPagesCommitted
-				m.write32(p+0x1C, 0)         // StackPagesCommitted
-				m.write32(p+0x20, 0)         // ImagePagesCommitted
+				m.write32(p+0x10, 0)          // VirtualMemoryBytesReserved
+				m.write32(p+0x14, 0)          // CachePagesCommitted
+				m.write32(p+0x18, poolPages)  // PoolPagesCommitted
+				m.write32(p+0x1C, 0)          // StackPagesCommitted
+				m.write32(p+0x20, 0)          // ImagePagesCommitted
 			}
 			m.setRet(0) // STATUS_SUCCESS
 			return 1
@@ -882,14 +882,47 @@ func kernelObjectHandler(ord uint16) func(*Machine) int {
 		}
 	case 294: // RtlLeaveCriticalSection(cs)
 		return func(m *Machine) int { m.setRet(0); return 1 }
-	case 301: // RtlNtStatusToDosError(NTSTATUS) -> Win32 error (0 stays 0 = success)
+	case 301: // RtlNtStatusToDosError(NTSTATUS) -> Win32 error. The mapping is load-
+		// bearing: XAPI funnels every NTSTATUS through here into the per-thread
+		// last-error, and callers branch on EXACT Win32 codes. The predecessor's
+		// "rough map" (st & 0xFFFF) sent STATUS_PENDING (0x103) to 259
+		// (ERROR_NO_MORE_ITEMS) instead of 997 (ERROR_IO_PENDING) — the XMV movie
+		// loader's GetLastError()==ERROR_IO_PENDING check could never pass, so the
+		// title movie was aborted on every boot. Canonical documented mappings for
+		// the statuses this HLE produces; anything unmapped returns
+		// ERROR_MR_MID_NOT_FOUND (317) like the real function, and logs once so a
+		// new status names itself instead of hiding behind a plausible number.
 		return func(m *Machine) int {
 			st := m.arg(0)
-			if st == 0 {
-				m.setRet(0)
-			} else {
-				m.setRet(st & 0xFFFF) // rough map; exact table not needed for the boot
+			var w uint32
+			switch st {
+			case 0:
+				w = 0
+			case 0x00000102: // STATUS_TIMEOUT -> WAIT_TIMEOUT
+				w = 258
+			case 0x00000103: // STATUS_PENDING -> ERROR_IO_PENDING
+				w = 997
+			case 0xC0000008: // STATUS_INVALID_HANDLE
+				w = 6
+			case 0xC0000011: // STATUS_END_OF_FILE -> ERROR_HANDLE_EOF
+				w = 38
+			case 0xC0000034: // STATUS_OBJECT_NAME_NOT_FOUND -> ERROR_FILE_NOT_FOUND
+				w = 2
+			case 0xC0000035: // STATUS_OBJECT_NAME_COLLISION -> ERROR_ALREADY_EXISTS
+				w = 183
+			case 0xC000003A: // STATUS_OBJECT_PATH_NOT_FOUND -> ERROR_PATH_NOT_FOUND
+				w = 3
+			default:
+				w = 317 // ERROR_MR_MID_NOT_FOUND: the real fallback for unmapped statuses
+				if !m.dosErrWarned[st] {
+					if m.dosErrWarned == nil {
+						m.dosErrWarned = map[uint32]bool{}
+					}
+					m.dosErrWarned[st] = true
+					m.logf("RtlNtStatusToDosError: unmapped NTSTATUS %08X -> 317 (from %08X)", st, m.retAddr())
+				}
 			}
+			m.setRet(w)
 			return 1
 		}
 	}
