@@ -25,18 +25,24 @@ func (g *gpu) xfFloat(addr int) float32 {
 
 // screenVertex is a vertex after transform: its pixel position, its depth in the 24-bit range
 // the framebuffer keeps, the colour the rasteriser interpolates across the triangle, and the
-// first texture coordinate it interpolates alongside so the TEV can sample a texture per pixel.
+// texture coordinates it interpolates alongside so the TEV can sample a texture per pixel.
+//
+// The coordinates are the ones the transform unit GENERATED (see gpu_texgen.go), not the ones
+// the vertex carried — a coordinate may have been computed from the vertex's position rather
+// than read off it. ntc is how many of tc are live; the rest are not written and must not be
+// read.
 //
 // invW is the reciprocal of the clip-space w the perspective divide used. Depth needs no such
 // help — screen z has already been divided, so it is linear in screen space — but a texture
 // coordinate has not, and interpolating one straight across the screen walks it at a constant
 // rate over a surface that is receding, which is the classic affine-texturing skew. Keeping
-// 1/w per vertex lets the rasteriser interpolate u/w and v/w (which ARE linear in screen space)
-// and divide back per pixel.
+// 1/w per vertex lets the rasteriser interpolate s/w, t/w and q/w (which ARE linear in screen
+// space) and divide back per pixel.
 type screenVertex struct {
 	x, y, z    float32
 	r, g, b, a uint8
-	u, v       float32
+	tc         [maxTexCoord]texCoord
+	ntc        int
 	invW       float32
 }
 
@@ -48,20 +54,31 @@ type screenVertex struct {
 type clipVertex struct {
 	cx, cy, cz, cw float32
 	r, g, b, a     uint8
-	u, v           float32
+	tc             [maxTexCoord]texCoord
+	ntc            int
 }
 
 // lerpClip interpolates two clip-space vertices at parameter t, in clip space, where the
 // straight line between two vertices is still straight. Every attribute the rasteriser reads
-// is carried across so a vertex the clipper invents is as complete as one the game supplied.
+// is carried across so a vertex the clipper invents is as complete as one the game supplied —
+// including every live texture coordinate, and including each one's projective divisor, which
+// is an interpolated quantity like any other and not a per-vertex constant.
 func lerpClip(a, b clipVertex, t float32) clipVertex {
 	li := func(x, y uint8) uint8 { return uint8(float32(x) + (float32(y)-float32(x))*t + 0.5) }
 	lf := func(x, y float32) float32 { return x + (y-x)*t }
-	return clipVertex{
+	out := clipVertex{
 		cx: lf(a.cx, b.cx), cy: lf(a.cy, b.cy), cz: lf(a.cz, b.cz), cw: lf(a.cw, b.cw),
 		r: li(a.r, b.r), g: li(a.g, b.g), b: li(a.b, b.b), a: li(a.a, b.a),
-		u: lf(a.u, b.u), v: lf(a.v, b.v),
+		ntc: a.ntc,
 	}
+	for i := 0; i < a.ntc; i++ {
+		out.tc[i] = texCoord{
+			s: lf(a.tc[i].s, b.tc[i].s),
+			t: lf(a.tc[i].t, b.tc[i].t),
+			q: lf(a.tc[i].q, b.tc[i].q),
+		}
+	}
+	return out
 }
 
 // transform takes a model-space position through the position matrix, the projection, the

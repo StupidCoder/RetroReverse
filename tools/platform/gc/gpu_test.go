@@ -22,12 +22,24 @@ func quadGPU() *gpu {
 	g.CPReg[0x50] = 0x2200
 	g.CPReg[0x60] = 0x0001
 	g.CPReg[0x70] = 0x5EA16007
-	g.CPReg[0x30] = 0 // position matrix index 0
+	// Position matrix index 0, and texture matrix index 60 for coordinate 0 (bits 6..11) —
+	// the row the identity texture matrix is written to below.
+	g.CPReg[0x30] = 60 << 6
 
 	// Identity position matrix at XF memory row 0.
 	ident := [12]float32{1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0}
 	for i, f := range ident {
 		g.XFMem[i] = math.Float32bits(f)
+	}
+	// One generated texture coordinate, taken from the vertex's own coordinate 0 through an
+	// identity matrix, which is what makes the quad sample the texture at the UV it carries.
+	// The transform unit generates every coordinate the TEV reads, so a draw that samples a
+	// texture and asks for no coordinates has none (see gpu_texgen.go).
+	g.XFMem[0x103F] = 1
+	g.XFMem[0x1040] = texSrcTex0 << 7 // regular, non-projective, AB11, source row TEX0
+	g.XFMem[0x1012] = 0               // no post transform
+	for i, f := range ident {
+		g.XFMem[60*4+i] = math.Float32bits(f)
 	}
 	// Viewport 0x101A..0x101F and orthographic projection 0x1020..0x1026.
 	vp := [6]float32{320, -240, 16777215, 660, 580, 16777215}
@@ -170,6 +182,18 @@ func TestDumpTextureMatchesSampler(t *testing.T) {
 // (stage 0 colour = TEXC, alpha = 1), the alpha test to always pass, and blending off, so a
 // rendered quad reproduces the bound texture and the whole raster+TEV+texture path can be
 // asserted end to end.
+// setIdentitySwapTables programs the TEV's four channel swap tables to the identity, which is
+// what GXInit lays down and what every draw that does not deliberately swizzle relies on. The
+// registers are not zero-by-default in any meaningful sense: an all-zero table selects the RED
+// channel for all four outputs, so a gpu built for a test has to be told, exactly as the
+// hardware has to be.
+func (g *gpu) setIdentitySwapTables() {
+	for t := 0; t < 4; t++ {
+		g.BP[0xF6+uint32(t)*2] = 0<<0 | 1<<2   // red <- red, green <- green
+		g.BP[0xF6+uint32(t)*2+1] = 2<<0 | 3<<2 // blue <- blue, alpha <- alpha
+	}
+}
+
 func (g *gpu) setPassthroughTEV() {
 	g.BP[0x00] = 0x0000              // one colour channel, one texgen, one TEV stage
 	g.BP[0x28] = 0x0000C0 | (1 << 6) // stage 0: texmap 0, texcoord 0, texture enabled
@@ -181,6 +205,7 @@ func (g *gpu) setPassthroughTEV() {
 	g.TevColorReg[3] = [2]uint32{0x0FF0FF, 0x0FF0FF}     // reg2/C2 alpha = 255
 	g.BP[0xF3] = 7<<16 | 7<<19                           // alpha compare: ALWAYS AND ALWAYS
 	g.BP[0x41] = 0x000018                                // blend off, colour+alpha update on
+	g.setIdentitySwapTables()
 }
 
 // TestTexturedQuadRenders draws the full-screen quad over a bound texture with a passthrough
@@ -246,6 +271,7 @@ func TestTexturedQuadRenders(t *testing.T) {
 // that would have caught the red/alpha decode swap that once flattened it.
 func TestTEVReproducesBootLogo(t *testing.T) {
 	g := &gpu{}
+	g.setIdentitySwapTables()
 	g.BP[0x00] = 0x000411                            // two TEV stages
 	g.BP[0x28] = 0x3803C0                            // stage 0 texmap0/tc0 enabled, stage 1 texture disabled
 	g.BP[0xC0] = 0x088FFF                            // stage 0 colour = TEXC
@@ -270,11 +296,11 @@ func TestTEVReproducesBootLogo(t *testing.T) {
 	m.gpu = *g
 
 	// A coordinate over the white half must shade red; one over the black half must shade black.
-	r, gg, b, _, pass := m.gpu.shade(m, 255, 255, 255, 255, 0.1, 0.5)
+	r, gg, b, _, pass := m.gpu.shade(m, 255, 255, 255, 255, tcAt(0.1, 0.5))
 	if !pass || absU8(r, 220) > 2 || gg != 0 || b != 0 {
 		t.Errorf("logo texel: colour (%d,%d,%d) pass=%v, want ~(220,0,0)", r, gg, b, pass)
 	}
-	r, gg, b, _, pass = m.gpu.shade(m, 255, 255, 255, 255, 0.9, 0.5)
+	r, gg, b, _, pass = m.gpu.shade(m, 255, 255, 255, 255, tcAt(0.9, 0.5))
 	if !pass || r != 0 || gg != 0 || b != 0 {
 		t.Errorf("background texel: colour (%d,%d,%d) pass=%v, want (0,0,0)", r, gg, b, pass)
 	}
@@ -383,4 +409,96 @@ func TestCopyTextureRoundTrip(t *testing.T) {
 			}
 		})
 	}
+}
+
+// TestCopyTextureHalfScale pins the half-scale copy against the rectangle pair the game itself
+// names at 0x8005F4B0: GXSetTexCopySrc(0, 0, 640, 480) then GXSetTexCopyDst(320, 240, RGBA8,
+// TRUE). The source registers carry the full rectangle and only the flag says the destination is
+// half of it, so this checks the two things that separate a correct half-scale from a plausible
+// wrong one: every destination texel is the average of its 2x2 EFB block (not the top-left
+// sample), and the copy writes a half-sized image (not a full-sized one at half the detail).
+func TestCopyTextureHalfScale(t *testing.T) {
+	const w, h = 32, 24 // the source rectangle; the destination is 16x12
+	const dw, dh = w / 2, h / 2
+	base := uint32(0x8000)
+	stride := (dw / 4) * 64 // RGBA8 tiles across a packed dw-wide destination
+
+	// A pattern that differs within every 2x2 block and in every channel, so averaging and
+	// point-sampling cannot agree by accident.
+	src := func(x, y int) (r, g, b, a uint8) {
+		return uint8(x * 7), uint8(y * 9), uint8((x*3 + y*5) & 0xFF), uint8((x ^ y) * 3)
+	}
+
+	m := testMachine()
+	g := &m.gpu
+	g.ensureEFB()
+	for y := 0; y < h; y++ {
+		for x := 0; x < w; x++ {
+			r, gg, b, a := src(x, y)
+			g.EFB[y*efbWidth+x] = packRGBA(r, gg, b, a)
+		}
+	}
+	// Fill the destination with a sentinel so a write past the half-sized image is visible.
+	for i := uint32(0); i < uint32(dh/4)*uint32(stride)*2; i++ {
+		m.texWriteByte(base+i, 0x5A)
+	}
+
+	g.BP[0x49] = 0
+	g.BP[0x4A] = uint32(w-1) | uint32(h-1)<<10
+	g.BP[0x4B] = base >> 5
+	g.BP[0x4D] = uint32(stride) >> 5
+	// RGBA8 to texture, with the half-scale flag GXSetTexCopyDst puts at bit 9.
+	params := uint32(0x6)<<4 | 1<<16 | 1<<9 | 3
+	g.copyDisplay(m, params)
+	if m.CPU.Halted {
+		t.Fatalf("the half-scale copy halted: %s", m.CPU.HaltReason)
+	}
+
+	tx := texState{format: texRGBA8, width: dw, height: dh, base: base}
+	for y := 0; y < dh; y++ {
+		for x := 0; x < dw; x++ {
+			var sr, sg, sb, sa uint32
+			for dy := 0; dy < 2; dy++ {
+				for dx := 0; dx < 2; dx++ {
+					r, gg, b, a := src(x*2+dx, y*2+dy)
+					sr, sg, sb, sa = sr+uint32(r), sg+uint32(gg), sb+uint32(b), sa+uint32(a)
+				}
+			}
+			er, eg, eb, ea := uint8((sr+2)/4), uint8((sg+2)/4), uint8((sb+2)/4), uint8((sa+2)/4)
+			gr, ggg, gb, ga := g.decodeTexel(m, tx, x, y)
+			if gr != er || ggg != eg || gb != eb || ga != ea {
+				t.Fatalf("texel (%d,%d) = (%d,%d,%d,%d), want the 2x2 average (%d,%d,%d,%d)",
+					x, y, gr, ggg, gb, ga, er, eg, eb, ea)
+			}
+		}
+	}
+
+	// The image is half-sized: the row of tiles a full-height copy would have written next is
+	// still sentinel. This is what fails if the loop trusts the source h as the destination h.
+	past := base + uint32(dh/4)*uint32(stride)
+	for i := uint32(0); i < 64; i++ {
+		if got := m.texByte(past + i); got != 0x5A {
+			t.Fatalf("the copy wrote past the half-sized image at +0x%X: 0x%02X", i, got)
+		}
+	}
+
+	// A flat block must copy out as exactly its own colour: a truncating average would drift
+	// every texel of a flat surface one level dark.
+	for y := 0; y < 2; y++ {
+		for x := 0; x < 2; x++ {
+			g.EFB[y*efbWidth+x] = packRGBA(101, 102, 103, 104)
+		}
+	}
+	g.copyDisplay(m, params)
+	if r, gg, b, a := g.decodeTexel(m, tx, 0, 0); r != 101 || gg != 102 || b != 103 || a != 104 {
+		t.Fatalf("a flat 2x2 block copied out as (%d,%d,%d,%d), want (101,102,103,104)", r, gg, b, a)
+	}
+}
+
+// tcAt is a single non-projective texture coordinate at (u,v), as the transform unit would
+// have generated it for a stage that samples coordinate 0.
+func tcAt(u, v float32) *[maxTexCoord]texCoord {
+	var tc [maxTexCoord]texCoord
+	tc[0] = texCoord{s: u, t: v, q: 1}
+	return &tc
 }

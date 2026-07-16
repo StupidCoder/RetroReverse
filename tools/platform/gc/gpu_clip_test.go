@@ -143,7 +143,7 @@ func TestClipNearCases(t *testing.T) {
 func TestClipNearLeavesFrontTriangleExactlyAlone(t *testing.T) {
 	g := gpuWithMansionProjection()
 	tri := [3]clipVertex{cv(g, 1, 1, -10), cv(g, -1, 1, -20), cv(g, 0, -1, -30)}
-	tri[0].u, tri[0].v = 0.25, 0.75
+	tri[0].ntc, tri[0].tc[0] = 1, texCoord{s: 0.25, t: 0.75, q: 1}
 	tri[1].g, tri[1].b = 128, 64
 
 	got := clipByPlane(nil, tri[:], planeNear)
@@ -167,9 +167,9 @@ func TestClipNearInterpolatesAttributes(t *testing.T) {
 	//
 	// Vertex 0 sits one unit inside the plane (cz+cw = +1), vertex 1 one unit outside (-1), so
 	// the 0->1 edge crosses at the midpoint.
-	v0 := clipVertex{cx: 0, cy: 0, cz: 0, cw: 1, r: 0, g: 0, b: 0, a: 0, u: 0, v: 0}
-	v1 := clipVertex{cx: 0, cy: 0, cz: -2, cw: 1, r: 100, g: 200, b: 40, a: 80, u: 1, v: 3}
-	v2 := clipVertex{cx: 4, cy: 0, cz: 0, cw: 1, r: 0, g: 0, b: 0, a: 0, u: 0, v: 0}
+	v0 := clipVertex{cx: 0, cy: 0, cz: 0, cw: 1, r: 0, g: 0, b: 0, a: 0, ntc: 1, tc: tc1(0, 0)}
+	v1 := clipVertex{cx: 0, cy: 0, cz: -2, cw: 1, r: 100, g: 200, b: 40, a: 80, ntc: 1, tc: tc1(1, 3)}
+	v2 := clipVertex{cx: 4, cy: 0, cz: 0, cw: 1, r: 0, g: 0, b: 0, a: 0, ntc: 1, tc: tc1(0, 0)}
 
 	if d0, d1 := v0.cz+v0.cw, v1.cz+v1.cw; d0 != 1 || d1 != -1 {
 		t.Fatalf("test setup wrong: distances %g and %g, want +1 and -1", d0, d1)
@@ -188,7 +188,7 @@ func TestClipNearInterpolatesAttributes(t *testing.T) {
 	}{
 		{"r", float32(mid.r), 50}, {"g", float32(mid.g), 100},
 		{"b", float32(mid.b), 20}, {"a", float32(mid.a), 40},
-		{"u", mid.u, 0.5}, {"v", mid.v, 1.5},
+		{"u", mid.tc[0].s, 0.5}, {"v", mid.tc[0].t, 1.5},
 		{"cz", mid.cz, -1}, {"cw", mid.cw, 1},
 	} {
 		if math.Abs(float64(c.got-c.exp)) > 0.51 {
@@ -337,7 +337,7 @@ func TestClipTriangleBoundsScreenCoordinates(t *testing.T) {
 func TestClipTriangleLeavesInsideTriangleExactlyAlone(t *testing.T) {
 	g := gpuWithMansionProjection()
 	tri := [3]clipVertex{cv(g, 1, 1, -10), cv(g, -1, 1, -20), cv(g, 0, -1, -30)}
-	tri[0].u, tri[0].v = 0.25, 0.75
+	tri[0].ntc, tri[0].tc[0] = 1, texCoord{s: 0.25, t: 0.75, q: 1}
 
 	poly, _ := clipTriangle(nil, nil, tri)
 	if len(poly) != 3 {
@@ -368,9 +368,9 @@ func TestGuardBandDoesNotMoveTheSurface(t *testing.T) {
 		cv(g, 3000, -20, -8),
 		cv(g, 0, -20, -4000),
 	}
-	tri[0].u, tri[0].v = 0, 0
-	tri[1].u, tri[1].v = 8, 0
-	tri[2].u, tri[2].v = 0, 8
+	tri[0].ntc, tri[0].tc = 1, tc1(0, 0)
+	tri[1].ntc, tri[1].tc = 1, tc1(8, 0)
+	tri[2].ntc, tri[2].tc = 1, tc1(0, 8)
 
 	poly, _ := clipTriangle(nil, nil, tri)
 	if len(poly) < 3 {
@@ -379,7 +379,7 @@ func TestGuardBandDoesNotMoveTheSurface(t *testing.T) {
 
 	toScreen := func(c clipVertex) screenVertex {
 		sx, sy, sz := g.toScreen(c.cx, c.cy, c.cz, c.cw)
-		return screenVertex{x: sx, y: sy, z: sz, u: c.u, v: c.v, invW: 1 / c.cw}
+		return screenVertex{x: sx, y: sy, z: sz, tc: c.tc, ntc: c.ntc, invW: 1 / c.cw}
 	}
 	// The unclipped triangle, as ground truth.
 	t0, t1, t2 := toScreen(tri[0]), toScreen(tri[1]), toScreen(tri[2])
@@ -394,7 +394,7 @@ func TestGuardBandDoesNotMoveTheSurface(t *testing.T) {
 		if w0 < 0 || w1 < 0 || w2 < 0 {
 			continue // not covered by the source triangle; nothing to compare
 		}
-		wantU, wantV := perspUV(w0, w1, w2, t0, t1, t2)
+		wantU, wantV := puv(w0, w1, w2, t0, t1, t2)
 
 		// And what does the clipped fan say at the same pixel?
 		gotU, gotV, found := float32(0), float32(0), false
@@ -411,7 +411,7 @@ func TestGuardBandDoesNotMoveTheSurface(t *testing.T) {
 			if e0 < -1e-4 || e1 < -1e-4 || e2 < -1e-4 {
 				continue
 			}
-			gotU, gotV = perspUV(e0, e1, e2, a, b, c)
+			gotU, gotV = puv(e0, e1, e2, a, b, c)
 			found = true
 			break
 		}
@@ -448,4 +448,11 @@ func TestClipTriangleRejectsWhollyOutside(t *testing.T) {
 			}
 		})
 	}
+}
+
+// tc1 is a vertex's coordinate array holding one non-projective coordinate at (u,v).
+func tc1(u, v float32) [maxTexCoord]texCoord {
+	var tc [maxTexCoord]texCoord
+	tc[0] = texCoord{s: u, t: v, q: 1}
+	return tc
 }

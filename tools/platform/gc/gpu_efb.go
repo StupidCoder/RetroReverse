@@ -220,15 +220,25 @@ func (g *gpu) copyTexture(m *Machine, params uint32) {
 	halfScale := params&(1<<9) != 0
 
 	// Gaps that have not been exercised halt loudly rather than write a plausible wrong
-	// texture: the intensity conversion's luma weights, the half-scale box filter, and a copy
-	// whose source is the Z buffer (the game's GXCopyTex forces the PE pixel format to Z24
-	// around one, so that register names it) each wait for the draw that first asks.
+	// texture: the intensity conversion's luma weights, and a copy whose source is the Z buffer
+	// (the game's GXCopyTex forces the PE pixel format to Z24 around one, so that register
+	// names it) each wait for the draw that first asks.
 	if intensity {
 		m.CPU.Halt("PE copy-to-texture: intensity format not yet implemented (params 0x%06X)", params)
 		return
 	}
-	if halfScale {
-		m.CPU.Halt("PE copy-to-texture: half-scale box filter not yet implemented (params 0x%06X)", params)
+	// The half-scale copy shrinks the source rectangle by two in EACH direction, so the
+	// destination is half as wide and half as tall and every destination texel stands for a 2x2
+	// block of the EFB. The game says so itself at the call site that first asks for one
+	// (0x8005F4B0): GXSetTexCopySrc(0, 0, 640, 480) immediately followed by
+	// GXSetTexCopyDst(320, 240, fmt, TRUE) — one argument list naming both rectangles. The
+	// source registers carry the 640x480; only this flag says the destination is the half of it,
+	// which is why the loop below must halve w and h rather than trust them as written.
+	//
+	// Z-source half-scale would have to decide what averaging depth even means, and no frame has
+	// asked for one, so that pair still halts rather than guess.
+	if halfScale && g.BP[0x43]&7 == 3 {
+		m.CPU.Halt("PE copy-to-texture: half-scale copy from the Z buffer not yet implemented (params 0x%06X)", params)
 		return
 	}
 	// A copy whose source is the Z buffer: the game flips PE_CONTROL (BP 0x43) to the Z24
@@ -254,7 +264,21 @@ func (g *gpu) copyTexture(m *Machine, params uint32) {
 					m.texWriteByte(dst+uint32(tb+32+in*2)+1, uint8(z))
 				}
 			}
-		case 0xB: // the two-byte Z form: each texel one halfword, the depth's top two bytes
+		// The Z16 form: each texel one halfword holding the depth's top two bytes. The nibble
+		// is 0xB rather than the 3 the format's low nibble would suggest because the library
+		// rewrites it: GXSetTexCopyDst (0x801F543C) compares its format argument against 19
+		// (GX_TF_Z16) and substitutes 11 for the nibble it would otherwise have derived
+		// (cmpwi r5,19 / li r31,11), which is what puts a 0xB here and a set bit 3 in the
+		// parameters. The game asks for exactly that: 0x8005D920 loads 19 and calls it.
+		//
+		// The game reads this copy back as an ORDINARY IA8 texture: its texture object carries
+		// format 3, and GXLoadTexObj sends the texture unit no bit that would say otherwise.
+		// An IA8 texel is (I,I,I,A) with the intensity in the halfword's LOW byte, so the two
+		// depth bytes land in the intensity and the alpha respectively — and the stage that
+		// reads them swaps r<-a (see swapTable), which makes the compare's r:g pair
+		// (intensity:alpha). For that pair to be the depth's top sixteen bits in the right
+		// order, the intensity must carry bits 23..16 and the alpha bits 15..8.
+		case 0xB:
 			m.logf("PE copy-to-texture (Z16, fmt 0xB): EFB (%d,%d) %dx%d -> 0x%08X stride %d",
 				sx, sy, w, h, dst, stride)
 			if drawTrace {
@@ -265,8 +289,8 @@ func (g *gpu) copyTexture(m *Machine, params uint32) {
 					z := g.zAt(sx+x, sy+y)
 					tb, in := copyTexelOffset(stride, 4, 4, 32, x, y)
 					off := dst + uint32(tb+in*2)
-					m.texWriteByte(off, uint8(z>>16))
-					m.texWriteByte(off+1, uint8(z>>8))
+					m.texWriteByte(off, uint8(z>>8))    // the IA8 read's alpha: bits 15..8
+					m.texWriteByte(off+1, uint8(z>>16)) // the IA8 read's intensity: bits 23..16
 				}
 			}
 		default:
@@ -276,17 +300,26 @@ func (g *gpu) copyTexture(m *Machine, params uint32) {
 		return
 	}
 
-	m.logf("PE copy-to-texture: EFB (%d,%d) %dx%d -> 0x%08X format 0x%X stride %d",
-		sx, sy, w, h, dst, format, stride)
+	dw, dh := w, h
+	if halfScale {
+		dw, dh = w/2, h/2
+	}
+	m.logf("PE copy-to-texture: EFB (%d,%d) %dx%d -> 0x%08X format 0x%X stride %d halfScale=%v",
+		sx, sy, w, h, dst, format, stride, halfScale)
 	if drawTrace {
-		fmt.Fprintf(os.Stderr, "COPY-TEX (%d,%d) %dx%d -> 0x%08X format 0x%X\n", sx, sy, w, h, dst, format)
+		fmt.Fprintf(os.Stderr, "COPY-TEX (%d,%d) %dx%d -> 0x%08X format 0x%X half=%v\n", sx, sy, w, h, dst, format, halfScale)
 	}
 
-	for y := 0; y < h; y++ {
-		for x := 0; x < w; x++ {
-			px := g.efbAt(sx+x, sy+y)
-			r, gg, b := unpackRGB(px)
-			a := uint8(px)
+	for y := 0; y < dh; y++ {
+		for x := 0; x < dw; x++ {
+			var r, gg, b, a uint8
+			if halfScale {
+				r, gg, b, a = g.efbBox2(sx+x*2, sy+y*2)
+			} else {
+				px := g.efbAt(sx+x, sy+y)
+				r, gg, b = unpackRGB(px)
+				a = uint8(px)
+			}
 			if !g.encodeCopyTexel(m, dst, stride, format, x, y, r, gg, b, a) {
 				m.CPU.Halt("PE copy-to-texture: destination format 0x%X not yet implemented (params 0x%06X)",
 					format, params)
@@ -294,6 +327,26 @@ func (g *gpu) copyTexture(m *Machine, params uint32) {
 			}
 		}
 	}
+}
+
+// efbBox2 averages the 2x2 EFB block whose top-left corner is (x,y) — the half-scale copy's
+// filter. The average is taken over each channel independently and rounded to nearest (the +2
+// before the shift), so a block of one uniform colour copies out as exactly that colour rather
+// than drifting a level darker, which a truncating average would do to every texel of a flat
+// surface.
+func (g *gpu) efbBox2(x, y int) (r, gg, b, a uint8) {
+	var sr, sg, sb, sa uint32
+	for dy := 0; dy < 2; dy++ {
+		for dx := 0; dx < 2; dx++ {
+			px := g.efbAt(x+dx, y+dy)
+			pr, pg, pb := unpackRGB(px)
+			sr += uint32(pr)
+			sg += uint32(pg)
+			sb += uint32(pb)
+			sa += uint32(uint8(px))
+		}
+	}
+	return uint8((sr + 2) / 4), uint8((sg + 2) / 4), uint8((sb + 2) / 4), uint8((sa + 2) / 4)
 }
 
 // copyTexelOffset locates texel (x,y) in the tiled copy destination: the byte offset of its

@@ -80,6 +80,8 @@ type attrLayout struct {
 	col0Desc uint32
 	col0Comp uint32
 
+	texMtxIdxOff [maxTexCoord]int // per-vertex texture matrix index bytes, -1 when absent
+
 	tex0Off  int
 	tex0Desc uint32
 	tex0Fmt  uint32
@@ -97,9 +99,14 @@ func (g *gpu) layout(vat int) attrLayout {
 	g2 := g.CPReg[0x90+uint32(vat)]
 
 	a := attrLayout{matIdxOff: -1, posOff: -1, nrmOff: -1, col0Off: -1, tex0Off: -1}
+	for i := range a.texMtxIdxOff {
+		a.texMtxIdxOff[i] = -1
+	}
 	off := 0
 
 	// The position matrix index, then eight texture matrix indices, are each one inline byte.
+	// A texture matrix index here overrides the one the matrix-index register selects, for
+	// that coordinate on this vertex alone (see genTexCoord's caller).
 	if lo&1 != 0 {
 		a.hasMatIdx = true
 		a.matIdxOff = off
@@ -107,6 +114,7 @@ func (g *gpu) layout(vat int) attrLayout {
 	}
 	for b := uint32(1); b < 9; b++ {
 		if lo&(1<<b) != 0 {
+			a.texMtxIdxOff[b-1] = off
 			off++
 		}
 	}
@@ -233,6 +241,7 @@ func (g *gpu) drawPrimitive(m *Machine, prim uint32, vat, vsize int, data []byte
 	g.profDraws++
 	count := len(data) / vsize
 	verts := make([]clipVertex, count)
+	nTexGen := g.texGenCount()
 	for i := 0; i < count; i++ {
 		v := data[i*vsize:]
 		mtxIdx := int(g.CPReg[0x30] & 0x3F)
@@ -254,10 +263,11 @@ func (g *gpu) drawPrimitive(m *Machine, prim uint32, vat, vsize int, data []byte
 			}
 		}
 		var nex, ney, nez float32
+		var mnx, mny, mnz float32
 		if lay.nrmOff >= 0 {
 			if nb := g.attrData(m, v, lay.nrmOff, lay.nrmDesc, 1, lay.nrmComps*componentBytes(lay.nrmFmt)); nb != nil {
-				nx, ny, nz := readNormal(nb, lay.nrmFmt)
-				nex, ney, nez = g.normalToEye(mtxIdx, nx, ny, nz)
+				mnx, mny, mnz = readNormal(nb, lay.nrmFmt)
+				nex, ney, nez = g.normalToEye(mtxIdx, mnx, mny, mnz)
 			}
 		}
 		// The colour channel: what the hardware rasterises is not the vertex colour but the
@@ -274,7 +284,19 @@ func (g *gpu) drawPrimitive(m *Machine, prim uint32, vat, vsize int, data []byte
 				tu, tv = g.readTexCoord(tc, lay)
 			}
 		}
-		verts[i] = clipVertex{cx: cx, cy: cy, cz: cz, cw: cw, r: r, g: gg, b: b, a: a, u: tu, v: tv}
+
+		// The transform unit generates this vertex's texture coordinates. What the vertex
+		// carried (tu,tv) is only one possible SOURCE for them — a coordinate generated from
+		// the position never touches it (see gpu_texgen.go).
+		cv := clipVertex{cx: cx, cy: cy, cz: cz, cw: cw, r: r, g: gg, b: b, a: a, ntc: nTexGen}
+		for k := 0; k < nTexGen; k++ {
+			row := g.texMtxRow(k)
+			if lay.texMtxIdxOff[k] >= 0 {
+				row = int(v[lay.texMtxIdxOff[k]])
+			}
+			cv.tc[k] = g.genTexCoord(m, k, row, mx, my, mz, mnx, mny, mnz, texCoord{s: tu, t: tv})
+		}
+		verts[i] = cv
 	}
 	m.profEnd(bucketVertex, tv)
 
@@ -290,7 +312,7 @@ func (g *gpu) drawPrimitive(m *Machine, prim uint32, vat, vsize int, data []byte
 		// — the clipper replaces it — so its w is reported instead of a fictitious pixel.
 		c0 := verts[0]
 		v0x, v0y, v0z := g.toScreen(c0.cx, c0.cy, c0.cz, c0.cw)
-		v0 := screenVertex{x: v0x, y: v0y, z: v0z, r: c0.r, g: c0.g, b: c0.b, a: c0.a, u: c0.u, v: c0.v}
+		v0 := screenVertex{x: v0x, y: v0y, z: v0z, r: c0.r, g: c0.g, b: c0.b, a: c0.a, tc: c0.tc, ntc: c0.ntc}
 		clipped := ""
 		if c0.cz+c0.cw < 0 {
 			clipped = fmt.Sprintf(" CLIPPED(w=%.2f)", c0.cw)
@@ -299,8 +321,8 @@ func (g *gpu) drawPrimitive(m *Machine, prim uint32, vat, vsize int, data []byte
 		_, _, _, k0a := tevColorReg(g.TevKonstReg[0])
 		t0 := g.texSetup(0)
 		g.dumpTex0Once(m, t0.base)
-		fmt.Fprintf(os.Stderr, "DRAW prim 0x%02X vat %d n %d  v0 (%.1f,%.1f,z%.0f)%s rgba %d,%d,%d,%d uv (%.2f,%.2f)  tex0 0x%06X fmt%X %dx%d  px w=%d zrej=%d arej=%d  stages=%d bp41=%06X af=%06X zm=%02X a0=%.0f ka0=%.0f vcd=%03X mat0=%08X amb0=%08X cc0=%08X ca0=%08X\n",
-			prim, vat, count, v0.x, v0.y, v0.z, clipped, v0.r, v0.g, v0.b, v0.a, v0.u, v0.v,
+		fmt.Fprintf(os.Stderr, "DRAW prim 0x%02X vat %d n %d  v0 (%.1f,%.1f,z%.0f)%s rgba %d,%d,%d,%d ntc=%d uv (%.2f,%.2f)  tex0 0x%06X fmt%X %dx%d  px w=%d zrej=%d arej=%d  stages=%d bp41=%06X af=%06X zm=%02X a0=%.0f ka0=%.0f vcd=%03X mat0=%08X amb0=%08X cc0=%08X ca0=%08X\n",
+			prim, vat, count, v0.x, v0.y, v0.z, clipped, v0.r, v0.g, v0.b, v0.a, v0.ntc, v0.tc[0].s, v0.tc[0].t,
 			t0.base, t0.format, t0.width, t0.height,
 			g.pixWritten-w0, g.pixZRej-z0, g.pixARej-a0,
 			int((g.BP[0x00]>>10)&0xF)+1, g.BP[0x41], g.BP[0xF3], g.BP[0x40], c0a, k0a,

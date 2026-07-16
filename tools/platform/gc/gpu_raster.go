@@ -47,25 +47,42 @@ func (g *gpu) ensureRaster() {
 	}
 }
 
-// perspUV interpolates a pixel's texture coordinate perspective-correctly from the three
-// barycentric weights.
+// perspTexCoords interpolates a pixel's texture coordinates perspective-correctly from the
+// three barycentric weights, and applies each one's projective divide.
 //
-// What varies linearly across the screen is not u but u/w, so u/w, v/w and 1/w are the things
-// interpolated, and the divide is undone per pixel. Interpolating u directly walks the texture
-// at a constant rate across a surface whose steps into the distance are shrinking, so the
-// texture slides over the geometry — the skew is invisible on a screen-aligned blit and severe
-// on a ground plane running to the horizon.
+// What varies linearly across the screen is not s but s/w, so s/w, t/w, q/w and 1/w are the
+// things interpolated, and the divide is undone per pixel. Interpolating s directly walks the
+// texture at a constant rate across a surface whose steps into the distance are shrinking, so
+// the texture slides over the geometry — the skew is invisible on a screen-aligned blit and
+// severe on a ground plane running to the horizon.
 //
 // For an orthographic draw every w is 1, so every invW is 1 and this reduces exactly to the
 // affine interpolation it replaced — 2D screens are untouched by construction, not by luck.
 //
+// The final divide by q is what makes a projective coordinate project: it is the same divide
+// the position takes to reach the screen, applied a second time in the OTHER camera's frame,
+// and it is the reason a shadow map lands where the light sees it rather than where the eye
+// does. A non-projective coordinate reaches here with q = 1 in every vertex (gpu_texgen.go
+// forces it), which interpolates to exactly 1, so the divide is an identity rather than a
+// case the loop has to branch on.
+//
 // The weights are non-negative and sum to 1 (the caller has already rejected pixels outside
 // the triangle), and the clipper guarantees every invW is positive, so iw is positive.
-func perspUV(b0, b1, b2 float32, v0, v1, v2 screenVertex) (u, v float32) {
+func perspTexCoords(b0, b1, b2 float32, v0, v1, v2 screenVertex, out *[maxTexCoord]texCoord) {
 	iw := b0*v0.invW + b1*v1.invW + b2*v2.invW
-	u = (b0*v0.u*v0.invW + b1*v1.u*v1.invW + b2*v2.u*v2.invW) / iw
-	v = (b0*v0.v*v0.invW + b1*v1.v*v1.invW + b2*v2.v*v2.invW) / iw
-	return u, v
+	for i := 0; i < v0.ntc; i++ {
+		s := (b0*v0.tc[i].s*v0.invW + b1*v1.tc[i].s*v1.invW + b2*v2.tc[i].s*v2.invW) / iw
+		t := (b0*v0.tc[i].t*v0.invW + b1*v1.tc[i].t*v1.invW + b2*v2.tc[i].t*v2.invW) / iw
+		q := (b0*v0.tc[i].q*v0.invW + b1*v1.tc[i].q*v1.invW + b2*v2.tc[i].q*v2.invW) / iw
+		// A vertex behind the light's own near plane brings a q of zero or less through the
+		// interpolation. There is no coordinate to sample there; leaving s,t as they stand
+		// keeps the pixel out of the divide rather than sending an infinity to the sampler.
+		if q != 0 {
+			s /= q
+			t /= q
+		}
+		out[i] = texCoord{s: s, t: t, q: q}
+	}
 }
 
 // drawTriangle rasterises one triangle of three transformed vertices.
@@ -145,11 +162,13 @@ func (g *gpu) drawTriangle(m *Machine, v0, v1, v2 screenVertex) {
 			gg := uint8(b0*float32(v0.g) + b1*float32(v1.g) + b2*float32(v2.g))
 			bb := uint8(b0*float32(v0.b) + b1*float32(v1.b) + b2*float32(v2.b))
 			a := uint8(b0*float32(v0.a) + b1*float32(v1.a) + b2*float32(v2.a))
-			u, v := perspUV(b0, b1, b2, v0, v1, v2)
+			var tc [maxTexCoord]texCoord
+			perspTexCoords(b0, b1, b2, v0, v1, v2, &tc)
 
-			fr, fg, fb, fa, pass := g.shade(m, r, gg, bb, a, u, v)
+			fr, fg, fb, fa, pass := g.shade(m, r, gg, bb, a, &tc)
 			if x == pixDbgX && y == pixDbgY {
 				t0 := g.texSetup(0)
+				u, v := tc[0].s, tc[0].t
 				tr, tg, tb, ta := g.sampleTexmap(m, 0, u, v)
 				fmt.Fprintf(os.Stderr,
 					"PIXDBG (%d,%d): ras %d,%d,%d,%d uv (%.4f,%.4f) tex0 0x%06X fmt%X %dx%d texel (%d,%d)=%d,%d,%d,%d -> out %d,%d,%d,%d pass=%v dst %08X\n",

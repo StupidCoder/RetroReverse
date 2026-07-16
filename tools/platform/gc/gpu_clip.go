@@ -148,7 +148,7 @@ func (g *gpu) clipAndDraw(m *Machine, dst, scratch []clipVertex, v0, v1, v2 clip
 		sx, sy, sz := g.toScreen(c.cx, c.cy, c.cz, c.cw)
 		// The near clip guarantees a positive w, so this reciprocal is always finite.
 		return screenVertex{x: sx, y: sy, z: sz, r: c.r, g: c.g, b: c.b, a: c.a,
-			u: c.u, v: c.v, invW: 1 / c.cw}
+			tc: c.tc, ntc: c.ntc, invW: 1 / c.cw}
 	}
 	// The surviving polygon is convex and still wound as the source was, so a fan from its
 	// first vertex retriangulates it without changing which way any triangle faces — which

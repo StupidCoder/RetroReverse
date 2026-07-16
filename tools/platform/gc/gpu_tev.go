@@ -50,9 +50,9 @@ func sext11(v uint32) int32 {
 }
 
 // shade runs the TEV pipeline for one pixel. It is given the rasterised (interpolated vertex)
-// colour and the texture coordinate, and returns the final colour together with whether the
-// pixel survived the alpha test.
-func (g *gpu) shade(m *Machine, rasR, rasG, rasB, rasA uint8, u, v float32) (fr, fg, fb, fa uint8, pass bool) {
+// colour and the pixel's generated texture coordinates, and returns the final colour together
+// with whether the pixel survived the alpha test.
+func (g *gpu) shade(m *Machine, rasR, rasG, rasB, rasA uint8, tc *[maxTexCoord]texCoord) (fr, fg, fb, fa uint8, pass bool) {
 	// The four working registers, seeded with the constant values the game loaded.
 	var reg [4][4]float32
 	for i := 0; i < 4; i++ {
@@ -71,25 +71,35 @@ func (g *gpu) shade(m *Machine, rasR, rasG, rasB, rasA uint8, u, v float32) (fr,
 		texcoord := int((ord >> 3) & 7)
 		texEnable := (ord>>6)&1 != 0
 
+		cc := g.BP[0xC0+uint32(s)*2]
+		ac := g.BP[0xC1+uint32(s)*2]
+
+		// Each stage reads its two colour inputs through a swap table of its own choosing, named
+		// in the low bits of its alpha combiner. The tables are not decoration: this game's
+		// shadow test cannot be expressed without them. A texture sampled as IA8 arrives as
+		// (I,I,I,A), so the r:g pair a 16-bit compare reads would be (I,I) — one byte twice
+		// over, and no 16-bit quantity at all. The swap is what lifts the alpha into g and makes
+		// r:g the two halves of one number: the shadow's depth ramp swaps g<-a to assemble its
+		// 16-bit value, and the shadow map swaps r<-a to assemble the depth's.
+		//
+		// The swizzles are per-stage locals. Writing either back over the loop's own ras would
+		// hand the next stage a colour the rasteriser never produced.
+		sras := swizzle(g.swapTable(int(ac&3)), ras)
+
 		var tex [4]float32
 		if texEnable {
-			// Only texture coordinate 0 is interpolated and fetched; a stage that reads
-			// another coordinate is a ticket, logged once, not a wrong sample from coord 0.
-			if texcoord != 0 {
-				m.logf("TEV: stage %d samples texcoord %d, but only texcoord0 is fetched", s, texcoord)
-			}
-			tr, tg, tb, ta := g.sampleTexmap(m, texmap, u, v)
-			tex = [4]float32{float32(tr), float32(tg), float32(tb), float32(ta)}
+			// Each stage samples the coordinate it names. A stage may read a coordinate the
+			// transform unit was not asked to generate — that is the game's own error, not a
+			// gap here, and the coordinate reads as the zero it was left at.
+			tr, tg, tb, ta := g.sampleTexmap(m, texmap, tc[texcoord].s, tc[texcoord].t)
+			tex = swizzle(g.swapTable(int((ac>>2)&3)), [4]float32{float32(tr), float32(tg), float32(tb), float32(ta)})
 		}
 
 		kc := g.konstColor(s)
 		ka := g.konstAlpha(s)
 
-		cc := g.BP[0xC0+uint32(s)*2]
-		ac := g.BP[0xC1+uint32(s)*2]
-
-		crgb := combineColor(cc, reg, tex, ras, kc)
-		aout := combineAlpha(ac, reg, tex, ras, ka)
+		crgb, ca, cb := combineColor(cc, reg, tex, sras, kc)
+		aout := combineAlpha(ac, reg, tex, sras, ka, ca, cb)
 
 		cdest := (cc >> 22) & 3
 		adest := (ac >> 22) & 3
@@ -110,35 +120,133 @@ func (g *gpu) shade(m *Machine, rasR, rasG, rasB, rasA uint8, u, v float32) (fr,
 func toU8(f float32) uint8 { return uint8(clampf(f) + 0.5) }
 
 // combineColor evaluates a stage's colour combiner: four rgb inputs chosen from the sixteen
-// codes, then the shared formula applied per channel.
-func combineColor(cc uint32, reg [4][4]float32, tex, ras [4]float32, konst [3]float32) [3]float32 {
+// codes, then either the arithmetic formula applied per channel or — when the bias field
+// reads 3 — the comparison the stage has been switched to instead (see tevCompare).
+//
+// The colour operands are returned alongside the result because the ALPHA combiner's
+// comparison reads them rather than its own: see combineAlpha.
+func combineColor(cc uint32, reg [4][4]float32, tex, ras [4]float32, konst [3]float32) (out, ca, cb [3]float32) {
 	d := colorArg(int(cc&0xF), reg, tex, ras, konst)
 	c := colorArg(int((cc>>4)&0xF), reg, tex, ras, konst)
 	b := colorArg(int((cc>>8)&0xF), reg, tex, ras, konst)
 	a := colorArg(int((cc>>12)&0xF), reg, tex, ras, konst)
 	bias := int((cc >> 16) & 3)
-	sub := (cc>>18)&1 != 0
+	op := (cc>>18)&1 != 0
 	clamp := (cc>>19)&1 != 0
 	scale := int((cc >> 20) & 3)
-	var out [3]float32
-	for i := 0; i < 3; i++ {
-		out[i] = tevFormula(a[i], b[i], c[i], d[i], bias, sub, scale, clamp)
+
+	if bias == tevBiasCompare {
+		// Compare mode: the scale field is no longer a shift and the sub bit is no longer a
+		// sign — together they name the comparison (see tevCompare).
+		sel := scale<<1 | b2i(op)
+		for i := 0; i < 3; i++ {
+			// RGB8 compares each channel against its own opposite number; the narrower
+			// widths compare one packed value and apply the single verdict to all three.
+			ch := i
+			if sel>>1 != 3 {
+				ch = -1
+			}
+			if tevCompare(sel, a, b, 0, 0, ch) {
+				out[i] = d[i] + c[i]
+			} else {
+				out[i] = d[i]
+			}
+			if clamp {
+				out[i] = clampf(out[i])
+			}
+		}
+		return out, a, b
 	}
-	return out
+	for i := 0; i < 3; i++ {
+		out[i] = tevFormula(a[i], b[i], c[i], d[i], bias, op, scale, clamp)
+	}
+	return out, a, b
 }
 
 // combineAlpha evaluates a stage's alpha combiner: four scalar inputs from the eight alpha
-// codes, then the same formula.
-func combineAlpha(ac uint32, reg [4][4]float32, tex, ras [4]float32, konst float32) float32 {
+// codes, then the arithmetic formula or — when the bias field reads 3 — a comparison.
+//
+// A comparison here is the one place the two combiners are not independent. Only the widest
+// selector (A8) compares the alpha operands; every narrower one compares the COLOUR pipe's a
+// and b, which is why they arrive as arguments. This game's shadow stage is the proof: its
+// alpha compare selects both of its own operands as ZERO and would be a no-op that always
+// took the same branch, while the colour operands either side of it are the fragment's
+// light-space depth and the shadow map's — the two values the shadow test exists to compare.
+func combineAlpha(ac uint32, reg [4][4]float32, tex, ras [4]float32, konst float32, ca, cb [3]float32) float32 {
 	d := alphaArg(int((ac>>4)&7), reg, tex, ras, konst)
 	c := alphaArg(int((ac>>7)&7), reg, tex, ras, konst)
 	b := alphaArg(int((ac>>10)&7), reg, tex, ras, konst)
 	a := alphaArg(int((ac>>13)&7), reg, tex, ras, konst)
 	bias := int((ac >> 16) & 3)
-	sub := (ac>>18)&1 != 0
+	op := (ac>>18)&1 != 0
 	clamp := (ac>>19)&1 != 0
 	scale := int((ac >> 20) & 3)
-	return tevFormula(a, b, c, d, bias, sub, scale, clamp)
+
+	if bias == tevBiasCompare {
+		sel := scale<<1 | b2i(op)
+		out := d
+		if tevCompare(sel, ca, cb, a, b, -1) {
+			out += c
+		}
+		if clamp {
+			out = clampf(out)
+		}
+		return out
+	}
+	return tevFormula(a, b, c, d, bias, op, scale, clamp)
+}
+
+// tevBiasCompare is the bias encoding that means "this stage is a comparison, not a sum".
+const tevBiasCompare = 3
+
+func b2i(b bool) int {
+	if b {
+		return 1
+	}
+	return 0
+}
+
+// tevCompare evaluates a compare-mode stage's test. The selector is the scale field and the
+// op bit together — (scale<<1)|op — which is how the library that built these registers
+// encodes the eight comparisons: four operand widths, each greater-than or equal-to.
+//
+//	0/1 R8      2/3 GR16     4/5 BGR24     6/7 RGB8 (colour) or A8 (alpha)
+//
+// The narrow widths read the colour operands as little-endian bytes of one unsigned number:
+// GR16 is green:red, BGR24 is blue:green:red. That is what lets a stage compare a 16- or
+// 24-bit quantity that has been spread across channels, which is exactly how a depth value
+// arrives from a Z-format texture.
+//
+// ch selects a single colour channel for the per-channel RGB8 form; -1 means the caller
+// wants the one packed verdict. aa/ab are the alpha operands, read only by A8.
+func tevCompare(sel int, ca, cb [3]float32, aa, ab float32, ch int) bool {
+	u8 := func(f float32) uint32 { return uint32(clampf(f) + 0.5) }
+	pack := func(v [3]float32, n int) uint32 {
+		var r uint32
+		for i := n - 1; i >= 0; i-- {
+			r = r<<8 | u8(v[i])
+		}
+		return r
+	}
+	var x, y uint32
+	switch sel >> 1 {
+	case 0: // R8
+		x, y = pack(ca, 1), pack(cb, 1)
+	case 1: // GR16
+		x, y = pack(ca, 2), pack(cb, 2)
+	case 2: // BGR24
+		x, y = pack(ca, 3), pack(cb, 3)
+	default: // RGB8 per channel, or A8 when the alpha combiner asks
+		if ch < 0 {
+			x, y = u8(aa), u8(ab)
+		} else {
+			x, y = u8(ca[ch]), u8(cb[ch])
+		}
+	}
+	if sel&1 == 0 {
+		return x > y
+	}
+	return x == y
 }
 
 // tevFormula is the arithmetic every stage shares, in 0..255 units: interpolate a and b by c,
@@ -285,6 +393,25 @@ func (g *gpu) konstAlpha(stage int) float32 {
 		}
 	}
 	return 0
+}
+
+// swapTable reads one of the four channel swap tables the TEV keeps. The tables share the
+// eight KSEL registers with the constant selections, two channels to a register in the low
+// nibble the constants leave free: table t is built from KSEL 0xF6+2t (red, then green) and
+// 0xF6+2t+1 (blue, then alpha), each entry two bits naming the source channel.
+//
+// Table 0 is conventionally the identity, which is why ignoring the tables altogether looked
+// right for so long — every draw that leaves a stage on table 0 is unaffected.
+func (g *gpu) swapTable(t int) [4]int {
+	lo := g.BP[0xF6+uint32(t)*2]
+	hi := g.BP[0xF6+uint32(t)*2+1]
+	return [4]int{int(lo & 3), int((lo >> 2) & 3), int(hi & 3), int((hi >> 2) & 3)}
+}
+
+// swizzle applies a swap table to one colour: each output channel takes the input channel the
+// table names for it.
+func swizzle(t [4]int, v [4]float32) [4]float32 {
+	return [4]float32{v[t[0]], v[t[1]], v[t[2]], v[t[3]]}
 }
 
 // kSel reads a stage's constant-colour or constant-alpha selection out of the KSEL register
