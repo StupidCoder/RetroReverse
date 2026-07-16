@@ -71,6 +71,54 @@ func (c *CPU) programException(kind uint32) {
 	c.Exception(VecProgram, c.PC, kind|SRR1NotNextPC)
 }
 
+// needsFPU reports whether an instruction requires the floating-point unit, and so must
+// not run while MSR[FP] is clear. It is every floating-point instruction — arithmetic,
+// the FPSCR moves, the paired singles, and the loads and stores, which count because they
+// name a floating-point register even though they do no arithmetic.
+//
+// Opcode 4 is the paired-single unit and opcodes 56/57/60/61 are its quantised loads and
+// stores; on a stock PowerPC those encodings are something else, but this is a Gekko.
+func needsFPU(w uint32) bool {
+	switch opcd(w) {
+	case 4, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 59, 60, 61, 63:
+		return true
+	case 31:
+		switch xo10(w) {
+		case 535, 567, 599, 631, 663, 695, 727, 759, 983:
+			return true // lfsx lfsux lfdx lfdux stfsx stfsux stfdx stfdux stfiwx
+		}
+	}
+	return false
+}
+
+// fpUnavailable takes the floating-point unavailable exception if this instruction needs
+// the FPU and MSR[FP] says it is off.
+//
+// This is not a corner of the architecture a GameCube program can do without: an OS with
+// more than one thread switches the floating-point registers *lazily*. A thread that has
+// not touched the FPU runs with MSR[FP] clear; the first floating-point instruction it
+// executes traps here, and the handler saves the registers of whichever thread owned the
+// FPU last, loads this thread's, sets MSR[FP] and returns to retry the instruction. The
+// scheduler's own context switch never saves an FPR at all — that is the whole point, and
+// it is why the game's thread-save path stores the GPRs and the GQRs and nothing else.
+//
+// So a core that quietly executes floating-point with MSR[FP] clear does not merely skip
+// an exception. It removes the only thing that ever swaps the floating-point registers,
+// and the FPRs silently become global across every thread on the machine. It looks
+// harmless for as long as one thread is doing the arithmetic, which is nearly always,
+// and then one preemption lands between a load and the add that consumes it and a vertex
+// leaves for the horizon.
+//
+// SRR0 is the offending instruction, not the one after it: the handler returns to it and
+// it runs again, this time with the registers it was written to see.
+func (c *CPU) fpUnavailable(w, pc uint32) bool {
+	if c.MSR&MSRFP != 0 || !needsFPU(w) {
+		return false
+	}
+	c.Exception(VecFPUnavail, pc, 0)
+	return true
+}
+
 // checkInterrupt takes the external interrupt or the decrementer if either is pending and
 // the machine state register allows it. It runs at the top of every instruction, which is
 // what makes the line level-sensitive: the interrupt controller holds it up, and the CPU

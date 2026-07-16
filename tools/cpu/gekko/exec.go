@@ -43,6 +43,9 @@ func (c *CPU) Step() int {
 }
 
 func (c *CPU) execute(w, pc uint32) {
+	if c.fpUnavailable(w, pc) {
+		return
+	}
 	switch opcd(w) {
 	case 3: // twi
 		if c.trapCond(rs(w), c.GPR[ra(w)], uint32(simm(w))) {

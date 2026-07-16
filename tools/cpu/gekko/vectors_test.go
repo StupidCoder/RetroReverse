@@ -56,7 +56,10 @@ func TestVectors(t *testing.T) {
 func runCase(c Case) string {
 	m := &testRAM{}
 	cpu := NewCPU(m)
-	cpu.MSR = 0 // translation off: effective addresses are physical
+	// Translation off (effective addresses are physical), FPU on: a case that names an
+	// FPR stands for a thread that owns it, and with MSR[FP] clear it would trap to the
+	// FP-unavailable vector rather than execute.
+	cpu.MSR = MSRFP
 	cpu.PC = 0x1000
 	m.Write32(0x1000, c.Op)
 

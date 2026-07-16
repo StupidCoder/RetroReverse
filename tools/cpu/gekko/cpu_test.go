@@ -39,7 +39,11 @@ func (m *testRAM) Write32(a uint32, v uint32) {
 func newTest(words ...uint32) (*CPU, *testRAM) {
 	m := &testRAM{}
 	c := NewCPU(m)
-	c.MSR = 0 // no translation, no interrupts, vectors low
+	// No translation, no interrupts, vectors low — but the FPU on. MSR[FP] is not a
+	// detail of the harness: with it clear every floating-point instruction traps to the
+	// FP-unavailable vector instead of executing, so a test of floating-point behaviour
+	// has to own the FPU the way the thread it stands for would.
+	c.MSR = MSRFP
 	c.PC = 0x1000
 	for i, w := range words {
 		m.Write32(0x1000+uint32(i*4), w)
