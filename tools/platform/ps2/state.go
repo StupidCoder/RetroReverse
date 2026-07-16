@@ -53,6 +53,15 @@ type HandlerState struct {
 	Arg   uint32
 }
 
+// EETimerState is one EE timer (eetimer.go).
+type EETimerState struct {
+	Base      uint32
+	BaseSteps uint64
+	Mode      uint32
+	Comp      uint32
+	Hold      uint32
+}
+
 // MachineState is a complete snapshot.
 type MachineState struct {
 	ImageHash string
@@ -91,6 +100,9 @@ type MachineState struct {
 	SifCmdBuf     uint32
 	SifCmdHandler uint32
 	Steps         uint64
+
+	// The EE timers: the frame-ratio clock the GOAL engine paces its day by.
+	EETimers [4]EETimerState
 
 	// The syscalls the game replaced with its own routines. Losing these on load is
 	// not a visible failure: the calls still "work", they just quietly do nothing,
@@ -214,6 +226,12 @@ func (m *Machine) SaveState() MachineState {
 		SifCmdBuf:     m.sifCmdBuf,
 		SifCmdHandler: m.sifCmdHandler,
 		Steps:         m.steps,
+		EETimers: [4]EETimerState{
+			{m.eeTimers[0].base, m.eeTimers[0].baseSteps, m.eeTimers[0].mode, m.eeTimers[0].comp, m.eeTimers[0].hold},
+			{m.eeTimers[1].base, m.eeTimers[1].baseSteps, m.eeTimers[1].mode, m.eeTimers[1].comp, m.eeTimers[1].hold},
+			{m.eeTimers[2].base, m.eeTimers[2].baseSteps, m.eeTimers[2].mode, m.eeTimers[2].comp, m.eeTimers[2].hold},
+			{m.eeTimers[3].base, m.eeTimers[3].baseSteps, m.eeTimers[3].mode, m.eeTimers[3].comp, m.eeTimers[3].hold},
+		},
 		UserSyscalls:  map[uint32]uint32{},
 		NextSemaID:    m.nextSemaID,
 		HeapPtr:       m.heapPtr,
@@ -378,6 +396,9 @@ func (m *Machine) LoadState(s MachineState) error {
 	}
 	m.sifCmdBuf, m.sifCmdHandler = s.SifCmdBuf, s.SifCmdHandler
 	m.steps = s.Steps
+	for i, ts := range s.EETimers {
+		m.eeTimers[i] = eeTimer{base: ts.Base, baseSteps: ts.BaseSteps, mode: ts.Mode, comp: ts.Comp, hold: ts.Hold}
+	}
 
 	m.userSyscalls = map[uint32]uint32{}
 	for k, v := range s.UserSyscalls {

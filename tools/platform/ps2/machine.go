@@ -198,6 +198,9 @@ type Machine struct {
 	// an interrupt or a reply from the IOP makes something ready again.
 	idle bool
 
+	// The EE's four timers (eetimer.go), evaluated lazily against steps below.
+	eeTimers [4]eeTimer
+
 	// steps counts every instruction the machine has run, across the whole session. The
 	// SIF's reply latency is measured in it.
 	steps uint64
@@ -602,6 +605,9 @@ func (m *Machine) ioRead(p uint32) uint32 {
 			return v
 		}
 	}
+	if v, ok := m.eeTimerRead(p); ok {
+		return v
+	}
 	m.unmodelled[p]++
 	return m.io[p]
 }
@@ -620,6 +626,9 @@ func (m *Machine) ioWrite(p, v uint32) {
 		if m.gsPrivWrite(p, v) {
 			return
 		}
+	}
+	if m.eeTimerWrite(p, v) {
+		return
 	}
 	m.unmodelled[p]++
 	m.io[p] = v
