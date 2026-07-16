@@ -84,6 +84,8 @@ func main() {
 	gsBig := flag.Int("gsbig", 0, "print the first N completed GS primitives whose bounding box exceeds 1024px, naming the VU1 program or PATH that produced each — the huge-triangle hunter")
 	gsVerts := flag.Int("gsverts", 0, "print the first N completed GS primitives with their exact vertex data (position, Z, RGBA, ST/Q) — one column per hypothesis: huge positions = transform bug, black RGBA = lighting bug, zero alpha or Q = unpack bug")
 	vu1Data := flag.String("vu1data", "", "write VU1's data memory (as the VIF unpacked it) to FILE at the end of the run — the input side of a microprogram, where the matrix rows and the vertex block sit")
+	vu0Data := flag.String("vu0data", "", "write VU0's data memory to FILE at the end of the run — where the vcallms palette lives")
+	vu0Micro := flag.String("vu0micro", "", "write VU0's program memory (as VIF0 filled it) to FILE at the end of the run — where the EE's vcallms microprograms live")
 	vu1Micro := flag.String("vu1micro", "", "write VU1's program memory (as the VIF filled it) to FILE at the end of the run — the input for sizing up the vector unit")
 	var gsFBs multiFlag
 	flag.Var(&gsFBs, "gsfb", "dump a PSMCT32 buffer of GS memory as BASE:FBW:H:FILE.png (base = word address as the census prints, FBW in 64px units, H in pixels); repeatable")
@@ -104,7 +106,7 @@ func main() {
 		iopOnly: *iopOnly, iopMods: *iopMods, iopDis: *iopDis,
 		iopIO: *iopIO, iopION: *iopION, iopWatch: *iopWatch, iopTrap: *iopTrap,
 		iopCalls: *iopCalls, iopCallsFrom: *iopCallsFrom, iopPokes: iopPokes,
-		iopDump: *iopDump, iopThreads: *iopThreads, iopIELog: *iopIELog, goalSyms: *goalSyms, goalNames: *goalNames, eeProf: *eeProf, gsFrame: *gsFrame, gsVerts: *gsVerts, gsBig: *gsBig, vu1In: *vu1In, vu1Micro: *vu1Micro, vu1Data: *vu1Data,
+		iopDump: *iopDump, iopThreads: *iopThreads, iopIELog: *iopIELog, goalSyms: *goalSyms, goalNames: *goalNames, eeProf: *eeProf, gsFrame: *gsFrame, gsVerts: *gsVerts, gsBig: *gsBig, vu1In: *vu1In, vu1Micro: *vu1Micro, vu0Micro: *vu0Micro, vu0Data: *vu0Data, vu1Data: *vu1Data,
 		gsFBs: gsFBs, gsTexs: gsTexs,
 	}); err != nil {
 		fmt.Fprintln(os.Stderr, "bootoracle:", err)
@@ -144,6 +146,8 @@ type cfg struct {
 	vu1In                                 string
 	vu1Data                               string
 	vu1Micro                              string
+	vu0Micro                              string
+	vu0Data                               string
 	gsFBs                                 multiFlag
 	gsTexs                                multiFlag
 }
@@ -732,6 +736,26 @@ func run(c cfg) error {
 	if c.gsFrame != "" {
 		if err := writeGSFrame(m, c.gsFrame); err != nil {
 			return err
+		}
+	}
+	if c.vu0Data != "" {
+		data := m.VUDataMem(0)
+		if data == nil {
+			fmt.Println("vu0data: no VU0 yet")
+		} else if err := os.WriteFile(c.vu0Data, data, 0o644); err != nil {
+			return err
+		} else {
+			fmt.Printf("vu0data: wrote %d bytes to %s\n", len(data), c.vu0Data)
+		}
+	}
+	if c.vu0Micro != "" {
+		micro := m.VUMicro(0)
+		if micro == nil {
+			fmt.Println("vu0micro: no VU0 yet")
+		} else if err := os.WriteFile(c.vu0Micro, micro, 0o644); err != nil {
+			return err
+		} else {
+			fmt.Printf("vu0micro: wrote %d bytes to %s\n", len(micro), c.vu0Micro)
 		}
 	}
 	if c.vu1Micro != "" {

@@ -464,6 +464,19 @@ func (m *Machine) slice(p uint32) ([]byte, uint32, bool) {
 		return m.spram, p - spramBase, true
 	case p >= iopRAMBase && p < iopRAMBase+iopRAMSize:
 		return m.iopRAM, p - iopRAMBase, true
+	case p >= vuBase && p < vuEnd:
+		// The EE's memory-mapped window onto the vector units' memories: VU0 micro at
+		// 0x11000000, VU0 data at 0x11004000, VU1 micro at 0x11008000, VU1 data at
+		// 0x1100C000, each unit's memory mirrored across its 16 KiB quarter. Before
+		// this case existed, a direct sq into VU memory fell into the unmodelled-IO
+		// tally and was silently dropped.
+		q := p >> 14 & 3 // which quarter: VU0 micro, VU0 data, VU1 micro, VU1 data
+		v := m.ensureVIF(int(q >> 1))
+		buf := v.micro
+		if q&1 != 0 {
+			buf = v.data
+		}
+		return buf, (p - vuBase) & uint32(len(buf)-1), true
 	}
 	return nil, 0, false
 }
