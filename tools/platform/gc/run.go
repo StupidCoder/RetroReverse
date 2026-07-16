@@ -116,7 +116,24 @@ func (m *Machine) Run(maxSteps uint64) Result {
 	// Tight-spin detection: if only a couple of PCs recur across a whole window, the
 	// program is stuck. A real loop — even a wait loop that polls a device — touches more
 	// addresses than that, because the poll itself is several instructions.
-	spin := map[uint32]bool{}
+	//
+	// The window is counted with a four-entry array rather than the set this obviously
+	// wants, because the set was a map insert PER GEKKO INSTRUCTION — two million of them a
+	// field, and ~10% of a boot stretch measured by A/B-ing -nospin, which is the whole of
+	// what that flag turns off.
+	//
+	// The array is not an approximation of the set; it decides the same thing. The
+	// predicate is "fewer than four distinct PCs in the window", so ONCE THE FOURTH
+	// DISTINCT PC HAS BEEN SEEN THE ANSWER IS ALREADY NO, and nothing later in the window
+	// can change it back. So spinN saturates at four and the scan stops: past that point
+	// the cost is an increment and a compare, and a run of real code is past that point
+	// within a handful of instructions. Below four, a linear scan of at most three entries
+	// is cheaper than hashing.
+	//
+	// spinN < 4 is exactly len(spin) < 4, so the run stops at the same instruction with
+	// the same reason. This is not bit-exact by argument, it is the same function.
+	var spinPCs [4]uint32
+	var spinN int
 	const spinWindow = 0x400000
 	var sinceReset uint64
 
@@ -141,13 +158,25 @@ func (m *Machine) Run(maxSteps uint64) Result {
 		m.tickDI()
 
 		if !m.noSpin {
-			spin[pc] = true
+			if spinN < 4 {
+				seen := false
+				for i := 0; i < spinN; i++ {
+					if spinPCs[i] == pc {
+						seen = true
+						break
+					}
+				}
+				if !seen {
+					spinPCs[spinN] = pc
+					spinN++
+				}
+			}
 			sinceReset++
 			if sinceReset >= spinWindow {
-				if len(spin) < 4 {
+				if spinN < 4 {
 					return Result{steps, pc, "spin (tight loop)"}
 				}
-				spin = map[uint32]bool{}
+				spinN = 0
 				sinceReset = 0
 			}
 		}
