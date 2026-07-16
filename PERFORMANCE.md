@@ -2,11 +2,87 @@
 
 **Status (2026-07-13): done for the 3DS. The frame went from 256.8 ms to 77.6 ms — 3.3× — and
 it is byte-identical. The frame debugger's scrubber is 2.3× on top of that.**
+
+**Status (2026-07-16): done for the GameCube. 1.6× on the intro cutscene, 2.0× on the shadow
+scene, and 1.9× on a boot stretch — byte-identical. See *The GameCube* below.**
+
 Read *Phase 0 — the results* and *What was actually done* below; the original plan (kept, below
 the line) guessed the ordering and got most of it wrong, which is exactly what Phase 0 existed to
 find out.
 
 A plan, ordered cheapest-and-safest first.
+
+---
+
+## The GameCube (2026-07-16) — and why the 3DS's ordering did not transfer
+
+**Luigi's Mansion, M3 Pro / darwin-arm64. Every number A/B'd back to back in one sitting.**
+
+| workload | before | after | |
+|---|---|---|---|
+| intro-cutscene, 20 fields | 2.417 s | 1.497 s | **1.61×** |
+| shadow, 16 fields | 2.820 s | 1.435 s | **1.97×** |
+| **boot stretch, 200M steps** | 9.755 s | 5.215 s | **1.87×** |
+
+The boot stretch is the one the work existed for — a savestate is a cache, and a Gekko or
+Flipper fix invalidates it — and it nearly halved.
+
+### What each item was worth, against what it was predicted to be worth
+
+| item | predicted | measured | |
+|---|---|---|---|
+| 1.1 spin map → O(1) array | 20-40% | **12.7%** boot, **9.7%** draw | the heuristic now costs 0.8%, was 12.7% |
+| 2.2 `binary.BigEndian` on the bus | 3-6% (raised to ~14% by Phase 0) | **0.5%** | *both* estimates wrong; kept for the test, not the speed |
+| 3.1 TEV decoded once per draw | 10-20% | **4.5%** / 6.5% | |
+| 3.1b register file by pointer | — | **3.8%** | not in the plan |
+| 3.2 texture state once per draw | 5-10% | **1.5%** | landed for the Phase 4 hazard, not the speed |
+| **4 banded parallel fill + pool** | 1.7-2.2× | **23.8%** / **35.8%** | the main event |
+| 4.7 parallel vertex stage | "doubtful" | **not built** | the bucket is 3.0%; there is nothing there |
+| hot-path allocations | ~1% | **not built** | `GOGC=off` moves nothing |
+
+### The four things this taught, none of which the 3DS's write-up could have told us
+
+**1. The 3DS's biggest non-parallel win had nothing to bite on, and its "do not touch the
+interpreter" verdict was wrong here.** Its −13% was page-tabling a linear region scan; this
+machine's bus is already `if a+3 < RAMSize { m.RAM[a] }`. Meanwhile "gekko + rest" is **29.9%**
+of a *drawing* field against the 3DS's 6.7% ARM11, so the interpreter *is* a target — but still
+not via a decode cache, because `exec.go` is a switch on the raw word and **the decode IS the
+shift**. The answer was the run loop, not the CPU.
+
+**2. A cumulative or flat share is an upper bound on what a change inside it can be worth, and
+this bit three times in one day, from three directions.** `Write32` was 14% flat and the endian
+change bought 0.5% — the 14% is the store's own memory traffic. `shade` was 27% cumulative and
+hoisting its whole decode bought 4.5% — the rest is the arithmetic. `sampleTexmap` was 7.2% and
+the hoist bought 1.5%. The 3DS learned this about *other threads* (pprof samples the GC's
+workers); the GameCube learned it about *the same goroutine*. Measure the change, never the
+function.
+
+**3. The workload had to be measured before the parallel design could be chosen, and the answer
+was not the 3DS's.** 9,774 draws a field — 68× the 3DS's 143 — of which **5,264 draw no triangles
+at all**, and the median survivor covers **84 bounding-box pixels**. Per-draw fan-out is
+hopeless at that size. But **half of every bounding-box pixel in the field lives in 45 draws**,
+1% of them. So a 256-pixel threshold rejects 65% of draws and still captures **97% of the work**.
+That concentration is why the fill pays and why the vertex stage cannot.
+
+**4. `-nospin` measured the largest single CPU-side win before a line was written.** The flag
+already existed and disabled exactly one thing. Ten minutes, no code, and it put a number on
+Phase 1.1 before anyone argued about it. Look for the flag the machine already has.
+
+### What is not done, and honestly why
+
+- **1.2, folding the four per-instruction device ticks.** pprof puts them at ~6.6% together, but
+  most of that is `tickDSP`'s *actual DSP work*, which folding cannot remove — by lesson 2 above
+  the real prize is probably ~2%. Not attempted; would need measuring, not arguing.
+- **2.1, the BAT translation cache.** Predicted 8-15%; `Translate` measures **4% cumulative** and
+  `batMatch` 1.5%. It carries a genuinely nasty invalidation hazard (a missed BAT/MSR/HID2/restore
+  drop reads the right block and the wrong word, silently). Not worth 4%.
+- **3.3, the CMPR block cache**, and **3.4, a full texture cache.** `decodeCMPR` is 4.5%; the
+  block cache is the cheap safe half and is the obvious next thing.
+- **The framedbg parallel scrubber.** Free of the determinism question, worth ~2-3× on a drag.
+  Note a GameCube is ~43 MB against the 3DS's 1.3 GB, so `maxReplayers` should be bounded by CPU,
+  not memory — do not inherit the 3DS's `4` or its reasoning.
+
+---
 
 ## Why this is worth doing
 
