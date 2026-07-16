@@ -22,9 +22,12 @@ type gpu struct {
 	Buf    []byte      // command bytes not yet assembled into a whole command
 	Census [256]uint64 // how many of each opcode the FIFO has carried — the plumbing gate
 
-	// Per-primitive pixel accounting for the RR_GC_DRAWTRACE line: where a draw's pixels
-	// went. Unexported — diagnostic state, not machine state, so it stays out of snapshots.
+	// Pixel and draw accounting: where the rasteriser's fragments went, and how many draws
+	// it was asked for. LIFETIME counters — the profiler reports per-field deltas of them
+	// and RR_GC_DRAWTRACE takes a before/after difference around one draw. Unexported:
+	// diagnostic state, not machine state, so they stay out of snapshots.
 	pixWritten, pixZRej, pixARej int
+	profDraws                    int
 
 	// inDisplayList guards against a display list calling another — the hardware forbids
 	// it, and honouring the same limit keeps the interpreter non-recursive. Transient within
@@ -60,11 +63,16 @@ func (g *gpu) xfStore(addr int, val uint32) {
 	}
 }
 
-// feed takes the next burst of FIFO bytes and consumes every complete command in it.
+// feed takes the next burst of FIFO bytes and consumes every complete command in it. It is
+// the one entry point into the interpreter, which is what lets the profiler time the whole
+// of the graphics pipe here and derive the cheap part (opcode decoding) by subtracting the
+// draws and copies nested inside it.
 func (g *gpu) feed(m *Machine, b []byte) {
+	m.profFIFOEnter()
 	g.Buf = append(g.Buf, b...)
 	for g.step(m) {
 	}
+	m.profFIFOExit()
 }
 
 // gxCmd is called by step once a whole command has been parsed off the head of Buf and
@@ -81,6 +89,7 @@ func (g *gpu) gxCmd(m *Machine, op uint8, words []uint32) bool {
 		return false
 	}
 	m.gxCmdCount++
+	m.gxTotalCmds++
 	if m.OnGXCmd != nil {
 		m.OnGXCmd(m, op, words)
 	}

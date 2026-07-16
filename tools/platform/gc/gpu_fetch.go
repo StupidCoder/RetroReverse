@@ -221,6 +221,11 @@ func (g *gpu) drawPrimitive(m *Machine, prim uint32, vat, vsize int, data []byte
 		return
 	}
 
+	// The two halves of a draw are timed separately, because they are the two things an
+	// optimisation has to choose between: the per-vertex work below (fetch, transform,
+	// light) and the per-fragment work in rasterPrimitive.
+	tv := m.profStart()
+	g.profDraws++
 	count := len(data) / vsize
 	verts := make([]screenVertex, count)
 	for i := 0; i < count; i++ {
@@ -266,10 +271,15 @@ func (g *gpu) drawPrimitive(m *Machine, prim uint32, vat, vsize int, data []byte
 		}
 		verts[i] = screenVertex{x: sx, y: sy, z: sz, r: r, g: gg, b: b, a: a, u: tu, v: tv}
 	}
+	m.profEnd(bucketVertex, tv)
 
 	if drawTrace && count > 0 {
-		g.pixZRej, g.pixARej, g.pixWritten = 0, 0, 0
+		// The pixel tallies are lifetime counters (the profiler takes deltas of them), so
+		// this draw's own numbers are a before/after difference rather than a reset.
+		w0, z0, a0 := g.pixWritten, g.pixZRej, g.pixARej
+		tr := m.profStart()
 		g.rasterPrimitive(m, prim, verts)
+		m.profEnd(bucketRaster, tr)
 		v0 := verts[0]
 		_, _, _, c0a := tevColorReg(g.TevColorReg[1])
 		_, _, _, k0a := tevColorReg(g.TevKonstReg[0])
@@ -277,13 +287,16 @@ func (g *gpu) drawPrimitive(m *Machine, prim uint32, vat, vsize int, data []byte
 		g.dumpTex0Once(m, t0.base)
 		fmt.Fprintf(os.Stderr, "DRAW prim 0x%02X vat %d n %d  v0 (%.1f,%.1f,z%.0f) rgba %d,%d,%d,%d uv (%.2f,%.2f)  tex0 0x%06X fmt%X %dx%d  px w=%d zrej=%d arej=%d  stages=%d bp41=%06X af=%06X zm=%02X a0=%.0f ka0=%.0f vcd=%03X mat0=%08X amb0=%08X cc0=%08X ca0=%08X\n",
 			prim, vat, count, v0.x, v0.y, v0.z, v0.r, v0.g, v0.b, v0.a, v0.u, v0.v,
-			t0.base, t0.format, t0.width, t0.height, g.pixWritten, g.pixZRej, g.pixARej,
+			t0.base, t0.format, t0.width, t0.height,
+			g.pixWritten-w0, g.pixZRej-z0, g.pixARej-a0,
 			int((g.BP[0x00]>>10)&0xF)+1, g.BP[0x41], g.BP[0xF3], g.BP[0x40], c0a, k0a,
 			g.CPReg[0x50]&0xFFFF, g.XFMem[0x100C], g.XFMem[0x100A],
 			g.XFMem[0x100E], g.XFMem[0x1010])
 		return
 	}
+	tr := m.profStart()
 	g.rasterPrimitive(m, prim, verts)
+	m.profEnd(bucketRaster, tr)
 }
 
 // readTexCoord reads texture coordinate 0 and scales it by its fixed-point fraction. A

@@ -152,7 +152,7 @@ behind a 16-byte header, aligned so the page wraps the bytes in an `ImageData` w
 | **Click a pixel → the command that drew it** | plus its **full overdraw history**, including the writes the rasteriser produced and then *threw away* on a depth or alpha test — usually the answer to "why is this pixel not the colour I expect?" |
 | **Select a command → every pixel it drew** | highlighted as an overlay |
 | **Inspect** | CPU registers, RDRAM hex |
-| **Profile** (3DS) | where the stepped frame's time went, by subsystem — one stacked bar plus the counters. Capability-gated on `debug.Profiler`, so a target that cannot honestly time its own subsystems simply has no panel rather than an empty one reading "0 ms". The times are the *machine's*, not a sampling profiler's: only the emulator knows which nanoseconds were its rasteriser and which its DSP. Counters ride alongside, because a bucket that got faster while the frame drew less has not got faster |
+| **Profile** (3DS, PSP, 3DO, GameCube) | where the stepped frame's time went, by subsystem — one stacked bar plus the counters. Capability-gated on `debug.Profiler`, so a target that cannot honestly time its own subsystems simply has no panel rather than an empty one reading "0 ms". The times are the *machine's*, not a sampling profiler's: only the emulator knows which nanoseconds were its rasteriser and which its DSP. Counters ride alongside, because a bucket that got faster while the frame drew less has not got faster. **Which boundaries a platform may time is decided by counting them, not by taste** — a GameCube field is 8.8k FIFO bursts and 9.8k draws (timeable, 0.9% overhead) but 3.4M fragments (not), which is why it has no texture bucket where the 3DS does |
 
 **Why the pixel questions are instant.** A frame capture carries a *provenance buffer* — one command
 index per pixel — built in a single pass by the machine's own `OnPixel` hook while the frame draws.
@@ -259,6 +259,38 @@ is not in memory at all:
 A frame of the intro cutscene is 12,770 FIFO commands over a 640×528 draw target, 2,959 of them
 writing pixels; clicking Luigi at (340,390) names `DRAW_TRIANGLEFAN` #1103 and shows 45 writes to
 that pixel, 44 of them depth-rejected.
+
+**What its profiler says**, and what deciding the buckets by measurement rather than by taste
+looked like. One field of the cutscene contains 8,785 FIFO bursts, 12,770 GX commands (9,774 draws),
+3,644 DSP batches — and ~3.4 **million** fragments. The first three are timed; the last is three
+orders of magnitude too many, so unlike the 3DS **there is no texture bucket** (the 3DS times texture
+*cache misses*; this machine has no texture cache, so every sample would be a clock pair). Measured
+overhead: 0.9%. A field comes out:
+
+```
+  rasterise                  234.61 ms  71.5%   (9,774 draws)
+  gekko + rest (derived)      74.80 ms  22.8%
+  dsp                          8.15 ms   2.5%   (5,466 batches)
+  vertex + xf                  4.89 ms   1.5%   (9,774 draws)
+  command decode (derived)     3.72 ms   1.1%   (8,822 bursts)
+  pe copy                      1.85 ms   0.6%   (3 copies)
+  · fragments drawn 1,155,366   · depth-rejected 6,650,838   · alpha-rejected 132,234
+```
+
+The counters are the point of the counters: the rasteriser decides **7.9 million fragments to keep
+1.2 million** — 85% of the frame's dominant cost is thrown away by the depth test, and this
+rasteriser does not yet cull back faces (a named gap in `gpu_raster.go`), which is the first
+hypothesis to test.
+
+Two things about the nesting, because they are where this kind of profiler goes wrong. "Command
+decode" is *derived* — the whole FIFO drain is timed at its one entry point and the draws and copies
+inside it are subtracted out, because timing 12,770 individual register loads would double the cost
+of the cheapest thing in the frame. And the frame boundary happens **inside** the timed FIFO burst
+(the copy that ends a field is a command in it), so `profFrame` closes and restarts the burst's timer
+and the copy books its conversion *before* calling it. That is the PSP/3DO bug — work nested in a
+frame's closing call, booked after the accumulators reset, landing in the next frame — arriving in a
+third shape. Note the sum test cannot catch it here, precisely *because* decode is derived and
+absorbs it; the guard is a direct unit test on the timer mechanism instead.
 
 ---
 

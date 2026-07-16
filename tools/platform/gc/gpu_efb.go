@@ -114,10 +114,12 @@ func (g *gpu) copyDisplay(m *Machine, params uint32) {
 	toXFB := params&(1<<14) != 0
 	clear := params&(1<<11) != 0
 	if !toXFB {
+		t := m.profStart()
 		g.copyTexture(m, params)
 		if clear && !m.CPU.Halted {
 			g.clearEFB()
 		}
+		m.profEnd(bucketCopy, t)
 		return
 	}
 
@@ -137,6 +139,7 @@ func (g *gpu) copyDisplay(m *Machine, params uint32) {
 		fmt.Fprintf(os.Stderr, "COPY-XFB (%d,%d) %dx%d -> 0x%08X clear=%v\n", sx, sy, w, h, dst, clear)
 	}
 
+	tConv := m.profStart()
 	for y := 0; y < h; y++ {
 		base := dst + uint32(y)*stride
 		for x := 0; x < w; x += 2 {
@@ -161,17 +164,31 @@ func (g *gpu) copyDisplay(m *Machine, params uint32) {
 		}
 	}
 
+	// Book the conversion into the field that is ending, BEFORE profFrame resets the
+	// accumulators. Doing it afterwards — the obvious shape, with one profEnd at the bottom
+	// of the function — would credit this field's copy to the next one. That is exactly the
+	// bug the PSP and the 3DO shipped; see profFrame.
+	m.profEnd(bucketCopy, tConv)
+
 	// The frame is finished and delivered: the external framebuffer holds it and, for one
-	// more moment, so does the EFB. This is the frame boundary a debugger wants — and it has
-	// to be taken here, before the clear below, because the copy that ends a frame is
-	// usually the same command that wipes the buffer the frame was drawn in.
+	// more moment, so does the EFB. This is the frame boundary — and it has to be taken
+	// here, before the clear below, because the copy that ends a frame is usually the same
+	// command that wipes the buffer the frame was drawn in.
+	//
+	// profFrame runs before the debugger's hook so that a debugger stopping on the hook
+	// reads the profile of the field it just watched.
+	m.profFrame()
 	if m.OnFlip != nil {
 		m.OnFlip(m)
 	}
 
+	// The clear belongs to the field that is starting: it is preparing the buffer the next
+	// frame draws into, and it is timed into that field's copy bucket accordingly.
+	tClear := m.profStart()
 	if clear {
 		g.clearEFB()
 	}
+	m.profEnd(bucketCopy, tClear)
 }
 
 // copyTexture performs the pixel-engine copy aimed at a texture: it reads the source rectangle

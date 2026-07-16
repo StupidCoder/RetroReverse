@@ -68,6 +68,9 @@ func (m *Machine) GXCommandCount() int { return m.gxCmdCount }
 // Run executes up to maxSteps instructions and returns why it stopped. The breakpoint at
 // the current PC is not retaken, so a run that stopped at one resumes cleanly.
 func (m *Machine) Run(maxSteps uint64) Result {
+	m.profRunEnter()
+	defer m.profRunExit()
+
 	var steps uint64
 	first := true
 
@@ -112,6 +115,7 @@ func (m *Machine) Run(maxSteps uint64) Result {
 
 		m.CPU.Step()
 		steps++
+		m.Instrs++
 
 		if m.CPU.Halted {
 			return Result{steps, m.CPU.PC, m.CPU.HaltReason}

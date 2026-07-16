@@ -875,6 +875,12 @@ func (m *Machine) tickDSP() {
 	if d.Core == nil || d.CoreHalt || d.CoreBlocked || d.Core.Halted {
 		return
 	}
+	// Timed past the guard, not before it: this is called once per Gekko instruction, and
+	// the core is parked at its mailbox wait for most of them. Measured on the intro
+	// cutscene, ~3,600 batches a field actually get here — a batch of 64 DSP instructions
+	// is coarse enough to time, a per-Gekko-instruction clock read would not be.
+	t := m.profStart()
+	defer m.profEnd(bucketDSP, t)
 	for i := 0; i < 64; i++ {
 		d.corePolledEmpty = false
 		if dspPCTrace {

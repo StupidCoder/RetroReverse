@@ -108,12 +108,26 @@ type Machine struct {
 
 	StopRequested bool
 
+	// Instrs counts Gekko instructions retired since the machine was built. It is the
+	// emulator's own tally, not guest state: it is not in the savestate, and a restore does
+	// not rewind it — a profile counter wants to know how much work this process has done.
+	Instrs uint64
+
+	// Profile turns on the per-subsystem frame timing in profile.go. Off, every boundary
+	// there costs one predictable branch.
+	Profile bool
+	prof    profState
+
 	// The command scrubber's counter. Deliberately not machine state and not in the
 	// savestate: a replay restores a frame's start snapshot and counts this frame's
 	// commands from zero, so carrying a count across a restore would be wrong.
 	gxCmdCount  int
 	gxStopAfter int  // 0 = run the FIFO normally
 	gxStopped   bool // the interpreter has declined the next command and the run is unwinding
+
+	// gxTotalCmds is the lifetime FIFO command count, which the profiler takes deltas of.
+	// Distinct from gxCmdCount, which a replay resets.
+	gxTotalCmds int
 
 	run    runState
 	noSpin bool

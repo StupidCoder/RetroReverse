@@ -58,18 +58,60 @@ func TestCapabilities(t *testing.T) {
 	for _, want := range []string{
 		debug.CapFrames, debug.CapFastStep, debug.CapReplay, debug.CapCode, debug.CapBreak,
 		debug.CapDisasm, debug.CapWatch, debug.CapSurfaces, debug.CapFiles, debug.CapFileAt,
-		debug.CapStates, debug.CapResume, debug.CapRegions, debug.CapKeys,
+		debug.CapStates, debug.CapResume, debug.CapRegions, debug.CapKeys, debug.CapProfile,
 	} {
 		if !caps[want] {
 			t.Errorf("the GameCube target does not claim %q, and it can back it", want)
 		}
 	}
-	// The GameCube has no touch panel and no per-subsystem frame timer, so it must not
-	// claim either: an empty panel is worse than no panel.
-	for _, notWant := range []string{debug.CapTouch, debug.CapProfile} {
+	// The GameCube has no touch panel, so it must not claim one: an empty panel is worse
+	// than no panel. This half of the assertion is the point of the capability design.
+	for _, notWant := range []string{debug.CapTouch} {
 		if caps[notWant] {
 			t.Errorf("the GameCube target claims %q, which it cannot honestly back", notWant)
 		}
+	}
+}
+
+// TestProfileReachesTheDebugger: the adapter must hand over a field's real profile, with the
+// buckets adding up to the field — the stacked bar the page draws is a claim that they do.
+func TestProfileReachesTheDebugger(t *testing.T) {
+	a := newAdapter(t)
+	// The first step closes a field that began before the state was loaded; the second is a
+	// whole one.
+	if _, err := a.StepFrame(false); err != nil {
+		t.Fatalf("StepFrame: %v", err)
+	}
+	if _, err := a.StepFrame(false); err != nil {
+		t.Fatalf("StepFrame: %v", err)
+	}
+	p := a.FrameProfile()
+	if p.TotalMs <= 0 || len(p.Buckets) == 0 {
+		t.Fatalf("the adapter reported no profile: %+v", p)
+	}
+	var sum float64
+	for _, b := range p.Buckets {
+		if b.Millis < 0 {
+			t.Errorf("bucket %q is negative (%.3f ms)", b.Name, b.Millis)
+		}
+		sum += b.Millis
+	}
+	if diff := sum - p.TotalMs; diff > p.TotalMs*0.01 || diff < -p.TotalMs*0.01 {
+		t.Errorf("buckets sum to %.3f ms, field is %.3f ms", sum, p.TotalMs)
+	}
+	// The rasteriser is this machine's cost centre; a profile that does not say so is
+	// measuring the wrong thing.
+	var raster float64
+	for _, b := range p.Buckets {
+		if b.Name == "rasterise" {
+			raster = b.Millis
+		}
+	}
+	if raster <= 0 {
+		t.Error("the rasterise bucket is empty in a field that drew 9,000 triangles")
+	}
+	if len(p.Counters) == 0 {
+		t.Error("the profile carries no counters; wall time alone cannot tell a faster rasteriser from a field that drew less")
 	}
 }
 

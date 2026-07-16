@@ -107,6 +107,7 @@ var (
 	_ debug.Resumer        = (*Adapter)(nil)
 	_ debug.MemoryMapper   = (*Adapter)(nil)
 	_ debug.Keyer          = (*Adapter)(nil)
+	_ debug.Profiler       = (*Adapter)(nil)
 )
 
 // snap wraps a GameCube in-memory savestate as an opaque debug.Snapshot.
@@ -133,6 +134,7 @@ func New(imagePath string) (*Adapter, error) {
 	// The OS parks in cooperative wait loops that the spin heuristic reads as a wedge, and
 	// under a debugger a paused machine is a normal state rather than a bug to report.
 	live.SetSpinDetect(false)
+	live.SetProfile(true)
 	a := &Adapter{imagePath: imagePath, live: live, held: map[string]bool{}}
 	a.installPadPacing(live)
 	return a, nil
@@ -156,7 +158,14 @@ func (a *Adapter) Close() error {
 	return nil
 }
 
-func (a *Adapter) LoadStateFile(path string) error { return a.live.LoadStateFile(path) }
+func (a *Adapter) LoadStateFile(path string) error {
+	if err := a.live.LoadStateFile(path); err != nil {
+		return err
+	}
+	a.live.SetProfile(true) // re-arm: the first field after a load is a whole field
+	return nil
+}
+
 func (a *Adapter) SaveStateFile(path string) error { return a.live.SaveStateFile(path) }
 
 func (a *Adapter) Snapshot() debug.Snapshot { return snap{ms: a.live.SaveState()} }
@@ -166,7 +175,34 @@ func (a *Adapter) Restore(s debug.Snapshot) error {
 	if !ok {
 		return fmt.Errorf("gcadapter: snapshot is from %q, not gc", platformOf(s))
 	}
-	return a.live.LoadState(ns.ms)
+	if err := a.live.LoadState(ns.ms); err != nil {
+		return err
+	}
+	a.live.SetProfile(true)
+	return nil
+}
+
+// FrameProfile reports where the last stepped field's time went (gc/profile.go).
+//
+// The machine times its own subsystems at boundaries that are already coarse — a FIFO burst,
+// a draw, a copy, an audio batch — and what is left is the Gekko interpreter and the devices
+// it drives, reported as the remainder it is. There is deliberately no texture bucket: this
+// field decides ~3.4 million fragments and texture decoding happens under each one's sample,
+// so timing it would cost more than everything else here put together.
+//
+// Note it measures a FIELD, and this game renders at 30 Hz on a 60 Hz console — so every
+// other field draws nothing and is logic alone. Drew says which, and the debugger folds the
+// empty ones into the next field that drew rather than showing a sawtooth.
+func (a *Adapter) FrameProfile() debug.FrameProfile {
+	p := a.live.FrameProfile()
+	out := debug.FrameProfile{TotalMs: p.TotalMs, Drew: p.Drew}
+	for _, b := range p.Buckets {
+		out.Buckets = append(out.Buckets, debug.ProfileBucket{Name: b.Name, Millis: b.Millis, Count: b.Count})
+	}
+	for _, c := range p.Counters {
+		out.Counters = append(out.Counters, debug.ProfileCounter{Name: c.Name, Value: c.Value})
+	}
+	return out
 }
 
 // Display is what the video interface is scanning out: the external framebuffer, decoded
