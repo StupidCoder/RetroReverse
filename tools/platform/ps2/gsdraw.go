@@ -65,11 +65,13 @@ type gsVertex struct {
 	rgba    uint32
 	u, v    int32 // 10.4 fixed texels, from the UV register
 	s, t, q float32
+	f       uint32 // fog coefficient: 255 = all vertex colour, 0 = all FOGCOL
 }
 
 // pushVertex latches the current attributes with a position and, on a kicking write,
-// assembles whatever primitive is now complete.
-func (gs *GS) pushVertex(x, y int32, z uint32, kick bool) {
+// assembles whatever primitive is now complete. f is the vertex's fog coefficient —
+// XYZF2/XYZF3 carry it per vertex, XYZ2/XYZ3 vertices take the FOG register's latch.
+func (gs *GS) pushVertex(x, y int32, z uint32, f uint32, kick bool) {
 	xyoff := gs.reg[gsXYOFFSET1]
 	if gs.ctxt() == 1 {
 		xyoff = gs.reg[gsXYOFFSET2]
@@ -91,6 +93,7 @@ func (gs *GS) pushVertex(x, y int32, z uint32, kick bool) {
 		// Q of zero — and a zero Q maps every sample to texel (0,0), which is how a
 		// whole title screen sampled a black border pixel.
 		q: math.Float32frombits(gs.q),
+		f: f,
 	}
 	if gs.vqN < len(gs.vq) {
 		gs.vq[gs.vqN] = v
@@ -290,6 +293,8 @@ type gsTarget struct {
 	colclamp bool
 	fba      uint32 // force the written alpha's MSB
 	test     uint64 // the context's TEST register
+	fge      bool   // PRIM: fog this primitive
+	fogcol   uint32 // FOGCOL's RGB, blended in by 255-f before the alpha blend
 
 	// The Z buffer, from the context's ZBUF register and TEST's ZTE/ZTST.
 	zbp  uint32 // base, in 64-word blocks (the register speaks 2048-word pages)
@@ -341,6 +346,8 @@ func (gs *GS) target(p uint64) gsTarget {
 		colclamp: gs.reg[gsCOLCLAMP]&1 != 0,
 		fba:      uint32(fba) & 1,
 		test:     test,
+		fge:      p&(1<<5) != 0,
+		fogcol:   uint32(gs.reg[gsFOGCOL]) & 0xFFFFFF,
 
 		primType: int(p & 7),
 	}
@@ -492,17 +499,40 @@ func (gs *GS) plot(t *gsTarget, x, y int32, z uint32, rgba uint32) {
 	if px&0xFFFFFF != 0 {
 		gs.plotNonBlack[t.primType]++
 	}
+	if gs.m != nil && gs.m.GSPixelN > 0 && x == gs.m.GSPixelX && y == gs.m.GSPixelY {
+		gs.m.GSPixelN--
+		fmt.Printf("  pixel (%d,%d) fb 0x%05X <- %08X (src %08X over %08X, %s%s) from %s\n",
+			x, y, t.fbp*64, px, rgba, old,
+			primNames[t.primType],
+			map[bool]string{true: " ABE", false: ""}[t.abe],
+			gs.src)
+	}
 	gs.vram[addr+0] = byte(px)
 	gs.vram[addr+1] = byte(px >> 8)
 	gs.vram[addr+2] = byte(px >> 16)
 	gs.vram[addr+3] = byte(px >> 24)
 }
 
+// fogPixel folds FOGCOL into a source colour by the vertex fog coefficient: f=255 keeps
+// the colour, f=0 replaces its RGB with FOGCOL. Fog happens after texturing and before
+// the alpha blend, and touches only RGB — the source alpha rides through.
+func fogPixel(rgba, f, fogcol uint32) uint32 {
+	g := 255 - f
+	r := (f*(rgba&0xFF) + g*(fogcol&0xFF)) >> 8
+	gr := (f*(rgba>>8&0xFF) + g*(fogcol>>8&0xFF)) >> 8
+	b := (f*(rgba>>16&0xFF) + g*(fogcol>>16&0xFF)) >> 8
+	return r | gr<<8 | b<<16 | rgba&0xFF000000
+}
+
 // point draws the one-vertex primitive.
 func (gs *GS) point(v gsVertex) {
 	p := gs.prim()
 	t := gs.target(p)
-	gs.plot(&t, v.x>>4, v.y>>4, v.z, v.rgba)
+	rgba := v.rgba
+	if t.fge {
+		rgba = fogPixel(rgba, v.f&0xFF, t.fogcol)
+	}
+	gs.plot(&t, v.x>>4, v.y>>4, v.z, rgba)
 }
 
 // texAxis interpolates one texture-coordinate axis of a sprite: the texel coordinate
@@ -557,6 +587,9 @@ func (gs *GS) sprite(a, b gsVertex, p uint64) {
 			if smp != nil {
 				u := texAxis(x<<4+8, a.x, b.x, au, bu)
 				rgba = smp.combine(smp.at(u>>4, v>>4), rgba)
+			}
+			if t.fge {
+				rgba = fogPixel(rgba, b.f&0xFF, t.fogcol) // flat in fog too: the second vertex's
 			}
 			gs.plot(&t, x, y, b.z, rgba) // a sprite is flat in Z: the second vertex's
 		}
@@ -645,6 +678,10 @@ func (gs *GS) triangle(v0, v1, v2 gsVertex, p uint64) {
 				}
 				rgba = smp.combine(smp.at(tu, tv), rgba)
 			}
+			if t.fge {
+				f := uint32((w0*int64(v0.f&0xFF) + w1*int64(v1.f&0xFF) + w2*int64(v2.f&0xFF)) / area)
+				rgba = fogPixel(rgba, f, t.fogcol)
+			}
 			z := uint32((w0*int64(v0.z) + w1*int64(v1.z) + w2*int64(v2.z)) / area)
 			gs.plot(&t, x, y, z, rgba)
 		}
@@ -671,7 +708,7 @@ func (gs *GS) noteFeatures(p uint64) {
 		gs.count("alpha-blended")
 	}
 	if p&(1<<5) != 0 {
-		gs.count("fogged (fog not applied)")
+		gs.count("fogged")
 	}
 	if p&(1<<9) != 0 {
 		gs.count("context 2")

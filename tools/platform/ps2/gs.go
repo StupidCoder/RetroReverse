@@ -44,6 +44,7 @@ const (
 	gsPRMODECONT = 0x1A
 	gsTEXCLUT    = 0x1C
 	gsTEXA       = 0x3B
+	gsFOGCOL     = 0x3D
 	gsTEXFLUSH   = 0x3F
 	gsSCISSOR1   = 0x40
 	gsALPHA1     = 0x42
@@ -172,13 +173,13 @@ func (gs *GS) write(reg uint8, val uint64) {
 		t0 := gsTEX0_1 + (reg - gsTEX2_1)
 		gs.write(t0, gs.reg[t0]&^tex2Mask|val&tex2Mask)
 	case gsXYZ2:
-		gs.pushVertex(int32(val&0xFFFF), int32(val>>16&0xFFFF), uint32(val>>32), true)
+		gs.pushVertex(int32(val&0xFFFF), int32(val>>16&0xFFFF), uint32(val>>32), uint32(gs.reg[gsFOG]>>56), true)
 	case gsXYZ3:
-		gs.pushVertex(int32(val&0xFFFF), int32(val>>16&0xFFFF), uint32(val>>32), false)
+		gs.pushVertex(int32(val&0xFFFF), int32(val>>16&0xFFFF), uint32(val>>32), uint32(gs.reg[gsFOG]>>56), false)
 	case gsXYZF2:
-		gs.pushVertex(int32(val&0xFFFF), int32(val>>16&0xFFFF), uint32(val>>32&0xFFFFFF), true)
+		gs.pushVertex(int32(val&0xFFFF), int32(val>>16&0xFFFF), uint32(val>>32&0xFFFFFF), uint32(val>>56)&0xFF, true)
 	case gsXYZF3:
-		gs.pushVertex(int32(val&0xFFFF), int32(val>>16&0xFFFF), uint32(val>>32&0xFFFFFF), false)
+		gs.pushVertex(int32(val&0xFFFF), int32(val>>16&0xFFFF), uint32(val>>32&0xFFFFFF), uint32(val>>56)&0xFF, false)
 	case gsTRXDIR:
 		gs.beginTransfer(val & 3)
 	case gsHWREG:
@@ -643,6 +644,10 @@ func (m *Machine) GSStatus() string {
 		uint32(dispfb2)&0x1FF*2048, uint32(dispfb2>>15)&0x1F)
 	s += sprintf("      pixels: %d plotted; rejected %d scissor, %d ztest, %d alphatest, %d datest\n",
 		m.gs.plotted, m.gs.rejScissor, m.gs.rejZ, m.gs.rejAlpha, m.gs.rejDate)
+	s += sprintf("      FOGCOL 0x%06X, XYOFFSET1 (%d,%d), XYOFFSET2 (%d,%d)\n",
+		uint32(m.gs.reg[gsFOGCOL])&0xFFFFFF,
+		uint32(m.gs.reg[gsXYOFFSET1])&0xFFFF>>4, uint32(m.gs.reg[gsXYOFFSET1]>>32)&0xFFFF>>4,
+		uint32(m.gs.reg[gsXYOFFSET2])&0xFFFF>>4, uint32(m.gs.reg[gsXYOFFSET2]>>32)&0xFFFF>>4)
 	for i, n := range m.gs.plotNonBlack {
 		if n > 0 {
 			s += sprintf("      non-black pixels by %-10s %d\n", primNames[i], n)

@@ -81,6 +81,7 @@ func main() {
 	goalNames := flag.String("goalnames", "", "read a -goalsyms dump back in, so -dis/-bp/-logpc and every trace can name GOAL engine code (symbol values that point into RAM become function names)")
 	gsFrame := flag.String("gsframe", "", "write the frame the GS would be scanning out (the DISPFB rectangle, deswizzled) to FILE.png at the end of the run")
 	vu1In := flag.String("vu1in", "", "dump a VU1 program's input buffer (96 qw at TOP) at its next MSCAL — hex byte address; the in-place transforms destroy the input by kick time")
+	gsPixel := flag.String("gspixel", "", "log the next N writes landing on window pixel X:Y[:N] of any render target, with the colour, blend inputs, target and producer — the 'who painted this pixel' instrument a uniform fill needs")
 	gsBig := flag.Int("gsbig", 0, "print the first N completed GS primitives whose bounding box exceeds 1024px, naming the VU1 program or PATH that produced each — the huge-triangle hunter")
 	gsVerts := flag.Int("gsverts", 0, "print the first N completed GS primitives with their exact vertex data (position, Z, RGBA, ST/Q) — one column per hypothesis: huge positions = transform bug, black RGBA = lighting bug, zero alpha or Q = unpack bug")
 	vu1Data := flag.String("vu1data", "", "write VU1's data memory (as the VIF unpacked it) to FILE at the end of the run — the input side of a microprogram, where the matrix rows and the vertex block sit")
@@ -107,7 +108,7 @@ func main() {
 		iopOnly: *iopOnly, iopMods: *iopMods, iopDis: *iopDis,
 		iopIO: *iopIO, iopION: *iopION, iopWatch: *iopWatch, iopTrap: *iopTrap,
 		iopCalls: *iopCalls, iopCallsFrom: *iopCallsFrom, iopPokes: iopPokes,
-		iopDump: *iopDump, iopThreads: *iopThreads, iopIELog: *iopIELog, goalSyms: *goalSyms, goalNames: *goalNames, eeProf: *eeProf, gsFrame: *gsFrame, gsVerts: *gsVerts, gsBig: *gsBig, vu1In: *vu1In, vu1Micro: *vu1Micro, vu0Micro: *vu0Micro, vu0Data: *vu0Data, vu0Regs: *vu0Regs, vu1Data: *vu1Data,
+		iopDump: *iopDump, iopThreads: *iopThreads, iopIELog: *iopIELog, goalSyms: *goalSyms, goalNames: *goalNames, eeProf: *eeProf, gsFrame: *gsFrame, gsVerts: *gsVerts, gsBig: *gsBig, gsPixel: *gsPixel, vu1In: *vu1In, vu1Micro: *vu1Micro, vu0Micro: *vu0Micro, vu0Data: *vu0Data, vu0Regs: *vu0Regs, vu1Data: *vu1Data,
 		gsFBs: gsFBs, gsTexs: gsTexs,
 	}); err != nil {
 		fmt.Fprintln(os.Stderr, "bootoracle:", err)
@@ -144,6 +145,7 @@ type cfg struct {
 	gsFrame                               string
 	gsVerts                               int
 	gsBig                                 int
+	gsPixel                               string
 	vu1In                                 string
 	vu1Data                               string
 	vu1Micro                              string
@@ -509,6 +511,22 @@ func run(c cfg) error {
 
 	if c.gsBig > 0 {
 		m.GSBigDump = c.gsBig
+	}
+	if c.gsPixel != "" {
+		parts := strings.Split(c.gsPixel, ":")
+		if len(parts) < 2 {
+			return fmt.Errorf("bad -gspixel %q (want X:Y[:N])", c.gsPixel)
+		}
+		x, err1 := strconv.Atoi(parts[0])
+		y, err2 := strconv.Atoi(parts[1])
+		if err1 != nil || err2 != nil {
+			return fmt.Errorf("bad -gspixel %q", c.gsPixel)
+		}
+		n := 40
+		if len(parts) > 2 {
+			n, _ = strconv.Atoi(parts[2])
+		}
+		m.GSPixelX, m.GSPixelY, m.GSPixelN = int32(x), int32(y), n
 	}
 	if c.vu1In != "" {
 		a, err := hx(c.vu1In)

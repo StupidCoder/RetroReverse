@@ -227,6 +227,13 @@ type Machine struct {
 	// program that kicked each one, so an exploded size traces to its producer.
 	GSBigDump int
 
+	// GSPixelX/Y, when GSPixelN > 0, log the next N writes that land on that window
+	// pixel of any render target — the colour written, the blend inputs, the target,
+	// and the producer. The instrument for "who painted this pixel", which no census
+	// can answer: a uniform fill has exactly one owner and this names it.
+	GSPixelX, GSPixelY int32
+	GSPixelN           int
+
 	// VU1DumpIn, when >= 0, dumps a VU1 program's input buffer (96 qw at TOP) at the
 	// next MSCAL of that byte address, then disarms. The in-place transforms destroy
 	// their input by XGKICK time; this is the only moment the input exists.
