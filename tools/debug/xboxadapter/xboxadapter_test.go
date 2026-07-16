@@ -68,7 +68,7 @@ func TestCapabilities(t *testing.T) {
 		debug.CapFrames, debug.CapFastStep, debug.CapReplay, debug.CapCode,
 		debug.CapBreak, debug.CapDisasm, debug.CapWatch, debug.CapSurfaces,
 		debug.CapFiles, debug.CapFileAt, debug.CapStates, debug.CapResume,
-		debug.CapRegions,
+		debug.CapRegions, debug.CapHalt,
 	} {
 		if !caps[want] {
 			t.Errorf("capability %q is missing", want)

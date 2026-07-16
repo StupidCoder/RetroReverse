@@ -428,6 +428,18 @@ func (a *Adapter) CPU() debug.CPUReg {
 	}
 }
 
+// Halted answers for the core AND for the machine around it. The Xbox is the platform where
+// this matters most: an unimplemented xboxkrnl ordinal halts (kernel.go), and that is the
+// port's normal frontier — so a halt here is the expected way to meet new work, not a rare
+// fault. The NV2A's own clocks do not stop with the CPU, so without this the page would show
+// a machine free-running past the very ordinal it is waiting to be told about.
+func (a *Adapter) Halted() (bool, string) {
+	if a.live.CPU.Halted {
+		return true, a.live.CPU.HaltReason
+	}
+	return a.live.Halted, a.live.HaltReason
+}
+
 func (a *Adapter) StepInstr(n int) (debug.StopReason, error) {
 	if n <= 0 {
 		n = 1
