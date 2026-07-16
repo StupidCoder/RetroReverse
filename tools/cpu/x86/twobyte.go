@@ -144,7 +144,7 @@ func (d *dec) twoByte(op byte) Inst {
 	// stay generic ("mmN") — the 0x66 xmm forms share the opcodes.
 	if mnem, ok := mmxIntName[op]; ok {
 		switch op {
-		case 0x70, 0xC4, 0xC5: // shuffle/insert/extract carry an imm8
+		case 0x70, 0xC4, 0xC5, 0xC6: // shuffle/insert/extract carry an imm8
 			reg, rm := d.modrm()
 			return Inst{Mnem: mnem, Text: fmt.Sprintf("%s mm%d, %s, $%02X", mnem, reg, rm.atHint(32), d.imm8())}
 		case 0x71, 0x72, 0x73: // shift-by-imm groups: reg field selects the op
@@ -174,6 +174,16 @@ func (d *dec) twoByte(op byte) Inst {
 var mmxIntName = map[byte]string{
 	0x2A: "CVTPI2PS", 0x2C: "CVTTPS2PI", 0x2D: "CVTPS2PI",
 	0x6E: "MOVD", 0x7E: "MOVD", 0x6F: "MOVQ", 0x7F: "MOVQ",
+	// The float-SSE page (executed in sse.go), named generically by its
+	// no-prefix form — enough for censuses and call-site reading to stay in sync.
+	0x10: "MOVUPS", 0x11: "MOVUPS", 0x12: "MOVLPS", 0x13: "MOVLPS",
+	0x14: "UNPCKLPS", 0x15: "UNPCKHPS", 0x16: "MOVHPS", 0x17: "MOVHPS",
+	0x28: "MOVAPS", 0x29: "MOVAPS", 0x2B: "MOVNTPS", 0x2E: "UCOMISS", 0x2F: "COMISS",
+	0x51: "SQRTPS", 0x52: "RSQRTPS", 0x53: "RCPPS",
+	0x54: "ANDPS", 0x55: "ANDNPS", 0x56: "ORPS", 0x57: "XORPS",
+	0x58: "ADDPS", 0x59: "MULPS", 0x5A: "CVTPS2PD", 0x5B: "CVTDQ2PS",
+	0x5C: "SUBPS", 0x5D: "MINPS", 0x5E: "DIVPS", 0x5F: "MAXPS",
+	0xC6: "SHUFPS", 0xD6: "MOVQ",
 	0x60: "PUNPCKLBW", 0x61: "PUNPCKLWD", 0x62: "PUNPCKLDQ", 0x63: "PACKSSWB",
 	0x64: "PCMPGTB", 0x65: "PCMPGTW", 0x66: "PCMPGTD", 0x67: "PACKUSWB",
 	0x68: "PUNPCKHBW", 0x69: "PUNPCKHWD", 0x6A: "PUNPCKHDQ", 0x6B: "PACKSSDW",
