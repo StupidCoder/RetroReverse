@@ -12,6 +12,7 @@ package gc
 // does not yet know, so a gap announces itself rather than reading back a plausible zero.
 
 import (
+	"encoding/binary"
 	"fmt"
 
 	"retroreverse.com/tools/cpu/gekko"
@@ -178,6 +179,14 @@ func (m *Machine) Disc() *Disc { return m.disc }
 // common case and is checked first; the register blocks dispatch by their 64 KiB page;
 // anything else is logged once and reads back zero, because on this machine an unmapped
 // access is a bug in the model and it should be visible rather than silent.
+//
+// The words go through binary.BigEndian rather than being assembled a byte at a time, which
+// is a performance change and not a modelling one: identical bytes in identical order, and
+// TestBusEndianMatchesByteAssembly fuzzes it against the assembly it replaced to say so.
+// It earns its place because THIS IS THE HOTTEST PATH IN THE MACHINE — Write32 alone was
+// 14% of a boot stretch's samples, since the game feeds the graphics FIFO through ordinary
+// stores, so every triangle it draws arrives through here. Four bounds checks and six
+// shifts become one check and one byte-reversed load on arm64.
 
 func (m *Machine) Read8(a uint32) uint8 {
 	if a < RAMSize {
@@ -194,7 +203,7 @@ func (m *Machine) Read8(a uint32) uint8 {
 
 func (m *Machine) Read16(a uint32) uint16 {
 	if a+1 < RAMSize {
-		v := uint16(m.RAM[a])<<8 | uint16(m.RAM[a+1])
+		v := binary.BigEndian.Uint16(m.RAM[a : a+2])
 		m.readWatch(a, uint32(v))
 		return v
 	}
@@ -207,7 +216,7 @@ func (m *Machine) Read16(a uint32) uint16 {
 
 func (m *Machine) Read32(a uint32) uint32 {
 	if a+3 < RAMSize {
-		v := uint32(m.RAM[a])<<24 | uint32(m.RAM[a+1])<<16 | uint32(m.RAM[a+2])<<8 | uint32(m.RAM[a+3])
+		v := binary.BigEndian.Uint32(m.RAM[a : a+4])
 		m.readWatch(a, v)
 		return v
 	}
@@ -238,8 +247,7 @@ func (m *Machine) Write8(a uint32, v uint8) {
 func (m *Machine) Write16(a uint32, v uint16) {
 	if a+1 < RAMSize {
 		m.writeWatch(a, uint32(v))
-		m.RAM[a] = uint8(v >> 8)
-		m.RAM[a+1] = uint8(v)
+		binary.BigEndian.PutUint16(m.RAM[a:a+2], v)
 		return
 	}
 	if a >= regWGPipe && a < regWGPipe+0x20 {
@@ -256,10 +264,7 @@ func (m *Machine) Write16(a uint32, v uint16) {
 func (m *Machine) Write32(a uint32, v uint32) {
 	if a+3 < RAMSize {
 		m.writeWatch(a, v)
-		m.RAM[a] = uint8(v >> 24)
-		m.RAM[a+1] = uint8(v >> 16)
-		m.RAM[a+2] = uint8(v >> 8)
-		m.RAM[a+3] = uint8(v)
+		binary.BigEndian.PutUint32(m.RAM[a:a+4], v)
 		return
 	}
 	if a >= regWGPipe && a < regWGPipe+0x20 {
@@ -277,7 +282,7 @@ func (m *Machine) Write32(a uint32, v uint32) {
 // from memory and a fetch from a register is a program that has already gone wrong.
 func (m *Machine) Fetch32(a uint32) uint32 {
 	if a+3 < RAMSize {
-		return uint32(m.RAM[a])<<24 | uint32(m.RAM[a+1])<<16 | uint32(m.RAM[a+2])<<8 | uint32(m.RAM[a+3])
+		return binary.BigEndian.Uint32(m.RAM[a : a+4])
 	}
 	m.logf("fetch from unmapped 0x%08X", a)
 	return 0
@@ -370,7 +375,7 @@ func (m *Machine) ram32(a uint32) uint32 {
 	if a+3 >= RAMSize {
 		return 0
 	}
-	return uint32(m.RAM[a])<<24 | uint32(m.RAM[a+1])<<16 | uint32(m.RAM[a+2])<<8 | uint32(m.RAM[a+3])
+	return binary.BigEndian.Uint32(m.RAM[a : a+4])
 }
 
 func (m *Machine) setRAM32(a, v uint32) {
@@ -378,10 +383,7 @@ func (m *Machine) setRAM32(a, v uint32) {
 	if a+3 >= RAMSize {
 		return
 	}
-	m.RAM[a] = uint8(v >> 24)
-	m.RAM[a+1] = uint8(v >> 16)
-	m.RAM[a+2] = uint8(v >> 8)
-	m.RAM[a+3] = uint8(v)
+	binary.BigEndian.PutUint32(m.RAM[a:a+4], v)
 }
 
 // --- Watches and the log ------------------------------------------------------------
