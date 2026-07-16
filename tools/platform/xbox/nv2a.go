@@ -56,6 +56,14 @@ const (
 	nvPFIFO_INTR  = 0x002100 // PFIFO_INTR_0
 	nvPGRAPH_INTR = 0x400100 // PGRAPH_INTR
 	nvPCRTC_INTR  = 0x600100 // PCRTC_INTR_0 (vblank)
+
+	// PGRAPH back-end semaphore progress. Never CPU-written (confirmed by an image
+	// scan: only two sites reference it, both reads); the D3D busy-wait at 0x1AE550
+	// polls it, comparing bits 2..6 against the in-memory semaphore value <<2, i.e.
+	// against BACK_END_WRITE_SEMAPHORE_RELEASE <<2 — the Kelvin release handler
+	// (nv2a_kelvin.go) keeps it current. Empirically modelled from those two call
+	// sites; the value is release<<2.
+	nvPGRAPH_SEMAPHORE = 0x400B10
 )
 
 var nvTrace = os.Getenv("RR_NV_TRACE") != ""

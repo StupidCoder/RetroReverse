@@ -162,6 +162,37 @@ func (m *Machine) nicRead(off uint32) byte {
 }
 func (m *Machine) nicWrite(off uint32, v byte) { m.latchWrite(&m.nic, off, v) }
 
+// The GP DSP's command mailbox. The DirectSound library gives the GP (global
+// processor) DSP its memory regions by physical base — scratch space lands in the
+// register at +0x2040 — and submits work by building a command page at
+// scratch+0x4000 and storing the command word at +0x810 into that page (the
+// builder at 0x1D7857: ADD EBX,0x810 / MOV [EBX],cmd), then spinning until the
+// word reads 0. Nothing in the loop touches MMIO: on hardware the DSP firmware
+// polls its command page and clears the word when it has consumed the command.
+// We do not run DSP microcode (we render frames, not audio), so the consumer is
+// modelled at its observable: once the GP is running (control at +0x2000 written
+// nonzero), a pending command word is cleared on the next machine tick. If a
+// different XDK path ever submits through another slot, its spin stays visible
+// (hotpc names it) instead of a wrong guess silently eating memory.
+const (
+	apuGPControl     = 0x2000 // GP DSP control (run bits; the bring-up writes 7 then 0xF)
+	apuGPScratchBase = 0x2040 // physical base of the GP's scratch-space region
+	gpCommandSlot    = 0x4000 + 0x810
+)
+
+func (m *Machine) apuTick() {
+	if m.apu.reg[apuGPControl>>2] == 0 {
+		return // the GP is not running; nothing consumes commands
+	}
+	base := m.apu.reg[apuGPScratchBase>>2]
+	if base == 0 {
+		return
+	}
+	if addr := base + gpCommandSlot; m.read32(addr) != 0 {
+		m.write32(addr, 0) // the DSP has consumed the command
+	}
+}
+
 // usbRead / usbWrite are the USB OHCI host controller: a latch with the two
 // spec-mandated answers above.
 func (m *Machine) usbRead(off uint32) byte {

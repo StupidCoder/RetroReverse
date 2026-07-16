@@ -84,16 +84,18 @@ func (m *Machine) pgraphMethod(subchan, method, arg uint32) {
 
 	class := g.subClass[subchan&7]
 
+	// Survey recording is additive: it observes the stream but never diverts it, so a
+	// -survey run is behaviourally identical to a plain one (an early-out here once made
+	// survey runs skip the modelled side effects, e.g. the semaphore release write).
 	if g.survey {
 		key := class<<16 | (method & 0xFFFF)
 		if g.seen[key] == 0 {
 			g.firstArg[key] = arg
 		}
 		g.seen[key]++
-		return
 	}
 
-	// Non-survey: dispatch to the real engine (only the 3D class is modelled).
+	// Dispatch to the real engine (only the 3D class is modelled).
 	if class == classKelvin {
 		g.kelvinMethod(method, arg)
 		return

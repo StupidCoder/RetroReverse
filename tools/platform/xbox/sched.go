@@ -40,6 +40,7 @@ func (m *Machine) schedTick() {
 			m.write32(m.systemTimeAddr, uint32(t))
 			m.write32(m.systemTimeAddr+4, uint32(t>>32))
 		}
+		m.apuTick() // the GP DSP's command-mailbox poll (apu.go)
 	}
 	m.wakeDueSleepers()
 	if m.reschedule {

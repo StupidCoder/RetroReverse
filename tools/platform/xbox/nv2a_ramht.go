@@ -20,8 +20,8 @@ const (
 	ramhtScan = 0x1000
 )
 
-// ramhtClass resolves a RAMHT handle to its object class (0 if not found).
-func (m *Machine) ramhtClass(handle uint32) uint32 {
+// ramhtInstance resolves a RAMHT handle to its object's PRAMIN address (0 if not found).
+func (m *Machine) ramhtInstance(handle uint32) uint32 {
 	if handle == 0 {
 		return 0
 	}
@@ -31,9 +31,34 @@ func (m *Machine) ramhtClass(handle uint32) uint32 {
 			continue
 		}
 		ctx := m.read32(base + off + 4)
-		inst := (ctx & 0xFFFF) << 4 // RAMIN offset of the object, in 16-byte units
-		obj0 := m.read32(base + inst)
-		return obj0 & 0xFF // the object's class is in the low byte of its first context word
+		return base + (ctx&0xFFFF)<<4 // RAMIN offset of the object, in 16-byte units
 	}
 	return 0
+}
+
+// ramhtClass resolves a RAMHT handle to its object class (0 if not found).
+func (m *Machine) ramhtClass(handle uint32) uint32 {
+	inst := m.ramhtInstance(handle)
+	if inst == 0 {
+		return 0
+	}
+	return m.read32(inst) & 0xFF // the object's class is in the low byte of its first context word
+}
+
+// dmaObjectTarget decodes an NV "DMA in memory" context object (classes 0x02/0x03/0x3D)
+// into the physical base address and byte limit it grants access to. Layout read off
+// this title's own PRAMIN (instances 0x1180-0x11C0): word0 = class | flags with the
+// page-offset "adjust" in bits 20-31, word1 = limit (bytes-1), word2 = page-aligned
+// address with target flags in the low bits. The pusher's channel DMA (base 0, limit
+// 0x07FFAFFF) and the three 32-byte semaphore surfaces at 0x14C8000/20/40 all decode
+// consistently under this reading.
+func (m *Machine) dmaObjectTarget(handle uint32) (base, limit uint32) {
+	inst := m.ramhtInstance(handle)
+	if inst == 0 {
+		return 0, 0
+	}
+	w0 := m.read32(inst)
+	w1 := m.read32(inst + 4)
+	w2 := m.read32(inst + 8)
+	return (w2 &^ 0xFFF) + (w0 >> 20 & 0xFFF), w1
 }
