@@ -39,6 +39,10 @@ func (g *pgraph) kelvinMethod(method, arg uint32) {
 		}
 	}
 	switch method {
+	case kelvinClearSurface:
+		// CLEAR_SURFACE: fill the clear rect of the color surface with the latched
+		// clear color (nv2a_frame.go) — the first Kelvin method that produces pixels.
+		g.clearSurface(arg)
 	case kelvinSemaphoreRelease:
 		// BACK_END_WRITE_SEMAPHORE_RELEASE: the back end writes the release value into
 		// the bound semaphore surface at the latched offset — this is how the Direct3D

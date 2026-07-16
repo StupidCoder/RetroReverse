@@ -50,6 +50,7 @@ func main() {
 	trace := flag.Bool("trace", false, "trace executed instructions")
 	tracen := flag.Int("tracen", 200, "limit -trace to this many instructions")
 	savestate := flag.String("savestate", "", "after the run, write a machine snapshot to this file")
+	pngOut := flag.String("png", "", "after the run, write the display's color surface to this PNG")
 	loadstate := flag.String("loadstate", "", "restore a machine snapshot before running")
 	gpu := flag.Bool("gpu", false, "Phase C: run the NV2A DMA pusher on each kick (do not stop at first push)")
 	survey := flag.Bool("survey", false, "with -gpu: record the PGRAPH method surface and print it")
@@ -157,6 +158,15 @@ func main() {
 		}
 	}
 
+	if *pngOut != "" {
+		if data, err := m.FramePNG(); err != nil {
+			fmt.Fprintf(os.Stderr, "bootoracle: png: %v\n", err)
+		} else if err := os.WriteFile(*pngOut, data, 0o644); err != nil {
+			fmt.Fprintf(os.Stderr, "bootoracle: png: %v\n", err)
+		} else {
+			fmt.Printf("wrote frame to %s\n", *pngOut)
+		}
+	}
 	if *savestate != "" {
 		if err := m.SaveStateFile(*savestate); err != nil {
 			fmt.Fprintf(os.Stderr, "bootoracle: savestate: %v\n", err)

@@ -471,6 +471,76 @@ and a self-suspending worker, both parked. **The next frontier is the WMA music 
 first piece of the audio pipeline the render path cannot simply latch past, since the game's own
 per-frame update crashes on it before it reaches geometry.
 
+### The WMA frontier falls — and the machine learns to be slow
+
+The audio crash had been read as a codec-dispatch problem; the trace says otherwise. The voice
+constructor lives in its own function (`0x36590`, one caller), and the reason it produced NULL
+voices was two layers down: the XDK DirectSound device init probes the **AC'97 codec** — deassert
+ACLink cold reset in Global Control (`0xFEC0012C` bit 1), then poll Global Status (`0xFEC00130`)
+for the primary-codec-ready bit (`0x100`), a thousand tries, twenty milliseconds apart — and our
+latch read 0 forever: `DSERR_NODRIVER`, a device-less DirectSound, and a game that never checks
+its `CreateSoundBuffer` HRESULTs. The codec is soldered onto every Xbox: ready now rises the
+moment cold reset deasserts.
+
+With the codec up the buffers still failed — `E_OUTOFMEMORY` — and the arithmetic is the game's
+own: OutRun allocates a **fixed 0x2AE147A-byte (42.9 MiB) contiguous master arena** (the constant
+is in its code at `0x8AD4F`), an 0xB4CCCD-byte committed heap arena, and its 6.3 MB image —
+**63.1 MB of the console's 64**, leaving ~900 KB for the real kernel and every runtime pool
+allocation. Our synthetic reservations (a 2 MiB kernel band, a 512 KiB launcher stack, thread
+stacks inflated to 64 KiB) spent that margin three times over, so the title's last honest
+allocations failed — one worker thread's stack silently landed at `sp=0xFFF0`, in page zero. The
+band is 256 KiB now, stacks honour the caller's `KernelStackSize`, and a failed stack allocation
+halts loudly instead of corrupting low memory.
+
+Past audio, three mechanisms had to become *real* rather than convenient:
+
+- **The GP DSP's command mailbox.** DirectSound submits work by writing a command word into the
+  DSP's scratch page and spinning until the DSP firmware clears it — no MMIO in the loop at all.
+  `apuTick` is that consumer: GP running, pending word, cleared on the next machine tick. The
+  moment it landed, PGRAPH went from 128 device-init methods to half a million live ones.
+- **The back-end semaphore.** The D3D busy-wait polls PGRAPH `0x400B10` (never CPU-written — both
+  image references are reads) against the semaphore value in memory. The Kelvin release method
+  (`0x1D70`) now writes its value through the bound semaphore DMA object — the DMA-object decode
+  (base = `(w2 &^ 0xFFF) + (w0>>20 & 0xFFF)`) read off this title's own PRAMIN — and mirrors
+  `release<<2` into `0x400B10`. Synchronous pipeline: retired before the CPU can look.
+- **NT suspension is a count, not a state.** The deepest bug of the session: our NtResumeThread
+  set any waiting thread ready — so a producer's `ResumeThread` "completed" the streaming pump's
+  infinite wait on its message-queue semaphore. The pump popped a **NULL message**, read a
+  zero-length close request through address zero, and double-released a streaming buffer slot;
+  the two 64 KB slots' refcounts went negative and the whole CD-streaming engine wedged — which
+  is why the UI sprite archives (`spr_font_xst.sz` first) never loaded and the game idled in its
+  state 3 forever. Suspension is now an orthogonal `suspendCount`, exactly NT's semantics; a
+  resume never satisfies a wait. `NtReadFile` also honours the caller's own async protocol — the
+  overlapped wrapper pre-stores `STATUS_PENDING` in the IOSB, and such reads now complete a
+  DVD-realistic latency later (the instant-I/O lesson, again).
+
+The sprite decode path then executed the first **CMOVcc** of the project (`0F 42`, a P6
+instruction the XDK emits freely) — missing from both the disassembler and the executor, now in
+both.
+
+### The vertical blank — the game's own interrupt code runs
+
+What finally separated "renders clears forever" from "draws the game" was the display interrupt.
+The swap path parks in `KeWaitForSingleObject` (ordinal 159 — the Ke API takes raw dispatcher
+objects, not handles) on a KEVENT inside the D3D device that only the VBlank signals. Instead of
+inventing that signal, `interrupt.go` delivers the interrupt and lets the title's own code do the
+rest: `KeConnectInterrupt` registers the KINTERRUPT (vector 3, read off the boot's own connect);
+a 60 Hz `vblankTick` raises PCRTC_INTR bit 0 — a real write-1-to-clear pending register now, not
+an always-0 stub; the ISR runs as a nested frame on the current thread (context saved, stdcall
+frame, sentinel return, IF masked, scheduler frozen). The ISR itself named the rest of the
+protocol, one halt at a time: `KeInsertQueueDpc` (119) — DPCs run frame-chained after the ISR,
+hardware order — then `KeSetEvent` (145) from the DPC onto the exact event the swap waits on,
+then `AvSetDisplayMode` (3), where the kernel programs the CRTC scanout and we record
+mode/format/pitch/framebuffer as the machine's display state.
+
+**The result: the full flip protocol runs and OutRun renders continuously** — 2.1 million PGRAPH
+methods in one run, 23,204 `SET_BEGIN_END` pairs, 324,856 inline-array vertex words, per-draw
+vertex-attribute formats, transform-program uploads, the scanout registered at `0x0174C000`
+(640×480, A8R8G8B8). `CLEAR_SURFACE` is the first Kelvin method that produces pixels
+(`nv2a_frame.go`), and `bootoracle -png` exports the display's color surface: the first exported
+frame shows the game's own clear painted onto the scanout. The vertex-program interpreter,
+register combiners and rasteriser — the pixels between the clears — are the next build.
+
 ### Tooling
 
 - `tools/platform/xbox/{machine,nv2a,kernel,kernel_ordinals,kernel_objects,kernel_data,kernel_file,thread,sched,state,ports,run}.go` — the machine and its HLE.

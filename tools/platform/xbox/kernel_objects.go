@@ -315,6 +315,14 @@ func kernelObjectHandler(ord uint16) func(*Machine) int {
 				m.finishOpen(iosb, h, 0, 0xC0000008) // STATUS_INVALID_HANDLE
 				return 5
 			}
+			if class == 14 && ln >= 8 {
+				// FilePositionInformation: the current byte offset as a LARGE_INTEGER
+				// (the XAPI SetFilePointer/GetFileSize path reads it back, site 0x44321).
+				m.write32(buf+0, fo.off)
+				m.write32(buf+4, 0)
+				m.finishOpen(iosb, h, 8, 0)
+				return 5
+			}
 			if class != 0x22 || ln < 0x38 {
 				m.CPU.Halt("NtQueryInformationFile: unmodelled class %d (len %d) from %08X",
 					class, ln, m.retAddr())
