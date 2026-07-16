@@ -57,6 +57,11 @@ const (
 	nvPGRAPH_INTR = 0x400100 // PGRAPH_INTR
 	nvPCRTC_INTR  = 0x600100 // PCRTC_INTR_0 (vblank)
 
+	// Interrupt-enable masks (latched as written; the delivery gate in interrupt.go
+	// checks the PCRTC one against the pending bits).
+	nvPMC_INTR_EN   = 0x000140
+	nvPCRTC_INTR_EN = 0x600140
+
 	// PGRAPH back-end semaphore progress. Never CPU-written (confirmed by an image
 	// scan: only two sites reference it, both reads); the D3D busy-wait at 0x1AE550
 	// polls it, comparing bits 2..6 against the in-memory semaphore value <<2, i.e.
@@ -109,6 +114,20 @@ type nv2a struct {
 	dmaPut uint32
 	dmaGet uint32
 	kicked bool // DMA_PUT has been advanced at least once
+
+	// pcrtcIntr is the PCRTC's pending-interrupt mask (bit 0 = vblank), kept apart
+	// from the write-latch: reads return it, writes clear it write-1-to-clear, and
+	// vblankTick (interrupt.go) raises it.
+	pcrtcIntr uint32
+
+	// The display scanout, as programmed through AvSetDisplayMode (ordinal 3): the
+	// title's swap chain registers each frame's mode/format/pitch and framebuffer
+	// physical address here. This is the frame-export anchor — the PNG writer reads
+	// the scanout from fbAddr with fbPitch bytes per line.
+	dispMode   uint32
+	dispFormat uint32
+	fbPitch    uint32
+	fbAddr     uint32
 }
 
 // nvRead answers a byte read from the aperture (offset within 0xFD000000).
@@ -127,8 +146,18 @@ func (m *Machine) nvRead(off uint32) byte {
 		dw = m.nv.dmaPut
 	case nvPFB_FLUSH:
 		dw &^= 0x10000 // flush completes instantly: bit 16 always reads back clear
-	case nvPMC_INTR, nvPFIFO_INTR, nvPGRAPH_INTR, nvPCRTC_INTR:
-		dw = 0 // no interrupt is ever pending in the synchronous model
+	case nvPFIFO_INTR, nvPGRAPH_INTR:
+		dw = 0 // these engines raise no asynchronous interrupts in the synchronous model
+	case nvPCRTC_INTR:
+		// The pending mask: bit 0 = vblank, raised by vblankTick (interrupt.go) and
+		// cleared write-1-to-clear by the ISR's ack (nvWrite).
+		dw = m.nv.pcrtcIntr
+	case nvPMC_INTR:
+		// PMC_INTR_0 composes the per-engine pending lines; bit 24 is the PCRTC's.
+		dw = 0
+		if m.nv.pcrtcIntr != 0 {
+			dw |= 1 << 24
+		}
 	case nvPFIFO_C1_STATUS, nvPFIFO_RUNOUT:
 		// The pusher drains the whole buffer synchronously (GET reaches PUT before this
 		// read), so both the CACHE1 and the runout FIFOs are always empty: report LOW_MARK.
@@ -180,6 +209,11 @@ func (m *Machine) nvWrite(off uint32, v byte) {
 		}
 	case nvPFIFO_DMA_GET, nvUSER_GET:
 		m.nv.dmaGet = m.nv.reg[idx]
+	case nvPCRTC_INTR:
+		// Write-1-to-clear ack of the PCRTC pending bits (the ISR writes back the
+		// mask it saw). The latched garbage in reg is harmless — reads come from
+		// pcrtcIntr.
+		m.nv.pcrtcIntr &^= m.nv.reg[idx]
 	}
 }
 

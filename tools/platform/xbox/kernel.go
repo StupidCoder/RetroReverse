@@ -96,6 +96,10 @@ func (m *Machine) onStep(c *x86.CPU) {
 		m.exitCurrentThread()
 		return
 	}
+	if pc == isrExitAddr {
+		m.isrReturn()
+		return
+	}
 	if m.traceLeft > 0 {
 		m.traceLeft--
 		fmt.Printf("%08X  %s\n", pc, m.disasmAt(pc))
@@ -213,6 +217,31 @@ func kernelHandler(ord uint16) func(*Machine) int {
 		return h
 	}
 	switch ord {
+	case 1: // AvGetSavedDataAddress() -> PVOID. Canonical ordinal, called with no args
+		// right after the first AvSetDisplayMode (site 0x1AD24F): the kernel hands back
+		// the framebuffer block a previous title persisted across a soft reboot (the
+		// dashboard-transition animation). A fresh cold boot has none: NULL.
+		return func(m *Machine) int { m.setRet(0); return 0 }
+
+	case 3: // AvSetDisplayMode(RegisterBase, Step, Mode, Format, Pitch, FrameBuffer)
+		// -> NTSTATUS. Verified from the D3D swap path (0x1AD1D9): six args —
+		// (0xFD000000, 0, 0, 0x12, 0x500, 0x0174C000) — the last being the physical
+		// address of the very color surface the Kelvin stream renders to (method
+		// 0x210's argument). Canonical ordinal (AvSendTVEncoderOption verified at 2,
+		// the Av block does not drift). The kernel programs the CRTC scanout here;
+		// we record the mode/format/pitch/address as the machine's display state —
+		// the anchor the frame exporter reads the scanout through.
+		return func(m *Machine) int {
+			m.nv.dispMode = m.arg(2)
+			m.nv.dispFormat = m.arg(3)
+			m.nv.fbPitch = m.arg(4)
+			m.nv.fbAddr = m.arg(5)
+			m.logf("AvSetDisplayMode: mode %X format %X pitch %d fb %08X",
+				m.nv.dispMode, m.nv.dispFormat, m.nv.fbPitch, m.nv.fbAddr)
+			m.setRet(0)
+			return 6
+		}
+
 	case 2: // AvSendTVEncoderOption(RegisterBase, Option, Param, Result*)
 		// Verified from its call site: 4 stdcall args; arg3 is a ULONG* the caller reads
 		// back. The XDK queries the TV-encoder/AV-pack configuration here during display

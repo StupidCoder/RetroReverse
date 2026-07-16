@@ -56,6 +56,25 @@ func (m *Machine) objAt(handle uint32) *kobject {
 	return o
 }
 
+// guestObjAt adopts a raw DISPATCHER_HEADER living in guest memory (a KEVENT a title
+// embeds in its own struct and initialises by hand — the Ke APIs take object addresses,
+// not handles) into the object table, so waits and signals on it use the same machinery.
+// The header's type byte distinguishes notification (0, stays signalled) from
+// synchronisation (1, auto-clears) events; both behave as "event" here since satisfyWait
+// consumes the signal exactly as a synchronisation event would — the D3D swap event is
+// re-zeroed by its own code before every wait, so the distinction is unobservable.
+func (m *Machine) guestObjAt(addr uint32) *kobject {
+	if addr == 0 {
+		return nil
+	}
+	if o := m.objAt(addr); o != nil {
+		return o
+	}
+	o := &kobject{kind: "event", addr: addr, signaled: m.read32(addr+dhSignalState) != 0}
+	m.objects[addr] = o
+	return o
+}
+
 // satisfyWait tests whether a wait on an object succeeds now, consuming the object's
 // signal as the kernel would (auto-reset events and semaphores decrement; mutants take
 // ownership). Returns true if the wait is satisfied without blocking.
@@ -631,22 +650,94 @@ func kernelObjectHandler(ord uint16) func(*Machine) int {
 	case 109: // KeInitializeInterrupt(Interrupt, ServiceRoutine, ServiceContext, Vector,
 		// Irql, InterruptMode, ShareVector) — verified: the 7-arg call that consumes
 		// HalGetInterruptVector's (Vector, Irql) at the D3D device-init site, immediately
-		// before KeConnectInterrupt (ordinal 98). We do not dispatch hardware interrupts,
-		// so this records the routine and context into the KINTERRUPT block (the two
-		// leading fields, canonical across NT/Xbox) for coherence and returns void.
+		// before KeConnectInterrupt (ordinal 98). Records the routine, context and vector
+		// into the KINTERRUPT block (leading fields, canonical across NT/Xbox); the
+		// delivery machinery (interrupt.go) reads them back at fire time.
 		return func(m *Machine) int {
 			ki := m.arg(0)
 			if ki != 0 {
 				m.write32(ki+0x00, m.arg(1)) // ServiceRoutine
 				m.write32(ki+0x04, m.arg(2)) // ServiceContext
+				m.write32(ki+0x08, m.arg(3)) // BusInterruptLevel / vector
 			}
 			m.setRet(0)
 			return 7
 		}
 	case 98: // KeConnectInterrupt(Interrupt) -> BOOLEAN. Verified: the 1-arg call right
 		// after KeInitializeInterrupt on the same KINTERRUPT, whose AL result the caller
-		// tests to decide success. Nothing fires the interrupt here, so report connected.
-		return func(m *Machine) int { m.setRet(1); return 1 }
+		// tests to decide success. Registers the interrupt with the delivery machinery
+		// (interrupt.go) keyed by its vector.
+		return func(m *Machine) int {
+			ki := m.arg(0)
+			if ki != 0 {
+				vec := m.read32(ki + 0x08)
+				m.interrupts[vec] = ki
+				m.logf("KeConnectInterrupt: vector %d -> KINTERRUPT %08X (routine %08X ctx %08X)",
+					vec, ki, m.read32(ki), m.read32(ki+4))
+			}
+			m.setRet(1)
+			return 1
+		}
+
+	case 99: // KeGetCurrentThread() -> PKTHREAD. Canonical neighbour of the verified
+		// KeConnectInterrupt (98); no arguments, the running thread's KTHREAD (which
+		// doubles as its handle here). First called by XAPI's wait path (0x44E65).
+		return func(m *Machine) int { m.setRet(m.currentKThread()); return 0 }
+
+	case 119: // KeInsertQueueDpc(Dpc, SystemArgument1, SystemArgument2) -> BOOLEAN.
+		// Verified from the D3D VBlank ISR (0x1B2E53, the first code the delivered
+		// interrupt runs): three args, the KDPC at device+0x1BB64C whose routine
+		// KeInitializeDpc recorded. Canonical ordinal (KeInitializeDpc at the verified
+		// 107 anchors the block). The DPC runs after the ISR frame returns
+		// (interrupt.go isrReturn), the hardware's ISR-then-DPC order; queuing an
+		// already-queued DPC reports FALSE as the kernel does.
+		return func(m *Machine) int {
+			dpc := m.arg(0)
+			for _, d := range m.dpcQueue {
+				if d.Dpc == dpc {
+					m.setRet(0) // already queued
+					return 3
+				}
+			}
+			m.dpcQueue = append(m.dpcQueue, dpcEntry{Dpc: dpc, Arg1: m.arg(1), Arg2: m.arg(2)})
+			m.setRet(1)
+			return 3
+		}
+
+	case 145: // KeSetEvent(Event*, Increment, Wait) -> LONG previous state. Verified from
+		// the D3D VBlank DPC (0x1B301E): three args, the first the raw KEVENT at
+		// 0x1BB75C — the very object the swap path's KeWaitForSingleObject (159) blocks
+		// on. Canonical ordinal (KeSetBasePriorityThread at the verified 143 anchors
+		// it). Signal, wake waiters, report the previous state.
+		return func(m *Machine) int {
+			o := m.guestObjAt(m.arg(0))
+			prev := int32(0)
+			if o != nil {
+				if o.signaled {
+					prev = 1
+				}
+				o.signaled = true
+				m.writeSignal(o.addr, true)
+				m.wakeWaiters(o.addr)
+			}
+			m.setRet(uint32(prev))
+			return 3
+		}
+
+	case 159: // KeWaitForSingleObject(Object*, WaitReason, WaitMode, Alertable, Timeout*)
+		// -> NTSTATUS. Verified from the D3D swap path (0x1A9C9D): five args — a raw
+		// dispatcher object embedded in the device (device+0x1DBC, whose SignalState the
+		// caller zeroes immediately before), WaitReason 6, WaitMode 1, no alert, NULL
+		// timeout. Canonical ordinal (KeStallExecutionProcessor at the verified 151 and
+		// KeTickCount at 156 anchor the block). Unlike the Nt waits this takes the OBJECT
+		// ADDRESS, not a handle: guestObjAt adopts the raw DISPATCHER_HEADER so the same
+		// wait/signal machinery applies. This is the swap's wait for the display's
+		// vertical blank — the VBlank interrupt's ISR is what signals it.
+		return func(m *Machine) int {
+			m.guestObjAt(m.arg(0))
+			m.doWaitTimed(m.arg(0), m.arg(4))
+			return 5
+		}
 
 	// --- DPC / timers (Ke) — verified ------------------------------------
 	case 107: // KeInitializeDpc(Dpc, DeferredRoutine, DeferredContext) — verified: 3 args,

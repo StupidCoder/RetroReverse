@@ -94,6 +94,12 @@ var verifiedNames = map[uint16]string{
 	// 3-arg XcKeyTable; the Xc block drifts. Frontier: no handler yet (halts and names it).
 	357: "IdexChannelObject", // DATA export: disk channel object (name inferred from
 	// usage shape — dispatch slots +0x10/+0x14, busy flag +0x20, queued-IRP list +0x28)
+	1:   "AvGetSavedDataAddress",        // f() -> PVOID; NULL on a cold boot (site 0x1AD24F)
+	3:   "AvSetDisplayMode",             // f(regbase, step, mode, fmt, pitch, fb); swap site 0x1AD1D9
+	99:  "KeGetCurrentThread",           // f() -> PKTHREAD; XAPI wait path 0x44E65
+	119: "KeInsertQueueDpc",             // f(dpc, arg1, arg2) -> BOOLEAN; VBlank ISR site 0x1B2E53
+	145: "KeSetEvent",                   // f(event*, incr, wait) -> prev; VBlank DPC site 0x1B301E
+	159: "KeWaitForSingleObject",        // f(obj*, reason, mode, alert, timeout*); swap wait 0x1A9C9D
 	187: "NtClose",                      // f(handle) -> NTSTATUS (Nt block drifts +5)
 	252: "PhyGetLinkState",              // f(update) -> link flags; site 0x20D622, 0 = no cable
 	253: "PhyInitialize",                // f(forceReset, param) -> NTSTATUS; NVNET bring-up 0x20E134

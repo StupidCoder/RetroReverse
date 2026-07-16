@@ -40,8 +40,12 @@ func (m *Machine) schedTick() {
 			m.write32(m.systemTimeAddr, uint32(t))
 			m.write32(m.systemTimeAddr+4, uint32(t>>32))
 		}
-		m.apuTick() // the GP DSP's command-mailbox poll (apu.go)
-		m.ioTick()  // due asynchronous read completions (kernel_file.go)
+		m.apuTick()    // the GP DSP's command-mailbox poll (apu.go)
+		m.ioTick()     // due asynchronous read completions (kernel_file.go)
+		m.vblankTick() // the 60 Hz PCRTC vertical blank (interrupt.go)
+	}
+	if m.isrActive {
+		return // an ISR frame runs to completion: no wakes, no thread switches
 	}
 	m.wakeDueSleepers()
 	if m.reschedule {

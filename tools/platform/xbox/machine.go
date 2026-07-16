@@ -112,6 +112,14 @@ type Machine struct {
 	reschedule  bool
 	quantumLeft int
 
+	// Hardware interrupt delivery (interrupt.go): connected KINTERRUPTs by vector,
+	// the VBlank pacing, and the saved context while an ISR frame runs.
+	interrupts map[uint32]uint32 // vector -> KINTERRUPT guest address (KeConnectInterrupt)
+	nextVBlank uint64            // tick of the next vertical blank
+	isrActive  bool              // an ISR/DPC frame is running on the current thread
+	isrSaved   x86.CPU           // the interrupted context, restored at isrExitAddr
+	dpcQueue   []dpcEntry        // DPCs queued by the running ISR (KeInsertQueueDpc)
+
 	tick uint64 // synthetic system tick, advanced per instruction (for timers/clocks)
 
 	tickCountAddr  uint32 // guest address of the live KeTickCount data export (0 if none)
@@ -180,6 +188,7 @@ func NewMachine(xbe *XBE, disc *Image) (*Machine, error) {
 		dataDeref:   map[uint16]bool{},
 		shaCtx:      map[uint32][]byte{},
 		rc4Ctx:      map[uint32][]byte{},
+		interrupts:  map[uint32]uint32{},
 	}
 	m.nv.reg = map[uint32]uint32{}
 	m.apu = newMMIOLatch("APU")

@@ -90,6 +90,18 @@ type XboxState struct {
 
 	PendingIO []pendingIO // paced async read completions (kernel_file.go); nil from older snapshots
 
+	// Interrupt delivery (interrupt.go); zero values from older snapshots are a
+	// machine that has not raised its first vblank yet.
+	Interrupts map[uint32]uint32
+	NextVBlank uint64
+	PcrtcIntr  uint32
+	ISRActive  bool
+	ISRSaved   cpuSnap
+	DpcQueue   []dpcEntry
+
+	// Display scanout state (AvSetDisplayMode, kernel.go).
+	DispMode, DispFormat, FBPitch, FBAddr uint32
+
 	ShaCtx map[uint32][]byte // XcSHA* streaming contexts (marshalled crypto/sha1 state)
 	Rc4Ctx map[uint32][]byte // XcRC4* key schedules (258-byte S/i/j state)
 
@@ -200,6 +212,16 @@ func (m *Machine) SaveState() *XboxState {
 		FirstPush: m.firstPush, PCIAddr: m.pciAddr, PCISpace: copyByteMap(m.pciSpace),
 		PoolSizes:   copyU32Map(m.poolSizes),
 		PendingIO:   append([]pendingIO(nil), m.pendingIO...),
+		Interrupts:  copyU32Map(m.interrupts),
+		NextVBlank:  m.nextVBlank,
+		PcrtcIntr:   m.nv.pcrtcIntr,
+		ISRActive:   m.isrActive,
+		ISRSaved:    snapCPU(&m.isrSaved),
+		DpcQueue:    append([]dpcEntry(nil), m.dpcQueue...),
+		DispMode:    m.nv.dispMode,
+		DispFormat:  m.nv.dispFormat,
+		FBPitch:     m.nv.fbPitch,
+		FBAddr:      m.nv.fbAddr,
 		ShaCtx:      copyByteSliceMap(m.shaCtx),
 		Rc4Ctx:      copyByteSliceMap(m.rc4Ctx),
 		OrdinalHits: copyOrdMap(m.OrdinalHits),
@@ -264,6 +286,15 @@ func (m *Machine) LoadState(st *XboxState) error {
 	m.pciSpace = copyByteMap(st.PCISpace)
 	m.poolSizes = copyU32Map(st.PoolSizes)
 	m.pendingIO = append([]pendingIO(nil), st.PendingIO...)
+	m.interrupts = copyU32Map(st.Interrupts)
+	m.nextVBlank = st.NextVBlank
+	m.nv.pcrtcIntr = st.PcrtcIntr
+	m.isrActive = st.ISRActive
+	m.isrSaved = *m.CPU // seed bus/hook pointers from the live CPU, then overlay
+	st.ISRSaved.into(&m.isrSaved)
+	m.dpcQueue = append([]dpcEntry(nil), st.DpcQueue...)
+	m.nv.dispMode, m.nv.dispFormat = st.DispMode, st.DispFormat
+	m.nv.fbPitch, m.nv.fbAddr = st.FBPitch, st.FBAddr
 	m.shaCtx = copyByteSliceMap(st.ShaCtx)
 	m.rc4Ctx = copyByteSliceMap(st.Rc4Ctx)
 	m.Halted, m.HaltReason = st.Halted, st.HaltReason
