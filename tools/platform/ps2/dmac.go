@@ -248,7 +248,18 @@ func (m *Machine) dmacStart(ch int) {
 		// the GOAL `ultimate-memcpy` is defined it becomes the copy for every object main
 		// segment 4 KiB and up, which is most of them. Left unmodelled, the segment arrives
 		// as zeros and the first method that runs from it nop-slides into a break.
-		m.dmacSPR(c, false)
+		//
+		// The channel also takes a source chain, and the merc renderer drives it that way:
+		// generic-merc-execute-asm kicks CHCR=0x144 (chain + TTE) with QWC=0 and TADR at the
+		// chain generic-merc-add-to-cue built — a CNT header link followed by REF links that
+		// scatter-gather the model's geometry out of the merc heap into the SPR's double
+		// buffer. Treating that start as a normal transfer moves QWC=0 quadwords — nothing —
+		// and mercneric-convert then converts whatever the scratchpad last held.
+		if c.chcr&dChcrModeM == 1<<2 {
+			m.dmacSPRChainTo(c)
+		} else {
+			m.dmacSPR(c, false)
+		}
 
 	case dmacChSPRfrom:
 		// Scratchpad -> memory, the second half of the bounce: SADR in the scratchpad out
@@ -309,6 +320,24 @@ func (m *Machine) dmacSPR(c *dmacChan, fromSPR bool) {
 	}
 }
 
+// dmacSPRChainTo walks a source chain into the scratchpad: each link's quadwords land at
+// SADR and SADR advances, so a chain of REF links is a gather — which is what the merc
+// renderer uses it for, pulling a model's scattered fragments out of the merc heap into
+// the SPR's double buffer in one kick. With TTE set the whole 16-byte tag lands too (see
+// dmacSourceChain on why the scratchpad takes all 16), which is how the buffer's header
+// — its quadword count and the next chain segment's address — arrives: the game rides it
+// in the tag's device half.
+func (m *Machine) dmacSPRChainTo(c *dmacChan) {
+	sadr := c.sadr & (spramSize - 1)
+	m.dmacSourceChain(dmacChSPRto, c, func(b []byte) {
+		for _, x := range b {
+			m.spram[sadr] = x
+			sadr = (sadr + 1) & (spramSize - 1)
+		}
+	}, true)
+	c.sadr = sadr // left where the transfer ended, like MADR; the game rewrites it each kick
+}
+
 // The source-chain DMAtag IDs. A chain is a linked list the game builds in memory: each
 // tag says where this link's quadwords are and where the next tag is, and the DMA
 // controller walks it so the CPU can hand over a whole frame's worth of scattered
@@ -335,9 +364,15 @@ const (
 // CHCR's TTE bit set the controller forwards them, which is how a VIF chain rides two
 // VIFcodes along on every tag without spending a link on them.
 //
+// What TTE forwards depends on what is listening. The VIF and the GIF are parsers and
+// take the tag's upper 64 bits; the scratchpad is memory and takes the whole quadword
+// (wholeTag) — the merc chain proves it from its own reads: the buffer's consumer reads
+// its quadword count at +8 and the next segment's address at +12, which are exactly the
+// tag's two upper words, sitting where only a 16-byte tag landing at SADR would put them.
+//
 // The scratchpad flag is folded into bit 31 of the address, which is the encoding
 // dmaBytes already understands (it is the one sceGsExecLoadImage uses for MADR).
-func (m *Machine) dmacSourceChain(ch int, c *dmacChan, feed func([]byte)) {
+func (m *Machine) dmacSourceChain(ch int, c *dmacChan, feed func([]byte), wholeTag bool) {
 	tte := c.chcr&dChcrTTE != 0
 
 	// The walk is bounded, and the bound is reported when hit rather than silently
@@ -357,7 +392,11 @@ func (m *Machine) dmacSourceChain(ch int, c *dmacChan, feed func([]byte)) {
 		}
 
 		if tte {
-			feed(tag[8:16])
+			if wholeTag {
+				feed(tag[0:16])
+			} else {
+				feed(tag[8:16])
+			}
 		}
 
 		data := c.tadr&0x80000000 | (c.tadr&0x7FFFFFFF + 16) // "follows the tag", staying in the tag's memory

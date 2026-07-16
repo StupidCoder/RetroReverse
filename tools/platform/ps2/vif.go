@@ -145,7 +145,7 @@ func (m *Machine) vifStart(idx int, c *dmacChan) {
 	v := m.ensureVIF(idx)
 	switch (c.chcr & dChcrModeM) >> 2 {
 	case 1: // source chain — the render path's shape
-		m.dmacSourceChain(dmacChanForVIF(idx), c, v.feed)
+		m.dmacSourceChain(dmacChanForVIF(idx), c, v.feed, false)
 	default:
 		if c.qwc == 0 {
 			return

@@ -216,3 +216,64 @@ func TestSPRBounceCopy(t *testing.T) {
 		t.Errorf("SPR_FROM STR still set after transfer; CHCR = 0x%08X", v)
 	}
 }
+
+// TestSPRChainGather runs the kick the merc renderer performs every frame: SPR_TO in
+// source-chain mode with TTE, a CNT header link followed by a REF link gathering data
+// from elsewhere in memory. The whole 16-byte tag must land in the scratchpad ahead of
+// each link's data — the game rides the buffer's header (its quadword count and the next
+// chain segment's address) in the tag's upper 64 bits, and the consumer reads them at
+// buffer+8 and buffer+12. Treating the start as a normal transfer moves QWC=0 quadwords,
+// and the converter that runs next reads whatever the scratchpad last held.
+func TestSPRChainGather(t *testing.T) {
+	m := NewMachine()
+	put64 := func(a uint32, v uint64) {
+		for i := 0; i < 8; i++ {
+			m.ram[a+uint32(i)] = byte(v >> (8 * i))
+		}
+	}
+
+	const chain, ref = 0x00200000, 0x00240000
+	const sadr = 0x280 // where the merc double buffer's first half lives
+
+	// The REF link's data, somewhere else entirely.
+	for i := 0; i < 32; i++ {
+		m.ram[ref+i] = byte(0xA0 + i)
+	}
+
+	// Tag 1: CNT, 1 quadword of data follows; upper 64 bits carry the software header.
+	put64(chain+0, 1|dtagCNT<<28)
+	put64(chain+8, 0xCAFEF00D12345678)
+	for i := 0; i < 16; i++ {
+		m.ram[chain+16+i] = byte(0x10 + i)
+	}
+	// Tag 2 (after the CNT data): REF, 2 quadwords at ref, next tag follows.
+	put64(chain+32, 2|dtagREF<<28|uint64(ref)<<32)
+	put64(chain+40, 0)
+	// Tag 3: END.
+	put64(chain+48, dtagEND<<28)
+	put64(chain+56, 0)
+
+	m.Write32(0x1000D480, sadr)                        // SADR
+	m.Write32(0x1000D430, chain)                       // TADR
+	m.Write32(0x1000D420, 0)                           // QWC: a chain kick leaves it zero
+	m.Write32(0x1000D400, dChcrStart|dChcrTTE|1<<2)    // CHCR: start, chain mode, TTE
+
+	// The scratchpad, in arrival order: tag 1 (16 bytes), its 1 QW of data, tag 2, the
+	// REF's 2 QW, tag 3. The header words the consumer reads sit at buffer+8/+12.
+	if got := le64(m.spram[sadr+8 : sadr+16]); got != 0xCAFEF00D12345678 {
+		t.Errorf("buffer header (tag upper 64) = 0x%016X, want 0xCAFEF00D12345678", got)
+	}
+	for i := 0; i < 16; i++ {
+		if got, want := m.spram[sadr+16+i], byte(0x10+i); got != want {
+			t.Fatalf("CNT data byte %d: got 0x%02X, want 0x%02X", i, got, want)
+		}
+	}
+	for i := 0; i < 32; i++ {
+		if got, want := m.spram[sadr+48+i], byte(0xA0+i); got != want {
+			t.Fatalf("REF data byte %d: got 0x%02X, want 0x%02X (the gather did not follow the REF)", i, got, want)
+		}
+	}
+	if v, _ := m.dmacRead(0x1000D400); v&dChcrStart != 0 {
+		t.Errorf("SPR_TO STR still set after the chain; CHCR = 0x%08X", v)
+	}
+}

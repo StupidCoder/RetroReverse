@@ -65,7 +65,7 @@ func (m *Machine) gifStart(c *dmacChan) {
 				return
 			}
 			all = append(all, b...)
-		})
+		}, false)
 		if len(all) > 0 {
 			m.gifPacket(all)
 		}
