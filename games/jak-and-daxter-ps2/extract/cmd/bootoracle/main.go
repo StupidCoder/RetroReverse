@@ -80,6 +80,8 @@ func main() {
 	eeProf := flag.Int("eeprof", 0, "sample the EE's PC every N steps and report where the time goes, by symbol (use with -goalnames to see engine code) — the only thing that tells an engine idling from an engine working")
 	goalNames := flag.String("goalnames", "", "read a -goalsyms dump back in, so -dis/-bp/-logpc and every trace can name GOAL engine code (symbol values that point into RAM become function names)")
 	gsFrame := flag.String("gsframe", "", "write the frame the GS would be scanning out (the DISPFB rectangle, deswizzled) to FILE.png at the end of the run")
+	gsVerts := flag.Int("gsverts", 0, "print the first N completed GS primitives with their exact vertex data (position, Z, RGBA, ST/Q) — one column per hypothesis: huge positions = transform bug, black RGBA = lighting bug, zero alpha or Q = unpack bug")
+	vu1Data := flag.String("vu1data", "", "write VU1's data memory (as the VIF unpacked it) to FILE at the end of the run — the input side of a microprogram, where the matrix rows and the vertex block sit")
 	vu1Micro := flag.String("vu1micro", "", "write VU1's program memory (as the VIF filled it) to FILE at the end of the run — the input for sizing up the vector unit")
 	var gsFBs multiFlag
 	flag.Var(&gsFBs, "gsfb", "dump a PSMCT32 buffer of GS memory as BASE:FBW:H:FILE.png (base = word address as the census prints, FBW in 64px units, H in pixels); repeatable")
@@ -98,7 +100,7 @@ func main() {
 		iopOnly: *iopOnly, iopMods: *iopMods, iopDis: *iopDis,
 		iopIO: *iopIO, iopION: *iopION, iopWatch: *iopWatch, iopTrap: *iopTrap,
 		iopCalls: *iopCalls, iopCallsFrom: *iopCallsFrom, iopPokes: iopPokes,
-		iopDump: *iopDump, iopThreads: *iopThreads, iopIELog: *iopIELog, goalSyms: *goalSyms, goalNames: *goalNames, eeProf: *eeProf, gsFrame: *gsFrame, vu1Micro: *vu1Micro,
+		iopDump: *iopDump, iopThreads: *iopThreads, iopIELog: *iopIELog, goalSyms: *goalSyms, goalNames: *goalNames, eeProf: *eeProf, gsFrame: *gsFrame, gsVerts: *gsVerts, vu1Micro: *vu1Micro, vu1Data: *vu1Data,
 		gsFBs: gsFBs,
 	}); err != nil {
 		fmt.Fprintln(os.Stderr, "bootoracle:", err)
@@ -133,6 +135,8 @@ type cfg struct {
 	goalNames                             string
 	eeProf                                int
 	gsFrame                               string
+	gsVerts                               int
+	vu1Data                               string
 	vu1Micro                              string
 	gsFBs                                 multiFlag
 }
@@ -490,6 +494,10 @@ func run(c cfg) error {
 		return nil
 	}
 
+	if c.gsVerts > 0 {
+		m.GSVertDump = c.gsVerts
+	}
+
 	if c.poke != "" {
 		parts := strings.SplitN(c.poke, ":", 2)
 		if len(parts) != 2 {
@@ -717,6 +725,16 @@ func run(c cfg) error {
 			return err
 		} else {
 			fmt.Printf("vu1micro: wrote %d bytes to %s\n", len(micro), c.vu1Micro)
+		}
+	}
+	if c.vu1Data != "" {
+		data := m.VUDataMem(1)
+		if data == nil {
+			fmt.Println("vu1data: VIF1 never started; no data memory to dump")
+		} else if err := os.WriteFile(c.vu1Data, data, 0o644); err != nil {
+			return err
+		} else {
+			fmt.Printf("vu1data: wrote %d bytes to %s\n", len(data), c.vu1Data)
 		}
 	}
 	for _, spec := range c.gsFBs {

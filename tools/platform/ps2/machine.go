@@ -217,6 +217,11 @@ type Machine struct {
 	// disassembly, a memory dump), which are not the guest reading anything.
 	hookMuted bool
 
+	// GSVertDump, when set, prints the next N completed GS primitives with their exact
+	// vertex data (position, Z, RGBA, ST/Q) — the discriminator between a transform bug,
+	// a lighting bug and an unpack bug, each of which is one column of the dump.
+	GSVertDump int
+
 	breakpoints map[uint32]bool
 
 	// StopRequested ends the run at the next instruction boundary.

@@ -18,7 +18,10 @@ package ps2
 // yet), and anything the sampler cannot serve draws as its vertex colour — visible and
 // wrong in an honest way, where a skipped primitive is invisible in a misleading one.
 
-import "math"
+import (
+	"fmt"
+	"math"
+)
 
 // The GS drawing registers beyond those gs.go already names.
 const (
@@ -167,6 +170,26 @@ func (gs *GS) kick() {
 func (gs *GS) drawn(typ int) {
 	gs.primCount[typ]++
 	gs.prims++
+	// The vertex-dump instrument: the first N completed primitives, with the exact
+	// numbers the rasteriser is about to consume — position in pixels (12.4 fixed,
+	// XYOFFSET already subtracted), Z, the RGBA the vertex latched, and its ST/Q.
+	// This is the discriminator between "the transform is wrong" (positions huge or
+	// offscreen), "the lighting is wrong" (RGBA black), and "the unpack is wrong"
+	// (alpha zero, Q zero): each hypothesis is one column.
+	if gs.m != nil && gs.m.GSVertDump > 0 {
+		gs.m.GSVertDump--
+		p := gs.prim()
+		fmt.Printf("  prim %-9s PRIM=0x%03X ctx%d%s%s%s:\n", primNames[typ&7], p, gs.ctxt()+1,
+			map[bool]string{true: " TME", false: ""}[p&(1<<4) != 0],
+			map[bool]string{true: " ABE", false: ""}[p&(1<<6) != 0],
+			map[bool]string{true: " FGE", false: ""}[p&(1<<5) != 0])
+		for i := 0; i < gs.vqN && i < len(gs.vq); i++ {
+			v := gs.vq[i]
+			fmt.Printf("    v%d xy (%8.2f,%8.2f) z %08X rgba %08X stq (%g, %g, %g) uv (%.1f,%.1f)\n",
+				i, float64(v.x)/16, float64(v.y)/16, v.z, v.rgba, v.s, v.t, v.q,
+				float64(v.u)/16, float64(v.v)/16)
+		}
+	}
 }
 
 // count tallies a drawing feature the rasteriser saw, so the census names what is being
