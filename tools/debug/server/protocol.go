@@ -403,11 +403,12 @@ type (
 	}
 
 	jsonGame struct {
-		Slug     string `json:"slug"`
-		Platform string `json:"platform"`
-		Name     string `json:"name"`
-		Image    string `json:"image"`
-		Missing  bool   `json:"missing"` // the image is not on disk; they are gitignored
+		Slug         string `json:"slug"`
+		Platform     string `json:"platform"`     // the tag: "gc"
+		PlatformName string `json:"platformName"` // the human name: "GameCube"
+		Name         string `json:"name"`
+		Image        string `json:"image"`
+		Missing      bool   `json:"missing"` // the image is not on disk; they are gitignored
 	}
 
 	statesMsg struct {

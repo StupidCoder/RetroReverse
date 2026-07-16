@@ -177,8 +177,8 @@ func (w *Workspace) sendLibrary(s *session, seq int) {
 	m := libraryMsg{Type: "library", Seq: seq, Current: cur, Games: []jsonGame{}}
 	for _, g := range games {
 		m.Games = append(m.Games, jsonGame{
-			Slug: g.Slug, Platform: g.Platform, Name: g.Name,
-			Image: filepath.Base(g.Image), Missing: g.Missing,
+			Slug: g.Slug, Platform: g.Platform, PlatformName: debug.PlatformName(g.Platform),
+			Name: g.Name, Image: filepath.Base(g.Image), Missing: g.Missing,
 		})
 	}
 	s.send(m)

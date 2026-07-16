@@ -60,6 +60,12 @@ func TestLibraryAndOpen(t *testing.T) {
 	if g["slug"] != "test-game-wsfake" || g["name"] != "Test Game" || g["missing"] != false {
 		t.Errorf("game = %v", g)
 	}
+	// The platform's human name rides along, because the page's menu groups by platform and
+	// has no Target to ask (it is choosing which one to open). An unnamed platform falls back
+	// to its tag rather than to an empty menu entry.
+	if g["platform"] != "wsfake" || g["platformName"] != "wsfake" {
+		t.Errorf("platform = %v / %v, want the tag and its fallback name", g["platform"], g["platformName"])
+	}
 	if m["current"] != "" {
 		t.Errorf("a game is open before one was asked for: %v", m["current"])
 	}
@@ -249,8 +255,13 @@ func TestStateNameCannotEscape(t *testing.T) {
 // TestJSONShapes guards the messages the page parses: a field renamed here is a panel
 // that silently shows nothing.
 func TestJSONShapes(t *testing.T) {
-	b, _ := json.Marshal(libraryMsg{Type: "library", Games: []jsonGame{{Slug: "s", Platform: "p"}}})
-	for _, want := range []string{`"type":"library"`, `"games"`, `"slug":"s"`, `"missing":false`} {
+	b, _ := json.Marshal(libraryMsg{Type: "library", Games: []jsonGame{{Slug: "s", Platform: "p", PlatformName: "P"}}})
+	for _, want := range []string{
+		`"type":"library"`, `"games"`, `"slug":"s"`, `"missing":false`,
+		// The page groups the library by platform and labels each group with this; without
+		// it the menu falls back to the raw tag, which is the thing it exists to avoid.
+		`"platform":"p"`, `"platformName":"P"`,
+	} {
 		if !strings.Contains(string(b), want) {
 			t.Errorf("library message %s lacks %s", b, want)
 		}

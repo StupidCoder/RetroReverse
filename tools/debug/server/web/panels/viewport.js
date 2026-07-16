@@ -239,8 +239,8 @@ class Viewport {
 
     this.w = 0;
     this.h = 0;
-    this.zoom = 2;
-    this.fit = false; // scale the picture to the panel instead of to a whole number
+    this.zoom = 2; // the fallback if fit is turned off; the toolbar's own default is Fit
+    this.fit = true; // scale the picture to the panel instead of to a whole number
     this.buffer = ''; // a buffer of the machine instead of the frame, by surface id
     this.bufSeq = -1;
     this.prov = null;

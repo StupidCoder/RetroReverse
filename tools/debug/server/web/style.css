@@ -54,9 +54,22 @@ body {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-#target { max-width: 26ch; }
-#stats { flex: 0 1 auto; text-align: right; }
-#game { max-width: 22ch; }
+/* The status takes the slack and right-aligns inside it, rather than sitting at its content
+   width behind a spacer. The distinction matters because a flex line breaks on an item's
+   BASIS, before any shrinking is considered: at `auto` the status carried its full text width
+   into that decision and wrapped the whole toolbar onto a second row as soon as the controls
+   to its left grew — which adding the platform menu did. At basis 0 it can never force the
+   break, and gives up characters to an ellipsis instead, which is what it was already dressed
+   for (min-width:0, overflow hidden). */
+#stats { flex: 1 1 0; text-align: right; }
+
+/* The library is two menus now — platform, then game — and together they must not cost more
+   room than the one they replaced, or the toolbar wraps and the frame loses a row of the
+   window to it. So they ellipsise; the full text is one click away in the open menu. #target
+   is capped hardest, because the two menus beside it now say most of what it used to. */
+#platform { max-width: 18ch; }
+#game { max-width: 18ch; }
+#target { max-width: 20ch; }
 
 button {
   background: var(--panel-hi);

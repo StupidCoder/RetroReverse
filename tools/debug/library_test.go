@@ -166,3 +166,11 @@ func write(t *testing.T, path, s string) {
 	t.Helper()
 	must(t, os.WriteFile(path, []byte(s), 0o644))
 }
+
+// An unknown platform falls back to its tag rather than to "" — an empty menu entry is worse
+// than an ugly one.
+func TestPlatformNameFallsBackToTheTag(t *testing.T) {
+	if got := PlatformName("nothing-registers-this"); got != "nothing-registers-this" {
+		t.Errorf("PlatformName of an unknown platform = %q", got)
+	}
+}

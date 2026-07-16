@@ -217,7 +217,9 @@ function setBusy(b) {
 
 conn.onOpen = () => setBusy(false);
 conn.onClose = () => {
-  $('target').textContent = 'disconnected — restart framedbg and reload';
+  // The status line, not the target label: losing the server is a status, and the label is
+  // hidden whenever the library's menus already name what is open.
+  status('disconnected — restart framedbg and reload');
   setBusy(true);
 };
 
@@ -233,7 +235,13 @@ conn.on('hello', (m) => {
     playing: false,
     cpuRunning: false,
   });
+  // The target label is for the case where nothing else names the target: framedbg opened
+  // straight onto an image with -image, so there is no library and no menus. With a library
+  // the two menus say the platform and the game, the tab says the image, and this would only
+  // be a third copy — an expensive one, since the toolbar is the width of the window and the
+  // status line is what gives up its characters to pay for it.
   $('target').textContent = `${m.platform} — ${m.title}`;
+  $('target').hidden = library.length > 0;
   document.title = `framedbg — ${m.title}`;
 
   // The target's capabilities decide what the page is. A different game means a
@@ -267,18 +275,69 @@ conn.on('hello', (m) => {
 });
 
 // The library: which games have an adapter and an image on disk.
+//
+// Two menus rather than one, because one flat list of every game on every platform is a list
+// that only gets longer — and the platform is how anyone actually navigates it ("the
+// GameCube one"). So the first menu is platforms, by their human names, and choosing one
+// reveals that platform's games. The game menu is hidden until then: an empty second menu
+// beside the first is a control that looks broken.
+let library = [];
+
 conn.on('library', (m) => {
-  const sel = $('game');
-  sel.innerHTML =
+  library = m.games;
+
+  // Platforms, in the order their names read, each with what is behind it. A platform whose
+  // every image is missing is still shown — "you do not have those" is worth saying, and the
+  // games under it say it individually.
+  const platforms = [...new Set(library.map((g) => g.platform))].sort((a, b) =>
+    platformName(a).localeCompare(platformName(b))
+  );
+  const current = library.find((g) => g.slug === m.current);
+
+  $('platform').innerHTML =
     '<option value="">library…</option>' +
-    m.games
+    platforms
+      .map((p) => {
+        const n = library.filter((g) => g.platform === p).length;
+        const sel = current && current.platform === p ? ' selected' : '';
+        return `<option value="${p}"${sel}>${platformName(p)} (${n})</option>`;
+      })
+      .join('');
+
+  // With a game already open — another tab opened it, or this page reloaded — the menus show
+  // where we are rather than making you find it again.
+  fillGames(current ? current.platform : '', current ? current.slug : '');
+});
+
+// platformName is the human name the server sent for a platform tag. It comes from the games
+// rather than a table here, so a new adapter names itself in one place (debug/registry.go).
+function platformName(tag) {
+  const g = library.find((x) => x.platform === tag);
+  return (g && g.platformName) || tag;
+}
+
+// fillGames populates the second menu with one platform's games, or hides it.
+function fillGames(platform, selectSlug) {
+  const sel = $('game');
+  if (!platform) {
+    sel.hidden = true;
+    sel.innerHTML = '';
+    return;
+  }
+  const games = library
+    .filter((g) => g.platform === platform)
+    .sort((a, b) => a.name.localeCompare(b.name));
+  sel.innerHTML =
+    `<option value="">${games.length === 1 ? 'game…' : `${games.length} games…`}</option>` +
+    games
       .map(
         (g) =>
-          `<option value="${g.slug}"${g.slug === m.current ? ' selected' : ''}${g.missing ? ' disabled' : ''}>` +
-          `${g.name} (${g.platform})${g.missing ? ' — no image' : ''}</option>`
+          `<option value="${g.slug}"${g.slug === selectSlug ? ' selected' : ''}${g.missing ? ' disabled' : ''}>` +
+          `${g.name}${g.missing ? ' — no image' : ''}</option>`
       )
       .join('');
-});
+  sel.hidden = false;
+}
 
 // Loading a state moves the machine somewhere else entirely; the captured frame belonged
 // to where we were. A restored machine is between frames — it has drawn nothing yet — so,
@@ -402,6 +461,14 @@ function showStats(meta) {
 }
 
 // ---- toolbar ----
+
+// Picking a platform only reveals its games — it opens nothing. Opening is the second
+// choice, deliberately: the platform menu is navigation, and navigating should not boot a
+// machine.
+$('platform').onchange = () => {
+  fillGames($('platform').value, '');
+  if ($('platform').value) $('game').focus();
+};
 
 $('game').onchange = () => {
   const slug = $('game').value;

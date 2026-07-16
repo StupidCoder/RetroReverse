@@ -69,6 +69,41 @@ func Platforms() []string {
 	return out
 }
 
+// platformNames spells the platform tags out for a reader.
+//
+// The tags are directory suffixes — games/ridge-racer-psx — chosen to be short and typed, so
+// they are what the whole tool passes around. But "psx" is a slug, not a name, and a menu is
+// the one place where the human name is the useful one.
+//
+// It is a table here rather than a method on Target, because the library lists games WITHOUT
+// opening them — that is the point of a library — so there is no Target to ask. A platform
+// missing from this table falls back to its tag, which is honest and ugly enough to notice.
+var platformNames = map[string]string{
+	"n64":   "Nintendo 64",
+	"gc":    "GameCube",
+	"ds":    "Nintendo DS",
+	"3ds":   "Nintendo 3DS",
+	"gb":    "Game Boy",
+	"gg":    "Game Gear",
+	"psx":   "PlayStation",
+	"ps2":   "PlayStation 2",
+	"psp":   "PlayStation Portable",
+	"3do":   "3DO",
+	"xbox":  "Xbox",
+	"pc":    "MS-DOS",
+	"amiga": "Amiga",
+	"c64":   "Commodore 64",
+}
+
+// PlatformName is the human name for a platform tag ("gc" -> "GameCube"), or the tag itself
+// if nothing here names it.
+func PlatformName(platform string) string {
+	if n, ok := platformNames[platform]; ok {
+		return n
+	}
+	return platform
+}
+
 // Registered reports whether a platform has an adapter.
 func Registered(platform string) bool {
 	regMu.RLock()

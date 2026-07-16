@@ -9,8 +9,10 @@
 
 <header id="toolbar">
   <span class="brand">framedbg</span>
-  <select id="game" title="the games under games/ that have an adapter">
+  <select id="platform" title="pick a platform, then a game">
     <option value="">library…</option>
+  </select>
+  <select id="game" title="the games under games/ for this platform" hidden>
   </select>
   <span id="target" class="muted">connecting…</span>
   <span class="sep"></span>
@@ -34,14 +36,13 @@
   <label class="check" title="start the scrub from a black screen, so this frame's drawing is not mixed with the last frame's">
     <input type="checkbox" id="blank"> blank</label>
   <select id="zoom" title="zoom">
-    <option value="fit">Fit</option>
+    <option value="fit" selected>Fit</option>
     <option value="1">1×</option>
-    <option value="2" selected>2×</option>
+    <option value="2">2×</option>
     <option value="3">3×</option>
     <option value="4">4×</option>
   </select>
 
-  <span class="grow"></span>
   <span id="stats" class="muted"></span>
   <button id="reset-layout" title="restore the default panel layout">⟲</button>
 </header>
