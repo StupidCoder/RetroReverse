@@ -558,6 +558,34 @@ func (s *gsSampler) at(u, v int32) uint32 {
 	return 0
 }
 
+// GSTexture renders a texture exactly as a primitive would sample it — through the real
+// swizzle, the CLUT load TEX0 commands, and TEXA — and returns RGBA pixels. tex0 is the
+// raw register word (the draw census prints it per distinct texture), so the dump and
+// the draw share one source of truth. The instrument that says whether a flat-looking
+// primitive is sampling a flat texture or sampling a real texture wrongly.
+func (m *Machine) GSTexture(tex0 uint64) (pix []byte, w, h int) {
+	gs := m.ensureGS()
+	t := decodeTEX0(tex0)
+	if t.cld == 0 {
+		t.cld = 1 // load its CLUT the way the first draw's TEX0 write would
+	}
+	gs.clutLoad(t)
+	s := &gsSampler{gs: gs, tex: t, w: 1 << t.tw, h: 1 << t.th}
+	w, h = int(s.w), int(s.h)
+	pix = make([]byte, w*h*4)
+	for y := 0; y < h; y++ {
+		for x := 0; x < w; x++ {
+			c := s.at(int32(x), int32(y))
+			o := (y*w + x) * 4
+			pix[o+0] = byte(c)
+			pix[o+1] = byte(c >> 8)
+			pix[o+2] = byte(c >> 16)
+			pix[o+3] = byte(c >> 24)
+		}
+	}
+	return pix, w, h
+}
+
 // combine applies the texture function (TFX/TCC): how the sampled texel and the
 // fragment's colour make the pixel the tests and the blender see. The GS's colour scale
 // puts 1.0 at 0x80, so a modulate is >>7 with a clamp at 255.

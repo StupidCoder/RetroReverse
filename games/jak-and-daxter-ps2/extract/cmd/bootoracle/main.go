@@ -80,11 +80,15 @@ func main() {
 	eeProf := flag.Int("eeprof", 0, "sample the EE's PC every N steps and report where the time goes, by symbol (use with -goalnames to see engine code) — the only thing that tells an engine idling from an engine working")
 	goalNames := flag.String("goalnames", "", "read a -goalsyms dump back in, so -dis/-bp/-logpc and every trace can name GOAL engine code (symbol values that point into RAM become function names)")
 	gsFrame := flag.String("gsframe", "", "write the frame the GS would be scanning out (the DISPFB rectangle, deswizzled) to FILE.png at the end of the run")
+	vu1In := flag.String("vu1in", "", "dump a VU1 program's input buffer (96 qw at TOP) at its next MSCAL — hex byte address; the in-place transforms destroy the input by kick time")
+	gsBig := flag.Int("gsbig", 0, "print the first N completed GS primitives whose bounding box exceeds 1024px, naming the VU1 program or PATH that produced each — the huge-triangle hunter")
 	gsVerts := flag.Int("gsverts", 0, "print the first N completed GS primitives with their exact vertex data (position, Z, RGBA, ST/Q) — one column per hypothesis: huge positions = transform bug, black RGBA = lighting bug, zero alpha or Q = unpack bug")
 	vu1Data := flag.String("vu1data", "", "write VU1's data memory (as the VIF unpacked it) to FILE at the end of the run — the input side of a microprogram, where the matrix rows and the vertex block sit")
 	vu1Micro := flag.String("vu1micro", "", "write VU1's program memory (as the VIF filled it) to FILE at the end of the run — the input for sizing up the vector unit")
 	var gsFBs multiFlag
 	flag.Var(&gsFBs, "gsfb", "dump a PSMCT32 buffer of GS memory as BASE:FBW:H:FILE.png (base = word address as the census prints, FBW in 64px units, H in pixels); repeatable")
+	var gsTexs multiFlag
+	flag.Var(&gsTexs, "gstex", "dump a texture as the sampler sees it (swizzle+CLUT+TEXA) as TEX0:FILE.png (TEX0 = the raw register word the draw census prints); repeatable")
 	flag.Parse()
 
 	if *image == "" {
@@ -100,8 +104,8 @@ func main() {
 		iopOnly: *iopOnly, iopMods: *iopMods, iopDis: *iopDis,
 		iopIO: *iopIO, iopION: *iopION, iopWatch: *iopWatch, iopTrap: *iopTrap,
 		iopCalls: *iopCalls, iopCallsFrom: *iopCallsFrom, iopPokes: iopPokes,
-		iopDump: *iopDump, iopThreads: *iopThreads, iopIELog: *iopIELog, goalSyms: *goalSyms, goalNames: *goalNames, eeProf: *eeProf, gsFrame: *gsFrame, gsVerts: *gsVerts, vu1Micro: *vu1Micro, vu1Data: *vu1Data,
-		gsFBs: gsFBs,
+		iopDump: *iopDump, iopThreads: *iopThreads, iopIELog: *iopIELog, goalSyms: *goalSyms, goalNames: *goalNames, eeProf: *eeProf, gsFrame: *gsFrame, gsVerts: *gsVerts, gsBig: *gsBig, vu1In: *vu1In, vu1Micro: *vu1Micro, vu1Data: *vu1Data,
+		gsFBs: gsFBs, gsTexs: gsTexs,
 	}); err != nil {
 		fmt.Fprintln(os.Stderr, "bootoracle:", err)
 		os.Exit(1)
@@ -136,9 +140,12 @@ type cfg struct {
 	eeProf                                int
 	gsFrame                               string
 	gsVerts                               int
+	gsBig                                 int
+	vu1In                                 string
 	vu1Data                               string
 	vu1Micro                              string
 	gsFBs                                 multiFlag
+	gsTexs                                multiFlag
 }
 
 // ieLogFlush, if the interrupt-enable log is on, flushes it. It is set by armIOP and
@@ -494,6 +501,16 @@ func run(c cfg) error {
 		return nil
 	}
 
+	if c.gsBig > 0 {
+		m.GSBigDump = c.gsBig
+	}
+	if c.vu1In != "" {
+		a, err := hx(c.vu1In)
+		if err != nil {
+			return fmt.Errorf("bad -vu1in %q", c.vu1In)
+		}
+		m.VU1DumpIn = int64(a)
+	}
 	if c.gsVerts > 0 {
 		m.GSVertDump = c.gsVerts
 	}
@@ -742,6 +759,36 @@ func run(c cfg) error {
 			return err
 		}
 	}
+	for _, spec := range c.gsTexs {
+		if err := writeGSTexture(m, spec); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// writeGSTexture dumps a texture as the sampler resolves it, named as TEX0:FILE.png.
+func writeGSTexture(m *ps2.Machine, spec string) error {
+	parts := strings.SplitN(spec, ":", 2)
+	if len(parts) != 2 {
+		return fmt.Errorf("bad -gstex %q (want TEX0:FILE.png)", spec)
+	}
+	tex0, err := strconv.ParseUint(strings.TrimPrefix(parts[0], "0x"), 16, 64)
+	if err != nil {
+		return fmt.Errorf("bad -gstex %q", spec)
+	}
+	pix, w, h := m.GSTexture(tex0)
+	img := image.NewRGBA(image.Rect(0, 0, w, h))
+	copy(img.Pix, pix)
+	f, err := os.Create(parts[1])
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+	if err := png.Encode(f, img); err != nil {
+		return err
+	}
+	fmt.Printf("gstex: wrote %dx%d to %s\n", w, h, parts[1])
 	return nil
 }
 

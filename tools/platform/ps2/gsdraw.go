@@ -21,7 +21,13 @@ package ps2
 import (
 	"fmt"
 	"math"
+	"os"
 )
+
+// writeFile is the huge-primitive dump's file writer, in the current directory.
+func writeFile(name string, data []byte) error {
+	return os.WriteFile(name, data, 0644)
+}
 
 // The GS drawing registers beyond those gs.go already names.
 const (
@@ -176,7 +182,64 @@ func (gs *GS) drawn(typ int) {
 	// This is the discriminator between "the transform is wrong" (positions huge or
 	// offscreen), "the lighting is wrong" (RGBA black), and "the unpack is wrong"
 	// (alpha zero, Q zero): each hypothesis is one column.
-	if gs.m != nil && gs.m.GSVertDump > 0 {
+	dump := gs.m != nil && gs.m.GSVertDump > 0
+	if !dump && gs.m != nil && gs.m.GSBigDump > 0 && gs.vqN >= 2 {
+		// The huge-primitive hunter: only primitives whose bounding box exceeds 1024px
+		// on an axis, with the producer named.
+		minX, maxX, minY, maxY := gs.vq[0].x, gs.vq[0].x, gs.vq[0].y, gs.vq[0].y
+		for i := 1; i < gs.vqN && i < len(gs.vq); i++ {
+			v := gs.vq[i]
+			if v.x < minX {
+				minX = v.x
+			}
+			if v.x > maxX {
+				maxX = v.x
+			}
+			if v.y < minY {
+				minY = v.y
+			}
+			if v.y > maxY {
+				maxY = v.y
+			}
+		}
+		if maxX-minX > 1024*16 || maxY-minY > 1024*16 {
+			gs.m.GSBigDump--
+			fmt.Printf("  BIG (%dx%d px) from %s\n", (maxX-minX)/16, (maxY-minY)/16, gs.src)
+			dump = true
+			gs.m.GSVertDump++ // consumed by the shared printer below
+			if !gs.srcDumped && gs.srcData != nil {
+				// The whole packet, once: whether the period-2 garbage is in the
+				// packet (the program built it) or not (our parse mangled it).
+				gs.srcDumped = true
+				n := len(gs.srcData)
+				if n > 40*16 {
+					n = 40 * 16
+				}
+				for o := 0; o+16 <= n; o += 16 {
+					fmt.Printf("    pkt qw+%-3d %08X %08X %08X %08X\n", o/16,
+						le32gs(gs.srcData[o:]), le32gs(gs.srcData[o+4:]),
+						le32gs(gs.srcData[o+8:]), le32gs(gs.srcData[o+12:]))
+				}
+				n = len(gs.srcIn)
+				if n > 24*16 {
+					n = 24 * 16
+				}
+				for o := 0; o+16 <= n; o += 16 {
+					fmt.Printf("    in  qw+%-3d %08X %08X %08X %08X\n", o/16,
+						le32gs(gs.srcIn[o:]), le32gs(gs.srcIn[o+4:]),
+						le32gs(gs.srcIn[o+8:]), le32gs(gs.srcIn[o+12:]))
+				}
+				// The live micro and data memories, to files: the program that built
+				// this packet is only in memory NOW (uploads overwrite it constantly).
+				if gs.srcMicro != nil {
+					_ = writeFile("bigkick-micro.bin", gs.srcMicro)
+					_ = writeFile("bigkick-data.bin", gs.srcVUData)
+					fmt.Printf("    wrote bigkick-micro.bin / bigkick-data.bin\n")
+				}
+			}
+		}
+	}
+	if dump {
 		gs.m.GSVertDump--
 		p := gs.prim()
 		fmt.Printf("  prim %-9s PRIM=0x%03X ctx%d%s%s%s:\n", primNames[typ&7], p, gs.ctxt()+1,
@@ -590,8 +653,8 @@ func (gs *GS) noteFeatures(p uint64) {
 		// Each distinct texture, so the bases can be laid against the uploads': a
 		// texture whose page nothing ever filled samples black, and this line is how
 		// that is seen rather than suspected.
-		gs.count(sprintf("  tex base 0x%05X %dx%d psm 0x%02X tfx %d cbp 0x%05X csa %d cld %d",
-			t.tbp*64, 1<<t.tw, 1<<t.th, t.psm, t.tfx, t.cbp*64, t.csa, t.cld))
+		gs.count(sprintf("  tex base 0x%05X %dx%d psm 0x%02X tfx %d cbp 0x%05X csa %d cld %d tex0 %016X",
+			t.tbp*64, 1<<t.tw, 1<<t.th, t.psm, t.tfx, t.cbp*64, t.csa, t.cld, tex0))
 	}
 	if p&(1<<6) != 0 {
 		gs.count("alpha-blended")

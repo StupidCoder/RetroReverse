@@ -24,7 +24,14 @@ package ps2
 // DIRECT another link began), so the parser is a stream: what a feed cannot finish it
 // carries, and the next feed completes.
 
-import "retroreverse.com/tools/cpu/vu"
+import (
+	"math"
+
+	"retroreverse.com/tools/cpu/vu"
+)
+
+// f32 reads a little-endian float out of a byte slice, for the input-buffer dump.
+func f32(b []byte) float32 { return math.Float32frombits(le32gs(b)) }
 
 // The VIFcode commands, by number.
 const (
@@ -79,6 +86,8 @@ type vif struct {
 	vu         *vu.VU
 	vuSteps    uint64
 	kickDumped bool
+	lastStart  uint32 // the last MSCAL'd program address, naming XGKICK packets' producer
+	dumpN      int    // how many VU1DumpIn snapshots have been written
 
 	// The command in flight: its code word, the bytes its payload still needs, and the
 	// payload gathered so far.
@@ -304,6 +313,7 @@ func (v *vif) finish() {
 	case vifDIRECT, vifDIRECTHL:
 		// PATH2: the payload is GIF packets, straight to the GS.
 		v.count("direct")
+		v.m.ensureGS().src = "path2 direct"
 		v.m.gifPacket(v.buf)
 
 	default:
@@ -364,9 +374,13 @@ func (v *vif) unpack(cmd uint32, data []byte) {
 	usn := v.cmd&(1<<14) != 0
 	flg := v.cmd&(1<<15) != 0
 
-	v.count(sprintf("unpack V%d-%d", vn+1, 32>>vl))
+	cyc := ""
+	if v.wl != v.cl {
+		cyc = sprintf(" cl%d wl%d", v.cl, v.wl)
+	}
+	v.count(sprintf("unpack V%d-%d%s", vn+1, 32>>vl, cyc))
 	if v.mask != 0 && v.cmd&(1<<28) != 0 {
-		v.count("unpack with STMASK (mask not applied)")
+		v.count(sprintf("unpack with STMASK %08X (mask not applied)", v.mask))
 	}
 
 	addr := (imm & 0x3FF) * 16
@@ -452,7 +466,14 @@ func (v *vif) unpack(cmd uint32, data []byte) {
 				}
 			}
 		}
+		// The write address honours STCYCL's skip mode: with CL > WL the unit writes
+		// WL vectors then skips ahead to the next CL boundary — the road a game uses
+		// to interleave separate position/texcoord/colour streams into one vertex
+		// array. Writing contiguously here scrambled every interleaved record.
 		at := addr + i*16
+		if v.cl > wl {
+			at = addr + (i/wl*v.cl+i%wl)*16
+		}
 		if int(at)+16 <= len(v.data) {
 			for e := 0; e < 4; e++ {
 				v.data[at+uint32(e)*4+0] = byte(f[e])
@@ -485,6 +506,17 @@ func (v *vif) runVU(start uint32, cont bool) {
 	if cont {
 		start = v.vu.PC
 	}
+	v.lastStart = start
+	if v.idx == 1 && v.m.VU1DumpIn == int64(start) && v.dumpN < 12 {
+		// Whole-memory snapshots of the first dozen runs, for offline analysis: the
+		// in-place transform destroys its input, and the batch lives at a rotating
+		// buffer base the caller can't predict.
+		name := sprintf("vu1in-%02d.bin", v.dumpN)
+		v.dumpN++
+		snap := append([]byte(nil), v.data...)
+		_ = writeFile(name, snap)
+		v.m.note("VU1 input snapshot at MSCAL of 0x%X (top %d): %s", start, v.vu.Top, name)
+	}
 	// The budget is a corrupt-program guard, far above any real program (the biggest
 	// ones here are a few thousand steps over a full input buffer).
 	steps, ended := v.vu.Run(start, 1<<20)
@@ -497,8 +529,16 @@ func (v *vif) runVU(start uint32, cont bool) {
 // xgkick is PATH1: the program hands the GS a GIF packet it built in data memory.
 func (v *vif) xgkick(qw uint32) {
 	v.count("xgkick")
+	gs := v.m.ensureGS()
+	gs.src = sprintf("vu1 program 0x%X (kick at qw %d, top %d)", v.lastStart, qw, v.vu.Top)
 	data := v.data[qw*16:]
 	n := gifPacketLen(data)
+	gs.srcData = data[:n]
+	in := uint32(v.vu.Top) * 16
+	if int(in) < len(v.data) {
+		gs.srcIn = v.data[in:]
+	}
+	gs.srcMicro, gs.srcVUData = v.micro, v.data
 	if !v.kickDumped {
 		// The first packet, once, in the raw: what the microprogram actually builds is
 		// the specification for everything downstream of it.

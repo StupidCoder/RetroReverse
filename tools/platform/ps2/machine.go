@@ -222,6 +222,16 @@ type Machine struct {
 	// a lighting bug and an unpack bug, each of which is one column of the dump.
 	GSVertDump int
 
+	// GSBigDump, when set, prints the next N completed primitives whose bounding box
+	// exceeds 1024 pixels on an axis — the huge-triangle hunter: it names the VU1
+	// program that kicked each one, so an exploded size traces to its producer.
+	GSBigDump int
+
+	// VU1DumpIn, when >= 0, dumps a VU1 program's input buffer (96 qw at TOP) at the
+	// next MSCAL of that byte address, then disarms. The in-place transforms destroy
+	// their input by XGKICK time; this is the only moment the input exists.
+	VU1DumpIn int64
+
 	breakpoints map[uint32]bool
 
 	// StopRequested ends the run at the next instruction boundary.
@@ -251,6 +261,7 @@ type Machine struct {
 // NewMachine makes a PS2 with memory and a CPU, and nothing running on it.
 func NewMachine() *Machine {
 	m := &Machine{
+		VU1DumpIn:        -1,
 		ram:              make([]byte, ramSize),
 		spram:            make([]byte, spramSize),
 		iopRAM:           make([]byte, iopRAMSize),

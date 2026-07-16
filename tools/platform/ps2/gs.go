@@ -98,6 +98,12 @@ type GS struct {
 	q          uint32 // the Q latched by a PACKED ST, applied by the next PACKED RGBAQ
 	primCount  [8]int
 	drawCensus map[string]int
+	src        string // who fed the GIF the current packet (which VU1 program / PATH)
+	srcData    []byte // the current packet's bytes, for the huge-primitive dump
+	srcIn      []byte // the kicking program's input buffer (XTOP region), same purpose
+	srcMicro   []byte // the micro memory live at the kick (programs re-upload constantly)
+	srcVUData  []byte // the whole VU data memory live at the kick
+	srcDumped  bool
 
 	// The CLUT buffer (gstex.go): the hardware's on-chip 1 KiB, loaded from GS memory
 	// when TEX0 is written with a CLD that says load, plus the CBP0/CBP1 the conditional
