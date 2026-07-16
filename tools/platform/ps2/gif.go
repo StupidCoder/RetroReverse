@@ -80,6 +80,8 @@ func (m *Machine) gifStart(c *dmacChan) {
 // gifPacket unpacks a buffer of GIFtags into GS register writes.
 func (m *Machine) gifPacket(data []byte) {
 	gs := m.ensureGS()
+	gs.curPacket = data
+	defer func() { gs.curPacket = nil }()
 	pos := 0
 	for pos+16 <= len(data) {
 		lo := le64(data[pos:])

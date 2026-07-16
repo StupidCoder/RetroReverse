@@ -60,6 +60,49 @@ type VU struct {
 	StartVU1 func(startPair uint32)
 
 	Steps uint64
+
+	// BranchLog, when non-nil, records every taken branch/jump as {from, to} byte
+	// addresses in a ring — the instrument for a program that ends up in code it was
+	// never meant to reach: the ring's tail is the wrong turn.
+	BranchLog  [][2]uint32
+	branchNext int
+}
+
+// ResetBranchLog clears the ring (allocating it at the given size on first use), so a
+// trail reads as one run's history.
+func (v *VU) ResetBranchLog(size int) {
+	if v.BranchLog == nil {
+		v.BranchLog = make([][2]uint32, size)
+	}
+	v.branchNext = 0
+}
+
+// BranchCount reports how many taken branches the ring has seen since the last reset.
+func (v *VU) BranchCount() int { return v.branchNext }
+
+// LogBranch files one taken branch in the ring.
+func (v *VU) logBranch(from, to uint32) {
+	if v.BranchLog == nil {
+		return
+	}
+	v.BranchLog[v.branchNext%len(v.BranchLog)] = [2]uint32{from, to}
+	v.branchNext++
+}
+
+// BranchTrail returns the ring's contents oldest-first.
+func (v *VU) BranchTrail() [][2]uint32 {
+	if v.BranchLog == nil {
+		return nil
+	}
+	n := v.branchNext
+	if n > len(v.BranchLog) {
+		n = len(v.BranchLog)
+	}
+	out := make([][2]uint32, 0, n)
+	for i := v.branchNext - n; i < v.branchNext; i++ {
+		out = append(out, v.BranchLog[i%len(v.BranchLog)])
+	}
+	return out
 }
 
 // flagVals is one pipeline stage's worth of flag state.
@@ -115,6 +158,7 @@ func (v *VU) Run(start uint32, maxSteps int) (int, bool) {
 		if delayed >= 0 {
 			next = uint32(delayed) & mask
 			delayed = -1
+			v.logBranch(v.PC, next)
 		}
 		if taken >= 0 {
 			delayed = taken

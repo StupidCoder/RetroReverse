@@ -126,6 +126,7 @@ func main() {
 	pad := flag.String("pad", "", "press controller buttons: BUTTON@VBLANK[:HOLD],... (e.g. X@1100:30,START@1400:30; default hold 30 vblanks) — a digital pad sits in port 0 either way, this is what it reports pressed")
 	gsBig := flag.Int("gsbig", 0, "print the first N completed GS primitives whose bounding box exceeds 1024px, naming the VU1 program or PATH that produced each — the huge-triangle hunter")
 	gsVerts := flag.Int("gsverts", 0, "print the first N completed GS primitives with their exact vertex data (position, Z, RGBA, ST/Q) — one column per hypothesis: huge positions = transform bug, black RGBA = lighting bug, zero alpha or Q = unpack bug")
+	gsReg := flag.String("gsreg", "", "log the first N writes to a GS register as REG[:N] (REG hex, e.g. 0x40 = SCISSOR_1), with the value and the producer — the instrument for a register value nobody admits to writing")
 	vu1Data := flag.String("vu1data", "", "write VU1's data memory (as the VIF unpacked it) to FILE at the end of the run — the input side of a microprogram, where the matrix rows and the vertex block sit")
 	vu0Data := flag.String("vu0data", "", "write VU0's data memory to FILE at the end of the run — where the vcallms palette lives")
 	vu0Micro := flag.String("vu0micro", "", "write VU0's program memory (as VIF0 filled it) to FILE at the end of the run — where the EE's vcallms microprograms live")
@@ -150,7 +151,7 @@ func main() {
 		iopOnly: *iopOnly, iopMods: *iopMods, iopDis: *iopDis,
 		iopIO: *iopIO, iopION: *iopION, iopWatch: *iopWatch, iopTrap: *iopTrap,
 		iopCalls: *iopCalls, iopCallsFrom: *iopCallsFrom, iopPokes: iopPokes,
-		iopDump: *iopDump, iopThreads: *iopThreads, iopIELog: *iopIELog, goalSyms: *goalSyms, goalNames: *goalNames, eeProf: *eeProf, gsFrame: *gsFrame, gsVerts: *gsVerts, gsBig: *gsBig, gsPixel: *gsPixel, pad: *pad, vu1In: *vu1In, vu1Micro: *vu1Micro, vu0Micro: *vu0Micro, vu0Data: *vu0Data, vu0Regs: *vu0Regs, vu1Data: *vu1Data,
+		iopDump: *iopDump, iopThreads: *iopThreads, iopIELog: *iopIELog, goalSyms: *goalSyms, goalNames: *goalNames, eeProf: *eeProf, gsFrame: *gsFrame, gsVerts: *gsVerts, gsReg: *gsReg, gsBig: *gsBig, gsPixel: *gsPixel, pad: *pad, vu1In: *vu1In, vu1Micro: *vu1Micro, vu0Micro: *vu0Micro, vu0Data: *vu0Data, vu0Regs: *vu0Regs, vu1Data: *vu1Data,
 		gsFBs: gsFBs, gsTexs: gsTexs,
 	}); err != nil {
 		fmt.Fprintln(os.Stderr, "bootoracle:", err)
@@ -186,6 +187,7 @@ type cfg struct {
 	eeProf                                int
 	gsFrame                               string
 	gsVerts                               int
+	gsReg                                 string
 	gsBig                                 int
 	gsPixel                               string
 	pad                                   string
@@ -587,6 +589,25 @@ func run(c cfg) error {
 	}
 	if c.gsVerts > 0 {
 		m.GSVertDump = c.gsVerts
+	}
+	if c.gsReg != "" {
+		parts := strings.Split(c.gsReg, ":")
+		r, err := hx(parts[0])
+		if err != nil {
+			return fmt.Errorf("bad -gsreg %q (want REG[:N][:VALUE], REG hex)", c.gsReg)
+		}
+		n := 40
+		if len(parts) > 1 {
+			n, _ = strconv.Atoi(parts[1])
+		}
+		m.GSRegLog, m.GSRegLogN = uint8(r), n
+		if len(parts) > 2 {
+			v, err := strconv.ParseUint(strings.TrimPrefix(parts[2], "0x"), 16, 64)
+			if err != nil {
+				return fmt.Errorf("bad -gsreg value %q", parts[2])
+			}
+			m.GSRegDumpPacket, m.GSRegDumpVal = true, v
+		}
 	}
 
 	if c.poke != "" {

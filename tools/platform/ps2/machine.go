@@ -234,6 +234,20 @@ type Machine struct {
 	GSPixelX, GSPixelY int32
 	GSPixelN           int
 
+	// GSRegLog, when GSRegLogN > 0, logs the next N writes to that GS register with
+	// the value and the producer (which VU1 program / PATH fed the packet) — the
+	// instrument for a register holding a value nobody admits to writing: a scissor
+	// that rejects everything has exactly one author and this names it.
+	GSRegLog  uint8
+	GSRegLogN int
+
+	// GSRegDumpPacket makes the first -gsreg hit whose value equals GSRegDumpVal also
+	// hexdump the GIF packet that carried the write — the misframed-packet
+	// discriminator: the qwords say whether the game wrote that value or the parse
+	// slipped a quadword.
+	GSRegDumpPacket bool
+	GSRegDumpVal    uint64
+
 	// VU1DumpIn, when >= 0, dumps a VU1 program's input buffer (96 qw at TOP) at the
 	// next MSCAL of that byte address, then disarms. The in-place transforms destroy
 	// their input by XGKICK time; this is the only moment the input exists.

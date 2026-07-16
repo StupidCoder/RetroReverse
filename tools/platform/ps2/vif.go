@@ -84,10 +84,11 @@ type vif struct {
 
 	// The vector unit itself (VIF1's runs; VU0's macro mode belongs to the EE's COP2).
 	vu         *vu.VU
-	vuSteps    uint64
-	kickDumped bool
-	lastStart  uint32 // the last MSCAL'd program address, naming XGKICK packets' producer
-	dumpN      int    // how many VU1DumpIn snapshots have been written
+	vuSteps      uint64
+	kickDumped   bool
+	lastStart    uint32 // the last MSCAL'd program address, naming XGKICK packets' producer
+	dumpN        int    // how many VU1DumpIn snapshots have been written
+	runawayDumps int    // how many step-budget branch trails have been printed
 
 	// The command in flight: its code word, the bytes its payload still needs, and the
 	// payload gathered so far.
@@ -519,10 +520,27 @@ func (v *vif) runVU(start uint32, cont bool) {
 	}
 	// The budget is a corrupt-program guard, far above any real program (the biggest
 	// ones here are a few thousand steps over a full input buffer).
+	if v.idx == 1 {
+		v.vu.ResetBranchLog(48)
+	}
 	steps, ended := v.vu.Run(start, 1<<20)
 	v.vuSteps += uint64(steps)
 	if !ended {
-		v.count("vu1 program hit the step budget")
+		v.count(sprintf("vu1 program 0x%X hit the step budget (pc 0x%X)", start, v.vu.PC))
+		if v.runawayDumps < 2 {
+			v.runawayDumps++
+			v.m.note("VU1 runaway: entry 0x%X (top %d), stopped at 0x%X after %d steps, %d taken branches; the last (delay-slot -> target):", start, v.vu.Top, v.vu.PC, steps, v.vu.BranchCount())
+			for _, br := range v.vu.BranchTrail() {
+				v.m.note("VU1   0x%04X -> 0x%04X", br[0], br[1])
+			}
+			// The memories as the stuck program sees them — the micro is re-uploaded
+			// constantly, so only a snapshot from this moment disassembles truthfully.
+			mName := sprintf("vu1-runaway-%d-micro.bin", v.runawayDumps)
+			dName := sprintf("vu1-runaway-%d-data.bin", v.runawayDumps)
+			_ = writeFile(mName, append([]byte(nil), v.micro...))
+			_ = writeFile(dName, append([]byte(nil), v.data...))
+			v.m.note("VU1 runaway memories: %s / %s", mName, dName)
+		}
 	}
 }
 
@@ -530,7 +548,7 @@ func (v *vif) runVU(start uint32, cont bool) {
 func (v *vif) xgkick(qw uint32) {
 	v.count("xgkick")
 	gs := v.m.ensureGS()
-	gs.src = sprintf("vu1 program 0x%X (kick at qw %d, top %d)", v.lastStart, qw, v.vu.Top)
+	gs.src = sprintf("vu1 program 0x%X (kick at qw %d from pc 0x%X, top %d)", v.lastStart, qw, v.vu.PC, v.vu.Top)
 	data := v.data[qw*16:]
 	n := gifPacketLen(data)
 	gs.srcData = data[:n]

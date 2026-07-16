@@ -26,6 +26,8 @@ package ps2
 // what is uploaded reads back correctly when the GS later samples it as a texture or scans
 // it out as a frame.
 
+import "fmt"
+
 // GS register addresses, as written through the GIF's A+D descriptor.
 const (
 	gsPRIM       = 0x00
@@ -100,6 +102,7 @@ type GS struct {
 	primCount  [8]int
 	drawCensus map[string]int
 	src        string // who fed the GIF the current packet (which VU1 program / PATH)
+	curPacket  []byte // the packet being unpacked, for the -gsreg packet dump
 	srcData    []byte // the current packet's bytes, for the huge-primitive dump
 	srcIn      []byte // the kicking program's input buffer (XTOP region), same purpose
 	srcMicro   []byte // the micro memory live at the kick (programs re-upload constantly)
@@ -155,6 +158,21 @@ func (m *Machine) ensureGS() *GS {
 // value is in the register's own layout (an A+D or REGLIST write); the PACKED layouts
 // are decoded by writePacked before they arrive here.
 func (gs *GS) write(reg uint8, val uint64) {
+	if gs.m != nil && gs.m.GSRegLogN > 0 && reg == gs.m.GSRegLog {
+		gs.m.GSRegLogN--
+		fmt.Printf("  GS reg 0x%02X <- %016X from %s\n", reg, val, gs.src)
+		if gs.m.GSRegDumpPacket && val == gs.m.GSRegDumpVal && gs.curPacket != nil {
+			gs.m.GSRegDumpPacket = false
+			n := len(gs.curPacket) / 16
+			if n > 48 {
+				n = 48
+			}
+			fmt.Printf("  the packet carrying that write (%d qw, first %d):\n", len(gs.curPacket)/16, n)
+			for i := 0; i < n; i++ {
+				fmt.Printf("    qw %2d: %016X %016X\n", i, le64(gs.curPacket[i*16+8:]), le64(gs.curPacket[i*16:]))
+			}
+		}
+	}
 	if int(reg) < len(gs.reg) {
 		gs.reg[reg] = val
 	}
