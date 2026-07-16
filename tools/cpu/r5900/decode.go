@@ -3,6 +3,8 @@ package r5900
 import (
 	"encoding/binary"
 	"fmt"
+
+	"retroreverse.com/tools/cpu/vu"
 )
 
 // regName is the MIPS o32 register mnemonic for each of the 32 GPRs.
@@ -525,7 +527,7 @@ func decodeCop2(in Inst, w, rs, rt, rd, branchT uint32) Inst {
 	set := func(mnem, text string) Inst { in.Mnem, in.Text = mnem, text; return in }
 
 	if w&(1<<25) != 0 { // a vector operation, not a move
-		return set("vu", fmt.Sprintf("vu 0x%08X", w))
+		return set("vu", vu.DisasmMacro(w))
 	}
 	switch rs {
 	case 0x01:

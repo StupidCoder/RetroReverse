@@ -46,6 +46,30 @@ func Decode(raw uint64, addr uint32) Inst {
 	return inst
 }
 
+// DisasmMacro renders one macro-mode COP2 instruction word, dispatching exactly the
+// way Macro executes it, so the text names what the executor would run. Macro-mode
+// mnemonics carry the conventional "v" prefix that tells an EE listing's vadd from
+// the FPU's add.s.
+func DisasmMacro(w uint32) string {
+	op := w & 0x3F
+	switch {
+	case op < 0x30:
+		return "v" + decodeUpper(w)
+	case op == 0x38:
+		return fmt.Sprintf("vcallms 0x%X", w>>6&0x7FFF*8)
+	case op == 0x39:
+		return "vcallmsr"
+	case op < 0x3C:
+		// The integer ops (viadd and family) share the lower-special encodings.
+		return "v" + decodeLowerSpecial(w)
+	default:
+		if op2 := w>>4&0x7C | w&3; op2 <= 0x2F {
+			return "v" + decodeUpper(w) // the wide group's FMAC half (adda, mula, ftoi...)
+		}
+		return "v" + decodeLowerSpecial(w) // div, move, mtir, lqi/sqi, the EFU...
+	}
+}
+
 var destNames = [16]string{
 	"", "w", "z", "zw", "y", "yw", "yz", "yzw",
 	"x", "xw", "xz", "xzw", "xy", "xyw", "xyz", "xyzw",

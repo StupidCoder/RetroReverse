@@ -26,6 +26,10 @@ func (v *VU) Macro(w uint32) {
 			v.Run(w>>6&0x7FFF*8, 1<<20)
 		case 0x39: // VCALLMSR: run at the address CMSAR0 holds
 			v.Run(uint32(v.CMSAR0)*8, 1<<20)
+		default:
+			// The integer ops (VIADD, VISUB, VIADDI, VIAND, VIOR) share the
+			// lower-special encodings, and execLowerSpecial already serves them.
+			v.execLowerSpecial(w)
 		}
 		return
 	}

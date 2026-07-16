@@ -149,3 +149,40 @@ func TestXGKickHandsOverTheAddress(t *testing.T) {
 func le64mLo(b []byte) uint32 {
 	return uint32(b[0]) | uint32(b[1])<<8 | uint32(b[2])<<16 | uint32(b[3])<<24
 }
+
+// TestDisasmMacro pins the macro-mode dispatcher's decode against words lifted from
+// Jak and Daxter's generic renderer (hand-decoded once, then trusted): a broadcast
+// multiply-accumulate chain, a plain FMAC op, an integer op, and a lower-special.
+func TestDisasmMacro(t *testing.T) {
+	cases := []struct{ w uint32; want string }{
+		{0x4BE149BE, "vmulaz.xyzw acc, vf09, vf01z"},  // ACC = vf9 * vf1.z
+		{0x4BE150BC, "vmaddax.xyzw acc, vf10, vf01x"}, // ACC += vf10 * vf1.x
+		{0x4BE15849, "vmaddy.xyzw vf01, vf11, vf01y"}, // vf1 = ACC + vf11 * vf1.y
+		{0x4A0DA030, "viadd vi00, vi20, vi13"},
+		{0x4A005BBC, "vdiv q, vf11x, vf00x"},
+	}
+	for _, c := range cases {
+		if got := DisasmMacro(c.w); got != c.want {
+			t.Errorf("DisasmMacro(%08X) = %q, want %q", c.w, got, c.want)
+		}
+	}
+}
+
+// TestMacroIntegerOps: the macro face routes the integer group (0x30..0x37) to the
+// same executor micro mode uses — a dropped VIADD is silent and poisons every
+// address computed from it.
+func TestMacroIntegerOps(t *testing.T) {
+	v := New(make([]byte, 16<<10), make([]byte, 16<<10))
+	v.VI[1] = 7
+	v.VI[2] = 5
+	// viadd vi3, vi1, vi2 : COP2 macro form, op 0x30, fd=3, fs=1, ft=2.
+	v.Macro(1<<25 | 2<<16 | 1<<11 | 3<<6 | 0x30)
+	if v.VI[3] != 12 {
+		t.Errorf("macro viadd: vi3 = %d, want 12", v.VI[3])
+	}
+	// visub vi4, vi1, vi2
+	v.Macro(1<<25 | 2<<16 | 1<<11 | 4<<6 | 0x31)
+	if v.VI[4] != 2 {
+		t.Errorf("macro visub: vi4 = %d, want 2", v.VI[4])
+	}
+}
