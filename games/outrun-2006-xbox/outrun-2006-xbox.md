@@ -632,14 +632,85 @@ The frame exports split honestly: `-png` is the display scanout (what the TV sho
 install that is still the 320×240 loading mode), `-surfpng` the Kelvin render target, box-resolved
 from samples to logical pixels when the surface is anti-aliased.
 
+## Part V — the title movie plays
+
+The "post-install stall" of Part IV unwound into five distinct wrongs, each named by the game
+itself once the previous one fell. None of them was the completion-flag handshake the symptoms
+pointed at — `[0x2D31C8]` turned out to be the *"intro sequence finished"* gate (set by the title
+screen on a START press, or by the attract path's screen-transition handler at `0xE9A8A`), and
+everything upstream of it was starving.
+
+### 1. A FILE_OBJECT is a dispatcher object
+
+The XMV movie loader opens `D:\mv\TitleScreen.xmv` (27.9 MB), queues an overlapped 4096-byte
+header read, and waits — on the **file handle itself** (XAPI `GetOverlappedResult` with no event
+waits on the file object, which the kernel signals at I/O completion). Our file objects never
+signalled; the streaming pump (tid 1) parked forever, the last log line of a 2.2-billion-
+instruction trace. Now: the guest `DISPATCHER_HEADER` at the handle reads signalled while idle,
+`NtReadFile`'s async path de-signals it, and `ioTick` signals it and wakes its waiters.
+
+### 2. Every thread read one garbage TLS slot
+
+XAPI's per-thread state — `GetLastError` first among it — resolves as `[FS:[4] + tlsIndex*4]`,
+where the "TLS index" global (`[0x57CFE8]` = −37) is a **negative dword offset from the stack
+top** into a TLS area the kernel carves above the initial ESP, and `FS:[4]` (KPCR.NtTib.StackBase)
+must be **swapped at every context switch**. Ours was written once at boot, so every thread's TLS
+resolved into the middle of the boot thread's live stack. The thread-start thunk (`0x45069`) named
+the whole contract: `MOV EAX,FS:[0x28]` (KPRCB.CurrentThread — at prcb+0, our KPCR had it at +4),
+`MOV EDX,[EAX+0x28]` (KTHREAD.TlsData), self-pointer + template copy done by XAPI itself. The
+kernel's whole job: carve TlsDataSize (PsCreateSystemThreadEx arg 3) at the stack top, point
+KTHREAD+0x28 and the swapped NtTib at it. With this in place the first-boot install runs END TO
+END: **12 files copied D:\SOUND → Z: (MENU.pak, FE.PAK, and 10 WMAs — TITLE_01, Splash Wave, Last
+Wave, Beach Wave, the OR2ED set), every one verified byte-exact against its disc source.**
+
+### 3. The rough error map was a fiction with teeth
+
+`RtlNtStatusToDosError` was `status & 0xFFFF` — so STATUS_PENDING (0x103) became 259
+(ERROR_NO_MORE_ITEMS), never 997 (ERROR_IO_PENDING), and the XMV loader's
+`GetLastError()==ERROR_IO_PENDING` check after its overlapped read failed on every boot: the
+movie was aborted with `0x80070103`, the unmapped 0x103 sitting in the error's own low word as a
+confession. Canonical mappings now; unmapped statuses return 317 like the real kernel and log
+once.
+
+### 4. The codec's instruction set
+
+With the open succeeding, the movie decoder ran — straight into `unimplemented 0F opcode $EF`:
+**PXOR mm0,mm0**. The XMV codec is classic MMX. `tools/cpu/x86/mmxint.go` now executes the whole
+packed-integer group (arithmetic, saturating adds, multiplies, pack/unpack, shifts, compares,
+PSHUFW/PAVG/PMIN/PMAX/PSADBW/PMOVMSKB, both mm and xmm widths), and the sharpest find: the
+no-prefix `0F 2A/2C/2D` are the **packed MMX↔SSE conversions** (CVTPI2PS / CVTPS2PI) — the old
+scalar handlers read the wrong register file for one and *wrote a live GPR* for the other. The
+decoder's YUV→RGB stage is built on exactly these (PMADDWD colour matrix → CVTPI2PS → MULPS/ADDPS
+→ CVTPS2PI → PACKSSDW → PACKUSWB).
+
+### 5. The 0xF0000000 window
+
+The last halt looked like pointer corruption: `MOVQ [EDI],mm0` with EDI=`0xF25A4C00`. It was a
+faithful pointer through an unmapped window — Xbox D3D hands out texture/surface pointers as
+`0xF0000000 | physical` (the write-combined RAM alias) so CPU blits bypass the cache. One more
+case in `translate()`.
+
+### ★ The title screen
+
+With all five in place, a resumed boot decodes and plays the title movie — the game's own XMV
+codec running on the interpreted CPU, blitting frames through the write-combined window into a
+D3D texture the Kelvin pipeline draws:
+
+- `mv5.png` (SurfacePNG at ~2.3B instructions) — **the "OutRun 2006 Coast 2 Coast" title card,
+  palm tree and all** — md5 `0bea502acd2a1f902d429097022116b5`.
+- `title-0400M.png` (+400M further) — **the same card with the game's own blinking yellow
+  "PRESS START"** — md5 `5439dd95c92d462d03b9c5fbbd8a6c86`. The title screen is fully alive:
+  movie background, UI sprite layer, waiting for a controller that does not exist yet.
+
 ### Where it stands / next
 
-After the install completes (~1.5B instructions past the resume) the title parks: the installer's
-main loop polls a completion flag (`[0x2D31C8]`) its copy engine sets from a callback that has not
-fired — the machine goes fully idle (no I/O, no draws, all threads waiting). That handshake is the
-next frontier on the road to attract mode, followed by the texture formats and draw paths the
-attract scene will exercise (indexed draws are implemented but so far unexercised), then Phase D —
-the framedbg adapter.
+The movie plays; the completion flag is the intro-sequence gate, set by the title screen on a
+START press (`0x13C5E3`, buttons polled from the game's own pad records at `0x5E5158` — no pad
+exists yet) or by the attract path's transition handler (`0xE9A8A`). Next: let the intro sequence
+play out into attract (the screen-vtable at `0x274250` dispatches `0xE9870`, whose tail sets the
+flag), then the frontend menus off `Z:\MENU.PAK` + `FE.PAK`, the 640×480 display-mode switch, and
+Phase D — the framedbg adapter and the input phase (USB OHCI + XID pads) so START can be pressed
+honestly.
 
 ### Tooling
 
