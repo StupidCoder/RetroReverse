@@ -28,6 +28,7 @@ package gc
 import (
 	"fmt"
 	"image"
+	"os"
 )
 
 // The texture format codes, as they appear in the TX_SETIMAGE0 register's format field.
@@ -46,34 +47,81 @@ const (
 )
 
 // texState is one texture map's configuration, read back from the BP registers the game
-// programmed (TX_SETMODE0/TX_SETIMAGE0/TX_SETIMAGE3).
+// programmed (TX_SETMODE0/TX_SETIMAGE0/TX_SETIMAGE3, and TX_SETTLUT for a paletted format).
 type texState struct {
 	format        int
 	width, height int
 	base          uint32 // physical address of the texel data in main memory
 	wrapS, wrapT  int
+	tlutOff       int // offset of this map's palette within the TMEM high bank
+	tlutFmt       int // palette entry format: 0 IA8, 1 RGB565, 2 RGB5A3
 }
 
 // texSetup reads texture map i's configuration. The eight maps are split across two register
 // banks: maps 0..3 at 0x80/0x88/0x94, maps 4..7 at the mirrored 0xA0/0xA8/0xB4.
 func (g *gpu) texSetup(i int) texState {
-	var mode0, image0, image3 uint32
+	var mode0, image0, image3, settlut uint32
 	if i < 4 {
 		mode0 = g.BP[0x80+uint32(i)]
 		image0 = g.BP[0x88+uint32(i)]
 		image3 = g.BP[0x94+uint32(i)]
+		settlut = g.BP[0x98+uint32(i)]
 	} else {
 		mode0 = g.BP[0xA0+uint32(i-4)]
 		image0 = g.BP[0xA8+uint32(i-4)]
 		image3 = g.BP[0xB4+uint32(i-4)]
+		settlut = g.BP[0xB8+uint32(i-4)]
 	}
 	return texState{
-		format: int((image0 >> 20) & 0xF),
-		width:  int(image0&0x3FF) + 1,
-		height: int((image0>>10)&0x3FF) + 1,
-		base:   (image3 & 0x00FFFFFF) << 5,
-		wrapS:  int(mode0 & 3),
-		wrapT:  int((mode0 >> 2) & 3),
+		format:  int((image0 >> 20) & 0xF),
+		width:   int(image0&0x3FF) + 1,
+		height:  int((image0>>10)&0x3FF) + 1,
+		base:    (image3 & 0x00FFFFFF) << 5,
+		wrapS:   int(mode0 & 3),
+		wrapT:   int((mode0 >> 2) & 3),
+		tlutOff: int(settlut&0x3FF) << 9,
+		tlutFmt: int((settlut >> 10) & 3),
+	}
+}
+
+// loadTlut is the BP 0x65 trigger: copy a palette out of main memory into the TMEM high
+// bank, where paletted draws will index it. The source address was staged in BP 0x64.
+func (g *gpu) loadTlut(m *Machine, data uint32) {
+	src := phys((g.BP[0x64] & 0x00FFFFFF) << 5)
+	off := int(data&0x3FF) << 9
+	n := int((data>>10)&0x7FF) * 32 // 16 entries of 2 bytes per line
+	if g.Tlut == nil {
+		g.Tlut = make([]byte, 0x80000)
+	}
+	if off+n > len(g.Tlut) || int(src)+n > len(m.RAM) {
+		m.CPU.Halt("TLUT load out of range: src 0x%08X, tmem offset 0x%X, %d bytes", src, off, n)
+		return
+	}
+	copy(g.Tlut[off:off+n], m.RAM[src:int(src)+n])
+	if drawTrace {
+		fmt.Fprintf(os.Stderr, "TLUT load 0x%08X -> tmem+0x%05X %d bytes\n", src, off, n)
+	}
+}
+
+// tlutColor decodes palette entry idx of the TLUT at tlutOff. The entry formats are the
+// same three the texture formats share: IA8, RGB565, RGB5A3.
+func (g *gpu) tlutColor(m *Machine, tx texState, idx int) (r, gg, b, a uint8) {
+	o := tx.tlutOff + idx*2
+	if g.Tlut == nil || o+1 >= len(g.Tlut) {
+		return 0, 0, 0, 0
+	}
+	v := uint16(g.Tlut[o])<<8 | uint16(g.Tlut[o+1])
+	switch tx.tlutFmt {
+	case 0: // IA8: intensity in the low byte, alpha in the high — as the IA8 texture format
+		i := uint8(v & 0xFF)
+		return i, i, i, uint8(v >> 8)
+	case 1:
+		return decodeRGB565(v)
+	case 2:
+		return decodeRGB5A3(v)
+	default:
+		m.CPU.Halt("TLUT: entry format %d is not a hardware format", tx.tlutFmt)
+		return 0, 0, 0, 0
 	}
 }
 
@@ -153,10 +201,15 @@ func (g *gpu) decodeTexel(m *Machine, tx texState, x, y int) (r, gg, b, a uint8)
 		return g.decodeRGBA8(m, tx.base, tx.width, x, y)
 	case texCMPR:
 		return g.decodeCMPR(m, tx.base, tx.width, x, y)
-	case texC4, texC8, texC14X2:
-		m.CPU.Halt("TX: paletted texture format 0x%X (C4/C8/C14X2) not yet implemented — the "+
-			"boot screen does not use it; implement its TLUT path and verify when a draw binds one", tx.format)
-		return 0, 0, 0, 0
+	case texC4: // 8x8 tile of nibble indices into the bound TLUT
+		v := g.tileNibble(m, tx.base, tx.width, 8, 8, x, y)
+		return g.tlutColor(m, tx, int(v))
+	case texC8: // 8x4 tile of byte indices
+		v := g.tileByte(m, tx.base, tx.width, 8, 4, x, y)
+		return g.tlutColor(m, tx, int(v))
+	case texC14X2: // 4x4 tile of halfwords, the low 14 bits the index
+		v := g.tileHalf(m, tx.base, tx.width, 4, 4, x, y)
+		return g.tlutColor(m, tx, int(v&0x3FFF))
 	default:
 		m.CPU.Halt("TX: unknown texture format 0x%X", tx.format)
 		return 0, 0, 0, 0

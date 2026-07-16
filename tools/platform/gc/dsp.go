@@ -225,8 +225,12 @@ func (d *dsp) write(m *Machine, off uint32, v uint32, size int) {
 		prevHalt := d.CSR & dspCSRHalt
 		ack := v & dspCSRIntAck                   // the acks: written 1s clear these
 		keep := v &^ (dspCSRIntAck | dspCSRReset) // the mask and halt bits: stored as written
-		d.CSR = (d.CSR &^ dspCSRIntAck &^ (dspCSRAIMask | dspCSRDSPMask | dspCSRARMask | dspCSRHalt)) | keep
-		d.CSR &^= ack
+		// The interrupt-status bits are write-one-to-clear: a pending bit written as 0 stays
+		// pending. Stripping every pending bit on any CSR write (the old composition) lost a
+		// DIRQ whenever the ucode raised it between another handler's CSR read and write-back
+		// — one lost DIRQ ends the driver's mail<->interrupt frame loop permanently, because
+		// each side only acts on the other's event.
+		d.CSR = (d.CSR &^ (dspCSRAIMask | dspCSRDSPMask | dspCSRARMask | dspCSRHalt) &^ ack) | keep
 		if v&dspCSRReset != 0 {
 			// The reset was requested. It completes at once — the bit reads back clear,
 			// which is exactly what the boot loop is waiting for — and the boot-ROM
@@ -387,6 +391,9 @@ func (d *dsp) advanceBoot(m *Machine) {
 func (d *dsp) post(m *Machine, v uint32) {
 	d.FromDSP = v | (1 << 31)
 	if d.CSR&dspCSRDSPMask != 0 {
+		if dspTrace {
+			fmt.Fprintf(os.Stderr, "  DSP IRQ raise (post 0x%08X) csr=0x%04X\n", d.FromDSP, d.CSR)
+		}
 		d.CSR |= dspCSRDSPInt
 		m.dspRefreshIRQ()
 	}
@@ -587,6 +594,9 @@ func (d *dsp) hwWrite(m *Machine, a uint16, v uint16) {
 		// writes this after it has serviced a command — never during the ready-mail handshake,
 		// which is why the driver's synchronous poll of that mail must not be preempted here.
 		if v&1 != 0 {
+			if dspTrace {
+				fmt.Fprintf(os.Stderr, "  DSP IRQ raise (DIRQ, ucode pc 0x%04X) csr=0x%04X\n", d.Core.PC, d.CSR)
+			}
 			d.CSR |= dspCSRDSPInt
 			m.dspRefreshIRQ()
 		}

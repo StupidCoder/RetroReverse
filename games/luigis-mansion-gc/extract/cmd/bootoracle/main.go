@@ -64,7 +64,7 @@ func main() {
 	texdump := flag.String("texdump", "", "decode the currently-bound texture map 0 to this PNG when the run ends")
 	efbshot := flag.String("efbshot", "", "write the embedded framebuffer (pre-copy, what the pipe drew) to this PNG when the run ends")
 	aidwav := flag.String("aidwav", "", "record the audio-DMA stream (what the DAC plays) to this WAV when the run ends")
-	keys := flag.String("keys", "", "controller-1 input script: BUTTON@FIELD[,...] — presses BUTTON from that VI field onward (held). Buttons: start,a,b,x,y,z,l,r,up,down,left,right. e.g. -keys start@240")
+	keys := flag.String("keys", "", "controller-1 input script: BUTTON@FIELD[:HOLD][,...] — presses BUTTON from that VI field, held HOLD fields (default: forever). Buttons: start,a,b,x,y,z,l,r,up,down,left,right. e.g. -keys start@240,a@900:10")
 	flag.Parse()
 
 	if *image == "" {
@@ -109,13 +109,17 @@ var padButtonNames = map[string]uint16{
 	"up": 0x0008, "down": 0x0004, "right": 0x0002, "left": 0x0001,
 }
 
-// keyPress is one scheduled controller input: press `buttons` from VI field `atField` onward.
+// keyPress is one scheduled controller input: press `buttons` from VI field `atField`
+// onward, releasing after `holdFields` fields (0 = held forever). The game edge-detects
+// presses, so a release between two presses of the same button is what makes them two.
 type keyPress struct {
-	atField uint64
-	buttons uint16
+	atField    uint64
+	holdFields uint64
+	buttons    uint16
 }
 
-// parseKeys turns a "-keys start@240,a@240" spec into a schedule.
+// parseKeys turns a "-keys start@240,a@900:10" spec into a schedule. BUTTON@FIELD holds
+// from that field forever; BUTTON@FIELD:N holds for N fields then releases.
 func parseKeys(spec string) ([]keyPress, error) {
 	var sched []keyPress
 	for _, tok := range strings.Split(spec, ",") {
@@ -125,17 +129,27 @@ func parseKeys(spec string) ([]keyPress, error) {
 		}
 		name, fieldS, ok := strings.Cut(tok, "@")
 		if !ok {
-			return nil, fmt.Errorf("bad -keys token %q, want BUTTON@FIELD", tok)
+			return nil, fmt.Errorf("bad -keys token %q, want BUTTON@FIELD[:HOLD]", tok)
 		}
 		b, ok := padButtonNames[strings.ToLower(strings.TrimSpace(name))]
 		if !ok {
 			return nil, fmt.Errorf("unknown button %q in -keys", name)
 		}
-		f, err := parseUint(strings.TrimSpace(fieldS))
+		fieldS = strings.TrimSpace(fieldS)
+		var hold uint64
+		if fieldS2, holdS, has := strings.Cut(fieldS, ":"); has {
+			fieldS = fieldS2
+			h, err := parseUint(strings.TrimSpace(holdS))
+			if err != nil || h == 0 {
+				return nil, fmt.Errorf("bad hold in -keys token %q: want a positive field count", tok)
+			}
+			hold = h
+		}
+		f, err := parseUint(fieldS)
 		if err != nil {
 			return nil, fmt.Errorf("bad field in -keys token %q: %w", tok, err)
 		}
-		sched = append(sched, keyPress{atField: f, buttons: b})
+		sched = append(sched, keyPress{atField: f, holdFields: hold, buttons: b})
 	}
 	return sched, nil
 }
@@ -342,7 +356,7 @@ func run(c cfg) error {
 			field := mm.VIField()
 			var buttons uint16
 			for _, k := range sched {
-				if field >= k.atField {
+				if field >= k.atField && (k.holdFields == 0 || field < k.atField+k.holdFields) {
 					buttons |= k.buttons
 				}
 			}

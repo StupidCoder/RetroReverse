@@ -83,6 +83,27 @@ func (g *gpu) efbAt(x, y int) uint32 {
 	return g.EFB[y*efbWidth+x]
 }
 
+// zAt reads one depth-buffer value with the same edge clamping as efbAt. A nil Z buffer
+// (no draw has touched depth yet) reads back the clear Z.
+func (g *gpu) zAt(x, y int) uint32 {
+	if g.ZBuf == nil {
+		return g.BP[0x51] & 0x00FFFFFF
+	}
+	if x < 0 {
+		x = 0
+	}
+	if y < 0 {
+		y = 0
+	}
+	if x >= efbWidth {
+		x = efbWidth - 1
+	}
+	if y >= efbHeight {
+		y = efbHeight - 1
+	}
+	return g.ZBuf[y*efbWidth+x]
+}
+
 // copyDisplay performs the pixel-engine copy the trigger register (BP 0x52) asked for. It
 // reads the source rectangle from the EFB registers, converts each pair of pixels to one YUY2
 // quad, and writes them to the destination the copy address register names. With the copy's
@@ -185,8 +206,48 @@ func (g *gpu) copyTexture(m *Machine, params uint32) {
 		m.CPU.Halt("PE copy-to-texture: half-scale box filter not yet implemented (params 0x%06X)", params)
 		return
 	}
+	// A copy whose source is the Z buffer: the game flips PE_CONTROL (BP 0x43) to the Z24
+	// pixel format around the copy, and the destination receives depth bits instead of
+	// colour. The only exercised layout is Z24X8 into the RGBA8 tile shape (format nibble
+	// 0x6): the 24 depth bits fill the R,G,B bytes high-to-low with an opaque X8 alpha.
+	// Other Z destination formats halt until a frame asks for one.
 	if g.BP[0x43]&7 == 3 {
-		m.CPU.Halt("PE copy-to-texture: Z-buffer source (PE_CONTROL pixel format Z24) not yet implemented")
+		switch format {
+		case 0x6: // Z24X8 into the RGBA8 tile shape: X8 opaque, then Z high-to-low in R,G,B
+			m.logf("PE copy-to-texture (Z24X8): EFB (%d,%d) %dx%d -> 0x%08X stride %d",
+				sx, sy, w, h, dst, stride)
+			if drawTrace {
+				fmt.Fprintf(os.Stderr, "COPY-TEX-Z24X8 (%d,%d) %dx%d -> 0x%08X\n", sx, sy, w, h, dst)
+			}
+			for y := 0; y < h; y++ {
+				for x := 0; x < w; x++ {
+					z := g.zAt(sx+x, sy+y)
+					tb, in := copyTexelOffset(stride, 4, 4, 64, x, y)
+					m.texWriteByte(dst+uint32(tb+in*2), 0xFF)
+					m.texWriteByte(dst+uint32(tb+in*2)+1, uint8(z>>16))
+					m.texWriteByte(dst+uint32(tb+32+in*2), uint8(z>>8))
+					m.texWriteByte(dst+uint32(tb+32+in*2)+1, uint8(z))
+				}
+			}
+		case 0xB: // the two-byte Z form: each texel one halfword, the depth's top two bytes
+			m.logf("PE copy-to-texture (Z16, fmt 0xB): EFB (%d,%d) %dx%d -> 0x%08X stride %d",
+				sx, sy, w, h, dst, stride)
+			if drawTrace {
+				fmt.Fprintf(os.Stderr, "COPY-TEX-Z16 (%d,%d) %dx%d -> 0x%08X\n", sx, sy, w, h, dst)
+			}
+			for y := 0; y < h; y++ {
+				for x := 0; x < w; x++ {
+					z := g.zAt(sx+x, sy+y)
+					tb, in := copyTexelOffset(stride, 4, 4, 32, x, y)
+					off := dst + uint32(tb+in*2)
+					m.texWriteByte(off, uint8(z>>16))
+					m.texWriteByte(off+1, uint8(z>>8))
+				}
+			}
+		default:
+			m.CPU.Halt("PE copy-to-texture: Z-source copy into format 0x%X not yet implemented (params 0x%06X)",
+				format, params)
+		}
 		return
 	}
 

@@ -202,9 +202,9 @@ func (m *Machine) IntrState() string {
 	if m.dsp.Core != nil {
 		dspState = fmt.Sprintf("PC=0x%04X blocked=%v halt=%v", m.dsp.Core.PC, m.dsp.CoreBlocked, m.dsp.Core.Halted)
 	}
-	return fmt.Sprintf("PI cause=0x%08X mask=0x%08X | CPU ExtInt=%v MSR[EE]=%v | VI armed=%v field=%d | PE reg0=0x%04X | TFBL=0x%08X XFB=0x%08X | DSP core %s toDSP=0x%08X fromDSP=0x%08X csr=0x%04X",
+	return fmt.Sprintf("PI cause=0x%08X mask=0x%08X | CPU ExtInt=%v MSR[EE]=%v | VI armed=%v field=%d | PE reg0=0x%04X | TFBL=0x%08X XFB=0x%08X | DSP core %s toDSP=0x%08X fromDSP=0x%08X csr=0x%04X | AID start=0x%08X ctrl=0x%04X rem=%d",
 		m.pi.Cause, m.pi.Mask, m.CPU.ExtInt, m.CPU.MSR&(1<<15) != 0, viArmed, m.vi.Field, m.pe.Reg[0], m.vi.TFBL, m.vi.XFBAddr(),
-		dspState, m.dsp.ToDSP, m.dsp.FromDSP, m.dsp.CSR)
+		dspState, m.dsp.ToDSP, m.dsp.FromDSP, m.dsp.CSR, m.dsp.AIDStart, m.dsp.AIDControl, m.dsp.AIDRemaining)
 }
 
 // RegString is the integer register file, for reading a fault: when the machine halts on a

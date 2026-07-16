@@ -44,6 +44,13 @@ type gpu struct {
 
 	EFB  []uint32 // Flipper's embedded framebuffer, RGBA8888 per pixel (see gpu_efb.go)
 	ZBuf []uint32 // the 24-bit depth buffer that pairs with the EFB (see gpu_raster.go)
+
+	// Tlut is the palette half of texture memory: the colour tables the game DMAs in ahead
+	// of a paletted draw (BP 0x64 names the main-memory source, BP 0x65 the TMEM slot and
+	// length — the load happens at the 0x65 write, register layouts pinned from the game's
+	// own GXInitTlutObj/GXLoadTlut at 0x801F6F24/0x801F7128). Indexed by the offset within
+	// the high TMEM bank, i.e. tmem address minus 0x80000. Allocated on the first load.
+	Tlut []byte
 }
 
 // xfStore records one XF register or matrix-memory word the command stream loaded.
@@ -206,6 +213,12 @@ func (g *gpu) loadBP(m *Machine, reg uint8, data uint32) {
 		m.pe.setToken(m, uint16(data), true)
 	case 0x52: // BPMEM_TRIGGER_EFB_COPY — execute the pixel-engine copy that ends a frame
 		g.copyDisplay(m, data)
+	case 0x65: // BPMEM_LOADTLUT1 — DMA a palette from main memory into texture memory.
+		// The source RAM address arrived in BP 0x64 (physical >> 5, from GXInitTlutObj at
+		// 0x801F6F24); this trigger word carries the destination TMEM slot in 512-byte
+		// units within the high bank (bits 9:0, tmem-0x80000 >> 9) and the length in
+		// 16-entry lines (bits 20:10), from GXLoadTlut's region word at 0x801F7128.
+		g.loadTlut(m, data)
 	}
 
 	// The eight TEV register addresses carry either a colour/output register or a constant,
