@@ -6,12 +6,16 @@ package gc
 // coordinate across them, runs each surviving pixel through the TEV (gpu_tev.go) to get its
 // final colour, and blends that into the framebuffer under the depth test.
 //
-// Perspective-correct interpolation is still a later refinement: the barycentric weights are
-// taken in screen space, which is exact for the screen-aligned blits the boot draws and only
-// skews texturing on triangles seen at a steep angle. The depth test honours the mode the game
-// programmed (BP 0x40 — enable, compare function, write enable), and so does back-face culling
-// (GEN_MODE bits 14..15 — see cullTest, and note that its sign convention is pinned by a
-// rendered frame because nothing else can pin it).
+// The barycentric weights are taken in screen space, which is what the depth test wants —
+// screen z has already been through the perspective divide, so it is linear here — but not
+// what a texture coordinate wants: those are interpolated perspective-correctly, through
+// perspUV. The depth test honours the mode the game programmed (BP 0x40 — enable, compare
+// function, write enable), and so does back-face culling (GEN_MODE bits 14..15 — see cullTest,
+// and note that its sign convention is pinned by a rendered frame because nothing else can pin
+// it).
+//
+// Every triangle arriving here has been through the near clipper (gpu_clip.go), so its vertices
+// are all in front of the eye and their w is positive.
 
 import (
 	"fmt"
@@ -41,6 +45,27 @@ func (g *gpu) ensureRaster() {
 			g.ZBuf[i] = 0x00FFFFFF // the far plane, in the 24-bit depth range
 		}
 	}
+}
+
+// perspUV interpolates a pixel's texture coordinate perspective-correctly from the three
+// barycentric weights.
+//
+// What varies linearly across the screen is not u but u/w, so u/w, v/w and 1/w are the things
+// interpolated, and the divide is undone per pixel. Interpolating u directly walks the texture
+// at a constant rate across a surface whose steps into the distance are shrinking, so the
+// texture slides over the geometry — the skew is invisible on a screen-aligned blit and severe
+// on a ground plane running to the horizon.
+//
+// For an orthographic draw every w is 1, so every invW is 1 and this reduces exactly to the
+// affine interpolation it replaced — 2D screens are untouched by construction, not by luck.
+//
+// The weights are non-negative and sum to 1 (the caller has already rejected pixels outside
+// the triangle), and the clipper guarantees every invW is positive, so iw is positive.
+func perspUV(b0, b1, b2 float32, v0, v1, v2 screenVertex) (u, v float32) {
+	iw := b0*v0.invW + b1*v1.invW + b2*v2.invW
+	u = (b0*v0.u*v0.invW + b1*v1.u*v1.invW + b2*v2.u*v2.invW) / iw
+	v = (b0*v0.v*v0.invW + b1*v1.v*v1.invW + b2*v2.v*v2.invW) / iw
+	return u, v
 }
 
 // drawTriangle rasterises one triangle of three transformed vertices.
@@ -120,8 +145,7 @@ func (g *gpu) drawTriangle(m *Machine, v0, v1, v2 screenVertex) {
 			gg := uint8(b0*float32(v0.g) + b1*float32(v1.g) + b2*float32(v2.g))
 			bb := uint8(b0*float32(v0.b) + b1*float32(v1.b) + b2*float32(v2.b))
 			a := uint8(b0*float32(v0.a) + b1*float32(v1.a) + b2*float32(v2.a))
-			u := b0*v0.u + b1*v1.u + b2*v2.u
-			v := b0*v0.v + b1*v1.v + b2*v2.v
+			u, v := perspUV(b0, b1, b2, v0, v1, v2)
 
 			fr, fg, fb, fa, pass := g.shade(m, r, gg, bb, a, u, v)
 			if x == pixDbgX && y == pixDbgY {

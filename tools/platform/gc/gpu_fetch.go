@@ -4,13 +4,18 @@ package gc
 // triangles they form to the rasteriser. It is the counterpart to gpu_vtx.go: that file sizes
 // a vertex so the parser can find the next command, this one reads the same bytes as values.
 //
-// Only what an untextured, unlit frame needs is read: the position (which the transform turns
-// into a pixel) and the first colour (which the rasteriser interpolates). Normals, texture
-// coordinates and the second colour are stepped over — their sizes still count toward the
-// stride, so the reader lands on the right byte, but their values wait for the lighting and
-// texture stages. An attribute that is an index into an array rather than inline is not yet
-// fetched; a draw that needs one is left undrawn and logged, rather than read from the wrong
-// place, so the gap is visible instead of a scramble of triangles.
+// What is read is the position, the normal (which the lighting channel needs), the first
+// colour, and the first texture coordinate. The second colour and the other seven texture
+// coordinates are stepped over — their sizes still count toward the stride, so the reader lands
+// on the right byte, but their values wait for a stage that needs them, and a TEV stage that
+// samples one is logged as a ticket rather than fed a coordinate it did not ask for. Each of
+// those attributes may be inline or an index into an array elsewhere in memory (see attrData);
+// an index that points past the end of RAM leaves the draw undrawn and logged, rather than read
+// from the wrong place, so the gap is visible instead of a scramble of triangles.
+//
+// A vertex leaves here in clip space, not screen space: the triangles are cut against the near
+// plane (gpu_clip.go) before the perspective divide, because the divide is only meaningful in
+// front of the eye.
 
 import (
 	"fmt"
@@ -227,7 +232,7 @@ func (g *gpu) drawPrimitive(m *Machine, prim uint32, vat, vsize int, data []byte
 	tv := m.profStart()
 	g.profDraws++
 	count := len(data) / vsize
-	verts := make([]screenVertex, count)
+	verts := make([]clipVertex, count)
 	for i := 0; i < count; i++ {
 		v := data[i*vsize:]
 		mtxIdx := int(g.CPReg[0x30] & 0x3F)
@@ -241,7 +246,7 @@ func (g *gpu) drawPrimitive(m *Machine, prim uint32, vat, vsize int, data []byte
 		}
 		mx, my, mz := g.readPos(pos, lay)
 		ex, ey, ez := g.eyePos(mtxIdx, mx, my, mz)
-		sx, sy, sz := g.project(ex, ey, ez)
+		cx, cy, cz, cw := g.clipPos(ex, ey, ez)
 		r, gg, b, a := uint8(255), uint8(255), uint8(255), uint8(255)
 		if lay.col0Off >= 0 {
 			if col := g.attrData(m, v, lay.col0Off, lay.col0Desc, 2, colorBytes(lay.col0Comp)); col != nil {
@@ -269,7 +274,7 @@ func (g *gpu) drawPrimitive(m *Machine, prim uint32, vat, vsize int, data []byte
 				tu, tv = g.readTexCoord(tc, lay)
 			}
 		}
-		verts[i] = screenVertex{x: sx, y: sy, z: sz, r: r, g: gg, b: b, a: a, u: tu, v: tv}
+		verts[i] = clipVertex{cx: cx, cy: cy, cz: cz, cw: cw, r: r, g: gg, b: b, a: a, u: tu, v: tv}
 	}
 	m.profEnd(bucketVertex, tv)
 
@@ -280,13 +285,22 @@ func (g *gpu) drawPrimitive(m *Machine, prim uint32, vat, vsize int, data []byte
 		tr := m.profStart()
 		g.rasterPrimitive(m, prim, verts)
 		m.profEnd(bucketRaster, tr)
-		v0 := verts[0]
+		// The trace reports vertex 0 where the rasteriser would put it, so the numbers here are
+		// the same pixels the frame shows. A vertex behind the near plane has no screen position
+		// — the clipper replaces it — so its w is reported instead of a fictitious pixel.
+		c0 := verts[0]
+		v0x, v0y, v0z := g.toScreen(c0.cx, c0.cy, c0.cz, c0.cw)
+		v0 := screenVertex{x: v0x, y: v0y, z: v0z, r: c0.r, g: c0.g, b: c0.b, a: c0.a, u: c0.u, v: c0.v}
+		clipped := ""
+		if c0.cz+c0.cw < 0 {
+			clipped = fmt.Sprintf(" CLIPPED(w=%.2f)", c0.cw)
+		}
 		_, _, _, c0a := tevColorReg(g.TevColorReg[1])
 		_, _, _, k0a := tevColorReg(g.TevKonstReg[0])
 		t0 := g.texSetup(0)
 		g.dumpTex0Once(m, t0.base)
-		fmt.Fprintf(os.Stderr, "DRAW prim 0x%02X vat %d n %d  v0 (%.1f,%.1f,z%.0f) rgba %d,%d,%d,%d uv (%.2f,%.2f)  tex0 0x%06X fmt%X %dx%d  px w=%d zrej=%d arej=%d  stages=%d bp41=%06X af=%06X zm=%02X a0=%.0f ka0=%.0f vcd=%03X mat0=%08X amb0=%08X cc0=%08X ca0=%08X\n",
-			prim, vat, count, v0.x, v0.y, v0.z, v0.r, v0.g, v0.b, v0.a, v0.u, v0.v,
+		fmt.Fprintf(os.Stderr, "DRAW prim 0x%02X vat %d n %d  v0 (%.1f,%.1f,z%.0f)%s rgba %d,%d,%d,%d uv (%.2f,%.2f)  tex0 0x%06X fmt%X %dx%d  px w=%d zrej=%d arej=%d  stages=%d bp41=%06X af=%06X zm=%02X a0=%.0f ka0=%.0f vcd=%03X mat0=%08X amb0=%08X cc0=%08X ca0=%08X\n",
+			prim, vat, count, v0.x, v0.y, v0.z, clipped, v0.r, v0.g, v0.b, v0.a, v0.u, v0.v,
 			t0.base, t0.format, t0.width, t0.height,
 			g.pixWritten-w0, g.pixZRej-z0, g.pixARej-a0,
 			int((g.BP[0x00]>>10)&0xF)+1, g.BP[0x41], g.BP[0xF3], g.BP[0x40], c0a, k0a,
@@ -380,31 +394,38 @@ func expand4(v uint16) uint8 { return uint8(v<<4 | v) }
 func expand5(v uint16) uint8 { return uint8(v<<3 | v>>2) }
 func expand6(v uint16) uint8 { return uint8(v<<2 | v>>4) }
 
-// rasterPrimitive turns a primitive's vertex list into triangles and draws each. The
-// triangle-forming primitives are handled; lines and points wait for a frame that uses them,
-// and are logged once when one appears rather than drawn wrong.
-func (g *gpu) rasterPrimitive(m *Machine, prim uint32, v []screenVertex) {
+// rasterPrimitive turns a primitive's vertex list into triangles and draws each, cutting every
+// one against the near plane on the way (gpu_clip.go) — this is where a triangle first exists
+// as a triangle, so it is where clipping belongs. The triangle-forming primitives are handled;
+// lines and points wait for a frame that uses them, and are logged once when one appears rather
+// than drawn wrong.
+func (g *gpu) rasterPrimitive(m *Machine, prim uint32, v []clipVertex) {
+	// One scratch polygon for the whole primitive: the clipper returns its result in this
+	// buffer, so a strip of hundreds of triangles still allocates once.
+	buf := make([]clipVertex, 0, 8)
+	draw := func(a, b, c clipVertex) { buf = g.clipAndDraw(m, buf, a, b, c) }
+
 	switch prim {
 	case 0x80, 0x88: // quads
 		for i := 0; i+4 <= len(v); i += 4 {
-			g.drawTriangle(m, v[i], v[i+1], v[i+2])
-			g.drawTriangle(m, v[i], v[i+2], v[i+3])
+			draw(v[i], v[i+1], v[i+2])
+			draw(v[i], v[i+2], v[i+3])
 		}
 	case 0x90: // triangles
 		for i := 0; i+2 < len(v); i += 3 {
-			g.drawTriangle(m, v[i], v[i+1], v[i+2])
+			draw(v[i], v[i+1], v[i+2])
 		}
 	case 0x98: // triangle strip
 		for i := 0; i+2 < len(v); i++ {
 			if i&1 == 0 {
-				g.drawTriangle(m, v[i], v[i+1], v[i+2])
+				draw(v[i], v[i+1], v[i+2])
 			} else {
-				g.drawTriangle(m, v[i+1], v[i], v[i+2])
+				draw(v[i+1], v[i], v[i+2])
 			}
 		}
 	case 0xA0: // triangle fan
 		for i := 1; i+1 < len(v); i++ {
-			g.drawTriangle(m, v[0], v[i], v[i+1])
+			draw(v[0], v[i], v[i+1])
 		}
 	}
 }

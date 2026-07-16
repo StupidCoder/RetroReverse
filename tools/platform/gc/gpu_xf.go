@@ -26,10 +26,42 @@ func (g *gpu) xfFloat(addr int) float32 {
 // screenVertex is a vertex after transform: its pixel position, its depth in the 24-bit range
 // the framebuffer keeps, the colour the rasteriser interpolates across the triangle, and the
 // first texture coordinate it interpolates alongside so the TEV can sample a texture per pixel.
+//
+// invW is the reciprocal of the clip-space w the perspective divide used. Depth needs no such
+// help — screen z has already been divided, so it is linear in screen space — but a texture
+// coordinate has not, and interpolating one straight across the screen walks it at a constant
+// rate over a surface that is receding, which is the classic affine-texturing skew. Keeping
+// 1/w per vertex lets the rasteriser interpolate u/w and v/w (which ARE linear in screen space)
+// and divide back per pixel.
 type screenVertex struct {
 	x, y, z    float32
 	r, g, b, a uint8
 	u, v       float32
+	invW       float32
+}
+
+// clipVertex is a vertex after projection but before the perspective divide: its homogeneous
+// clip-space position, and the attributes the rasteriser will interpolate. Clipping happens
+// here rather than in screen space because the divide is only meaningful for a vertex in front
+// of the eye — a vertex behind it has a negative w, and dividing by that reflects the vertex
+// through the origin, wrapping the triangle across the screen instead of removing it.
+type clipVertex struct {
+	cx, cy, cz, cw float32
+	r, g, b, a     uint8
+	u, v           float32
+}
+
+// lerpClip interpolates two clip-space vertices at parameter t, in clip space, where the
+// straight line between two vertices is still straight. Every attribute the rasteriser reads
+// is carried across so a vertex the clipper invents is as complete as one the game supplied.
+func lerpClip(a, b clipVertex, t float32) clipVertex {
+	li := func(x, y uint8) uint8 { return uint8(float32(x) + (float32(y)-float32(x))*t + 0.5) }
+	lf := func(x, y float32) float32 { return x + (y-x)*t }
+	return clipVertex{
+		cx: lf(a.cx, b.cx), cy: lf(a.cy, b.cy), cz: lf(a.cz, b.cz), cw: lf(a.cw, b.cw),
+		r: li(a.r, b.r), g: li(a.g, b.g), b: li(a.b, b.b), a: li(a.a, b.a),
+		u: lf(a.u, b.u), v: lf(a.v, b.v),
+	}
 }
 
 // transform takes a model-space position through the position matrix, the projection, the
@@ -53,9 +85,24 @@ func (g *gpu) eyePos(mtxIdx int, mx, my, mz float32) (ex, ey, ez float32) {
 }
 
 // project takes an eye-space position through the projection, the perspective divide and the
-// viewport to the pixel grid.
+// viewport to the pixel grid. It is the whole chain for a vertex already known to be in front
+// of the near plane; a draw goes through clipPos and toScreen either side of the clipper.
 func (g *gpu) project(ex, ey, ez float32) (sx, sy, sz float32) {
-	// Projection: six stored values and a type word — perspective (0) or orthographic (1).
+	cx, cy, cz, cw := g.clipPos(ex, ey, ez)
+	return g.toScreen(cx, cy, cz, cw)
+}
+
+// clipPos takes an eye-space position through the projection into homogeneous clip space.
+//
+// The six stored values are the compact form of the projection matrix, and reading the near and
+// far planes back out of them is what pins the clip-space convention. For the perspective form
+// the hardware stores p4 = -n/(f-n) and p5 = -f*n/(f-n); substituting the near plane ez = -n
+// gives cz = -n and cw = n, so cz/cw = -1, and the far plane ez = -f gives cz = 0, so cz/cw = 0.
+// Normalised device z therefore runs from -1 at the near plane to 0 at the far plane — which is
+// exactly what the viewport registers this game programs expect, their z scale and offset both
+// 2^24-1, mapping -1 to depth 0 and 0 to depth 0xFFFFFF. The near plane is thus cz = -cw, and
+// that is the plane the clipper cuts against.
+func (g *gpu) clipPos(ex, ey, ez float32) (cx, cy, cz, cw float32) {
 	p0 := g.xfFloat(0x1020)
 	p1 := g.xfFloat(0x1021)
 	p2 := g.xfFloat(0x1022)
@@ -63,7 +110,6 @@ func (g *gpu) project(ex, ey, ez float32) (sx, sy, sz float32) {
 	p4 := g.xfFloat(0x1024)
 	p5 := g.xfFloat(0x1025)
 
-	var cx, cy, cz, cw float32
 	if g.XFMem[0x1026] == 0 { // perspective: the projected matrix has -1 in its w row
 		cx = p0*ex + p1*ez
 		cy = p2*ey + p3*ez
@@ -75,7 +121,12 @@ func (g *gpu) project(ex, ey, ez float32) (sx, sy, sz float32) {
 		cz = p4*ez + p5
 		cw = 1
 	}
+	return
+}
 
+// toScreen takes a clip-space position through the perspective divide and the viewport to the
+// pixel grid. Every vertex reaching it has passed the near clip, so w is positive.
+func (g *gpu) toScreen(cx, cy, cz, cw float32) (sx, sy, sz float32) {
 	// The perspective divide to normalised device coordinates. A degenerate w leaves the
 	// vertex at the origin rather than dividing by zero.
 	if cw == 0 {
