@@ -124,7 +124,7 @@ func kernelObjectHandler(ord uint16) func(*Machine) int {
 	case 202: // NtOpenFile(FileHandle*, DesiredAccess, ObjectAttributes, IoStatusBlock,
 		// ShareAccess, OpenOptions) — verified: 6 args, an ACCESS_MASK + OpenOptions.
 		return func(m *Machine) int {
-			m.openFile(m.arg(0), m.arg(2), m.arg(3))
+			m.openFile(m.arg(0), m.arg(2), m.arg(3), dispOpen)
 			return 6
 		}
 	case 190: // NtCreateFile(FileHandle*, DesiredAccess, ObjectAttributes, IoStatusBlock,
@@ -133,11 +133,13 @@ func kernelObjectHandler(ord uint16) func(*Machine) int {
 		// out-handle, an access mask OR'd with SYNCHRONIZE|0x80, the OBJECT_ATTRIBUTES and
 		// IOSB locals, and the caller comparing the status against 0xC0000035
 		// (STATUS_OBJECT_NAME_COLLISION) — XAPI's CreateFile wrapper; table-185 + the Nt
-		// block's +5 drift = 190. Disc paths open read-only through the XISO; anything
-		// else (HDD cache/save partitions) reports STATUS_OBJECT_NAME_NOT_FOUND, as a
-		// freshly-formatted console with no title data would.
+		// block's +5 drift = 190. Disc paths open read-only through the XISO; the HDD
+		// title partitions (T:/U:/Z:) honour the CreateDisposition against the writable
+		// in-memory store (kernel_file.go) — a real console's cache partition always
+		// exists, and OutRun's menu loader can only leave the loading screen once it has
+		// built and re-opened z:\MENU.PAK there.
 		return func(m *Machine) int {
-			m.openFile(m.arg(0), m.arg(2), m.arg(3))
+			m.openFile(m.arg(0), m.arg(2), m.arg(3), m.arg(7))
 			return 9
 		}
 
@@ -151,6 +153,18 @@ func kernelObjectHandler(ord uint16) func(*Machine) int {
 		// histogram) is removed; 203 stays a halting frontier until a live site names it.
 		return func(m *Machine) int {
 			m.readFile(m.arg(0), m.arg(1), m.arg(4), m.arg(5), m.arg(6), m.arg(7))
+			return 8
+		}
+
+	case 236: // NtWriteFile(FileHandle, Event, ApcRoutine, ApcContext, IoStatusBlock,
+		// Buffer, Length, ByteOffset*) — the write mirror of NtReadFile's 8-arg
+		// OVERLAPPED shape. Canonical 236 = table-231 + the Nt block's established +5
+		// drift, the same derivation every verified Nt binding has landed on; the first
+		// live call (the z:\MENU.PAK cache build) passes a cache-file handle and a
+		// buffer/length pair consistent with this shape. Only the writable HDD store
+		// accepts writes (kernel_file.go writeFile halts on a disc handle).
+		return func(m *Machine) int {
+			m.writeFile(m.arg(0), m.arg(1), m.arg(4), m.arg(5), m.arg(6), m.arg(7))
 			return 8
 		}
 
@@ -331,8 +345,8 @@ func kernelObjectHandler(ord uint16) func(*Machine) int {
 			for i := uint32(0); i < 0x38; i += 4 {
 				m.write32(buf+i, 0)
 			}
-			m.write32(buf+0x20, fo.entry.Size) // AllocationSize (low; high already 0)
-			m.write32(buf+0x28, fo.entry.Size) // EndOfFile
+			m.write32(buf+0x20, fo.size()) // AllocationSize (low; high already 0)
+			m.write32(buf+0x28, fo.size()) // EndOfFile
 			attrs := uint32(0x01 | 0x80)       // READONLY|NORMAL (a DVD file)
 			if fo.entry.IsDir {
 				attrs = 0x11 // READONLY|DIRECTORY

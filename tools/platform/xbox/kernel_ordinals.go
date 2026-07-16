@@ -73,6 +73,7 @@ var verifiedNames = map[uint16]string{
 	224: "NtResumeThread",            // f(handle, prevCount*); pair w/ 231 (site 0x44F56)
 	226: "NtSetInformationFile",      // 5 args, class 0xE seek (site 0x44378)
 	231: "NtSuspendThread",           // f(handle, prevCount*); pair w/ 224 (site 0x44F30)
+	236: "NtWriteFile",               // 8 args, NtReadFile's OVERLAPPED shape (canonical; Nt drift +5)
 	234: "NtWaitForSingleObjectEx",   // f(handle, waitMode, alertable, timeout*) -> NTSTATUS
 	246: "ObReferenceObjectByHandle", // f(handle, type, obj**) (site 0x45291)
 	250: "ObfDereferenceObject",      // fastcall(ECX=object) (site 0x45331)

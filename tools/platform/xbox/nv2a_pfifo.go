@@ -61,6 +61,13 @@ func (m *Machine) runPusher() {
 	p.running = true
 	defer func() { p.running = false }()
 
+	// Texture decodes cached during the previous run may be stale: between kicks the
+	// CPU owns memory and may have rewritten texture data. Within one run the GPU
+	// sees a consistent snapshot, so the cache lives exactly that long.
+	if len(m.pgraph.texCache) > 0 {
+		m.pgraph.texCache = map[texKey]*texImage{}
+	}
+
 	if nvTrace {
 		fmt.Printf("PUSH run: GET=%08X PUT=%08X\n", m.nv.dmaGet, m.nv.dmaPut)
 	}

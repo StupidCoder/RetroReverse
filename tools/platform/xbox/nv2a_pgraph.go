@@ -49,6 +49,34 @@ type pgraph struct {
 	// 3D object uses this; other classes' state is tracked ad hoc as needed.
 	Regs [0x800]uint32
 
+	// Transform-program machinery (nv2a_vsh.go): the 136-slot program store, the
+	// 192-vec4 constant store, the load cursors, and the 4-dword upload staging
+	// latches (an upload may split across two DMA kicks, so they are state).
+	Prog      [vshProgSlots][4]uint32
+	Const     [vshConstSlots][4]uint32
+	ProgLoad  uint32
+	ConstLoad uint32
+	progBuf   [4]uint32
+	progBufN  int
+	constBuf  [4]uint32
+	constBufN int
+
+	// Vertex/primitive state (nv2a_vertex.go): the open BEGIN's primitive type, the
+	// accumulated inline words / indices / array ranges, the persistent per-attribute
+	// values (SET_VERTEX_DATA*), and the draw counter.
+	prim    uint32
+	inline  []uint32
+	elems   []uint32
+	ranges  [][2]uint32
+	vtxAttr [16][4]float32
+	Draws   int
+
+	// Per-batch raster state (nv2a_raster.go) and the per-pusher-run texture decode
+	// cache (nv2a_texture.go). Both are transient rebuilds from Regs/RAM — not state.
+	rast      rasterState
+	rastValid bool
+	texCache  map[texKey]*texImage
+
 	// --- survey instrumentation (bring-up) ---
 	survey    bool
 	seen      map[uint32]int    // (class<<16 | method) -> count, across the whole run
@@ -59,12 +87,17 @@ type pgraph struct {
 }
 
 func newPgraph(m *Machine) *pgraph {
-	return &pgraph{
+	g := &pgraph{
 		m:         m,
 		seen:      map[uint32]int{},
 		firstArg:  map[uint32]uint32{},
 		unhandled: map[uint32]int{},
+		texCache:  map[texKey]*texImage{},
 	}
+	for i := range g.vtxAttr {
+		g.vtxAttr[i] = [4]float32{0, 0, 0, 1} // attribute registers reset to (0,0,0,1)
+	}
+	return g
 }
 
 // SetSurvey turns method-survey recording on (records instead of acting/halting).

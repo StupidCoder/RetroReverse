@@ -9,17 +9,40 @@ package xbox
 // not from the reconstructed table, whose numbering drifts.
 //
 // Xbox object paths name a device and a path within it: "\Device\CdRom0\<p>" and the
-// "\??\D:\<p>" symbolic-link form both mean the DVD, i.e. the mounted disc. HDD
-// partitions (T:/U:/Z:, "\Device\Harddisk0\PartitionN") have no backing here — a title
-// that opens a save or cache file there gets STATUS_OBJECT_NAME_NOT_FOUND, exactly as a
-// freshly-formatted console would present it.
+// "\??\D:\<p>" symbolic-link form both mean the DVD, i.e. the mounted disc.
+//
+// The HDD's title partitions (T:/U: persistent data, Z: the utility/cache drive) are a
+// WRITABLE in-memory filesystem: on a real console these partitions always exist, and
+// OutRun's menu loader depends on that — it unpacks its menu resources into
+// z:\MENU.PAK on first boot and re-opens that cache forever after. When they were
+// unbacked (every open answered STATUS_OBJECT_NAME_NOT_FOUND), the cache could never
+// be built and the loading screen retried the open for the rest of the run. A missing
+// FILE is still honest (a fresh console has an empty cache); a missing PARTITION is
+// not. The store is part of the savestate.
 
 import "strings"
 
-// fileObject is an open file: the disc entry it reads from and the current offset.
+// cacheFile is one file on the writable HDD partitions (keyed by drive-qualified
+// upper-case path, e.g. "Z:/MENU.PAK").
+type cacheFile struct {
+	Data []byte
+}
+
+// fileObject is an open file: a disc entry (read-only) or a cache file (writable, with
+// its store key so a savestate can re-link it), plus the current byte offset.
 type fileObject struct {
 	entry Entry
+	cache *cacheFile
+	key   string
 	off   uint32
+}
+
+// size is the object's current byte length (a cache file grows as it is written).
+func (fo *fileObject) size() uint32 {
+	if fo.cache != nil {
+		return uint32(len(fo.cache.Data))
+	}
+	return fo.entry.Size
 }
 
 // resolveDiscPath maps an Xbox object path to a slash path within the mounted disc, or
@@ -37,6 +60,23 @@ func resolveDiscPath(p string) (string, bool) {
 				rest = "/" + rest
 			}
 			return rest, true
+		}
+	}
+	return "", false
+}
+
+// resolveCachePath maps an Xbox object path to a key in the writable HDD store, or
+// reports that it does not name one of the writable partitions.
+func resolveCachePath(p string) (string, bool) {
+	p = strings.ReplaceAll(p, "\\", "/")
+	for _, pre := range []string{"/??/T:", "/??/U:", "/??/Z:", "T:", "U:", "Z:"} {
+		if len(p) >= len(pre) && strings.EqualFold(p[:len(pre)], pre) {
+			drive := pre[len(pre)-2:]
+			rest := p[len(pre):]
+			if !strings.HasPrefix(rest, "/") {
+				rest = "/" + rest
+			}
+			return strings.ToUpper(drive + rest), true
 		}
 	}
 	return "", false
@@ -65,29 +105,74 @@ func (m *Machine) readObjectAttributesPath(oa uint32) string {
 	return string(b)
 }
 
-// openFile resolves a disc path and creates a file handle, writing the standard
-// FileHandle / IoStatusBlock outputs. Returns the NTSTATUS.
-func (m *Machine) openFile(handleOut, oa, iosb uint32) uint32 {
+// NtCreateFile dispositions and the IOSB Information codes an open reports.
+const (
+	dispSupersede   = 0
+	dispOpen        = 1
+	dispCreate      = 2
+	dispOpenIf      = 3
+	dispOverwrite   = 4
+	dispOverwriteIf = 5
+
+	infoOpened      = 1
+	infoCreated     = 2
+	infoOverwritten = 3
+)
+
+// openFile resolves a path against the disc (read-only) or the writable HDD
+// partitions, creates a file handle, and writes the standard FileHandle /
+// IoStatusBlock outputs. NtOpenFile calls it with dispOpen; NtCreateFile passes the
+// caller's CreateDisposition, which on the HDD store may create or truncate.
+func (m *Machine) openFile(handleOut, oa, iosb uint32, disposition uint32) uint32 {
 	path := m.readObjectAttributesPath(oa)
+
+	newHandle := func(fo *fileObject, info uint32) uint32 {
+		h := m.allocKObject(0x40)
+		m.objects[h] = &kobject{kind: "file", addr: h, signaled: true}
+		m.files[h] = fo
+		if handleOut != 0 {
+			m.write32(handleOut, h)
+		}
+		return m.finishOpen(iosb, h, info, 0)
+	}
+
+	if key, ok := resolveCachePath(path); ok {
+		cf := m.cacheFS[key]
+		switch {
+		case cf == nil:
+			if disposition == dispOpen || disposition == dispOverwrite {
+				m.logf("NtOpen/CreateFile: %q (hdd %q) -> not found (disp %d)", path, key, disposition)
+				return m.finishOpen(iosb, 0, 0, 0xC0000034) // STATUS_OBJECT_NAME_NOT_FOUND
+			}
+			cf = &cacheFile{}
+			m.cacheFS[key] = cf
+			m.logf("NtCreateFile: %q -> hdd %q CREATED", path, key)
+			return newHandle(&fileObject{cache: cf, key: key}, infoCreated)
+		case disposition == dispCreate:
+			m.logf("NtCreateFile: %q (hdd %q) -> collision", path, key)
+			return m.finishOpen(iosb, 0, 0, 0xC0000035) // STATUS_OBJECT_NAME_COLLISION
+		case disposition == dispSupersede, disposition == dispOverwrite, disposition == dispOverwriteIf:
+			cf.Data = cf.Data[:0]
+			m.logf("NtCreateFile: %q -> hdd %q overwritten", path, key)
+			return newHandle(&fileObject{cache: cf, key: key}, infoOverwritten)
+		default:
+			m.logf("NtOpenFile: %q -> hdd %q (%d bytes)", path, key, len(cf.Data))
+			return newHandle(&fileObject{cache: cf, key: key}, infoOpened)
+		}
+	}
+
 	disc, ok := resolveDiscPath(path)
 	if !ok || m.Disc == nil {
 		m.logf("NtOpenFile: %q -> not on disc", path)
-		return m.finishOpen(iosb, 0, 0, 0xC0000034) // STATUS_OBJECT_NAME_NOT_FOUND
+		return m.finishOpen(iosb, 0, 0, 0xC0000034)
 	}
 	e, err := m.Disc.resolve(disc)
 	if err != nil {
 		m.logf("NtOpenFile: %q (disc %q) -> not found", path, disc)
 		return m.finishOpen(iosb, 0, 0, 0xC0000034)
 	}
-	h := m.allocKObject(0x40)
-	o := &kobject{kind: "file", addr: h, signaled: true}
-	m.objects[h] = o
-	m.files[h] = &fileObject{entry: e}
-	if handleOut != 0 {
-		m.write32(handleOut, h)
-	}
-	m.logf("NtOpenFile: %q -> disc %q (%d bytes), handle %08X", path, disc, e.Size, h)
-	return m.finishOpen(iosb, h, 1, 0) // Information = FILE_OPENED(1), STATUS_SUCCESS
+	m.logf("NtOpenFile: %q -> disc %q (%d bytes)", path, disc, e.Size)
+	return newHandle(&fileObject{entry: e}, infoOpened)
 }
 
 // finishOpen writes the IO_STATUS_BLOCK { NTSTATUS Status; ULONG_PTR Information } and
@@ -146,17 +231,24 @@ func (m *Machine) readFile(handle, event, iosb, buffer, length, byteOffsetPtr ui
 	if byteOffsetPtr != 0 {
 		off = m.read32(byteOffsetPtr) // low 32 bits of the LARGE_INTEGER offset
 	}
-	if off > fo.entry.Size {
-		off = fo.entry.Size
+	size := fo.size()
+	if off > size {
+		off = size
 	}
 	n := length
-	if off+n > fo.entry.Size {
-		n = fo.entry.Size - off
+	if off+n > size {
+		n = size - off
 	}
 	if n > 0 {
-		data, err := m.Disc.Read(int64(fo.entry.Sector)*sectorSize+int64(off), int(n))
-		if err != nil {
-			return m.finishOpen(iosb, handle, 0, 0xC0000008)
+		var data []byte
+		if fo.cache != nil {
+			data = fo.cache.Data[off : off+n]
+		} else {
+			var err error
+			data, err = m.Disc.Read(int64(fo.entry.Sector)*sectorSize+int64(off), int(n))
+			if err != nil {
+				return m.finishOpen(iosb, handle, 0, 0xC0000008)
+			}
 		}
 		for i, b := range data {
 			m.Write(buffer+uint32(i), b)
@@ -174,6 +266,37 @@ func (m *Machine) readFile(handle, event, iosb, buffer, length, byteOffsetPtr ui
 	}
 	m.logf("NtReadFile: handle %08X off %d len %d -> %d bytes (sync, tick %d)", handle, off, length, n, m.tick)
 	return m.finishOpen(iosb, handle, n, 0) // Information = bytes read
+}
+
+// writeFile stores bytes into an open HDD-partition file, growing it as needed.
+// NtWriteFile's signature mirrors NtReadFile (FileHandle, Event, ApcRoutine,
+// ApcContext, IoStatusBlock, Buffer, Length, ByteOffset*). Disc files are read-only
+// media — a write to one halts rather than fake success. HDD writes complete
+// synchronously (the pre-marked-IOSB async protocol readFile honours has only ever
+// been seen on the DVD streaming path; if a writer pre-marks, the same pacing can
+// graduate here).
+func (m *Machine) writeFile(handle, event, iosb, buffer, length, byteOffsetPtr uint32) uint32 {
+	fo := m.files[handle]
+	if fo == nil {
+		return m.finishOpen(iosb, handle, 0, 0xC0000008) // STATUS_INVALID_HANDLE
+	}
+	if fo.cache == nil {
+		m.CPU.Halt("NtWriteFile: write to a read-only disc file (handle %08X) from %08X", handle, m.retAddr())
+		return 0
+	}
+	off := fo.off
+	if byteOffsetPtr != 0 {
+		off = m.read32(byteOffsetPtr)
+	}
+	if need := int(off) + int(length); need > len(fo.cache.Data) {
+		fo.cache.Data = append(fo.cache.Data, make([]byte, need-len(fo.cache.Data))...)
+	}
+	for i := uint32(0); i < length; i++ {
+		fo.cache.Data[off+i] = m.Read(buffer + i)
+	}
+	fo.off = off + length
+	m.logf("NtWriteFile: handle %08X off %d len %d (file now %d bytes)", handle, off, length, len(fo.cache.Data))
+	return m.finishOpen(iosb, handle, length, 0)
 }
 
 // ioTick delivers due asynchronous completions: the IOSB gets its final status and

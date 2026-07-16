@@ -120,6 +120,10 @@ func (m *Machine) isrReturn() {
 	m.isrActive = false
 }
 
+// DebugInterruptKI returns the KINTERRUPT guest address connected on a vector (0 if
+// none) — a debugger/probe accessor, like DebugThreads.
+func (m *Machine) DebugInterruptKI(vector uint32) uint32 { return m.interrupts[vector] }
+
 // gpuInterruptVector is the vector the title's D3D runtime connects for the NV2A.
 // HalGetInterruptVector returns its BusInterruptLevel argument as the vector, so
 // this is the level the XDK passes for the GPU — pinned from the boot's own

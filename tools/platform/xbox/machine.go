@@ -98,7 +98,8 @@ type Machine struct {
 	// Kernel HLE state (kernel.go, thread.go). Handles are opaque nonzero pointers
 	// into the reserved band; objects are looked up by handle.
 	objects     map[uint32]*kobject
-	files       map[uint32]*fileObject // open disc file handles (kernel_file.go)
+	files       map[uint32]*fileObject // open disc/HDD file handles (kernel_file.go)
+	cacheFS     map[string]*cacheFile  // the writable HDD title partitions (T:/U:/Z:)
 	pendingIO   []pendingIO            // paced async read completions (kernel_file.go)
 	poolSizes   map[uint32]uint32      // ExAllocatePoolWithTag block -> byte size (ExQueryPoolBlockSize)
 	nextObjAddr uint32                 // bump pointer within the kernel band for new dispatcher objects
@@ -169,6 +170,11 @@ type Machine struct {
 	wRLo, wRHi uint32
 	onR        func(addr, val, pc uint32)
 
+	// OnPixel is the debugger's per-fragment provenance hook (the n3ds/gc shape):
+	// every fragment the rasteriser produces — drawn, depth-killed, or alpha-killed —
+	// reports here when installed. Nil by default and outside the savestate.
+	OnPixel func(x, y uint32, ev PixelEvent)
+
 	verbose   bool
 	traceLeft int // remaining instructions to print a PC/disasm trail for (-trace)
 }
@@ -183,6 +189,7 @@ func NewMachine(xbe *XBE, disc *Image) (*Machine, error) {
 		Disc:        disc,
 		objects:     map[uint32]*kobject{},
 		files:       map[uint32]*fileObject{},
+		cacheFS:     map[string]*cacheFile{},
 		poolSizes:   map[uint32]uint32{},
 		OrdinalHits: map[uint16]int{},
 		dataDeref:   map[uint16]bool{},

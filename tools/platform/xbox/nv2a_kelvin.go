@@ -25,9 +25,12 @@ const (
 	kelvinSemaphoreRelease = 0x1D70 // BACK_END_WRITE_SEMAPHORE_RELEASE: write the value there
 )
 
-// kelvinMethod handles one method write to the bound Kelvin (3D) object. During bring-up
-// it latches the register and records anything without an explicit effect as unhandled,
-// so a run's reach through the 3D command surface stays a concrete statement.
+// kelvinMethod handles one method write to the bound Kelvin (3D) object. Every method
+// latches into the register file; the cases below are the ones with modelled side
+// effects (triggers and FIFO-shaped data ports). A method with no case is a plain
+// state latch the pipeline reads back at draw time — or an unmodelled one, which the
+// unhandled map records so a run's reach through the 3D command surface stays a
+// concrete statement.
 func (g *pgraph) kelvinMethod(method, arg uint32) {
 	if method < uint32(len(g.Regs))*4 {
 		g.Regs[method>>2] = arg
@@ -38,12 +41,14 @@ func (g *pgraph) kelvinMethod(method, arg uint32) {
 			fmt.Printf("KELVIN sync: method %04X arg %08X (steps=%d)\n", method, arg, g.m.CPU.Steps)
 		}
 	}
-	switch method {
-	case kelvinClearSurface:
-		// CLEAR_SURFACE: fill the clear rect of the color surface with the latched
-		// clear color (nv2a_frame.go) — the first Kelvin method that produces pixels.
+	switch {
+	case method == kelvinClearSurface:
+		// CLEAR_SURFACE: fill the clear rect of the color/zeta surfaces with the
+		// latched clear values (nv2a_frame.go) — the first Kelvin method that
+		// produced pixels.
 		g.clearSurface(arg)
-	case kelvinSemaphoreRelease:
+		return
+	case method == kelvinSemaphoreRelease:
 		// BACK_END_WRITE_SEMAPHORE_RELEASE: the back end writes the release value into
 		// the bound semaphore surface at the latched offset — this is how the Direct3D
 		// runtime observes GPU progress (its per-frame sync values arrive here, odd and
@@ -58,9 +63,53 @@ func (g *pgraph) kelvinMethod(method, arg uint32) {
 			g.m.write32(base+off, arg)
 		}
 		g.m.nv.reg[nvPGRAPH_SEMAPHORE>>2] = arg << 2
+		return
+
+	// --- the vertex front end (nv2a_vertex.go) ---
+	case method == kelvinBeginEnd:
+		g.rastValid = false // the batch's raster state is decoded fresh per BEGIN/END
+		g.beginEnd(arg)
+		return
+	case method == kelvinInlineArray:
+		g.inline = append(g.inline, arg)
+		return
+	case method == kelvinElement16:
+		g.elems = append(g.elems, arg&0xFFFF, arg>>16)
+		return
+	case method == kelvinElement32:
+		g.elems = append(g.elems, arg)
+		return
+	case method == kelvinDrawArrays:
+		g.ranges = append(g.ranges, [2]uint32{arg & 0xFFFFFF, (arg >> 24) + 1})
+		return
+	case method >= kelvinVertexData4C && method < kelvinVertexData4C+0x40:
+		// SET_VERTEX_DATA4UB: a persistent attribute value as 4 unsigned bytes
+		// (RGBA byte order), read by every vertex whose arrays do not supply it.
+		i := (method - kelvinVertexData4C) >> 2
+		g.vtxAttr[i] = [4]float32{
+			float32(arg&0xFF) / 255, float32(arg>>8&0xFF) / 255,
+			float32(arg>>16&0xFF) / 255, float32(arg>>24&0xFF) / 255,
+		}
+		return
+
+	// --- the transform program (nv2a_vsh.go) ---
+	case method >= kelvinProgData && method < kelvinProgData+0x80:
+		g.progData(arg)
+		return
+	case method >= kelvinConstData && method < kelvinConstData+0x80:
+		g.constData(arg)
+		return
+	case method == kelvinProgLoad:
+		g.ProgLoad = arg
+		g.progBufN = 0
+		return
+	case method == kelvinConstLoad:
+		g.ConstLoad = arg
+		g.constBufN = 0
+		return
 	}
-	// Other triggers and side-effecting methods graduate here from the survey. Until a
-	// method is modelled, latching its register is harmless; the survey/unhandled map
-	// is what states the frontier.
+	// Everything else is a plain state latch (the raster/texture/combiner registers
+	// the pipeline reads at draw time) or an unmodelled method; the survey/unhandled
+	// map is what states the frontier.
 	g.unhandled[classKelvin<<16|(method&0xFFFF)]++
 }

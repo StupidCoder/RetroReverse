@@ -83,6 +83,26 @@ type XboxState struct {
 	PgSetObjs   int
 	Push        pusherSnap
 
+	// The Kelvin pipeline (nv2a_vsh.go / nv2a_vertex.go): program and constant
+	// stores, load cursors and 4-dword upload staging, and the open BEGIN batch.
+	// Zero values from older snapshots are an empty program and an idle vertex
+	// state — this title re-uploads its program and constants every draw, so a
+	// pre-pipeline snapshot heals within one frame.
+	PgProg      [vshProgSlots][4]uint32
+	PgConst     [vshConstSlots][4]uint32
+	PgProgLoad  uint32
+	PgConstLoad uint32
+	PgProgBuf   [4]uint32
+	PgProgBufN  int
+	PgConstBuf  [4]uint32
+	PgConstBufN int
+	PgPrim      uint32
+	PgInline    []uint32
+	PgElems     []uint32
+	PgRanges    [][2]uint32
+	PgVtxAttr   [16][4]float32
+	PgDraws     int
+
 	PCIAddr  uint32
 	PCISpace map[uint32]byte
 
@@ -105,6 +125,13 @@ type XboxState struct {
 	ShaCtx map[uint32][]byte // XcSHA* streaming contexts (marshalled crypto/sha1 state)
 	Rc4Ctx map[uint32][]byte // XcRC4* key schedules (258-byte S/i/j state)
 
+	// The writable HDD title partitions (kernel_file.go cacheFS) and the open file
+	// handles. Open handles were not state before the Z: store existed — a gap the
+	// disc-streaming path masked because its reads pass explicit byte offsets; a
+	// held-open cache file made it fatal. Nil from older snapshots.
+	CacheFS   map[string][]byte
+	OpenFiles []fileSnap
+
 	// Kernel HLE bookkeeping
 	OrdinalHits map[uint16]int
 	NextTID     uint32
@@ -115,6 +142,15 @@ type XboxState struct {
 	Threads   []threadSnap
 	CurThread int // index into Threads, or -1
 	Objects   []objSnap
+}
+
+// fileSnap mirrors fileObject: an open handle re-links to the disc (by its stored
+// Entry) or to the HDD store (by key) on load.
+type fileSnap struct {
+	Handle uint32
+	Entry  Entry
+	Key    string // nonempty: an HDD-store file
+	Off    uint32
 }
 
 // pusherSnap mirrors pusherState (all unexported), so a savestate resumes mid-method
@@ -205,6 +241,15 @@ func (m *Machine) SaveState() *XboxState {
 		NICReg:      copyU32Map(m.nic.reg),
 		PgSubObject: m.pgraph.subObject, PgSubClass: m.pgraph.subClass, PgRegs: m.pgraph.Regs,
 		PgMethods: m.pgraph.Methods, PgSetObjs: m.pgraph.SetObjs,
+		PgProg: m.pgraph.Prog, PgConst: m.pgraph.Const,
+		PgProgLoad: m.pgraph.ProgLoad, PgConstLoad: m.pgraph.ConstLoad,
+		PgProgBuf: m.pgraph.progBuf, PgProgBufN: m.pgraph.progBufN,
+		PgConstBuf: m.pgraph.constBuf, PgConstBufN: m.pgraph.constBufN,
+		PgPrim:    m.pgraph.prim,
+		PgInline:  append([]uint32(nil), m.pgraph.inline...),
+		PgElems:   append([]uint32(nil), m.pgraph.elems...),
+		PgRanges:  append([][2]uint32(nil), m.pgraph.ranges...),
+		PgVtxAttr: m.pgraph.vtxAttr, PgDraws: m.pgraph.Draws,
 		Push: pusherSnap{
 			Method: m.push.method, Subchan: m.push.subchan, Count: m.push.count,
 			NonInc: m.push.nonInc, SubReturn: m.push.subReturn, SubActive: m.push.subActive,
@@ -224,6 +269,7 @@ func (m *Machine) SaveState() *XboxState {
 		FBAddr:      m.nv.fbAddr,
 		ShaCtx:      copyByteSliceMap(m.shaCtx),
 		Rc4Ctx:      copyByteSliceMap(m.rc4Ctx),
+		CacheFS:     copyCacheFS(m.cacheFS),
 		OrdinalHits: copyOrdMap(m.OrdinalHits),
 		NextTID:     m.nextTID, RRCursor: m.rrCursor, QuantumLeft: m.quantumLeft,
 		CurThread: curIdx,
@@ -239,6 +285,16 @@ func (m *Machine) SaveState() *XboxState {
 			WaitObjs: append([]uint32(nil), t.waitObjs...), WaitReg: t.waitReg,
 			SuspendCount: t.suspendCount,
 		})
+	}
+	// Open file handles, in a stable order.
+	fhs := make([]uint32, 0, len(m.files))
+	for h := range m.files {
+		fhs = append(fhs, h)
+	}
+	sortU32(fhs)
+	for _, h := range fhs {
+		fo := m.files[h]
+		st.OpenFiles = append(st.OpenFiles, fileSnap{Handle: h, Entry: fo.entry, Key: fo.key, Off: fo.off})
 	}
 	// Objects in a stable order (by address) for deterministic snapshots.
 	addrs := make([]uint32, 0, len(m.objects))
@@ -278,6 +334,17 @@ func (m *Machine) LoadState(st *XboxState) error {
 	m.nic.reg = copyU32Map(st.NICReg)
 	m.pgraph.subObject, m.pgraph.subClass, m.pgraph.Regs = st.PgSubObject, st.PgSubClass, st.PgRegs
 	m.pgraph.Methods, m.pgraph.SetObjs = st.PgMethods, st.PgSetObjs
+	m.pgraph.Prog, m.pgraph.Const = st.PgProg, st.PgConst
+	m.pgraph.ProgLoad, m.pgraph.ConstLoad = st.PgProgLoad, st.PgConstLoad
+	m.pgraph.progBuf, m.pgraph.progBufN = st.PgProgBuf, st.PgProgBufN
+	m.pgraph.constBuf, m.pgraph.constBufN = st.PgConstBuf, st.PgConstBufN
+	m.pgraph.prim = st.PgPrim
+	m.pgraph.inline = append(m.pgraph.inline[:0], st.PgInline...)
+	m.pgraph.elems = append(m.pgraph.elems[:0], st.PgElems...)
+	m.pgraph.ranges = append(m.pgraph.ranges[:0], st.PgRanges...)
+	m.pgraph.vtxAttr, m.pgraph.Draws = st.PgVtxAttr, st.PgDraws
+	m.pgraph.rastValid = false
+	m.pgraph.texCache = map[texKey]*texImage{}
 	m.push = pusherState{
 		method: st.Push.Method, subchan: st.Push.Subchan, count: st.Push.Count,
 		nonInc: st.Push.NonInc, subReturn: st.Push.SubReturn, subActive: st.Push.SubActive,
@@ -297,6 +364,23 @@ func (m *Machine) LoadState(st *XboxState) error {
 	m.nv.fbPitch, m.nv.fbAddr = st.FBPitch, st.FBAddr
 	m.shaCtx = copyByteSliceMap(st.ShaCtx)
 	m.rc4Ctx = copyByteSliceMap(st.Rc4Ctx)
+	m.cacheFS = map[string]*cacheFile{}
+	for k, v := range st.CacheFS {
+		m.cacheFS[k] = &cacheFile{Data: append([]byte(nil), v...)}
+	}
+	m.files = map[uint32]*fileObject{}
+	for _, fs := range st.OpenFiles {
+		fo := &fileObject{entry: fs.Entry, key: fs.Key, off: fs.Off}
+		if fs.Key != "" {
+			cf := m.cacheFS[fs.Key]
+			if cf == nil {
+				cf = &cacheFile{}
+				m.cacheFS[fs.Key] = cf
+			}
+			fo.cache = cf
+		}
+		m.files[fs.Handle] = fo
+	}
 	m.Halted, m.HaltReason = st.Halted, st.HaltReason
 	m.OrdinalHits = copyOrdMap(st.OrdinalHits)
 	m.nextTID, m.rrCursor, m.quantumLeft = st.NextTID, st.RRCursor, st.QuantumLeft
@@ -389,6 +473,13 @@ func copyByteSliceMap(src map[uint32][]byte) map[uint32][]byte {
 	dst := make(map[uint32][]byte, len(src))
 	for k, v := range src {
 		dst[k] = append([]byte(nil), v...)
+	}
+	return dst
+}
+func copyCacheFS(src map[string]*cacheFile) map[string][]byte {
+	dst := make(map[string][]byte, len(src))
+	for k, v := range src {
+		dst[k] = append([]byte(nil), v.Data...)
 	}
 	return dst
 }
