@@ -125,6 +125,9 @@ type IOP struct {
 	pending uint64
 	inIntr  int
 
+	// The SIO2 controller's transfer in flight (iopsio2.go).
+	sio2 sio2xfer
+
 	// The DMA controller (iopdma.go), the sound chip (iopspu.go) and the disc drive
 	// (iopcdvd.go).
 	dma        [iopDMAChannels]iopDMAChan

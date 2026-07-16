@@ -251,15 +251,31 @@ func (gs *GS) drawn(typ int) {
 			xyoff = gs.reg[gsXYOFFSET2]
 			scis = gs.reg[gsSCISSOR2]
 		}
-		fmt.Printf("  prim %-9s PRIM=0x%03X ctx%d%s%s%s xyoff (%d,%d) scissor x %d..%d y %d..%d from %s:\n",
+		tex0 := gs.reg[gsTEX0_1]
+		frame := gs.reg[gsFRAME1]
+		alpha := gs.reg[gsALPHA1]
+		if gs.ctxt() == 1 {
+			tex0 = gs.reg[gsTEX0_2]
+			frame = gs.reg[gsFRAME2]
+			alpha = gs.reg[gsALPHA2]
+		}
+		texS := ""
+		if p&(1<<4) != 0 {
+			texS = sprintf(" tex0 %016X", tex0)
+		}
+		if p&(1<<6) != 0 {
+			texS += sprintf(" alpha %010X", alpha)
+		}
+		fmt.Printf("  prim %-9s PRIM=0x%03X ctx%d%s%s%s fb 0x%05X xyoff (%d,%d) scissor x %d..%d y %d..%d%s from %s:\n",
 			primNames[typ&7], p, gs.ctxt()+1,
 			map[bool]string{true: " TME", false: ""}[p&(1<<4) != 0],
 			map[bool]string{true: " ABE", false: ""}[p&(1<<6) != 0],
 			map[bool]string{true: " FGE", false: ""}[p&(1<<5) != 0],
+			uint32(frame)&0x1FF*2048,
 			uint32(xyoff)&0xFFFF>>4, uint32(xyoff>>32)&0xFFFF>>4,
 			uint32(scis)&0x7FF, uint32(scis>>16)&0x7FF,
 			uint32(scis>>32)&0x7FF, uint32(scis>>48)&0x7FF,
-			gs.src)
+			texS, gs.src)
 		for i := 0; i < gs.vqN && i < len(gs.vq); i++ {
 			v := gs.vq[i]
 			fmt.Printf("    v%d xy (%8.2f,%8.2f) z %08X rgba %08X stq (%g, %g, %g) uv (%.1f,%.1f)\n",
@@ -466,12 +482,15 @@ func (gs *GS) plot(t *gsTarget, x, y int32, z uint32, rgba uint32) {
 	}
 
 	gs.plotted++
+	preBlend := rgba
+	blended := false
 	if t.abe && (!t.pabe || srcA&0x80 != 0) {
 		dstA := int64(old >> 24)
 		if t.psm == psmCT24 {
 			dstA = 0x80 // a frame with no alpha reads as 1.0
 		}
 		rgba = blendPixel(t.alpha, rgba, old, dstA, t.colclamp)
+		blended = true
 	}
 	if t.fba != 0 {
 		rgba |= 0x80000000
@@ -501,10 +520,15 @@ func (gs *GS) plot(t *gsTarget, x, y int32, z uint32, rgba uint32) {
 	}
 	if gs.m != nil && gs.m.GSPixelN > 0 && x == gs.m.GSPixelX && y == gs.m.GSPixelY {
 		gs.m.GSPixelN--
-		fmt.Printf("  pixel (%d,%d) fb 0x%05X <- %08X (src %08X over %08X, %s%s) from %s\n",
+		blendS := ""
+		if blended {
+			blendS = sprintf(" blend(%08X %X->%08X)", preBlend, uint32(t.alpha), rgba)
+		}
+		fmt.Printf("  pixel (%d,%d) fb 0x%05X <- %08X (src %08X over %08X, %s%s%s) from %s\n",
 			x, y, t.fbp*64, px, rgba, old,
 			primNames[t.primType],
 			map[bool]string{true: " ABE", false: ""}[t.abe],
+			blendS,
 			gs.src)
 	}
 	gs.vram[addr+0] = byte(px)

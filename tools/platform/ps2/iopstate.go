@@ -91,6 +91,13 @@ type IOPState struct {
 	DMAPending               []IOPDMADoneState
 	Timers                   [iopTimers]IOPTimerState
 
+	// The SIO2 transfer in flight: a snapshot can land between the DMA arm and the
+	// start bit, and a resume must find the FIFOs and the armed slice where they were.
+	SIO2In, SIO2Out       []byte
+	SIO2DmaAddr           [2]uint32
+	SIO2DmaWords          [2]uint32
+	SIO2OutArmed          bool
+
 	SPURegs []byte
 	SPURAM  []byte
 
@@ -172,6 +179,9 @@ func (p *IOP) SaveState() IOPState {
 	for _, d := range p.dmaPending {
 		s.DMAPending = append(s.DMAPending, IOPDMADoneState{At: d.at, Ch: d.ch})
 	}
+	s.SIO2In = append([]byte(nil), p.sio2.in...)
+	s.SIO2Out = append([]byte(nil), p.sio2.out...)
+	s.SIO2DmaAddr, s.SIO2DmaWords, s.SIO2OutArmed = p.sio2.dmaAddr, p.sio2.dmaWords, p.sio2.outArmed
 	for i := range p.timers {
 		s.Timers[i] = IOPTimerState{
 			Count: p.timers[i].count, Mode: p.timers[i].mode,
@@ -277,6 +287,9 @@ func (m *Machine) LoadIOPState(s IOPState) error {
 	for _, d := range s.DMAPending {
 		p.dmaPending = append(p.dmaPending, iopDMADone{at: d.At, ch: d.Ch})
 	}
+	p.sio2.in = append([]byte(nil), s.SIO2In...)
+	p.sio2.out = append([]byte(nil), s.SIO2Out...)
+	p.sio2.dmaAddr, p.sio2.dmaWords, p.sio2.outArmed = s.SIO2DmaAddr, s.SIO2DmaWords, s.SIO2OutArmed
 	for i := range s.Timers {
 		p.timers[i] = iopTimer{
 			count: s.Timers[i].Count, mode: s.Timers[i].Mode,

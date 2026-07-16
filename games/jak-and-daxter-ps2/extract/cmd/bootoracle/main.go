@@ -28,6 +28,47 @@ import (
 	"retroreverse.com/tools/platform/ps2"
 )
 
+// padButtonBits names the controller's buttons by the bit each occupies in the pad
+// protocol's two button bytes (little end first, active-high here — the wire inverts).
+var padButtonBits = map[string]uint16{
+	"SELECT": 0x0001, "L3": 0x0002, "R3": 0x0004, "START": 0x0008,
+	"UP": 0x0010, "RIGHT": 0x0020, "DOWN": 0x0040, "LEFT": 0x0080,
+	"L2": 0x0100, "R2": 0x0200, "L1": 0x0400, "R1": 0x0800,
+	"TRIANGLE": 0x1000, "CIRCLE": 0x2000, "CROSS": 0x4000, "X": 0x4000, "SQUARE": 0x8000,
+}
+
+// parsePadScript reads the -pad schedule: BUTTON@VBLANK[:HOLD], comma-separated.
+func parsePadScript(s string) ([]ps2.PadPress, error) {
+	var script []ps2.PadPress
+	for _, ent := range strings.Split(s, ",") {
+		ent = strings.TrimSpace(ent)
+		if ent == "" {
+			continue
+		}
+		name, rest, ok := strings.Cut(ent, "@")
+		if !ok {
+			return nil, fmt.Errorf("bad -pad entry %q (want BUTTON@VBLANK[:HOLD])", ent)
+		}
+		bits, ok := padButtonBits[strings.ToUpper(strings.TrimSpace(name))]
+		if !ok {
+			return nil, fmt.Errorf("bad -pad button %q", name)
+		}
+		atS, holdS, _ := strings.Cut(rest, ":")
+		at, err := strconv.ParseUint(atS, 10, 32)
+		if err != nil {
+			return nil, fmt.Errorf("bad -pad vblank %q", atS)
+		}
+		hold := uint64(30)
+		if holdS != "" {
+			if hold, err = strconv.ParseUint(holdS, 10, 32); err != nil {
+				return nil, fmt.Errorf("bad -pad hold %q", holdS)
+			}
+		}
+		script = append(script, ps2.PadPress{Buttons: bits, At: uint32(at), Hold: uint32(hold)})
+	}
+	return script, nil
+}
+
 type multiFlag []string
 
 func (m *multiFlag) String() string { return strings.Join(*m, ",") }
@@ -82,6 +123,7 @@ func main() {
 	gsFrame := flag.String("gsframe", "", "write the frame the GS would be scanning out (the DISPFB rectangle, deswizzled) to FILE.png at the end of the run")
 	vu1In := flag.String("vu1in", "", "dump a VU1 program's input buffer (96 qw at TOP) at its next MSCAL — hex byte address; the in-place transforms destroy the input by kick time")
 	gsPixel := flag.String("gspixel", "", "log the next N writes landing on window pixel X:Y[:N] of any render target, with the colour, blend inputs, target and producer — the 'who painted this pixel' instrument a uniform fill needs")
+	pad := flag.String("pad", "", "press controller buttons: BUTTON@VBLANK[:HOLD],... (e.g. X@1100:30,START@1400:30; default hold 30 vblanks) — a digital pad sits in port 0 either way, this is what it reports pressed")
 	gsBig := flag.Int("gsbig", 0, "print the first N completed GS primitives whose bounding box exceeds 1024px, naming the VU1 program or PATH that produced each — the huge-triangle hunter")
 	gsVerts := flag.Int("gsverts", 0, "print the first N completed GS primitives with their exact vertex data (position, Z, RGBA, ST/Q) — one column per hypothesis: huge positions = transform bug, black RGBA = lighting bug, zero alpha or Q = unpack bug")
 	vu1Data := flag.String("vu1data", "", "write VU1's data memory (as the VIF unpacked it) to FILE at the end of the run — the input side of a microprogram, where the matrix rows and the vertex block sit")
@@ -108,7 +150,7 @@ func main() {
 		iopOnly: *iopOnly, iopMods: *iopMods, iopDis: *iopDis,
 		iopIO: *iopIO, iopION: *iopION, iopWatch: *iopWatch, iopTrap: *iopTrap,
 		iopCalls: *iopCalls, iopCallsFrom: *iopCallsFrom, iopPokes: iopPokes,
-		iopDump: *iopDump, iopThreads: *iopThreads, iopIELog: *iopIELog, goalSyms: *goalSyms, goalNames: *goalNames, eeProf: *eeProf, gsFrame: *gsFrame, gsVerts: *gsVerts, gsBig: *gsBig, gsPixel: *gsPixel, vu1In: *vu1In, vu1Micro: *vu1Micro, vu0Micro: *vu0Micro, vu0Data: *vu0Data, vu0Regs: *vu0Regs, vu1Data: *vu1Data,
+		iopDump: *iopDump, iopThreads: *iopThreads, iopIELog: *iopIELog, goalSyms: *goalSyms, goalNames: *goalNames, eeProf: *eeProf, gsFrame: *gsFrame, gsVerts: *gsVerts, gsBig: *gsBig, gsPixel: *gsPixel, pad: *pad, vu1In: *vu1In, vu1Micro: *vu1Micro, vu0Micro: *vu0Micro, vu0Data: *vu0Data, vu0Regs: *vu0Regs, vu1Data: *vu1Data,
 		gsFBs: gsFBs, gsTexs: gsTexs,
 	}); err != nil {
 		fmt.Fprintln(os.Stderr, "bootoracle:", err)
@@ -146,6 +188,7 @@ type cfg struct {
 	gsVerts                               int
 	gsBig                                 int
 	gsPixel                               string
+	pad                                   string
 	vu1In                                 string
 	vu1Data                               string
 	vu1Micro                              string
@@ -534,6 +577,13 @@ func run(c cfg) error {
 			return fmt.Errorf("bad -vu1in %q", c.vu1In)
 		}
 		m.VU1DumpIn = int64(a)
+	}
+	if c.pad != "" {
+		script, err := parsePadScript(c.pad)
+		if err != nil {
+			return err
+		}
+		m.PadScript = script
 	}
 	if c.gsVerts > 0 {
 		m.GSVertDump = c.gsVerts

@@ -117,8 +117,14 @@ func init() {
 		4: {"printf", (*IOP).stdioPrintf},
 	})
 
+	// dmacman: the four functions sio2man drives its DMA channels 11/12 with, identified
+	// from sio2man's own call sites and modelled in iopsio2.go next to the FIFOs they feed.
 	lib("dmacman", map[uint16]iopFunc{
-		28: unknown(), 32: unknown(), 33: unknown(), 34: unknown(), 35: unknown(),
+		28: {"SetSliceDMA", (*IOP).dmacmanSetSlice},
+		32: {"StartDMA", (*IOP).dmacmanStart},
+		33: {"ChanSetup", (*IOP).dmacmanChanSetup},
+		34: {"ChanEnable", (*IOP).dmacmanChanEnable},
+		35: unknown(),
 	})
 
 	lib("vblank", map[uint16]iopFunc{

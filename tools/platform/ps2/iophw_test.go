@@ -486,3 +486,82 @@ func TestASnapshotCarriesTheWholeSecondProcessor(t *testing.T) {
 		t.Error("the rebuilt syscall has no handler: CpuSuspendIntr would return zero and do nothing")
 	}
 }
+
+func TestSIO2PadAnswersAndCardDoesNot(t *testing.T) {
+	// The SIO2 transfer engine, on the point that decides the title: a command to the pad
+	// port must come back as a digital pad, and a command to a card port must come back as
+	// the empty-slot word — the exact split the 20th pass built the whole slot probe to
+	// deliver, now with a real controller alongside the absent cards.
+	m := NewMachine()
+	p := m.StartIOP()
+
+	// Two commands in one transfer: SEND3[0] a 5-byte poll on port 0 (the pad), SEND3[1] a
+	// 4-byte probe on port 2 (a card). The bytes are fed the DMA way sio2man uses.
+	poll := []byte{0x01, 0x42, 0x00, 0x00, 0x00}
+	probe := []byte{0x81, 0x11, 0x00, 0x00}
+	in := append(append([]byte{}, poll...), probe...)
+	for i, b := range in {
+		p.ram[0x1000+i] = b
+	}
+	// dmacman#28(11, 0x1000, size, count) then #32(11) feeds the command FIFO from RAM;
+	// size*count is the transfer length in words, enough to span the command bytes.
+	p.CPU.SetReg(4, 11)
+	p.CPU.SetReg(5, 0x1000)
+	p.CPU.SetReg(6, uint32((len(in)+3)/4))
+	p.CPU.SetReg(7, 1)
+	p.dmacmanSetSlice()
+	p.CPU.SetReg(4, 11)
+	p.dmacmanStart()
+
+	// SEND3: one entry per command, {port in bits 0-1, length in bits 8-16}.
+	p.io[sio2SEND3+0] = uint32(len(poll))<<8 | 0  // port 0
+	p.io[sio2SEND3+4] = uint32(len(probe))<<8 | 2 // port 2
+	p.io[sio2SEND3+8] = 0
+
+	// Arm the response DMA (ch12) and start: 4 words = 16 bytes, room for both answers.
+	p.CPU.SetReg(4, 12)
+	p.CPU.SetReg(5, 0x2000)
+	p.CPU.SetReg(6, 4)
+	p.CPU.SetReg(7, 1)
+	p.dmacmanSetSlice()
+	p.CPU.SetReg(4, 12)
+	p.dmacmanStart()
+
+	p.pending = 0
+	p.sio2Write(sio2CTRL, 1)
+
+	if p.pending&(1<<iopSIO2IRQ) == 0 {
+		t.Fatal("the completion interrupt (17) was not raised: sio2man's worker sleeps forever")
+	}
+	if got := p.io[sio2RECV1]; got != sio2Device {
+		t.Errorf("RECV1 = 0x%X, want 0x%X: a transfer that touched the pad port must report a device",
+			got, sio2Device)
+	}
+	// The pad's answer, flushed to 0x2000 by the response DMA: header 0xFF, then 0x41 0x5A.
+	if p.ram[0x2000] != 0xFF || p.ram[0x2001] != 0x41 || p.ram[0x2002] != 0x5A {
+		t.Errorf("pad response = % x, want ff 41 5a ...: the digital pad's identity",
+			p.ram[0x2000:0x2005])
+	}
+	// No buttons pressed: both button bytes read back all-ones (active low).
+	if p.ram[0x2003] != 0xFF || p.ram[0x2004] != 0xFF {
+		t.Errorf("idle buttons = %02x %02x, want ff ff", p.ram[0x2003], p.ram[0x2004])
+	}
+}
+
+func TestSIO2PadReportsInjectedButtons(t *testing.T) {
+	// The injection schedule reaches the wire: a button held over the current vblank comes
+	// back as a low bit in the pad's answer, which is how the oracle presses X on a dialog.
+	m := NewMachine()
+	p := m.StartIOP()
+	m.vblanks = 900
+	m.PadScript = []PadPress{{Buttons: 0x4000, At: 800, Hold: 400}} // CROSS/X, active this vblank
+
+	resp := p.sio2Pad([]byte{0x01, 0x42, 0x00, 0x00, 0x00}, 5)
+	// X is bit 0x4000 → the high button byte, bit 6 → cleared (active low).
+	if resp[4] != ^byte(0x40) {
+		t.Errorf("with X held, button byte 2 = %02x, want %02x", resp[4], ^byte(0x40))
+	}
+	if resp[3] != 0xFF {
+		t.Errorf("button byte 1 = %02x, want ff (nothing in the low byte pressed)", resp[3])
+	}
+}

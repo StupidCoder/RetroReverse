@@ -644,10 +644,11 @@ func (m *Machine) GSStatus() string {
 		uint32(dispfb2)&0x1FF*2048, uint32(dispfb2>>15)&0x1F)
 	s += sprintf("      pixels: %d plotted; rejected %d scissor, %d ztest, %d alphatest, %d datest\n",
 		m.gs.plotted, m.gs.rejScissor, m.gs.rejZ, m.gs.rejAlpha, m.gs.rejDate)
-	s += sprintf("      FOGCOL 0x%06X, XYOFFSET1 (%d,%d), XYOFFSET2 (%d,%d)\n",
+	s += sprintf("      FOGCOL 0x%06X, XYOFFSET1 (%d,%d), XYOFFSET2 (%d,%d), PABE %d, COLCLAMP %d\n",
 		uint32(m.gs.reg[gsFOGCOL])&0xFFFFFF,
 		uint32(m.gs.reg[gsXYOFFSET1])&0xFFFF>>4, uint32(m.gs.reg[gsXYOFFSET1]>>32)&0xFFFF>>4,
-		uint32(m.gs.reg[gsXYOFFSET2])&0xFFFF>>4, uint32(m.gs.reg[gsXYOFFSET2]>>32)&0xFFFF>>4)
+		uint32(m.gs.reg[gsXYOFFSET2])&0xFFFF>>4, uint32(m.gs.reg[gsXYOFFSET2]>>32)&0xFFFF>>4,
+		uint32(m.gs.reg[gsPABE])&1, uint32(m.gs.reg[gsCOLCLAMP])&1)
 	for i, n := range m.gs.plotNonBlack {
 		if n > 0 {
 			s += sprintf("      non-black pixels by %-10s %d\n", primNames[i], n)

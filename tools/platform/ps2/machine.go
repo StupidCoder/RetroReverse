@@ -239,6 +239,12 @@ type Machine struct {
 	// their input by XGKICK time; this is the only moment the input exists.
 	VU1DumpIn int64
 
+	// PadScript is the pad-injection schedule: what the controller in port 0 reports
+	// pressed, by vblank window. The SIO2's pad (iopsio2.go) consults it on every poll.
+	// The state is a pure function of the vblank counter, so a resumed snapshot replays
+	// the same presses and the schedule itself needs no place in the state file.
+	PadScript []PadPress
+
 	breakpoints map[uint32]bool
 
 	// StopRequested ends the run at the next instruction boundary.
@@ -738,6 +744,28 @@ func (m *Machine) TTY() string { return string(m.tty) }
 
 // VBlanks reports how many synthetic vertical blanks have elapsed.
 func (m *Machine) VBlanks() uint32 { return m.vblanks }
+
+// PadPress is one entry of the pad-injection schedule: hold Buttons down from vblank At
+// for Hold vblanks. The bit layout is the pad protocol's own, as the two button bytes of
+// a poll response read little end first — SELECT 0x0001 .. LEFT 0x0080 in the first byte,
+// L2 0x0100 .. SQUARE 0x8000 in the second — kept active-high here and inverted at the
+// wire, where the protocol says a pressed button is a low bit.
+type PadPress struct {
+	Buttons  uint16
+	At, Hold uint32
+}
+
+// padButtons is what the controller in port 0 reports pressed right now, from the
+// injection schedule and the vblank counter.
+func (m *Machine) padButtons() uint16 {
+	var b uint16
+	for _, pr := range m.PadScript {
+		if m.vblanks >= pr.At && m.vblanks < pr.At+pr.Hold {
+			b |= pr.Buttons
+		}
+	}
+	return b
+}
 
 // ReadMem copies n bytes of guest memory, without disturbing the read hooks.
 func (m *Machine) ReadMem(addr uint32, n int) []byte {
