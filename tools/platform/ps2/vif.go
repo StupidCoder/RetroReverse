@@ -98,6 +98,13 @@ type vif struct {
 	pending int
 	buf     []byte
 
+	// The pre-MSCAL code trail: the last codes the stream carried, kept only while a
+	// -vu1in dump is armed and printed with it. An input snapshot says what the data IS;
+	// this says how it GOT there — which unpack wrote the block the program reads, or
+	// that none did and the program was called over another chain's leavings.
+	codeLog     []string
+	codeTrailsN int
+
 	// The vector unit's memories, filled by MPG and UNPACK.
 	micro []byte
 	data  []byte
@@ -205,6 +212,17 @@ func (v *vif) feed(data []byte) {
 	}
 }
 
+// logCode files one line into the pre-MSCAL code trail (see codeLog above).
+func (v *vif) logCode(s string) {
+	if v.idx != 1 || v.m.VU1DumpIn < 0 {
+		return
+	}
+	v.codeLog = append(v.codeLog, s)
+	if len(v.codeLog) > 96 {
+		v.codeLog = v.codeLog[len(v.codeLog)-96:]
+	}
+}
+
 // code decodes one VIFcode and either acts on it or arms the payload gather.
 func (v *vif) code(w uint32) {
 	cmd := (w >> 24) & 0x7F
@@ -220,12 +238,21 @@ func (v *vif) code(w uint32) {
 		if v.cl == 0 {
 			v.cl = 1 // a zero cycle divides by it below; the hardware treats CL=0 as unusable
 		}
+		v.logCode(sprintf("stcycl cl%d wl%d", v.cl, v.wl))
 
 	case vifOFFSET:
-		v.ofst = imm
+		// BASE, OFFSET and TOPS are 10-bit registers, and the game leans on that: the
+		// title's merc chains program OFFSET = -BASE (0xFE46 for base 442), so the
+		// second buffer is BASE + (-BASE mod 1024) = 1024 ≡ 0 — a double buffer at BASE
+		// and at nought. Kept at 16 bits, TOPS became 65536, every FLG unpack computed
+		// an out-of-range address and was dropped, and the program ran over another
+		// chain's leavings.
+		v.ofst = imm & 0x3FF
+		v.logCode(sprintf("offset %d (raw 0x%X)", v.ofst, imm))
 	case vifBASE:
-		v.base = imm
-		v.tops = imm // TOPS starts at BASE; MSCAL flips it between the two buffers
+		v.base = imm & 0x3FF
+		v.tops = v.base // TOPS starts at BASE; MSCAL flips it between the two buffers
+		v.logCode(sprintf("base %d", v.base))
 	case vifITOP:
 		v.itop = imm
 	case vifSTMOD:
@@ -246,10 +273,12 @@ func (v *vif) code(w uint32) {
 			v.m.note("VIF%d: MSCAL of the microprogram at 0x%X (VU%d micro address 0x%X)",
 				v.idx, imm, v.idx, imm*8)
 		}
+		v.logCode(sprintf("mscal 0x%X (tops %d -> top)", imm*8, v.tops))
 		v.runVU(imm*8, false)
 	case vifMSCNT:
 		// Run the microprogram from where the last one ended.
 		v.count("mscnt")
+		v.logCode(sprintf("mscnt (pc 0x%X, tops %d -> top)", v.vu.PC, v.tops))
 		v.runVU(0, true)
 
 	case vifSTMASK:
@@ -311,6 +340,7 @@ func (v *vif) finish() {
 		// The microcode lands in the unit's program memory at IMMEDIATE*8, so it is there
 		// to disassemble now and to run later.
 		v.count("mpg")
+		v.logCode(sprintf("mpg -> micro 0x%X (%d bytes)", imm*8, len(v.buf)))
 		copy(v.micro[min32(imm*8, uint32(len(v.micro))):], v.buf)
 		h := fnv64(v.buf)
 		if info := v.mpgSeen[h]; info != nil {
@@ -322,6 +352,7 @@ func (v *vif) finish() {
 	case vifDIRECT, vifDIRECTHL:
 		// PATH2: the payload is GIF packets, straight to the GS.
 		v.count("direct")
+		v.logCode(sprintf("direct (%d qw)", len(v.buf)/16))
 		v.m.ensureGS().src = "path2 direct"
 		v.m.gifPacket(v.buf)
 
@@ -392,9 +423,23 @@ func (v *vif) unpack(cmd uint32, data []byte) {
 		v.count(sprintf("unpack with STMASK %08X (mask not applied)", v.mask))
 	}
 
-	addr := (imm & 0x3FF) * 16
+	qwMask := uint32(len(v.data)/16 - 1)
+	addrQW := imm & 0x3FF
 	if flg {
-		addr += v.tops * 16 // the double buffer MSCAL is filling next (TOPS)
+		addrQW += v.tops // the double buffer MSCAL is filling next (TOPS)
+	}
+	addrQW &= qwMask
+	addr := addrQW * 16
+	if v.idx == 1 && v.m.VU1DumpIn >= 0 {
+		var head [16]byte
+		copy(head[:], data)
+		mode := ""
+		if flg {
+			mode = sprintf(" (flg, tops %d)", v.tops)
+		}
+		v.logCode(sprintf("unpack V%d-%d num %d -> qw %d%s  first %08X %08X %08X %08X", vn+1, 32>>vl,
+			num, addr/16, mode,
+			le32gs(head[:]), le32gs(head[4:]), le32gs(head[8:]), le32gs(head[12:])))
 	}
 
 	// The read cursor over the payload and the element reader for the format.
@@ -479,22 +524,24 @@ func (v *vif) unpack(cmd uint32, data []byte) {
 		// WL vectors then skips ahead to the next CL boundary — the road a game uses
 		// to interleave separate position/texcoord/colour streams into one vertex
 		// array. Writing contiguously here scrambled every interleaved record.
-		at := addr + i*16
+		// The write address wraps mod the memory (the address register has only as many
+		// bits as the memory needs) — a dropped write would be data the program never
+		// sees, which is a silent lie about what the stream delivered.
+		atQW := addrQW + i
 		if v.cl > wl {
-			at = addr + (i/wl*v.cl+i%wl)*16
+			atQW = addrQW + i/wl*v.cl + i%wl
 		}
-		if int(at)+16 <= len(v.data) {
-			for e := 0; e < 4; e++ {
-				if v.idx == 1 && f[e]&0x7FFFFFFF == 0x7F7FFFFF {
-					if v.maxUnpacks++; v.maxUnpacks <= 8 {
-						v.m.note("VIF1 unpacked a ±FLT_MAX word into data qw %d (bits %08X) — the garbage was authored EE-side", at/16, f[e])
-					}
+		at := (atQW & qwMask) * 16
+		for e := 0; e < 4; e++ {
+			if v.idx == 1 && f[e]&0x7FFFFFFF == 0x7F7FFFFF {
+				if v.maxUnpacks++; v.maxUnpacks <= 8 {
+					v.m.note("VIF1 unpacked a ±FLT_MAX word into data qw %d (bits %08X) — the garbage was authored EE-side", at/16, f[e])
 				}
-				v.data[at+uint32(e)*4+0] = byte(f[e])
-				v.data[at+uint32(e)*4+1] = byte(f[e] >> 8)
-				v.data[at+uint32(e)*4+2] = byte(f[e] >> 16)
-				v.data[at+uint32(e)*4+3] = byte(f[e] >> 24)
 			}
+			v.data[at+uint32(e)*4+0] = byte(f[e])
+			v.data[at+uint32(e)*4+1] = byte(f[e] >> 8)
+			v.data[at+uint32(e)*4+2] = byte(f[e] >> 16)
+			v.data[at+uint32(e)*4+3] = byte(f[e] >> 24)
 		}
 	}
 }
@@ -512,7 +559,7 @@ func (v *vif) runVU(start uint32, cont bool) {
 	v.vu.ITop = uint16(v.itop)
 	if v.ofst != 0 {
 		if v.tops == v.base {
-			v.tops = v.base + v.ofst
+			v.tops = (v.base + v.ofst) & 0x3FF // TOPS is 10 bits; base 442 + offset 582 IS buffer 0
 		} else {
 			v.tops = v.base
 		}
@@ -530,6 +577,16 @@ func (v *vif) runVU(start uint32, cont bool) {
 		snap := append([]byte(nil), v.data...)
 		_ = writeFile(name, snap)
 		v.m.note("VU1 input snapshot at MSCAL of 0x%X (top %d): %s", start, v.vu.Top, name)
+		if v.codeTrailsN < 3 {
+			v.codeTrailsN++
+			v.m.note("VIF1 code trail %d into this MSCAL (oldest first):", v.codeTrailsN)
+			for i, s := range v.codeLog {
+				// The index defeats note()'s dedup: a trail is a sequence, and its
+				// repeated lines are the story.
+				v.m.note("VIF1 t%d.%02d  %s", v.codeTrailsN, i, s)
+			}
+		}
+		v.codeLog = v.codeLog[:0]
 	}
 	// The budget is a corrupt-program guard, far above any real program (the biggest
 	// ones here are a few thousand steps over a full input buffer).

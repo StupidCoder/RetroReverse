@@ -52,3 +52,39 @@ func TestUnpackSkipMode(t *testing.T) {
 		}
 	}
 }
+
+// TestOffsetNegativeWrap pins the double-buffer registers' width: BASE, OFFSET and
+// TOPS are 10 bits, and the title's merc chains lean on it — they program
+// OFFSET = -BASE (0xFE46 for base 442) so the second buffer sits at
+// (442 + (-442 mod 1024)) mod 1024 = 0. Kept at 16 bits, TOPS became 65536, every
+// FLG unpack landed out of range and was dropped, and the skinning streamer ran
+// away over another chain's leavings — the title's black screen.
+func TestOffsetNegativeWrap(t *testing.T) {
+	m := NewMachine()
+	v := m.ensureVIF(1)
+
+	code := func(cmd, num, imm uint32) []byte {
+		var b [4]byte
+		binary.LittleEndian.PutUint32(b[:], imm&0xFFFF|num<<16|cmd<<24)
+		return b[:]
+	}
+
+	var stream []byte
+	stream = append(stream, code(0x03, 0, 442)...)    // BASE 442
+	stream = append(stream, code(0x02, 0, 0xFE46)...) // OFFSET -442 (10 bits: 582)
+	stream = append(stream, code(0x14, 0, 0)...)      // MSCAL 0: TOP=442, TOPS flips to (442+582)&0x3FF = 0
+	// V4-32, 1 vector, at 140 with the FLG bit (1<<15): lands at TOPS+140 = 140.
+	stream = append(stream, code(0x6C, 1, 140|1<<15)...)
+	stream = append(stream, []byte{0xEF, 0xBE, 0xAD, 0xDE, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}...)
+	v.feed(stream)
+
+	if v.tops != 0 {
+		t.Errorf("TOPS after the flip: got %d, want 0", v.tops)
+	}
+	if got := binary.LittleEndian.Uint32(v.data[140*16:]); got != 0xDEADBEEF {
+		t.Errorf("FLG unpack at TOPS+140: got %08X at qw 140, want DEADBEEF", got)
+	}
+	if v.vu.Top != 442 {
+		t.Errorf("TOP handed to the first MSCAL: got %d, want 442", v.vu.Top)
+	}
+}
