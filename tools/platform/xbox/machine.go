@@ -177,6 +177,32 @@ type Machine struct {
 	// reports here when installed. Nil by default and outside the savestate.
 	OnPixel func(x, y uint32, ev PixelEvent)
 
+	// OnNVMethod is the debugger's command hook: every (subchannel, method, argument)
+	// the PFIFO pusher decodes reports here BEFORE the engine acts on it, so a hook can
+	// number the command that is about to draw. Nil by default, outside the savestate.
+	OnNVMethod func(m *Machine, subchan, method, arg uint32)
+
+	// OnFlip fires when the title presents a frame — when it registers a new scanout
+	// through AvSetDisplayMode, which on this console is the swap (see kernel.go
+	// ordinal 3). Nil by default, outside the savestate.
+	OnFlip func(*Machine)
+
+	// StopRequested asks the run loops to stop at the next safe boundary: the CPU
+	// between instructions, the pusher between commands. A hook sets it to end a run
+	// (the frame hook at a flip, a breaking watch); Run clears it when it returns.
+	//
+	// It is a flag rather than a method because the machine is single-threaded by
+	// contract — only a hook running INSIDE the run may set it, never another
+	// goroutine, which is what keeps the whole model race-free.
+	StopRequested bool
+
+	// stopAfterMethod counts down the pusher methods left to dispatch before the run
+	// stops, for the debugger's command scrubber. Zero means no limit.
+	stopAfterMethod int
+	stopAfterArmed  bool
+
+	bps map[uint32]bool // execution breakpoints, by linear PC
+
 	verbose   bool
 	traceLeft int // remaining instructions to print a PC/disasm trail for (-trace)
 }
@@ -493,6 +519,33 @@ func (m *Machine) SetTrace(n int) { m.traceLeft = n }
 // the debugger/CLI view into the running machine.
 func (m *Machine) MemReadByte(a uint32) byte { return m.Read(a) }
 func (m *Machine) MemRead32(a uint32) uint32 { return m.read32(a) }
+
+// ReadRAM fills buf from guest address a, reading RAM only: anything outside RAM — the
+// NV2A aperture above all — reads as zero rather than being fetched.
+//
+// That restriction is the point, and it is why this exists beside Read. A debugger's
+// memory pane and its disassembler poll continuously and at addresses the user picked,
+// and reading an MMIO register HAS SIDE EFFECTS on this machine (the PCRTC interrupt
+// status is write-1-to-clear, the FIFO status is what a spin loop is waiting on). A pane
+// that quietly serviced the title's own interrupt ack would be a debugger that changes
+// the bug it is being used to find.
+func (m *Machine) ReadRAM(a uint32, buf []byte) {
+	for i := range buf {
+		buf[i] = 0
+		if phys, mmio, ok := m.translate(a + uint32(i)); ok && !mmio && int(phys) < len(m.RAM) {
+			buf[i] = m.RAM[phys]
+		}
+	}
+}
+
+// ReadCode fills buf with the bytes at a for disassembly. It is ReadRAM: code lives in
+// RAM, and a disassembler walking off into the register aperture must not touch it.
+func (m *Machine) ReadCode(a uint32, buf []byte) { m.ReadRAM(a, buf) }
+
+// NVSubchannelClass is the object class currently bound to a push-buffer subchannel —
+// what a command's method number has to be read against, since the method space is the
+// bound object's, not the machine's.
+func (m *Machine) NVSubchannelClass(subchan uint32) uint32 { return m.pgraph.subClass[subchan&7] }
 
 // AllocStats reports the two bump arenas' current edges (heap grows up toward
 // heapTop, the contiguous/pool arena grows down toward the heap) — the

@@ -5,7 +5,11 @@ package xbox
 // the instruction budget was spent, the CPU halted (an unmodelled ordinal, a fault, a
 // deadlock), or the first NV2A push-buffer kick landed, which is the Phase-B goal.
 
-import "fmt"
+import (
+	"fmt"
+
+	"retroreverse.com/tools/cpu/x86"
+)
 
 // StopReason explains why Run returned.
 type StopReason int
@@ -14,6 +18,8 @@ const (
 	StopBudget    StopReason = iota // the instruction budget was exhausted
 	StopHalt                        // the CPU halted (see HaltReason)
 	StopFirstPush                   // the first NV2A push-buffer kick was reached (goal)
+	StopRequest                     // a hook set StopRequested (a flip, a breaking watch)
+	StopBreak                       // an execution breakpoint was reached
 )
 
 func (r StopReason) String() string {
@@ -24,14 +30,20 @@ func (r StopReason) String() string {
 		return "halted"
 	case StopFirstPush:
 		return "first NV2A push reached"
+	case StopRequest:
+		return "stop requested"
+	case StopBreak:
+		return "breakpoint"
 	default:
 		return "?"
 	}
 }
 
-// Run steps up to maxSteps instructions, stopping early on a halt or the first NV2A
-// push. It returns the reason and the number of instructions executed.
+// Run steps up to maxSteps instructions, stopping early on a halt, the first NV2A push,
+// a breakpoint, or a hook's stop request. It returns the reason and the number of
+// instructions executed.
 func (m *Machine) Run(maxSteps uint64) (StopReason, uint64) {
+	m.StopRequested = false
 	var n uint64
 	for n < maxSteps {
 		if m.CPU.Halted {
@@ -40,10 +52,70 @@ func (m *Machine) Run(maxSteps uint64) (StopReason, uint64) {
 		if m.firstPush && !m.pusherEnabled {
 			return StopFirstPush, n
 		}
+		// A breakpoint stops BEFORE its instruction executes, so the machine is parked
+		// exactly at the PC the user asked about and stepping on from here runs it.
+		//
+		// The address tested is the NEXT instruction's (SegBase[CS]+IP, the same thing
+		// onStep dispatches on), not CPU.LinearPC() — that reports instrIP, the
+		// instruction currently executing, which between steps is the one just RETIRED.
+		// Testing it would fire every breakpoint exactly one instruction late.
+		//
+		// Checked only after at least one step, so a Continue from a breakpoint's own PC
+		// makes progress instead of stopping on the spot forever.
+		if n > 0 && len(m.bps) > 0 && m.bps[m.PC()] {
+			return StopBreak, n
+		}
 		m.CPU.Step()
 		n++
+		if m.StopRequested {
+			m.StopRequested = false
+			return StopRequest, n
+		}
 	}
 	return StopBudget, n
+}
+
+// RunStopAfterNVMethod runs until the pusher has dispatched k more methods, then stops.
+// It is the command scrubber's engine: replay a frame from its start snapshot and stop
+// after command k, leaving the render target holding the frame as it stood right then.
+//
+// Unlike the GameCube's FIFO — drained by a loop the caller owns — the NV2A's pusher runs
+// inside the guest's own store to DMA_PUT, so this cannot simply decline the next command:
+// it arms a countdown that the pusher's method dispatch trips, which stops the pusher
+// mid-buffer and the CPU with it. The machine is left mid-frame with GET short of PUT,
+// which is exactly why this belongs on a scratch machine and never on the live one.
+func (m *Machine) RunStopAfterNVMethod(k int, maxSteps uint64) (StopReason, uint64) {
+	m.stopAfterMethod, m.stopAfterArmed = k, true
+	defer func() { m.stopAfterMethod, m.stopAfterArmed = 0, false }()
+	return m.Run(maxSteps)
+}
+
+// PC is the linear address of the instruction the machine will execute NEXT — where a
+// parked machine sits. It is deliberately not CPU.LinearPC(), which reports the
+// instruction being executed (and so, between steps, the one just retired): a debugger
+// asks "where am I stopped?", and this answers it.
+func (m *Machine) PC() uint32 { return m.CPU.SegBase[x86.CS] + m.CPU.IP }
+
+// SetBreakpoint / ClearBreakpoint / ClearBreakpoints / Breakpoints hold execution
+// breakpoints, checked against the linear PC between instructions.
+func (m *Machine) SetBreakpoint(pc uint32) {
+	if m.bps == nil {
+		m.bps = map[uint32]bool{}
+	}
+	m.bps[pc] = true
+}
+
+func (m *Machine) ClearBreakpoint(pc uint32) { delete(m.bps, pc) }
+
+func (m *Machine) ClearBreakpoints() { m.bps = nil }
+
+func (m *Machine) Breakpoints() []uint32 {
+	out := make([]uint32, 0, len(m.bps))
+	for pc := range m.bps {
+		out = append(out, pc)
+	}
+	sortU32(out)
+	return out
 }
 
 // ClearHalt clears a halted machine so a run can resume. An unimplemented-ordinal

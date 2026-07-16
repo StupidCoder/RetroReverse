@@ -73,6 +73,12 @@ func (m *Machine) runPusher() {
 	}
 	words := 0
 	for m.nv.dmaGet != m.nv.dmaPut {
+		// A debugger hook asked to stop (the command scrubber reached its position).
+		// The buffer is left undrained — GET short of PUT — which is a machine mid-frame
+		// and is why only a scratch machine is ever run this way.
+		if m.StopRequested {
+			return
+		}
 		if words++; words > maxPushWords {
 			m.CPU.Halt("nv2a: pusher exceeded %d words (GET=%08X PUT=%08X) — runaway push buffer",
 				maxPushWords, m.nv.dmaGet, m.nv.dmaPut)

@@ -60,10 +60,25 @@ func (g *pgraph) clearSurface(mask uint32) {
 					m.RAM[row+2] = byte(color >> 16)
 					m.RAM[row+3] = byte(color >> 24)
 					row += 4
+					// The clear is a command that STORES PIXELS, so it reports them like
+					// any draw does. Without this the debugger's provenance says "no
+					// command touched this pixel" for every pixel of the frame that only
+					// the clear wrote — which is most of a frame's background, and which
+					// is false. The clear is very often the answer to "why is this pixel
+					// this colour".
+					if m.OnPixel != nil {
+						m.OnPixel(x, y, PixelEvent{
+							Drawn: true,
+							R:     byte(color >> 16), G: byte(color >> 8),
+							B: byte(color), A: byte(color >> 24),
+						})
+					}
 				}
 			}
 		}
 	}
+	// Only the colour plane reports: a depth or stencil clear does write memory, but the
+	// provenance it would claim is of a pixel in the picture, and it did not put one there.
 
 	if mask&0x03 != 0 {
 		// Z24S8: depth in the high 24 bits, stencil low 8; the latched clear value is
@@ -99,13 +114,18 @@ func (g *pgraph) clearSurface(mask uint32) {
 	}
 }
 
-// FramePNG encodes what the TV would show: the display scanout AvSetDisplayMode
+// RenderScanout draws what the TV would show: the display scanout AvSetDisplayMode
 // registered (its own pitch and geometry — during OutRun's loading phase that is a
 // 320x240 pitch-1280 buffer, NOT the Kelvin render target's), falling back to the
 // Kelvin color surface when no mode has been set yet.
-func (m *Machine) FramePNG() ([]byte, error) {
+//
+// It is deliberately a DIFFERENT picture from RenderDrawTarget: the scanout is the
+// buffer the CRTC is reading and the draw target is the one Kelvin is writing, and on
+// a double-buffered title those are two different addresses for most of a frame.
+// Comparing them is how a drawing bug is told from a flip bug.
+func (m *Machine) RenderScanout() (*image.RGBA, error) {
 	if m.nv.fbAddr == 0 {
-		return m.SurfacePNG()
+		return m.RenderDrawTarget()
 	}
 	pitch := m.nv.fbPitch
 	w := int(pitch / 4)
@@ -115,13 +135,13 @@ func (m *Machine) FramePNG() ([]byte, error) {
 	if w <= 0 || h <= 0 {
 		return nil, fmt.Errorf("nv2a: no display mode programmed (pitch=%d)", pitch)
 	}
-	return m.rawSurfacePNG(m.nv.fbAddr, pitch, w, h, 1, 1)
+	return m.renderRawSurface(m.nv.fbAddr, pitch, w, h, 1, 1)
 }
 
-// SurfacePNG encodes the Kelvin color surface — the frame being drawn — downsampled
+// RenderDrawTarget draws the Kelvin color surface — the frame being built — downsampled
 // from stored samples to logical pixels when the surface is anti-aliased (a box
 // filter over the AA footprint, which is the resolve a filtered flip performs).
-func (m *Machine) SurfacePNG() ([]byte, error) {
+func (m *Machine) RenderDrawTarget() (*image.RGBA, error) {
 	g := m.pgraph
 	w := int(g.Regs[kelvinSurfaceClipH>>2] >> 16)
 	h := int(g.Regs[kelvinSurfaceClipV>>2] >> 16)
@@ -131,17 +151,34 @@ func (m *Machine) SurfacePNG() ([]byte, error) {
 	if w <= 0 || h <= 0 || pitch == 0 || base == 0 {
 		return nil, fmt.Errorf("nv2a: no render surface programmed (w=%d h=%d pitch=%d base=%08X)", w, h, pitch, base)
 	}
-	return m.rawSurfacePNG(base, pitch, w, h, ax, ay)
+	return m.renderRawSurface(base, pitch, w, h, ax, ay)
 }
 
-// rawSurfacePNG reads an A8R8G8B8 surface at base/pitch, averaging ax x ay sample
+// FramePNG / SurfacePNG encode the two pictures above. They are what the oracle's
+// -png / -surfpng export, and the md5s the writeup pins are of exactly these bytes.
+func (m *Machine) FramePNG() ([]byte, error) { return encodePNG(m.RenderScanout()) }
+
+func (m *Machine) SurfacePNG() ([]byte, error) { return encodePNG(m.RenderDrawTarget()) }
+
+func encodePNG(img *image.RGBA, err error) ([]byte, error) {
+	if err != nil {
+		return nil, err
+	}
+	var buf bytes.Buffer
+	if err := png.Encode(&buf, img); err != nil {
+		return nil, err
+	}
+	return buf.Bytes(), nil
+}
+
+// renderRawSurface reads an A8R8G8B8 surface at base/pitch, averaging ax x ay sample
 // blocks into each output pixel.
-func (m *Machine) rawSurfacePNG(base, pitch uint32, w, h, ax, ay int) ([]byte, error) {
+func (m *Machine) renderRawSurface(base, pitch uint32, w, h, ax, ay int) (*image.RGBA, error) {
 	phys, mmio, ok := m.translate(base)
 	if !ok || mmio {
 		return nil, fmt.Errorf("nv2a: surface at %08X is not RAM", base)
 	}
-	img := image.NewNRGBA(image.Rect(0, 0, w, h))
+	img := image.NewRGBA(image.Rect(0, 0, w, h))
 	n := uint32(ax * ay)
 	for y := 0; y < h; y++ {
 		for x := 0; x < w; x++ {
@@ -166,9 +203,5 @@ func (m *Machine) rawSurfacePNG(base, pitch uint32, w, h, ax, ay int) ([]byte, e
 			img.Pix[i+3] = 0xFF // the TV ignores alpha
 		}
 	}
-	var buf bytes.Buffer
-	if err := png.Encode(&buf, img); err != nil {
-		return nil, err
-	}
-	return buf.Bytes(), nil
+	return img, nil
 }

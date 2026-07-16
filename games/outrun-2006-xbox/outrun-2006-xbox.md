@@ -41,6 +41,13 @@ roadmap.)
   combiners, the texture unit (DXT/swizzled/linear), the rasteriser — and the frontier behind the
   white frame: the writable Z: cache partition whose absence had frozen the menu loader. Ends with
   the first real frames: the SEGA / Sumo Digital / Ferrari cards. *(this document)*
+* **Part V** — **the title movie plays**: the five wrongs behind the post-install stall — a
+  FILE_OBJECT is a dispatcher object, the per-thread TLS slot, the fictional error map, the XMV
+  codec's MMX instruction set, and the `0xF0000000` write-combined window. Ends at the title
+  screen, PRESS START and all. *(this document)*
+* **Part VI** — the **frame debugger** (Phase D): the Xbox `framedbg` adapter, and the hunt for
+  what a frame actually *is* on this console — in which three plausible boundaries are measured
+  and refuted, one of them only by the scene that breaks it. *(this document)*
 
 ---
 
@@ -709,8 +716,111 @@ START press (`0x13C5E3`, buttons polled from the game's own pad records at `0x5E
 exists yet) or by the attract path's transition handler (`0xE9A8A`). Next: let the intro sequence
 play out into attract (the screen-vtable at `0x274250` dispatches `0xE9870`, whose tail sets the
 flag), then the frontend menus off `Z:\MENU.PAK` + `FE.PAK`, the 640×480 display-mode switch, and
-Phase D — the framedbg adapter and the input phase (USB OHCI + XID pads) so START can be pressed
-honestly.
+the input phase (USB OHCI + XID pads) so START can be pressed honestly.
+
+## Part VI — the frame debugger, and what a frame is
+
+Phase D gives the Xbox a `framedbg` adapter (`tools/debug/xboxadapter`), the eighth platform in the
+debugger suite and the first x86 console in it. It carries the GameCube adapter's feature set —
+frame capture with per-pixel provenance and overdraw, the command scrubber, fast-forward, CPU
+stepping with breakpoints and disassembly, memory watches, surfaces, the disc's filesystem,
+savestates, resume — minus the pad, because there is no pad yet, and a capability is a promise the
+target can back. An input panel that silently swallowed every press would be worse than no panel.
+
+Most of it is the translation the other adapters are. One question was not.
+
+### Which event is a frame?
+
+The suite's standing lesson is that *"which buffer is the frame?" has a different answer on every
+platform and getting it wrong always still looks plausible*. The Xbox adds a second half: **where
+does a frame END?** The NV2A renders into ordinary RAM — no on-die EFB copied out and wiped as on
+the GameCube, no tiled render target in a private aperture as on the 3DS — so the draw target is
+readable at any moment and nothing erases it. That makes the *buffer* easy and the *boundary* hard.
+
+Four candidates, each measured rather than reasoned about:
+
+- **`AvSetDisplayMode`**, the kernel ordinal that registers the scanout. It is called from the D3D
+  swap path — the Part II survey pinned it there — so it reads exactly like a present. It is called
+  **once per boot**: one call in the first 340M instructions, against thousands of frames. It is a
+  mode set.
+- **`BACK_END_WRITE_SEMAPHORE_RELEASE`**, D3D's fence. It fires **twice** per frame (the values are
+  odd and ascend by 2 — once when the batch finishes, once after the swap), so it would have
+  reported two frames for every real one.
+- **The vertical blank.** A 60 Hz scanout clock that ticks whether or not the title drew: a field,
+  not a frame.
+- **`SET_SURFACE_COLOR_OFFSET` moving to the next buffer of the swap chain.** This is the
+  interesting one.
+
+The game triple-buffers: the colour surface rotates through `0174C000` → `019A4000` → `01878000`.
+At the logo phase that rotation is *exactly* one write per frame, in lockstep with the truth — 209
+of each over 34M ticks. It renders the SEGA card correctly, scrubs correctly, and reports pixel
+provenance correctly. It is wrong.
+
+**At the title screen it fires three times per frame.** The title renders its XMV movie into an
+off-screen target at `02B7B200` first (269 re-points, one per frame) and only then draws the frame
+itself. A capture bounded by it stops on a buffer nothing has drawn into yet — and reports a clean,
+correctly-sized, **blank white frame**. No error, no crash, 183 commands where a frame has 958. The
+scene that validates a boundary is not the scene that breaks it.
+
+### `FLIP_STALL`
+
+The honest boundary is the Kelvin method **`NV097_FLIP_STALL` (0x0130)** — what Direct3D's
+`Present` compiles to. On hardware it stalls the pusher until the CRTC's flip retires; here the
+pipeline is synchronous and there is nothing to wait for, so it is a pure marker. But it is *the*
+marker: the only thing in the stream that says "this frame is finished and meant for the screen".
+It fires once per frame at both fixtures — 209 at the logo, 269 at the title — and the census that
+says so is the whole argument.
+
+Because the flip *precedes* the swap-chain re-point, the picture is captured **inside** the flip
+hook, before the method latches, while the colour surface still names the buffer the frame was
+built in. The GameCube needs the same discipline for the opposite reason (there the copy wipes the
+buffer; here the register moves on). A regression test pins it by asserting a capture contains
+geometry that stored pixels and is not one flat colour — reverting the boundary fails it with
+exactly that diagnosis.
+
+### Two things the logo scene could not have told us
+
+- **The clear is a command that stores pixels.** `CLEAR_SURFACE` wrote straight to RAM without
+  reporting fragments, so provenance said *"no command wrote this pixel"* across every pixel of the
+  background — false, and the clear is very often the answer to "why is this pixel this colour".
+  It reports now, and a title-screen pixel names both writers: `cmd 283 CLEAR_SURFACE` then
+  `cmd 865 SET_BEGIN_END rgba=b6c1db` — the card's light blue over the clear.
+- **Fragments arrive in sample space; the picture is in logical pixels.** Both fixtures run with
+  anti-aliasing *off*, where the two coordinate systems are the same numbers and any confusion
+  between them is invisible. On a 2×2 AA surface — which this pipeline supports and the loading
+  phase actually used — three quarters of every frame's provenance would have fallen outside the
+  picture and been dropped by a bounds check. The adapter resolves samples to pixels.
+
+### ★ And the scanout is a white rectangle
+
+The debugger's first honest frame capture states a gap that every pinned PNG in Parts IV and V had
+walked past: **`-surfpng`, the draw target, is the only picture that has ever been verified.**
+`Display()` — the scanout, what the CRTC actually reads — is a **320×240 window on a stale buffer
+that renders blank white**, because the machine still has the loading phase's display mode
+registered and the 640×480 mode switch has never happened. The title is drawing 640×480 frames into
+buffers the TV is not reading.
+
+That is not a bug the adapter introduced; it is the known-pending mode switch, seen for the first
+time. The adapter does not paper over it — a `Display()` quietly wired to the draw target would
+have looked perfect and hidden it. The two surfaces are both offered, they disagree, and the
+disagreement is the finding.
+
+### Tooling
+
+- `tools/debug/xboxadapter` — the `debug.Target`. `framedbg -platform xbox` (an `.iso` is
+  ambiguous — a PSX disc and an Xbox disc share the extension — so the platform is named rather
+  than guessed); `-xbe` picks the executable within the disc. `games/outrun-2006-xbox/debug.json`
+  registers the title with the debugger's game library.
+- The platform side gained what a debugger needs and the oracle had not: `OnNVMethod` (the command
+  hook), `OnFlip`, `StopRequested`, `RunStopAfterNVMethod` (the scrubber's engine — the NV2A's
+  pusher runs *inside* the guest's own store to `DMA_PUT`, so stopping mid-list is an armed
+  countdown, not a loop that declines the next command), execution breakpoints, `Machine.PC`
+  (where the machine is *parked* — `CPU.LinearPC()` reports the instruction being executed, which
+  between steps is the one just retired, and a breakpoint tested against it fires one instruction
+  late), `ReadRAM` (RAM-only: a memory pane that read the register aperture would service the
+  title's own interrupt ack), `RenderScanout`/`RenderDrawTarget` as images, `NVMethodName`/
+  `NVMethodDecode`, the bound-texture and RAM-as-a-texture surfaces, and `Image.EntryAt` (a disc
+  offset back to the file that holds it).
 
 ### Tooling
 

@@ -1,0 +1,8 @@
+{
+  "platform": "xbox",
+  "name": "OutRun 2006: Coast 2 Coast",
+  "image": "image/OutRun 2006 - Coast 2 Coast (EUR).iso",
+  "profile": {
+    "xbe": "/default.xbe"
+  }
+}

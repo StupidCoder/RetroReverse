@@ -28,6 +28,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"sort"
 	"strings"
 )
 
@@ -64,8 +65,9 @@ type Image struct {
 	rootSector uint32
 	rootSize   uint32
 
-	f   *os.File
-	md5 string // computed on demand
+	f     *os.File
+	md5   string  // computed on demand
+	index []Entry // files by offset, built on demand for EntryAt
 }
 
 // Entry is one file or directory in the filesystem.
@@ -83,6 +85,45 @@ func (e Entry) String() string {
 		return fmt.Sprintf("%-40s  <dir>   (sector %d)", e.Path, e.Sector)
 	}
 	return fmt.Sprintf("%-40s  %10d  (sector %d)", e.Path, e.Size, e.Sector)
+}
+
+// Offset is where the entry's data begins, as a partition-relative byte offset — the
+// same address space Read takes, and the one the kernel's own file reads are issued in
+// (kernel_file.go reads at entry.Sector*sectorSize + off). It is deliberately NOT an
+// absolute offset within the image file: the partition base is an artefact of how the
+// disc was dumped, and the machine never sees it.
+func (e Entry) Offset() int64 { return int64(e.Sector) * sectorSize }
+
+// EntryAt names the file containing a partition-relative byte offset, and how far into
+// it that offset lies. It is what turns a read-watch on the drive into "the title is
+// streaming this file right now".
+//
+// The index is built once, on the first call, by walking the whole filesystem — a few
+// hundred directory sectors. Directories are left out: they are the filesystem's own
+// bookkeeping, and reporting a read as "in /media" when it is really in a file's extent
+// would be worse than reporting nothing.
+func (img *Image) EntryAt(off int64) (Entry, int64, bool) {
+	if img.index == nil {
+		img.index = []Entry{} // a walk that finds nothing must not be retried on every call
+		_ = img.Walk(func(e Entry) error {
+			if !e.IsDir && e.Size > 0 {
+				img.index = append(img.index, e)
+			}
+			return nil
+		})
+		sort.Slice(img.index, func(i, j int) bool { return img.index[i].Offset() < img.index[j].Offset() })
+	}
+	// The last entry starting at or before off is the only one that can contain it.
+	i := sort.Search(len(img.index), func(i int) bool { return img.index[i].Offset() > off })
+	if i == 0 {
+		return Entry{}, 0, false
+	}
+	e := img.index[i-1]
+	within := off - e.Offset()
+	if within >= int64(e.Size) {
+		return Entry{}, 0, false // in the padding between files, not in one
+	}
+	return e, within, true
 }
 
 // Open reads an XISO's volume descriptor and prepares it for listing and extraction.

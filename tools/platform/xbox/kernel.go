@@ -241,6 +241,11 @@ func kernelHandler(ord uint16) func(*Machine) int {
 			m.logf("AvSetDisplayMode: mode %X format %X pitch %d fb %08X",
 				m.nv.dispMode, m.nv.dispFormat, m.nv.fbPitch, m.nv.fbAddr)
 			m.setRet(0)
+			// This is a MODE SET, not a swap — the title calls it once, during display
+			// init, and never again (measured: one call in the boot's first 340M
+			// instructions, while the game goes on to present thousands of frames). The
+			// frame boundary is the swap-chain buffer changing instead; see
+			// nv2a_kelvin.go's SET_SURFACE_COLOR_OFFSET.
 			return 6
 		}
 

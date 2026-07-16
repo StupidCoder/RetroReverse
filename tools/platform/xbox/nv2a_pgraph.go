@@ -108,6 +108,21 @@ func (m *Machine) pgraphMethod(subchan, method, arg uint32) {
 	g := m.pgraph
 	g.Methods++
 
+	// The debugger's command hook fires BEFORE the engine acts, so a hook can number
+	// the command whose fragments are about to arrive at OnPixel.
+	if m.OnNVMethod != nil {
+		m.OnNVMethod(m, subchan, method, arg)
+	}
+	// The command scrubber's countdown trips AFTER this method has run (deferred), so
+	// position k shows the frame WITH command k's pixels in it.
+	if m.stopAfterArmed {
+		defer func() {
+			if m.stopAfterMethod--; m.stopAfterMethod <= 0 {
+				m.StopRequested = true
+			}
+		}()
+	}
+
 	if method == nvSetObject {
 		g.SetObjs++
 		g.subObject[subchan&7] = arg

@@ -23,6 +23,13 @@ const (
 	kelvinCtxDmaSemaphore  = 0x01A4 // SET_CONTEXT_DMA_SEMAPHORE: DMA handle for the semaphore surface
 	kelvinSemaphoreOffset  = 0x1D6C // SET_SEMAPHORE_OFFSET: byte offset within that surface
 	kelvinSemaphoreRelease = 0x1D70 // BACK_END_WRITE_SEMAPHORE_RELEASE: write the value there
+
+	// kelvinFlipStall is NV097_FLIP_STALL: the method Direct3D's Present compiles to. On
+	// hardware it stalls the pusher until the flip the CRTC owes has retired; here the
+	// pipeline is synchronous and there is nothing to wait for, so it is a pure marker —
+	// but it is THE marker, because it is the title saying "this frame is finished and
+	// meant for the screen". It is the machine's frame boundary (the debugger's OnFlip).
+	kelvinFlipStall = 0x0130
 )
 
 // kelvinMethod handles one method write to the bound Kelvin (3D) object. Every method
@@ -32,6 +39,34 @@ const (
 // unhandled map records so a run's reach through the 3D command surface stays a
 // concrete statement.
 func (g *pgraph) kelvinMethod(method, arg uint32) {
+	// THE FRAME BOUNDARY. FLIP_STALL is what Direct3D's Present compiles to, and it is the
+	// only thing in the stream that means "this frame is finished and meant for the
+	// screen". The hook fires before the latch below, while the colour surface still names
+	// the buffer the frame was built in — so a hook that renders sees the completed frame.
+	//
+	// Every plausible alternative is wrong, and each was measured rather than reasoned:
+	//
+	//   - AvSetDisplayMode, the kernel call that registers the scanout, is called ONCE per
+	//     boot (measured: one call in 340M instructions, against thousands of frames). It
+	//     reads like a swap — the D3D swap path is where it is called from — but it is a
+	//     mode set.
+	//   - BACK_END_WRITE_SEMAPHORE_RELEASE, D3D's fence, fires TWICE per frame (odd and
+	//     ascending by 2), so it would report two frames for every real one.
+	//   - SET_SURFACE_COLOR_OFFSET moving to the next buffer of the swap chain is the
+	//     seductive one, and it is right often enough to fool a test: at the logo phase it
+	//     fires exactly once per frame, in lockstep with FLIP_STALL (209 and 209). At the
+	//     TITLE screen it fires three times per frame — the title renders its movie into an
+	//     off-screen target first (269 re-points to 02B7B200, one per frame) and then twice
+	//     more into the back buffer. A capture bounded by it there ends mid-frame, on a
+	//     buffer nothing has drawn into yet, and reports a blank white frame that looks
+	//     entirely plausible.
+	//   - The vertical blank is a 60 Hz scanout clock that ticks whether or not the title
+	//     drew: a field, not a frame.
+	//
+	// Measured, once per frame at BOTH fixtures: 209 flips at the logo, 269 at the title.
+	if method == kelvinFlipStall && g.m.OnFlip != nil {
+		g.m.OnFlip(g.m)
+	}
 	if method < uint32(len(g.Regs))*4 {
 		g.Regs[method>>2] = arg
 	}
