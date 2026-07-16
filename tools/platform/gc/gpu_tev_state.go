@@ -48,6 +48,14 @@ type tevState struct {
 	numStages int
 	stages    [16]tevStage
 	seed      [4][4]float32 // the working registers' starting values
+
+	// The texture maps the enabled stages name, decoded once. sampleTexmap used to rebuild
+	// one of these from four BP registers and a dozen shifts FOR EVERY TEXEL — every sample
+	// of every stage of every fragment. Only the maps a stage actually names are filled;
+	// texValid says which, so a stage naming an unbound map is still the game's own error
+	// and not a phantom this decode invented.
+	tex      [8]texState
+	texValid [8]bool
 }
 
 // tevstate decodes the TEV as the registers currently stand. Call it once per draw.
@@ -86,6 +94,12 @@ func (g *gpu) tevstate() tevState {
 
 		st.cdest = (st.cc >> 22) & 3
 		st.adest = (st.ac >> 22) & 3
+
+		// The map this stage samples. Two stages naming the same map decode it once.
+		if st.texEnable && !t.texValid[st.texmap] {
+			t.tex[st.texmap] = g.texSetup(st.texmap)
+			t.texValid[st.texmap] = true
+		}
 	}
 	return t
 }

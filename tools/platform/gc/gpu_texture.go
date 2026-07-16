@@ -145,15 +145,18 @@ func (g *gpu) tlutColor(m *Machine, tx texState, idx int) (r, gg, b, a uint8) {
 	}
 }
 
-// sampleTexmap samples texture map i at a normalised coordinate (s,t in [0,1]), returning the
+// sampleTexmap samples a texture map at a normalised coordinate (s,t in [0,1]), returning the
 // texel's colour. The coordinate is scaled to the texture's size, wrapped, and point-sampled;
 // bilinear filtering is a later refinement and is a named gap here, exact for the 1:1
 // full-screen blits the boot renders and only softening minified textures otherwise.
-func (g *gpu) sampleTexmap(m *Machine, i int, s, t float32) (r, gg, b, a uint8) {
-	tx := g.texSetup(i)
+//
+// The map's configuration arrives decoded (gpu_tev_state.go) rather than being read back out
+// of the BP registers here. It used to be rebuilt per texel, which is per sample of per stage
+// of per fragment, and it cannot change while a draw runs.
+func (g *gpu) sampleTexmap(m *Machine, tx *texState, s, t float32) (r, gg, b, a uint8) {
 	x := wrapCoord(int(s*float32(tx.width)), tx.width, tx.wrapS)
 	y := wrapCoord(int(t*float32(tx.height)), tx.height, tx.wrapT)
-	return g.decodeTexel(m, tx, x, y)
+	return g.decodeTexel(m, *tx, x, y)
 }
 
 // wrapCoord brings a texel coordinate into range by the addressing mode: clamp holds it at the

@@ -169,7 +169,7 @@ func (g *gpu) drawTriangle(m *Machine, tev *tevState, v0, v1, v2 screenVertex) {
 			if x == pixDbgX && y == pixDbgY {
 				t0 := g.texSetup(0)
 				u, v := tc[0].s, tc[0].t
-				tr, tg, tb, ta := g.sampleTexmap(m, 0, u, v)
+				tr, tg, tb, ta := g.sampleTexmap(m, &t0, u, v)
 				fmt.Fprintf(os.Stderr,
 					"PIXDBG (%d,%d): ras %d,%d,%d,%d uv (%.4f,%.4f) tex0 0x%06X fmt%X %dx%d texel (%d,%d)=%d,%d,%d,%d -> out %d,%d,%d,%d pass=%v dst %08X\n",
 					x, y, r, gg, bb, a, u, v, t0.base, t0.format, t0.width, t0.height,

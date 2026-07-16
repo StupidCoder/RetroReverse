@@ -138,7 +138,8 @@ func TestTextureSampleRGB565(t *testing.T) {
 			// Sample at the texel centre; the normalised coordinate the hardware would use.
 			s := (float32(x) + 0.5) / float32(w)
 			tt := (float32(y) + 0.5) / float32(h)
-			gotR, gotG, gotB, _ := g.sampleTexmap(m, 0, s, tt)
+			tx0 := g.texSetup(0)
+			gotR, gotG, gotB, _ := g.sampleTexmap(m, &tx0, s, tt)
 			// The expected value is the 5-6-5 truncation of the source, since that is all the
 			// format can store — compare against the encoder's own quantisation.
 			wr, wg, wb := src(x, y)
@@ -169,7 +170,8 @@ func TestDumpTextureMatchesSampler(t *testing.T) {
 		for x := 0; x < w; x++ {
 			s := (float32(x) + 0.5) / float32(w)
 			tt := (float32(y) + 0.5) / float32(h)
-			sr, sg, sb, _ := m.gpu.sampleTexmap(m, 0, s, tt)
+			tx0 := m.gpu.texSetup(0)
+			sr, sg, sb, _ := m.gpu.sampleTexmap(m, &tx0, s, tt)
 			o := img.PixOffset(x, y)
 			if img.Pix[o] != sr || img.Pix[o+1] != sg || img.Pix[o+2] != sb {
 				t.Fatalf("dump (%d,%d) disagrees with sampler", x, y)

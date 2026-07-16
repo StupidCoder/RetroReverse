@@ -81,7 +81,7 @@ func (g *gpu) shade(m *Machine, t *tevState, rasR, rasG, rasB, rasA uint8, tc *[
 			// Each stage samples the coordinate it names. A stage may read a coordinate the
 			// transform unit was not asked to generate — that is the game's own error, not a
 			// gap here, and the coordinate reads as the zero it was left at.
-			tr, tg, tb, ta := g.sampleTexmap(m, st.texmap, tc[st.texcoord].s, tc[st.texcoord].t)
+			tr, tg, tb, ta := g.sampleTexmap(m, &t.tex[st.texmap], tc[st.texcoord].s, tc[st.texcoord].t)
 			tex = swizzle(st.swapTex, [4]float32{float32(tr), float32(tg), float32(tb), float32(ta)})
 		}
 
