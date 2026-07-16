@@ -921,6 +921,10 @@ func (a *Adapter) ClearBreakpoint(pc uint64) {
 
 func (a *Adapter) Breakpoints() []uint64 { return append([]uint64(nil), a.bps...) }
 
+// Halted answers for the ARM11 core. The machine's HaltReason carries the story (an
+// unmodelled service call, a bad access); the GPU and the display keep going without it.
+func (a *Adapter) Halted() (bool, string) { return a.live.CPU.Halted, a.live.HaltReason() }
+
 func (a *Adapter) StepInstr(n int) (debug.StopReason, error) {
 	if n <= 0 {
 		n = 1

@@ -395,6 +395,11 @@ func (a *Adapter) CPU() debug.CPUReg {
 	}
 }
 
+// Halted answers for the Gekko core. The machine keeps its VI and DSP clocks running after a
+// halt — Run returns immediately, but the fields do not stop retiring — so this is the only
+// thing that separates a halted core from a busy one at the frame level.
+func (a *Adapter) Halted() (bool, string) { return a.live.CPU.Halted, a.live.CPU.HaltReason }
+
 func (a *Adapter) StepInstr(n int) (debug.StopReason, error) {
 	if n <= 0 {
 		n = 1

@@ -108,6 +108,27 @@ type (
 		Continue(budget uint64) (StopReason, error)
 	}
 
+	// Haltable reports a machine whose core has stopped executing and will not start
+	// again — an emulator refusing to invent behaviour for hardware it does not model,
+	// not a game that crashed.
+	//
+	// It exists because a halt is otherwise INVISIBLE at the frame level, and invisible
+	// in a way that impersonates a running machine. The core stops, but the video and
+	// audio clocks do not: fields keep retiring, so play mode keeps stepping, the
+	// profile keeps reporting, the frame counter keeps climbing, and the screen holds
+	// the last picture. That reads as a game stuck in a loop at several hundred frames a
+	// second — and it cost a session's debugging on the GameCube, where the true story
+	// ("PE copy-to-texture: half-scale box filter not yet implemented") was sitting in a
+	// string in memory the whole time while the page showed a silent 400 fps.
+	//
+	// The reason string is the whole point: a target that answers true says WHY in the
+	// same breath, because a halt the page cannot name is barely better than the hang it
+	// already looked like. CodeStepper's StopReason already carries this for a stepped
+	// run; this is the same fact for a target being played rather than stepped.
+	Haltable interface {
+		Halted() (halted bool, reason string)
+	}
+
 	// Breakpointer holds execution breakpoints.
 	Breakpointer interface {
 		SetBreakpoint(pc uint64)
@@ -256,6 +277,7 @@ const (
 	CapProfile  = "profile"  // Profiler
 	CapTouch    = "touch"    // Toucher
 	CapKeys     = "keys"     // Keyer
+	CapHalt     = "halt"     // Haltable
 	CapOverdraw = "overdraw" // reported per capture, not per target — see FrameCapture
 )
 
@@ -283,6 +305,7 @@ func Capabilities(t Target) []string {
 	_, prof := t.(Profiler)
 	_, touch := t.(Toucher)
 	_, keys := t.(Keyer)
+	_, halt := t.(Haltable)
 
 	add(frames, CapFrames)
 	add(fast, CapFastStep)
@@ -300,6 +323,7 @@ func Capabilities(t Target) []string {
 	add(prof, CapProfile)
 	add(touch, CapTouch)
 	add(keys, CapKeys)
+	add(halt, CapHalt)
 	return caps
 }
 

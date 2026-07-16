@@ -372,6 +372,10 @@ func (a *Adapter) Breakpoints() []uint64 { return append([]uint64(nil), a.bps...
 // bounded: they hand control back so the caller can stay responsive and decide
 // whether to run another slice.
 
+// Halted answers for the R4300 core. The video and audio clocks keep running after a halt,
+// so at the frame level this is the only thing that tells a stopped core from a busy one.
+func (a *Adapter) Halted() (bool, string) { return a.live.CPU.Halted, a.live.CPU.HaltReason }
+
 func (a *Adapter) StepInstr(n int) (debug.StopReason, error) {
 	if n <= 0 {
 		n = 1

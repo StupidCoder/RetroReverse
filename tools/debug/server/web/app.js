@@ -393,6 +393,18 @@ conn.on('ok', (m) => {
 });
 conn.on('stopped', (m) => {
   status(`stopped: ${m.reason}${m.note ? ` (${m.note})` : ''} at ${m.pc.slice(-8)}`);
+  // A halted machine ends play mode from the SERVER's side — the core has stopped for
+  // good, and the runner leaves play mode on its own account. The page has to follow, but
+  // it must not do it through setPlaying(false): that sends frame.play{on:false} asking
+  // for the capture a pause normally lands on, and a stopped core will never produce one,
+  // so the page would sit busy forever waiting for it. Reset the control locally instead
+  // and leave the last picture up, which is the frame the halt happened on.
+  if (store.get('playing')) {
+    store.set({ playing: false });
+    $('play').textContent = '▶ Play';
+    $('play').classList.remove('active');
+    setBusy(false);
+  }
   // The CPU stopped free-running (a breakpoint, a watch, or Break). Turn off the
   // live-scanout draw path, then take one last look at where it landed: the screen,
   // the registers, and memory.

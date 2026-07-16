@@ -59,6 +59,7 @@ func TestCapabilities(t *testing.T) {
 		debug.CapFrames, debug.CapFastStep, debug.CapReplay, debug.CapCode, debug.CapBreak,
 		debug.CapDisasm, debug.CapWatch, debug.CapSurfaces, debug.CapFiles, debug.CapFileAt,
 		debug.CapStates, debug.CapResume, debug.CapRegions, debug.CapKeys, debug.CapProfile,
+		debug.CapHalt,
 	} {
 		if !caps[want] {
 			t.Errorf("the GameCube target does not claim %q, and it can back it", want)
@@ -446,5 +447,58 @@ func TestUnmappedKeyIsIgnored(t *testing.T) {
 	a := newAdapter(t)
 	if err := a.Key(debug.Key{Name: "F7", Down: true}); err != nil {
 		t.Errorf("an unmapped key returned an error: %v", err)
+	}
+}
+
+// TestHaltedReportsTheGekkoHalt: the adapter forwards the core's halt AND its reason.
+//
+// The reason is the load-bearing half. This emulator halts to refuse to invent behaviour
+// for hardware it does not model yet, and the halt string names exactly which piece — it
+// is the single most useful sentence in the whole debugger at the moment it fires, and
+// before this capability existed nothing ever read it on the frame path.
+func TestHaltedReportsTheGekkoHalt(t *testing.T) {
+	a := newAdapter(t)
+
+	if halted, _ := a.Halted(); halted {
+		t.Fatal("a machine resumed from a good savestate reports itself halted")
+	}
+
+	const reason = "PE copy-to-texture: half-scale box filter not yet implemented"
+	a.Machine().CPU.Halt(reason)
+
+	halted, why := a.Halted()
+	if !halted {
+		t.Fatal("the Gekko halted and the adapter did not say so")
+	}
+	if why != reason {
+		t.Errorf("halt reason = %q, want %q", why, reason)
+	}
+}
+
+// TestAHaltedMachineStillRetiresFields is the hazard itself, pinned.
+//
+// It asserts the emulator's REAL behaviour, which is also the trap: a halted core does not
+// stop the video clock. StepFrame goes on returning captures and Display goes on handing
+// back a picture, so the frame path cannot tell a stopped machine from a busy one and the
+// page reads it as a game looping at several hundred frames a second. That is precisely
+// why Halted exists — and if this test ever fails because a halt started stopping the
+// fields too, the capability is no longer load-bearing and this should be revisited rather
+// than "fixed".
+func TestAHaltedMachineStillRetiresFields(t *testing.T) {
+	a := newAdapter(t)
+	a.Machine().CPU.Halt("a halt the frame path cannot see")
+
+	for i := 0; i < 3; i++ {
+		if _, err := a.StepFrame(false); err != nil {
+			t.Fatalf("StepFrame on a halted machine errored (%v) — if a halt now reports "+
+				"itself through the frame path, the Halted capability's rationale has changed", err)
+		}
+	}
+	if _, err := a.Display(); err != nil {
+		t.Fatalf("Display on a halted machine errored: %v", err)
+	}
+	// The whole point: nothing above this line failed, and only Halted knows.
+	if halted, _ := a.Halted(); !halted {
+		t.Fatal("Halted stopped reporting the halt")
 	}
 }

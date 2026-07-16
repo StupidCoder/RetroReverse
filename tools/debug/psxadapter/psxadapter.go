@@ -424,6 +424,10 @@ func (a *Adapter) Regions() []debug.Region {
 
 // ---- code ----
 
+// Halted answers for the R3000 core. The video clock keeps running after a halt, so at the
+// frame level this is the only thing that tells a stopped core from a busy one.
+func (a *Adapter) Halted() (bool, string) { return a.live.CPU.Halted, a.live.CPU.HaltReason }
+
 func (a *Adapter) StepInstr(n int) (debug.StopReason, error) {
 	if n <= 0 {
 		n = 1

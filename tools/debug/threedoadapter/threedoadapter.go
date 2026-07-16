@@ -588,6 +588,16 @@ func (a *Adapter) FileAt(block int64) (debug.FileEntry, int64, bool) {
 
 // ---- code ----
 
+// Halted answers for the ARM60 core AND for the machine around it — the 3DO layer halts on
+// its own account (an unmodelled OS call), not only through the CPU, and either one stops
+// execution for good while the display keeps retiring fields.
+func (a *Adapter) Halted() (bool, string) {
+	if a.live.CPU.Halted {
+		return true, a.live.CPU.HaltReason
+	}
+	return a.live.Halted, a.live.HaltReason
+}
+
 func (a *Adapter) StepInstr(n int) (debug.StopReason, error) {
 	if n <= 0 {
 		n = 1

@@ -1012,3 +1012,115 @@ func TestProfileFoldsIdleFieldsIntoTheFrameTheyBelongTo(t *testing.T) {
 		t.Error("the profile survived a reset")
 	}
 }
+
+// ---- the halt ----
+
+// haltingTarget stops its core after a set number of fields, and — like every real
+// machine — goes on retiring fields afterwards. That combination is the whole hazard:
+// StepFast keeps returning nil, Display keeps handing back a picture, and nothing in the
+// frame path says the CPU has permanently stopped.
+type haltingTarget struct {
+	fakeTarget
+	haltAfter int
+}
+
+const haltNote = "PE copy-to-texture: half-scale box filter not yet implemented"
+
+func (h *haltingTarget) Halted() (bool, string) {
+	if h.steps >= h.haltAfter {
+		return true, haltNote
+	}
+	return false, ""
+}
+
+// TestPlayStopsOnHalt: a halted core stops play mode and says why.
+//
+// Without this the debugger free-runs against a machine that has permanently stopped —
+// fields retire, the frame counter climbs, the profile keeps reporting, and the screen
+// holds its last picture. It looks exactly like a game stuck in a fast loop, which is how
+// it was read for a whole session on the GameCube while the real reason sat unread in
+// CPU.HaltReason.
+func TestPlayStopsOnHalt(t *testing.T) {
+	h := &haltingTarget{haltAfter: 2}
+	srv := serveTarget(t, h)
+	cl := dial(t, srv.URL)
+	cl.recvType(t, "hello")
+
+	cl.send(t, "frame.play", 1, playArgs{On: true})
+
+	// Play until the machine halts, acknowledging frames so the runner keeps stepping.
+	var stop map[string]any
+	for i := 0; i < 8 && stop == nil; i++ {
+		m := cl.recvJSON(t)
+		switch m["type"] {
+		case "render":
+			cl.recvBinary(t)
+			cl.send(t, "frame.ack", 0, nil)
+		case "stopped":
+			stop = m
+		case "error":
+			t.Fatalf("play reported an error rather than the halt: %v", m["msg"])
+		}
+	}
+	if stop == nil {
+		t.Fatal("the machine halted and play mode never said so — the silent-hang bug")
+	}
+	if stop["reason"] != "halted" {
+		t.Errorf("stop reason = %v, want \"halted\"", stop["reason"])
+	}
+	// The reason string is the point of the capability: a halt the page cannot name is
+	// barely better than the hang it already looked like.
+	if stop["note"] != haltNote {
+		t.Errorf("stop note = %q, want the halt reason %q", stop["note"], haltNote)
+	}
+
+	// And it really stopped: the runner must not keep stepping a dead core.
+	was := h.steps
+	cl.send(t, "frame.ack", 0, nil)
+	cl.send(t, "cpu.regs", 9, nil) // a round trip, so the loop has demonstrably run again
+	cl.recvType(t, "cpu")
+	if h.steps != was {
+		t.Errorf("the machine advanced %d more fields after halting", h.steps-was)
+	}
+}
+
+// TestStepReportsHalt: pressing Step on a halted machine says why instead of appearing to
+// do nothing. The frame still comes back — the step was asked for and is answered — but a
+// stop notice follows it naming the halt.
+func TestStepReportsHalt(t *testing.T) {
+	h := &haltingTarget{haltAfter: 1}
+	srv := serveTarget(t, h)
+	cl := dial(t, srv.URL)
+	cl.recvType(t, "hello")
+
+	cl.send(t, "frame.step", 1, stepArgs{N: 1})
+	cl.recvType(t, "frame")
+	m := cl.recvType(t, "stopped")
+	if m["reason"] != "halted" || m["note"] != haltNote {
+		t.Errorf("step on a halted machine reported %v/%v", m["reason"], m["note"])
+	}
+}
+
+// TestPlayIgnoresHaltForTargetWithoutCapability: a target that cannot answer for its core
+// is not treated as halted. The capability is optional, and its absence must not turn play
+// mode off.
+func TestPlayIgnoresHaltForTargetWithoutCapability(t *testing.T) {
+	srv, f := serveFake(t) // fakeTarget has no Halted method
+	cl := dial(t, srv.URL)
+	cl.recvType(t, "hello")
+
+	cl.send(t, "frame.play", 1, playArgs{On: true})
+	for i := 0; i < 3; i++ {
+		m := cl.recvJSON(t)
+		if m["type"] == "stopped" {
+			t.Fatal("a target with no Halted method was treated as halted")
+		}
+		if m["type"] == "render" {
+			cl.recvBinary(t)
+			cl.send(t, "frame.ack", 0, nil)
+		}
+	}
+	if f.steps < 2 {
+		t.Errorf("play advanced only %d fields", f.steps)
+	}
+}

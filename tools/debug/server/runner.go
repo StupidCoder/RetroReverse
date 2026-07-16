@@ -141,6 +141,10 @@ func (rn *Runner) loop() {
 				rn.playing = false
 				rn.broadcast(errMsg{Type: "error", Msg: err.Error()})
 			}
+			// A halted core does not stop the video clock, so play mode would happily
+			// step fields forever against a machine that has permanently stopped. Say so
+			// and stop, exactly as a breakpoint would.
+			rn.stopIfHalted()
 			rn.drain()
 			continue
 		}
@@ -311,6 +315,9 @@ func (rn *Runner) step(r request) error {
 			}
 			rn.frameNo++
 			rn.prof.observe(rn.tgt)
+			if halted, _ := rn.halted(); halted {
+				break // the remaining fields would retire against a stopped core
+			}
 		}
 	} else {
 		fc, err = rn.stepToDrawn(fs, a.Overdraw)
@@ -337,6 +344,9 @@ func (rn *Runner) step(r request) error {
 	if fc.Prov != nil {
 		r.from.sendBinary(encodeProv(r.req.Seq, fc))
 	}
+	// Stepping a halted machine returns the same frame forever. Answer the step, then say
+	// why it did not move.
+	rn.stopIfHalted()
 	return nil
 }
 
@@ -353,8 +363,39 @@ func (rn *Runner) stepToDrawn(fs debug.FrameStepper, withOverdraw bool) (*debug.
 		if fc.Drawn() {
 			return fc, nil
 		}
+		// A halted core will never draw again, so spending the whole field budget to
+		// report "no drawn frame" would name the symptom and bury the cause.
+		if halted, why := rn.halted(); halted {
+			return nil, fmt.Errorf("the machine halted: %s", why)
+		}
 	}
 	return nil, fmt.Errorf("no drawn frame within the field budget")
+}
+
+// halted asks a target that can tell whether its core has stopped for good. A target
+// without the capability is never halted as far as the runner is concerned — the same
+// posture as before it existed.
+func (rn *Runner) halted() (bool, string) {
+	h, ok := rn.tgt.(debug.Haltable)
+	if !ok {
+		return false, ""
+	}
+	return h.Halted()
+}
+
+// stopIfHalted ends a free run whose machine has halted, and says why on the channel the
+// page already uses for a breakpoint. Reported once: the flag stays set forever after, and
+// a stop notice per field would be its own kind of noise.
+func (rn *Runner) stopIfHalted() bool {
+	halted, why := rn.halted()
+	if !halted {
+		return false
+	}
+	rn.playing, rn.inFlight = false, false
+	rn.broadcast(stopped(debug.StopReason{
+		Kind: "halted", PC: rn.tgt.CPU().PC, Note: why,
+	}))
+	return true
 }
 
 // play starts or stops free-running the machine. While it runs nothing is captured:
