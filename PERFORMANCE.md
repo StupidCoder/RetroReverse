@@ -89,7 +89,77 @@ emulated instructions now. And the spin detector's window counted iterations too
 wedged in `b .` is *exactly* what the skip fast-forwards, so a genuine hang would have been
 reported as an exhausted budget instead of the spin it is.
 
-### The four things this taught, none of which the 3DS's write-up could have told us
+### Does the idle skip transfer to the other oracles?
+
+**It is one problem with two solutions, and which one an oracle needs is decided by a single
+question: does it have an operating system to ask?**
+
+**If there is an OS HLE, the guest tells you it is idle, and you already do this.** The 3DS has
+had an idle fast-forward all along — `n3ds/run.go`: *"When every thread is blocked it advances
+idle time (waking sleepers) or, if truly deadlocked, halts."* It computes the same shape of
+deadline the GameCube's does (gx / dsp / sleep / vblank, whichever is soonest) and jumps
+`m.instrs` to it. **That is why its ARM11 is 0.6% of a frame and the GameCube's Gekko was 30%
+of one** — not because an ARM11 is cheap, but because the 3DS was never interpreting its idle.
+A game blocking in `svcWaitSynchronization` hands the emulator the answer for free. Nothing to
+port to the 3DS, the PSP, the 3DO or the Xbox — check they do it, do not rebuild it.
+
+**If there is no OS, there is no signal, and the idle loop IS the operating system.** A
+GameCube game's scheduler busy-waits in its own code; to the emulator that loop is
+indistinguishable from work — it is `lwz`/`cmplwi`/`beq`, three ordinary instructions. Nothing
+in the machine knows they are pointless. **`gc/idle.go` is the LLE answer to the problem the
+HLE oracles get for free**, and it recovers the signal the only way an LLE machine can: by
+proving the loop cannot progress.
+
+**And the LLE oracles have this problem today — one of them has had it written down for a
+year.** `n64/vi.go`, on libultra: *"with no VI interrupt every thread eventually sleeps and only
+the idle thread runs — **a `b .` loop** that a boot trace mistakes for a crash."* That is the
+same finding as the histogram above, recorded before anyone thought to count how much of a run
+it was. The N64 would be the easiest port (its idle thread is literally one instruction, so the
+state repeat is found on the first try) if it were still being driven rather than kept as a
+verification harness. **The PSX and the DS are the live candidates** — both are LLE, both spin
+on VBlank/GPU status, and neither has any idle handling at all today (checked: the only "idle"
+in `psx/` is `idLen` and a pad comment). **PS2 once it runs** — with a caution, since its
+current frontier *is* a stuck poll loop, and a fast-forward makes a hang cheaper to reach
+rather than easier to see.
+
+**The precondition holds repo-wide, and it is not a coincidence.** The deadline is computable
+only because every clock is paced by the instruction count — and every core here does that
+already, for determinism, not for speed. `n3ds/run.go` calls it *"the N64/DOS discipline"*;
+`gekko/timer.go` says the timers are instruction-paced *"for the reason every core in this
+repository paces its timers that way: a run must be reproducible"*. **The convention that makes
+savestates replayable is the same one that makes the idle skip exact.** An oracle that paced a
+device by wall clock could not do this, and could not be replayed either.
+
+**Check for the free version first.** If the guest uses a halt/wait-for-interrupt instruction
+rather than spinning, model *that* and fast-forward from it — no detector needed, and no
+proof obligation. `tools/cpu/sm83` already has `halt bool // executed HALT, idling until an
+interrupt is pending`; `tools/cpu/x86` decodes `HLT`. Whether those run loops actually
+fast-forward or merely spin through a halted core is unmeasured, and it is the first thing to
+look at on those two.
+
+**What ports and what does not.** The detector is generic — a state repeat with no stores is
+not a GameCube fact. Per platform you write exactly two things: a snapshot type (the whole
+architectural state; **hash floats by bits or a NaN makes every snapshot differ and the skip
+silently never fires**), and a deadline function — *the closed list of everything that can
+change while the CPU is not looking*. Getting that list wrong is the only way this breaks, and
+the entries are not all obvious: the GameCube's least obvious was **the decrementer**, the only
+clock that raises an exception with no device involved at all. A coprocessor stepped off the
+CPU's clock (the GameCube's DSP, the N64's RSP) is a **veto**, not a deadline.
+
+**Three gotchas that will recur anywhere.** A budget counted in loop iterations silently
+changes meaning — `-steps` must count *emulated* instructions, and a skip must be clamped to
+it. A spin/hang detector whose window counts iterations goes quiet exactly when it is most
+wanted, because a wedged machine is precisely what the skip fast-forwards. And skipping to the
+raw deadline is *equivalent but not exact* — round to the loop period.
+
+**A second-order consequence, measured.** `fieldInstructions` is a fiction tuned partly for
+speed (2M against hardware's ~8.1M), and the skip makes faithfulness much cheaper: cold-booting
+to field 100 costs 2.08 s at 2M and 2.95 s at 8.1M — **4× the emulated instructions for 1.42×
+the time**, where before it would have been 4×. Cheaper, *not* free, and it would move every
+trajectory and invalidate every savestate. A real decision, not a freebie — but no longer an
+unaffordable one.
+
+### The five things this taught, none of which the 3DS's write-up could have told us
 
 **1. The 3DS's biggest non-parallel win had nothing to bite on, and its "do not touch the
 interpreter" verdict was wrong here.** Its −13% was page-tabling a linear region scan; this
