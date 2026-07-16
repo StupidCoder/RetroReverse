@@ -584,6 +584,33 @@ func (m *Machine) VUDataMem(idx int) []byte {
 	return m.vifs[idx].data
 }
 
+// VURegs renders a vector unit's register file — every VF as raw bits and as floats,
+// the integer registers, and the accumulator/Q/I specials. A savestate carries these
+// but nothing could read them back out; hand-executing a microprogram against a
+// captured moment needs the registers the vcallms was issued with.
+func (m *Machine) VURegs(idx int) string {
+	if idx < 0 || idx > 1 || m.vifs[idx] == nil {
+		return ""
+	}
+	u := m.vifs[idx].vu
+	s := sprintf("VU%d registers (pc=%04x)\n", idx, u.PC)
+	f := func(b uint32) float32 { return math.Float32frombits(b) }
+	for r := 0; r < 32; r++ {
+		v := u.VF[r]
+		s += sprintf("  vf%02d  %08x %08x %08x %08x   %13.6g %13.6g %13.6g %13.6g\n",
+			r, v[0], v[1], v[2], v[3], f(v[0]), f(v[1]), f(v[2]), f(v[3]))
+	}
+	for r := 0; r < 16; r += 8 {
+		s += " "
+		for j := 0; j < 8; j++ {
+			s += sprintf(" vi%02d=%04x", r+j, u.VI[r+j])
+		}
+		s += "\n"
+	}
+	s += sprintf("  acc = %g %g %g %g   q=%g i=%g\n", u.ACC[0], u.ACC[1], u.ACC[2], u.ACC[3], u.Q, u.I)
+	return s
+}
+
 // VIFCensus reports what the two VPU interfaces were asked to do — the only account of
 // how much of a frame goes to the vector units (PATH1, a unit not built yet) and how
 // much comes straight through to the GS (PATH2 DIRECT).

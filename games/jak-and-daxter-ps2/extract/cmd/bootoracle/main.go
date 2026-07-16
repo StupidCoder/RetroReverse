@@ -86,6 +86,7 @@ func main() {
 	vu1Data := flag.String("vu1data", "", "write VU1's data memory (as the VIF unpacked it) to FILE at the end of the run — the input side of a microprogram, where the matrix rows and the vertex block sit")
 	vu0Data := flag.String("vu0data", "", "write VU0's data memory to FILE at the end of the run — where the vcallms palette lives")
 	vu0Micro := flag.String("vu0micro", "", "write VU0's program memory (as VIF0 filled it) to FILE at the end of the run — where the EE's vcallms microprograms live")
+	vu0Regs := flag.Bool("vu0regs", false, "print VU0's register file at the end of the run — the state a vcallms at a breakpoint would be issued with, for hand-executing a microprogram")
 	vu1Micro := flag.String("vu1micro", "", "write VU1's program memory (as the VIF filled it) to FILE at the end of the run — the input for sizing up the vector unit")
 	var gsFBs multiFlag
 	flag.Var(&gsFBs, "gsfb", "dump a PSMCT32 buffer of GS memory as BASE:FBW:H:FILE.png (base = word address as the census prints, FBW in 64px units, H in pixels); repeatable")
@@ -106,7 +107,7 @@ func main() {
 		iopOnly: *iopOnly, iopMods: *iopMods, iopDis: *iopDis,
 		iopIO: *iopIO, iopION: *iopION, iopWatch: *iopWatch, iopTrap: *iopTrap,
 		iopCalls: *iopCalls, iopCallsFrom: *iopCallsFrom, iopPokes: iopPokes,
-		iopDump: *iopDump, iopThreads: *iopThreads, iopIELog: *iopIELog, goalSyms: *goalSyms, goalNames: *goalNames, eeProf: *eeProf, gsFrame: *gsFrame, gsVerts: *gsVerts, gsBig: *gsBig, vu1In: *vu1In, vu1Micro: *vu1Micro, vu0Micro: *vu0Micro, vu0Data: *vu0Data, vu1Data: *vu1Data,
+		iopDump: *iopDump, iopThreads: *iopThreads, iopIELog: *iopIELog, goalSyms: *goalSyms, goalNames: *goalNames, eeProf: *eeProf, gsFrame: *gsFrame, gsVerts: *gsVerts, gsBig: *gsBig, vu1In: *vu1In, vu1Micro: *vu1Micro, vu0Micro: *vu0Micro, vu0Data: *vu0Data, vu0Regs: *vu0Regs, vu1Data: *vu1Data,
 		gsFBs: gsFBs, gsTexs: gsTexs,
 	}); err != nil {
 		fmt.Fprintln(os.Stderr, "bootoracle:", err)
@@ -148,6 +149,7 @@ type cfg struct {
 	vu1Micro                              string
 	vu0Micro                              string
 	vu0Data                               string
+	vu0Regs                               bool
 	gsFBs                                 multiFlag
 	gsTexs                                multiFlag
 }
@@ -756,6 +758,13 @@ func run(c cfg) error {
 			return err
 		} else {
 			fmt.Printf("vu0micro: wrote %d bytes to %s\n", len(micro), c.vu0Micro)
+		}
+	}
+	if c.vu0Regs {
+		if regs := m.VURegs(0); regs != "" {
+			fmt.Print(regs)
+		} else {
+			fmt.Println("vu0regs: no VU0 yet")
 		}
 	}
 	if c.vu1Micro != "" {

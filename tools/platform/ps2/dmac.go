@@ -255,16 +255,23 @@ func (m *Machine) dmacStart(ch int) {
 		// scatter-gather the model's geometry out of the merc heap into the SPR's double
 		// buffer. Treating that start as a normal transfer moves QWC=0 quadwords — nothing —
 		// and mercneric-convert then converts whatever the scratchpad last held.
-		if c.chcr&dChcrModeM == 1<<2 {
+		switch c.chcr & dChcrModeM {
+		case 1 << 2:
 			m.dmacSPRChainTo(c)
-		} else {
+		case 2 << 2:
+			m.dmacSPRInterleave(c, false)
+		default:
 			m.dmacSPR(c, false)
 		}
 
 	case dmacChSPRfrom:
 		// Scratchpad -> memory, the second half of the bounce: SADR in the scratchpad out
 		// to MADR in main memory.
-		m.dmacSPR(c, true)
+		if c.chcr&dChcrModeM == 2<<2 {
+			m.dmacSPRInterleave(c, true)
+		} else {
+			m.dmacSPR(c, true)
+		}
 
 	default:
 		// A channel we have no evidence this game drives. It completes — refusing would hang
@@ -317,6 +324,54 @@ func (m *Machine) dmacSPR(c *dmacChan, fromSPR bool) {
 			m.spram[s] = m.Read(madr + i)
 			m.hookMuted = false
 		}
+	}
+}
+
+// dmacSPRInterleave is the SPR channels' third mode (CHCR MOD=10): a strided transfer,
+// the DMA controller's gather/scatter. D_SQWC holds the pattern — TQWC (bits 16..23)
+// quadwords move, then SQWC (bits 0..7) quadwords of MAIN memory are skipped, and the
+// pattern repeats until QWC quadwords (transferred ones; skips don't count) have moved.
+// The skip is always on the main-memory side; the scratchpad side stays compact.
+//
+// The proof is bones-mtx-calc, which owns this mode at the title: bones-mtx-calc-execute
+// writes D_SQWC = 0x00040001 (move 4, skip 1), and bones-mtx-calc kicks SPR_TO with
+// CHCR=0x108, QWC = 4·nbones, MADR walking the bone list in 80-byte (5-quadword) steps —
+// each bone's 4-quadword matrix gathered compactly into the scratchpad, the fifth
+// quadword skipped. Treated as a flat copy instead, bone 0's matrix lands right and every
+// later bone's is shifted one more quadword into the previous record's tail — which is
+// exactly the "palette entry 0 sane, entries 1+ garbage" the merc renderer then drew as
+// screen-filling runaway triangles. bones-reset-sqwc restores the 0x00010001 default the
+// rest of the frame expects.
+func (m *Machine) dmacSPRInterleave(c *dmacChan, fromSPR bool) {
+	tqwc := m.dSqwc >> 16 & 0xFF
+	sqwc := m.dSqwc & 0xFF
+	if tqwc == 0 {
+		// A zero transfer count would loop forever; hardware documentation calls the
+		// pattern undefined. Move the whole QWC flat, which is what MOD=00 would do.
+		m.dmacSPR(c, fromSPR)
+		return
+	}
+	madr := c.madr & 0x0FFFFFFF
+	sadr := c.sadr
+	left := c.qwc
+	for left > 0 {
+		n := tqwc
+		if n > left {
+			n = left
+		}
+		for i := uint32(0); i < n*16; i++ {
+			s := (sadr + i) & (spramSize - 1)
+			if fromSPR {
+				m.Write(madr+i, m.spram[s])
+			} else {
+				m.hookMuted = true
+				m.spram[s] = m.Read(madr + i)
+				m.hookMuted = false
+			}
+		}
+		sadr += n * 16
+		madr += (n + sqwc) * 16 // the skip is the main-memory side's alone
+		left -= n
 	}
 }
 

@@ -277,3 +277,69 @@ func TestSPRChainGather(t *testing.T) {
 		t.Errorf("SPR_TO STR still set after the chain; CHCR = 0x%08X", v)
 	}
 }
+
+// TestSPRInterleaveGather runs the kick bones-mtx-calc performs every frame: SPR_TO in
+// interleave mode (CHCR MOD=10) with D_SQWC = 0x00040001 — move 4 quadwords, skip 1 —
+// gathering each 80-byte bone record's 4-quadword matrix compactly into the scratchpad.
+// QWC counts transferred quadwords only. Treated as a flat copy instead, bone 0's matrix
+// lands right and every later bone's is shifted one more quadword into the previous
+// record's tail — the merc palette's "entry 0 sane, entries 1+ garbage".
+func TestSPRInterleaveGather(t *testing.T) {
+	m := NewMachine()
+
+	const src = 0x00200000
+	const bones, stride = 3, 80 // records of 4 matrix quadwords + 1 skipped quadword
+	for b := 0; b < bones; b++ {
+		for i := 0; i < stride; i++ {
+			v := byte(0x10*(b+1) + i) // matrix bytes, per bone
+			if i >= 64 {
+				v = 0xEE // the fifth quadword: the part the DMA must skip
+			}
+			m.ram[src+b*stride+i] = v
+		}
+	}
+
+	m.Write32(0x1000E030, 0x00040001)        // D_SQWC: TQWC=4, SQWC=1
+	m.Write32(0x1000D410, src)               // MADR
+	m.Write32(0x1000D480, 0x100)             // SADR
+	m.Write32(0x1000D420, 4*bones)           // QWC: transferred quadwords only
+	m.Write32(0x1000D400, dChcrStart|2<<2)   // CHCR: start, interleave mode
+
+	for b := 0; b < bones; b++ {
+		for i := 0; i < 64; i++ {
+			got := m.spram[0x100+b*64+i]
+			want := byte(0x10*(b+1) + i)
+			if got != want {
+				t.Fatalf("bone %d byte %d: got 0x%02X, want 0x%02X (the interleave gather is off)", b, i, got, want)
+			}
+		}
+	}
+	for i := 0; i < bones*64; i++ {
+		if m.spram[0x100+i] == 0xEE {
+			t.Fatalf("skipped quadword byte leaked into the scratchpad at +0x%X", i)
+		}
+	}
+
+	// The scatter direction: SPR_FROM with the same pattern spreads compact scratchpad
+	// quadwords back out over strided memory, skipping main-memory quadwords.
+	const dst = 0x00280000
+	for i := 0; i < bones*stride; i++ {
+		m.ram[dst+i] = 0xCC
+	}
+	m.Write32(0x1000D010, dst)             // MADR
+	m.Write32(0x1000D080, 0x100)           // SADR
+	m.Write32(0x1000D020, 4*bones)         // QWC
+	m.Write32(0x1000D000, dChcrStart|2<<2) // CHCR: start, interleave mode
+	for b := 0; b < bones; b++ {
+		for i := 0; i < 64; i++ {
+			if got, want := m.ram[dst+b*stride+i], byte(0x10*(b+1)+i); got != want {
+				t.Fatalf("scatter bone %d byte %d: got 0x%02X, want 0x%02X", b, i, got, want)
+			}
+		}
+		for i := 64; i < stride; i++ {
+			if got := m.ram[dst+b*stride+i]; got != 0xCC {
+				t.Fatalf("scatter bone %d wrote into the skip quadword at +%d (0x%02X)", b, i, got)
+			}
+		}
+	}
+}
