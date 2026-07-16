@@ -27,7 +27,7 @@ type gpu struct {
 	// and RR_GC_DRAWTRACE takes a before/after difference around one draw. Unexported:
 	// diagnostic state, not machine state, so they stay out of snapshots.
 	pixWritten, pixZRej, pixARej int
-	profDraws                    int
+	profDraws, profCulled        int
 
 	// inDisplayList guards against a display list calling another — the hardware forbids
 	// it, and honouring the same limit keeps the interpreter non-recursive. Transient within

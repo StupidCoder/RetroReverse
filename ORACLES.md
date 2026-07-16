@@ -260,7 +260,8 @@ A frame of the intro cutscene is 12,770 FIFO commands over a 640×528 draw targe
 writing pixels; clicking Luigi at (340,390) names `DRAW_TRIANGLEFAN` #1103 and shows 45 writes to
 that pixel, 44 of them depth-rejected.
 
-**What its profiler says**, and what deciding the buckets by measurement rather than by taste
+**What its profiler says** — measured before back-face culling landed, so it is also the worked
+example of the profiler being used — and what deciding the buckets by measurement rather than taste
 looked like. One field of the cutscene contains 8,785 FIFO bursts, 12,770 GX commands (9,774 draws),
 3,644 DSP batches — and ~3.4 **million** fragments. The first three are timed; the last is three
 orders of magnitude too many, so unlike the 3DS **there is no texture bucket** (the 3DS times texture
@@ -278,9 +279,10 @@ overhead: 0.9%. A field comes out:
 ```
 
 The counters are the point of the counters: the rasteriser decides **7.9 million fragments to keep
-1.2 million** — 85% of the frame's dominant cost is thrown away by the depth test, and this
-rasteriser does not yet cull back faces (a named gap in `gpu_raster.go`), which is the first
-hypothesis to test.
+1.2 million** — 85% of the frame's dominant cost thrown away by the depth test, on a rasteriser that
+did not yet cull back faces. **That reading was right, and acting on it made the rasteriser 28%
+faster** (181.7 → 130.6 ms; the whole field 268.4 → 219.6 ms, −18%), by culling 8,264 of the field's
+triangles and 3.6M of its fragments before they were ever shaded. See "back-face culling" below.
 
 Two things about the nesting, because they are where this kind of profiler goes wrong. "Command
 decode" is *derived* — the whole FIFO drain is timed at its one entry point and the draws and copies
@@ -291,6 +293,29 @@ and the copy books its conversion *before* calling it. That is the PSP/3DO bug �
 frame's closing call, booked after the accumulators reset, landing in the next frame — arriving in a
 third shape. Note the sum test cannot catch it here, precisely *because* decode is derived and
 absorbs it; the guard is a direct unit test on the timer mechanism instead.
+
+**Back-face culling, and why a speedup is not evidence.** The profile above named the target, and
+implementing it was worth **−28% on the rasteriser and −18% on the whole field**. But it is a
+*correctness* change wearing a performance change's clothes, and it is the cleanest example in this
+repo of a measurement that cannot check its own work:
+
+- **Both** sign conventions cull ~8,000 triangles. **Both** make the rasteriser ~30% faster. In
+  closed geometry half the triangles face each way, so culling the *wrong* half is exactly as cheap
+  as culling the right one — and every counter reports a triumph either way. Rendering the frame is
+  the only test that can tell them apart: the right sign changes 9.4% of the picture, the inverted
+  one changes **92.7%** and you see through the tree trunks and into the back of Luigi's head.
+- The first guess was the wrong one.
+- What the disassembly *can* pin: the field (GEN_MODE bits 14..15) and the fact that the SDK's enum
+  and the hardware disagree — the game's own `GXSetCullMode` (0x801F51C0) is almost entirely a
+  `1↔2` swap. What it *cannot* pin is which winding is a front face, because that depends on our own
+  projection (the viewport flips Y, which flips every triangle's area sign). So the constants are
+  named `cullPosArea`/`cullNegArea` — for the sign they discard, which is verified — rather than
+  front/back, which would be asserting a mapping nothing has checked.
+- The residual 9.4% is culling *fixing* things: the flashlight's cone had been blended in twice
+  (both faces), and the tree silhouettes had slivers of back face peeking round them.
+
+`RR_GC_CULLMODE=off|flip` is kept as the scaffolding that settled it, and as the first thing to try
+when geometry goes missing from a scene.
 
 ---
 

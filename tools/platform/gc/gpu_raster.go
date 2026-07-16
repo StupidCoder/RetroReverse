@@ -8,11 +8,10 @@ package gc
 //
 // Perspective-correct interpolation is still a later refinement: the barycentric weights are
 // taken in screen space, which is exact for the screen-aligned blits the boot draws and only
-// skews texturing on triangles seen at a steep angle. Two other faithfulness gaps are
-// deliberate and named rather than hidden: back-face culling is not applied, so a triangle of
-// either winding is drawn (a wrong guess at winding would make geometry silently vanish, which
-// is worse than drawing a back face while the pipe is young). The depth test honours the mode
-// the game programmed (BP 0x40 — enable, compare function, write enable).
+// skews texturing on triangles seen at a steep angle. The depth test honours the mode the game
+// programmed (BP 0x40 — enable, compare function, write enable), and so does back-face culling
+// (GEN_MODE bits 14..15 — see cullTest, and note that its sign convention is pinned by a
+// rendered frame because nothing else can pin it).
 
 import (
 	"fmt"
@@ -67,8 +66,13 @@ func (g *gpu) drawTriangle(m *Machine, v0, v1, v2 screenVertex) {
 	}
 
 	// The signed area of the triangle; a degenerate (zero-area) triangle covers no pixels.
+	// Its SIGN is the triangle's winding on screen, which is what the cull test reads.
 	area := edge(v0.x, v0.y, v1.x, v1.y, v2.x, v2.y)
 	if area == 0 {
+		return
+	}
+	if g.cullTest(area) {
+		g.profCulled++
 		return
 	}
 
@@ -148,6 +152,99 @@ func (g *gpu) drawTriangle(m *Machine, v0, v1, v2 screenVertex) {
 			}
 		}
 	}
+}
+
+// The cull modes, as they appear in GEN_MODE's two-bit field (bits 14..15).
+//
+// The field's position and the fact that it is the cull mode are pinned from the game's own
+// GXSetCullMode at 0x801F51C0, which is almost entirely a remap: it takes the caller's mode,
+// SWAPS 1 and 2 (leaving 0 and 3 alone), and inserts the result at bits 14..15 of the
+// GEN_MODE shadow —
+//
+//	cmpwi r3,2 ; beq  -> li r3,1
+//	cmpwi r3,1 ; bge  -> li r3,2
+//	              else -> unchanged
+//	slwi r0,r3,14 ; rlwinm r3,r3,0,18,15 ; or ; stw
+//
+// — so the SDK's enum and the hardware field disagree about which of the two culling modes is
+// which, and this file wants the hardware's. Corroborated by watching the cutscene program
+// the field: only bits 14..15 ever vary across a whole frame, taking exactly the values 0, 1
+// and 2 (8, 22 and 66 draws respectively) and never 3.
+//
+// THEY ARE NAMED FOR THE SIGN THEY DISCARD, NOT "FRONT"/"BACK". Which screen winding is a
+// front face is not something the register, the swap, or the disassembly says — it depends on
+// this rasteriser's own projection, and the only thing that actually knows is the rendered
+// picture (see cullTest). Naming them front/back would be asserting a mapping nothing here
+// has verified, and getting it backwards is silent: the scene renders, and it renders
+// inside-out. The circumstantial case, recorded but deliberately NOT relied on: mode 2 is the
+// overwhelmingly common one (66 draws of 96), and a 3D scene culls back faces far more often
+// than front ones, so cullPosArea is very probably "cull back".
+const (
+	cullNone    = 0 // draw every triangle
+	cullNegArea = 1 // discard triangles whose screen-space signed area is negative
+	cullPosArea = 2 // discard triangles whose screen-space signed area is positive
+	cullAll     = 3 // discard every triangle
+)
+
+// cullTest reports whether a triangle of this screen-space winding should be discarded.
+//
+// WHICH SIGN GOES WITH WHICH MODE IS THE HALF THE DISASSEMBLY CANNOT ANSWER, because it
+// depends on this rasteriser's own projection — the viewport transform flips Y, which flips
+// the sign of every triangle's area. So it was settled by rendering the frame both ways and
+// looking, and the first guess was wrong: the other assignment renders the forest inside-out
+// (92.7% of the frame's pixels change; you see through the trunks and into the back of
+// Luigi's head). This way round 9.4% change, and those changes are the flashlight's cone —
+// whose back faces were being blended in a second time — and thin slivers along the tree
+// silhouettes. Culling fixes those rather than breaking them.
+//
+// THE MEASUREMENTS COULD NOT HAVE DECIDED IT. Both assignments cull ~8,000 of the field's
+// triangles and both make the rasteriser ~30% faster, because in closed geometry half the
+// triangles face each way — culling the wrong half is exactly as cheap as culling the right
+// one, and the profiler reports a triumph either way. Only the picture knows, which is why
+// this is pinned by TestCullingDoesNotChangeTheOpaqueScene against a rendered frame and not
+// by a speedup.
+func (g *gpu) cullTest(area float32) bool {
+	if cullExperiment != "" {
+		return g.cullTestExperiment(area)
+	}
+	switch (g.BP[0x00] >> 14) & 3 {
+	case cullAll:
+		return true
+	case cullPosArea:
+		return area > 0
+	case cullNegArea:
+		return area < 0
+	}
+	return false
+}
+
+// cullExperiment is the scaffolding that settled the sign convention above, kept because it
+// is also the fastest way to answer "is this geometry missing because of culling?" the next
+// time something disappears from a scene:
+//
+//	RR_GC_CULLMODE=off    draw every triangle, whatever the register says
+//	RR_GC_CULLMODE=flip   take the opposite sign — i.e. the convention that is wrong here
+//
+// Read once at init, so it must be set in the environment of the process (setting it from
+// inside main is too late — that mistake made the first run of the experiment report three
+// identical results and briefly look like culling did nothing at all).
+var cullExperiment = os.Getenv("RR_GC_CULLMODE")
+
+func (g *gpu) cullTestExperiment(area float32) bool {
+	switch cullExperiment {
+	case "off":
+		return false
+	case "flip":
+		switch (g.BP[0x00] >> 14) & 3 {
+		case cullAll:
+			return true
+		case cullPosArea:
+			return area < 0
+		case cullNegArea:
+			return area > 0
+		}
+	}
+	return false
 }
 
 // depthCompare applies the zmode compare function: does the incoming depth pass against what

@@ -110,13 +110,13 @@ type profState struct {
 
 // profCounters is the tally a field's work is reported in.
 type profCounters struct {
-	cmds, draws, frags, zRejected, aRejected, fifoBytes int
+	cmds, draws, culled, frags, zRejected, aRejected, fifoBytes int
 }
 
 func (m *Machine) profCounters() profCounters {
 	g := &m.gpu
 	return profCounters{
-		cmds: m.gxTotalCmds, draws: g.profDraws, frags: g.pixWritten,
+		cmds: m.gxTotalCmds, draws: g.profDraws, culled: g.profCulled, frags: g.pixWritten,
 		zRejected: g.pixZRej, aRejected: g.pixARej, fifoBytes: int(m.wgFIFO.Bytes),
 	}
 }
@@ -239,7 +239,8 @@ func (m *Machine) profFrame() {
 	now := m.profCounters()
 	d := profCounters{
 		cmds: now.cmds - p.base.cmds, draws: now.draws - p.base.draws,
-		frags: now.frags - p.base.frags, zRejected: now.zRejected - p.base.zRejected,
+		culled: now.culled - p.base.culled,
+		frags:  now.frags - p.base.frags, zRejected: now.zRejected - p.base.zRejected,
 		aRejected: now.aRejected - p.base.aRejected, fifoBytes: now.fifoBytes - p.base.fifoBytes,
 	}
 	instrs := int(m.Instrs - p.baseInstr)
@@ -251,6 +252,7 @@ func (m *Machine) profFrame() {
 		Counters: []ProfileCounter{
 			{"gx commands", d.cmds},
 			{"draws", d.draws},
+			{"tris culled", d.culled},
 			{"fragments drawn", d.frags},
 			{"depth-rejected", d.zRejected},
 			{"alpha-rejected", d.aRejected},
