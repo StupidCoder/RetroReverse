@@ -249,8 +249,11 @@ func (g *gpu) fillTri(m *Machine, tev *tevState, t *rasterTri, yLo, yHi int, st 
 // THAT CONSTRAINT DOES NOT EXIST HERE. Flipper's embedded framebuffer is a flat []uint32
 // indexed y*efbWidth+x, not tiled, and a row is 640*4 = 2560 bytes = 40 cache lines exactly —
 // so EVERY row boundary is 64-byte aligned and bands of any height never share a line. The
-// value is therefore free to be chosen by measurement alone, and was.
-const bandRows = 8
+// value is free to be chosen by measurement, so it was: 8/4/2/1 rows over the shadow scene
+// measured 1.276/1.252/1.23/1.22 s, and four is the knee. Finer bands balance better here
+// because the work is savagely uneven — half of a field's pixels are in 45 of its 4,510
+// drawing draws — and cost nothing to hand out.
+const bandRows = 4
 
 // fill rasterises a draw's triangles, in parallel when it is faithful to do so.
 //

@@ -93,8 +93,17 @@ func (m *Machine) Close() {
 	}
 }
 
-// maxWorkers bounds the fan-out. Past about eight the raster stage is memory-bound and the
-// extra workers mostly contend; and a fixed bound keeps the machine's behaviour the same on
-// a laptop and on a build box, which matters when the thing being compared between them is
-// a frame time.
-var maxWorkers = min(8, runtime.GOMAXPROCS(0))
+// maxWorkers bounds the fan-out.
+//
+// The 3DS caps this at eight for two reasons, and only one of them survives measurement here.
+// The first — past about eight these stages are memory-bound and the extra workers mostly
+// contend — is simply not what this machine does: on twelve cores, 4/8/10/12 workers measured
+// 1.335/1.276/1.26/1.254 s over the shadow scene, still improving at twelve.
+//
+// The second reason was that a fixed bound keeps a frame time comparable between a laptop and
+// a build box. That one is DELIBERATELY TRADED AWAY for the ~2%, because it was never worth
+// much: the rule that actually protects a measurement is to A/B on one machine in one sitting,
+// and a frame time is not comparable across hosts anyway. What is comparable across hosts is
+// the OUTPUT, and that does not depend on the worker count at all — the partition decides the
+// answer, not the scheduler, which is exactly what TestParallelMatchesSerial pins.
+var maxWorkers = min(12, runtime.GOMAXPROCS(0))
