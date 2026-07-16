@@ -89,6 +89,8 @@ type vif struct {
 	lastStart    uint32 // the last MSCAL'd program address, naming XGKICK packets' producer
 	dumpN        int    // how many VU1DumpIn snapshots have been written
 	runawayDumps int    // how many step-budget branch trails have been printed
+	maxStores    int    // ±FLT_MAX stores seen (the first few are noted)
+	maxUnpacks   int    // ±FLT_MAX words unpacked (the first few are noted)
 
 	// The command in flight: its code word, the bytes its payload still needs, and the
 	// payload gathered so far.
@@ -142,6 +144,12 @@ func (m *Machine) ensureVIF(idx int) *vif {
 		v.vu = vu.New(v.micro, v.data)
 		if idx == 1 {
 			v.vu.XGKick = v.xgkick
+			v.vu.OnMaxStore = func(pc, qwAddr, bits uint32) {
+				if v.maxStores++; v.maxStores <= 8 {
+					v.m.note("VU1 ±FLT_MAX store: pc 0x%X -> data qw %d (bits %08X, program 0x%X, top %d)",
+						pc, qwAddr, bits, v.lastStart, v.vu.Top)
+				}
+			}
 		} else {
 			m.CPU.COP2 = v.vu
 		}
@@ -477,6 +485,11 @@ func (v *vif) unpack(cmd uint32, data []byte) {
 		}
 		if int(at)+16 <= len(v.data) {
 			for e := 0; e < 4; e++ {
+				if v.idx == 1 && f[e]&0x7FFFFFFF == 0x7F7FFFFF {
+					if v.maxUnpacks++; v.maxUnpacks <= 8 {
+						v.m.note("VIF1 unpacked a ±FLT_MAX word into data qw %d (bits %08X) — the garbage was authored EE-side", at/16, f[e])
+					}
+				}
 				v.data[at+uint32(e)*4+0] = byte(f[e])
 				v.data[at+uint32(e)*4+1] = byte(f[e] >> 8)
 				v.data[at+uint32(e)*4+2] = byte(f[e] >> 16)

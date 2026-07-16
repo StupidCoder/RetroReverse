@@ -53,6 +53,11 @@ type VU struct {
 	// program has finished building.
 	XGKick func(qwAddr uint32)
 
+	// OnMaxStore, if set, is called when a store writes a ±FLT_MAX float into data
+	// memory — the signature of a clamped overflow round-tripping into another
+	// program's state. Args: the storing PC, the quadword address, the raw bits.
+	OnMaxStore func(pc, qwAddr, bits uint32)
+
 	// CMSAR0 is VCALLMSR's start address (64-bit pairs); StartVU1, if set, serves a
 	// macro-mode write of CMSAR1 — the EE starting the OTHER unit. Both belong to the
 	// macro face (macro.go).
@@ -776,6 +781,9 @@ func (v *VU) storeQ(r, destMask, addr uint32) {
 		}
 		o := addr + l*4
 		bits := v.VF[r][l]
+		if v.OnMaxStore != nil && bits&0x7FFFFFFF == 0x7F7FFFFF {
+			v.OnMaxStore(v.PC, addr/16, bits)
+		}
 		v.Data[o] = byte(bits)
 		v.Data[o+1] = byte(bits >> 8)
 		v.Data[o+2] = byte(bits >> 16)
