@@ -242,10 +242,21 @@ func (gs *GS) drawn(typ int) {
 	if dump {
 		gs.m.GSVertDump--
 		p := gs.prim()
-		fmt.Printf("  prim %-9s PRIM=0x%03X ctx%d%s%s%s:\n", primNames[typ&7], p, gs.ctxt()+1,
+		xyoff := gs.reg[gsXYOFFSET1]
+		scis := gs.reg[gsSCISSOR1]
+		if gs.ctxt() == 1 {
+			xyoff = gs.reg[gsXYOFFSET2]
+			scis = gs.reg[gsSCISSOR2]
+		}
+		fmt.Printf("  prim %-9s PRIM=0x%03X ctx%d%s%s%s xyoff (%d,%d) scissor x %d..%d y %d..%d from %s:\n",
+			primNames[typ&7], p, gs.ctxt()+1,
 			map[bool]string{true: " TME", false: ""}[p&(1<<4) != 0],
 			map[bool]string{true: " ABE", false: ""}[p&(1<<6) != 0],
-			map[bool]string{true: " FGE", false: ""}[p&(1<<5) != 0])
+			map[bool]string{true: " FGE", false: ""}[p&(1<<5) != 0],
+			uint32(xyoff)&0xFFFF>>4, uint32(xyoff>>32)&0xFFFF>>4,
+			uint32(scis)&0x7FF, uint32(scis>>16)&0x7FF,
+			uint32(scis>>32)&0x7FF, uint32(scis>>48)&0x7FF,
+			gs.src)
 		for i := 0; i < gs.vqN && i < len(gs.vq); i++ {
 			v := gs.vq[i]
 			fmt.Printf("    v%d xy (%8.2f,%8.2f) z %08X rgba %08X stq (%g, %g, %g) uv (%.1f,%.1f)\n",
