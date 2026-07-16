@@ -412,7 +412,7 @@ func (p *IOP) raiseIRQ(irq uint32) {
 // it is also the honest thing: the interrupt has happened whether or not anyone is
 // listening yet, and a module that enables its handler afterwards should see it.
 func (p *IOP) serviceIntr() {
-	if p.inIntr > 0 || !p.intrEnabled || p.pending == 0 {
+	if p.inIntr > 0 || !p.intrEnabled || (p.pending == 0 && !p.vblankPending) {
 		return
 	}
 
@@ -429,6 +429,15 @@ func (p *IOP) serviceIntr() {
 	// it can restore exactly. It is the same guarantee the hardware gives itself with the
 	// BD bit, arrived at from the other side.
 	if st := p.CPU.SaveState(); st.PendingDelay || st.LdReg != 0 {
+		return
+	}
+
+	// The vertical blank goes first: it is line 0, the highest-priority line on the
+	// controller, and its dispatcher is ours (iopvblank.go) rather than a registered
+	// guest routine.
+	if p.vblankPending {
+		p.vblankPending = false
+		p.vblankDeliver()
 		return
 	}
 

@@ -127,8 +127,13 @@ func init() {
 		35: unknown(),
 	})
 
+	// vblank: the per-frame heartbeat, identified from its callers (iopvblank.go).
+	// padman's poll threads block on event flags only a per-vblank handler sets;
+	// leaving #8 unmodelled left the pad permanently one state short of stable and
+	// the title's memory-card dialog waiting for an OK press that could never arrive.
 	lib("vblank", map[uint16]iopFunc{
-		8: unknown(), 9: unknown(),
+		8: {"RegisterVblankHandler", (*IOP).vblankRegister},
+		9: {"ReleaseVblankHandler", (*IOP).vblankRelease},
 	})
 
 	// secrman — the memory card's MagicGate authentication. Left unmodelled on purpose,

@@ -44,6 +44,8 @@ type IOPModuleState struct {
 // The small records the kernel HLE keeps.
 type (
 	IOPHandlerState struct{ Fn, Arg uint32 }
+	// IOPVblankHandlerState is one vblank#8 registration.
+	IOPVblankHandlerState struct{ Edge, Prio, Fn, Arg uint32 }
 	IOPBlockState   struct{ Base, Size uint32 }
 	// IOPHeapState carries the heap's *handle* as well as its state, and the two are not
 	// the same number. CreateHeap returns the address of the first chunk and the guest holds
@@ -81,6 +83,11 @@ type IOPState struct {
 	IMask       uint64
 	IntrEnabled bool
 	Pending     uint64
+
+	// The vblank library's registrations (iopvblank.go). A state saved before the
+	// library existed restores with none, which is also what that machine had.
+	VblankHandlers []IOPVblankHandlerState
+	VblankPending  bool
 	Blocks      []IOPBlockState
 	Heaps       []IOPHeapState
 
@@ -97,6 +104,11 @@ type IOPState struct {
 	SIO2DmaAddr           [2]uint32
 	SIO2DmaWords          [2]uint32
 	SIO2OutArmed          bool
+
+	// The port-0 pad's mode latches. A state saved before the pad grew config mode
+	// restores with everything false, which is a pad that was never configured.
+	PadConfig, PadAnalog, PadLocked bool
+	PadActMap                       [6]byte
 
 	SPURegs []byte
 	SPURAM  []byte
@@ -164,6 +176,11 @@ func (p *IOP) SaveState() IOPState {
 	for i := range p.handlers {
 		s.Handlers[i] = IOPHandlerState{Fn: p.handlers[i].fn, Arg: p.handlers[i].arg}
 	}
+	for _, h := range p.vblankHandlers {
+		s.VblankHandlers = append(s.VblankHandlers,
+			IOPVblankHandlerState{Edge: h.edge, Prio: h.prio, Fn: h.fn, Arg: h.arg})
+	}
+	s.VblankPending = p.vblankPending
 	for _, b := range p.blocks {
 		s.Blocks = append(s.Blocks, IOPBlockState{Base: b.base, Size: b.size})
 	}
@@ -182,6 +199,7 @@ func (p *IOP) SaveState() IOPState {
 	s.SIO2In = append([]byte(nil), p.sio2.in...)
 	s.SIO2Out = append([]byte(nil), p.sio2.out...)
 	s.SIO2DmaAddr, s.SIO2DmaWords, s.SIO2OutArmed = p.sio2.dmaAddr, p.sio2.dmaWords, p.sio2.outArmed
+	s.PadConfig, s.PadAnalog, s.PadLocked, s.PadActMap = p.pad.config, p.pad.analog, p.pad.locked, p.pad.actMap
 	for i := range p.timers {
 		s.Timers[i] = IOPTimerState{
 			Count: p.timers[i].count, Mode: p.timers[i].mode,
@@ -267,6 +285,12 @@ func (m *Machine) LoadIOPState(s IOPState) error {
 	for i := range s.Handlers {
 		p.handlers[i] = iopHandler{fn: s.Handlers[i].Fn, arg: s.Handlers[i].Arg}
 	}
+	p.vblankHandlers = nil
+	for _, h := range s.VblankHandlers {
+		p.vblankHandlers = append(p.vblankHandlers,
+			iopVblankHandler{edge: h.Edge, prio: h.Prio, fn: h.Fn, arg: h.Arg})
+	}
+	p.vblankPending = s.VblankPending
 	p.imask = s.IMask
 	p.intrEnabled = s.IntrEnabled
 	p.pending = s.Pending
@@ -290,6 +314,7 @@ func (m *Machine) LoadIOPState(s IOPState) error {
 	p.sio2.in = append([]byte(nil), s.SIO2In...)
 	p.sio2.out = append([]byte(nil), s.SIO2Out...)
 	p.sio2.dmaAddr, p.sio2.dmaWords, p.sio2.outArmed = s.SIO2DmaAddr, s.SIO2DmaWords, s.SIO2OutArmed
+	p.pad.config, p.pad.analog, p.pad.locked, p.pad.actMap = s.PadConfig, s.PadAnalog, s.PadLocked, s.PadActMap
 	for i := range s.Timers {
 		p.timers[i] = iopTimer{
 			count: s.Timers[i].Count, mode: s.Timers[i].Mode,

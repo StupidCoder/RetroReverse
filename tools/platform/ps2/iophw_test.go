@@ -565,3 +565,108 @@ func TestSIO2PadReportsInjectedButtons(t *testing.T) {
 		t.Errorf("button byte 1 = %02x, want ff (nothing in the low byte pressed)", resp[3])
 	}
 }
+
+func TestSIO2PadConfigMode(t *testing.T) {
+	// padman's identify sequence (padman+0x156C) accepts a pad only if its config-mode
+	// queries answer with id 0xF3 (padman+0x16A8) and a model reply whose mode count is
+	// sane (padman+0x1704). This pins the pad's config state machine.
+	m := NewMachine()
+	p := m.StartIOP()
+
+	// A plain poll: digital id.
+	resp := p.sio2Pad([]byte{0x01, 0x42, 0x00, 0x00, 0x00}, 5)
+	if resp[1] != 0x41 {
+		t.Errorf("poll id = %02x, want 41 (digital until told otherwise)", resp[1])
+	}
+
+	// Enter config: the reply to 0x43 itself still carries the current id...
+	resp = p.sio2Pad([]byte{0x01, 0x43, 0x00, 0x01, 0x00}, 5)
+	if resp[1] != 0x41 {
+		t.Errorf("config-entry reply id = %02x, want 41 (mode changes after the frame)", resp[1])
+	}
+	// ...and every command after it answers as config, id 0xF3.
+	resp = p.sio2Pad([]byte{0x01, 0x45, 0x00, 0x5A, 0x5A, 0x5A, 0x5A, 0x5A, 0x5A}, 9)
+	if resp[1] != 0xF3 {
+		t.Fatalf("config-mode query id = %02x, want F3: padman+0x16A8 rejects anything else", resp[1])
+	}
+	if resp[3] != 0x03 || resp[4] != 0x02 {
+		t.Errorf("model reply = % x, want 03 02 ...: mode count must be < 4 for padman+0x1704", resp[3:9])
+	}
+
+	// Switch to analog inside config, exit config: polls now carry id 0x73 and centred sticks.
+	p.sio2Pad([]byte{0x01, 0x44, 0x00, 0x01, 0x03, 0x00, 0x00, 0x00, 0x00}, 9)
+	p.sio2Pad([]byte{0x01, 0x43, 0x00, 0x00, 0x00}, 5)
+	resp = p.sio2Pad([]byte{0x01, 0x42, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00}, 9)
+	if resp[1] != 0x73 {
+		t.Errorf("analog poll id = %02x, want 73", resp[1])
+	}
+	if resp[5] != 0x80 || resp[8] != 0x80 {
+		t.Errorf("analog sticks = % x, want centred 80s", resp[5:9])
+	}
+}
+
+func TestVblankHandlerRegistersAndRuns(t *testing.T) {
+	// vblank#8 files a handler, and the frame clock runs it in interrupt context with
+	// its registration argument. This is padman's whole pad-poll pump: without the
+	// delivery, its threads wait forever on flags nothing sets.
+	m := NewMachine()
+	p := m.StartIOP()
+
+	// A four-instruction guest handler at 0x3000: store the argument where the test
+	// can see it, return 1.
+	handler := uint32(0x3000)
+	words := []uint32{
+		0xAC044000, // sw   $a0, 0x4000($zero)
+		0x24020001, // addiu $v0, $zero, 1
+		0x03E00008, // jr   $ra
+		0x00000000, // nop
+	}
+	for i, w := range words {
+		p.ram[handler+uint32(i*4)+0] = byte(w)
+		p.ram[handler+uint32(i*4)+1] = byte(w >> 8)
+		p.ram[handler+uint32(i*4)+2] = byte(w >> 16)
+		p.ram[handler+uint32(i*4)+3] = byte(w >> 24)
+	}
+
+	// Register: vblank#8(edge 0, priority 0x20, handler, arg) — the shape of the call
+	// the census recorded.
+	p.CPU.SetReg(4, 0)
+	p.CPU.SetReg(5, 0x20)
+	p.CPU.SetReg(6, handler)
+	p.CPU.SetReg(7, 0x1234)
+	p.vblankRegister()
+	if len(p.vblankHandlers) != 1 {
+		t.Fatalf("registered handlers = %d, want 1", len(p.vblankHandlers))
+	}
+
+	// A blank begins; the next serviceable moment runs the handler.
+	p.CPU.SetReg(29, 0x10000) // a plausible thread stack for the interrupt frame
+	p.vblankTick()
+	if !p.vblankPending {
+		t.Fatal("vblankTick with a handler registered must leave a delivery pending")
+	}
+	p.serviceIntr()
+	if p.vblankPending {
+		t.Fatal("the delivery did not clear the pending blank")
+	}
+	got := uint32(p.ram[0x4000]) | uint32(p.ram[0x4001])<<8 |
+		uint32(p.ram[0x4002])<<16 | uint32(p.ram[0x4003])<<24
+	if got != 0x1234 {
+		t.Errorf("the handler ran with arg 0x%X, want 0x1234", got)
+	}
+	if p.delivered[iopVblankLine] != 1 {
+		t.Errorf("delivered[%d] = %d, want 1", iopVblankLine, p.delivered[iopVblankLine])
+	}
+
+	// vblank#9 releases it: the next blank is not even marked pending.
+	p.CPU.SetReg(4, 0)
+	p.CPU.SetReg(5, handler)
+	p.vblankRelease()
+	if len(p.vblankHandlers) != 0 {
+		t.Fatalf("after release, handlers = %d, want 0", len(p.vblankHandlers))
+	}
+	p.vblankTick()
+	if p.vblankPending {
+		t.Fatal("a blank with no handlers must not leave a delivery pending")
+	}
+}

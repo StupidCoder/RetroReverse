@@ -82,6 +82,24 @@ type sio2xfer struct {
 	dumps    int       // the first-transfers instrument: dump SEND3 + bytes, a few times
 }
 
+// sio2PadState is the port-0 controller's own mode latches. A DualShock-class pad is a
+// tiny state machine: command 0x43 moves it in and out of config (escape) mode, where it
+// answers with id 0xF3 and serves the query commands; 0x44 switches digital/analog. The
+// latches are device state, not transfer state, and they are savestated.
+//
+// The pad must be config-capable because padman refuses anything less: its identify
+// sequence (padman+0x156C) queries the pad in config mode and returns success only if
+// the responses carry the config id 0xF3 (the check at padman+0x16A8) — a pad answering
+// like a plain digital controller fails the sequence ten times (padman+0x26D4 loop), the
+// connect thread exits and restarts, and the port sits at state 5 (EXECCMD) forever,
+// which the EE reads as "never stable" and no button ever arrives.
+type sio2PadState struct {
+	config bool    // in config mode: id 0xF3, query commands served
+	analog bool    // analog mode (set by 0x44): id 0x73, stick bytes appended
+	locked bool    // mode locked by 0x44's second parameter
+	actMap [6]byte // actuator mapping set by 0x4D; the reply echoes the previous mapping
+}
+
 // sio2Contains reports whether an address is one of the SIO2 controller's registers.
 func sio2Contains(a uint32) bool { return a >= iopSIO2Base && a < iopSIO2End }
 
@@ -224,13 +242,23 @@ func (p *IOP) sio2Start() {
 	p.raiseIRQ(iopSIO2IRQ)
 }
 
-// sio2Pad is the controller in port 0: a digital pad, the least device that is honestly a
-// device. It speaks the pad protocol's shape — a command frame in, a same-length frame out,
-// header 0xFF, then the pad's identity 0x41 ("digital, 1 quad of data") and 0x5A ("here it
-// comes"), then the sixteen buttons, active-low, little end first. Every command gets the
-// digital pad's one answer: a real digital controller has no other — it has no analog
-// state to configure, and padman's config probes (0x43 and family) read the same reply a
-// poll does and conclude, correctly, that this is a digital pad.
+// sio2Pad is the controller in port 0: a DualShock 2. It speaks the pad protocol's shape —
+// a command frame in, a same-length frame out, header 0xFF, then the pad's identity byte
+// and 0x5A ("here it comes"), then the payload, buttons active-low, little end first.
+//
+// It began life as a plain digital pad (id 0x41 to everything), and padman rejected it:
+// the identify sequence padman runs after the first successful poll (padman+0x156C,
+// called from the connect thread at padman+0x26D4) puts the pad in config mode with 0x43
+// and queries it — model 0x45, actuators 0x46/0x47, mode table 0x4C — and returns success
+// ONLY if those replies carry the config-mode id 0xF3 (padman+0x16A8). A digital pad's
+// replies fail that check ten times, the connect thread exits and restarts, the port
+// state ping-pongs between 5 (EXECCMD) and re-probe, and the EE — which polls
+// scePadGetState wanting 6 (STABLE) — never sees a button. So the pad Jak actually
+// shipped against is what sits here: config mode, the query set, and the analog switch,
+// with the latches in sio2PadState. The query replies are the standard DualShock 2
+// answers from the pad-protocol documentation; padman's parsers are the verification
+// (its acceptance check at padman+0x1704 requires the model reply's mode count < 4,
+// which the honest 0x02 satisfies).
 //
 // The buttons come from the machine's injection schedule (Machine.padButtons), which is
 // how the oracle presses X on a dialog: the answer is derived from the vblank count, so it
@@ -240,18 +268,140 @@ func (p *IOP) sio2Pad(cmd []byte, n int) []byte {
 	for i := range resp {
 		resp[i] = 0xFF
 	}
-	buttons := p.ps2.padButtons()
-	if n > 1 {
-		resp[1] = 0x41
+	if n < 2 || len(cmd) < 2 {
+		return resp
 	}
+
+	// The identity byte: high nibble = type, low nibble = payload halfwords. 0x41 is
+	// the digital pad (1 halfword of buttons), 0x73 the DualShock in analog mode
+	// (buttons + 4 stick bytes), 0xF3 config mode (3 halfwords of command payload).
+	id := byte(0x41)
+	if p.pad.analog {
+		id = 0x73
+	}
+	if p.pad.config {
+		id = 0xF3
+	}
+	resp[1] = id
 	if n > 2 {
 		resp[2] = 0x5A
 	}
-	if n > 3 {
-		resp[3] = ^byte(buttons)
+
+	// put writes one payload byte, if the transfer is long enough to carry it.
+	put := func(i int, b byte) {
+		if 3+i < n {
+			resp[3+i] = b
+		}
 	}
-	if n > 4 {
-		resp[4] = ^byte(buttons >> 8)
+	zero := func(k int) {
+		for i := 0; i < k; i++ {
+			put(i, 0)
+		}
+	}
+	arg := func(i int) byte {
+		if 3+i < len(cmd) {
+			return cmd[3+i]
+		}
+		return 0
+	}
+	pollData := func() {
+		buttons := p.ps2.padButtons()
+		put(0, ^byte(buttons))
+		put(1, ^byte(buttons>>8))
+		if p.pad.analog {
+			// Right stick, then left, both centred: the oracle's pad has no sticks.
+			put(2, 0x80)
+			put(3, 0x80)
+			put(4, 0x80)
+			put(5, 0x80)
+		}
+	}
+
+	switch cmd[1] {
+	case 0x42: // poll
+		pollData()
+
+	case 0x43: // config (escape) mode enter/exit; the data half is a normal poll
+		if p.pad.config {
+			zero(6) // inside config mode the payload is zeros
+		} else {
+			pollData()
+		}
+		p.pad.config = arg(0) == 1
+
+	case 0x44: // set mode: arg0 = analog, arg1 = 3 locks it (config mode only)
+		if p.pad.config {
+			zero(6)
+			p.pad.analog = arg(0) == 1
+			p.pad.locked = arg(1) == 3
+		}
+
+	case 0x45: // query model. padman files bytes 1..5 of this at record+194..198 and
+		// requires byte 2 (the mode count) < 4 (padman+0x1704) to accept the pad.
+		if p.pad.config {
+			mode := byte(0)
+			if p.pad.analog {
+				mode = 1
+			}
+			put(0, 0x03) // DualShock 2
+			put(1, 0x02) // two modes
+			put(2, mode)
+			put(3, 0x02)
+			put(4, 0x01)
+			put(5, 0x00)
+		}
+
+	case 0x46: // query actuator, two halves selected by the argument
+		if p.pad.config {
+			if arg(0) == 0 {
+				put(0, 0x00)
+				put(1, 0x00)
+				put(2, 0x01)
+				put(3, 0x02)
+				put(4, 0x00)
+				put(5, 0x0A)
+			} else {
+				put(0, 0x00)
+				put(1, 0x00)
+				put(2, 0x01)
+				put(3, 0x01)
+				put(4, 0x01)
+				put(5, 0x14)
+			}
+		}
+
+	case 0x47: // query actuator combinations
+		if p.pad.config {
+			zero(6)
+			put(2, 0x02)
+			put(4, 0x01)
+		}
+
+	case 0x4C: // query mode table entry, selected by the argument
+		if p.pad.config {
+			zero(6)
+			if arg(0) == 0 {
+				put(3, 0x04)
+			} else {
+				put(3, 0x07)
+			}
+		}
+
+	case 0x4D: // map actuators: the reply is the PREVIOUS mapping, then the new one latches
+		if p.pad.config {
+			for i, b := range p.pad.actMap {
+				put(i, b)
+			}
+			for i := range p.pad.actMap {
+				p.pad.actMap[i] = arg(i)
+			}
+		}
+
+	case 0x4F: // set poll response format (DualShock 2); acknowledged with a trailing 0x5A
+		if p.pad.config {
+			zero(5)
+			put(5, 0x5A)
+		}
 	}
 	return resp
 }

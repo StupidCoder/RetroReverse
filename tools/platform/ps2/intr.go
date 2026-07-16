@@ -75,6 +75,13 @@ func (m *Machine) deliverVBlank() {
 	m.vblanks++
 	m.gsVSync()
 
+	// The blank is one event on the board and both processors see it. The IOP's
+	// vblank library (iopvblank.go) runs its registered handlers off this same edge —
+	// padman's per-frame pad poll above all.
+	if m.IOP != nil {
+		m.IOP.vblankTick()
+	}
+
 	if m.vsyncFlagPtr != 0 {
 		m.Write32(m.vsyncFlagPtr, 1)
 	}

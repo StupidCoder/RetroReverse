@@ -125,8 +125,15 @@ type IOP struct {
 	pending uint64
 	inIntr  int
 
-	// The SIO2 controller's transfer in flight (iopsio2.go).
+	// The vblank library's registrations, and whether a blank has begun that the
+	// handlers have not yet been run for (iopvblank.go).
+	vblankHandlers []iopVblankHandler
+	vblankPending  bool
+
+	// The SIO2 controller's transfer in flight, and the port-0 pad's mode latches
+	// (iopsio2.go).
 	sio2 sio2xfer
+	pad  sio2PadState
 
 	// The DMA controller (iopdma.go), the sound chip (iopspu.go) and the disc drive
 	// (iopcdvd.go).
@@ -352,6 +359,7 @@ func newIOP(m *Machine, ram []byte) *IOP {
 		heaps:           map[uint32]*iopHeap{},
 		stubName:        map[uint32]string{},
 		spu:             newSPU2(),
+		pad:             sio2PadState{actMap: [6]byte{0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF}},
 
 		// Interrupts are on before the first module runs, because on the board the kernel
 		// that loads a module has already armed them — the module is being called, not
