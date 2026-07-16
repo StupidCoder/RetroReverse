@@ -693,6 +693,15 @@ func (m *Machine) GSFrame() (pix []byte, w, h int) {
 	dw := (uint32(display>>32)&0xFFF + 1) / magh
 	dh := (uint32(display>>44)&0x7FF + 1) / magv
 
+	// Interlaced FRAME mode (SetGsCrt interlace=1, field=1, this game's mode): the
+	// buffer holds one field — 224 lines scanned out as 448 raster half-lines — so DH
+	// counts twice the buffer's rows. Reading DH rows walks off the end of the buffer
+	// and the bottom half of the dump becomes whatever sits above it in GS memory
+	// (the other frame buffer, behind a black band of the inter-buffer gap).
+	if m.gsInterlace == 1 && m.gsFieldMode == 1 {
+		dh /= 2
+	}
+
 	if fbw == 0 || dw == 0 || dh == 0 {
 		return nil, 0, 0
 	}

@@ -22,6 +22,7 @@ import (
 	"os"
 
 	"retroreverse.com/tools/cpu/r5900"
+	"retroreverse.com/tools/cpu/vu"
 )
 
 // ThreadState is one thread, in a form gob can carry.
@@ -112,6 +113,78 @@ type MachineState struct {
 	// The second processor, entire (iopstate.go). Nil when the IOP was never started —
 	// which is a state a PS2 really is in, right up until the game reboots it.
 	IOP *IOPState
+
+	// The render path, entire. None of this was in the snapshot until the machine could
+	// draw; a resume without it gets a blank GS, empty VU memories and a fresh DMA
+	// controller — fine for a CPU probe, and exactly wrong for the frame work, where a
+	// state without its VRAM "has no displayable frame" and a VU without its microcode
+	// dies on its first MSCAL.
+	DmacChans                        [dmacChannels]DmacChanState
+	DCtrl, DPcr, DSqwc, DRbsr, DRbor uint32
+	GS                               *GSState
+	VIF0, VIF1                       *VIFState
+}
+
+// DmacChanState is one EE DMA channel's register file, exported for gob.
+type DmacChanState struct {
+	CHCR, MADR, QWC, TADR, ASR0, ASR1, SADR uint32
+}
+
+// GSXferState mirrors gsXfer: the image upload in progress.
+type GSXferState struct {
+	Active                                  bool
+	DBP, DBW, DPSM, DSAX, DSAY, RRW, RRH    uint32
+	X, Y                                    uint32
+	Partial                                 []byte
+}
+
+// GSVertexState mirrors gsVertex: one entry of the vertex queue.
+type GSVertexState struct {
+	PX, PY  int32
+	Z       uint32
+	RGBA    uint32
+	U, V    int32
+	S, T, Q float32
+}
+
+// GSState is the Graphics Synthesizer, entire: its 4 MiB, its register file, the upload
+// cursor, the vertex queue and the on-chip CLUT. The census counters ride along so a
+// resumed run's report still says what the whole boot did, not what happened since the
+// load. (The per-pixel outcome tallies are diagnostic prints, not machine state, and are
+// deliberately left behind.)
+type GSState struct {
+	VRAM       []byte
+	Reg        [0x80]uint64
+	CSR        uint64
+	Xfer       GSXferState
+	VQ         [3]GSVertexState
+	VQN        int
+	Q          uint32
+	CLUT       [512]uint32
+	CBP0, CBP1 uint32
+	Uploads    int
+	Prims      int
+	PrimCount  [8]int
+	DrawCensus map[string]int
+}
+
+// VIFState is one VPU interface and its vector unit: the sticky decode registers, the
+// command mid-parse, and the program and data memories the VIF filled — the memories are
+// here rather than in the VU's own snapshot because the VIF owns the slices and hands
+// them to vu.New. VU0's state doubles as the EE's COP2 state, which is where the GOAL
+// engine's matrix stack lives between VCALLMS programs.
+type VIFState struct {
+	CL, WL, Mode, Mask           uint32
+	Row, Col                     [4]uint32
+	Base, Ofst, ITop, Mark, Tops uint32
+	Cmd                          uint32
+	Pending                      int
+	Buf                          []byte
+	Micro, Data                  []byte
+	VU                           *vu.State
+	VUSteps                      uint64
+	Census                       map[string]int
+	MSCALs                       map[uint32]int
 }
 
 // SaveState captures the machine.
@@ -153,6 +226,68 @@ func (m *Machine) SaveState() MachineState {
 	if m.IOP != nil {
 		iop := m.IOP.SaveState()
 		s.IOP = &iop
+	}
+	for i := range m.dmac {
+		c := &m.dmac[i]
+		s.DmacChans[i] = DmacChanState{
+			CHCR: c.chcr, MADR: c.madr, QWC: c.qwc, TADR: c.tadr,
+			ASR0: c.asr0, ASR1: c.asr1, SADR: c.sadr,
+		}
+	}
+	s.DCtrl, s.DPcr, s.DSqwc, s.DRbsr, s.DRbor = m.dCtrl, m.dPcr, m.dSqwc, m.dRbsr, m.dRbor
+	if gs := m.gs; gs != nil {
+		g := &GSState{
+			VRAM: append([]byte(nil), gs.vram...),
+			Reg:  gs.reg, CSR: gs.csr,
+			Xfer: GSXferState{
+				Active: gs.xfer.active, DBP: gs.xfer.dbp, DBW: gs.xfer.dbw, DPSM: gs.xfer.dpsm,
+				DSAX: gs.xfer.dsax, DSAY: gs.xfer.dsay, RRW: gs.xfer.rrw, RRH: gs.xfer.rrh,
+				X: gs.xfer.x, Y: gs.xfer.y, Partial: append([]byte(nil), gs.xfer.partial...),
+			},
+			VQN: gs.vqN, Q: gs.q, CLUT: gs.clut, CBP0: gs.cbp0, CBP1: gs.cbp1,
+			Uploads: gs.uploads, Prims: gs.prims, PrimCount: gs.primCount,
+			DrawCensus: map[string]int{},
+		}
+		for i, v := range gs.vq {
+			g.VQ[i] = GSVertexState{PX: v.x, PY: v.y, Z: v.z, RGBA: v.rgba, U: v.u, V: v.v, S: v.s, T: v.t, Q: v.q}
+		}
+		for k, v := range gs.drawCensus {
+			g.DrawCensus[k] = v
+		}
+		s.GS = g
+	}
+	for i, v := range m.vifs {
+		if v == nil {
+			continue
+		}
+		vs := &VIFState{
+			CL: v.cl, WL: v.wl, Mode: v.mode, Mask: v.mask,
+			Row: v.row, Col: v.col,
+			Base: v.base, Ofst: v.ofst, ITop: v.itop, Mark: v.mark, Tops: v.tops,
+			Cmd: v.cmd, Pending: v.pending,
+			Buf:     append([]byte(nil), v.buf...),
+			Micro:   append([]byte(nil), v.micro...),
+			Data:    append([]byte(nil), v.data...),
+			VUSteps: v.vuSteps,
+			Census:  map[string]int{}, MSCALs: map[uint32]int{},
+		}
+		if v.vu != nil {
+			st := v.vu.Snapshot()
+			vs.VU = &st
+		}
+		for k, n := range v.census {
+			vs.Census[k] = n
+		}
+		for k, n := range v.mscal {
+			vs.MSCALs[k] = n
+		}
+		// Two named fields rather than an array: gob refuses a nil element inside an
+		// array, and a machine that never touched VIF0 is a state worth saving.
+		if i == 0 {
+			s.VIF0 = vs
+		} else {
+			s.VIF1 = vs
+		}
 	}
 	for k, v := range m.io {
 		s.IO[k] = v
@@ -300,6 +435,64 @@ func (m *Machine) LoadState(s MachineState) error {
 	m.SyscallCalls = map[string]int{}
 	for k, v := range s.SyscallCalls {
 		m.SyscallCalls[k] = v
+	}
+
+	for i := range m.dmac {
+		cs := s.DmacChans[i]
+		m.dmac[i] = dmacChan{
+			chcr: cs.CHCR, madr: cs.MADR, qwc: cs.QWC, tadr: cs.TADR,
+			asr0: cs.ASR0, asr1: cs.ASR1, sadr: cs.SADR,
+		}
+	}
+	m.dCtrl, m.dPcr, m.dSqwc, m.dRbsr, m.dRbor = s.DCtrl, s.DPcr, s.DSqwc, s.DRbsr, s.DRbor
+	m.gs = nil
+	if g := s.GS; g != nil {
+		gs := m.ensureGS()
+		copy(gs.vram, g.VRAM)
+		gs.reg, gs.csr = g.Reg, g.CSR
+		gs.xfer = gsXfer{
+			active: g.Xfer.Active, dbp: g.Xfer.DBP, dbw: g.Xfer.DBW, dpsm: g.Xfer.DPSM,
+			dsax: g.Xfer.DSAX, dsay: g.Xfer.DSAY, rrw: g.Xfer.RRW, rrh: g.Xfer.RRH,
+			x: g.Xfer.X, y: g.Xfer.Y, partial: append([]byte(nil), g.Xfer.Partial...),
+		}
+		gs.vqN, gs.q, gs.clut, gs.cbp0, gs.cbp1 = g.VQN, g.Q, g.CLUT, g.CBP0, g.CBP1
+		gs.uploads, gs.prims, gs.primCount = g.Uploads, g.Prims, g.PrimCount
+		for i, v := range g.VQ {
+			gs.vq[i] = gsVertex{x: v.PX, y: v.PY, z: v.Z, rgba: v.RGBA, u: v.U, v: v.V, s: v.S, t: v.T, q: v.Q}
+		}
+		gs.drawCensus = map[string]int{}
+		for k, v := range g.DrawCensus {
+			gs.drawCensus[k] = v
+		}
+	}
+	// The VIFs are rebuilt through ensureVIF so the host wiring — the XGKICK callback,
+	// VU0 as the EE's COP2 — is re-established, then their memories and registers are
+	// overlaid. A machine restored without this ran every resume with empty VU memories,
+	// which a CPU probe never notices and the first MSCAL after a resume dies on.
+	m.vifs = [2]*vif{}
+	m.CPU.COP2 = nil
+	for i, vs := range []*VIFState{s.VIF0, s.VIF1} {
+		if vs == nil {
+			continue
+		}
+		v := m.ensureVIF(i)
+		v.cl, v.wl, v.mode, v.mask = vs.CL, vs.WL, vs.Mode, vs.Mask
+		v.row, v.col = vs.Row, vs.Col
+		v.base, v.ofst, v.itop, v.mark, v.tops = vs.Base, vs.Ofst, vs.ITop, vs.Mark, vs.Tops
+		v.cmd, v.pending = vs.Cmd, vs.Pending
+		v.buf = append([]byte(nil), vs.Buf...)
+		copy(v.micro, vs.Micro)
+		copy(v.data, vs.Data)
+		v.vuSteps = vs.VUSteps
+		if vs.VU != nil {
+			v.vu.Restore(*vs.VU)
+		}
+		for k, n := range vs.Census {
+			v.census[k] = n
+		}
+		for k, n := range vs.MSCALs {
+			v.mscal[k] = n
+		}
 	}
 
 	// A state saved at a halt must not re-halt on the same instruction the moment it
