@@ -174,6 +174,8 @@ type threadSnap struct {
 	WaitObjs     []uint32
 	WaitReg      int
 	SuspendCount int32
+	StackTop     uint32 // KPCR.NtTib.StackBase while running (zero in old snapshots)
+	StackLimit   uint32
 }
 
 // cpuSnap mirrors the parts of x86.CPU a saved (non-running) thread carries.
@@ -283,7 +285,7 @@ func (m *Machine) SaveState() *XboxState {
 			ID: t.id, KThread: t.kthread, Ctx: snapCPU(&ctx), Priority: t.priority,
 			State: int(t.state), WakeTick: t.wakeTick, WaitAll: t.waitAll,
 			WaitObjs: append([]uint32(nil), t.waitObjs...), WaitReg: t.waitReg,
-			SuspendCount: t.suspendCount,
+			SuspendCount: t.suspendCount, StackTop: t.stackTop, StackLimit: t.stackLimit,
 		})
 	}
 	// Open file handles, in a stable order.
@@ -393,7 +395,7 @@ func (m *Machine) LoadState(st *XboxState) error {
 			id: ts.ID, kthread: ts.KThread, priority: ts.Priority,
 			state: threadState(ts.State), wakeTick: ts.WakeTick, waitAll: ts.WaitAll,
 			waitObjs: append([]uint32(nil), ts.WaitObjs...), waitReg: ts.WaitReg,
-			suspendCount: ts.SuspendCount,
+			suspendCount: ts.SuspendCount, stackTop: ts.StackTop, stackLimit: ts.StackLimit,
 		}
 		// Seed the saved context from the live CPU first, so its unexported bus and
 		// hook pointers (which close over this machine and are NOT serialised) are the

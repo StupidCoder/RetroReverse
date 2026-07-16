@@ -40,7 +40,9 @@ const (
 	kpcrPrcb          = 0x20 // KPCR.Prcb -> the (inline) KPRCB
 	kpcrIrql          = 0x24 // current IRQL (0 = PASSIVE_LEVEL)
 	kpcrPrcbData      = 0x28 // the inline KPRCB begins here
-	prcbCurrentThread = 0x04 // KPRCB.CurrentThread
+	prcbCurrentThread = 0x00 // KPRCB.CurrentThread — title code reads it as FS:[0x28]
+	// (XAPI's thread start thunk: MOV EAX,FS:[0x28] then [EAX+0x28] = KTHREAD.TlsData),
+	// so CurrentThread sits at the very start of the inline KPRCB, not at +4.
 )
 
 // setupKPCR builds the processor control region FS points at.
@@ -389,12 +391,13 @@ func kernelHandler(ord uint16) func(*Machine) int {
 		return func(m *Machine) int {
 			handleOut := m.arg(0)
 			stackSize := m.arg(2)
+			tlsSize := m.arg(3)
 			threadIDOut := m.arg(4)
 			ctx1 := m.arg(5)
 			ctx2 := m.arg(6)
 			suspended := m.arg(7) != 0
 			startRoutine := m.arg(9)
-			t := m.createThread(startRoutine, ctx1, ctx2, stackSize, 16, suspended)
+			t := m.createThread(startRoutine, ctx1, ctx2, stackSize, tlsSize, 16, suspended)
 			if handleOut != 0 {
 				m.write32(handleOut, t.kthread) // the KTHREAD address doubles as the handle
 			}

@@ -34,6 +34,7 @@ func (m *Machine) newObject(kind string, typ byte, signaled bool, count, limit i
 	m.write32(addr+dhWaitListHead, addr+dhWaitListHead)   // empty list -> points at itself
 	m.write32(addr+dhWaitListHead+4, addr+dhWaitListHead) // Flink == Blink == &head
 	m.objects[addr] = &kobject{kind: kind, addr: addr, signaled: signaled, count: count, limit: limit}
+	m.logf("newObject: %s @%08X signaled=%v from %08X", kind, addr, signaled, m.retAddr())
 	return addr
 }
 
@@ -152,7 +153,7 @@ func kernelObjectHandler(ord uint16) func(*Machine) int {
 		// binding of this function at ordinal 203 (never called — confirmed by the ordinal
 		// histogram) is removed; 203 stays a halting frontier until a live site names it.
 		return func(m *Machine) int {
-			m.readFile(m.arg(0), m.arg(1), m.arg(4), m.arg(5), m.arg(6), m.arg(7))
+			m.readFile(m.arg(0), m.arg(1), m.arg(2), m.arg(3), m.arg(4), m.arg(5), m.arg(6), m.arg(7))
 			return 8
 		}
 
@@ -953,6 +954,11 @@ func (m *Machine) doWaitTimed(handle, timeoutPtr uint32) {
 	t := m.current
 	t.waitObjs = []uint32{handle}
 	t.wakeTick = wake
+	kind := "guest"
+	if o != nil {
+		kind = o.kind
+	}
+	m.logf("wait: tid=%d parks on %08X (%s) wake=%d from %08X", t.id, handle, kind, wake, m.retAddr())
 	m.setRet(0x102) // the timeout result; a signal wake overwrites saved EAX with WAIT_0
 	m.yieldCurrent(tsWaiting)
 }

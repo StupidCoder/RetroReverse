@@ -82,6 +82,24 @@ func resolveCachePath(p string) (string, bool) {
 	return "", false
 }
 
+// DebugCacheFS lists the writable HDD store: key -> size. DebugCacheFile returns one
+// file's bytes. Diagnostic accessors (like DebugThreads) — the verify-the-shipped-file
+// check compares an installed Z: copy byte-for-byte against its disc source.
+func (m *Machine) DebugCacheFS() map[string]int {
+	out := make(map[string]int, len(m.cacheFS))
+	for k, v := range m.cacheFS {
+		out[k] = len(v.Data)
+	}
+	return out
+}
+
+func (m *Machine) DebugCacheFile(key string) []byte {
+	if cf := m.cacheFS[key]; cf != nil {
+		return cf.Data
+	}
+	return nil
+}
+
 // readObjectAttributesPath reads the ANSI path out of an OBJECT_ATTRIBUTES pointer.
 // OBJECT_ATTRIBUTES = { HANDLE RootDirectory; POBJECT_STRING ObjectName; ULONG Attr }.
 // OBJECT_STRING (ANSI) = { USHORT Length; USHORT MaximumLength; PCHAR Buffer }.
@@ -129,6 +147,11 @@ func (m *Machine) openFile(handleOut, oa, iosb uint32, disposition uint32) uint3
 	newHandle := func(fo *fileObject, info uint32) uint32 {
 		h := m.allocKObject(0x40)
 		m.objects[h] = &kobject{kind: "file", addr: h, signaled: true}
+		// A FILE_OBJECT is a dispatcher object: signalled while no I/O is in flight.
+		// The guest header must agree — objAt resyncs from it, and the XAPI
+		// GetOverlappedResult path waits on the file handle itself when the caller
+		// supplied no event (TitleScreen.xmv's streaming pump, tid 1, site 0x44E13).
+		m.writeSignal(h, true)
 		m.files[h] = fo
 		if handleOut != 0 {
 			m.write32(handleOut, h)
@@ -211,6 +234,8 @@ type pendingIO struct {
 	Event  uint32
 	Info   uint32
 	Status uint32
+	Handle uint32 // the file handle: its FILE_OBJECT de-signals while the I/O is in
+	// flight and signals at completion — the wait target when the caller gave no event
 }
 
 // readFile streams bytes from an open disc file into guest memory. NtReadFile signature
@@ -222,7 +247,14 @@ type pendingIO struct {
 // did so is async-ready, gets STATUS_PENDING back, and sees the IOSB complete a
 // DVD-realistic latency later (kernel_objects.go ioTick). A caller that did not
 // pre-mark the IOSB is synchronous and completes inline as before.
-func (m *Machine) readFile(handle, event, iosb, buffer, length, byteOffsetPtr uint32) uint32 {
+func (m *Machine) readFile(handle, event, apcRoutine, apcCtx, iosb, buffer, length, byteOffsetPtr uint32) uint32 {
+	if apcRoutine != 0 {
+		// No caller has exercised APC completion yet; if one appears it must be
+		// implemented, not dropped — a swallowed completion callback deadlocks the
+		// caller's pump with nothing in the log to say why.
+		m.CPU.Halt("NtReadFile: ApcRoutine %08X (ctx %08X) passed from %08X — APC completion not implemented", apcRoutine, apcCtx, m.retAddr())
+		return 0
+	}
 	fo := m.files[handle]
 	if fo == nil {
 		return m.finishOpen(iosb, handle, 0, 0xC0000008) // STATUS_INVALID_HANDLE
@@ -256,11 +288,15 @@ func (m *Machine) readFile(handle, event, iosb, buffer, length, byteOffsetPtr ui
 	}
 	fo.off = off + n
 	if iosb != 0 && m.read32(iosb) == statusPending {
+		if o := m.objects[handle]; o != nil {
+			o.signaled = false // I/O in flight: the file object de-signals
+			m.writeSignal(handle, false)
+		}
 		m.pendingIO = append(m.pendingIO, pendingIO{
-			Due: m.tick + ioCompletionTicks(n), IOSB: iosb, Event: event, Info: n,
+			Due: m.tick + ioCompletionTicks(n), IOSB: iosb, Event: event, Info: n, Handle: handle,
 		})
-		m.logf("NtReadFile: handle %08X off %d len %d -> %d bytes (async, event %08X, due +%d)",
-			handle, off, length, n, event, ioCompletionTicks(n))
+		m.logf("NtReadFile: handle %08X off %d len %d -> %d bytes (async, event %08X, iosb %08X, buf %08X, due +%d, from %08X)",
+			handle, off, length, n, event, iosb, buffer, ioCompletionTicks(n), m.retAddr())
 		m.setRet(statusPending)
 		return statusPending
 	}
@@ -320,6 +356,13 @@ func (m *Machine) ioTick() {
 				o.signaled = true
 				m.writeSignal(o.addr, true)
 				m.wakeWaiters(p.Event)
+			}
+		}
+		if p.Handle != 0 {
+			if o := m.objects[p.Handle]; o != nil {
+				o.signaled = true // I/O complete: the file object signals
+				m.writeSignal(p.Handle, true)
+				m.wakeWaiters(p.Handle)
 			}
 		}
 	}

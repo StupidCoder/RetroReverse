@@ -157,6 +157,16 @@ func (m *Machine) switchTo(t *thread) {
 	t.state = tsRunning
 	m.quantumLeft = schedQuantum
 	m.write32(kpcrAddr+kpcrPrcbData+prcbCurrentThread, t.kthread)
+	// Swap the per-thread NtTib fields, as KiSwapContext does. XAPI's whole
+	// per-thread state (GetLastError first among it) resolves through
+	// [FS:[4] + tlsIndex*4], where the "index" is a negative dword offset from the
+	// stack top down into the TLS area carved above the initial ESP. A snapshot from
+	// before threads carried stackTop restores zeros — leave the KPCR alone then
+	// (legacy behaviour) rather than point FS:[4] at page zero.
+	if t.stackTop != 0 {
+		m.write32(kpcrAddr+kpcrStackBase, t.stackTop)
+		m.write32(kpcrAddr+kpcrStackLimit, t.stackLimit)
+	}
 }
 
 // wakeDueSleepers readies every sleeping thread whose wake tick has passed, and expires
