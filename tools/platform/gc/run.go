@@ -65,6 +65,45 @@ func (m *Machine) RunStopAfterGXCommand(n int, maxSteps uint64) Result {
 // RunStopAfterGXCommand reset it.
 func (m *Machine) GXCommandCount() int { return m.gxCmdCount }
 
+// RunFields runs until the video clock has completed n fields, the instruction budget is
+// spent, or the machine stops for one of the usual reasons.
+//
+// A FIELD, NOT A FLIP, IS THE UNIT, and that is the whole point of this call. The pixel
+// engine's copy out to the external framebuffer is the honest frame boundary — it is what
+// OnFlip fires on and what the profiler closes a frame on — but A BOOT HAS NO FLIPS. The
+// machine spends its first emulated seconds running the apploader and reading the disc with
+// the graphics pipe idle, so a run bounded by flips would sit there until the budget ran out
+// and report nothing. The video clock is instruction-paced (fieldInstructions) and always
+// advances, so it bounds a loading stretch and a drawing one alike — which is what a profile
+// of "where does the time go before anything is drawn" needs.
+//
+// The stop lands one instruction after the field boundary: OnDisplay fires from inside
+// tickVI, and the run loop consults StopRequested at the top of the next iteration. That is
+// deterministic, which is the only property that matters here.
+func (m *Machine) RunFields(n int, budget uint64) Result {
+	if n <= 0 {
+		return Result{PC: m.CPU.PC, Reason: "no fields requested"}
+	}
+	target := m.vi.Field + uint64(n)
+
+	prev := m.OnDisplay
+	m.OnDisplay = func(mm *Machine) {
+		if prev != nil {
+			prev(mm)
+		}
+		if mm.vi.Field >= target {
+			mm.StopRequested = true
+		}
+	}
+	defer func() { m.OnDisplay = prev }()
+
+	res := m.Run(budget)
+	if res.Reason == "stop requested" && m.vi.Field >= target {
+		res.Reason = fmt.Sprintf("%d fields", n)
+	}
+	return res
+}
+
 // Run executes up to maxSteps instructions and returns why it stopped. The breakpoint at
 // the current PC is not retaken, so a run that stopped at one resumes cleanly.
 func (m *Machine) Run(maxSteps uint64) Result {

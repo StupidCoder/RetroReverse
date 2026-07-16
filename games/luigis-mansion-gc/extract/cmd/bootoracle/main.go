@@ -20,12 +20,47 @@ import (
 	"fmt"
 	"image/png"
 	"os"
+	"runtime/pprof"
 	"strconv"
 	"strings"
+	"time"
 
 	"retroreverse.com/tools/cpu/gekko"
 	"retroreverse.com/tools/platform/gc"
 )
+
+// printProfile reports the last field's cost by subsystem.
+//
+// It reports the LAST field, not an average, because that is what the machine keeps — and
+// on a boot stretch it will be all "gekko + rest (derived)", which is not a bug in the
+// profiler but the honest answer: the buckets time the graphics pipe and the audio core,
+// and during a load neither is running. The number to read there is the derived remainder,
+// and the instrument for splitting it up is -cpuprofile.
+func printProfile(p gc.FrameProfile) {
+	if p.TotalMs == 0 {
+		fmt.Fprintln(os.Stderr, "bootoracle: no field profiled (did the run cover a whole field?)")
+		return
+	}
+	drew := "did not draw"
+	if p.Drew {
+		drew = "drew"
+	}
+	fmt.Fprintf(os.Stderr, "bootoracle: last field — %.1f ms (%s)\n", p.TotalMs, drew)
+	for _, b := range p.Buckets {
+		pct := 0.0
+		if p.TotalMs > 0 {
+			pct = b.Millis / p.TotalMs * 100
+		}
+		count := ""
+		if b.Count > 0 {
+			count = fmt.Sprintf("  %d", b.Count)
+		}
+		fmt.Fprintf(os.Stderr, "  %-26s %8.1f ms  %5.1f%%%s\n", b.Name, b.Millis, pct, count)
+	}
+	for _, c := range p.Counters {
+		fmt.Fprintf(os.Stderr, "  %-26s %8d\n", c.Name, c.Value)
+	}
+}
 
 type multiFlag []string
 
@@ -65,6 +100,9 @@ func main() {
 	efbshot := flag.String("efbshot", "", "write the embedded framebuffer (pre-copy, what the pipe drew) to this PNG when the run ends")
 	aidwav := flag.String("aidwav", "", "record the audio-DMA stream (what the DAC plays) to this WAV when the run ends")
 	keys := flag.String("keys", "", "controller-1 input script: BUTTON@FIELD[:HOLD][,...] — presses BUTTON from that VI field, held HOLD fields (default: forever). Buttons: start,a,b,x,y,z,l,r,up,down,left,right. e.g. -keys start@240,a@900:10")
+	cpuprofile := flag.String("cpuprofile", "", "write a pprof CPU profile of the run to this path")
+	frames := flag.Int("frames", 0, "run this many VI fields instead of the -steps budget (fields, not flips: a boot has no flips)")
+	profile := flag.Bool("profile", false, "report where each field's time goes, by subsystem")
 	flag.Parse()
 
 	if *image == "" {
@@ -78,6 +116,7 @@ func main() {
 		savestate: *savestate, loadstate: *loadstate, poke: *poke,
 		dis: *dis, dump: *dump, threads: *threads, files: *files, verbose: *verbose, nospin: *nospin,
 		fifodump: *fifodump, texdump: *texdump, efbshot: *efbshot, aidwav: *aidwav, keys: *keys,
+		cpuprofile: *cpuprofile, frames: *frames, profile: *profile,
 	}); err != nil {
 		fmt.Fprintln(os.Stderr, "bootoracle:", err)
 		os.Exit(1)
@@ -98,6 +137,9 @@ type cfg struct {
 	dis, dump                            string
 	threads                              bool
 	fifodump, texdump, efbshot, aidwav   string
+	cpuprofile                           string
+	frames                               int
+	profile                              bool
 	keys                                 string
 }
 
@@ -362,9 +404,41 @@ func run(c cfg) error {
 		return fmt.Errorf("bad -steps %q", c.steps)
 	}
 	m.SetSpinDetect(!c.nospin)
-	res := m.Run(steps)
+	if c.profile {
+		m.SetProfile(true)
+	}
+
+	// The profile brackets the run and nothing else: the apploader, the disc reads and the
+	// image load above are setup, and a profile that counted them would be answering a
+	// question nobody asked.
+	if c.cpuprofile != "" {
+		f, err := os.Create(c.cpuprofile)
+		if err != nil {
+			return fmt.Errorf("cpuprofile: %w", err)
+		}
+		defer f.Close()
+		if err := pprof.StartCPUProfile(f); err != nil {
+			return fmt.Errorf("cpuprofile: %w", err)
+		}
+		defer pprof.StopCPUProfile()
+	}
+
+	start := time.Now()
+	var res gc.Result
+	if c.frames > 0 {
+		res = m.RunFields(c.frames, steps)
+	} else {
+		res = m.Run(steps)
+	}
+	elapsed := time.Since(start)
+
 	fmt.Fprintf(os.Stderr, "bootoracle: %s\n", res)
 	fmt.Fprintf(os.Stderr, "bootoracle: VI fields elapsed: %d\n", m.VIField())
+	fmt.Fprintf(os.Stderr, "bootoracle: %.2fs wall, %.2fM instructions/s\n",
+		elapsed.Seconds(), float64(res.Steps)/elapsed.Seconds()/1e6)
+	if c.profile {
+		printProfile(m.FrameProfile())
+	}
 	if c.verbose {
 		fmt.Fprintf(os.Stderr, "bootoracle: intr: %s\n", m.IntrState())
 		fmt.Fprintf(os.Stderr, "bootoracle: registers:\n%s", m.RegString())
