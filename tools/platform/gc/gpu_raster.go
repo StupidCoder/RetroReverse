@@ -86,7 +86,7 @@ func perspTexCoords(b0, b1, b2 float32, v0, v1, v2 screenVertex, out *[maxTexCoo
 }
 
 // drawTriangle rasterises one triangle of three transformed vertices.
-func (g *gpu) drawTriangle(m *Machine, v0, v1, v2 screenVertex) {
+func (g *gpu) drawTriangle(m *Machine, tev *tevState, v0, v1, v2 screenVertex) {
 	g.ensureRaster()
 
 	// The bounding box, clamped to the framebuffer.
@@ -165,7 +165,7 @@ func (g *gpu) drawTriangle(m *Machine, v0, v1, v2 screenVertex) {
 			var tc [maxTexCoord]texCoord
 			perspTexCoords(b0, b1, b2, v0, v1, v2, &tc)
 
-			fr, fg, fb, fa, pass := g.shade(m, r, gg, bb, a, &tc)
+			fr, fg, fb, fa, pass := g.shade(m, tev, r, gg, bb, a, &tc)
 			if x == pixDbgX && y == pixDbgY {
 				t0 := g.texSetup(0)
 				u, v := tc[0].s, tc[0].t

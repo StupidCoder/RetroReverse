@@ -49,30 +49,19 @@ func sext11(v uint32) int32 {
 	return int32(v)
 }
 
-// shade runs the TEV pipeline for one pixel. It is given the rasterised (interpolated vertex)
-// colour and the pixel's generated texture coordinates, and returns the final colour together
-// with whether the pixel survived the alpha test.
-func (g *gpu) shade(m *Machine, rasR, rasG, rasB, rasA uint8, tc *[maxTexCoord]texCoord) (fr, fg, fb, fa uint8, pass bool) {
-	// The four working registers, seeded with the constant values the game loaded.
-	var reg [4][4]float32
-	for i := 0; i < 4; i++ {
-		r, gg, b, a := tevColorReg(g.TevColorReg[i])
-		reg[i] = [4]float32{r, gg, b, a}
-	}
+// shade runs the TEV pipeline for one pixel. It is given the pipeline's decoded configuration
+// (gpu_tev_state.go — resolved once per draw, because none of it can change while a draw is
+// running), the rasterised (interpolated vertex) colour and the pixel's generated texture
+// coordinates, and returns the final colour together with whether the pixel survived the alpha
+// test.
+func (g *gpu) shade(m *Machine, t *tevState, rasR, rasG, rasB, rasA uint8, tc *[maxTexCoord]texCoord) (fr, fg, fb, fa uint8, pass bool) {
+	// The four working registers, seeded with the constant values the game loaded. This is a
+	// copy and must stay one: the stages below write it.
+	reg := t.seed
 	ras := [4]float32{float32(rasR), float32(rasG), float32(rasB), float32(rasA)}
 
-	numStages := int((g.BP[0x00]>>10)&0xF) + 1
-	for s := 0; s < numStages; s++ {
-		ord := g.BP[0x28+uint32(s/2)]
-		if s&1 == 1 {
-			ord >>= 12
-		}
-		texmap := int(ord & 7)
-		texcoord := int((ord >> 3) & 7)
-		texEnable := (ord>>6)&1 != 0
-
-		cc := g.BP[0xC0+uint32(s)*2]
-		ac := g.BP[0xC1+uint32(s)*2]
+	for s := 0; s < t.numStages; s++ {
+		st := &t.stages[s]
 
 		// Each stage reads its two colour inputs through a swap table of its own choosing, named
 		// in the low bits of its alpha combiner. The tables are not decoration: this game's
@@ -82,29 +71,25 @@ func (g *gpu) shade(m *Machine, rasR, rasG, rasB, rasA uint8, tc *[maxTexCoord]t
 		// r:g the two halves of one number: the shadow's depth ramp swaps g<-a to assemble its
 		// 16-bit value, and the shadow map swaps r<-a to assemble the depth's.
 		//
-		// The swizzles are per-stage locals. Writing either back over the loop's own ras would
-		// hand the next stage a colour the rasteriser never produced.
-		sras := swizzle(g.swapTable(int(ac&3)), ras)
+		// The TABLE is per-draw and has been hoisted; the SWIZZLED VALUE is per-stage and has
+		// not. Writing either back over the loop's own ras would hand the next stage a colour
+		// the rasteriser never produced.
+		sras := swizzle(st.swapRas, ras)
 
 		var tex [4]float32
-		if texEnable {
+		if st.texEnable {
 			// Each stage samples the coordinate it names. A stage may read a coordinate the
 			// transform unit was not asked to generate — that is the game's own error, not a
 			// gap here, and the coordinate reads as the zero it was left at.
-			tr, tg, tb, ta := g.sampleTexmap(m, texmap, tc[texcoord].s, tc[texcoord].t)
-			tex = swizzle(g.swapTable(int((ac>>2)&3)), [4]float32{float32(tr), float32(tg), float32(tb), float32(ta)})
+			tr, tg, tb, ta := g.sampleTexmap(m, st.texmap, tc[st.texcoord].s, tc[st.texcoord].t)
+			tex = swizzle(st.swapTex, [4]float32{float32(tr), float32(tg), float32(tb), float32(ta)})
 		}
 
-		kc := g.konstColor(s)
-		ka := g.konstAlpha(s)
+		crgb, ca, cb := combineColor(st.cc, reg, tex, sras, st.konstC)
+		aout := combineAlpha(st.ac, reg, tex, sras, st.konstA, ca, cb)
 
-		crgb, ca, cb := combineColor(cc, reg, tex, sras, kc)
-		aout := combineAlpha(ac, reg, tex, sras, ka, ca, cb)
-
-		cdest := (cc >> 22) & 3
-		adest := (ac >> 22) & 3
-		reg[cdest][0], reg[cdest][1], reg[cdest][2] = crgb[0], crgb[1], crgb[2]
-		reg[adest][3] = aout
+		reg[st.cdest][0], reg[st.cdest][1], reg[st.cdest][2] = crgb[0], crgb[1], crgb[2]
+		reg[st.adest][3] = aout
 	}
 
 	out := reg[0] // the pixel is the final value of the PREV register

@@ -139,7 +139,7 @@ func clipTriangle(dst, scratch []clipVertex, tri [3]clipVertex) ([]clipVertex, [
 // clipAndDraw cuts a triangle against the frustum and rasterises whatever survives, dividing
 // and viewport-mapping each surviving vertex on the way — so the divide only ever sees a vertex
 // the clipper has vouched for. It returns the two buffers for the next triangle to reuse.
-func (g *gpu) clipAndDraw(m *Machine, dst, scratch []clipVertex, v0, v1, v2 clipVertex) ([]clipVertex, []clipVertex) {
+func (g *gpu) clipAndDraw(m *Machine, dst, scratch []clipVertex, tev *tevState, v0, v1, v2 clipVertex) ([]clipVertex, []clipVertex) {
 	poly, scratch := clipTriangle(dst, scratch, [3]clipVertex{v0, v1, v2})
 	if len(poly) < 3 {
 		return poly, scratch
@@ -155,7 +155,7 @@ func (g *gpu) clipAndDraw(m *Machine, dst, scratch []clipVertex, v0, v1, v2 clip
 	// matters, because back-face culling reads that winding.
 	a := toScreen(poly[0])
 	for i := 1; i+1 < len(poly); i++ {
-		g.drawTriangle(m, a, toScreen(poly[i]), toScreen(poly[i+1]))
+		g.drawTriangle(m, tev, a, toScreen(poly[i]), toScreen(poly[i+1]))
 	}
 	return poly, scratch
 }

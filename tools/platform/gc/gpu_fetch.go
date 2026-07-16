@@ -427,7 +427,12 @@ func (g *gpu) rasterPrimitive(m *Machine, prim uint32, v []clipVertex) {
 	// triangle by the five planes can leave at most eight vertices.
 	buf := make([]clipVertex, 0, 8)
 	scratch := make([]clipVertex, 0, 8)
-	draw := func(a, b, c clipVertex) { buf, scratch = g.clipAndDraw(m, buf, scratch, a, b, c) }
+
+	// The TEV's configuration, decoded once for the whole primitive. It cannot change while
+	// this runs: only the command processor writes a BP register, and it is not running.
+	tev := g.tevstate()
+
+	draw := func(a, b, c clipVertex) { buf, scratch = g.clipAndDraw(m, buf, scratch, &tev, a, b, c) }
 
 	switch prim {
 	case 0x80, 0x88: // quads
