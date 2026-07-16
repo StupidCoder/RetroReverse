@@ -151,7 +151,7 @@ registerPanel({
       };
       wrap.addEventListener('keydown', (e) => sendKey(e, true));
       wrap.addEventListener('keyup', (e) => sendKey(e, false));
-      say('click the frame, then type to drive the game (↑↓ Enter Esc)');
+      say('click the frame, then type to drive the game (arrows = stick, Enter = start)');
     }
 
     if (!ctx.store.can('touch')) return;

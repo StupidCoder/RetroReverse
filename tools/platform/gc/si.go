@@ -288,6 +288,45 @@ func (m *Machine) PadButtons(port int) uint16 {
 	return m.si.Pad[port].Buttons
 }
 
+// The main stick's wire values. The pad reports each axis as an unsigned byte about a centre
+// the game reads once at PADReset and subtracts from every sample afterwards — so what a game
+// sees is the DIFFERENCE from this origin, not the byte.
+//
+// PadStickFull is how far a real stick can be pushed, and it is a physical fact rather than a
+// preference: the shell's gate stops the stick at about ±100 from centre, and Nintendo's own
+// PADClamp then flattens anything past roughly ±72 to full deflection. 0x60 sits between the
+// two — comfortably past the clamp, comfortably inside what the plastic allows — so a caller
+// asking for "fully pushed" gets a value a real pad could actually have produced.
+const (
+	PadStickCentre = 0x80
+	PadStickFull   = 0x60
+)
+
+// SetPadStick sets a connected controller's main stick, as raw wire bytes (PadStickCentre is
+// resting). The next auto-poll latches it where PADRead will find it.
+//
+// The caller supplies wire bytes rather than a direction because THE GATE IS THE CALLER'S
+// PROBLEM and it is not a rectangle: the stick's shell is an octagon whose eight notches are
+// all the same distance from centre, so a stick pushed to a corner reads about 0.7 of full on
+// EACH axis, never full on both. Nothing here can enforce that — this is the wire — but a
+// caller that ignores it is feeding the machine a position no physical pad can produce, which
+// is a fiction the game is entitled to be confused by. See the debugger's keyer, which is the
+// one place in this repository that turns directions into bytes.
+func (m *Machine) SetPadStick(port int, x, y uint8) {
+	if port < 0 || port > 3 {
+		return
+	}
+	m.si.Pad[port].StickX, m.si.Pad[port].StickY = x, y
+}
+
+// PadStick reads back a controller's currently-set main stick.
+func (m *Machine) PadStick(port int) (x, y uint8) {
+	if port < 0 || port > 3 {
+		return PadStickCentre, PadStickCentre
+	}
+	return m.si.Pad[port].StickX, m.si.Pad[port].StickY
+}
+
 // padButtons are the standard controller's digital buttons, by the names every tool that
 // drives this machine uses for them — the oracle's -keys scripts and the debugger's keyboard
 // alike. It lives here, next to the serial interface that delivers them, so the two

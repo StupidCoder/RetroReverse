@@ -83,11 +83,27 @@ type Adapter struct {
 	// survives the return from Run, which only reports "stop requested".
 	stop debug.StopReason
 
-	// The pad. held is which keys the browser currently has down; padQueue is the button
-	// states the machine has not sampled yet. See Key.
+	// The pad. held is which keys the browser currently has down; padQueue is the pad states
+	// the machine has not sampled yet. See Key.
 	held     map[string]bool
-	padQueue []uint16
+	padQueue []padState
 }
+
+// padState is everything one auto-poll latches: the buttons and the main stick, together.
+//
+// They are queued as ONE value rather than two because the serial interface samples them in
+// one go — a poll that caught a new stick position but last field's buttons would be a pad
+// that never existed. Comparable by ==, which is what lets the queue drop a repeat.
+type padState struct {
+	buttons        uint16
+	stickX, stickY uint8
+}
+
+// padStickDiag is one axis of a stick held to a corner of its gate: gc.PadStickFull / √2,
+// which is 96 / 1.4142 = 67.9, rounded to 68. Written out as a number because it is a fixed
+// property of the shell rather than something to recompute per keystroke — and because a
+// constant expression cannot be rounded to an int in Go anyway. See stickFrom.
+const padStickDiag = 0x44
 
 // The capabilities this target backs. Listed explicitly so that dropping one from the
 // implementation breaks the build here rather than silently removing a panel.
@@ -770,11 +786,19 @@ func (a *Adapter) ResumeArgs(statePath string) []string {
 // It is exactly the hazard the touch latch was built for, arriving from the other side: there
 // the risk was too many states for the frames available, here it is a state with no field to
 // be sampled in. So the states are queued and released one per field, which guarantees every
-// distinct mask is live across at least one poll. A held key contributes to every state until
+// distinct state is live across at least one poll. A held key contributes to every state until
 // it is released, so a drag-equivalent (holding A while pressing Start) still composes.
+//
+// AND A PAD IS NOT ONLY BUTTONS. The arrow keys drive the MAIN STICK, because that is what it
+// takes to play the game — a GameCube title walks on the stick, and Luigi's Mansion barely
+// touches the d-pad (which keeps the numpad's own arrows, 8/4/6/2). The stick is not a
+// separate queue: one poll latches the buttons and both axes together, so a state carrying a
+// new stick position and last field's buttons would be a pad that never existed. Hence
+// padState, queued whole.
 func (a *Adapter) Key(k debug.Key) error {
 	name := normalizeKey(k.Name)
-	if _, ok := gc.PadButton(name); !ok {
+	_, isButton := gc.PadButton(name)
+	if _, isStick := stickDirs[name]; !isButton && !isStick {
 		return nil // an unmapped key is ignored rather than an error: the browser sends everything
 	}
 	if k.Down {
@@ -782,18 +806,74 @@ func (a *Adapter) Key(k debug.Key) error {
 	} else {
 		delete(a.held, name)
 	}
-	var mask uint16
+
+	st := padState{}
 	for n := range a.held {
-		b, _ := gc.PadButton(n)
-		mask |= b
+		if b, ok := gc.PadButton(n); ok {
+			st.buttons |= b
+		}
 	}
+	st.stickX, st.stickY = stickFrom(a.held)
+
 	// Only a CHANGE needs a field of its own; a repeat (the browser's key-repeat) is the
 	// same level and would just cost a field.
-	if len(a.padQueue) > 0 && a.padQueue[len(a.padQueue)-1] == mask {
+	if len(a.padQueue) > 0 && a.padQueue[len(a.padQueue)-1] == st {
 		return nil
 	}
-	a.padQueue = append(a.padQueue, mask)
+	a.padQueue = append(a.padQueue, st)
 	return nil
+}
+
+// stickDirs are the four keys that push the main stick, kept apart from the button table
+// because they are not buttons: they resolve to a POSITION, not to bits in a mask.
+//
+// The offsets are in the PAD'S OWN convention, where up INCREASES — which is the opposite of
+// every screen coordinate in this debugger, and is exactly the trap it looks like. The
+// temptation is to write the table in screen terms and negate on the way out; doing both is
+// how the first version of this shipped the stick upside down.
+var stickDirs = map[string]struct{ dx, dy int }{
+	"stickup":    {0, +1},
+	"stickdown":  {0, -1},
+	"stickleft":  {-1, 0},
+	"stickright": {+1, 0},
+}
+
+// stickFrom resolves the held direction keys to the stick's two wire bytes.
+//
+// THE GATE IS AN OCTAGON, and that is the whole reason this is not two independent axes. The
+// stick's shell has eight notches, all the same distance from centre, so a stick held to a
+// corner reads about 0.7 of full on each axis — it CANNOT read full on both, because the
+// plastic will not let it. Driving each axis to full independently would hand the game a
+// diagonal 1.41× longer than any real pad can produce: the game would either clamp it back
+// (making the work pointless) or, worse, believe it. A keyboard has no gate, so the gate has
+// to be modelled here.
+func stickFrom(held map[string]bool) (x, y uint8) {
+	var dx, dy int
+	for n := range held {
+		if d, ok := stickDirs[n]; ok {
+			dx += d.dx
+			dy += d.dy
+		}
+	}
+	// Opposite keys held together cancel, which is what a physical stick does too.
+	if dx == 0 && dy == 0 {
+		return gc.PadStickCentre, gc.PadStickCentre
+	}
+	mag := gc.PadStickFull
+	if dx != 0 && dy != 0 {
+		mag = padStickDiag // a corner of the octagon; same distance from centre, split over two axes
+	}
+	clamp := func(d int) uint8 {
+		v := gc.PadStickCentre + d*mag
+		if v < 0 {
+			v = 0
+		}
+		if v > 0xFF {
+			v = 0xFF
+		}
+		return uint8(v)
+	}
+	return clamp(dx), clamp(dy)
 }
 
 // installPadPacing releases one queued button state per video field. OnDisplay runs at the
@@ -812,24 +892,42 @@ func (a *Adapter) installPadPacing(m *gc.Machine) {
 		if len(a.padQueue) == 0 {
 			return
 		}
-		mm.SetPadButtons(0, a.padQueue[0])
+		s := a.padQueue[0]
+		mm.SetPadButtons(0, s.buttons)
+		mm.SetPadStick(0, s.stickX, s.stickY)
 		a.padQueue = a.padQueue[1:]
 	}
 }
 
-// normalizeKey folds a browser KeyboardEvent.key value to the button names gc.PadButton
-// knows — the same names the oracle's -keys scripts use. The letter keys map to the button
-// of the same name (A is a, Start is Enter), which is the mapping that needs no legend.
+// normalizeKey folds a browser KeyboardEvent.key value to the names the pad knows — the
+// button names from gc.PadButton, the same ones the oracle's -keys scripts use, plus the four
+// stick directions. The letter keys map to the button of the same name (A is a, Start is
+// Enter), which is the mapping that needs no legend.
+//
+// THE ARROWS DRIVE THE STICK, NOT THE D-PAD, because that is what it takes to play the game:
+// a GameCube title walks on the main stick and most, Luigi's Mansion included, barely touch
+// the d-pad. Arrows are the only keys a player reaches for to move, so they go where movement
+// is. The d-pad keeps the numpad's own arrows (8/4/6/2, the layout it already looks like) so
+// the capability is moved rather than dropped — those come through as the digits whether they
+// are typed on the numpad with num-lock or on the number row.
 func normalizeKey(name string) string {
 	s := strings.ToLower(name)
 	switch s {
 	case "arrowup":
-		return "up"
+		return "stickup"
 	case "arrowdown":
-		return "down"
+		return "stickdown"
 	case "arrowleft":
-		return "left"
+		return "stickleft"
 	case "arrowright":
+		return "stickright"
+	case "8":
+		return "up"
+	case "2":
+		return "down"
+	case "4":
+		return "left"
+	case "6":
 		return "right"
 	case "enter", "return":
 		return "start"
