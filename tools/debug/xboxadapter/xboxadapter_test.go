@@ -165,6 +165,44 @@ func TestCaptureIsAWholeFrameNotAnOffScreenPass(t *testing.T) {
 	}
 }
 
+// TestDisplayIsThePresentedFrameNotTheStaleScanout is the regression for the debugger's
+// MAIN VIEW — the picture play mode streams, and the one a user stares at for thousands of
+// frames.
+//
+// The CRTC's programmed scanout is a 320x240 window on a buffer nothing draws into (the
+// title registers its display mode once, during loading, and the 640x480 switch it goes on
+// to render at never happens in this HLE). Wiring Display() to it renders a blank white
+// rectangle while the game draws perfectly — which is not a crash, not an error, and is
+// indistinguishable from a broken emulator. Display() is the buffer the title PRESENTED.
+func TestDisplayIsThePresentedFrameNotTheStaleScanout(t *testing.T) {
+	a := newAdapter(t)
+	if err := a.StepFast(); err != nil { // one flip, so something has been presented
+		t.Fatalf("StepFast: %v", err)
+	}
+	img, err := a.Display()
+	if err != nil {
+		t.Fatalf("Display: %v", err)
+	}
+	if uniform(img) {
+		t.Error("Display() is a single flat colour — the main view shows a buffer nothing drew into")
+	}
+	// It must be the frame's geometry, not the stale loading mode's.
+	surfs := map[string]debug.Surface{}
+	for _, s := range a.Surfaces() {
+		surfs[s.ID] = s
+	}
+	dt := surfs["drawtarget"]
+	if img.Rect.Dx() != dt.W || img.Rect.Dy() != dt.H {
+		t.Errorf("Display() is %dx%d but the frame is %dx%d — that is the stale scanout mode",
+			img.Rect.Dx(), img.Rect.Dy(), dt.W, dt.H)
+	}
+	// And the scanout is still offered separately, because the gap it shows is real and
+	// should stay visible rather than be quietly replaced by the picture that works.
+	if _, ok := surfs["scanout"]; !ok {
+		t.Error("the CRTC scanout is no longer offered as a surface; the frontier it shows is now invisible")
+	}
+}
+
 // TestTheClearReportsItsPixels: the clear is a command that stores pixels, and most of a
 // frame's background is its work. A clear that reported nothing would leave provenance
 // saying "no command wrote this pixel" across the whole background — which is false, and

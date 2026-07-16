@@ -25,13 +25,21 @@
 // The picture is captured INSIDE the flip hook, before the method latches, while the colour
 // surface still names the buffer the frame was built in.
 //
-// AND THE SCANOUT IS NOT THE FRAME — VISIBLY SO. Display() is what the CRTC reads, and on
-// this title, at this stage of the bring-up, that is a 320x240 window on a stale buffer that
-// renders blank white, because the machine still has the loading phase's display mode
-// registered and the 640x480 mode switch is a known frontier (the writeup's Part V names it
-// as pending). The adapter does not paper over that: the draw target and the scanout are
-// both offered, they disagree, and the disagreement is the finding. A Display() quietly
-// wired to the draw target would have hidden it.
+// AND THE SCANOUT IS NOT THE PICTURE. Display() — the debugger's main view, what play mode
+// streams — is the buffer the title PRESENTED, not the framebuffer the CRTC is programmed to
+// read. Those differ because this machine does not model the CRTC: the title registers a
+// scanout through AvSetDisplayMode exactly once, during loading (320x240 at 0174C000), never
+// makes the 640x480 switch it goes on to render at (a known-pending frontier), and the
+// PCRTC_START writes its vblank ISR does make carry 0xFFFFFB00 — `0 - pitch`, a constant,
+// every time. So the scanout registers cannot say what is on screen: rendering them gives a
+// blank white rectangle while the game draws perfectly, which is indistinguishable from a
+// broken emulator and is what a user staring at play mode actually sees.
+//
+// The flip can say. The title marks its presents, and the colour surface at that instant
+// names the buffer it means — so the machine tracks it (RenderPresented), which is what any
+// emulator does when it knows the present but not the register behind it. The programmed
+// scanout is still offered as its own surface, because the gap it shows is real and should
+// stay visible; the honesty belongs in keeping that surface, not in crippling the main view.
 //
 // A COMMAND IS ONE PUSH-BUFFER METHOD. The NV2A is a register-write machine like the PICA
 // and the GE, not a packet machine like the GameCube's FIFO: a frame is tens of thousands
@@ -221,11 +229,16 @@ func (a *Adapter) Restore(s debug.Snapshot) error {
 	return a.live.LoadState(ns.st)
 }
 
-// Display is what the CRTC is scanning out: the framebuffer the title last registered
-// through AvSetDisplayMode. It is deliberately not the same picture StepFrame reports —
-// see the package comment — and comparing the two catches a frame the GPU drew that the
-// swap never presented.
-func (a *Adapter) Display() (*image.RGBA, error) { return a.live.RenderScanout() }
+// Display is what the TV is showing: the buffer the title last presented.
+//
+// It is deliberately NOT the CRTC's programmed scanout, which on this machine is a blank
+// white rectangle — the title registers its display mode once, during loading, and the
+// 640x480 switch it later renders at never happens here. That is a real frontier, and the
+// scanout is still offered as its own surface so it stays visible; but a Display() that
+// returned it would make the debugger's main view white on a game that is drawing perfectly,
+// which is not honesty, just a worse picture of the same fact. What the console shows is the
+// buffer the title flipped to, and the machine knows exactly which that is (RenderPresented).
+func (a *Adapter) Display() (*image.RGBA, error) { return a.live.RenderPresented() }
 
 // ReadMem reads memory at a guest address. It reads RAM only, and out-of-range bytes read
 // as zero: the NV2A's register aperture is in the address space too, but reading one has
@@ -613,17 +626,19 @@ func (a *Adapter) applyWatches() {
 // double-buffered title those are two different addresses, so seeing both is how you tell a
 // drawing bug from a swap bug.
 func (a *Adapter) Surfaces() []debug.Surface {
-	sw, sh := 0, 0
-	if img, err := a.live.RenderScanout(); err == nil {
-		sw, sh = img.Rect.Dx(), img.Rect.Dy()
+	size := func(render func() (*image.RGBA, error)) (int, int) {
+		if img, err := render(); err == nil {
+			return img.Rect.Dx(), img.Rect.Dy()
+		}
+		return 0, 0
 	}
-	dw, dh := 0, 0
-	if img, err := a.live.RenderDrawTarget(); err == nil {
-		dw, dh = img.Rect.Dx(), img.Rect.Dy()
-	}
+	pw, ph := size(a.live.RenderPresented)
+	dw, dh := size(a.live.RenderDrawTarget)
+	sw, sh := size(a.live.RenderScanout)
 	out := []debug.Surface{
-		{ID: "drawtarget", Name: "Kelvin colour surface (draw target)", W: dw, H: dh},
-		{ID: "scanout", Name: "CRTC scanout (what the TV shows)", W: sw, H: sh},
+		{ID: "presented", Name: "Presented frame (what the TV shows)", W: pw, H: ph},
+		{ID: "drawtarget", Name: "Kelvin colour surface (being drawn now)", W: dw, H: dh},
+		{ID: "scanout", Name: "CRTC scanout as programmed (stale: no 640x480 mode switch)", W: sw, H: sh},
 		{ID: "ram", Name: "RAM as a texture", Free: true, Formats: xbox.RegionFormats()},
 	}
 	// The texture units, each shown at whatever size and format the game currently has
@@ -649,6 +664,8 @@ func (a *Adapter) Surfaces() []debug.Surface {
 
 func (a *Adapter) RenderSurface(id string, v debug.View) (*image.RGBA, error) {
 	switch id {
+	case "presented":
+		return a.live.RenderPresented()
 	case "scanout":
 		return a.live.RenderScanout()
 	case "drawtarget":

@@ -64,8 +64,11 @@ func (g *pgraph) kelvinMethod(method, arg uint32) {
 	//     drew: a field, not a frame.
 	//
 	// Measured, once per frame at BOTH fixtures: 209 flips at the logo, 269 at the title.
-	if method == kelvinFlipStall && g.m.OnFlip != nil {
-		g.m.OnFlip(g.m)
+	if method == kelvinFlipStall {
+		g.recordPresented()
+		if g.m.OnFlip != nil {
+			g.m.OnFlip(g.m)
+		}
 	}
 	if method < uint32(len(g.Regs))*4 {
 		g.Regs[method>>2] = arg

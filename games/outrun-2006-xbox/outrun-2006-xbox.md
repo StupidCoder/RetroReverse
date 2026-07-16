@@ -793,17 +793,31 @@ exactly that diagnosis.
 
 ### ★ And the scanout is a white rectangle
 
-The debugger's first honest frame capture states a gap that every pinned PNG in Parts IV and V had
-walked past: **`-surfpng`, the draw target, is the only picture that has ever been verified.**
-`Display()` — the scanout, what the CRTC actually reads — is a **320×240 window on a stale buffer
-that renders blank white**, because the machine still has the loading phase's display mode
-registered and the 640×480 mode switch has never happened. The title is drawing 640×480 frames into
-buffers the TV is not reading.
+The debugger's main view states a gap that every pinned PNG in Parts IV and V had walked past:
+**`-surfpng`, the draw target, is the only picture that has ever been verified.** The CRTC's
+programmed scanout is a **320×240 window on a buffer nothing draws into**, which renders blank
+white. Two facts, both measured:
 
-That is not a bug the adapter introduced; it is the known-pending mode switch, seen for the first
-time. The adapter does not paper over it — a `Display()` quietly wired to the draw target would
-have looked perfect and hidden it. The two surfaces are both offered, they disagree, and the
-disagreement is the finding.
+- the title registers a scanout through `AvSetDisplayMode` **once per boot**, with the *loading*
+  phase's mode (320×240, pitch 1280, at `0174C000`), and the **640×480 switch it goes on to render
+  at never happens** — the frontier already listed as pending above;
+- it *does* write `PCRTC_START` (`0x600800`) once per vertical blank from its own ISR — but the
+  value is `0xFFFFFB00` **every single time**: `0 - pitch`, a constant, not an address.
+
+So the scanout registers cannot say what is on screen. **The flip can.** The title marks its
+presents with `FLIP_STALL`, and the colour surface at that instant names the buffer it means; the
+machine tracks that (`RenderPresented`), which is what any emulator does when it knows the present
+but not the register behind it. `Display()` is the presented buffer.
+
+The first cut of this adapter wired `Display()` to the programmed scanout and called it honesty —
+the two surfaces disagree, the disagreement is the finding. That was wrong, and the way it was
+wrong is the lesson. **The debugger's main view rendered a white rectangle while the game drew
+perfectly**, which is not a crash, not an error, and is indistinguishable from a broken emulator;
+a user ran four thousand frames of it before saying so. Reporting a fact nobody can act on, in the
+one place they cannot avoid looking, is not honesty — it is a bug with a rationale. The honesty
+belongs in **keeping the programmed scanout as its own surface**, where the gap stays visible and
+nothing depends on it, and a regression test now asserts `Display()` is the frame's geometry and
+not one flat colour.
 
 ### Tooling
 

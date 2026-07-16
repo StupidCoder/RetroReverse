@@ -114,15 +114,69 @@ func (g *pgraph) clearSurface(mask uint32) {
 	}
 }
 
-// RenderScanout draws what the TV would show: the display scanout AvSetDisplayMode
-// registered (its own pitch and geometry — during OutRun's loading phase that is a
-// 320x240 pitch-1280 buffer, NOT the Kelvin render target's), falling back to the
-// Kelvin color surface when no mode has been set yet.
+// presented is the colour surface as it stood at the last FLIP_STALL — the buffer the
+// title handed to the screen. recordPresented latches it there, BEFORE the method's own
+// latch and before the game re-points the surface at the next buffer of its swap chain.
 //
-// It is deliberately a DIFFERENT picture from RenderDrawTarget: the scanout is the
-// buffer the CRTC is reading and the draw target is the one Kelvin is writing, and on
-// a double-buffered title those are two different addresses for most of a frame.
-// Comparing them is how a drawing bug is told from a flip bug.
+// This is how the machine knows what the TV is showing, and it needs to, because the CRTC
+// scanout registers do not: see RenderPresented.
+type presentedSurface struct {
+	valid  bool
+	base   uint32
+	pitch  uint32
+	w, h   int
+	ax, ay int
+}
+
+func (g *pgraph) recordPresented() {
+	w := int(g.Regs[kelvinSurfaceClipH>>2] >> 16)
+	h := int(g.Regs[kelvinSurfaceClipV>>2] >> 16)
+	pitch := g.Regs[kelvinSurfacePitch>>2] & 0xFFFF
+	base := g.Regs[kelvinSurfaceColorOffset>>2]
+	if w <= 0 || h <= 0 || pitch == 0 || base == 0 {
+		return
+	}
+	ax, ay := surfaceAAScale(g.Regs[kelvinSurfaceFormat>>2])
+	g.presented = presentedSurface{valid: true, base: base, pitch: pitch, w: w, h: h, ax: ax, ay: ay}
+}
+
+// RenderPresented draws what the TV is showing: the buffer the title last presented.
+//
+// This is the picture, and it is deliberately NOT RenderScanout. On hardware the CRTC scans
+// whatever its start register names, and Direct3D moves that register to flip. This machine
+// does not model the move — and the reason is worth stating rather than working around,
+// because it is a real frontier and not a shortcut:
+//
+//   - the title registers a scanout through AvSetDisplayMode exactly ONCE per boot, with the
+//     LOADING phase's mode (320x240, pitch 1280, at 0174C000), and the 640x480 switch it
+//     would make later has never happened in this HLE — it is a known-pending gap;
+//   - it does write PCRTC_START (0x600800) once per vertical blank from its own ISR, but the
+//     value is 0xFFFFFB00 every single time — `0 - pitch`, a constant, not an address.
+//
+// So the scanout registers cannot say which buffer is on screen. The flip can: the title
+// says "this frame is finished and meant for the screen" with FLIP_STALL, and the colour
+// surface at that instant names the buffer it means. Tracking that IS the flip, and it is
+// what every emulator does when it knows the present but not the register behind it.
+//
+// Before the first flip there is nothing presented, and the draw target is the closest true
+// answer — what the machine has drawn so far.
+func (m *Machine) RenderPresented() (*image.RGBA, error) {
+	p := m.pgraph.presented
+	if !p.valid {
+		return m.RenderDrawTarget()
+	}
+	return m.renderRawSurface(p.base, p.pitch, p.w, p.h, p.ax, p.ay)
+}
+
+// RenderScanout draws the framebuffer the CRTC is programmed to read — the mode the title
+// registered through AvSetDisplayMode.
+//
+// On a machine that tracked the CRTC this would be the picture. Here it is EVIDENCE: this
+// title registers its scanout once, during the loading phase, and never switches to the
+// 640x480 mode it goes on to render, so what this draws is a 320x240 window on a buffer
+// nothing has drawn into for millions of instructions — a blank white rectangle. It is kept,
+// and kept separate from RenderPresented, precisely so that gap stays visible instead of
+// being quietly papered over by the picture that works.
 func (m *Machine) RenderScanout() (*image.RGBA, error) {
 	if m.nv.fbAddr == 0 {
 		return m.RenderDrawTarget()

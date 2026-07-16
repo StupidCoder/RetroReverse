@@ -71,6 +71,12 @@ type pgraph struct {
 	vtxAttr [16][4]float32
 	Draws   int
 
+	// presented is the colour surface as it stood at the last FLIP_STALL — the buffer the
+	// title handed to the screen (nv2a_frame.go). It is how this machine knows what the TV
+	// shows, because the CRTC scanout registers cannot say (see RenderPresented). Derived,
+	// not state: a restored savestate simply has none until the next flip, one frame away.
+	presented presentedSurface
+
 	// Per-batch raster state (nv2a_raster.go) and the per-pusher-run texture decode
 	// cache (nv2a_texture.go). Both are transient rebuilds from Regs/RAM — not state.
 	rast      rasterState
