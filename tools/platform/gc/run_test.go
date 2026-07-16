@@ -116,15 +116,24 @@ func TestSpinDetectOffNeverFires(t *testing.T) {
 // window sees four distinct PCs and must acquit. A later window sees one and must convict.
 // If the counter does not reset, the second window still believes it has seen four, the run
 // reaches its budget, and this fails.
+//
+// THE INNOCENT LOOP MUST DO SOMETHING, and the first version of this test forgot: it was three
+// nops and a branch, which changes no register and stores nothing — an idle loop by the exact
+// definition in idle.go, so the fast-forward skipped straight over it and the patch below,
+// which was counting trips round the loop, never landed. The loop counts a register up
+// instead, which is what an honest not-idle loop looks like.
 func TestSpinWindowResets(t *testing.T) {
 	m := spinMachine(t, 4)
+	// addi r3,r3,1 in place of the first nop: the loop now makes progress, so it is not idle
+	// and must be interpreted rather than skipped.
+	m.setRAM32(0x1000, 0x38630001)
 
-	// Well inside the first window: the loop is still innocent when the patch lands.
+	// Well inside the first window: the loop is still innocent when the patch lands. Counted
+	// in EMULATED instructions, because that is the clock the spin window is on and the one
+	// the fast-forward advances.
 	const patchAt = 0x100000
-	var steps int
 	m.OnStep = func(mm *Machine, pc uint32) {
-		steps++
-		if steps == patchAt {
+		if mm.Instrs == patchAt {
 			// The loop's branch becomes a branch to itself. From here the program is stuck
 			// on one address — a real spin, arriving after an innocent stretch.
 			mm.setRAM32(0x100C, ppcBranch(0))

@@ -52,3 +52,41 @@ func (c *CPU) setDEC(v uint32) {
 	c.DEC = v
 	c.decArmed = false
 }
+
+// InstrsToDecUnderflow is how many instructions may pass before the decrementer would cross
+// below zero — the moment tick above latches decArmed and the machine owes an exception.
+//
+// It exists for the idle skip (see the platform's idle.go), which needs to know every way the
+// machine can change while the program is going round a loop that changes nothing. The
+// decrementer is one of them, and the least obvious: it is the only clock here that raises an
+// exception on its own, with no device involved.
+//
+// A decrementer that has ALREADY underflowed and not been rearmed owes nothing further — the
+// latch is set, the exception is the CPU's business, and counting on down cannot latch it
+// twice. That returns "never", because from the skip's point of view nothing more will happen.
+func (c *CPU) InstrsToDecUnderflow() uint64 {
+	if c.decArmed || c.DEC&0x80000000 != 0 {
+		return ^uint64(0)
+	}
+	// DEC decrements once every ClocksPerTick instructions, and the underflow is the step
+	// from 0 to 0xFFFFFFFF — so it takes DEC+1 more decrements to get there.
+	ticks := uint64(c.DEC) + 1
+	return ticks*ClocksPerTick - uint64(c.clockFrac)
+}
+
+// SkipInstructions advances the clocks as though n instructions had been retired, without
+// retiring them.
+//
+// The caller must have established that nothing in those n instructions could change the
+// machine — that is the idle skip's whole proof obligation, not this function's — and must
+// not skip past a decrementer underflow (InstrsToDecUnderflow says where that is), because
+// this deliberately does not latch decArmed: a skip that could hide an exception would be
+// changing the trajectory rather than fast-forwarding it.
+func (c *CPU) SkipInstructions(n uint64) {
+	c.Steps += n
+	total := uint64(c.clockFrac) + n
+	ticks := total / ClocksPerTick
+	c.clockFrac = uint32(total % ClocksPerTick)
+	c.TB += ticks
+	c.DEC -= uint32(ticks)
+}

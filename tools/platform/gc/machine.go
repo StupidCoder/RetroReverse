@@ -116,6 +116,13 @@ type Machine struct {
 	// should not ask for eight more of its own.
 	SingleThreaded bool
 
+	// stores counts every write the CPU has made. The idle detector reads it to ask "has this
+	// loop done anything at all?", which is the cheap half of proving a loop cannot progress.
+	stores uint64
+
+	idle   idleState
+	noIdle bool
+
 	// Instrs counts Gekko instructions retired since the machine was built. It is the
 	// emulator's own tally, not guest state: it is not in the savestate, and a restore does
 	// not rewind it — a profile counter wants to know how much work this process has done.
@@ -235,6 +242,7 @@ func (m *Machine) Read32(a uint32) uint32 {
 }
 
 func (m *Machine) Write8(a uint32, v uint8) {
+	m.stores++
 	if a < RAMSize {
 		m.writeWatch(a, uint32(v))
 		m.RAM[a] = v
@@ -252,6 +260,7 @@ func (m *Machine) Write8(a uint32, v uint8) {
 }
 
 func (m *Machine) Write16(a uint32, v uint16) {
+	m.stores++
 	if a+1 < RAMSize {
 		m.writeWatch(a, uint32(v))
 		binary.BigEndian.PutUint16(m.RAM[a:a+2], v)
@@ -269,6 +278,7 @@ func (m *Machine) Write16(a uint32, v uint16) {
 }
 
 func (m *Machine) Write32(a uint32, v uint32) {
+	m.stores++
 	if a+3 < RAMSize {
 		m.writeWatch(a, v)
 		binary.BigEndian.PutUint32(m.RAM[a:a+4], v)

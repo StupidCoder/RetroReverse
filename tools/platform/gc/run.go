@@ -110,7 +110,14 @@ func (m *Machine) Run(maxSteps uint64) Result {
 	m.profRunEnter()
 	defer m.profRunExit()
 
-	var steps uint64
+	// THE BUDGET IS EMULATED INSTRUCTIONS, NOT INTERPRETED ONES, and since the idle
+	// fast-forward (idle.go) those are no longer the same number. A budget counted in loop
+	// iterations would mean "-steps 500000000" quietly ran five times further into the game
+	// than it used to, because four fifths of this machine's instructions are an idle loop it
+	// no longer executes. The flag names a point to run to, so it has to keep naming the same
+	// point whether or not the skip is on.
+	start := m.Instrs
+	steps := func() uint64 { return m.Instrs - start }
 	first := true
 
 	// Tight-spin detection: if only a couple of PCs recur across a whole window, the
@@ -132,24 +139,44 @@ func (m *Machine) Run(maxSteps uint64) Result {
 	//
 	// spinN < 4 is exactly len(spin) < 4, so the run stops at the same instruction with
 	// the same reason. This is not bit-exact by argument, it is the same function.
+	// THE WINDOW IS COUNTED IN EMULATED INSTRUCTIONS, not in trips round this loop, and since
+	// the idle fast-forward those differ. Counting trips would quietly disable the heuristic
+	// exactly where it is most wanted: a machine wedged in `b .` is precisely what the skip
+	// fast-forwards, so the window would take a thousand times longer to close and a genuine
+	// hang would be reported as an exhausted budget instead of the spin it is.
 	var spinPCs [4]uint32
 	var spinN int
 	const spinWindow = 0x400000
-	var sinceReset uint64
+	spinStart := m.Instrs
 
-	for steps < maxSteps {
+	for steps() < maxSteps {
 		pc := m.CPU.PC
 
 		if m.StopRequested {
 			m.StopRequested = false
-			return Result{steps, pc, "stop requested"}
+			return Result{steps(), pc, "stop requested"}
 		}
 		if m.run.breakpoints[pc] && !first {
-			return Result{steps, pc, fmt.Sprintf("breakpoint at 0x%08X", pc)}
+			return Result{steps(), pc, fmt.Sprintf("breakpoint at 0x%08X", pc)}
 		}
 		first = false
 		if m.OnStep != nil {
 			m.OnStep(m, pc)
+		}
+
+		// The idle fast-forward. The detector runs before the ticks so that a loop proved
+		// idle skips to the edge of the next event and the ordinary tick below delivers it.
+		if !m.noIdle && m.idleStep(pc) {
+			if n := m.idleDeadline(); n > 0 {
+				// Never skip past the budget. A skip jumps the instruction clock in one go,
+				// so without this a run asked for exactly N instructions would sail up to a
+				// whole field beyond it — and the caller asking for N is usually asking to
+				// stop at a particular place.
+				if rem := maxSteps - steps(); n > rem {
+					n = rem
+				}
+				m.idleSkip(n)
+			}
 		}
 
 		m.tickVI()
@@ -171,23 +198,21 @@ func (m *Machine) Run(maxSteps uint64) Result {
 					spinN++
 				}
 			}
-			sinceReset++
-			if sinceReset >= spinWindow {
+			if m.Instrs-spinStart >= spinWindow {
 				if spinN < 4 {
-					return Result{steps, pc, "spin (tight loop)"}
+					return Result{steps(), pc, "spin (tight loop)"}
 				}
 				spinN = 0
-				sinceReset = 0
+				spinStart = m.Instrs
 			}
 		}
 
 		m.CPU.Step()
-		steps++
 		m.Instrs++
 
 		if m.CPU.Halted {
-			return Result{steps, m.CPU.PC, m.CPU.HaltReason}
+			return Result{steps(), m.CPU.PC, m.CPU.HaltReason}
 		}
 	}
-	return Result{steps, m.CPU.PC, "step budget exhausted"}
+	return Result{steps(), m.CPU.PC, "step budget exhausted"}
 }
