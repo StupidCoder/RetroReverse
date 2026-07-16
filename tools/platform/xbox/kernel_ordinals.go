@@ -41,6 +41,7 @@ var verifiedNames = map[uint16]string{
 	109: "KeInitializeInterrupt",           // f(kint, routine, ctx, vector, irql, mode, share)
 	113: "KeInitializeTimerEx",             // f(KTIMER, type)
 	149: "KeSetTimer",                      // f(KTIMER, dueTime64, KDPC)
+	150: "KeSetTimerEx",                    // f(KTIMER, dueTime64, period, KDPC); NVNET poll 0x20D187
 	165: "MmAllocateContiguousMemory",      // f(bytes) -> physical base (Mm block drifts +5)
 	166: "MmAllocateContiguousMemoryEx",    // f(bytes, lowAddr, highAddr, align, protect) -> base
 	168: "MmClaimGpuInstanceMemory",        // f(bytes, &padding) -> end of retained GPU block
@@ -87,12 +88,15 @@ var verifiedNames = map[uint16]string{
 	339: "XcRC4Crypt",                // f(keyTable, dataLen, data) (table 332 +7)
 	154: "KeSystemTime",              // DATA export: KSYSTEM_TIME kept live by schedTick
 	156: "KeTickCount",               // DATA export: ms tick, read as data at 0x214C37
+	346: "XcDESKeyParity",            // f(key, len) in-place parity fix; site 0x207A7F
 	340: "XcHMAC",                    // 7 args (key,keyLen,data,dataLen,data2,data2Len,digest*),
 	// a 20-byte SHA-1 digest written to the out buffer (site 0x20CB09) — NOT the table's
 	// 3-arg XcKeyTable; the Xc block drifts. Frontier: no handler yet (halts and names it).
 	357: "IdexChannelObject", // DATA export: disk channel object (name inferred from
 	// usage shape — dispatch slots +0x10/+0x14, busy flag +0x20, queued-IRP list +0x28)
 	187: "NtClose",                      // f(handle) -> NTSTATUS (Nt block drifts +5)
+	252: "PhyGetLinkState",              // f(update) -> link flags; site 0x20D622, 0 = no cable
+	253: "PhyInitialize",                // f(forceReset, param) -> NTSTATUS; NVNET bring-up 0x20E134
 	255: "PsCreateSystemThreadEx",       // the CRT's 10-arg main-thread spawn
 	277: "RtlEnterCriticalSection",      // census-anchored
 	289: "RtlInitAnsiString",            // f(ANSI_STRING*, PCSZ); MU-probe call site 0x23F6D2

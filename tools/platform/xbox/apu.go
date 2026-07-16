@@ -52,6 +52,10 @@ const (
 	usbSize = 0x1000     // one OHCI register file
 	usbTop  = usbBase + usbSize
 
+	nicBase = 0xFEF00000 // the MCPX NVNET Ethernet controller (XNET's link probe)
+	nicSize = 0x1000
+	nicTop  = nicBase + nicSize
+
 	// OHCI operational registers with answers beyond the latch (generic OHCI spec —
 	// platform knowledge, like the AC'97 semaphore): HcRevision reads 1.0, and
 	// HcCommandStatus reads 0 — every self-clearing command bit (HCR reset, list
@@ -66,6 +70,11 @@ const (
 	// The progressing DSP counter the bring-up polls (see the file comment).
 	apuHandshake    = 0x20010
 	apuCounterShift = 10 // counter = tick >> 10
+
+	// AC'97 bus-master global registers (generic AC'97/ICH spec — platform
+	// knowledge, like the OHCI answers above).
+	ac97GlobalControl = 0x12C // bit 1 = ACLink cold reset deasserted (active low reset)
+	ac97GlobalStatus  = 0x130 // bit 8 = primary codec ready
 )
 
 var apuTrace = os.Getenv("RR_APU_TRACE") != ""
@@ -124,8 +133,16 @@ func (m *Machine) apuWrite(off uint32, v byte) { m.latchWrite(&m.apu, off, v) }
 // codec-reset handshake at 0x1DE9EA (write 0x02 to [box+0x0B]; loop while bit 1 stays set).
 // Reading a CR byte therefore clears bit 0x02 — the reset is instantaneous in our model —
 // while leaving RPBM (bit 0, run) and the interrupt-enable bits untouched.
+// The DirectSound device init's driver probe (0x1DE6F6) deasserts ACLink cold
+// reset in Global Control and then polls Global Status for the primary codec
+// ready bit (1000 tries, 20 ms apart) — DSERR_NODRIVER if it never rises. The
+// codec is soldered onto every Xbox: once the link is out of cold reset it
+// reports ready (instantaneously here, like the RR reset below).
 func (m *Machine) ac97Read(off uint32) byte {
 	dw, written := m.ac97.reg[off>>2]
+	if off&^3 == ac97GlobalStatus && m.ac97.reg[ac97GlobalControl>>2]&0x02 != 0 {
+		dw, written = dw|0x100, true // primary codec ready
+	}
 	b := m.latchRead(&m.ac97, off, dw, written)
 	if off&0x0F == 0x0B {
 		b &^= 0x02 // RR (Reset Registers) has already completed
@@ -133,6 +150,17 @@ func (m *Machine) ac97Read(off uint32) byte {
 	return b
 }
 func (m *Machine) ac97Write(off uint32, v byte) { m.latchWrite(&m.ac97, off, v) }
+
+// nicRead / nicWrite are the MCPX NVNET Ethernet controller: a pure latch. The
+// title's XNET stack initialises the NIC during network bring-up; with no cable
+// and no modelled PHY every unwritten register reads 0 (link down, nothing
+// pending), which is the honest no-network truth — the log-once guard surfaces
+// any register the stack polls for a rising bit.
+func (m *Machine) nicRead(off uint32) byte {
+	dw, written := m.nic.reg[off>>2]
+	return m.latchRead(&m.nic, off, dw, written)
+}
+func (m *Machine) nicWrite(off uint32, v byte) { m.latchWrite(&m.nic, off, v) }
 
 // usbRead / usbWrite are the USB OHCI host controller: a latch with the two
 // spec-mandated answers above.

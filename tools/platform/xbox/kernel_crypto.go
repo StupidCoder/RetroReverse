@@ -152,6 +152,22 @@ func kernelCryptoHandler(ord uint16) func(*Machine) int {
 			m.setRet(0)
 			return 3
 		}
+	case 346: // XcDESKeyParity(pbKey, dwKeyLength) — set each key byte's DES parity bit.
+		// Verified from its call site (0x207A7F via the thunk at 0x85D80): two args, a
+		// 24-byte (3DES) key the caller just assembled by REP MOVSD and 0x18, result
+		// ignored — the canonical in-place parity fix. DES keys carry odd parity in the
+		// low bit of every byte (FIPS 46-3, a published standard): the low bit is set so
+		// the byte's total population count is odd.
+		return func(m *Machine) int {
+			key, n := m.arg(0), m.arg(1)
+			for i := uint32(0); i < n; i++ {
+				b := m.Read(key + i)
+				b = b&0xFE | (popcount7(b>>1)&1)^1
+				m.Write(key+i, b)
+			}
+			m.setRet(0)
+			return 2
+		}
 	case 340: // XcHMAC(pbKeyMaterial, cbKeyMaterial, pbData, cbData, pbData2, cbData2, pbDigest)
 		// Verified from the two library wrappers at 0x20CAC9 (compute → copy digest out)
 		// and 0x20CB09 (compute → REP CMPSB compare), each passing seven __stdcall args
@@ -198,4 +214,13 @@ func kernelCryptoHandler(ord uint16) func(*Machine) int {
 		}
 	}
 	return nil
+}
+
+// popcount7 counts the set bits of a 7-bit value (a DES key byte sans parity bit).
+func popcount7(b byte) byte {
+	var n byte
+	for ; b != 0; b >>= 1 {
+		n += b & 1
+	}
+	return n
 }

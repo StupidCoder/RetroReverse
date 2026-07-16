@@ -119,10 +119,19 @@ const threadExitAddr = trapBase - 0x100
 // bus/hook pointers, and returns the thread. The thread does not run until the
 // scheduler picks it.
 func (m *Machine) createThread(entry, ctx1, ctx2 uint32, stackSize uint32, priority int32, suspended bool) *thread {
-	if stackSize < 0x4000 {
-		stackSize = 0x10000
+	// Honour the caller's KernelStackSize (PsCreateSystemThreadEx arg 2), page-rounded;
+	// 0 means the kernel default (16 KiB). Inflating small requests wastes the pool the
+	// title budgets to the last few hundred KiB (see kernelBandBase).
+	if stackSize == 0 {
+		stackSize = 0x4000
 	}
+	stackSize = align32(stackSize, 0x1000)
 	stackBase := m.allocPool(stackSize)
+	if stackBase == 0 {
+		// A silent 0 here becomes a thread running on low RAM — a fiction that
+		// corrupts page zero and surfaces as unrelated crashes much later.
+		m.CPU.Halt("createThread: pool exhausted allocating a %X-byte stack", stackSize)
+	}
 	sp := stackBase + stackSize - 16
 	kt := m.allocKObject(0x100)
 

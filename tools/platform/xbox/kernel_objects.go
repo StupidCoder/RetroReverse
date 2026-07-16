@@ -327,6 +327,10 @@ func kernelObjectHandler(ord uint16) func(*Machine) int {
 		// so we do not constrain the base to them. Returns 0 on exhaustion, which the
 		// callers treat as an allocation failure.
 		return func(m *Machine) int {
+			if m.arg(0) >= 1<<20 {
+				m.logf("MmAllocateContiguousMemoryEx: %X bytes (lo=%X hi=%X align=%X prot=%X) from %08X (caller %08X)",
+					m.arg(0), m.arg(1), m.arg(2), m.arg(3), m.arg(4), m.retAddr(), m.read32(m.CPU.Regs[x86.BP]+4))
+			}
 			m.setRet(m.allocPoolAligned(m.arg(0), m.arg(3)))
 			return 5
 		}
@@ -478,6 +482,8 @@ func kernelObjectHandler(ord uint16) func(*Machine) int {
 				addr = m.read32(baseOut) // a requested base: honour it (identity)
 			} else {
 				addr = m.allocVirtual(size)
+				m.logf("NtAllocateVirtualMemory: %X bytes type=%X prot=%X -> %08X (from %08X)",
+					size, m.arg(3), m.arg(4), addr, m.retAddr())
 			}
 			if baseOut != 0 {
 				m.write32(baseOut, addr)
@@ -663,6 +669,22 @@ func kernelObjectHandler(ord uint16) func(*Machine) int {
 			}
 			m.setRet(1)
 			return 4
+		}
+
+	case 150: // KeSetTimerEx(Timer, DueTime(2 dwords), Period, Dpc) — verified from the NVNET
+		// link-poll site (0x20D187): (this+0x1A8 KTIMER, 0xFFFFFFFFFFE17B80 = -200 ms
+		// relative, Period=200 ms, this+0x18C KDPC) — the KTIMER/KDPC pair this object's
+		// constructor built with KeInitializeTimerEx/KeInitializeDpc. Canonical neighbour
+		// of the verified KeSetTimer (149). Like 149, record only the dispatcher state;
+		// no DPC fires in our cooperative model (the poll also runs from the game's own
+		// per-frame update).
+		return func(m *Machine) int {
+			tm := m.arg(0)
+			if tm != 0 {
+				m.write32(tm+dhSignalState, 0) // not yet signalled
+			}
+			m.setRet(1)
+			return 5
 		}
 
 	case 113: // KeInitializeTimerEx(Timer, Type) — verified: 2 args, follows the DPC init.

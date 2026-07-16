@@ -48,12 +48,18 @@ const (
 	mmioBase = 0xFD000000
 	mmioTop  = 0xFE000000
 
-	// Reserved kernel-bookkeeping band at the top of physical RAM. The KPCR, the
-	// thread and dispatcher objects the HLE hands out, and the trap thunks' scratch
-	// live here; the title's own allocators (heap, contiguous framebuffers) bump up
-	// from low RAM and down from kernelBandBase, so the two never meet.
-	kernelBandBase = ramSize - (2 << 20) // top 2 MiB of RAM
-	kpcrAddr       = kernelBandBase      // the KPCR sits at the base of the band
+	// Reserved kernel-bookkeeping band at the top of physical RAM. The KPCR and the
+	// thread and dispatcher objects the HLE hands out live here; the title's own
+	// allocators (heap, contiguous framebuffers) bump up from low RAM and down from
+	// kernelBandBase, so the two never meet. The band must stay SMALL: OutRun's own
+	// memory plan (a fixed 0x2AE147A contiguous arena + a 0xB4CCCD committed heap
+	// arena + the 0x652AC0 image) totals 63.1 MB of the 64, so the real kernel plus
+	// every runtime pool allocation provably fits in the remaining ~900 KB — a 2 MB
+	// band pushed that title's own last allocations (the DirectSound voice buffers,
+	// worker-thread stacks) into honest-looking E_OUTOFMEMORY failures the real
+	// console never sees.
+	kernelBandBase = ramSize - (256 << 10) // top 256 KiB of RAM
+	kpcrAddr       = kernelBandBase        // the KPCR sits at the base of the band
 
 	// Kernel-import trap region. It is NOT backed by RAM: each imported ordinal is
 	// assigned a unique sentinel address here, written into the title's IAT thunk in
@@ -66,10 +72,12 @@ const (
 	trapCount  = 512 // ordinals 1..511 fit; xboxkrnl tops out at ~366
 	trapTop    = trapBase + trapCount*trapStride
 
-	// Default title stack. XapiInitProcess runs on a stack the launcher set up; we
-	// give the entry thread a generous one high in physical RAM, below the kernel band.
+	// Default title stack. XapiInitProcess runs on the launcher's stack only briefly
+	// (it spawns the game's main thread, which gets its own PsCreateSystemThreadEx
+	// stack, and returns); 64 KiB matches the modest footprint the title's memory
+	// plan leaves for it.
 	titleStackTop  = kernelBandBase - 0x1000
-	titleStackSize = 512 << 10
+	titleStackSize = 64 << 10
 )
 
 // Machine is a loaded Xbox title ready to run.
@@ -128,6 +136,7 @@ type Machine struct {
 	apu  mmioLatch
 	ac97 mmioLatch
 	usb  mmioLatch
+	nic  mmioLatch
 
 	pciAddr uint32 // last value written to the PCI config-address port 0xCF8 (ports.go)
 
@@ -175,6 +184,7 @@ func NewMachine(xbe *XBE, disc *Image) (*Machine, error) {
 	m.apu = newMMIOLatch("APU")
 	m.ac97 = newMMIOLatch("AC97")
 	m.usb = newMMIOLatch("USB")
+	m.nic = newMMIOLatch("NIC")
 	m.pciSpace = map[uint32]byte{}
 	m.pgraph = newPgraph(m)
 
@@ -326,6 +336,9 @@ func (m *Machine) Read(a uint32) byte {
 	if a >= usbBase && a < usbTop {
 		return m.usbRead(a - usbBase)
 	}
+	if a >= nicBase && a < nicTop {
+		return m.nicRead(a - nicBase)
+	}
 	phys, mmio, ok := m.translate(a)
 	if !ok {
 		m.fault("read", a)
@@ -355,6 +368,10 @@ func (m *Machine) Write(a uint32, v byte) {
 	}
 	if a >= usbBase && a < usbTop {
 		m.usbWrite(a-usbBase, v)
+		return
+	}
+	if a >= nicBase && a < nicTop {
+		m.nicWrite(a-nicBase, v)
 		return
 	}
 	phys, mmio, ok := m.translate(a)
@@ -451,6 +468,13 @@ func (m *Machine) SetTrace(n int) { m.traceLeft = n }
 // the debugger/CLI view into the running machine.
 func (m *Machine) MemReadByte(a uint32) byte { return m.Read(a) }
 func (m *Machine) MemRead32(a uint32) uint32 { return m.read32(a) }
+
+// AllocStats reports the two bump arenas' current edges (heap grows up toward
+// heapTop, the contiguous/pool arena grows down toward the heap) — the
+// debugger/CLI view of guest memory pressure.
+func (m *Machine) AllocStats() (heapNext, heapTop, poolNext uint32) {
+	return m.heapNext, m.heapTop, m.poolNext
+}
 
 // disasmAt decodes the instruction at guest linear address a into text (best-effort:
 // reads up to 16 bytes through the window translation).

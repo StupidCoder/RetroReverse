@@ -66,10 +66,13 @@ type XboxState struct {
 	NVKicked  bool
 	FirstPush bool
 
-	// MCPX audio latch apertures (apu.go). The log-once bookkeeping is not state.
+	// MCPX latch apertures (apu.go). The log-once bookkeeping is not state.
+	// NICReg decodes as nil from pre-NIC snapshots, which restores an honest
+	// cold latch (copyU32Map(nil) is an empty map).
 	APUReg  map[uint32]uint32
 	AC97Reg map[uint32]uint32
 	USBReg  map[uint32]uint32
+	NICReg  map[uint32]uint32
 
 	// NV2A graphics engine (nv2a_pgraph.go) + the PFIFO pusher's decode position
 	// (nv2a_pfifo.go). The survey/unhandled instrumentation maps are NOT state.
@@ -184,6 +187,7 @@ func (m *Machine) SaveState() *XboxState {
 		APUReg:      copyU32Map(m.apu.reg),
 		AC97Reg:     copyU32Map(m.ac97.reg),
 		USBReg:      copyU32Map(m.usb.reg),
+		NICReg:      copyU32Map(m.nic.reg),
 		PgSubObject: m.pgraph.subObject, PgSubClass: m.pgraph.subClass, PgRegs: m.pgraph.Regs,
 		PgMethods: m.pgraph.Methods, PgSetObjs: m.pgraph.SetObjs,
 		Push: pusherSnap{
@@ -244,6 +248,7 @@ func (m *Machine) LoadState(st *XboxState) error {
 	m.apu.reg = copyU32Map(st.APUReg)
 	m.ac97.reg = copyU32Map(st.AC97Reg)
 	m.usb.reg = copyU32Map(st.USBReg)
+	m.nic.reg = copyU32Map(st.NICReg)
 	m.pgraph.subObject, m.pgraph.subClass, m.pgraph.Regs = st.PgSubObject, st.PgSubClass, st.PgRegs
 	m.pgraph.Methods, m.pgraph.SetObjs = st.PgMethods, st.PgSetObjs
 	m.push = pusherState{

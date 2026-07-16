@@ -171,6 +171,7 @@ func (m *Machine) allocPoolAligned(size, align uint32) uint32 {
 	// Record the block's size for the two size queries the title accounts memory
 	// with (ExQueryPoolBlockSize on pool blocks, MmQueryAllocationSize on Mm blocks).
 	m.poolSizes[base] = size
+	m.logf("allocPool: %X bytes (align %X) -> %08X (pool free %d KiB)", size, align, base, (base-m.heapNext)/1024)
 	return base
 }
 
@@ -336,6 +337,23 @@ func kernelHandler(ord uint16) func(*Machine) int {
 			m.setRet(0)
 			return 2
 		}
+	case 252: // PhyGetLinkState(Update) -> ULONG link-flags bitmask. Verified from its call
+		// site (0x20D622): one arg (SETZ from the caller's own flag), the result compared
+		// against a cached copy at [this+0x214] and decoded bitwise (bit 2 selects the
+		// 100/10 Mbps timer constant, bit 3 duplex). Canonical xboxkrnl neighbour of the
+		// verified 253/255. No cable is plugged into an emulated console: link down (0).
+		return func(m *Machine) int { m.setRet(0); return 1 }
+
+	case 253: // PhyInitialize(ForceReset, Parameter) -> NTSTATUS. Verified from its call
+		// site (0x20E134): two zero args pushed mid NVNET bring-up — the caller programs
+		// the NIC's descriptor rings at 0xFEF00140/0x13C and its control words at
+		// 0xFEF00188/0x18C immediately around the call, and JL-checks the NTSTATUS. The
+		// canonical xboxkrnl table has PhyInitialize at 253 (anchored by the verified
+		// PsCreateSystemThreadEx at 255); the reconstructed table's "PsCreateSystemThread"
+		// here is its usual off-by-one. The PHY chip is soldered in: init succeeds whether
+		// or not a cable is up (link state is a separate PhyGetLinkState query).
+		return func(m *Machine) int { m.setRet(0); return 2 }
+
 	case 255: // PsCreateSystemThreadEx — verified from the CRT's 10-arg call pattern
 		// (ThreadHandle, ThreadExtSize, KernelStackSize, TlsDataSize, ThreadId,
 		//  StartContext1, StartContext2, CreateSuspended, DebuggerThread, StartRoutine)
