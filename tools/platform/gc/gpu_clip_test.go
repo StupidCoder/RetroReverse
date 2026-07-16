@@ -67,7 +67,7 @@ func gpuWithMansionProjection() *gpu {
 
 // TestClipSpaceZConvention verifies against the live projection that normalised device z is -1
 // at the near plane and 0 at the far plane, and that the viewport maps those to depth 0 and
-// 0xFFFFFF. This is the convention clipNear's plane (cz = -cw) is stated in.
+// 0xFFFFFF. This is the convention planeNear (cz = -cw) is stated in.
 func TestClipSpaceZConvention(t *testing.T) {
 	g := gpuWithMansionProjection()
 	const near, far = 1.0, 327680
@@ -120,7 +120,7 @@ func TestClipNearCases(t *testing.T) {
 			tri := [3]clipVertex{
 				cv(g, 1, 1, c.ez[0]), cv(g, -1, 1, c.ez[1]), cv(g, 0, -1, c.ez[2]),
 			}
-			got := clipNear(nil, tri)
+			got := clipByPlane(nil, tri[:], planeNear)
 			if len(got) != c.wantLen {
 				t.Fatalf("got %d vertices, want %d", len(got), c.wantLen)
 			}
@@ -146,7 +146,7 @@ func TestClipNearLeavesFrontTriangleExactlyAlone(t *testing.T) {
 	tri[0].u, tri[0].v = 0.25, 0.75
 	tri[1].g, tri[1].b = 128, 64
 
-	got := clipNear(nil, tri)
+	got := clipByPlane(nil, tri[:], planeNear)
 	if len(got) != 3 {
 		t.Fatalf("got %d vertices, want 3", len(got))
 	}
@@ -175,7 +175,7 @@ func TestClipNearInterpolatesAttributes(t *testing.T) {
 		t.Fatalf("test setup wrong: distances %g and %g, want +1 and -1", d0, d1)
 	}
 
-	got := clipNear(nil, [3]clipVertex{v0, v1, v2})
+	got := clipByPlane(nil, []clipVertex{v0, v1, v2}, planeNear)
 	if len(got) != 4 {
 		t.Fatalf("got %d vertices, want 4", len(got))
 	}
@@ -233,7 +233,7 @@ func TestClipNearPreservesWinding(t *testing.T) {
 	} {
 		t.Run(c.name, func(t *testing.T) {
 			want := area2(toScreen(c.tri[0]), toScreen(c.tri[1]), toScreen(c.tri[2]))
-			poly := clipNear(nil, c.tri)
+			poly := clipByPlane(nil, c.tri[:], planeNear)
 			if len(poly) < 3 {
 				t.Fatal("nothing survived; this case should produce a polygon")
 			}
@@ -261,7 +261,7 @@ func TestClipNearRejectsEveryNonPositiveW(t *testing.T) {
 				tri := [3]clipVertex{
 					cv(g, 1, 1, float32(a)), cv(g, -1, 1, float32(b)), cv(g, 0, -1, float32(c)),
 				}
-				for i, v := range clipNear(nil, tri) {
+				for i, v := range clipByPlane(nil, tri[:], planeNear) {
 					if v.cw <= 0 {
 						t.Fatalf("ez=(%d,%d,%d): vertex %d survived with w=%g", a, b, c, i, v.cw)
 					}
@@ -271,19 +271,181 @@ func TestClipNearRejectsEveryNonPositiveW(t *testing.T) {
 	}
 }
 
-// TestClipNearReusesBuffer checks the allocation contract rasterPrimitive relies on: the
+// TestClipByPlaneReusesBuffer checks the allocation contract rasterPrimitive relies on: the
 // clipper writes into the caller's buffer, so a long strip clips without allocating per
 // triangle.
-func TestClipNearReusesBuffer(t *testing.T) {
+func TestClipByPlaneReusesBuffer(t *testing.T) {
 	g := gpuWithMansionProjection()
 	buf := make([]clipVertex, 0, 8)
 	tri := [3]clipVertex{cv(g, 1, 1, -10), cv(g, -1, 1, -20), cv(g, 0, -1, 30)}
 
-	got := clipNear(buf, tri)
+	got := clipByPlane(buf, tri[:], planeNear)
 	if len(got) != 4 {
 		t.Fatalf("got %d vertices, want 4", len(got))
 	}
 	if cap(got) != cap(buf) || &got[:1][0] != &buf[:1][0] {
-		t.Error("clipNear allocated instead of using the caller's buffer")
+		t.Error("clipByPlane allocated instead of using the caller's buffer")
+	}
+}
+
+// TestClipTriangleBoundsScreenCoordinates is the guard band's whole reason for existing, stated
+// as the thing that went wrong: the mansion shot draws a triangle spanning x[-8335705..837],
+// y[363..1357221], whose vertices all pass the near plane and whose w is perfectly positive.
+// Nothing about it wraps — it is simply enormous, and float32 edge functions over eight million
+// pixels have no significant bits left, so its texture coordinate came out of the wrong part of
+// the texture and it painted a black band. After clipping, every surviving vertex must sit
+// within the guard band, which bounds the arithmetic.
+func TestClipTriangleBoundsScreenCoordinates(t *testing.T) {
+	g := gpuWithMansionProjection()
+
+	// A vertex just in front of the near plane and far to one side: in front of the eye, w
+	// positive, and projecting millions of pixels away.
+	tri := [3]clipVertex{
+		cv(g, -14000, 2000, -1.01),
+		cv(g, 10, 8, -30),
+		cv(g, -5, -8, -30),
+	}
+	// The setup must really be the pathological case, or the test proves nothing.
+	sx, _, _ := g.toScreen(tri[0].cx, tri[0].cy, tri[0].cz, tri[0].cw)
+	if tri[0].cw <= 0 {
+		t.Fatalf("test setup wrong: w = %g, want positive (this is not a wrap)", tri[0].cw)
+	}
+	if math.Abs(float64(sx)) < 1e6 {
+		t.Fatalf("test setup wrong: unclipped x = %g, want millions of pixels off-screen", sx)
+	}
+
+	poly, _ := clipTriangle(nil, nil, tri)
+	if len(poly) < 3 {
+		t.Fatal("the whole triangle was dropped; it crosses the viewport and must survive")
+	}
+	for i, v := range poly {
+		x, y, _ := g.toScreen(v.cx, v.cy, v.cz, v.cw)
+		// The guard band is in NDC; at scale 320/240 plus the viewport offset, staying inside
+		// it keeps screen coordinates within a few thousand pixels rather than millions.
+		if math.Abs(float64(x)) > 4000 || math.Abs(float64(y)) > 4000 {
+			t.Errorf("vertex %d survived at (%g,%g); the guard band did not bound it", i, x, y)
+		}
+		if v.cw <= 0 {
+			t.Errorf("vertex %d survived with w = %g", i, v.cw)
+		}
+	}
+}
+
+// TestClipTriangleLeavesInsideTriangleExactlyAlone pins the fast path: a triangle wholly within
+// the guard band must come through bit-for-bit. Every ordinary draw in every scene takes this
+// path, so anything else would perturb frames that are already correct.
+func TestClipTriangleLeavesInsideTriangleExactlyAlone(t *testing.T) {
+	g := gpuWithMansionProjection()
+	tri := [3]clipVertex{cv(g, 1, 1, -10), cv(g, -1, 1, -20), cv(g, 0, -1, -30)}
+	tri[0].u, tri[0].v = 0.25, 0.75
+
+	poly, _ := clipTriangle(nil, nil, tri)
+	if len(poly) != 3 {
+		t.Fatalf("got %d vertices, want the original 3", len(poly))
+	}
+	for i := range poly {
+		if poly[i] != tri[i] {
+			t.Errorf("vertex %d changed: got %+v, want %+v", i, poly[i], tri[i])
+		}
+	}
+}
+
+// TestGuardBandDoesNotMoveTheSurface is the property that makes the guard-band width a free
+// choice rather than a fidelity claim: clipping cuts the polygon but must not move the surface
+// it represents. For a point inside the viewport, the perspective-correct texture coordinate
+// must be the same whether or not the triangle was cut — otherwise picking guardBand would be
+// picking what the frame looks like.
+//
+// The check reconstructs the coordinate at a screen point from the clipped fan and compares it
+// to the unclipped triangle's own plane equation, evaluated independently.
+func TestGuardBandDoesNotMoveTheSurface(t *testing.T) {
+	g := gpuWithMansionProjection()
+
+	// A big ground-plane-ish triangle reaching well outside the guard band, with texture
+	// coordinates that vary across it.
+	tri := [3]clipVertex{
+		cv(g, -3000, -20, -8),
+		cv(g, 3000, -20, -8),
+		cv(g, 0, -20, -4000),
+	}
+	tri[0].u, tri[0].v = 0, 0
+	tri[1].u, tri[1].v = 8, 0
+	tri[2].u, tri[2].v = 0, 8
+
+	poly, _ := clipTriangle(nil, nil, tri)
+	if len(poly) < 3 {
+		t.Fatal("the triangle was dropped entirely")
+	}
+
+	toScreen := func(c clipVertex) screenVertex {
+		sx, sy, sz := g.toScreen(c.cx, c.cy, c.cz, c.cw)
+		return screenVertex{x: sx, y: sy, z: sz, u: c.u, v: c.v, invW: 1 / c.cw}
+	}
+	// The unclipped triangle, as ground truth.
+	t0, t1, t2 := toScreen(tri[0]), toScreen(tri[1]), toScreen(tri[2])
+	area := edge(t0.x, t0.y, t1.x, t1.y, t2.x, t2.y)
+
+	checked := 0
+	for _, p := range [][2]float32{{320, 300}, {200, 400}, {450, 350}, {320, 420}, {100, 460}} {
+		// Where does the unclipped triangle say the surface is at this pixel?
+		w0 := edge(t1.x, t1.y, t2.x, t2.y, p[0], p[1]) / area
+		w1 := edge(t2.x, t2.y, t0.x, t0.y, p[0], p[1]) / area
+		w2 := edge(t0.x, t0.y, t1.x, t1.y, p[0], p[1]) / area
+		if w0 < 0 || w1 < 0 || w2 < 0 {
+			continue // not covered by the source triangle; nothing to compare
+		}
+		wantU, wantV := perspUV(w0, w1, w2, t0, t1, t2)
+
+		// And what does the clipped fan say at the same pixel?
+		gotU, gotV, found := float32(0), float32(0), false
+		a := toScreen(poly[0])
+		for i := 1; i+1 < len(poly); i++ {
+			b, c := toScreen(poly[i]), toScreen(poly[i+1])
+			ar := edge(a.x, a.y, b.x, b.y, c.x, c.y)
+			if ar == 0 {
+				continue
+			}
+			e0 := edge(b.x, b.y, c.x, c.y, p[0], p[1]) / ar
+			e1 := edge(c.x, c.y, a.x, a.y, p[0], p[1]) / ar
+			e2 := edge(a.x, a.y, b.x, b.y, p[0], p[1]) / ar
+			if e0 < -1e-4 || e1 < -1e-4 || e2 < -1e-4 {
+				continue
+			}
+			gotU, gotV = perspUV(e0, e1, e2, a, b, c)
+			found = true
+			break
+		}
+		if !found {
+			t.Errorf("pixel (%g,%g) is inside the source triangle but no clipped fan triangle covers it", p[0], p[1])
+			continue
+		}
+		if math.Abs(float64(gotU-wantU)) > 1e-2 || math.Abs(float64(gotV-wantV)) > 1e-2 {
+			t.Errorf("pixel (%g,%g): clipped fan says uv (%v,%v), source surface says (%v,%v)",
+				p[0], p[1], gotU, gotV, wantU, wantV)
+		}
+		checked++
+	}
+	if checked == 0 {
+		t.Fatal("no pixel was actually compared; the test proved nothing")
+	}
+}
+
+// TestClipTriangleRejectsWhollyOutside checks the cheap reject: a triangle entirely off one
+// side must be dropped, not cut.
+func TestClipTriangleRejectsWhollyOutside(t *testing.T) {
+	g := gpuWithMansionProjection()
+	for _, c := range []struct {
+		name string
+		tri  [3]clipVertex
+	}{
+		{"far off the left", [3]clipVertex{cv(g, -900, 0, -10), cv(g, -800, 5, -10), cv(g, -850, -5, -10)}},
+		{"far off the top", [3]clipVertex{cv(g, 0, 900, -10), cv(g, 5, 800, -10), cv(g, -5, 850, -10)}},
+		{"behind the eye", [3]clipVertex{cv(g, 1, 1, 10), cv(g, -1, 1, 20), cv(g, 0, -1, 30)}},
+	} {
+		t.Run(c.name, func(t *testing.T) {
+			if poly, _ := clipTriangle(nil, nil, c.tri); len(poly) != 0 {
+				t.Errorf("got %d vertices, want the triangle dropped", len(poly))
+			}
+		})
 	}
 }

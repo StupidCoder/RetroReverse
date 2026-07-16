@@ -400,10 +400,12 @@ func expand6(v uint16) uint8 { return uint8(v<<2 | v>>4) }
 // lines and points wait for a frame that uses them, and are logged once when one appears rather
 // than drawn wrong.
 func (g *gpu) rasterPrimitive(m *Machine, prim uint32, v []clipVertex) {
-	// One scratch polygon for the whole primitive: the clipper returns its result in this
-	// buffer, so a strip of hundreds of triangles still allocates once.
+	// Two scratch polygons for the whole primitive: the clipper ping-pongs between them as it
+	// cuts by each plane, so a strip of hundreds of triangles still allocates once. Cutting a
+	// triangle by the five planes can leave at most eight vertices.
 	buf := make([]clipVertex, 0, 8)
-	draw := func(a, b, c clipVertex) { buf = g.clipAndDraw(m, buf, a, b, c) }
+	scratch := make([]clipVertex, 0, 8)
+	draw := func(a, b, c clipVertex) { buf, scratch = g.clipAndDraw(m, buf, scratch, a, b, c) }
 
 	switch prim {
 	case 0x80, 0x88: // quads
