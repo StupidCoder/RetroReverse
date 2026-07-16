@@ -3,8 +3,8 @@
 **Status (2026-07-13): done for the 3DS. The frame went from 256.8 ms to 77.6 ms — 3.3× — and
 it is byte-identical. The frame debugger's scrubber is 2.3× on top of that.**
 
-**Status (2026-07-16): done for the GameCube. 1.6× on the intro cutscene, 2.0× on the shadow
-scene, and 1.9× on a boot stretch — byte-identical. See *The GameCube* below.**
+**Status (2026-07-16): done for the GameCube. 2.8× on the intro cutscene, 3.1× on the shadow
+scene, and 4.4× on a boot stretch — byte-identical. See *The GameCube* below.**
 
 Read *Phase 0 — the results* and *What was actually done* below; the original plan (kept, below
 the line) guessed the ordering and got most of it wrong, which is exactly what Phase 0 existed to
@@ -20,12 +20,15 @@ A plan, ordered cheapest-and-safest first.
 
 | workload | before | after | |
 |---|---|---|---|
-| intro-cutscene, 20 fields | 2.417 s | 1.497 s | **1.61×** |
-| shadow, 16 fields | 2.820 s | 1.435 s | **1.97×** |
-| **boot stretch, 200M steps** | 9.755 s | 5.215 s | **1.87×** |
+| intro-cutscene, 20 fields | 2.420 s | 0.873 s | **2.77×** |
+| shadow, 16 fields | 2.820 s | 0.893 s | **3.16×** |
+| **boot stretch, 200M emulated instructions** | 9.763 s | 2.257 s | **4.33×** |
 
 The boot stretch is the one the work existed for — a savestate is a cache, and a Gekko or
-Flipper fix invalidates it — and it nearly halved.
+Flipper fix invalidates it — and it is now more than four times cheaper.
+
+**The single biggest item was not in the plan, and it is not a graphics optimisation at all:
+four fifths of this machine's instructions were three addresses.** See *The idle loop* below.
 
 ### What each item was worth, against what it was predicted to be worth
 
@@ -36,9 +39,55 @@ Flipper fix invalidates it — and it nearly halved.
 | 3.1 TEV decoded once per draw | 10-20% | **4.5%** / 6.5% | |
 | 3.1b register file by pointer | — | **3.8%** | not in the plan |
 | 3.2 texture state once per draw | 5-10% | **1.5%** | landed for the Phase 4 hazard, not the speed |
-| **4 banded parallel fill + pool** | 1.7-2.2× | **23.8%** / **35.8%** | the main event |
+| **4 banded parallel fill + pool** | 1.7-2.2× | **23.8%** / **35.8%** | the biggest *graphics* win |
+| **5 the idle-loop skip** | — | **2.31×** boot, **1.71×** draw | **not in the plan; the biggest win of all** |
+| 6 bandRows 8→4, maxWorkers 8→12 | — | **4.5%** | two knobs set by analogy and never measured |
 | 4.7 parallel vertex stage | "doubtful" | **not built** | the bucket is 3.0%; there is nothing there |
 | hot-path allocations | ~1% | **not built** | `GOGC=off` moves nothing |
+
+### The idle loop — the biggest win, found by asking a question nobody had asked
+
+A PC histogram over one field. That is all it took, and it should have been the first thing
+measured rather than the last:
+
+	801E0864  lwz    r0,5784(r13)     26.57%
+	801E0868  cmplwi cr0,r0,0         26.57%
+	801E086C  beq    0x801E0864       26.57%
+
+**79.7% of every instruction retired, at three addresses** (76.9% in the shadow scene). It is
+the OS idle loop, and it is not a gap in the model — the game is correctly waiting for an
+interrupt handler to set a flag. `fieldInstructions` is a *modelling choice*: hardware retires
+~8.1M instructions a field and this interpreter hands the game 2M, so the game finishes its
+work early and waits. The emulator was spending four fifths of its life proving that zero is
+still zero.
+
+**The skip is not a heuristic, and that distinction is the whole of it.** If the machine
+returns to a state it has already been in — same PC, same registers, same everything — having
+stored nothing, then it is a function with no inputs that has repeated itself, and it will
+repeat identically forever until something outside the processor changes. The skip computes
+the loop's limit rather than approximating it.
+
+The risk is entirely "what can change while the CPU is not looking", and that list is closed
+here **only because every clock is instruction-paced**: the video field, the audio DMA's next
+block, an in-flight disc transfer (which writes RAM), and the decrementer underflowing — the
+least obvious, being the only clock that raises an exception with no device involved. Those
+are deadlines. A running DSP is not a deadline but a veto, since tickDSP steps it off the
+Gekko's clock; it is asleep 99.8% of the time.
+
+**Skip a whole number of loop periods, not to the raw deadline.** That is the difference
+between equivalent and exact, and it cost two bytes of RAM to learn: jumping to the deadline
+made the retrace always interrupt the PC the detector had snapshotted rather than wherever the
+loop had got to, so SRR0 differed, the loop took a couple of instructions longer to leave, and
+**the game's own frame-time counter noticed** — it reads the time base at 0x801A14E0 and rings
+the delta into a buffer, and it came out one tick different. The picture was identical; the
+machine was arguably just as correct; it simply was not the *same* machine. The state repeat
+tells you the period, so round to it.
+
+**Two things it broke, both caught by tests rather than luck.** `-steps` counted loop
+iterations, so the flag quietly ran five times further into the game; the budget counts
+emulated instructions now. And the spin detector's window counted iterations too — a machine
+wedged in `b .` is *exactly* what the skip fast-forwards, so a genuine hang would have been
+reported as an exhausted budget instead of the spin it is.
 
 ### The four things this taught, none of which the 3DS's write-up could have told us
 
@@ -68,11 +117,21 @@ That concentration is why the fill pays and why the vertex stage cannot.
 already existed and disabled exactly one thing. Ten minutes, no code, and it put a number on
 Phase 1.1 before anyone argued about it. Look for the flag the machine already has.
 
+**5. ASK WHAT THE MACHINE IS ACTUALLY EXECUTING BEFORE OPTIMISING HOW IT EXECUTES IT.** Every
+item in the plan took the workload as given and made it cheaper. A PC histogram — twenty lines
+of test code, ten minutes, available from day one — showed that four fifths of the workload
+should not have been running at all, and beat the entire rest of the list combined. pprof
+answers "where is the time going"; it does not answer "should this code be running". The
+buckets in `profile.go` could not have found it either: the idle loop is Gekko time, and the
+Gekko bucket is *derived as a remainder*, so it looked like an honest 30% of a drawing field
+right up until someone asked what those instructions were.
+
 ### What is not done, and honestly why
 
 - **1.2, folding the four per-instruction device ticks.** pprof puts them at ~6.6% together, but
   most of that is `tickDSP`'s *actual DSP work*, which folding cannot remove — by lesson 2 above
-  the real prize is probably ~2%. Not attempted; would need measuring, not arguing.
+  the real prize is probably ~2%. And the idle skip has now removed four fifths of the
+  instructions that were paying them at all. Not attempted.
 - **2.1, the BAT translation cache.** Predicted 8-15%; `Translate` measures **4% cumulative** and
   `batMatch` 1.5%. It carries a genuinely nasty invalidation hazard (a missed BAT/MSR/HID2/restore
   drop reads the right block and the wrong word, silently). Not worth 4%.
