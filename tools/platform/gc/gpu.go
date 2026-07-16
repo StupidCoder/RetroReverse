@@ -25,6 +25,11 @@ type gpu struct {
 	// Per-primitive pixel accounting for the RR_GC_DRAWTRACE line: where a draw's pixels
 	// went. Unexported — diagnostic state, not machine state, so it stays out of snapshots.
 	pixWritten, pixZRej, pixARej int
+
+	// inDisplayList guards against a display list calling another — the hardware forbids
+	// it, and honouring the same limit keeps the interpreter non-recursive. Transient within
+	// one feed, so it is not machine state.
+	inDisplayList bool
 	CPReg  [0x100]uint32  // the CP registers loaded from the stream (vertex descriptors etc.)
 	BP     [0x100]uint32  // the BP (pixel-engine) registers loaded from the stream
 	XFMem  [0x1060]uint32 // the XF registers and matrix memory (see gpu_xf.go)
@@ -105,11 +110,11 @@ func (g *gpu) step(m *Machine) bool {
 		if len(g.Buf) < 9 {
 			return false
 		}
+		addr := be32(g.Buf[1:])
+		size := be32(g.Buf[5:])
 		g.Census[0x40]++
 		g.Buf = g.Buf[9:]
-		// The list's own commands live in memory and are not walked yet; when a frame first
-		// calls one this becomes the place to recurse. Until then it is noted, not obeyed.
-		m.logf("CP: display-list call not yet interpreted (its commands are skipped)")
+		g.callDisplayList(m, addr, size)
 
 	case op == 0x48: // invalidate the vertex cache
 		g.Census[0x48]++
@@ -151,6 +156,37 @@ func (g *gpu) step(m *Machine) bool {
 		return false
 	}
 	return true
+}
+
+// callDisplayList executes a display list: a block of the same FIFO commands, pre-built in
+// main memory, that the CALL opcode splices into the stream. The commands run through the
+// same interpreter with the same registers — a state change made inside a list persists after
+// it, exactly as if the CPU had burst the bytes itself. The hardware does not allow a list to
+// call another list, so a nested call halts rather than recursing; and a list that ends in
+// the middle of a command is a desynchronised stream, which halts just as loudly as an
+// unknown opcode does.
+func (g *gpu) callDisplayList(m *Machine, addr, size uint32) {
+	if g.inDisplayList {
+		m.CPU.Halt("CP: display list at 0x%08X calls another display list", addr)
+		return
+	}
+	a := phys(addr)
+	if int(a)+int(size) > len(m.RAM) {
+		m.CPU.Halt("CP: display list 0x%08X+0x%X runs past the end of RAM", addr, size)
+		return
+	}
+	saved := g.Buf
+	g.Buf = append([]byte(nil), m.RAM[a:a+size]...)
+	g.inDisplayList = true
+	for g.step(m) {
+	}
+	leftover := len(g.Buf)
+	g.inDisplayList = false
+	g.Buf = saved
+	if leftover != 0 && !m.CPU.Halted {
+		m.CPU.Halt("CP: display list at 0x%08X ended mid-command (%d bytes left of %d)",
+			addr, leftover, size)
+	}
 }
 
 // loadBP acts on the pixel-engine registers a game writes into the command stream to

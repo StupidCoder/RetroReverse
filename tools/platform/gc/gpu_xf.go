@@ -37,12 +37,24 @@ type screenVertex struct {
 // index is a row into XF memory (four words to a row) — from the current matrix-index register
 // (CP 0x30) for most draws, or from a per-vertex index when the descriptor carries one.
 func (g *gpu) transform(mtxIdx int, mx, my, mz float32) (sx, sy, sz float32) {
-	// Position matrix: three rows of four, at the row the matrix index selects.
-	base := mtxIdx * 4
-	ex := g.xfFloat(base+0)*mx + g.xfFloat(base+1)*my + g.xfFloat(base+2)*mz + g.xfFloat(base+3)
-	ey := g.xfFloat(base+4)*mx + g.xfFloat(base+5)*my + g.xfFloat(base+6)*mz + g.xfFloat(base+7)
-	ez := g.xfFloat(base+8)*mx + g.xfFloat(base+9)*my + g.xfFloat(base+10)*mz + g.xfFloat(base+11)
+	ex, ey, ez := g.eyePos(mtxIdx, mx, my, mz)
+	return g.project(ex, ey, ez)
+}
 
+// eyePos takes a model-space position through the position matrix: three rows of four, at
+// the row the matrix index selects. The result is the eye-space position — what the
+// projection consumes, and what the lighting stage measures light distances in.
+func (g *gpu) eyePos(mtxIdx int, mx, my, mz float32) (ex, ey, ez float32) {
+	base := mtxIdx * 4
+	ex = g.xfFloat(base+0)*mx + g.xfFloat(base+1)*my + g.xfFloat(base+2)*mz + g.xfFloat(base+3)
+	ey = g.xfFloat(base+4)*mx + g.xfFloat(base+5)*my + g.xfFloat(base+6)*mz + g.xfFloat(base+7)
+	ez = g.xfFloat(base+8)*mx + g.xfFloat(base+9)*my + g.xfFloat(base+10)*mz + g.xfFloat(base+11)
+	return
+}
+
+// project takes an eye-space position through the projection, the perspective divide and the
+// viewport to the pixel grid.
+func (g *gpu) project(ex, ey, ez float32) (sx, sy, sz float32) {
 	// Projection: six stored values and a type word — perspective (0) or orthographic (1).
 	p0 := g.xfFloat(0x1020)
 	p1 := g.xfFloat(0x1021)

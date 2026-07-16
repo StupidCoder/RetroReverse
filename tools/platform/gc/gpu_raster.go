@@ -11,9 +11,8 @@ package gc
 // skews texturing on triangles seen at a steep angle. Two other faithfulness gaps are
 // deliberate and named rather than hidden: back-face culling is not applied, so a triangle of
 // either winding is drawn (a wrong guess at winding would make geometry silently vanish, which
-// is worse than drawing a back face while the pipe is young), and the depth test is a fixed
-// less-or-equal with depth writes on, the common default, rather than the mode the game
-// programmed. Each becomes real once a frame needs it to look right.
+// is worse than drawing a back face while the pipe is young). The depth test honours the mode
+// the game programmed (BP 0x40 — enable, compare function, write enable).
 
 // ensureRaster makes sure the embedded framebuffer and its depth buffer exist before a draw.
 func (g *gpu) ensureRaster() {
@@ -54,6 +53,16 @@ func (g *gpu) drawTriangle(m *Machine, v0, v1, v2 screenVertex) {
 		return
 	}
 
+	// The depth mode the game programmed (BP 0x40) — layout pinned from the game's own
+	// GXSetZMode at 0x801F8AE4: the compare enable at bit 0, the compare function at bits
+	// 1..3 (the same eight-code enum the alpha test uses), the write enable at bit 4. With
+	// the compare disabled the depth buffer is out of the pipeline entirely: every pixel
+	// passes and none is recorded.
+	zm := g.BP[0x40]
+	zEnable := zm&1 != 0
+	zFunc := int((zm >> 1) & 7)
+	zWrite := zEnable && zm&(1<<4) != 0
+
 	for y := minY; y < maxY; y++ {
 		py := float32(y) + 0.5
 		for x := minX; x < maxX; x++ {
@@ -74,7 +83,7 @@ func (g *gpu) drawTriangle(m *Machine, v0, v1, v2 screenVertex) {
 
 			z := uint32(b0*v0.z + b1*v1.z + b2*v2.z)
 			idx := y*efbWidth + x
-			if z > g.ZBuf[idx] { // fixed less-or-equal depth test
+			if zEnable && !depthCompare(z, g.ZBuf[idx], zFunc) {
 				g.pixZRej++
 				continue
 			}
@@ -95,9 +104,34 @@ func (g *gpu) drawTriangle(m *Machine, v0, v1, v2 screenVertex) {
 			}
 
 			g.EFB[idx] = g.blend(g.EFB[idx], fr, fg, fb, fa)
-			g.ZBuf[idx] = z
+			if zWrite {
+				g.ZBuf[idx] = z
+			}
 			g.pixWritten++
 		}
+	}
+}
+
+// depthCompare applies the zmode compare function: does the incoming depth pass against what
+// the buffer holds? The codes are the shared GX compare enum, smaller depths nearer.
+func depthCompare(z, buf uint32, comp int) bool {
+	switch comp {
+	case 0: // NEVER
+		return false
+	case 1: // LESS
+		return z < buf
+	case 2: // EQUAL
+		return z == buf
+	case 3: // LEQUAL
+		return z <= buf
+	case 4: // GREATER
+		return z > buf
+	case 5: // NEQUAL
+		return z != buf
+	case 6: // GEQUAL
+		return z >= buf
+	default: // ALWAYS
+		return true
 	}
 }
 

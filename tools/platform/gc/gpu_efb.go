@@ -17,6 +17,11 @@ package gc
 // YUV -> video path with no geometry in the way. A copy the game aims at a texture instead of
 // the display is a later stage, and it halts loudly here naming the register that asked for it.
 
+import (
+	"fmt"
+	"os"
+)
+
 const (
 	efbWidth  = 640
 	efbHeight = 528
@@ -107,6 +112,9 @@ func (g *gpu) copyDisplay(m *Machine, params uint32) {
 	r, gg, b, a := g.clearColor()
 	m.logf("PE copy-to-XFB: EFB (%d,%d) %dx%d -> 0x%08X clear=%v (clear colour R%d G%d B%d A%d)",
 		sx, sy, w, h, dst, clear, r, gg, b, a)
+	if drawTrace {
+		fmt.Fprintf(os.Stderr, "COPY-XFB (%d,%d) %dx%d -> 0x%08X clear=%v\n", sx, sy, w, h, dst, clear)
+	}
 
 	for y := 0; y < h; y++ {
 		base := dst + uint32(y)*stride
@@ -179,6 +187,9 @@ func (g *gpu) copyTexture(m *Machine, params uint32) {
 
 	m.logf("PE copy-to-texture: EFB (%d,%d) %dx%d -> 0x%08X format 0x%X stride %d",
 		sx, sy, w, h, dst, format, stride)
+	if drawTrace {
+		fmt.Fprintf(os.Stderr, "COPY-TEX (%d,%d) %dx%d -> 0x%08X format 0x%X\n", sx, sy, w, h, dst, format)
+	}
 
 	for y := 0; y < h; y++ {
 		for x := 0; x < w; x++ {

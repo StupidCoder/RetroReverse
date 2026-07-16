@@ -35,6 +35,11 @@ type attrLayout struct {
 	posComps int
 	posFrac  uint32
 
+	nrmOff   int
+	nrmDesc  uint32
+	nrmFmt   uint32
+	nrmComps int
+
 	col0Off  int
 	col0Desc uint32
 	col0Comp uint32
@@ -55,7 +60,7 @@ func (g *gpu) layout(vat int) attrLayout {
 	g1 := g.CPReg[0x80+uint32(vat)]
 	g2 := g.CPReg[0x90+uint32(vat)]
 
-	a := attrLayout{matIdxOff: -1, posOff: -1, col0Off: -1, tex0Off: -1}
+	a := attrLayout{matIdxOff: -1, posOff: -1, nrmOff: -1, col0Off: -1, tex0Off: -1}
 	off := 0
 
 	// The position matrix index, then eight texture matrix indices, are each one inline byte.
@@ -95,12 +100,18 @@ func (g *gpu) layout(vat int) attrLayout {
 		off += sizeOf(a.posDesc, a.posComps*componentBytes(a.posFmt))
 	}
 
-	// Normal, stepped over.
-	nrmComps := 3
+	// Normal — read for the lighting channel. With the normal/binormal/tangent set enabled
+	// the element is nine components; the normal proper is the first three.
+	a.nrmDesc = (lo >> 11) & 3
+	a.nrmFmt = (g0 >> 10) & 7
+	a.nrmComps = 3
 	if (g0>>9)&1 != 0 {
-		nrmComps = 9
+		a.nrmComps = 9
 	}
-	off += sizeOf((lo>>11)&3, nrmComps*componentBytes((g0>>10)&7))
+	if a.nrmDesc != descNone {
+		a.nrmOff = off
+		off += sizeOf(a.nrmDesc, a.nrmComps*componentBytes(a.nrmFmt))
+	}
 
 	// Colour 0.
 	a.col0Desc = (lo >> 13) & 3
@@ -144,15 +155,38 @@ func (g *gpu) layout(vat int) attrLayout {
 	return a
 }
 
+// attrData resolves where one attribute's bytes live: inline in the vertex for a direct
+// attribute, or in the attribute's array — CP base register 0xA0+attr, stride 0xB0+attr,
+// pinned from the game's own GXSetArray (0x801F46DC: reg = (attr-9)|0xA0 for the base and
+// |0xB0 for the stride, the base a physical address, the stride a byte) — for an indexed one.
+// A vertex whose index points past the end of memory returns nil, and the caller skips the
+// draw with a log rather than reading a wrong place.
+func (g *gpu) attrData(m *Machine, v []byte, off int, desc uint32, attr, size int) []byte {
+	switch desc {
+	case descDirect:
+		return v[off:]
+	case descIndex8, descIndex16:
+		idx := int(v[off])
+		if desc == descIndex16 {
+			idx = int(be16(v[off:]))
+		}
+		base := g.CPReg[0xA0+uint32(attr)]
+		stride := g.CPReg[0xB0+uint32(attr)] & 0xFF
+		a := phys(base + uint32(idx)*stride)
+		if int(a)+size > len(m.RAM) {
+			return nil
+		}
+		return m.RAM[a : int(a)+size]
+	}
+	return nil
+}
+
 // drawPrimitive fetches a primitive's vertices and rasterises the triangles they form.
 func (g *gpu) drawPrimitive(m *Machine, prim uint32, vat, vsize int, data []byte) {
 	lay := g.layout(vat)
 
-	// An indexed position or colour is not yet fetched: the draw is left undrawn rather than
-	// read from the wrong place. This is logged once, and its shape is a ticket to implement
-	// the array fetch (CP array bases 0xA0/strides 0xB0).
-	if lay.posDesc != descDirect || (lay.col0Desc != descNone && lay.col0Desc != descDirect) {
-		m.logf("CP: draw with indexed position/colour not yet fetched (primitive 0x%02X)", prim)
+	if lay.posDesc == descNone {
+		m.logf("CP: draw with no position attribute (primitive 0x%02X)", prim)
 		return
 	}
 
@@ -164,26 +198,56 @@ func (g *gpu) drawPrimitive(m *Machine, prim uint32, vat, vsize int, data []byte
 		if lay.hasMatIdx {
 			mtxIdx = int(v[lay.matIdxOff])
 		}
-		mx, my, mz := g.readPos(v[lay.posOff:], lay)
-		sx, sy, sz := g.transform(mtxIdx, mx, my, mz)
+		pos := g.attrData(m, v, lay.posOff, lay.posDesc, 0, lay.posComps*componentBytes(lay.posFmt))
+		if pos == nil {
+			m.logf("CP: draw's position index reads past RAM (primitive 0x%02X)", prim)
+			return
+		}
+		mx, my, mz := g.readPos(pos, lay)
+		ex, ey, ez := g.eyePos(mtxIdx, mx, my, mz)
+		sx, sy, sz := g.project(ex, ey, ez)
 		r, gg, b, a := uint8(255), uint8(255), uint8(255), uint8(255)
 		if lay.col0Off >= 0 {
-			r, gg, b, a = readColor(v[lay.col0Off:], lay.col0Comp)
+			if col := g.attrData(m, v, lay.col0Off, lay.col0Desc, 2, colorBytes(lay.col0Comp)); col != nil {
+				r, gg, b, a = readColor(col, lay.col0Comp)
+			}
 		}
+		var nex, ney, nez float32
+		if lay.nrmOff >= 0 {
+			if nb := g.attrData(m, v, lay.nrmOff, lay.nrmDesc, 1, lay.nrmComps*componentBytes(lay.nrmFmt)); nb != nil {
+				nx, ny, nz := readNormal(nb, lay.nrmFmt)
+				nex, ney, nez = g.normalToEye(mtxIdx, nx, ny, nz)
+			}
+		}
+		// The colour channel: what the hardware rasterises is not the vertex colour but the
+		// lighting channel's output, which may pass the vertex colour through, replace it
+		// with a register, or scale it by ambient+lights (see gpu_light.go).
+		r, gg, b, a = g.rasChannel(m, r, gg, b, a, ex, ey, ez, nex, ney, nez)
 		var tu, tv float32
-		if lay.tex0Off >= 0 && lay.tex0Desc == descDirect {
-			tu, tv = g.readTexCoord(v[lay.tex0Off:], lay)
+		if lay.tex0Off >= 0 {
+			comps := 1
+			if lay.tex0Elem != 0 {
+				comps = 2
+			}
+			if tc := g.attrData(m, v, lay.tex0Off, lay.tex0Desc, 4, comps*componentBytes(lay.tex0Fmt)); tc != nil {
+				tu, tv = g.readTexCoord(tc, lay)
+			}
 		}
 		verts[i] = screenVertex{x: sx, y: sy, z: sz, r: r, g: gg, b: b, a: a, u: tu, v: tv}
 	}
 
-	if drawTrace {
+	if drawTrace && count > 0 {
 		g.pixZRej, g.pixARej, g.pixWritten = 0, 0, 0
 		g.rasterPrimitive(m, prim, verts)
 		v0 := verts[0]
-		fmt.Fprintf(os.Stderr, "DRAW prim 0x%02X vat %d n %d  v0 (%.1f,%.1f,z%.0f) rgba %d,%d,%d,%d uv (%.2f,%.2f)  texbase 0x%06X  px w=%d zrej=%d arej=%d\n",
+		_, _, _, c0a := tevColorReg(g.TevColorReg[1])
+		_, _, _, k0a := tevColorReg(g.TevKonstReg[0])
+		fmt.Fprintf(os.Stderr, "DRAW prim 0x%02X vat %d n %d  v0 (%.1f,%.1f,z%.0f) rgba %d,%d,%d,%d uv (%.2f,%.2f)  texbase 0x%06X  px w=%d zrej=%d arej=%d  stages=%d bp41=%06X af=%06X zm=%02X a0=%.0f ka0=%.0f vcd=%03X mat0=%08X amb0=%08X cc0=%08X ca0=%08X\n",
 			prim, vat, count, v0.x, v0.y, v0.z, v0.r, v0.g, v0.b, v0.a, v0.u, v0.v,
-			(g.BP[0x94]&0x00FFFFFF)<<5, g.pixWritten, g.pixZRej, g.pixARej)
+			(g.BP[0x94]&0x00FFFFFF)<<5, g.pixWritten, g.pixZRej, g.pixARej,
+			int((g.BP[0x00]>>10)&0xF)+1, g.BP[0x41], g.BP[0xF3], g.BP[0x40], c0a, k0a,
+			g.CPReg[0x50]&0xFFFF, g.XFMem[0x100C], g.XFMem[0x100A],
+			g.XFMem[0x100E], g.XFMem[0x1010])
 		return
 	}
 	g.rasterPrimitive(m, prim, verts)
@@ -199,6 +263,24 @@ func (g *gpu) readTexCoord(b []byte, lay attrLayout) (u, v float32) {
 		v = readComponent(b[sz:], lay.tex0Fmt) * scale
 	}
 	return u, v
+}
+
+// readNormal reads a normal's three components. Normals ignore the VAT's fraction field:
+// their fixed-point formats carry an implicit scale — s8 is 1.1.6 (divide by 64), s16 is
+// 1.1.14 (divide by 16384) — so a unit normal fits the type's range.
+func readNormal(b []byte, format uint32) (x, y, z float32) {
+	scale := float32(1)
+	switch format {
+	case 1: // s8
+		scale = 1.0 / 64
+	case 3: // s16
+		scale = 1.0 / 16384
+	}
+	sz := componentBytes(format)
+	x = readComponent(b, format) * scale
+	y = readComponent(b[sz:], format) * scale
+	z = readComponent(b[2*sz:], format) * scale
+	return
 }
 
 // readPos reads a direct position attribute and scales it by its fixed-point fraction.
