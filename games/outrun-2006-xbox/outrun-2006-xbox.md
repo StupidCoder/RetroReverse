@@ -420,6 +420,57 @@ latch-only stub today): vertex-program interpreter, register combiners, swizzled
 banded rasteriser → PNG. Savestate now covers the PGRAPH engine and the PFIFO pusher position so a
 render pass resumes with the 128 device-init methods' register state intact.
 
+### Through the crypto frontier — into the game's own runtime
+
+Implementing the crypto library and the kernel/hardware surface behind it carries the title
+through its content/save-integrity path, past the audio-codec reset, and into its **main runtime
+state machine**.
+
+**The crypto (`kernel_crypto.go`).** These are standard, published algorithms — the Go standard
+library supplies the SHA-1 core (as `crypto/md5` already does in the XISO reader); only the *Xbox*
+HMAC construction, a documented deviation from RFC 2104, is reproduced by hand. Six ordinals, each
+pinned from its live call site:
+
+- **340 `XcHMAC`** — HMAC-SHA1. The Xbox deviation: a key longer than the 64-byte block is
+  **truncated**, not pre-hashed as RFC 2104 would. Two library wrappers route through it, one to
+  compute-and-copy a digest (`0x20CAC9`), one to compute-and-`REP CMPSB`-compare it (`0x20CB09`).
+  The key comes from a data-export slot holding a per-console secret that a disc image does not
+  carry, so it reads back zero — a digest self-consistent with anything *this* run signed, which is
+  the honest fresh-console outcome (a verify against a real-key disc signature legitimately fails,
+  exactly as the hardware behaves when the secret cannot be recovered).
+- **335/336/337 `XcSHAInit`/`Update`/`Final`** — streaming SHA-1. The opaque guest context is kept
+  host-side keyed by its address and marshalled into the savestate.
+- **338/339 `XcRC4Key`/`Crypt`** — standard RC4 keyed by the SHA digest, the 258-byte state kept
+  host-side and serialised too.
+
+**The kernel surface behind it,** all read off live call sites: **128 `KeQuerySystemTime`** (fills
+an 8-byte time a token builder serialises), **181 `MmQueryStatistics`** (between the verified Mm
+neighbours 180/182; the same token builder reads its `AvailablePages`), and an object destructor's
+teardown triple — **97 `KeCancelTimer`** + **137 `KeRemoveQueueDpc`** + **17 `ExFreePool`** on a
+`KTIMER`/`KDPC` the constructor had built with `KeInitializeTimerEx`/`KeInitializeDpc`.
+`KeTickCount` (156) and `KeSystemTime` (154) became live data exports the scheduler advances.
+
+**The AC'97 reset.** Past the crypto the boot spun forever at `0x1DE9EA`, writing `0x02` to a
+bus-master **Control** byte (box+0x0B) and looping while the bit stayed set. That bit is **RR**
+("Reset Registers"), which real hardware **self-clears** the instant the per-box reset completes; a
+pure latch echoed the written 1 back. Reading a CR byte now clears bit `0x02` while leaving the
+run and interrupt-enable bits alone — the reset is instantaneous in our model.
+
+**Where it now reaches.** The boot runs into the title's **own runtime state machine** — a
+13-state jump table (`0xEA3FE`, state variable `[0x6322D0]`) that drives per-frame updates. That is
+deep into the game, well past boot. It halts in state 0's **audio update**: a handler that iterates
+a fixed 17-entry voice array (`0x503438`) with no null guard, and the array is empty. The voices
+belong to the **WMA music subsystem** (`OR2ED4.WMA`/`OR2ED5.WMA` — the game's own music tracks) and
+are built by a subsystem-init dispatcher (`0x362E0` → the construction loop at `0x366E0`) that the
+async resource loader (`0x8C4C0`, a 34-entry subsystem table at `0x5AEF94`) drives. Every subsystem
+reports loaded (state 7), yet the audio dispatcher never reaches the voice-construction branch — it
+routes on a resource object's type field that the WMA/`WMADEC` codec pipeline would populate. So
+the main thread outruns music-voice construction and the game's own code dereferences a NULL voice.
+The audio worker threads (`DebugThreads` shows entries `0x2AC00` and `0x2B450`) are a message-pump
+and a self-suspending worker, both parked. **The next frontier is the WMA music subsystem** — the
+first piece of the audio pipeline the render path cannot simply latch past, since the game's own
+per-frame update crashes on it before it reaches geometry.
+
 ### Tooling
 
 - `tools/platform/xbox/{machine,nv2a,kernel,kernel_ordinals,kernel_objects,kernel_data,kernel_file,thread,sched,state,ports,run}.go` — the machine and its HLE.
