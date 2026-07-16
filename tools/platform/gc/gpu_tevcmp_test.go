@@ -78,11 +78,11 @@ func TestAlphaCompareReadsColourOperands(t *testing.T) {
 	// lightDepth > shadowDepth: in shadow, so the stage emits KONST.
 	lit := [3]float32{0, 5, 0}    // GR16 = 0x0500
 	shadow := [3]float32{0, 4, 0} // GR16 = 0x0400
-	if got := combineAlpha(ac, reg, tex, ras, konst, lit, shadow); got != konst {
+	if got := combineAlpha(ac, &reg, tex, ras, konst, lit, shadow); got != konst {
 		t.Errorf("lit(0x0500) > shadow(0x0400) should emit KONST %d, got %v", konst, got)
 	}
 	// The other way round: not in shadow, so nothing is added.
-	if got := combineAlpha(ac, reg, tex, ras, konst, shadow, lit); got != 0 {
+	if got := combineAlpha(ac, &reg, tex, ras, konst, shadow, lit); got != 0 {
 		t.Errorf("shadow(0x0400) > lit(0x0500) is false, should emit 0, got %v", got)
 	}
 }
@@ -100,7 +100,7 @@ func TestCompareModeIsNotArithmetic(t *testing.T) {
 	reg[1] = [4]float32{0, 5, 0, 0} // C0: GR16 = 0x0500
 	reg[2] = [4]float32{0, 4, 0, 0} // C1: GR16 = 0x0400
 
-	out, ca, cb := combineColor(cc, reg, tex, ras, konst)
+	out, ca, cb := combineColor(cc, &reg, tex, ras, konst)
 	// c is ZERO and d is ZERO, so the verdict adds nothing either way — the colour result of
 	// the game's shadow stage is deliberately inert; the verdict is the alpha combiner's.
 	if out != ([3]float32{0, 0, 0}) {

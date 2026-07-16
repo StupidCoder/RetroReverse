@@ -85,8 +85,8 @@ func (g *gpu) shade(m *Machine, t *tevState, rasR, rasG, rasB, rasA uint8, tc *[
 			tex = swizzle(st.swapTex, [4]float32{float32(tr), float32(tg), float32(tb), float32(ta)})
 		}
 
-		crgb, ca, cb := combineColor(st.cc, reg, tex, sras, st.konstC)
-		aout := combineAlpha(st.ac, reg, tex, sras, st.konstA, ca, cb)
+		crgb, ca, cb := combineColor(st.cc, &reg, tex, sras, st.konstC)
+		aout := combineAlpha(st.ac, &reg, tex, sras, st.konstA, ca, cb)
 
 		reg[st.cdest][0], reg[st.cdest][1], reg[st.cdest][2] = crgb[0], crgb[1], crgb[2]
 		reg[st.adest][3] = aout
@@ -110,7 +110,13 @@ func toU8(f float32) uint8 { return uint8(clampf(f) + 0.5) }
 //
 // The colour operands are returned alongside the result because the ALPHA combiner's
 // comparison reads them rather than its own: see combineAlpha.
-func combineColor(cc uint32, reg [4][4]float32, tex, ras [4]float32, konst [3]float32) (out, ca, cb [3]float32) {
+//
+// The working registers come through as a POINTER, and that is a performance change with no
+// modelling content: they are read-only here, and the four argument selections below plus the
+// alpha combiner's four made ten copies of the same sixty-four bytes for every fragment. The
+// callee must not write through it — nothing here does, and the stage's result is applied by
+// shade, which owns the array.
+func combineColor(cc uint32, reg *[4][4]float32, tex, ras [4]float32, konst [3]float32) (out, ca, cb [3]float32) {
 	d := colorArg(int(cc&0xF), reg, tex, ras, konst)
 	c := colorArg(int((cc>>4)&0xF), reg, tex, ras, konst)
 	b := colorArg(int((cc>>8)&0xF), reg, tex, ras, konst)
@@ -157,7 +163,7 @@ func combineColor(cc uint32, reg [4][4]float32, tex, ras [4]float32, konst [3]fl
 // alpha compare selects both of its own operands as ZERO and would be a no-op that always
 // took the same branch, while the colour operands either side of it are the fragment's
 // light-space depth and the shadow map's — the two values the shadow test exists to compare.
-func combineAlpha(ac uint32, reg [4][4]float32, tex, ras [4]float32, konst float32, ca, cb [3]float32) float32 {
+func combineAlpha(ac uint32, reg *[4][4]float32, tex, ras [4]float32, konst float32, ca, cb [3]float32) float32 {
 	d := alphaArg(int((ac>>4)&7), reg, tex, ras, konst)
 	c := alphaArg(int((ac>>7)&7), reg, tex, ras, konst)
 	b := alphaArg(int((ac>>10)&7), reg, tex, ras, konst)
@@ -272,7 +278,7 @@ func tevFormula(a, b, c, d float32, bias int, sub bool, scale int, clamp bool) f
 
 // colorArg resolves one of the sixteen colour-combiner inputs to an rgb triple. Alpha inputs
 // are broadcast across the three channels, as the hardware does.
-func colorArg(code int, reg [4][4]float32, tex, ras [4]float32, konst [3]float32) [3]float32 {
+func colorArg(code int, reg *[4][4]float32, tex, ras [4]float32, konst [3]float32) [3]float32 {
 	rep := func(v float32) [3]float32 { return [3]float32{v, v, v} }
 	switch code {
 	case 0: // CPREV
@@ -311,7 +317,7 @@ func colorArg(code int, reg [4][4]float32, tex, ras [4]float32, konst [3]float32
 }
 
 // alphaArg resolves one of the eight alpha-combiner inputs to a scalar.
-func alphaArg(code int, reg [4][4]float32, tex, ras [4]float32, konst float32) float32 {
+func alphaArg(code int, reg *[4][4]float32, tex, ras [4]float32, konst float32) float32 {
 	switch code {
 	case 0: // APREV
 		return reg[0][3]
