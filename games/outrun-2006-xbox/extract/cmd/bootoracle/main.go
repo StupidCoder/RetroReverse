@@ -107,6 +107,12 @@ func main() {
 			os.Exit(1)
 		}
 		fmt.Printf("restored machine state from %s\n", *loadstate)
+		if m.CPU.Halted {
+			// A frontier state: it stopped on an unimplemented ordinal, whose trap is
+			// retried on resume (the sentinel EIP was saved untouched).
+			fmt.Printf("state was halted (%s) — clearing to retry\n", m.CPU.HaltReason)
+			m.ClearHalt()
+		}
 	}
 
 	if *trace {

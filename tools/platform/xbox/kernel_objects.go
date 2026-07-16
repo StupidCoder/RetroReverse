@@ -540,6 +540,28 @@ func kernelObjectHandler(ord uint16) func(*Machine) int {
 			return 5
 		}
 
+	case 189: // NtCreateEvent(EventHandle*, ObjectAttributes, EventType, InitialState)
+		// Canonical xboxkrnl ordinal, between the verified 187 NtClose and 190
+		// NtCreateFile. Verified from its live call site (0x44D25, the XAPI CreateEvent
+		// wrapper): four pushes — an out-handle local, the optional name attributes, an
+		// EventType computed by SETZ from the wrapper's bManualReset argument
+		// (Notification=0 when manual-reset, Synchronization=1 otherwise — exactly the
+		// NT inversion), and InitialState forwarded. Synchronization events auto-clear
+		// on a satisfied wait ("event-auto"); notification events stay signalled.
+		return func(m *Machine) int {
+			handleOut := m.arg(0)
+			kind, typ := "event", byte(0)
+			if m.arg(2) == 1 {
+				kind, typ = "event-auto", 1
+			}
+			h := m.newObject(kind, typ, m.arg(3) != 0, 0, 0)
+			if handleOut != 0 {
+				m.write32(handleOut, h)
+			}
+			m.setRet(0) // STATUS_SUCCESS
+			return 4
+		}
+
 	case 193: // NtCreateSemaphore(Handle*, ObjectAttributes, InitialCount, MaximumCount)
 		// Canonical xboxkrnl ordinal (the verified Nt anchors 184/187/199/202 all match the
 		// real table, so 193 is not drifted). The call site pushes 4 args with arg0 an

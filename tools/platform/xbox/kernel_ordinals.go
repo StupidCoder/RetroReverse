@@ -65,6 +65,7 @@ var verifiedNames = map[uint16]string{
 	// the Ke block's +5 drift (107/113/149/160/161 all +5) lands table-146 here.
 	160: "KfRaiseIrql",               // fastcall(CL=newIrql) -> oldIrql (was mis-guessed as Mm)
 	161: "KfLowerIrql",               // fastcall(CL=newIrql) -> void
+	189: "NtCreateEvent",             // 4 args; XAPI CreateEvent wrapper site 0x44D25 (SETZ type inversion)
 	190: "NtCreateFile",              // 9 args; XAPI CreateFile wrapper site 0x43D08
 	193: "NtCreateSemaphore",         // f(handle*, objattr, initial, max)
 	211: "NtQueryInformationFile",    // 5 args, class 0x22 (site 0x445F6)

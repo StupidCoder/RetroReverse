@@ -46,6 +46,16 @@ func (m *Machine) Run(maxSteps uint64) (StopReason, uint64) {
 	return StopBudget, n
 }
 
+// ClearHalt clears a halted machine so a run can resume. An unimplemented-ordinal
+// halt stops with EIP still at the trap sentinel and nothing mutated (dispatchKernel
+// halts instead of dispatching), so after the ordinal gains a handler, clearing the
+// halt retries the very call that stopped the previous run — the fix-and-resume
+// workflow for frontier savestates.
+func (m *Machine) ClearHalt() {
+	m.CPU.Halted, m.CPU.HaltReason = false, ""
+	m.Halted, m.HaltReason = false, ""
+}
+
 // Report renders a one-screen summary of a run's end state — the standard oracle
 // frontier statement.
 func (m *Machine) Report() string {

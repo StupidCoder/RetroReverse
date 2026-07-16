@@ -36,6 +36,11 @@ roadmap.)
   register-model corrections (write-1-to-clear interrupts, FIFO-empty status) and CPU opcodes
   (SSE2/MMX) that carry the title through Direct3D device init, and the 128 Kelvin methods it
   submits. *(this document)*
+* **Part IV** — the **Kelvin pipeline**: the LLE vertex-program interpreter (its 128-bit dual-issue
+  ISA verified against the game's own uploaded program), the vertex front end, the register
+  combiners, the texture unit (DXT/swizzled/linear), the rasteriser — and the frontier behind the
+  white frame: the writable Z: cache partition whose absence had frozen the menu loader. Ends with
+  the first real frames: the SEGA / Sumo Digital / Ferrari cards. *(this document)*
 
 ---
 
@@ -539,14 +544,114 @@ vertex-attribute formats, transform-program uploads, the scanout registered at `
 (640×480, A8R8G8B8). `CLEAR_SURFACE` is the first Kelvin method that produces pixels
 (`nv2a_frame.go`), and `bootoracle -png` exports the display's color surface: the first exported
 frame shows the game's own clear painted onto the scanout. The vertex-program interpreter,
-register combiners and rasteriser — the pixels between the clears — are the next build.
+register combiners and rasteriser — the pixels between the clears — are Part IV.
+
+## Part IV — the Kelvin pipeline: the first real frames
+
+The GPU build proper (`nv2a_vsh.go`, `nv2a_vertex.go`, `nv2a_raster.go`, `nv2a_combiner.go`,
+`nv2a_texture.go`) clones the PICA200 oracle's structure: latch state, interpret the game's own
+shader programs instruction by instruction, rasterise with the honest fixed-function stages, and
+halt loudly on anything unmodelled.
+
+### The method surface, read off one survey
+
+A `-survey` run from a mid-loading savestate says everything the loading loop uses: quad-strip
+draws through `SET_BEGIN_END` (0x17FC, arg 9) with 28 `INLINE_ARRAY` (0x1818) words per draw —
+four vertices of float4 position + D3DCOLOR + float2 uv, exactly what the vertex-array format
+registers (0x1760+, values 0x42/0x40/0x22) declare; a 12-instruction transform program uploaded
+per draw through the 0x0B00 window (two increasing bursts of 32+16 dwords — the window is a FIFO,
+four dwords per instruction slot, the load cursor at 0x1E9C); constants through 0x0B80 with the
+cursor at 0x1EA4; one register-combiner stage (spare0 = TEX0 × DIFFUSE — D3D's MODULATE compiled
+down); SRC_ALPHA/ONE_MINUS_SRC_ALPHA blending; and a DXT1 512×256 texture — the "presented by"
+card itself.
+
+### The vertex-program ISA, verified against the game's own program
+
+The NV2A transform program is a 128-bit dual-issue word (MAC + ILU per instruction, mux values
+1=R/2=V/3=C, output mask/bank/address in dword 3, an idle output port encoded as mask 0 bank 1
+address 0xFF). The field map was hand-verified against OutRun's own uploaded program before the
+interpreter ran a single vertex — instruction 0 decodes as `MOV R1, v0`, instruction 1 as the
+dual `MOV oD0, v3 ; RCP R1.w`, instruction 3 as `MUL R2, R1, c0 ; MOV oD1, v4` — a classic
+pre-transformed-vertex passthrough, every field landing where the map says. A disasm regression
+test pins those four live instruction words.
+
+Two coordinate facts the live stream settled (both the kind of thing a "probably" would have got
+wrong):
+
+- **Positions arrive in sample space.** The loading phase's surface is a 320×240 clip with
+  anti-aliasing mode 2 (2×2 supersampling) into a pitch-2560 target — but the program's output
+  positions already span 640×480: the screen-space epilogue the D3D runtime appends bakes the AA
+  scale into its viewport constants. Only the clip and clear rectangles scale by the AA factors.
+  (That also resolves the pitch puzzle: the 320×240 pitch-1280 scanout and the pitch-2560 render
+  target are simply different buffers.)
+- **oPos.w preserves the clip-space w** (the epilogue divides via `RCC` and keeps w), which is
+  what perspective-correct interpolation needs — for the 2D loading quads w=1 and the math
+  degrades to affine exactly.
+
+### The frontier behind the white frame: z:\MENU.PAK
+
+With the pipeline live, every frame rendered… white. The textures decoded perfectly (pointing the
+pipeline's own decoder at the two loading-screen bindings yields the SEGA/Sumo card and the
+Ferrari license plate), but every logo quad's diffuse alpha sat at 0 — the fade never ran. The
+trail led away from the GPU entirely: the menu loader retries `NtOpenFile("z:\MENU.PAK")`
+forever. Z: is the Xbox HDD's utility partition — on a real console it always exists — and the
+game unpacks its menu resources there on first boot. Our file HLE answered
+STATUS_OBJECT_NAME_NOT_FOUND for the *partition*, which is a fiction (a fresh console is missing
+the FILE, not the drive), so the game's installer path could never run and the loading screen
+idled with everything faded out.
+
+`kernel_file.go` now backs T:/U:/Z: with a writable in-memory store (savestated), honouring the
+`NtCreateFile` dispositions; `NtWriteFile` pinned at 236 (canonical slot, the Nt block's
+established +5 drift, `NtReadFile`'s 8-arg OVERLAPPED shape); open file handles joined the
+savestate (a pre-existing gap the disc streaming masked — its reads pass explicit offsets — that
+a held-open cache file made fatal). One more ordinal fell out of the install path:
+**189 NtCreateEvent**, verified from the XAPI CreateEvent wrapper's call site (the EventType is
+computed by `SETZ` from bManualReset — the NT inversion, Notification=0/Synchronization=1). And
+because an unimplemented-ordinal halt stops with EIP still on the trap sentinel and nothing
+mutated, `ClearHalt` + `bootoracle`'s auto-resume turn a frontier savestate into a
+fix-and-continue workflow — the halted state re-runs the very call that stopped it.
+
+**A cold boot now runs the game's own first-boot install** — MENU.pak is assembled on the cache
+partition (36 KB from the disc's PAK table at 0x24E330), the WMA music beds copy to Z:, and the
+frontend archives stream in.
+
+### ★ The first real frames
+
+With the install running, the boot's visual timeline (a filmstrip probe exporting the AA-resolved
+render surface every 20M instructions) shows the whole opening sequence rendered by the pipeline:
+the **"PRESENTED BY SEGA"** card (~340M instructions), the **Sumo Digital** logo (~380M), and the
+**Ferrari Official Licensed Product** card (~420M) — each one the game's own DXT1/swizzled
+textures through its own vertex programs and combiner setup, alpha-fading in and out over the
+white base exactly as authored. Pinned exports (`SurfacePNG`, 640×480):
+
+- `cold-0340M.png` — SEGA card — md5 `6db12bca529abc5703fbe73405acb91d`
+- `cold-0380M.png` — Sumo Digital — md5 `4e85a74013f7dfc42a98ef1bd4fb3e10`
+- `cold-0420M.png` — Ferrari license — md5 `87d8487e9cad5319c16d29eb8c256a78`
+
+The frame exports split honestly: `-png` is the display scanout (what the TV shows — during the
+install that is still the 320×240 loading mode), `-surfpng` the Kelvin render target, box-resolved
+from samples to logical pixels when the surface is anti-aliased.
+
+### Where it stands / next
+
+After the install completes (~1.5B instructions past the resume) the title parks: the installer's
+main loop polls a completion flag (`[0x2D31C8]`) its copy engine sets from a callback that has not
+fired — the machine goes fully idle (no I/O, no draws, all threads waiting). That handshake is the
+next frontier on the road to attract mode, followed by the texture formats and draw paths the
+attract scene will exercise (indexed draws are implemented but so far unexercised), then Phase D —
+the framedbg adapter.
 
 ### Tooling
 
 - `tools/platform/xbox/{machine,nv2a,kernel,kernel_ordinals,kernel_objects,kernel_data,kernel_file,thread,sched,state,ports,run}.go` — the machine and its HLE.
-- `tools/platform/xbox/{nv2a_pfifo,nv2a_pgraph,nv2a_ramht,nv2a_kelvin}.go` — the Phase-C GPU: the
-  PFIFO DMA pusher, the PGRAPH method dispatch + survey, RAMHT handle→class resolution, and the
-  Kelvin (3D) object (a latch-only stub pending the pipeline).
+- `tools/platform/xbox/{nv2a_pfifo,nv2a_pgraph,nv2a_ramht,nv2a_kelvin}.go` — the Phase-C GPU front
+  end: the PFIFO DMA pusher, the PGRAPH method dispatch + survey, RAMHT handle→class resolution,
+  and the Kelvin (3D) method dispatch.
+- `tools/platform/xbox/{nv2a_vsh,nv2a_vertex,nv2a_raster,nv2a_combiner,nv2a_texture,nv2a_frame}.go`
+  — the Kelvin pipeline (Part IV): the transform-program interpreter, vertex fetch/assembly,
+  rasteriser (with the `Machine.OnPixel` provenance hook), register combiners, texture unit, and
+  the clear/frame-export paths. `RR_NV_VS=1` dumps program uploads + disassembly, `RR_NV_DRAW=N`
+  dumps the first N draws' decoded state and vertices.
 - `tools/platform/xbox/apu.go` — the MCPX audio/USB latch apertures (APU, AC'97, USB OHCI);
   `RR_APU_TRACE=1` traces their traffic.
 - `games/outrun-2006-xbox/extract/cmd/bootoracle` — the boot driver, standard oracle flags
@@ -554,4 +659,6 @@ register combiners and rasteriser — the pixels between the clears — are the 
   NV2A pusher on each kick, do not stop at the first push) and `-survey` (record and print the
   PGRAPH method surface). `-stack` on a halt disassembles the call site so the next ordinal's
   signature reads straight off the pushes. `RR_NV_TRACE=1` traces every NV2A MMIO access.
+  `-png` exports the display scanout, `-surfpng` the Kelvin render target (AA-resolved); a
+  `-loadstate` of a halted frontier state clears the halt and retries the trapped call.
 - `tools/cpu/x86/sse.go` — the SSE/SSE2 + MMX execution subset (the Xbox-only CPU addition).
