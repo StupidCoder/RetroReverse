@@ -124,9 +124,14 @@ func (g *gpu) copyDisplay(m *Machine, params uint32) {
 			y0 := luma(r0, g0, b0)
 			y1 := luma(r1, g1, b1)
 			// The two pixels share one chroma pair; the encoder box-filters them, which for a
-			// pair is their average.
-			cb := chromaB((r0+r1)/2, (g0+g1)/2, (b0+b1)/2)
-			cr := chromaR((r0+r1)/2, (g0+g1)/2, (b0+b1)/2)
+			// pair is their average. The sums must widen past a byte: averaging two channels
+			// that are both >= 128 in uint8 wraps, and the wrapped chroma turned every bright
+			// row of the picture green or pink while the dark rows stayed correct.
+			ar := uint8((int(r0) + int(r1)) / 2)
+			ag := uint8((int(g0) + int(g1)) / 2)
+			ab := uint8((int(b0) + int(b1)) / 2)
+			cb := chromaB(ar, ag, ab)
+			cr := chromaR(ar, ag, ab)
 			o := base + uint32(x)*2
 			if int(o)+3 >= len(m.RAM) {
 				break

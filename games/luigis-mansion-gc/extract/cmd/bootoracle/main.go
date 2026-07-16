@@ -62,6 +62,7 @@ func main() {
 	nospin := flag.Bool("nospin", false, "do not stop on a tight loop (the OS idle/scheduler loop looks like one)")
 	fifodump := flag.String("fifodump", "", "capture the write-gather FIFO byte stream to this file")
 	texdump := flag.String("texdump", "", "decode the currently-bound texture map 0 to this PNG when the run ends")
+	efbshot := flag.String("efbshot", "", "write the embedded framebuffer (pre-copy, what the pipe drew) to this PNG when the run ends")
 	aidwav := flag.String("aidwav", "", "record the audio-DMA stream (what the DAC plays) to this WAV when the run ends")
 	keys := flag.String("keys", "", "controller-1 input script: BUTTON@FIELD[,...] — presses BUTTON from that VI field onward (held). Buttons: start,a,b,x,y,z,l,r,up,down,left,right. e.g. -keys start@240")
 	flag.Parse()
@@ -76,7 +77,7 @@ func main() {
 		loadDOL: *loadDOL, dvd: *dvd, lowmem: *lowmem, shot: *shot,
 		savestate: *savestate, loadstate: *loadstate, poke: *poke,
 		dis: *dis, dump: *dump, threads: *threads, files: *files, verbose: *verbose, nospin: *nospin,
-		fifodump: *fifodump, texdump: *texdump, aidwav: *aidwav, keys: *keys,
+		fifodump: *fifodump, texdump: *texdump, efbshot: *efbshot, aidwav: *aidwav, keys: *keys,
 	}); err != nil {
 		fmt.Fprintln(os.Stderr, "bootoracle:", err)
 		os.Exit(1)
@@ -96,7 +97,8 @@ type cfg struct {
 	shot, savestate, loadstate, poke     string
 	dis, dump                            string
 	threads                              bool
-	fifodump, texdump, aidwav, keys      string
+	fifodump, texdump, efbshot, aidwav   string
+	keys                                 string
 }
 
 // padButtonNames maps the -keys button names to the standard-controller button bits the game
@@ -387,6 +389,11 @@ func run(c cfg) error {
 			fmt.Fprintln(os.Stderr, "bootoracle: -texdump:", err)
 		}
 	}
+	if c.efbshot != "" {
+		if err := writeEFB(m, c.efbshot); err != nil {
+			fmt.Fprintln(os.Stderr, "bootoracle: -efbshot:", err)
+		}
+	}
 	if c.savestate != "" {
 		if err := m.SaveStateFile(c.savestate); err != nil {
 			return err
@@ -416,6 +423,19 @@ func run(c cfg) error {
 
 func writeShot(m *gc.Machine, path string) error {
 	img, err := m.RenderXFB()
+	if err != nil {
+		return err
+	}
+	f, err := os.Create(path)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+	return png.Encode(f, img)
+}
+
+func writeEFB(m *gc.Machine, path string) error {
+	img, err := m.RenderEFB()
 	if err != nil {
 		return err
 	}

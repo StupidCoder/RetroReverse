@@ -139,6 +139,24 @@ func (m *Machine) xfbSize() (int, int) {
 	return 640, 480
 }
 
+// RenderEFB decodes the embedded framebuffer — what the pipe has drawn so far, before any
+// copy — into an RGBA image. Comparing it against RenderXFB separates a drawing bug from a
+// copy/scanout bug: a wrong pixel present here was drawn wrong; one that appears only in the
+// XFB was copied or scanned wrong.
+func (m *Machine) RenderEFB() (*image.RGBA, error) {
+	if m.gpu.EFB == nil {
+		return nil, fmt.Errorf("the EFB has not been drawn to yet")
+	}
+	img := image.NewRGBA(image.Rect(0, 0, efbWidth, efbHeight))
+	for y := 0; y < efbHeight; y++ {
+		for x := 0; x < efbWidth; x++ {
+			px := m.gpu.EFB[y*efbWidth+x]
+			setPix(img, x, y, uint8(px>>24), uint8(px>>16), uint8(px>>8))
+		}
+	}
+	return img, nil
+}
+
 func setPix(img *image.RGBA, x, y int, r, g, b uint8) {
 	if x < 0 || y < 0 || x >= img.Bounds().Dx() || y >= img.Bounds().Dy() {
 		return

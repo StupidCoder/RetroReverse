@@ -14,13 +14,44 @@ package gc
 
 import (
 	"fmt"
+	"image/png"
 	"math"
 	"os"
+	"strings"
 )
 
 // drawTrace prints one line per draw primitive — vertices, texture base, and the pixel
 // accounting that says where a draw's pixels went (written / z-rejected / alpha-rejected).
 var drawTrace = os.Getenv("RR_GC_DRAWTRACE") != ""
+
+// texDump0, when set to a hex physical base address, decodes texture map 0 through the TX
+// unit the first time a traced draw binds that base, and writes it to texdump0.png — the
+// direct look at what the decoder produces for one suspect texture.
+var texDump0 = os.Getenv("RR_GC_TEXDUMP0")
+
+// dumpTex0Once writes the decoded texture map 0 once when its base matches texDump0.
+func (g *gpu) dumpTex0Once(m *Machine, base uint32) {
+	if texDump0 == "" || fmt.Sprintf("%X", base) != strings.ToUpper(strings.TrimPrefix(texDump0, "0x")) {
+		return
+	}
+	texDump0 = ""
+	img, err := m.DumpTexture(0)
+	if err != nil {
+		fmt.Fprintln(os.Stderr, "TEXDUMP0:", err)
+		return
+	}
+	f, err := os.Create("texdump0.png")
+	if err != nil {
+		fmt.Fprintln(os.Stderr, "TEXDUMP0:", err)
+		return
+	}
+	defer f.Close()
+	if err := png.Encode(f, img); err != nil {
+		fmt.Fprintln(os.Stderr, "TEXDUMP0:", err)
+		return
+	}
+	fmt.Fprintf(os.Stderr, "TEXDUMP0: wrote texdump0.png (base 0x%06X)\n", base)
+}
 
 // attrLayout is where each attribute a draw needs sits within one vertex, and how to read it.
 type attrLayout struct {
@@ -242,9 +273,11 @@ func (g *gpu) drawPrimitive(m *Machine, prim uint32, vat, vsize int, data []byte
 		v0 := verts[0]
 		_, _, _, c0a := tevColorReg(g.TevColorReg[1])
 		_, _, _, k0a := tevColorReg(g.TevKonstReg[0])
-		fmt.Fprintf(os.Stderr, "DRAW prim 0x%02X vat %d n %d  v0 (%.1f,%.1f,z%.0f) rgba %d,%d,%d,%d uv (%.2f,%.2f)  texbase 0x%06X  px w=%d zrej=%d arej=%d  stages=%d bp41=%06X af=%06X zm=%02X a0=%.0f ka0=%.0f vcd=%03X mat0=%08X amb0=%08X cc0=%08X ca0=%08X\n",
+		t0 := g.texSetup(0)
+		g.dumpTex0Once(m, t0.base)
+		fmt.Fprintf(os.Stderr, "DRAW prim 0x%02X vat %d n %d  v0 (%.1f,%.1f,z%.0f) rgba %d,%d,%d,%d uv (%.2f,%.2f)  tex0 0x%06X fmt%X %dx%d  px w=%d zrej=%d arej=%d  stages=%d bp41=%06X af=%06X zm=%02X a0=%.0f ka0=%.0f vcd=%03X mat0=%08X amb0=%08X cc0=%08X ca0=%08X\n",
 			prim, vat, count, v0.x, v0.y, v0.z, v0.r, v0.g, v0.b, v0.a, v0.u, v0.v,
-			(g.BP[0x94]&0x00FFFFFF)<<5, g.pixWritten, g.pixZRej, g.pixARej,
+			t0.base, t0.format, t0.width, t0.height, g.pixWritten, g.pixZRej, g.pixARej,
 			int((g.BP[0x00]>>10)&0xF)+1, g.BP[0x41], g.BP[0xF3], g.BP[0x40], c0a, k0a,
 			g.CPReg[0x50]&0xFFFF, g.XFMem[0x100C], g.XFMem[0x100A],
 			g.XFMem[0x100E], g.XFMem[0x1010])

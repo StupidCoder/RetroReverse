@@ -14,6 +14,25 @@ package gc
 // is worse than drawing a back face while the pipe is young). The depth test honours the mode
 // the game programmed (BP 0x40 — enable, compare function, write enable).
 
+import (
+	"fmt"
+	"os"
+)
+
+// pixDbg, when set to "x,y", logs every draw that touches that one pixel: the interpolated
+// inputs the TEV saw and what it produced — the surgical instrument for a single wrong pixel.
+var pixDbgX, pixDbgY = func() (int, int) {
+	s := os.Getenv("RR_GC_PIXDBG")
+	if s == "" {
+		return -1, -1
+	}
+	var x, y int
+	if _, err := fmt.Sscanf(s, "%d,%d", &x, &y); err != nil {
+		return -1, -1
+	}
+	return x, y
+}()
+
 // ensureRaster makes sure the embedded framebuffer and its depth buffer exist before a draw.
 func (g *gpu) ensureRaster() {
 	g.ensureEFB()
@@ -98,6 +117,16 @@ func (g *gpu) drawTriangle(m *Machine, v0, v1, v2 screenVertex) {
 			v := b0*v0.v + b1*v1.v + b2*v2.v
 
 			fr, fg, fb, fa, pass := g.shade(m, r, gg, bb, a, u, v)
+			if x == pixDbgX && y == pixDbgY {
+				t0 := g.texSetup(0)
+				tr, tg, tb, ta := g.sampleTexmap(m, 0, u, v)
+				fmt.Fprintf(os.Stderr,
+					"PIXDBG (%d,%d): ras %d,%d,%d,%d uv (%.4f,%.4f) tex0 0x%06X fmt%X %dx%d texel (%d,%d)=%d,%d,%d,%d -> out %d,%d,%d,%d pass=%v dst %08X\n",
+					x, y, r, gg, bb, a, u, v, t0.base, t0.format, t0.width, t0.height,
+					wrapCoord(int(u*float32(t0.width)), t0.width, t0.wrapS),
+					wrapCoord(int(v*float32(t0.height)), t0.height, t0.wrapT),
+					tr, tg, tb, ta, fr, fg, fb, fa, pass, g.EFB[idx])
+			}
 			if !pass { // the alpha test rejected the pixel
 				g.pixARej++
 				continue
