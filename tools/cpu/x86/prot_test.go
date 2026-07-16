@@ -273,3 +273,33 @@ func TestProtCmpxchgXaddRdtsc(t *testing.T) {
 		t.Errorf("RDTSC: EDX:EAX = %08X:%08X, want a small nonzero step count", c.Regs[DX], c.Regs[AX])
 	}
 }
+
+func TestProtCmov(t *testing.T) {
+	// MOV EAX, 5
+	// MOV EBX, 9
+	// CMP EAX, EBX        ; 5 < 9 -> CF=1
+	// CMOVB EAX, EBX      ; taken: EAX = 9
+	// MOV ECX, 2
+	// CMP EAX, ECX        ; 9 > 2 -> CF=0
+	// CMOVB EAX, ECX      ; not taken: EAX stays 9
+	// CMOVNZ EDX, EBX     ; ZF=0 -> EDX = 9
+	// HLT
+	code := []byte{
+		0xB8, 0x05, 0x00, 0x00, 0x00, // MOV EAX, 5
+		0xBB, 0x09, 0x00, 0x00, 0x00, // MOV EBX, 9
+		0x39, 0xD8, // CMP EAX, EBX
+		0x0F, 0x42, 0xC3, // CMOVB EAX, EBX
+		0xB9, 0x02, 0x00, 0x00, 0x00, // MOV ECX, 2
+		0x39, 0xC8, // CMP EAX, ECX
+		0x0F, 0x42, 0xC1, // CMOVB EAX, ECX
+		0x0F, 0x45, 0xD3, // CMOVNZ EDX, EBX
+		0xF4, // HLT
+	}
+	c, _ := runProt(t, 0x100000, 0x00300000, code)
+	if c.Regs[AX] != 9 {
+		t.Errorf("CMOVB: EAX = %d, want 9", c.Regs[AX])
+	}
+	if c.Regs[DX] != 9 {
+		t.Errorf("CMOVNZ: EDX = %d, want 9", c.Regs[DX])
+	}
+}

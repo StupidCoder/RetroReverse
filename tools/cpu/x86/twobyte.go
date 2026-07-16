@@ -14,6 +14,10 @@ func (d *dec) twoByte(op byte) Inst {
 		_, rm := d.modrm()
 		mnem := "SET" + ccName[op&0x0F]
 		return op1(mnem, rm.atHint(8))
+	case op >= 0x40 && op <= 0x4F: // CMOVcc r, r/m (P6)
+		reg, rm := d.modrm()
+		mnem := "CMOV" + ccName[op&0x0F]
+		return op2(mnem, gpr(reg, d.opsize), rm.at(d.opsize))
 	case op >= 0xC8 && op <= 0xCF: // BSWAP r32
 		return op1("BSWAP", reg32[op&7])
 	}

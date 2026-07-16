@@ -518,6 +518,16 @@ func (c *CPU) exec0F(op, rep byte) {
 		_, o := c.modrmE()
 		c.wEA(o, 1, b2u(c.cond(op&0x0F)))
 		return
+	case op >= 0x40 && op <= 0x4F: // CMOVcc r, r/m (P6) — the move happens only when the
+		// condition holds; the source is read either way, as the hardware does. OutRun's
+		// streaming decoder (0x2A85A: CMOVB for a min(remaining, chunk)) is the first user.
+		reg, o := c.modrmE()
+		w := c.osz()
+		v := c.rEA(o, w)
+		if c.cond(op & 0x0F) {
+			c.setReg(reg, w, v)
+		}
+		return
 	}
 	switch op {
 	case 0x08, 0x09: // INVD / WBINVD — cache maintenance; no caches modelled, so no-ops.

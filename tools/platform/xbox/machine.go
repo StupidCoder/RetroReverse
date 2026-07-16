@@ -99,6 +99,7 @@ type Machine struct {
 	// into the reserved band; objects are looked up by handle.
 	objects     map[uint32]*kobject
 	files       map[uint32]*fileObject // open disc file handles (kernel_file.go)
+	pendingIO   []pendingIO            // paced async read completions (kernel_file.go)
 	poolSizes   map[uint32]uint32      // ExAllocatePoolWithTag block -> byte size (ExQueryPoolBlockSize)
 	nextObjAddr uint32                 // bump pointer within the kernel band for new dispatcher objects
 	kbandNext   uint32                 // general bump pointer within the kernel band (KPCR follows, then objects)

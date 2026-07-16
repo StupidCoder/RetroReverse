@@ -43,11 +43,26 @@ type thread struct {
 	state    threadState
 	wakeTick uint64 // tick to wake at, for sleeping threads
 
+	// suspendCount is NT's suspension axis, ORTHOGONAL to the wait state: a
+	// suspended thread does not run, but a suspend never cancels a dispatcher
+	// wait and — critically — a RESUME never satisfies one. Conflating the two
+	// (an early model set any tsWaiting thread ready on NtResumeThread) let a
+	// producer's ResumeThread "complete" the streaming pump's infinite
+	// message-queue wait: the pump popped a NULL message, took the zero-length
+	// close path, and double-released a streaming buffer slot into a negative
+	// refcount — the wedge that kept OutRun's font/sprite loads (and with them
+	// the whole attract sequence) from ever finishing.
+	suspendCount int32
+
 	// While waiting on dispatcher objects.
 	waitAll  bool
 	waitObjs []uint32 // KWAIT: object handles being waited on
 	waitReg  int      // register to receive the wait result (EAX)
 }
+
+// runnable reports whether the scheduler may pick this thread: ready and not
+// suspended.
+func (t *thread) runnable() bool { return t.state == tsReady && t.suspendCount == 0 }
 
 // kobject is a dispatcher object handed out by the HLE (event, semaphore, mutant,
 // timer, thread). Its guest address is its handle; the header fields the title reads
@@ -74,8 +89,8 @@ func (m *Machine) DebugThreads() []string {
 			pc = m.CPU.SegBase[x86.CS] + m.CPU.IP
 			mark = "*"
 		}
-		out = append(out, fmt.Sprintf("%s tid=%d %-8s prio=%d PC=%08X wakeTick=%d waitObjs=%v",
-			mark, t.id, t.state, t.priority, pc, t.wakeTick, t.waitObjs))
+		out = append(out, fmt.Sprintf("%s tid=%d %-8s prio=%d susp=%d PC=%08X wakeTick=%d waitObjs=%v",
+			mark, t.id, t.state, t.priority, t.suspendCount, pc, t.wakeTick, t.waitObjs))
 	}
 	return out
 }
@@ -142,7 +157,7 @@ func (m *Machine) createThread(entry, ctx1, ctx2 uint32, stackSize uint32, prior
 		state:    tsReady,
 	}
 	if suspended {
-		t.state = tsWaiting // resumed by KeResumeThread / NtResumeThread
+		t.suspendCount = 1 // create-suspended: NtResumeThread drops the count to 0
 	}
 	m.nextTID++
 

@@ -131,7 +131,7 @@ func kernelObjectHandler(ord uint16) func(*Machine) int {
 		// binding of this function at ordinal 203 (never called — confirmed by the ordinal
 		// histogram) is removed; 203 stays a halting frontier until a live site names it.
 		return func(m *Machine) int {
-			m.readFile(m.arg(0), m.arg(4), m.arg(5), m.arg(6), m.arg(7))
+			m.readFile(m.arg(0), m.arg(1), m.arg(4), m.arg(5), m.arg(6), m.arg(7))
 			return 8
 		}
 
@@ -243,9 +243,14 @@ func kernelObjectHandler(ord uint16) func(*Machine) int {
 	case 224, 231: // NtResumeThread / NtSuspendThread (ThreadHandle, PreviousSuspendCount*).
 		// Verified as a pair from twin 2-arg wrappers at 0x44F30/0x44F56 — each passes a
 		// handle plus an out-count and maps failure to -1; slots 0x248370/0x248374 hold
-		// 231/224, landing exactly on table 226/219 (NtSuspendThread/NtResumeThread) with
-		// the Nt block's +5 drift. XAPI's create-suspended → resume pattern. The model has
-		// no nested suspend count: suspended is tsWaiting, prev reports 1/0.
+		// 231/224, landing exactly on table 226/219 (NtSuspendThread/NtReadFile... the Nt
+		// block's +5 drift). NT semantics, faithfully: suspension is a COUNT on the
+		// thread, orthogonal to its dispatcher-wait state. Suspend increments; resume
+		// decrements; the thread runs only at count 0 AND not blocked. A resume NEVER
+		// completes a wait — the earlier model set any tsWaiting thread ready here, which
+		// "satisfied" the streaming pump's infinite message-queue wait with an empty
+		// queue: it popped a NULL message and double-released a buffer slot (see
+		// thread.suspendCount).
 		ord := ord
 		return func(m *Machine) int {
 			h, prevOut := m.arg(0), m.arg(1)
@@ -255,24 +260,23 @@ func kernelObjectHandler(ord uint16) func(*Machine) int {
 				return 2
 			}
 			t := o.thread
-			prev := uint32(0)
-			if t.state == tsWaiting {
-				prev = 1
-			}
+			prev := t.suspendCount
 			if ord == 224 { // resume
-				if t.state == tsWaiting {
-					t.state = tsReady
+				if t.suspendCount > 0 {
+					t.suspendCount--
 				}
 			} else { // suspend
-				if t.state == tsReady || t.state == tsRunning {
-					t.state = tsWaiting
-					if t == m.current {
-						m.reschedule = true // parks after the trap return
-					}
+				t.suspendCount++
+				if t == m.current {
+					// Park the running thread the moment its own suspend lands; it
+					// resumes exactly here (after the trap return) when the count
+					// drops to zero. Its state stays tsReady — the wait axis is
+					// untouched — and pickRunnable skips it via runnable().
+					m.reschedule = true
 				}
 			}
 			if prevOut != 0 {
-				m.write32(prevOut, prev)
+				m.write32(prevOut, uint32(prev))
 			}
 			m.setRet(0)
 			return 2
@@ -519,6 +523,7 @@ func kernelObjectHandler(ord uint16) func(*Machine) int {
 		// semaphore's count, wake any thread blocked on it, and report the previous count.
 		return func(m *Machine) int {
 			handle, release, prevOut := m.arg(0), m.arg(1), m.arg(2)
+			m.logf("NtReleaseSemaphore: handle %08X +%d from %08X (tick %d)", handle, release, m.retAddr(), m.tick)
 			if o := m.objAt(handle); o != nil {
 				if prevOut != 0 {
 					m.write32(prevOut, uint32(o.count))

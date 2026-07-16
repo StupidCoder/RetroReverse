@@ -88,6 +88,8 @@ type XboxState struct {
 
 	PoolSizes map[uint32]uint32 // ExAllocatePoolWithTag block -> size
 
+	PendingIO []pendingIO // paced async read completions (kernel_file.go); nil from older snapshots
+
 	ShaCtx map[uint32][]byte // XcSHA* streaming contexts (marshalled crypto/sha1 state)
 	Rc4Ctx map[uint32][]byte // XcRC4* key schedules (258-byte S/i/j state)
 
@@ -114,15 +116,16 @@ type pusherSnap struct {
 
 // threadSnap mirrors thread with its saved CPU context.
 type threadSnap struct {
-	ID       uint32
-	KThread  uint32
-	Ctx      cpuSnap
-	Priority int32
-	State    int
-	WakeTick uint64
-	WaitAll  bool
-	WaitObjs []uint32
-	WaitReg  int
+	ID           uint32
+	KThread      uint32
+	Ctx          cpuSnap
+	Priority     int32
+	State        int
+	WakeTick     uint64
+	WaitAll      bool
+	WaitObjs     []uint32
+	WaitReg      int
+	SuspendCount int32
 }
 
 // cpuSnap mirrors the parts of x86.CPU a saved (non-running) thread carries.
@@ -196,6 +199,7 @@ func (m *Machine) SaveState() *XboxState {
 		},
 		FirstPush: m.firstPush, PCIAddr: m.pciAddr, PCISpace: copyByteMap(m.pciSpace),
 		PoolSizes:   copyU32Map(m.poolSizes),
+		PendingIO:   append([]pendingIO(nil), m.pendingIO...),
 		ShaCtx:      copyByteSliceMap(m.shaCtx),
 		Rc4Ctx:      copyByteSliceMap(m.rc4Ctx),
 		OrdinalHits: copyOrdMap(m.OrdinalHits),
@@ -211,6 +215,7 @@ func (m *Machine) SaveState() *XboxState {
 			ID: t.id, KThread: t.kthread, Ctx: snapCPU(&ctx), Priority: t.priority,
 			State: int(t.state), WakeTick: t.wakeTick, WaitAll: t.waitAll,
 			WaitObjs: append([]uint32(nil), t.waitObjs...), WaitReg: t.waitReg,
+			SuspendCount: t.suspendCount,
 		})
 	}
 	// Objects in a stable order (by address) for deterministic snapshots.
@@ -258,6 +263,7 @@ func (m *Machine) LoadState(st *XboxState) error {
 	m.firstPush, m.pciAddr = st.FirstPush, st.PCIAddr
 	m.pciSpace = copyByteMap(st.PCISpace)
 	m.poolSizes = copyU32Map(st.PoolSizes)
+	m.pendingIO = append([]pendingIO(nil), st.PendingIO...)
 	m.shaCtx = copyByteSliceMap(st.ShaCtx)
 	m.rc4Ctx = copyByteSliceMap(st.Rc4Ctx)
 	m.Halted, m.HaltReason = st.Halted, st.HaltReason
@@ -272,6 +278,7 @@ func (m *Machine) LoadState(st *XboxState) error {
 			id: ts.ID, kthread: ts.KThread, priority: ts.Priority,
 			state: threadState(ts.State), wakeTick: ts.WakeTick, waitAll: ts.WaitAll,
 			waitObjs: append([]uint32(nil), ts.WaitObjs...), waitReg: ts.WaitReg,
+			suspendCount: ts.SuspendCount,
 		}
 		// Seed the saved context from the live CPU first, so its unexported bus and
 		// hook pointers (which close over this machine and are NOT serialised) are the

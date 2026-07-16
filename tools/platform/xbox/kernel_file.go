@@ -101,10 +101,43 @@ func (m *Machine) finishOpen(iosb, _handle, info, status uint32) uint32 {
 	return status
 }
 
+// statusPending is the NTSTATUS an in-flight asynchronous I/O reports.
+const statusPending = 0x103
+
+// ioCompletionTicks is the modelled DVD latency for an n-byte read: ~1 ms of
+// seek/command overhead plus transfer at ~8 MB/s (8192 bytes per ms). An instant
+// completion is a fiction real hardware never shows the guest: the title's own
+// streaming engine issues an overlapped read and then runs bookkeeping that on
+// hardware always finishes long before the DVD does — completing inside the call
+// made the completion path release a buffer slot the issuer still held, and the
+// slot refcounts went negative (the [[instant-io-races]] class, same mechanism as
+// the GameCube DI).
+func ioCompletionTicks(n uint32) uint64 {
+	return instrsPerMs * (10 + uint64(n)/8192)
+}
+
+// pendingIO is one queued asynchronous read completion: at the due tick the
+// IO_STATUS_BLOCK gets its final status/information and the optional event object
+// is signalled. The read's data is already in the guest buffer — only the
+// completion notification is paced.
+type pendingIO struct {
+	Due    uint64
+	IOSB   uint32
+	Event  uint32
+	Info   uint32
+	Status uint32
+}
+
 // readFile streams bytes from an open disc file into guest memory. NtReadFile signature
 // (FileHandle, Event, ApcRoutine, ApcContext, IoStatusBlock, Buffer, Length,
 // ByteOffset*) — the ByteOffset optional pointer overrides the current offset.
-func (m *Machine) readFile(handle, iosb, buffer, length, byteOffsetPtr uint32) uint32 {
+//
+// Completion honours the caller's own protocol: the XAPI overlapped wrapper
+// (0x440B3) pre-stores STATUS_PENDING in the IOSB before the call — a caller that
+// did so is async-ready, gets STATUS_PENDING back, and sees the IOSB complete a
+// DVD-realistic latency later (kernel_objects.go ioTick). A caller that did not
+// pre-mark the IOSB is synchronous and completes inline as before.
+func (m *Machine) readFile(handle, event, iosb, buffer, length, byteOffsetPtr uint32) uint32 {
 	fo := m.files[handle]
 	if fo == nil {
 		return m.finishOpen(iosb, handle, 0, 0xC0000008) // STATUS_INVALID_HANDLE
@@ -130,6 +163,42 @@ func (m *Machine) readFile(handle, iosb, buffer, length, byteOffsetPtr uint32) u
 		}
 	}
 	fo.off = off + n
-	m.logf("NtReadFile: handle %08X off %d len %d -> %d bytes", handle, off, length, n)
+	if iosb != 0 && m.read32(iosb) == statusPending {
+		m.pendingIO = append(m.pendingIO, pendingIO{
+			Due: m.tick + ioCompletionTicks(n), IOSB: iosb, Event: event, Info: n,
+		})
+		m.logf("NtReadFile: handle %08X off %d len %d -> %d bytes (async, event %08X, due +%d)",
+			handle, off, length, n, event, ioCompletionTicks(n))
+		m.setRet(statusPending)
+		return statusPending
+	}
+	m.logf("NtReadFile: handle %08X off %d len %d -> %d bytes (sync, tick %d)", handle, off, length, n, m.tick)
 	return m.finishOpen(iosb, handle, n, 0) // Information = bytes read
+}
+
+// ioTick delivers due asynchronous completions: the IOSB gets its final status and
+// byte count, and the event object (if any) is signalled, waking its waiters.
+func (m *Machine) ioTick() {
+	if len(m.pendingIO) == 0 {
+		return
+	}
+	kept := m.pendingIO[:0]
+	for _, p := range m.pendingIO {
+		if p.Due > m.tick {
+			kept = append(kept, p)
+			continue
+		}
+		if p.IOSB != 0 {
+			m.write32(p.IOSB+0, p.Status)
+			m.write32(p.IOSB+4, p.Info)
+		}
+		if p.Event != 0 {
+			if o := m.objAt(p.Event); o != nil {
+				o.signaled = true
+				m.writeSignal(o.addr, true)
+				m.wakeWaiters(p.Event)
+			}
+		}
+	}
+	m.pendingIO = kept
 }

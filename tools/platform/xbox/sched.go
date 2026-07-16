@@ -41,6 +41,7 @@ func (m *Machine) schedTick() {
 			m.write32(m.systemTimeAddr+4, uint32(t>>32))
 		}
 		m.apuTick() // the GP DSP's command-mailbox poll (apu.go)
+		m.ioTick()  // due asynchronous read completions (kernel_file.go)
 	}
 	m.wakeDueSleepers()
 	if m.reschedule {
@@ -67,20 +68,53 @@ func (m *Machine) yieldCurrent(state threadState) {
 	m.reschedule = true
 }
 
-// dispatch picks the highest-priority ready thread and switches to it. If none is
-// ready and the current thread is not runnable, the machine is deadlocked as far as
-// the ready set goes — reported by the boot driver, not silently spun.
+// dispatch picks the highest-priority ready thread and switches to it. With nothing
+// runnable it idles the machine forward to the next future wake source (a sleeper's
+// deadline, a timed wait, a pending I/O completion); only when no such source exists
+// is the machine genuinely deadlocked — reported by the boot driver, not silently
+// spun.
 func (m *Machine) dispatch() {
 	next := m.pickRunnable()
-	if next == nil {
-		if m.current != nil && m.current.state == tsRunning {
-			return // the current thread is still runnable; keep going
+	if next == nil && m.current != nil && m.current.state == tsRunning && m.current.suspendCount == 0 {
+		return // the current thread is still runnable; keep going
+	}
+	for next == nil {
+		if !m.idleAdvance() {
+			m.CPU.Halt("scheduler: no runnable thread (deadlock); %d threads", len(m.threads))
+			m.Halted, m.HaltReason = true, m.CPU.HaltReason
+			return
 		}
-		m.CPU.Halt("scheduler: no runnable thread (deadlock); %d threads", len(m.threads))
-		m.Halted, m.HaltReason = true, m.CPU.HaltReason
-		return
+		next = m.pickRunnable()
 	}
 	m.switchTo(next)
+}
+
+// idleAdvance jumps the clock to the earliest future wake source and delivers it:
+// a sleeping thread's deadline, a timed wait's expiry, or a pending asynchronous
+// I/O completion (whose IOSB write can satisfy a poller once it runs again, and
+// whose event signal can complete a wait). Returns false when no source exists.
+func (m *Machine) idleAdvance() bool {
+	var min uint64
+	for _, t := range m.threads {
+		if (t.state == tsSleeping || (t.state == tsWaiting && t.wakeTick != 0)) &&
+			(min == 0 || t.wakeTick < min) {
+			min = t.wakeTick
+		}
+	}
+	for _, p := range m.pendingIO {
+		if min == 0 || p.Due < min {
+			min = p.Due
+		}
+	}
+	if min == 0 {
+		return false
+	}
+	if min > m.tick {
+		m.tick = min
+	}
+	m.wakeDueSleepers()
+	m.ioTick()
+	return true
 }
 
 // pickRunnable returns the highest-priority ready thread, rotating among equals.
@@ -92,7 +126,7 @@ func (m *Machine) pickRunnable() *thread {
 	}
 	for i := 0; i < n; i++ {
 		t := m.threads[(m.rrCursor+i)%n]
-		if t.state == tsReady && (best == nil || t.priority > best.priority) {
+		if t.runnable() && (best == nil || t.priority > best.priority) {
 			best = t
 		}
 	}
@@ -123,8 +157,9 @@ func (m *Machine) switchTo(t *thread) {
 
 // wakeDueSleepers readies every sleeping thread whose wake tick has passed, and expires
 // timed waits (doWaitTimed): a waiting thread with a nonzero wakeTick whose deadline has
-// passed resumes with the STATUS_TIMEOUT its parked context already carries. Suspended
-// threads (create-suspended, NtSuspendThread) are tsWaiting with wakeTick 0 — untouched.
+// passed resumes with the STATUS_TIMEOUT its parked context already carries. Suspension
+// (thread.suspendCount) is orthogonal: a woken-but-suspended thread becomes tsReady here
+// and simply stays unpicked until its count drops to zero.
 func (m *Machine) wakeDueSleepers() {
 	for _, t := range m.threads {
 		switch {
