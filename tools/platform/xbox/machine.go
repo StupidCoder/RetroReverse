@@ -108,6 +108,16 @@ type Machine struct {
 	tickCountAddr  uint32 // guest address of the live KeTickCount data export (0 if none)
 	systemTimeAddr uint32 // guest address of the live KeSystemTime data export (0 if none)
 
+	// XcSHA* streaming contexts (kernel_crypto.go), keyed by the guest context address the
+	// title passes to XcSHAInit/Update/Final. The value is a crypto/sha1 digest marshalled
+	// via BinaryMarshaler, so it gob-serialises directly into a savestate.
+	shaCtx map[uint32][]byte
+
+	// XcRC4* key schedules (kernel_crypto.go), keyed by the guest key-table address. The
+	// value is the 258-byte RC4 state (S[256] then i, j) so it gob-serialises directly. The
+	// state is kept host-side rather than in the (opaque, unknown-layout) guest buffer.
+	rc4Ctx map[uint32][]byte
+
 	// NV2A MMIO (nv2a.go), the PFIFO DMA pusher (nv2a_pfifo.go), and the graphics
 	// engine (nv2a_pgraph.go).
 	nv     nv2a
@@ -158,6 +168,8 @@ func NewMachine(xbe *XBE, disc *Image) (*Machine, error) {
 		poolSizes:   map[uint32]uint32{},
 		OrdinalHits: map[uint16]int{},
 		dataDeref:   map[uint16]bool{},
+		shaCtx:      map[uint32][]byte{},
+		rc4Ctx:      map[uint32][]byte{},
 	}
 	m.nv.reg = map[uint32]uint32{}
 	m.apu = newMMIOLatch("APU")

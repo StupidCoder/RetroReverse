@@ -13,7 +13,11 @@ package xbox
 // dispatcher calls (events, semaphores, waits) have something to model the moment the
 // boot path reaches them.
 
-import "retroreverse.com/tools/cpu/x86"
+import (
+	"fmt"
+
+	"retroreverse.com/tools/cpu/x86"
+)
 
 // threadState is a thread's scheduler state.
 type threadState int
@@ -56,6 +60,24 @@ type kobject struct {
 	count    int32   // semaphore count / mutant recursion
 	limit    int32   // semaphore limit
 	thread   *thread // for thread objects
+}
+
+// DebugThreads returns a one-line-per-thread summary of the scheduler state (id, state,
+// priority, saved PC, wait targets) — a diagnostic accessor for the boot driver, like
+// OrdinalHistogram. The current thread's live PC comes from the CPU, not its stale ctx.
+func (m *Machine) DebugThreads() []string {
+	out := make([]string, 0, len(m.threads))
+	for _, t := range m.threads {
+		pc := t.ctx.SegBase[x86.CS] + t.ctx.IP
+		mark := " "
+		if t == m.current {
+			pc = m.CPU.SegBase[x86.CS] + m.CPU.IP
+			mark = "*"
+		}
+		out = append(out, fmt.Sprintf("%s tid=%d %-8s prio=%d PC=%08X wakeTick=%d waitObjs=%v",
+			mark, t.id, t.state, t.priority, pc, t.wakeTick, t.waitObjs))
+	}
+	return out
 }
 
 // bootThread creates thread 0 — the entry context. Its ctx is not used while it runs

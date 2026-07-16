@@ -173,6 +173,22 @@ func kernelObjectHandler(ord uint16) func(*Machine) int {
 			return 0
 		}
 
+	case 128: // KeQuerySystemTime(PLARGE_INTEGER CurrentTime) -> void. Verified from its
+		// call site (0x214C5A): one pointer argument, the callee fills an 8-byte buffer the
+		// caller then serialises verbatim into a token (LEA [EBP-2C]; PUSH; CALL; append 8
+		// bytes) — the KeQuerySystemTime shape, not the table's KeRemoveByKeyDeviceQueue.
+		// Table-123 + the Ke block's +5 drift = 128. Write the same monotonic 100-ns clock
+		// the KeSystemTime data export advances so the two agree.
+		return func(m *Machine) int {
+			if p := m.arg(0); p != 0 {
+				t := m.systemTime100ns()
+				m.write32(p, uint32(t))
+				m.write32(p+4, uint32(t>>32))
+			}
+			m.setRet(0)
+			return 1
+		}
+
 	case 143: // KeSetBasePriorityThread(Thread, Increment) -> LONG (old priority).
 		// Verified from its call site (0x44F10): XAPI's SetThreadPriority wrapper —
 		// ObReferenceObjectByHandle with the thread type export (slot 0x24836C), the
@@ -413,6 +429,37 @@ func kernelObjectHandler(ord uint16) func(*Machine) int {
 			return 1
 		}
 
+	case 181: // MmQueryStatistics(PMM_STATISTICS) -> NTSTATUS. Between the two verified Mm
+		// neighbours 180 (MmQueryAllocationSize) and 182 (MmSetAddressProtect), so pinned by
+		// position; the call site (0x214C92) is the token/nonce builder, which passes a
+		// stack struct and then reads AvailablePages (+8) as entropy without pre-setting
+		// Length. Fill the MM_STATISTICS fields from the machine's real 64 MB accounting and
+		// return success — a faithful page census, not an invented number, and the value is
+		// only ever mixed into a self-produced nonce here.
+		return func(m *Machine) int {
+			p := m.arg(0)
+			if p != 0 {
+				const pageShift = 12
+				total := uint32(ramSize >> pageShift)
+				free := uint32(0)
+				if m.poolNext > m.heapNext {
+					free = (m.poolNext - m.heapNext) >> pageShift
+				}
+				poolPages := (uint32(kernelBandBase) - m.poolNext) >> pageShift
+				m.write32(p+0x00, 0x24) // Length = sizeof(MM_STATISTICS)
+				m.write32(p+0x04, total)
+				m.write32(p+0x08, free)      // AvailablePages (read at +8 by the caller)
+				m.write32(p+0x0C, total-free) // VirtualMemoryBytesCommitted (pages)
+				m.write32(p+0x10, 0)         // VirtualMemoryBytesReserved
+				m.write32(p+0x14, 0)         // CachePagesCommitted
+				m.write32(p+0x18, poolPages) // PoolPagesCommitted
+				m.write32(p+0x1C, 0)         // StackPagesCommitted
+				m.write32(p+0x20, 0)         // ImagePagesCommitted
+			}
+			m.setRet(0) // STATUS_SUCCESS
+			return 1
+		}
+
 	case 182: // MmSetAddressProtect(BaseAddress, NumberOfBytes, NewProtect) — verified from
 		// its one live call site: a 3-arg tail-call wrapper (JMP [slot]) that guards on
 		// NumberOfBytes != 0, invoked here as (0x0128D000, 0x00280000, 0x404) right after
@@ -630,6 +677,30 @@ func kernelObjectHandler(ord uint16) func(*Machine) int {
 			m.setRet(0)
 			return 2
 		}
+
+	case 97: // KeCancelTimer(Timer) -> BOOLEAN. Verified from the object destructor at
+		// 0x20D1A9: one pointer arg = the KTIMER the constructor set up at this+0x1A8 with
+		// KeInitializeTimerEx (ord 113), cancelled here as the object tears down. Our timers
+		// are never inserted into a live queue (KeSetTimer is a record-only stub), so the
+		// timer was not pending: return FALSE, the honest state.
+		return func(m *Machine) int {
+			if tm := m.arg(0); tm != 0 {
+				m.write32(tm+dhSignalState, 0)
+			}
+			m.setRet(0)
+			return 1
+		}
+
+	case 137: // KeRemoveQueueDpc(Dpc) -> BOOLEAN. Verified from the same destructor (0x20D1B6):
+		// one pointer arg = the KDPC at this+0x18C (KeInitializeDpc, ord 107), dequeued as
+		// the object tears down. No DPC is ever queued in our cooperative model, so it was
+		// not present: return FALSE.
+		return func(m *Machine) int { m.setRet(0); return 1 }
+
+	case 17: // ExFreePool(P) -> void. Verified from the destructor at 0x20D1DC: one pointer
+		// arg = a block held at this+0x50, freed then nulled — the ExFreePool shape. Our
+		// pool is a down-bumping arena with no reclamation, so this is a success no-op.
+		return func(m *Machine) int { m.setRet(0); return 1 }
 
 	// --- Critical sections (Rtl) — pinned against this image's census ----
 	case 277: // RtlEnterCriticalSection(cs)

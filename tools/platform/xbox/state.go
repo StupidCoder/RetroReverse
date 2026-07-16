@@ -85,6 +85,9 @@ type XboxState struct {
 
 	PoolSizes map[uint32]uint32 // ExAllocatePoolWithTag block -> size
 
+	ShaCtx map[uint32][]byte // XcSHA* streaming contexts (marshalled crypto/sha1 state)
+	Rc4Ctx map[uint32][]byte // XcRC4* key schedules (258-byte S/i/j state)
+
 	// Kernel HLE bookkeeping
 	OrdinalHits map[uint16]int
 	NextTID     uint32
@@ -189,6 +192,8 @@ func (m *Machine) SaveState() *XboxState {
 		},
 		FirstPush: m.firstPush, PCIAddr: m.pciAddr, PCISpace: copyByteMap(m.pciSpace),
 		PoolSizes:   copyU32Map(m.poolSizes),
+		ShaCtx:      copyByteSliceMap(m.shaCtx),
+		Rc4Ctx:      copyByteSliceMap(m.rc4Ctx),
 		OrdinalHits: copyOrdMap(m.OrdinalHits),
 		NextTID:     m.nextTID, RRCursor: m.rrCursor, QuantumLeft: m.quantumLeft,
 		CurThread: curIdx,
@@ -248,6 +253,8 @@ func (m *Machine) LoadState(st *XboxState) error {
 	m.firstPush, m.pciAddr = st.FirstPush, st.PCIAddr
 	m.pciSpace = copyByteMap(st.PCISpace)
 	m.poolSizes = copyU32Map(st.PoolSizes)
+	m.shaCtx = copyByteSliceMap(st.ShaCtx)
+	m.rc4Ctx = copyByteSliceMap(st.Rc4Ctx)
 	m.Halted, m.HaltReason = st.Halted, st.HaltReason
 	m.OrdinalHits = copyOrdMap(st.OrdinalHits)
 	m.nextTID, m.rrCursor, m.quantumLeft = st.NextTID, st.RRCursor, st.QuantumLeft
@@ -332,6 +339,13 @@ func copyByteMap(src map[uint32]byte) map[uint32]byte {
 	dst := make(map[uint32]byte, len(src))
 	for k, v := range src {
 		dst[k] = v
+	}
+	return dst
+}
+func copyByteSliceMap(src map[uint32][]byte) map[uint32][]byte {
+	dst := make(map[uint32][]byte, len(src))
+	for k, v := range src {
+		dst[k] = append([]byte(nil), v...)
 	}
 	return dst
 }

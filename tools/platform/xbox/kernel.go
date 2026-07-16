@@ -208,6 +208,9 @@ func kernelHandler(ord uint16) func(*Machine) int {
 	if h := kernelObjectHandler(ord); h != nil {
 		return h
 	}
+	if h := kernelCryptoHandler(ord); h != nil {
+		return h
+	}
 	switch ord {
 	case 2: // AvSendTVEncoderOption(RegisterBase, Option, Param, Result*)
 		// Verified from its call site: 4 stdcall args; arg3 is a ULONG* the caller reads

@@ -116,11 +116,21 @@ func (m *Machine) apuRead(off uint32) byte {
 // apuWrite latches a byte write to the APU aperture.
 func (m *Machine) apuWrite(off uint32, v byte) { m.latchWrite(&m.apu, off, v) }
 
-// ac97Read / ac97Write are the AC'97 codec interface: a pure latch. The bring-up's
-// semaphore poll (TEST BYTE [+0x134],1 until clear) is satisfied by the 0 default.
+// ac97Read / ac97Write are the AC'97 codec interface: a latch plus the one register with
+// behaviour. The bring-up's semaphore poll (TEST BYTE [+0x134],1 until clear) is satisfied
+// by the 0 default. The bus-master Control byte at each box+0x0B (offsets ...0B/1B/.../11B/
+// 17B) carries the RR "Reset Registers" bit (0x02), which hardware SELF-CLEARS once the
+// per-box reset completes; a pure latch would echo the written 1 forever and spin the
+// codec-reset handshake at 0x1DE9EA (write 0x02 to [box+0x0B]; loop while bit 1 stays set).
+// Reading a CR byte therefore clears bit 0x02 — the reset is instantaneous in our model —
+// while leaving RPBM (bit 0, run) and the interrupt-enable bits untouched.
 func (m *Machine) ac97Read(off uint32) byte {
 	dw, written := m.ac97.reg[off>>2]
-	return m.latchRead(&m.ac97, off, dw, written)
+	b := m.latchRead(&m.ac97, off, dw, written)
+	if off&0x0F == 0x0B {
+		b &^= 0x02 // RR (Reset Registers) has already completed
+	}
+	return b
 }
 func (m *Machine) ac97Write(off uint32, v byte) { m.latchWrite(&m.ac97, off, v) }
 

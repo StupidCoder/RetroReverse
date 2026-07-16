@@ -16,6 +16,14 @@ package xbox
 const schedQuantum = 4000 // instructions a thread runs before the scheduler reconsiders
 const instrsPerMs = 2000  // nominal instruction-to-millisecond scale for the live counters
 
+// systemTime100ns is the current synthetic system time in 100-ns units — the same clock
+// KeSystemTime advances and KeQuerySystemTime reports, so the data export and the call
+// agree. It is a relative uptime, not a wall-clock date (no console RTC is modelled);
+// what the title needs it for is monotonic nonce/timestamp material, which this supplies.
+func (m *Machine) systemTime100ns() uint64 {
+	return m.tick / instrsPerMs * 10000
+}
+
 // schedTick charges the running thread's quantum and reschedules when it expires or a
 // wake is pending. With one thread this is almost free; it becomes load-bearing once
 // the title spawns worker threads.
@@ -28,7 +36,7 @@ func (m *Machine) schedTick() {
 			m.write32(m.tickCountAddr, uint32(m.tick/instrsPerMs))
 		}
 		if m.systemTimeAddr != 0 {
-			t := m.tick / instrsPerMs * 10000 // 100 ns units
+			t := m.systemTime100ns()
 			m.write32(m.systemTimeAddr, uint32(t))
 			m.write32(m.systemTimeAddr+4, uint32(t>>32))
 		}

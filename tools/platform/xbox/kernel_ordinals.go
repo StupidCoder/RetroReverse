@@ -75,6 +75,18 @@ var verifiedNames = map[uint16]string{
 	234: "NtWaitForSingleObjectEx",   // f(handle, waitMode, alertable, timeout*) -> NTSTATUS
 	246: "ObReferenceObjectByHandle", // f(handle, type, obj**) (site 0x45291)
 	250: "ObfDereferenceObject",      // fastcall(ECX=object) (site 0x45331)
+	17:  "ExFreePool",                // f(P) void; destructor free at 0x20D1DC
+	97:  "KeCancelTimer",             // f(KTIMER) -> BOOLEAN; destructor 0x20D1A9
+	128: "KeQuerySystemTime",         // f(PLARGE_INTEGER) fills 8-byte time (site 0x214C5A)
+	137: "KeRemoveQueueDpc",          // f(KDPC) -> BOOLEAN; destructor 0x20D1B6
+	181: "MmQueryStatistics",         // f(PMM_STATISTICS) between verified 180/182
+	335: "XcSHAInit",                 // f(ctx) — Xc block drifts +7 (table 328)
+	336: "XcSHAUpdate",               // f(ctx, data, len) (table 329 +7)
+	337: "XcSHAFinal",                // f(ctx, digest) (table 330 +7)
+	338: "XcRC4Key",                  // f(keyTable, keyLen, keyData) (table 331 +7)
+	339: "XcRC4Crypt",                // f(keyTable, dataLen, data) (table 332 +7)
+	154: "KeSystemTime",              // DATA export: KSYSTEM_TIME kept live by schedTick
+	156: "KeTickCount",               // DATA export: ms tick, read as data at 0x214C37
 	340: "XcHMAC",                    // 7 args (key,keyLen,data,dataLen,data2,data2Len,digest*),
 	// a 20-byte SHA-1 digest written to the out buffer (site 0x20CB09) — NOT the table's
 	// 3-arg XcKeyTable; the Xc block drifts. Frontier: no handler yet (halts and names it).

@@ -27,6 +27,15 @@ package xbox
 // data.
 func dataExportSize(ord uint16) (int, bool) {
 	switch ord {
+	case 154:
+		// KeSystemTime (table-149 + the Ke +5 drift): a KSYSTEM_TIME the kernel updates in
+		// place and titles read without a call. schedTick keeps it live; 16 bytes covers
+		// the { LowPart, High1Time, High2Time } split with room to spare.
+		return 16, true
+	case 156:
+		// KeTickCount (table-151 + the Ke +5 drift): the millisecond tick counter, read as
+		// data (MOV EAX,[slot]; MOV EAX,[EAX]) by the token builder at 0x214C37. 8 bytes.
+		return 8, true
 	case 357:
 		// The disk channel object (IdexChannelObject-shaped; name inferred from usage,
 		// behaviour bound by number). Three live sites pin the block's shape: XAPI
