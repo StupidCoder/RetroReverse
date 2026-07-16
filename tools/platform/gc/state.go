@@ -49,13 +49,41 @@ type MachineState struct {
 	WG  wgPipe
 }
 
-// gob needs the unexported device fields, so each device provides an exported mirror. To
-// avoid a second set of structs, the devices are stored whole — which works because gob can
-// encode unexported fields only if... it cannot. So the devices expose their state through
-// GobEncode/GobDecode below, keeping the register blocks' fields unexported while still
-// making them serializable.
+// A device is stored whole, by value, which carries every register block correctly because
+// those are plain integers and arrays. Three devices hold more than that, and each is
+// deep-copied on the way in AND on the way out:
+//
+//   - the DSP's Core is a pointer to a running CPU,
+//   - the GPU's Buf/EFB/ZBuf/Tlut are slices,
+//   - the write-gather pipe's Buf is a slice.
+//
+// Copying those by value shares the backing array, and a shared snapshot is not a snapshot:
+// it keeps tracking the machine after it was taken, and restoring it hands the live machine
+// the snapshot's own buffers to draw into — so a second restore from the same state starts
+// from whatever the first run left. That is invisible while a snapshot only ever goes
+// straight into a gob encoder (SaveStateFile encodes before anything can move), which is why
+// it survived until the debugger asked to restore one snapshot repeatedly, which is exactly
+// what deterministic replay is. TestSnapshotIsIndependent pins both directions.
 
-// SaveState captures the machine.
+// cloneGPU deep-copies the GPU's slice-typed fields. A nil slice stays nil: EFB nil means
+// "not allocated yet" and ensureEFB tests for it.
+func cloneGPU(g gpu) gpu {
+	g.Buf = append([]byte(nil), g.Buf...)
+	g.EFB = append([]uint32(nil), g.EFB...)
+	g.ZBuf = append([]uint32(nil), g.ZBuf...)
+	g.Tlut = append([]byte(nil), g.Tlut...)
+	return g
+}
+
+// cloneWG deep-copies the write-gather pipe's pending burst.
+func cloneWG(w wgPipe) wgPipe {
+	w.Buf = append([]byte(nil), w.Buf...)
+	return w
+}
+
+// SaveState captures the machine, independent of it: nothing in the returned state shares
+// memory with the live machine, so it can be held while the machine runs on and restored as
+// many times as a replay needs.
 func (m *Machine) SaveState() MachineState {
 	s := MachineState{
 		Version: snapshotVersion,
@@ -64,15 +92,16 @@ func (m *Machine) SaveState() MachineState {
 		ARAM:    append([]byte(nil), m.ARAM...),
 		CPU:     m.CPU.Snapshot(),
 		PI:      m.pi, MI: m.mi, VI: m.vi, DI: m.di, SI: m.si,
-		EXI: m.exi, AI: m.ai, DSP: m.dsp, CP: m.cp, PE: m.pe, GPU: m.gpu, WG: m.wgFIFO,
+		EXI: m.exi, AI: m.ai, DSP: m.dsp, CP: m.cp, PE: m.pe,
+		GPU: cloneGPU(m.gpu), WG: cloneWG(m.wgFIFO),
 	}
-	// The DSP device is copied by value, but it holds a pointer to the running DSP core; deep-
-	// copy that so the snapshot does not share mutable core state with the live machine.
 	s.DSP.Core = m.dsp.Core.Clone()
 	return s
 }
 
-// LoadState restores one, checking it belongs to this disc.
+// LoadState restores one, checking it belongs to this disc. The state is left untouched and
+// reusable: everything with a backing array is copied out of it, not aliased into the
+// machine.
 func (m *Machine) LoadState(s MachineState) error {
 	if s.Version != snapshotVersion {
 		return fmt.Errorf("savestate version %d, want %d", s.Version, snapshotVersion)
@@ -84,7 +113,8 @@ func (m *Machine) LoadState(s MachineState) error {
 	copy(m.ARAM, s.ARAM)
 	m.CPU.Restore(s.CPU)
 	m.pi, m.mi, m.vi, m.di, m.si = s.PI, s.MI, s.VI, s.DI, s.SI
-	m.exi, m.ai, m.dsp, m.cp, m.pe, m.gpu, m.wgFIFO = s.EXI, s.AI, s.DSP, s.CP, s.PE, s.GPU, s.WG
+	m.exi, m.ai, m.dsp, m.cp, m.pe = s.EXI, s.AI, s.DSP, s.CP, s.PE
+	m.gpu, m.wgFIFO = cloneGPU(s.GPU), cloneWG(s.WG)
 	// Deep-copy the DSP core out of the snapshot (the device was copied by value, sharing the
 	// core pointer) and reattach its hardware bus, the back-reference left out of the state.
 	if s.DSP.Core != nil {

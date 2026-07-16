@@ -39,6 +39,32 @@ func (m *Machine) SetBreakpoint(vaddr uint32) {
 // ClearBreakpoints removes every breakpoint.
 func (m *Machine) ClearBreakpoints() { m.run.breakpoints = nil }
 
+// RunStopAfterGXCommand runs until the FIFO interpreter has executed n graphics commands,
+// or until the machine stops for one of the usual reasons. It is what the command scrubber
+// is built on: restore a frame's start snapshot, run with n = k+1, and the embedded
+// framebuffer holds exactly what that frame's first k+1 commands drew.
+//
+// Stopping mid-list needs no sentinel panic here, unlike the N64's RDP and the PSX's GP0.
+// Those consume a DMA'd command list from inside a single CPU instruction, so a plain
+// return cannot get out of one and the interpreter has to be unwound through. The
+// GameCube's FIFO is drained by an ordinary Go loop that the write-gather pipe feeds, so
+// the interpreter simply declines the next command and leaves it in the queue.
+//
+// It leaves the machine mid-frame with a half-drained pipe and a display list abandoned
+// part-way through — a state the machine cannot honestly run on from. That is deliberate
+// and it is why this is a scratch-machine call: replay into a copy, read its picture,
+// throw it away.
+func (m *Machine) RunStopAfterGXCommand(n int, maxSteps uint64) Result {
+	m.gxCmdCount, m.gxStopAfter, m.gxStopped = 0, n, false
+	res := m.Run(maxSteps)
+	m.gxStopAfter, m.gxStopped = 0, false
+	return res
+}
+
+// GXCommandCount is how many FIFO commands the interpreter has run since the last
+// RunStopAfterGXCommand reset it.
+func (m *Machine) GXCommandCount() int { return m.gxCmdCount }
+
 // Run executes up to maxSteps instructions and returns why it stopped. The breakpoint at
 // the current PC is not retaken, so a run that stopped at one resumes cleanly.
 func (m *Machine) Run(maxSteps uint64) Result {

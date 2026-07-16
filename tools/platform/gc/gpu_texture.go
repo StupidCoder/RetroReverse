@@ -20,10 +20,13 @@ package gc
 // here rather than copied, and the gate that keeps it honest (gpu_test.go) builds a texture
 // with an independent encoder and asserts the TX unit reads back exactly what went in.
 //
-// The paletted formats (C4/C8/C14X2) index a colour table that the hardware DMAs into texture
-// memory ahead of the draw; the loading screen this stage first renders does not use them, so
-// rather than ship an unverifiable palette path they halt loudly, naming the format, the
-// moment the game binds one — the ticket to implement and verify them against real data.
+// The paletted formats (C4/C8/C14X2) index a colour table the hardware DMAs into texture
+// memory ahead of the draw. loadTlut follows that DMA (BP 0x64 names the source, BP 0x65
+// triggers the load) and tlutColor decodes an entry; the register layouts are pinned from
+// the game's own GXInitTlutObj and GXLoadTlut rather than from a wiki. NOTE that no draw
+// has yet bound one — the formats are implemented against the library code that programs
+// them, not against a frame that uses them, so the TX_SETTLUT register numbers here are the
+// least-verified thing in this file.
 
 import (
 	"fmt"
@@ -55,6 +58,14 @@ type texState struct {
 	wrapS, wrapT  int
 	tlutOff       int // offset of this map's palette within the TMEM high bank
 	tlutFmt       int // palette entry format: 0 IA8, 1 RGB565, 2 RGB5A3
+
+	// tlutRAM aims the palette at main memory instead of at texture memory, and tlutOff
+	// becomes an offset from it. A draw's palette is in TMEM because the game DMA'd it
+	// there; a debugger pointing a free surface at an address has only the copy still in
+	// RAM, and this is how it says so without a second decoder existing to disagree with
+	// this one.
+	tlutRAM     uint32
+	tlutFromRAM bool
 }
 
 // texSetup reads texture map i's configuration. The eight maps are split across two register
@@ -106,11 +117,20 @@ func (g *gpu) loadTlut(m *Machine, data uint32) {
 // tlutColor decodes palette entry idx of the TLUT at tlutOff. The entry formats are the
 // same three the texture formats share: IA8, RGB565, RGB5A3.
 func (g *gpu) tlutColor(m *Machine, tx texState, idx int) (r, gg, b, a uint8) {
-	o := tx.tlutOff + idx*2
-	if g.Tlut == nil || o+1 >= len(g.Tlut) {
-		return 0, 0, 0, 0
+	var v uint16
+	if tx.tlutFromRAM {
+		o := phys(tx.tlutRAM + uint32(tx.tlutOff) + uint32(idx)*2)
+		if int(o)+1 >= len(m.RAM) {
+			return 0, 0, 0, 0
+		}
+		v = uint16(m.RAM[o])<<8 | uint16(m.RAM[o+1])
+	} else {
+		o := tx.tlutOff + idx*2
+		if g.Tlut == nil || o+1 >= len(g.Tlut) {
+			return 0, 0, 0, 0
+		}
+		v = uint16(g.Tlut[o])<<8 | uint16(g.Tlut[o+1])
 	}
-	v := uint16(g.Tlut[o])<<8 | uint16(g.Tlut[o+1])
 	switch tx.tlutFmt {
 	case 0: // IA8: intensity in the low byte, alpha in the high — as the IA8 texture format
 		i := uint8(v & 0xFF)
@@ -333,6 +353,17 @@ func (m *Machine) texByte(addr uint32) uint8 {
 		return 0
 	}
 	return m.RAM[a]
+}
+
+// TextureBound reports whether texture map i has an image programmed into it.
+//
+// The question has to be asked rather than inferred from the size, because an unbound map's
+// registers read back as zeros and the size fields are stored biased by one — so a map the
+// game has never touched decodes as a perfectly plausible 1x1 texture at address 0 rather
+// than as nothing at all. A caller enumerating the eight maps and trusting the size gets six
+// phantom textures.
+func (m *Machine) TextureBound(i int) bool {
+	return m.gpu.texSetup(i).base != 0
 }
 
 // DumpTexture decodes texture map i in full, at the size and format the game currently has it

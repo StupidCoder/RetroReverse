@@ -107,6 +107,61 @@ func fingerprint(m *Machine) string {
 	return string(h.Sum(nil))
 }
 
+// TestSnapshotIsIndependent is the guard on the rule that makes deterministic replay
+// possible: a snapshot must be a photograph, not a window. It is a separate test from the
+// round trip above because the round trip cannot see this — its fingerprint hashes RAM and
+// the register blocks, and the buffers that were aliased (the EFB, the depth buffer, the
+// pending FIFO bytes) are not in RAM at all. They lived in the machine's own slices, so a
+// snapshot that shared them still restored a machine that ran identically, and every test
+// passed while the snapshot quietly tracked the live machine.
+//
+// Both directions are asserted, because they fail differently: a save that aliases means the
+// state changes under you after it is taken; a load that aliases means two machines restored
+// from one state scribble on each other.
+func TestSnapshotIsIndependent(t *testing.T) {
+	m := testMachine()
+	m.gpu.EFB = []uint32{1, 2, 3, 4}
+	m.gpu.ZBuf = []uint32{9, 9}
+	m.gpu.Buf = []byte{0x61, 0xAA}
+	m.gpu.Tlut = []byte{0x11, 0x22}
+	m.wgFIFO.Buf = []byte{0x80}
+
+	// A saved state must not move when the machine does.
+	s := m.SaveState()
+	m.gpu.EFB[0] = 0xDEAD
+	m.gpu.ZBuf[0] = 0xBEEF
+	m.gpu.Buf[0] = 0xFF
+	m.gpu.Tlut[0] = 0xFF
+	m.wgFIFO.Buf[0] = 0xFF
+	if s.GPU.EFB[0] != 1 || s.GPU.ZBuf[0] != 9 || s.GPU.Buf[0] != 0x61 ||
+		s.GPU.Tlut[0] != 0x11 || s.WG.Buf[0] != 0x80 {
+		t.Errorf("the snapshot followed the live machine: EFB[0]=%#x ZBuf[0]=%#x Buf[0]=%#x Tlut[0]=%#x WG[0]=%#x",
+			s.GPU.EFB[0], s.GPU.ZBuf[0], s.GPU.Buf[0], s.GPU.Tlut[0], s.WG.Buf[0])
+	}
+
+	// And a restored machine must not write back into the state it came from — the second
+	// restore of the same state has to see what the first one saw.
+	b := testMachine()
+	if err := b.LoadState(s); err != nil {
+		t.Fatal(err)
+	}
+	b.gpu.EFB[0] = 0xC0DE
+	b.gpu.Tlut[0] = 0xC0
+	b.wgFIFO.Buf[0] = 0xC0
+	if s.GPU.EFB[0] != 1 || s.GPU.Tlut[0] != 0x11 || s.WG.Buf[0] != 0x80 {
+		t.Errorf("a restored machine wrote back into the snapshot: EFB[0]=%#x Tlut[0]=%#x WG[0]=%#x",
+			s.GPU.EFB[0], s.GPU.Tlut[0], s.WG.Buf[0])
+	}
+
+	c := testMachine()
+	if err := c.LoadState(s); err != nil {
+		t.Fatal(err)
+	}
+	if c.gpu.EFB[0] != 1 {
+		t.Errorf("the second restore of one snapshot saw the first restore's writes: EFB[0]=%#x", c.gpu.EFB[0])
+	}
+}
+
 // A savestate from another disc must be rejected, not resumed onto the wrong game.
 func TestSaveStateWrongDisc(t *testing.T) {
 	m := &Machine{discMD5: "the-right-disc"}

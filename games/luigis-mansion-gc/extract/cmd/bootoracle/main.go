@@ -101,14 +101,6 @@ type cfg struct {
 	keys                                 string
 }
 
-// padButtonNames maps the -keys button names to the standard-controller button bits the game
-// reads (the same values PADRead delivers: A=0x0100, START=0x1000, …).
-var padButtonNames = map[string]uint16{
-	"a": 0x0100, "b": 0x0200, "x": 0x0400, "y": 0x0800, "start": 0x1000,
-	"z": 0x0010, "r": 0x0020, "l": 0x0040,
-	"up": 0x0008, "down": 0x0004, "right": 0x0002, "left": 0x0001,
-}
-
 // keyPress is one scheduled controller input: press `buttons` from VI field `atField`
 // onward, releasing after `holdFields` fields (0 = held forever). The game edge-detects
 // presses, so a release between two presses of the same button is what makes them two.
@@ -131,7 +123,7 @@ func parseKeys(spec string) ([]keyPress, error) {
 		if !ok {
 			return nil, fmt.Errorf("bad -keys token %q, want BUTTON@FIELD[:HOLD]", tok)
 		}
-		b, ok := padButtonNames[strings.ToLower(strings.TrimSpace(name))]
+		b, ok := gc.PadButton(strings.ToLower(strings.TrimSpace(name)))
 		if !ok {
 			return nil, fmt.Errorf("unknown button %q in -keys", name)
 		}
@@ -585,7 +577,7 @@ func writeWAV(path string, data []byte) error {
 	le32(16, 16)
 	buf[20], buf[22] = 1, 2 // PCM, stereo
 	le32(24, 48000)
-	le32(28, 48000*4) // byte rate
+	le32(28, 48000*4)        // byte rate
 	buf[32], buf[34] = 4, 16 // block align, bits per sample
 	copy(buf[36:], "data")
 	le32(40, uint32(n))

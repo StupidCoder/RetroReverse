@@ -19,8 +19,8 @@ package gc
 // command has arrived — which also means Buf is part of the machine's saved state.
 
 type gpu struct {
-	Buf    []byte         // command bytes not yet assembled into a whole command
-	Census [256]uint64    // how many of each opcode the FIFO has carried — the plumbing gate
+	Buf    []byte      // command bytes not yet assembled into a whole command
+	Census [256]uint64 // how many of each opcode the FIFO has carried — the plumbing gate
 
 	// Per-primitive pixel accounting for the RR_GC_DRAWTRACE line: where a draw's pixels
 	// went. Unexported — diagnostic state, not machine state, so it stays out of snapshots.
@@ -30,9 +30,9 @@ type gpu struct {
 	// it, and honouring the same limit keeps the interpreter non-recursive. Transient within
 	// one feed, so it is not machine state.
 	inDisplayList bool
-	CPReg  [0x100]uint32  // the CP registers loaded from the stream (vertex descriptors etc.)
-	BP     [0x100]uint32  // the BP (pixel-engine) registers loaded from the stream
-	XFMem  [0x1060]uint32 // the XF registers and matrix memory (see gpu_xf.go)
+	CPReg         [0x100]uint32  // the CP registers loaded from the stream (vertex descriptors etc.)
+	BP            [0x100]uint32  // the BP (pixel-engine) registers loaded from the stream
+	XFMem         [0x1060]uint32 // the XF registers and matrix memory (see gpu_xf.go)
 
 	// The TEV colour and constant registers share the same eight BP addresses (0xE0..0xE7),
 	// told apart by a type bit in each write, so they cannot both live in BP[] — the last
@@ -67,22 +67,53 @@ func (g *gpu) feed(m *Machine, b []byte) {
 	}
 }
 
+// gxCmd is called by step once a whole command has been parsed off the head of Buf and
+// before any of it executes. It numbers the command, offers it to the debugger's command
+// hook, and answers whether the interpreter may go on: a replay asked to stop after command
+// k declines the next one here, leaving it unconsumed in Buf.
+//
+// Firing before execution rather than after is what makes per-pixel provenance work — a
+// draw's pixels have to be attributable to a command that has already been announced.
+func (g *gpu) gxCmd(m *Machine, op uint8, words []uint32) bool {
+	if m.gxStopAfter > 0 && m.gxCmdCount >= m.gxStopAfter {
+		m.gxStopped = true
+		m.StopRequested = true
+		return false
+	}
+	m.gxCmdCount++
+	if m.OnGXCmd != nil {
+		m.OnGXCmd(m, op, words)
+	}
+	return true
+}
+
 // step consumes one complete command from the head of Buf. It returns false when Buf does
-// not yet hold a whole command (so the parser waits for the next burst) or when the machine
-// has halted — either an unknown opcode or a command the pipe cannot yet interpret, both of
-// which stop loudly rather than guess a length and desynchronise the entire stream.
+// not yet hold a whole command (so the parser waits for the next burst), when a replay has
+// asked to stop here, or when the machine has halted — either an unknown opcode or a command
+// the pipe cannot yet interpret, both of which stop loudly rather than guess a length and
+// desynchronise the entire stream.
+//
+// Each case checks its command is complete FIRST, then announces it through gxCmd, then
+// executes. That order is the contract: a command is announced only if it is whole and is
+// about to run.
 func (g *gpu) step(m *Machine) bool {
-	if m.CPU.Halted || len(g.Buf) == 0 {
+	if m.CPU.Halted || m.gxStopped || len(g.Buf) == 0 {
 		return false
 	}
 	op := g.Buf[0]
 	switch {
 	case op == 0x00: // NOP — padding to a 32-byte boundary
+		if !g.gxCmd(m, op, nil) {
+			return false
+		}
 		g.Census[0]++
 		g.Buf = g.Buf[1:]
 
 	case op == 0x08: // load a CP register: opcode, u8 address, u32 value
 		if len(g.Buf) < 6 {
+			return false
+		}
+		if !g.gxCmd(m, op, []uint32{uint32(g.Buf[1]), be32(g.Buf[2:])}) {
 			return false
 		}
 		g.CPReg[g.Buf[1]] = be32(g.Buf[2:])
@@ -100,6 +131,14 @@ func (g *gpu) step(m *Machine) bool {
 			return false
 		}
 		addr := int(cmd & 0xFFFF)
+		words := make([]uint32, 0, cnt+1)
+		words = append(words, cmd)
+		for k := 0; k < cnt; k++ {
+			words = append(words, be32(g.Buf[5+4*k:]))
+		}
+		if !g.gxCmd(m, op, words) {
+			return false
+		}
 		for k := 0; k < cnt; k++ {
 			g.xfStore(addr+k, be32(g.Buf[5+4*k:]))
 		}
@@ -108,6 +147,9 @@ func (g *gpu) step(m *Machine) bool {
 
 	case op >= 0x20 && op <= 0x38 && op&0x07 == 0: // load indexed A/B/C/D into XF memory
 		if len(g.Buf) < 5 {
+			return false
+		}
+		if !g.gxCmd(m, op, []uint32{be32(g.Buf[1:])}) {
 			return false
 		}
 		g.Census[op]++
@@ -119,11 +161,17 @@ func (g *gpu) step(m *Machine) bool {
 		}
 		addr := be32(g.Buf[1:])
 		size := be32(g.Buf[5:])
+		if !g.gxCmd(m, op, []uint32{addr, size}) {
+			return false
+		}
 		g.Census[0x40]++
 		g.Buf = g.Buf[9:]
 		g.callDisplayList(m, addr, size)
 
 	case op == 0x48: // invalidate the vertex cache
+		if !g.gxCmd(m, op, nil) {
+			return false
+		}
 		g.Census[0x48]++
 		g.Buf = g.Buf[1:]
 
@@ -132,6 +180,9 @@ func (g *gpu) step(m *Machine) bool {
 			return false
 		}
 		v := be32(g.Buf[1:])
+		if !g.gxCmd(m, op, []uint32{v}) {
+			return false
+		}
 		g.Census[0x61]++
 		g.Buf = g.Buf[5:]
 		g.loadBP(m, uint8(v>>24), v&0x00FFFFFF)
@@ -151,6 +202,9 @@ func (g *gpu) step(m *Machine) bool {
 		if len(g.Buf) < total {
 			return false
 		}
+		if !g.gxCmd(m, op, []uint32{uint32(vat), uint32(count)}) {
+			return false
+		}
 		g.Census[op]++
 		// The vertex size is computed exactly so the parser lands on the next real command; if
 		// it is wrong the stream desynchronises and the very next opcode halts the run, which is
@@ -163,6 +217,52 @@ func (g *gpu) step(m *Machine) bool {
 		return false
 	}
 	return true
+}
+
+// GXName is the FIFO opcode's name, for a debugger's command list.
+func GXName(op uint8) string {
+	switch {
+	case op == 0x00:
+		return "NOP"
+	case op == 0x08:
+		return "CP_LOADREG"
+	case op == 0x10:
+		return "XF_LOADREGS"
+	case op >= 0x20 && op <= 0x38 && op&0x07 == 0:
+		return "XF_LOADINDEX"
+	case op == 0x40:
+		return "CALL_DISPLAYLIST"
+	case op == 0x48:
+		return "INVAL_VTXCACHE"
+	case op == 0x61:
+		return "BP_LOADREG"
+	case op >= 0x80:
+		return "DRAW_" + primName(op&0xF8)
+	}
+	return "UNKNOWN"
+}
+
+// primName names a draw's primitive type — the top five bits of a draw opcode.
+func primName(prim uint8) string {
+	switch prim {
+	case 0x80:
+		return "QUADS"
+	case 0x88:
+		return "QUADS2"
+	case 0x90:
+		return "TRIANGLES"
+	case 0x98:
+		return "TRIANGLESTRIP"
+	case 0xA0:
+		return "TRIANGLEFAN"
+	case 0xA8:
+		return "LINES"
+	case 0xB0:
+		return "LINESTRIP"
+	case 0xB8:
+		return "POINTS"
+	}
+	return "PRIM"
 }
 
 // callDisplayList executes a display list: a block of the same FIFO commands, pre-built in
@@ -190,7 +290,11 @@ func (g *gpu) callDisplayList(m *Machine, addr, size uint32) {
 	leftover := len(g.Buf)
 	g.inDisplayList = false
 	g.Buf = saved
-	if leftover != 0 && !m.CPU.Halted {
+	// Bytes left over mean the list ended in the middle of a command — a desynchronised
+	// stream, and as loud a fault as an unknown opcode. Unless a replay stopped us on
+	// purpose: then the leftover is the rest of the list we deliberately declined to run,
+	// and the machine it happened on is a scratch one about to be thrown away.
+	if leftover != 0 && !m.CPU.Halted && !m.gxStopped {
 		m.CPU.Halt("CP: display list at 0x%08X ended mid-command (%d bytes left of %d)",
 			addr, leftover, size)
 	}

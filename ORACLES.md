@@ -129,9 +129,10 @@ Every other instrument in this file answers a question you already knew to ask. 
 for the questions you *don't* — you watch the frame being built and see what it does. It is the one
 oracle front-end with a user interface, and it is deliberately platform-agnostic: `tools/debug`
 defines a small `Target` interface plus a set of *optional capabilities*, and the page builds itself
-from whatever the current target says it can do — no empty panels, nothing faked. Four adapters back
-it today: `n64adapter`, `psxadapter`, `n3dsadapter` and `ndsadapter` (RDP, GP0, PICA200 and the DS's
-geometry engine).
+from whatever the current target says it can do — no empty panels, nothing faked. Seven adapters back
+it today: `n64adapter`, `psxadapter`, `n3dsadapter`, `ndsadapter`, `pspadapter`, `threedoadapter` and
+`gcadapter` (the RDP, GP0, the PICA200, the DS's geometry engine, the GE, the 3DO's cel engine and
+Flipper), plus `dosadapter`, which is CPU-only and has no frames at all.
 
 ```
 framedbg -image ROM [-state FILE] -serve :8088     # the interactive debugger, in a browser
@@ -225,6 +226,39 @@ not run while the commands do:
 
 Clicking Mario's face on SM64DS's title screen (12,311 geometry commands in the frame) names
 `VTX_XZ` #11679 and shows seven writes to that pixel — one of them depth-rejected.
+
+**What the GameCube adapter had to do differently**, because it is the first target whose draw target
+is not in memory at all:
+
+- **The frame is the COPY, not the field.** Flipper draws into an embedded framebuffer on the die —
+  the EFB, 640×528 RGBA — and the pixel engine then copies that out to the external framebuffer the
+  video interface scans, as 640×480 YUY2 in main RAM. The copy is the flip and it is where a frame
+  ends. The video field is not: it is a scanout clock that ticks whether or not the game drew, and
+  the copy that ends a frame **clears the EFB behind itself** — so a capture taken at the field
+  boundary finds the frame's own draw target already wiped. This is the third form the "render the
+  draw target, not the scanout" lesson has taken (N64/PSX: double-buffered; 3DS: different planes;
+  here: different *memories*, and one of them is erased a microsecond after the frame is finished).
+  The picture is therefore taken **inside** the copy, through an `OnFlip` hook that runs before the
+  clear — in `StepFrame` *and* in `RenderAfter`, because the scrubber's last position is the closing
+  copy and would otherwise be black.
+- **No sentinel panic is needed.** The FIFO is drained by an ordinary Go loop that the write-gather
+  pipe feeds, so the interpreter simply declines the next command and leaves it queued
+  (`Machine.RunStopAfterGXCommand`) — the N64 and DS need the panic only because their command lists
+  execute *inside* one CPU instruction.
+- **The disc is a real filesystem**, so this is the second target after the 3DS to back `FileLister`
+  and `FileAttributer`: a read-watch on the drive can name the game's own file being streamed.
+- **The pad is the Keyer's second platform, and it inverted the interface's hazard.** A PC keyboard
+  *delivers events* — make and break are each a scancode the guest's ISR consumes, so the rule there
+  was "never coalesce". The GameCube's pad *is a level*: the serial interface samples it once per
+  field and the game edge-detects presses off those samples. Nothing on the guest side queues, so
+  nothing self-paces, and a browser key that goes down and up between two field samples is a press
+  the game never sees. The adapter therefore queues button states and releases **one per field**,
+  which is the touch latch's logic arriving from the opposite side: there the risk was more states
+  than frames, here a state with no field to be sampled in.
+
+A frame of the intro cutscene is 12,770 FIFO commands over a 640×528 draw target, 2,959 of them
+writing pixels; clicking Luigi at (340,390) names `DRAW_TRIANGLEFAN` #1103 and shows 45 writes to
+that pixel, 44 of them depth-rejected.
 
 ---
 
@@ -408,7 +442,7 @@ and are **candidates to port**:
 | **Write-profiler (`-vgaprof`)** | DOS | "who wrote this value" up the call stack; catches self-modifying patchers. Would suit any framebuffer or command-ring investigation |
 | **`-spinbreak` / `-hot`** | 3DO | turns "hangs forever" into "here is the loop and why". The 3DS spent three sessions doing this by hand |
 | **Read-watch (`-rwatch`)** | PSX/PSP/N64 | the complement of `-watch`; the 3DS oracle still lacks it |
-| **The frame debugger (`framedbg -serve`)** | N64 | watch a frame being built, command by command; click a pixel to get the command that drew it and its overdraw history. Needs three things of a platform — a per-command hook, a per-pixel hook, and an in-memory snapshot — and every LLE machine here could offer them. Ported to PSX, the 3DS and **the DS**; the remaining LLE machines (PSP's GE, 3DO's cel engine) want adapters next |
+| **The frame debugger (`framedbg -serve`)** | N64, PSX, 3DS, DS, PSP, 3DO, **GameCube**, and DOS (CPU-only) | watch a frame being built, command by command; click a pixel to get the command that drew it and its overdraw history. Needs four things of a platform — a per-command hook, a per-pixel hook, a frame hook, and a **deep** in-memory snapshot — and every LLE machine here can offer them. Every platform after the N64 needed all four added; every one of them also had to answer "which buffer is the frame?" differently, and getting that wrong is the one mistake that still looks right |
 | **The "gap log" (`-log`)** | DS | an I/O register the machine does not implement is *logged*, not quietly read back as the last value written. Every stub that reads "ready" is a lie the boot believes until the frame it doesn't, and the log is what turns a run's reach into a claim you can check. Cheap to add anywhere |
 | **`-rtshot` / the render target on its own** | 3DS, DS | a black screen is two different bugs wearing one face — the GPU drew nothing, or it drew and the compositor threw it away. No counter separates them; looking at the plane the rasteriser wrote does, instantly |
 | **`-poke`** | PSX/3DS | falsify a hypothesis in one run by forcing the value the game waits for |

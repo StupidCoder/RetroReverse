@@ -37,7 +37,7 @@ type dsp struct {
 	// The synthesized boot ROM understands one more thing than its ready handshake: the
 	// command sequence that loads a microcode and starts it. Once a ucode is "running" the
 	// boot ROM's own re-post-on-halt behaviour is no longer what answers the mailbox.
-	UcodeRunning  bool // the boot ROM has loaded a ucode image and jumped to it
+	UcodeRunning  bool   // the boot ROM has loaded a ucode image and jumped to it
 	AwaitValue    bool   // the previous mail was a load command; this next mail is its parameter
 	AwaitStartArg bool   // the "start" command was seen; its parameter completes the load
 	LoadCmd       uint32 // the load command whose parameter mail is expected next

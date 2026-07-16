@@ -161,6 +161,14 @@ func (g *gpu) copyDisplay(m *Machine, params uint32) {
 		}
 	}
 
+	// The frame is finished and delivered: the external framebuffer holds it and, for one
+	// more moment, so does the EFB. This is the frame boundary a debugger wants — and it has
+	// to be taken here, before the clear below, because the copy that ends a frame is
+	// usually the same command that wipes the buffer the frame was drawn in.
+	if m.OnFlip != nil {
+		m.OnFlip(m)
+	}
+
 	if clear {
 		g.clearEFB()
 	}

@@ -84,10 +84,47 @@ type Machine struct {
 	OnFIFO             func(data []byte)                                     // graphics FIFO bytes, for the GPU
 	AIDTap             func(block []byte)                                    // every 32-byte audio-DMA block as it drains — the DAC's ear
 
+	// The frame debugger's three hooks. They are the machine's, not the debugger's, because
+	// only the machine knows where a command begins, where a pixel is decided, and when a
+	// frame is finished — and each is a place the graphics pipe already passes through.
+	//
+	// OnGXCmd fires once per command the FIFO interpreter consumes, before it executes, so a
+	// capture can number the commands in execution order and a stop after command k lands
+	// between two of them.
+	//
+	// OnPixel fires for every pixel the rasteriser decides, drawn or rejected — that is the
+	// point of it: a pixel the depth test threw away is provenance without a store, which is
+	// exactly what "why is this pixel not what I expect" needs.
+	//
+	// OnFlip fires when the pixel engine copies the embedded framebuffer out to the external
+	// one — the flip, and the only honest frame boundary here. It is NOT the video field: a
+	// field is a scanout clock that ticks whether or not the game drew, and the copy that
+	// ends a frame usually CLEARS the EFB behind it, so by the time the field boundary comes
+	// round the frame's own draw target is already wiped. The hook therefore runs with the
+	// EFB still holding the finished frame.
+	OnGXCmd func(m *Machine, op uint8, words []uint32)
+	OnPixel func(x, y int, ev PixelEvent)
+	OnFlip  func(m *Machine)
+
 	StopRequested bool
+
+	// The command scrubber's counter. Deliberately not machine state and not in the
+	// savestate: a replay restores a frame's start snapshot and counts this frame's
+	// commands from zero, so carrying a count across a restore would be wrong.
+	gxCmdCount  int
+	gxStopAfter int  // 0 = run the FIFO normally
+	gxStopped   bool // the interpreter has declined the next command and the run is unwinding
 
 	run    runState
 	noSpin bool
+}
+
+// PixelEvent is one pixel the rasteriser produced: the colour the TEV made of it, and
+// whether it was stored. A rejected pixel (depth or alpha) carries the colour it would have
+// had, which is what makes an overdraw history worth reading.
+type PixelEvent struct {
+	R, G, B, A uint8
+	Drawn      bool
 }
 
 // NewMachine builds a GameCube around a disc, in the state the IPL leaves it in just

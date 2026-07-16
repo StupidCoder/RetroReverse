@@ -43,8 +43,8 @@ type exiChannel struct {
 // bit. The three status bits and the present bit must survive a control write — the SDK
 // acknowledges an interrupt by writing its bit back, not by rewriting the whole register.
 const (
-	exiCSRTCIntMask = 1 << 2  // transfer-complete interrupt enable
-	exiCSRTCInt     = 1 << 3  // transfer-complete status (write one to clear)
+	exiCSRTCIntMask = 1 << 2              // transfer-complete interrupt enable
+	exiCSRTCInt     = 1 << 3              // transfer-complete status (write one to clear)
 	exiCSRStatus    = 1<<1 | 1<<3 | 1<<11 // EXIINT, TCINT, EXTINT — the w1c bits
 )
 

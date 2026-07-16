@@ -3,6 +3,7 @@ package gc
 import (
 	"fmt"
 	"os"
+	"sort"
 )
 
 // siTrace, set by RR_GC_SITRACE, dumps every SI register access — the tool that pinned the
@@ -276,6 +277,42 @@ func (m *Machine) SetPadButtons(port int, buttons uint16) {
 		return
 	}
 	m.si.Pad[port].Buttons = buttons
+}
+
+// PadButtons reads back a controller's currently-set digital buttons — what the next
+// auto-poll will latch.
+func (m *Machine) PadButtons(port int) uint16 {
+	if port < 0 || port > 3 {
+		return 0
+	}
+	return m.si.Pad[port].Buttons
+}
+
+// padButtons are the standard controller's digital buttons, by the names every tool that
+// drives this machine uses for them — the oracle's -keys scripts and the debugger's keyboard
+// alike. It lives here, next to the serial interface that delivers them, so the two
+// vocabularies cannot drift apart.
+var padButtons = map[string]uint16{
+	"a": 0x0100, "b": 0x0200, "x": 0x0400, "y": 0x0800, "start": 0x1000,
+	"z": 0x0010, "r": 0x0020, "l": 0x0040,
+	"up": 0x0008, "down": 0x0004, "right": 0x0002, "left": 0x0001,
+}
+
+// PadButton looks up a controller button's bit by name.
+func PadButton(name string) (uint16, bool) {
+	b, ok := padButtons[name]
+	return b, ok
+}
+
+// PadButtonNames lists the button names PadButton accepts, sorted, for a caller that needs
+// to show or validate the vocabulary.
+func PadButtonNames() []string {
+	out := make([]string, 0, len(padButtons))
+	for n := range padButtons {
+		out = append(out, n)
+	}
+	sort.Strings(out)
+	return out
 }
 
 // --- I/O buffer byte access ---------------------------------------------------------------

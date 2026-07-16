@@ -104,6 +104,9 @@ func (g *gpu) drawTriangle(m *Machine, v0, v1, v2 screenVertex) {
 			idx := y*efbWidth + x
 			if zEnable && !depthCompare(z, g.ZBuf[idx], zFunc) {
 				g.pixZRej++
+				if m.OnPixel != nil {
+					m.OnPixel(x, y, PixelEvent{})
+				}
 				continue
 			}
 
@@ -129,6 +132,9 @@ func (g *gpu) drawTriangle(m *Machine, v0, v1, v2 screenVertex) {
 			}
 			if !pass { // the alpha test rejected the pixel
 				g.pixARej++
+				if m.OnPixel != nil {
+					m.OnPixel(x, y, PixelEvent{R: fr, G: fg, B: fb, A: fa})
+				}
 				continue
 			}
 
@@ -137,6 +143,9 @@ func (g *gpu) drawTriangle(m *Machine, v0, v1, v2 screenVertex) {
 				g.ZBuf[idx] = z
 			}
 			g.pixWritten++
+			if m.OnPixel != nil {
+				m.OnPixel(x, y, PixelEvent{R: fr, G: fg, B: fb, A: fa, Drawn: true})
+			}
 		}
 	}
 }

@@ -34,6 +34,7 @@ import (
 
 	"retroreverse.com/tools/debug"
 	"retroreverse.com/tools/debug/dosadapter"
+	"retroreverse.com/tools/debug/gcadapter"
 	"retroreverse.com/tools/debug/n3dsadapter"
 	"retroreverse.com/tools/debug/n64adapter"
 	"retroreverse.com/tools/debug/ndsadapter"
@@ -66,7 +67,7 @@ func run() error {
 		state    = flag.String("state", "", "savestate file to load before stepping (skips the boot)")
 		isr      = flag.String("isr", "", "PSX only: the game's vectored-interrupt handler, hex (Ridge Racer: 8004DF48)")
 		dtcm     = flag.String("dtcm", "", "DS only: the ARM9 DTCM base the game programs, hex (SM64DS: 023C0000)")
-		platform = flag.String("platform", "", "force the platform (n64, psx, psp, 3ds, 3do); by default it is read off the image's extension")
+		platform = flag.String("platform", "", "force the platform (n64, psx, psp, 3ds, 3do, ds, gc); by default it is read off the image's extension")
 		skip     = flag.Int("skip", -1, "advance this many frames before capturing; -1 = step until a drawn frame")
 		list     = flag.Bool("list", false, "print the captured frame's display-processor command stream")
 		listmax  = flag.Int("listmax", 0, "cap -list to the first M commands (0 = all)")
@@ -156,8 +157,9 @@ func run() error {
 // cartridge, a .cso is a UMD, a .3ds is a 3DS card image.
 //
 // It is not always enough, and -platform is the way out rather than a guess. A .bin can
-// be a PSX disc or a 3DO one, and an .iso can be a PSX disc or a UMD; nothing in the
-// name says which, so a name is asked to choose only where the answer is unambiguous.
+// be a PSX disc or a 3DO one, and an .iso can be a PSX disc, a UMD or a GameCube disc;
+// nothing in the name says which, so a name is asked to choose only where the answer is
+// unambiguous.
 func open(path, platform, isr, dtcm string) (target, error) {
 	if platform == "" {
 		switch strings.ToLower(filepath.Ext(path)) {
@@ -172,12 +174,14 @@ func open(path, platform, isr, dtcm string) (target, error) {
 		case ".bin", ".iso", ".img":
 			platform = "psx"
 		default:
-			return nil, fmt.Errorf("cannot tell which platform %q is: name it with -platform (n64, psx, psp, 3ds, 3do, ds)", filepath.Base(path))
+			return nil, fmt.Errorf("cannot tell which platform %q is: name it with -platform (n64, psx, psp, 3ds, 3do, ds, gc)", filepath.Base(path))
 		}
 	}
 	switch platform {
 	case "n64":
 		return n64adapter.New(path)
+	case "gc":
+		return gcadapter.New(path)
 	case "3ds":
 		return n3dsadapter.New(path)
 	case "ds":
@@ -197,7 +201,7 @@ func open(path, platform, isr, dtcm string) (target, error) {
 		}
 		return psxadapter.New(path, opts)
 	}
-	return nil, fmt.Errorf("unknown -platform %q (want n64, psx, psp, 3ds, 3do or ds)", platform)
+	return nil, fmt.Errorf("unknown -platform %q (want n64, psx, psp, 3ds, 3do, ds or gc)", platform)
 }
 
 // advance steps the machine to a drawn frame. It first advances skip video fields
