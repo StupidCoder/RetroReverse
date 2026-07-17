@@ -143,11 +143,38 @@ type Machine struct {
 	push   pusherState
 	pgraph *pgraph
 
-	// MCPX device MMIO (apu.go): the APU's, AC'97 codec's, and USB OHCI's latch apertures.
+	// MCPX device MMIO: the APU's, AC'97 codec's and NIC's latch apertures (apu.go),
+	// and the USB OHCI host controller (usb.go), whose register file is still backed by
+	// a latch's sparse map — that map is the savestate's USBReg, so the controller the
+	// title programmed survives a restore — with its semantics layered over the top.
 	apu  mmioLatch
 	ac97 mmioLatch
 	usb  mmioLatch
 	nic  mmioLatch
+
+	// usbFrameServed is the last USB frame number usbTick ran (usb.go). The frame
+	// number itself is derived from tick and stored nowhere; this is only the
+	// catch-up cursor, and it rides in the savestate so a restore does not replay.
+	usbFrameServed uint64
+
+	// usbWrDword reassembles the dword a guest store is writing to the OHCI, byte by
+	// byte, so the trace can report the command the driver issued rather than what the
+	// register was left holding. Instrumentation, not state: it cannot outlive the
+	// single instruction that fills it.
+	usbWrDword uint32
+
+	// Armed KTIMERs (timer.go). The queue is small — a handful of drivers' heartbeats
+	// and XAPI's port debounce — so it is a slice scanned per coarse tick rather than a
+	// heap: the cost is in the scan, and the clarity is worth more than the ordering.
+	timers []ktimer
+
+	// The devices on the root hub's four ports (usb_xid.go), and the transfer engine's
+	// working state (usb_ohci.go): the TDs retired this frame and awaiting writeback,
+	// and the control pipe's in-flight IN data with its cursor.
+	usbDev      [usbPorts]usbDevice
+	usbDone     []uint32
+	usbCtrlData []byte
+	usbCtrlOff  int
 
 	pciAddr uint32 // last value written to the PCI config-address port 0xCF8 (ports.go)
 
@@ -519,6 +546,19 @@ func (m *Machine) SetTrace(n int) { m.traceLeft = n }
 // the debugger/CLI view into the running machine.
 func (m *Machine) MemReadByte(a uint32) byte { return m.Read(a) }
 func (m *Machine) MemRead32(a uint32) uint32 { return m.read32(a) }
+
+// Poke writes a dword to guest memory the way the guest itself would — through the full
+// address-window translation, MMIO side effects and all.
+//
+// That is the opposite choice from ReadRAM below, and deliberately so. ReadRAM refuses
+// the aperture because a debugger's memory pane polls continuously at addresses the user
+// merely happened to scroll past, so a side effect there is an accident. A poke is the
+// other kind of act: it is one write, at one address, that someone typed on purpose. If
+// they aimed it at a register, servicing the register is the answer they asked for.
+//
+// It exists for the oracle's -poke — a probe, never a model. A poke that makes the title
+// advance has proved that the address is read; it has not earned a place in the machine.
+func (m *Machine) Poke(a, v uint32) { m.write32(a, v) }
 
 // ReadRAM fills buf from guest address a, reading RAM only: anything outside RAM — the
 // NV2A aperture above all — reads as zero rather than being fetched.

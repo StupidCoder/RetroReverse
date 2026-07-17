@@ -162,7 +162,7 @@ func kernelCryptoHandler(ord uint16) func(*Machine) int {
 			key, n := m.arg(0), m.arg(1)
 			for i := uint32(0); i < n; i++ {
 				b := m.Read(key + i)
-				b = b&0xFE | (popcount7(b>>1)&1)^1
+				b = b&0xFE | (popcount7(b>>1) & 1) ^ 1
 				m.Write(key+i, b)
 			}
 			m.setRet(0)

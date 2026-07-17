@@ -801,14 +801,17 @@ func kernelObjectHandler(ord uint16) func(*Machine) int {
 		}
 
 	case 149: // KeSetTimer(Timer, DueTime(LARGE_INTEGER, 2 dwords), Dpc) — verified: args
-		// (KTIMER, negative relative due time, KDPC). Record the association; the DPC is
-		// not fired here (nothing yet waits on it). Returns TRUE (timer was not set).
+		// (KTIMER, negative relative due time, KDPC). Arms the timer (timer.go); the DPC
+		// runs when it expires. Returns whether the timer was already in the queue.
+		//
+		// This used to record the arguments and fire nothing, on the honest grounds that
+		// nothing waited on it. XAPI's hub driver is what came to wait: it debounces a
+		// port connect by 100 ms (0x241C01 pushes DueTime = -1,000,000) and resets the
+		// port from the DPC, so a stub here meant the pad was seen, believed, and then
+		// left for ever. See timer.go.
 		return func(m *Machine) int {
-			tm := m.arg(0)
-			if tm != 0 {
-				m.write32(tm+dhSignalState, 0) // not yet signalled
-			}
-			m.setRet(1)
+			was := m.armTimer(m.arg(0), m.arg(3), m.arg(1), m.arg(2), 0)
+			m.setRet(b2u(was))
 			return 4
 		}
 
@@ -816,15 +819,10 @@ func kernelObjectHandler(ord uint16) func(*Machine) int {
 		// link-poll site (0x20D187): (this+0x1A8 KTIMER, 0xFFFFFFFFFFE17B80 = -200 ms
 		// relative, Period=200 ms, this+0x18C KDPC) — the KTIMER/KDPC pair this object's
 		// constructor built with KeInitializeTimerEx/KeInitializeDpc. Canonical neighbour
-		// of the verified KeSetTimer (149). Like 149, record only the dispatcher state;
-		// no DPC fires in our cooperative model (the poll also runs from the game's own
-		// per-frame update).
+		// of the verified KeSetTimer (149), and armed the same way, with its period.
 		return func(m *Machine) int {
-			tm := m.arg(0)
-			if tm != 0 {
-				m.write32(tm+dhSignalState, 0) // not yet signalled
-			}
-			m.setRet(1)
+			was := m.armTimer(m.arg(0), m.arg(4), m.arg(1), m.arg(2), m.arg(3))
+			m.setRet(b2u(was))
 			return 5
 		}
 
@@ -843,22 +841,39 @@ func kernelObjectHandler(ord uint16) func(*Machine) int {
 
 	case 97: // KeCancelTimer(Timer) -> BOOLEAN. Verified from the object destructor at
 		// 0x20D1A9: one pointer arg = the KTIMER the constructor set up at this+0x1A8 with
-		// KeInitializeTimerEx (ord 113), cancelled here as the object tears down. Our timers
-		// are never inserted into a live queue (KeSetTimer is a record-only stub), so the
-		// timer was not pending: return FALSE, the honest state.
+		// KeInitializeTimerEx (ord 113), cancelled here as the object tears down.
+		//
+		// It used to answer FALSE always — "the timer was not pending" — which was true
+		// only because KeSetTimer never queued one. That is the shape of stub worth being
+		// wary of: correct, honest, and quietly wrong the moment its neighbour grows up.
+		// It now answers for the real queue (timer.go).
 		return func(m *Machine) int {
-			if tm := m.arg(0); tm != 0 {
+			tm := m.arg(0)
+			was := m.cancelTimer(tm)
+			if tm != 0 {
 				m.write32(tm+dhSignalState, 0)
 			}
-			m.setRet(0)
+			m.setRet(b2u(was))
 			return 1
 		}
 
 	case 137: // KeRemoveQueueDpc(Dpc) -> BOOLEAN. Verified from the same destructor (0x20D1B6):
 		// one pointer arg = the KDPC at this+0x18C (KeInitializeDpc, ord 107), dequeued as
-		// the object tears down. No DPC is ever queued in our cooperative model, so it was
-		// not present: return FALSE.
-		return func(m *Machine) int { m.setRet(0); return 1 }
+		// the object tears down. Its old FALSE was the KeCancelTimer story again — "no DPC
+		// is ever queued", true of a machine with no timer queue. Now it dequeues.
+		return func(m *Machine) int {
+			dpc := m.arg(0)
+			found := false
+			for i, d := range m.dpcQueue {
+				if d.Dpc == dpc {
+					m.dpcQueue = append(m.dpcQueue[:i], m.dpcQueue[i+1:]...)
+					found = true
+					break
+				}
+			}
+			m.setRet(b2u(found))
+			return 1
+		}
 
 	case 17: // ExFreePool(P) -> void. Verified from the destructor at 0x20D1DC: one pointer
 		// arg = a block held at this+0x50, freed then nulled — the ExFreePool shape. Our

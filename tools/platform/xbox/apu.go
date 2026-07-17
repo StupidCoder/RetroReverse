@@ -52,20 +52,19 @@ const (
 	usbSize = 0x1000     // one OHCI register file
 	usbTop  = usbBase + usbSize
 
+	// The USB aperture was a latch here too, with two spec answers and no root hub —
+	// "no pads yet; input is a later phase, exactly like the GameCube SI." That phase
+	// arrived, and the parallel held: usb.go now models the controller, and its own
+	// comment records what the latch got wrong. Only the aperture's bounds stay here,
+	// beside its MCPX siblings.
+	//
+	// The second MCPX controller (0xFED08000) is deliberately NOT mapped: the title
+	// never reads it. An aperture that exists because we remembered the silicon has it
+	// is a fact with no evidence behind it — map it when a trace asks for it.
+
 	nicBase = 0xFEF00000 // the MCPX NVNET Ethernet controller (XNET's link probe)
 	nicSize = 0x1000
 	nicTop  = nicBase + nicSize
-
-	// OHCI operational registers with answers beyond the latch (generic OHCI spec —
-	// platform knowledge, like the AC'97 semaphore): HcRevision reads 1.0, and
-	// HcCommandStatus reads 0 — every self-clearing command bit (HCR reset, list
-	// fills, OCR) has already completed in a synchronous model. XAPI's controller
-	// stack (call site 0x2403B8) checks HcControl's InterruptRouting bit and HCFS
-	// state, both satisfied by the latch's zero default (USBReset state, no SMM
-	// ownership). No devices ever appear on the root hub — no pads yet; input is a
-	// later phase, exactly like the GameCube SI.
-	usbHcRevision      = 0x00
-	usbHcCommandStatus = 0x08
 
 	// The progressing DSP counter the bring-up polls (see the file comment).
 	apuHandshake    = 0x20010
@@ -108,8 +107,25 @@ func (m *Machine) latchWrite(l *mmioLatch, off uint32, v byte) {
 	idx := off >> 2
 	shift := 8 * (off & 3)
 	l.reg[idx] = (l.reg[idx] &^ (0xFF << shift)) | uint32(v)<<shift
+	m.latchTrace(l, off, l.reg[idx])
+}
+
+// latchTrace reports a write to the trace, for a caller that applied it itself.
+//
+// A register with behaviour cannot go through latchWrite — a write-1-to-clear is not a
+// store — but it must still be traceable, because this trace is the instrument that
+// found what the behaviour should be. A device that only narrates the registers it got
+// right is not much of a witness.
+//
+// dw is what the GUEST WROTE, not what the register now holds, and the difference is
+// the whole reason this takes a parameter. Those are the same value for a latch, which
+// is why it was easy not to notice: reporting the stored value made the OHCI's
+// HostControllerReset — a command bit that deliberately stores nothing — trace as
+// `wr 00008 <- 00000000`, an instrument quietly telling the reader the opposite of what
+// the driver had just asked for.
+func (m *Machine) latchTrace(l *mmioLatch, off, dw uint32) {
 	if apuTrace && off&3 == 3 {
-		fmt.Printf("%swr %05X <- %08X  PC=%08X\n", l.name, off&^3, l.reg[idx], m.CPU.LinearPC())
+		fmt.Printf("%swr %05X <- %08X  PC=%08X\n", l.name, off&^3, dw, m.CPU.LinearPC())
 	}
 }
 
@@ -193,16 +209,4 @@ func (m *Machine) apuTick() {
 	}
 }
 
-// usbRead / usbWrite are the USB OHCI host controller: a latch with the two
-// spec-mandated answers above.
-func (m *Machine) usbRead(off uint32) byte {
-	dw, written := m.usb.reg[off>>2]
-	switch off &^ 3 {
-	case usbHcRevision:
-		dw, written = 0x10, true // OHCI 1.0
-	case usbHcCommandStatus:
-		dw, written = 0, true // all self-clearing command bits already done
-	}
-	return m.latchRead(&m.usb, off, dw, written)
-}
-func (m *Machine) usbWrite(off uint32, v byte) { m.latchWrite(&m.usb, off, v) }
+// usbRead / usbWrite live in usb.go: the OHCI outgrew the latch.

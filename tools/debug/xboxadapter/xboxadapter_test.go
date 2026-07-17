@@ -7,6 +7,7 @@ import (
 
 	"retroreverse.com/tools/debug"
 	"retroreverse.com/tools/debug/xboxadapter"
+	"retroreverse.com/tools/platform/xbox"
 )
 
 // The disc and a savestate that is already at a drawn frame. Game images are not committed
@@ -48,8 +49,9 @@ func newAdapter(t *testing.T) *xboxadapter.Adapter {
 }
 
 // TestCapabilities pins both halves of the contract: what this target backs, and what it
-// must NOT claim. The Xbox has no modelled pad yet, so claiming CapKeys would put an input
-// panel on screen that silently swallows every press — a capability is a promise.
+// must NOT claim. CapKeys moved from the second list to the first when the machine grew a
+// pad it could honestly deliver a button to — a capability is a promise, and the promise
+// is what puts the input panel on screen.
 func TestCapabilities(t *testing.T) {
 	if _, err := os.Stat(discPath); os.IsNotExist(err) {
 		t.Skip("the OutRun 2006 disc is not present")
@@ -68,13 +70,13 @@ func TestCapabilities(t *testing.T) {
 		debug.CapFrames, debug.CapFastStep, debug.CapReplay, debug.CapCode,
 		debug.CapBreak, debug.CapDisasm, debug.CapWatch, debug.CapSurfaces,
 		debug.CapFiles, debug.CapFileAt, debug.CapStates, debug.CapResume,
-		debug.CapRegions, debug.CapHalt,
+		debug.CapRegions, debug.CapHalt, debug.CapKeys,
 	} {
 		if !caps[want] {
 			t.Errorf("capability %q is missing", want)
 		}
 	}
-	for _, unwanted := range []string{debug.CapTouch, debug.CapKeys, debug.CapProfile} {
+	for _, unwanted := range []string{debug.CapTouch, debug.CapProfile} {
 		if caps[unwanted] {
 			t.Errorf("capability %q is claimed but not backed", unwanted)
 		}
@@ -524,4 +526,87 @@ func nonBlack(img *image.RGBA) int {
 		}
 	}
 	return n
+}
+
+// --- the pad ---
+
+// TestUnmappedKeyIsIgnored: the browser sends every key the user presses, including ones
+// that are not buttons. Erroring on them would make the panel's own noise look like a bug.
+func TestUnmappedKeyIsIgnored(t *testing.T) {
+	a := newAdapter(t)
+	if err := a.Key(debug.Key{Name: "F7", Down: true}); err != nil {
+		t.Errorf("Key(F7): %v", err)
+	}
+}
+
+// TestPadStatesEachGetAFrame is the pathological case the queue exists for: a press and
+// its release with no frame in between. The title edge-detects presses from consecutive
+// polls, so a level that is never live across a poll is a press that never happened —
+// both states must therefore reach the machine, on frames of their own.
+func TestPadStatesEachGetAFrame(t *testing.T) {
+	a := newAdapter(t)
+	m := a.Machine()
+	if m.OnFlip == nil {
+		t.Fatal("the adapter installed no frame hook, so nothing is pacing the pad")
+	}
+
+	// Watch the level the pad is actually left holding at each frame boundary, chaining
+	// after the adapter's own hook so we see what it set.
+	var seen []uint16
+	prev := m.OnFlip
+	m.OnFlip = func(mm *xbox.Machine) {
+		prev(mm)
+		seen = append(seen, mm.PadButtons(0))
+	}
+
+	a.Key(debug.Key{Name: "Enter", Down: true})  // press start...
+	a.Key(debug.Key{Name: "Enter", Down: false}) // ...and release it, with no frame between
+
+	for i := 0; i < 3; i++ {
+		if err := a.StepFast(); err != nil {
+			t.Fatalf("StepFast: %v", err)
+		}
+	}
+
+	start, _ := xbox.PadButton("start")
+	pressedAt := -1
+	for i, mask := range seen {
+		if mask&start != 0 {
+			pressedAt = i
+			break
+		}
+	}
+	if pressedAt < 0 {
+		t.Fatalf("no frame saw the press (levels seen: %v)", seen)
+	}
+	released := false
+	for _, mask := range seen[pressedAt+1:] {
+		if mask&start == 0 {
+			released = true
+			break
+		}
+	}
+	if !released {
+		t.Errorf("no later frame saw the release (levels seen: %v)", seen)
+	}
+}
+
+// TestHeldPadButtonStaysHeld: the queue carries changes, so an empty queue must leave the
+// level alone. A pacing loop that wrote the queue's head unconditionally would invent a
+// release the moment the user stopped typing.
+func TestHeldPadButtonStaysHeld(t *testing.T) {
+	a := newAdapter(t)
+	m := a.Machine()
+
+	a.Key(debug.Key{Name: "Enter", Down: true})
+	for i := 0; i < 3; i++ {
+		if err := a.StepFast(); err != nil {
+			t.Fatalf("StepFast: %v", err)
+		}
+	}
+
+	start, _ := xbox.PadButton("start")
+	if got := m.PadButtons(0); got&start == 0 {
+		t.Errorf("pad level = %04X after draining the queue: a held button must stay held", got)
+	}
 }

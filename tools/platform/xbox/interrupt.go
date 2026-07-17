@@ -46,9 +46,51 @@ func (m *Machine) vblankTick() {
 	}
 }
 
-// deliverPending runs the connected ISR for any enabled, pending interrupt source.
-// Gates: one frame at a time, the CPU accepting interrupts (IF), and the kernel at
-// PASSIVE_LEVEL (the KfRaiseIrql/KfLowerIrql pair tracks IRQL in the KPCR).
+// irqSource is one device that can interrupt: the vector the title connected it on,
+// and whether it is asserting right now (pending AND enabled, the device's own rule).
+//
+// The table exists because a second device arrived. Registration was always general —
+// KeConnectInterrupt records whatever vector it is handed — but delivery knew only the
+// NV2A's pending test and only the GPU's vector, which made "an interrupt" and "the
+// vblank" the same sentence. They are not, and the USB controller is the proof.
+type irqSource struct {
+	name    string // named so a delivered interrupt can be logged as itself
+	vector  uint32
+	pending func(*Machine) bool
+}
+
+// irqSources are the machine's interrupt sources, in fixed priority order — fixed
+// because delivery must not depend on map iteration if a savestate is to replay
+// identically. Both vectors are pinned from the title's own KeConnectInterrupt rather
+// than assumed (see gpuInterruptVector and usbInterruptVector).
+var irqSources = []irqSource{
+	{"nv2a", gpuInterruptVector, func(m *Machine) bool {
+		return m.nv.pcrtcIntr&m.nv.reg[nvPCRTC_INTR_EN>>2]&1 != 0
+	}},
+	{"usb", usbInterruptVector, (*Machine).usbIRQ},
+}
+
+// irqPending reports whether any source is asserting, regardless of the CPU's gates.
+// It is the retry predicate: a raise can land while the gates are shut, and the
+// device's pending bit holds until its ISR acks it, so the tick handlers re-ask.
+func (m *Machine) irqPending() bool {
+	for i := range irqSources {
+		if irqSources[i].pending(m) {
+			return true
+		}
+	}
+	return false
+}
+
+// deliverPending runs the connected ISR for the highest-priority enabled, pending
+// interrupt source. Gates: one frame at a time, the CPU accepting interrupts (IF), and
+// the kernel at PASSIVE_LEVEL (the KfRaiseIrql/KfLowerIrql pair tracks IRQL in the
+// KPCR).
+//
+// One source per call, and the frame runs to completion before another is considered
+// (isrActive). That is the hardware's own order, and it is also what keeps a second
+// device from being able to starve the first: whatever is still pending when the ISR
+// returns is re-offered by the next tick.
 func (m *Machine) deliverPending() {
 	if m.isrActive || m.CPU == nil || m.CPU.Halted || !m.CPU.IF {
 		return
@@ -56,29 +98,33 @@ func (m *Machine) deliverPending() {
 	if m.Read(kpcrAddr+kpcrIrql) != 0 {
 		return
 	}
-	if m.nv.pcrtcIntr&m.nv.reg[nvPCRTC_INTR_EN>>2]&1 == 0 {
-		return // vblank not pending or not enabled
-	}
-	ki, ok := m.interrupts[gpuInterruptVector]
-	if !ok {
-		return // the title has not connected the GPU interrupt (yet)
-	}
-	routine := m.read32(ki + 0x00)
-	if routine == 0 {
+	for i := range irqSources {
+		s := &irqSources[i]
+		if !s.pending(m) {
+			continue
+		}
+		ki, ok := m.interrupts[s.vector]
+		if !ok {
+			continue // the title has not connected this vector (yet)
+		}
+		routine := m.read32(ki + 0x00)
+		if routine == 0 {
+			continue
+		}
+		m.isrSaved = *m.CPU
+		m.isrActive = true
+		c := m.CPU
+		push := func(v uint32) {
+			c.Regs[x86.SP] -= 4
+			m.write32(c.Regs[x86.SP], v)
+		}
+		push(m.read32(ki + 0x04)) // ServiceContext
+		push(ki)                  // PKINTERRUPT
+		push(isrExitAddr)
+		c.IP = routine
+		c.IF = false
 		return
 	}
-	m.isrSaved = *m.CPU
-	m.isrActive = true
-	c := m.CPU
-	push := func(v uint32) {
-		c.Regs[x86.SP] -= 4
-		m.write32(c.Regs[x86.SP], v)
-	}
-	push(m.read32(ki + 0x04)) // ServiceContext
-	push(ki)                  // PKINTERRUPT
-	push(isrExitAddr)
-	c.IP = routine
-	c.IF = false
 }
 
 // dpcEntry is one queued deferred procedure call (KeInsertQueueDpc): the KDPC's
@@ -129,3 +175,18 @@ func (m *Machine) DebugInterruptKI(vector uint32) uint32 { return m.interrupts[v
 // this is the level the XDK passes for the GPU — pinned from the boot's own
 // KeConnectInterrupt (the log line names every connected vector).
 const gpuInterruptVector = 3
+
+// usbInterruptVector is the vector XAPI connects for the USB OHCI host controller.
+//
+// Pinned the same way, and it had to be: this is the console fact most available to be
+// remembered wrongly, and a plausible number here would have been indistinguishable
+// from a correct one until the pad silently never arrived. `bootoracle -irqs` off the
+// title's own savestate names it, and names its ISR too —
+//
+//	vector 1 -> KINTERRUPT 0064C2E0 (routine 00245DC2 ctx 800008C4)
+//
+// — whose routine sits in the same XAPI code region (0x24xxxx) as every OHCI register
+// access the trace attributes, which is the corroboration that makes it evidence
+// rather than a coincidence. The same command returns vector 3 for the NV2A, which is
+// the method checking itself against a value that was already known.
+const usbInterruptVector = 1

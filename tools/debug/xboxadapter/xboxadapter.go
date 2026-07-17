@@ -56,9 +56,21 @@
 // and the CPU with it, leaving the machine with GET short of PUT. That is a machine mid-
 // frame, and it is why replay only ever runs on the scratch machine.
 //
-// There is no Keyer here. The Xbox's USB/XID pad is not modelled yet, so the machine has no
-// honest way to accept a button — and a capability is a promise the target can back. An
-// input phase adds it; until then the debugger shows no input panel rather than a dead one.
+// There WAS no Keyer here, and the reason is worth keeping: the Xbox's USB/XID pad was not
+// modelled, so the machine had no honest way to accept a button — and a capability is a
+// promise the target can back. An input panel that silently swallowed every press would
+// have been worse than no panel. The input phase arrived, and the promise is now backed by
+// a real OHCI controller with a pad on its root hub, so the panel appears — because the
+// page builds itself from what the target says it can do, and nothing in the web UI or the
+// wire protocol needed a line of Xbox-specific code to make that happen.
+//
+// What the pad cost was one small honesty in this file. The adapter used to OWN OnFlip,
+// installing and nilling a fresh closure on every StepFrame and StepFast; a hook that the
+// pad's pacing chained onto would have been wiped by the first step. The machine has ONE
+// frame-boundary hook and the pad has no more claim to own it than a capture does, so New
+// installs it once and each step fills in a.flipHook instead. See the pad section below
+// for why the frame — not the vblank, and emphatically not the 1 kHz USB frame — is the
+// boundary a button has to be paced against.
 package xboxadapter
 
 import (
@@ -113,6 +125,17 @@ type Adapter struct {
 	// stop is filled in by a hook that halted the run (a breaking watch), so the reason
 	// survives the return from Run, which only reports "stop requested".
 	stop debug.StopReason
+
+	// flipHook is the current step's frame-boundary work — StepFrame's picture, or
+	// StepFast's stop. It is a field rather than the machine's OnFlip because the pad
+	// needs that boundary too, and a step that installed its own hook would wipe the
+	// pacing (see padPace). New installs ONE OnFlip that calls both.
+	flipHook func(*xbox.Machine)
+
+	// The pad. held is which keys the browser currently has down; padQueue is the button
+	// states the machine has not sampled yet. See Key.
+	held     map[string]bool
+	padQueue []uint16
 }
 
 // The capabilities this target backs. Listed explicitly so that dropping one from the
@@ -132,7 +155,96 @@ var (
 	_ debug.StateFiler     = (*Adapter)(nil)
 	_ debug.Resumer        = (*Adapter)(nil)
 	_ debug.MemoryMapper   = (*Adapter)(nil)
+	_ debug.Haltable       = (*Adapter)(nil)
+	_ debug.Keyer          = (*Adapter)(nil)
 )
+
+// ---- the pad ----
+//
+// The Keyer's third platform, and its second console button. The DOS keyboard DELIVERS
+// EVENTS — a make and a break the guest's ISR consumes, so nothing may coalesce and the
+// guest paces itself. The GameCube's pad IS A LEVEL the serial interface latches once per
+// field. The Xbox's pad is a level too, and the title edge-detects presses from it with
+// its own ~prev&cur (0xA51C8) — so a browser key that goes down and up between two polls
+// is a press the game never sees, and the debugger's frames are wall-clock slow enough
+// that this is not hypothetical.
+//
+// So the states queue and release one per FRAME, and the frame is the flip. That choice
+// is the one non-obvious part, because there are three candidate boundaries here and the
+// fastest is the trap:
+//
+//   - The USB frame (1 kHz) is where reports actually fly, and it is WRONG: releasing one
+//     state per report drains the queue in milliseconds, so a press and its release both
+//     land inside a single game frame and the edge-detect never sees the press. It is the
+//     GameCube's hazard arriving through a faster pipe.
+//   - The vblank is a field, and ticks whether or not the title drew.
+//   - The flip is what the title's own poll is synchronous with. A state held across one
+//     flip rides ~16 USB reports and is sampled by at least one poll.
+//
+// Which is the GameCube's "one state per field" transposed exactly: there the pad is
+// latched per field, here it is polled per frame.
+
+// Key records a browser key event as a pad state. An unmapped key is ignored rather than
+// an error: the browser sends everything, including keys that are not buttons.
+func (a *Adapter) Key(k debug.Key) error {
+	name := normalizeKey(k.Name)
+	if _, ok := xbox.PadButton(name); !ok {
+		return nil
+	}
+	// The first button is also what plugs the pad in. Attaching at New would connect a
+	// controller to every debugger session whether or not anyone meant to drive one —
+	// and a machine merely being LOOKED at should not have hardware appear in it.
+	a.live.AttachPad(0)
+	if k.Down {
+		a.held[name] = true
+	} else {
+		delete(a.held, name)
+	}
+	var mask uint16
+	for n := range a.held {
+		b, _ := xbox.PadButton(n)
+		mask |= b
+	}
+	// Only a CHANGE needs a frame of its own; a repeat (the browser's key-repeat) is the
+	// same level and would just cost a frame.
+	if len(a.padQueue) > 0 && a.padQueue[len(a.padQueue)-1] == mask {
+		return nil
+	}
+	a.padQueue = append(a.padQueue, mask)
+	return nil
+}
+
+// padPace releases one queued button state per frame, from the machine's flip hook. An
+// empty queue leaves the current level alone, which is what keeps a held button held —
+// the queue carries changes, and never invents a release.
+func (a *Adapter) padPace(m *xbox.Machine) {
+	if len(a.padQueue) == 0 {
+		return
+	}
+	m.SetPadButtons(0, a.padQueue[0])
+	a.padQueue = a.padQueue[1:]
+}
+
+// normalizeKey folds a browser KeyboardEvent.key value to the button names
+// xbox.PadButton knows — the same names the oracle's -keys scripts use.
+func normalizeKey(name string) string {
+	s := strings.ToLower(name)
+	switch s {
+	case "arrowup":
+		return "up"
+	case "arrowdown":
+		return "down"
+	case "arrowleft":
+		return "left"
+	case "arrowright":
+		return "right"
+	case "enter", "return":
+		return "start"
+	case "escape", "backspace":
+		return "back"
+	}
+	return s
+}
 
 // snap wraps an Xbox in-memory savestate as an opaque debug.Snapshot.
 type snap struct{ st *xbox.XboxState }
@@ -167,7 +279,25 @@ func New(imagePath, xbePath string) (*Adapter, error) {
 	// stops dead at the first push-buffer kick (the Phase-B milestone) and there is no
 	// frame to look at.
 	live.EnableGPU()
-	return &Adapter{imagePath: imagePath, xbePath: xbePath, live: live}, nil
+	a := &Adapter{imagePath: imagePath, xbePath: xbePath, live: live, held: map[string]bool{}}
+	a.installFlipHook(live)
+	return a, nil
+}
+
+// installFlipHook gives the live machine its one frame-boundary hook, which releases a
+// queued pad state and then runs whatever the current step wants.
+//
+// The pad goes first: a state set here is live for the frame that is about to run, which
+// is the frame the title will poll. Only the LIVE machine gets this — the scratch
+// machine (scratchMachine) replays a captured frame, and replay is deterministic
+// re-execution, not play.
+func (a *Adapter) installFlipHook(m *xbox.Machine) {
+	m.OnFlip = func(mm *xbox.Machine) {
+		a.padPace(mm)
+		if a.flipHook != nil {
+			a.flipHook(mm)
+		}
+	}
 }
 
 func (a *Adapter) Platform() string { return "xbox" }
@@ -311,7 +441,7 @@ func (a *Adapter) StepFrame(withOverdraw bool) (*debug.FrameCapture, error) {
 	// show the frame from two swaps ago. (Same discipline as the GameCube's, for the
 	// opposite reason: there the flip wipes the buffer, here it moves the pointer.)
 	var shot *image.RGBA
-	a.live.OnFlip = func(m *xbox.Machine) {
+	a.flipHook = func(m *xbox.Machine) {
 		if shot == nil {
 			shot, _ = m.RenderDrawTarget()
 			m.StopRequested = true
@@ -320,8 +450,9 @@ func (a *Adapter) StepFrame(withOverdraw bool) (*debug.FrameCapture, error) {
 
 	a.live.Run(runBudget)
 	// Leave any user watches wired, but drop the per-frame capture hooks so a later run is
-	// not paying for a census nobody is reading.
-	a.live.OnNVMethod, a.live.OnPixel, a.live.OnFlip = nil, nil, nil
+	// not paying for a census nobody is reading. OnFlip itself stays: it is the machine's
+	// one frame-boundary hook and the pad's pacing lives behind it.
+	a.live.OnNVMethod, a.live.OnPixel, a.flipHook = nil, nil, nil
 
 	if shot == nil {
 		return fc, nil // no frame completed within the budget: a capture with no picture
@@ -356,14 +487,14 @@ func (a *Adapter) StepFrame(withOverdraw bool) (*debug.FrameCapture, error) {
 func (a *Adapter) StepFast() error {
 	a.live.OnNVMethod, a.live.OnPixel = nil, nil
 	done := false
-	a.live.OnFlip = func(m *xbox.Machine) {
+	a.flipHook = func(m *xbox.Machine) {
 		if !done {
 			done = true
 			m.StopRequested = true
 		}
 	}
 	a.live.Run(runBudget)
-	a.live.OnFlip = nil
+	a.flipHook = nil
 	return nil
 }
 

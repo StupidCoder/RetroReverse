@@ -9,9 +9,14 @@
 //
 // Usage:
 //
-//	bootoracle -image DISC.iso [-steps N] [-trace] [-tracen N] [-bp SEG:OFF]...
-//	           [-watch ADDR[:LEN]]... [-v] [-ordinals] [-dump ADDR:LEN]... [-stack]
-//	           [-savestate FILE] [-loadstate FILE]
+//	bootoracle -image DISC.iso [-steps N] [-trace] [-tracen N] [-bp ADDR]...
+//	           [-watch ADDR[:LEN]] [-rwatch ADDR[:LEN]] [-watchn N] [-v] [-ordinals]
+//	           [-dump ADDR[:LEN]]... [-dis ADDR[:N]]... [-poke ADDR:VALUE] [-stack]
+//	           [-keys SPEC] [-savestate FILE] [-loadstate FILE]
+//
+// Addresses are flat hex (this machine runs in flat protected mode, so there is no
+// SEG:OFF to write — an earlier version of this comment promised one, alongside -bp and
+// -watch flags that were never registered at all).
 package main
 
 import (
@@ -40,12 +45,118 @@ func parseNum(s string) (uint64, error) {
 	return strconv.ParseUint(s, 10, 64)
 }
 
+// parseHex reads an address argument. Addresses are hex whether or not they carry the
+// 0x — STANDARDS §3 ("address arguments are the platform's natural form"), and nobody
+// writing 5E5158 means five million.
+func parseHex(s string) (uint32, error) {
+	v, err := strconv.ParseUint(strings.TrimPrefix(strings.TrimSpace(s), "0x"), 16, 64)
+	return uint32(v), err
+}
+
+// parseAddrN reads "ADDR[:N]", where N is a decimal count with a per-flag default.
+func parseAddrN(spec string, def int) (addr uint32, n int, err error) {
+	parts := strings.SplitN(spec, ":", 2)
+	if addr, err = parseHex(parts[0]); err != nil {
+		return 0, 0, fmt.Errorf("bad address %q: %w", parts[0], err)
+	}
+	n = def
+	if len(parts) == 2 {
+		if n, err = strconv.Atoi(strings.TrimSpace(parts[1])); err != nil {
+			return 0, 0, fmt.Errorf("bad count %q: %w", parts[1], err)
+		}
+	}
+	return addr, n, nil
+}
+
+// parseWatch reads "ADDR[:LEN]" into the half-open window [lo,hi) the machine's watches
+// take. LEN is hex like the address, and defaults to a dword.
+func parseWatch(s string) (lo, hi uint32, err error) {
+	parts := strings.SplitN(s, ":", 2)
+	if lo, err = parseHex(parts[0]); err != nil {
+		return 0, 0, fmt.Errorf("bad watch address %q: %w", parts[0], err)
+	}
+	length := uint32(4)
+	if len(parts) == 2 {
+		n, e := parseHex(parts[1])
+		if e != nil {
+			return 0, 0, fmt.Errorf("bad watch length %q: %w", parts[1], e)
+		}
+		length = n
+	}
+	return lo, lo + length, nil
+}
+
+// keyPress is one scheduled pad input: press `buttons` from frame `atFrame` onward,
+// releasing after `holdFrames` frames (0 = held for the rest of the run).
+//
+// The unit is the FRAME — the title's flip — because that is the boundary the title's own
+// poll is synchronous with, and because a run that starts from a savestate wants to count
+// from where it starts rather than from a boot it did not do. It edge-detects presses from
+// consecutive polls (its own ~prev&cur), so a release between two presses of one button is
+// what makes them two presses rather than one long hold.
+type keyPress struct {
+	atFrame    uint64
+	holdFrames uint64
+	buttons    uint16
+}
+
+// parseKeys turns a "-keys start@120,a@900:10" spec into a schedule. BUTTON@FRAME holds
+// from that frame on; BUTTON@FRAME:N holds for N frames and then releases.
+func parseKeys(spec string) ([]keyPress, error) {
+	var sched []keyPress
+	for _, tok := range strings.Split(spec, ",") {
+		tok = strings.TrimSpace(tok)
+		if tok == "" {
+			continue
+		}
+		name, frameS, ok := strings.Cut(tok, "@")
+		if !ok {
+			return nil, fmt.Errorf("bad -keys token %q, want BUTTON@FRAME[:HOLD]", tok)
+		}
+		b, ok := xbox.PadButton(strings.ToLower(strings.TrimSpace(name)))
+		if !ok {
+			return nil, fmt.Errorf("unknown button %q in -keys (have %s)",
+				name, strings.Join(xbox.PadButtonNames(), " "))
+		}
+		frameS = strings.TrimSpace(frameS)
+		var hold uint64
+		if f2, holdS, has := strings.Cut(frameS, ":"); has {
+			frameS = f2
+			h, err := parseNum(strings.TrimSpace(holdS))
+			if err != nil || h == 0 {
+				return nil, fmt.Errorf("bad hold in -keys token %q: want a positive frame count", tok)
+			}
+			hold = h
+		}
+		f, err := parseNum(frameS)
+		if err != nil {
+			return nil, fmt.Errorf("bad frame in -keys token %q: %w", tok, err)
+		}
+		sched = append(sched, keyPress{atFrame: f, holdFrames: hold, buttons: b})
+	}
+	return sched, nil
+}
+
+// parsePoke reads "ADDR:VALUE", both hex.
+func parsePoke(s string) (addr, val uint32, err error) {
+	parts := strings.SplitN(s, ":", 2)
+	if len(parts) != 2 {
+		return 0, 0, fmt.Errorf("bad -poke %q, want ADDR:VALUE", s)
+	}
+	if addr, err = parseHex(parts[0]); err != nil {
+		return 0, 0, err
+	}
+	val, err = parseHex(parts[1])
+	return addr, val, err
+}
+
 func main() {
 	image := flag.String("image", "", "Xbox disc image (.iso / XISO)")
 	xbePath := flag.String("xbe", "/default.xbe", "path of the XBE within the disc to boot")
 	steps := flag.String("steps", "50000000", "instruction budget (hex with 0x, else decimal)")
 	verbose := flag.Bool("v", false, "log kernel calls and events live")
 	ordinals := flag.Bool("ordinals", false, "after the run, print the histogram of xboxkrnl ordinals called")
+	irqs := flag.Bool("irqs", false, "after the run, print the interrupt vectors the title has connected")
 	stackDump := flag.Bool("stack", false, "on halt, dump the top of the stack (the caller's argument frame)")
 	trace := flag.Bool("trace", false, "trace executed instructions")
 	tracen := flag.Int("tracen", 200, "limit -trace to this many instructions")
@@ -55,8 +166,17 @@ func main() {
 	loadstate := flag.String("loadstate", "", "restore a machine snapshot before running")
 	gpu := flag.Bool("gpu", false, "Phase C: run the NV2A DMA pusher on each kick (do not stop at first push)")
 	survey := flag.Bool("survey", false, "with -gpu: record the PGRAPH method surface and print it")
+	watch := flag.String("watch", "", "break-free write watch on ADDR[:LEN] (hex): log each write with its PC")
+	rwatch := flag.String("rwatch", "", "read watch on ADDR[:LEN] (hex): log each read with its PC")
+	watchn := flag.Int("watchn", 40, "limit -watch/-rwatch to this many reported accesses")
+	poke := flag.String("poke", "", "write ADDR:VALUE (hex) after loading, before running — a probe, not a model")
+	keys := flag.String("keys", "", "pad-1 input script: BUTTON@FRAME[:HOLD][,...] — presses BUTTON from that frame (the title's flip), held HOLD frames (default: forever). e.g. -keys start@120")
+	var bps multiFlag
+	flag.Var(&bps, "bp", "execution breakpoint at ADDR (hex); repeatable")
 	var dumps multiFlag
 	flag.Var(&dumps, "dump", "hex-dump ADDR:LEN of memory after the run (hex); repeatable")
+	var diss multiFlag
+	flag.Var(&diss, "dis", "disassemble N instructions at ADDR[:N] after the run (default 32); repeatable")
 	flag.Parse()
 
 	if *image == "" {
@@ -115,6 +235,88 @@ func main() {
 		}
 	}
 
+	// -poke lands after the restore and before the run: it is a probe against the state
+	// the run starts from, and a savestate loaded over it would undo it.
+	if *poke != "" {
+		addr, val, err := parsePoke(*poke)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "bootoracle: %v\n", err)
+			os.Exit(2)
+		}
+		m.Poke(addr, val)
+		fmt.Printf("poked %08X = %08X\n", addr, val)
+	}
+
+	// Instruments.
+	for _, s := range bps {
+		a, err := parseHex(s)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "bootoracle: bad -bp %q: %v\n", s, err)
+			os.Exit(2)
+		}
+		m.SetBreakpoint(a)
+	}
+	if *watch != "" {
+		lo, hi, err := parseWatch(*watch)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "bootoracle: %v\n", err)
+			os.Exit(2)
+		}
+		seen := 0
+		m.SetWriteWatch(lo, hi, func(addr, val, pc uint32) {
+			if seen < *watchn {
+				fmt.Printf("  write %08X = %08X (pc %08X)\n", addr, val, pc)
+				seen++
+			}
+		})
+	}
+	if *rwatch != "" {
+		lo, hi, err := parseWatch(*rwatch)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "bootoracle: %v\n", err)
+			os.Exit(2)
+		}
+		seen := 0
+		m.SetReadWatch(lo, hi, func(addr, val, pc uint32) {
+			if seen < *watchn {
+				fmt.Printf("  read %08X = %08X (pc %08X)\n", addr, val, pc)
+				seen++
+			}
+		})
+	}
+
+	// The pad. A -keys schedule is what plugs a controller in: a run that was not asked
+	// to drive one leaves the root hub empty, which is both the truth and what every
+	// boot before this flag did.
+	//
+	// The schedule is recomputed from the frame counter on each flip rather than stepped
+	// through a cursor, which is what makes it savestate-stable for free: there is no
+	// oracle-side position to save, and a restored machine resumes the same schedule at
+	// whatever frame it restored into.
+	if *keys != "" {
+		sched, err := parseKeys(*keys)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "bootoracle: %v\n", err)
+			os.Exit(2)
+		}
+		m.AttachPad(0)
+		frame := uint64(0)
+		prev := m.OnFlip
+		m.OnFlip = func(mm *xbox.Machine) {
+			if prev != nil {
+				prev(mm) // OnFlip is the machine's one frame hook; the pad does not own it
+			}
+			frame++
+			var buttons uint16
+			for _, k := range sched {
+				if frame >= k.atFrame && (k.holdFrames == 0 || frame < k.atFrame+k.holdFrames) {
+					buttons |= k.buttons
+				}
+			}
+			mm.SetPadButtons(0, buttons)
+		}
+	}
+
 	if *trace {
 		m.SetTrace(*tracen) // print the first -tracen executed instructions (PC trail)
 	}
@@ -151,10 +353,43 @@ func main() {
 		hexDump(m, uint32(addr), uint32(length))
 	}
 
+	for _, d := range diss {
+		addr, n, err := parseAddrN(d, 32)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "bootoracle: bad -dis %q: %v\n", d, err)
+			continue
+		}
+		fmt.Printf("disasm %08X (%d instructions):\n", addr, n)
+		for _, line := range m.DisasmForward(addr, n) {
+			fmt.Println(line)
+		}
+	}
+
 	if *ordinals {
 		fmt.Println("\nxboxkrnl ordinals reached:")
 		for _, line := range m.OrdinalHistogram() {
 			fmt.Println(line)
+		}
+	}
+
+	// The connected interrupt vectors. HalGetInterruptVector is modelled as identity, so
+	// a "vector" here is the bus level the XDK passed — which is why these are read off a
+	// live machine rather than written down: a device's level is what the title says it
+	// is. The registrations ride in the savestate, so a restored state answers too.
+	if *irqs {
+		fmt.Println("\nconnected interrupt vectors:")
+		found := false
+		for v := uint32(0); v < 64; v++ {
+			ki := m.DebugInterruptKI(v)
+			if ki == 0 {
+				continue
+			}
+			found = true
+			fmt.Printf("  vector %2d -> KINTERRUPT %08X (routine %08X ctx %08X)\n",
+				v, ki, m.MemRead32(ki), m.MemRead32(ki+4))
+		}
+		if !found {
+			fmt.Println("  (none)")
 		}
 	}
 

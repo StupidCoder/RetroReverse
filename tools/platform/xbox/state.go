@@ -74,6 +74,19 @@ type XboxState struct {
 	USBReg  map[uint32]uint32
 	NICReg  map[uint32]uint32
 
+	// The USB OHCI's frame cursor (usb.go). USBReg above is the controller's whole
+	// register file — port status included — so the model needs nothing else: the
+	// frame number itself is derived from Tick and stored nowhere.
+	//
+	// It decodes as 0 from a pre-Phase-E snapshot, which usbTick reads as "first run"
+	// and re-seeds from the clock. That is the honest restore, but it is worth being
+	// plain that those snapshots are not merely cold here: their USBReg holds an
+	// enable mask of 0x40, master-interrupt-enable clear, because the latch that took
+	// them dropped the first of XAPI's two enable writes. Such a controller never
+	// signals, so a pad can never arrive in one. The fixtures were re-derived from a
+	// cold boot; that is the fix, not a migration.
+	USBFrameServed uint64
+
 	// NV2A graphics engine (nv2a_pgraph.go) + the PFIFO pusher's decode position
 	// (nv2a_pfifo.go). The survey/unhandled instrumentation maps are NOT state.
 	PgSubObject [8]uint32
@@ -118,6 +131,13 @@ type XboxState struct {
 	ISRActive  bool
 	ISRSaved   cpuSnap
 	DpcQueue   []dpcEntry
+
+	// Armed KTIMERs (timer.go). Nil from a pre-timer-queue snapshot, which restores a
+	// machine with nothing armed — and that is the truth about those snapshots, because
+	// the KeSetTimer that took them queued nothing. Each entry's Due is an absolute
+	// deadline on the same clock Tick drives, so a restore resumes a timer rather than
+	// restarting it, and a state taken past a deadline expires it immediately.
+	Timers []ktimer
 
 	// Display scanout state (AvSetDisplayMode, kernel.go).
 	DispMode, DispFormat, FBPitch, FBAddr uint32
@@ -237,11 +257,12 @@ func (m *Machine) SaveState() *XboxState {
 		PoolNext: m.poolNext, HeapNext: m.heapNext, HeapTop: m.heapTop,
 		NextObjAddr: m.nextObjAddr, KbandNext: m.kbandNext, Tick: m.tick,
 		NVReg: copyU32Map(m.nv.reg), NVPut: m.nv.dmaPut, NVGet: m.nv.dmaGet, NVKicked: m.nv.kicked,
-		APUReg:      copyU32Map(m.apu.reg),
-		AC97Reg:     copyU32Map(m.ac97.reg),
-		USBReg:      copyU32Map(m.usb.reg),
-		NICReg:      copyU32Map(m.nic.reg),
-		PgSubObject: m.pgraph.subObject, PgSubClass: m.pgraph.subClass, PgRegs: m.pgraph.Regs,
+		APUReg:         copyU32Map(m.apu.reg),
+		AC97Reg:        copyU32Map(m.ac97.reg),
+		USBReg:         copyU32Map(m.usb.reg),
+		NICReg:         copyU32Map(m.nic.reg),
+		USBFrameServed: m.usbFrameServed,
+		PgSubObject:    m.pgraph.subObject, PgSubClass: m.pgraph.subClass, PgRegs: m.pgraph.Regs,
 		PgMethods: m.pgraph.Methods, PgSetObjs: m.pgraph.SetObjs,
 		PgProg: m.pgraph.Prog, PgConst: m.pgraph.Const,
 		PgProgLoad: m.pgraph.ProgLoad, PgConstLoad: m.pgraph.ConstLoad,
@@ -265,6 +286,7 @@ func (m *Machine) SaveState() *XboxState {
 		ISRActive:   m.isrActive,
 		ISRSaved:    snapCPU(&m.isrSaved),
 		DpcQueue:    append([]dpcEntry(nil), m.dpcQueue...),
+		Timers:      append([]ktimer(nil), m.timers...),
 		DispMode:    m.nv.dispMode,
 		DispFormat:  m.nv.dispFormat,
 		FBPitch:     m.nv.fbPitch,
@@ -333,6 +355,7 @@ func (m *Machine) LoadState(st *XboxState) error {
 	m.apu.reg = copyU32Map(st.APUReg)
 	m.ac97.reg = copyU32Map(st.AC97Reg)
 	m.usb.reg = copyU32Map(st.USBReg)
+	m.usbFrameServed = st.USBFrameServed
 	m.nic.reg = copyU32Map(st.NICReg)
 	m.pgraph.subObject, m.pgraph.subClass, m.pgraph.Regs = st.PgSubObject, st.PgSubClass, st.PgRegs
 	m.pgraph.Methods, m.pgraph.SetObjs = st.PgMethods, st.PgSetObjs
@@ -362,6 +385,7 @@ func (m *Machine) LoadState(st *XboxState) error {
 	m.isrSaved = *m.CPU // seed bus/hook pointers from the live CPU, then overlay
 	st.ISRSaved.into(&m.isrSaved)
 	m.dpcQueue = append([]dpcEntry(nil), st.DpcQueue...)
+	m.timers = append([]ktimer(nil), st.Timers...)
 	m.nv.dispMode, m.nv.dispFormat = st.DispMode, st.DispFormat
 	m.nv.fbPitch, m.nv.fbAddr = st.FBPitch, st.FBAddr
 	m.shaCtx = copyByteSliceMap(st.ShaCtx)

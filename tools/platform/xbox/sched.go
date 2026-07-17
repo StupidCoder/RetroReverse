@@ -42,6 +42,8 @@ func (m *Machine) schedTick() {
 		}
 		m.apuTick()    // the GP DSP's command-mailbox poll (apu.go)
 		m.ioTick()     // due asynchronous read completions (kernel_file.go)
+		m.timerTick()  // due KTIMERs and their DPCs (timer.go)
+		m.usbTick()    // the USB OHCI's 1 kHz frames (usb.go)
 		m.vblankTick() // the 60 Hz PCRTC vertical blank (interrupt.go)
 	}
 	if m.isrActive {
