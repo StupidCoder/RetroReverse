@@ -368,13 +368,20 @@ func (m *Machine) loadDiscFile(name string) ([]byte, string, bool) {
 	if m.vol == nil || name == "" {
 		return nil, "", false
 	}
-	if m.NoStreams && strings.Contains(strings.ToLower(name), ".stream") {
+	if (m.NoStreams || m.MovieHLE) && strings.Contains(strings.ToLower(name), ".stream") {
 		// Movie playback needs the audio folio + DataStreamer subscribers, which
 		// the HLE does not model yet; a half-working movie player corrupts itself
 		// (its timing/audio setup runs on stubbed answers). Failing the stream
 		// files takes the game's own missing-file path, which skips the movies
 		// cleanly and proceeds to the front-end — the same graceful fallback the
 		// retail code ships for a scratched disc.
+		//
+		// Under MovieHLE we still fail the game's open, but first demux the movie
+		// off the disc and queue it so the oracle can decode and present it itself
+		// (moviehle.go) — the game asks for the movie, the HLE plays it.
+		if m.MovieHLE {
+			m.armMovie(name)
+		}
 		return nil, "", false
 	}
 	name = strings.TrimLeft(name, "/")

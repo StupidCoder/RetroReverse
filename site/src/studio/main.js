@@ -239,7 +239,10 @@ const GAMES = [
     load: () => import('../shared/viewer3d.js').then(m => m.Viewer3D),
     make: (V, el, hud) => new V(el, hud, {
       base: 'public/need-for-speed-3do/',
-      renderers: { 'nfs-course': () => import('../need-for-speed-3do/course-renderer.js') },
+      renderers: {
+        'nfs-course': () => import('../need-for-speed-3do/course-renderer.js'),
+        'nfs-movie': () => import('../need-for-speed-3do/movie-renderer.js'),
+      },
     }),
     list: async (v) => await v.init(), // manifest.models — the City track + the Diablo
     show: (v, item, i) => v.showItem(item),

@@ -52,7 +52,7 @@ func TestCapabilities(t *testing.T) {
 		debug.CapFrames, debug.CapFastStep, debug.CapReplay, debug.CapCode,
 		debug.CapBreak, debug.CapDisasm, debug.CapWatch, debug.CapSurfaces,
 		debug.CapFiles, debug.CapFileAt, debug.CapStates, debug.CapResume,
-		debug.CapRegions, debug.CapProfile,
+		debug.CapRegions, debug.CapProfile, debug.CapKeys,
 	}
 	have := map[string]bool{}
 	for _, c := range caps {
@@ -222,5 +222,56 @@ func TestProfileBucketsAreDisjoint(t *testing.T) {
 	}
 	for _, c := range p.Counters {
 		t.Logf("  #%-24s %d", c.Name, c.Value)
+	}
+}
+
+// TestKeyerQueue exercises the gamepad mapping/queue without booting: keys build
+// the right button mask, holding coalesces, and releasePad delivers each distinct
+// state once, in order (press → release both reach the guest).
+func TestKeyerQueue(t *testing.T) {
+	a := &Adapter{held: map[string]bool{}, live: threedo.NewMachine()}
+
+	// Enter maps to Start; pressing it queues exactly the Start mask.
+	a.Key(debug.Key{Name: "Enter", Down: true})
+	if a.padMask() != threedo.PadStart {
+		t.Fatalf("Enter mask = 0x%08X, want PadStart 0x%08X", a.padMask(), uint32(threedo.PadStart))
+	}
+	// Holding it (a repeat with no key event, then an unmapped key) must not enqueue more.
+	a.Key(debug.Key{Name: "Shift", Down: true}) // unmapped → ignored
+	if len(a.padQueue) != 1 {
+		t.Fatalf("queue after unmapped key = %d, want 1", len(a.padQueue))
+	}
+	// Add a second button: the combined state is a new distinct entry.
+	a.Key(debug.Key{Name: "a", Down: true})
+	if got, want := a.padQueue[len(a.padQueue)-1], uint32(threedo.PadStart|threedo.PadA); got != want {
+		t.Fatalf("Start+A queued = 0x%08X, want 0x%08X", got, want)
+	}
+	// Release Enter (A still held) then A: each distinct transition is a queue entry.
+	a.Key(debug.Key{Name: "Enter", Down: false}) // now A only
+	a.Key(debug.Key{Name: "a", Down: false})     // now released
+	if a.padMask() != 0 {
+		t.Fatalf("mask after release = 0x%08X, want 0", a.padMask())
+	}
+
+	// releasePad delivers every distinct state in order, one per call.
+	want := []uint32{
+		threedo.PadStart,
+		threedo.PadStart | threedo.PadA,
+		threedo.PadA,
+		0,
+	}
+	for i, w := range want {
+		a.releasePad()
+		if a.padLast != w {
+			t.Fatalf("release %d: padLast = 0x%08X, want 0x%08X", i, a.padLast, w)
+		}
+	}
+	if len(a.padQueue) != 0 {
+		t.Fatalf("queue not drained: %d left", len(a.padQueue))
+	}
+	// An empty queue delivers nothing and leaves padLast unchanged (guest holds it).
+	a.releasePad()
+	if a.padLast != 0 {
+		t.Fatalf("release on empty queue changed padLast to 0x%08X", a.padLast)
 	}
 }

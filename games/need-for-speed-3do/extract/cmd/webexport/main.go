@@ -46,6 +46,8 @@ type ModelIndex struct {
 	File        string      `json:"file"`
 	Kind        string      `json:"kind"`                  // routes to a Studio renderer plugin
 	Section     string      `json:"section,omitempty"`     // Studio browse-list group
+	W           int         `json:"w,omitempty"`           // native pixel size (movies)
+	H           int         `json:"h,omitempty"`
 	ObjectsFile string      `json:"objectsFile,omitempty"` // placement manifest for the object layer
 	Sky         string      `json:"sky,omitempty"`         // camera-centred horizon dome GLB
 	Fly         bool        `json:"fly,omitempty"`         // present with the free-flight camera
@@ -104,6 +106,7 @@ type assets struct {
 func main() {
 	image := flag.String("image", "", "3DO disc image")
 	out := flag.String("o", "", "output directory")
+	movies := flag.Bool("movies", false, "also export Movies/*.stream FMV as MP4 (needs ffmpeg)")
 	flag.Parse()
 	if *image == "" || *out == "" {
 		die("usage: webexport -image DISC -o OUTDIR")
@@ -149,6 +152,15 @@ func main() {
 		die("car: %v", err)
 	}
 	models = append(models, cars...)
+
+	if *movies {
+		movieModels, err := exportMovies(vol, *out)
+		if err != nil {
+			die("movies: %v", err)
+		}
+		models = append(models, movieModels...)
+		fmt.Fprintf(os.Stderr, "[movies] %d exported\n", len(movieModels))
+	}
 
 	m := Manifest{
 		Format: 2, Game: "The Need for Speed", Platform: "3DO",

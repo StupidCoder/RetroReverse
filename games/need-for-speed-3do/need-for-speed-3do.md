@@ -151,13 +151,100 @@ trace, which will pin the record format exactly rather than by inference.
 |------|------:|----------|
 | `DriveData/` | 456 | per-car art (`.3sh`), physics/audio tunables (text: `#Mass 1 …`), track "Horizons" art |
 | `FrontEnd/` | 117 | menus: `.3sh` shapes, `.cel`, fonts (`.3fn`), UI audio (`.aiff`/`.aifc`) |
-| `Movies/` | 165 | `*.Stream` — 3DO streamed FMV (SANM video + SoundStream audio) |
+| `Movies/` | 165 | `*.Stream` — 3DO streamed FMV (Cinepak `cvid` video + SDX2 audio) |
 | `System/` | 129 | the **Portfolio OS** itself: `Kernel/`, `Folios/`, 32 `Programs/`, `Drivers/`, `Fonts/`, DSP sound patches (`.dsp`), AIFF |
 
 Extension census: 103 `.3sh`, 26 AIFF-family audio (`.aiff`/`.aifc`/`.aifffam`),
-8 `.cel`, `.3fn` font, `.dsp` DSP patches, `.Stream` movies. Audio (AIFF-C,
-`.dsp` sound patches) and the `.Stream` FMV are catalogued but not yet decoded;
-they are lower priority than the code toolchain and are revisited later.
+8 `.cel`, `.3fn` font, `.dsp` DSP patches, `.Stream` movies. The `.Stream` FMV is
+now decoded (see Part below); the AIFF-C / `.dsp` sound-patch audio is catalogued
+but not yet decoded, lower priority than the code toolchain.
+
+### The `.Stream` FMV: Cinepak, decoded and HLE-played
+
+Every `Movies/*.Stream` is a flat chunk stream (`FILM` video subchunks —
+`FHDR` header + `FRME` frames — interleaved with `SNDS`/`CTRL`/`FILL`). The
+video is **Cinepak** (`cvid`, the SDK DataStreamer's software codec; the 3DO has
+no video-decode hardware, so the ARM60 decodes it), the audio SDX2. The film
+header carries dimensions (320×240, some 320×192) and a 15 fps rate.
+
+`tools/platform/threedo/cvid.go` demuxes the container and decodes the Cinepak —
+per-strip V1/V4 codebooks, the interleaved skip/selection bitstream, strip→strip
+codebook inheritance on intra frames, and Cinepak's own integer YUV→RGB. It is
+verified **byte-identical to the reference (FFmpeg) across every frame** of the
+attract movies. `cmd/cvidplay` dumps a movie to a PNG sequence or GIF; the
+webexport `-movies` flag encodes each to an MP4 (our frames, ffmpeg only
+re-encodes) for the Studio's `nfs-movie` player.
+
+The game's own player needs the DSP audio folio (its audio subscriber loads a DSP
+instrument) which the HLE does not model, so it self-corrupts on a NULL teardown
+in `frontovl`. Instead `moviehle.go` **high-level-emulates the player**: when the
+game opens a `.stream` (`Machine.MovieHLE`), the oracle demuxes+queues it, decodes
+the Cinepak itself and blits each frame into the game's display buffer (the
+interleaved RGB555 layout), driving the present hook — so the FMV the game asked
+for plays into the framebuffer and is captured by `bootoracle -movieshots` and the
+framedbg adapter exactly like a game frame.
+
+**Why the boot goes menu→credits, not the intro FMV.** The Pioneer/EA intro movies
+are played by that same broken player, so the game's open fails and it takes the
+missing-file fallback, SKIPPING the intro and dropping straight into the
+interactive front-end. There, with no controller input, the front-end runs its
+attract cycle — `title.3sh` → `credits/*.cel` → loop (proven by the disc-file load
+trace). The armed intro movies play out-of-band (moviehle), not woven into the
+game's sequence.
+
+### Field pacing: one field per frame (`Machine.PaceFields`)
+
+`WaitVBL` used to complete instantly (mark the IOReq `IO_QUICK|IO_DONE` in the
+submit call), so the game paced nothing: the VBL service task and the frame loops
+spun through `WaitVBL` at CPU speed, and the elapsed-field counter — which the
+attract idle timeout, the race clock (`0x41D24`) and every in-game timer read —
+raced ~9× ahead of the frames actually displayed. In framedbg play mode the
+front-end "jumped" to the credits in a second and any movie would blast past.
+
+With `PaceFields` on (default in the framedbg adapter; `bootoracle -pace`), a
+timer field-wait submitted via SendIO **parks** instead of completing: the caller's
+own WaitIO helper (`0x3ACA0`) finds `IO_QUICK` clear and blocks on
+`WaitSignal(SIGF_IODONE)`. The field clock then advances one field only when the
+machine would otherwise idle — `fieldTick`, called from the run loop's
+all-tasks-blocked and stall paths — completing any parked WaitVBL whose target
+field has arrived and waking its submitter. So the clock tracks displayed frames
+(~1 field/frame when the game keeps up, ~3–4 under the race's busy-waits) instead
+of instruction count, and the deadlock guard treats a completed field as progress
+so a settled frame loop runs indefinitely. Pending field-waits ride the savestate.
+
+The load-bearing subtlety: **I/O completion signals the task that SUBMITTED the
+request, not the IOReq's creator.** `WaitVBL` goes through a wrapper (`0xECB0`) that
+uses one *global* timer IOReq owned by the front-end task, yet the race's asset
+loader (task at `0x20854`) also `WaitVBL`s on it — signaling the owner woke the
+front-end and hung the loader at its very first field-wait, freezing the game on
+the "Loading" showcase. `completeFieldWait` signals the recorded submitter.
+
+**Still open — the game's OWN movie player (`-movies`, `NoStreams`+`MovieHLE` off).**
+The real player DOES run: it loads the `frontovl` overlay (≈`0x8C990`), spawns a
+DataStreamer plus audio/video subscriber tasks in it, and issues the audio-folio
+calls (SWIs `0x40000`/`0x40001` StartInstrument/`0x40008` ConnectInstruments/
+`0x40011` TweakRawKnob and the library vectors `-0x4/-0x8/-0x10/-0x14/-0x28/-0x38`,
+all still stubbed). It then **deadlocks on the streamer↔subscriber handshake**: the
+streamer loop (`0xA0608`) blocks on `WaitSignal([DS+0x38]|[DS+0x40]|[DS+0x4C])`, the
+audio subscriber (`0x9E274`) on `WaitSignal([DS+0x28]|[DS+0x20])`, each draining a
+message port (`[DS+0x34]`/`[DS+0x24]`, GetMsg helper `0x9D38C`). Nothing drives the
+acquisition→dispatch→reply message flow, so neither side is ever signaled. Making
+the intro play in-sequence needs that flow modeled — the audio subscriber timed off
+the existing 240 Hz clock and silent, the video decoded by the game's own Cinepak
+through DrawCels. Until then `moviehle` remains the working FMV path.
+
+### Gamepad in framedbg
+
+The 3DO control pad is delivered through the OS **event broker**, not a latched
+level: `Machine.SendPadEvent(buttons)` (io.go) pushes one ControlButtonUpdate to
+the game's listener port on each call, and the guest drains it via GetMsg. The
+framedbg 3DO adapter is a `debug.Keyer`/`KeyLegender`: keyboard keys map to the
+pad (arrows = D-pad, Enter = Start, A/B = gas/brake, X = handbrake, Q/W = gear
+down/up via `threedo.PadButton`), `held`+`padQueue` change-coalesce distinct
+states, and `releasePad` delivers one per frame at StepFrame/StepFast entry. Proven
+end-to-end: pressing Start diverts the front-end out of the attract cycle into the
+race load (`loading/diablo1.3sh` + the CarData set + `pausegame.3sh`) — the same
+`SendPadEvent` path the oracle's `-pad` scripts already drive to gameplay.
 
 ### `LaunchMe` is a standard ARM Image Format (AIF) executable
 

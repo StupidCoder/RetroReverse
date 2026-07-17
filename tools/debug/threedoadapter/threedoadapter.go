@@ -118,6 +118,15 @@ type Adapter struct {
 	watchSink func(debug.WatchHit)
 	bps       []uint64
 	stop      debug.StopReason
+
+	// Gamepad (debug.Keyer): held tracks which mapped keys are currently down;
+	// padQueue holds distinct button-mask states to release one per frame, so a
+	// fast press→release still delivers both edges (the control pad's poll cadence
+	// is once per frame, fed by SendPadEvent — io.go). padLast is the last state
+	// actually delivered, so a hold delivers nothing more (the guest keeps it).
+	held     map[string]bool
+	padQueue []uint32
+	padLast  uint32
 }
 
 // bitmap names one drawable buffer. Provenance is gathered per bitmap because a frame is
@@ -144,6 +153,8 @@ var (
 	_ debug.Resumer        = (*Adapter)(nil)
 	_ debug.MemoryMapper   = (*Adapter)(nil)
 	_ debug.Profiler       = (*Adapter)(nil)
+	_ debug.Keyer          = (*Adapter)(nil)
+	_ debug.KeyLegender    = (*Adapter)(nil)
 )
 
 // snap wraps a 3DO in-memory savestate as an opaque debug.Snapshot. threedo.SaveState
@@ -169,6 +180,7 @@ func New(imagePath string, opts Options) (*Adapter, error) {
 		hash:      fmt.Sprintf("%x", md5.Sum(data)),
 		opts:      opts,
 		vol:       vol,
+		held:      map[string]bool{},
 	}
 	if a.opts.Prog == "" {
 		a.opts.Prog = defaultProg
@@ -198,12 +210,18 @@ func (a *Adapter) build() *threedo.Machine {
 	m := threedo.NewMachine()
 	m.SetImageHash(a.hash)
 	m.StallTolerance = a.opts.StallTolerance
-	// The movie player needs the audio folio and the DataStreamer, which the HLE does
-	// not model yet; letting the game open a .stream takes it into a player that runs on
-	// stubbed answers and corrupts itself. Failing them takes the game's own
-	// missing-file path, which is the same graceful fallback it ships for a scratched
-	// disc — and lands it in the front end, which is what there is to debug.
-	m.NoStreams = true
+	// The game's own movie player needs the DSP audio folio and DataStreamer, which the
+	// HLE does not model; letting it open a .stream runs a player on stubbed answers that
+	// corrupts itself. MovieHLE instead intercepts the open, decodes the Cinepak itself
+	// (moviehle.go) and presents the FMV into the display buffer — so movies play in the
+	// debugger — while the game still takes its graceful missing-file fallback.
+	m.MovieHLE = true
+	// Pace the game to one field per frame: WaitVBL blocks on the field clock
+	// instead of completing instantly, so the field counter tracks displayed frames.
+	// Without it the attract idle timeout and the race clock race far ahead of the
+	// frames the debugger shows — in play mode the front-end would auto-advance to
+	// the credits in a second, and movies would blast past at full CPU speed.
+	m.PaceFields = true
 	m.SetVolume(a.vol)
 	if a.opts.VBLMirror != 0 {
 		m.SetVBLMirror(a.opts.VBLMirror)
@@ -214,6 +232,81 @@ func (a *Adapter) build() *threedo.Machine {
 
 func (a *Adapter) Platform() string { return "3do" }
 func (a *Adapter) Title() string    { return filepath.Base(a.imagePath) }
+
+// --- Gamepad (debug.Keyer): keyboard keys drive the 3DO control pad ---
+
+// keyToPad maps a browser key identity to a 3DO control-pad button name
+// (threedo.PadButton vocabulary). The D-pad steers and navigates menus, Enter is
+// Start, and the letters carry the game's own control mapping (A=gas, B=brake,
+// X=handbrake, Q/W=the shoulder gear shifts).
+var keyToPad = map[string]string{
+	"arrowup": "up", "arrowdown": "down", "arrowleft": "left", "arrowright": "right",
+	"enter": "start", "return": "start", " ": "a", "spacebar": "a",
+	"a": "a", "b": "b", "c": "c", "x": "x",
+	"q": "ls", "w": "rs",
+}
+
+// Key applies a keyboard make/break: it updates the held set and queues the new
+// button-mask state (change-coalesced) for release one-per-frame. Unmapped keys
+// are ignored so the debugger's own shortcuts still work.
+func (a *Adapter) Key(k debug.Key) error {
+	name, ok := keyToPad[strings.ToLower(k.Name)]
+	if !ok {
+		return nil
+	}
+	if k.Down {
+		a.held[name] = true
+	} else {
+		delete(a.held, name)
+	}
+	a.queuePad()
+	return nil
+}
+
+// KeyLegend describes the keyboard→pad mapping for the debugger's overlay.
+func (a *Adapter) KeyLegend() string {
+	return "arrows = D-pad, Enter = Start, A/B = gas/brake, X = handbrake, Q/W = gear down/up"
+}
+
+// padMask ORs the bits of every currently-held button.
+func (a *Adapter) padMask() uint32 {
+	var m uint32
+	for name := range a.held {
+		if bit, ok := threedo.PadButton(name); ok {
+			m |= bit
+		}
+	}
+	return m
+}
+
+// queuePad appends the current button mask to the release queue, but only when it
+// differs from the last state already queued (or last delivered) — so holding a
+// button doesn't flood the queue, while every distinct transition is preserved.
+func (a *Adapter) queuePad() {
+	mask := a.padMask()
+	if n := len(a.padQueue); n > 0 {
+		if a.padQueue[n-1] == mask {
+			return
+		}
+	} else if mask == a.padLast {
+		return
+	}
+	a.padQueue = append(a.padQueue, mask)
+}
+
+// releasePad delivers the next queued pad state to the guest via the event
+// broker, one per frame. It is called at the top of StepFrame/StepFast, before
+// the frame runs, so the state lands before the guest drains its event port. A
+// held button (empty queue) delivers nothing — the guest keeps the last state.
+func (a *Adapter) releasePad() {
+	if len(a.padQueue) == 0 {
+		return
+	}
+	mask := a.padQueue[0]
+	a.padQueue = a.padQueue[1:]
+	a.padLast = mask
+	a.live.SendPadEvent(mask)
+}
 
 // Machine exposes the live machine, for the wiring the generic interface does not cover
 // (scripted pad input).
@@ -253,6 +346,7 @@ func (a *Adapter) LoadStateFile(path string) error {
 // screen, and this machine's only statement that a frame is finished — capturing the
 // cels it drew and per-pixel provenance along the way.
 func (a *Adapter) StepFrame(withOverdraw bool) (*debug.FrameCapture, error) {
+	a.releasePad() // deliver one queued pad state before the frame runs
 	ms := a.live.SaveState()
 	fc := &debug.FrameCapture{Start: snap{ms: &ms}}
 	fc.CountWrites()
@@ -312,6 +406,15 @@ func (a *Adapter) StepFrame(withOverdraw bool) (*debug.FrameCapture, error) {
 	// Leave any user watches wired, but drop the per-frame capture hooks so a later run
 	// is not paying for a census nobody is reading.
 	a.live.OnCel, a.live.OnPixel, a.live.OnDisplay = nil, nil, nil
+
+	// If the guest presented no frame of its own (it stalls after asking for FMV that
+	// its broken player can't run) but movies are queued, present the next movie frame.
+	// The HLE-decoded FMV then flows through the same capture path as a game frame.
+	if presented == 0 {
+		if buf, _, _, _, ok := a.live.StepMovieFrame(); ok {
+			presented = buf
+		}
+	}
 
 	a.frame = a.pickFrame(presented, drawn)
 	fc.Width, fc.Height = a.frame.w, a.frame.h
@@ -391,6 +494,7 @@ func flattenOver(ov map[uint32][]debug.PixelWrite, w, h int) map[int][]debug.Pix
 
 // StepFast advances one frame capturing nothing — how the debugger fast-forwards.
 func (a *Adapter) StepFast() error {
+	a.releasePad() // deliver one queued pad state before the frame runs
 	a.live.OnCel, a.live.OnPixel = nil, nil
 	a.live.OnDisplay = func(m *threedo.Machine, frame uint64, buf uint32) { m.StopRequested = true }
 	a.live.Run(runBudget)

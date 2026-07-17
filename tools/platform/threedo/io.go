@@ -2,6 +2,8 @@ package threedo
 
 import (
 	"fmt"
+	"sort"
+	"strings"
 
 	"retroreverse.com/tools/cpu/arm60"
 )
@@ -125,9 +127,12 @@ func (m *Machine) tagString(p, want uint32) string {
 
 // serviceIO handles SendIO/DoIO(r0 = IOReq item, r1 = IOInfo*). It performs the
 // requested transfer, records the completion fields on the IOReq, delivers the
-// completion signal and returns the error in r0. With instant disc access the
-// request always completes here, so the two calls behave identically.
-func (m *Machine) serviceIO(c *arm60.CPU) {
+// completion signal and returns the error in r0. With instant disc access most
+// requests complete here, so SendIO and DoIO behave identically — the exception is
+// a timer field-wait (WaitVBL) submitted with SendIO, which is parked until its
+// field arrives (async) so the game paces on it; a field-wait via DoIO still
+// completes inline, since DoIO's caller expects the request finished on return.
+func (m *Machine) serviceIO(c *arm60.CPU, async bool) {
 	ioNum := int32(c.Reg(0))
 	info := c.Reg(1)
 	it := m.items[ioNum]
@@ -152,6 +157,19 @@ func (m *Machine) serviceIO(c *arm60.CPU) {
 		for i := uint32(0); i < ioInfoBytes; i++ {
 			m.Write(it.addr+ioInfoOff+i, m.Read(info+i))
 		}
+	}
+
+	// With field pacing on, a timer field-wait (WaitVBL) submitted asynchronously
+	// parks until the field clock reaches the target (offset = field count) rather
+	// than finishing here, so the caller's WaitIO helper blocks on the field and the
+	// game is paced to one field per frame. Its completion (fieldTick) delivers
+	// SIGF_IODONE, waking the caller. SendIO still returns success. A DoIO field-wait
+	// (async == false), or any field-wait with pacing off, falls through to the
+	// inline path in performIO, which advances the field clock and completes at once.
+	if async && m.PaceFields && m.deviceName(it) == "timer" && cmd == timerCmdWaitField {
+		m.startFieldWait(it, offset)
+		c.SetReg(0, 0)
+		return
 	}
 
 	actual, ioErr := m.performIO(it, cmd, offset, sendBuf, sendLen, recvBuf, recvLen)
@@ -185,6 +203,33 @@ func (m *Machine) completeIO(it *item) {
 	m.sendSignal(it.owner, sigfIODONE)
 }
 
+// deviceName returns the name of the device an IOReq drives ("" if none/unknown).
+func (m *Machine) deviceName(it *item) string {
+	if it != nil && it.device != 0 {
+		if d := m.items[it.device]; d != nil {
+			return d.name
+		}
+	}
+	return ""
+}
+
+// completeFieldWait delivers a parked WaitVBL's completion — fieldTick has already
+// set IO_DONE on the IOReq. The completion signal goes to the task that SUBMITTED
+// the request (called SendIO), not the IOReq's creator: a game commonly issues
+// WaitVBL on a shared global timer IOReq owned by one task while other tasks wait
+// on it too, so signaling the owner would wake the wrong task and hang the
+// submitter (this is how the race's asset loader stalled). If the IOReq carries a
+// reply port, its owner is signaled as usual.
+func (m *Machine) completeFieldWait(it *item, submitter int32) {
+	if it.replyPort != 0 {
+		if p := m.items[it.replyPort]; p != nil {
+			m.sendSignal(p.owner, p.signal)
+			return
+		}
+	}
+	m.sendSignal(submitter, sigfIODONE)
+}
+
 // ioError returns the stored io_Error of an IOReq item (0 if unknown).
 func (m *Machine) ioError(ioNum int32) uint32 {
 	if it := m.items[ioNum]; it != nil && it.addr != 0 {
@@ -199,23 +244,20 @@ func (m *Machine) ioError(ioNum int32) uint32 {
 // virtual VBlank clock. Unmapped requests are logged and acknowledged as a
 // zero-length success so the boot proceeds and the gap is visible.
 func (m *Machine) performIO(it *item, cmd, offset, sendBuf, sendLen, buf, length uint32) (int32, int32) {
-	dev := ""
-	if it != nil && it.device != 0 {
-		if d := m.items[it.device]; d != nil {
-			dev = d.name
-		}
-	}
+	dev := m.deviceName(it)
 	m.note(fmt.Sprintf("IO dev=%q cmd=%d offset=0x%X buf=0x%08X len=0x%X", dev, cmd, offset, buf, length))
 	if dev == "timer" && cmd == timerCmdWaitField {
-		// A field wait: advance the virtual VBlank clock by the requested count so
-		// the caller's timing loop sees the fields elapse (see timerCmdWaitField).
+		// A field wait reaches the inline path when it is NOT parked as an async
+		// field-wait (see serviceIO): either field pacing is off, or it came from
+		// DoIO. Advance the field clock by the requested count and complete now. With
+		// pacing off this is the old behaviour — hand the CPU to the next ready task
+		// (the waiter stays ready) so a frame loop does not starve the program; with
+		// pacing on the async path handles the yield by blocking, so don't force one.
 		m.advanceVBlank(offset)
-		// On hardware this request parks the caller for a whole field — an eternity
-		// in which every other task runs. Completing it instantly without yielding
-		// would let a frame loop starve the rest of the program, so hand the CPU to
-		// the next ready task; the waiter stays ready and resumes on its next turn.
-		m.curTask().state = stReady
-		m.needSchedule = true
+		if !m.PaceFields {
+			m.curTask().state = stReady
+			m.needSchedule = true
+		}
 		return 0, 0
 	}
 	// FLASHWRITE_CMD clears a VRAM span to a constant via the VRAM serial port —
@@ -471,6 +513,43 @@ const (
 	PadRightShift = 0x00400000
 	PadLeftShift  = 0x00200000
 )
+
+// padButtonBits maps the control-pad button names shared by the oracle's -pad
+// script and the framedbg keyer to their ControlPadEventData bits.
+var padButtonBits = map[string]uint32{
+	"a": PadA, "b": PadB, "c": PadC, "x": PadX,
+	"start": PadStart, "p": PadStart,
+	"up": PadUp, "down": PadDown, "left": PadLeft, "right": PadRight,
+	"ls": PadLeftShift, "rs": PadRightShift,
+}
+
+// PadButton resolves a control-pad button name (case-insensitive) to its bit.
+// ok is false for an unknown name; "0" (all released) is the caller's concern.
+// Names: a b c x start (p) up down left right ls rs.
+func PadButton(name string) (uint32, bool) {
+	b, ok := padButtonBits[strings.ToLower(strings.TrimSpace(name))]
+	return b, ok
+}
+
+// PadButtonNames lists the distinct button names PadButton accepts (aliases p→
+// start collapsed), sorted — for a keyer legend or a menu.
+func PadButtonNames() []string {
+	seen := map[uint32]string{}
+	for n, b := range padButtonBits {
+		if n == "p" { // alias of start
+			continue
+		}
+		if _, ok := seen[b]; !ok {
+			seen[b] = n
+		}
+	}
+	names := make([]string, 0, len(seen))
+	for _, n := range seen {
+		names = append(names, n)
+	}
+	sort.Strings(names)
+	return names
+}
 
 // eventBrokerRequest services a message arriving at the broker port: it logs
 // the flavor, remembers EB_Configure senders' reply ports as event listeners,

@@ -37,7 +37,11 @@ func main() {
 	dumpLen := flag.Uint64("dumplen", 0x40, "byte span for -dump")
 	vblMirror := flag.Uint64("vblmirror", 0x42734, "game global the VBL manager keeps at the elapsed-field count (0 = off)")
 	stall := flag.Int("stall", 1, "deadlock-guard tolerance multiplier (raise for programs with settled main loops)")
+	pace := flag.Bool("pace", false, "pace the game to one field per frame (WaitVBL blocks on the field clock) instead of instant WaitVBL")
 	movies := flag.Bool("movies", false, "let the game open .stream movies (FMV subsystem not modelled yet: crashes in the movie player)")
+	moviePlay := flag.Bool("movieplay", false, "HLE the movie player: decode the FMV the game asks for and present it into the framebuffer (pairs with -shots / -movieshots)")
+	movieShots := flag.String("movieshots", "", "capture the HLE-played movies as PREFIX-NNNN.png (implies -movieplay)")
+	movieEvery := flag.Uint64("movieevery", 5, "capture every Nth movie frame for -movieshots")
 	pad := flag.String("pad", "", "control-pad script: STEP:btn+btn,STEP:0,... (btns: a b c start x up down left right ls rs; 0=release)")
 	celDebugAt := flag.Uint64("celdebug", 0, "record a per-cel render summary for the frames after this step")
 	saveS := flag.String("savestate", "", "after the run, write a machine savestate to this file")
@@ -83,7 +87,9 @@ func main() {
 	m := threedo.NewMachine()
 	m.SpinBreak = *spinbreak
 	m.StallTolerance = *stall
+	m.PaceFields = *pace
 	m.NoStreams = !*movies
+	m.MovieHLE = *moviePlay || *movieShots != ""
 	m.SportDebug = *sportDebug
 	m.PerspTint = *perspTint
 	m.ProbeX = uint32(*probeX)
@@ -181,6 +187,29 @@ func main() {
 	fmt.Printf("\n--- running (max %d steps) ---\n", *steps)
 	res := m.Run(*steps)
 	fmt.Printf("stopped: %s  after %d steps, pc=0x%08X\n", res.Reason, res.Steps, res.PC)
+
+	if m.MovieHLE {
+		fmt.Printf("\n--- movie HLE: %d movie(s) requested: %v ---\n", m.MoviesPending(), m.MovieNames())
+		var saved int
+		m.PlayMovies(func(name string, frame, total int) {
+			if *movieShots == "" || uint64(frame)%*movieEvery != 0 {
+				return
+			}
+			img := m.CaptureVRAM(m.DisplayBuffer(), 320, 240)
+			base := *movieShots + "-" + sanitize(name)
+			fn := fmt.Sprintf("%s-%04d.png", base, frame)
+			f, err := os.Create(fn)
+			if err != nil {
+				die(err)
+			}
+			png.Encode(f, img)
+			f.Close()
+			saved++
+		})
+		if *movieShots != "" {
+			fmt.Fprintf(os.Stderr, "captured %d movie frames\n", saved)
+		}
+	}
 
 	if *saveS != "" {
 		if err := m.SaveStateFile(*saveS); err != nil {
@@ -296,13 +325,6 @@ func main() {
 // parsePadScript turns "20000000:start,21000000:0,30000000:a+down" into the
 // machine's step-scheduled control-pad states.
 func parsePadScript(s string) ([]threedo.PadStep, error) {
-	bits := map[string]uint32{
-		"a": threedo.PadA, "b": threedo.PadB, "c": threedo.PadC,
-		"start": threedo.PadStart, "p": threedo.PadStart, "x": threedo.PadX,
-		"up": threedo.PadUp, "down": threedo.PadDown,
-		"left": threedo.PadLeft, "right": threedo.PadRight,
-		"ls": threedo.PadLeftShift, "rs": threedo.PadRightShift, "0": 0,
-	}
 	var script []threedo.PadStep
 	for _, entry := range strings.Split(s, ",") {
 		step, names, ok := strings.Cut(strings.TrimSpace(entry), ":")
@@ -315,7 +337,11 @@ func parsePadScript(s string) ([]threedo.PadStep, error) {
 		}
 		var buttons uint32
 		for _, n := range strings.Split(names, "+") {
-			bit, ok := bits[strings.ToLower(strings.TrimSpace(n))]
+			n = strings.TrimSpace(n)
+			if n == "0" { // all released
+				continue
+			}
+			bit, ok := threedo.PadButton(n)
 			if !ok {
 				return nil, fmt.Errorf("pad entry %q: unknown button %q", entry, n)
 			}
@@ -330,4 +356,22 @@ func parsePadScript(s string) ([]threedo.PadStep, error) {
 func die(err error) {
 	fmt.Fprintln(os.Stderr, "bootoracle:", err)
 	os.Exit(1)
+}
+
+// sanitize turns a movie path like "Movies/eac.stream" into a filename-safe stem
+// like "eac" for the -movieshots output prefix.
+func sanitize(p string) string {
+	if i := strings.LastIndexByte(p, '/'); i >= 0 {
+		p = p[i+1:]
+	}
+	if i := strings.LastIndexByte(p, '.'); i >= 0 {
+		p = p[:i]
+	}
+	b := []byte(p)
+	for i, c := range b {
+		if !(c >= 'a' && c <= 'z' || c >= 'A' && c <= 'Z' || c >= '0' && c <= '9' || c == '-' || c == '_') {
+			b[i] = '_'
+		}
+	}
+	return string(b)
 }

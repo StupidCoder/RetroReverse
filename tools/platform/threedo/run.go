@@ -6,9 +6,10 @@ import (
 	"retroreverse.com/tools/cpu/arm60"
 )
 
-// vblankPeriod is how many instructions map to one virtual VBlank/field. The
-// real ratio depends on emulated CPU speed; this is tuned so timing loops see a
-// steady stream of fields without spinning the whole step budget on one frame.
+// vblankPeriod is how many instructions map to one virtual field when field
+// pacing is OFF: a steady background tick advances the clock so timing loops that
+// never issue a field-wait still see it move. With pacing on the clock advances
+// per idle field instead (fieldTick), so this is unused on that path.
 const vblankPeriod = 20000
 
 // Result summarises a run.
@@ -61,12 +62,13 @@ func (m *Machine) Run(maxSteps uint64) Result {
 			return Result{steps, m.CPU.Reg(15), "stop requested"}
 		}
 
-		// Advance the virtual VBlank counter the game reads out of the OS context
-		// struct (osCtx +0xA), so timer/VBlank waits see fields elapse. ~60 Hz is
-		// modelled as one field per vblankPeriod instructions.
-		if steps%vblankPeriod == 0 {
-			// A steady background tick, so timing loops that never issue a field-wait
-			// IO still see the clock move. Field-wait IOs advance it too (io.go).
+		// With field pacing OFF the clock advances on a fixed instruction cadence, so
+		// timing loops that never issue a field-wait still see it move. With pacing ON
+		// the clock instead ticks one field whenever the machine would otherwise idle
+		// (fieldTick, in the scheduler paths below), so it tracks displayed frames — a
+		// WaitVBL blocks its caller until the field arrives rather than completing
+		// instantly, which stops in-game timers racing far ahead of the frames.
+		if !m.PaceFields && steps%vblankPeriod == 0 {
 			m.advanceVBlank(1)
 		}
 		// Feed the scheduled control-pad script: deliver each state change once
@@ -82,7 +84,12 @@ func (m *Machine) Run(maxSteps uint64) Result {
 		if pc == taskExitTramp {
 			m.curTask().state = stDone
 			if !m.switchTask() {
-				return Result{steps, pc, fmt.Sprintf("all tasks finished (%d switches)", m.switches)}
+				// No other task is ready — but the rest may just be parked on WaitVBL
+				// (a transient boot task finishing while the frame loop sleeps between
+				// fields). Idle to the next field to wake them before calling it done.
+				if !m.wakeByFieldTick() {
+					return Result{steps, pc, fmt.Sprintf("all tasks finished (%d switches)", m.switches)}
+				}
 			}
 			continue
 		}
@@ -93,7 +100,11 @@ func (m *Machine) Run(maxSteps uint64) Result {
 			if m.needSchedule { // a blocking folio call (SleepUntilTime) yielded
 				m.needSchedule = false
 				if !m.switchTask() {
-					m.curTask().state = stRunning
+					if m.wakeByFieldTick() {
+						sinceNew, stallSwitches = 0, 0 // a field completed: progress
+					} else {
+						m.curTask().state = stRunning
+					}
 				}
 			}
 			continue
@@ -120,11 +131,27 @@ func (m *Machine) Run(maxSteps uint64) Result {
 			} else {
 				sinceNew++
 				if sinceNew%switchAt == 0 {
-					// This task has made no progress for a while. In cooperative
-					// multitasking it should yield: switch to another runnable task
-					// (which may set the flag / build the list it's waiting on).
+					// This task has made no new-code progress for a while. Idle the
+					// machine one field forward — the console waiting for the next
+					// vertical blank — which wakes any WaitVBL waiter and lets a
+					// field-counter busy-wait see the new count; then yield to another
+					// runnable task (which may set the flag / build the list it waits
+					// on). A completed field-wait is real progress: a frame loop that
+					// re-runs the same code every field is alive, not deadlocked, so it
+					// resets the stall count. Only a machine where the field wakes
+					// nothing and no other task can run is the true deadlock.
+					woke := false
+					if m.PaceFields {
+						woke = m.fieldTick()
+					}
 					m.curTask().state = stReady
-					if m.switchTask() {
+					switched := m.switchTask()
+					if woke {
+						stallSwitches = 0
+						sinceNew = 0
+						continue
+					}
+					if switched {
 						stallSwitches++
 						if stallSwitches > (32*len(m.tasks)+8)*max(1, m.StallTolerance) {
 							return Result{steps, pc, fmt.Sprintf("deadlock: all %d tasks stalled near 0x%08X", len(m.tasks), pc)}
@@ -152,7 +179,11 @@ func (m *Machine) Run(maxSteps uint64) Result {
 		if m.needSchedule { // a WaitSignal blocked the current task
 			m.needSchedule = false
 			if !m.switchTask() {
-				m.curTask().state = stRunning // nothing else runnable: proceed optimistically
+				if m.wakeByFieldTick() {
+					sinceNew, stallSwitches = 0, 0 // a field completed: progress
+				} else {
+					m.curTask().state = stRunning // nothing else runnable: proceed optimistically
+				}
 			}
 		}
 		if m.CPU.Halted {

@@ -68,6 +68,11 @@ type MachineState struct {
 	AudioEvents     []audioEventState
 	AudioClockOwner int32
 
+	// Parked WaitVBL field-waits (run.go / io.go, PaceFields on). Without these a
+	// restore mid-frame would drop pending WaitVBLs and hang their waiters.
+	PaceFields bool
+	FieldWaits []fieldWaitState
+
 	// The event broker (io.go).
 	EBListeners []int32
 
@@ -133,6 +138,12 @@ type bitmapState struct {
 type audioEventState struct {
 	Cue  int32
 	Time uint32
+}
+
+type fieldWaitState struct {
+	IOReq     int32
+	Submitter int32
+	Field     uint32
 }
 
 // SetImageHash pins the disc a savestate belongs to.
@@ -210,6 +221,10 @@ func (m *Machine) SaveState() MachineState {
 	}
 	for _, ev := range m.audioEvents {
 		s.AudioEvents = append(s.AudioEvents, audioEventState{Cue: ev.cue, Time: ev.time})
+	}
+	s.PaceFields = m.PaceFields
+	for _, w := range m.fieldWaits {
+		s.FieldWaits = append(s.FieldWaits, fieldWaitState{IOReq: w.ioReq, Submitter: w.submitter, Field: w.field})
 	}
 	return s
 }
@@ -297,6 +312,12 @@ func (m *Machine) LoadState(s MachineState) error {
 	}
 	m.audioClockOwner = s.AudioClockOwner
 	m.ebListeners = append([]int32(nil), s.EBListeners...)
+
+	m.PaceFields = s.PaceFields
+	m.fieldWaits = nil
+	for _, w := range s.FieldWaits {
+		m.fieldWaits = append(m.fieldWaits, timerWait{ioReq: w.IOReq, submitter: w.Submitter, field: w.Field})
+	}
 
 	m.simTime, m.vblank, m.vblMirror, m.frame = s.SimTime, s.VBlank, s.VBLMirror, s.Frame
 	m.tty = append([]byte(nil), s.TTY...)

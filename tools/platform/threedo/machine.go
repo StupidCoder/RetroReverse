@@ -192,8 +192,36 @@ type Machine struct {
 	// through the game's own missing-file fallback (see loadDiscFile). Set it
 	// until the audio folio + DataStreamer are modelled well enough to play them.
 	NoStreams bool
+	// MovieHLE high-level-emulates the movie player: when the game opens a .stream
+	// FMV, the oracle demuxes it, decodes the Cinepak itself and presents the
+	// frames into the display buffer (see moviehle.go), instead of running the
+	// game's own DataStreamer/DSP-audio path. The game's open still fails (as with
+	// NoStreams) so it takes its graceful fallback; the queued movies are played
+	// by PlayMovies. Implies the NoStreams skip for the game's own player.
+	MovieHLE   bool
+	movieQueue []*armedMovie
+	// movie playback cursor (StepMovieFrame): position in the queue, frame within
+	// the current movie, its decoder and the VRAM buffer it lands in.
+	moviePos      int
+	movieFrameIdx int
+	movieDec      *CvidDecoder
+	movieBase     uint32
 	simTime   uint64 // virtual microsecond clock (folio SampleSystemTimeTT)
 	vblank    uint32 // virtual VBlank/field counter (osCtx +0xA)
+	// PaceFields, when set, makes WaitVBL block its caller until the field clock
+	// reaches the requested field (the fieldWaits/fieldTick machinery below) instead
+	// of completing instantly. The field clock then advances one field whenever the
+	// machine would otherwise idle, so it tracks displayed frames — the attract idle
+	// timeout, the race clock and movie playback run at a natural rate rather than
+	// racing at raw instruction speed. Off by default (the instant WaitVBL + a steady
+	// background field tick, run.go); the framedbg adapter and the oracle's -pace flag
+	// turn it on.
+	PaceFields bool
+	// fieldWaits holds WaitVBL requests parked until the field clock reaches their
+	// target (only while PaceFields is on). A field-wait IOReq completes
+	// asynchronously (fieldTick), not in its submit call, so the caller's WaitIO
+	// blocks for the field (io.go / run.go).
+	fieldWaits []timerWait
 	// vblMirror, if non-zero, is a game global the VBL manager must keep in step
 	// with the elapsed-field count. On real hardware the graphics folio's VBL
 	// interrupt increments a monotonic field counter that the game's frame/timer
@@ -335,6 +363,92 @@ func (m *Machine) advanceVBlank(n uint32) {
 	m.advanceAudioClock(n)
 }
 
+// timerWait is a WaitVBL/field-wait IOReq parked until the field clock reaches
+// its target (machine.fieldWaits). On hardware the timer driver blocks the caller
+// until N vertical-blank fields elapse; here the request completes when the
+// virtual field clock — advanced one field at a time whenever the machine would
+// otherwise idle (fieldTick) — reaches the target, delivering the completion
+// signal so the caller's WaitIO wakes.
+type timerWait struct {
+	ioReq     int32  // the field-wait IOReq item to complete
+	submitter int32  // the task that called SendIO — SIGF_IODONE wakes it, not the
+	//                  IOReq's creator (a game may WaitVBL on a shared global IOReq)
+	field uint32 // wake when the field clock reaches this count
+}
+
+// startFieldWait parks a timer field-wait IOReq (WaitVBL's SendIO) until the field
+// clock advances by fields. The request completes asynchronously in fieldTick, not
+// in the submit call, so the caller's WaitIO helper blocks on SIGF_IODONE and the
+// game is paced to one field per frame. The completion flags are cleared so WaitIO
+// sees the request still pending.
+func (m *Machine) startFieldWait(it *item, fields uint32) {
+	if it == nil {
+		return
+	}
+	if fields == 0 {
+		fields = 1
+	}
+	if it.addr != 0 {
+		m.write32(it.addr+ioFlagsOff, 0)
+	}
+	m.fieldWaits = append(m.fieldWaits, timerWait{ioReq: it.num, submitter: m.curTask().num, field: m.vblank + fields})
+}
+
+// fieldTick advances the virtual field clock by one field and completes any parked
+// field-waits that have come due, waking their owners (completeIO). It is the
+// machine's idle heartbeat, standing in for the console sleeping until the next
+// vertical blank: the run loop calls it whenever no task can make forward progress
+// (run.go), so a program parked on WaitVBL sleeps exactly until its field arrives.
+// Returns true if any field-wait completed this tick.
+func (m *Machine) fieldTick() bool {
+	m.advanceVBlank(1)
+	if len(m.fieldWaits) == 0 {
+		return false
+	}
+	woke := false
+	kept := m.fieldWaits[:0]
+	for _, w := range m.fieldWaits {
+		if int32(m.vblank-w.field) >= 0 { // clock has reached the target
+			if it := m.items[w.ioReq]; it != nil {
+				if it.addr != 0 {
+					m.write32(it.addr+ioActualOff, 0)
+					m.write32(it.addr+ioFlagsOff, m.read32(it.addr+ioFlagsOff)|ioDone)
+					m.write32(it.addr+ioErrorOff, 0)
+				}
+				m.completeFieldWait(it, w.submitter)
+				woke = true
+			}
+		} else {
+			kept = append(kept, w)
+		}
+	}
+	m.fieldWaits = kept
+	return woke
+}
+
+// wakeByFieldTick idles the machine forward one field at a time until a parked
+// field-wait comes due and its task becomes runnable, then switches to it. It is
+// the all-tasks-blocked path: every task is asleep on WaitVBL/WaitSignal, so the
+// only way forward is the next vertical blank. Returns false (and advances nothing
+// past the first tick) when no field-wait is pending — a genuine stall the run
+// loop handles otherwise. The field budget bounds a program whose waits never
+// resolve so the loop cannot spin forever.
+func (m *Machine) wakeByFieldTick() bool {
+	if len(m.fieldWaits) == 0 {
+		return false
+	}
+	for i := 0; i < 1_000_000; i++ {
+		m.fieldTick()
+		if m.switchTask() {
+			return true
+		}
+		if len(m.fieldWaits) == 0 {
+			return false
+		}
+	}
+	return false
+}
+
 // writeWord stores a big-endian word directly into DRAM (setup helper).
 func (m *Machine) writeWord(a, v uint32) {
 	if int(a)+4 <= len(m.dram) {
@@ -382,7 +496,7 @@ func (m *Machine) rawRead(addr uint32) byte {
 		w := hleBase - wbase // uint32 wrap: hleBase + (2^32 - wbase)
 		return byte(w >> uint((3-(addr&3))*8))
 	default:
-		m.note(fmt.Sprintf("read unmapped 0x%08X", addr))
+		m.note(fmt.Sprintf("read unmapped 0x%08X from PC 0x%08X", addr, m.CPU.CurPC()))
 		return 0
 	}
 }
@@ -399,7 +513,7 @@ func (m *Machine) Write(addr uint32, v byte) {
 	case addr >= madamBase && addr < clioEnd:
 		// Madam/Clio register writes are accepted and ignored under HLE.
 	default:
-		m.note(fmt.Sprintf("write unmapped 0x%08X", addr))
+		m.note(fmt.Sprintf("write unmapped 0x%08X from PC 0x%08X", addr, m.CPU.CurPC()))
 	}
 }
 

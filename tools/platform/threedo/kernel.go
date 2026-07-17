@@ -104,11 +104,16 @@ func (m *Machine) kernelSWI(c *arm60.CPU, swi uint32) bool {
 		c.SetReg(0, uint32(m.findItem(c.Reg(0), c.Reg(1)).num))
 	case swiPrintf:
 		c.SetReg(0, m.kprintf())
-	case swiSendIO, swiDoIO:
-		m.serviceIO(c)
+	case swiSendIO:
+		m.serviceIO(c, true) // asynchronous: a field-wait parks until its field
+	case swiDoIO:
+		m.serviceIO(c, false) // synchronous: complete even a field-wait inline
 	case swiWaitIO:
-		// The I/O already completed synchronously in serviceIO, so there is
-		// nothing to wait for; return its stored error (0 = success).
+		// Most I/O completed synchronously in serviceIO, so there is nothing to
+		// wait for; return its stored error (0 = success). A parked field-wait
+		// (WaitVBL) is the exception — but the game reaches it through its own
+		// WaitIO helper (0x3ACA0), which loops on WaitSignal(SIGF_IODONE), not
+		// through this SWI, so this path still only sees already-finished requests.
 		c.SetReg(0, m.ioError(int32(c.Reg(0))))
 	case swiAbortIO, swiCompleteIO:
 		c.SetReg(0, 0)
