@@ -179,6 +179,13 @@ func (gs *GS) kick() {
 func (gs *GS) drawn(typ int) {
 	gs.primCount[typ]++
 	gs.prims++
+	// The frame debugger's per-primitive hook: it records this primitive as one command
+	// and hands back the index the pixels it draws should carry, so a pixel can name the
+	// primitive that wrote it.
+	gs.curCmd = -1
+	if gs.m != nil && gs.m.OnGSPrim != nil {
+		gs.curCmd = gs.m.OnGSPrim(typ, gs.src)
+	}
 	// The vertex-dump instrument: the first N completed primitives, with the exact
 	// numbers the rasteriser is about to consume — position in pixels (12.4 fixed,
 	// XYOFFSET already subtracted), Z, the RGBA the vertex latched, and its ST/Q.
@@ -535,6 +542,12 @@ func (gs *GS) plot(t *gsTarget, x, y int32, z uint32, rgba uint32) {
 	gs.vram[addr+1] = byte(px >> 8)
 	gs.vram[addr+2] = byte(px >> 16)
 	gs.vram[addr+3] = byte(px >> 24)
+	// The frame debugger's per-pixel hook: this colour write lands at VRAM (x, y) in the
+	// buffer at t.fbp, and is attributed to the primitive drawn() named. The debugger
+	// maps it onto whichever buffer it is showing as the frame.
+	if gs.m != nil && gs.m.OnGSPixel != nil {
+		gs.m.OnGSPixel(gs.curCmd, t.fbp*64, x, y)
+	}
 }
 
 // fogPixel folds FOGCOL into a source colour by the vertex fog coefficient: f=255 keeps

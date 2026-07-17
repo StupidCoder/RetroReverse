@@ -75,6 +75,13 @@ func (m *Machine) deliverVBlank() {
 	m.vblanks++
 	m.gsVSync()
 
+	// The frame boundary, for a caller that wants to advance a field at a time (the
+	// frame debugger). It runs before the guest's own vblank handlers so a run stopped
+	// here has not yet started the next field's work.
+	if m.OnVBlank != nil {
+		m.OnVBlank(m)
+	}
+
 	// The blank is one event on the board and both processors see it. The IOP's
 	// vblank library (iopvblank.go) runs its registered handlers off this same edge —
 	// padman's per-frame pad poll above all.

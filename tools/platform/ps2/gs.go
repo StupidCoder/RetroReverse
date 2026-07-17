@@ -100,6 +100,7 @@ type GS struct {
 	vqN        int
 	q          uint32 // the Q latched by a PACKED ST, applied by the next PACKED RGBAQ
 	primCount  [8]int
+	curCmd     int // the frame debugger's command index for the primitive being drawn (-1 = none)
 	drawCensus map[string]int
 	src        string // who fed the GIF the current packet (which VU1 program / PATH)
 	curPacket  []byte // the packet being unpacked, for the -gsreg packet dump
@@ -117,15 +118,15 @@ type GS struct {
 
 	// The per-pixel outcome tally: where a frame's pixels actually went. A buffer that
 	// stays empty despite thousands of primitives is explained by exactly one of these.
-	plotted        uint64
-	rejScissor     uint64
-	rejZ           uint64
-	rejAlpha       uint64
-	rejDate        uint64
-	plotNonBlack   [8]uint64
-	rgbaqA0, rgbaqA     uint64 // vertex colours with zero vs non-zero alpha: a fade reads here
-	rgbaqRGB0, rgbaqRGB uint64 // vertex colours with black vs non-black RGB: a modulate to black reads here
-	t8Dumped            int    // one-shot budget for the T8 sample dump
+	plotted                  uint64
+	rejScissor               uint64
+	rejZ                     uint64
+	rejAlpha                 uint64
+	rejDate                  uint64
+	plotNonBlack             [8]uint64
+	rgbaqA0, rgbaqA          uint64 // vertex colours with zero vs non-zero alpha: a fade reads here
+	rgbaqRGB0, rgbaqRGB      uint64 // vertex colours with black vs non-black RGB: a modulate to black reads here
+	t8Dumped                 int    // one-shot budget for the T8 sample dump
 	texBlack, texColor       uint64 // texel samples that came back black vs coloured
 	texBlackPSM, texColorPSM [64]uint64
 
@@ -755,6 +756,41 @@ func (m *Machine) GSFrame() (pix []byte, w, h int) {
 		}
 	}
 	return pix, w, h
+}
+
+// GSScanout reports where in GS memory the displayed frame lives and how the visible
+// rectangle sits inside it — the same DISPFB/DISPLAY parse GSFrame does, exposed so a
+// caller (the frame debugger) can map a pixel write, which carries its buffer's word
+// address and VRAM coordinate, onto the picture GSFrame returns. fbWord is the buffer's
+// word base (matching the address the GS pixel hook reports); dbx/dby is the visible
+// rectangle's origin within it; w/h its size. ok is false when nothing is being scanned
+// out yet.
+func (m *Machine) GSScanout() (fbWord, dbx, dby uint32, w, h int, ok bool) {
+	if m.gs == nil {
+		return 0, 0, 0, 0, 0, false
+	}
+	dispfb := uint64(m.io[gsDISPFB2]) | uint64(m.io[gsDISPFB2+4])<<32
+	display := uint64(m.io[gsDISPLAY2]) | uint64(m.io[gsDISPLAY2+4])<<32
+	if pmode := m.io[gsPMODE]; pmode&2 == 0 && pmode&1 != 0 {
+		dispfb = uint64(m.io[gsDISPFB1]) | uint64(m.io[gsDISPFB1+4])<<32
+		display = uint64(m.io[gsDISPLAY1]) | uint64(m.io[gsDISPLAY1+4])<<32
+	}
+	fbp := uint32(dispfb) & 0x1FF
+	fbw := uint32(dispfb>>9) & 0x3F
+	dbx = uint32(dispfb>>32) & 0x7FF
+	dby = uint32(dispfb>>43) & 0x7FF
+	magh := uint32(display>>23)&0xF + 1
+	magv := uint32(display>>27)&0x3 + 1
+	dw := (uint32(display>>32)&0xFFF + 1) / magh
+	dh := (uint32(display>>44)&0x7FF + 1) / magv
+	if m.gsInterlace == 1 && m.gsFieldMode == 1 {
+		dh /= 2
+	}
+	if fbw == 0 || dw == 0 || dh == 0 {
+		return 0, 0, 0, 0, 0, false
+	}
+	// fbp is in 2048-word pages; the GS pixel hook reports buffer bases as word addresses.
+	return fbp * 2048, dbx, dby, int(dw), int(dh), true
 }
 
 // GSBuffer reads back an arbitrary PSMCT32 rectangle of GS memory — any buffer the

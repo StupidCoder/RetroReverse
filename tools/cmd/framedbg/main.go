@@ -38,6 +38,7 @@ import (
 	"retroreverse.com/tools/debug/n3dsadapter"
 	"retroreverse.com/tools/debug/n64adapter"
 	"retroreverse.com/tools/debug/ndsadapter"
+	"retroreverse.com/tools/debug/ps2adapter"
 	"retroreverse.com/tools/debug/pspadapter"
 	"retroreverse.com/tools/debug/psxadapter"
 	"retroreverse.com/tools/debug/server"
@@ -110,6 +111,28 @@ func run() error {
 		}
 		if *serve == "" {
 			return fmt.Errorf("the pc (DOS) target has no frames to report headless; run it with -serve")
+		}
+		return server.New(d).ListenAndServe(*serve)
+	}
+
+	// The PS2 (Jak and Daxter) backs the interactive half — play, surfaces, savestates,
+	// CPU/memory — but not yet the frame scrubber (no FrameStepper), so like the DOS host
+	// it does not satisfy the headless report path's target interface and is served
+	// interactively only. An .iso is ambiguous with the PSX, so the direct form needs
+	// -platform ps2; the library path (framedbg -serve, then pick the game) reads the
+	// platform off the slug and needs no flag.
+	if *platform == "ps2" {
+		d, err := ps2adapter.New(*image_)
+		if err != nil {
+			return err
+		}
+		if *state != "" {
+			if err := d.LoadStateFile(*state); err != nil {
+				return fmt.Errorf("loading state: %w", err)
+			}
+		}
+		if *serve == "" {
+			return fmt.Errorf("the ps2 target has no frame scrubber to report headless; run it with -serve")
 		}
 		return server.New(d).ListenAndServe(*serve)
 	}

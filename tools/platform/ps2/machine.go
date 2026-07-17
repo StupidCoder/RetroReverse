@@ -267,6 +267,21 @@ type Machine struct {
 	// StopRequested ends the run at the next instruction boundary.
 	StopRequested bool
 
+	// OnVBlank, if set, is called at each vertical blank — the machine's frame
+	// boundary. The frame debugger sets it to StopRequested so a run advances exactly
+	// one field; nothing in the oracle path uses it.
+	OnVBlank func(m *Machine)
+
+	// The GS capture hooks, for the frame debugger; both nil in the oracle path. OnGSPrim
+	// is called as each drawing primitive completes and returns the command index the
+	// pixels it goes on to write should be attributed to (the debugger appends to its
+	// command list and hands back the new index). OnGSPixel is called for each colour
+	// write, with that command index, the target buffer's word address, and the VRAM
+	// coordinate — which is what per-pixel provenance ("which primitive drew this?") is
+	// built from.
+	OnGSPrim  func(ptype int, producer string) int
+	OnGSPixel func(cmd int, fbWord uint32, x, y int32)
+
 	// The IOP's stdio output, buffered until it has a whole line to log.
 	iopTTYLine []byte
 
