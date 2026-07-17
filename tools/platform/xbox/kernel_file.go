@@ -110,6 +110,114 @@ func resolveCachePath(p string) (string, bool) {
 	return "", false
 }
 
+// ---------------------------------------------------------------------------------------
+// THE RAW HDD DEVICE.
+// ---------------------------------------------------------------------------------------
+//
+// rawDevicePath maps an Xbox object path to the one raw block device this HLE serves, or
+// reports that it does not name it.
+//
+// WHY THERE IS ONE AT ALL. XONLINE's singleton — the object 71 sites read out of the global
+// at 0x57D6BC — is created by exactly one writer (0x218724), and only if its Init succeeds.
+// Init's single E_FAIL (0x2183FF) is guarded by one thing:
+//
+//	00214699  RtlInitAnsiString(&s, "\Device\Harddisk0\partition0")   ordinal 289
+//	002146D4  NtOpenFile(&h, $C0100000, &oa, &iosb, 3, $10)           ordinal 202
+//	002146DA  TEST EAX,EAX / JGE
+//	002146DE  OR DWORD [EBP-$4], $FFFFFFFF     the open failed -> the handle is -1
+//	002183F4  CMP EAX, $FFFFFFFF               ...and Init reads that back
+//	002183F7  MOV [EBX+$94], EAX               (the handle the enumerate later uses)
+//	002183FD  JNZ / 002183FF MOV EAX,$80004005 -> E_FAIL, and the factory frees the object
+//
+// So refusing this device is what left the singleton NULL — and the game does NOT check the
+// HRESULT that reports it. Its list-enumerate (0x223A7B) returns 0x80150005 WITHOUT writing
+// the out-count it was given, and the caller (0x3F8C7) stores that untouched local as a
+// record count. The local is MSVC's `PUSH ECX` reserve-a-dword idiom, so it still held
+// `this` = 0x574618: 5,719,064 iterations over a 16-entry array, ~80M instructions and ~91MB
+// of scribbled strings PER FRAME. On the console the singleton exists, the count is written
+// as 0, and the JLE skips the loop.
+//
+// The failure was not the network. The XNET gate in that same factory (0x21868F -> 0x205105)
+// returns 0; measured, not assumed. This device is the raw disk, and it is why "offline"
+// needs no networking modelled at all.
+//
+// PARTITION0 ONLY, AND THAT IS MEASURED. An earlier cut of this served every
+// \Device\Harddisk0\partitionN and the boot DIED AFTER 1,465 INSTRUCTIONS on an
+// unimplemented ordinal — serving partition1 diverts the XAPI's own mount away from the
+// path this port has spent five phases making work. The narrowness is not tidiness; it is
+// the only version that boots.
+//
+// WHAT IT SAYS IS AN INVENTION, AND IT IS DECLARED. There is no HDD image here — a disc
+// cannot carry one — so nothing derives this device's contents. Two halves, and only the
+// first is forced:
+//
+//  1. THE DEVICE EXISTS. Every console has one. Refusing it is the fiction, and this file's
+//     header already makes exactly this argument for T:/U:/Z: ("a missing FILE is still
+//     honest; a missing PARTITION is not"). That much is not a choice.
+//  2. IT IS BLANK, and that is a choice. Init and the enumerate each read a 0x1EC-byte
+//     record through the handle (0x21844B, 0x223AC0) and test a signature (0x21843B /
+//     0x223AB0: CMP DWORD [EBX+$1C], $56525347 — 'GSRV' on the wire). Zeros fail that test
+//     and take the branch the code already has for it. The claim being made is "this console
+//     has no XONLINE account", which is the same thing the title already prints across the
+//     top of the screen it hangs on: NOT SIGNED IN.
+//
+// The risk is named because this port has paid it before: a value our own stub invents comes
+// back as an observation. So — a run that depends on a NON-blank account block will not
+// silently get a plausible one; it will get zeros, take the not-matched branch, and this
+// comment is the thing to come back to.
+func rawDevicePath(p string) (string, bool) {
+	q := strings.ToLower(strings.ReplaceAll(p, "\\", "/"))
+	q = strings.TrimSuffix(q, "/")
+	if q == "/device/harddisk0/partition0" {
+		return rawPartition0Key, true
+	}
+	return "", false
+}
+
+// rawPartition0Key is the raw device's key in the store, so it rides the savestate with
+// every other writable byte. It is deliberately not a path any resolveCachePath prefix can
+// mint, so a guest path can never collide with it.
+const rawPartition0Key = "\x00RAW/Device/Harddisk0/partition0"
+
+// rawPartition0Size is how much of the device this HLE holds.
+//
+// The real thing is the whole disk — gigabytes — and allocating that to hold nothing would be
+// a lie in the other direction. So it is a MEASURED bound, not a guess: served 4 MiB with
+// every access logged, a full cold boot touches it SIX times and never past 0x1400 —
+//
+//	NtOpenFile  \Device\Harddisk0\partition0        (twice, and closed in between)
+//	READ  off 0x1000 len 0x200      sector 8 of a 512-byte-sector device...
+//	WRITE off 0x1000 len 0x200      ...read-modify-write, twice
+//	WRITE off 0x1000 len 0x200
+//	READ  off 0x1200 len 0x200      sector 9
+//
+// — so 0x10000 is sixteen times the footprint anything has been observed to touch, and reads
+// past the end return SHORT rather than inventing more (readFile clamps to size()). If a
+// later frontier reads past it, the short read is the tell and this is the constant to move.
+//
+// THE GUEST WRITES TO IT, which is worth stating because it changes what "blank" means. This
+// is not a read-only fiction handing back zeros forever: the title reads sector 8, modifies
+// it, and writes it back. So the device is blank ONLY until the guest fills it, after which
+// it reads back exactly what the guest put there — the behaviour of a real fresh disk, and
+// the reason this lives in cacheFS: those writes ride the savestate like every other
+// writable byte on this machine.
+const rawPartition0Size = 0x10000
+
+// rawDevice returns the raw device's backing bytes, minting them blank on first open.
+//
+// It exists as its own function so the blankness is reachable from a test: the invention this
+// model makes is "the device exists and has no account on it", and a test that builds its own
+// zero-filled buffer would assert that claim against itself rather than against the code that
+// mints one. Lazily, because a machine nobody drives into XONLINE never allocates it.
+func (m *Machine) rawDevice(key string) *cacheFile {
+	if cf := m.cacheFS[key]; cf != nil {
+		return cf
+	}
+	cf := &cacheFile{Data: make([]byte, rawPartition0Size)}
+	m.cacheFS[key] = cf
+	return cf
+}
+
 // statPath answers "what is at this path" without opening a handle — what
 // NtQueryFullAttributesFile (ordinal 210) needs. It reports the byte size, whether the
 // path is a directory, and whether it exists at all.
@@ -256,7 +364,15 @@ func (m *Machine) volumeUnits(fo *fileObject) (total, avail uint64) {
 		return uint64(m.Disc.Size) / discBytesPerSector, 0
 	}
 	used := uint64(0)
-	for _, cf := range m.cacheFS {
+	for k, cf := range m.cacheFS {
+		// The raw device shares the store (so it rides the savestate) but is NOT a file on
+		// a title partition, and must not be charged to one. It is only 4 units, which is
+		// exactly why this is worth a line: a raw disk quietly eating the save partition's
+		// free space is the shape of the bug Part VII already spent a session on, where the
+		// title told the player their console was full over a number the HLE made up.
+		if k == rawPartition0Key {
+			continue
+		}
 		used += (uint64(len(cf.Data)) + hddBytesPerUnit - 1) / hddBytesPerUnit
 	}
 	if used > hddTotalUnits {
@@ -363,6 +479,16 @@ func (m *Machine) openFile(handleOut, oa, iosb uint32, disposition uint32) uint3
 			m.write32(handleOut, h)
 		}
 		return m.finishOpen(iosb, h, info, 0)
+	}
+
+	// The raw HDD device, before the drive-letter store: it is a device, not a path within
+	// one, and XONLINE's Init opens it by its \Device name. See rawDevicePath — the whole
+	// argument for serving it, and for serving only this one, is there.
+	if key, ok := rawDevicePath(path); ok {
+		cf := m.rawDevice(key)
+		m.logf("NtOpenFile: %q -> raw device (%d bytes, blank: no XONLINE account)",
+			path, len(cf.Data))
+		return newHandle(&fileObject{cache: cf, key: key}, infoOpened)
 	}
 
 	if key, ok := resolveCachePath(path); ok {

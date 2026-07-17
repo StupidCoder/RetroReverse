@@ -1217,7 +1217,7 @@ NtSetInformationFile: "U:/E4B7CAE3D198/COMMON.DAT" length -> 67708 bytes   (clas
 
 No halt. The license panel slides off toward the main menu — and stops there.
 
-### FRONTIER: the XONLINE singleton is NULL, and the game does not check
+### The XONLINE singleton is NULL, and the game does not check
 
 The menu never arrives. 200M instructions with **zero kernel calls** — a pure-CPU loop at `0x3F8F0`,
 a string copy inside a walk over 0x70-stride records whose cursor has reached `0x184734C` (~25 MB),
@@ -1253,9 +1253,133 @@ that is missing the singleton — **ours**.
 ```
 
 A breakpoint on the factory is **never hit** in 900M instructions from `crash.state`, so it runs — or
-fails to — at boot. The next question is whether `0x218323` (XONLINE's init) fails, or whether the
-factory is never called at all. That is the thread to pull, and `work/states/crash.state` is a
-two-frame repro.
+fails to — at boot.
+
+### It was never the network: it is the raw HDD device
+
+Each step measured on a cold boot rather than reasoned:
+
+| where | what | verdict |
+|---|---|---|
+| `0xE0EF0` | the factory's only caller, in the game's own init | **reached** at 286M instructions |
+| `0x218694` | the XNET gate, `TEST EAX,EAX` after `CALL 0x205322` | **`EAX = 0`** — success |
+| `0x21870C` | `Init`'s return | **`EAX = 0x80004005` = `E_FAIL`** |
+| `0x2183FF` | the *only* site in `Init` producing `E_FAIL` | guarded by one call |
+
+That guard:
+
+```
+002183EF  CALL $00214699
+002183F4  CMP EAX, $FFFFFFFF
+002183F7  MOV [EBX+$94], EAX     ; the handle the enumerate later reads
+002183FD  JNZ $00218409          ; -1 -> fall through to E_FAIL
+```
+
+and `0x214699` is `RtlInitAnsiString` (ordinal 289) + **`NtOpenFile` (ordinal 202)** on
+**`\Device\Harddisk0\partition0`**, with `OR DWORD [EBP-$4],$FFFFFFFF` on failure. The log said it
+outright: `NtOpenFile: "\Device\Harddisk0\partition0" -> not on disc`. We served `\Device\CdRom0`
+and `Z:/T:/U:`; the raw disk was served by nothing.
+
+**The XNET gate in the same function returns 0.** The network was never the problem, and modelling
+one would have been a large pile of work aimed at the wrong thing.
+
+### ★ Offline falls out; it is not asserted
+
+Serving `partition0` as a blank raw device makes `Init` return S_OK and the singleton land:
+`[0x57D6BC]` = `0x0066F010` on a cold boot, where it was `0x00000000`.
+
+**`partition0` only, and that is measured, not tidiness.** A first cut served every
+`\Device\Harddisk0\partitionN` and the boot **died after 1,465 instructions** on an unimplemented
+ordinal: serving `partition1` diverts the XAPI's own mount away from the path five phases went into
+making work.
+
+**What the device says is an invention, and it is declared.** A disc cannot carry an HDD image, so
+nothing derives its contents. Only the first half is forced:
+
+1. **The device exists.** Every console has one; refusing it is the fiction — the same argument this
+   port already makes for `T:/U:/Z:` ("a missing FILE is still honest; a missing PARTITION is not").
+2. **It is blank** — a choice. `Init` and the enumerate each read a 0x1EC-byte record through the
+   handle (`0x21844B`, `0x223AC0`) and test a signature (`CMP DWORD [EBX+$1C], $56525347` — `"GSRV"`).
+   Zeros fail it and take the branch the code already has. The claim is *"this console has no XONLINE
+   account"* — which is what the title already prints across the top of the screen it hung on:
+   **NOT SIGNED IN**.
+
+So "offline" is what the model's own shape produces, rather than something the HLE asserts. The risk
+is named where the code is, because this port has paid it before: a value our own stub invents comes
+back later as an observation.
+
+**Its size is measured too.** Served 4 MiB with every access logged, a full cold boot touches it
+**six times and never past `0x1400`** — so `0x10000` is sixteen times the observed footprint, and
+reads past the end return short rather than inventing more:
+
+```
+NtOpenFile  \Device\Harddisk0\partition0     (twice, closed in between)
+READ  off 0x1000 len 0x200      sector 8 of a 512-byte-sector device...
+WRITE off 0x1000 len 0x200      ...read-modify-write, twice
+WRITE off 0x1000 len 0x200
+READ  off 0x1200 len 0x200      sector 9
+```
+
+**The guest writes to it**, which changes what "blank" means: this is not a read-only fiction handing
+back zeros forever. The title reads sector 8, modifies it, writes it back — so the device is blank
+only until the guest fills it, after which it reads back exactly what the guest put there. That is
+the behaviour of a real fresh disk, and the reason it lives in the store: those writes ride the
+savestate like every other writable byte on this machine.
+
+**And the boot does not notice.** The title frame off a cold boot with the device served is
+**MD5-identical** to the committed reference (`5439dd95…`) — the new device is inert on every path
+except the one that was waiting for it.
+
+One quiet bug came with it. `volumeUnits` sums **every** entry in the writable store, so the raw
+device — which shares that store so it rides the savestate — would have been charged 4 units against
+the *save* partition's free space. Four units of 262,144, invisible for a long time, and exactly the
+shape of the Part VII bug where the title told the player their console was full over a number the
+HLE made up.
+
+### A savestate outlives the gap it was taken in
+
+The fix landed and `crash.state` still froze — correctly. The singleton is created **once**, at boot;
+a state captured after that factory has already failed has `[0x57D6BC] = 0` baked into its heap, and
+no later build can retroactively create an object the boot never made. Measured under the *fixed*
+build:
+
+| state | `[0x57D6BC]` |
+|---|---|
+| `crash.state` (pre-fix) | `0x00000000` — still NULL, still hangs |
+| `title-raw.state` / `license-raw.state` (fresh cold boot) | `0x0066F010` |
+
+Every pre-fix state is a permanent pre-fix repro. This is the same shape as the GameCube's lost-DIRQ
+bug, where the whole savestate library had to be re-taken and the writeup had to name the
+replacements — so: **`work/states/{title,license}-raw.state`** are the ones that carry the singleton.
+
+### ★ The menus play, and the race loads
+
+From `license-raw.state` the game goes through **game-mode select → track select → opponent select →
+soundtrack select** and into the real **"OutRun 2006: Coast 2 Coast — Loading / PLEASE WAIT"**
+screen. The frames arrive at normal speed; the 5.7M-iteration loop is gone.
+
+That loading screen ended on one more ordinal, and the reconstructed table misnamed it as usual.
+**225 is `NtSetEvent`, not `NtSignalAndWaitForSingleObjectEx`** — and this one is *bracketed* rather
+than extrapolated: the Nt block's +5 drift puts table-220 here, between the already-verified 224
+(`NtResumeThread`, table-219) and 226 (`NtSetInformationFile`, table-221). A wrong answer would have
+to be wrong *between two independently-pinned entries*. The call site agrees on its own:
+
+```
+00044D4F  PUSH $00000000        PreviousState* — the caller wants no readback
+00044D51  PUSH DWORD [ESP+$8]   ...and an event handle. That is all: TWO args.
+00044D55  CALL [$0024834C]
+00044D5B  TEST EAX,EAX / JL     NTSTATUS -> BOOL: Win32 SetEvent, whose whole body this is
+```
+
+`NtSignalAndWaitForSingleObjectEx` takes five arguments and cannot be spelled with two. And `0x44D4F`
+sits immediately after `0x44D25` — the XAPI's `CreateEvent` wrapper, already verified as ordinal 189.
+This is that library's event block.
+
+The semantics needed nothing new: signal, wake, report the previous state. `wakeWaiters` runs each
+candidate through `satisfyWait`, which makes the auto-reset case right for free — a synchronisation
+event has its signal **consumed** by the first waiter, so exactly one thread wakes and the event
+clears itself, while a notification event stays signalled and releases everyone. That distinction was
+read off `NtCreateEvent`'s own SETZ inversion back in Phase E, not invented here.
 
 ### Tooling
 

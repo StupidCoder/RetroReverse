@@ -1,6 +1,9 @@
 package xbox
 
-import "testing"
+import (
+	"strings"
+	"testing"
+)
 
 // TestMatchPattern covers the NT search-wildcard subset NtQueryDirectoryFile uses. The
 // only pattern this title passes is "*", but the matcher backtracks, and a backtracking
@@ -82,5 +85,99 @@ func TestSetFileLength(t *testing.T) {
 	}
 	if fo.off != 8 {
 		t.Errorf("the set moved the file position to %d; it is the caller's", fo.off)
+	}
+}
+
+// TestRawDevicePath pins which device this HLE serves, and — more importantly — which it
+// refuses. Serving every \Device\Harddisk0\partitionN killed the boot after 1,465
+// instructions on an unimplemented ordinal, because partition1 diverts the XAPI's own
+// mount. The narrowness IS the model, so a widening has to fail here first.
+func TestRawDevicePath(t *testing.T) {
+	for _, p := range []string{
+		`\Device\Harddisk0\partition0`,
+		`\Device\Harddisk0\partition0\`,
+		`\DEVICE\HARDDISK0\PARTITION0`, // the object manager is case-insensitive
+		`/Device/Harddisk0/partition0`,
+	} {
+		if k, ok := rawDevicePath(p); !ok || k != rawPartition0Key {
+			t.Errorf("rawDevicePath(%q) = %q,%v — want the raw device", p, k, ok)
+		}
+	}
+	for _, p := range []string{
+		// partition1 above all: serving it is what killed the boot.
+		`\Device\Harddisk0\partition1`,
+		`\Device\Harddisk0\partition1\`,
+		`\Device\Harddisk0\partition2`,
+		`\Device\Harddisk0\partition10`, // must not match by prefix
+		`\Device\CdRom0\default.xbe`,
+		`\Device\Harddisk0`,
+		`Z:\MENU.PAK`,
+		`U:\`,
+	} {
+		if k, ok := rawDevicePath(p); ok {
+			t.Errorf("rawDevicePath(%q) = %q — this HLE serves partition0 ONLY; serving "+
+				"partition1 diverts the XAPI's mount and kills the boot", p, k)
+		}
+	}
+}
+
+// TestRawDeviceIsNotChargedToTheSavePartition: the raw device shares the store so it rides
+// the savestate, but it is not a file on a title partition. Charging its bytes to one is the
+// shape of the bug Part VII already paid for — the title telling the player their console is
+// full over a number the HLE invented.
+func TestRawDeviceIsNotChargedToTheSavePartition(t *testing.T) {
+	m := &Machine{cacheFS: map[string]*cacheFile{}}
+	_, availEmpty := m.volumeUnits(&fileObject{dir: true, key: "U:/"})
+
+	m.rawDevice(rawPartition0Key)
+	total, avail := m.volumeUnits(&fileObject{dir: true, key: "U:/"})
+	if avail != availEmpty {
+		t.Errorf("the raw device cost the save partition %d units of free space",
+			availEmpty-avail)
+	}
+	if total != hddTotalUnits {
+		t.Errorf("volume total = %d, want %d", total, hddTotalUnits)
+	}
+
+	// ...but a real save file still is charged, or the check above would pass on a
+	// volumeUnits that had stopped counting anything at all.
+	m.cacheFS["U:/SAVE/COMMON.DAT"] = &cacheFile{Data: make([]byte, hddBytesPerUnit*3)}
+	if _, avail3 := m.volumeUnits(&fileObject{dir: true, key: "U:/"}); avail3 != availEmpty-3 {
+		t.Errorf("a 3-unit save file moved free space by %d units, want 3", availEmpty-avail3)
+	}
+}
+
+// TestRawDeviceIsBlankAndDoesNotEnumerate covers the two things the invention promises: the
+// device reads as zeros (the "no XONLINE account" claim), and it never appears as a file in
+// a directory listing of the writable store, whose keys it shares.
+func TestRawDeviceIsBlankAndDoesNotEnumerate(t *testing.T) {
+	m := &Machine{cacheFS: map[string]*cacheFile{}}
+	// Through the mint, NOT a buffer this test zeroed itself — otherwise the assertion
+	// checks the invention against itself and a non-blank device would sail past.
+	dev := m.rawDevice(rawPartition0Key)
+	m.cacheFS["U:/SAVE.DAT"] = &cacheFile{Data: []byte("x")}
+
+	if len(dev.Data) != rawPartition0Size {
+		t.Fatalf("the raw device is %d bytes, want %d", len(dev.Data), rawPartition0Size)
+	}
+	for _, b := range dev.Data {
+		if b != 0 {
+			t.Fatalf("the raw device is not blank; it claims an XONLINE account exists")
+		}
+	}
+	// The signature Init and the enumerate test (0x21843B / 0x223AB0: CMP [EBX+$1C],
+	// $56525347). Blank must NOT match it — that is the whole of the "no account" claim.
+	sig := uint32(0)
+	for i := 0; i < 4; i++ {
+		sig |= uint32(dev.Data[0x1C+i]) << (8 * i)
+	}
+	if sig == 0x56525347 {
+		t.Error("the blank device matches the 'GSRV' signature it is supposed to fail")
+	}
+
+	for _, e := range m.listDir(&fileObject{dir: true, key: "U:"}) {
+		if strings.Contains(e.Name, "RAW") || strings.Contains(e.Name, "Device") {
+			t.Errorf("the raw device leaked into a directory listing as %q", e.Name)
+		}
 	}
 }
