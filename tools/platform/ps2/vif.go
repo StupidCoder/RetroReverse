@@ -573,10 +573,19 @@ func (v *vif) runVU(start uint32, cont bool) {
 		// in-place transform destroys its input, and the batch lives at a rotating
 		// buffer base the caller can't predict.
 		name := sprintf("vu1in-%02d.bin", v.dumpN)
+		mname := sprintf("vu1in-%02d-micro.bin", v.dumpN)
+		rname := sprintf("vu1in-%02d-regs.txt", v.dumpN)
 		v.dumpN++
 		snap := append([]byte(nil), v.data...)
 		_ = writeFile(name, snap)
-		v.m.note("VU1 input snapshot at MSCAL of 0x%X (top %d): %s", start, v.vu.Top, name)
+		// The program as it stands at this MSCAL, alongside its input: micro memory is
+		// re-uploaded constantly, so only the at-the-moment copy disassembles truthfully.
+		_ = writeFile(mname, append([]byte(nil), v.micro...))
+		// And the register file it was called with: VU registers persist across MSCALs,
+		// and a chain's programs lean on that — a setup entry loads constants a later
+		// entry consumes without reloading.
+		_ = writeFile(rname, []byte(v.m.VURegs(v.idx)))
+		v.m.note("VU1 input snapshot at MSCAL of 0x%X (top %d): %s + %s + %s", start, v.vu.Top, name, mname, rname)
 		if v.codeTrailsN < 3 {
 			v.codeTrailsN++
 			v.m.note("VIF1 code trail %d into this MSCAL (oldest first):", v.codeTrailsN)

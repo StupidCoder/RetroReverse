@@ -53,6 +53,11 @@ type VU struct {
 	// program has finished building.
 	XGKick func(qwAddr uint32)
 
+	// Trace, if set, is called before each instruction pair executes — the VU's own
+	// per-step tracer, for hand-following a microprogram's arithmetic over a captured
+	// input. A register file read inside the hook sees the pre-execution state.
+	Trace func(v *VU, pc uint32, raw uint64)
+
 	// OnMaxStore, if set, is called when a store writes a ±FLT_MAX float into data
 	// memory — the signature of a clamped overflow round-tripping into another
 	// program's state. Args: the storing PC, the quadword address, the raw bits.
@@ -141,6 +146,9 @@ func (v *VU) Run(start uint32, maxSteps int) (int, bool) {
 		raw := le64m(v.Micro[v.PC:])
 		up := uint32(raw >> 32)
 		lo := uint32(raw)
+		if v.Trace != nil {
+			v.Trace(v, v.PC, raw)
+		}
 
 		// What this pair's lower half sees of the flags is the pipeline's oldest stage.
 		v.visMac = v.flagPipe[0].mac
