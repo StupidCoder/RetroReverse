@@ -93,10 +93,14 @@ type vif struct {
 	maxUnpacks   int    // ±FLT_MAX words unpacked (the first few are noted)
 
 	// The command in flight: its code word, the bytes its payload still needs, and the
-	// payload gathered so far.
-	cmd     uint32
-	pending int
-	buf     []byte
+	// payload gathered so far. payloadAddr is the EE address the payload's first byte
+	// came from (via the machine's feedMadr, set by whoever started the transfer) — the
+	// address a write-watch needs to catch the author of a bad value the unpack delivers.
+	cmd         uint32
+	pending     int
+	buf         []byte
+	payloadAddr uint32
+	tinyUnpacks int // denormal-tiny floats unpacked (the first few are noted, with their source)
 
 	// The pre-MSCAL code trail: the last codes the stream carried, kept only while a
 	// -vu1in dump is armed and printed with it. An input snapshot says what the data IS;
@@ -175,6 +179,7 @@ func (m *Machine) vifStart(idx int, c *dmacChan) {
 		if c.qwc == 0 {
 			return
 		}
+		m.feedMadr = c.madr
 		v.feed(m.dmaBytes(c.madr, c.qwc))
 	}
 }
@@ -194,6 +199,9 @@ func (v *vif) feed(data []byte) {
 			n := v.pending
 			if n > len(data)-i {
 				n = len(data) - i
+			}
+			if len(v.buf) == 0 {
+				v.payloadAddr = v.m.feedMadr + uint32(i)
 			}
 			v.buf = append(v.buf, data[i:i+n]...)
 			v.pending -= n
@@ -437,8 +445,8 @@ func (v *vif) unpack(cmd uint32, data []byte) {
 		if flg {
 			mode = sprintf(" (flg, tops %d)", v.tops)
 		}
-		v.logCode(sprintf("unpack V%d-%d num %d -> qw %d%s  first %08X %08X %08X %08X", vn+1, 32>>vl,
-			num, addr/16, mode,
+		v.logCode(sprintf("unpack V%d-%d num %d -> qw %d%s from EE 0x%08X  first %08X %08X %08X %08X", vn+1, 32>>vl,
+			num, addr/16, mode, v.payloadAddr,
 			le32gs(head[:]), le32gs(head[4:]), le32gs(head[8:]), le32gs(head[12:])))
 	}
 
@@ -536,6 +544,17 @@ func (v *vif) unpack(cmd uint32, data []byte) {
 			if v.idx == 1 && f[e]&0x7FFFFFFF == 0x7F7FFFFF {
 				if v.maxUnpacks++; v.maxUnpacks <= 8 {
 					v.m.note("VIF1 unpacked a ±FLT_MAX word into data qw %d (bits %08X) — the garbage was authored EE-side", at/16, f[e])
+				}
+			}
+			// A float with a tiny-but-nonzero exponent (|v| < ~1e-7) is almost never
+			// authored on purpose; a vertex built from one collapses to a point. The note
+			// carries the payload's EE source address, which is what a write-watch needs
+			// to name the author. Armed by -viftiny.
+			if v.idx == 1 && v.m.VIFTinyN > 0 && vl == 0 {
+				if exp := f[e] & 0x7F800000; exp != 0 && exp < 0x34000000 && v.tinyUnpacks < v.m.VIFTinyN {
+					v.tinyUnpacks++
+					v.m.note("VIF1 unpacked tiny float %g (bits %08X) into data qw %d elem %d — payload from EE 0x%08X (+0x%X)",
+						math.Float32frombits(f[e]), f[e], at/16, e, v.payloadAddr, pos)
 				}
 			}
 			v.data[at+uint32(e)*4+0] = byte(f[e])
@@ -661,6 +680,17 @@ func fnv64(b []byte) uint64 {
 		h = (h ^ uint64(c)) * 1099511628211
 	}
 	return h
+}
+
+// VU returns a vector unit itself — the live instance the VIF runs at MSCAL (idx 1) or
+// the EE drives in macro mode (idx 0). A caller that wants to watch a microprogram
+// execute sets its Trace hook; the register file it reads inside the hook is the
+// pre-exec state of each pair.
+func (m *Machine) VU(idx int) *vu.VU {
+	if idx < 0 || idx > 1 {
+		return nil
+	}
+	return m.ensureVIF(idx).vu
 }
 
 // VUMicro returns a vector unit's program memory as the VIF has filled it — what an

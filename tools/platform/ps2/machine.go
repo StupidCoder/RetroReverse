@@ -256,6 +256,13 @@ type Machine struct {
 	// their input by XGKICK time; this is the only moment the input exists.
 	VU1DumpIn int64
 
+	// VIFTinyN, when > 0, notes the first N denormal-tiny floats a VIF1 unpack delivers,
+	// with the EE address of the payload that carried each — the write-watch target for
+	// finding who authored a collapsed vertex. feedMadr is set by whoever hands the VIF
+	// a stretch of stream (plain transfer or chain tag) to the EE address it came from.
+	VIFTinyN int
+	feedMadr uint32
+
 	// PadScript is the pad-injection schedule: what the controller in port 0 reports
 	// pressed, by vblank window. The SIO2's pad (iopsio2.go) consults it on every poll.
 	// The state is a pure function of the vblank counter, so a resumed snapshot replays

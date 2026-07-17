@@ -447,7 +447,9 @@ func (m *Machine) dmacSourceChain(ch int, c *dmacChan, feed func([]byte), wholeT
 		}
 
 		if tte {
+			m.feedMadr = c.tadr + 8
 			if wholeTag {
+				m.feedMadr = c.tadr
 				feed(tag[0:16])
 			} else {
 				feed(tag[8:16])
@@ -483,6 +485,7 @@ func (m *Machine) dmacSourceChain(ch int, c *dmacChan, feed func([]byte), wholeT
 		}
 
 		if qwc > 0 {
+			m.feedMadr = data
 			feed(m.dmaBytes(data, qwc))
 		}
 		if end {

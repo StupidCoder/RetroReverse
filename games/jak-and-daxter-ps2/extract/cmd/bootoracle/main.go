@@ -122,6 +122,7 @@ func main() {
 	goalNames := flag.String("goalnames", "", "read a -goalsyms dump back in, so -dis/-bp/-logpc and every trace can name GOAL engine code (symbol values that point into RAM become function names)")
 	gsFrame := flag.String("gsframe", "", "write the frame the GS would be scanning out (the DISPFB rectangle, deswizzled) to FILE.png at the end of the run")
 	vu1In := flag.String("vu1in", "", "dump a VU1 program's input buffer (96 qw at TOP) at its next MSCAL — hex byte address; the in-place transforms destroy the input by kick time")
+	vifTiny := flag.Int("viftiny", 0, "note the first N denormal-tiny floats (|v| < ~1e-7, not zero) a VIF1 unpack delivers, with the EE address the payload came from — a vertex built from one collapses to a point, and the address is what -watch needs to name the author")
 	gsPixel := flag.String("gspixel", "", "log the next N writes landing on window pixel X:Y[:N] of any render target, with the colour, blend inputs, target and producer — the 'who painted this pixel' instrument a uniform fill needs")
 	pad := flag.String("pad", "", "press controller buttons: BUTTON@VBLANK[:HOLD],... (e.g. X@1100:30,START@1400:30; default hold 30 vblanks) — a digital pad sits in port 0 either way, this is what it reports pressed")
 	gsBig := flag.Int("gsbig", 0, "print the first N completed GS primitives whose bounding box exceeds 1024px, naming the VU1 program or PATH that produced each — the huge-triangle hunter")
@@ -151,7 +152,7 @@ func main() {
 		iopOnly: *iopOnly, iopMods: *iopMods, iopDis: *iopDis,
 		iopIO: *iopIO, iopION: *iopION, iopWatch: *iopWatch, iopTrap: *iopTrap,
 		iopCalls: *iopCalls, iopCallsFrom: *iopCallsFrom, iopPokes: iopPokes,
-		iopDump: *iopDump, iopThreads: *iopThreads, iopIELog: *iopIELog, goalSyms: *goalSyms, goalNames: *goalNames, eeProf: *eeProf, gsFrame: *gsFrame, gsVerts: *gsVerts, gsReg: *gsReg, gsBig: *gsBig, gsPixel: *gsPixel, pad: *pad, vu1In: *vu1In, vu1Micro: *vu1Micro, vu0Micro: *vu0Micro, vu0Data: *vu0Data, vu0Regs: *vu0Regs, vu1Data: *vu1Data,
+		iopDump: *iopDump, iopThreads: *iopThreads, iopIELog: *iopIELog, goalSyms: *goalSyms, goalNames: *goalNames, eeProf: *eeProf, gsFrame: *gsFrame, gsVerts: *gsVerts, gsReg: *gsReg, gsBig: *gsBig, gsPixel: *gsPixel, pad: *pad, vu1In: *vu1In, vifTiny: *vifTiny, vu1Micro: *vu1Micro, vu0Micro: *vu0Micro, vu0Data: *vu0Data, vu0Regs: *vu0Regs, vu1Data: *vu1Data,
 		gsFBs: gsFBs, gsTexs: gsTexs,
 	}); err != nil {
 		fmt.Fprintln(os.Stderr, "bootoracle:", err)
@@ -192,6 +193,7 @@ type cfg struct {
 	gsPixel                               string
 	pad                                   string
 	vu1In                                 string
+	vifTiny                               int
 	vu1Data                               string
 	vu1Micro                              string
 	vu0Micro                              string
@@ -580,6 +582,7 @@ func run(c cfg) error {
 		}
 		m.VU1DumpIn = int64(a)
 	}
+	m.VIFTinyN = c.vifTiny
 	if c.pad != "" {
 		script, err := parsePadScript(c.pad)
 		if err != nil {
