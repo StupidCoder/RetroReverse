@@ -96,6 +96,46 @@ func packedXYZ2(x, y int, adc bool) []byte {
 	return q
 }
 
+// TestLineRasterises drives a LINE primitive — the shape RRV's intro grid and its HUD
+// dials are built from, previously counted "not rasterised" and dropped. A horizontal
+// line is axis-aligned so the DDA is exact: every pixel between the endpoints is painted,
+// none above or below. Mutation test: make gs.line a no-op and the on-line assertion fails.
+func TestLineRasterises(t *testing.T) {
+	m := NewMachine()
+	gs := m.ensureGS()
+
+	gs.write(gsFRAME1, 1<<16) // FBP=0, FBW=1, PSM=CT32
+	gs.write(gsSCISSOR1, 63<<16|uint64(31)<<48)
+	gs.write(gsXYOFFSET1, 0)
+	gs.write(gsPRMODECONT, 1)
+
+	var packet []byte
+	tag := make([]byte, 16)
+	putLE64(tag[0:], uint64(1)|1<<15|uint64(gifPacked)<<58|uint64(4)<<60)
+	putLE64(tag[8:], 0x0|0x1<<4|0x5<<8|0x5<<12) // PRIM, RGBAQ, XYZ2, XYZ2
+	packet = append(packet, tag...)
+	packet = append(packet, packedPrim(1)...) // line, flat
+	packet = append(packet, packedRGBA(0xFF, 0xFF, 0xFF)...)
+	packet = append(packet, packedXYZ2(2, 5, false)...)
+	packet = append(packet, packedXYZ2(12, 5, false)...)
+	m.gifPacket(packet)
+
+	if gs.prims != 1 {
+		t.Fatalf("expected 1 line primitive, got %d", gs.prims)
+	}
+	// A pixel on the line is white...
+	if got := le32gs(gs.vram[addrPSMCT32(0, 1, 7, 5):]); got != 0x80FFFFFF {
+		t.Errorf("on-line pixel (7,5) = %08X, want 80FFFFFF — the line was not rasterised", got)
+	}
+	// ...and the rows above and below it are untouched.
+	if got := le32gs(gs.vram[addrPSMCT32(0, 1, 7, 4):]); got != 0 {
+		t.Errorf("pixel (7,4) above the line = %08X, want 0", got)
+	}
+	if got := le32gs(gs.vram[addrPSMCT32(0, 1, 7, 6):]); got != 0 {
+		t.Errorf("pixel (7,6) below the line = %08X, want 0", got)
+	}
+}
+
 // TestFrameZAsColourWritesThroughZSwizzle drives the "clear/render Z as colour" idiom:
 // a game points FRAME at its Z buffer with FRAME.PSM set to a Z format so the ordinary
 // colour pipeline fills the depth memory (RRV's intro clears its 0x46000 Z buffer this

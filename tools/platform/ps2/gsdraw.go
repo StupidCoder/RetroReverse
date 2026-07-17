@@ -134,13 +134,13 @@ func (gs *GS) kick() {
 	case primLine:
 		if gs.vqN >= 2 {
 			gs.drawn(typ)
-			gs.count("line (not rasterised)")
+			gs.line(gs.vq[0], gs.vq[1], p)
 			gs.vqN = 0
 		}
 	case primLineStrip:
 		if gs.vqN >= 2 {
 			gs.drawn(typ)
-			gs.count("linestrip (not rasterised)")
+			gs.line(gs.vq[0], gs.vq[1], p)
 			gs.vq[0] = gs.vq[1]
 			gs.vqN = 1
 		}
@@ -582,6 +582,78 @@ func (gs *GS) point(v gsVertex) {
 		rgba = fogPixel(rgba, v.f&0xFF, t.fogcol)
 	}
 	gs.plot(&t, v.x>>4, v.y>>4, v.z, rgba)
+}
+
+// line rasterises a line or line-strip segment with a DDA: one pixel per step along the
+// major axis, interpolating Z, colour, texture and fog between the two vertices the way
+// the triangle does. Colour is gouraud by PRIM's IIP bit, else flat = the second vertex's
+// (the GS's flat rule, matching the sprite and triangle). RRV's intro grid and its HUD
+// dials are line-strips; before this they were counted "not rasterised" and dropped. The
+// GS's own line walk is a Bresenham DDA; with no per-pixel line oracle to check against, a
+// straight truncating DDA reproduces the same pixels for the axis-aligned grids games draw
+// and a faithful-enough set for thin diagonals.
+func (gs *GS) line(a, b gsVertex, p uint64) {
+	gs.noteFeatures(p)
+	t := gs.target(p)
+	smp := gs.sampler(p)
+	fst := p&(1<<8) != 0
+	gouraud := p&(1<<3) != 0
+
+	x0, y0 := a.x>>4, a.y>>4
+	x1, y1 := b.x>>4, b.y>>4
+	dx, dy := x1-x0, y1-y0
+	steps := dx
+	if steps < 0 {
+		steps = -steps
+	}
+	if ady := dy; ady < 0 && -ady > steps {
+		steps = -ady
+	} else if ady > steps {
+		steps = ady
+	}
+
+	ar, ag, ab, aa := unpackRGBA(a.rgba)
+	br, bg, bbl, ba := unpackRGBA(b.rgba)
+
+	for i := int32(0); i <= steps; i++ {
+		num, den := int64(i), int64(steps)
+		if den == 0 {
+			den = 1 // a zero-length line paints its single endpoint pixel
+		}
+		x := x0 + int32(int64(dx)*num/den)
+		y := y0 + int32(int64(dy)*num/den)
+		z := uint32(int64(a.z) + (int64(b.z)-int64(a.z))*num/den)
+		rgba := b.rgba // flat shading takes the second vertex's colour
+		if gouraud {
+			r := ar + (br-ar)*num/den
+			g := ag + (bg-ag)*num/den
+			bl := ab + (bbl-ab)*num/den
+			al := aa + (ba-aa)*num/den
+			rgba = uint32(r) | uint32(g)<<8 | uint32(bl)<<16 | uint32(al)<<24
+		}
+		if smp != nil {
+			var tu, tv int32
+			if fst {
+				tu = int32((int64(a.u) + (int64(b.u)-int64(a.u))*num/den) >> 4)
+				tv = int32((int64(a.v) + (int64(b.v)-int64(a.v))*num/den) >> 4)
+			} else {
+				f := float32(num) / float32(den)
+				s := a.s + (b.s-a.s)*f
+				tt := a.t + (b.t-a.t)*f
+				q := a.q + (b.q-a.q)*f
+				if q != 0 {
+					tu = int32(s / q * float32(int32(1)<<smp.tex.tw))
+					tv = int32(tt / q * float32(int32(1)<<smp.tex.th))
+				}
+			}
+			rgba = smp.combine(smp.at(tu, tv), rgba)
+		}
+		if t.fge {
+			ff := uint32(int64(a.f&0xFF) + (int64(b.f&0xFF)-int64(a.f&0xFF))*num/den)
+			rgba = fogPixel(rgba, ff, t.fogcol)
+		}
+		gs.plot(&t, x, y, z, rgba)
+	}
 }
 
 // texAxis interpolates one texture-coordinate axis of a sprite: the texel coordinate
