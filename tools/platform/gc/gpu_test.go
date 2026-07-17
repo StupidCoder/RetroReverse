@@ -299,11 +299,12 @@ func TestTEVReproducesBootLogo(t *testing.T) {
 
 	// A coordinate over the white half must shade red; one over the black half must shade black.
 	tev := m.gpu.tevstate()
-	r, gg, b, _, pass := m.gpu.shade(m, &tev, 255, 255, 255, 255, tcAt(0.1, 0.5))
+	white := [2][4]uint8{{255, 255, 255, 255}, {255, 255, 255, 255}}
+	r, gg, b, _, pass := m.gpu.shade(m, &tev, &white, tcAt(0.1, 0.5))
 	if !pass || absU8(r, 220) > 2 || gg != 0 || b != 0 {
 		t.Errorf("logo texel: colour (%d,%d,%d) pass=%v, want ~(220,0,0)", r, gg, b, pass)
 	}
-	r, gg, b, _, pass = m.gpu.shade(m, &tev, 255, 255, 255, 255, tcAt(0.9, 0.5))
+	r, gg, b, _, pass = m.gpu.shade(m, &tev, &white, tcAt(0.9, 0.5))
 	if !pass || r != 0 || gg != 0 || b != 0 {
 		t.Errorf("background texel: colour (%d,%d,%d) pass=%v, want (0,0,0)", r, gg, b, pass)
 	}

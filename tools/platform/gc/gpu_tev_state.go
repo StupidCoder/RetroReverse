@@ -37,6 +37,7 @@ type tevStage struct {
 	cc, ac           uint32 // the colour and alpha combiner registers, verbatim
 	texmap, texcoord int
 	texEnable        bool
+	rasSel           uint32 // which colour channel this stage's RAS input reads
 	swapRas, swapTex [4]int
 	konstC           [3]float32
 	konstA           float32
@@ -109,6 +110,15 @@ func (g *gpu) tevstate() tevState {
 		st.texmap = int(ord & 7)
 		st.texcoord = int((ord >> 3) & 7)
 		st.texEnable = (ord>>6)&1 != 0
+
+		// Which colour channel this stage rasterises. A stage does not have to read the
+		// channel the vertex was lit into, and in this game's scene program most of them do
+		// not: its five-stage room shader reads NULL in stages 0, 1 and 4 (they are pure
+		// texture stages), channel 0 in stage 2, and channel 1 in stage 3. Leaving this field
+		// unread and handing every stage channel 0 is not a small error — the three NULL
+		// stages get a colour where the hardware gives them zero, and the specular stage gets
+		// the diffuse channel.
+		st.rasSel = (ord >> 7) & 7
 
 		st.cc = g.BP[0xC0+uint32(s)*2]
 		st.ac = g.BP[0xC1+uint32(s)*2]

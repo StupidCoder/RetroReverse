@@ -82,11 +82,20 @@ type attrLayout struct {
 
 	texMtxIdxOff [maxTexCoord]int // per-vertex texture matrix index bytes, -1 when absent
 
-	tex0Off  int
-	tex0Desc uint32
-	tex0Fmt  uint32
-	tex0Elem uint32
-	tex0Frac uint32
+	// All eight texture coordinates, not just the first. A coordinate the vertex carries is a
+	// SOURCE row the transform unit may generate any other coordinate from (see gpu_texgen.go's
+	// srcRow), so capturing only coordinate 0 does not merely lose coordinates 1..7 — it loses
+	// every generated coordinate that reads one of them.
+	tex [maxTexCoord]texAttr
+}
+
+// texAttr is where one texture coordinate sits in a vertex and how to read it.
+type texAttr struct {
+	off  int // -1 when the vertex does not carry this coordinate
+	desc uint32
+	fmt  uint32
+	elem uint32
+	frac uint32
 }
 
 // layout computes the attribute layout for a vertex-attribute-table index, walking the
@@ -98,9 +107,10 @@ func (g *gpu) layout(vat int) attrLayout {
 	g1 := g.CPReg[0x80+uint32(vat)]
 	g2 := g.CPReg[0x90+uint32(vat)]
 
-	a := attrLayout{matIdxOff: -1, posOff: -1, nrmOff: -1, col0Off: -1, tex0Off: -1}
+	a := attrLayout{matIdxOff: -1, posOff: -1, nrmOff: -1, col0Off: -1}
 	for i := range a.texMtxIdxOff {
 		a.texMtxIdxOff[i] = -1
+		a.tex[i].off = -1
 	}
 	off := 0
 
@@ -176,24 +186,28 @@ func (g *gpu) layout(vat int) attrLayout {
 	}
 	tex := func(k int) uint32 { return (hi >> (2 * uint32(k))) & 3 }
 
-	// Texture coordinate 0: captured so the rasteriser can interpolate it and the TEV can
-	// sample a texture. The remaining seven coordinates are stepped over — the boot draws use
-	// only coordinate 0, and a stage that reads another is logged as a ticket in gpu_tev.go.
-	a.tex0Desc = tex(0)
-	a.tex0Elem = (g0 >> 21) & 1
-	a.tex0Fmt = (g0 >> 22) & 7
-	a.tex0Frac = (g0 >> 25) & 0x1F
-	if a.tex0Desc != descNone {
-		a.tex0Off = off
-		off += sizeOf(a.tex0Desc, texBytes(a.tex0Elem, a.tex0Fmt))
+	// The eight texture coordinates. Coordinate 0's element/format/fraction live in the first
+	// general register above the colours; 1 through 7 are packed nine bits apiece across the
+	// second and third, which is why their fields are spelled out rather than indexed.
+	texFields := [maxTexCoord][3]uint32{
+		{(g0 >> 21) & 1, (g0 >> 22) & 7, (g0 >> 25) & 0x1F},
+		{(g1 >> 0) & 1, (g1 >> 1) & 7, (g1 >> 4) & 0x1F},
+		{(g1 >> 9) & 1, (g1 >> 10) & 7, (g1 >> 13) & 0x1F},
+		{(g1 >> 18) & 1, (g1 >> 19) & 7, (g1 >> 22) & 0x1F},
+		{(g1 >> 27) & 1, (g1 >> 28) & 7, (g2 >> 0) & 0x1F},
+		{(g2 >> 5) & 1, (g2 >> 6) & 7, (g2 >> 9) & 0x1F},
+		{(g2 >> 14) & 1, (g2 >> 15) & 7, (g2 >> 18) & 0x1F},
+		{(g2 >> 23) & 1, (g2 >> 24) & 7, (g2 >> 27) & 0x1F},
 	}
-	off += sizeOf(tex(1), texBytes((g1>>0)&1, (g1>>1)&7))
-	off += sizeOf(tex(2), texBytes((g1>>9)&1, (g1>>10)&7))
-	off += sizeOf(tex(3), texBytes((g1>>18)&1, (g1>>19)&7))
-	off += sizeOf(tex(4), texBytes((g1>>27)&1, (g1>>28)&7))
-	off += sizeOf(tex(5), texBytes((g2>>5)&1, (g2>>6)&7))
-	off += sizeOf(tex(6), texBytes((g2>>14)&1, (g2>>15)&7))
-	off += sizeOf(tex(7), texBytes((g2>>23)&1, (g2>>24)&7))
+	for k := 0; k < maxTexCoord; k++ {
+		t := &a.tex[k]
+		t.desc = tex(k)
+		t.elem, t.fmt, t.frac = texFields[k][0], texFields[k][1], texFields[k][2]
+		if t.desc != descNone {
+			t.off = off
+			off += sizeOf(t.desc, texBytes(t.elem, t.fmt))
+		}
+	}
 
 	a.stride = off
 	return a
@@ -273,28 +287,34 @@ func (g *gpu) drawPrimitive(m *Machine, prim uint32, vat, vsize int, data []byte
 		// The colour channel: what the hardware rasterises is not the vertex colour but the
 		// lighting channel's output, which may pass the vertex colour through, replace it
 		// with a register, or scale it by ambient+lights (see gpu_light.go).
-		r, gg, b, a = g.rasChannel(m, r, gg, b, a, ex, ey, ez, nex, ney, nez)
-		var tu, tv float32
-		if lay.tex0Off >= 0 {
+		col := g.rasChannel(m, r, gg, b, a, ex, ey, ez, nex, ney, nez)
+		// Every coordinate the vertex carries, because any of them can be a generator's source.
+		var vtc [maxTexCoord]texCoord
+		for k := 0; k < maxTexCoord; k++ {
+			ta := &lay.tex[k]
+			if ta.off < 0 {
+				continue
+			}
 			comps := 1
-			if lay.tex0Elem != 0 {
+			if ta.elem != 0 {
 				comps = 2
 			}
-			if tc := g.attrData(m, v, lay.tex0Off, lay.tex0Desc, 4, comps*componentBytes(lay.tex0Fmt)); tc != nil {
-				tu, tv = g.readTexCoord(tc, lay)
+			if tc := g.attrData(m, v, ta.off, ta.desc, 4+k, comps*componentBytes(ta.fmt)); tc != nil {
+				u, vv := readTexCoord(tc, ta)
+				vtc[k] = texCoord{s: u, t: vv, q: 1}
 			}
 		}
 
 		// The transform unit generates this vertex's texture coordinates. What the vertex
 		// carried (tu,tv) is only one possible SOURCE for them — a coordinate generated from
 		// the position never touches it (see gpu_texgen.go).
-		cv := clipVertex{cx: cx, cy: cy, cz: cz, cw: cw, r: r, g: gg, b: b, a: a, ntc: nTexGen}
+		cv := clipVertex{cx: cx, cy: cy, cz: cz, cw: cw, col: col, ntc: nTexGen}
 		for k := 0; k < nTexGen; k++ {
 			row := g.texMtxRow(k)
 			if lay.texMtxIdxOff[k] >= 0 {
 				row = int(v[lay.texMtxIdxOff[k]])
 			}
-			cv.tc[k] = g.genTexCoord(m, k, row, mx, my, mz, mnx, mny, mnz, texCoord{s: tu, t: tv})
+			cv.tc[k] = g.genTexCoord(m, k, row, mx, my, mz, mnx, mny, mnz, &vtc, &col)
 		}
 		verts[i] = cv
 	}
@@ -312,7 +332,7 @@ func (g *gpu) drawPrimitive(m *Machine, prim uint32, vat, vsize int, data []byte
 		// — the clipper replaces it — so its w is reported instead of a fictitious pixel.
 		c0 := verts[0]
 		v0x, v0y, v0z := g.toScreen(c0.cx, c0.cy, c0.cz, c0.cw)
-		v0 := screenVertex{x: v0x, y: v0y, z: v0z, r: c0.r, g: c0.g, b: c0.b, a: c0.a, tc: c0.tc, ntc: c0.ntc}
+		v0 := screenVertex{x: v0x, y: v0y, z: v0z, col: c0.col, tc: c0.tc, ntc: c0.ntc}
 		clipped := ""
 		if c0.cz+c0.cw < 0 {
 			clipped = fmt.Sprintf(" CLIPPED(w=%.2f)", c0.cw)
@@ -322,12 +342,39 @@ func (g *gpu) drawPrimitive(m *Machine, prim uint32, vat, vsize int, data []byte
 		t0 := g.texSetup(0)
 		g.dumpTex0Once(m, t0.base)
 		fmt.Fprintf(os.Stderr, "DRAW prim 0x%02X vat %d n %d  v0 (%.1f,%.1f,z%.0f)%s rgba %d,%d,%d,%d ntc=%d uv (%.2f,%.2f)  tex0 0x%06X fmt%X %dx%d  px w=%d zrej=%d arej=%d  stages=%d bp41=%06X af=%06X zm=%02X a0=%.0f ka0=%.0f vcd=%03X mat0=%08X amb0=%08X cc0=%08X ca0=%08X\n",
-			prim, vat, count, v0.x, v0.y, v0.z, clipped, v0.r, v0.g, v0.b, v0.a, v0.ntc, v0.tc[0].s, v0.tc[0].t,
+			prim, vat, count, v0.x, v0.y, v0.z, clipped, v0.col[0][0], v0.col[0][1], v0.col[0][2], v0.col[0][3], v0.ntc, v0.tc[0].s, v0.tc[0].t,
 			t0.base, t0.format, t0.width, t0.height,
 			g.pixWritten-w0, g.pixZRej-z0, g.pixARej-a0,
 			int((g.BP[0x00]>>10)&0xF)+1, g.BP[0x41], g.BP[0xF3], g.BP[0x40], c0a, k0a,
 			g.CPReg[0x50]&0xFFFF, g.XFMem[0x100C], g.XFMem[0x100A],
 			g.XFMem[0x100E], g.XFMem[0x1010])
+		// The second half of the draw's transform state: the channel COUNT and channel 1's
+		// registers (a draw lighting two channels says so here), every texture-coordinate
+		// generator's info word, and the TEV ordering registers whose ras_sel field says which
+		// channel each stage reads. This is the view that says what a scene ASKS FOR, which is
+		// not always what the pipe implements.
+		fmt.Fprintf(os.Stderr, "  XFDBG nchan=%d cc1=%08X ca1=%08X mat1=%08X amb1=%08X ntg=%d tg=[%08X %08X %08X %08X %08X %08X %08X %08X] dual=%X ord=[%06X %06X %06X %06X]\n",
+			g.XFMem[0x1009], g.XFMem[0x100F], g.XFMem[0x1011], g.XFMem[0x100D], g.XFMem[0x100B],
+			g.texGenCount(),
+			g.XFMem[0x1040], g.XFMem[0x1041], g.XFMem[0x1042], g.XFMem[0x1043],
+			g.XFMem[0x1044], g.XFMem[0x1045], g.XFMem[0x1046], g.XFMem[0x1047],
+			g.XFMem[0x1012], g.BP[0x28], g.BP[0x29], g.BP[0x2A], g.BP[0x2B])
+		// Every light either channel enables, as the XF holds it. The cos-attenuation triple is
+		// the one to read: a spot light's a0+a1+a2 comes to exactly 1, because GXInitLightSpot
+		// normalises the cone to full brightness on its own axis — which is what pins the sign
+		// of the cosine in gpu_light.go.
+		for li := 0; li < 8; li++ {
+			if lightMask(g.XFMem[0x100E])&(1<<li) == 0 && lightMask(g.XFMem[0x100F])&(1<<li) == 0 {
+				continue
+			}
+			b := 0x600 + li*16
+			fmt.Fprintf(os.Stderr, "  LIGHT%d col=%08X a=(%g,%g,%g) k=(%g,%g,%g) pos=(%.2f,%.2f,%.2f) dir=(%.4f,%.4f,%.4f)\n",
+				li, g.XFMem[b+3],
+				g.xfFloat(b+4), g.xfFloat(b+5), g.xfFloat(b+6),
+				g.xfFloat(b+7), g.xfFloat(b+8), g.xfFloat(b+9),
+				g.xfFloat(b+10), g.xfFloat(b+11), g.xfFloat(b+12),
+				g.xfFloat(b+13), g.xfFloat(b+14), g.xfFloat(b+15))
+		}
 		return
 	}
 	tr := m.profStart()
@@ -335,14 +382,14 @@ func (g *gpu) drawPrimitive(m *Machine, prim uint32, vat, vsize int, data []byte
 	m.profEnd(bucketRaster, tr)
 }
 
-// readTexCoord reads texture coordinate 0 and scales it by its fixed-point fraction. A
+// readTexCoord reads one texture coordinate and scales it by its fixed-point fraction. A
 // single-component coordinate leaves the second axis at zero.
-func (g *gpu) readTexCoord(b []byte, lay attrLayout) (u, v float32) {
-	scale := float32(1) / float32(uint32(1)<<lay.tex0Frac)
-	sz := componentBytes(lay.tex0Fmt)
-	u = readComponent(b, lay.tex0Fmt) * scale
-	if lay.tex0Elem != 0 {
-		v = readComponent(b[sz:], lay.tex0Fmt) * scale
+func readTexCoord(b []byte, ta *texAttr) (u, v float32) {
+	scale := float32(1) / float32(uint32(1)<<ta.frac)
+	sz := componentBytes(ta.fmt)
+	u = readComponent(b, ta.fmt) * scale
+	if ta.elem != 0 {
+		v = readComponent(b[sz:], ta.fmt) * scale
 	}
 	return u, v
 }

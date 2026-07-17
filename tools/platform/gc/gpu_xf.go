@@ -39,11 +39,11 @@ func (g *gpu) xfFloat(addr int) float32 {
 // 1/w per vertex lets the rasteriser interpolate s/w, t/w and q/w (which ARE linear in screen
 // space) and divide back per pixel.
 type screenVertex struct {
-	x, y, z    float32
-	r, g, b, a uint8
-	tc         [maxTexCoord]texCoord
-	ntc        int
-	invW       float32
+	x, y, z float32
+	col     [2][4]uint8
+	tc      [maxTexCoord]texCoord
+	ntc     int
+	invW    float32
 }
 
 // clipVertex is a vertex after projection but before the perspective divide: its homogeneous
@@ -53,7 +53,7 @@ type screenVertex struct {
 // through the origin, wrapping the triangle across the screen instead of removing it.
 type clipVertex struct {
 	cx, cy, cz, cw float32
-	r, g, b, a     uint8
+	col            [2][4]uint8
 	tc             [maxTexCoord]texCoord
 	ntc            int
 }
@@ -61,15 +61,21 @@ type clipVertex struct {
 // lerpClip interpolates two clip-space vertices at parameter t, in clip space, where the
 // straight line between two vertices is still straight. Every attribute the rasteriser reads
 // is carried across so a vertex the clipper invents is as complete as one the game supplied —
-// including every live texture coordinate, and including each one's projective divisor, which
-// is an interpolated quantity like any other and not a per-vertex constant.
+// including BOTH colour channels (a stage reading channel 1 through a clipper that carried only
+// channel 0 would read a colour the transform unit never produced), every live texture
+// coordinate, and each one's projective divisor, which is an interpolated quantity like any
+// other and not a per-vertex constant.
 func lerpClip(a, b clipVertex, t float32) clipVertex {
 	li := func(x, y uint8) uint8 { return uint8(float32(x) + (float32(y)-float32(x))*t + 0.5) }
 	lf := func(x, y float32) float32 { return x + (y-x)*t }
 	out := clipVertex{
 		cx: lf(a.cx, b.cx), cy: lf(a.cy, b.cy), cz: lf(a.cz, b.cz), cw: lf(a.cw, b.cw),
-		r: li(a.r, b.r), g: li(a.g, b.g), b: li(a.b, b.b), a: li(a.a, b.a),
 		ntc: a.ntc,
+	}
+	for c := 0; c < 2; c++ {
+		for k := 0; k < 4; k++ {
+			out.col[c][k] = li(a.col[c][k], b.col[c][k])
+		}
 	}
 	for i := 0; i < a.ntc; i++ {
 		out.tc[i] = texCoord{

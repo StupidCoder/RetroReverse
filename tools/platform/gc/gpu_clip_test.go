@@ -98,7 +98,7 @@ func TestClipSpaceZConvention(t *testing.T) {
 // cv builds a clip-space vertex at an eye-space z through the mansion projection.
 func cv(g *gpu, ex, ey, ez float32) clipVertex {
 	cx, cy, cz, cw := g.clipPos(ex, ey, ez)
-	return clipVertex{cx: cx, cy: cy, cz: cz, cw: cw, r: 255, a: 255}
+	return clipVertex{cx: cx, cy: cy, cz: cz, cw: cw, col: [2][4]uint8{{255, 0, 0, 255}}}
 }
 
 // TestClipNearCases covers the three outcomes of cutting a triangle by one plane.
@@ -144,7 +144,7 @@ func TestClipNearLeavesFrontTriangleExactlyAlone(t *testing.T) {
 	g := gpuWithMansionProjection()
 	tri := [3]clipVertex{cv(g, 1, 1, -10), cv(g, -1, 1, -20), cv(g, 0, -1, -30)}
 	tri[0].ntc, tri[0].tc[0] = 1, texCoord{s: 0.25, t: 0.75, q: 1}
-	tri[1].g, tri[1].b = 128, 64
+	tri[1].col[0][1], tri[1].col[0][2] = 128, 64
 
 	got := clipByPlane(nil, tri[:], planeNear)
 	if len(got) != 3 {
@@ -167,9 +167,9 @@ func TestClipNearInterpolatesAttributes(t *testing.T) {
 	//
 	// Vertex 0 sits one unit inside the plane (cz+cw = +1), vertex 1 one unit outside (-1), so
 	// the 0->1 edge crosses at the midpoint.
-	v0 := clipVertex{cx: 0, cy: 0, cz: 0, cw: 1, r: 0, g: 0, b: 0, a: 0, ntc: 1, tc: tc1(0, 0)}
-	v1 := clipVertex{cx: 0, cy: 0, cz: -2, cw: 1, r: 100, g: 200, b: 40, a: 80, ntc: 1, tc: tc1(1, 3)}
-	v2 := clipVertex{cx: 4, cy: 0, cz: 0, cw: 1, r: 0, g: 0, b: 0, a: 0, ntc: 1, tc: tc1(0, 0)}
+	v0 := clipVertex{cx: 0, cy: 0, cz: 0, cw: 1, ntc: 1, tc: tc1(0, 0)}
+	v1 := clipVertex{cx: 0, cy: 0, cz: -2, cw: 1, col: [2][4]uint8{{100, 200, 40, 80}}, ntc: 1, tc: tc1(1, 3)}
+	v2 := clipVertex{cx: 4, cy: 0, cz: 0, cw: 1, ntc: 1, tc: tc1(0, 0)}
 
 	if d0, d1 := v0.cz+v0.cw, v1.cz+v1.cw; d0 != 1 || d1 != -1 {
 		t.Fatalf("test setup wrong: distances %g and %g, want +1 and -1", d0, d1)
@@ -186,8 +186,8 @@ func TestClipNearInterpolatesAttributes(t *testing.T) {
 		name     string
 		got, exp float32
 	}{
-		{"r", float32(mid.r), 50}, {"g", float32(mid.g), 100},
-		{"b", float32(mid.b), 20}, {"a", float32(mid.a), 40},
+		{"r", float32(mid.col[0][0]), 50}, {"g", float32(mid.col[0][1]), 100},
+		{"b", float32(mid.col[0][2]), 20}, {"a", float32(mid.col[0][3]), 40},
 		{"u", mid.tc[0].s, 0.5}, {"v", mid.tc[0].t, 1.5},
 		{"cz", mid.cz, -1}, {"cw", mid.cw, 1},
 	} {

@@ -151,7 +151,7 @@ func (g *gpu) clipAndSetup(m *Machine, dst, scratch []clipVertex, v0, v1, v2 cli
 	toScreen := func(c clipVertex) screenVertex {
 		sx, sy, sz := g.toScreen(c.cx, c.cy, c.cz, c.cw)
 		// The near clip guarantees a positive w, so this reciprocal is always finite.
-		return screenVertex{x: sx, y: sy, z: sz, r: c.r, g: c.g, b: c.b, a: c.a,
+		return screenVertex{x: sx, y: sy, z: sz, col: c.col,
 			tc: c.tc, ntc: c.ntc, invW: 1 / c.cw}
 	}
 	// The surviving polygon is convex and still wound as the source was, so a fan from its

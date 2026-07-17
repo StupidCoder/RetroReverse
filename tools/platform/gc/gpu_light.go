@@ -49,18 +49,33 @@ func lightMask(ctl uint32) uint32 {
 	return (ctl>>2)&0xF | (ctl>>7)&0xF0
 }
 
-// rasChannel computes colour channel 0 for one vertex: the value the rasteriser interpolates
-// and the TEV reads as its RAS input. The vertex colour, eye-space position and eye-space
-// normal come from the fetch; the channel controls decide what mixes into the result.
-func (g *gpu) rasChannel(m *Machine, vr, vg, vb, va uint8, ex, ey, ez, nx, ny, nz float32) (r, gg, b, a uint8) {
-	if g.XFMem[0x1009] == 0 { // no colour channels: the TEV's RAS input reads as zero
-		return 0, 0, 0, 0
-	}
-
+// rasChannel computes BOTH colour channels for one vertex: the values the rasteriser
+// interpolates and each TEV stage selects between as its RAS input (see gpu_tev_state.go's
+// rasSel). The vertex colour, eye-space position and eye-space normal come from the fetch; the
+// channel controls decide what mixes into each result.
+//
+// Two channels, not one. The channel COUNT register says how many the transform unit produces,
+// and a channel past that count is not computed — the hardware leaves it alone, and a stage
+// naming it reads whatever the rasteriser last had. Here an uncomputed channel reads as zero,
+// which is what the count-0 case has always done.
+//
+// This game's scene draws set the count to 2 and split the work: channel 0 carries the room's
+// spot lights, channel 1 carries a specular highlight from a light the ambient channel never
+// sees. A renderer that computed only channel 0 and handed it to every stage gave the specular
+// stage the diffuse colour — every surface got a highlight-shaped multiply of the wrong term.
+func (g *gpu) rasChannel(m *Machine, vr, vg, vb, va uint8, ex, ey, ez, nx, ny, nz float32) [2][4]uint8 {
+	var out [2][4]uint8
+	nchan := int(g.XFMem[0x1009])
 	vtx := [4]float32{float32(vr) / 255, float32(vg) / 255, float32(vb) / 255, float32(va) / 255}
-	rgb := g.evalChannel(m, g.XFMem[0x100E], false, vtx, g.xfColor(0x100A), g.xfColor(0x100C), ex, ey, ez, nx, ny, nz)
-	alpha := g.evalChannel(m, g.XFMem[0x1010], true, vtx, g.xfColor(0x100A), g.xfColor(0x100C), ex, ey, ez, nx, ny, nz)
-	return chanU8(rgb[0]), chanU8(rgb[1]), chanU8(rgb[2]), chanU8(alpha[3])
+
+	for c := 0; c < 2 && c < nchan; c++ {
+		amb := g.xfColor(0x100A + c)
+		mat := g.xfColor(0x100C + c)
+		rgb := g.evalChannel(m, g.XFMem[0x100E+uint32(c)], false, vtx, amb, mat, ex, ey, ez, nx, ny, nz)
+		alpha := g.evalChannel(m, g.XFMem[0x1010+uint32(c)], true, vtx, amb, mat, ex, ey, ez, nx, ny, nz)
+		out[c] = [4]uint8{chanU8(rgb[0]), chanU8(rgb[1]), chanU8(rgb[2]), chanU8(alpha[3])}
+	}
+	return out
 }
 
 func chanU8(v float32) uint8 {
@@ -105,53 +120,92 @@ func (g *gpu) evalChannel(m *Machine, ctl uint32, isAlpha bool, vtx, amb, mat [4
 		lpx := g.xfFloat(base + 10)
 		lpy := g.xfFloat(base + 11)
 		lpz := g.xfFloat(base + 12)
+		ldx := g.xfFloat(base + 13)
+		ldy := g.xfFloat(base + 14)
+		ldz := g.xfFloat(base + 15)
+		a0, a1, a2 := g.xfFloat(base+4), g.xfFloat(base+5), g.xfFloat(base+6)
+		k0, k1, k2 := g.xfFloat(base+7), g.xfFloat(base+8), g.xfFloat(base+9)
 
-		// The vector from the vertex to the light, and its length.
+		// dx,dy,dz is the unit vector from the vertex TOWARDS the light, and dist the distance
+		// to it — the two quantities the diffuse and distance terms are built from. SPEC
+		// replaces both below: its light has no position to be a distance from.
 		dx, dy, dz := lpx-ex, lpy-ey, lpz-ez
 		dist := float32(math.Sqrt(float64(dx*dx + dy*dy + dz*dz)))
 		if dist > 0 {
 			dx, dy, dz = dx/dist, dy/dist, dz/dist
 		}
 
-		// The diffuse factor by the channel's diffuse function.
+		var attn float32
+		if !attnNotNone { // NONE: flat, and the distance polynomial is not consulted
+			attn = 1
+		} else if attnNotSpec { // SPOT
+			// The cone term. The stored direction is the light's aim NEGATED — the game's own
+			// GXInitLightDir (0x801F5F70) stores -nx,-ny,-nz — and the vertex-to-light vector
+			// on the cone's axis is likewise the reverse of the aim, so the two agree at +1 in
+			// the middle of the cone and the dot is taken as it stands. This is not a
+			// convention worth guessing at: this game's own cos polynomials pin it. Its lights
+			// load a = (0, -3.274, 4.274) and (0, -4.530, 5.530), which evaluate to exactly 1.0
+			// at cs = +1 and fall through zero around cs = 0.77 — curves built to peak on the
+			// axis. Negating the dot puts that peak BEHIND the light: the cone goes dark, the
+			// room behind it lights up at 7.5x, and every shadow the flashlight casts sprays
+			// outwards as though the lamp were a bare point source.
+			cs := dx*ldx + dy*ldy + dz*ldz
+			if cs < 0 {
+				cs = 0
+			}
+			num := a0 + a1*cs + a2*cs*cs
+			if num < 0 {
+				num = 0
+			}
+			den := k0 + k1*dist + k2*dist*dist
+			if den != 0 {
+				attn = num / den
+			}
+		} else { // SPEC
+			// The specular form, and it reads the light object's fields as different things:
+			// GXInitSpecularDir (0x801F5F8C) writes pos = 2^20 * -n (a direction, parked far
+			// enough away to be parallel) and dir = normalize((-nx, -ny, 1-nz)) (the half-angle
+			// vector between the light and the eye's own +z axis). Pinned against this scene's
+			// light 7, whose pos/2^20 gives the unit n = (0.5, 0.7071, -0.5) and whose stored
+			// dir is exactly normalize((-0.5, -0.7071, 1.5)) = (-0.2887, -0.4082, 0.8660).
+			//
+			// So the light direction is the normalised POSITION, and the value the polynomials
+			// are evaluated on is the normal dotted with the HALF-ANGLE — a highlight that
+			// sharpens as a2 grows, rather than a cone in space. A surface facing away from the
+			// light has no highlight at all, whatever the half-angle says, which is what the
+			// facing test is for.
+			dx, dy, dz = normalize3f(lpx, lpy, lpz)
+			cs := float32(0)
+			if nx*dx+ny*dy+nz*dz >= 0 {
+				cs = nx*ldx + ny*ldy + nz*ldz
+				if cs < 0 {
+					cs = 0
+				}
+			}
+			num := a0 + a1*cs + a2*cs*cs
+			if num < 0 {
+				num = 0
+			}
+			// The distance polynomial is evaluated on the same cosine — there is no distance —
+			// and the hardware normalises its coefficients unless the diffuse function is NONE.
+			kx, ky, kz := k0, k1, k2
+			if diffFn != 0 {
+				kx, ky, kz = normalize3f(k0, k1, k2)
+			}
+			den := kx + ky*cs + kz*cs*cs
+			if den != 0 {
+				attn = num / den
+			}
+		}
+
+		// The diffuse factor by the channel's diffuse function, against whichever direction the
+		// attenuation form above settled on.
 		diff := float32(1)
 		if diffFn != 0 {
 			diff = nx*dx + ny*dy + nz*dz
 			if diffFn == 2 && diff < 0 { // CLAMP
 				diff = 0
 			}
-		}
-
-		// The attenuation. SPOT evaluates the cos polynomial on the angle between the
-		// light's aim direction and the light-to-vertex ray, over the distance polynomial;
-		// NONE is flat; SPEC (the half-angle form) has no user yet and halts loudly rather
-		// than shade wrong.
-		attn := float32(1)
-		if attnNotSpec {
-			if attnNotNone { // SPOT
-				ldx := g.xfFloat(base + 13)
-				ldy := g.xfFloat(base + 14)
-				ldz := g.xfFloat(base + 15)
-				cs := -(dx*ldx + dy*ldy + dz*ldz)
-				if cs < 0 {
-					cs = 0
-				}
-				a0, a1, a2 := g.xfFloat(base+4), g.xfFloat(base+5), g.xfFloat(base+6)
-				k0, k1, k2 := g.xfFloat(base+7), g.xfFloat(base+8), g.xfFloat(base+9)
-				num := a0 + a1*cs + a2*cs*cs
-				if num < 0 {
-					num = 0
-				}
-				den := k0 + k1*dist + k2*dist*dist
-				if den != 0 {
-					attn = num / den
-				} else {
-					attn = 0
-				}
-			}
-		} else if attnNotNone { // SPEC
-			m.CPU.Halt("XF channel: specular attenuation not yet implemented (ctl 0x%04X)", ctl)
-			return mat
 		}
 
 		if isAlpha {
@@ -172,6 +226,15 @@ func (g *gpu) evalChannel(m *Machine, ctl uint32, isAlpha bool, vtx, amb, mat [4
 		}
 	}
 	return [4]float32{mat[0] * illum[0], mat[1] * illum[1], mat[2] * illum[2], mat[3] * illum[3]}
+}
+
+// normalize3f scales a vector to unit length, leaving a degenerate one alone.
+func normalize3f(x, y, z float32) (float32, float32, float32) {
+	l := float32(math.Sqrt(float64(x*x + y*y + z*z)))
+	if l == 0 {
+		return x, y, z
+	}
+	return x / l, y / l, z / l
 }
 
 // normalToEye takes a model-space normal through the normal matrix that shares the position

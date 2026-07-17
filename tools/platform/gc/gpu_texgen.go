@@ -40,10 +40,25 @@ const maxTexCoord = 8
 // than a special case (see perspTexCoords).
 type texCoord struct{ s, t, q float32 }
 
-// The generation-type field: anything other than "regular" is a different stage entirely
-// (emboss bump mapping reads a light and a binormal; the colour types feed a channel's output
-// back in as a coordinate) and none is exercised yet.
-const texGenRegular = 0
+// The generation-type field.
+//
+// texGenColor0/1 are the stage that draws this game's flashlight, and they are worth stating
+// plainly because they invert what a texture coordinate normally is. Instead of asking WHERE
+// this vertex sits, they take the colour the lighting channel just computed for it (see
+// gpu_light.go) and use that BRIGHTNESS as the coordinate — s = channel.r, t = channel.g. The
+// texture then is not a picture of anything; it is a lookup table from "how lit is this vertex"
+// to "what colour should that be", which is how the hardware buys a non-linear falloff out of a
+// lighting unit that can only do polynomials. Luigi's cone is a 64x64 ramp sampled that way.
+//
+// The consequence for anyone reading the pipeline in order: this generator MUST run after the
+// colour channels, not alongside them. It is the one texture coordinate that depends on the
+// lighting result rather than the vertex.
+const (
+	texGenRegular = 0
+	texGenEmboss  = 1
+	texGenColor0  = 2
+	texGenColor1  = 3
+)
 
 // The source-row field. The rows are the vertex's attributes as the XF sees them, which is why
 // a position and a texture coordinate are both just "a row" to the generator.
@@ -77,15 +92,24 @@ func (g *gpu) texMtxRow(i int) int {
 // mx,my,mz is the model-space position and nx,ny,nz the model-space normal — the two rows the
 // generator can take as input besides the vertex's own coordinates, which arrive in vtx.
 // mtxRow overrides the register-selected matrix row when the vertex carried its own index.
-func (g *gpu) genTexCoord(m *Machine, i int, mtxRow int, mx, my, mz, nx, ny, nz float32, vtx texCoord) texCoord {
+func (g *gpu) genTexCoord(m *Machine, i int, mtxRow int, mx, my, mz, nx, ny, nz float32, vtc *[maxTexCoord]texCoord, col *[2][4]uint8) texCoord {
 	info := g.XFMem[0x1040+uint32(i)]
 	proj := (info >> 1) & 1
 	inputForm := (info >> 2) & 3
 	genType := (info >> 4) & 7
 	srcRow := (info >> 7) & 0x1F
 
-	if genType != texGenRegular {
-		m.logf("XF: texgen %d uses generation type %d, only the regular type is implemented", i, genType)
+	switch genType {
+	case texGenRegular:
+	case texGenColor0, texGenColor1:
+		// The lit channel's red and green ARE the coordinate. No matrix, no projection: the
+		// generator writes them straight through, scaled from the channel's byte range to the
+		// 0..1 the sampler wants, with the divisor forced to 1 so the rasteriser's unconditional
+		// divide leaves them alone.
+		c := col[genType-texGenColor0]
+		return texCoord{s: float32(c[0]) / 255, t: float32(c[1]) / 255, q: 1}
+	default:
+		m.logf("XF: texgen %d uses generation type %d, only the regular and colour types are implemented", i, genType)
 		return texCoord{q: 1}
 	}
 
@@ -97,11 +121,14 @@ func (g *gpu) genTexCoord(m *Machine, i int, mtxRow int, mx, my, mz, nx, ny, nz 
 		in = [4]float32{mx, my, mz, 1}
 	case srcRow == texSrcNormal:
 		in = [4]float32{nx, ny, nz, 1}
-	case srcRow == texSrcTex0:
-		in = [4]float32{vtx.s, vtx.t, 1, 1}
+	case srcRow >= texSrcTex0 && srcRow < texSrcTex0+maxTexCoord:
+		// Any of the vertex's own eight coordinates. Which one is not tied to which coordinate
+		// is being generated: a draw may generate coordinate 2 from the vertex's coordinate 1.
+		v := vtc[srcRow-texSrcTex0]
+		in = [4]float32{v.s, v.t, 1, 1}
 	default:
-		// Coordinates 1..7 as a source would need the vertex's other coordinates, which the
-		// fetch does not capture yet (see gpu_fetch.go); a named gap, not a wrong coordinate.
+		// The binormal and tangent rows, which the emboss stage reads and the fetch does not
+		// capture; a named gap, not a wrong coordinate.
 		m.logf("XF: texgen %d sources row %d, which the vertex fetch does not capture", i, srcRow)
 		return texCoord{q: 1}
 	}

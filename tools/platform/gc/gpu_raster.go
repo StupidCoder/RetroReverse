@@ -200,21 +200,26 @@ func (g *gpu) fillTri(m *Machine, tev *tevState, t *rasterTri, yLo, yHi int, st 
 
 			// The interpolated rasteriser colour (the vertex colour) and texture coordinate,
 			// which the TEV combines into the final pixel.
-			r := uint8(b0*float32(v0.r) + b1*float32(v1.r) + b2*float32(v2.r))
-			gg := uint8(b0*float32(v0.g) + b1*float32(v1.g) + b2*float32(v2.g))
-			bb := uint8(b0*float32(v0.b) + b1*float32(v1.b) + b2*float32(v2.b))
-			a := uint8(b0*float32(v0.a) + b1*float32(v1.a) + b2*float32(v2.a))
+			// Both lit colour channels are interpolated, because a stage picks between them
+			// per stage (see rasSelect) and the pixel cannot know which until it shades.
+			var ras [2][4]uint8
+			for c := 0; c < 2; c++ {
+				for k := 0; k < 4; k++ {
+					ras[c][k] = uint8(b0*float32(v0.col[c][k]) + b1*float32(v1.col[c][k]) + b2*float32(v2.col[c][k]))
+				}
+			}
 			var tc [maxTexCoord]texCoord
 			perspTexCoords(b0, b1, b2, v0, v1, v2, &tc)
 
-			fr, fg, fb, fa, pass := g.shade(m, tev, r, gg, bb, a, &tc)
+			fr, fg, fb, fa, pass := g.shade(m, tev, &ras, &tc)
 			if x == pixDbgX && y == pixDbgY {
 				t0 := g.texSetup(0)
 				u, v := tc[0].s, tc[0].t
 				tr, tg, tb, ta := g.sampleTexmap(m, &t0, u, v)
 				fmt.Fprintf(os.Stderr,
-					"PIXDBG (%d,%d): ras %d,%d,%d,%d uv (%.4f,%.4f) tex0 0x%06X fmt%X %dx%d texel (%d,%d)=%d,%d,%d,%d -> out %d,%d,%d,%d pass=%v dst %08X\n",
-					x, y, r, gg, bb, a, u, v, t0.base, t0.format, t0.width, t0.height,
+					"PIXDBG (%d,%d): ras0 %d,%d,%d,%d ras1 %d,%d,%d,%d uv (%.4f,%.4f) tex0 0x%06X fmt%X %dx%d texel (%d,%d)=%d,%d,%d,%d -> out %d,%d,%d,%d pass=%v dst %08X\n",
+					x, y, ras[0][0], ras[0][1], ras[0][2], ras[0][3],
+					ras[1][0], ras[1][1], ras[1][2], ras[1][3], u, v, t0.base, t0.format, t0.width, t0.height,
 					wrapCoord(int(u*float32(t0.width)), t0.width, t0.wrapS),
 					wrapCoord(int(v*float32(t0.height)), t0.height, t0.wrapT),
 					tr, tg, tb, ta, fr, fg, fb, fa, pass, g.EFB[idx])

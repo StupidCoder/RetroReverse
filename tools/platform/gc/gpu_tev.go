@@ -54,14 +54,17 @@ func sext11(v uint32) int32 {
 // running), the rasterised (interpolated vertex) colour and the pixel's generated texture
 // coordinates, and returns the final colour together with whether the pixel survived the alpha
 // test.
-func (g *gpu) shade(m *Machine, t *tevState, rasR, rasG, rasB, rasA uint8, tc *[maxTexCoord]texCoord) (fr, fg, fb, fa uint8, pass bool) {
+func (g *gpu) shade(m *Machine, t *tevState, rasCol *[2][4]uint8, tc *[maxTexCoord]texCoord) (fr, fg, fb, fa uint8, pass bool) {
 	// The four working registers, seeded with the constant values the game loaded. This is a
 	// copy and must stay one: the stages below write it.
 	reg := t.seed
-	ras := [4]float32{float32(rasR), float32(rasG), float32(rasB), float32(rasA)}
 
 	for s := 0; s < t.numStages; s++ {
 		st := &t.stages[s]
+
+		// The colour channel this stage reads, chosen per stage. See rasSelect: a stage may
+		// name either lit channel, one channel's alpha broadcast, or nothing at all.
+		ras := rasSelect(st.rasSel, rasCol)
 
 		// Each stage reads its two colour inputs through a swap table of its own choosing, named
 		// in the low bits of its alpha combiner. The tables are not decoration: this game's
@@ -103,6 +106,30 @@ func (g *gpu) shade(m *Machine, t *tevState, rasR, rasG, rasB, rasA uint8, tc *[
 // toU8 rounds a combiner result to a byte, so a value that lands at 254.999 through float
 // arithmetic reads back as the 255 the hardware's fixed-point path produces.
 func toU8(f float32) uint8 { return uint8(clampf(f) + 0.5) }
+
+// rasSelect resolves a stage's RAS input to one of the two lit colour channels, or to nothing.
+//
+// The encoding is the game's own, and it is a table rather than a guess: GXSetTevOrder
+// (0x801F8354) maps GX_COLOR_NULL straight to 7 and puts every other GXChannelID through a
+// lookup at 0x80395F78, which reads
+//
+//	COLOR0 0  COLOR1 1  ALPHA0 0  ALPHA1 1  COLOR0A0 0  COLOR1A1 1  ZERO 7  BUMP 5  BUMPN 6
+//
+// so the field names the CHANNEL only — whether a stage wants that channel's colour or its
+// alpha is the combiner's business (RASC vs RASA), not this field's. Hence two cases, not six.
+//
+// 5 and 6 are the bump-alpha forms, which carry the value the emboss texgen computes rather
+// than a lit channel; nothing generates one yet, so they read as zero and say so once.
+func rasSelect(sel uint32, col *[2][4]uint8) [4]float32 {
+	switch sel {
+	case 0, 1:
+		c := col[sel]
+		return [4]float32{float32(c[0]), float32(c[1]), float32(c[2]), float32(c[3])}
+	case 7: // NULL: the rasteriser hands the stage nothing
+		return [4]float32{}
+	}
+	return [4]float32{}
+}
 
 // combineColor evaluates a stage's colour combiner: four rgb inputs chosen from the sixteen
 // codes, then either the arithmetic formula applied per channel or — when the bias field

@@ -102,6 +102,15 @@ type gatePin struct {
 //
 // If one of these moves, open the PNG the failure prints and JUDGE THE PICTURE AGAIN
 // before touching this block. A pinned hash guards change, not correctness.
+//
+// The shadow pin was re-taken on 2026-07-17, and what it had been guarding is worth writing
+// down. Its old frame carried a grey band across the left glove that reads as a shadow and is
+// not one: it was the spot cone evaluated with an inverted cosine (see gpu_light.go), lighting
+// the room behind the lamp and leaving the lit side dark. The new frame is a smooth falloff
+// brightening the left of the flyer, where the light actually points. The map's own cast
+// shadow — the reason this state exists — is a TEV/shadow-map effect and is untouched by the
+// change; the picture was diffed block by block to confirm the only movement is that gradient.
+// A plausible artefact is exactly what a hash pin will defend forever if nobody asks it to.
 var gatePins = []gatePin{
 	{
 		name:  "intro-cutscene",
@@ -114,8 +123,8 @@ var gatePins = []gatePin{
 	{
 		name:  "shadow",
 		state: stateShadow,
-		ram:   "f158bd9b06de10367c648dfc1b46fd309f19dd07d44a3f3702ea5f7935b66804",
-		xfb:   "34525c0d2dcdab1bd2b85bdba8ca9ee09f69d131d5a0700198a3508993e7ed6b",
+		ram:   "43d662f26de92d4e0ff85e9564c56b2e3e883ab8a20b6d97b35c2dbd4ef0c249",
+		xfb:   "b9b06aa1afd6a075efd4466da45202d76ed393f18218177abb118faf06c2ba2b",
 		aram:  "85b317d31fbf4c465840d9ff3803a522253387d95af6c5a4511e5094ade6e558",
 		cpu:   "a236e2d4f92a2818ce769d79b92f0027d300c84cebdff8d51a58b38404ec9cd0",
 	},
