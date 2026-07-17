@@ -17,6 +17,10 @@ import (
 // quadGPU builds a gpu with the captured full-screen-quad XF and CP state.
 func quadGPU() *gpu {
 	g := &gpu{}
+	// The power-up register state, exactly as the machine gives a booting guest. The scissor
+	// lives here: its all-zero encoding is a real 1x1 box, so a pipe built from a bare struct
+	// draws nothing at all until this runs.
+	g.init()
 	// Vertex descriptor and table: position (direct, 3x s16), colour0 (direct, RGBA8888),
 	// texcoord0 (direct, 2x u16).
 	g.CPReg[0x50] = 0x2200
@@ -262,6 +266,117 @@ func TestTexturedQuadRenders(t *testing.T) {
 		if absU8(r, er) > 8 || absU8(gg, eg) > 8 || absU8(b, eb) > 8 {
 			t.Errorf("pixel (%d,%d) = (%d,%d,%d), want ~(%d,%d,%d)", p[0], p[1], r, gg, b, er, eg, eb)
 		}
+	}
+}
+
+// setScissor programs the scissor box the way a guest does: both corners biased by 342, the
+// bottom-right inclusive, and the box offset zeroed.
+func (g *gpu) setScissor(x0, y0, x1, y1 int) {
+	const bias = 342
+	g.BP[0x20] = uint32(y0+bias) | uint32(x0+bias)<<12
+	g.BP[0x21] = uint32(y1+bias) | uint32(x1+bias)<<12
+	g.BP[0x59] = (bias / 2) | (bias/2)<<10
+}
+
+// TestScissorClipsDraw draws a full-screen quad under a scissor that covers a small window and
+// asserts the pixels outside that window are never written.
+//
+// This is the regression for a widget that a game parks outside its scissor and expects the
+// hardware to swallow: Luigi's Mansion places a treasure counter at a screen position it never
+// intends you to see and relies on the scissor alone to keep it off the frame, so a pipe that
+// stores the scissor registers but never reads them draws a perfectly plausible counter that
+// hardware does not. Nothing else in the pipe rejects those pixels — they are in the
+// framebuffer, they pass the depth test, and their texture is real.
+func TestScissorClipsDraw(t *testing.T) {
+	const w, h = 64, 64
+	base := uint32(0x3000)
+	// A texture with no black in it, so "was this pixel written" is a question the framebuffer
+	// can answer on its own: anything still black was never drawn.
+	src := func(x, y int) (r, g, b uint8) { return 200, 200, 200 }
+	m := testMachine()
+	copy(m.RAM[base:], encodeRGB565Tiled(w, h, src))
+
+	g := quadGPU()
+	m.gpu = *g
+	m.gpu.bindTexture0RGB565(base, w, h)
+	m.gpu.setPassthroughTEV()
+	m.gpu.setScissor(100, 80, 199, 179) // inclusive: pixels 100..199 by 80..179
+
+	corners := [4]struct {
+		x, y int16
+		u, v uint16
+	}{
+		{0, 0, 0x0000, 0x0000},
+		{640, 0, 0x8000, 0x0000},
+		{640, 480, 0x8000, 0x8000},
+		{0, 480, 0x0000, 0x8000},
+	}
+	var data []byte
+	for _, c := range corners {
+		data = append(data,
+			byte(uint16(c.x)>>8), byte(c.x),
+			byte(uint16(c.y)>>8), byte(c.y),
+			0, 0,
+			0xFF, 0xFF, 0xFF, 0xFF,
+			byte(c.u>>8), byte(c.u), byte(c.v>>8), byte(c.v),
+		)
+	}
+	m.gpu.drawPrimitive(m, 0x80, 0, 14, data)
+
+	if m.gpu.EFB == nil {
+		t.Fatal("raster produced no framebuffer")
+	}
+	drawn := func(x, y int) bool {
+		r, g, b := unpackRGB(m.gpu.EFB[y*efbWidth+x])
+		return r != 0 || g != 0 || b != 0
+	}
+	// Inside the box, including every corner of it: the quad covers the screen, so the whole
+	// box must be painted. Without these the test would pass on a pipe that draws nothing.
+	for _, p := range [][2]int{{100, 80}, {199, 179}, {150, 130}, {101, 81}, {198, 178}} {
+		if !drawn(p[0], p[1]) {
+			t.Errorf("pixel (%d,%d) is inside the scissor box but was not drawn", p[0], p[1])
+		}
+	}
+	// Outside it, one pixel past each edge and the far corners of the screen.
+	for _, p := range [][2]int{{99, 130}, {200, 130}, {150, 79}, {150, 180}, {0, 0}, {639, 479}} {
+		if drawn(p[0], p[1]) {
+			t.Errorf("pixel (%d,%d) is outside the scissor box but was drawn", p[0], p[1])
+		}
+	}
+}
+
+// TestScissorBoxDecode pins the scissor arithmetic against the two boxes Luigi's Mansion
+// programs whose answer is known from somewhere other than the scissor itself: a full-screen
+// pass, which must come out as exactly the framebuffer, and its render-to-texture pass, whose
+// box must equal the rectangle the pixel engine then copies out ("EFB (250,140) 140x200").
+//
+// Both carry a box offset of -2, which is what makes this worth pinning: the bias and the
+// offset both shift the box, so a formula that drops one and compensates in the other fits
+// either case alone. Only the two together separate them.
+func TestScissorBoxDecode(t *testing.T) {
+	for _, c := range []struct {
+		name             string
+		bp20, bp21, bp59 uint32
+		x0, y0, x1, y1   int
+	}{
+		// The full-screen pass asks for the 640x480 the game scans out, not the 640x528 the
+		// embedded framebuffer is tall — so this pins the decode, not the clamp.
+		{"full screen", 0x154154, 0x3D3333, 0x02A8AA, 0, 0, 640, 480},
+		{"render-to-texture", 0x24E1E0, 0x2D92A7, 0x02A8AA, 250, 140, 390, 340},
+		// The HUD panel's box asks to run past the bottom of the framebuffer, so y1 clamps to
+		// efbHeight. What matters is y0: at 531 it starts below every row the treasure counter
+		// draws into (458..490), which is what keeps the counter off the frame.
+		{"the HUD panel that strands the counter", 0x331367, 0x39E3B9, 0x02A8AA, 477, 531, 587, efbHeight},
+	} {
+		t.Run(c.name, func(t *testing.T) {
+			g := &gpu{}
+			g.BP[0x20], g.BP[0x21], g.BP[0x59] = c.bp20, c.bp21, c.bp59
+			x0, y0, x1, y1 := g.scissorBox()
+			if x0 != c.x0 || y0 != c.y0 || x1 != c.x1 || y1 != c.y1 {
+				t.Errorf("scissorBox() = (%d,%d)-(%d,%d), want (%d,%d)-(%d,%d)",
+					x0, y0, x1, y1, c.x0, c.y0, c.x1, c.y1)
+			}
+		})
 	}
 }
 

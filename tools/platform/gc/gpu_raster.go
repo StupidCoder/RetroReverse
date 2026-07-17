@@ -108,27 +108,94 @@ type rstats struct {
 	written, zRej, aRej int
 }
 
+// init programs the GX registers that must have a value before the first draw, whether or
+// not the guest ever writes them.
+//
+// The scissor is the one that bites. Its zero value is not "unset": BP 0x20/0x21 hold biased
+// coordinates, so all-zero decodes to a real 1x1 box at the origin, and a pipe that believed
+// it would reject the entire frame. There is no encoding for "no scissor" to test for, so the
+// registers have to start where the console's own GXInit leaves them — the whole framebuffer,
+// with no box offset. A guest that calls GXInit overwrites this on its first frame; a test
+// that drives the pipe directly inherits a box that draws.
+func (g *gpu) init() {
+	const bias = 342
+	g.BP[0x20] = bias | bias<<12                                // top-left (0,0)
+	g.BP[0x21] = (efbHeight - 1 + bias) | (efbWidth-1+bias)<<12 // bottom-right, inclusive
+	g.BP[0x59] = (bias / 2) | (bias/2)<<10                      // box offset (0,0)
+}
+
+// scissorBox is the scissor rectangle in framebuffer pixels: [x0,x1) by [y0,y1), already
+// intersected with the framebuffer so a caller can clamp against it alone.
+//
+// Both corners (BP 0x20 top-left, BP 0x21 bottom-right, inclusive) carry hardware's fixed
+// 342 bias, and both are shifted by the scissor-box offset (BP 0x59, stored in 2-pixel units
+// with the same bias). The offset exists so a game can render one virtual screen as several
+// EFB-sized windows; the vertex coordinates stay in virtual-screen space and the offset says
+// where this window sits. gpu_xf.go already takes the 342 off the viewport, so a vertex here
+// is in framebuffer pixels — which means the same 342 and the same offset have to come off
+// the scissor for the two to be comparable.
+//
+// The arithmetic is pinned by two cases this game renders that are known independently:
+// a full-screen pass programs raw (0x154154, 0x3D3333), which comes out (0,0)-(639,479),
+// exactly the framebuffer; and its render-to-texture pass programs (0x24E1E0, 0x2D92A7),
+// which comes out (250,140)-(389,339) — the very rectangle the PE then copies out as
+// "EFB (250,140) 140x200". Either case alone could be fitted by a wrong formula; together
+// they pin the bias and the offset separately.
+func (g *gpu) scissorBox() (x0, y0, x1, y1 int) {
+	offX := int(g.BP[0x59]&0x3FF)*2 - 342
+	offY := int((g.BP[0x59]>>10)&0x3FF)*2 - 342
+
+	x0 = int((g.BP[0x20]>>12)&0x7FF) - 342 - offX
+	y0 = int(g.BP[0x20]&0x7FF) - 342 - offY
+	// The register's bottom-right corner is inclusive; the caller wants a half-open range.
+	x1 = int((g.BP[0x21]>>12)&0x7FF) - 342 - offX + 1
+	y1 = int(g.BP[0x21]&0x7FF) - 342 - offY + 1
+
+	if x0 < 0 {
+		x0 = 0
+	}
+	if y0 < 0 {
+		y0 = 0
+	}
+	if x1 > efbWidth {
+		x1 = efbWidth
+	}
+	if y1 > efbHeight {
+		y1 = efbHeight
+	}
+	return
+}
+
 // setupTri projects one triangle into a rasterTri, or reports that it covers nothing.
 //
 // It stays SERIAL, and it has to: it owns the culled counter, and cullTest reads an
 // environment override that exists to answer "is this geometry missing because of culling?".
 func (g *gpu) setupTri(v0, v1, v2 screenVertex) (rasterTri, bool) {
-	// The bounding box, clamped to the framebuffer.
+	// The bounding box, clamped to the framebuffer AND to the scissor.
 	minX := int(min3(v0.x, v1.x, v2.x))
 	maxX := int(max3(v0.x, v1.x, v2.x)) + 1
 	minY := int(min3(v0.y, v1.y, v2.y))
 	maxY := int(max3(v0.y, v1.y, v2.y)) + 1
-	if minX < 0 {
-		minX = 0
+
+	// The scissor is not decoration: a game may place a widget anywhere it likes and rely on
+	// the scissor alone to keep it off the screen. Clamping only to the framebuffer draws
+	// whatever the game parked outside its box — which looks entirely plausible, because the
+	// pixels are in range and the texture is real.
+	sx0, sy0, sx1, sy1 := g.scissorBox()
+	if minX < sx0 {
+		minX = sx0
 	}
-	if minY < 0 {
-		minY = 0
+	if minY < sy0 {
+		minY = sy0
 	}
-	if maxX > efbWidth {
-		maxX = efbWidth
+	if maxX > sx1 {
+		maxX = sx1
 	}
-	if maxY > efbHeight {
-		maxY = efbHeight
+	if maxY > sy1 {
+		maxY = sy1
+	}
+	if minX >= maxX || minY >= maxY {
+		return rasterTri{}, false
 	}
 
 	// The signed area of the triangle; a degenerate (zero-area) triangle covers no pixels.

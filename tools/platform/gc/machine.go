@@ -181,6 +181,7 @@ func NewMachine(disc *Disc) (*Machine, error) {
 	m.dsp.init()
 	m.exi.init()
 	m.vi.init()
+	m.gpu.init()
 	// A standard controller is plugged into port 1 (channel 0), the way a console boots with
 	// a pad attached. The oracle's -keys injection presses its buttons.
 	m.si.connectPad(0)

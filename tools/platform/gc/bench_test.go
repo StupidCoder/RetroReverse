@@ -137,6 +137,21 @@ type gatePin struct {
 // the same to the digit as at 2M. The game was never drawing anything different — it was
 // missing its own 30 Hz cadence while drawing it (see fieldInstructions' comment). Both frames
 // were looked at again anyway: Luigi and his torch in the forest, and the flyer in his gloves.
+// RE-PINNED AGAIN when the rasteriser started honouring the scissor (gpu_raster.go). Only
+// ONE hash moved, and which one is the whole argument:
+//
+//	ram        moved. Expected: this scene's draws include a pass the game scissors to a
+//	           1-pixel inset, so the border texels of an EFB copy that lands in RAM change.
+//	xfb        DID NOT MOVE. Byte-identical: the shadow frame is the same picture, pixel for
+//	           pixel, with the scissor on. Confirmed independently by rendering the state both
+//	           ways through the oracle and differencing — 0 pixels differ.
+//	aram, cpu  did not move.
+//
+// So the change is confined to an off-screen intermediate, which is exactly where a scissor
+// that was previously ignored would show up first. The frame was looked at before this was
+// written: the YOUR MANSION flyer in Luigi's gloves, intact.
+//
+// intro-cutscene did not move at all — every draw in it uses the full-screen box.
 var gatePins = []gatePin{
 	{
 		name:  "intro-cutscene",
@@ -149,7 +164,7 @@ var gatePins = []gatePin{
 	{
 		name:  "shadow",
 		state: stateShadow,
-		ram:   "ebfa1c02a29797dc7226f19a1cebe5e8e1c3ec27ffa84956bc57a557e2f9fedc",
+		ram:   "d8222dfd52859fbe699cfd8dd9166658dbd82f2f1c3d75e4e888cb7e7d0989cc",
 		xfb:   "79a817306f7410279a632fdc9c62b1344c152bb7620a6b2dae02f95e68172dd0",
 		aram:  "85b317d31fbf4c465840d9ff3803a522253387d95af6c5a4511e5094ade6e558",
 		cpu:   "49fa07abf997faa7d49542f9b5ae7a805d739d6b1b6fcc98486c0da6170f0435",

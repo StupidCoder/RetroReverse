@@ -348,6 +348,17 @@ func (g *gpu) drawPrimitive(m *Machine, prim uint32, vat, vsize int, data []byte
 			int((g.BP[0x00]>>10)&0xF)+1, g.BP[0x41], g.BP[0xF3], g.BP[0x40], c0a, k0a,
 			g.CPReg[0x50]&0xFFFF, g.XFMem[0x100C], g.XFMem[0x100A],
 			g.XFMem[0x100E], g.XFMem[0x1010])
+		// The scissor, decoded. Both corners carry hardware's fixed 342 bias, and the offset
+		// register (0x59) shifts the box in 2-pixel units. A draw whose pixels land outside
+		// this box does not reach the EFB on hardware, however plausible it looks here.
+		scisY0 := int(g.BP[0x20]&0x7FF) - 342
+		scisX0 := int((g.BP[0x20]>>12)&0x7FF) - 342
+		scisY1 := int(g.BP[0x21]&0x7FF) - 342
+		scisX1 := int((g.BP[0x21]>>12)&0x7FF) - 342
+		fmt.Fprintf(os.Stderr, "  SCIS box (%d,%d)-(%d,%d) off=(%d,%d) raw20=%06X raw21=%06X raw59=%06X\n",
+			scisX0, scisY0, scisX1, scisY1,
+			(int(g.BP[0x59]&0x3FF))*2-342, (int((g.BP[0x59]>>10)&0x3FF))*2-342,
+			g.BP[0x20], g.BP[0x21], g.BP[0x59])
 		// The second half of the draw's transform state: the channel COUNT and channel 1's
 		// registers (a draw lighting two channels says so here), every texture-coordinate
 		// generator's info word, and the TEV ordering registers whose ras_sel field says which
