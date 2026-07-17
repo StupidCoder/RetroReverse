@@ -543,8 +543,8 @@ func (gs *GS) plot(t *gsTarget, x, y int32, z uint32, rgba uint32) {
 		if blended {
 			blendS = sprintf(" blend(%08X %X->%08X)", preBlend, uint32(t.alpha), rgba)
 		}
-		fmt.Printf("  pixel (%d,%d) fb 0x%05X <- %08X (src %08X over %08X, %s%s%s) from %s\n",
-			x, y, t.fbp*64, px, rgba, old,
+		fmt.Printf("  pixel (%d,%d) fb 0x%05X psm 0x%X fbmsk %08X <- %08X (src %08X over %08X, %s%s%s) from %s\n",
+			x, y, t.fbp*64, t.psm, t.fbmsk, px, rgba, old,
 			primNames[t.primType],
 			map[bool]string{true: " ABE", false: ""}[t.abe],
 			blendS,

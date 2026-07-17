@@ -49,6 +49,10 @@ func main() {
 	eeProf := flag.Int("eeprof", 0, "sample the EE's PC every N steps and report where the time goes, by symbol")
 	pad := flag.String("pad", "", "press controller buttons: BUTTON@VBLANK[:HOLD],... (default hold 30 vblanks)")
 	verbose := flag.Bool("v", false, "print the kernel-call, SIF and IOP censuses after the run")
+	gsVerts := flag.Int("gsverts", 0, "dump the next N completed GS primitives (prim, fb, tex0, vertices)")
+	gsBig := flag.Int("gsbig", 0, "dump the next N completed GS primitives whose bbox exceeds 1024px")
+	gsTex := flag.String("gstex", "", "at run end, render TEX0(hex) through the swizzle+CLUT to FILE.png as TEX0:FILE.png")
+	gsPixel := flag.String("gspixel", "", "log the next N colour writes at X:Y:N (decimal)")
 
 	var bps, logpcs, iopLogpcs, watches, rwatches, gsFBs, gsRegs multiFlag
 	flag.Var(&bps, "bp", "halting breakpoint (hex); repeatable")
@@ -70,6 +74,7 @@ func main() {
 		gsFrame: *gsFrame, eeProf: *eeProf, pad: *pad, verbose: *verbose,
 		bps: bps, logpcs: logpcs, iopLogpcs: iopLogpcs, watches: watches, rwatches: rwatches, watchn: *watchn,
 		gsFBs: gsFBs, gsRegs: gsRegs, iopThreads: *iopThreads,
+		gsVerts: *gsVerts, gsBig: *gsBig, gsTex: *gsTex, gsPixel: *gsPixel,
 	}); err != nil {
 		fmt.Fprintln(os.Stderr, "bootoracle:", err)
 		os.Exit(1)
@@ -88,6 +93,8 @@ type cfg struct {
 	watchn                         int
 	gsFBs, gsRegs                  multiFlag
 	iopThreads                     bool
+	gsVerts, gsBig                 int
+	gsTex, gsPixel                 string
 }
 
 func hx(s string) (uint32, error) {
@@ -368,6 +375,16 @@ func run(c cfg) error {
 		}
 	}
 
+	m.GSVertDump = c.gsVerts
+	m.GSBigDump = c.gsBig
+	if c.gsPixel != "" {
+		var px, py, pn int
+		if _, err := fmt.Sscanf(c.gsPixel, "%d:%d:%d", &px, &py, &pn); err != nil {
+			return fmt.Errorf("bad -gspixel %q (want X:Y:N)", c.gsPixel)
+		}
+		m.GSPixelX, m.GSPixelY, m.GSPixelN = int32(px), int32(py), pn
+	}
+
 	steps, err := parseCount(c.steps)
 	if err != nil {
 		return fmt.Errorf("bad -steps %q", c.steps)
@@ -426,6 +443,28 @@ func run(c cfg) error {
 		if err := writeGSFrame(m, c.gsFrame); err != nil {
 			return err
 		}
+	}
+	if c.gsTex != "" {
+		texS, path, ok := strings.Cut(c.gsTex, ":")
+		if !ok {
+			return fmt.Errorf("bad -gstex %q (want TEX0:FILE.png)", c.gsTex)
+		}
+		tv, err := strconv.ParseUint(strings.TrimPrefix(texS, "0x"), 16, 64)
+		if err != nil {
+			return fmt.Errorf("bad -gstex TEX0 %q", texS)
+		}
+		pix, w, h := m.GSTexture(tv)
+		img := image.NewRGBA(image.Rect(0, 0, w, h))
+		copy(img.Pix, pix)
+		f, err := os.Create(path)
+		if err != nil {
+			return err
+		}
+		defer f.Close()
+		if err := png.Encode(f, img); err != nil {
+			return err
+		}
+		fmt.Printf("gstex: wrote %dx%d to %s\n", w, h, path)
 	}
 	if c.savestate != "" {
 		if err := m.SaveStateFile(c.savestate); err != nil {
