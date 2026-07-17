@@ -98,7 +98,7 @@ type gatePin struct {
 //	shadow          the YOUR MANSION map flyer held up in Luigi's gloved hands, the
 //	                mansion and the rainbow on it, the HERE arrow over the house — and
 //	                the shadow the map casts, which is the whole reason this state is
-//	                here. 18,350 draws, 599,857 fragments, 0 alpha-rejected.
+//	                here. 18,350 draws, 638,498 fragments, 0 alpha-rejected.
 //
 // If one of these moves, open the PNG the failure prints and JUDGE THE PICTURE AGAIN
 // before touching this block. A pinned hash guards change, not correctness.
@@ -111,6 +111,18 @@ type gatePin struct {
 // shadow — the reason this state exists — is a TEV/shadow-map effect and is untouched by the
 // change; the picture was diffed block by block to confirm the only movement is that gradient.
 // A plausible artefact is exactly what a hash pin will defend forever if nobody asks it to.
+//
+// THE SHADOW PIN WAS RE-TAKEN AGAIN LATER THE SAME DAY, and the reason is worth writing down
+// because it is a failure mode of the recipe rather than of the machine: shadow.state was
+// re-baked at 08:26, twenty-two minutes AFTER the commit above pinned the frame at 08:04. A pin
+// is a hash of a state and a code path, and re-cutting the state alone silently invalidates it.
+// The tell was that the draw count was IDENTICAL — 18,350, to the digit — while the fragments
+// moved 599,857 -> 638,498: the same scene from a hair's different phase, which is a re-cut
+// state, not a rendering change. (A rendering change moves fragments with the draws held; a
+// different scene moves both.) The frame was judged again before this was written: the gloves
+// carry a smooth gradient with no grey band, the flyer's left half is brighter than its right
+// (90.7 vs 84.0 mean luminance) as the corrected spot cone demands, and the Z16 copy-to-texture
+// that IS the shadow map still fires — so the pin still guards what its name says it does.
 var gatePins = []gatePin{
 	{
 		name:  "intro-cutscene",
@@ -123,10 +135,10 @@ var gatePins = []gatePin{
 	{
 		name:  "shadow",
 		state: stateShadow,
-		ram:   "43d662f26de92d4e0ff85e9564c56b2e3e883ab8a20b6d97b35c2dbd4ef0c249",
-		xfb:   "b9b06aa1afd6a075efd4466da45202d76ed393f18218177abb118faf06c2ba2b",
+		ram:   "ecfe3320e5e769d2de8825c4b6415bbf376ef797e22555c93a67db5f2824cce8",
+		xfb:   "79a817306f7410279a632fdc9c62b1344c152bb7620a6b2dae02f95e68172dd0",
 		aram:  "85b317d31fbf4c465840d9ff3803a522253387d95af6c5a4511e5094ade6e558",
-		cpu:   "a236e2d4f92a2818ce769d79b92f0027d300c84cebdff8d51a58b38404ec9cd0",
+		cpu:   "86fb7bac398e37ba03295a9b6b6df8392f737022a271314ba9fb576b11aee3fa",
 	},
 }
 
