@@ -246,6 +246,22 @@ type (
 		Key(k Key) error
 	}
 
+	// KeyLegender is an optional companion to Keyer: what this target's keys DO, in one
+	// short phrase, for the page to show beside the frame.
+	//
+	// It exists because a key mapping is only self-describing to whoever wrote it. The
+	// GameCube's letters are the buttons' own names and need no legend; the PS2's face
+	// buttons are W/A/S/Z, a diamond on the keyboard standing for the diamond on the pad,
+	// which is obvious once seen and invisible until then. The alternative — a table of
+	// platforms in the page — would put the answer somewhere the target cannot correct,
+	// and this page's whole shape is that it builds itself from what the target says.
+	//
+	// A Keyer that does not implement it gets a generic phrase, which is the right default
+	// for a keyboard that is simply a keyboard.
+	KeyLegender interface {
+		KeyLegend() string
+	}
+
 	// Profiler reports where the last stepped frame's time went, by subsystem.
 	//
 	// The times are the emulator's own, not a sampling profiler's: only a machine

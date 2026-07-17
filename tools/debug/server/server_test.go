@@ -1124,3 +1124,26 @@ func TestPlayIgnoresHaltForTargetWithoutCapability(t *testing.T) {
 		t.Errorf("play advanced only %d fields", f.steps)
 	}
 }
+
+// legendTarget is a Keyer that also says what its keys do.
+type legendTarget struct{ *fakeTarget }
+
+func (legendTarget) KeyLegend() string { return "W/A/S/Z = the diamond" }
+
+// TestHelloCarriesKeyLegend pins that a target's key legend reaches the page. The page has
+// no table of platforms — what the keys do is the target's answer — so if this does not
+// cross the wire the legend silently becomes the generic one and a mapping nobody can
+// guess goes undocumented in the only place it is read.
+func TestHelloCarriesKeyLegend(t *testing.T) {
+	// Without the optional interface: no legend, and the page falls back on its own.
+	srv, _ := serveFake(t)
+	if m := dial(t, srv.URL).recvType(t, "hello"); m["keyLegend"] != nil {
+		t.Errorf("a target with no KeyLegend sent one: %v", m["keyLegend"])
+	}
+
+	// With it: exactly what the target said.
+	srv2 := serveTarget(t, legendTarget{&fakeTarget{}})
+	if m := dial(t, srv2.URL).recvType(t, "hello"); m["keyLegend"] != "W/A/S/Z = the diamond" {
+		t.Errorf("keyLegend = %v, want the target's own", m["keyLegend"])
+	}
+}

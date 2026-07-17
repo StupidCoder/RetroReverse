@@ -151,7 +151,10 @@ registerPanel({
       };
       wrap.addEventListener('keydown', (e) => sendKey(e, true));
       wrap.addEventListener('keyup', (e) => sendKey(e, false));
-      say('click the frame, then type to drive the game (arrows = stick, Enter = start)');
+      // What the keys do is the TARGET's answer, not ours: a mapping is only obvious
+      // to whoever chose it, and the page has no business holding a table of platforms.
+      const legend = ctx.store.get('keyLegend') || 'arrows = stick, Enter = start';
+      say(`click the frame, then type to drive the game (${legend})`);
     }
 
     if (!ctx.store.can('touch')) return;

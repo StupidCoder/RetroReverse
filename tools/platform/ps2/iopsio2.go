@@ -309,11 +309,14 @@ func (p *IOP) sio2Pad(cmd []byte, n int) []byte {
 		put(0, ^byte(buttons))
 		put(1, ^byte(buttons>>8))
 		if p.pad.analog {
-			// Right stick, then left, both centred: the oracle's pad has no sticks.
-			put(2, 0x80)
-			put(3, 0x80)
-			put(4, 0x80)
-			put(5, 0x80)
+			// The DualShock reports the RIGHT stick first, then the left — the order
+			// the protocol fixes, not the order they sit on the pad. A machine nobody
+			// has touched reports both centred.
+			lx, ly, rx, ry := p.ps2.padSticks()
+			put(2, rx)
+			put(3, ry)
+			put(4, lx)
+			put(5, ly)
 		}
 	}
 

@@ -228,6 +228,7 @@ conn.on('hello', (m) => {
     platform: m.platform,
     title: m.title,
     caps: new Set(m.caps),
+    keyLegend: m.keyLegend || '',
     frame: null,
     selected: -1,
     prov: null,

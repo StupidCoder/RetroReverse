@@ -8,6 +8,7 @@ export class Store {
   constructor() {
     this.state = {
       platform: '',
+      keyLegend: '',
       title: '',
       caps: new Set(),
 

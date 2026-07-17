@@ -90,12 +90,16 @@ func (rn *Runner) attach(s *session) {
 	rn.mu.Lock()
 	rn.subs = append(rn.subs, s)
 	rn.mu.Unlock()
-	s.send(helloMsg{
+	h := helloMsg{
 		Type:     "hello",
 		Platform: rn.tgt.Platform(),
 		Title:    rn.tgt.Title(),
 		Caps:     debug.Capabilities(rn.tgt),
-	})
+	}
+	if kl, ok := rn.tgt.(debug.KeyLegender); ok {
+		h.KeyLegend = kl.KeyLegend()
+	}
+	s.send(h)
 }
 
 func (rn *Runner) detach(s *session) {

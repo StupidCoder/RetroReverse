@@ -114,8 +114,17 @@ type MachineState struct {
 
 	HeapPtr, HeapEnd uint32
 	VBlanks          uint32
-	TTY              []byte
-	SyscallCalls     map[string]int
+
+	// The live pad: what a caller is holding down right now. PadScript is not here —
+	// it is a pure function of VBlanks and replays itself — but this is not derivable
+	// from anything, so a resume without it would drop a held button. The sticks are
+	// deflections from centre, so a state written before the pad grew sticks restores
+	// a resting stick rather than a hard up-left diagonal.
+	PadLiveButtons       uint16
+	PadLiveLX, PadLiveLY int8
+	PadLiveRX, PadLiveRY int8
+	TTY                  []byte
+	SyscallCalls         map[string]int
 
 	// The six registers both processors can see. They are shared silicon, and a snapshot
 	// that dropped them would restore a machine in which one side of a handshake had
@@ -144,10 +153,10 @@ type DmacChanState struct {
 
 // GSXferState mirrors gsXfer: the image upload in progress.
 type GSXferState struct {
-	Active                                  bool
-	DBP, DBW, DPSM, DSAX, DSAY, RRW, RRH    uint32
-	X, Y                                    uint32
-	Partial                                 []byte
+	Active                               bool
+	DBP, DBW, DPSM, DSAX, DSAY, RRW, RRH uint32
+	X, Y                                 uint32
+	Partial                              []byte
 }
 
 // GSVertexState mirrors gsVertex: one entry of the vertex queue.
@@ -232,14 +241,19 @@ func (m *Machine) SaveState() MachineState {
 			{m.eeTimers[2].base, m.eeTimers[2].baseSteps, m.eeTimers[2].mode, m.eeTimers[2].comp, m.eeTimers[2].hold},
 			{m.eeTimers[3].base, m.eeTimers[3].baseSteps, m.eeTimers[3].mode, m.eeTimers[3].comp, m.eeTimers[3].hold},
 		},
-		UserSyscalls:  map[uint32]uint32{},
-		NextSemaID:    m.nextSemaID,
-		HeapPtr:       m.heapPtr,
-		HeapEnd:       m.heapEnd,
-		VBlanks:       m.vblanks,
-		TTY:           append([]byte(nil), m.tty...),
-		SyscallCalls:  map[string]int{},
-		SBus:          m.sbus,
+		UserSyscalls:   map[uint32]uint32{},
+		NextSemaID:     m.nextSemaID,
+		HeapPtr:        m.heapPtr,
+		HeapEnd:        m.heapEnd,
+		VBlanks:        m.vblanks,
+		PadLiveButtons: m.padLive.buttons,
+		PadLiveLX:      m.padLive.lx,
+		PadLiveLY:      m.padLive.ly,
+		PadLiveRX:      m.padLive.rx,
+		PadLiveRY:      m.padLive.ry,
+		TTY:            append([]byte(nil), m.tty...),
+		SyscallCalls:   map[string]int{},
+		SBus:           m.sbus,
 	}
 	if m.IOP != nil {
 		iop := m.IOP.SaveState()
@@ -418,6 +432,13 @@ func (m *Machine) LoadState(s MachineState) error {
 
 	m.heapPtr, m.heapEnd = s.HeapPtr, s.HeapEnd
 	m.vblanks = s.VBlanks
+	m.padLive = padLiveState{
+		buttons: s.PadLiveButtons,
+		lx:      s.PadLiveLX,
+		ly:      s.PadLiveLY,
+		rx:      s.PadLiveRX,
+		ry:      s.PadLiveRY,
+	}
 	m.tty = append([]byte(nil), s.TTY...)
 	m.sbus = s.SBus
 

@@ -192,6 +192,9 @@ type (
 		Platform string   `json:"platform"`
 		Title    string   `json:"title"`
 		Caps     []string `json:"caps"` // what this target can do; the page builds itself from this
+		// What the keys do, if the target says (debug.KeyLegender). Empty means the
+		// page uses its own generic phrase.
+		KeyLegend string `json:"keyLegend,omitempty"`
 	}
 
 	frameMsg struct {

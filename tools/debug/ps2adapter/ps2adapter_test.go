@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"retroreverse.com/tools/debug"
+	"retroreverse.com/tools/platform/ps2"
 )
 
 // The disc is not in the repository (copyright); these tests skip without it. A
@@ -286,4 +287,169 @@ func contains(hay, needle string) bool {
 		}
 	}
 	return false
+}
+
+// promptState is the memory-card prompt: the screen a person actually presses X on, and
+// the only place in this boot where one button visibly changes what the machine does.
+const promptState = "../../../games/jak-and-daxter-ps2/work/states/fresh800.state"
+
+// TestKeyMapping pins the keys to the buttons. The face buttons are the pad's diamond
+// spelled on the keyboard, so getting one wrong swaps two buttons that sit next to each
+// other — which looks like a game bug, not a debugger bug, from every angle.
+func TestKeyMapping(t *testing.T) {
+	for _, c := range []struct{ key, want string }{
+		{"w", "triangle"}, {"a", "square"}, {"s", "circle"}, {"z", "cross"},
+		{"W", "triangle"}, {"Z", "cross"},
+		{"Enter", "start"},
+		{"ArrowUp", "stickup"}, {"ArrowDown", "stickdown"},
+		{"ArrowLeft", "stickleft"}, {"ArrowRight", "stickright"},
+		{"8", "up"}, {"2", "down"}, {"4", "left"}, {"6", "right"},
+	} {
+		if got := normalizeKey(c.key); got != c.want {
+			t.Errorf("normalizeKey(%q) = %q, want %q", c.key, got, c.want)
+		}
+	}
+	// The four face keys must reach four DIFFERENT bits: a table that maps two of them
+	// to the same button still passes every "is it a button" check.
+	seen := map[uint16]string{}
+	for _, k := range []string{"w", "a", "s", "z"} {
+		b, ok := ps2.PadButton(normalizeKey(k))
+		if !ok {
+			t.Fatalf("%q does not resolve to a button", k)
+		}
+		if prev, dup := seen[b]; dup {
+			t.Errorf("%q and %q both map to bit %#04x", prev, k, b)
+		}
+		seen[b] = k
+	}
+}
+
+// TestStickGateIsACircle pins the diagonal. Two axes driven independently would put the
+// stick 1.41x further from centre than the shell allows — a position no real pad can
+// report, which the game is entitled to be confused by.
+func TestStickGateIsACircle(t *testing.T) {
+	if x, y := stickFrom(map[string]bool{"stickright": true}); x != ps2.PadStickCentre+ps2.PadStickFull || y != ps2.PadStickCentre {
+		t.Errorf("right alone = (%#x,%#x), want (%#x,%#x)", x, y, ps2.PadStickCentre+ps2.PadStickFull, ps2.PadStickCentre)
+	}
+	// Up must DECREASE y: the DualShock reports 0x00 at the top of its travel. A stick
+	// that is upside down still moves, which is why this is asserted and not eyeballed.
+	if _, y := stickFrom(map[string]bool{"stickup": true}); y >= ps2.PadStickCentre {
+		t.Errorf("up gave y=%#x, want less than centre %#x — the stick is upside down", y, ps2.PadStickCentre)
+	}
+	dx, dy := stickFrom(map[string]bool{"stickup": true, "stickright": true})
+	ddx, ddy := int(dx)-ps2.PadStickCentre, int(dy)-ps2.PadStickCentre
+	r2 := ddx*ddx + ddy*ddy
+	full2 := ps2.PadStickFull * ps2.PadStickFull
+	if lo, hi := full2*9/10, full2*11/10; r2 < lo || r2 > hi {
+		t.Errorf("diagonal is %d from centre squared, want ~%d (the gate is a circle)", r2, full2)
+	}
+	// Opposite keys cancel, as a physical stick does.
+	if x, y := stickFrom(map[string]bool{"stickleft": true, "stickright": true}); x != ps2.PadStickCentre || y != ps2.PadStickCentre {
+		t.Errorf("left+right = (%#x,%#x), want centred", x, y)
+	}
+}
+
+// TestPadStateQueuesWholeAndDedups pins the two things the queue is for.
+func TestPadStateQueuesWholeAndDedups(t *testing.T) {
+	a := &Adapter{held: map[string]bool{}}
+	a.Key(debug.Key{Name: "z", Down: true})
+	if len(a.padQueue) != 1 || a.padQueue[0].buttons == 0 {
+		t.Fatalf("press queued %v", a.padQueue)
+	}
+	// A repeat of the same level must not cost a field.
+	a.Key(debug.Key{Name: "z", Down: true})
+	if len(a.padQueue) != 1 {
+		t.Errorf("a repeat queued a second state: %v", a.padQueue)
+	}
+	// A stick move while a button is held composes into ONE state, not two.
+	a.Key(debug.Key{Name: "ArrowRight", Down: true})
+	last := a.padQueue[len(a.padQueue)-1]
+	cross, _ := ps2.PadButton("cross")
+	if last.buttons&cross == 0 || last.stickX == ps2.PadStickCentre {
+		t.Errorf("holding cross while pushing the stick gave %+v, want both in one state", last)
+	}
+	// An unmapped key is ignored, not an error: the browser sends everything.
+	if err := a.Key(debug.Key{Name: "F5", Down: true}); err != nil {
+		t.Errorf("unmapped key errored: %v", err)
+	}
+}
+
+// TestKeyDismissesTheMemoryCardPrompt is the end-to-end one: a key pressed on the page
+// reaches the game and the game acts on it.
+//
+// It is what proves the PACING, which is the whole difficulty of a level-sampled pad. The
+// prompt is the honest target because the control is free — this screen sits there
+// indefinitely until X is pressed, so "the text went away" cannot be the machine moving on
+// by itself. Both halves are asserted: press and it goes, and (TestNoKeyLeavesThePrompt)
+// do not press and it stays.
+func TestKeyDismissesTheMemoryCardPrompt(t *testing.T) {
+	if testing.Short() {
+		t.Skip("boots a field at a time; -short skips")
+	}
+	a := open(t)
+	if _, err := os.Stat(promptState); err != nil {
+		t.Skip("no memory-card prompt savestate; skipping")
+	}
+	if err := a.LoadStateFile(promptState); err != nil {
+		t.Fatal(err)
+	}
+	before := drawsText(t, a)
+	if !before {
+		t.Fatal("the prompt state does not draw text; wrong state or the font regressed")
+	}
+	a.Key(debug.Key{Name: "z", Down: true}) // cross
+	a.Key(debug.Key{Name: "z", Down: false})
+	for i := 0; i < 240; i++ {
+		if err := a.StepFast(); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if drawsText(t, a) {
+		t.Error("the prompt is still up after pressing cross: the press never reached the game")
+	}
+}
+
+// TestNoKeyLeavesThePrompt is the control for the test above. Without it, a prompt that
+// timed out on its own would read as a press that worked.
+func TestNoKeyLeavesThePrompt(t *testing.T) {
+	if testing.Short() {
+		t.Skip("boots a field at a time; -short skips")
+	}
+	a := open(t)
+	if _, err := os.Stat(promptState); err != nil {
+		t.Skip("no memory-card prompt savestate; skipping")
+	}
+	if err := a.LoadStateFile(promptState); err != nil {
+		t.Fatal(err)
+	}
+	for i := 0; i < 240; i++ {
+		if err := a.StepFast(); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if !drawsText(t, a) {
+		t.Error("the prompt went away with no press: the dismissal test proves nothing")
+	}
+}
+
+// drawsText reports whether the machine is drawing the prompt, by asking whether
+// draw-string's glyph transform runs — the prompt redraws its text every frame, and the
+// flyby behind it does not draw any until much later. Reading the engine rather than the
+// picture keeps this independent of what the title's colours happen to be doing.
+func drawsText(t *testing.T, a *Adapter) bool {
+	t.Helper()
+	const drawStringFTOI = 0x00703570 // draw-string+0x8FC, the per-glyph vftoi4
+	hit := false
+	m := a.Machine()
+	prev := m.OnStep
+	m.OnStep = func(mm *ps2.Machine, pc uint32) {
+		if pc == drawStringFTOI {
+			hit = true
+		}
+	}
+	for i := 0; i < 4 && !hit; i++ {
+		a.StepFast()
+	}
+	m.OnStep = prev
+	return hit
 }

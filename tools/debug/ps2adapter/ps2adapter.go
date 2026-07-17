@@ -69,7 +69,27 @@ type Adapter struct {
 	watchSink func(debug.WatchHit)
 	bps       []uint64
 	stop      debug.StopReason
+
+	// The pad. held is which keys the browser currently has down; padQueue is the pad
+	// states waiting for a field to be sampled in. See "the pad" below.
+	held     map[string]bool
+	padQueue []padState
 }
+
+// padState is everything one poll latches: the buttons and the left stick, together.
+// Queued whole, for the reason the machine stores them whole — a poll samples both at the
+// same instant, so a state pairing a new stick position with last field's buttons is a pad
+// that never existed.
+type padState struct {
+	buttons uint16
+	stickX  uint8
+	stickY  uint8
+}
+
+// padStickDiag is one axis of a stick held to a corner: PadStickFull / sqrt(2), rounded.
+// The DualShock's gate is a circle, so a stick pushed diagonally is still the same
+// distance from centre — it simply splits that distance over two axes.
+const padStickDiag = 0x5A // 0x7F * 0.7071
 
 // The capabilities this target backs. What is absent is absent from the page — there is
 // no FrameStepper here yet, so no frame scrubber, rather than an empty one.
@@ -86,6 +106,8 @@ var (
 	_ debug.Resumer      = (*Adapter)(nil)
 	_ debug.MemoryMapper = (*Adapter)(nil)
 	_ debug.Haltable     = (*Adapter)(nil)
+	_ debug.Keyer        = (*Adapter)(nil)
+	_ debug.KeyLegender  = (*Adapter)(nil)
 )
 
 // snap wraps a PS2 in-memory savestate as an opaque debug.Snapshot.
@@ -118,7 +140,7 @@ func New(imagePath string) (*Adapter, error) {
 	if err != nil {
 		return nil, err
 	}
-	a := &Adapter{imagePath: imagePath, vol: vol, exe: exe, sum: sum}
+	a := &Adapter{imagePath: imagePath, vol: vol, exe: exe, sum: sum, held: map[string]bool{}}
 	if err := a.boot(); err != nil {
 		return nil, err
 	}
@@ -178,7 +200,12 @@ func (a *Adapter) LoadStateFile(path string) error { return a.live.LoadStateFile
 
 // StepFast advances one field capturing nothing — how the debugger plays. The vblank is
 // the machine's frame boundary; OnVBlank asks the run to stop the instant it fires.
+//
+// The pad's next state is released BEFORE the field runs, not at the vblank that ends it,
+// so it is live across the whole field and is sampled by the one poll inside it whatever
+// order the vblank's handlers happen to run in.
 func (a *Adapter) StepFast() error {
+	a.releasePad()
 	a.live.OnVBlank = func(m *ps2.Machine) { m.StopRequested = true }
 	a.live.Run(runBudget)
 	a.live.OnVBlank = nil
@@ -204,6 +231,7 @@ func (a *Adapter) StepFast() error {
 // matter most — click a pixel to get its primitive, select a primitive to see its
 // pixels — because both read the capture, not a replay.
 func (a *Adapter) StepFrame(withOverdraw bool) (*debug.FrameCapture, error) {
+	a.releasePad()
 	fc := &debug.FrameCapture{Start: snap{ms: a.live.SaveState()}}
 	fc.CountWrites()
 
@@ -561,4 +589,181 @@ func platformOf(s debug.Snapshot) string {
 		return "nil"
 	}
 	return s.Platform()
+}
+
+// ---- the pad ----
+//
+// The DualShock is the Keyer's third platform, after the DOS keyboard and the GameCube's
+// controller, and it is the GameCube's shape rather than the keyboard's.
+//
+// A PC keyboard DELIVERS EVENTS: make and break are each a scancode the guest's ISR
+// consumes, so the adapter enqueues both and coalesces nothing. THE DUALSHOCK IS A LEVEL:
+// padman polls it, latches whatever the pad reports at that instant, and the game
+// edge-detects presses from successive polls. Nothing queues on the guest's side, so
+// nothing self-paces, and a browser key that goes down and up between two polls is a press
+// the game never sees. The debugger's fields are wall-clock slow, so that is not
+// hypothetical.
+//
+// So the states queue and release ONE PER FIELD. The Xbox adapter's warning is that the
+// fastest boundary is the trap — releasing one state per USB report drains the queue inside
+// a single game frame — so the boundary here was MEASURED rather than assumed, twice:
+//
+//   - padman polls the pad EXACTLY ONCE PER VBLANK (59 polls across 60 vblanks, counted at
+//     the pad's own poll command). The vblank is not a boundary that runs faster than the
+//     poll and drains the queue; it IS the poll.
+//   - ONE VBLANK OF PRESS IS ENOUGH, end to end. -pad X@830:1 — a press live for exactly
+//     one vblank, and therefore sampled by exactly one poll — dismisses Jak's memory-card
+//     prompt, and a run with no press at all leaves the prompt up. That control matters:
+//     without it, a prompt that dismissed itself would look like a press that worked.
+//
+// Both were worth measuring because the recorded lore said otherwise ("presses need ~150
+// vblank holds"). They do not. A state released per field is sampled by one poll, and one
+// poll is acted on.
+func (a *Adapter) Key(k debug.Key) error {
+	name := normalizeKey(k.Name)
+	_, isButton := ps2.PadButton(name)
+	if _, isStick := stickDirs[name]; !isButton && !isStick {
+		return nil // an unmapped key is ignored rather than an error: the browser sends everything
+	}
+	if k.Down {
+		a.held[name] = true
+	} else {
+		delete(a.held, name)
+	}
+
+	st := padState{}
+	for n := range a.held {
+		if b, ok := ps2.PadButton(n); ok {
+			st.buttons |= b
+		}
+	}
+	st.stickX, st.stickY = stickFrom(a.held)
+
+	// Only a CHANGE needs a field of its own; a repeat is the same level and would just
+	// cost a field.
+	if len(a.padQueue) > 0 && a.padQueue[len(a.padQueue)-1] == st {
+		return nil
+	}
+	a.padQueue = append(a.padQueue, st)
+	return nil
+}
+
+// KeyLegend tells the page what the keys do. W/A/S/Z is a diamond standing for a diamond
+// and reads as arbitrary until that is said once, so it is worth the line.
+func (a *Adapter) KeyLegend() string {
+	return "arrows = left stick, Enter = start, W/A/S/Z = triangle/square/circle/cross"
+}
+
+// stickDirs are the four keys that push the LEFT stick, kept apart from the button table
+// because they are not buttons: they resolve to a POSITION, not to bits in a mask.
+//
+// The offsets are in SCREEN terms — down is +y — and that is the pad's convention too
+// here: the DualShock reports 0x00 at the top of its travel and 0xFF at the bottom, so up
+// DECREASES. (This is where the GameCube's keyer needs a negation and this one does not,
+// which is exactly the kind of difference that ships a stick upside down if it is assumed
+// rather than read off the wire.)
+var stickDirs = map[string]struct{ dx, dy int }{
+	"stickup":    {0, -1},
+	"stickdown":  {0, +1},
+	"stickleft":  {-1, 0},
+	"stickright": {+1, 0},
+}
+
+// stickFrom resolves the held direction keys to the left stick's two wire bytes.
+//
+// THE GATE IS A CIRCLE, which is why this is not two independent axes. The stick's shell
+// stops it the same distance from centre in every direction, so a stick held to a corner
+// reads about 0.7 of full on each axis and CANNOT read full on both. Driving each axis to
+// full independently would hand the game a diagonal 1.41x longer than any real pad can
+// produce — which it would either clamp back, making the work pointless, or believe. A
+// keyboard has no gate, so the gate is modelled here.
+func stickFrom(held map[string]bool) (x, y uint8) {
+	var dx, dy int
+	for n := range held {
+		if d, ok := stickDirs[n]; ok {
+			dx += d.dx
+			dy += d.dy
+		}
+	}
+	// Opposite keys held together cancel, which is what a physical stick does too.
+	if dx == 0 && dy == 0 {
+		return ps2.PadStickCentre, ps2.PadStickCentre
+	}
+	mag := ps2.PadStickFull
+	if dx != 0 && dy != 0 {
+		mag = padStickDiag // a point on the circle; same distance from centre, split over two axes
+	}
+	clamp := func(d int) uint8 {
+		v := ps2.PadStickCentre + d*mag
+		if v < 0 {
+			v = 0
+		}
+		if v > 0xFF {
+			v = 0xFF
+		}
+		return uint8(v)
+	}
+	return clamp(dx), clamp(dy)
+}
+
+// releasePad hands the machine the next queued pad state, one per field. An empty queue
+// leaves the current state alone, which is what keeps a held button held.
+//
+// It is called from the field-boundary hook rather than installed as one: OnVBlank is how
+// both StepFast and StepFrame end their run, so the pad borrows that boundary instead of
+// claiming the machine's one vblank hook for itself.
+func (a *Adapter) releasePad() {
+	if len(a.padQueue) == 0 {
+		return
+	}
+	s := a.padQueue[0]
+	a.live.SetPadButtons(s.buttons)
+	a.live.SetPadStick(s.stickX, s.stickY, ps2.PadStickCentre, ps2.PadStickCentre)
+	a.padQueue = a.padQueue[1:]
+}
+
+// normalizeKey folds a browser KeyboardEvent.key value to the names the pad knows.
+//
+// THE FACE BUTTONS ARE W/A/S/Z BECAUSE THAT DIAMOND IS THE PAD'S DIAMOND. Triangle, square,
+// circle and cross sit at the top, left, right and bottom of a diamond on the controller,
+// and W, A, S and Z sit at the top, left, right and bottom of one on the keyboard — so the
+// mapping is the shape, not a legend to memorise. Reaching for the button that is "up" on
+// the pad means reaching for the key that is "up" under your hand.
+//
+// THE ARROWS DRIVE THE LEFT STICK, NOT THE D-PAD, because that is what it takes to play the
+// game: Jak walks on the stick. The d-pad keeps the numpad's own arrows (8/4/6/2, the
+// layout it already looks like), so the capability is moved rather than dropped — those
+// arrive as the digits whether typed on the numpad or the number row. Enter is Start, which
+// is the one mapping every debugger in this repo already shares.
+func normalizeKey(name string) string {
+	s := strings.ToLower(name)
+	switch s {
+	case "arrowup":
+		return "stickup"
+	case "arrowdown":
+		return "stickdown"
+	case "arrowleft":
+		return "stickleft"
+	case "arrowright":
+		return "stickright"
+	case "w":
+		return "triangle"
+	case "a":
+		return "square"
+	case "s":
+		return "circle"
+	case "z":
+		return "cross"
+	case "8":
+		return "up"
+	case "2":
+		return "down"
+	case "4":
+		return "left"
+	case "6":
+		return "right"
+	case "enter", "return":
+		return "start"
+	}
+	return s
 }

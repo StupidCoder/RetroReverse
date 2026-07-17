@@ -26,6 +26,7 @@ import (
 	"bytes"
 	"fmt"
 	"sort"
+	"strings"
 
 	"retroreverse.com/tools/cpu/r5900"
 	"retroreverse.com/tools/lib/iso9660"
@@ -268,6 +269,11 @@ type Machine struct {
 	// The state is a pure function of the vblank counter, so a resumed snapshot replays
 	// the same presses and the schedule itself needs no place in the state file.
 	PadScript []PadPress
+
+	// padLive is the controller as a caller is holding it right now — the debugger's
+	// keyer sets it, the SIO2's pad reports it. Unlike PadScript this is not derivable
+	// from the vblank counter, so it is savestated.
+	padLive padLiveState
 
 	breakpoints map[uint32]bool
 
@@ -800,16 +806,117 @@ type PadPress struct {
 	At, Hold uint32
 }
 
-// padButtons is what the controller in port 0 reports pressed right now, from the
-// injection schedule and the vblank counter.
+// padButtons is what the controller in port 0 reports pressed right now: the injection
+// schedule resolved against the vblank counter, OR the live state a caller has set.
+//
+// The two sources are OR'd rather than one overriding the other because they answer
+// different questions — the script is "what does this reproducible run press", the live
+// state is "what is a person holding down right now" — and a machine driven by both at
+// once (an oracle script running under the debugger) should report both.
 func (m *Machine) padButtons() uint16 {
-	var b uint16
+	b := m.padLive.buttons
 	for _, pr := range m.PadScript {
 		if m.vblanks >= pr.At && m.vblanks < pr.At+pr.Hold {
 			b |= pr.Buttons
 		}
 	}
 	return b
+}
+
+// The analog sticks' wire values. Each axis is an unsigned byte the pad reports raw, with
+// PadStickCentre at rest; there is no per-game origin to subtract as there is on the
+// GameCube, so what the game sees is the byte.
+//
+// PadStickFull is full deflection. Unlike the GameCube's octagon, the DualShock's gate is
+// a CIRCLE, so a stick pushed to a corner reads about 0.7 of full on each axis and can
+// never read full on both — see the debugger's keyer, which is where directions become
+// bytes. 0x7F keeps the two deflections symmetric about the 0x80 centre (0x01 and 0xFF);
+// driving one axis to a true 0x00 would make left reach one step further than right.
+const (
+	PadStickCentre = 0x80
+	PadStickFull   = 0x7F
+)
+
+// padLiveState is the controller as a caller is holding it right now: the buttons and both
+// sticks, which one poll latches together.
+//
+// It is kept whole, and set whole, for the reason the GameCube adapter's padState is: a
+// poll samples every one of these at the same instant, so a state carrying a new stick
+// position beside last field's buttons would be a pad that never existed.
+//
+// The sticks are stored as DEFLECTION FROM CENTRE, not as the wire bytes they are set and
+// read as, so that THE ZERO VALUE IS A RESTING STICK. Storing the bytes would make the
+// zero value 0x00 — full up and full left — so a Machine nobody had touched, and a
+// savestate written before the pad grew sticks, would both restore holding a hard
+// diagonal. int8 round-trips every one of the 256 wire values exactly, so nothing is
+// approximated to buy that.
+type padLiveState struct {
+	buttons        uint16
+	lx, ly, rx, ry int8
+}
+
+// SetPadButtons sets what the controller in port 0 holds down, as the pad protocol's own
+// active-high bits (PadButton names them). The next poll reports them.
+//
+// This is the live counterpart to PadScript: the schedule is a pure function of the vblank
+// counter and so needs no place in a savestate, but this is a fact about the machine that
+// nothing can re-derive, and it IS savestated.
+func (m *Machine) SetPadButtons(b uint16) { m.padLive.buttons = b }
+
+// PadButtons reads back what the controller in port 0 is holding — the live state only,
+// not the script, which belongs to the vblank the caller has not reached yet.
+func (m *Machine) PadButtons() uint16 { return m.padLive.buttons }
+
+// SetPadStick sets both analog sticks as raw wire bytes (PadStickCentre is resting). All
+// four axes are set together because one poll latches all four.
+//
+// The pad only reports sticks at all once the game has switched it to analog mode; before
+// that the poll carries buttons alone and these bytes go nowhere, which is the pad being
+// honest rather than a value being lost.
+func (m *Machine) SetPadStick(lx, ly, rx, ry uint8) {
+	d := func(v uint8) int8 { return int8(int(v) - PadStickCentre) }
+	m.padLive.lx, m.padLive.ly, m.padLive.rx, m.padLive.ry = d(lx), d(ly), d(rx), d(ry)
+}
+
+// PadStick reads back both sticks' wire bytes — what the next poll will report.
+func (m *Machine) PadStick() (lx, ly, rx, ry uint8) { return m.padSticks() }
+
+// padSticks is what the sticks report to a poll, converted back from deflection.
+func (m *Machine) padSticks() (lx, ly, rx, ry uint8) {
+	w := func(v int8) uint8 { return uint8(PadStickCentre + int(v)) }
+	return w(m.padLive.lx), w(m.padLive.ly), w(m.padLive.rx), w(m.padLive.ry)
+}
+
+// padButtonBits names the controller's buttons by the bit each occupies in the pad
+// protocol's two button bytes, little end first, active-high here — the wire inverts.
+//
+// It lives beside the machine rather than in a tool because more than one caller needs the
+// same names: the oracle's -pad scripts and the debugger's keyer both turn a person's word
+// for a button into these bits, and two tables would be two chances to disagree about
+// which bit CIRCLE is.
+var padButtonBits = map[string]uint16{
+	"select": 0x0001, "l3": 0x0002, "r3": 0x0004, "start": 0x0008,
+	"up": 0x0010, "right": 0x0020, "down": 0x0040, "left": 0x0080,
+	"l2": 0x0100, "r2": 0x0200, "l1": 0x0400, "r1": 0x0800,
+	"triangle": 0x1000, "circle": 0x2000, "cross": 0x4000, "x": 0x4000, "square": 0x8000,
+}
+
+// PadButton resolves a button name (case-insensitive) to its bit. "x" is accepted as an
+// alias for "cross": the button is moulded with a cross on it and everyone calls it X.
+func PadButton(name string) (uint16, bool) {
+	b, ok := padButtonBits[strings.ToLower(name)]
+	return b, ok
+}
+
+// PadButtonNames lists every name PadButton accepts, sorted, for a tool that wants to
+// print what it will take.
+func PadButtonNames() []string {
+	out := make([]string, 0, len(padButtonBits))
+	for n := range padButtonBits {
+		out = append(out, n)
+	}
+	sort.Strings(out)
+	return out
 }
 
 // ReadMem copies n bytes of guest memory, without disturbing the read hooks.
