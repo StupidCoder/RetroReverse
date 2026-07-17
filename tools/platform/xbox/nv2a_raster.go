@@ -60,6 +60,8 @@ type rasterState struct {
 	x1, y1      int
 	surfW       int // sample-space surface extent (from the clip rect)
 	surfH       int
+	swizzle     bool // color+zeta stored Morton-interleaved (SURFACE_FORMAT type 2), not pitch
+	swW, swH    int  // swizzle extent in samples (the allocated power-of-two square)
 	hasZeta     bool
 	depthTest   bool
 	depthWrite  bool
@@ -99,6 +101,58 @@ func surfaceAAScale(format uint32) (ax, ay int) {
 	return 1, 1
 }
 
+// decodeSwizzleExtent reads a swizzled (type-2) surface's power-of-two extent from
+// SURFACE_FORMAT and cross-checks it against SURFACE_CLIP.
+//
+// The extent is where SET_SURFACE_PITCH would be for a pitch surface: a swizzled surface
+// has no pitch, so the two format nibbles that pitch surfaces leave at zero carry log2 of
+// the dimensions instead — bits 16-19 and 24-27 (a pitch surface's format is 0x00000128;
+// OutRun's swizzled one is 0x07070228, the two 7s giving 1<<7 = 128 on each axis). Three
+// facts agree on 128x128 for OutRun's render-to-texture and make this a derivation, not a
+// guess: (1) these nibbles read 7/7; (2) SURFACE_CLIP is 128x128; (3) the title packs the
+// three targets 0x10000 = 128*128*4 bytes apart, which is the byte extent of one.
+//
+// What is NOT pinned: which nibble is width and which is height. Every swizzled surface
+// this title programs is square, so the assignment is invisible here (swizzleOffset treats
+// the axes symmetrically when w==h) and pinning it would need a non-square case, which the
+// image never presents. So this halts on any non-square swizzled surface rather than guess
+// an orientation it cannot verify (the discipline of [[stored-registers-are-not-read-registers]]).
+// swizzleGeom decodes a type-2 (swizzled) surface's square power-of-two extent from the
+// format word's size nibbles (bits 16-19, 24-27). reason is non-empty on anything the
+// derivation cannot pin — a caller must halt-and-name it rather than fill blind.
+func swizzleGeom(format uint32) (w, h int, reason string) {
+	if format>>20&0xF != 0 || format>>28&0xF != 0 {
+		return 0, 0, "unexpected format high nibbles"
+	}
+	w = 1 << (format >> 16 & 0xF)
+	h = 1 << (format >> 24 & 0xF)
+	if w != h {
+		return w, h, "non-square (width/height orientation unverified)"
+	}
+	return w, h, ""
+}
+
+func (g *pgraph) decodeSwizzleExtent(st *rasterState, format uint32) bool {
+	m := g.m
+	w, h, reason := swizzleGeom(format)
+	if reason != "" {
+		m.CPU.Halt("nv2a: draw %d swizzled surface %dx%d (0x208=%08X) — %s", g.Draws, w, h, format, reason)
+		return false
+	}
+	st.swizzle = true
+	st.swW, st.swH = w, h
+	// The render region (the clip) must fit inside the allocated swizzle extent; if it
+	// does not, the nibble reading is wrong and the fill would address out of bounds.
+	clipW := int(g.Regs[kelvinSurfaceClipH>>2] >> 16)
+	clipH := int(g.Regs[kelvinSurfaceClipV>>2] >> 16)
+	if clipW > st.swW || clipH > st.swH {
+		m.CPU.Halt("nv2a: draw %d swizzled extent %dx%d smaller than clip %dx%d (0x208=%08X)",
+			g.Draws, st.swW, st.swH, clipW, clipH, format)
+		return false
+	}
+	return true
+}
+
 // rasterStateDecode reads the registers a draw depends on. It returns false (after
 // halting) on a surface layout the fill would silently corrupt.
 func (g *pgraph) rasterStateDecode(st *rasterState) bool {
@@ -109,8 +163,15 @@ func (g *pgraph) rasterStateDecode(st *rasterState) bool {
 		m.CPU.Halt("nv2a: draw %d into unmodelled color surface format %X (0x208=%08X)", g.Draws, cf, format)
 		return false
 	}
-	if ty := format >> 8 & 0xF; ty != 1 {
-		m.CPU.Halt("nv2a: draw %d into non-pitch surface type %d (0x208=%08X) — swizzled targets unmodelled", g.Draws, ty, format)
+	switch ty := format >> 8 & 0xF; ty {
+	case 1: // PITCH — the main framebuffer and every scratch buffer this port has rendered
+		st.swizzle = false
+	case 2: // SWIZZLE — Morton-interleaved render target (OutRun's 128x128 render-to-texture)
+		if !g.decodeSwizzleExtent(st, format) {
+			return false
+		}
+	default:
+		m.CPU.Halt("nv2a: draw %d into surface type %d (0x208=%08X) — unmodelled layout", g.Draws, ty, format)
 		return false
 	}
 	st.aaX, st.aaY = surfaceAAScale(format)
@@ -202,6 +263,29 @@ func (g *pgraph) surfPhys(addr uint32) (uint32, bool) {
 		return 0, false
 	}
 	return phys, true
+}
+
+// colorAddr / zetaAddr map a sample (px, py) to the byte address of its texel in the
+// bound surface. A pitch surface is row-major (py*pitch + px*bpp); a swizzled surface is
+// Morton-interleaved through swizzleOffset — the SAME interleave the texture unit reads
+// (nv2a_texture.go), which is what makes a render-to-texture round-trip: the raster writes
+// the target with this function and a later draw samples it back with decodeSwizzled, and
+// the picture only survives if the two permutations match. The zeta buffer is private to
+// the raster (written and read only by the depth test, never sampled), so its swizzle is
+// self-consistent by construction whatever the absolute layout; it shares the color
+// surface's type field and 128x128 extent because they are one surface.
+func (st *rasterState) colorAddr(px, py int) uint32 {
+	if st.swizzle {
+		return st.colorPhys + uint32(swizzleOffset(px, py, st.swW, st.swH))*4
+	}
+	return st.colorPhys + uint32(py)*st.colorPitch + uint32(px)*4
+}
+
+func (st *rasterState) zetaAddr(px, py int) uint32 {
+	if st.swizzle {
+		return st.zetaPhys + uint32(swizzleOffset(px, py, st.swW, st.swH))*4
+	}
+	return st.zetaPhys + uint32(py)*st.zetaPitch + uint32(px)*4
 }
 
 // rasterTri is the per-triangle entry: decode state on the first triangle of a draw
@@ -322,7 +406,7 @@ func (g *pgraph) shadePixel(st *rasterState, px, py int, b0, b1, b2, iw0, iw1, i
 	var zAddr uint32
 	var zOld uint32
 	if st.depthTest || st.depthWrite {
-		zAddr = st.zetaPhys + uint32(py)*st.zetaPitch + uint32(px)*4
+		zAddr = st.zetaAddr(px, py)
 		if zAddr+4 > uint32(len(m.RAM)) {
 			return
 		}
@@ -393,7 +477,7 @@ func (g *pgraph) shadePixel(st *rasterState, px, py int, b0, b1, b2, iw0, iw1, i
 		return
 	}
 
-	cAddr := st.colorPhys + uint32(py)*st.colorPitch + uint32(px)*4
+	cAddr := st.colorAddr(px, py)
 	if cAddr+4 > uint32(len(m.RAM)) {
 		return
 	}

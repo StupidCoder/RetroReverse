@@ -1399,6 +1399,93 @@ a good one to have — every remaining kernel gap on this path is now closed.
 *(A `-surfpng` at that halt is a small grey square, and correctly so: the colour surface at that
 instant IS the off-screen swizzled target, not the scene. The picture is the frontier, not a bug.)*
 
+## Part X — the swizzled render target, and the geometry it exposed
+
+The halt names one register field and one missing address mode. `SET_SURFACE_FORMAT`
+(`0x0208`) is `0x07070228`: colour `A8R8G8B8` (nibble 0), zeta `Z24S8` (nibble 1), and — the
+byte that stops the run — **type 2** (nibble 2), a *swizzled* surface where the rasteriser
+models only **type 1**, pitch. A swizzled surface stores its texels in Morton (Z-order)
+interleave rather than row-major; the fill hard-codes `colorPhys + py*pitch + px*4`, which for a
+swizzled target addresses the wrong bytes on every pixel.
+
+### The size is in the field pitch surfaces leave blank — three witnesses agree
+
+A swizzled surface has no pitch, so it must carry its own width and height. The two nibbles a
+pitch surface holds at zero — bits 16–19 and 24–27 — are `0x07`/`0x07`, and `1<<7 = 128`. Three
+independent witnesses pin **128×128** and make this a derivation, not the family resemblance to
+the texture format's size field (which is a nibble apart at bits 20–23/24–27, not a byte apart —
+reading the surface with the texture's layout gives a 1×128, and the clip refutes it):
+
+- the nibbles read 7/7 → 128×128;
+- `SET_SURFACE_CLIP` reads 128×128, the render region;
+- the title packs its three targets at `0x01D28200`, `0x01D38200`, `0x01D48200` — exactly
+  `0x10000 = 128·128·4` bytes apart, the byte extent of one.
+
+`swizzleGeom` reads the nibbles and cross-checks the extent against the clip. What it does **not**
+pin is which nibble is width and which is height: every swizzled surface this title programs is
+square, so the assignment is invisible (`swizzleOffset` is symmetric when `w==h`) and pinning it
+would need a non-square case the image never presents. So the decode **halts on any non-square
+swizzled surface** rather than guess an orientation it cannot verify — the same discipline the
+pitch/type check already carried.
+
+### The interleave was already earned — it is reused, and the reuse is the point
+
+`swizzleOffset` (the texture unit's Morton function, `nv2a_texture.go`, derived earlier and
+verified against real disc textures) is not rewritten. The colour and zeta writes route through
+it — `colorAddr`/`zetaAddr` return `phys + swizzleOffset(px,py,w,h)*4` for a swizzled surface and
+the untouched pitch expression otherwise. This is what makes a render-to-texture round-trip: the
+raster **writes** the target with `swizzleOffset` and a later draw **samples** it back with the
+same function (`decodeSwizzled`), and the picture only survives if the two permutations match. The
+zeta buffer swizzles too — it shares the surface's single type field, and it is private to the
+raster (written and read only by the depth test, never sampled), so its layout is
+self-consistent by construction. `CLEAR_SURFACE` had to learn the swizzle as well, or it would
+scatter the clear and leave the swizzle bytes the draws and the depth test actually use full of
+stale data. And the export paths (`RenderDrawTarget`, `renderSwizzledSurface`) **de-swizzle** for
+the dump — reading a swizzled target row-major would produce a plausible but wrong picture, the
+one outcome worse than a halt.
+
+The address math is unit- and mutation-tested on a **non-square** grid (a square target hides an
+x/y transposition): a row-major mistake and a transposed interleave each make the suite fail.
+
+### ★ The target is a reflection — and it proves the write
+
+With the swizzle modelled, the run clears draw 487118 and advances ~180 draws to an unrelated
+frontier (a texture in an unmodelled format, `0x2E`). But a `-surfpng` of the 128×128 target is
+**uniform grey** — the clear colour `0x19808080`, and no geometry on top. The reason is not the
+swizzle: tracing the draws, every triangle's transformed position is `[0, 0, 0, w]` — **x, y, z
+collapse to zero while w is computed correctly**. The inputs are sound 3-D world coordinates; the
+vertex program's disassembly names the cause exactly:
+
+```
+DP4 oPos.w,   v0, c163            ; w = dot(pos, c163)          — correct
+DP4 oPos.xyz, v0, c160..c162      ; clip xyz into R12
+MUL oPos.xyz, R12.xyz, c58.xyz    ; × viewport SCALE  c58  = 0  → 0
+MAD oPos.xyz, R12.xyz, R1.x, c59  ; × 1/w + viewport OFFSET c59 = 0  → 0
+```
+
+The clip position is right; it is then multiplied by the viewport scale `c58` and offset by `c59`,
+both **zero** in this savestate. (The 2-D passthrough pass that draws the framebuffer uses `c0`/`c1`
+for its viewport, which are loaded — which is why every pitch frame this port renders is fine.)
+This is a **separate frontier from swizzling** — the geometry would be degenerate whether the
+target were swizzled or pitch, and the raster changes do not touch the transform. Where `c58`/`c59`
+come from (they are set earlier than the reached window, via a path that leaves them zero here) is
+Part XI's question.
+
+To prove the swizzle **write** is nonetheless correct, a labelled probe supplies the one missing
+piece — the 128×128 viewport in `c58`/`c59` — and the target renders a **coherent 3-D scene**: a
+road surface, a horizon, a grandstand roof (`work/swizzled-rtt-reflection.png`). A small dynamic
+render-to-texture 487k draws into a racer is a mirror / environment map / reflection, and this is
+one. It de-swizzled coherent and upright: a wrong interleave or a transposed write would have
+scattered a correct viewport's geometry into noise. The probe is a tracer, not a model — but the
+picture it draws is the cross-check with teeth for the write path.
+
+### Where it stands / next
+
+The swizzled-render-target halt is closed; the pitch path is byte-identical (the cold-boot title
+frame is still md5 `5439dd95c92d462d03b9c5fbbd8a6c86`). The frontier is now two independent GPU
+gaps: the zero viewport constants that degenerate the reflection's geometry (Part XI), and the
+`0x2E` texture format the run halts on ~180 draws later.
+
 ### Tooling
 
 - `tools/platform/xbox/{machine,nv2a,kernel,kernel_ordinals,kernel_objects,kernel_data,kernel_file,thread,sched,state,ports,run}.go` — the machine and its HLE.

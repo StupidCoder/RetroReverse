@@ -38,11 +38,32 @@ const (
 // exactly as it scales draw coordinates (nv2a_raster.go).
 func (g *pgraph) clearSurface(mask uint32) {
 	m := g.m
-	ax, ay := surfaceAAScale(g.Regs[kelvinSurfaceFormat>>2])
+	format := g.Regs[kelvinSurfaceFormat>>2]
+	ax, ay := surfaceAAScale(format)
 	rh := g.Regs[kelvinClearRectH>>2]
 	rv := g.Regs[kelvinClearRectV>>2]
 	x1, x2 := rh&0xFFFF*uint32(ax), (rh>>16+1)*uint32(ax)-1
 	y1, y2 := rv&0xFFFF*uint32(ay), (rv>>16+1)*uint32(ay)-1
+
+	// A swizzled surface (SURFACE_FORMAT type 2) is Morton-interleaved, not row-major, so
+	// the clear must address it the same way a draw does (nv2a_raster.go colorAddr) or it
+	// scatters — leaving the swizzle bytes the later draws and the depth test actually use
+	// full of stale data. addr() maps a sample to its byte offset in either layout.
+	swizzle := format>>8&0xF == 2
+	swW, swH, reason := 0, 0, ""
+	if swizzle {
+		swW, swH, reason = swizzleGeom(format)
+		if reason != "" {
+			m.CPU.Halt("nv2a: clear of swizzled surface %dx%d (0x208=%08X) — %s", swW, swH, format, reason)
+			return
+		}
+	}
+	addr := func(base, pitch, x, y uint32) uint32 {
+		if swizzle {
+			return base + uint32(swizzleOffset(int(x), int(y), swW, swH))*4
+		}
+		return base + y*pitch + x*4
+	}
 
 	if mask&0xF0 != 0 {
 		base := g.Regs[kelvinSurfaceColorOffset>>2]
@@ -50,8 +71,8 @@ func (g *pgraph) clearSurface(mask uint32) {
 		color := g.Regs[kelvinColorClearValue>>2]
 		if phys, mmio, ok := m.translate(base); ok && !mmio {
 			for y := y1; y <= y2; y++ {
-				row := phys + y*pitch + x1*4
 				for x := x1; x <= x2; x++ {
+					row := addr(phys, pitch, x, y)
 					if row+4 > uint32(len(m.RAM)) {
 						break
 					}
@@ -59,7 +80,6 @@ func (g *pgraph) clearSurface(mask uint32) {
 					m.RAM[row+1] = byte(color >> 8)
 					m.RAM[row+2] = byte(color >> 16)
 					m.RAM[row+3] = byte(color >> 24)
-					row += 4
 					// The clear is a command that STORES PIXELS, so it reports them like
 					// any draw does. Without this the debugger's provenance says "no
 					// command touched this pixel" for every pixel of the frame that only
@@ -94,10 +114,10 @@ func (g *pgraph) clearSurface(mask uint32) {
 		if mask&2 == 0 {
 			keep |= 0x000000FF
 		}
-		if phys, mmio, ok := m.translate(base); ok && !mmio && pitch != 0 {
+		if phys, mmio, ok := m.translate(base); ok && !mmio && (pitch != 0 || swizzle) {
 			for y := y1; y <= y2; y++ {
-				row := phys + y*pitch + x1*4
 				for x := x1; x <= x2; x++ {
+					row := addr(phys, pitch, x, y)
 					if row+4 > uint32(len(m.RAM)) {
 						break
 					}
@@ -107,7 +127,6 @@ func (g *pgraph) clearSurface(mask uint32) {
 					m.RAM[row+1] = byte(v >> 8)
 					m.RAM[row+2] = byte(v >> 16)
 					m.RAM[row+3] = byte(v >> 24)
-					row += 4
 				}
 			}
 		}
@@ -197,12 +216,26 @@ func (m *Machine) RenderScanout() (*image.RGBA, error) {
 // filter over the AA footprint, which is the resolve a filtered flip performs).
 func (m *Machine) RenderDrawTarget() (*image.RGBA, error) {
 	g := m.pgraph
+	format := g.Regs[kelvinSurfaceFormat>>2]
 	w := int(g.Regs[kelvinSurfaceClipH>>2] >> 16)
 	h := int(g.Regs[kelvinSurfaceClipV>>2] >> 16)
 	pitch := g.Regs[kelvinSurfacePitch>>2] & 0xFFFF
 	base := g.Regs[kelvinSurfaceColorOffset>>2]
-	ax, ay := surfaceAAScale(g.Regs[kelvinSurfaceFormat>>2])
-	if w <= 0 || h <= 0 || pitch == 0 || base == 0 {
+	ax, ay := surfaceAAScale(format)
+	if w <= 0 || h <= 0 || base == 0 {
+		return nil, fmt.Errorf("nv2a: no render surface programmed (w=%d h=%d pitch=%d base=%08X)", w, h, pitch, base)
+	}
+	// A swizzled render target must be de-swizzled for the dump: reading it row-major
+	// would produce a plausible but wrong picture (the worst outcome). renderRawSurface
+	// takes the swizzle extent instead of a pitch when the surface is type 2.
+	if format>>8&0xF == 2 {
+		sw, sh, reason := swizzleGeom(format)
+		if reason != "" {
+			return nil, fmt.Errorf("nv2a: swizzled surface %dx%d not renderable (0x208=%08X): %s", sw, sh, format, reason)
+		}
+		return m.renderSwizzledSurface(base, sw, sh, w, h)
+	}
+	if pitch == 0 {
 		return nil, fmt.Errorf("nv2a: no render surface programmed (w=%d h=%d pitch=%d base=%08X)", w, h, pitch, base)
 	}
 	return m.renderRawSurface(base, pitch, w, h, ax, ay)
@@ -223,6 +256,34 @@ func encodePNG(img *image.RGBA, err error) ([]byte, error) {
 		return nil, err
 	}
 	return buf.Bytes(), nil
+}
+
+// renderSwizzledSurface de-swizzles an A8R8G8B8 render target at base (Morton extent
+// sw x sh) into a w x h image — the readable view of a swizzled surface for the dump. It
+// de-swizzles through the SAME swizzleOffset the raster wrote it with, so a coherent
+// picture here confirms the write landed at swizzle-consistent bytes; scattered noise
+// would mean the extent or interleave is wrong.
+func (m *Machine) renderSwizzledSurface(base uint32, sw, sh, w, h int) (*image.RGBA, error) {
+	phys, mmio, ok := m.translate(base)
+	if !ok || mmio {
+		return nil, fmt.Errorf("nv2a: swizzled surface at %08X is not RAM", base)
+	}
+	img := image.NewRGBA(image.Rect(0, 0, w, h))
+	for y := 0; y < h; y++ {
+		for x := 0; x < w; x++ {
+			o := phys + uint32(swizzleOffset(x, y, sw, sh))*4
+			i := img.PixOffset(x, y)
+			if o+4 > uint32(len(m.RAM)) {
+				continue
+			}
+			// A8R8G8B8 little-endian in RAM: B,G,R,A
+			img.Pix[i+0] = m.RAM[o+2]
+			img.Pix[i+1] = m.RAM[o+1]
+			img.Pix[i+2] = m.RAM[o+0]
+			img.Pix[i+3] = 0xFF
+		}
+	}
+	return img, nil
 }
 
 // renderRawSurface reads an A8R8G8B8 surface at base/pitch, averaging ax x ay sample
