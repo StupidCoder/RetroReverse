@@ -102,6 +102,11 @@ func (m *Machine) Run(maxSteps uint64) Result {
 			if m.Halted {
 				break
 			}
+		} else if vblAcc == stepsPerVBlank/2 {
+			// The blank's trailing edge, half a period after its leading one — see
+			// deliverVBlank for why the two must not land at the same instant, and for
+			// why the bit is recorded rather than asserted.
+			m.intcStat |= 1 << intcVBlankOff
 		}
 
 		// Every thread is blocked. The CPU runs nothing at all — the clock above is the
@@ -184,6 +189,14 @@ func (m *Machine) Run(maxSteps uint64) Result {
 		m.CPU.Step()
 		steps++
 		m.steps++
+
+		// DMA-completion interrupts, one instruction late. dmacComplete queues rather
+		// than delivers because it runs INSIDE the guest's own store to CHCR — an
+		// interrupt handler running before the starting instruction has retired is a
+		// completion that beats its own request, which no hardware can produce.
+		if len(m.dmacIRQPending) > 0 {
+			m.deliverDmacIRQs()
+		}
 	}
 
 	if m.CPU.Halted {

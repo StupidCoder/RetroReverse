@@ -18,6 +18,11 @@ const (
 	intcSBUS      = 1
 	intcVBlankOn  = 2 // the start of the vertical blank
 	intcVBlankOff = 3 // the end of it
+
+	// The INTC's memory-mapped pair, polled directly by games that pace without
+	// handlers. I_STAT is write-1-to-clear; I_MASK is write-1-to-toggle.
+	intcISTAT = 0x1000F000
+	intcIMASK = 0x1000F010
 	intcVIF0      = 4
 	intcVIF1      = 5
 	intcVU0       = 6
@@ -74,6 +79,21 @@ const dmacChannelSIF0 = 5
 func (m *Machine) deliverVBlank() {
 	m.vblanks++
 	m.gsVSync()
+
+	// The blank's leading edge lands in I_STAT whether or not anything is watching. A
+	// game that paces itself by polling I_STAT (Ridge Racer V's main loop, rather than
+	// any handler) reads this bit and acknowledges it with a write-1-to-clear; before
+	// it existed the poll read back the game's own acknowledgement and every frame
+	// looked like a fresh blank — the game free-ran at forty "frames" a blank. The
+	// trailing edge (intcVBlankOff) is raised half a period later by the run loop:
+	// raising both at one instant reads as two edges per poll, and a game pacing "on
+	// then off" runs its per-blank work twice and overruns its own buffers.
+	//
+	// The bit is RECORDED, not asserted: this kernel is high-level emulated and runs
+	// handlers directly (the loop below), so raising the CPU's interrupt line would
+	// vector it through an exception table nothing has filled in. I_STAT is the
+	// polling surface only.
+	m.intcStat |= 1 << intcVBlankOn
 
 	// The frame boundary, for a caller that wants to advance a field at a time (the
 	// frame debugger). It runs before the guest's own vblank handlers so a run stopped

@@ -382,6 +382,7 @@ func run(c cfg) error {
 	if c.verbose {
 		fmt.Printf("\n--- %s", m.SyscallCensus())
 		fmt.Printf("\n--- %s", m.SIFCensus())
+		fmt.Printf("\n--- %s", m.HardwareCensus())
 		if census := m.IOP.IOPCensus(); census != "" {
 			fmt.Printf("\n--- %s", census)
 		}

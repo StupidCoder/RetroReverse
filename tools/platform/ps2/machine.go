@@ -111,6 +111,12 @@ type Machine struct {
 	// Interrupts (intr.go).
 	intcHandlers []handler
 	dmacHandlers []handler
+	dEnable      uint32 // D_ENABLEW as written, read back through D_ENABLER
+	// dmacIRQPending is channel completions whose handlers have not yet run: queued by
+	// dmacComplete (which executes inside the guest's own CHCR store), delivered by the
+	// run loop one instruction later. Transient by construction — it is not in the
+	// savestate, and drains within an instruction of being filled.
+	dmacIRQPending []int
 	intcMask     uint32
 	intcStat     uint32
 	dmacMask     uint32
@@ -655,6 +661,15 @@ func (m *Machine) ioRead(p uint32) uint32 {
 			return v
 		}
 	}
+	// The INTC's two registers. I_STAT is the store raiseINTC fills and the game
+	// acknowledges; a poll-paced main loop (Ridge Racer V's) reads its vblank straight
+	// from here, no handler involved.
+	switch p {
+	case intcISTAT:
+		return m.intcStat
+	case intcIMASK:
+		return m.intcMask
+	}
 	if p >= gsRegBase && p < gsRegEnd {
 		if v, ok := m.gsPrivRead(p); ok {
 			return v
@@ -676,6 +691,17 @@ func (m *Machine) ioWrite(p, v uint32) {
 		if m.dmacWrite(p, v) {
 			return
 		}
+	}
+	switch p {
+	case intcISTAT:
+		// Write-1-to-clear: the acknowledgement half of the poll loop.
+		m.intcStat &^= v
+		return
+	case intcIMASK:
+		// Write-1-to-TOGGLE, the EE INTC's oddity — the same convention as D_STAT's
+		// mask half, and the reason the kernel's EnableIntc flips rather than sets.
+		m.intcMask ^= v
+		return
 	}
 	if p >= gsRegBase && p < gsRegEnd {
 		if m.gsPrivWrite(p, v) {

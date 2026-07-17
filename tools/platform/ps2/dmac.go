@@ -34,7 +34,11 @@ package ps2
 // The channel register block and the controller-wide registers.
 const (
 	dmacBase = 0x10008000
-	dmacEnd  = 0x1000F000
+	// The window runs past the controller block to reach D_ENABLER/D_ENABLEW at
+	// 0x1000F520/0x1000F590 — the suspend pair lives apart from the rest. Addresses in
+	// between that the controller does not claim fall through to the io tally as before
+	// (the SBUS block at 0x1000F200 is dispatched ahead of this window).
+	dmacEnd = 0x1000F600
 
 	dmacChannels = 10
 
@@ -158,6 +162,12 @@ func (m *Machine) dmacRead(a uint32) (uint32, bool) {
 		return m.dRbsr, true
 	case dRBOR:
 		return m.dRbor, true
+	case dENABLER:
+		// The suspend register's read half. sceDmaSuspend writes bit 16 to D_ENABLEW
+		// and then polls D_ENABLER until the bit reads back; a machine that answers
+		// zero here holds that loop forever. Ridge Racer V does the dance around every
+		// piece of DMA bookkeeping it touches.
+		return m.dEnable, true
 	}
 	return 0, false
 }
@@ -207,6 +217,8 @@ func (m *Machine) dmacWrite(a, v uint32) bool {
 		m.dRbsr = v
 	case dRBOR:
 		m.dRbor = v
+	case dENABLEW:
+		m.dEnable = v
 	default:
 		return false
 	}
@@ -297,6 +309,36 @@ func (m *Machine) dmacStart(ch int) {
 func (m *Machine) dmacComplete(ch int) {
 	m.dmac[ch].chcr &^= dChcrStart
 	m.dmacStat |= 1 << uint(ch)
+
+	// A game that registered a handler for this channel gets its interrupt — queued,
+	// not called, because this function runs inside the guest's own CHCR store (see
+	// the delivery in Run). Jak never registers one and polls STR, which is why the
+	// comment above was once the whole truth; Ridge Racer V hangs its VIF1 and GIF
+	// bookkeeping on AddDmacHandler and waits.
+	for _, h := range m.dmacHandlers {
+		if int(h.cause) == ch {
+			m.dmacIRQPending = append(m.dmacIRQPending, ch)
+			break
+		}
+	}
+}
+
+// deliverDmacIRQs runs the registered DMAC handlers for every queued channel
+// completion, then gives the kernel's interrupt epilogue its chance to preempt.
+func (m *Machine) deliverDmacIRQs() {
+	pending := m.dmacIRQPending
+	m.dmacIRQPending = nil
+	for _, ch := range pending {
+		for _, h := range m.dmacHandlers {
+			if int(h.cause) == ch {
+				// The kernel invokes a DMAC handler with the channel that finished as
+				// its first argument — RRV's shared VIF1/GIF handler dispatches on it,
+				// and a zero there matches neither channel and clears nothing.
+				m.callGuest(h.addr, uint32(ch), h.arg)
+			}
+		}
+	}
+	m.preemptIfOutranked()
 }
 
 // dmacSPR moves a scratchpad channel's quadwords between main memory (MADR) and the
