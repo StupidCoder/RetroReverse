@@ -299,18 +299,28 @@ func (c *CPU) special(w, rs, rt uint32) {
 	case 0x02: // srl
 		c.set(rd, sext32(uint32(c.R[rt].Lo)>>shamt))
 	case 0x03: // sra
-		// The arithmetic right shifts read the *whole* 64-bit half, not its low 32
-		// bits, and only then sign-extend the 32-bit result. A core that shifts the
-		// low word alone gives a different answer whenever the high word is not
-		// already the sign extension of the low one — which is exactly what happens
-		// after a 64-bit operation.
-		c.set(rd, sext32(uint32(int64(c.R[rt].Lo)>>shamt)))
+		// sra is a 32-BIT operation on a 64-bit register: it shifts rt[31:0] and fills
+		// from bit 31, then sign-extends the 32-bit result. The upper word is never read.
+		// Shifting the whole 64-bit half instead — and taking its bit 63 as the sign —
+		// is a dsra, and it silently destroys the EE's standard "test a vector lane's
+		// sign" idiom, which is the only reason this instruction appears in COP2 code:
+		//
+		//	qmfc2 $t5, $vf1     # t5 = {w,z,y,x}: x in bits 31:0, y in bits 63:32
+		//	bltz  $t5, ...      # bltz reads bit 63 -> tests lane Y
+		//	sra   $t5, $t5, 31  # bring lane X's sign bit into the sign of the register
+		//	bltz  $t5, ...      # -> tests lane X
+		//
+		// With a 64-bit shift the second test reads bits shifted down out of lane Y and
+		// answers about the wrong lane. draw-string uses exactly this to clip a glyph
+		// against the text window; every glyph in the game failed the X test on a pen
+		// that was well inside it, and no string ever drew a single character.
+		c.set(rd, sext32(uint32(int32(uint32(c.R[rt].Lo))>>shamt)))
 	case 0x04: // sllv
 		c.set(rd, sext32(uint32(c.R[rt].Lo)<<(c.R[rs].Lo&31)))
 	case 0x06: // srlv
 		c.set(rd, sext32(uint32(c.R[rt].Lo)>>(c.R[rs].Lo&31)))
 	case 0x07: // srav
-		c.set(rd, sext32(uint32(int64(c.R[rt].Lo)>>(c.R[rs].Lo&31))))
+		c.set(rd, sext32(uint32(int32(uint32(c.R[rt].Lo))>>(c.R[rs].Lo&31))))
 
 	case 0x08: // jr
 		c.doBranch(true, c.R[rs].Lo)

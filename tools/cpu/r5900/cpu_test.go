@@ -264,6 +264,63 @@ func TestShiftAmountRegisterAndFunnelShift(t *testing.T) {
 	}
 }
 
+// TestSRAIgnoresHighWord pins sra as a 32-bit operation on a 64-bit register:
+// it shifts rt[31:0], fills from bit 31, and sign-extends the 32-bit result. The
+// upper word must not be read — reading it is a dsra.
+//
+// diff_test.go cannot catch this. It checks the R5900 against the VR4300, and the
+// VR4300 core here was written first with the same mistake; the two agreed with
+// each other on every random case, including the ones drawn specifically to expose
+// this. Only a rule stated against the architecture, not against a sibling, holds.
+//
+// The case below is the one Jak and Daxter's draw-string executes on every glyph:
+// qmfc2 leaves a vector in the register (lane x in bits 31:0, lane y in 63:32) and
+// `sra 31` brings lane x's sign into the register's sign for bltz to test. Both
+// lanes here are positive floats, so both tests must fall through. Shifting 64 bits
+// instead drags lane y's mantissa down into the sign and answers "negative": the
+// glyph is clipped against the text window and no character is ever drawn.
+func TestSRAIgnoresHighWord(t *testing.T) {
+	const (
+		laneX = 0x445CD746 // +883.36 as float32 — bit 31 clear
+		laneY = 0x43565D18 // +214.36 as float32 — bit 31 clear
+	)
+	bus := newTestBus()
+	bus.Write32(0, special(0, 5, 5, 31, 0x03)) // sra $a1, $a1, 31
+	c := NewCPU(bus)
+	c.SetPC(0x80000000)
+	c.R[5] = Quad{Lo: laneY<<32 | laneX}
+	c.Step()
+
+	// int32(0x445CD746) >> 31 == 0, sign-extended to 64 == 0.
+	if got := c.R[5].Lo; got != 0 {
+		t.Errorf("sra $a1,$a1,31 with {y=%#x, x=%#x}: got %#016x, want 0\n"+
+			"a nonzero (negative) result means the high word was shifted in — that is a dsra",
+			uint32(laneY), uint32(laneX), got)
+	}
+
+	// The negative case: bit 31 set must give all-ones, from bit 31 alone, even when
+	// the high word is positive.
+	bus.Write32(0, special(0, 5, 5, 31, 0x03))
+	c = NewCPU(bus)
+	c.SetPC(0x80000000)
+	c.R[5] = Quad{Lo: uint64(laneY)<<32 | 0x80000000}
+	c.Step()
+	if got := c.R[5].Lo; got != ^uint64(0) {
+		t.Errorf("sra $a1,$a1,31 with {y=%#x, x=0x80000000}: got %#016x, want -1", uint32(laneY), got)
+	}
+
+	// srav takes its shift amount from a register and must obey the same rule.
+	bus.Write32(0, special(6, 5, 5, 0, 0x07)) // srav $a1, $a1, $a2
+	c = NewCPU(bus)
+	c.SetPC(0x80000000)
+	c.R[5] = Quad{Lo: laneY<<32 | laneX}
+	c.R[6] = Quad{Lo: 31}
+	c.Step()
+	if got := c.R[5].Lo; got != 0 {
+		t.Errorf("srav $a1,$a1,31 with {y=%#x, x=%#x}: got %#016x, want 0", uint32(laneY), uint32(laneX), got)
+	}
+}
+
 // --- MMI ---------------------------------------------------------------------
 
 func TestPackedAddHalfword(t *testing.T) {

@@ -224,18 +224,20 @@ func (c *CPU) special(w, rs, rt uint32) {
 	case 0x02: // srl
 		c.set(rd, sext32(uint32(c.R[rt])>>shamt))
 	case 0x03: // sra
-		// The arithmetic right shifts read the *whole* 64-bit register, not its
-		// low half, and only then sign-extend the 32-bit result. A core that
-		// shifts the low half alone gives a different answer whenever the high
-		// half is not already the sign extension of the low one — which is
-		// exactly what happens after a 64-bit operation.
-		c.set(rd, sext32(uint32(int64(c.R[rt])>>shamt)))
+		// sra is a 32-BIT operation on a 64-bit register: MIPS defines the result as
+		// rt[31:0] shifted right with bit 31 replicated into the vacated bits, then
+		// sign-extended to 64. The upper half is never read — reading it, and taking
+		// bit 63 as the sign, is a dsra. (The manual calls rt UNPREDICTABLE when it
+		// is not a sign-extended word, but the silicon simply ignores the high half,
+		// which is what code relying on it expects. The 32-bit R3000A core in
+		// tools/cpu/mips, which is checked against an external vector set, agrees.)
+		c.set(rd, sext32(uint32(int32(uint32(c.R[rt]))>>shamt)))
 	case 0x04: // sllv
 		c.set(rd, sext32(uint32(c.R[rt])<<(c.R[rs]&31)))
 	case 0x06: // srlv
 		c.set(rd, sext32(uint32(c.R[rt])>>(c.R[rs]&31)))
 	case 0x07: // srav
-		c.set(rd, sext32(uint32(int64(c.R[rt])>>(c.R[rs]&31))))
+		c.set(rd, sext32(uint32(int32(uint32(c.R[rt]))>>(c.R[rs]&31))))
 
 	case 0x08: // jr
 		c.doBranch(true, c.R[rs])

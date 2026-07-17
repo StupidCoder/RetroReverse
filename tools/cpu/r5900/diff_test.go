@@ -213,8 +213,11 @@ func interesting(r *rand.Rand) uint64 {
 	case 5:
 		return 0x8000000000000000
 	case 6:
-		// A value whose high half is *not* the sign extension of its low half, which
-		// is what separates a correct sra from one that shifts only the low word.
+		// A value whose high half is *not* the sign extension of its low half. This
+		// separates a correct 32-bit sra from one that shifts the whole 64-bit
+		// register — but only against a reference that gets it right, which is why
+		// TestSRAIgnoresHighWord pins the rule directly rather than by diff. Both
+		// cores once shifted 64 bits here and agreed with each other perfectly.
 		return uint64(r.Uint32())<<32 | uint64(r.Uint32())
 	default:
 		return uint64(int64(int32(r.Uint32()))) // an ordinary sign-extended 32-bit value

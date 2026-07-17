@@ -109,11 +109,29 @@ func TestDoubleShifts(t *testing.T) {
 	}
 }
 
-func TestArithmeticShiftReadsTheWholeRegister(t *testing.T) {
-	// sra and srav shift the full 64-bit register and sign-extend the 32-bit
-	// result. Shifting only the low half gives a different answer whenever the
-	// high half is not already the sign extension of the low one — which is what
-	// a preceding 64-bit operation leaves behind.
+func TestArithmeticShiftIgnoresTheHighWord(t *testing.T) {
+	// sra and srav are 32-BIT operations on a 64-bit register. MIPS defines the
+	// result as rt[31:0] shifted right with bit 31 replicated into the vacated bits,
+	// then sign-extended to 64: the high word is never read, and the sign comes from
+	// bit 31, not bit 63.
+	//
+	// This test previously asserted the opposite — that the shift reads all 64 bits —
+	// and both this core and the R5900 implemented that. Nothing external ever
+	// checked it: the R5900's diff test compares the two cores against each other,
+	// and they were wrong together. The evidence that settles it:
+	//
+	//   - The MIPS III/64 pseudocode: temp <- (GPR[rt]_31)^s || GPR[rt]_31..s.
+	//   - tools/cpu/mips, the 32-bit R3000A core checked against an external vector
+	//     set, shifts int32(rt).
+	//   - Shipped game code depends on it. Jak and Daxter's draw-string does
+	//     `qmfc2 $t5,$vf1` / `bltz` / `sra $t5,$t5,31` / `bltz` to test a vector's
+	//     y then x lane: sra 31 exists purely to bring bit 31 into the sign for the
+	//     second bltz. Shifting 64 bits drags the y lane down into the sign and
+	//     answers about the wrong lane — every glyph clipped, no text ever drawn.
+	//
+	// The manual calls rt UNPREDICTABLE when it is not a sign-extended word, which
+	// is why an implementer can talk themselves into either rule. Silicon ignores
+	// the high half, and the code above only runs because it does.
 	c, _ := newTest(
 		rt(0, 0, 1, 2, 4, 0x03), // sra  $2, $1, 4
 		rt(0, 3, 1, 4, 0, 0x07), // srav $4, $1, $3
@@ -122,20 +140,29 @@ func TestArithmeticShiftReadsTheWholeRegister(t *testing.T) {
 	c.SetReg(3, 4)
 	run(t, c, 2)
 
-	// (int64)0x00000000FFFFFFFF >> 4 is 0x0FFFFFFF, whose low 32 bits are
-	// 0x0FFFFFFF. Shifting the low half alone would treat it as -1 and give -1.
-	if got, want := c.R[2], uint64(0x0FFFFFFF); got != want {
+	// rt[31:0] is 0xFFFFFFFF = -1; -1 >> 4 is -1, sign-extended to 64. The high
+	// word's zeros must not turn it into 0x0FFFFFFF.
+	if got, want := c.R[2], uint64(0xFFFFFFFFFFFFFFFF); got != want {
 		t.Errorf("sra: got %016X want %016X", got, want)
 	}
-	if got, want := c.R[4], uint64(0x0FFFFFFF); got != want {
+	if got, want := c.R[4], uint64(0xFFFFFFFFFFFFFFFF); got != want {
 		t.Errorf("srav: got %016X want %016X", got, want)
 	}
 
-	// And a genuinely negative 64-bit value still sign-extends.
+	// The mirror case: a high word of all ones must not make a positive low word
+	// negative.
 	c2, _ := newTest(rt(0, 0, 1, 2, 4, 0x03))
-	c2.SetReg(1, 0xFFFFFFFFFFFFFF00)
+	c2.SetReg(1, 0xFFFFFFFF7FFFFFF0)
 	run(t, c2, 1)
-	if got, want := c2.R[2], uint64(0xFFFFFFFFFFFFFFF0); got != want {
+	if got, want := c2.R[2], uint64(0x07FFFFFF); got != want {
+		t.Errorf("sra of a positive low word under a negative high word: got %016X want %016X", got, want)
+	}
+
+	// And an ordinary sign-extended negative word still sign-extends.
+	c3, _ := newTest(rt(0, 0, 1, 2, 4, 0x03))
+	c3.SetReg(1, 0xFFFFFFFFFFFFFF00)
+	run(t, c3, 1)
+	if got, want := c3.R[2], uint64(0xFFFFFFFFFFFFFFF0); got != want {
 		t.Errorf("sra of a negative value: got %016X want %016X", got, want)
 	}
 }

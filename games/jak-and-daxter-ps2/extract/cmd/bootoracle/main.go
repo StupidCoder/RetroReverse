@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"image"
 	"image/png"
+	"math"
 	"os"
 	"sort"
 	"strconv"
@@ -88,6 +89,8 @@ func main() {
 	flag.Var(&bps, "bp", "halting breakpoint (hex or symbol name); repeatable")
 	var logpcs multiFlag
 	flag.Var(&logpcs, "logpc", "non-halting breakpoint: log registers and continue (hex or symbol); repeatable")
+	var logvfs multiFlag
+	flag.Var(&logvfs, "logvf", "non-halting breakpoint on COP2 code: log VU0 vector registers at ADDR as ADDR:VF[,VF...] (e.g. 0x703400:1,23,25) — -logpc shows the GPRs, but a routine that computes in macro mode keeps its whole state in the VFs, where every instrument is blind; repeatable")
 	var watches multiFlag
 	flag.Var(&watches, "watch", "write-watch ADDR[:LEN] (hex); repeatable")
 	var rwatches multiFlag
@@ -146,7 +149,7 @@ func main() {
 	if err := run(cfg{
 		image: *image, exeName: *exeName, steps: *stepsS,
 		trace: *trace, tracen: *tracen, tracefrom: *tracefrom,
-		bps: bps, logpcs: logpcs, watches: watches, rwatches: rwatches, watchn: *watchn,
+		bps: bps, logpcs: logpcs, logvfs: logvfs, watches: watches, rwatches: rwatches, watchn: *watchn,
 		savestate: *savestate, loadstate: *loadstate, poke: *poke,
 		dis: *dis, dump: *dump, scan: *scan, goalPS: *goalPS, files: *files, syms: *syms, verbose: *verbose,
 		iopOnly: *iopOnly, iopMods: *iopMods, iopDis: *iopDis,
@@ -161,46 +164,46 @@ func main() {
 }
 
 type cfg struct {
-	image, exeName, steps                 string
-	trace                                 bool
-	tracen                                int
-	tracefrom                             string
-	bps, logpcs, watches, rwatches        multiFlag
-	watchn                                int
-	savestate, loadstate, poke, dis, dump string
-	scan                                  string
-	goalPS                                string
-	files, syms, verbose                  bool
-	iopOnly                               bool
-	iopMods, iopDis                       string
-	iopIO                                 bool
-	iopION                                int
-	iopWatch                              string
-	iopTrap                               string
-	iopCalls                              int
-	iopCallsFrom                          string
-	iopDump                               string
-	iopThreads                            bool
-	iopPokes                              multiFlag
-	iopIELog                              string
-	goalSyms                              string
-	goalNames                             string
-	eeProf                                int
-	gsFrame                               string
-	gsVerts                               int
-	gsReg                                 string
-	gsBig                                 int
-	gsPixel                               string
-	pad                                   string
-	vu1In                                 string
-	vifTiny                               int
-	vu1Data                               string
-	vu1Micro                              string
-	vu0Micro                              string
-	vu0Data                               string
-	vu0Regs                               bool
-	gsFBs                                 multiFlag
-	gsTexs                                multiFlag
+	image, exeName, steps                  string
+	trace                                  bool
+	tracen                                 int
+	tracefrom                              string
+	bps, logpcs, logvfs, watches, rwatches multiFlag
+	watchn                                 int
+	savestate, loadstate, poke, dis, dump  string
+	scan                                   string
+	goalPS                                 string
+	files, syms, verbose                   bool
+	iopOnly                                bool
+	iopMods, iopDis                        string
+	iopIO                                  bool
+	iopION                                 int
+	iopWatch                               string
+	iopTrap                                string
+	iopCalls                               int
+	iopCallsFrom                           string
+	iopDump                                string
+	iopThreads                             bool
+	iopPokes                               multiFlag
+	iopIELog                               string
+	goalSyms                               string
+	goalNames                              string
+	eeProf                                 int
+	gsFrame                                string
+	gsVerts                                int
+	gsReg                                  string
+	gsBig                                  int
+	gsPixel                                string
+	pad                                    string
+	vu1In                                  string
+	vifTiny                                int
+	vu1Data                                string
+	vu1Micro                               string
+	vu0Micro                               string
+	vu0Data                                string
+	vu0Regs                                bool
+	gsFBs                                  multiFlag
+	gsTexs                                 multiFlag
 }
 
 // ieLogFlush, if the interrupt-enable log is on, flushes it. It is set by armIOP and
@@ -648,6 +651,33 @@ func run(c cfg) error {
 		fmt.Fprintf(os.Stderr, "logging calls to %s (0x%08X)\n", m.Sym(a), a)
 	}
 
+	// -logvf: the same non-halting breakpoint, but reading the vector register file.
+	// The EE computes in COP2 macro mode, so a routine like draw-string keeps its pens,
+	// limits and matrices entirely in VF registers — invisible to -logpc, which reads
+	// only GPRs. Without this the only way to see a vector value is -bp + -vu0regs,
+	// which stops at the FIRST hit and cannot watch one evolve across a loop.
+	logVF := map[uint32][]int{}
+	for _, s := range c.logvfs {
+		parts := strings.SplitN(s, ":", 2)
+		if len(parts) != 2 {
+			return fmt.Errorf("bad -logvf %q (want ADDR:VF[,VF...])", s)
+		}
+		a, err := parseAddr(m, parts[0])
+		if err != nil {
+			return err
+		}
+		var regs []int
+		for _, f := range strings.Split(parts[1], ",") {
+			n, err := strconv.Atoi(strings.TrimSpace(strings.TrimPrefix(f, "vf")))
+			if err != nil || n < 0 || n > 31 {
+				return fmt.Errorf("bad -logvf register %q in %q", f, s)
+			}
+			regs = append(regs, n)
+		}
+		logVF[a] = regs
+		fmt.Fprintf(os.Stderr, "logging VU0 vector regs at %s (0x%08X): %v\n", m.Sym(a), a, regs)
+	}
+
 	watchHits := 0
 	if len(c.watches) > 0 {
 		lo, ln, err := parseRange(c.watches[0])
@@ -686,8 +716,21 @@ func run(c cfg) error {
 	traced := 0
 	profSamples := map[uint32]int{}
 	profTick := 0
-	if tracing || traceFrom != 0 || len(logAt) > 0 || c.eeProf > 0 {
+	if tracing || traceFrom != 0 || len(logAt) > 0 || len(logVF) > 0 || c.eeProf > 0 {
 		m.OnStep = func(mm *ps2.Machine, pc uint32) {
+			if regs, ok := logVF[pc]; ok {
+				if u := mm.VU(0); u != nil {
+					var b strings.Builder
+					fmt.Fprintf(&b, "%-30s", mm.Sym(pc))
+					for _, r := range regs {
+						v := u.VF[r]
+						fmt.Fprintf(&b, "  vf%02d=(%g, %g, %g, %g)", r,
+							math.Float32frombits(v[0]), math.Float32frombits(v[1]),
+							math.Float32frombits(v[2]), math.Float32frombits(v[3]))
+					}
+					fmt.Println(b.String())
+				}
+			}
 			if c.eeProf > 0 {
 				if profTick++; profTick >= c.eeProf {
 					profTick = 0
