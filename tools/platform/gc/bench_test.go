@@ -123,22 +123,36 @@ type gatePin struct {
 // carry a smooth gradient with no grey band, the flyer's left half is brighter than its right
 // (90.7 vs 84.0 mean luminance) as the corrected spot cone demands, and the Z16 copy-to-texture
 // that IS the shadow map still fires — so the pin still guards what its name says it does.
+//
+// RE-PINNED AGAIN when fieldInstructions went from 2,000,000 to the console's real 8,100,000
+// (vi.go). A field is the unit benchFields counts, so every hash here had to move — but WHAT
+// MOVED IS THE EVIDENCE, and it is worth reading before anyone fears this change:
+//
+//	ram, cpu   moved. Expected: the heartbeat is re-phased, so the time base, the field
+//	           counter and every trajectory that reads them differ.
+//	xfb        DID NOT MOVE. Byte-identical, both states. The picture is the same picture.
+//	aram       did not move (it never does; see the header).
+//
+// The counters agree with the hashes: 9,774 draws / 737,611 fragments and 18,350 / 638,498,
+// the same to the digit as at 2M. The game was never drawing anything different — it was
+// missing its own 30 Hz cadence while drawing it (see fieldInstructions' comment). Both frames
+// were looked at again anyway: Luigi and his torch in the forest, and the flyer in his gloves.
 var gatePins = []gatePin{
 	{
 		name:  "intro-cutscene",
 		state: stateCutscene,
-		ram:   "cfe74635ea25a21e8c8217be3fe3ff7bae90a2ae9f1d638e770284d45046b36d",
+		ram:   "b1e9f75f608987bec18eb66044e3b3f0573b26d0bce3f1199048982dc55e4998",
 		xfb:   "8cc397e1a4fea02be5ce793a6b91b4ffac4ace715b2bc25772727f0be755488c",
 		aram:  "85b317d31fbf4c465840d9ff3803a522253387d95af6c5a4511e5094ade6e558",
-		cpu:   "a3858ea576743ae00c5fd1219de166fa195a15b23a67068bfb03d462dfd71c50",
+		cpu:   "01ae416c3f2c84ca74878c242e945e61773c72317d10bb782fc5e2881ca67c80",
 	},
 	{
 		name:  "shadow",
 		state: stateShadow,
-		ram:   "ecfe3320e5e769d2de8825c4b6415bbf376ef797e22555c93a67db5f2824cce8",
+		ram:   "ebfa1c02a29797dc7226f19a1cebe5e8e1c3ec27ffa84956bc57a557e2f9fedc",
 		xfb:   "79a817306f7410279a632fdc9c62b1344c152bb7620a6b2dae02f95e68172dd0",
 		aram:  "85b317d31fbf4c465840d9ff3803a522253387d95af6c5a4511e5094ade6e558",
-		cpu:   "86fb7bac398e37ba03295a9b6b6df8392f737022a271314ba9fb576b11aee3fa",
+		cpu:   "49fa07abf997faa7d49542f9b5ae7a805d739d6b1b6fcc98486c0da6170f0435",
 	},
 }
 

@@ -188,7 +188,29 @@ func (m *Machine) viRefreshIRQ() {
 
 // fieldInstructions is how many instructions make one video field. A GameCube runs at
 // ~486 MHz and displays ~60 fields a second, so a field is roughly eight million
-// instructions — but the interpreter does not retire one per cycle, so this is tuned for
-// a heartbeat that arrives often enough to make progress without drowning the run in
-// handler entries. It is instruction-paced, so it is deterministic.
-const fieldInstructions = 2_000_000
+// instructions. It is instruction-paced, so it is deterministic.
+//
+// IT IS THE CONSOLE'S NUMBER, AND IT WAS 2,000,000 FOR A LONG TIME. That quarter-rate budget
+// was harmless while the only thing anyone ran was the intro cutscene, which needs ~438k
+// instructions a field and spends the rest idling — so the game always finished early and the
+// heartbeat's rate never mattered. Gameplay is not like that. It needs ~6.5M instructions per
+// drawn frame, which does not fit in two 2M fields, so THE GAME NEVER FINISHED A FRAME ON
+// TIME: it missed its own 30 Hz cadence and took 3.48 fields per flip, and the profiler's
+// "frame" was a straddle of three and a half heartbeats rather than a frame.
+//
+// The measurement that settled it. At 8.1M the game emits a BYTE-IDENTICAL frame — 16,915
+// draws and 438,581 FIFO bytes, the same numbers to the digit — in exactly 16,201,423
+// instructions, which is two fields to within a rounding error. Its true shape appears: ~6.2M
+// on the work field, ~0.3M on the wait field, 30 Hz on the nose. So the starvation was not
+// changing WHAT the game drew, only when it managed to; and it was inflating the work about
+// 7% (6.96M -> 6.5M) in poll loops that no longer spin.
+//
+// It costs nothing, which is the part worth explaining, because four times the budget sounds
+// like four times the run. The extra budget is idle loop, and idle.go fast-forwards it: the
+// skip goes from firing NOT ONCE in gameplay (there was no idle to find — the game never got
+// to its idle loop) to absorbing 23% of the work field and 95% of the wait field. Gameplay's
+// wall cost per drawn frame went DOWN, 187.3 ms to 176.3 ms.
+//
+// A change here re-phases every savestate and moves every pinned frame in bench_test.go, since
+// a field is the unit those are counted in. That is the price, and it is paid once.
+const fieldInstructions = 8_100_000

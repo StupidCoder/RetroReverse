@@ -56,7 +56,7 @@ func spinMachine(t *testing.T, n int) *Machine {
 // TestSpinDetectFiresOnATightLoop: the case the heuristic exists for. `b .` is one PC.
 func TestSpinDetectFiresOnATightLoop(t *testing.T) {
 	m := spinMachine(t, 1)
-	res := m.Run(8 * 1024 * 1024)
+	res := m.Run(2 * spinWindow)
 	if res.Reason != "spin (tight loop)" {
 		t.Fatalf("a one-instruction loop should be a spin, got %q at 0x%08X after %d steps",
 			res.Reason, res.PC, res.Steps)
@@ -82,7 +82,7 @@ func TestSpinDetectBoundary(t *testing.T) {
 		{8, false},
 	} {
 		m := spinMachine(t, c.distinctPCs)
-		res := m.Run(8 * 1024 * 1024)
+		res := m.Run(2 * spinWindow)
 		gotSpin := res.Reason == "spin (tight loop)"
 		if gotSpin != c.wantSpin {
 			t.Errorf("a %d-PC loop: spin = %v, want %v (reason %q after %d steps)",
@@ -131,7 +131,7 @@ func TestSpinWindowResets(t *testing.T) {
 	// Well inside the first window: the loop is still innocent when the patch lands. Counted
 	// in EMULATED instructions, because that is the clock the spin window is on and the one
 	// the fast-forward advances.
-	const patchAt = 0x100000
+	const patchAt = spinWindow / 4
 	m.OnStep = func(mm *Machine, pc uint32) {
 		if mm.Instrs == patchAt {
 			// The loop's branch becomes a branch to itself. From here the program is stuck
@@ -142,7 +142,7 @@ func TestSpinWindowResets(t *testing.T) {
 
 	// Budget enough to cross two window boundaries: the first acquits (four distinct PCs
 	// were seen before the patch), the second must convict.
-	res := m.Run(12 * 1024 * 1024)
+	res := m.Run(3 * spinWindow)
 	if res.Reason != "spin (tight loop)" {
 		t.Fatalf("a loop that turned into a spin must be convicted by a later window; "+
 			"got %q at 0x%08X after %d steps (a counter that never resets looks exactly like this)",

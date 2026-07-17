@@ -23,6 +23,11 @@ type runState struct {
 	breakpoints map[uint32]bool
 }
 
+// spinWindow is how many emulated instructions the tight-loop heuristic watches before it
+// convicts. See Run for the argument; it lives here, at package scope and derived, because the
+// tests have to be able to say "two windows" without knowing a number.
+const spinWindow = 2 * fieldInstructions
+
 // SetSpinDetect turns the tight-loop heuristic on or off. A game stuck in `b .` has usually
 // hit a gap in the model, and saying so beats running out of budget — but a boot that means
 // to park in a wait loop needs the heuristic defeated, so it is a switch.
@@ -144,9 +149,21 @@ func (m *Machine) Run(maxSteps uint64) Result {
 	// exactly where it is most wanted: a machine wedged in `b .` is precisely what the skip
 	// fast-forwards, so the window would take a thousand times longer to close and a genuine
 	// hang would be reported as an exhausted budget instead of the spin it is.
+	//
+	// THE WINDOW IS TWO VIDEO FIELDS, AND IT HAS TO BE SAID IN THOSE TERMS. It was written as
+	// 0x400000 — 4,194,304, which was two fields only because a field happened to be 2,000,000
+	// instructions at the time. Nothing recorded the relationship, so when the field grew to the
+	// console's real 8.1M the window became SHORTER THAN A SINGLE FIELD, and the heuristic
+	// started calling the game wedged for doing the most ordinary thing it does: waiting in the
+	// OS idle loop for a retrace that was still five million instructions away. It fired on the
+	// shadow gate, which aborted at 29.5M of its 32.4M instructions and would have pinned a
+	// frame from a half-run field.
+	//
+	// Two fields is the meaning: the heartbeat this machine cannot fail to deliver arrives every
+	// field, so a loop that survives two of them without touching a fourth address was not
+	// waiting for anything. Deriving it keeps that true the next time the field moves.
 	var spinPCs [4]uint32
 	var spinN int
-	const spinWindow = 0x400000
 	spinStart := m.Instrs
 
 	for steps() < maxSteps {
