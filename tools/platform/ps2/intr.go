@@ -105,6 +105,9 @@ func (m *Machine) deliverVBlank() {
 		}
 		m.callGuest(h.addr, h.arg)
 	}
+	// The kernel's interrupt epilogue: a handler may have woken a thread that outranks
+	// the interrupted one, and it runs now, not at the next syscall.
+	m.preemptIfOutranked()
 }
 
 // callGuest runs a guest routine to completion on the current stack and returns its

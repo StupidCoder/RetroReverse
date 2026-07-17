@@ -394,6 +394,9 @@ func (m *Machine) sifFromIOP() {
 		// that has changed is who wrote it.
 		if eeTag&sifEETagIRQ != 0 && m.sifCmdHandler != 0 {
 			m.callGuest(m.sifCmdHandler, 0)
+			// The handler ran in interrupt context and may have woken a thread that
+			// outranks the one it interrupted; the kernel reschedules on the way out.
+			m.preemptIfOutranked()
 		}
 
 		if m.IOP.Read32(tag+0)&sifChainEnd != 0 {

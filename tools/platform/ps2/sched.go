@@ -191,6 +191,25 @@ func (m *Machine) switchAway(newState threadState) {
 	m.CPU.Restore(next.ctx)
 }
 
+// preemptIfOutranked is the EE kernel's interrupt epilogue: after an interrupt handler
+// has run, the scheduler asks whether the handler made a thread ready that outranks the
+// one it interrupted, and switches if so. It is the ONE preemption this otherwise
+// cooperative model performs, and it is not an embellishment: Ridge Racer V's main
+// thread polls libcdvd's busy flag in a userspace loop that makes no kernel call at
+// all, and the thing that clears the flag is a priority-0 callback thread woken by
+// iWakeupThread from inside the SIF's RPC-END handler. A kernel that only switches on
+// syscalls never runs that thread, and the poll spins for the rest of time — every RPC
+// answered, every flag delivered, and the machine going nowhere.
+func (m *Machine) preemptIfOutranked() {
+	cur := m.threads[m.currentThread]
+	if m.idle || cur == nil || cur.state != thRunning {
+		return // an idle machine already picks the best ready thread when it resumes
+	}
+	if next := m.pickReady(); next != nil && next.priority < cur.priority {
+		m.switchTo(next, thReady)
+	}
+}
+
 // resume looks for a thread to run after the machine has been idle. It reports whether
 // one was found.
 func (m *Machine) resume() bool {

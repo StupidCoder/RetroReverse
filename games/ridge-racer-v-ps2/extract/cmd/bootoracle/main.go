@@ -189,7 +189,16 @@ func run(c cfg) error {
 	m.LoadExecutable(exe)
 	fmt.Fprintf(os.Stderr, "%s", exe.Describe())
 
-	// Static inspection that needs no run.
+	if c.loadstate != "" {
+		if err := m.LoadStateFile(c.loadstate); err != nil {
+			return fmt.Errorf("loading state: %w", err)
+		}
+	}
+
+	// Inspection that needs no run. It sits AFTER the snapshot load on purpose: a -dump
+	// combined with -loadstate is a question about the saved machine, and for a while it
+	// silently answered from the freshly-loaded ELF instead — a plausible-looking wrong
+	// answer, which is the worst instrument there is.
 	if c.dis != "" {
 		addr, n, err := parseAddrLen(c.dis, 1)
 		if err != nil {
@@ -221,12 +230,10 @@ func run(c cfg) error {
 		return nil
 	}
 
-	if c.loadstate != "" {
-		if err := m.LoadStateFile(c.loadstate); err != nil {
-			return fmt.Errorf("loading state: %w", err)
+	if c.loadstate == "" {
+		if err := m.RebootIOP(); err != nil {
+			return fmt.Errorf("bringing the IOP up before the EE runs: %w", err)
 		}
-	} else if err := m.RebootIOP(); err != nil {
-		return fmt.Errorf("bringing the IOP up before the EE runs: %w", err)
 	}
 
 	if c.iopThreads {

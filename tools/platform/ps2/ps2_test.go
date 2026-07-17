@@ -457,3 +457,62 @@ func TestIOPRebootImageIsTheOneTheGameNames(t *testing.T) {
 		t.Error("a reboot from somewhere other than the disc was accepted")
 	}
 }
+
+func TestInterruptWakePreemptsAPollingThread(t *testing.T) {
+	// The one preemption the cooperative scheduler performs, and why it exists: Ridge
+	// Racer V's main thread polls libcdvd's busy flag in a loop with no kernel call in
+	// it, and the flag is cleared by a priority-0 callback thread woken by
+	// iWakeupThread from inside the SIF RPC-END handler. Without an interrupt-exit
+	// reschedule, that thread is ready forever and runs never.
+	m := NewMachine()
+	m.LoadExecutable(&Executable{
+		Entry:    0x00100000,
+		Segments: []Segment{{VAddr: 0x00100000, Data: make([]byte, 64), MemSz: 64}},
+	})
+
+	// A callback thread that outranks the main thread (priority 64), dormant then
+	// started, sleeping — the shape libcdvd's callback thread is in when the RPC END
+	// handler wakes it.
+	const p = 0x00110000
+	m.Write32(p+0x04, 0x00100020) // entry
+	m.Write32(p+0x08, 0x00120000) // stack
+	m.Write32(p+0x0C, 0x1000)     // stack size
+	m.Write32(p+0x14, 0)          // priority 0: outranks the main thread
+	m.CPU.SetReg(4, p)
+	m.createThread()
+	id := uint32(m.CPU.Reg(2))
+	m.CPU.SetReg(4, uint64(id))
+	m.CPU.SetReg(5, 0)
+	m.startThread()          // it outranks the caller, so it runs now
+	m.sleepThread()          // and goes to sleep waiting for work
+	if m.currentThread != 1 {
+		t.Fatalf("after the callback thread sleeps, thread %d runs, not the main thread", m.currentThread)
+	}
+
+	// The interrupt handler wakes it. Before the epilogue runs, the main thread is
+	// still the one on the CPU.
+	m.wakeupThread(id)
+	if m.currentThread != 1 {
+		t.Fatalf("wakeupThread alone switched threads: %d is running", m.currentThread)
+	}
+
+	// The interrupt-exit reschedule: the woken thread outranks the poller, so it runs.
+	m.preemptIfOutranked()
+	if m.currentThread != id {
+		t.Errorf("after the interrupt epilogue, thread %d runs; the woken priority-0 thread %d does not", m.currentThread, id)
+	}
+	if got := m.threads[1].state; got != thReady {
+		t.Errorf("the preempted main thread is %v, not ready", got)
+	}
+
+	// And the symmetric case: a wake of something that does NOT outrank the runner
+	// must not switch — cooperative otherwise.
+	m.sleepThread() // the callback thread sleeps again; back to the main thread
+	if m.currentThread != 1 {
+		t.Fatalf("callback sleep did not return to the main thread")
+	}
+	m.preemptIfOutranked()
+	if m.currentThread != 1 {
+		t.Errorf("an epilogue with nothing outranking the runner still switched, to %d", m.currentThread)
+	}
+}
