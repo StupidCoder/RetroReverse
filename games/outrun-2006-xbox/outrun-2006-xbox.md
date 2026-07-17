@@ -1381,6 +1381,24 @@ event has its signal **consumed** by the first waiter, so exactly one thread wak
 clears itself, while a notification event stays signalled and releases everyone. That distinction was
 read off `NtCreateEvent`'s own SETZ inversion back in Phase E, not invented here.
 
+### Where it stands / next
+
+`NtSetEvent` carries `gameplay.state` **7× further** — 175M instructions to **1,238,399,686** — and
+the frontier leaves the kernel entirely:
+
+```
+HALT: nv2a: draw 487118 into non-pitch surface type 2 (0x208=07070228)
+      — swizzled targets unmodelled
+```
+
+**487,118 draws in**, the loading screen is behind it and the title is rendering the race. The next
+frontier is the Kelvin pipeline, not the HLE: the game binds a **swizzled render target** (a
+render-to-texture) and the rasteriser models pitch surfaces only. That is Part X's problem, and it is
+a good one to have — every remaining kernel gap on this path is now closed.
+
+*(A `-surfpng` at that halt is a small grey square, and correctly so: the colour surface at that
+instant IS the off-screen swizzled target, not the scene. The picture is the frontier, not a bug.)*
+
 ### Tooling
 
 - `tools/platform/xbox/{machine,nv2a,kernel,kernel_ordinals,kernel_objects,kernel_data,kernel_file,thread,sched,state,ports,run}.go` — the machine and its HLE.

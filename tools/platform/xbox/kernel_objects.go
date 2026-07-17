@@ -907,6 +907,61 @@ func kernelObjectHandler(ord uint16) func(*Machine) int {
 			return 3
 		}
 
+	case 225: // NtSetEvent(EventHandle, PreviousState*) -> NTSTATUS. NOT the reconstructed
+		// table's NtSignalAndWaitForSingleObjectEx, which is what it announced itself as
+		// when it halted the loading screen. Three lines agree, and the first two are
+		// independent of each other:
+		//
+		//  1. THE DRIFT, and this one is bracketed rather than extrapolated. The Nt block
+		//     runs +5, so ordinal 225 is table-220 = NtSetEvent — and its two NEIGHBOURS are
+		//     already verified from their own call sites: 224 NtResumeThread (table-219) and
+		//     226 NtSetInformationFile (table-221). A wrong answer here would have to be
+		//     wrong BETWEEN two independently-pinned entries.
+		//  2. THE CALL SITE takes TWO arguments (0x44D4F):
+		//
+		//	00044D4F  PUSH $00000000        PreviousState* — the caller wants no readback
+		//	00044D51  PUSH DWORD [ESP+$8]   ...and an event handle. That is all.
+		//	00044D55  CALL [$0024834C]      (slot -> trapBase + 225*16)
+		//	00044D5B  TEST EAX,EAX / JL     NTSTATUS -> BOOL: Win32's SetEvent, whose whole
+		//	00044D5F  XOR EAX,EAX / INC EAX  body is NtSetEvent(h, NULL) and a bool.
+		//
+		//     NtSignalAndWaitForSingleObjectEx takes FIVE (signal, wait, mode, alertable,
+		//     timeout) and cannot be spelled with two.
+		//  3. ITS NEIGHBOURHOOD. 0x44D4F sits immediately after 0x44D25 — the XAPI's
+		//     CreateEvent wrapper, already verified as ordinal 189. This is that library's
+		//     event block, and SetEvent is the call a loading screen makes.
+		//
+		// The semantics are the kernel's and the machinery already exists: signal the event,
+		// wake what was waiting on it, and report the PREVIOUS state. wakeWaiters runs each
+		// candidate through satisfyWait, which is what makes the auto-reset case right for
+		// free — a synchronisation event ("event-auto") has its signal CONSUMED by the first
+		// waiter, so exactly one thread wakes and the event clears itself, while a
+		// notification event stays signalled and releases everyone. That distinction is not
+		// invented here: NtCreateEvent (189) reads it off the wrapper's own SETZ inversion.
+		return func(m *Machine) int {
+			h, prevOut := m.arg(0), m.arg(1)
+			o := m.objAt(h)
+			if o == nil {
+				// A handle this HLE never minted. Failing is honest — the caller's JL maps
+				// it to FALSE — and it is not silently "fine": an event nobody created is a
+				// bug somewhere else, and a success here would hide it.
+				m.CPU.Halt("NtSetEvent: no object for handle %08X, from %08X", h, m.retAddr())
+				return 2
+			}
+			// The previous state is read BEFORE the signal, which is the whole point of the
+			// out-parameter: it reports what the event was, not what this call just made it.
+			// (objAt has just resynced it from the guest's own DISPATCHER_HEADER, so this is
+			// the guest's view, not a stale cache of ours.)
+			if prevOut != 0 {
+				m.write32(prevOut, boolU32(o.signaled))
+			}
+			o.signaled = true
+			m.writeSignal(o.addr, true)
+			m.wakeWaiters(h)
+			m.setRet(0) // STATUS_SUCCESS
+			return 2
+		}
+
 	case 234: // NtWaitForSingleObjectEx(Handle, WaitMode, Alertable, Timeout) -> NTSTATUS
 		// Identified from the call site (NOT the reconstructed table, which misnames it
 		// ObCreateObject): 4 args as (Handle, 1, Alertable, &Timeout), where the timeout

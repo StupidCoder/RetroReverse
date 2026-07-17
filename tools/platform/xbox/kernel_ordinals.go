@@ -79,9 +79,13 @@ var verifiedNames = map[uint16]string{
 	// table's "NtOpenSymbolicLinkObject", which needs a handle out-pointer and an
 	// OBJECT_ATTRIBUTES and could not take just these two: the Nt block's +5 drift puts
 	// table-193, NtFlushBuffersFile, at this ordinal, and the site's shape agrees.
-	219: "NtReadFile",                // 8 args, OVERLAPPED shape (site 0x440C1)
-	222: "NtReleaseSemaphore",        // f(handle, releaseCount, prev*) -> NTSTATUS
-	224: "NtResumeThread",            // f(handle, prevCount*); pair w/ 231 (site 0x44F56)
+	219: "NtReadFile",         // 8 args, OVERLAPPED shape (site 0x440C1)
+	222: "NtReleaseSemaphore", // f(handle, releaseCount, prev*) -> NTSTATUS
+	224: "NtResumeThread",     // f(handle, prevCount*); pair w/ 231 (site 0x44F56)
+	225: "NtSetEvent",         // f(handle, prevState*) -> NTSTATUS; 2 args (site 0x44D4F,
+	// the XAPI SetEvent wrapper beside the verified CreateEvent at 0x44D25). NOT the table's
+	// 5-arg NtSignalAndWaitForSingleObjectEx — Nt drift +5 puts table-220 here, bracketed by
+	// the verified 224 and 226.
 	226: "NtSetInformationFile",      // 5 args, class 0xE seek (site 0x44378)
 	231: "NtSuspendThread",           // f(handle, prevCount*); pair w/ 224 (site 0x44F30)
 	236: "NtWriteFile",               // 8 args, NtReadFile's OVERLAPPED shape (canonical; Nt drift +5)
