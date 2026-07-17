@@ -103,6 +103,9 @@ func main() {
 	cpuprofile := flag.String("cpuprofile", "", "write a pprof CPU profile of the run to this path")
 	frames := flag.Int("frames", 0, "run this many VI fields instead of the -steps budget (fields, not flips: a boot has no flips)")
 	profile := flag.Bool("profile", false, "report where each field's time goes, by subsystem")
+	stackprof := flag.Int("stackprof", 0, "sample the call stack every N instructions (-1 for a sensible default) and report the hottest stacks; the instrument for the \"gekko + rest\" remainder, which a PC histogram cannot split")
+	stackprofN := flag.Int("stackprofn", 25, "how many stacks -stackprof reports")
+	stackprofDepth := flag.Int("stackprofdepth", 6, "how many caller frames -stackprof keeps")
 	flag.Parse()
 
 	if *image == "" {
@@ -117,6 +120,7 @@ func main() {
 		dis: *dis, dump: *dump, threads: *threads, files: *files, verbose: *verbose, nospin: *nospin,
 		fifodump: *fifodump, texdump: *texdump, efbshot: *efbshot, aidwav: *aidwav, keys: *keys,
 		cpuprofile: *cpuprofile, frames: *frames, profile: *profile,
+		stackprof: *stackprof, stackprofN: *stackprofN, stackprofDepth: *stackprofDepth,
 	}); err != nil {
 		fmt.Fprintln(os.Stderr, "bootoracle:", err)
 		os.Exit(1)
@@ -140,6 +144,9 @@ type cfg struct {
 	cpuprofile                           string
 	frames                               int
 	profile                              bool
+	stackprof                            int
+	stackprofN                           int
+	stackprofDepth                       int
 	keys                                 string
 }
 
@@ -407,6 +414,13 @@ func run(c cfg) error {
 	if c.profile {
 		m.SetProfile(true)
 	}
+	if c.stackprof != 0 {
+		every := uint64(0) // the default period
+		if c.stackprof > 0 {
+			every = uint64(c.stackprof)
+		}
+		m.SetStackProfile(every, c.stackprofDepth)
+	}
 
 	// The profile brackets the run and nothing else: the apploader, the disc reads and the
 	// image load above are setup, and a profile that counted them would be answering a
@@ -438,6 +452,10 @@ func run(c cfg) error {
 		elapsed.Seconds(), float64(res.Steps)/elapsed.Seconds()/1e6)
 	if c.profile {
 		printProfile(m.FrameProfile())
+	}
+	if c.stackprof != 0 {
+		fmt.Fprintf(os.Stderr, "bootoracle: call-stack profile (leaf first, callers outward):\n%s",
+			m.StackProfileString(c.stackprofN))
 	}
 	if c.verbose {
 		fmt.Fprintf(os.Stderr, "bootoracle: intr: %s\n", m.IntrState())

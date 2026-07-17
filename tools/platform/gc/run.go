@@ -164,6 +164,13 @@ func (m *Machine) Run(maxSteps uint64) Result {
 			m.OnStep(m, pc)
 		}
 
+		// The call-stack sampler. It reads the stack the CPU is standing on, so it samples
+		// before the ticks: an interrupt delivered below would replace that stack with the
+		// handler's and book the sample to the wrong work.
+		if m.stack.every != 0 && m.Instrs >= m.stack.next {
+			m.sampleStack(pc)
+		}
+
 		// The idle fast-forward. The detector runs before the ticks so that a loop proved
 		// idle skips to the edge of the next event and the ordinary tick below delivers it.
 		if !m.noIdle && m.idleStep(pc) {

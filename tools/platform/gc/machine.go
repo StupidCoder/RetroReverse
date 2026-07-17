@@ -123,6 +123,9 @@ type Machine struct {
 	idle   idleState
 	noIdle bool
 
+	// stack is the call-stack sampler (stackprof.go). Off unless SetStackProfile asked for it.
+	stack stackProf
+
 	// Instrs counts Gekko instructions retired since the machine was built. It is the
 	// emulator's own tally, not guest state: it is not in the savestate, and a restore does
 	// not rewind it — a profile counter wants to know how much work this process has done.
