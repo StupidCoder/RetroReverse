@@ -367,6 +367,17 @@ func (m *Machine) dmacSPR(c *dmacChan, fromSPR bool) {
 			m.hookMuted = false
 		}
 	}
+	// The controller leaves the registers where the transfer ended: MADR past the last
+	// byte, SADR advanced (wrapping the 16 KiB scratchpad), QWC drained to zero. Code that
+	// re-programs every register per kick never notices, but a chain that programs MADR
+	// once and then only re-arms SADR/QWC/STR — Ridge Racer V's display-list feeder does
+	// exactly this — relies on the auto-advance to walk main memory across its chunks.
+	// Left un-advanced, every chunk after the first re-read the first chunk's address, so
+	// the scratchpad the feeder interpreted was stale (here: zeros) and its output ring
+	// overran.
+	c.madr += n
+	c.sadr = (c.sadr + n) & (spramSize - 1)
+	c.qwc = 0
 }
 
 // dmacSPRInterleave is the SPR channels' third mode (CHCR MOD=10): a strided transfer,

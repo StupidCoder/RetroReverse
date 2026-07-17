@@ -217,6 +217,45 @@ func TestSPRBounceCopy(t *testing.T) {
 	}
 }
 
+// TestSPRAdvancesMADRAcrossKicks is Ridge Racer V's display-list feeder in miniature: it
+// programs MADR once and then walks a contiguous main-memory list by re-arming only
+// SADR/QWC/STR each chunk, leaning on the controller to leave MADR past the bytes it just
+// moved. The second kick must read the SECOND chunk, not re-read the first — the bug that
+// left the feeder's scratchpad stale (zeros with no terminator) and overran its output
+// ring. QWC must also drain to zero, since the feeder polls it as "chunk consumed".
+func TestSPRAdvancesMADRAcrossKicks(t *testing.T) {
+	m := NewMachine()
+
+	const src = 0x00200000
+	const qwc = 2 // 32 bytes per chunk
+	for i := 0; i < qwc*16*2; i++ {
+		m.ram[src+i] = byte(i) // two chunks: 0x00.. then 0x20..
+	}
+
+	// Chunk 0: MADR set explicitly, land it at scratchpad 0.
+	m.Write32(0x1000D410, src) // MADR
+	m.Write32(0x1000D480, 0)   // SADR
+	m.Write32(0x1000D420, qwc) // QWC
+	m.Write32(0x1000D400, dChcrStart)
+
+	if v, _ := m.dmacRead(0x1000D420); v != 0 {
+		t.Errorf("QWC = %d after the transfer, want 0 (the controller drains it)", v)
+	}
+
+	// Chunk 1: re-arm SADR/QWC/STR only — MADR is left to auto-advance, exactly as the
+	// feeder does. Land it at scratchpad 0x20.
+	m.Write32(0x1000D480, 0x20) // SADR
+	m.Write32(0x1000D420, qwc)  // QWC
+	m.Write32(0x1000D400, dChcrStart)
+
+	for i := 0; i < qwc*16; i++ {
+		if got, want := m.spram[0x20+i], byte(qwc*16+i); got != want {
+			t.Fatalf("second chunk byte %d: got 0x%02X, want 0x%02X — MADR did not advance, the kick re-read chunk 0",
+				i, got, want)
+		}
+	}
+}
+
 // TestSPRChainGather runs the kick the merc renderer performs every frame: SPR_TO in
 // source-chain mode with TTE, a CNT header link followed by a REF link gathering data
 // from elsewhere in memory. The whole 16-byte tag must land in the scratchpad ahead of
