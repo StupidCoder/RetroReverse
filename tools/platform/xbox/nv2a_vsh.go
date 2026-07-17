@@ -53,6 +53,8 @@ const (
 	kelvinConstData = 0x0B80 // ..0x0BFC: transform-constant upload window (4 dwords = 1 vec4)
 
 	kelvinTransformExecMode = 0x1E94 // bits 1:0 — 0 fixed-function, 2 program
+	kelvinCompositeMatrix   = 0x0680 // SET_COMPOSITE_MATRIX: FF world→clip, row-vector
+	kelvinLightingEnable    = 0x0314 // SET_LIGHTING_ENABLE (FF T&L only)
 	kelvinCxtWriteEnable    = 0x1E98 // program may write constant memory
 	kelvinProgLoad          = 0x1E9C // instruction slot the next program upload lands in
 	kelvinProgStart         = 0x1EA0 // instruction slot execution starts at

@@ -43,7 +43,9 @@ const (
 	texFmtSZ_A8       = 0x19
 	texFmtLU_X8R8G8B8 = 0x1E
 	// Linear depth+stencil (X8_Y24: depth [31:8], stencil [7:0] — the raster's own
-	// zeta layout). Identified, not modelled: see the halt in texDecode.
+	// zeta layout). A shadow-map sample: modelled only for an ALL-FAR map (the sample
+	// is the unoccluded result, 1.0, under every candidate compare); a populated map
+	// halts, because the compare itself is underivable here. See texDecode.
 	texFmtLU_DepthX8Y24 = 0x2E
 )
 
@@ -52,9 +54,12 @@ type texKey struct {
 	offset, format, rect, ctl1 uint32
 }
 
-// texImage is a decoded RGBA8 texture.
+// texImage is a decoded RGBA8 texture. A cube map stores its six faces
+// consecutively in pix (face f at rows [f*h, (f+1)*h)), in the published
+// +X,-X,+Y,-Y,+Z,-Z order.
 type texImage struct {
-	w, h int
+	w, h int // one face's dimensions
+	cube bool
 	pix  []byte // 4 bytes per texel, R G B A
 }
 
@@ -105,11 +110,6 @@ func (g *pgraph) texDecode(u int) (*texImage, bool, bool) {
 		g.m.CPU.Halt("nv2a: texture unit %d dimensionality %d unmodelled (fmt=%08X)", u, dim, format)
 		return nil, false, false
 	}
-	if format>>2&1 != 0 {
-		g.m.CPU.Halt("nv2a: texture unit %d is a cube map — unmodelled (fmt=%08X)", u, format)
-		return nil, false, false
-	}
-
 	// Resolve the base address through the bound DMA context (fmt bits 1:0 select it).
 	dmaReg := uint32(kelvinCtxDmaTexA)
 	if format&3 == 2 {
@@ -135,8 +135,61 @@ func (g *pgraph) texDecode(u int) (*texImage, bool, bool) {
 		return nil, false, false
 	}
 
-	img := &texImage{w: w, h: h, pix: make([]byte, w*h*4)}
 	ram := g.m.RAM
+	if format>>2&1 != 0 {
+		// A cube map: six w x h faces stored consecutively, +X,-X,+Y,-Y,+Z,-Z (the
+		// published D3D/GL face order for this hardware family). Modelled for the DXT
+		// block formats only (OutRun's race environment maps are single-mip DXT3);
+		// anything else halts and names itself — a swizzled cube's per-face padding
+		// and a mip chain's face stride are unverified here, and guessing either
+		// would sample plausible-looking wrong texels.
+		if w != h {
+			g.m.CPU.Halt("nv2a: texture unit %d cube map %dx%d is not square (fmt=%08X)", u, w, h, format)
+			return nil, false, false
+		}
+		if mips := format >> 16 & 0xF; mips > 1 {
+			g.m.CPU.Halt("nv2a: texture unit %d cube map with %d mip levels — face stride unmodelled (fmt=%08X)", u, mips, format)
+			return nil, false, false
+		}
+		var faceBytes uint32
+		var decodeFace func(*texImage, uint32)
+		switch colorFmt {
+		case texFmtDXT1, texFmtDXT3, texFmtDXT5:
+			variant := map[uint32]int{texFmtDXT1: 1, texFmtDXT3: 3, texFmtDXT5: 5}[colorFmt]
+			blockBytes := uint32(8)
+			if variant != 1 {
+				blockBytes = 16
+			}
+			faceBytes = uint32((w+3)/4*((h+3)/4)) * blockBytes
+			decodeFace = func(dst *texImage, addr uint32) { decodeDXT(dst, ram, addr, variant) }
+		case texFmtSZ_A8R8G8B8, texFmtSZ_X8R8G8B8:
+			// The face stride w*h*4 with no padding is the game's own layout: its
+			// environment cube is the three (of six) 128x128 reflection RTTs, which it
+			// packs exactly 0x10000 = 128*128*4 bytes apart (Part XII's census).
+			faceBytes = uint32(w * h * 4)
+			decodeFace = func(dst *texImage, addr uint32) {
+				decodeSwizzled(dst, ram, addr, 4, func(pix []byte, o int, b []byte) {
+					pix[o], pix[o+1], pix[o+2], pix[o+3] = b[2], b[1], b[0], b[3]
+					if colorFmt == texFmtSZ_X8R8G8B8 {
+						pix[o+3] = 0xFF
+					}
+				})
+			}
+		default:
+			g.m.CPU.Halt("nv2a: texture unit %d cube map color format 0x%02X unmodelled (fmt=%08X)", u, colorFmt, format)
+			return nil, false, false
+		}
+		img := &texImage{w: w, h: h, cube: true, pix: make([]byte, w*h*4*6)}
+		face := &texImage{w: w, h: h, pix: make([]byte, w*h*4)}
+		for f := 0; f < 6; f++ {
+			decodeFace(face, phys+uint32(f)*faceBytes)
+			copy(img.pix[f*w*h*4:], face.pix)
+		}
+		g.texCache[key] = img
+		return img, linear, true
+	}
+
+	img := &texImage{w: w, h: h, pix: make([]byte, w*h*4)}
 	switch colorFmt {
 	case texFmtDXT1:
 		decodeDXT(img, ram, phys, 1)
@@ -174,19 +227,25 @@ func (g *pgraph) texDecode(u int) (*texImage, bool, bool) {
 		// A shadow-map sample. The game binds this 512x512 buffer as BOTH colour and zeta
 		// (a depth-render pass), clears it to far (FFFFFF00), and samples it here as a
 		// linear X8_Y24 depth image (dwords of depth<<8|stencil, the raster's own zeta
-		// layout). The consumer is a shadow-receiver draw: oT3 comes from a texture matrix,
-		// the stage mode is projective, only unit 3 is enabled, and the combiner routes
-		// TEX3's alpha into an alpha-tested (GEQUAL) black overlay.
+		// layout). The consumer is a shadow-receiver draw whose combiner (decoded in
+		// Part XIII) uses the sample ONLY in the color path:
+		//     out.rgb = diffuse.rgb * clamp01(0.627 + TEX3.rgb) + specular
+		// (TEX3's alpha lands in spare1.a, which nothing reads; the alpha-test gate is
+		// diffuse.a muxed against a constant, independent of the sample). So the sample's
+		// "unoccluded" result must be the one that clamps the factor to 1 and leaves the
+		// receiver's paint at its unshadowed baseline — any candidate where an all-far
+		// texel returned 0 would darken the whole world by 0.627 unconditionally, which
+		// the reference frames refute. Hardware depth-compares return 0/1 replicated, so
+		// an ALL-FAR map — and the zeta-write census proves the only reachable map is
+		// all-far in every frame — must sample as 1.0 (white) everywhere, for EVERY
+		// candidate compare function. That case is modelled below.
 		//
-		// NOT modelled, and provably not derivable in any reachable window: the compare a
-		// sample performs (function, polarity, result channels) is a hardware texture-unit
-		// operation — the register combiners have no compare op — so it can only be pinned
-		// against a POPULATED map, and a full zeta-write census over the whole reachable
-		// gameplay window shows this buffer receives zero depth writes ever: it is cleared-
-		// to-far and sampled empty in every frame (the only casters are the main FB and the
-		// reflection-RTT depth). Inventing a compare would render plausibly over the empty
-		// map and be unverifiable, so this halts and names what is missing. RR_SHADOW dumps
-		// the receiver state and the zeta-write census here. See outrun-2006-xbox.md Part XII.
+		// What is still NOT derivable is the compare itself (function, polarity) over a
+		// POPULATED map: it is a texture-unit hardware op the combiners cannot express,
+		// and no reachable frame casts an occluder into the map. So any non-far texel
+		// halts and names that gap rather than inventing a compare that would render
+		// plausibly. RR_SHADOW dumps the receiver state and the zeta-write census here.
+		// See outrun-2006-xbox.md Parts XII-XIII.
 		if shadowTrace {
 			g.DumpZetaHist()
 			if !g.shadowDumped {
@@ -194,8 +253,27 @@ func (g *pgraph) texDecode(u int) (*texImage, bool, bool) {
 				g.dumpReceiverState()
 			}
 		}
-		g.m.CPU.Halt("nv2a: texture unit %d samples a depth buffer (LU X8_Y24, fmt=%08X) — shadow-map sampling unmodelled (map is all-far in every reachable frame; needs a populated caster to derive the compare)", u, format)
-		return nil, false, false
+		pitch := ctl1 >> 16
+		if pitch == 0 {
+			pitch = uint32(w * 4)
+		}
+		for y := 0; y < h; y++ {
+			row := phys + uint32(y)*pitch
+			for x := 0; x < w; x++ {
+				a := row + uint32(x*4)
+				if int(a)+4 > len(ram) {
+					continue
+				}
+				v := uint32(ram[a]) | uint32(ram[a+1])<<8 | uint32(ram[a+2])<<16 | uint32(ram[a+3])<<24
+				if v>>8 != 0xFFFFFF {
+					g.m.CPU.Halt("nv2a: texture unit %d samples a POPULATED depth buffer (LU X8_Y24, fmt=%08X, non-far texel at %d,%d = %06X) — the shadow compare is underivable without this caster's receiver frame; see Part XIII", u, format, x, y, v>>8)
+					return nil, false, false
+				}
+			}
+		}
+		for i := range img.pix {
+			img.pix[i] = 0xFF // the all-far (unoccluded-everywhere) compare result
+		}
 	default:
 		g.m.CPU.Halt("nv2a: texture unit %d color format 0x%02X unmodelled (fmt=%08X)", u, colorFmt, format)
 		return nil, false, false
@@ -415,6 +493,85 @@ func texWrapCoord(v float32, size int, mode uint32) float32 {
 		if v > n-1 {
 			v = n - 1
 		}
+	}
+	return v
+}
+
+// texSampleCube samples a cube-map unit with the interpolated 3-component direction:
+// major-axis face selection and the per-face (s, t) mapping follow the published
+// D3D/GL cube conventions for this hardware family. Filtering clamps within the
+// selected face (no cross-face seam filtering).
+func (g *pgraph) texSampleCube(st *rasterState, u int, x, y, z float32) [4]float32 {
+	img := st.texImg[u]
+	ax, ay, az := absf32(x), absf32(y), absf32(z)
+	var face int
+	var sc, tc, ma float32
+	switch {
+	case ax >= ay && ax >= az:
+		if x >= 0 {
+			face, sc, tc = 0, -z, -y
+		} else {
+			face, sc, tc = 1, z, -y
+		}
+		ma = ax
+	case ay >= az:
+		if y >= 0 {
+			face, sc, tc = 2, x, z
+		} else {
+			face, sc, tc = 3, x, -z
+		}
+		ma = ay
+	default:
+		if z >= 0 {
+			face, sc, tc = 4, x, -y
+		} else {
+			face, sc, tc = 5, -x, -y
+		}
+		ma = az
+	}
+	if ma == 0 {
+		return [4]float32{0, 0, 0, 1}
+	}
+	fx := (sc/ma + 1) * 0.5 * float32(img.w)
+	fy := (tc/ma + 1) * 0.5 * float32(img.h)
+	clampi := func(v, hi int) int {
+		if v < 0 {
+			return 0
+		}
+		if v > hi {
+			return hi
+		}
+		return v
+	}
+	fetch := func(xi, yi int) [4]float32 {
+		o := ((face*img.h+yi)*img.w + xi) * 4
+		return [4]float32{
+			float32(img.pix[o]) / 255, float32(img.pix[o+1]) / 255,
+			float32(img.pix[o+2]) / 255, float32(img.pix[o+3]) / 255,
+		}
+	}
+	if !st.texBilinear[u] {
+		return fetch(clampi(int(fx), img.w-1), clampi(int(fy), img.h-1))
+	}
+	gx, gy := fx-0.5, fy-0.5
+	x0f, y0f := floorf32(gx), floorf32(gy)
+	wx, wy := gx-x0f, gy-y0f
+	x0, x1 := clampi(int(x0f), img.w-1), clampi(int(x0f)+1, img.w-1)
+	y0, y1 := clampi(int(y0f), img.h-1), clampi(int(y0f)+1, img.h-1)
+	c00, c10 := fetch(x0, y0), fetch(x1, y0)
+	c01, c11 := fetch(x0, y1), fetch(x1, y1)
+	var out [4]float32
+	for i := 0; i < 4; i++ {
+		top := c00[i] + (c10[i]-c00[i])*wx
+		bot := c01[i] + (c11[i]-c01[i])*wx
+		out[i] = top + (bot-top)*wy
+	}
+	return out
+}
+
+func absf32(v float32) float32 {
+	if v < 0 {
+		return -v
 	}
 	return v
 }

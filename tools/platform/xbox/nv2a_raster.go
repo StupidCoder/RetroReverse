@@ -19,6 +19,9 @@ package xbox
 // per-pixel provenance record (the n3ds/gc shape). A depth-killed fragment carries no
 // color; an alpha-tested one carries the color it would have had; a drawn one carries
 // what actually reached memory.
+
+import "fmt"
+
 type PixelEvent struct {
 	Drawn                bool
 	ZReject, AlphaReject bool
@@ -230,7 +233,14 @@ func (g *pgraph) rasterStateDecode(st *rasterState) bool {
 	}
 
 	st.depthTest = g.Regs[kelvinDepthTestEnable>>2]&1 != 0 && st.hasZeta
-	st.depthWrite = g.Regs[kelvinDepthWriteMask>>2]&1 != 0 && st.hasZeta
+	// The depth write happens as part of the depth test (GL semantics, which this
+	// silicon exposes): with the test disabled nothing writes depth, whatever the
+	// write mask says. The game itself proves it — its loading-UI quads draw with
+	// test off, mask on and SET_SURFACE_ZETA_OFFSET=0, which with an unconditional
+	// write puts z=0 dwords over physical 0..0x25800: the title's OWN CODE at
+	// 0x20880 (each dword keeping its low "stencil" byte). On hardware that draw
+	// must write nothing or the game would corrupt itself. See Part XIII.
+	st.depthWrite = st.depthTest && g.Regs[kelvinDepthWriteMask>>2]&1 != 0
 	st.depthFunc = g.Regs[kelvinDepthFunc>>2]
 	st.alphaTest = g.Regs[kelvinAlphaTestEnable>>2]&1 != 0
 	st.alphaFunc = g.Regs[kelvinAlphaFunc>>2]
@@ -402,6 +412,14 @@ func (g *pgraph) rasterTri(v0, v1, v2 *kelvinVtx) {
 func (g *pgraph) shadePixel(st *rasterState, px, py int, b0, b1, b2, iw0, iw1, iw2 float32, v0, v1, v2 *kelvinVtx) {
 	m := g.m
 
+	// A fixed-function draw whose shading we cannot model (lighting/texgen) halts at
+	// its FIRST covered fragment — not at submission — so FF draws that provably paint
+	// nothing (off-screen, degenerate) pass through without inventing pixels.
+	if g.ffFragHalt != "" {
+		m.CPU.Halt("nv2a: draw %d fixed-function fragment at (%d,%d) — %s", g.Draws, px, py, g.ffFragHalt)
+		return
+	}
+
 	// Depth first (the hardware kills depth-failed fragments before the combiners).
 	var zAddr uint32
 	var zOld uint32
@@ -410,6 +428,12 @@ func (g *pgraph) shadePixel(st *rasterState, px, py int, b0, b1, b2, iw0, iw1, i
 		if zAddr+4 > uint32(len(m.RAM)) {
 			return
 		}
+	}
+	if lowWriteTrace && g.Draws != g.lowWriteDraw && (st.colorAddr(px, py) < 0x00700000 || (st.depthWrite && zAddr < 0x00700000)) {
+		g.lowWriteDraw = g.Draws
+		fmt.Printf("LOWWRITE draw=%d px=%d py=%d colorPhys=%08X zetaPhys=%08X pitch=%d/%d fmt=%08X ztest=%v zwrite=%v zfunc=%03X prim=%d\n",
+			g.Draws, px, py, st.colorPhys, st.zetaPhys, st.colorPitch, st.zetaPitch,
+			g.Regs[kelvinSurfaceFormat>>2], st.depthTest, st.depthWrite, st.depthFunc, g.prim)
 	}
 	z := b0*v0.pos[2] + b1*v1.pos[2] + b2*v2.pos[2]
 	zi := uint32(0)
@@ -457,6 +481,16 @@ func (g *pgraph) shadePixel(st *rasterState, px, py int, b0, b1, b2, iw0, iw1, i
 			continue
 		}
 		uvw := pc4(&v0.uv[u], &v1.uv[u], &v2.uv[u])
+		if st.texImg[u].cube {
+			// A cube map needs the CUBEMAP stage mode's 3-component direction; any
+			// other mode's coordinate semantics over a cube are unmodelled.
+			if st.texStage[u] != 3 {
+				g.m.CPU.Halt("nv2a: texture unit %d samples a cube map in stage mode %d — only CUBEMAP (3) is modelled", u, st.texStage[u])
+				return
+			}
+			in.tex[u] = g.texSampleCube(st, u, uvw[0], uvw[1], uvw[2])
+			continue
+		}
 		s, t := uvw[0], uvw[1]
 		if st.texStage[u] == 2 || (st.texStage[u] == 1 && uvw[3] != 0 && uvw[3] != 1) {
 			// projective: divide by q

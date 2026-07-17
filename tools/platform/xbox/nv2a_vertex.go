@@ -169,16 +169,27 @@ func (g *pgraph) beginEnd(arg uint32) {
 // rasterise.
 func (g *pgraph) runDraw() {
 	g.Draws++
-	if g.Regs[kelvinTransformExecMode>>2]&3 != 2 {
-		// Fixed-function T&L. Scoped but unmodelled: the world→clip transform is the
-		// SET_COMPOSITE_MATRIX (0x0680) applied row-vector (clip = pos·M, verified to
-		// produce valid NDC), model-view at 0x0480 and its inverse (for normals) at
-		// 0x0580; lighting is enabled (0x0314) for the one real reachable draw and its
-		// light/material state is not yet derived. This frontier sits BEHIND the shadow
-		// depth-sample halt, so no clean run reaches it. See outrun-2006-xbox.md Part XII.
-		g.m.CPU.Halt("nv2a: draw %d in fixed-function transform mode (0x1E94=%08X) — only program mode is modelled",
-			g.Draws, g.Regs[kelvinTransformExecMode>>2])
-		return
+	ff := g.Regs[kelvinTransformExecMode>>2]&3 != 2
+	g.ffFragHalt = ""
+	if ff {
+		// Fixed-function T&L. The TRANSFORM is modelled: clip = pos · composite
+		// (SET_COMPOSITE_MATRIX 0x0680, row-vector — NDC-verified in Part XII), then
+		// the viewport in the aliased c58/c59 slots, exactly what the program-mode
+		// epilogue computes. Lighting (0x0314) and FF texgen are NOT modelled — no
+		// reachable on-screen FF draw exists to verify them against — so a draw that
+		// needs either arms a fragment-level halt: an off-screen or degenerate FF
+		// draw passes through honestly, while one that would actually paint still
+		// halts and names the gap instead of shading something plausible.
+		if g.Regs[kelvinLightingEnable>>2]&1 != 0 {
+			g.ffFragHalt = "lighting is enabled and the FF lighting equation/state is unmodelled"
+		} else {
+			shader := g.Regs[0x1E70>>2]
+			for u := uint32(0); u < 4; u++ {
+				if g.Regs[(kelvinTexControl+u*0x40)>>2]>>30&1 != 0 && shader>>(5*u)&0x1F != 0 {
+					g.ffFragHalt = "textures are enabled and FF texgen is unmodelled"
+				}
+			}
+		}
 	}
 
 	// The enabled attribute set and the inline stride, from the latched formats.
@@ -223,7 +234,13 @@ func (g *pgraph) runDraw() {
 				in[a] = decodeAttr(&fmts[a], w[:fmts[a].words])
 				w = w[fmts[a].words:]
 			}
-			v, ok := g.transform(&in, trace && vi < 8)
+			var v kelvinVtx
+			var ok bool
+			if ff {
+				v, ok = g.transformFF(&in), true
+			} else {
+				v, ok = g.transform(&in, trace && vi < 8)
+			}
 			if !ok {
 				return
 			}
@@ -242,9 +259,14 @@ func (g *pgraph) runDraw() {
 			if !ok {
 				return
 			}
-			v, ok := g.transform(&in, trace && vi < 8)
-			if !ok {
-				return
+			var v kelvinVtx
+			if ff {
+				v = g.transformFF(&in)
+			} else {
+				v, ok = g.transform(&in, trace && vi < 8)
+				if !ok {
+					return
+				}
 			}
 			verts = append(verts, v)
 		}
@@ -282,6 +304,39 @@ func (g *pgraph) fetchArrayVertex(fmts *[16]vtxFmt, ix uint32) ([16][4]float32, 
 		in[a] = decodeAttr(vf, w[:vf.words])
 	}
 	return in, true
+}
+
+// transformFF runs one vertex through the fixed-function transform: clip = pos · M
+// with M the SET_COMPOSITE_MATRIX (0x0680) applied row-vector (the convention Part XII
+// verified produces valid NDC), then the viewport scale/offset in the aliased c58/c59
+// constant slots — the same mapping every program-mode epilogue computes, and the same
+// slots the hardware's viewport methods write. Diffuse/specular pass through from
+// attributes 3/4 and texcoords from 9-12; a draw that needs lighting or texgen never
+// gets here with those visible (runDraw arms the fragment halt).
+func (g *pgraph) transformFF(in *[16][4]float32) kelvinVtx {
+	pos := in[0]
+	var clip [4]float32
+	base := uint32(kelvinCompositeMatrix) >> 2
+	for j := 0; j < 4; j++ {
+		var s float32
+		for i := 0; i < 4; i++ {
+			s += pos[i] * math.Float32frombits(g.Regs[base+uint32(i*4+j)])
+		}
+		clip[j] = s
+	}
+	if clip[3] == 0 {
+		// A degenerate vertex (the reachable FF draws park 800 of them at the origin):
+		// an all-zero position gives every triangle zero area and the raster culls it.
+		return kelvinVtx{}
+	}
+	f := math.Float32frombits
+	sc, off := &g.Const[vshSlotViewportScale], &g.Const[vshSlotViewportOffset]
+	v := kelvinVtx{d0: in[3], d1: in[4], uv: [4][4]float32{in[9], in[10], in[11], in[12]}}
+	v.pos[0] = clip[0]/clip[3]*f(sc[0]) + f(off[0])
+	v.pos[1] = clip[1]/clip[3]*f(sc[1]) + f(off[1])
+	v.pos[2] = clip[2]/clip[3]*f(sc[2]) + f(off[2])
+	v.pos[3] = clip[3]
+	return v
 }
 
 // transform runs one vertex through the vertex program and maps the output registers

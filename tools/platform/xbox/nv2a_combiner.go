@@ -205,8 +205,8 @@ func (g *pgraph) combine(cs *combState, in *combInput) [4]float32 {
 			cd = [4]float32{dp, dp, dp, dp}
 		}
 		var sum [4]float32
-		if st.colorOCW>>14&1 == 1 { // mux: spare0.a >= 0.5 picks AB
-			if r.spare[0][3] >= 0.5 {
+		if st.colorOCW>>14&1 == 1 { // mux: spare0.a < 0.5 picks AB, else CD (per the spec)
+			if r.spare[0][3] < 0.5 {
 				sum = ab
 			} else {
 				sum = cd
@@ -229,7 +229,7 @@ func (g *pgraph) combine(cs *combState, in *combInput) [4]float32 {
 		cdA := [4]float32{0, 0, 0, ca[3] * da[3]}
 		var sumA [4]float32
 		if st.alphaOCW>>14&1 == 1 {
-			if r.spare[0][3] >= 0.5 {
+			if r.spare[0][3] < 0.5 {
 				sumA = abA
 			} else {
 				sumA = cdA

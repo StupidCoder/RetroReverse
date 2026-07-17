@@ -353,6 +353,28 @@ func kernelObjectHandler(ord uint16) func(*Machine) int {
 				fo.off = m.read32(buf) // low dword; disc files stay under 4 GB
 				m.finishOpen(iosb, h, 0, 0)
 
+			case class == 0x4 && ln >= 0x28:
+				// FileBasicInformation: four 64-bit times + FileAttributes, set by the
+				// save path on its U:\ files (the class-4 sites in the census above; the
+				// live run reaches 0x4339D once the race loads). Stored verbatim per
+				// store key so any future readback derives from what the guest wrote —
+				// nothing reads the times back yet (query class 4 still halts by name,
+				// and the directory enumeration reports zeros as before). A disc file
+				// halts: the image is read-only media and no site has ever set times on
+				// one, so a status would be a guess about a path that does not exist.
+				if fo.cache == nil || fo.key == "" {
+					m.CPU.Halt("NtSetInformationFile: set FileBasicInformation on a non-store file (%q) from %08X",
+						fo.entry.Path, m.retAddr())
+					return 5
+				}
+				blob := make([]byte, 0x28)
+				for i := range blob {
+					blob[i] = m.Read(buf + uint32(i))
+				}
+				m.fileBasic[fo.key] = blob
+				m.logf("NtSetInformationFile: %q FileBasicInformation stored (attrs %08X)", fo.key, m.read32(buf+0x20))
+				m.finishOpen(iosb, h, 0, 0)
+
 			case (class == 0x13 || class == 0x14) && ln >= 8:
 				// The high dword is read and required to be zero rather than ignored: a
 				// 64-bit length is what the field IS, and this store cannot hold one. A

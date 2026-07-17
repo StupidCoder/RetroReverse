@@ -101,6 +101,7 @@ type Machine struct {
 	objects     map[uint32]*kobject
 	files       map[uint32]*fileObject // open disc/HDD file handles (kernel_file.go)
 	cacheFS     map[string]*cacheFile  // the writable HDD title partitions (T:/U:/Z:)
+	fileBasic   map[string][]byte      // per-key FileBasicInformation blobs the title set (NtSetInformationFile class 4)
 	pendingIO   []pendingIO            // paced async read completions (kernel_file.go)
 	poolSizes   map[uint32]uint32      // ExAllocatePoolWithTag block -> byte size (ExQueryPoolBlockSize)
 	nextObjAddr uint32                 // bump pointer within the kernel band for new dispatcher objects
@@ -245,6 +246,7 @@ func NewMachine(xbe *XBE, disc *Image) (*Machine, error) {
 		objects:     map[uint32]*kobject{},
 		files:       map[uint32]*fileObject{},
 		cacheFS:     map[string]*cacheFile{},
+		fileBasic:   map[string][]byte{},
 		poolSizes:   map[uint32]uint32{},
 		OrdinalHits: map[uint16]int{},
 		dataDeref:   map[uint16]bool{},

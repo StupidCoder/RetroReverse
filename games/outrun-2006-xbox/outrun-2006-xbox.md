@@ -1715,3 +1715,132 @@ Two frontiers, both named precisely rather than papered over:
 
 The pitch path did not move (cold-boot title frame still `5439dd95c92d462d03b9c5fbbd8a6c86`); the
 Part XI reflection render still stands; `go test ./tools/platform/xbox/` passes.
+
+## Part XIII — the race loads, and the thing blocking it was our own raster
+
+Part XII left two rendering frontiers and one question: past them, does the race actually finish
+loading? The answer turned out to be yes — and the blocker was never the rendering *or* the
+loading. It was a depth-write semantics bug in our raster that let a loading-screen UI quad
+shred the title's own code, one phantom z=0 at a time. Every frontier on the way there fell to
+the register evidence already in hand.
+
+### The receiver's combiner, decoded — and the prior session's read corrected
+
+The RR_SHADOW receiver dump, extended with the blend state and the per-stage combiner factors,
+pins what the shadow overlay actually computes. The four stages are (factors: stage-1/2
+`factor0=80A0A0A0`, stage-3 `factor1=3F000000`):
+
+```
+stage0:  spare0     = diffuse                       (color and alpha)
+stage1:  spare1     = c0 + TEX3                     (c0.rgb = 0.627, c0.a = 0.502)
+stage2:  spare0.rgb = spare0.rgb * spare1.rgb       (alpha: identity)
+stage3:  spare0.a   = mux(spare0.a) ? 0 : c1.a      (c1.a = 0.247);  color: identity
+final:   out.rgb    = fog.a*spare0.rgb + (1-fog.a)*fog.rgb + specular;  out.a = spare0.a
+```
+
+Two corrections to Part XI/XII's reading fall straight out:
+
+- **TEX3's alpha never reaches the output.** Stage 1 puts it in `spare1.a`, which nothing reads
+  again. The alpha-tested gate (`GEQUAL ref=1/255`) is fed by *diffuse alpha* muxed against a
+  constant — the overlay's footprint is geometric, chosen per-vertex, independent of the map.
+- **The sample enters through the color**: `out.rgb = diffuse.rgb × clamp01(0.627 + TEX3.rgb)`,
+  blend **disabled**. TEX3 ≥ 0.373 clamps the factor to 1 — the unshadowed paint; TEX3 = 0
+  darkens to 0.627 — the shadow.
+
+That second line is what makes the all-far sample derivable *without* the compare's polarity:
+over an all-far map every fragment is unoccluded, and "unoccluded" must be the return that
+leaves the paint at its unshadowed baseline — a candidate where far texels return 0 would darken
+the world by 0.627 unconditionally, which the reference frames refute. Hardware depth-compares
+return 0/1 replicated, so **an all-far map samples as 1.0 (white) in every channel, under every
+candidate compare function**. That case is now modelled: `texDecode` scans the bound map at
+decode time, returns the all-white image if every texel is far, and **halts if any texel is
+not** — the compare itself (function, polarity) still needs a populated caster, and now the
+model itself verifies that precondition on every decode. (Also fixed while in there: the
+combiner mux read `spare0.a >= 0.5 → AB`; the silicon's public spec says `< 0.5 → AB`. No test
+pinned it and no reachable frame moved — the title hash is unchanged — but the receiver's gate
+runs through that mux, so it had to be right before the gate could be reasoned about.)
+
+### Cube maps: the game renders INTO its environment cube
+
+The next halt behind the sample was the DXT3 cube map Part XII scoped (`fmt=06610E2D`, 64×64,
+single-mip, unit 1, stage mode 3 = CUBEMAP). Modelled: six faces stored consecutively
+(face stride = the block bytes for DXT), published `+X,-X,+Y,-Y,+Z,-Z` order, major-axis face
+selection from the interpolated 3-component direction, per-face clamped filtering. A cube in
+any other color format, non-square, or with a mip chain still halts by name — face strides for
+those are unverified guesses.
+
+Then the run produced a cube nobody had seen: **swizzled A8R8G8B8, 128×128** (`fmt=0771062D`).
+That size is the Part X/XI reflection RTTs — and the game packs those exactly `0x10000 =
+128×128×4` bytes apart, which *is* a cube's face stride with zero padding. The title isn't just
+rendering reflections to textures; it's rendering them into the faces of an environment cube
+map and sampling it on the car's bodywork. The face stride for the swizzled cube case is
+therefore the game's own layout, not a guess. The glossy sweep over the Ferrari's paint in the
+race frames is this path working end-to-end.
+
+### Fixed-function T&L: model the verified half, arm a halt for the rest
+
+The FF transform Part XII derived and NDC-verified is now real: `clip = pos · M` with
+`SET_COMPOSITE_MATRIX` (0x0680) row-vector, then the viewport scale/offset from the aliased
+`c58`/`c59` slots — the exact mapping every program-mode epilogue computes, reading the same
+registers the hardware's viewport methods write. What is *not* modelled is FF lighting and
+texgen, and the discipline is a **fragment-level halt**: a FF draw that needs either arms
+`ffFragHalt`, and the raster halts the moment such a fragment would actually land. The
+reachable FF draws (one sub-pixel off-left strip, three 800-vertex degenerates at the origin)
+pass through without painting — honestly — while any future on-screen lit FF draw still names
+the gap instead of shading something plausible.
+
+### ★ The real blocker: a depth write that GL says never happens
+
+With all three frontiers honestly modelled, the run reached the same CPU fault the toleration
+probe had seen — `out-of-range read at 0x41000000, PC 0x208A3` — proving it was never a
+toleration artifact. The disassembly at the fault decodes *zeroed* code: every corrupted dword
+keeps its **low byte** and loses the other three. That signature is our own depth write —
+`stored = z<<8 | stencil` — with z = 0. The `-watch` saw no writer because the raster stores to
+RAM directly; an `RR_LOWWRITE` instrument caught it in one run:
+
+```
+LOWWRITE draw=487367 colorPhys=01DD7780 zetaPhys=00000000 ztest=false zwrite=true prim=QUADS
+```
+
+A loading-UI quad draws with depth **test disabled**, depth **mask enabled**, and
+`SET_SURFACE_ZETA_OFFSET = 0`. Our raster honoured the mask unconditionally and wrote z=0
+dwords from physical 0 upward — straight across the title's code at `0x20880` (also explaining
+Part XII's mystery census buckets: `zeta=00000000` and `01DD7780`, one draw each, all-zero).
+On this silicon the depth write happens *as part of* the depth test — test disabled means
+nothing writes, whatever the mask says (GL semantics, and D3D's `ZENABLE=FALSE` compiles to
+exactly this). The game itself is the proof: on real hardware this draw must write nothing, or
+OutRun would corrupt its own loader on every loading screen. One line —
+`st.depthWrite = st.depthTest && mask` — and the corruption, the fault, and the "loading
+blocker" all vanish.
+
+### ★ The race runs, and the oracle drives it
+
+From `gameplay.state`, no pokes, no tolerations: the loading screen completes (clean frame —
+logo, spinner, PLEASE WAIT, none of the banding/black-surface artifacts the toleration probes
+had painted; those were the fakes' own fingerprints), the track streams in, and the game runs
+**billions of instructions** into the race before meeting anything unmodelled at all. The next
+and only frontier it met was `NtSetInformationFile` class 4 — FileBasicInformation, the save
+path stamping times on its U:\ files (the class-4 sites the Part XII census had already read:
+0x4339D live). Modelled: the 40-byte blob is stored verbatim per store key (savestate field
+`FileBasic`, nil from older snapshots) so any future readback derives from what the guest
+wrote; query class 4 still halts by name, and nothing invented flows back.
+
+Past that, the run completed an 8-billion-step budget with **no halt**: grid frame with the
+driver at the wheel, burnout smoke on the start line — and with `-keys "a@5:2000"` holding
+accelerate, the oracle **plays the race**: full HUD (Time 78, Position 6/6, speedo,
+start/goal bar), green start light, the starter waving the field off, the Ferrari pulling away
+(`work/race-start-drive.png`, md5 `e9af08f57c9f9d7517d46c8127a3c90b`; the burnout frame is
+`work/race-burnout.png`, `6f9c8710d00db142dc3eb9464732c38e`; `work/states/race.state` resumes
+in-race). `-surfpng` captures are mid-frame at the stop point, so partially-drawn regions
+(black wedges) are capture timing, not defects.
+
+### Where Part XIII leaves it
+
+- The **shadow compare** remains the one named rendering gap, now self-verifying: the first
+  frame that casts real depth into a sampled map halts at the sample with the census in hand.
+  Notably the whole 8B-step race window never populated the 512-map — this course seems not to
+  cast into it at all.
+- **FF lighting/texgen** halts on the first visible fragment that needs them; none has appeared.
+- The cold-boot title frame is byte-identical (`5439dd95c92d462d03b9c5fbbd8a6c86`, procedure:
+  `title.state` +100M steps `-surfpng`), and `go test` passes across
+  `tools/platform/xbox`, `tools/cpu/x86`, and `tools/debug/...`.

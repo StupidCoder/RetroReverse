@@ -172,6 +172,7 @@ type XboxState struct {
 	// disc-streaming path masked because its reads pass explicit byte offsets; a
 	// held-open cache file made it fatal. Nil from older snapshots.
 	CacheFS   map[string][]byte
+	FileBasic map[string][]byte // per-key FileBasicInformation blobs (nil from older snapshots)
 	OpenFiles []fileSnap
 
 	// Kernel HLE bookkeeping
@@ -321,6 +322,7 @@ func (m *Machine) SaveState() *XboxState {
 		ShaCtx:      copyByteSliceMap(m.shaCtx),
 		Rc4Ctx:      copyByteSliceMap(m.rc4Ctx),
 		CacheFS:     copyCacheFS(m.cacheFS),
+		FileBasic:   copyStrByteMap(m.fileBasic),
 		OrdinalHits: copyOrdMap(m.OrdinalHits),
 		NextTID:     m.nextTID, RRCursor: m.rrCursor, QuantumLeft: m.quantumLeft,
 		CurThread: curIdx,
@@ -443,6 +445,7 @@ func (m *Machine) LoadState(st *XboxState) error {
 	for k, v := range st.CacheFS {
 		m.cacheFS[k] = &cacheFile{Data: append([]byte(nil), v...)}
 	}
+	m.fileBasic = copyStrByteMap(st.FileBasic)
 	m.files = map[uint32]*fileObject{}
 	for _, fs := range st.OpenFiles {
 		fo := &fileObject{entry: fs.Entry, key: fs.Key, dir: fs.Dir, off: fs.Off, scan: fs.Scan}
@@ -549,6 +552,13 @@ func copyByteMap(src map[uint32]byte) map[uint32]byte {
 }
 func copyByteSliceMap(src map[uint32][]byte) map[uint32][]byte {
 	dst := make(map[uint32][]byte, len(src))
+	for k, v := range src {
+		dst[k] = append([]byte(nil), v...)
+	}
+	return dst
+}
+func copyStrByteMap(src map[string][]byte) map[string][]byte {
+	dst := make(map[string][]byte, len(src))
 	for k, v := range src {
 		dst[k] = append([]byte(nil), v...)
 	}

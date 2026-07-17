@@ -70,6 +70,11 @@ type pgraph struct {
 	ranges  [][2]uint32
 	vtxAttr [16][4]float32
 	Draws   int
+	lowWriteDraw int // RR_LOWWRITE: last draw reported, one line per draw
+	// ffFragHalt, when non-empty, names why the current fixed-function draw cannot
+	// shade a fragment (lighting/texgen unmodelled); the raster halts with it the
+	// moment a fragment of that draw would actually land (nv2a_vertex.go runDraw).
+	ffFragHalt string
 
 	// presented is the colour surface as it stood at the last FLIP_STALL — the buffer the
 	// title handed to the screen (nv2a_frame.go). It is how this machine knows what the TV
@@ -189,11 +194,16 @@ func (g *pgraph) dumpReceiverState() {
 			g.Regs[(kelvinTexControl+r)>>2], g.Regs[(kelvinTexCtl1+r)>>2], g.Regs[(kelvinTexFilter+r)>>2],
 			g.Regs[(kelvinTexRect+r)>>2], g.Regs[(kelvinTexControl+r)>>2]>>30&1)
 	}
+	fmt.Printf("RECV blend=%d src=%04X dst=%04X eq=%04X const=%08X\n",
+		g.Regs[kelvinBlendEnable>>2]&1, g.Regs[kelvinBlendSrcFactor>>2]&0xFFFF,
+		g.Regs[kelvinBlendDstFactor>>2]&0xFFFF, g.Regs[kelvinBlendEquation>>2]&0xFFFF,
+		g.Regs[kelvinBlendColor>>2])
 	n := int(g.Regs[kelvinCombinerControl>>2] & 0xFF)
 	for i := 0; i < n && i < 8; i++ {
-		fmt.Printf("RECV stage%d colorICW=%08X colorOCW=%08X alphaICW=%08X alphaOCW=%08X\n", i,
+		fmt.Printf("RECV stage%d colorICW=%08X colorOCW=%08X alphaICW=%08X alphaOCW=%08X factor0=%08X factor1=%08X\n", i,
 			g.Regs[kelvinCombinerColorICW>>2+uint32(i)], g.Regs[kelvinCombinerColorOCW>>2+uint32(i)],
-			g.Regs[kelvinCombinerAlphaICW>>2+uint32(i)], g.Regs[kelvinCombinerAlphaOCW>>2+uint32(i)])
+			g.Regs[kelvinCombinerAlphaICW>>2+uint32(i)], g.Regs[kelvinCombinerAlphaOCW>>2+uint32(i)],
+			g.Regs[kelvinCombinerFactor0>>2+uint32(i)], g.Regs[kelvinCombinerFactor1>>2+uint32(i)])
 	}
 	fmt.Printf("RECV final cw0=%08X cw1=%08X\n", g.Regs[kelvinSpecFogCW0>>2], g.Regs[kelvinSpecFogCW1>>2])
 	// The oT3 texture matrix (transform constants c176..c179) and texgen mode.

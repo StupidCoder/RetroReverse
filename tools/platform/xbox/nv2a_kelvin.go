@@ -21,6 +21,7 @@ var nvSemTrace = os.Getenv("RR_NV_SEM") != ""
 var nvVPTrace = os.Getenv("RR_NV_VP") != ""
 var nvSurfTrace = os.Getenv("RR_NV_SURF") != ""
 var shadowTrace = os.Getenv("RR_SHADOW") != ""
+var lowWriteTrace = os.Getenv("RR_LOWWRITE") != ""
 
 // Kelvin methods with modelled side effects (NV2A method numbers).
 const (
