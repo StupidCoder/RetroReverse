@@ -75,6 +75,10 @@ type attrLayout struct {
 	nrmDesc  uint32
 	nrmFmt   uint32
 	nrmComps int
+	// nrmIdxComps is how many components the ARRAY element an indexed normal names holds, which
+	// is not always nrmComps: a three-index NBT normal points each index at its own
+	// three-component vector, so the normal proper is three components, not nine.
+	nrmIdxComps int
 
 	col0Off  int
 	col0Desc uint32
@@ -129,17 +133,18 @@ func (g *gpu) layout(vat int) attrLayout {
 		}
 	}
 
-	sizeOf := func(desc uint32, direct int) int {
+	sizeOfN := func(desc uint32, direct, nIdx int) int {
 		switch desc {
 		case descIndex8:
-			return 1
+			return nIdx
 		case descIndex16:
-			return 2
+			return 2 * nIdx
 		case descDirect:
 			return direct
 		}
 		return 0
 	}
+	sizeOf := func(desc uint32, direct int) int { return sizeOfN(desc, direct, 1) }
 
 	// Position.
 	a.posDesc = (lo >> 9) & 3
@@ -155,16 +160,24 @@ func (g *gpu) layout(vat int) attrLayout {
 	}
 
 	// Normal — read for the lighting channel. With the normal/binormal/tangent set enabled
-	// the element is nine components; the normal proper is the first three.
+	// the element is nine components; the normal proper is the first three. Such a normal may
+	// also be indexed three times over, one index per vector (see normalIndexCount): then the
+	// index at nrmOff names a THREE-component element — the normal proper — and the binormal
+	// and tangent follow as indices of their own, which the lighting channel does not read but
+	// every attribute after them is offset by.
 	a.nrmDesc = (lo >> 11) & 3
 	a.nrmFmt = (g0 >> 10) & 7
 	a.nrmComps = 3
 	if (g0>>9)&1 != 0 {
 		a.nrmComps = 9
 	}
+	a.nrmIdxComps = a.nrmComps
+	if normalIndexCount(g0) == 3 {
+		a.nrmIdxComps = 3
+	}
 	if a.nrmDesc != descNone {
 		a.nrmOff = off
-		off += sizeOf(a.nrmDesc, a.nrmComps*componentBytes(a.nrmFmt))
+		off += sizeOfN(a.nrmDesc, a.nrmComps*componentBytes(a.nrmFmt), normalIndexCount(g0))
 	}
 
 	// Colour 0.
@@ -279,7 +292,7 @@ func (g *gpu) drawPrimitive(m *Machine, prim uint32, vat, vsize int, data []byte
 		var nex, ney, nez float32
 		var mnx, mny, mnz float32
 		if lay.nrmOff >= 0 {
-			if nb := g.attrData(m, v, lay.nrmOff, lay.nrmDesc, 1, lay.nrmComps*componentBytes(lay.nrmFmt)); nb != nil {
+			if nb := g.attrData(m, v, lay.nrmOff, lay.nrmDesc, 1, lay.nrmIdxComps*componentBytes(lay.nrmFmt)); nb != nil {
 				mnx, mny, mnz = readNormal(nb, lay.nrmFmt)
 				nex, ney, nez = g.normalToEye(mtxIdx, mnx, mny, mnz)
 			}

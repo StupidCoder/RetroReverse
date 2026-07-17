@@ -53,6 +53,25 @@ func colorBytes(comp uint32) int {
 	return 0
 }
 
+// normalIndexCount is how many indices an INDEXED normal attribute spends in the vertex. It is
+// normally one — one index naming one element of the normal array — but a vertex carrying the
+// normal/binormal/tangent set (VAT A bit 9) may name its three vectors with three SEPARATE
+// indices instead of one index into a nine-component element, and VAT A bit 31 is which of the
+// two it chose. The bit only means anything for an indexed NBT normal: a direct normal carries
+// its components inline, and a plain 3-component normal is one index either way.
+//
+// Pinned from Luigi's Mansion's own display list at 0x808DA3A0, whose VAT A is 0xC1377209 (NBT
+// and bit 31 both set) and whose vertices measure 13 bytes on the stride the list itself shows
+// — 3 matrix-index bytes + a position index + THREE normal indices + a texture-coordinate
+// index. Reading the bit as one index sizes that vertex at 9, and the four bytes the parser
+// then fails to step over desynchronise the rest of the list.
+func normalIndexCount(g0 uint32) int {
+	if (g0>>9)&1 != 0 && (g0>>31)&1 != 0 {
+		return 3
+	}
+	return 1
+}
+
 // vertexSize returns how many bytes one vertex of the given attribute-table index occupies in
 // the FIFO stream, computed from the current vertex descriptor (CP registers 0x50/0x60) and
 // that table (0x70/0x80/0x90 + index).
@@ -73,19 +92,21 @@ func (g *gpu) vertexSize(vat int) int {
 		}
 	}
 
-	// add accounts for an attribute that may be absent, inline, or an index. An index costs
+	// addN accounts for an attribute that may be absent, inline, or an index. An index costs
 	// one or two bytes whatever the array element's size; only a direct attribute carries its
-	// data inline, and only then does the format-derived size apply.
-	add := func(desc uint32, direct int) {
+	// data inline, and only then does the format-derived size apply. nIdx is how many indices
+	// an indexed form spends — one for every attribute except the three-index normal.
+	addN := func(desc uint32, direct, nIdx int) {
 		switch desc {
 		case descIndex8:
-			size++
+			size += nIdx
 		case descIndex16:
-			size += 2
+			size += 2 * nIdx
 		case descDirect:
 			size += direct
 		}
 	}
+	add := func(desc uint32, direct int) { addN(desc, direct, 1) }
 
 	// Position: 2 or 3 components.
 	posComps := 2
@@ -94,12 +115,13 @@ func (g *gpu) vertexSize(vat int) int {
 	}
 	add((lo>>9)&3, posComps*componentBytes((g0>>1)&7))
 
-	// Normal: 3 components, or 9 when the normal/binormal/tangent set is enabled.
+	// Normal: 3 components, or 9 when the normal/binormal/tangent set is enabled — and an
+	// indexed NBT normal may spend three indices rather than one (see normalIndexCount).
 	nrmComps := 3
 	if (g0>>9)&1 != 0 {
 		nrmComps = 9
 	}
-	add((lo>>11)&3, nrmComps*componentBytes((g0>>10)&7))
+	addN((lo>>11)&3, nrmComps*componentBytes((g0>>10)&7), normalIndexCount(g0))
 
 	// Two colours, each with its own component format.
 	add((lo>>13)&3, colorBytes((g0>>14)&7))
