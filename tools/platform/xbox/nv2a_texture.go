@@ -42,6 +42,9 @@ const (
 	texFmtLU_A8R8G8B8 = 0x12
 	texFmtSZ_A8       = 0x19
 	texFmtLU_X8R8G8B8 = 0x1E
+	// Linear depth+stencil (X8_Y24: depth [31:8], stencil [7:0] — the raster's own
+	// zeta layout). Identified, not modelled: see the halt in texDecode.
+	texFmtLU_DepthX8Y24 = 0x2E
 )
 
 // texKey identifies a decoded texture within one pusher run.
@@ -167,6 +170,18 @@ func (g *pgraph) texDecode(u int) (*texImage, bool, bool) {
 		})
 	case texFmtLU_R5G6B5:
 		decodeLinear(img, ram, phys, ctl1>>16, 2, decode565)
+	case texFmtLU_DepthX8Y24:
+		// Identified from the reached gameplay window, not modelled: the game binds a
+		// 512x512 buffer as BOTH color and zeta offset (a depth-render pass), then
+		// samples it here — dwords of depth<<8|stencil, the raster's own zeta layout
+		// (the cleared buffer reads back uniform FFFFFF00). The consumer is a
+		// shadow-receiver draw: oT3 comes from a texture matrix, the stage mode is
+		// projective, the combiner adds TEX3 into an alpha-tested black overlay. What
+		// a sample RETURNS (a depth compare against r/q? which channels? what
+		// polarity?) is not derivable until a caster pass writes real occluder depth
+		// in a reachable window — so this halts rather than inventing a compare.
+		g.m.CPU.Halt("nv2a: texture unit %d samples a depth buffer (LU X8_Y24, fmt=%08X) — shadow-map sampling unmodelled", u, format)
+		return nil, false, false
 	default:
 		g.m.CPU.Halt("nv2a: texture unit %d color format 0x%02X unmodelled (fmt=%08X)", u, colorFmt, format)
 		return nil, false, false

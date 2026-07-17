@@ -60,6 +60,16 @@ roadmap.)
   sites that set them, ordinal 198 renamed off its call site, and the save file committed — ending on
   a game bug our own gap detonates, in which an unchecked HRESULT turns a NULL XONLINE singleton into
   a 5.7-million-iteration loop. *(this document)*
+* **Part X** — the **swizzled render target**: its 128×128 size sits in the two nibbles a pitch
+  surface leaves blank, the raster's colour/zeta/clear writes route through the texture unit's own
+  Morton function, and the target turns out to be a reflection map — whose geometry collapses to
+  `[0,0,0,w]` on a zero viewport, the next part's question. *(this document)*
+* **Part XI** — **the viewport was in the register file all along**: `SET_VIEWPORT_SCALE`/`OFFSET`
+  are methods the dispatch latched and dropped — on the NV2A they *are* transform constants c58/c59,
+  the slots every 3-D program's screen-space epilogue reads. Three legs pin the aliasing from the
+  image alone; the reflection targets render from the derived state, and the depth mapping the
+  probe had guessed comes out of the game's own method stream. Ends identifying the next frontier:
+  a depth *texture* (0x2E) sampled by a shadow-receiver pass. *(this document)*
 
 ---
 
@@ -1510,3 +1520,89 @@ gaps: the zero viewport constants that degenerate the reflection's geometry (Par
   `xbox.PadControlNames()`, shared with the debugger, and cover the analog buttons and the stick
   (`-keys "a@30:10,stickright@260:15"`).
 - `tools/cpu/x86/sse.go` — the SSE/SSE2 + MMX execution subset (the Xbox-only CPU addition).
+- `RR_NV_VP=1` traces the viewport methods (`0x0A20`/`0x0AF0`) and any constant load landing in
+  slots 56–60; `RR_NV_SURF=1` traces the surface state methods (`0x0200`–`0x0214`) — both print
+  the current draw count, which is how a value is placed *before* or *after* a pass.
+
+## Part XI — the viewport was in the register file all along
+
+Part X left the three 128×128 reflection targets rendering only their clear: every triangle's
+screen position came out `[0, 0, 0, w]`, because the program's screen-space epilogue multiplies by
+a viewport scale in `c58` and adds an offset in `c59`, and both were zero. The session that found
+this searched the reached window for constant loads and for "viewport methods" and saw neither, so
+the constants were presumed set before the savestate by some path unknown.
+
+Half of that search was wrong, and the way it was wrong is the whole lesson: it watched method
+`0x0A30`, which is nothing, and concluded "no viewport methods". The zero-hit had no control. The
+savestate's own **latched register file** — every method the dispatch doesn't model still lands in
+`Regs` — held the answer the search missed:
+
+```
+0x0A20..0A24 = 0.53125, 0.53125            a half-pixel bias: a viewport OFFSET
+0x0AF0..0AF8 = 320, -240, 16777215         ±half-extent and a 24-bit z range: a viewport SCALE
+```
+
+The game had been writing its viewport all along, through two dedicated Kelvin methods —
+`SET_VIEWPORT_OFFSET` (`0x0A20`) and `SET_VIEWPORT_SCALE` (`0x0AF0`) — which our dispatch latched
+into `Regs` and dropped. Under `RR_NV_VP` the reached window contains **1,200** such writes.
+
+### Three legs, each forced, none optional
+
+On the NV2A the viewport does not sit beside the transform constants — it lives **in** them. The
+aliasing (`0x0AF0` → `c58`, `0x0A20` → `c59`) is pinned from the image alone:
+
+- **The epilogue's arithmetic names the roles.** `MUL oPos.xyz, R12.xyz, c58.xyz` then
+  `MAD oPos.xyz, R12.xyz, R1.x, c59.xyz` (`R1.x = RCC(w)`) computes
+  `screen = clip/w × c58 + c59` — the multiplied slot is a scale, the added one an offset.
+- **The values name the methods.** Per pass, `0x0AF0` receives `(w/2, -h/2, 2²⁴-1, 0)` and
+  `0x0A20` receives `(x+w/2+0.53125, y+h/2+0.53125, 0, 0)`: `(320,-240)/(320.53,240.53)` for the
+  640×480 pass, `(64,-64)/(64.53,64.53)` for the 128×128 reflection targets, `(256,-256)` and
+  `(160,-120)` for two others — dimensionally a scale and an offset, sized to each target.
+- **Nothing else can reach the slots.** Across the whole window: zero `SET_TRANSFORM_CONSTANT`
+  loads targeting slots 56–60 (this time *with* a control — the same instrumented run catches the
+  1,200 viewport-method writes, and the constant file shows the load path demonstrably working
+  elsewhere: `c0`/`c1`, the `c160`–`163` MVP). If the methods don't alias into the file, no
+  mechanism exists by which the program's `c58`/`c59` could ever hold the viewport the game
+  demonstrably configures.
+
+The model is two cases in `kelvinMethod`: the two 4-float method windows write
+`Const[58]`/`Const[59]`. A unit test pins the routing and that neighbouring methods don't leak
+into the slots. The 2-D passthrough passes are untouched — their programs carry their own
+viewport in `c0`/`c1` (explicit const loads, visible as the last-latched upload in the same
+register file) and never reference `c58`/`c59`.
+
+### The z mapping the probe guessed, read instead
+
+Part X's probe invented `z' = z/w × 2²³ + 2²³`. The game's own stream says otherwise, uniformly,
+in every pass it programs: **scale.z `= 16777215`, offset.z `= 0`** — `z' = clip.z/w × (2²⁴-1)`,
+full-range D3D depth onto the 24-bit buffer, no bias. Derived, not chosen: it is the third
+component of the same two method vectors.
+
+### ★ The reflections render from the derived state
+
+From `gameplay.state`, no pokes: the three swizzled targets de-swizzle to a coherent road /
+horizon / grandstand reflection (`work/swizzled-rtt-derived-viewport.png`, md5
+`6a63813a4ff197a8a0faa15ad90c3cb2` — the same scene the Part X probe drew, now with the true
+depth mapping). The pitch path did not move: the cold-boot title frame is still md5
+`5439dd95c92d462d03b9c5fbbd8a6c86`. And because the epilogue is the *same* for every 3-D program
+this port compiles, the fix feeds the 640×480 race view identically — the reached window now
+halts inside the main pass on the next real gap, with honest geometry behind it.
+
+### The next frontier introduces itself: a depth buffer as a texture
+
+The new halt is texture format `0x2E` on unit 3, and the window says precisely what it is. At
+draw 487176 the game binds `0x01C18180` as **both** colour and zeta offset — a 512×512,
+pitch-2048 depth-render pass — and six draws later unit 3 samples that address as a linear
+texture. Its content reads back as dwords of `depth<<8 | stencil` (the cleared buffer is uniform
+`FFFFFF00`), which is the raster's own zeta layout: `0x2E` is the **linear X8_Y24 depth+stencil
+image**. The consumer is a shadow receiver — `oT3` comes from a texture matrix (`c176`–`179`),
+the stage mode is projective, the combiner adds `TEX3` into a black overlay gated by an alpha
+test `GEQUAL 1`.
+
+What a *sample* of it returns — a hardware depth-compare against `r/q`? in which channels, with
+which polarity? — is not derivable yet: the only reachable map is all-far (no caster pass draws
+in the window; a bounded toleration probe shows the run advances just ~250k steps before the
+next unit halts on a DXT3 **cube map**, `fmt=06610E2D`). So the format is *identified* and the
+halt now names it — `samples a depth buffer (LU X8_Y24) — shadow-map sampling unmodelled` —
+rather than inventing a compare whose wrongness would render plausibly. Part XII's queue:
+the shadow-map sample semantics (needs a window with a caster), then cube maps.

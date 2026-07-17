@@ -248,6 +248,32 @@ func TestKelvinInlineDraw(t *testing.T) {
 
 // TestKelvinStateRoundTrip covers the new pipeline fields in the savestate: program,
 // constants, staging, and an open BEGIN batch survive a save/load.
+// TestViewportAliasesIntoConstants pins the SET_VIEWPORT_OFFSET/SCALE routing: the
+// viewport methods write the transform-constant file at the slots the D3D screen-space
+// epilogue reads (c59 offset, c58 scale) — the values are OutRun's own 640x480 pass.
+// A method one past each 4-float window must NOT touch the slots.
+func TestViewportAliasesIntoConstants(t *testing.T) {
+	m := gpuMachine(t)
+	g := m.pgraph
+	off := [4]uint32{fbits(320.53125), fbits(240.53125), 0, 0}
+	scl := [4]uint32{fbits(320), fbits(-240), fbits(16777215), 0}
+	for i := uint32(0); i < 4; i++ {
+		g.kelvinMethod(kelvinViewportOffset+4*i, off[i])
+		g.kelvinMethod(kelvinViewportScale+4*i, scl[i])
+	}
+	if g.Const[vshSlotViewportOffset] != off {
+		t.Errorf("c59 = %v, want offset %v", g.Const[vshSlotViewportOffset], off)
+	}
+	if g.Const[vshSlotViewportScale] != scl {
+		t.Errorf("c58 = %v, want scale %v", g.Const[vshSlotViewportScale], scl)
+	}
+	g.kelvinMethod(kelvinViewportOffset+0x10, fbits(999))
+	g.kelvinMethod(kelvinViewportScale+0x10, fbits(999))
+	if g.Const[vshSlotViewportOffset] != off || g.Const[vshSlotViewportScale] != scl {
+		t.Error("a method past the 4-float window leaked into the viewport slots")
+	}
+}
+
 func TestKelvinStateRoundTrip(t *testing.T) {
 	m := gpuMachine(t)
 	g := m.pgraph

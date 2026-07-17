@@ -428,6 +428,10 @@ func (g *pgraph) constData(arg uint32) {
 		v := f32vec(&g.Const[slot])
 		fmt.Printf("VSH const[%3d] = (%g, %g, %g, %g)\n", slot, v[0], v[1], v[2], v[3])
 	}
+	if nvVPTrace && slot >= 56 && slot <= 60 {
+		v := f32vec(&g.Const[slot])
+		fmt.Printf("VP const-load c%d = (%g, %g, %g, %g) draws=%d\n", slot, v[0], v[1], v[2], v[3], g.Draws)
+	}
 }
 
 // vshDisasm renders one instruction slot for the trace — enough to read a program's

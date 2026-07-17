@@ -13,10 +13,13 @@ package xbox
 
 import (
 	"fmt"
+	"math"
 	"os"
 )
 
 var nvSemTrace = os.Getenv("RR_NV_SEM") != ""
+var nvVPTrace = os.Getenv("RR_NV_VP") != ""
+var nvSurfTrace = os.Getenv("RR_NV_SURF") != ""
 
 // Kelvin methods with modelled side effects (NV2A method numbers).
 const (
@@ -30,6 +33,30 @@ const (
 	// but it is THE marker, because it is the title saying "this frame is finished and
 	// meant for the screen". It is the machine's frame boundary (the debugger's OnFlip).
 	kelvinFlipStall = 0x0130
+
+	// SET_VIEWPORT_OFFSET / SET_VIEWPORT_SCALE (4 floats each). These do not just latch:
+	// on the NV2A the viewport lives IN the transform-constant file, at the slots the
+	// D3D-appended screen-space epilogue of every 3D vertex program reads — c59 (offset,
+	// the added term) and c58 (scale, the multiplied term). Derived from the image alone,
+	// no piece optional:
+	//
+	//   - the epilogue computes oPos.xyz = clip.xyz/w * c58.xyz + c59.xyz, so the
+	//     multiplied constant is the scale and the added one the offset;
+	//   - the game writes (±half-extent, zrange) vectors here — (320,-240,2^24-1,0) for
+	//     the 640x480 pass, (64,-64,2^24-1,0) for the 128x128 reflection targets — and
+	//     (center+bias) vectors to 0x0A20 — (320.53125, 240.53125, 0, 0) etc.;
+	//   - across the whole reached gameplay window not one SET_TRANSFORM_CONSTANT load
+	//     targets slots 56..60 (measured under RR_NV_VP, 1200 viewport-method writes,
+	//     zero const loads), so this aliasing is the only mechanism by which the
+	//     program's c58/c59 can ever hold the viewport the game configured.
+	//
+	// The pre-transformed 2D passes are untouched: their programs carry their own
+	// viewport in c0/c1 (explicit const loads) and never reference c58/c59.
+	kelvinViewportOffset = 0x0A20 // ..0x0A2C → c59
+	kelvinViewportScale  = 0x0AF0 // ..0x0AFC → c58
+
+	vshSlotViewportScale  = 58
+	vshSlotViewportOffset = 59
 )
 
 // kelvinMethod handles one method write to the bound Kelvin (3D) object. Every method
@@ -72,6 +99,12 @@ func (g *pgraph) kelvinMethod(method, arg uint32) {
 	}
 	if method < uint32(len(g.Regs))*4 {
 		g.Regs[method>>2] = arg
+	}
+	if nvVPTrace && (method >= 0x0A20 && method < 0x0A30 || method >= 0x0AF0 && method < 0x0B00) {
+		fmt.Printf("VP method %04X = %08X (%g) draws=%d\n", method, arg, math.Float32frombits(arg), g.Draws)
+	}
+	if nvSurfTrace && method >= 0x0200 && method <= 0x0214 {
+		fmt.Printf("SURF method %04X = %08X draws=%d\n", method, arg, g.Draws)
 	}
 	if nvSemTrace {
 		switch method {
@@ -144,6 +177,15 @@ func (g *pgraph) kelvinMethod(method, arg uint32) {
 	case method == kelvinConstLoad:
 		g.ConstLoad = arg
 		g.constBufN = 0
+		return
+
+	// --- the viewport, aliased into the transform-constant file (see the method
+	// constants above for the derivation) ---
+	case method >= kelvinViewportOffset && method < kelvinViewportOffset+0x10:
+		g.Const[vshSlotViewportOffset][(method-kelvinViewportOffset)>>2] = arg
+		return
+	case method >= kelvinViewportScale && method < kelvinViewportScale+0x10:
+		g.Const[vshSlotViewportScale][(method-kelvinViewportScale)>>2] = arg
 		return
 	}
 	// Everything else is a plain state latch (the raster/texture/combiner registers
