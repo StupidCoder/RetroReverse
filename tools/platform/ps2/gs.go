@@ -26,7 +26,10 @@ package ps2
 // what is uploaded reads back correctly when the GS later samples it as a texture or scans
 // it out as a frame.
 
-import "fmt"
+import (
+	"fmt"
+	"strings"
+)
 
 // GS register addresses, as written through the GIF's A+D descriptor.
 const (
@@ -161,7 +164,13 @@ func (m *Machine) ensureGS() *GS {
 func (gs *GS) write(reg uint8, val uint64) {
 	if gs.m != nil && gs.m.GSRegLogN > 0 && reg == gs.m.GSRegLog {
 		gs.m.GSRegLogN--
-		fmt.Printf("  GS reg 0x%02X <- %016X from %s\n", reg, val, gs.src)
+		srcEE := ""
+		if v := gs.m.vifs[1]; v != nil && strings.HasPrefix(gs.src, "path2") {
+			// The write came down PATH2, so the packet is a VIF1 DIRECT payload and the
+			// VIF knows the EE address it was gathered from — the write-watch target.
+			srcEE = sprintf(" (payload EE 0x%08X)", v.payloadAddr)
+		}
+		fmt.Printf("  GS reg 0x%02X <- %016X from %s%s\n", reg, val, gs.src, srcEE)
 		if gs.m.GSRegDumpPacket && val == gs.m.GSRegDumpVal && gs.curPacket != nil {
 			gs.m.GSRegDumpPacket = false
 			n := len(gs.curPacket) / 16

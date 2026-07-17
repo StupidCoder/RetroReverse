@@ -385,7 +385,11 @@ func (gs *GS) plot(t *gsTarget, x, y int32, z uint32, rgba uint32) {
 		return
 	}
 	if t.psm != psmCT32 && t.psm != psmCT24 {
-		return // counted at the primitive level; a wrong-format write is worse than none
+		// A wrong-format write is worse than none — but a DROPPED write must be loud in
+		// the census: a 16-bit render target that stays garbage explains every sampler
+		// that reads it back.
+		gs.count(sprintf("DROPPED pixel writes: frame psm 0x%02X at fb 0x%05X", t.psm, t.fbp*64))
+		return
 	}
 
 	fbmsk := t.fbmsk
