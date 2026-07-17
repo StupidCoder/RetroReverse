@@ -38,6 +38,11 @@ const (
 // exactly as it scales draw coordinates (nv2a_raster.go).
 func (g *pgraph) clearSurface(mask uint32) {
 	m := g.m
+	if shadowTrace {
+		fmt.Printf("SHADOW CLEAR mask=%02X color=%08X zeta=%08X zclear=%08X draws=%d\n",
+			mask, g.Regs[kelvinSurfaceColorOffset>>2], g.Regs[kelvinSurfaceZetaOffset>>2],
+			g.Regs[kelvinZStencilClearValue>>2], g.Draws)
+	}
 	format := g.Regs[kelvinSurfaceFormat>>2]
 	ax, ay := surfaceAAScale(format)
 	rh := g.Regs[kelvinClearRectH>>2]

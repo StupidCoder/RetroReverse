@@ -20,6 +20,7 @@ import (
 var nvSemTrace = os.Getenv("RR_NV_SEM") != ""
 var nvVPTrace = os.Getenv("RR_NV_VP") != ""
 var nvSurfTrace = os.Getenv("RR_NV_SURF") != ""
+var shadowTrace = os.Getenv("RR_SHADOW") != ""
 
 // Kelvin methods with modelled side effects (NV2A method numbers).
 const (
@@ -105,6 +106,19 @@ func (g *pgraph) kelvinMethod(method, arg uint32) {
 	}
 	if nvSurfTrace && method >= 0x0200 && method <= 0x0214 {
 		fmt.Printf("SURF method %04X = %08X draws=%d\n", method, arg, g.Draws)
+	}
+	if shadowTrace {
+		switch method {
+		case kelvinFlipStall:
+			fmt.Printf("SHADOW FLIP draws=%d\n", g.Draws)
+		case kelvinSurfaceColorOffset:
+			fmt.Printf("SHADOW COLOR=%08X draws=%d\n", arg, g.Draws)
+		case kelvinSurfaceZetaOffset:
+			fmt.Printf("SHADOW ZETA=%08X draws=%d\n", arg, g.Draws)
+		case kelvinTexOffset, kelvinTexOffset + 0x40, kelvinTexOffset + 0x80, kelvinTexOffset + 0xC0:
+			u := (method - kelvinTexOffset) / 0x40
+			fmt.Printf("SHADOW TEXOFF unit=%d off=%08X draws=%d\n", u, arg, g.Draws)
+		}
 	}
 	if nvSemTrace {
 		switch method {

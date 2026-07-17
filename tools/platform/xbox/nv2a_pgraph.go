@@ -90,6 +90,21 @@ type pgraph struct {
 	Methods   int               // total methods dispatched
 	SetObjs   int               // NV_SET_OBJECT calls
 	unhandled map[uint32]int    // methods with no handler yet (non-survey: would halt)
+
+	// --- RR_SHADOW census (nv2a_texture.go): zetaHist buckets every depth write in the
+	// run by the zeta surface OFFSET it lands in, so a shadow caster (a pass writing
+	// non-far depth into a non-framebuffer buffer) is visible whether or not it binds
+	// color==zeta. Used to prove whether a sampled depth-texture (shadow map) is ever
+	// populated. shadowDumped one-shots the receiver-state dump at the sample halt.
+	zetaHist     map[uint32]*zetaBucket
+	shadowDumped bool
+}
+
+type zetaBucket struct {
+	pix        int
+	zmin, zmax uint32
+	draws      int // distinct draws that wrote here
+	lastDraw   int
 }
 
 func newPgraph(m *Machine) *pgraph {
@@ -99,6 +114,7 @@ func newPgraph(m *Machine) *pgraph {
 		firstArg:  map[uint32]uint32{},
 		unhandled: map[uint32]int{},
 		texCache:  map[texKey]*texImage{},
+		zetaHist:  map[uint32]*zetaBucket{},
 	}
 	for i := range g.vtxAttr {
 		g.vtxAttr[i] = [4]float32{0, 0, 0, 1} // attribute registers reset to (0,0,0,1)
@@ -156,6 +172,56 @@ func (m *Machine) pgraphMethod(subchan, method, arg uint32) {
 	}
 	// A method on an unmodelled class. Latch nothing; record it as the frontier.
 	g.unhandled[class<<16|(method&0xFFFF)]++
+}
+
+// dumpReceiverState prints the full pipeline state of the shadow-receiver draw: every
+// texture unit's registers, the shader stage program, the combiner, the alpha test, and
+// the texture matrix that produces oT3. RR_SHADOW census — documents what consumes the
+// depth sample so the compare semantics can be reasoned about from the register state.
+func (g *pgraph) dumpReceiverState() {
+	fmt.Printf("RECV shaderStages=%08X combCtl=%08X alphaTest=%d alphaFunc=%03X alphaRef=%02X\n",
+		g.Regs[0x1E70>>2], g.Regs[kelvinCombinerControl>>2],
+		g.Regs[kelvinAlphaTestEnable>>2], g.Regs[kelvinAlphaFunc>>2], g.Regs[kelvinAlphaRef>>2]&0xFF)
+	for u := uint32(0); u < 4; u++ {
+		r := u * 0x40
+		fmt.Printf("RECV unit%d off=%08X fmt=%08X addr=%08X ctl0=%08X ctl1=%08X filt=%08X rect=%08X enable=%d\n",
+			u, g.Regs[(kelvinTexOffset+r)>>2], g.Regs[(kelvinTexFormat+r)>>2], g.Regs[(kelvinTexAddress+r)>>2],
+			g.Regs[(kelvinTexControl+r)>>2], g.Regs[(kelvinTexCtl1+r)>>2], g.Regs[(kelvinTexFilter+r)>>2],
+			g.Regs[(kelvinTexRect+r)>>2], g.Regs[(kelvinTexControl+r)>>2]>>30&1)
+	}
+	n := int(g.Regs[kelvinCombinerControl>>2] & 0xFF)
+	for i := 0; i < n && i < 8; i++ {
+		fmt.Printf("RECV stage%d colorICW=%08X colorOCW=%08X alphaICW=%08X alphaOCW=%08X\n", i,
+			g.Regs[kelvinCombinerColorICW>>2+uint32(i)], g.Regs[kelvinCombinerColorOCW>>2+uint32(i)],
+			g.Regs[kelvinCombinerAlphaICW>>2+uint32(i)], g.Regs[kelvinCombinerAlphaOCW>>2+uint32(i)])
+	}
+	fmt.Printf("RECV final cw0=%08X cw1=%08X\n", g.Regs[kelvinSpecFogCW0>>2], g.Regs[kelvinSpecFogCW1>>2])
+	// The oT3 texture matrix (transform constants c176..c179) and texgen mode.
+	for c := 176; c <= 179; c++ {
+		v := g.Const[c]
+		fmt.Printf("RECV c%d = %08X %08X %08X %08X\n", c, v[0], v[1], v[2], v[3])
+	}
+}
+
+// DumpZetaHist prints the RR_SHADOW census: every zeta surface offset that received a
+// depth write in the run, with pixel count, depth range, and how many draws wrote there.
+// A caster pass is a bucket with non-far depth (zmax < 0xFFFFFF) at a non-framebuffer
+// address; an all-far bucket means only the clear's far value is present.
+func (g *pgraph) DumpZetaHist() {
+	if !shadowTrace {
+		return
+	}
+	offs := make([]uint32, 0, len(g.zetaHist))
+	for o := range g.zetaHist {
+		offs = append(offs, o)
+	}
+	sort.Slice(offs, func(i, j int) bool { return offs[i] < offs[j] })
+	fmt.Printf("SHADOW zeta-write census: %d distinct zeta offsets\n", len(offs))
+	for _, o := range offs {
+		b := g.zetaHist[o]
+		fmt.Printf("  zeta=%08X pix=%-9d draws=%-6d zmin=%06X zmax=%06X\n",
+			o, b.pix, b.draws, b.zmin&0xFFFFFF, b.zmax&0xFFFFFF)
+	}
 }
 
 // SurveyReport returns the recorded method surface, most-frequent first — the concrete

@@ -171,16 +171,30 @@ func (g *pgraph) texDecode(u int) (*texImage, bool, bool) {
 	case texFmtLU_R5G6B5:
 		decodeLinear(img, ram, phys, ctl1>>16, 2, decode565)
 	case texFmtLU_DepthX8Y24:
-		// Identified from the reached gameplay window, not modelled: the game binds a
-		// 512x512 buffer as BOTH color and zeta offset (a depth-render pass), then
-		// samples it here — dwords of depth<<8|stencil, the raster's own zeta layout
-		// (the cleared buffer reads back uniform FFFFFF00). The consumer is a
-		// shadow-receiver draw: oT3 comes from a texture matrix, the stage mode is
-		// projective, the combiner adds TEX3 into an alpha-tested black overlay. What
-		// a sample RETURNS (a depth compare against r/q? which channels? what
-		// polarity?) is not derivable until a caster pass writes real occluder depth
-		// in a reachable window — so this halts rather than inventing a compare.
-		g.m.CPU.Halt("nv2a: texture unit %d samples a depth buffer (LU X8_Y24, fmt=%08X) — shadow-map sampling unmodelled", u, format)
+		// A shadow-map sample. The game binds this 512x512 buffer as BOTH colour and zeta
+		// (a depth-render pass), clears it to far (FFFFFF00), and samples it here as a
+		// linear X8_Y24 depth image (dwords of depth<<8|stencil, the raster's own zeta
+		// layout). The consumer is a shadow-receiver draw: oT3 comes from a texture matrix,
+		// the stage mode is projective, only unit 3 is enabled, and the combiner routes
+		// TEX3's alpha into an alpha-tested (GEQUAL) black overlay.
+		//
+		// NOT modelled, and provably not derivable in any reachable window: the compare a
+		// sample performs (function, polarity, result channels) is a hardware texture-unit
+		// operation — the register combiners have no compare op — so it can only be pinned
+		// against a POPULATED map, and a full zeta-write census over the whole reachable
+		// gameplay window shows this buffer receives zero depth writes ever: it is cleared-
+		// to-far and sampled empty in every frame (the only casters are the main FB and the
+		// reflection-RTT depth). Inventing a compare would render plausibly over the empty
+		// map and be unverifiable, so this halts and names what is missing. RR_SHADOW dumps
+		// the receiver state and the zeta-write census here. See outrun-2006-xbox.md Part XII.
+		if shadowTrace {
+			g.DumpZetaHist()
+			if !g.shadowDumped {
+				g.shadowDumped = true
+				g.dumpReceiverState()
+			}
+		}
+		g.m.CPU.Halt("nv2a: texture unit %d samples a depth buffer (LU X8_Y24, fmt=%08X) — shadow-map sampling unmodelled (map is all-far in every reachable frame; needs a populated caster to derive the compare)", u, format)
 		return nil, false, false
 	default:
 		g.m.CPU.Halt("nv2a: texture unit %d color format 0x%02X unmodelled (fmt=%08X)", u, colorFmt, format)
@@ -204,7 +218,7 @@ func (g *pgraph) DebugDecodeTexture(u int) (w, h int, pix []byte, ok bool) {
 
 func isLinearTexFmt(colorFmt uint32) bool {
 	switch colorFmt {
-	case texFmtLU_R5G6B5, texFmtLU_A8R8G8B8, texFmtLU_X8R8G8B8:
+	case texFmtLU_R5G6B5, texFmtLU_A8R8G8B8, texFmtLU_X8R8G8B8, texFmtLU_DepthX8Y24:
 		return true
 	}
 	return false

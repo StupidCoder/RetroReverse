@@ -170,6 +170,12 @@ func (g *pgraph) beginEnd(arg uint32) {
 func (g *pgraph) runDraw() {
 	g.Draws++
 	if g.Regs[kelvinTransformExecMode>>2]&3 != 2 {
+		// Fixed-function T&L. Scoped but unmodelled: the world→clip transform is the
+		// SET_COMPOSITE_MATRIX (0x0680) applied row-vector (clip = pos·M, verified to
+		// produce valid NDC), model-view at 0x0480 and its inverse (for normals) at
+		// 0x0580; lighting is enabled (0x0314) for the one real reachable draw and its
+		// light/material state is not yet derived. This frontier sits BEHIND the shadow
+		// depth-sample halt, so no clean run reaches it. See outrun-2006-xbox.md Part XII.
 		g.m.CPU.Halt("nv2a: draw %d in fixed-function transform mode (0x1E94=%08X) — only program mode is modelled",
 			g.Draws, g.Regs[kelvinTransformExecMode>>2])
 		return

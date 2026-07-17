@@ -1606,3 +1606,112 @@ next unit halts on a DXT3 **cube map**, `fmt=06610E2D`). So the format is *ident
 halt now names it — `samples a depth buffer (LU X8_Y24) — shadow-map sampling unmodelled` —
 rather than inventing a compare whose wrongness would render plausibly. Part XII's queue:
 the shadow-map sample semantics (needs a window with a caster), then cube maps.
+
+## Part XII — the shadow map that was never cast, and the fixed-function frontier behind it
+
+Part XI's queue put the shadow-map sample first. The register-file evidence was already strong:
+at draw 487176 the game binds `0x01C18180` as **both** colour and zeta (a 512×512 depth-render
+pass), clears it to far (`FFFFFF00`), and six draws later unit 3 samples that address as a linear
+`X8_Y24` depth texture, projectively, with a texture matrix and an alpha-tested black overlay.
+What a *sample returns* — a hardware depth-compare against `r/q`, in which channels, with which
+polarity — Part XI could not pin, because the only reachable map was all-far, and it named that
+gap rather than inventing a compare.
+
+Part XII set out to *find a caster* — a pass that writes real occluder depth into the map — and
+in doing so proved, rather than assumed, that **none is reachable**, and that the compare is a
+hardware operation the register combiners cannot stand in for.
+
+### The census: only the map is empty; everything else that writes depth is accounted for
+
+The instrument is a zeta-write census (`RR_SHADOW`): every depth write the raster performs is
+bucketed by the zeta surface *offset* it lands in, so a shadow caster — a pass writing non-far
+depth into a non-framebuffer buffer — is visible **whether or not it binds `colour==zeta`**. Run
+over the whole reachable gameplay window (draws 486972→487371, ~8 frames), three buffers receive
+depth and no fourth does:
+
+```
+zeta=01AD4000  pix=10,134,384  draws=167  zmin=000000 zmax=FFFFFF   the main framebuffer's Z
+zeta=01D78240  pix=89,253      draws=19   zmin=F350F4 zmax=FFFFFF   the reflection RTTs' shared Z
+zeta=00000000 / 01DD7780       draws=1    all-zero                  two degenerate single draws
+```
+
+The sampled shadow map `0x01C18180` is **absent from that list**: it receives *zero* depth writes
+in every frame. It is cleared to far and sampled empty — confirmed at full 512×512 resolution,
+`nonfar=0` at every sample. The one real-depth off-screen buffer, `0x01D78240` (`F350F4..FFFFFF`),
+looked at first like a caster, but its three passes bind colour to `0x01D28200 / 01D38200 /
+01D48200` — spaced exactly `0x10000 = 128×128×4` apart, the Part X/XI **reflection RTTs**. So
+`0x01D78240` is the reflections' shared depth buffer, a red herring; it is never sampled as a
+texture. This gameplay position simply casts no shadow into the 512-map.
+
+### Why the sample can't be a combiner trick
+
+Before concluding it needs a populated map, the alternative had to be ruled out: could the
+"compare" live in the shader instead of the texture unit? The receiver's full state
+(`dumpReceiverState`) says no. Only **unit 3 is enabled** (`ctl0` bit 30 set on unit 3 alone);
+the stage program routes it projectively (`shaderStages=0x00010000`, unit-3 mode 2); the alpha
+test is `GEQUAL` with `ref=0x01`, and stages 1 and 3 read register 11 (TEX3) into the output
+alpha that gates the overlay. The register combiners (nv2a_combiner.go) have **only** mul / add /
+dot / mux-at-0.5 — no general compare of two interpolated values. A shadow-map depth compare of
+`r/q` against the stored depth therefore *cannot* be done in the combiner; it must be the texture
+unit's own operation. And the filter register `filt=02022000` is **identical** to unit 0's normal
+texture — there is no per-unit shadow-compare field the game toggles that would tell us the
+function from the register state alone. So the compare function, its polarity, and the channels
+the result lands in are pinnable only against a map that actually contains an occluder — which no
+reachable frame provides. The halt now names exactly that:
+
+```
+texture unit 3 samples a depth buffer (LU X8_Y24) — shadow-map sampling unmodelled
+  (map is all-far in every reachable frame; needs a populated caster to derive the compare)
+```
+
+This is the honest terminus for the shadow question: not "unmodelled because hard," but "not
+derivable here because the only evidence that would distinguish the candidates is absent, and
+inventing it would render plausibly over the empty map and be wrong." The unblock is a savestate
+at a moment with a real caster (a car-select/garage turntable, or a track position with a dynamic
+occluder), where the first sample is already populated and the census dumps the receiver over it.
+
+### The frontier behind the halt: fixed-function T&L
+
+Tolerating the depth sample (and the DXT3 cube map behind it) advances the run just past the first
+shadow frame to a new halt at draw 487296: **fixed-function transform mode** (`0x1E94=0x00000004`,
+mode bits `= 0`, not the program mode `2` every prior draw used). This is the NV2A's built-in T&L
+engine, not a compiled vertex program. It was scoped in full:
+
+- **The matrices are dedicated Kelvin state, not the program-mode constant file.** Found by
+  scanning the register file: `SET_MODEL_VIEW_MATRIX` at `0x0480` (an orthonormal rotation +
+  translation), its inverse at `0x0580` (the transpose — used to transform normals), and
+  `SET_COMPOSITE_MATRIX` at `0x0680`, the world→clip model-view-projection. The composite's last
+  row is `−(model-view row 2)`, i.e. `w = −z_view` — a right-handed perspective.
+- **The convention is D3D row-vector.** Applied as `clip = pos · M` (not `M · pos`), the one real
+  FF draw's vertices produce valid NDC (`x,y ∈ [−1,1]`, `z ∈ [0,1]`); the transpose gives garbage.
+  This is the derived, verifiable half of the FF transform.
+- **But this frontier sits *behind* the shadow halt** (487296 > 487182), so no clean run reaches
+  it — it is only visible through toleration. And it lacks a verification anchor: of the four FF
+  draws in the window, three (draws 487364–366) are **degenerate** — 800 vertices all at the
+  origin, lighting disabled, drawing nothing — and the one real draw (487296) is a 70-vertex lit,
+  specular, textured strip that maps to a sub-pixel screen footprint off the left edge, with no
+  reference frame to check it against. Its lighting is *enabled* (`0x0314=1`), so a faithful render
+  needs the light/material state (unfound) and the lighting equation, none of which can be verified
+  here. Tolerating the FF draws to advance further diverges the CPU one frame later (an out-of-range
+  read at `0x41000000`, PC `0x000208A3`) — a separate gameplay-logic frontier, not a rendering one.
+
+So fixed-function T&L is *scoped* — the transform is derived and NDC-verified, the matrix methods
+located, the lighting-enable read — but not *modelled*, because the reachable draws give nothing to
+verify a full implementation against, and shipping an unverified lit render is exactly the
+plausible-but-wrong outcome this port refuses. The `nv2a_transform_execution_mode` halt now points
+here.
+
+### Where Part XII leaves it
+
+Two frontiers, both named precisely rather than papered over:
+
+1. **Shadow-map sampling** — provably not derivable in any reachable frame (the map is cast-empty
+   everywhere; the compare is a hardware op the combiner can't emulate). Needs a populated-caster
+   savestate. `RR_SHADOW` dumps the zeta-write census + full receiver state at the sample halt for
+   whoever has one.
+2. **Fixed-function T&L** — scoped (composite `0x0680` row-vector world→clip, model-view `0x0480`,
+   inverse `0x0580`, lighting enabled); unmodelled for want of an on-screen, lit FF draw to verify
+   against, and it sits behind the shadow halt regardless.
+
+The pitch path did not move (cold-boot title frame still `5439dd95c92d462d03b9c5fbbd8a6c86`); the
+Part XI reflection render still stands; `go test ./tools/platform/xbox/` passes.

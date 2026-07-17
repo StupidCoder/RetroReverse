@@ -510,6 +510,25 @@ func (g *pgraph) shadePixel(st *rasterState, px, py int, b0, b1, b2, iw0, iw1, i
 		m.RAM[zAddr+1] = byte(stored >> 8)
 		m.RAM[zAddr+2] = byte(stored >> 16)
 		m.RAM[zAddr+3] = byte(stored >> 24)
+		if shadowTrace {
+			zo := g.Regs[kelvinSurfaceZetaOffset>>2]
+			b := g.zetaHist[zo]
+			if b == nil {
+				b = &zetaBucket{zmin: 0xFFFFFFFF}
+				g.zetaHist[zo] = b
+			}
+			b.pix++
+			if zi < b.zmin {
+				b.zmin = zi
+			}
+			if zi > b.zmax {
+				b.zmax = zi
+			}
+			if b.lastDraw != g.Draws {
+				b.draws++
+				b.lastDraw = g.Draws
+			}
+		}
 	}
 	if m.OnPixel != nil {
 		m.OnPixel(uint32(px), uint32(py), PixelEvent{
