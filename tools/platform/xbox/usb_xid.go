@@ -26,41 +26,273 @@ import "sort"
 // its business, not ours. What this file owes the machine is the wire format; where that
 // is not yet pinned from XAPI's own copy, the request halts by name rather than
 // guessing, and the fix-and-resume loop brings the next question back.
+//
+// The whole of 0x14630 has since been read, and it is worth correcting one thing above: the
+// analog buttons are not "+6..+9" — the title thresholds ALL EIGHT bytes at gamepad+2..+9
+// against 0x1E (0x147DE..0x1482C), and remaps each to a game bit of its own. It also reads
+// FOUR signed axes, not one (+0xA, +0xC, +0xE, +0x10), each through a Schmitt trigger whose
+// thresholds are quoted at PadStickFull. The single CMP at +7 that this comment first
+// noticed was one line of eight; a census that finds a reader is not a census that has
+// found the readers.
+//
+// And the pad can now SAY all of it (Buttons/Analog/Axes on xidDevice, and the vocabulary
+// below). Until it could, this file's own warning applied to itself: a centred stick and an
+// unmodelled stick produce identical bytes, so every test asserting the pad was at rest
+// passed while the sticks were not wired at all.
 
-// padButtons are the pad's digital buttons, by the names every tool that drives this
-// machine uses for them — the oracle's -keys scripts and the debugger's keyboard alike.
-// It lives here, next to the device that delivers them, so the two vocabularies cannot
-// drift apart (the tools/platform/gc/si.go precedent, and the reason the PSP's pad names
-// living in its oracle instead was a mistake worth not repeating).
+// ---------------------------------------------------------------------------------------
+// THE VOCABULARY: the names every tool that drives this machine uses for the pad's controls.
+// ---------------------------------------------------------------------------------------
 //
-// The BIT VALUES are the guest's, not ours: they are the wButtons bits XAPI publishes,
-// each read off the title's own remapping at 0x14630 —
+// It lives here, next to the device that delivers them, so the oracle's -keys scripts and
+// the debugger's keyboard cannot drift apart (the tools/platform/gc/si.go precedent, and
+// the reason the PSP's pad names living in its oracle instead was a mistake worth not
+// repeating). The GameCube split this — its stick directions live adapter-side while its
+// oracle's -keys stayed digital-only — and the split is exactly what let the two grow
+// different ideas of what "up" meant. One table, both callers.
 //
-//	TEST CL,$10 -> OR EAX,$01   so 0x0010 is what the title treats as START
+// EVERY NAME BELOW WAS ASKED OF THE TITLE, and this is the part that had to be earned
+// rather than remembered. This file's header forbids writing down the shape of an XID
+// gamepad from memory and watching the title accept it, because acceptance proves nothing
+// — a pad whose buttons are all mislabelled enumerates exactly as well as one whose
+// buttons are right. So each name here is the result of an EXPERIMENT: plug a pad in at a
+// known screen, drive exactly one control to full for fifteen frames, run to a fixed
+// frame, and photograph the render surface. What the screen does is the name.
 //
-// — which is also why this map is digital-only for now. The pad's analog buttons are
-// pressure bytes the title thresholds (CMP [ESI+$7], CL), and its sticks are signed
-// words; naming those needs a vocabulary for axes that no platform in this repo has yet.
-var padButtons = map[string]uint16{
-	"up": 0x0001, "down": 0x0002, "left": 0x0004, "right": 0x0008,
-	"start": 0x0010, "back": 0x0020, "lstick": 0x0040, "rstick": 0x0080,
+// THE SCREENS. Two, and between them they name NINE of the pad's twenty controls (eight
+// digital bits, eight pressure bytes, four axes).
+//
+//	LICENSE SELECT (work/states/license.state). Its own footer names two buttons and only
+//	two: "A SELECT" on the left, "BACK B" on the right. Driven one at a time, exactly TWO
+//	of the eight pressure bytes do anything at all — and the other six leave the frame
+//	MD5-identical to a run that pressed nothing (7752fd48…), which is a much stronger
+//	statement than "nothing obvious happened":
+//
+//	  gamepad+2  ->  the card advances into ENTER NAME          = the footer's A (SELECT)
+//	  gamepad+3  ->  the card leaves LICENSE SELECT backwards   = the footer's B (BACK)
+//	  gamepad+4..+9 -> bit-identical to no press at all
+//
+//	THE ON-SCREEN KEYBOARD, three A presses further in: a GRID, and a grid has a cursor.
+//	Driving one axis or one d-pad bit moves the highlighted key exactly one step, and the
+//	step says which control it was. The four d-pad bits and the four directions of the
+//	first stick pair off BIT-FOR-BIT — each pair produces the same frame to the MD5:
+//
+//	  wButtons 0x01 == axis1 positive -> 0efe773d…  the cursor steps UP    (1 -> Space)
+//	  wButtons 0x02 == axis1 negative -> 5b614593…  the cursor steps DOWN  (1 -> a)
+//	  wButtons 0x04 == axis0 negative -> e6802957…  the cursor steps LEFT
+//	  wButtons 0x08 == axis0 positive -> cfd176f5…  the cursor steps RIGHT (1 -> 2)
+//
+//	Two independently-known cases per decode, which is what pins one. It also settles the
+//	sticks: axis 0 (gamepad+0xA) is X with POSITIVE = RIGHT, axis 1 (gamepad+0xC) is Y with
+//	POSITIVE = UP — the pad's convention, and the opposite of every screen coordinate in
+//	this repository. And axes 2 and 3 (gamepad+0xE/+0x10) move the cursor NOWHERE: both
+//	signs of both come back MD5-identical to the baseline, so this menu does not listen to
+//	the second stick. (Which is a fact about the MENU, not about the model — the remap at
+//	0x1473A/0x14792 does produce bits for those axes; nothing on this screen consumes them.)
+//
+// WHAT THE EXPERIMENT CHANGED. The d-pad names below were previously ASSERTED — the old
+// comment admitted only START was read off the title — and they turn out to be right. That
+// is luck, not method, and it nearly went the other way: the game-bit ORDER strongly
+// suggests a different answer. The title's remap files the d-pad into game bits 0x20, 0x40,
+// 0x80, 0x100 in wButtons order 0x02, 0x01, 0x08, 0x04, and files the first stick into the
+// adjacent run 0x10000..0x80000 in the order (axis1+, axis1-, axis0+, axis0-). Read the two
+// runs as one vocabulary and wButtons 0x02 is "up". The experiment says it is DOWN. The
+// pattern was wrong and the picture was right, which is the whole argument for taking the
+// picture.
+var padControls = map[string]PadControl{
+	// The d-pad. Digital bits in wButtons, each now paired to a stick direction that
+	// produces the identical frame.
+	"up":    {Kind: PadDigitalButton, Bit: 0x0001},
+	"down":  {Kind: PadDigitalButton, Bit: 0x0002},
+	"left":  {Kind: PadDigitalButton, Bit: 0x0004},
+	"right": {Kind: PadDigitalButton, Bit: 0x0008},
+
+	// START, and the one name that predates this table: 0x14630's TEST CL,$10 -> OR EAX,$01
+	// is what carries the title out of PRESS START, which Part VII watched it do.
+	"start": {Kind: PadDigitalButton, Bit: 0x0010},
+
+	// The analog buttons LICENSE SELECT named, by its own footer.
+	"a": {Kind: PadAnalogButton, Index: 0}, // gamepad+2 -> the title's game bit 0x0002
+	"b": {Kind: PadAnalogButton, Index: 1}, // gamepad+3 -> the title's game bit 0x0004
+
+	// The first stick — the one the menus steer by, which is what makes it the primary.
+	// The offsets are in the PAD'S OWN CONVENTION, where up INCREASES. The temptation is
+	// to write this table in screen terms and negate on the way out; doing both is how the
+	// GameCube's first cut shipped its stick upside down (gcadapter's stickDirs says so).
+	"stickup":    {Kind: PadAxisDirection, Index: 1, Sign: +1},
+	"stickdown":  {Kind: PadAxisDirection, Index: 1, Sign: -1},
+	"stickleft":  {Kind: PadAxisDirection, Index: 0, Sign: -1},
+	"stickright": {Kind: PadAxisDirection, Index: 0, Sign: +1},
 }
 
-// PadButton looks up a pad button's bit by name.
-func PadButton(name string) (uint16, bool) {
-	b, ok := padButtons[name]
-	return b, ok
+// THE ELEVEN CONTROLS THIS PAD CANNOT YET SPELL, and why they are absent rather than named.
+//
+// This model has all twenty controls ON THE WIRE — the report carries every byte, and
+// SetPadAnalog/SetPadAxis will drive any of them — but only nine have NAMES, because only
+// nine have been asked and answered. Every one below was DRIVEN to full at both screens and
+// left the frame MD5-identical to a run that pressed nothing:
+//
+//	gamepad+4..+9  six pressure bytes. an4..an9 -> c5cd1149…, the baseline, at the keyboard.
+//	wButtons 0x20, 0x40, 0x80   three digital bits the remap does read (-> the title's game
+//	               bits 0x200, 0x100000, 0x08000000). btn20/btn40/btn80 -> c5cd1149… too.
+//	axes 2 and 3   the second stick. Both signs of both -> c5cd1149…. Which is a fact about
+//	               the MENU, not the model: the remap produces bits for these axes
+//	               (0x1473A/0x14792) and nothing on either screen consumes them.
+//
+// THE CANONICAL XID ORDER WOULD NAME MOST OF THEM IN ONE LINE, and that line is exactly what
+// this file's header exists to forbid. The temptation is now WORSE than it was before the
+// experiment, not better: A and B landed on the two offsets a remembered ordering would have
+// predicted, which feels like corroboration and is not. It is two matches. The same
+// reasoning-by-pattern predicted wButtons 0x02 was "up", from a bit order every bit as tidy,
+// and the picture said DOWN. Two screens being indifferent to a byte is not evidence of what
+// that byte is; it is evidence that these two screens cannot tell us.
+//
+// A name here is a promise that pressing it does the thing it says. Eleven promises this port
+// cannot keep are eleven names it does not have. The frontier is a screen with more in its
+// footer than SELECT and BACK — a driving screen, or the game's own control-assignment menu,
+// where a stick's magnitude and a trigger would both have to mean something.
+
+// PadControlKind says what sort of thing a name resolves to. The pad says three different
+// kinds of thing and only one of them is a bit, which is why the old name->uint16 map could
+// not hold this: a pressure is a byte at an offset and a stick is a signed word.
+type PadControlKind int
+
+const (
+	PadDigitalButton PadControlKind = iota // a bit in wButtons, gamepad+0
+	PadAnalogButton                        // a pressure byte, gamepad+2+Index
+	PadAxisDirection                       // one way along a signed word, gamepad+0xA+2*Index
+)
+
+// PadControl is what one name resolves to.
+type PadControl struct {
+	Kind  PadControlKind
+	Bit   uint16 // PadDigitalButton: the wButtons bit
+	Index int    // PadAnalogButton: 0..7. PadAxisDirection: 0..3
+	Sign  int    // PadAxisDirection: +1 or -1, in the PAD's convention (up and right are +)
 }
 
-// PadButtonNames lists the button names PadButton accepts, sorted, for a caller that
-// needs to show or validate the vocabulary.
-func PadButtonNames() []string {
-	names := make([]string, 0, len(padButtons))
-	for n := range padButtons {
+// PadControlByName resolves a control name.
+func PadControlByName(name string) (PadControl, bool) {
+	c, ok := padControls[name]
+	return c, ok
+}
+
+// PadControlNames lists the names PadControlByName accepts, sorted, for a caller that needs
+// to show or validate the vocabulary.
+func PadControlNames() []string {
+	names := make([]string, 0, len(padControls))
+	for n := range padControls {
 		names = append(names, n)
 	}
 	sort.Strings(names)
 	return names
+}
+
+// PadState is the whole level a pad reports: what SetPad takes, and what PadStateOf
+// builds out of a set of held names.
+type PadState struct {
+	Buttons uint16
+	Analog  [8]byte
+	Axes    [4]int16
+}
+
+// PadPressed is the pressure a name resolves to when a caller says a button is held, and
+// it is the LARGEST value a pressure byte can carry rather than a chosen "firm enough":
+// both readers threshold, neither scales. XAPI zeroes anything under 0x20 (0x24390A) and
+// the title asks only `> 0x1E` (0x147E5), so every value from 0x20 to 0xFF is the same
+// press to everything in this image that looks. A keyboard has no pressure to report, so
+// this reports the unambiguous end of the range instead of a number that would imply a
+// precision the key does not have.
+const PadPressed = 0xFF
+
+// PadStickFull is how far a named stick direction pushes its axis: to the end of the
+// signed word, which is the furthest a stick CAN be pushed in this report format.
+//
+// The title's own thresholds are what make the number matter, and they are a derived
+// Schmitt trigger (0x14680, and the same block three more times for the other axes):
+//
+//	00014680  MOVSX ECX, [ESI+$A]      the axis, sign-extended
+//	00014686  TEST ECX, ECX / JZ       ...and ZERO skips BOTH direction tests outright,
+//	                                   which is what makes 0 "centred" rather than merely
+//	                                   our tidy default
+//	0001468A  TEST EDI, $00040000      was this direction already on last frame?
+//	00014692  CMP ECX, $00002FFF       ...if so, it stays on past 0x2FFF
+//	0001469D  CMP ECX, $00005FFF       ...if not, it must clear 0x5FFF to come on
+//
+// EDI is the PREVIOUS frame's game-bit mask (0x14843 MOV EDI,[EBX], where 0x14853 stored
+// last frame's), and each test picks its threshold on the bit it is about to produce. So a
+// fresh direction needs |axis| > 0x5FFF — 75% — and holds down to 37%. XAPI adds nothing:
+// its cook walks the eight pressure bytes and no further (0x243906: PUSH $8), copying the
+// stick words through untouched, so there is NO driver-side deadzone between the pad and
+// the title's own gate.
+const PadStickFull = 0x7FFF
+
+// THE DIAGONAL IS A DECLARED MODEL CHOICE, NOT A DERIVATION, and it goes the opposite way
+// to the GameCube's — so it is worth saying why rather than copying a number across.
+//
+// The GameCube's adapter splits a diagonal over two axes at full/sqrt2, because the GC's
+// shell has an octagonal gate: eight notches all the same distance from centre, so the
+// plastic makes a corner read ~0.7 on each axis and a stick that read full on both would
+// be a position no physical pad could produce (gc/si.go:295 says all this). That reasoning
+// is about a specific piece of plastic. NOTHING IN THIS IMAGE DESCRIBES THE XBOX'S SHELL,
+// and the axes are signed words rather than bytes about a centre, so neither the shape nor
+// the magnitude transfers. Anything claiming to have derived the gate from here would be
+// reasoning from outside the image.
+//
+// What the image DOES say is that the 0.7 rule would be self-defeating: 0x7FFF/sqrt2 is
+// 0x5A82, which is BELOW the 0x5FFF a fresh direction has to clear. A diagonal split that
+// way registers NEITHER direction — arrow-up-plus-arrow-left would move a menu cursor
+// nowhere, and would do it silently. So the octagon rule is refuted for this title's menus
+// by the title's own threshold, whatever the shell looks like.
+//
+// This model therefore drives each axis of a diagonal independently to full — a SQUARE
+// gate. It is declared, and the cost is declared with it: if the real shell is round or
+// notched, this hands the game a diagonal longer than a real pad can reach. Both readers
+// of a stick direction in this image threshold it (the remap above) rather than measuring
+// its length, so nothing reached so far can tell the difference — but the title also keeps
+// the raw axis words for itself (0x1486A stores them to its per-pad record at +0xAC), and
+// a driving screen that steers by magnitude is exactly where this would first be wrong.
+// That is the run that should revisit this constant, and the evidence to cite.
+
+// PadStateOf resolves a set of held control names to the level the pad should report. It is
+// the one place a NAME becomes bytes, and both drivers of this machine go through it — the
+// oracle's -keys and the debugger's keyboard — which is what keeps them honest about each
+// other. Unknown names are ignored: a browser sends every key, and most are not buttons.
+func PadStateOf(held map[string]bool) PadState {
+	var s PadState
+	for n, down := range held {
+		if !down {
+			continue
+		}
+		c, ok := padControls[n]
+		if !ok {
+			continue
+		}
+		switch c.Kind {
+		case PadDigitalButton:
+			s.Buttons |= c.Bit
+		case PadAnalogButton:
+			s.Analog[c.Index] = PadPressed
+		case PadAxisDirection:
+			// Accumulated, not assigned: opposite directions held together must CANCEL to
+			// centre, which is what a physical stick does and what a keyboard will be asked
+			// to do the moment someone rolls a thumb across two arrow keys. Assigning here
+			// would make the answer depend on Go's map iteration order — the same input
+			// giving a different stick each run, and only sometimes.
+			s.Axes[c.Index] += int16(c.Sign)
+		}
+	}
+	for i, v := range s.Axes {
+		switch {
+		case v > 0:
+			s.Axes[i] = PadStickFull
+		case v < 0:
+			s.Axes[i] = -PadStickFull
+		default:
+			s.Axes[i] = 0
+		}
+	}
+	return s
 }
 
 // AttachPad plugs a game pad into a root hub port, if one is not already there. It is
@@ -102,6 +334,79 @@ func (m *Machine) SetPadButtons(port int, buttons uint16) {
 	}
 }
 
+// pad returns the pad on a port, or nil. Every setter below goes through it.
+func (m *Machine) pad(port int) *xidDevice {
+	if port < 0 || port >= usbPorts {
+		return nil
+	}
+	d, _ := m.usbDev[port].(*xidDevice)
+	return d
+}
+
+// SetPadAnalog sets the pressure a port's pad reports for analog button i — index 0..7,
+// which is gamepad+2+i, the bytes XAPI walks at 0x243906 and the title thresholds at
+// 0x147DE. 0 is released; see PadPressed for what counts as pressed.
+//
+// The index is an OFFSET, not a name, and that is deliberate: this is the wire, and which
+// button lives at which offset is a question the title answered by experiment (see
+// padControls). A caller that knows a name resolves it there and arrives here with a
+// number.
+func (m *Machine) SetPadAnalog(port, i int, pressure uint8) {
+	d := m.pad(port)
+	if d == nil || i < 0 || i >= len(d.Analog) {
+		return
+	}
+	if d.Analog[i] != pressure {
+		d.Analog[i], d.Fresh = pressure, true
+	}
+}
+
+// PadAnalog reads back the pressure a port's pad reports for analog button i.
+func (m *Machine) PadAnalog(port, i int) uint8 {
+	d := m.pad(port)
+	if d == nil || i < 0 || i >= len(d.Analog) {
+		return 0
+	}
+	return d.Analog[i]
+}
+
+// SetPadAxis sets stick axis i — index 0..3, the signed words at gamepad+0xA, +0xC, +0xE
+// and +0x10 that the title reads with MOVSX at 0x14680/0x146D8/0x14730/0x14788. 0 is
+// centred, and it is centred because the title says so, not because zero is a tidy
+// default: 0x14686 tests the axis and jumps over BOTH direction tests when it is zero.
+func (m *Machine) SetPadAxis(port, i int, v int16) {
+	d := m.pad(port)
+	if d == nil || i < 0 || i >= len(d.Axes) {
+		return
+	}
+	if d.Axes[i] != v {
+		d.Axes[i], d.Fresh = v, true
+	}
+}
+
+// PadAxis reads back stick axis i's level.
+func (m *Machine) PadAxis(port, i int) int16 {
+	d := m.pad(port)
+	if d == nil || i < 0 || i >= len(d.Axes) {
+		return 0
+	}
+	return d.Axes[i]
+}
+
+// SetPad sets a port's whole level at once — the one call the drivers of this machine
+// (the oracle's -keys, the debugger's keyboard) actually use, because a pad state is a
+// LEVEL and setting one field at a time would mean the pad briefly reports a position no
+// caller asked for.
+func (m *Machine) SetPad(port int, s PadState) {
+	m.SetPadButtons(port, s.Buttons)
+	for i, p := range s.Analog {
+		m.SetPadAnalog(port, i, p)
+	}
+	for i, v := range s.Axes {
+		m.SetPadAxis(port, i, v)
+	}
+}
+
 // PadButtons reads back the digital level a port's pad currently reports.
 func (m *Machine) PadButtons(port int) uint16 {
 	if port < 0 || port >= usbPorts {
@@ -114,12 +419,34 @@ func (m *Machine) PadButtons(port int) uint16 {
 }
 
 // xidDevice is one Xbox game pad.
+//
+// Buttons, Analog and Axes are the three kinds of thing this pad can say, and they are the
+// whole of its level. All three are EXPORTED, which is not a style choice: state.go
+// snapshots [usbPorts]xidDevice BY VALUE, so an exported field rides the savestate for
+// free — and gob's zero value is the honest default for every one of them. Zero pressure
+// is released (the title thresholds at 0x147DE, XAPI at 0x24390A), and a zero axis is
+// centred (0x14686's TEST ECX,ECX / JZ skips both direction tests outright). A pad that
+// gob decodes into all-zero is a pad at rest, which is exactly what a pad nobody has
+// touched is.
 type xidDevice struct {
-	Addr    uint32 // 0 until the driver assigns one with SET_ADDRESS
-	Config  uint32 // the configuration SET_CONFIGURATION selected
-	Buttons uint16 // the digital level SetPadButtons holds
-	Sent    uint16 // the last level actually reported, so a poll can NAK when nothing changed
-	Fresh   bool   // a level is waiting to be reported
+	Addr    uint32   // 0 until the driver assigns one with SET_ADDRESS
+	Config  uint32   // the configuration SET_CONFIGURATION selected
+	Buttons uint16   // the digital level: wButtons, gamepad+0
+	Analog  [8]byte  // the pressure levels: gamepad+2..+9
+	Axes    [4]int16 // the stick levels: the signed words at gamepad+0xA, +0xC, +0xE, +0x10
+
+	// SentReport is the last report this pad actually put on the wire, and Fresh says a
+	// setter has moved something since. Both were once about Buttons alone (Sent was a
+	// uint16, and write-only at that), which was survivable while the pad could only say
+	// eight bits and became a bug the moment it could say more: a level change that moved
+	// only a pressure byte or a stick axis left Fresh clear and was NAKed away, so the one
+	// part of the pad the title reads as an ANALOG value was the one part that could not
+	// change. The comparison is over the whole report now, and SentReport is what it
+	// compares against — which also makes it the first version of this field that anything
+	// reads. (It is a new NAME as well as a new type on purpose: gob would reject a Sent
+	// that changed type under it, and every savestate this port has taken holds one.)
+	SentReport [xidReportSize]byte
+	Fresh      bool
 
 	// AddrNext is the address SET_ADDRESS asked for, held until that transfer's own
 	// status stage has been answered. See setup().
@@ -204,7 +531,8 @@ func (d *xidDevice) setup(m *Machine, pkt []byte) ([]byte, error) {
 	// skips it entirely for a type whose object has bit 0x40 at +0x28 (0x2441F5); the
 	// gamepad's does not, so the pad is asked.
 	if bmType == 0xA1 && bReq == xidReqGetReport && wValue == 0x0100 {
-		return d.report(), nil
+		r := d.report()
+		return r[:], nil
 	}
 
 	// ---------------------------------------------------------------------------------
@@ -687,13 +1015,21 @@ func (d *xidDevice) interruptIn(m *Machine, endpoint uint32) []byte {
 		return nil
 	}
 	d.Fresh = false
-	d.Sent = d.Buttons
-	return d.report()
+	r := d.report()
+	// Fresh says a setter MOVED something; SentReport says whether the wire would notice.
+	// They differ when a caller sets a level back to what it already was between two polls,
+	// and the report is the one that decides — bytes identical to the last ones are not
+	// news, whatever the setters did to arrive at them.
+	if r == d.SentReport {
+		return nil
+	}
+	d.SentReport = r
+	return r[:]
 }
 
 // report builds the pad's input report — the bytes that go on the wire, whether they are
 // asked for down the interrupt pipe or fetched once over the control pipe.
-func (d *xidDevice) report() []byte {
+func (d *xidDevice) report() [xidReportSize]byte {
 	var r [xidReportSize]byte
 	// [0] and [1] are the header the cook skips over: it copies from the wire buffer +2
 	// (0x2438EF) for size-2 bytes, so these two bytes are read by nothing at all. They
@@ -708,16 +1044,18 @@ func (d *xidDevice) report() []byte {
 	// high byte carries nothing this pad knows how to say.
 	r[2], r[3] = byte(d.Buttons), byte(d.Buttons>>8)
 
-	// [4..0xB] -> gamepad+2..+9: the eight analog buttons, as PRESSURE bytes. Zero is
-	// "released", and it is a LEVEL WE ARE SETTING, not a hardware default and not a
-	// gap in the model: this pad's vocabulary is digital-only for now (see padButtons),
-	// so no name reaches these bytes and every one of them is honestly at rest. XAPI
-	// zeroes anything under 0x20 here anyway (0x24390A) and the title thresholds them
-	// again itself (0x147DE), so 0 reads as released on both sides.
-	//
-	// [0xC..0x13] -> gamepad+0xA..+0x11: four signed words, the sticks, centred. Same
-	// point, and it is worth making twice: a centred stick and an unmodelled stick
-	// produce identical bytes. These are centred. The distinction is invisible in the
-	// report and must stay visible here.
-	return r[:]
+	// [4..0xB] -> gamepad+2..+9: the eight analog buttons, as PRESSURE bytes. XAPI zeroes
+	// anything under 0x20 (0x24390A) and the title thresholds at 0x1E (0x147E5: MOV CL,$1E
+	// / CMP DL,CL / JBE not-pressed), so anything from 0x20 up reads as pressed on both
+	// sides and anything below 0x20 reads as released on both. See PadPressed.
+	copy(r[4:0xC], d.Analog[:])
+
+	// [0xC..0x13] -> gamepad+0xA..+0x11: four signed words, the sticks, little-endian —
+	// the title sign-extends each with MOVSX (0x14680) and compares it against signed
+	// thresholds, so these carry a two's-complement int16 and the sign is the whole point.
+	for i, v := range d.Axes {
+		r[0xC+2*i] = byte(uint16(v))
+		r[0xD+2*i] = byte(uint16(v) >> 8)
+	}
+	return r
 }

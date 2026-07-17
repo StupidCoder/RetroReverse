@@ -86,8 +86,14 @@ func parseWatch(s string) (lo, hi uint32, err error) {
 	return lo, lo + length, nil
 }
 
-// keyPress is one scheduled pad input: press `buttons` from frame `atFrame` onward,
-// releasing after `holdFrames` frames (0 = held for the rest of the run).
+// keyPress is one scheduled pad input: hold the control named `control` from frame
+// `atFrame` onward, releasing after `holdFrames` frames (0 = held for the rest of the run).
+//
+// It carries a NAME rather than a bit mask, which it did not have to before the pad could
+// say more than eight bits: a stick direction is not a bit, and two of them held at once
+// resolve to one axis pair rather than to an OR. So the schedule collects the names that
+// are held on a given frame and xbox.PadStateOf turns the set into a level — the same call
+// the debugger's keyboard makes, out of the same table.
 //
 // The unit is the FRAME — the title's flip — because that is the boundary the title's own
 // poll is synchronous with, and because a run that starts from a savestate wants to count
@@ -97,11 +103,11 @@ func parseWatch(s string) (lo, hi uint32, err error) {
 type keyPress struct {
 	atFrame    uint64
 	holdFrames uint64
-	buttons    uint16
+	control    string
 }
 
-// parseKeys turns a "-keys start@120,a@900:10" spec into a schedule. BUTTON@FRAME holds
-// from that frame on; BUTTON@FRAME:N holds for N frames and then releases.
+// parseKeys turns a "-keys a@120,stickleft@900:10" spec into a schedule. NAME@FRAME holds
+// from that frame on; NAME@FRAME:N holds for N frames and then releases.
 func parseKeys(spec string) ([]keyPress, error) {
 	var sched []keyPress
 	for _, tok := range strings.Split(spec, ",") {
@@ -111,12 +117,12 @@ func parseKeys(spec string) ([]keyPress, error) {
 		}
 		name, frameS, ok := strings.Cut(tok, "@")
 		if !ok {
-			return nil, fmt.Errorf("bad -keys token %q, want BUTTON@FRAME[:HOLD]", tok)
+			return nil, fmt.Errorf("bad -keys token %q, want NAME@FRAME[:HOLD]", tok)
 		}
-		b, ok := xbox.PadButton(strings.ToLower(strings.TrimSpace(name)))
-		if !ok {
-			return nil, fmt.Errorf("unknown button %q in -keys (have %s)",
-				name, strings.Join(xbox.PadButtonNames(), " "))
+		name = strings.ToLower(strings.TrimSpace(name))
+		if _, ok := xbox.PadControlByName(name); !ok {
+			return nil, fmt.Errorf("unknown pad control %q in -keys (have %s)",
+				name, strings.Join(xbox.PadControlNames(), " "))
 		}
 		frameS = strings.TrimSpace(frameS)
 		var hold uint64
@@ -132,7 +138,7 @@ func parseKeys(spec string) ([]keyPress, error) {
 		if err != nil {
 			return nil, fmt.Errorf("bad frame in -keys token %q: %w", tok, err)
 		}
-		sched = append(sched, keyPress{atFrame: f, holdFrames: hold, buttons: b})
+		sched = append(sched, keyPress{atFrame: f, holdFrames: hold, control: name})
 	}
 	return sched, nil
 }
@@ -170,7 +176,7 @@ func main() {
 	rwatch := flag.String("rwatch", "", "read watch on ADDR[:LEN] (hex): log each read with its PC")
 	watchn := flag.Int("watchn", 40, "limit -watch/-rwatch to this many reported accesses")
 	poke := flag.String("poke", "", "write ADDR:VALUE (hex) after loading, before running — a probe, not a model")
-	keys := flag.String("keys", "", "pad-1 input script: BUTTON@FRAME[:HOLD][,...] — presses BUTTON from that frame (the title's flip), held HOLD frames (default: forever). e.g. -keys start@120")
+	keys := flag.String("keys", "", "pad-1 input script: NAME@FRAME[:HOLD][,...] — holds pad control NAME from that frame (the title's flip) for HOLD frames (default: forever). Names: see xbox.PadControlNames. e.g. -keys start@120,a@300:10,stickleft@400:8")
 	var bps multiFlag
 	flag.Var(&bps, "bp", "execution breakpoint at ADDR (hex); repeatable")
 	var dumps multiFlag
@@ -307,13 +313,13 @@ func main() {
 				prev(mm) // OnFlip is the machine's one frame hook; the pad does not own it
 			}
 			frame++
-			var buttons uint16
+			held := map[string]bool{}
 			for _, k := range sched {
 				if frame >= k.atFrame && (k.holdFrames == 0 || frame < k.atFrame+k.holdFrames) {
-					buttons |= k.buttons
+					held[k.control] = true
 				}
 			}
-			mm.SetPadButtons(0, buttons)
+			mm.SetPad(0, xbox.PadStateOf(held))
 		}
 	}
 

@@ -822,13 +822,13 @@ func TestReportIsTheGamepadBehindATwoByteHeader(t *testing.T) {
 			"0x14630 (MOV CX,[ESI] / TEST CL,$10)", got)
 	}
 	// The eight analog buttons (gamepad+2..+9) and the four stick axes (+0xA..+0x11) are
-	// LEVELS this pad is setting, and they are at rest. Asserting them keeps the digital
-	// mask from leaking into a byte the title thresholds (0x147DE) or reads as a signed
-	// axis (0x14680).
+	// LEVELS this pad is setting, and with only START held they are at rest. Asserting them
+	// keeps the digital mask from leaking into a byte the title thresholds (0x147DE) or
+	// reads as a signed axis (0x14680).
 	for i := 2; i < 18; i++ {
 		if gp[i] != 0 {
-			t.Errorf("gamepad+%#x = %02X, want 0: no digital name reaches the analog "+
-				"buttons or the sticks yet, so every one of them must be at rest", i, gp[i])
+			t.Errorf("gamepad+%#x = %02X, want 0: only START is held, so every analog "+
+				"button and every stick axis must be at rest", i, gp[i])
 		}
 	}
 
@@ -838,6 +838,139 @@ func TestReportIsTheGamepadBehindATwoByteHeader(t *testing.T) {
 	}
 	if got := d.interruptIn(nil, 1); got != nil {
 		t.Errorf("a poll with no change must NAK (nil), got %d bytes", len(got))
+	}
+}
+
+// TestReportCarriesTheAnalogButtonsAndSticks pins the two thirds of the report the pad could
+// not say until this phase, at the offsets the title's own readers name.
+//
+// It is the test the old model could not have failed: a centred stick and an unmodelled stick
+// produce identical bytes (usb_xid.go's own warning), and a released analog button and an
+// unmodelled one do too. The whole pad was at rest, so every assertion about it passed while
+// nothing was wired at all. What breaks that symmetry is DRIVING the fields — which is why
+// this test sets each to a value it could not reach by accident.
+func TestReportCarriesTheAnalogButtonsAndSticks(t *testing.T) {
+	d := &xidDevice{}
+	// A distinct pressure per byte, so a report that transposed two of them fails rather
+	// than looking right. Each is >= 0x20, which is what both readers call pressed
+	// (0x24390A zeroes below it; 0x147E5 asks > 0x1E).
+	for i := range d.Analog {
+		d.Analog[i] = byte(0x20 + i)
+	}
+	// Signed, and deliberately including a NEGATIVE and the extremes: the title reads these
+	// with MOVSX (0x14680) and compares against negative thresholds, so a model that stored
+	// them unsigned would pass every centred test and fail every real one.
+	d.Axes = [4]int16{PadStickFull, -PadStickFull, -1, 0x1234}
+	d.Fresh = true
+
+	r := d.report()
+	gp := r[2:]
+
+	for i := range d.Analog {
+		if gp[2+i] != byte(0x20+i) {
+			t.Errorf("gamepad+%d = %02X, want %02X — the eight pressure bytes XAPI walks at "+
+				"0x243906 land at gamepad+2..+9", 2+i, gp[2+i], 0x20+i)
+		}
+	}
+	for i, want := range d.Axes {
+		off := 0xA + 2*i
+		got := int16(uint16(gp[off]) | uint16(gp[off+1])<<8)
+		if got != want {
+			t.Errorf("gamepad+%#x = %d, want %d — a stick axis is a little-endian SIGNED "+
+				"word (0x14680: MOVSX ECX,[ESI+$A])", off, got, want)
+		}
+	}
+}
+
+// TestAnalogChangeIsNotNAKedAway is the bug the old Fresh/Sent pair would have shipped.
+//
+// They tracked Buttons alone, so a level change that moved only a pressure byte or a stick
+// left Fresh clear and was NAKed away — the pad could be driven and the wire would never say
+// so. The failure is invisible from every direction that matters: the device enumerates, the
+// digital buttons work, and the one part of the pad the title reads as an ANALOG value is the
+// one part that cannot change.
+func TestAnalogChangeIsNotNAKedAway(t *testing.T) {
+	m := gpuMachine(t)
+	m.AttachPad(0)
+	d := m.usbDev[0].(*xidDevice)
+
+	for _, c := range []struct {
+		name string
+		set  func()
+		want byte
+		at   int
+	}{
+		{"an analog button", func() { m.SetPadAnalog(0, 3, PadPressed) }, PadPressed, 4 + 3},
+		{"a stick axis", func() { m.SetPadAxis(0, 0, PadStickFull) }, byte(PadStickFull & 0xFF), 0xC},
+	} {
+		d.Fresh = false
+		c.set()
+		r := d.interruptIn(m, 1)
+		if r == nil {
+			t.Fatalf("moving %s NAKed: the report changed and the wire did not say so", c.name)
+		}
+		if r[c.at] != c.want {
+			t.Errorf("%s: report[%d] = %02X, want %02X", c.name, c.at, r[c.at], c.want)
+		}
+		// ...and the same level twice is still not news.
+		d.Fresh = true
+		if r := d.interruptIn(m, 1); r != nil {
+			t.Errorf("%s: a report identical to the last one must NAK, got %X", c.name, r)
+		}
+	}
+}
+
+// TestPadStateOfIsTheOneVocabulary covers the table both drivers of this machine share.
+func TestPadStateOfIsTheOneVocabulary(t *testing.T) {
+	// Every name resolves to something the report can actually carry. A control pointing at
+	// an offset off the end of the pad would panic in SetPad, and only for whoever pressed
+	// that one key.
+	for _, n := range PadControlNames() {
+		c, _ := PadControlByName(n)
+		switch c.Kind {
+		case PadAnalogButton:
+			if c.Index < 0 || c.Index >= 8 {
+				t.Errorf("%q: analog index %d is not one of the eight pressure bytes", n, c.Index)
+			}
+		case PadAxisDirection:
+			if c.Index < 0 || c.Index >= 4 {
+				t.Errorf("%q: axis index %d is not one of the four stick words", n, c.Index)
+			}
+			if c.Sign != +1 && c.Sign != -1 {
+				t.Errorf("%q: sign %d is neither +1 nor -1", n, c.Sign)
+			}
+		case PadDigitalButton:
+			if c.Bit == 0 {
+				t.Errorf("%q: a digital button with no bit", n)
+			}
+		}
+	}
+
+	// The four derived pairings, as the on-screen keyboard showed them: each d-pad bit and
+	// its stick direction moved the cursor the same way. That is not a claim the code can
+	// check, but the DIRECTION each resolves to is.
+	for _, c := range []struct {
+		stick string
+		axis  int
+		sign  int16
+	}{
+		{"stickup", 1, +1}, {"stickdown", 1, -1},
+		{"stickleft", 0, -1}, {"stickright", 0, +1},
+	} {
+		s := PadStateOf(map[string]bool{c.stick: true})
+		if s.Axes[c.axis] != c.sign*PadStickFull {
+			t.Errorf("%s: axes = %v, want axis %d at %d", c.stick, s.Axes, c.axis, c.sign*PadStickFull)
+		}
+		if s.Buttons != 0 || s.Analog != ([8]byte{}) {
+			t.Errorf("%s: a stick direction pressed a button (%04X / %v)", c.stick, s.Buttons, s.Analog)
+		}
+	}
+
+	// A held=false entry is not a press. The debugger's map deletes released keys, but the
+	// oracle's schedule builds a map fresh each frame, and a caller that passed false would
+	// otherwise be pressing.
+	if s := PadStateOf(map[string]bool{"a": false, "start": false}); s != (PadState{}) {
+		t.Errorf("PadStateOf with everything false = %+v, want a pad at rest", s)
 	}
 }
 
@@ -853,6 +986,14 @@ func TestUSBSaveState(t *testing.T) {
 	m := gpuMachine(t)
 	m.AttachPad(0)
 	m.SetPadButtons(0, 0x0010) // START
+	// The analog half of the level rides the same snapshot, and it is only free because the
+	// fields are EXPORTED — state.go copies [usbPorts]xidDevice by value, so an unexported
+	// pressure byte would gob to zero and a restored pad would come back with its analog
+	// buttons released and its sticks centred. Which is exactly the failure this port's own
+	// warning says is invisible: a centred stick and a lost stick produce identical bytes.
+	m.SetPadAnalog(0, 3, PadPressed)
+	m.SetPadAxis(0, 0, PadStickFull)
+	m.SetPadAxis(0, 1, -PadStickFull)
 	d := m.usbDev[0].(*xidDevice)
 	d.Addr, d.Config = 3, 1
 	m.usbDone = []uint32{0x7100, 0x7110}
@@ -870,12 +1011,18 @@ func TestUSBSaveState(t *testing.T) {
 
 	// Mutating the LIVE machine must not reach the snapshot.
 	m.SetPadButtons(0, 0x0020)
+	m.SetPadAnalog(0, 3, 0)
+	m.SetPadAxis(0, 0, 0)
 	d.Addr = 9
 	m.usbDone[0] = 0xDEAD
 	m.usbCtrlData[0] = 0xFF
 	if st.UsbDev[0].Buttons != 0x0010 || st.UsbDev[0].Addr != 3 {
 		t.Errorf("snapshot aliases the live pad: buttons=%04X addr=%d",
 			st.UsbDev[0].Buttons, st.UsbDev[0].Addr)
+	}
+	if st.UsbDev[0].Analog[3] != PadPressed || st.UsbDev[0].Axes[0] != PadStickFull {
+		t.Errorf("snapshot aliases the live pad's analog level: analog[3]=%02X axes[0]=%d",
+			st.UsbDev[0].Analog[3], st.UsbDev[0].Axes[0])
 	}
 	if st.UsbDone[0] != 0x7100 || st.UsbCtrlData[0] != 0xAA {
 		t.Errorf("snapshot aliases the live transfer state: done0=%08X ctrl0=%02X",
@@ -893,6 +1040,11 @@ func TestUSBSaveState(t *testing.T) {
 	if d2.Buttons != 0x0010 || d2.Addr != 3 || d2.Config != 1 {
 		t.Errorf("restored pad = buttons %04X addr %d config %d, want 0010/3/1",
 			d2.Buttons, d2.Addr, d2.Config)
+	}
+	if d2.Analog[3] != PadPressed || d2.Axes[0] != PadStickFull || d2.Axes[1] != -PadStickFull {
+		t.Errorf("restored pad's analog level = analog[3] %02X axes %v, want %02X and "+
+			"[%d %d 0 0] — through the FILE, so an unexported field would show here",
+			d2.Analog[3], d2.Axes, PadPressed, PadStickFull, -PadStickFull)
 	}
 	if len(m2.usbDone) != 2 || m2.usbDone[0] != 0x7100 {
 		t.Errorf("restored usbDone = %v", m2.usbDone)
@@ -912,9 +1064,15 @@ func TestUSBSaveState(t *testing.T) {
 		t.Fatal(err)
 	}
 	m3.usbDev[0].(*xidDevice).Addr = 7
+	m3.SetPadAxis(0, 0, 0x0123)
+	m3.SetPadAnalog(0, 3, 0x7F)
 	m3.usbDone[0] = 0xBEEF
 	m3.usbCtrlData[0] = 0x11
 	if st.UsbDev[0].Addr != 3 || st.UsbDone[0] != 0x7100 || st.UsbCtrlData[0] != 0xAA {
 		t.Error("restore aliases the snapshot: a second LoadState would not see the saved values")
+	}
+	if st.UsbDev[0].Axes[0] != PadStickFull || st.UsbDev[0].Analog[3] != PadPressed {
+		t.Errorf("restore aliases the snapshot's analog level: axes[0]=%d analog[3]=%02X",
+			st.UsbDev[0].Axes[0], st.UsbDev[0].Analog[3])
 	}
 }

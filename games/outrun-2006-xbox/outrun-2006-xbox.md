@@ -48,6 +48,14 @@ roadmap.)
 * **Part VI** — the **frame debugger** (Phase D): the Xbox `framedbg` adapter, and the hunt for
   what a frame actually *is* on this console — in which three plausible boundaries are measured
   and refuted, one of them only by the scene that breaks it. *(this document)*
+* **Part VII** — the **save-game path**: a reconstructed export table's +5 drift, three ordinals
+  renamed off their own call sites, and a "not enough free blocks" screen that was our model lying
+  to the game. Ends at LICENSE SELECT. *(this document)*
+* **Part VIII** — the **analog pad**: the pressure bytes and the sticks, and nine button names taken
+  with a camera rather than from memory — in which the title's own footer names A and B, its
+  on-screen keyboard pins the stick axes against the d-pad bit-for-bit, a tidy bit-order pattern
+  gets the d-pad backwards, and eleven controls are left deliberately unnamed. `A` is pressed and
+  LICENSE SELECT is left. *(this document)*
 
 ---
 
@@ -949,12 +957,179 @@ returned "no enumeration" for both states because `usb_xid.go` has no trace outp
 
 - **A/B/X/Y are analog buttons** and `SetPadButtons` only carries the digital level (d-pad, START,
   BACK, sticks). The LICENSE SELECT footer says `A SELECT`, so the next press needs the XID report's
-  analog bytes wired up — `-keys` cannot spell `a` yet.
+  analog bytes wired up — `-keys` cannot spell `a` yet. *(Part VIII does this.)*
 - The 320×240 scanout gap (Part VI) is unchanged and unrelated: `-surfpng` is still the only
   verified picture, and the frames above are all draw targets.
 - Unexercised and honest about it: `NtQueryDirectoryFile` on a *disc* directory, every
   `FileFsSizeInformation` field but the two the block-size multiply reads, and the wildcard matcher
   beyond `"*"` (unit-tested against the manual's lane semantics, not against a run).
+
+---
+
+## Part VIII — the analog pad, and letting the game name its own buttons
+
+Part VII ended unable to press `A`. The pad could say eight digital bits; `A` is not one of them —
+it is a **pressure byte**, and the report had eight of those plus four signed stick axes that
+nothing could drive. This part wires them, and the interesting half is not the wiring. It is that
+`usb_xid.go` forbids the obvious way to name them:
+
+> *I know the shape of a Microsoft XID gamepad. Writing that shape down and watching the title
+> accept it would prove nothing at all — the game would work, the screenshot would be right, and
+> the model would rest on a memory instead of on evidence.*
+
+A pad whose buttons are all mislabelled enumerates exactly as well as one whose buttons are right.
+So every name below was **asked of the title**.
+
+### The remap, read whole
+
+`0x14630` is the title's own translation of `XINPUT_GAMEPAD` into its internal button mask, and
+Part VII had only sampled it. Read end to end it names every field's *game bit*:
+
+| gamepad | kind | title's game bit |
+|---|---|---|
+| `+0` bits `01 02 04 08` | d-pad | `0x40 0x20 0x80 0x100` |
+| `+0` bit `10` | START | `0x01` |
+| `+0` bits `20 40 80` | digital | `0x200 0x100000 0x08000000` |
+| `+2 +3 +4 +5` | pressure | `0x02 0x04 0x08 0x10` |
+| `+6 +7 +8 +9` | pressure | `0x800 0x400 0x1000 0x2000` |
+| `+0xA` / `+0xC` | axis ± | `0x40000/0x80000` / `0x10000/0x20000` |
+| `+0xE` / `+0x10` | axis ± | `0x2000000/0x4000000` / `0x800000/0x1000000` |
+
+Two corrections to Part VII fall out. The analog buttons are not "+6..+9": **all eight** bytes at
+`+2..+9` are thresholded, each against `0x1E` (`0x147E5`: `MOV CL,$1E` / `CMP DL,CL` / `JBE`). And
+there are **four** axes, not one. The single `CMP [ESI+$7], CL` the earlier census noticed was one
+line of eight — *a census that finds a reader is not a census that has found the readers.*
+
+**The sticks are a Schmitt trigger**, which is the part worth keeping. Each axis test picks its
+threshold off `EDI` — and `EDI` is *last frame's game-bit mask* (`0x14843: MOV EDI,[EBX]`, where
+`0x14853` stored it):
+
+```
+00014686  TEST ECX, ECX / JZ        zero skips BOTH direction tests: 0 is centred
+0001468A  TEST EDI, $00040000       was this direction already on?
+00014692  CMP ECX, $00002FFF          ...if so it stays on past 37%
+0001469D  CMP ECX, $00005FFF          ...if not it must clear 75% to come on
+```
+
+So a fresh direction needs `|axis| > 0x5FFF`. And XAPI adds no deadzone of its own: its cook walks
+the eight pressure bytes and stops (`0x243906: PUSH $8`), copying the stick words through untouched.
+
+### Nine names, taken with a camera
+
+The method: plug a pad in at a known screen, drive **exactly one** control to full for fifteen
+frames, run to a fixed frame, photograph the render surface. What the screen does is the name.
+
+**LICENSE SELECT** names two buttons in its own footer — `A SELECT`, `BACK B` — and answers with
+exactly two bytes. `+2` advances the card into ENTER NAME; `+3` leaves it backwards. The other six
+come back **MD5-identical to a run that pressed nothing**, which is far stronger than "nothing
+obvious happened".
+
+**The on-screen keyboard**, three `A` presses further in, is a *grid* — and a grid has a cursor.
+Each d-pad bit and one stick direction step it identically, to the MD5:
+
+| held | frame | cursor |
+|---|---|---|
+| wButtons `0x01` ≡ axis1 `+` | `0efe773d…` | up (`1`→`Space`, wrapping) |
+| wButtons `0x02` ≡ axis1 `−` | `5b614593…` | down (`1`→`a`) |
+| wButtons `0x04` ≡ axis0 `−` | `e6802957…` | left |
+| wButtons `0x08` ≡ axis0 `+` | `cfd176f5…` | right (`1`→`2`) |
+
+Two independently-known cases per decode — which is what pins one. Axis 0 is X (**+ = right**),
+axis 1 is Y (**+ = up**, the pad's convention, inverted from every screen coordinate here). Axes 2
+and 3 move the cursor nowhere: both signs of both return the baseline hash, so this menu does not
+listen to the second stick — a fact about the *menu*, since the remap does produce bits for them.
+
+**The pattern was wrong and the picture was right.** The d-pad names were previously *asserted* —
+Part VII admitted only START was derived — and they turn out correct, which is luck, not method. It
+nearly went the other way: read the remap's game-bit *order* as one vocabulary (d-pad into
+`0x20,0x40,0x80,0x100` in wButtons order `02,01,08,04`; the first stick into the adjacent run
+`0x10000..0x80000` as `axis1+, axis1−, axis0+, axis0−`) and wButtons `0x02` is obviously "up". The
+camera says **down**. That is the whole argument for taking the picture.
+
+### The eleven names this pad does not have
+
+Nine of twenty controls are named. The other eleven — six pressure bytes at `+4..+9`, three digital
+bits (`0x20/0x40/0x80`), and the second stick — were **driven to full at both screens** and left
+every frame MD5-identical to the baseline (`c5cd1149…`). They are therefore absent from the
+vocabulary, not guessed at.
+
+The canonical XID order would name most of them in one line, and the temptation is now *worse* than
+before the experiment ran, not better: `A` and `B` landed on the two offsets a remembered ordering
+would have predicted, which feels like corroboration and is not — it is two matches, and the same
+reasoning-by-pattern just got the d-pad wrong. Two screens being indifferent to a byte is not
+evidence of what that byte is; it is evidence that *these two screens cannot tell us*. The frontier
+is a screen with more in its footer than SELECT and BACK.
+
+### The vocabulary is the design decision
+
+`padButtons` was `name → uint16 bit`. A pressure is a byte at an offset and a stick is a signed
+word, so the table is now `name → PadControl{Kind, Bit|Index, Sign}`, and `PadStateOf(held)` turns
+a set of held names into the whole level. **One table, both callers** — `-keys` and the debugger's
+keyboard resolve through the same map. The GameCube split this (its stick directions live
+adapter-side while its oracle's `-keys` stayed digital-only), and the split is exactly what lets
+two callers grow different ideas of what "up" means.
+
+Three details earned their comments:
+
+- **`Fresh`/`Sent` tracked `Buttons` alone.** Generalising them was not tidying: a level change that
+  moved only a pressure byte or a stick left `Fresh` clear and was **NAKed away**, so the one part
+  of the pad the title reads as an *analog* value would have been the one part that could not
+  change. The comparison is over the whole report now, against a `SentReport` that — for the first
+  time — something reads. (New *name* as well as new type: gob rejects a field that changes type
+  under it, and every savestate this port has taken holds a `Sent uint16`.)
+- **The fields are exported**, so they ride `state.go`'s by-value snapshot for free, and gob's zero
+  value is genuinely right: `0` is centred *because the title says so* (`0x14686` skips both tests
+  on zero), not because zero is a tidy default.
+- **Opposite directions accumulate, then clamp.** Assigning would make the answer depend on Go's map
+  iteration order — the same input giving a different stick each run, and only sometimes.
+
+### The diagonal is a declared choice, and the octagon is refuted
+
+The GameCube splits a diagonal at `full/√2` because its shell has an octagonal gate — a physical
+fact about a specific piece of plastic. **Nothing in this image describes the Xbox's shell**, and
+the axes are signed words rather than bytes about a centre, so neither the shape nor the magnitude
+transfers. But the image does refute the shape: `0x7FFF/√2 = 0x5A82`, which is **below** the
+`0x5FFF` a fresh direction must clear. Split that way a diagonal registers *neither* direction, and
+does it silently.
+
+So each axis of a diagonal goes to full — a **square gate**, declared, with its cost declared too:
+if the real shell is round, this hands the game a diagonal longer than a real pad can reach. Both
+readers of a *direction* threshold rather than measure, so nothing reached so far can tell — but the
+title also keeps the raw axis words (`0x1486A` → its per-pad record `+0xAC`), and a driving screen
+that steers by magnitude is exactly where this would first be wrong. That is the run that should
+revisit it.
+
+### ★ A is pressed, and LICENSE SELECT is left
+
+Through the shipped tooling, from the committed fixture:
+
+```
+bootoracle -image "…(EUR).iso" -loadstate work/states/license.state -gpu \
+           -steps 300000000 -keys "a@30:10" -surfpng work/entername.png
+```
+
+LICENSE SELECT gives way to **ENTER NAME** — a driver portrait, a flag, the default `OR2C2C`, and a
+`DONE` button. The stick rides the same chain: `-keys "a@30:10,a@80:10,a@200:10,stickright@260:15"`
+opens the on-screen keyboard and steps its cursor from `1` to `2`.
+
+`framedbg` gets the same vocabulary. The **arrows are the left stick** — the Xbox's primary
+directional control, and on a menu provably interchangeable with the d-pad (same frames, above) —
+so the d-pad keeps a home of its own on the numeric keypad, `8/2/4/6`. `a` and `b` are the two
+buttons the title named. Every other letter falls through to a lookup that refuses it, because a key
+that quietly did nothing would be worse than one the vocabulary declines. `padPace`'s one-state-per-
+flip pacing is untouched: the USB frame is too fast and drains a press inside one game frame.
+
+### Where it stands / next
+
+- **The pad is a real pad**, minus eleven names it has no evidence for. The frontier is a screen
+  that names more than SELECT and BACK.
+- `pad_test.go` (xboxadapter) pins the stick the way the GameCube's does — an arrow must move the
+  stick *and* leave the d-pad bits alone, opposites cancel, and the diagonal must clear the title's
+  own `0x5FFF`. That test exists because the GameCube's first cut shipped its stick upside down.
+- The 320×240 scanout gap (Part VI) is unchanged: `-surfpng` remains the only verified picture.
+- **`+3` (B) leaves LICENSE SELECT into a disc error** — *"There's a problem with the disc you're
+  using."* Backing out re-enters a path the model cannot yet serve. That is a real frontier and a
+  clean repro, and it is the next thing to pull.
 
 ### Tooling
 
@@ -976,4 +1151,7 @@ returned "no enumeration" for both states because `usb_xid.go` has no trace outp
   signature reads straight off the pushes. `RR_NV_TRACE=1` traces every NV2A MMIO access.
   `-png` exports the display scanout, `-surfpng` the Kelvin render target (AA-resolved); a
   `-loadstate` of a halted frontier state clears the halt and retries the trapped call.
+  `-keys NAME@FRAME[:HOLD]` drives pad 1 from the title's own flip — the names are
+  `xbox.PadControlNames()`, shared with the debugger, and cover the analog buttons and the stick
+  (`-keys "a@30:10,stickright@260:15"`).
 - `tools/cpu/x86/sse.go` — the SSE/SSE2 + MMX execution subset (the Xbox-only CPU addition).

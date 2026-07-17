@@ -568,7 +568,8 @@ func TestPadStatesEachGetAFrame(t *testing.T) {
 		}
 	}
 
-	start, _ := xbox.PadButton("start")
+	startCtl, _ := xbox.PadControlByName("start")
+	start := startCtl.Bit
 	pressedAt := -1
 	for i, mask := range seen {
 		if mask&start != 0 {
@@ -605,7 +606,8 @@ func TestHeldPadButtonStaysHeld(t *testing.T) {
 		}
 	}
 
-	start, _ := xbox.PadButton("start")
+	startCtl, _ := xbox.PadControlByName("start")
+	start := startCtl.Bit
 	if got := m.PadButtons(0); got&start == 0 {
 		t.Errorf("pad level = %04X after draining the queue: a held button must stay held", got)
 	}

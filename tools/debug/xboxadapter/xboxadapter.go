@@ -132,10 +132,10 @@ type Adapter struct {
 	// pacing (see padPace). New installs ONE OnFlip that calls both.
 	flipHook func(*xbox.Machine)
 
-	// The pad. held is which keys the browser currently has down; padQueue is the button
+	// The pad. held is which keys the browser currently has down; padQueue is the pad
 	// states the machine has not sampled yet. See Key.
 	held     map[string]bool
-	padQueue []uint16
+	padQueue []xbox.PadState
 }
 
 // The capabilities this target backs. Listed explicitly so that dropping one from the
@@ -188,61 +188,89 @@ var (
 // an error: the browser sends everything, including keys that are not buttons.
 func (a *Adapter) Key(k debug.Key) error {
 	name := normalizeKey(k.Name)
-	if _, ok := xbox.PadButton(name); !ok {
+	if _, ok := xbox.PadControlByName(name); !ok {
 		return nil
 	}
 	// The first button is also what plugs the pad in. Attaching at New would connect a
 	// controller to every debugger session whether or not anyone meant to drive one —
 	// and a machine merely being LOOKED at should not have hardware appear in it.
-	a.live.AttachPad(0)
+	//
+	// Guarded because the console is the only part of this that needs one: the vocabulary
+	// and the queue are the adapter's own, so pad_test.go can drive Key on a checkout with
+	// no disc image — which is the difference between the stick mapping being tested on
+	// every run and being tested on the one machine that has the game.
+	if a.live != nil {
+		a.live.AttachPad(0)
+	}
 	if k.Down {
 		a.held[name] = true
 	} else {
 		delete(a.held, name)
 	}
-	var mask uint16
-	for n := range a.held {
-		b, _ := xbox.PadButton(n)
-		mask |= b
-	}
+	// The vocabulary and the gate both live platform-side, next to the device: this
+	// adapter resolves a keyboard's names and knows nothing about which byte they are.
+	st := xbox.PadStateOf(a.held)
 	// Only a CHANGE needs a frame of its own; a repeat (the browser's key-repeat) is the
 	// same level and would just cost a frame.
-	if len(a.padQueue) > 0 && a.padQueue[len(a.padQueue)-1] == mask {
+	if len(a.padQueue) > 0 && a.padQueue[len(a.padQueue)-1] == st {
 		return nil
 	}
-	a.padQueue = append(a.padQueue, mask)
+	a.padQueue = append(a.padQueue, st)
 	return nil
 }
 
-// padPace releases one queued button state per frame, from the machine's flip hook. An
+// padPace releases one queued pad state per frame, from the machine's flip hook. An
 // empty queue leaves the current level alone, which is what keeps a held button held —
 // the queue carries changes, and never invents a release.
 func (a *Adapter) padPace(m *xbox.Machine) {
 	if len(a.padQueue) == 0 {
 		return
 	}
-	m.SetPadButtons(0, a.padQueue[0])
+	m.SetPad(0, a.padQueue[0])
 	a.padQueue = a.padQueue[1:]
 }
 
-// normalizeKey folds a browser KeyboardEvent.key value to the button names
-// xbox.PadButton knows — the same names the oracle's -keys scripts use.
+// normalizeKey folds a browser KeyboardEvent.key value to the control names
+// xbox.PadControlByName knows — the same names the oracle's -keys scripts use.
+//
+// THE ARROWS ARE THE STICK, not the d-pad, and that is the one mapping here worth arguing
+// for. The Xbox's primary directional control is the left stick: it is what the title's own
+// menus steer by, and the pad's derivation watched a stick direction and its matching d-pad
+// bit produce the SAME FRAME to the MD5 — so on a menu the two are interchangeable and the
+// arrows may as well be the one that also works when the game wants an analog direction.
+// The GameCube's adapter made exactly this move for exactly this reason.
+//
+// So the d-pad needs a home of its own, and it gets the GameCube's: the numeric keypad
+// laid out as a d-pad, 8/2/4/6 around 5. It is not a fallback — a menu that reads only the
+// d-pad and a game that reads only the stick are both reachable from one keyboard, and
+// telling them apart is exactly the sort of thing this debugger exists to do.
 func normalizeKey(name string) string {
 	s := strings.ToLower(name)
 	switch s {
 	case "arrowup":
-		return "up"
+		return "stickup"
 	case "arrowdown":
-		return "down"
+		return "stickdown"
 	case "arrowleft":
-		return "left"
+		return "stickleft"
 	case "arrowright":
+		return "stickright"
+	case "8":
+		return "up"
+	case "2":
+		return "down"
+	case "4":
+		return "left"
+	case "6":
 		return "right"
 	case "enter", "return":
 		return "start"
-	case "escape", "backspace":
-		return "back"
 	}
+	// a and b are the analog buttons LICENSE SELECT's own footer named, and they arrive
+	// under their own letters. Every other letter falls through to a lookup that will not
+	// find it, which is the honest outcome: the pad has ten controls with no name yet
+	// (usb_xid.go says which and why), and a key that quietly did nothing would be worse
+	// than one the vocabulary refuses.
 	return s
 }
 
