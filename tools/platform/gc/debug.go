@@ -11,6 +11,7 @@ package gc
 // the only structure available, and this is how it is recovered.
 
 import (
+	"encoding/binary"
 	"fmt"
 	"image"
 	"strings"
@@ -34,23 +35,75 @@ func (m *Machine) VIField() uint64 { return m.vi.Field }
 // whichever comes first — so a corrupt stack yields a short trace rather than a loop.
 func (m *Machine) Backtrace() []uint32 { return m.backtraceFrom(m.CPU.GPR[1]) }
 
+// A FRAME'S RETURN ADDRESS IS NOT IN ITS OWN FRAME, and reading it there is the mistake this
+// walker made until the game's own prologues were read back:
+//
+//	80097F00  mfspr r0,LR
+//	80097F04  stw   r0,4(r1)      ; r1 is still the CALLER's sp — this writes caller_sp+4
+//	80097F08  stwu  r1,-88(r1)    ; only now does the frame exist, with [sp] = caller_sp
+//
+// So a function saves its return address into the frame BELOW it, and the +4 slot of its own
+// frame is written by nothing until it calls something — at which point the callee puts ITS
+// return address there. Reading [sp+4] for the current frame therefore yields the return
+// address of the last call this function made: an address inside the function itself, which
+// looks plausible enough to survive a reading. The tell was a sampled profile whose frame 0 was
+// always the instruction after the leaf's own bl.
+//
+// The chain is therefore walked one frame ahead of the address it reports: the caller's frame
+// supplies this frame's return address. The outermost frame's own return address is never
+// reported, which is right — its caller is the thread entry, and there is nothing above it.
 func (m *Machine) backtraceFrom(sp uint32) []uint32 {
 	var out []uint32
 	for depth := 0; depth < 64; depth++ {
-		if sp == 0 || sp&3 != 0 || sp >= 0x81800000 || sp < 0x80000000 {
+		if !validSP(sp) {
 			break
 		}
-		next := m.ReadVirt32(sp)
-		lr := m.ReadVirt32(sp + 4) // the saved link register, at frame+4
-		if lr != 0 {
-			out = append(out, lr)
+		next := m.stackWord(sp)
+		// The chain must climb toward the top of the stack, and the caller's frame must be a
+		// frame, because this frame's return address is read out of it.
+		if !validSP(next) || next <= sp {
+			break
 		}
-		if next <= sp {
-			break // the chain must climb toward the top of the stack
+		if lr := m.stackWord(next + 4); lr != 0 {
+			out = append(out, lr)
 		}
 		sp = next
 	}
 	return out
+}
+
+// validSP says whether an address could be a stack frame: aligned, and inside the cached-RAM
+// window that every GameCube stack lives in.
+func validSP(a uint32) bool {
+	return a != 0 && a&3 == 0 && a >= stackWindow && a < stackWindow+RAMSize
+}
+
+const stackWindow = 0x80000000 // main memory's cached mirror, where DBAT0 puts it
+
+// stackWord reads one word of a stack, mapping the cached-RAM window to physical memory itself
+// rather than asking the CPU to translate it.
+//
+// WHY NOT ReadVirt32, WHICH IS THE FUNCTION FOR READING THE GAME'S MEMORY: an exception handler
+// runs with MSR[DR] clear — translation off — while its stack pointer is still an 0x8-prefixed
+// effective address. ReadVirt32 honours the current MSR, so it would hand that address to the
+// bus as a PHYSICAL one, miss main memory, and log an unmapped read for every frame of every
+// walk; the trace would come back empty in exactly the place a debugger most wants it, and the
+// unmodelled-hardware census would fill up with the debugger's own reads. (That is not
+// hypothetical: sampling the stack 40,000 times a run is what surfaced it.)
+//
+// The console's DBAT0 maps this window to physical zero for the machine's entire life
+// (ipl.go's setupState), and validSP has already confined the address to that window, so the
+// translation applied here is that BAT's — not an invention, and identical to what the CPU
+// would return whenever it is in a position to answer at all.
+//
+// Reading around the bus also keeps a debugger's reads out of the read-watches, which is what
+// a watch on a stack address would otherwise report: the profiler, not the game.
+func (m *Machine) stackWord(ea uint32) uint32 {
+	pa := ea - stackWindow
+	if int(pa)+4 > len(m.RAM) {
+		return 0
+	}
+	return binary.BigEndian.Uint32(m.RAM[pa : pa+4])
 }
 
 // BacktraceString renders it.
