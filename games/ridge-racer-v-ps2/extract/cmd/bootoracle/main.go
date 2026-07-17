@@ -374,7 +374,7 @@ func run(c cfg) error {
 	}
 	res := m.Run(steps)
 	fmt.Println(res.String())
-	fmt.Printf("reached: %s\n", m.Sym(res.PC))
+	fmt.Printf("reached: %s  (vblank %d)\n", m.Sym(res.PC), m.VBlanks())
 
 	if tty := m.TTY(); tty != "" {
 		fmt.Printf("\ntty:\n%s\n", tty)
@@ -382,6 +382,7 @@ func run(c cfg) error {
 	if c.verbose {
 		fmt.Printf("\n--- %s", m.SyscallCensus())
 		fmt.Printf("\n--- %s", m.SIFCensus())
+		fmt.Printf("\n--- %s", m.GSStatus())
 		fmt.Printf("\n--- %s", m.HardwareCensus())
 		if census := m.IOP.IOPCensus(); census != "" {
 			fmt.Printf("\n--- %s", census)

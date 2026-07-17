@@ -95,3 +95,46 @@ func packedXYZ2(x, y int, adc bool) []byte {
 	putLE64(q[8:], hi)
 	return q
 }
+
+// TestFrameZAsColourWritesThroughZSwizzle drives the "clear/render Z as colour" idiom:
+// a game points FRAME at its Z buffer with FRAME.PSM set to a Z format so the ordinary
+// colour pipeline fills the depth memory (RRV's intro clears its 0x46000 Z buffer this
+// way). PSMZ24 shares PSMCT32's pixel packing but a DIFFERENT block swizzle (^0x18), so
+// the colour must land at the Z-swizzled address — writing it through the CT32 swizzle
+// would "clear" the wrong words and leave the Z the geometry reads stale. Mutation test:
+// route the store through addrPSMCT32 instead of addrPSMZ32 and both assertions flip.
+func TestFrameZAsColourWritesThroughZSwizzle(t *testing.T) {
+	m := NewMachine()
+	gs := m.ensureGS()
+
+	// A 64-pixel-wide frame at base 0 whose PSM is PSMZ24 — the colour pipeline writes
+	// into Z memory. Z-write masked and Z-test off so the depth stage stays out of the way.
+	gs.write(gsFRAME1, 1<<16|uint64(psmZ24)<<24)
+	gs.write(gsSCISSOR1, 63<<16|uint64(31)<<48)
+	gs.write(gsXYOFFSET1, 0)
+	gs.write(gsZBUF1, 1<<32) // ZMSK=1: no depth write to interfere
+	gs.write(gsTEST1, 0)     // alpha test off, ZTE off (always pass)
+	gs.write(gsPRMODECONT, 1)
+
+	// One sprite covering (4,4)..(11,9) in a distinctive colour.
+	var packet []byte
+	tag := make([]byte, 16)
+	putLE64(tag[0:], uint64(1)|1<<15|uint64(gifPacked)<<58|uint64(4)<<60)
+	putLE64(tag[8:], 0x0|0x1<<4|0x5<<8|0x5<<12)
+	packet = append(packet, tag...)
+	packet = append(packet, packedPrim(6)...) // sprite
+	packet = append(packet, packedRGBA(0x12, 0x34, 0x56)...)
+	packet = append(packet, packedXYZ2(4, 4, false)...)
+	packet = append(packet, packedXYZ2(12, 10, false)...)
+	m.gifPacket(packet)
+
+	// The colour landed at the Z-swizzled word for (5,5).
+	const want = 0x80563412 // a=0x80 b=0x56 g=0x34 r=0x12
+	if got := le32gs(gs.vram[addrPSMZ32(0, 1, 5, 5):]); got != want {
+		t.Errorf("Z-swizzled (5,5) = %08X, want %08X — colour did not reach the Z buffer", got, want)
+	}
+	// ...and NOT at the CT32-swizzled word, which the depth reader never touches.
+	if got := le32gs(gs.vram[addrPSMCT32(0, 1, 5, 5):]); got == want {
+		t.Errorf("colour reached the CT32-swizzled word for (5,5) — the Z clear would miss the geometry's depth")
+	}
+}

@@ -384,10 +384,15 @@ func (gs *GS) plot(t *gsTarget, x, y int32, z uint32, rgba uint32) {
 		gs.rejScissor++
 		return
 	}
-	if t.psm != psmCT32 && t.psm != psmCT24 {
-		// A wrong-format write is worse than none — but a DROPPED write must be loud in
-		// the census: a 16-bit render target that stays garbage explains every sampler
-		// that reads it back.
+	// A frame target can point at Z memory: the "clear/render Z as colour" idiom sets
+	// FRAME.PSM to a Z format so the ordinary colour pipeline writes into the Z buffer
+	// (RRV's intro clears its 0x46000 Z buffer this way, ~279M writes a run). PSMZ32/Z24
+	// share PSMCT32/CT24's pixel packing but address through the Z block swizzle (^0x18),
+	// so the store below must use addrPSMZ32, not addrPSMCT32, or the "clear" would land
+	// at the wrong words and leave the Z the geometry reads stale. 16-bit targets are
+	// still unmodelled — dropped loudly.
+	frameZ := t.psm == psmZ32 || t.psm == psmZ24
+	if t.psm != psmCT32 && t.psm != psmCT24 && !frameZ {
 		gs.count(sprintf("DROPPED pixel writes: frame psm 0x%02X at fb 0x%05X", t.psm, t.fbp*64))
 		return
 	}
@@ -478,6 +483,9 @@ func (gs *GS) plot(t *gsTarget, x, y int32, z uint32, rgba uint32) {
 	}
 
 	addr := addrPSMCT32(t.fbp, t.fbw, uint32(x), uint32(y))
+	if frameZ {
+		addr = addrPSMZ32(t.fbp, t.fbw, uint32(x), uint32(y))
+	}
 	if addr+4 > uint32(len(gs.vram)) {
 		return
 	}
@@ -497,7 +505,7 @@ func (gs *GS) plot(t *gsTarget, x, y int32, z uint32, rgba uint32) {
 	blended := false
 	if t.abe && (!t.pabe || srcA&0x80 != 0) {
 		dstA := int64(old >> 24)
-		if t.psm == psmCT24 {
+		if t.psm == psmCT24 || t.psm == psmZ24 {
 			dstA = 0x80 // a frame with no alpha reads as 1.0
 		}
 		rgba = blendPixel(t.alpha, rgba, old, dstA, t.colclamp)
