@@ -92,6 +92,11 @@ type Machine struct {
 	// The mounted disc.
 	vol *iso9660.Volume
 
+	// The console ROM (rom0), if one was supplied — the IOP's kernel modules that
+	// the game's own boot image does not carry come from here. Not savestated: it is
+	// static input, restored the same way the disc is (SetBIOS before a resume).
+	bios []byte
+
 	// Kernel HLE state (kernel.go).
 	SyscallCalls map[string]int
 	tty          []byte
@@ -386,6 +391,21 @@ func (m *Machine) SetVolume(v *iso9660.Volume) { m.vol = v }
 
 // Volume returns the mounted disc.
 func (m *Machine) Volume() *iso9660.Volume { return m.vol }
+
+// SetBIOS supplies a console ROM (rom0) for the IOP to take its kernel modules
+// from. It is optional, and what it is optional *for* is worth stating plainly:
+// a game's IOPRP image only has to carry the modules that game wants to *replace*,
+// because on real hardware the rest are already in the ROM. Jak's image happens to
+// carry all twelve, which is why this machine ran without a ROM at all — that was
+// a property of Jak's disc, not of the PS2. Ridge Racer V's IOPRP15.IMG carries
+// four, and the other eight have to come from somewhere.
+//
+// A module in the game's image wins over the ROM's copy of the same name, because
+// that is what `rom0:UDNL <image>` asks for: boot the ROM's set, then update it.
+func (m *Machine) SetBIOS(raw []byte) { m.bios = raw }
+
+// BIOS returns the console ROM the IOP takes its base modules from, or nil.
+func (m *Machine) BIOS() []byte { return m.bios }
 
 // Exe returns the loaded executable, for its symbol table.
 func (m *Machine) Exe() *Executable { return m.exe }

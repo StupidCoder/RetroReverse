@@ -14,8 +14,7 @@ package ps2
 // supposed to be executing. Everything a boot needs, except the handful of base
 // libraries the ROM keeps to itself (see iopkernel.go), is right here.
 //
-// The format is as plain as it sounds. A directory of fixed 16-byte records sits at
-// the very start of the file:
+// The format is as plain as it sounds. A directory of fixed 16-byte records:
 //
 //	name[10]   NUL-padded; an empty name ends the directory
 //	extinfo    u16, the size of this entry's slice of the EXTINFO blob
@@ -23,9 +22,20 @@ package ps2
 //
 // and the file bodies follow one another from offset zero, each padded up to a
 // 16-byte boundary. The first three entries describe the archive's own furniture —
-// RESET, ROMDIR and EXTINFO — and the directory is thus the first thing in the file
-// *and* an entry within it, which is a pleasing little knot but not a complication:
-// walking the records and accumulating a padded offset lands on every body.
+// RESET, ROMDIR and EXTINFO — and the directory is thus an entry within itself,
+// which is a pleasing little knot but not a complication: walking the records and
+// accumulating a padded offset lands on every body.
+//
+// THE DIRECTORY IS NOT NECESSARILY AT OFFSET ZERO, and a real BIOS proves it. In an
+// IOPRP image the first body *is* the directory, so the two coincide and a reader
+// that assumes zero works by luck. In a console ROM the first body is RESET — the
+// processor's reset vector, which the hardware demands be the first thing in the
+// chip — and the directory sits after it (0x2700 in SCPH-10000, 0x2740 in
+// SCPH-70004). So the directory is *found*, by looking for the RESET/ROMDIR/EXTINFO
+// furniture that every archive opens with, and only the bodies start at zero. The
+// three names together are the anchor: RESET alone appears in the ROM's code as
+// ordinary bytes, and matching on it would land the directory in the middle of a
+// module.
 
 import (
 	"encoding/binary"
@@ -42,10 +52,33 @@ type RomEntry struct {
 // romEntrySize is the size of one directory record.
 const romEntrySize = 16
 
+// FindROMDIR reports the offset of the archive's directory, which is the start of
+// the file for an IOPRP image and a good way in for a console ROM. It looks for the
+// three furniture records every archive opens with; see the note at the top of this
+// file for why one name is not enough.
+func FindROMDIR(raw []byte) (int, bool) {
+	name := func(off int) string {
+		if off+romEntrySize > len(raw) {
+			return ""
+		}
+		return strings.TrimRight(string(raw[off:off+10]), "\x00")
+	}
+	for off := 0; off+3*romEntrySize <= len(raw); off += 16 {
+		if name(off) == "RESET" && name(off+romEntrySize) == "ROMDIR" && name(off+2*romEntrySize) == "EXTINFO" {
+			return off, true
+		}
+	}
+	return 0, false
+}
+
 // ReadROMDIR parses a ROMDIR archive.
 func ReadROMDIR(raw []byte) ([]RomEntry, error) {
 	var out []RomEntry
-	off, body := 0, 0
+	off, ok := FindROMDIR(raw)
+	if !ok {
+		return nil, errors.New("ps2: no ROMDIR directory (no RESET/ROMDIR/EXTINFO records) in this image")
+	}
+	body := 0
 
 	for {
 		if off+romEntrySize > len(raw) {
@@ -66,6 +99,42 @@ func ReadROMDIR(raw []byte) ([]RomEntry, error) {
 	}
 	if len(out) == 0 {
 		return nil, errors.New("ps2: the ROMDIR is empty")
+	}
+	return out, nil
+}
+
+// ROMDIREntry returns one named entry's bytes, or false if the archive has no such
+// entry.
+func ROMDIREntry(raw []byte, name string) ([]byte, bool) {
+	all, err := ReadROMDIR(raw)
+	if err != nil {
+		return nil, false
+	}
+	for _, e := range all {
+		if e.Name == name {
+			return e.Data, true
+		}
+	}
+	return nil, false
+}
+
+// IOPBootConf reads the IOP boot order out of a console ROM's IOPBTCONF entry — the
+// list of kernel modules the machine itself starts, in the order it starts them.
+// The file is one module name per line; a leading "@800" line sets the load
+// address and is not a module. This is the machine's own authority on the order our
+// iopBootOrder was hand-derived to match, and it is the same across ROM revisions
+// four years apart, so it is a real independent reference and not a coincidence.
+func IOPBootConf(bios []byte) ([]string, error) {
+	blob, ok := ROMDIREntry(bios, "IOPBTCONF")
+	if !ok {
+		return nil, errors.New("ps2: this ROM has no IOPBTCONF entry")
+	}
+	var out []string
+	for _, line := range strings.Fields(string(blob)) {
+		if line == "" || strings.HasPrefix(line, "@") {
+			continue // the "@800" load-address directive, not a module
+		}
+		out = append(out, line)
 	}
 	return out, nil
 }

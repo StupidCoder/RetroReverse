@@ -7,6 +7,7 @@ use (
 	./games/fort-apocalypse-c64/extract
 	./games/marble-madness-amiga/extract
 	./games/jak-and-daxter-ps2/extract
+	./games/ridge-racer-v-ps2/extract
 	./games/loco-roco-psp/extract
 	./games/luigis-mansion-gc/extract
 	./games/mario-kart-ds/extract

@@ -22,29 +22,40 @@ import (
 	"strings"
 )
 
-// iopBootOrder is the dependency order of the IOP kernel modules in IOPRP221.IMG.
+// iopBootOrder is the order the IOP kernel modules are started in — the subset of the
+// modules we load for real (the base libraries beneath them are HLE'd; see iopkernel.go).
 //
-//	TIMEMANI, SIFMAN     import nothing but intrman, which is ours
+// This is the CONSOLE ROM's own order, read from its IOPBTCONF and filtered to our set.
+// It was previously a topological sort of the import graph, derived by hand — a valid
+// order, and it booted Jak, but a *different* order from the one the machine actually
+// uses (it loaded SIFMAN before THREADMAN, and CDVDMAN before LOADFILE, where the ROM
+// does the reverse). Both are valid topological sorts of the same dependency DAG, so
+// nothing forced a choice and the hand-derived one drifted. Two ROM revisions four
+// years apart list this exact order, so it is the machine's authority and not a guess;
+// TestBootOrderMatchesBIOS pins ours to it. The dependencies each module still relies on:
+//
+//	TIMEMANI             imports nothing but intrman, which is ours
 //	THREADMAN            wants timrman and heaplib
-//	SIFCMD               wants sifman and threadman's thbase/thevent
 //	IOMAN                wants only ours
-//	ROMDRV, MODLOAD      want ioman
+//	MODLOAD, ROMDRV      want ioman
+//	SIFMAN               imports nothing but intrman
+//	SIFCMD               wants sifman and threadman's thbase/thevent
+//	LOADFILE             wants modload and sifcmd
 //	CDVDMAN              wants ioman and threadman
 //	CDVDFSV              wants cdvdman and sifcmd
-//	LOADFILE             wants modload and sifcmd
 //	FILEIO               wants ioman and sifcmd
 //	EESYNC               wants sifman and ioman
 var iopBootOrder = []string{
 	"TIMEMANI",
-	"SIFMAN",
 	"THREADMAN",
-	"SIFCMD",
 	"IOMAN",
-	"ROMDRV",
 	"MODLOAD",
+	"ROMDRV",
+	"SIFMAN",
+	"SIFCMD",
+	"LOADFILE",
 	"CDVDMAN",
 	"CDVDFSV",
-	"LOADFILE",
 	"FILEIO",
 	"EESYNC",
 }
@@ -52,12 +63,24 @@ var iopBootOrder = []string{
 // iopBootImage is the boot image the game reboots the IOP onto.
 const iopBootImage = "/DRIVERS/IOPRP221.IMG"
 
-// RebootIOP builds the second processor and starts it on the disc's boot image.
+// RebootIOP brings the second processor up at power-on, before the EE runs.
 //
-// It returns the modules it started, in the order it started them. A module that fails
-// to load stops the boot then and there and says why: the alternative is an IOP that
-// runs with a hole in it, which looks exactly like an IOP that is merely slow.
-func (m *Machine) RebootIOP() error { return m.RebootIOPFrom(iopBootImage) }
+// On real hardware this first boot comes from the console ROM alone: the BIOS starts
+// the IOP on rom0's own modules, and only later does the game reboot it onto a disc
+// image. So when a ROM is supplied, that is exactly what happens — the disc image is
+// not read yet; the game's own `rom0:UDNL <image>` reboot brings it in and overlays
+// it (iopRebootImage reads the path out of the game's packet).
+//
+// When no ROM is supplied we have no rom0 to boot from, so we fall back to the one
+// boot the disc can do on its own: a self-contained IOPRP image. Jak's carries all
+// twelve kernel modules, which is the whole reason this machine ran without a ROM.
+// A module that fails to load stops the boot then and there and says why.
+func (m *Machine) RebootIOP() error {
+	if m.bios != nil {
+		return m.RebootIOPFrom("") // power-on from rom0; the game's UDNL reboot overlays the disc
+	}
+	return m.RebootIOPFrom(iopBootImage)
+}
 
 // RebootIOPFrom boots the second processor on a nominated image.
 //
@@ -71,18 +94,41 @@ func (m *Machine) RebootIOPFrom(image string) error {
 	if m.vol == nil {
 		return fmt.Errorf("ps2: no disc is mounted, so the IOP has nothing to boot from")
 	}
-	raw, err := m.vol.ReadFile(image)
-	if err != nil {
-		return fmt.Errorf("ps2: reading the IOP's boot image %s: %w", image, err)
-	}
-	entries, err := ROMDIRModules(raw)
-	if err != nil {
-		return fmt.Errorf("ps2: %s is not a ROMDIR archive: %w", image, err)
-	}
-
+	// The modules come from two places, in this order: the console ROM's base set,
+	// then the game's boot image on top. The image is an *update* — it carries only
+	// the modules the game replaces, and `rom0:UDNL <image>` is a request to boot the
+	// ROM's set and update it with the image's, so a name in the image wins. When no
+	// ROM was supplied the image must be self-contained (Jak's is); when it is not,
+	// the missing-module error below says which name had no source.
 	byName := map[string][]byte{}
-	for _, e := range entries {
-		byName[e.Name] = e.Data
+	if m.bios != nil {
+		entries, err := ROMDIRModules(m.bios)
+		if err != nil {
+			return fmt.Errorf("ps2: the supplied BIOS is not a ROMDIR image: %w", err)
+		}
+		for _, e := range entries {
+			byName[e.Name] = e.Data
+		}
+	}
+	// An empty image name is a ROM-only boot (the power-on boot when a ROM is present):
+	// the disc is not read at all. Only the ROM can serve that, so it is an error to ask
+	// for it without one.
+	if image == "" {
+		if m.bios == nil {
+			return fmt.Errorf("ps2: a ROM-only boot was requested but no BIOS is mounted")
+		}
+	} else {
+		raw, err := m.vol.ReadFile(image)
+		if err != nil {
+			return fmt.Errorf("ps2: reading the IOP's boot image %s: %w", image, err)
+		}
+		entries, err := ROMDIRModules(raw)
+		if err != nil {
+			return fmt.Errorf("ps2: %s is not a ROMDIR archive: %w", image, err)
+		}
+		for _, e := range entries {
+			byName[e.Name] = e.Data
+		}
 	}
 
 	// The EE's half of the SIF is up before the IOP's is: a game does not reboot the
@@ -99,13 +145,27 @@ func (m *Machine) RebootIOPFrom(image string) error {
 	for _, name := range iopBootOrder {
 		raw, ok := byName[name]
 		if !ok {
-			return fmt.Errorf("ps2: %s holds no module called %s", image, name)
+			// A module the boot order calls for that neither the ROM nor the image
+			// supplies. Without a ROM this is the usual "the image is not
+			// self-contained" case; with one it means the ROM is missing a base
+			// module, which is a different and louder problem.
+			if m.bios == nil {
+				return fmt.Errorf("ps2: %s holds no module called %s, and no BIOS was supplied to fall back on", image, name)
+			}
+			return fmt.Errorf("ps2: neither %s nor the BIOS holds a module called %s", image, name)
 		}
 		if err := m.IOP.LoadAndStart(name, raw); err != nil {
 			return err
 		}
 	}
-	m.note("IOP: booted on %s — %d modules, SMFLG now 0x%08X", image, len(m.IOP.modules), m.sbus[sbusSMFLG/0x10])
+	switch {
+	case image == "":
+		m.note("IOP: power-on boot from ROM (%d modules)", len(m.IOP.modules))
+	case m.bios != nil:
+		m.note("IOP: booted on ROM + %s (%d modules)", image, len(m.IOP.modules))
+	default:
+		m.note("IOP: booted on %s (%d modules, image only)", image, len(m.IOP.modules))
+	}
 
 	// Every module is loaded, so the boot is over — and the modules that asked to be told
 	// that are now told (loadcore#20, iopkernel.go). It is EESYNC that cares: its callback

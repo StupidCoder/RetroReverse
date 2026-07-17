@@ -1,9 +1,11 @@
-// Package ps2adapter implements a debug.Target for the PlayStation 2 oracle —
-// Jak and Daxter's boot on tools/platform/ps2.
+// Package ps2adapter implements a debug.Target for the PlayStation 2 oracle on
+// tools/platform/ps2 — Jak and Daxter and Ridge Racer V.
 //
-// The PS2 is an LLE machine like the PSX and the N64: there is no ROM, the boot ELF is
-// side-loaded off the disc (the address SYSTEM.CNF's BOOT2 names), and the whole render
-// path — VIF, VU1, GIF, GS — runs for real. What this adapter backs first is the half a
+// The PS2 is an LLE machine like the PSX and the N64: the boot ELF is side-loaded off
+// the disc (the address SYSTEM.CNF's BOOT2 names), and the whole render path — VIF,
+// VU1, GIF, GS — runs for real. Some games' IOPRP images carry the whole IOP kernel and
+// boot with no ROM (Jak); others carry only an update and need a console ROM supplied
+// through the "bios" profile key (Ridge Racer V). See New. What this adapter backs first is the half a
 // person most wants when they say "let me see it": the picture the GS is scanning out,
 // played a field at a time, with the savestates the bootoracle already writes loadable
 // straight into it so a session can jump to the frame worth looking at. The CPU and
@@ -36,7 +38,15 @@ import (
 // there is no game-specific interrupt handler to supply; the profile is unused today.
 func init() {
 	debug.Register("ps2", func(s debug.OpenSpec) (debug.Target, error) {
-		return New(s.Image)
+		// The game may name a console ROM in its debug.json profile, resolved next to
+		// the image. It is needed when the game's IOPRP image is an update that carries
+		// only some of the IOP kernel (Ridge Racer V); a self-contained image (Jak)
+		// leaves the key empty and boots with no ROM, exactly as before.
+		var bios string
+		if b := s.Get("bios"); b != "" {
+			bios = filepath.Join(filepath.Dir(s.Image), b)
+		}
+		return New(s.Image, bios)
 	})
 }
 
@@ -58,6 +68,8 @@ var eeRegNames = []string{
 // Adapter drives a PS2 oracle as a debug.Target.
 type Adapter struct {
 	imagePath string
+	biosPath  string
+	bios      []byte
 	vol       *iso9660.Volume
 	exe       *ps2.Executable
 	sum       string
@@ -118,7 +130,10 @@ func (snap) Platform() string { return "ps2" }
 // New opens a disc image and side-loads its boot executable, the way the bootoracle
 // does: SYSTEM.CNF names the executable, the ELF is read off the disc, and the IOP is
 // booted on the module image the game itself reboots it onto.
-func New(imagePath string) (*Adapter, error) {
+// New opens the disc at imagePath. biosPath is optional: the empty string boots with
+// no console ROM (a self-contained IOPRP image, like Jak's), and a path supplies rom0
+// for a game whose image is only an update (Ridge Racer V).
+func New(imagePath, biosPath string) (*Adapter, error) {
 	raw, err := os.ReadFile(imagePath)
 	if err != nil {
 		return nil, err
@@ -140,7 +155,12 @@ func New(imagePath string) (*Adapter, error) {
 	if err != nil {
 		return nil, err
 	}
-	a := &Adapter{imagePath: imagePath, vol: vol, exe: exe, sum: sum, held: map[string]bool{}}
+	a := &Adapter{imagePath: imagePath, biosPath: biosPath, vol: vol, exe: exe, sum: sum, held: map[string]bool{}}
+	if biosPath != "" {
+		if a.bios, err = os.ReadFile(biosPath); err != nil {
+			return nil, fmt.Errorf("reading the BIOS %s: %w", biosPath, err)
+		}
+	}
 	if err := a.boot(); err != nil {
 		return nil, err
 	}
@@ -168,6 +188,9 @@ func (a *Adapter) boot() error {
 	m := ps2.NewMachine()
 	m.SetImageHash(a.sum)
 	m.SetVolume(a.vol)
+	if a.bios != nil {
+		m.SetBIOS(a.bios)
+	}
 	m.LoadExecutable(a.exe)
 	if err := m.RebootIOP(); err != nil {
 		return fmt.Errorf("bringing the IOP up: %w", err)

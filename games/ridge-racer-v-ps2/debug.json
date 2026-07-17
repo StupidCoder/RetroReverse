@@ -1,0 +1,8 @@
+{
+  "name": "Ridge Racer V",
+  "platform": "ps2",
+  "image": "image/Ridge Racer V (USA).bin",
+  "profile": {
+    "bios": "scph10000.bin"
+  }
+}

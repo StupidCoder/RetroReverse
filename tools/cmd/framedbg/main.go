@@ -70,6 +70,7 @@ func run() error {
 		isr      = flag.String("isr", "", "PSX only: the game's vectored-interrupt handler, hex (Ridge Racer: 8004DF48)")
 		dtcm     = flag.String("dtcm", "", "DS only: the ARM9 DTCM base the game programs, hex (SM64DS: 023C0000)")
 		xbe      = flag.String("xbe", "/default.xbe", "Xbox only: the XBE within the disc to boot")
+		bios     = flag.String("bios", "", "PS2 only: console ROM (rom0, e.g. scph10000.bin) for a game whose IOPRP image is an update (Ridge Racer V); Jak's image is self-contained and needs none")
 		platform = flag.String("platform", "", "force the platform (n64, psx, psp, 3ds, 3do, ds, gc, xbox); by default it is read off the image's extension")
 		skip     = flag.Int("skip", -1, "advance this many frames before capturing; -1 = step until a drawn frame")
 		list     = flag.Bool("list", false, "print the captured frame's display-processor command stream")
@@ -122,7 +123,7 @@ func run() error {
 	// -platform ps2; the library path (framedbg -serve, then pick the game) reads the
 	// platform off the slug and needs no flag.
 	if *platform == "ps2" {
-		d, err := ps2adapter.New(*image_)
+		d, err := ps2adapter.New(*image_, *bios)
 		if err != nil {
 			return err
 		}

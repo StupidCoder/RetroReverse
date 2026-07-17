@@ -8,6 +8,8 @@ package ps2
 
 import (
 	"encoding/binary"
+	"os"
+	"path/filepath"
 	"testing"
 )
 
@@ -167,19 +169,22 @@ func TestROMDIRWalksToEveryBody(t *testing.T) {
 		binary.LittleEndian.PutUint32(b[12:], uint32(size))
 		return b
 	}
-	// Five records: the three named entries and the empty one that ends the directory.
-	// The ROMDIR entry's size covers the whole of it, terminator included — which is
+	// Six records: the three furniture entries (RESET/ROMDIR/EXTINFO — the anchor a
+	// directory is *found* by), two real ones, and the empty record that ends it. The
+	// ROMDIR entry's size covers the whole directory, terminator included, which is
 	// what makes the directory findable as a body like any other.
-	const dirSize = 5 * romEntrySize
+	const dirSize = 6 * romEntrySize
 
 	var raw []byte
 	raw = append(raw, dir("RESET", 0)...)
 	raw = append(raw, dir("ROMDIR", dirSize)...)
+	raw = append(raw, dir("EXTINFO", 0)...)
 	raw = append(raw, dir("FIRST", 17)...) // 17 bytes: pads to 32
 	raw = append(raw, dir("SECOND", 3)...)
 	raw = append(raw, make([]byte, romEntrySize)...) // the empty record that ends it
 
-	// The bodies: the directory itself is the first, at offset 0.
+	// The bodies: the directory itself is the first, at offset 0 (RESET and EXTINFO
+	// are zero-length here, so it and FIRST follow immediately).
 	body := raw
 	first := make([]byte, 32)
 	for i := 0; i < 17; i++ {
@@ -192,13 +197,56 @@ func TestROMDIRWalksToEveryBody(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(entries) != 4 {
-		t.Fatalf("found %d entries, want 4", len(entries))
+	if len(entries) != 5 {
+		t.Fatalf("found %d entries, want 5", len(entries))
 	}
-	if got := entries[2]; got.Name != "FIRST" || len(got.Data) != 17 || got.Data[16] != 0xAA {
+	if got := entries[3]; got.Name != "FIRST" || len(got.Data) != 17 || got.Data[16] != 0xAA {
 		t.Errorf("FIRST is %d bytes and ends 0x%02X, want 17 ending 0xAA", len(got.Data), got.Data[len(got.Data)-1])
 	}
-	if got := entries[3]; got.Name != "SECOND" || len(got.Data) != 3 || got.Data[0] != 0xBB {
+	if got := entries[4]; got.Name != "SECOND" || len(got.Data) != 3 || got.Data[0] != 0xBB {
 		t.Errorf("SECOND is %v, want three 0xBB — the 16-byte padding was not honoured", got.Data)
+	}
+}
+
+// TestBootOrderMatchesBIOS checks our hand-derived iopBootOrder against the console
+// ROM's own IOPBTCONF — the machine's authority on which kernel modules start and in
+// what order. iopBootOrder is the subset we load for real (the base libraries below it
+// are HLE'd), so the test is a *subsequence* check: every module we load must appear in
+// IOPBTCONF, in the same relative order. This is the independent reference this repo has
+// been short of; the order was previously a topological sort we derived by hand, and a
+// derivation defended only by "it booted Jak" is exactly the kind of thing that hides a
+// latent ordering bug. The two ROM revisions on disc agree with each other four years
+// apart, so this is a real cross-check and not a coincidence.
+//
+// Skips when no BIOS is present — the ROMs are gitignored like the game images.
+func TestBootOrderMatchesBIOS(t *testing.T) {
+	for _, path := range []string{
+		"../../../games/ridge-racer-v-ps2/image/scph10000.bin",
+		"../../../games/ridge-racer-v-ps2/image/SCPH-70004_BIOS_V12_PAL_200.BIN",
+	} {
+		bios, err := os.ReadFile(path)
+		if err != nil {
+			continue // this ROM is not on disk
+		}
+		conf, err := IOPBootConf(bios)
+		if err != nil {
+			t.Fatalf("%s: reading IOPBTCONF: %v", path, err)
+		}
+		pos := map[string]int{}
+		for i, name := range conf {
+			pos[name] = i
+		}
+		last := -1
+		for _, name := range iopBootOrder {
+			p, ok := pos[name]
+			if !ok {
+				t.Errorf("%s: iopBootOrder names %s, which the ROM's IOPBTCONF does not list", filepath.Base(path), name)
+				continue
+			}
+			if p <= last {
+				t.Errorf("%s: %s comes before a module we load earlier — our order disagrees with the ROM's", filepath.Base(path), name)
+			}
+			last = p
+		}
 	}
 }

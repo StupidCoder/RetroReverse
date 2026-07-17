@@ -21,7 +21,7 @@ func open(t *testing.T) *Adapter {
 	if _, err := os.Stat(disc); err != nil {
 		t.Skip("Jak and Daxter disc not present; skipping")
 	}
-	a, err := New(disc)
+	a, err := New(disc, "") // Jak's IOPRP image is self-contained; no BIOS needed
 	if err != nil {
 		t.Fatal(err)
 	}
