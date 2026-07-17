@@ -20,7 +20,10 @@ package xbox
 // FILE is still honest (a fresh console has an empty cache); a missing PARTITION is
 // not. The store is part of the savestate.
 
-import "strings"
+import (
+	"sort"
+	"strings"
+)
 
 // cacheFile is one file on the writable HDD partitions (keyed by drive-qualified
 // upper-case path, e.g. "Z:/MENU.PAK").
@@ -30,11 +33,36 @@ type cacheFile struct {
 
 // fileObject is an open file: a disc entry (read-only) or a cache file (writable, with
 // its store key so a savestate can re-link it), plus the current byte offset.
+//
+// dir marks a handle onto a DIRECTORY of the writable HDD store. That store is a flat
+// key->bytes map with no directory records, so such a handle has neither a cache file nor
+// a disc entry to carry its identity — only its key and this flag. A disc directory needs
+// no flag: its Entry already says IsDir.
+// scan is the directory-enumeration cursor: the index into listDir of the next child
+// NtQueryDirectoryFile will report. The Xbox call returns ONE entry per call, so the
+// cursor is the whole of the enumeration's state and must ride in the savestate.
 type fileObject struct {
 	entry Entry
 	cache *cacheFile
 	key   string
+	dir   bool
 	off   uint32
+	scan  int
+}
+
+// isDir reports whether the handle names a directory, from whichever side backs it.
+func (fo *fileObject) isDir() bool { return fo.dir || fo.entry.IsDir }
+
+// fnv64 is FNV-1a over a store key, used where the HLE must mint an opaque unique file
+// id for a cache file (NtQueryInformationFile's FileInternalInformation). Hashing the
+// path rather than counting keeps the id stable across a savestate round trip.
+func fnv64(s string) uint64 {
+	h := uint64(14695981039346656037)
+	for i := 0; i < len(s); i++ {
+		h ^= uint64(s[i])
+		h *= 1099511628211
+	}
+	return h
 }
 
 // size is the object's current byte length (a cache file grows as it is written).
@@ -82,6 +110,179 @@ func resolveCachePath(p string) (string, bool) {
 	return "", false
 }
 
+// statPath answers "what is at this path" without opening a handle — what
+// NtQueryFullAttributesFile (ordinal 210) needs. It reports the byte size, whether the
+// path is a directory, and whether it exists at all.
+//
+// The disc answers from its own directory tree. The writable HDD store is a flat
+// key->bytes map with no directory records, so a directory there is inferred: a path
+// exists as a directory when some key sits under it. That is not a shortcut — with no
+// way to create an empty directory (openFile only ever mints files), "some file is under
+// it" is exactly the set of directories this store can hold. The partition roots are the
+// one exception: on a real console T:/U:/Z: always exist, empty or not (see the header).
+func (m *Machine) statPath(path string) (size uint32, isDir, found bool) {
+	if key, ok := resolveCachePath(path); ok {
+		if cf := m.cacheFS[key]; cf != nil {
+			return uint32(len(cf.Data)), false, true
+		}
+		dir := strings.TrimSuffix(key, "/")
+		if len(dir) == 2 { // "Z:" — a partition root, always present
+			return 0, true, true
+		}
+		for k := range m.cacheFS {
+			if strings.HasPrefix(k, dir+"/") {
+				return 0, true, true
+			}
+		}
+		return 0, false, false
+	}
+	disc, ok := resolveDiscPath(path)
+	if !ok || m.Disc == nil {
+		return 0, false, false
+	}
+	e, err := m.Disc.resolve(disc)
+	if err != nil {
+		return 0, false, false
+	}
+	return e.Size, e.IsDir, true
+}
+
+// dirEntry is one child of an open directory, as NtQueryDirectoryFile reports it.
+type dirEntry struct {
+	Name  string
+	Size  uint32
+	IsDir bool
+}
+
+// listDir enumerates an open directory handle's children, in a stable order (the scan
+// cursor is an INDEX into this list and rides in the savestate, so the order must not
+// depend on Go's map iteration). A disc directory reads from the XISO's own tree; an HDD
+// directory is reconstructed from the flat store's keys — every key under the directory
+// contributes either a file (no further separator) or the subdirectory it lies in.
+func (m *Machine) listDir(fo *fileObject) []dirEntry {
+	if fo.dir {
+		prefix := strings.TrimSuffix(fo.key, "/") + "/"
+		byName := map[string]dirEntry{}
+		for k, cf := range m.cacheFS {
+			if !strings.HasPrefix(k, prefix) {
+				continue
+			}
+			rest := k[len(prefix):]
+			if i := strings.Index(rest, "/"); i >= 0 {
+				byName[rest[:i]] = dirEntry{Name: rest[:i], IsDir: true}
+			} else if rest != "" {
+				byName[rest] = dirEntry{Name: rest, Size: uint32(len(cf.Data))}
+			}
+		}
+		out := make([]dirEntry, 0, len(byName))
+		for _, e := range byName {
+			out = append(out, e)
+		}
+		sort.Slice(out, func(i, j int) bool { return out[i].Name < out[j].Name })
+		return out
+	}
+	if m.Disc == nil || !fo.entry.IsDir {
+		return nil
+	}
+	es, err := m.Disc.ReadDir(fo.entry.Path)
+	if err != nil {
+		return nil
+	}
+	out := make([]dirEntry, 0, len(es))
+	for _, e := range es {
+		out = append(out, dirEntry{Name: e.Name, Size: e.Size, IsDir: e.IsDir})
+	}
+	sort.Slice(out, func(i, j int) bool { return out[i].Name < out[j].Name })
+	return out
+}
+
+// matchPattern is the NT directory-search wildcard test: '*' spans any run, '?' any one
+// character, everything else is a case-insensitive literal. The only pattern this title
+// is observed to pass is "*" (a 1-char OBJECT_STRING; the save-game enumeration wants
+// every child) — the rest of the subset is here because it is the same three lines, not
+// because anything has exercised it.
+func matchPattern(pat, name string) bool {
+	pat, name = strings.ToUpper(pat), strings.ToUpper(name)
+	// Iterative backtracking match: p/n walk the inputs, star/mark remember the last '*'.
+	p, n, star, mark := 0, 0, -1, 0
+	for n < len(name) {
+		switch {
+		case p < len(pat) && (pat[p] == '?' || pat[p] == name[n]):
+			p, n = p+1, n+1
+		case p < len(pat) && pat[p] == '*':
+			star, mark = p, n
+			p++
+		case star >= 0:
+			p, mark = star+1, mark+1
+			n = mark
+		default:
+			return false
+		}
+	}
+	for p < len(pat) && pat[p] == '*' {
+		p++
+	}
+	return p == len(pat)
+}
+
+// The geometry NtQueryVolumeInformationFile reports for the writable HDD partitions.
+// 512-byte sectors, 32 to an allocation unit: a 16 KiB unit, which is the "block" the
+// console's own UI counts saves in — and the unit this title's caller reconstructs, by
+// multiplying these two fields together (site 0x4291C: IMUL [buf+0x10], [buf+0x14]).
+//
+// hddTotalUnits is a MODEL CHOICE and the one number here that is not derived from
+// anything: our HDD store is an in-memory map with no size, and the size of a console's
+// save partition is a property of the console, which the disc image cannot tell us.
+// 262144 units = 4 GiB, retail-plausible and comfortably past the only constraint the
+// title has ever put on it — it wants 120 blocks (~2 MB) to save a game, and said so on
+// screen when a failed open left it believing there were none.
+const (
+	hddBytesPerSector  = 512
+	hddSectorsPerUnit  = 32
+	hddBytesPerUnit    = hddBytesPerSector * hddSectorsPerUnit
+	hddTotalUnits      = 262144
+	discBytesPerSector = 2048 // XDVDFS sectors (xiso.go's sectorSize)
+)
+
+// volumeUnits reports a volume's size and free space in allocation units, for the
+// FileFsSizeInformation query. The HDD's free space tracks the store's REAL contents —
+// every cache file rounded up to a whole unit — so a title that fills the partition sees
+// it fill. A disc is read-only and has no free space at all; its size is the image's.
+func (m *Machine) volumeUnits(fo *fileObject) (total, avail uint64) {
+	if fo.cache == nil && !fo.dir { // a disc file or directory
+		if m.Disc == nil {
+			return 0, 0
+		}
+		return uint64(m.Disc.Size) / discBytesPerSector, 0
+	}
+	used := uint64(0)
+	for _, cf := range m.cacheFS {
+		used += (uint64(len(cf.Data)) + hddBytesPerUnit - 1) / hddBytesPerUnit
+	}
+	if used > hddTotalUnits {
+		return hddTotalUnits, 0
+	}
+	return hddTotalUnits, hddTotalUnits - used
+}
+
+// writeNetworkOpenInfo fills a FILE_NETWORK_OPEN_INFORMATION (0x38 bytes): four
+// timestamps, AllocationSize, EndOfFile, FileAttributes. Shared by the two calls that
+// report it — NtQueryInformationFile's class 0x22 (by handle) and
+// NtQueryFullAttributesFile (by path). Times stay 0: the XISO stamps the volume, not its
+// files, so there is no per-file time to tell the truth with.
+func (m *Machine) writeNetworkOpenInfo(buf, size uint32, isDir bool) {
+	for i := uint32(0); i < 0x38; i += 4 {
+		m.write32(buf+i, 0)
+	}
+	m.write32(buf+0x20, size)    // AllocationSize (low; high already 0)
+	m.write32(buf+0x28, size)    // EndOfFile
+	attrs := uint32(0x01 | 0x80) // READONLY|NORMAL (a DVD file)
+	if isDir {
+		attrs = 0x11 // READONLY|DIRECTORY
+	}
+	m.write32(buf+0x30, attrs)
+}
+
 // DebugCacheFS lists the writable HDD store: key -> size. DebugCacheFile returns one
 // file's bytes. Diagnostic accessors (like DebugThreads) — the verify-the-shipped-file
 // check compares an installed Z: copy byte-for-byte against its disc source.
@@ -107,12 +308,17 @@ func (m *Machine) readObjectAttributesPath(oa uint32) string {
 	if oa == 0 {
 		return ""
 	}
-	nameStr := m.read32(oa + 4)
-	if nameStr == 0 {
+	return m.readObjectString(m.read32(oa + 4))
+}
+
+// readObjectString reads a counted ANSI OBJECT_STRING. The opens reach it through an
+// OBJECT_ATTRIBUTES; NtQueryDirectoryFile is handed one directly, as its search pattern.
+func (m *Machine) readObjectString(p uint32) string {
+	if p == 0 {
 		return ""
 	}
-	length := uint32(m.read16(nameStr))
-	buf := m.read32(nameStr + 4)
+	length := uint32(m.read16(p))
+	buf := m.read32(p + 4)
 	if buf == 0 || length == 0 || length > 1024 {
 		return ""
 	}
@@ -161,6 +367,17 @@ func (m *Machine) openFile(handleOut, oa, iosb uint32, disposition uint32) uint3
 
 	if key, ok := resolveCachePath(path); ok {
 		cf := m.cacheFS[key]
+		// A DIRECTORY of the store opens before any file lookup: with no directory
+		// records to find, the flat map would answer "no such file" for a path that
+		// plainly exists — and did. The XAPI opens the save partition's root (U:\) to
+		// ask the volume how much room is left; the failed open meant it never got to
+		// ask, and the title told the player their console was full.
+		if cf == nil && disposition != dispCreate {
+			if _, isDir, found := m.statPath(path); found && isDir {
+				m.logf("NtOpen/CreateFile: %q -> hdd %q (directory)", path, key)
+				return newHandle(&fileObject{key: key, dir: true}, infoOpened)
+			}
+		}
 		switch {
 		case cf == nil:
 			if disposition == dispOpen || disposition == dispOverwrite {

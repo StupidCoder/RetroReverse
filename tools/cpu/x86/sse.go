@@ -268,18 +268,25 @@ func (c *CPU) execSSE(op, rep byte) bool {
 		}
 		c.XMM[reg] = r
 		return true
-	case 0x14: // UNPCKLPS/UNPCKLPD: interleave low lanes
+	case 0x14, 0x15: // UNPCKLPS/UNPCKLPD (14), UNPCKHPS/UNPCKHPD (15): interleave the
+		// operands' low (14) or high (15) lanes. The high form is the WMA decoder's
+		// (site 0x1EAD4D, the WMADEC section) — the menu's music, which the title only
+		// reaches now that it is past the save-game dialogue.
 		reg, o := c.modrmE()
 		a, b := c.XMM[reg], c.sseRM(o, 16)
+		h := 0 // byte offset of the half being interleaved: low (0) or high (8)
+		if op == 0x15 {
+			h = 8
+		}
 		var r [16]byte
 		if k == ssePD {
-			copy(r[0:8], a[0:8])
-			copy(r[8:16], b[0:8])
+			copy(r[0:8], a[h:h+8])
+			copy(r[8:16], b[h:h+8])
 		} else {
-			copy(r[0:4], a[0:4])
-			copy(r[4:8], b[0:4])
-			copy(r[8:12], a[4:8])
-			copy(r[12:16], b[4:8])
+			copy(r[0:4], a[h:h+4])
+			copy(r[4:8], b[h:h+4])
+			copy(r[8:12], a[h+4:h+8])
+			copy(r[12:16], b[h+4:h+8])
 		}
 		c.XMM[reg] = r
 		return true

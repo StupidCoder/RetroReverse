@@ -338,22 +338,224 @@ func kernelObjectHandler(ord uint16) func(*Machine) int {
 				m.finishOpen(iosb, h, 8, 0)
 				return 5
 			}
+			if class == 6 && ln >= 8 {
+				// FileInternalInformation: the volume-unique file id as a LARGE_INTEGER
+				// (FILE_INTERNAL_INFORMATION is exactly that one field, hence the caller's
+				// length of 8). Site 0x444CD, the middle of GetFileInformationByHandle's
+				// three queries — its consumer files the two halves into nFileIndexHigh/Low.
+				// A disc file's id is its start sector: XDVDFS gives every file an extent,
+				// so the sector is unique per file and stable for the life of the image
+				// (two empty files would collide at 0; none exists on this disc). A cache
+				// file has no extent, so its id is a hash of its store key — an invention,
+				// but a file id IS an FS-assigned opaque unique value, and hashing the path
+				// keeps it unique and savestate-stable without a counter to serialise.
+				id := uint64(fo.entry.Sector)
+				if fo.cache != nil {
+					id = fnv64(fo.key)
+				}
+				m.write32(buf+0, uint32(id))
+				m.write32(buf+4, uint32(id>>32))
+				m.finishOpen(iosb, h, 8, 0)
+				return 5
+			}
 			if class != 0x22 || ln < 0x38 {
 				m.CPU.Halt("NtQueryInformationFile: unmodelled class %d (len %d) from %08X",
 					class, ln, m.retAddr())
 				return 5
 			}
-			for i := uint32(0); i < 0x38; i += 4 {
+			m.writeNetworkOpenInfo(buf, fo.size(), fo.isDir())
+			m.finishOpen(iosb, h, 0x38, 0)
+			return 5
+		}
+
+	case 207: // NtQueryDirectoryFile(FileHandle, Event, ApcRoutine, ApcContext,
+		// IoStatusBlock, FileInformation, Length, FileInformationClass, FileName,
+		// RestartScan) -> NTSTATUS. Not the table's NtQueryIoCompletion: table-202 + the Nt
+		// block's +5 drift, and the site (0x427B0) pushes all ten arguments of this call in
+		// order — handle, three zeroes (no event, no APC), an IOSB local, a 0x148-byte
+		// buffer, that length, class 1, an OBJECT_STRING, and RestartScan 0. The string it
+		// points at is one character, "*": this is the save-game enumeration of U:\, which
+		// the title reaches only now that the partition root can be opened at all.
+		//
+		// The Xbox call returns ONE entry per call and the caller loops, so fo.scan (the
+		// index of the next child) is the entire enumeration state.
+		//
+		// FILE_DIRECTORY_INFORMATION (class 1): NextEntryOffset, FileIndex, four times,
+		// EndOfFile, AllocationSize, FileAttributes, FileNameLength, then the ANSI name.
+		return func(m *Machine) int {
+			h, iosb, buf, ln := m.arg(0), m.arg(4), m.arg(5), m.arg(6)
+			class, namePtr, restart := m.arg(7), m.arg(8), m.arg(9)
+			fo := m.files[h]
+			if fo == nil || !fo.isDir() {
+				m.finishOpen(iosb, h, 0, 0xC0000008) // STATUS_INVALID_HANDLE
+				return 10
+			}
+			if class != 1 {
+				m.CPU.Halt("NtQueryDirectoryFile: unmodelled class %d (len %d) from %08X",
+					class, ln, m.retAddr())
+				return 10
+			}
+			pat := "*"
+			if namePtr != 0 {
+				if s := m.readObjectString(namePtr); s != "" {
+					pat = s
+				}
+			}
+			if restart != 0 {
+				fo.scan = 0
+			}
+			entries := m.listDir(fo)
+			// Walk from the cursor to the next child the pattern accepts.
+			i := fo.scan
+			for i < len(entries) && !matchPattern(pat, entries[i].Name) {
+				i++
+			}
+			if i >= len(entries) {
+				fo.scan = len(entries)
+				// An empty result distinguishes "nothing here at all" from "the walk is
+				// done": NT reports the first case as STATUS_NO_SUCH_FILE and every later
+				// exhausted call as STATUS_NO_MORE_FILES, and callers lean on the pair.
+				status := uint32(0x80000006) // STATUS_NO_MORE_FILES
+				if restart != 0 || i == 0 {
+					status = 0xC000000F // STATUS_NO_SUCH_FILE
+				}
+				m.logf("NtQueryDirectoryFile: %q pattern %q -> end (%08X)", fo.key, pat, status)
+				m.finishOpen(iosb, h, 0, status)
+				return 10
+			}
+			e := entries[i]
+			fo.scan = i + 1
+			need := uint32(0x40 + len(e.Name))
+			if ln < need {
+				m.finishOpen(iosb, h, 0, 0x80000005) // STATUS_BUFFER_OVERFLOW
+				return 10
+			}
+			for o := uint32(0); o < 0x40; o += 4 {
+				m.write32(buf+o, 0)
+			}
+			m.write32(buf+0x00, 0) // NextEntryOffset: a single entry, so no chain
+			m.write32(buf+0x04, uint32(i))
+			attrs := uint32(0x01 | 0x80) // READONLY|NORMAL
+			if e.IsDir {
+				attrs = 0x11 // READONLY|DIRECTORY
+			} else {
+				m.write32(buf+0x28, e.Size) // EndOfFile
+				m.write32(buf+0x30, e.Size) // AllocationSize
+			}
+			m.write32(buf+0x38, attrs)
+			m.write32(buf+0x3C, uint32(len(e.Name)))
+			for j := 0; j < len(e.Name); j++ {
+				m.Write(buf+0x40+uint32(j), e.Name[j])
+			}
+			m.logf("NtQueryDirectoryFile: %q pattern %q -> %q (%d bytes, dir=%v)",
+				fo.key, pat, e.Name, e.Size, e.IsDir)
+			m.finishOpen(iosb, h, need, 0)
+			return 10
+		}
+
+	case 210: // NtQueryFullAttributesFile(ObjectAttributes, FileInformation) -> NTSTATUS.
+		// NOT the table's NtQuerySymbolicLinkObject: table-205 + the Nt block's +5 drift
+		// lands here, and the site (0x448FE) settles it — two args, no handle and no IOSB,
+		// which is this call's whole signature. arg0 is an OBJECT_ATTRIBUTES the caller
+		// builds in place at [EBP-0x10]: RootDirectory 0xFFFFFFFD, ObjectName the
+		// OBJECT_STRING at [EBP-0x18], Attributes 0x40 (OBJ_CASE_INSENSITIVE) — the same
+		// three-field layout readObjectAttributesPath already reads for the opens. arg1 is
+		// a 0x38-byte local, and the caller's next act is
+		//
+		//	0004490E  TEST BYTE [EBP-$28], $10   ; = arg1 + 0x30, FileAttributes...
+		//	00044912  JZ  $0004495F              ; ...bit 0x10: FILE_ATTRIBUTE_DIRECTORY
+		//
+		// which is FILE_NETWORK_OPEN_INFORMATION's attributes field, at its own +0x30 —
+		// the GetFileAttributes path. A path query needs no handle, so it answers straight
+		// off the mounted disc / HDD store (statPath).
+		return func(m *Machine) int {
+			oa, buf := m.arg(0), m.arg(1)
+			path := m.readObjectAttributesPath(oa)
+			size, isDir, found := m.statPath(path)
+			if !found {
+				m.logf("NtQueryFullAttributesFile: %q -> not found (from %08X)", path, m.retAddr())
+				m.setRet(0xC0000034) // STATUS_OBJECT_NAME_NOT_FOUND
+				return 2
+			}
+			m.writeNetworkOpenInfo(buf, size, isDir)
+			m.logf("NtQueryFullAttributesFile: %q -> %d bytes, dir=%v (from %08X)",
+				path, size, isDir, m.retAddr())
+			m.setRet(0)
+			return 2
+		}
+
+	case 218: // NtQueryVolumeInformationFile(FileHandle, IoStatusBlock, FsInformation,
+		// Length, FsInformationClass) -> NTSTATUS. NOT the NtRemoveIoCompletion the
+		// reconstructed table names — that one takes (Handle, KeyContext, ApcContext,
+		// IoStatusBlock, Timeout), and no Timeout is the literal 0x18 this site pushes.
+		// Verified three independent ways. (1) table-213 + the Nt block's +5 drift, the
+		// same drift the verified 184/189/193/199/211/222/234 all show. (2) The call site
+		// (0x44498) pushes the five-arg query shape: a handle, an 8-byte IOSB local, a
+		// buffer, length 0x18, class 1. (3) Its caller is GetFileInformationByHandle —
+		// 0x4447B queries this, then NtQueryInformationFile (0x2482D4 -> ordinal 211)
+		// twice for FileInternalInformation and FileNetworkOpenInformation, and REP MOVSD
+		// copies 13 dwords = 52 bytes = sizeof(BY_HANDLE_FILE_INFORMATION) to its out
+		// param. The dword it takes from THIS buffer is at +8, and +8 in that struct is
+		// dwVolumeSerialNumber — which is FILE_FS_VOLUME_INFORMATION's VolumeSerialNumber
+		// field, at +8, under class 1 (FileFsVolumeInformation). Every offset agrees.
+		//
+		// FILE_FS_VOLUME_INFORMATION: VolumeCreationTime (8), VolumeSerialNumber (4),
+		// VolumeLabelLength (4), SupportsObjects (1), VolumeLabel[] — 0x18 leaves room for
+		// a couple of label characters, and this caller wants none of them.
+		return func(m *Machine) int {
+			h, iosb, buf, ln, class := m.arg(0), m.arg(1), m.arg(2), m.arg(3), m.arg(4)
+			fo := m.files[h]
+			if fo == nil {
+				m.finishOpen(iosb, h, 0, 0xC0000008) // STATUS_INVALID_HANDLE
+				return 5
+			}
+			if class == 3 && ln >= 0x18 {
+				// FileFsSizeInformation: TotalAllocationUnits (8),
+				// AvailableAllocationUnits (8), SectorsPerAllocationUnit (4),
+				// BytesPerSector (4) — the 0x18 the caller asks for exactly. Its consumer
+				// is GetDiskFreeSpaceEx (0x428FD): it multiplies the last two fields into a
+				// block size, 64-bit-multiplies the two unit counts by it, and hands its
+				// own caller free and total BYTES. This is the query the title makes before
+				// it will save, and until the U:\ open worked it never got to ask.
+				total, avail := m.volumeUnits(fo)
+				m.write32(buf+0x00, uint32(total))
+				m.write32(buf+0x04, uint32(total>>32))
+				m.write32(buf+0x08, uint32(avail))
+				m.write32(buf+0x0C, uint32(avail>>32))
+				m.write32(buf+0x10, hddSectorsPerUnit)
+				m.write32(buf+0x14, hddBytesPerSector)
+				m.logf("NtQueryVolumeInformationFile: handle %08X size -> %d/%d units free from %08X",
+					h, avail, total, m.retAddr())
+				m.finishOpen(iosb, h, 0x18, 0)
+				return 5
+			}
+			if class != 1 || ln < 0x14 {
+				m.CPU.Halt("NtQueryVolumeInformationFile: unmodelled class %d (len %d) from %08X",
+					class, ln, m.retAddr())
+				return 5
+			}
+			for i := uint32(0); i < 0x18; i += 4 {
 				m.write32(buf+i, 0)
 			}
-			m.write32(buf+0x20, fo.size()) // AllocationSize (low; high already 0)
-			m.write32(buf+0x28, fo.size()) // EndOfFile
-			attrs := uint32(0x01 | 0x80)   // READONLY|NORMAL (a DVD file)
-			if fo.entry.IsDir {
-				attrs = 0x11 // READONLY|DIRECTORY
+			// VolumeCreationTime is real: the FILETIME the XDVDFS volume descriptor carries
+			// at +0x1C (xiso.go). A cache file lives on the HDD, not the disc, but our HDD
+			// store is minted by this run and has no stamp of its own to report.
+			if fo.cache == nil && m.Disc != nil {
+				m.write32(buf+0, uint32(m.Disc.CreationTime))
+				m.write32(buf+4, uint32(m.Disc.CreationTime>>32))
 			}
-			m.write32(buf+0x30, attrs)
-			m.finishOpen(iosb, h, 0x38, 0)
+			// VolumeSerialNumber is a TRACER, not a derived value: nothing in the image
+			// tells us what a real console reports here, and this HLE has no volume serial
+			// to be right about. It is deliberately conspicuous so that a read shows up as
+			// itself. Whether the title ever looks at it is a separate question — the
+			// consumer only files it into a struct field, and that census is worthless
+			// until the struct's own readers are watched.
+			m.write32(buf+8, 0xD15C5E41)
+			m.write32(buf+0xC, 0) // VolumeLabelLength: no label
+			m.write32(buf+0x10, 0)
+			m.logf("NtQueryVolumeInformationFile: handle %08X class %d from %08X (tick %d)",
+				h, class, m.retAddr(), m.tick)
+			m.finishOpen(iosb, h, 0x14, 0)
 			return 5
 		}
 

@@ -63,12 +63,18 @@ var verifiedNames = map[uint16]string{
 	151: "KeStallExecutionProcessor",       // f(microseconds); 1 arg, spun in the APU bring-up's
 	// timeout loop (call sites 0x1DE566 PUSH 1 / 0x1DE58B PUSH 0x29B, result ignored) —
 	// the Ke block's +5 drift (107/113/149/160/161 all +5) lands table-146 here.
-	160: "KfRaiseIrql",               // fastcall(CL=newIrql) -> oldIrql (was mis-guessed as Mm)
-	161: "KfLowerIrql",               // fastcall(CL=newIrql) -> void
-	189: "NtCreateEvent",             // 4 args; XAPI CreateEvent wrapper site 0x44D25 (SETZ type inversion)
-	190: "NtCreateFile",              // 9 args; XAPI CreateFile wrapper site 0x43D08
-	193: "NtCreateSemaphore",         // f(handle*, objattr, initial, max)
-	211: "NtQueryInformationFile",    // 5 args, class 0x22 (site 0x445F6)
+	160: "KfRaiseIrql",                  // fastcall(CL=newIrql) -> oldIrql (was mis-guessed as Mm)
+	161: "KfLowerIrql",                  // fastcall(CL=newIrql) -> void
+	189: "NtCreateEvent",                // 4 args; XAPI CreateEvent wrapper site 0x44D25 (SETZ type inversion)
+	190: "NtCreateFile",                 // 9 args; XAPI CreateFile wrapper site 0x43D08
+	193: "NtCreateSemaphore",            // f(handle*, objattr, initial, max)
+	207: "NtQueryDirectoryFile",         // 10 args, class 1, pattern "*" (site 0x427B0)
+	210: "NtQueryFullAttributesFile",    // f(objattr, FILE_NETWORK_OPEN_INFORMATION*) (site 0x448FE)
+	211: "NtQueryInformationFile",       // 5 args, class 0x22 (site 0x445F6); also class 6 at 0x444CD
+	218: "NtQueryVolumeInformationFile", // 5 args, class 1 len 0x18 (site 0x44498) — the table's
+	// "NtRemoveIoCompletion" cannot take a literal 0x18 where its Timeout* goes. Its caller is
+	// GetFileInformationByHandle, which lifts this buffer's +8 into dwVolumeSerialNumber: the
+	// FILE_FS_VOLUME_INFORMATION field at exactly that offset.
 	219: "NtReadFile",                // 8 args, OVERLAPPED shape (site 0x440C1)
 	222: "NtReleaseSemaphore",        // f(handle, releaseCount, prev*) -> NTSTATUS
 	224: "NtResumeThread",            // f(handle, prevCount*); pair w/ 231 (site 0x44F56)

@@ -836,6 +836,126 @@ not one flat colour.
   `NVMethodDecode`, the bound-texture and RAM-as-a-texture surfaces, and `Image.EntryAt` (a disc
   offset back to the file that holds it).
 
+## Part VII — the save-game path, and a console that was never full
+
+Phase E ended on a halt: `unimplemented xboxkrnl ordinal 218 (NtRemoveIoCompletion)`, reached by
+pressing START through the whole real chain. Everything below follows from not believing that name.
+
+### The name is wrong, and the call site says so
+
+`kernel_ordinals.go` is a *reconstructed* export table, and its Nt block drifts +5 — a drift already
+pinned by seven verified anchors (184, 189, 193, 199, 211, 222, 234). Under it, 218 is table-213:
+**`NtQueryVolumeInformationFile`**. Three independent lines agree, and the third is the one that
+settles it:
+
+1. the drift itself;
+2. the call site (`0x44498`) pushes five arguments — a handle, an 8-byte IOSB local, a buffer,
+   length `0x18`, class `1`. `NtRemoveIoCompletion` takes `(Handle, KeyContext, ApcContext,
+   IoStatusBlock, Timeout)`, and a literal `0x18` is not a `Timeout*`;
+3. **its caller identifies itself.** `0x4447B` queries this, then calls ordinal 211 twice — class 6
+   (`FileInternalInformation`, 8 bytes) and class `0x22` (`FileNetworkOpenInformation`, `0x38`
+   bytes) — and finishes `REP MOVSD` with `ECX=13`: 52 bytes, `sizeof(BY_HANDLE_FILE_INFORMATION)`.
+   It is `GetFileInformationByHandle`. The one dword it lifts out of *this* buffer is at `+8`, and
+   `+8` of that struct is `dwVolumeSerialNumber` — which is `FILE_FS_VOLUME_INFORMATION`'s
+   `VolumeSerialNumber`, at its own `+8`, under class 1. Every offset lines up.
+
+The same reasoning renamed 210 (`NtQueryFullAttributesFile`, not `NtQuerySymbolicLinkObject`) and
+207 (`NtQueryDirectoryFile`, not `NtQueryIoCompletion`). 258 `PsTerminateSystemThread` is the one
+the table got right — the Ps block does not drift — and the site proves it anyway: it is the tail of
+the thread trampoline, `CALL [EBP+8]` (the start routine), its return value pushed as the only
+argument, then `INT3`. The compiler knew it never returns; `dispatchKernel` now has a `kretNone` for
+calls that do not, because simulating a return would pop the *next* thread's stack.
+
+### ★ The console was never full — we were
+
+Past those, the title left the title screen and drew this:
+
+> *Your Xbox doesn't have enough free blocks to save games. You need 120 more free blocks.*
+
+A legible frame, a real screen, and **a lie our own model told it.** The log said why:
+
+```
+NtOpen/CreateFile: "U:\" (hdd "U:/") -> not found (disp 1)
+NtQueryFullAttributesFile: "U:\" -> 0 bytes, dir=true
+NtOpen/CreateFile: "U:\" (hdd "U:/") -> not found (disp 1)
+```
+
+The title asks whether the save partition exists — yes, a directory — and then **opens** it, and the
+open fails. The HDD store is a flat `key -> bytes` map (`cacheFS`): it has files and no directory
+records at all, so a handle onto a partition *root* was unopenable, and had always been. The
+consequence is the shape worth remembering: the free-space query is `NtQueryVolumeInformationFile`
+with `FileFsSizeInformation`, **which the title never got to make**. There was no wrong number
+anywhere. A call that never happened produced a screen telling the player to delete their saves.
+
+`statPath` + a `dir` flag on `fileObject` make partition roots and inferred directories openable, and
+the chain unblocked itself one link at a time, each new call halting and naming itself:
+
+| ordinal | what it really is | how it was pinned |
+|---|---|---|
+| 218 | `NtQueryVolumeInformationFile` | drift + 5 args + `GetFileInformationByHandle`'s `+8` |
+| 211 class 6 | `FileInternalInformation` | 8-byte `IndexNumber` -> `nFileIndex{High,Low}` |
+| 210 | `NtQueryFullAttributesFile` | 2 args, no IOSB; caller tests `+0x30` bit `0x10` |
+| 258 | `PsTerminateSystemThread` | trampoline tail, one arg, `INT3` after |
+| 207 | `NtQueryDirectoryFile` | 10 args, class 1, pattern `"*"` — enumerating `U:\` |
+| 218 class 3 | `FileFsSizeInformation` | `IMUL [buf+0x10], [buf+0x14]` = the block size |
+
+That last one is `GetDiskFreeSpaceEx` (`0x428FD`): it multiplies `SectorsPerAllocationUnit` by
+`BytesPerSector` into a block size, 64-bit-multiplies both unit counts by it, and reports free and
+total **bytes**. The title does the blocks arithmetic itself.
+
+Then one CPU gap, and it says where the game had got to: `0F 15` (`UNPCKHPS`) at `0x1EAD4D`, inside
+the **WMADEC** section — the menu music. `UNPCKLPS` was there; the high half was not.
+
+With those in place the dialogue is gone and the title stands on **LICENSE SELECT** — "CREATE NEW
+LICENSE", the stats panel, the Ferrari badge, the A/B footer (`work/license.png`, fixture
+`work/states/license.state`).
+
+### What is derived, what is chosen, and what is a tracer
+
+Three numbers in this part are not facts about the image, and are marked as such in the code:
+
+- **`VolumeCreationTime` is derived.** The XDVDFS volume descriptor carries a FILETIME at `+0x1C`
+  that nothing had parsed; on this disc it decodes to 2006, the year the title shipped.
+- **`VolumeSerialNumber` is a tracer** (`0xD15C5E41`). Nothing in the image says what a real console
+  reports, and this HLE has no volume to be right about. Its only observed consumer files it into a
+  struct field — and per the trap E3 recorded, that census is worthless until the struct's own
+  readers are watched, so it is deliberately conspicuous rather than plausible.
+- **`hddTotalUnits` (4 GiB of 16 KiB blocks) is a model choice.** Our store is an in-memory map with
+  no size, and a save partition's size is a property of the console, not of the disc. Free space at
+  least *tracks* the store's real contents. The only constraint the title has ever placed on it is
+  120 blocks — and it only said so because it could not ask.
+
+### E8 closed: the pad rides in the savestate
+
+Phase E's own notes ended `DO NOT take a fixture past enumeration before closing it` — `usbDev`,
+`usbDone`, `usbCtrlData`, `usbCtrlOff` were not state. Every fixture from here on is taken with a
+pad plugged in, because the menus cannot be reached without one, so this had to close first. It
+found two things worth keeping:
+
+- **gob will not encode a nil element of an array.** `[usbPorts]*xidDevice` is nil on three ports of
+  any real boot, so the in-memory `LoadState(SaveState())` passed while the *file* path failed. The
+  existing round-trip test caught it. Ports are values beside a presence flag now, which also makes
+  aliasing impossible by construction.
+- **"does it resume identically" is structurally blind to aliasing.** `TestUSBSaveState` writes to
+  each side after the copy and demands the other not move — and was mutation-tested by aliasing the
+  slices on purpose, which it catches in both directions.
+
+Verified end to end: `license.state` restores with the pad on port 0 **and START still held
+(`0x0010`)**; the pre-pad `title-phaseE.state` restores an empty hub. The probe discriminates, so it
+is not measuring nothing — the first attempt at it, grepping a trace for enumeration traffic,
+returned "no enumeration" for both states because `usb_xid.go` has no trace output at all.
+
+### Where it stands / next
+
+- **A/B/X/Y are analog buttons** and `SetPadButtons` only carries the digital level (d-pad, START,
+  BACK, sticks). The LICENSE SELECT footer says `A SELECT`, so the next press needs the XID report's
+  analog bytes wired up — `-keys` cannot spell `a` yet.
+- The 320×240 scanout gap (Part VI) is unchanged and unrelated: `-surfpng` is still the only
+  verified picture, and the frames above are all draw targets.
+- Unexercised and honest about it: `NtQueryDirectoryFile` on a *disc* directory, every
+  `FileFsSizeInformation` field but the two the block-size multiply reads, and the wildcard matcher
+  beyond `"*"` (unit-tested against the manual's lane semantics, not against a run).
+
 ### Tooling
 
 - `tools/platform/xbox/{machine,nv2a,kernel,kernel_ordinals,kernel_objects,kernel_data,kernel_file,thread,sched,state,ports,run}.go` — the machine and its HLE.

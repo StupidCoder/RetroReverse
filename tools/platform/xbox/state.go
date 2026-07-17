@@ -87,6 +87,28 @@ type XboxState struct {
 	// cold boot; that is the fix, not a migration.
 	USBFrameServed uint64
 
+	// The devices on the root hub's ports, and the OHCI transfer engine's working state
+	// (usb.go / usb_ohci.go / usb_xid.go): the TDs retired but not yet written back, and
+	// the control pipe's in-flight IN data with its cursor.
+	//
+	// None of this was state until now, and the gap was flagged rather than hit: no
+	// fixture had ever been taken with a pad plugged in. The moment one is — and the
+	// title's menus cannot be reached without pressing START — a restore would come back
+	// with an empty root hub, or worse, mid-enumeration with the SETUP answered and the
+	// data stage's bytes gone. UsbDev is typed to the concrete pad because that is the
+	// only device this machine has; a test's stub device is not snapshotted, and no test
+	// takes a state.
+	//
+	// The port array holds VALUES beside a presence flag rather than pointers: gob will
+	// not encode a nil element of an array, so an empty port — the common case, three of
+	// four on any real boot — cannot be a nil *xidDevice. Values also make it impossible
+	// for a snapshot to alias the machine it came from.
+	UsbDev        [usbPorts]xidDevice
+	UsbDevPresent [usbPorts]bool
+	UsbDone       []uint32
+	UsbCtrlData   []byte
+	UsbCtrlOff    int
+
 	// NV2A graphics engine (nv2a_pgraph.go) + the PFIFO pusher's decode position
 	// (nv2a_pfifo.go). The survey/unhandled instrumentation maps are NOT state.
 	PgSubObject [8]uint32
@@ -169,8 +191,10 @@ type XboxState struct {
 type fileSnap struct {
 	Handle uint32
 	Entry  Entry
-	Key    string // nonempty: an HDD-store file
+	Key    string // nonempty: an HDD-store file or directory
+	Dir    bool   // the key names a DIRECTORY of the store, which holds no bytes
 	Off    uint32
+	Scan   int // NtQueryDirectoryFile's enumeration cursor (one entry per call)
 }
 
 // pusherSnap mirrors pusherState (all unexported), so a savestate resumes mid-method
@@ -262,6 +286,9 @@ func (m *Machine) SaveState() *XboxState {
 		USBReg:         copyU32Map(m.usb.reg),
 		NICReg:         copyU32Map(m.nic.reg),
 		USBFrameServed: m.usbFrameServed,
+		UsbDone:        append([]uint32(nil), m.usbDone...),
+		UsbCtrlData:    append([]byte(nil), m.usbCtrlData...),
+		UsbCtrlOff:     m.usbCtrlOff,
 		PgSubObject:    m.pgraph.subObject, PgSubClass: m.pgraph.subClass, PgRegs: m.pgraph.Regs,
 		PgMethods: m.pgraph.Methods, PgSetObjs: m.pgraph.SetObjs,
 		PgProg: m.pgraph.Prog, PgConst: m.pgraph.Const,
@@ -298,6 +325,13 @@ func (m *Machine) SaveState() *XboxState {
 		NextTID:     m.nextTID, RRCursor: m.rrCursor, QuantumLeft: m.quantumLeft,
 		CurThread: curIdx,
 	}
+	// The root hub's devices, copied by VALUE: a snapshot that stored the live pointer
+	// would keep reporting the running machine's button levels.
+	for i, d := range m.usbDev {
+		if xd, ok := d.(*xidDevice); ok && xd != nil {
+			st.UsbDev[i], st.UsbDevPresent[i] = *xd, true
+		}
+	}
 	for _, t := range m.threads {
 		ctx := t.ctx
 		if t == m.current {
@@ -318,7 +352,7 @@ func (m *Machine) SaveState() *XboxState {
 	sortU32(fhs)
 	for _, h := range fhs {
 		fo := m.files[h]
-		st.OpenFiles = append(st.OpenFiles, fileSnap{Handle: h, Entry: fo.entry, Key: fo.key, Off: fo.off})
+		st.OpenFiles = append(st.OpenFiles, fileSnap{Handle: h, Entry: fo.entry, Key: fo.key, Dir: fo.dir, Off: fo.off, Scan: fo.scan})
 	}
 	// Objects in a stable order (by address) for deterministic snapshots.
 	addrs := make([]uint32, 0, len(m.objects))
@@ -356,6 +390,21 @@ func (m *Machine) LoadState(st *XboxState) error {
 	m.ac97.reg = copyU32Map(st.AC97Reg)
 	m.usb.reg = copyU32Map(st.USBReg)
 	m.usbFrameServed = st.USBFrameServed
+	// The root hub. Ports absent from the snapshot are restored EMPTY, which is what a
+	// pre-Phase-E state truthfully holds; a device is copied back by value so the
+	// restored machine shares nothing with the snapshot it came from.
+	for i := range m.usbDev {
+		m.usbDev[i] = nil
+	}
+	for i, present := range st.UsbDevPresent {
+		if present {
+			cp := st.UsbDev[i]
+			m.usbDev[i] = &cp
+		}
+	}
+	m.usbDone = append([]uint32(nil), st.UsbDone...)
+	m.usbCtrlData = append([]byte(nil), st.UsbCtrlData...)
+	m.usbCtrlOff = st.UsbCtrlOff
 	m.nic.reg = copyU32Map(st.NICReg)
 	m.pgraph.subObject, m.pgraph.subClass, m.pgraph.Regs = st.PgSubObject, st.PgSubClass, st.PgRegs
 	m.pgraph.Methods, m.pgraph.SetObjs = st.PgMethods, st.PgSetObjs
@@ -396,8 +445,11 @@ func (m *Machine) LoadState(st *XboxState) error {
 	}
 	m.files = map[uint32]*fileObject{}
 	for _, fs := range st.OpenFiles {
-		fo := &fileObject{entry: fs.Entry, key: fs.Key, off: fs.Off}
-		if fs.Key != "" {
+		fo := &fileObject{entry: fs.Entry, key: fs.Key, dir: fs.Dir, off: fs.Off, scan: fs.Scan}
+		// A directory handle carries a key but no bytes: re-linking it the way a file is
+		// re-linked would mint an empty cache FILE at the directory's own path, inventing
+		// store content that the snapshot never held.
+		if fs.Key != "" && !fs.Dir {
 			cf := m.cacheFS[fs.Key]
 			if cf == nil {
 				cf = &cacheFile{}

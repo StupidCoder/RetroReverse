@@ -62,6 +62,11 @@ type Image struct {
 	// filesystem names is relative to it.
 	Base int64
 
+	// CreationTime is the volume's creation stamp: the FILETIME the volume descriptor
+	// carries at +0x1C, i.e. when the disc was mastered. It is what the kernel's volume
+	// query reports as VolumeCreationTime (NtQueryVolumeInformationFile, ordinal 218).
+	CreationTime uint64
+
 	rootSector uint32
 	rootSize   uint32
 
@@ -145,9 +150,12 @@ func Open(path string) (*Image, error) {
 		return nil, err
 	}
 	img.Base = base
-	// Root directory: sector at +0x14, byte size at +0x18.
+	// Root directory: sector at +0x14, byte size at +0x18. The 8 bytes at +0x1C are a
+	// FILETIME — on this disc 0x01C639258712D790, which lands in 2006, the year the title
+	// shipped; everything from +0x24 to the tail magic is zero padding.
 	img.rootSector = le32(vd[0x14:])
 	img.rootSize = le32(vd[0x18:])
+	img.CreationTime = uint64(le32(vd[0x1C:])) | uint64(le32(vd[0x20:]))<<32
 	return img, nil
 }
 

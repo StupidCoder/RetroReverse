@@ -122,6 +122,13 @@ func (m *Machine) dispatchKernel(ord uint16) {
 		return
 	}
 	argWords := h(m)
+	if argWords == kretNone {
+		// A no-return call (PsTerminateSystemThread): the handler has already switched
+		// the CPU onto another thread's context. kret here would pop a return address
+		// off the NEW thread's stack and jump to it — the caller it must not return to
+		// is gone, and there is nothing to unwind.
+		return
+	}
 	m.kret(argWords)
 	// A handler that blocked (a wait that could not be satisfied) set reschedule; the
 	// return PC is already saved into this thread's context by kret, so switching now
@@ -131,6 +138,10 @@ func (m *Machine) dispatchKernel(ord uint16) {
 		m.dispatch()
 	}
 }
+
+// kretNone is the argWords a handler returns when its call never comes back, so
+// dispatchKernel must not simulate a return at all.
+const kretNone = -1
 
 // retAddr is the return address on the stack at a kernel-trap entry ([ESP]).
 func (m *Machine) retAddr() uint32 { return m.read32(m.CPU.Regs[x86.SP]) }
@@ -411,6 +422,28 @@ func kernelHandler(ord uint16) func(*Machine) int {
 			}
 			m.setRet(0) // STATUS_SUCCESS
 			return 10
+		}
+
+	case 258: // PsTerminateSystemThread(ExitStatus) — NORETURN. The table names this one
+		// correctly: the Ps block does not drift (the verified PsCreateSystemThreadEx sits
+		// at 255 exactly where the table puts it, as do the verified Phy calls at 252/253).
+		// The site settles the shape anyway — it is the tail of the thread trampoline
+		// PsCreateSystemThreadEx's threads start at:
+		//
+		//	000450D8  CALL [EBP+$8]              ; the thread's own start routine...
+		//	000450DB  MOV [EBP-$1C], EAX         ; ...its return value...
+		//	000450F7  PUSH DWORD [EBP-$1C]       ; ...is the one argument...
+		//	000450FA  CALL [$0024837C]           ; ...to this call, and
+		//	00045100  INT3                       ; the compiler knows it never returns.
+		//
+		// One argument, no return. The thread ends here exactly as it does when it runs off
+		// the exit sentinel (kernel.go's threadExitAddr), which is why this shares
+		// exitCurrentThread: both mean "this thread is done, pick another".
+		return func(m *Machine) int {
+			m.logf("PsTerminateSystemThread: thread %d exit status %08X (tick %d)",
+				m.threadID(), m.arg(0), m.tick)
+			m.exitCurrentThread()
+			return kretNone
 		}
 	}
 	// Everything else halts and names itself: the concrete boot frontier. Ordinal

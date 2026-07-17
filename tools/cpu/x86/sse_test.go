@@ -225,3 +225,59 @@ func TestMMXIntOps(t *testing.T) {
 		t.Errorf("PMOVMSKB = %08b, want 01100100", c.Regs[CX])
 	}
 }
+
+// TestSSEUnpck pins UNPCKLPS/UNPCKHPS (0F 14 / 0F 15) and their PD forms against the
+// lane order the manual specifies, rather than only against "the WMA decoder stopped
+// halting". The single-precision forms interleave two dwords from each operand; the
+// high form takes lanes 2/3 where the low form takes 0/1. Getting the halves the wrong
+// way round still decodes, still runs, and silently scrambles every sample.
+func TestSSEUnpck(t *testing.T) {
+	m := &flatRAM{b: make([]byte, 16<<20)}
+	// xmm0 = [1,2,3,4], the memory operand = [5,6,7,8].
+	for i, v := range []float32{1, 2, 3, 4} {
+		putF32(m.b[0x2000+i*4:], v)
+	}
+	for i, v := range []float32{5, 6, 7, 8} {
+		putF32(m.b[0x2010+i*4:], v)
+	}
+
+	code := []byte{
+		0x0F, 0x10, 0x05, 0x00, 0x20, 0x00, 0x00, // MOVUPS xmm0, [0x2000]
+		0x0F, 0x28, 0xC8, // MOVAPS xmm1, xmm0
+		0x0F, 0x14, 0x0D, 0x10, 0x20, 0x00, 0x00, // UNPCKLPS xmm1, [0x2010] -> 1,5,2,6
+		0x0F, 0x11, 0x0D, 0x00, 0x30, 0x00, 0x00, // MOVUPS [0x3000], xmm1
+		0x0F, 0x28, 0xD0, // MOVAPS xmm2, xmm0
+		0x0F, 0x15, 0x15, 0x10, 0x20, 0x00, 0x00, // UNPCKHPS xmm2, [0x2010] -> 3,7,4,8
+		0x0F, 0x11, 0x15, 0x10, 0x30, 0x00, 0x00, // MOVUPS [0x3010], xmm2
+		0x66, 0x0F, 0x28, 0xD8, // MOVAPD xmm3, xmm0
+		0x66, 0x0F, 0x15, 0x1D, 0x10, 0x20, 0x00, 0x00, // UNPCKHPD xmm3, [0x2010] -> 3,4,7,8
+		0x0F, 0x11, 0x1D, 0x20, 0x30, 0x00, 0x00, // MOVUPS [0x3020], xmm3
+		0xF4, // HLT
+	}
+	copy(m.b[0x1000:], code)
+
+	c := NewCPU(m)
+	c.Mode = ModeProt
+	c.Seg[CS], c.Seg[DS], c.Seg[ES], c.Seg[SS] = 0x08, 0x10, 0x10, 0x10
+	c.IP = 0x1000
+	c.Regs[SP] = 0x8000
+	c.Run(100000)
+	if !c.Halted || strings.Contains(c.HaltReason, "unimplemented") {
+		t.Fatalf("UNPCK program did not run (EIP=%08X, reason=%q)", c.IP, c.HaltReason)
+	}
+	for _, tc := range []struct {
+		name string
+		addr int
+		want []float32
+	}{
+		{"UNPCKLPS", 0x3000, []float32{1, 5, 2, 6}},
+		{"UNPCKHPS", 0x3010, []float32{3, 7, 4, 8}},
+		{"UNPCKHPD", 0x3020, []float32{3, 4, 7, 8}},
+	} {
+		for i, want := range tc.want {
+			if got := getF32(m.b[tc.addr+i*4:]); got != want {
+				t.Errorf("%s lane %d = %v, want %v", tc.name, i, got, want)
+			}
+		}
+	}
+}

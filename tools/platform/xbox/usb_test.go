@@ -1,6 +1,7 @@
 package xbox
 
 import (
+	"path/filepath"
 	"testing"
 
 	"retroreverse.com/tools/cpu/x86"
@@ -837,5 +838,83 @@ func TestReportIsTheGamepadBehindATwoByteHeader(t *testing.T) {
 	}
 	if got := d.interruptIn(nil, 1); got != nil {
 		t.Errorf("a poll with no change must NAK (nil), got %d bytes", len(got))
+	}
+}
+
+// TestUSBSaveState covers the root hub across a savestate. A pad is the only way into
+// this title's menus, so every fixture from here on is taken with one plugged in — and
+// until this state existed, such a restore came back with an empty hub.
+//
+// It mutation-tests BOTH directions. "Does it resume identically" cannot see aliasing:
+// a snapshot that shares the machine's device pointer resumes perfectly and is still not
+// a snapshot. So the test writes to each side after the copy and demands the other side
+// not move.
+func TestUSBSaveState(t *testing.T) {
+	m := gpuMachine(t)
+	m.AttachPad(0)
+	m.SetPadButtons(0, 0x0010) // START
+	d := m.usbDev[0].(*xidDevice)
+	d.Addr, d.Config = 3, 1
+	m.usbDone = []uint32{0x7100, 0x7110}
+	m.usbCtrlData, m.usbCtrlOff = []byte{0xAA, 0xBB, 0xCC}, 1
+
+	st := m.SaveState()
+	// Through the DISK path, not just the in-memory struct: an empty port is a nil
+	// element that gob refuses to encode, so a hub that survives LoadState(SaveState())
+	// can still fail to survive a file. Written before the mutation below, so the file
+	// holds the values the assertions expect.
+	path := filepath.Join(t.TempDir(), "usb.state")
+	if err := m.SaveStateFile(path); err != nil {
+		t.Fatalf("save: %v", err)
+	}
+
+	// Mutating the LIVE machine must not reach the snapshot.
+	m.SetPadButtons(0, 0x0020)
+	d.Addr = 9
+	m.usbDone[0] = 0xDEAD
+	m.usbCtrlData[0] = 0xFF
+	if st.UsbDev[0].Buttons != 0x0010 || st.UsbDev[0].Addr != 3 {
+		t.Errorf("snapshot aliases the live pad: buttons=%04X addr=%d",
+			st.UsbDev[0].Buttons, st.UsbDev[0].Addr)
+	}
+	if st.UsbDone[0] != 0x7100 || st.UsbCtrlData[0] != 0xAA {
+		t.Errorf("snapshot aliases the live transfer state: done0=%08X ctrl0=%02X",
+			st.UsbDone[0], st.UsbCtrlData[0])
+	}
+
+	m2 := gpuMachine(t)
+	if err := m2.LoadStateFile(path); err != nil {
+		t.Fatalf("load: %v", err)
+	}
+	d2, ok := m2.usbDev[0].(*xidDevice)
+	if !ok || d2 == nil {
+		t.Fatal("restored machine has no pad on port 0")
+	}
+	if d2.Buttons != 0x0010 || d2.Addr != 3 || d2.Config != 1 {
+		t.Errorf("restored pad = buttons %04X addr %d config %d, want 0010/3/1",
+			d2.Buttons, d2.Addr, d2.Config)
+	}
+	if len(m2.usbDone) != 2 || m2.usbDone[0] != 0x7100 {
+		t.Errorf("restored usbDone = %v", m2.usbDone)
+	}
+	if string(m2.usbCtrlData) != "\xAA\xBB\xCC" || m2.usbCtrlOff != 1 {
+		t.Errorf("restored control transfer = %X off %d", m2.usbCtrlData, m2.usbCtrlOff)
+	}
+	for i := 1; i < usbPorts; i++ {
+		if m2.usbDev[i] != nil {
+			t.Errorf("port %d should be empty after restore", i)
+		}
+	}
+
+	// Mutating the RESTORED machine must not reach the snapshot either.
+	m3 := gpuMachine(t)
+	if err := m3.LoadState(st); err != nil {
+		t.Fatal(err)
+	}
+	m3.usbDev[0].(*xidDevice).Addr = 7
+	m3.usbDone[0] = 0xBEEF
+	m3.usbCtrlData[0] = 0x11
+	if st.UsbDev[0].Addr != 3 || st.UsbDone[0] != 0x7100 || st.UsbCtrlData[0] != 0xAA {
+		t.Error("restore aliases the snapshot: a second LoadState would not see the saved values")
 	}
 }
