@@ -56,6 +56,10 @@ roadmap.)
   on-screen keyboard pins the stick axes against the d-pad bit-for-bit, a tidy bit-order pattern
   gets the d-pad backwards, and eleven controls are left deliberately unnamed. `A` is pressed and
   LICENSE SELECT is left. *(this document)*
+* **Part IX** — **the save is written**: `NtSetInformationFile`'s length classes derived from the two
+  sites that set them, ordinal 198 renamed off its call site, and the save file committed — ending on
+  a game bug our own gap detonates, in which an unchecked HRESULT turns a NULL XONLINE singleton into
+  a 5.7-million-iteration loop. *(this document)*
 
 ---
 
@@ -1130,6 +1134,128 @@ flip pacing is untouched: the USB frame is too fast and drains a press inside on
 - **`+3` (B) leaves LICENSE SELECT into a disc error** — *"There's a problem with the disc you're
   using."* Backing out re-enters a path the model cannot yet serve. That is a real frontier and a
   clean repro, and it is the next thing to pull.
+
+---
+
+## Part IX — the save is written, and a count that was never written
+
+Confirming the license halts on `NtSetInformationFile: unmodelled class 20`. The save path is two
+ordinals short, and behind them is a game bug our model walks straight into.
+
+### Bounding the class surface first
+
+Rather than meet each class as a fresh surprise, scanning the image for every reference to the
+ordinal's IAT slot (`0x2482B0`) bounds what this ordinal owes the title — 14 `CALL [slot]` plus two
+`MOV ESI,[slot]` that call through the register. The class is argument 5, so it is pushed *first*:
+
+| class | len | sites |
+|---|---|---|
+| `0x04` | `0x28` | `0x4339D`, `0x43FFD`, `0x457E4` |
+| `0x0D` | 1 | `0x44031`, `0x44743`, `0x45411`, `0x469C5`, `0x490A7` (a BOOLEAN) |
+| `0x0E` | 8 | `0x44378`, `0x4444E` — the position, already modelled |
+| `0x14` | 8 | `0x43ED6`, and `0x44280` via `ESI` |
+| `0x13` | 8 | `0x442A1` via `ESI` |
+
+A slot scan cannot see the `CALL ESI` sites — which is exactly where `0x13` hides — so the two `MOV
+ESI` functions were read by hand. Three sites remain unread. **The scan's VA arithmetic is per
+section**: `.text` is `fileoff + 0x10000`, but XONLINE is `+0x11020`, and using `.text`'s formula
+everywhere manufactures confident nonsense (it named a checksum routine as a global's writer).
+
+### Class `0x14` is a settable 64-bit file length — derived, not remembered
+
+Two sites say so, and they say different halves:
+
+- **`0x43ED6`** builds its 8-byte buffer from the caller's own QWORD *parameter* — so the value is
+  arbitrary and caller-chosen, not a fixed marker.
+- **`0x44238`** is the function the frontier arrived on. It reads the current position back with
+  `NtQueryInformationFile` class `0x0E` — which this port had already verified *independently* as the
+  position, off its own read-back at `0x44321` — and then sets **both** `0x14` and `0x13` to that
+  same QWORD. The live run reaches it on `U:\E4B7CAE3D198\common.dat` right after writing
+  4 + 67684 + 20 = **67708** bytes, with the position therefore at 67708. The game is saying *the
+  file ends here*, having just written exactly that much.
+
+**Nothing in this image distinguishes `0x13` from `0x14`.** The one site that uses `0x13` sets it to
+the same value as the `0x14` it issued three instructions earlier, on a file already exactly that
+long — so both are no-ops there, and either could be the size and either the allocation. I know what
+the NT enum calls them; writing that down and watching the save work would prove nothing (Part VIII's
+lesson, one section up). They are modelled identically as *"the file is now N bytes"*, which is
+provably right at the only site that exists and is the only reading a `[]byte` with one length can
+express. If a caller ever sets them to different values, that is the run that names the difference.
+
+The high dword is *read* and required to be zero rather than ignored — a silent truncation to the low
+dword would turn a >4 GB set into a small file, which is the kind of wrong that looks like a working
+save. And growth **zero-fills**: `append` does not clear the spare capacity a truncation just freed,
+so the naive version hands the guest its own deleted bytes back and every length still checks out.
+
+### Ordinal 198 is `NtFlushBuffersFile`, not `NtOpenSymbolicLinkObject`
+
+34 instructions later. The reconstructed table's name is wrong, as usual; the Nt block's +5 drift
+makes 198 table-193, and the call site agrees independently:
+
+```
+000445BA  PUSH EBP / MOV EBP,ESP
+000445BD  PUSH ECX / PUSH ECX      eight bytes of locals: an IO_STATUS_BLOCK
+000445BF  LEA EAX,[EBP-$8] / PUSH EAX
+000445C3  PUSH DWORD [EBP+$8]      ...and a file handle. TWO args.
+000445C6  CALL [$002482E4]         slot -> 0x8F000C60 = trapBase + 198*16
+000445CC  TEST EAX,EAX / JL        NTSTATUS -> BOOL: the FlushFileBuffers wrapper
+```
+
+A two-argument file call taking a handle and an IOSB and nothing else is the flush; an
+`OpenSymbolicLinkObject` needs a handle out-pointer and an `OBJECT_ATTRIBUTES`. It is a **no-op**,
+and that is the truth rather than a stub: `writeFile` commits straight into the store's byte slice,
+so there is no buffer between the guest's write and the bytes the HLE holds.
+
+### ★ The save completes
+
+```
+NtCreateFile: "U:\E4B7CAE3D198\common.dat" -> hdd CREATED
+NtWriteFile: off 0 len 4 / off 4 len 67684 / off 67688 len 20   (file now 67708 bytes)
+NtSetInformationFile: "U:/E4B7CAE3D198/COMMON.DAT" length -> 67708 bytes   (class 0x14)
+NtSetInformationFile: "U:/E4B7CAE3D198/COMMON.DAT" length -> 67708 bytes   (class 0x13)
+```
+
+No halt. The license panel slides off toward the main menu — and stops there.
+
+### FRONTIER: the XONLINE singleton is NULL, and the game does not check
+
+The menu never arrives. 200M instructions with **zero kernel calls** — a pure-CPU loop at `0x3F8F0`,
+a string copy inside a walk over 0x70-stride records whose cursor has reached `0x184734C` (~25 MB),
+far past the 6.6 MB image. The count is the tell:
+
+```
+0003F8B0  PUSH ECX          ; MSVC's "reserve one dword" idiom — the local is UNINITIALISED,
+                            ; and it happens to now hold `this` = 0x574618 = 5,719,064
+0003F8C2  CALL $00218036    ; an XONLINE thunk: MOV ECX,[0x57D6BC] / JMP 0x223A7B
+0003F8C7  MOV ECX,[ESP+$C]  ; read the out-count — WITHOUT CHECKING THE HRESULT
+0003F8D1  MOV [EBX+$784],ECX ; ...and store it as the record count
+0003F8DB  JLE $0003F91B     ; count <= 0 would skip the loop
+```
+
+The callee *does* zero the out-count (`0x223AA6: AND DWORD [EAX],$0`) — but only **after** the null
+check at `0x223A87`, which bails with `0x80150005` if the singleton `[0x57D6BC]` is NULL. It is NULL.
+So the count stays at the uninitialised `this`, and the loop runs 5.7M times over a 16-entry array
+(`0x700` bytes, zeroed by `0x223AA1`'s `REP STOSD ECX=0x1C0`), scribbling ~91 MB of strings.
+
+On hardware the singleton exists, the count is written as 0, `JLE` skips the loop, and the empty
+license list draws. The game's missing HRESULT check is a latent bug that only fires against a model
+that is missing the singleton — **ours**.
+
+`[0x57D6BC]` has exactly **one writer among 71 readers**, and it is conditional:
+
+```
+002186E0  PUSH $1BA0 / CALL $234512     allocate 0x1BA0 bytes
+002186EE  JNZ ... else E_OUTOFMEMORY
+00218705  MOV ECX,ESI / CALL $00218323  Init() -> HRESULT
+00218710  JGE $00218724                 success?
+00218712  ...destruct, free, ESI = 0    FAILED: the global is never stored
+00218724  MOV [$0057D6BC], ESI          the ONLY write
+```
+
+A breakpoint on the factory is **never hit** in 900M instructions from `crash.state`, so it runs — or
+fails to — at boot. The next question is whether `0x218323` (XONLINE's init) fails, or whether the
+factory is never called at all. That is the thread to pull, and `work/states/crash.state` is a
+two-frame repro.
 
 ### Tooling
 

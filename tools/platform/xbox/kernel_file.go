@@ -552,6 +552,50 @@ func (m *Machine) writeFile(handle, event, iosb, buffer, length, byteOffsetPtr u
 	return m.finishOpen(iosb, handle, length, 0)
 }
 
+// setFileLength makes an open cache file exactly n bytes long, truncating or zero-filling.
+// It returns an NTSTATUS, 0 on success.
+//
+// It is the action behind NtSetInformationFile's two 8-byte length classes (0x13 and 0x14 —
+// kernel_objects.go says why they are one action here and not two), and it is deliberately
+// the whole of what those classes do: this store has no allocation to reserve separately
+// from the bytes it holds.
+//
+// GROWTH ZERO-FILLS, and that is not Go's slice semantics being borrowed by accident. A file
+// extended past what was written has to read back as SOMETHING, and the two candidates are
+// not equally honest: zeroes are what a filesystem is required to hand back for a hole,
+// while whatever `append` finds in a recycled backing array is our allocator's leftovers
+// leaking into the guest's save. `append` to a slice with spare capacity does not clear it.
+func (m *Machine) setFileLength(fo *fileObject, n uint32) uint32 {
+	if fo.cache == nil {
+		// A disc file. The XISO is a read-only image and there is nothing to resize; this
+		// halts rather than failing quietly because nothing in the image has ever asked,
+		// so a status here would be a guess about a path that does not exist. writeFile
+		// takes the same line for the same reason.
+		m.CPU.Halt("NtSetInformationFile: set length on a read-only disc file (%q) from %08X",
+			fo.entry.Path, m.retAddr())
+		return 0xC000000D // STATUS_INVALID_PARAMETER, if the halt is ever cleared
+	}
+	if fo.isDir() {
+		m.CPU.Halt("NtSetInformationFile: set length on a directory (%q) from %08X",
+			fo.key, m.retAddr())
+		return 0xC000000D
+	}
+	switch cur := uint32(len(fo.cache.Data)); {
+	case n < cur:
+		fo.cache.Data = fo.cache.Data[:n]
+	case n > cur:
+		fo.cache.Data = append(fo.cache.Data, make([]byte, n-cur)...)
+	}
+	// The POSITION IS LEFT ALONE, including past the new end. It is the caller's, not this
+	// call's: the one site that truncates does so precisely BECAUSE the position is already
+	// where it wants the file to end (0x44238 queries class 0xE and hands that value
+	// straight back), so a model that helpfully clamped the position here would be moving
+	// something the guest never asked to move — and would do it invisibly, since that site
+	// closes the file next.
+	m.logf("NtSetInformationFile: handle file %q length -> %d bytes", fo.key, n)
+	return 0
+}
+
 // ioTick delivers due asynchronous completions: the IOSB gets its final status and
 // byte count, and the event object (if any) is signalled, waking its waiters.
 func (m *Machine) ioTick() {

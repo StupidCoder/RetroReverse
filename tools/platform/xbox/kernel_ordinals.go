@@ -75,6 +75,10 @@ var verifiedNames = map[uint16]string{
 	// "NtRemoveIoCompletion" cannot take a literal 0x18 where its Timeout* goes. Its caller is
 	// GetFileInformationByHandle, which lifts this buffer's +8 into dwVolumeSerialNumber: the
 	// FILE_FS_VOLUME_INFORMATION field at exactly that offset.
+	198: "NtFlushBuffersFile", // f(handle, iosb*) -> NTSTATUS, 2 args (site 0x445C6). NOT the
+	// table's "NtOpenSymbolicLinkObject", which needs a handle out-pointer and an
+	// OBJECT_ATTRIBUTES and could not take just these two: the Nt block's +5 drift puts
+	// table-193, NtFlushBuffersFile, at this ordinal, and the site's shape agrees.
 	219: "NtReadFile",                // 8 args, OVERLAPPED shape (site 0x440C1)
 	222: "NtReleaseSemaphore",        // f(handle, releaseCount, prev*) -> NTSTATUS
 	224: "NtResumeThread",            // f(handle, prevCount*); pair w/ 231 (site 0x44F56)

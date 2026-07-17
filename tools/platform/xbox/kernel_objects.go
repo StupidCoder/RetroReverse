@@ -157,6 +157,40 @@ func kernelObjectHandler(ord uint16) func(*Machine) int {
 			return 8
 		}
 
+	case 198: // NtFlushBuffersFile(FileHandle, IoStatusBlock) -> NTSTATUS. NOT the
+		// reconstructed table's NtOpenSymbolicLinkObject, which is what it announced itself
+		// as when it halted — the Nt block's established +5 drift makes ordinal 198
+		// table-193, NtFlushBuffersFile, and the call site agrees independently:
+		//
+		//	000445BA  PUSH EBP / MOV EBP,ESP
+		//	000445BD  PUSH ECX / PUSH ECX      eight bytes of locals: an IO_STATUS_BLOCK
+		//	000445BF  LEA EAX,[EBP-$8] / PUSH EAX
+		//	000445C3  PUSH DWORD [EBP+$8]      ...and a file handle. TWO args.
+		//	000445C6  CALL [$002482E4]         (slot -> 0x8F000C60 = trapBase + 198*16)
+		//	000445CC  TEST EAX,EAX / JL        NTSTATUS -> BOOL: the FlushFileBuffers wrapper
+		//
+		// A two-argument file call taking a handle and an IOSB and nothing else is the
+		// flush; an OpenSymbolicLinkObject would need a handle OUT-pointer and an
+		// OBJECT_ATTRIBUTES, and would not be reached here at all. The live run arrives
+		// immediately after the save path writes U:\E4B7CAE3D198\common.dat and sets its
+		// length — flushing the file it just finished, which is what a game does before it
+		// tells the player the save succeeded.
+		//
+		// IT IS A NO-OP, and that is the truth rather than a stub: writeFile commits
+		// straight into the cache store's byte slice (kernel_file.go), so there is no
+		// buffer between the guest's write and the bytes this HLE holds. A flush has
+		// nothing to push. It reports success by writing the IOSB, which the caller's own
+		// JL does read.
+		return func(m *Machine) int {
+			h, iosb := m.arg(0), m.arg(1)
+			if m.files[h] == nil {
+				m.finishOpen(iosb, h, 0, 0xC0000008) // STATUS_INVALID_HANDLE
+				return 2
+			}
+			m.finishOpen(iosb, h, 0, 0)
+			return 2
+		}
+
 	case 236: // NtWriteFile(FileHandle, Event, ApcRoutine, ApcContext, IoStatusBlock,
 		// Buffer, Length, ByteOffset*) — the write mirror of NtReadFile's 8-arg
 		// OVERLAPPED shape. Canonical 236 = table-231 + the Nt block's established +5
@@ -256,7 +290,57 @@ func kernelObjectHandler(ord uint16) func(*Machine) int {
 		// same five-arg shape as NtQueryInformationFile but writing — a file handle from
 		// the CreateFile wrapper, two locals, length 8, class 0xE (FilePositionInformation,
 		// an 8-byte LARGE_INTEGER) — the XAPI SetFilePointer path; table-221 + the Nt
-		// block's +5 drift = 226. Only the position class is modelled; others halt.
+		// block's +5 drift = 226.
+		//
+		// THE CLASS SURFACE IS BOUNDED, which is worth having done once rather than meeting
+		// each class as a fresh surprise. Scanning the image for every reference to this
+		// ordinal's IAT slot (0x2482B0) finds 16: fourteen `CALL [slot]` and two
+		// `MOV ESI,[slot]` that call through the register. Their classes, read off the
+		// first push of each argument block (the class is arg 5, so it is pushed first):
+		//
+		//	class 0x04 len 0x28   0x4339D, 0x43FFD, 0x457E4
+		//	class 0x0D len 1      0x44031, 0x44743, 0x45411, 0x469C5, 0x490A7  (a BOOLEAN)
+		//	class 0x0E len 8      0x44378, 0x4444E                             (modelled)
+		//	class 0x14 len 8      0x43ED6, and 0x44280 via ESI
+		//	class 0x13 len 8      0x442A1 via ESI
+		//
+		// (A scan for the slot cannot see the CALL ESI sites; those two were read out of
+		// the functions the MOV ESI heads. Three sites remain unread — 0x469A6 and the two
+		// far ones at 0x1B4E03/0x2355F1 — so this list bounds what has been LOOKED at, not
+		// what exists. The unmodelled classes still halt by name.)
+		//
+		// CLASS 0x14 IS A SETTABLE 64-BIT FILE LENGTH, and that is derived from the image
+		// rather than from an enum. Two independent sites say so, and they say different
+		// halves of it:
+		//
+		//	0x43ED6  builds its 8-byte buffer from the caller's own QWORD parameter
+		//	         ([EBP+$30]/[EBP+$34] -> [EBP-$C]/[EBP-$8]) — so the value is ARBITRARY
+		//	         and caller-chosen, not a fixed marker.
+		//	0x44238  the function this frontier arrived on. It reads the CURRENT POSITION
+		//	         back with NtQueryInformationFile class 0xE (0x4423B: PUSH $0E / PUSH $8
+		//	         / LEA EAX,[EBP-$8]) — a class this port already verified independently
+		//	         as the position, off its own read-back at 0x44321 — and then sets both
+		//	         0x14 and 0x13 to that same QWORD. The live run reaches it on
+		//	         U:\E4B7CAE3D198\common.dat immediately after writing 4 + 67684 + 20 =
+		//	         67708 bytes, with the position therefore at 67708: the game is saying
+		//	         "the file ends HERE", having just written exactly that much.
+		//
+		// AND NOTHING IN THIS IMAGE DISTINGUISHES 0x13 FROM 0x14. The one site that uses
+		// 0x13 sets it to the SAME value as the 0x14 it issued three instructions earlier,
+		// on a file already exactly that long, so both are no-ops there and either could be
+		// the size and either could be the allocation. I know what the NT enum calls them.
+		// Writing that down and watching the save work would prove nothing — the same
+		// argument usb_xid.go makes about a mislabelled gamepad, and the reason the d-pad's
+		// "obvious" bit order turned out backwards. So they are modelled IDENTICALLY, as
+		// "the file is now N bytes", which is:
+		//
+		//   - provably right at the only site that exists (0x14 sets the length; the 0x13
+		//     that follows sets it to the value it already has), and
+		//   - the only reading a cache file can express at all: it is a []byte with one
+		//     length and no separate allocation to reserve.
+		//
+		// If a caller ever sets the two to DIFFERENT values, that is the run that names the
+		// difference, and it will be visible as a file whose length came from the wrong one.
 		return func(m *Machine) int {
 			h, iosb, buf, ln, class := m.arg(0), m.arg(1), m.arg(2), m.arg(3), m.arg(4)
 			fo := m.files[h]
@@ -264,13 +348,31 @@ func kernelObjectHandler(ord uint16) func(*Machine) int {
 				m.finishOpen(iosb, h, 0, 0xC0000008) // STATUS_INVALID_HANDLE
 				return 5
 			}
-			if class != 0xE || ln < 8 {
+			switch {
+			case class == 0xE && ln >= 8:
+				fo.off = m.read32(buf) // low dword; disc files stay under 4 GB
+				m.finishOpen(iosb, h, 0, 0)
+
+			case (class == 0x13 || class == 0x14) && ln >= 8:
+				// The high dword is read and required to be zero rather than ignored: a
+				// 64-bit length is what the field IS, and this store cannot hold one. A
+				// silent truncation to the low dword would turn a >4 GB set into a small
+				// file, which is the kind of wrong that looks like a working save.
+				if hi := m.read32(buf + 4); hi != 0 {
+					m.CPU.Halt("NtSetInformationFile: class %d length %08X_%08X exceeds "+
+						"this store's 32-bit files, from %08X", class, hi, m.read32(buf), m.retAddr())
+					return 5
+				}
+				if err := m.setFileLength(fo, m.read32(buf)); err != 0 {
+					m.finishOpen(iosb, h, 0, err)
+					return 5
+				}
+				m.finishOpen(iosb, h, 0, 0)
+
+			default:
 				m.CPU.Halt("NtSetInformationFile: unmodelled class %d (len %d) from %08X",
 					class, ln, m.retAddr())
-				return 5
 			}
-			fo.off = m.read32(buf) // low dword; disc files stay under 4 GB
-			m.finishOpen(iosb, h, 0, 0)
 			return 5
 		}
 
