@@ -169,6 +169,10 @@ type IOP struct {
 	// working.
 	prof map[string]int
 
+	// logPC is the set of non-halting IOP breakpoints LogPC has armed. Investigation
+	// state, not machine state: it is deliberately not in the savestate.
+	logPC map[uint32]struct{}
+
 	// The census: every call to a function nothing models, and every peripheral
 	// register nobody has claimed. This is the work list, and it is the only honest
 	// account of how much of the IOP is still missing.
@@ -681,7 +685,26 @@ func (p *IOP) Step() {
 		return
 	}
 	p.tick()
+	if p.logPC != nil {
+		if _, hit := p.logPC[uint32(p.CPU.CurPC())]; hit {
+			pc := uint32(p.CPU.CurPC())
+			fmt.Printf("ioplogpc %-24s a0=%08X a1=%08X a2=%08X a3=%08X sp+10=%08X sp+14=%08X ra=%s\n",
+				p.Sym(pc), p.CPU.Reg(4), p.CPU.Reg(5), p.CPU.Reg(6), p.CPU.Reg(7),
+				p.Read32(uint32(p.CPU.Reg(29))+0x10), p.Read32(uint32(p.CPU.Reg(29))+0x14),
+				p.Sym(uint32(p.CPU.Reg(31))))
+		}
+	}
 	p.CPU.Step()
+}
+
+// LogPC arms a non-halting IOP breakpoint: every time the IOP's PC lands on addr, its
+// argument registers are printed. An investigation instrument, the IOP twin of the EE
+// oracle's -logpc.
+func (p *IOP) LogPC(addr uint32) {
+	if p.logPC == nil {
+		p.logPC = map[uint32]struct{}{}
+	}
+	p.logPC[addr] = struct{}{}
 }
 
 func (p *IOP) halt(format string, args ...interface{}) {

@@ -142,6 +142,18 @@ type Volume struct {
 	rootSize int
 }
 
+// Geometry reports the sector layout the volume reads through, when its source
+// knows one. A cooked .iso and a raw CD dump both serve the same 2048-byte blocks,
+// but which container they came out of is a fact about the *disc* — a raw 2352-byte
+// sector layout only ever comes off a CD — and an emulated drive needs it to answer
+// "what kind of disc is this" honestly.
+func (v *Volume) Geometry() (Geometry, bool) {
+	if s, ok := v.src.(*Source); ok {
+		return s.Geometry(), true
+	}
+	return Geometry{}, false
+}
+
 // ReadBlock returns one 2048-byte logical block by LBA, whatever the image's geometry.
 //
 // It is the volume as a *disc* rather than as a filesystem, and it is what a machine that

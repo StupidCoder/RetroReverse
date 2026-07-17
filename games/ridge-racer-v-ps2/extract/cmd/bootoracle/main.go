@@ -48,11 +48,12 @@ func main() {
 	gsFrame := flag.String("gsframe", "", "write the frame the GS would scan out to FILE.png at the end of the run")
 	eeProf := flag.Int("eeprof", 0, "sample the EE's PC every N steps and report where the time goes, by symbol")
 	pad := flag.String("pad", "", "press controller buttons: BUTTON@VBLANK[:HOLD],... (default hold 30 vblanks)")
-	verbose := flag.Bool("v", false, "log every kernel call as it happens")
+	verbose := flag.Bool("v", false, "print the kernel-call, SIF and IOP censuses after the run")
 
-	var bps, logpcs, watches, rwatches, gsFBs, gsRegs multiFlag
+	var bps, logpcs, iopLogpcs, watches, rwatches, gsFBs, gsRegs multiFlag
 	flag.Var(&bps, "bp", "halting breakpoint (hex); repeatable")
 	flag.Var(&logpcs, "logpc", "non-halting breakpoint: log GPRs and continue (hex); repeatable")
+	flag.Var(&iopLogpcs, "ioplogpc", "non-halting IOP breakpoint: log GPRs and continue (hex); repeatable")
 	flag.Var(&watches, "watch", "write-watch ADDR[:LEN] (hex); repeatable")
 	flag.Var(&rwatches, "rwatch", "read-watch ADDR[:LEN] (hex); repeatable")
 	watchn := flag.Int("watchn", 100, "limit watch reports")
@@ -67,7 +68,7 @@ func main() {
 		files: *files, syms: *syms, dis: *dis, dump: *dump, scan: *scan,
 		loadstate: *loadstate, savestate: *savestate, poke: *poke,
 		gsFrame: *gsFrame, eeProf: *eeProf, pad: *pad, verbose: *verbose,
-		bps: bps, logpcs: logpcs, watches: watches, rwatches: rwatches, watchn: *watchn,
+		bps: bps, logpcs: logpcs, iopLogpcs: iopLogpcs, watches: watches, rwatches: rwatches, watchn: *watchn,
 		gsFBs: gsFBs, gsRegs: gsRegs, iopThreads: *iopThreads,
 	}); err != nil {
 		fmt.Fprintln(os.Stderr, "bootoracle:", err)
@@ -83,7 +84,7 @@ type cfg struct {
 	gsFrame                        string
 	eeProf                         int
 	pad                            string
-	bps, logpcs, watches, rwatches multiFlag
+	bps, logpcs, iopLogpcs, watches, rwatches multiFlag
 	watchn                         int
 	gsFBs, gsRegs                  multiFlag
 	iopThreads                     bool
@@ -187,9 +188,6 @@ func run(c cfg) error {
 	}
 	m.LoadExecutable(exe)
 	fmt.Fprintf(os.Stderr, "%s", exe.Describe())
-	if c.verbose {
-		os.Setenv("PS2_SYSCALL_TRACE", "1")
-	}
 
 	// Static inspection that needs no run.
 	if c.dis != "" {
@@ -323,6 +321,14 @@ func run(c cfg) error {
 		m.SetBreakpoint(a)
 		fmt.Fprintf(os.Stderr, "breakpoint at %s (0x%08X)\n", m.Sym(a), a)
 	}
+	for _, l := range c.iopLogpcs {
+		a, err := hx(l)
+		if err != nil {
+			return fmt.Errorf("bad -ioplogpc %q", l)
+		}
+		m.IOP.LogPC(a)
+		fmt.Fprintf(os.Stderr, "logging IOP registers at 0x%08X\n", a)
+	}
 	logAt := map[uint32]bool{}
 	for _, l := range c.logpcs {
 		a, err := hx(l)
@@ -362,6 +368,23 @@ func run(c cfg) error {
 	res := m.Run(steps)
 	fmt.Println(res.String())
 	fmt.Printf("reached: %s\n", m.Sym(res.PC))
+
+	if tty := m.TTY(); tty != "" {
+		fmt.Printf("\ntty:\n%s\n", tty)
+	}
+	if c.verbose {
+		fmt.Printf("\n--- %s", m.SyscallCensus())
+		fmt.Printf("\n--- %s", m.SIFCensus())
+		if census := m.IOP.IOPCensus(); census != "" {
+			fmt.Printf("\n--- %s", census)
+		}
+	}
+	if len(m.Log) > 0 {
+		fmt.Println("\nlog:")
+		for _, l := range m.Log {
+			fmt.Println(" ", l)
+		}
+	}
 
 	if c.eeProf > 0 {
 		type pc struct {

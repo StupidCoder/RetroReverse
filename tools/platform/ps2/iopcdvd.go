@@ -39,9 +39,11 @@ package ps2
 //	               does. It is the only value the code ever compares against, so "10" means
 //	               ready and every other value means not yet.
 //	0x1F40200F  R  the disc type. CDVDMAN+0x3048 branches on it to choose the read command:
-//	               16..19 -> 0x80, 20 -> 0x84, below 16 -> refuse. This disc is 1.74 GB, so
-//	               it is not a CD by any reading of the geometry, and 20 is the only value
-//	               that selects the other branch.
+//	               16..19 -> 0x80, 20 -> 0x84, below 16 -> refuse — and the file search
+//	               branches on it FIRST (RRV's CDVDMAN+0x4184): 20 reads the path table
+//	               from the fixed DVD sector 257, 16..19 read its LBA out of the PVD. So
+//	               the answer comes off the image itself (discType): Jak's 1.74 GB dump is
+//	               a DVD, Ridge Racer V's raw MODE2 dump is a CD.
 //	0x1F402016  W  the S-command code. Writing it runs the command (CDVDMAN+0x22C8).
 //	0x1F402017  W  a parameter byte for the S-command, pushed into a FIFO (CDVDMAN+0x22A4).
 //	            R  the S-command status: bit 7 = busy (the submit routine waits for it to
@@ -72,6 +74,8 @@ package ps2
 
 import (
 	"fmt"
+
+	"retroreverse.com/tools/lib/iso9660"
 )
 
 // The register block. CDVDMAN names its own base: the word 0xBF402000 sits in its constant
@@ -164,6 +168,9 @@ const (
 	// anything else, so this value is a placeholder for a state
 	// we have no evidence about, not a claim about the silicon.
 	cdvdDiscTypeDVD = 20 // CDVDMAN+0x3048's DVD branch
+	// The PS2 CD without audio tracks: the 16..19 range CDVDMAN's read routine accepts as
+	// a CD, and the value its search routine takes down the parse-the-PVD path.
+	cdvdDiscTypePS2CD = 0x12
 	cdvdSectorBytes = 2048
 )
 
@@ -224,13 +231,51 @@ func newCDVD(m *Machine) *cdvd {
 
 // discType is what 0x200F reads.
 //
-// The disc decides, and it decides on its own evidence: a 1.74 GB image is not a CD, and
-// CDVDMAN's read routine has exactly two branches — one for a type in 16..19 and one for
-// the type 20. Nothing here is chosen for our convenience; if the image were a CD this
-// would have to answer the other way, and the module would issue the other command.
+// The disc decides, and it decides on its own evidence — which matters far beyond the
+// choice of read command. CDVDMAN's file search branches on this type at its very first
+// step (RRV's CDVDMAN+0x4184): a type of 20 makes it read the path table from the FIXED
+// sector 257 — Sony's DVD mastering convention, no PVD field consulted at all — while a
+// type in 16..19 makes it read the path-table LBA out of the PVD at offset 140, the ISO
+// 9660 way. Ridge Racer V ships on a CD whose path table is at LBA 18; answering "DVD"
+// here sent its search to sector 257 — a slice of the boot ELF — and the game asked for
+// \R5.ALL;1 a hundred and fifty thousand times against a directory made of code bytes.
+//
+// So the type is read off the image itself:
+//
+//	raw CD sector framing (data offset != 0)       only ever comes off a CD -> 0x12
+//	no framing, fits on a CD by the PVD's count    a CD dump                -> 0x12
+//	no framing, more blocks than a CD can hold     a DVD dump               -> 20
+//
+// The boundary is the medium's own: an 80-minute CD is 360,000 blocks, and no CD dump
+// can exceed it. Jak's disc is a 1.74 GB .iso — ~890k blocks, a DVD, as before.
 func (c *cdvd) discType() byte {
+	if vol := c.ps2.vol; vol != nil {
+		g, ok := vol.Geometry()
+		return discTypeFor(g, ok, vol.Blocks)
+	}
 	return cdvdDiscTypeDVD
 }
+
+// discTypeFor is the decision on its own, so a test can pin both discs' shapes
+// without either image present.
+func discTypeFor(g iso9660.Geometry, geomKnown bool, blocks int) byte {
+	if geomKnown && g.DataOffset != 0 {
+		// Sync bytes and an MSF header in front of the user data: only a CD frames
+		// its sectors that way, so a dump that carries the framing is a CD dump.
+		// The sector SIZE alone is not the same evidence — Jak's DVD ships as a
+		// 2448-byte-sector image whose extra 400 bytes are padding, not framing.
+		return cdvdDiscTypePS2CD
+	}
+	if blocks > 0 && blocks <= cdMaxBlocks {
+		return cdvdDiscTypePS2CD
+	}
+	return cdvdDiscTypeDVD
+}
+
+// cdMaxBlocks is the capacity of an 80-minute CD in 2048-byte blocks: 80 min at 75
+// sectors a second. A volume that fits under it and came from a cooked image is called
+// a CD; one that cannot fit on a CD is a DVD.
+const cdMaxBlocks = 80 * 60 * 75
 
 // --- the bus ---------------------------------------------------------------------
 

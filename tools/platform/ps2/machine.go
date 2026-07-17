@@ -359,7 +359,14 @@ func sprintf(format string, args ...interface{}) string { return fmt.Sprintf(for
 // StartIOP builds the second processor over the memory the EE already shares with it.
 // It runs nothing until a module is loaded onto it (iopload.go).
 func (m *Machine) StartIOP() *IOP {
+	old := m.IOP
 	m.IOP = newIOP(m, m.iopRAM)
+	if old != nil {
+		// Instruments survive a reboot: the game's UDNL reboot replaces the processor,
+		// and a logpc armed before it would otherwise silently disarm — a zero-hit
+		// instrument that looks exactly like a code path that never ran.
+		m.IOP.logPC = old.logPC
+	}
 	if m.OnIOPStart != nil {
 		m.OnIOPStart(m.IOP)
 	}

@@ -173,3 +173,46 @@ func TestTheReadErrorRegisterIsZeroWhenTheReadWorked(t *testing.T) {
 		t.Errorf("the drive read the sector and reports error %d", e)
 	}
 }
+
+// TestDiscTypeFor pins the drive's answer to "what kind of disc is this" against the
+// two shapes this repository actually ships, plus the edge that separates them.
+//
+// The stakes: CDVDMAN's file search branches on this byte at its FIRST step. Type 20
+// sends it to the fixed DVD path-table sector 257 without reading the PVD's pointer
+// at all; types 16..19 make it read the path-table LBA out of the PVD (RRV's CDVDMAN,
+// +0x4184 and +0x41E0). Ridge Racer V is a CD with its path table at 18 — a drive
+// that answered 20 sent every search into the middle of the boot ELF, and the game
+// asked for \R5.ALL;1 a hundred and fifty thousand times.
+func TestDiscTypeFor(t *testing.T) {
+	cases := []struct {
+		name   string
+		g      iso9660.Geometry
+		known  bool
+		blocks int
+		want   byte
+	}{
+		// Ridge Racer V: a raw MODE2/2352 CD dump. The 24-byte data offset is sync
+		// framing, which nothing but a CD ever has.
+		{"raw mode2 CD (RRV)", iso9660.Geometry{SectorSize: 2352, DataOffset: 24}, true, 318977, cdvdDiscTypePS2CD},
+
+		// Jak: a DVD dumped into 2448-byte sectors with the data at offset 0 — the
+		// extra 400 bytes are trailing padding, NOT framing, so the sector size alone
+		// must not read as "CD". Its PVD declares 713,152 blocks; no CD holds that.
+		{"padded 2448 DVD (Jak)", iso9660.Geometry{SectorSize: 2448, DataOffset: 0}, true, 713152, cdvdDiscTypeDVD},
+
+		// A cooked .iso of a CD: no framing to go on, but it fits on a CD.
+		{"cooked CD iso", iso9660.Geometry{SectorSize: 2048, DataOffset: 0}, true, 318977, cdvdDiscTypePS2CD},
+
+		// A cooked .iso of a DVD.
+		{"cooked DVD iso", iso9660.Geometry{SectorSize: 2048, DataOffset: 0}, true, 852439, cdvdDiscTypeDVD},
+
+		// No geometry known at all: decide by capacity alone.
+		{"unknown geometry, DVD-sized", iso9660.Geometry{}, false, 852439, cdvdDiscTypeDVD},
+		{"unknown geometry, CD-sized", iso9660.Geometry{}, false, 100000, cdvdDiscTypePS2CD},
+	}
+	for _, c := range cases {
+		if got := discTypeFor(c.g, c.known, c.blocks); got != c.want {
+			t.Errorf("%s: discTypeFor = %d, want %d", c.name, got, c.want)
+		}
+	}
+}
