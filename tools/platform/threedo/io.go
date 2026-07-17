@@ -408,7 +408,7 @@ func (m *Machine) serviceMsg(c *arm60.CPU, swi uint32) {
 		if m.OnMsgQueue != nil {
 			m.OnMsgQueue(m, port.num, msg.num, "PutMsg")
 		}
-		m.sendSignal(port.owner, port.signal)
+		m.yieldTo(m.sendSignal(port.owner, port.signal), port.owner)
 		c.SetReg(0, 0)
 	case swiGetMsg:
 		// GetMsg(port): pop the oldest queued message (0 = none).
@@ -475,7 +475,7 @@ func (m *Machine) replyMsg(msg *item, result uint32) {
 	if m.OnMsgQueue != nil {
 		m.OnMsgQueue(m, rp.num, msg.num, "ReplyMsg")
 	}
-	m.sendSignal(rp.owner, rp.signal)
+	m.yieldTo(m.sendSignal(rp.owner, rp.signal), rp.owner)
 }
 
 // --- event broker -------------------------------------------------------------

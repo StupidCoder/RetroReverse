@@ -108,6 +108,53 @@ func TestIOCompletionSignal(t *testing.T) {
 	}
 }
 
+// TestMessagePortPreempt checks that posting a message to a port whose owner is
+// blocked waiting on that port's signal yields to the owner: the Portfolio kernel
+// switches to the runnable server task the instant a request is posted, so a
+// client that builds its request on its own stack keeps it live until the server
+// reads it. Without the yield the client runs on and overwrites the request (this
+// is why the DataStreamer rejected every movie request as a bad opcode).
+func TestMessagePortPreempt(t *testing.T) {
+	m := NewMachine() // boot task #1 is the current task (the "client")
+	client := m.curTask()
+
+	// A server task blocked waiting on the port's signal.
+	const portSig = 0x100
+	server := &task{num: 0x5000, state: stWaiting, wait: portSig}
+	m.tasks = append(m.tasks, server)
+
+	port := &item{num: 0x1053, typ: 0x10A, name: "ds", owner: server.num, signal: portSig}
+	m.items[port.num] = port
+	msg := &item{num: 0x1043, typ: typeMsg, owner: client.num, addr: m.dheap.alloc(0x40)}
+	m.items[msg.num] = msg
+
+	m.CPU.SetReg(0, uint32(port.num))
+	m.CPU.SetReg(1, uint32(msg.num))
+	m.CPU.SetReg(2, 0x6000) // data ptr
+	m.CPU.SetReg(3, 0x1C)   // data size
+	m.serviceMsg(m.CPU, swiPutMsg)
+
+	if server.state != stReady {
+		t.Errorf("server not woken (state=%d)", server.state)
+	}
+	if !m.needSchedule {
+		t.Errorf("posting to a waiting server did not request a reschedule")
+	}
+	if client.state != stReady {
+		t.Errorf("client not left Ready for resume (state=%d)", client.state)
+	}
+	if got := server.ctx.R[0]; got != portSig {
+		t.Errorf("server WaitSignal result = 0x%X, want 0x%X", got, portSig)
+	}
+
+	// Posting again when the server is already runnable must NOT force a yield.
+	m.needSchedule = false
+	m.serviceMsg(m.CPU, swiPutMsg)
+	if m.needSchedule {
+		t.Errorf("posting to an already-ready server should not reschedule")
+	}
+}
+
 // TestFieldWaitPacing checks the PaceFields path: a WaitVBL (timer command 3 via
 // SendIO) parks instead of completing in the submit call, then completes only when
 // the field clock reaches the target — and it signals the task that SUBMITTED the

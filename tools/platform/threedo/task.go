@@ -154,7 +154,8 @@ func (m *Machine) switchTask() bool {
 // the blocked WaitSignal's result (its saved r0), matching the real kernel —
 // leaving them pending would make the task's next WaitSignal on the same mask
 // return instantly forever, so a once-per-frame pacing wait would never pace.
-func (m *Machine) sendSignal(num int32, sigs uint32) {
+// Returns true if the signal moved a task from Waiting to Ready (it woke).
+func (m *Machine) sendSignal(num int32, sigs uint32) bool {
 	for _, t := range m.tasks {
 		if t.num == num {
 			t.sig |= sigs
@@ -163,8 +164,26 @@ func (m *Machine) sendSignal(num int32, sigs uint32) {
 				t.sig &^= got
 				t.ctx.R[0] = got
 				t.state = stReady
+				return true
 			}
-			return
+			return false
 		}
+	}
+	return false
+}
+
+// yieldTo requests an immediate reschedule to a task just woken by a message,
+// when it is not the current task. The Portfolio kernel switches to a runnable
+// task the moment a message is posted to a port it waits on (message ports drive
+// higher-priority worker/server threads); without that, a client that posts a
+// request built on its own stack keeps running and overwrites the request before
+// the cooperative server task ever reads it. Marking the current task Ready and
+// setting needSchedule makes the run loop switch after this SWI returns, so the
+// server processes the request while the sender's buffer is still live. The
+// sender resumes on the next round-robin pass with its posted message intact.
+func (m *Machine) yieldTo(woke bool, num int32) {
+	if woke && num != m.curTask().num {
+		m.curTask().state = stReady
+		m.needSchedule = true
 	}
 }
