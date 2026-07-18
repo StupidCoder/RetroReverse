@@ -78,8 +78,8 @@ type item struct {
 	tags uint32 // the tag-args pointer the item was created/found with
 	name string // item name (devices found by name, named ports, ...)
 
-	owner  int32  // task that created/owns this item
-	signal uint32 // message port: the signal raised on its owner when a msg arrives
+	owner  int32   // task that created/owns this item
+	signal uint32  // message port: the signal raised on its owner when a msg arrives
 	msgs   []int32 // message port: queued Message items, FIFO
 
 	// IOReq fields (typeIOReq): the device it drives and its reply port (0 = the
@@ -168,8 +168,8 @@ func (m *Machine) kernelSWI(c *arm60.CPU, swi uint32) bool {
 }
 
 // createItem makes a new tracked item of the given type and returns it. IOReq and
-// similar items get a small zeroed struct in DRAM so the game can fill their
-// fields; the item number is what the game holds onto.
+// similar items get a small zeroed struct in the kernel item heap (iheap) so the
+// game can fill their fields; the item number is what the game holds onto.
 func (m *Machine) createItem(typ, tags, size uint32) *item {
 	m.nextItem++
 	it := &item{num: m.nextItem, typ: typ, tags: tags, owner: m.curTask().num}
@@ -178,7 +178,15 @@ func (m *Machine) createItem(typ, tags, size uint32) *item {
 	if size > structSize {
 		structSize = size
 	}
-	it.addr = m.dheap.alloc(structSize)
+	// Item nodes are kernel bookkeeping: on hardware the kernel carves them from
+	// its own reserved memory, NOT from the application AllocMem pool the game
+	// measures and claims. So they come from a dedicated item heap (iheap), kept
+	// out of the DRAM pool the game binary-searches for its working set. Sharing
+	// one pool let the game's big movie-buffer allocation swallow the whole heap,
+	// after which every DataStreamer message ItemNode was created with a null
+	// backing struct — the streamer's own GetMsg helper (LookupItem returns 0)
+	// then silently dropped each request and the movie player deadlocked.
+	it.addr = m.iheap.alloc(structSize)
 	if it.addr != 0 {
 		// Fill the ItemNode header fields programs read back off the struct:
 		// n_SubsysType/n_Type at +8/+9 and n_Item at +0x18 (nodes.h layout).

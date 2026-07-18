@@ -38,10 +38,12 @@ type MachineState struct {
 
 	DRAM []byte
 	VRAM []byte
+	IMEM []byte // kernel ItemNode backing store (machine.go imemBase)
 	CPU  arm60.CPUState
 
 	DHeap heapState
 	VHeap heapState
+	IHeap heapState
 
 	// Kernel (kernel.go): the item table, and the type index rebuilt from it.
 	Items      []itemState
@@ -157,9 +159,11 @@ func (m *Machine) SaveState() MachineState {
 		ImageHash:       m.imageHash,
 		DRAM:            append([]byte(nil), m.dram...),
 		VRAM:            append([]byte(nil), m.vram...),
+		IMEM:            append([]byte(nil), m.imem...),
 		CPU:             m.CPU.SaveState(),
 		DHeap:           saveHeap(m.dheap),
 		VHeap:           saveHeap(m.vheap),
+		IHeap:           saveHeap(m.iheap),
 		ItemByType:      map[uint32]int32{},
 		NextItem:        m.nextItem,
 		Cur:             m.cur,
@@ -237,6 +241,10 @@ func (m *Machine) LoadState(s MachineState) error {
 	}
 	copy(m.dram, s.DRAM)
 	copy(m.vram, s.VRAM)
+	if len(m.imem) == 0 {
+		m.imem = make([]byte, imemSize)
+	}
+	copy(m.imem, s.IMEM)
 	m.CPU.LoadState(s.CPU)
 	// A halt stops the run BEFORE the faulting instruction retires, so a state saved at
 	// a halt resumes at that instruction. Clear the flag: with the cause fixed the run
@@ -246,6 +254,10 @@ func (m *Machine) LoadState(s MachineState) error {
 
 	m.dheap = loadHeap(s.DHeap)
 	m.vheap = loadHeap(s.VHeap)
+	m.iheap = loadHeap(s.IHeap)
+	if m.iheap.total == 0 { // a pre-item-heap savestate: start a fresh pool
+		m.iheap = newHeap(imemBase, imemSize)
+	}
 
 	m.items = map[int32]*item{}
 	for _, it := range s.Items {

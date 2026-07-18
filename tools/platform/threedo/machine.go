@@ -85,8 +85,17 @@ const (
 	// corruption; the real fix is a faithful OS MemList so manager 1's allocation
 	// resolves the way it does on hardware (a valid region that doesn't orphan the
 	// first manager's normal-path frees) — see the game's InitMemMgr flow.
-	dheapBase   = 0x00080000 // DRAM AllocMem pool: above the image + BSS
-	dheapTop    = 0x0017D000 // ends below the OS context struct + folio vector tables
+	dheapBase = 0x00080000 // DRAM AllocMem pool: above the image + BSS
+	dheapTop  = 0x0017D000 // ends below the OS context struct + folio vector tables
+
+	// Kernel item-node memory, separate from the game's DRAM AllocMem pool. On
+	// hardware CreateItem's ItemNodes come from the kernel's own reserved memory,
+	// so the pool the game measures (its AllocMem binary-search) never sees them.
+	// Modelling them in the DRAM pool let the game's big movie buffer exhaust the
+	// heap, leaving later ItemNodes with no backing struct. This lives in the free
+	// address gap above VRAM (VRAM ends 0x300000, Madam starts 0x3300000).
+	imemBase    = 0x00400000
+	imemSize    = 4 * 1024 * 1024 // 16384 max-size ItemNodes: far beyond any boot's need
 	vheapBase   = vramBase
 	vramReserve = 0x4000 // reserve a VRAM sliver (over-commit workaround, see git log)
 	vheapTop    = vramBase + vramSize - vramReserve
@@ -114,6 +123,10 @@ type Machine struct {
 	// bookkeeping.
 	dheap *heap // DRAM pool
 	vheap *heap // VRAM pool
+	// imem/iheap back kernel ItemNodes, out of the DRAM pool the game allocates
+	// from (see imemBase). createItem draws every item's struct from here.
+	imem  []byte
+	iheap *heap
 	CPU   *arm60.CPU
 
 	vol     *Volume                // the mounted disc, so the I/O HLE can read files (io.go)
@@ -206,8 +219,8 @@ type Machine struct {
 	movieFrameIdx int
 	movieDec      *CvidDecoder
 	movieBase     uint32
-	simTime   uint64 // virtual microsecond clock (folio SampleSystemTimeTT)
-	vblank    uint32 // virtual VBlank/field counter (osCtx +0xA)
+	simTime       uint64 // virtual microsecond clock (folio SampleSystemTimeTT)
+	vblank        uint32 // virtual VBlank/field counter (osCtx +0xA)
 	// PaceFields, when set, makes WaitVBL block its caller until the field clock
 	// reaches the requested field (the fieldWaits/fieldTick machinery below) instead
 	// of completing instantly. The field clock then advances one field whenever the
@@ -265,6 +278,8 @@ func NewMachine() *Machine {
 		vram:       make([]byte, vramSize),
 		dheap:      newHeap(dheapBase, dheapTop-dheapBase),
 		vheap:      newHeap(vheapBase, vheapTop-vheapBase),
+		imem:       make([]byte, imemSize),
+		iheap:      newHeap(imemBase, imemSize),
 		items:      map[int32]*item{},
 		itemByType: map[uint32]*item{},
 		nextItem:   0x1000,
@@ -370,8 +385,8 @@ func (m *Machine) advanceVBlank(n uint32) {
 // otherwise idle (fieldTick) — reaches the target, delivering the completion
 // signal so the caller's WaitIO wakes.
 type timerWait struct {
-	ioReq     int32  // the field-wait IOReq item to complete
-	submitter int32  // the task that called SendIO — SIGF_IODONE wakes it, not the
+	ioReq     int32 // the field-wait IOReq item to complete
+	submitter int32 // the task that called SendIO — SIGF_IODONE wakes it, not the
 	//                  IOReq's creator (a game may WaitVBL on a shared global IOReq)
 	field uint32 // wake when the field clock reaches this count
 }
@@ -456,7 +471,14 @@ func (m *Machine) writeWord(a, v uint32) {
 		m.dram[a+1] = byte(v >> 16)
 		m.dram[a+2] = byte(v >> 8)
 		m.dram[a+3] = byte(v)
+		return
 	}
+	// Addresses outside DRAM (kernel ItemNode store, VRAM) go through the bus so
+	// item-struct header writes actually land where LookupItem will read them.
+	m.Write(a, byte(v>>24))
+	m.Write(a+1, byte(v>>16))
+	m.Write(a+2, byte(v>>8))
+	m.Write(a+3, byte(v))
 }
 
 func (m *Machine) note(s string) {
@@ -484,6 +506,8 @@ func (m *Machine) rawRead(addr uint32) byte {
 		return m.dram[addr]
 	case addr >= vramBase && addr < vramBase+vramSize:
 		return m.vram[addr-vramBase]
+	case addr >= imemBase && addr < imemBase+imemSize:
+		return m.imem[addr-imemBase] // kernel ItemNode backing store
 	case addr >= madamBase && addr < clioEnd:
 		return 0 // Madam/Clio registers read as 0 under HLE
 	case addr >= 0xFFFFF000:
@@ -510,6 +534,8 @@ func (m *Machine) Write(addr uint32, v byte) {
 		m.dram[addr] = v
 	case addr >= vramBase && addr < vramBase+vramSize:
 		m.vram[addr-vramBase] = v
+	case addr >= imemBase && addr < imemBase+imemSize:
+		m.imem[addr-imemBase] = v // kernel ItemNode backing store
 	case addr >= madamBase && addr < clioEnd:
 		// Madam/Clio register writes are accepted and ignored under HLE.
 	default:
