@@ -487,3 +487,60 @@ func TestVIF1KickDrainsAtDMACRead(t *testing.T) {
 		t.Fatalf("TRXPOS = 0x%016X after the drain, want 0x%016X", got, trxpos(3, 3))
 	}
 }
+
+// TestPath2StreamSpansDirects pins the PATH2 contract RRV's intro depends on: the GS
+// parses consecutive DIRECT payloads as ONE stream, so a GIFtag whose IMAGE data runs
+// past the end of one DIRECT keeps consuming from the next, and the packets behind the
+// seam still arrive. The intro's ~2 MiB city-texture burst rides two DIRECTs (the
+// VIFcode's immediate is 16 bits of quadwords) with a 216 KiB IMAGE spanning the seam;
+// parsing each DIRECT as a fresh packet read that image's tail as GIFtags and silently
+// dropped every upload behind it — the near-LOD textures the flyover's roofs sample.
+func TestPath2StreamSpansDirects(t *testing.T) {
+	m := NewMachine()
+
+	const w, h = 64, 32
+	const dbpA, dbpB, dbw = 0x100, 0x200, 1
+
+	build := func(dbp uint64, base uint32) []byte {
+		pkt := buildADPacket([][2]uint64{
+			{gsBITBLTBUF, bitbltbuf(dbp, dbw, psmCT32)},
+			{gsTRXPOS, trxpos(0, 0)},
+			{gsTRXREG, trxreg(w, h)},
+			{gsTRXDIR, 0},
+		})
+		pkt = append(pkt, buildImageTag(uint64(w*h/4))...)
+		for i := 0; i < w*h; i++ {
+			var b [4]byte
+			putLE32(b[:], base+uint32(i))
+			pkt = append(pkt, b[:]...)
+		}
+		return pkt
+	}
+
+	stream := append(build(dbpA, 0x11000000), build(dbpB, 0x22000000)...)
+
+	// Split mid-way through upload A's image data — a seam like the one the intro's
+	// two DIRECTs make — and feed the halves as separate DIRECT payloads.
+	seam := len(build(dbpA, 0)) - 1000
+	m.gifStream(stream[:seam])
+	m.gifStream(stream[seam:])
+
+	gs := m.gs
+	if gs == nil {
+		t.Fatal("no GS was created by the uploads")
+	}
+	if gs.uploads != 2 {
+		t.Fatalf("uploads = %d, want 2 — the packet behind the seam was dropped", gs.uploads)
+	}
+	for i, dbp := range []uint32{dbpA, dbpB} {
+		base := []uint32{0x11000000, 0x22000000}[i]
+		for y := uint32(0); y < h; y++ {
+			for x := uint32(0); x < w; x++ {
+				addr := addrPSMCT32(dbp, dbw, x, y)
+				if got, want := le32gs(gs.vram[addr:]), base+y*w+x; got != want {
+					t.Fatalf("upload %d pixel (%d,%d): got 0x%08X, want 0x%08X", i, x, y, got, want)
+				}
+			}
+		}
+	}
+}

@@ -424,6 +424,8 @@ type gsSampler struct {
 	minu, maxu, minv, maxv int32
 	// linear is TEX1's MMAG bit: this draw asked for bilinear magnification.
 	linear bool
+	// probe makes the next at() narrate its address math (the -gspixel drill-down).
+	probe bool
 }
 
 // sampler resolves the current context's texture state, or nil (with the census told)
@@ -570,7 +572,12 @@ func (s *gsSampler) at(u, v int32) uint32 {
 	case psmT4:
 		a, nib := addrPSMT4(t.tbp, t.tbw, x, y)
 		if a < uint32(len(gs.vram)) {
-			return gs.clutEntry(t, uint32(gs.vram[a])>>(4*nib)&0xF)
+			idx := uint32(gs.vram[a]) >> (4 * nib) & 0xF
+			if s.probe {
+				print(sprintf("    T4 probe (%d,%d) addr 0x%X nib %d idx %d clut(cbp 0x%X csa %d cpsm 0x%X csm %d) entry %08X\n",
+					x, y, a, nib, idx, t.cbp, t.csa, t.cpsm, t.csm, gs.clutEntry(t, idx)))
+			}
+			return gs.clutEntry(t, idx)
 		}
 	case psmT8H:
 		a := addrPSMCT32(t.tbp, t.tbw, x, y)

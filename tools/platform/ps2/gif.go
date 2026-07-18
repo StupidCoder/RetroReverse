@@ -77,6 +77,82 @@ func (m *Machine) gifStart(c *dmacChan) {
 	}
 }
 
+// gifStream parses PATH2's DIRECT payloads as one continuous stream. The DIRECT
+// VIFcode's immediate is sixteen bits of quadwords, so anything over a megabyte
+// arrives as several DIRECTs — and the GS does not care: PATH2 is one stream, and a
+// GIFtag whose payload runs past the end of one DIRECT keeps consuming from the
+// next. RRV's intro is the proof: its city-texture burst is ~2 MiB under two
+// DIRECTs, with a 216 KiB IMAGE upload spanning the seam. Parsing each DIRECT as a
+// fresh packet truncated that image and then read its remaining pixels as GIFtags —
+// everything behind the seam (the near-LOD city textures and their CLUTs) dissolved
+// into noise, and the buildings the camera flies over sampled an empty page.
+func (m *Machine) gifStream(data []byte) {
+	gs := m.ensureGS()
+	if gs.path2SkipRemain > 0 {
+		n := gs.path2SkipRemain
+		if n > len(data) {
+			n = len(data)
+		}
+		gs.path2SkipRemain -= n
+		data = data[n:]
+	}
+	if gs.path2ImageRemain > 0 {
+		n := gs.path2ImageRemain
+		if n > len(data) {
+			n = len(data)
+		}
+		gs.imageData(data[:n])
+		gs.path2ImageRemain -= n
+		data = data[n:]
+	}
+	if len(gs.path2Carry) > 0 {
+		data = append(gs.path2Carry, data...)
+		gs.path2Carry = nil
+	}
+	pos := 0
+	for len(data)-pos >= 16 {
+		lo := le64(data[pos:])
+		nloop := int(lo & 0x7FFF)
+		flg := (lo >> 58) & 3
+		nreg := int((lo >> 60) & 0xF)
+		if nreg == 0 {
+			nreg = 16
+		}
+		var need int
+		switch flg {
+		case gifPacked:
+			need = 16 + nloop*nreg*16
+		case gifReglist:
+			n := nloop * nreg
+			need = 16 + (n+n&1)*8
+		default: // IMAGE and the disabled alias both carry NLOOP quadwords
+			need = 16 + nloop*16
+		}
+		if len(data)-pos >= need {
+			m.gifPacket(data[pos : pos+need])
+			pos += need
+			continue
+		}
+		switch flg {
+		case gifImage:
+			// Feed the part that is here; the remainder rides the next DIRECT.
+			m.gifPacket(data[pos:])
+			gs.path2ImageRemain = need - (len(data) - pos)
+		case gifDisable:
+			gs.path2SkipRemain = need - (len(data) - pos)
+		default:
+			// A PACKED or REGLIST tag split mid-payload: hold what has arrived and
+			// finish when the rest does.
+			gs.path2Carry = append([]byte(nil), data[pos:]...)
+		}
+		return
+	}
+	if rest := len(data) - pos; rest > 0 {
+		gs.path2Carry = append([]byte(nil), data[pos:]...)
+		_ = rest
+	}
+}
+
 // gifPacket unpacks a buffer of GIFtags into GS register writes.
 func (m *Machine) gifPacket(data []byte) {
 	gs := m.ensureGS()

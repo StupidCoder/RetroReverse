@@ -361,8 +361,11 @@ func (v *vif) finish() {
 		// PATH2: the payload is GIF packets, straight to the GS.
 		v.count("direct")
 		v.logCode(sprintf("direct (%d qw)", len(v.buf)/16))
+		if xferLog && len(v.buf) >= 4096 {
+			print(sprintf("  VIF%d DIRECT %d qw from 0x%08X\n", v.idx, len(v.buf)/16, v.payloadAddr))
+		}
 		v.m.ensureGS().src = "path2 direct"
-		v.m.gifPacket(v.buf)
+		v.m.gifStream(v.buf)
 
 	default:
 		if cmd >= 0x60 && cmd < 0x80 {

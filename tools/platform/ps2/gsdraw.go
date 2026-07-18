@@ -803,6 +803,17 @@ func (gs *GS) triangle(v0, v1, v2 gsVertex, p uint64) {
 						tv = int32(tt / q * float32(int32(1)<<smp.tex.th) * 16)
 					}
 				}
+				if gs.m != nil && gs.m.GSPixelN > 0 && x == gs.m.GSPixelX && y == gs.m.GSPixelY {
+					smp.probe = true
+					texel := smp.pick(tu, tv)
+					smp.probe = false
+					ctxt := int(p >> 9 & 1)
+					fmt.Printf("  sample (%d,%d) tbp 0x%05X psm 0x%X %dx%d tbw %d wms/wmt %d/%d cbp 0x%X csa %d uv (%.2f,%.2f) texel %08X vtx %08X tex1 %016X miptbp1 %016X miptbp2 %016X\n",
+						x, y, smp.tex.tbp*64, smp.tex.psm, smp.w, smp.h, smp.tex.tbw,
+						smp.wms, smp.wmt, smp.tex.cbp, smp.tex.csa,
+						float64(tu)/16, float64(tv)/16, texel, rgba,
+						gs.reg[0x14+ctxt], gs.reg[0x34+ctxt], gs.reg[0x36+ctxt])
+				}
 				rgba = smp.combine(smp.pick(tu, tv), rgba)
 			}
 			if t.fge {

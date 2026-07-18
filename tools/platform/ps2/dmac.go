@@ -257,6 +257,7 @@ func (m *Machine) dmacWrite(a, v uint32) bool {
 		// a fresh interrupt and a mask update wipe every other channel's.
 		m.dmacStat &^= v & 0xFFFF
 		m.dmacMask ^= (v >> 16) & 0xFFFF
+		m.dmacRetrigger() // a mask bit toggled on fires any completion it was holding
 	case dPCR:
 		m.dPcr = v
 	case dSQWC:
@@ -363,10 +364,47 @@ func (m *Machine) dmacComplete(ch int) {
 	// the delivery in Run). Jak never registers one and polls STR, which is why the
 	// comment above was once the whole truth; Ridge Racer V hangs its VIF1 and GIF
 	// bookkeeping on AddDmacHandler and waits.
+	//
+	// The mask gates DELIVERY, not the status bit. A completion inside a section the
+	// game bracketed with iDisableDmac/iEnableDmac must sit in D_STAT until the
+	// unmask, and fire then (dmacRetrigger below) — that deferred edge is the wakeup
+	// RRV's texture streamer builds its enqueue around. Delivering regardless of the
+	// mask consumed the completion mid-enqueue, the unmask had nothing left to fire,
+	// and the flyover's near-LOD upload batch sat decompressed and unsent forever.
+	if m.dmacMask&(1<<uint(ch)) != 0 {
+		m.queueDmacIRQ(ch)
+	}
+}
+
+// queueDmacIRQ queues one channel's handler delivery, once — a channel already
+// queued but not yet delivered is a single interrupt, not two.
+func (m *Machine) queueDmacIRQ(ch int) {
 	for _, h := range m.dmacHandlers {
-		if int(h.cause) == ch {
-			m.dmacIRQPending = append(m.dmacIRQPending, ch)
-			break
+		if int(h.cause) != ch {
+			continue
+		}
+		for _, q := range m.dmacIRQPending {
+			if q == ch {
+				return
+			}
+		}
+		m.dmacIRQPending = append(m.dmacIRQPending, ch)
+		return
+	}
+}
+
+// dmacRetrigger delivers the interrupt a mask bit was holding back: any channel whose
+// D_STAT bit is still set when its mask bit turns on fires now. This is the unmask
+// edge of the EE's DMAC interrupt logic — EnableDmac after a completion is not a
+// no-op, it is the moment the deferred interrupt happens.
+func (m *Machine) dmacRetrigger() {
+	live := m.dmacStat & m.dmacMask
+	if live == 0 {
+		return
+	}
+	for ch := 0; ch < 16; ch++ {
+		if live&(1<<uint(ch)) != 0 {
+			m.queueDmacIRQ(ch)
 		}
 	}
 }
@@ -632,6 +670,10 @@ func (m *Machine) dmaBytes(madr, qwc uint32) []byte {
 // kickLog, via PS2_KICKLOG, prints every VIF0/VIF1/GIF-channel TADR and CHCR write
 // with the EE PC that made it — the microscope for who kicks which chain, and when.
 var kickLog = os.Getenv("PS2_KICKLOG") != ""
+
+// xferLog, via PS2_XFERLOG, prints every GS image upload and local-local copy with its
+// raw destination — the un-deduplicated feed the note() ledger suppresses.
+var xferLog = os.Getenv("PS2_XFERLOG") != ""
 
 // chainLogN, when set via PS2_CHAINLOG, prints that many VIF1 and GIF-channel
 // source-chain tags — the microscope for which DL segments a frame's chain actually links.

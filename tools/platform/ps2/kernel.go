@@ -114,10 +114,22 @@ var syscalls = map[uint32]syscallEntry{
 	19: {"RemoveDmacHandler", func(m *Machine) { m.setRet(0) }},
 	20: {"EnableIntc", func(m *Machine) { m.intcMask |= 1 << (m.arg(0) & 31); m.setRet(1) }},
 	21: {"DisableIntc", func(m *Machine) { m.intcMask &^= 1 << (m.arg(0) & 31); m.setRet(1) }},
-	22: {"EnableDmac", func(m *Machine) { m.dmacMask |= 1 << (m.arg(0) & 31); m.setRet(1) }},
+	22: {"EnableDmac", func(m *Machine) { m.dmacMask |= 1 << (m.arg(0) & 31); m.dmacRetrigger(); m.setRet(1) }},
 	23: {"DisableDmac", func(m *Machine) { m.dmacMask &^= 1 << (m.arg(0) & 31); m.setRet(1) }},
 	24: {"SetAlarm", nil},
 	25: {"ReleaseAlarm", nil},
+	// The interrupt-context variants, one per non-i call above. The EE kernel numbers
+	// them 0x1A..0x1D, and games call them with $v1 negative from their own DMA-IRQ
+	// paths; the dispatch above folds the sign away. RRV's flyover taught us they are
+	// load-bearing: its texture streamer's kicker gates the VIF1/GIF interrupt mask
+	// with iEnableDmac/iDisableDmac every frame, and a stub that returns 0 without
+	// touching the mask starves the state machine that uploads the near-LOD city
+	// textures — the roof of the building the camera flies over samples an empty page
+	// and renders black.
+	26: {"iEnableIntc", func(m *Machine) { m.intcMask |= 1 << (m.arg(0) & 31); m.setRet(1) }},
+	27: {"iDisableIntc", func(m *Machine) { m.intcMask &^= 1 << (m.arg(0) & 31); m.setRet(1) }},
+	28: {"iEnableDmac", func(m *Machine) { m.dmacMask |= 1 << (m.arg(0) & 31); m.dmacRetrigger(); m.setRet(1) }},
+	29: {"iDisableDmac", func(m *Machine) { m.dmacMask &^= 1 << (m.arg(0) & 31); m.setRet(1) }},
 
 	32: {"CreateThread", func(m *Machine) { m.createThread() }},
 	33: {"DeleteThread", func(m *Machine) { m.setRet(0) }},
@@ -170,7 +182,7 @@ var syscalls = map[uint32]syscallEntry{
 	91: {"GetEntryAddress", func(m *Machine) { m.setRet(0) }},
 	92: {"EnableIntcHandler", func(m *Machine) { m.intcMask |= 1 << (m.arg(0) & 31); m.setRet(1) }},
 	93: {"DisableIntcHandler", func(m *Machine) { m.intcMask &^= 1 << (m.arg(0) & 31); m.setRet(1) }},
-	94: {"EnableDmacHandler", func(m *Machine) { m.dmacMask |= 1 << (m.arg(0) & 31); m.setRet(1) }},
+	94: {"EnableDmacHandler", func(m *Machine) { m.dmacMask |= 1 << (m.arg(0) & 31); m.dmacRetrigger(); m.setRet(1) }},
 	95: {"DisableDmacHandler", func(m *Machine) { m.dmacMask &^= 1 << (m.arg(0) & 31); m.setRet(1) }},
 
 	96: {"KSeg0", func(m *Machine) { m.setRet(0) }},
@@ -182,6 +194,7 @@ var syscalls = map[uint32]syscallEntry{
 	// exist, because compiled code brackets every DMA with one.
 	100: {"FlushCache", func(m *Machine) { m.setRet(0) }},
 	102: {"CpuConfig", func(m *Machine) { m.setRet(0) }},
+	104: {"iFlushCache", func(m *Machine) { m.setRet(0) }},
 
 	107: {"sceSifStopDma", func(m *Machine) { m.setRet(0) }},
 	108: {"SetCPUTimerHandler", func(m *Machine) { m.setRet(0) }},

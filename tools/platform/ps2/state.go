@@ -187,6 +187,10 @@ type GSState struct {
 	Prims      int
 	PrimCount  [8]int
 	DrawCensus map[string]int
+	// PATH2's cross-DIRECT stream state (gif.go's gifStream).
+	Path2ImageRemain int
+	Path2SkipRemain  int
+	Path2Carry       []byte
 }
 
 // VIFState is one VPU interface and its vector unit: the sticky decode registers, the
@@ -279,6 +283,8 @@ func (m *Machine) SaveState() MachineState {
 			},
 			VQN: gs.vqN, Q: gs.q, CLUT: gs.clut, CBP0: gs.cbp0, CBP1: gs.cbp1,
 			Uploads: gs.uploads, Prims: gs.prims, PrimCount: gs.primCount,
+			Path2ImageRemain: gs.path2ImageRemain, Path2SkipRemain: gs.path2SkipRemain,
+			Path2Carry: append([]byte(nil), gs.path2Carry...),
 			DrawCensus: map[string]int{},
 		}
 		for i, v := range gs.vq {
@@ -501,6 +507,8 @@ func (m *Machine) LoadState(s MachineState) error {
 		gs.vqN, gs.q, gs.clut, gs.cbp0, gs.cbp1 = g.VQN, g.Q, g.CLUT, g.CBP0, g.CBP1
 		gs.uploads, gs.prims, gs.primCount = g.Uploads, g.Prims, g.PrimCount
 		gs.primsRunBase = g.Prims
+		gs.path2ImageRemain, gs.path2SkipRemain = g.Path2ImageRemain, g.Path2SkipRemain
+		gs.path2Carry = append([]byte(nil), g.Path2Carry...)
 		for i, v := range g.VQ {
 			gs.vq[i] = gsVertex{x: v.PX, y: v.PY, z: v.Z, rgba: v.RGBA, u: v.U, v: v.V, s: v.S, t: v.T, q: v.Q}
 		}

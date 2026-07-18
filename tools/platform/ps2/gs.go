@@ -137,6 +137,14 @@ type GS struct {
 	texBlack, texColor       uint64 // texel samples that came back black vs coloured
 	texBlackPSM, texColorPSM [64]uint64
 
+	// PATH2's stream state (gif.go's gifStream): a GIFtag whose payload runs past the
+	// end of one DIRECT continues in the next, so what one DIRECT could not finish is
+	// carried here — the remaining IMAGE bytes to feed (or, for a disabled tag, to
+	// skip), and the head of a tag whose payload has not fully arrived.
+	path2ImageRemain int
+	path2SkipRemain  int
+	path2Carry       []byte
+
 	m *Machine
 }
 
@@ -341,6 +349,11 @@ func (gs *GS) beginTransfer(dir uint64) {
 	gs.m.note("GS: image upload %dx%d to base 0x%X (width %d, format 0x%X) at (%d,%d)",
 		gs.xfer.rrw, gs.xfer.rrh, gs.xfer.dbp*64, gs.xfer.dbw*64, gs.xfer.dpsm,
 		gs.xfer.dsax, gs.xfer.dsay)
+	if xferLog {
+		print(sprintf("  XFER upload %dx%d dbp 0x%X (blk 0x%X) dbw %d psm 0x%X at (%d,%d) from %s\n",
+			gs.xfer.rrw, gs.xfer.rrh, gs.xfer.dbp*64, gs.xfer.dbp, gs.xfer.dbw*64, gs.xfer.dpsm,
+			gs.xfer.dsax, gs.xfer.dsay, gs.src))
+	}
 }
 
 // localCopy performs a local-to-local transfer: the source rectangle read texel by texel
@@ -364,6 +377,10 @@ func (gs *GS) localCopy(bitbltbuf, trxpos, trxreg uint64) {
 	gs.m.note("GS: local copy %dx%d from 0x%X (psm 0x%02X) to 0x%X (psm 0x%02X)",
 		rrw, rrh, sbp*64, spsm, dbp*64, dpsm)
 	gs.count(sprintf("local->local 0x%02X->0x%02X", spsm, dpsm))
+	if xferLog {
+		print(sprintf("  XFER copy %dx%d sbp 0x%X psm 0x%X -> dbp 0x%X psm 0x%X at (%d,%d)\n",
+			rrw, rrh, sbp*64, spsm, dbp*64, dpsm, dsax, dsay))
+	}
 
 	// TRXPOS's DIR field (bits 59..60) orders the walk for overlapping copies; a
 	// straight top-left walk with a row buffer is exact for the non-overlapping case
