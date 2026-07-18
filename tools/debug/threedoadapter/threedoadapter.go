@@ -62,6 +62,13 @@ func init() {
 			}
 			opts.StallTolerance = n
 		}
+		switch strings.ToLower(s.Get("nativemovie")) {
+		case "", "0", "false", "no":
+		case "1", "true", "yes":
+			opts.NativeMovie = true
+		default:
+			return nil, fmt.Errorf("3do profile: bad nativemovie %q (want true/false)", s.Get("nativemovie"))
+		}
 		return New(s.Image, opts)
 	})
 }
@@ -95,6 +102,14 @@ type Options struct {
 	// settled — which is exactly what a debugger sits and stares at — re-executes only
 	// code it has already run, and the guard has to be told that is not a deadlock.
 	StallTolerance int
+
+	// NativeMovie switches the FMV path from the out-of-band HLE decoder to the
+	// game's OWN movie player: it clears MovieHLE and NoStreams, so the guest opens
+	// the .stream itself and runs its DataStreamer/Cinepak/DrawCels pipeline, and the
+	// frames it presents flow through the normal capture path. Off by default, because
+	// the game's player is not yet complete (it plays the intro FMV partway then
+	// stalls); leave it off and the adapter shows the fully-decoded HLE movie instead.
+	NativeMovie bool
 }
 
 // Adapter drives a 3DO oracle as a debug.Target.
@@ -215,7 +230,13 @@ func (a *Adapter) build() *threedo.Machine {
 	// corrupts itself. MovieHLE instead intercepts the open, decodes the Cinepak itself
 	// (moviehle.go) and presents the FMV into the display buffer — so movies play in the
 	// debugger — while the game still takes its graceful missing-file fallback.
-	m.MovieHLE = true
+	//
+	// NativeMovie flips this: the guest opens the .stream and drives its own player, so
+	// the frames it presents (its DataStreamer→Cinepak→DrawCels pipeline, running on our
+	// ARM60) are what the debugger captures. The default stays MovieHLE so nothing
+	// regresses while that native pipeline is still being finished.
+	m.MovieHLE = !a.opts.NativeMovie
+	m.NoStreams = false
 	// Pace the game to one field per frame: WaitVBL blocks on the field clock
 	// instead of completing instantly, so the field counter tracks displayed frames.
 	// Without it the attract idle timeout and the race clock race far ahead of the

@@ -275,3 +275,32 @@ func TestKeyerQueue(t *testing.T) {
 		t.Fatalf("release on empty queue changed padLast to 0x%08X", a.padLast)
 	}
 }
+
+// TestNativeMovieFlag checks that the NativeMovie option flips the machine's movie
+// path: default keeps the out-of-band HLE decoder (MovieHLE), and setting it hands
+// the guest its own player (MovieHLE off, streams enabled). Checked through build()
+// so it needs no disc.
+func TestNativeMovieFlag(t *testing.T) {
+	if _, err := os.Stat(disc); err != nil {
+		t.Skip("Need for Speed disc not present; skipping")
+	}
+	def, err := New(disc, opts) // default: NativeMovie off
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer def.Close()
+	if m := def.build(); !m.MovieHLE || m.NoStreams {
+		t.Fatalf("default: MovieHLE=%v NoStreams=%v, want true/false", m.MovieHLE, m.NoStreams)
+	}
+
+	nativeOpts := opts
+	nativeOpts.NativeMovie = true
+	nat, err := New(disc, nativeOpts)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer nat.Close()
+	if m := nat.build(); m.MovieHLE || m.NoStreams {
+		t.Fatalf("native: MovieHLE=%v NoStreams=%v, want false/false", m.MovieHLE, m.NoStreams)
+	}
+}
