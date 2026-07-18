@@ -14,14 +14,50 @@ package xbox
 // n3ds/psp discipline.
 
 const schedQuantum = 4000 // instructions a thread runs before the scheduler reconsiders
-const instrsPerMs = 2000  // nominal instruction-to-millisecond scale for the live counters
+
+// instrsPerMs declares the modelled CPU's speed: how many instructions this machine
+// retires per millisecond of GUEST time. 733,466 is the real console's 733.466453 MHz
+// Pentium III at one instruction per cycle — the same clock the title's own XAPI
+// hardcodes as its QueryPerformanceFrequency (0x2BB5C755 Hz against RDTSC, 0x44A2E).
+//
+// It was 2000 for the whole of Phases A-XIII, and that number was never measured by
+// anything until the race began: OutRun's race-mode frame loop (0x20AFA) is a fixed-
+// timestep catch-up — it computes elapsed 60ths from RDTSC (0x20880) and simulates
+// that many ticks before it will present a frame. On a machine that declares itself
+// 2 MHz, one simulation tick costs dozens of guest milliseconds, the elapsed count
+// grows faster than the loop retires it, and the game — measuring honestly — never
+// draws again (the Part XIV freeze: 30B instructions inside one catch-up loop, zero
+// flips, every thread alive). The menus survived only because their game mode takes
+// the loop's clamped path. Declaring the hardware's real speed is the fix; every
+// guest-visible clock below derives from the same declaration, so they stay mutually
+// consistent, and savestates carry a clock epoch so states taken under the old
+// declaration resume with continuous time (state.go).
+const instrsPerMs = 733466
 
 // systemTime100ns is the current synthetic system time in 100-ns units — the same clock
 // KeSystemTime advances and KeQuerySystemTime reports, so the data export and the call
 // agree. It is a relative uptime, not a wall-clock date (no console RTC is modelled);
 // what the title needs it for is monotonic nonce/timestamp material, which this supplies.
+//
+// Affine in the tick rather than a plain division: clockBaseTick/clockBase100ns are the
+// epoch of the current instrsPerMs declaration, so a savestate taken under an older
+// declaration resumes with time CONTINUOUS (the guest holds tick-count and TSC baselines
+// in its own memory; a clock that stepped backwards across a restore would break every
+// delta the title computes against them).
 func (m *Machine) systemTime100ns() uint64 {
-	return m.tick / instrsPerMs * 10000
+	return m.clockBase100ns + (m.tick-m.clockBaseTick)*10000/instrsPerMs
+}
+
+// guestMs is the millisecond form of the same clock (KeTickCount, USB frames).
+func (m *Machine) guestMs() uint64 { return m.systemTime100ns() / 10000 }
+
+// guestTSC is the CPU's time-stamp counter (RDTSC, KeQueryPerformanceCounter): one
+// count per instruction-clock of guest time, from the machine's single timebase — so
+// it keeps telling the same time as systemTime100ns across idle-advance jumps, which
+// retire no instructions but do pass time. Its frequency is instrsPerMs*1000 Hz
+// (733,466,000 — within 0.7 ppm of the 733,466,453 the title's XAPI divides by).
+func (m *Machine) guestTSC() uint64 {
+	return m.tscBase + (m.tick - m.clockBaseTick)
 }
 
 // schedTick charges the running thread's quantum and reschedules when it expires or a
@@ -33,7 +69,7 @@ func (m *Machine) schedTick() {
 	// on a coarse boundary keeps this cheap.
 	if m.tick&0x3FF == 0 {
 		if m.tickCountAddr != 0 {
-			m.write32(m.tickCountAddr, uint32(m.tick/instrsPerMs))
+			m.write32(m.tickCountAddr, uint32(m.guestMs()))
 		}
 		if m.systemTimeAddr != 0 {
 			t := m.systemTime100ns()

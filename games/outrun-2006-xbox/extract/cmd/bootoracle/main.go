@@ -163,6 +163,7 @@ func main() {
 	verbose := flag.Bool("v", false, "log kernel calls and events live")
 	ordinals := flag.Bool("ordinals", false, "after the run, print the histogram of xboxkrnl ordinals called")
 	irqs := flag.Bool("irqs", false, "after the run, print the interrupt vectors the title has connected")
+	threads := flag.Bool("threads", false, "after the run, print every thread's scheduler state, wait objects and signal provenance")
 	stackDump := flag.Bool("stack", false, "on halt, dump the top of the stack (the caller's argument frame)")
 	trace := flag.Bool("trace", false, "trace executed instructions")
 	tracen := flag.Int("tracen", 200, "limit -trace to this many instructions")
@@ -177,6 +178,7 @@ func main() {
 	watchn := flag.Int("watchn", 40, "limit -watch/-rwatch to this many reported accesses")
 	poke := flag.String("poke", "", "write ADDR:VALUE (hex) after loading, before running — a probe, not a model")
 	keys := flag.String("keys", "", "pad-1 input script: NAME@FRAME[:HOLD][,...] — holds pad control NAME from that frame (the title's flip) for HOLD frames (default: forever). Names: see xbox.PadControlNames. e.g. -keys start@120,a@300:10,stickleft@400:8")
+	stopflip := flag.Int("stopflip", 0, "stop the run at the Nth FLIP_STALL — the hook fires while the completed frame is still the bound colour surface, so -surfpng captures a whole presented frame instead of a mid-frame slice")
 	var bps multiFlag
 	flag.Var(&bps, "bp", "execution breakpoint at ADDR (hex); repeatable")
 	var dumps multiFlag
@@ -220,6 +222,9 @@ func main() {
 		os.Exit(1)
 	}
 	m.SetVerbose(*verbose)
+	if os.Getenv("RR_HOTPC") != "" {
+		m.EnableHotPC()
+	}
 	if *gpu {
 		m.EnableGPU()
 		if *survey {
@@ -327,6 +332,20 @@ func main() {
 		m.SetTrace(*tracen) // print the first -tracen executed instructions (PC trail)
 	}
 
+	if *stopflip > 0 {
+		n := *stopflip
+		prev := m.OnFlip
+		m.OnFlip = func(mm *xbox.Machine) {
+			if prev != nil {
+				prev(mm)
+			}
+			n--
+			if n == 0 {
+				mm.StopRequested = true
+			}
+		}
+	}
+
 	reason, n := m.Run(budget)
 	fmt.Printf("\n=== run ended: %s after %d instructions ===\n", reason, n)
 	fmt.Print(m.Report())
@@ -367,6 +386,20 @@ func main() {
 		}
 		fmt.Printf("disasm %08X (%d instructions):\n", addr, n)
 		for _, line := range m.DisasmForward(addr, n) {
+			fmt.Println(line)
+		}
+	}
+
+	if *threads {
+		fmt.Println("\nthreads:")
+		for _, line := range m.DebugThreads() {
+			fmt.Println(line)
+		}
+	}
+
+	if os.Getenv("RR_HOTPC") != "" {
+		fmt.Println("\nhot PCs (sampled every 256 instructions):")
+		for _, line := range m.HotPCReport(30) {
 			fmt.Println(line)
 		}
 	}

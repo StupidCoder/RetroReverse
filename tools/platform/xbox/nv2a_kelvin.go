@@ -111,7 +111,7 @@ func (g *pgraph) kelvinMethod(method, arg uint32) {
 	if shadowTrace {
 		switch method {
 		case kelvinFlipStall:
-			fmt.Printf("SHADOW FLIP draws=%d\n", g.Draws)
+			fmt.Printf("SHADOW FLIP draws=%d tid=%d tick=%d\n", g.Draws, g.m.threadID(), g.m.tick)
 		case kelvinSurfaceColorOffset:
 			fmt.Printf("SHADOW COLOR=%08X draws=%d\n", arg, g.Draws)
 		case kelvinSurfaceZetaOffset:

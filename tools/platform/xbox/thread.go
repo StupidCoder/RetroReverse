@@ -88,6 +88,17 @@ type kobject struct {
 	count    int32   // semaphore count / mutant recursion
 	limit    int32   // semaphore limit
 	thread   *thread // for thread objects
+
+	// Signal provenance — diagnostic only (not serialized): which path last
+	// signalled this object, from where in the guest, and when. -threads reads it.
+	lastSigWho  string // "KeSetEvent", "NtSetEvent", "timer", "io", ...
+	lastSigFrom uint32 // guest return address of the signaller (0 = HLE-internal)
+	lastSigTick uint64
+}
+
+// noteSignal records signal provenance on an object (diagnostic; see -threads).
+func (o *kobject) noteSignal(who string, from uint32, tick uint64) {
+	o.lastSigWho, o.lastSigFrom, o.lastSigTick = who, from, tick
 }
 
 // DebugThreads returns a one-line-per-thread summary of the scheduler state (id, state,
@@ -104,6 +115,23 @@ func (m *Machine) DebugThreads() []string {
 		}
 		out = append(out, fmt.Sprintf("%s tid=%d %-8s prio=%d susp=%d PC=%08X wakeTick=%d waitObjs=%v",
 			mark, t.id, t.state, t.priority, t.suspendCount, pc, t.wakeTick, t.waitObjs))
+		// A blocked thread names what it is blocked ON: object kind, signal state,
+		// and who last signalled it (noteSignal provenance). This is the -threads
+		// dump's whole point — the wait that never completes identifies itself.
+		for _, h := range t.waitObjs {
+			o := m.objects[h]
+			if o == nil {
+				out = append(out, fmt.Sprintf("      waits on %08X: (no kobject; guest header signal=%d)",
+					h, m.read32(h+dhSignalState)))
+				continue
+			}
+			sig := "never"
+			if o.lastSigWho != "" {
+				sig = fmt.Sprintf("%s from %08X at tick %d", o.lastSigWho, o.lastSigFrom, o.lastSigTick)
+			}
+			out = append(out, fmt.Sprintf("      waits on %08X: %s signaled=%v count=%d lastSignal=%s",
+				h, o.kind, o.signaled, o.count, sig))
+		}
 	}
 	return out
 }

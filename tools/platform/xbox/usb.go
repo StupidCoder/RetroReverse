@@ -145,8 +145,9 @@ const (
 )
 
 // usbFrame is the current USB frame number: one per millisecond, derived from the
-// machine tick so it is monotonic and identical across a savestate round trip.
-func (m *Machine) usbFrame() uint64 { return m.tick / instrsPerMs }
+// machine's guest clock so it is monotonic, identical across a savestate round trip,
+// and tells the same time as every other clock (sched.go).
+func (m *Machine) usbFrame() uint64 { return m.guestMs() }
 
 // usbRead answers a byte read from the OHCI aperture. Registers with behaviour are
 // computed here; everything else reads back what was written, through the latch (which

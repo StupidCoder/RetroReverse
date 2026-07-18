@@ -139,6 +139,7 @@ func (m *Machine) timerTick() {
 		if o := m.guestObjAt(t.Timer); o != nil {
 			o.signaled = true
 			m.writeSignal(o.addr, true)
+			o.noteSignal("timer", 0, m.tick)
 			m.wakeWaiters(o.addr)
 		}
 		m.queueDPC(t.Dpc, 0, 0)

@@ -25,6 +25,8 @@ package xbox
 
 import (
 	"fmt"
+	"os"
+	"sort"
 
 	"retroreverse.com/tools/cpu/x86"
 )
@@ -106,14 +108,56 @@ func (m *Machine) onStep(c *x86.CPU) {
 		m.traceLeft--
 		fmt.Printf("%08X  %s\n", pc, m.disasmAt(pc))
 	}
+	if m.hotpc != nil && m.tick&0xFF == 0 {
+		m.hotpc[pc]++
+	}
 	m.tick++
 	m.schedTick()
 }
+
+// EnableHotPC turns on the sampling PC profiler; HotPCReport reads it back.
+func (m *Machine) EnableHotPC() { m.hotpc = map[uint32]uint64{} }
+
+// HotPCReport returns the top-n sampled PCs, most frequent first, one line each.
+func (m *Machine) HotPCReport(n int) []string {
+	type kv struct {
+		pc uint32
+		c  uint64
+	}
+	all := make([]kv, 0, len(m.hotpc))
+	var total uint64
+	for pc, c := range m.hotpc {
+		all = append(all, kv{pc, c})
+		total += c
+	}
+	sort.Slice(all, func(i, j int) bool { return all[i].c > all[j].c })
+	if len(all) > n {
+		all = all[:n]
+	}
+	out := make([]string, 0, len(all))
+	for _, e := range all {
+		out = append(out, fmt.Sprintf("  %08X  %6.2f%%  (%d samples)  %s",
+			e.pc, float64(e.c)*100/float64(total), e.c, m.disasmAt(e.pc)))
+	}
+	return out
+}
+
+// pumpTrace (RR_PUMP=1) narrates the cross-thread pump primitives — suspend/resume,
+// semaphore release, event set/wait — one line each with the calling thread, so the
+// producer/consumer choreography that feeds the render loop can be read off a run.
+var pumpTrace = os.Getenv("RR_PUMP") != ""
 
 // dispatchKernel services one kernel import: run its handler, then simulate the return.
 func (m *Machine) dispatchKernel(ord uint16) {
 	m.OrdinalHits[ord]++
 	name := ordinalName(ord)
+	if pumpTrace {
+		switch ord {
+		case 145, 151, 222, 224, 225, 231, 234, 159:
+			fmt.Printf("PUMP tid=%d %s(%08X) from=%08X tick=%d\n",
+				m.threadID(), name, m.arg(0), m.retAddr(), m.tick)
+		}
+	}
 	h := kernelHandler(ord)
 	if h == nil {
 		m.CPU.Halt("unimplemented xboxkrnl ordinal %d (%s), called from %08X",

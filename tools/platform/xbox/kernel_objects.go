@@ -227,14 +227,14 @@ func kernelObjectHandler(ord uint16) func(*Machine) int {
 		// 64-bit result taken from EDX:EAX and stored to the caller's out pointer —
 		// exactly QueryPerformanceCounter/Frequency's kernel side; table-121/122 + the
 		// Ke block's +5 drift. On hardware both ride the CPU's 733 MHz TSC; here the
-		// counter is the machine tick scaled by the same 367 the RDTSC model uses, and
-		// the frequency is that counter's true rate (367 x 2000 instrs/ms x 1000 =
-		// 734 MHz) so guest-computed delta/frequency seconds match the tick clock.
+		// counter IS the same TSC RDTSC reads (guestTSC, the machine's one timebase)
+		// and the frequency is that counter's true rate, instrsPerMs*1000 Hz — so
+		// guest-computed delta/frequency seconds match every other clock.
 		ord := ord
 		return func(m *Machine) int {
-			v := m.tick * 367
+			v := m.guestTSC()
 			if ord == 127 {
-				v = 734000000
+				v = instrsPerMs * 1000
 			}
 			m.CPU.Regs[x86.AX] = uint32(v)
 			m.CPU.Regs[x86.DX] = uint32(v >> 32)
@@ -921,6 +921,7 @@ func kernelObjectHandler(ord uint16) func(*Machine) int {
 				o.count += int32(release)
 				o.signaled = o.count > 0
 				m.writeSignal(o.addr, o.signaled)
+				o.noteSignal("NtReleaseSemaphore", m.retAddr(), m.tick)
 				m.wakeWaiters(handle)
 			} else if prevOut != 0 {
 				m.write32(prevOut, 0)
@@ -979,6 +980,7 @@ func kernelObjectHandler(ord uint16) func(*Machine) int {
 			}
 			o.signaled = true
 			m.writeSignal(o.addr, true)
+			o.noteSignal("NtSetEvent", m.retAddr(), m.tick)
 			m.wakeWaiters(h)
 			m.setRet(0) // STATUS_SUCCESS
 			return 2
@@ -1144,6 +1146,7 @@ func kernelObjectHandler(ord uint16) func(*Machine) int {
 				}
 				o.signaled = true
 				m.writeSignal(o.addr, true)
+				o.noteSignal("KeSetEvent", m.retAddr(), m.tick)
 				m.wakeWaiters(o.addr)
 			}
 			m.setRet(uint32(prev))
@@ -1372,7 +1375,7 @@ func (m *Machine) doWaitTimed(handle, timeoutPtr uint32) {
 			m.setRet(0x102) // STATUS_TIMEOUT
 			return
 		default: // absolute system time, against the same clock sched.go publishes
-			now := m.tick / instrsPerMs * 10000
+			now := m.systemTime100ns()
 			if uint64(v) <= now {
 				m.setRet(0x102)
 				return

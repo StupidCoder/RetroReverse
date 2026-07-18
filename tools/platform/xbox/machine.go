@@ -125,6 +125,13 @@ type Machine struct {
 
 	tick uint64 // synthetic system tick, advanced per instruction (for timers/clocks)
 
+	// The guest-clock epoch: systemTime100ns/guestTSC are affine in (tick - clockBaseTick)
+	// so a savestate taken under an older instrsPerMs declaration resumes with continuous
+	// time and TSC (see sched.go systemTime100ns and state.go's legacy migration).
+	clockBaseTick  uint64
+	clockBase100ns uint64
+	tscBase        uint64
+
 	tickCountAddr  uint32 // guest address of the live KeTickCount data export (0 if none)
 	systemTimeAddr uint32 // guest address of the live KeSystemTime data export (0 if none)
 
@@ -233,6 +240,10 @@ type Machine struct {
 
 	verbose   bool
 	traceLeft int // remaining instructions to print a PC/disasm trail for (-trace)
+
+	// hotpc is the sampling PC profiler (RR_HOTPC=1): every 256th tick records the
+	// current PC. Diagnostic only — outside the savestate, nil unless enabled.
+	hotpc map[uint32]uint64
 }
 
 // NewMachine builds a machine from a parsed XBE, loading its sections into RAM at the
@@ -296,10 +307,11 @@ func NewMachine(xbe *XBE, disc *Image) (*Machine, error) {
 	c.Regs[x86.SP] = titleStackTop - 4
 	m.write32(titleStackTop-4, threadExitAddr)
 	c.IF = true
-	// RDTSC: a 733 MHz Pentium III TSC against this machine's 2000-instructions-per-
-	// millisecond clock (sched.go instrsPerMs) is 366.6 counts per instruction; 367
-	// keeps the TSC and KeTickCount telling the same time to 0.1%.
-	c.TSCMul = 367
+	// RDTSC comes from the machine's single timebase (sched.go guestTSC): one count
+	// per instruction-clock of guest time, continuous across idle-advance jumps —
+	// which retire no instructions but do pass time — and across savestates from the
+	// old 2000-instrs-per-ms declaration (state.go's clock-epoch migration).
+	c.TSCFunc = m.guestTSC
 	c.OnStep = m.onStep
 	c.PortIn = m.portIn
 	c.PortOut = m.portOut

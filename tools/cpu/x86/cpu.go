@@ -139,6 +139,11 @@ type CPU struct {
 	// apparent frequency is consistent with its other guest clocks.
 	TSCMul uint64
 
+	// TSCFunc, when set, overrides the Steps*TSCMul model: RDTSC returns TSCFunc().
+	// A host whose guest time can advance without retiring instructions (the Xbox's
+	// idle-advance) sets this so the TSC and its other clocks tell the same time.
+	TSCFunc func() uint64
+
 	// transient per-instruction decode state (segment override / sizes)
 	dSeg      int // segment-override index, or -1
 	dOpsize   int // 16 or 32

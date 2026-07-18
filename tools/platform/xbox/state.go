@@ -59,6 +59,19 @@ type XboxState struct {
 	NextObjAddr, KbandNext      uint32
 	Tick                        uint64
 
+	// The guest-clock epoch (sched.go). ClockScheme names the instrsPerMs declaration
+	// the epoch fields were written under: 0 is a snapshot from the legacy 2000-instrs-
+	// per-ms / TSCMul-367 era (the fields are absent), 1 is the 733,466 declaration.
+	// A legacy snapshot migrates on load: the epoch is set so systemTime100ns and the
+	// TSC CONTINUE from the values the old formulas produced at the moment the state
+	// was taken — the guest's own memory holds tick-count and RDTSC baselines, and a
+	// clock that stepped across the restore would break every delta computed against
+	// them (the race clock at 0x4170E8 first among them).
+	ClockScheme    int
+	ClockBaseTick  uint64
+	ClockBase100ns uint64
+	TscBase        uint64
+
 	// NV2A
 	NVReg     map[uint32]uint32
 	NVPut     uint32
@@ -281,6 +294,8 @@ func (m *Machine) SaveState() *XboxState {
 		Mode: c.Mode, Steps: c.Steps, Halted: c.Halted, HaltReason: c.HaltReason, FPU: c.FPU, XMM: c.XMM,
 		PoolNext: m.poolNext, HeapNext: m.heapNext, HeapTop: m.heapTop,
 		NextObjAddr: m.nextObjAddr, KbandNext: m.kbandNext, Tick: m.tick,
+		ClockScheme: 1, ClockBaseTick: m.clockBaseTick, ClockBase100ns: m.clockBase100ns,
+		TscBase: m.tscBase,
 		NVReg: copyU32Map(m.nv.reg), NVPut: m.nv.dmaPut, NVGet: m.nv.dmaGet, NVKicked: m.nv.kicked,
 		APUReg:         copyU32Map(m.apu.reg),
 		AC97Reg:        copyU32Map(m.ac97.reg),
@@ -386,6 +401,17 @@ func (m *Machine) LoadState(st *XboxState) error {
 	c.Mode, c.Steps, c.Halted, c.HaltReason, c.FPU, c.XMM = st.Mode, st.Steps, st.Halted, st.HaltReason, st.FPU, st.XMM
 	m.poolNext, m.heapNext, m.heapTop = st.PoolNext, st.HeapNext, st.HeapTop
 	m.nextObjAddr, m.kbandNext, m.tick = st.NextObjAddr, st.KbandNext, st.Tick
+	if st.ClockScheme == 0 {
+		// A legacy (2000 instrs/ms, TSCMul 367) snapshot: pin the epoch at the restore
+		// point so guest time and the TSC continue from the exact values the old
+		// formulas last produced — the guest's memory holds baselines against both.
+		m.clockBaseTick = st.Tick
+		m.clockBase100ns = st.Tick / 2000 * 10000
+		m.tscBase = st.Steps * 367
+	} else {
+		m.clockBaseTick, m.clockBase100ns, m.tscBase =
+			st.ClockBaseTick, st.ClockBase100ns, st.TscBase
+	}
 	m.nv.reg = copyU32Map(st.NVReg)
 	m.nv.dmaPut, m.nv.dmaGet, m.nv.kicked = st.NVPut, st.NVGet, st.NVKicked
 	m.apu.reg = copyU32Map(st.APUReg)

@@ -70,6 +70,28 @@ const (
 	apuHandshake    = 0x20010
 	apuCounterShift = 10 // counter = tick >> 10
 
+	// The EP (encode processor) DSP's alive marker. DirectSoundDoWork runs a WATCHDOG
+	// every frame (0x1D814B): it reads the aperture dword at +0x5A018 — a 24-bit word
+	// in the EP's memory window — and compares it against 0x00CCCCCC; anything else
+	// means "the EP has died", and the recovery (0x1D7E7C) re-runs the whole EP
+	// bring-up: per-block words +0x5FF10/+0x5FF14, run-control +0x5FFFC written 1 then
+	// 3, and a fixed KeStallExecutionProcessor(10ms) settle.
+	//
+	// We do not execute DSP56k microcode, so nothing here ever wrote that word: the
+	// watchdog failed on EVERY DirectSoundDoWork, and the recovery's 10 ms of guest
+	// time per frame is what re-diverged the race's catch-up loop even after the CPU
+	// clock was declared honestly (Part XIV: ~167k stall calls per 100M instructions,
+	// all from 0x1D7F43, all 10 ms). The value itself is derived, not invented: the
+	// only CPU-side 0xCCCCCC in the whole image is the compare at 0x1D8150 (a byte
+	// scan finds no writer), so the marker is DSP-published, and on hardware — where
+	// races demonstrably run without a 10 ms audio reset per frame — a running EP
+	// keeps its marker in place. That is this model: while the title's own bring-up
+	// has left the EP run-control at 3 (run), the marker reads back; any other
+	// run-state reads the latch, and the watchdog's recovery stays visible.
+	epAliveWord  = 0x5A018 // EP-window word the watchdog reads
+	epRunControl = 0x5FFFC // EP per-block run-control (bring-up writes 1, then 3)
+	epAliveMagic = 0x00CCCCCC
+
 	// AC'97 bus-master global registers (generic AC'97/ICH spec — platform
 	// knowledge, like the OHCI answers above).
 	ac97GlobalControl = 0x12C // bit 1 = ACLink cold reset deasserted (active low reset)
@@ -134,6 +156,9 @@ func (m *Machine) apuRead(off uint32) byte {
 	dw, written := m.apu.reg[off>>2]
 	if off&^3 == apuHandshake {
 		dw, written = uint32(m.tick>>apuCounterShift), true
+	}
+	if off&^3 == epAliveWord && m.apu.reg[epRunControl>>2] == 3 {
+		dw, written = epAliveMagic, true // a running EP maintains its alive marker
 	}
 	return m.latchRead(&m.apu, off, dw, written)
 }

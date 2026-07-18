@@ -536,13 +536,19 @@ func (c *CPU) exec0F(op, rep byte) {
 		// is already a no-op for us.
 	case 0x31: // RDTSC — EDX:EAX = the time-stamp counter. Modelled as the retired-
 		// instruction count scaled by TSCMul, so guest-visible time advances at a rate
-		// the host machine chooses consistently with its other clocks (the Xbox sets
-		// 367: a 733 MHz TSC against its 2000-instructions-per-millisecond tick).
-		mul := c.TSCMul
-		if mul == 0 {
-			mul = 1
+		// the host machine chooses consistently with its other clocks; a host with a
+		// richer timebase (one that can advance while the CPU sleeps) supplies TSCFunc
+		// instead (the Xbox does — see xbox.Machine.guestTSC).
+		var tsc uint64
+		if c.TSCFunc != nil {
+			tsc = c.TSCFunc()
+		} else {
+			mul := c.TSCMul
+			if mul == 0 {
+				mul = 1
+			}
+			tsc = c.Steps * mul
 		}
-		tsc := c.Steps * mul
 		c.Regs[AX] = uint32(tsc)
 		c.Regs[DX] = uint32(tsc >> 32)
 	case 0xB0, 0xB1: // CMPXCHG r/m, r — compare the accumulator with r/m: equal (ZF=1)

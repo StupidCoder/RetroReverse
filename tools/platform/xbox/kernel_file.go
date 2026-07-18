@@ -742,6 +742,7 @@ func (m *Machine) ioTick() {
 			if o := m.objAt(p.Event); o != nil {
 				o.signaled = true
 				m.writeSignal(o.addr, true)
+				o.noteSignal("io", 0, m.tick)
 				m.wakeWaiters(p.Event)
 			}
 		}
@@ -749,6 +750,7 @@ func (m *Machine) ioTick() {
 			if o := m.objects[p.Handle]; o != nil {
 				o.signaled = true // I/O complete: the file object signals
 				m.writeSignal(p.Handle, true)
+				o.noteSignal("io", 0, m.tick)
 				m.wakeWaiters(p.Handle)
 			}
 		}

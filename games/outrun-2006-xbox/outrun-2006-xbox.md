@@ -1844,3 +1844,148 @@ in-race). `-surfpng` captures are mid-frame at the stop point, so partially-draw
 - The cold-boot title frame is byte-identical (`5439dd95c92d462d03b9c5fbbd8a6c86`, procedure:
   `title.state` +100M steps `-surfpng`), and `go test` passes across
   `tools/platform/xbox`, `tools/cpu/x86`, and `tools/debug/...`.
+
+## Part XIV — the race freeze: a game that measured our clock, and a watchdog our silence tripped
+
+Part XIII ended with the oracle on the grid: Time 78, speedo 000, green light — and there it
+stayed. From `race.state`, +6 billion steps and +36 billion steps produce the byte-identical
+`-surfpng`; zero `FLIP_STALL`s in 300M steps (instrument controlled — the same grep counts flips
+in the loading window); and yet the CPU retires 30B+ instructions without a halt. Nothing was
+waiting on the kernel. That last fact took a tool to establish, and it inverted the whole search.
+
+### The -threads dump: nobody is blocked
+
+The HLE owns every thread, so the first deliverable was `bootoracle -threads`: per thread its
+scheduler state, wait objects, and — via new signal provenance on every kobject (`noteSignal` at
+each of the five signal sites) — who last signalled what it waits on. At the frozen state:
+
+```
+  tid=0 dead
+* tid=1 running   PC=0002165x            <- the game's main thread, spinning
+  tid=2 waiting   on 03FC05B0: semaphore signaled=false lastSignal=never
+  tid=3 ready     susp=1 PC=00044F40     <- suspended ITSELF (NtSuspendThread wrapper)
+  tid=4 dead      tid=5 dead
+```
+
+No thread waits on a vblank, an event, or an I/O completion that never comes. The prime suspect
+list died in one line each: the vblank is *alive* (an `RR_PUMP` trace shows `KeSetEvent(001BB75C)
+from 001B301E` — the D3D vblank DPC — at a clean 60 Hz throughout the freeze), tid=2 is a worker
+idling on its work-queue semaphore, tid=3 is a parked worker awaiting a resume. The render thread
+IS tid=1, it is RUNNING, and it never calls Present. The freeze is the game's own decision, taken
+in user code, and the only instrument that could name it was a profiler — a sampling `RR_HOTPC`
+(every 256th tick) added to the machine.
+
+### The catch-up loop: the game measures the machine, honestly
+
+The profile puts ~46% of all time in one small walker (0x21610) called from the frame function's
+inner loop at 0x20BA4..0x20BDA — and a breakpoint on the loop's back-edge vs its exit shows the
+loop re-entering forever and the exit never taken. Its shape, read off the disassembly:
+
+```
+0x20B14   CALL 0x20880 (60)            ; elapsed 60ths-of-a-second since race init
+0x20B1C   MOV [0x41713C], EAX          ; -> the target
+0x20B9A   while ([0x417130]++ < [0x41713C])
+0x20BA4       run one simulation tick   ; 11 subsystem task lists, the walker per list
+```
+
+A fixed-timestep catch-up loop. And 0x20880 is a real clock: `RDTSC` deltas (via XAPI's
+QueryPerformanceCounter — the wrapper at 0x44A1D is literally `RDTSC`), accumulated 64-bit, and
+divided by a hardcoded frequency of 0x2BB5C755 = **733,466,453 Hz — the Xbox CPU clock**. The
+menus never hang here because the menu game-modes take a *clamped* path (0x20AFA/0x20B03: modes
+0x18/0x20/0x24 force a small target); the race trusts its clock. On real silicon that trust is
+sound. On ours it wasn't, because `instrsPerMs` — the machine's whole declaration of its own
+speed, from Phase B — said **2000 instructions per millisecond: a 2 MHz Xbox** (with
+`TSCMul=367` faithfully bridging RDTSC to 733 MHz *of that slow time*). One simulation tick
+costs ~130k instructions = 65 guest-milliseconds; the loop retires one tick per iteration while
+its target grows by four. The game measured our machine honestly and concluded, correctly by its
+own clock, that it was hopelessly behind — at the frozen state the target stood at 318,115
+sixtieths (~88 guest-minutes) against 187,921 simulated. A machine 366× too slow *by its own
+declared clock* cannot run a fixed-timestep race, and no amount of kernel modelling changes that.
+
+### Fixing the declaration: one timebase, affine clocks, continuous savestates
+
+The fix is the honest one: declare the hardware's real speed. `instrsPerMs = 733466` (733.466
+MHz at one instruction per cycle — the same constant the title's XAPI divides by), and every
+guest-visible clock now derives from a single timebase:
+
+- `systemTime100ns` / KeTickCount / USB frames: affine in the tick with a persisted **clock
+  epoch** (`clockBaseTick`/`clockBase100ns`);
+- the TSC: no longer `Steps*TSCMul` in the CPU core but a host hook (`x86.CPU.TSCFunc` →
+  `Machine.guestTSC`), because guest time can pass without retiring instructions (idle-advance,
+  KeStall) and the TSC must tell the same time as everything else;
+- `KeQueryPerformanceCounter/Frequency` return that same TSC and its true rate
+  (`instrsPerMs*1000` = 733,466,000 Hz, 0.7 ppm from the XAPI constant).
+
+Savestates carry the epoch (`ClockScheme=1`). A **legacy snapshot migrates on load**: the epoch
+is pinned so guest time and the TSC *continue* from the exact values the old formulas produced at
+the save — the guest's own memory holds baselines against both clocks (the race accumulator at
+0x4170E8 is a raw RDTSC), and a clock that stepped across a restore would break every delta
+computed against them.
+
+### The second freeze: DirectSound's watchdog, tripped by our silence
+
+With the clock honest, the loop drained its backlog — and re-diverged. The target had grown
+another 24 guest-minutes across an 8B-instruction run. `RR_PUMP` found the inflation in one
+line: **167,569 × `KeStallExecutionProcessor(10,000 µs)` per 100M instructions, all from
+0x1D7F43** — inside DirectSound. The chain (read off the stack at a breakpoint on the stall):
+the game's frame loop calls DirectSoundDoWork (0x37DB0), which runs a **watchdog** at 0x1D814B:
+
+```
+MOV EAX, [0x1E0D88]          ; -> 0xFE85A018, a word in the EP DSP's aperture window
+CMP DWORD [EAX], 0x00CCCCCC  ; the encode-processor's alive marker
+JZ  healthy
+CALL 0x1D7E7C                ; else: full EP bring-up — reset, run, and a 10 ms settle stall
+```
+
+We execute no DSP56k microcode, so nothing ever wrote that word (an `RR_APU_TRACE` shows only
+reads, always 0, always from the check) — the watchdog failed on *every* DoWork, and its
+recovery charged a genuine 10 ms of guest time per frame: more than half a 60 Hz frame budget,
+gone to an audio reset, every frame. That diverges the catch-up at any CPU speed. The marker
+value is derived, not invented: the only 0x00CCCCCC in the image is the compare itself (a byte
+scan finds no CPU-side writer), so it is DSP-published — and on hardware, where races run
+without a 10 ms audio hiccup per frame, a running EP evidently keeps it in place. That is the
+model (`apu.go`): while the title's own bring-up has left the EP run-control (+0x5FFFC) at 3
+(run) — it writes 1, then 3, exactly as the recovery path does — the alive word (+0x5A018)
+reads back 0x00CCCCCC; in any other run-state the latch answers and the watchdog's recovery
+stays visible. The 10 ms stall itself was never the bug: `KeStallExecutionProcessor` advancing
+the clock by the stall's worth is exactly right — the bug was the condition that made the title
+stall every frame, forever.
+
+### ★ Verified by outcome — and the race delivers Part XII's missing savestate
+
+With both fixes and **no pokes**, judged frame by frame (a new `-stopflip N` stops the run *at*
+the Nth FLIP_STALL, while the completed frame is still the bound colour surface — so a capture
+is a whole presented frame, not a mid-frame slice):
+
+- From `gameplay.state` (pre-race, so the race clock initialises fresh under the honest
+  declaration): the track loads and **the race start actually plays** — 7,692 flips in 1.76B
+  steps where the frozen machine produced zero, and the flip-aligned captures walk through the
+  start-line cinematic: the grid close-up with the crowd and trackside banners, the burnout
+  with smoke pouring off the tyres, the countdown **"3"** stamped over the car, its flash-halo
+  transition toward "2" (`work/race-countdown-3.png` and neighbours; every capture a distinct
+  hash). `work/states/race-countdown.state` resumes there under throttle.
+- From `race.state` (a legacy state carrying ~46k sixtieths of backlog baked in by the old-clock
+  era): the loop *drains* — the ~13 simulated minutes run the race clock out, the game moves
+  through its post-race flow on its own, and lands on a fresh "Loading / PLEASE WAIT" — 14,223
+  flips in one 10B-step run, no halt, where Part XIII's machine presented nothing at all.
+- **The armed shadow halt fired — before GO.** 1.76B steps after `gameplay.state`,
+  deterministically (re-halts within 137 instructions of a resume), the raster halts at the
+  Part XII/XIII sample: *"texture unit 3 samples a POPULATED depth buffer (LU X8_Y24,
+  fmt=00012E29, non-far texel at 206,250 = 0C195F)"*. The start-line scene itself is the first
+  real shadow caster this pipeline has ever seen — the exact unblock Part XII said the shadow
+  compare needed and no reachable frame could provide. The machine at that halt is
+  `work/states/shadow-caster.state`. Deriving the compare from it is the next rendering
+  frontier, and it now *gates the drive*: Time-counting and speedo evidence live on the far
+  side of that sample, which is precisely what an armed fragment-level halt is for.
+
+### The title pin moves — measured, explained, re-pinned
+
+The Part V regression procedure (`title.state` +100M steps `-surfpng`) no longer produces
+`5439dd95…`, and it cannot: 100M instructions used to be 50 guest-seconds and are now 0.136 —
+the procedure names a *step count*, and the fix changed what a step is worth. The new frame is
+the same settled title card at an earlier moment, and that is not asserted but counted: against
+the pinned frame, exactly **1,731 pixels differ, every one inside x∈[268,373], y∈[373,391] —
+the "PRESS START" text box** (blink-off vs blink-on); the background is byte-identical. The
+render path did not move; the clock under the procedure did. Re-pinned:
+`title.state` +100M steps `-surfpng` = `0bea502acd2a1f902d429097022116b5` (deterministic across
+repeated runs, and identical before and after the EP-watchdog fix).
