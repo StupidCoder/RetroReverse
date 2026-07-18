@@ -117,6 +117,7 @@ type taskEntryState struct {
 	Sig       uint32
 	Wait      uint32
 	AllocSigs uint32
+	FolioWait bool
 }
 
 // streamState is an open disc stream: which file, and how far in. The bytes are not
@@ -205,7 +206,7 @@ func (m *Machine) SaveState() MachineState {
 	for _, t := range m.tasks {
 		s.Tasks = append(s.Tasks, taskEntryState{
 			Num: t.num, Name: t.name, Ctx: t.ctx, State: int(t.state),
-			Sig: t.sig, Wait: t.wait, AllocSigs: t.allocSigs,
+			Sig: t.sig, Wait: t.wait, AllocSigs: t.allocSigs, FolioWait: t.folioWait,
 		})
 	}
 	for h, st := range m.streams {
@@ -281,7 +282,7 @@ func (m *Machine) LoadState(s MachineState) error {
 	for _, t := range s.Tasks {
 		m.tasks = append(m.tasks, &task{
 			num: t.Num, name: t.Name, ctx: t.Ctx, state: taskState(t.State),
-			sig: t.Sig, wait: t.Wait, allocSigs: t.AllocSigs,
+			sig: t.Sig, wait: t.Wait, allocSigs: t.AllocSigs, folioWait: t.FolioWait,
 		})
 	}
 	m.cur = s.Cur

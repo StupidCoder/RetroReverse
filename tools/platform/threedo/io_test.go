@@ -155,6 +155,76 @@ func TestMessagePortPreempt(t *testing.T) {
 	}
 }
 
+// TestWaitPort covers the blocking WaitPort folio call (kernel -0x60): with a
+// matching message already queued it dequeues and returns it in one shot; with an
+// empty port it blocks the caller (retry-on-resume) and, crucially, a later reply
+// wakes it WITHOUT clobbering its still-live argument registers (folioWait), so the
+// re-run reads the same port/msg and returns the message.
+func TestWaitPort(t *testing.T) {
+	m := NewMachine()
+	client := m.curTask()
+
+	const portSig = 0x200
+	port := &item{num: 0x1200, typ: 0x10A, name: "reply", owner: client.num, signal: portSig}
+	m.items[port.num] = port
+	msg := &item{num: 0x1043, typ: typeMsg, owner: client.num, addr: m.dheap.alloc(0x40)}
+	m.items[msg.num] = msg
+
+	// Case 1: message already queued -> return it immediately, advance PC to LR.
+	port.msgs = []int32{msg.num}
+	m.CPU.SetReg(0, uint32(port.num))
+	m.CPU.SetReg(1, uint32(msg.num))
+	m.CPU.SetReg(14, 0x40000) // LR
+	if !m.serviceFolio(0x60) {
+		t.Fatal("serviceFolio(0x60) not handled")
+	}
+	if got := m.CPU.Reg(0); got != uint32(msg.num) {
+		t.Errorf("WaitPort result = 0x%X, want 0x%X", got, msg.num)
+	}
+	if got := m.CPU.Reg(15); got != 0x40000 {
+		t.Errorf("WaitPort did not return to LR (pc=0x%X)", got)
+	}
+	if len(port.msgs) != 0 {
+		t.Errorf("WaitPort did not dequeue the message (queue=%v)", port.msgs)
+	}
+	if client.folioWait {
+		t.Errorf("folioWait should be clear after an immediate return")
+	}
+
+	// Case 2: empty port -> block. PC must stay at the trampoline (not LR) so the
+	// run loop re-dispatches on resume; the task waits on the port signal.
+	m.needSchedule = false
+	m.CPU.SetReg(0, uint32(port.num))
+	m.CPU.SetReg(1, uint32(msg.num))
+	m.CPU.SetReg(15, hleBase+0x60) // the WaitPort trampoline PC
+	m.CPU.SetReg(14, 0x40000)
+	m.serviceFolio(0x60)
+	if !m.needSchedule {
+		t.Errorf("WaitPort on an empty port did not request a reschedule")
+	}
+	if client.state != stWaiting || client.wait != portSig {
+		t.Errorf("client not blocked on the port signal (state=%d wait=0x%X)", client.state, client.wait)
+	}
+	if !client.folioWait {
+		t.Errorf("blocked WaitPort should set folioWait")
+	}
+	if got := m.CPU.Reg(15); got != hleBase+0x60 {
+		t.Errorf("blocked WaitPort advanced PC (0x%X); it must retry", got)
+	}
+
+	// A reply arrives: it must wake the client and NOT overwrite r0/r1 (its args).
+	// The message names the client's port as its reply port, as the sender set.
+	m.write32(msg.addr+msgReplyPort, uint32(port.num))
+	client.ctx = m.CPU.SaveContext()
+	m.replyMsg(msg, 0)
+	if client.state != stReady {
+		t.Errorf("reply did not wake the blocked WaitPort (state=%d)", client.state)
+	}
+	if got := client.ctx.R[0]; got != uint32(port.num) {
+		t.Errorf("sendSignal clobbered WaitPort's port arg r0 = 0x%X, want 0x%X", got, port.num)
+	}
+}
+
 // TestFieldWaitPacing checks the PaceFields path: a WaitVBL (timer command 3 via
 // SendIO) parks instead of completing in the submit call, then completes only when
 // the field clock reaches the target — and it signals the task that SUBMITTED the

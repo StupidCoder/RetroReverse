@@ -129,6 +129,17 @@ func (m *Machine) serviceFolio(off uint32) bool {
 			m.SetResultAndReturn(0x1000)
 		}
 		return true
+	case 0x60: // WaitPort(port, msg) -> Item: block until `msg` (0 = any) is
+		// queued on `port`, then dequeue and return it. The synchronous DataStream
+		// request helper (frontovl 0x9CA70) waits here for each request's reply
+		// before it reuses its single message item and stack-resident request
+		// buffer. As a no-op stub it returned instantly, so the client fired
+		// connect/start/close back-to-back and overwrote the buffer before the
+		// streamer task read it — the streamer saw a garbage opcode for the "start"
+		// request and dropped it, so the DataAcq never began reading and no FMV
+		// data flowed. Blocking keeps the request live until the server replies.
+		m.waitPort()
+		return true
 	case 0x34: // SampleSystemTimeTT(timer, TimeVal*) — fill an advancing time.
 		// Each call advances virtual time so the game's timing/calibration loops
 		// (which decrement counters by the elapsed delta) converge instead of

@@ -39,6 +39,13 @@ type task struct {
 	sig       uint32 // pending signal bits
 	wait      uint32 // signals being awaited (while stWaiting)
 	allocSigs uint32 // signal bits handed out by AllocSignal
+
+	// folioWait marks a task blocked inside a *retry-on-resume* folio call (e.g.
+	// WaitPort): the call left its PC at the HLE trampoline and will recompute its
+	// own result and register value when it re-runs. sendSignal must therefore NOT
+	// overwrite r0 with the delivered signal bits (as it does for a WaitSignal
+	// SWI), which would clobber the call's still-live argument registers.
+	folioWait bool
 }
 
 // initTasks sets up the boot task as the initial running context.
@@ -162,7 +169,9 @@ func (m *Machine) sendSignal(num int32, sigs uint32) bool {
 			if t.state == stWaiting && t.sig&t.wait != 0 {
 				got := t.sig & t.wait
 				t.sig &^= got
-				t.ctx.R[0] = got
+				if !t.folioWait {
+					t.ctx.R[0] = got
+				}
 				t.state = stReady
 				return true
 			}

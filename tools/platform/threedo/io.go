@@ -478,6 +478,38 @@ func (m *Machine) replyMsg(msg *item, result uint32) {
 	m.yieldTo(m.sendSignal(rp.owner, rp.signal), rp.owner)
 }
 
+// waitPort implements the kernel WaitPort(port, msg) helper (kernel folio -0x60)
+// as a blocking, retry-on-resume folio call: it dequeues message `msg` (0 = the
+// oldest) from `port`, blocking the caller until such a message is queued. The
+// run loop re-dispatches it while its PC sits at the HLE trampoline, so it reads
+// its arguments from the live registers on every entry and only advances past the
+// call (SetResultAndReturn) once a matching message is in hand. While blocked the
+// task carries folioWait so sendSignal leaves its argument registers intact.
+func (m *Machine) waitPort() {
+	c := m.CPU
+	t := m.curTask()
+	port := m.items[int32(c.Reg(0))]
+	if port == nil {
+		t.folioWait = false
+		m.SetResultAndReturn(^uint32(0)) // BADITEM
+		return
+	}
+	wantMsg := int32(c.Reg(1))
+	for i, mn := range port.msgs {
+		if wantMsg == 0 || mn == wantMsg {
+			port.msgs = append(port.msgs[:i], port.msgs[i+1:]...)
+			t.folioWait = false
+			m.SetResultAndReturn(uint32(mn))
+			return
+		}
+	}
+	// No matching message yet: block on the port's signal and retry when resumed.
+	t.wait = port.signal
+	t.state = stWaiting
+	t.folioWait = true
+	m.needSchedule = true
+}
+
 // --- event broker -------------------------------------------------------------
 //
 // The system input broker (event.h): programs connect by sending a
