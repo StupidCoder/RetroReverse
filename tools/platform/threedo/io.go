@@ -187,16 +187,32 @@ func (m *Machine) serviceIO(c *arm60.CPU, async bool) {
 	c.SetReg(0, uint32(ioErr))
 }
 
-// completeIO delivers an IOReq's completion notification: a signal to the reply
-// port's owner (the message-port path) if it has one, else SIGF_IODONE to the
-// task that owns the IOReq.
+// completeIO delivers an IOReq's completion notification. An IOReq is a Message
+// subclass in the Portfolio item hierarchy, so if it has a reply port the kernel
+// QUEUES THE IOREQ ITSELF on that port (retrievable with GetMsg) and raises the
+// port's signal — a caller that submitted several reads then blocks on the port
+// and reaps each completed IOReq to learn which buffer was filled. Queuing only
+// the signal (not the IOReq) left the reaper's GetMsg returning 0, so it never
+// saw the completion. Without a reply port, completion is a bare SIGF_IODONE to
+// the IOReq's owner.
 func (m *Machine) completeIO(it *item) {
 	if it == nil {
 		return
 	}
 	if it.replyPort != 0 {
 		if p := m.items[it.replyPort]; p != nil {
-			m.sendSignal(p.owner, p.signal)
+			// The receiver reads the delivered IOReq through the same GetMsg helper
+			// it uses for plain messages, keying on msg_DataPtr (+0x2C) to identify
+			// which request completed (the DataAcq matches it against the IOReq item
+			// number it stored per buffer). Stamp the IOReq's own item number there.
+			if it.addr != 0 {
+				m.write32(it.addr+msgDataPtr, uint32(it.num))
+			}
+			p.msgs = append(p.msgs, it.num)
+			if m.OnMsgQueue != nil {
+				m.OnMsgQueue(m, p.num, it.num, "CompleteIO")
+			}
+			m.yieldTo(m.sendSignal(p.owner, p.signal), p.owner)
 			return
 		}
 	}

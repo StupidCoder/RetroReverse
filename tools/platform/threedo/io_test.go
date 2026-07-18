@@ -108,6 +108,41 @@ func TestIOCompletionSignal(t *testing.T) {
 	}
 }
 
+// TestCompleteIOReplyPort checks that an IOReq carrying a reply port is delivered
+// AS A MESSAGE on completion — queued on the port (retrievable with GetMsg) with
+// its own item number stamped in msg_DataPtr — not merely signalled. The
+// DataStreamer's DataAcq reaps completed reads this way and keys each one to its
+// buffer by that item number; delivering only the signal left its GetMsg empty so
+// it rejected every completion as an "unknown i/o reply message" and never
+// recycled a buffer, stalling the movie after the first ring-fill.
+func TestCompleteIOReplyPort(t *testing.T) {
+	m := NewMachine()
+
+	const portSig = 0x200
+	port := &item{num: 0x1067, typ: 0x10A, owner: bootTaskNum, signal: portSig}
+	m.items[port.num] = port
+	io := &item{num: 0x104E, typ: 0x10E, owner: bootTaskNum,
+		addr: m.iheap.alloc(0x80), replyPort: port.num}
+	m.items[io.num] = io
+
+	// Blocked owner waiting on the port signal, as the DataAcq's main loop is.
+	m.taskByNum(bootTaskNum).state = stWaiting
+	m.taskByNum(bootTaskNum).wait = portSig
+
+	m.completeIO(io)
+
+	if len(port.msgs) != 1 || port.msgs[0] != io.num {
+		t.Fatalf("reply port queue = %v, want [%d]", port.msgs, io.num)
+	}
+	if got := m.read32(io.addr + msgDataPtr); got != uint32(io.num) {
+		t.Errorf("msg_DataPtr = 0x%X, want the IOReq item number 0x%X", got, io.num)
+	}
+	if m.taskByNum(bootTaskNum).sig&portSig == 0 &&
+		m.taskByNum(bootTaskNum).state != stReady {
+		t.Errorf("port owner not woken by the completion")
+	}
+}
+
 // TestMessagePortPreempt checks that posting a message to a port whose owner is
 // blocked waiting on that port's signal yields to the owner: the Portfolio kernel
 // switches to the runnable server task the instant a request is posted, so a
