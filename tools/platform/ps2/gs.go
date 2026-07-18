@@ -701,6 +701,12 @@ func (m *Machine) gsPrivWrite(a, v uint32) bool {
 		fmt.Printf("  dispfb: [%08X] <- %08X (was %08X) at prim %d (run %d) vblank %d\n",
 			a, v, m.io[a], gs.prims, gs.prims-gs.primsRunBase, m.VBlanks())
 	}
+	if m.OnGSFlip != nil && (a == gsDISPFB2 || a == gsDISPFB1) && m.io[a] != v {
+		old := m.io[a]
+		m.io[a] = v
+		m.OnGSFlip(a, v, old)
+		return true
+	}
 	m.io[a] = v
 	return true
 }

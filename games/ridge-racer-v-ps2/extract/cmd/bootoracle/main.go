@@ -54,6 +54,7 @@ func main() {
 	gsTex := flag.String("gstex", "", "at run end, render TEX0(hex) through the swizzle+CLUT to FILE.png as TEX0:FILE.png")
 	gsPixel := flag.String("gspixel", "", "log the next N colour writes at X:Y:N (decimal)")
 	gsFlip := flag.Bool("gsflip", false, "log every changing DISPFB/PMODE write with the prim count")
+	gsWeave := flag.String("gsweave", "", "at run end, weave the last two displayed fields into FILE.png — the 448i frame a real display averages; a single field shows a comb on 1-line content")
 	vu1dump := flag.String("vu1dump", "", "at run end, dump VU1 micro+data memory to PREFIX-micro.bin / PREFIX-data.bin")
 	gsPktTrace := flag.String("gspkttrace", "", "REG:VAL:N (hex,hex,dec) — after a write of VAL to GS reg REG, print the next N raw register writes in stream order")
 
@@ -78,7 +79,7 @@ func main() {
 		gsFrame: *gsFrame, eeProf: *eeProf, pad: *pad, verbose: *verbose,
 		bps: bps, logpcs: logpcs, iopLogpcs: iopLogpcs, watches: watches, rwatches: rwatches, watchn: *watchn,
 		gsFBs: gsFBs, gsRegs: gsRegs, gsSnaps: gsSnaps, iopThreads: *iopThreads,
-		gsVerts: *gsVerts, gsBig: *gsBig, gsTex: *gsTex, gsPixel: *gsPixel, gsFlip: *gsFlip, gsPktTrace: *gsPktTrace, vu1dump: *vu1dump,
+		gsVerts: *gsVerts, gsBig: *gsBig, gsTex: *gsTex, gsPixel: *gsPixel, gsFlip: *gsFlip, gsWeave: *gsWeave, gsPktTrace: *gsPktTrace, vu1dump: *vu1dump,
 	}); err != nil {
 		fmt.Fprintln(os.Stderr, "bootoracle:", err)
 		os.Exit(1)
@@ -100,6 +101,7 @@ type cfg struct {
 	gsVerts, gsBig                 int
 	gsTex, gsPixel                 string
 	gsFlip                         bool
+	gsWeave                        string
 	gsPktTrace                     string
 	vu1dump                        string
 }
@@ -462,6 +464,26 @@ func run(c cfg) error {
 		}
 		m.GSPixelX, m.GSPixelY, m.GSPixelN = int32(px), int32(py), pn
 	}
+	// -gsweave: capture the displayed field at every DISPFB flip (the buffer is complete
+	// at exactly that moment) tagged with the vblank's parity — CSR FIELD toggles per
+	// vblank, so this is the field's raster parity. RRV authors its field pair with
+	// XYOFFSET ±0.5: the odd-vblank field samples the scene half a line lower and
+	// supplies the odd raster lines of the 448i frame.
+	type fieldCap struct {
+		pix  []byte
+		w, h int
+		odd  bool
+	}
+	var weaveFields [2]*fieldCap // index = vblank parity
+	if c.gsWeave != "" {
+		m.OnGSFlip = func(reg, val, old uint32) {
+			pix, w, h := m.GSFrame()
+			if pix == nil {
+				return
+			}
+			weaveFields[m.VBlanks()&1] = &fieldCap{pix: pix, w: w, h: h, odd: m.VBlanks()&1 == 1}
+		}
+	}
 
 	steps, err := parseCount(c.steps)
 	if err != nil {
@@ -520,6 +542,29 @@ func run(c cfg) error {
 	if c.gsFrame != "" {
 		if err := writeGSFrame(m, c.gsFrame); err != nil {
 			return err
+		}
+	}
+	if c.gsWeave != "" {
+		even, odd := weaveFields[0], weaveFields[1]
+		if even == nil || odd == nil || even.w != odd.w || even.h != odd.h {
+			fmt.Println("gsweave: need two displayed fields of one size (run past two flips)")
+		} else {
+			w, h := even.w, even.h
+			img := image.NewRGBA(image.Rect(0, 0, w, h*2))
+			for y := 0; y < h; y++ {
+				copy(img.Pix[(2*y)*img.Stride:(2*y)*img.Stride+w*4], even.pix[y*w*4:(y+1)*w*4])
+				copy(img.Pix[(2*y+1)*img.Stride:(2*y+1)*img.Stride+w*4], odd.pix[y*w*4:(y+1)*w*4])
+			}
+			f, err := os.Create(c.gsWeave)
+			if err != nil {
+				return err
+			}
+			if err := png.Encode(f, img); err != nil {
+				f.Close()
+				return err
+			}
+			f.Close()
+			fmt.Printf("gsweave: wrote %dx%d woven frame to %s\n", w, h*2, c.gsWeave)
 		}
 	}
 	if c.vu1dump != "" {

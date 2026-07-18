@@ -326,6 +326,11 @@ type Machine struct {
 	OnGSPrim  func(ptype int, producer string) int
 	OnGSPixel func(cmd int, fbWord uint32, x, y int32)
 
+	// OnGSFlip, if set, is called after a changing DISPFB1/DISPFB2 write has landed —
+	// the moment a completed field becomes the scanout source. GSFrame read inside the
+	// hook returns exactly the field the CRTC will display. Nil in the oracle path.
+	OnGSFlip func(reg, val, old uint32)
+
 	// LogDISPFB, when set, prints every changing DISPFB1/DISPFB2/PMODE write with the
 	// current primitive count — the scanout choreography against the draw stream.
 	LogDISPFB bool
