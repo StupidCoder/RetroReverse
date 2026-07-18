@@ -23,6 +23,20 @@ var nvSurfTrace = os.Getenv("RR_NV_SURF") != ""
 var shadowTrace = os.Getenv("RR_SHADOW") != ""
 var lowWriteTrace = os.Getenv("RR_LOWWRITE") != ""
 
+// RR_SHADOWCMP overrides the shadow-map depth-compare function (lt/le/gt/ge) — the
+// derivation probe Part XV used to render the candidate frames against the caster
+// geometry. Unset means the derived compare (shadowComparePass).
+var shadowCmpEnv = os.Getenv("RR_SHADOWCMP")
+
+// RR_SHADOWFRAG traces receiver fragments at the shadow sample: the interpolated
+// oT3 s,t,r after the q divide against the stored 24-bit texel — the comparand
+// evidence the compare derivation rests on.
+var shadowFragTrace = os.Getenv("RR_SHADOWFRAG") != ""
+
+// RR_NV_SERIAL forces the raster onto the serial path — the A/B control for
+// verifying the parallel raster is byte-identical (it must always be).
+var rasterSerial = os.Getenv("RR_NV_SERIAL") != ""
+
 // Kelvin methods with modelled side effects (NV2A method numbers).
 const (
 	kelvinCtxDmaSemaphore  = 0x01A4 // SET_CONTEXT_DMA_SEMAPHORE: DMA handle for the semaphore surface

@@ -67,13 +67,21 @@ func (g *pgraph) combDecode(cs *combState) {
 			alphaICW: g.Regs[kelvinCombinerAlphaICW>>2+uint32(i)],
 			colorOCW: g.Regs[kelvinCombinerColorOCW>>2+uint32(i)],
 			alphaOCW: g.Regs[kelvinCombinerAlphaOCW>>2+uint32(i)],
-			factor0:  argb8Vec(g.Regs[kelvinCombinerFactor0>>2+uint32(f0i)]),
-			factor1:  argb8Vec(g.Regs[kelvinCombinerFactor1>>2+uint32(f1i)]),
+			factor0:  argb8Norm(g.Regs[kelvinCombinerFactor0>>2+uint32(f0i)]),
+			factor1:  argb8Norm(g.Regs[kelvinCombinerFactor1>>2+uint32(f1i)]),
 		}
 	}
 	cs.cw0 = g.Regs[kelvinSpecFogCW0>>2]
 	cs.cw1 = g.Regs[kelvinSpecFogCW1>>2]
-	cs.fogColor = argb8Vec(g.Regs[0x02A8>>2]) // SET_FOG_COLOR
+	fc := argb8Norm(g.Regs[0x02A8>>2]) // SET_FOG_COLOR
+	cs.fogColor = [4]float32{fc[0], fc[1], fc[2], 1}
+}
+
+// argb8Norm is argb8Vec normalized to [0,1] — the division out of the fragment loop
+// (x/255 for the same x is the same float either place).
+func argb8Norm(v uint32) [4]float32 {
+	a := argb8Vec(v)
+	return [4]float32{a[0] / 255, a[1] / 255, a[2] / 255, a[3] / 255}
 }
 
 func argb8Vec(v uint32) [4]float32 {
@@ -137,25 +145,39 @@ func (r *combRegs) write(reg uint32, v [4]float32, alpha bool) {
 }
 
 // combMap applies an input mapping to a register value (values live in [-1,1]).
+// The switch is hoisted out of the component loop — this runs per fragment input
+// and the mapping is uniform across the four components.
 func combMap(v [4]float32, mapping uint32) [4]float32 {
 	var out [4]float32
-	for i, x := range v {
-		switch mapping {
-		case 0: // UNSIGNED_IDENTITY: max(0, x)
+	switch mapping {
+	case 0: // UNSIGNED_IDENTITY: max(0, x)
+		for i, x := range v {
 			out[i] = clamp01(x)
-		case 1: // UNSIGNED_INVERT: 1 - clamp(x)
+		}
+	case 1: // UNSIGNED_INVERT: 1 - clamp(x)
+		for i, x := range v {
 			out[i] = 1 - clamp01(x)
-		case 2: // EXPAND_NORMAL: 2*max(0,x) - 1
+		}
+	case 2: // EXPAND_NORMAL: 2*max(0,x) - 1
+		for i, x := range v {
 			out[i] = 2*clamp01(x) - 1
-		case 3: // EXPAND_NEGATE: -(2*max(0,x) - 1)
+		}
+	case 3: // EXPAND_NEGATE: -(2*max(0,x) - 1)
+		for i, x := range v {
 			out[i] = -(2*clamp01(x) - 1)
-		case 4: // HALF_BIAS_NORMAL: max(0,x) - 0.5
+		}
+	case 4: // HALF_BIAS_NORMAL: max(0,x) - 0.5
+		for i, x := range v {
 			out[i] = clamp01(x) - 0.5
-		case 5: // HALF_BIAS_NEGATE
+		}
+	case 5: // HALF_BIAS_NEGATE
+		for i, x := range v {
 			out[i] = -(clamp01(x) - 0.5)
-		case 6: // SIGNED_IDENTITY
-			out[i] = x
-		case 7: // SIGNED_NEGATE
+		}
+	case 6: // SIGNED_IDENTITY
+		out = v
+	case 7: // SIGNED_NEGATE
+		for i, x := range v {
 			out[i] = -x
 		}
 	}
@@ -178,7 +200,7 @@ func combFetch(r *combRegs, b uint32, alphaSide bool) [4]float32 {
 // combine runs the general stages then the final combiner for one fragment.
 func (g *pgraph) combine(cs *combState, in *combInput) [4]float32 {
 	r := combRegs{
-		fog:  [4]float32{cs.fogColor[0] / 255, cs.fogColor[1] / 255, cs.fogColor[2] / 255, 1},
+		fog:  cs.fogColor,
 		col0: in.col0,
 		col1: in.col1,
 		tex:  in.tex,
@@ -186,8 +208,8 @@ func (g *pgraph) combine(cs *combState, in *combInput) [4]float32 {
 
 	for si := range cs.stages {
 		st := &cs.stages[si]
-		r.c0 = [4]float32{st.factor0[0] / 255, st.factor0[1] / 255, st.factor0[2] / 255, st.factor0[3] / 255}
-		r.c1 = [4]float32{st.factor1[0] / 255, st.factor1[1] / 255, st.factor1[2] / 255, st.factor1[3] / 255}
+		r.c0 = st.factor0
+		r.c1 = st.factor1
 
 		// Color portion.
 		a := combFetch(&r, st.colorICW>>24&0xFF, false)
@@ -288,29 +310,45 @@ func finalFetch(r *combRegs, b uint32, ef [4]float32) [4]float32 {
 }
 
 // combOp applies the output scale/bias, clamping into the signed register range.
+// The switch is hoisted out of the component loop (per-fragment hot path).
 func combOp(v [4]float32, op uint32) [4]float32 {
-	var out [4]float32
-	for i, x := range v {
-		switch op {
-		case 1: // BIAS_BY_NEGATIVE_ONE_HALF
-			x -= 0.5
-		case 2: // SHIFT_LEFT_1
-			x *= 2
-		case 3: // SHIFT_LEFT_1 with bias
-			x = (x - 0.5) * 2
-		case 4: // SHIFT_LEFT_2
-			x *= 4
-		case 6: // SHIFT_RIGHT_1
-			x *= 0.5
+	switch op {
+	case 1: // BIAS_BY_NEGATIVE_ONE_HALF
+		for i, x := range v {
+			v[i] = clampSigned(x - 0.5)
 		}
-		if x > 1 {
-			x = 1
-		} else if x < -1 {
-			x = -1
+	case 2: // SHIFT_LEFT_1
+		for i, x := range v {
+			v[i] = clampSigned(x * 2)
 		}
-		out[i] = x
+	case 3: // SHIFT_LEFT_1 with bias
+		for i, x := range v {
+			v[i] = clampSigned((x - 0.5) * 2)
+		}
+	case 4: // SHIFT_LEFT_2
+		for i, x := range v {
+			v[i] = clampSigned(x * 4)
+		}
+	case 6: // SHIFT_RIGHT_1
+		for i, x := range v {
+			v[i] = clampSigned(x * 0.5)
+		}
+	default:
+		for i, x := range v {
+			v[i] = clampSigned(x)
+		}
 	}
-	return out
+	return v
+}
+
+func clampSigned(x float32) float32 {
+	if x > 1 {
+		return 1
+	}
+	if x < -1 {
+		return -1
+	}
+	return x
 }
 
 func mul4(a, b [4]float32) [4]float32 {

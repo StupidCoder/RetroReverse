@@ -23,6 +23,8 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"crypto/md5"
+	"runtime/pprof"
 	"strconv"
 	"strings"
 
@@ -179,6 +181,8 @@ func main() {
 	poke := flag.String("poke", "", "write ADDR:VALUE (hex) after loading, before running — a probe, not a model")
 	keys := flag.String("keys", "", "pad-1 input script: NAME@FRAME[:HOLD][,...] — holds pad control NAME from that frame (the title's flip) for HOLD frames (default: forever). Names: see xbox.PadControlNames. e.g. -keys start@120,a@300:10,stickleft@400:8")
 	stopflip := flag.Int("stopflip", 0, "stop the run at the Nth FLIP_STALL — the hook fires while the completed frame is still the bound colour surface, so -surfpng captures a whole presented frame instead of a mid-frame slice")
+	ramhash := flag.Bool("ramhash", false, "after the run, print an md5 of guest RAM + the CPU position (divergence comparator)")
+	cpuprofile := flag.String("cpuprofile", "", "write a host pprof CPU profile of the run to this file")
 	var bps multiFlag
 	flag.Var(&bps, "bp", "execution breakpoint at ADDR (hex); repeatable")
 	var dumps multiFlag
@@ -346,6 +350,19 @@ func main() {
 		}
 	}
 
+	if *cpuprofile != "" {
+		pf, err := os.Create(*cpuprofile)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "bootoracle: -cpuprofile: %v\n", err)
+			os.Exit(2)
+		}
+		pprof.StartCPUProfile(pf)
+		defer func() {
+			pprof.StopCPUProfile()
+			pf.Close()
+		}()
+	}
+
 	reason, n := m.Run(budget)
 	fmt.Printf("\n=== run ended: %s after %d instructions ===\n", reason, n)
 	fmt.Print(m.Report())
@@ -439,6 +456,9 @@ func main() {
 		}
 	}
 
+	if *ramhash {
+		fmt.Printf("ramhash: %x cpu: PC=%08X steps=%d\n", md5.Sum(m.RAM), m.CPU.LinearPC(), m.CPU.Steps)
+	}
 	if *pngOut != "" {
 		if data, err := m.FramePNG(); err != nil {
 			fmt.Fprintf(os.Stderr, "bootoracle: png: %v\n", err)

@@ -23,7 +23,11 @@ package xbox
 // something plausible.
 
 import (
+	"bytes"
 	"fmt"
+	"image"
+	"image/png"
+	"os"
 	"sort"
 )
 
@@ -103,6 +107,11 @@ type pgraph struct {
 	// populated. shadowDumped one-shots the receiver-state dump at the sample halt.
 	zetaHist     map[uint32]*zetaBucket
 	shadowDumped bool
+	// RR_SHADOWFRAG per-draw comparand statistics (nv2a_texture.go traceShadowFrag).
+	shadowFrag *shadowFragStats
+
+	// triScratch is assemble()'s reusable triangle-index buffer (transient, not state).
+	triScratch [][3]int
 }
 
 type zetaBucket struct {
@@ -211,6 +220,27 @@ func (g *pgraph) dumpReceiverState() {
 		v := g.Const[c]
 		fmt.Printf("RECV c%d = %08X %08X %08X %08X\n", c, v[0], v[1], v[2], v[3])
 	}
+	// Every register currently holding a GL compare enum (0x200..0x207): if the
+	// silicon has a shadow-compare-function method the game latched, it is one of
+	// these — an offset outside the known depth/alpha/stencil funcs is the candidate.
+	for i, v := range g.Regs {
+		if v >= 0x200 && v <= 0x207 {
+			fmt.Printf("RECV cmp-enum reg %04X = %03X\n", i*4, v)
+		}
+	}
+	// The bound shadow map itself, as a PNG (depth high byte grayscale; far = white):
+	// the caster footprint the derivation projects back onto the scene.
+	if img, _, ok := g.texDecode(3); ok && img != nil && img.depth != nil {
+		out := image.NewRGBA(image.Rect(0, 0, img.w, img.h))
+		copy(out.Pix, img.pix)
+		var buf bytes.Buffer
+		if err := png.Encode(&buf, out); err == nil {
+			name := fmt.Sprintf("shadow-map-draw%d.png", g.Draws)
+			if err := os.WriteFile(name, buf.Bytes(), 0644); err == nil {
+				fmt.Printf("RECV shadow map written to %s\n", name)
+			}
+		}
+	}
 }
 
 // DumpZetaHist prints the RR_SHADOW census: every zeta surface offset that received a
@@ -220,6 +250,10 @@ func (g *pgraph) dumpReceiverState() {
 func (g *pgraph) DumpZetaHist() {
 	if !shadowTrace {
 		return
+	}
+	if g.shadowFrag != nil {
+		g.shadowFrag.print()
+		g.shadowFrag = nil
 	}
 	offs := make([]uint32, 0, len(g.zetaHist))
 	for o := range g.zetaHist {

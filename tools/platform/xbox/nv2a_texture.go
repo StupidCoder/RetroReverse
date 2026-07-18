@@ -15,6 +15,8 @@ package xbox
 // paint a plausible-looking wrong frame, which is the failure mode this codebase
 // treats as worse than a stop.
 
+import "fmt"
+
 const (
 	kelvinCtxDmaTexA = 0x0184 // SET_CONTEXT_DMA_A: texture source when fmt bit 0 set
 	kelvinCtxDmaTexB = 0x0188 // SET_CONTEXT_DMA_B: texture source when fmt bit 1 set
@@ -61,6 +63,11 @@ type texImage struct {
 	w, h int // one face's dimensions
 	cube bool
 	pix  []byte // 4 bytes per texel, R G B A
+	// depth is set for a depth-format texture (a shadow map): the raw 24-bit depth
+	// per texel. A unit bound to one samples through texSampleShadow (the hardware
+	// depth compare), never texSample; pix holds a grayscale visualization for the
+	// debugger only.
+	depth []uint32
 }
 
 // texStateDecode resolves the enabled texture units' images for a draw.
@@ -102,8 +109,13 @@ func (g *pgraph) texDecode(u int) (*texImage, bool, bool) {
 	ctl1 := g.Regs[(kelvinTexCtl1+r)>>2]
 
 	key := texKey{offset, format, rect, ctl1}
-	if img, ok := g.texCache[key]; ok {
-		return img, isLinearTexFmt(format >> 8 & 0xFF), true
+	// A depth texture (shadow map) is never served from the per-run cache: the raster
+	// itself writes the map mid-run (the caster pass precedes the receiver draw in the
+	// same pusher run), so a cached decode could predate the caster.
+	if format>>8&0xFF != texFmtLU_DepthX8Y24 {
+		if img, ok := g.texCache[key]; ok {
+			return img, isLinearTexFmt(format >> 8 & 0xFF), true
+		}
 	}
 
 	if dim := format >> 4 & 0xF; dim != 2 {
@@ -225,27 +237,14 @@ func (g *pgraph) texDecode(u int) (*texImage, bool, bool) {
 		decodeLinear(img, ram, phys, ctl1>>16, 2, decode565)
 	case texFmtLU_DepthX8Y24:
 		// A shadow-map sample. The game binds this 512x512 buffer as BOTH colour and zeta
-		// (a depth-render pass), clears it to far (FFFFFF00), and samples it here as a
-		// linear X8_Y24 depth image (dwords of depth<<8|stencil, the raster's own zeta
-		// layout). The consumer is a shadow-receiver draw whose combiner (decoded in
-		// Part XIII) uses the sample ONLY in the color path:
-		//     out.rgb = diffuse.rgb * clamp01(0.627 + TEX3.rgb) + specular
-		// (TEX3's alpha lands in spare1.a, which nothing reads; the alpha-test gate is
-		// diffuse.a muxed against a constant, independent of the sample). So the sample's
-		// "unoccluded" result must be the one that clamps the factor to 1 and leaves the
-		// receiver's paint at its unshadowed baseline — any candidate where an all-far
-		// texel returned 0 would darken the whole world by 0.627 unconditionally, which
-		// the reference frames refute. Hardware depth-compares return 0/1 replicated, so
-		// an ALL-FAR map — and the zeta-write census proves the only reachable map is
-		// all-far in every frame — must sample as 1.0 (white) everywhere, for EVERY
-		// candidate compare function. That case is modelled below.
-		//
-		// What is still NOT derivable is the compare itself (function, polarity) over a
-		// POPULATED map: it is a texture-unit hardware op the combiners cannot express,
-		// and no reachable frame casts an occluder into the map. So any non-far texel
-		// halts and names that gap rather than inventing a compare that would render
-		// plausibly. RR_SHADOW dumps the receiver state and the zeta-write census here.
-		// See outrun-2006-xbox.md Parts XII-XIII.
+		// (a depth-render pass), clears it to far (FFFFFF00), the caster pass writes real
+		// occluder depth into it, and a receiver draw samples it here as a linear X8_Y24
+		// depth image (dwords of depth<<8|stencil, the raster's own zeta layout). The
+		// decode keeps the raw 24-bit depths; the SAMPLE is the hardware depth compare of
+		// the fragment's projected oT3.r/q against the stored texel — a per-fragment op
+		// that lives in texSampleShadow (nv2a_raster.go routes depth textures there),
+		// never a decodable image. pix gets a grayscale view (depth high byte) for the
+		// debugger. See outrun-2006-xbox.md Parts XII-XV.
 		if shadowTrace {
 			g.DumpZetaHist()
 			if !g.shadowDumped {
@@ -257,6 +256,7 @@ func (g *pgraph) texDecode(u int) (*texImage, bool, bool) {
 		if pitch == 0 {
 			pitch = uint32(w * 4)
 		}
+		img.depth = make([]uint32, w*h)
 		for y := 0; y < h; y++ {
 			row := phys + uint32(y)*pitch
 			for x := 0; x < w; x++ {
@@ -265,21 +265,20 @@ func (g *pgraph) texDecode(u int) (*texImage, bool, bool) {
 					continue
 				}
 				v := uint32(ram[a]) | uint32(ram[a+1])<<8 | uint32(ram[a+2])<<16 | uint32(ram[a+3])<<24
-				if v>>8 != 0xFFFFFF {
-					g.m.CPU.Halt("nv2a: texture unit %d samples a POPULATED depth buffer (LU X8_Y24, fmt=%08X, non-far texel at %d,%d = %06X) — the shadow compare is underivable without this caster's receiver frame; see Part XIII", u, format, x, y, v>>8)
-					return nil, false, false
-				}
+				d := v >> 8
+				img.depth[y*w+x] = d
+				o := (y*w + x) * 4
+				img.pix[o], img.pix[o+1], img.pix[o+2], img.pix[o+3] = byte(d>>16), byte(d>>16), byte(d>>16), 0xFF
 			}
-		}
-		for i := range img.pix {
-			img.pix[i] = 0xFF // the all-far (unoccluded-everywhere) compare result
 		}
 	default:
 		g.m.CPU.Halt("nv2a: texture unit %d color format 0x%02X unmodelled (fmt=%08X)", u, colorFmt, format)
 		return nil, false, false
 	}
 
-	g.texCache[key] = img
+	if img.depth == nil { // depth textures are re-decoded per draw (see cache bypass above)
+		g.texCache[key] = img
+	}
 	return img, linear, true
 }
 
@@ -574,6 +573,162 @@ func absf32(v float32) float32 {
 		return -v
 	}
 	return v
+}
+
+
+// traceShadowFrag is the RR_SHADOWFRAG instrument: per-draw statistics of the
+// comparand evidence at the receiver — r (post q-divide) against the stored 24-bit
+// texel, split into fragments that hit populated (non-far) texels vs far ones, with
+// the screen box and the r-D range. Printed when the draw number advances and at
+// DumpZetaHist time.
+func (g *pgraph) traceShadowFrag(st *rasterState, u, px, py int, s, t, r, q float32) {
+	img := st.texImg[u]
+	x := int(texWrapCoord(s, img.w, st.texWrapU[u]))
+	y := int(texWrapCoord(t, img.h, st.texWrapV[u]))
+	d := img.depth[y*img.w+x]
+	if g.shadowFrag != nil && g.shadowFrag.draw != g.Draws {
+		g.shadowFrag.print()
+		g.shadowFrag = nil
+	}
+	if g.shadowFrag == nil {
+		g.shadowFrag = &shadowFragStats{draw: g.Draws, pxMin: px, pxMax: px, pyMin: py, pyMax: py,
+			rMin: r, rMax: r, dMin: 0xFFFFFF, dMax: 0, diffMin: 0, diffMax: 0}
+	}
+	f := g.shadowFrag
+	if px < f.pxMin {
+		f.pxMin = px
+	}
+	if px > f.pxMax {
+		f.pxMax = px
+	}
+	if py < f.pyMin {
+		f.pyMin = py
+	}
+	if py > f.pyMax {
+		f.pyMax = py
+	}
+	if r < f.rMin {
+		f.rMin = r
+	}
+	if r > f.rMax {
+		f.rMax = r
+	}
+	if d != 0xFFFFFF {
+		diff := r - float32(d)
+		if f.near == 0 {
+			f.diffMin, f.diffMax = diff, diff
+		}
+		if diff < f.diffMin {
+			f.diffMin = diff
+		}
+		if diff > f.diffMax {
+			f.diffMax = diff
+		}
+		if d < f.dMin {
+			f.dMin = d
+		}
+		if d > f.dMax {
+			f.dMax = d
+		}
+		f.near++
+		if diff > 0 {
+			f.behind++
+		}
+	} else {
+		f.far++
+	}
+}
+
+type shadowFragStats struct {
+	draw                       int
+	near, far, behind          int
+	pxMin, pxMax, pyMin, pyMax int
+	rMin, rMax                 float32
+	dMin, dMax                 uint32
+	diffMin, diffMax           float32
+}
+
+func (f *shadowFragStats) print() {
+	fmt.Printf("SHADOWFRAG draw=%d frags=%d near=%d behind=%d px=[%d,%d]x[%d,%d] r=[%.0f,%.0f] D=[%06X,%06X] r-D=[%.0f,%.0f]\n",
+		f.draw, f.near+f.far, f.near, f.behind, f.pxMin, f.pxMax, f.pyMin, f.pyMax,
+		f.rMin, f.rMax, f.dMin, f.dMax, f.diffMin, f.diffMax)
+}
+
+// shadowComparePass is the shadow map's depth-compare function: does the fragment's
+// comparand r (24-bit depth units) pass against the stored texel d — pass meaning
+// unoccluded, sampling as 1.0. Derived at the Part XV start-line caster (the first
+// populated map any reachable frame provides), the direction pinned three
+// independent ways:
+//
+//   - an all-far map must sample as 1.0 everywhere (Part XIII's combiner argument),
+//     which only the r<=D family satisfies (r is always below the far value);
+//   - the r-D SIGN partitions the receiver's geometry exactly along "is the caster
+//     between this surface and the light": road fragments under the grid opponent
+//     are behind its stored depth (+1.7k..+8.4k, 100% of them), the overhead start
+//     gantry crossing the same texels is far in front (~-160k), and the caster's
+//     own lit surfaces sit in a small negative bias band (the game's acne guard);
+//   - the artefact: under r<=D exactly 73 pixels darken, all inside x[262,282]
+//     y[260,267] — the road contact directly beneath the mapped caster; under
+//     r>=D the whole frame darkens EXCEPT that footprint (207,432 pixels) — the
+//     geometric inversion, refuted.
+//
+// Strictness is unobservable: the comparand is a float against integer depths and
+// no reachable fragment lands exactly on a stored value — the lt and le frames are
+// byte-identical (as are ge/gt). LEQUAL is the declared choice, echoing the depth
+// func the game runs its own zeta through (0x0354 = 0x203). No latched register
+// carries a shadow compare func: at the receiver the only GL compare enums in the
+// register file are the known alpha/depth/stencil funcs (dumpReceiverState scans).
+// RR_SHADOWCMP overrides for probes (lt/le/gt/ge/one/zero).
+func shadowComparePass(r float32, d uint32) bool {
+	switch shadowCmpEnv {
+	case "lt":
+		return r < float32(d)
+	case "gt":
+		return r > float32(d)
+	case "ge":
+		return r >= float32(d)
+	case "one": // probe: force unoccluded — the no-shadow control frame
+		return true
+	case "zero": // probe: force occluded — the all-shadow control frame
+		return false
+	}
+	return r <= float32(d)
+}
+
+// texSampleShadow samples a depth texture: the texture unit's hardware depth compare.
+// s and t are texel coordinates (linear rect format, already divided by q); r is the
+// fragment's comparand — oT3.r/q, in the map's own 24-bit depth units (the game's
+// texture matrix bakes the scale in; measured at the Part XV halt, r/q lands within
+// quantization of the stored depth at caster contact points). The compare returns
+// 0/1 replicated into all four channels. With a linear mag filter the hardware
+// compares at the four neighbouring texels and bilinearly weights the four 0/1
+// results (percentage-closer filtering) — a depth map's values must never themselves
+// be interpolated.
+func (g *pgraph) texSampleShadow(st *rasterState, u int, s, t, r float32) [4]float32 {
+	img := st.texImg[u]
+	cmp := func(x, y int) float32 {
+		if shadowComparePass(r, img.depth[y*img.w+x]) {
+			return 1
+		}
+		return 0
+	}
+	if !st.texBilinear[u] {
+		x := int(texWrapCoord(s, img.w, st.texWrapU[u]))
+		y := int(texWrapCoord(t, img.h, st.texWrapV[u]))
+		v := cmp(x, y)
+		return [4]float32{v, v, v, v}
+	}
+	gx, gy := s-0.5, t-0.5
+	x0f, y0f := floorf32(gx), floorf32(gy)
+	wx, wy := gx-x0f, gy-y0f
+	x0 := int(texWrapCoord(x0f, img.w, st.texWrapU[u]))
+	x1 := int(texWrapCoord(x0f+1, img.w, st.texWrapU[u]))
+	y0 := int(texWrapCoord(y0f, img.h, st.texWrapV[u]))
+	y1 := int(texWrapCoord(y0f+1, img.h, st.texWrapV[u]))
+	top := cmp(x0, y0) + (cmp(x1, y0)-cmp(x0, y0))*wx
+	bot := cmp(x0, y1) + (cmp(x1, y1)-cmp(x0, y1))*wx
+	v := top + (bot-top)*wy
+	return [4]float32{v, v, v, v}
 }
 
 // texSample samples unit u at (s, t): normalized coordinates for swizzled/compressed

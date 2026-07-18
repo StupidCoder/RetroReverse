@@ -20,7 +20,11 @@ package xbox
 // color; an alpha-tested one carries the color it would have had; a drawn one carries
 // what actually reached memory.
 
-import "fmt"
+import (
+	"fmt"
+	"runtime"
+	"sync"
+)
 
 type PixelEvent struct {
 	Drawn                bool
@@ -303,6 +307,100 @@ func (st *rasterState) zetaAddr(px, py int) uint32 {
 // BEGIN/END pairs), but within one assemble() the state is constant — the caller
 // arranges that by keeping the decoded state on the pgraph for the batch.
 func (g *pgraph) rasterTri(v0, v1, v2 *kelvinVtx) {
+	g.rasterTriBand(v0, v1, v2, 0, 1)
+}
+
+// rasterParallelOK decides whether a draw may rasterise on the worker pool: no
+// per-fragment instrument or hook is live, no fragment-level halt can fire (the
+// per-draw state decides every such halt, so it is checked here once), and the
+// draw's clamped bounding-box area is big enough to pay for the fan-out.
+func (g *pgraph) rasterParallelOK(st *rasterState, verts []kelvinVtx, tris [][3]int) bool {
+	if rasterWorkers() < 2 {
+		return false
+	}
+	if g.m.OnPixel != nil || shadowTrace || shadowFragTrace || lowWriteTrace || g.ffFragHalt != "" {
+		return false
+	}
+	for u := 0; u < 4; u++ {
+		if !st.texEnable[u] || st.texImg[u] == nil {
+			continue
+		}
+		if st.texImg[u].cube && st.texStage[u] != 3 {
+			return false // the serial path halts on this, in submission order
+		}
+		if st.texImg[u].depth != nil && st.texStage[u] != 2 {
+			return false
+		}
+	}
+	// Estimated pixel work: the sum of the triangles' clip-clamped bboxes. An
+	// overestimate of coverage, but overdraw-heavy full-screen passes — the ones
+	// that matter — are exactly the ones it counts well.
+	area := 0
+	for _, t := range tris {
+		v0, v1, v2 := &verts[t[0]], &verts[t[1]], &verts[t[2]]
+		minX := int(min3(float64(v0.pos[0]), float64(v1.pos[0]), float64(v2.pos[0])))
+		maxX := int(max3(float64(v0.pos[0]), float64(v1.pos[0]), float64(v2.pos[0]))) + 1
+		minY := int(min3(float64(v0.pos[1]), float64(v1.pos[1]), float64(v2.pos[1])))
+		maxY := int(max3(float64(v0.pos[1]), float64(v1.pos[1]), float64(v2.pos[1]))) + 1
+		if minX < st.x0 {
+			minX = st.x0
+		}
+		if minY < st.y0 {
+			minY = st.y0
+		}
+		if maxX > st.x1 {
+			maxX = st.x1
+		}
+		if maxY > st.y1 {
+			maxY = st.y1
+		}
+		if minX < maxX && minY < maxY {
+			area += (maxX - minX) * (maxY - minY)
+		}
+		if area >= rasterParallelMinArea {
+			return true
+		}
+	}
+	return false
+}
+
+// rasterParallelMinArea is the clamped-bbox pixel sum below which the fan-out costs
+// more than it saves (a few goroutine spawns + joins per draw).
+const rasterParallelMinArea = 16384
+
+func rasterWorkers() int {
+	if rasterSerial {
+		return 1
+	}
+	n := runtime.NumCPU() - 2
+	if n > 10 {
+		n = 10
+	}
+	return n
+}
+
+// rasterParallel rasterises one draw's triangle list on scanline-interleaved
+// workers. Every worker walks all triangles in submission order but shades only
+// rows py %% workers == lane, so writes are disjoint per pixel and the per-pixel
+// arithmetic and ordering are exactly the serial path's.
+func (g *pgraph) rasterParallel(verts []kelvinVtx, tris [][3]int) {
+	workers := rasterWorkers()
+	var wg sync.WaitGroup
+	for lane := 0; lane < workers; lane++ {
+		wg.Add(1)
+		go func(lane int) {
+			defer wg.Done()
+			for _, t := range tris {
+				g.rasterTriBand(&verts[t[0]], &verts[t[1]], &verts[t[2]], lane, workers)
+			}
+		}(lane)
+	}
+	wg.Wait()
+}
+
+// rasterTriBand rasterises one triangle, shading only rows py %% stride == lane
+// (lane 0, stride 1 = every row: the serial path).
+func (g *pgraph) rasterTriBand(v0, v1, v2 *kelvinVtx, lane, stride int) {
 	if g.m.CPU.Halted {
 		return
 	}
@@ -386,7 +484,12 @@ func (g *pgraph) rasterTri(v0, v1, v2 *kelvinVtx) {
 	tl1 := topLeft(x2, y2, x0, y0)
 	tl2 := topLeft(x0, y0, x1, y1)
 
-	for py := minY; py < maxY; py++ {
+	if stride > 1 {
+		// Band interleave: shift minY up to this lane's first owned row.
+		off := (lane - minY%stride + stride) % stride
+		minY += off
+	}
+	for py := minY; py < maxY; py += stride {
 		fy := float64(py) + 0.5
 		for px := minX; px < maxX; px++ {
 			fx := float64(px) + 0.5
@@ -489,6 +592,27 @@ func (g *pgraph) shadePixel(st *rasterState, px, py int, b0, b1, b2, iw0, iw1, i
 				return
 			}
 			in.tex[u] = g.texSampleCube(st, u, uvw[0], uvw[1], uvw[2])
+			continue
+		}
+		if st.texImg[u].depth != nil {
+			// A depth texture: the sample is the texture unit's hardware depth
+			// compare of the projected comparand oT3.r/q against the stored texel
+			// (texSampleShadow). Only the projective stage mode is modelled — the
+			// receiver's own configuration; any other routing of a depth map is
+			// unverified and halts by name.
+			if st.texStage[u] != 2 {
+				g.m.CPU.Halt("nv2a: texture unit %d samples a depth texture in stage mode %d — only PROJECTIVE (2) is modelled", u, st.texStage[u])
+				return
+			}
+			q := uvw[3]
+			if q == 0 {
+				q = 1
+			}
+			s, t, r := uvw[0]/q, uvw[1]/q, uvw[2]/q
+			if shadowFragTrace {
+				g.traceShadowFrag(st, u, px, py, s, t, r, q)
+			}
+			in.tex[u] = g.texSampleShadow(st, u, s, t, r)
 			continue
 		}
 		s, t := uvw[0], uvw[1]

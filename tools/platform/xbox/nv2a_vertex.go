@@ -363,9 +363,19 @@ func (g *pgraph) transform(in *[16][4]float32, trace bool) (kelvinVtx, bool) {
 // assemble cuts the vertex list into triangles per the BEGIN primitive type and
 // rasterises them. Point and line primitives halt loudly: silently dropping them
 // would corrupt the frame without naming the gap.
+//
+// A pixel-heavy draw rasterises its triangles on a scanline-interleaved worker pool
+// (rasterParallel): every worker walks the SAME triangle list in the same order but
+// owns only rows py %% workers == lane, so each pixel is computed exactly once, by
+// exactly the arithmetic the serial path would use, with triangles retiring in
+// submission order per pixel — the output is byte-identical by construction, and
+// the frame hashes verify it (see Part XV). Draws that carry per-fragment
+// instruments/hooks, an armed fragment halt, or a stage-mode combination the
+// per-draw prevalidation can't clear stay on the serial path.
 func (g *pgraph) assemble(verts []kelvinVtx) {
+	tris := g.triScratch[:0]
 	tri := func(a, b, c int) {
-		g.rasterTri(&verts[a], &verts[b], &verts[c])
+		tris = append(tris, [3]int{a, b, c})
 	}
 	n := len(verts)
 	switch g.prim {
@@ -398,6 +408,27 @@ func (g *pgraph) assemble(verts []kelvinVtx) {
 		}
 	default:
 		g.m.CPU.Halt("nv2a: draw %d primitive type %d not implemented", g.Draws, g.prim)
+		return
+	}
+	g.triScratch = tris
+	if len(tris) == 0 {
+		return
+	}
+	if !g.rastValid {
+		if !g.rasterStateDecode(&g.rast) {
+			return
+		}
+		g.rastValid = true
+	}
+	if g.rasterParallelOK(&g.rast, verts, tris) {
+		g.rasterParallel(verts, tris)
+		return
+	}
+	for _, t := range tris {
+		g.rasterTri(&verts[t[0]], &verts[t[1]], &verts[t[2]])
+		if g.m.CPU.Halted {
+			return
+		}
 	}
 }
 

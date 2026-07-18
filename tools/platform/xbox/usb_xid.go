@@ -123,6 +123,19 @@ var padControls = map[string]PadControl{
 	"stickdown":  {Kind: PadAxisDirection, Index: 1, Sign: -1},
 	"stickleft":  {Kind: PadAxisDirection, Index: 0, Sign: -1},
 	"stickright": {Kind: PadAxisDirection, Index: 0, Sign: +1},
+
+	// RAW POSITIONAL PROBES, not names: anN drives pressure byte gamepad+2+N and
+	// promises nothing about what the title does with it. These are the instrument the
+	// Part VIII naming experiments were run with (an4..an9 there), kept so the next
+	// screen with a consumer for an unnamed byte — a driving screen was the predicted
+	// one — can run the same drive-and-photograph derivation. A byte that earns a
+	// semantic name graduates into the table above with the frame that named it.
+	"an2": {Kind: PadAnalogButton, Index: 2},
+	"an3": {Kind: PadAnalogButton, Index: 3},
+	"an4": {Kind: PadAnalogButton, Index: 4},
+	"an5": {Kind: PadAnalogButton, Index: 5},
+	"an6": {Kind: PadAnalogButton, Index: 6},
+	"an7": {Kind: PadAnalogButton, Index: 7},
 }
 
 // THE ELEVEN CONTROLS THIS PAD CANNOT YET SPELL, and why they are absent rather than named.
@@ -151,6 +164,15 @@ var padControls = map[string]PadControl{
 // cannot keep are eleven names it does not have. The frontier is a screen with more in its
 // footer than SELECT and BACK — a driving screen, or the game's own control-assignment menu,
 // where a stick's magnitude and a trigger would both have to mean something.
+//
+// PART XV RAN THAT EXPERIMENT AT THE DRIVING SCREEN (the in-race standstill, one byte held
+// per run, 1.2B steps, frame vs a press-nothing control): bytes +5, +7, +8 and +9 each
+// LAUNCH THE CAR (the title's default scheme maps several controls onto accelerate; the
+// launch triggers on the PRESS EDGE, not the level — a savestate resumed with the byte
+// already down never launches); +4 and +6 are frame-identical to the control there, and +2
+// held forever revs without launching. WHICH byte is which physical cap is still not
+// derivable — four bytes doing the same thing is four ways to keep one promise, so the
+// semantic name stays unassigned and the anN probe names below carry the drive.
 
 // PadControlKind says what sort of thing a name resolves to. The pad says three different
 // kinds of thing and only one of them is a bit, which is why the old name->uint16 map could

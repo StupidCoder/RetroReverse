@@ -70,6 +70,25 @@ roadmap.)
   image alone; the reflection targets render from the derived state, and the depth mapping the
   probe had guessed comes out of the game's own method stream. Ends identifying the next frontier:
   a depth *texture* (0x2E) sampled by a shadow-receiver pass. *(this document)*
+* **Part XII** — the **shadow map that was never cast**: a zeta-write census proves the sampled map
+  receives zero depth writes in every reachable frame, the compare cannot live in the combiners,
+  and the fixed-function T&L frontier behind the halt is scoped but unverifiable. Two gaps named
+  precisely. *(this document)*
+* **Part XIII** — **the race loads**: the receiver combiner decoded (the all-far sample is
+  derivably white), cube maps modelled — the environment cube *is* the reflection RTTs — and the
+  real blocker was our raster writing depth with the test disabled, shredding the title's own
+  code one phantom z=0 at a time. Ends with the oracle driving the race start. *(this document)*
+* **Part XIV** — the **race freeze was the clock, twice**: the machine declared itself 2 MHz and
+  the game measured it honestly; then DirectSound's EP-DSP watchdog burned 10 ms per frame on our
+  silence. One timebase, a clock epoch in the savestate, the alive word modelled at its
+  observable — and the countdown plays, delivering the populated-map savestate Part XII demanded.
+  *(this document)*
+* **Part XV** — the **shadow compare, derived**: the caster census catches two draws writing the
+  grid opponents' depth silhouettes, the comparand turns out to be in raw 24-bit map units, no
+  compare-function register exists to read — and the direction is pinned three independent ways
+  (the all-far argument, the r−D sign partition, and a 73-pixel footprint that lands exactly
+  under the caster vs its 207,432-pixel inversion). Strictness is unobservable; LEQUAL declared.
+  The race then runs to its outcome. *(this document)*
 
 ---
 
@@ -1989,3 +2008,156 @@ the "PRESS START" text box** (blink-off vs blink-on); the background is byte-ide
 render path did not move; the clock under the procedure did. Re-pinned:
 `title.state` +100M steps `-surfpng` = `0bea502acd2a1f902d429097022116b5` (deterministic across
 repeated runs, and identical before and after the EP-watchdog fix).
+
+## Part XV — the shadow compare, derived from the caster Part XII demanded
+
+Part XIV ended with the armed halt fired: at the start line, 1.76 billion steps after
+`gameplay.state`, texture unit 3 samples the 512×512 depth map and finds a non-far texel —
+the first populated shadow map any reachable frame has ever provided, frozen in
+`work/states/shadow-caster.state`. This part reads the compare out of that machine and then
+lets the race run.
+
+### The caster, caught in the census
+
+From `race-countdown.state`, `RR_SHADOW` narrates the whole pass structure in one run. At
+draw 858195 the game binds `0x01C18180` as both colour and zeta, clears it to far
+(`FFFFFF00`), and — this time — **two draws write 1,053 pixels of real depth into it**,
+`z ∈ [08D8EF, 0C3CC5]`, before the surface flips back to the framebuffer and unit 3 binds
+the map seven draws later:
+
+```
+zeta=01AD4000  pix=96,378,101  draws=6717  zmin=F90D4B zmax=FFFFFF   the framebuffer's Z
+zeta=01C18180  pix=1,053       draws=2     zmin=08D8EF zmax=0C3CC5   THE CASTER PASS
+zeta=01D78240  pix=4,175,859   draws=2400  zmin=F33AB3 zmax=FFFFFF   the reflection RTTs' Z
+```
+
+The map itself (`RR_SHADOW` now writes it as a PNG at the receiver dump —
+`work/shadow-map-draw858204.png`) is two small dark blobs on a far-white field: the
+depth silhouettes, seen from the light, of the **grid opponents ahead** — the receiver
+frame puts the red car at exactly the screen position the shadow lands under. The halt's
+non-far texel at (206, 250) = `0C195F` sits inside the first blob.
+
+### The comparand is already in map units
+
+The receiver dump gives the oT3 texture matrix (transform constants c176–c179). Its third
+row — the one that produces `r` — is `(-4544.0, -5391.98, 4543.89, 953498.5)`: coefficients
+that scale world positions straight into 24-bit depth-buffer units, no [0,1] intermediate.
+The fragment evidence (`RR_SHADOWFRAG`, per-draw statistics of `r/q` against the stored
+texel) confirms it directly: ground fragments at the bottom of the frame carry
+`r ≈ 866k–956k` against the caster's stored `580k–800k` — the road is farther from the
+light than the car that shadows it, in the same integer scale the map stores.
+
+One thing the register file rules out: there is **no latched shadow-compare-function
+register**. A scan of the whole Kelvin register file for GL compare enums (0x200–0x207) at
+the receiver finds exactly three — alpha `0x033C=GEQUAL`, depth `0x0354=LEQUAL`, stencil
+`0x0364=ALWAYS` — all known. The compare really is implied by sampling a depth format, as
+Part XII argued from the filter register.
+
+### The derivation: direction pinned three ways, strictness unobservable
+
+The model: `texDecode` keeps the raw 24-bit depths (no more decode-time halt), and the
+raster routes depth textures to `texSampleShadow` — a per-fragment hardware compare of the
+projected comparand `oT3.r/q` against the stored texel, 0/1 replicated into all four
+channels, compare-then-filter under the receiver's linear mag filter (four 0/1 results
+bilinearly weighted — percentage-closer filtering; depth values themselves are never
+interpolated). The compare function is the one thing to derive, and three independent
+lines of evidence pin its direction:
+
+1. **The all-far argument** (Part XIII, still binding): an all-far map must sample as 1.0
+   everywhere, so the pass direction must be the `r ≤ D` family — `r ≥ D` fails far texels.
+2. **The r−D sign partitions the scene by occlusion geometry.** Fragments that sample
+   populated texels split exactly along "is the caster between this surface and the
+   light": the road draws under the opponent are behind its stored depth — `r−D ∈
+   [+1708, +8393]`, 100% of their populated-texel fragments — while the overhead start
+   gantry, whose shadow-space footprint crosses the same texels, is far in front
+   (`r−D ≈ −160,000`) and must stay lit. The caster's own lit surfaces sit in a small
+   negative band (`−12k..+1.6k`, overwhelmingly negative) — the game's own depth-bias
+   guard against acne, which only makes sense biased toward *lit*.
+3. **The artefact.** Rendered to the next flip under each candidate against a forced
+   `pass=1` control frame (`RR_SHADOWCMP=one`): under `r ≤ D` exactly **73 pixels darken,
+   all inside x∈[262,282], y∈[260,267] — the road contact directly beneath the mapped
+   caster** (the red grid opponent; `work/shadow-cmp-le.png` vs `work/shadow-cmp-one.png`,
+   diff bbox from the pixel census). Under `r ≥ D`, **207,432 pixels** darken — the whole
+   world except the footprint: the geometric inversion, refuted.
+
+Strictness cannot be observed: the comparand is an interpolated float against integer
+depths and no reachable fragment lands exactly on a stored value — the `lt` and `le`
+frames are byte-identical (`8edb1d2345c7492409b65b9e9700bf77`), as are `ge`/`gt`
+(`e17a113a71176853c221ef93a15c1f62`). **LEQUAL is the declared choice**, echoing the
+depth function the game runs its own zeta through. `RR_SHADOWCMP` keeps the probe
+surface (`lt`/`le`/`gt`/`ge`/`one`/`zero`), `RR_SHADOWFRAG` the per-draw comparand
+statistics.
+
+What still halts by name: a depth texture in any stage mode other than PROJECTIVE (the
+receiver's own routing is the only verified one), and every depth format this game never
+samples (swizzled depth, cube depth, other bit layouts) through the existing
+unmodelled-format halts. The map decode itself is deliberately uncached: the caster pass
+writes the map in the same pusher run that samples it, so a per-run cache would serve
+pre-caster depths.
+
+### The race is too slow to drive — profile first, then parallelise
+
+With the compare derived, the gate on the drive was wall clock: 100M in-race instructions
+took 228 s — a 78-second race (~57B instructions) would be days. The new `-cpuprofile`
+says where it goes: 90% of samples in `rasterTri`, and 68% of everything in the register
+combiners *interpreting their control words per fragment* (`combMap` alone 25%). The CPU
+core barely registers; in-race, the machine *is* the rasteriser — the countdown flash
+frames run multi-million-fragment full-screen draws (one draw in the window shades 3.3M
+fragments — eleven screens of overdraw).
+
+Two changes, both required to be byte-identical:
+
+- **Interpretation hoisted, not changed**: `combMap`/`combOp` ran a switch per *component*;
+  the switch now runs once per input. The combiner factor and fog normalisations (`/255`)
+  moved from per-fragment to `combDecode` (same float op on the same inputs). ~11%.
+- **A banded parallel raster.** A pixel-heavy draw fans its triangle list out to
+  `NumCPU-2` workers; every worker walks the *same* triangles in the *same* order but owns
+  only rows `py % workers == lane`. Each pixel is computed exactly once, by exactly the
+  serial arithmetic, with triangles retiring in submission order per pixel — so the output
+  is byte-identical *by construction*, not by tolerance. Draws below a clamped-bbox area
+  threshold, draws carrying per-fragment instruments (`RR_SHADOW*`, `RR_LOWWRITE`, the
+  debugger's `OnPixel`), and draws whose per-draw prevalidation can't clear every
+  fragment-level halt (the armed FF halt, a cube/depth texture in an unverified stage
+  mode) stay serial — a halt must fire at the same fragment, in the same order, as always.
+
+The identity claim is measured, with a control. A savestate-bytes diff is *not* the
+instrument: two identical serial runs produce different state files (gob serialises maps
+in random order), so `-ramhash` now prints an md5 of the full 64 MB guest RAM plus the
+CPU position. Serial vs parallel over 60M in-race steps: `ce9d75c510f5ea6c4ee19f89b8a011f6`,
+same PC, both — every colour and depth write of every draw identical. The title pin
+(`0bea502a…`) and the derivation frame (`8edb1d23…`) are unchanged, `RR_NV_SERIAL=1`
+keeps the serial path as the standing A/B control, and the same 100M-step window drops
+from 228 s to 36 s (3.9×, 4.3 cores).
+
+### `a` was never the accelerator — the driving screen names the throttle
+
+Ten billion steps past the countdown with `a` held: Time counts 99→88, Position renders,
+the flips walk — and the speedo reads 000 with the whole view swallowed by the standing
+car's own smoke. The guest isn't stuck (`RR_HOTPC` is flat — ordinary per-frame matrix
+and skeleton work, no wait loop, ~400 presents/s since our `FLIP_STALL` never blocks);
+the game is simulating exactly what it was given: a car parked at the line. Part XIII's
+"the oracle drives with `-keys a@5`" was the start *cinematic* moving, read as throttle —
+acceptance proving nothing, again.
+
+This is precisely the screen Part VIII predicted would name the unnamed controls
+("a driving screen … where a trigger would have to mean something"). The pad table
+regrew its raw positional probes (`an2`..`an7` = pressure bytes `gamepad+4`..`+9`,
+names that promise position, not meaning), and the naming experiment is Part VIII's,
+rerun at the race: hold exactly one byte from the post-GO standstill, 1.2B steps, and
+photograph the frame against a press-nothing control:
+
+- `none`, `an2` (+4), `an4` (+6): byte-identical to the control — parked in smoke.
+- **`an3` (+5), `an5` (+7), `an6` (+8), `an7` (+9): the car launches** — the START
+  gantry sweeps past, the road streams. The title's default scheme evidently maps
+  several physical controls onto accelerate; which byte is which physical cap is not
+  derivable from this screen and stays unnamed.
+- `a` (+2), held through the whole of leg 1: revs and smoke, never a launch.
+
+And one edge more: the launch triggers on the **press**, not the level. A savestate
+carrying the byte already-down resumes to an eternal standstill (3.3 guest-seconds of
+held throttle, nothing); release it for 200 flips and re-press, and the car is through
+the gantry at speed within a second and a half. The title's own input wrapper computes
+pressed-this-frame masks (`~prev & cur`, the 0x14630 read Part VIII took whole), and
+the standing-start engage listens to that edge. Every drive leg therefore schedules its
+throttle at flip 30, not flip 1 — a deliberate release-then-press so a resumed run
+always delivers the edge.
