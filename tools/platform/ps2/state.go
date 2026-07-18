@@ -500,6 +500,7 @@ func (m *Machine) LoadState(s MachineState) error {
 		}
 		gs.vqN, gs.q, gs.clut, gs.cbp0, gs.cbp1 = g.VQN, g.Q, g.CLUT, g.CBP0, g.CBP1
 		gs.uploads, gs.prims, gs.primCount = g.Uploads, g.Prims, g.PrimCount
+		gs.primsRunBase = g.Prims
 		for i, v := range g.VQ {
 			gs.vq[i] = gsVertex{x: v.PX, y: v.PY, z: v.Z, rgba: v.RGBA, u: v.U, v: v.V, s: v.S, t: v.T, q: v.Q}
 		}

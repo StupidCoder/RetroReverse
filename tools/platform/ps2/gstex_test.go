@@ -227,3 +227,86 @@ func TestDepthTestOrdersSprites(t *testing.T) {
 		t.Errorf("nearer sprite lost: %08X, want 80FF0000", got)
 	}
 }
+
+// TestNearestSampleSitsHalfBelow pins the sampler's coordinate arithmetic: the
+// GS's sample point sits half a texel below the interpolated coordinate, so a
+// 1:1 sprite whose UVs are authored at +0.5 (u = x+1.0 at pixel centres) reads
+// texel x, not x+1. RRV's FM-card grade pass is built on this: its CT32-as-T8
+// gathers author +0.5 and its per-page composites +1.0, and under floor(u) the
+// gathers land one T8 row low — on the wrong byte lane of the pun, which is
+// what shredded the flyover into period-4 channel noise.
+func TestNearestSampleSitsHalfBelow(t *testing.T) {
+	m := NewMachine()
+	gs := m.ensureGS()
+
+	gs.write(gsFRAME1, 1<<16) // FBP=0, FBW=1, PSM=CT32
+	gs.write(gsSCISSOR1, 63<<16|uint64(63)<<48)
+	gs.write(gsXYOFFSET1, 0)
+	gs.write(gsPRMODECONT, 1)
+
+	// A 4x1 CT32 texture at block 0x140: red, green, blue, white.
+	gs.write(gsBITBLTBUF, uint64(0x140)<<32|uint64(1)<<48|uint64(psmCT32)<<56)
+	gs.write(gsTRXPOS, 0)
+	gs.write(gsTRXREG, 4|uint64(1)<<32)
+	gs.write(gsTRXDIR, 0)
+	gs.write(gsHWREG, uint64(0x800000FF)|uint64(0x8000FF00)<<32)
+	gs.write(gsHWREG, uint64(0x80FF0000)|uint64(0x80FFFFFF)<<32)
+
+	// TEX0: 4x1 CT32, TCC=1, DECAL. TEX1=0: nearest.
+	gs.write(gsTEX0_1, uint64(0x140)|1<<14|uint64(psmCT32)<<20|2<<26|0<<30|1<<34|1<<35)
+	gs.write(gsTEX1_1, 0)
+	gs.write(gsCLAMP1, 0)
+
+	// Sprite (0,0)-(2,1), UV (0.5,0.5)-(2.5,1.5): pixel centres sample u = 1.0, 2.0.
+	gs.write(gsPRIM, 6|1<<4|1<<8)
+	gs.write(gsRGBAQ, 0x80808080)
+	gs.write(gsUV, 8|8<<16)
+	gs.write(gsXYZ3, 0)
+	gs.write(gsUV, (2*16+8)|(1*16+8)<<16)
+	gs.write(gsXYZ2, (2*16)|(1*16)<<16)
+
+	if got := le32gs(gs.vram[addrPSMCT32(0, 1, 0, 0):]); got != 0x800000FF {
+		t.Errorf("pixel (0,0) = %08X, want 800000FF (texel 0 — sampling must sit half a texel below u=1.0)", got)
+	}
+	if got := le32gs(gs.vram[addrPSMCT32(0, 1, 1, 0):]); got != 0x8000FF00 {
+		t.Errorf("pixel (1,0) = %08X, want 8000FF00 (texel 1)", got)
+	}
+}
+
+// TestBilinearBlendsWhenTEX1Asks pins the MMAG=LINEAR path: a sample point
+// exactly between a black and a white texel comes back mid-grey, not one of
+// the two texels.
+func TestBilinearBlendsWhenTEX1Asks(t *testing.T) {
+	m := NewMachine()
+	gs := m.ensureGS()
+
+	gs.write(gsFRAME1, 1<<16)
+	gs.write(gsSCISSOR1, 63<<16|uint64(63)<<48)
+	gs.write(gsXYOFFSET1, 0)
+	gs.write(gsPRMODECONT, 1)
+
+	// A 2x1 CT32 texture at block 0x140: black then white.
+	gs.write(gsBITBLTBUF, uint64(0x140)<<32|uint64(1)<<48|uint64(psmCT32)<<56)
+	gs.write(gsTRXPOS, 0)
+	gs.write(gsTRXREG, 2|uint64(1)<<32)
+	gs.write(gsTRXDIR, 0)
+	gs.write(gsHWREG, uint64(0x80000000)|uint64(0x80FFFFFF)<<32)
+
+	gs.write(gsTEX0_1, uint64(0x140)|1<<14|uint64(psmCT32)<<20|1<<26|0<<30|1<<34|1<<35)
+	gs.write(gsTEX1_1, 1<<5) // MMAG=LINEAR
+	gs.write(gsCLAMP1, uint64(1)|1<<2) // clamp, so the blend partners are the two texels
+
+	// A 1x1 sprite whose pixel centre samples u = 1.0: exactly between the texels.
+	gs.write(gsPRIM, 6|1<<4|1<<8)
+	gs.write(gsRGBAQ, 0x80808080)
+	gs.write(gsUV, 8|8<<16)
+	gs.write(gsXYZ3, 0)
+	gs.write(gsUV, (1*16+8)|(1*16+8)<<16)
+	gs.write(gsXYZ2, (1*16)|(1*16)<<16)
+
+	got := le32gs(gs.vram[addrPSMCT32(0, 1, 0, 0):])
+	r := got & 0xFF
+	if r < 0x7E || r > 0x81 {
+		t.Errorf("pixel (0,0) = %08X, want mid-grey (~7F): TEX1's MMAG bit must blend, not pick", got)
+	}
+}

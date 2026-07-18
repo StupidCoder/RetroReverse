@@ -422,6 +422,8 @@ type gsSampler struct {
 	// The wrap modes and region bounds, from CLAMP.
 	wms, wmt               uint32
 	minu, maxu, minv, maxv int32
+	// linear is TEX1's MMAG bit: this draw asked for bilinear magnification.
+	linear bool
 }
 
 // sampler resolves the current context's texture state, or nil (with the census told)
@@ -448,12 +450,8 @@ func (gs *GS) sampler(p uint64) *gsSampler {
 		gs.count(sprintf("textured PSM 0x%02X (vertex colour — unsampled)", t.psm))
 		return nil
 	}
-	if tex1>>5&1 != 0 {
-		gs.count("bilinear requested (sampled nearest)")
-	}
-
 	return &gsSampler{
-		gs: gs, tex: t,
+		gs: gs, tex: t, linear: tex1>>5&1 != 0,
 		w: 1 << t.tw, h: 1 << t.th,
 		wms:  uint32(clamp) & 3,
 		wmt:  uint32(clamp>>2) & 3,
@@ -462,6 +460,41 @@ func (gs *GS) sampler(p uint64) *gsSampler {
 		minv: int32(uint32(clamp>>24) & 0x3FF),
 		maxv: int32(uint32(clamp>>34) & 0x3FF),
 	}
+}
+
+// pick samples at a 12.4 texel-space coordinate — the value the rasteriser
+// interpolated at the pixel centre. The GS's sample point sits half a texel
+// above the coordinate: NEAREST takes floor(u-0.5) and LINEAR blends the 2x2
+// texels around (u-0.5, v-0.5) by its fraction, post-CLUT. The half is
+// load-bearing and was pinned by RRV's FM-card grade pass, whose three authored
+// conventions (gathers at +0.5 with the CT32-as-T8 byte-lane geometry,
+// composites at +1.0, smear tiles at +1.5) all become exact reads under it and
+// lane-scrambled under floor(u); note that 1:1 draws authored with integer UV
+// corners read identically under either rule, which is why everything else
+// looked fine while the pun pass shredded.
+func (s *gsSampler) pick(u, v int32) uint32 {
+	if s.linear {
+		us, vs := u-8, v-8
+		x0, y0 := us>>4, vs>>4
+		fx, fy := uint32(us&15), uint32(vs&15)
+		c00 := s.at(x0, y0)
+		c10 := s.at(x0+1, y0)
+		c01 := s.at(x0, y0+1)
+		c11 := s.at(x0+1, y0+1)
+		lerp := func(a, b uint32, f uint32) uint32 {
+			// per-channel a + (b-a)*f/16, signed so a darker right texel works
+			var out uint32
+			for sh := 0; sh < 32; sh += 8 {
+				av, bv := int32(a>>sh&0xFF), int32(b>>sh&0xFF)
+				out |= uint32(av+(bv-av)*int32(f)>>4) & 0xFF << sh
+			}
+			return out
+		}
+		top := lerp(c00, c10, fx)
+		bot := lerp(c01, c11, fx)
+		return lerp(top, bot, fy)
+	}
+	return s.at((u-8)>>4, (v-8)>>4)
 }
 
 // wrap applies one axis's CLAMP mode to a texel coordinate.

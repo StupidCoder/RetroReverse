@@ -96,6 +96,10 @@ type GS struct {
 	// says which half of the pipeline to build next.
 	uploads int
 	prims   int
+	// The prim total carried in by a loadstate (zero on a cold boot). Not savestated:
+	// it exists so logs can print run-relative prim indices, the coordinate system
+	// -gssnap counts in (its OnGSPrim counter starts at 0 every run).
+	primsRunBase int
 
 	// The vertex queue (gsdraw.go): the positions pushed and not yet consumed by a kick,
 	// and the per-type and per-feature tallies of what was drawn.
@@ -677,8 +681,8 @@ func (m *Machine) gsPrivWrite(a, v uint32) bool {
 	// choreography can be laid against the draw stream (which pass was the buffer in
 	// when the CRTC started reading it).
 	if m.LogDISPFB && (a == gsDISPFB2 || a == gsDISPFB1 || a == gsPMODE) && m.io[a] != v {
-		fmt.Printf("  dispfb: [%08X] <- %08X (was %08X) at prim %d vblank %d\n",
-			a, v, m.io[a], gs.prims, m.VBlanks())
+		fmt.Printf("  dispfb: [%08X] <- %08X (was %08X) at prim %d (run %d) vblank %d\n",
+			a, v, m.io[a], gs.prims, gs.prims-gs.primsRunBase, m.VBlanks())
 	}
 	m.io[a] = v
 	return true

@@ -638,21 +638,21 @@ func (gs *GS) line(a, b gsVertex, p uint64) {
 			rgba = uint32(r) | uint32(g)<<8 | uint32(bl)<<16 | uint32(al)<<24
 		}
 		if smp != nil {
-			var tu, tv int32
+			var tu, tv int32 // 12.4
 			if fst {
-				tu = int32((int64(a.u) + (int64(b.u)-int64(a.u))*num/den) >> 4)
-				tv = int32((int64(a.v) + (int64(b.v)-int64(a.v))*num/den) >> 4)
+				tu = int32(int64(a.u) + (int64(b.u)-int64(a.u))*num/den)
+				tv = int32(int64(a.v) + (int64(b.v)-int64(a.v))*num/den)
 			} else {
 				f := float32(num) / float32(den)
 				s := a.s + (b.s-a.s)*f
 				tt := a.t + (b.t-a.t)*f
 				q := a.q + (b.q-a.q)*f
 				if q != 0 {
-					tu = int32(s / q * float32(int32(1)<<smp.tex.tw))
-					tv = int32(tt / q * float32(int32(1)<<smp.tex.th))
+					tu = int32(s / q * float32(int32(1)<<smp.tex.tw) * 16)
+					tv = int32(tt / q * float32(int32(1)<<smp.tex.th) * 16)
 				}
 			}
-			rgba = smp.combine(smp.at(tu, tv), rgba)
+			rgba = smp.combine(smp.pick(tu, tv), rgba)
 		}
 		if t.fge {
 			ff := uint32(int64(a.f&0xFF) + (int64(b.f&0xFF)-int64(a.f&0xFF))*num/den)
@@ -713,7 +713,7 @@ func (gs *GS) sprite(a, b gsVertex, p uint64) {
 			rgba := b.rgba
 			if smp != nil {
 				u := texAxis(x<<4+8, a.x, b.x, au, bu)
-				rgba = smp.combine(smp.at(u>>4, v>>4), rgba)
+				rgba = smp.combine(smp.pick(u, v), rgba)
 			}
 			if t.fge {
 				rgba = fogPixel(rgba, b.f&0xFF, t.fogcol) // flat in fog too: the second vertex's
@@ -788,10 +788,10 @@ func (gs *GS) triangle(v0, v1, v2 gsVertex, p uint64) {
 				rgba = uint32(r) | uint32(g)<<8 | uint32(b)<<16 | uint32(a)<<24
 			}
 			if smp != nil {
-				var tu, tv int32
+				var tu, tv int32 // 12.4
 				if fst {
-					tu = int32((w0*int64(v0.u) + w1*int64(v1.u) + w2*int64(v2.u)) / area >> 4)
-					tv = int32((w0*int64(v0.v) + w1*int64(v1.v) + w2*int64(v2.v)) / area >> 4)
+					tu = int32((w0*int64(v0.u) + w1*int64(v1.u) + w2*int64(v2.u)) / area)
+					tv = int32((w0*int64(v0.v) + w1*int64(v1.v) + w2*int64(v2.v)) / area)
 				} else {
 					fw0, fw1, fw2 := float32(w0), float32(w1), float32(w2)
 					fa := float32(area)
@@ -799,11 +799,11 @@ func (gs *GS) triangle(v0, v1, v2 gsVertex, p uint64) {
 					tt := (fw0*v0.t + fw1*v1.t + fw2*v2.t) / fa
 					q := (fw0*v0.q + fw1*v1.q + fw2*v2.q) / fa
 					if q != 0 {
-						tu = int32(s / q * float32(int32(1)<<smp.tex.tw))
-						tv = int32(tt / q * float32(int32(1)<<smp.tex.th))
+						tu = int32(s / q * float32(int32(1)<<smp.tex.tw) * 16)
+						tv = int32(tt / q * float32(int32(1)<<smp.tex.th) * 16)
 					}
 				}
-				rgba = smp.combine(smp.at(tu, tv), rgba)
+				rgba = smp.combine(smp.pick(tu, tv), rgba)
 			}
 			if t.fge {
 				f := uint32((w0*int64(v0.f&0xFF) + w1*int64(v1.f&0xFF) + w2*int64(v2.f&0xFF)) / area)
