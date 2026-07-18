@@ -29,9 +29,6 @@ func writeFile(name string, data []byte) error {
 	return os.WriteFile(name, data, 0644)
 }
 
-// noClearExperiment gates the RRV blur-clear mutation test in plot; see there.
-var noClearExperiment = os.Getenv("PS2_NOCLEAR_EXPERIMENT") != ""
-
 // The GS drawing registers beyond those gs.go already names.
 const (
 	gsST        = 0x02
@@ -409,14 +406,6 @@ func (gs *GS) plot(t *gsTarget, x, y int32, z uint32, rgba uint32) {
 	fbmsk := t.fbmsk
 	writeZ := !t.zmsk
 	srcA := rgba >> 24
-
-	// EXPERIMENT (env-gated, off by default): treat RRV's blur-pass full-screen clear as
-	// an alpha+Z-only write, to test whether the rest of the pass then converges to the
-	// reference look. Keyed to exactly that draw's signature.
-	if noClearExperiment && t.primType == primSprite && rgba == 0x7F000000 &&
-		t.fbmsk == 0 && t.test == 0x30000 && !t.abe {
-		fbmsk |= 0x00FFFFFF
-	}
 
 	// The alpha test compares the source alpha against AREF; a failing pixel is dropped
 	// or writes partially, by AFAIL.

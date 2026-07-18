@@ -647,6 +647,7 @@ const (
 // gsPrivRead serves a read of the privileged block. CSR is the one that is read: its low
 // word carries the signal, finish, HSync and VSync bits and the current field.
 func (m *Machine) gsPrivRead(a uint32) (uint32, bool) {
+	m.drainVIF1()
 	gs := m.ensureGS()
 	switch a &^ 4 {
 	case gsCSR:
@@ -662,6 +663,7 @@ func (m *Machine) gsPrivRead(a uint32) (uint32, bool) {
 // gsPrivWrite serves a write. CSR's signal/finish/vsync bits are write-1-to-clear; the
 // rest are stored. Writing bit 9 (RESET) clears the status.
 func (m *Machine) gsPrivWrite(a, v uint32) bool {
+	m.drainVIF1()
 	gs := m.ensureGS()
 	switch a {
 	case gsCSR:

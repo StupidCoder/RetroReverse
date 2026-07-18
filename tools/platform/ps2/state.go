@@ -210,6 +210,7 @@ type VIFState struct {
 
 // SaveState captures the machine.
 func (m *Machine) SaveState() MachineState {
+	m.drainVIF1() // never snapshot a kick mid-flight
 	s := MachineState{
 		ImageHash:     m.imageHash,
 		RAM:           append([]byte(nil), m.ram...),

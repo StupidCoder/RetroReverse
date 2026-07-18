@@ -281,6 +281,15 @@ type Machine struct {
 
 	// VIFTinyN, when > 0, notes the first N denormal-tiny floats a VIF1 unpack delivers,
 	// with the EE address of the payload that carried each — the write-watch target for
+	// A VIF1 chain kick whose walk has not happened yet. The store to CHCR marks the
+	// transfer in flight and the walk is deferred to the next point the guest could
+	// observe it (any DMAC or GS-privileged access, the vblank, a savestate, the end
+	// of the run) — see dmacWrite, which is where the deferral pays for itself: a GIF
+	// chain the guest starts before any such sync was racing the VIF1 chain on real
+	// silicon, and the GIF's path arbiter put its packet through first. Never true at
+	// a savestate (drained on entry), so it is not serialized.
+	vif1Pending bool
+
 	// finding who authored a collapsed vertex. feedMadr is set by whoever hands the VIF
 	// a stretch of stream (plain transfer or chain tag) to the EE address it came from.
 	VIFTinyN int

@@ -382,3 +382,108 @@ func TestSPRInterleaveGather(t *testing.T) {
 		}
 	}
 }
+
+// TestVIF1KickDefersToConcurrentGIFChain pins the DMA kick ordering Ridge Racer V's
+// frame kicker depends on: it programs both TADRs, starts VIF1's chain (the frame's
+// draw list) and starts the GIF channel's chain (the ctx2 frame clear, PATH3) four
+// instructions later, with no sync between. On silicon the GIF's path arbiter puts
+// the little PATH3 packet through before the first PATH1/2 output emerges from the
+// VIF1 pipeline; a model that walks the VIF1 chain inside its own CHCR store inverts
+// that order and the frame clear lands on the finished frame. So a VIF1 chain kick
+// defers its walk until the guest could observe it, and a GIF chain started before
+// any such sync point runs first.
+func TestVIF1KickDefersToConcurrentGIFChain(t *testing.T) {
+	m := NewMachine()
+
+	put64 := func(a uint32, v uint64) {
+		for i := 0; i < 8; i++ {
+			m.ram[a+uint32(i)] = byte(v >> (8 * i))
+		}
+	}
+
+	// The VIF1 chain: one CNT link carrying a DIRECT vifcode whose GIF packet writes
+	// TRXPOS = (2,2), then END. This is the frame's own (later) write.
+	const vchain, gchain = 0x00200000, 0x00210000
+	vgif := buildADPacket([][2]uint64{{gsTRXPOS, trxpos(2, 2)}})
+	put64(vchain, uint64(1+len(vgif)/16)|dtagCNT<<28)
+	put64(vchain+8, 0)
+	putLE32(m.ram[vchain+16:], 0) // NOP
+	putLE32(m.ram[vchain+20:], 0) // NOP
+	putLE32(m.ram[vchain+24:], 0) // NOP
+	putLE32(m.ram[vchain+28:], uint32(vifDIRECT)<<24|uint32(len(vgif)/16))
+	copy(m.ram[vchain+32:], vgif)
+	put64(vchain+32+uint32(len(vgif)), dtagEND<<28)
+	put64(vchain+40+uint32(len(vgif)), 0)
+
+	// The GIF chain: one CNT link writing TRXPOS = (7,7) — the "clear", which must
+	// land first even though its kick comes second.
+	ggif := buildADPacket([][2]uint64{{gsTRXPOS, trxpos(7, 7)}})
+	put64(gchain, uint64(len(ggif)/16)|dtagCNT<<28)
+	put64(gchain+8, 0)
+	copy(m.ram[gchain+16:], ggif)
+	put64(gchain+16+uint32(len(ggif)), dtagEND<<28)
+	put64(gchain+24+uint32(len(ggif)), 0)
+
+	// The game's order: both TADRs, then both CHCRs, no sync in between.
+	m.Write32(0x10009030, vchain)
+	m.Write32(0x1000A030, gchain)
+	m.Write32(0x10009000, dChcrStart|dChcrDir|1<<2)
+
+	if !m.vif1Pending {
+		t.Fatal("a VIF1 chain kick was walked inside its own CHCR store")
+	}
+	if got := m.ensureGS().reg[gsTRXPOS]; got == trxpos(2, 2) {
+		t.Fatal("the VIF1 chain's GS write landed before the concurrent GIF chain was started")
+	}
+
+	m.Write32(0x1000A000, dChcrStart|dChcrDir|1<<2)
+
+	// Both chains have now run, in arbiter order: the GIF's write first, VIF1's last.
+	if got := m.ensureGS().reg[gsTRXPOS]; got != trxpos(2, 2) {
+		t.Fatalf("TRXPOS = 0x%016X after both chains, want the VIF1 chain's write 0x%016X — the GIF chain did not run first", got, trxpos(2, 2))
+	}
+	if m.vif1Pending {
+		t.Fatal("the VIF1 kick is still pending after the GIF start drained it")
+	}
+	if v, _ := m.dmacRead(0x10009000); v&dChcrStart != 0 {
+		t.Fatalf("VIF1 STR still set; CHCR = 0x%08X", v)
+	}
+	if v, _ := m.dmacRead(0x1000A000); v&dChcrStart != 0 {
+		t.Fatalf("GIF STR still set; CHCR = 0x%08X", v)
+	}
+}
+
+// TestVIF1KickDrainsAtDMACRead pins the other half of the deferral: with no
+// concurrent GIF start, the walk happens at the next DMAC access the guest makes —
+// a game that kicks and then polls STR sees exactly the instant model.
+func TestVIF1KickDrainsAtDMACRead(t *testing.T) {
+	m := NewMachine()
+
+	put64 := func(a uint32, v uint64) {
+		for i := 0; i < 8; i++ {
+			m.ram[a+uint32(i)] = byte(v >> (8 * i))
+		}
+	}
+
+	const vchain = 0x00200000
+	vgif := buildADPacket([][2]uint64{{gsTRXPOS, trxpos(3, 3)}})
+	put64(vchain, uint64(1+len(vgif)/16)|dtagCNT<<28)
+	put64(vchain+8, 0)
+	putLE32(m.ram[vchain+16:], 0)
+	putLE32(m.ram[vchain+20:], 0)
+	putLE32(m.ram[vchain+24:], 0)
+	putLE32(m.ram[vchain+28:], uint32(vifDIRECT)<<24|uint32(len(vgif)/16))
+	copy(m.ram[vchain+32:], vgif)
+	put64(vchain+32+uint32(len(vgif)), dtagEND<<28)
+	put64(vchain+40+uint32(len(vgif)), 0)
+
+	m.Write32(0x10009030, vchain)
+	m.Write32(0x10009000, dChcrStart|dChcrDir|1<<2)
+
+	if v, _ := m.dmacRead(0x10009000); v&dChcrStart != 0 {
+		t.Fatalf("polling CHCR did not drain the kick; CHCR = 0x%08X", v)
+	}
+	if got := m.ensureGS().reg[gsTRXPOS]; got != trxpos(3, 3) {
+		t.Fatalf("TRXPOS = 0x%016X after the drain, want 0x%016X", got, trxpos(3, 3))
+	}
+}

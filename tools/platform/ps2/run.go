@@ -209,6 +209,7 @@ func (m *Machine) Run(maxSteps uint64) Result {
 }
 
 func (m *Machine) result(steps uint64, reason string) Result {
+	m.drainVIF1() // the caller inspects GS memory next; nothing may still be in flight
 	return Result{Steps: steps, PC: uint32(m.CPU.PC), Reason: reason}
 }
 

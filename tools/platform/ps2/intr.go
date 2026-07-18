@@ -77,6 +77,7 @@ const dmacChannelSIF0 = 5
 // handlers but forgot the flag leaves that loop spinning forever, having done
 // everything else right.
 func (m *Machine) deliverVBlank() {
+	m.drainVIF1() // a kick never crosses the frame boundary un-walked
 	m.vblanks++
 	m.gsVSync()
 

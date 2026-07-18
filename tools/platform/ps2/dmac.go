@@ -133,8 +133,19 @@ func dmacChanReg(a uint32) (ch int, reg uint32, ok bool) {
 	return 0, 0, false
 }
 
+// drainVIF1 runs a deferred VIF1 chain kick. Called wherever the guest could next
+// observe the transfer's effects; see the field's comment in machine.go.
+func (m *Machine) drainVIF1() {
+	if !m.vif1Pending {
+		return
+	}
+	m.vif1Pending = false
+	m.dmacStart(dmacChVIF1)
+}
+
 // dmacRead serves a read of the controller.
 func (m *Machine) dmacRead(a uint32) (uint32, bool) {
+	m.drainVIF1()
 	if ch, reg, ok := dmacChanReg(a); ok {
 		c := &m.dmac[ch]
 		switch reg {
@@ -179,13 +190,41 @@ func (m *Machine) dmacRead(a uint32) (uint32, bool) {
 }
 
 // dmacWrite serves a write, and starts a transfer when STR is set.
+//
+// A VIF1 chain start is not walked here: on silicon the store only sets the transfer
+// in motion, and a game is free to start another channel a few instructions later and
+// let the GIF's path arbiter interleave them. Ridge Racer V's frame kicker does
+// exactly that — VIF1 gets the city's chain and, four instructions later, the GIF
+// channel gets the ctx2 frame-clear packet, whose 20 quadwords slip through PATH3
+// before the city's first geometry emerges from VU1. Walking the VIF1 chain inside
+// its own CHCR store inverts that order and the clear lands on the finished city. So
+// the VIF1 walk is deferred until the guest could observe it; a GIF chain started
+// before any such sync point was concurrent, and runs first, which is the order the
+// arbiter produced. Every other channel keeps the instant model.
 func (m *Machine) dmacWrite(a, v uint32) bool {
+	if m.vif1Pending {
+		if ch, reg, ok := dmacChanReg(a); ok && ch == dmacChGIF && reg == dChcr &&
+			v&dChcrStart != 0 && v&dChcrModeM == 1<<2 {
+			m.dmac[ch].chcr = v
+			m.dmacStart(dmacChGIF)
+			m.drainVIF1()
+			return true
+		}
+		m.drainVIF1()
+	}
 	if ch, reg, ok := dmacChanReg(a); ok {
 		c := &m.dmac[ch]
 		switch reg {
 		case dChcr:
 			c.chcr = v
+			if kickLog && ch <= dmacChGIF {
+				fmt.Printf("  kick ch%d CHCR=%08X TADR=%08X MADR=%08X QWC=%d pc=%08X\n", ch, v, c.tadr, c.madr, c.qwc, uint32(m.CPU.PC))
+			}
 			if v&dChcrStart != 0 {
+				if ch == dmacChVIF1 && v&dChcrModeM == 1<<2 {
+					m.vif1Pending = true
+					return true
+				}
 				m.dmacStart(ch)
 			}
 		case dMadr:
@@ -194,6 +233,9 @@ func (m *Machine) dmacWrite(a, v uint32) bool {
 			c.qwc = v & 0xFFFF
 		case dTadr:
 			c.tadr = v
+			if kickLog && ch <= dmacChGIF {
+				fmt.Printf("  kick ch%d TADR=%08X pc=%08X ra=%08X\n", ch, v, uint32(m.CPU.PC), uint32(m.CPU.R[31].Lo))
+			}
 		case dAsr0:
 			c.asr0 = v
 		case dAsr1:
@@ -504,7 +546,7 @@ func (m *Machine) dmacSourceChain(ch int, c *dmacChan, feed func([]byte), wholeT
 		if lo&(1<<63) != 0 {
 			addr |= 0x80000000 // the scratchpad, in dmaBytes' encoding
 		}
-		if chainLogN > 0 && ch == dmacChVIF1 {
+		if chainLogN > 0 && (ch == dmacChVIF1 || ch == dmacChGIF) {
 			chainLogN--
 			fmt.Printf("  chain ch%d tag@%08X id=%d qwc=%d addr=%08X\n", ch, c.tadr, id, qwc, addr)
 		}
@@ -587,8 +629,12 @@ func (m *Machine) dmaBytes(madr, qwc uint32) []byte {
 	return out
 }
 
-// chainLogN, when set via PS2_CHAINLOG, prints that many VIF1 source-chain tags — the
-// microscope for which DL segments a frame's chain actually links.
+// kickLog, via PS2_KICKLOG, prints every VIF0/VIF1/GIF-channel TADR and CHCR write
+// with the EE PC that made it — the microscope for who kicks which chain, and when.
+var kickLog = os.Getenv("PS2_KICKLOG") != ""
+
+// chainLogN, when set via PS2_CHAINLOG, prints that many VIF1 and GIF-channel
+// source-chain tags — the microscope for which DL segments a frame's chain actually links.
 var chainLogN = func() int {
 	n, _ := strconv.Atoi(os.Getenv("PS2_CHAINLOG"))
 	return n
