@@ -162,15 +162,24 @@ func (m *Machine) ensureGS() *GS {
 // value is in the register's own layout (an A+D or REGLIST write); the PACKED layouts
 // are decoded by writePacked before they arrive here.
 func (gs *GS) write(reg uint8, val uint64) {
-	if gs.m != nil && gs.m.GSRegLogN > 0 && reg == gs.m.GSRegLog {
-		gs.m.GSRegLogN--
+	logThis := gs.m != nil && gs.m.GSRegLogN > 0 && reg == gs.m.GSRegLog
+	if !logThis && gs.m != nil && gs.m.GSRegLogs != nil {
+		if n := gs.m.GSRegLogs[reg]; n > 0 {
+			gs.m.GSRegLogs[reg] = n - 1
+			logThis = true
+		}
+	}
+	if logThis {
+		if gs.m.GSRegLogN > 0 && reg == gs.m.GSRegLog {
+			gs.m.GSRegLogN--
+		}
 		srcEE := ""
 		if v := gs.m.vifs[1]; v != nil && strings.HasPrefix(gs.src, "path2") {
 			// The write came down PATH2, so the packet is a VIF1 DIRECT payload and the
 			// VIF knows the EE address it was gathered from — the write-watch target.
 			srcEE = sprintf(" (payload EE 0x%08X)", v.payloadAddr)
 		}
-		fmt.Printf("  GS reg 0x%02X <- %016X from %s%s\n", reg, val, gs.src, srcEE)
+		fmt.Printf("  GS reg 0x%02X <- %016X at prim %d from %s%s\n", reg, val, gs.prims, gs.src, srcEE)
 		if gs.m.GSRegDumpPacket && val == gs.m.GSRegDumpVal && gs.curPacket != nil {
 			gs.m.GSRegDumpPacket = false
 			n := len(gs.curPacket) / 16
@@ -182,6 +191,17 @@ func (gs *GS) write(reg uint8, val uint64) {
 				fmt.Printf("    qw %2d: %016X %016X\n", i, le64(gs.curPacket[i*16+8:]), le64(gs.curPacket[i*16:]))
 			}
 		}
+	}
+	if gs.m != nil && gs.m.GSPktTraceN > 0 {
+		if gs.m.GSPktTraceOn == 0 && reg == gs.m.GSPktArmReg && val == gs.m.GSPktArmVal {
+			gs.m.GSPktTraceOn = gs.m.GSPktTraceN
+			gs.m.GSPktTraceN = 0
+			fmt.Printf("  pkttrace armed at prim %d from %s\n", gs.prims, gs.src)
+		}
+	}
+	if gs.m != nil && gs.m.GSPktTraceOn > 0 {
+		gs.m.GSPktTraceOn--
+		fmt.Printf("  pkt reg 0x%02X <- %016X (prim %d)\n", reg, val, gs.prims)
 	}
 	if int(reg) < len(gs.reg) {
 		gs.reg[reg] = val
@@ -651,6 +671,13 @@ func (m *Machine) gsPrivWrite(a, v uint32) bool {
 		gs.csr &^= uint64(v) & 0x1F // SIGNAL/FINISH/HSINT/VSINT/EDWINT are W1C
 	case gsCSR + 4:
 	}
+	// The flip log: DISPFB writes against the primitive counter, so the scanout
+	// choreography can be laid against the draw stream (which pass was the buffer in
+	// when the CRTC started reading it).
+	if m.LogDISPFB && (a == gsDISPFB2 || a == gsDISPFB1 || a == gsPMODE) && m.io[a] != v {
+		fmt.Printf("  dispfb: [%08X] <- %08X (was %08X) at prim %d vblank %d\n",
+			a, v, m.io[a], gs.prims, m.VBlanks())
+	}
 	m.io[a] = v
 	return true
 }
@@ -820,6 +847,28 @@ func (m *Machine) GSBuffer(base, bw uint32, h int) (pix []byte, w int) {
 				pix[o+1] = m.gs.vram[addr+1]
 				pix[o+2] = m.gs.vram[addr+2]
 				pix[o+3] = 0xFF
+			}
+		}
+	}
+	return pix, w
+}
+
+// GSBufferAlpha reads back the ALPHA channel of a PSMCT32 rectangle as a grey picture
+// (r=g=b=alpha, opaque). GSBuffer forces alpha opaque so its PNGs are viewable; this is
+// the honest view of the channel — the blur passes author per-pixel blend weights there.
+func (m *Machine) GSBufferAlpha(base, bw uint32, h int) (pix []byte, w int) {
+	if m.gs == nil || bw == 0 || h <= 0 {
+		return nil, 0
+	}
+	w = int(bw) * 64
+	pix = make([]byte, w*h*4)
+	for y := 0; y < h; y++ {
+		for x := 0; x < w; x++ {
+			addr := addrPSMCT32(base/64, bw, uint32(x), uint32(y))
+			o := (y*w + x) * 4
+			if addr+4 <= uint32(len(m.gs.vram)) {
+				a := m.gs.vram[addr+3]
+				pix[o+0], pix[o+1], pix[o+2], pix[o+3] = a, a, a, 0xFF
 			}
 		}
 	}

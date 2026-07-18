@@ -53,8 +53,12 @@ func main() {
 	gsBig := flag.Int("gsbig", 0, "dump the next N completed GS primitives whose bbox exceeds 1024px")
 	gsTex := flag.String("gstex", "", "at run end, render TEX0(hex) through the swizzle+CLUT to FILE.png as TEX0:FILE.png")
 	gsPixel := flag.String("gspixel", "", "log the next N colour writes at X:Y:N (decimal)")
+	gsFlip := flag.Bool("gsflip", false, "log every changing DISPFB/PMODE write with the prim count")
+	vu1dump := flag.String("vu1dump", "", "at run end, dump VU1 micro+data memory to PREFIX-micro.bin / PREFIX-data.bin")
+	gsPktTrace := flag.String("gspkttrace", "", "REG:VAL:N (hex,hex,dec) — after a write of VAL to GS reg REG, print the next N raw register writes in stream order")
 
-	var bps, logpcs, iopLogpcs, watches, rwatches, gsFBs, gsRegs multiFlag
+	var bps, logpcs, iopLogpcs, watches, rwatches, gsFBs, gsRegs, gsSnaps multiFlag
+	flag.Var(&gsSnaps, "gssnap", "snapshot a buffer after the Nth completed prim of this run, as PRIM:BASE:FBW:H:FILE.png; repeatable")
 	flag.Var(&bps, "bp", "halting breakpoint (hex); repeatable")
 	flag.Var(&logpcs, "logpc", "non-halting breakpoint: log GPRs and continue (hex); repeatable")
 	flag.Var(&iopLogpcs, "ioplogpc", "non-halting IOP breakpoint: log GPRs and continue (hex); repeatable")
@@ -73,8 +77,8 @@ func main() {
 		loadstate: *loadstate, savestate: *savestate, poke: *poke,
 		gsFrame: *gsFrame, eeProf: *eeProf, pad: *pad, verbose: *verbose,
 		bps: bps, logpcs: logpcs, iopLogpcs: iopLogpcs, watches: watches, rwatches: rwatches, watchn: *watchn,
-		gsFBs: gsFBs, gsRegs: gsRegs, iopThreads: *iopThreads,
-		gsVerts: *gsVerts, gsBig: *gsBig, gsTex: *gsTex, gsPixel: *gsPixel,
+		gsFBs: gsFBs, gsRegs: gsRegs, gsSnaps: gsSnaps, iopThreads: *iopThreads,
+		gsVerts: *gsVerts, gsBig: *gsBig, gsTex: *gsTex, gsPixel: *gsPixel, gsFlip: *gsFlip, gsPktTrace: *gsPktTrace, vu1dump: *vu1dump,
 	}); err != nil {
 		fmt.Fprintln(os.Stderr, "bootoracle:", err)
 		os.Exit(1)
@@ -91,10 +95,13 @@ type cfg struct {
 	pad                            string
 	bps, logpcs, iopLogpcs, watches, rwatches multiFlag
 	watchn                         int
-	gsFBs, gsRegs                  multiFlag
+	gsFBs, gsRegs, gsSnaps         multiFlag
 	iopThreads                     bool
 	gsVerts, gsBig                 int
 	gsTex, gsPixel                 string
+	gsFlip                         bool
+	gsPktTrace                     string
+	vu1dump                        string
 }
 
 func hx(s string) (uint32, error) {
@@ -287,7 +294,7 @@ func run(c cfg) error {
 	}
 
 	for _, spec := range c.gsRegs {
-		parts := strings.SplitN(spec, ":", 2)
+		parts := strings.SplitN(spec, ":", 3)
 		r, err := hx(parts[0])
 		if err != nil {
 			return fmt.Errorf("bad -gsreg %q", spec)
@@ -296,7 +303,20 @@ func run(c cfg) error {
 		if len(parts) > 1 {
 			n, _ = strconv.Atoi(parts[1])
 		}
-		m.GSRegLog, m.GSRegLogN = uint8(r), n
+		if m.GSRegLogs == nil {
+			m.GSRegLogs = map[uint8]int{}
+		}
+		m.GSRegLogs[uint8(r)] = n
+		if len(parts) > 2 {
+			// REG:N:VAL — the first logged write of VAL also dumps the raw packet
+			// carrying it (the GIF's view of VU1/EE memory at that moment).
+			v, err := strconv.ParseUint(strings.TrimPrefix(parts[2], "0x"), 16, 64)
+			if err != nil {
+				return fmt.Errorf("bad -gsreg dump value %q", spec)
+			}
+			m.GSRegLog, m.GSRegLogN = uint8(r), n
+			m.GSRegDumpPacket, m.GSRegDumpVal = true, v
+		}
 	}
 
 	// Watches. The machine carries one write range and one read range (lo..hi), each
@@ -377,6 +397,64 @@ func run(c cfg) error {
 
 	m.GSVertDump = c.gsVerts
 	m.GSBigDump = c.gsBig
+	m.LogDISPFB = c.gsFlip
+	if c.gsPktTrace != "" {
+		parts := strings.SplitN(c.gsPktTrace, ":", 3)
+		if len(parts) != 3 {
+			return fmt.Errorf("bad -gspkttrace %q (want REG:VAL:N)", c.gsPktTrace)
+		}
+		r, err1 := hx(parts[0])
+		v, err2 := strconv.ParseUint(strings.TrimPrefix(parts[1], "0x"), 16, 64)
+		n, err3 := strconv.Atoi(parts[2])
+		if err1 != nil || err2 != nil || err3 != nil {
+			return fmt.Errorf("bad -gspkttrace %q", c.gsPktTrace)
+		}
+		m.GSPktArmReg, m.GSPktArmVal, m.GSPktTraceN = uint8(r), v, n
+	}
+	if len(c.gsSnaps) > 0 {
+		// Prim-indexed buffer snapshots: the OnGSPrim hook fires once per completed
+		// primitive BEFORE it rasterises, so a snap "at prim N" is the buffer with
+		// exactly N prims of this run drawn. Prim indices are counted from run start
+		// (the savestated gs.prims total would make them non-reproducible).
+		type snap struct {
+			at      int
+			base    uint32
+			fbw     uint32
+			h       int
+			file    string
+			written bool
+		}
+		var snaps []*snap
+		for _, spec := range c.gsSnaps {
+			parts := strings.SplitN(spec, ":", 5)
+			if len(parts) != 5 {
+				return fmt.Errorf("bad -gssnap %q (want PRIM:BASE:FBW:H:FILE.png)", spec)
+			}
+			at, err1 := strconv.Atoi(parts[0])
+			base, err2 := hx(parts[1])
+			fbw, err3 := strconv.Atoi(parts[2])
+			hh, err4 := strconv.Atoi(parts[3])
+			if err1 != nil || err2 != nil || err3 != nil || err4 != nil {
+				return fmt.Errorf("bad -gssnap %q", spec)
+			}
+			snaps = append(snaps, &snap{at: at, base: base, fbw: uint32(fbw), h: hh, file: parts[4]})
+		}
+		primN := 0
+		m.OnGSPrim = func(ptype int, producer string) int {
+			for _, s := range snaps {
+				if !s.written && primN >= s.at {
+					s.written = true
+					if err := writeGSBufferPNG(m, s.base, s.fbw, s.h, s.file); err != nil {
+						fmt.Printf("gssnap %d: %v\n", s.at, err)
+					} else {
+						fmt.Printf("gssnap: wrote fb 0x%05X at prim %d to %s\n", s.base, primN, s.file)
+					}
+				}
+			}
+			primN++
+			return -1
+		}
+	}
 	if c.gsPixel != "" {
 		var px, py, pn int
 		if _, err := fmt.Sscanf(c.gsPixel, "%d:%d:%d", &px, &py, &pn); err != nil {
@@ -443,6 +521,15 @@ func run(c cfg) error {
 		if err := writeGSFrame(m, c.gsFrame); err != nil {
 			return err
 		}
+	}
+	if c.vu1dump != "" {
+		if err := os.WriteFile(c.vu1dump+"-micro.bin", m.VUMicro(1), 0644); err != nil {
+			return err
+		}
+		if err := os.WriteFile(c.vu1dump+"-data.bin", m.VUDataMem(1), 0644); err != nil {
+			return err
+		}
+		fmt.Printf("vu1dump: wrote %s-micro.bin / -data.bin\n", c.vu1dump)
 	}
 	if c.gsTex != "" {
 		texS, path, ok := strings.Cut(c.gsTex, ":")
@@ -544,21 +631,27 @@ func writeGSBuffer(m *ps2.Machine, spec string) error {
 	if err1 != nil || err2 != nil || err3 != nil {
 		return fmt.Errorf("bad -gsfb %q", spec)
 	}
-	pix, w := m.GSBuffer(base, uint32(fbw), h)
+	if err := writeGSBufferPNG(m, base, uint32(fbw), h, parts[3]); err != nil {
+		return err
+	}
+	fmt.Printf("gsfb: wrote %s\n", spec)
+	return nil
+}
+
+func writeGSBufferPNG(m *ps2.Machine, base, fbw uint32, h int, path string) error {
+	pix, w := m.GSBuffer(base, fbw, h)
+	if strings.HasSuffix(path, ".alpha.png") {
+		pix, w = m.GSBufferAlpha(base, fbw, h)
+	}
 	if pix == nil {
-		fmt.Printf("gsfb %s: nothing to dump\n", spec)
-		return nil
+		return fmt.Errorf("nothing to dump at 0x%X", base)
 	}
 	img := image.NewRGBA(image.Rect(0, 0, w, h))
 	copy(img.Pix, pix)
-	f, err := os.Create(parts[3])
+	f, err := os.Create(path)
 	if err != nil {
 		return err
 	}
 	defer f.Close()
-	if err := png.Encode(f, img); err != nil {
-		return err
-	}
-	fmt.Printf("gsfb: wrote %dx%d to %s\n", w, h, parts[3])
-	return nil
+	return png.Encode(f, img)
 }

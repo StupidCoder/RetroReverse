@@ -256,6 +256,17 @@ type Machine struct {
 	GSRegLog  uint8
 	GSRegLogN int
 
+	// GSRegLogs is the multi-register variant: remaining log counts per register.
+	GSRegLogs map[uint8]int
+
+	// The packet stream trace: armed by a write of GSPktArmVal to GSPktArmReg, the next
+	// GSPktTraceN GS register writes print raw (register, value) in stream order — the
+	// microscope for "state was set up here and the draw that should follow is missing".
+	GSPktArmReg  uint8
+	GSPktArmVal  uint64
+	GSPktTraceN  int
+	GSPktTraceOn int
+
 	// GSRegDumpPacket makes the first -gsreg hit whose value equals GSRegDumpVal also
 	// hexdump the GIF packet that carried the write — the misframed-packet
 	// discriminator: the qwords say whether the game wrote that value or the parse
@@ -305,6 +316,10 @@ type Machine struct {
 	// built from.
 	OnGSPrim  func(ptype int, producer string) int
 	OnGSPixel func(cmd int, fbWord uint32, x, y int32)
+
+	// LogDISPFB, when set, prints every changing DISPFB1/DISPFB2/PMODE write with the
+	// current primitive count — the scanout choreography against the draw stream.
+	LogDISPFB bool
 
 	// The IOP's stdio output, buffered until it has a whole line to log.
 	iopTTYLine []byte

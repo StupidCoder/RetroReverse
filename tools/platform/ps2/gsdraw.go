@@ -29,6 +29,9 @@ func writeFile(name string, data []byte) error {
 	return os.WriteFile(name, data, 0644)
 }
 
+// noClearExperiment gates the RRV blur-clear mutation test in plot; see there.
+var noClearExperiment = os.Getenv("PS2_NOCLEAR_EXPERIMENT") != ""
+
 // The GS drawing registers beyond those gs.go already names.
 const (
 	gsST        = 0x02
@@ -261,10 +264,14 @@ func (gs *GS) drawn(typ int) {
 		tex0 := gs.reg[gsTEX0_1]
 		frame := gs.reg[gsFRAME1]
 		alpha := gs.reg[gsALPHA1]
+		test := gs.reg[gsTEST1]
+		zbuf := gs.reg[gsZBUF1]
 		if gs.ctxt() == 1 {
 			tex0 = gs.reg[gsTEX0_2]
 			frame = gs.reg[gsFRAME2]
 			alpha = gs.reg[gsALPHA2]
+			test = gs.reg[gsTEST2]
+			zbuf = gs.reg[gsZBUF2]
 		}
 		texS := ""
 		if p&(1<<4) != 0 {
@@ -273,12 +280,14 @@ func (gs *GS) drawn(typ int) {
 		if p&(1<<6) != 0 {
 			texS += sprintf(" alpha %010X", alpha)
 		}
-		fmt.Printf("  prim %-9s PRIM=0x%03X ctx%d%s%s%s fb 0x%05X xyoff (%d,%d) scissor x %d..%d y %d..%d%s from %s:\n",
+		fmt.Printf("  prim %-9s PRIM=0x%03X ctx%d%s%s%s fb 0x%05X psm 0x%02X fbmsk %08X test %05X zbuf %09X xyoff (%d,%d) scissor x %d..%d y %d..%d%s from %s:\n",
 			primNames[typ&7], p, gs.ctxt()+1,
 			map[bool]string{true: " TME", false: ""}[p&(1<<4) != 0],
 			map[bool]string{true: " ABE", false: ""}[p&(1<<6) != 0],
 			map[bool]string{true: " FGE", false: ""}[p&(1<<5) != 0],
 			uint32(frame)&0x1FF*2048,
+			uint32(frame>>24)&0x3F, uint32(frame>>32),
+			uint32(test)&0x7FFFF, uint64(zbuf)&0x1FFFFFFFF,
 			uint32(xyoff)&0xFFFF>>4, uint32(xyoff>>32)&0xFFFF>>4,
 			uint32(scis)&0x7FF, uint32(scis>>16)&0x7FF,
 			uint32(scis>>32)&0x7FF, uint32(scis>>48)&0x7FF,
@@ -400,6 +409,14 @@ func (gs *GS) plot(t *gsTarget, x, y int32, z uint32, rgba uint32) {
 	fbmsk := t.fbmsk
 	writeZ := !t.zmsk
 	srcA := rgba >> 24
+
+	// EXPERIMENT (env-gated, off by default): treat RRV's blur-pass full-screen clear as
+	// an alpha+Z-only write, to test whether the rest of the pass then converges to the
+	// reference look. Keyed to exactly that draw's signature.
+	if noClearExperiment && t.primType == primSprite && rgba == 0x7F000000 &&
+		t.fbmsk == 0 && t.test == 0x30000 && !t.abe {
+		fbmsk |= 0x00FFFFFF
+	}
 
 	// The alpha test compares the source alpha against AREF; a failing pixel is dropped
 	// or writes partially, by AFAIL.

@@ -1,5 +1,11 @@
 package ps2
 
+import (
+	"fmt"
+	"os"
+	"strconv"
+)
+
 // dmac.go is the Emotion Engine's DMA controller — the piece of silicon that moves
 // bulk data between main memory and the peripherals without the CPU copying it word
 // by word. On the EE it is what every render frame is made of: the game builds a list
@@ -498,6 +504,10 @@ func (m *Machine) dmacSourceChain(ch int, c *dmacChan, feed func([]byte), wholeT
 		if lo&(1<<63) != 0 {
 			addr |= 0x80000000 // the scratchpad, in dmaBytes' encoding
 		}
+		if chainLogN > 0 && ch == dmacChVIF1 {
+			chainLogN--
+			fmt.Printf("  chain ch%d tag@%08X id=%d qwc=%d addr=%08X\n", ch, c.tadr, id, qwc, addr)
+		}
 
 		if tte {
 			m.feedMadr = c.tadr + 8
@@ -576,3 +586,10 @@ func (m *Machine) dmaBytes(madr, qwc uint32) []byte {
 	}
 	return out
 }
+
+// chainLogN, when set via PS2_CHAINLOG, prints that many VIF1 source-chain tags — the
+// microscope for which DL segments a frame's chain actually links.
+var chainLogN = func() int {
+	n, _ := strconv.Atoi(os.Getenv("PS2_CHAINLOG"))
+	return n
+}()
