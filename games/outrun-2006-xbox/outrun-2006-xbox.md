@@ -2196,3 +2196,106 @@ DPC) is to be found by tracing the game's start-state flag from the "Go!" writer
 The cold-boot title pin holds (`0bea502acd2a1f902d429097022116b5`, `title.state` +100M
 `-surfpng`), and `go test` is green across `tools/platform/xbox`, `tools/cpu/x86`, and
 `tools/debug/xboxadapter`.
+
+## Part XVI — the grid does not freeze, it crawls: mapping the start machinery
+
+Part XV left the grid stuck at the line and named an audio-completion observable as the
+prime suspect. This part traces the start machinery from the game's own code (no code
+changes — every probe here is read-only: `-dis`, `-watch`/`-rwatch`, `-bp`, `-dump`,
+one-shot `-poke`). It does **not** yet reach a driven race; it maps the tangle and
+corrects the freeze's shape. All addresses are on `race-leg1.state` unless noted; a full
+static disassembly (`-dis 0x10000:950000`) was the primary instrument.
+
+### The grid crawls — there is no hard on/off gate
+
+The decisive reframe: the player car is **not frozen**. Dumping its transform block
+across ~80M steps (`[0x57DBB0…]`) shows the floats advancing by ~epsilon each tick
+(`0x30E40000 → 0x3180C000`, …) — the car is moving at a vanishing rate, which the
+speedo rounds to `000`. This matches Part XV's own note that the AI "crawl at walking
+pace". So the physics is *running and integrating*; the driving force (throttle × power)
+is scaled to ≈0. We are not looking for a boolean the physics skips on, but for a
+near-zero race-launch factor that never rises to 1.
+
+`[car+0x8]` is a **flags** word (not speed — `0xF40D0` is the transform double-buffer,
+propagating `[car+0x1C…0x28] → [car+0x1D0…0x1F0]`). The per-tick sim's first call
+`0xA5720` (→ `0xA5160`, `0xA53D0`) is the **input layer** — per-player button/analog
+edge-detect into `0x5E5158`/`0x5E5228 + player*0x{10,70}` — not the car physics, which
+lives in the object-update dispatcher `0x37AD0` (over the entity list at `0x50349C`).
+Finding the speed scalar and its accelerating multiplier is the open frontier.
+
+### The launch state machine, and why poking it crashes
+
+Mode `[0x57D794]` is `0x10` (race; set at `0x85F8E` via the vtable driver `0x85F70`,
+`{enter,tick,exit}` at `mode*0x10 + 0x274198`). The race sub-phase `[0x5BF540]`
+(initialised to `0x14` by `0x8F5C0`, which also sets `[0x5BF548]=[0x5BF440]=0x14`) is
+walked `8→…→0x14→0x15→0` by the sequencer at `0x91280`. It is stuck at `0x14`.
+
+- The `0x14→0x15` "launch" transition (`0x916E3`) is gated by **`0x92DA0` = bit 5 (0x20)
+  of `[0x5C00B0]`**; `0x92DB0` clears it on consume. `[0x5C00B0]` is an event bitfield
+  rebuilt each frame by the assembler at `0x94090`.
+- Bit 5 is set (`0x9415F`/`0x941C1`, mask in `EDX=0x20` at `0x94144`) only when
+  `[0x5BFFA8]` bit0 is set, bit1 clear, and the player car's signed byte `[car+0x25C]`
+  is negative.
+- `[0x5BFFA8]` bit0 is set (`0x93D00`) only when `[0x5BFFA8]` **bit3 (0x08)** is already
+  set — and no writer sets bit3 anywhere in the image (only clearers: `0x93D5E`,
+  `0x92DB0`-family). This whole cascade is the player's **launch-boost / rev-timing**
+  path; it is dormant by construction here, not the basic race start.
+- `[car+0x25C]` is read from an **animation-data table**, `0x879F0` returning
+  `word[ 0x59E2F0[car+0x5C] + [car+0x1C0]*64 + 0x3C ]`; it is 0 because the car's
+  animation **state `[car+0x5C]` is 0** (table pointer null), i.e. the burnout/idle
+  animation carries no launch-event frame.
+
+Forcing the launch by poking `[0x5C00B0]=0x20` **advances the phase and then crashes**
+at `0x87796` (`MOVUPS [EAX+ECX]`, `EAX=0xFFFFFFC0` from an index of `-1`): the launch
+path indexes a per-car animation the stuck state never assigned. So bit 5 is confirmed
+as the phase-advance consumer, but a raw poke is not a clean launch — the honest path
+sets up the car animation the launch then plays.
+
+### The racing-tick "Go!" release is starved by the intro's idle loop
+
+The mode-`0x10` tick `0xE85B0` runs every frame (confirmed by `-bp`). It contains a
+classic countdown→hold→release: decrement `[0x62AF9C]`; on reaching 0, arm the hold
+`[0x62B4CC]` (`0x1A4=420` ticks for game types 4/6, `[0x57D780]=6` here); on the hold
+reaching 0, fire the release at `0xE8625` — event **`0x207` (the "Go!" cue)** plus the
+type-6 start fn `0x8E490` (`[0x5BF540]=0x19`). Its gate `0x8E8F0` (`[0x5BF548]==0x14`)
+is **open by default** (that's the init value), so the gate is not the blocker.
+
+The blocker is that **the hold timer never arms**. Watching `[0x62AF9C]` from
+`race-countdown.state` shows it written by three PCs: `0xEA06C` (the countdown-display
+loop's decrement), `0xE85C3` (the racing tick's own decrement), and **`0xEA05A`, which
+resets it to `0xB4=180`**. That reset runs every frame because the intro's master
+phase-timer `[0x57D778]` has expired (`≤0`; `0x85FE0` decrements it, `SETLE` returns
+"expired" forever once it passes 0), and the type-6 branch of the expiry handler
+(`0xEA035…0xEA05A`) only resets the display — it never advances to launch (only types
+3/4 call the start action `0xD90A0` there). So `[0x62AF9C]` is pinned near 180, the
+racing tick can never carry it to 0, `[0x62B4CC]` never initialises, and the `0x207`
+release never fires. `[0x62B4CC]=0` in **every** race fixture, never written.
+
+### Where Part XVI leaves it — honest status
+
+The race is **not yet driven**; the single gate to model honestly is not yet isolated.
+What is now established and mapped for the next session:
+
+- **The grid crawls, it does not freeze.** The target is a near-zero acceleration /
+  launch scale, found in the car-physics object update (`0x37AD0` dispatcher), not a
+  boolean skip. Find the speed scalar first.
+- **Two launch paths, both stalled.** (a) The rev-timing cascade
+  `[0x5C00B0].bit5 ← [0x5BFFA8].bit0 ← [0x5BFFA8].bit3(no setter) & car[+0x25C](anim)` —
+  dormant; a poke of bit 5 advances the phase but crashes for want of the car animation.
+  (b) The racing-tick release (event `0x207`) — starved because `[0x57D778]` expired and
+  the type-6 intro-expiry handler resets `[0x62AF9C]=180` every frame instead of
+  advancing, so the hold `[0x62B4CC]` never arms.
+- **The audio-completion suspicion is not yet confirmed.** The sound-status query
+  `0x2EFC0` (reads the game-side slot array `0x4961D4`, `0xFF`=free — not APU MMIO, as
+  Part XV predicted) is used heavily, but the cluster that gates on it
+  (`0xE8342…0xE83DE`, incl. sound `0x207`) belongs to the **race-load** sequence whose
+  stage marker `[0x62AEF8]` reaches `0x38` = **success** in every fixture. The plausible
+  link left to test: does `[0x57D778]`'s intro phase fail to advance because a phase
+  transition waits on a sound our silent voices never finish? That advance — the setter
+  of `[0x57D778]` via `0x85E10`, and the type-6 handoff from intro to the racing tick —
+  is the next thread to pull.
+
+No code changed this part; the title pin
+(`0bea502acd2a1f902d429097022116b5`) and shadow-derivation frame
+(`8edb1d2345c7492409b65b9e9700bf77`) hold, and `go test` stays green across
+`tools/platform/xbox`, `tools/cpu/x86`, and `tools/debug/xboxadapter`.
