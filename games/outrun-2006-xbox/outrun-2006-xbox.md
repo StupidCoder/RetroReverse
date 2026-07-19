@@ -2385,3 +2385,35 @@ advance selector `0x92D20`→`[0x5BFFB0]`; advance setter `0x92C60`; control ass
 `0x94090`; bit-2 gate `0x93EA0`(`0x93EF8`); bit-0 setter `0x93790`; anim table `0x59E2F0`.
 Globals: state `0x57D794`, advance `0x5BFFB0`, control bits `0x5C00B0`, behaviour
 `[0x57DA3C]` (=car+0x5C). No code changed; pins and tests hold.
+
+### Correction — the state-advance is a symptom; the root is upstream (no thrust)
+
+Directly testing the chain reversed the causality above. Poking the control bits sticks
+(the assembler's per-frame mask `0x9409A` = `AND …,0xF5` preserves bits 0 and 2), and the
+advance fires exactly as mapped: `-poke 0x5C00B0:0x01` gives `[0x5BFFB0]=2` and state
+`0x10 -> 0x14`; `-poke 0x5C00B0:0x04` gives `[0x5BFFB0]=1` and `0x10 -> 0x13`. **But
+advancing the state does not release the cars** — after either poke, `[car+0x4]` bit 3
+stays clear and the body velocity `[0x61308C]` stays ~0. The drive gate `0xF368E` only
+enables body motion for states `0x0D` / (`0x10` & timer > 60), not `0x13/0x14`, so the
+state-advance is downstream of the freeze, not its cause.
+
+And `[car+0x5C]` is **not** a missing menu/spawn assignment: watching it for 200M steps,
+its only writer is `0x16902E` (the contact write-back inside the `0x1692A0` per-car
+pipeline, fed by collision `0x168880`), value 0 **every frame** — a live physics output
+pinned to 0 because the car isn't moving. So the bit-2 guard `[car+0x5C]!=0` reads "*has
+the car begun moving yet?*" — a motion detector, satisfied only once thrust exists.
+(`[0x5C00B0]` bit 0 is likewise a consequence: its setter `0x935A0` gates on
+`[0x5C000C] <= 0`, and `[0x5C000C]` = 5307 frames = 88.45 s = the HUD **"Time"** — bit 0 is
+the leg-clock time-up, not the start.)
+
+**So the whole state machine / behaviour picture is downstream.** The confirmed root is
+that **no forward thrust reaches any car's body**, verified in every configuration:
+drive-enabled state `0x0D` (from `race-countdown`) with every accel candidate held still
+leaves speed `[car+0x1C4]` = 0; drive-enabled `0x10` (poke `[0x62AF9C]>60`) + throttle
+held, the same. The car idles in gear 1 (the ~ε crawl is idle creep), and the engine
+torque -> wheel traction -> body force never becomes non-zero, for the player *and* the AI
+alike. The next frontier is strictly the **engine-torque / wheel-traction source** in the
+drivetrain (`0x1692A0` sub-steps and the wheel solvers `0xED8C0`/`0xED7E0`/`0xF2110` over
+`[body+0x248..0x254]`) — the value that would make one car's velocity non-zero and let the
+downstream chain (motion detector -> `[0x5C00B0]` bit 2 -> state advance) fire naturally.
+No code changed; pins and tests hold.
