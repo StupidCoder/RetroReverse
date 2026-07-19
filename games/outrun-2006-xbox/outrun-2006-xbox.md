@@ -2295,6 +2295,34 @@ What is now established and mapped for the next session:
   of `[0x57D778]` via `0x85E10`, and the type-6 handoff from intro to the racing tick —
   is the next thread to pull.
 
+**Deeper pass (same part, still no fix).** Following the crawl into the physics:
+
+- **The car speed scalar is `[car+0x1C4]`** (≈`9.4e-5`, essentially 0), with the
+  per-tick acceleration in `[car+0x1C8]`; both are written by the kinematics function
+  `0xECE90` (`0xED125`), which integrates world position at `[car+0x2AC]` (`0xED1C7`,
+  += velocity) from the working rigid body `[0x613030]` (its velocity `[body+0x5C]`≈0).
+  So the **engine thrust delivered to the body is ~0** — that, not a position clamp, is
+  why every car crawls. The kinematics is called from the per-car update `0xF3xxx`
+  (`0xF3793`); the drivetrain that should push the body runs just before it
+  (`0xED7E0`/`0xED8C0`/`0xF2110`/`0xF2310` — `0xF2110` is a suspension/constraint solver).
+  The throttle→force site inside that drivetrain, and why it yields ~0 for player *and*
+  AI, is the open frontier.
+- **The per-car "drive-enable" bit3 of `[car+0x4]` is the INTRO animation, not the
+  launch.** `0xF3680`: for mode `0x10`, bit3 is set iff `0xE6FB0()` > 60 — and `0xE6FB0`
+  is simply `return [0x62AF9C]`. The race-mode-entry init `0xE84F0` sets `[0x62AF9C]=300`
+  (type 6; 360 for 3/4), `[0x57D778]=120`, `[0x62AEF8]=5`; `[0x62AF9C]` then counts down
+  through 60 (cars roll to the grid) and settles at 0 (scripted-held at the line). It is
+  **stable at 0 in leg1** (never written — the intro is over). **Poking `[0x62AF9C]=180`
+  does not release the grid** (flip-aligned strip stays 000): bit3 flips the physics to
+  the free-orientation branch but delivers no thrust, so the crawl continues. The launch
+  is genuinely a separate signal.
+- **The audio-completion suspicion still isn't the launch.** `0x2EFC0` and the
+  `[0x62AEF8]`→`0x38` sound cluster are the race-*load*, which succeeds. The intro master
+  timer `[0x57D778]` is one of 21 `0x85FE0` callers; the type-6 handoff that should fire
+  the release when it expires (types 3/4 call `0xD90A0` there; type 6 does not) is the
+  thread still to pull — find the `0x85FE0` caller that releases the grid for type 6 and
+  what it reads.
+
 No code changed this part; the title pin
 (`0bea502acd2a1f902d429097022116b5`) and shadow-derivation frame
 (`8edb1d2345c7492409b65b9e9700bf77`) hold, and `go test` stays green across
