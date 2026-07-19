@@ -2327,3 +2327,61 @@ No code changed this part; the title pin
 (`0bea502acd2a1f902d429097022116b5`) and shadow-derivation frame
 (`8edb1d2345c7492409b65b9e9700bf77`) hold, and `go test` stays green across
 `tools/platform/xbox`, `tools/cpu/x86`, and `tools/debug/xboxadapter`.
+
+## Part XVII — the race state machine, and the grid-release gate localised
+
+Part XVI ended pointing at the drivetrain. Tracing further (and with a background agent
+running the force-trace in parallel) turned the whole thing over: the block is not in the
+physics at all, it is a **state machine that never advances off the grid**.
+
+### The race state machine
+
+`[0x57D794]` is a state enum driven by the vtable dispatcher `0x85F70` (`{enter,tick,exit}`
+at `0x274198 + state*0x10`). Transitions are *requested* by `0x85E10(next)` (sets
+`[0x57D79C]=1`, `[0x57D784]=next`); the dispatcher applies the request and calls the new
+state's enter. Relevant states: `0x0E` enter `0xE84F0` (sets the countdown timers
+`[0x62AF9C]=300`, `[0x57D778]=120`); `0x0D` enter `0xE9870`, tick `0xE9AA0` (the countdown
+— its tick, on `[0x57D778]` expiry at `0xEA035`, requests `0x10` and resets `[0x62AF9C]`);
+`0x10` enter `0xE5980`, tick `0xE85B0` (grid/HUD); `0x13`/`0x14` (race — `0x13` enter
+`0xE8730` is the five-opponent setup `0x930D0(0..4)`). A live watch from
+`race-countdown.state` shows the real flow: `0x0D → 0x10`, then **stuck at `0x10` forever**.
+
+### The grid-release gate — exact chain
+
+State `0x10`'s tick (`0xE85B0`) chooses its next state from `0x92D20`, which simply
+returns **`[0x5BFFB0]`**: value `1..4` → request state `0x14/0x13/0x15/0x16` (the race);
+`0` → stay. In the fixture `[0x5BFFB0]=0`. That word is written each frame by `0x92C60`
+(called from the per-frame control-flag assembler `0x94090` at `0x94138`), and for game
+type 6 it is set **only from `[0x5C00B0]`**: bit 0 set → `[0x5BFFB0]=2`; bit 2 set →
+`[0x5BFFB0]=1`; neither → `[0x5BFFB0]` stays 0. In the fixture **`[0x5C00B0]=0`** (all
+bits clear), so no advance is ever requested and the grid never releases.
+
+`[0x5C00B0]` is the control/event bitfield the assembler `0x94090` rebuilds every frame;
+its bit 2 is set inside `0x93EA0` — but only past a chain of guards that **includes
+`[player-car+0x5C] != 0`** (`0x93EF8`: `MOV EAX,[ESI+0x5C]; TEST EAX; JZ skip`, with
+`ESI = [0x597248]` = the player car `0x57D9E0`). And `[car+0x5C] = 0` in *every* fixture
+(race-start, countdown, leg1). So the frozen grid reduces to: `[car+0x5C]=0` ⟶ assembler
+never sets `[0x5C00B0]` bit 2 ⟶ `0x92C60` leaves `[0x5BFFB0]=0` ⟶ state `0x10` never
+requests the race state ⟶ every car stays scripted to the line.
+
+### What `[car+0x5C]` is, and the honest open question
+
+`[car+0x5C]` is the car's model/behaviour selector: it indexes the anim-set table
+`0x59E2F0` (index 0 = `0x00FB5770`, a *valid* set — so it is not a null-pointer bug), and
+poking it non-zero visibly changes the rendered car (poke `=2` re-skins the car and trips
+an unmodelled cube-map stage-mode-12 render halt — a separate NV2A gap, not a logic
+crash). So Part XVI's drive-enable gate (bit 3 of `[car+0x4]`, gated on state/`[0x62AF9C]`)
+was a red herring for the freeze, and so was the earlier `[car+0x25C]` anim-launch
+cascade; the true gate is the **state-advance trigger `[0x5C00B0]`**, upstream of both,
+and its bit 2 wants `[car+0x5C] != 0`.
+
+The one question left is why `[car+0x5C]` is 0 — i.e. what assigns the player car its
+racing model/behaviour and did not run, or whether bit 0 of `[0x5C00B0]` (the other
+advance trigger, set in the projection routine ending `0x93790`) is the intended
+type-6 path and is blocked by a nearer condition. That single assignment is the fix; it
+sits above the whole physics/drivetrain the earlier parts were spelunking. Key addresses:
+state dispatch `0x85F70` / request `0x85E10` / table `0x274198`; grid tick `0xE85B0`;
+advance selector `0x92D20`→`[0x5BFFB0]`; advance setter `0x92C60`; control assembler
+`0x94090`; bit-2 gate `0x93EA0`(`0x93EF8`); bit-0 setter `0x93790`; anim table `0x59E2F0`.
+Globals: state `0x57D794`, advance `0x5BFFB0`, control bits `0x5C00B0`, behaviour
+`[0x57DA3C]` (=car+0x5C). No code changed; pins and tests hold.
