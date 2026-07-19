@@ -178,3 +178,70 @@ func TestFrameZAsColourWritesThroughZSwizzle(t *testing.T) {
 		t.Errorf("colour reached the CT32-swizzled word for (5,5) — the Z clear would miss the geometry's depth")
 	}
 }
+
+// TestTriStripADCBreaksWithoutBridging drives a triangle strip that packs two disjoint
+// triangles into one primitive and breaks between them with the ADC bit — the exact idiom
+// Ridge Racer V's flyover uses. A left triangle (red) and a right triangle (green) sit far
+// apart; the two triangles that would bridge them are the strip's ADC=1 vertices, marked
+// "register but do not draw". The GS still slides the strip's window through those vertices,
+// so the right triangle draws in its own place; it only withholds the bridging kicks.
+//
+// The bug this guards: treating a non-kicking vertex as a plain append froze the window on
+// the first three vertices. The dropped vertices never reached the queue, so the next
+// drawing kick stitched a triangle across the gap — a huge stray polygon jutting between the
+// two objects, and the far triangle (its vertices dropped) never appeared at all.
+//
+// Mutation test: make pushVertex append-only for non-kicking writes (the old code) and the
+// bridge pixel lights up while the right triangle vanishes — both remaining assertions flip.
+func TestTriStripADCBreaksWithoutBridging(t *testing.T) {
+	m := NewMachine()
+	gs := m.ensureGS()
+
+	gs.write(gsFRAME1, 1<<16) // FBP=0, FBW=1, PSMCT32
+	gs.write(gsSCISSOR1, 63<<16|uint64(31)<<48)
+	gs.write(gsXYOFFSET1, 0)
+	gs.write(gsPRMODECONT, 1)
+
+	// tag 1: PRIM(tristrip), RGBAQ(red), and the three vertices of the left triangle.
+	var packet []byte
+	tag := make([]byte, 16)
+	putLE64(tag[0:], uint64(1)|1<<15|uint64(gifPacked)<<58|uint64(5)<<60)
+	putLE64(tag[8:], 0x0|0x1<<4|0x5<<8|0x5<<12|0x5<<16) // PRIM,RGBAQ,XYZ2,XYZ2,XYZ2
+	packet = append(packet, tag...)
+	packet = append(packet, packedPrim(4)...)          // tristrip, flat
+	packet = append(packet, packedRGBA(0xFF, 0, 0)...) // red
+	packet = append(packet, packedXYZ2(4, 4, false)...)
+	packet = append(packet, packedXYZ2(16, 4, false)...)
+	packet = append(packet, packedXYZ2(4, 16, false)...)
+
+	// tag 2: recolour green, then the right triangle — its first two vertices carry ADC=1,
+	// so the two triangles that would bridge from the left object are suppressed. The window
+	// still advances through them, so the third (ADC=0) vertex draws the right triangle.
+	tag2 := make([]byte, 16)
+	putLE64(tag2[0:], uint64(1)|1<<15|uint64(gifPacked)<<58|uint64(4)<<60)
+	putLE64(tag2[8:], 0x1|0x5<<4|0x5<<8|0x5<<12) // RGBAQ,XYZ2,XYZ2,XYZ2
+	packet = append(packet, tag2...)
+	packet = append(packet, packedRGBA(0, 0xFF, 0)...) // green
+	packet = append(packet, packedXYZ2(44, 4, true)...)
+	packet = append(packet, packedXYZ2(56, 4, true)...)
+	packet = append(packet, packedXYZ2(44, 16, false)...)
+	m.gifPacket(packet)
+
+	// Exactly two triangles are drawn — the two objects, not the bridges.
+	if gs.prims != 2 {
+		t.Fatalf("expected 2 drawn triangles, got %d", gs.prims)
+	}
+	// The left triangle is red where it covers.
+	if got := le32gs(gs.vram[addrPSMCT32(0, 1, 7, 7):]); got != 0x800000FF {
+		t.Errorf("left-triangle pixel (7,7) = %08X, want 800000FF (red)", got)
+	}
+	// The right triangle drew in its own place — proof the window slid through the ADC
+	// vertices instead of dropping them.
+	if got := le32gs(gs.vram[addrPSMCT32(0, 1, 47, 7):]); got != 0x8000FF00 {
+		t.Errorf("right-triangle pixel (47,7) = %08X, want 8000FF00 (green) — the ADC vertices were dropped, not slid", got)
+	}
+	// The gap between them, which only a suppressed bridging triangle would cover, is clean.
+	if got := le32gs(gs.vram[addrPSMCT32(0, 1, 24, 6):]); got != 0 {
+		t.Errorf("bridge pixel (24,6) = %08X, want 0 — a suppressed triangle jutted across the gap", got)
+	}
+}

@@ -99,9 +99,13 @@ func (gs *GS) pushVertex(x, y int32, z uint32, f uint32, kick bool) {
 		gs.vq[gs.vqN] = v
 		gs.vqN++
 	}
-	if kick {
-		gs.kick()
-	}
+	// Every vertex advances the queue, kicking or not: a non-kicking write (XYZ3/XYZF3,
+	// or the ADC bit in a PACKED stream) still slides a strip's window and still completes
+	// an independent primitive's group — it only withholds the drawing. Treating it as a
+	// pure append froze the window on the first three vertices, so the next kick drew a
+	// triangle bridging vertices the game had marked ADC=1 precisely to keep apart — the
+	// huge dark strips that jut across Ridge Racer V's flyover.
+	gs.kick(kick)
 }
 
 // prim returns the PRIM word that governs drawing: PRIM itself, or PRMODE's flags over
@@ -119,55 +123,71 @@ func (gs *GS) prim() uint64 {
 func (gs *GS) ctxt() int { return int(gs.prim() >> 9 & 1) }
 
 // kick assembles the primitive the queue now completes, if it does, and advances the
-// queue by the primitive's stride.
-func (gs *GS) kick() {
+// queue by the primitive's stride. draw is the drawing kick: false for a non-kicking
+// write (XYZ3/XYZF3 or a PACKED ADC bit), which does all the same queue management but
+// rasterises nothing — the mechanism a strip uses to break without restarting.
+func (gs *GS) kick(draw bool) {
 	p := gs.prim()
 	typ := int(p & 7)
 
 	switch typ {
 	case primPoint:
 		if gs.vqN >= 1 {
-			gs.drawn(typ)
-			gs.point(gs.vq[0])
+			if draw {
+				gs.drawn(typ)
+				gs.point(gs.vq[0])
+			}
 			gs.vqN = 0
 		}
 	case primLine:
 		if gs.vqN >= 2 {
-			gs.drawn(typ)
-			gs.line(gs.vq[0], gs.vq[1], p)
+			if draw {
+				gs.drawn(typ)
+				gs.line(gs.vq[0], gs.vq[1], p)
+			}
 			gs.vqN = 0
 		}
 	case primLineStrip:
 		if gs.vqN >= 2 {
-			gs.drawn(typ)
-			gs.line(gs.vq[0], gs.vq[1], p)
+			if draw {
+				gs.drawn(typ)
+				gs.line(gs.vq[0], gs.vq[1], p)
+			}
 			gs.vq[0] = gs.vq[1]
 			gs.vqN = 1
 		}
 	case primTri:
 		if gs.vqN >= 3 {
-			gs.drawn(typ)
-			gs.triangle(gs.vq[0], gs.vq[1], gs.vq[2], p)
+			if draw {
+				gs.drawn(typ)
+				gs.triangle(gs.vq[0], gs.vq[1], gs.vq[2], p)
+			}
 			gs.vqN = 0
 		}
 	case primTriStrip:
 		if gs.vqN >= 3 {
-			gs.drawn(typ)
-			gs.triangle(gs.vq[0], gs.vq[1], gs.vq[2], p)
+			if draw {
+				gs.drawn(typ)
+				gs.triangle(gs.vq[0], gs.vq[1], gs.vq[2], p)
+			}
 			gs.vq[0], gs.vq[1] = gs.vq[1], gs.vq[2]
 			gs.vqN = 2
 		}
 	case primTriFan:
 		if gs.vqN >= 3 {
-			gs.drawn(typ)
-			gs.triangle(gs.vq[0], gs.vq[1], gs.vq[2], p)
+			if draw {
+				gs.drawn(typ)
+				gs.triangle(gs.vq[0], gs.vq[1], gs.vq[2], p)
+			}
 			gs.vq[1] = gs.vq[2]
 			gs.vqN = 2
 		}
 	case primSprite:
 		if gs.vqN >= 2 {
-			gs.drawn(typ)
-			gs.sprite(gs.vq[0], gs.vq[1], p)
+			if draw {
+				gs.drawn(typ)
+				gs.sprite(gs.vq[0], gs.vq[1], p)
+			}
 			gs.vqN = 0
 		}
 	default:
