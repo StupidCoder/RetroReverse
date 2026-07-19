@@ -707,12 +707,30 @@ func (gs *GS) sprite(a, b gsVertex, p uint64) {
 	for y := y0; y < y1; y++ {
 		var v int32
 		if smp != nil {
-			v = texAxis(y<<4+8, a.y, b.y, av, bv)
+			// Sprite UVs interpolate at the INTEGER pixel coordinate, not the +0.5
+			// centre. Pinned by RRV's pyramid gathers: their 1:3 sprites author
+			// v 48.5..66.5 over 6 rows with a REGION_REPEAT fold that cannot wrap
+			// v>=64 back into the 64-tall page — only integer-point sampling keeps
+			// the last row at v=63.5 (texel 63 -> folded 59, the right byte lane);
+			// centre sampling overshoots to 65 and reads 32 pixel rows below.
+			// 1:1-stride sprites land on the same texel under either rule.
+			v = texAxis(y<<4, a.y, b.y, av, bv)
 		}
 		for x := x0; x < x1; x++ {
 			rgba := b.rgba
 			if smp != nil {
-				u := texAxis(x<<4+8, a.x, b.x, au, bu)
+				u := texAxis(x<<4, a.x, b.x, au, bu)
+				if gs.m != nil && gs.m.GSPixelN > 0 && x == gs.m.GSPixelX && y == gs.m.GSPixelY {
+					smp.probe = true
+					texel := smp.pick(u, v)
+					smp.probe = false
+					ctxt := int(p >> 9 & 1)
+					fmt.Printf("  sample (%d,%d) tbp 0x%05X psm 0x%X %dx%d tbw %d wms/wmt %d/%d cbp 0x%X csa %d uv (%.2f,%.2f) texel %08X vtx %08X tex1 %016X\n",
+						x, y, smp.tex.tbp*64, smp.tex.psm, smp.w, smp.h, smp.tex.tbw,
+						smp.wms, smp.wmt, smp.tex.cbp, smp.tex.csa,
+						float64(u)/16, float64(v)/16, texel, rgba,
+						gs.reg[0x14+ctxt])
+				}
 				rgba = smp.combine(smp.pick(u, v), rgba)
 			}
 			if t.fge {

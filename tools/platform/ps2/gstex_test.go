@@ -107,12 +107,16 @@ func TestTexturedSpriteThroughCLUT(t *testing.T) {
 	gs.write(gsTEX0_1, tex0)
 	gs.write(gsCLAMP1, 0) // repeat
 
-	// PRIM: sprite, textured, FST=1 (UV). Draw (0,0)..(32,32) mapping texels (0,0)..(32,32).
+	// PRIM: sprite, textured, FST=1 (UV). Draw (0,0)..(32,32) mapping texels
+	// (0.5,0.5)..(32.5,32.5) — the half-texel every real sprite authors (sprites
+	// interpolate at the integer pixel coordinate and the sample point sits half a
+	// texel below, so 0.5-authored UVs read texel x exactly; 0.0-authored ones read
+	// texel x-1 on silicon too).
 	gs.write(gsPRIM, 6|1<<4|1<<8)
 	gs.write(gsRGBAQ, 0x80808080)
-	gs.write(gsUV, 0)
+	gs.write(gsUV, 8|8<<16)
 	gs.write(gsXYZ3, 0)
-	gs.write(gsUV, 32*16|32*16<<16)
+	gs.write(gsUV, (32*16+8)|uint64(32*16+8)<<16)
 	gs.write(gsXYZ2, 32*16|32*16<<16)
 
 	if gs.prims != 1 {
@@ -296,17 +300,67 @@ func TestBilinearBlendsWhenTEX1Asks(t *testing.T) {
 	gs.write(gsTEX1_1, 1<<5) // MMAG=LINEAR
 	gs.write(gsCLAMP1, uint64(1)|1<<2) // clamp, so the blend partners are the two texels
 
-	// A 1x1 sprite whose pixel centre samples u = 1.0: exactly between the texels.
+	// A 1x1 sprite whose pixel (0,0) — sprites interpolate at the integer pixel
+	// coordinate — carries u = 1.0: the sample point u-0.5 = 0.5 sits exactly
+	// between the two texels, so LINEAR must return the 50/50 blend.
 	gs.write(gsPRIM, 6|1<<4|1<<8)
 	gs.write(gsRGBAQ, 0x80808080)
-	gs.write(gsUV, 8|8<<16)
+	gs.write(gsUV, 16|16<<16)
 	gs.write(gsXYZ3, 0)
-	gs.write(gsUV, (1*16+8)|(1*16+8)<<16)
+	gs.write(gsUV, (2*16)|(2*16)<<16)
 	gs.write(gsXYZ2, (1*16)|(1*16)<<16)
 
 	got := le32gs(gs.vram[addrPSMCT32(0, 1, 0, 0):])
 	r := got & 0xFF
 	if r < 0x7E || r > 0x81 {
 		t.Errorf("pixel (0,0) = %08X, want mid-grey (~7F): TEX1's MMAG bit must blend, not pick", got)
+	}
+}
+
+// TestSpriteSamplesAtIntegerPixel pins WHERE a sprite interpolates its texture
+// coordinate: at the integer pixel coordinate, not the pixel centre. The
+// discriminating draw is RRV's pyramid gather — a 1:3-stride sprite (6 dest rows
+// spanning 18 texel rows, v authored 0.5..18.5). At dest row y the coordinate is
+// v = 0.5 + 3y, and the sample half below reads texel 3y exactly; centre
+// interpolation would land on 3y+2 and read texel 3y+1, and on the game's real
+// packets (v 48.5..66.5 + a REGION_REPEAT byte-lane fold that cannot wrap v>=64)
+// it overshoots the 64-row page and reads 32 pixel rows away. 1:1-stride sprites
+// read identically under either rule, which is why nothing else ever noticed.
+func TestSpriteSamplesAtIntegerPixel(t *testing.T) {
+	m := NewMachine()
+	gs := m.ensureGS()
+
+	gs.write(gsFRAME1, 1<<16)
+	gs.write(gsSCISSOR1, 63<<16|uint64(63)<<48)
+	gs.write(gsXYOFFSET1, 0)
+	gs.write(gsPRMODECONT, 1)
+
+	// A 2x32 CT32 texture at block 0x140 whose row r is red=r.
+	gs.write(gsBITBLTBUF, uint64(0x140)<<32|uint64(1)<<48|uint64(psmCT32)<<56)
+	gs.write(gsTRXPOS, 0)
+	gs.write(gsTRXREG, 2|uint64(32)<<32)
+	gs.write(gsTRXDIR, 0)
+	for r := 0; r < 32; r++ {
+		px := uint64(0x80)<<24 | uint64(r)
+		gs.write(gsHWREG, px|px<<32)
+	}
+
+	gs.write(gsTEX0_1, uint64(0x140)|1<<14|uint64(psmCT32)<<20|1<<26|5<<30|1<<34|1<<35)
+	gs.write(gsTEX1_1, 0)      // NEAREST
+	gs.write(gsCLAMP1, 1|1<<2) // clamp
+
+	// Sprite: dest (0,0)..(1,6), uv (0.5,0.5)..(1.5,18.5) — 1:3 vertical.
+	gs.write(gsPRIM, 6|1<<4|1<<8)
+	gs.write(gsRGBAQ, 0x80808080)
+	gs.write(gsUV, 8|8<<16)
+	gs.write(gsXYZ3, 0)
+	gs.write(gsUV, (1*16+8)|uint64(18*16+8)<<16)
+	gs.write(gsXYZ2, (1*16)|uint64(6*16)<<16)
+
+	for _, y := range []uint32{0, 2, 5} {
+		got := le32gs(gs.vram[addrPSMCT32(0, 1, 0, y):]) & 0xFF
+		if got != 3*y {
+			t.Errorf("dest row %d sampled texel row %d, want %d (integer-pixel interpolation)", y, got, 3*y)
+		}
 	}
 }

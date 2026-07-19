@@ -558,6 +558,10 @@ func (s *gsSampler) at(u, v int32) uint32 {
 		a := addrPSMT8(t.tbp, t.tbw, x, y)
 		if a < uint32(len(gs.vram)) {
 			idx := uint32(gs.vram[a])
+			if s.probe {
+				print(sprintf("    T8 probe (%d,%d) addr 0x%X idx %d clut(cbp 0x%X csa %d cpsm 0x%X csm %d) entry %08X\n",
+					x, y, a, idx, t.cbp, t.csa, t.cpsm, t.csm, gs.clutEntry(t, idx)))
+			}
 			entry := gs.clutEntry(t, idx)
 			// The first few resolved samples, once: a texture whose CLUT is loaded
 			// and coloured but whose samples come back black is indexing the wrong
