@@ -88,7 +88,9 @@ roadmap.)
   compare-function register exists to read — and the direction is pinned three independent ways
   (the all-far argument, the r−D sign partition, and a 73-pixel footprint that lands exactly
   under the caster vs its 207,432-pixel inversion). Strictness is unobservable; LEQUAL declared.
-  The race then runs to its outcome. *(this document)*
+  Then a 3.9× byte-identical parallel raster, a film-strip instrument that catches a mid-frame
+  capture masquerading as motion — and the countdown runs to "Go!" over a grid nothing ever
+  releases: the race-start gate is the named next frontier. *(this document)*
 
 ---
 
@@ -2129,35 +2131,68 @@ same PC, both — every colour and depth write of every draw identical. The titl
 keeps the serial path as the standing A/B control, and the same 100M-step window drops
 from 228 s to 36 s (3.9×, 4.3 cores).
 
-### `a` was never the accelerator — the driving screen names the throttle
+### The race never launches — and a mid-frame capture is not a photograph of motion
 
 Ten billion steps past the countdown with `a` held: Time counts 99→88, Position renders,
 the flips walk — and the speedo reads 000 with the whole view swallowed by the standing
 car's own smoke. The guest isn't stuck (`RR_HOTPC` is flat — ordinary per-frame matrix
-and skeleton work, no wait loop, ~400 presents/s since our `FLIP_STALL` never blocks);
-the game is simulating exactly what it was given: a car parked at the line. Part XIII's
-"the oracle drives with `-keys a@5`" was the start *cinematic* moving, read as throttle —
-acceptance proving nothing, again.
+and skeleton work, no wait loop, ~475 presents/s since our `FLIP_STALL` never blocks);
+the game is simulating a car parked at the line. Part XIII's "the oracle drives with
+`-keys a@5`" was the start *cinematic* moving, read as throttle — acceptance proving
+nothing, again.
 
-This is precisely the screen Part VIII predicted would name the unnamed controls
-("a driving screen … where a trigger would have to mean something"). The pad table
-regrew its raw positional probes (`an2`..`an7` = pressure bytes `gamepad+4`..`+9`,
-names that promise position, not meaning), and the naming experiment is Part VIII's,
-rerun at the race: hold exactly one byte from the post-GO standstill, 1.2B steps, and
-photograph the frame against a press-nothing control:
+The input hunt that followed is a cautionary tale this part keeps deliberately. The pad
+table regrew its raw positional probes (`an2`..`an7` = pressure bytes `gamepad+4`..`+9`,
+plus the second stick's axes and the three unnamed wButtons bits — names that promise
+position, not meaning), and one byte held per run from the standstill produced frames
+that *differed* from the press-nothing control for `+5/+7/+8/+9` — including mid-frame
+captures showing a clean road with no smoke, which read exactly like a launch. The new
+`-flipshots` film-strip instrument (flip-aligned frames, START:STEP:COUNT in one run)
+refuted it: every *complete* frame in every input variant shows 000 km/h, the YOU marker
+at Start, the same smoke. The "driving" pictures were the frame's world pass, captured
+mid-frame before the car/smoke/HUD composites — a camera with no car in view, mistaken
+for motion. What the diverging bytes actually operate is the on-screen hint UI (the
+divergence is real; the launch was invented). A field's *frame hash moving* says the
+input reached the title; only the artefact says what it did.
 
-- `none`, `an2` (+4), `an4` (+6): byte-identical to the control — parked in smoke.
-- **`an3` (+5), `an5` (+7), `an6` (+8), `an7` (+9): the car launches** — the START
-  gantry sweeps past, the road streams. The title's default scheme evidently maps
-  several physical controls onto accelerate; which byte is which physical cap is not
-  derivable from this screen and stays unnamed.
-- `a` (+2), held through the whole of leg 1: revs and smoke, never a launch.
+What the film strip establishes instead, from `race-countdown.state` with throttle held:
+the countdown **completes** — "2", "1", and **"Go!"** all render on schedule, the smoke
+of the launch burnout pours, Time starts counting — and *nothing on the grid moves*.
+Not the player car (000 km/h, gear 1 engaged per the HUD, every pad control driven with
+fresh press edges), and not the five AI opponents (Position pinned at 6/6, the rivals'
+progress marker crawling at walking pace at most). The game's own passenger pops an
+idea bubble over the parked car and gives up. A race-global gate — the thing "Go!"
+should open — never opens for anybody, which takes the pad out of suspicion entirely:
+the AI cars don't read the pad.
 
-And one edge more: the launch triggers on the **press**, not the level. A savestate
-carrying the byte already-down resumes to an eternal standstill (3.3 guest-seconds of
-held throttle, nothing); release it for 200 flips and re-press, and the car is through
-the gantry at speed within a second and a half. The title's own input wrapper computes
-pressed-this-frame masks (`~prev & cur`, the 0x14630 read Part VIII took whole), and
-the standing-start engage listens to that edge. Every drive leg therefore schedules its
-throttle at flip 30, not flip 1 — a deliberate release-then-press so a resumed run
-always delivers the edge.
+Where the gate lives is the next frontier, and Part XIV's shape is the suspect: an
+audio-completion observable. The countdown/jingle plays through DirectSound voices we
+model at their registers but never *advance* — `RR_APU_TRACE` over the stuck window
+shows voice-list setup writes only, so the gate is not a polled APU register; whatever
+consumes "the start sound finished" (a stream callback, a voice-done notification, a
+DPC) is to be found by tracing the game's start-state flag from the "Go!" writer.
+`work/states/race-leg1.state` (10B steps past GO, stuck, Time 88) is the fixture.
+
+### Where Part XV leaves it
+
+- **The shadow compare is derived and modelled** — the one rendering gap Parts XI–XIV
+  carried is closed, with LEQUAL declared on the strictness the evidence cannot see,
+  and named halts kept for every unverified depth-texture variant. The armed FF-lighting
+  fragment halt stays armed; no fragment has needed it.
+- **The raster is 3.9× faster and provably unchanged** — scanline-banded workers,
+  identical arithmetic, full-RAM md5 A/B against the kept serial path.
+- **The race runs to "Go!" and no further, for anybody.** Countdown renders through
+  Go!, Time counts, the flips walk, the passenger has ideas — and the whole grid is
+  frozen: a race-global start gate never opens, the pad is exonerated (every control
+  driven with fresh edges, photographed flip-aligned; the AI don't read pads), and the
+  prime suspect is a DirectSound-completion observable in the Part XIV family.
+  `race-start.state` (the first frame past the loading screen), `race-countdown.state`
+  (throttle held, "2" on screen), and `race-leg1.state` (the stuck fixture) mark the
+  path in.
+- **New instruments**: `-cpuprofile` (host), `-ramhash` (the divergence comparator gob
+  state-bytes cannot be), `-flipshots` (the film strip), `RR_NV_SERIAL`, `RR_SHADOWCMP`/
+  `RR_SHADOWFRAG`, and the raw pad probes `anN`/`axN`/`bitN`.
+
+The cold-boot title pin holds (`0bea502acd2a1f902d429097022116b5`, `title.state` +100M
+`-surfpng`), and `go test` is green across `tools/platform/xbox`, `tools/cpu/x86`, and
+`tools/debug/xboxadapter`.

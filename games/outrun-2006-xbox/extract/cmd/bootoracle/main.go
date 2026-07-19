@@ -182,6 +182,7 @@ func main() {
 	keys := flag.String("keys", "", "pad-1 input script: NAME@FRAME[:HOLD][,...] — holds pad control NAME from that frame (the title's flip) for HOLD frames (default: forever). Names: see xbox.PadControlNames. e.g. -keys start@120,a@300:10,stickleft@400:8")
 	stopflip := flag.Int("stopflip", 0, "stop the run at the Nth FLIP_STALL — the hook fires while the completed frame is still the bound colour surface, so -surfpng captures a whole presented frame instead of a mid-frame slice")
 	ramhash := flag.Bool("ramhash", false, "after the run, print an md5 of guest RAM + the CPU position (divergence comparator)")
+	flipshots := flag.String("flipshots", "", "write flip-aligned frames: START:STEP:COUNT[:PREFIX] -> PREFIX-fN.png at those flips, then stop")
 	cpuprofile := flag.String("cpuprofile", "", "write a host pprof CPU profile of the run to this file")
 	var bps multiFlag
 	flag.Var(&bps, "bp", "execution breakpoint at ADDR (hex); repeatable")
@@ -345,6 +346,50 @@ func main() {
 			}
 			n--
 			if n == 0 {
+				mm.StopRequested = true
+			}
+		}
+	}
+
+	if *flipshots != "" {
+		// -flipshots START:STEP:COUNT[:PREFIX] — write the completed frame (the flip
+		// hook fires while it is still the bound colour surface) as PREFIX-fN.png at
+		// flips START, START+STEP, ... COUNT times. The film-strip instrument: one run,
+		// many flip-aligned frames.
+		parts := strings.Split(*flipshots, ":")
+		if len(parts) < 3 {
+			fmt.Fprintln(os.Stderr, "bootoracle: bad -flipshots, want START:STEP:COUNT[:PREFIX]")
+			os.Exit(2)
+		}
+		fsStart, err1 := strconv.Atoi(parts[0])
+		fsStep, err2 := strconv.Atoi(parts[1])
+		fsCount, err3 := strconv.Atoi(parts[2])
+		if err1 != nil || err2 != nil || err3 != nil || fsStart < 1 || fsStep < 1 || fsCount < 1 {
+			fmt.Fprintln(os.Stderr, "bootoracle: bad -flipshots numbers")
+			os.Exit(2)
+		}
+		fsPrefix := "flipshot"
+		if len(parts) > 3 {
+			fsPrefix = parts[3]
+		}
+		flip, taken := 0, 0
+		prev := m.OnFlip
+		m.OnFlip = func(mm *xbox.Machine) {
+			if prev != nil {
+				prev(mm)
+			}
+			flip++
+			if taken >= fsCount || flip < fsStart || (flip-fsStart)%fsStep != 0 {
+				return
+			}
+			taken++
+			if data, err := mm.SurfacePNG(); err == nil {
+				name := fmt.Sprintf("%s-f%d.png", fsPrefix, flip)
+				if os.WriteFile(name, data, 0o644) == nil {
+					fmt.Printf("flipshot %s\n", name)
+				}
+			}
+			if taken == fsCount {
 				mm.StopRequested = true
 			}
 		}

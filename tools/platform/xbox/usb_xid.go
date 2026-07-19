@@ -136,6 +136,14 @@ var padControls = map[string]PadControl{
 	"an5": {Kind: PadAnalogButton, Index: 5},
 	"an6": {Kind: PadAnalogButton, Index: 6},
 	"an7": {Kind: PadAnalogButton, Index: 7},
+	// The second stick's axes and the three unnamed wButtons bits, same probe status.
+	"ax2plus":  {Kind: PadAxisDirection, Index: 2, Sign: +1},
+	"ax2minus": {Kind: PadAxisDirection, Index: 2, Sign: -1},
+	"ax3plus":  {Kind: PadAxisDirection, Index: 3, Sign: +1},
+	"ax3minus": {Kind: PadAxisDirection, Index: 3, Sign: -1},
+	"bit20":    {Kind: PadDigitalButton, Bit: 0x0020},
+	"bit40":    {Kind: PadDigitalButton, Bit: 0x0040},
+	"bit80":    {Kind: PadDigitalButton, Bit: 0x0080},
 }
 
 // THE ELEVEN CONTROLS THIS PAD CANNOT YET SPELL, and why they are absent rather than named.
@@ -165,14 +173,17 @@ var padControls = map[string]PadControl{
 // footer than SELECT and BACK — a driving screen, or the game's own control-assignment menu,
 // where a stick's magnitude and a trigger would both have to mean something.
 //
-// PART XV RAN THAT EXPERIMENT AT THE DRIVING SCREEN (the in-race standstill, one byte held
-// per run, 1.2B steps, frame vs a press-nothing control): bytes +5, +7, +8 and +9 each
-// LAUNCH THE CAR (the title's default scheme maps several controls onto accelerate; the
-// launch triggers on the PRESS EDGE, not the level — a savestate resumed with the byte
-// already down never launches); +4 and +6 are frame-identical to the control there, and +2
-// held forever revs without launching. WHICH byte is which physical cap is still not
-// derivable — four bytes doing the same thing is four ways to keep one promise, so the
-// semantic name stays unassigned and the anN probe names below carry the drive.
+// PART XV RAN THAT EXPERIMENT AT THE DRIVING SCREEN (the in-race standstill, one control
+// held per run, frames vs a press-nothing control) AND NAMED NOTHING — twice over. Bytes
+// +5/+7/+8/+9 move the frame hash where +4/+6 leave it byte-identical, and the mid-frame
+// captures under them showed a clean road that read exactly like a launch; the flip-aligned
+// film strip (-flipshots) refuted it — every COMPLETE frame in every variant is the same
+// 000 km/h standstill, and the "motion" was the frame's world pass captured before the
+// car/smoke/HUD composite. What those bytes actually operate is the hint-bubble UI. The
+// deeper fact: NOTHING on the grid moves — the AI opponents are as parked as the player,
+// so the block is a race-global gate (see Part XV), not the pad. A moved frame hash proves
+// an input REACHED the title; only the artefact says what it did. The anN/axN/bitN probe
+// names stay raw until a screen exists where a control's meaning is photographable.
 
 // PadControlKind says what sort of thing a name resolves to. The pad says three different
 // kinds of thing and only one of them is a bit, which is why the old name->uint16 map could
