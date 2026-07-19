@@ -2417,3 +2417,38 @@ drivetrain (`0x1692A0` sub-steps and the wheel solvers `0xED8C0`/`0xED7E0`/`0xF2
 `[body+0x248..0x254]`) — the value that would make one car's velocity non-zero and let the
 downstream chain (motion detector -> `[0x5C00B0]` bit 2 -> state advance) fire naturally.
 No code changed; pins and tests hold.
+
+### The drivetrain, characterised — it is idle, and the drive force is *absent*
+
+Tracing the drivetrain to the metal settles what kind of gate this is. OutRun 2006 is a
+**speed-following arcade model, not a torque sim**: the car's speed `[car+0x1C4]` is
+*derived* from the body-velocity magnitude (`0xED125` ← `0x1B1E0`), and "RPM" `[car+0x1F8]`
+is *derived from speed* (`0xED153`: `params[+0x2438] × speed`). There is no independent
+driven-wheel angular velocity integrated from torque, hence **no slip mechanism and no
+burnout is even possible** — the "burnout smoke" is idle exhaust; the wheels roll at ground
+speed (tyre-force `[wheel+0x2C]`≈0.0018 matches the body crawl; contact is healthy —
+normal force `[wheel+0x34]`≈270–373, no gate bits set).
+
+The body integrates velocity from a **force accumulator `[body+0x74..0x7C]`** (`0x166E80`:
+`v += force·massinv·dt`, cleared each frame at `0xF1F65`). Watching that accumulator across
+both fixtures: **only gravity is ever added** — leg1 (state `0x10`, kinematic) `(0,15884,
+−24.5)`; countdown (state `0x0D`, dynamic, bit3 set, timer 249) `(0,7792,221)`. So in the
+frozen *and* the fully drive-enabled fixtures alike, **no forward/engine force is ever
+applied to the body**. The drive force is not multiplied to 0 — it is **absent**, never
+computed. There is no "×0" gate to release; the per-car driver update that would read a
+throttle and push the body simply never generates one.
+
+**One root for the whole freeze.** The missing drive force and the state-machine stall are
+the same thing seen twice: **no car is ever placed into its racing/driving behaviour**, so
+nothing generates throttle → no drive force → body idles → speed 0 → (downstream) the
+`[car+0x5C]` motion-detector stays 0 → `[0x5C00B0]` bit 2 never sets → state `0x10` never
+advances. The single fix is whatever should **activate each car's driving behaviour at the
+green light** — the per-car driver/behaviour update that applies the forward drive force,
+and the trigger that enables it. That activation was not located (it resisted three focused
+trace passes); it is the sole remaining frontier, and it sits above the entire
+physics/state/animation machinery Parts XIV–XVII mapped. Key addresses for the next pass:
+speed-derive `0xED125`←`0x1B1E0`; RPM-derive `0xED153`; force integrator `0x166E80`
+(accum `[body+0x74]`, massinv `[body+0x9C]`); accumulator clear `0xF1F65`; vector-add
+helper `0x1B010`; tyre model `0x168A10`/`0x168BE0`/`0x168F70` (input `[car+0x628]`, static-0
+during the race). No code changed; the title pin (`0bea502a…`) and shadow frame hold, and
+`go test` is green across `tools/platform/xbox`, `tools/cpu/x86`, `tools/debug/xboxadapter`.
