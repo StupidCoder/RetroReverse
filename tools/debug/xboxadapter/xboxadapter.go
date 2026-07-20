@@ -157,6 +157,7 @@ var (
 	_ debug.MemoryMapper   = (*Adapter)(nil)
 	_ debug.Haltable       = (*Adapter)(nil)
 	_ debug.Keyer          = (*Adapter)(nil)
+	_ debug.Profiler       = (*Adapter)(nil)
 )
 
 // ---- the pad ----
@@ -307,6 +308,10 @@ func New(imagePath, xbePath string) (*Adapter, error) {
 	// stops dead at the first push-buffer kick (the Phase-B milestone) and there is no
 	// frame to look at.
 	live.EnableGPU()
+	// Turn the per-subsystem frame profiler on: the profile panel reads a completed frame's
+	// buckets, and the first frame after this is a whole frame (profile.go). It is a no-op
+	// until the machine actually runs, so a session that never steps pays nothing.
+	live.SetProfile(true)
 	a := &Adapter{imagePath: imagePath, xbePath: xbePath, live: live, held: map[string]bool{}}
 	a.installFlipHook(live)
 	return a, nil
@@ -372,6 +377,7 @@ func (a *Adapter) LoadStateFile(path string) error {
 		return err
 	}
 	a.live.ClearHalt()
+	a.live.SetProfile(true) // re-arm: the first frame after a load is a whole frame
 	return nil
 }
 
@@ -384,7 +390,27 @@ func (a *Adapter) Restore(s debug.Snapshot) error {
 	if !ok {
 		return fmt.Errorf("xboxadapter: snapshot is from %q, not xbox", platformOf(s))
 	}
-	return a.live.LoadState(ns.st)
+	if err := a.live.LoadState(ns.st); err != nil {
+		return err
+	}
+	a.live.SetProfile(true) // re-arm: the first frame after a restore is a whole frame
+	return nil
+}
+
+// FrameProfile reports where the last presented frame's time went (xbox/profile.go),
+// translated into the platform-agnostic shape the profile panel reads. The profiler
+// measures the FLIP boundary — a presented frame — so, unlike a video-field profiler,
+// every frame it reports is one the title meant for the screen.
+func (a *Adapter) FrameProfile() debug.FrameProfile {
+	p := a.live.FrameProfile()
+	out := debug.FrameProfile{TotalMs: p.TotalMs, Drew: p.Drew}
+	for _, b := range p.Buckets {
+		out.Buckets = append(out.Buckets, debug.ProfileBucket{Name: b.Name, Millis: b.Millis, Count: b.Count})
+	}
+	for _, c := range p.Counters {
+		out.Counters = append(out.Counters, debug.ProfileCounter{Name: c.Name, Value: c.Value})
+	}
+	return out
 }
 
 // Display is what the TV is showing: the buffer the title last presented.

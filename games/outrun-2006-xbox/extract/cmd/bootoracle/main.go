@@ -158,6 +158,36 @@ func parsePoke(s string) (addr, val uint32, err error) {
 	return addr, val, err
 }
 
+// printProfile reports the last presented frame's cost by NV2A subsystem (xbox/profile.go).
+// It reports the LAST frame, not an average — on a boot stretch that reaches no flip it will
+// be empty, which is the honest answer (the buckets time the graphics pipe, and during a load
+// none of it runs; the instrument for splitting the x86 remainder is -cpuprofile).
+func printProfile(p xbox.FrameProfile) {
+	if p.TotalMs == 0 {
+		fmt.Fprintln(os.Stderr, "bootoracle: no frame profiled (did the run reach a flip?)")
+		return
+	}
+	drew := "did not draw"
+	if p.Drew {
+		drew = "drew"
+	}
+	fmt.Fprintf(os.Stderr, "bootoracle: last presented frame — %.1f ms (%s)\n", p.TotalMs, drew)
+	for _, b := range p.Buckets {
+		pct := 0.0
+		if p.TotalMs > 0 {
+			pct = b.Millis / p.TotalMs * 100
+		}
+		count := ""
+		if b.Count > 0 {
+			count = fmt.Sprintf("  %d", b.Count)
+		}
+		fmt.Fprintf(os.Stderr, "  %-26s %8.1f ms  %5.1f%%%s\n", b.Name, b.Millis, pct, count)
+	}
+	for _, c := range p.Counters {
+		fmt.Fprintf(os.Stderr, "  %-26s %8d\n", c.Name, c.Value)
+	}
+}
+
 func main() {
 	image := flag.String("image", "", "Xbox disc image (.iso / XISO)")
 	xbePath := flag.String("xbe", "/default.xbe", "path of the XBE within the disc to boot")
@@ -184,6 +214,7 @@ func main() {
 	ramhash := flag.Bool("ramhash", false, "after the run, print an md5 of guest RAM + the CPU position (divergence comparator)")
 	flipshots := flag.String("flipshots", "", "write flip-aligned frames: START:STEP:COUNT[:PREFIX] -> PREFIX-fN.png at those flips, then stop")
 	cpuprofile := flag.String("cpuprofile", "", "write a host pprof CPU profile of the run to this file")
+	profile := flag.Bool("profile", false, "report where the last presented frame's time goes, by NV2A subsystem (the companion to -cpuprofile: the machine's own per-bucket timing)")
 	var bps multiFlag
 	flag.Var(&bps, "bp", "execution breakpoint at ADDR (hex); repeatable")
 	var dumps multiFlag
@@ -407,10 +438,16 @@ func main() {
 			pf.Close()
 		}()
 	}
+	if *profile {
+		m.SetProfile(true)
+	}
 
 	reason, n := m.Run(budget)
 	fmt.Printf("\n=== run ended: %s after %d instructions ===\n", reason, n)
 	fmt.Print(m.Report())
+	if *profile {
+		printProfile(m.FrameProfile())
+	}
 
 	if *stackDump && m.CPU.Halted {
 		sp := m.CPU.Regs[4]

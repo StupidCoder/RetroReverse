@@ -74,6 +74,14 @@ type pgraph struct {
 	ranges  [][2]uint32
 	vtxAttr [16][4]float32
 	Draws   int
+
+	// Fragment tallies, maintained unconditionally (like the GameCube's) and read by the
+	// frame profiler (profile.go) as per-frame deltas. Kept as running totals rather than
+	// profiler-gated so the profiler never has to branch per fragment; they are summed in
+	// from per-lane rstats after the parallel fill joins, never incremented across
+	// goroutines (nv2a_raster.go mergeStats). Transient — outside the savestate.
+	pixWritten, pixZRej, pixARej int
+
 	lowWriteDraw int // RR_LOWWRITE: last draw reported, one line per draw
 	// ffFragHalt, when non-empty, names why the current fixed-function draw cannot
 	// shade a fragment (lighting/texgen unmodelled); the raster halts with it the
@@ -91,6 +99,11 @@ type pgraph struct {
 	rast      rasterState
 	rastValid bool
 	texCache  map[texKey]*texImage
+
+	// The 2D blit engine's latched state (nv2a_blit.go). Re-programmed before every blit, so
+	// like the raster state it is transient and outside the savestate.
+	surf2D surfaces2D
+	blit   imageBlit
 
 	// --- survey instrumentation (bring-up) ---
 	survey    bool
@@ -112,6 +125,11 @@ type pgraph struct {
 
 	// triScratch is assemble()'s reusable triangle-index buffer (transient, not state).
 	triScratch [][3]int
+
+	// clipTris / clipVerts are the near-plane clipper's reusable output buffers
+	// (nv2a_clip.go), used only when a draw actually crosses the near plane (transient).
+	clipTris  [][3]int
+	clipVerts []kelvinVtx
 }
 
 type zetaBucket struct {
@@ -179,9 +197,18 @@ func (m *Machine) pgraphMethod(subchan, method, arg uint32) {
 		g.seen[key]++
 	}
 
-	// Dispatch to the real engine (only the 3D class is modelled).
-	if class == classKelvin {
+	// Dispatch to the real engine. D3D drives geometry through the 3D Kelvin object, but the
+	// bloom post-process feeds its composite through the 2D BLIT engine (nv2a_blit.go) — so
+	// that has to run too, or the composite samples a stale buffer (an3-drive's grey wash).
+	switch class {
+	case classKelvin:
 		g.kelvinMethod(method, arg)
+		return
+	case class2DSurfaces:
+		g.surf2DMethod(method, arg)
+		return
+	case classImageBlit:
+		g.blitMethod(method, arg)
 		return
 	}
 	// A method on an unmodelled class. Latch nothing; record it as the frontier.

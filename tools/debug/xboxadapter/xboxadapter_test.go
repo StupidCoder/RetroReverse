@@ -70,15 +70,62 @@ func TestCapabilities(t *testing.T) {
 		debug.CapFrames, debug.CapFastStep, debug.CapReplay, debug.CapCode,
 		debug.CapBreak, debug.CapDisasm, debug.CapWatch, debug.CapSurfaces,
 		debug.CapFiles, debug.CapFileAt, debug.CapStates, debug.CapResume,
-		debug.CapRegions, debug.CapHalt, debug.CapKeys,
+		debug.CapRegions, debug.CapHalt, debug.CapKeys, debug.CapProfile,
 	} {
 		if !caps[want] {
 			t.Errorf("capability %q is missing", want)
 		}
 	}
-	for _, unwanted := range []string{debug.CapTouch, debug.CapProfile} {
+	// CapProfile moved to the wanted list when the machine grew a per-subsystem frame
+	// profiler it could honestly back (xbox/profile.go) — the promise that puts the profile
+	// panel on screen.
+	for _, unwanted := range []string{debug.CapTouch} {
 		if caps[unwanted] {
 			t.Errorf("capability %q is claimed but not backed", unwanted)
+		}
+	}
+}
+
+// TestProfileReachesTheDebugger: the adapter must hand over a stepped frame's real profile,
+// with the rasteriser named as the cost centre and the work counters that let the panel show
+// fragments/ms — the whole reason the profiler exists is to guide the performance work.
+func TestProfileReachesTheDebugger(t *testing.T) {
+	a := newAdapter(t)
+	if _, err := a.StepFrame(false); err != nil {
+		t.Fatalf("StepFrame: %v", err)
+	}
+	p := a.FrameProfile()
+	if p.TotalMs == 0 || len(p.Buckets) == 0 {
+		t.Fatalf("the adapter reported no profile: %+v", p)
+	}
+	var sum float64
+	for _, b := range p.Buckets {
+		sum += b.Millis
+	}
+	if d := sum - p.TotalMs; d > 0.5 || d < -0.5 {
+		t.Errorf("buckets sum to %.3f ms but total is %.3f ms — not disjoint", sum, p.TotalMs)
+	}
+	// The rasteriser is this machine's cost centre; a profile that does not say so is
+	// measuring the wrong thing.
+	var raster float64
+	for _, b := range p.Buckets {
+		if b.Name == "rasterise" {
+			raster = b.Millis
+		}
+	}
+	if raster <= 0 {
+		t.Errorf("the profile does not name the rasteriser as a cost: %+v", p.Buckets)
+	}
+	// The panel's fragments/ms line reads these exact counter names.
+	need := map[string]bool{"fragments drawn": false, "depth-killed": false, "draws": false}
+	for _, c := range p.Counters {
+		if _, ok := need[c.Name]; ok {
+			need[c.Name] = true
+		}
+	}
+	for name, got := range need {
+		if !got {
+			t.Errorf("the profile is missing counter %q (the panel's rate line needs it)", name)
 		}
 	}
 }

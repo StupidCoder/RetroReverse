@@ -169,6 +169,11 @@ func (g *pgraph) beginEnd(arg uint32) {
 // rasterise.
 func (g *pgraph) runDraw() {
 	g.Draws++
+	// Vertex bucket: fetch + transform + shader, up to the point assemble takes over the
+	// rasterise timing (profile.go). The early returns below are halts or empty brackets —
+	// paths that do no fill and whose vertex time is immaterial — so leaving tv unbooked on
+	// them is correct, not a leak.
+	tv := g.m.profStart()
 	ff := g.Regs[kelvinTransformExecMode>>2]&3 != 2
 	g.ffFragHalt = ""
 	if ff {
@@ -274,6 +279,7 @@ func (g *pgraph) runDraw() {
 		return // an empty BEGIN/END pair (state-only bracket)
 	}
 
+	g.m.profEnd(bucketVertex, tv)
 	g.assemble(verts)
 }
 
@@ -414,22 +420,38 @@ func (g *pgraph) assemble(verts []kelvinVtx) {
 	if len(tris) == 0 {
 		return
 	}
+	// Clip against the near plane before rasterising: a triangle with a vertex at or behind
+	// the eye (clip w <= 0) otherwise projects to a framebuffer-spanning garbage triangle
+	// (nv2a_clip.go). A draw that does not cross returns here unchanged, byte-for-byte.
+	verts, tris = g.clipNearPlane(verts, tris)
+	if len(tris) == 0 {
+		return
+	}
 	if !g.rastValid {
 		if !g.rasterStateDecode(&g.rast) {
 			return
 		}
 		g.rastValid = true
 	}
+	// Rasterise bucket: the triangle fill, whether it runs on the worker pool or serially.
+	// Timing it here, on the machine's own goroutine and after rasterParallel's join,
+	// captures the parallel region's wall-clock — the number that matters — without the
+	// accumulator ever being touched by a worker (profile.go).
+	tr := g.m.profStart()
 	if g.rasterParallelOK(&g.rast, verts, tris) {
 		g.rasterParallel(verts, tris)
+		g.m.profEnd(bucketRaster, tr)
 		return
 	}
+	var rs rstats
 	for _, t := range tris {
-		g.rasterTri(&verts[t[0]], &verts[t[1]], &verts[t[2]])
+		g.rasterTri(&verts[t[0]], &verts[t[1]], &verts[t[2]], &rs)
 		if g.m.CPU.Halted {
-			return
+			break
 		}
 	}
+	g.mergeStats(&rs)
+	g.m.profEnd(bucketRaster, tr)
 }
 
 // traceDraw prints the draw's decoded fetch/raster state (RR_NV_DRAW).

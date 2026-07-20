@@ -44,6 +44,8 @@ func (r StopReason) String() string {
 // instructions executed.
 func (m *Machine) Run(maxSteps uint64) (StopReason, uint64) {
 	m.StopRequested = false
+	m.profRunEnter()
+	defer m.profRunExit()
 	var n uint64
 	for n < maxSteps {
 		if m.CPU.Halted {

@@ -115,6 +115,11 @@ func (g *pgraph) kelvinMethod(method, arg uint32) {
 	// Measured, once per frame at BOTH fixtures: 209 flips at the logo, 269 at the title.
 	if method == kelvinFlipStall {
 		g.recordPresented()
+		// Close the frame's profile BEFORE the debugger's flip hook runs, so the hook (which
+		// reads FrameProfile) sees the completed frame and a debugger pausing in it does not
+		// bank the pause as x86. profFrame splits the run and pusher timers in flight here —
+		// the flip is mid-drain (profile.go).
+		g.m.profFrame()
 		if g.m.OnFlip != nil {
 			g.m.OnFlip(g.m)
 		}
@@ -152,7 +157,9 @@ func (g *pgraph) kelvinMethod(method, arg uint32) {
 		// CLEAR_SURFACE: fill the clear rect of the color/zeta surfaces with the
 		// latched clear values (nv2a_frame.go) — the first Kelvin method that
 		// produced pixels.
+		tc := g.m.profStart()
 		g.clearSurface(arg)
+		g.m.profEnd(bucketClear, tc)
 		return
 	case method == kelvinSemaphoreRelease:
 		// BACK_END_WRITE_SEMAPHORE_RELEASE: the back end writes the release value into

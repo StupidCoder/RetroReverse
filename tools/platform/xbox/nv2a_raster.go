@@ -306,8 +306,20 @@ func (st *rasterState) zetaAddr(px, py int) uint32 {
 // batch is deliberately NOT cached across draws (registers may change between
 // BEGIN/END pairs), but within one assemble() the state is constant — the caller
 // arranges that by keeping the decoded state on the pgraph for the batch.
-func (g *pgraph) rasterTri(v0, v1, v2 *kelvinVtx) {
-	g.rasterTriBand(v0, v1, v2, 0, 1)
+func (g *pgraph) rasterTri(v0, v1, v2 *kelvinVtx, rs *rstats) {
+	g.rasterTriBand(v0, v1, v2, 0, 1, rs)
+}
+
+// rstats is one lane's tally of where its fragments went, kept per-worker so the parallel
+// fill never shares a counter across goroutines — a data race and a false-sharing hazard
+// both. It is merged into the pgraph totals only after the workers join (the GameCube's
+// pattern). The profiler reads those totals as per-frame deltas (profile.go).
+type rstats struct{ written, zRej, aRej int }
+
+func (g *pgraph) mergeStats(rs *rstats) {
+	g.pixWritten += rs.written
+	g.pixZRej += rs.zRej
+	g.pixARej += rs.aRej
 }
 
 // rasterParallelOK decides whether a draw may rasterise on the worker pool: no
@@ -385,22 +397,27 @@ func rasterWorkers() int {
 // arithmetic and ordering are exactly the serial path's.
 func (g *pgraph) rasterParallel(verts []kelvinVtx, tris [][3]int) {
 	workers := rasterWorkers()
+	stats := make([]rstats, workers)
 	var wg sync.WaitGroup
 	for lane := 0; lane < workers; lane++ {
 		wg.Add(1)
 		go func(lane int) {
 			defer wg.Done()
+			rs := &stats[lane] // this lane's private tally; no other goroutine touches it
 			for _, t := range tris {
-				g.rasterTriBand(&verts[t[0]], &verts[t[1]], &verts[t[2]], lane, workers)
+				g.rasterTriBand(&verts[t[0]], &verts[t[1]], &verts[t[2]], lane, workers, rs)
 			}
 		}(lane)
 	}
 	wg.Wait()
+	for i := range stats {
+		g.mergeStats(&stats[i]) // fold every lane in after the join, on this goroutine only
+	}
 }
 
 // rasterTriBand rasterises one triangle, shading only rows py %% stride == lane
 // (lane 0, stride 1 = every row: the serial path).
-func (g *pgraph) rasterTriBand(v0, v1, v2 *kelvinVtx, lane, stride int) {
+func (g *pgraph) rasterTriBand(v0, v1, v2 *kelvinVtx, lane, stride int, rs *rstats) {
 	if g.m.CPU.Halted {
 		return
 	}
@@ -503,7 +520,7 @@ func (g *pgraph) rasterTriBand(v0, v1, v2 *kelvinVtx, lane, stride int) {
 				continue
 			}
 			b0, b1, b2 := float32(w0/area), float32(w1/area), float32(w2/area)
-			g.shadePixel(st, px, py, b0, b1, b2, iw0, iw1, iw2, v0, v1, v2)
+			g.shadePixel(st, px, py, b0, b1, b2, iw0, iw1, iw2, v0, v1, v2, rs)
 			if g.m.CPU.Halted {
 				return
 			}
@@ -512,7 +529,7 @@ func (g *pgraph) rasterTriBand(v0, v1, v2 *kelvinVtx, lane, stride int) {
 }
 
 // shadePixel runs one fragment: interpolate, sample, combine, test, blend, write.
-func (g *pgraph) shadePixel(st *rasterState, px, py int, b0, b1, b2, iw0, iw1, iw2 float32, v0, v1, v2 *kelvinVtx) {
+func (g *pgraph) shadePixel(st *rasterState, px, py int, b0, b1, b2, iw0, iw1, iw2 float32, v0, v1, v2 *kelvinVtx, rs *rstats) {
 	m := g.m
 
 	// A fixed-function draw whose shading we cannot model (lighting/texgen) halts at
@@ -551,6 +568,7 @@ func (g *pgraph) shadePixel(st *rasterState, px, py int, b0, b1, b2, iw0, iw1, i
 		stored := uint32(m.RAM[zAddr]) | uint32(m.RAM[zAddr+1])<<8 | uint32(m.RAM[zAddr+2])<<16 | uint32(m.RAM[zAddr+3])<<24
 		zOld = stored >> 8
 		if !depthPass(st.depthFunc, zi, zOld) {
+			rs.zRej++
 			if m.OnPixel != nil {
 				m.OnPixel(uint32(px), uint32(py), PixelEvent{ZReject: true})
 			}
@@ -640,6 +658,7 @@ func (g *pgraph) shadePixel(st *rasterState, px, py int, b0, b1, b2, iw0, iw1, i
 	col := g.combine(&st.comb, &in)
 
 	if st.alphaTest && !alphaPass(st.alphaFunc, col[3], st.alphaRef) {
+		rs.aRej++
 		if m.OnPixel != nil {
 			m.OnPixel(uint32(px), uint32(py), PixelEvent{
 				AlphaReject: true,
@@ -702,6 +721,7 @@ func (g *pgraph) shadePixel(st *rasterState, px, py int, b0, b1, b2, iw0, iw1, i
 			}
 		}
 	}
+	rs.written++
 	if m.OnPixel != nil {
 		m.OnPixel(uint32(px), uint32(py), PixelEvent{
 			Drawn: true,

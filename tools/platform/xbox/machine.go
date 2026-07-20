@@ -244,6 +244,11 @@ type Machine struct {
 	// hotpc is the sampling PC profiler (RR_HOTPC=1): every 256th tick records the
 	// current PC. Diagnostic only — outside the savestate, nil unless enabled.
 	hotpc map[uint32]uint64
+
+	// Profile gates the per-subsystem frame profiler (profile.go). Off by default and
+	// outside the savestate; the debugger and the oracle's -profile flag turn it on.
+	Profile bool
+	prof    profState
 }
 
 // NewMachine builds a machine from a parsed XBE, loading its sections into RAM at the

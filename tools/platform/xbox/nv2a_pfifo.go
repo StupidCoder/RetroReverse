@@ -61,6 +61,11 @@ func (m *Machine) runPusher() {
 	p.running = true
 	defer func() { p.running = false }()
 
+	// The push-buffer drain is the profiler's one coarse GPU boundary (profile.go): the
+	// vertex/raster/clear leaves nest inside it, and "command decode" is what is left of it.
+	m.profPusherEnter()
+	defer m.profPusherExit()
+
 	// Texture decodes cached during the previous run may be stale: between kicks the
 	// CPU owns memory and may have rewritten texture data. Within one run the GPU
 	// sees a consistent snapshot, so the cache lives exactly that long.
