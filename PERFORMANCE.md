@@ -280,6 +280,7 @@ of these wins, so the absolute ms drift between rows and the delta within a row 
 | Phase 0 (baseline) | 583.9 | — | (gate pinned) |
 | #1 texture cache (colour + depth) | **397.4** | **1.47× / −32.0%** | yes |
 | #2 combiner: array reg file + in-place map/op | **413.3 → 378.8** | **−8.4%** | yes |
+| #3 raster worker pool + worker scaling | 384.6 → 380.2 / 421.8 | **~0 / worse — reverted** | (not shipped) |
 
 **#1, predicted 10-18%, measured −32% — and the surplus is the whole lesson.** The plan aimed the
 texture cache at cross-field *colour* re-decode. That part landed exactly as predicted and no more:
@@ -335,6 +336,29 @@ the writes never read) would shave more, but it reorganises the float ops and ea
 risk for a raster path that is parallel (wall win compressed) — deferred, not free.
 
 Files: `nv2a_combiner.go` (array `combRegs`, in-place `combMap`/`combOp`), `combiner_diff_test.go`.
+
+### #3 — the raster worker pool, predicted 5-10%, measured ~0 and reverted
+
+The 3DS won −11.5% from a persistent worker pool because *there* goroutine creation was the cost
+(its profile showed `newproc`/`malg`/`stackalloc`). On the Xbox the profile said otherwise —
+`pthread_cond_signal` at ~15% and **no creation functions at all** (Go's free lists already make a
+per-draw `go func()` cheap). So the cost is the wake/join itself: ~100 parallel draws × 10 lanes ≈
+1000 contended futex ops a field on the shared `WaitGroup`, and a machine pinned under two cores of
+twelve. A pool sends to a channel instead of spawning — but that still *wakes* each lane, so it does
+not touch the actual cost. Measured, in one sitting: goroutine-spawn 384.6, pool (same 10 lanes)
+380.2 — **within noise**. Ported the pool for nothing.
+
+The follow-on idea — size the fan-out to the draw (`rasterWorkersFor`, 2 lanes for a threshold draw
+up to 10 for a full-screen pass) to cut the wake count — was **worse: 421.8 (+11%)**. Fewer lanes
+meant the medium draws that were the parallel win now filled more serially, and the fill parallelism
+it gave up outweighed the wakes it saved. So the wakes were not free, but the lanes doing them were
+earning more than they cost; trading them away is a loss.
+
+Both reverted. The real lesson is Phase 0's, re-confirmed by three measurements: **this frame is
+serial-bound** (71% one goroutine), so the raster fan-out is already past the point where more
+parallelism pays — and neither cheaper dispatch nor a different lane count changes that. The next
+lever is the serial work, i.e. item #4 (the vertex stage), not the fill. A 3DS win does not transfer
+just because the code looks the same; the bottleneck has to be the same, and here it was not.
 
 ### The bigger checkpoint lever was not a per-frame optimisation — it was 6× fewer frames
 
