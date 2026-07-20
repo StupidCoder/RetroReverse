@@ -98,6 +98,10 @@ type IOPState struct {
 	DMAPending               []IOPDMADoneState
 	Timers                   [iopTimers]IOPTimerState
 
+	// The CD/DVD drive, with any command in flight and any sectors staged for DMA. A
+	// snapshot taken mid-stream that dropped this froze the intro cutscene (iopcdvd.go).
+	CDVD CDVDState
+
 	// The SIO2 transfer in flight: a snapshot can land between the DMA arm and the
 	// start bit, and a resume must find the FIFOs and the armed slice where they were.
 	SIO2In, SIO2Out       []byte
@@ -196,6 +200,7 @@ func (p *IOP) SaveState() IOPState {
 	for _, d := range p.dmaPending {
 		s.DMAPending = append(s.DMAPending, IOPDMADoneState{At: d.at, Ch: d.ch})
 	}
+	s.CDVD = p.cdvd.saveState()
 	s.SIO2In = append([]byte(nil), p.sio2.in...)
 	s.SIO2Out = append([]byte(nil), p.sio2.out...)
 	s.SIO2DmaAddr, s.SIO2DmaWords, s.SIO2OutArmed = p.sio2.dmaAddr, p.sio2.dmaWords, p.sio2.outArmed
@@ -311,6 +316,7 @@ func (m *Machine) LoadIOPState(s IOPState) error {
 	for _, d := range s.DMAPending {
 		p.dmaPending = append(p.dmaPending, iopDMADone{at: d.At, ch: d.Ch})
 	}
+	p.cdvd.loadState(s.CDVD)
 	p.sio2.in = append([]byte(nil), s.SIO2In...)
 	p.sio2.out = append([]byte(nil), s.SIO2Out...)
 	p.sio2.dmaAddr, p.sio2.dmaWords, p.sio2.outArmed = s.SIO2DmaAddr, s.SIO2DmaWords, s.SIO2OutArmed

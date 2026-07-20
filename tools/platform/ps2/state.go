@@ -101,6 +101,15 @@ type MachineState struct {
 	SifCmdHandler uint32
 	Steps         uint64
 
+	// The EE->IOP packets the SIF has taken but the IOP has not yet received — the queue
+	// SIFCMD's single receive slot drains one at a time (sif.go). A snapshot taken while a
+	// remote call's arguments or its command packet were still queued dropped the request on
+	// the floor: the IOP never woke its server, the server never replied, and the EE waited
+	// on a reply that would never come. It is the same in-flight state BusyToEE() vetoes the
+	// idle skip on, and for the same reason — an outstanding SIF transfer disturbs a resume
+	// exactly as it disturbs a fast-forward.
+	SifToIOP []SifPacketState
+
 	// The EE timers: the frame-ratio clock the GOAL engine paces its day by.
 	EETimers [4]EETimerState
 
@@ -149,6 +158,14 @@ type MachineState struct {
 // DmacChanState is one EE DMA channel's register file, exported for gob.
 type DmacChanState struct {
 	CHCR, MADR, QWC, TADR, ASR0, ASR1, SADR uint32
+}
+
+// SifPacketState is one queued EE->IOP SIF packet: where in IOP memory it lands, its
+// bytes, and whether it is a command (which rings SIFCMD's doorbell) or plain data.
+type SifPacketState struct {
+	Dest uint32
+	Data []byte
+	Cmd  bool
 }
 
 // GSXferState mirrors gsXfer: the image upload in progress.
@@ -259,6 +276,11 @@ func (m *Machine) SaveState() MachineState {
 		TTY:            append([]byte(nil), m.tty...),
 		SyscallCalls:   map[string]int{},
 		SBus:           m.sbus,
+	}
+	for _, p := range m.sifToIOPQueue {
+		s.SifToIOP = append(s.SifToIOP, SifPacketState{
+			Dest: p.dest, Data: append([]byte(nil), p.data...), Cmd: p.cmd,
+		})
 	}
 	if m.IOP != nil {
 		iop := m.IOP.SaveState()
@@ -416,6 +438,12 @@ func (m *Machine) LoadState(s MachineState) error {
 		m.sifRegs[k] = v
 	}
 	m.sifCmdBuf, m.sifCmdHandler = s.SifCmdBuf, s.SifCmdHandler
+	m.sifToIOPQueue = nil
+	for _, p := range s.SifToIOP {
+		m.sifToIOPQueue = append(m.sifToIOPQueue, sifPacket{
+			dest: p.Dest, data: append([]byte(nil), p.Data...), cmd: p.Cmd,
+		})
+	}
 	m.steps = s.Steps
 	// The idle detector (idle.go) is bookkeeping over consecutive instructions, not
 	// machine state; a resume starts its search afresh rather than inheriting a snapshot
@@ -484,6 +512,11 @@ func (m *Machine) LoadState(s MachineState) error {
 			m.IOP.Write32(addr, val)
 			m.note("IOP: poked 0x%08X = 0x%08X (%s) on resume", addr, val, m.IOP.Sym(addr))
 		}
+		// A packet restored into the EE->IOP queue is delivered now if the IOP's receive
+		// channel is already armed — the same drain sifPump does when a channel is armed with
+		// a packet already waiting. Without this the restored packet would sit until the next
+		// time the EE happened to send one, which for a stalled stream is never.
+		m.sifPump()
 	}
 
 	m.SyscallCalls = map[string]int{}

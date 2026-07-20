@@ -216,3 +216,53 @@ func TestDiscTypeFor(t *testing.T) {
 		}
 	}
 }
+
+// TestSnapshotCarriesTheDriveMidStream pins the fix for the frozen intro cutscene: a
+// snapshot taken while a disc read is in flight has to carry the drive. The intro streams
+// its bone matrices off the disc a chunk at a time; a savestate that dropped the in-flight
+// read left the resumed machine's ISOThread waiting for a completion interrupt that a
+// freshly-zeroed drive would never raise, and the cutscene froze on one keyframe.
+func TestSnapshotCarriesTheDriveMidStream(t *testing.T) {
+	_, p := newDriveOverAFakeDisc(t)
+
+	// Arm a transfer and issue a read, so a command is in flight — accepted (nBusy) with its
+	// completion interrupt still due (nDoneAt in the future). This is the state the streamer
+	// spends most of its time in.
+	p.cdvd.arm(0x1000, cdvdSectorBytes)
+	p.cdvd.nParams = []byte{0xE1, 0x10, 0x00, 0x00, 1, 0, 0, 0, 0x64, 0x83, 0x00} // LBA 4321, 1 sector
+	p.cdvd.startN(cdvdNCmdReadDVD)
+	if !p.cdvd.nBusy {
+		t.Fatal("a read that was just issued is not in flight")
+	}
+
+	saved := p.cdvd.saveState()
+	if !saved.NBusy || saved.NDoneAt == 0 {
+		t.Fatal("the snapshot did not capture the in-flight read")
+	}
+
+	// A fresh drive, exactly as LoadIOPState makes one: ready and idle, no command in flight.
+	fresh := newCDVD(p.ps2)
+	if fresh.nBusy {
+		t.Fatal("a fresh drive is not idle")
+	}
+	fresh.loadState(saved)
+	if !fresh.nBusy || fresh.nDoneAt != saved.NDoneAt {
+		t.Fatalf("the restored drive lost its in-flight read: nBusy=%v nDoneAt=%d (wanted %d) — "+
+			"the resumed machine would wait forever for a completion it will never raise",
+			fresh.nBusy, fresh.nDoneAt, saved.NDoneAt)
+	}
+}
+
+// TestSnapshotWithoutADriveKeepsTheReadyBit pins the guard that lets a snapshot written
+// before the drive was part of the state still resume. Such a snapshot decodes as a
+// zero-value CDVDState; restoring it blindly would zero the ready bit (0x40, which newCDVD
+// sets and nothing ever clears), and CDVDMAN's submit routine — which issues a command only
+// when status & 0xC0 == 0x40 — would refuse every read, so the game reports the disc removed.
+func TestSnapshotWithoutADriveKeepsTheReadyBit(t *testing.T) {
+	_, p := newDriveOverAFakeDisc(t)
+	fresh := newCDVD(p.ps2)
+	fresh.loadState(CDVDState{}) // an absent/old snapshot: every field zero
+	if fresh.nStatus&cdvdNStatusReady == 0 {
+		t.Fatal("restoring an absent drive snapshot cleared the ready bit — the drive now looks removed")
+	}
+}

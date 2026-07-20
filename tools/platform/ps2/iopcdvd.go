@@ -74,9 +74,15 @@ package ps2
 
 import (
 	"fmt"
+	"os"
 
 	"retroreverse.com/tools/lib/iso9660"
 )
+
+// cdvdLog, via PS2_CDVDLOG, prints every N-command the drive is issued, with its
+// parameters — the instrument for "is OVERLORD reading the disc at all", which a
+// census of *unanswered* commands cannot show (a serviced ReadDVD is not unanswered).
+var cdvdLog = os.Getenv("PS2_CDVDLOG") != ""
 
 // The register block. CDVDMAN names its own base: the word 0xBF402000 sits in its constant
 // pool (CDVDMAN+0x73A8), next to the DMA channel-3 registers it also drives.
@@ -396,6 +402,15 @@ func (c *cdvd) startN(cmd byte) {
 	params := c.nParams
 	c.nParams = nil
 
+	if cdvdLog {
+		lba, count := uint32(0), uint32(0)
+		if len(params) >= 8 {
+			lba, count = le32(params[0:]), le32(params[4:])
+		}
+		fmt.Printf("CDVD N-cmd 0x%02X params=%s lba=%d count=%d mode=%02X vbl=%d IOPstep=%d\n",
+			cmd, hexBytes(params), lba, count, mode8(params), c.ps2.VBlanks(), c.ps2.IOP.steps)
+	}
+
 	if !c.exec(cmd, params) {
 		c.unknownN[cmd]++
 		if c.unknownN[cmd] == 1 {
@@ -602,6 +617,76 @@ func (c *cdvd) census() string {
 		}
 	}
 	return s
+}
+
+// --- the snapshot -----------------------------------------------------------------------
+//
+// The drive is a device with in-flight state, and a snapshot that carries the IOP's memory
+// but not the drive restores into a machine that looks right and is not. It cost this: the
+// intro cutscene streams its bone matrices off the disc a chunk at a time, and a savestate
+// taken while a stream chunk is in flight — a read accepted (nBusy) and its completion
+// interrupt not yet delivered (nDoneAt in the future), or the sectors staged (data) and the
+// DMA into IOP RAM still armed (dmaArmed) — lost all of it on resume. ISOThread then waited
+// forever for a completion that a freshly-zeroed drive would never raise, no further chunk
+// was ever read, and the cutscene froze on one keyframe. What is architectural is serialised
+// here; unknownN/unknownS are a census, not machine state, and are left to rebuild.
+type CDVDState struct {
+	NCommand, NStatus, NError, NMode, Intr byte
+	NParams, LastParams                    []byte
+	NBusy                                  bool
+	NDoneAt                                uint64
+
+	SCommand         byte
+	SParams, SResult []byte
+
+	Data             []byte
+	DMAMadr, DMALen  uint32
+	DMAArmed         bool
+}
+
+// saveState captures the drive.
+func (c *cdvd) saveState() CDVDState {
+	return CDVDState{
+		NCommand: c.nCommand, NStatus: c.nStatus, NError: c.nError, NMode: c.nMode, Intr: c.intr,
+		NParams:    append([]byte(nil), c.nParams...),
+		LastParams: append([]byte(nil), c.lastParams...),
+		NBusy:      c.nBusy, NDoneAt: c.nDoneAt,
+		SCommand: c.sCommand,
+		SParams:  append([]byte(nil), c.sParams...),
+		SResult:  append([]byte(nil), c.sResult...),
+		Data:     append([]byte(nil), c.data...),
+		DMAMadr:  c.dmaMadr, DMALen: c.dmaLen, DMAArmed: c.dmaArmed,
+	}
+}
+
+// loadState restores the drive over a freshly-made one.
+//
+// A snapshot taken before this field existed decodes as a zero-value CDVDState, and the
+// drive's ready bit (0x40, set by newCDVD and never cleared) would be zeroed by a blind
+// restore — leaving CDVDMAN's submit routine convinced the drive is not ready, so it issues
+// no command and the game reports the disc removed. The ready bit is the tell: a real drive's
+// status always carries it, so a zero NStatus means "this state predates the field" — leave
+// the freshly-made drive alone.
+func (c *cdvd) loadState(s CDVDState) {
+	if s.NStatus == 0 {
+		return
+	}
+	c.nCommand, c.nStatus, c.nError, c.nMode, c.intr = s.NCommand, s.NStatus, s.NError, s.NMode, s.Intr
+	c.nParams = append([]byte(nil), s.NParams...)
+	c.lastParams = append([]byte(nil), s.LastParams...)
+	c.nBusy, c.nDoneAt = s.NBusy, s.NDoneAt
+	c.sCommand = s.SCommand
+	c.sParams = append([]byte(nil), s.SParams...)
+	c.sResult = append([]byte(nil), s.SResult...)
+	c.data = append([]byte(nil), s.Data...)
+	c.dmaMadr, c.dmaLen, c.dmaArmed = s.DMAMadr, s.DMALen, s.DMAArmed
+}
+
+func mode8(p []byte) byte {
+	if len(p) > 8 {
+		return p[8]
+	}
+	return 0
 }
 
 func hexBytes(b []byte) string {

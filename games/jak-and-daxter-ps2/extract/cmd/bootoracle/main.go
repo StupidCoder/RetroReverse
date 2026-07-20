@@ -137,9 +137,11 @@ func main() {
 	iopION := flag.Int("iopion", 400, "limit traced IOP register accesses")
 	iopWatch := flag.String("iopwatch", "", "write-watch on IOP memory: ADDR[:LEN] (hex)")
 	iopTrap := flag.String("ioptrap", "", "halt the IOP when it reaches ADDR (hex or symbol) and print the instructions that led there")
+	iopLogPC := flag.String("ioplogpc", "", "non-halting IOP breakpoint: log vblank + arg registers every time the IOP reaches ADDR (hex or symbol), and keep running")
 	iopCalls := flag.Int("iopcalls", 0, "trace the first N calls the IOP's modules make through their import stubs — the protocol between the modules")
 	iopDump := flag.String("iopdump", "", "dump IOP memory as words at ADDR[:LEN] (hex or symbol), naming any word that points into a module")
 	iopThreads := flag.Bool("iopthreads", false, "walk THREADMAN's control blocks and report every thread's state and the PC it is parked at — the blocked-thread inspector for a deadlock")
+	iopSyms := flag.String("iopsyms", "", "list every loaded IOP symbol whose name contains this substring, with its address — the map of a module's named surface (empty lists all)")
 	iopCallsFrom := flag.String("iopcallsfrom", "", "only trace stub calls once this module has started (e.g. 989SND.IRX)")
 	var iopPokes multiFlag
 	flag.Var(&iopPokes, "ioppoke", "write ADDR:VALUE (hex) into IOP memory every time the IOP finishes booting; repeatable. Sony's modules carry their own tracing behind a verbosity word — CDVDMAN's is at 0x29F90 — and turning one on makes a stripped module narrate itself")
@@ -179,9 +181,9 @@ func main() {
 		savestate: *savestate, loadstate: *loadstate, poke: *poke,
 		dis: *dis, dump: *dump, scan: *scan, goalPS: *goalPS, files: *files, syms: *syms, verbose: *verbose,
 		iopOnly: *iopOnly, iopMods: *iopMods, iopDis: *iopDis,
-		iopIO: *iopIO, iopION: *iopION, iopWatch: *iopWatch, iopTrap: *iopTrap,
+		iopIO: *iopIO, iopION: *iopION, iopWatch: *iopWatch, iopTrap: *iopTrap, iopLogPC: *iopLogPC,
 		iopCalls: *iopCalls, iopCallsFrom: *iopCallsFrom, iopPokes: iopPokes,
-		iopDump: *iopDump, iopThreads: *iopThreads, iopIELog: *iopIELog, goalSyms: *goalSyms, goalNames: *goalNames, eeProf: *eeProf, profile: *profile, idleSkip: *idleSkip, gsFrame: *gsFrame, gsVerts: *gsVerts, gsReg: *gsReg, gsBig: *gsBig, gsPixel: *gsPixel, pad: *pad, vu1In: *vu1In, vifTiny: *vifTiny, vu1Micro: *vu1Micro, vu0Micro: *vu0Micro, vu0Data: *vu0Data, vu0Regs: *vu0Regs, vu1Data: *vu1Data,
+		iopDump: *iopDump, iopThreads: *iopThreads, iopSyms: *iopSyms, iopIELog: *iopIELog, goalSyms: *goalSyms, goalNames: *goalNames, eeProf: *eeProf, profile: *profile, idleSkip: *idleSkip, gsFrame: *gsFrame, gsVerts: *gsVerts, gsReg: *gsReg, gsBig: *gsBig, gsPixel: *gsPixel, pad: *pad, vu1In: *vu1In, vifTiny: *vifTiny, vu1Micro: *vu1Micro, vu0Micro: *vu0Micro, vu0Data: *vu0Data, vu0Regs: *vu0Regs, vu1Data: *vu1Data,
 		gsFBs: gsFBs, gsTexs: gsTexs,
 	}); err != nil {
 		fmt.Fprintln(os.Stderr, "bootoracle:", err)
@@ -205,10 +207,10 @@ type cfg struct {
 	iopIO                                  bool
 	iopION                                 int
 	iopWatch                               string
-	iopTrap                                string
+	iopTrap, iopLogPC                      string
 	iopCalls                               int
 	iopCallsFrom                           string
-	iopDump                                string
+	iopDump, iopSyms                       string
 	iopThreads                             bool
 	iopPokes                               multiFlag
 	iopIELog                               string
@@ -894,6 +896,36 @@ func run(c cfg) error {
 		if census := m.IOP.IOPCensus(); census != "" {
 			fmt.Printf("\n--- %s", census)
 		}
+		if c.iopThreads {
+			fmt.Printf("\n--- %s", m.IOP.IOPThreads())
+		}
+		if c.iopSyms != "" {
+			fmt.Printf("\n--- IOP symbols matching %q\n%s\n", c.iopSyms, m.IOP.SymGrep(c.iopSyms))
+		}
+		if c.iopDis != "" {
+			if addr, n, err := parseIOPRange(m, c.iopDis); err == nil {
+				if n < 8 {
+					n = 32 * 4
+				}
+				fmt.Printf("\n--- IOP memory as loaded\n")
+				for a := addr; a < addr+n; a += 4 {
+					fmt.Printf("  %-24s %08X  %s\n", m.IOP.Sym(a), a, m.IOP.DisasmAt(a))
+				}
+			} else {
+				fmt.Printf("\n-iopdis: %v\n", err)
+			}
+		}
+		if c.iopDump != "" {
+			if addr, n, err := parseIOPRange(m, c.iopDump); err == nil {
+				fmt.Printf("\n--- IOP memory at 0x%08X\n", addr)
+				for a := addr; a < addr+n; a += 4 {
+					v := m.IOP.Read32(a)
+					fmt.Printf("  %08X  +%-4d  %08X  %s\n", a, a-addr, v, m.IOP.Sym(v))
+				}
+			} else {
+				fmt.Printf("\n-iopdump: %v\n", err)
+			}
+		}
 	}
 
 	if len(m.Log) > 0 {
@@ -1271,6 +1303,25 @@ func armIOP(m *ps2.Machine, c cfg) error {
 				p.Trap = a
 			} else {
 				p.TrapSym = c.iopTrap
+			}
+		}
+	}
+
+	// -ioplogpc: a non-halting IOP breakpoint. Every time the IOP reaches this symbol/addr
+	// it prints one line (vblank + arg registers) and keeps running — the timeline instrument
+	// for "how often, and when, does the streaming server actually get called".
+	if c.iopLogPC != "" {
+		prev := m.OnIOPStart
+		m.OnIOPStart = func(p *ps2.IOP) {
+			if prev != nil {
+				prev(p)
+			}
+			if a, e := hx(c.iopLogPC); e == nil {
+				p.LogPC(a)
+			} else if a, ok := p.SymAddr(c.iopLogPC); ok {
+				p.LogPC(a)
+			} else {
+				fmt.Fprintf(os.Stderr, "-ioplogpc: cannot resolve %q\n", c.iopLogPC)
 			}
 		}
 	}

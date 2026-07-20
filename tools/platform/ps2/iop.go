@@ -32,6 +32,7 @@ package ps2
 import (
 	"fmt"
 	"sort"
+	"strings"
 
 	"retroreverse.com/tools/cpu/mips"
 )
@@ -688,8 +689,8 @@ func (p *IOP) Step() {
 	if p.logPC != nil {
 		if _, hit := p.logPC[uint32(p.CPU.CurPC())]; hit {
 			pc := uint32(p.CPU.CurPC())
-			fmt.Printf("ioplogpc %-24s a0=%08X a1=%08X a2=%08X a3=%08X sp+10=%08X sp+14=%08X ra=%s\n",
-				p.Sym(pc), p.CPU.Reg(4), p.CPU.Reg(5), p.CPU.Reg(6), p.CPU.Reg(7),
+			fmt.Printf("ioplogpc vbl=%d %-24s a0=%08X a1=%08X a2=%08X a3=%08X sp+10=%08X sp+14=%08X ra=%s\n",
+				p.ps2.VBlanks(), p.Sym(pc), p.CPU.Reg(4), p.CPU.Reg(5), p.CPU.Reg(6), p.CPU.Reg(7),
 				p.Read32(uint32(p.CPU.Reg(29))+0x10), p.Read32(uint32(p.CPU.Reg(29))+0x14),
 				p.Sym(uint32(p.CPU.Reg(31))))
 		}
@@ -804,6 +805,27 @@ func (p *IOP) Sym(addr uint32) string {
 		return fmt.Sprintf("%s+0x%X", m.Name, off)
 	}
 	return fmt.Sprintf("0x%08X", addr)
+}
+
+// SymGrep lists every loaded IOP symbol whose name contains substr (case-sensitive),
+// with its address as loaded — the map of a module's named surface, for finding the
+// streaming/RPC entry points by name rather than by tracing to them.
+func (p *IOP) SymGrep(substr string) string {
+	var out []string
+	for _, m := range p.modules {
+		for i := range m.IRX.Symbols {
+			s := &m.IRX.Symbols[i]
+			if substr == "" || strings.Contains(s.Name, substr) {
+				kind := "data"
+				if s.Func {
+					kind = "func"
+				}
+				out = append(out, fmt.Sprintf("  %08X  %-6s %-10s %s", m.Base+s.Addr, kind, m.Name, s.Name))
+			}
+		}
+	}
+	sort.Strings(out)
+	return strings.Join(out, "\n")
 }
 
 // SymAddr resolves a symbol name to its address in IOP memory, as loaded.
