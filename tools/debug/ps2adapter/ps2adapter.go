@@ -120,6 +120,7 @@ var (
 	_ debug.Haltable     = (*Adapter)(nil)
 	_ debug.Keyer        = (*Adapter)(nil)
 	_ debug.KeyLegender  = (*Adapter)(nil)
+	_ debug.Profiler     = (*Adapter)(nil)
 )
 
 // snap wraps a PS2 in-memory savestate as an opaque debug.Snapshot.
@@ -195,6 +196,7 @@ func (a *Adapter) boot() error {
 	if err := m.RebootIOP(); err != nil {
 		return fmt.Errorf("bringing the IOP up: %w", err)
 	}
+	m.SetProfile(true) // the profile panel reads the last stepped field; arm it from the start
 	a.live = m
 	return nil
 }
@@ -215,11 +217,38 @@ func (a *Adapter) Restore(s debug.Snapshot) error {
 	if !ok {
 		return fmt.Errorf("ps2adapter: snapshot is from %q, not ps2", platformOf(s))
 	}
-	return a.live.LoadState(ps.ms)
+	if err := a.live.LoadState(ps.ms); err != nil {
+		return err
+	}
+	a.live.SetProfile(true) // re-arm: the first field after a load is a whole field
+	return nil
 }
 
 func (a *Adapter) SaveStateFile(path string) error { return a.live.SaveStateFile(path) }
-func (a *Adapter) LoadStateFile(path string) error { return a.live.LoadStateFile(path) }
+func (a *Adapter) LoadStateFile(path string) error {
+	if err := a.live.LoadStateFile(path); err != nil {
+		return err
+	}
+	a.live.SetProfile(true) // re-arm: the first field after a load is a whole field
+	return nil
+}
+
+// FrameProfile reports where the last stepped field's time went (ps2/profile.go): the DMA
+// transport, the VU1 geometry and the rasteriser timed at their per-primitive/per-kick
+// boundaries, the GIF/VIF/DMA decode derived from the transport, and the EE + IOP + devices
+// as the remainder they are. No fragment or IOP-instruction bucket — both happen far too many
+// times a field to time without the clock becoming the measurement (they are counters).
+func (a *Adapter) FrameProfile() debug.FrameProfile {
+	p := a.live.FrameProfile()
+	out := debug.FrameProfile{TotalMs: p.TotalMs, Drew: p.Drew}
+	for _, b := range p.Buckets {
+		out.Buckets = append(out.Buckets, debug.ProfileBucket{Name: b.Name, Millis: b.Millis, Count: b.Count})
+	}
+	for _, c := range p.Counters {
+		out.Counters = append(out.Counters, debug.ProfileCounter{Name: c.Name, Value: c.Value})
+	}
+	return out
+}
 
 // StepFast advances one field capturing nothing — how the debugger plays. The vblank is
 // the machine's frame boundary; OnVBlank asks the run to stop the instant it fires.

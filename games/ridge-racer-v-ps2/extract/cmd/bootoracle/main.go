@@ -32,6 +32,37 @@ func (m *multiFlag) Set(s string) error {
 	return nil
 }
 
+// printProfile reports the last field's cost by subsystem (ps2/profile.go). It reports the
+// LAST field, not an average, because that is what the machine keeps. During a boot stretch,
+// before any drawing, it is almost all the "ee + iop + rest" remainder — the honest answer,
+// not a profiler bug: the timed buckets are the DMA transport and the geometry/pixel pipe, and
+// none of it is running yet. The instrument for splitting the remainder is -eeprof.
+func printProfile(p ps2.FrameProfile) {
+	if p.TotalMs == 0 {
+		fmt.Fprintln(os.Stderr, "bootoracle: no field profiled (did the run cover a whole field with -profile set?)")
+		return
+	}
+	drew := "did not draw"
+	if p.Drew {
+		drew = "drew"
+	}
+	fmt.Fprintf(os.Stderr, "bootoracle: last field — %.1f ms (%s)\n", p.TotalMs, drew)
+	for _, b := range p.Buckets {
+		pct := 0.0
+		if p.TotalMs > 0 {
+			pct = b.Millis / p.TotalMs * 100
+		}
+		count := ""
+		if b.Count > 0 {
+			count = fmt.Sprintf("  %d", b.Count)
+		}
+		fmt.Fprintf(os.Stderr, "  %-28s %8.1f ms  %5.1f%%%s\n", b.Name, b.Millis, pct, count)
+	}
+	for _, c := range p.Counters {
+		fmt.Fprintf(os.Stderr, "  %-28s %8d\n", c.Name, c.Value)
+	}
+}
+
 func main() {
 	image_ := flag.String("image", "", "disc image (.iso or raw .bin)")
 	bios := flag.String("bios", "", "console ROM (rom0, e.g. scph10000.bin) — needed because RRV's IOPRP image carries only some kernel modules")
@@ -47,6 +78,8 @@ func main() {
 	scan := flag.String("scan", "", "scan EE memory for 32-bit WORD[:MASK] (hex) and name every hit")
 	gsFrame := flag.String("gsframe", "", "write the frame the GS would scan out to FILE.png at the end of the run")
 	eeProf := flag.Int("eeprof", 0, "sample the EE's PC every N steps and report where the time goes, by symbol")
+	idleSkip := flag.Bool("idleskip", false, "fast-forward proven-idle VSync spins (idle.go) — OFF by default because it is exact only on a still field, not across disc streaming; unsafe from a cold boot")
+	profile := flag.Bool("profile", false, "report where the last field's time went, by subsystem (DMA/GIF-VIF decode, VU1 geometry, rasterise, and the EE+IOP+devices remainder), with the field's draw counters")
 	pad := flag.String("pad", "", "press controller buttons: BUTTON@VBLANK[:HOLD],... (default hold 30 vblanks)")
 	verbose := flag.Bool("v", false, "print the kernel-call, SIF and IOP censuses after the run")
 	gsVerts := flag.Int("gsverts", 0, "dump the next N completed GS primitives (prim, fb, tex0, vertices)")
@@ -76,7 +109,7 @@ func main() {
 		image: *image_, bios: *bios, exeName: *exeName, steps: *stepsS,
 		files: *files, syms: *syms, dis: *dis, dump: *dump, scan: *scan,
 		loadstate: *loadstate, savestate: *savestate, poke: *poke,
-		gsFrame: *gsFrame, eeProf: *eeProf, pad: *pad, verbose: *verbose,
+		gsFrame: *gsFrame, eeProf: *eeProf, profile: *profile, idleSkip: *idleSkip, pad: *pad, verbose: *verbose,
 		bps: bps, logpcs: logpcs, iopLogpcs: iopLogpcs, watches: watches, rwatches: rwatches, watchn: *watchn,
 		gsFBs: gsFBs, gsRegs: gsRegs, gsSnaps: gsSnaps, iopThreads: *iopThreads,
 		gsVerts: *gsVerts, gsBig: *gsBig, gsTex: *gsTex, gsPixel: *gsPixel, gsFlip: *gsFlip, gsWeave: *gsWeave, gsPktTrace: *gsPktTrace, vu1dump: *vu1dump,
@@ -93,6 +126,8 @@ type cfg struct {
 	loadstate, savestate, poke     string
 	gsFrame                        string
 	eeProf                         int
+	profile                        bool
+	idleSkip                       bool
 	pad                            string
 	bps, logpcs, iopLogpcs, watches, rwatches multiFlag
 	watchn                         int
@@ -203,6 +238,9 @@ func run(c cfg) error {
 		m.SetBIOS(biosRaw)
 	}
 	m.LoadExecutable(exe)
+	if c.idleSkip {
+		m.SetIdleSkip(true)
+	}
 	fmt.Fprintf(os.Stderr, "%s", exe.Describe())
 
 	if c.loadstate != "" {
@@ -489,9 +527,15 @@ func run(c cfg) error {
 	if err != nil {
 		return fmt.Errorf("bad -steps %q", c.steps)
 	}
+	if c.profile {
+		m.SetProfile(true)
+	}
 	res := m.Run(steps)
 	fmt.Println(res.String())
 	fmt.Printf("reached: %s  (vblank %d)\n", m.Sym(res.PC), m.VBlanks())
+	if c.profile {
+		printProfile(m.FrameProfile())
+	}
 
 	if tty := m.TTY(); tty != "" {
 		fmt.Printf("\ntty:\n%s\n", tty)

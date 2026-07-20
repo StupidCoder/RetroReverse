@@ -417,6 +417,11 @@ func (m *Machine) LoadState(s MachineState) error {
 	}
 	m.sifCmdBuf, m.sifCmdHandler = s.SifCmdBuf, s.SifCmdHandler
 	m.steps = s.Steps
+	// The idle detector (idle.go) is bookkeeping over consecutive instructions, not
+	// machine state; a resume starts its search afresh rather than inheriting a snapshot
+	// taken against a step count and a store count from before the load.
+	m.idleDet = idleState{}
+	m.stores = 0
 	for i, ts := range s.EETimers {
 		m.eeTimers[i] = eeTimer{base: ts.Base, baseSteps: ts.BaseSteps, mode: ts.Mode, comp: ts.Comp, hold: ts.Hold}
 	}

@@ -158,6 +158,7 @@ func (m *Machine) wakeupThread(id uint32) {
 		m.setRet(0xFFFFFFFF)
 		return
 	}
+	m.eeDisturbGen++ // a thread becoming ready can end an idle fast-forward (idle.go)
 	if t.state == thSleeping {
 		t.state = thReady
 	} else {
@@ -241,6 +242,7 @@ func (m *Machine) blocked() bool {
 
 // switchTo saves the current thread and resumes another.
 func (m *Machine) switchTo(next *thread, curState threadState) {
+	m.eeDisturbGen++ // a thread switch ends an idle fast-forward (idle.go)
 	if cur := m.threads[m.currentThread]; cur != nil {
 		cur.ctx = m.CPU.Snapshot()
 		if cur.state == thRunning {

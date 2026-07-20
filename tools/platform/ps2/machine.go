@@ -217,6 +217,25 @@ type Machine struct {
 	// SIF's reply latency is measured in it.
 	steps uint64
 
+	// stores counts every write into machine memory (Write/Write32). The idle-loop
+	// fast-forward (idle.go) watches it: a loop that returns to the same state having
+	// stored nothing is a pure repeat and can be skipped, and a loop that stored — to a
+	// hardware register with side effects, say — must not be. It is a monotonic counter
+	// compared only as a delta, so it needs no place in the savestate.
+	stores uint64
+
+	// eeDisturbGen ticks whenever something reaches across into the EE's own world from
+	// outside an EE instruction: the SIF handler running guest code, a thread switch, a
+	// wakeup. The idle fast-forward samples it around each IOP step and STOPS the moment
+	// it moves, because the thing the IOP just woke has to run at the instruction it was
+	// woken on, not at the far end of a skip. Transient bookkeeping; not savestated.
+	eeDisturbGen uint64
+
+	// idleDet is the idle-loop detector (idle.go); noIdleSkip turns the fast-forward off,
+	// which is how a run proves the skip changed nothing and how a bisect rules it out.
+	idleDet    idleState
+	noIdleSkip bool
+
 	vblanks uint32
 
 	imageHash string // pinned into savestates
@@ -311,6 +330,12 @@ type Machine struct {
 	// StopRequested ends the run at the next instruction boundary.
 	StopRequested bool
 
+	// Profile, when set, turns on the per-subsystem field profiler (profile.go). It costs a
+	// predictable branch per timed boundary when off and is not part of the savestate; the
+	// frame debugger and the bootoracle's -profile flag arm it. See SetProfile.
+	Profile bool
+	prof    profState
+
 	// OnVBlank, if set, is called at each vertical blank — the machine's frame
 	// boundary. The frame debugger sets it to StopRequested so a run advances exactly
 	// one field; nothing in the oracle path uses it.
@@ -382,6 +407,9 @@ func NewMachine() *Machine {
 	}
 	m.CPU = r5900.NewCPU(m)
 	m.CPU.Syscall = m.handleSyscall
+	// The idle fast-forward is OFF unless a caller opts in — it is exact on a still field but
+	// not across disc streaming, and the default must keep a cold boot bit-exact. See idle.go.
+	m.noIdleSkip = true
 	// VU0 doubles as the EE's COP2 (macro mode); building it with the machine means
 	// the very first COP2 instruction has a unit behind it.
 	m.ensureVIF(0)
@@ -614,6 +642,7 @@ func (m *Machine) Read(addr uint32) byte {
 
 func (m *Machine) Write(addr uint32, v byte) {
 	p := phys(addr)
+	m.stores++
 	if buf, off, ok := m.slice(p); ok {
 		buf[off] = v
 		m.noteWrite(p, uint32(v))
@@ -637,6 +666,7 @@ func (m *Machine) Read32(addr uint32) uint32 {
 
 func (m *Machine) Write32(addr uint32, v uint32) {
 	p := phys(addr)
+	m.stores++
 	if buf, off, ok := m.slice(p); ok && off+4 <= uint32(len(buf)) {
 		buf[off] = byte(v)
 		buf[off+1] = byte(v >> 8)

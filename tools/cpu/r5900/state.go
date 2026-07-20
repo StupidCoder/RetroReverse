@@ -51,6 +51,19 @@ func (c *CPU) Snapshot() State {
 	}
 }
 
+// SetThreadRegs overwrites the per-thread register file from s — the general registers,
+// the multiply/shift accumulators, the program counter and the branch-delay machinery,
+// the FPU registers — while leaving the machine-wide state (COP0 and its Count timer, the
+// TLB, the retired-instruction count) exactly as it stands. It is the cheap partial
+// restore an idle fast-forward uses to place a frozen thread at its true loop phase
+// without a full Snapshot/Restore round-trip and without disturbing the clock it advanced.
+func (c *CPU) SetThreadRegs(s State) {
+	c.R, c.HI, c.LO, c.HI1, c.LO1, c.SA = s.R, s.HI, s.LO, s.HI1, s.LO1, s.SA
+	c.PC, c.nextPC, c.curPC = s.PC, s.NextPC, s.CurPC
+	c.FPR, c.ACC, c.FCR31, c.LLBit = s.FPR, s.ACC, s.FCR31, s.LLBit
+	c.delaySlot, c.pendingDelay, c.branchAddr = s.DelaySlot, s.PendingDelay, s.BranchAddr
+}
+
 // Restore overwrites the core's state in place, leaving its Bus attached.
 func (c *CPU) Restore(s State) {
 	c.R, c.HI, c.LO, c.HI1, c.LO1, c.SA = s.R, s.HI, s.LO, s.HI1, s.LO1, s.SA

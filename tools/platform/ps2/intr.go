@@ -77,6 +77,10 @@ const dmacChannelSIF0 = 5
 // handlers but forgot the flag leaves that loop spinning forever, having done
 // everything else right.
 func (m *Machine) deliverVBlank() {
+	// The vblank is the field boundary: close the field the profiler has been accumulating
+	// before this handler's own work (the deferred drain below, the vsync flip) starts the
+	// next one. No-op when profiling off. See profile.go.
+	m.profFrame()
 	m.drainVIF1() // a kick never crosses the frame boundary un-walked
 	m.vblanks++
 	m.gsVSync()
@@ -139,6 +143,10 @@ func (m *Machine) callGuest(entry uint32, args ...uint32) uint32 {
 	if entry == 0 || m.Halted {
 		return 0
 	}
+	// Running guest code from outside an EE instruction — an interrupt handler, the SIF
+	// command dispatcher — is exactly the reach-across the idle fast-forward must not skip
+	// over: whatever this wakes has to run at the instruction it was woken on. See idle.go.
+	m.eeDisturbGen++
 	saved := m.CPU.Snapshot()
 
 	for i, a := range args {

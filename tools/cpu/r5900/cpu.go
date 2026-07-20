@@ -277,6 +277,15 @@ func (c *CPU) Quad(i uint32) Quad { return c.R[i] }
 // a Bus write, e.g. to attribute "who wrote this address").
 func (c *CPU) CurPC() uint64 { return c.curPC }
 
+// NextPC, InDelaySlot, PendingDelay and BranchAddr expose the branch-delay machinery,
+// so an idle-loop detector can prove the core has returned to an *identical* state —
+// forgetting that a branch was in flight would let two different points in a loop look
+// the same. They read pure architectural state and change nothing.
+func (c *CPU) NextPC() uint64      { return c.nextPC }
+func (c *CPU) InDelaySlot() bool   { return c.delaySlot }
+func (c *CPU) PendingDelay() bool  { return c.pendingDelay }
+func (c *CPU) BranchAddr() uint64  { return c.branchAddr }
+
 // set writes the low half of register i, preserving the high half. This is what
 // every ordinary MIPS instruction does on this core: the upper 64 bits belong to
 // the MMI world and are not disturbed by a daddu.
@@ -477,4 +486,70 @@ func (c *CPU) tickCount() {
 	if count == uint32(c.COP0[cop0Compare]) {
 		c.COP0[cop0Cause] |= causeIP7
 	}
+}
+
+// SkipInstructions advances the core's bookkeeping as if n instructions had run,
+// WITHOUT running them. It is the primitive an idle-loop fast-forward is built on
+// (tools/platform/ps2/idle.go): a loop proven to return to the same state having
+// stored nothing can be fast-forwarded a whole number of its periods, and this
+// carries the two pieces of core state that advance with the clock rather than with
+// the program — the retired-instruction count, and the Count/Compare timer.
+//
+// It replicates n calls to tickCount in closed form: Count ticks at half the clock,
+// so it advances by the number of even values the fraction counter passes through,
+// and IP7 is raised if that run of increments steps across Compare — exactly the
+// equality tickCount tests, wrap included. The CALLER is responsible for not skipping
+// across a Compare that is actually deliverable (see idleDeadline): this sets the
+// pending bit as the hardware would, but nothing here delivers the interrupt.
+func (c *CPU) SkipInstructions(n uint64) {
+	if n == 0 {
+		return
+	}
+	f0 := c.countFrac
+	c.countFrac = f0 + n
+	// Even fraction values in (f0, f0+n] are the increments Count takes.
+	inc := (f0+n)/2 - f0/2
+	if inc > 0 {
+		count := uint32(c.COP0[cop0Count])
+		comp := uint32(c.COP0[cop0Compare])
+		// Compare is hit if it lies count+1..count+inc going forward (mod 2^32). A
+		// skip long enough to wrap the whole counter necessarily passes it.
+		if inc >= 1<<32 {
+			c.COP0[cop0Cause] |= causeIP7
+		} else if d := uint64(comp - count); d != 0 && d <= inc {
+			c.COP0[cop0Cause] |= causeIP7
+		}
+		c.COP0[cop0Count] = uint64(count + uint32(inc))
+	}
+	c.Steps += n
+}
+
+// Count and Compare read the Count/Compare timer, so an idle skip can size how far it
+// may go before the timer would fire.
+func (c *CPU) Count() uint32   { return uint32(c.COP0[cop0Count]) }
+func (c *CPU) Compare() uint32 { return uint32(c.COP0[cop0Compare]) }
+
+// CountFrac reports the half-rate fraction carry, which fixes the phase of the next
+// Count increment: with the carry odd, the very next step increments Count.
+func (c *CPU) CountFrac() uint64 { return c.countFrac }
+
+// TimerIRQDeliverable reports whether a Count/Compare (IP7) interrupt would be taken
+// right now if it were pending — both enables on, no exception in progress, IM7 set.
+// When it is true the timer is a hard deadline for an idle skip; when false, reaching
+// Compare only sets a status bit nothing acts on, which SkipInstructions reproduces.
+func (c *CPU) TimerIRQDeliverable() bool {
+	sr := c.COP0[cop0Status]
+	return sr&statusIE != 0 && sr&statusEIE != 0 && sr&(statusEXL|statusERL) == 0 &&
+		sr&(1<<15) != 0
+}
+
+// InterruptDeliverable reports whether any enabled, unmasked interrupt is pending and
+// would be taken at the next instruction boundary. An idle skip refuses to start when
+// one is, so the fast-forward never steps over an interrupt the run loop would deliver.
+func (c *CPU) InterruptDeliverable() bool {
+	sr := c.COP0[cop0Status]
+	if sr&statusIE == 0 || sr&statusEIE == 0 || sr&(statusEXL|statusERL) != 0 {
+		return false
+	}
+	return c.COP0[cop0Cause]&sr&0x0000FF00 != 0
 }

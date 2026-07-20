@@ -1116,3 +1116,31 @@ func (p *IOP) Run(n uint64) {
 
 // Steps reports how many instructions the second processor has retired.
 func (p *IOP) Steps() uint64 { return p.steps }
+
+// BusyToEE reports whether the second processor is in the middle of something that will
+// reach across into EE memory soon — a disc read in flight or its data waiting to be
+// pumped, an armed SIF transfer in either direction. It is the veto the idle fast-forward
+// (idle.go) checks: this machine's IOP is the GameCube's DSP, and skipping the EE while
+// the IOP is streaming a level in over the SIF would fast-forward the EE past the
+// instruction the incoming bytes are supposed to interrupt. When it is quiet — the steady
+// state a title screen or a paused menu spends its time in — the fast-forward is exact.
+func (p *IOP) BusyToEE() bool {
+	// A disc read in flight or its bytes waiting to be pumped: the read will complete and
+	// its data cross to the EE. This is the level-loading state, and the veto's main job.
+	if c := p.cdvd; c != nil {
+		if c.nBusy || c.dmaArmed || len(c.data) > 0 {
+			return true
+		}
+	}
+	// A request the EE has sent the IOP and not yet had answered: the answer comes back as
+	// a SIF0 transfer that will disturb a skip, and — unlike a disc read — it is armed and
+	// fired inside a single IOP step, with no lead the skip could see coming. Vetoing while
+	// one is outstanding is what makes the reply land on the instruction it should.
+	if len(p.ps2.sifToIOPQueue) > 0 {
+		return true
+	}
+	// SIF0 armed is the IOP's OUTBOUND channel primed to send the EE a packet — the
+	// transfer that becomes the disturbance. (SIF1, the EE's receive channel, sits armed
+	// the whole time a game runs — it is readiness, not activity — so it is NOT a veto.)
+	return p.dma[iopDMAChSIF0].chcr&iopChcrStart != 0
+}

@@ -69,8 +69,41 @@ func (m *multiFlag) Set(s string) error {
 	return nil
 }
 
+// printProfile reports the last field's cost by subsystem (ps2/profile.go). It reports the
+// LAST field, not an average, because that is what the machine keeps — and during a boot
+// stretch, before any drawing, it will be almost all the "ee + iop + rest" remainder, which
+// is the honest answer rather than a profiler bug: the timed buckets are the DMA transport and
+// the geometry/pixel pipe, and none of it is running yet. The instrument for splitting the
+// remainder is -eeprof.
+func printProfile(p ps2.FrameProfile) {
+	if p.TotalMs == 0 {
+		fmt.Fprintln(os.Stderr, "bootoracle: no field profiled (did the run cover a whole field with -profile set?)")
+		return
+	}
+	drew := "did not draw"
+	if p.Drew {
+		drew = "drew"
+	}
+	fmt.Fprintf(os.Stderr, "bootoracle: last field — %.1f ms (%s)\n", p.TotalMs, drew)
+	for _, b := range p.Buckets {
+		pct := 0.0
+		if p.TotalMs > 0 {
+			pct = b.Millis / p.TotalMs * 100
+		}
+		count := ""
+		if b.Count > 0 {
+			count = fmt.Sprintf("  %d", b.Count)
+		}
+		fmt.Fprintf(os.Stderr, "  %-28s %8.1f ms  %5.1f%%%s\n", b.Name, b.Millis, pct, count)
+	}
+	for _, c := range p.Counters {
+		fmt.Fprintf(os.Stderr, "  %-28s %8d\n", c.Name, c.Value)
+	}
+}
+
 func main() {
 	image := flag.String("image", "", "disc image (.iso)")
+	bios := flag.String("bios", "", "console ROM (rom0, e.g. scph10000.bin) to take the IOP's base kernel modules from — needed when the game's IOPRP image is an UPDATE that carries only some modules (Jak's carries all of them, so it needs no BIOS; Ridge Racer V's carries 4 of 12)")
 	exeName := flag.String("exe", "", "boot a specific executable rather than the one SYSTEM.CNF names")
 	stepsS := flag.String("steps", "100000000", "instruction budget (hex or decimal)")
 	trace := flag.Bool("trace", false, "trace execution")
@@ -114,6 +147,8 @@ func main() {
 	goalSyms := flag.String("goalsyms", "", "write the GOAL symbol table (name, address, value) to FILE at the end of the run — the runtime-linked engine's own names, read the way find_symbol_from_c reads them")
 	eeProf := flag.Int("eeprof", 0, "sample the EE's PC every N steps and report where the time goes, by symbol (use with -goalnames to see engine code) — the only thing that tells an engine idling from an engine working")
 	goalNames := flag.String("goalnames", "", "read a -goalsyms dump back in, so -dis/-bp/-logpc and every trace can name GOAL engine code (symbol values that point into RAM become function names)")
+	idleSkip := flag.Bool("idleskip", false, "fast-forward proven-idle VSync spins (idle.go) — OFF by default because it is exact only on a still field, not across disc streaming; a big speedup for re-rendering a title or menu, unsafe from a cold boot")
+	profile := flag.Bool("profile", false, "report where the last field's time went, by subsystem (DMA/GIF-VIF decode, VU1 geometry, rasterise, and the EE+IOP+devices remainder), with the field's draw counters")
 	gsFrame := flag.String("gsframe", "", "write the frame the GS would be scanning out (the DISPFB rectangle, deswizzled) to FILE.png at the end of the run")
 	vu1In := flag.String("vu1in", "", "dump a VU1 program's input buffer (96 qw at TOP) at its next MSCAL — hex byte address; the in-place transforms destroy the input by kick time")
 	vifTiny := flag.Int("viftiny", 0, "note the first N denormal-tiny floats (|v| < ~1e-7, not zero) a VIF1 unpack delivers, with the EE address the payload came from — a vertex built from one collapses to a point, and the address is what -watch needs to name the author")
@@ -138,7 +173,7 @@ func main() {
 		os.Exit(2)
 	}
 	if err := run(cfg{
-		image: *image, exeName: *exeName, steps: *stepsS,
+		image: *image, bios: *bios, exeName: *exeName, steps: *stepsS,
 		trace: *trace, tracen: *tracen, tracefrom: *tracefrom,
 		bps: bps, logpcs: logpcs, logvfs: logvfs, watches: watches, rwatches: rwatches, watchn: *watchn,
 		savestate: *savestate, loadstate: *loadstate, poke: *poke,
@@ -146,7 +181,7 @@ func main() {
 		iopOnly: *iopOnly, iopMods: *iopMods, iopDis: *iopDis,
 		iopIO: *iopIO, iopION: *iopION, iopWatch: *iopWatch, iopTrap: *iopTrap,
 		iopCalls: *iopCalls, iopCallsFrom: *iopCallsFrom, iopPokes: iopPokes,
-		iopDump: *iopDump, iopThreads: *iopThreads, iopIELog: *iopIELog, goalSyms: *goalSyms, goalNames: *goalNames, eeProf: *eeProf, gsFrame: *gsFrame, gsVerts: *gsVerts, gsReg: *gsReg, gsBig: *gsBig, gsPixel: *gsPixel, pad: *pad, vu1In: *vu1In, vifTiny: *vifTiny, vu1Micro: *vu1Micro, vu0Micro: *vu0Micro, vu0Data: *vu0Data, vu0Regs: *vu0Regs, vu1Data: *vu1Data,
+		iopDump: *iopDump, iopThreads: *iopThreads, iopIELog: *iopIELog, goalSyms: *goalSyms, goalNames: *goalNames, eeProf: *eeProf, profile: *profile, idleSkip: *idleSkip, gsFrame: *gsFrame, gsVerts: *gsVerts, gsReg: *gsReg, gsBig: *gsBig, gsPixel: *gsPixel, pad: *pad, vu1In: *vu1In, vifTiny: *vifTiny, vu1Micro: *vu1Micro, vu0Micro: *vu0Micro, vu0Data: *vu0Data, vu0Regs: *vu0Regs, vu1Data: *vu1Data,
 		gsFBs: gsFBs, gsTexs: gsTexs,
 	}); err != nil {
 		fmt.Fprintln(os.Stderr, "bootoracle:", err)
@@ -155,7 +190,7 @@ func main() {
 }
 
 type cfg struct {
-	image, exeName, steps                  string
+	image, bios, exeName, steps            string
 	trace                                  bool
 	tracen                                 int
 	tracefrom                              string
@@ -180,6 +215,8 @@ type cfg struct {
 	goalSyms                               string
 	goalNames                              string
 	eeProf                                 int
+	profile                                bool
+	idleSkip                               bool
 	gsFrame                                string
 	gsVerts                                int
 	gsReg                                  string
@@ -420,7 +457,17 @@ func run(c cfg) error {
 	m := ps2.NewMachine()
 	m.SetImageHash(sum)
 	m.SetVolume(vol)
+	if c.bios != "" {
+		biosRaw, err := os.ReadFile(c.bios)
+		if err != nil {
+			return fmt.Errorf("reading BIOS %s: %w", c.bios, err)
+		}
+		m.SetBIOS(biosRaw)
+	}
 	m.LoadExecutable(exe)
+	if c.idleSkip {
+		m.SetIdleSkip(true)
+	}
 	fmt.Fprintf(os.Stderr, "%s", exe.Describe())
 
 	if c.goalNames != "" {
@@ -761,6 +808,10 @@ func run(c cfg) error {
 		return fmt.Errorf("bad -steps %q", c.steps)
 	}
 
+	if c.profile {
+		m.SetProfile(true)
+	}
+
 	res := m.Run(steps)
 	if ieLogFlush != nil {
 		ieLogFlush()
@@ -770,6 +821,9 @@ func run(c cfg) error {
 	fmt.Println(res)
 	fmt.Printf("reached: %s\n", m.Sym(res.PC))
 	fmt.Printf("vblanks: %d\n", m.VBlanks())
+	if c.profile {
+		printProfile(m.FrameProfile())
+	}
 	// A halting breakpoint is a question about state; answer it without a second run.
 	if len(c.bps) > 0 {
 		fmt.Println()

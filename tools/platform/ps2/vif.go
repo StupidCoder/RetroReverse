@@ -624,7 +624,11 @@ func (v *vif) runVU(start uint32, cont bool) {
 	if v.idx == 1 {
 		v.vu.ResetBranchLog(48)
 	}
+	// The field profiler's vu1 (geometry) leaf, nested in the drain. It excludes the raster
+	// its XGKICK runs inside vu.Run — see profVU1End — so vu1 and raster do not double-count.
+	pt, rasterBefore := v.m.profVU1Start()
 	steps, ended := v.vu.Run(start, 1<<20)
+	v.m.profVU1End(pt, rasterBefore)
 	v.vuSteps += uint64(steps)
 	if !ended {
 		v.count(sprintf("vu1 program 0x%X hit the step budget (pc 0x%X)", start, v.vu.PC))

@@ -356,6 +356,10 @@ func (m *Machine) sifPump() {
 // is what makes CHANGE_SADDR work: when the EE moves its command buffer, the IOP is told, and
 // the next tag simply says somewhere else.
 func (m *Machine) sifFromIOP() {
+	// The IOP is about to write EE memory (and maybe run the EE's command handler). An
+	// idle fast-forward in flight has to notice and stop: the bytes have to land at the
+	// step they land on, not be jumped over. See idle.go's eeDisturbGen.
+	m.eeDisturbGen++
 	c := &m.IOP.dma[iopDMAChSIF0]
 
 	for tag := c.tadr; ; tag += sifChainTagSize {

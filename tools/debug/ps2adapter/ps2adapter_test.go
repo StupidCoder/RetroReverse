@@ -57,7 +57,7 @@ func TestCapabilities(t *testing.T) {
 	for _, want := range []string{
 		debug.CapFrames, debug.CapFastStep, debug.CapCode, debug.CapBreak,
 		debug.CapDisasm, debug.CapWatch, debug.CapSurfaces, debug.CapStates,
-		debug.CapResume, debug.CapRegions, debug.CapHalt,
+		debug.CapResume, debug.CapRegions, debug.CapHalt, debug.CapProfile,
 	} {
 		if !caps[want] {
 			t.Errorf("the PS2 target does not advertise %q", want)
@@ -68,6 +68,66 @@ func TestCapabilities(t *testing.T) {
 	// needs a mid-burst halt this pass does not build.
 	if caps[debug.CapReplay] {
 		t.Error("the PS2 target advertises replay, but it has no frame replayer yet")
+	}
+}
+
+// TestFrameProfilePopulates: after a stepped title field the profiler reports where the
+// field's time went, mapped through debug.FrameProfile — the data the profile panel draws.
+// It exercises the whole chain the page's socket path does: the machine times its buckets,
+// the adapter maps them, and the field that drew reports Drew and a positive total.
+func TestFrameProfilePopulates(t *testing.T) {
+	a, haveState := atTitle(t)
+	if !haveState {
+		t.Skip("no title savestate; skipping")
+	}
+	// Step until a field draws (the title composites over more than one field), so the
+	// profile reported is a drawing field with real bucket time, not an idle one.
+	var drew bool
+	for i := 0; i < 8 && !drew; i++ {
+		if _, err := a.StepFrame(false); err != nil {
+			t.Fatal(err)
+		}
+		drew = a.FrameProfile().Drew
+	}
+	p := a.FrameProfile()
+	if p.TotalMs <= 0 {
+		t.Fatalf("profile total is %.3f ms after stepping fields; the profiler was not armed", p.TotalMs)
+	}
+	if len(p.Buckets) == 0 {
+		t.Fatal("profile has no buckets")
+	}
+	if len(p.Counters) == 0 {
+		t.Fatal("profile has no counters")
+	}
+	// The buckets partition the field: they add up to the total.
+	var sum float64
+	for _, b := range p.Buckets {
+		sum += b.Millis
+	}
+	if d := sum - p.TotalMs; d < -0.5 || d > 0.5 {
+		t.Errorf("buckets sum to %.2f ms, total is %.2f ms", sum, p.TotalMs)
+	}
+	// A drawing field names a rasterise bucket with primitives, and a fragments counter — the
+	// two numbers the coming parallelisation is measured by.
+	if !drew {
+		t.Skip("no drawing field within 8 steps; the profile is honest but has nothing to assert on")
+	}
+	var haveRaster, haveFrags bool
+	for _, b := range p.Buckets {
+		if b.Name == "rasterise" && b.Count > 0 {
+			haveRaster = true
+		}
+	}
+	for _, c := range p.Counters {
+		if c.Name == "fragments drawn" && c.Value > 0 {
+			haveFrags = true
+		}
+	}
+	if !haveRaster {
+		t.Error("a drawing field reported no rasterise primitives")
+	}
+	if !haveFrags {
+		t.Error("a drawing field reported no fragments drawn")
 	}
 }
 

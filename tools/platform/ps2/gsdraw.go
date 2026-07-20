@@ -22,6 +22,7 @@ import (
 	"fmt"
 	"math"
 	"os"
+	"time"
 )
 
 // writeFile is the huge-primitive dump's file writer, in the current directory.
@@ -192,6 +193,23 @@ func (gs *GS) kick(draw bool) {
 		}
 	default:
 		gs.vqN = 0
+	}
+}
+
+// rasterStart/rasterEnd bracket one primitive's pixel loop for the field profiler's
+// "rasterise" leaf (profile.go). Per-primitive, so thousands of clock reads a field, not the
+// millions a per-fragment timer would be. Nil-safe: a GS built without a machine (a unit test
+// that pokes the rasteriser directly) simply is not profiled.
+func (gs *GS) rasterStart() time.Time {
+	if gs.m == nil {
+		return time.Time{}
+	}
+	return gs.m.profStart()
+}
+
+func (gs *GS) rasterEnd(t time.Time) {
+	if gs.m != nil {
+		gs.m.profEnd(bucketRaster, t)
 	}
 }
 
@@ -601,6 +619,7 @@ func fogPixel(rgba, f, fogcol uint32) uint32 {
 
 // point draws the one-vertex primitive.
 func (gs *GS) point(v gsVertex) {
+	defer gs.rasterEnd(gs.rasterStart())
 	p := gs.prim()
 	t := gs.target(p)
 	rgba := v.rgba
@@ -619,6 +638,7 @@ func (gs *GS) point(v gsVertex) {
 // straight truncating DDA reproduces the same pixels for the axis-aligned grids games draw
 // and a faithful-enough set for thin diagonals.
 func (gs *GS) line(a, b gsVertex, p uint64) {
+	defer gs.rasterEnd(gs.rasterStart())
 	gs.noteFeatures(p)
 	t := gs.target(p)
 	smp := gs.sampler(p)
@@ -698,6 +718,7 @@ func texAxis(pc, p0, p1, uv0, uv1 int32) int32 {
 // linearly from the first vertex's to the second's — a sprite is never perspective, so
 // STQ divides once per vertex and interpolates like UV.
 func (gs *GS) sprite(a, b gsVertex, p uint64) {
+	defer gs.rasterEnd(gs.rasterStart())
 	gs.noteFeatures(p)
 	t := gs.target(p)
 	smp := gs.sampler(p)
@@ -766,6 +787,7 @@ func (gs *GS) sprite(a, b gsVertex, p uint64) {
 // interpolate barycentrically — UV directly, STQ as three linear terms divided per pixel,
 // which is what makes the perspective correct.
 func (gs *GS) triangle(v0, v1, v2 gsVertex, p uint64) {
+	defer gs.rasterEnd(gs.rasterStart())
 	gs.noteFeatures(p)
 	t := gs.target(p)
 	smp := gs.sampler(p)

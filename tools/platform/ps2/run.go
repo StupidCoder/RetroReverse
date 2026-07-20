@@ -51,6 +51,12 @@ const trailLen = 24
 
 // Run steps the machine until the budget is spent or something stops it.
 func (m *Machine) Run(maxSteps uint64) Result {
+	// The field profiler's run timer: everything the frame's "total" is is time spent inside
+	// a Run call, so a debugger paused between runs adds nothing to it. profFrame (called from
+	// deliverVBlank, below in this loop) splits it at each vblank. No-ops when profiling off.
+	m.profRunEnter()
+	defer m.profRunExit()
+
 	var (
 		steps     uint64
 		vblAcc    uint64
@@ -79,6 +85,42 @@ func (m *Machine) Run(maxSteps uint64) Result {
 			m.iopRebootImage = ""
 			if err := m.RebootIOPFrom(image); err != nil {
 				m.note("SIF: the IOP did not reboot: %v", err)
+			}
+		}
+
+		// The idle fast-forward (idle.go). If the EE has returned to a state it was already
+		// in having stored nothing, it is spinning on something it cannot change from where
+		// it stands — jump the frame clock, the Count timer and the IOP to the next event
+		// that could wake it, without interpreting the loop. It sits ABOVE the per-slot
+		// ticks below so a skip owns a whole slot's bookkeeping (clock and instruction
+		// count together); wedged between the ticks and the CPU step, it would leave a slot
+		// half-counted and the machine drift one instruction per skip. Disabled while a
+		// per-instruction hook is attached, so a trace still sees every instruction.
+		//
+		// NOT when m.idle: that is the scheduler's every-thread-blocked state, which the idle
+		// branch below already fast-forwards without running the EE. There the frozen core
+		// "repeats" after a single instruction, and skipping it would advance the CPU's own
+		// step clock that the idle branch deliberately leaves still — the detector is for a
+		// RUNNING thread spinning on a poll, not for a machine with nothing to run.
+		if !m.noIdleSkip && !m.idle && m.OnStep == nil && m.idleStep() {
+			if n := m.idleSkip(&vblAcc, &iopAcc, maxSteps-steps); n > 0 {
+				pc := uint32(m.CPU.PC)
+				steps += n
+				// Fold the skipped span into the spin window, so a loop the vblank never
+				// breaks still trips the spin heuristic instead of quietly draining the
+				// budget — the window has to count instructions, not iterations.
+				spinSeen[pc]++
+				spinAcc += int(n)
+				if spinAcc >= spinWindow {
+					if len(spinSeen) <= spinDistinct {
+						return m.result(steps, fmt.Sprintf(
+							"spinning on %d addresses around %s — waiting for something that never happens",
+							len(spinSeen), m.Sym(pc)))
+					}
+					spinSeen = map[uint32]int{}
+					spinAcc = 0
+				}
+				continue
 			}
 		}
 

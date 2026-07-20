@@ -282,6 +282,11 @@ func (m *Machine) dmacWrite(a, v uint32) bool {
 // the channel's business: the GIF channel feeds them to the Graphics Synthesizer, the
 // SIF channels are already served by the SIF's HLE, and the rest are counted.
 func (m *Machine) dmacStart(ch int) {
+	// The field profiler's "drain" leaf: the whole DMA transport, inside which VU1 and the
+	// rasteriser are nested. decode is derived from it (profile.go). No-op when off.
+	m.profDrainEnter()
+	defer m.profDrainExit()
+
 	c := &m.dmac[ch]
 
 	switch ch {

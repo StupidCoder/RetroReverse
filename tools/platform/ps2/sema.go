@@ -74,6 +74,7 @@ func (m *Machine) signalSema(id uint32) {
 		s.waiting = s.waiting[1:]
 		if t := m.threads[tid]; t != nil && t.state == thWaitSema {
 			t.state = thReady
+			m.eeDisturbGen++ // a thread becoming ready can end an idle fast-forward (idle.go)
 		}
 		return
 	}
