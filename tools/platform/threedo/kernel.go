@@ -221,6 +221,21 @@ func (m *Machine) initItemFromTags(it *item) {
 	case typeIOReq:
 		it.replyPort = int32(m.tagArg(it.tags, tagIOReqReplyPort))
 		it.device = int32(m.tagArg(it.tags, tagIOReqDevice))
+		// A freshly created IOReq is born COMPLETE: internalCreateIOReq sets
+		// io_Flags |= IO_DONE|IO_QUICK (portfolio_os sendio.c). So a CheckIO/WaitIO
+		// on a request that was never submitted returns "done" immediately instead
+		// of blocking. The movie player relies on this: in its offscreen render path
+		// it waits on a SPORT present IOReq it never submits (the present is skipped),
+		// and a fresh SPORT request must read done or the whole player deadlocks.
+		// SendIO/DoIO clears these flags before running the request (see serviceIO).
+		// io_MsgItem is the reply-port message, or with no reply port the creating
+		// task's own item (sendio.c) — programs read it to route the completion.
+		if it.addr != 0 {
+			m.write32(it.addr+ioFlagsOff, ioDone|ioQuick)
+			if it.replyPort == 0 {
+				m.write32(it.addr+ioMsgItemOff, uint32(it.owner))
+			}
+		}
 	case typeMsg:
 		// CreateMsg(..., CREATEMSG_TAG_REPLY_PORT): reply routing lives on the
 		// message struct where ReplyMsg reads it back.

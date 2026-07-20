@@ -35,10 +35,11 @@ import (
 // IOInfo field offsets: +0x00 ioi_Command(u8) +0x0C ioi_Offset +0x10 ioi_Send
 // {buffer,len} +0x18 ioi_Recv {buffer,len}.
 const (
-	ioInfoOff   = 0x34 // IOReq.io_Info
-	ioActualOff = 0x54 // IOReq.io_Actual
-	ioFlagsOff  = 0x58 // IOReq.io_Flags
-	ioErrorOff  = 0x5C // IOReq.io_Error
+	ioInfoOff    = 0x34 // IOReq.io_Info
+	ioActualOff  = 0x54 // IOReq.io_Actual
+	ioFlagsOff   = 0x58 // IOReq.io_Flags
+	ioErrorOff   = 0x5C // IOReq.io_Error
+	ioMsgItemOff = 0x68 // IOReq.io_MsgItem
 
 	ioiCommand  = 0x00 // IOInfo.ioi_Command (u8)
 	ioiOffset   = 0x0C // IOInfo.ioi_Offset
@@ -157,6 +158,12 @@ func (m *Machine) serviceIO(c *arm60.CPU, async bool) {
 		for i := uint32(0); i < ioInfoBytes; i++ {
 			m.Write(it.addr+ioInfoOff+i, m.Read(info+i))
 		}
+		// SendIO/DoIO clears the completion flags an IOReq is born with
+		// (internalCreateIOReq sets IO_DONE|IO_QUICK; sendio.c clears them at the
+		// top of the submit) so the request reads "in progress" until this
+		// submission completes it — including a timer field-wait that parks below
+		// and must NOT look already-done to the caller's WaitIO.
+		m.write32(it.addr+ioFlagsOff, m.read32(it.addr+ioFlagsOff)&^uint32(ioDone|ioQuick))
 	}
 
 	// With field pacing on, a timer field-wait (WaitVBL) submitted asynchronously
@@ -317,11 +324,11 @@ func (m *Machine) fileDeviceIO(name string, cmd, offset, sendBuf, sendLen, buf, 
 			blocks = (uint32(len(data)) + blockSize - 1) / blockSize
 		}
 		for i, w := range []uint32{
-			0,                // +0x00 identity/version/family/pad
-			0x28,             // +0x04 ds_MaximumStatusSize
-			blockSize,        // +0x08 ds_DeviceBlockSize
-			blocks,           // +0x0C ds_DeviceBlockCount
-			0, 0, 0, 0, 0,    // flags, usage, last error, media counter, reserved
+			0,             // +0x00 identity/version/family/pad
+			0x28,          // +0x04 ds_MaximumStatusSize
+			blockSize,     // +0x08 ds_DeviceBlockSize
+			blocks,        // +0x0C ds_DeviceBlockCount
+			0, 0, 0, 0, 0, // flags, usage, last error, media counter, reserved
 			uint32(len(data)), // +0x24 fs_ByteCount (FileStatus)
 		} {
 			if uint32(i)*4 < length {
