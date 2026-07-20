@@ -22,12 +22,30 @@ import (
 // With this stubbed the loop's time delta reads zero and the simulation
 // freezes, which is exactly how NFS's in-race world stood still.
 const (
+	// Audio folio SWIs (AUDIOSWI = 0x40000, +n per audio.h). The movie's audio
+	// subscriber drives a DSP sample-player graph through these.
+	swiStartInstrument  = 0x40001 // StartInstrument(instrument, tags)
+	swiStopInstrument   = 0x40003 // StopInstrument(instrument, tags)
+	swiTestHack         = 0x40007 // TestHack(tags) — knob-name probe glue
+	swiConnectInstr     = 0x40008 // ConnectInstruments(src, srcName, dst, dstName)
 	swiSignalAtTime     = 0x4000D // SignalAtTime(cue, time)
 	swiSetAudioRate     = 0x4000F // SetAudioRate(owner, frac16 rate)
 	swiSetAudioDuration = 0x40010 // SetAudioDuration(owner, frames)
+	swiTweakRawKnob     = 0x40011 // TweakRawKnob(knob, value)
+	swiStartAttachment  = 0x40012 // StartAttachment(attachment, tags)
+	swiStopAttachment   = 0x40014 // StopAttachment(attachment, tags)
+	swiLinkAttachments  = 0x40015 // LinkAttachments(at1, at2)
+	swiMonitorAttach    = 0x40016 // MonitorAttachment(attachment, cue, cueAt)
+	swiSetAudioItemInfo = 0x4001B // SetAudioItemInfo(item, tags)
 	swiAbortTimerCue    = 0x40021 // AbortTimerCue(cue)
 
-	typeAudioCue = 0x405 // MKNODEID(AUDIONODE, AUDIO_CUE_NODE)
+	// Audio node item types = MKNODEID(AUDIONODE=4, subtype) = 0x0400|subtype.
+	typeInsTemplate = 0x401 // AUDIO_TEMPLATE_NODE
+	typeInstrument  = 0x402 // AUDIO_INSTRUMENT_NODE
+	typeKnob        = 0x403 // AUDIO_KNOB_NODE
+	typeSample      = 0x404 // AUDIO_SAMPLE_NODE
+	typeAudioCue    = 0x405 // AUDIO_CUE_NODE
+	typeAttachment  = 0x407 // AUDIO_ATTACHMENT_NODE
 
 	audioTicksPerField = 4     // 240 Hz clock / 60 fields per second
 	audioSampleRate    = 44100 // DSP sample rate the clock duration is quoted in
@@ -74,10 +92,70 @@ func (m *Machine) audioFolioSWI(c *arm60.CPU, swi uint32) bool {
 		// Clock rate stays at the 240 Hz default; log if a game tries to change it.
 		m.note(fmt.Sprintf("audio SetAudioRate/Duration(0x%X, 0x%X) ignored (clock stays 240 Hz)", c.Reg(0), c.Reg(1)))
 		c.SetReg(0, 0)
+	case swiMonitorAttach:
+		// MonitorAttachment(attachment, cue, cueAt): arm a cue to fire when the
+		// attachment's sample reaches cueAt (-2 = end of sample). Record which cue
+		// belongs to which attachment so StartAttachment can raise it. The DSP that
+		// would fire it on real playback is not modelled; we schedule it instead.
+		if att := int32(c.Reg(0)); att != 0 {
+			m.attachCue[att] = int32(c.Reg(1))
+		}
+		c.SetReg(0, 0)
+	case swiStartAttachment:
+		// StartAttachment(attachment): begin playing the attached sample. We produce
+		// no audio, so schedule the cue MonitorAttachment armed on it to fire on the
+		// next audio tick — modelling the sample reaching its (end) monitor point.
+		// The subscriber wakes on that cue and replies the sample chunk's held stream
+		// message, letting its stream buffer recycle to the data acquirer.
+		m.completeAttachment(int32(c.Reg(0)))
+		c.SetReg(0, 0)
+	case swiLinkAttachments:
+		// LinkAttachments(at1, at2): chain at2 to play after at1. On the DSP, one
+		// StartAttachment on the chain head plays the whole linked list, firing each
+		// segment's monitor cue in turn. We do not run the DSP, so treat the freshly
+		// linked segment (at2) the same as a started one and schedule its cue — that
+		// is how every sample chunk after the first in a slot gets completed.
+		m.completeAttachment(int32(c.Reg(1)))
+		c.SetReg(0, 0)
+	case swiStopAttachment:
+		// StopAttachment(attachment): drop any pending cue for it.
+		if cueNum, ok := m.attachCue[int32(c.Reg(0))]; ok {
+			kept := m.audioEvents[:0]
+			for _, e := range m.audioEvents {
+				if e.cue != cueNum {
+					kept = append(kept, e)
+				}
+			}
+			m.audioEvents = kept
+		}
+		c.SetReg(0, 0)
+	case swiStartInstrument, swiStopInstrument, swiTestHack, swiConnectInstr,
+		swiTweakRawKnob, swiSetAudioItemInfo:
+		// The DSP-graph control calls: with no real DSP there is nothing to do, but
+		// they must report success (0) — the subscriber aborts a slot on any negative
+		// return, and the generic stub would leak a non-zero argument into r0.
+		c.SetReg(0, 0)
 	default:
 		return false
 	}
 	return true
+}
+
+// completeAttachment schedules the cue a MonitorAttachment armed on this
+// attachment to fire on the next audio tick, standing in for the DSP playing the
+// attached sample to its monitored end. Fires nothing if the attachment has no
+// monitored cue. Scheduling (rather than raising the signal here) defers the
+// subscriber's completion handler until it is back in its WaitSignal loop.
+func (m *Machine) completeAttachment(att int32) {
+	cueNum, ok := m.attachCue[att]
+	if !ok {
+		return
+	}
+	cue := m.items[cueNum]
+	if cue == nil || cue.typ != typeAudioCue {
+		return
+	}
+	m.audioEvents = append(m.audioEvents, audioEvent{cue: cue.num, time: m.audioTime + 1})
 }
 
 // serviceAudioFolio dispatches a call into the audio folio's user-function
@@ -85,6 +163,24 @@ func (m *Machine) audioFolioSWI(c *arm60.CPU, swi uint32) bool {
 func (m *Machine) serviceAudioFolio(foff uint32) {
 	c := m.CPU
 	switch foff {
+	// Item-creation user functions. The byte offset is 4×the folio call number in
+	// AudioUserFuncs[] (audio_folio.c): LoadInsTemplate -1, AllocInstrument -2,
+	// GrabKnob -4, MakeSample -14, AttachSample -36. Each returns a real Item; the
+	// subscriber treats any non-negative result as success and, crucially, only
+	// pumps a sample slot once its instrument (AllocInstrument) is a positive Item,
+	// so these MUST create tracked items rather than the old zero stubs.
+	case 0x04: // LoadInsTemplate(name, tags) -> instrument template
+		m.SetResultAndReturn(uint32(m.createItem(typeInsTemplate, 0, 0).num))
+	case 0x08: // AllocInstrument(insTemplate, priority) -> instrument
+		m.SetResultAndReturn(uint32(m.createItem(typeInstrument, 0, 0).num))
+	case 0x10: // GrabKnob(instrument, knobName) -> knob
+		m.SetResultAndReturn(uint32(m.createItem(typeKnob, 0, 0).num))
+	case 0x38: // MakeSample(numBytes, tags) -> sample
+		m.SetResultAndReturn(uint32(m.createItem(typeSample, 0, 0).num))
+	case 0x90: // AttachSample(instrument, sample, fifoName) -> attachment
+		m.SetResultAndReturn(uint32(m.createItem(typeAttachment, 0, 0).num))
+	case 0x14: // SleepAudioTicks(ticks) -> a one-shot startup delay; do not block
+		m.SetResultAndReturn(0)
 	case 0xA8: // GetAudioTime() -> the 240 Hz audio clock
 		m.SetResultAndReturn(m.audioTime)
 	case 0x48: // GetCueSignal(cue) -> the signal SignalAtTime raises for it

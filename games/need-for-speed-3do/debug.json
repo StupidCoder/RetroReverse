@@ -6,6 +6,6 @@
     "prog": "LaunchMe",
     "vblmirror": "42734",
     "stall": "8",
-    "nativemovie": "false"
+    "nativemovie": "true"
   }
 }

@@ -144,6 +144,12 @@ type Machine struct {
 	audioTime       uint32
 	audioEvents     []audioEvent
 	audioClockOwner int32
+	// attachCue maps an audio Attachment item to the Cue a MonitorAttachment armed
+	// on it. We produce no DSP audio, so StartAttachment schedules that cue to fire
+	// a field later — modelling the sample reaching its monitored point — which is
+	// how the movie's audio subscriber learns a sample buffer has been consumed and
+	// replies its held chunk (audiofolio.go).
+	attachCue map[int32]int32
 
 	// Event-broker state (io.go): ports that connected as listeners, and a
 	// step-scheduled control-pad script the run loop feeds to SendPadEvent.
@@ -289,6 +295,7 @@ func NewMachine() *Machine {
 		nvram:      map[string][]byte{},
 		bitmaps:    map[int32]gfxBitmap{},
 		screenBM:   map[int32]int32{},
+		attachCue:  map[int32]int32{},
 	}
 	m.CPU = arm60.NewCPU(m)
 	m.CPU.SWI = m.swi

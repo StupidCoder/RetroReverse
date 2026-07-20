@@ -69,6 +69,7 @@ type MachineState struct {
 	AudioTime       uint32
 	AudioEvents     []audioEventState
 	AudioClockOwner int32
+	AttachCue       map[int32]int32
 
 	// Parked WaitVBL field-waits (run.go / io.go, PaceFields on). Without these a
 	// restore mid-frame would drop pending WaitVBLs and hang their waiters.
@@ -177,6 +178,7 @@ func (m *Machine) SaveState() MachineState {
 		DisplayBuf:      m.displayBuf,
 		AudioTime:       m.audioTime,
 		AudioClockOwner: m.audioClockOwner,
+		AttachCue:       map[int32]int32{},
 		EBListeners:     append([]int32(nil), m.ebListeners...),
 		SimTime:         m.simTime,
 		VBlank:          m.vblank,
@@ -226,6 +228,9 @@ func (m *Machine) SaveState() MachineState {
 	}
 	for _, ev := range m.audioEvents {
 		s.AudioEvents = append(s.AudioEvents, audioEventState{Cue: ev.cue, Time: ev.time})
+	}
+	for att, cue := range m.attachCue {
+		s.AttachCue[att] = cue
 	}
 	s.PaceFields = m.PaceFields
 	for _, w := range m.fieldWaits {
@@ -324,6 +329,10 @@ func (m *Machine) LoadState(s MachineState) error {
 		m.audioEvents = append(m.audioEvents, audioEvent{cue: ev.Cue, time: ev.Time})
 	}
 	m.audioClockOwner = s.AudioClockOwner
+	m.attachCue = map[int32]int32{}
+	for att, cue := range s.AttachCue {
+		m.attachCue[att] = cue
+	}
 	m.ebListeners = append([]int32(nil), s.EBListeners...)
 
 	m.PaceFields = s.PaceFields

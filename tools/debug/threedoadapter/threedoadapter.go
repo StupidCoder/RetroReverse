@@ -233,8 +233,11 @@ func (a *Adapter) build() *threedo.Machine {
 	//
 	// NativeMovie flips this: the guest opens the .stream and drives its own player, so
 	// the frames it presents (its DataStreamer→Cinepak→DrawCels pipeline, running on our
-	// ARM60) are what the debugger captures. The default stays MovieHLE so nothing
-	// regresses while that native pipeline is still being finished.
+	// ARM60) are what the debugger captures. That pipeline now runs end to end — the
+	// audio folio completes the DataStreamer's sample buffers (audiofolio.go) so the
+	// stream recycles and the attract movies play in sequence — so Need for Speed's
+	// debug.json opts in. The code default here stays MovieHLE for any game whose native
+	// player is not yet driven.
 	m.MovieHLE = !a.opts.NativeMovie
 	m.NoStreams = false
 	// Pace the game to one field per frame: WaitVBL blocks on the field clock
