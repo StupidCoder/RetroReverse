@@ -110,6 +110,10 @@ func TestVSHInterpreter(t *testing.T) {
 	in[0] = [4]float32{1, 2, 3, 1}
 	in[3] = [4]float32{0.5, 0.25, 0.125, 1}
 	var out [13][4]float32
+	// The program is decoded once per draw now (vshCompile), then run per vertex (vshRun).
+	if !g.vshCompile() {
+		t.Fatal("vshCompile failed")
+	}
 	if !g.vshRun(&in, &out) {
 		t.Fatalf("vshRun halted: %s", m.CPU.HaltReason)
 	}

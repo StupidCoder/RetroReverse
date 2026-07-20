@@ -124,6 +124,11 @@ type pgraph struct {
 	// RR_SHADOWFRAG per-draw comparand statistics (nv2a_texture.go traceShadowFrag).
 	shadowFrag *shadowFragStats
 
+	// vshProg is the transform program decoded once per draw (nv2a_vsh.go vshCompile) and run
+	// per vertex, rather than re-decoding every instruction for every vertex. Reused buffer,
+	// transient — a pure function of the program words, which do not change within a draw.
+	vshProg []vshInst
+
 	// triScratch is assemble()'s reusable triangle-index buffer (transient, not state).
 	triScratch [][3]int
 

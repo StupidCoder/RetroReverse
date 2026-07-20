@@ -11,7 +11,8 @@ serial-bound (the banded parallel fill already won; 71% of the field is one goro
 (a content-addressed texture cache that persists across fields AND finally caches the shadow map)
 took the warm field from 583.9 → 397.4 ms — 1.47×, byte-identical. Item #2 (register-combiner array
 register file + in-place map/op) another −8.4%, byte-identical (guarded by a 20k-config differential
-test). Separately, FlipVSync (a clock fidelity fix, now on by default) removed the ~6× duplicate
+test). Item #3 (raster worker pool) was a measured no-op and reverted. Item #4 (vertex-shader decode
+cache) another −8.3%, byte-identical. Separately, FlipVSync (a clock fidelity fix, now on by default) removed the ~6× duplicate
 presents the under-paced RDTSC clock was rendering — a 10 FPS sim became 60, the bigger
 checkpoint/framedbg lever. See *The Xbox* below.**
 
@@ -281,6 +282,7 @@ of these wins, so the absolute ms drift between rows and the delta within a row 
 | #1 texture cache (colour + depth) | **397.4** | **1.47× / −32.0%** | yes |
 | #2 combiner: array reg file + in-place map/op | **413.3 → 378.8** | **−8.4%** | yes |
 | #3 raster worker pool + worker scaling | 384.6 → 380.2 / 421.8 | **~0 / worse — reverted** | (not shipped) |
+| #4 vertex-shader decode cache | **384.6 → 352.7** | **−8.3%** | yes |
 
 **#1, predicted 10-18%, measured −32% — and the surplus is the whole lesson.** The plan aimed the
 texture cache at cross-field *colour* re-decode. That part landed exactly as predicted and no more:
@@ -359,6 +361,31 @@ serial-bound** (71% one goroutine), so the raster fan-out is already past the po
 parallelism pays — and neither cheaper dispatch nor a different lane count changes that. The next
 lever is the serial work, i.e. item #4 (the vertex stage), not the fill. A 3DS win does not transfer
 just because the code looks the same; the bottleneck has to be the same, and here it was not.
+
+### #4 — the vertex-shader decode cache, predicted 10-15%, measured −8.3% (and this time it DID transfer)
+
+The vertex stage is **serial** (one goroutine) and the largest wall bucket at 30.9%, so unlike the
+fill its CPU cost is its wall cost — and pprof, which counts CPU across the parallel raster's ten
+workers too, undercounts it (10% of samples against 31% of wall). `transform` → `vshRun` ran the
+transform program per vertex by calling `vshDecode(pc)` for **every instruction of every vertex** —
+re-parsing ~20 bit-fields per instruction over a program that is constant for the whole draw (the
+output path writes o registers and constant memory, never the program words). This is precisely the
+per-vertex-re-decode the 3DS's shader cache killed for −9.3%, and here the bottleneck matches — so
+the same move works: `vshCompile` decodes start→FINAL into a reused `g.vshProg` once per draw, and
+`vshRun` iterates the decoded slice. Byte-identical by construction (same `vshDecode`, same
+execution, just hoisted); the vertex bucket fell **134 → 104 ms**, the warm field 384.6 → 352.7
+(−8.3%), gate and determinism unmoved (no re-pin), `-race` clean. `TestVSHInterpreter` had to learn
+the new shape — it drives the interpreter directly, so it now `vshCompile`s before `vshRun`.
+
+Contrast with #3: this is the same "a 3DS win might transfer" bet, and it paid — because the
+bottleneck was the same (a per-vertex interpreter re-deriving a per-draw constant), not merely the
+code shape. Not done: `fetchArrayVertex` and the ~120-byte `kelvinVtx` append-copy are the vertex
+bucket's remaining cost; parallelising the transform is off the table while a program can write
+constant memory a later vertex reads (the vertices are not independent), which is also why the
+decode cache — not a fan-out — was the right tool.
+
+Files: `nv2a_vsh.go` (`vshCompile`, `vshRun` over `g.vshProg`), `nv2a_vertex.go` (compile once in
+`runDraw`), `nv2a_pgraph.go` (the `vshProg` buffer), `nv2a_kelvin_test.go` (test compiles first).
 
 ### The bigger checkpoint lever was not a per-frame optimisation — it was 6× fewer frames
 

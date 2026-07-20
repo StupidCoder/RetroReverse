@@ -231,8 +231,14 @@ func maskWrite(dst *[4]float32, val [4]float32, mask uint32) {
 // vshRun executes the uploaded program for one vertex. v is the input register file;
 // the outputs land in out (o0/HPOS is the R12 alias). Returns false after halting the
 // machine on anything unimplemented.
-func (g *pgraph) vshRun(v *[16][4]float32, out *[13][4]float32) bool {
-	s := vshState{g: g, v: v}
+// vshCompile decodes the transform program once — from the start slot to the FINAL
+// instruction — into g.vshProg, so vshRun can run it per vertex without re-decoding every
+// instruction for every one. The program words do not change within a draw (the output path
+// writes o registers and constant memory, never the program), so this is called once per draw
+// (runDraw) and is byte-identical to decoding inside the per-vertex loop. Returns false, halting,
+// on a program with no FINAL — the check the per-vertex loop used to make on its first vertex.
+func (g *pgraph) vshCompile() bool {
+	g.vshProg = g.vshProg[:0]
 	pc := int(g.Regs[kelvinProgStart>>2]) % vshProgSlots
 	for steps := 0; ; steps++ {
 		if steps >= vshProgSlots {
@@ -240,7 +246,18 @@ func (g *pgraph) vshRun(v *[16][4]float32, out *[13][4]float32) bool {
 			return false
 		}
 		inst := g.vshDecode(pc)
-		pc++
+		g.vshProg = append(g.vshProg, inst)
+		pc = (pc + 1) % vshProgSlots
+		if inst.final {
+			return true
+		}
+	}
+}
+
+func (g *pgraph) vshRun(v *[16][4]float32, out *[13][4]float32) bool {
+	s := vshState{g: g, v: v}
+	for pi := range g.vshProg {
+		inst := g.vshProg[pi]
 
 		var macRes [4]float32
 		if inst.mac != macNOP {

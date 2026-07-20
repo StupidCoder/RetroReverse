@@ -210,6 +210,13 @@ func (g *pgraph) runDraw() {
 		g.traceDraw(&fmts, stride)
 	}
 
+	// Decode the transform program once for the whole draw (nv2a_vsh.go); the per-vertex path
+	// then runs it without re-decoding every instruction for every vertex. Only program mode
+	// uses it — the fixed-function path (transformFF) has no program.
+	if !ff && !g.vshCompile() {
+		return
+	}
+
 	var verts []kelvinVtx
 	switch {
 	case len(g.inline) > 0:
