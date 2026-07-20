@@ -6,6 +6,11 @@ it is byte-identical. The frame debugger's scrubber is 2.3× on top of that.**
 **Status (2026-07-16): done for the GameCube. 2.8× on the intro cutscene, 3.1× on the shadow
 scene, and 4.4× on a boot stretch — byte-identical. See *The GameCube* below.**
 
+**Status (2026-07-20): Phase 0 done for the Xbox. OutRun's driving field is 651 ms and — unlike
+every prior target — it is SERIAL-bound, not CPU-bound and not fill-bound: the banded parallel
+fill has already won and 71% of the field is one goroutine. The gate is built; the ranked plan
+is below. See *The Xbox* below.**
+
 Read *Phase 0 — the results* and *What was actually done* below; the original plan (kept, below
 the line) guessed the ordering and got most of it wrong, which is exactly what Phase 0 existed to
 find out.
@@ -210,6 +215,70 @@ right up until someone asked what those instructions were.
 - **The framedbg parallel scrubber.** Free of the determinism question, worth ~2-3× on a drag.
   Note a GameCube is ~43 MB against the 3DS's 1.3 GB, so `maxReplayers` should be bounded by CPU,
   not memory — do not inherit the 3DS's `4` or its reasoning.
+
+---
+
+## The Xbox (2026-07-20) — OutRun is serial-bound, and the parallel fill already won
+
+**OutRun 2006: Coast 2 Coast, `an3-drive.state` (an in-race driving field), M-series darwin/arm64.
+Phase 0 only so far: the measurements and the gate, no optimisation landed yet.**
+
+The field costs **651 ms**, measured two ways that agree — the machine's own `-profile` buckets
+and a host pprof (`-cpuprofile`) over 20 fields:
+
+| bucket (machine, wall) | ms | % | parallel? | what pprof says is inside it |
+|---|---|---|---|---|
+| command decode (derived) | 260.6 | **40.0%** | serial | ~half is `texDecode`; the rest is `combDecode`, near-plane clip, 94k method dispatches |
+| rasterise | 184.5 | 28.3% | parallel (~1.84× of 10 cores) | the per-fragment register combiner — `combine`+`combFetch`+`combMap`+`combOp` ≈ **33% of all samples** |
+| vertex + xf | 139.4 | 21.4% | serial | transform + the vertex-shader interpreter |
+| x86 + rest | 65.2 | 10.0% | serial | the CPU |
+| clear | 1.8 | 0.3% | | |
+
+Counters: 523 draws, 94,310 methods, 1.76M fragments drawn, 419k depth-killed, 627k alpha-killed,
+1.62M x86 instructions. (pprof also shows `compress/flate` at ~5% — that is the `-flipshots` PNG
+encoder writing the sample frames, an instrument artefact a real field does not pay. Excluded.)
+
+**The strategic finding is the opposite of the GameCube's.** On Luigi's Mansion the prize was the
+CPU — four fifths of every instruction was the idle loop. Here the CPU is **1.62M instructions and
+10% of the field**: there is nothing to skip, and the idle-loop question is answered before it is
+asked. **The field is GPU-bound and, within the GPU, SERIAL-bound — 71% of it (vertex +
+command-decode + x86 = 465 ms) runs on one goroutine.** The banded parallel fill has already done
+its job: rasterise is only 28% and spread across cores, so *more* raster parallelism is
+Amdahl-capped at about 1.4×. The wins are in the serial buckets, and they are the same two moves
+the 3DS and GameCube already proved — **decode-once-per-draw** and a **persistent worker pool** —
+pointed at different code.
+
+### The ranked plan (predictions, not results — nothing here is measured yet)
+
+| # | item | predicted | why, from the profile | prior art |
+|---|---|---|---|---|
+| 1 | **persist the texture cache across fields** (write-invalidated) | 10-18% | `texCache` is dropped every pusher run (`nv2a_pfifo.go:72`), so every field re-decodes every texture; `texDecode` is 11% of samples, **serial**, and ~half of the 40% command-decode bucket — it hits wall time with no Amdahl discount | 3DS precise tex-cache invalidation: 2,216 → 2.2 decodes/frame |
+| 2 | **compile the register combiner once per draw** | 8-14% | `combine()` re-interprets fully-general state **per fragment** (~33% of samples) for OutRun's single MODULATE stage; `combDecode` already extracts the state per draw — extend it to a resolved plan/closure so the per-fragment path is a few float ops. Also kills the `[4]float32`/`duffcopy` traffic | 3DS TEV decoded once/draw: −14.2%, the biggest non-parallel win |
+| 3 | **persistent raster worker pool + lower the threshold** | 5-10% | `rasterParallel` spawns 10 goroutines **per draw** across 523 draws → `pthread_cond_signal`+`notewakeup` ≈ 13% of samples, and only 1.84× of 10 cores; `rasterParallelMinArea=16384` leaves many draws serial. Amdahl-capped (raster is 28%) but removes the scheduler waste | 3DS `workpool.go`: −11.5%, thresholds 8192 → 256 px |
+| 4 | **attack the vertex stage** (decode cache or parallelise) | 10-15% | 139 ms / 21% is fully **serial** and the 2nd-largest bucket; a vertex is a pure function of its index, so it parallelises deterministically. GC dismissed this ("nothing there", 3% bucket) — but Xbox's is 21%, a real target | 3DS vsh decode cache −9.3%, parallel vertex −25.7% |
+
+Per the doc's own lessons: a CPU-sample share is an **upper bound** on the wall win (the combiner's
+33% includes irreducible float arithmetic); A/B every change back-to-back in one sitting and never
+compare across sessions; and the frame is serial-bound, so do **not** over-invest in raster
+parallelism — spend the effort on #1 and #4.
+
+### Phase 0 (2026-07-20) — the gate is built
+
+| | where | how to run it |
+|---|---|---|
+| 0.1 pprof | `bootoracle -cpuprofile F` (already existed) | `bootoracle -image OutRun….iso -loadstate …/an3-drive.state -gpu -profile -cpuprofile x.prof -flipshots 1:1:20:x` |
+| 0.2 gate + bench | `tools/platform/xbox/bench_test.go` | `go test ./tools/platform/xbox/ -run TestFrameHashes` / `-bench BenchmarkField` |
+| 0.3 per-subsystem timing | `tools/platform/xbox/profile.go`, `bootoracle -profile` (already existed) | `bootoracle … -gpu -profile` |
+
+`TestFrameHashes` pins RAM + the resolved render surface + the x86 register file after two fields
+from `an3-drive.state`; `TestFrameDeterminism` proves the property the pins rest on — the same
+state run twice is the same machine; `BenchmarkField` reports ns/field with draws and fragments
+alongside, because *fragments per millisecond* is the number that says whether a change worked. The
+disc image and the savestate are not committed (`work/` and game images are ignored), so all three
+**skip** when absent. `-race` skips the pins: it inhibits FMA contraction and moves the last float
+bits ([[reference-match-hides-bugs]] is not this, but the FMA caveat from the 3DS is). The frame the
+pins defend was looked at first ([[pinned-hash-guards-change]]); a mismatch writes the PNG it
+actually produced and names the path.
 
 ---
 
