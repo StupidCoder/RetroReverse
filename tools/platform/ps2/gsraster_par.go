@@ -204,8 +204,16 @@ func (gs *GS) rasterFill(t *gsTarget, smp *gsSampler, x0, x1, y0, y1 int32, body
 	}
 	gs.parFills++
 
-	stats := make([]gsStats, workers)
+	// Never wake more workers than there are bands to hand out: a fill a few bands tall
+	// would otherwise pay a channel send + condvar wake for workers that can only find the
+	// queue empty and return, and zero a bigger stats slice for nothing. Capping keeps every
+	// worker busy and shrinks the per-fill overhead the profile shows on small primitives.
 	bands := int(y1-y0+int32(bandRows)-1) / bandRows
+	if workers > bands {
+		workers = bands
+	}
+
+	stats := make([]gsStats, workers)
 	var next int32
 	gs.m.rasterPoolLive().run(workers, func(w int) {
 		st := &stats[w]
