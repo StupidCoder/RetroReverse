@@ -239,6 +239,7 @@ func maskWrite(dst *[4]float32, val [4]float32, mask uint32) {
 // on a program with no FINAL — the check the per-vertex loop used to make on its first vertex.
 func (g *pgraph) vshCompile() bool {
 	g.vshProg = g.vshProg[:0]
+	g.vshWritesConst = false
 	pc := int(g.Regs[kelvinProgStart>>2]) % vshProgSlots
 	for steps := 0; ; steps++ {
 		if steps >= vshProgSlots {
@@ -247,6 +248,9 @@ func (g *pgraph) vshCompile() bool {
 		}
 		inst := g.vshDecode(pc)
 		g.vshProg = append(g.vshProg, inst)
+		if inst.outMask != 0 && !inst.outIsO {
+			g.vshWritesConst = true // a constant-writing instruction: keep this draw serial
+		}
 		pc = (pc + 1) % vshProgSlots
 		if inst.final {
 			return true

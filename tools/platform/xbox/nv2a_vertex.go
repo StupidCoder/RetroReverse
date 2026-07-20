@@ -17,7 +17,9 @@ import (
 	"fmt"
 	"math"
 	"os"
+	"runtime"
 	"strconv"
+	"sync"
 )
 
 // nvDrawTrace: RR_NV_DRAW=N dumps the state and first vertices of the first N draws.
@@ -217,7 +219,11 @@ func (g *pgraph) runDraw() {
 		return
 	}
 
-	var verts []kelvinVtx
+	// First pass (serial): fetch or decode each vertex's input attribute set into g.vin. This
+	// touches the memory bus (fetchArrayVertex) and the inline stream, neither concurrency-safe,
+	// so it stays on the owning goroutine. The transform pass over g.vin (transformVerts) is pure
+	// and is what parallelises.
+	var nin int
 	switch {
 	case len(g.inline) > 0:
 		if len(g.elems) > 0 || len(g.ranges) > 0 {
@@ -233,11 +239,11 @@ func (g *pgraph) runDraw() {
 				g.Draws, len(g.inline), stride)
 			return
 		}
-		n := len(g.inline) / stride
-		verts = make([]kelvinVtx, 0, n)
-		for vi := 0; vi < n; vi++ {
+		nin = len(g.inline) / stride
+		g.vin = ensureVin(g.vin, nin)
+		for vi := 0; vi < nin; vi++ {
 			w := g.inline[vi*stride : (vi+1)*stride]
-			var in [16][4]float32
+			in := &g.vin[vi]
 			copy(in[:], g.vtxAttr[:])
 			for a := 0; a < 16; a++ {
 				if fmts[a].words == 0 {
@@ -246,17 +252,6 @@ func (g *pgraph) runDraw() {
 				in[a] = decodeAttr(&fmts[a], w[:fmts[a].words])
 				w = w[fmts[a].words:]
 			}
-			var v kelvinVtx
-			var ok bool
-			if ff {
-				v, ok = g.transformFF(&in), true
-			} else {
-				v, ok = g.transform(&in, trace && vi < 8)
-			}
-			if !ok {
-				return
-			}
-			verts = append(verts, v)
 		}
 	case len(g.elems) > 0 || len(g.ranges) > 0:
 		idx := g.elems
@@ -265,29 +260,131 @@ func (g *pgraph) runDraw() {
 				idx = append(idx, r[0]+k)
 			}
 		}
-		verts = make([]kelvinVtx, 0, len(idx))
-		for vi, ix := range idx {
+		nin = len(idx)
+		g.vin = ensureVin(g.vin, nin)
+		for i, ix := range idx {
 			in, ok := g.fetchArrayVertex(&fmts, ix)
 			if !ok {
 				return
 			}
-			var v kelvinVtx
-			if ff {
-				v = g.transformFF(&in)
-			} else {
-				v, ok = g.transform(&in, trace && vi < 8)
-				if !ok {
-					return
-				}
-			}
-			verts = append(verts, v)
+			g.vin[i] = in
 		}
 	default:
 		return // an empty BEGIN/END pair (state-only bracket)
 	}
 
+	verts, ok := g.transformVerts(nin, ff, trace)
+	if !ok {
+		return
+	}
+
 	g.m.profEnd(bucketVertex, tv)
 	g.assemble(verts)
+}
+
+// ensureVin grows the reusable input-attribute buffer to hold n vertices.
+func ensureVin(buf [][16][4]float32, n int) [][16][4]float32 {
+	if cap(buf) < n {
+		return make([][16][4]float32, n)
+	}
+	return buf[:n]
+}
+
+// vshParallelMinVerts is the vertex count above which a program-mode draw's transform runs on
+// the worker fan-out. Below it the fan-out's wake/join costs more than the transform saves — the
+// same lesson the raster fill learned, and the reason only OutRun's big geometry draws (~71% of a
+// field's vertices live in draws this size) fan out while the many small quads stay serial.
+const vshParallelMinVerts = 256
+
+// transformVerts runs the transform over the nin input sets in g.vin into a reused output buffer.
+// A big program-mode draw fans the transform out across workers: the transform is a PURE function
+// of a vertex's inputs and the read-only program + constants — the NV2A's own parallel vertex
+// units require exactly this independence (a per-vertex program cannot write constant memory), so
+// the result is identical to the serial order and race-free. Vertex 0 runs serially first so any
+// program-level halt (unbound vertex DMA context, an unimplemented op, no FINAL) fires just as it
+// would serially, before any fan-out; the program being constant across the draw, no later vertex
+// can then halt. Small draws, fixed-function, a constant-writing (state) program, and traced runs
+// stay serial.
+func (g *pgraph) transformVerts(nin int, ff, trace bool) ([]kelvinVtx, bool) {
+	if cap(g.vertsBuf) < nin {
+		g.vertsBuf = make([]kelvinVtx, nin)
+	}
+	verts := g.vertsBuf[:nin]
+	do := func(i int) bool {
+		if ff {
+			verts[i] = g.transformFF(&g.vin[i])
+			return true
+		}
+		v, ok := g.transform(&g.vin[i], trace && i < 8)
+		if ok {
+			verts[i] = v
+		}
+		return ok
+	}
+	if !ff && !trace && !g.vshWritesConst && nin >= vshParallelMinVerts {
+		if !do(0) { // catch a program-level halt serially, before the fan-out
+			return nil, false
+		}
+		parallelChunks(1, nin, vshWorkers(), func(a, b int) {
+			for i := a; i < b; i++ {
+				do(i) // cannot halt: vertex 0 proved the program halt-free, and it is the same program
+			}
+		})
+		return verts, true
+	}
+	for i := 0; i < nin; i++ {
+		if !do(i) {
+			return nil, false
+		}
+	}
+	return verts, true
+}
+
+// vshWorkers is the vertex-transform fan-out width: NumCPU-2 (leave the OS and the owning
+// goroutine a core), capped at 8 — past which the stage is memory-bound and a fixed bound keeps a
+// frame time comparable across machines.
+func vshWorkers() int {
+	n := runtime.NumCPU() - 2
+	if n < 1 {
+		n = 1
+	}
+	if n > 8 {
+		n = 8
+	}
+	return n
+}
+
+// parallelChunks runs f over `workers` contiguous sub-ranges of [lo,hi) and waits for all of them.
+// Contiguous (not interleaved) ranges give each worker one cache-friendly span; disjoint ranges
+// mean the callback's writes never overlap. Only big draws reach here, so a goroutine per range is
+// cheap in aggregate.
+func parallelChunks(lo, hi, workers int, f func(a, b int)) {
+	total := hi - lo
+	if workers > total {
+		workers = total
+	}
+	if workers <= 1 {
+		f(lo, hi)
+		return
+	}
+	chunk := (total + workers - 1) / workers
+	var wg sync.WaitGroup
+	for w := 0; w < workers; w++ {
+		a := lo + w*chunk
+		b := a + chunk
+		if b > hi {
+			b = hi
+		}
+		if a >= b {
+			break
+		}
+		wg.Add(1)
+		go func(a, b int) {
+			defer wg.Done()
+			f(a, b)
+		}(a, b)
+	}
+	wg.Wait()
 }
 
 // fetchArrayVertex reads one indexed vertex from the attribute arrays.

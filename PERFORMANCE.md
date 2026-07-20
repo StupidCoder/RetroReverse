@@ -12,7 +12,8 @@ serial-bound (the banded parallel fill already won; 71% of the field is one goro
 took the warm field from 583.9 → 397.4 ms — 1.47×, byte-identical. Item #2 (register-combiner array
 register file + in-place map/op) another −8.4%, byte-identical (guarded by a 20k-config differential
 test). Item #3 (raster worker pool) was a measured no-op and reverted. Item #4 (vertex-shader decode
-cache) another −8.3%, byte-identical. Separately, FlipVSync (a clock fidelity fix, now on by default) removed the ~6× duplicate
+cache) another −8.3%, and #4b (parallelising the now-pure vertex transform — the NV2A's own
+parallel vertex units guarantee it is safe) another −4.7%, both byte-identical. Separately, FlipVSync (a clock fidelity fix, now on by default) removed the ~6× duplicate
 presents the under-paced RDTSC clock was rendering — a 10 FPS sim became 60, the bigger
 checkpoint/framedbg lever. See *The Xbox* below.**
 
@@ -283,6 +284,7 @@ of these wins, so the absolute ms drift between rows and the delta within a row 
 | #2 combiner: array reg file + in-place map/op | **413.3 → 378.8** | **−8.4%** | yes |
 | #3 raster worker pool + worker scaling | 384.6 → 380.2 / 421.8 | **~0 / worse — reverted** | (not shipped) |
 | #4 vertex-shader decode cache | **384.6 → 352.7** | **−8.3%** | yes |
+| #4b parallelise the vertex transform | **354.6 → 337.8** | **−4.7%** | yes |
 
 **#1, predicted 10-18%, measured −32% — and the surplus is the whole lesson.** The plan aimed the
 texture cache at cross-field *colour* re-decode. That part landed exactly as predicted and no more:
@@ -379,13 +381,38 @@ the new shape — it drives the interpreter directly, so it now `vshCompile`s be
 
 Contrast with #3: this is the same "a 3DS win might transfer" bet, and it paid — because the
 bottleneck was the same (a per-vertex interpreter re-deriving a per-draw constant), not merely the
-code shape. Not done: `fetchArrayVertex` and the ~120-byte `kelvinVtx` append-copy are the vertex
-bucket's remaining cost; parallelising the transform is off the table while a program can write
-constant memory a later vertex reads (the vertices are not independent), which is also why the
-decode cache — not a fan-out — was the right tool.
+code shape. (An earlier draft of this section claimed parallelising the transform was "off the
+table" because a program could write constant memory a later vertex reads — that was wrong, and
+#4b corrects it: it cannot, precisely because the NV2A's vertex units are parallel.)
 
 Files: `nv2a_vsh.go` (`vshCompile`, `vshRun` over `g.vshProg`), `nv2a_vertex.go` (compile once in
 `runDraw`), `nv2a_pgraph.go` (the `vshProg` buffer), `nv2a_kelvin_test.go` (test compiles first).
+
+### #4b — parallelise the vertex transform, predicted 10-15%, measured −4.7% (and it corrects #4's error)
+
+Prompted by a good question: the NV2A has parallel vertex units, so shouldn't the transform always
+be parallelisable? Yes — and the reason is exactly the parallelism. A per-vertex program **cannot**
+write constant memory (a per-vertex write-then-read across the concurrent units would be undefined),
+so per-vertex programs are pure functions of their inputs and the read-only program + constants, and
+the vertices are independent. Confirmed on the metal (an3-drive: 474 program draws a field, **zero**
+with a constant-write instruction, zero constant-writes executed). #4's note that this was "off the
+table" was simply wrong; the constant-write path in the interpreter is the *vertex state program*
+(run once via a trigger, not per vertex), and a draw of such a program stays serial.
+
+So the transform fans out. It splits into two passes: a serial fetch (the memory bus is not
+concurrency-safe) that fills a reused input buffer, then a parallel transform over it. Only big
+program-mode draws fan out — **71% of a field's vertices live in draws ≥256 vertices** while the
+median draw is 47, so the small ones stay serial and dodge the wake cost that sank #3. Vertex 0 runs
+serially first so a program-level halt fires before any fan-out; the program being constant, no
+later vertex can then halt, so the workers never touch `CPU.Halt` or the bus. Byte-identical (the
+gate has draws up to 3,595 vertices, so it exercises the parallel path; no re-pin), `-race` clean.
+
+Measured **354.6 → 337.8 (−4.7%)** in one sitting. Below the 10-15% guess, and the ceiling is #3's
+lesson again: this machine gets ~2× out of a per-draw fan-out, not 8× — but here that is a *net win*
+because the work was previously serial, where #3 was re-dividing work that was already parallel. The
+two-pass split adds one input copy per vertex; folding the fetch to write in place would recover a
+little. `nv2a_vertex.go` (`transformVerts`, `parallelChunks`, `vshWorkers`, the two-pass `runDraw`),
+`nv2a_vsh.go` (`vshCompile` flags a constant-writing program), `nv2a_pgraph.go` (`vin`/`vertsBuf`).
 
 ### The bigger checkpoint lever was not a per-frame optimisation — it was 6× fewer frames
 

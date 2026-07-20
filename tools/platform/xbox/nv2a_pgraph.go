@@ -128,6 +128,19 @@ type pgraph struct {
 	// per vertex, rather than re-decoding every instruction for every vertex. Reused buffer,
 	// transient — a pure function of the program words, which do not change within a draw.
 	vshProg []vshInst
+	// vshWritesConst is set by vshCompile when the program has an instruction that writes
+	// constant memory (a vertex STATE program — run once, not per vertex). A per-vertex draw of
+	// such a program is kept serial: the NV2A cannot write constant memory from a per-vertex
+	// program (its parallel vertex units make a per-vertex write-then-read undefined), so this is
+	// the belt to the braces of the hardware guarantee, and it keeps the parallel transform's
+	// "vertices are independent" precondition exact (nv2a_vertex.go transformVerts).
+	vshWritesConst bool
+	// vin / vertsBuf back the two-pass vertex path (nv2a_vertex.go): the fetched/decoded input
+	// attribute sets and the transformed vertices, reused every draw. The fetch pass is serial
+	// (it touches the memory bus, which is not concurrency-safe); the transform pass over vin is
+	// pure and parallelised for big program-mode draws.
+	vin      [][16][4]float32
+	vertsBuf []kelvinVtx
 
 	// triScratch is assemble()'s reusable triangle-index buffer (transient, not state).
 	triScratch [][3]int
