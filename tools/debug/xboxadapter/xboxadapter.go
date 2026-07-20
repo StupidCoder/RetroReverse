@@ -266,12 +266,17 @@ func normalizeKey(name string) string {
 		return "right"
 	case "enter", "return":
 		return "start"
+	case "r":
+		return "an7" // the R trigger (pressure byte gamepad+9): OutRun's accelerate
+	case "l":
+		return "an6" // the L trigger (gamepad+8): OutRun's brake/reverse
 	}
 	// a and b are the analog buttons LICENSE SELECT's own footer named, and they arrive
-	// under their own letters. Every other letter falls through to a lookup that will not
-	// find it, which is the honest outcome: the pad has ten controls with no name yet
-	// (usb_xid.go says which and why), and a key that quietly did nothing would be worse
-	// than one the vocabulary refuses.
+	// under their own letters; r and l reach the triggers (the pad's gamepad+9/+8 pressure
+	// bytes, which the title reads as accelerate/brake — Part XVIII drove the race with an7
+	// held). Every other letter falls through to a lookup that will not find it, which is the
+	// honest outcome: the pad still has controls with no name yet (usb_xid.go says which and
+	// why), and a key that quietly did nothing would be worse than one the vocabulary refuses.
 	return s
 }
 

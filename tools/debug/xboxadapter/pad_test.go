@@ -128,6 +128,29 @@ func TestAnalogButtonKeys(t *testing.T) {
 	}
 }
 
+// TestTriggerKeys pins the R and L keyboard keys to the analog triggers — OutRun's accelerate
+// and brake. The R trigger is pressure byte gamepad+9 (control "an7"), the L trigger gamepad+8
+// ("an6"); the R key holding an7 is the input Part XVIII drove the race with.
+func TestTriggerKeys(t *testing.T) {
+	for _, tc := range []struct{ key, control string }{{"r", "an7"}, {"l", "an6"}} {
+		a := padAdapter()
+		st := press(t, a, tc.key, true)
+		c := mustControl(t, tc.control)
+		if st.Analog[c.Index] != xbox.PadPressed {
+			t.Errorf("%q: analog[%d] = %02X, want %02X — the %s key should press the trigger byte",
+				tc.key, c.Index, st.Analog[c.Index], xbox.PadPressed, tc.key)
+		}
+		for i, p := range st.Analog {
+			if i != c.Index && p != 0 {
+				t.Errorf("%q: also pressed analog[%d] = %02X", tc.key, i, p)
+			}
+		}
+		if st.Buttons != 0 {
+			t.Errorf("%q: set wButtons %04X — a trigger is a pressure byte, not a bit", tc.key, st.Buttons)
+		}
+	}
+}
+
 // TestOppositeArrowsCancel is what a physical stick does, and what a keyboard will be asked
 // to do the moment a thumb rolls across two arrow keys. It also pins the accumulate-then-
 // clamp shape: an implementation that ASSIGNED each direction would answer differently
