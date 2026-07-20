@@ -318,6 +318,41 @@ func TestFrameDeterminism(t *testing.T) {
 	}
 }
 
+// warmFields is how many consecutive fields BenchmarkWarmFields runs per op: one cold field that
+// fills the texture cache plus (warmFields-1) warm ones. The steady state a real run spends its
+// life in is the warm field, and some optimisations (PERFORMANCE.md #1, the cross-field texture
+// cache) only help fields 2+ — a one-field benchmark is blind to them. Kept small so the
+// animating scene does not drift into a different workload.
+const warmFields = 8
+
+// BenchmarkWarmFields reports ms/field over a warm run — the number the cross-field texture cache
+// (item #1) is meant to move. It reloads the savestate each op so the run always starts from the
+// same cold cache and the same scene.
+func BenchmarkWarmFields(b *testing.B) {
+	m, disc := atState(b, outrunImage, outrunXBE, stateDrive)
+	defer disc.Close()
+	snap := m.SaveState()
+
+	var did gateCounters
+	var total time.Duration
+	for i := 0; i < b.N; i++ {
+		if err := m.LoadState(snap); err != nil {
+			b.Fatal(err)
+		}
+		if m.CPU.Halted {
+			m.ClearHalt()
+		}
+		before := snapGate(m)
+		start := time.Now()
+		runFields(m, warmFields, benchBudget)
+		total += time.Since(start)
+		did = snapGate(m).sub(before)
+	}
+	b.ReportMetric(float64(total.Nanoseconds())/float64(b.N)/warmFields/1e6, "ms/field")
+	b.ReportMetric(float64(did.draws)/warmFields, "draws/field")
+	b.ReportMetric(float64(did.frags)/warmFields, "frags/field")
+}
+
 // BenchmarkField reports ns/field and — because a field is only comparable to another field that
 // drew the same thing — the work it did alongside. It re-restores the savestate for each measured
 // batch so an animating scene does not drift into a different frame.

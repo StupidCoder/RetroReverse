@@ -296,7 +296,7 @@ func (m *Machine) SaveState() *XboxState {
 		NextObjAddr: m.nextObjAddr, KbandNext: m.kbandNext, Tick: m.tick,
 		ClockScheme: 1, ClockBaseTick: m.clockBaseTick, ClockBase100ns: m.clockBase100ns,
 		TscBase: m.tscBase,
-		NVReg: copyU32Map(m.nv.reg), NVPut: m.nv.dmaPut, NVGet: m.nv.dmaGet, NVKicked: m.nv.kicked,
+		NVReg:   copyU32Map(m.nv.reg), NVPut: m.nv.dmaPut, NVGet: m.nv.dmaGet, NVKicked: m.nv.kicked,
 		APUReg:         copyU32Map(m.apu.reg),
 		AC97Reg:        copyU32Map(m.ac97.reg),
 		USBReg:         copyU32Map(m.usb.reg),
@@ -446,7 +446,7 @@ func (m *Machine) LoadState(st *XboxState) error {
 	m.pgraph.ranges = append(m.pgraph.ranges[:0], st.PgRanges...)
 	m.pgraph.vtxAttr, m.pgraph.Draws = st.PgVtxAttr, st.PgDraws
 	m.pgraph.rastValid = false
-	m.pgraph.texCache = map[texKey]*texImage{}
+	m.pgraph.texCache = map[texKey]*texEntry{}
 	m.push = pusherState{
 		method: st.Push.Method, subchan: st.Push.Subchan, count: st.Push.Count,
 		nonInc: st.Push.NonInc, subReturn: st.Push.SubReturn, subActive: st.Push.SubActive,

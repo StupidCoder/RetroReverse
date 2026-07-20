@@ -6,10 +6,10 @@ it is byte-identical. The frame debugger's scrubber is 2.3× on top of that.**
 **Status (2026-07-16): done for the GameCube. 2.8× on the intro cutscene, 3.1× on the shadow
 scene, and 4.4× on a boot stretch — byte-identical. See *The GameCube* below.**
 
-**Status (2026-07-20): Phase 0 done for the Xbox. OutRun's driving field is 651 ms and — unlike
-every prior target — it is SERIAL-bound, not CPU-bound and not fill-bound: the banded parallel
-fill has already won and 71% of the field is one goroutine. The gate is built; the ranked plan
-is below. See *The Xbox* below.**
+**Status (2026-07-20): Phase 0 + item #1 done for the Xbox. OutRun's driving field is
+serial-bound (the banded parallel fill already won; 71% of the field is one goroutine). Item #1
+(a content-addressed texture cache that persists across fields AND finally caches the shadow map)
+took the warm field from 583.9 → 397.4 ms — 1.47×, byte-identical. See *The Xbox* below.**
 
 Read *Phase 0 — the results* and *What was actually done* below; the original plan (kept, below
 the line) guessed the ordering and got most of it wrong, which is exactly what Phase 0 existed to
@@ -261,6 +261,45 @@ Per the doc's own lessons: a CPU-sample share is an **upper bound** on the wall 
 33% includes irreducible float arithmetic); A/B every change back-to-back in one sitting and never
 compare across sessions; and the frame is serial-bound, so do **not** over-invest in raster
 parallelism — spend the effort on #1 and #4.
+
+### What was actually done, and what it was worth
+
+**The running tally, measured on the warm field** (`BenchmarkWarmFields`: one cold field to fill
+the cache plus seven warm ones, the steady state a real run lives in), A/B'd back to back:
+
+| phase | warm ms/field | vs Phase 0 | byte-identical? |
+|---|---|---|---|
+| Phase 0 (baseline) | 583.9 | — | (gate pinned) |
+| #1 texture cache (colour + depth) | **397.4** | **1.47× / −32.0%** | yes |
+
+**#1, predicted 10-18%, measured −32% — and the surplus is the whole lesson.** The plan aimed the
+texture cache at cross-field *colour* re-decode. That part landed exactly as predicted and no more:
+persisting the colour cache across fields (validating each entry by an FNV-1a of its source bytes,
+so a reflection RTT the game re-renders every field is re-decoded and a static road texture is
+kept) was worth **3.75%** on its own — `decodeDXT`/`decodeSwizzled` fell off the profile, `hashRAM`
+never appeared, and that was that.
+
+**Then Phase 0's lesson 5 paid out: ask what the code is executing.** With colour decode gone,
+`texDecode`'s residual 1.81 s of samples was one thing — the **shadow-map depth texture**, a 512×512
+buffer that the old cache *bypassed on purpose* (the caster pass writes it mid-run) and therefore
+re-decoded on **every receiver draw** that sampled it. The content hash makes that bypass
+unnecessary: a mid-run caster write changes the bytes, the hash sees it, and the map is decoded
+**once per run after the caster** instead of once per receiver. That is where the other ~28 points
+came from. The subsystem *command-decode* bucket fell from **260.6 → 62.9 ms** and the field is now
+cleanly raster (41%) + vertex (30%) bound — the shape the ranked plan predicted, reached a phase
+early.
+
+**Correctness.** Byte-identical through both changes, gate and determinism green — and the gate
+*earns* it here: an3-drive casts shadows, so a stale depth decode would move the surface hash. The
+one residual assumption (≤ one caster pass per run, so the within-run "already validated" fast path
+cannot serve a stale map) is guarded by that same frame. The FNV-1a span is computed by `texSource`
+to match exactly what each decoder reads, so any byte a decode would read changing forces a
+re-decode; a 64-bit content hash can in principle collide (~2⁻⁶⁴), the standard texture-cache bet,
+with the gate as backstop.
+
+Files: `nv2a_texture.go` (the cache is now content-addressed — `texEntry`, `hashRAM`, `texSpan`,
+`texSource`, `cacheTex`), `nv2a_pfifo.go` (bump a run sequence instead of dropping the cache),
+`nv2a_pgraph.go` + `state.go` (the map's value type), `bench_test.go` (`BenchmarkWarmFields`).
 
 ### Phase 0 (2026-07-20) — the gate is built
 

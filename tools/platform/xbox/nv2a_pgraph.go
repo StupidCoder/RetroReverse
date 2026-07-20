@@ -98,7 +98,8 @@ type pgraph struct {
 	// cache (nv2a_texture.go). Both are transient rebuilds from Regs/RAM — not state.
 	rast      rasterState
 	rastValid bool
-	texCache  map[texKey]*texImage
+	texCache  map[texKey]*texEntry
+	texRun    uint64 // bumped each pusher run; a cache entry validated at the current value is trusted for this run without re-hashing its source (nv2a_texture.go)
 
 	// The 2D blit engine's latched state (nv2a_blit.go). Re-programmed before every blit, so
 	// like the raster state it is transient and outside the savestate.
@@ -145,7 +146,7 @@ func newPgraph(m *Machine) *pgraph {
 		seen:      map[uint32]int{},
 		firstArg:  map[uint32]uint32{},
 		unhandled: map[uint32]int{},
-		texCache:  map[texKey]*texImage{},
+		texCache:  map[texKey]*texEntry{},
 		zetaHist:  map[uint32]*zetaBucket{},
 	}
 	for i := range g.vtxAttr {

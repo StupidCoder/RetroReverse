@@ -8,14 +8,21 @@ package xbox
 // published S3TC block compression, stored linearly; the "LU" formats are linear
 // pitch images addressed in texels.
 //
-// Decoding happens once per (state, pusher run) into an RGBA8 image — the cache is
-// dropped at the start of every pusher run, because between runs the CPU owns memory
-// and may rewrite texture data; within one run the GPU sees a consistent snapshot.
-// An unmodelled format halts loudly and names itself: sampling wrong bytes would
-// paint a plausible-looking wrong frame, which is the failure mode this codebase
-// treats as worse than a stop.
+// Decoding happens into an RGBA8 image held in a content-addressed cache (texEntry): an
+// entry persists across pusher runs and is trusted for the current run only after its
+// source bytes are re-confirmed by an FNV-1a hash (hashRAM over the span texSource
+// computes). This keeps a static texture decoded once for the whole trajectory while a
+// reflection RTT — or the shadow map the caster rewrites mid-run — is re-decoded the moment
+// its bytes change, which is why even the depth texture is cacheable now. Within one run the
+// GPU still sees a consistent snapshot (the first decode is reused, as the old per-run cache
+// did). An unmodelled format halts loudly and names itself: sampling wrong bytes would paint
+// a plausible-looking wrong frame, which is the failure mode this codebase treats as worse
+// than a stop.
 
-import "fmt"
+import (
+	"encoding/binary"
+	"fmt"
+)
 
 const (
 	kelvinCtxDmaTexA = 0x0184 // SET_CONTEXT_DMA_A: texture source when fmt bit 0 set
@@ -54,6 +61,135 @@ const (
 // texKey identifies a decoded texture within one pusher run.
 type texKey struct {
 	offset, format, rect, ctl1 uint32
+}
+
+// texEntry is a cached decode plus what it takes to trust it across pusher runs. The cache used
+// to be dropped whole at every run start (the CPU, and a mid-run render-to-texture pass, own
+// texture memory between runs); it now persists, and an entry is trusted for the current run only
+// after its source bytes are re-confirmed. srcHash is an FNV-1a of exactly the bytes the decode
+// read (texSource computes the span); validated is the g.texRun at which that check last passed,
+// so a texture sampled by many draws in one run is hashed at most once per run and a static
+// texture is decoded once for the whole trajectory. A 64-bit content hash can in principle
+// collide (~2^-64) — the standard bet a texture cache makes; the frame gate is the backstop.
+type texEntry struct {
+	img       *texImage
+	srcHash   uint64
+	srcLen    uint32
+	validated uint64
+}
+
+// hashRAM is FNV-1a over [phys, phys+n), eight bytes at a time. It is the cross-run staleness
+// check: cheaper than a decode (no swizzle/DXT arithmetic, no allocation) and writer-agnostic —
+// a CPU store and a GPU RTT pass into the source both change the hash and force a re-decode.
+func hashRAM(ram []byte, phys, n uint32) uint64 {
+	end := uint64(phys) + uint64(n)
+	if end > uint64(len(ram)) {
+		end = uint64(len(ram))
+	}
+	h := uint64(1469598103934665603)
+	i := uint64(phys)
+	for ; i+8 <= end; i += 8 {
+		h = (h ^ binary.LittleEndian.Uint64(ram[i:])) * 1099511628211
+	}
+	for ; i < end; i++ {
+		h = (h ^ uint64(ram[i])) * 1099511628211
+	}
+	return h
+}
+
+// texSpan is the number of source bytes a decode of the given format reads — the exact extent
+// hashRAM must cover, so any byte the decoder would read changing forces a re-decode. It mirrors
+// the per-format cases in texDecode; linear formats return an upper bound (h*pitch, ≥ the actual
+// last-row extent). ok is false for depth and unmodelled formats, which are never cross-run
+// cached (depth already bypasses the cache; an unmodelled format halts in texDecode).
+func texSpan(colorFmt uint32, cube bool, w, h int, pitch uint32) (uint32, bool) {
+	var faceBytes uint32
+	switch colorFmt {
+	case texFmtDXT1:
+		faceBytes = uint32((w+3)/4*((h+3)/4)) * 8
+	case texFmtDXT3, texFmtDXT5:
+		faceBytes = uint32((w+3)/4*((h+3)/4)) * 16
+	case texFmtSZ_A8R8G8B8, texFmtSZ_X8R8G8B8:
+		faceBytes = uint32(w * h * 4)
+	case texFmtSZ_R5G6B5, texFmtSZ_A1R5G5B5, texFmtSZ_A4R4G4B4:
+		faceBytes = uint32(w * h * 2)
+	case texFmtSZ_A8:
+		faceBytes = uint32(w * h)
+	case texFmtLU_A8R8G8B8, texFmtLU_X8R8G8B8:
+		if pitch == 0 {
+			pitch = uint32(w * 4)
+		}
+		faceBytes = uint32(h) * pitch
+	case texFmtLU_R5G6B5:
+		if pitch == 0 {
+			pitch = uint32(w * 2)
+		}
+		faceBytes = uint32(h) * pitch
+	case texFmtLU_DepthX8Y24:
+		// The shadow map: h rows of pitch bytes of X8_Y24 depth. Hashing exactly these bytes
+		// is what lets the depth texture be cached at all — the caster pass writes them mid-run
+		// and the hash sees the change, which is the safety the old cache bypass gave up on.
+		if pitch == 0 {
+			pitch = uint32(w * 4)
+		}
+		faceBytes = uint32(h) * pitch
+	default:
+		return 0, false
+	}
+	if cube {
+		return faceBytes * 6, true
+	}
+	return faceBytes, true
+}
+
+// texSource resolves texture unit u's source address and byte span, the way texDecode does but
+// without decoding or halting — the cross-run cache check and the store both use it so the bytes
+// hashed are exactly the bytes decoded. ok is false when the binding is not cacheable this way
+// (not RAM, an unmodelled span, or out of range), and the caller then decodes fresh.
+func (g *pgraph) texSource(u int) (phys, span uint32, ok bool) {
+	r := uint32(u) * 0x40
+	offset := g.Regs[(kelvinTexOffset+r)>>2]
+	format := g.Regs[(kelvinTexFormat+r)>>2]
+	rect := g.Regs[(kelvinTexRect+r)>>2]
+	ctl1 := g.Regs[(kelvinTexCtl1+r)>>2]
+	if format>>4&0xF != 2 {
+		return 0, 0, false
+	}
+	colorFmt := format >> 8 & 0xFF
+	dmaReg := uint32(kelvinCtxDmaTexA)
+	if format&3 == 2 {
+		dmaReg = kelvinCtxDmaTexB
+	}
+	base, _ := g.m.dmaObjectTarget(g.Regs[dmaReg>>2])
+	p, mmio, okT := g.m.translate(base + offset)
+	if !okT || mmio {
+		return 0, 0, false
+	}
+	var w, h int
+	if isLinearTexFmt(colorFmt) {
+		w, h = int(rect>>16), int(rect&0xFFFF)
+	} else {
+		w, h = 1<<(format>>20&0xF), 1<<(format>>24&0xF)
+	}
+	if w <= 0 || h <= 0 || w > 4096 || h > 4096 {
+		return 0, 0, false
+	}
+	span, ok = texSpan(colorFmt, format>>2&1 != 0, w, h, ctl1>>16)
+	if !ok || uint64(p)+uint64(span) > uint64(len(g.m.RAM)) {
+		return 0, 0, false
+	}
+	return p, span, true
+}
+
+// cacheTex stores a fresh decode keyed by its source content, so the next run can trust it
+// without re-decoding as long as the bytes are unchanged.
+func (g *pgraph) cacheTex(key texKey, img *texImage, u int) {
+	var hsh uint64
+	phys, span, ok := g.texSource(u)
+	if ok {
+		hsh = hashRAM(g.m.RAM, phys, span)
+	}
+	g.texCache[key] = &texEntry{img: img, srcHash: hsh, srcLen: span, validated: g.texRun}
 }
 
 // texImage is a decoded RGBA8 texture. A cube map stores its six faces
@@ -109,12 +245,25 @@ func (g *pgraph) texDecode(u int) (*texImage, bool, bool) {
 	ctl1 := g.Regs[(kelvinTexCtl1+r)>>2]
 
 	key := texKey{offset, format, rect, ctl1}
-	// A depth texture (shadow map) is never served from the per-run cache: the raster
-	// itself writes the map mid-run (the caster pass precedes the receiver draw in the
-	// same pusher run), so a cached decode could predate the caster.
-	if format>>8&0xFF != texFmtLU_DepthX8Y24 {
-		if img, ok := g.texCache[key]; ok {
-			return img, isLinearTexFmt(format >> 8 & 0xFF), true
+	linear := isLinearTexFmt(format >> 8 & 0xFF)
+	// The cache is content-addressed: an entry is trusted for the current run only after its
+	// source bytes are re-confirmed by hash. That is what makes a depth texture (shadow map)
+	// cacheable at all — the old code bypassed it because the caster pass writes the map
+	// mid-run, but a mid-run write changes the hash and forces exactly one re-decode after the
+	// caster, so the receiver draws that follow share it instead of each re-decoding 512x512
+	// depths. (The one assumption: at most one caster pass per run, which the frame gate guards.)
+	if e, ok := g.texCache[key]; ok {
+		// Already confirmed this run (the common case: many draws sample one texture) — trust
+		// it, exactly as the old per-run cache did within a run.
+		if e.validated == g.texRun {
+			return e.img, linear, true
+		}
+		// First look this run: re-confirm the source bytes are what we decoded from. If
+		// unchanged, trust the decode for the rest of the run; if changed (a CPU rewrite, an
+		// RTT pass, or the shadow caster), fall through and re-decode below.
+		if phys, span, ok2 := g.texSource(u); ok2 && hashRAM(g.m.RAM, phys, span) == e.srcHash {
+			e.validated = g.texRun
+			return e.img, linear, true
 		}
 	}
 
@@ -134,8 +283,7 @@ func (g *pgraph) texDecode(u int) (*texImage, bool, bool) {
 		return nil, false, false
 	}
 
-	colorFmt := format >> 8 & 0xFF
-	linear := isLinearTexFmt(colorFmt)
+	colorFmt := format >> 8 & 0xFF // linear was resolved from the same bits at the top
 	var w, h int
 	if linear {
 		w, h = int(rect>>16), int(rect&0xFFFF)
@@ -197,7 +345,7 @@ func (g *pgraph) texDecode(u int) (*texImage, bool, bool) {
 			decodeFace(face, phys+uint32(f)*faceBytes)
 			copy(img.pix[f*w*h*4:], face.pix)
 		}
-		g.texCache[key] = img
+		g.cacheTex(key, img, u)
 		return img, linear, true
 	}
 
@@ -276,9 +424,7 @@ func (g *pgraph) texDecode(u int) (*texImage, bool, bool) {
 		return nil, false, false
 	}
 
-	if img.depth == nil { // depth textures are re-decoded per draw (see cache bypass above)
-		g.texCache[key] = img
-	}
+	g.cacheTex(key, img, u)
 	return img, linear, true
 }
 
@@ -574,7 +720,6 @@ func absf32(v float32) float32 {
 	}
 	return v
 }
-
 
 // traceShadowFrag is the RR_SHADOWFRAG instrument: per-draw statistics of the
 // comparand evidence at the receiver — r (post q-divide) against the stored 24-bit

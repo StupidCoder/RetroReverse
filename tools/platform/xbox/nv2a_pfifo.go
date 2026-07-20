@@ -66,12 +66,14 @@ func (m *Machine) runPusher() {
 	m.profPusherEnter()
 	defer m.profPusherExit()
 
-	// Texture decodes cached during the previous run may be stale: between kicks the
-	// CPU owns memory and may have rewritten texture data. Within one run the GPU
-	// sees a consistent snapshot, so the cache lives exactly that long.
-	if len(m.pgraph.texCache) > 0 {
-		m.pgraph.texCache = map[texKey]*texImage{}
-	}
+	// Texture decodes cached during a previous run may be stale: between kicks the CPU (and
+	// a mid-run RTT pass) may have rewritten texture data. Rather than drop the whole cache
+	// and re-decode every texture every field, bump the run sequence: a cache entry is then
+	// trusted for this run only after its source bytes are re-confirmed by content hash
+	// (texDecode). A texture the game did not touch is decoded once and kept; a reflection
+	// RTT it re-renders every field hashes differently and is re-decoded. Within one run the
+	// GPU still sees a consistent snapshot, exactly as before (nv2a_texture.go).
+	m.pgraph.texRun++
 
 	if nvTrace {
 		fmt.Printf("PUSH run: GET=%08X PUT=%08X\n", m.nv.dmaGet, m.nv.dmaPut)
