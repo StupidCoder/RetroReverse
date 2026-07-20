@@ -136,6 +136,18 @@ type Machine struct {
 	// the GIF and the privileged register block drive. Nil until first touched.
 	gs *GS
 
+	// The GS rasteriser's worker pool (gsraster_par.go). It lives on the Machine, not on
+	// the GS, precisely because LoadState nils m.gs and builds a fresh one — a pool owned
+	// by the GS would leak its goroutines on every restore, which is exactly what the
+	// frame debugger's replay does. It is NOT machine state (not savestated); Close()
+	// releases it. Nil until the first fannable primitive.
+	rasterPool *gsWorkPool
+
+	// SingleThreaded forces the GS rasteriser onto this goroutine. The parallel fill is a
+	// pure partition of a primitive's rows, so it computes the same buffer either way; this
+	// is the caller (a test, a byte-exactness check) saying "prove it against yourself".
+	SingleThreaded bool
+
 	// The two VPU interfaces (vif.go), created when their DMA channel first starts.
 	// VIF1 is the second road into the GS (PATH2 DIRECT) and the road to VU1.
 	vifs [2]*vif

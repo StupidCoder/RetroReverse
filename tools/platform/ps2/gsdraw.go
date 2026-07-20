@@ -423,9 +423,9 @@ func (gs *GS) target(p uint64) gsTarget {
 // plot writes one pixel: the alpha, destination-alpha and depth tests, the blend, then
 // the frame's format, mask and scissor. rgba is the source colour after texturing; z is
 // the pixel's depth.
-func (gs *GS) plot(t *gsTarget, x, y int32, z uint32, rgba uint32) {
+func (gs *GS) plot(t *gsTarget, x, y int32, z uint32, rgba uint32, st *gsStats) {
 	if x < t.sx0 || x > t.sx1 || y < t.sy0 || y > t.sy1 || x < 0 || y < 0 {
-		gs.rejScissor++
+		st.rejScissor++
 		return
 	}
 	// A frame target can point at Z memory: the "clear/render Z as colour" idiom sets
@@ -471,7 +471,7 @@ func (gs *GS) plot(t *gsTarget, x, y int32, z uint32, rgba uint32) {
 		if !pass {
 			switch t.test >> 12 & 3 {
 			case 0: // KEEP: nothing is written
-				gs.rejAlpha++
+				st.rejAlpha++
 				return
 			case 1: // FB_ONLY: the frame is written, the Z buffer is not
 				writeZ = false
@@ -511,16 +511,16 @@ func (gs *GS) plot(t *gsTarget, x, y int32, z uint32, rgba uint32) {
 		}
 		switch t.ztst {
 		case 0: // NEVER
-			gs.rejZ++
+			st.rejZ++
 			return
 		case 2: // GEQUAL
 			if z < zold {
-				gs.rejZ++
+				st.rejZ++
 				return
 			}
 		case 3: // GREATER
 			if z <= zold {
-				gs.rejZ++
+				st.rejZ++
 				return
 			}
 		}
@@ -539,12 +539,12 @@ func (gs *GS) plot(t *gsTarget, x, y int32, z uint32, rgba uint32) {
 	if t.test>>14&1 != 0 {
 		datm := uint32(t.test>>15) & 1
 		if old>>31 != datm {
-			gs.rejDate++
+			st.rejDate++
 			return
 		}
 	}
 
-	gs.plotted++
+	st.plotted++
 	preBlend := rgba
 	blended := false
 	if t.abe && (!t.pabe || srcA&0x80 != 0) {
@@ -579,7 +579,7 @@ func (gs *GS) plot(t *gsTarget, x, y int32, z uint32, rgba uint32) {
 
 	px := rgba&^fbmsk | old&fbmsk
 	if px&0xFFFFFF != 0 {
-		gs.plotNonBlack[t.primType]++
+		st.plotNonBlack[t.primType]++
 	}
 	if gs.m != nil && gs.m.GSPixelN > 0 && x == gs.m.GSPixelX && y == gs.m.GSPixelY {
 		gs.m.GSPixelN--
@@ -626,7 +626,9 @@ func (gs *GS) point(v gsVertex) {
 	if t.fge {
 		rgba = fogPixel(rgba, v.f&0xFF, t.fogcol)
 	}
-	gs.plot(&t, v.x>>4, v.y>>4, v.z, rgba)
+	var st gsStats
+	gs.plot(&t, v.x>>4, v.y>>4, v.z, rgba, &st)
+	gs.mergeStats(&st)
 }
 
 // line rasterises a line or line-strip segment with a DDA: one pixel per step along the
@@ -661,6 +663,9 @@ func (gs *GS) line(a, b gsVertex, p uint64) {
 	ar, ag, ab, aa := unpackRGBA(a.rgba)
 	br, bg, bbl, ba := unpackRGBA(b.rgba)
 
+	// A line is a thin DDA — cheap, and it crosses rows so a row-band partition would not
+	// help — so it stays on this goroutine with one merged stats block.
+	var st gsStats
 	for i := int32(0); i <= steps; i++ {
 		num, den := int64(i), int64(steps)
 		if den == 0 {
@@ -692,14 +697,15 @@ func (gs *GS) line(a, b gsVertex, p uint64) {
 					tv = int32(tt / q * float32(int32(1)<<smp.tex.th) * 16)
 				}
 			}
-			rgba = smp.combine(smp.pick(tu, tv), rgba)
+			rgba = smp.combine(smp.pick(tu, tv), rgba, &st)
 		}
 		if t.fge {
 			ff := uint32(int64(a.f&0xFF) + (int64(b.f&0xFF)-int64(a.f&0xFF))*num/den)
 			rgba = fogPixel(rgba, ff, t.fogcol)
 		}
-		gs.plot(&t, x, y, z, rgba)
+		gs.plot(&t, x, y, z, rgba, &st)
 	}
+	gs.mergeStats(&st)
 }
 
 // texAxis interpolates one texture-coordinate axis of a sprite: the texel coordinate
@@ -745,41 +751,46 @@ func (gs *GS) sprite(a, b gsVertex, p uint64) {
 	if y0 > y1 {
 		y0, y1 = y1, y0
 	}
-	for y := y0; y < y1; y++ {
-		var v int32
-		if smp != nil {
-			// Sprite UVs interpolate at the INTEGER pixel coordinate, not the +0.5
-			// centre. Pinned by RRV's pyramid gathers: their 1:3 sprites author
-			// v 48.5..66.5 over 6 rows with a REGION_REPEAT fold that cannot wrap
-			// v>=64 back into the 64-tall page — only integer-point sampling keeps
-			// the last row at v=63.5 (texel 63 -> folded 59, the right byte lane);
-			// centre sampling overshoots to 65 and reads 32 pixel rows below.
-			// 1:1-stride sprites land on the same texel under either rule.
-			v = texAxis(y<<4, a.y, b.y, av, bv)
-		}
-		for x := x0; x < x1; x++ {
-			rgba := b.rgba
+	// The rows split across the worker pool for a large sprite (a full-screen blur or grade
+	// pass); a small one fills here. Each worker fills a disjoint band of rows into its own
+	// stats. See rasterFill.
+	gs.rasterFill(&t, smp, x0, x1, y0, y1, func(yLo, yHi int32, st *gsStats) {
+		for y := yLo; y < yHi; y++ {
+			var v int32
 			if smp != nil {
-				u := texAxis(x<<4, a.x, b.x, au, bu)
-				if gs.m != nil && gs.m.GSPixelN > 0 && x == gs.m.GSPixelX && y == gs.m.GSPixelY {
-					smp.probe = true
-					texel := smp.pick(u, v)
-					smp.probe = false
-					ctxt := int(p >> 9 & 1)
-					fmt.Printf("  sample (%d,%d) tbp 0x%05X psm 0x%X %dx%d tbw %d wms/wmt %d/%d cbp 0x%X csa %d uv (%.2f,%.2f) texel %08X vtx %08X tex1 %016X\n",
-						x, y, smp.tex.tbp*64, smp.tex.psm, smp.w, smp.h, smp.tex.tbw,
-						smp.wms, smp.wmt, smp.tex.cbp, smp.tex.csa,
-						float64(u)/16, float64(v)/16, texel, rgba,
-						gs.reg[0x14+ctxt])
+				// Sprite UVs interpolate at the INTEGER pixel coordinate, not the +0.5
+				// centre. Pinned by RRV's pyramid gathers: their 1:3 sprites author
+				// v 48.5..66.5 over 6 rows with a REGION_REPEAT fold that cannot wrap
+				// v>=64 back into the 64-tall page — only integer-point sampling keeps
+				// the last row at v=63.5 (texel 63 -> folded 59, the right byte lane);
+				// centre sampling overshoots to 65 and reads 32 pixel rows below.
+				// 1:1-stride sprites land on the same texel under either rule.
+				v = texAxis(y<<4, a.y, b.y, av, bv)
+			}
+			for x := x0; x < x1; x++ {
+				rgba := b.rgba
+				if smp != nil {
+					u := texAxis(x<<4, a.x, b.x, au, bu)
+					if gs.m != nil && gs.m.GSPixelN > 0 && x == gs.m.GSPixelX && y == gs.m.GSPixelY {
+						smp.probe = true
+						texel := smp.pick(u, v)
+						smp.probe = false
+						ctxt := int(p >> 9 & 1)
+						fmt.Printf("  sample (%d,%d) tbp 0x%05X psm 0x%X %dx%d tbw %d wms/wmt %d/%d cbp 0x%X csa %d uv (%.2f,%.2f) texel %08X vtx %08X tex1 %016X\n",
+							x, y, smp.tex.tbp*64, smp.tex.psm, smp.w, smp.h, smp.tex.tbw,
+							smp.wms, smp.wmt, smp.tex.cbp, smp.tex.csa,
+							float64(u)/16, float64(v)/16, texel, rgba,
+							gs.reg[0x14+ctxt])
+					}
+					rgba = smp.combine(smp.pick(u, v), rgba, st)
 				}
-				rgba = smp.combine(smp.pick(u, v), rgba)
+				if t.fge {
+					rgba = fogPixel(rgba, b.f&0xFF, t.fogcol) // flat in fog too: the second vertex's
+				}
+				gs.plot(&t, x, y, b.z, rgba, st) // a sprite is flat in Z: the second vertex's
 			}
-			if t.fge {
-				rgba = fogPixel(rgba, b.f&0xFF, t.fogcol) // flat in fog too: the second vertex's
-			}
-			gs.plot(&t, x, y, b.z, rgba) // a sprite is flat in Z: the second vertex's
 		}
-	}
+	})
 }
 
 // triangle rasterises with the half-open edge rule, flat or gouraud by PRIM's IIP bit.
@@ -829,61 +840,68 @@ func (gs *GS) triangle(v0, v1, v2 gsVertex, p uint64) {
 	c1r, c1g, c1b, c1a := unpackRGBA(v1.rgba)
 	c2r, c2g, c2b, c2a := unpackRGBA(v2.rgba)
 
-	for y := minY; y < maxY; y++ {
-		py := y<<4 + 8 // the pixel centre in 12.4
-		for x := minX; x < maxX; x++ {
-			px := x<<4 + 8
-			w0 := int64(v1.x-px)*int64(v2.y-py) - int64(v1.y-py)*int64(v2.x-px)
-			w1 := int64(v2.x-px)*int64(v0.y-py) - int64(v2.y-py)*int64(v0.x-px)
-			w2 := int64(v0.x-px)*int64(v1.y-py) - int64(v0.y-py)*int64(v1.x-px)
-			if w0 < 0 || w1 < 0 || w2 < 0 {
-				continue
-			}
-			rgba := v2.rgba // flat shading takes the LAST vertex's colour
-			if gouraud {
-				r := (w0*c0r + w1*c1r + w2*c2r) / area
-				g := (w0*c0g + w1*c1g + w2*c2g) / area
-				b := (w0*c0b + w1*c1b + w2*c2b) / area
-				a := (w0*c0a + w1*c1a + w2*c2a) / area
-				rgba = uint32(r) | uint32(g)<<8 | uint32(b)<<16 | uint32(a)<<24
-			}
-			if smp != nil {
-				var tu, tv int32 // 12.4
-				if fst {
-					tu = int32((w0*int64(v0.u) + w1*int64(v1.u) + w2*int64(v2.u)) / area)
-					tv = int32((w0*int64(v0.v) + w1*int64(v1.v) + w2*int64(v2.v)) / area)
-				} else {
-					fw0, fw1, fw2 := float32(w0), float32(w1), float32(w2)
-					fa := float32(area)
-					s := (fw0*v0.s + fw1*v1.s + fw2*v2.s) / fa
-					tt := (fw0*v0.t + fw1*v1.t + fw2*v2.t) / fa
-					q := (fw0*v0.q + fw1*v1.q + fw2*v2.q) / fa
-					if q != 0 {
-						tu = int32(s / q * float32(int32(1)<<smp.tex.tw) * 16)
-						tv = int32(tt / q * float32(int32(1)<<smp.tex.th) * 16)
+	// The rows split across the worker pool for a large triangle; a small one fills here.
+	// Each band is a disjoint set of scanlines, so no two workers touch the same pixel, and
+	// each accumulates into its own stats (merged after the join). The edge functions,
+	// area, and the swapped winding are all fixed before the fan-out, so every worker walks
+	// the same geometry — the partition is only over Y. See rasterFill.
+	gs.rasterFill(&t, smp, minX, maxX, minY, maxY, func(yLo, yHi int32, st *gsStats) {
+		for y := yLo; y < yHi; y++ {
+			py := y<<4 + 8 // the pixel centre in 12.4
+			for x := minX; x < maxX; x++ {
+				px := x<<4 + 8
+				w0 := int64(v1.x-px)*int64(v2.y-py) - int64(v1.y-py)*int64(v2.x-px)
+				w1 := int64(v2.x-px)*int64(v0.y-py) - int64(v2.y-py)*int64(v0.x-px)
+				w2 := int64(v0.x-px)*int64(v1.y-py) - int64(v0.y-py)*int64(v1.x-px)
+				if w0 < 0 || w1 < 0 || w2 < 0 {
+					continue
+				}
+				rgba := v2.rgba // flat shading takes the LAST vertex's colour
+				if gouraud {
+					r := (w0*c0r + w1*c1r + w2*c2r) / area
+					g := (w0*c0g + w1*c1g + w2*c2g) / area
+					b := (w0*c0b + w1*c1b + w2*c2b) / area
+					a := (w0*c0a + w1*c1a + w2*c2a) / area
+					rgba = uint32(r) | uint32(g)<<8 | uint32(b)<<16 | uint32(a)<<24
+				}
+				if smp != nil {
+					var tu, tv int32 // 12.4
+					if fst {
+						tu = int32((w0*int64(v0.u) + w1*int64(v1.u) + w2*int64(v2.u)) / area)
+						tv = int32((w0*int64(v0.v) + w1*int64(v1.v) + w2*int64(v2.v)) / area)
+					} else {
+						fw0, fw1, fw2 := float32(w0), float32(w1), float32(w2)
+						fa := float32(area)
+						s := (fw0*v0.s + fw1*v1.s + fw2*v2.s) / fa
+						tt := (fw0*v0.t + fw1*v1.t + fw2*v2.t) / fa
+						q := (fw0*v0.q + fw1*v1.q + fw2*v2.q) / fa
+						if q != 0 {
+							tu = int32(s / q * float32(int32(1)<<smp.tex.tw) * 16)
+							tv = int32(tt / q * float32(int32(1)<<smp.tex.th) * 16)
+						}
 					}
+					if gs.m != nil && gs.m.GSPixelN > 0 && x == gs.m.GSPixelX && y == gs.m.GSPixelY {
+						smp.probe = true
+						texel := smp.pick(tu, tv)
+						smp.probe = false
+						ctxt := int(p >> 9 & 1)
+						fmt.Printf("  sample (%d,%d) tbp 0x%05X psm 0x%X %dx%d tbw %d wms/wmt %d/%d cbp 0x%X csa %d uv (%.2f,%.2f) texel %08X vtx %08X tex1 %016X miptbp1 %016X miptbp2 %016X\n",
+							x, y, smp.tex.tbp*64, smp.tex.psm, smp.w, smp.h, smp.tex.tbw,
+							smp.wms, smp.wmt, smp.tex.cbp, smp.tex.csa,
+							float64(tu)/16, float64(tv)/16, texel, rgba,
+							gs.reg[0x14+ctxt], gs.reg[0x34+ctxt], gs.reg[0x36+ctxt])
+					}
+					rgba = smp.combine(smp.pick(tu, tv), rgba, st)
 				}
-				if gs.m != nil && gs.m.GSPixelN > 0 && x == gs.m.GSPixelX && y == gs.m.GSPixelY {
-					smp.probe = true
-					texel := smp.pick(tu, tv)
-					smp.probe = false
-					ctxt := int(p >> 9 & 1)
-					fmt.Printf("  sample (%d,%d) tbp 0x%05X psm 0x%X %dx%d tbw %d wms/wmt %d/%d cbp 0x%X csa %d uv (%.2f,%.2f) texel %08X vtx %08X tex1 %016X miptbp1 %016X miptbp2 %016X\n",
-						x, y, smp.tex.tbp*64, smp.tex.psm, smp.w, smp.h, smp.tex.tbw,
-						smp.wms, smp.wmt, smp.tex.cbp, smp.tex.csa,
-						float64(tu)/16, float64(tv)/16, texel, rgba,
-						gs.reg[0x14+ctxt], gs.reg[0x34+ctxt], gs.reg[0x36+ctxt])
+				if t.fge {
+					f := uint32((w0*int64(v0.f&0xFF) + w1*int64(v1.f&0xFF) + w2*int64(v2.f&0xFF)) / area)
+					rgba = fogPixel(rgba, f, t.fogcol)
 				}
-				rgba = smp.combine(smp.pick(tu, tv), rgba)
+				z := uint32((w0*int64(v0.z) + w1*int64(v1.z) + w2*int64(v2.z)) / area)
+				gs.plot(&t, x, y, z, rgba, st)
 			}
-			if t.fge {
-				f := uint32((w0*int64(v0.f&0xFF) + w1*int64(v1.f&0xFF) + w2*int64(v2.f&0xFF)) / area)
-				rgba = fogPixel(rgba, f, t.fogcol)
-			}
-			z := uint32((w0*int64(v0.z) + w1*int64(v1.z) + w2*int64(v2.z)) / area)
-			gs.plot(&t, x, y, z, rgba)
 		}
-	}
+	})
 }
 
 // noteFeatures tallies what a drawn primitive asked for — the applied features by name,

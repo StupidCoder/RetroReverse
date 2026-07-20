@@ -426,6 +426,12 @@ type gsSampler struct {
 	linear bool
 	// probe makes the next at() narrate its address math (the -gspixel drill-down).
 	probe bool
+	// parallel is set by rasterFill when the primitive is banded across worker goroutines.
+	// It gates the one shared side effect the sampler has — the one-shot black-texel
+	// diagnostic in at(), which touches gs.t8Dumped and the note log — onto the serial path,
+	// where GSPixelN and the debugger hooks already force everything anyway. Every other
+	// thing the sampler does is a read of texture memory, safe to share across workers.
+	parallel bool
 }
 
 // sampler resolves the current context's texture state, or nil (with the census told)
@@ -566,7 +572,7 @@ func (s *gsSampler) at(u, v int32) uint32 {
 			// The first few resolved samples, once: a texture whose CLUT is loaded
 			// and coloured but whose samples come back black is indexing the wrong
 			// entries, and this line shows the index and where it landed.
-			if entry&0xFFFFFF == 0 && gs.t8Dumped < 16 {
+			if entry&0xFFFFFF == 0 && !s.parallel && gs.t8Dumped < 16 {
 				gs.t8Dumped++
 				gs.m.note("GS: T8 sample tbp 0x%05X (%d,%d) -> idx %d entry %08X (csa %d)",
 					t.tbp*64, x, y, idx, entry, t.csa)
@@ -633,13 +639,13 @@ func (m *Machine) GSTexture(tex0 uint64) (pix []byte, w, h int) {
 // combine applies the texture function (TFX/TCC): how the sampled texel and the
 // fragment's colour make the pixel the tests and the blender see. The GS's colour scale
 // puts 1.0 at 0x80, so a modulate is >>7 with a clamp at 255.
-func (s *gsSampler) combine(tex, frag uint32) uint32 {
+func (s *gsSampler) combine(tex, frag uint32, st *gsStats) uint32 {
 	if tex&0xFFFFFF == 0 {
-		s.gs.texBlackPSM[s.tex.psm&0x3F]++
-		s.gs.texBlack++
+		st.texBlackPSM[s.tex.psm&0x3F]++
+		st.texBlack++
 	} else {
-		s.gs.texColorPSM[s.tex.psm&0x3F]++
-		s.gs.texColor++
+		st.texColorPSM[s.tex.psm&0x3F]++
+		st.texColor++
 	}
 	tr, tg, tb, ta := unpackRGBA(tex)
 	fr, fg, fb, fa := unpackRGBA(frag)

@@ -208,7 +208,15 @@ func (a *Adapter) Title() string    { return filepath.Base(a.imagePath) }
 // (scripted pad input).
 func (a *Adapter) Machine() *ps2.Machine { return a.live }
 
-func (a *Adapter) Close() error { a.live = nil; return nil }
+func (a *Adapter) Close() error {
+	// The machine owns the GS rasteriser's worker goroutines; dropping it without Close
+	// leaks them (they hold the pool alive forever). See ps2.Machine.Close.
+	if a.live != nil {
+		a.live.Close()
+		a.live = nil
+	}
+	return nil
+}
 
 func (a *Adapter) Snapshot() debug.Snapshot { return snap{ms: a.live.SaveState()} }
 

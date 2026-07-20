@@ -131,6 +131,10 @@ type GS struct {
 	rejAlpha                 uint64
 	rejDate                  uint64
 	plotNonBlack             [8]uint64
+	// parFills/serFills count primitives filled with a fan-out vs on this goroutine — the
+	// only proof that the parallel path is actually exercised (a threshold that quietly
+	// rejected everything would pass every hash and be slow). Not savestated; census only.
+	parFills, serFills uint64
 	rgbaqA0, rgbaqA          uint64 // vertex colours with zero vs non-zero alpha: a fade reads here
 	rgbaqRGB0, rgbaqRGB      uint64 // vertex colours with black vs non-black RGB: a modulate to black reads here
 	t8Dumped                 int    // one-shot budget for the T8 sample dump
