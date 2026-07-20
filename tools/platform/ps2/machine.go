@@ -148,6 +148,16 @@ type Machine struct {
 	// is the caller (a test, a byte-exactness check) saying "prove it against yourself".
 	SingleThreaded bool
 
+	// De-interlace (field weave) capture, for the frame debugger. When gsWeave is set, each
+	// DISPFB flip snapshots the just-completed field's deswizzled pixels into weaveRing,
+	// keyed by vblank parity (CSR FIELD toggles per vblank, so parity is the raster field).
+	// GSFrameWoven then interleaves the last two fields into a full-height frame — the 448i
+	// picture a real display averages, without the single-field comb. It is display-only:
+	// derived from VRAM, never savestated, and it does not touch the rasteriser or the pins.
+	gsWeave   bool
+	weaveRing [2]weaveField
+	weaveLast int8 // parity of the most recently captured field, -1 if none yet
+
 	// The two VPU interfaces (vif.go), created when their DMA channel first starts.
 	// VIF1 is the second road into the GS (PATH2 DIRECT) and the road to VU1.
 	vifs [2]*vif

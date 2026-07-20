@@ -176,6 +176,41 @@ func TestStepFrameCapturesProvenance(t *testing.T) {
 	}
 }
 
+// TestDeinterlaceDisplayMatchesCapture: the de-interlaced Display and the StepFrame capture
+// must report the SAME size, or the page's provenance overlay (keyed by the capture's
+// width/height) would be laid over a differently-sized picture and every click would miss.
+// This is the invariant the woven-frame change rests on.
+func TestDeinterlaceDisplayMatchesCapture(t *testing.T) {
+	a, haveState := atTitle(t)
+	if !haveState {
+		t.Skip("no title savestate; skipping")
+	}
+	if n, d := a.DisplayAspect(); n != 4 || d != 3 {
+		t.Errorf("DisplayAspect = %d:%d, want 4:3", n, d)
+	}
+	var fc *debug.FrameCapture
+	for i := 0; i < 8; i++ {
+		var err error
+		if fc, err = a.StepFrame(false); err != nil {
+			t.Fatal(err)
+		}
+		if fc.Drawn() {
+			break
+		}
+	}
+	if !fc.Drawn() {
+		t.Fatal("no drawn title frame within 8 fields")
+	}
+	img, err := a.Display()
+	if err != nil {
+		t.Fatalf("Display after a drawn frame: %v", err)
+	}
+	if img.Bounds().Dx() != fc.Width || img.Bounds().Dy() != fc.Height {
+		t.Errorf("Display is %dx%d but the capture is %dx%d — provenance would be misaligned",
+			img.Bounds().Dx(), img.Bounds().Dy(), fc.Width, fc.Height)
+	}
+}
+
 // TestPlatformAndTitle: the identity the page shows.
 func TestPlatformAndTitle(t *testing.T) {
 	a := open(t)

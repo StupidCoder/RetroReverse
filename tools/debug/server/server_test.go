@@ -92,6 +92,10 @@ func (f *fakeTarget) Key(k debug.Key) error {
 	return nil
 }
 
+// DisplayAspect makes the fake a debug.DisplayAspecter, so the hello plumbing for a
+// non-square-pixel target is exercised end to end over the real server.
+func (f *fakeTarget) DisplayAspect() (num, den int) { return 4, 3 }
+
 func (f *fakeTarget) TouchPanels() []debug.TouchPanel {
 	return []debug.TouchPanel{{ID: "bottom", Name: "Touch screen", X: 0, Y: 2, W: fakeW, H: 2}}
 }

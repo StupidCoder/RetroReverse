@@ -705,14 +705,57 @@ func (m *Machine) gsPrivWrite(a, v uint32) bool {
 		fmt.Printf("  dispfb: [%08X] <- %08X (was %08X) at prim %d (run %d) vblank %d\n",
 			a, v, m.io[a], gs.prims, gs.prims-gs.primsRunBase, m.VBlanks())
 	}
-	if m.OnGSFlip != nil && (a == gsDISPFB2 || a == gsDISPFB1) && m.io[a] != v {
-		old := m.io[a]
-		m.io[a] = v
-		m.OnGSFlip(a, v, old)
-		return true
+	isFlip := (a == gsDISPFB2 || a == gsDISPFB1) && m.io[a] != v
+	old := m.io[a]
+	m.io[a] = v // set first: GSFrame below reads the buffer this flip just made scanout
+	// De-interlace capture: snapshot the field this flip completed, tagged with its raster
+	// parity. Done here (not in OnGSFlip) so it is independent of whoever owns that hook.
+	if isFlip && m.gsWeave {
+		if pix, w, h := m.GSFrame(); pix != nil {
+			p := m.VBlanks() & 1
+			m.weaveRing[p] = weaveField{pix: pix, w: w, h: h}
+			m.weaveLast = int8(p)
+		}
 	}
-	m.io[a] = v
+	if m.OnGSFlip != nil && isFlip {
+		m.OnGSFlip(a, v, old)
+	}
 	return true
+}
+
+// weaveField is one captured display field: its deswizzled pixels and size, for the
+// de-interlace weave. Empty (w==0) until a flip fills it.
+type weaveField struct {
+	pix  []byte
+	w, h int
+}
+
+// SetGSWeave turns the de-interlace field capture on or off. The frame debugger turns it on;
+// the oracle path leaves it off (zero cost, and -gsweave in the bootoracle uses OnGSFlip
+// directly). Off by default.
+func (m *Machine) SetGSWeave(on bool) { m.gsWeave = on }
+
+// GSFrameWoven returns the interlaced frame de-interlaced by weaving the two most-recently
+// displayed fields — the parity-0 field on even raster lines, the parity-1 field on odd — so
+// a game that draws complementary half-line detail per field shows a full-height picture
+// without the single-field comb. It falls back to GSFrame (one field) until two fields of the
+// same size have been captured, so early boot and non-flipping scenes still show something.
+// The second return beyond pix/w/h is the parity of the newest field (0 or 1), or -1 in the
+// fallback — the caller maps single-field provenance onto the woven rows with it.
+func (m *Machine) GSFrameWoven() (pix []byte, w, h, newestParity int) {
+	e, o := &m.weaveRing[0], &m.weaveRing[1]
+	if e.w == 0 || o.w == 0 || e.w != o.w || e.h != o.h {
+		p, fw, fh := m.GSFrame()
+		return p, fw, fh, -1
+	}
+	w, h = e.w, e.h*2
+	pix = make([]byte, w*h*4)
+	row := w * 4
+	for y := 0; y < e.h; y++ {
+		copy(pix[(2*y)*row:(2*y)*row+row], e.pix[y*row:y*row+row])
+		copy(pix[(2*y+1)*row:(2*y+1)*row+row], o.pix[y*row:y*row+row])
+	}
+	return pix, w, h, int(m.weaveLast)
 }
 
 // GSStatus reports what reached the Graphics Synthesizer: uploads and primitives. It is

@@ -9,6 +9,8 @@ export class Store {
     this.state = {
       platform: '',
       keyLegend: '',
+      aspectNum: 0, // display aspect num:den for non-square pixels (0 = square)
+      aspectDen: 0,
       title: '',
       caps: new Set(),
 

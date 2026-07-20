@@ -346,11 +346,26 @@ class Viewport {
   // is down, a move past the edge of the canvas is still a move of that pen, and it is
   // clamped onto the panel rather than dropped.
   pointAt(e, allowOutside = false) {
+    // Map from the rendered rectangle back to canvas pixels directly, so it is correct under
+    // any display scaling — including a non-square pixel aspect, where the width was stretched
+    // and dividing by a single zoom would land on the wrong column.
     const r = this.overlay.getBoundingClientRect();
-    const x = Math.floor((e.clientX - r.left) / this.zoom);
-    const y = Math.floor((e.clientY - r.top) / this.zoom);
+    const x = Math.floor((e.clientX - r.left) / r.width * this.w);
+    const y = Math.floor((e.clientY - r.top) / r.height * this.h);
     if (!allowOutside && (x < 0 || y < 0 || x >= this.w || y >= this.h)) return null;
     return { x, y };
+  }
+
+  // xScale is the horizontal display stretch that makes non-square pixels look right: the
+  // target's declared display aspect divided by the picture's own pixel aspect. It is 1 when
+  // the target declares nothing (square pixels — every render-to-square-buffer platform). It
+  // scales the DISPLAY, never the image, so the pixel grid the overlay and click-mapping walk
+  // stays exactly 1:1.
+  xScale() {
+    const num = this.ctx.store.get('aspectNum');
+    const den = this.ctx.store.get('aspectDen');
+    if (!num || !den || !this.w || !this.h) return 1;
+    return (this.h * num) / (this.w * den);
   }
 
   resize(w, h) {
@@ -386,12 +401,13 @@ class Viewport {
     const aw = area.clientWidth - pad;
     const ah = area.clientHeight - pad;
     if (aw <= 0 || ah <= 0) return 1;
-    return Math.max(0.05, Math.min(aw / this.w, ah / this.h));
+    // The displayed width is the stretched width, so fit against it (not the raw pixel width).
+    return Math.max(0.05, Math.min(aw / (this.w * this.xScale()), ah / this.h));
   }
 
   applyZoom() {
     if (this.fit) this.zoom = this.fitScale();
-    const cssW = `${this.w * this.zoom}px`;
+    const cssW = `${this.w * this.zoom * this.xScale()}px`;
     const cssH = `${this.h * this.zoom}px`;
     for (const c of [this.view, this.overlay]) {
       c.style.width = cssW;

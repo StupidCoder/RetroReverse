@@ -99,6 +99,9 @@ func (rn *Runner) attach(s *session) {
 	if kl, ok := rn.tgt.(debug.KeyLegender); ok {
 		h.KeyLegend = kl.KeyLegend()
 	}
+	if da, ok := rn.tgt.(debug.DisplayAspecter); ok {
+		h.AspectNum, h.AspectDen = da.DisplayAspect()
+	}
 	s.send(h)
 }
 

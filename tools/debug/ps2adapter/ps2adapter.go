@@ -197,6 +197,7 @@ func (a *Adapter) boot() error {
 		return fmt.Errorf("bringing the IOP up: %w", err)
 	}
 	m.SetProfile(true) // the profile panel reads the last stepped field; arm it from the start
+	m.SetGSWeave(true) // de-interlace the display: weave the two most-recent fields
 	a.live = m
 	return nil
 }
@@ -333,9 +334,12 @@ func (a *Adapter) StepFrame(withOverdraw bool) (*debug.FrameCapture, error) {
 	a.live.OnGSPixel = nil
 	a.live.OnVBlank = nil
 
-	// The picture is the scanout, and provenance is laid over it — same plane, same
-	// coordinates. Only the size is needed here; the page fetches the image itself.
-	_, w, h := a.live.GSFrame()
+	// The picture is the de-interlaced (woven) scanout, so the capture reports its size and
+	// lays provenance over it — the same plane Display returns, so a click maps. Provenance
+	// was gathered over the single field this step drew; each write goes onto the woven rows
+	// that field supplies (parity>=0: row 2y+parity; parity<0 means no weave, so the woven
+	// frame IS the one field and rows map 1:1).
+	_, w, h, parity := a.live.GSFrameWoven()
 	fc.Width, fc.Height = w, h
 	if w > 0 && h > 0 && len(prov) > 0 {
 		fc.Prov = make([]int32, w*h)
@@ -344,6 +348,9 @@ func (a *Adapter) StepFrame(withOverdraw bool) (*debug.FrameCapture, error) {
 		}
 		for key, c := range prov {
 			x, y := int(key&0xFFFF), int(key>>16)
+			if parity >= 0 {
+				y = 2*y + parity
+			}
 			if x < w && y < h {
 				fc.Prov[y*w+x] = c
 			}
@@ -391,9 +398,12 @@ func (a *Adapter) CPU() debug.CPUReg {
 }
 
 // Display is the frame the GS is scanning out — the DISPFB rectangle, deswizzled through
-// the real read path. It is the same picture the bootoracle's -gsframe writes.
+// the real read path, de-interlaced by weaving the two most-recent fields into one
+// full-height picture (GSFrameWoven), so the display is not the flickering half-height comb
+// a single 448i field shows. Before two fields exist (early boot, a scene that does not
+// flip) it is one field, exactly the bootoracle's -gsframe.
 func (a *Adapter) Display() (*image.RGBA, error) {
-	pix, w, h := a.live.GSFrame()
+	pix, w, h, _ := a.live.GSFrameWoven()
 	if pix == nil || w == 0 || h == 0 {
 		return nil, fmt.Errorf("ps2adapter: no displayable frame yet (no DISPFB, or an unread format)")
 	}
@@ -401,6 +411,13 @@ func (a *Adapter) Display() (*image.RGBA, error) {
 	copy(img.Pix, pix)
 	return img, nil
 }
+
+// DisplayAspect reports the picture's intended display shape. The PS2 renders standard-
+// definition and the DAC stretches whatever buffer width (512, 640, …) to fill a 4:3 screen,
+// so the frame's pixels are not square; the page corrects for it by stretching the display,
+// which — being a display scale and not a resample — leaves the pixel grid (and therefore
+// provenance click-mapping) exactly aligned.
+func (a *Adapter) DisplayAspect() (num, den int) { return 4, 3 }
 
 func (a *Adapter) ReadMem(addr uint32, n int) []byte { return a.live.ReadMem(addr, n) }
 

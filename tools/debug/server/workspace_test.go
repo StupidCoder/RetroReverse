@@ -85,6 +85,11 @@ func TestLibraryAndOpen(t *testing.T) {
 	if hello["title"] != "Fake one" {
 		t.Errorf("title = %v, want the profile's tag to have reached the opener", hello["title"])
 	}
+	// A target that declares a display aspect (debug.DisplayAspecter) has it carried in hello,
+	// so the page can present non-square pixels correctly.
+	if hello["aspectNum"] != float64(4) || hello["aspectDen"] != float64(3) {
+		t.Errorf("hello aspect = %v:%v, want 4:3", hello["aspectNum"], hello["aspectDen"])
+	}
 
 	// And now the machine answers.
 	cl.send(t, "frame.step", 3, stepArgs{})

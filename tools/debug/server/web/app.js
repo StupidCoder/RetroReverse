@@ -229,6 +229,10 @@ conn.on('hello', (m) => {
     title: m.title,
     caps: new Set(m.caps),
     keyLegend: m.keyLegend || '',
+    // The display aspect (num/den), for a target whose pixels are not square (the PS2). 0
+    // means square — the page scales the display, not the image, so clicks still map.
+    aspectNum: m.aspectNum || 0,
+    aspectDen: m.aspectDen || 0,
     frame: null,
     selected: -1,
     prov: null,

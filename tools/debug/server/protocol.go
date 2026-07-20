@@ -195,6 +195,10 @@ type (
 		// What the keys do, if the target says (debug.KeyLegender). Empty means the
 		// page uses its own generic phrase.
 		KeyLegend string `json:"keyLegend,omitempty"`
+		// The intended display aspect (debug.DisplayAspecter), num:den; 0:0 (omitted) means
+		// square pixels, the default for a render-to-square-buffer platform.
+		AspectNum int `json:"aspectNum,omitempty"`
+		AspectDen int `json:"aspectDen,omitempty"`
 	}
 
 	frameMsg struct {

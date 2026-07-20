@@ -262,6 +262,19 @@ type (
 		KeyLegend() string
 	}
 
+	// DisplayAspecter is an optional statement of the picture's intended display shape, for a
+	// target whose pixels are not square. The page presents Display()/the frame at this
+	// width:height by scaling the display (never by resampling the image), so the pixel grid
+	// — and therefore provenance click-mapping — stays exactly aligned.
+	//
+	// A target that does not implement it is shown pixel-for-pixel (square pixels), which is
+	// right for every render-to-square-buffer platform. The PS2 needs it: its DAC stretches
+	// whatever framebuffer width it renders (512, 640, …) to fill a 4:3 standard-def screen,
+	// so a woven 640×448 or 512×448 frame is not 4:3 on its own.
+	DisplayAspecter interface {
+		DisplayAspect() (num, den int)
+	}
+
 	// Profiler reports where the last stepped frame's time went, by subsystem.
 	//
 	// The times are the emulator's own, not a sampling profiler's: only a machine
