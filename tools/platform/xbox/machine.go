@@ -228,9 +228,11 @@ type Machine struct {
 	// field), and OutRun's RDTSC fixed-timestep loop (0x20AFA) then steps its simulation
 	// only every ~6th present — a 10 FPS sim on a 60 FPS engine. When set, each FLIP_STALL
 	// advances the tick to the next vblank so one present costs one field and the loop
-	// steps every present. A FIDELITY change: it re-times every trajectory (savestates
-	// move), so it is off by default and gated, not the standard behaviour. See sched.go's
-	// note on why the guest clock undercounts a rendered frame's real cycle cost.
+	// steps every present. ON by default (flipVSyncDefault, nv2a_kelvin.go): it is the
+	// correct behaviour and the debugger is unusably slow without it. It re-times a
+	// trajectory relative to the old under-paced clock — savestates and pinned frame hashes
+	// were re-taken with it on. See sched.go's note on why the guest clock undercounts a
+	// rendered frame's real cycle cost.
 	FlipVSync bool
 
 	// StopRequested asks the run loops to stop at the next safe boundary: the CPU

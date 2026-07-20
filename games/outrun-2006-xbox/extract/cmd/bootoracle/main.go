@@ -204,7 +204,7 @@ func main() {
 	surfOut := flag.String("surfpng", "", "after the run, write the Kelvin render surface (AA-resolved) to this PNG")
 	loadstate := flag.String("loadstate", "", "restore a machine snapshot before running")
 	gpu := flag.Bool("gpu", false, "Phase C: run the NV2A DMA pusher on each kick (do not stop at first push)")
-	flipvsync := flag.Bool("flipvsync", false, "model FLIP_STALL's vsync wait: advance the guest clock one field per present so OutRun's RDTSC catch-up steps its sim every frame (60 FPS) instead of every ~6th (10 FPS). A fidelity experiment — re-times the trajectory, so savestates differ. Also settable via RR_FLIP_VSYNC")
+	flipvsync := flag.Bool("flipvsync", true, "model FLIP_STALL's vsync wait: advance the guest clock one field per present so OutRun's RDTSC catch-up steps its sim every frame (60 FPS) instead of every ~6th (10 FPS). On by default; -flipvsync=false is the A/B control for the old under-paced clock")
 	survey := flag.Bool("survey", false, "with -gpu: record the PGRAPH method surface and print it")
 	watch := flag.String("watch", "", "break-free write watch on ADDR[:LEN] (hex): log each write with its PC")
 	rwatch := flag.String("rwatch", "", "read watch on ADDR[:LEN] (hex): log each read with its PC")
@@ -268,9 +268,7 @@ func main() {
 			m.PGraph().SetSurvey(true)
 		}
 	}
-	if *flipvsync {
-		m.FlipVSync = true
-	}
+	m.FlipVSync = *flipvsync // on by default; -flipvsync=false restores the old under-paced clock
 
 	if *loadstate != "" {
 		if err := m.LoadStateFile(*loadstate); err != nil {

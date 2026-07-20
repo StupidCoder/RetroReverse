@@ -70,11 +70,14 @@ type gatePin struct {
 // JUDGE THE PICTURE AGAIN before touching this block.
 var gatePins = []gatePin{
 	{
+		// Re-pinned under FlipVSync (on by default): the vsync-accurate clock re-times the
+		// two fields this runs, so RAM/surface/CPU moved from the pre-FlipVSync values even
+		// though the picture — an3-drive at the start line, 000 km/h — is the same to the eye.
 		name:  "an3-drive",
 		state: stateDrive,
-		ram:   "61a994c32b856928d9696110327bdba2a9e189d84b96a9157c3074ee63bbd977",
-		surf:  "73a4093e28fe38c751952bb10f99cc44e5ad588b1468321da541037ba2315c52",
-		cpu:   "ba0f9665fcc15c6402580c9e914ca2a969c545beed7270e3268782bd5ff8385c",
+		ram:   "44a1e8153f58e6319535255c251e6ab684af3622d9e7016dd34cb0aaef7fcc1a",
+		surf:  "b16da58bf2088ae17893c1636b2850e9361695c36f8fc4b3467b071f0817af9d",
+		cpu:   "3b9e608fd2272e81470b4694822f401800c6d02737bc437566ce483d58261ec9",
 	},
 }
 

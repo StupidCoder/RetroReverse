@@ -43,11 +43,13 @@ var texShaderTrace = os.Getenv("RR_TEXSHADER") != ""
 // verifying the parallel raster is byte-identical (it must always be).
 var rasterSerial = os.Getenv("RR_NV_SERIAL") != ""
 
-// RR_FLIP_VSYNC is the default for Machine.FlipVSync: model FLIP_STALL's vsync wait by
+// flipVSyncDefault is the default for Machine.FlipVSync: model FLIP_STALL's vsync wait by
 // advancing the guest clock a whole field per present, so OutRun's RDTSC catch-up steps its
-// simulation every frame instead of every ~6th. A fidelity experiment (it re-times every
-// trajectory); off unless set. See Machine.FlipVSync / creditFlipVBlank.
-var flipVSyncDefault = os.Getenv("RR_FLIP_VSYNC") != ""
+// simulation every frame instead of every ~6th. ON by default — it is the correct behaviour;
+// without it OutRun's sim runs at ~10 FPS and the debugger is unusably slow. RR_FLIP_VSYNC=0
+// turns it off (the A/B control for measuring the old under-paced clock, never a mode to ship).
+// See Machine.FlipVSync / creditFlipVBlank.
+var flipVSyncDefault = os.Getenv("RR_FLIP_VSYNC") != "0"
 
 // Kelvin methods with modelled side effects (NV2A method numbers).
 const (

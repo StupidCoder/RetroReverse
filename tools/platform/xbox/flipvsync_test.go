@@ -2,17 +2,18 @@ package xbox
 
 import "testing"
 
-// TestFlipVSyncCadence guards the FlipVSync fidelity experiment (Machine.FlipVSync). With it on,
-// each FLIP_STALL advances the guest clock by one vblank period, so OutRun's RDTSC fixed-timestep
-// loop (0x20AFA) sees one field of elapsed time per present and steps its simulation every frame
-// — 60 FPS, instead of the default path's ~1-sim-step-per-6-presents (a 10 FPS sim on a 60 FPS
-// engine, because the instruction-paced clock undercounts a rendered frame's real cycle cost).
-// It also checks the run stays stable — no freeze, no halt — from the pre-race countdown onward.
+// TestFlipVSyncCadence guards the FlipVSync clock model (Machine.FlipVSync, on by default). With
+// it on, each FLIP_STALL advances the guest clock by one vblank period, so OutRun's RDTSC
+// fixed-timestep loop (0x20AFA) sees one field of elapsed time per present and steps its
+// simulation every frame — 60 FPS, instead of the old under-paced clock's ~1-sim-step-per-6-
+// presents (a 10 FPS sim on a 60 FPS engine, because an instruction-paced clock undercounts a
+// rendered frame's real cycle cost). It also checks the run stays stable — no freeze, no halt —
+// from the pre-race countdown onward.
 //
-// This is the A/B that proved the fix: the default path leaves the tick advancing only by the
-// render code retired (~0.18 of a field per present); this asserts the experiment brings it to
-// ~1.0. The experiment is off by default (it re-times every trajectory), so the frame gate stays
-// byte-identical and this is the only thing that exercises the on path.
+// The frame gate already runs this path (it is the default); this test pins the MECHANISM — that
+// each present costs ~1.0 vblank, not the old ~0.18 — so a regression in the clock crediting is
+// caught as a cadence drift, not only as a moved frame hash. It sets the field explicitly so it
+// still means something if the default is ever flipped for an A/B.
 func TestFlipVSyncCadence(t *testing.T) {
 	if testing.Short() {
 		t.Skip("runs the NV2A for tens of fields; -short skips it")

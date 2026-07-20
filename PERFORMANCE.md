@@ -9,7 +9,9 @@ scene, and 4.4× on a boot stretch — byte-identical. See *The GameCube* below.
 **Status (2026-07-20): Phase 0 + item #1 done for the Xbox. OutRun's driving field is
 serial-bound (the banded parallel fill already won; 71% of the field is one goroutine). Item #1
 (a content-addressed texture cache that persists across fields AND finally caches the shadow map)
-took the warm field from 583.9 → 397.4 ms — 1.47×, byte-identical. See *The Xbox* below.**
+took the warm field from 583.9 → 397.4 ms — 1.47×, byte-identical. Separately, FlipVSync (a clock
+fidelity fix, now on by default) removed the ~6× duplicate presents the under-paced RDTSC clock
+was rendering — a 10 FPS sim became 60, the bigger checkpoint/framedbg lever. See *The Xbox* below.**
 
 Read *Phase 0 — the results* and *What was actually done* below; the original plan (kept, below
 the line) guessed the ordering and got most of it wrong, which is exactly what Phase 0 existed to
@@ -300,6 +302,22 @@ with the gate as backstop.
 Files: `nv2a_texture.go` (the cache is now content-addressed — `texEntry`, `hashRAM`, `texSpan`,
 `texSource`, `cacheTex`), `nv2a_pfifo.go` (bump a run sequence instead of dropping the cache),
 `nv2a_pgraph.go` + `state.go` (the map's value type), `bench_test.go` (`BenchmarkWarmFields`).
+
+### The bigger checkpoint lever was not a per-frame optimisation — it was 6× fewer frames
+
+A per-frame speedup is not the only way to make run-to-checkpoint cheap; presenting fewer frames
+to reach the same game state is the other. OutRun's race loop (`0x20AFA`) is an RDTSC
+fixed-timestep catch-up, and the guest TSC is instruction-paced — so a present that retires only
+~2.1M instructions accrues ~0.18 of a 1/60 s field, and the loop **duplicated each simulation step
+across ~6 presents** (a 10 FPS sim on a 60 FPS engine; the presented picture updated only every
+~6th flip, which made OutRun in framedbg unusably slow to scrub). `Machine.FlipVSync` (on by
+default, `nv2a_kelvin.go`/`interrupt.go`) models `FLIP_STALL`'s vsync wait by advancing the tick a
+whole field per present — verified at exactly 1.000 vblank/flip — so the sim steps every frame and
+those five duplicate presents per step **stop being rendered at all**. Reaching a given game state
+now costs ~6× fewer flips of rasteriser work, which for framedbg scrubbing and checkpoint building
+dwarfs the 32% the texture cache bought per frame. It is a fidelity change (it re-times the
+trajectory), so the gate was re-pinned with it on; the picture at `an3-drive` is identical to the
+eye. Guarded by `TestFlipVSyncCadence`; `-flipvsync=false` / `RR_FLIP_VSYNC=0` is the A/B control.
 
 ### Phase 0 (2026-07-20) — the gate is built
 
