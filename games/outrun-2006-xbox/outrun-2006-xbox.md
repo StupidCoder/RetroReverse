@@ -2452,3 +2452,102 @@ speed-derive `0xED125`←`0x1B1E0`; RPM-derive `0xED153`; force integrator `0x16
 helper `0x1B010`; tyre model `0x168A10`/`0x168BE0`/`0x168F70` (input `[car+0x628]`, static-0
 during the race). No code changed; the title pin (`0bea502a…`) and shadow frame hold, and
 `go test` is green across `tools/platform/xbox`, `tools/cpu/x86`, `tools/debug/xboxadapter`.
+
+## Part XVIII — the race drives: the "freeze" was the integrator gate read backwards
+
+Parts XIV–XVII localised the freeze to a missing drive force / unfound behaviour
+activation and left that as the sole frontier. This pass turned it over: **there was no
+missing activation and no bug in the physics.** The four-pass freeze was a compound
+misdiagnosis — one gate read with inverted polarity, and every throttle test run in a
+configuration where the integrator was switched off.
+
+### The integrator gate, and its polarity
+
+The rigid-body integrator `0x166E80` (`v += force·massinv·dt`) opens with
+`MOV ESI,[ESP+0x1C]; CMP DWORD [ESI],0; JZ 0x167195` — **`body[0]==0` early-exits with no
+integration at all.** `body` is the scratch struct `[0x613030]`; `body[0]` is the
+integrator-enable flag. The dynamic per-car update `0xF3E50` writes it (`0xF3E71`/`0xF3E86`):
+
+- state `0x0D` (countdown) **or** state `0x10` while `[0x62AF9C] > 60` →
+  `OR [car+4],8; MOV [body],0` → **integrator OFF** (the car is held on the line);
+- otherwise (state `0x10` with the intro timer `≤ 60`, and the race states) →
+  `AND [car+4],~8; MOV [body],1` → **integrator ON**.
+
+So `body[0]` is 1 in the drivable states and 0 while the car is scripted-held; the `bit3`
+of `[car+0x4]` Parts XVI–XVII chased is its *inverse* — the held grid-roll animation, not
+the launch. Confirmed live: `race-leg1` (state `0x10`, `[0x62AF9C]=0`) has `body[0]=1`
+(integrator ON); `race-countdown` (state `0x0D`) has `body[0]=0` (OFF — correctly, the car
+waits through the countdown).
+
+### Why four passes read "no thrust"
+
+Two things compounded:
+
+1. **Every prior throttle test sat in an integrator-OFF configuration.** "state `0x0D` +
+   throttle → 0" ran with `body[0]=0`; "poke `[0x62AF9C]>60` in state `0x10` + throttle →
+   0" *forced* `body[0]=0`. Neither could move the car for any input. The one integrator-ON
+   config — state `0x10` with the intro timer drained, i.e. `race-leg1` itself — was never
+   throttle-tested.
+2. **The drive force was watched on the wrong slot.** The Part XVII accumulator watch
+   (`[body+0x74]`) saw only gravity because the drive impulse does not go there: the per-car
+   driver `0xF3C10` (called from `0xF3E50` at `0xF3EEA`) computes an engine force and applies
+   it through `0xEF9B0`, which integrates it **directly into the body velocity `[body+0x5C]`**
+   (reads `[body+0x5C]`, scales by `massinv [body+0xC0]` and `dt = 0x3C881469 ≈ 1/60`).
+   `[body+0x74]` is then overwritten from `[body+0x22C]`, a different slot. The drive path
+   was live the whole time; the instrument pointed at the wrong field.
+
+### The proof — the car drives
+
+`race-leg1`, throttle held (`-keys "a@0,an7@0"`), against a no-input control of the same
+length, and a flip-aligned `-flipshots` strip:
+
+| run | speed `[car+0x1C4]` | body-vel Z `[0x613094]` | HUD speedo | Time |
+|---|---|---|---|---|
+| no input, 1.05B steps | `0x38C4D08F` = 9.4e-5 | ~0 | `000` | `88` |
+| throttle | up to `0x3E7C12A4` = 0.246 | `0xC16D1AF6` = −14.82 | **`000→002→017→031→043→084` km/h** | **`88→85`** |
+
+Same fixture, same budget; the only difference is the pad script. The speedo climbs
+monotonically and the leg clock counts down — the race is driven, with no poke and no change
+to the physics or the state machine. `race-leg1`'s state `0x10` is reached naturally: the
+countdown's pause flag `[0x57D770]` is 0, the master timer `[0x57D778]` counts to 0, and the
+vtable dispatch `0x85FA6 CALL [EAX+0x274198]` enters the `0x10` tick `0xE85B0` (breakpoint-
+verified). This corrects the standing "no forward thrust to any car" conclusion of Parts
+XV–XVII: thrust reaches the body the instant the integrator is enabled and a throttle is held.
+
+### The one code change — the reflective car (DOT_REFLECT_SPECULAR)
+
+Past ~100 sim-ticks the reflective car body enters view and the raster hit the flagged
+cube-map gap: **texture unit 3 samples a cube in shader stage mode `0x0C` =
+DOT_REFLECT_SPECULAR**, where only CUBEMAP (3) was modelled. The config read at the halt
+(new `RR_TEXSHADER` dump): `shader=0x00064621` → unit0 = a 64×64 tangent-space **normal map**
+(stage 1, 2D; a flat texel reads ~`(0.5,0.5,1)`→`(0,0,1)`); units 1,2 = **DOT_PRODUCT**
+(stage `0x11`, textures disabled); unit3 = **DOT_REFLECT_SPECULAR** (stage `0x0C`) over the
+128×128 environment cube (the three reflection RTTs of Parts X–XIII). The eye vector rides in
+the three stages' **q** components (≈`(−747, 53, 1344)` at the sampled fragment).
+
+Modelled per NV_texture_shader (`texReflectSpecular`, `nv2a_raster.go`): the two DOT_PRODUCT
+rows and this stage each dot their `(s,t,r)` against the expanded unit-0 normal to build the
+eye-space normal `N`; `E` = the stages' `q`; `R = 2·N·(N·E)/(N·N) − E` samples the cube.
+`N`'s magnitude cancels in `R`, so the per-vertex row scaling is irrelevant and only the
+surface-normal *direction* drives the reflection — which is what makes it robust without an
+independent reference. The fragment texcoord loop was refactored to interpolate all four
+units' coords up front (the reflect stage reads the two preceding rows); it is byte-identical
+for every non-reflect draw. **With it in, the drive runs uninterrupted** — leg1 + throttle
+reaches flip 1300 / 2.5B steps at speedo `084` with no halt, and the in-race view renders
+(road receding to the horizon, palms, grandstands).
+
+### Status
+
+The player car drives and the race renders. The four-pass freeze resolves as a diagnosis
+artefact, not a bug: the physics and the state machine were correct; the integrator gate was
+read with inverted polarity and the throttle was never exercised in the one state where
+integration is on. Regression pins hold exact — title `0bea502acd2a1f902d429097022116b5`,
+shadow `8edb1d2345c7492409b65b9e9700bf77` — and `go test` is green across
+`tools/platform/xbox`, `tools/cpu/x86`, `tools/debug/xboxadapter`. Open: the flip-aligned
+present shows HUD-over-blur (the 3D view lives in the mid-frame world pass — the
+"which buffer is the frame" question); and the AI-release / checkpoint / results tail past
+GO! (`0x8E490` → phase `[0x5BF540]=0x19`), now unblocked by the reflection model. Key
+addresses: integrator gate `0x166E80` (`body[0]` = `[0x613030]`); dynamic update `0xF3E50`
+(gate `0xF3E71`/`0xF3E86`); drive force `0xF3C10` → `0xEF9B0` (impulse into `[body+0x5C]`,
+`dt 0x3C881469`); state-`0x10` tick `0xE85B0` (arm `[0x62B4CC]`, GO gate `0x8E8F0` on
+`[0x5BF548]==0x14`, start `0x8E490`); reflect model `texReflectSpecular`.

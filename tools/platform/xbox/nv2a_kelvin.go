@@ -33,6 +33,12 @@ var shadowCmpEnv = os.Getenv("RR_SHADOWCMP")
 // evidence the compare derivation rests on.
 var shadowFragTrace = os.Getenv("RR_SHADOWFRAG") != ""
 
+// RR_TEXSHADER dumps the full 4-unit texture-shader config (stage modes, texture
+// types, per-fragment texcoords) at the first fragment that would halt on an
+// unmodelled cube/depth stage mode — so the exact reflection setup can be read
+// before it is modelled. Investigation-only; not committed.
+var texShaderTrace = os.Getenv("RR_TEXSHADER") != ""
+
 // RR_NV_SERIAL forces the raster onto the serial path — the A/B control for
 // verifying the parallel raster is byte-identical (it must always be).
 var rasterSerial = os.Getenv("RR_NV_SERIAL") != ""

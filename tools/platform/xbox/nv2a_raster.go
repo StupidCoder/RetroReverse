@@ -578,20 +578,34 @@ func (g *pgraph) shadePixel(st *rasterState, px, py int, b0, b1, b2, iw0, iw1, i
 		in.col0 = pc4(&v0.d0, &v1.d0, &v2.d0)
 		in.col1 = pc4(&v0.d1, &v1.d1, &v2.d1)
 	}
+	// Interpolate every unit's texcoords first: the DOT_REFLECT stage reads the (s,t,r,q)
+	// of the two preceding DOT_PRODUCT units as well as its own.
+	var uvw [4][4]float32
+	for u := 0; u < 4; u++ {
+		uvw[u] = pc4(&v0.uv[u], &v1.uv[u], &v2.uv[u])
+	}
 	for u := 0; u < 4; u++ {
 		if !st.texEnable[u] || st.texImg[u] == nil {
 			in.tex[u] = [4]float32{1, 1, 1, 1}
 			continue
 		}
-		uvw := pc4(&v0.uv[u], &v1.uv[u], &v2.uv[u])
 		if st.texImg[u].cube {
-			// A cube map needs the CUBEMAP stage mode's 3-component direction; any
-			// other mode's coordinate semantics over a cube are unmodelled.
-			if st.texStage[u] != 3 {
-				g.m.CPU.Halt("nv2a: texture unit %d samples a cube map in stage mode %d — only CUBEMAP (3) is modelled", u, st.texStage[u])
+			switch st.texStage[u] {
+			case 3:
+				// CUBEMAP: the texcoord is the sample direction directly.
+				in.tex[u] = g.texSampleCube(st, u, uvw[u][0], uvw[u][1], uvw[u][2])
+			case 0x0C:
+				// DOT_REFLECT_SPECULAR: the reflective-paint path — reflect the eye
+				// vector about the eye-space normal the two preceding DOT_PRODUCT stages
+				// build, and sample the environment cube (texReflectSpecular).
+				in.tex[u] = g.texReflectSpecular(st, u, &uvw, &in)
+			default:
+				if texShaderTrace {
+					g.dumpTexShaderConfig(st, v0, v1, v2, b0, b1, b2, iw0, iw1, iw2, iw, px, py)
+				}
+				g.m.CPU.Halt("nv2a: texture unit %d samples a cube map in stage mode %d — only CUBEMAP (3) and DOT_REFLECT_SPECULAR (12) are modelled", u, st.texStage[u])
 				return
 			}
-			in.tex[u] = g.texSampleCube(st, u, uvw[0], uvw[1], uvw[2])
 			continue
 		}
 		if st.texImg[u].depth != nil {
@@ -604,21 +618,21 @@ func (g *pgraph) shadePixel(st *rasterState, px, py int, b0, b1, b2, iw0, iw1, i
 				g.m.CPU.Halt("nv2a: texture unit %d samples a depth texture in stage mode %d — only PROJECTIVE (2) is modelled", u, st.texStage[u])
 				return
 			}
-			q := uvw[3]
+			q := uvw[u][3]
 			if q == 0 {
 				q = 1
 			}
-			s, t, r := uvw[0]/q, uvw[1]/q, uvw[2]/q
+			s, t, r := uvw[u][0]/q, uvw[u][1]/q, uvw[u][2]/q
 			if shadowFragTrace {
 				g.traceShadowFrag(st, u, px, py, s, t, r, q)
 			}
 			in.tex[u] = g.texSampleShadow(st, u, s, t, r)
 			continue
 		}
-		s, t := uvw[0], uvw[1]
-		if st.texStage[u] == 2 || (st.texStage[u] == 1 && uvw[3] != 0 && uvw[3] != 1) {
+		s, t := uvw[u][0], uvw[u][1]
+		if st.texStage[u] == 2 || (st.texStage[u] == 1 && uvw[u][3] != 0 && uvw[u][3] != 1) {
 			// projective: divide by q
-			s, t = s/uvw[3], t/uvw[3]
+			s, t = s/uvw[u][3], t/uvw[u][3]
 		}
 		in.tex[u] = g.texSample(st, u, s, t)
 	}
@@ -840,4 +854,84 @@ func max3(a, b, c float64) float64 {
 		a = c
 	}
 	return a
+}
+
+// texReflectSpecular models the NV2A texture-shader DOT_REFLECT_SPECULAR stage (shader
+// stage mode 0x0C) — the reflective car-paint path. It must follow two DOT_PRODUCT
+// stages (mode 0x11); those two units and this one each dot their (s,t,r) texcoord row
+// against a tangent-space normal to build the eye-space normal N, while their three q
+// components carry the eye vector E. The reflected ray R = 2·N·(N·E)/(N·N) − E (the
+// NV_texture_shader reflect formula) samples the environment cube — for OutRun that
+// cube is the three reflection RTTs (Parts X–XIII). N's magnitude cancels in R, so the
+// per-vertex row scaling does not affect the reflection direction; only its direction
+// (the surface normal) does, which is what makes this robust.
+//
+// The normal is the last plain-2D texture bound before this stage (unit 0 here, a 64x64
+// tangent-space normal map: a flat texel reads ~(0.5,0.5,1) → expand → (0,0,1)),
+// expanded [0,1]→[−1,1]. With no such texture it falls back to a flat (0,0,1), i.e. a
+// geometric-normal reflection.
+func (g *pgraph) texReflectSpecular(st *rasterState, u int, uvw *[4][4]float32, in *combInput) [4]float32 {
+	if u < 2 || st.texStage[u-1] != 0x11 || st.texStage[u-2] != 0x11 {
+		g.m.CPU.Halt("nv2a: DOT_REFLECT_SPECULAR at unit %d without two preceding DOT_PRODUCT stages (saw %d,%d)",
+			u, st.texStage[u-2], st.texStage[u-1])
+		return [4]float32{0, 0, 0, 1}
+	}
+	n := [3]float32{0, 0, 1}
+	for s := u - 1; s >= 0; s-- {
+		if st.texEnable[s] && st.texImg[s] != nil && !st.texImg[s].cube && st.texImg[s].depth == nil {
+			n = [3]float32{in.tex[s][0]*2 - 1, in.tex[s][1]*2 - 1, in.tex[s][2]*2 - 1}
+			break
+		}
+	}
+	dot := func(tc [4]float32) float32 { return tc[0]*n[0] + tc[1]*n[1] + tc[2]*n[2] }
+	N := [3]float32{dot(uvw[u-2]), dot(uvw[u-1]), dot(uvw[u])}
+	E := [3]float32{uvw[u-2][3], uvw[u-1][3], uvw[u][3]}
+	R := E
+	if nn := N[0]*N[0] + N[1]*N[1] + N[2]*N[2]; nn != 0 {
+		k := 2 * (N[0]*E[0] + N[1]*E[1] + N[2]*E[2]) / nn
+		R = [3]float32{k*N[0] - E[0], k*N[1] - E[1], k*N[2] - E[2]}
+	}
+	return g.texSampleCube(st, u, R[0], R[1], R[2])
+}
+
+// dumpTexShaderConfig prints the whole 4-unit texture-shader setup at a fragment —
+// stage modes, texture kinds, and both the perspective-correct and raw per-vertex
+// texcoords — so an unmodelled reflection stage can be read before it is modelled.
+// Gated by RR_TEXSHADER; investigation-only.
+func (g *pgraph) dumpTexShaderConfig(st *rasterState, v0, v1, v2 *kelvinVtx, b0, b1, b2, iw0, iw1, iw2, iw float32, px, py int) {
+	fmt.Printf("TEXSHADER draw=%d px=%d py=%d shader=%08X\n", g.Draws, px, py, g.Regs[0x1E70>>2])
+	bs := [3]float32{b0 * iw0, b1 * iw1, b2 * iw2}
+	vv := [3]*kelvinVtx{v0, v1, v2}
+	for u := 0; u < 4; u++ {
+		s := (bs[0]*vv[0].uv[u][0] + bs[1]*vv[1].uv[u][0] + bs[2]*vv[2].uv[u][0]) / iw
+		t := (bs[0]*vv[0].uv[u][1] + bs[1]*vv[1].uv[u][1] + bs[2]*vv[2].uv[u][1]) / iw
+		r := (bs[0]*vv[0].uv[u][2] + bs[1]*vv[1].uv[u][2] + bs[2]*vv[2].uv[u][2]) / iw
+		q := (bs[0]*vv[0].uv[u][3] + bs[1]*vv[1].uv[u][3] + bs[2]*vv[2].uv[u][3]) / iw
+		kind := "off"
+		if st.texEnable[u] && st.texImg[u] != nil {
+			switch {
+			case st.texImg[u].cube:
+				kind = "CUBE"
+			case st.texImg[u].depth != nil:
+				kind = "DEPTH"
+			default:
+				kind = "2D"
+			}
+		}
+		fmt.Printf("  unit%d stage=%2d en=%v tex=%-5s stq=(%.4f,%.4f,%.4f) q=%.4f\n",
+			u, st.texStage[u], st.texEnable[u], kind, s, t, r, q)
+	}
+	for u := 0; u < 4; u++ {
+		fmt.Printf("  unit%d rawuv v0=%.4f v1=%.4f v2=%.4f\n", u, v0.uv[u], v1.uv[u], v2.uv[u])
+	}
+	// The normal/gloss source: unit0's sampled texel at this fragment (the DOT_PRODUCT
+	// stages dot their texcoord rows against this, expanded).
+	if st.texEnable[0] && st.texImg[0] != nil && !st.texImg[0].cube && st.texImg[0].depth == nil {
+		s := (bs[0]*vv[0].uv[0][0] + bs[1]*vv[1].uv[0][0] + bs[2]*vv[2].uv[0][0]) / iw
+		t := (bs[0]*vv[0].uv[0][1] + bs[1]*vv[1].uv[0][1] + bs[2]*vv[2].uv[0][1]) / iw
+		tx := g.texSample(st, 0, s, t)
+		fmt.Printf("  unit0 sample rgba=(%.4f,%.4f,%.4f,%.4f) expand=(%.4f,%.4f,%.4f) dims=%dx%d\n",
+			tx[0], tx[1], tx[2], tx[3], tx[0]*2-1, tx[1]*2-1, tx[2]*2-1, st.texImg[0].w, st.texImg[0].h)
+	}
+	fmt.Printf("  cube dims=%dx%d\n", st.texImg[3].w, st.texImg[3].h)
 }
