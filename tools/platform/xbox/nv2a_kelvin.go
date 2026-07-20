@@ -43,6 +43,12 @@ var texShaderTrace = os.Getenv("RR_TEXSHADER") != ""
 // verifying the parallel raster is byte-identical (it must always be).
 var rasterSerial = os.Getenv("RR_NV_SERIAL") != ""
 
+// RR_FLIP_VSYNC is the default for Machine.FlipVSync: model FLIP_STALL's vsync wait by
+// advancing the guest clock a whole field per present, so OutRun's RDTSC catch-up steps its
+// simulation every frame instead of every ~6th. A fidelity experiment (it re-times every
+// trajectory); off unless set. See Machine.FlipVSync / creditFlipVBlank.
+var flipVSyncDefault = os.Getenv("RR_FLIP_VSYNC") != ""
+
 // Kelvin methods with modelled side effects (NV2A method numbers).
 const (
 	kelvinCtxDmaSemaphore  = 0x01A4 // SET_CONTEXT_DMA_SEMAPHORE: DMA handle for the semaphore surface
@@ -114,6 +120,15 @@ func (g *pgraph) kelvinMethod(method, arg uint32) {
 	//
 	// Measured, once per frame at BOTH fixtures: 209 flips at the logo, 269 at the title.
 	if method == kelvinFlipStall {
+		// Model the vsync wait: on hardware Present stalls until the field the CRTC owes
+		// retires, and the guest's RDTSC accrues that whole field. Advance the tick to the
+		// next vblank so the game's fixed-timestep loop sees one field per present. Just move
+		// the clock — the normal schedTick delivers the vblank interrupt at an instruction
+		// boundary; raising it here (mid-store) would run the ISR reentrantly. Off unless
+		// FlipVSync (a fidelity change; the default path is byte-identical).
+		if g.m.FlipVSync {
+			g.m.creditFlipVBlank()
+		}
 		g.recordPresented()
 		// Close the frame's profile BEFORE the debugger's flip hook runs, so the hook (which
 		// reads FrameProfile) sees the completed frame and a debugger pausing in it does not

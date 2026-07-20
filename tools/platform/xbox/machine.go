@@ -222,6 +222,17 @@ type Machine struct {
 	// ordinal 3). Nil by default, outside the savestate.
 	OnFlip func(*Machine)
 
+	// FlipVSync models FLIP_STALL's real time cost: a Present blocks until the vblank the
+	// CRTC owes. The guest TSC is instruction-paced, so without this a rendered frame
+	// advances the clock only by the instructions its render code retired (~0.18 of a
+	// field), and OutRun's RDTSC fixed-timestep loop (0x20AFA) then steps its simulation
+	// only every ~6th present — a 10 FPS sim on a 60 FPS engine. When set, each FLIP_STALL
+	// advances the tick to the next vblank so one present costs one field and the loop
+	// steps every present. A FIDELITY change: it re-times every trajectory (savestates
+	// move), so it is off by default and gated, not the standard behaviour. See sched.go's
+	// note on why the guest clock undercounts a rendered frame's real cycle cost.
+	FlipVSync bool
+
 	// StopRequested asks the run loops to stop at the next safe boundary: the CPU
 	// between instructions, the pusher between commands. A hook sets it to end a run
 	// (the frame hook at a flip, a breaking watch); Run clears it when it returns.
@@ -270,6 +281,7 @@ func NewMachine(xbe *XBE, disc *Image) (*Machine, error) {
 		rc4Ctx:      map[uint32][]byte{},
 		interrupts:  map[uint32]uint32{},
 	}
+	m.FlipVSync = flipVSyncDefault // RR_FLIP_VSYNC (nv2a_kelvin.go) — a fidelity experiment, off by default
 	m.nv.reg = map[uint32]uint32{}
 	m.apu = newMMIOLatch("APU")
 	m.ac97 = newMMIOLatch("AC97")

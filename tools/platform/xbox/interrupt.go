@@ -30,6 +30,21 @@ const isrExitAddr = trapBase - 0x200
 // 2000-instructions-per-millisecond clock the other timers use).
 const vblankPeriod = instrsPerMs * 1000 / 60
 
+// creditFlipVBlank advances the guest clock to the vblank a Present waits for, modelling
+// FLIP_STALL's real time cost (Machine.FlipVSync). The tick is instruction-paced, so a
+// rendered frame otherwise advances it only by the render code it retired — far less than the
+// field of wall time a real 733 MHz CPU burns per frame — and OutRun's RDTSC catch-up loop
+// (0x20AFA) undercounts elapsed time and steps its simulation only every ~6th present. Snapping
+// the tick to nextVBlank makes one present cost one field. Delivery of the vblank interrupt is
+// left to the normal schedTick block at the next instruction boundary (nextVBlank is unchanged
+// here, so vblankTick fires it once and re-arms); raising it from inside the flip handler would
+// run the ISR mid-instruction. Only ever moves the clock forward.
+func (m *Machine) creditFlipVBlank() {
+	if m.tick < m.nextVBlank {
+		m.tick = m.nextVBlank
+	}
+}
+
 // vblankTick raises the PCRTC vertical-blank interrupt at 60 Hz, and retries
 // delivery while a pending bit is up (a raise can land while the gates — IF, IRQL,
 // an active frame — are closed; the bit holds until the ISR acks it). Called from
