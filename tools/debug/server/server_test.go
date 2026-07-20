@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"encoding/binary"
 	"encoding/json"
+	"fmt"
 	"image"
 	"io"
 	"net"
@@ -85,6 +86,10 @@ type fakeTarget struct {
 	// runner must hand over EVERY one — a make and a break both matter — so this is
 	// asserted to be the exact sequence sent, with nothing dropped or collapsed.
 	keyed []debug.Key
+
+	// toggled is the current state of the fake's one runtime switch, so a test can check a
+	// toggle.set reached SetToggle end to end.
+	toggled bool
 }
 
 func (f *fakeTarget) Key(k debug.Key) error {
@@ -95,6 +100,19 @@ func (f *fakeTarget) Key(k debug.Key) error {
 // DisplayAspect makes the fake a debug.DisplayAspecter, so the hello plumbing for a
 // non-square-pixel target is exercised end to end over the real server.
 func (f *fakeTarget) DisplayAspect() (num, den int) { return 4, 3 }
+
+// Toggles/SetToggle make the fake a debug.Toggler, exercising the runtime-switch plumbing.
+func (f *fakeTarget) Toggles() []debug.Toggle {
+	return []debug.Toggle{{Name: "idleskip", Label: "idle skip", Desc: "fast-forward idle spins", On: f.toggled}}
+}
+
+func (f *fakeTarget) SetToggle(name string, on bool) error {
+	if name != "idleskip" {
+		return fmt.Errorf("no toggle %q", name)
+	}
+	f.toggled = on
+	return nil
+}
 
 func (f *fakeTarget) TouchPanels() []debug.TouchPanel {
 	return []debug.TouchPanel{{ID: "bottom", Name: "Touch screen", X: 0, Y: 2, W: fakeW, H: 2}}
@@ -374,7 +392,7 @@ func TestCapabilitiesAdvertised(t *testing.T) {
 		got = append(got, c.(string))
 	}
 	sort.Strings(got)
-	want := []string{"break", "code", "disasm", "faststep", "frames", "keys", "replay", "resume", "states", "touch", "watch"}
+	want := []string{"break", "code", "disasm", "faststep", "frames", "keys", "replay", "resume", "states", "toggles", "touch", "watch"}
 	if strings.Join(got, ",") != strings.Join(want, ",") {
 		t.Errorf("caps = %v, want %v", got, want)
 	}
@@ -1149,5 +1167,38 @@ func TestHelloCarriesKeyLegend(t *testing.T) {
 	srv2 := serveTarget(t, legendTarget{&fakeTarget{}})
 	if m := dial(t, srv2.URL).recvType(t, "hello"); m["keyLegend"] != "W/A/S/Z = the diamond" {
 		t.Errorf("keyLegend = %v, want the target's own", m["keyLegend"])
+	}
+}
+
+// TestHelloCarriesToggles: a debug.Toggler's switches ride hello with their current state, so
+// the page can draw a checkbox per toggle already in the right position.
+func TestHelloCarriesToggles(t *testing.T) {
+	srv, _ := serveFake(t) // fakeTarget is a Toggler
+	m := dial(t, srv.URL).recvType(t, "hello")
+	toggles, ok := m["toggles"].([]any)
+	if !ok || len(toggles) != 1 {
+		t.Fatalf("hello toggles = %v, want one entry", m["toggles"])
+	}
+	tg := toggles[0].(map[string]any)
+	if tg["name"] != "idleskip" || tg["label"] != "idle skip" || tg["on"] != false {
+		t.Errorf("toggle = %v, want idleskip/idle skip/off", tg)
+	}
+}
+
+// TestToggleSetReachesTarget: a toggle.set is handed straight to the target's SetToggle, and
+// an unknown toggle name is an error rather than a silent no-op.
+func TestToggleSetReachesTarget(t *testing.T) {
+	f := &fakeTarget{}
+	rn := &Runner{tgt: f, caps: map[string]bool{debug.CapToggles: true}, mb: newMailbox()}
+	defer rn.mb.close()
+
+	if err := rn.toggleSet(request{req: req{Op: "toggle.set", Args: mustJSON(toggleArgs{Name: "idleskip", On: true})}}); err != nil {
+		t.Fatalf("toggle.set idleskip on: %v", err)
+	}
+	if !f.toggled {
+		t.Error("SetToggle was not called: the machine's switch did not flip")
+	}
+	if err := rn.toggleSet(request{req: req{Op: "toggle.set", Args: mustJSON(toggleArgs{Name: "nope", On: true})}}); err == nil {
+		t.Error("an unknown toggle name should be an error, not a silent no-op")
 	}
 }

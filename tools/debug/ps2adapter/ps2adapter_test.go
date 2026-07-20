@@ -58,6 +58,7 @@ func TestCapabilities(t *testing.T) {
 		debug.CapFrames, debug.CapFastStep, debug.CapCode, debug.CapBreak,
 		debug.CapDisasm, debug.CapWatch, debug.CapSurfaces, debug.CapStates,
 		debug.CapResume, debug.CapRegions, debug.CapHalt, debug.CapProfile,
+		debug.CapToggles,
 	} {
 		if !caps[want] {
 			t.Errorf("the PS2 target does not advertise %q", want)
@@ -208,6 +209,33 @@ func TestDeinterlaceDisplayMatchesCapture(t *testing.T) {
 	if img.Bounds().Dx() != fc.Width || img.Bounds().Dy() != fc.Height {
 		t.Errorf("Display is %dx%d but the capture is %dx%d — provenance would be misaligned",
 			img.Bounds().Dx(), img.Bounds().Dy(), fc.Width, fc.Height)
+	}
+}
+
+// TestIdleSkipToggle: the idle-skip is exposed as a runtime switch and flipping it actually
+// reaches the machine, so the frame debugger's checkbox controls the real fast-forward.
+func TestIdleSkipToggle(t *testing.T) {
+	a := open(t)
+	defer a.Close()
+
+	tg := a.Toggles()
+	if len(tg) != 1 || tg[0].Name != "idleskip" {
+		t.Fatalf("Toggles = %+v, want one idleskip switch", tg)
+	}
+	if tg[0].On {
+		t.Error("idle skip defaults on; it must default off (a cold boot drifts with it)")
+	}
+	if err := a.SetToggle("idleskip", true); err != nil {
+		t.Fatalf("SetToggle idleskip on: %v", err)
+	}
+	if !a.live.IdleSkip() {
+		t.Error("SetToggle did not turn the machine's idle skip on")
+	}
+	if !a.Toggles()[0].On {
+		t.Error("Toggles still reports the switch off after turning it on")
+	}
+	if err := a.SetToggle("nope", true); err == nil {
+		t.Error("an unknown toggle should error")
 	}
 }
 

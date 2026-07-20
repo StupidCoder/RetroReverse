@@ -354,6 +354,10 @@ func (m *Machine) captureIdlePhases(P uint64) {
 // (a frame debugger, a repeated capture) turns it on knowing the field it is on.
 func (m *Machine) SetIdleSkip(on bool) { m.noIdleSkip = !on }
 
+// IdleSkip reports whether the fast-forward is currently on, so a UI that toggles it (the
+// frame debugger's checkbox) can draw the box in the right state.
+func (m *Machine) IdleSkip() bool { return !m.noIdleSkip }
+
 // IdleStats reports how much of a run was fast-forwarded rather than interpreted: the
 // instruction-slots skipped and how many times a loop was proved idle.
 func (m *Machine) IdleStats() (skipped, hits uint64) {

@@ -286,7 +286,28 @@ type (
 	Profiler interface {
 		FrameProfile() FrameProfile
 	}
+
+	// Toggler exposes named runtime on/off switches — behaviour a user flips mid-session
+	// that is not itself a capability (the PS2's idle-loop fast-forward, say: exact on a
+	// still field, a deliberate risk through a cold boot). The target lists the toggles it
+	// has and their current state; the page renders a checkbox per toggle and calls
+	// SetToggle when one is flipped. It is the general home for "an option the machine can
+	// change on the fly", so the next such switch is a new Toggle, not a new capability.
+	Toggler interface {
+		Toggles() []Toggle
+		SetToggle(name string, on bool) error
+	}
 )
+
+// Toggle is one runtime on/off switch a Toggler offers. Name is the stable id SetToggle
+// keys on; Label is the checkbox's short caption; Desc is its hover text (say the risk);
+// On is the current state, so the page can draw the box already checked when it matches.
+type Toggle struct {
+	Name  string
+	Label string
+	Desc  string
+	On    bool
+}
 
 // Capability names, as sent to the page. A panel declares which one it needs.
 const (
@@ -307,6 +328,7 @@ const (
 	CapTouch    = "touch"    // Toucher
 	CapKeys     = "keys"     // Keyer
 	CapHalt     = "halt"     // Haltable
+	CapToggles  = "toggles"  // Toggler
 	CapOverdraw = "overdraw" // reported per capture, not per target — see FrameCapture
 )
 
@@ -335,6 +357,7 @@ func Capabilities(t Target) []string {
 	_, touch := t.(Toucher)
 	_, keys := t.(Keyer)
 	_, halt := t.(Haltable)
+	_, toggles := t.(Toggler)
 
 	add(frames, CapFrames)
 	add(fast, CapFastStep)
@@ -353,6 +376,7 @@ func Capabilities(t Target) []string {
 	add(touch, CapTouch)
 	add(keys, CapKeys)
 	add(halt, CapHalt)
+	add(toggles, CapToggles)
 	return caps
 }
 

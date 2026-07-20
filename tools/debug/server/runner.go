@@ -102,6 +102,11 @@ func (rn *Runner) attach(s *session) {
 	if da, ok := rn.tgt.(debug.DisplayAspecter); ok {
 		h.AspectNum, h.AspectDen = da.DisplayAspect()
 	}
+	if tg, ok := rn.tgt.(debug.Toggler); ok {
+		for _, t := range tg.Toggles() {
+			h.Toggles = append(h.Toggles, toggleInfo{Name: t.Name, Label: t.Label, Desc: t.Desc, On: t.On})
+		}
+	}
 	s.send(h)
 }
 
@@ -271,6 +276,8 @@ func (rn *Runner) handle(r request) error {
 		return rn.stateSave(r)
 	case "state.load":
 		return rn.stateLoad(r)
+	case "toggle.set":
+		return rn.toggleSet(r)
 	default:
 		return fmt.Errorf("unknown op %q", r.req.Op)
 	}
@@ -299,6 +306,7 @@ var opNeeds = map[string]string{
 	"input.panels":   debug.CapTouch,
 	"input.touch":    debug.CapTouch,
 	"input.key":      debug.CapKeys,
+	"toggle.set":     debug.CapToggles,
 }
 
 // ---- frames ----
@@ -712,6 +720,17 @@ func (rn *Runner) key(r request) error {
 		return err
 	}
 	return rn.tgt.(debug.Keyer).Key(debug.Key{Name: a.Name, Code: a.Code, Down: a.Down})
+}
+
+// toggleSet flips one of the target's runtime switches (debug.Toggler). It takes effect on
+// the next slice the machine runs — there is no reply; the page keeps the checkbox state it
+// set optimistically, and a hello (a target switch, a reconnect) re-reports the truth.
+func (rn *Runner) toggleSet(r request) error {
+	var a toggleArgs
+	if err := decodeArgs(r.req, &a); err != nil {
+		return err
+	}
+	return rn.tgt.(debug.Toggler).SetToggle(a.Name, a.On)
 }
 
 // ---- cpu ----

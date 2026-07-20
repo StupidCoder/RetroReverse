@@ -419,6 +419,29 @@ func (a *Adapter) Display() (*image.RGBA, error) {
 // provenance click-mapping) exactly aligned.
 func (a *Adapter) DisplayAspect() (num, den int) { return 4, 3 }
 
+// Toggles exposes the idle-loop fast-forward as a runtime switch (debug.Toggler). It is off
+// by default because it is a deliberate accuracy trade: exact while a still field is
+// re-rendered, but a cold boot or a disc-streaming stretch drifts, since an IOP RPC reply can
+// arm and fire inside one step with no lead the skip's veto can see. A user watching a title
+// or a paused menu turns it on for the speed; anyone chasing a boot leaves it off.
+func (a *Adapter) Toggles() []debug.Toggle {
+	return []debug.Toggle{{
+		Name:  "idleskip",
+		Label: "idle skip",
+		Desc:  "fast-forward proven-idle VSync spins — big speedup re-rendering a still field, but drifts through a cold boot or disc streaming",
+		On:    a.live.IdleSkip(),
+	}}
+}
+
+func (a *Adapter) SetToggle(name string, on bool) error {
+	switch name {
+	case "idleskip":
+		a.live.SetIdleSkip(on)
+		return nil
+	}
+	return fmt.Errorf("ps2adapter: no toggle %q", name)
+}
+
 func (a *Adapter) ReadMem(addr uint32, n int) []byte { return a.live.ReadMem(addr, n) }
 
 // Surfaces. The scanout is the displayed frame; the free "GS buffer" reads any PSMCT32

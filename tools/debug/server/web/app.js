@@ -223,6 +223,30 @@ conn.onClose = () => {
   setBusy(true);
 };
 
+// renderToggles fills the toolbar's #toggles span with one checkbox per runtime switch the
+// target declared (debug.Toggler). Flipping one sends toggle.set and updates the store
+// optimistically — the server has no reply (the machine picks it up on its next slice), and
+// the next hello re-reports the truth. Rebuilt on every hello, so a target with no toggles
+// clears whatever the last one showed.
+function renderToggles(toggles) {
+  const box = $('toggles');
+  box.replaceChildren();
+  for (const t of toggles) {
+    const label = document.createElement('label');
+    label.className = 'check';
+    label.title = t.desc || '';
+    const cb = document.createElement('input');
+    cb.type = 'checkbox';
+    cb.checked = !!t.on;
+    cb.onchange = () => {
+      conn.send('toggle.set', { name: t.name, on: cb.checked });
+      store.set({ toggles: store.get('toggles').map((x) => (x.name === t.name ? { ...x, on: cb.checked } : x)) });
+    };
+    label.append(cb, ' ' + (t.label || t.name));
+    box.append(label);
+  }
+}
+
 conn.on('hello', (m) => {
   store.set({
     platform: m.platform,
@@ -233,6 +257,7 @@ conn.on('hello', (m) => {
     // means square — the page scales the display, not the image, so clicks still map.
     aspectNum: m.aspectNum || 0,
     aspectDen: m.aspectDen || 0,
+    toggles: m.toggles || [],
     frame: null,
     selected: -1,
     prov: null,
@@ -256,6 +281,7 @@ conn.on('hello', (m) => {
     $(id).style.display = store.can('frames') ? '' : 'none';
   }
   $('cpu-controls').style.display = store.can('code') ? '' : 'none';
+  renderToggles(m.toggles || []);
 
   // A hello is a machine handed over: the one before it is closed and gone, and every
   // control on the page still belongs to it. The toolbar is reset here rather than by

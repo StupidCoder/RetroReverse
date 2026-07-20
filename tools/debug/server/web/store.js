@@ -11,6 +11,7 @@ export class Store {
       keyLegend: '',
       aspectNum: 0, // display aspect num:den for non-square pixels (0 = square)
       aspectDen: 0,
+      toggles: [], // runtime on/off switches the target declares (debug.Toggler)
       title: '',
       caps: new Set(),
 

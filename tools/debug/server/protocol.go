@@ -124,6 +124,10 @@ type (
 		Code int    `json:"code"` // raw browser key code, when a name is not enough
 		Down bool   `json:"down"` // press (true) or release (false)
 	}
+	toggleArgs struct {
+		Name string `json:"name"` // the toggle's stable id
+		On   bool   `json:"on"`
+	}
 	surfaceArgs struct {
 		ID      string `json:"id"`
 		Addr    uint32 `json:"addr"`
@@ -199,6 +203,17 @@ type (
 		// square pixels, the default for a render-to-square-buffer platform.
 		AspectNum int `json:"aspectNum,omitempty"`
 		AspectDen int `json:"aspectDen,omitempty"`
+		// Runtime on/off switches the target offers (debug.Toggler), with their current
+		// state — the page renders a checkbox per entry. Empty for a target with none.
+		Toggles []toggleInfo `json:"toggles,omitempty"`
+	}
+
+	// toggleInfo is one runtime switch carried in hello.
+	toggleInfo struct {
+		Name  string `json:"name"`
+		Label string `json:"label"`
+		Desc  string `json:"desc"`
+		On    bool   `json:"on"`
 	}
 
 	frameMsg struct {
