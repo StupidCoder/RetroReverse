@@ -9,9 +9,11 @@ scene, and 4.4× on a boot stretch — byte-identical. See *The GameCube* below.
 **Status (2026-07-20): Phase 0 + item #1 done for the Xbox. OutRun's driving field is
 serial-bound (the banded parallel fill already won; 71% of the field is one goroutine). Item #1
 (a content-addressed texture cache that persists across fields AND finally caches the shadow map)
-took the warm field from 583.9 → 397.4 ms — 1.47×, byte-identical. Separately, FlipVSync (a clock
-fidelity fix, now on by default) removed the ~6× duplicate presents the under-paced RDTSC clock
-was rendering — a 10 FPS sim became 60, the bigger checkpoint/framedbg lever. See *The Xbox* below.**
+took the warm field from 583.9 → 397.4 ms — 1.47×, byte-identical. Item #2 (register-combiner array
+register file + in-place map/op) another −8.4%, byte-identical (guarded by a 20k-config differential
+test). Separately, FlipVSync (a clock fidelity fix, now on by default) removed the ~6× duplicate
+presents the under-paced RDTSC clock was rendering — a 10 FPS sim became 60, the bigger
+checkpoint/framedbg lever. See *The Xbox* below.**
 
 Read *Phase 0 — the results* and *What was actually done* below; the original plan (kept, below
 the line) guessed the ordering and got most of it wrong, which is exactly what Phase 0 existed to
@@ -269,10 +271,15 @@ parallelism — spend the effort on #1 and #4.
 **The running tally, measured on the warm field** (`BenchmarkWarmFields`: one cold field to fill
 the cache plus seven warm ones, the steady state a real run lives in), A/B'd back to back:
 
-| phase | warm ms/field | vs Phase 0 | byte-identical? |
+Each row is A/B'd against its OWN in-sitting baseline (the doc's caveat: never compare a warm-field
+number to one from an earlier session — the variance between machine states is bigger than several
+of these wins, so the absolute ms drift between rows and the delta within a row is the honest read).
+
+| phase | warm ms/field | in-sitting Δ | byte-identical? |
 |---|---|---|---|
 | Phase 0 (baseline) | 583.9 | — | (gate pinned) |
 | #1 texture cache (colour + depth) | **397.4** | **1.47× / −32.0%** | yes |
+| #2 combiner: array reg file + in-place map/op | **413.3 → 378.8** | **−8.4%** | yes |
 
 **#1, predicted 10-18%, measured −32% — and the surplus is the whole lesson.** The plan aimed the
 texture cache at cross-field *colour* re-decode. That part landed exactly as predicted and no more:
@@ -302,6 +309,32 @@ with the gate as backstop.
 Files: `nv2a_texture.go` (the cache is now content-addressed — `texEntry`, `hashRAM`, `texSpan`,
 `texSource`, `cacheTex`), `nv2a_pfifo.go` (bump a run sequence instead of dropping the cache),
 `nv2a_pgraph.go` + `state.go` (the map's value type), `bench_test.go` (`BenchmarkWarmFields`).
+
+### #2 — the register combiner, predicted 8-14%, measured −8.4%
+
+The combiner (`combine`, the per-fragment fragment pipeline) was **31.5% of samples** and the top
+target after #1 — but the plan's "compile it per draw" framing overreached: `combDecode` already
+decodes the control words once per draw, so what remained per fragment was the combiner *math*,
+which is irreducible (a CPU-sample share is an upper bound on the wall win — lesson 2). What was
+NOT irreducible was the dispatch around it: a switch-per-access register file, and a `[4]float32`
+copied out of every `combMap`/`combOp` call (~2.4% of the frame was `runtime.duffcopy`). Two safe,
+byte-identical changes: the register file became a `[16][4]float32` **array** (read is an index,
+write an index plus a writable guard — the old switch was pure dispatch over the same values), and
+`combMap`/`combOp` **mutate in place** instead of returning a fresh array. Array file alone −3.0%;
+adding the in-place helpers −8.4% total. `combine`'s cumulative share fell 31.5% → 25.5%.
+
+The correctness bar is high here — the combiner is fragment output, and the an3-drive gate exercises
+only OutRun's single MODULATE stage, so a config the game never programs but the hardware allows
+would slip past it ([[reference-match-hides-bugs]]). Guarded by `TestCombinerMatchesRef`: a FROZEN
+copy of the pre-rewrite combiner (its own types, byte-for-byte the old arithmetic) run against the
+live one over **20,000 random configs × random fragment inputs**, asserting bit-identical float
+output. It passes, the gate did not move (no re-pin), and the arithmetic was preserved verbatim so
+FMA contracts both paths identically (the differential test also passes under `-race`, FMA off).
+Not done: computing the colour side in rgb and the alpha side as a scalar (both discard components
+the writes never read) would shave more, but it reorganises the float ops and earns real FMA/order
+risk for a raster path that is parallel (wall win compressed) — deferred, not free.
+
+Files: `nv2a_combiner.go` (array `combRegs`, in-place `combMap`/`combOp`), `combiner_diff_test.go`.
 
 ### The bigger checkpoint lever was not a per-frame optimisation — it was 6× fewer frames
 

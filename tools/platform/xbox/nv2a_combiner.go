@@ -90,126 +90,95 @@ func argb8Vec(v uint32) [4]float32 {
 	}
 }
 
-// combRegs is the combiner register file for one fragment.
+// combRegs is the combiner register file for one fragment, indexed by hardware register number:
+// 0 zero, 1/2 the constant colours, 3 fog, 4/5 the interpolated diffuse/specular, 8-11 the four
+// texture samples, 12/13 the spare registers (6/7/14/15 unused, held zero). It was a struct with
+// named fields and a switch per access; an array makes read a plain index and write an index plus
+// a writable guard — the per-fragment hot path does ~14 reads a stage, so the switch was pure
+// dispatch overhead over the same values. Byte-identical to the switch it replaces.
 type combRegs struct {
-	c0, c1     [4]float32 // constant colors (per stage)
-	fog        [4]float32
-	col0, col1 [4]float32
-	tex        [4][4]float32
-	spare      [2][4]float32
+	r [16][4]float32
 }
 
-func (r *combRegs) read(reg uint32) [4]float32 {
-	switch reg {
-	case 1:
-		return r.c0
-	case 2:
-		return r.c1
-	case 3:
-		return r.fog
-	case 4:
-		return r.col0
-	case 5:
-		return r.col1
-	case 8, 9, 10, 11:
-		return r.tex[reg-8]
-	case 12:
-		return r.spare[0]
-	case 13:
-		return r.spare[1]
-	}
-	return [4]float32{}
-}
+func (r *combRegs) read(reg uint32) [4]float32 { return r.r[reg] }
 
 func (r *combRegs) write(reg uint32, v [4]float32, alpha bool) {
-	var dst *[4]float32
-	switch reg {
-	case 4:
-		dst = &r.col0
-	case 5:
-		dst = &r.col1
-	case 8, 9, 10, 11:
-		dst = &r.tex[reg-8]
-	case 12:
-		dst = &r.spare[0]
-	case 13:
-		dst = &r.spare[1]
-	default:
-		return // 0 = discard; the read-only inputs are not writable
+	// Writable: 4/5 (col0/col1) and 8-13 (tex + spare). 0 discards, 1-3 are read-only inputs,
+	// 6/7/14/15 are unused — exactly the registers the old switch's cases covered.
+	if !((reg >= 4 && reg <= 5) || (reg >= 8 && reg <= 13)) {
+		return
 	}
 	if alpha {
-		dst[3] = v[3]
+		r.r[reg][3] = v[3]
 	} else {
-		dst[0], dst[1], dst[2] = v[0], v[1], v[2]
+		r.r[reg][0], r.r[reg][1], r.r[reg][2] = v[0], v[1], v[2]
 	}
 }
 
-// combMap applies an input mapping to a register value (values live in [-1,1]).
-// The switch is hoisted out of the component loop — this runs per fragment input
-// and the mapping is uniform across the four components.
-func combMap(v [4]float32, mapping uint32) [4]float32 {
-	var out [4]float32
+// combMap applies an input mapping to a register value IN PLACE (values live in [-1,1]).
+// The switch is hoisted out of the component loop — this runs per fragment input and the
+// mapping is uniform across the four components. In place rather than value-return so the
+// per-fragment path (eight fetches a stage) does not copy a [4]float32 out of every call.
+func combMap(v *[4]float32, mapping uint32) {
 	switch mapping {
 	case 0: // UNSIGNED_IDENTITY: max(0, x)
 		for i, x := range v {
-			out[i] = clamp01(x)
+			v[i] = clamp01(x)
 		}
 	case 1: // UNSIGNED_INVERT: 1 - clamp(x)
 		for i, x := range v {
-			out[i] = 1 - clamp01(x)
+			v[i] = 1 - clamp01(x)
 		}
 	case 2: // EXPAND_NORMAL: 2*max(0,x) - 1
 		for i, x := range v {
-			out[i] = 2*clamp01(x) - 1
+			v[i] = 2*clamp01(x) - 1
 		}
 	case 3: // EXPAND_NEGATE: -(2*max(0,x) - 1)
 		for i, x := range v {
-			out[i] = -(2*clamp01(x) - 1)
+			v[i] = -(2*clamp01(x) - 1)
 		}
 	case 4: // HALF_BIAS_NORMAL: max(0,x) - 0.5
 		for i, x := range v {
-			out[i] = clamp01(x) - 0.5
+			v[i] = clamp01(x) - 0.5
 		}
 	case 5: // HALF_BIAS_NEGATE
 		for i, x := range v {
-			out[i] = -(clamp01(x) - 0.5)
+			v[i] = -(clamp01(x) - 0.5)
 		}
-	case 6: // SIGNED_IDENTITY
-		out = v
+	case 6: // SIGNED_IDENTITY: unchanged
 	case 7: // SIGNED_NEGATE
 		for i, x := range v {
-			out[i] = -x
+			v[i] = -x
 		}
 	}
-	return out
 }
 
 // combFetch decodes one input byte {mapping[7:5], alpha[4], register[3:0]} and fetches
 // the mapped value; rgb inputs replicate the alpha channel when the alpha bit is set,
 // alpha-side inputs read the blue channel when it is clear.
 func combFetch(r *combRegs, b uint32, alphaSide bool) [4]float32 {
-	v := r.read(b & 0xF)
+	v := r.r[b&0xF]
 	if b>>4&1 == 1 {
 		v = [4]float32{v[3], v[3], v[3], v[3]}
 	} else if alphaSide {
 		v = [4]float32{v[2], v[2], v[2], v[2]}
 	}
-	return combMap(v, b>>5&7)
+	combMap(&v, b>>5&7)
+	return v
 }
 
 // combine runs the general stages then the final combiner for one fragment.
 func (g *pgraph) combine(cs *combState, in *combInput) [4]float32 {
-	r := combRegs{
-		fog:  cs.fogColor,
-		col0: in.col0,
-		col1: in.col1,
-		tex:  in.tex,
-	}
+	var r combRegs
+	r.r[3] = cs.fogColor
+	r.r[4] = in.col0
+	r.r[5] = in.col1
+	r.r[8], r.r[9], r.r[10], r.r[11] = in.tex[0], in.tex[1], in.tex[2], in.tex[3]
 
 	for si := range cs.stages {
 		st := &cs.stages[si]
-		r.c0 = st.factor0
-		r.c1 = st.factor1
+		r.r[1] = st.factor0
+		r.r[2] = st.factor1
 
 		// Color portion.
 		a := combFetch(&r, st.colorICW>>24&0xFF, false)
@@ -228,7 +197,7 @@ func (g *pgraph) combine(cs *combState, in *combInput) [4]float32 {
 		}
 		var sum [4]float32
 		if st.colorOCW>>14&1 == 1 { // mux: spare0.a < 0.5 picks AB, else CD (per the spec)
-			if r.spare[0][3] < 0.5 {
+			if r.r[12][3] < 0.5 {
 				sum = ab
 			} else {
 				sum = cd
@@ -237,7 +206,9 @@ func (g *pgraph) combine(cs *combState, in *combInput) [4]float32 {
 			sum = add4(ab, cd)
 		}
 		op := st.colorOCW >> 15 & 7
-		ab, cd, sum = combOp(ab, op), combOp(cd, op), combOp(sum, op)
+		combOp(&ab, op)
+		combOp(&cd, op)
+		combOp(&sum, op)
 		r.write(st.colorOCW>>4&0xF, ab, false)
 		r.write(st.colorOCW&0xF, cd, false)
 		r.write(st.colorOCW>>8&0xF, sum, false)
@@ -251,7 +222,7 @@ func (g *pgraph) combine(cs *combState, in *combInput) [4]float32 {
 		cdA := [4]float32{0, 0, 0, ca[3] * da[3]}
 		var sumA [4]float32
 		if st.alphaOCW>>14&1 == 1 {
-			if r.spare[0][3] < 0.5 {
+			if r.r[12][3] < 0.5 {
 				sumA = abA
 			} else {
 				sumA = cdA
@@ -260,7 +231,9 @@ func (g *pgraph) combine(cs *combState, in *combInput) [4]float32 {
 			sumA = [4]float32{0, 0, 0, abA[3] + cdA[3]}
 		}
 		opA := st.alphaOCW >> 15 & 7
-		abA, cdA, sumA = combOp(abA, opA), combOp(cdA, opA), combOp(sumA, opA)
+		combOp(&abA, opA)
+		combOp(&cdA, opA)
+		combOp(&sumA, opA)
 		r.write(st.alphaOCW>>4&0xF, abA, true)
 		r.write(st.alphaOCW&0xF, cdA, true)
 		r.write(st.alphaOCW>>8&0xF, sumA, true)
@@ -292,7 +265,7 @@ func finalFetch(r *combRegs, b uint32, ef [4]float32) [4]float32 {
 	switch b & 0xF {
 	case 14:
 		for i := range v {
-			v[i] = clamp01(r.spare[0][i] + r.col1[i])
+			v[i] = clamp01(r.r[12][i] + r.r[5][i])
 		}
 	case 15:
 		v = ef
@@ -309,9 +282,10 @@ func finalFetch(r *combRegs, b uint32, ef [4]float32) [4]float32 {
 	return [4]float32{clamp01(v[0]), clamp01(v[1]), clamp01(v[2]), clamp01(v[3])}
 }
 
-// combOp applies the output scale/bias, clamping into the signed register range.
-// The switch is hoisted out of the component loop (per-fragment hot path).
-func combOp(v [4]float32, op uint32) [4]float32 {
+// combOp applies the output scale/bias IN PLACE, clamping into the signed register range.
+// The switch is hoisted out of the component loop (per-fragment hot path); in place so the six
+// applications a stage (ab/cd/sum, colour and alpha) do not each copy a [4]float32 back.
+func combOp(v *[4]float32, op uint32) {
 	switch op {
 	case 1: // BIAS_BY_NEGATIVE_ONE_HALF
 		for i, x := range v {
@@ -338,7 +312,6 @@ func combOp(v [4]float32, op uint32) [4]float32 {
 			v[i] = clampSigned(x)
 		}
 	}
-	return v
 }
 
 func clampSigned(x float32) float32 {
