@@ -547,7 +547,7 @@ func (p *IOP) ioRead(a uint32) uint32 {
 		return v
 	}
 	if a >= iopSPU2Base && a < iopSPU2End {
-		return p.spu.read(a - iopSPU2Base)
+		return p.spu.readReg(a-iopSPU2Base, p.steps)
 	}
 	if sio2Contains(a) {
 		return p.sio2Read(a)
@@ -568,7 +568,7 @@ func (p *IOP) ioWrite(a, v uint32) {
 		return
 	}
 	if a >= iopSPU2Base && a < iopSPU2End {
-		p.spu.write(a-iopSPU2Base, v)
+		p.spu.writeReg(a-iopSPU2Base, v, p.steps)
 		return
 	}
 	if sio2Contains(a) {

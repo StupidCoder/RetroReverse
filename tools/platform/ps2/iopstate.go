@@ -30,6 +30,14 @@ type IOPBinding struct {
 	ID      uint16
 }
 
+// SPUVoiceState is one voice's playback clock, in a form gob can carry (spuVoice's own
+// fields are unexported). See IOPState.SPUVoices.
+type SPUVoiceState struct {
+	Playing  bool
+	Acc      uint64
+	LastStep uint64
+}
+
 // IOPModuleState is one module resident in IOP memory. The IRX comes with it — it is
 // plain data, and it carries the module's symbols, which is what lets a restored machine
 // still say `ISOThread+0x1c` instead of a number, and its export table, which is what lets
@@ -46,7 +54,7 @@ type (
 	IOPHandlerState struct{ Fn, Arg uint32 }
 	// IOPVblankHandlerState is one vblank#8 registration.
 	IOPVblankHandlerState struct{ Edge, Prio, Fn, Arg uint32 }
-	IOPBlockState   struct{ Base, Size uint32 }
+	IOPBlockState         struct{ Base, Size uint32 }
 	// IOPHeapState carries the heap's *handle* as well as its state, and the two are not
 	// the same number. CreateHeap returns the address of the first chunk and the guest holds
 	// on to it forever; the heap then grows by taking fresh chunks elsewhere, and its base
@@ -88,8 +96,8 @@ type IOPState struct {
 	// library existed restores with none, which is also what that machine had.
 	VblankHandlers []IOPVblankHandlerState
 	VblankPending  bool
-	Blocks      []IOPBlockState
-	Heaps       []IOPHeapState
+	Blocks         []IOPBlockState
+	Heaps          []IOPHeapState
 
 	SchedSwitch, SchedResched uint32
 
@@ -104,10 +112,10 @@ type IOPState struct {
 
 	// The SIO2 transfer in flight: a snapshot can land between the DMA arm and the
 	// start bit, and a resume must find the FIFOs and the armed slice where they were.
-	SIO2In, SIO2Out       []byte
-	SIO2DmaAddr           [2]uint32
-	SIO2DmaWords          [2]uint32
-	SIO2OutArmed          bool
+	SIO2In, SIO2Out []byte
+	SIO2DmaAddr     [2]uint32
+	SIO2DmaWords    [2]uint32
+	SIO2OutArmed    bool
 
 	// The port-0 pad's mode latches. A state saved before the pad grew config mode
 	// restores with everything false, which is a pad that was never configured.
@@ -116,6 +124,14 @@ type IOPState struct {
 
 	SPURegs []byte
 	SPURAM  []byte
+
+	// Each voice's playback: whether it is keyed on and how far its read address has
+	// carried between register writes. A state saved mid-cutscene without this resumes
+	// with every voice stopped, and the stream position — which the intro seeks its
+	// animation to — freezes exactly as it did before the register file learned to move.
+	// Flat, core*iopSPU2Voices + voice; an older state decodes it nil and every voice
+	// starts stopped, which is right for a state saved before any stream began.
+	SPUVoices []SPUVoiceState
 
 	Steps    uint64
 	Switches int
@@ -151,6 +167,7 @@ func (p *IOP) SaveState() IOPState {
 		DICR2:           p.dicr2,
 		SPURegs:         append([]byte(nil), p.spu.regs...),
 		SPURAM:          append([]byte(nil), p.spu.ram...),
+		SPUVoices:       p.spu.saveVoices(),
 		Steps:           p.steps,
 		Switches:        p.switches,
 		Raised:          p.raised,
@@ -330,6 +347,7 @@ func (m *Machine) LoadIOPState(s IOPState) error {
 
 	copy(p.spu.regs, s.SPURegs)
 	copy(p.spu.ram, s.SPURAM)
+	p.spu.loadVoices(s.SPUVoices)
 
 	p.steps = s.Steps
 	p.switches = s.Switches
