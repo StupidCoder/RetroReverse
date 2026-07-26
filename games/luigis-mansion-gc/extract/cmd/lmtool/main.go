@@ -32,6 +32,7 @@ func main() {
 	out := flag.String("o", "out.glb", "output path for -mdl")
 	pose := flag.Float64("pose", -1, "with -mdl/-anim: print evaluated node matrices at this frame instead of exporting (flat and tree-composed), for comparing against the game's RAM")
 	inplace := flag.Bool("inplace", false, "with -mdl/-anim: pin the root's x/z translation at frame 0 (walk clips stay under the camera)")
+	noflip := flag.Bool("noflip", false, "with -mdl/-anim: skip the upright X-180 root rotation (for sets whose model space is already y-up)")
 	flag.Parse()
 
 	if *cam != "" {
@@ -50,7 +51,7 @@ func main() {
 		return
 	}
 	if *mdl != "" && *anim != "" {
-		if err := skinnedExport(*image, *mdl, *anim, *out, *inplace); err != nil {
+		if err := skinnedExport(*image, *mdl, *anim, *out, *inplace, *noflip); err != nil {
 			fmt.Fprintln(os.Stderr, "lmtool:", err)
 			os.Exit(1)
 		}

@@ -245,6 +245,17 @@ the animated actors through `lm-actor`, which frames the *posed skeleton* rather
 bind-space geometry and disables frustum culling (three.js culls skinned meshes by their bind
 bounds). Assets live in `site/public/luigis-mansion-gc/`.
 
+The formats cover the **whole demo library**, and the Studio carries all of it: the opening's
+seven shots (the forest walk plus six shots on the shared mansion set — the map, the crow, the
+gate, the steps, the door knob, the door — each flying its own `.sco` camera), the fourteen
+**key demos** (four `co/ho/no/oo` variants share eight unique door vignettes — `dNN_mdl` sets
+posed by their own `.key`s — plus Luigi's gloved hand `hr_mdl` and the ornate key `k_mdl`), the
+lab farewell `drbyebye` (E. Gadd `db_lohakase`, another Luigi, the **Poltergust** `db_sojiki`
+with its 110 KB of vertex-animation weights, the lab set), the `thunderbolt` shot and the
+**Game Boy Horror** vignette. One wrinkle the exports honour: model spaces are not one-handed —
+the opening's actors are y-down (the demo's placement matrix flips them) while the lab scene,
+the door sets and the Game Boy Horror are y-up, hence `lmtool`'s `-noflip`.
+
 ## Part VII — the .scd script database and .sco cut records
 
 Read out of the camera evaluator at `0x801156FC` and the channel interpolators at

@@ -69,6 +69,479 @@
       "file": "models/bighand.glb",
       "kind": "mesh3d",
       "section": "Opening cutscene"
+    },
+    {
+      "name": "The mansion — the map points the way",
+      "file": "models/mansion.glb",
+      "kind": "lm-set",
+      "section": "Opening cutscene",
+      "camera": {
+        "pos": [
+          0,
+          700,
+          -3800
+        ],
+        "target": [
+          0,
+          1100,
+          -12100
+        ]
+      },
+      "cameraTrack": "cameras/pointmap.json"
+    },
+    {
+      "name": "The mansion — the crow watches",
+      "file": "models/mansion.glb",
+      "kind": "lm-set",
+      "section": "Opening cutscene",
+      "camera": {
+        "pos": [
+          0,
+          700,
+          -3800
+        ],
+        "target": [
+          0,
+          1100,
+          -12100
+        ]
+      },
+      "cameraTrack": "cameras/crownotice.json"
+    },
+    {
+      "name": "The mansion — at the gate",
+      "file": "models/mansion.glb",
+      "kind": "lm-set",
+      "section": "Opening cutscene",
+      "camera": {
+        "pos": [
+          0,
+          700,
+          -3800
+        ],
+        "target": [
+          0,
+          1100,
+          -12100
+        ]
+      },
+      "cameraTrack": "cameras/entergate.json"
+    },
+    {
+      "name": "The mansion — up the steps",
+      "file": "models/mansion.glb",
+      "kind": "lm-set",
+      "section": "Opening cutscene",
+      "camera": {
+        "pos": [
+          0,
+          700,
+          -3800
+        ],
+        "target": [
+          0,
+          1100,
+          -12100
+        ]
+      },
+      "cameraTrack": "cameras/stepup.json"
+    },
+    {
+      "name": "The mansion — the door knob",
+      "file": "models/mansion.glb",
+      "kind": "lm-set",
+      "section": "Opening cutscene",
+      "camera": {
+        "pos": [
+          0,
+          700,
+          -3800
+        ],
+        "target": [
+          0,
+          1100,
+          -12100
+        ]
+      },
+      "cameraTrack": "cameras/doornob.json"
+    },
+    {
+      "name": "The mansion — opening the door",
+      "file": "models/mansion.glb",
+      "kind": "lm-set",
+      "section": "Opening cutscene",
+      "camera": {
+        "pos": [
+          0,
+          700,
+          -3800
+        ],
+        "target": [
+          0,
+          1100,
+          -12100
+        ]
+      },
+      "cameraTrack": "cameras/opendoor.json"
+    },
+    {
+      "name": "The crow",
+      "file": "models/crow.glb",
+      "kind": "lm-actor",
+      "section": "Opening cutscene"
+    },
+    {
+      "name": "Luigi — up the steps",
+      "file": "models/luigi-stepup.glb",
+      "kind": "lm-actor",
+      "section": "Opening cutscene"
+    },
+    {
+      "name": "Luigi — opening the door",
+      "file": "models/luigi-opendoor.glb",
+      "kind": "lm-actor",
+      "section": "Opening cutscene"
+    },
+    {
+      "name": "Door demo 01",
+      "file": "models/door-01.glb",
+      "kind": "lm-set",
+      "section": "Key demos",
+      "camera": {
+        "pos": [
+          0,
+          150,
+          400
+        ],
+        "target": [
+          0,
+          120,
+          0
+        ]
+      },
+      "cameraTrack": "cameras/demo01.json"
+    },
+    {
+      "name": "Door demo 02",
+      "file": "models/door-01.glb",
+      "kind": "lm-set",
+      "section": "Key demos",
+      "camera": {
+        "pos": [
+          0,
+          150,
+          400
+        ],
+        "target": [
+          0,
+          120,
+          0
+        ]
+      },
+      "cameraTrack": "cameras/demo02.json"
+    },
+    {
+      "name": "Door demo 03",
+      "file": "models/door-03.glb",
+      "kind": "lm-set",
+      "section": "Key demos",
+      "camera": {
+        "pos": [
+          0,
+          150,
+          400
+        ],
+        "target": [
+          0,
+          120,
+          0
+        ]
+      },
+      "cameraTrack": "cameras/demo03.json"
+    },
+    {
+      "name": "Door demo 04",
+      "file": "models/door-04.glb",
+      "kind": "lm-set",
+      "section": "Key demos",
+      "camera": {
+        "pos": [
+          0,
+          150,
+          400
+        ],
+        "target": [
+          0,
+          120,
+          0
+        ]
+      },
+      "cameraTrack": "cameras/demo04.json"
+    },
+    {
+      "name": "Door demo 05",
+      "file": "models/door-05.glb",
+      "kind": "lm-set",
+      "section": "Key demos",
+      "camera": {
+        "pos": [
+          0,
+          150,
+          400
+        ],
+        "target": [
+          0,
+          120,
+          0
+        ]
+      },
+      "cameraTrack": "cameras/demo05.json"
+    },
+    {
+      "name": "Door demo 06",
+      "file": "models/door-04.glb",
+      "kind": "lm-set",
+      "section": "Key demos",
+      "camera": {
+        "pos": [
+          0,
+          150,
+          400
+        ],
+        "target": [
+          0,
+          120,
+          0
+        ]
+      },
+      "cameraTrack": "cameras/demo06.json"
+    },
+    {
+      "name": "Door demo 07",
+      "file": "models/door-07.glb",
+      "kind": "lm-set",
+      "section": "Key demos",
+      "camera": {
+        "pos": [
+          0,
+          150,
+          400
+        ],
+        "target": [
+          0,
+          120,
+          0
+        ]
+      },
+      "cameraTrack": "cameras/demo07.json"
+    },
+    {
+      "name": "Door demo 08",
+      "file": "models/door-08.glb",
+      "kind": "lm-set",
+      "section": "Key demos",
+      "camera": {
+        "pos": [
+          0,
+          150,
+          400
+        ],
+        "target": [
+          0,
+          120,
+          0
+        ]
+      },
+      "cameraTrack": "cameras/demo08.json"
+    },
+    {
+      "name": "Door demo 09",
+      "file": "models/door-09.glb",
+      "kind": "lm-set",
+      "section": "Key demos",
+      "camera": {
+        "pos": [
+          0,
+          150,
+          400
+        ],
+        "target": [
+          0,
+          120,
+          0
+        ]
+      },
+      "cameraTrack": "cameras/demo09.json"
+    },
+    {
+      "name": "Door demo 10",
+      "file": "models/door-10.glb",
+      "kind": "lm-set",
+      "section": "Key demos",
+      "camera": {
+        "pos": [
+          0,
+          150,
+          400
+        ],
+        "target": [
+          0,
+          120,
+          0
+        ]
+      },
+      "cameraTrack": "cameras/demo10.json"
+    },
+    {
+      "name": "Door demo 11",
+      "file": "models/door-03.glb",
+      "kind": "lm-set",
+      "section": "Key demos",
+      "camera": {
+        "pos": [
+          0,
+          150,
+          400
+        ],
+        "target": [
+          0,
+          120,
+          0
+        ]
+      },
+      "cameraTrack": "cameras/demo11.json"
+    },
+    {
+      "name": "Door demo 12",
+      "file": "models/door-01.glb",
+      "kind": "lm-set",
+      "section": "Key demos",
+      "camera": {
+        "pos": [
+          0,
+          150,
+          400
+        ],
+        "target": [
+          0,
+          120,
+          0
+        ]
+      },
+      "cameraTrack": "cameras/demo12.json"
+    },
+    {
+      "name": "Door demo 13",
+      "file": "models/door-09.glb",
+      "kind": "lm-set",
+      "section": "Key demos",
+      "camera": {
+        "pos": [
+          0,
+          150,
+          400
+        ],
+        "target": [
+          0,
+          120,
+          0
+        ]
+      },
+      "cameraTrack": "cameras/demo13.json"
+    },
+    {
+      "name": "Door demo 14",
+      "file": "models/door-10.glb",
+      "kind": "lm-set",
+      "section": "Key demos",
+      "camera": {
+        "pos": [
+          0,
+          150,
+          400
+        ],
+        "target": [
+          0,
+          120,
+          0
+        ]
+      },
+      "cameraTrack": "cameras/demo14.json"
+    },
+    {
+      "name": "Luigi's hand",
+      "file": "models/hand.glb",
+      "kind": "lm-actor",
+      "section": "Key demos"
+    },
+    {
+      "name": "The key",
+      "file": "models/key.glb",
+      "kind": "lm-actor",
+      "section": "Key demos"
+    },
+    {
+      "name": "The lab — bye-bye",
+      "file": "models/lab.glb",
+      "kind": "lm-set",
+      "section": "The professor's lab",
+      "camera": {
+        "pos": [
+          0,
+          150,
+          500
+        ],
+        "target": [
+          0,
+          100,
+          0
+        ]
+      },
+      "cameraTrack": "cameras/drbyebye.json"
+    },
+    {
+      "name": "Professor E. Gadd",
+      "file": "models/gadd.glb",
+      "kind": "lm-actor",
+      "section": "The professor's lab"
+    },
+    {
+      "name": "Luigi — bye-bye",
+      "file": "models/luigi-lab.glb",
+      "kind": "lm-actor",
+      "section": "The professor's lab"
+    },
+    {
+      "name": "The Poltergust 3000",
+      "file": "models/poltergust.glb",
+      "kind": "lm-actor",
+      "section": "The professor's lab"
+    },
+    {
+      "name": "The thunderbolt",
+      "file": "models/thunderbolt.glb",
+      "kind": "lm-set",
+      "section": "The professor's lab",
+      "camera": {
+        "pos": [
+          0,
+          700,
+          -3800
+        ],
+        "target": [
+          0,
+          1100,
+          -12100
+        ]
+      },
+      "cameraTrack": "cameras/thunderbolt.json"
+    },
+    {
+      "name": "The Game Boy Horror",
+      "file": "models/gameboy.glb",
+      "kind": "lm-actor",
+      "section": "The professor's lab",
+      "cameraTrack": "cameras/gb_demo.json"
     }
   ]
 }

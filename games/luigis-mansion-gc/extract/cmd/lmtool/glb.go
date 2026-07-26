@@ -139,7 +139,7 @@ func staticGLB(m *lm.MDL, path, name string) error {
 
 // skinnedExport writes a skinned, animated GLB of "/disc/file.szp:model.mdl"
 // with animation member.key from the same archive.
-func skinnedExport(image, spec, animName, out string, inPlace bool) error {
+func skinnedExport(image, spec, animName, out string, inPlace, noFlip bool) error {
 	path, member, ok := strings.Cut(spec, ":")
 	if !ok {
 		return fmt.Errorf("want /disc/file.szp:member.mdl, got %q", spec)
@@ -191,7 +191,7 @@ func skinnedExport(image, spec, animName, out string, inPlace bool) error {
 		sls.Apply(m.Positions)
 	}
 	name := strings.TrimSuffix(member, ".mdl")
-	return skinnedGLB(m, key, out, name, strings.TrimSuffix(animName, ".key"), inPlace)
+	return skinnedGLB(m, key, out, name, strings.TrimSuffix(animName, ".key"), inPlace, noFlip)
 }
 
 // mdlFromArchive pulls NAME out of the RARC inside the (possibly Yay0) disc

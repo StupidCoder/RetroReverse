@@ -156,7 +156,7 @@ func (w *binWriter) addIndices(idx []uint32) int {
 // skinnedGLB writes the model with its animation clip. With inPlace, the root
 // node's x/z translation is zeroed, so a clip whose root walks across the set
 // stays at the origin under the viewer's camera (the vertical bob is kept).
-func skinnedGLB(m *lm.MDL, key *lm.Key, path, name, clipName string, inPlace bool) error {
+func skinnedGLB(m *lm.MDL, key *lm.Key, path, name, clipName string, inPlace, noFlip bool) error {
 	if len(key.Tracks) != len(m.Nodes) {
 		return fmt.Errorf("key has %d tracks for %d nodes", len(key.Tracks), len(m.Nodes))
 	}
@@ -409,10 +409,11 @@ func skinnedGLB(m *lm.MDL, key *lm.Key, path, name, clipName string, inPlace boo
 	// The model's own space is y-down (the demo places it through an actor
 	// matrix that flips it); a 180-degree X rotation on the root stands the
 	// standalone export upright.
-	nodes = append(nodes, map[string]any{
-		"name": name + "_root", "children": []int{0, meshNode},
-		"rotation": []float32{1, 0, 0, 0},
-	})
+	rootNode := map[string]any{"name": name + "_root", "children": []int{0, meshNode}}
+	if !noFlip {
+		rootNode["rotation"] = []float32{1, 0, 0, 0}
+	}
+	nodes = append(nodes, rootNode)
 
 	// Animation: sample every frame at 30 fps.
 	frames := int(key.Duration()) + 1
