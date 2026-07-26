@@ -9,30 +9,35 @@ The phases are ordered so that every one ends with something visibly better in t
 and so that verification (against the game's own renderer, via the oracle) comes before
 volume (74 rooms of everything).
 
-## Phase 1 — a correct single room
+## Phase 1 — a correct single room ✅ (done 2026-07-26, commits c19b912f / 9ec4beac / 24e8062d)
 
 The foundation everything else stands on. A room must look *right* before 74 of them do.
 
-1. **Material/texture verification pass** — one room (the foyer), compared surface-by-surface
-   against the game's render at the same spot (`foyer.state` exists; framedbg or `-shot`).
-   The sampler-stride bug the user caught (12 → 20 bytes) is fixed; the remaining known
-   gaps, in order:
-   - **Untextured white pieces** (staircase banister ribbon in the foyer): find what those
-     materials reference — suspects are the palette path (sampler `paletteIdx` ≠ −1) and
-     multi-stage materials (`s16` sampler list at material+8, one per stage — only stage 0
-     is exported today).
-   - **CI-format textures** (`C4/C8/C14X2`): the decoder refuses them; wire the palette
-     section through `decodeGXTexture` (the sampler's `paletteIdx` names the palette).
-   - **Wrap modes**: honour the sampler's `wrapS/wrapT` in the GLB instead of defaulting
-     to REPEAT.
-   - **Vertex colours** (slot 5) and **second UV set** (slot 7): parse, and export COLOR_0
-     where present — the rooms' baked lighting almost certainly lives there, and it is what
-     will make rooms look like the game instead of full-bright.
-2. **The two-index vertex question**: 2-index meshes are exported as (pos, normal) — verify
-   against the renderer's vertex-descriptor setup (`0x8001D4C0` sets attrs 9/10/11/13–16 from
-   per-mesh state; confirm which the `0x002` mask actually enables — it may be (pos, uv)).
-3. **Acceptance**: a side-by-side of the exported foyer vs `foyer.png` where every visible
-   surface carries the right texture; differences only in lighting.
+1. ~~**Material/texture verification pass**~~ — all decode bugs found and fixed: sampler
+   stride 12→20; texture data offsets are texture-SECTION-relative (the "white banister
+   ribbon" was the misdecoded stair carpet); graph +0x08 is flags, not a second pair count
+   (phantom window frames); **wrap modes** incl. GX mirror wired into the GLB (the floor
+   medallion is one quadrant mirrored both ways).
+   - **Untextured white pieces**: resolved — the remaining white material (25, the banister
+     cloth) is genuinely stage-less in the game (white fabric under GX lighting); the
+     exporter now leaves untextured materials lit so the viewer shades them.
+   - **CI-format textures**: closed — the disc survey (`extract/cmd/binsurvey`) shows **no
+     CI textures in any of the 572 .bin files**; no palette path needed.
+   - **Vertex colours**: closed — **no .bin on the disc has colour sections**; there is no
+     baked lighting to export. The game's look is GX lighting (Phase 4's dark-ambient
+     preset remains the way to land the mood).
+   - **Second UV set** (section 7 = TEX1): parsed; only the six two-stage rooms
+     (63/65/66/67, b1_c_67, gyara_00) use it. TEX1/stage-1 blending in the export remains
+     a Phase 2 nicety.
+2. ~~**The two-index vertex question**~~: answered exactly — the true attribute mask is the
+   **u32 at mesh+4**, literal `1<<GXAttr` bits read by `0x8001D5B8` (0x200 POS, 0x400 NRM,
+   0x2000 TEX0, 0x4000 TEX1; byte +11 = NBT3 with three normal indices). 183 meshes
+   disc-wide are (pos, uv) — the old u16@+8 heuristic had them as (pos, normal). The DL
+   parser now decodes exactly, no width fallback.
+3. ~~**Acceptance**~~: the foyer export rendered from the game's own camera (medallion →
+   rosette arch) matches the `foyer.state` game frame surface for surface; the differences
+   are the game's flashlight lighting, the door leaf (separate asset), and furniture
+   (separate bins, Phase 2).
 
 ## Phase 2 — furniture, complete with animation
 
