@@ -159,6 +159,11 @@ func skinnedExport(image, spec, animName, out string, inPlace bool) error {
 	}
 	var m *lm.MDL
 	var key *lm.Key
+	var sls *lm.SLS
+	// A model's vertex-animation file shares the animation's base name
+	// (opwf_luigi.key / opwf_luigi.sls); when present, its first shape is the
+	// face the shot actually shows.
+	slsName := strings.TrimSuffix(animName, ".key") + ".sls"
 	for _, f := range files {
 		if strings.EqualFold(f.Name, member) {
 			if m, err = lm.ParseMDL(f.Data); err != nil {
@@ -170,12 +175,20 @@ func skinnedExport(image, spec, animName, out string, inPlace bool) error {
 				return err
 			}
 		}
+		if strings.EqualFold(f.Name, slsName) {
+			if sls, err = lm.ParseSLS(f.Data); err != nil {
+				return err
+			}
+		}
 	}
 	if m == nil {
 		return fmt.Errorf("no member %q in %s", member, path)
 	}
 	if key == nil {
 		return fmt.Errorf("no member %q in %s", animName, path)
+	}
+	if sls != nil {
+		sls.Apply(m.Positions)
 	}
 	name := strings.TrimSuffix(member, ".mdl")
 	return skinnedGLB(m, key, out, name, strings.TrimSuffix(animName, ".key"), inPlace)

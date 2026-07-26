@@ -32,8 +32,9 @@ ground truth every reimplementation is verified against.
 * **Part VI** — the exporters (`lmtool`) and the Studio integration.
 * **Part VII** — the **.scd** script database and **.sco** cut records: the cutscene's own
   camera and lights.
-* **Open** — the `.slk`/`.sls` files; how the demo binds shot names to archive members; the
-  mansion's room archives (`Iwamoto/map*/room_*.arc`); gameplay and audio.
+* **Part VIII** — the **.sls/.slk** vertex animation: Luigi's face.
+* **Open** — how the demo binds shot names to archive members; the `.txp` texture-pattern
+  files; the mansion's room archives (`Iwamoto/map*/room_*.arc`); gameplay and audio.
 
 ---
 
@@ -282,11 +283,51 @@ at a telephoto **19.1° fov** with the far plane at 327,680 units. `lmtool -came
 "/Ajioka/ADemo/opwf.szp:opwf.scd:walkforest.sco"` exports the track as JSON, one sample per
 frame, in the same space as the shot's GLB set.
 
+## Part VIII — the .sls/.slk vertex animation: Luigi's face
+
+Read out of the evaluator at `0x8005C464` (found by read-watching the file in RAM). The
+`.sls`/`.slk` pair is the characters' **blend-shape system**: groups of vertices — Luigi's
+facial regions, all bound to the head joints 87–88 — whose entries in the model's *position
+array* are rebuilt every frame: zeroed, accumulated as `weight × shape` for each active
+shape, then divided by the summed weight. The model object holds **eight overlay slots**
+(`+0xB0`), so several of these can stack.
+
+**.sls** — the shape geometry:
+
+```
++0x08 u16 groupCount        +0x0c u16 posDictCount   +0x0e u16 nrmDictCount
++0x10 → group records 20 B: {u16 group, -, u16 chanBase, -[5], u16 shapeCount, u16 vertexCount}
++0x14 → shape entries  8 B: {u16 posCount, u16 posStreamOff, u16 nrmCount, u16 nrmOff}
++0x18 → position dictionary (f32[3])      +0x1c → normal dictionary (f32[3])
++0x20 → u16 shape streams   +0x28 → active-shape entry table   +0x2c → target vertex indices
+```
+
+A shape's stream holds one u16 per vertex: the low 13 bits index the shared vector
+dictionary, the top three bits negate x/y/z — **mirror compression** for a symmetric face.
+The walk Luigi's six groups are the mouth (174 vertices), the two eyes (41 each), the brow
+region and two more, 422 vertices in all; their single shape differs from the position
+array's stored neutral face by up to ~3 units — the shot's **scared expression**, which the
+exporter now applies. The normal dictionary and per-shape normal counts exist in every file
+but are only consumed when weights change (the walk's never do); their target indexing is
+not yet traced.
+
+**.slk** — the weight tracks: `{-, u16 frameCount, -, u16 channelCount}`, then a float pool,
+per-channel offset and count tables (count 1 = constant) and a channel map — the same
+hermite-on-30 fps-frames channel mechanism as `.key` and `.scd`, worn a third way. A group
+with a **single** shape is hardwired to weight 1.0 and the `.slk` is never consulted — which
+is why both opening Luigis ship all-constant `.slk`s. The gameplay Luigi (`model/luige.szp`)
+shows the system in earnest: ten pairs — `lv0/lv1/lv2_face` (expressions by health level),
+`breath01`, `biku_01/02` (the startle), `dam_f01/dam_b01` (damage) — whose groups carry up
+to four alternative shapes with one-hot weight keys cross-fading mouth positions every few
+frames: the talking flap.
+
 ## Open items
 
 * The demo's binding of shots to archives and archive members to actors (the `.scd` names
   only lights; the model actors and their mirror placement matrix are set up in code).
-* `.slk`/`.sls` — per-model files of unknown role (silhouette/shadow data?).
+* The `.sls` normal pass's target indexing (exists, unexercised in the opening shots).
+* `.txp` — texture-pattern animation (the torch's flame), consumed by the evaluator at
+  `0x8005C7AC` through the `.scd`-style channel interpolators.
 * The mansion itself: `Iwamoto/map2/room_*.arc` room archives, `Map/map*.szp`, the in-game
   actor models in `model/*.szp` (same .mdl format family, unverified).
 * Audio: `AudioRes/` (JAudio banks, sequences, and the `.afc` streams the cutscene plays).
