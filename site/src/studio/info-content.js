@@ -2507,6 +2507,67 @@ pieces, and the menu and cast artwork as 2-D texture rectangles over it.</p>
 `,
   },
 
+  'luigis-mansion-gc': {
+    loader: `
+<div class="info-eyebrow">Luigi's Mansion · Image &amp; Loader</div>
+<p>Luigi's Mansion ships on a GameCube miniDVD, dumped as a 1.4&nbsp;GB image. The disc has no ISO&nbsp;9660
+filesystem: a small header names the game (<code>GLME01</code>) and points at three things — the
+<strong>apploader</strong>, the executable, and the <strong>FST</strong>, the console's own filesystem table. The FST is one
+flat array of 12-byte entries plus a string table; directories are expressed by arithmetic (an
+entry carries the index of the first entry <em>outside</em> it) rather than by pointers, so walking
+the tree is walking the array with a stack of bounds. Boot is the console's IPL running the disc's
+apploader, which streams the 5&nbsp;MB <strong>DOL</strong> executable into RAM segment by segment and returns its
+entry point.</p>
+<h2>The development tree</h2>
+<p>The 847 files keep their development-era layout: directories named after the game's own staff
+(<code>Iwamoto/</code> holds the mansion's rooms, <code>Kawano/</code> the menus, <code>Ajioka/</code> the cutscenes) —
+and every directory still contains its <strong>CVS</strong> bookkeeping files, the version-control metadata of
+2001, burned onto every retail disc.</p>
+<h2>Compressed archives</h2>
+<p>Game data travels in <code>.szp</code> files: <strong>Yay0</strong> streams wrapping <strong>RARC</strong> archives. Yay0 is
+Nintendo's LZ back-reference format with the control bits, the 16-bit links and the literal bytes
+stored as three separate streams; the in-game decompressor reads a mask bit per output byte —
+literal, or copy <em>count</em> bytes from <em>distance</em> back. The RARC inside is a directory tree of
+named files with a string table, unpacked into RAM in one piece. The opening cutscene is seven such
+archives in <code>Ajioka/ADemo/</code>, one per shot — the forest walk is <code>opwf.szp</code>, the mansion
+reveal <code>oppm.szp</code>, the gate entrance <code>opeg.szp</code> — each holding the shot's models,
+animations, script and camera.</p>`,
+    graphics: `
+<div class="info-eyebrow">Luigi's Mansion · Graphics</div>
+<p>The models shown here are the <strong>opening cutscene's sets and actors</strong>, decoded from the
+<code>.mdl</code> and <code>.key</code> files inside the cutscene archives. The cutscene is fully real-time:
+each shot is a complete little stage — the forest glade and the mansion hill each carry their own
+sky dome, ground, and props — with a keyframed Luigi walking through it.</p>
+<h2>The .mdl model format</h2>
+<p>A <code>.mdl</code> is a header of counts and section offsets over raw <strong>GX display lists</strong> — the
+GameCube GPU's native command stream, stored ready to DMA. At load the engine patches the section
+offsets into pointers in place. The sections are: a <strong>node tree</strong> (child/sibling links, each node
+listing the material–shape pairs it draws), <strong>shapes</strong> split into 32-byte <strong>packets</strong> — a display
+list plus the table of up to ten matrices it expects loaded in the GPU's matrix slots — float
+position/normal/UV arrays, textures, and materials with up to eight texture stages. Every display-list
+vertex names its matrix slot with one byte, then indexes the shared arrays; primitives are quads,
+triangles, strips and fans.</p>
+<h2>Skinning</h2>
+<p>Luigi is one mesh over a <strong>122-node skeleton</strong> with <strong>envelope skinning</strong>: the per-node
+matrices in the file are <em>inverse bind</em> matrices, and a weighted matrix blends up to five joints as
+<code>&Sigma;&nbsp;w&nbsp;&middot;&nbsp;world[joint]&nbsp;&middot;&nbsp;invbind[joint]</code>. Rigid vertices are stored in their
+joint's local space, blended ones in model space — the same split the GPU's matrix slots express at
+draw time. The sets use the identical machinery with the animation reduced to constants: even the
+forest's trees are "joints", each stamped into place by its node matrix.</p>
+<h2>The .key animation format</h2>
+<p>A <code>.key</code> file drives every node of a model with <strong>nine channels</strong> — scale, rotation and
+translation per axis. A channel is a default, a constant, or a run of <strong>cubic hermite keyframes</strong>
+(time, value, tangent — optionally split in/out tangents); rotations store 16-bit angles in
+1/4096-of-a-turn units and interpolate through the console's 4096-entry sine table; times are frames
+on a <strong>30&nbsp;fps</strong> timeline. The walk is 338 frames — eleven seconds of performance, from the
+first timid step to the double-take at the map — and the exports here sample it loss-lessly into
+glTF tracks at the native rate.</p>
+<h2>Textures</h2>
+<p>Textures are the GameCube's tiled formats — mostly <strong>CMPR</strong> (4&times;4 DXT1 blocks arranged in
+8&times;8 tiles), with RGB565 and IA8 for details — behind a one-byte format index the engine maps
+through a table to the GX enum. The mansion facade, the mottled bark, Luigi's face and the glowing
+windows are all decoded from these into the GLBs' embedded PNGs.</p>`,
+  },
   'super-mario-3d-land-3ds': {
     loader: `
 <div class="info-eyebrow">Super Mario 3D Land · Image &amp; Loader</div>

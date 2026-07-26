@@ -153,8 +153,10 @@ func (w *binWriter) addIndices(idx []uint32) int {
 	return w.addAccessor(vi, 5125, "SCALAR", len(idx), nil)
 }
 
-// skinnedGLB writes the model with its animation clip.
-func skinnedGLB(m *lm.MDL, key *lm.Key, path, name, clipName string) error {
+// skinnedGLB writes the model with its animation clip. With inPlace, the root
+// node's x/z translation is zeroed, so a clip whose root walks across the set
+// stays at the origin under the viewer's camera (the vertical bob is kept).
+func skinnedGLB(m *lm.MDL, key *lm.Key, path, name, clipName string, inPlace bool) error {
 	if len(key.Tracks) != len(m.Nodes) {
 		return fmt.Errorf("key has %d tracks for %d nodes", len(key.Tracks), len(m.Nodes))
 	}
@@ -294,6 +296,12 @@ func skinnedGLB(m *lm.MDL, key *lm.Key, path, name, clipName string) error {
 	var nodes []map[string]any
 	for i := range m.Nodes {
 		p := key.Eval(i, 0)
+		if inPlace && i == 0 {
+			// Keep the rest pose consistent with the rebased animation — and
+			// with the geometry's bind-space bounds, which three.js uses for
+			// frustum culling of skinned meshes.
+			p.Translate[0], p.Translate[2] = 0, 0
+		}
 		q := p.Quat()
 		n := map[string]any{
 			"name":        fmt.Sprintf("joint%03d", i),
@@ -421,6 +429,12 @@ func skinnedGLB(m *lm.MDL, key *lm.Key, path, name, clipName string) error {
 		for f := 0; f < frames; f++ {
 			p := key.Eval(i, float32(f))
 			trans[f] = p.Translate
+			if inPlace && i == 0 {
+				// Rebase to the origin: a demo clip starts wherever the shot's
+				// script placed the actor in the set.
+				trans[f][0] = 0
+				trans[f][2] = 0
+			}
 			rots[f] = p.Quat()
 			scales[f] = p.Scale
 		}

@@ -331,6 +331,29 @@ const GAMES = [
     group: (item) => ({ section: item.section || 'Banner', label: item.name }),
   },
   {
+    // The manifest-driven 3-D viewer. The assets are the opening cutscene's models,
+    // decoded from the /Ajioka/ADemo/*.szp archives (Yay0 -> RARC -> .mdl/.key): the
+    // two full sets (forest glade, mansion hill) route to the lm-set plugin, which
+    // opens at the manifest's establishing camera inside each set's own sky dome;
+    // Luigi and the props are plain GLBs (builtin mesh3d) whose .key clips —
+    // envelope-skinned glTF animation sampled at the native 30 fps — play on loop.
+    id: 'luigis-mansion-gc', name: "Luigi's Mansion", system: 'Nintendo GameCube', render: '3d',
+    load: () => import('../shared/viewer3d.js').then(m => m.Viewer3D),
+    make: (V, el, hud) => new V(el, hud, {
+      base: 'public/luigis-mansion-gc/',
+      renderers: {
+        'lm-set': () => import('../luigis-mansion-gc/set-renderer.js'),
+        'lm-actor': () => import('../luigis-mansion-gc/actor-renderer.js'),
+      },
+    }),
+    list: async (v) => await v.init(),
+    show: (v, item, i) => v.showItem(item),
+    // Open on the mansion — the cutscene's establishing shot.
+    defaultAsset: (models) => models.findIndex((m) => m.name === 'The mansion'),
+    layers: [{ id: 'wireframe', label: 'Wireframe', default: false }],
+    group: (item) => ({ section: item.section || 'Opening cutscene', label: item.name }),
+  },
+  {
     // The stages are textured GLBs (foreground terrain + background flora) decoded
     // from the st_*.clv level files. The game is 2-D, so the viewer renders the
     // layered planes through an orthographic camera with the tilemap games'
@@ -411,6 +434,7 @@ const SYSTEMS = [
   { full: 'Sony PSP', short: 'PSP' },
   { full: 'Nintendo 64', short: 'N64' },
   { full: 'Nintendo 3DS', short: '3DS' },
+  { full: 'Nintendo GameCube', short: 'GameCube' },
   { full: '3DO', short: '3DO' },
 ];
 const CHEVRON = '<svg class="chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg>';

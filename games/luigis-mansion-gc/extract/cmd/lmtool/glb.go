@@ -31,30 +31,14 @@ func gxWrap(w uint8) int {
 	}
 }
 
-// worldMatrices composes each node's matrix down the sibling/child tree.
+// worldMatrices returns each node's bind-pose world matrix. The file stores
+// inverse binds (world -> joint, verified against the game's runtime array:
+// runtime world[i] == inverse(file[i]) for the whole forest set), so the world
+// matrix is simply each entry's inverse — absolute, no tree composition.
 func worldMatrices(m *lm.MDL) []lm.Mtx34 {
 	out := make([]lm.Mtx34, len(m.Nodes))
-	for i := range out {
-		out[i] = lm.Identity34
-	}
-	var walk func(idx int, parent lm.Mtx34)
-	walk = func(idx int, parent lm.Mtx34) {
-		for idx >= 0 && idx < len(m.Nodes) {
-			n := &m.Nodes[idx]
-			world := parent.Mul(n.Mtx)
-			out[idx] = world
-			if n.Child >= 0 {
-				walk(n.Child, world)
-			}
-			idx = n.Sibling
-			if idx >= 0 {
-				n2 := &m.Nodes[idx]
-				_ = n2
-			}
-		}
-	}
-	if len(m.Nodes) > 0 {
-		walk(0, lm.Identity34)
+	for i := range m.Nodes {
+		out[i] = invert34(m.Nodes[i].Mtx)
 	}
 	return out
 }
@@ -155,7 +139,7 @@ func staticGLB(m *lm.MDL, path, name string) error {
 
 // skinnedExport writes a skinned, animated GLB of "/disc/file.szp:model.mdl"
 // with animation member.key from the same archive.
-func skinnedExport(image, spec, animName, out string) error {
+func skinnedExport(image, spec, animName, out string, inPlace bool) error {
 	path, member, ok := strings.Cut(spec, ":")
 	if !ok {
 		return fmt.Errorf("want /disc/file.szp:member.mdl, got %q", spec)
@@ -194,7 +178,7 @@ func skinnedExport(image, spec, animName, out string) error {
 		return fmt.Errorf("no member %q in %s", animName, path)
 	}
 	name := strings.TrimSuffix(member, ".mdl")
-	return skinnedGLB(m, key, out, name, strings.TrimSuffix(animName, ".key"))
+	return skinnedGLB(m, key, out, name, strings.TrimSuffix(animName, ".key"), inPlace)
 }
 
 // mdlFromArchive pulls NAME out of the RARC inside the (possibly Yay0) disc

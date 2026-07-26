@@ -1,0 +1,73 @@
+{
+  "format": 2,
+  "game": "Luigi's Mansion",
+  "platform": "Nintendo GameCube",
+  "models": [
+    {
+      "name": "The mansion",
+      "file": "models/mansion.glb",
+      "kind": "lm-set",
+      "section": "Opening cutscene",
+      "camera": {
+        "pos": [
+          0,
+          700,
+          -3800
+        ],
+        "target": [
+          0,
+          1100,
+          -12100
+        ]
+      }
+    },
+    {
+      "name": "The dark forest",
+      "file": "models/forest.glb",
+      "kind": "lm-set",
+      "section": "Opening cutscene",
+      "camera": {
+        "pos": [
+          -1200,
+          900,
+          1500
+        ],
+        "target": [
+          800,
+          700,
+          -5500
+        ]
+      }
+    },
+    {
+      "name": "Luigi — the forest walk",
+      "file": "models/luigi-walk.glb",
+      "kind": "lm-actor",
+      "section": "Opening cutscene"
+    },
+    {
+      "name": "Luigi — at the gate",
+      "file": "models/luigi-gate.glb",
+      "kind": "lm-actor",
+      "section": "Opening cutscene"
+    },
+    {
+      "name": "Gate torch",
+      "file": "models/torch.glb",
+      "kind": "lm-actor",
+      "section": "Opening cutscene"
+    },
+    {
+      "name": "Lightning bolt",
+      "file": "models/lightning.glb",
+      "kind": "mesh3d",
+      "section": "Opening cutscene"
+    },
+    {
+      "name": "The pointing hand",
+      "file": "models/bighand.glb",
+      "kind": "mesh3d",
+      "section": "Opening cutscene"
+    }
+  ]
+}
