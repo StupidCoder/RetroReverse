@@ -7,7 +7,7 @@ package lm
 // offsets at +0x0C that the loader patches into pointers in place:
 //
 //	[0]  textures   12 B: {u16 w, u16 h, u8 gxFormat, u8 -, u16 -, u32 dataOff (absolute)}
-//	[1]  samplers   12 B: {u8 -, u8 texIdx, s16 paletteIdx, u8 wrapS, u8 wrapT, u8[6] -}
+//	[1]  samplers   20 B: {s16 texIdx, s16 paletteIdx, s8 wrapS, s8 wrapT, u8 -, u8 mip, s16 lodBias, ...}
 //	[2]  positions  s16[3]
 //	[3]  normals    f32[3]
 //	[6]  texcoords  f32[2]
@@ -43,8 +43,9 @@ type BinTexture struct {
 
 // BinSampler binds a texture.
 type BinSampler struct {
-	Texture int
-	Palette int
+	Texture      int
+	Palette      int
+	WrapS, WrapT int
 }
 
 // BinMaterial is what the exporter needs of the 40-byte record.
@@ -134,8 +135,11 @@ func ParseBin(b []byte) (*Bin, error) {
 		}
 	}
 	if s := offs[1]; s != 0 {
-		for o := s; o+12 <= end(1); o += 12 {
-			m.Samplers = append(m.Samplers, BinSampler{Texture: int(b[o+1]), Palette: s16(o + 2)})
+		for o := s; o+20 <= end(1); o += 20 {
+			m.Samplers = append(m.Samplers, BinSampler{
+				Texture: s16(o), Palette: s16(o + 2),
+				WrapS: int(int8(b[o+4])), WrapT: int(int8(b[o+5])),
+			})
 		}
 	}
 	if p := offs[2]; p != 0 {

@@ -343,7 +343,7 @@ offsets at `+0x0C`** patched into pointers at load:
 
 ```
 [0]  textures  12 B {u16 w, u16 h, u8 gxFormat, …, u32 dataOff}   (raw GX format ids)
-[1]  samplers  12 B {u8 -, u8 texIdx, s16 palette, wraps}
+[1]  samplers  20 B {s16 texIdx, s16 palette, s8 wrapS, s8 wrapT, ..., u8 mip, s16 lod}
 [2]  positions s16[3]        [3] normals f32[3]        [6] texcoords f32[2]
 [10] materials 40 B {…, u8 rgba[4]@3, s8 samplerIdx@9, …, s16 stageBlock@0x1a → [13]}
 [11] meshes    24 B {u16, u16 dlSize/32, u32, u16 attrMask, u16, u32 dlOff (section-rel)}
@@ -361,9 +361,14 @@ attribute-mask bit says. `lmtool -bin "/Iwamoto/map2/room_02.arc:room.bin"` expo
 the foyer comes out with its staircase, webbed double door and panelled walls, and the
 Studio's "The mansion" section carries the first rooms and furniture.
 
-Still open in this format: the palette (CI-format) textures the decoder skips, the `[13]/[14]`
-material-stage sections richer furniture uses, the `.anm` vertex animations, and the sweep of
-all 74 rooms once those are in.
+Still open in this format: the palette (CI-format) textures the decoder skips, the untextured
+materials some rooms show (multi-stage/palette paths), vertex colours and the second UV set,
+the `[13]/[14]` material-stage sections richer furniture uses, the `.anm` vertex animations,
+and the sweep of all 74 rooms once those are in — see `PLAN.md` for the assembled-mansion
+roadmap. (A caution from this section's own history: the sampler records were first read at
+stride 12, which textured the foyer's walls with window frames; the true stride, 20, was
+recovered by noticing the texture-index fields landing at byte offsets 0, 20, 40, … in the
+raw section. Eyeballing an export is not acceptance.)
 
 ## Open items
 
