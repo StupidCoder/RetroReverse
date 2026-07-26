@@ -342,13 +342,21 @@ the `.mdl`, the file is its own runtime object — a version byte and a name, th
 offsets at `+0x0C`** patched into pointers at load:
 
 ```
-[0]  textures  12 B {u16 w, u16 h, u8 gxFormat, …, u32 dataOff}   (raw GX format ids)
+[0]  textures  12 B {u16 w, u16 h, u8 gxFormat, …, u32 dataOff}   (raw GX format ids;
+                     dataOff is relative to the TEXTURE SECTION, not the file — the header
+                     table and the pixel data share the section, so the first data offset
+                     is also where the header table ends)
 [1]  samplers  20 B {s16 texIdx, s16 palette, s8 wrapS, s8 wrapT, ..., u8 mip, s16 lod}
+                     (wrap: 0 clamp, 1 repeat, 2 MIRROR — the foyer's floor medallion is
+                     one quadrant mirrored both ways)
 [2]  positions s16[3]        [3] normals f32[3]        [6] texcoords f32[2]
 [10] materials 40 B {…, u8 rgba[4]@3, s8 samplerIdx@9, …, s16 stageBlock@0x1a → [13]}
 [11] meshes    24 B {u16, u16 dlSize/32, u32, u16 attrMask, u16, u32 dlOff (section-rel)}
-[12] graph    140 B {s16 parent,child,next,prev; u16 partCountA@8; f32 scale/rot°/trans
-                     @0xc/0x18/0x24; bbox+radius@0x30; u16 partCountB@0x4c; u32 pairs@0x50}
+[12] graph    140 B {s16 parent,child,next,prev; u16 FLAGS@8 (0x80 = …); f32 scale/rot°/
+                     trans @0xc/0x18/0x24; bbox+radius@0x30; u16 pairCount@0x4c; u32
+                     pairs@0x50 — the pair count is @0x4c ONLY; reading @8 as a second
+                     count duplicated other nodes' parts at identity (phantom window
+                     frames floating in the foyer)}
 ```
 
 Where the cutscene `.mdl` stores matrix-indexed fans over float arrays, the room `.bin`
@@ -368,7 +376,13 @@ and the sweep of all 74 rooms once those are in — see `PLAN.md` for the assemb
 roadmap. (A caution from this section's own history: the sampler records were first read at
 stride 12, which textured the foyer's walls with window frames; the true stride, 20, was
 recovered by noticing the texture-index fields landing at byte offsets 0, 20, 40, … in the
-raw section. Eyeballing an export is not acceptance.)
+raw section. Two more decode bugs survived that fix and were caught the same way — by the
+user looking at the export: texture data offsets were taken as file-absolute (every texture
+decoded 0x60 bytes early, disproved because 25 headers occupy 0x0..0x18C of the section and
+the first "offset" pointed inside them), and the graph word at +0x08 was read as a second
+pair count when it is flags (node 3's 0x80 pulled 128 pairs from the following node —
+including its upper-wall window frames — and drew them untransformed). Eyeballing an export
+is not acceptance.)
 
 ## Open items
 

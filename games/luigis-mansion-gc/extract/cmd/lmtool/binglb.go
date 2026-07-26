@@ -71,6 +71,7 @@ func binGLB(m *lm.Bin, path, name string) error {
 					if s.Texture >= 0 && s.Texture < len(m.Textures) {
 						t := m.Textures[s.Texture]
 						pr.Image = texImage(lm.MDLTexture{Width: t.Width, Height: t.Height, Pixels: t.Pixels})
+						pr.WrapS, pr.WrapT = gxWrap(uint8(s.WrapS)), gxWrap(uint8(s.WrapT))
 					}
 				} else {
 					pr.BaseColor = [4]float32{

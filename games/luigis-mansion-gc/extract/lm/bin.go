@@ -15,12 +15,11 @@ package lm
 //	                       ..., s16 stageBlock@0x1a → section 13 when present}
 //	[11] meshes     24 B: {u16 -, u16 dlSize (32-byte units), u32 -, u16 attrMask,
 //	                       u16 -, u32 dlOff (relative to this section), u32 -, u32 -}
-//	[12] graph     140 B: {s16 parent, child, next, prev; u16 partCountA@0x08;
+//	[12] graph     140 B: {s16 parent, child, next, prev; u16 flags@0x08;
 //	                       f32 scale[3]@0x0c, rot°[3]@0x18, trans[3]@0x24;
 //	                       f32 bboxMin[3]@0x30, bboxMax[3]@0x3c, radius@0x48;
-//	                       u16 partCountB@0x4c; u32 partListOff@0x50 (section-relative)}
-//	     the part list is {u16 material, u16 mesh} pairs, the A-count then the
-//	     B-count (the renderer's opaque and translucent passes)
+//	                       u16 partCount@0x4c; u32 partListOff@0x50 (section-relative)}
+//	     the part list is partCount pairs of {u16 material, u16 mesh}
 //
 // A mesh display list is a raw GX stream of indexed primitives — no matrix
 // bytes; the node's composed TRS places everything. Each vertex is u16
@@ -66,6 +65,7 @@ type BinPair struct{ Material, Mesh int }
 // BinNode is one node of the scene graph.
 type BinNode struct {
 	Parent, Child, Next, Prev int
+	Flags                     int
 	Scale, Rot, Trans         [3]float32 // rotation in degrees
 	Pairs                     []BinPair
 }
@@ -114,20 +114,22 @@ func ParseBin(b []byte) (*Bin, error) {
 		return best
 	}
 
-	// Textures: headers run until the first image data begins.
+	// Textures: 12-byte headers, then the image data; the headers' data
+	// offsets are relative to the texture section, and the header table runs
+	// until the earliest data begins.
 	if t := offs[0]; t != 0 {
-		firstData := uint32(len(b))
-		for o := t; o+12 <= firstData; o += 12 {
+		firstData := uint32(len(b)) - t
+		for o := t; o-t+12 <= firstData; o += 12 {
 			w, h := u16(o), u16(o+2)
 			fmtb := b[o+4]
 			data := u32(o + 8)
 			if data < firstData {
 				firstData = data
 			}
-			if w == 0 || h == 0 || w > 1024 || h > 1024 {
+			if o-t >= firstData || w == 0 || h == 0 || w > 1024 || h > 1024 {
 				break
 			}
-			px, err := decodeGXTexture(gxFmtIndex(fmtb), w, h, b[data:])
+			px, err := decodeGXTexture(gxFmtIndex(fmtb), w, h, b[t+data:])
 			if err != nil {
 				return nil, fmt.Errorf("lm: bin texture at %#x: %w", o, err)
 			}
@@ -198,7 +200,8 @@ func ParseBin(b []byte) (*Bin, error) {
 				n.Rot[c] = f32(o + 0x18 + c*4)
 				n.Trans[c] = f32(o + 0x24 + c*4)
 			}
-			pairs := int(u16(o+0x08)) + int(u16(o+0x4C))
+			n.Flags = int(u16(o + 0x08))
+			pairs := int(u16(o + 0x4C))
 			list := g + u32(o+0x50)
 			for k := 0; k < pairs && list+uint32(k)*4+4 <= uint32(len(b)); k++ {
 				n.Pairs = append(n.Pairs, BinPair{Material: u16(list + uint32(k)*4), Mesh: u16(list + uint32(k)*4 + 2)})
