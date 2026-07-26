@@ -332,6 +332,39 @@ shows the system in earnest: ten pairs — `lv0/lv1/lv2_face` (expressions by he
 to four alternative shapes with one-hot weight keys cross-fading mouth positions every few
 frames: the talking flap.
 
+## Part IX — the .bin room format: the mansion itself
+
+The mansion's rooms (`Iwamoto/map2/room_00.arc`..`room_73.arc`, plain RARC archives) use a
+**third model format**, `.bin` — one `room.bin` per room plus its furniture (`otukue.bin` the
+tea table, `oisu.bin` the chair, `otoire.bin` the toilet, …) and `.anm` furniture animations.
+Read out of the renderer at `0x8001D8C8..0x8001DD90` (all the `bl 0x801F9F94` callers): like
+the `.mdl`, the file is its own runtime object — a version byte and a name, then **21 section
+offsets at `+0x0C`** patched into pointers at load:
+
+```
+[0]  textures  12 B {u16 w, u16 h, u8 gxFormat, …, u32 dataOff}   (raw GX format ids)
+[1]  samplers  12 B {u8 -, u8 texIdx, s16 palette, wraps}
+[2]  positions s16[3]        [3] normals f32[3]        [6] texcoords f32[2]
+[10] materials 40 B {…, u8 rgba[4]@3, s8 samplerIdx@9, …, s16 stageBlock@0x1a → [13]}
+[11] meshes    24 B {u16, u16 dlSize/32, u32, u16 attrMask, u16, u32 dlOff (section-rel)}
+[12] graph    140 B {s16 parent,child,next,prev; u16 partCountA@8; f32 scale/rot°/trans
+                     @0xc/0x18/0x24; bbox+radius@0x30; u16 partCountB@0x4c; u32 pairs@0x50}
+```
+
+Where the cutscene `.mdl` stores matrix-indexed fans over float arrays, the room `.bin`
+stores **indexed strips over s16 positions** — no matrix bytes at all; the graph node's
+composed TRS (rotation from *degrees*, through the same 65536-per-turn sine table) places
+each part, and the part list is `{u16 material, u16 mesh}` pairs in two runs (the renderer's
+opaque and translucent passes). A mesh's display list lives inside the mesh section; its
+vertices are two u16 indices (position, normal) or three (…, texcoord) as the `0x100`
+attribute-mask bit says. `lmtool -bin "/Iwamoto/map2/room_02.arc:room.bin"` exports a room;
+the foyer comes out with its staircase, webbed double door and panelled walls, and the
+Studio's "The mansion" section carries the first rooms and furniture.
+
+Still open in this format: the palette (CI-format) textures the decoder skips, the `[13]/[14]`
+material-stage sections richer furniture uses, the `.anm` vertex animations, and the sweep of
+all 74 rooms once those are in.
+
 ## Open items
 
 * The demo's binding of shots to archives and archive members to actors (the `.scd` names

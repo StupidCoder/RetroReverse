@@ -542,6 +542,48 @@
       "kind": "lm-actor",
       "section": "The professor's lab",
       "cameraTrack": "cameras/gb_demo.json"
+    },
+    {
+      "name": "The foyer (room 02)",
+      "file": "models/room-foyer.glb",
+      "kind": "mesh3d",
+      "section": "The mansion"
+    },
+    {
+      "name": "Room 00 — study",
+      "file": "models/room-00.glb",
+      "kind": "mesh3d",
+      "section": "The mansion"
+    },
+    {
+      "name": "Room 08",
+      "file": "models/room-08.glb",
+      "kind": "mesh3d",
+      "section": "The mansion"
+    },
+    {
+      "name": "Room 23",
+      "file": "models/room-23.glb",
+      "kind": "mesh3d",
+      "section": "The mansion"
+    },
+    {
+      "name": "Tea table",
+      "file": "models/desk.glb",
+      "kind": "mesh3d",
+      "section": "The mansion"
+    },
+    {
+      "name": "Chair",
+      "file": "models/chair.glb",
+      "kind": "mesh3d",
+      "section": "The mansion"
+    },
+    {
+      "name": "Toilet",
+      "file": "models/toilet.glb",
+      "kind": "mesh3d",
+      "section": "The mansion"
     }
   ]
 }
