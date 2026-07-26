@@ -26,6 +26,7 @@ func main() {
 	ls := flag.String("ls", "", "list the RARC archive inside this disc file")
 	x := flag.String("x", "", "extract the RARC archive inside this disc file into -into DIR")
 	into := flag.String("into", ".", "directory -x extracts into")
+	cam := flag.String("camera", "", "export a demo camera track as JSON: /disc/file.szp:shot.scd:shot.sco")
 	mdl := flag.String("mdl", "", "export a model as GLB: /disc/file.szp:member.mdl")
 	anim := flag.String("anim", "", "with -mdl: member.key animation in the same archive; makes the export skinned+animated")
 	out := flag.String("o", "out.glb", "output path for -mdl")
@@ -33,6 +34,14 @@ func main() {
 	inplace := flag.Bool("inplace", false, "with -mdl/-anim: pin the root's x/z translation at frame 0 (walk clips stay under the camera)")
 	flag.Parse()
 
+	if *cam != "" {
+		if err := cameraExport(*image, *cam, *out); err != nil {
+			fmt.Fprintln(os.Stderr, "lmtool:", err)
+			os.Exit(1)
+		}
+		fmt.Println("wrote", *out)
+		return
+	}
 	if *mdl != "" && *anim != "" && *pose >= 0 {
 		if err := poseDump(*image, *mdl, *anim, float32(*pose)); err != nil {
 			fmt.Fprintln(os.Stderr, "lmtool:", err)

@@ -24,6 +24,34 @@ export default {
     stage.camera.far = 200000;
     stage.camera.updateProjectionMatrix();
     stage.controls.update();
+
+    // When the manifest names a camera track — the shot's own .scd/.sco camera,
+    // exported one sample per frame — fly it on loop until the viewer grabs the
+    // controls, from then on it is an ordinary orbit scene.
+    if (item.cameraTrack) {
+      try {
+        const doc = await fetch(base + item.cameraTrack).then((r) => r.json());
+        const track = doc.track || [];
+        if (track.length > 1) {
+          let t = 0, flying = true;
+          const stopFly = () => { flying = false; };
+          stage.canvas.addEventListener('pointerdown', stopFly, { once: true });
+          const prev = stage.onFrame;
+          stage.onFrame = (camPos, dt) => {
+            if (prev) prev(camPos, dt);
+            if (!flying) return;
+            t = (t + (dt || 0) * (doc.fps || 30)) % track.length;
+            const f = track[Math.floor(t)];
+            stage.camera.position.set(f.pos[0], f.pos[1], f.pos[2]);
+            stage.controls.target.set(f.target[0], f.target[1], f.target[2]);
+            stage.camera.fov = f.fov || stage.camera.fov;
+            stage.camera.updateProjectionMatrix();
+            stage.controls.update();
+          };
+          stage.hud = `${item.name} · the cutscene's own camera — drag to take over`;
+        }
+      } catch { /* the set still shows from its establishing camera */ }
+    }
     return obj;
   },
 };

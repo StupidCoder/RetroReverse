@@ -30,8 +30,10 @@ ground truth every reimplementation is verified against.
 * **Part V** — the **.key** animation format: nine hermite channels per node, the s16 angle
   keys, and the 30 fps timeline.
 * **Part VI** — the exporters (`lmtool`) and the Studio integration.
-* **Open** — the `.scd` demo script and `.sco` camera formats; the mansion's room archives
-  (`Iwamoto/map*/room_*.arc`); gameplay and audio.
+* **Part VII** — the **.scd** script database and **.sco** cut records: the cutscene's own
+  camera and lights.
+* **Open** — the `.slk`/`.sls` files; how the demo binds shot names to archive members; the
+  mansion's room archives (`Iwamoto/map*/room_*.arc`); gameplay and audio.
 
 ---
 
@@ -242,10 +244,48 @@ the animated actors through `lm-actor`, which frames the *posed skeleton* rather
 bind-space geometry and disables frustum culling (three.js culls skinned meshes by their bind
 bounds). Assets live in `site/public/luigis-mansion-gc/`.
 
+## Part VII — the .scd script database and .sco cut records
+
+Read out of the camera evaluator at `0x801156FC` and the channel interpolators at
+`0x800F1C58` (float) and `0x800F1E1C` (s16). The two files split a shot's direction between a
+**channel database** (.scd) and **per-cut base records** (.sco); at load the engine patches
+the .scd's section offsets into pointers, exactly as it does for models.
+
+**.scd** (for the forest walk, `opwf.scd`):
+
+```
++0x00 u16 frameCount (0x151 = 337 for the walk)
++0x08 → camera:  f32 aspect, then 10 channel descriptors —
+        pos xyz, target xyz, roll, fov, near, far
++0x0c → simple lights, 36 B each: {char name[16], desc rgb[3], u16}   ("sunn1")
++0x10 → keyed lights, 104 B each: {char name[16], u32, desc[14]}      ("grasss1", "lightt1", …)
++0x18 → float pool          +0x1c → s16 pool
+```
+
+A channel descriptor is six bytes — `{u16 count, u16 offset, u16 stride}` — into one of the
+two pools. Stride 1 is a constant at `pool[offset]`; otherwise `count` keys of `stride` words:
+(time, value, tangent), with stride 4 carrying separate in/out tangents. Evaluation is the
+same **cubic hermite on the 30 fps frame timeline** as the `.key` format — the channel system
+is one mechanism worn three ways (model animation, camera, lights).
+
+**.sco**: a f32, then the camera cut record at `+4` — `{s16 cut, u16 flags, f32 base pos[3],
+target[3], roll, aspect, fov, near, far}` — followed by light cut records
+(`{s16 lightIdx, s16, s16 rgb[3]}`, clamped to 0..255 after the channel adds). Every channel
+result is **added** to its cut base; in the forest walk the bases are zero and the channels
+are absolute.
+
+The result feeds the runtime camera struct at `0x803A3820` (position, target, an up vector
+built from the roll, then fov/aspect/near/far), and the reimplementation reproduces it to
+float precision at every probed frame: the walk's camera slides from `(-3384, 115, -787)` to
+`(-2064, 115, -1847)` over 337 frames on four hermite keys per axis, looking 30 units ahead,
+at a telephoto **19.1° fov** with the far plane at 327,680 units. `lmtool -camera
+"/Ajioka/ADemo/opwf.szp:opwf.scd:walkforest.sco"` exports the track as JSON, one sample per
+frame, in the same space as the shot's GLB set.
+
 ## Open items
 
-* **`.scd`** — the demo script that sequences a shot (actor placement, timing, the mirror
-  matrix above). **`.sco`** — the camera track (`walkforest.sco`, 660 bytes, one per shot).
+* The demo's binding of shots to archives and archive members to actors (the `.scd` names
+  only lights; the model actors and their mirror placement matrix are set up in code).
 * `.slk`/`.sls` — per-model files of unknown role (silhouette/shadow data?).
 * The mansion itself: `Iwamoto/map2/room_*.arc` room archives, `Map/map*.szp`, the in-game
   actor models in `model/*.szp` (same .mdl format family, unverified).
