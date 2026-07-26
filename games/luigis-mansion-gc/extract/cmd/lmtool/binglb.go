@@ -74,6 +74,10 @@ func binGLB(m *lm.Bin, path, name string) error {
 						pr.WrapS, pr.WrapT = gxWrap(uint8(s.WrapS)), gxWrap(uint8(s.WrapT))
 					}
 				} else {
+					// Untextured materials are lit by GX lighting in the game
+					// (their meshes carry normals); leave them lit so the
+					// viewer shades them instead of showing flat paper-white.
+					pr.Unlit = false
 					pr.BaseColor = [4]float32{
 						float32(mat.Tint[0]) / 255, float32(mat.Tint[1]) / 255,
 						float32(mat.Tint[2]) / 255, float32(mat.Tint[3]) / 255,

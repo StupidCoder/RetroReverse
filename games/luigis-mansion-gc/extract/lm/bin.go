@@ -10,11 +10,20 @@ package lm
 //	[1]  samplers   20 B: {s16 texIdx, s16 paletteIdx, s8 wrapS, s8 wrapT, u8 -, u8 mip, s16 lodBias, ...}
 //	[2]  positions  s16[3]
 //	[3]  normals    f32[3]
-//	[6]  texcoords  f32[2]
+//	[6]  texcoords  f32[2]                              [7]  texcoords1 f32[2]
 //	[10] materials  40 B: {u8 flags, u8, u8, u8 rgba[4]@3, ..., s8 samplerIdx@9,
 //	                       ..., s16 stageBlock@0x1a → section 13 when present}
-//	[11] meshes     24 B: {u16 -, u16 dlSize (32-byte units), u32 -, u16 attrMask,
-//	                       u16 -, u32 dlOff (relative to this section), u32 -, u32 -}
+//	[11] meshes     24 B: {u16 -, u16 dlSize (32-byte units), u32 attrMask,
+//	                       u16 -, u8, u8 nbt, u32 dlOff (section-rel), u32 -, u32 -}
+//
+// The attribute mask (the per-mesh setup at 0x8001D5B8 reads the u32 at +4)
+// is literally 1<<GXAttr: 0x200 POS, 0x400 NRM, 0x800 CLR0, 0x2000 TEX0,
+// 0x4000 TEX1, 0x8000 TEX2, 0x10000 TEX3 — each present attribute is one u16
+// index per vertex, in attribute order. The byte at +11 switches the normal
+// to NBT3 (GXSetVtxAttrFmt cnt=2): THREE indices — normal, binormal,
+// tangent — into the same normals array. On this disc the vocabulary is
+// 0x200, 0x600, 0x2200, 0x2600 and 0x6600; no colours, and only the six
+// two-stage room files use TEX1/NBT.
 //	[12] graph     140 B: {s16 parent, child, next, prev; u16 flags@0x08;
 //	                       f32 scale[3]@0x0c, rot°[3]@0x18, trans[3]@0x24;
 //	                       f32 bboxMin[3]@0x30, bboxMax[3]@0x3c, radius@0x48;
@@ -22,10 +31,7 @@ package lm
 //	     the part list is partCount pairs of {u16 material, u16 mesh}
 //
 // A mesh display list is a raw GX stream of indexed primitives — no matrix
-// bytes; the node's composed TRS places everything. Each vertex is u16
-// indices: position, then normal and/or texcoord as the attribute mask says
-// (0x100 with three indices per vertex on textured meshes; two-index meshes
-// carry position + normal).
+// bytes; the node's composed TRS places everything.
 
 import (
 	"encoding/binary"
@@ -55,7 +61,8 @@ type BinMaterial struct {
 
 // BinMesh is one indexed display list.
 type BinMesh struct {
-	AttrMask uint16
+	AttrMask uint32 // 1<<GXAttr bits
+	NBT      bool   // normal index is an NBT3 triple
 	DL       []byte
 }
 
@@ -73,9 +80,10 @@ type BinNode struct {
 // Bin is a parsed .bin model.
 type Bin struct {
 	Name      string
-	Positions [][3]float32
-	Normals   [][3]float32
-	Texcoords [][2]float32
+	Positions  [][3]float32
+	Normals    [][3]float32
+	Texcoords  [][2]float32
+	Texcoords1 [][2]float32
 	Textures  []BinTexture
 	Samplers  []BinSampler
 	Materials []BinMaterial
@@ -159,6 +167,11 @@ func ParseBin(b []byte) (*Bin, error) {
 			m.Texcoords = append(m.Texcoords, [2]float32{f32(o), f32(o + 4)})
 		}
 	}
+	if t := offs[7]; t != 0 {
+		for o := t; o+8 <= end(7); o += 8 {
+			m.Texcoords1 = append(m.Texcoords1, [2]float32{f32(o), f32(o + 4)})
+		}
+	}
 	if mt := offs[10]; mt != 0 {
 		for o := mt; o+40 <= end(10); o += 40 {
 			m.Materials = append(m.Materials, BinMaterial{
@@ -185,7 +198,7 @@ func ParseBin(b []byte) (*Bin, error) {
 			if dlOff+size > uint32(len(b)) {
 				break
 			}
-			m.Meshes = append(m.Meshes, BinMesh{AttrMask: uint16(u16(o + 8)), DL: b[dlOff : dlOff+size]})
+			m.Meshes = append(m.Meshes, BinMesh{AttrMask: u32(o + 4), NBT: b[o+11] != 0, DL: b[dlOff : dlOff+size]})
 		}
 	}
 	if g := offs[12]; g != 0 {
@@ -236,27 +249,24 @@ func gxFmtIndex(gx uint8) uint8 {
 	return gx // CI formats keep their index; the decoder will refuse politely
 }
 
-// ParseBinDL decodes a mesh's display list. Three-index vertices are
-// position, normal, texcoord; two-index are position, normal. The attribute
-// mask picks the width; when a stream refuses to parse at that width the
-// other widths are tried, with position indices validated against the array.
+// ParseBinDL decodes a mesh's display list. The attribute mask says exactly
+// which indices each vertex carries, in GX attribute order: POS (0x200),
+// NRM (0x400, three indices when the mesh's NBT flag is set), TEX0 (0x2000),
+// TEX1 (0x4000). Each is a u16.
 func (m *Bin) ParseBinDL(mesh *BinMesh) ([]DLPrimitive, error) {
-	first := 2
-	if mesh.AttrMask&0x100 != 0 {
-		first = 3
-	}
-	var lastErr error
-	for _, nidx := range []int{first, 5 - first, 4, 1} {
-		prims, err := m.parseBinDLWidth(mesh.DL, nidx)
-		if err == nil {
-			return prims, nil
+	nidx := 0
+	for _, bit := range []uint32{0x200, 0x400, 0x800, 0x1000, 0x2000, 0x4000, 0x8000, 0x10000} {
+		if mesh.AttrMask&bit != 0 {
+			nidx++
 		}
-		lastErr = err
 	}
-	return nil, lastErr
-}
-
-func (m *Bin) parseBinDLWidth(dl []byte, nidx int) ([]DLPrimitive, error) {
+	if mesh.NBT && mesh.AttrMask&0x400 != 0 {
+		nidx += 2 // binormal + tangent indices follow the normal's
+	}
+	if mesh.AttrMask&0x200 == 0 {
+		return nil, fmt.Errorf("lm: bin mesh without a position attribute (mask %#x)", mesh.AttrMask)
+	}
+	dl := mesh.DL
 	var prims []DLPrimitive
 	i := 0
 	for i < len(dl) {
@@ -267,29 +277,37 @@ func (m *Bin) parseBinDLWidth(dl []byte, nidx int) ([]DLPrimitive, error) {
 		}
 		kind := op & 0xF8
 		if kind < 0x80 || kind > 0xB8 {
-			return nil, fmt.Errorf("lm: bin display-list opcode %#x at %d (width %d)", op, i, nidx)
+			return nil, fmt.Errorf("lm: bin display-list opcode %#x at %d (mask %#x)", op, i, mesh.AttrMask)
 		}
 		count := int(binary.BigEndian.Uint16(dl[i+1:]))
 		i += 3
 		if i+count*2*nidx > len(dl) {
-			return nil, fmt.Errorf("lm: bin display list truncated (width %d)", nidx)
+			return nil, fmt.Errorf("lm: bin display list truncated (mask %#x)", mesh.AttrMask)
 		}
 		p := DLPrimitive{Kind: kind}
 		for v := 0; v < count; v++ {
 			var vx DLVertex
 			vx.Pos = binary.BigEndian.Uint16(dl[i:])
 			if int(vx.Pos) >= len(m.Positions) {
-				return nil, fmt.Errorf("lm: bin position index %d out of range (width %d)", vx.Pos, nidx)
+				return nil, fmt.Errorf("lm: bin position index %d out of range (mask %#x)", vx.Pos, mesh.AttrMask)
 			}
-			if nidx >= 2 {
+			i += 2
+			if mesh.AttrMask&0x400 != 0 {
 				vx.HasNrm = true
-				vx.Nrm = binary.BigEndian.Uint16(dl[i+2:])
+				vx.Nrm = binary.BigEndian.Uint16(dl[i:])
+				i += 2
+				if mesh.NBT {
+					i += 4 // binormal and tangent indices, unused by the export
+				}
 			}
-			if nidx >= 3 {
+			if mesh.AttrMask&0x2000 != 0 {
 				vx.HasTex = true
-				vx.Tex = binary.BigEndian.Uint16(dl[i+4:])
+				vx.Tex = binary.BigEndian.Uint16(dl[i:])
+				i += 2
 			}
-			i += 2 * nidx
+			if mesh.AttrMask&0x4000 != 0 {
+				i += 2 // TEX1 index, unused by the export
+			}
 			p.Verts = append(p.Verts, vx)
 		}
 		prims = append(prims, p)

@@ -349,9 +349,9 @@ offsets at `+0x0C`** patched into pointers at load:
 [1]  samplers  20 B {s16 texIdx, s16 palette, s8 wrapS, s8 wrapT, ..., u8 mip, s16 lod}
                      (wrap: 0 clamp, 1 repeat, 2 MIRROR — the foyer's floor medallion is
                      one quadrant mirrored both ways)
-[2]  positions s16[3]        [3] normals f32[3]        [6] texcoords f32[2]
+[2]  positions s16[3]   [3] normals f32[3]   [6] texcoords f32[2]   [7] texcoords1 f32[2]
 [10] materials 40 B {…, u8 rgba[4]@3, s8 samplerIdx@9, …, s16 stageBlock@0x1a → [13]}
-[11] meshes    24 B {u16, u16 dlSize/32, u32, u16 attrMask, u16, u32 dlOff (section-rel)}
+[11] meshes    24 B {u16, u16 dlSize/32, u32 attrMask, u16, u8, u8 nbt, u32 dlOff (section-rel)}
 [12] graph    140 B {s16 parent,child,next,prev; u16 FLAGS@8 (0x80 = …); f32 scale/rot°/
                      trans @0xc/0x18/0x24; bbox+radius@0x30; u16 pairCount@0x4c; u32
                      pairs@0x50 — the pair count is @0x4c ONLY; reading @8 as a second
@@ -364,16 +364,30 @@ stores **indexed strips over s16 positions** — no matrix bytes at all; the gra
 composed TRS (rotation from *degrees*, through the same 65536-per-turn sine table) places
 each part, and the part list is `{u16 material, u16 mesh}` pairs in two runs (the renderer's
 opaque and translucent passes). A mesh's display list lives inside the mesh section; its
-vertices are two u16 indices (position, normal) or three (…, texcoord) as the `0x100`
-attribute-mask bit says. `lmtool -bin "/Iwamoto/map2/room_02.arc:room.bin"` exports a room;
-the foyer comes out with its staircase, webbed double door and panelled walls, and the
-Studio's "The mansion" section carries the first rooms and furniture.
+vertex layout comes from the mesh's **attribute mask, the u32 at +4** — the per-mesh setup at
+`0x8001D5B8` reads it as literal `1<<GXAttr` bits: `0x200` POS, `0x400` NRM, `0x800` CLR0,
+`0x2000` TEX0, `0x4000` TEX1 — one u16 index per present attribute, in attribute order. The
+byte at +11 switches the normal to NBT3 (`GXSetVtxAttrFmt` cnt=2): *three* indices (normal,
+binormal, tangent) into the normals array. A survey of all 572 `.bin` files on the disc finds
+exactly five masks — 0x200, 0x600, 0x2200 (position+texcoord, *no* normal — 183 meshes an
+earlier u16@+8 heuristic misread as position+normal), 0x2600, and 0x6600 with NBT in the six
+two-stage room files (63/65/66/67, `b1_c_67`, `gyara_00`) — no vertex colours anywhere, and
+no CI-format textures either, so neither needs an export path. The u16 at +8 the first decode
+used is *not* the attribute word. Positions can also be f32 (an object flag at +0x48 bit 1
+selects stride 12 over 6 in `0x8001D4C0`); every file on this disc uses s16.
+`lmtool -bin "/Iwamoto/map2/room_02.arc:room.bin"` exports a room; the foyer comes out with
+its staircase, webbed double door and panelled walls, and the Studio's "The mansion" section
+carries the first rooms and furniture. Untextured materials (the foyer's banister cloth,
+material 25 on the mask-0x600 mesh) are genuinely stage-less in the game too — white cloth
+shaded by GX lighting — so the exporter leaves them lit rather than unlit. Acceptance:
+the export from the game's own foyer camera (medallion → rosette arch, `foyer.state`)
+matches the game frame surface for surface; the differences are the game's darkness-and-
+flashlight lighting, the door leaf (a separate asset), and the furniture (separate bins).
 
-Still open in this format: the palette (CI-format) textures the decoder skips, the untextured
-materials some rooms show (multi-stage/palette paths), vertex colours and the second UV set,
-the `[13]/[14]` material-stage sections richer furniture uses, the `.anm` vertex animations,
-and the sweep of all 74 rooms once those are in — see `PLAN.md` for the assembled-mansion
-roadmap. (A caution from this section's own history: the sampler records were first read at
+Still open in this format: the `[13]/[14]` material-stage sections richer furniture uses
+(and TEX1 lightmap blending for the six two-stage rooms), the `.anm` vertex animations, and
+the sweep of all 74 rooms — see `PLAN.md` for the assembled-mansion roadmap.
+`extract/cmd/binsurvey` re-runs the disc-wide survey. (A caution from this section's own history: the sampler records were first read at
 stride 12, which textured the foyer's walls with window frames; the true stride, 20, was
 recovered by noticing the texture-index fields landing at byte offsets 0, 20, 40, … in the
 raw section. Two more decode bugs survived that fix and were caught the same way — by the
