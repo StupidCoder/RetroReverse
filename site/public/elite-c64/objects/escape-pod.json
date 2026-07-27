@@ -1,0 +1,17 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "wireframe3d",
+ "name": "Escape pod",
+ "wireframe": {
+  "positions": [-7, 0, 36, -7, -14, -12, -7, 14, -12, 21, 0, 0],
+  "edges": [[0, 1, 2, 3], [1, 2, 0, 3], [2, 3, 0, 1], [3, 0, 1, 2], [0, 2, 1, 3], [3, 1, 0, 2]],
+  "faces": [[52, 0, -122], [39, 103, 30], [39, -103, 30], [-112, 0, 0]],
+  "faceCenters": [[2, 0, -8], [2, 5, 8], [2, -5, 8], [-7, 0, 4]]
+ },
+ "props": {
+  "radius": 36.6742416417845,
+  "source": "XX21 blueprint table; drawn with the game's own face-visibility rule",
+  "type": "0x03"
+ }
+}

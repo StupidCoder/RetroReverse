@@ -16,12 +16,12 @@
 package main
 
 import (
-	"encoding/binary"
-	"fmt"
 	"os"
-	"os/exec"
 	"path/filepath"
 
+	"retroreverse.com/tools/lib/retrox/audio"
+	"retroreverse.com/tools/lib/retrox/cli"
+	"retroreverse.com/tools/lib/retrox/schema"
 	"retroreverse.com/tools/platform/c64/sid"
 )
 
@@ -191,32 +191,11 @@ func (p *player) tick() {
 	p.perFrame()
 }
 
-func writeWAV(path string, pcm []int16) error {
-	f, err := os.Create(path)
+func exportDockingMusic(ctx *cli.Context) error {
+	mem, err := os.ReadFile(filepath.Join(ctx.In, "memory_final.bin"))
 	if err != nil {
 		return err
 	}
-	defer f.Close()
-	dl := len(pcm) * 2
-	wr := func(v interface{}) { binary.Write(f, binary.LittleEndian, v) }
-	f.Write([]byte("RIFF"))
-	wr(uint32(36 + dl))
-	f.Write([]byte("WAVEfmt "))
-	wr(uint32(16))
-	wr(uint16(1))
-	wr(uint16(1))
-	wr(uint32(srate))
-	wr(uint32(srate * 2))
-	wr(uint16(2))
-	wr(uint16(16))
-	f.Write([]byte("data"))
-	wr(uint32(dl))
-	return binary.Write(f, binary.LittleEndian, pcm)
-}
-
-func exportMusic(inDir, outDir string) []AssetIndex {
-	mem, err := os.ReadFile(filepath.Join(inDir, "memory_final.bin"))
-	chk(err)
 
 	p := &player{
 		mem:  mem,
@@ -242,9 +221,6 @@ func exportMusic(inDir, outDir string) []AssetIndex {
 			pcm = append(pcm, p.chip.Sample())
 		}
 	}
-	secs := float64(len(pcm)) / srate
-	fmt.Fprintf(os.Stderr, "[music] rendered %d frames -> %d samples (%.1fs), loop=%v\n",
-		frames, len(pcm), secs, p.done)
 
 	// peak-normalise to a comfortable level (the raw mix sits low because of envelopes/rests)
 	var peak int16
@@ -263,18 +239,20 @@ func exportMusic(inDir, outDir string) []AssetIndex {
 		}
 	}
 
-	musicDir := filepath.Join(outDir, "music")
-	chk(os.MkdirAll(musicDir, 0o755))
-	out := filepath.Join(musicDir, "docking.mp3")
-	wav := out[:len(out)-len(filepath.Ext(out))] + ".wav"
-	chk(writeWAV(wav, pcm))
-	c := exec.Command("ffmpeg", "-y", "-loglevel", "error", "-i", wav,
-		"-c:a", "libmp3lame", "-b:a", "96k", "-ac", "1", out)
-	if err := c.Run(); err != nil {
-		fmt.Fprintf(os.Stderr, "[music] ffmpeg: %v (left WAV at %s)\n", err, wav)
-		chk(err)
+	out, err := ctx.Builder.Path("music", "docking.mp3")
+	if err != nil {
+		return err
 	}
-	os.Remove(wav)
-	fmt.Fprintf(os.Stderr, "[music] docking.mp3\n")
-	return []AssetIndex{{Name: "Docking (The Blue Danube)", File: "music/docking.mp3"}}
+	wave := audio.PCM16{Rate: int(srate), Channels: 1, Samples: pcm}
+	if err := audio.EncodeMP3(wave, out); err != nil {
+		return err
+	}
+	ctx.Builder.AddMedia(schema.Asset{
+		ID: "docking", Category: schema.CategoryMusic,
+		Name:     "Docking (The Blue Danube)",
+		File:     "music/docking.mp3",
+		Duration: wave.Duration(),
+	})
+	ctx.Progress("music", 1, 1, "docking.mp3 (one pass of the $C034 stream)")
+	return nil
 }

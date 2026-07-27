@@ -1,0 +1,4 @@
+{
+ "docking": "The docking-computer music — Strauss's Blue Danube, as the game plays it. Rendered from the command stream at $C034: 4-bit opcodes set SID notes, ADSR, pulse widths and filter, voices 2 and 3 chorus by alternating a +$20-detuned copy of their pitch, and the gates release two frames before each step ends. One pass of the stream, stopped at its loop opcode (Elite.md Part VI).",
+ "loading": "The tape loading picture: a standard VIC multicolor bitmap that is never resident in one piece — the 8000-byte bitmap, the video matrix and the colour RAM travel in three separate tape segments and only meet on screen. Reassembled here from the extracted segments with the loader's white background ($D021 set at $CE60)."
+}

@@ -1,0 +1,6 @@
+{
+ "title": "Elite",
+ "platform": "Commodore 64",
+ "year": 1985,
+ "description": "The space trading and combat classic, reverse-engineered from its C64 tape image. The ships below are the game's own XX21 wireframe blueprints, drawn with its own hidden-surface rule — every face carries an outward normal, and an edge shows only while one of its two faces points at the eye. The docking waltz (The Blue Danube) is synthesised from the nibble-packed music bytecode at $C034 through our reimplementation of the game's $BDDC sequencer and a MOS 6581 SID model; the loading picture is assembled from the three tape segments that carry its bitmap, video matrix and colour RAM."
+}
