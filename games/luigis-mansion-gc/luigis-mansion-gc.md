@@ -429,7 +429,11 @@ and `placements.json` mapping each room to its furniture instances. 451 unique f
 GLBs, 632 resolved placements (one orphan: `syan45`, a chandelier whose member was cut
 from `room_45.arc`). The Studio's `lm-room` renderer assembles a room the same way the
 game does: shell GLB + placement instances, each under a holder with the record's
-TRS (rotation ZYX, degrees).
+TRS (rotation ZYX, degrees). Rooms are levels, not objects: the camera flies
+(the shared FlyCam — WASD/arrows, virtual sticks on touch), and the furniture keeps
+the game's interaction — in the game the vacuum yanks furniture open, so clicking a
+piece plays its .anm clip and freezes on the last frame; clicking again plays it
+backwards, closing the drawers up.
 
 ## Part XI — .anm: the furniture moves
 
