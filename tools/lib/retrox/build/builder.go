@@ -248,11 +248,11 @@ func (b *Builder) writeJSON(rel string, v any) error {
 	if err != nil {
 		return err
 	}
-	data, err := json.MarshalIndent(v, "", " ")
+	data, err := marshalPretty(v)
 	if err != nil {
 		return fmt.Errorf("%s: %w", rel, err)
 	}
-	return os.WriteFile(p, append(data, '\n'), 0o644)
+	return os.WriteFile(p, data, 0o644)
 }
 
 // updateIndex maintains <parent>/index.json: adds this game if absent, keeps
@@ -278,9 +278,9 @@ func (b *Builder) updateIndex() error {
 	}
 	sort.Strings(idx.Games)
 	idx.Header = schema.NewHeader()
-	data, err := json.MarshalIndent(&idx, "", " ")
+	data, err := marshalPretty(&idx)
 	if err != nil {
 		return err
 	}
-	return os.WriteFile(idxPath, append(data, '\n'), 0o644)
+	return os.WriteFile(idxPath, data, 0o644)
 }

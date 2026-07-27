@@ -13,10 +13,7 @@
    "id": "main",
    "loop": "loop",
    "frames": 2,
-   "durations": [
-    9,
-    9
-   ]
+   "durations": [9, 9]
   }
  ],
  "props": {

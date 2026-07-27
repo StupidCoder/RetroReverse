@@ -1,7 +1,5 @@
 {
  "format": "retro-x",
  "version": 1,
- "games": [
-  "sonic-gg"
- ]
+ "games": ["sonic-gg"]
 }
