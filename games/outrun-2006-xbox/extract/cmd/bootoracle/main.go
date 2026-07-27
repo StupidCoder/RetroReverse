@@ -21,6 +21,7 @@ package main
 
 import (
 	"crypto/md5"
+	"math"
 	"flag"
 	"fmt"
 	"os"
@@ -145,6 +146,19 @@ func parseKeys(spec string) ([]keyPress, error) {
 	return sched, nil
 }
 
+// parseRange reads "LO:HI", both hex.
+func parseRange(s string) (lo, hi uint32, err error) {
+	parts := strings.SplitN(s, ":", 2)
+	if len(parts) != 2 {
+		return 0, 0, fmt.Errorf("want LO:HI")
+	}
+	if lo, err = parseHex(parts[0]); err != nil {
+		return 0, 0, err
+	}
+	hi, err = parseHex(parts[1])
+	return lo, hi, err
+}
+
 // parsePoke reads "ADDR:VALUE", both hex.
 func parsePoke(s string) (addr, val uint32, err error) {
 	parts := strings.SplitN(s, ":", 2)
@@ -214,6 +228,7 @@ func main() {
 	stopflip := flag.Int("stopflip", 0, "stop the run at the Nth FLIP_STALL — the hook fires while the completed frame is still the bound colour surface, so -surfpng captures a whole presented frame instead of a mid-frame slice")
 	ramhash := flag.Bool("ramhash", false, "after the run, print an md5 of guest RAM + the CPU position (divergence comparator)")
 	flipshots := flag.String("flipshots", "", "write flip-aligned frames: START:STEP:COUNT[:PREFIX] -> PREFIX-fN.png at those flips, then stop")
+	carvtx := flag.String("carvtx", "", "LO:HI (hex): print each distinct vertex declaration whose attribute-0 array lies in [LO,HI)")
 	cpuprofile := flag.String("cpuprofile", "", "write a host pprof CPU profile of the run to this file")
 	profile := flag.Bool("profile", false, "report where the last presented frame's time goes, by NV2A subsystem (the companion to -cpuprofile: the machine's own per-bucket timing)")
 	var bps multiFlag
@@ -368,6 +383,63 @@ func main() {
 
 	if *trace {
 		m.SetTrace(*tracen) // print the first -tracen executed instructions (PC trail)
+	}
+
+	// -carvtx LO:HI — a vertex-format census over one range of RAM. The NV2A method
+	// stream itself carries the whole vertex declaration (SET_VERTEX_DATA_ARRAY_OFFSET /
+	// _FORMAT per attribute, then SET_BEGIN_END); this probe shadows those methods and,
+	// at each BEGIN whose attribute-0 array points into [LO,HI), prints the full 16-slot
+	// declaration once per distinct signature. It reads nothing back from the machine —
+	// the declaration is reconstructed from the same words the GPU consumed.
+	if *carvtx != "" {
+		lo, hi, err := parseRange(*carvtx)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "bootoracle: bad -carvtx %q: %v\n", *carvtx, err)
+			os.Exit(2)
+		}
+		var attrOff, attrFmt, factors [16]uint32
+		var vshConst [192][4]uint32
+		constLoad := uint32(0)
+		seen := map[string]bool{}
+		prevNV := m.OnNVMethod
+		m.OnNVMethod = func(mm *xbox.Machine, subchan, method, arg uint32) {
+			if prevNV != nil {
+				prevNV(mm, subchan, method, arg)
+			}
+			switch {
+			case method >= 0x1720 && method < 0x1760:
+				attrOff[(method-0x1720)/4] = arg
+			case method >= 0x1760 && method < 0x17A0:
+				attrFmt[(method-0x1760)/4] = arg
+			case method >= 0x0A60 && method < 0x0AA0:
+				factors[(method-0x0A60)/4] = arg
+			case method == 0x1EA4:
+				constLoad = arg
+			case method >= 0x0B80 && method < 0x0C00:
+				slot := constLoad % 192
+				vshConst[slot][(method-0x0B80)/4%4] = arg
+				if (method-0x0B80)/4%4 == 3 {
+					constLoad++
+				}
+			case method == 0x17FC && arg != 0:
+				off0 := attrOff[0] &^ 0x80000000
+				if off0 < lo || off0 >= hi {
+					return
+				}
+				if len(seen) > 600 {
+					return
+				}
+				seen[fmt.Sprintf("%d", len(seen))] = true
+				row := func(c int) string {
+					v := vshConst[c]
+					return fmt.Sprintf("%g %g %g %g",
+						math.Float32frombits(v[0]), math.Float32frombits(v[1]),
+						math.Float32frombits(v[2]), math.Float32frombits(v[3]))
+				}
+				fmt.Printf("carvtx: DRAW attr0=%08X fmt0=%08X | %s | %s | %s | %s\n",
+					attrOff[0], attrFmt[0], row(160), row(161), row(162), row(163))
+			}
+		}
 	}
 
 	if *stopflip > 0 {
