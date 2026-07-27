@@ -1,0 +1,10 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "model3d",
+ "name": "GTO",
+ "model": "rc-gto.glb",
+ "props": {
+  "source": "/Cars/obj_rc_gto_pmt.sz"
+ }
+}

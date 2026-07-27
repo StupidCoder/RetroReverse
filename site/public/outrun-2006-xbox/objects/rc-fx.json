@@ -1,0 +1,10 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "model3d",
+ "name": "FX",
+ "model": "rc-fx.glb",
+ "props": {
+  "source": "/Cars/obj_rc_fx_pmt.sz"
+ }
+}

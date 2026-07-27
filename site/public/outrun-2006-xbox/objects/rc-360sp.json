@@ -1,0 +1,10 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "model3d",
+ "name": "360SP",
+ "model": "rc-360sp.glb",
+ "props": {
+  "source": "/Cars/obj_rc_360sp_pmt.sz"
+ }
+}

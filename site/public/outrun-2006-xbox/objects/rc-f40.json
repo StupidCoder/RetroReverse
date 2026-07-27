@@ -1,0 +1,10 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "model3d",
+ "name": "F40",
+ "model": "rc-f40.glb",
+ "props": {
+  "source": "/Cars/obj_rc_f40_pmt.sz"
+ }
+}

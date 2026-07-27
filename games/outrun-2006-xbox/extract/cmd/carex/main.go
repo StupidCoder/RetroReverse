@@ -39,7 +39,6 @@ import (
 	"bytes"
 	"compress/zlib"
 	"encoding/binary"
-	"encoding/json"
 	"flag"
 	"fmt"
 	"image"
@@ -52,11 +51,14 @@ import (
 	"strings"
 
 	"retroreverse.com/tools/lib/glb"
+	"retroreverse.com/tools/lib/retrox/build"
+	"retroreverse.com/tools/lib/retrox/curation"
+	"retroreverse.com/tools/lib/retrox/schema"
 	"retroreverse.com/tools/platform/xbox"
 )
 
-func u32(b []byte, off int) uint32 { return binary.LittleEndian.Uint32(b[off:]) }
-func u16(b []byte, off int) uint16 { return binary.LittleEndian.Uint16(b[off:]) }
+func u32(b []byte, off int) uint32  { return binary.LittleEndian.Uint32(b[off:]) }
+func u16(b []byte, off int) uint16  { return binary.LittleEndian.Uint16(b[off:]) }
 func f32(b []byte, off int) float32 { return math.Float32frombits(u32(b, off)) }
 
 // pmt is one inflated *_pmt payload split into its two sections.
@@ -86,13 +88,13 @@ func parsePMT(name string, data []byte) (*pmt, error) {
 
 // texInfo is one decoded XPR0 texture bank entry.
 type texInfo struct {
-	dataOff       uint32
-	format        uint32
-	w, h          int
-	mips          int
-	fmtByte       int
-	cube          bool
-	img           image.Image // nil if the format is not decoded
+	dataOff uint32
+	format  uint32
+	w, h    int
+	mips    int
+	fmtByte int
+	cube    bool
+	img     image.Image // nil if the format is not decoded
 }
 
 // parseTextures locates the XPR0 bank header in section A and decodes level 0
@@ -252,12 +254,12 @@ type bufPair struct {
 }
 
 type batch struct {
-	prim     uint32 // D3D8 primitive type; 6 = TRIANGLESTRIP
-	first    uint32 // first index, relative to the pair's index slice
-	prims    uint32 // primitive count
-	baseVtx  uint32
-	matIdx   uint32 // into the part's 0x58 material array
-	pair     int
+	prim    uint32 // D3D8 primitive type; 6 = TRIANGLESTRIP
+	first   uint32 // first index, relative to the pair's index slice
+	prims   uint32 // primitive count
+	baseVtx uint32
+	matIdx  uint32 // into the part's 0x58 material array
+	pair    int
 }
 
 type material struct {
@@ -475,7 +477,7 @@ func export(p *pmt, texs []texInfo, outPath string) (string, error) {
 	pose := poses[p.name]
 	var positions [][3]float32
 	var uvs [][2]float32
-	texTris := map[int][][3]uint32{}   // texture index -> triangles
+	texTris := map[int][][3]uint32{}      // texture index -> triangles
 	colorTris := map[[3]int][][3]uint32{} // quantised colour -> triangles
 
 	totalTris := 0
@@ -647,34 +649,28 @@ func exportSite(imagePath, siteDir string) {
 		fatal("open image: %v", err)
 	}
 	defer disc.Close()
-	modelsDir := filepath.Join(siteDir, "models")
-	if err := os.MkdirAll(modelsDir, 0o755); err != nil {
-		fatal("%v", err)
-	}
-
-	type model struct {
-		Name    string `json:"name"`
-		Section string `json:"section"`
-		Kind    string `json:"kind"`
-		File    string `json:"file"`
-	}
-	type manifest struct {
-		Format   int            `json:"format"`
-		Game     string         `json:"game"`
-		Platform string         `json:"platform"`
-		Native   map[string]int `json:"native"`
-		TickHz   int            `json:"tickHz"`
-		Models   []model        `json:"models"`
+	// Retro-X: the curated roster becomes model3d object assets under a
+	// builder-written tree (validated on Write).
+	b := build.New(siteDir, "outrun-2006-xbox")
+	b.SetTitle("OutRun 2006: Coast 2 Coast")
+	b.SetPlatform("Original Xbox")
+	b.SetYear(2006)
+	b.SetDisplay(schema.Display{
+		Native: schema.Size{W: 640, H: 480},
+		TickHz: 60,
+		// The NV2A filters textures bilinearly.
+		TexFilter: "linear",
+	})
+	if cur, err := curation.Load("curation"); err == nil {
+		if err := b.ApplyCuration(cur); err != nil {
+			fatal("curation: %v", err)
+		}
 	}
 
 	// Model codes are the disc's own file names; the labels just uppercase them.
 	rivals := []string{
 		"250gto", "328gts", "360sp", "512bb", "550b", "575sa",
 		"dayts", "dino", "f355sp", "f40", "f430", "f50", "fx", "gto", "testa",
-	}
-	m := manifest{
-		Format: 2, Game: "outrun-2006-xbox", Platform: "Original Xbox",
-		Native: map[string]int{"w": 640, "h": 480}, TickHz: 60,
 	}
 
 	doOne := func(discPath, outName, name, section string) {
@@ -699,13 +695,18 @@ func exportSite(imagePath, siteDir string) {
 		if err != nil {
 			fatal("%s: %v", discPath, err)
 		}
-		out := filepath.Join(modelsDir, outName)
+		out, err := b.Path("objects", outName)
+		if err != nil {
+			fatal("%v", err)
+		}
 		summary, err := export(p, texs, out)
 		if err != nil {
 			fatal("%s: %v", discPath, err)
 		}
-		m.Models = append(m.Models, model{
-			Name: name, Section: section, Kind: "mesh3d", File: "models/" + outName,
+		id := strings.TrimSuffix(outName, ".glb")
+		b.AddObject(schema.Asset{ID: id, Name: name, Group: section}, &schema.Object{
+			Type: schema.ObjectModel3D, Name: name, Model: outName,
+			Props: map[string]any{"source": discPath},
 		})
 		fmt.Printf("%-34s -> %s (%s)\n", discPath, out, summary)
 	}
@@ -716,14 +717,12 @@ func exportSite(imagePath, siteDir string) {
 			strings.ToUpper(code), "Rivals (AI)")
 	}
 
-	buf, err := json.MarshalIndent(m, "", "  ")
-	if err != nil {
+	if err := b.Write(); err != nil {
 		fatal("%v", err)
 	}
-	if err := os.WriteFile(filepath.Join(siteDir, "manifest.json"), append(buf, '\n'), 0o644); err != nil {
-		fatal("%v", err)
+	for _, w := range b.Warnings {
+		fmt.Fprintln(os.Stderr, "warning:", w)
 	}
-	fmt.Printf("[manifest] %d models -> %s\n", len(m.Models), filepath.Join(siteDir, "manifest.json"))
 }
 
 func writePNG(path string, img image.Image) {

@@ -1,0 +1,10 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "model3d",
+ "name": "DINO",
+ "model": "rc-dino.glb",
+ "props": {
+  "source": "/Cars/obj_rc_dino_pmt.sz"
+ }
+}

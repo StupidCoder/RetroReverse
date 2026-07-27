@@ -1,0 +1,10 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "model3d",
+ "name": "DAYTS",
+ "model": "rc-dayts.glb",
+ "props": {
+  "source": "/Cars/obj_rc_dayts_pmt.sz"
+ }
+}

@@ -1,0 +1,10 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "model3d",
+ "name": "512BB",
+ "model": "rc-512bb.glb",
+ "props": {
+  "source": "/Cars/obj_rc_512bb_pmt.sz"
+ }
+}

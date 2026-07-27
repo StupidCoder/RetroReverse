@@ -1,0 +1,10 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "model3d",
+ "name": "575SA",
+ "model": "rc-575sa.glb",
+ "props": {
+  "source": "/Cars/obj_rc_575sa_pmt.sz"
+ }
+}

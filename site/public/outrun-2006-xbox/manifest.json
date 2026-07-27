@@ -1,108 +1,131 @@
 {
-  "format": 2,
-  "game": "outrun-2006-xbox",
-  "platform": "Original Xbox",
+ "format": "retro-x",
+ "version": 1,
+ "id": "outrun-2006-xbox",
+ "title": "OutRun 2006: Coast 2 Coast",
+ "platform": "Original Xbox",
+ "year": 2006,
+ "description": "Sumo Digital's OutRun2 port for the original Xbox — the game our Xbox oracle drives from cold boot into the race. So far the Studio carries the /Cars roster: the player's Dino 246 GTS and the fifteen AI rivals, each decompressed from its .sz container, decoded from the _pmt mesh format with its XPR0 textures, and rebuilt as a textured GLB.",
+ "display": {
   "native": {
-    "h": 480,
-    "w": 640
+   "w": 640,
+   "h": 480
   },
   "tickHz": 60,
-  "models": [
-    {
-      "name": "Dino 246 GTS (player)",
-      "section": "Player car",
-      "kind": "mesh3d",
-      "file": "models/plcar-dino.glb"
-    },
-    {
-      "name": "250GTO",
-      "section": "Rivals (AI)",
-      "kind": "mesh3d",
-      "file": "models/rc-250gto.glb"
-    },
-    {
-      "name": "328GTS",
-      "section": "Rivals (AI)",
-      "kind": "mesh3d",
-      "file": "models/rc-328gts.glb"
-    },
-    {
-      "name": "360SP",
-      "section": "Rivals (AI)",
-      "kind": "mesh3d",
-      "file": "models/rc-360sp.glb"
-    },
-    {
-      "name": "512BB",
-      "section": "Rivals (AI)",
-      "kind": "mesh3d",
-      "file": "models/rc-512bb.glb"
-    },
-    {
-      "name": "550B",
-      "section": "Rivals (AI)",
-      "kind": "mesh3d",
-      "file": "models/rc-550b.glb"
-    },
-    {
-      "name": "575SA",
-      "section": "Rivals (AI)",
-      "kind": "mesh3d",
-      "file": "models/rc-575sa.glb"
-    },
-    {
-      "name": "DAYTS",
-      "section": "Rivals (AI)",
-      "kind": "mesh3d",
-      "file": "models/rc-dayts.glb"
-    },
-    {
-      "name": "DINO",
-      "section": "Rivals (AI)",
-      "kind": "mesh3d",
-      "file": "models/rc-dino.glb"
-    },
-    {
-      "name": "F355SP",
-      "section": "Rivals (AI)",
-      "kind": "mesh3d",
-      "file": "models/rc-f355sp.glb"
-    },
-    {
-      "name": "F40",
-      "section": "Rivals (AI)",
-      "kind": "mesh3d",
-      "file": "models/rc-f40.glb"
-    },
-    {
-      "name": "F430",
-      "section": "Rivals (AI)",
-      "kind": "mesh3d",
-      "file": "models/rc-f430.glb"
-    },
-    {
-      "name": "F50",
-      "section": "Rivals (AI)",
-      "kind": "mesh3d",
-      "file": "models/rc-f50.glb"
-    },
-    {
-      "name": "FX",
-      "section": "Rivals (AI)",
-      "kind": "mesh3d",
-      "file": "models/rc-fx.glb"
-    },
-    {
-      "name": "GTO",
-      "section": "Rivals (AI)",
-      "kind": "mesh3d",
-      "file": "models/rc-gto.glb"
-    },
-    {
-      "name": "TESTA",
-      "section": "Rivals (AI)",
-      "kind": "mesh3d",
-      "file": "models/rc-testa.glb"
-    }
-  ]
+  "texFilter": "linear"
+ },
+ "assets": [
+  {
+   "id": "plcar-dino",
+   "category": "object",
+   "name": "Dino 246 GTS (player)",
+   "group": "Player car",
+   "file": "objects/plcar-dino.json"
+  },
+  {
+   "id": "rc-250gto",
+   "category": "object",
+   "name": "250GTO",
+   "group": "Rivals (AI)",
+   "file": "objects/rc-250gto.json"
+  },
+  {
+   "id": "rc-328gts",
+   "category": "object",
+   "name": "328GTS",
+   "group": "Rivals (AI)",
+   "file": "objects/rc-328gts.json"
+  },
+  {
+   "id": "rc-360sp",
+   "category": "object",
+   "name": "360SP",
+   "group": "Rivals (AI)",
+   "file": "objects/rc-360sp.json"
+  },
+  {
+   "id": "rc-512bb",
+   "category": "object",
+   "name": "512BB",
+   "group": "Rivals (AI)",
+   "file": "objects/rc-512bb.json"
+  },
+  {
+   "id": "rc-550b",
+   "category": "object",
+   "name": "550B",
+   "group": "Rivals (AI)",
+   "file": "objects/rc-550b.json"
+  },
+  {
+   "id": "rc-575sa",
+   "category": "object",
+   "name": "575SA",
+   "group": "Rivals (AI)",
+   "file": "objects/rc-575sa.json"
+  },
+  {
+   "id": "rc-dayts",
+   "category": "object",
+   "name": "DAYTS",
+   "group": "Rivals (AI)",
+   "file": "objects/rc-dayts.json"
+  },
+  {
+   "id": "rc-dino",
+   "category": "object",
+   "name": "DINO",
+   "group": "Rivals (AI)",
+   "file": "objects/rc-dino.json"
+  },
+  {
+   "id": "rc-f355sp",
+   "category": "object",
+   "name": "F355SP",
+   "group": "Rivals (AI)",
+   "file": "objects/rc-f355sp.json"
+  },
+  {
+   "id": "rc-f40",
+   "category": "object",
+   "name": "F40",
+   "group": "Rivals (AI)",
+   "file": "objects/rc-f40.json"
+  },
+  {
+   "id": "rc-f430",
+   "category": "object",
+   "name": "F430",
+   "group": "Rivals (AI)",
+   "file": "objects/rc-f430.json"
+  },
+  {
+   "id": "rc-f50",
+   "category": "object",
+   "name": "F50",
+   "group": "Rivals (AI)",
+   "file": "objects/rc-f50.json"
+  },
+  {
+   "id": "rc-fx",
+   "category": "object",
+   "name": "FX",
+   "group": "Rivals (AI)",
+   "file": "objects/rc-fx.json"
+  },
+  {
+   "id": "rc-gto",
+   "category": "object",
+   "name": "GTO",
+   "group": "Rivals (AI)",
+   "file": "objects/rc-gto.json"
+  },
+  {
+   "id": "rc-testa",
+   "category": "object",
+   "name": "TESTA",
+   "group": "Rivals (AI)",
+   "file": "objects/rc-testa.json"
+  }
+ ]
 }

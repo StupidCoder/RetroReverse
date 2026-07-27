@@ -1,0 +1,10 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "model3d",
+ "name": "Dino 246 GTS (player)",
+ "model": "plcar-dino.glb",
+ "props": {
+  "source": "/Cars/obj_plcar_dino_pmt.sz"
+ }
+}

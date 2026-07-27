@@ -1,0 +1,10 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "model3d",
+ "name": "F430",
+ "model": "rc-f430.glb",
+ "props": {
+  "source": "/Cars/obj_rc_f430_pmt.sz"
+ }
+}

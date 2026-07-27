@@ -1,0 +1,10 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "model3d",
+ "name": "550B",
+ "model": "rc-550b.glb",
+ "props": {
+  "source": "/Cars/obj_rc_550b_pmt.sz"
+ }
+}

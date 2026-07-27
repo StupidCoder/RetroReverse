@@ -1,0 +1,10 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "model3d",
+ "name": "328GTS",
+ "model": "rc-328gts.glb",
+ "props": {
+  "source": "/Cars/obj_rc_328gts_pmt.sz"
+ }
+}

@@ -1,0 +1,10 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "model3d",
+ "name": "F355SP",
+ "model": "rc-f355sp.glb",
+ "props": {
+  "source": "/Cars/obj_rc_f355sp_pmt.sz"
+ }
+}
