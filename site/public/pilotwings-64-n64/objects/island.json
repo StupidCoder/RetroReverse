@@ -1,0 +1,12 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "model3d",
+ "name": "Island (whole)",
+ "model": "island.glb",
+ "instanced": true,
+ "props": {
+  "ordinal": 40,
+  "uvmd": 47
+ }
+}

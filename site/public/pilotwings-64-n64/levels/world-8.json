@@ -1,0 +1,32 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "scene3d",
+ "camera": {
+  "mode": "fly",
+  "pos": [511.25, 251.25, 251.25000000000003],
+  "target": [277.5, 102.5, 17.5],
+  "fov": 60,
+  "near": 1,
+  "far": 2125,
+  "fly": {
+   "speed": 26
+  }
+ },
+ "variants": [
+  {
+   "id": "terrain",
+   "name": "Terrain only",
+   "default": true
+  }
+ ],
+ "scene": {
+  "layers": [
+   {
+    "id": "terrain",
+    "name": "Terrain",
+    "file": "world-8/terrain.glb"
+   }
+  ]
+ }
+}

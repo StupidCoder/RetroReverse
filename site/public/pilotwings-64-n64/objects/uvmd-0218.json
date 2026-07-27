@@ -1,0 +1,84 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "model3d",
+ "name": "Model 218",
+ "animations": [
+  {
+   "id": "clip-00",
+   "loop": "loop",
+   "description": "Rigid per-part rotation keys (UVAN). The game's exact playback rate is undecoded; 12 fps is this export's declared choice.",
+   "clip": "clip-00",
+   "fps": 12
+  },
+  {
+   "id": "clip-01",
+   "loop": "loop",
+   "description": "Rigid per-part rotation keys (UVAN). The game's exact playback rate is undecoded; 12 fps is this export's declared choice.",
+   "clip": "clip-01",
+   "fps": 12
+  },
+  {
+   "id": "clip-02",
+   "loop": "loop",
+   "description": "Rigid per-part rotation keys (UVAN). The game's exact playback rate is undecoded; 12 fps is this export's declared choice.",
+   "clip": "clip-02",
+   "fps": 12
+  },
+  {
+   "id": "clip-03",
+   "loop": "loop",
+   "description": "Rigid per-part rotation keys (UVAN). The game's exact playback rate is undecoded; 12 fps is this export's declared choice.",
+   "clip": "clip-03",
+   "fps": 12
+  },
+  {
+   "id": "clip-04",
+   "loop": "loop",
+   "description": "Rigid per-part rotation keys (UVAN). The game's exact playback rate is undecoded; 12 fps is this export's declared choice.",
+   "clip": "clip-04",
+   "fps": 12
+  },
+  {
+   "id": "clip-05",
+   "loop": "loop",
+   "description": "Rigid per-part rotation keys (UVAN). The game's exact playback rate is undecoded; 12 fps is this export's declared choice.",
+   "clip": "clip-05",
+   "fps": 12
+  },
+  {
+   "id": "clip-06",
+   "loop": "loop",
+   "description": "Rigid per-part rotation keys (UVAN). The game's exact playback rate is undecoded; 12 fps is this export's declared choice.",
+   "clip": "clip-06",
+   "fps": 12
+  },
+  {
+   "id": "clip-07",
+   "loop": "loop",
+   "description": "Rigid per-part rotation keys (UVAN). The game's exact playback rate is undecoded; 12 fps is this export's declared choice.",
+   "clip": "clip-07",
+   "fps": 12
+  },
+  {
+   "id": "clip-08",
+   "loop": "loop",
+   "description": "Rigid per-part rotation keys (UVAN). The game's exact playback rate is undecoded; 12 fps is this export's declared choice.",
+   "clip": "clip-08",
+   "fps": 12
+  },
+  {
+   "id": "clip-09",
+   "loop": "loop",
+   "description": "Rigid per-part rotation keys (UVAN). The game's exact playback rate is undecoded; 12 fps is this export's declared choice.",
+   "clip": "clip-09",
+   "fps": 12
+  }
+ ],
+ "model": "uvmd-0218.glb",
+ "instanced": true,
+ "props": {
+  "ordinal": 211,
+  "uvmd": 218
+ }
+}

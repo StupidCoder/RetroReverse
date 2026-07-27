@@ -1,0 +1,6 @@
+{
+ "title": "Pilotwings 64",
+ "platform": "Nintendo 64",
+ "year": 1996,
+ "description": "Paradigm Simulation's launch-day flight playground for the Nintendo 64 (1996): hang glider, gyrocopter and rocket belt over open islands — including Little States, a miniature USA. The cartridge is an IFF archive, and this export is decoded straight from it: every island terrain with its per-mission object sets (the engine dresses one island differently per scene through a 16-bit mask, here a variant picker), all 363 models with their rigid-part animations, and the 31 songs rendered through the game's own sequence and instrument banks."
+}

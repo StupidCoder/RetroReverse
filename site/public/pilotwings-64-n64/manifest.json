@@ -1,3376 +1,2853 @@
 {
-  "format": 2,
-  "game": "pilotwings-64-n64",
-  "models": [
-    {
-      "name": "Holiday Island",
-      "file": "worlds/world-0.glb",
-      "kind": "pw-world",
-      "section": "Holiday Island",
-      "waterFile": "worlds/world-0-water.glb"
-    },
-    {
-      "name": "Holiday Island · Set 1",
-      "file": "worlds/world-0.glb",
-      "kind": "pw-world",
-      "section": "Holiday Island",
-      "objectsFile": "worlds/world-0-set-01.objects.json",
-      "waterFile": "worlds/world-0-water.glb"
-    },
-    {
-      "name": "Holiday Island · Set 2",
-      "file": "worlds/world-0.glb",
-      "kind": "pw-world",
-      "section": "Holiday Island",
-      "objectsFile": "worlds/world-0-set-02.objects.json",
-      "waterFile": "worlds/world-0-water.glb"
-    },
-    {
-      "name": "Holiday Island · Set 3",
-      "file": "worlds/world-0.glb",
-      "kind": "pw-world",
-      "section": "Holiday Island",
-      "objectsFile": "worlds/world-0-set-03.objects.json",
-      "waterFile": "worlds/world-0-water.glb"
-    },
-    {
-      "name": "Holiday Island · Set 4",
-      "file": "worlds/world-0.glb",
-      "kind": "pw-world",
-      "section": "Holiday Island",
-      "objectsFile": "worlds/world-0-set-04.objects.json",
-      "waterFile": "worlds/world-0-water.glb"
-    },
-    {
-      "name": "Holiday Island · Set 5",
-      "file": "worlds/world-0.glb",
-      "kind": "pw-world",
-      "section": "Holiday Island",
-      "objectsFile": "worlds/world-0-set-05.objects.json",
-      "waterFile": "worlds/world-0-water.glb"
-    },
-    {
-      "name": "Holiday Island · Set 6",
-      "file": "worlds/world-0.glb",
-      "kind": "pw-world",
-      "section": "Holiday Island",
-      "objectsFile": "worlds/world-0-set-06.objects.json",
-      "waterFile": "worlds/world-0-water.glb"
-    },
-    {
-      "name": "Holiday Island · Set 7",
-      "file": "worlds/world-0.glb",
-      "kind": "pw-world",
-      "section": "Holiday Island",
-      "objectsFile": "worlds/world-0-set-07.objects.json",
-      "waterFile": "worlds/world-0-water.glb"
-    },
-    {
-      "name": "Holiday Island · Set 8",
-      "file": "worlds/world-0.glb",
-      "kind": "pw-world",
-      "section": "Holiday Island",
-      "objectsFile": "worlds/world-0-set-08.objects.json",
-      "waterFile": "worlds/world-0-water.glb"
-    },
-    {
-      "name": "Holiday Island · Set 9",
-      "file": "worlds/world-0.glb",
-      "kind": "pw-world",
-      "section": "Holiday Island",
-      "objectsFile": "worlds/world-0-set-09.objects.json",
-      "waterFile": "worlds/world-0-water.glb"
-    },
-    {
-      "name": "Holiday Island · Set 10",
-      "file": "worlds/world-0.glb",
-      "kind": "pw-world",
-      "section": "Holiday Island",
-      "objectsFile": "worlds/world-0-set-10.objects.json",
-      "waterFile": "worlds/world-0-water.glb"
-    },
-    {
-      "name": "Holiday Island · Set 11",
-      "file": "worlds/world-0.glb",
-      "kind": "pw-world",
-      "section": "Holiday Island",
-      "objectsFile": "worlds/world-0-set-11.objects.json",
-      "waterFile": "worlds/world-0-water.glb"
-    },
-    {
-      "name": "Holiday Island · Set 12",
-      "file": "worlds/world-0.glb",
-      "kind": "pw-world",
-      "section": "Holiday Island",
-      "objectsFile": "worlds/world-0-set-12.objects.json",
-      "waterFile": "worlds/world-0-water.glb"
-    },
-    {
-      "name": "Holiday Island · Set 13",
-      "file": "worlds/world-0.glb",
-      "kind": "pw-world",
-      "section": "Holiday Island",
-      "objectsFile": "worlds/world-0-set-13.objects.json",
-      "waterFile": "worlds/world-0-water.glb"
-    },
-    {
-      "name": "Holiday Island · Set 14",
-      "file": "worlds/world-0.glb",
-      "kind": "pw-world",
-      "section": "Holiday Island",
-      "objectsFile": "worlds/world-0-set-14.objects.json",
-      "waterFile": "worlds/world-0-water.glb"
-    },
-    {
-      "name": "Holiday Island · Set 15",
-      "file": "worlds/world-0.glb",
-      "kind": "pw-world",
-      "section": "Holiday Island",
-      "objectsFile": "worlds/world-0-set-15.objects.json",
-      "waterFile": "worlds/world-0-water.glb"
-    },
-    {
-      "name": "Holiday Island · Set 16",
-      "file": "worlds/world-0.glb",
-      "kind": "pw-world",
-      "section": "Holiday Island",
-      "objectsFile": "worlds/world-0-set-16.objects.json",
-      "waterFile": "worlds/world-0-water.glb"
-    },
-    {
-      "name": "Crescent Island",
-      "file": "worlds/world-1.glb",
-      "kind": "pw-world",
-      "section": "Crescent Island"
-    },
-    {
-      "name": "Crescent Island · Set 1",
-      "file": "worlds/world-1.glb",
-      "kind": "pw-world",
-      "section": "Crescent Island",
-      "objectsFile": "worlds/world-1-set-01.objects.json"
-    },
-    {
-      "name": "Crescent Island · Set 2",
-      "file": "worlds/world-1.glb",
-      "kind": "pw-world",
-      "section": "Crescent Island",
-      "objectsFile": "worlds/world-1-set-02.objects.json"
-    },
-    {
-      "name": "Crescent Island · Set 3",
-      "file": "worlds/world-1.glb",
-      "kind": "pw-world",
-      "section": "Crescent Island",
-      "objectsFile": "worlds/world-1-set-03.objects.json"
-    },
-    {
-      "name": "Crescent Island · Set 4",
-      "file": "worlds/world-1.glb",
-      "kind": "pw-world",
-      "section": "Crescent Island",
-      "objectsFile": "worlds/world-1-set-04.objects.json"
-    },
-    {
-      "name": "Crescent Island · Set 5",
-      "file": "worlds/world-1.glb",
-      "kind": "pw-world",
-      "section": "Crescent Island",
-      "objectsFile": "worlds/world-1-set-05.objects.json"
-    },
-    {
-      "name": "Crescent Island · Set 6",
-      "file": "worlds/world-1.glb",
-      "kind": "pw-world",
-      "section": "Crescent Island",
-      "objectsFile": "worlds/world-1-set-06.objects.json"
-    },
-    {
-      "name": "Crescent Island · Set 7",
-      "file": "worlds/world-1.glb",
-      "kind": "pw-world",
-      "section": "Crescent Island",
-      "objectsFile": "worlds/world-1-set-07.objects.json"
-    },
-    {
-      "name": "Crescent Island · Set 8",
-      "file": "worlds/world-1.glb",
-      "kind": "pw-world",
-      "section": "Crescent Island",
-      "objectsFile": "worlds/world-1-set-08.objects.json"
-    },
-    {
-      "name": "Crescent Island · Set 9",
-      "file": "worlds/world-1.glb",
-      "kind": "pw-world",
-      "section": "Crescent Island",
-      "objectsFile": "worlds/world-1-set-09.objects.json"
-    },
-    {
-      "name": "Crescent Island · Set 10",
-      "file": "worlds/world-1.glb",
-      "kind": "pw-world",
-      "section": "Crescent Island",
-      "objectsFile": "worlds/world-1-set-10.objects.json"
-    },
-    {
-      "name": "Crescent Island · Set 11",
-      "file": "worlds/world-1.glb",
-      "kind": "pw-world",
-      "section": "Crescent Island",
-      "objectsFile": "worlds/world-1-set-11.objects.json"
-    },
-    {
-      "name": "Crescent Island · Set 12",
-      "file": "worlds/world-1.glb",
-      "kind": "pw-world",
-      "section": "Crescent Island",
-      "objectsFile": "worlds/world-1-set-12.objects.json"
-    },
-    {
-      "name": "Crescent Island · Set 13",
-      "file": "worlds/world-1.glb",
-      "kind": "pw-world",
-      "section": "Crescent Island",
-      "objectsFile": "worlds/world-1-set-13.objects.json"
-    },
-    {
-      "name": "Crescent Island · Set 14",
-      "file": "worlds/world-1.glb",
-      "kind": "pw-world",
-      "section": "Crescent Island",
-      "objectsFile": "worlds/world-1-set-14.objects.json"
-    },
-    {
-      "name": "Crescent Island · Set 15",
-      "file": "worlds/world-1.glb",
-      "kind": "pw-world",
-      "section": "Crescent Island",
-      "objectsFile": "worlds/world-1-set-15.objects.json"
-    },
-    {
-      "name": "Crescent Island · Set 16",
-      "file": "worlds/world-1.glb",
-      "kind": "pw-world",
-      "section": "Crescent Island",
-      "objectsFile": "worlds/world-1-set-16.objects.json"
-    },
-    {
-      "name": "World 2",
-      "file": "worlds/world-2.glb",
-      "kind": "pw-world",
-      "section": "World 2"
-    },
-    {
-      "name": "World 2 · Set 1",
-      "file": "worlds/world-2.glb",
-      "kind": "pw-world",
-      "section": "World 2",
-      "objectsFile": "worlds/world-2-set-01.objects.json"
-    },
-    {
-      "name": "World 2 · Set 2",
-      "file": "worlds/world-2.glb",
-      "kind": "pw-world",
-      "section": "World 2",
-      "objectsFile": "worlds/world-2-set-02.objects.json"
-    },
-    {
-      "name": "World 2 · Set 3",
-      "file": "worlds/world-2.glb",
-      "kind": "pw-world",
-      "section": "World 2",
-      "objectsFile": "worlds/world-2-set-03.objects.json"
-    },
-    {
-      "name": "World 2 · Set 4",
-      "file": "worlds/world-2.glb",
-      "kind": "pw-world",
-      "section": "World 2",
-      "objectsFile": "worlds/world-2-set-04.objects.json"
-    },
-    {
-      "name": "World 2 · Set 5",
-      "file": "worlds/world-2.glb",
-      "kind": "pw-world",
-      "section": "World 2",
-      "objectsFile": "worlds/world-2-set-05.objects.json"
-    },
-    {
-      "name": "World 2 · Set 6",
-      "file": "worlds/world-2.glb",
-      "kind": "pw-world",
-      "section": "World 2",
-      "objectsFile": "worlds/world-2-set-06.objects.json"
-    },
-    {
-      "name": "World 2 · Set 7",
-      "file": "worlds/world-2.glb",
-      "kind": "pw-world",
-      "section": "World 2",
-      "objectsFile": "worlds/world-2-set-07.objects.json"
-    },
-    {
-      "name": "World 2 · Set 8",
-      "file": "worlds/world-2.glb",
-      "kind": "pw-world",
-      "section": "World 2",
-      "objectsFile": "worlds/world-2-set-08.objects.json"
-    },
-    {
-      "name": "World 2 · Set 10",
-      "file": "worlds/world-2.glb",
-      "kind": "pw-world",
-      "section": "World 2",
-      "objectsFile": "worlds/world-2-set-10.objects.json"
-    },
-    {
-      "name": "World 2 · Set 11",
-      "file": "worlds/world-2.glb",
-      "kind": "pw-world",
-      "section": "World 2",
-      "objectsFile": "worlds/world-2-set-11.objects.json"
-    },
-    {
-      "name": "Little States",
-      "file": "worlds/world-3.glb",
-      "kind": "pw-world",
-      "section": "Little States"
-    },
-    {
-      "name": "Little States · Set 1",
-      "file": "worlds/world-3.glb",
-      "kind": "pw-world",
-      "section": "Little States",
-      "objectsFile": "worlds/world-3-set-01.objects.json"
-    },
-    {
-      "name": "Little States · Set 2",
-      "file": "worlds/world-3.glb",
-      "kind": "pw-world",
-      "section": "Little States",
-      "objectsFile": "worlds/world-3-set-02.objects.json"
-    },
-    {
-      "name": "Little States · Set 3",
-      "file": "worlds/world-3.glb",
-      "kind": "pw-world",
-      "section": "Little States",
-      "objectsFile": "worlds/world-3-set-03.objects.json"
-    },
-    {
-      "name": "Little States · Set 4",
-      "file": "worlds/world-3.glb",
-      "kind": "pw-world",
-      "section": "Little States",
-      "objectsFile": "worlds/world-3-set-04.objects.json"
-    },
-    {
-      "name": "Little States · Set 5",
-      "file": "worlds/world-3.glb",
-      "kind": "pw-world",
-      "section": "Little States",
-      "objectsFile": "worlds/world-3-set-05.objects.json"
-    },
-    {
-      "name": "Little States · Set 6",
-      "file": "worlds/world-3.glb",
-      "kind": "pw-world",
-      "section": "Little States",
-      "objectsFile": "worlds/world-3-set-06.objects.json"
-    },
-    {
-      "name": "Little States · Set 7",
-      "file": "worlds/world-3.glb",
-      "kind": "pw-world",
-      "section": "Little States",
-      "objectsFile": "worlds/world-3-set-07.objects.json"
-    },
-    {
-      "name": "Little States · Set 8",
-      "file": "worlds/world-3.glb",
-      "kind": "pw-world",
-      "section": "Little States",
-      "objectsFile": "worlds/world-3-set-08.objects.json"
-    },
-    {
-      "name": "Little States · Set 9",
-      "file": "worlds/world-3.glb",
-      "kind": "pw-world",
-      "section": "Little States",
-      "objectsFile": "worlds/world-3-set-09.objects.json"
-    },
-    {
-      "name": "Little States · Set 10",
-      "file": "worlds/world-3.glb",
-      "kind": "pw-world",
-      "section": "Little States",
-      "objectsFile": "worlds/world-3-set-10.objects.json"
-    },
-    {
-      "name": "Little States · Set 11",
-      "file": "worlds/world-3.glb",
-      "kind": "pw-world",
-      "section": "Little States",
-      "objectsFile": "worlds/world-3-set-11.objects.json"
-    },
-    {
-      "name": "Little States · Set 12",
-      "file": "worlds/world-3.glb",
-      "kind": "pw-world",
-      "section": "Little States",
-      "objectsFile": "worlds/world-3-set-12.objects.json"
-    },
-    {
-      "name": "Little States · Set 13",
-      "file": "worlds/world-3.glb",
-      "kind": "pw-world",
-      "section": "Little States",
-      "objectsFile": "worlds/world-3-set-13.objects.json"
-    },
-    {
-      "name": "Little States · Set 14",
-      "file": "worlds/world-3.glb",
-      "kind": "pw-world",
-      "section": "Little States",
-      "objectsFile": "worlds/world-3-set-14.objects.json"
-    },
-    {
-      "name": "Little States · Set 15",
-      "file": "worlds/world-3.glb",
-      "kind": "pw-world",
-      "section": "Little States",
-      "objectsFile": "worlds/world-3-set-15.objects.json"
-    },
-    {
-      "name": "Little States · Set 16",
-      "file": "worlds/world-3.glb",
-      "kind": "pw-world",
-      "section": "Little States",
-      "objectsFile": "worlds/world-3-set-16.objects.json"
-    },
-    {
-      "name": "World 4",
-      "file": "worlds/world-4.glb",
-      "kind": "pw-world",
-      "section": "World 4"
-    },
-    {
-      "name": "World 4 · Set 2",
-      "file": "worlds/world-4.glb",
-      "kind": "pw-world",
-      "section": "World 4",
-      "objectsFile": "worlds/world-4-set-02.objects.json"
-    },
-    {
-      "name": "World 4 · Set 3",
-      "file": "worlds/world-4.glb",
-      "kind": "pw-world",
-      "section": "World 4",
-      "objectsFile": "worlds/world-4-set-03.objects.json"
-    },
-    {
-      "name": "World 4 · Set 6",
-      "file": "worlds/world-4.glb",
-      "kind": "pw-world",
-      "section": "World 4",
-      "objectsFile": "worlds/world-4-set-06.objects.json"
-    },
-    {
-      "name": "World 4 · Set 7",
-      "file": "worlds/world-4.glb",
-      "kind": "pw-world",
-      "section": "World 4",
-      "objectsFile": "worlds/world-4-set-07.objects.json"
-    },
-    {
-      "name": "World 4 · Set 8",
-      "file": "worlds/world-4.glb",
-      "kind": "pw-world",
-      "section": "World 4",
-      "objectsFile": "worlds/world-4-set-08.objects.json"
-    },
-    {
-      "name": "World 4 · Set 10",
-      "file": "worlds/world-4.glb",
-      "kind": "pw-world",
-      "section": "World 4",
-      "objectsFile": "worlds/world-4-set-10.objects.json"
-    },
-    {
-      "name": "World 4 · Set 11",
-      "file": "worlds/world-4.glb",
-      "kind": "pw-world",
-      "section": "World 4",
-      "objectsFile": "worlds/world-4-set-11.objects.json"
-    },
-    {
-      "name": "World 4 · Set 12",
-      "file": "worlds/world-4.glb",
-      "kind": "pw-world",
-      "section": "World 4",
-      "objectsFile": "worlds/world-4-set-12.objects.json"
-    },
-    {
-      "name": "World 4 · Set 14",
-      "file": "worlds/world-4.glb",
-      "kind": "pw-world",
-      "section": "World 4",
-      "objectsFile": "worlds/world-4-set-14.objects.json"
-    },
-    {
-      "name": "World 4 · Set 15",
-      "file": "worlds/world-4.glb",
-      "kind": "pw-world",
-      "section": "World 4",
-      "objectsFile": "worlds/world-4-set-15.objects.json"
-    },
-    {
-      "name": "World 4 · Set 16",
-      "file": "worlds/world-4.glb",
-      "kind": "pw-world",
-      "section": "World 4",
-      "objectsFile": "worlds/world-4-set-16.objects.json"
-    },
-    {
-      "name": "World 5",
-      "file": "worlds/world-5.glb",
-      "kind": "pw-world",
-      "section": "World 5"
-    },
-    {
-      "name": "World 5 · Set 1",
-      "file": "worlds/world-5.glb",
-      "kind": "pw-world",
-      "section": "World 5",
-      "objectsFile": "worlds/world-5-set-01.objects.json"
-    },
-    {
-      "name": "World 5 · Set 2",
-      "file": "worlds/world-5.glb",
-      "kind": "pw-world",
-      "section": "World 5",
-      "objectsFile": "worlds/world-5-set-02.objects.json"
-    },
-    {
-      "name": "World 5 · Set 3",
-      "file": "worlds/world-5.glb",
-      "kind": "pw-world",
-      "section": "World 5",
-      "objectsFile": "worlds/world-5-set-03.objects.json"
-    },
-    {
-      "name": "World 5 · Set 4",
-      "file": "worlds/world-5.glb",
-      "kind": "pw-world",
-      "section": "World 5",
-      "objectsFile": "worlds/world-5-set-04.objects.json"
-    },
-    {
-      "name": "World 5 · Set 5",
-      "file": "worlds/world-5.glb",
-      "kind": "pw-world",
-      "section": "World 5",
-      "objectsFile": "worlds/world-5-set-05.objects.json"
-    },
-    {
-      "name": "World 5 · Set 6",
-      "file": "worlds/world-5.glb",
-      "kind": "pw-world",
-      "section": "World 5",
-      "objectsFile": "worlds/world-5-set-06.objects.json"
-    },
-    {
-      "name": "World 5 · Set 7",
-      "file": "worlds/world-5.glb",
-      "kind": "pw-world",
-      "section": "World 5",
-      "objectsFile": "worlds/world-5-set-07.objects.json"
-    },
-    {
-      "name": "World 5 · Set 8",
-      "file": "worlds/world-5.glb",
-      "kind": "pw-world",
-      "section": "World 5",
-      "objectsFile": "worlds/world-5-set-08.objects.json"
-    },
-    {
-      "name": "World 5 · Set 9",
-      "file": "worlds/world-5.glb",
-      "kind": "pw-world",
-      "section": "World 5",
-      "objectsFile": "worlds/world-5-set-09.objects.json"
-    },
-    {
-      "name": "World 5 · Set 10",
-      "file": "worlds/world-5.glb",
-      "kind": "pw-world",
-      "section": "World 5",
-      "objectsFile": "worlds/world-5-set-10.objects.json"
-    },
-    {
-      "name": "World 5 · Set 11",
-      "file": "worlds/world-5.glb",
-      "kind": "pw-world",
-      "section": "World 5",
-      "objectsFile": "worlds/world-5-set-11.objects.json"
-    },
-    {
-      "name": "World 5 · Set 12",
-      "file": "worlds/world-5.glb",
-      "kind": "pw-world",
-      "section": "World 5",
-      "objectsFile": "worlds/world-5-set-12.objects.json"
-    },
-    {
-      "name": "World 5 · Set 13",
-      "file": "worlds/world-5.glb",
-      "kind": "pw-world",
-      "section": "World 5",
-      "objectsFile": "worlds/world-5-set-13.objects.json"
-    },
-    {
-      "name": "World 5 · Set 14",
-      "file": "worlds/world-5.glb",
-      "kind": "pw-world",
-      "section": "World 5",
-      "objectsFile": "worlds/world-5-set-14.objects.json"
-    },
-    {
-      "name": "World 5 · Set 15",
-      "file": "worlds/world-5.glb",
-      "kind": "pw-world",
-      "section": "World 5",
-      "objectsFile": "worlds/world-5-set-15.objects.json"
-    },
-    {
-      "name": "World 5 · Set 16",
-      "file": "worlds/world-5.glb",
-      "kind": "pw-world",
-      "section": "World 5",
-      "objectsFile": "worlds/world-5-set-16.objects.json"
-    },
-    {
-      "name": "World 6",
-      "file": "worlds/world-6.glb",
-      "kind": "pw-world",
-      "section": "World 6"
-    },
-    {
-      "name": "World 6 · Set 2",
-      "file": "worlds/world-6.glb",
-      "kind": "pw-world",
-      "section": "World 6",
-      "objectsFile": "worlds/world-6-set-02.objects.json"
-    },
-    {
-      "name": "World 6 · Set 3",
-      "file": "worlds/world-6.glb",
-      "kind": "pw-world",
-      "section": "World 6",
-      "objectsFile": "worlds/world-6-set-03.objects.json"
-    },
-    {
-      "name": "World 6 · Set 5",
-      "file": "worlds/world-6.glb",
-      "kind": "pw-world",
-      "section": "World 6",
-      "objectsFile": "worlds/world-6-set-05.objects.json"
-    },
-    {
-      "name": "World 6 · Set 6",
-      "file": "worlds/world-6.glb",
-      "kind": "pw-world",
-      "section": "World 6",
-      "objectsFile": "worlds/world-6-set-06.objects.json"
-    },
-    {
-      "name": "World 6 · Set 7",
-      "file": "worlds/world-6.glb",
-      "kind": "pw-world",
-      "section": "World 6",
-      "objectsFile": "worlds/world-6-set-07.objects.json"
-    },
-    {
-      "name": "World 6 · Set 10",
-      "file": "worlds/world-6.glb",
-      "kind": "pw-world",
-      "section": "World 6",
-      "objectsFile": "worlds/world-6-set-10.objects.json"
-    },
-    {
-      "name": "World 6 · Set 11",
-      "file": "worlds/world-6.glb",
-      "kind": "pw-world",
-      "section": "World 6",
-      "objectsFile": "worlds/world-6-set-11.objects.json"
-    },
-    {
-      "name": "World 6 · Set 14",
-      "file": "worlds/world-6.glb",
-      "kind": "pw-world",
-      "section": "World 6",
-      "objectsFile": "worlds/world-6-set-14.objects.json"
-    },
-    {
-      "name": "World 6 · Set 15",
-      "file": "worlds/world-6.glb",
-      "kind": "pw-world",
-      "section": "World 6",
-      "objectsFile": "worlds/world-6-set-15.objects.json"
-    },
-    {
-      "name": "World 6 · Set 16",
-      "file": "worlds/world-6.glb",
-      "kind": "pw-world",
-      "section": "World 6",
-      "objectsFile": "worlds/world-6-set-16.objects.json"
-    },
-    {
-      "name": "World 7",
-      "file": "worlds/world-7.glb",
-      "kind": "pw-world",
-      "section": "World 7"
-    },
-    {
-      "name": "World 7 · Set 1",
-      "file": "worlds/world-7.glb",
-      "kind": "pw-world",
-      "section": "World 7",
-      "objectsFile": "worlds/world-7-set-01.objects.json"
-    },
-    {
-      "name": "World 7 · Set 2",
-      "file": "worlds/world-7.glb",
-      "kind": "pw-world",
-      "section": "World 7",
-      "objectsFile": "worlds/world-7-set-02.objects.json"
-    },
-    {
-      "name": "World 7 · Set 3",
-      "file": "worlds/world-7.glb",
-      "kind": "pw-world",
-      "section": "World 7",
-      "objectsFile": "worlds/world-7-set-03.objects.json"
-    },
-    {
-      "name": "World 7 · Set 4",
-      "file": "worlds/world-7.glb",
-      "kind": "pw-world",
-      "section": "World 7",
-      "objectsFile": "worlds/world-7-set-04.objects.json"
-    },
-    {
-      "name": "World 7 · Set 5",
-      "file": "worlds/world-7.glb",
-      "kind": "pw-world",
-      "section": "World 7",
-      "objectsFile": "worlds/world-7-set-05.objects.json"
-    },
-    {
-      "name": "World 7 · Set 6",
-      "file": "worlds/world-7.glb",
-      "kind": "pw-world",
-      "section": "World 7",
-      "objectsFile": "worlds/world-7-set-06.objects.json"
-    },
-    {
-      "name": "World 7 · Set 7",
-      "file": "worlds/world-7.glb",
-      "kind": "pw-world",
-      "section": "World 7",
-      "objectsFile": "worlds/world-7-set-07.objects.json"
-    },
-    {
-      "name": "World 7 · Set 8",
-      "file": "worlds/world-7.glb",
-      "kind": "pw-world",
-      "section": "World 7",
-      "objectsFile": "worlds/world-7-set-08.objects.json"
-    },
-    {
-      "name": "World 7 · Set 9",
-      "file": "worlds/world-7.glb",
-      "kind": "pw-world",
-      "section": "World 7",
-      "objectsFile": "worlds/world-7-set-09.objects.json"
-    },
-    {
-      "name": "World 7 · Set 10",
-      "file": "worlds/world-7.glb",
-      "kind": "pw-world",
-      "section": "World 7",
-      "objectsFile": "worlds/world-7-set-10.objects.json"
-    },
-    {
-      "name": "World 7 · Set 11",
-      "file": "worlds/world-7.glb",
-      "kind": "pw-world",
-      "section": "World 7",
-      "objectsFile": "worlds/world-7-set-11.objects.json"
-    },
-    {
-      "name": "World 7 · Set 12",
-      "file": "worlds/world-7.glb",
-      "kind": "pw-world",
-      "section": "World 7",
-      "objectsFile": "worlds/world-7-set-12.objects.json"
-    },
-    {
-      "name": "World 7 · Set 13",
-      "file": "worlds/world-7.glb",
-      "kind": "pw-world",
-      "section": "World 7",
-      "objectsFile": "worlds/world-7-set-13.objects.json"
-    },
-    {
-      "name": "World 7 · Set 14",
-      "file": "worlds/world-7.glb",
-      "kind": "pw-world",
-      "section": "World 7",
-      "objectsFile": "worlds/world-7-set-14.objects.json"
-    },
-    {
-      "name": "World 7 · Set 15",
-      "file": "worlds/world-7.glb",
-      "kind": "pw-world",
-      "section": "World 7",
-      "objectsFile": "worlds/world-7-set-15.objects.json"
-    },
-    {
-      "name": "World 8",
-      "file": "worlds/world-8.glb",
-      "kind": "pw-world",
-      "section": "World 8"
-    },
-    {
-      "name": "World 9",
-      "file": "worlds/world-9.glb",
-      "kind": "pw-world",
-      "section": "World 9"
-    },
-    {
-      "name": "Model 007",
-      "file": "models/uvmd-0007.glb",
-      "kind": "mesh3d",
-      "section": "Models"
-    },
-    {
-      "name": "Model 008",
-      "file": "models/uvmd-0008.glb",
-      "kind": "mesh3d",
-      "section": "Models"
-    },
-    {
-      "name": "Model 009",
-      "file": "models/uvmd-0009.glb",
-      "kind": "mesh3d",
-      "section": "Models"
-    },
-    {
-      "name": "Model 010",
-      "file": "models/uvmd-0010.glb",
-      "kind": "mesh3d",
-      "section": "Models"
-    },
-    {
-      "name": "Model 011",
-      "file": "models/uvmd-0011.glb",
-      "kind": "mesh3d",
-      "section": "Models"
-    },
-    {
-      "name": "Model 012",
-      "file": "models/uvmd-0012.glb",
-      "kind": "mesh3d",
-      "section": "Models"
-    },
-    {
-      "name": "Model 013",
-      "file": "models/uvmd-0013.glb",
-      "kind": "mesh3d",
-      "section": "Models"
-    },
-    {
-      "name": "Model 014",
-      "file": "models/uvmd-0014.glb",
-      "kind": "mesh3d",
-      "section": "Models"
-    },
-    {
-      "name": "Model 015",
-      "file": "models/uvmd-0015.glb",
-      "kind": "mesh3d",
-      "section": "Models"
-    },
-    {
-      "name": "Model 016",
-      "file": "models/uvmd-0016.glb",
-      "kind": "mesh3d",
-      "section": "Models"
-    },
-    {
-      "name": "Model 017",
-      "file": "models/uvmd-0017.glb",
-      "kind": "mesh3d",
-      "section": "Models"
-    },
-    {
-      "name": "Model 018",
-      "file": "models/uvmd-0018.glb",
-      "kind": "mesh3d",
-      "section": "Models"
-    },
-    {
-      "name": "Model 019",
-      "file": "models/uvmd-0019.glb",
-      "kind": "mesh3d",
-      "section": "Models"
-    },
-    {
-      "name": "Model 020",
-      "file": "models/uvmd-0020.glb",
-      "kind": "mesh3d",
-      "section": "Models"
-    },
-    {
-      "name": "Model 021",
-      "file": "models/uvmd-0021.glb",
-      "kind": "mesh3d",
-      "section": "Models"
-    },
-    {
-      "name": "Model 022",
-      "file": "models/uvmd-0022.glb",
-      "kind": "mesh3d",
-      "section": "Models"
-    },
-    {
-      "name": "Model 023",
-      "file": "models/uvmd-0023.glb",
-      "kind": "mesh3d",
-      "section": "Models"
-    },
-    {
-      "name": "Model 024",
-      "file": "models/uvmd-0024.glb",
-      "kind": "mesh3d",
-      "section": "Models"
-    },
-    {
-      "name": "Model 025",
-      "file": "models/uvmd-0025.glb",
-      "kind": "mesh3d",
-      "section": "Models"
-    },
-    {
-      "name": "Model 026",
-      "file": "models/uvmd-0026.glb",
-      "kind": "mesh3d",
-      "section": "Models"
-    },
-    {
-      "name": "Model 027",
-      "file": "models/uvmd-0027.glb",
-      "kind": "mesh3d",
-      "section": "Models"
-    },
-    {
-      "name": "Model 028",
-      "file": "models/uvmd-0028.glb",
-      "kind": "mesh3d",
-      "section": "Models"
-    },
-    {
-      "name": "Model 029",
-      "file": "models/uvmd-0029.glb",
-      "kind": "mesh3d",
-      "section": "Models"
-    },
-    {
-      "name": "Model 030",
-      "file": "models/uvmd-0030.glb",
-      "kind": "mesh3d",
-      "section": "Models"
-    },
-    {
-      "name": "Model 031",
-      "file": "models/uvmd-0031.glb",
-      "kind": "mesh3d",
-      "section": "Models"
-    },
-    {
-      "name": "Model 032",
-      "file": "models/uvmd-0032.glb",
-      "kind": "mesh3d",
-      "section": "Models"
-    },
-    {
-      "name": "Model 033",
-      "file": "models/uvmd-0033.glb",
-      "kind": "mesh3d",
-      "section": "Models"
-    },
-    {
-      "name": "Model 034",
-      "file": "models/uvmd-0034.glb",
-      "kind": "mesh3d",
-      "section": "Models"
-    },
-    {
-      "name": "Model 035",
-      "file": "models/uvmd-0035.glb",
-      "kind": "mesh3d",
-      "section": "Models"
-    },
-    {
-      "name": "Model 036",
-      "file": "models/uvmd-0036.glb",
-      "kind": "mesh3d",
-      "section": "Models"
-    },
-    {
-      "name": "Model 037",
-      "file": "models/uvmd-0037.glb",
-      "kind": "mesh3d",
-      "section": "Models"
-    },
-    {
-      "name": "Model 038",
-      "file": "models/uvmd-0038.glb",
-      "kind": "mesh3d",
-      "section": "Models"
-    },
-    {
-      "name": "Model 039",
-      "file": "models/uvmd-0039.glb",
-      "kind": "mesh3d",
-      "section": "Models"
-    },
-    {
-      "name": "Model 040",
-      "file": "models/uvmd-0040.glb",
-      "kind": "mesh3d",
-      "section": "Models"
-    },
-    {
-      "name": "Model 041",
-      "file": "models/uvmd-0041.glb",
-      "kind": "mesh3d",
-      "section": "Models"
-    },
-    {
-      "name": "Model 042",
-      "file": "models/uvmd-0042.glb",
-      "kind": "mesh3d",
-      "section": "Models"
-    },
-    {
-      "name": "Model 043",
-      "file": "models/uvmd-0043.glb",
-      "kind": "mesh3d",
-      "section": "Models"
-    },
-    {
-      "name": "Model 044",
-      "file": "models/uvmd-0044.glb",
-      "kind": "mesh3d",
-      "section": "Models"
-    },
-    {
-      "name": "Model 045",
-      "file": "models/uvmd-0045.glb",
-      "kind": "mesh3d",
-      "section": "Models"
-    },
-    {
-      "name": "Model 046",
-      "file": "models/uvmd-0046.glb",
-      "kind": "mesh3d",
-      "section": "Models"
-    },
-    {
-      "name": "Island (whole)",
-      "file": "models/uvmd-0047.glb",
-      "kind": "mesh3d",
-      "section": "Models"
-    },
-    {
-      "name": "Model 048",
-      "file": "models/uvmd-0048.glb",
-      "kind": "mesh3d",
-      "section": "Models"
-    },
-    {
-      "name": "Model 049",
-      "file": "models/uvmd-0049.glb",
-      "kind": "mesh3d",
-      "section": "Models"
-    },
-    {
-      "name": "Model 050",
-      "file": "models/uvmd-0050.glb",
-      "kind": "mesh3d",
-      "section": "Models"
-    },
-    {
-      "name": "Model 051",
-      "file": "models/uvmd-0051.glb",
-      "kind": "mesh3d",
-      "section": "Models"
-    },
-    {
-      "name": "Model 052",
-      "file": "models/uvmd-0052.glb",
-      "kind": "mesh3d",
-      "section": "Models"
-    },
-    {
-      "name": "Model 053",
-      "file": "models/uvmd-0053.glb",
-      "kind": "mesh3d",
-      "section": "Models"
-    },
-    {
-      "name": "Model 054",
-      "file": "models/uvmd-0054.glb",
-      "kind": "mesh3d",
-      "section": "Models"
-    },
-    {
-      "name": "Model 055",
-      "file": "models/uvmd-0055.glb",
-      "kind": "mesh3d",
-      "section": "Models"
-    },
-    {
-      "name": "Model 056",
-      "file": "models/uvmd-0056.glb",
-      "kind": "mesh3d",
-      "section": "Models"
-    },
-    {
-      "name": "Model 057",
-      "file": "models/uvmd-0057.glb",
-      "kind": "mesh3d",
-      "section": "Models"
-    },
-    {
-      "name": "Model 058",
-      "file": "models/uvmd-0058.glb",
-      "kind": "mesh3d",
-      "section": "Models"
-    },
-    {
-      "name": "Model 059",
-      "file": "models/uvmd-0059.glb",
-      "kind": "mesh3d",
-      "section": "Models"
-    },
-    {
-      "name": "Model 060",
-      "file": "models/uvmd-0060.glb",
-      "kind": "mesh3d",
-      "section": "Models"
-    },
-    {
-      "name": "Model 061",
-      "file": "models/uvmd-0061.glb",
-      "kind": "mesh3d",
-      "section": "Models"
-    },
-    {
-      "name": "Model 062",
-      "file": "models/uvmd-0062.glb",
-      "kind": "mesh3d",
-      "section": "Models"
-    },
-    {
-      "name": "Model 063",
-      "file": "models/uvmd-0063.glb",
-      "kind": "mesh3d",
-      "section": "Models"
-    },
-    {
-      "name": "Model 064",
-      "file": "models/uvmd-0064.glb",
-      "kind": "mesh3d",
-      "section": "Models"
-    },
-    {
-      "name": "Model 065",
-      "file": "models/uvmd-0065.glb",
-      "kind": "mesh3d",
-      "section": "Models"
-    },
-    {
-      "name": "Model 066",
-      "file": "models/uvmd-0066.glb",
-      "kind": "mesh3d",
-      "section": "Models"
-    },
-    {
-      "name": "Model 067",
-      "file": "models/uvmd-0067.glb",
-      "kind": "mesh3d",
-      "section": "Models"
-    },
-    {
-      "name": "Model 068",
-      "file": "models/uvmd-0068.glb",
-      "kind": "mesh3d",
-      "section": "Models"
-    },
-    {
-      "name": "Model 069",
-      "file": "models/uvmd-0069.glb",
-      "kind": "mesh3d",
-      "section": "Models"
-    },
-    {
-      "name": "Model 070",
-      "file": "models/uvmd-0070.glb",
-      "kind": "mesh3d",
-      "section": "Models"
-    },
-    {
-      "name": "Model 071",
-      "file": "models/uvmd-0071.glb",
-      "kind": "mesh3d",
-      "section": "Models"
-    },
-    {
-      "name": "Model 072",
-      "file": "models/uvmd-0072.glb",
-      "kind": "mesh3d",
-      "section": "Models"
-    },
-    {
-      "name": "Model 073",
-      "file": "models/uvmd-0073.glb",
-      "kind": "mesh3d",
-      "section": "Models"
-    },
-    {
-      "name": "Model 074",
-      "file": "models/uvmd-0074.glb",
-      "kind": "mesh3d",
-      "section": "Models"
-    },
-    {
-      "name": "Model 075",
-      "file": "models/uvmd-0075.glb",
-      "kind": "mesh3d",
-      "section": "Models"
-    },
-    {
-      "name": "Model 076",
-      "file": "models/uvmd-0076.glb",
-      "kind": "mesh3d",
-      "section": "Models"
-    },
-    {
-      "name": "Model 077",
-      "file": "models/uvmd-0077.glb",
-      "kind": "mesh3d",
-      "section": "Models"
-    },
-    {
-      "name": "Model 078",
-      "file": "models/uvmd-0078.glb",
-      "kind": "mesh3d",
-      "section": "Models"
-    },
-    {
-      "name": "Model 079",
-      "file": "models/uvmd-0079.glb",
-      "kind": "mesh3d",
-      "section": "Models"
-    },
-    {
-      "name": "Model 080",
-      "file": "models/uvmd-0080.glb",
-      "kind": "mesh3d",
-      "section": "Models"
-    },
-    {
-      "name": "Model 081",
-      "file": "models/uvmd-0081.glb",
-      "kind": "mesh3d",
-      "section": "Models"
-    },
-    {
-      "name": "Model 082",
-      "file": "models/uvmd-0082.glb",
-      "kind": "mesh3d",
-      "section": "Models"
-    },
-    {
-      "name": "Model 083",
-      "file": "models/uvmd-0083.glb",
-      "kind": "mesh3d",
-      "section": "Models"
-    },
-    {
-      "name": "Model 084",
-      "file": "models/uvmd-0084.glb",
-      "kind": "mesh3d",
-      "section": "Models"
-    },
-    {
-      "name": "Model 085",
-      "file": "models/uvmd-0085.glb",
-      "kind": "mesh3d",
-      "section": "Models"
-    },
-    {
-      "name": "Model 086",
-      "file": "models/uvmd-0086.glb",
-      "kind": "mesh3d",
-      "section": "Models"
-    },
-    {
-      "name": "Model 087",
-      "file": "models/uvmd-0087.glb",
-      "kind": "mesh3d",
-      "section": "Models"
-    },
-    {
-      "name": "Model 088",
-      "file": "models/uvmd-0088.glb",
-      "kind": "mesh3d",
-      "section": "Models"
-    },
-    {
-      "name": "Model 089",
-      "file": "models/uvmd-0089.glb",
-      "kind": "mesh3d",
-      "section": "Models"
-    },
-    {
-      "name": "Model 090",
-      "file": "models/uvmd-0090.glb",
-      "kind": "mesh3d",
-      "section": "Models"
-    },
-    {
-      "name": "Model 091",
-      "file": "models/uvmd-0091.glb",
-      "kind": "mesh3d",
-      "section": "Models"
-    },
-    {
-      "name": "Model 092",
-      "file": "models/uvmd-0092.glb",
-      "kind": "mesh3d",
-      "section": "Models"
-    },
-    {
-      "name": "Model 093",
-      "file": "models/uvmd-0093.glb",
-      "kind": "mesh3d",
-      "section": "Models"
-    },
-    {
-      "name": "Model 094",
-      "file": "models/uvmd-0094.glb",
-      "kind": "mesh3d",
-      "section": "Models"
-    },
-    {
-      "name": "Model 095",
-      "file": "models/uvmd-0095.glb",
-      "kind": "mesh3d",
-      "section": "Models"
-    },
-    {
-      "name": "Model 096",
-      "file": "models/uvmd-0096.glb",
-      "kind": "mesh3d",
-      "section": "Models"
-    },
-    {
-      "name": "Model 097",
-      "file": "models/uvmd-0097.glb",
-      "kind": "mesh3d",
-      "section": "Models"
-    },
-    {
-      "name": "Model 098",
-      "file": "models/uvmd-0098.glb",
-      "kind": "mesh3d",
-      "section": "Models"
-    },
-    {
-      "name": "Model 099",
-      "file": "models/uvmd-0099.glb",
-      "kind": "mesh3d",
-      "section": "Models"
-    },
-    {
-      "name": "Model 100",
-      "file": "models/uvmd-0100.glb",
-      "kind": "mesh3d",
-      "section": "Models"
-    },
-    {
-      "name": "Model 101",
-      "file": "models/uvmd-0101.glb",
-      "kind": "mesh3d",
-      "section": "Models"
-    },
-    {
-      "name": "Model 102",
-      "file": "models/uvmd-0102.glb",
-      "kind": "mesh3d",
-      "section": "Models"
-    },
-    {
-      "name": "Model 103",
-      "file": "models/uvmd-0103.glb",
-      "kind": "mesh3d",
-      "section": "Models"
-    },
-    {
-      "name": "Model 104",
-      "file": "models/uvmd-0104.glb",
-      "kind": "mesh3d",
-      "section": "Models"
-    },
-    {
-      "name": "Model 105",
-      "file": "models/uvmd-0105.glb",
-      "kind": "mesh3d",
-      "section": "Models"
-    },
-    {
-      "name": "Model 106",
-      "file": "models/uvmd-0106.glb",
-      "kind": "mesh3d",
-      "section": "Models"
-    },
-    {
-      "name": "Model 107",
-      "file": "models/uvmd-0107.glb",
-      "kind": "mesh3d",
-      "section": "Models"
-    },
-    {
-      "name": "Model 108",
-      "file": "models/uvmd-0108.glb",
-      "kind": "mesh3d",
-      "section": "Models"
-    },
-    {
-      "name": "Model 109",
-      "file": "models/uvmd-0109.glb",
-      "kind": "mesh3d",
-      "section": "Models"
-    },
-    {
-      "name": "Model 110",
-      "file": "models/uvmd-0110.glb",
-      "kind": "mesh3d",
-      "section": "Models"
-    },
-    {
-      "name": "Model 111",
-      "file": "models/uvmd-0111.glb",
-      "kind": "mesh3d",
-      "section": "Models"
-    },
-    {
-      "name": "Model 112",
-      "file": "models/uvmd-0112.glb",
-      "kind": "mesh3d",
-      "section": "Models"
-    },
-    {
-      "name": "Model 113",
-      "file": "models/uvmd-0113.glb",
-      "kind": "mesh3d",
-      "section": "Models"
-    },
-    {
-      "name": "Model 114",
-      "file": "models/uvmd-0114.glb",
-      "kind": "mesh3d",
-      "section": "Models"
-    },
-    {
-      "name": "Model 115",
-      "file": "models/uvmd-0115.glb",
-      "kind": "mesh3d",
-      "section": "Models"
-    },
-    {
-      "name": "Model 116",
-      "file": "models/uvmd-0116.glb",
-      "kind": "mesh3d",
-      "section": "Models"
-    },
-    {
-      "name": "Model 117",
-      "file": "models/uvmd-0117.glb",
-      "kind": "mesh3d",
-      "section": "Models"
-    },
-    {
-      "name": "Model 118",
-      "file": "models/uvmd-0118.glb",
-      "kind": "mesh3d",
-      "section": "Models"
-    },
-    {
-      "name": "Model 119",
-      "file": "models/uvmd-0119.glb",
-      "kind": "mesh3d",
-      "section": "Models"
-    },
-    {
-      "name": "Model 120",
-      "file": "models/uvmd-0120.glb",
-      "kind": "mesh3d",
-      "section": "Models"
-    },
-    {
-      "name": "Model 121",
-      "file": "models/uvmd-0121.glb",
-      "kind": "mesh3d",
-      "section": "Models"
-    },
-    {
-      "name": "Model 122",
-      "file": "models/uvmd-0122.glb",
-      "kind": "mesh3d",
-      "section": "Models"
-    },
-    {
-      "name": "Model 123",
-      "file": "models/uvmd-0123.glb",
-      "kind": "mesh3d",
-      "section": "Models"
-    },
-    {
-      "name": "Model 124",
-      "file": "models/uvmd-0124.glb",
-      "kind": "mesh3d",
-      "section": "Models"
-    },
-    {
-      "name": "Model 125",
-      "file": "models/uvmd-0125.glb",
-      "kind": "mesh3d",
-      "section": "Models"
-    },
-    {
-      "name": "Model 126",
-      "file": "models/uvmd-0126.glb",
-      "kind": "mesh3d",
-      "section": "Models"
-    },
-    {
-      "name": "Model 127",
-      "file": "models/uvmd-0127.glb",
-      "kind": "mesh3d",
-      "section": "Models"
-    },
-    {
-      "name": "Model 128",
-      "file": "models/uvmd-0128.glb",
-      "kind": "mesh3d",
-      "section": "Models"
-    },
-    {
-      "name": "Model 129",
-      "file": "models/uvmd-0129.glb",
-      "kind": "mesh3d",
-      "section": "Models"
-    },
-    {
-      "name": "Model 130",
-      "file": "models/uvmd-0130.glb",
-      "kind": "mesh3d",
-      "section": "Models"
-    },
-    {
-      "name": "Model 131",
-      "file": "models/uvmd-0131.glb",
-      "kind": "mesh3d",
-      "section": "Models"
-    },
-    {
-      "name": "Model 132",
-      "file": "models/uvmd-0132.glb",
-      "kind": "mesh3d",
-      "section": "Models"
-    },
-    {
-      "name": "Model 133",
-      "file": "models/uvmd-0133.glb",
-      "kind": "mesh3d",
-      "section": "Models"
-    },
-    {
-      "name": "Model 134",
-      "file": "models/uvmd-0134.glb",
-      "kind": "mesh3d",
-      "section": "Models"
-    },
-    {
-      "name": "Model 135",
-      "file": "models/uvmd-0135.glb",
-      "kind": "mesh3d",
-      "section": "Models"
-    },
-    {
-      "name": "Model 136",
-      "file": "models/uvmd-0136.glb",
-      "kind": "mesh3d",
-      "section": "Models"
-    },
-    {
-      "name": "Model 137",
-      "file": "models/uvmd-0137.glb",
-      "kind": "mesh3d",
-      "section": "Models"
-    },
-    {
-      "name": "Model 138",
-      "file": "models/uvmd-0138.glb",
-      "kind": "mesh3d",
-      "section": "Models"
-    },
-    {
-      "name": "Model 139",
-      "file": "models/uvmd-0139.glb",
-      "kind": "mesh3d",
-      "section": "Models"
-    },
-    {
-      "name": "Model 140",
-      "file": "models/uvmd-0140.glb",
-      "kind": "mesh3d",
-      "section": "Models"
-    },
-    {
-      "name": "Model 141",
-      "file": "models/uvmd-0141.glb",
-      "kind": "mesh3d",
-      "section": "Models"
-    },
-    {
-      "name": "Model 142",
-      "file": "models/uvmd-0142.glb",
-      "kind": "mesh3d",
-      "section": "Models"
-    },
-    {
-      "name": "Model 143",
-      "file": "models/uvmd-0143.glb",
-      "kind": "mesh3d",
-      "section": "Models"
-    },
-    {
-      "name": "Model 144",
-      "file": "models/uvmd-0144.glb",
-      "kind": "mesh3d",
-      "section": "Models"
-    },
-    {
-      "name": "Model 145",
-      "file": "models/uvmd-0145.glb",
-      "kind": "mesh3d",
-      "section": "Models"
-    },
-    {
-      "name": "Model 146",
-      "file": "models/uvmd-0146.glb",
-      "kind": "mesh3d",
-      "section": "Models"
-    },
-    {
-      "name": "Model 147",
-      "file": "models/uvmd-0147.glb",
-      "kind": "mesh3d",
-      "section": "Models"
-    },
-    {
-      "name": "Model 148",
-      "file": "models/uvmd-0148.glb",
-      "kind": "mesh3d",
-      "section": "Models"
-    },
-    {
-      "name": "Model 149",
-      "file": "models/uvmd-0149.glb",
-      "kind": "mesh3d",
-      "section": "Models"
-    },
-    {
-      "name": "Model 150",
-      "file": "models/uvmd-0150.glb",
-      "kind": "mesh3d",
-      "section": "Models"
-    },
-    {
-      "name": "Model 151",
-      "file": "models/uvmd-0151.glb",
-      "kind": "mesh3d",
-      "section": "Models"
-    },
-    {
-      "name": "Model 152",
-      "file": "models/uvmd-0152.glb",
-      "kind": "mesh3d",
-      "section": "Models"
-    },
-    {
-      "name": "Model 153",
-      "file": "models/uvmd-0153.glb",
-      "kind": "mesh3d",
-      "section": "Models"
-    },
-    {
-      "name": "Model 154",
-      "file": "models/uvmd-0154.glb",
-      "kind": "mesh3d",
-      "section": "Models"
-    },
-    {
-      "name": "Model 155",
-      "file": "models/uvmd-0155.glb",
-      "kind": "mesh3d",
-      "section": "Models"
-    },
-    {
-      "name": "Model 156",
-      "file": "models/uvmd-0156.glb",
-      "kind": "mesh3d",
-      "section": "Models"
-    },
-    {
-      "name": "Model 157",
-      "file": "models/uvmd-0157.glb",
-      "kind": "mesh3d",
-      "section": "Models"
-    },
-    {
-      "name": "Model 158",
-      "file": "models/uvmd-0158.glb",
-      "kind": "mesh3d",
-      "section": "Models"
-    },
-    {
-      "name": "Model 159",
-      "file": "models/uvmd-0159.glb",
-      "kind": "mesh3d",
-      "section": "Models"
-    },
-    {
-      "name": "Model 160",
-      "file": "models/uvmd-0160.glb",
-      "kind": "mesh3d",
-      "section": "Models"
-    },
-    {
-      "name": "Model 161",
-      "file": "models/uvmd-0161.glb",
-      "kind": "mesh3d",
-      "section": "Models"
-    },
-    {
-      "name": "Model 162",
-      "file": "models/uvmd-0162.glb",
-      "kind": "mesh3d",
-      "section": "Models"
-    },
-    {
-      "name": "Model 163",
-      "file": "models/uvmd-0163.glb",
-      "kind": "mesh3d",
-      "section": "Models"
-    },
-    {
-      "name": "Model 164",
-      "file": "models/uvmd-0164.glb",
-      "kind": "mesh3d",
-      "section": "Models"
-    },
-    {
-      "name": "Model 165",
-      "file": "models/uvmd-0165.glb",
-      "kind": "mesh3d",
-      "section": "Models"
-    },
-    {
-      "name": "Model 166",
-      "file": "models/uvmd-0166.glb",
-      "kind": "mesh3d",
-      "section": "Models"
-    },
-    {
-      "name": "Model 167",
-      "file": "models/uvmd-0167.glb",
-      "kind": "mesh3d",
-      "section": "Models"
-    },
-    {
-      "name": "Model 168",
-      "file": "models/uvmd-0168.glb",
-      "kind": "mesh3d",
-      "section": "Models"
-    },
-    {
-      "name": "Model 169",
-      "file": "models/uvmd-0169.glb",
-      "kind": "mesh3d",
-      "section": "Models"
-    },
-    {
-      "name": "Model 170",
-      "file": "models/uvmd-0170.glb",
-      "kind": "mesh3d",
-      "section": "Models"
-    },
-    {
-      "name": "Model 171",
-      "file": "models/uvmd-0171.glb",
-      "kind": "mesh3d",
-      "section": "Models"
-    },
-    {
-      "name": "Model 172",
-      "file": "models/uvmd-0172.glb",
-      "kind": "mesh3d",
-      "section": "Models"
-    },
-    {
-      "name": "Model 173",
-      "file": "models/uvmd-0173.glb",
-      "kind": "mesh3d",
-      "section": "Models"
-    },
-    {
-      "name": "Model 174",
-      "file": "models/uvmd-0174.glb",
-      "kind": "mesh3d",
-      "section": "Models"
-    },
-    {
-      "name": "Model 175",
-      "file": "models/uvmd-0175.glb",
-      "kind": "mesh3d",
-      "section": "Models"
-    },
-    {
-      "name": "Model 176",
-      "file": "models/uvmd-0176.glb",
-      "kind": "mesh3d",
-      "section": "Models"
-    },
-    {
-      "name": "Model 177",
-      "file": "models/uvmd-0177.glb",
-      "kind": "mesh3d",
-      "section": "Models"
-    },
-    {
-      "name": "Model 178",
-      "file": "models/uvmd-0178.glb",
-      "kind": "mesh3d",
-      "section": "Models"
-    },
-    {
-      "name": "Model 179",
-      "file": "models/uvmd-0179.glb",
-      "kind": "mesh3d",
-      "section": "Models"
-    },
-    {
-      "name": "Model 180",
-      "file": "models/uvmd-0180.glb",
-      "kind": "mesh3d",
-      "section": "Models"
-    },
-    {
-      "name": "Model 181",
-      "file": "models/uvmd-0181.glb",
-      "kind": "mesh3d",
-      "section": "Models"
-    },
-    {
-      "name": "Model 182",
-      "file": "models/uvmd-0182.glb",
-      "kind": "mesh3d",
-      "section": "Models"
-    },
-    {
-      "name": "Model 183",
-      "file": "models/uvmd-0183.glb",
-      "kind": "mesh3d",
-      "section": "Models"
-    },
-    {
-      "name": "Model 184",
-      "file": "models/uvmd-0184.glb",
-      "kind": "mesh3d",
-      "section": "Models"
-    },
-    {
-      "name": "Model 185",
-      "file": "models/uvmd-0185.glb",
-      "kind": "mesh3d",
-      "section": "Models"
-    },
-    {
-      "name": "Model 186",
-      "file": "models/uvmd-0186.glb",
-      "kind": "mesh3d",
-      "section": "Models"
-    },
-    {
-      "name": "Model 187",
-      "file": "models/uvmd-0187.glb",
-      "kind": "mesh3d",
-      "section": "Models"
-    },
-    {
-      "name": "Model 188",
-      "file": "models/uvmd-0188.glb",
-      "kind": "mesh3d",
-      "section": "Models"
-    },
-    {
-      "name": "Model 189",
-      "file": "models/uvmd-0189.glb",
-      "kind": "mesh3d",
-      "section": "Models"
-    },
-    {
-      "name": "Model 190",
-      "file": "models/uvmd-0190.glb",
-      "kind": "mesh3d",
-      "section": "Models"
-    },
-    {
-      "name": "Model 191",
-      "file": "models/uvmd-0191.glb",
-      "kind": "mesh3d",
-      "section": "Models"
-    },
-    {
-      "name": "Model 192",
-      "file": "models/uvmd-0192.glb",
-      "kind": "mesh3d",
-      "section": "Models"
-    },
-    {
-      "name": "Model 193",
-      "file": "models/uvmd-0193.glb",
-      "kind": "mesh3d",
-      "section": "Models"
-    },
-    {
-      "name": "Model 194",
-      "file": "models/uvmd-0194.glb",
-      "kind": "mesh3d",
-      "section": "Models"
-    },
-    {
-      "name": "Model 195",
-      "file": "models/uvmd-0195.glb",
-      "kind": "mesh3d",
-      "section": "Models"
-    },
-    {
-      "name": "Model 196",
-      "file": "models/uvmd-0196.glb",
-      "kind": "mesh3d",
-      "section": "Models"
-    },
-    {
-      "name": "Model 197",
-      "file": "models/uvmd-0197.glb",
-      "kind": "mesh3d",
-      "section": "Models"
-    },
-    {
-      "name": "Model 198",
-      "file": "models/uvmd-0198.glb",
-      "kind": "mesh3d",
-      "section": "Models"
-    },
-    {
-      "name": "Model 199",
-      "file": "models/uvmd-0199.glb",
-      "kind": "mesh3d",
-      "section": "Models"
-    },
-    {
-      "name": "Model 200",
-      "file": "models/uvmd-0200.glb",
-      "kind": "mesh3d",
-      "section": "Models"
-    },
-    {
-      "name": "Model 201",
-      "file": "models/uvmd-0201.glb",
-      "kind": "mesh3d",
-      "section": "Models"
-    },
-    {
-      "name": "Model 202",
-      "file": "models/uvmd-0202.glb",
-      "kind": "mesh3d",
-      "section": "Models"
-    },
-    {
-      "name": "Model 203",
-      "file": "models/uvmd-0203.glb",
-      "kind": "mesh3d",
-      "section": "Models"
-    },
-    {
-      "name": "Model 204",
-      "file": "models/uvmd-0204.glb",
-      "kind": "mesh3d",
-      "section": "Models"
-    },
-    {
-      "name": "Model 205",
-      "file": "models/uvmd-0205.glb",
-      "kind": "mesh3d",
-      "section": "Models"
-    },
-    {
-      "name": "Model 206",
-      "file": "models/uvmd-0206.glb",
-      "kind": "mesh3d",
-      "section": "Models"
-    },
-    {
-      "name": "Model 207",
-      "file": "models/uvmd-0207.glb",
-      "kind": "mesh3d",
-      "section": "Models"
-    },
-    {
-      "name": "Model 208",
-      "file": "models/uvmd-0208.glb",
-      "kind": "mesh3d",
-      "section": "Models"
-    },
-    {
-      "name": "Model 209",
-      "file": "models/uvmd-0209.glb",
-      "kind": "mesh3d",
-      "section": "Models"
-    },
-    {
-      "name": "Model 210",
-      "file": "models/uvmd-0210.glb",
-      "kind": "mesh3d",
-      "section": "Models"
-    },
-    {
-      "name": "Model 211",
-      "file": "models/uvmd-0211.glb",
-      "kind": "mesh3d",
-      "section": "Models"
-    },
-    {
-      "name": "PILOTWINGS logo",
-      "file": "models/uvmd-0212.glb",
-      "kind": "mesh3d",
-      "section": "Models"
-    },
-    {
-      "name": "Model 213",
-      "file": "models/uvmd-0213.glb",
-      "kind": "mesh3d",
-      "section": "Models"
-    },
-    {
-      "name": "Model 214",
-      "file": "models/uvmd-0214.glb",
-      "kind": "mesh3d",
-      "section": "Models"
-    },
-    {
-      "name": "Model 215",
-      "file": "models/uvmd-0215.glb",
-      "kind": "mesh3d",
-      "section": "Models"
-    },
-    {
-      "name": "Model 216",
-      "file": "models/uvmd-0216.glb",
-      "kind": "mesh3d",
-      "section": "Models"
-    },
-    {
-      "name": "Model 217",
-      "file": "models/uvmd-0217.glb",
-      "kind": "mesh3d",
-      "section": "Models"
-    },
-    {
-      "name": "Model 218",
-      "file": "models/uvmd-0218.glb",
-      "kind": "mesh3d",
-      "section": "Models",
-      "clips": [
-        "clip-00",
-        "clip-01",
-        "clip-02",
-        "clip-03",
-        "clip-04",
-        "clip-05",
-        "clip-06",
-        "clip-07",
-        "clip-08",
-        "clip-09"
-      ]
-    },
-    {
-      "name": "Model 219",
-      "file": "models/uvmd-0219.glb",
-      "kind": "mesh3d",
-      "section": "Models"
-    },
-    {
-      "name": "Model 220",
-      "file": "models/uvmd-0220.glb",
-      "kind": "mesh3d",
-      "section": "Models"
-    },
-    {
-      "name": "Model 221",
-      "file": "models/uvmd-0221.glb",
-      "kind": "mesh3d",
-      "section": "Models"
-    },
-    {
-      "name": "Model 222",
-      "file": "models/uvmd-0222.glb",
-      "kind": "mesh3d",
-      "section": "Models",
-      "clips": [
-        "clip-00"
-      ]
-    },
-    {
-      "name": "Model 223",
-      "file": "models/uvmd-0223.glb",
-      "kind": "mesh3d",
-      "section": "Models"
-    },
-    {
-      "name": "Model 224",
-      "file": "models/uvmd-0224.glb",
-      "kind": "mesh3d",
-      "section": "Models"
-    },
-    {
-      "name": "Model 225",
-      "file": "models/uvmd-0225.glb",
-      "kind": "mesh3d",
-      "section": "Models"
-    },
-    {
-      "name": "Model 226",
-      "file": "models/uvmd-0226.glb",
-      "kind": "mesh3d",
-      "section": "Models"
-    },
-    {
-      "name": "Model 227",
-      "file": "models/uvmd-0227.glb",
-      "kind": "mesh3d",
-      "section": "Models"
-    },
-    {
-      "name": "Model 228",
-      "file": "models/uvmd-0228.glb",
-      "kind": "mesh3d",
-      "section": "Models"
-    },
-    {
-      "name": "Model 229",
-      "file": "models/uvmd-0229.glb",
-      "kind": "mesh3d",
-      "section": "Models"
-    },
-    {
-      "name": "Model 230",
-      "file": "models/uvmd-0230.glb",
-      "kind": "mesh3d",
-      "section": "Models"
-    },
-    {
-      "name": "Model 231",
-      "file": "models/uvmd-0231.glb",
-      "kind": "mesh3d",
-      "section": "Models"
-    },
-    {
-      "name": "Model 232",
-      "file": "models/uvmd-0232.glb",
-      "kind": "mesh3d",
-      "section": "Models"
-    },
-    {
-      "name": "Model 233",
-      "file": "models/uvmd-0233.glb",
-      "kind": "mesh3d",
-      "section": "Models"
-    },
-    {
-      "name": "Model 234",
-      "file": "models/uvmd-0234.glb",
-      "kind": "mesh3d",
-      "section": "Models"
-    },
-    {
-      "name": "Model 235",
-      "file": "models/uvmd-0235.glb",
-      "kind": "mesh3d",
-      "section": "Models"
-    },
-    {
-      "name": "Model 236",
-      "file": "models/uvmd-0236.glb",
-      "kind": "mesh3d",
-      "section": "Models"
-    },
-    {
-      "name": "Model 237",
-      "file": "models/uvmd-0237.glb",
-      "kind": "mesh3d",
-      "section": "Models"
-    },
-    {
-      "name": "Model 238",
-      "file": "models/uvmd-0238.glb",
-      "kind": "mesh3d",
-      "section": "Models"
-    },
-    {
-      "name": "Model 239",
-      "file": "models/uvmd-0239.glb",
-      "kind": "mesh3d",
-      "section": "Models"
-    },
-    {
-      "name": "Model 240",
-      "file": "models/uvmd-0240.glb",
-      "kind": "mesh3d",
-      "section": "Models"
-    },
-    {
-      "name": "Model 241",
-      "file": "models/uvmd-0241.glb",
-      "kind": "mesh3d",
-      "section": "Models"
-    },
-    {
-      "name": "Model 242",
-      "file": "models/uvmd-0242.glb",
-      "kind": "mesh3d",
-      "section": "Models"
-    },
-    {
-      "name": "Model 243",
-      "file": "models/uvmd-0243.glb",
-      "kind": "mesh3d",
-      "section": "Models"
-    },
-    {
-      "name": "Model 244",
-      "file": "models/uvmd-0244.glb",
-      "kind": "mesh3d",
-      "section": "Models"
-    },
-    {
-      "name": "Model 245",
-      "file": "models/uvmd-0245.glb",
-      "kind": "mesh3d",
-      "section": "Models"
-    },
-    {
-      "name": "Model 246",
-      "file": "models/uvmd-0246.glb",
-      "kind": "mesh3d",
-      "section": "Models"
-    },
-    {
-      "name": "Model 247",
-      "file": "models/uvmd-0247.glb",
-      "kind": "mesh3d",
-      "section": "Models"
-    },
-    {
-      "name": "Model 248",
-      "file": "models/uvmd-0248.glb",
-      "kind": "mesh3d",
-      "section": "Models"
-    },
-    {
-      "name": "Model 249",
-      "file": "models/uvmd-0249.glb",
-      "kind": "mesh3d",
-      "section": "Models"
-    },
-    {
-      "name": "Model 250",
-      "file": "models/uvmd-0250.glb",
-      "kind": "mesh3d",
-      "section": "Models"
-    },
-    {
-      "name": "Model 251",
-      "file": "models/uvmd-0251.glb",
-      "kind": "mesh3d",
-      "section": "Models"
-    },
-    {
-      "name": "Model 252",
-      "file": "models/uvmd-0252.glb",
-      "kind": "mesh3d",
-      "section": "Models"
-    },
-    {
-      "name": "Model 253",
-      "file": "models/uvmd-0253.glb",
-      "kind": "mesh3d",
-      "section": "Models"
-    },
-    {
-      "name": "Model 254",
-      "file": "models/uvmd-0254.glb",
-      "kind": "mesh3d",
-      "section": "Models"
-    },
-    {
-      "name": "Model 255",
-      "file": "models/uvmd-0255.glb",
-      "kind": "mesh3d",
-      "section": "Models"
-    },
-    {
-      "name": "Model 256",
-      "file": "models/uvmd-0256.glb",
-      "kind": "mesh3d",
-      "section": "Models"
-    },
-    {
-      "name": "Model 257",
-      "file": "models/uvmd-0257.glb",
-      "kind": "mesh3d",
-      "section": "Models"
-    },
-    {
-      "name": "Model 258",
-      "file": "models/uvmd-0258.glb",
-      "kind": "mesh3d",
-      "section": "Models"
-    },
-    {
-      "name": "Model 259",
-      "file": "models/uvmd-0259.glb",
-      "kind": "mesh3d",
-      "section": "Models"
-    },
-    {
-      "name": "Model 260",
-      "file": "models/uvmd-0260.glb",
-      "kind": "mesh3d",
-      "section": "Models"
-    },
-    {
-      "name": "Model 261",
-      "file": "models/uvmd-0261.glb",
-      "kind": "mesh3d",
-      "section": "Models"
-    },
-    {
-      "name": "Model 262",
-      "file": "models/uvmd-0262.glb",
-      "kind": "mesh3d",
-      "section": "Models"
-    },
-    {
-      "name": "Model 263",
-      "file": "models/uvmd-0263.glb",
-      "kind": "mesh3d",
-      "section": "Models"
-    },
-    {
-      "name": "Model 264",
-      "file": "models/uvmd-0264.glb",
-      "kind": "mesh3d",
-      "section": "Models"
-    },
-    {
-      "name": "Model 265",
-      "file": "models/uvmd-0265.glb",
-      "kind": "mesh3d",
-      "section": "Models"
-    },
-    {
-      "name": "Model 266",
-      "file": "models/uvmd-0266.glb",
-      "kind": "mesh3d",
-      "section": "Models"
-    },
-    {
-      "name": "Model 267",
-      "file": "models/uvmd-0267.glb",
-      "kind": "mesh3d",
-      "section": "Models"
-    },
-    {
-      "name": "Model 268",
-      "file": "models/uvmd-0268.glb",
-      "kind": "mesh3d",
-      "section": "Models"
-    },
-    {
-      "name": "Model 269",
-      "file": "models/uvmd-0269.glb",
-      "kind": "mesh3d",
-      "section": "Models"
-    },
-    {
-      "name": "Model 270",
-      "file": "models/uvmd-0270.glb",
-      "kind": "mesh3d",
-      "section": "Models"
-    },
-    {
-      "name": "Model 271",
-      "file": "models/uvmd-0271.glb",
-      "kind": "mesh3d",
-      "section": "Models"
-    },
-    {
-      "name": "Model 272",
-      "file": "models/uvmd-0272.glb",
-      "kind": "mesh3d",
-      "section": "Models"
-    },
-    {
-      "name": "Model 273",
-      "file": "models/uvmd-0273.glb",
-      "kind": "mesh3d",
-      "section": "Models"
-    },
-    {
-      "name": "Model 274",
-      "file": "models/uvmd-0274.glb",
-      "kind": "mesh3d",
-      "section": "Models"
-    },
-    {
-      "name": "Model 275",
-      "file": "models/uvmd-0275.glb",
-      "kind": "mesh3d",
-      "section": "Models"
-    },
-    {
-      "name": "Model 276",
-      "file": "models/uvmd-0276.glb",
-      "kind": "mesh3d",
-      "section": "Models"
-    },
-    {
-      "name": "Model 277",
-      "file": "models/uvmd-0277.glb",
-      "kind": "mesh3d",
-      "section": "Models"
-    },
-    {
-      "name": "Model 278",
-      "file": "models/uvmd-0278.glb",
-      "kind": "mesh3d",
-      "section": "Models"
-    },
-    {
-      "name": "Model 279",
-      "file": "models/uvmd-0279.glb",
-      "kind": "mesh3d",
-      "section": "Models",
-      "clips": [
-        "clip-00",
-        "clip-01",
-        "clip-02",
-        "clip-03",
-        "clip-04",
-        "clip-05"
-      ]
-    },
-    {
-      "name": "Model 280",
-      "file": "models/uvmd-0280.glb",
-      "kind": "mesh3d",
-      "section": "Models"
-    },
-    {
-      "name": "Model 281",
-      "file": "models/uvmd-0281.glb",
-      "kind": "mesh3d",
-      "section": "Models"
-    },
-    {
-      "name": "Model 282",
-      "file": "models/uvmd-0282.glb",
-      "kind": "mesh3d",
-      "section": "Models",
-      "clips": [
-        "clip-00"
-      ]
-    },
-    {
-      "name": "Model 283",
-      "file": "models/uvmd-0283.glb",
-      "kind": "mesh3d",
-      "section": "Models",
-      "clips": [
-        "clip-00",
-        "clip-01",
-        "clip-02",
-        "clip-03",
-        "clip-04",
-        "clip-05"
-      ]
-    },
-    {
-      "name": "Model 284",
-      "file": "models/uvmd-0284.glb",
-      "kind": "mesh3d",
-      "section": "Models",
-      "clips": [
-        "clip-00"
-      ]
-    },
-    {
-      "name": "Model 285",
-      "file": "models/uvmd-0285.glb",
-      "kind": "mesh3d",
-      "section": "Models",
-      "clips": [
-        "clip-00",
-        "clip-01",
-        "clip-02",
-        "clip-03",
-        "clip-04",
-        "clip-05"
-      ]
-    },
-    {
-      "name": "Model 286",
-      "file": "models/uvmd-0286.glb",
-      "kind": "mesh3d",
-      "section": "Models",
-      "clips": [
-        "clip-00"
-      ]
-    },
-    {
-      "name": "Model 287",
-      "file": "models/uvmd-0287.glb",
-      "kind": "mesh3d",
-      "section": "Models",
-      "clips": [
-        "clip-00",
-        "clip-01",
-        "clip-02",
-        "clip-03",
-        "clip-04",
-        "clip-05"
-      ]
-    },
-    {
-      "name": "Model 288",
-      "file": "models/uvmd-0288.glb",
-      "kind": "mesh3d",
-      "section": "Models",
-      "clips": [
-        "clip-00"
-      ]
-    },
-    {
-      "name": "Model 289",
-      "file": "models/uvmd-0289.glb",
-      "kind": "mesh3d",
-      "section": "Models",
-      "clips": [
-        "clip-00",
-        "clip-01",
-        "clip-02",
-        "clip-03",
-        "clip-04",
-        "clip-05"
-      ]
-    },
-    {
-      "name": "Model 290",
-      "file": "models/uvmd-0290.glb",
-      "kind": "mesh3d",
-      "section": "Models",
-      "clips": [
-        "clip-00"
-      ]
-    },
-    {
-      "name": "Model 291",
-      "file": "models/uvmd-0291.glb",
-      "kind": "mesh3d",
-      "section": "Models",
-      "clips": [
-        "clip-00",
-        "clip-01",
-        "clip-02",
-        "clip-03",
-        "clip-04",
-        "clip-05"
-      ]
-    },
-    {
-      "name": "Model 292",
-      "file": "models/uvmd-0292.glb",
-      "kind": "mesh3d",
-      "section": "Models",
-      "clips": [
-        "clip-00"
-      ]
-    },
-    {
-      "name": "Model 293",
-      "file": "models/uvmd-0293.glb",
-      "kind": "mesh3d",
-      "section": "Models",
-      "clips": [
-        "clip-00",
-        "clip-01"
-      ]
-    },
-    {
-      "name": "Model 294",
-      "file": "models/uvmd-0294.glb",
-      "kind": "mesh3d",
-      "section": "Models"
-    },
-    {
-      "name": "Model 295",
-      "file": "models/uvmd-0295.glb",
-      "kind": "mesh3d",
-      "section": "Models"
-    },
-    {
-      "name": "Model 296",
-      "file": "models/uvmd-0296.glb",
-      "kind": "mesh3d",
-      "section": "Models"
-    },
-    {
-      "name": "Model 297",
-      "file": "models/uvmd-0297.glb",
-      "kind": "mesh3d",
-      "section": "Models"
-    },
-    {
-      "name": "Model 298",
-      "file": "models/uvmd-0298.glb",
-      "kind": "mesh3d",
-      "section": "Models"
-    },
-    {
-      "name": "Model 299",
-      "file": "models/uvmd-0299.glb",
-      "kind": "mesh3d",
-      "section": "Models"
-    },
-    {
-      "name": "Model 300",
-      "file": "models/uvmd-0300.glb",
-      "kind": "mesh3d",
-      "section": "Models"
-    },
-    {
-      "name": "Model 301",
-      "file": "models/uvmd-0301.glb",
-      "kind": "mesh3d",
-      "section": "Models"
-    },
-    {
-      "name": "Model 302",
-      "file": "models/uvmd-0302.glb",
-      "kind": "mesh3d",
-      "section": "Models",
-      "clips": [
-        "clip-00",
-        "clip-01",
-        "clip-02"
-      ]
-    },
-    {
-      "name": "Model 303",
-      "file": "models/uvmd-0303.glb",
-      "kind": "mesh3d",
-      "section": "Models"
-    },
-    {
-      "name": "Model 304",
-      "file": "models/uvmd-0304.glb",
-      "kind": "mesh3d",
-      "section": "Models"
-    },
-    {
-      "name": "Model 305",
-      "file": "models/uvmd-0305.glb",
-      "kind": "mesh3d",
-      "section": "Models"
-    },
-    {
-      "name": "Model 306",
-      "file": "models/uvmd-0306.glb",
-      "kind": "mesh3d",
-      "section": "Models",
-      "clips": [
-        "clip-00",
-        "clip-01"
-      ]
-    },
-    {
-      "name": "Model 307",
-      "file": "models/uvmd-0307.glb",
-      "kind": "mesh3d",
-      "section": "Models"
-    },
-    {
-      "name": "Model 308",
-      "file": "models/uvmd-0308.glb",
-      "kind": "mesh3d",
-      "section": "Models",
-      "clips": [
-        "clip-00",
-        "clip-01"
-      ]
-    },
-    {
-      "name": "Model 309",
-      "file": "models/uvmd-0309.glb",
-      "kind": "mesh3d",
-      "section": "Models"
-    },
-    {
-      "name": "Model 310",
-      "file": "models/uvmd-0310.glb",
-      "kind": "mesh3d",
-      "section": "Models"
-    },
-    {
-      "name": "Model 311",
-      "file": "models/uvmd-0311.glb",
-      "kind": "mesh3d",
-      "section": "Models"
-    },
-    {
-      "name": "Model 312",
-      "file": "models/uvmd-0312.glb",
-      "kind": "mesh3d",
-      "section": "Models"
-    },
-    {
-      "name": "Model 313",
-      "file": "models/uvmd-0313.glb",
-      "kind": "mesh3d",
-      "section": "Models"
-    },
-    {
-      "name": "Model 314",
-      "file": "models/uvmd-0314.glb",
-      "kind": "mesh3d",
-      "section": "Models"
-    },
-    {
-      "name": "Model 315",
-      "file": "models/uvmd-0315.glb",
-      "kind": "mesh3d",
-      "section": "Models"
-    },
-    {
-      "name": "Model 316",
-      "file": "models/uvmd-0316.glb",
-      "kind": "mesh3d",
-      "section": "Models",
-      "clips": [
-        "clip-00"
-      ]
-    },
-    {
-      "name": "Model 317",
-      "file": "models/uvmd-0317.glb",
-      "kind": "mesh3d",
-      "section": "Models",
-      "clips": [
-        "clip-00"
-      ]
-    },
-    {
-      "name": "Model 318",
-      "file": "models/uvmd-0318.glb",
-      "kind": "mesh3d",
-      "section": "Models",
-      "clips": [
-        "clip-00"
-      ]
-    },
-    {
-      "name": "Model 319",
-      "file": "models/uvmd-0319.glb",
-      "kind": "mesh3d",
-      "section": "Models",
-      "clips": [
-        "clip-00"
-      ]
-    },
-    {
-      "name": "Model 320",
-      "file": "models/uvmd-0320.glb",
-      "kind": "mesh3d",
-      "section": "Models",
-      "clips": [
-        "clip-00"
-      ]
-    },
-    {
-      "name": "Model 321",
-      "file": "models/uvmd-0321.glb",
-      "kind": "mesh3d",
-      "section": "Models",
-      "clips": [
-        "clip-00"
-      ]
-    },
-    {
-      "name": "Model 322",
-      "file": "models/uvmd-0322.glb",
-      "kind": "mesh3d",
-      "section": "Models",
-      "clips": [
-        "clip-00",
-        "clip-01"
-      ]
-    },
-    {
-      "name": "Model 323",
-      "file": "models/uvmd-0323.glb",
-      "kind": "mesh3d",
-      "section": "Models"
-    },
-    {
-      "name": "Model 324",
-      "file": "models/uvmd-0324.glb",
-      "kind": "mesh3d",
-      "section": "Models"
-    },
-    {
-      "name": "Model 325",
-      "file": "models/uvmd-0325.glb",
-      "kind": "mesh3d",
-      "section": "Models",
-      "clips": [
-        "clip-00",
-        "clip-01"
-      ]
-    },
-    {
-      "name": "Model 326",
-      "file": "models/uvmd-0326.glb",
-      "kind": "mesh3d",
-      "section": "Models",
-      "clips": [
-        "clip-00",
-        "clip-01"
-      ]
-    },
-    {
-      "name": "Model 327",
-      "file": "models/uvmd-0327.glb",
-      "kind": "mesh3d",
-      "section": "Models",
-      "clips": [
-        "clip-00"
-      ]
-    },
-    {
-      "name": "Model 328",
-      "file": "models/uvmd-0328.glb",
-      "kind": "mesh3d",
-      "section": "Models",
-      "clips": [
-        "clip-00"
-      ]
-    },
-    {
-      "name": "Model 329",
-      "file": "models/uvmd-0329.glb",
-      "kind": "mesh3d",
-      "section": "Models",
-      "clips": [
-        "clip-00"
-      ]
-    },
-    {
-      "name": "Model 330",
-      "file": "models/uvmd-0330.glb",
-      "kind": "mesh3d",
-      "section": "Models",
-      "clips": [
-        "clip-00",
-        "clip-01",
-        "clip-02"
-      ]
-    },
-    {
-      "name": "Model 331",
-      "file": "models/uvmd-0331.glb",
-      "kind": "mesh3d",
-      "section": "Models",
-      "clips": [
-        "clip-00",
-        "clip-01",
-        "clip-02"
-      ]
-    },
-    {
-      "name": "Model 332",
-      "file": "models/uvmd-0332.glb",
-      "kind": "mesh3d",
-      "section": "Models",
-      "clips": [
-        "clip-00",
-        "clip-01",
-        "clip-02"
-      ]
-    },
-    {
-      "name": "Model 333",
-      "file": "models/uvmd-0333.glb",
-      "kind": "mesh3d",
-      "section": "Models",
-      "clips": [
-        "clip-00",
-        "clip-01",
-        "clip-02"
-      ]
-    },
-    {
-      "name": "Model 334",
-      "file": "models/uvmd-0334.glb",
-      "kind": "mesh3d",
-      "section": "Models",
-      "clips": [
-        "clip-00",
-        "clip-01",
-        "clip-02"
-      ]
-    },
-    {
-      "name": "Model 335",
-      "file": "models/uvmd-0335.glb",
-      "kind": "mesh3d",
-      "section": "Models"
-    },
-    {
-      "name": "Model 336",
-      "file": "models/uvmd-0336.glb",
-      "kind": "mesh3d",
-      "section": "Models",
-      "clips": [
-        "clip-00",
-        "clip-01",
-        "clip-02"
-      ]
-    },
-    {
-      "name": "Model 337",
-      "file": "models/uvmd-0337.glb",
-      "kind": "mesh3d",
-      "section": "Models",
-      "clips": [
-        "clip-00",
-        "clip-01"
-      ]
-    },
-    {
-      "name": "Model 338",
-      "file": "models/uvmd-0338.glb",
-      "kind": "mesh3d",
-      "section": "Models",
-      "clips": [
-        "clip-00",
-        "clip-01",
-        "clip-02"
-      ]
-    },
-    {
-      "name": "Model 339",
-      "file": "models/uvmd-0339.glb",
-      "kind": "mesh3d",
-      "section": "Models",
-      "clips": [
-        "clip-00",
-        "clip-01"
-      ]
-    },
-    {
-      "name": "Model 340",
-      "file": "models/uvmd-0340.glb",
-      "kind": "mesh3d",
-      "section": "Models",
-      "clips": [
-        "clip-00",
-        "clip-01"
-      ]
-    },
-    {
-      "name": "Model 341",
-      "file": "models/uvmd-0341.glb",
-      "kind": "mesh3d",
-      "section": "Models",
-      "clips": [
-        "clip-00",
-        "clip-01"
-      ]
-    },
-    {
-      "name": "Model 342",
-      "file": "models/uvmd-0342.glb",
-      "kind": "mesh3d",
-      "section": "Models",
-      "clips": [
-        "clip-00",
-        "clip-01"
-      ]
-    },
-    {
-      "name": "Model 343",
-      "file": "models/uvmd-0343.glb",
-      "kind": "mesh3d",
-      "section": "Models",
-      "clips": [
-        "clip-00"
-      ]
-    },
-    {
-      "name": "Model 344",
-      "file": "models/uvmd-0344.glb",
-      "kind": "mesh3d",
-      "section": "Models"
-    },
-    {
-      "name": "Model 345",
-      "file": "models/uvmd-0345.glb",
-      "kind": "mesh3d",
-      "section": "Models"
-    },
-    {
-      "name": "Model 346",
-      "file": "models/uvmd-0346.glb",
-      "kind": "mesh3d",
-      "section": "Models"
-    },
-    {
-      "name": "Model 347",
-      "file": "models/uvmd-0347.glb",
-      "kind": "mesh3d",
-      "section": "Models"
-    },
-    {
-      "name": "Model 348",
-      "file": "models/uvmd-0348.glb",
-      "kind": "mesh3d",
-      "section": "Models"
-    },
-    {
-      "name": "Model 349",
-      "file": "models/uvmd-0349.glb",
-      "kind": "mesh3d",
-      "section": "Models"
-    },
-    {
-      "name": "Model 350",
-      "file": "models/uvmd-0350.glb",
-      "kind": "mesh3d",
-      "section": "Models"
-    },
-    {
-      "name": "Sky dome",
-      "file": "models/uvmd-0351.glb",
-      "kind": "mesh3d",
-      "section": "Models"
-    },
-    {
-      "name": "Model 352",
-      "file": "models/uvmd-0352.glb",
-      "kind": "mesh3d",
-      "section": "Models"
-    },
-    {
-      "name": "Model 353",
-      "file": "models/uvmd-0353.glb",
-      "kind": "mesh3d",
-      "section": "Models",
-      "clips": [
-        "clip-00"
-      ]
-    },
-    {
-      "name": "Model 354",
-      "file": "models/uvmd-0354.glb",
-      "kind": "mesh3d",
-      "section": "Models",
-      "clips": [
-        "clip-00"
-      ]
-    },
-    {
-      "name": "Model 355",
-      "file": "models/uvmd-0355.glb",
-      "kind": "mesh3d",
-      "section": "Models",
-      "clips": [
-        "clip-00"
-      ]
-    },
-    {
-      "name": "Model 356",
-      "file": "models/uvmd-0356.glb",
-      "kind": "mesh3d",
-      "section": "Models",
-      "clips": [
-        "clip-00"
-      ]
-    },
-    {
-      "name": "Model 357",
-      "file": "models/uvmd-0357.glb",
-      "kind": "mesh3d",
-      "section": "Models",
-      "clips": [
-        "clip-00"
-      ]
-    },
-    {
-      "name": "Model 358",
-      "file": "models/uvmd-0358.glb",
-      "kind": "mesh3d",
-      "section": "Models",
-      "clips": [
-        "clip-00"
-      ]
-    },
-    {
-      "name": "Model 359",
-      "file": "models/uvmd-0359.glb",
-      "kind": "mesh3d",
-      "section": "Models"
-    },
-    {
-      "name": "Model 360",
-      "file": "models/uvmd-0360.glb",
-      "kind": "mesh3d",
-      "section": "Models"
-    },
-    {
-      "name": "Model 361",
-      "file": "models/uvmd-0361.glb",
-      "kind": "mesh3d",
-      "section": "Models"
-    },
-    {
-      "name": "Model 362",
-      "file": "models/uvmd-0362.glb",
-      "kind": "mesh3d",
-      "section": "Models"
-    },
-    {
-      "name": "Model 363",
-      "file": "models/uvmd-0363.glb",
-      "kind": "mesh3d",
-      "section": "Models"
-    },
-    {
-      "name": "Model 364",
-      "file": "models/uvmd-0364.glb",
-      "kind": "mesh3d",
-      "section": "Models"
-    },
-    {
-      "name": "Model 365",
-      "file": "models/uvmd-0365.glb",
-      "kind": "mesh3d",
-      "section": "Models"
-    },
-    {
-      "name": "Model 366",
-      "file": "models/uvmd-0366.glb",
-      "kind": "mesh3d",
-      "section": "Models"
-    },
-    {
-      "name": "Model 367",
-      "file": "models/uvmd-0367.glb",
-      "kind": "mesh3d",
-      "section": "Models"
-    },
-    {
-      "name": "Model 368",
-      "file": "models/uvmd-0368.glb",
-      "kind": "mesh3d",
-      "section": "Models"
-    },
-    {
-      "name": "Model 369",
-      "file": "models/uvmd-0369.glb",
-      "kind": "mesh3d",
-      "section": "Models"
-    }
-  ],
-  "music": [
-    {
-      "name": "Song 00 · 0:23",
-      "file": "music/song_00.mp3"
-    },
-    {
-      "name": "Song 01 · 0:08",
-      "file": "music/song_01.mp3"
-    },
-    {
-      "name": "Song 02 · 1:10",
-      "file": "music/song_02.mp3"
-    },
-    {
-      "name": "Song 03 · 1:10",
-      "file": "music/song_03.mp3"
-    },
-    {
-      "name": "Song 04 · 1:10",
-      "file": "music/song_04.mp3"
-    },
-    {
-      "name": "Song 05 · 0:05",
-      "file": "music/song_05.mp3"
-    },
-    {
-      "name": "Song 06 · 0:08",
-      "file": "music/song_06.mp3"
-    },
-    {
-      "name": "Song 07 · 0:08",
-      "file": "music/song_07.mp3"
-    },
-    {
-      "name": "Song 08 · 1:10",
-      "file": "music/song_08.mp3"
-    },
-    {
-      "name": "Song 09 · 0:04",
-      "file": "music/song_09.mp3"
-    },
-    {
-      "name": "Song 10 · 0:04",
-      "file": "music/song_10.mp3"
-    },
-    {
-      "name": "Song 11 · 0:05",
-      "file": "music/song_11.mp3"
-    },
-    {
-      "name": "Song 12 · 1:10",
-      "file": "music/song_12.mp3"
-    },
-    {
-      "name": "Song 13 · 0:05",
-      "file": "music/song_13.mp3"
-    },
-    {
-      "name": "Song 14 · 0:07",
-      "file": "music/song_14.mp3"
-    },
-    {
-      "name": "Song 15 · 0:05",
-      "file": "music/song_15.mp3"
-    },
-    {
-      "name": "Song 16 · 0:51",
-      "file": "music/song_16.mp3"
-    },
-    {
-      "name": "Song 17 · 0:05",
-      "file": "music/song_17.mp3"
-    },
-    {
-      "name": "Song 18 · 0:05",
-      "file": "music/song_18.mp3"
-    },
-    {
-      "name": "Song 19 · 1:10",
-      "file": "music/song_19.mp3"
-    },
-    {
-      "name": "Song 20 · 0:02",
-      "file": "music/song_20.mp3"
-    },
-    {
-      "name": "Song 21 · 0:04",
-      "file": "music/song_21.mp3"
-    },
-    {
-      "name": "Song 22 · 0:05",
-      "file": "music/song_22.mp3"
-    },
-    {
-      "name": "Song 23 · 1:10",
-      "file": "music/song_23.mp3"
-    },
-    {
-      "name": "Song 24 · 0:05",
-      "file": "music/song_24.mp3"
-    },
-    {
-      "name": "Song 25 · 1:10",
-      "file": "music/song_25.mp3"
-    },
-    {
-      "name": "Song 26 · 0:10",
-      "file": "music/song_26.mp3"
-    },
-    {
-      "name": "Song 27 · 0:06",
-      "file": "music/song_27.mp3"
-    },
-    {
-      "name": "Song 28 · 1:10",
-      "file": "music/song_28.mp3"
-    },
-    {
-      "name": "Song 29 · 1:10",
-      "file": "music/song_29.mp3"
-    },
-    {
-      "name": "Song 30 · 1:10",
-      "file": "music/song_30.mp3"
-    }
-  ],
+ "format": "retro-x",
+ "version": 1,
+ "id": "pilotwings-64-n64",
+ "title": "Pilotwings 64",
+ "platform": "Nintendo 64",
+ "year": 1996,
+ "description": "Paradigm Simulation's launch-day flight playground for the Nintendo 64 (1996): hang glider, gyrocopter and rocket belt over open islands — including Little States, a miniature USA. The cartridge is an IFF archive, and this export is decoded straight from it: every island terrain with its per-mission object sets (the engine dresses one island differently per scene through a 16-bit mask, here a variant picker), all 363 models with their rigid-part animations, and the 31 songs rendered through the game's own sequence and instrument banks.",
+ "display": {
   "native": {
-    "W": 320,
-    "H": 240
+   "w": 320,
+   "h": 240
   },
-  "platform": "Nintendo 64",
-  "tickHz": 60
+  "tickHz": 60,
+  "filter": "crt"
+ },
+ "assets": [
+  {
+   "id": "uvmd-0007",
+   "category": "object",
+   "name": "Model 007",
+   "group": "Models",
+   "file": "objects/uvmd-0007.json"
+  },
+  {
+   "id": "uvmd-0008",
+   "category": "object",
+   "name": "Model 008",
+   "group": "Models",
+   "file": "objects/uvmd-0008.json"
+  },
+  {
+   "id": "uvmd-0009",
+   "category": "object",
+   "name": "Model 009",
+   "group": "Models",
+   "file": "objects/uvmd-0009.json"
+  },
+  {
+   "id": "uvmd-0010",
+   "category": "object",
+   "name": "Model 010",
+   "group": "Models",
+   "file": "objects/uvmd-0010.json"
+  },
+  {
+   "id": "uvmd-0011",
+   "category": "object",
+   "name": "Model 011",
+   "group": "Models",
+   "file": "objects/uvmd-0011.json"
+  },
+  {
+   "id": "uvmd-0012",
+   "category": "object",
+   "name": "Model 012",
+   "group": "Models",
+   "file": "objects/uvmd-0012.json"
+  },
+  {
+   "id": "uvmd-0013",
+   "category": "object",
+   "name": "Model 013",
+   "group": "Models",
+   "file": "objects/uvmd-0013.json"
+  },
+  {
+   "id": "uvmd-0014",
+   "category": "object",
+   "name": "Model 014",
+   "group": "Models",
+   "file": "objects/uvmd-0014.json"
+  },
+  {
+   "id": "uvmd-0015",
+   "category": "object",
+   "name": "Model 015",
+   "group": "Models",
+   "file": "objects/uvmd-0015.json"
+  },
+  {
+   "id": "uvmd-0016",
+   "category": "object",
+   "name": "Model 016",
+   "group": "Models",
+   "file": "objects/uvmd-0016.json"
+  },
+  {
+   "id": "uvmd-0017",
+   "category": "object",
+   "name": "Model 017",
+   "group": "Models",
+   "file": "objects/uvmd-0017.json"
+  },
+  {
+   "id": "uvmd-0018",
+   "category": "object",
+   "name": "Model 018",
+   "group": "Models",
+   "file": "objects/uvmd-0018.json"
+  },
+  {
+   "id": "uvmd-0019",
+   "category": "object",
+   "name": "Model 019",
+   "group": "Models",
+   "file": "objects/uvmd-0019.json"
+  },
+  {
+   "id": "uvmd-0020",
+   "category": "object",
+   "name": "Model 020",
+   "group": "Models",
+   "file": "objects/uvmd-0020.json"
+  },
+  {
+   "id": "uvmd-0021",
+   "category": "object",
+   "name": "Model 021",
+   "group": "Models",
+   "file": "objects/uvmd-0021.json"
+  },
+  {
+   "id": "uvmd-0022",
+   "category": "object",
+   "name": "Model 022",
+   "group": "Models",
+   "file": "objects/uvmd-0022.json"
+  },
+  {
+   "id": "uvmd-0023",
+   "category": "object",
+   "name": "Model 023",
+   "group": "Models",
+   "file": "objects/uvmd-0023.json"
+  },
+  {
+   "id": "uvmd-0024",
+   "category": "object",
+   "name": "Model 024",
+   "group": "Models",
+   "file": "objects/uvmd-0024.json"
+  },
+  {
+   "id": "uvmd-0025",
+   "category": "object",
+   "name": "Model 025",
+   "group": "Models",
+   "file": "objects/uvmd-0025.json"
+  },
+  {
+   "id": "uvmd-0026",
+   "category": "object",
+   "name": "Model 026",
+   "group": "Models",
+   "file": "objects/uvmd-0026.json"
+  },
+  {
+   "id": "uvmd-0027",
+   "category": "object",
+   "name": "Model 027",
+   "group": "Models",
+   "file": "objects/uvmd-0027.json"
+  },
+  {
+   "id": "uvmd-0028",
+   "category": "object",
+   "name": "Model 028",
+   "group": "Models",
+   "file": "objects/uvmd-0028.json"
+  },
+  {
+   "id": "uvmd-0029",
+   "category": "object",
+   "name": "Model 029",
+   "group": "Models",
+   "file": "objects/uvmd-0029.json"
+  },
+  {
+   "id": "uvmd-0030",
+   "category": "object",
+   "name": "Model 030",
+   "group": "Models",
+   "file": "objects/uvmd-0030.json"
+  },
+  {
+   "id": "uvmd-0031",
+   "category": "object",
+   "name": "Model 031",
+   "group": "Models",
+   "file": "objects/uvmd-0031.json"
+  },
+  {
+   "id": "uvmd-0032",
+   "category": "object",
+   "name": "Model 032",
+   "group": "Models",
+   "file": "objects/uvmd-0032.json"
+  },
+  {
+   "id": "uvmd-0033",
+   "category": "object",
+   "name": "Model 033",
+   "group": "Models",
+   "file": "objects/uvmd-0033.json"
+  },
+  {
+   "id": "uvmd-0034",
+   "category": "object",
+   "name": "Model 034",
+   "group": "Models",
+   "file": "objects/uvmd-0034.json"
+  },
+  {
+   "id": "uvmd-0035",
+   "category": "object",
+   "name": "Model 035",
+   "group": "Models",
+   "file": "objects/uvmd-0035.json"
+  },
+  {
+   "id": "uvmd-0036",
+   "category": "object",
+   "name": "Model 036",
+   "group": "Models",
+   "file": "objects/uvmd-0036.json"
+  },
+  {
+   "id": "uvmd-0037",
+   "category": "object",
+   "name": "Model 037",
+   "group": "Models",
+   "file": "objects/uvmd-0037.json"
+  },
+  {
+   "id": "uvmd-0038",
+   "category": "object",
+   "name": "Model 038",
+   "group": "Models",
+   "file": "objects/uvmd-0038.json"
+  },
+  {
+   "id": "uvmd-0039",
+   "category": "object",
+   "name": "Model 039",
+   "group": "Models",
+   "file": "objects/uvmd-0039.json"
+  },
+  {
+   "id": "uvmd-0040",
+   "category": "object",
+   "name": "Model 040",
+   "group": "Models",
+   "file": "objects/uvmd-0040.json"
+  },
+  {
+   "id": "uvmd-0041",
+   "category": "object",
+   "name": "Model 041",
+   "group": "Models",
+   "file": "objects/uvmd-0041.json"
+  },
+  {
+   "id": "uvmd-0042",
+   "category": "object",
+   "name": "Model 042",
+   "group": "Models",
+   "file": "objects/uvmd-0042.json"
+  },
+  {
+   "id": "uvmd-0043",
+   "category": "object",
+   "name": "Model 043",
+   "group": "Models",
+   "file": "objects/uvmd-0043.json"
+  },
+  {
+   "id": "uvmd-0044",
+   "category": "object",
+   "name": "Model 044",
+   "group": "Models",
+   "file": "objects/uvmd-0044.json"
+  },
+  {
+   "id": "uvmd-0045",
+   "category": "object",
+   "name": "Model 045",
+   "group": "Models",
+   "file": "objects/uvmd-0045.json"
+  },
+  {
+   "id": "uvmd-0046",
+   "category": "object",
+   "name": "Model 046",
+   "group": "Models",
+   "file": "objects/uvmd-0046.json"
+  },
+  {
+   "id": "island",
+   "category": "object",
+   "name": "Island (whole)",
+   "group": "Models",
+   "description": "The attract sequence's island as one model, verified against the RAM walk.",
+   "file": "objects/island.json"
+  },
+  {
+   "id": "uvmd-0048",
+   "category": "object",
+   "name": "Model 048",
+   "group": "Models",
+   "file": "objects/uvmd-0048.json"
+  },
+  {
+   "id": "uvmd-0049",
+   "category": "object",
+   "name": "Model 049",
+   "group": "Models",
+   "file": "objects/uvmd-0049.json"
+  },
+  {
+   "id": "uvmd-0050",
+   "category": "object",
+   "name": "Model 050",
+   "group": "Models",
+   "file": "objects/uvmd-0050.json"
+  },
+  {
+   "id": "uvmd-0051",
+   "category": "object",
+   "name": "Model 051",
+   "group": "Models",
+   "file": "objects/uvmd-0051.json"
+  },
+  {
+   "id": "uvmd-0052",
+   "category": "object",
+   "name": "Model 052",
+   "group": "Models",
+   "file": "objects/uvmd-0052.json"
+  },
+  {
+   "id": "uvmd-0053",
+   "category": "object",
+   "name": "Model 053",
+   "group": "Models",
+   "file": "objects/uvmd-0053.json"
+  },
+  {
+   "id": "uvmd-0054",
+   "category": "object",
+   "name": "Model 054",
+   "group": "Models",
+   "file": "objects/uvmd-0054.json"
+  },
+  {
+   "id": "uvmd-0055",
+   "category": "object",
+   "name": "Model 055",
+   "group": "Models",
+   "file": "objects/uvmd-0055.json"
+  },
+  {
+   "id": "uvmd-0056",
+   "category": "object",
+   "name": "Model 056",
+   "group": "Models",
+   "file": "objects/uvmd-0056.json"
+  },
+  {
+   "id": "uvmd-0057",
+   "category": "object",
+   "name": "Model 057",
+   "group": "Models",
+   "file": "objects/uvmd-0057.json"
+  },
+  {
+   "id": "uvmd-0058",
+   "category": "object",
+   "name": "Model 058",
+   "group": "Models",
+   "file": "objects/uvmd-0058.json"
+  },
+  {
+   "id": "uvmd-0059",
+   "category": "object",
+   "name": "Model 059",
+   "group": "Models",
+   "file": "objects/uvmd-0059.json"
+  },
+  {
+   "id": "uvmd-0060",
+   "category": "object",
+   "name": "Model 060",
+   "group": "Models",
+   "file": "objects/uvmd-0060.json"
+  },
+  {
+   "id": "uvmd-0061",
+   "category": "object",
+   "name": "Model 061",
+   "group": "Models",
+   "file": "objects/uvmd-0061.json"
+  },
+  {
+   "id": "uvmd-0062",
+   "category": "object",
+   "name": "Model 062",
+   "group": "Models",
+   "file": "objects/uvmd-0062.json"
+  },
+  {
+   "id": "uvmd-0063",
+   "category": "object",
+   "name": "Model 063",
+   "group": "Models",
+   "file": "objects/uvmd-0063.json"
+  },
+  {
+   "id": "uvmd-0064",
+   "category": "object",
+   "name": "Model 064",
+   "group": "Models",
+   "file": "objects/uvmd-0064.json"
+  },
+  {
+   "id": "uvmd-0065",
+   "category": "object",
+   "name": "Model 065",
+   "group": "Models",
+   "file": "objects/uvmd-0065.json"
+  },
+  {
+   "id": "uvmd-0066",
+   "category": "object",
+   "name": "Model 066",
+   "group": "Models",
+   "file": "objects/uvmd-0066.json"
+  },
+  {
+   "id": "uvmd-0067",
+   "category": "object",
+   "name": "Model 067",
+   "group": "Models",
+   "file": "objects/uvmd-0067.json"
+  },
+  {
+   "id": "uvmd-0068",
+   "category": "object",
+   "name": "Model 068",
+   "group": "Models",
+   "file": "objects/uvmd-0068.json"
+  },
+  {
+   "id": "uvmd-0069",
+   "category": "object",
+   "name": "Model 069",
+   "group": "Models",
+   "file": "objects/uvmd-0069.json"
+  },
+  {
+   "id": "uvmd-0070",
+   "category": "object",
+   "name": "Model 070",
+   "group": "Models",
+   "file": "objects/uvmd-0070.json"
+  },
+  {
+   "id": "uvmd-0071",
+   "category": "object",
+   "name": "Model 071",
+   "group": "Models",
+   "file": "objects/uvmd-0071.json"
+  },
+  {
+   "id": "uvmd-0072",
+   "category": "object",
+   "name": "Model 072",
+   "group": "Models",
+   "file": "objects/uvmd-0072.json"
+  },
+  {
+   "id": "uvmd-0073",
+   "category": "object",
+   "name": "Model 073",
+   "group": "Models",
+   "file": "objects/uvmd-0073.json"
+  },
+  {
+   "id": "uvmd-0074",
+   "category": "object",
+   "name": "Model 074",
+   "group": "Models",
+   "file": "objects/uvmd-0074.json"
+  },
+  {
+   "id": "uvmd-0075",
+   "category": "object",
+   "name": "Model 075",
+   "group": "Models",
+   "file": "objects/uvmd-0075.json"
+  },
+  {
+   "id": "uvmd-0076",
+   "category": "object",
+   "name": "Model 076",
+   "group": "Models",
+   "file": "objects/uvmd-0076.json"
+  },
+  {
+   "id": "uvmd-0077",
+   "category": "object",
+   "name": "Model 077",
+   "group": "Models",
+   "file": "objects/uvmd-0077.json"
+  },
+  {
+   "id": "uvmd-0078",
+   "category": "object",
+   "name": "Model 078",
+   "group": "Models",
+   "file": "objects/uvmd-0078.json"
+  },
+  {
+   "id": "uvmd-0079",
+   "category": "object",
+   "name": "Model 079",
+   "group": "Models",
+   "file": "objects/uvmd-0079.json"
+  },
+  {
+   "id": "uvmd-0080",
+   "category": "object",
+   "name": "Model 080",
+   "group": "Models",
+   "file": "objects/uvmd-0080.json"
+  },
+  {
+   "id": "uvmd-0081",
+   "category": "object",
+   "name": "Model 081",
+   "group": "Models",
+   "file": "objects/uvmd-0081.json"
+  },
+  {
+   "id": "uvmd-0082",
+   "category": "object",
+   "name": "Model 082",
+   "group": "Models",
+   "file": "objects/uvmd-0082.json"
+  },
+  {
+   "id": "uvmd-0083",
+   "category": "object",
+   "name": "Model 083",
+   "group": "Models",
+   "file": "objects/uvmd-0083.json"
+  },
+  {
+   "id": "uvmd-0084",
+   "category": "object",
+   "name": "Model 084",
+   "group": "Models",
+   "file": "objects/uvmd-0084.json"
+  },
+  {
+   "id": "uvmd-0085",
+   "category": "object",
+   "name": "Model 085",
+   "group": "Models",
+   "file": "objects/uvmd-0085.json"
+  },
+  {
+   "id": "uvmd-0086",
+   "category": "object",
+   "name": "Model 086",
+   "group": "Models",
+   "file": "objects/uvmd-0086.json"
+  },
+  {
+   "id": "uvmd-0087",
+   "category": "object",
+   "name": "Model 087",
+   "group": "Models",
+   "file": "objects/uvmd-0087.json"
+  },
+  {
+   "id": "uvmd-0088",
+   "category": "object",
+   "name": "Model 088",
+   "group": "Models",
+   "file": "objects/uvmd-0088.json"
+  },
+  {
+   "id": "uvmd-0089",
+   "category": "object",
+   "name": "Model 089",
+   "group": "Models",
+   "file": "objects/uvmd-0089.json"
+  },
+  {
+   "id": "uvmd-0090",
+   "category": "object",
+   "name": "Model 090",
+   "group": "Models",
+   "file": "objects/uvmd-0090.json"
+  },
+  {
+   "id": "uvmd-0091",
+   "category": "object",
+   "name": "Model 091",
+   "group": "Models",
+   "file": "objects/uvmd-0091.json"
+  },
+  {
+   "id": "uvmd-0092",
+   "category": "object",
+   "name": "Model 092",
+   "group": "Models",
+   "file": "objects/uvmd-0092.json"
+  },
+  {
+   "id": "uvmd-0093",
+   "category": "object",
+   "name": "Model 093",
+   "group": "Models",
+   "file": "objects/uvmd-0093.json"
+  },
+  {
+   "id": "uvmd-0094",
+   "category": "object",
+   "name": "Model 094",
+   "group": "Models",
+   "file": "objects/uvmd-0094.json"
+  },
+  {
+   "id": "uvmd-0095",
+   "category": "object",
+   "name": "Model 095",
+   "group": "Models",
+   "file": "objects/uvmd-0095.json"
+  },
+  {
+   "id": "uvmd-0096",
+   "category": "object",
+   "name": "Model 096",
+   "group": "Models",
+   "file": "objects/uvmd-0096.json"
+  },
+  {
+   "id": "uvmd-0097",
+   "category": "object",
+   "name": "Model 097",
+   "group": "Models",
+   "file": "objects/uvmd-0097.json"
+  },
+  {
+   "id": "uvmd-0098",
+   "category": "object",
+   "name": "Model 098",
+   "group": "Models",
+   "file": "objects/uvmd-0098.json"
+  },
+  {
+   "id": "uvmd-0099",
+   "category": "object",
+   "name": "Model 099",
+   "group": "Models",
+   "file": "objects/uvmd-0099.json"
+  },
+  {
+   "id": "uvmd-0100",
+   "category": "object",
+   "name": "Model 100",
+   "group": "Models",
+   "file": "objects/uvmd-0100.json"
+  },
+  {
+   "id": "uvmd-0101",
+   "category": "object",
+   "name": "Model 101",
+   "group": "Models",
+   "file": "objects/uvmd-0101.json"
+  },
+  {
+   "id": "uvmd-0102",
+   "category": "object",
+   "name": "Model 102",
+   "group": "Models",
+   "file": "objects/uvmd-0102.json"
+  },
+  {
+   "id": "uvmd-0103",
+   "category": "object",
+   "name": "Model 103",
+   "group": "Models",
+   "file": "objects/uvmd-0103.json"
+  },
+  {
+   "id": "uvmd-0104",
+   "category": "object",
+   "name": "Model 104",
+   "group": "Models",
+   "file": "objects/uvmd-0104.json"
+  },
+  {
+   "id": "uvmd-0105",
+   "category": "object",
+   "name": "Model 105",
+   "group": "Models",
+   "file": "objects/uvmd-0105.json"
+  },
+  {
+   "id": "uvmd-0106",
+   "category": "object",
+   "name": "Model 106",
+   "group": "Models",
+   "file": "objects/uvmd-0106.json"
+  },
+  {
+   "id": "uvmd-0107",
+   "category": "object",
+   "name": "Model 107",
+   "group": "Models",
+   "file": "objects/uvmd-0107.json"
+  },
+  {
+   "id": "uvmd-0108",
+   "category": "object",
+   "name": "Model 108",
+   "group": "Models",
+   "file": "objects/uvmd-0108.json"
+  },
+  {
+   "id": "uvmd-0109",
+   "category": "object",
+   "name": "Model 109",
+   "group": "Models",
+   "file": "objects/uvmd-0109.json"
+  },
+  {
+   "id": "uvmd-0110",
+   "category": "object",
+   "name": "Model 110",
+   "group": "Models",
+   "file": "objects/uvmd-0110.json"
+  },
+  {
+   "id": "uvmd-0111",
+   "category": "object",
+   "name": "Model 111",
+   "group": "Models",
+   "file": "objects/uvmd-0111.json"
+  },
+  {
+   "id": "uvmd-0112",
+   "category": "object",
+   "name": "Model 112",
+   "group": "Models",
+   "file": "objects/uvmd-0112.json"
+  },
+  {
+   "id": "uvmd-0113",
+   "category": "object",
+   "name": "Model 113",
+   "group": "Models",
+   "file": "objects/uvmd-0113.json"
+  },
+  {
+   "id": "uvmd-0114",
+   "category": "object",
+   "name": "Model 114",
+   "group": "Models",
+   "file": "objects/uvmd-0114.json"
+  },
+  {
+   "id": "uvmd-0115",
+   "category": "object",
+   "name": "Model 115",
+   "group": "Models",
+   "file": "objects/uvmd-0115.json"
+  },
+  {
+   "id": "uvmd-0116",
+   "category": "object",
+   "name": "Model 116",
+   "group": "Models",
+   "file": "objects/uvmd-0116.json"
+  },
+  {
+   "id": "uvmd-0117",
+   "category": "object",
+   "name": "Model 117",
+   "group": "Models",
+   "file": "objects/uvmd-0117.json"
+  },
+  {
+   "id": "uvmd-0118",
+   "category": "object",
+   "name": "Model 118",
+   "group": "Models",
+   "file": "objects/uvmd-0118.json"
+  },
+  {
+   "id": "uvmd-0119",
+   "category": "object",
+   "name": "Model 119",
+   "group": "Models",
+   "file": "objects/uvmd-0119.json"
+  },
+  {
+   "id": "uvmd-0120",
+   "category": "object",
+   "name": "Model 120",
+   "group": "Models",
+   "file": "objects/uvmd-0120.json"
+  },
+  {
+   "id": "uvmd-0121",
+   "category": "object",
+   "name": "Model 121",
+   "group": "Models",
+   "file": "objects/uvmd-0121.json"
+  },
+  {
+   "id": "uvmd-0122",
+   "category": "object",
+   "name": "Model 122",
+   "group": "Models",
+   "file": "objects/uvmd-0122.json"
+  },
+  {
+   "id": "uvmd-0123",
+   "category": "object",
+   "name": "Model 123",
+   "group": "Models",
+   "file": "objects/uvmd-0123.json"
+  },
+  {
+   "id": "uvmd-0124",
+   "category": "object",
+   "name": "Model 124",
+   "group": "Models",
+   "file": "objects/uvmd-0124.json"
+  },
+  {
+   "id": "uvmd-0125",
+   "category": "object",
+   "name": "Model 125",
+   "group": "Models",
+   "file": "objects/uvmd-0125.json"
+  },
+  {
+   "id": "uvmd-0126",
+   "category": "object",
+   "name": "Model 126",
+   "group": "Models",
+   "file": "objects/uvmd-0126.json"
+  },
+  {
+   "id": "uvmd-0127",
+   "category": "object",
+   "name": "Model 127",
+   "group": "Models",
+   "file": "objects/uvmd-0127.json"
+  },
+  {
+   "id": "uvmd-0128",
+   "category": "object",
+   "name": "Model 128",
+   "group": "Models",
+   "file": "objects/uvmd-0128.json"
+  },
+  {
+   "id": "uvmd-0129",
+   "category": "object",
+   "name": "Model 129",
+   "group": "Models",
+   "file": "objects/uvmd-0129.json"
+  },
+  {
+   "id": "uvmd-0130",
+   "category": "object",
+   "name": "Model 130",
+   "group": "Models",
+   "file": "objects/uvmd-0130.json"
+  },
+  {
+   "id": "uvmd-0131",
+   "category": "object",
+   "name": "Model 131",
+   "group": "Models",
+   "file": "objects/uvmd-0131.json"
+  },
+  {
+   "id": "uvmd-0132",
+   "category": "object",
+   "name": "Model 132",
+   "group": "Models",
+   "file": "objects/uvmd-0132.json"
+  },
+  {
+   "id": "uvmd-0133",
+   "category": "object",
+   "name": "Model 133",
+   "group": "Models",
+   "file": "objects/uvmd-0133.json"
+  },
+  {
+   "id": "uvmd-0134",
+   "category": "object",
+   "name": "Model 134",
+   "group": "Models",
+   "file": "objects/uvmd-0134.json"
+  },
+  {
+   "id": "uvmd-0135",
+   "category": "object",
+   "name": "Model 135",
+   "group": "Models",
+   "file": "objects/uvmd-0135.json"
+  },
+  {
+   "id": "uvmd-0136",
+   "category": "object",
+   "name": "Model 136",
+   "group": "Models",
+   "file": "objects/uvmd-0136.json"
+  },
+  {
+   "id": "uvmd-0137",
+   "category": "object",
+   "name": "Model 137",
+   "group": "Models",
+   "file": "objects/uvmd-0137.json"
+  },
+  {
+   "id": "uvmd-0138",
+   "category": "object",
+   "name": "Model 138",
+   "group": "Models",
+   "file": "objects/uvmd-0138.json"
+  },
+  {
+   "id": "uvmd-0139",
+   "category": "object",
+   "name": "Model 139",
+   "group": "Models",
+   "file": "objects/uvmd-0139.json"
+  },
+  {
+   "id": "uvmd-0140",
+   "category": "object",
+   "name": "Model 140",
+   "group": "Models",
+   "file": "objects/uvmd-0140.json"
+  },
+  {
+   "id": "uvmd-0141",
+   "category": "object",
+   "name": "Model 141",
+   "group": "Models",
+   "file": "objects/uvmd-0141.json"
+  },
+  {
+   "id": "uvmd-0142",
+   "category": "object",
+   "name": "Model 142",
+   "group": "Models",
+   "file": "objects/uvmd-0142.json"
+  },
+  {
+   "id": "uvmd-0143",
+   "category": "object",
+   "name": "Model 143",
+   "group": "Models",
+   "file": "objects/uvmd-0143.json"
+  },
+  {
+   "id": "uvmd-0144",
+   "category": "object",
+   "name": "Model 144",
+   "group": "Models",
+   "file": "objects/uvmd-0144.json"
+  },
+  {
+   "id": "uvmd-0145",
+   "category": "object",
+   "name": "Model 145",
+   "group": "Models",
+   "file": "objects/uvmd-0145.json"
+  },
+  {
+   "id": "uvmd-0146",
+   "category": "object",
+   "name": "Model 146",
+   "group": "Models",
+   "file": "objects/uvmd-0146.json"
+  },
+  {
+   "id": "uvmd-0147",
+   "category": "object",
+   "name": "Model 147",
+   "group": "Models",
+   "file": "objects/uvmd-0147.json"
+  },
+  {
+   "id": "uvmd-0148",
+   "category": "object",
+   "name": "Model 148",
+   "group": "Models",
+   "file": "objects/uvmd-0148.json"
+  },
+  {
+   "id": "uvmd-0149",
+   "category": "object",
+   "name": "Model 149",
+   "group": "Models",
+   "file": "objects/uvmd-0149.json"
+  },
+  {
+   "id": "uvmd-0150",
+   "category": "object",
+   "name": "Model 150",
+   "group": "Models",
+   "file": "objects/uvmd-0150.json"
+  },
+  {
+   "id": "uvmd-0151",
+   "category": "object",
+   "name": "Model 151",
+   "group": "Models",
+   "file": "objects/uvmd-0151.json"
+  },
+  {
+   "id": "uvmd-0152",
+   "category": "object",
+   "name": "Model 152",
+   "group": "Models",
+   "file": "objects/uvmd-0152.json"
+  },
+  {
+   "id": "uvmd-0153",
+   "category": "object",
+   "name": "Model 153",
+   "group": "Models",
+   "file": "objects/uvmd-0153.json"
+  },
+  {
+   "id": "uvmd-0154",
+   "category": "object",
+   "name": "Model 154",
+   "group": "Models",
+   "file": "objects/uvmd-0154.json"
+  },
+  {
+   "id": "uvmd-0155",
+   "category": "object",
+   "name": "Model 155",
+   "group": "Models",
+   "file": "objects/uvmd-0155.json"
+  },
+  {
+   "id": "uvmd-0156",
+   "category": "object",
+   "name": "Model 156",
+   "group": "Models",
+   "file": "objects/uvmd-0156.json"
+  },
+  {
+   "id": "uvmd-0157",
+   "category": "object",
+   "name": "Model 157",
+   "group": "Models",
+   "file": "objects/uvmd-0157.json"
+  },
+  {
+   "id": "uvmd-0158",
+   "category": "object",
+   "name": "Model 158",
+   "group": "Models",
+   "file": "objects/uvmd-0158.json"
+  },
+  {
+   "id": "uvmd-0159",
+   "category": "object",
+   "name": "Model 159",
+   "group": "Models",
+   "file": "objects/uvmd-0159.json"
+  },
+  {
+   "id": "uvmd-0160",
+   "category": "object",
+   "name": "Model 160",
+   "group": "Models",
+   "file": "objects/uvmd-0160.json"
+  },
+  {
+   "id": "uvmd-0161",
+   "category": "object",
+   "name": "Model 161",
+   "group": "Models",
+   "file": "objects/uvmd-0161.json"
+  },
+  {
+   "id": "uvmd-0162",
+   "category": "object",
+   "name": "Model 162",
+   "group": "Models",
+   "file": "objects/uvmd-0162.json"
+  },
+  {
+   "id": "uvmd-0163",
+   "category": "object",
+   "name": "Model 163",
+   "group": "Models",
+   "file": "objects/uvmd-0163.json"
+  },
+  {
+   "id": "uvmd-0164",
+   "category": "object",
+   "name": "Model 164",
+   "group": "Models",
+   "file": "objects/uvmd-0164.json"
+  },
+  {
+   "id": "uvmd-0165",
+   "category": "object",
+   "name": "Model 165",
+   "group": "Models",
+   "file": "objects/uvmd-0165.json"
+  },
+  {
+   "id": "uvmd-0166",
+   "category": "object",
+   "name": "Model 166",
+   "group": "Models",
+   "file": "objects/uvmd-0166.json"
+  },
+  {
+   "id": "uvmd-0167",
+   "category": "object",
+   "name": "Model 167",
+   "group": "Models",
+   "file": "objects/uvmd-0167.json"
+  },
+  {
+   "id": "uvmd-0168",
+   "category": "object",
+   "name": "Model 168",
+   "group": "Models",
+   "file": "objects/uvmd-0168.json"
+  },
+  {
+   "id": "uvmd-0169",
+   "category": "object",
+   "name": "Model 169",
+   "group": "Models",
+   "file": "objects/uvmd-0169.json"
+  },
+  {
+   "id": "uvmd-0170",
+   "category": "object",
+   "name": "Model 170",
+   "group": "Models",
+   "file": "objects/uvmd-0170.json"
+  },
+  {
+   "id": "uvmd-0171",
+   "category": "object",
+   "name": "Model 171",
+   "group": "Models",
+   "file": "objects/uvmd-0171.json"
+  },
+  {
+   "id": "uvmd-0172",
+   "category": "object",
+   "name": "Model 172",
+   "group": "Models",
+   "file": "objects/uvmd-0172.json"
+  },
+  {
+   "id": "uvmd-0173",
+   "category": "object",
+   "name": "Model 173",
+   "group": "Models",
+   "file": "objects/uvmd-0173.json"
+  },
+  {
+   "id": "uvmd-0174",
+   "category": "object",
+   "name": "Model 174",
+   "group": "Models",
+   "file": "objects/uvmd-0174.json"
+  },
+  {
+   "id": "uvmd-0175",
+   "category": "object",
+   "name": "Model 175",
+   "group": "Models",
+   "file": "objects/uvmd-0175.json"
+  },
+  {
+   "id": "uvmd-0176",
+   "category": "object",
+   "name": "Model 176",
+   "group": "Models",
+   "file": "objects/uvmd-0176.json"
+  },
+  {
+   "id": "uvmd-0177",
+   "category": "object",
+   "name": "Model 177",
+   "group": "Models",
+   "file": "objects/uvmd-0177.json"
+  },
+  {
+   "id": "uvmd-0178",
+   "category": "object",
+   "name": "Model 178",
+   "group": "Models",
+   "file": "objects/uvmd-0178.json"
+  },
+  {
+   "id": "uvmd-0179",
+   "category": "object",
+   "name": "Model 179",
+   "group": "Models",
+   "file": "objects/uvmd-0179.json"
+  },
+  {
+   "id": "uvmd-0180",
+   "category": "object",
+   "name": "Model 180",
+   "group": "Models",
+   "file": "objects/uvmd-0180.json"
+  },
+  {
+   "id": "uvmd-0181",
+   "category": "object",
+   "name": "Model 181",
+   "group": "Models",
+   "file": "objects/uvmd-0181.json"
+  },
+  {
+   "id": "uvmd-0182",
+   "category": "object",
+   "name": "Model 182",
+   "group": "Models",
+   "file": "objects/uvmd-0182.json"
+  },
+  {
+   "id": "uvmd-0183",
+   "category": "object",
+   "name": "Model 183",
+   "group": "Models",
+   "file": "objects/uvmd-0183.json"
+  },
+  {
+   "id": "uvmd-0184",
+   "category": "object",
+   "name": "Model 184",
+   "group": "Models",
+   "file": "objects/uvmd-0184.json"
+  },
+  {
+   "id": "uvmd-0185",
+   "category": "object",
+   "name": "Model 185",
+   "group": "Models",
+   "file": "objects/uvmd-0185.json"
+  },
+  {
+   "id": "uvmd-0186",
+   "category": "object",
+   "name": "Model 186",
+   "group": "Models",
+   "file": "objects/uvmd-0186.json"
+  },
+  {
+   "id": "uvmd-0187",
+   "category": "object",
+   "name": "Model 187",
+   "group": "Models",
+   "file": "objects/uvmd-0187.json"
+  },
+  {
+   "id": "uvmd-0188",
+   "category": "object",
+   "name": "Model 188",
+   "group": "Models",
+   "file": "objects/uvmd-0188.json"
+  },
+  {
+   "id": "uvmd-0189",
+   "category": "object",
+   "name": "Model 189",
+   "group": "Models",
+   "file": "objects/uvmd-0189.json"
+  },
+  {
+   "id": "uvmd-0190",
+   "category": "object",
+   "name": "Model 190",
+   "group": "Models",
+   "file": "objects/uvmd-0190.json"
+  },
+  {
+   "id": "uvmd-0191",
+   "category": "object",
+   "name": "Model 191",
+   "group": "Models",
+   "file": "objects/uvmd-0191.json"
+  },
+  {
+   "id": "uvmd-0192",
+   "category": "object",
+   "name": "Model 192",
+   "group": "Models",
+   "file": "objects/uvmd-0192.json"
+  },
+  {
+   "id": "uvmd-0193",
+   "category": "object",
+   "name": "Model 193",
+   "group": "Models",
+   "file": "objects/uvmd-0193.json"
+  },
+  {
+   "id": "uvmd-0194",
+   "category": "object",
+   "name": "Model 194",
+   "group": "Models",
+   "file": "objects/uvmd-0194.json"
+  },
+  {
+   "id": "uvmd-0195",
+   "category": "object",
+   "name": "Model 195",
+   "group": "Models",
+   "file": "objects/uvmd-0195.json"
+  },
+  {
+   "id": "uvmd-0196",
+   "category": "object",
+   "name": "Model 196",
+   "group": "Models",
+   "file": "objects/uvmd-0196.json"
+  },
+  {
+   "id": "uvmd-0197",
+   "category": "object",
+   "name": "Model 197",
+   "group": "Models",
+   "file": "objects/uvmd-0197.json"
+  },
+  {
+   "id": "uvmd-0198",
+   "category": "object",
+   "name": "Model 198",
+   "group": "Models",
+   "file": "objects/uvmd-0198.json"
+  },
+  {
+   "id": "uvmd-0199",
+   "category": "object",
+   "name": "Model 199",
+   "group": "Models",
+   "file": "objects/uvmd-0199.json"
+  },
+  {
+   "id": "uvmd-0200",
+   "category": "object",
+   "name": "Model 200",
+   "group": "Models",
+   "file": "objects/uvmd-0200.json"
+  },
+  {
+   "id": "uvmd-0201",
+   "category": "object",
+   "name": "Model 201",
+   "group": "Models",
+   "file": "objects/uvmd-0201.json"
+  },
+  {
+   "id": "uvmd-0202",
+   "category": "object",
+   "name": "Model 202",
+   "group": "Models",
+   "file": "objects/uvmd-0202.json"
+  },
+  {
+   "id": "uvmd-0203",
+   "category": "object",
+   "name": "Model 203",
+   "group": "Models",
+   "file": "objects/uvmd-0203.json"
+  },
+  {
+   "id": "uvmd-0204",
+   "category": "object",
+   "name": "Model 204",
+   "group": "Models",
+   "file": "objects/uvmd-0204.json"
+  },
+  {
+   "id": "uvmd-0205",
+   "category": "object",
+   "name": "Model 205",
+   "group": "Models",
+   "file": "objects/uvmd-0205.json"
+  },
+  {
+   "id": "uvmd-0206",
+   "category": "object",
+   "name": "Model 206",
+   "group": "Models",
+   "file": "objects/uvmd-0206.json"
+  },
+  {
+   "id": "uvmd-0207",
+   "category": "object",
+   "name": "Model 207",
+   "group": "Models",
+   "file": "objects/uvmd-0207.json"
+  },
+  {
+   "id": "uvmd-0208",
+   "category": "object",
+   "name": "Model 208",
+   "group": "Models",
+   "file": "objects/uvmd-0208.json"
+  },
+  {
+   "id": "uvmd-0209",
+   "category": "object",
+   "name": "Model 209",
+   "group": "Models",
+   "file": "objects/uvmd-0209.json"
+  },
+  {
+   "id": "uvmd-0210",
+   "category": "object",
+   "name": "Model 210",
+   "group": "Models",
+   "file": "objects/uvmd-0210.json"
+  },
+  {
+   "id": "uvmd-0211",
+   "category": "object",
+   "name": "Model 211",
+   "group": "Models",
+   "file": "objects/uvmd-0211.json"
+  },
+  {
+   "id": "pilotwings-logo",
+   "category": "object",
+   "name": "PILOTWINGS logo",
+   "group": "Models",
+   "description": "1,464 vertex-coloured triangles; drawn on the title card.",
+   "file": "objects/pilotwings-logo.json"
+  },
+  {
+   "id": "uvmd-0213",
+   "category": "object",
+   "name": "Model 213",
+   "group": "Models",
+   "file": "objects/uvmd-0213.json"
+  },
+  {
+   "id": "uvmd-0214",
+   "category": "object",
+   "name": "Model 214",
+   "group": "Models",
+   "file": "objects/uvmd-0214.json"
+  },
+  {
+   "id": "uvmd-0215",
+   "category": "object",
+   "name": "Model 215",
+   "group": "Models",
+   "file": "objects/uvmd-0215.json"
+  },
+  {
+   "id": "uvmd-0216",
+   "category": "object",
+   "name": "Model 216",
+   "group": "Models",
+   "file": "objects/uvmd-0216.json"
+  },
+  {
+   "id": "uvmd-0217",
+   "category": "object",
+   "name": "Model 217",
+   "group": "Models",
+   "file": "objects/uvmd-0217.json"
+  },
+  {
+   "id": "uvmd-0218",
+   "category": "object",
+   "name": "Model 218",
+   "group": "Models",
+   "file": "objects/uvmd-0218.json"
+  },
+  {
+   "id": "uvmd-0219",
+   "category": "object",
+   "name": "Model 219",
+   "group": "Models",
+   "file": "objects/uvmd-0219.json"
+  },
+  {
+   "id": "uvmd-0220",
+   "category": "object",
+   "name": "Model 220",
+   "group": "Models",
+   "file": "objects/uvmd-0220.json"
+  },
+  {
+   "id": "uvmd-0221",
+   "category": "object",
+   "name": "Model 221",
+   "group": "Models",
+   "file": "objects/uvmd-0221.json"
+  },
+  {
+   "id": "uvmd-0222",
+   "category": "object",
+   "name": "Model 222",
+   "group": "Models",
+   "file": "objects/uvmd-0222.json"
+  },
+  {
+   "id": "uvmd-0223",
+   "category": "object",
+   "name": "Model 223",
+   "group": "Models",
+   "file": "objects/uvmd-0223.json"
+  },
+  {
+   "id": "uvmd-0224",
+   "category": "object",
+   "name": "Model 224",
+   "group": "Models",
+   "file": "objects/uvmd-0224.json"
+  },
+  {
+   "id": "uvmd-0225",
+   "category": "object",
+   "name": "Model 225",
+   "group": "Models",
+   "file": "objects/uvmd-0225.json"
+  },
+  {
+   "id": "uvmd-0226",
+   "category": "object",
+   "name": "Model 226",
+   "group": "Models",
+   "file": "objects/uvmd-0226.json"
+  },
+  {
+   "id": "uvmd-0227",
+   "category": "object",
+   "name": "Model 227",
+   "group": "Models",
+   "file": "objects/uvmd-0227.json"
+  },
+  {
+   "id": "uvmd-0228",
+   "category": "object",
+   "name": "Model 228",
+   "group": "Models",
+   "file": "objects/uvmd-0228.json"
+  },
+  {
+   "id": "uvmd-0229",
+   "category": "object",
+   "name": "Model 229",
+   "group": "Models",
+   "file": "objects/uvmd-0229.json"
+  },
+  {
+   "id": "uvmd-0230",
+   "category": "object",
+   "name": "Model 230",
+   "group": "Models",
+   "file": "objects/uvmd-0230.json"
+  },
+  {
+   "id": "uvmd-0231",
+   "category": "object",
+   "name": "Model 231",
+   "group": "Models",
+   "file": "objects/uvmd-0231.json"
+  },
+  {
+   "id": "uvmd-0232",
+   "category": "object",
+   "name": "Model 232",
+   "group": "Models",
+   "file": "objects/uvmd-0232.json"
+  },
+  {
+   "id": "uvmd-0233",
+   "category": "object",
+   "name": "Model 233",
+   "group": "Models",
+   "file": "objects/uvmd-0233.json"
+  },
+  {
+   "id": "uvmd-0234",
+   "category": "object",
+   "name": "Model 234",
+   "group": "Models",
+   "file": "objects/uvmd-0234.json"
+  },
+  {
+   "id": "uvmd-0235",
+   "category": "object",
+   "name": "Model 235",
+   "group": "Models",
+   "file": "objects/uvmd-0235.json"
+  },
+  {
+   "id": "uvmd-0236",
+   "category": "object",
+   "name": "Model 236",
+   "group": "Models",
+   "file": "objects/uvmd-0236.json"
+  },
+  {
+   "id": "uvmd-0237",
+   "category": "object",
+   "name": "Model 237",
+   "group": "Models",
+   "file": "objects/uvmd-0237.json"
+  },
+  {
+   "id": "uvmd-0238",
+   "category": "object",
+   "name": "Model 238",
+   "group": "Models",
+   "file": "objects/uvmd-0238.json"
+  },
+  {
+   "id": "uvmd-0239",
+   "category": "object",
+   "name": "Model 239",
+   "group": "Models",
+   "file": "objects/uvmd-0239.json"
+  },
+  {
+   "id": "uvmd-0240",
+   "category": "object",
+   "name": "Model 240",
+   "group": "Models",
+   "file": "objects/uvmd-0240.json"
+  },
+  {
+   "id": "uvmd-0241",
+   "category": "object",
+   "name": "Model 241",
+   "group": "Models",
+   "file": "objects/uvmd-0241.json"
+  },
+  {
+   "id": "uvmd-0242",
+   "category": "object",
+   "name": "Model 242",
+   "group": "Models",
+   "file": "objects/uvmd-0242.json"
+  },
+  {
+   "id": "uvmd-0243",
+   "category": "object",
+   "name": "Model 243",
+   "group": "Models",
+   "file": "objects/uvmd-0243.json"
+  },
+  {
+   "id": "uvmd-0244",
+   "category": "object",
+   "name": "Model 244",
+   "group": "Models",
+   "file": "objects/uvmd-0244.json"
+  },
+  {
+   "id": "uvmd-0245",
+   "category": "object",
+   "name": "Model 245",
+   "group": "Models",
+   "file": "objects/uvmd-0245.json"
+  },
+  {
+   "id": "uvmd-0246",
+   "category": "object",
+   "name": "Model 246",
+   "group": "Models",
+   "file": "objects/uvmd-0246.json"
+  },
+  {
+   "id": "uvmd-0247",
+   "category": "object",
+   "name": "Model 247",
+   "group": "Models",
+   "file": "objects/uvmd-0247.json"
+  },
+  {
+   "id": "uvmd-0248",
+   "category": "object",
+   "name": "Model 248",
+   "group": "Models",
+   "file": "objects/uvmd-0248.json"
+  },
+  {
+   "id": "uvmd-0249",
+   "category": "object",
+   "name": "Model 249",
+   "group": "Models",
+   "file": "objects/uvmd-0249.json"
+  },
+  {
+   "id": "uvmd-0250",
+   "category": "object",
+   "name": "Model 250",
+   "group": "Models",
+   "file": "objects/uvmd-0250.json"
+  },
+  {
+   "id": "uvmd-0251",
+   "category": "object",
+   "name": "Model 251",
+   "group": "Models",
+   "file": "objects/uvmd-0251.json"
+  },
+  {
+   "id": "uvmd-0252",
+   "category": "object",
+   "name": "Model 252",
+   "group": "Models",
+   "file": "objects/uvmd-0252.json"
+  },
+  {
+   "id": "uvmd-0253",
+   "category": "object",
+   "name": "Model 253",
+   "group": "Models",
+   "file": "objects/uvmd-0253.json"
+  },
+  {
+   "id": "uvmd-0254",
+   "category": "object",
+   "name": "Model 254",
+   "group": "Models",
+   "file": "objects/uvmd-0254.json"
+  },
+  {
+   "id": "uvmd-0255",
+   "category": "object",
+   "name": "Model 255",
+   "group": "Models",
+   "file": "objects/uvmd-0255.json"
+  },
+  {
+   "id": "uvmd-0256",
+   "category": "object",
+   "name": "Model 256",
+   "group": "Models",
+   "file": "objects/uvmd-0256.json"
+  },
+  {
+   "id": "uvmd-0257",
+   "category": "object",
+   "name": "Model 257",
+   "group": "Models",
+   "file": "objects/uvmd-0257.json"
+  },
+  {
+   "id": "uvmd-0258",
+   "category": "object",
+   "name": "Model 258",
+   "group": "Models",
+   "file": "objects/uvmd-0258.json"
+  },
+  {
+   "id": "uvmd-0259",
+   "category": "object",
+   "name": "Model 259",
+   "group": "Models",
+   "file": "objects/uvmd-0259.json"
+  },
+  {
+   "id": "uvmd-0260",
+   "category": "object",
+   "name": "Model 260",
+   "group": "Models",
+   "file": "objects/uvmd-0260.json"
+  },
+  {
+   "id": "uvmd-0261",
+   "category": "object",
+   "name": "Model 261",
+   "group": "Models",
+   "file": "objects/uvmd-0261.json"
+  },
+  {
+   "id": "uvmd-0262",
+   "category": "object",
+   "name": "Model 262",
+   "group": "Models",
+   "file": "objects/uvmd-0262.json"
+  },
+  {
+   "id": "uvmd-0263",
+   "category": "object",
+   "name": "Model 263",
+   "group": "Models",
+   "file": "objects/uvmd-0263.json"
+  },
+  {
+   "id": "uvmd-0264",
+   "category": "object",
+   "name": "Model 264",
+   "group": "Models",
+   "file": "objects/uvmd-0264.json"
+  },
+  {
+   "id": "uvmd-0265",
+   "category": "object",
+   "name": "Model 265",
+   "group": "Models",
+   "file": "objects/uvmd-0265.json"
+  },
+  {
+   "id": "uvmd-0266",
+   "category": "object",
+   "name": "Model 266",
+   "group": "Models",
+   "file": "objects/uvmd-0266.json"
+  },
+  {
+   "id": "uvmd-0267",
+   "category": "object",
+   "name": "Model 267",
+   "group": "Models",
+   "file": "objects/uvmd-0267.json"
+  },
+  {
+   "id": "uvmd-0268",
+   "category": "object",
+   "name": "Model 268",
+   "group": "Models",
+   "file": "objects/uvmd-0268.json"
+  },
+  {
+   "id": "uvmd-0269",
+   "category": "object",
+   "name": "Model 269",
+   "group": "Models",
+   "file": "objects/uvmd-0269.json"
+  },
+  {
+   "id": "uvmd-0270",
+   "category": "object",
+   "name": "Model 270",
+   "group": "Models",
+   "file": "objects/uvmd-0270.json"
+  },
+  {
+   "id": "uvmd-0271",
+   "category": "object",
+   "name": "Model 271",
+   "group": "Models",
+   "file": "objects/uvmd-0271.json"
+  },
+  {
+   "id": "uvmd-0272",
+   "category": "object",
+   "name": "Model 272",
+   "group": "Models",
+   "file": "objects/uvmd-0272.json"
+  },
+  {
+   "id": "uvmd-0273",
+   "category": "object",
+   "name": "Model 273",
+   "group": "Models",
+   "file": "objects/uvmd-0273.json"
+  },
+  {
+   "id": "uvmd-0274",
+   "category": "object",
+   "name": "Model 274",
+   "group": "Models",
+   "file": "objects/uvmd-0274.json"
+  },
+  {
+   "id": "uvmd-0275",
+   "category": "object",
+   "name": "Model 275",
+   "group": "Models",
+   "file": "objects/uvmd-0275.json"
+  },
+  {
+   "id": "uvmd-0276",
+   "category": "object",
+   "name": "Model 276",
+   "group": "Models",
+   "file": "objects/uvmd-0276.json"
+  },
+  {
+   "id": "uvmd-0277",
+   "category": "object",
+   "name": "Model 277",
+   "group": "Models",
+   "file": "objects/uvmd-0277.json"
+  },
+  {
+   "id": "uvmd-0278",
+   "category": "object",
+   "name": "Model 278",
+   "group": "Models",
+   "file": "objects/uvmd-0278.json"
+  },
+  {
+   "id": "uvmd-0279",
+   "category": "object",
+   "name": "Model 279",
+   "group": "Models",
+   "file": "objects/uvmd-0279.json"
+  },
+  {
+   "id": "uvmd-0280",
+   "category": "object",
+   "name": "Model 280",
+   "group": "Models",
+   "file": "objects/uvmd-0280.json"
+  },
+  {
+   "id": "uvmd-0281",
+   "category": "object",
+   "name": "Model 281",
+   "group": "Models",
+   "file": "objects/uvmd-0281.json"
+  },
+  {
+   "id": "uvmd-0282",
+   "category": "object",
+   "name": "Model 282",
+   "group": "Models",
+   "file": "objects/uvmd-0282.json"
+  },
+  {
+   "id": "uvmd-0283",
+   "category": "object",
+   "name": "Model 283",
+   "group": "Models",
+   "file": "objects/uvmd-0283.json"
+  },
+  {
+   "id": "uvmd-0284",
+   "category": "object",
+   "name": "Model 284",
+   "group": "Models",
+   "file": "objects/uvmd-0284.json"
+  },
+  {
+   "id": "uvmd-0285",
+   "category": "object",
+   "name": "Model 285",
+   "group": "Models",
+   "file": "objects/uvmd-0285.json"
+  },
+  {
+   "id": "uvmd-0286",
+   "category": "object",
+   "name": "Model 286",
+   "group": "Models",
+   "file": "objects/uvmd-0286.json"
+  },
+  {
+   "id": "uvmd-0287",
+   "category": "object",
+   "name": "Model 287",
+   "group": "Models",
+   "file": "objects/uvmd-0287.json"
+  },
+  {
+   "id": "uvmd-0288",
+   "category": "object",
+   "name": "Model 288",
+   "group": "Models",
+   "file": "objects/uvmd-0288.json"
+  },
+  {
+   "id": "uvmd-0289",
+   "category": "object",
+   "name": "Model 289",
+   "group": "Models",
+   "file": "objects/uvmd-0289.json"
+  },
+  {
+   "id": "uvmd-0290",
+   "category": "object",
+   "name": "Model 290",
+   "group": "Models",
+   "file": "objects/uvmd-0290.json"
+  },
+  {
+   "id": "uvmd-0291",
+   "category": "object",
+   "name": "Model 291",
+   "group": "Models",
+   "file": "objects/uvmd-0291.json"
+  },
+  {
+   "id": "uvmd-0292",
+   "category": "object",
+   "name": "Model 292",
+   "group": "Models",
+   "file": "objects/uvmd-0292.json"
+  },
+  {
+   "id": "uvmd-0293",
+   "category": "object",
+   "name": "Model 293",
+   "group": "Models",
+   "file": "objects/uvmd-0293.json"
+  },
+  {
+   "id": "uvmd-0294",
+   "category": "object",
+   "name": "Model 294",
+   "group": "Models",
+   "file": "objects/uvmd-0294.json"
+  },
+  {
+   "id": "uvmd-0295",
+   "category": "object",
+   "name": "Model 295",
+   "group": "Models",
+   "file": "objects/uvmd-0295.json"
+  },
+  {
+   "id": "uvmd-0296",
+   "category": "object",
+   "name": "Model 296",
+   "group": "Models",
+   "file": "objects/uvmd-0296.json"
+  },
+  {
+   "id": "uvmd-0297",
+   "category": "object",
+   "name": "Model 297",
+   "group": "Models",
+   "file": "objects/uvmd-0297.json"
+  },
+  {
+   "id": "uvmd-0298",
+   "category": "object",
+   "name": "Model 298",
+   "group": "Models",
+   "file": "objects/uvmd-0298.json"
+  },
+  {
+   "id": "uvmd-0299",
+   "category": "object",
+   "name": "Model 299",
+   "group": "Models",
+   "file": "objects/uvmd-0299.json"
+  },
+  {
+   "id": "uvmd-0300",
+   "category": "object",
+   "name": "Model 300",
+   "group": "Models",
+   "file": "objects/uvmd-0300.json"
+  },
+  {
+   "id": "uvmd-0301",
+   "category": "object",
+   "name": "Model 301",
+   "group": "Models",
+   "file": "objects/uvmd-0301.json"
+  },
+  {
+   "id": "uvmd-0302",
+   "category": "object",
+   "name": "Model 302",
+   "group": "Models",
+   "file": "objects/uvmd-0302.json"
+  },
+  {
+   "id": "uvmd-0303",
+   "category": "object",
+   "name": "Model 303",
+   "group": "Models",
+   "file": "objects/uvmd-0303.json"
+  },
+  {
+   "id": "uvmd-0304",
+   "category": "object",
+   "name": "Model 304",
+   "group": "Models",
+   "file": "objects/uvmd-0304.json"
+  },
+  {
+   "id": "uvmd-0305",
+   "category": "object",
+   "name": "Model 305",
+   "group": "Models",
+   "file": "objects/uvmd-0305.json"
+  },
+  {
+   "id": "uvmd-0306",
+   "category": "object",
+   "name": "Model 306",
+   "group": "Models",
+   "file": "objects/uvmd-0306.json"
+  },
+  {
+   "id": "uvmd-0307",
+   "category": "object",
+   "name": "Model 307",
+   "group": "Models",
+   "file": "objects/uvmd-0307.json"
+  },
+  {
+   "id": "uvmd-0308",
+   "category": "object",
+   "name": "Model 308",
+   "group": "Models",
+   "file": "objects/uvmd-0308.json"
+  },
+  {
+   "id": "uvmd-0309",
+   "category": "object",
+   "name": "Model 309",
+   "group": "Models",
+   "file": "objects/uvmd-0309.json"
+  },
+  {
+   "id": "uvmd-0310",
+   "category": "object",
+   "name": "Model 310",
+   "group": "Models",
+   "file": "objects/uvmd-0310.json"
+  },
+  {
+   "id": "uvmd-0311",
+   "category": "object",
+   "name": "Model 311",
+   "group": "Models",
+   "file": "objects/uvmd-0311.json"
+  },
+  {
+   "id": "uvmd-0312",
+   "category": "object",
+   "name": "Model 312",
+   "group": "Models",
+   "file": "objects/uvmd-0312.json"
+  },
+  {
+   "id": "uvmd-0313",
+   "category": "object",
+   "name": "Model 313",
+   "group": "Models",
+   "file": "objects/uvmd-0313.json"
+  },
+  {
+   "id": "uvmd-0314",
+   "category": "object",
+   "name": "Model 314",
+   "group": "Models",
+   "file": "objects/uvmd-0314.json"
+  },
+  {
+   "id": "uvmd-0315",
+   "category": "object",
+   "name": "Model 315",
+   "group": "Models",
+   "file": "objects/uvmd-0315.json"
+  },
+  {
+   "id": "uvmd-0316",
+   "category": "object",
+   "name": "Model 316",
+   "group": "Models",
+   "file": "objects/uvmd-0316.json"
+  },
+  {
+   "id": "uvmd-0317",
+   "category": "object",
+   "name": "Model 317",
+   "group": "Models",
+   "file": "objects/uvmd-0317.json"
+  },
+  {
+   "id": "uvmd-0318",
+   "category": "object",
+   "name": "Model 318",
+   "group": "Models",
+   "file": "objects/uvmd-0318.json"
+  },
+  {
+   "id": "uvmd-0319",
+   "category": "object",
+   "name": "Model 319",
+   "group": "Models",
+   "file": "objects/uvmd-0319.json"
+  },
+  {
+   "id": "uvmd-0320",
+   "category": "object",
+   "name": "Model 320",
+   "group": "Models",
+   "file": "objects/uvmd-0320.json"
+  },
+  {
+   "id": "uvmd-0321",
+   "category": "object",
+   "name": "Model 321",
+   "group": "Models",
+   "file": "objects/uvmd-0321.json"
+  },
+  {
+   "id": "uvmd-0322",
+   "category": "object",
+   "name": "Model 322",
+   "group": "Models",
+   "file": "objects/uvmd-0322.json"
+  },
+  {
+   "id": "uvmd-0323",
+   "category": "object",
+   "name": "Model 323",
+   "group": "Models",
+   "file": "objects/uvmd-0323.json"
+  },
+  {
+   "id": "uvmd-0324",
+   "category": "object",
+   "name": "Model 324",
+   "group": "Models",
+   "file": "objects/uvmd-0324.json"
+  },
+  {
+   "id": "uvmd-0325",
+   "category": "object",
+   "name": "Model 325",
+   "group": "Models",
+   "file": "objects/uvmd-0325.json"
+  },
+  {
+   "id": "uvmd-0326",
+   "category": "object",
+   "name": "Model 326",
+   "group": "Models",
+   "file": "objects/uvmd-0326.json"
+  },
+  {
+   "id": "uvmd-0327",
+   "category": "object",
+   "name": "Model 327",
+   "group": "Models",
+   "file": "objects/uvmd-0327.json"
+  },
+  {
+   "id": "uvmd-0328",
+   "category": "object",
+   "name": "Model 328",
+   "group": "Models",
+   "file": "objects/uvmd-0328.json"
+  },
+  {
+   "id": "uvmd-0329",
+   "category": "object",
+   "name": "Model 329",
+   "group": "Models",
+   "file": "objects/uvmd-0329.json"
+  },
+  {
+   "id": "uvmd-0330",
+   "category": "object",
+   "name": "Model 330",
+   "group": "Models",
+   "file": "objects/uvmd-0330.json"
+  },
+  {
+   "id": "uvmd-0331",
+   "category": "object",
+   "name": "Model 331",
+   "group": "Models",
+   "file": "objects/uvmd-0331.json"
+  },
+  {
+   "id": "uvmd-0332",
+   "category": "object",
+   "name": "Model 332",
+   "group": "Models",
+   "file": "objects/uvmd-0332.json"
+  },
+  {
+   "id": "uvmd-0333",
+   "category": "object",
+   "name": "Model 333",
+   "group": "Models",
+   "file": "objects/uvmd-0333.json"
+  },
+  {
+   "id": "uvmd-0334",
+   "category": "object",
+   "name": "Model 334",
+   "group": "Models",
+   "file": "objects/uvmd-0334.json"
+  },
+  {
+   "id": "uvmd-0335",
+   "category": "object",
+   "name": "Model 335",
+   "group": "Models",
+   "file": "objects/uvmd-0335.json"
+  },
+  {
+   "id": "uvmd-0336",
+   "category": "object",
+   "name": "Model 336",
+   "group": "Models",
+   "file": "objects/uvmd-0336.json"
+  },
+  {
+   "id": "uvmd-0337",
+   "category": "object",
+   "name": "Model 337",
+   "group": "Models",
+   "file": "objects/uvmd-0337.json"
+  },
+  {
+   "id": "uvmd-0338",
+   "category": "object",
+   "name": "Model 338",
+   "group": "Models",
+   "file": "objects/uvmd-0338.json"
+  },
+  {
+   "id": "uvmd-0339",
+   "category": "object",
+   "name": "Model 339",
+   "group": "Models",
+   "file": "objects/uvmd-0339.json"
+  },
+  {
+   "id": "uvmd-0340",
+   "category": "object",
+   "name": "Model 340",
+   "group": "Models",
+   "file": "objects/uvmd-0340.json"
+  },
+  {
+   "id": "uvmd-0341",
+   "category": "object",
+   "name": "Model 341",
+   "group": "Models",
+   "file": "objects/uvmd-0341.json"
+  },
+  {
+   "id": "uvmd-0342",
+   "category": "object",
+   "name": "Model 342",
+   "group": "Models",
+   "file": "objects/uvmd-0342.json"
+  },
+  {
+   "id": "uvmd-0343",
+   "category": "object",
+   "name": "Model 343",
+   "group": "Models",
+   "file": "objects/uvmd-0343.json"
+  },
+  {
+   "id": "uvmd-0344",
+   "category": "object",
+   "name": "Model 344",
+   "group": "Models",
+   "file": "objects/uvmd-0344.json"
+  },
+  {
+   "id": "uvmd-0345",
+   "category": "object",
+   "name": "Model 345",
+   "group": "Models",
+   "file": "objects/uvmd-0345.json"
+  },
+  {
+   "id": "uvmd-0346",
+   "category": "object",
+   "name": "Model 346",
+   "group": "Models",
+   "file": "objects/uvmd-0346.json"
+  },
+  {
+   "id": "uvmd-0347",
+   "category": "object",
+   "name": "Model 347",
+   "group": "Models",
+   "file": "objects/uvmd-0347.json"
+  },
+  {
+   "id": "uvmd-0348",
+   "category": "object",
+   "name": "Model 348",
+   "group": "Models",
+   "file": "objects/uvmd-0348.json"
+  },
+  {
+   "id": "uvmd-0349",
+   "category": "object",
+   "name": "Model 349",
+   "group": "Models",
+   "file": "objects/uvmd-0349.json"
+  },
+  {
+   "id": "uvmd-0350",
+   "category": "object",
+   "name": "Model 350",
+   "group": "Models",
+   "file": "objects/uvmd-0350.json"
+  },
+  {
+   "id": "sky-dome",
+   "category": "object",
+   "name": "Sky dome",
+   "group": "Models",
+   "description": "The attract sky, with its horizon band.",
+   "file": "objects/sky-dome.json"
+  },
+  {
+   "id": "uvmd-0352",
+   "category": "object",
+   "name": "Model 352",
+   "group": "Models",
+   "file": "objects/uvmd-0352.json"
+  },
+  {
+   "id": "uvmd-0353",
+   "category": "object",
+   "name": "Model 353",
+   "group": "Models",
+   "file": "objects/uvmd-0353.json"
+  },
+  {
+   "id": "uvmd-0354",
+   "category": "object",
+   "name": "Model 354",
+   "group": "Models",
+   "file": "objects/uvmd-0354.json"
+  },
+  {
+   "id": "uvmd-0355",
+   "category": "object",
+   "name": "Model 355",
+   "group": "Models",
+   "file": "objects/uvmd-0355.json"
+  },
+  {
+   "id": "uvmd-0356",
+   "category": "object",
+   "name": "Model 356",
+   "group": "Models",
+   "file": "objects/uvmd-0356.json"
+  },
+  {
+   "id": "uvmd-0357",
+   "category": "object",
+   "name": "Model 357",
+   "group": "Models",
+   "file": "objects/uvmd-0357.json"
+  },
+  {
+   "id": "uvmd-0358",
+   "category": "object",
+   "name": "Model 358",
+   "group": "Models",
+   "file": "objects/uvmd-0358.json"
+  },
+  {
+   "id": "uvmd-0359",
+   "category": "object",
+   "name": "Model 359",
+   "group": "Models",
+   "file": "objects/uvmd-0359.json"
+  },
+  {
+   "id": "uvmd-0360",
+   "category": "object",
+   "name": "Model 360",
+   "group": "Models",
+   "file": "objects/uvmd-0360.json"
+  },
+  {
+   "id": "uvmd-0361",
+   "category": "object",
+   "name": "Model 361",
+   "group": "Models",
+   "file": "objects/uvmd-0361.json"
+  },
+  {
+   "id": "uvmd-0362",
+   "category": "object",
+   "name": "Model 362",
+   "group": "Models",
+   "file": "objects/uvmd-0362.json"
+  },
+  {
+   "id": "uvmd-0363",
+   "category": "object",
+   "name": "Model 363",
+   "group": "Models",
+   "file": "objects/uvmd-0363.json"
+  },
+  {
+   "id": "uvmd-0364",
+   "category": "object",
+   "name": "Model 364",
+   "group": "Models",
+   "file": "objects/uvmd-0364.json"
+  },
+  {
+   "id": "uvmd-0365",
+   "category": "object",
+   "name": "Model 365",
+   "group": "Models",
+   "file": "objects/uvmd-0365.json"
+  },
+  {
+   "id": "uvmd-0366",
+   "category": "object",
+   "name": "Model 366",
+   "group": "Models",
+   "file": "objects/uvmd-0366.json"
+  },
+  {
+   "id": "uvmd-0367",
+   "category": "object",
+   "name": "Model 367",
+   "group": "Models",
+   "file": "objects/uvmd-0367.json"
+  },
+  {
+   "id": "uvmd-0368",
+   "category": "object",
+   "name": "Model 368",
+   "group": "Models",
+   "file": "objects/uvmd-0368.json"
+  },
+  {
+   "id": "uvmd-0369",
+   "category": "object",
+   "name": "Model 369",
+   "group": "Models",
+   "file": "objects/uvmd-0369.json"
+  },
+  {
+   "id": "holiday-island",
+   "category": "level",
+   "name": "Holiday Island",
+   "group": "Worlds",
+   "description": "World 0. Named by the game itself: the briefing screen the oracle drove into calls it Holiday Island, and that lesson loaded exactly this world's four terrain cells.",
+   "file": "levels/holiday-island.json"
+  },
+  {
+   "id": "crescent-island",
+   "category": "level",
+   "name": "Crescent Island",
+   "group": "Worlds",
+   "description": "World 1, identified by assembling its terrain and recognising the result.",
+   "file": "levels/crescent-island.json"
+  },
+  {
+   "id": "world-2",
+   "category": "level",
+   "name": "World 2",
+   "group": "Worlds",
+   "file": "levels/world-2.json"
+  },
+  {
+   "id": "little-states",
+   "category": "level",
+   "name": "Little States",
+   "group": "Worlds",
+   "description": "World 3 — the miniature United States, identified by assembling its terrain.",
+   "file": "levels/little-states.json"
+  },
+  {
+   "id": "world-4",
+   "category": "level",
+   "name": "World 4",
+   "group": "Worlds",
+   "file": "levels/world-4.json"
+  },
+  {
+   "id": "world-5",
+   "category": "level",
+   "name": "World 5",
+   "group": "Worlds",
+   "file": "levels/world-5.json"
+  },
+  {
+   "id": "world-6",
+   "category": "level",
+   "name": "World 6",
+   "group": "Worlds",
+   "file": "levels/world-6.json"
+  },
+  {
+   "id": "world-7",
+   "category": "level",
+   "name": "World 7",
+   "group": "Worlds",
+   "file": "levels/world-7.json"
+  },
+  {
+   "id": "world-8",
+   "category": "level",
+   "name": "World 8",
+   "group": "Worlds",
+   "file": "levels/world-8.json"
+  },
+  {
+   "id": "world-9",
+   "category": "level",
+   "name": "World 9",
+   "group": "Worlds",
+   "file": "levels/world-9.json"
+  },
+  {
+   "id": "song-00",
+   "category": "music",
+   "name": "Song 00",
+   "file": "music/song-00.mp3",
+   "duration": 28.02938775510204
+  },
+  {
+   "id": "song-01",
+   "category": "music",
+   "name": "Song 01",
+   "file": "music/song-01.mp3",
+   "duration": 12.966621315192743
+  },
+  {
+   "id": "song-02",
+   "category": "music",
+   "name": "Song 02",
+   "file": "music/song-02.mp3",
+   "duration": 150.000589569161
+  },
+  {
+   "id": "song-03",
+   "category": "music",
+   "name": "Song 03",
+   "file": "music/song-03.mp3",
+   "duration": 133.52208616780047
+  },
+  {
+   "id": "song-04",
+   "category": "music",
+   "name": "Song 04",
+   "file": "music/song-04.mp3",
+   "duration": 150.00068027210884
+  },
+  {
+   "id": "song-05",
+   "category": "music",
+   "name": "Song 05",
+   "file": "music/song-05.mp3",
+   "duration": 5.335918367346939
+  },
+  {
+   "id": "song-06",
+   "category": "music",
+   "name": "Song 06",
+   "file": "music/song-06.mp3",
+   "duration": 8.002585034013606
+  },
+  {
+   "id": "song-07",
+   "category": "music",
+   "name": "Song 07",
+   "file": "music/song-07.mp3",
+   "duration": 8.002585034013606
+  },
+  {
+   "id": "song-08",
+   "category": "music",
+   "name": "Song 08",
+   "file": "music/song-08.mp3",
+   "duration": 150
+  },
+  {
+   "id": "song-09",
+   "category": "music",
+   "name": "Song 09",
+   "file": "music/song-09.mp3",
+   "duration": 4.810113378684807
+  },
+  {
+   "id": "song-10",
+   "category": "music",
+   "name": "Song 10",
+   "file": "music/song-10.mp3",
+   "duration": 4.8054421768707485
+  },
+  {
+   "id": "song-11",
+   "category": "music",
+   "name": "Song 11",
+   "file": "music/song-11.mp3",
+   "duration": 5.335918367346939
+  },
+  {
+   "id": "song-12",
+   "category": "music",
+   "name": "Song 12",
+   "file": "music/song-12.mp3",
+   "duration": 150.00040816326532
+  },
+  {
+   "id": "song-13",
+   "category": "music",
+   "name": "Song 13",
+   "file": "music/song-13.mp3",
+   "duration": 5.335056689342403
+  },
+  {
+   "id": "song-14",
+   "category": "music",
+   "name": "Song 14",
+   "file": "music/song-14.mp3",
+   "duration": 7.112834467120181
+  },
+  {
+   "id": "song-15",
+   "category": "music",
+   "name": "Song 15",
+   "file": "music/song-15.mp3",
+   "duration": 5.335056689342403
+  },
+  {
+   "id": "song-16",
+   "category": "music",
+   "name": "Song 16",
+   "file": "music/song-16.mp3",
+   "duration": 77.11038548752835
+  },
+  {
+   "id": "song-17",
+   "category": "music",
+   "name": "Song 17",
+   "file": "music/song-17.mp3",
+   "duration": 5.078684807256236
+  },
+  {
+   "id": "song-18",
+   "category": "music",
+   "name": "Song 18",
+   "file": "music/song-18.mp3",
+   "duration": 5.335918367346939
+  },
+  {
+   "id": "song-19",
+   "category": "music",
+   "name": "Song 19",
+   "file": "music/song-19.mp3",
+   "duration": 144.3198185941043
+  },
+  {
+   "id": "song-20",
+   "category": "music",
+   "name": "Song 20",
+   "file": "music/song-20.mp3",
+   "duration": 2.4085714285714284
+  },
+  {
+   "id": "song-21",
+   "category": "music",
+   "name": "Song 21",
+   "file": "music/song-21.mp3",
+   "duration": 4.8054421768707485
+  },
+  {
+   "id": "song-22",
+   "category": "music",
+   "name": "Song 22",
+   "file": "music/song-22.mp3",
+   "duration": 5.335918367346939
+  },
+  {
+   "id": "song-23",
+   "category": "music",
+   "name": "Song 23",
+   "file": "music/song-23.mp3",
+   "duration": 150.00049886621315
+  },
+  {
+   "id": "song-24",
+   "category": "music",
+   "name": "Song 24",
+   "file": "music/song-24.mp3",
+   "duration": 5.078684807256236
+  },
+  {
+   "id": "song-25",
+   "category": "music",
+   "name": "Song 25",
+   "file": "music/song-25.mp3",
+   "duration": 150.0009977324263
+  },
+  {
+   "id": "song-26",
+   "category": "music",
+   "name": "Song 26",
+   "file": "music/song-26.mp3",
+   "duration": 10.003219954648525
+  },
+  {
+   "id": "song-27",
+   "category": "music",
+   "name": "Song 27",
+   "file": "music/song-27.mp3",
+   "duration": 6.669886621315193
+  },
+  {
+   "id": "song-28",
+   "category": "music",
+   "name": "Song 28",
+   "file": "music/song-28.mp3",
+   "duration": 150.0008163265306
+  },
+  {
+   "id": "song-29",
+   "category": "music",
+   "name": "Song 29",
+   "file": "music/song-29.mp3",
+   "duration": 105.16888888888889
+  },
+  {
+   "id": "song-30",
+   "category": "music",
+   "name": "Song 30",
+   "file": "music/song-30.mp3",
+   "duration": 150.00027210884355
+  }
+ ]
 }

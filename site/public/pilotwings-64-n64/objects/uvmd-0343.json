@@ -1,0 +1,21 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "model3d",
+ "name": "Model 343",
+ "animations": [
+  {
+   "id": "clip-00",
+   "loop": "loop",
+   "description": "Rigid per-part rotation keys (UVAN). The game's exact playback rate is undecoded; 12 fps is this export's declared choice.",
+   "clip": "clip-00",
+   "fps": 12
+  }
+ ],
+ "model": "uvmd-0343.glb",
+ "instanced": true,
+ "props": {
+  "ordinal": 336,
+  "uvmd": 343
+ }
+}

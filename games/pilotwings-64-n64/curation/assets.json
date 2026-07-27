@@ -1,0 +1,8 @@
+{
+ "holiday-island": "World 0. Named by the game itself: the briefing screen the oracle drove into calls it Holiday Island, and that lesson loaded exactly this world's four terrain cells.",
+ "crescent-island": "World 1, identified by assembling its terrain and recognising the result.",
+ "little-states": "World 3 — the miniature United States, identified by assembling its terrain.",
+ "island": "The attract sequence's island as one model, verified against the RAM walk.",
+ "pilotwings-logo": "1,464 vertex-coloured triangles; drawn on the title card.",
+ "sky-dome": "The attract sky, with its horizon band."
+}

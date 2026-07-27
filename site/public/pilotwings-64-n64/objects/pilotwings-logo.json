@@ -1,0 +1,12 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "model3d",
+ "name": "PILOTWINGS logo",
+ "model": "pilotwings-logo.glb",
+ "instanced": true,
+ "props": {
+  "ordinal": 205,
+  "uvmd": 212
+ }
+}

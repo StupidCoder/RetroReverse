@@ -1,0 +1,12 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "model3d",
+ "name": "Sky dome",
+ "model": "sky-dome.glb",
+ "instanced": true,
+ "props": {
+  "ordinal": 344,
+  "uvmd": 351
+ }
+}

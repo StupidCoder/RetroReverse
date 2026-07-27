@@ -1,36 +1,40 @@
-// webexport builds Pilotwings 64's Studio assets from the cartridge archive.
+// webexport builds Pilotwings 64's Retro-X game tree from the cartridge
+// archive (see RETROX.md).
 //
 // Nothing here boots the machine. The archive is parsed (extract/pwad), its
-// textures, models and terrain decoded (extract/uvtx, uvmd, uvtr, uvct), and
-// the results written as GLBs plus a format-2 manifest. The oracle survives as
-// a verification harness — cmd/mdldump -verify rebuilds each model's display
-// list from the ROM and finds it byte-for-byte in RAM, and cmd/dlverify checks
-// the walk against the RDP stream — but it is no longer in the export path.
+// textures, models and terrain decoded (extract/uvtx, uvmd, uvtr, uvct), the
+// 31 songs rendered by the tools/platform/n64/audio synth, and the results
+// handed to the shared builder (tools/lib/retrox). The oracle survives as a
+// verification harness — cmd/mdldump -verify rebuilds each model's display
+// list from the ROM and finds it byte-for-byte in RAM — but it is no longer
+// in the export path.
+//
+// The headline of this export: a world is ONE level asset. The engine dresses
+// the same island differently per mission by drawing an object only where its
+// 16-bit mask meets the scene selector — that used to be 110 near-duplicate
+// manifest entries ("Holiday Island · Set 3"), and is now one level per world
+// with a VARIANT per mask bit and every placement carrying its variant
+// membership. "Terrain only" is the default variant.
 //
 // # Axes
 //
-// The game is Z-up: terrain lies in the X/Y plane and height is Z (a world
-// grid's cell centres are (x,y), and the island model's height runs 0..502 in
-// Z). glTF is Y-up. Every exported position is therefore rotated
+// The game is Z-up: terrain lies in the X/Y plane and height is Z. glTF is
+// Y-up. Every exported position is therefore rotated
 //
 //	(x, y, z)  ->  (x, z, -y)
 //
-// which is a rotation about X, not a mirror: its determinant is +1, so triangle
-// winding and face orientation carry over unchanged.
+// which is a rotation about X, not a mirror: its determinant is +1, so
+// triangle winding and face orientation carry over unchanged.
 //
-// Usage:
-//
-//	webexport -image ROM -o site/public/pilotwings-64-n64
+// Usage (from games/pilotwings-64-n64/): go run ./extract/cmd/webexport -in ROM
 package main
 
 import (
-	"encoding/json"
-	"flag"
 	"fmt"
 	"image"
 	"image/color"
+	"math"
 	"os"
-	"path/filepath"
 	"sort"
 
 	"retroreverse.com/games/pilotwings-64-n64/extract/pwad"
@@ -39,6 +43,8 @@ import (
 	"retroreverse.com/games/pilotwings-64-n64/extract/uvtr"
 	"retroreverse.com/games/pilotwings-64-n64/extract/uvtx"
 	"retroreverse.com/tools/lib/glb"
+	"retroreverse.com/tools/lib/retrox/cli"
+	"retroreverse.com/tools/lib/retrox/schema"
 	"retroreverse.com/tools/platform/n64"
 )
 
@@ -46,212 +52,270 @@ import (
 // by tracing them, rather than by looking at them. Everything else keeps its
 // resource index: the archive carries no model names, and inventing them would
 // be a guess.
-var knownModels = map[int]string{
-	47:  "Island (whole)",  // the attract sequence's island, verified against the RAM walk
-	212: "PILOTWINGS logo", // 1,464 vertex-coloured triangles; drawn on the title card
-	351: "Sky dome",        // the attract sky, with its horizon band
+var knownModels = map[int]struct{ id, name string }{
+	47:  {"island", "Island (whole)"},           // the attract sequence's island
+	212: {"pilotwings-logo", "PILOTWINGS logo"}, // 1,464 vertex-coloured triangles; the title card
+	351: {"sky-dome", "Sky dome"},               // the attract sky, with its horizon band
 }
 
-// worldNames are the worlds this project has identified. Two by assembling them
-// and recognising the result (Part IV); world 0 by the game's own words — the
-// briefing screen the oracle drove into names it "Holiday Island", and that
-// lesson loaded UVCT 0..3, exactly the four cells UVTR world 0 holds. The rest
-// are numbered.
-var worldNames = map[int]string{
-	0: "Holiday Island",
-	1: "Crescent Island",
-	3: "Little States",
-}
-
-// toGL rotates a game-space position (Z up) into glTF space (Y up).
-func toGL(x, y, z float32) [3]float32 { return [3]float32{x, z, -y} }
-
-// Manifest is the format-2 asset index the Studio loads.
-type Manifest struct {
-	Format   int          `json:"format"`
-	Game     string       `json:"game"`
-	Platform string       `json:"platform"`
-	Native   Size         `json:"native"`
-	TickHz   int          `json:"tickHz"`
-	Models   []ModelIndex `json:"models,omitempty"`
-}
-
-type Size struct{ W, H int }
-
-type ModelIndex struct {
-	Name    string `json:"name"`
-	File    string `json:"file"`
-	Kind    string `json:"kind"`
-	Section string `json:"section,omitempty"`
-
-	// A world entry may carry an object layer (one of the world's sixteen mask
-	// sets) and, where it has been traced, its ocean plane.
-	ObjectsFile string `json:"objectsFile,omitempty"`
-	WaterFile   string `json:"waterFile,omitempty"`
-
-	// An animated model's GLB carries these named glTF clips.
-	Clips []string `json:"clips,omitempty"`
+// worldNames are the worlds this project has identified. Two by assembling
+// them and recognising the result (Part IV); world 0 by the game's own words —
+// the briefing screen the oracle drove into names it "Holiday Island". The
+// rest are numbered.
+var worldNames = map[int]struct{ id, name string }{
+	0: {"holiday-island", "Holiday Island"},
+	1: {"crescent-island", "Crescent Island"},
+	3: {"little-states", "Little States"},
 }
 
 // waterModel names the UVMD resource that is a world's ocean plane, where the
 // game has been observed to load it. Only world 0's is known: the beginner
-// hang-glider lesson, driven in the oracle, DMA'd UVMD resource 360 — a flat
-// z=0 plane spanning ±12,288 units, textured with the attract sequence's water
-// tile. Resources 365, 367 and 368 are the same plane for other worlds, but
-// which belongs to which is not traced, and is not guessed here.
+// hang-glider lesson, driven in the oracle, DMA'd UVMD resource 360. Resources
+// 365, 367 and 368 are the same plane for other worlds, but which belongs to
+// which is not traced, and is not guessed here.
 var waterModel = map[int]int{0: 360}
 
+// toGL rotates a game-space position (Z up) into glTF space (Y up).
+func toGL(x, y, z float32) [3]float32 { return [3]float32{x, z, -y} }
+
 func main() {
-	image_ := flag.String("image", "", "cartridge image")
-	out := flag.String("o", "", "output directory (site/public/pilotwings-64-n64)")
-	flag.Parse()
-	if *image_ == "" || *out == "" {
-		die(fmt.Errorf("-image and -o are required"))
+	cli.Main("pilotwings-64-n64", run)
+}
+
+func run(ctx *cli.Context) error {
+	if ctx.In == "" {
+		return fmt.Errorf("usage: webexport -in ROM [-o DIR] [-only levels,objects,music]")
+	}
+	rom, err := n64.Load(ctx.In)
+	if err != nil {
+		return err
 	}
 
-	rom, err := n64.Load(*image_)
-	if err != nil {
-		die(err)
-	}
+	b := ctx.Builder
+	b.SetTitle("Pilotwings 64")
+	b.SetPlatform("Nintendo 64")
+	b.SetYear(1996)
+	b.SetDisplay(schema.Display{
+		Native: schema.Size{W: 320, H: 240},
+		TickHz: 60,
+		Filter: "crt",
+	})
+
 	a, err := pwad.Open(rom.Data)
 	if err != nil {
-		die(err)
+		return err
 	}
 	if err := a.Check(); err != nil {
-		die(err)
+		return err
 	}
-
 	texs := loadTextures(a)
-	modelsDir := filepath.Join(*out, "models")
-	worldsDir := filepath.Join(*out, "worlds")
-	for _, d := range []string{modelsDir, worldsDir} {
-		if err := os.MkdirAll(d, 0o755); err != nil {
-			die(err)
+
+	var assetByOrd []string
+	if ctx.Stage("objects") {
+		if assetByOrd, err = exportModels(ctx, a, texs); err != nil {
+			return err
 		}
 	}
+	if ctx.Stage("levels") {
+		if err := exportWorlds(ctx, a, texs, assetByOrd); err != nil {
+			return err
+		}
+	}
+	if ctx.Stage("music") {
+		if err := exportMusic(ctx, rom.Data); err != nil {
+			return err
+		}
+	}
+	return nil
+}
 
-	man := Manifest{Format: 2, Game: "pilotwings-64-n64", Platform: "Nintendo 64",
-		Native: Size{320, 240}, TickHz: 60}
-
-	// --- models -----------------------------------------------------------
-	//
-	// Models come first: a world's object layer names them by UVMD *ordinal*, and
-	// the ordinal-to-file map is only complete once the empty ones are known.
+// exportModels writes every non-empty UVMD as a model3d object asset and
+// returns the asset id per UVMD ordinal ("" = no triangles at LOD 0).
+func exportModels(ctx *cli.Context, a *pwad.Archive, texs []*uvtx.Texture) ([]string, error) {
+	b := ctx.Builder
 	uvmdIdx := a.ByType("UVMD")
 	sort.Ints(uvmdIdx)
-	animations := gatherAnimations(a)          // by UVMD ordinal
-	modelFiles := make([]string, len(uvmdIdx)) // by ordinal; "" if not shipped
-	var modelEntries []ModelIndex
+	animations := gatherAnimations(a) // by UVMD ordinal
+	assetByOrd := make([]string, len(uvmdIdx))
 	written, empty, animated := 0, 0, 0
 	for ord, i := range uvmdIdx {
 		f, err := a.Resource(i)
 		if err != nil {
-			die(err)
+			return nil, err
 		}
 		m, err := uvmd.Decode(commOf(a, f))
 		if err != nil {
-			die(fmt.Errorf("UVMD %d: %w", i, err))
+			return nil, fmt.Errorf("UVMD %d: %w", i, err)
 		}
 		if m.Triangles(0) == 0 {
-			empty++ // nothing to look at; not shipped, and said so below
+			empty++ // nothing to look at; not shipped, and counted below
 			continue
 		}
-		file := fmt.Sprintf("models/uvmd-%04d.glb", i)
-		entry := ModelIndex{File: file, Kind: "mesh3d", Section: "Models"}
-		// A model any UVAN targets ships rigged and animated (a node per part with
-		// rotation clips) instead of one baked static mesh.
-		if anims := animations[ord]; len(anims) > 0 {
-			clips := writeAnimatedModel(filepath.Join(*out, file), m, anims, texs)
-			entry.Clips = clips
-			animated++
-		} else if err := writeModel(filepath.Join(*out, file), m, texs); err != nil {
-			die(fmt.Errorf("UVMD %d: %w", i, err))
+		id := fmt.Sprintf("uvmd-%04d", i)
+		name := fmt.Sprintf("Model %03d", i)
+		if k, ok := knownModels[i]; ok {
+			id, name = k.id, k.name
 		}
-		modelFiles[ord] = file
-		entry.Name = knownModels[i]
-		if entry.Name == "" {
-			entry.Name = fmt.Sprintf("Model %03d", i)
-		}
-		modelEntries = append(modelEntries, entry)
-		written++
-	}
-	fmt.Printf("%d models written (%d animated), %d skipped for having no triangles at LOD 0\n", written, animated, empty)
-
-	// --- worlds, and their sixteen object sets -----------------------------
-	worlds, chunks := loadWorld(a)
-	for i, w := range worlds {
-		name := worldNames[i]
-		if name == "" {
-			name = fmt.Sprintf("World %d", i)
-		}
-		file := fmt.Sprintf("worlds/world-%d.glb", i)
-		tris, err := writeWorld(filepath.Join(*out, file), w, chunks, texs)
+		glbPath, err := b.Path("objects", id+".glb")
 		if err != nil {
-			die(fmt.Errorf("world %d: %w", i, err))
+			return nil, err
+		}
+		doc := &schema.Object{
+			Type:      schema.ObjectModel3D,
+			Name:      name,
+			Model:     id + ".glb",
+			Instanced: true,
+			Props:     map[string]any{"uvmd": i, "ordinal": ord},
+		}
+		// A model any UVAN targets ships rigged and animated (a node per part
+		// with rotation clips) instead of one baked static mesh.
+		if anims := animations[ord]; len(anims) > 0 {
+			clips := writeAnimatedModel(glbPath, m, anims, texs)
+			for _, c := range clips {
+				doc.Animations = append(doc.Animations, schema.Animation{
+					ID: c, Clip: c, FPS: animFPS, Loop: "loop",
+					Description: "Rigid per-part rotation keys (UVAN). The game's exact playback rate " +
+						"is undecoded; 12 fps is this export's declared choice.",
+				})
+			}
+			animated++
+		} else if _, err := writeModel(glbPath, m, texs); err != nil {
+			return nil, fmt.Errorf("UVMD %d: %w", i, err)
+		}
+		b.AddObject(schema.Asset{ID: id, Name: name, Group: "Models"}, doc)
+		assetByOrd[ord] = id
+		written++
+		if written%50 == 0 {
+			ctx.Progress("objects", written, len(uvmdIdx), id)
+		}
+	}
+	ctx.Logf("objects: %d models written (%d animated), %d skipped for having no triangles at LOD 0",
+		written, animated, empty)
+	return assetByOrd, nil
+}
+
+// exportWorlds writes one scene3d level per world: terrain layer (+ ocean
+// layer where traced), all placements once, and one variant per mask bit.
+func exportWorlds(ctx *cli.Context, a *pwad.Archive, texs []*uvtx.Texture, assetByOrd []string) error {
+	b := ctx.Builder
+	worlds, chunks := loadWorld(a)
+	uvmdIdx := a.ByType("UVMD")
+	sort.Ints(uvmdIdx)
+
+	droppedTotal := 0
+	for i, w := range worlds {
+		id, name := fmt.Sprintf("world-%d", i), fmt.Sprintf("World %d", i)
+		if k, ok := worldNames[i]; ok {
+			id, name = k.id, k.name
 		}
 
-		water := ""
+		terrain, err := b.Path("levels", id, "terrain.glb")
+		if err != nil {
+			return err
+		}
+		tris, terrainBounds, err := writeWorld(terrain, w, chunks, texs)
+		if err != nil {
+			return fmt.Errorf("world %d: %w", i, err)
+		}
+		bounds := terrainBounds
+
+		doc := &schema.Level{
+			Type: schema.LevelScene3D,
+			Scene: &schema.Scene{
+				Layers: []schema.Layer{
+					{ID: "terrain", Name: "Terrain", File: id + "/terrain.glb"},
+				},
+			},
+		}
 		if r, ok := waterModel[i]; ok {
-			water = fmt.Sprintf("worlds/world-%d-water.glb", i)
 			f, err := a.Resource(r)
 			if err != nil {
-				die(err)
+				return err
 			}
 			m, err := uvmd.Decode(commOf(a, f))
 			if err != nil {
-				die(fmt.Errorf("water UVMD %d: %w", r, err))
+				return fmt.Errorf("water UVMD %d: %w", r, err)
 			}
-			if err := writeModel(filepath.Join(*out, water), m, texs); err != nil {
-				die(fmt.Errorf("water UVMD %d: %w", r, err))
+			waterPath, err := b.Path("levels", id, "water.glb")
+			if err != nil {
+				return err
 			}
-		}
-
-		sets := worldObjects(w, chunks, modelFiles, uvmdIdx)
-		files, err := writeObjectSets(filepath.Join(*out, "worlds"), fmt.Sprintf("world-%d", i), sets)
-		if err != nil {
-			die(fmt.Errorf("world %d objects: %w", i, err))
-		}
-
-		// The bare terrain keeps the world's own name, so the Studio's default
-		// asset and any deep link still resolve; each mask bit is a sibling.
-		base := ModelIndex{Name: name, File: file, Kind: "pw-world", Section: name, WaterFile: water}
-		man.Models = append(man.Models, base)
-		total := 0
-		for b := 0; b < MaskBits; b++ {
-			if files[b] == "" {
-				continue
+			wb, err := writeModel(waterPath, m, texs)
+			if err != nil {
+				return fmt.Errorf("water UVMD %d: %w", r, err)
 			}
-			e := base
-			e.Name = fmt.Sprintf("%s · Set %d", name, b+1)
-			e.ObjectsFile = "worlds/" + files[b]
-			man.Models = append(man.Models, e)
-			total += len(sets[b])
+			doc.Scene.Layers = append(doc.Scene.Layers, schema.Layer{
+				ID: "water", Name: "Ocean", File: id + "/water.glb",
+				Mode: schema.LayerToggle, Role: "water",
+			})
+			// The camera's far plane must cover the ocean, which dwarfs the
+			// island — but the opening shot still frames the terrain.
+			bounds = union(bounds, wb)
 		}
-		fmt.Printf("world %d %-18s %6d triangles, %2d object sets, %4d placements%s\n",
-			i, name, tris, len(files), total, map[bool]string{true: ", water"}[water != ""])
-	}
-	man.Models = append(man.Models, modelEntries...)
+		doc.Camera = worldCamera(bounds, terrainBounds)
 
-	// Every object must have found its model: a type whose GLB was pruned would
-	// silently vanish from the viewer, which is exactly the kind of quiet gap
-	// this exporter refuses to ship.
-	missing := 0
-	for _, ch := range chunks {
-		for _, o := range ch.Objects {
-			if modelFiles[o.Type] == "" {
-				missing++
+		var placements []schema.Placement
+		var present [MaskBits]bool
+		var dropped int
+		if assetByOrd != nil {
+			placements, present, dropped = worldPlacements(w, chunks, assetByOrd, uvmdIdx)
+			droppedTotal += dropped
+		}
+		// The variant list: "Terrain only" (default, no objects belong to it)
+		// then one variant per mask bit any object in this world carries.
+		doc.Variants = []schema.Variant{{ID: "terrain", Name: "Terrain only", Default: true}}
+		sets := 0
+		for bit := 0; bit < MaskBits; bit++ {
+			if present[bit] {
+				doc.Variants = append(doc.Variants, schema.Variant{
+					ID: setID(bit), Name: fmt.Sprintf("Set %d", bit+1),
+				})
+				sets++
 			}
 		}
-	}
-	if missing > 0 {
-		fmt.Printf("WARNING: %d placements name a model with no triangles at LOD 0 and were dropped\n", missing)
-	}
+		doc.Placements = placements
 
-	j, _ := json.MarshalIndent(man, "", "  ")
-	if err := os.WriteFile(filepath.Join(*out, "manifest.json"), append(j, '\n'), 0o644); err != nil {
-		die(err)
+		b.AddLevel(schema.Asset{ID: id, Name: name, Group: "Worlds"}, doc)
+		ctx.Progress("levels", i+1, len(worlds),
+			fmt.Sprintf("%-16s %6d triangles, %2d sets, %4d placements", name, tris, sets, len(placements)))
 	}
-	fmt.Printf("wrote manifest.json: %d entries\n", len(man.Models))
+	if droppedTotal > 0 {
+		// A type whose GLB was pruned must not silently vanish — say so.
+		fmt.Fprintf(os.Stderr, "warning: %d placements name a model with no triangles at LOD 0 and were dropped\n", droppedTotal)
+	}
+	return nil
+}
+
+func union(a, b bbox) bbox {
+	out := a
+	for i := 0; i < 3; i++ {
+		if b.min[i] < out.min[i] {
+			out.min[i] = b.min[i]
+		}
+		if b.max[i] > out.max[i] {
+			out.max[i] = b.max[i]
+		}
+	}
+	return out
+}
+
+// worldCamera derives the required camera block: the opening shot frames the
+// TERRAIN from a high three-quarter view and the fly speed scales with the
+// terrain span so every island handles alike, while the far plane covers the
+// whole scene (the ocean plane dwarfs the island it surrounds).
+func worldCamera(all, terrain bbox) *schema.Camera {
+	cx, cy, cz := (terrain.min[0]+terrain.max[0])/2, (terrain.min[1]+terrain.max[1])/2, (terrain.min[2]+terrain.max[2])/2
+	span := math.Max(float64(terrain.max[0]-terrain.min[0]), float64(terrain.max[2]-terrain.min[2]))
+	allSpan := math.Max(float64(all.max[0]-all.min[0]), float64(all.max[2]-all.min[2]))
+	return &schema.Camera{
+		Mode:   "fly",
+		Pos:    []float64{float64(cx) + span*0.55, float64(cy) + span*0.35, float64(cz) + span*0.55},
+		Target: []float64{float64(cx), float64(cy), float64(cz)},
+		FOV:    60,
+		Near:   math.Max(1, span/2000),
+		Far:    math.Max(span*5, allSpan*1.5),
+		Fly:    &schema.Fly{Speed: math.Round(span * 0.06)},
+	}
 }
 
 func commOf(a *pwad.Archive, f pwad.Form) []byte {
@@ -336,6 +400,8 @@ func white() *image.RGBA {
 	return w
 }
 
+type bbox struct{ min, max [3]float32 }
+
 // builder accumulates one GLB's vertex arrays, grouping triangles by texture so
 // a world becomes one mesh rather than a pile of chunks.
 type builder struct {
@@ -371,6 +437,25 @@ func (b *builder) addBatch(bt uvmd.Batch, verts []uvmd.Vertex, mtx uvmd.Matrix, 
 		}
 		b.byTex[tex] = append(b.byTex[tex], [3]uint32{base, base + 1, base + 2})
 	}
+}
+
+func (b *builder) bounds() bbox {
+	var bb bbox
+	if len(b.pos) == 0 {
+		return bb
+	}
+	bb.min, bb.max = b.pos[0], b.pos[0]
+	for _, p := range b.pos {
+		for i := 0; i < 3; i++ {
+			if p[i] < bb.min[i] {
+				bb.min[i] = p[i]
+			}
+			if p[i] > bb.max[i] {
+				bb.max[i] = p[i]
+			}
+		}
+	}
+	return bb
 }
 
 // write emits the accumulated triangles as one textured GLB. opaque forces every
@@ -416,7 +501,7 @@ func identity() uvmd.Matrix {
 	return m
 }
 
-func writeWorld(path string, w *uvtr.World, chunks []*uvct.Chunk, texs []*uvtx.Texture) (int, error) {
+func writeWorld(path string, w *uvtr.World, chunks []*uvct.Chunk, texs []*uvtx.Texture) (int, bbox, error) {
 	b := newBuilder()
 	for i := range w.Cells {
 		c := &w.Cells[i]
@@ -428,12 +513,13 @@ func writeWorld(path string, w *uvtr.World, chunks []*uvct.Chunk, texs []*uvtx.T
 			b.addBatch(bt.Batch, ch.Vertices, c.Matrix, texs)
 		}
 	}
-	return b.tris(), b.write(path, texs, true)
+	return b.tris(), b.bounds(), b.write(path, texs, true)
 }
 
 // writeModel exports LOD 0, each part placed by its rest pose (the pairing of
-// matrix i with part i holds at LOD 0 only; see extract/uvmd).
-func writeModel(path string, m *uvmd.Model, texs []*uvtx.Texture) error {
+// matrix i with part i holds at LOD 0 only; see extract/uvmd). Returns the
+// mesh bounds (Y-up) for camera derivation.
+func writeModel(path string, m *uvmd.Model, texs []*uvtx.Texture) (bbox, error) {
 	b := newBuilder()
 	for pi, part := range m.LODs[0].Parts {
 		mtx := identity()
@@ -444,7 +530,7 @@ func writeModel(path string, m *uvmd.Model, texs []*uvtx.Texture) error {
 			b.addBatch(bt, m.Vertices, mtx, texs)
 		}
 	}
-	return b.write(path, texs, false)
+	return b.bounds(), b.write(path, texs, false)
 }
 
 func die(err error) {

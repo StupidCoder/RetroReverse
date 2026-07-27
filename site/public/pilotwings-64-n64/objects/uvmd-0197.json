@@ -1,0 +1,12 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "model3d",
+ "name": "Model 197",
+ "model": "uvmd-0197.glb",
+ "instanced": true,
+ "props": {
+  "ordinal": 190,
+  "uvmd": 197
+ }
+}

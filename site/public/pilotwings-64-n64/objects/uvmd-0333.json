@@ -1,0 +1,35 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "model3d",
+ "name": "Model 333",
+ "animations": [
+  {
+   "id": "clip-00",
+   "loop": "loop",
+   "description": "Rigid per-part rotation keys (UVAN). The game's exact playback rate is undecoded; 12 fps is this export's declared choice.",
+   "clip": "clip-00",
+   "fps": 12
+  },
+  {
+   "id": "clip-01",
+   "loop": "loop",
+   "description": "Rigid per-part rotation keys (UVAN). The game's exact playback rate is undecoded; 12 fps is this export's declared choice.",
+   "clip": "clip-01",
+   "fps": 12
+  },
+  {
+   "id": "clip-02",
+   "loop": "loop",
+   "description": "Rigid per-part rotation keys (UVAN). The game's exact playback rate is undecoded; 12 fps is this export's declared choice.",
+   "clip": "clip-02",
+   "fps": 12
+  }
+ ],
+ "model": "uvmd-0333.glb",
+ "instanced": true,
+ "props": {
+  "ordinal": 326,
+  "uvmd": 333
+ }
+}

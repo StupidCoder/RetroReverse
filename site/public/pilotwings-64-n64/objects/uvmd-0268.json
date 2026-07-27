@@ -1,0 +1,12 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "model3d",
+ "name": "Model 268",
+ "model": "uvmd-0268.glb",
+ "instanced": true,
+ "props": {
+  "ordinal": 261,
+  "uvmd": 268
+ }
+}

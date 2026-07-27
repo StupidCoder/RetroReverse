@@ -1,0 +1,12 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "model3d",
+ "name": "Model 166",
+ "model": "uvmd-0166.glb",
+ "instanced": true,
+ "props": {
+  "ordinal": 159,
+  "uvmd": 166
+ }
+}
