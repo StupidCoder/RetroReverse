@@ -544,6 +544,24 @@
    "cameraTrack": "cameras/gb_demo.json"
   },
   {
+   "name": "The whole mansion \u2014 assembled",
+   "file": "placements.json",
+   "kind": "lm-mansion",
+   "section": "The mansion",
+   "camera": {
+    "pos": [
+     3000,
+     5200,
+     7800
+    ],
+    "target": [
+     0,
+     200,
+     -2500
+    ]
+   }
+  },
+  {
    "name": "The foyer (room 02)",
    "file": "models/rooms/room_02.glb",
    "kind": "lm-room",

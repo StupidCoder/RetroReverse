@@ -58,20 +58,21 @@ The foundation everything else stands on. A room must look *right* before 74 of 
 Remaining Phase 2 polish: the `[13]/[14]` material-stage sections + TEX1 blending used
 by the six two-stage rooms (63/65/66/67, b1_c_67, gyara_00).
 
-## Phase 3 — room placement: assembling the mansion
+## Phase 3 — room placement: assembling the mansion ✅ core (2026-07-27)
 
-1. **Find the placement data.** Rooms are modelled in mansion-global coordinates already
-   (the foyer's graph TRS is identity — check whether this holds for all rooms; if so,
-   assembly is mere concatenation). If not: the candidates are `Map/map2.szp` (982 KB, the
-   mansion "map" the game loads with the rooms), `gidemap.szp`, and the engine's room table
-   in the DOL. The GameBoy Horror's map view knows every room's bounds — that data exists
-   somewhere.
-2. **Export the assembled shell**: all 74 rooms into one GLB (or one GLB per room plus a
-   placement JSON the viewer composes — better for streaming and per-room toggles).
-3. **Doors**: the door vignettes' 8 door sets (already exported) are the connectors between
-   rooms; place them from the same map data if it names them.
-4. **Acceptance**: the mansion cutaway in the Studio — orbit the whole building, rooms in
-   their true positions.
+1. ~~**Find the placement data.**~~ Verified: all 75 room shells are mansion-global
+   (`extract/cmd/roombounds` — floors tile at y −600/−50/500/1050; the building-sized
+   shells are the exterior walls/grounds `room_11/16/23/37/72` and roof `room_59/60`).
+   Assembly is mere concatenation, as hoped.
+2. ~~**Export the assembled shell**~~: one GLB per room + `placements.json` (already the
+   `lmtool -mansion` output); ALL rooms + furniture now ship in the Studio, streamed by
+   the new `lm-mansion` renderer with a shared furniture cache and an exterior layer
+   (on = the mansion on its grounds, off = the dollhouse cutaway).
+3. **Doors**: open — no `jmp/` table names the door leaves; their placement is a
+   DOL-side structure (find it via the door-actor construction around the loader at
+   `0x8001A050`).
+4. ~~**Acceptance**~~: the mansion orbits/flies as one building, rooms in true position;
+   the foyer's archway opens into the parlor behind it.
 
 ## Phase 4 — the full sweep and the Studio centrepiece
 

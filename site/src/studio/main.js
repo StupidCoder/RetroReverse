@@ -345,13 +345,17 @@ const GAMES = [
         'lm-set': () => import('../luigis-mansion-gc/set-renderer.js'),
         'lm-actor': () => import('../luigis-mansion-gc/actor-renderer.js'),
         'lm-room': () => import('../luigis-mansion-gc/room-renderer.js'),
+        'lm-mansion': () => import('../luigis-mansion-gc/mansion-renderer.js'),
       },
     }),
     list: async (v) => await v.init(),
     show: (v, item, i) => v.showItem(item),
     // Open on the mansion — the cutscene's establishing shot.
     defaultAsset: (models) => models.findIndex((m) => m.name === 'The mansion'),
-    layers: [{ id: 'wireframe', label: 'Wireframe', default: false }],
+    layers: [
+      { id: 'wireframe', label: 'Wireframe', default: false },
+      { id: 'exterior', label: 'Exterior shell', default: true, when: (m) => m.leaves?.[m.currentIdx]?.level?.kind === 'lm-mansion' },
+    ],
     group: (item) => ({ section: item.section || 'Opening cutscene', label: item.name }),
   },
   {

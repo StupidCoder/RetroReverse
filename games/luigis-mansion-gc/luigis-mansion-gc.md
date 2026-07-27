@@ -463,6 +463,29 @@ the Studio's gallery plays them (click cycles clips). Still unread: the 136–26
 `.bas` records that pair with animated furniture (interaction metadata — trigger
 volumes and sounds by the look of the floats).
 
+## Part XII — the assembled mansion
+
+Every room shell is modelled in one mansion-global frame — a bounds survey of all 75
+`room.bin`s (`extract/cmd/roombounds`) shows them tiling the building rather than piling
+at the origin: basement y −600..0, ground floor −50..550, first floor 500..1100, attic
+1050..2100, with a handful of building-sized shells that are not rooms at all but the
+**exterior**: the outer walls and grounds (`room_11/16/23/37/72`), and the roof
+(`room_59/60`). Assembly is therefore exactly what Phase 3 hoped: load everything.
+
+The Studio's `lm-mansion` renderer does that — all 75 shells streamed a few at a time
+(each furnished from `placements.json` as it lands, the furniture cache shared across
+rooms so repeated pieces download once), the exterior shells on their own layer
+(on = the mansion on its grounds under the night sky; off = the dollhouse cutaway),
+FlyCam to walk the halls, and the same click-to-vacuum furniture as the single-room
+viewer. Standing in the assembled foyer, the archway that was a black hole in the
+single-room export now opens into the parlor beyond it.
+
+Doors are the one thing the map data does not place: no `jmp/` table names the
+`iwamoto/door/door_NN.bin` leaves (checked every table in `map2.szp`), so their
+per-opening placement lives in a DOL-side structure — the open item for the full
+dollhouse. `room_41` is a 10-unit dummy box far outside the building; `syan45`'s
+chandelier record names a member that was cut from `room_45.arc`.
+
 ## Open items
 
 * The demo's binding of shots to archives and archive members to actors (the `.scd` names
