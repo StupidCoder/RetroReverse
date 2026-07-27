@@ -1,0 +1,28 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "sprite2d",
+ "name": "Sprite $07E7E",
+ "atlas": {
+  "file": "resident-07e7e.png",
+  "cellW": 32,
+  "cellH": 15
+ },
+ "animations": [
+  {
+   "id": "main",
+   "loop": "hold",
+   "frames": 1
+  },
+  {
+   "id": "f0",
+   "loop": "hold",
+   "frames": 1,
+   "steps": [[0, 1]]
+  }
+ ],
+ "props": {
+  "frameTable": "$07E7E",
+  "frames": 1
+ }
+}

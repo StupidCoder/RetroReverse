@@ -1,0 +1,29 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "sprite2d",
+ "name": "Sprite $1FF5A (World 3)",
+ "atlas": {
+  "file": "w2-1ff5a.png",
+  "cellW": 32,
+  "cellH": 15
+ },
+ "animations": [
+  {
+   "id": "main",
+   "loop": "loop",
+   "frames": 10,
+   "durations": [8, 8, 8, 8, 8, 8, 8, 8, 8, 8]
+  },
+  {
+   "id": "f0",
+   "loop": "hold",
+   "frames": 10,
+   "steps": [[0, 1]]
+  }
+ ],
+ "props": {
+  "frameTable": "$1FF5A",
+  "frames": 10
+ }
+}

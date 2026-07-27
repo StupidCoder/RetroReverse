@@ -1,0 +1,29 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "sprite2d",
+ "name": "Sprite $20884 (World 1)",
+ "atlas": {
+  "file": "w0-20884.png",
+  "cellW": 48,
+  "cellH": 20
+ },
+ "animations": [
+  {
+   "id": "main",
+   "loop": "loop",
+   "frames": 5,
+   "durations": [8, 8, 8, 8, 8]
+  },
+  {
+   "id": "f0",
+   "loop": "hold",
+   "frames": 5,
+   "steps": [[0, 1]]
+  }
+ ],
+ "props": {
+  "frameTable": "$20884",
+  "frames": 5
+ }
+}

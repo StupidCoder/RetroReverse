@@ -1,0 +1,28 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "sprite2d",
+ "name": "Sprite $1EF92 (World 3)",
+ "atlas": {
+  "file": "w2-1ef92.png",
+  "cellW": 48,
+  "cellH": 36
+ },
+ "animations": [
+  {
+   "id": "main",
+   "loop": "hold",
+   "frames": 1
+  },
+  {
+   "id": "f0",
+   "loop": "hold",
+   "frames": 1,
+   "steps": [[0, 1]]
+  }
+ ],
+ "props": {
+  "frameTable": "$1EF92",
+  "frames": 1
+ }
+}

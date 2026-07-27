@@ -1,0 +1,28 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "sprite2d",
+ "name": "Sprite $1EAEE (World 1)",
+ "atlas": {
+  "file": "w0-1eaee.png",
+  "cellW": 32,
+  "cellH": 18
+ },
+ "animations": [
+  {
+   "id": "main",
+   "loop": "hold",
+   "frames": 1
+  },
+  {
+   "id": "f0",
+   "loop": "hold",
+   "frames": 1,
+   "steps": [[0, 1]]
+  }
+ ],
+ "props": {
+  "frameTable": "$1EAEE",
+  "frames": 1
+ }
+}

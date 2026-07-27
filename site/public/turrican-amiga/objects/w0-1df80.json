@@ -1,0 +1,29 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "sprite2d",
+ "name": "Sprite $1DF80 (World 1)",
+ "atlas": {
+  "file": "w0-1df80.png",
+  "cellW": 16,
+  "cellH": 18
+ },
+ "animations": [
+  {
+   "id": "main",
+   "loop": "loop",
+   "frames": 8,
+   "durations": [8, 8, 8, 8, 8, 8, 8, 8]
+  },
+  {
+   "id": "f0",
+   "loop": "hold",
+   "frames": 8,
+   "steps": [[0, 1]]
+  }
+ ],
+ "props": {
+  "frameTable": "$1DF80",
+  "frames": 8
+ }
+}

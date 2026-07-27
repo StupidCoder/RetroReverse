@@ -1,0 +1,29 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "sprite2d",
+ "name": "Sprite $1FB22 (World 1)",
+ "atlas": {
+  "file": "w0-1fb22.png",
+  "cellW": 32,
+  "cellH": 16
+ },
+ "animations": [
+  {
+   "id": "main",
+   "loop": "loop",
+   "frames": 15,
+   "durations": [8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8]
+  },
+  {
+   "id": "f0",
+   "loop": "hold",
+   "frames": 15,
+   "steps": [[0, 1]]
+  }
+ ],
+ "props": {
+  "frameTable": "$1FB22",
+  "frames": 15
+ }
+}

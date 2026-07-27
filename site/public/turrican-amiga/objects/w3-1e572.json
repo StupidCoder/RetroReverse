@@ -1,0 +1,28 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "sprite2d",
+ "name": "Sprite $1E572 (World 4)",
+ "atlas": {
+  "file": "w3-1e572.png",
+  "cellW": 32,
+  "cellH": 18
+ },
+ "animations": [
+  {
+   "id": "main",
+   "loop": "hold",
+   "frames": 1
+  },
+  {
+   "id": "f0",
+   "loop": "hold",
+   "frames": 1,
+   "steps": [[0, 1]]
+  }
+ ],
+ "props": {
+  "frameTable": "$1E572",
+  "frames": 1
+ }
+}

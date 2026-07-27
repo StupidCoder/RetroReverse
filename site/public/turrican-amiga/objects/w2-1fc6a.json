@@ -1,0 +1,28 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "sprite2d",
+ "name": "Sprite $1FC6A (World 3)",
+ "atlas": {
+  "file": "w2-1fc6a.png",
+  "cellW": 48,
+  "cellH": 20
+ },
+ "animations": [
+  {
+   "id": "main",
+   "loop": "hold",
+   "frames": 1
+  },
+  {
+   "id": "f0",
+   "loop": "hold",
+   "frames": 1,
+   "steps": [[0, 1]]
+  }
+ ],
+ "props": {
+  "frameTable": "$1FC6A",
+  "frames": 1
+ }
+}

@@ -1,0 +1,23 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "sprite2d",
+ "name": "Sprite $1F84E (World 1)",
+ "atlas": {
+  "file": "w0-1f84e.png",
+  "cellW": 16,
+  "cellH": 13
+ },
+ "animations": [
+  {
+   "id": "main",
+   "loop": "loop",
+   "frames": 3,
+   "durations": [8, 8, 8]
+  }
+ ],
+ "props": {
+  "frameTable": "$1F84E",
+  "frames": 3
+ }
+}

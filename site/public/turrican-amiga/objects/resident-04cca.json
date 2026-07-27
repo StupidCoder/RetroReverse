@@ -1,0 +1,23 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "sprite2d",
+ "name": "Sprite $04CCA",
+ "atlas": {
+  "file": "resident-04cca.png",
+  "cellW": 32,
+  "cellH": 32
+ },
+ "animations": [
+  {
+   "id": "main",
+   "loop": "loop",
+   "frames": 35,
+   "durations": [8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8]
+  }
+ ],
+ "props": {
+  "frameTable": "$04CCA",
+  "frames": 35
+ }
+}

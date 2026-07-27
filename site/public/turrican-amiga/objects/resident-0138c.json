@@ -1,0 +1,23 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "sprite2d",
+ "name": "Sprite $0138C",
+ "atlas": {
+  "file": "resident-0138c.png",
+  "cellW": 144,
+  "cellH": 42
+ },
+ "animations": [
+  {
+   "id": "main",
+   "loop": "loop",
+   "frames": 4,
+   "durations": [8, 8, 8, 8]
+  }
+ ],
+ "props": {
+  "frameTable": "$0138C",
+  "frames": 4
+ }
+}

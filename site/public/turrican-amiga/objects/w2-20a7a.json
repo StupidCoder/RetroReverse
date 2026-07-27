@@ -1,0 +1,41 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "sprite2d",
+ "name": "Sprite $20A7A (World 3)",
+ "atlas": {
+  "file": "w2-20a7a.png",
+  "cellW": 32,
+  "cellH": 25
+ },
+ "animations": [
+  {
+   "id": "main",
+   "loop": "loop",
+   "frames": 8,
+   "durations": [8, 8, 8, 8, 8, 8, 8, 8]
+  },
+  {
+   "id": "f0",
+   "loop": "hold",
+   "frames": 8,
+   "steps": [[0, 1]]
+  },
+  {
+   "id": "f2",
+   "loop": "hold",
+   "frames": 8,
+   "steps": [[2, 1]]
+  },
+  {
+   "id": "f6",
+   "loop": "hold",
+   "frames": 8,
+   "steps": [[6, 1]]
+  }
+ ],
+ "props": {
+  "frameTable": "$20A7A",
+  "frames": 8
+ }
+}

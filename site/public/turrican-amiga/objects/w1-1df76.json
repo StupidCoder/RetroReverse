@@ -1,0 +1,29 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "sprite2d",
+ "name": "Sprite $1DF76 (World 2)",
+ "atlas": {
+  "file": "w1-1df76.png",
+  "cellW": 32,
+  "cellH": 22
+ },
+ "animations": [
+  {
+   "id": "main",
+   "loop": "loop",
+   "frames": 10,
+   "durations": [8, 8, 8, 8, 8, 8, 8, 8, 8, 8]
+  },
+  {
+   "id": "f0",
+   "loop": "hold",
+   "frames": 10,
+   "steps": [[0, 1]]
+  }
+ ],
+ "props": {
+  "frameTable": "$1DF76",
+  "frames": 10
+ }
+}

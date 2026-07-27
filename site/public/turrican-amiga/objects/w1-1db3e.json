@@ -1,0 +1,35 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "sprite2d",
+ "name": "Sprite $1DB3E (World 2)",
+ "atlas": {
+  "file": "w1-1db3e.png",
+  "cellW": 32,
+  "cellH": 16
+ },
+ "animations": [
+  {
+   "id": "main",
+   "loop": "loop",
+   "frames": 14,
+   "durations": [8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8]
+  },
+  {
+   "id": "f0",
+   "loop": "hold",
+   "frames": 14,
+   "steps": [[0, 1]]
+  },
+  {
+   "id": "f7",
+   "loop": "hold",
+   "frames": 14,
+   "steps": [[7, 1]]
+  }
+ ],
+ "props": {
+  "frameTable": "$1DB3E",
+  "frames": 14
+ }
+}

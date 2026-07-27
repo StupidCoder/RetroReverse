@@ -12,12 +12,12 @@ import (
 	"encoding/binary"
 	"fmt"
 	"math"
-	"os"
-	"os/exec"
-	"path/filepath"
 
 	"retroreverse.com/games/turrican-amiga/extract/decrunch"
 	"retroreverse.com/games/turrican-amiga/extract/scene"
+	"retroreverse.com/tools/lib/retrox/audio"
+	"retroreverse.com/tools/lib/retrox/cli"
+	"retroreverse.com/tools/lib/retrox/schema"
 )
 
 const (
@@ -67,21 +67,18 @@ func modulesOf(game *scene.Game, overlay []byte) []tfmxModule {
 	return mods
 }
 
-// exportMusic renders every distinct audible sub-song to music/*.mp3 and returns the manifest
-// music index. NO oracle beyond the driver interpreter. Deterministic order.
-func exportMusic(adf []byte, game *scene.Game, outDir string) ([]musicEntry, error) {
+// exportMusic renders every distinct audible sub-song of every module to
+// music/*.mp3 and registers the music assets. NO oracle beyond the driver
+// interpreter. Deterministic order.
+func exportMusic(ctx *cli.Context, adf []byte, game *scene.Game) error {
 	overlay, err := decrunch.DecrunchBlock(adf[soundOff : soundOff+soundLen])
 	if err != nil {
-		return nil, err
-	}
-	musicDir := filepath.Join(outDir, "music")
-	if err := os.MkdirAll(musicDir, 0o755); err != nil {
-		return nil, err
+		return err
 	}
 
 	const sr = 44100
 	const secs = 90
-	var entries []musicEntry
+	n := 0
 	for _, m := range modulesOf(game, overlay) {
 		be16 := func(o int) int { return int(binary.BigEndian.Uint16(m.mdat[o:])) }
 		// The 32-slot song table is mostly padding: unused slots point at a single "stop" step
@@ -120,63 +117,36 @@ func exportMusic(adf []byte, game *scene.Game, outDir string) ([]musicEntry, err
 			if rms(pcm) < 0.004 { // empty stub / silence
 				continue
 			}
+			samples := make([]int16, len(pcm))
+			for k, v := range pcm {
+				if v > 1 {
+					v = 1
+				} else if v < -1 {
+					v = -1
+				}
+				samples[k] = int16(v * 32767)
+			}
 			stem := fmt.Sprintf("mus_%X_%02X", m.addr, s)
-			wav := filepath.Join(musicDir, stem+".wav")
-			if err := writeWAV(wav, pcm, sr); err != nil {
-				return nil, err
+			out, err := ctx.Builder.Path("music", stem+".mp3")
+			if err != nil {
+				return err
 			}
-			mp3 := filepath.Join(musicDir, stem+".mp3")
-			c := exec.Command("ffmpeg", "-y", "-loglevel", "error", "-i", wav,
-				"-c:a", "libmp3lame", "-b:a", "96k", "-ac", "2", mp3)
-			if err := c.Run(); err != nil {
-				return nil, fmt.Errorf("ffmpeg %s: %w", stem, err)
+			wave := audio.PCM16{Rate: sr, Channels: 2, Samples: samples}
+			if err := audio.EncodeMP3(wave, out); err != nil {
+				return err
 			}
-			os.Remove(wav)
-			fi, _ := os.Stat(mp3)
-			entries = append(entries, musicEntry{
-				Name: fmt.Sprintf("%s (track $%02X)", m.label, s),
-				File: "music/" + stem + ".mp3",
+			n++
+			ctx.Builder.AddMedia(schema.Asset{
+				ID: stem, Category: schema.CategoryMusic,
+				Name:     fmt.Sprintf("%s (track $%02X)", m.label, s),
+				File:     "music/" + stem + ".mp3",
+				Duration: wave.Duration(),
 			})
-			fmt.Fprintf(os.Stderr, "[music] %-8s song %2d (track $%02X-$%02X) %.1fs -> %s (%d KB)\n",
-				m.label, i, s, be16(0x140+i*2), float64(len(pcm)/2)/sr, stem+".mp3", fi.Size()/1024)
+			ctx.Progress("music", n, 0, fmt.Sprintf("%-8s song %2d (track $%02X-$%02X) %.1fs",
+				m.label, i, s, be16(0x140+i*2), wave.Duration()))
 		}
 	}
-	fmt.Fprintf(os.Stderr, "[music] done: %d tracks\n", len(entries))
-	return entries, nil
-}
-
-// writeWAV writes interleaved stereo float32 [-1,1] as 16-bit PCM WAV.
-func writeWAV(path string, pcm []float32, sr int) error {
-	f, err := os.Create(path)
-	if err != nil {
-		return err
-	}
-	defer f.Close()
-	n := len(pcm)
-	dataLen := n * 2
-	hdr := make([]byte, 44)
-	copy(hdr[0:], "RIFF")
-	binary.LittleEndian.PutUint32(hdr[4:], uint32(36+dataLen))
-	copy(hdr[8:], "WAVEfmt ")
-	binary.LittleEndian.PutUint32(hdr[16:], 16)
-	binary.LittleEndian.PutUint16(hdr[20:], 1)              // PCM
-	binary.LittleEndian.PutUint16(hdr[22:], 2)              // stereo
-	binary.LittleEndian.PutUint32(hdr[24:], uint32(sr))     // rate
-	binary.LittleEndian.PutUint32(hdr[28:], uint32(sr*2*2)) // byte rate
-	binary.LittleEndian.PutUint16(hdr[32:], 4)              // block align
-	binary.LittleEndian.PutUint16(hdr[34:], 16)             // bits
-	copy(hdr[36:], "data")
-	binary.LittleEndian.PutUint32(hdr[40:], uint32(dataLen))
-	if _, err := f.Write(hdr); err != nil {
-		return err
-	}
-	buf := make([]byte, dataLen)
-	for i, s := range pcm {
-		v := int16(s * 32000)
-		binary.LittleEndian.PutUint16(buf[i*2:], uint16(v))
-	}
-	_, err = f.Write(buf)
-	return err
+	return nil
 }
 
 func rms(pcm []float32) float64 {

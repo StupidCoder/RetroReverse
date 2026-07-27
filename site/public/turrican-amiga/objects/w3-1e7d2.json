@@ -1,0 +1,29 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "sprite2d",
+ "name": "Sprite $1E7D2 (World 4)",
+ "atlas": {
+  "file": "w3-1e7d2.png",
+  "cellW": 48,
+  "cellH": 40
+ },
+ "animations": [
+  {
+   "id": "main",
+   "loop": "loop",
+   "frames": 6,
+   "durations": [8, 8, 8, 8, 8, 8]
+  },
+  {
+   "id": "f0",
+   "loop": "hold",
+   "frames": 6,
+   "steps": [[0, 1]]
+  }
+ ],
+ "props": {
+  "frameTable": "$1E7D2",
+  "frames": 6
+ }
+}

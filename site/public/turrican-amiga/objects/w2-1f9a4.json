@@ -1,0 +1,35 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "sprite2d",
+ "name": "Sprite $1F9A4 (World 3)",
+ "atlas": {
+  "file": "w2-1f9a4.png",
+  "cellW": 32,
+  "cellH": 16
+ },
+ "animations": [
+  {
+   "id": "main",
+   "loop": "loop",
+   "frames": 14,
+   "durations": [8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8]
+  },
+  {
+   "id": "f0",
+   "loop": "hold",
+   "frames": 14,
+   "steps": [[0, 1]]
+  },
+  {
+   "id": "f7",
+   "loop": "hold",
+   "frames": 14,
+   "steps": [[7, 1]]
+  }
+ ],
+ "props": {
+  "frameTable": "$1F9A4",
+  "frames": 14
+ }
+}

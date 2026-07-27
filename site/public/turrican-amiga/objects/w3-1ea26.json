@@ -1,0 +1,29 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "sprite2d",
+ "name": "Sprite $1EA26 (World 4)",
+ "atlas": {
+  "file": "w3-1ea26.png",
+  "cellW": 32,
+  "cellH": 21
+ },
+ "animations": [
+  {
+   "id": "main",
+   "loop": "loop",
+   "frames": 17,
+   "durations": [8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8]
+  },
+  {
+   "id": "f0",
+   "loop": "hold",
+   "frames": 17,
+   "steps": [[0, 1]]
+  }
+ ],
+ "props": {
+  "frameTable": "$1EA26",
+  "frames": 17
+ }
+}

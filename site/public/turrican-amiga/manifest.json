@@ -1,1 +1,817 @@
-{"format":2,"game":"turrican-amiga","platform":"Amiga","native":{"h":256,"w":320},"tickHz":50,"levels":[{"name":"Scene 1","section":"World 1","file":"levels/world0_scene0.json","kind":"tilemap2d","atlas":"levels/atlas0.png?v=d1c0c887","objects":"levels/world0_scene0.objects.json"},{"name":"Scene 2","section":"World 1","file":"levels/world0_scene1.json","kind":"tilemap2d","atlas":"levels/atlas0.png?v=d1c0c887","objects":"levels/world0_scene1.objects.json"},{"name":"Scene 3","section":"World 1","file":"levels/world0_scene2.json","kind":"tilemap2d","atlas":"levels/atlas0.png?v=d1c0c887","objects":"levels/world0_scene2.objects.json"},{"name":"Scene 1","section":"World 2","file":"levels/world1_scene0.json","kind":"tilemap2d","atlas":"levels/atlas1.png?v=f7b68091","objects":"levels/world1_scene0.objects.json"},{"name":"Scene 2","section":"World 2","file":"levels/world1_scene1.json","kind":"tilemap2d","atlas":"levels/atlas1.png?v=f7b68091","objects":"levels/world1_scene1.objects.json"},{"name":"Scene 1","section":"World 3","file":"levels/world2_scene0.json","kind":"tilemap2d","atlas":"levels/atlas2.png?v=3800d471","objects":"levels/world2_scene0.objects.json"},{"name":"Scene 2","section":"World 3","file":"levels/world2_scene1.json","kind":"tilemap2d","atlas":"levels/atlas2.png?v=3800d471","objects":"levels/world2_scene1.objects.json"},{"name":"Scene 3","section":"World 3","file":"levels/world2_scene2.json","kind":"tilemap2d","atlas":"levels/atlas2.png?v=3800d471","objects":"levels/world2_scene2.objects.json"},{"name":"Scene 1","section":"World 4","file":"levels/world3_scene0.json","kind":"tilemap2d","atlas":"levels/atlas3.png?v=1e733405","objects":"levels/world3_scene0.objects.json"},{"name":"Scene 2","section":"World 4","file":"levels/world3_scene1.json","kind":"tilemap2d","atlas":"levels/atlas3.png?v=1e733405","objects":"levels/world3_scene1.objects.json"},{"name":"Scene 3","section":"World 4","file":"levels/world3_scene2.json","kind":"tilemap2d","atlas":"levels/atlas3.png?v=1e733405","objects":"levels/world3_scene2.objects.json"},{"name":"Scene 1","section":"World 5","file":"levels/world4_scene0.json","kind":"tilemap2d","atlas":"levels/atlas4.png?v=7a7a05d2","objects":"levels/world4_scene0.objects.json"},{"name":"Scene 2","section":"World 5","file":"levels/world4_scene1.json","kind":"tilemap2d","atlas":"levels/atlas4.png?v=7a7a05d2","objects":"levels/world4_scene1.objects.json"}],"music":[{"name":"Overlay (track $4B)","file":"music/mus_1CFF4_4B.mp3"},{"name":"World 1 (track $00)","file":"music/mus_58076_00.mp3"},{"name":"World 1 (track $26)","file":"music/mus_58076_26.mp3"},{"name":"World 1 (track $46)","file":"music/mus_58076_46.mp3"},{"name":"World 1 (track $59)","file":"music/mus_58076_59.mp3"},{"name":"World 1 (track $74)","file":"music/mus_58076_74.mp3"},{"name":"World 2 (track $00)","file":"music/mus_5886C_00.mp3"},{"name":"World 2 (track $02)","file":"music/mus_5886C_02.mp3"},{"name":"World 2 (track $1C)","file":"music/mus_5886C_1C.mp3"},{"name":"World 2 (track $2D)","file":"music/mus_5886C_2D.mp3"},{"name":"World 2 (track $2F)","file":"music/mus_5886C_2F.mp3"},{"name":"World 3 (track $00)","file":"music/mus_57BE8_00.mp3"},{"name":"World 3 (track $14)","file":"music/mus_57BE8_14.mp3"},{"name":"World 3 (track $2B)","file":"music/mus_57BE8_2B.mp3"},{"name":"World 3 (track $2C)","file":"music/mus_57BE8_2C.mp3"},{"name":"World 4 (track $00)","file":"music/mus_59372_00.mp3"},{"name":"World 4 (track $02)","file":"music/mus_59372_02.mp3"},{"name":"World 4 (track $03)","file":"music/mus_59372_03.mp3"},{"name":"World 4 (track $04)","file":"music/mus_59372_04.mp3"},{"name":"World 4 (track $0C)","file":"music/mus_59372_0C.mp3"},{"name":"World 4 (track $11)","file":"music/mus_59372_11.mp3"},{"name":"World 4 (track $14)","file":"music/mus_59372_14.mp3"},{"name":"World 4 (track $1A)","file":"music/mus_59372_1A.mp3"},{"name":"World 5 (track $00)","file":"music/mus_587CE_00.mp3"},{"name":"World 5 (track $2A)","file":"music/mus_587CE_2A.mp3"},{"name":"World 5 (track $51)","file":"music/mus_587CE_51.mp3"},{"name":"World 5 (track $52)","file":"music/mus_587CE_52.mp3"},{"name":"World 5 (track $5C)","file":"music/mus_587CE_5C.mp3"}],"sprites":"sprites/index.json"}
+{
+ "format": "retro-x",
+ "version": 1,
+ "id": "turrican-amiga",
+ "title": "Turrican",
+ "platform": "Amiga",
+ "year": 1990,
+ "description": "Factor 5's run-and-gun landmark, decoded from the disk image. The thirteen scenes come straight from the worlds' scene blocks — 32x32 planar tiles, the engine's own h-flip convention and per-tile 4x4 solidity — and every enemy placement is shown at the sprite frame its AI handler actually selects, resolved by running each handler's spawn-init in a 68000 interpreter. The BOB frame tables are browsable as objects, and Chris Hülsbeck's TFMX score is rendered by the game's real sound driver running in the same interpreter, mixed from its Paula output.",
+ "display": {
+  "native": {
+   "w": 320,
+   "h": 256
+  },
+  "tickHz": 50,
+  "filter": "crt"
+ },
+ "assets": [
+  {
+   "id": "resident-0138c",
+   "category": "object",
+   "name": "Sprite $0138C",
+   "group": "Resident",
+   "file": "objects/resident-0138c.json"
+  },
+  {
+   "id": "resident-02904",
+   "category": "object",
+   "name": "Sprite $02904",
+   "group": "Resident",
+   "file": "objects/resident-02904.json"
+  },
+  {
+   "id": "resident-04c3a",
+   "category": "object",
+   "name": "Sprite $04C3A",
+   "group": "Resident",
+   "file": "objects/resident-04c3a.json"
+  },
+  {
+   "id": "resident-04cca",
+   "category": "object",
+   "name": "Sprite $04CCA",
+   "group": "Resident",
+   "file": "objects/resident-04cca.json"
+  },
+  {
+   "id": "resident-07e7e",
+   "category": "object",
+   "name": "Sprite $07E7E",
+   "group": "Resident",
+   "file": "objects/resident-07e7e.json"
+  },
+  {
+   "id": "resident-080e8",
+   "category": "object",
+   "name": "Sprite $080E8",
+   "group": "Resident",
+   "file": "objects/resident-080e8.json"
+  },
+  {
+   "id": "w0-1df80",
+   "category": "object",
+   "name": "Sprite $1DF80 (World 1)",
+   "group": "World 1",
+   "file": "objects/w0-1df80.json"
+  },
+  {
+   "id": "w0-1e23e",
+   "category": "object",
+   "name": "Sprite $1E23E (World 1)",
+   "group": "World 1",
+   "file": "objects/w0-1e23e.json"
+  },
+  {
+   "id": "w0-1e694",
+   "category": "object",
+   "name": "Sprite $1E694 (World 1)",
+   "group": "World 1",
+   "file": "objects/w0-1e694.json"
+  },
+  {
+   "id": "w0-1e8d0",
+   "category": "object",
+   "name": "Sprite $1E8D0 (World 1)",
+   "group": "World 1",
+   "file": "objects/w0-1e8d0.json"
+  },
+  {
+   "id": "w0-1eaee",
+   "category": "object",
+   "name": "Sprite $1EAEE (World 1)",
+   "group": "World 1",
+   "file": "objects/w0-1eaee.json"
+  },
+  {
+   "id": "w0-1ed90",
+   "category": "object",
+   "name": "Sprite $1ED90 (World 1)",
+   "group": "World 1",
+   "file": "objects/w0-1ed90.json"
+  },
+  {
+   "id": "w0-1f0d0",
+   "category": "object",
+   "name": "Sprite $1F0D0 (World 1)",
+   "group": "World 1",
+   "file": "objects/w0-1f0d0.json"
+  },
+  {
+   "id": "w0-1f30c",
+   "category": "object",
+   "name": "Sprite $1F30C (World 1)",
+   "group": "World 1",
+   "file": "objects/w0-1f30c.json"
+  },
+  {
+   "id": "w0-1f4c8",
+   "category": "object",
+   "name": "Sprite $1F4C8 (World 1)",
+   "group": "World 1",
+   "file": "objects/w0-1f4c8.json"
+  },
+  {
+   "id": "w0-1f754",
+   "category": "object",
+   "name": "Sprite $1F754 (World 1)",
+   "group": "World 1",
+   "file": "objects/w0-1f754.json"
+  },
+  {
+   "id": "w0-1f84e",
+   "category": "object",
+   "name": "Sprite $1F84E (World 1)",
+   "group": "World 1",
+   "file": "objects/w0-1f84e.json"
+  },
+  {
+   "id": "w0-1fae6",
+   "category": "object",
+   "name": "Sprite $1FAE6 (World 1)",
+   "group": "World 1",
+   "file": "objects/w0-1fae6.json"
+  },
+  {
+   "id": "w0-1fb22",
+   "category": "object",
+   "name": "Sprite $1FB22 (World 1)",
+   "group": "World 1",
+   "file": "objects/w0-1fb22.json"
+  },
+  {
+   "id": "w0-1fd2e",
+   "category": "object",
+   "name": "Sprite $1FD2E (World 1)",
+   "group": "World 1",
+   "file": "objects/w0-1fd2e.json"
+  },
+  {
+   "id": "w0-1feb0",
+   "category": "object",
+   "name": "Sprite $1FEB0 (World 1)",
+   "group": "World 1",
+   "file": "objects/w0-1feb0.json"
+  },
+  {
+   "id": "w0-1ffd6",
+   "category": "object",
+   "name": "Sprite $1FFD6 (World 1)",
+   "group": "World 1",
+   "file": "objects/w0-1ffd6.json"
+  },
+  {
+   "id": "w0-200ba",
+   "category": "object",
+   "name": "Sprite $200BA (World 1)",
+   "group": "World 1",
+   "file": "objects/w0-200ba.json"
+  },
+  {
+   "id": "w0-201f4",
+   "category": "object",
+   "name": "Sprite $201F4 (World 1)",
+   "group": "World 1",
+   "file": "objects/w0-201f4.json"
+  },
+  {
+   "id": "w0-20608",
+   "category": "object",
+   "name": "Sprite $20608 (World 1)",
+   "group": "World 1",
+   "file": "objects/w0-20608.json"
+  },
+  {
+   "id": "w0-20884",
+   "category": "object",
+   "name": "Sprite $20884 (World 1)",
+   "group": "World 1",
+   "file": "objects/w0-20884.json"
+  },
+  {
+   "id": "w0-20bc4",
+   "category": "object",
+   "name": "Sprite $20BC4 (World 1)",
+   "group": "World 1",
+   "file": "objects/w0-20bc4.json"
+  },
+  {
+   "id": "w0-20fba",
+   "category": "object",
+   "name": "Sprite $20FBA (World 1)",
+   "group": "World 1",
+   "file": "objects/w0-20fba.json"
+  },
+  {
+   "id": "w0-21392",
+   "category": "object",
+   "name": "Sprite $21392 (World 1)",
+   "group": "World 1",
+   "file": "objects/w0-21392.json"
+  },
+  {
+   "id": "w0-21524",
+   "category": "object",
+   "name": "Sprite $21524 (World 1)",
+   "group": "World 1",
+   "file": "objects/w0-21524.json"
+  },
+  {
+   "id": "w1-1cbf4",
+   "category": "object",
+   "name": "Sprite $1CBF4 (World 2)",
+   "group": "World 2",
+   "file": "objects/w1-1cbf4.json"
+  },
+  {
+   "id": "w1-1d682",
+   "category": "object",
+   "name": "Sprite $1D682 (World 2)",
+   "group": "World 2",
+   "file": "objects/w1-1d682.json"
+  },
+  {
+   "id": "w1-1d926",
+   "category": "object",
+   "name": "Sprite $1D926 (World 2)",
+   "group": "World 2",
+   "file": "objects/w1-1d926.json"
+  },
+  {
+   "id": "w1-1db3e",
+   "category": "object",
+   "name": "Sprite $1DB3E (World 2)",
+   "group": "World 2",
+   "file": "objects/w1-1db3e.json"
+  },
+  {
+   "id": "w1-1df76",
+   "category": "object",
+   "name": "Sprite $1DF76 (World 2)",
+   "group": "World 2",
+   "file": "objects/w1-1df76.json"
+  },
+  {
+   "id": "w1-1e16e",
+   "category": "object",
+   "name": "Sprite $1E16E (World 2)",
+   "group": "World 2",
+   "file": "objects/w1-1e16e.json"
+  },
+  {
+   "id": "w1-1e3cc",
+   "category": "object",
+   "name": "Sprite $1E3CC (World 2)",
+   "group": "World 2",
+   "file": "objects/w1-1e3cc.json"
+  },
+  {
+   "id": "w1-1e6d8",
+   "category": "object",
+   "name": "Sprite $1E6D8 (World 2)",
+   "group": "World 2",
+   "file": "objects/w1-1e6d8.json"
+  },
+  {
+   "id": "w1-1e8e0",
+   "category": "object",
+   "name": "Sprite $1E8E0 (World 2)",
+   "group": "World 2",
+   "file": "objects/w1-1e8e0.json"
+  },
+  {
+   "id": "w1-1f548",
+   "category": "object",
+   "name": "Sprite $1F548 (World 2)",
+   "group": "World 2",
+   "file": "objects/w1-1f548.json"
+  },
+  {
+   "id": "w1-1f736",
+   "category": "object",
+   "name": "Sprite $1F736 (World 2)",
+   "group": "World 2",
+   "file": "objects/w1-1f736.json"
+  },
+  {
+   "id": "w2-1dd3a",
+   "category": "object",
+   "name": "Sprite $1DD3A (World 3)",
+   "group": "World 3",
+   "file": "objects/w2-1dd3a.json"
+  },
+  {
+   "id": "w2-1e726",
+   "category": "object",
+   "name": "Sprite $1E726 (World 3)",
+   "group": "World 3",
+   "file": "objects/w2-1e726.json"
+  },
+  {
+   "id": "w2-1e8f6",
+   "category": "object",
+   "name": "Sprite $1E8F6 (World 3)",
+   "group": "World 3",
+   "file": "objects/w2-1e8f6.json"
+  },
+  {
+   "id": "w2-1ec38",
+   "category": "object",
+   "name": "Sprite $1EC38 (World 3)",
+   "group": "World 3",
+   "file": "objects/w2-1ec38.json"
+  },
+  {
+   "id": "w2-1ef92",
+   "category": "object",
+   "name": "Sprite $1EF92 (World 3)",
+   "group": "World 3",
+   "file": "objects/w2-1ef92.json"
+  },
+  {
+   "id": "w2-1f1f2",
+   "category": "object",
+   "name": "Sprite $1F1F2 (World 3)",
+   "group": "World 3",
+   "file": "objects/w2-1f1f2.json"
+  },
+  {
+   "id": "w2-1f47c",
+   "category": "object",
+   "name": "Sprite $1F47C (World 3)",
+   "group": "World 3",
+   "file": "objects/w2-1f47c.json"
+  },
+  {
+   "id": "w2-1f68a",
+   "category": "object",
+   "name": "Sprite $1F68A (World 3)",
+   "group": "World 3",
+   "file": "objects/w2-1f68a.json"
+  },
+  {
+   "id": "w2-1f7e0",
+   "category": "object",
+   "name": "Sprite $1F7E0 (World 3)",
+   "group": "World 3",
+   "file": "objects/w2-1f7e0.json"
+  },
+  {
+   "id": "w2-1f9a4",
+   "category": "object",
+   "name": "Sprite $1F9A4 (World 3)",
+   "group": "World 3",
+   "file": "objects/w2-1f9a4.json"
+  },
+  {
+   "id": "w2-1fc6a",
+   "category": "object",
+   "name": "Sprite $1FC6A (World 3)",
+   "group": "World 3",
+   "file": "objects/w2-1fc6a.json"
+  },
+  {
+   "id": "w2-1ff5a",
+   "category": "object",
+   "name": "Sprite $1FF5A (World 3)",
+   "group": "World 3",
+   "file": "objects/w2-1ff5a.json"
+  },
+  {
+   "id": "w2-202a6",
+   "category": "object",
+   "name": "Sprite $202A6 (World 3)",
+   "group": "World 3",
+   "file": "objects/w2-202a6.json"
+  },
+  {
+   "id": "w2-20518",
+   "category": "object",
+   "name": "Sprite $20518 (World 3)",
+   "group": "World 3",
+   "file": "objects/w2-20518.json"
+  },
+  {
+   "id": "w2-20a7a",
+   "category": "object",
+   "name": "Sprite $20A7A (World 3)",
+   "group": "World 3",
+   "file": "objects/w2-20a7a.json"
+  },
+  {
+   "id": "w2-20e4a",
+   "category": "object",
+   "name": "Sprite $20E4A (World 3)",
+   "group": "World 3",
+   "file": "objects/w2-20e4a.json"
+  },
+  {
+   "id": "w3-1de3a",
+   "category": "object",
+   "name": "Sprite $1DE3A (World 4)",
+   "group": "World 4",
+   "file": "objects/w3-1de3a.json"
+  },
+  {
+   "id": "w3-1de3e",
+   "category": "object",
+   "name": "Sprite $1DE3E (World 4)",
+   "group": "World 4",
+   "file": "objects/w3-1de3e.json"
+  },
+  {
+   "id": "w3-1e26a",
+   "category": "object",
+   "name": "Sprite $1E26A (World 4)",
+   "group": "World 4",
+   "file": "objects/w3-1e26a.json"
+  },
+  {
+   "id": "w3-1e572",
+   "category": "object",
+   "name": "Sprite $1E572 (World 4)",
+   "group": "World 4",
+   "file": "objects/w3-1e572.json"
+  },
+  {
+   "id": "w3-1e7d2",
+   "category": "object",
+   "name": "Sprite $1E7D2 (World 4)",
+   "group": "World 4",
+   "file": "objects/w3-1e7d2.json"
+  },
+  {
+   "id": "w3-1ea26",
+   "category": "object",
+   "name": "Sprite $1EA26 (World 4)",
+   "group": "World 4",
+   "file": "objects/w3-1ea26.json"
+  },
+  {
+   "id": "w3-1edce",
+   "category": "object",
+   "name": "Sprite $1EDCE (World 4)",
+   "group": "World 4",
+   "file": "objects/w3-1edce.json"
+  },
+  {
+   "id": "w3-1f728",
+   "category": "object",
+   "name": "Sprite $1F728 (World 4)",
+   "group": "World 4",
+   "file": "objects/w3-1f728.json"
+  },
+  {
+   "id": "w4-1cfb6",
+   "category": "object",
+   "name": "Sprite $1CFB6 (World 5)",
+   "group": "World 5",
+   "file": "objects/w4-1cfb6.json"
+  },
+  {
+   "id": "w4-1d278",
+   "category": "object",
+   "name": "Sprite $1D278 (World 5)",
+   "group": "World 5",
+   "file": "objects/w4-1d278.json"
+  },
+  {
+   "id": "w4-1d6a4",
+   "category": "object",
+   "name": "Sprite $1D6A4 (World 5)",
+   "group": "World 5",
+   "file": "objects/w4-1d6a4.json"
+  },
+  {
+   "id": "w4-1db8c",
+   "category": "object",
+   "name": "Sprite $1DB8C (World 5)",
+   "group": "World 5",
+   "file": "objects/w4-1db8c.json"
+  },
+  {
+   "id": "w4-1de36",
+   "category": "object",
+   "name": "Sprite $1DE36 (World 5)",
+   "group": "World 5",
+   "file": "objects/w4-1de36.json"
+  },
+  {
+   "id": "w4-1e0a8",
+   "category": "object",
+   "name": "Sprite $1E0A8 (World 5)",
+   "group": "World 5",
+   "file": "objects/w4-1e0a8.json"
+  },
+  {
+   "id": "w4-1e63e",
+   "category": "object",
+   "name": "Sprite $1E63E (World 5)",
+   "group": "World 5",
+   "file": "objects/w4-1e63e.json"
+  },
+  {
+   "id": "w4-1f282",
+   "category": "object",
+   "name": "Sprite $1F282 (World 5)",
+   "group": "World 5",
+   "file": "objects/w4-1f282.json"
+  },
+  {
+   "id": "world1-scene1",
+   "category": "level",
+   "name": "Scene 1",
+   "group": "World 1",
+   "file": "levels/world1-scene1.json"
+  },
+  {
+   "id": "world1-scene2",
+   "category": "level",
+   "name": "Scene 2",
+   "group": "World 1",
+   "file": "levels/world1-scene2.json"
+  },
+  {
+   "id": "world1-scene3",
+   "category": "level",
+   "name": "Scene 3",
+   "group": "World 1",
+   "file": "levels/world1-scene3.json"
+  },
+  {
+   "id": "world2-scene1",
+   "category": "level",
+   "name": "Scene 1",
+   "group": "World 2",
+   "file": "levels/world2-scene1.json"
+  },
+  {
+   "id": "world2-scene2",
+   "category": "level",
+   "name": "Scene 2",
+   "group": "World 2",
+   "file": "levels/world2-scene2.json"
+  },
+  {
+   "id": "world3-scene1",
+   "category": "level",
+   "name": "Scene 1",
+   "group": "World 3",
+   "file": "levels/world3-scene1.json"
+  },
+  {
+   "id": "world3-scene2",
+   "category": "level",
+   "name": "Scene 2",
+   "group": "World 3",
+   "file": "levels/world3-scene2.json"
+  },
+  {
+   "id": "world3-scene3",
+   "category": "level",
+   "name": "Scene 3",
+   "group": "World 3",
+   "file": "levels/world3-scene3.json"
+  },
+  {
+   "id": "world4-scene1",
+   "category": "level",
+   "name": "Scene 1",
+   "group": "World 4",
+   "file": "levels/world4-scene1.json"
+  },
+  {
+   "id": "world4-scene2",
+   "category": "level",
+   "name": "Scene 2",
+   "group": "World 4",
+   "file": "levels/world4-scene2.json"
+  },
+  {
+   "id": "world4-scene3",
+   "category": "level",
+   "name": "Scene 3",
+   "group": "World 4",
+   "file": "levels/world4-scene3.json"
+  },
+  {
+   "id": "world5-scene1",
+   "category": "level",
+   "name": "Scene 1",
+   "group": "World 5",
+   "file": "levels/world5-scene1.json"
+  },
+  {
+   "id": "world5-scene2",
+   "category": "level",
+   "name": "Scene 2",
+   "group": "World 5",
+   "file": "levels/world5-scene2.json"
+  },
+  {
+   "id": "mus_1CFF4_4B",
+   "category": "music",
+   "name": "Overlay (track $4B)",
+   "file": "music/mus_1CFF4_4B.mp3",
+   "duration": 90.00907029478458
+  },
+  {
+   "id": "mus_58076_00",
+   "category": "music",
+   "name": "World 1 (track $00)",
+   "file": "music/mus_58076_00.mp3",
+   "duration": 90.00907029478458
+  },
+  {
+   "id": "mus_58076_26",
+   "category": "music",
+   "name": "World 1 (track $26)",
+   "file": "music/mus_58076_26.mp3",
+   "duration": 90.00907029478458
+  },
+  {
+   "id": "mus_58076_46",
+   "category": "music",
+   "name": "World 1 (track $46)",
+   "file": "music/mus_58076_46.mp3",
+   "duration": 28.435600907029478
+  },
+  {
+   "id": "mus_58076_59",
+   "category": "music",
+   "name": "World 1 (track $59)",
+   "file": "music/mus_58076_59.mp3",
+   "duration": 90.00907029478458
+  },
+  {
+   "id": "mus_58076_74",
+   "category": "music",
+   "name": "World 1 (track $74)",
+   "file": "music/mus_58076_74.mp3",
+   "duration": 25.004761904761907
+  },
+  {
+   "id": "mus_5886C_00",
+   "category": "music",
+   "name": "World 2 (track $00)",
+   "file": "music/mus_5886C_00.mp3",
+   "duration": 25.004761904761907
+  },
+  {
+   "id": "mus_5886C_02",
+   "category": "music",
+   "name": "World 2 (track $02)",
+   "file": "music/mus_5886C_02.mp3",
+   "duration": 90.00907029478458
+  },
+  {
+   "id": "mus_5886C_1C",
+   "category": "music",
+   "name": "World 2 (track $1C)",
+   "file": "music/mus_5886C_1C.mp3",
+   "duration": 87.84965986394558
+  },
+  {
+   "id": "mus_5886C_2D",
+   "category": "music",
+   "name": "World 2 (track $2D)",
+   "file": "music/mus_5886C_2D.mp3",
+   "duration": 21.412471655328797
+  },
+  {
+   "id": "mus_5886C_2F",
+   "category": "music",
+   "name": "World 2 (track $2F)",
+   "file": "music/mus_5886C_2F.mp3",
+   "duration": 30.373015873015873
+  },
+  {
+   "id": "mus_57BE8_00",
+   "category": "music",
+   "name": "World 3 (track $00)",
+   "file": "music/mus_57BE8_00.mp3",
+   "duration": 52.330385487528346
+  },
+  {
+   "id": "mus_57BE8_14",
+   "category": "music",
+   "name": "World 3 (track $14)",
+   "file": "music/mus_57BE8_14.mp3",
+   "duration": 56.851020408163265
+  },
+  {
+   "id": "mus_57BE8_2B",
+   "category": "music",
+   "name": "World 3 (track $2B)",
+   "file": "music/mus_57BE8_2B.mp3",
+   "duration": 25.004761904761907
+  },
+  {
+   "id": "mus_57BE8_2C",
+   "category": "music",
+   "name": "World 3 (track $2C)",
+   "file": "music/mus_57BE8_2C.mp3",
+   "duration": 90.00907029478458
+  },
+  {
+   "id": "mus_59372_00",
+   "category": "music",
+   "name": "World 4 (track $00)",
+   "file": "music/mus_59372_00.mp3",
+   "duration": 25.004761904761907
+  },
+  {
+   "id": "mus_59372_02",
+   "category": "music",
+   "name": "World 4 (track $02)",
+   "file": "music/mus_59372_02.mp3",
+   "duration": 25.004761904761907
+  },
+  {
+   "id": "mus_59372_03",
+   "category": "music",
+   "name": "World 4 (track $03)",
+   "file": "music/mus_59372_03.mp3",
+   "duration": 25.004761904761907
+  },
+  {
+   "id": "mus_59372_04",
+   "category": "music",
+   "name": "World 4 (track $04)",
+   "file": "music/mus_59372_04.mp3",
+   "duration": 64.76213151927438
+  },
+  {
+   "id": "mus_59372_0C",
+   "category": "music",
+   "name": "World 4 (track $0C)",
+   "file": "music/mus_59372_0C.mp3",
+   "duration": 43.93492063492064
+  },
+  {
+   "id": "mus_59372_11",
+   "category": "music",
+   "name": "World 4 (track $11)",
+   "file": "music/mus_59372_11.mp3",
+   "duration": 20.201587301587303
+  },
+  {
+   "id": "mus_59372_14",
+   "category": "music",
+   "name": "World 4 (track $14)",
+   "file": "music/mus_59372_14.mp3",
+   "duration": 39.41428571428571
+  },
+  {
+   "id": "mus_59372_1A",
+   "category": "music",
+   "name": "World 4 (track $1A)",
+   "file": "music/mus_59372_1A.mp3",
+   "duration": 25.004761904761907
+  },
+  {
+   "id": "mus_587CE_00",
+   "category": "music",
+   "name": "World 5 (track $00)",
+   "file": "music/mus_587CE_00.mp3",
+   "duration": 90.00907029478458
+  },
+  {
+   "id": "mus_587CE_2A",
+   "category": "music",
+   "name": "World 5 (track $2A)",
+   "file": "music/mus_587CE_2A.mp3",
+   "duration": 90.00907029478458
+  },
+  {
+   "id": "mus_587CE_51",
+   "category": "music",
+   "name": "World 5 (track $51)",
+   "file": "music/mus_587CE_51.mp3",
+   "duration": 25.004761904761907
+  },
+  {
+   "id": "mus_587CE_52",
+   "category": "music",
+   "name": "World 5 (track $52)",
+   "file": "music/mus_587CE_52.mp3",
+   "duration": 32.310430839002265
+  },
+  {
+   "id": "mus_587CE_5C",
+   "category": "music",
+   "name": "World 5 (track $5C)",
+   "file": "music/mus_587CE_5C.mp3",
+   "duration": 25.004761904761907
+  }
+ ]
+}

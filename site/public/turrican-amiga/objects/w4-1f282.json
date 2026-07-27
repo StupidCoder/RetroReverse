@@ -1,0 +1,29 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "sprite2d",
+ "name": "Sprite $1F282 (World 5)",
+ "atlas": {
+  "file": "w4-1f282.png",
+  "cellW": 64,
+  "cellH": 53
+ },
+ "animations": [
+  {
+   "id": "main",
+   "loop": "loop",
+   "frames": 4,
+   "durations": [8, 8, 8, 8]
+  },
+  {
+   "id": "f0",
+   "loop": "hold",
+   "frames": 4,
+   "steps": [[0, 1]]
+  }
+ ],
+ "props": {
+  "frameTable": "$1F282",
+  "frames": 4
+ }
+}

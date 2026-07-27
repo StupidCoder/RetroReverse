@@ -1,0 +1,29 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "sprite2d",
+ "name": "Sprite $1F47C (World 3)",
+ "atlas": {
+  "file": "w2-1f47c.png",
+  "cellW": 16,
+  "cellH": 15
+ },
+ "animations": [
+  {
+   "id": "main",
+   "loop": "loop",
+   "frames": 5,
+   "durations": [8, 8, 8, 8, 8]
+  },
+  {
+   "id": "f0",
+   "loop": "hold",
+   "frames": 5,
+   "steps": [[0, 1]]
+  }
+ ],
+ "props": {
+  "frameTable": "$1F47C",
+  "frames": 5
+ }
+}

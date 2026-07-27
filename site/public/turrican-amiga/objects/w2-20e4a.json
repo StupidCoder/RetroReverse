@@ -1,0 +1,23 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "sprite2d",
+ "name": "Sprite $20E4A (World 3)",
+ "atlas": {
+  "file": "w2-20e4a.png",
+  "cellW": 48,
+  "cellH": 48
+ },
+ "animations": [
+  {
+   "id": "main",
+   "loop": "loop",
+   "frames": 6,
+   "durations": [8, 8, 8, 8, 8, 8]
+  }
+ ],
+ "props": {
+  "frameTable": "$20E4A",
+  "frames": 6
+ }
+}

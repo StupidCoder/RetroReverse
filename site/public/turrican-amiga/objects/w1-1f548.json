@@ -1,0 +1,29 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "sprite2d",
+ "name": "Sprite $1F548 (World 2)",
+ "atlas": {
+  "file": "w1-1f548.png",
+  "cellW": 32,
+  "cellH": 22
+ },
+ "animations": [
+  {
+   "id": "main",
+   "loop": "loop",
+   "frames": 8,
+   "durations": [8, 8, 8, 8, 8, 8, 8, 8]
+  },
+  {
+   "id": "f0",
+   "loop": "hold",
+   "frames": 8,
+   "steps": [[0, 1]]
+  }
+ ],
+ "props": {
+  "frameTable": "$1F548",
+  "frames": 8
+ }
+}

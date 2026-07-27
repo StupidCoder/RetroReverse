@@ -1,0 +1,47 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "sprite2d",
+ "name": "Sprite $1D926 (World 2)",
+ "atlas": {
+  "file": "w1-1d926.png",
+  "cellW": 32,
+  "cellH": 22
+ },
+ "animations": [
+  {
+   "id": "main",
+   "loop": "loop",
+   "frames": 4,
+   "durations": [8, 8, 8, 8]
+  },
+  {
+   "id": "f0",
+   "loop": "hold",
+   "frames": 4,
+   "steps": [[0, 1]]
+  },
+  {
+   "id": "f1",
+   "loop": "hold",
+   "frames": 4,
+   "steps": [[1, 1]]
+  },
+  {
+   "id": "f2",
+   "loop": "hold",
+   "frames": 4,
+   "steps": [[2, 1]]
+  },
+  {
+   "id": "f3",
+   "loop": "hold",
+   "frames": 4,
+   "steps": [[3, 1]]
+  }
+ ],
+ "props": {
+  "frameTable": "$1D926",
+  "frames": 4
+ }
+}

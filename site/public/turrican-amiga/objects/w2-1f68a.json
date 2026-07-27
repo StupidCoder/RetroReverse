@@ -1,0 +1,47 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "sprite2d",
+ "name": "Sprite $1F68A (World 3)",
+ "atlas": {
+  "file": "w2-1f68a.png",
+  "cellW": 32,
+  "cellH": 17
+ },
+ "animations": [
+  {
+   "id": "main",
+   "loop": "loop",
+   "frames": 4,
+   "durations": [8, 8, 8, 8]
+  },
+  {
+   "id": "f0",
+   "loop": "hold",
+   "frames": 4,
+   "steps": [[0, 1]]
+  },
+  {
+   "id": "f1",
+   "loop": "hold",
+   "frames": 4,
+   "steps": [[1, 1]]
+  },
+  {
+   "id": "f2",
+   "loop": "hold",
+   "frames": 4,
+   "steps": [[2, 1]]
+  },
+  {
+   "id": "f3",
+   "loop": "hold",
+   "frames": 4,
+   "steps": [[3, 1]]
+  }
+ ],
+ "props": {
+  "frameTable": "$1F68A",
+  "frames": 4
+ }
+}

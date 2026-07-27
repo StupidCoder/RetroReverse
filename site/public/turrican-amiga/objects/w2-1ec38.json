@@ -1,0 +1,29 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "sprite2d",
+ "name": "Sprite $1EC38 (World 3)",
+ "atlas": {
+  "file": "w2-1ec38.png",
+  "cellW": 32,
+  "cellH": 16
+ },
+ "animations": [
+  {
+   "id": "main",
+   "loop": "loop",
+   "frames": 16,
+   "durations": [8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8]
+  },
+  {
+   "id": "f0",
+   "loop": "hold",
+   "frames": 16,
+   "steps": [[0, 1]]
+  }
+ ],
+ "props": {
+  "frameTable": "$1EC38",
+  "frames": 16
+ }
+}

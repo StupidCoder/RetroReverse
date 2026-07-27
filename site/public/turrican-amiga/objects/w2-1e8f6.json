@@ -1,0 +1,35 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "sprite2d",
+ "name": "Sprite $1E8F6 (World 3)",
+ "atlas": {
+  "file": "w2-1e8f6.png",
+  "cellW": 48,
+  "cellH": 23
+ },
+ "animations": [
+  {
+   "id": "main",
+   "loop": "loop",
+   "frames": 8,
+   "durations": [8, 8, 8, 8, 8, 8, 8, 8]
+  },
+  {
+   "id": "f0",
+   "loop": "hold",
+   "frames": 8,
+   "steps": [[0, 1]]
+  },
+  {
+   "id": "f7",
+   "loop": "hold",
+   "frames": 8,
+   "steps": [[7, 1]]
+  }
+ ],
+ "props": {
+  "frameTable": "$1E8F6",
+  "frames": 8
+ }
+}

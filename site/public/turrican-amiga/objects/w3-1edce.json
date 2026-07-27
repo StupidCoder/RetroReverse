@@ -1,0 +1,29 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "sprite2d",
+ "name": "Sprite $1EDCE (World 4)",
+ "atlas": {
+  "file": "w3-1edce.png",
+  "cellW": 32,
+  "cellH": 25
+ },
+ "animations": [
+  {
+   "id": "main",
+   "loop": "loop",
+   "frames": 7,
+   "durations": [8, 8, 8, 8, 8, 8, 8]
+  },
+  {
+   "id": "f0",
+   "loop": "hold",
+   "frames": 7,
+   "steps": [[0, 1]]
+  }
+ ],
+ "props": {
+  "frameTable": "$1EDCE",
+  "frames": 7
+ }
+}

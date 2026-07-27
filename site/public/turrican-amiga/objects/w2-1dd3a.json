@@ -1,0 +1,29 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "sprite2d",
+ "name": "Sprite $1DD3A (World 3)",
+ "atlas": {
+  "file": "w2-1dd3a.png",
+  "cellW": 32,
+  "cellH": 41
+ },
+ "animations": [
+  {
+   "id": "main",
+   "loop": "loop",
+   "frames": 12,
+   "durations": [8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8]
+  },
+  {
+   "id": "f0",
+   "loop": "hold",
+   "frames": 12,
+   "steps": [[0, 1]]
+  }
+ ],
+ "props": {
+  "frameTable": "$1DD3A",
+  "frames": 12
+ }
+}

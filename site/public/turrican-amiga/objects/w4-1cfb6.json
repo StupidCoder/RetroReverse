@@ -1,0 +1,29 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "sprite2d",
+ "name": "Sprite $1CFB6 (World 5)",
+ "atlas": {
+  "file": "w4-1cfb6.png",
+  "cellW": 32,
+  "cellH": 21
+ },
+ "animations": [
+  {
+   "id": "main",
+   "loop": "loop",
+   "frames": 10,
+   "durations": [8, 8, 8, 8, 8, 8, 8, 8, 8, 8]
+  },
+  {
+   "id": "f0",
+   "loop": "hold",
+   "frames": 10,
+   "steps": [[0, 1]]
+  }
+ ],
+ "props": {
+  "frameTable": "$1CFB6",
+  "frames": 10
+ }
+}

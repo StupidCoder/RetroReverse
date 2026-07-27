@@ -1,0 +1,29 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "sprite2d",
+ "name": "Sprite $1E6D8 (World 2)",
+ "atlas": {
+  "file": "w1-1e6d8.png",
+  "cellW": 16,
+  "cellH": 15
+ },
+ "animations": [
+  {
+   "id": "main",
+   "loop": "loop",
+   "frames": 5,
+   "durations": [8, 8, 8, 8, 8]
+  },
+  {
+   "id": "f0",
+   "loop": "hold",
+   "frames": 5,
+   "steps": [[0, 1]]
+  }
+ ],
+ "props": {
+  "frameTable": "$1E6D8",
+  "frames": 5
+ }
+}

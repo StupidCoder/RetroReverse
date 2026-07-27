@@ -1,0 +1,23 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "sprite2d",
+ "name": "Sprite $1DE3E (World 4)",
+ "atlas": {
+  "file": "w3-1de3e.png",
+  "cellW": 32,
+  "cellH": 21
+ },
+ "animations": [
+  {
+   "id": "main",
+   "loop": "loop",
+   "frames": 8,
+   "durations": [8, 8, 8, 8, 8, 8, 8, 8]
+  }
+ ],
+ "props": {
+  "frameTable": "$1DE3E",
+  "frames": 8
+ }
+}

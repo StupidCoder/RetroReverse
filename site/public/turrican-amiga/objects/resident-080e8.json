@@ -1,0 +1,71 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "sprite2d",
+ "name": "Sprite $080E8",
+ "atlas": {
+  "file": "resident-080e8.png",
+  "cellW": 32,
+  "cellH": 19
+ },
+ "animations": [
+  {
+   "id": "main",
+   "loop": "loop",
+   "frames": 10,
+   "durations": [8, 8, 8, 8, 8, 8, 8, 8, 8, 8]
+  },
+  {
+   "id": "f0",
+   "loop": "hold",
+   "frames": 10,
+   "steps": [[0, 1]]
+  },
+  {
+   "id": "f1",
+   "loop": "hold",
+   "frames": 10,
+   "steps": [[1, 1]]
+  },
+  {
+   "id": "f2",
+   "loop": "hold",
+   "frames": 10,
+   "steps": [[2, 1]]
+  },
+  {
+   "id": "f4",
+   "loop": "hold",
+   "frames": 10,
+   "steps": [[4, 1]]
+  },
+  {
+   "id": "f5",
+   "loop": "hold",
+   "frames": 10,
+   "steps": [[5, 1]]
+  },
+  {
+   "id": "f7",
+   "loop": "hold",
+   "frames": 10,
+   "steps": [[7, 1]]
+  },
+  {
+   "id": "f8",
+   "loop": "hold",
+   "frames": 10,
+   "steps": [[8, 1]]
+  },
+  {
+   "id": "f9",
+   "loop": "hold",
+   "frames": 10,
+   "steps": [[9, 1]]
+  }
+ ],
+ "props": {
+  "frameTable": "$080E8",
+  "frames": 10
+ }
+}

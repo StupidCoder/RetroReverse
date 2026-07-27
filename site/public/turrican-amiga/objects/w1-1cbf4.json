@@ -1,0 +1,23 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "sprite2d",
+ "name": "Sprite $1CBF4 (World 2)",
+ "atlas": {
+  "file": "w1-1cbf4.png",
+  "cellW": 32,
+  "cellH": 21
+ },
+ "animations": [
+  {
+   "id": "main",
+   "loop": "loop",
+   "frames": 8,
+   "durations": [8, 8, 8, 8, 8, 8, 8, 8]
+  }
+ ],
+ "props": {
+  "frameTable": "$1CBF4",
+  "frames": 8
+ }
+}

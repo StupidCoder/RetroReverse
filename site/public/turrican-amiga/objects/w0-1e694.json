@@ -1,0 +1,29 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "sprite2d",
+ "name": "Sprite $1E694 (World 1)",
+ "atlas": {
+  "file": "w0-1e694.png",
+  "cellW": 48,
+  "cellH": 47
+ },
+ "animations": [
+  {
+   "id": "main",
+   "loop": "loop",
+   "frames": 2,
+   "durations": [8, 8]
+  },
+  {
+   "id": "f0",
+   "loop": "hold",
+   "frames": 2,
+   "steps": [[0, 1]]
+  }
+ ],
+ "props": {
+  "frameTable": "$1E694",
+  "frames": 2
+ }
+}

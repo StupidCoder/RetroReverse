@@ -1,0 +1,29 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "sprite2d",
+ "name": "Sprite $1D6A4 (World 5)",
+ "atlas": {
+  "file": "w4-1d6a4.png",
+  "cellW": 32,
+  "cellH": 21
+ },
+ "animations": [
+  {
+   "id": "main",
+   "loop": "loop",
+   "frames": 16,
+   "durations": [8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8]
+  },
+  {
+   "id": "f0",
+   "loop": "hold",
+   "frames": 16,
+   "steps": [[0, 1]]
+  }
+ ],
+ "props": {
+  "frameTable": "$1D6A4",
+  "frames": 16
+ }
+}

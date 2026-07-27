@@ -1,0 +1,35 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "sprite2d",
+ "name": "Sprite $1F0D0 (World 1)",
+ "atlas": {
+  "file": "w0-1f0d0.png",
+  "cellW": 32,
+  "cellH": 21
+ },
+ "animations": [
+  {
+   "id": "main",
+   "loop": "loop",
+   "frames": 5,
+   "durations": [8, 8, 8, 8, 8]
+  },
+  {
+   "id": "f0",
+   "loop": "hold",
+   "frames": 5,
+   "steps": [[0, 1]]
+  },
+  {
+   "id": "f1",
+   "loop": "hold",
+   "frames": 5,
+   "steps": [[1, 1]]
+  }
+ ],
+ "props": {
+  "frameTable": "$1F0D0",
+  "frames": 5
+ }
+}

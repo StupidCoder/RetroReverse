@@ -1,0 +1,6 @@
+{
+ "title": "Turrican",
+ "platform": "Amiga",
+ "year": 1990,
+ "description": "Factor 5's run-and-gun landmark, decoded from the disk image. The thirteen scenes come straight from the worlds' scene blocks — 32x32 planar tiles, the engine's own h-flip convention and per-tile 4x4 solidity — and every enemy placement is shown at the sprite frame its AI handler actually selects, resolved by running each handler's spawn-init in a 68000 interpreter. The BOB frame tables are browsable as objects, and Chris Hülsbeck's TFMX score is rendered by the game's real sound driver running in the same interpreter, mixed from its Paula output."
+}

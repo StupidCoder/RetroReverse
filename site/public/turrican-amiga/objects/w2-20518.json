@@ -1,0 +1,23 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "sprite2d",
+ "name": "Sprite $20518 (World 3)",
+ "atlas": {
+  "file": "w2-20518.png",
+  "cellW": 16,
+  "cellH": 10
+ },
+ "animations": [
+  {
+   "id": "main",
+   "loop": "loop",
+   "frames": 8,
+   "durations": [8, 8, 8, 8, 8, 8, 8, 8]
+  }
+ ],
+ "props": {
+  "frameTable": "$20518",
+  "frames": 8
+ }
+}
