@@ -1,0 +1,22 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "sprite2d",
+ "name": "Bonus",
+ "atlas": {
+  "file": "z4-bonus.png",
+  "cellW": 48,
+  "cellH": 48
+ },
+ "animations": [
+  {
+   "id": "main",
+   "loop": "hold",
+   "frames": 1
+  }
+ ],
+ "props": {
+  "type": "0x01",
+  "zone": "Scrap Brain"
+ }
+}

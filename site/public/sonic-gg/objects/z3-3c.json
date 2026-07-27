@@ -1,0 +1,26 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "sprite2d",
+ "name": "Object $3C",
+ "atlas": {
+  "file": "z3-3c.png",
+  "cellW": 48,
+  "cellH": 48
+ },
+ "animations": [
+  {
+   "id": "main",
+   "loop": "loop",
+   "frames": 2,
+   "durations": [
+    5,
+    5
+   ]
+  }
+ ],
+ "props": {
+  "type": "0x3C",
+  "zone": "Labyrinth"
+ }
+}

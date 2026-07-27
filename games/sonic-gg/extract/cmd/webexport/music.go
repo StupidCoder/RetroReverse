@@ -14,12 +14,12 @@
 package main
 
 import (
-	"encoding/binary"
 	"fmt"
 	"math"
-	"os"
-	"os/exec"
-	"path/filepath"
+
+	"retroreverse.com/tools/lib/retrox/audio"
+	"retroreverse.com/tools/lib/retrox/cli"
+	"retroreverse.com/tools/lib/retrox/schema"
 )
 
 const (
@@ -350,29 +350,41 @@ func newChannels(base int) []*channel {
 	return chs
 }
 
-// exportMusic renders the 7 zone themes to music/<name>.mp3 (WAV via ffmpeg, then removed)
-// and returns the manifest music index (display name + file). NO oracle. Deterministic order.
-func exportMusic(romBytes []byte, outdir string) []MusicEntry {
+// musicName maps a track id to its display name for the manifest.
+func musicName(track string) string {
+	names := map[string]string{
+		"greenhills": "Green Hills", "bridge": "Bridge", "jungle": "Jungle",
+		"labyrinth": "Labyrinth", "scrapbrain": "Scrap Brain", "skybase": "Sky Base",
+		"special": "Special Stage",
+	}
+	if n, ok := names[track]; ok {
+		return n
+	}
+	return track
+}
+
+// exportMusic renders the 7 zone themes and registers them as music assets
+// (MP3 via the shared audio helper). NO oracle. Deterministic order.
+func exportMusic(ctx *cli.Context, romBytes []byte) error {
 	mrom = romBytes
-	musicDir := filepath.Join(outdir, "music")
-	chk(os.MkdirAll(musicDir, 0o755))
-	var entries []MusicEntry
 	for i, s := range zoneSongs {
 		pcm, loopFrames := render(songBase(s.id))
-		wav := filepath.Join(musicDir, s.name+".wav")
-		writeWAV(wav, pcm)
-		mp3 := filepath.Join(musicDir, s.name+".mp3")
-		c := exec.Command("ffmpeg", "-y", "-loglevel", "error", "-i", wav,
-			"-c:a", "libmp3lame", "-b:a", "64k", "-ac", "1", mp3)
-		chk(c.Run())
-		os.Remove(wav)
-		fi, _ := os.Stat(mp3)
-		entries = append(entries, MusicEntry{Name: musicName(s.name), File: "music/" + s.name + ".mp3"})
-		fmt.Fprintf(os.Stderr, "[music] %d/%d  %-12s id %2d base $%04X -> %s (%d KB, loop %.1fs)\n",
-			i+1, len(zoneSongs), s.name, s.id, songBase(s.id), s.name+".mp3", fi.Size()/1024, float64(loopFrames)/fps)
+		out, err := ctx.Builder.Path("music", s.name+".mp3")
+		if err != nil {
+			return err
+		}
+		p := audio.PCM16{Rate: sr, Channels: 1, Samples: pcm}
+		if err := audio.EncodeMP3(p, out); err != nil {
+			return fmt.Errorf("music %s: %w", s.name, err)
+		}
+		ctx.Builder.AddMedia(schema.Asset{
+			ID: s.name, Category: schema.CategoryMusic, Name: musicName(s.name),
+			File: "music/" + s.name + ".mp3", Loop: true, Duration: p.Duration(),
+		})
+		ctx.Progress("music", i+1, len(zoneSongs),
+			fmt.Sprintf("%-12s id %2d base $%04X (loop %.1fs)", s.name, s.id, songBase(s.id), float64(loopFrames)/fps))
 	}
-	fmt.Fprintf(os.Stderr, "[music] done: %d tracks\n", len(entries))
-	return entries
+	return nil
 }
 
 func render(base int) ([]int16, int) {
@@ -521,23 +533,3 @@ func detectPeriod(pos [][4]int) int {
 
 // PSGClock is the SN76489 input clock.
 const PSGClock = 3579545.0
-
-func writeWAV(path string, pcm []int16) {
-	f, _ := os.Create(path)
-	defer f.Close()
-	dl := len(pcm) * 2
-	wr := func(v interface{}) { binary.Write(f, binary.LittleEndian, v) }
-	f.Write([]byte("RIFF"))
-	wr(uint32(36 + dl))
-	f.Write([]byte("WAVEfmt "))
-	wr(uint32(16))
-	wr(uint16(1))
-	wr(uint16(1))
-	wr(uint32(sr))
-	wr(uint32(sr * 2))
-	wr(uint16(2))
-	wr(uint16(16))
-	f.Write([]byte("data"))
-	wr(uint32(dl))
-	wr(pcm)
-}

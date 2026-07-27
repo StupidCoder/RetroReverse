@@ -39,6 +39,11 @@ type Context struct {
 	only map[string]bool
 }
 
+// Enabled reports whether a stage is selected by -only, without announcing
+// it. Use it to decide whether to emit cross-stage references (a level's
+// music binding, placements' object refs) on partial runs.
+func (c *Context) Enabled(name string) bool { return c.only[name] }
+
 // Stage reports whether a stage is enabled by -only, and announces it on
 // stderr when it is. Use as a gate: if ctx.Stage("music") { ... }.
 func (c *Context) Stage(name string) bool {

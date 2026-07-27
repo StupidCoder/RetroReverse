@@ -1,0 +1,22 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "sprite2d",
+ "name": "Bumper",
+ "atlas": {
+  "file": "z6-bumper.png",
+  "cellW": 48,
+  "cellH": 48
+ },
+ "animations": [
+  {
+   "id": "main",
+   "loop": "hold",
+   "frames": 1
+  }
+ ],
+ "props": {
+  "type": "0x21",
+  "zone": "Special Stage"
+ }
+}

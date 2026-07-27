@@ -1,0 +1,6 @@
+{
+ "title": "Sonic the Hedgehog",
+ "platform": "Game Gear",
+ "year": 1991,
+ "description": "The 8-bit handheld Sonic, developed by Ancient for Sega's Game Gear (1991). Six zones of three acts plus eight special stages — smaller screens, slower and more exploratory level design than its Mega Drive namesake, with its own soundtrack by Yuzo Koshiro's studio. This export is decoded straight from the cartridge: tilemaps with the engine's block indirection, per-column collision height profiles, palette cycles captured from the running machine, every object at its engine-settled rest position, and the zone themes rendered from the ROM's own music data."
+}

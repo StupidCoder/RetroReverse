@@ -1,0 +1,22 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "sprite2d",
+ "name": "Object $1B",
+ "atlas": {
+  "file": "z3-1b.png",
+  "cellW": 48,
+  "cellH": 48
+ },
+ "animations": [
+  {
+   "id": "main",
+   "loop": "hold",
+   "frames": 1
+  }
+ ],
+ "props": {
+  "type": "0x1B",
+  "zone": "Labyrinth"
+ }
+}

@@ -1,0 +1,23 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "sprite2d",
+ "name": "Object $19",
+ "atlas": {
+  "file": "marker.png",
+  "cellW": 32,
+  "cellH": 32
+ },
+ "animations": [
+  {
+   "id": "main",
+   "loop": "hold",
+   "frames": 1
+  }
+ ],
+ "props": {
+  "art": "not extractable (own-graphics set-piece); shared marker shown",
+  "type": "0x19",
+  "zone": "Scrap Brain"
+ }
+}

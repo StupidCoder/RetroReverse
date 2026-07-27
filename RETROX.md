@@ -255,8 +255,10 @@ the first is the default).
   ],
   "paletteFx": {                            // palette effects:
     "palette": ["#...", ...],               //   the level's base palette
-    "cycle":   { "steps": [["#..",...], ...],          // colour-cycle steps
-                 "periodFrames": 32, "tiles": [12,13] },
+    "cycle":   { "slots": [10,11,12],                  // palette indices that cycle
+                 "steps": [["#..","#..","#.."], ...],  // per step: one colour per slot
+                 "periodFrames": 32, "tiles": [12,13] },  // tiles that use a cycling slot
+
     "waterLine": { "y": 416, "palette": ["#...", ...] } // raster split: rows below y use this palette
   }
 }

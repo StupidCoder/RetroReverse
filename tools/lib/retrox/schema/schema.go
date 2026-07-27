@@ -223,9 +223,10 @@ type PaletteFx struct {
 }
 
 type PaletteCycle struct {
-	Steps        [][]string `json:"steps"`
+	Slots        []int      `json:"slots"` // palette indices that cycle
+	Steps        [][]string `json:"steps"` // per step: one colour per slot
 	PeriodFrames int        `json:"periodFrames"`
-	Tiles        []int      `json:"tiles,omitempty"`
+	Tiles        []int      `json:"tiles,omitempty"` // tile ids that use a cycling slot
 }
 
 type WaterLine struct {
