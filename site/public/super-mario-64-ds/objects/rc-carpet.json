@@ -1,0 +1,16 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "model3d",
+ "name": "Rc carpet",
+ "animations": [
+  {
+   "id": "rc_carpet_wait",
+   "loop": "loop",
+   "clip": "rc_carpet_wait",
+   "fps": 30
+  }
+ ],
+ "model": "rc_carpet.glb",
+ "skinnedClone": true
+}

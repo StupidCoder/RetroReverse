@@ -1,0 +1,40 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "model3d",
+ "name": "Battan",
+ "animations": [
+  {
+   "id": "battan_attack01",
+   "loop": "loop",
+   "clip": "battan_attack01",
+   "fps": 30
+  },
+  {
+   "id": "battan_attack02",
+   "loop": "loop",
+   "clip": "battan_attack02",
+   "fps": 30
+  },
+  {
+   "id": "battan_recover",
+   "loop": "loop",
+   "clip": "battan_recover",
+   "fps": 30
+  },
+  {
+   "id": "battan_walk",
+   "loop": "loop",
+   "clip": "battan_walk",
+   "fps": 30
+  },
+  {
+   "id": "battan_walkstart",
+   "loop": "loop",
+   "clip": "battan_walkstart",
+   "fps": 30
+  }
+ ],
+ "model": "battan.glb",
+ "skinnedClone": true
+}

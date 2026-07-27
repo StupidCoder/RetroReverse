@@ -1,0 +1,76 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "model3d",
+ "name": "Nokonoko red",
+ "animations": [
+  {
+   "id": "nokonoko_dive",
+   "loop": "loop",
+   "clip": "nokonoko_dive",
+   "fps": 30
+  },
+  {
+   "id": "nokonoko_dive_ed",
+   "loop": "loop",
+   "clip": "nokonoko_dive_ed",
+   "fps": 30
+  },
+  {
+   "id": "nokonoko_dive_st",
+   "loop": "loop",
+   "clip": "nokonoko_dive_st",
+   "fps": 30
+  },
+  {
+   "id": "nokonoko_jump_ed",
+   "loop": "loop",
+   "clip": "nokonoko_jump_ed",
+   "fps": 30
+  },
+  {
+   "id": "nokonoko_jump_st",
+   "loop": "loop",
+   "clip": "nokonoko_jump_st",
+   "fps": 30
+  },
+  {
+   "id": "nokonoko_run",
+   "loop": "loop",
+   "clip": "nokonoko_run",
+   "fps": 30
+  },
+  {
+   "id": "nokonoko_wait1",
+   "loop": "loop",
+   "clip": "nokonoko_wait1",
+   "fps": 30
+  },
+  {
+   "id": "nokonoko_wait2",
+   "loop": "loop",
+   "clip": "nokonoko_wait2",
+   "fps": 30
+  },
+  {
+   "id": "nokonoko_walk",
+   "loop": "loop",
+   "clip": "nokonoko_walk",
+   "fps": 30
+  },
+  {
+   "id": "nokonoko_walk_ed",
+   "loop": "loop",
+   "clip": "nokonoko_walk_ed",
+   "fps": 30
+  },
+  {
+   "id": "nokonoko_walk_st",
+   "loop": "loop",
+   "clip": "nokonoko_walk_st",
+   "fps": 30
+  }
+ ],
+ "model": "nokonoko_red.glb",
+ "skinnedClone": true
+}

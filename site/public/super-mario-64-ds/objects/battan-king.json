@@ -1,0 +1,46 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "model3d",
+ "name": "Battan king",
+ "animations": [
+  {
+   "id": "battan_king_attack01",
+   "loop": "loop",
+   "clip": "battan_king_attack01",
+   "fps": 30
+  },
+  {
+   "id": "battan_king_attack02",
+   "loop": "loop",
+   "clip": "battan_king_attack02",
+   "fps": 30
+  },
+  {
+   "id": "battan_king_damage",
+   "loop": "loop",
+   "clip": "battan_king_damage",
+   "fps": 30
+  },
+  {
+   "id": "battan_king_recover",
+   "loop": "loop",
+   "clip": "battan_king_recover",
+   "fps": 30
+  },
+  {
+   "id": "battan_king_walk",
+   "loop": "loop",
+   "clip": "battan_king_walk",
+   "fps": 30
+  },
+  {
+   "id": "battan_king_walkstart",
+   "loop": "loop",
+   "clip": "battan_king_walkstart",
+   "fps": 30
+  }
+ ],
+ "model": "battan_king.glb",
+ "skinnedClone": true
+}

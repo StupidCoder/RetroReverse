@@ -1,0 +1,40 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "model3d",
+ "name": "Hanachan head",
+ "animations": [
+  {
+   "id": "hanachan_head_damage",
+   "loop": "loop",
+   "clip": "hanachan_head_damage",
+   "fps": 30
+  },
+  {
+   "id": "hanachan_head_wait",
+   "loop": "loop",
+   "clip": "hanachan_head_wait",
+   "fps": 30
+  },
+  {
+   "id": "hanachan_head_walk",
+   "loop": "loop",
+   "clip": "hanachan_head_walk",
+   "fps": 30
+  },
+  {
+   "id": "hanachan_head_walk_end",
+   "loop": "loop",
+   "clip": "hanachan_head_walk_end",
+   "fps": 30
+  },
+  {
+   "id": "hanachan_head_walk_start",
+   "loop": "loop",
+   "clip": "hanachan_head_walk_start",
+   "fps": 30
+  }
+ ],
+ "model": "hanachan_head.glb",
+ "skinnedClone": true
+}

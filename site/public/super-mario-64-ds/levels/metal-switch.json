@@ -1,0 +1,629 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "scene3d",
+ "camera": {
+  "mode": "fly",
+  "pos": [-1.7300000000000002, 8.5895, -14.8943],
+  "target": [-1.7300000000000002, 1.3185, -1.8395],
+  "fov": 50,
+  "near": 0.01,
+  "far": 500,
+  "fly": {
+   "speed": 1.8131666666666666
+  }
+ },
+ "scene": {
+  "layers": [
+   {
+    "id": "collision",
+    "name": "Collision (KCL)",
+    "file": "col_metal_switch.glb",
+    "mode": "toggle",
+    "visible": false,
+    "role": "collision"
+   }
+  ]
+ },
+ "placements": [
+  {
+   "id": 0,
+   "object": "metal-switch-all",
+   "pos": [0, 0, 0],
+   "name": "Behind the Waterfall"
+  },
+  {
+   "id": 1,
+   "object": "obj-tatefuda",
+   "pos": [-0.1, 0.019, 0.8],
+   "rot": [0, -1.5707963267948966, 0],
+   "scale": 0.008,
+   "onClick": {
+    "action": "text",
+    "title": "Signpost",
+    "body": "Metal Cavern\nRight: To ground\nLeft: ????"
+   },
+   "props": {
+    "actor": 184,
+    "collider": "obj_tatefuda"
+   }
+  },
+  {
+   "id": 2,
+   "object": "arc0-14",
+   "pos": [0, 0.05, 2.2],
+   "scale": 0.008,
+   "props": {
+    "actor": 21
+   }
+  },
+  {
+   "id": 3,
+   "object": "hatena-karabox",
+   "pos": [-0.35, 0.269, -0.1],
+   "scale": 0.008,
+   "props": {
+    "actor": 20
+   }
+  },
+  {
+   "id": 4,
+   "object": "hatena-karabox",
+   "pos": [0, 0.617, -6],
+   "scale": 0.008,
+   "props": {
+    "actor": 20
+   }
+  },
+  {
+   "id": 5,
+   "object": "yurei-mucho",
+   "pos": [-2.752, 0.019, -0.052],
+   "scale": 0.008,
+   "props": {
+    "actor": 236
+   }
+  },
+  {
+   "id": 6,
+   "object": "yurei-mucho",
+   "pos": [-1.274, 0.019, 0.755],
+   "scale": 0.008,
+   "props": {
+    "actor": 236
+   }
+  },
+  {
+   "id": 7,
+   "object": "yurei-mucho",
+   "pos": [0.35, 0.104, -1.242],
+   "scale": 0.008,
+   "props": {
+    "actor": 236
+   }
+  },
+  {
+   "id": 8,
+   "object": "yurei-mucho",
+   "pos": [-0.379, 0.131, -2.854],
+   "scale": 0.008,
+   "props": {
+    "actor": 236
+   }
+  },
+  {
+   "id": 9,
+   "object": "arc0-17",
+   "pos": [-0.29, 0.348, -5.777],
+   "scale": 0.008,
+   "props": {
+    "actor": 269
+   }
+  },
+  {
+   "id": 10,
+   "object": "arc0-20",
+   "pos": [0.4, 0.108, -1.8],
+   "scale": 0.008,
+   "props": {
+    "actor": 269
+   }
+  },
+  {
+   "id": 11,
+   "object": "arc0-16",
+   "pos": [0.4, 0.097, -0.8],
+   "scale": 0.008,
+   "props": {
+    "actor": 269
+   }
+  },
+  {
+   "id": 12,
+   "object": "kuribo-model",
+   "pos": [0.3, 0.259, -5.2],
+   "scale": 0.008,
+   "props": {
+    "actor": 200
+   }
+  },
+  {
+   "id": 13,
+   "object": "red-bombhei",
+   "pos": [0.918, 0.25, -3.541],
+   "rot": [0, -1.5707963267948966, 0],
+   "scale": 0.008,
+   "props": {
+    "actor": 181
+   }
+  },
+  {
+   "id": 14,
+   "object": "arc0-17",
+   "pos": [-0.29, 0.346, -5.777],
+   "scale": 0.008,
+   "props": {
+    "actor": 269
+   }
+  },
+  {
+   "id": 15,
+   "object": "arc0-16",
+   "pos": [0.4, 0.101, -0.85],
+   "scale": 0.008,
+   "props": {
+    "actor": 269
+   }
+  },
+  {
+   "id": 16,
+   "object": "arc0-7",
+   "pos": [0.94, 0.25, -3.789],
+   "scale": 0.008,
+   "props": {
+    "actor": 289
+   }
+  },
+  {
+   "id": 17,
+   "object": "arc0-7",
+   "pos": [0.937, 0.25, -3.316],
+   "scale": 0.008,
+   "props": {
+    "actor": 289
+   }
+  },
+  {
+   "id": 18,
+   "object": "arc0-7",
+   "pos": [0.097, -0.276, -5.494],
+   "scale": 0.008,
+   "props": {
+    "actor": 289
+   }
+  },
+  {
+   "id": 19,
+   "object": "arc0-7",
+   "pos": [-0.623, -0.339, -5.761],
+   "scale": 0.008,
+   "props": {
+    "actor": 289
+   }
+  },
+  {
+   "id": 20,
+   "object": "arc0-7",
+   "pos": [-0.248, 0.351, -6.181],
+   "scale": 0.008,
+   "props": {
+    "actor": 289
+   }
+  },
+  {
+   "id": 21,
+   "object": "arc0-7",
+   "pos": [0.117, 0.352, -6.261],
+   "scale": 0.008,
+   "props": {
+    "actor": 289
+   }
+  },
+  {
+   "id": 22,
+   "object": "arc0-7",
+   "pos": [0.534, -0.354, -6.159],
+   "scale": 0.008,
+   "props": {
+    "actor": 289
+   }
+  },
+  {
+   "id": 23,
+   "object": "arc0-7",
+   "pos": [-0.416, -0.39, -6.531],
+   "scale": 0.008,
+   "props": {
+    "actor": 289
+   }
+  },
+  {
+   "id": 24,
+   "object": "arc0-5",
+   "pos": [-0.005, -0.056, -1.299],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 25,
+   "object": "arc0-5",
+   "pos": [-0.005, -0.065, -1.47],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 26,
+   "object": "arc0-5",
+   "pos": [-0.005, -0.1, -1.653],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 27,
+   "object": "arc0-5",
+   "pos": [-0.005, -0.145, -1.825],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 28,
+   "object": "arc0-5",
+   "pos": [-0.005, -0.151, -1.99],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 29,
+   "object": "arc0-5",
+   "pos": [0.426, 0.25, -3.88],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 30,
+   "object": "arc0-5",
+   "pos": [0.426, 0.25, -4.052],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 31,
+   "object": "arc0-5",
+   "pos": [0.426, 0.25, -4.228],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 32,
+   "object": "arc0-5",
+   "pos": [0.426, 0.25, -4.394],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 33,
+   "object": "arc0-5",
+   "pos": [0.426, 0.25, -4.569],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 34,
+   "object": "arc0-5",
+   "pos": [0, -0.19, -3.5],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 35,
+   "object": "arc0-5",
+   "pos": [0, -0.195, -3.673],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 36,
+   "object": "arc0-5",
+   "pos": [0, -0.2, -3.835],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 37,
+   "object": "arc0-5",
+   "pos": [0, -0.204, -3.993],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 38,
+   "object": "arc0-5",
+   "pos": [0, -0.208, -4.151],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 39,
+   "object": "arc0-5",
+   "pos": [-0.339, -0.412, -6.733],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 40,
+   "object": "arc0-5",
+   "pos": [-0.167, -0.392, -6.529],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 41,
+   "object": "arc0-5",
+   "pos": [0.072, -0.379, -6.513],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 42,
+   "object": "arc0-5",
+   "pos": [0.278, -0.393, -6.633],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 43,
+   "object": "arc0-5",
+   "pos": [0.285, -0.441, -6.877],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 44,
+   "object": "arc0-5",
+   "pos": [0.12, -0.505, -7.035],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 45,
+   "object": "arc0-5",
+   "pos": [-0.102, -0.513, -7.064],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 46,
+   "object": "arc0-5",
+   "pos": [-0.297, -0.458, -6.951],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 47,
+   "object": "star-base",
+   "pos": [-0.03, -0.37, -6.789],
+   "scale": 0.008,
+   "props": {
+    "actor": 180
+   }
+  },
+  {
+   "id": 48,
+   "object": "arc0-5",
+   "pos": [0, 1.5, -6],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 49,
+   "object": "arc0-5",
+   "pos": [0, 1.65, -6],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 50,
+   "object": "arc0-5",
+   "pos": [0, 1.8, -6],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 51,
+   "object": "arc0-5",
+   "pos": [0, 1.95, -6],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 52,
+   "object": "arc0-5",
+   "pos": [0, 2.1, -6],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 53,
+   "object": "arc0-5",
+   "pos": [0, 2.25, -6],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 54,
+   "object": "arc0-5",
+   "pos": [0, 2.4, -6],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 55,
+   "object": "arc0-5",
+   "pos": [-0.31, 1.985, -6],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 56,
+   "object": "arc0-5",
+   "pos": [-0.23, 2.128, -6],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 57,
+   "object": "arc0-5",
+   "pos": [-0.15, 2.278, -6],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 58,
+   "object": "arc0-5",
+   "pos": [0.31, 1.985, -6],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 59,
+   "object": "arc0-5",
+   "pos": [0.23, 2.128, -6],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 60,
+   "object": "arc0-5",
+   "pos": [0.15, 2.278, -6],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 61,
+   "object": "arc0-21",
+   "pos": [0, 3.15, -6],
+   "scale": 0.008,
+   "props": {
+    "actor": 178
+   }
+  },
+  {
+   "id": 62,
+   "object": "arc0-5",
+   "pos": [0, 0.9, -6],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 63,
+   "object": "arc0-5",
+   "pos": [0, 1.05, -6],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 64,
+   "object": "arc0-5",
+   "pos": [0, 1.2, -6],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 65,
+   "object": "arc0-5",
+   "pos": [0, 1.35, -6],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  }
+ ]
+}

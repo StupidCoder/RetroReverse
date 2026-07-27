@@ -1,0 +1,52 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "model3d",
+ "name": "King ice donketu model",
+ "animations": [
+  {
+   "id": "king_ice_donketu_damage",
+   "loop": "loop",
+   "clip": "king_ice_donketu_damage",
+   "fps": 30
+  },
+  {
+   "id": "king_ice_donketu_dead",
+   "loop": "loop",
+   "clip": "king_ice_donketu_dead",
+   "fps": 30
+  },
+  {
+   "id": "king_ice_donketu_hit",
+   "loop": "loop",
+   "clip": "king_ice_donketu_hit",
+   "fps": 30
+  },
+  {
+   "id": "king_ice_donketu_jump_ed",
+   "loop": "loop",
+   "clip": "king_ice_donketu_jump_ed",
+   "fps": 30
+  },
+  {
+   "id": "king_ice_donketu_jump_st",
+   "loop": "loop",
+   "clip": "king_ice_donketu_jump_st",
+   "fps": 30
+  },
+  {
+   "id": "king_ice_donketu_wait",
+   "loop": "loop",
+   "clip": "king_ice_donketu_wait",
+   "fps": 30
+  },
+  {
+   "id": "king_ice_donketu_walk",
+   "loop": "loop",
+   "clip": "king_ice_donketu_walk",
+   "fps": 30
+  }
+ ],
+ "model": "king_ice_donketu_model.glb",
+ "skinnedClone": true
+}

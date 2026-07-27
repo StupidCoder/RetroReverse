@@ -1,0 +1,70 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "model3d",
+ "name": "Monkey",
+ "animations": [
+  {
+   "id": "monkey_hold",
+   "loop": "loop",
+   "clip": "monkey_hold",
+   "fps": 30
+  },
+  {
+   "id": "monkey_jump_ed",
+   "loop": "loop",
+   "clip": "monkey_jump_ed",
+   "fps": 30
+  },
+  {
+   "id": "monkey_jump_st",
+   "loop": "loop",
+   "clip": "monkey_jump_st",
+   "fps": 30
+  },
+  {
+   "id": "monkey_run",
+   "loop": "loop",
+   "clip": "monkey_run",
+   "fps": 30
+  },
+  {
+   "id": "monkey_run_ed",
+   "loop": "loop",
+   "clip": "monkey_run_ed",
+   "fps": 30
+  },
+  {
+   "id": "monkey_run_st",
+   "loop": "loop",
+   "clip": "monkey_run_st",
+   "fps": 30
+  },
+  {
+   "id": "monkey_wait1",
+   "loop": "loop",
+   "clip": "monkey_wait1",
+   "fps": 30
+  },
+  {
+   "id": "monkey_wait2",
+   "loop": "loop",
+   "clip": "monkey_wait2",
+   "fps": 30
+  },
+  {
+   "id": "monkey_wait3",
+   "loop": "loop",
+   "clip": "monkey_wait3",
+   "fps": 30
+  },
+  {
+   "id": "monkey_wait4",
+   "loop": "loop",
+   "clip": "monkey_wait4",
+   "fps": 30
+  }
+ ],
+ "model": "monkey.glb",
+ "skinnedClone": true
+}

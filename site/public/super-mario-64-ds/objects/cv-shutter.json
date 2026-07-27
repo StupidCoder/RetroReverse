@@ -1,0 +1,7 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "model3d",
+ "name": "Cv shutter",
+ "model": "cv_shutter.glb"
+}

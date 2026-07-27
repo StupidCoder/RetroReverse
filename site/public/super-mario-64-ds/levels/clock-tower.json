@@ -1,0 +1,1221 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "scene3d",
+ "camera": {
+  "mode": "fly",
+  "pos": [0.25650000000000006, 10.571000000000002, -5.0314000000000005],
+  "target": [0.25650000000000006, 1.75, 0.17900000000000005],
+  "fov": 50,
+  "near": 0.01,
+  "far": 500,
+  "fly": {
+   "speed": 1
+  }
+ },
+ "scene": {
+  "layers": [
+   {
+    "id": "collision",
+    "name": "Collision (KCL)",
+    "file": "col_clock_tower.glb",
+    "mode": "toggle",
+    "visible": false,
+    "role": "collision"
+   }
+  ]
+ },
+ "placements": [
+  {
+   "id": 0,
+   "object": "clock-tower-all",
+   "pos": [0, 0, 0],
+   "name": "Tick Tock Clock"
+  },
+  {
+   "id": 1,
+   "object": "ct-mecha-obj01",
+   "pos": [-1.827, 2.02, 0.272],
+   "rot": [0, 1.5707963267948966, 0],
+   "scale": 0.008,
+   "props": {
+    "actor": 108,
+    "collider": "ct_mecha_obj01"
+   }
+  },
+  {
+   "id": 2,
+   "object": "ct-mecha-obj01",
+   "pos": [-0.73, -4.1, -0.73],
+   "rot": [0, 0.7853981633974483, 0],
+   "scale": 0.008,
+   "props": {
+    "actor": 108,
+    "collider": "ct_mecha_obj01"
+   }
+  },
+  {
+   "id": 3,
+   "object": "ct-mecha-obj01",
+   "pos": [-1.282, -3.605, 0.767],
+   "rot": [0, -0.7853981633974483, 0],
+   "scale": 0.008,
+   "props": {
+    "actor": 108,
+    "collider": "ct_mecha_obj01"
+   }
+  },
+  {
+   "id": 4,
+   "object": "ct-mecha-obj01",
+   "pos": [-1.006, -3.215, 1.043],
+   "rot": [0, 0.7853981633974483, 0],
+   "scale": 0.008,
+   "props": {
+    "actor": 108,
+    "collider": "ct_mecha_obj01"
+   }
+  },
+  {
+   "id": 5,
+   "object": "ct-mecha-obj01",
+   "pos": [-1.282, -2.825, 1.318],
+   "rot": [0, -0.7853981633974483, 0],
+   "scale": 0.008,
+   "props": {
+    "actor": 108,
+    "collider": "ct_mecha_obj01"
+   }
+  },
+  {
+   "id": 6,
+   "object": "ct-mecha-obj01",
+   "pos": [-1.837, 1.725, -0.436],
+   "rot": [0, 1.5707963267948966, 0],
+   "scale": 0.008,
+   "props": {
+    "actor": 108,
+    "collider": "ct_mecha_obj01"
+   }
+  },
+  {
+   "id": 7,
+   "object": "ct-mecha-obj01",
+   "pos": [0.76, 5.62, -1],
+   "rot": [0, 0.7853981633974483, 0],
+   "scale": 0.008,
+   "props": {
+    "actor": 108,
+    "collider": "ct_mecha_obj01"
+   }
+  },
+  {
+   "id": 8,
+   "object": "ct-mecha-obj01",
+   "pos": [1.037, 5.225, -0.727],
+   "rot": [0, 0.7853981633974483, 0],
+   "scale": 0.008,
+   "props": {
+    "actor": 108,
+    "collider": "ct_mecha_obj01"
+   }
+  },
+  {
+   "id": 9,
+   "object": "ct-mecha-obj03",
+   "pos": [-0.88, 0.88, -1.1],
+   "rot": [0, 2.356194490192345, 0],
+   "scale": 0.008,
+   "props": {
+    "actor": 110,
+    "collider": "ct_mecha_obj03"
+   }
+  },
+  {
+   "id": 10,
+   "object": "ct-mecha-obj03",
+   "pos": [1.06, -3.8, -0.32],
+   "rot": [0, 0.7853981633974483, 0],
+   "scale": 0.008,
+   "props": {
+    "actor": 110,
+    "collider": "ct_mecha_obj03"
+   }
+  },
+  {
+   "id": 11,
+   "object": "ct-mecha-obj03",
+   "pos": [-1.357, -2.96, -1.004],
+   "rot": [0, 0.7853981633974483, 0],
+   "scale": 0.008,
+   "props": {
+    "actor": 110,
+    "collider": "ct_mecha_obj03"
+   }
+  },
+  {
+   "id": 12,
+   "object": "ct-mecha-obj03",
+   "pos": [-1.213, 0.88, -0.725],
+   "rot": [0, -0.7853981633974483, 0],
+   "scale": 0.008,
+   "props": {
+    "actor": 110,
+    "collider": "ct_mecha_obj03"
+   }
+  },
+  {
+   "id": 13,
+   "object": "ct-mecha-obj04l",
+   "pos": [0.843, 3.57, 0.25],
+   "rot": [0, -1.5707963267948966, 0],
+   "scale": 0.008,
+   "props": {
+    "actor": 111,
+    "collider": "ct_mecha_obj04l"
+   }
+  },
+  {
+   "id": 14,
+   "object": "ct-mecha-obj04s",
+   "pos": [1.807, -2.43, -0.096],
+   "scale": 0.008,
+   "props": {
+    "actor": 112,
+    "collider": "ct_mecha_obj04s"
+   }
+  },
+  {
+   "id": 15,
+   "object": "ct-mecha-obj04l",
+   "pos": [1.22, 3.22, 0.693],
+   "rot": [0, -1.5707963267948966, 0],
+   "scale": 0.008,
+   "props": {
+    "actor": 111,
+    "collider": "ct_mecha_obj04l"
+   }
+  },
+  {
+   "id": 16,
+   "object": "ct-mecha-obj05",
+   "pos": [-1.2, 1.924, -1.6],
+   "rot": [0, 0.7853981633974483, 0],
+   "scale": 0.008,
+   "props": {
+    "actor": 113,
+    "collider": "ct_mecha_obj05"
+   }
+  },
+  {
+   "id": 17,
+   "object": "ct-mecha-obj05",
+   "pos": [-0.504, -2.53, 1.992],
+   "rot": [0, -3.141592653589793, 0],
+   "scale": 0.008,
+   "props": {
+    "actor": 113,
+    "collider": "ct_mecha_obj05"
+   }
+  },
+  {
+   "id": 18,
+   "object": "ct-mecha-obj05",
+   "pos": [-0.171, -1.32, -1.992],
+   "scale": 0.008,
+   "props": {
+    "actor": 113,
+    "collider": "ct_mecha_obj05"
+   }
+  },
+  {
+   "id": 19,
+   "object": "ct-mecha-obj05",
+   "pos": [-0.504, 1.219, 1.992],
+   "rot": [0, -3.141592653589793, 0],
+   "scale": 0.008,
+   "props": {
+    "actor": 113,
+    "collider": "ct_mecha_obj05"
+   }
+  },
+  {
+   "id": 20,
+   "object": "ct-mecha-obj05",
+   "pos": [-0.167, 1.219, 1.992],
+   "rot": [0, -3.141592653589793, 0],
+   "scale": 0.008,
+   "props": {
+    "actor": 113,
+    "collider": "ct_mecha_obj05"
+   }
+  },
+  {
+   "id": 21,
+   "object": "ct-mecha-obj05",
+   "pos": [0.169, 1.219, 1.992],
+   "rot": [0, -3.141592653589793, 0],
+   "scale": 0.008,
+   "props": {
+    "actor": 113,
+    "collider": "ct_mecha_obj05"
+   }
+  },
+  {
+   "id": 22,
+   "object": "ct-mecha-obj05",
+   "pos": [-0.505, 3.1, 1.992],
+   "rot": [0, -3.141592653589793, 0],
+   "scale": 0.008,
+   "props": {
+    "actor": 113,
+    "collider": "ct_mecha_obj05"
+   }
+  },
+  {
+   "id": 23,
+   "object": "ct-mecha-obj05",
+   "pos": [-0.167, 3.1, 1.992],
+   "rot": [0, -3.141592653589793, 0],
+   "scale": 0.008,
+   "props": {
+    "actor": 113,
+    "collider": "ct_mecha_obj05"
+   }
+  },
+  {
+   "id": 24,
+   "object": "ct-mecha-obj05",
+   "pos": [0.169, 3.1, 1.992],
+   "rot": [0, -3.141592653589793, 0],
+   "scale": 0.008,
+   "props": {
+    "actor": 113,
+    "collider": "ct_mecha_obj05"
+   }
+  },
+  {
+   "id": 25,
+   "object": "ct-mecha-obj05",
+   "pos": [0.506, 3.1, 1.992],
+   "rot": [0, -3.141592653589793, 0],
+   "scale": 0.008,
+   "props": {
+    "actor": 113,
+    "collider": "ct_mecha_obj05"
+   }
+  },
+  {
+   "id": 26,
+   "object": "ct-mecha-obj05",
+   "pos": [-1, 1.629, -1.8],
+   "rot": [0, 0.7853981633974483, 0],
+   "scale": 0.008,
+   "props": {
+    "actor": 113,
+    "collider": "ct_mecha_obj05"
+   }
+  },
+  {
+   "id": 27,
+   "object": "ct-mecha-obj12s",
+   "pos": [1.619, -4.74, -0.203],
+   "scale": 0.008,
+   "props": {
+    "actor": 122
+   }
+  },
+  {
+   "id": 28,
+   "object": "ct-mecha-obj12s",
+   "pos": [-1.767, 0.95, -0.92],
+   "scale": 0.008,
+   "props": {
+    "actor": 122
+   }
+  },
+  {
+   "id": 29,
+   "object": "ct-mecha-obj12l",
+   "pos": [1.839, -4.73, -0.113],
+   "scale": 0.008,
+   "props": {
+    "actor": 121
+   }
+  },
+  {
+   "id": 30,
+   "object": "ct-mecha-obj12l",
+   "pos": [-1.586, 0.99, -0.945],
+   "scale": 0.008,
+   "props": {
+    "actor": 121
+   }
+  },
+  {
+   "id": 31,
+   "object": "ct-mecha-obj09",
+   "pos": [-1.33, 0.6, 1.18],
+   "rot": [0, 0.7853981633974483, 0],
+   "scale": 0.008,
+   "props": {
+    "actor": 118,
+    "collider": "ct_mecha_obj09"
+   }
+  },
+  {
+   "id": 32,
+   "object": "ct-mecha-obj06",
+   "pos": [1.455, -2.04, -0.853],
+   "scale": 0.008,
+   "props": {
+    "actor": 114,
+    "collider": "ct_mecha_obj06"
+   }
+  },
+  {
+   "id": 33,
+   "object": "ct-mecha-obj06",
+   "pos": [1.027, -1.89, -0.752],
+   "scale": 0.008,
+   "props": {
+    "actor": 114,
+    "collider": "ct_mecha_obj06"
+   }
+  },
+  {
+   "id": 34,
+   "object": "ct-mecha-obj06",
+   "pos": [1.186, -1.74, -1.187],
+   "scale": 0.008,
+   "props": {
+    "actor": 114,
+    "collider": "ct_mecha_obj06"
+   }
+  },
+  {
+   "id": 35,
+   "object": "ct-mecha-obj06",
+   "pos": [0.931, -1.59, -1.415],
+   "scale": 0.008,
+   "props": {
+    "actor": 114,
+    "collider": "ct_mecha_obj06"
+   }
+  },
+  {
+   "id": 36,
+   "object": "ct-mecha-obj06",
+   "pos": [1.025, -0.02, -1.013],
+   "scale": 0.008,
+   "props": {
+    "actor": 114,
+    "collider": "ct_mecha_obj06"
+   }
+  },
+  {
+   "id": 37,
+   "object": "ct-mecha-obj09",
+   "pos": [-1.14, 0.28, 1.38],
+   "rot": [0, 0.7853981633974483, 0],
+   "scale": 0.008,
+   "props": {
+    "actor": 118,
+    "collider": "ct_mecha_obj09"
+   }
+  },
+  {
+   "id": 38,
+   "object": "ct-mecha-obj09",
+   "pos": [-1.6, -1.42, 0.9],
+   "rot": [0, 0.7853981633974483, 0],
+   "scale": 0.008,
+   "props": {
+    "actor": 118,
+    "collider": "ct_mecha_obj09"
+   }
+  },
+  {
+   "id": 39,
+   "object": "ct-mecha-obj10",
+   "pos": [0, 5.87, 0],
+   "rot": [0, -2.356194490192345, 0],
+   "scale": 0.008,
+   "props": {
+    "actor": 119,
+    "collider": "ct_mecha_obj10"
+   }
+  },
+  {
+   "id": 40,
+   "object": "ct-mecha-obj10",
+   "pos": [0, -2.43, 0],
+   "rot": [0, 0.7853981633974483, 0],
+   "scale": 0.008,
+   "props": {
+    "actor": 119,
+    "collider": "ct_mecha_obj10"
+   }
+  },
+  {
+   "id": 41,
+   "object": "ct-mecha-obj11",
+   "pos": [-1.014, 4.145, 0.753],
+   "rot": [0, -0.7853981633974483, 0],
+   "scale": 0.008,
+   "props": {
+    "actor": 120,
+    "collider": "ct_mecha_obj11"
+   }
+  },
+  {
+   "id": 42,
+   "object": "ct-mecha-obj11",
+   "pos": [0.413, -4.435, 1.912],
+   "rot": [0, 1.5707963267948966, 0],
+   "scale": 0.008,
+   "props": {
+    "actor": 120,
+    "collider": "ct_mecha_obj11"
+   }
+  },
+  {
+   "id": 43,
+   "object": "ct-mecha-obj11",
+   "pos": [1.061, -4.135, 1.657],
+   "rot": [0, 2.356194490192345, 0],
+   "scale": 0.008,
+   "props": {
+    "actor": 120,
+    "collider": "ct_mecha_obj11"
+   }
+  },
+  {
+   "id": 44,
+   "object": "ct-mecha-obj11",
+   "pos": [0.413, -3.835, 1.912],
+   "rot": [0, 1.5707963267948966, 0],
+   "scale": 0.008,
+   "props": {
+    "actor": 120,
+    "collider": "ct_mecha_obj11"
+   }
+  },
+  {
+   "id": 45,
+   "object": "ct-mecha-obj11",
+   "pos": [1.061, -3.535, 1.657],
+   "rot": [0, 2.356194490192345, 0],
+   "scale": 0.008,
+   "props": {
+    "actor": 120,
+    "collider": "ct_mecha_obj11"
+   }
+  },
+  {
+   "id": 46,
+   "object": "ct-mecha-obj11",
+   "pos": [1.544, -3.535, 1.174],
+   "rot": [0, 2.356194490192345, 0],
+   "scale": 0.008,
+   "props": {
+    "actor": 120,
+    "collider": "ct_mecha_obj11"
+   }
+  },
+  {
+   "id": 47,
+   "object": "ct-mecha-obj11",
+   "pos": [0.413, -3.235, 1.912],
+   "rot": [0, 1.5707963267948966, 0],
+   "scale": 0.008,
+   "props": {
+    "actor": 120,
+    "collider": "ct_mecha_obj11"
+   }
+  },
+  {
+   "id": 48,
+   "object": "ct-mecha-obj11",
+   "pos": [1.061, -2.935, 1.657],
+   "rot": [0, 2.356194490192345, 0],
+   "scale": 0.008,
+   "props": {
+    "actor": 120,
+    "collider": "ct_mecha_obj11"
+   }
+  },
+  {
+   "id": 49,
+   "object": "ct-mecha-obj11",
+   "pos": [1.544, -2.635, 1.174],
+   "rot": [0, 2.356194490192345, 0],
+   "scale": 0.008,
+   "props": {
+    "actor": 120,
+    "collider": "ct_mecha_obj11"
+   }
+  },
+  {
+   "id": 50,
+   "object": "ct-mecha-obj11",
+   "pos": [1.785, 3.745, -0.05],
+   "scale": 0.008,
+   "props": {
+    "actor": 120,
+    "collider": "ct_mecha_obj11"
+   }
+  },
+  {
+   "id": 51,
+   "object": "ct-mecha-obj11",
+   "pos": [1.425, 3.745, -0.35],
+   "scale": 0.008,
+   "props": {
+    "actor": 120,
+    "collider": "ct_mecha_obj11"
+   }
+  },
+  {
+   "id": 52,
+   "object": "ct-mecha-obj11",
+   "pos": [1.065, 3.745, -0.65],
+   "scale": 0.008,
+   "props": {
+    "actor": 120,
+    "collider": "ct_mecha_obj11"
+   }
+  },
+  {
+   "id": 53,
+   "object": "ct-mecha-obj11",
+   "pos": [-0.745, 4.245, 1.022],
+   "rot": [0, 2.356194490192345, 0],
+   "scale": 0.008,
+   "props": {
+    "actor": 120,
+    "collider": "ct_mecha_obj11"
+   }
+  },
+  {
+   "id": 54,
+   "object": "arc0-14",
+   "pos": [0.205, -4.65, 1.49],
+   "scale": 0.008,
+   "props": {
+    "actor": 21
+   }
+  },
+  {
+   "id": 55,
+   "object": "arc0-14",
+   "pos": [0.87, -2.18, 0.87],
+   "scale": 0.008,
+   "props": {
+    "actor": 21
+   }
+  },
+  {
+   "id": 56,
+   "object": "arc0-14",
+   "pos": [0.68, 0.23, 1.44],
+   "scale": 0.008,
+   "props": {
+    "actor": 21
+   }
+  },
+  {
+   "id": 57,
+   "object": "arc0-14",
+   "pos": [1.48, 0.23, 0.64],
+   "scale": 0.008,
+   "props": {
+    "actor": 21
+   }
+  },
+  {
+   "id": 58,
+   "object": "arc0-14",
+   "pos": [-1.11, 2.814, -0.82],
+   "scale": 0.008,
+   "props": {
+    "actor": 21
+   }
+  },
+  {
+   "id": 59,
+   "object": "arc0-14",
+   "pos": [-0.36, 3.49, 1.83],
+   "scale": 0.008,
+   "props": {
+    "actor": 21
+   }
+  },
+  {
+   "id": 60,
+   "object": "arc0-14",
+   "pos": [1.84, 4.02, 0.53],
+   "scale": 0.008,
+   "props": {
+    "actor": 21
+   }
+  },
+  {
+   "id": 61,
+   "object": "arc0-14",
+   "pos": [-0.06, 4.02, -1.27],
+   "scale": 0.008,
+   "props": {
+    "actor": 21
+   }
+  },
+  {
+   "id": 62,
+   "object": "arc0-14",
+   "pos": [0, 4.62, 0],
+   "scale": 0.008,
+   "props": {
+    "actor": 21
+   }
+  },
+  {
+   "id": 63,
+   "object": "arc0-14",
+   "pos": [-0.71, 6.12, -1.07],
+   "scale": 0.008,
+   "props": {
+    "actor": 21
+   }
+  },
+  {
+   "id": 64,
+   "object": "hatena-karabox",
+   "pos": [-1.06, 6.12, -0.72],
+   "scale": 0.008,
+   "props": {
+    "actor": 20
+   }
+  },
+  {
+   "id": 65,
+   "object": "bombhei",
+   "pos": [0.5, 2.564, -0.3],
+   "scale": 0.008,
+   "props": {
+    "actor": 206
+   }
+  },
+  {
+   "id": 66,
+   "object": "dosune",
+   "pos": [2.015, 5.86, 2.015],
+   "rot": [0, -2.356194490192345, 0],
+   "scale": 0.008,
+   "props": {
+    "actor": 161,
+    "collider": "dosune"
+   }
+  },
+  {
+   "id": 67,
+   "object": "popoi",
+   "pos": [0.6, -0.02, 1],
+   "scale": 0.008,
+   "props": {
+    "actor": 238
+   }
+  },
+  {
+   "id": 68,
+   "object": "birikyu",
+   "pos": [-1.055, -0.633, 1.53],
+   "scale": 0.008,
+   "props": {
+    "actor": 266
+   }
+  },
+  {
+   "id": 69,
+   "object": "birikyu",
+   "pos": [-0.8, -2.222, -0.7],
+   "scale": 0.008,
+   "props": {
+    "actor": 266
+   }
+  },
+  {
+   "id": 70,
+   "object": "obj-heart",
+   "pos": [0.9, -4.9, 1.2],
+   "scale": 0.008,
+   "props": {
+    "actor": 297
+   }
+  },
+  {
+   "id": 71,
+   "object": "keronpa",
+   "pos": [0.4, -2.33, -0.2],
+   "scale": 0.008,
+   "props": {
+    "actor": 270
+   }
+  },
+  {
+   "id": 72,
+   "object": "b-coin-switch",
+   "pos": [1.7, -0.02, -0.3],
+   "scale": 0.008,
+   "props": {
+    "actor": 10,
+    "collider": "b_coin_switch"
+   }
+  },
+  {
+   "id": 73,
+   "object": "bombhei",
+   "pos": [-0.72, -4.01, 0.587],
+   "scale": 0.008,
+   "props": {
+    "actor": 358
+   }
+  },
+  {
+   "id": 74,
+   "object": "kuribo-model",
+   "pos": [-1.1, 1.039, -0.7],
+   "scale": 0.008,
+   "props": {
+    "actor": 200
+   }
+  },
+  {
+   "id": 75,
+   "object": "arc0-20",
+   "pos": [-1.079, 3, 1.576],
+   "rot": [0, 2.967006465168559, 0],
+   "scale": 0.008,
+   "props": {
+    "actor": 269
+   }
+  },
+  {
+   "id": 76,
+   "object": "kuribo-model",
+   "pos": [1.2, -0.02, 0.7],
+   "scale": 0.008,
+   "props": {
+    "actor": 200
+   }
+  },
+  {
+   "id": 77,
+   "object": "kuribo-model",
+   "pos": [1.4, -0.02, 0.2],
+   "scale": 0.008,
+   "props": {
+    "actor": 200
+   }
+  },
+  {
+   "id": 78,
+   "object": "kuribo-model",
+   "pos": [0.2, -0.02, -1.7],
+   "scale": 0.008,
+   "props": {
+    "actor": 200
+   }
+  },
+  {
+   "id": 79,
+   "object": "kuribo-model",
+   "pos": [-1.5, -0.02, -0.5],
+   "scale": 0.008,
+   "props": {
+    "actor": 200
+   }
+  },
+  {
+   "id": 80,
+   "object": "broken-block-ll",
+   "pos": [-1.33, 2.064, -1.38],
+   "rot": [0, 0.7853981633974483, 0],
+   "scale": 0.008,
+   "props": {
+    "actor": 17,
+    "collider": "broken_block_ll"
+   }
+  },
+  {
+   "id": 81,
+   "object": "obj-star-switch",
+   "pos": [0.5, 0, 1.8],
+   "rot": [0, -2.356194490192345, 0],
+   "scale": 0.008,
+   "props": {
+    "actor": 12,
+    "collider": "obj_star_switch"
+   }
+  },
+  {
+   "id": 82,
+   "object": "hatena-karabox",
+   "pos": [-1.03, 1.289, -0.91],
+   "rot": [0, 0.7853981633974483, 0],
+   "scale": 0.008,
+   "props": {
+    "actor": 20
+   }
+  },
+  {
+   "id": 83,
+   "object": "obj-tatefuda",
+   "pos": [1.6, -4.71, -0.2],
+   "rot": [0, -0.7853981633974483, 0],
+   "scale": 0.008,
+   "onClick": {
+    "action": "text",
+    "title": "Signpost",
+    "body": "When using the Touch\nScreen, it's easy to walk\nor run.\nYou can even calmly and\ncoolly navigate your way\nacross narrow ledges.\nUse the thumb pad on the\nwrist strap for smoother \ncontrol than your finger."
+   },
+   "props": {
+    "actor": 184,
+    "collider": "obj_tatefuda"
+   }
+  },
+  {
+   "id": 84,
+   "object": "ct-mecha-obj04l",
+   "pos": [1.48, 5.9, 1.48],
+   "rot": [0, 0.7853981633974483, 0],
+   "scale": 0.008,
+   "props": {
+    "actor": 111,
+    "collider": "ct_mecha_obj04l"
+   }
+  },
+  {
+   "id": 85,
+   "object": "star-base",
+   "pos": [-1.81, 0.13, -0.87],
+   "scale": 0.008,
+   "props": {
+    "actor": 180
+   }
+  },
+  {
+   "id": 86,
+   "object": "arc0-21",
+   "pos": [-1.06, 2.23, -0.855],
+   "scale": 0.008,
+   "props": {
+    "actor": 178
+   }
+  },
+  {
+   "id": 87,
+   "object": "arc0-21",
+   "pos": [2.35, 7.145, 2.35],
+   "scale": 0.008,
+   "props": {
+    "actor": 178
+   }
+  },
+  {
+   "id": 88,
+   "object": "arc0-21",
+   "pos": [-1.462, -1.22, -1.185],
+   "scale": 0.008,
+   "props": {
+    "actor": 178
+   }
+  },
+  {
+   "id": 89,
+   "object": "arc0-5",
+   "pos": [-0.72, -3.8, -0.72],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 90,
+   "object": "arc0-5",
+   "pos": [-0.72, -3.65, -0.72],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 91,
+   "object": "arc0-5",
+   "pos": [-1.34, -0.92, 1.1],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 92,
+   "object": "arc0-5",
+   "pos": [-1.24, -0.92, 1.2],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 93,
+   "object": "arc0-5",
+   "pos": [-1.1, -0.82, 1.4],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 94,
+   "object": "arc0-5",
+   "pos": [-1, -0.82, 1.5],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 95,
+   "object": "arc0-5",
+   "pos": [-0.9, -0.82, 1.6],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 96,
+   "object": "arc0-7",
+   "pos": [0.2, -4.2, 1.92],
+   "scale": 0.008,
+   "props": {
+    "actor": 289
+   }
+  },
+  {
+   "id": 97,
+   "object": "arc0-7",
+   "pos": [0.797, -4.15, 1.92],
+   "scale": 0.008,
+   "props": {
+    "actor": 289
+   }
+  },
+  {
+   "id": 98,
+   "object": "arc0-7",
+   "pos": [0.2, -3.56, 1.92],
+   "scale": 0.008,
+   "props": {
+    "actor": 289
+   }
+  },
+  {
+   "id": 99,
+   "object": "arc0-7",
+   "pos": [0.797, -3.5, 1.92],
+   "scale": 0.008,
+   "props": {
+    "actor": 289
+   }
+  },
+  {
+   "id": 100,
+   "object": "arc0-7",
+   "pos": [0.2, -2.91, 1.92],
+   "scale": 0.008,
+   "props": {
+    "actor": 289
+   }
+  },
+  {
+   "id": 101,
+   "object": "arc0-7",
+   "pos": [0.797, -2.85, 1.92],
+   "scale": 0.008,
+   "props": {
+    "actor": 289
+   }
+  },
+  {
+   "id": 102,
+   "object": "arc0-7",
+   "pos": [1.299, -3.235, 1.416],
+   "scale": 0.008,
+   "props": {
+    "actor": 289
+   }
+  },
+  {
+   "id": 103,
+   "object": "arc0-7",
+   "pos": [1.721, -3.235, 0.994],
+   "scale": 0.008,
+   "props": {
+    "actor": 289
+   }
+  },
+  {
+   "id": 104,
+   "object": "star-base",
+   "pos": [1.7, -4.66, 0.7],
+   "scale": 0.008,
+   "props": {
+    "actor": 180
+   }
+  },
+  {
+   "id": 105,
+   "object": "ar1-6",
+   "pos": [0, -0.02, -1.3],
+   "scale": 0.008,
+   "props": {
+    "actor": 290
+   }
+  },
+  {
+   "id": 106,
+   "object": "ar1-6",
+   "pos": [-0.15, -0.02, -1.55],
+   "scale": 0.008,
+   "props": {
+    "actor": 290
+   }
+  },
+  {
+   "id": 107,
+   "object": "ar1-6",
+   "pos": [0.15, -0.02, -1.55],
+   "scale": 0.008,
+   "props": {
+    "actor": 290
+   }
+  },
+  {
+   "id": 108,
+   "object": "ar1-6",
+   "pos": [-0.45, -0.02, -1.8],
+   "scale": 0.008,
+   "props": {
+    "actor": 290
+   }
+  },
+  {
+   "id": 109,
+   "object": "ar1-6",
+   "pos": [-0.15, -0.02, -1.8],
+   "scale": 0.008,
+   "props": {
+    "actor": 290
+   }
+  },
+  {
+   "id": 110,
+   "object": "ar1-6",
+   "pos": [0.15, -0.02, -1.8],
+   "scale": 0.008,
+   "props": {
+    "actor": 290
+   }
+  },
+  {
+   "id": 111,
+   "object": "ar1-6",
+   "pos": [0.45, -0.02, -1.8],
+   "scale": 0.008,
+   "props": {
+    "actor": 290
+   }
+  },
+  {
+   "id": 112,
+   "object": "arc0-21",
+   "pos": [-1.31, -2.17, -1.31],
+   "scale": 0.008,
+   "props": {
+    "actor": 178
+   }
+  },
+  {
+   "id": 113,
+   "object": "red-bombhei",
+   "pos": [1.5, -4.71, 1.2],
+   "rot": [0, -2.356194490192345, 0],
+   "scale": 0.008,
+   "props": {
+    "actLayer": 6,
+    "actor": 181
+   }
+  },
+  {
+   "id": 114,
+   "object": "arc0-25",
+   "pos": [1.1, 8.4, 0.7],
+   "scale": 0.008,
+   "props": {
+    "actLayer": 7,
+    "actor": 179
+   }
+  },
+  {
+   "id": 115,
+   "object": "arc0-25",
+   "pos": [0, 4, 0],
+   "scale": 0.008,
+   "props": {
+    "actLayer": 7,
+    "actor": 179
+   }
+  },
+  {
+   "id": 116,
+   "object": "arc0-25",
+   "pos": [1.4, 6, 0],
+   "scale": 0.008,
+   "props": {
+    "actLayer": 7,
+    "actor": 179
+   }
+  },
+  {
+   "id": 117,
+   "object": "arc0-25",
+   "pos": [-0.5, 7.5, -1.3],
+   "scale": 0.008,
+   "props": {
+    "actLayer": 7,
+    "actor": 179
+   }
+  },
+  {
+   "id": 118,
+   "object": "arc0-25",
+   "pos": [-1.3, 5, -1.1],
+   "scale": 0.008,
+   "props": {
+    "actLayer": 7,
+    "actor": 179
+   }
+  },
+  {
+   "id": 119,
+   "object": "arc0-21",
+   "pos": [0.642, 1.45, 1.832],
+   "scale": 0.008,
+   "props": {
+    "actLayer": 7,
+    "actor": 178
+   }
+  }
+ ]
+}

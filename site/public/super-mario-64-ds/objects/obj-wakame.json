@@ -1,0 +1,16 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "model3d",
+ "name": "Obj wakame",
+ "animations": [
+  {
+   "id": "obj_wakame_wait",
+   "loop": "loop",
+   "clip": "obj_wakame_wait",
+   "fps": 30
+  }
+ ],
+ "model": "obj_wakame.glb",
+ "skinnedClone": true
+}

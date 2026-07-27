@@ -1,0 +1,16 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "model3d",
+ "name": "TexBank G",
+ "animations": [
+  {
+   "id": "face_demo_big_yoshistar_U",
+   "loop": "loop",
+   "clip": "face_demo_big_yoshistar_U",
+   "fps": 30
+  }
+ ],
+ "model": "texBank_G.glb",
+ "skinnedClone": true
+}

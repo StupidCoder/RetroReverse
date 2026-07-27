@@ -1,0 +1,7 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "model3d",
+ "name": "Cannon shutter",
+ "model": "cannon_shutter.glb"
+}

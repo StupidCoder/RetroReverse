@@ -1,0 +1,16 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "model3d",
+ "name": "Kpa shwave",
+ "animations": [
+  {
+   "id": "kpa_shwave",
+   "loop": "loop",
+   "clip": "kpa_shwave",
+   "fps": 30
+  }
+ ],
+ "model": "kpa_shwave.glb",
+ "skinnedClone": true
+}

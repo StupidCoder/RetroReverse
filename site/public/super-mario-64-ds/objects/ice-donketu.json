@@ -1,0 +1,58 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "model3d",
+ "name": "Ice donketu",
+ "animations": [
+  {
+   "id": "donketu_dead",
+   "loop": "loop",
+   "clip": "donketu_dead",
+   "fps": 30
+  },
+  {
+   "id": "donketu_hit",
+   "loop": "loop",
+   "clip": "donketu_hit",
+   "fps": 30
+  },
+  {
+   "id": "donketu_turn",
+   "loop": "loop",
+   "clip": "donketu_turn",
+   "fps": 30
+  },
+  {
+   "id": "donketu_walk",
+   "loop": "loop",
+   "clip": "donketu_walk",
+   "fps": 30
+  },
+  {
+   "id": "ice_donketu_dead",
+   "loop": "loop",
+   "clip": "ice_donketu_dead",
+   "fps": 30
+  },
+  {
+   "id": "ice_donketu_hit",
+   "loop": "loop",
+   "clip": "ice_donketu_hit",
+   "fps": 30
+  },
+  {
+   "id": "ice_donketu_turn",
+   "loop": "loop",
+   "clip": "ice_donketu_turn",
+   "fps": 30
+  },
+  {
+   "id": "ice_donketu_walk",
+   "loop": "loop",
+   "clip": "ice_donketu_walk",
+   "fps": 30
+  }
+ ],
+ "model": "ice_donketu.glb",
+ "skinnedClone": true
+}

@@ -1,0 +1,22 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "model3d",
+ "name": "Kinopio",
+ "animations": [
+  {
+   "id": "kinopio_wait1",
+   "loop": "loop",
+   "clip": "kinopio_wait1",
+   "fps": 30
+  },
+  {
+   "id": "kinopio_wait2",
+   "loop": "loop",
+   "clip": "kinopio_wait2",
+   "fps": 30
+  }
+ ],
+ "model": "kinopio.glb",
+ "skinnedClone": true
+}

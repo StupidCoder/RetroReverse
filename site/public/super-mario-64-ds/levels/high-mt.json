@@ -1,0 +1,1518 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "scene3d",
+ "camera": {
+  "mode": "fly",
+  "pos": [1.8250000000000002, 8.124, -11.761],
+  "target": [1.8250000000000002, -0.8640000000000001, 0.7469999999999999],
+  "fov": 50,
+  "near": 0.01,
+  "far": 500,
+  "fly": {
+   "speed": 1.7750000000000001
+  }
+ },
+ "scene": {
+  "layers": [
+   {
+    "id": "sky",
+    "name": "Skybox",
+    "file": "vr01.glb",
+    "mode": "toggle",
+    "attach": "camera",
+    "renderOrder": -1,
+    "role": "sky"
+   },
+   {
+    "id": "collision",
+    "name": "Collision (KCL)",
+    "file": "col_high_mt.glb",
+    "mode": "toggle",
+    "visible": false,
+    "role": "collision"
+   }
+  ]
+ },
+ "placements": [
+  {
+   "id": 0,
+   "object": "high-mt-all",
+   "pos": [0, 0, 0],
+   "name": "Tall, Tall Mountain"
+  },
+  {
+   "id": 1,
+   "object": "kuribo-model",
+   "pos": [2.784, -3.973, 4.795],
+   "rot": [0, -1.2217198237516704, 0],
+   "scale": 0.008,
+   "props": {
+    "actor": 200
+   }
+  },
+  {
+   "id": 2,
+   "object": "kuribo-model",
+   "pos": [2.33, -3.979, 4.541],
+   "rot": [0, -1.2217198237516704, 0],
+   "scale": 0.008,
+   "props": {
+    "actor": 200
+   }
+  },
+  {
+   "id": 3,
+   "object": "kuribo-model",
+   "pos": [2.907, -3.879, 4.271],
+   "rot": [0, -1.2217198237516704, 0],
+   "scale": 0.008,
+   "props": {
+    "actor": 200
+   }
+  },
+  {
+   "id": 4,
+   "object": "batta-block",
+   "pos": [4.9, -4.5, 2.6],
+   "scale": 0.008,
+   "props": {
+    "actor": 193
+   }
+  },
+  {
+   "id": 5,
+   "object": "arc0-14",
+   "pos": [3.169, -2.556, -3.957],
+   "scale": 0.008,
+   "props": {
+    "actor": 21
+   }
+  },
+  {
+   "id": 6,
+   "object": "bombhei",
+   "pos": [-3.4, -2.415, -0.9],
+   "rot": [0, -3.141592653589793, 0],
+   "scale": 0.008,
+   "props": {
+    "actor": 206
+   }
+  },
+  {
+   "id": 7,
+   "object": "bombhei",
+   "pos": [-3.4, -2.357, -0.1],
+   "rot": [0, -3.141592653589793, 0],
+   "scale": 0.008,
+   "props": {
+    "actor": 206
+   }
+  },
+  {
+   "id": 8,
+   "object": "bombhei",
+   "pos": [-3.4, -2.3, 0.6],
+   "rot": [0, -3.141592653589793, 0],
+   "scale": 0.008,
+   "props": {
+    "actor": 206
+   }
+  },
+  {
+   "id": 9,
+   "object": "propeller-heyho",
+   "pos": [2.3, -1.3, 3.8],
+   "scale": 0.008,
+   "props": {
+    "actor": 232
+   }
+  },
+  {
+   "id": 10,
+   "object": "bombhei",
+   "pos": [2.1, -1.386, -3.8],
+   "rot": [0, 1.5707963267948966, 0],
+   "scale": 0.008,
+   "props": {
+    "actor": 206
+   }
+  },
+  {
+   "id": 11,
+   "object": "bombhei",
+   "pos": [0.8, -1.212, -3.8],
+   "rot": [0, 1.5707963267948966, 0],
+   "scale": 0.008,
+   "props": {
+    "actor": 206
+   }
+  },
+  {
+   "id": 12,
+   "object": "ar1-15",
+   "pos": [-1, -0.699, -3.3],
+   "scale": 0.008,
+   "props": {
+    "actor": 276
+   }
+  },
+  {
+   "id": 13,
+   "object": "kuribo-model",
+   "pos": [-0.4, 0.236, 1.3],
+   "scale": 0.008,
+   "props": {
+    "actor": 200
+   }
+  },
+  {
+   "id": 14,
+   "object": "kuribo-model",
+   "pos": [-0.5, 0.214, 1.7],
+   "scale": 0.008,
+   "props": {
+    "actor": 200
+   }
+  },
+  {
+   "id": 15,
+   "object": "kuribo-model",
+   "pos": [-0.1, 0.3, 1.6],
+   "scale": 0.008,
+   "props": {
+    "actor": 200
+   }
+  },
+  {
+   "id": 16,
+   "object": "ar1-15",
+   "pos": [1.49, 0.605, 1.68],
+   "scale": 0.008,
+   "props": {
+    "actor": 276
+   }
+  },
+  {
+   "id": 17,
+   "object": "kuribo-model",
+   "pos": [-0.4, 1.117, -1.5],
+   "scale": 0.008,
+   "props": {
+    "actor": 200
+   }
+  },
+  {
+   "id": 18,
+   "object": "kuribo-model",
+   "pos": [-0.9, 1.142, -1.4],
+   "scale": 0.008,
+   "props": {
+    "actor": 200
+   }
+  },
+  {
+   "id": 19,
+   "object": "kuribo-model",
+   "pos": [-0.7, 1.209, -1],
+   "scale": 0.008,
+   "props": {
+    "actor": 200
+   }
+  },
+  {
+   "id": 20,
+   "object": "obj-tatefuda",
+   "pos": [0.7, -4.217, 5.2],
+   "scale": 0.008,
+   "onClick": {
+    "action": "text",
+    "title": "Signpost",
+    "body": "Get a running start \nup the slope with the \nlong jump!\nRemember how to do it?\nJust run, crouch, \nthen jump!"
+   },
+   "props": {
+    "actor": 184,
+    "collider": "obj_tatefuda"
+   }
+  },
+  {
+   "id": 21,
+   "object": "houdai",
+   "pos": [4.917, -3.9, -3.365],
+   "rot": [0, -1.5707963267948966, 0],
+   "scale": 0.008,
+   "props": {
+    "actor": 207
+   }
+  },
+  {
+   "id": 22,
+   "object": "obj-tatefuda",
+   "pos": [-1.1, -3.367, -4.3],
+   "rot": [0, -3.141592653589793, 0],
+   "scale": 0.008,
+   "onClick": {
+    "action": "text",
+    "title": "Signpost",
+    "body": "Danger! Strong Gusts!\nBut the wind makes a\ncomfy ride."
+   },
+   "props": {
+    "actor": 184,
+    "collider": "obj_tatefuda"
+   }
+  },
+  {
+   "id": 23,
+   "object": "ar1-15",
+   "pos": [-3.5, -4.072, 3.6],
+   "scale": 0.008,
+   "props": {
+    "actor": 276
+   }
+  },
+  {
+   "id": 24,
+   "object": "ar1-0",
+   "pos": [-1.6, 1.071, -1.7],
+   "rot": [0, 2.722624150898527, 0],
+   "scale": 0.008,
+   "props": {
+    "actor": 220
+   }
+  },
+  {
+   "id": 25,
+   "object": "choropu",
+   "pos": [-1.74, -2.49, -3.684],
+   "rot": [0, 2.6179299621253325, 0],
+   "scale": 0.008,
+   "props": {
+    "actor": 310
+   }
+  },
+  {
+   "id": 26,
+   "object": "choropu",
+   "pos": [-1.588, -2.49, -3.336],
+   "rot": [0, 2.6179299621253325, 0],
+   "scale": 0.008,
+   "props": {
+    "actor": 310
+   }
+  },
+  {
+   "id": 27,
+   "object": "choropu",
+   "pos": [-1.972, -2.49, -2.829],
+   "rot": [0, 2.6179299621253325, 0],
+   "scale": 0.008,
+   "props": {
+    "actor": 310
+   }
+  },
+  {
+   "id": 28,
+   "object": "choropu",
+   "pos": [-2.688, -2.49, -2.736],
+   "rot": [0, 2.6179299621253325, 0],
+   "scale": 0.008,
+   "props": {
+    "actor": 310
+   }
+  },
+  {
+   "id": 29,
+   "object": "choropu",
+   "pos": [-2.588, -2.49, -2.336],
+   "rot": [0, 2.6179299621253325, 0],
+   "scale": 0.008,
+   "props": {
+    "actor": 310
+   }
+  },
+  {
+   "id": 30,
+   "object": "for-hs",
+   "pos": [3, 0.9, -1.05],
+   "rot": [0, 1.5707963267948966, 0],
+   "scale": 0.008,
+   "props": {
+    "actor": 307
+   }
+  },
+  {
+   "id": 31,
+   "object": "hyuhyu",
+   "pos": [3.6, 0.701, 0.1],
+   "rot": [0, -0.7853981633974483, 0],
+   "scale": 0.008,
+   "props": {
+    "actor": 231
+   }
+  },
+  {
+   "id": 32,
+   "object": "monkey",
+   "pos": [1.94, -1.507, 3.46],
+   "rot": [0, 2.356194490192345, 0],
+   "scale": 0.008,
+   "props": {
+    "actor": 267
+   }
+  },
+  {
+   "id": 33,
+   "object": "obj-tatefuda",
+   "pos": [3.553, -1.284, 1.454],
+   "rot": [0, 2.1467102388467123, 0],
+   "scale": 0.008,
+   "onClick": {
+    "action": "text",
+    "title": "Signpost",
+    "body": "STRONG WIND!\nHold on to your hat!\nEven if you lose your\ncap here, you'll find it\non this mountain."
+   },
+   "props": {
+    "actor": 184,
+    "collider": "obj_tatefuda"
+   }
+  },
+  {
+   "id": 34,
+   "object": "red-bombhei",
+   "pos": [0.716, -2.606, 3.213],
+   "rot": [0, 1.2915159496004671, 0],
+   "scale": 0.008,
+   "props": {
+    "actor": 181
+   }
+  },
+  {
+   "id": 35,
+   "object": "horuhei",
+   "pos": [-2.202, -2.055, 2.854],
+   "scale": 0.008,
+   "props": {
+    "actor": 190
+   }
+  },
+  {
+   "id": 36,
+   "object": "scale-up-kinoko",
+   "pos": [-0.459, -2.606, -4.306],
+   "scale": 0.008,
+   "props": {
+    "actor": 277
+   }
+  },
+  {
+   "id": 37,
+   "object": "cannon-shutter",
+   "pos": [4.917, -3.9, -3.365],
+   "rot": [0, -0.7853981633974483, 0],
+   "scale": 0.008,
+   "props": {
+    "actor": 14,
+    "collider": "cannon_shutter"
+   }
+  },
+  {
+   "id": 38,
+   "object": "broken-block-ll",
+   "pos": [-0.459, -2.606, -4.306],
+   "scale": 0.008,
+   "props": {
+    "actor": 17,
+    "collider": "broken_block_ll"
+   }
+  },
+  {
+   "id": 39,
+   "object": "broken-block-ll",
+   "pos": [-0.759, -2.606, -4.306],
+   "scale": 0.008,
+   "props": {
+    "actor": 17,
+    "collider": "broken_block_ll"
+   }
+  },
+  {
+   "id": 40,
+   "object": "broken-block-ll",
+   "pos": [1.6, 1.05, 0.82],
+   "rot": [0, 0.523566817665218, 0],
+   "scale": 0.008,
+   "props": {
+    "actor": 17,
+    "collider": "broken_block_ll"
+   }
+  },
+  {
+   "id": 41,
+   "object": "kuribo-model",
+   "pos": [-1, 1.263, -0.75],
+   "scale": 0.008,
+   "props": {
+    "actor": 200
+   }
+  },
+  {
+   "id": 42,
+   "object": "kuribo-model",
+   "pos": [-2.223, -1, -2.055],
+   "rot": [0, -3.141592653589793, 0],
+   "scale": 0.008,
+   "props": {
+    "actor": 200
+   }
+  },
+  {
+   "id": 43,
+   "object": "hatena-karabox",
+   "pos": [1.023, 2.552, 0.793],
+   "rot": [0, 0.523566817665218, 0],
+   "scale": 0.008,
+   "props": {
+    "actor": 20
+   }
+  },
+  {
+   "id": 44,
+   "object": "arc0-17",
+   "pos": [-0.639, -4.512, 4.444],
+   "rot": [0, 0.7853981633974483, 0],
+   "scale": 0.008,
+   "props": {
+    "actor": 269
+   }
+  },
+  {
+   "id": 45,
+   "object": "arc0-16",
+   "pos": [-0.639, -4.527, 4.09],
+   "rot": [0, 0.7853981633974483, 0],
+   "scale": 0.008,
+   "props": {
+    "actor": 269
+   }
+  },
+  {
+   "id": 46,
+   "object": "arc0-20",
+   "pos": [1.331, 1.549, 1.858],
+   "rot": [0, 0.7853981633974483, 0],
+   "scale": 0.008,
+   "props": {
+    "actor": 269
+   }
+  },
+  {
+   "id": 47,
+   "object": "pile",
+   "pos": [4.188, -1.512, 1.994],
+   "scale": 0.008,
+   "props": {
+    "actor": 27,
+    "collider": "pile"
+   }
+  },
+  {
+   "id": 48,
+   "object": "arc0-9",
+   "pos": [4.2, 2.5, -1.487],
+   "scale": 0.008,
+   "props": {
+    "actor": 329
+   }
+  },
+  {
+   "id": 49,
+   "object": "arc0-9",
+   "pos": [0.59, 2.5, -3.754],
+   "scale": 0.008,
+   "props": {
+    "actor": 329
+   }
+  },
+  {
+   "id": 50,
+   "object": "arc0-9",
+   "pos": [-3.018, 2.5, -1.396],
+   "scale": 0.008,
+   "props": {
+    "actor": 329
+   }
+  },
+  {
+   "id": 51,
+   "object": "arc0-9",
+   "pos": [-1.693, 2.5, 2.683],
+   "scale": 0.008,
+   "props": {
+    "actor": 329
+   }
+  },
+  {
+   "id": 52,
+   "object": "arc0-9",
+   "pos": [2.693, 2.5, 2.744],
+   "scale": 0.008,
+   "props": {
+    "actor": 329
+   }
+  },
+  {
+   "id": 53,
+   "object": "arc0-20",
+   "pos": [2.325, 1.538, -1.791],
+   "scale": 0.008,
+   "props": {
+    "actor": 269
+   }
+  },
+  {
+   "id": 54,
+   "object": "arc0-5",
+   "pos": [4.4, -4.5, 0.7],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 55,
+   "object": "arc0-5",
+   "pos": [4.6, -4.5, 0.8],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 56,
+   "object": "arc0-5",
+   "pos": [4.7, -4.5, 1],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 57,
+   "object": "arc0-5",
+   "pos": [4.6, -4.5, 1.2],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 58,
+   "object": "arc0-5",
+   "pos": [4.4, -4.5, 1.3],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 59,
+   "object": "arc0-5",
+   "pos": [4.2, -4.5, 1.2],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 60,
+   "object": "arc0-5",
+   "pos": [4.1, -4.5, 1],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 61,
+   "object": "arc0-5",
+   "pos": [4.2, -4.5, 0.8],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 62,
+   "object": "arc0-7",
+   "pos": [4.1, -2.65, -2.7],
+   "scale": 0.008,
+   "props": {
+    "actor": 289
+   }
+  },
+  {
+   "id": 63,
+   "object": "arc0-7",
+   "pos": [1.4, -2.7, -4.15],
+   "scale": 0.008,
+   "props": {
+    "actor": 289
+   }
+  },
+  {
+   "id": 64,
+   "object": "arc0-7",
+   "pos": [1.8, -2.8, -3.5],
+   "scale": 0.008,
+   "props": {
+    "actor": 289
+   }
+  },
+  {
+   "id": 65,
+   "object": "arc0-7",
+   "pos": [2.5, -2.7, -3.3],
+   "scale": 0.008,
+   "props": {
+    "actor": 289
+   }
+  },
+  {
+   "id": 66,
+   "object": "arc0-5",
+   "pos": [-0.2, -2, 3.539],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 67,
+   "object": "arc0-5",
+   "pos": [-0.4, -2, 3.51],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 68,
+   "object": "arc0-5",
+   "pos": [-0.6, -2, 3.471],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 69,
+   "object": "arc0-5",
+   "pos": [-0.8, -2, 3.45],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 70,
+   "object": "arc0-5",
+   "pos": [-1, -2, 3.4],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 71,
+   "object": "arc0-7",
+   "pos": [-1.4, -0.85, -2.7],
+   "scale": 0.008,
+   "props": {
+    "actor": 289
+   }
+  },
+  {
+   "id": 72,
+   "object": "arc0-5",
+   "pos": [-1.75, -0.846, -3.35],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 73,
+   "object": "arc0-5",
+   "pos": [-1.8, -0.862, -3.2],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 74,
+   "object": "arc0-5",
+   "pos": [-1.9, -0.889, -3.05],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 75,
+   "object": "arc0-5",
+   "pos": [-2, -0.862, -2.9],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 76,
+   "object": "arc0-5",
+   "pos": [-2.1, -0.846, -2.75],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 77,
+   "object": "arc0-7",
+   "pos": [-1.8, 0.05, -2.8],
+   "scale": 0.008,
+   "props": {
+    "actor": 289
+   }
+  },
+  {
+   "id": 78,
+   "object": "arc0-5",
+   "pos": [3.111, 1.062, -1.057],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 79,
+   "object": "arc0-5",
+   "pos": [3.283, 0.996, -1.058],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 80,
+   "object": "arc0-5",
+   "pos": [3.342, 0.824, -1.052],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 81,
+   "object": "arc0-5",
+   "pos": [3.338, 0.701, -0.884],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 82,
+   "object": "arc0-5",
+   "pos": [3.338, 0.678, -0.684],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 83,
+   "object": "arc0-5",
+   "pos": [-0.788, 2.144, 0.6],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 84,
+   "object": "arc0-5",
+   "pos": [-0.788, 1.994, 0.6],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 85,
+   "object": "arc0-5",
+   "pos": [-0.788, 1.844, 0.6],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 86,
+   "object": "arc0-5",
+   "pos": [-0.788, 1.694, 0.6],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 87,
+   "object": "arc0-5",
+   "pos": [-0.788, 1.544, 0.6],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 88,
+   "object": "arc0-5",
+   "pos": [2.102, 1.442, 2.217],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 89,
+   "object": "arc0-5",
+   "pos": [2.252, 1.437, 2.117],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 90,
+   "object": "arc0-5",
+   "pos": [2.41, 1.43, 2.025],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 91,
+   "object": "arc0-5",
+   "pos": [2.582, 1.422, 1.925],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 92,
+   "object": "arc0-5",
+   "pos": [2.747, 1.414, 1.825],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 93,
+   "object": "arc0-7",
+   "pos": [-1.15, -1.6, -3.2],
+   "scale": 0.008,
+   "props": {
+    "actor": 289
+   }
+  },
+  {
+   "id": 94,
+   "object": "arc0-7",
+   "pos": [-1.6, -1.65, -2.5],
+   "scale": 0.008,
+   "props": {
+    "actor": 289
+   }
+  },
+  {
+   "id": 95,
+   "object": "star-base",
+   "pos": [-3.288, -2.59, -3.952],
+   "scale": 0.008,
+   "props": {
+    "actor": 180
+   }
+  },
+  {
+   "id": 96,
+   "object": "arc0-21",
+   "pos": [-2.8, -2.7, 3.6],
+   "scale": 0.008,
+   "props": {
+    "actor": 178
+   }
+  },
+  {
+   "id": 97,
+   "object": "butterfly",
+   "pos": [-0.65, 1.189, -1.1],
+   "scale": 0.008,
+   "props": {
+    "actor": 336
+   }
+  },
+  {
+   "id": 98,
+   "object": "arc0-21",
+   "pos": [7.15, -3.05, 1.35],
+   "scale": 0.008,
+   "props": {
+    "actor": 178
+   }
+  },
+  {
+   "id": 99,
+   "object": "scale-up-kinoko",
+   "pos": [4.187, -1.512, 1.995],
+   "scale": 0.008,
+   "props": {
+    "actor": 319
+   }
+  },
+  {
+   "id": 100,
+   "object": "scale-up-kinoko",
+   "pos": [4.131, -1.512, 1.883],
+   "scale": 0.008,
+   "props": {
+    "actor": 320
+   }
+  },
+  {
+   "id": 101,
+   "object": "star-base",
+   "pos": [1.491, 2.304, 0.49],
+   "scale": 0.008,
+   "props": {
+    "actor": 180
+   }
+  },
+  {
+   "id": 102,
+   "object": "arc0-5",
+   "pos": [4.2, 2.799, -1.487],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 103,
+   "object": "arc0-5",
+   "pos": [4.01, 2.699, -1.425],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 104,
+   "object": "arc0-5",
+   "pos": [3.915, 2.5, -1.394],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 105,
+   "object": "arc0-5",
+   "pos": [4.01, 2.3, -1.425],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 106,
+   "object": "arc0-5",
+   "pos": [4.2, 2.2, -1.487],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 107,
+   "object": "arc0-5",
+   "pos": [4.39, 2.3, -1.549],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 108,
+   "object": "arc0-5",
+   "pos": [4.485, 2.5, -1.58],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 109,
+   "object": "arc0-5",
+   "pos": [4.39, 2.699, -1.549],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 110,
+   "object": "arc0-5",
+   "pos": [4.2, 2.5, -1.487],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 111,
+   "object": "arc0-5",
+   "pos": [0.59, 2.799, -3.754],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 112,
+   "object": "arc0-5",
+   "pos": [0.59, 2.699, -3.554],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 113,
+   "object": "arc0-5",
+   "pos": [0.59, 2.5, -3.454],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 114,
+   "object": "arc0-5",
+   "pos": [0.59, 2.3, -3.554],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 115,
+   "object": "arc0-5",
+   "pos": [0.59, 2.2, -3.754],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 116,
+   "object": "arc0-5",
+   "pos": [0.59, 2.3, -3.954],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 117,
+   "object": "arc0-5",
+   "pos": [0.59, 2.5, -4.054],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 118,
+   "object": "arc0-5",
+   "pos": [0.59, 2.699, -3.954],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 119,
+   "object": "arc0-5",
+   "pos": [0.59, 2.5, -3.754],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 120,
+   "object": "arc0-5",
+   "pos": [-3.018, 2.799, -1.396],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 121,
+   "object": "arc0-5",
+   "pos": [-2.828, 2.699, -1.334],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 122,
+   "object": "arc0-5",
+   "pos": [-2.733, 2.5, -1.304],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 123,
+   "object": "arc0-5",
+   "pos": [-2.828, 2.3, -1.334],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 124,
+   "object": "arc0-5",
+   "pos": [-3.018, 2.2, -1.396],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 125,
+   "object": "arc0-5",
+   "pos": [-3.208, 2.3, -1.458],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 126,
+   "object": "arc0-5",
+   "pos": [-3.304, 2.5, -1.489],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 127,
+   "object": "arc0-5",
+   "pos": [-3.208, 2.699, -1.458],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 128,
+   "object": "arc0-5",
+   "pos": [-3.018, 2.5, -1.396],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 129,
+   "object": "arc0-5",
+   "pos": [-1.693, 2.799, 2.683],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 130,
+   "object": "arc0-5",
+   "pos": [-1.576, 2.699, 2.521],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 131,
+   "object": "arc0-5",
+   "pos": [-1.517, 2.5, 2.44],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 132,
+   "object": "arc0-5",
+   "pos": [-1.576, 2.3, 2.521],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 133,
+   "object": "arc0-5",
+   "pos": [-1.693, 2.2, 2.683],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 134,
+   "object": "arc0-5",
+   "pos": [-1.811, 2.3, 2.845],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 135,
+   "object": "arc0-5",
+   "pos": [-1.87, 2.5, 2.926],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 136,
+   "object": "arc0-5",
+   "pos": [-1.811, 2.699, 2.845],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 137,
+   "object": "arc0-5",
+   "pos": [-1.693, 2.5, 2.683],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 138,
+   "object": "arc0-5",
+   "pos": [2.693, 2.799, 2.744],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 139,
+   "object": "arc0-5",
+   "pos": [2.576, 2.699, 2.582],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 140,
+   "object": "arc0-5",
+   "pos": [2.517, 2.5, 2.501],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 141,
+   "object": "arc0-5",
+   "pos": [2.576, 2.3, 2.582],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 142,
+   "object": "arc0-5",
+   "pos": [2.693, 2.2, 2.744],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 143,
+   "object": "arc0-5",
+   "pos": [2.811, 2.3, 2.906],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 144,
+   "object": "arc0-5",
+   "pos": [2.87, 2.5, 2.986],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 145,
+   "object": "arc0-5",
+   "pos": [2.811, 2.699, 2.906],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 146,
+   "object": "arc0-5",
+   "pos": [2.693, 2.5, 2.744],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 147,
+   "object": "ar1-16",
+   "pos": [-1.25, -4.27, 5.35],
+   "scale": 0.008,
+   "props": {
+    "actor": 286
+   }
+  },
+  {
+   "id": 148,
+   "object": "star-base",
+   "pos": [1.6, 1.1, 0.82],
+   "scale": 0.008,
+   "props": {
+    "actor": 180
+   }
+  },
+  {
+   "id": 149,
+   "object": "arc0-5",
+   "pos": [-1.247, -3.571, 5.349],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 150,
+   "object": "arc0-5",
+   "pos": [3.111, 1.062, -1.245],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 151,
+   "object": "arc0-5",
+   "pos": [3.111, 1.062, -0.846],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 152,
+   "object": "arc0-21",
+   "pos": [1.041, 2.554, 0.27],
+   "scale": 0.008,
+   "props": {
+    "actLayer": 1,
+    "actor": 178
+   }
+  },
+  {
+   "id": 153,
+   "object": "monkey",
+   "pos": [1.049, 2.252, 0.288],
+   "scale": 0.008,
+   "props": {
+    "actLayer": 2,
+    "actor": 268
+   }
+  },
+  {
+   "id": 154,
+   "object": "hm-basket",
+   "pos": [2.45, 1.75, 1.3],
+   "rot": [0, 0.523566817665218, 0],
+   "scale": 0.008,
+   "props": {
+    "actLayer": 2,
+    "actor": 103,
+    "collider": "hm_basket"
+   }
+  },
+  {
+   "id": 155,
+   "object": "owl",
+   "pos": [-1.25, -3.62, 5.35],
+   "rot": [0, 1.5707963267948966, 0],
+   "scale": 0.008,
+   "props": {
+    "actLayer": 2,
+    "actor": 234
+   }
+  },
+  {
+   "id": 156,
+   "object": "star-base",
+   "pos": [2.45, -1.37, 1.3],
+   "scale": 0.008,
+   "props": {
+    "actLayer": 2,
+    "actor": 180
+   }
+  },
+  {
+   "id": 157,
+   "object": "red-bombhei",
+   "pos": [4.186, -3.411, 2.147],
+   "scale": 0.008,
+   "props": {
+    "actLayer": 3,
+    "actor": 181
+   }
+  }
+ ]
+}

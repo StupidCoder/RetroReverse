@@ -1,0 +1,16 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "model3d",
+ "name": "Huwahuwa model",
+ "animations": [
+  {
+   "id": "huwahuwa_move",
+   "loop": "loop",
+   "clip": "huwahuwa_move",
+   "fps": 30
+  }
+ ],
+ "model": "huwahuwa_model.glb",
+ "skinnedClone": true
+}

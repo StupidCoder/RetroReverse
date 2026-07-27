@@ -1,0 +1,889 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "scene3d",
+ "camera": {
+  "mode": "fly",
+  "pos": [-0.011500000000000066, 10.781, -10.5954],
+  "target": [-0.011500000000000066, 2.2, 1.119],
+  "fov": 50,
+  "near": 0.01,
+  "far": 500,
+  "fly": {
+   "speed": 1.627
+  }
+ },
+ "scene": {
+  "layers": [
+   {
+    "id": "collision",
+    "name": "Collision (KCL)",
+    "file": "col_desert_py.glb",
+    "mode": "toggle",
+    "visible": false,
+    "role": "collision"
+   }
+  ]
+ },
+ "placements": [
+  {
+   "id": 0,
+   "object": "desert-py-all",
+   "pos": [0, 0, 0],
+   "name": "Shifting Sand Land (desert_py)"
+  },
+  {
+   "id": 1,
+   "object": "dp-lift",
+   "pos": [0, 4.85, 0.25],
+   "scale": 0.008,
+   "props": {
+    "actor": 88,
+    "collider": "dp_lift"
+   }
+  },
+  {
+   "id": 2,
+   "object": "dp-brock",
+   "pos": [0.712, 1.875, -2.252],
+   "scale": 0.008,
+   "props": {
+    "actor": 87,
+    "collider": "dp_brock"
+   }
+  },
+  {
+   "id": 3,
+   "object": "dp-brock",
+   "pos": [0.837, 1.875, -2.252],
+   "scale": 0.008,
+   "props": {
+    "actor": 87,
+    "collider": "dp_brock"
+   }
+  },
+  {
+   "id": 4,
+   "object": "dp-brock",
+   "pos": [1.312, 2.5, -2.252],
+   "scale": 0.008,
+   "props": {
+    "actor": 87,
+    "collider": "dp_brock"
+   }
+  },
+  {
+   "id": 5,
+   "object": "dp-brock",
+   "pos": [1.437, 2.5, -2.252],
+   "scale": 0.008,
+   "props": {
+    "actor": 87,
+    "collider": "dp_brock"
+   }
+  },
+  {
+   "id": 6,
+   "object": "kuribo-model",
+   "pos": [-2, 0, 3.5],
+   "scale": 0.008,
+   "props": {
+    "actor": 200
+   }
+  },
+  {
+   "id": 7,
+   "object": "kuribo-model",
+   "pos": [-3.5, 0, 2.1],
+   "scale": 0.008,
+   "props": {
+    "actor": 200
+   }
+  },
+  {
+   "id": 8,
+   "object": "obj-tatefuda",
+   "pos": [-3.497, 0, -3.624],
+   "scale": 0.008,
+   "onClick": {
+    "action": "text",
+    "title": "Signpost",
+    "body": "Upon four towers\none must alight...\nThen at the peak\nshall shine the light..."
+   },
+   "props": {
+    "actor": 184,
+    "collider": "obj_tatefuda"
+   }
+  },
+  {
+   "id": 9,
+   "object": "hatena-karabox",
+   "pos": [-3.194, 0.25, -3.545],
+   "scale": 0.008,
+   "props": {
+    "actor": 20
+   }
+  },
+  {
+   "id": 10,
+   "object": "kuribo-model",
+   "pos": [2.6, 0, 3.3],
+   "scale": 0.008,
+   "props": {
+    "actor": 200
+   }
+  },
+  {
+   "id": 11,
+   "object": "kuribo-model",
+   "pos": [2.8, 0, 3.8],
+   "scale": 0.008,
+   "props": {
+    "actor": 200
+   }
+  },
+  {
+   "id": 12,
+   "object": "kuribo-model",
+   "pos": [3.4, 0, 3.6],
+   "scale": 0.008,
+   "props": {
+    "actor": 200
+   }
+  },
+  {
+   "id": 13,
+   "object": "kuribo-model",
+   "pos": [3.5, 0, -1.6],
+   "scale": 0.008,
+   "props": {
+    "actor": 200
+   }
+  },
+  {
+   "id": 14,
+   "object": "obj-tatefuda",
+   "pos": [2.04, 0.65, -3.29],
+   "rot": [0, -1.5707963267948966, 0],
+   "scale": 0.008,
+   "onClick": {
+    "action": "text",
+    "title": "Signpost",
+    "body": "In Standard Mode, \njump and hold  \nto hang on to some \nobjects overhead.\nUse this move to \nhitch a ride with a \nflying bird."
+   },
+   "props": {
+    "actor": 184,
+    "collider": "obj_tatefuda"
+   }
+  },
+  {
+   "id": 15,
+   "object": "birikyu",
+   "pos": [3, 0.7, -3.2],
+   "scale": 0.008,
+   "props": {
+    "actor": 266
+   }
+  },
+  {
+   "id": 16,
+   "object": "kuribo-model",
+   "pos": [3.3, 0.65, -1.7],
+   "scale": 0.008,
+   "props": {
+    "actor": 200
+   }
+  },
+  {
+   "id": 17,
+   "object": "ar1-15",
+   "pos": [2.9, 1.05, -2.6],
+   "scale": 0.008,
+   "props": {
+    "actor": 276
+   }
+  },
+  {
+   "id": 18,
+   "object": "kuribo-model",
+   "pos": [3.25, 0.65, 1.55],
+   "scale": 0.008,
+   "props": {
+    "actor": 200
+   }
+  },
+  {
+   "id": 19,
+   "object": "kuribo-model",
+   "pos": [2.7, 0.625, 2.95],
+   "scale": 0.008,
+   "props": {
+    "actor": 200
+   }
+  },
+  {
+   "id": 20,
+   "object": "ar1-15",
+   "pos": [-3.292, 0.8, -1.487],
+   "scale": 0.008,
+   "props": {
+    "actor": 276
+   }
+  },
+  {
+   "id": 21,
+   "object": "birikyu",
+   "pos": [1.7, 3.2, -1.05],
+   "scale": 0.008,
+   "props": {
+    "actor": 266
+   }
+  },
+  {
+   "id": 22,
+   "object": "birikyu",
+   "pos": [1.7, 3.2, 0.6],
+   "scale": 0.008,
+   "props": {
+    "actor": 266
+   }
+  },
+  {
+   "id": 23,
+   "object": "obj-heart",
+   "pos": [-0.3, 1.9, -2.25],
+   "scale": 0.008,
+   "props": {
+    "actor": 297
+   }
+  },
+  {
+   "id": 24,
+   "object": "donguru",
+   "pos": [-2.4, 2.05, -1.4],
+   "scale": 0.008,
+   "props": {
+    "actor": 163,
+    "collider": "donguru"
+   }
+  },
+  {
+   "id": 25,
+   "object": "b-coin-switch",
+   "pos": [-0.555, 0, 4.485],
+   "scale": 0.008,
+   "props": {
+    "actor": 10,
+    "collider": "b_coin_switch"
+   }
+  },
+  {
+   "id": 26,
+   "object": "arc0-17",
+   "pos": [-3.523, 0, 3.565],
+   "rot": [0, 2.356194490192345, 0],
+   "scale": 0.008,
+   "props": {
+    "actor": 269
+   }
+  },
+  {
+   "id": 27,
+   "object": "arc0-20",
+   "pos": [-1.192, 0, -3.415],
+   "rot": [0, 1.5707963267948966, 0],
+   "scale": 0.008,
+   "props": {
+    "actor": 269
+   }
+  },
+  {
+   "id": 28,
+   "object": "arc0-16",
+   "pos": [3.375, 0, -0.74],
+   "rot": [0, -3.141592653589793, 0],
+   "scale": 0.008,
+   "props": {
+    "actor": 269
+   }
+  },
+  {
+   "id": 29,
+   "object": "broken-block-l",
+   "pos": [0.001, 0.375, -0.65],
+   "scale": 0.008,
+   "props": {
+    "actor": 16,
+    "collider": "broken_block_l"
+   }
+  },
+  {
+   "id": 30,
+   "object": "arc0-16",
+   "pos": [-1.367, -0.08, -1.398],
+   "scale": 0.008,
+   "props": {
+    "actor": 269
+   }
+  },
+  {
+   "id": 31,
+   "object": "arc0-17",
+   "pos": [3.376, 0, -3.514],
+   "scale": 0.008,
+   "props": {
+    "actor": 269
+   }
+  },
+  {
+   "id": 32,
+   "object": "arc0-20",
+   "pos": [-0.004, 0, 3.492],
+   "scale": 0.008,
+   "props": {
+    "actor": 269
+   }
+  },
+  {
+   "id": 33,
+   "object": "ar1-15",
+   "pos": [2.642, -0.08, -2.958],
+   "scale": 0.008,
+   "props": {
+    "actor": 276
+   }
+  },
+  {
+   "id": 34,
+   "object": "ar1-15",
+   "pos": [2.634, -0.08, -2.48],
+   "scale": 0.008,
+   "props": {
+    "actor": 276
+   }
+  },
+  {
+   "id": 35,
+   "object": "ar1-15",
+   "pos": [2.515, -0.08, -1.98],
+   "scale": 0.008,
+   "props": {
+    "actor": 276
+   }
+  },
+  {
+   "id": 36,
+   "object": "ar1-15",
+   "pos": [2.015, -0.08, -1.853],
+   "scale": 0.008,
+   "props": {
+    "actor": 276
+   }
+  },
+  {
+   "id": 37,
+   "object": "ar1-15",
+   "pos": [1.891, -0.08, -1.351],
+   "scale": 0.008,
+   "props": {
+    "actor": 276
+   }
+  },
+  {
+   "id": 38,
+   "object": "broken-block-s",
+   "pos": [0.57, 0, 2.79],
+   "scale": 0.008,
+   "props": {
+    "actor": 194,
+    "collider": "broken_block_s"
+   }
+  },
+  {
+   "id": 39,
+   "object": "arc0-5",
+   "pos": [1.8, 0, -3.4],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 40,
+   "object": "arc0-5",
+   "pos": [1.15, 0, -3.4],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 41,
+   "object": "arc0-5",
+   "pos": [2.7, 0.8, -3.2],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 42,
+   "object": "arc0-5",
+   "pos": [2.5, 0.8, -3.1],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 43,
+   "object": "arc0-5",
+   "pos": [2.4, 0.8, -2.9],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 44,
+   "object": "arc0-5",
+   "pos": [2.5, 0.8, -2.7],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 45,
+   "object": "arc0-5",
+   "pos": [2.7, 0.8, -2.6],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 46,
+   "object": "arc0-5",
+   "pos": [2.9, 0.8, -2.7],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 47,
+   "object": "arc0-5",
+   "pos": [3, 0.8, -2.9],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 48,
+   "object": "arc0-5",
+   "pos": [2.9, 0.8, -3.1],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 49,
+   "object": "arc0-5",
+   "pos": [0.4, 1.7, 2.8],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 50,
+   "object": "arc0-5",
+   "pos": [0.2, 1.7, 2.8],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 51,
+   "object": "arc0-5",
+   "pos": [0, 1.7, 2.8],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 52,
+   "object": "arc0-5",
+   "pos": [-0.2, 1.7, 2.8],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 53,
+   "object": "arc0-5",
+   "pos": [-0.4, 1.7, 2.8],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 54,
+   "object": "arc0-5",
+   "pos": [-1.8, 1.375, 2.8],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 55,
+   "object": "arc0-5",
+   "pos": [-2, 1.5, 2.8],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 56,
+   "object": "arc0-5",
+   "pos": [-2, 1.625, 3],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 57,
+   "object": "arc0-5",
+   "pos": [-1.887, 1.2, 0.273],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 58,
+   "object": "arc0-5",
+   "pos": [0.8, 2.4, -2.25],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 59,
+   "object": "arc0-5",
+   "pos": [0.8, 2.5, -2.25],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 60,
+   "object": "arc0-5",
+   "pos": [1.4, 3, -2.25],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 61,
+   "object": "arc0-5",
+   "pos": [1.4, 3.1, -2.25],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 62,
+   "object": "arc0-5",
+   "pos": [-0.5, 4.1, -0.95],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 63,
+   "object": "arc0-5",
+   "pos": [-0.35, 4.2, -0.95],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 64,
+   "object": "arc0-5",
+   "pos": [-0.2, 4.35, -0.95],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 65,
+   "object": "arc0-5",
+   "pos": [-0.1, 4.35, -0.95],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 66,
+   "object": "arc0-5",
+   "pos": [0, 4.35, -0.95],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 67,
+   "object": "arc0-5",
+   "pos": [-1.886, 1.2, 0.487],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 68,
+   "object": "arc0-5",
+   "pos": [0.3, 4.35, -0.95],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 69,
+   "object": "arc0-5",
+   "pos": [0.3, 4.47, -0.95],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 70,
+   "object": "arc0-5",
+   "pos": [0.3, 4.59, -0.95],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 71,
+   "object": "arc0-5",
+   "pos": [0.3, 4.71, -0.95],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 72,
+   "object": "arc0-5",
+   "pos": [0.3, 4.83, -0.95],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 73,
+   "object": "arc0-21",
+   "pos": [0.5, 4.9, -0.6],
+   "scale": 0.008,
+   "props": {
+    "actor": 178
+   }
+  },
+  {
+   "id": 74,
+   "object": "arc0-5",
+   "pos": [-1.89, 1.2, 0.916],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 75,
+   "object": "arc0-5",
+   "pos": [-1.889, 1.2, 0.696],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 76,
+   "object": "arc0-5",
+   "pos": [-1.889, 1.2, 1.141],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 77,
+   "object": "ar1-6",
+   "pos": [-0.006, -0.08, 2.326],
+   "scale": 0.008,
+   "props": {
+    "actor": 290
+   }
+  },
+  {
+   "id": 78,
+   "object": "ar1-6",
+   "pos": [-0.006, 0.02, 2.326],
+   "scale": 0.008,
+   "props": {
+    "actor": 290
+   }
+  },
+  {
+   "id": 79,
+   "object": "ar1-6",
+   "pos": [-0.006, 0.12, 2.326],
+   "scale": 0.008,
+   "props": {
+    "actor": 290
+   }
+  },
+  {
+   "id": 80,
+   "object": "ar1-6",
+   "pos": [-0.006, 0.22, 2.326],
+   "scale": 0.008,
+   "props": {
+    "actor": 290
+   }
+  },
+  {
+   "id": 81,
+   "object": "arc0-5",
+   "pos": [-0.1, -0.1, 0.45],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 82,
+   "object": "arc0-21",
+   "pos": [0.499, 2.217, -0.6],
+   "scale": 0.008,
+   "props": {
+    "actLayer": 3,
+    "actor": 178
+   }
+  },
+  {
+   "id": 83,
+   "object": "arc0-21",
+   "pos": [0.499, -0.1, -0.6],
+   "scale": 0.008,
+   "props": {
+    "actLayer": 3,
+    "actor": 178
+   }
+  },
+  {
+   "id": 84,
+   "object": "arc0-21",
+   "pos": [0.884, 1.35, 2.308],
+   "scale": 0.008,
+   "props": {
+    "actLayer": 6,
+    "actor": 178
+   }
+  },
+  {
+   "id": 85,
+   "object": "arc0-25",
+   "pos": [0.25, 4.371, -0.822],
+   "scale": 0.008,
+   "props": {
+    "actLayer": 6,
+    "actor": 179
+   }
+  },
+  {
+   "id": 86,
+   "object": "arc0-25",
+   "pos": [-0.261, 2.921, -0.588],
+   "scale": 0.008,
+   "props": {
+    "actLayer": 6,
+    "actor": 179
+   }
+  },
+  {
+   "id": 87,
+   "object": "arc0-25",
+   "pos": [0.25, 3.871, -0.572],
+   "scale": 0.008,
+   "props": {
+    "actLayer": 6,
+    "actor": 179
+   }
+  },
+  {
+   "id": 88,
+   "object": "arc0-25",
+   "pos": [-1.9, 1.25, -0.649],
+   "scale": 0.008,
+   "props": {
+    "actLayer": 6,
+    "actor": 179
+   }
+  },
+  {
+   "id": 89,
+   "object": "arc0-25",
+   "pos": [-1.89, 1.25, 2.265],
+   "scale": 0.008,
+   "props": {
+    "actLayer": 6,
+    "actor": 179
+   }
+  },
+  {
+   "id": 90,
+   "object": "iwante-dummy",
+   "pos": [0, -1.5, -3.2],
+   "scale": 0.008,
+   "props": {
+    "actor": 176,
+    "collider": "iwante"
+   }
+  },
+  {
+   "id": 91,
+   "object": "star-base",
+   "pos": [0, -1.15, -3.7],
+   "scale": 0.008,
+   "props": {
+    "actor": 180
+   }
+  }
+ ]
+}

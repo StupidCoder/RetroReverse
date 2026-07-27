@@ -1,0 +1,22 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "model3d",
+ "name": "Yurei mucho",
+ "animations": [
+  {
+   "id": "yurei_mucho_attack",
+   "loop": "loop",
+   "clip": "yurei_mucho_attack",
+   "fps": 30
+  },
+  {
+   "id": "yurei_mucho_wait",
+   "loop": "loop",
+   "clip": "yurei_mucho_wait",
+   "fps": 30
+  }
+ ],
+ "model": "yurei_mucho.glb",
+ "skinnedClone": true
+}

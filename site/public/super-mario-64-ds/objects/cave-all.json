@@ -1,0 +1,7 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "model3d",
+ "name": "Hazy Maze Cave",
+ "model": "cave_all.glb"
+}

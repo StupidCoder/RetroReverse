@@ -1,0 +1,1179 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "scene3d",
+ "camera": {
+  "mode": "fly",
+  "pos": [-0.3420000000000001, 9.758, -12.4812],
+  "target": [-0.3420000000000001, -0.2999999999999998, 0.7999999999999998],
+  "fov": 50,
+  "near": 0.01,
+  "far": 500,
+  "fly": {
+   "speed": 1.8526666666666667
+  }
+ },
+ "scene": {
+  "layers": [
+   {
+    "id": "sky",
+    "name": "Skybox",
+    "file": "vr04.glb",
+    "mode": "toggle",
+    "attach": "camera",
+    "renderOrder": -1,
+    "role": "sky"
+   },
+   {
+    "id": "collision",
+    "name": "Collision (KCL)",
+    "file": "col_snow_mt.glb",
+    "mode": "toggle",
+    "visible": false,
+    "role": "collision"
+   }
+  ]
+ },
+ "placements": [
+  {
+   "id": 0,
+   "object": "snow-mt-all",
+   "pos": [0, 0, 0],
+   "name": "Cool, Cool Mountain"
+  },
+  {
+   "id": 1,
+   "object": "sm-lift",
+   "pos": [0.549, -4.35, 6.272],
+   "scale": 0.008,
+   "props": {
+    "actor": 63,
+    "collider": "sm_lift"
+   }
+  },
+  {
+   "id": 2,
+   "object": "obj-tatefuda",
+   "pos": [-2.4, 2.738, -0.9],
+   "rot": [0, -3.141592653589793, 0],
+   "scale": 0.008,
+   "onClick": {
+    "action": "text",
+    "title": "Signpost",
+    "body": "Warning!\nCold, Cold Crevasse \nBelow!"
+   },
+   "props": {
+    "actor": 184,
+    "collider": "obj_tatefuda"
+   }
+  },
+  {
+   "id": 3,
+   "object": "obj-tatefuda",
+   "pos": [-1, 2.5, -1.8],
+   "rot": [0, -1.5707963267948966, 0],
+   "scale": 0.008,
+   "onClick": {
+    "action": "text",
+    "title": "Signpost",
+    "body": "Santa Claus isn't the \nonly one who can go \ndown a chimney! \nCome on in!\n  --Cabin Proprietor"
+   },
+   "props": {
+    "actor": 184,
+    "collider": "obj_tatefuda"
+   }
+  },
+  {
+   "id": 4,
+   "object": "penguin-child",
+   "pos": [-0.156, 3.39, -0.9],
+   "rot": [0, -3.141592653589793, 0],
+   "scale": 0.008,
+   "props": {
+    "actor": 256
+   }
+  },
+  {
+   "id": 5,
+   "object": "huwahuwa-model",
+   "pos": [2.5, 2.499, -1.6],
+   "scale": 0.008,
+   "props": {
+    "actor": 312
+   }
+  },
+  {
+   "id": 6,
+   "object": "b-coin-switch",
+   "pos": [3.1, -0.8, 0.2],
+   "scale": 0.008,
+   "props": {
+    "actor": 10,
+    "collider": "b_coin_switch"
+   }
+  },
+  {
+   "id": 7,
+   "object": "arc0-14",
+   "pos": [-4.8, -1.499, -4.1],
+   "scale": 0.008,
+   "props": {
+    "actor": 21
+   }
+  },
+  {
+   "id": 8,
+   "object": "huwahuwa-model",
+   "pos": [-5.9, -1.7, 2],
+   "scale": 0.008,
+   "props": {
+    "actor": 312
+   }
+  },
+  {
+   "id": 9,
+   "object": "snowman-model",
+   "pos": [-1.35, -1.599, 4.48],
+   "rot": [0, -1.9197769560388798, 0],
+   "scale": 0.008,
+   "props": {
+    "actor": 223
+   }
+  },
+  {
+   "id": 10,
+   "object": "snowman-model",
+   "pos": [0.632, -1.506, 5.057],
+   "rot": [0, -1.9197769560388798, 0],
+   "scale": 0.008,
+   "props": {
+    "actor": 223
+   }
+  },
+  {
+   "id": 11,
+   "object": "obj-tatefuda",
+   "pos": [1.9, -1.499, 3.3],
+   "scale": 0.008,
+   "onClick": {
+    "action": "text",
+    "title": "Signpost",
+    "body": "Warning!\nCold, Cold Crevasse \nBelow!"
+   },
+   "props": {
+    "actor": 184,
+    "collider": "obj_tatefuda"
+   }
+  },
+  {
+   "id": 12,
+   "object": "snowman-model",
+   "pos": [3.129, -2.76, 1.926],
+   "scale": 0.008,
+   "props": {
+    "actor": 223
+   }
+  },
+  {
+   "id": 13,
+   "object": "huwahuwa-model",
+   "pos": [4.1, -3, 0.4],
+   "scale": 0.008,
+   "props": {
+    "actor": 312
+   }
+  },
+  {
+   "id": 14,
+   "object": "penguin-child",
+   "pos": [2.5, -3.447, 3.8],
+   "scale": 0.008,
+   "props": {
+    "actor": 256
+   }
+  },
+  {
+   "id": 15,
+   "object": "penguin",
+   "pos": [3.45, -4.5, 3.85],
+   "scale": 0.008,
+   "props": {
+    "actor": 257
+   }
+  },
+  {
+   "id": 16,
+   "object": "red-bombhei",
+   "pos": [-1.334, -3.5, 5.866],
+   "rot": [0, 0.7853981633974483, 0],
+   "scale": 0.008,
+   "props": {
+    "actor": 181
+   }
+  },
+  {
+   "id": 17,
+   "object": "obj-tatefuda",
+   "pos": [-0.971, -3.5, 5.581],
+   "scale": 0.008,
+   "onClick": {
+    "action": "text",
+    "title": "Signpost",
+    "body": "Danger! Strong Gusts!\nBut the wind makes a\ncomfy ride."
+   },
+   "props": {
+    "actor": 184,
+    "collider": "obj_tatefuda"
+   }
+  },
+  {
+   "id": 18,
+   "object": "houdai",
+   "pos": [1.07, -4.5, 5.6],
+   "rot": [0, -3.141592653589793, 0],
+   "scale": 0.008,
+   "props": {
+    "actor": 207
+   }
+  },
+  {
+   "id": 19,
+   "object": "houdai",
+   "pos": [-4.93, -1.7, 4.5],
+   "scale": 0.008,
+   "props": {
+    "actor": 207
+   }
+  },
+  {
+   "id": 20,
+   "object": "obj-tatefuda",
+   "pos": [-0.4, -4.778, -3.6],
+   "rot": [0, -3.141592653589793, 0],
+   "scale": 0.008,
+   "onClick": {
+    "action": "text",
+    "title": "Signpost",
+    "body": "Do you know the famous\nwall jump?\nHop onto a high place\nby first jumping toward\na wall.\nAs soon as you touch \nthe wall, jump again to\nrocket into the air.\n\n\nOnly a superhero with\na red hat can jump this\nhigh. Practice it well!"
+   },
+   "props": {
+    "actor": 184,
+    "collider": "obj_tatefuda"
+   }
+  },
+  {
+   "id": 21,
+   "object": "obj-heart",
+   "pos": [-0.3, -4.626, -3],
+   "scale": 0.008,
+   "props": {
+    "actor": 297
+   }
+  },
+  {
+   "id": 22,
+   "object": "obj-tatefuda",
+   "pos": [-4.3, -4.753, -4.7],
+   "rot": [0, -1.5707963267948966, 0],
+   "scale": 0.008,
+   "onClick": {
+    "action": "text",
+    "title": "Signpost",
+    "body": "Get a running start \nup the slope with the \nlong jump!\nRemember how to do it?\nJust run, crouch, \nthen jump!"
+   },
+   "props": {
+    "actor": 184,
+    "collider": "obj_tatefuda"
+   }
+  },
+  {
+   "id": 23,
+   "object": "huwahuwa-model",
+   "pos": [-4.9, -4.666, -3.2],
+   "scale": 0.008,
+   "props": {
+    "actor": 312
+   }
+  },
+  {
+   "id": 24,
+   "object": "huwahuwa-model",
+   "pos": [-4.9, -4.59, -1.8],
+   "scale": 0.008,
+   "props": {
+    "actor": 312
+   }
+  },
+  {
+   "id": 25,
+   "object": "houdai",
+   "pos": [-3.53, -4.5, 4.69],
+   "scale": 0.008,
+   "props": {
+    "actor": 207
+   }
+  },
+  {
+   "id": 26,
+   "object": "arc0-14",
+   "pos": [-1.6, -0.25, 1.7],
+   "scale": 0.008,
+   "props": {
+    "actor": 21
+   }
+  },
+  {
+   "id": 27,
+   "object": "obj-ice-board",
+   "pos": [3.433, -4.535, 4.5],
+   "scale": 0.008,
+   "props": {
+    "actor": 295,
+    "collider": "obj_ice_board"
+   }
+  },
+  {
+   "id": 28,
+   "object": "ar1-15",
+   "pos": [-5.079, -1.1, 2.924],
+   "scale": 0.008,
+   "props": {
+    "actor": 276
+   }
+  },
+  {
+   "id": 29,
+   "object": "cannon-shutter",
+   "pos": [1.07, -4.5, 5.6],
+   "scale": 0.008,
+   "props": {
+    "actor": 14,
+    "collider": "cannon_shutter"
+   }
+  },
+  {
+   "id": 30,
+   "object": "cannon-shutter",
+   "pos": [-3.53, -4.5, 4.69],
+   "scale": 0.008,
+   "props": {
+    "actor": 14,
+    "collider": "cannon_shutter"
+   }
+  },
+  {
+   "id": 31,
+   "object": "cannon-shutter",
+   "pos": [-4.93, -1.7, 4.5],
+   "scale": 0.008,
+   "props": {
+    "actor": 14,
+    "collider": "cannon_shutter"
+   }
+  },
+  {
+   "id": 32,
+   "object": "arc0-16",
+   "pos": [-4.254, -1.308, -0.598],
+   "rot": [0, -3.141592653589793, 0],
+   "scale": 0.008,
+   "props": {
+    "actor": 269
+   }
+  },
+  {
+   "id": 33,
+   "object": "arc0-20",
+   "pos": [-5.54, -1.7, 3.347],
+   "rot": [0, -3.141592653589793, 0],
+   "scale": 0.008,
+   "props": {
+    "actor": 269
+   }
+  },
+  {
+   "id": 34,
+   "object": "ice-block-ll",
+   "pos": [-0.919, -0.5, 2.147],
+   "rot": [0, -0.31408256631958503, 0],
+   "scale": 0.008,
+   "props": {
+    "actor": 18,
+    "collider": "ice_block_ll"
+   }
+  },
+  {
+   "id": 35,
+   "object": "ice-block-ll",
+   "pos": [-0.919, -0.2, 2.147],
+   "rot": [0, -0.31408256631958503, 0],
+   "scale": 0.008,
+   "props": {
+    "actor": 18,
+    "collider": "ice_block_ll"
+   }
+  },
+  {
+   "id": 36,
+   "object": "ice-block-ll",
+   "pos": [-0.919, 0.1, 2.147],
+   "rot": [0, -0.31408256631958503, 0],
+   "scale": 0.008,
+   "props": {
+    "actor": 18,
+    "collider": "ice_block_ll"
+   }
+  },
+  {
+   "id": 37,
+   "object": "kuribo-model",
+   "pos": [4.472, -4.5, 2.206],
+   "scale": 0.008,
+   "props": {
+    "actor": 200
+   }
+  },
+  {
+   "id": 38,
+   "object": "kuribo-model",
+   "pos": [4.722, -4.5, 2.556],
+   "scale": 0.008,
+   "props": {
+    "actor": 200
+   }
+  },
+  {
+   "id": 39,
+   "object": "ice-block-ll",
+   "pos": [-0.828, 3.37, -0.916],
+   "scale": 0.008,
+   "props": {
+    "actor": 18,
+    "collider": "ice_block_ll"
+   }
+  },
+  {
+   "id": 40,
+   "object": "obj-star-switch",
+   "pos": [-0.98, -3.5, 5.885],
+   "scale": 0.008,
+   "props": {
+    "actor": 12,
+    "collider": "obj_star_switch"
+   }
+  },
+  {
+   "id": 41,
+   "object": "broken-block-l",
+   "pos": [-3.361, -1.405, 1.28],
+   "scale": 0.008,
+   "props": {
+    "actor": 15,
+    "collider": "broken_block_l"
+   }
+  },
+  {
+   "id": 42,
+   "object": "owl",
+   "pos": [1.218, -3.9, 5.345],
+   "scale": 0.008,
+   "props": {
+    "actor": 234
+   }
+  },
+  {
+   "id": 43,
+   "object": "broken-block-l",
+   "pos": [-3.607, -1.41, 1.498],
+   "scale": 0.008,
+   "props": {
+    "actor": 15,
+    "collider": "broken_block_l"
+   }
+  },
+  {
+   "id": 44,
+   "object": "broken-block-l",
+   "pos": [-3.635, -1.362, 0.417],
+   "scale": 0.008,
+   "props": {
+    "actor": 15,
+    "collider": "broken_block_l"
+   }
+  },
+  {
+   "id": 45,
+   "object": "yajirusi-r",
+   "pos": [2.962, -4.584, 0.111],
+   "rot": [0, 1.3089649810626662, 0],
+   "scale": 0.008,
+   "props": {
+    "actor": 300,
+    "collider": "yajirusi_r"
+   }
+  },
+  {
+   "id": 46,
+   "object": "yuki-tree",
+   "pos": [-1.727, 2.5, -1.751],
+   "scale": 0.008,
+   "props": {
+    "actor": 286
+   }
+  },
+  {
+   "id": 47,
+   "object": "yuki-tree",
+   "pos": [-0.477, 2.5, -2.251],
+   "scale": 0.008,
+   "props": {
+    "actor": 286
+   }
+  },
+  {
+   "id": 48,
+   "object": "arc0-5",
+   "pos": [-0.18, 3, -1.44],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 49,
+   "object": "arc0-5",
+   "pos": [-0.18, 3.15, -1.44],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 50,
+   "object": "arc0-5",
+   "pos": [-0.18, 3.3, -1.44],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 51,
+   "object": "arc0-5",
+   "pos": [-0.18, 3.45, -1.44],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 52,
+   "object": "arc0-5",
+   "pos": [-0.18, 3.6, -1.44],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 53,
+   "object": "yuki-tree",
+   "pos": [2.184, 2.499, -1.592],
+   "scale": 0.008,
+   "props": {
+    "actor": 286
+   }
+  },
+  {
+   "id": 54,
+   "object": "yuki-tree",
+   "pos": [2.816, 2.499, -1.6],
+   "scale": 0.008,
+   "props": {
+    "actor": 286
+   }
+  },
+  {
+   "id": 55,
+   "object": "arc0-5",
+   "pos": [3.5, 1.948, -0.4],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 56,
+   "object": "arc0-5",
+   "pos": [3.5, 1.92, -0.2],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 57,
+   "object": "arc0-5",
+   "pos": [3.5, 1.892, 0],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 58,
+   "object": "arc0-5",
+   "pos": [3.5, 1.86, 0.2],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 59,
+   "object": "arc0-5",
+   "pos": [3.5, 1.828, 0.4],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 60,
+   "object": "arc0-5",
+   "pos": [-1.2, 1.148, 1.88],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 61,
+   "object": "arc0-5",
+   "pos": [-1.4, 1.14, 1.8],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 62,
+   "object": "arc0-5",
+   "pos": [-1.6, 1.132, 1.74],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 63,
+   "object": "arc0-5",
+   "pos": [-1.8, 1.123, 1.68],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 64,
+   "object": "arc0-5",
+   "pos": [-2, 1.114, 1.6],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 65,
+   "object": "yuki-tree",
+   "pos": [-3.363, 0.787, -2.65],
+   "scale": 0.008,
+   "props": {
+    "actor": 286
+   }
+  },
+  {
+   "id": 66,
+   "object": "arc0-5",
+   "pos": [-1.1, 0.444, -2.7],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 67,
+   "object": "arc0-5",
+   "pos": [-0.9, 0.414, -2.7],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 68,
+   "object": "arc0-5",
+   "pos": [-0.7, 0.385, -2.7],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 69,
+   "object": "arc0-5",
+   "pos": [-0.5, 0.353, -2.7],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 70,
+   "object": "arc0-5",
+   "pos": [-0.3, 0.321, -2.7],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 71,
+   "object": "arc0-5",
+   "pos": [-1.2, -1.126, -3.7],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 72,
+   "object": "arc0-5",
+   "pos": [-1.4, -1.133, -3.7],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 73,
+   "object": "arc0-5",
+   "pos": [-1.6, -1.14, -3.7],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 74,
+   "object": "arc0-5",
+   "pos": [-1.8, -1.146, -3.7],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 75,
+   "object": "arc0-5",
+   "pos": [-2, -1.153, -3.7],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 76,
+   "object": "yuki-tree",
+   "pos": [-5.755, -1.7, 0.792],
+   "scale": 0.008,
+   "props": {
+    "actor": 286
+   }
+  },
+  {
+   "id": 77,
+   "object": "yuki-tree",
+   "pos": [-5.079, -1.7, 2.924],
+   "scale": 0.008,
+   "props": {
+    "actor": 286
+   }
+  },
+  {
+   "id": 78,
+   "object": "yuki-tree",
+   "pos": [-5.379, -1.7, 4.051],
+   "scale": 0.008,
+   "props": {
+    "actor": 286
+   }
+  },
+  {
+   "id": 79,
+   "object": "yuki-tree",
+   "pos": [-4.47, -1.7, 4.701],
+   "scale": 0.008,
+   "props": {
+    "actor": 286
+   }
+  },
+  {
+   "id": 80,
+   "object": "yuki-tree",
+   "pos": [-1.232, -3.5, 5.676],
+   "scale": 0.008,
+   "props": {
+    "actor": 286
+   }
+  },
+  {
+   "id": 81,
+   "object": "yuki-tree",
+   "pos": [1.218, -4.5, 5.345],
+   "scale": 0.008,
+   "props": {
+    "actor": 286
+   }
+  },
+  {
+   "id": 82,
+   "object": "yuki-tree",
+   "pos": [1.942, -4.5, 4.833],
+   "scale": 0.008,
+   "props": {
+    "actor": 286
+   }
+  },
+  {
+   "id": 83,
+   "object": "arc0-21",
+   "pos": [-2, -2.159, -2.8],
+   "scale": 0.008,
+   "props": {
+    "actor": 178
+   }
+  },
+  {
+   "id": 84,
+   "object": "arc0-5",
+   "pos": [-2.45, -4.765, -4],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 85,
+   "object": "arc0-5",
+   "pos": [-2.5, -4.765, -4.1],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 86,
+   "object": "arc0-5",
+   "pos": [-2.55, -4.763, -3.94],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 87,
+   "object": "arc0-5",
+   "pos": [-2.55, -4.766, -4.2],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 88,
+   "object": "arc0-5",
+   "pos": [-2.6, -4.763, -4.04],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 89,
+   "object": "arc0-5",
+   "pos": [-2.65, -4.761, -3.88],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 90,
+   "object": "arc0-5",
+   "pos": [-2.75, -4.762, -4.08],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 91,
+   "object": "arc0-5",
+   "pos": [-2.9, -4.759, -4.13],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 92,
+   "object": "yuki-tree",
+   "pos": [-3.661, -4.5, 4.359],
+   "scale": 0.008,
+   "props": {
+    "actor": 286
+   }
+  },
+  {
+   "id": 93,
+   "object": "ar1-6",
+   "pos": [3.5, -0.649, -0.75],
+   "scale": 0.008,
+   "props": {
+    "actor": 290
+   }
+  },
+  {
+   "id": 94,
+   "object": "ar1-6",
+   "pos": [3.5, -0.36, -1.7],
+   "scale": 0.008,
+   "props": {
+    "actor": 290
+   }
+  },
+  {
+   "id": 95,
+   "object": "star-base",
+   "pos": [3.1, -4.4, 5.15],
+   "scale": 0.008,
+   "props": {
+    "actor": 180
+   }
+  },
+  {
+   "id": 96,
+   "object": "arc0-7",
+   "pos": [-3.1, -1.202, -2.1],
+   "scale": 0.008,
+   "props": {
+    "actor": 289
+   }
+  },
+  {
+   "id": 97,
+   "object": "arc0-7",
+   "pos": [-3.7, -2.1, 6.3],
+   "scale": 0.008,
+   "props": {
+    "actor": 289
+   }
+  },
+  {
+   "id": 98,
+   "object": "arc0-7",
+   "pos": [2.754, -1.411, 2.552],
+   "scale": 0.008,
+   "props": {
+    "actor": 289
+   }
+  },
+  {
+   "id": 99,
+   "object": "arc0-7",
+   "pos": [2.7, -4.584, 1.2],
+   "scale": 0.008,
+   "props": {
+    "actor": 289
+   }
+  },
+  {
+   "id": 100,
+   "object": "arc0-7",
+   "pos": [4.3, -4.499, -1.5],
+   "scale": 0.008,
+   "props": {
+    "actor": 289
+   }
+  },
+  {
+   "id": 101,
+   "object": "arc0-7",
+   "pos": [-0.915, -0.4, 2.146],
+   "scale": 0.008,
+   "props": {
+    "actor": 289
+   }
+  },
+  {
+   "id": 102,
+   "object": "star-base",
+   "pos": [4.1, -1.15, 0.4],
+   "scale": 0.008,
+   "props": {
+    "actor": 180
+   }
+  },
+  {
+   "id": 103,
+   "object": "arc0-21",
+   "pos": [-1.1, 2.5, -2.25],
+   "scale": 0.008,
+   "props": {
+    "actor": 178
+   }
+  },
+  {
+   "id": 104,
+   "object": "arc0-7",
+   "pos": [-0.828, 3.49, -0.916],
+   "scale": 0.008,
+   "props": {
+    "actor": 289
+   }
+  },
+  {
+   "id": 105,
+   "object": "star-base",
+   "pos": [3.431, -4.8, 4.499],
+   "scale": 0.008,
+   "props": {
+    "actor": 180
+   }
+  },
+  {
+   "id": 106,
+   "object": "shell-green",
+   "pos": [-3.359, -1.405, 1.279],
+   "scale": 0.008,
+   "props": {
+    "actor": 323
+   }
+  },
+  {
+   "id": 107,
+   "object": "arc0-21",
+   "pos": [-0.18, 3.794, -1.442],
+   "scale": 0.008,
+   "props": {
+    "actor": 178
+   }
+  },
+  {
+   "id": 108,
+   "object": "arc0-7",
+   "pos": [1.22, -3.8, 5.352],
+   "scale": 0.008,
+   "props": {
+    "actor": 289
+   }
+  },
+  {
+   "id": 109,
+   "object": "kuribo-model",
+   "pos": [5.216, -4.5, 0.492],
+   "rot": [0, 1.5707963267948966, 0],
+   "scale": 0.008,
+   "props": {
+    "actLayer": 1,
+    "actor": 200
+   }
+  },
+  {
+   "id": 110,
+   "object": "big-snowman-head",
+   "pos": [-4.1, -1.22, 1.79],
+   "rot": [0, -1.5707963267948966, 0],
+   "scale": 0.008,
+   "props": {
+    "actLayer": 1,
+    "actor": 272
+   }
+  },
+  {
+   "id": 111,
+   "object": "star-base",
+   "pos": [2.45, -4.4, 5.65],
+   "scale": 0.008,
+   "props": {
+    "actLayer": 1,
+    "actor": 180
+   }
+  },
+  {
+   "id": 112,
+   "object": "red-bombhei",
+   "pos": [-0.599, 2.5, -2.438],
+   "rot": [0, -1.5707963267948966, 0],
+   "scale": 0.008,
+   "props": {
+    "actLayer": 2,
+    "actor": 181
+   }
+  },
+  {
+   "id": 113,
+   "object": "arc0-17",
+   "pos": [4.908, -4.5, 1.17],
+   "rot": [0, -3.141592653589793, 0],
+   "scale": 0.008,
+   "props": {
+    "actLayer": 2,
+    "actor": 269
+   }
+  },
+  {
+   "id": 114,
+   "object": "red-bombhei",
+   "pos": [-3.3, -1.23, -1.9],
+   "rot": [0, -2.356194490192345, 0],
+   "scale": 0.008,
+   "props": {
+    "actLayer": 4,
+    "actor": 181
+   }
+  },
+  {
+   "id": 115,
+   "object": "big-snowman-body",
+   "pos": [2.5, 2.71, -1.05],
+   "scale": 0.008,
+   "props": {
+    "actLayer": 5,
+    "actor": 274
+   }
+  },
+  {
+   "id": 116,
+   "object": "big-snowman-head",
+   "pos": [-4.1, -1.22, 1.79],
+   "rot": [0, -1.5707963267948966, 0],
+   "scale": 0.008,
+   "props": {
+    "actLayer": 5,
+    "actor": 273
+   }
+  },
+  {
+   "id": 117,
+   "object": "star-base",
+   "pos": [-4.5, -1.299, 1.65],
+   "scale": 0.008,
+   "props": {
+    "actLayer": 5,
+    "actor": 180
+   }
+  }
+ ]
+}

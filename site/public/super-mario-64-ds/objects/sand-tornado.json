@@ -1,0 +1,16 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "model3d",
+ "name": "Sand tornado",
+ "animations": [
+  {
+   "id": "sand_tornado",
+   "loop": "loop",
+   "clip": "sand_tornado",
+   "fps": 30
+  }
+ ],
+ "model": "sand_tornado.glb",
+ "skinnedClone": true
+}

@@ -1,0 +1,145 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "scene3d",
+ "camera": {
+  "mode": "fly",
+  "pos": [0.25, 2.125, -6.475],
+  "target": [0.25, 0, -1.375],
+  "fov": 50,
+  "near": 0.01,
+  "far": 500,
+  "fly": {
+   "speed": 1
+  }
+ },
+ "scene": {
+  "layers": [
+   {
+    "id": "sky",
+    "name": "Skybox",
+    "file": "vr02.glb",
+    "mode": "toggle",
+    "attach": "camera",
+    "renderOrder": -1,
+    "role": "sky"
+   },
+   {
+    "id": "collision",
+    "name": "Collision (KCL)",
+    "file": "col_test_map_b.glb",
+    "mode": "toggle",
+    "visible": false,
+    "role": "collision"
+   }
+  ]
+ },
+ "placements": [
+  {
+   "id": 0,
+   "object": "test-map-b-all",
+   "pos": [0, 0, 0],
+   "name": "Test map B"
+  },
+  {
+   "id": 1,
+   "object": "onimasu",
+   "pos": [-1.75, 0, -0.75],
+   "scale": 0.008,
+   "props": {
+    "actor": 309,
+    "collider": "onimasu"
+   }
+  },
+  {
+   "id": 2,
+   "object": "onimasu",
+   "pos": [-0.75, 0, -0.75],
+   "scale": 0.008,
+   "props": {
+    "actor": 309,
+    "collider": "onimasu"
+   }
+  },
+  {
+   "id": 3,
+   "object": "onimasu",
+   "pos": [0.25, 0, -0.75],
+   "scale": 0.008,
+   "props": {
+    "actor": 309,
+    "collider": "onimasu"
+   }
+  },
+  {
+   "id": 4,
+   "object": "onimasu",
+   "pos": [1.25, 0, -0.75],
+   "scale": 0.008,
+   "props": {
+    "actor": 309,
+    "collider": "onimasu"
+   }
+  },
+  {
+   "id": 5,
+   "object": "onimasu",
+   "pos": [2.25, 0, -0.75],
+   "scale": 0.008,
+   "props": {
+    "actor": 309,
+    "collider": "onimasu"
+   }
+  },
+  {
+   "id": 6,
+   "object": "onimasu",
+   "pos": [-1.75, 0, 0.75],
+   "scale": 0.008,
+   "props": {
+    "actor": 309,
+    "collider": "onimasu"
+   }
+  },
+  {
+   "id": 7,
+   "object": "onimasu",
+   "pos": [-0.75, 0, 0.75],
+   "scale": 0.008,
+   "props": {
+    "actor": 309,
+    "collider": "onimasu"
+   }
+  },
+  {
+   "id": 8,
+   "object": "onimasu",
+   "pos": [0.25, 0, 0.75],
+   "scale": 0.008,
+   "props": {
+    "actor": 309,
+    "collider": "onimasu"
+   }
+  },
+  {
+   "id": 9,
+   "object": "onimasu",
+   "pos": [1.25, 0, 0.75],
+   "scale": 0.008,
+   "props": {
+    "actor": 309,
+    "collider": "onimasu"
+   }
+  },
+  {
+   "id": 10,
+   "object": "onimasu",
+   "pos": [2.25, 0, 0.75],
+   "scale": 0.008,
+   "props": {
+    "actor": 309,
+    "collider": "onimasu"
+   }
+  }
+ ]
+}

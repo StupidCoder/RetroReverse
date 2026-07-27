@@ -1,0 +1,748 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "scene3d",
+ "camera": {
+  "mode": "fly",
+  "pos": [-0.81, 12.175, -14.614999999999998],
+  "target": [-0.81, 1.45, -0.2749999999999999],
+  "fov": 50,
+  "near": 0.01,
+  "far": 500,
+  "fly": {
+   "speed": 1.9916666666666665
+  }
+ },
+ "scene": {
+  "layers": [
+   {
+    "id": "collision",
+    "name": "Collision (KCL)",
+    "file": "col_horisoko.glb",
+    "mode": "toggle",
+    "visible": false,
+    "role": "collision"
+   }
+  ]
+ },
+ "placements": [
+  {
+   "id": 0,
+   "object": "horisoko-all",
+   "pos": [0, 0, 0],
+   "name": "The Secret under the Moat"
+  },
+  {
+   "id": 1,
+   "object": "obj-seesaw",
+   "pos": [-2, -3.3, -2],
+   "scale": 0.008,
+   "props": {
+    "actor": 28,
+    "collider": "obj_seesaw"
+   }
+  },
+  {
+   "id": 2,
+   "object": "obj-seesaw",
+   "pos": [0.15, -1.87, -6.11],
+   "rot": [0, 1.5707963267948966, 0],
+   "scale": 0.008,
+   "props": {
+    "actor": 28,
+    "collider": "obj_seesaw"
+   }
+  },
+  {
+   "id": 3,
+   "object": "hs-updown-lift",
+   "pos": [-1.125, -2.55, -6.11],
+   "rot": [0, -1.5707963267948966, 0],
+   "scale": 0.008,
+   "props": {
+    "actor": 30,
+    "collider": "hs_updown_lift"
+   }
+  },
+  {
+   "id": 4,
+   "object": "hs-updown-lift",
+   "pos": [1.425, -1.75, -6.11],
+   "rot": [0, 1.5707963267948966, 0],
+   "scale": 0.008,
+   "props": {
+    "actor": 30,
+    "collider": "hs_updown_lift"
+   }
+  },
+  {
+   "id": 5,
+   "object": "hs-updown-lift",
+   "pos": [2.2, -2.05, -6.11],
+   "rot": [0, -1.5707963267948966, 0],
+   "scale": 0.008,
+   "props": {
+    "actor": 30,
+    "collider": "hs_updown_lift"
+   }
+  },
+  {
+   "id": 6,
+   "object": "hs-updown-lift",
+   "pos": [3.175, -1.25, -6.11],
+   "rot": [0, -1.5707963267948966, 0],
+   "scale": 0.008,
+   "props": {
+    "actor": 30,
+    "collider": "hs_updown_lift"
+   }
+  },
+  {
+   "id": 7,
+   "object": "ar1-15",
+   "pos": [-3, 6.2, -6.2],
+   "scale": 0.008,
+   "props": {
+    "actor": 276
+   }
+  },
+  {
+   "id": 8,
+   "object": "ar1-15",
+   "pos": [-5.8, -0.384, -1.034],
+   "scale": 0.008,
+   "props": {
+    "actor": 276
+   }
+  },
+  {
+   "id": 9,
+   "object": "arc0-14",
+   "pos": [-3.4, 2.776, -3.152],
+   "rot": [0, 0.7853981633974483, 0],
+   "scale": 0.008,
+   "props": {
+    "actor": 21
+   }
+  },
+  {
+   "id": 10,
+   "object": "hatena-karabox",
+   "pos": [-5.94, -2.95, 1.2],
+   "rot": [0, 0.7853981633974483, 0],
+   "scale": 0.008,
+   "props": {
+    "actor": 20
+   }
+  },
+  {
+   "id": 11,
+   "object": "arc0-14",
+   "pos": [-2.06, -2.15, -5.8],
+   "rot": [0, 0.7853981633974483, 0],
+   "scale": 0.008,
+   "props": {
+    "actor": 21
+   }
+  },
+  {
+   "id": 12,
+   "object": "hatena-karabox",
+   "pos": [3.83, 0.25, -6.11],
+   "rot": [0, 0.7853981633974483, 0],
+   "scale": 0.008,
+   "props": {
+    "actor": 20
+   }
+  },
+  {
+   "id": 13,
+   "object": "birikyu",
+   "pos": [-2, -2.7, -3.8],
+   "scale": 0.008,
+   "props": {
+    "actor": 266
+   }
+  },
+  {
+   "id": 14,
+   "object": "keronpa",
+   "pos": [-3.5, 5.7, -6],
+   "scale": 0.008,
+   "props": {
+    "actor": 270
+   }
+  },
+  {
+   "id": 15,
+   "object": "keronpa",
+   "pos": [-3, -3.1, 0.9],
+   "scale": 0.008,
+   "props": {
+    "actor": 270
+   }
+  },
+  {
+   "id": 16,
+   "object": "keronpa",
+   "pos": [-4.098, -3.1, 1.519],
+   "scale": 0.008,
+   "props": {
+    "actor": 270
+   }
+  },
+  {
+   "id": 17,
+   "object": "keronpa",
+   "pos": [-1.673, -3.1, 1.519],
+   "scale": 0.008,
+   "props": {
+    "actor": 270
+   }
+  },
+  {
+   "id": 18,
+   "object": "keronpa",
+   "pos": [-2.301, -3.1, 0.54],
+   "scale": 0.008,
+   "props": {
+    "actor": 270
+   }
+  },
+  {
+   "id": 19,
+   "object": "keronpa",
+   "pos": [-1.702, -3.1, -0.306],
+   "scale": 0.008,
+   "props": {
+    "actor": 270
+   }
+  },
+  {
+   "id": 20,
+   "object": "keronpa",
+   "pos": [-2.301, -3.1, -0.993],
+   "scale": 0.008,
+   "props": {
+    "actor": 270
+   }
+  },
+  {
+   "id": 21,
+   "object": "keronpa",
+   "pos": [-2, -2.7, -3.8],
+   "scale": 0.008,
+   "props": {
+    "actor": 270
+   }
+  },
+  {
+   "id": 22,
+   "object": "hatena-karabox",
+   "pos": [-6.2, -3.05, 5.1],
+   "scale": 0.008,
+   "props": {
+    "actor": 20
+   }
+  },
+  {
+   "id": 23,
+   "object": "hatena-karabox",
+   "pos": [-6.2, 0.45, 3.55],
+   "scale": 0.008,
+   "props": {
+    "actor": 20
+   }
+  },
+  {
+   "id": 24,
+   "object": "red-bombhei",
+   "pos": [-2.28, -2.4, -6.25],
+   "rot": [0, 0.523566817665218, 0],
+   "scale": 0.008,
+   "props": {
+    "actor": 181
+   }
+  },
+  {
+   "id": 25,
+   "object": "obj-star-switch",
+   "pos": [-6, -3.3, 4.3],
+   "scale": 0.008,
+   "props": {
+    "actor": 12,
+    "collider": "obj_star_switch"
+   }
+  },
+  {
+   "id": 26,
+   "object": "ar1-15",
+   "pos": [-6.2, 1.5, 3.55],
+   "rot": [0, 1.5707963267948966, 0],
+   "scale": 0.008,
+   "props": {
+    "actor": 276
+   }
+  },
+  {
+   "id": 27,
+   "object": "arc0-17",
+   "pos": [-2.27, -2.8, -4.658],
+   "scale": 0.008,
+   "props": {
+    "actor": 269
+   }
+  },
+  {
+   "id": 28,
+   "object": "arc0-16",
+   "pos": [4.4, 0.025, -6.065],
+   "scale": 0.008,
+   "props": {
+    "actor": 269
+   }
+  },
+  {
+   "id": 29,
+   "object": "hatena-karabox",
+   "pos": [-4.6, 1.806, -2.4],
+   "rot": [0, 0.7853981633974483, 0],
+   "scale": 0.008,
+   "props": {
+    "actor": 20
+   }
+  },
+  {
+   "id": 30,
+   "object": "arc0-17",
+   "pos": [-2.29, -2.8, -4.658],
+   "scale": 0.008,
+   "props": {
+    "actor": 269
+   }
+  },
+  {
+   "id": 31,
+   "object": "arc0-16",
+   "pos": [4.405, 0.025, -6.065],
+   "scale": 0.008,
+   "props": {
+    "actor": 269
+   }
+  },
+  {
+   "id": 32,
+   "object": "arc0-7",
+   "pos": [-5.8, 4.467, -4.563],
+   "scale": 0.008,
+   "props": {
+    "actor": 289
+   }
+  },
+  {
+   "id": 33,
+   "object": "arc0-7",
+   "pos": [-4.6, 3.497, -3.858],
+   "scale": 0.008,
+   "props": {
+    "actor": 289
+   }
+  },
+  {
+   "id": 34,
+   "object": "arc0-7",
+   "pos": [-4.6, -0.222, -1.152],
+   "scale": 0.008,
+   "props": {
+    "actor": 289
+   }
+  },
+  {
+   "id": 35,
+   "object": "arc0-7",
+   "pos": [-3.4, -0.546, -0.917],
+   "scale": 0.008,
+   "props": {
+    "actor": 289
+   }
+  },
+  {
+   "id": 36,
+   "object": "arc0-7",
+   "pos": [-0.5, -1.54, -6.11],
+   "scale": 0.008,
+   "props": {
+    "actor": 289
+   }
+  },
+  {
+   "id": 37,
+   "object": "arc0-7",
+   "pos": [0.8, -1.54, -6.11],
+   "scale": 0.008,
+   "props": {
+    "actor": 289
+   }
+  },
+  {
+   "id": 38,
+   "object": "arc0-7",
+   "pos": [2.73, -0.85, -6.11],
+   "scale": 0.008,
+   "props": {
+    "actor": 289
+   }
+  },
+  {
+   "id": 39,
+   "object": "arc0-7",
+   "pos": [4.4, 0, -5.4],
+   "scale": 0.008,
+   "props": {
+    "actor": 289
+   }
+  },
+  {
+   "id": 40,
+   "object": "arc0-5",
+   "pos": [-2.04, -3.2, 0.2],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 41,
+   "object": "arc0-5",
+   "pos": [-2.04, -3.2, 0.05],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 42,
+   "object": "arc0-5",
+   "pos": [-2.04, -3.2, -0.1],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 43,
+   "object": "arc0-5",
+   "pos": [-2.04, -3.2, -0.25],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 44,
+   "object": "arc0-5",
+   "pos": [-2.04, -3.2, -0.4],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 45,
+   "object": "arc0-5",
+   "pos": [4.14, 0, -4.85],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 46,
+   "object": "arc0-5",
+   "pos": [4.68, 0, -4.85],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 47,
+   "object": "arc0-5",
+   "pos": [4.68, 0, -4.35],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 48,
+   "object": "star-base",
+   "pos": [4.45, 0.05, -4.4],
+   "scale": 0.008,
+   "props": {
+    "actor": 180
+   }
+  },
+  {
+   "id": 49,
+   "object": "arc0-5",
+   "pos": [-6.2, -1.8, 5.15],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 50,
+   "object": "arc0-5",
+   "pos": [-6.2, -0.6, 5.15],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 51,
+   "object": "arc0-5",
+   "pos": [-6.2, -2.2, 5.15],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 52,
+   "object": "arc0-5",
+   "pos": [-6.2, -2, 5.15],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 53,
+   "object": "arc0-5",
+   "pos": [-6.2, -1.6, 5.15],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 54,
+   "object": "arc0-5",
+   "pos": [-6.2, -0.8, 5.15],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 55,
+   "object": "arc0-5",
+   "pos": [-6.2, -1.2, 5.15],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 56,
+   "object": "arc0-5",
+   "pos": [-6.2, -1, 5.15],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 57,
+   "object": "arc0-5",
+   "pos": [-6.2, -1.4, 5.15],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 58,
+   "object": "arc0-5",
+   "pos": [-6.3, 0.2, 4.6],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 59,
+   "object": "arc0-5",
+   "pos": [-6.3, 0.2, 4.8],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 60,
+   "object": "arc0-5",
+   "pos": [-6.3, 0.2, 4.4],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 61,
+   "object": "arc0-5",
+   "pos": [-6.2, -2.4, 5.15],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 62,
+   "object": "arc0-5",
+   "pos": [-5.9, -3.3, 3.9],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 63,
+   "object": "arc0-5",
+   "pos": [-6.3, -3.3, 5.7],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 64,
+   "object": "arc0-5",
+   "pos": [-6.3, -3.3, 3.9],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 65,
+   "object": "arc0-5",
+   "pos": [-6.1, -3.3, 5.7],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 66,
+   "object": "arc0-5",
+   "pos": [-6.1, -3.3, 3.9],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 67,
+   "object": "arc0-5",
+   "pos": [-5.9, -3.3, 5.7],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 68,
+   "object": "star-base",
+   "pos": [-6.2, 2.64, 4.2],
+   "scale": 0.008,
+   "props": {
+    "actor": 180
+   }
+  },
+  {
+   "id": 69,
+   "object": "arc0-5",
+   "pos": [-6.2, -2.6, 5.15],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 70,
+   "object": "arc0-5",
+   "pos": [-6.2, -0.2, 5.15],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 71,
+   "object": "arc0-5",
+   "pos": [-6.2, 0, 5.15],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 72,
+   "object": "arc0-5",
+   "pos": [-6.2, -0.4, 5.15],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 73,
+   "object": "arc0-5",
+   "pos": [-6.2, 1.3, 3.55],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 74,
+   "object": "arc0-5",
+   "pos": [-6.2, 1.1, 3.55],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 75,
+   "object": "arc0-5",
+   "pos": [-6.2, 1.9, 3.55],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 76,
+   "object": "arc0-5",
+   "pos": [-6.2, 2.1, 3.55],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 77,
+   "object": "arc0-5",
+   "pos": [-6.2, 1.7, 3.55],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  }
+ ]
+}

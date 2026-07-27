@@ -1,0 +1,34 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "model3d",
+ "name": "Menbo",
+ "animations": [
+  {
+   "id": "menbo_move1",
+   "loop": "loop",
+   "clip": "menbo_move1",
+   "fps": 30
+  },
+  {
+   "id": "menbo_move2",
+   "loop": "loop",
+   "clip": "menbo_move2",
+   "fps": 30
+  },
+  {
+   "id": "menbo_wait1",
+   "loop": "loop",
+   "clip": "menbo_wait1",
+   "fps": 30
+  },
+  {
+   "id": "menbo_wait2",
+   "loop": "loop",
+   "clip": "menbo_wait2",
+   "fps": 30
+  }
+ ],
+ "model": "menbo.glb",
+ "skinnedClone": true
+}

@@ -1,0 +1,7 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "model3d",
+ "name": "Wet-Dry World",
+ "model": "water_city_all.glb"
+}

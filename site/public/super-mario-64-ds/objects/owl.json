@@ -1,0 +1,28 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "model3d",
+ "name": "Owl",
+ "animations": [
+  {
+   "id": "owl_fly_1",
+   "loop": "loop",
+   "clip": "owl_fly_1",
+   "fps": 30
+  },
+  {
+   "id": "owl_fly_2",
+   "loop": "loop",
+   "clip": "owl_fly_2",
+   "fps": 30
+  },
+  {
+   "id": "owl_fly_free",
+   "loop": "loop",
+   "clip": "owl_fly_free",
+   "fps": 30
+  }
+ ],
+ "model": "owl.glb",
+ "skinnedClone": true
+}

@@ -1,200 +1,148 @@
-// webexport runs the whole Super Mario 64 DS extraction from the raw cartridge
-// and writes the Studio's common format-2 asset tree (FORMAT2.md) under one
-// output root. It replaces the manual 6-tool pipeline (ndsextract, actororacle,
-// exportbmd, exportkcl, exportlevelobjs, musicrender): it stages the filesystem
-// + decompressed binaries in a temp dir, renders the SDAT music, runs the
-// actor-binding oracle, exports BMD models and KCL collision to GLB, and builds
-// the per-level object database — reusing the same sm64ds / nitro / nds / sdat
-// package APIs the individual commands call.
+// webexport builds Super Mario 64 DS's Retro-X game tree from the raw
+// cartridge. It stages the filesystem + decompressed binaries in a temp dir,
+// renders the SDAT music, runs the ACTOR ORACLE (the game's own actor
+// create/init code, natively — no heuristics) to bind every placed actor to
+// its model, and writes:
 //
-//	webexport [-in rom.nds] [-o DIR] [-only music,models,levels,all]
+//	levels/<stem>.json          per stage: the stage model placed at the
+//	                            origin, the vrbox skybox as a camera-attached
+//	                            layer, the stage KCL as a toggleable
+//	                            collision layer, and every placed actor at
+//	                            its oracle-bound model
+//	levels/col_<kcl>.glb        the stage collision meshes
+//	objects/<id>.json|.glb      stages, characters, enemies, objects,
+//	                            skyboxes and oracle-named archive members
+//	music/<stem>.mp3            every renderable SSEQ, via tools/nds/sdat
 //
-// -only gates which stages run: `-only music` renders MP3s only and never boots
-// the oracle; models/levels require the oracle + GLB export path. Progress is
-// reported on stderr, one line per stage plus a running count within long stages.
+// Usage (from games/super-mario-64-ds/):
+//
+//	go run ./extract/cmd/webexport -in "Super Mario 64 DS (Europe) (En,Fr,De,Es,It).nds"
 package main
 
 import (
-	"encoding/binary"
-	"encoding/json"
-	"flag"
 	"fmt"
 	"image/color"
 	"math"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"sort"
 	"strings"
 
 	"retroreverse.com/games/super-mario-64-ds/extract/sm64ds"
+	"retroreverse.com/tools/lib/retrox/audio"
+	"retroreverse.com/tools/lib/retrox/cli"
+	"retroreverse.com/tools/lib/retrox/schema"
 	"retroreverse.com/tools/platform/nds"
 	"retroreverse.com/tools/platform/nds/nitro"
 	"retroreverse.com/tools/platform/nds/sdat"
 )
 
 const (
-	rate     = 32768        // DS mixer output rate (musicrender)
-	toGLB    = 1.0 / 4096 / 1000 // fx20.12 world -> stage-GLB units (exportkcl)
-	toStage  = 1.0 / 1000   // placement short -> stage-GLB units (exportlevelobjs)
-	objScale = 1.0 / 125    // object display scale in stage-GLB units (exportlevelobjs)
+	rate     = 32768             // DS mixer output rate
+	toGLB    = 1.0 / 4096 / 1000 // fx20.12 world -> stage-GLB units
+	toStage  = 1.0 / 1000        // placement short -> stage-GLB units
+	objScale = 1.0 / 125         // object display scale in stage-GLB units
 )
 
 func main() {
-	in := flag.String("in", "../Super Mario 64 DS (Europe) (En,Fr,De,Es,It).nds", "cartridge image (.nds)")
-	out := flag.String("o", "../../site/public/super-mario-64-ds", "output root")
-	only := flag.String("only", "all", "comma-separated subset of music,models,levels,all")
-	flag.Parse()
+	cli.Main("super-mario-64-ds", run)
+}
 
-	sel := parseOnly(*only)
-	if err := os.MkdirAll(*out, 0o755); err != nil {
-		die(err)
+func run(ctx *cli.Context) error {
+	if ctx.In == "" {
+		return fmt.Errorf("usage: webexport -in <rom.nds> [-o DIR] [-only levels,objects,music]")
 	}
 
-	// manifest accumulators
-	var music []manifestMusic
-	var models []manifestModel
-	var levels []manifestLevel
+	b := ctx.Builder
+	b.SetTitle("Super Mario 64 DS")
+	b.SetPlatform("Nintendo DS")
+	b.SetYear(2004)
+	b.SetDisplay(schema.Display{
+		Native: schema.Size{W: 256, H: 192},
+		TickHz: 60,
+		// The DS renders unfiltered texels; keep them point-sampled.
+		TexFilter: "nearest",
+	})
 
-	if sel["music"] {
-		music = runMusic(*in, *out)
+	if ctx.Stage("music") {
+		if err := runMusic(ctx, ctx.In); err != nil {
+			return err
+		}
 	}
 
-	if sel["models"] || sel["levels"] {
-		// Stage the filesystem + decompressed binaries the oracle/decoders read.
+	if ctx.Enabled("objects") || ctx.Enabled("levels") {
 		tmp, err := os.MkdirTemp("", "sm64ds-webexport-")
 		if err != nil {
-			die(err)
+			return err
 		}
 		defer os.RemoveAll(tmp)
-		fmt.Fprintf(os.Stderr, "[extract] staging filesystem + decompressed binaries → %s\n", tmp)
-		if err := extractFS(*in, tmp); err != nil {
-			die(err)
+		if err := extractFS(ctx.In, tmp); err != nil {
+			return err
 		}
 
-		ls, err := sm64ds.OpenLevels(*in, tmp)
+		ls, err := sm64ds.OpenLevels(ctx.In, tmp)
 		if err != nil {
-			die(err)
+			return err
 		}
 		if err := buildLevelNames(ls, tmp); err != nil {
-			die(err)
+			return err
 		}
 
-		bindings := runOracle(*in, tmp)
+		bindings, err := runOracle(ctx, ctx.In, tmp)
+		if err != nil {
+			return err
+		}
 
-		// GLB export path (needed by both models and levels): stage/object models,
-		// archive-member models, and collision meshes into <o>/models + <o>/collision.
-		models = exportModels(ls, tmp, *out)
-		exportArchiveGLBs(ls, bindings, filepath.Join(*out, "models"))
-		exportCollision(ls, tmp, *out, bindings)
-
-		if sel["levels"] {
-			levels = exportLevels(ls, tmp, *out, bindings)
+		if ctx.Stage("objects") {
+			if err := exportModels(ctx, ls, tmp); err != nil {
+				return err
+			}
+			if err := exportArchiveGLBs(ctx, ls, bindings); err != nil {
+				return err
+			}
+		}
+		if ctx.Stage("levels") {
+			if err := exportCollision(ctx, ls, tmp); err != nil {
+				return err
+			}
+			if err := exportLevels(ctx, ls, tmp, bindings); err != nil {
+				return err
+			}
 		}
 	}
-
-	writeManifest(*out, music, models, levels)
-}
-
-func parseOnly(s string) map[string]bool {
-	sel := map[string]bool{}
-	for _, p := range strings.Split(s, ",") {
-		p = strings.TrimSpace(p)
-		if p == "" {
-			continue
-		}
-		if p == "all" {
-			sel["music"], sel["models"], sel["levels"] = true, true, true
-			continue
-		}
-		sel[p] = true
-	}
-	return sel
+	return nil
 }
 
 // ---------------------------------------------------------------------------
-// manifest
+// music
 // ---------------------------------------------------------------------------
 
-type manifestMusic struct {
-	Name string `json:"name"`
-	File string `json:"file"`
-}
-type manifestModel struct {
-	Name    string `json:"name"`
-	Section string `json:"section"`
-	File    string `json:"file"`
-}
-type manifestLevel struct {
-	Name    string `json:"name"`
-	Section string `json:"section"`
-	File    string `json:"file"`
-	Kind    string `json:"kind"`
-	Objects string `json:"objects"`
-}
-
-func writeManifest(out string, music []manifestMusic, models []manifestModel, levels []manifestLevel) {
-	m := map[string]any{
-		"format":   2,
-		"game":     "super-mario-64-ds",
-		"platform": "Nintendo DS",
-		"native":   map[string]int{"w": 256, "h": 192},
-		"tickHz":   60,
-	}
-	if len(levels) > 0 {
-		m["levels"] = levels
-	}
-	if len(models) > 0 {
-		m["models"] = models
-	}
-	if len(music) > 0 {
-		m["music"] = music
-	}
-	buf, _ := json.MarshalIndent(m, "", "  ")
-	if err := os.WriteFile(filepath.Join(out, "manifest.json"), buf, 0o644); err != nil {
-		die(err)
-	}
-	fmt.Fprintf(os.Stderr, "[manifest] %d levels, %d models, %d music → manifest.json\n",
-		len(levels), len(models), len(music))
-}
-
-// ---------------------------------------------------------------------------
-// music (as cmd/musicrender)
-// ---------------------------------------------------------------------------
-
-func runMusic(romPath, out string) []manifestMusic {
+func runMusic(ctx *cli.Context, romPath string) error {
 	img, err := os.ReadFile(romPath)
 	if err != nil {
-		die(err)
+		return err
 	}
 	rom, err := nds.Open(img)
 	if err != nil {
-		die(err)
+		return err
 	}
 	data := rom.FileByPath("data/sound_data.sdat")
 	if data == nil {
-		die(fmt.Errorf("data/sound_data.sdat not found in ROM"))
+		return fmt.Errorf("data/sound_data.sdat not found in ROM")
 	}
 	s, err := sdat.Parse(data)
 	if err != nil {
-		die(err)
-	}
-	musicDir := filepath.Join(out, "music")
-	if err := os.MkdirAll(musicDir, 0o755); err != nil {
-		die(err)
+		return err
 	}
 
-	// count renderable sequences (those with a file) for the running total
 	total := 0
 	for i := range s.Seqs {
 		if s.Seqs[i].FileID >= 0 {
 			total++
 		}
 	}
-	fmt.Fprintf(os.Stderr, "[music] SDAT: %d sequences (%d renderable), %d banks, %d wave archives\n",
-		len(s.Seqs), total, len(s.Banks), len(s.Wavearcs))
+	ctx.Logf("SDAT: %d sequences (%d renderable)", len(s.Seqs), total)
 
-	var tracks []manifestMusic
 	n := 0
 	for i := range s.Seqs {
 		if s.Seqs[i].FileID < 0 {
@@ -204,31 +152,45 @@ func runMusic(romPath, out string) []manifestMusic {
 		stem := stemFor(i, s.Seqs[i].Name)
 		L, R, err := s.Render(i, rate, 2, 180)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "[music]  %d/%d  %s: %v\n", n, total, stem, err)
+			ctx.Logf("%s: %v", stem, err)
 			continue
 		}
 		if len(L) < rate { // sub-second jingles cut short
-			fmt.Fprintf(os.Stderr, "[music]  %d/%d  %s (skipped, too short)\n", n, total, stem)
 			continue
 		}
 		fadeOut(L, R)
-		wav := filepath.Join(musicDir, stem+".wav")
-		if err := writeWAV(wav, L, R); err != nil {
-			die(err)
+		samples := make([]int16, len(L)*2)
+		clip := func(v float64) int16 {
+			if v > 1 {
+				v = 1
+			}
+			if v < -1 {
+				v = -1
+			}
+			return int16(v * 32767)
 		}
-		mp3 := filepath.Join(musicDir, stem+".mp3")
-		c := exec.Command("ffmpeg", "-y", "-loglevel", "error", "-i", wav,
-			"-c:a", "libmp3lame", "-b:a", "96k", mp3)
-		if e := c.Run(); e != nil {
-			fmt.Fprintf(os.Stderr, "[music]  %d/%d  %s: ffmpeg failed: %v (WAV kept)\n", n, total, stem, e)
+		for k := range L {
+			samples[k*2] = clip(L[k])
+			samples[k*2+1] = clip(R[k])
+		}
+		out, err := ctx.Builder.Path("music", stem+".mp3")
+		if err != nil {
+			return err
+		}
+		wave := audio.PCM16{Rate: rate, Channels: 2, Samples: samples}
+		if err := audio.EncodeMP3(wave, out); err != nil {
+			ctx.Logf("%s: %v", stem, err)
 			continue
 		}
-		os.Remove(wav)
-		tracks = append(tracks, manifestMusic{Name: stem, File: "music/" + stem + ".mp3"})
-		fmt.Fprintf(os.Stderr, "[music]  %d/%d  %s.mp3\n", n, total, stem)
+		ctx.Builder.AddMedia(schema.Asset{
+			ID: "bgm-" + stem, Category: schema.CategoryMusic,
+			Name:     stem,
+			File:     "music/" + stem + ".mp3",
+			Duration: wave.Duration(),
+		})
+		ctx.Progress("music", n, total, stem+".mp3")
 	}
-	sort.Slice(tracks, func(i, j int) bool { return tracks[i].Name < tracks[j].Name })
-	return tracks
+	return nil
 }
 
 func stemFor(i int, name string) string {
@@ -250,44 +212,13 @@ func fadeOut(L, R []float64) {
 	}
 }
 
-func writeWAV(path string, L, R []float64) error {
-	n := len(L)
-	buf := make([]byte, 44+n*4)
-	copy(buf, "RIFF")
-	binary.LittleEndian.PutUint32(buf[4:], uint32(36+n*4))
-	copy(buf[8:], "WAVEfmt ")
-	binary.LittleEndian.PutUint32(buf[16:], 16)
-	binary.LittleEndian.PutUint16(buf[20:], 1) // PCM
-	binary.LittleEndian.PutUint16(buf[22:], 2) // stereo
-	binary.LittleEndian.PutUint32(buf[24:], rate)
-	binary.LittleEndian.PutUint32(buf[28:], rate*4)
-	binary.LittleEndian.PutUint16(buf[32:], 4)
-	binary.LittleEndian.PutUint16(buf[34:], 16)
-	copy(buf[36:], "data")
-	binary.LittleEndian.PutUint32(buf[40:], uint32(n*4))
-	clip := func(v float64) int16 {
-		if v > 1 {
-			v = 1
-		}
-		if v < -1 {
-			v = -1
-		}
-		return int16(v * 32767)
-	}
-	for i := 0; i < n; i++ {
-		binary.LittleEndian.PutUint16(buf[44+i*4:], uint16(clip(L[i])))
-		binary.LittleEndian.PutUint16(buf[46+i*4:], uint16(clip(R[i])))
-	}
-	return os.WriteFile(path, buf, 0o644)
-}
-
 // ---------------------------------------------------------------------------
-// filesystem staging (as cmd/ndsextract -fs, plus decompressed overlays)
+// filesystem staging
 // ---------------------------------------------------------------------------
 
 // extractFS writes the decompressed ARM9 binary, every ARM9 overlay's
-// decompressed image (ovl9_NNN_dec.bin — what sm64ds.OpenLevels/Oracle read via
-// overlayData), and the full filesystem under files/, into dir.
+// decompressed image (ovl9_NNN_dec.bin), and the full filesystem under
+// files/, into dir.
 func extractFS(romPath, dir string) error {
 	img, err := os.ReadFile(romPath)
 	if err != nil {
@@ -327,41 +258,39 @@ func extractFS(romPath, dir string) error {
 }
 
 // ---------------------------------------------------------------------------
-// oracle (as cmd/actororacle)
+// oracle
 // ---------------------------------------------------------------------------
 
-// Binding mirrors cmd/actororacle's / cmd/exportlevelobjs's table entry.
+// Binding mirrors the actor oracle's table entry.
 type Binding struct {
-	Params    [3]int            `json:"params"`
-	Config    int               `json:"config"`
-	Models    []string          `json:"models,omitempty"`
-	Clips     []string          `json:"clips,omitempty"`
-	KCL       []string          `json:"kcl,omitempty"`
-	Colliders []sm64ds.Collider `json:"colliders,omitempty"`
-	Notes     []string          `json:"notes,omitempty"`
+	Params    [3]int
+	Config    int
+	Models    []string
+	Clips     []string
+	KCL       []string
+	Colliders []sm64ds.Collider
+	Notes     []string
 }
 
-func runOracle(romPath, tmp string) map[int][]Binding {
-	fmt.Fprintln(os.Stderr, "[oracle] booting ARM9 + engine overlays…")
+func runOracle(ctx *cli.Context, romPath, tmp string) (map[int][]Binding, error) {
 	ls, err := sm64ds.OpenLevels(romPath, tmp)
 	if err != nil {
-		die(err)
+		return nil, err
 	}
 	o, err := sm64ds.NewOracle(ls)
 	if err != nil {
-		die(err)
+		return nil, err
 	}
 	if err := o.InitEngine(); err != nil {
-		die(err)
+		return nil, err
 	}
-	fmt.Fprintf(os.Stderr, "[oracle] engine initialized (%d init-phase file requests); sweeping actors…\n", len(o.InitRequests()))
+	ctx.Logf("oracle: engine initialized (%d init-phase file requests)", len(o.InitRequests()))
 	table := sweep(ls, o)
-	fmt.Fprintf(os.Stderr, "[oracle] %d actors bound\n", len(table))
-	return table
+	ctx.Logf("oracle: %d actors bound", len(table))
+	return table, nil
 }
 
-// sweep runs every distinct (actor, params) the levels place — identical to
-// cmd/actororacle's sweep.
+// sweep runs every distinct (actor, params) the levels place.
 func sweep(ls *sm64ds.LevelSet, o *sm64ds.Oracle) map[int][]Binding {
 	type combo struct{ actor, p1, p2, p3 int }
 	perLevel := map[int]map[combo]bool{}
@@ -405,7 +334,6 @@ func sweep(ls *sm64ds.LevelSet, o *sm64ds.Oracle) map[int][]Binding {
 	sort.Ints(ovls)
 	for _, ov := range ovls {
 		if err := o.LoadConfig(ov); err != nil {
-			fmt.Fprintf(os.Stderr, "[oracle] config ovl%d: %v\n", ov, err)
 			continue
 		}
 		for c := range perLevel[ov] {
@@ -445,18 +373,52 @@ func sweep(ls *sm64ds.LevelSet, o *sm64ds.Oracle) map[int][]Binding {
 }
 
 // ---------------------------------------------------------------------------
-// models: BMD -> GLB (as cmd/exportbmd)
+// objects: BMD -> GLB
 // ---------------------------------------------------------------------------
 
-// levelStems records the display name of every stage model (classify -> "Levels"),
-// so exportLevels can label its manifest entries. Filled by exportModels.
-var levelStems = map[string]string{}
+// levelStems records the display name of every stage model, and stageAssets
+// their asset ids; refs maps every model stem to its asset id.
+var (
+	levelStems = map[string]string{}
+	refs       = map[string]string{}
+	usedObjIDs = map[string]bool{}
+)
 
-func exportModels(ls *sm64ds.LevelSet, tmp, out string) []manifestModel {
-	modelsDir := filepath.Join(out, "models")
-	if err := os.MkdirAll(modelsDir, 0o755); err != nil {
-		die(err)
+func objectID(stem string) string {
+	id := slugify(stem)
+	for n := 2; usedObjIDs[id]; n++ {
+		id = fmt.Sprintf("%s-%d", slugify(stem), n)
 	}
+	usedObjIDs[id] = true
+	return id
+}
+
+func slugify(s string) string {
+	var out []rune
+	for _, r := range strings.ToLower(s) {
+		switch {
+		case r >= 'a' && r <= 'z' || r >= '0' && r <= '9':
+			out = append(out, r)
+		default:
+			if len(out) > 0 && out[len(out)-1] != '-' {
+				out = append(out, '-')
+			}
+		}
+	}
+	return strings.Trim(string(out), "-")
+}
+
+// clipAnims turns .bca clip names into animation metadata (30 fps loops).
+func clipAnims(clips []sm64ds.NamedBCA) []schema.Animation {
+	var out []schema.Animation
+	for _, c := range clips {
+		out = append(out, schema.Animation{ID: c.Name, Clip: c.Name, FPS: 30, Loop: "loop"})
+	}
+	return out
+}
+
+func exportModels(ctx *cli.Context, ls *sm64ds.LevelSet, tmp string) error {
+	b := ctx.Builder
 	root := filepath.Join(tmp, "files")
 
 	var paths []string
@@ -468,15 +430,12 @@ func exportModels(ls *sm64ds.LevelSet, tmp, out string) []manifestModel {
 	})
 	sort.Strings(paths)
 
-	fmt.Fprintf(os.Stderr, "[models] exporting %d BMD models…\n", len(paths))
-	var models []manifestModel
 	seen := map[string]bool{}
-	n := 0
+	n, listed := 0, 0
 	for _, p := range paths {
 		n++
 		m, err := sm64ds.LoadBMD(p)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "[models]  %d/%d  %s: %v\n", n, len(paths), filepath.Base(p), err)
 			continue
 		}
 		// sibling .bca clips whose bone count matches become glTF animations
@@ -489,32 +448,47 @@ func exportModels(ls *sm64ds.LevelSet, tmp, out string) []manifestModel {
 				}
 			}
 		}
-		var glb []byte
+		var data []byte
 		if len(clips) > 0 {
-			glb, err = m.SkinnedGLB(clips)
+			data, err = m.SkinnedGLB(clips)
 		} else {
-			glb, err = m.GLB()
+			data, err = m.GLB()
 		}
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "[models]  %d/%d  %s: %v\n", n, len(paths), filepath.Base(p), err)
 			continue
 		}
 		file := m.Name + ".glb"
-		if err := os.WriteFile(filepath.Join(modelsDir, file), glb, 0o644); err != nil {
-			die(err)
-		}
 		if seen[file] {
 			continue
 		}
 		seen[file] = true
+		gp, err := b.Path("objects", file)
+		if err != nil {
+			return err
+		}
+		if err := os.WriteFile(gp, data, 0o644); err != nil {
+			return err
+		}
 		name, sec := classify(p, m.Name)
 		if sec == "Levels" {
-			levelStems[m.Name] = name // becomes a levels[] entry, not a model
-		} else if sec != "" {
-			models = append(models, manifestModel{Name: name, Section: sec, File: "models/" + file})
+			levelStems[m.Name] = name // placed by its level; grouped as a stage model
+			sec = "Stages"
 		}
-		if n%50 == 0 || sec != "" {
-			fmt.Fprintf(os.Stderr, "[models]  %d/%d  %s\n", n, len(paths), file)
+		if sec == "" {
+			// referenced-only models (actor bindings) still need an asset
+			name, sec = title(m.Name), "Other models"
+		}
+		id := objectID(m.Name)
+		doc := &schema.Object{
+			Type: schema.ObjectModel3D, Name: name, Model: file,
+			SkinnedClone: len(clips) > 0,
+			Animations:   clipAnims(clips),
+		}
+		b.AddObject(schema.Asset{ID: id, Name: name, Group: sec}, doc)
+		refs[m.Name] = id
+		listed++
+		if n%100 == 0 {
+			ctx.Progress("objects", n, len(paths), fmt.Sprintf("%d models", listed))
 		}
 	}
 
@@ -527,30 +501,34 @@ func exportModels(ls *sm64ds.LevelSet, tmp, out string) []manifestModel {
 				clips = append(clips, sm64ds.NamedBCA{Name: cn, Anim: a})
 			}
 		}
-		if glb, err := m.SkinnedGLB(clips); err == nil {
-			os.WriteFile(filepath.Join(modelsDir, "mario_model_mg.glb"), glb, 0o644)
-			models = append(models, manifestModel{Name: "Mario (in-game)", Section: "Characters", File: "models/mario_model_mg.glb"})
+		if data, err := m.SkinnedGLB(clips); err == nil {
+			gp, err := b.Path("objects", "mario_model_mg.glb")
+			if err != nil {
+				return err
+			}
+			if err := os.WriteFile(gp, data, 0o644); err != nil {
+				return err
+			}
+			id := objectID("mario_model_mg")
+			b.AddObject(schema.Asset{ID: id, Name: "Mario (in-game)", Group: "Characters"}, &schema.Object{
+				Type: schema.ObjectModel3D, Name: "Mario (in-game)", Model: "mario_model_mg.glb",
+				SkinnedClone: true, Animations: clipAnims(clips),
+			})
+			refs["mario_model_mg"] = id
 		}
 	}
-
-	sort.Slice(models, func(i, j int) bool {
-		if models[i].Section != models[j].Section {
-			return sectionRank(models[i].Section) < sectionRank(models[j].Section)
-		}
-		return models[i].Name < models[j].Name
-	})
-	fmt.Fprintf(os.Stderr, "[models] %d models classified for the manifest\n", len(models))
-	return models
+	ctx.Progress("objects", len(paths), len(paths), fmt.Sprintf("%d models exported", listed))
+	return nil
 }
 
-// exportArchiveGLBs decodes archive-member models the bindings name (arcN_M)
-// into GLBs (as cmd/exportlevelobjs.extractArchiveGLBs).
-func exportArchiveGLBs(ls *sm64ds.LevelSet, bindings map[int][]Binding, modelsDir string) {
+// exportArchiveGLBs decodes archive-member models the bindings name (arcN_M).
+func exportArchiveGLBs(ctx *cli.Context, ls *sm64ds.LevelSet, bindings map[int][]Binding) error {
+	b := ctx.Builder
 	done := map[string]bool{}
 	var stems []string
 	for _, bs := range bindings {
-		for _, b := range bs {
-			for _, stem := range b.Models {
+		for _, bd := range bs {
+			for _, stem := range bd.Models {
 				if strings.LastIndexByte(stem, '_') < 0 || done[stem] {
 					continue
 				}
@@ -562,6 +540,9 @@ func exportArchiveGLBs(ls *sm64ds.LevelSet, bindings map[int][]Binding, modelsDi
 	sort.Strings(stems)
 	n := 0
 	for _, stem := range stems {
+		if _, ok := refs[stem]; ok {
+			continue
+		}
 		ref, ok := archiveRefByStem(ls, stem)
 		if !ok {
 			continue
@@ -574,14 +555,26 @@ func exportArchiveGLBs(ls *sm64ds.LevelSet, bindings map[int][]Binding, modelsDi
 		if err != nil {
 			continue
 		}
-		glb, err := m.GLB()
+		glbData, err := m.GLB()
 		if err != nil {
 			continue
 		}
-		os.WriteFile(filepath.Join(modelsDir, stem+".glb"), glb, 0o644)
+		gp, err := b.Path("objects", stem+".glb")
+		if err != nil {
+			return err
+		}
+		if err := os.WriteFile(gp, glbData, 0o644); err != nil {
+			return err
+		}
+		id := objectID(stem)
+		b.AddObject(schema.Asset{ID: id, Name: title(stem), Group: "Archive members"}, &schema.Object{
+			Type: schema.ObjectModel3D, Name: title(stem), Model: stem + ".glb",
+		})
+		refs[stem] = id
 		n++
 	}
-	fmt.Fprintf(os.Stderr, "[models] %d archive-member models decoded\n", n)
+	ctx.Logf("%d archive-member models decoded", n)
+	return nil
 }
 
 func archiveRefByStem(ls *sm64ds.LevelSet, stem string) (sm64ds.ArchiveRef, bool) {
@@ -602,8 +595,7 @@ func archiveRefByStem(ls *sm64ds.LevelSet, stem string) (sm64ds.ArchiveRef, bool
 	return sm64ds.ArchiveRef{}, false
 }
 
-// classify assigns a model to a viewer section with a friendly name, by its path
-// (as cmd/exportbmd.classify).
+// classify assigns a model to a group with a friendly name, by its path.
 func classify(path, stem string) (name, section string) {
 	switch {
 	case strings.Contains(path, "/stage/") && strings.HasSuffix(stem, "_all"):
@@ -624,22 +616,6 @@ func classify(path, stem string) (name, section string) {
 	return "", ""
 }
 
-func sectionRank(s string) int {
-	switch s {
-	case "Levels":
-		return 0
-	case "Characters":
-		return 1
-	case "Enemies":
-		return 2
-	case "Objects":
-		return 3
-	case "Skyboxes":
-		return 4
-	}
-	return 9
-}
-
 func title(s string) string {
 	s = strings.ReplaceAll(s, "_", " ")
 	if len(s) > 0 {
@@ -649,7 +625,7 @@ func title(s string) string {
 }
 
 // ---------------------------------------------------------------------------
-// level display names (as cmd/exportbmd.buildLevelNames)
+// level display names
 // ---------------------------------------------------------------------------
 
 var levelNames = map[string]string{}
@@ -734,15 +710,14 @@ func courseTitle(msg string) string {
 }
 
 // ---------------------------------------------------------------------------
-// collision: KCL -> GLB (as cmd/exportkcl)
+// collision: KCL -> GLB (stage meshes only; object colliders stay as props)
 // ---------------------------------------------------------------------------
 
-func exportCollision(ls *sm64ds.LevelSet, tmp, out string, bindings map[int][]Binding) {
-	colDir := filepath.Join(out, "collision")
-	if err := os.MkdirAll(colDir, 0o755); err != nil {
-		die(err)
-	}
+// colFile maps a stage KCL stem to its exported levels/col_<stem>.glb.
+var colFile = map[string]string{}
 
+func exportCollision(ctx *cli.Context, ls *sm64ds.LevelSet, tmp string) error {
+	b := ctx.Builder
 	kclPath := map[string]string{}
 	for i := 0; i < 2058; i++ {
 		if n := ls.InternalName(i); strings.HasSuffix(n, ".kcl") {
@@ -751,34 +726,6 @@ func exportCollision(ls *sm64ds.LevelSet, tmp, out string, bindings map[int][]Bi
 				kclPath[stem] = n
 			}
 		}
-	}
-
-	export := func(stem string) error {
-		p, ok := kclPath[stem]
-		if !ok {
-			return fmt.Errorf("no .kcl named %s in the file table", stem)
-		}
-		data, err := os.ReadFile(filepath.Join(tmp, "files", filepath.FromSlash(strings.TrimPrefix(p, "/"))))
-		if err != nil {
-			return err
-		}
-		if len(data) > 4 && string(data[:4]) == "LZ77" {
-			data = nds.Decompress(data[4:])
-		}
-		k, err := sm64ds.ParseKCL(data)
-		if err != nil {
-			return err
-		}
-		tris, _ := trisOf(k)
-		if len(tris) == 0 {
-			return fmt.Errorf("%s: no triangles", stem)
-		}
-		glb, err := nitro.ExportTrisGLB(stem+"_col", map[int][]nitro.Tri{0: tris},
-			[]nitro.Material{{Name: "collision", Alpha: 31}}, nil)
-		if err != nil {
-			return err
-		}
-		return os.WriteFile(filepath.Join(colDir, stem+".glb"), glb, 0o644)
 	}
 
 	done := map[string]bool{}
@@ -793,34 +740,43 @@ func exportCollision(ls *sm64ds.LevelSet, tmp, out string, bindings map[int][]Bi
 			continue
 		}
 		done[stem] = true
-		if err := export(stem); err != nil {
-			fmt.Fprintf(os.Stderr, "[collision]  level %d %s: %v\n", i, stem, err)
+		p, ok := kclPath[stem]
+		if !ok {
 			continue
 		}
+		data, err := os.ReadFile(filepath.Join(tmp, "files", filepath.FromSlash(strings.TrimPrefix(p, "/"))))
+		if err != nil {
+			continue
+		}
+		if len(data) > 4 && string(data[:4]) == "LZ77" {
+			data = nds.Decompress(data[4:])
+		}
+		k, err := sm64ds.ParseKCL(data)
+		if err != nil {
+			continue
+		}
+		tris, _ := trisOf(k)
+		if len(tris) == 0 {
+			continue
+		}
+		glbData, err := nitro.ExportTrisGLB(stem+"_col", map[int][]nitro.Tri{0: tris},
+			[]nitro.Material{{Name: "collision", Alpha: 31}}, nil)
+		if err != nil {
+			continue
+		}
+		file := "col_" + stem + ".glb"
+		gp, err := b.Path("levels", file)
+		if err != nil {
+			return err
+		}
+		if err := os.WriteFile(gp, glbData, 0o644); err != nil {
+			return err
+		}
+		colFile[stem] = file
 		levels++
 	}
-
-	// every object collider an actor's own code loaded (oracle bindings)
-	var objStems []string
-	for _, bs := range bindings {
-		for _, b := range bs {
-			objStems = append(objStems, b.KCL...)
-		}
-	}
-	sort.Strings(objStems)
-	objects := 0
-	for _, stem := range objStems {
-		if done[stem] {
-			continue
-		}
-		done[stem] = true
-		if err := export(stem); err != nil {
-			fmt.Fprintf(os.Stderr, "[collision]  object %s: %v\n", stem, err)
-			continue
-		}
-		objects++
-	}
-	fmt.Fprintf(os.Stderr, "[collision] %d level + %d object collision meshes\n", levels, objects)
+	ctx.Logf("%d stage collision meshes", levels)
+	return nil
 }
 
 func trisOf(k *sm64ds.KCL) (tris []nitro.Tri, skipped int) {
@@ -861,39 +817,23 @@ func trisOf(k *sm64ds.KCL) (tris []nitro.Tri, skipped int) {
 }
 
 // ---------------------------------------------------------------------------
-// levels: per-stage object DB + format-2 envelope (as cmd/exportlevelobjs)
+// levels
 // ---------------------------------------------------------------------------
 
-// f2obj is one object in the format-2 <level>.objects.json database.
-type f2obj struct {
-	ID        int            `json:"id"`
-	Actor     int            `json:"actor"`
-	Pos       []float64      `json:"pos"`
-	Rot       []float64      `json:"rot,omitempty"`
-	Model     string         `json:"model,omitempty"`
-	Collision string         `json:"collision,omitempty"`
-	Props     map[string]any `json:"props,omitempty"`
-}
-
-func exportLevels(ls *sm64ds.LevelSet, tmp, out string, bindings map[int][]Binding) []manifestLevel {
-	levelsDir := filepath.Join(out, "levels")
-	if err := os.MkdirAll(levelsDir, 0o755); err != nil {
-		die(err)
-	}
-	modelsDir := filepath.Join(out, "models")
-	colDir := filepath.Join(out, "collision")
+func exportLevels(ctx *cli.Context, ls *sm64ds.LevelSet, tmp string, bindings map[int][]Binding) error {
+	b := ctx.Builder
 
 	modelFor := func(actor int, par [3]int) string {
 		var loose string
-		for _, b := range bindings[actor] {
-			if len(b.Models) == 0 {
+		for _, bd := range bindings[actor] {
+			if len(bd.Models) == 0 {
 				continue
 			}
-			if b.Params == par {
-				return b.Models[0]
+			if bd.Params == par {
+				return bd.Models[0]
 			}
-			if loose == "" && b.Params[0] == par[0] {
-				loose = b.Models[0]
+			if loose == "" && bd.Params[0] == par[0] {
+				loose = bd.Models[0]
 			}
 		}
 		return loose
@@ -901,38 +841,23 @@ func exportLevels(ls *sm64ds.LevelSet, tmp, out string, bindings map[int][]Bindi
 	colFor := func(actor int, par [3]int) *sm64ds.Collider {
 		var loose *sm64ds.Collider
 		for i := range bindings[actor] {
-			b := &bindings[actor][i]
-			if len(b.Colliders) == 0 || b.Colliders[0].KCL == "" {
+			bd := &bindings[actor][i]
+			if len(bd.Colliders) == 0 || bd.Colliders[0].KCL == "" {
 				continue
 			}
-			if b.Params == par {
-				return &b.Colliders[0]
+			if bd.Params == par {
+				return &bd.Colliders[0]
 			}
-			if loose == nil && b.Params[0] == par[0] {
-				loose = &b.Colliders[0]
+			if loose == nil && bd.Params[0] == par[0] {
+				loose = &bd.Colliders[0]
 			}
 		}
 		return loose
 	}
-	hasGLB := func(name string) bool {
-		if name == "" {
-			return false
-		}
-		_, err := os.Stat(filepath.Join(modelsDir, name+".glb"))
-		return err == nil
-	}
-	hasCol := func(name string) bool {
-		if name == "" {
-			return false
-		}
-		_, err := os.Stat(filepath.Join(colDir, name+".glb"))
-		return err == nil
-	}
-	bill := billboardChecker(ls, tmp)
 
 	msgs, err := sm64ds.LoadBMG(filepath.Join(tmp, "files/data/message/msg_data_eng.bin"))
 	if err != nil {
-		die(err)
+		return err
 	}
 	const signpostActor = 184
 	signText := func(o sm64ds.LevelObject) string {
@@ -945,84 +870,136 @@ func exportLevels(ls *sm64ds.LevelSet, tmp, out string, bindings map[int][]Bindi
 		return ""
 	}
 
-	// fill mutates a format-2 object with model/collision/props from a binding.
-	fill := func(j *f2obj, actor int, par [3]int) {
-		if j.Props == nil {
-			j.Props = map[string]any{}
+	stageN := 0
+	seenStage := map[string]bool{}
+	skyCopied := map[string]bool{}
+	// refs must stay inside the doc's directory (no ".." per RETROX.md), so a
+	// used skybox gets a copy next to the level documents.
+	copySky := func(sky string) bool {
+		if skyCopied[sky] {
+			return true
 		}
-		if m := modelFor(actor, par); m != "" && hasGLB(m) {
-			j.Model = "models/" + m + ".glb"
-			j.Props["scale"] = objScale
-			if bill(m) {
-				j.Props["billboard"] = true
-			}
+		src, err := b.Path("objects", sky+".glb")
+		if err != nil {
+			return false
 		}
-		if c := colFor(actor, par); c != nil && hasCol(c.KCL) {
-			j.Collision = "collision/" + c.KCL + ".glb"
-			if c.Class != "Kc" { // Mbg classes carry their own transform
-				cm := make([]float64, 12)
-				identity := true
-				for k := 0; k < 9; k++ {
-					cm[k] = r5(float64(c.Mtx[k]) / 4096)
-					want := 0.0
-					if k%4 == 0 {
-						want = 1
-					}
-					if cm[k] != want {
-						identity = false
-					}
-				}
-				for k := 0; k < 3; k++ {
-					cm[9+k] = r5(float64(c.Mtx[9+k]) / 4096 * toStage)
-					if cm[9+k] != 0 {
-						identity = false
-					}
-				}
-				if !identity {
-					j.Props["colMtx"] = cm
-				}
-				if c.ScaleY != 0 && c.ScaleY != 0x1000 {
-					j.Props["colScaleY"] = r5(float64(c.ScaleY) / 4096)
-				}
-			}
+		data, err := os.ReadFile(src)
+		if err != nil {
+			return false
 		}
+		dst, err := b.Path("levels", sky+".glb")
+		if err != nil {
+			return false
+		}
+		if err := os.WriteFile(dst, data, 0o644); err != nil {
+			return false
+		}
+		skyCopied[sky] = true
+		return true
 	}
-
-	var manifest []manifestLevel
-	stageN, total := 0, 0
 	for i := 0; i < sm64ds.NumLevels; i++ {
 		lv, err := ls.Level(i)
 		if err != nil {
 			continue
 		}
 		stem := strings.TrimSuffix(filepath.Base(lv.BMDPath), ".bmd")
-		if !hasGLB(stem) {
-			continue // no stage model exported
+		stageAsset, ok := refs[stem]
+		if !ok || seenStage[stem] {
+			continue
+		}
+		seenStage[stem] = true
+
+		name := levelStems[stem]
+		if name == "" {
+			name = stem
+		}
+		doc := &schema.Level{
+			Type:  schema.LevelScene3D,
+			Scene: &schema.Scene{},
+			// The stage model at the origin.
+			Placements: []schema.Placement{{
+				ID: 0, Object: stageAsset, Pos: []float64{0, 0, 0}, Name: name,
+			}},
+		}
+		if sky := strings.TrimSuffix(filepath.Base(lv.SkyPath), ".bmd"); lv.SkyPath != "" && refs[sky] != "" && copySky(sky) {
+			doc.Scene.Layers = append(doc.Scene.Layers, schema.Layer{
+				ID: "sky", Name: "Skybox", File: sky + ".glb",
+				Mode: "toggle", Attach: "camera", Role: "sky", RenderOrder: -1,
+			})
+		}
+		if kcl := strings.TrimSuffix(filepath.Base(lv.KCLPath), ".kcl"); lv.KCLPath != "" && colFile[kcl] != "" {
+			off := false
+			doc.Scene.Layers = append(doc.Scene.Layers, schema.Layer{
+				ID: "collision", Name: "Collision (KCL)", File: colFile[kcl],
+				Mode: "toggle", Visible: &off, Role: "collision",
+			})
 		}
 
-		var objs []f2obj
-		seen := map[string]bool{}
-		id := 0
-		mkObj := func(o sm64ds.LevelObject, actor int, par [3]int) f2obj {
-			j := f2obj{
-				ID:    id,
-				Actor: actor,
-				Pos:   []float64{r3(o.X * toStage), r3(o.Y * toStage), r3(o.Z * toStage)},
-				Rot:   []float64{0, r3(o.RotY), 0},
-				Props: map[string]any{},
+		// Camera: an establishing shot over the level's own extent — the
+		// bounds of its entrances and placed actors (the stage GLB's bounds
+		// aren't decoded here, but the actors trace its playable footprint).
+		var lo, hi [3]float64
+		haveB := false
+		note := func(x, y, z float64) {
+			v := [3]float64{x, y, z}
+			if !haveB {
+				lo, hi, haveB = v, v, true
+				return
 			}
-			id++
+			for k := 0; k < 3; k++ {
+				lo[k] = math.Min(lo[k], v[k])
+				hi[k] = math.Max(hi[k], v[k])
+			}
+		}
+		for _, e := range lv.Entrances {
+			note(e.X*toStage, e.Y*toStage, e.Z*toStage)
+		}
+		for _, o := range lv.Objects {
+			note(o.X*toStage, o.Y*toStage, o.Z*toStage)
+		}
+		cam := &schema.Camera{Mode: "fly", FOV: 50, Near: 0.01, Far: 500, Fly: &schema.Fly{Speed: 3}}
+		if haveB {
+			cx, cz := (lo[0]+hi[0])/2, (lo[2]+hi[2])/2
+			span := math.Max(1, math.Max(hi[0]-lo[0], hi[2]-lo[2]))
+			cam.Pos = []float64{cx, hi[1] + span*0.5, lo[2] - span*0.7}
+			cam.Target = []float64{cx, (lo[1] + hi[1]) / 2, cz}
+			cam.Fly.Speed = math.Max(1, math.Min(10, span/6))
+		} else {
+			cam.Pos = []float64{0, 8, -16}
+			cam.Target = []float64{0, 0, 0}
+		}
+		doc.Camera = cam
+
+		// Placed actors, oracle-bound.
+		seen := map[string]bool{}
+		pid := 1
+		addObj := func(o sm64ds.LevelObject, actor int, par [3]int, rot bool) {
+			m := modelFor(actor, par)
+			asset, ok := refs[m]
+			if m == "" || !ok {
+				return
+			}
+			pl := schema.Placement{
+				ID:     pid,
+				Object: asset,
+				Pos:    []float64{r3(o.X * toStage), r3(o.Y * toStage), r3(o.Z * toStage)},
+				Scale:  schema.Scale{objScale},
+				Props:  map[string]any{"actor": actor},
+			}
+			if rot && o.RotY != 0 {
+				pl.Rot = []float64{0, o.RotY * math.Pi / 180, 0}
+			}
 			if o.Layer != 0 {
-				j.Props["layer"] = o.Layer
+				pl.Props["actLayer"] = o.Layer
 			}
 			if t := signText(o); t != "" {
-				j.Props["text"] = t
+				pl.OnClick = &schema.OnClick{Action: schema.ActionText, Title: "Signpost", Body: t}
 			}
-			fill(&j, actor, par)
-			if len(j.Props) == 0 {
-				j.Props = nil
+			if c := colFor(actor, par); c != nil {
+				pl.Props["collider"] = c.KCL
 			}
-			return j
+			doc.Placements = append(doc.Placements, pl)
+			pid++
 		}
 		for _, o := range lv.Objects {
 			key := fmt.Sprintf("%d/%.3f/%.3f/%.3f", o.Actor, o.X, o.Y, o.Z)
@@ -1030,121 +1007,26 @@ func exportLevels(ls *sm64ds.LevelSet, tmp, out string, bindings map[int][]Bindi
 				continue
 			}
 			seen[key] = true
-			j := mkObj(o, o.Actor, o.Params)
-			if j.Model != "" {
-				total++
-			}
-			objs = append(objs, j)
-			// the chain chomp's spawned stake pile (traced child; see exportlevelobjs)
+			addObj(o, o.Actor, o.Params, true)
+			// the chain chomp's spawned stake pile (traced child)
 			if o.Actor == 219 {
-				s := mkObj(o, 27, [3]int{65535, 0, 0})
-				s.Rot = nil // spawned at parent pos, no independent rotation recorded
-				objs = append(objs, s)
+				addObj(o, 27, [3]int{65535, 0, 0}, false)
 			}
 		}
-		if len(objs) == 0 {
-			continue
-		}
 
-		// write the object database
-		objFile := stem + ".objects.json"
-		dbBuf, _ := json.MarshalIndent(map[string]any{
-			"format":  2,
-			"level":   stem,
-			"objects": objs,
-		}, "", " ")
-		if err := os.WriteFile(filepath.Join(levelsDir, objFile), dbBuf, 0o644); err != nil {
-			die(err)
-		}
-
-		// write the mesh3d level envelope
-		lf := map[string]any{
-			"format":      2,
-			"name":        levelStems[stem],
-			"kind":        "mesh3d",
-			"mesh":        map[string]string{"glb": "models/" + stem + ".glb"},
-			"objectsFile": objFile,
-		}
-		if lf["name"] == "" || lf["name"] == nil {
-			lf["name"] = stem
-		}
-		if len(lv.Entrances) > 0 {
-			e := lv.Entrances[0]
-			lf["spawn"] = map[string]any{
-				"pos": []float64{r3(e.X * toStage), r3(e.Y * toStage), r3(e.Z * toStage)},
-				"rot": r3(e.RotY),
-			}
-		}
-		if sky := strings.TrimSuffix(filepath.Base(lv.SkyPath), ".bmd"); lv.SkyPath != "" && hasGLB(sky) {
-			lf["sky"] = "models/" + sky + ".glb"
-		}
-		// the stage's own collision mesh (its KCL), for the viewer's collision layer
-		if kcl := strings.TrimSuffix(filepath.Base(lv.KCLPath), ".kcl"); lv.KCLPath != "" && hasCol(kcl) {
-			lf["collision"] = "collision/" + kcl + ".glb"
-		}
-		lfBuf, _ := json.MarshalIndent(lf, "", " ")
-		if err := os.WriteFile(filepath.Join(levelsDir, stem+".json"), lfBuf, 0o644); err != nil {
-			die(err)
-		}
-
-		name, _ := lf["name"].(string)
-		manifest = append(manifest, manifestLevel{
-			Name:    name,
-			Section: "Levels",
-			File:    "levels/" + stem + ".json",
-			Kind:    "mesh3d",
-			Objects: "levels/" + objFile,
-		})
+		b.AddLevel(schema.Asset{
+			ID: slugify(strings.TrimSuffix(stem, "_all")), Name: name, Group: "Levels",
+		}, doc)
 		stageN++
-		fmt.Fprintf(os.Stderr, "[levels]  %d  %s\n", stageN, stem)
+		ctx.Progress("levels", stageN, 0, fmt.Sprintf("%-24s %d placements", stem, len(doc.Placements)))
 	}
-	sort.Slice(manifest, func(i, j int) bool { return manifest[i].Name < manifest[j].Name })
-	fmt.Fprintf(os.Stderr, "[levels] %d stages, %d placements bound to models\n", stageN, total)
-	return manifest
-}
-
-// billboardChecker reports whether a model's bones carry the camera-facing flag
-// (as cmd/exportlevelobjs.billboardChecker).
-func billboardChecker(ls *sm64ds.LevelSet, tmp string) func(stem string) bool {
-	path := map[string]string{}
-	for i := 0; i < 2058; i++ {
-		n := ls.InternalName(i)
-		if strings.HasSuffix(n, ".bmd") {
-			s := strings.TrimSuffix(filepath.Base(n), ".bmd")
-			if _, dup := path[s]; !dup {
-				path[s] = n
-			}
-		}
-	}
-	cache := map[string]bool{}
-	return func(stem string) bool {
-		if v, ok := cache[stem]; ok {
-			return v
-		}
-		var m *sm64ds.Model
-		if p, ok := path[stem]; ok {
-			m, _ = sm64ds.LoadBMD(filepath.Join(tmp, "files", filepath.FromSlash(strings.TrimPrefix(p, "/"))))
-		} else if ref, ok := archiveRefByStem(ls, stem); ok {
-			if data, err := ls.ArchiveMember(ref); err == nil && sm64ds.PlausibleBMD(data) {
-				m, _ = sm64ds.Decode(data, stem)
-			}
-		}
-		v := m != nil && len(m.Skel) == 1 && m.Skel[0].Billboard
-		cache[stem] = v
-		return v
-	}
+	return nil
 }
 
 func r3(v float64) float64 { return float64(int(v*1000+0.5*sign(v))) / 1000 }
-func r5(v float64) float64 { return float64(int(v*100000+0.5*sign(v))) / 100000 }
 func sign(v float64) float64 {
 	if v < 0 {
 		return -1
 	}
 	return 1
-}
-
-func die(err error) {
-	fmt.Fprintln(os.Stderr, "webexport:", err)
-	os.Exit(1)
 }

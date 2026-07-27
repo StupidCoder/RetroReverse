@@ -1,0 +1,16 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "model3d",
+ "name": "Togezo",
+ "animations": [
+  {
+   "id": "togezo_walk",
+   "loop": "loop",
+   "clip": "togezo_walk",
+   "fps": 30
+  }
+ ],
+ "model": "togezo.glb",
+ "skinnedClone": true
+}

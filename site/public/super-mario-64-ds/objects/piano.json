@@ -1,0 +1,16 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "model3d",
+ "name": "Piano",
+ "animations": [
+  {
+   "id": "piano_attack",
+   "loop": "loop",
+   "clip": "piano_attack",
+   "fps": 30
+  }
+ ],
+ "model": "piano.glb",
+ "skinnedClone": true
+}

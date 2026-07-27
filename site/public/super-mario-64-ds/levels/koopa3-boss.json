@@ -1,0 +1,109 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "scene3d",
+ "camera": {
+  "mode": "fly",
+  "pos": [0, 4.384, -7.4416],
+  "target": [0, 0.55, 0.32800000000000007],
+  "fov": 50,
+  "near": 0.01,
+  "far": 500,
+  "fly": {
+   "speed": 1.0946666666666667
+  }
+ },
+ "scene": {
+  "layers": [
+   {
+    "id": "sky",
+    "name": "Skybox",
+    "file": "vr11.glb",
+    "mode": "toggle",
+    "attach": "camera",
+    "renderOrder": -1,
+    "role": "sky"
+   },
+   {
+    "id": "collision",
+    "name": "Collision (KCL)",
+    "file": "col_koopa3_boss.glb",
+    "mode": "toggle",
+    "visible": false,
+    "role": "collision"
+   }
+  ]
+ },
+ "placements": [
+  {
+   "id": 0,
+   "object": "koopa3-boss-all",
+   "pos": [0, 0, 0],
+   "name": "Bowser in the Sky (koopa3_boss)"
+  },
+  {
+   "id": 1,
+   "object": "koopa-model",
+   "pos": [-0.005, 0.3, -0.89],
+   "scale": 0.008,
+   "props": {
+    "actor": 279
+   }
+  },
+  {
+   "id": 2,
+   "object": "kb3-a",
+   "pos": [0, 0, 0],
+   "scale": 0.008,
+   "props": {
+    "actor": 167,
+    "collider": "kb3_a"
+   }
+  },
+  {
+   "id": 3,
+   "object": "koopa-bomb",
+   "pos": [-3.284, 0.5, 1.094],
+   "scale": 0.008,
+   "props": {
+    "actor": 284
+   }
+  },
+  {
+   "id": 4,
+   "object": "koopa-bomb",
+   "pos": [0, 0.5, 3.5],
+   "scale": 0.008,
+   "props": {
+    "actor": 284
+   }
+  },
+  {
+   "id": 5,
+   "object": "koopa-bomb",
+   "pos": [3.284, 0.5, 1.094],
+   "scale": 0.008,
+   "props": {
+    "actor": 284
+   }
+  },
+  {
+   "id": 6,
+   "object": "koopa-bomb",
+   "pos": [2.073, 0.5, -2.844],
+   "scale": 0.008,
+   "props": {
+    "actor": 284
+   }
+  },
+  {
+   "id": 7,
+   "object": "koopa-bomb",
+   "pos": [-2.073, 0.5, -2.844],
+   "scale": 0.008,
+   "props": {
+    "actor": 284
+   }
+  }
+ ]
+}

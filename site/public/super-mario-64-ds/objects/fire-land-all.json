@@ -1,0 +1,7 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "model3d",
+ "name": "Lethal Lava Land",
+ "model": "fire_land_all.glb"
+}

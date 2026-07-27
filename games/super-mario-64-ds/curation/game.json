@@ -1,0 +1,6 @@
+{
+ "title": "Super Mario 64 DS",
+ "platform": "Nintendo DS",
+ "year": 2004,
+ "description": "The DS remake of Mario's 3D debut, rebuilt from the cartridge. Every stage is its own BMD scene with the vrbox skybox riding the camera, its KCL collision mesh available as a toggleable layer (a bit-exact Go reimplementation of the format), and every placed actor bound to its real model by the ACTOR ORACLE — the game's own actor create/init code run natively, no heuristics. Signposts carry their actual BMG messages; skinned models play their .bca clips; the whole SDAT soundtrack is rendered through our SSEQ/SBNK/SWAR pipeline."
+}

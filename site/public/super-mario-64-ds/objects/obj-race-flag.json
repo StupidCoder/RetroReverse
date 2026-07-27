@@ -1,0 +1,16 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "model3d",
+ "name": "Obj race flag",
+ "animations": [
+  {
+   "id": "obj_race_flag_wait",
+   "loop": "loop",
+   "clip": "obj_race_flag_wait",
+   "fps": 30
+  }
+ ],
+ "model": "obj_race_flag.glb",
+ "skinnedClone": true
+}

@@ -1,0 +1,28 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "model3d",
+ "name": "B mario head cap",
+ "animations": [
+  {
+   "id": "Y_egg_run",
+   "loop": "loop",
+   "clip": "Y_egg_run",
+   "fps": 30
+  },
+  {
+   "id": "Y_egg_wait",
+   "loop": "loop",
+   "clip": "Y_egg_wait",
+   "fps": 30
+  },
+  {
+   "id": "b_mario_start",
+   "loop": "loop",
+   "clip": "b_mario_start",
+   "fps": 30
+  }
+ ],
+ "model": "b_mario_head_cap.glb",
+ "skinnedClone": true
+}

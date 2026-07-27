@@ -1,0 +1,886 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "scene3d",
+ "camera": {
+  "mode": "fly",
+  "pos": [-0.6909999999999998, 12.611, -19.0786],
+  "target": [-0.6909999999999998, 1.201, 0.3250000000000002],
+  "fov": 50,
+  "near": 0.01,
+  "far": 500,
+  "fly": {
+   "speed": 2.9830000000000005
+  }
+ },
+ "scene": {
+  "layers": [
+   {
+    "id": "sky",
+    "name": "Skybox",
+    "file": "vr01.glb",
+    "mode": "toggle",
+    "attach": "camera",
+    "renderOrder": -1,
+    "role": "sky"
+   },
+   {
+    "id": "collision",
+    "name": "Collision (KCL)",
+    "file": "col_main_castle.glb",
+    "mode": "toggle",
+    "visible": false,
+    "role": "collision"
+   }
+  ]
+ },
+ "placements": [
+  {
+   "id": 0,
+   "object": "main-castle-all",
+   "pos": [0, 0, 0],
+   "name": "Peach's Castle (exterior)"
+  },
+  {
+   "id": 1,
+   "object": "mc-flag",
+   "pos": [-3.03, 3.095, -0.905],
+   "rot": [0, -1.5707963267948966, 0],
+   "scale": 0.008,
+   "props": {
+    "actor": 342
+   }
+  },
+  {
+   "id": 2,
+   "object": "mc-flag",
+   "pos": [3.047, 3.095, -0.905],
+   "rot": [0, -1.5707963267948966, 0],
+   "scale": 0.008,
+   "props": {
+    "actor": 342
+   }
+  },
+  {
+   "id": 3,
+   "object": "mc-flag",
+   "pos": [-3.593, 3.662, -5.462],
+   "rot": [0, -1.5707963267948966, 0],
+   "scale": 0.008,
+   "props": {
+    "actor": 342
+   }
+  },
+  {
+   "id": 4,
+   "object": "mc-flag",
+   "pos": [3.593, 3.662, -5.462],
+   "rot": [0, -1.5707963267948966, 0],
+   "scale": 0.008,
+   "props": {
+    "actor": 342
+   }
+  },
+  {
+   "id": 5,
+   "object": "ar1-16",
+   "pos": [-6.014, 0.365, -0.729],
+   "scale": 0.008,
+   "props": {
+    "actor": 286
+   }
+  },
+  {
+   "id": 6,
+   "object": "ar1-16",
+   "pos": [-5.52, 0.375, -0.129],
+   "scale": 0.008,
+   "props": {
+    "actor": 286
+   }
+  },
+  {
+   "id": 7,
+   "object": "ar1-16",
+   "pos": [-5.624, 0.348, 0.741],
+   "scale": 0.008,
+   "props": {
+    "actor": 286
+   }
+  },
+  {
+   "id": 8,
+   "object": "ar1-16",
+   "pos": [-4.407, 0.356, 2.172],
+   "scale": 0.008,
+   "props": {
+    "actor": 286
+   }
+  },
+  {
+   "id": 9,
+   "object": "ar1-16",
+   "pos": [-5.157, 0.303, 2.481],
+   "scale": 0.008,
+   "props": {
+    "actor": 286
+   }
+  },
+  {
+   "id": 10,
+   "object": "ar1-16",
+   "pos": [-2.685, 0.551, 3.892],
+   "scale": 0.008,
+   "props": {
+    "actor": 286
+   }
+  },
+  {
+   "id": 11,
+   "object": "ar1-16",
+   "pos": [-1.577, 0.707, 3.858],
+   "scale": 0.008,
+   "props": {
+    "actor": 286
+   }
+  },
+  {
+   "id": 12,
+   "object": "ar1-16",
+   "pos": [-2.474, 0.488, 4.533],
+   "scale": 0.008,
+   "props": {
+    "actor": 286
+   }
+  },
+  {
+   "id": 13,
+   "object": "ar1-16",
+   "pos": [-1.859, 0.449, 4.742],
+   "scale": 0.008,
+   "props": {
+    "actor": 286
+   }
+  },
+  {
+   "id": 14,
+   "object": "ar1-16",
+   "pos": [-0.06, 0.589, 5.131],
+   "scale": 0.008,
+   "props": {
+    "actor": 286
+   }
+  },
+  {
+   "id": 15,
+   "object": "ar1-16",
+   "pos": [0.648, 0.632, 4.591],
+   "scale": 0.008,
+   "props": {
+    "actor": 286
+   }
+  },
+  {
+   "id": 16,
+   "object": "ar1-16",
+   "pos": [1.284, 0.33, 4.794],
+   "scale": 0.008,
+   "props": {
+    "actor": 286
+   }
+  },
+  {
+   "id": 17,
+   "object": "ar1-16",
+   "pos": [1.447, 0.307, 3.746],
+   "scale": 0.008,
+   "props": {
+    "actor": 286
+   }
+  },
+  {
+   "id": 18,
+   "object": "ar1-16",
+   "pos": [1.805, 0.314, 3.043],
+   "scale": 0.008,
+   "props": {
+    "actor": 286
+   }
+  },
+  {
+   "id": 19,
+   "object": "ar1-16",
+   "pos": [2.49, 0.285, 2.566],
+   "scale": 0.008,
+   "props": {
+    "actor": 286
+   }
+  },
+  {
+   "id": 20,
+   "object": "ar1-16",
+   "pos": [5.603, 0.4, 0.721],
+   "scale": 0.008,
+   "props": {
+    "actor": 286
+   }
+  },
+  {
+   "id": 21,
+   "object": "ar1-16",
+   "pos": [6.202, 0.474, 0.288],
+   "scale": 0.008,
+   "props": {
+    "actor": 286
+   }
+  },
+  {
+   "id": 22,
+   "object": "ar1-16",
+   "pos": [5.951, 0.561, -0.997],
+   "scale": 0.008,
+   "props": {
+    "actor": 286
+   }
+  },
+  {
+   "id": 23,
+   "object": "ar1-16",
+   "pos": [5.331, 0.516, -1.185],
+   "scale": 0.008,
+   "props": {
+    "actor": 286
+   }
+  },
+  {
+   "id": 24,
+   "object": "ar1-16",
+   "pos": [5.538, 0.643, -2.083],
+   "scale": 0.008,
+   "props": {
+    "actor": 286
+   }
+  },
+  {
+   "id": 25,
+   "object": "ar1-16",
+   "pos": [6.069, 0.754, -2.903],
+   "scale": 0.008,
+   "props": {
+    "actor": 286
+   }
+  },
+  {
+   "id": 26,
+   "object": "bird",
+   "pos": [-3.941, 0.254, 4.257],
+   "scale": 0.008,
+   "props": {
+    "actor": 343
+   }
+  },
+  {
+   "id": 27,
+   "object": "bird",
+   "pos": [5.401, 0.377, 0.584],
+   "scale": 0.008,
+   "props": {
+    "actor": 343
+   }
+  },
+  {
+   "id": 28,
+   "object": "butterfly",
+   "pos": [-4.725, 0.383, 2.743],
+   "scale": 0.008,
+   "props": {
+    "actor": 336
+   }
+  },
+  {
+   "id": 29,
+   "object": "houdai",
+   "pos": [2.32, 0.155, 3.92],
+   "rot": [0, 1.5707963267948966, 0],
+   "scale": 0.008,
+   "props": {
+    "actLayer": 1,
+    "actor": 207
+   }
+  },
+  {
+   "id": 30,
+   "object": "mc-metalnet",
+   "pos": [2.33, 0.14, 3.92],
+   "scale": 0.008,
+   "props": {
+    "actLayer": 1,
+    "actor": 339,
+    "collider": "mc_metalnet"
+   }
+  },
+  {
+   "id": 31,
+   "object": "mc-metalnet",
+   "pos": [-3.3, -0.52, 0.02],
+   "scale": 0.008,
+   "props": {
+    "actLayer": 1,
+    "actor": 339,
+    "collider": "mc_metalnet"
+   }
+  },
+  {
+   "id": 32,
+   "object": "mc-metalnet",
+   "pos": [-3.76, -1.26, -3.378],
+   "scale": 0.008,
+   "props": {
+    "actLayer": 1,
+    "actor": 339,
+    "collider": "mc_metalnet"
+   }
+  },
+  {
+   "id": 33,
+   "object": "obj-tatefuda",
+   "pos": [-1.6, 0.254, 5.41],
+   "scale": 0.008,
+   "onClick": {
+    "action": "text",
+    "title": "Signpost",
+    "body": "Princess Toadstool's \nCastle Ahead!\nWe want to extend a \nwarm welcome to Mario\nand his crew! As\nfor Bowser, GO HOME!\nYou'll initially start \nin Standard Mode. You \ncan access all 3 modes\nby pressing SELECT. \nIn Standard Mode, the\nbasic controls are:\n: Jump\nHold  as Yoshi: \nFlutter kick\n: Crouch\n\n\n: Swallow items, \npick up items, or punch\ndepending on which \ncharacter you are. \n\n\nPress  again while \nholding something to \nspit it out or throw it.\n: Hold it down while\nmoving to dash."
+   },
+   "props": {
+    "actLayer": 1,
+    "actor": 184,
+    "collider": "obj_tatefuda"
+   }
+  },
+  {
+   "id": 34,
+   "object": "obj-tatefuda",
+   "pos": [-4.6, 0.266, 3.2],
+   "rot": [0, 1.5707963267948966, 0],
+   "scale": 0.008,
+   "onClick": {
+    "action": "text",
+    "title": "Signpost",
+    "body": "You can choose which mode\nto play in by pressing \nSELECT.\n\nThe top screen will show \nthe functions of the \ncontrols in each of the\n3 modes.\nChoose whichever mode you\nlike best.\nStandard Mode is ideal \nfor first-timers.\nPick Touch Mode to move \nwith the Touch Screen. The\nthumb pad on the Wrist \nStrap is ideal for this mode.\nTo walk and run with the \nstylus, choose \nDual-Hand Mode."
+   },
+   "props": {
+    "actLayer": 1,
+    "actor": 184,
+    "collider": "obj_tatefuda"
+   }
+  },
+  {
+   "id": 35,
+   "object": "obj-tatefuda",
+   "pos": [1.812, 0.111, 4.474],
+   "rot": [0, 1.5707963267948966, 0],
+   "scale": 0.008,
+   "onClick": {
+    "action": "text",
+    "title": "Signpost",
+    "body": "Swimming Lessons!\nYou can't breathe under \nthe water! Here's how\nto swim in Standard Mode. \n\nHold  to swim and tap \nit steadily to speed up.\nPress Up on the  \nwhile swimming to dive.\n\nTo head for the surface \nor jump out of the water,\nhold Down on the ,\nthen press .\nPiece of cake, right?"
+   },
+   "props": {
+    "actLayer": 1,
+    "actor": 184,
+    "collider": "obj_tatefuda"
+   }
+  },
+  {
+   "id": 36,
+   "object": "obj-tatefuda",
+   "pos": [5.3, 0.402, 1.7],
+   "rot": [0, -1.5707963267948966, 0],
+   "scale": 0.008,
+   "onClick": {
+    "action": "text",
+    "title": "Signpost",
+    "body": "Slide down a slope \nby crouching.\nOr, crouch in the air to\npound the ground.\nIf you stop, crouch, \nthen jump, you'll do a\nbackward somersault!\nGot that? There's more.\nCrouch and then jump \nwhile running to do a \nlong jump! \nOr crouch and walk to...\nNever mind. It's a \nsecret."
+   },
+   "props": {
+    "actLayer": 1,
+    "actor": 184,
+    "collider": "obj_tatefuda"
+   }
+  },
+  {
+   "id": 37,
+   "object": "mc-water",
+   "pos": [0, 0, 0],
+   "scale": 0.008,
+   "props": {
+    "actLayer": 1,
+    "actor": 338,
+    "collider": "mc_water"
+   }
+  },
+  {
+   "id": 38,
+   "object": "hatena-karabox",
+   "pos": [0, 3.498, -3.5],
+   "scale": 0.008,
+   "props": {
+    "actLayer": 1,
+    "actor": 20
+   }
+  },
+  {
+   "id": 39,
+   "object": "ar1-15",
+   "pos": [0, 3.248, -3.3],
+   "rot": [0, -3.141592653589793, 0],
+   "scale": 0.008,
+   "props": {
+    "actLayer": 1,
+    "actor": 276
+   }
+  },
+  {
+   "id": 40,
+   "object": "ar1-15",
+   "pos": [-0.6, 3.248, -3],
+   "rot": [0, -3.141592653589793, 0],
+   "scale": 0.008,
+   "props": {
+    "actLayer": 1,
+    "actor": 276
+   }
+  },
+  {
+   "id": 41,
+   "object": "ar1-15",
+   "pos": [0.5, 3.248, -3],
+   "rot": [0, -3.141592653589793, 0],
+   "scale": 0.008,
+   "props": {
+    "actLayer": 1,
+    "actor": 276
+   }
+  },
+  {
+   "id": 42,
+   "object": "mip",
+   "pos": [0, 0.789, 2.1],
+   "scale": 0.008,
+   "props": {
+    "actLayer": 1,
+    "actor": 187
+   }
+  },
+  {
+   "id": 43,
+   "object": "mip",
+   "pos": [-4.9, 0.32, 4.7],
+   "scale": 0.008,
+   "props": {
+    "actLayer": 1,
+    "actor": 187
+   }
+  },
+  {
+   "id": 44,
+   "object": "mip",
+   "pos": [4.2, -0.499, -1.1],
+   "rot": [0, -0.7853981633974483, 0],
+   "scale": 0.008,
+   "props": {
+    "actLayer": 1,
+    "actor": 187
+   }
+  },
+  {
+   "id": 45,
+   "object": "mip",
+   "pos": [0, 3.221, -4.2],
+   "scale": 0.008,
+   "props": {
+    "actLayer": 1,
+    "actor": 187
+   }
+  },
+  {
+   "id": 46,
+   "object": "c-jugem",
+   "pos": [0, 1.088, 2.2],
+   "scale": 0.008,
+   "props": {
+    "actLayer": 1,
+    "actor": 235
+   }
+  },
+  {
+   "id": 47,
+   "object": "mip",
+   "pos": [-5.2, 0.367, 5],
+   "scale": 0.008,
+   "props": {
+    "actLayer": 1,
+    "actor": 187
+   }
+  },
+  {
+   "id": 48,
+   "object": "obj-tatefuda",
+   "pos": [-4.6, 0.3, 2.3],
+   "scale": 0.008,
+   "onClick": {
+    "action": "text",
+    "title": "Signpost",
+    "body": "Climbing's easy! When you\njump at trees, poles, or\npillars, you'll grab them\nautomatically. \nIn Standard Mode:\nPress the  Up or \nDown to climb.\nCrouch to stop climbing.\n\n\nTo rotate around the \nobject, press Right or \nLeft on the .\n\n\nLeap toward the\ncharacter's back to jump\noff in that direction.\n\n\nWhen you reach the top,\npress Up on the  to\ndo a handstand! Jump off\nfrom the handstand for a\nhigh, stylin' dismount."
+   },
+   "props": {
+    "actLayer": 1,
+    "actor": 184,
+    "collider": "obj_tatefuda"
+   }
+  },
+  {
+   "id": 49,
+   "object": "mip",
+   "pos": [-5, 0.53, -1.7],
+   "scale": 0.008,
+   "props": {
+    "actLayer": 1,
+    "actor": 187
+   }
+  },
+  {
+   "id": 50,
+   "object": "broken-block-ll",
+   "pos": [-3.3, -0.65, 0.02],
+   "scale": 0.008,
+   "props": {
+    "actLayer": 1,
+    "actor": 17,
+    "collider": "broken_block_ll"
+   }
+  },
+  {
+   "id": 51,
+   "object": "mip",
+   "pos": [-1.2, -0.499, 1.4],
+   "scale": 0.008,
+   "props": {
+    "actLayer": 1,
+    "actor": 187
+   }
+  },
+  {
+   "id": 52,
+   "object": "mip",
+   "pos": [6.1, 0.8, -3.4],
+   "scale": 0.008,
+   "props": {
+    "actLayer": 1,
+    "actor": 187
+   }
+  },
+  {
+   "id": 53,
+   "object": "mip",
+   "pos": [-0.3, 0.789, 2.2],
+   "scale": 0.008,
+   "props": {
+    "actLayer": 1,
+    "actor": 187
+   }
+  },
+  {
+   "id": 54,
+   "object": "mip",
+   "pos": [0.3, 0.789, 2.2],
+   "scale": 0.008,
+   "props": {
+    "actLayer": 1,
+    "actor": 187
+   }
+  },
+  {
+   "id": 55,
+   "object": "mip",
+   "pos": [6, 0.397, 1.7],
+   "rot": [0, -1.5707963267948966, 0],
+   "scale": 0.008,
+   "props": {
+    "actLayer": 1,
+    "actor": 187
+   }
+  },
+  {
+   "id": 56,
+   "object": "mip",
+   "pos": [-6.1, 1.567, 3.2],
+   "rot": [0, -3.141592653589793, 0],
+   "scale": 0.008,
+   "props": {
+    "actLayer": 1,
+    "actor": 187
+   }
+  },
+  {
+   "id": 57,
+   "object": "fish",
+   "pos": [6.056, -1.2, 6.172],
+   "scale": 0.008,
+   "props": {
+    "actLayer": 1,
+    "actor": 344
+   }
+  },
+  {
+   "id": 58,
+   "object": "fish",
+   "pos": [-3.94, -0.909, -2.556],
+   "scale": 0.008,
+   "props": {
+    "actLayer": 1,
+    "actor": 344
+   }
+  },
+  {
+   "id": 59,
+   "object": "butterfly",
+   "pos": [5.514, 0.72, -3.16],
+   "scale": 0.008,
+   "props": {
+    "actLayer": 1,
+    "actor": 336
+   }
+  },
+  {
+   "id": 60,
+   "object": "mc-water",
+   "pos": [8.258, -1.15, 6.969],
+   "scale": 0.008,
+   "props": {
+    "actLayer": 2,
+    "actor": 338,
+    "collider": "mc_water"
+   }
+  },
+  {
+   "id": 61,
+   "object": "ar1-13",
+   "pos": [2.77, 0.175, 5.292],
+   "rot": [0, 1.047133635330436, 0],
+   "scale": 0.008,
+   "props": {
+    "actLayer": 2,
+    "actor": 31
+   }
+  },
+  {
+   "id": 62,
+   "object": "ar1-2",
+   "pos": [-5.167, 1.362, 0.705],
+   "rot": [0, 0.24428644047078837, 0],
+   "scale": 0.008,
+   "props": {
+    "actLayer": 2,
+    "actor": 337
+   }
+  },
+  {
+   "id": 63,
+   "object": "mc-dodai",
+   "pos": [1.905, 0.067, 4.798],
+   "rot": [0, -0.523566817665218, 0],
+   "scale": 0.008,
+   "props": {
+    "actLayer": 2,
+    "actor": 340,
+    "collider": "mc_dodai"
+   }
+  },
+  {
+   "id": 64,
+   "object": "mc-hazad",
+   "pos": [0, 0.78, -0.97],
+   "scale": 0.008,
+   "props": {
+    "actLayer": 2,
+    "actor": 341,
+    "collider": "mc_hazad"
+   }
+  },
+  {
+   "id": 65,
+   "object": "mc-hazad",
+   "pos": [3.25, -0.51, -0.835],
+   "rot": [0, 0.8639188049773445, 0],
+   "scale": 0.008,
+   "props": {
+    "actLayer": 2,
+    "actor": 341,
+    "collider": "mc_hazad"
+   }
+  },
+  {
+   "id": 66,
+   "object": "mc-water",
+   "pos": [-9.64, -1.08, -6.079],
+   "rot": [0, -3.141592653589793, 0],
+   "scale": 0.008,
+   "props": {
+    "actLayer": 2,
+    "actor": 338,
+    "collider": "mc_water"
+   }
+  },
+  {
+   "id": 67,
+   "object": "arc0-20",
+   "pos": [6.306, 0.492, 0.15],
+   "scale": 0.008,
+   "props": {
+    "actLayer": 2,
+    "actor": 269
+   }
+  },
+  {
+   "id": 68,
+   "object": "arc0-17",
+   "pos": [5.495, 0.396, 0.825],
+   "scale": 0.008,
+   "props": {
+    "actLayer": 2,
+    "actor": 269
+   }
+  },
+  {
+   "id": 69,
+   "object": "arc0-16",
+   "pos": [2.452, 0.2, 5.114],
+   "scale": 0.008,
+   "props": {
+    "actLayer": 2,
+    "actor": 269
+   }
+  },
+  {
+   "id": 70,
+   "object": "arc0-20",
+   "pos": [-5.581, 0.363, 4.722],
+   "scale": 0.008,
+   "props": {
+    "actLayer": 2,
+    "actor": 269
+   }
+  },
+  {
+   "id": 71,
+   "object": "arc0-17",
+   "pos": [-5.292, 0.298, 2.487],
+   "scale": 0.008,
+   "props": {
+    "actLayer": 2,
+    "actor": 269
+   }
+  },
+  {
+   "id": 72,
+   "object": "arc0-16",
+   "pos": [-6.235, 0.362, -0.199],
+   "scale": 0.008,
+   "props": {
+    "actLayer": 2,
+    "actor": 269
+   }
+  },
+  {
+   "id": 73,
+   "object": "arc0-14",
+   "pos": [6.302, 1.086, -3.44],
+   "scale": 0.008,
+   "props": {
+    "actLayer": 2,
+    "actor": 22
+   }
+  },
+  {
+   "id": 74,
+   "object": "arc0-28",
+   "pos": [3.514, 0.4, 5.721],
+   "scale": 0.008,
+   "props": {
+    "actLayer": 2,
+    "actor": 180
+   }
+  },
+  {
+   "id": 75,
+   "object": "arc0-21",
+   "pos": [3.514, 0.4, 5.721],
+   "scale": 0.008,
+   "props": {
+    "actLayer": 2,
+    "actor": 178
+   }
+  },
+  {
+   "id": 76,
+   "object": "arc0-28",
+   "pos": [-5.741, 0.637, 4.871],
+   "scale": 0.008,
+   "props": {
+    "actLayer": 2,
+    "actor": 180
+   }
+  },
+  {
+   "id": 77,
+   "object": "arc0-21",
+   "pos": [-5.741, 0.637, 4.871],
+   "scale": 0.008,
+   "props": {
+    "actLayer": 2,
+    "actor": 178
+   }
+  },
+  {
+   "id": 78,
+   "object": "arc0-28",
+   "pos": [5.603, 1.3, 0.721],
+   "scale": 0.008,
+   "props": {
+    "actLayer": 2,
+    "actor": 180
+   }
+  },
+  {
+   "id": 79,
+   "object": "arc0-21",
+   "pos": [5.603, 1.3, 0.721],
+   "scale": 0.008,
+   "props": {
+    "actLayer": 2,
+    "actor": 178
+   }
+  },
+  {
+   "id": 80,
+   "object": "arc0-28",
+   "pos": [0, 1.033, 3.1],
+   "scale": 0.008,
+   "props": {
+    "actLayer": 2,
+    "actor": 180
+   }
+  },
+  {
+   "id": 81,
+   "object": "arc0-21",
+   "pos": [0, 1.033, 3.1],
+   "scale": 0.008,
+   "props": {
+    "actLayer": 2,
+    "actor": 178
+   }
+  }
+ ]
+}

@@ -1,0 +1,16 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "model3d",
+ "name": "Hojiro",
+ "animations": [
+  {
+   "id": "hojiro_swim",
+   "loop": "loop",
+   "clip": "hojiro_swim",
+   "fps": 30
+  }
+ ],
+ "model": "hojiro.glb",
+ "skinnedClone": true
+}

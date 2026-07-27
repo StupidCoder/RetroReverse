@@ -1,0 +1,28 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "model3d",
+ "name": "Bombhei",
+ "animations": [
+  {
+   "id": "bombhei_carry",
+   "loop": "loop",
+   "clip": "bombhei_carry",
+   "fps": 30
+  },
+  {
+   "id": "bombhei_walk",
+   "loop": "loop",
+   "clip": "bombhei_walk",
+   "fps": 30
+  },
+  {
+   "id": "red_wait",
+   "loop": "loop",
+   "clip": "red_wait",
+   "fps": 30
+  }
+ ],
+ "model": "bombhei.glb",
+ "skinnedClone": true
+}

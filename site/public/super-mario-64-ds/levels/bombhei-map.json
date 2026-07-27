@@ -1,0 +1,2214 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "scene3d",
+ "camera": {
+  "mode": "fly",
+  "pos": [0.10000000000000009, 12.9075, -17.5015],
+  "target": [0.10000000000000009, 2.875, -0.3234999999999997],
+  "fov": 50,
+  "near": 0.01,
+  "far": 500,
+  "fly": {
+   "speed": 2.3858333333333337
+  }
+ },
+ "scene": {
+  "layers": [
+   {
+    "id": "sky",
+    "name": "Skybox",
+    "file": "vr01.glb",
+    "mode": "toggle",
+    "attach": "camera",
+    "renderOrder": -1,
+    "role": "sky"
+   },
+   {
+    "id": "collision",
+    "name": "Collision (KCL)",
+    "file": "col_bombhei_map.glb",
+    "mode": "toggle",
+    "visible": false,
+    "role": "collision"
+   }
+  ]
+ },
+ "placements": [
+  {
+   "id": 0,
+   "object": "bombhei-map-all",
+   "pos": [0, 0, 0],
+   "name": "Bob-omb Battlefield"
+  },
+  {
+   "id": 1,
+   "object": "obj-updnlift",
+   "pos": [1.625, 0.05, 4.5],
+   "scale": 0.008,
+   "props": {
+    "actor": 29,
+    "collider": "obj_updnlift"
+   }
+  },
+  {
+   "id": 2,
+   "object": "b-si-so",
+   "pos": [-2.25, 0.7, 1],
+   "rot": [0, 0.7853981633974483, 0],
+   "scale": 0.008,
+   "props": {
+    "actor": 39,
+    "collider": "b_si_so"
+   }
+  },
+  {
+   "id": 3,
+   "object": "ar1-0",
+   "pos": [0.423, 2.62, -5.428],
+   "rot": [0, -2.5655828677387347, 0],
+   "scale": 0.008,
+   "props": {
+    "actor": 220
+   }
+  },
+  {
+   "id": 4,
+   "object": "ar1-0",
+   "pos": [1.477, 3.745, -5.526],
+   "rot": [0, -2.6353789935875316, 0],
+   "scale": 0.008,
+   "props": {
+    "actor": 220
+   }
+  },
+  {
+   "id": 5,
+   "object": "ar1-0",
+   "pos": [-0.099, 0.8, -3.345],
+   "scale": 0.008,
+   "props": {
+    "actor": 220
+   }
+  },
+  {
+   "id": 6,
+   "object": "ar1-0",
+   "pos": [-1.313, 0.79, -3.673],
+   "scale": 0.008,
+   "props": {
+    "actor": 220
+   }
+  },
+  {
+   "id": 7,
+   "object": "hatena-karabox",
+   "pos": [0.294, 0.25, 6.4],
+   "scale": 0.008,
+   "props": {
+    "actor": 20
+   }
+  },
+  {
+   "id": 8,
+   "object": "obj-box-switch",
+   "pos": [-2.25, 0, -3.55],
+   "rot": [0, 0.46633015951723494, 0],
+   "scale": 0.008,
+   "props": {
+    "actor": 11,
+    "collider": "obj_box_switch"
+   }
+  },
+  {
+   "id": 9,
+   "object": "b-ana-shutter",
+   "pos": [-2.29, 0, -2.86],
+   "rot": [0, 0.46633015951723494, 0],
+   "scale": 0.008,
+   "props": {
+    "actor": 40,
+    "collider": "b_ana_shutter"
+   }
+  },
+  {
+   "id": 10,
+   "object": "b-ana-shutter",
+   "pos": [-1.725, 0, -3.145],
+   "rot": [0, -2.6703729303111725, 0],
+   "scale": 0.008,
+   "props": {
+    "actor": 40,
+    "collider": "b_ana_shutter"
+   }
+  },
+  {
+   "id": 11,
+   "object": "kuribo-model",
+   "pos": [-2.095, 0.205, 5.352],
+   "rot": [0, -1.3089649810626662, 0],
+   "scale": 0.008,
+   "props": {
+    "actor": 200
+   }
+  },
+  {
+   "id": 12,
+   "object": "kuribo-model",
+   "pos": [3.591, 0.792, 5.595],
+   "rot": [0, 1.5707963267948966, 0],
+   "scale": 0.008,
+   "props": {
+    "actor": 200
+   }
+  },
+  {
+   "id": 13,
+   "object": "kuribo-model",
+   "pos": [0.998, 0.749, 5.399],
+   "rot": [0, -1.5707963267948966, 0],
+   "scale": 0.008,
+   "props": {
+    "actor": 200
+   }
+  },
+  {
+   "id": 14,
+   "object": "kuribo-model",
+   "pos": [4.255, 0.738, 1.622],
+   "rot": [0, -0.6980571322872096, 0],
+   "scale": 0.008,
+   "props": {
+    "actor": 200
+   }
+  },
+  {
+   "id": 15,
+   "object": "kuribo-model",
+   "pos": [6.7, 1.965, -5.683],
+   "scale": 0.008,
+   "props": {
+    "actor": 200
+   }
+  },
+  {
+   "id": 16,
+   "object": "bombhei",
+   "pos": [2.151, 0.74, 3.429],
+   "scale": 0.008,
+   "props": {
+    "actor": 206
+   }
+  },
+  {
+   "id": 17,
+   "object": "bombhei",
+   "pos": [-1.607, 0, -2.194],
+   "scale": 0.008,
+   "props": {
+    "actor": 206
+   }
+  },
+  {
+   "id": 18,
+   "object": "bombhei",
+   "pos": [-0.969, 0, -1.001],
+   "scale": 0.008,
+   "props": {
+    "actor": 206
+   }
+  },
+  {
+   "id": 19,
+   "object": "bombhei",
+   "pos": [-2.6, 0, 1.6],
+   "scale": 0.008,
+   "props": {
+    "actor": 206
+   }
+  },
+  {
+   "id": 20,
+   "object": "bombhei",
+   "pos": [-1.911, 0, 3.08],
+   "scale": 0.008,
+   "props": {
+    "actor": 206
+   }
+  },
+  {
+   "id": 21,
+   "object": "pile",
+   "pos": [-6.45, 0.75, 1.7],
+   "scale": 0.008,
+   "props": {
+    "actor": 27,
+    "collider": "pile"
+   }
+  },
+  {
+   "id": 22,
+   "object": "pile",
+   "pos": [-6.45, 0.749, 2.9],
+   "scale": 0.008,
+   "props": {
+    "actor": 27,
+    "collider": "pile"
+   }
+  },
+  {
+   "id": 23,
+   "object": "pile",
+   "pos": [-5.25, 0.749, 1.7],
+   "scale": 0.008,
+   "props": {
+    "actor": 27,
+    "collider": "pile"
+   }
+  },
+  {
+   "id": 24,
+   "object": "pile",
+   "pos": [-5.25, 0.749, 2.9],
+   "scale": 0.008,
+   "props": {
+    "actor": 27,
+    "collider": "pile"
+   }
+  },
+  {
+   "id": 25,
+   "object": "hatena-karabox",
+   "pos": [-6.4, 1.25, -2.3],
+   "scale": 0.008,
+   "props": {
+    "actor": 20
+   }
+  },
+  {
+   "id": 26,
+   "object": "bombhei",
+   "pos": [-3.619, 1, -0.309],
+   "scale": 0.008,
+   "props": {
+    "actor": 206
+   }
+  },
+  {
+   "id": 27,
+   "object": "bombhei",
+   "pos": [-2.783, 0.819, -2.532],
+   "scale": 0.008,
+   "props": {
+    "actor": 206
+   }
+  },
+  {
+   "id": 28,
+   "object": "bombhei",
+   "pos": [-3.843, 0.937, -3.338],
+   "scale": 0.008,
+   "props": {
+    "actor": 206
+   }
+  },
+  {
+   "id": 29,
+   "object": "kuribo-model",
+   "pos": [6.266, 0.926, 4.814],
+   "rot": [0, -1.5707963267948966, 0],
+   "scale": 0.008,
+   "props": {
+    "actor": 200
+   }
+  },
+  {
+   "id": 30,
+   "object": "obj-tatefuda",
+   "pos": [-4, 0, 5.9],
+   "rot": [0, -1.5707963267948966, 0],
+   "scale": 0.008,
+   "onClick": {
+    "action": "text",
+    "title": "Signpost",
+    "body": "Here's a piece of advice\nfor the green fellow \nwithout a mustache.\nWhen playing in Standard\nMode: \nIf you're feeling \nhungry, press  to \nstick out your tongue \nand swallow an enemy. \n\nPress  again to \nspit it out.\nOr, you can lay an egg\nby crouching while your \nmouth is still full.\nPress  again \nto throw the egg. \n\n\n\nRemember, some enemies \nwon't turn into eggs \neven if you swallow \nthem."
+   },
+   "props": {
+    "actor": 184,
+    "collider": "obj_tatefuda"
+   }
+  },
+  {
+   "id": 31,
+   "object": "obj-tatefuda",
+   "pos": [-4, 0, 6.2],
+   "rot": [0, -1.5707963267948966, 0],
+   "scale": 0.008,
+   "onClick": {
+    "action": "text",
+    "title": "Signpost",
+    "body": "If you sport a cap and\na mustache, this advice\nis for you:\nDefend yourself against\nenemies!\nIn Standard Mode, press\n to punch.\nPress  to jump.\nPress  and  at \nthe same time to kick.\nPress  to pick up\nsomething.\nTo throw something \nyou're holding, press \n again."
+   },
+   "props": {
+    "actor": 184,
+    "collider": "obj_tatefuda"
+   }
+  },
+  {
+   "id": 32,
+   "object": "obj-tatefuda",
+   "pos": [1.311, 0.75, 3.051],
+   "scale": 0.008,
+   "onClick": {
+    "action": "text",
+    "title": "Signpost",
+    "body": "BEWARE OF CHAIN-CHOMP\nExtreme Danger!\n\n\nIn Standard Mode, you \ncan center the camera \nbehind you by pressing \n. \nThis move is helpful \nwhen you want to look \nat something up close. \n\nSee the red coin on top\nof the stake? When you\ncollect 8 of them, a \nPower Star will appear. \nThe map on the Touch \nScreen will show you \nwhere the Star is."
+   },
+   "props": {
+    "actor": 184,
+    "collider": "obj_tatefuda"
+   }
+  },
+  {
+   "id": 33,
+   "object": "obj-tatefuda",
+   "pos": [-2.162, 0.967, -4.252],
+   "rot": [0, -1.047133635330436, 0],
+   "scale": 0.008,
+   "onClick": {
+    "action": "text",
+    "title": "Signpost",
+    "body": "No visitors allowed, \nby decree of the \nBig Bob-omb.\nI shall never surrender\nmy Stars.\nThey hold the power of\nthe castle in their glow.\nThey were a gift from \nBowser, the Koopa King\nhimself.\nThey lie well hidden \nwithin my realm.\nNot a whisper of their\nwhereabouts shall leave\nmy lips. \nOh, all right, perhaps \njust a hint: heed the \nStar names at the \nbeginning of the course.\n    --The Big Bob-omb"
+   },
+   "props": {
+    "actor": 184,
+    "collider": "obj_tatefuda"
+   }
+  },
+  {
+   "id": 34,
+   "object": "obj-tatefuda",
+   "pos": [3.3, 3, 1.7],
+   "rot": [0, 1.047133635330436, 0],
+   "scale": 0.008,
+   "onClick": {
+    "action": "text",
+    "title": "Signpost",
+    "body": "When Mario gets Wings from\na ? Block, he'll be able \nto fly. Perform a triple \njump to take off. \n\n\nIn Standard Mode, once \nMario's in the air, press \nthe  Down to ascend \nand press it Up to descend.\nPress  to stop flying!"
+   },
+   "props": {
+    "actor": 184,
+    "collider": "obj_tatefuda"
+   }
+  },
+  {
+   "id": 35,
+   "object": "obj-tatefuda",
+   "pos": [6.554, 2.002, -6.415],
+   "scale": 0.008,
+   "onClick": {
+    "action": "text",
+    "title": "Signpost",
+    "body": "You can grab the edge \nof a cliff or ledge with\nyour fingertips and hang\ndown from it. \nIf you are in Standard\nMode:\nDrop down from the \nedge by crouching or \npressing  in the \ndirection of your back.\n\n\nClimb onto the ledge by \npressing Up on .\nPress  as soon as \nyou grab the edge to \nclimb up quickly!"
+   },
+   "props": {
+    "actor": 184,
+    "collider": "obj_tatefuda"
+   }
+  },
+  {
+   "id": 36,
+   "object": "obj-tatefuda",
+   "pos": [-5.85, 0.749, 2.9],
+   "scale": 0.008,
+   "onClick": {
+    "action": "text",
+    "title": "Signpost",
+    "body": "The shadowy star in \nfront of you is a \nStar Marker. When \nyou collect all 8 red\ncoins, a Star will \nappear here."
+   },
+   "props": {
+    "actor": 184,
+    "collider": "obj_tatefuda"
+   }
+  },
+  {
+   "id": 37,
+   "object": "obj-tatefuda",
+   "pos": [3.969, 3.4, -6.787],
+   "rot": [0, 1.047133635330436, 0],
+   "scale": 0.008,
+   "onClick": {
+    "action": "text",
+    "title": "Signpost",
+    "body": "Coins refill your \nPower Meter, so get \nas many as you can! \n\nSpinning Hearts can \nalso refill your \nPower Meter.\n\nThe faster you run \nthrough a Spinning \nHeart, the more you'll\nrecover."
+   },
+   "props": {
+    "actor": 184,
+    "collider": "obj_tatefuda"
+   }
+  },
+  {
+   "id": 38,
+   "object": "obj-tatefuda",
+   "pos": [0.037, 0, 6.834],
+   "rot": [0, -1.5707963267948966, 0],
+   "scale": 0.008,
+   "onClick": {
+    "action": "text",
+    "title": "Signpost",
+    "body": "When you step on the \nstrange ? Switch\nhidden in the castle, \nthe ? Blocks will \nbecome solid. \n\nSome of these blocks \nhave useful items inside.\nGet the items by \nbreaking the blocks. \nBut beware! Some \nblocks are duds."
+   },
+   "props": {
+    "actor": 184,
+    "collider": "obj_tatefuda"
+   }
+  },
+  {
+   "id": 39,
+   "object": "obj-tatefuda",
+   "pos": [-3.456, 0.749, 0.292],
+   "rot": [0, 0.7853981633974483, 0],
+   "scale": 0.008,
+   "onClick": {
+    "action": "text",
+    "title": "Signpost",
+    "body": "Slide down a slope \nby crouching.\nOr, crouch in the air to\npound the ground.\nIf you stop, crouch, \nthen jump, you'll do a\nbackward somersault!\nGot that? There's more.\nCrouch and then jump \nwhile running to do a \nlong jump! \nOr crouch and walk to...\nNever mind. It's a \nsecret."
+   },
+   "props": {
+    "actor": 184,
+    "collider": "obj_tatefuda"
+   }
+  },
+  {
+   "id": 40,
+   "object": "obj-tatefuda",
+   "pos": [4.9, 3, 2.2],
+   "rot": [0, 0.017449031462199168, 0],
+   "scale": 0.008,
+   "onClick": {
+    "action": "text",
+    "title": "Signpost",
+    "body": "If you pass through a\ncoin ring or find a \nsecret point in a\ncourse, sometimes a \nred number will appear.\n\nIf you trigger five \nred numbers, a \nSecret Star\nwill show up."
+   },
+   "props": {
+    "actor": 184,
+    "collider": "obj_tatefuda"
+   }
+  },
+  {
+   "id": 41,
+   "object": "obj-tatefuda",
+   "pos": [-6.65, 1, -2.3],
+   "scale": 0.008,
+   "onClick": {
+    "action": "text",
+    "title": "Signpost",
+    "body": "You can fly if you're \nwearing the red Wing cap!\nPut the cap on, then \ntriple jump to take off.\nYou can fly even higher\nif you blast out of a\ncannon wearing the\nWing cap!"
+   },
+   "props": {
+    "actor": 184,
+    "collider": "obj_tatefuda"
+   }
+  },
+  {
+   "id": 42,
+   "object": "houdai",
+   "pos": [-5.57, 0.125, 5.475],
+   "scale": 0.008,
+   "props": {
+    "actor": 207
+   }
+  },
+  {
+   "id": 43,
+   "object": "houdai",
+   "pos": [5.25, 1.5, 4.5],
+   "rot": [0, 1.5707963267948966, 0],
+   "scale": 0.008,
+   "props": {
+    "actor": 207
+   }
+  },
+  {
+   "id": 44,
+   "object": "houdai",
+   "pos": [-4.9, 1.3, -3.45],
+   "scale": 0.008,
+   "props": {
+    "actor": 207
+   }
+  },
+  {
+   "id": 45,
+   "object": "houdai",
+   "pos": [6.2, 2.031, -6.9],
+   "rot": [0, -1.5707963267948966, 0],
+   "scale": 0.008,
+   "props": {
+    "actor": 207
+   }
+  },
+  {
+   "id": 46,
+   "object": "houdai",
+   "pos": [4.15, 3, -2.4],
+   "rot": [0, -1.5707963267948966, 0],
+   "scale": 0.008,
+   "props": {
+    "actor": 207
+   }
+  },
+  {
+   "id": 47,
+   "object": "houdai",
+   "pos": [4.25, 3, 1.201],
+   "rot": [0, -3.141592653589793, 0],
+   "scale": 0.008,
+   "props": {
+    "actor": 207
+   }
+  },
+  {
+   "id": 48,
+   "object": "hatena-karabox",
+   "pos": [3.7, 3.25, 1.95],
+   "scale": 0.008,
+   "props": {
+    "actor": 20
+   }
+  },
+  {
+   "id": 49,
+   "object": "obj-heart",
+   "pos": [3.636, 3.455, -6.855],
+   "scale": 0.008,
+   "props": {
+    "actor": 297
+   }
+  },
+  {
+   "id": 50,
+   "object": "arc0-9",
+   "pos": [-1.5, 5.45, 1.2],
+   "scale": 0.008,
+   "props": {
+    "actor": 329
+   }
+  },
+  {
+   "id": 51,
+   "object": "arc0-9",
+   "pos": [2.95, 3.6, 1.2],
+   "scale": 0.008,
+   "props": {
+    "actor": 329
+   }
+  },
+  {
+   "id": 52,
+   "object": "arc0-9",
+   "pos": [2.1, 3.6, 1.2],
+   "scale": 0.008,
+   "props": {
+    "actor": 329
+   }
+  },
+  {
+   "id": 53,
+   "object": "arc0-9",
+   "pos": [1.25, 3.6, 1.2],
+   "scale": 0.008,
+   "props": {
+    "actor": 329
+   }
+  },
+  {
+   "id": 54,
+   "object": "arc0-9",
+   "pos": [-0.45, 4.1, 1.2],
+   "scale": 0.008,
+   "props": {
+    "actor": 329
+   }
+  },
+  {
+   "id": 55,
+   "object": "bombhei",
+   "pos": [-4.45, 1, -2.2],
+   "scale": 0.008,
+   "props": {
+    "actor": 206
+   }
+  },
+  {
+   "id": 56,
+   "object": "ar1-15",
+   "pos": [-2.35, 0, -4.05],
+   "scale": 0.008,
+   "props": {
+    "actor": 276
+   }
+  },
+  {
+   "id": 57,
+   "object": "kuribo-model",
+   "pos": [6.227, 0.743, 0.564],
+   "scale": 0.008,
+   "props": {
+    "actor": 200
+   }
+  },
+  {
+   "id": 58,
+   "object": "cannon-shutter",
+   "pos": [-5.562, 0.125, 5.468],
+   "scale": 0.008,
+   "props": {
+    "actor": 14,
+    "collider": "cannon_shutter"
+   }
+  },
+  {
+   "id": 59,
+   "object": "cannon-shutter",
+   "pos": [5.25, 1.5, 4.5],
+   "scale": 0.008,
+   "props": {
+    "actor": 14,
+    "collider": "cannon_shutter"
+   }
+  },
+  {
+   "id": 60,
+   "object": "cannon-shutter",
+   "pos": [-4.9, 1.3, -3.45],
+   "scale": 0.008,
+   "props": {
+    "actor": 14,
+    "collider": "cannon_shutter"
+   }
+  },
+  {
+   "id": 61,
+   "object": "cannon-shutter",
+   "pos": [6.2, 2.031, -6.9],
+   "scale": 0.008,
+   "props": {
+    "actor": 14,
+    "collider": "cannon_shutter"
+   }
+  },
+  {
+   "id": 62,
+   "object": "cannon-shutter",
+   "pos": [4.15, 3, -2.4],
+   "scale": 0.008,
+   "props": {
+    "actor": 14,
+    "collider": "cannon_shutter"
+   }
+  },
+  {
+   "id": 63,
+   "object": "cannon-shutter",
+   "pos": [4.25, 3, 1.201],
+   "scale": 0.008,
+   "props": {
+    "actor": 14,
+    "collider": "cannon_shutter"
+   }
+  },
+  {
+   "id": 64,
+   "object": "kuribo-model",
+   "pos": [-1.252, 0.249, 5.662],
+   "rot": [0, -1.5707963267948966, 0],
+   "scale": 0.008,
+   "props": {
+    "actor": 200
+   }
+  },
+  {
+   "id": 65,
+   "object": "ar1-15",
+   "pos": [5.3, 1.43, 5.9],
+   "scale": 0.008,
+   "props": {
+    "actor": 276
+   }
+  },
+  {
+   "id": 66,
+   "object": "arc0-5",
+   "pos": [-6.1, 1, -4.8],
+   "scale": 0.008,
+   "props": {
+    "actor": 276
+   }
+  },
+  {
+   "id": 67,
+   "object": "ar1-15",
+   "pos": [-6.15, 1, -5.15],
+   "scale": 0.008,
+   "props": {
+    "actor": 276
+   }
+  },
+  {
+   "id": 68,
+   "object": "arc0-5",
+   "pos": [-6.45, 1, -4.8],
+   "scale": 0.008,
+   "props": {
+    "actor": 276
+   }
+  },
+  {
+   "id": 69,
+   "object": "arc0-5",
+   "pos": [-6.6, 1, -5],
+   "scale": 0.008,
+   "props": {
+    "actor": 276
+   }
+  },
+  {
+   "id": 70,
+   "object": "arc0-5",
+   "pos": [-6.55, 1, -5.25],
+   "scale": 0.008,
+   "props": {
+    "actor": 276
+   }
+  },
+  {
+   "id": 71,
+   "object": "arc0-5",
+   "pos": [-6.25, 1, -5.45],
+   "scale": 0.008,
+   "props": {
+    "actor": 276
+   }
+  },
+  {
+   "id": 72,
+   "object": "arc0-5",
+   "pos": [-5.95, 1, -5.5],
+   "scale": 0.008,
+   "props": {
+    "actor": 276
+   }
+  },
+  {
+   "id": 73,
+   "object": "arc0-5",
+   "pos": [-5.65, 1, -5.3],
+   "scale": 0.008,
+   "props": {
+    "actor": 276
+   }
+  },
+  {
+   "id": 74,
+   "object": "arc0-5",
+   "pos": [-5.8, 1, -5],
+   "scale": 0.008,
+   "props": {
+    "actor": 276
+   }
+  },
+  {
+   "id": 75,
+   "object": "bombhei",
+   "pos": [-3, 0, -5.05],
+   "scale": 0.008,
+   "props": {
+    "actor": 206
+   }
+  },
+  {
+   "id": 76,
+   "object": "kuribo-model",
+   "pos": [-6.049, 0.75, 0.795],
+   "scale": 0.008,
+   "props": {
+    "actor": 200
+   }
+  },
+  {
+   "id": 77,
+   "object": "kuribo-model",
+   "pos": [3.717, 0.879, 3.888],
+   "rot": [0, -1.5707963267948966, 0],
+   "scale": 0.008,
+   "props": {
+    "actor": 200
+   }
+  },
+  {
+   "id": 78,
+   "object": "kuribo-model",
+   "pos": [3.58, 0.72, 1.583],
+   "rot": [0, -1.5707963267948966, 0],
+   "scale": 0.008,
+   "props": {
+    "actor": 200
+   }
+  },
+  {
+   "id": 79,
+   "object": "kuribo-model",
+   "pos": [-1.449, 0, -1.696],
+   "rot": [0, 0.523566817665218, 0],
+   "scale": 0.008,
+   "props": {
+    "actor": 200
+   }
+  },
+  {
+   "id": 80,
+   "object": "kuribo-model",
+   "pos": [-5.229, 0.75, 1.037],
+   "rot": [0, -1.5707963267948966, 0],
+   "scale": 0.008,
+   "props": {
+    "actor": 200
+   }
+  },
+  {
+   "id": 81,
+   "object": "yajirusi-l",
+   "pos": [2.24, 0.75, 4.225],
+   "rot": [0, -1.5707963267948966, 0],
+   "scale": 0.008,
+   "props": {
+    "actor": 299,
+    "collider": "yajirusi_l"
+   }
+  },
+  {
+   "id": 82,
+   "object": "yajirusi-r",
+   "pos": [-4.807, 1, -1.819],
+   "rot": [0, 0.7853981633974483, 0],
+   "scale": 0.008,
+   "props": {
+    "actor": 300,
+    "collider": "yajirusi_r"
+   }
+  },
+  {
+   "id": 83,
+   "object": "yajirusi-r",
+   "pos": [-3.2, 0.776, -4.469],
+   "rot": [0, 0.3489806292439833, 0],
+   "scale": 0.008,
+   "props": {
+    "actor": 300,
+    "collider": "yajirusi_r"
+   }
+  },
+  {
+   "id": 84,
+   "object": "yajirusi-r",
+   "pos": [-1.699, 1, -5.541],
+   "rot": [0, -1.1343787926414315, 0],
+   "scale": 0.008,
+   "props": {
+    "actor": 300,
+    "collider": "yajirusi_r"
+   }
+  },
+  {
+   "id": 85,
+   "object": "yajirusi-l",
+   "pos": [6.138, 0.849, -1.457],
+   "rot": [0, 0.7853981633974483, 0],
+   "scale": 0.008,
+   "props": {
+    "actor": 299,
+    "collider": "yajirusi_l"
+   }
+  },
+  {
+   "id": 86,
+   "object": "broken-block-l",
+   "pos": [6.833, 1.983, -6.415],
+   "scale": 0.008,
+   "props": {
+    "actor": 15,
+    "collider": "broken_block_l"
+   }
+  },
+  {
+   "id": 87,
+   "object": "broken-block-l",
+   "pos": [-3.66, 0, 6.411],
+   "scale": 0.008,
+   "props": {
+    "actor": 15,
+    "collider": "broken_block_l"
+   }
+  },
+  {
+   "id": 88,
+   "object": "bomb-tree",
+   "pos": [-5.987, 0.881, -6.355],
+   "scale": 0.008,
+   "props": {
+    "actor": 286
+   }
+  },
+  {
+   "id": 89,
+   "object": "bomb-tree",
+   "pos": [-5.657, 0.999, -4.546],
+   "scale": 0.008,
+   "props": {
+    "actor": 286
+   }
+  },
+  {
+   "id": 90,
+   "object": "bomb-tree",
+   "pos": [-6.645, 1.015, -4.753],
+   "scale": 0.008,
+   "props": {
+    "actor": 286
+   }
+  },
+  {
+   "id": 91,
+   "object": "bomb-tree",
+   "pos": [-6.028, 1, -0.421],
+   "scale": 0.008,
+   "props": {
+    "actor": 286
+   }
+  },
+  {
+   "id": 92,
+   "object": "bomb-tree",
+   "pos": [-5, 0.749, 2],
+   "scale": 0.008,
+   "props": {
+    "actor": 286
+   }
+  },
+  {
+   "id": 93,
+   "object": "bomb-tree",
+   "pos": [-4, 0.749, 1.499],
+   "scale": 0.008,
+   "props": {
+    "actor": 286
+   }
+  },
+  {
+   "id": 94,
+   "object": "bomb-tree",
+   "pos": [-6.499, 0.75, 3.5],
+   "scale": 0.008,
+   "props": {
+    "actor": 286
+   }
+  },
+  {
+   "id": 95,
+   "object": "bomb-tree",
+   "pos": [-4, 0.75, 3],
+   "scale": 0.008,
+   "props": {
+    "actor": 286
+   }
+  },
+  {
+   "id": 96,
+   "object": "bomb-tree",
+   "pos": [-3.499, 0.749, 2.499],
+   "scale": 0.008,
+   "props": {
+    "actor": 286
+   }
+  },
+  {
+   "id": 97,
+   "object": "bomb-tree",
+   "pos": [-4.168, 0, 4.655],
+   "scale": 0.008,
+   "props": {
+    "actor": 286
+   }
+  },
+  {
+   "id": 98,
+   "object": "bomb-tree",
+   "pos": [-1.474, 0.13, 4.974],
+   "scale": 0.008,
+   "props": {
+    "actor": 286
+   }
+  },
+  {
+   "id": 99,
+   "object": "bomb-tree",
+   "pos": [2.842, 0.749, 5.777],
+   "scale": 0.008,
+   "props": {
+    "actor": 286
+   }
+  },
+  {
+   "id": 100,
+   "object": "bomb-tree",
+   "pos": [5.3, 0.85, 5.9],
+   "scale": 0.008,
+   "props": {
+    "actor": 286
+   }
+  },
+  {
+   "id": 101,
+   "object": "bomb-tree",
+   "pos": [4.108, 0.905, 3.683],
+   "scale": 0.008,
+   "props": {
+    "actor": 286
+   }
+  },
+  {
+   "id": 102,
+   "object": "bomb-tree",
+   "pos": [4, 3, 1.6],
+   "scale": 0.008,
+   "props": {
+    "actor": 286
+   }
+  },
+  {
+   "id": 103,
+   "object": "bomb-tree",
+   "pos": [6.639, 1.96, -5.457],
+   "scale": 0.008,
+   "props": {
+    "actor": 286
+   }
+  },
+  {
+   "id": 104,
+   "object": "bomb-tree",
+   "pos": [5.891, 2.142, -7.481],
+   "scale": 0.008,
+   "props": {
+    "actor": 286
+   }
+  },
+  {
+   "id": 105,
+   "object": "arc0-5",
+   "pos": [4.411, 3.002, -2.527],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 106,
+   "object": "arc0-5",
+   "pos": [4.604, 3.006, -2.621],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 107,
+   "object": "arc0-5",
+   "pos": [4.798, 3.009, -2.72],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 108,
+   "object": "arc0-5",
+   "pos": [4.981, 3.011, -2.814],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 109,
+   "object": "arc0-5",
+   "pos": [5.159, 3.014, -2.914],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 110,
+   "object": "arc0-5",
+   "pos": [-0.664, 0, 5.506],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 111,
+   "object": "arc0-5",
+   "pos": [-0.35, 0, 5.506],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 112,
+   "object": "arc0-5",
+   "pos": [-0.042, 0, 5.506],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 113,
+   "object": "arc0-5",
+   "pos": [0.283, 0, 5.506],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 114,
+   "object": "arc0-5",
+   "pos": [0.544, 0, 5.506],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 115,
+   "object": "arc0-5",
+   "pos": [1.568, 2.849, -2.233],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 116,
+   "object": "arc0-5",
+   "pos": [1.723, 2.849, -2.167],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 117,
+   "object": "arc0-5",
+   "pos": [1.903, 2.848, -2.11],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 118,
+   "object": "arc0-5",
+   "pos": [2.074, 2.848, -2.037],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 119,
+   "object": "arc0-5",
+   "pos": [2.228, 2.848, -1.973],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 120,
+   "object": "star-base",
+   "pos": [-6.3, 0.85, 1.05],
+   "scale": 0.008,
+   "props": {
+    "actor": 180
+   }
+  },
+  {
+   "id": 121,
+   "object": "arc0-5",
+   "pos": [2.95, 3.9, 1.2],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 122,
+   "object": "arc0-5",
+   "pos": [2.95, 3.8, 1.4],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 123,
+   "object": "arc0-5",
+   "pos": [2.95, 3.6, 1.5],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 124,
+   "object": "arc0-5",
+   "pos": [2.95, 3.4, 1.4],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 125,
+   "object": "arc0-5",
+   "pos": [2.95, 3.3, 1.2],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 126,
+   "object": "arc0-5",
+   "pos": [2.95, 3.4, 1],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 127,
+   "object": "arc0-5",
+   "pos": [2.95, 3.6, 0.9],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 128,
+   "object": "arc0-5",
+   "pos": [2.95, 3.8, 1],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 129,
+   "object": "arc0-5",
+   "pos": [2.95, 3.6, 1.2],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 130,
+   "object": "arc0-5",
+   "pos": [1.25, 3.9, 1.2],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 131,
+   "object": "arc0-5",
+   "pos": [1.25, 3.8, 1.4],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 132,
+   "object": "arc0-5",
+   "pos": [1.25, 3.6, 1.5],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 133,
+   "object": "arc0-5",
+   "pos": [1.25, 3.4, 1.4],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 134,
+   "object": "arc0-5",
+   "pos": [1.25, 3.3, 1.2],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 135,
+   "object": "arc0-5",
+   "pos": [1.25, 3.4, 1],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 136,
+   "object": "arc0-5",
+   "pos": [1.25, 3.6, 0.9],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 137,
+   "object": "arc0-5",
+   "pos": [1.25, 3.8, 1],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 138,
+   "object": "arc0-5",
+   "pos": [1.25, 3.6, 1.2],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 139,
+   "object": "arc0-5",
+   "pos": [2.1, 3.9, 1.2],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 140,
+   "object": "arc0-5",
+   "pos": [2.1, 3.8, 1.4],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 141,
+   "object": "arc0-5",
+   "pos": [2.1, 3.6, 1.5],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 142,
+   "object": "arc0-5",
+   "pos": [2.1, 3.4, 1.4],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 143,
+   "object": "arc0-5",
+   "pos": [2.1, 3.3, 1.2],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 144,
+   "object": "arc0-5",
+   "pos": [2.1, 3.4, 1],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 145,
+   "object": "arc0-5",
+   "pos": [2.1, 3.6, 0.9],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 146,
+   "object": "arc0-5",
+   "pos": [2.1, 3.8, 1],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 147,
+   "object": "arc0-5",
+   "pos": [2.1, 3.6, 1.2],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 148,
+   "object": "arc0-5",
+   "pos": [-0.45, 4.4, 1.2],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 149,
+   "object": "arc0-5",
+   "pos": [-0.45, 4.3, 1.4],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 150,
+   "object": "arc0-5",
+   "pos": [-0.45, 4.1, 1.5],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 151,
+   "object": "arc0-5",
+   "pos": [-0.45, 3.9, 1.4],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 152,
+   "object": "arc0-5",
+   "pos": [-0.45, 3.8, 1.2],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 153,
+   "object": "arc0-5",
+   "pos": [-0.45, 3.9, 1],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 154,
+   "object": "arc0-5",
+   "pos": [-0.45, 4.1, 0.9],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 155,
+   "object": "arc0-5",
+   "pos": [-0.45, 4.3, 1],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 156,
+   "object": "arc0-5",
+   "pos": [-0.45, 4.1, 1.2],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 157,
+   "object": "arc0-5",
+   "pos": [-1.5, 5.75, 1.2],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 158,
+   "object": "arc0-5",
+   "pos": [-1.5, 5.65, 1.4],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 159,
+   "object": "arc0-5",
+   "pos": [-1.5, 5.45, 1.5],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 160,
+   "object": "arc0-5",
+   "pos": [-1.5, 5.25, 1.4],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 161,
+   "object": "arc0-5",
+   "pos": [-1.5, 5.15, 1.2],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 162,
+   "object": "arc0-5",
+   "pos": [-1.5, 5.25, 1],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 163,
+   "object": "arc0-5",
+   "pos": [-1.5, 5.45, 0.9],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 164,
+   "object": "arc0-5",
+   "pos": [-1.5, 5.65, 1],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 165,
+   "object": "arc0-5",
+   "pos": [-1.5, 5.45, 1.2],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 166,
+   "object": "arc0-7",
+   "pos": [4.854, 1.381, 0.809],
+   "scale": 0.008,
+   "props": {
+    "actor": 289
+   }
+  },
+  {
+   "id": 167,
+   "object": "arc0-7",
+   "pos": [1.602, 0.971, 4.338],
+   "scale": 0.008,
+   "props": {
+    "actor": 289
+   }
+  },
+  {
+   "id": 168,
+   "object": "arc0-7",
+   "pos": [0.397, 1.053, 1.896],
+   "scale": 0.008,
+   "props": {
+    "actor": 289
+   }
+  },
+  {
+   "id": 169,
+   "object": "arc0-7",
+   "pos": [-2.7, 0, -3.95],
+   "scale": 0.008,
+   "props": {
+    "actor": 289
+   }
+  },
+  {
+   "id": 170,
+   "object": "arc0-7",
+   "pos": [1.004, 1.823, -6.873],
+   "scale": 0.008,
+   "props": {
+    "actor": 289
+   }
+  },
+  {
+   "id": 171,
+   "object": "arc0-7",
+   "pos": [-5.25, 0.749, 2.3],
+   "scale": 0.008,
+   "props": {
+    "actor": 289
+   }
+  },
+  {
+   "id": 172,
+   "object": "arc0-7",
+   "pos": [-6.45, 0.749, 2.3],
+   "scale": 0.008,
+   "props": {
+    "actor": 289
+   }
+  },
+  {
+   "id": 173,
+   "object": "arc0-7",
+   "pos": [3.998, 3.695, 1.601],
+   "scale": 0.008,
+   "props": {
+    "actor": 289
+   }
+  },
+  {
+   "id": 174,
+   "object": "star-base",
+   "pos": [-6.073, 0.8, 2.683],
+   "scale": 0.008,
+   "props": {
+    "actor": 180
+   }
+  },
+  {
+   "id": 175,
+   "object": "arc0-21",
+   "pos": [1.529, 1.05, 0.264],
+   "scale": 0.008,
+   "props": {
+    "actor": 178
+   }
+  },
+  {
+   "id": 176,
+   "object": "water-bomb",
+   "pos": [-3.673, 2.85, -1.568],
+   "scale": 0.008,
+   "props": {
+    "actLayer": 1,
+    "actor": 208
+   }
+  },
+  {
+   "id": 177,
+   "object": "water-bomb",
+   "pos": [3.744, 2.85, 3.47],
+   "scale": 0.008,
+   "props": {
+    "actLayer": 1,
+    "actor": 208
+   }
+  },
+  {
+   "id": 178,
+   "object": "houdai",
+   "pos": [1.363, 2.849, -2.331],
+   "rot": [0, -0.31408256631958503, 0],
+   "scale": 0.008,
+   "props": {
+    "actLayer": 1,
+    "actor": 207
+   }
+  },
+  {
+   "id": 179,
+   "object": "red-bombhei",
+   "pos": [-5.95, 0, 6.5],
+   "rot": [0, -1.5707963267948966, 0],
+   "scale": 0.008,
+   "props": {
+    "actLayer": 1,
+    "actor": 181
+   }
+  },
+  {
+   "id": 180,
+   "object": "red-bombhei",
+   "pos": [-5.5, 0.15, 5.8],
+   "scale": 0.008,
+   "props": {
+    "actLayer": 1,
+    "actor": 181
+   }
+  },
+  {
+   "id": 181,
+   "object": "bomb-king",
+   "pos": [1.501, 4.192, -5.387],
+   "rot": [0, -2.548133836276536, 0],
+   "scale": 0.008,
+   "props": {
+    "actLayer": 1,
+    "actor": 189
+   }
+  },
+  {
+   "id": 182,
+   "object": "ar1-2",
+   "pos": [0.4, 0.75, 1.9],
+   "scale": 0.008,
+   "props": {
+    "actLayer": 1,
+    "actor": 219
+   }
+  },
+  {
+   "id": 183,
+   "object": "pile",
+   "pos": [0.4, 0.75, 1.9],
+   "scale": 0.008,
+   "props": {
+    "actLayer": 1,
+    "actor": 27,
+    "collider": "pile"
+   }
+  },
+  {
+   "id": 184,
+   "object": "b-wan-shutter",
+   "pos": [1.449, 0.75, 0.407],
+   "rot": [0, -0.5671893963207157, 0],
+   "scale": 0.008,
+   "props": {
+    "actLayer": 1,
+    "actor": 41,
+    "collider": "b_wan_shutter"
+   }
+  },
+  {
+   "id": 185,
+   "object": "houdai",
+   "pos": [-5.562, 0.125, 5.468],
+   "rot": [0, 2.356194490192345, 0],
+   "scale": 0.008,
+   "props": {
+    "actLayer": 1,
+    "actor": 207
+   }
+  },
+  {
+   "id": 186,
+   "object": "bombhei",
+   "pos": [1.122, 2.832, -2.414],
+   "rot": [0, -0.31408256631958503, 0],
+   "scale": 0.008,
+   "props": {
+    "actLayer": 1,
+    "actor": 206
+   }
+  },
+  {
+   "id": 187,
+   "object": "kuribo-model",
+   "pos": [-0.2, 0, 4.22],
+   "rot": [0, -1.5707963267948966, 0],
+   "scale": 0.008,
+   "props": {
+    "actLayer": 1,
+    "actor": 200
+   }
+  },
+  {
+   "id": 188,
+   "object": "kuribo-model",
+   "pos": [5.201, 0.975, 3.608],
+   "rot": [0, -0.7853981633974483, 0],
+   "scale": 0.008,
+   "props": {
+    "actLayer": 1,
+    "actor": 200
+   }
+  },
+  {
+   "id": 189,
+   "object": "star-base",
+   "pos": [2.998, 4.292, -4.597],
+   "scale": 0.008,
+   "props": {
+    "actLayer": 1,
+    "actor": 180
+   }
+  },
+  {
+   "id": 190,
+   "object": "nokonoko",
+   "pos": [-3.7, 0, 5.1],
+   "scale": 0.008,
+   "props": {
+    "actLayer": 2,
+    "actor": 188
+   }
+  },
+  {
+   "id": 191,
+   "object": "obj-race-flag",
+   "pos": [3, 4.192, -4.6],
+   "scale": 0.008,
+   "props": {
+    "actLayer": 2,
+    "actor": 205
+   }
+  },
+  {
+   "id": 192,
+   "object": "kuribo-model",
+   "pos": [5.201, 0.975, 3.609],
+   "rot": [0, -0.7853981633974483, 0],
+   "scale": 0.008,
+   "props": {
+    "actLayer": 2,
+    "actor": 200
+   }
+  },
+  {
+   "id": 193,
+   "object": "red-bombhei",
+   "pos": [-4.213, 0, 4.999],
+   "rot": [0, -1.5707963267948966, 0],
+   "scale": 0.008,
+   "props": {
+    "actLayer": 2,
+    "actor": 181
+   }
+  },
+  {
+   "id": 194,
+   "object": "arc0-17",
+   "pos": [4.272, 3.334, -6.492],
+   "scale": 0.008,
+   "props": {
+    "actLayer": 2,
+    "actor": 269
+   }
+  },
+  {
+   "id": 195,
+   "object": "kuribo-model",
+   "pos": [-0.199, 0, 4.221],
+   "rot": [0, -1.5707963267948966, 0],
+   "scale": 0.008,
+   "props": {
+    "actLayer": 2,
+    "actor": 200
+   }
+  },
+  {
+   "id": 196,
+   "object": "star-base",
+   "pos": [1.905, 4.292, -4.557],
+   "scale": 0.008,
+   "props": {
+    "actLayer": 2,
+    "actor": 180
+   }
+  },
+  {
+   "id": 197,
+   "object": "ar1-2",
+   "pos": [4.65, 0.85, 2.65],
+   "scale": 0.008,
+   "props": {
+    "actLayer": 3,
+    "actor": 337
+   }
+  },
+  {
+   "id": 198,
+   "object": "kuribo-model",
+   "pos": [6.85, 1.941, -5.25],
+   "scale": 0.008,
+   "props": {
+    "actLayer": 3,
+    "actor": 200
+   }
+  },
+  {
+   "id": 199,
+   "object": "kuribo-model",
+   "pos": [-4.195, 0.75, 2.256],
+   "scale": 0.008,
+   "props": {
+    "actLayer": 3,
+    "actor": 200
+   }
+  },
+  {
+   "id": 200,
+   "object": "obj-tatefuda",
+   "pos": [-4.48, 0, 5.308],
+   "rot": [0, -1.5707963267948966, 0],
+   "scale": 0.008,
+   "onClick": {
+    "action": "text",
+    "title": "Signpost",
+    "body": "The clear ball you\nsee in front of you\nis a Star Sphere.\n\nWhen you get all 5 \nSilver Stars, the Power\nStar will appear \ninside the Star Sphere."
+   },
+   "props": {
+    "actLayer": 3,
+    "actor": 184,
+    "collider": "obj_tatefuda"
+   }
+  },
+  {
+   "id": 201,
+   "object": "arc0-25",
+   "pos": [-1.474, 0.95, 4.974],
+   "scale": 0.008,
+   "props": {
+    "actLayer": 3,
+    "actor": 179
+   }
+  },
+  {
+   "id": 202,
+   "object": "arc0-25",
+   "pos": [-6.15, 1.05, -5.15],
+   "scale": 0.008,
+   "props": {
+    "actLayer": 3,
+    "actor": 179
+   }
+  },
+  {
+   "id": 203,
+   "object": "arc0-21",
+   "pos": [-4.372, 0.25, 5.505],
+   "scale": 0.008,
+   "props": {
+    "actLayer": 3,
+    "actor": 178
+   }
+  },
+  {
+   "id": 204,
+   "object": "broken-block-l",
+   "pos": [-4.845, 1, -0.75],
+   "scale": 0.008,
+   "props": {
+    "actLayer": 4,
+    "actor": 15,
+    "collider": "broken_block_l"
+   }
+  },
+  {
+   "id": 205,
+   "object": "bombhei",
+   "pos": [-2.3, 1.8, -3.85],
+   "rot": [0, -1.082127572054077, 0],
+   "scale": 0.008,
+   "props": {
+    "actLayer": 4,
+    "actor": 358
+   }
+  },
+  {
+   "id": 206,
+   "object": "bombhei",
+   "pos": [6.15, 3, -4.6],
+   "rot": [0, 1.5707963267948966, 0],
+   "scale": 0.008,
+   "props": {
+    "actLayer": 4,
+    "actor": 358
+   }
+  },
+  {
+   "id": 207,
+   "object": "nokonoko",
+   "pos": [4.003, 0.749, 6.199],
+   "rot": [0, -1.5707963267948966, 0],
+   "scale": 0.008,
+   "props": {
+    "actLayer": 4,
+    "actor": 203
+   }
+  },
+  {
+   "id": 208,
+   "object": "kuribo-model",
+   "pos": [4.272, 3.334, -6.492],
+   "scale": 0.008,
+   "props": {
+    "actLayer": 4,
+    "actor": 200
+   }
+  },
+  {
+   "id": 209,
+   "object": "bomb-king",
+   "pos": [3, 4.192, -4.6],
+   "rot": [0, -2.548133836276536, 0],
+   "scale": 0.008,
+   "props": {
+    "actLayer": 4,
+    "actor": 189
+   }
+  },
+  {
+   "id": 210,
+   "object": "broken-block-l",
+   "pos": [-2.891, 0.75, 0.25],
+   "rot": [0, 0.7853981633974483, 0],
+   "scale": 0.008,
+   "props": {
+    "actLayer": 4,
+    "actor": 15,
+    "collider": "broken_block_l"
+   }
+  },
+  {
+   "id": 211,
+   "object": "broken-block-l",
+   "pos": [-3.032, 0.75, 0.391],
+   "rot": [0, 0.7853981633974483, 0],
+   "scale": 0.008,
+   "props": {
+    "actLayer": 4,
+    "actor": 15,
+    "collider": "broken_block_l"
+   }
+  },
+  {
+   "id": 212,
+   "object": "broken-block-l",
+   "pos": [-2.361, 0.952, -4.688],
+   "rot": [0, 0.4712197232786204, 0],
+   "scale": 0.008,
+   "props": {
+    "actLayer": 4,
+    "actor": 15,
+    "collider": "broken_block_l"
+   }
+  },
+  {
+   "id": 213,
+   "object": "broken-block-l",
+   "pos": [-2.452, 0.952, -4.866],
+   "rot": [0, 0.4712197232786204, 0],
+   "scale": 0.008,
+   "props": {
+    "actLayer": 4,
+    "actor": 15,
+    "collider": "broken_block_l"
+   }
+  },
+  {
+   "id": 214,
+   "object": "broken-block-l",
+   "pos": [-4.301, 1, -0.646],
+   "rot": [0, 0.7853981633974483, 0],
+   "scale": 0.008,
+   "props": {
+    "actLayer": 4,
+    "actor": 15,
+    "collider": "broken_block_l"
+   }
+  },
+  {
+   "id": 215,
+   "object": "kuribo-model",
+   "pos": [0.519, 2.761, -2.626],
+   "rot": [0, -3.141592653589793, 0],
+   "scale": 0.008,
+   "props": {
+    "actLayer": 4,
+    "actor": 200
+   }
+  },
+  {
+   "id": 216,
+   "object": "scale-up-kinoko",
+   "pos": [6.833, 1.983, -6.415],
+   "scale": 0.008,
+   "props": {
+    "actLayer": 4,
+    "actor": 322
+   }
+  },
+  {
+   "id": 217,
+   "object": "scale-up-kinoko",
+   "pos": [-4.845, 1, -0.75],
+   "scale": 0.008,
+   "props": {
+    "actLayer": 4,
+    "actor": 322
+   }
+  },
+  {
+   "id": 218,
+   "object": "red-bombhei",
+   "pos": [-3.241, 0.045, 5.657],
+   "rot": [0, -1.5707963267948966, 0],
+   "scale": 0.008,
+   "props": {
+    "actLayer": 6,
+    "actor": 181
+   }
+  }
+ ]
+}

@@ -1,0 +1,16 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "model3d",
+ "name": "Mc flag",
+ "animations": [
+  {
+   "id": "mc_flag_wait",
+   "loop": "loop",
+   "clip": "mc_flag_wait",
+   "fps": 30
+  }
+ ],
+ "model": "mc_flag.glb",
+ "skinnedClone": true
+}

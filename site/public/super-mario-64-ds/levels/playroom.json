@@ -1,0 +1,86 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "scene3d",
+ "camera": {
+  "mode": "fly",
+  "pos": [2.7359999999999998, 3.542, -7.8388],
+  "target": [2.7359999999999998, 0.925, -3.225],
+  "fov": 50,
+  "near": 0.01,
+  "far": 500,
+  "fly": {
+   "speed": 1
+  }
+ },
+ "scene": {
+  "layers": [
+   {
+    "id": "collision",
+    "name": "Collision (KCL)",
+    "file": "col_playroom.glb",
+    "mode": "toggle",
+    "visible": false,
+    "role": "collision"
+   }
+  ]
+ },
+ "placements": [
+  {
+   "id": 0,
+   "object": "playroom-all",
+   "pos": [0, 0, 0],
+   "name": "Playroom"
+  },
+  {
+   "id": 1,
+   "object": "obj-kanban",
+   "pos": [0.58, 0.725, -2],
+   "rot": [0, 1.9197769560388798, 0],
+   "scale": 0.008,
+   "props": {
+    "actor": 183
+   }
+  },
+  {
+   "id": 2,
+   "object": "kinopio",
+   "pos": [3.102, 0.6, -3.9],
+   "rot": [0, -0.7853981633974483, 0],
+   "scale": 0.008,
+   "props": {
+    "actor": 185
+   }
+  },
+  {
+   "id": 3,
+   "object": "for-vs-island",
+   "pos": [2.542, 0.7, -4.444],
+   "rot": [0, 0.7853981633974483, 0],
+   "scale": 0.008,
+   "props": {
+    "actor": 307
+   }
+  },
+  {
+   "id": 4,
+   "object": "for-ex-mario",
+   "pos": [4.978, 0.7, -4.094],
+   "rot": [0, -2.356194490192345, 0],
+   "scale": 0.008,
+   "props": {
+    "actor": 307
+   }
+  },
+  {
+   "id": 5,
+   "object": "mip",
+   "pos": [4.9, 0.6, -4.7],
+   "rot": [0, -1.047133635330436, 0],
+   "scale": 0.008,
+   "props": {
+    "actor": 187
+   }
+  }
+ ]
+}

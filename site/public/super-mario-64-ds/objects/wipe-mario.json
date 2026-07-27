@@ -1,0 +1,7 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "model3d",
+ "name": "Wipe mario",
+ "model": "wipe_mario.glb"
+}

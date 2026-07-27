@@ -1,0 +1,145 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "scene3d",
+ "camera": {
+  "mode": "fly",
+  "pos": [0.55, 4.856999999999999, -6.62],
+  "target": [0.55, 0.857, 0.09999999999999987],
+  "fov": 50,
+  "near": 0.01,
+  "far": 500,
+  "fly": {
+   "speed": 1
+  }
+ },
+ "scene": {
+  "layers": [
+   {
+    "id": "collision",
+    "name": "Collision (KCL)",
+    "file": "col_kaizoku_ship.glb",
+    "mode": "toggle",
+    "visible": false,
+    "role": "collision"
+   }
+  ]
+ },
+ "placements": [
+  {
+   "id": 0,
+   "object": "kaizoku-ship-all",
+   "pos": [0, 0, 0],
+   "name": "Jolly Roger Bay (kaizoku_ship)"
+  },
+  {
+   "id": 1,
+   "object": "arc0-14",
+   "pos": [0, 1.478, 2.9],
+   "scale": 0.008,
+   "props": {
+    "actor": 21
+   }
+  },
+  {
+   "id": 2,
+   "object": "t-box",
+   "pos": [0, -0.343, -1.95],
+   "scale": 0.008,
+   "props": {
+    "actor": 13
+   }
+  },
+  {
+   "id": 3,
+   "object": "ks-mizu",
+   "pos": [0, 2.057, 0],
+   "scale": 0.008,
+   "props": {
+    "actor": 62,
+    "collider": "ks_mizu"
+   }
+  },
+  {
+   "id": 4,
+   "object": "star-base",
+   "pos": [0, 1.478, 2.9],
+   "scale": 0.008,
+   "props": {
+    "actor": 180
+   }
+  },
+  {
+   "id": 5,
+   "object": "arc0-5",
+   "pos": [0.3, -0.34, -2.7],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 6,
+   "object": "arc0-5",
+   "pos": [-0.25, -0.07, 0.7],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 7,
+   "object": "arc0-5",
+   "pos": [0.55, -0.34, -2.6],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 8,
+   "object": "arc0-5",
+   "pos": [0.75, 0.925, 2.65],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 9,
+   "object": "arc0-5",
+   "pos": [0.8, -0.34, -2.5],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 10,
+   "object": "arc0-5",
+   "pos": [0.85, -0.035, 0.95],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 11,
+   "object": "arc0-5",
+   "pos": [0.25, 0.315, 1.55],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 12,
+   "object": "arc0-5",
+   "pos": [-0.25, 0.68, 1.9],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  }
+ ]
+}

@@ -1,0 +1,28 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "model3d",
+ "name": "Jango",
+ "animations": [
+  {
+   "id": "jango_attack",
+   "loop": "loop",
+   "clip": "jango_attack",
+   "fps": 30
+  },
+  {
+   "id": "jango_damage",
+   "loop": "loop",
+   "clip": "jango_damage",
+   "fps": 30
+  },
+  {
+   "id": "jango_fly",
+   "loop": "loop",
+   "clip": "jango_fly",
+   "fps": 30
+  }
+ ],
+ "model": "jango.glb",
+ "skinnedClone": true
+}

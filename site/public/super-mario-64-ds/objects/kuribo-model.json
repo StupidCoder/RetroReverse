@@ -1,0 +1,52 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "model3d",
+ "name": "Kuribo model",
+ "animations": [
+  {
+   "id": "kuribo_recover",
+   "loop": "loop",
+   "clip": "kuribo_recover",
+   "fps": 30
+  },
+  {
+   "id": "kuribo_rolling",
+   "loop": "loop",
+   "clip": "kuribo_rolling",
+   "fps": 30
+  },
+  {
+   "id": "kuribo_run",
+   "loop": "loop",
+   "clip": "kuribo_run",
+   "fps": 30
+  },
+  {
+   "id": "kuribo_stretch",
+   "loop": "loop",
+   "clip": "kuribo_stretch",
+   "fps": 30
+  },
+  {
+   "id": "kuribo_unbalance",
+   "loop": "loop",
+   "clip": "kuribo_unbalance",
+   "fps": 30
+  },
+  {
+   "id": "kuribo_wait",
+   "loop": "loop",
+   "clip": "kuribo_wait",
+   "fps": 30
+  },
+  {
+   "id": "kuribo_walk",
+   "loop": "loop",
+   "clip": "kuribo_walk",
+   "fps": 30
+  }
+ ],
+ "model": "kuribo_model.glb",
+ "skinnedClone": true
+}

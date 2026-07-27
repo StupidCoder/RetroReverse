@@ -1,0 +1,28 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "model3d",
+ "name": "Eyekun",
+ "animations": [
+  {
+   "id": "eyekun_dead",
+   "loop": "loop",
+   "clip": "eyekun_dead",
+   "fps": 30
+  },
+  {
+   "id": "eyekun_l_dead",
+   "loop": "loop",
+   "clip": "eyekun_l_dead",
+   "fps": 30
+  },
+  {
+   "id": "eyekun_r_dead",
+   "loop": "loop",
+   "clip": "eyekun_r_dead",
+   "fps": 30
+  }
+ ],
+ "model": "eyekun.glb",
+ "skinnedClone": true
+}

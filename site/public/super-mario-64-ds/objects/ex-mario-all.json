@@ -1,0 +1,7 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "model3d",
+ "name": "Goomboss Battle (ex_mario)",
+ "model": "ex_mario_all.glb"
+}

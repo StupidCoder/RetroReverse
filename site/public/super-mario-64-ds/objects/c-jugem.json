@@ -1,0 +1,16 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "model3d",
+ "name": "C jugem",
+ "animations": [
+  {
+   "id": "c_jugem_wait",
+   "loop": "loop",
+   "clip": "c_jugem_wait",
+   "fps": 30
+  }
+ ],
+ "model": "c_jugem.glb",
+ "skinnedClone": true
+}

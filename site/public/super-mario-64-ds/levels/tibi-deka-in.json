@@ -1,0 +1,310 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "scene3d",
+ "camera": {
+  "mode": "fly",
+  "pos": [-0.17899999999999994, 4.82, -4.458],
+  "target": [-0.17899999999999994, 1.75, 0.030000000000000027],
+  "fov": 50,
+  "near": 0.01,
+  "far": 500,
+  "fly": {
+   "speed": 1
+  }
+ },
+ "scene": {
+  "layers": [
+   {
+    "id": "collision",
+    "name": "Collision (KCL)",
+    "file": "col_tibi_deka_in.glb",
+    "mode": "toggle",
+    "visible": false,
+    "role": "collision"
+   }
+  ]
+ },
+ "placements": [
+  {
+   "id": 0,
+   "object": "tibi-deka-in-all",
+   "pos": [0, 0, 0],
+   "name": "Tiny-Huge Island (tibi_deka_in)"
+  },
+  {
+   "id": 1,
+   "object": "ar1-15",
+   "pos": [-1.74, 1.9, -0.4],
+   "scale": 0.008,
+   "props": {
+    "actor": 276
+   }
+  },
+  {
+   "id": 2,
+   "object": "hanachan-head",
+   "pos": [0.396, 1.8, 0],
+   "scale": 0.008,
+   "props": {
+    "actor": 248
+   }
+  },
+  {
+   "id": 3,
+   "object": "b-coin-switch",
+   "pos": [-1.1, 1.3, 1.35],
+   "scale": 0.008,
+   "props": {
+    "actor": 10,
+    "collider": "b_coin_switch"
+   }
+  },
+  {
+   "id": 4,
+   "object": "keronpa",
+   "pos": [-0.4, 1.4, 0.85],
+   "scale": 0.008,
+   "props": {
+    "actor": 270
+   }
+  },
+  {
+   "id": 5,
+   "object": "hatena-karabox",
+   "pos": [-1.8, 1.55, 1.8],
+   "scale": 0.008,
+   "props": {
+    "actor": 20
+   }
+  },
+  {
+   "id": 6,
+   "object": "obj-star-switch",
+   "pos": [-1.55, 1.3, 1.8],
+   "scale": 0.008,
+   "props": {
+    "actor": 12,
+    "collider": "obj_star_switch"
+   }
+  },
+  {
+   "id": 7,
+   "object": "arc0-7",
+   "pos": [0.9, 1, 1],
+   "scale": 0.008,
+   "props": {
+    "actor": 289
+   }
+  },
+  {
+   "id": 8,
+   "object": "arc0-7",
+   "pos": [1.507, 1, 0.176],
+   "scale": 0.008,
+   "props": {
+    "actor": 289
+   }
+  },
+  {
+   "id": 9,
+   "object": "arc0-7",
+   "pos": [0.82, 1, -0.882],
+   "scale": 0.008,
+   "props": {
+    "actor": 289
+   }
+  },
+  {
+   "id": 10,
+   "object": "arc0-7",
+   "pos": [-0.529, 0.75, -0.529],
+   "scale": 0.008,
+   "props": {
+    "actor": 289
+   }
+  },
+  {
+   "id": 11,
+   "object": "arc0-7",
+   "pos": [-0.208, 1, -1.347],
+   "scale": 0.008,
+   "props": {
+    "actor": 289
+   }
+  },
+  {
+   "id": 12,
+   "object": "arc0-7",
+   "pos": [-1.84, 1.5, -1.1],
+   "scale": 0.008,
+   "props": {
+    "actor": 289
+   }
+  },
+  {
+   "id": 13,
+   "object": "arc0-7",
+   "pos": [-1.78, 1, 0.272],
+   "scale": 0.008,
+   "props": {
+    "actor": 289
+   }
+  },
+  {
+   "id": 14,
+   "object": "arc0-7",
+   "pos": [-0.38, 1.3, 1.1],
+   "scale": 0.008,
+   "props": {
+    "actor": 289
+   }
+  },
+  {
+   "id": 15,
+   "object": "star-base",
+   "pos": [0, 1.85, 0],
+   "scale": 0.008,
+   "props": {
+    "actor": 180
+   }
+  },
+  {
+   "id": 16,
+   "object": "arc0-5",
+   "pos": [-0.9, 1.871, -0.9],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 17,
+   "object": "arc0-5",
+   "pos": [-1, 1.894, -1],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 18,
+   "object": "arc0-5",
+   "pos": [-1.1, 1.917, -1.1],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 19,
+   "object": "arc0-5",
+   "pos": [-1.2, 1.94, -1.2],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 20,
+   "object": "arc0-5",
+   "pos": [-1.3, 1.963, -1.3],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 21,
+   "object": "arc0-5",
+   "pos": [0.9, 1.871, 0.9],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 22,
+   "object": "arc0-5",
+   "pos": [1, 1.894, 1],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 23,
+   "object": "arc0-5",
+   "pos": [1.1, 1.917, 1.1],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 24,
+   "object": "arc0-5",
+   "pos": [1.2, 1.94, 1.2],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 25,
+   "object": "arc0-5",
+   "pos": [1.3, 1.963, 1.3],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 26,
+   "object": "star-base",
+   "pos": [-1.8, 0.55, -1.45],
+   "scale": 0.008,
+   "props": {
+    "actor": 180
+   }
+  },
+  {
+   "id": 27,
+   "object": "ar1-6",
+   "pos": [-0.85, 1.3, 1.23],
+   "scale": 0.008,
+   "props": {
+    "actor": 290
+   }
+  },
+  {
+   "id": 28,
+   "object": "ar1-6",
+   "pos": [-0.85, 1.3, 1.53],
+   "scale": 0.008,
+   "props": {
+    "actor": 290
+   }
+  },
+  {
+   "id": 29,
+   "object": "star-base",
+   "pos": [-1.865, 1.58, -1.84],
+   "scale": 0.008,
+   "props": {
+    "actor": 180
+   }
+  },
+  {
+   "id": 30,
+   "object": "red-bombhei",
+   "pos": [0.75, 1, 1.34],
+   "rot": [0, -1.5707963267948966, 0],
+   "scale": 0.008,
+   "props": {
+    "actLayer": 5,
+    "actor": 181
+   }
+  }
+ ]
+}

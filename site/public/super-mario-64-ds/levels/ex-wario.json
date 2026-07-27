@@ -1,0 +1,229 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "scene3d",
+ "camera": {
+  "mode": "fly",
+  "pos": [0, 5.24, -6.096],
+  "target": [0, 1.725, 0],
+  "fov": 50,
+  "near": 0.01,
+  "far": 500,
+  "fly": {
+   "speed": 1
+  }
+ },
+ "scene": {
+  "layers": [
+   {
+    "id": "sky",
+    "name": "Skybox",
+    "file": "vr04.glb",
+    "mode": "toggle",
+    "attach": "camera",
+    "renderOrder": -1,
+    "role": "sky"
+   },
+   {
+    "id": "collision",
+    "name": "Collision (KCL)",
+    "file": "col_ex_wario.glb",
+    "mode": "toggle",
+    "visible": false,
+    "role": "collision"
+   }
+  ]
+ },
+ "placements": [
+  {
+   "id": 0,
+   "object": "ex-wario-all",
+   "pos": [0, 0, 0],
+   "name": "Chief Chilly Challenge (ex_wario)"
+  },
+  {
+   "id": 1,
+   "object": "ewb-ice-a",
+   "pos": [0, 0.75, 0],
+   "scale": 0.008,
+   "props": {
+    "actor": 170,
+    "collider": "ewb_ice_a"
+   }
+  },
+  {
+   "id": 2,
+   "object": "ewb-ice-b",
+   "pos": [0, 0.75, 1.942],
+   "scale": 0.008,
+   "props": {
+    "actor": 171,
+    "collider": "ewb_ice_b"
+   }
+  },
+  {
+   "id": 3,
+   "object": "ewb-ice-c",
+   "pos": [0, 0.75, 2.54],
+   "scale": 0.008,
+   "props": {
+    "actor": 172,
+    "collider": "ewb_ice_c"
+   }
+  },
+  {
+   "id": 4,
+   "object": "ewb-ice-b",
+   "pos": [1.373, 0.75, 1.373],
+   "rot": [0, 0.7853981633974483, 0],
+   "scale": 0.008,
+   "props": {
+    "actor": 171,
+    "collider": "ewb_ice_b"
+   }
+  },
+  {
+   "id": 5,
+   "object": "ewb-ice-b",
+   "pos": [1.942, 0.75, 0],
+   "rot": [0, 1.5707963267948966, 0],
+   "scale": 0.008,
+   "props": {
+    "actor": 171,
+    "collider": "ewb_ice_b"
+   }
+  },
+  {
+   "id": 6,
+   "object": "ewb-ice-b",
+   "pos": [1.373, 0.75, -1.373],
+   "rot": [0, 2.356194490192345, 0],
+   "scale": 0.008,
+   "props": {
+    "actor": 171,
+    "collider": "ewb_ice_b"
+   }
+  },
+  {
+   "id": 7,
+   "object": "ewb-ice-b",
+   "pos": [0, 0.75, -1.942],
+   "rot": [0, -3.141592653589793, 0],
+   "scale": 0.008,
+   "props": {
+    "actor": 171,
+    "collider": "ewb_ice_b"
+   }
+  },
+  {
+   "id": 8,
+   "object": "ewb-ice-b",
+   "pos": [-1.373, 0.75, -1.373],
+   "rot": [0, -2.356194490192345, 0],
+   "scale": 0.008,
+   "props": {
+    "actor": 171,
+    "collider": "ewb_ice_b"
+   }
+  },
+  {
+   "id": 9,
+   "object": "ewb-ice-b",
+   "pos": [-1.942, 0.75, 0],
+   "rot": [0, -1.5707963267948966, 0],
+   "scale": 0.008,
+   "props": {
+    "actor": 171,
+    "collider": "ewb_ice_b"
+   }
+  },
+  {
+   "id": 10,
+   "object": "ewb-ice-b",
+   "pos": [-1.373, 0.75, 1.373],
+   "rot": [0, -0.7853981633974483, 0],
+   "scale": 0.008,
+   "props": {
+    "actor": 171,
+    "collider": "ewb_ice_b"
+   }
+  },
+  {
+   "id": 11,
+   "object": "ewb-ice-c",
+   "pos": [1.796, 0.75, 1.796],
+   "rot": [0, 0.7853981633974483, 0],
+   "scale": 0.008,
+   "props": {
+    "actor": 172,
+    "collider": "ewb_ice_c"
+   }
+  },
+  {
+   "id": 12,
+   "object": "ewb-ice-c",
+   "pos": [2.54, 0.75, 0],
+   "rot": [0, 1.5707963267948966, 0],
+   "scale": 0.008,
+   "props": {
+    "actor": 172,
+    "collider": "ewb_ice_c"
+   }
+  },
+  {
+   "id": 13,
+   "object": "ewb-ice-c",
+   "pos": [1.796, 0.75, -1.796],
+   "rot": [0, 2.356194490192345, 0],
+   "scale": 0.008,
+   "props": {
+    "actor": 172,
+    "collider": "ewb_ice_c"
+   }
+  },
+  {
+   "id": 14,
+   "object": "ewb-ice-c",
+   "pos": [0, 0.75, -2.54],
+   "rot": [0, -3.141592653589793, 0],
+   "scale": 0.008,
+   "props": {
+    "actor": 172,
+    "collider": "ewb_ice_c"
+   }
+  },
+  {
+   "id": 15,
+   "object": "ewb-ice-c",
+   "pos": [-1.796, 0.75, -1.796],
+   "rot": [0, -2.356194490192345, 0],
+   "scale": 0.008,
+   "props": {
+    "actor": 172,
+    "collider": "ewb_ice_c"
+   }
+  },
+  {
+   "id": 16,
+   "object": "ewb-ice-c",
+   "pos": [-2.54, 0.75, 0],
+   "rot": [0, -1.5707963267948966, 0],
+   "scale": 0.008,
+   "props": {
+    "actor": 172,
+    "collider": "ewb_ice_c"
+   }
+  },
+  {
+   "id": 17,
+   "object": "ewb-ice-c",
+   "pos": [-1.796, 0.75, 1.796],
+   "rot": [0, -0.7853981633974483, 0],
+   "scale": 0.008,
+   "props": {
+    "actor": 172,
+    "collider": "ewb_ice_c"
+   }
+  }
+ ]
+}

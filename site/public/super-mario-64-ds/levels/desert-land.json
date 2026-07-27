@@ -1,0 +1,766 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "scene3d",
+ "camera": {
+  "mode": "fly",
+  "pos": [-0.02499999999999991, 8.787, -16.57],
+  "target": [-0.02499999999999991, 0.7685000000000001, 0.3500000000000001],
+  "fov": 50,
+  "near": 0.01,
+  "far": 500,
+  "fly": {
+   "speed": 2.35
+  }
+ },
+ "scene": {
+  "layers": [
+   {
+    "id": "sky",
+    "name": "Skybox",
+    "file": "vr06.glb",
+    "mode": "toggle",
+    "attach": "camera",
+    "renderOrder": -1,
+    "role": "sky"
+   },
+   {
+    "id": "collision",
+    "name": "Collision (KCL)",
+    "file": "col_desert_land.glb",
+    "mode": "toggle",
+    "visible": false,
+    "role": "collision"
+   }
+  ]
+ },
+ "placements": [
+  {
+   "id": 0,
+   "object": "desert-land-all",
+   "pos": [0, 0, 0],
+   "name": "Shifting Sand Land"
+  },
+  {
+   "id": 1,
+   "object": "propeller-heyho",
+   "pos": [3.4, 0.06, 5.7],
+   "scale": 0.008,
+   "props": {
+    "actor": 232
+   }
+  },
+  {
+   "id": 2,
+   "object": "dl-pyramid",
+   "pos": [-2, 1.5, -1],
+   "scale": 0.008,
+   "props": {
+    "actor": 85,
+    "collider": "dl_pyramid"
+   }
+  },
+  {
+   "id": 3,
+   "object": "propeller-heyho",
+   "pos": [1.757, 1.2, -0.719],
+   "scale": 0.008,
+   "props": {
+    "actor": 232
+   }
+  },
+  {
+   "id": 4,
+   "object": "batta-block",
+   "pos": [1.1, 0.037, 6.3],
+   "scale": 0.008,
+   "props": {
+    "actor": 193
+   }
+  },
+  {
+   "id": 5,
+   "object": "bombhei",
+   "pos": [2, 0, 6.2],
+   "scale": 0.008,
+   "props": {
+    "actor": 206
+   }
+  },
+  {
+   "id": 6,
+   "object": "bombhei",
+   "pos": [3.3, 0, 6.2],
+   "scale": 0.008,
+   "props": {
+    "actor": 206
+   }
+  },
+  {
+   "id": 7,
+   "object": "ar1-15",
+   "pos": [5.6, 0.162, 5.6],
+   "scale": 0.008,
+   "props": {
+    "actor": 276
+   }
+  },
+  {
+   "id": 8,
+   "object": "kuribo-model",
+   "pos": [5.5, 0.05, 2.6],
+   "scale": 0.008,
+   "props": {
+    "actor": 200
+   }
+  },
+  {
+   "id": 9,
+   "object": "kuribo-model",
+   "pos": [6.2, 0.05, 2.6],
+   "scale": 0.008,
+   "props": {
+    "actor": 200
+   }
+  },
+  {
+   "id": 10,
+   "object": "broken-block-l",
+   "pos": [5.75, 0.05, 4.2],
+   "scale": 0.008,
+   "props": {
+    "actor": 15,
+    "collider": "broken_block_l"
+   }
+  },
+  {
+   "id": 11,
+   "object": "broken-block-l",
+   "pos": [5.75, 0.05, 2.3],
+   "scale": 0.008,
+   "props": {
+    "actor": 15,
+    "collider": "broken_block_l"
+   }
+  },
+  {
+   "id": 12,
+   "object": "broken-block-s",
+   "pos": [5.75, 0.05, 3.2],
+   "scale": 0.008,
+   "props": {
+    "actor": 194,
+    "collider": "broken_block_s"
+   }
+  },
+  {
+   "id": 13,
+   "object": "hatena-karabox",
+   "pos": [5.75, 0.85, 4.2],
+   "scale": 0.008,
+   "props": {
+    "actor": 20
+   }
+  },
+  {
+   "id": 14,
+   "object": "obj-tatefuda",
+   "pos": [5.6, 0.6, 2.8],
+   "scale": 0.008,
+   "onClick": {
+    "action": "text",
+    "title": "Signpost",
+    "body": "Hop on the shiny shell\nand ride wherever you\nwant to go! Shred \nthose enemies!"
+   },
+   "props": {
+    "actor": 184,
+    "collider": "obj_tatefuda"
+   }
+  },
+  {
+   "id": 15,
+   "object": "arc0-14",
+   "pos": [5.75, 0.85, 2.3],
+   "scale": 0.008,
+   "props": {
+    "actor": 21
+   }
+  },
+  {
+   "id": 16,
+   "object": "obj-tatefuda",
+   "pos": [5, 0.018, -0.4],
+   "scale": 0.008,
+   "onClick": {
+    "action": "text",
+    "title": "Signpost",
+    "body": "Watch out! Don't let\nyourself be swallowed \nby quicksand.\n\n\nIf you sink into the \nsand, you can't jump \nout, and if your head\ngoes under, you'll be\nsmothered.\nThe dark areas are\nbottomless pits."
+   },
+   "props": {
+    "actor": 184,
+    "collider": "obj_tatefuda"
+   }
+  },
+  {
+   "id": 17,
+   "object": "hatena-karabox",
+   "pos": [6.75, 0.25, -5.2],
+   "scale": 0.008,
+   "props": {
+    "actor": 20
+   }
+  },
+  {
+   "id": 18,
+   "object": "keronpa",
+   "pos": [-5.1, 0.115, -3],
+   "scale": 0.008,
+   "props": {
+    "actor": 270
+   }
+  },
+  {
+   "id": 19,
+   "object": "propeller-heyho",
+   "pos": [-3.6, 1.083, -1],
+   "scale": 0.008,
+   "props": {
+    "actor": 232
+   }
+  },
+  {
+   "id": 20,
+   "object": "keronpa",
+   "pos": [-0.471, 0.6, -2.144],
+   "scale": 0.008,
+   "props": {
+    "actor": 270
+   }
+  },
+  {
+   "id": 21,
+   "object": "hatena-karabox",
+   "pos": [-2.9, 0.5, 0.75],
+   "scale": 0.008,
+   "props": {
+    "actor": 20
+   }
+  },
+  {
+   "id": 22,
+   "object": "arc0-14",
+   "pos": [-1.1, 0.5, 0.75],
+   "scale": 0.008,
+   "props": {
+    "actor": 21
+   }
+  },
+  {
+   "id": 23,
+   "object": "obj-tatefuda",
+   "pos": [-3.2, 0.25, 0.75],
+   "scale": 0.008,
+   "onClick": {
+    "action": "text",
+    "title": "Signpost",
+    "body": "You can fly if you're \nwearing the red Wing cap!\nPut the cap on, then \ntriple jump to take off.\nYou can fly even higher\nif you blast out of a\ncannon wearing the\nWing cap!"
+   },
+   "props": {
+    "actor": 184,
+    "collider": "obj_tatefuda"
+   }
+  },
+  {
+   "id": 24,
+   "object": "ar1-15",
+   "pos": [-0.2, 0, 4.1],
+   "scale": 0.008,
+   "props": {
+    "actor": 276
+   }
+  },
+  {
+   "id": 25,
+   "object": "batta-block",
+   "pos": [-4.9, 0, 1.7],
+   "scale": 0.008,
+   "props": {
+    "actor": 193
+   }
+  },
+  {
+   "id": 26,
+   "object": "ar1-15",
+   "pos": [-5.85, 0.6, -4.737],
+   "scale": 0.008,
+   "props": {
+    "actor": 276
+   }
+  },
+  {
+   "id": 27,
+   "object": "onimasu",
+   "pos": [-1.25, 0, -5.75],
+   "scale": 0.008,
+   "props": {
+    "actor": 309,
+    "collider": "onimasu"
+   }
+  },
+  {
+   "id": 28,
+   "object": "onimasu",
+   "pos": [1.25, 0, -4.75],
+   "scale": 0.008,
+   "props": {
+    "actor": 309,
+    "collider": "onimasu"
+   }
+  },
+  {
+   "id": 29,
+   "object": "onimasu",
+   "pos": [4.75, 0, -3.25],
+   "scale": 0.008,
+   "props": {
+    "actor": 309,
+    "collider": "onimasu"
+   }
+  },
+  {
+   "id": 30,
+   "object": "red-bombhei",
+   "pos": [-5.75, 0, -3.7],
+   "rot": [0, 1.5707963267948966, 0],
+   "scale": 0.008,
+   "props": {
+    "actor": 181
+   }
+  },
+  {
+   "id": 31,
+   "object": "houdai",
+   "pos": [6.7, 0, -6.7],
+   "rot": [0, -1.5707963267948966, 0],
+   "scale": 0.008,
+   "props": {
+    "actor": 207
+   }
+  },
+  {
+   "id": 32,
+   "object": "cannon-shutter",
+   "pos": [6.7, 0, -6.7],
+   "scale": 0.008,
+   "props": {
+    "actor": 14,
+    "collider": "cannon_shutter"
+   }
+  },
+  {
+   "id": 33,
+   "object": "sanbo-head",
+   "pos": [4.55, 0.015, 4.9],
+   "scale": 0.008,
+   "props": {
+    "actor": 240
+   }
+  },
+  {
+   "id": 34,
+   "object": "sanbo-head",
+   "pos": [5.22, 0.206, 0.724],
+   "scale": 0.008,
+   "props": {
+    "actor": 240
+   }
+  },
+  {
+   "id": 35,
+   "object": "sanbo-head",
+   "pos": [-6.6, 0, -3.3],
+   "scale": 0.008,
+   "props": {
+    "actor": 240
+   }
+  },
+  {
+   "id": 36,
+   "object": "sanbo-head",
+   "pos": [-5.05, 0.1, 3.05],
+   "scale": 0.008,
+   "props": {
+    "actor": 240
+   }
+  },
+  {
+   "id": 37,
+   "object": "sand-tornado",
+   "pos": [1, -0.2, 3.732],
+   "scale": 0.008,
+   "props": {
+    "actor": 308
+   }
+  },
+  {
+   "id": 38,
+   "object": "sand-tornado",
+   "pos": [3, -0.2, 0.366],
+   "scale": 0.008,
+   "props": {
+    "actor": 308
+   }
+  },
+  {
+   "id": 39,
+   "object": "sand-tornado",
+   "pos": [-3.5, -0.2, 2.866],
+   "scale": 0.008,
+   "props": {
+    "actor": 308
+   }
+  },
+  {
+   "id": 40,
+   "object": "kuribo-model",
+   "pos": [-2.7, 0.25, 0.75],
+   "scale": 0.008,
+   "props": {
+    "actor": 200
+   }
+  },
+  {
+   "id": 41,
+   "object": "broken-block-ll",
+   "pos": [5.266, 0, -5.748],
+   "scale": 0.008,
+   "props": {
+    "actor": 17,
+    "collider": "broken_block_ll"
+   }
+  },
+  {
+   "id": 42,
+   "object": "obj-star-switch",
+   "pos": [5.266, 0, -5.748],
+   "rot": [0, 1.5707963267948966, 0],
+   "scale": 0.008,
+   "props": {
+    "actor": 12,
+    "collider": "obj_star_switch"
+   }
+  },
+  {
+   "id": 43,
+   "object": "arc0-20",
+   "pos": [3.244, 0, -5.734],
+   "scale": 0.008,
+   "props": {
+    "actor": 269
+   }
+  },
+  {
+   "id": 44,
+   "object": "arc0-17",
+   "pos": [-5.769, 0.023, 0.124],
+   "scale": 0.008,
+   "props": {
+    "actor": 269
+   }
+  },
+  {
+   "id": 45,
+   "object": "broken-block-s",
+   "pos": [-6.21, 0, 0.236],
+   "scale": 0.008,
+   "props": {
+    "actor": 194,
+    "collider": "broken_block_s"
+   }
+  },
+  {
+   "id": 46,
+   "object": "star-base",
+   "pos": [5.75, 0.65, 3.2],
+   "scale": 0.008,
+   "props": {
+    "actor": 180
+   }
+  },
+  {
+   "id": 47,
+   "object": "arc0-7",
+   "pos": [3.25, 0, -4.74],
+   "scale": 0.008,
+   "props": {
+    "actor": 289
+   }
+  },
+  {
+   "id": 48,
+   "object": "arc0-7",
+   "pos": [-5.2, -0.163, -6.5],
+   "scale": 0.008,
+   "props": {
+    "actor": 289
+   }
+  },
+  {
+   "id": 49,
+   "object": "arc0-5",
+   "pos": [-5.75, 1.25, -2.5],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 50,
+   "object": "arc0-5",
+   "pos": [-5.75, 1.25, 0.75],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 51,
+   "object": "arc0-5",
+   "pos": [1.75, 1.25, 0.75],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 52,
+   "object": "arc0-5",
+   "pos": [1.75, 1.15, -2.5],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 53,
+   "object": "arc0-5",
+   "pos": [-5.8, 0.1, -1.4],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 54,
+   "object": "arc0-5",
+   "pos": [-5.8, 0.1, -1.2],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 55,
+   "object": "arc0-5",
+   "pos": [-5.8, 0.1, -1],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 56,
+   "object": "arc0-5",
+   "pos": [-5.8, 0.1, -0.8],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 57,
+   "object": "arc0-5",
+   "pos": [-5.8, 0.1, -0.6],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 58,
+   "object": "arc0-5",
+   "pos": [-2.626, 0.75, -2.166],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 59,
+   "object": "arc0-5",
+   "pos": [-2.426, 0.75, -2.166],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 60,
+   "object": "arc0-5",
+   "pos": [-2.226, 0.75, -2.166],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 61,
+   "object": "arc0-5",
+   "pos": [-2.026, 0.75, -2.166],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 62,
+   "object": "arc0-5",
+   "pos": [-1.826, 0.75, -2.166],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 63,
+   "object": "arc0-7",
+   "pos": [0.5, 1.6, -3.5],
+   "scale": 0.008,
+   "props": {
+    "actor": 289
+   }
+  },
+  {
+   "id": 64,
+   "object": "arc0-7",
+   "pos": [-4.5, 1.6, -3.5],
+   "scale": 0.008,
+   "props": {
+    "actor": 289
+   }
+  },
+  {
+   "id": 65,
+   "object": "arc0-7",
+   "pos": [-4.6, 1.6, 1.4],
+   "scale": 0.008,
+   "props": {
+    "actor": 289
+   }
+  },
+  {
+   "id": 66,
+   "object": "arc0-7",
+   "pos": [0.6, 1.6, 1.5],
+   "scale": 0.008,
+   "props": {
+    "actor": 289
+   }
+  },
+  {
+   "id": 67,
+   "object": "arc0-21",
+   "pos": [-2, 1.13, -0.5],
+   "scale": 0.008,
+   "props": {
+    "actor": 178
+   }
+  },
+  {
+   "id": 68,
+   "object": "arc0-7",
+   "pos": [5.75, 0.05, 2.3],
+   "scale": 0.008,
+   "props": {
+    "actor": 289
+   }
+  },
+  {
+   "id": 69,
+   "object": "yashi-tree",
+   "pos": [-5.85, 0, -4.737],
+   "scale": 0.008,
+   "props": {
+    "actor": 286
+   }
+  },
+  {
+   "id": 70,
+   "object": "arc0-7",
+   "pos": [-6.8, 0.05, 7.4],
+   "scale": 0.008,
+   "props": {
+    "actor": 289
+   }
+  },
+  {
+   "id": 71,
+   "object": "star-base",
+   "pos": [-6.657, 0.25, -5.751],
+   "scale": 0.008,
+   "props": {
+    "actor": 180
+   }
+  },
+  {
+   "id": 72,
+   "object": "jango",
+   "pos": [1.749, 1.284, 0.102],
+   "scale": 0.008,
+   "props": {
+    "actLayer": 1,
+    "actor": 239
+   }
+  },
+  {
+   "id": 73,
+   "object": "star-base",
+   "pos": [-5.567, 0.216, -0.991],
+   "scale": 0.008,
+   "props": {
+    "actLayer": 1,
+    "actor": 180
+   }
+  },
+  {
+   "id": 74,
+   "object": "jango",
+   "pos": [-5.3, 0.525, -4.4],
+   "scale": 0.008,
+   "props": {
+    "actLayer": 2,
+    "actor": 239
+   }
+  },
+  {
+   "id": 75,
+   "object": "arc0-21",
+   "pos": [-2.001, 1.683, -1.034],
+   "scale": 0.008,
+   "props": {
+    "actLayer": 3,
+    "actor": 178
+   }
+  },
+  {
+   "id": 76,
+   "object": "red-bombhei",
+   "pos": [5.75, 0.6, 3.7],
+   "scale": 0.008,
+   "props": {
+    "actLayer": 7,
+    "actor": 181
+   }
+  }
+ ]
+}

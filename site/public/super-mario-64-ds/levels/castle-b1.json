@@ -1,0 +1,191 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "scene3d",
+ "camera": {
+  "mode": "fly",
+  "pos": [1.675, 5.075, -11.655],
+  "target": [1.675, -1.475, -0.9500000000000001],
+  "fov": 50,
+  "near": 0.01,
+  "far": 500,
+  "fly": {
+   "speed": 1.8583333333333334
+  }
+ },
+ "scene": {
+  "layers": [
+   {
+    "id": "collision",
+    "name": "Collision (KCL)",
+    "file": "col_castle_b1.glb",
+    "mode": "toggle",
+    "visible": false,
+    "role": "collision"
+   }
+  ]
+ },
+ "placements": [
+  {
+   "id": 0,
+   "object": "castle-b1-all",
+   "pos": [0, 0, 0],
+   "name": "Castle — basement"
+  },
+  {
+   "id": 1,
+   "object": "for-wl",
+   "pos": [3.35, -1.05, 1.95],
+   "rot": [0, -1.5707963267948966, 0],
+   "scale": 0.008,
+   "props": {
+    "actor": 307
+   }
+  },
+  {
+   "id": 2,
+   "object": "mip",
+   "pos": [-1.393, -1.15, -1.598],
+   "scale": 0.008,
+   "props": {
+    "actor": 187
+   }
+  },
+  {
+   "id": 3,
+   "object": "for-fl",
+   "pos": [-1.35, -1.1, -3.85],
+   "scale": 0.008,
+   "props": {
+    "actor": 307
+   }
+  },
+  {
+   "id": 4,
+   "object": "for-dl",
+   "pos": [-2.85, -1.15, -1.07],
+   "rot": [0, -3.141592653589793, 0],
+   "scale": 0.008,
+   "props": {
+    "actor": 307
+   }
+  },
+  {
+   "id": 5,
+   "object": "kinopio",
+   "pos": [-3.9, -1.35, -1.3],
+   "rot": [0, 0.7853981633974483, 0],
+   "scale": 0.008,
+   "props": {
+    "actor": 185
+   }
+  },
+  {
+   "id": 6,
+   "object": "mip",
+   "pos": [-1.5, -1.15, -2.9],
+   "scale": 0.008,
+   "props": {
+    "actor": 187
+   }
+  },
+  {
+   "id": 7,
+   "object": "mip",
+   "pos": [-1.3, -1.15, -2.9],
+   "scale": 0.008,
+   "props": {
+    "actor": 187
+   }
+  },
+  {
+   "id": 8,
+   "object": "mip",
+   "pos": [-3.6, -1.35, -1.3],
+   "rot": [0, -0.7853981633974483, 0],
+   "scale": 0.008,
+   "props": {
+    "actor": 187
+   }
+  },
+  {
+   "id": 9,
+   "object": "c0-switch",
+   "pos": [6.9, -1.15, -0.8],
+   "rot": [0, -1.5707963267948966, 0],
+   "scale": 0.008,
+   "props": {
+    "actor": 34,
+    "collider": "c0_switch"
+   }
+  },
+  {
+   "id": 10,
+   "object": "c0-switch",
+   "pos": [6.9, -1.15, -0.2],
+   "rot": [0, -1.5707963267948966, 0],
+   "scale": 0.008,
+   "props": {
+    "actor": 34,
+    "collider": "c0_switch"
+   }
+  },
+  {
+   "id": 11,
+   "object": "c0-water",
+   "pos": [4.4, -1.2, -0.45],
+   "scale": 0.008,
+   "props": {
+    "actor": 35,
+    "collider": "c0_water"
+   }
+  },
+  {
+   "id": 12,
+   "object": "obj-kanban",
+   "pos": [6.25, -1.025, -1.237],
+   "scale": 0.008,
+   "props": {
+    "actor": 183
+   }
+  },
+  {
+   "id": 13,
+   "object": "mip",
+   "pos": [2.8, -2.45, -0.5],
+   "rot": [0, -1.5707963267948966, 0],
+   "scale": 0.008,
+   "props": {
+    "actor": 187
+   }
+  },
+  {
+   "id": 14,
+   "object": "for-cv-ex5",
+   "pos": [2.42, -1.45, -2.2],
+   "scale": 0.008,
+   "props": {
+    "actor": 307
+   }
+  },
+  {
+   "id": 15,
+   "object": "kinopio",
+   "pos": [1.7, -1.35, -1.9],
+   "rot": [0, -3.141592653589793, 0],
+   "scale": 0.008,
+   "props": {
+    "actor": 185
+   }
+  },
+  {
+   "id": 16,
+   "object": "star-base",
+   "pos": [1.906, -1.3, -2.142],
+   "scale": 0.008,
+   "props": {
+    "actor": 180
+   }
+  }
+ ]
+}

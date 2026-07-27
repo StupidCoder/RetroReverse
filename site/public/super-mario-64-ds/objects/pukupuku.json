@@ -1,0 +1,16 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "model3d",
+ "name": "Pukupuku",
+ "animations": [
+  {
+   "id": "pukupuku_swim",
+   "loop": "loop",
+   "clip": "pukupuku_swim",
+   "fps": 30
+  }
+ ],
+ "model": "pukupuku.glb",
+ "skinnedClone": true
+}

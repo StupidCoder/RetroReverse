@@ -1,0 +1,22 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "model3d",
+ "name": "Book",
+ "animations": [
+  {
+   "id": "book_attack",
+   "loop": "loop",
+   "clip": "book_attack",
+   "fps": 30
+  },
+  {
+   "id": "book_attack_loop",
+   "loop": "loop",
+   "clip": "book_attack_loop",
+   "fps": 30
+  }
+ ],
+ "model": "book.glb",
+ "skinnedClone": true
+}

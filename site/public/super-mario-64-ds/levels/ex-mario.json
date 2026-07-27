@@ -1,0 +1,54 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "scene3d",
+ "camera": {
+  "mode": "fly",
+  "pos": [0, 1.675, -0.945],
+  "target": [0, 0.65, 0.675],
+  "fov": 50,
+  "near": 0.01,
+  "far": 500,
+  "fly": {
+   "speed": 1
+  }
+ },
+ "scene": {
+  "layers": [
+   {
+    "id": "sky",
+    "name": "Skybox",
+    "file": "vr09.glb",
+    "mode": "toggle",
+    "attach": "camera",
+    "renderOrder": -1,
+    "role": "sky"
+   },
+   {
+    "id": "collision",
+    "name": "Collision (KCL)",
+    "file": "col_ex_mario.glb",
+    "mode": "toggle",
+    "visible": false,
+    "role": "collision"
+   }
+  ]
+ },
+ "placements": [
+  {
+   "id": 0,
+   "object": "ex-mario-all",
+   "pos": [0, 0, 0],
+   "name": "Goomboss Battle (ex_mario)"
+  },
+  {
+   "id": 1,
+   "object": "scale-up-kinoko",
+   "pos": [0, 0.3, 0],
+   "scale": 0.008,
+   "props": {
+    "actor": 198
+   }
+  }
+ ]
+}

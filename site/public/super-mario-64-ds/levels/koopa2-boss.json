@@ -1,0 +1,136 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "scene3d",
+ "camera": {
+  "mode": "fly",
+  "pos": [0, 5.5, -8.4],
+  "target": [0, 0.75, 0],
+  "fov": 50,
+  "near": 0.01,
+  "far": 500,
+  "fly": {
+   "speed": 1.1666666666666667
+  }
+ },
+ "scene": {
+  "layers": [
+   {
+    "id": "sky",
+    "name": "Skybox",
+    "file": "vr07.glb",
+    "mode": "toggle",
+    "attach": "camera",
+    "renderOrder": -1,
+    "role": "sky"
+   },
+   {
+    "id": "collision",
+    "name": "Collision (KCL)",
+    "file": "col_koopa2_boss.glb",
+    "mode": "toggle",
+    "visible": false,
+    "role": "collision"
+   }
+  ]
+ },
+ "placements": [
+  {
+   "id": 0,
+   "object": "koopa2-boss-all",
+   "pos": [0, 0, 0],
+   "name": "Bowser in the Fire Sea (koopa2_boss)"
+  },
+  {
+   "id": 1,
+   "object": "koopa-model",
+   "pos": [-0.003, 1.2, -1.689],
+   "scale": 0.008,
+   "props": {
+    "actor": 279
+   }
+  },
+  {
+   "id": 2,
+   "object": "kb2-stage",
+   "pos": [0, 0, 0],
+   "scale": 0.008,
+   "props": {
+    "actor": 166,
+    "collider": "kb2_stage"
+   }
+  },
+  {
+   "id": 3,
+   "object": "koopa-bomb",
+   "pos": [0, 1.2, 3.5],
+   "scale": 0.008,
+   "props": {
+    "actor": 284
+   }
+  },
+  {
+   "id": 4,
+   "object": "koopa-bomb",
+   "pos": [3.5, 1.2, 0],
+   "scale": 0.008,
+   "props": {
+    "actor": 284
+   }
+  },
+  {
+   "id": 5,
+   "object": "koopa-bomb",
+   "pos": [0, 1.2, -3.5],
+   "scale": 0.008,
+   "props": {
+    "actor": 284
+   }
+  },
+  {
+   "id": 6,
+   "object": "koopa-bomb",
+   "pos": [-3.5, 1.2, 0],
+   "scale": 0.008,
+   "props": {
+    "actor": 284
+   }
+  },
+  {
+   "id": 7,
+   "object": "koopa-bomb",
+   "pos": [-2.475, 1.2, -2.475],
+   "scale": 0.008,
+   "props": {
+    "actor": 284
+   }
+  },
+  {
+   "id": 8,
+   "object": "koopa-bomb",
+   "pos": [-2.475, 1.2, 2.475],
+   "scale": 0.008,
+   "props": {
+    "actor": 284
+   }
+  },
+  {
+   "id": 9,
+   "object": "koopa-bomb",
+   "pos": [2.475, 1.2, 2.475],
+   "scale": 0.008,
+   "props": {
+    "actor": 284
+   }
+  },
+  {
+   "id": 10,
+   "object": "koopa-bomb",
+   "pos": [2.475, 1.2, -2.475],
+   "scale": 0.008,
+   "props": {
+    "actor": 284
+   }
+  }
+ ]
+}

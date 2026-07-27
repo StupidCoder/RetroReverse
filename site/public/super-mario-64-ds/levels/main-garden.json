@@ -1,0 +1,461 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "scene3d",
+ "camera": {
+  "mode": "fly",
+  "pos": [0.27649999999999997, 10.0715, -15.301300000000001],
+  "target": [0.27649999999999997, 0.971, 1.275],
+  "fov": 50,
+  "near": 0.01,
+  "far": 500,
+  "fly": {
+   "speed": 2.3098333333333336
+  }
+ },
+ "scene": {
+  "layers": [
+   {
+    "id": "sky",
+    "name": "Skybox",
+    "file": "vr01.glb",
+    "mode": "toggle",
+    "attach": "camera",
+    "renderOrder": -1,
+    "role": "sky"
+   },
+   {
+    "id": "collision",
+    "name": "Collision (KCL)",
+    "file": "col_main_garden.glb",
+    "mode": "toggle",
+    "visible": false,
+    "role": "collision"
+   }
+  ]
+ },
+ "placements": [
+  {
+   "id": 0,
+   "object": "main-garden-all",
+   "pos": [0, 0, 0],
+   "name": "Castle Grounds"
+  },
+  {
+   "id": 1,
+   "object": "obj-tatefuda",
+   "pos": [-0.4, 0, -3.5],
+   "scale": 0.008,
+   "onClick": {
+    "action": "text",
+    "title": "Signpost",
+    "body": "You can run and dive \nat enemies with a slide\nattack. To do this \nmove in Standard Mode,\nrun and then press .\nTo jump out of the \nslide and land back on \nyour feet, press either\n or .\n\nOnly mustached players\ncan pull this move off.\nDon't even think of \ntrying it if you don't\nhave a mustache!"
+   },
+   "props": {
+    "actor": 184,
+    "collider": "obj_tatefuda"
+   }
+  },
+  {
+   "id": 2,
+   "object": "obj-tatefuda",
+   "pos": [0.4, 0, -3.5],
+   "scale": 0.008,
+   "onClick": {
+    "action": "text",
+    "title": "Signpost",
+    "body": "Pssst! The Boos are \nsuper shy. If you look\nthem in the eyes, they\nfade away.\nThey reappear when \nyou turn your back, \nso don't let them \nsneak up on you!\nIt's no use trying to \nhit them when they're \nfading away. \n\nInstead, sneak up\nfrom behind and punch\nthem.\n\nYou can't swallow \nBoos, so this is where \nyou'll need a mustached\nhero to save the day. "
+   },
+   "props": {
+    "actor": 184,
+    "collider": "obj_tatefuda"
+   }
+  },
+  {
+   "id": 3,
+   "object": "obj-tatefuda",
+   "pos": [3.02, 0.02, 0.22],
+   "rot": [0, -2.356194490192345, 0],
+   "scale": 0.008,
+   "onClick": {
+    "action": "text",
+    "title": "Signpost",
+    "body": "Jumping Technique 1\nTo triple jump, run \nand then jump 3 \ntimes in a row. \n\nIf you time them \nright, you'll hop, skip,\nthen jump really high.\n\n\nJumping Technique 2\nYou can do a backward\nsomersault if you jump\nwhile crouching!\n\nJumping Technique 3\nYou can jump far with\nthe long jump if you \nrun fast, crouch, and \nthen jump."
+   },
+   "props": {
+    "actor": 184,
+    "collider": "obj_tatefuda"
+   }
+  },
+  {
+   "id": 4,
+   "object": "obj-tatefuda",
+   "pos": [-3.02, 0.02, 0.22],
+   "rot": [0, 2.356194490192345, 0],
+   "scale": 0.008,
+   "onClick": {
+    "action": "text",
+    "title": "Signpost",
+    "body": "With the legendary wall \nkick, you can access \nhigh places. \nTo wall kick, jump at a\nwall, then jump again \nwhen you hit the wall.\nKeep in mind that the \nonly person who can \npull this move off is...\nThe superhero with the \nred cap! "
+   },
+   "props": {
+    "actor": 184,
+    "collider": "obj_tatefuda"
+   }
+  },
+  {
+   "id": 5,
+   "object": "teresa",
+   "pos": [-0.4, 0.05, -2.05],
+   "scale": 0.008,
+   "props": {
+    "actor": 209
+   }
+  },
+  {
+   "id": 6,
+   "object": "teresa",
+   "pos": [-2.2, -0.15, -2.5],
+   "scale": 0.008,
+   "props": {
+    "actor": 209
+   }
+  },
+  {
+   "id": 7,
+   "object": "mip",
+   "pos": [0, 0, -3.5],
+   "scale": 0.008,
+   "props": {
+    "actor": 187
+   }
+  },
+  {
+   "id": 8,
+   "object": "mip",
+   "pos": [-0.2, 1, 0.7],
+   "rot": [0, -3.141592653589793, 0],
+   "scale": 0.008,
+   "props": {
+    "actor": 187
+   }
+  },
+  {
+   "id": 9,
+   "object": "broken-block-l",
+   "pos": [3.2, 0, -2.5],
+   "scale": 0.008,
+   "props": {
+    "actor": 15,
+    "collider": "broken_block_l"
+   }
+  },
+  {
+   "id": 10,
+   "object": "broken-block-l",
+   "pos": [3.25, 0, -2.7],
+   "scale": 0.008,
+   "props": {
+    "actor": 15,
+    "collider": "broken_block_l"
+   }
+  },
+  {
+   "id": 11,
+   "object": "broken-block-l",
+   "pos": [3.4, 0, -2.5],
+   "scale": 0.008,
+   "props": {
+    "actor": 15,
+    "collider": "broken_block_l"
+   }
+  },
+  {
+   "id": 12,
+   "object": "teresa",
+   "pos": [-0.85, 0.1, -2.981],
+   "rot": [0, 0.523566817665218, 0],
+   "scale": 0.008,
+   "props": {
+    "actor": 209
+   }
+  },
+  {
+   "id": 13,
+   "object": "teresa",
+   "pos": [0.693, 0.1, -2.683],
+   "rot": [0, -3.141592653589793, 0],
+   "scale": 0.008,
+   "props": {
+    "actor": 209
+   }
+  },
+  {
+   "id": 14,
+   "object": "teresa",
+   "pos": [-2, -0.1, -0.7],
+   "rot": [0, 1.5707963267948966, 0],
+   "scale": 0.008,
+   "props": {
+    "actor": 209
+   }
+  },
+  {
+   "id": 15,
+   "object": "teresa",
+   "pos": [2, -0.1, -2.5],
+   "rot": [0, -0.7853981633974483, 0],
+   "scale": 0.008,
+   "props": {
+    "actor": 209
+   }
+  },
+  {
+   "id": 16,
+   "object": "teresa",
+   "pos": [1.8, -0.1, -0.7],
+   "rot": [0, 1.5707963267948966, 0],
+   "scale": 0.008,
+   "props": {
+    "actor": 209
+   }
+  },
+  {
+   "id": 17,
+   "object": "teresa",
+   "pos": [-2.574, -0.1, -2.892],
+   "rot": [0, -0.7853981633974483, 0],
+   "scale": 0.008,
+   "props": {
+    "actor": 209
+   }
+  },
+  {
+   "id": 18,
+   "object": "teresa",
+   "pos": [1.266, 0.1, -1.697],
+   "rot": [0, -0.6108119749762138, 0],
+   "scale": 0.008,
+   "props": {
+    "actor": 209
+   }
+  },
+  {
+   "id": 19,
+   "object": "teresa",
+   "pos": [-0.939, 0.1, -1.069],
+   "rot": [0, 1.047133635330436, 0],
+   "scale": 0.008,
+   "props": {
+    "actor": 209
+   }
+  },
+  {
+   "id": 20,
+   "object": "toge-tree",
+   "pos": [0.8, 0.001, 0.2],
+   "scale": 0.008,
+   "props": {
+    "actor": 286
+   }
+  },
+  {
+   "id": 21,
+   "object": "toge-tree",
+   "pos": [-0.8, 0.001, 0.2],
+   "scale": 0.008,
+   "props": {
+    "actor": 286
+   }
+  },
+  {
+   "id": 22,
+   "object": "toge-tree",
+   "pos": [0.8, 0.001, -3.5],
+   "scale": 0.008,
+   "props": {
+    "actor": 286
+   }
+  },
+  {
+   "id": 23,
+   "object": "toge-tree",
+   "pos": [-0.8, 0.001, -3.5],
+   "scale": 0.008,
+   "props": {
+    "actor": 286
+   }
+  },
+  {
+   "id": 24,
+   "object": "toge-tree",
+   "pos": [-1.602, -0.21, -3.153],
+   "scale": 0.008,
+   "props": {
+    "actor": 286
+   }
+  },
+  {
+   "id": 25,
+   "object": "toge-tree",
+   "pos": [-2.656, -0.21, -2.128],
+   "scale": 0.008,
+   "props": {
+    "actor": 286
+   }
+  },
+  {
+   "id": 26,
+   "object": "toge-tree",
+   "pos": [-2.388, -0.21, -1.746],
+   "scale": 0.008,
+   "props": {
+    "actor": 286
+   }
+  },
+  {
+   "id": 27,
+   "object": "toge-tree",
+   "pos": [-2.752, -0.21, -1.289],
+   "scale": 0.008,
+   "props": {
+    "actor": 286
+   }
+  },
+  {
+   "id": 28,
+   "object": "toge-tree",
+   "pos": [-2.474, -0.21, -0.746],
+   "scale": 0.008,
+   "props": {
+    "actor": 286
+   }
+  },
+  {
+   "id": 29,
+   "object": "toge-tree",
+   "pos": [-1.82, -0.21, -0.049],
+   "scale": 0.008,
+   "props": {
+    "actor": 286
+   }
+  },
+  {
+   "id": 30,
+   "object": "toge-tree",
+   "pos": [1.636, -0.21, -0.125],
+   "scale": 0.008,
+   "props": {
+    "actor": 286
+   }
+  },
+  {
+   "id": 31,
+   "object": "toge-tree",
+   "pos": [2.321, -0.21, -0.819],
+   "scale": 0.008,
+   "props": {
+    "actor": 286
+   }
+  },
+  {
+   "id": 32,
+   "object": "toge-tree",
+   "pos": [2.213, -0.21, -1.394],
+   "scale": 0.008,
+   "props": {
+    "actor": 286
+   }
+  },
+  {
+   "id": 33,
+   "object": "toge-tree",
+   "pos": [2.7, -0.21, -1.484],
+   "scale": 0.008,
+   "props": {
+    "actor": 286
+   }
+  },
+  {
+   "id": 34,
+   "object": "toge-tree",
+   "pos": [2.381, -0.21, -2.271],
+   "scale": 0.008,
+   "props": {
+    "actor": 286
+   }
+  },
+  {
+   "id": 35,
+   "object": "toge-tree",
+   "pos": [1.998, -0.21, -2.966],
+   "scale": 0.008,
+   "props": {
+    "actor": 286
+   }
+  },
+  {
+   "id": 36,
+   "object": "star-base",
+   "pos": [0, 0.1, -3.2],
+   "scale": 0.008,
+   "props": {
+    "actor": 180
+   }
+  },
+  {
+   "id": 37,
+   "object": "arc0-5",
+   "pos": [3, 0.1, 0.5],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 38,
+   "object": "arc0-5",
+   "pos": [3.15, 0.1, 0.35],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 39,
+   "object": "arc0-5",
+   "pos": [3.3, 0.1, 0.2],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 40,
+   "object": "arc0-5",
+   "pos": [-3, 0.1, 0.5],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 41,
+   "object": "arc0-5",
+   "pos": [-3.15, 0.1, 0.35],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 42,
+   "object": "arc0-5",
+   "pos": [-3.3, 0.1, 0.2],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  }
+ ]
+}

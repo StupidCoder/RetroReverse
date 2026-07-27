@@ -1,0 +1,22 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "model3d",
+ "name": "Birikyu",
+ "animations": [
+  {
+   "id": "birikyu_elec",
+   "loop": "loop",
+   "clip": "birikyu_elec",
+   "fps": 30
+  },
+  {
+   "id": "birikyu_elec_stop",
+   "loop": "loop",
+   "clip": "birikyu_elec_stop",
+   "fps": 30
+  }
+ ],
+ "model": "birikyu.glb",
+ "skinnedClone": true
+}

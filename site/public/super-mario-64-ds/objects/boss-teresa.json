@@ -1,0 +1,28 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "model3d",
+ "name": "Boss teresa",
+ "animations": [
+  {
+   "id": "boss_teresa_fire",
+   "loop": "loop",
+   "clip": "boss_teresa_fire",
+   "fps": 30
+  },
+  {
+   "id": "boss_teresa_fire_st",
+   "loop": "loop",
+   "clip": "boss_teresa_fire_st",
+   "fps": 30
+  },
+  {
+   "id": "boss_teresa_wait",
+   "loop": "loop",
+   "clip": "boss_teresa_wait",
+   "fps": 30
+  }
+ ],
+ "model": "boss_teresa.glb",
+ "skinnedClone": true
+}

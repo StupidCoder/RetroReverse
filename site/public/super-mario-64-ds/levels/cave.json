@@ -1,0 +1,1510 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "scene3d",
+ "camera": {
+  "mode": "fly",
+  "pos": [-0.17099999999999982, 11.375, -18.405],
+  "target": [-0.17099999999999982, -0.55, -0.22499999999999964],
+  "fov": 50,
+  "near": 0.01,
+  "far": 500,
+  "fly": {
+   "speed": 2.525
+  }
+ },
+ "scene": {
+  "layers": [
+   {
+    "id": "collision",
+    "name": "Collision (KCL)",
+    "file": "col_cave.glb",
+    "mode": "toggle",
+    "visible": false,
+    "role": "collision"
+   }
+  ]
+ },
+ "placements": [
+  {
+   "id": 0,
+   "object": "cave-all",
+   "pos": [0, 0, 0],
+   "name": "Hazy Maze Cave"
+  },
+  {
+   "id": 1,
+   "object": "obj-tatefuda",
+   "pos": [-5.893, 2, 5.846],
+   "rot": [0, -0.7853981633974483, 0],
+   "scale": 0.008,
+   "onClick": {
+    "action": "text",
+    "title": "Signpost",
+    "body": "Both ways fraught with\ndanger! Watch your feet!\nThose who can't do the\nlong jump, tsk, tsk. \nMake your way to \nthe right.\nRight: Work Elevator\n       Hazy Maze\nLeft: Black Hole\n      Underground Lake\nRed Circle: Elevator 2\n      Underground Lake\nArrow: You are here"
+   },
+   "props": {
+    "actor": 184,
+    "collider": "obj_tatefuda"
+   }
+  },
+  {
+   "id": 2,
+   "object": "obj-tatefuda",
+   "pos": [-6.575, 1.81, 4.527],
+   "scale": 0.008,
+   "onClick": {
+    "action": "text",
+    "title": "Signpost",
+    "body": "Slide down a slope \nby crouching.\nOr, crouch in the air to\npound the ground.\nIf you stop, crouch, \nthen jump, you'll do a\nbackward somersault!\nGot that? There's more.\nCrouch and then jump \nwhile running to do a \nlong jump! \nOr crouch and walk to...\nNever mind. It's a \nsecret."
+   },
+   "props": {
+    "actor": 184,
+    "collider": "obj_tatefuda"
+   }
+  },
+  {
+   "id": 3,
+   "object": "spider",
+   "pos": [-6.25, 2, 6.65],
+   "scale": 0.008,
+   "props": {
+    "actor": 255
+   }
+  },
+  {
+   "id": 4,
+   "object": "hatena-karabox",
+   "pos": [-6.8, 2.35, 7.2],
+   "rot": [0, -0.7853981633974483, 0],
+   "scale": 0.008,
+   "props": {
+    "actor": 20
+   }
+  },
+  {
+   "id": 5,
+   "object": "spider",
+   "pos": [-3.6, 1.7, 6],
+   "rot": [0, -1.5707963267948966, 0],
+   "scale": 0.008,
+   "props": {
+    "actor": 255
+   }
+  },
+  {
+   "id": 6,
+   "object": "obj-tatefuda",
+   "pos": [-6.825, 2.11, 6.96],
+   "rot": [0, -0.7853981633974483, 0],
+   "scale": 0.008,
+   "onClick": {
+    "action": "text",
+    "title": "Signpost",
+    "body": "In Standard Mode, press \n to center the\ncamera behind you. \nEven when it's hard to \nsee what's around you, \nrelax and press .\nA word of advice:\nkeep going but don't rush."
+   },
+   "props": {
+    "actor": 184,
+    "collider": "obj_tatefuda"
+   }
+  },
+  {
+   "id": 7,
+   "object": "broken-block-s",
+   "pos": [-6.109, 2, 5.621],
+   "rot": [0, -0.7853981633974483, 0],
+   "scale": 0.008,
+   "props": {
+    "actor": 194,
+    "collider": "broken_block_s"
+   }
+  },
+  {
+   "id": 8,
+   "object": "arc0-5",
+   "pos": [-2.45, 2, 4.63],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 9,
+   "object": "arc0-5",
+   "pos": [-2.3, 2, 4.48],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 10,
+   "object": "arc0-5",
+   "pos": [-2.15, 2, 4.33],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 11,
+   "object": "arc0-5",
+   "pos": [-2, 2, 4.25],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 12,
+   "object": "arc0-5",
+   "pos": [-1.85, 2, 4.17],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 13,
+   "object": "kuribo-model",
+   "pos": [-3, 2, 5.1],
+   "scale": 0.008,
+   "props": {
+    "actLayer": 2,
+    "actor": 200
+   }
+  },
+  {
+   "id": 14,
+   "object": "cv-ud-lift",
+   "pos": [-3.167, 1.4, 1.358],
+   "rot": [0, 0.463645693138435, 0],
+   "scale": 0.008,
+   "props": {
+    "actor": 33,
+    "collider": "cv_ud_lift"
+   }
+  },
+  {
+   "id": 15,
+   "object": "cv-news-lift",
+   "pos": [1.1, 0.95, 6.2],
+   "scale": 0.008,
+   "props": {
+    "actor": 68,
+    "collider": "cv_news_lift"
+   }
+  },
+  {
+   "id": 16,
+   "object": "obj-tatefuda",
+   "pos": [0.821, 2, 3.545],
+   "rot": [0, -1.5532514215334543, 0],
+   "scale": 0.008,
+   "onClick": {
+    "action": "text",
+    "title": "Signpost",
+    "body": "Work Elevator\nFor those who get off\nhere: grab the pole to\nthe left and slide \ndown carefully."
+   },
+   "props": {
+    "actor": 184,
+    "collider": "obj_tatefuda"
+   }
+  },
+  {
+   "id": 17,
+   "object": "obj-tatefuda",
+   "pos": [2.284, 0, 2.657],
+   "scale": 0.008,
+   "onClick": {
+    "action": "text",
+    "title": "Signpost",
+    "body": "Elevator Area\nRight: Hazy Maze\n       Entrance\nLeft: Black Hole\n      Elevator 1\nArrow: You are here"
+   },
+   "props": {
+    "actor": 184,
+    "collider": "obj_tatefuda"
+   }
+  },
+  {
+   "id": 18,
+   "object": "obj-tatefuda",
+   "pos": [5.253, 0, 2.644],
+   "scale": 0.008,
+   "onClick": {
+    "action": "text",
+    "title": "Signpost",
+    "body": "Hazy Maze Exit\nDanger! Closed.\nTurn back now."
+   },
+   "props": {
+    "actor": 184,
+    "collider": "obj_tatefuda"
+   }
+  },
+  {
+   "id": 19,
+   "object": "obj-tatefuda",
+   "pos": [0.442, 0, 5.264],
+   "rot": [0, 1.5707963267948966, 0],
+   "scale": 0.008,
+   "onClick": {
+    "action": "text",
+    "title": "Signpost",
+    "body": "Above:\nAutomatic Elevator\nElevator begins\nautomatically and \nfollows a set course.\n\nIt disappears\nautomatically, too."
+   },
+   "props": {
+    "actor": 184,
+    "collider": "obj_tatefuda"
+   }
+  },
+  {
+   "id": 20,
+   "object": "obj-tatefuda",
+   "pos": [1.916, 0, 6.624],
+   "rot": [0, -3.141592653589793, 0],
+   "scale": 0.008,
+   "onClick": {
+    "action": "text",
+    "title": "Signpost",
+    "body": "Work Elevator\nDanger!!\nRead instructions\nthoroughly!\n\nStep on an arrow to\nmove the elevator in \nthat direction. \n\n\nOnce you hop off the\nelevator, it will return\nto its original location."
+   },
+   "props": {
+    "actor": 184,
+    "collider": "obj_tatefuda"
+   }
+  },
+  {
+   "id": 21,
+   "object": "obj-tatefuda",
+   "pos": [-3, 0, 0.61],
+   "scale": 0.008,
+   "onClick": {
+    "action": "text",
+    "title": "Signpost",
+    "body": "Elevator 1\nUp: Black Hole\nRight: Work Elevator\n       Hazy Maze\n"
+   },
+   "props": {
+    "actor": 184,
+    "collider": "obj_tatefuda"
+   }
+  },
+  {
+   "id": 22,
+   "object": "spider",
+   "pos": [5.4, 0, 3.25],
+   "scale": 0.008,
+   "props": {
+    "actor": 255
+   }
+  },
+  {
+   "id": 23,
+   "object": "spider",
+   "pos": [3.8, 0, 6.1],
+   "scale": 0.008,
+   "props": {
+    "actor": 255
+   }
+  },
+  {
+   "id": 24,
+   "object": "broken-block-l",
+   "pos": [2.95, 1, 4.95],
+   "scale": 0.008,
+   "props": {
+    "actor": 15,
+    "collider": "broken_block_l"
+   }
+  },
+  {
+   "id": 25,
+   "object": "broken-block-l",
+   "pos": [4.15, 1, 5.5],
+   "scale": 0.008,
+   "props": {
+    "actor": 15,
+    "collider": "broken_block_l"
+   }
+  },
+  {
+   "id": 26,
+   "object": "broken-block-l",
+   "pos": [6.05, 1, 4.75],
+   "scale": 0.008,
+   "props": {
+    "actor": 15,
+    "collider": "broken_block_l"
+   }
+  },
+  {
+   "id": 27,
+   "object": "eyekun",
+   "pos": [4.534, 1.1, 4.665],
+   "scale": 0.008,
+   "props": {
+    "actor": 262
+   }
+  },
+  {
+   "id": 28,
+   "object": "broken-block-l",
+   "pos": [1, 1.8, 5],
+   "scale": 0.008,
+   "props": {
+    "actor": 15,
+    "collider": "broken_block_l"
+   }
+  },
+  {
+   "id": 29,
+   "object": "ar1-13",
+   "pos": [1.25, 1.975, 5],
+   "rot": [0, -3.141592653589793, 0],
+   "scale": 0.008,
+   "props": {
+    "actor": 31
+   }
+  },
+  {
+   "id": 30,
+   "object": "broken-block-l",
+   "pos": [3.1, 2, 3],
+   "scale": 0.008,
+   "props": {
+    "actor": 15,
+    "collider": "broken_block_l"
+   }
+  },
+  {
+   "id": 31,
+   "object": "kuribo-model",
+   "pos": [7.062, 0.012, 5.444],
+   "scale": 0.008,
+   "props": {
+    "actor": 200
+   }
+  },
+  {
+   "id": 32,
+   "object": "obj-star-switch",
+   "pos": [6.249, 0.001, 7.35],
+   "rot": [0, -1.5707963267948966, 0],
+   "scale": 0.008,
+   "props": {
+    "actor": 12,
+    "collider": "obj_star_switch"
+   }
+  },
+  {
+   "id": 33,
+   "object": "broken-block-ll",
+   "pos": [6.249, 0, 7.35],
+   "scale": 0.008,
+   "props": {
+    "actor": 17,
+    "collider": "broken_block_ll"
+   }
+  },
+  {
+   "id": 34,
+   "object": "arc0-17",
+   "pos": [2.156, 0.001, 7.166],
+   "rot": [0, 2.356194490192345, 0],
+   "scale": 0.008,
+   "props": {
+    "actor": 269
+   }
+  },
+  {
+   "id": 35,
+   "object": "kuribo-model",
+   "pos": [6.645, 0, 5.984],
+   "scale": 0.008,
+   "props": {
+    "actor": 200
+   }
+  },
+  {
+   "id": 36,
+   "object": "arc0-16",
+   "pos": [2.843, 0.001, 7.166],
+   "rot": [0, 2.356194490192345, 0],
+   "scale": 0.008,
+   "props": {
+    "actor": 269
+   }
+  },
+  {
+   "id": 37,
+   "object": "obj-tatefuda",
+   "pos": [0.447, 0, 4.539],
+   "scale": 0.008,
+   "onClick": {
+    "action": "text",
+    "title": "Signpost",
+    "body": "Do you know the famous\nwall jump?\nHop onto a high place\nby first jumping toward\na wall.\nAs soon as you touch \nthe wall, jump again to\nrocket into the air.\n\n\nOnly a superhero with\na red hat can jump this\nhigh. Practice it well!"
+   },
+   "props": {
+    "actor": 184,
+    "collider": "obj_tatefuda"
+   }
+  },
+  {
+   "id": 38,
+   "object": "obj-tatefuda",
+   "pos": [6.249, 0.001, 7],
+   "rot": [0, -3.141592653589793, 0],
+   "scale": 0.008,
+   "onClick": {
+    "action": "text",
+    "title": "Signpost",
+    "body": "The very hard-looking \nblock in front of you \nreally IS hard.\nHitting it is not advised.\nBut if you're shaped like\na rock--and have rocks \nfor brains--you'll \nprobably do it anyway. "
+   },
+   "props": {
+    "actor": 184,
+    "collider": "obj_tatefuda"
+   }
+  },
+  {
+   "id": 39,
+   "object": "star-base",
+   "pos": [3.743, 0.05, 4.832],
+   "scale": 0.008,
+   "props": {
+    "actor": 180
+   }
+  },
+  {
+   "id": 40,
+   "object": "arc0-7",
+   "pos": [6.7, 1, 3.2],
+   "scale": 0.008,
+   "props": {
+    "actor": 289
+   }
+  },
+  {
+   "id": 41,
+   "object": "arc0-7",
+   "pos": [5.631, 2, 5.804],
+   "scale": 0.008,
+   "props": {
+    "actor": 289
+   }
+  },
+  {
+   "id": 42,
+   "object": "arc0-7",
+   "pos": [2.85, 2, 6.4],
+   "scale": 0.008,
+   "props": {
+    "actor": 289
+   }
+  },
+  {
+   "id": 43,
+   "object": "arc0-7",
+   "pos": [2.05, 2, 6.4],
+   "scale": 0.008,
+   "props": {
+    "actor": 289
+   }
+  },
+  {
+   "id": 44,
+   "object": "arc0-7",
+   "pos": [4.672, 2.1, 3.816],
+   "scale": 0.008,
+   "props": {
+    "actor": 289
+   }
+  },
+  {
+   "id": 45,
+   "object": "arc0-7",
+   "pos": [3.1, 2.1, 3],
+   "scale": 0.008,
+   "props": {
+    "actor": 289
+   }
+  },
+  {
+   "id": 46,
+   "object": "arc0-7",
+   "pos": [2.95, 1.1, 4.95],
+   "scale": 0.008,
+   "props": {
+    "actor": 289
+   }
+  },
+  {
+   "id": 47,
+   "object": "arc0-7",
+   "pos": [4.15, 1.1, 5.5],
+   "scale": 0.008,
+   "props": {
+    "actor": 289
+   }
+  },
+  {
+   "id": 48,
+   "object": "star-base",
+   "pos": [1.146, 1.25, 4.248],
+   "scale": 0.008,
+   "props": {
+    "actor": 180
+   }
+  },
+  {
+   "id": 49,
+   "object": "red-bombhei",
+   "pos": [0.747, 1, 6.661],
+   "rot": [0, 1.5707963267948966, 0],
+   "scale": 0.008,
+   "props": {
+    "actLayer": 2,
+    "actor": 181
+   }
+  },
+  {
+   "id": 50,
+   "object": "obj-tatefuda",
+   "pos": [2.45, 0.2, -0.05],
+   "scale": 0.008,
+   "onClick": {
+    "action": "text",
+    "title": "Signpost",
+    "body": "Danger Ahead!\nBeware of the strange\ntoxic cloud! Don't \nbreathe it!\nIf you feel faint, run\nfor higher ground and \nfresh air!\n\nCircle: Shelter\nArrow: Entrance-Exit"
+   },
+   "props": {
+    "actor": 184,
+    "collider": "obj_tatefuda"
+   }
+  },
+  {
+   "id": 51,
+   "object": "obj-tatefuda",
+   "pos": [2.9, 0.2, -0.05],
+   "scale": 0.008,
+   "onClick": {
+    "action": "text",
+    "title": "Signpost",
+    "body": "The Power Flower gives\nstrength according to\nthe personality of the\nperson who plucked it.\nIron man Wario will turn\ninto a metal man!\nHe won't be burned or \nhurt by enemy attacks.\nHe doesn't even have to\nbreathe while wearing it.\nThe only problem:\nhe can't swim in it."
+   },
+   "props": {
+    "actor": 184,
+    "collider": "obj_tatefuda"
+   }
+  },
+  {
+   "id": 52,
+   "object": "yurei-mucho",
+   "pos": [2.2, -0.65, -5.35],
+   "scale": 0.008,
+   "props": {
+    "actor": 236
+   }
+  },
+  {
+   "id": 53,
+   "object": "basabasa",
+   "pos": [4.8, -0.65, -5.15],
+   "scale": 0.008,
+   "props": {
+    "actor": 237
+   }
+  },
+  {
+   "id": 54,
+   "object": "basabasa",
+   "pos": [5.3, -0.65, -4.95],
+   "scale": 0.008,
+   "props": {
+    "actor": 237
+   }
+  },
+  {
+   "id": 55,
+   "object": "basabasa",
+   "pos": [5, -0.6, -4.55],
+   "scale": 0.008,
+   "props": {
+    "actor": 237
+   }
+  },
+  {
+   "id": 56,
+   "object": "basabasa",
+   "pos": [5.5, -0.55, -4.35],
+   "scale": 0.008,
+   "props": {
+    "actor": 237
+   }
+  },
+  {
+   "id": 57,
+   "object": "hatena-karabox",
+   "pos": [5, -0.65, -4.25],
+   "scale": 0.008,
+   "props": {
+    "actor": 20
+   }
+  },
+  {
+   "id": 58,
+   "object": "b-coin-switch",
+   "pos": [5, -0.75, -2.85],
+   "scale": 0.008,
+   "props": {
+    "actor": 10,
+    "collider": "b_coin_switch"
+   }
+  },
+  {
+   "id": 59,
+   "object": "yurei-mucho",
+   "pos": [5.8, -0.6, -1.1],
+   "scale": 0.008,
+   "props": {
+    "actor": 236
+   }
+  },
+  {
+   "id": 60,
+   "object": "hatena-karabox",
+   "pos": [5.75, -0.6, -0.7],
+   "scale": 0.008,
+   "props": {
+    "actor": 20
+   }
+  },
+  {
+   "id": 61,
+   "object": "yurei-mucho",
+   "pos": [4.45, -0.75, -1.5],
+   "scale": 0.008,
+   "props": {
+    "actor": 236
+   }
+  },
+  {
+   "id": 62,
+   "object": "choropu",
+   "pos": [3, -0.745, -1.25],
+   "scale": 0.008,
+   "props": {
+    "actor": 310
+   }
+  },
+  {
+   "id": 63,
+   "object": "choropu",
+   "pos": [3.25, -0.745, -1.5],
+   "scale": 0.008,
+   "props": {
+    "actor": 310
+   }
+  },
+  {
+   "id": 64,
+   "object": "yurei-mucho",
+   "pos": [2.05, -0.75, -1.55],
+   "scale": 0.008,
+   "props": {
+    "actor": 236
+   }
+  },
+  {
+   "id": 65,
+   "object": "hatena-karabox",
+   "pos": [1.9, -0.6, -2.85],
+   "scale": 0.008,
+   "props": {
+    "actor": 20
+   }
+  },
+  {
+   "id": 66,
+   "object": "choropu",
+   "pos": [2.6, -0.745, -4],
+   "scale": 0.008,
+   "props": {
+    "actor": 310
+   }
+  },
+  {
+   "id": 67,
+   "object": "obj-heart",
+   "pos": [5.443, -0.7, -2.623],
+   "scale": 0.008,
+   "props": {
+    "actor": 297
+   }
+  },
+  {
+   "id": 68,
+   "object": "broken-block-l",
+   "pos": [4.221, -1, -1.729],
+   "rot": [0, 0.7853981633974483, 0],
+   "scale": 0.008,
+   "props": {
+    "actor": 15,
+    "collider": "broken_block_l"
+   }
+  },
+  {
+   "id": 69,
+   "object": "arc0-5",
+   "pos": [2.95, 0.2, 0.5],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 70,
+   "object": "arc0-5",
+   "pos": [2.8, 0.2, 0.5],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 71,
+   "object": "arc0-5",
+   "pos": [2.65, 0.2, 0.5],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 72,
+   "object": "arc0-5",
+   "pos": [2.5, 0.2, 0.5],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 73,
+   "object": "arc0-5",
+   "pos": [2.35, 0.2, 0.5],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 74,
+   "object": "ar1-6",
+   "pos": [4, -1, -2.8],
+   "scale": 0.008,
+   "props": {
+    "actor": 290
+   }
+  },
+  {
+   "id": 75,
+   "object": "ar1-6",
+   "pos": [3.75, -1, -3.95],
+   "scale": 0.008,
+   "props": {
+    "actor": 290
+   }
+  },
+  {
+   "id": 76,
+   "object": "ar1-6",
+   "pos": [3.05, -0.874, -4],
+   "scale": 0.008,
+   "props": {
+    "actor": 290
+   }
+  },
+  {
+   "id": 77,
+   "object": "ar1-6",
+   "pos": [2.25, -0.9, -4],
+   "scale": 0.008,
+   "props": {
+    "actor": 290
+   }
+  },
+  {
+   "id": 78,
+   "object": "ar1-6",
+   "pos": [1.85, -0.85, -4.5],
+   "scale": 0.008,
+   "props": {
+    "actor": 290
+   }
+  },
+  {
+   "id": 79,
+   "object": "ar1-6",
+   "pos": [1.85, -0.65, -4.5],
+   "scale": 0.008,
+   "props": {
+    "actor": 290
+   }
+  },
+  {
+   "id": 80,
+   "object": "ar1-6",
+   "pos": [1.85, -0.45, -4.5],
+   "scale": 0.008,
+   "props": {
+    "actor": 290
+   }
+  },
+  {
+   "id": 81,
+   "object": "scale-up-kinoko",
+   "pos": [4.221, -1, -1.729],
+   "scale": 0.008,
+   "props": {
+    "actor": 322
+   }
+  },
+  {
+   "id": 82,
+   "object": "cv-goro-rock",
+   "pos": [-5.8, 2.9, -7.8],
+   "scale": 0.008,
+   "props": {
+    "actor": 221
+   }
+  },
+  {
+   "id": 83,
+   "object": "obj-tatefuda",
+   "pos": [-3.228, 1.5, 0.262],
+   "rot": [0, -1.1518278241036308, 0],
+   "scale": 0.008,
+   "onClick": {
+    "action": "text",
+    "title": "Signpost",
+    "body": "The Black Hole\nRight: Work Elevator\n       Hazy Maze\nLeft: Underground Lake"
+   },
+   "props": {
+    "actor": 184,
+    "collider": "obj_tatefuda"
+   }
+  },
+  {
+   "id": 84,
+   "object": "obj-tatefuda",
+   "pos": [-4.029, 2.3, -2.013],
+   "rot": [0, 2.5132357733521373, 0],
+   "scale": 0.008,
+   "onClick": {
+    "action": "text",
+    "title": "Signpost",
+    "body": "In Standard Mode, \njump and hold  \nto hang on to some \nobjects overhead.\nUse this move to \nhitch a ride with a \nflying bird."
+   },
+   "props": {
+    "actor": 184,
+    "collider": "obj_tatefuda"
+   }
+  },
+  {
+   "id": 85,
+   "object": "basabasa",
+   "pos": [-5, 2.2, -0.09],
+   "scale": 0.008,
+   "props": {
+    "actor": 237
+   }
+  },
+  {
+   "id": 86,
+   "object": "obj-heart",
+   "pos": [-6.636, 1.547, -5.617],
+   "scale": 0.008,
+   "props": {
+    "actor": 297
+   }
+  },
+  {
+   "id": 87,
+   "object": "spider",
+   "pos": [-5.25, 1.5, 0.45],
+   "scale": 0.008,
+   "props": {
+    "actor": 255
+   }
+  },
+  {
+   "id": 88,
+   "object": "arc0-14",
+   "pos": [-4.8, 2.65, 0.05],
+   "scale": 0.008,
+   "props": {
+    "actor": 21
+   }
+  },
+  {
+   "id": 89,
+   "object": "broken-block-ll",
+   "pos": [-7.404, 1.299, -0.449],
+   "rot": [0, 0.2617354719329875, 0],
+   "scale": 0.008,
+   "props": {
+    "actor": 17,
+    "collider": "broken_block_ll"
+   }
+  },
+  {
+   "id": 90,
+   "object": "ar1-15",
+   "pos": [-4.9, 2.744, -6.66],
+   "scale": 0.008,
+   "props": {
+    "actor": 276
+   }
+  },
+  {
+   "id": 91,
+   "object": "arc0-21",
+   "pos": [-6.35, 2.6, -1.6],
+   "scale": 0.008,
+   "props": {
+    "actor": 178
+   }
+  },
+  {
+   "id": 92,
+   "object": "arc0-5",
+   "pos": [-5.05, 2.67, -2],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 93,
+   "object": "arc0-5",
+   "pos": [-5.15, 2.67, -1.85],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 94,
+   "object": "arc0-5",
+   "pos": [-5.25, 2.67, -1.7],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 95,
+   "object": "arc0-5",
+   "pos": [-5.35, 2.67, -1.55],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 96,
+   "object": "arc0-5",
+   "pos": [-5.45, 2.67, -1.4],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 97,
+   "object": "arc0-5",
+   "pos": [-6.45, 1.522, -5.35],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 98,
+   "object": "arc0-5",
+   "pos": [-6.45, 1.537, -5.5],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 99,
+   "object": "arc0-5",
+   "pos": [-6.45, 1.552, -5.65],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 100,
+   "object": "arc0-5",
+   "pos": [-6.45, 1.567, -5.8],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 101,
+   "object": "arc0-5",
+   "pos": [-6.45, 1.582, -5.95],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 102,
+   "object": "scale-up-kinoko",
+   "pos": [-7.404, 1.299, -0.449],
+   "scale": 0.008,
+   "props": {
+    "actor": 322
+   }
+  },
+  {
+   "id": 103,
+   "object": "star-base",
+   "pos": [-5.838, 1.85, -6.748],
+   "scale": 0.008,
+   "props": {
+    "actor": 180
+   }
+  },
+  {
+   "id": 104,
+   "object": "cv-ud-lift",
+   "pos": [-2.75, 2.199, -2.45],
+   "scale": 0.008,
+   "props": {
+    "actor": 33,
+    "collider": "cv_ud_lift"
+   }
+  },
+  {
+   "id": 105,
+   "object": "obj-box-switch",
+   "pos": [-0.32, -4.88, 2.46],
+   "rot": [0, -1.5707963267948966, 0],
+   "scale": 0.008,
+   "props": {
+    "actor": 11,
+    "collider": "obj_box_switch"
+   }
+  },
+  {
+   "id": 106,
+   "object": "cv-shutter",
+   "pos": [0.6, -4.58, 1.875],
+   "rot": [0, -1.5707963267948966, 0],
+   "scale": 0.008,
+   "props": {
+    "actor": 67,
+    "collider": "cv_shutter"
+   }
+  },
+  {
+   "id": 107,
+   "object": "cv-shutter",
+   "pos": [0.6, -4.58, 2.675],
+   "rot": [0, 1.5707963267948966, 0],
+   "scale": 0.008,
+   "props": {
+    "actor": 67,
+    "collider": "cv_shutter"
+   }
+  },
+  {
+   "id": 108,
+   "object": "cv-ud-lift",
+   "pos": [-3.449, 1.699, -6.875],
+   "scale": 0.008,
+   "props": {
+    "actor": 33,
+    "collider": "cv_ud_lift"
+   }
+  },
+  {
+   "id": 109,
+   "object": "cv-ud-lift",
+   "pos": [-0.95, 1.699, -7.175],
+   "scale": 0.008,
+   "props": {
+    "actor": 33,
+    "collider": "cv_ud_lift"
+   }
+  },
+  {
+   "id": 110,
+   "object": "obj-tatefuda",
+   "pos": [-3.056, 1.769, -7.517],
+   "scale": 0.008,
+   "onClick": {
+    "action": "text",
+    "title": "Signpost",
+    "body": "Elevator 2\nDown: Underground Lake\nLeft: Black Hole\nRight: Hazy Maze\n       Closed!"
+   },
+   "props": {
+    "actor": 184,
+    "collider": "obj_tatefuda"
+   }
+  },
+  {
+   "id": 111,
+   "object": "obj-tatefuda",
+   "pos": [0.362, -4.58, 3.324],
+   "rot": [0, -1.5707963267948966, 0],
+   "scale": 0.008,
+   "onClick": {
+    "action": "text",
+    "title": "Signpost",
+    "body": "Underground Lake\nRight: Metal Cave\nLeft: Abandoned Mine\n      Closed!\n\nA gentle sea dragon \nlives here. Ground-pound\nhis back to make him \nlower his head.\nDon't become his lunch."
+   },
+   "props": {
+    "actor": 184,
+    "collider": "obj_tatefuda"
+   }
+  },
+  {
+   "id": 112,
+   "object": "arc0-14",
+   "pos": [-2.55, 2.05, -6.35],
+   "scale": 0.008,
+   "props": {
+    "actor": 21
+   }
+  },
+  {
+   "id": 113,
+   "object": "hatena-karabox",
+   "pos": [-2.95, -2.25, -6.4],
+   "scale": 0.008,
+   "props": {
+    "actor": 20
+   }
+  },
+  {
+   "id": 114,
+   "object": "basabasa",
+   "pos": [1.2, 0.05, -7.55],
+   "scale": 0.008,
+   "props": {
+    "actor": 237
+   }
+  },
+  {
+   "id": 115,
+   "object": "basabasa",
+   "pos": [2.1, 0.05, -7.55],
+   "scale": 0.008,
+   "props": {
+    "actor": 237
+   }
+  },
+  {
+   "id": 116,
+   "object": "kuribo-model",
+   "pos": [-4.7, -3.408, -4.75],
+   "scale": 0.008,
+   "props": {
+    "actor": 200
+   }
+  },
+  {
+   "id": 117,
+   "object": "kuribo-model",
+   "pos": [-4.364, -3.176, -5.17],
+   "scale": 0.008,
+   "props": {
+    "actor": 200
+   }
+  },
+  {
+   "id": 118,
+   "object": "cv-goro-rock",
+   "pos": [-3.449, -4.35, 3.459],
+   "scale": 0.008,
+   "props": {
+    "actor": 221
+   }
+  },
+  {
+   "id": 119,
+   "object": "arc0-5",
+   "pos": [-2.55, 1.8, -6.65],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 120,
+   "object": "arc0-5",
+   "pos": [-2.75, 1.8, -6.55],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 121,
+   "object": "arc0-5",
+   "pos": [-2.85, 1.8, -6.35],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 122,
+   "object": "arc0-5",
+   "pos": [-2.75, 1.8, -6.15],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 123,
+   "object": "arc0-5",
+   "pos": [-2.55, 1.8, -6.05],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 124,
+   "object": "arc0-5",
+   "pos": [-2.35, 1.8, -6.15],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 125,
+   "object": "arc0-5",
+   "pos": [-2.25, 1.8, -6.35],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 126,
+   "object": "arc0-5",
+   "pos": [-2.35, 1.8, -6.55],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 127,
+   "object": "arc0-21",
+   "pos": [-2.15, 2, -7.5],
+   "scale": 0.008,
+   "props": {
+    "actor": 178
+   }
+  },
+  {
+   "id": 128,
+   "object": "arc0-5",
+   "pos": [-3.45, -4.6, 3.1],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 129,
+   "object": "arc0-5",
+   "pos": [-3.15, -4.6, 3.2],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 130,
+   "object": "arc0-5",
+   "pos": [-3.05, -4.6, 3.5],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 131,
+   "object": "arc0-5",
+   "pos": [-3.15, -4.6, 3.75],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 132,
+   "object": "arc0-5",
+   "pos": [-3.45, -4.6, 3.85],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 133,
+   "object": "arc0-5",
+   "pos": [-3.75, -4.6, 3.75],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 134,
+   "object": "arc0-5",
+   "pos": [-3.85, -4.6, 3.5],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 135,
+   "object": "arc0-5",
+   "pos": [-3.75, -4.6, 3.2],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 136,
+   "object": "arc0-5",
+   "pos": [1.6, -0.4, -7.2],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 137,
+   "object": "arc0-5",
+   "pos": [1.75, -0.4, -7.2],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 138,
+   "object": "arc0-5",
+   "pos": [1.9, -0.4, -7.2],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 139,
+   "object": "arc0-5",
+   "pos": [2.05, -0.4, -7.2],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 140,
+   "object": "arc0-5",
+   "pos": [2.2, -0.4, -7.2],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 141,
+   "object": "star-base",
+   "pos": [-3.462, -4.5, 3.487],
+   "scale": 0.008,
+   "props": {
+    "actor": 180
+   }
+  },
+  {
+   "id": 142,
+   "object": "red-bombhei",
+   "pos": [-3.936, -2.5, -6.882],
+   "scale": 0.008,
+   "props": {
+    "actLayer": 1,
+    "actor": 181
+   }
+  },
+  {
+   "id": 143,
+   "object": "dossy",
+   "pos": [-3.45, -4.7, 3.5],
+   "scale": 0.008,
+   "props": {
+    "actLayer": 1,
+    "actor": 168,
+    "collider": "dossy_body"
+   }
+  },
+  {
+   "id": 144,
+   "object": "kuribo-model",
+   "pos": [-4.906, -3.908, -3.771],
+   "scale": 0.008,
+   "props": {
+    "actLayer": 1,
+    "actor": 200
+   }
+  },
+  {
+   "id": 145,
+   "object": "spider",
+   "pos": [3.15, -4.9, 2.25],
+   "rot": [0, -1.5707963267948966, 0],
+   "scale": 0.008,
+   "props": {
+    "actor": 255
+   }
+  },
+  {
+   "id": 146,
+   "object": "arc0-21",
+   "pos": [6.15, -4.35, 2.25],
+   "scale": 0.008,
+   "props": {
+    "actor": 178
+   }
+  },
+  {
+   "id": 147,
+   "object": "for-cv-ex5",
+   "pos": [3.27, -4.45, 5.015],
+   "scale": 0.008,
+   "props": {
+    "actor": 307
+   }
+  }
+ ]
+}

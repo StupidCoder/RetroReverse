@@ -1,0 +1,40 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "model3d",
+ "name": "Snowman model",
+ "animations": [
+  {
+   "id": "snowman_jump_ed",
+   "loop": "loop",
+   "clip": "snowman_jump_ed",
+   "fps": 30
+  },
+  {
+   "id": "snowman_jump_st",
+   "loop": "loop",
+   "clip": "snowman_jump_st",
+   "fps": 30
+  },
+  {
+   "id": "snowman_sleep",
+   "loop": "loop",
+   "clip": "snowman_sleep",
+   "fps": 30
+  },
+  {
+   "id": "snowman_throw",
+   "loop": "loop",
+   "clip": "snowman_throw",
+   "fps": 30
+  },
+  {
+   "id": "snowman_wait",
+   "loop": "loop",
+   "clip": "snowman_wait",
+   "fps": 30
+  }
+ ],
+ "model": "snowman_model.glb",
+ "skinnedClone": true
+}

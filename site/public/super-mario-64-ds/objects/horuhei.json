@@ -1,0 +1,40 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "model3d",
+ "name": "Horuhei",
+ "animations": [
+  {
+   "id": "horuhei_lift",
+   "loop": "loop",
+   "clip": "horuhei_lift",
+   "fps": 30
+  },
+  {
+   "id": "horuhei_lift_loop",
+   "loop": "loop",
+   "clip": "horuhei_lift_loop",
+   "fps": 30
+  },
+  {
+   "id": "horuhei_struggle",
+   "loop": "loop",
+   "clip": "horuhei_struggle",
+   "fps": 30
+  },
+  {
+   "id": "horuhei_throw",
+   "loop": "loop",
+   "clip": "horuhei_throw",
+   "fps": 30
+  },
+  {
+   "id": "horuhei_walk",
+   "loop": "loop",
+   "clip": "horuhei_walk",
+   "fps": 30
+  }
+ ],
+ "model": "horuhei.glb",
+ "skinnedClone": true
+}

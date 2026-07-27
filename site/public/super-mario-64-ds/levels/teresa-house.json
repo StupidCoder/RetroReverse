@@ -1,0 +1,920 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "scene3d",
+ "camera": {
+  "mode": "fly",
+  "pos": [-0.06499999999999995, 7.7, -9.299999999999999],
+  "target": [-0.06499999999999995, 0.15000000000000013, 1.5],
+  "fov": 50,
+  "near": 0.01,
+  "far": 500,
+  "fly": {
+   "speed": 1.5
+  }
+ },
+ "scene": {
+  "layers": [
+   {
+    "id": "sky",
+    "name": "Skybox",
+    "file": "vr05.glb",
+    "mode": "toggle",
+    "attach": "camera",
+    "renderOrder": -1,
+    "role": "sky"
+   },
+   {
+    "id": "collision",
+    "name": "Collision (KCL)",
+    "file": "col_teresa_house.glb",
+    "mode": "toggle",
+    "visible": false,
+    "role": "collision"
+   }
+  ]
+ },
+ "placements": [
+  {
+   "id": 0,
+   "object": "teresa-house-all",
+   "pos": [0, 0, 0],
+   "name": "Big Boo's Haunt"
+  },
+  {
+   "id": 1,
+   "object": "boss-teresa",
+   "pos": [1.05, 2.026, 2.5],
+   "rot": [0, -2.356194490192345, 0],
+   "scale": 0.008,
+   "props": {
+    "actor": 210
+   }
+  },
+  {
+   "id": 2,
+   "object": "arc0-14",
+   "pos": [0.645, 3.049, 1.1],
+   "scale": 0.008,
+   "props": {
+    "actor": 21
+   }
+  },
+  {
+   "id": 3,
+   "object": "batta-block",
+   "pos": [-0.5, -0.2, 5.9],
+   "rot": [0, -3.141592653589793, 0],
+   "scale": 0.008,
+   "props": {
+    "actor": 193
+   }
+  },
+  {
+   "id": 4,
+   "object": "spider",
+   "pos": [2.2, -0.2, 4.8],
+   "scale": 0.008,
+   "props": {
+    "actor": 255
+   }
+  },
+  {
+   "id": 5,
+   "object": "spider",
+   "pos": [0.4, -0.2, -2.9],
+   "scale": 0.008,
+   "props": {
+    "actor": 255
+   }
+  },
+  {
+   "id": 6,
+   "object": "spider",
+   "pos": [1.8, -0.2, -2.4],
+   "scale": 0.008,
+   "props": {
+    "actor": 255
+   }
+  },
+  {
+   "id": 7,
+   "object": "arc0-14",
+   "pos": [1.2, 0.049, -3],
+   "scale": 0.008,
+   "props": {
+    "actor": 21
+   }
+  },
+  {
+   "id": 8,
+   "object": "broken-block-ll",
+   "pos": [-3.45, -0.2, 4.2],
+   "rot": [0, 0.7853981633974483, 0],
+   "scale": 0.008,
+   "props": {
+    "actor": 17,
+    "collider": "broken_block_ll"
+   }
+  },
+  {
+   "id": 9,
+   "object": "broken-block-ll",
+   "pos": [-3.24, -0.2, 3.99],
+   "rot": [0, 0.7853981633974483, 0],
+   "scale": 0.008,
+   "props": {
+    "actor": 17,
+    "collider": "broken_block_ll"
+   }
+  },
+  {
+   "id": 10,
+   "object": "obj-tatefuda",
+   "pos": [1.875, -0.2, 2.83],
+   "scale": 0.008,
+   "onClick": {
+    "action": "text",
+    "title": "Signpost",
+    "body": "Pssst! The Boos are \nsuper shy. If you look\nthem in the eyes, they\nfade away.\nThey reappear when \nyou turn your back, \nso don't let them \nsneak up on you!\nIt's no use trying to \nhit them when they're \nfading away. \n\nInstead, sneak up\nfrom behind and punch\nthem.\n\nYou can't swallow \nBoos, so this is where \nyou'll need a mustached\nhero to save the day. "
+   },
+   "props": {
+    "actor": 184,
+    "collider": "obj_tatefuda"
+   }
+  },
+  {
+   "id": 11,
+   "object": "obj-tatefuda",
+   "pos": [0.319, -0.2, 2.898],
+   "scale": 0.008,
+   "onClick": {
+    "action": "text",
+    "title": "Signpost",
+    "body": "You don't stand a ghost\nof a chance in this \nhouse. If you make it \nout alive, you deserve...\n...a Ghoul Medal..."
+   },
+   "props": {
+    "actor": 184,
+    "collider": "obj_tatefuda"
+   }
+  },
+  {
+   "id": 12,
+   "object": "obj-tatefuda",
+   "pos": [-0.548, -0.2, 2.793],
+   "scale": 0.008,
+   "onClick": {
+    "action": "text",
+    "title": "Signpost",
+    "body": "Power Flowers give \nheroes power depending\non their personalities.\nWispy Luigi will \ndisappear altogether. \n\nHe'll even be able to \nwalk through secret \nwalls! \nEven the Big Boo will \nbe fooled!"
+   },
+   "props": {
+    "actor": 184,
+    "collider": "obj_tatefuda"
+   }
+  },
+  {
+   "id": 13,
+   "object": "obj-tatefuda",
+   "pos": [-1.483, -0.2, 4.626],
+   "rot": [0, 2.2863024905443052, 0],
+   "scale": 0.008,
+   "onClick": {
+    "action": "text",
+    "title": "Signpost",
+    "body": "Running around in circles \nmakes some bad guys roll\ntheir eyes.\nUse the Touch Screen to\nrun smoothly."
+   },
+   "props": {
+    "actor": 184,
+    "collider": "obj_tatefuda"
+   }
+  },
+  {
+   "id": 14,
+   "object": "hatena-karabox",
+   "pos": [1.15, 2.266, 2.25],
+   "scale": 0.008,
+   "props": {
+    "actor": 20
+   }
+  },
+  {
+   "id": 15,
+   "object": "arc0-5",
+   "pos": [0.15, 3.2, 0.3],
+   "scale": 0.008,
+   "props": {
+    "actor": 276
+   }
+  },
+  {
+   "id": 16,
+   "object": "ar1-15",
+   "pos": [0.45, 3.2, 0.3],
+   "scale": 0.008,
+   "props": {
+    "actor": 276
+   }
+  },
+  {
+   "id": 17,
+   "object": "ar1-15",
+   "pos": [-2.95, 1.1, 5.3],
+   "rot": [0, 2.356194490192345, 0],
+   "scale": 0.008,
+   "props": {
+    "actor": 276
+   }
+  },
+  {
+   "id": 18,
+   "object": "star-base",
+   "pos": [0.65, 2.849, 1.9],
+   "scale": 0.008,
+   "props": {
+    "actor": 180
+   }
+  },
+  {
+   "id": 19,
+   "object": "arc0-5",
+   "pos": [0.35, 3.2, 0.3],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 20,
+   "object": "arc0-5",
+   "pos": [0.55, 3.2, 0.3],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 21,
+   "object": "arc0-5",
+   "pos": [0.75, 3.2, 0.3],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 22,
+   "object": "arc0-5",
+   "pos": [0.95, 3.2, 0.3],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 23,
+   "object": "casket",
+   "pos": [2.6, 0.8, -1.2],
+   "scale": 0.008,
+   "props": {
+    "actor": 64,
+    "collider": "casket"
+   }
+  },
+  {
+   "id": 24,
+   "object": "casket",
+   "pos": [2.9, 0.8, -1.2],
+   "scale": 0.008,
+   "props": {
+    "actor": 64,
+    "collider": "casket"
+   }
+  },
+  {
+   "id": 25,
+   "object": "casket",
+   "pos": [3.2, 0.8, -1.2],
+   "scale": 0.008,
+   "props": {
+    "actor": 64,
+    "collider": "casket"
+   }
+  },
+  {
+   "id": 26,
+   "object": "casket",
+   "pos": [2.6, 0.8, -0.5],
+   "rot": [0, -3.141592653589793, 0],
+   "scale": 0.008,
+   "props": {
+    "actor": 64,
+    "collider": "casket"
+   }
+  },
+  {
+   "id": 27,
+   "object": "casket",
+   "pos": [2.9, 0.8, -0.5],
+   "rot": [0, -3.141592653589793, 0],
+   "scale": 0.008,
+   "props": {
+    "actor": 64,
+    "collider": "casket"
+   }
+  },
+  {
+   "id": 28,
+   "object": "casket",
+   "pos": [3.2, 0.8, -0.5],
+   "rot": [0, -3.141592653589793, 0],
+   "scale": 0.008,
+   "props": {
+    "actor": 64,
+    "collider": "casket"
+   }
+  },
+  {
+   "id": 29,
+   "object": "eyekun",
+   "pos": [1.6, 0.92, -0.8],
+   "scale": 0.008,
+   "props": {
+    "actor": 262
+   }
+  },
+  {
+   "id": 30,
+   "object": "hatena-karabox",
+   "pos": [1.2, 1.05, 1.8],
+   "scale": 0.008,
+   "props": {
+    "actor": 20
+   }
+  },
+  {
+   "id": 31,
+   "object": "arc0-7",
+   "pos": [1, 1.3, 1.1],
+   "scale": 0.008,
+   "props": {
+    "actor": 289
+   }
+  },
+  {
+   "id": 32,
+   "object": "arc0-7",
+   "pos": [2.6, 0.8, -0.5],
+   "scale": 0.008,
+   "props": {
+    "actor": 289
+   }
+  },
+  {
+   "id": 33,
+   "object": "star-base",
+   "pos": [0.945, 0.85, 0.25],
+   "scale": 0.008,
+   "props": {
+    "actor": 180
+   }
+  },
+  {
+   "id": 34,
+   "object": "star-base",
+   "pos": [-0.08, 0.85, 1.6],
+   "scale": 0.008,
+   "props": {
+    "actor": 180
+   }
+  },
+  {
+   "id": 35,
+   "object": "th-kaidan",
+   "pos": [0.95, 0, 0.9],
+   "scale": 0.008,
+   "props": {
+    "actLayer": 1,
+    "actor": 65,
+    "collider": "th_kaidan"
+   }
+  },
+  {
+   "id": 36,
+   "object": "boss-teresa",
+   "pos": [0.95, 0.15, 0.9],
+   "scale": 0.008,
+   "props": {
+    "actLayer": 1,
+    "actor": 210
+   }
+  },
+  {
+   "id": 37,
+   "object": "red-bombhei",
+   "pos": [1.55, 0, 1.7],
+   "rot": [0, -1.5707963267948966, 0],
+   "scale": 0.008,
+   "props": {
+    "actLayer": 2,
+    "actor": 181
+   }
+  },
+  {
+   "id": 38,
+   "object": "th-mery-go",
+   "pos": [-0.19, -2.45, 0.19],
+   "scale": 0.008,
+   "props": {
+    "actor": 159,
+    "collider": "th_mery_go"
+   }
+  },
+  {
+   "id": 39,
+   "object": "th-trap",
+   "pos": [2.8, 0.8, 1.85],
+   "scale": 0.008,
+   "props": {
+    "actor": 160,
+    "collider": "th_trap"
+   }
+  },
+  {
+   "id": 40,
+   "object": "th-lift",
+   "pos": [-2.918, -0.2, 5.286],
+   "rot": [0, -0.7853981633974483, 0],
+   "scale": 0.008,
+   "props": {
+    "actor": 32,
+    "collider": "th_lift"
+   }
+  },
+  {
+   "id": 41,
+   "object": "eyekun",
+   "pos": [-2.2, -0.08, 5],
+   "scale": 0.008,
+   "props": {
+    "actor": 262
+   }
+  },
+  {
+   "id": 42,
+   "object": "arc0-17",
+   "pos": [3.32, -2.6, -1.1],
+   "rot": [0, -0.7853981633974483, 0],
+   "scale": 0.008,
+   "props": {
+    "actor": 269
+   }
+  },
+  {
+   "id": 43,
+   "object": "nom-book",
+   "pos": [2.4, 1.065, 0.84],
+   "rot": [0, -3.141592653589793, 0],
+   "scale": 0.008,
+   "props": {
+    "actor": 327
+   }
+  },
+  {
+   "id": 44,
+   "object": "nom-book",
+   "pos": [2.8, 1.065, 0.96],
+   "rot": [0, -3.141592653589793, 0],
+   "scale": 0.008,
+   "props": {
+    "actor": 327
+   }
+  },
+  {
+   "id": 45,
+   "object": "obj-star-switch",
+   "pos": [-2.55, -2.4, 1.65],
+   "scale": 0.008,
+   "props": {
+    "actor": 12,
+    "collider": "obj_star_switch"
+   }
+  },
+  {
+   "id": 46,
+   "object": "arc0-20",
+   "pos": [2.009, -2.9, 1.61],
+   "rot": [0, -3.141592653589793, 0],
+   "scale": 0.008,
+   "props": {
+    "actor": 269
+   }
+  },
+  {
+   "id": 47,
+   "object": "hatena-karabox",
+   "pos": [3.3, 1.25, 0.18],
+   "scale": 0.008,
+   "props": {
+    "actor": 20
+   }
+  },
+  {
+   "id": 48,
+   "object": "broken-block-ll",
+   "pos": [-2.55, -2.4, 1.65],
+   "scale": 0.008,
+   "props": {
+    "actor": 17,
+    "collider": "broken_block_ll"
+   }
+  },
+  {
+   "id": 49,
+   "object": "arc0-7",
+   "pos": [2.8, 0, 2.2],
+   "scale": 0.008,
+   "props": {
+    "actor": 289
+   }
+  },
+  {
+   "id": 50,
+   "object": "arc0-7",
+   "pos": [2.45, 0.8, 2.2],
+   "scale": 0.008,
+   "props": {
+    "actor": 289
+   }
+  },
+  {
+   "id": 51,
+   "object": "star-base",
+   "pos": [1.2, -2.35, 0.2],
+   "scale": 0.008,
+   "props": {
+    "actor": 180
+   }
+  },
+  {
+   "id": 52,
+   "object": "star-base",
+   "pos": [0.7, -2.2, 1.75],
+   "scale": 0.008,
+   "props": {
+    "actor": 180
+   }
+  },
+  {
+   "id": 53,
+   "object": "arc0-5",
+   "pos": [-2.55, -2.05, 1.65],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 54,
+   "object": "teresa",
+   "pos": [3, 0.05, 0.4],
+   "scale": 0.008,
+   "props": {
+    "actLayer": 1,
+    "actor": 209
+   }
+  },
+  {
+   "id": 55,
+   "object": "teresa",
+   "pos": [2.75, 0.06, 2.15],
+   "rot": [0, -2.618025835924575, 0],
+   "scale": 0.008,
+   "props": {
+    "actLayer": 1,
+    "actor": 209
+   }
+  },
+  {
+   "id": 56,
+   "object": "boss-teresa",
+   "pos": [-1.09, -2.4, 1.09],
+   "rot": [0, 2.356194490192345, 0],
+   "scale": 0.008,
+   "props": {
+    "actLayer": 2,
+    "actor": 210
+   }
+  },
+  {
+   "id": 57,
+   "object": "teresa",
+   "pos": [-1.09, -2.35, 1.09],
+   "rot": [0, 2.356194490192345, 0],
+   "scale": 0.008,
+   "props": {
+    "actLayer": 2,
+    "actor": 209
+   }
+  },
+  {
+   "id": 58,
+   "object": "red-bombhei",
+   "pos": [1.307, 0, -1.287],
+   "rot": [0, 0.7853981633974483, 0],
+   "scale": 0.008,
+   "props": {
+    "actLayer": 4,
+    "actor": 181
+   }
+  },
+  {
+   "id": 59,
+   "object": "th-hondana",
+   "pos": [-1.95, 0.8, 0.2],
+   "scale": 0.008,
+   "props": {
+    "actor": 158,
+    "collider": "th_hondana"
+   }
+  },
+  {
+   "id": 60,
+   "object": "piano",
+   "pos": [-1.3, 0, 2.1],
+   "rot": [0, -0.6108119749762138, 0],
+   "scale": 0.008,
+   "props": {
+    "actor": 249,
+    "collider": "piano"
+   }
+  },
+  {
+   "id": 61,
+   "object": "chair",
+   "pos": [-1.523, 0, 1.926],
+   "rot": [0, 0.8726433207084442, 0],
+   "scale": 0.008,
+   "props": {
+    "actor": 326
+   }
+  },
+  {
+   "id": 62,
+   "object": "book",
+   "pos": [-1.4, 0.85, 0.3],
+   "rot": [0, 1.5707963267948966, 0],
+   "scale": 0.008,
+   "props": {
+    "actor": 328
+   }
+  },
+  {
+   "id": 63,
+   "object": "book",
+   "pos": [-0.7, 0.85, -0.1],
+   "rot": [0, -1.5707963267948966, 0],
+   "scale": 0.008,
+   "props": {
+    "actor": 328
+   }
+  },
+  {
+   "id": 64,
+   "object": "book",
+   "pos": [-1.4, 0.85, -0.6],
+   "rot": [0, 1.5707963267948966, 0],
+   "scale": 0.008,
+   "props": {
+    "actor": 328
+   }
+  },
+  {
+   "id": 65,
+   "object": "book",
+   "pos": [-0.7, 0.85, -0.75],
+   "rot": [0, -1.5707963267948966, 0],
+   "scale": 0.008,
+   "props": {
+    "actor": 328
+   }
+  },
+  {
+   "id": 66,
+   "object": "arc0-7",
+   "pos": [-1.2, 0, 2.3],
+   "scale": 0.008,
+   "props": {
+    "actor": 289
+   }
+  },
+  {
+   "id": 67,
+   "object": "arc0-21",
+   "pos": [-2, 1.2, 1.9],
+   "scale": 0.008,
+   "props": {
+    "actor": 178
+   }
+  },
+  {
+   "id": 68,
+   "object": "b-coin-switch",
+   "pos": [0.7, 1.7, 0.8],
+   "scale": 0.008,
+   "props": {
+    "actor": 10,
+    "collider": "b_coin_switch"
+   }
+  },
+  {
+   "id": 69,
+   "object": "eyekun",
+   "pos": [1.3, 1.9, -0.35],
+   "rot": [0, -1.5707963267948966, 0],
+   "scale": 0.008,
+   "props": {
+    "actor": 263
+   }
+  },
+  {
+   "id": 70,
+   "object": "hatena-karabox",
+   "pos": [0.469, 1.95, -0.656],
+   "scale": 0.008,
+   "props": {
+    "actor": 20
+   }
+  },
+  {
+   "id": 71,
+   "object": "for-ex-luigi",
+   "pos": [2, 1.8, 0.95],
+   "rot": [0, -1.5707963267948966, 0],
+   "scale": 0.008,
+   "props": {
+    "actor": 307
+   }
+  },
+  {
+   "id": 72,
+   "object": "teresa",
+   "pos": [0.823, 1.75, -0.194],
+   "rot": [0, -1.5707963267948966, 0],
+   "scale": 0.008,
+   "props": {
+    "actor": 209
+   }
+  },
+  {
+   "id": 73,
+   "object": "star-base",
+   "pos": [1.7, 1.75, -0.4],
+   "scale": 0.008,
+   "props": {
+    "actor": 180
+   }
+  },
+  {
+   "id": 74,
+   "object": "ar1-6",
+   "pos": [1.4, 1.7, 1.2],
+   "scale": 0.008,
+   "props": {
+    "actor": 290
+   }
+  },
+  {
+   "id": 75,
+   "object": "ar1-6",
+   "pos": [1.8, 1.7, 1.2],
+   "scale": 0.008,
+   "props": {
+    "actor": 290
+   }
+  },
+  {
+   "id": 76,
+   "object": "ar1-6",
+   "pos": [0.1, 1.7, 1.2],
+   "scale": 0.008,
+   "props": {
+    "actor": 290
+   }
+  },
+  {
+   "id": 77,
+   "object": "ar1-6",
+   "pos": [-0.4, 1.7, 1.2],
+   "scale": 0.008,
+   "props": {
+    "actor": 290
+   }
+  },
+  {
+   "id": 78,
+   "object": "eyekun",
+   "pos": [0.3, 0.12, -0.8],
+   "scale": 0.008,
+   "props": {
+    "actor": 262
+   }
+  },
+  {
+   "id": 79,
+   "object": "arc0-7",
+   "pos": [0.2, 0.8, -1.4],
+   "scale": 0.008,
+   "props": {
+    "actor": 289
+   }
+  },
+  {
+   "id": 80,
+   "object": "teresa",
+   "pos": [-0.1, 0.05, -0.5],
+   "scale": 0.008,
+   "props": {
+    "actLayer": 1,
+    "actor": 209
+   }
+  },
+  {
+   "id": 81,
+   "object": "hatena-karabox",
+   "pos": [-2, 0.19, 0],
+   "scale": 0.008,
+   "props": {
+    "actor": 20
+   }
+  },
+  {
+   "id": 82,
+   "object": "chair",
+   "pos": [-1.8, 0, 0.08],
+   "rot": [0, 1.5707963267948966, 0],
+   "scale": 0.008,
+   "props": {
+    "actor": 326
+   }
+  },
+  {
+   "id": 83,
+   "object": "chair",
+   "pos": [-1.1, 0, 0],
+   "rot": [0, -1.5707963267948966, 0],
+   "scale": 0.008,
+   "props": {
+    "actor": 326
+   }
+  },
+  {
+   "id": 84,
+   "object": "nom-book",
+   "pos": [-1.4, 0.275, 0.95],
+   "rot": [0, -3.141592653589793, 0],
+   "scale": 0.008,
+   "props": {
+    "actor": 327
+   }
+  },
+  {
+   "id": 85,
+   "object": "arc0-7",
+   "pos": [-0.4, 0.5, 0.05],
+   "scale": 0.008,
+   "props": {
+    "actor": 289
+   }
+  },
+  {
+   "id": 86,
+   "object": "arc0-7",
+   "pos": [-1.4, 0.5, 0.95],
+   "scale": 0.008,
+   "props": {
+    "actor": 289
+   }
+  },
+  {
+   "id": 87,
+   "object": "teresa",
+   "pos": [-1.8, 0.05, -0.8],
+   "scale": 0.008,
+   "props": {
+    "actLayer": 1,
+    "actor": 209
+   }
+  },
+  {
+   "id": 88,
+   "object": "teresa",
+   "pos": [-1.52, 0.05, -1.2],
+   "scale": 0.008,
+   "props": {
+    "actLayer": 1,
+    "actor": 209
+   }
+  }
+ ]
+}

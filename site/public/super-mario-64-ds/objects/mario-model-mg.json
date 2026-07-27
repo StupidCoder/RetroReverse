@@ -1,0 +1,28 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "model3d",
+ "name": "Mario (in-game)",
+ "animations": [
+  {
+   "id": "su_wait",
+   "loop": "loop",
+   "clip": "su_wait",
+   "fps": 30
+  },
+  {
+   "id": "su_walk",
+   "loop": "loop",
+   "clip": "su_walk",
+   "fps": 30
+  },
+  {
+   "id": "su_run",
+   "loop": "loop",
+   "clip": "su_run",
+   "fps": 30
+  }
+ ],
+ "model": "mario_model_mg.glb",
+ "skinnedClone": true
+}

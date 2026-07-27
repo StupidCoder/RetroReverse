@@ -1,0 +1,1709 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "scene3d",
+ "camera": {
+  "mode": "fly",
+  "pos": [0.2505000000000006, 13.1455, -18.1203],
+  "target": [0.2505000000000006, -0.3919999999999999, 1.1894999999999998],
+  "fov": 50,
+  "near": 0.01,
+  "far": 500,
+  "fly": {
+   "speed": 3.3998333333333335
+  }
+ },
+ "scene": {
+  "layers": [
+   {
+    "id": "sky",
+    "name": "Skybox",
+    "file": "vr01.glb",
+    "mode": "toggle",
+    "attach": "camera",
+    "renderOrder": -1,
+    "role": "sky"
+   },
+   {
+    "id": "collision",
+    "name": "Collision (KCL)",
+    "file": "col_water_land.glb",
+    "mode": "toggle",
+    "visible": false,
+    "role": "collision"
+   }
+  ]
+ },
+ "placements": [
+  {
+   "id": 0,
+   "object": "water-land-all",
+   "pos": [0, 0, 0],
+   "name": "Dire, Dire Docks"
+  },
+  {
+   "id": 1,
+   "object": "pukupuku",
+   "pos": [-7.3, -1.25, 0.3],
+   "scale": 0.008,
+   "props": {
+    "actor": 227
+   }
+  },
+  {
+   "id": 2,
+   "object": "pukupuku",
+   "pos": [-7.25, -0.15, 0.2],
+   "scale": 0.008,
+   "props": {
+    "actor": 227
+   }
+  },
+  {
+   "id": 3,
+   "object": "t-box",
+   "pos": [-8.6, -3.73, 1.55],
+   "rot": [0, -3.141592653589793, 0],
+   "scale": 0.008,
+   "props": {
+    "actor": 13
+   }
+  },
+  {
+   "id": 4,
+   "object": "obj-wakame",
+   "pos": [-7.1, -3.73, -1.6],
+   "scale": 0.008,
+   "props": {
+    "actor": 296
+   }
+  },
+  {
+   "id": 5,
+   "object": "obj-shell",
+   "pos": [-8.667, -3.73, 1.041],
+   "rot": [0, 1.5707963267948966, 0],
+   "scale": 0.008,
+   "props": {
+    "actor": 315
+   }
+  },
+  {
+   "id": 6,
+   "object": "obj-wakame",
+   "pos": [-7.3, -3.73, 2.15],
+   "scale": 0.008,
+   "props": {
+    "actor": 296
+   }
+  },
+  {
+   "id": 7,
+   "object": "t-box",
+   "pos": [-5.8, -3.73, 1.2],
+   "scale": 0.008,
+   "props": {
+    "actor": 13
+   }
+  },
+  {
+   "id": 8,
+   "object": "t-box",
+   "pos": [-6.4, -3.223, 0.299],
+   "rot": [0, 1.5707963267948966, 0],
+   "scale": 0.008,
+   "props": {
+    "actor": 13
+   }
+  },
+  {
+   "id": 9,
+   "object": "hojiro",
+   "pos": [-8.957, 0.3, 0.931],
+   "rot": [0, -3.141592653589793, 0],
+   "scale": 0.008,
+   "props": {
+    "actor": 225
+   }
+  },
+  {
+   "id": 10,
+   "object": "hojiro",
+   "pos": [-7.337, -3, -1.433],
+   "scale": 0.008,
+   "props": {
+    "actor": 225
+   }
+  },
+  {
+   "id": 11,
+   "object": "ar1-15",
+   "pos": [-8.667, -3.7, 1.041],
+   "scale": 0.008,
+   "props": {
+    "actor": 276
+   }
+  },
+  {
+   "id": 12,
+   "object": "water-tatumaki",
+   "pos": [-7.26, -3.36, 0.35],
+   "scale": 0.008,
+   "props": {
+    "actor": 246
+   }
+  },
+  {
+   "id": 13,
+   "object": "arc0-14",
+   "pos": [-5.319, 1.65, -1.683],
+   "rot": [0, -0.523566817665218, 0],
+   "scale": 0.008,
+   "props": {
+    "actor": 21
+   }
+  },
+  {
+   "id": 14,
+   "object": "obj-star-switch",
+   "pos": [-4.863, 1.4, -2.222],
+   "rot": [0, -0.523566817665218, 0],
+   "scale": 0.008,
+   "props": {
+    "actor": 12,
+    "collider": "obj_star_switch"
+   }
+  },
+  {
+   "id": 15,
+   "object": "broken-block-ll",
+   "pos": [-4.863, 1.4, -2.222],
+   "rot": [0, -0.523566817665218, 0],
+   "scale": 0.008,
+   "props": {
+    "actor": 17,
+    "collider": "broken_block_ll"
+   }
+  },
+  {
+   "id": 16,
+   "object": "obj-wakame",
+   "pos": [-5.53, -3.73, 1.204],
+   "scale": 0.008,
+   "props": {
+    "actor": 296
+   }
+  },
+  {
+   "id": 17,
+   "object": "obj-wakame",
+   "pos": [-5.879, -3.73, 1.056],
+   "scale": 0.008,
+   "props": {
+    "actor": 296
+   }
+  },
+  {
+   "id": 18,
+   "object": "obj-wakame",
+   "pos": [-5.569, -3.73, 1.005],
+   "scale": 0.008,
+   "props": {
+    "actor": 296
+   }
+  },
+  {
+   "id": 19,
+   "object": "menbo",
+   "pos": [-9.143, 1.246, 0.901],
+   "rot": [0, 1.1518278241036308, 0],
+   "scale": 0.008,
+   "props": {
+    "actor": 230
+   }
+  },
+  {
+   "id": 20,
+   "object": "menbo",
+   "pos": [-7.33, 1.246, 2.945],
+   "rot": [0, -2.67027705651193, 0],
+   "scale": 0.008,
+   "props": {
+    "actor": 230
+   }
+  },
+  {
+   "id": 21,
+   "object": "menbo",
+   "pos": [-8.233, 1.246, 1.226],
+   "rot": [0, -3.141592653589793, 0],
+   "scale": 0.008,
+   "props": {
+    "actor": 230
+   }
+  },
+  {
+   "id": 22,
+   "object": "menbo",
+   "pos": [-9.949, 1.246, 1.318],
+   "rot": [0, 2.1292612073845127, 0],
+   "scale": 0.008,
+   "props": {
+    "actor": 230
+   }
+  },
+  {
+   "id": 23,
+   "object": "menbo",
+   "pos": [-7.453, 1.246, 1.95],
+   "rot": [0, 1.396210138373662, 0],
+   "scale": 0.008,
+   "props": {
+    "actor": 230
+   }
+  },
+  {
+   "id": 24,
+   "object": "broken-block-ll",
+   "pos": [-5.552, 1.4, -2.293],
+   "rot": [0, -0.523566817665218, 0],
+   "scale": 0.008,
+   "props": {
+    "actor": 17,
+    "collider": "broken_block_ll"
+   }
+  },
+  {
+   "id": 25,
+   "object": "broken-block-ll",
+   "pos": [-4.621, 1.4, -1.503],
+   "rot": [0, -0.523566817665218, 0],
+   "scale": 0.008,
+   "props": {
+    "actor": 17,
+    "collider": "broken_block_ll"
+   }
+  },
+  {
+   "id": 26,
+   "object": "fish",
+   "pos": [-7.05, -0.6, 0.55],
+   "scale": 0.008,
+   "props": {
+    "actor": 344
+   }
+  },
+  {
+   "id": 27,
+   "object": "fish",
+   "pos": [-7.55, -1.5, 0.35],
+   "scale": 0.008,
+   "props": {
+    "actor": 344
+   }
+  },
+  {
+   "id": 28,
+   "object": "arc0-5",
+   "pos": [-5.95, -2.55, 0.25],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 29,
+   "object": "arc0-5",
+   "pos": [-5.95, -2.6, 0.05],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 30,
+   "object": "arc0-5",
+   "pos": [-5.95, -2.8, 0],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 31,
+   "object": "arc0-5",
+   "pos": [-5.95, -3, 0.05],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 32,
+   "object": "arc0-5",
+   "pos": [-5.95, -3.05, 0.25],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 33,
+   "object": "arc0-5",
+   "pos": [-5.95, -3, 0.45],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 34,
+   "object": "arc0-5",
+   "pos": [-5.95, -2.8, 0.5],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 35,
+   "object": "arc0-5",
+   "pos": [-5.95, -2.6, 0.45],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 36,
+   "object": "arc0-5",
+   "pos": [-5.2, -2.55, 0.25],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 37,
+   "object": "arc0-5",
+   "pos": [-5.2, -2.6, 0.05],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 38,
+   "object": "arc0-5",
+   "pos": [-5.2, -2.8, 0],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 39,
+   "object": "arc0-5",
+   "pos": [-5.2, -3, 0.05],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 40,
+   "object": "arc0-5",
+   "pos": [-5.2, -3.05, 0.25],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 41,
+   "object": "arc0-5",
+   "pos": [-5.2, -3, 0.45],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 42,
+   "object": "arc0-5",
+   "pos": [-5.2, -2.8, 0.5],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 43,
+   "object": "arc0-5",
+   "pos": [-5.2, -2.6, 0.45],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 44,
+   "object": "arc0-5",
+   "pos": [-3.5, -2.55, 0.25],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 45,
+   "object": "arc0-5",
+   "pos": [-3.5, -2.6, 0.05],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 46,
+   "object": "arc0-5",
+   "pos": [-3.5, -2.8, 0],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 47,
+   "object": "arc0-5",
+   "pos": [-3.5, -3, 0.05],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 48,
+   "object": "arc0-5",
+   "pos": [-3.5, -3.05, 0.25],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 49,
+   "object": "arc0-5",
+   "pos": [-3.5, -3, 0.45],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 50,
+   "object": "arc0-5",
+   "pos": [-3.5, -2.8, 0.5],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 51,
+   "object": "arc0-5",
+   "pos": [-3.5, -2.6, 0.45],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 52,
+   "object": "arc0-5",
+   "pos": [-8.631, -3.45, 1.336],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 53,
+   "object": "arc0-5",
+   "pos": [-8.631, -3.3, 1.336],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 54,
+   "object": "arc0-5",
+   "pos": [-8.631, -3.15, 1.336],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 55,
+   "object": "arc0-5",
+   "pos": [-8.631, -3, 1.336],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 56,
+   "object": "arc0-5",
+   "pos": [-8.631, -2.85, 1.336],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 57,
+   "object": "arc0-5",
+   "pos": [-7.8, -3.091, 0.85],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 58,
+   "object": "arc0-5",
+   "pos": [-7.8, -2.941, 0.85],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 59,
+   "object": "arc0-5",
+   "pos": [-7.8, -2.791, 0.85],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 60,
+   "object": "arc0-5",
+   "pos": [-7.8, -2.641, 0.85],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 61,
+   "object": "arc0-5",
+   "pos": [-7.8, -2.491, 0.85],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 62,
+   "object": "arc0-5",
+   "pos": [-5.35, -3.73, 1.05],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 63,
+   "object": "arc0-5",
+   "pos": [-5.6, -3.73, 1.5],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 64,
+   "object": "arc0-5",
+   "pos": [-6.36, -3.73, 1.955],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 65,
+   "object": "fish",
+   "pos": [-5.793, -3.45, 1.204],
+   "scale": 0.008,
+   "props": {
+    "actor": 344
+   }
+  },
+  {
+   "id": 66,
+   "object": "fish",
+   "pos": [-7.1, -2.5, 0.1],
+   "scale": 0.008,
+   "props": {
+    "actor": 344
+   }
+  },
+  {
+   "id": 67,
+   "object": "star-base",
+   "pos": [-6, -2.8, -1.1],
+   "scale": 0.008,
+   "props": {
+    "actor": 180
+   }
+  },
+  {
+   "id": 68,
+   "object": "star-base",
+   "pos": [-7.25, -2.1, 0.35],
+   "scale": 0.008,
+   "props": {
+    "actor": 180
+   }
+  },
+  {
+   "id": 69,
+   "object": "arc0-5",
+   "pos": [-9.1, -0.4, 1.75],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 70,
+   "object": "arc0-5",
+   "pos": [-9.2, -0.3, 1.85],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 71,
+   "object": "arc0-5",
+   "pos": [-9.3, -0.15, 1.95],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 72,
+   "object": "arc0-5",
+   "pos": [-9.4, 0, 2.05],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 73,
+   "object": "arc0-5",
+   "pos": [-9.5, 0.15, 2.15],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 74,
+   "object": "star-base",
+   "pos": [-9.01, 1.65, 2.85],
+   "scale": 0.008,
+   "props": {
+    "actor": 180
+   }
+  },
+  {
+   "id": 75,
+   "object": "arc0-5",
+   "pos": [-5.959, -3.73, 1.496],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 76,
+   "object": "arc0-5",
+   "pos": [-6.58, -3.73, 2.065],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 77,
+   "object": "arc0-5",
+   "pos": [-6.139, -3.73, 1.817],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 78,
+   "object": "arc0-5",
+   "pos": [-6.351, -2.707, 0.132],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 79,
+   "object": "arc0-5",
+   "pos": [-6.35, -3.106, 0.132],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 80,
+   "object": "arc0-5",
+   "pos": [-6.35, -2.905, 0.132],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 81,
+   "object": "manta",
+   "pos": [-7.498, -1.296, 1.755],
+   "scale": 0.008,
+   "props": {
+    "actLayer": 2,
+    "actor": 226
+   }
+  },
+  {
+   "id": 82,
+   "object": "wl-pole-lift",
+   "pos": [9.3, 2.225, 3.55],
+   "scale": 0.008,
+   "props": {
+    "actor": 89
+   }
+  },
+  {
+   "id": 83,
+   "object": "wl-pole-lift",
+   "pos": [8.86, 2.225, 3.75],
+   "scale": 0.008,
+   "props": {
+    "actor": 89
+   }
+  },
+  {
+   "id": 84,
+   "object": "wl-pole-lift",
+   "pos": [9.46, 2.225, 0.6],
+   "scale": 0.008,
+   "props": {
+    "actor": 89
+   }
+  },
+  {
+   "id": 85,
+   "object": "wl-pole-lift",
+   "pos": [5.61, 2.225, 1.49],
+   "scale": 0.008,
+   "props": {
+    "actor": 89
+   }
+  },
+  {
+   "id": 86,
+   "object": "wl-pole-lift",
+   "pos": [5.61, 2.225, 0.74],
+   "scale": 0.008,
+   "props": {
+    "actor": 89
+   }
+  },
+  {
+   "id": 87,
+   "object": "wl-pole-lift",
+   "pos": [7.045, 2.225, -1.67],
+   "scale": 0.008,
+   "props": {
+    "actor": 89
+   }
+  },
+  {
+   "id": 88,
+   "object": "wl-pole-lift",
+   "pos": [9.06, 2.225, -1.93],
+   "scale": 0.008,
+   "props": {
+    "actor": 89
+   }
+  },
+  {
+   "id": 89,
+   "object": "obj-tatefuda",
+   "pos": [6.903, 1.353, 6.22],
+   "rot": [0, -3.141592653589793, 0],
+   "scale": 0.008,
+   "onClick": {
+    "action": "text",
+    "title": "Signpost",
+    "body": "If you pass through a\ncoin ring or find a \nsecret point in a\ncourse, sometimes a \nred number will appear.\n\nIf you trigger five \nred numbers, a \nSecret Star\nwill show up."
+   },
+   "props": {
+    "actor": 184,
+    "collider": "obj_tatefuda"
+   }
+  },
+  {
+   "id": 90,
+   "object": "obj-shell",
+   "pos": [5.283, -2.74, 2.587],
+   "rot": [0, 1.5707963267948966, 0],
+   "scale": 0.008,
+   "props": {
+    "actor": 315
+   }
+  },
+  {
+   "id": 91,
+   "object": "obj-shell",
+   "pos": [5.745, -2.74, 3.257],
+   "rot": [0, 2.0943631444601145, 0],
+   "scale": 0.008,
+   "props": {
+    "actor": 315
+   }
+  },
+  {
+   "id": 92,
+   "object": "obj-shell",
+   "pos": [7.627, -2.77, 5.11],
+   "rot": [0, -3.141592653589793, 0],
+   "scale": 0.008,
+   "props": {
+    "actor": 315
+   }
+  },
+  {
+   "id": 93,
+   "object": "obj-wakame",
+   "pos": [6.4, -2.71, 4.55],
+   "scale": 0.008,
+   "props": {
+    "actor": 296
+   }
+  },
+  {
+   "id": 94,
+   "object": "obj-wakame",
+   "pos": [10.25, -2.71, -1.5],
+   "scale": 0.008,
+   "props": {
+    "actor": 296
+   }
+  },
+  {
+   "id": 95,
+   "object": "obj-wakame",
+   "pos": [10.05, -2.71, -0.95],
+   "scale": 0.008,
+   "props": {
+    "actor": 296
+   }
+  },
+  {
+   "id": 96,
+   "object": "obj-box-switch",
+   "pos": [10.45, 1.35, 2.1],
+   "scale": 0.008,
+   "props": {
+    "actor": 11,
+    "collider": "obj_box_switch"
+   }
+  },
+  {
+   "id": 97,
+   "object": "hatena-karabox",
+   "pos": [10.45, 1.6, 0.05],
+   "scale": 0.008,
+   "props": {
+    "actor": 20
+   }
+  },
+  {
+   "id": 98,
+   "object": "keronpa",
+   "pos": [4.8, 1.4, 4.25],
+   "scale": 0.008,
+   "props": {
+    "actor": 270
+   }
+  },
+  {
+   "id": 99,
+   "object": "broken-block-l",
+   "pos": [10.162, 1.153, 2.1],
+   "scale": 0.008,
+   "props": {
+    "actor": 19
+   }
+  },
+  {
+   "id": 100,
+   "object": "broken-block-l",
+   "pos": [9.962, 1.153, 2.1],
+   "scale": 0.008,
+   "props": {
+    "actor": 19
+   }
+  },
+  {
+   "id": 101,
+   "object": "broken-block-l",
+   "pos": [9.762, 1.153, 2.1],
+   "scale": 0.008,
+   "props": {
+    "actor": 19
+   }
+  },
+  {
+   "id": 102,
+   "object": "broken-block-l",
+   "pos": [9.562, 1.353, 2.1],
+   "scale": 0.008,
+   "props": {
+    "actor": 19
+   }
+  },
+  {
+   "id": 103,
+   "object": "broken-block-l",
+   "pos": [9.362, 1.353, 2.1],
+   "scale": 0.008,
+   "props": {
+    "actor": 19
+   }
+  },
+  {
+   "id": 104,
+   "object": "broken-block-l",
+   "pos": [9.162, 1.553, 2.1],
+   "scale": 0.008,
+   "props": {
+    "actor": 19
+   }
+  },
+  {
+   "id": 105,
+   "object": "broken-block-l",
+   "pos": [8.962, 1.553, 2.1],
+   "scale": 0.008,
+   "props": {
+    "actor": 19
+   }
+  },
+  {
+   "id": 106,
+   "object": "broken-block-l",
+   "pos": [8.762, 1.553, 2.1],
+   "scale": 0.008,
+   "props": {
+    "actor": 19
+   }
+  },
+  {
+   "id": 107,
+   "object": "broken-block-l",
+   "pos": [8.562, 1.553, 2.1],
+   "scale": 0.008,
+   "props": {
+    "actor": 19
+   }
+  },
+  {
+   "id": 108,
+   "object": "b-coin-switch",
+   "pos": [5.4, 2.15, 1.1],
+   "scale": 0.008,
+   "props": {
+    "actor": 10,
+    "collider": "b_coin_switch"
+   }
+  },
+  {
+   "id": 109,
+   "object": "shell-green",
+   "pos": [7.627, -2.75, 5.125],
+   "rot": [0, 1.5707963267948966, 0],
+   "scale": 0.008,
+   "props": {
+    "actor": 285
+   }
+  },
+  {
+   "id": 110,
+   "object": "broken-block-l",
+   "pos": [9.637, 1.353, 4.651],
+   "scale": 0.008,
+   "props": {
+    "actor": 19
+   }
+  },
+  {
+   "id": 111,
+   "object": "broken-block-l",
+   "pos": [9.437, 1.353, 4.651],
+   "scale": 0.008,
+   "props": {
+    "actor": 19
+   }
+  },
+  {
+   "id": 112,
+   "object": "broken-block-l",
+   "pos": [9.437, 1.553, 4.451],
+   "scale": 0.008,
+   "props": {
+    "actor": 19
+   }
+  },
+  {
+   "id": 113,
+   "object": "broken-block-l",
+   "pos": [9.437, 1.753, 4.251],
+   "scale": 0.008,
+   "props": {
+    "actor": 19
+   }
+  },
+  {
+   "id": 114,
+   "object": "broken-block-l",
+   "pos": [9.437, 1.953, 4.051],
+   "scale": 0.008,
+   "props": {
+    "actor": 19
+   }
+  },
+  {
+   "id": 115,
+   "object": "w-ring",
+   "pos": [7.119, -1.996, -0.268],
+   "scale": 0.008,
+   "props": {
+    "actor": 245
+   }
+  },
+  {
+   "id": 116,
+   "object": "wl-submarine",
+   "pos": [7.662, 1.428, 1.098],
+   "scale": 0.008,
+   "props": {
+    "actor": 90,
+    "collider": "wl_submarine"
+   }
+  },
+  {
+   "id": 117,
+   "object": "wl-kupa-shutter",
+   "pos": [7.662, -0.746, -3.841],
+   "scale": 0.008,
+   "props": {
+    "actor": 91,
+    "collider": "wl_kupa_shutter"
+   }
+  },
+  {
+   "id": 118,
+   "object": "arc0-17",
+   "pos": [6.582, -2.44, 2.14],
+   "scale": 0.008,
+   "props": {
+    "actor": 269
+   }
+  },
+  {
+   "id": 119,
+   "object": "arc0-20",
+   "pos": [6.353, -2.28, -0.389],
+   "rot": [0, -2.0943631444601145, 0],
+   "scale": 0.008,
+   "props": {
+    "actor": 269
+   }
+  },
+  {
+   "id": 120,
+   "object": "arc0-16",
+   "pos": [5.756, -1.946, -2.434],
+   "scale": 0.008,
+   "props": {
+    "actor": 269
+   }
+  },
+  {
+   "id": 121,
+   "object": "arc0-17",
+   "pos": [8.267, -2.71, 4.837],
+   "rot": [0, -3.141592653589793, 0],
+   "scale": 0.008,
+   "props": {
+    "actor": 269
+   }
+  },
+  {
+   "id": 122,
+   "object": "arc0-16",
+   "pos": [6.06, -2.71, 3.511],
+   "rot": [0, 2.356194490192345, 0],
+   "scale": 0.008,
+   "props": {
+    "actor": 269
+   }
+  },
+  {
+   "id": 123,
+   "object": "arc0-20",
+   "pos": [8.311, -2.15, -0.111],
+   "scale": 0.008,
+   "props": {
+    "actor": 269
+   }
+  },
+  {
+   "id": 124,
+   "object": "bk-killer-dai",
+   "pos": [7.612, 1.803, 0.9],
+   "scale": 0.008,
+   "props": {
+    "actor": 43,
+    "collider": "bk_killer_dai"
+   }
+  },
+  {
+   "id": 125,
+   "object": "bk-killer-dai",
+   "pos": [5.338, 1.353, 4.437],
+   "rot": [0, 2.356194490192345, 0],
+   "scale": 0.008,
+   "props": {
+    "actor": 43,
+    "collider": "bk_killer_dai"
+   }
+  },
+  {
+   "id": 126,
+   "object": "bk-killer-dai",
+   "pos": [9.998, 1.353, 4.394],
+   "rot": [0, -2.356194490192345, 0],
+   "scale": 0.008,
+   "props": {
+    "actor": 43,
+    "collider": "bk_killer_dai"
+   }
+  },
+  {
+   "id": 127,
+   "object": "arc0-5",
+   "pos": [7.65, -2.65, -3.5],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 128,
+   "object": "arc0-5",
+   "pos": [7.65, -2.5, -3.5],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 129,
+   "object": "arc0-5",
+   "pos": [7.65, -2.35, -3.5],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 130,
+   "object": "arc0-5",
+   "pos": [7.65, -2.2, -3.5],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 131,
+   "object": "arc0-5",
+   "pos": [7.65, -2.05, -3.5],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 132,
+   "object": "fish",
+   "pos": [5.7, -1.75, 2.7],
+   "scale": 0.008,
+   "props": {
+    "actor": 344
+   }
+  },
+  {
+   "id": 133,
+   "object": "arc0-7",
+   "pos": [9.2, 2.3, 3.75],
+   "scale": 0.008,
+   "props": {
+    "actor": 289
+   }
+  },
+  {
+   "id": 134,
+   "object": "arc0-7",
+   "pos": [8.45, 2.55, 3.75],
+   "scale": 0.008,
+   "props": {
+    "actor": 289
+   }
+  },
+  {
+   "id": 135,
+   "object": "arc0-7",
+   "pos": [7.6, 2.4, 3.75],
+   "scale": 0.008,
+   "props": {
+    "actor": 289
+   }
+  },
+  {
+   "id": 136,
+   "object": "arc0-7",
+   "pos": [6.75, 2.3, 3.75],
+   "scale": 0.008,
+   "props": {
+    "actor": 289
+   }
+  },
+  {
+   "id": 137,
+   "object": "arc0-7",
+   "pos": [5.8, 2.2, -1.25],
+   "scale": 0.008,
+   "props": {
+    "actor": 289
+   }
+  },
+  {
+   "id": 138,
+   "object": "arc0-7",
+   "pos": [7.05, 2.3, -1.65],
+   "scale": 0.008,
+   "props": {
+    "actor": 289
+   }
+  },
+  {
+   "id": 139,
+   "object": "arc0-7",
+   "pos": [8.8, 2.3, -1.9],
+   "scale": 0.008,
+   "props": {
+    "actor": 289
+   }
+  },
+  {
+   "id": 140,
+   "object": "arc0-7",
+   "pos": [7.05, 2.3, -1.9],
+   "scale": 0.008,
+   "props": {
+    "actor": 289
+   }
+  },
+  {
+   "id": 141,
+   "object": "star-base",
+   "pos": [9.2, 2.203, 1.15],
+   "scale": 0.008,
+   "props": {
+    "actor": 180
+   }
+  },
+  {
+   "id": 142,
+   "object": "arc0-5",
+   "pos": [7.3, 1.35, 6],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 143,
+   "object": "arc0-5",
+   "pos": [7.5, 1.35, 6],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 144,
+   "object": "arc0-5",
+   "pos": [7.7, 1.35, 6],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 145,
+   "object": "arc0-5",
+   "pos": [7.9, 1.35, 6],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 146,
+   "object": "arc0-5",
+   "pos": [8.1, 1.35, 6],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 147,
+   "object": "ar1-6",
+   "pos": [5.2, 2.3, 0.8],
+   "scale": 0.008,
+   "props": {
+    "actor": 290
+   }
+  },
+  {
+   "id": 148,
+   "object": "ar1-6",
+   "pos": [5.2, 2.3, 1.1],
+   "scale": 0.008,
+   "props": {
+    "actor": 290
+   }
+  },
+  {
+   "id": 149,
+   "object": "ar1-6",
+   "pos": [5.2, 2.3, 1.45],
+   "scale": 0.008,
+   "props": {
+    "actor": 290
+   }
+  },
+  {
+   "id": 150,
+   "object": "ar1-6",
+   "pos": [5.6, 2.3, 0.8],
+   "scale": 0.008,
+   "props": {
+    "actor": 290
+   }
+  },
+  {
+   "id": 151,
+   "object": "ar1-6",
+   "pos": [5.6, 2.3, 1.1],
+   "scale": 0.008,
+   "props": {
+    "actor": 290
+   }
+  },
+  {
+   "id": 152,
+   "object": "ar1-6",
+   "pos": [5.6, 2.3, 1.45],
+   "scale": 0.008,
+   "props": {
+    "actor": 290
+   }
+  },
+  {
+   "id": 153,
+   "object": "arc0-21",
+   "pos": [7.66, 2.1, -0.5],
+   "scale": 0.008,
+   "props": {
+    "actor": 178
+   }
+  },
+  {
+   "id": 154,
+   "object": "star-base",
+   "pos": [7.15, -1.95, -0.25],
+   "scale": 0.008,
+   "props": {
+    "actor": 180
+   }
+  },
+  {
+   "id": 155,
+   "object": "arc0-21",
+   "pos": [5.75, -2.5, -2.45],
+   "scale": 0.008,
+   "props": {
+    "actor": 178
+   }
+  },
+  {
+   "id": 156,
+   "object": "arc0-5",
+   "pos": [8.25, -2.71, 4.6],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 157,
+   "object": "arc0-5",
+   "pos": [8.05, -2.71, 4.65],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 158,
+   "object": "arc0-5",
+   "pos": [8, -2.71, 4.85],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 159,
+   "object": "arc0-5",
+   "pos": [8.05, -2.71, 5.05],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 160,
+   "object": "arc0-5",
+   "pos": [8.25, -2.71, 5.1],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 161,
+   "object": "arc0-5",
+   "pos": [8.45, -2.71, 5.05],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 162,
+   "object": "arc0-5",
+   "pos": [8.5, -2.71, 4.85],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 163,
+   "object": "arc0-5",
+   "pos": [8.45, -2.71, 4.65],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 164,
+   "object": "arc0-5",
+   "pos": [3.14, -0.786, 0.269],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 165,
+   "object": "arc0-5",
+   "pos": [3.14, -0.836, 0.069],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 166,
+   "object": "arc0-5",
+   "pos": [3.14, -1.036, 0.019],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 167,
+   "object": "arc0-5",
+   "pos": [3.14, -1.236, 0.069],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 168,
+   "object": "arc0-5",
+   "pos": [3.14, -1.286, 0.269],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 169,
+   "object": "arc0-5",
+   "pos": [3.14, -1.236, 0.469],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 170,
+   "object": "arc0-5",
+   "pos": [3.14, -1.036, 0.519],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 171,
+   "object": "arc0-5",
+   "pos": [3.14, -0.836, 0.469],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 172,
+   "object": "arc0-5",
+   "pos": [4.633, -0.786, 0.266],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 173,
+   "object": "arc0-5",
+   "pos": [4.633, -0.836, 0.066],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 174,
+   "object": "arc0-5",
+   "pos": [4.633, -1.036, 0.016],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 175,
+   "object": "arc0-5",
+   "pos": [4.633, -1.236, 0.066],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 176,
+   "object": "arc0-5",
+   "pos": [4.633, -1.286, 0.266],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 177,
+   "object": "arc0-5",
+   "pos": [4.633, -1.236, 0.466],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 178,
+   "object": "arc0-5",
+   "pos": [4.633, -1.036, 0.516],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 179,
+   "object": "arc0-5",
+   "pos": [4.633, -0.836, 0.466],
+   "scale": 0.008,
+   "props": {
+    "actor": 288
+   }
+  },
+  {
+   "id": 180,
+   "object": "red-bombhei",
+   "pos": [10.45, 1.35, 4.1],
+   "rot": [0, -1.5707963267948966, 0],
+   "scale": 0.008,
+   "props": {
+    "actLayer": 3,
+    "actor": 181
+   }
+  }
+ ]
+}

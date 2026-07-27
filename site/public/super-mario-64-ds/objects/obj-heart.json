@@ -1,0 +1,16 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "model3d",
+ "name": "Obj heart",
+ "animations": [
+  {
+   "id": "obj_heart_wait",
+   "loop": "loop",
+   "clip": "obj_heart_wait",
+   "fps": 30
+  }
+ ],
+ "model": "obj_heart.glb",
+ "skinnedClone": true
+}

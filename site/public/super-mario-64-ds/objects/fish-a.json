@@ -1,0 +1,28 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "model3d",
+ "name": "Fish a",
+ "animations": [
+  {
+   "id": "fish_ab_swim",
+   "loop": "loop",
+   "clip": "fish_ab_swim",
+   "fps": 30
+  },
+  {
+   "id": "fish_swim",
+   "loop": "loop",
+   "clip": "fish_swim",
+   "fps": 30
+  },
+  {
+   "id": "fish_wait",
+   "loop": "loop",
+   "clip": "fish_wait",
+   "fps": 30
+  }
+ ],
+ "model": "fish_a.glb",
+ "skinnedClone": true
+}

@@ -1,0 +1,16 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "model3d",
+ "name": "T box",
+ "animations": [
+  {
+   "id": "t_box_open",
+   "loop": "loop",
+   "clip": "t_box_open",
+   "fps": 30
+  }
+ ],
+ "model": "t_box.glb",
+ "skinnedClone": true
+}

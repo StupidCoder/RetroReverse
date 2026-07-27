@@ -1,0 +1,130 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "model3d",
+ "name": "Hanachan body01",
+ "animations": [
+  {
+   "id": "hanachan_body01_damage",
+   "loop": "loop",
+   "clip": "hanachan_body01_damage",
+   "fps": 30
+  },
+  {
+   "id": "hanachan_body01_wait",
+   "loop": "loop",
+   "clip": "hanachan_body01_wait",
+   "fps": 30
+  },
+  {
+   "id": "hanachan_body01_walk",
+   "loop": "loop",
+   "clip": "hanachan_body01_walk",
+   "fps": 30
+  },
+  {
+   "id": "hanachan_body01_walk_end",
+   "loop": "loop",
+   "clip": "hanachan_body01_walk_end",
+   "fps": 30
+  },
+  {
+   "id": "hanachan_body01_walk_start",
+   "loop": "loop",
+   "clip": "hanachan_body01_walk_start",
+   "fps": 30
+  },
+  {
+   "id": "hanachan_body02_damage",
+   "loop": "loop",
+   "clip": "hanachan_body02_damage",
+   "fps": 30
+  },
+  {
+   "id": "hanachan_body02_wait",
+   "loop": "loop",
+   "clip": "hanachan_body02_wait",
+   "fps": 30
+  },
+  {
+   "id": "hanachan_body02_walk",
+   "loop": "loop",
+   "clip": "hanachan_body02_walk",
+   "fps": 30
+  },
+  {
+   "id": "hanachan_body02_walk_end",
+   "loop": "loop",
+   "clip": "hanachan_body02_walk_end",
+   "fps": 30
+  },
+  {
+   "id": "hanachan_body02_walk_start",
+   "loop": "loop",
+   "clip": "hanachan_body02_walk_start",
+   "fps": 30
+  },
+  {
+   "id": "hanachan_body03_damage",
+   "loop": "loop",
+   "clip": "hanachan_body03_damage",
+   "fps": 30
+  },
+  {
+   "id": "hanachan_body03_wait",
+   "loop": "loop",
+   "clip": "hanachan_body03_wait",
+   "fps": 30
+  },
+  {
+   "id": "hanachan_body03_walk",
+   "loop": "loop",
+   "clip": "hanachan_body03_walk",
+   "fps": 30
+  },
+  {
+   "id": "hanachan_body03_walk_end",
+   "loop": "loop",
+   "clip": "hanachan_body03_walk_end",
+   "fps": 30
+  },
+  {
+   "id": "hanachan_body03_walk_start",
+   "loop": "loop",
+   "clip": "hanachan_body03_walk_start",
+   "fps": 30
+  },
+  {
+   "id": "hanachan_body04_damage",
+   "loop": "loop",
+   "clip": "hanachan_body04_damage",
+   "fps": 30
+  },
+  {
+   "id": "hanachan_body04_wait",
+   "loop": "loop",
+   "clip": "hanachan_body04_wait",
+   "fps": 30
+  },
+  {
+   "id": "hanachan_body04_walk",
+   "loop": "loop",
+   "clip": "hanachan_body04_walk",
+   "fps": 30
+  },
+  {
+   "id": "hanachan_body04_walk_end",
+   "loop": "loop",
+   "clip": "hanachan_body04_walk_end",
+   "fps": 30
+  },
+  {
+   "id": "hanachan_body04_walk_start",
+   "loop": "loop",
+   "clip": "hanachan_body04_walk_start",
+   "fps": 30
+  }
+ ],
+ "model": "hanachan_body01.glb",
+ "skinnedClone": true
+}

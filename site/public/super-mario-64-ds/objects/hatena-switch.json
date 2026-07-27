@@ -1,0 +1,22 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "model3d",
+ "name": "Hatena switch",
+ "animations": [
+  {
+   "id": "hatena_red_switch",
+   "loop": "loop",
+   "clip": "hatena_red_switch",
+   "fps": 30
+  },
+  {
+   "id": "hatena_switch",
+   "loop": "loop",
+   "clip": "hatena_switch",
+   "fps": 30
+  }
+ ],
+ "model": "hatena_switch.glb",
+ "skinnedClone": true
+}

@@ -1,0 +1,16 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "model3d",
+ "name": "Spider",
+ "animations": [
+  {
+   "id": "spider_walk",
+   "loop": "loop",
+   "clip": "spider_walk",
+   "fps": 30
+  }
+ ],
+ "model": "spider.glb",
+ "skinnedClone": true
+}

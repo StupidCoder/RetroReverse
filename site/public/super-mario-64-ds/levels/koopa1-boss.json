@@ -1,0 +1,270 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "scene3d",
+ "camera": {
+  "mode": "fly",
+  "pos": [0, 4.18, -7.3919999999999995],
+  "target": [0, 0.7000000000000001, 0],
+  "fov": 50,
+  "near": 0.01,
+  "far": 500,
+  "fly": {
+   "speed": 1.0266666666666666
+  }
+ },
+ "scene": {
+  "layers": [
+   {
+    "id": "sky",
+    "name": "Skybox",
+    "file": "vr10.glb",
+    "mode": "toggle",
+    "attach": "camera",
+    "renderOrder": -1,
+    "role": "sky"
+   },
+   {
+    "id": "collision",
+    "name": "Collision (KCL)",
+    "file": "col_koopa1_boss.glb",
+    "mode": "toggle",
+    "visible": false,
+    "role": "collision"
+   }
+  ]
+ },
+ "placements": [
+  {
+   "id": 0,
+   "object": "koopa1-boss-all",
+   "pos": [0, 0, 0],
+   "name": "Bowser in the Dark World (koopa1_boss)"
+  },
+  {
+   "id": 1,
+   "object": "koopa-model",
+   "pos": [-0.014, 0.3, -1.501],
+   "scale": 0.008,
+   "props": {
+    "actor": 279
+   }
+  },
+  {
+   "id": 2,
+   "object": "koopa-bomb",
+   "pos": [0, 0.625, -3.08],
+   "scale": 0.008,
+   "props": {
+    "actor": 284
+   }
+  },
+  {
+   "id": 3,
+   "object": "koopa-bomb",
+   "pos": [3.08, 0.625, 0],
+   "scale": 0.008,
+   "props": {
+    "actor": 284
+   }
+  },
+  {
+   "id": 4,
+   "object": "koopa-bomb",
+   "pos": [0, 0.625, 3.08],
+   "scale": 0.008,
+   "props": {
+    "actor": 284
+   }
+  },
+  {
+   "id": 5,
+   "object": "koopa-bomb",
+   "pos": [-3.08, 0.625, 0],
+   "scale": 0.008,
+   "props": {
+    "actor": 284
+   }
+  },
+  {
+   "id": 6,
+   "object": "kb1-ball",
+   "pos": [0, 0.325, 3.08],
+   "scale": 0.008,
+   "props": {
+    "actor": 301
+   }
+  },
+  {
+   "id": 7,
+   "object": "kb1-ball",
+   "pos": [-1.088, 0.325, 2.628],
+   "scale": 0.008,
+   "props": {
+    "actor": 301
+   }
+  },
+  {
+   "id": 8,
+   "object": "kb1-ball",
+   "pos": [-2.177, 0.325, 2.177],
+   "scale": 0.008,
+   "props": {
+    "actor": 301
+   }
+  },
+  {
+   "id": 9,
+   "object": "kb1-ball",
+   "pos": [-2.628, 0.325, 1.088],
+   "scale": 0.008,
+   "props": {
+    "actor": 301
+   }
+  },
+  {
+   "id": 10,
+   "object": "kb1-ball",
+   "pos": [-3.08, 0.325, 0],
+   "scale": 0.008,
+   "props": {
+    "actor": 301
+   }
+  },
+  {
+   "id": 11,
+   "object": "kb1-ball",
+   "pos": [-2.628, 0.325, -1.088],
+   "scale": 0.008,
+   "props": {
+    "actor": 301
+   }
+  },
+  {
+   "id": 12,
+   "object": "kb1-ball",
+   "pos": [-2.177, 0.325, -2.177],
+   "scale": 0.008,
+   "props": {
+    "actor": 301
+   }
+  },
+  {
+   "id": 13,
+   "object": "kb1-ball",
+   "pos": [-1.088, 0.325, -2.628],
+   "scale": 0.008,
+   "props": {
+    "actor": 301
+   }
+  },
+  {
+   "id": 14,
+   "object": "kb1-ball",
+   "pos": [0, 0.325, -3.08],
+   "scale": 0.008,
+   "props": {
+    "actor": 301
+   }
+  },
+  {
+   "id": 15,
+   "object": "kb1-ball",
+   "pos": [1.088, 0.325, -2.628],
+   "scale": 0.008,
+   "props": {
+    "actor": 301
+   }
+  },
+  {
+   "id": 16,
+   "object": "kb1-ball",
+   "pos": [2.177, 0.325, -2.177],
+   "scale": 0.008,
+   "props": {
+    "actor": 301
+   }
+  },
+  {
+   "id": 17,
+   "object": "kb1-ball",
+   "pos": [2.628, 0.325, -1.088],
+   "scale": 0.008,
+   "props": {
+    "actor": 301
+   }
+  },
+  {
+   "id": 18,
+   "object": "kb1-ball",
+   "pos": [3.08, 0.325, 0],
+   "scale": 0.008,
+   "props": {
+    "actor": 301
+   }
+  },
+  {
+   "id": 19,
+   "object": "kb1-ball",
+   "pos": [2.628, 0.325, 1.088],
+   "scale": 0.008,
+   "props": {
+    "actor": 301
+   }
+  },
+  {
+   "id": 20,
+   "object": "kb1-ball",
+   "pos": [2.177, 0.325, 2.177],
+   "scale": 0.008,
+   "props": {
+    "actor": 301
+   }
+  },
+  {
+   "id": 21,
+   "object": "kb1-ball",
+   "pos": [1.088, 0.325, 2.628],
+   "scale": 0.008,
+   "props": {
+    "actor": 301
+   }
+  },
+  {
+   "id": 22,
+   "object": "koopa-bomb",
+   "pos": [-2.156, 0.625, -2.156],
+   "scale": 0.008,
+   "props": {
+    "actor": 284
+   }
+  },
+  {
+   "id": 23,
+   "object": "koopa-bomb",
+   "pos": [2.177, 0.625, -2.177],
+   "scale": 0.008,
+   "props": {
+    "actor": 284
+   }
+  },
+  {
+   "id": 24,
+   "object": "koopa-bomb",
+   "pos": [2.177, 0.625, 2.177],
+   "scale": 0.008,
+   "props": {
+    "actor": 284
+   }
+  },
+  {
+   "id": 25,
+   "object": "koopa-bomb",
+   "pos": [-2.177, 0.625, 2.177],
+   "scale": 0.008,
+   "props": {
+    "actor": 284
+   }
+  }
+ ]
+}

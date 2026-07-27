@@ -1,0 +1,16 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "model3d",
+ "name": "Basabasa",
+ "animations": [
+  {
+   "id": "basabasa_fly",
+   "loop": "loop",
+   "clip": "basabasa_fly",
+   "fps": 30
+  }
+ ],
+ "model": "basabasa.glb",
+ "skinnedClone": true
+}
