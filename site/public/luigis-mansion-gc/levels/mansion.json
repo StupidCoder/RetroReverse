@@ -4,13 +4,13 @@
  "type": "scene3d",
  "camera": {
   "mode": "fly",
-  "pos": [0, 700, -3800],
-  "target": [0, 1100, -12100],
+  "pos": [2.5, 170, -580],
+  "target": [2.5, 350, 340],
   "fov": 50,
   "near": 5,
   "far": 200000,
   "fly": {
-   "speed": 2500
+   "speed": 1250
   }
  },
  "scene": {

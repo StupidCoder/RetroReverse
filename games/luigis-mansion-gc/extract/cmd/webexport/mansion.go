@@ -287,15 +287,48 @@ func exportMansion(ctx *cli.Context, src *export.Source, doObjects, doLevels boo
 	}
 
 	// --- the level document -------------------------------------------------
+	// The tour starts inside the lobby: room_02 is the foyer (the room whose
+	// jmp/furnitureinfo record carries the foyer mirror), entered through the
+	// mansion's front (negative-z) face. Eye height just inside the doors,
+	// looking across the room. If the shell is ever missing, fall back to an
+	// establishing shot derived from the assembled shells' bounds.
+	var lo, hi [3]float64
+	first := true
+	for _, r := range roomList {
+		if r.aabb.Min == r.aabb.Max {
+			continue
+		}
+		if first {
+			lo, hi, first = r.aabb.Min, r.aabb.Max, false
+			continue
+		}
+		for k := 0; k < 3; k++ {
+			lo[k] = math.Min(lo[k], r.aabb.Min[k])
+			hi[k] = math.Max(hi[k], r.aabb.Max[k])
+		}
+	}
+	cx, cy, cz := (lo[0]+hi[0])/2, (lo[1]+hi[1])/2, (lo[2]+hi[2])/2
+	span := math.Max(hi[0]-lo[0], hi[2]-lo[2])
+	pos := []float64{cx, hi[1] + span*0.3, lo[2] - span*0.55}
+	target := []float64{cx, cy, cz}
+	const lobbyRoom = "room_02"
+	for _, r := range roomList {
+		if r.name != lobbyRoom || r.aabb.Min == r.aabb.Max {
+			continue
+		}
+		lx := (r.aabb.Min[0] + r.aabb.Max[0]) / 2
+		pos = []float64{lx, r.aabb.Min[1] + 220, r.aabb.Min[2] + 180}
+		target = []float64{lx, r.aabb.Min[1] + 400, r.aabb.Max[2]}
+		break
+	}
 	doc := &schema.Level{
 		Type: schema.LevelScene3D,
 		Camera: &schema.Camera{
-			Mode: "fly",
-			// The curated establishing shot: outside the gate, looking up at
-			// the facade (the old Studio's hand-picked pose).
-			Pos: []float64{0, 700, -3800}, Target: []float64{0, 1100, -12100},
-			FOV: 50, Near: 5, Far: 200000,
-			Fly: &schema.Fly{Speed: 2500},
+			Mode:   "fly",
+			Pos:    pos,
+			Target: target,
+			FOV:    50, Near: 5, Far: 200000,
+			Fly: &schema.Fly{Speed: 1250},
 		},
 		Scene: &schema.Scene{
 			Rooms: &schema.Rooms{Areas: areas, Stream: true},
