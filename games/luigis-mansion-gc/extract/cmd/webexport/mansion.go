@@ -22,18 +22,24 @@ import (
 // Storey areas: a shell lands in the area of its lowest storey (the same
 // ladder the game's own room list implies), and the porch/roof shells are
 // the exterior.
-var areas = []string{"Basement", "Ground floor", "First floor", "Attic", "Exterior"}
+var areas = []schema.Area{
+	{ID: "basement", Name: "Basement"},
+	{ID: "ground", Name: "Ground floor"},
+	{ID: "first", Name: "First floor"},
+	{ID: "attic", Name: "Attic"},
+	{ID: "exterior", Name: "Exterior"},
+}
 
-func areaOf(minY float32) int {
+func areaOf(minY float32) string {
 	switch {
 	case minY < -300:
-		return 0
+		return "basement"
 	case minY < 300:
-		return 1
+		return "ground"
 	case minY < 900:
-		return 2
+		return "first"
 	default:
-		return 3
+		return "attic"
 	}
 }
 
@@ -156,7 +162,7 @@ func exportMansion(ctx *cli.Context, src *export.Source, doObjects, doLevels boo
 		id   int
 		name string
 		aabb schema.AABB
-		area int
+		area string
 	}
 	var roomList []roomInfo
 	furnCount, roomCount := 0, 0
@@ -207,7 +213,7 @@ func exportMansion(ctx *cli.Context, src *export.Source, doObjects, doLevels boo
 					info.area = areaOf(mn[1])
 				}
 				if exteriorRooms[roomName] {
-					info.area = 4
+					info.area = "exterior"
 				}
 				if doLevels {
 					glbPath, err := b.Path("levels", "mansion", "rooms", roomName+".glb")

@@ -16,14 +16,35 @@
  "scene": {
   "layers": null,
   "rooms": {
-   "areas": ["Basement", "Ground floor", "First floor", "Attic", "Exterior"],
+   "areas": [
+    {
+     "id": "basement",
+     "name": "Basement"
+    },
+    {
+     "id": "ground",
+     "name": "Ground floor"
+    },
+    {
+     "id": "first",
+     "name": "First floor"
+    },
+    {
+     "id": "attic",
+     "name": "Attic"
+    },
+    {
+     "id": "exterior",
+     "name": "Exterior"
+    }
+   ],
    "stream": true,
    "list": [
     {
      "id": 0,
      "name": "room_00",
      "file": "mansion/rooms/room_00.glb",
-     "area": 1,
+     "area": "ground",
      "aabb": {
       "min": [-4150, -50, -760],
       "max": [-2560, 550, 295]
@@ -33,7 +54,7 @@
      "id": 1,
      "name": "room_01",
      "file": "mansion/rooms/room_01.glb",
-     "area": 1,
+     "area": "ground",
      "aabb": {
       "min": [-2578, -50, -733],
       "max": [-1023, 550, 295]
@@ -43,7 +64,7 @@
      "id": 2,
      "name": "room_02",
      "file": "mansion/rooms/room_02.glb",
-     "area": 1,
+     "area": "ground",
      "aabb": {
       "min": [-1025, -50, -760],
       "max": [1030, 1100, 340]
@@ -53,7 +74,7 @@
      "id": 3,
      "name": "room_03",
      "file": "mansion/rooms/room_03.glb",
-     "area": 1,
+     "area": "ground",
      "aabb": {
       "min": [979, -50, -783],
       "max": [2621, 550, 290]
@@ -63,7 +84,7 @@
      "id": 4,
      "name": "room_04",
      "file": "mansion/rooms/room_04.glb",
-     "area": 1,
+     "area": "ground",
      "aabb": {
       "min": [2530, -50, -772],
       "max": [4170, 550, 290]
@@ -73,7 +94,7 @@
      "id": 5,
      "name": "room_05",
      "file": "mansion/rooms/room_05.glb",
-     "area": 1,
+     "area": "ground",
      "aabb": {
       "min": [-4150, -50, -1265],
       "max": [-2550, 550, -710]
@@ -83,7 +104,7 @@
      "id": 6,
      "name": "room_06",
      "file": "mansion/rooms/room_06.glb",
-     "area": 1,
+     "area": "ground",
      "aabb": {
       "min": [-2575, -50, -1266],
       "max": [2605, 550.0423583984375, -710]
@@ -93,7 +114,7 @@
      "id": 7,
      "name": "room_07",
      "file": "mansion/rooms/room_07.glb",
-     "area": 1,
+     "area": "ground",
      "aabb": {
       "min": [-1525, -50, -5485],
       "max": [-974.61376953125, 549.8921508789062, -4409.9384765625]
@@ -103,7 +124,7 @@
      "id": 8,
      "name": "room_08",
      "file": "mansion/rooms/room_08.glb",
-     "area": 1,
+     "area": "ground",
      "aabb": {
       "min": [-4150, -50, -2360],
       "max": [-1749, 550, -1305]
@@ -113,7 +134,7 @@
      "id": 9,
      "name": "room_09",
      "file": "mansion/rooms/room_09.glb",
-     "area": 1,
+     "area": "ground",
      "aabb": {
       "min": [-1775, -50, -2318],
       "max": [1052, 550, -1302]
@@ -123,7 +144,7 @@
      "id": 10,
      "name": "room_10",
      "file": "mansion/rooms/room_10.glb",
-     "area": 1,
+     "area": "ground",
      "aabb": {
       "min": [1552.212158203125, -50.127685546875, -2814.84228515625],
       "max": [4160.2119140625, 656.3499145507812, -1284]
@@ -133,7 +154,7 @@
      "id": 11,
      "name": "room_11",
      "file": "mansion/rooms/room_11.glb",
-     "area": 4,
+     "area": "exterior",
      "aabb": {
       "min": [-6624, -200, -9216],
       "max": [-1201, 1606, -955]
@@ -143,7 +164,7 @@
      "id": 12,
      "name": "room_12",
      "file": "mansion/rooms/room_12.glb",
-     "area": 1,
+     "area": "ground",
      "aabb": {
       "min": [-2575, -50.204559326171875, -3889.8994140625],
       "max": [-499.6484375, 549.8800048828125, -2359.40966796875]
@@ -153,7 +174,7 @@
      "id": 13,
      "name": "room_13",
      "file": "mansion/rooms/room_13.glb",
-     "area": 1,
+     "area": "ground",
      "aabb": {
       "min": [-525.430908203125, -50.042724609375, -3870.103515625],
       "max": [1024.6680908203125, 549.5061645507812, -2340.029296875]
@@ -163,7 +184,7 @@
      "id": 14,
      "name": "room_14",
      "file": "mansion/rooms/room_14.glb",
-     "area": 1,
+     "area": "ground",
      "aabb": {
       "min": [1574.5, -50, -3910],
       "max": [4125.5, 549.9999389648438, -2810]
@@ -173,7 +194,7 @@
      "id": 15,
      "name": "room_15",
      "file": "mansion/rooms/room_15.glb",
-     "area": 3,
+     "area": "attic",
      "aabb": {
       "min": [2050, 1075, -1271],
       "max": [3249, 1650, -710]
@@ -183,7 +204,7 @@
      "id": 16,
      "name": "room_16",
      "file": "mansion/rooms/room_16.glb",
-     "area": 4,
+     "area": "exterior",
      "aabb": {
       "min": [-6614, -200, -9276],
       "max": [570, 1435, -955]
@@ -193,7 +214,7 @@
      "id": 17,
      "name": "room_17",
      "file": "mansion/rooms/room_17.glb",
-     "area": 1,
+     "area": "ground",
      "aabb": {
       "min": [-2594, -50, -4454],
       "max": [-1505, 550, -3865]
@@ -203,7 +224,7 @@
      "id": 18,
      "name": "room_18",
      "file": "mansion/rooms/room_18.glb",
-     "area": 1,
+     "area": "ground",
      "aabb": {
       "min": [-1541, -50, -4435],
       "max": [2300, 550.005859375, -760]
@@ -213,7 +234,7 @@
      "id": 19,
      "name": "room_19",
      "file": "mansion/rooms/room_19.glb",
-     "area": 1,
+     "area": "ground",
      "aabb": {
       "min": [2270, -50, -4465],
       "max": [4150.427734375, 1099.8768310546875, -3900]
@@ -223,7 +244,7 @@
      "id": 20,
      "name": "room_20",
      "file": "mansion/rooms/room_20.glb",
-     "area": 1,
+     "area": "ground",
      "aabb": {
       "min": [-2590.4873046875, -49.67242431640625, -5469.56396484375],
       "max": [-1515, 550, -4464.56396484375]
@@ -233,7 +254,7 @@
      "id": 21,
      "name": "room_21",
      "file": "mansion/rooms/room_21.glb",
-     "area": 1,
+     "area": "ground",
      "aabb": {
       "min": [-975, -50, -5494],
       "max": [1575, 550, -4405]
@@ -243,7 +264,7 @@
      "id": 22,
      "name": "room_22",
      "file": "mansion/rooms/room_22.glb",
-     "area": 1,
+     "area": "ground",
      "aabb": {
       "min": [1575, -50, -5510],
       "max": [4150, 550, -4410]
@@ -253,7 +274,7 @@
      "id": 23,
      "name": "room_23",
      "file": "mansion/rooms/room_23.glb",
-     "area": 4,
+     "area": "exterior",
      "aabb": {
       "min": [-6614, -220, -9866],
       "max": [7234, 1403, -1420]
@@ -263,7 +284,7 @@
      "id": 24,
      "name": "room_24",
      "file": "mansion/rooms/room_24.glb",
-     "area": 2,
+     "area": "first",
      "aabb": {
       "min": [-4150.431640625, 499.623046875, -760.2302856445312],
       "max": [-2575.2109375, 1100.054931640625, 296.16668701171875]
@@ -273,7 +294,7 @@
      "id": 25,
      "name": "room_25",
      "file": "mansion/rooms/room_25.glb",
-     "area": 2,
+     "area": "first",
      "aabb": {
       "min": [-2575.333251953125, 500.3455810546875, -759.6455078125],
       "max": [-1025.261962890625, 1099.6756591796875, 296.05804443359375]
@@ -283,7 +304,7 @@
      "id": 26,
      "name": "room_26",
      "file": "mansion/rooms/room_26.glb",
-     "area": 2,
+     "area": "first",
      "aabb": {
       "min": [1025, 500, -3915],
       "max": [1575, 1100, -2810]
@@ -293,7 +314,7 @@
      "id": 27,
      "name": "room_27",
      "file": "mansion/rooms/room_27.glb",
-     "area": 2,
+     "area": "first",
      "aabb": {
       "min": [1025, 500.00018310546875, -760],
       "max": [2600, 1100.0001220703125, 295]
@@ -303,7 +324,7 @@
      "id": 28,
      "name": "room_28",
      "file": "mansion/rooms/room_28.glb",
-     "area": 2,
+     "area": "first",
      "aabb": {
       "min": [2550, 499.99993896484375, -714.9999389648438],
       "max": [4150, 1099.9998779296875, 295.0001525878906]
@@ -313,7 +334,7 @@
      "id": 29,
      "name": "room_28A",
      "file": "mansion/rooms/room_28A.glb",
-     "area": 2,
+     "area": "first",
      "aabb": {
       "min": [2550, 500.00018310546875, -715],
       "max": [4150, 1100.0001220703125, 295]
@@ -323,7 +344,7 @@
      "id": 30,
      "name": "room_29",
      "file": "mansion/rooms/room_29.glb",
-     "area": 2,
+     "area": "first",
      "aabb": {
       "min": [-4150, 500, -1310],
       "max": [-1000, 1099.7391357421875, -710]
@@ -333,7 +354,7 @@
      "id": 31,
      "name": "room_30",
      "file": "mansion/rooms/room_30.glb",
-     "area": 2,
+     "area": "first",
      "aabb": {
       "min": [-1025, 500, -1310],
       "max": [1030, 1105, -720]
@@ -343,7 +364,7 @@
      "id": 32,
      "name": "room_31",
      "file": "mansion/rooms/room_31.glb",
-     "area": 2,
+     "area": "first",
      "aabb": {
       "min": [1025.168212890625, 500.092529296875, -1309.7392578125],
       "max": [3370.168212890625, 1075.092529296875, -709.7392578125]
@@ -353,7 +374,7 @@
      "id": 33,
      "name": "room_32",
      "file": "mansion/rooms/room_32.glb",
-     "area": 2,
+     "area": "first",
      "aabb": {
       "min": [3171, 500, -1271],
       "max": [4195, 1650, -759]
@@ -363,7 +384,7 @@
      "id": 34,
      "name": "room_33",
      "file": "mansion/rooms/room_33.glb",
-     "area": 2,
+     "area": "first",
      "aabb": {
       "min": [-4210, 500, -2925],
       "max": [-2505, 1100, -1260]
@@ -373,7 +394,7 @@
      "id": 35,
      "name": "room_34",
      "file": "mansion/rooms/room_34.glb",
-     "area": 2,
+     "area": "first",
      "aabb": {
       "min": [-2575, 500.0762939453125, -2850.090087890625],
       "max": [-1024.7464599609375, 1100, -1260.090087890625]
@@ -383,7 +404,7 @@
      "id": 36,
      "name": "room_35",
      "file": "mansion/rooms/room_35.glb",
-     "area": 2,
+     "area": "first",
      "aabb": {
       "min": [-1029.2613525390625, 499.86407470703125, -2860.310791015625],
       "max": [1029.7386474609375, 1099.9681396484375, -1260.310791015625]
@@ -393,7 +414,7 @@
      "id": 37,
      "name": "room_36",
      "file": "mansion/rooms/room_36.glb",
-     "area": 2,
+     "area": "first",
      "aabb": {
       "min": [1523, 500, -2865],
       "max": [4183, 1216, -1305]
@@ -403,7 +424,7 @@
      "id": 38,
      "name": "room_37",
      "file": "mansion/rooms/room_37.glb",
-     "area": 4,
+     "area": "exterior",
      "aabb": {
       "min": [-6810, -75, -9346],
       "max": [-542, 2848, -815]
@@ -413,7 +434,7 @@
      "id": 39,
      "name": "room_38",
      "file": "mansion/rooms/room_38.glb",
-     "area": 2,
+     "area": "first",
      "aabb": {
       "min": [-2600, 500.00018310546875, -3885],
       "max": [-1000, 1090.0001220703125, -2860]
@@ -423,7 +444,7 @@
      "id": 40,
      "name": "room_39",
      "file": "mansion/rooms/room_39.glb",
-     "area": 2,
+     "area": "first",
      "aabb": {
       "min": [-1050, 500.00018310546875, -3885],
       "max": [1025, 1100.0001220703125, -2810]
@@ -433,7 +454,7 @@
      "id": 41,
      "name": "room_40",
      "file": "mansion/rooms/room_40.glb",
-     "area": 2,
+     "area": "first",
      "aabb": {
       "min": [1554, 500, -3865],
       "max": [3145, 1130, -2860]
@@ -443,7 +464,7 @@
      "id": 42,
      "name": "room_41",
      "file": "mansion/rooms/room_41.glb",
-     "area": 1,
+     "area": "ground",
      "aabb": {
       "min": [-4455, 0, 5361],
       "max": [-4445, 0, 5371]
@@ -453,7 +474,7 @@
      "id": 43,
      "name": "room_42",
      "file": "mansion/rooms/room_42.glb",
-     "area": 2,
+     "area": "first",
      "aabb": {
       "min": [-2593.6455078125, 500.39837646484375, -4453.4658203125],
       "max": [-1504.2373046875, 1099.719482421875, -3865.109130859375]
@@ -463,7 +484,7 @@
      "id": 44,
      "name": "room_43",
      "file": "mansion/rooms/room_43.glb",
-     "area": 2,
+     "area": "first",
      "aabb": {
       "min": [-1542.5537109375, 499.9302978515625, -4415.90673828125],
       "max": [2300.4462890625, 1100.005859375, -3759.90673828125]
@@ -473,7 +494,7 @@
      "id": 45,
      "name": "room_44",
      "file": "mansion/rooms/room_44.glb",
-     "area": 2,
+     "area": "first",
      "aabb": {
       "min": [-1525, 500, -5466],
       "max": [-953, 1100, -4410]
@@ -483,7 +504,7 @@
      "id": 46,
      "name": "room_45",
      "file": "mansion/rooms/room_45.glb",
-     "area": 2,
+     "area": "first",
      "aabb": {
       "min": [-2590, 505, -5470],
       "max": [-1515, 1105, -4465]
@@ -493,7 +514,7 @@
      "id": 47,
      "name": "room_46",
      "file": "mansion/rooms/room_46.glb",
-     "area": 2,
+     "area": "first",
      "aabb": {
       "min": [-1000, 500, -5617],
       "max": [1575, 1100, -4460]
@@ -503,7 +524,7 @@
      "id": 48,
      "name": "room_47",
      "file": "mansion/rooms/room_47.glb",
-     "area": 2,
+     "area": "first",
      "aabb": {
       "min": [1575, 500, -5630],
       "max": [4150, 1100, -4410]
@@ -513,7 +534,7 @@
      "id": 49,
      "name": "room_48",
      "file": "mansion/rooms/room_48.glb",
-     "area": 3,
+     "area": "attic",
      "aabb": {
       "min": [-4221, 1050, -1316.00048828125],
       "max": [-2075, 1650, 308.9996643066406]
@@ -523,7 +544,7 @@
      "id": 50,
      "name": "room_49",
      "file": "mansion/rooms/room_49.glb",
-     "area": 2,
+     "area": "first",
      "aabb": {
       "min": [-2583, 713, -1318],
       "max": [-983, 1839, 665]
@@ -533,7 +554,7 @@
      "id": 51,
      "name": "room_50",
      "file": "mansion/rooms/room_50.glb",
-     "area": 3,
+     "area": "attic",
      "aabb": {
       "min": [-1525, 1050, -1316],
       "max": [1525, 2100, 316]
@@ -543,7 +564,7 @@
      "id": 52,
      "name": "room_51",
      "file": "mansion/rooms/room_51.glb",
-     "area": 2,
+     "area": "first",
      "aabb": {
       "min": [983, 713, -1318],
       "max": [2583, 1839, 665]
@@ -553,7 +574,7 @@
      "id": 53,
      "name": "room_52",
      "file": "mansion/rooms/room_52.glb",
-     "area": 3,
+     "area": "attic",
      "aabb": {
       "min": [2075, 1050, -760],
       "max": [4221, 1650, 309]
@@ -563,7 +584,7 @@
      "id": 54,
      "name": "room_53",
      "file": "mansion/rooms/room_53.glb",
-     "area": 1,
+     "area": "ground",
      "aabb": {
       "min": [1000, -50, -3935],
       "max": [1600, 550, -1260]
@@ -573,7 +594,7 @@
      "id": 55,
      "name": "room_54",
      "file": "mansion/rooms/room_54.glb",
-     "area": 3,
+     "area": "attic",
      "aabb": {
       "min": [-2075, 1050, -2860],
       "max": [-1525, 1650, -1291]
@@ -583,7 +604,7 @@
      "id": 56,
      "name": "room_55",
      "file": "mansion/rooms/room_55.glb",
-     "area": 3,
+     "area": "attic",
      "aabb": {
       "min": [-4221, 1050, -2916],
       "max": [-2042, 2097, -1260]
@@ -593,7 +614,7 @@
      "id": 57,
      "name": "room_56",
      "file": "mansion/rooms/room_56.glb",
-     "area": 3,
+     "area": "attic",
      "aabb": {
       "min": [-1525, 1050, -2916],
       "max": [1525, 1650, -1260]
@@ -603,7 +624,7 @@
      "id": 58,
      "name": "room_57",
      "file": "mansion/rooms/room_57.glb",
-     "area": 3,
+     "area": "attic",
      "aabb": {
       "min": [2042.185302734375, 1050, -2926.00048828125],
       "max": [4221.185546875, 2097, -1291.000244140625]
@@ -613,7 +634,7 @@
      "id": 59,
      "name": "room_58",
      "file": "mansion/rooms/room_58.glb",
-     "area": 3,
+     "area": "attic",
      "aabb": {
       "min": [1525, 1050, -2860],
       "max": [2075, 1650, -1291]
@@ -623,7 +644,7 @@
      "id": 60,
      "name": "room_59",
      "file": "mansion/rooms/room_59.glb",
-     "area": 4,
+     "area": "exterior",
      "aabb": {
       "min": [-4551, 439, -5511],
       "max": [4543, 3697, -861]
@@ -633,7 +654,7 @@
      "id": 61,
      "name": "room_60",
      "file": "mansion/rooms/room_60.glb",
-     "area": 4,
+     "area": "exterior",
      "aabb": {
       "min": [-4551, 971, -3393],
       "max": [4543, 2402, 858]
@@ -643,6 +664,7 @@
      "id": 62,
      "name": "room_61",
      "file": "mansion/rooms/room_61.glb",
+     "area": "basement",
      "aabb": {
       "min": [450, -607, -1265],
       "max": [2025, -25, 291]
@@ -652,6 +674,7 @@
      "id": 63,
      "name": "room_62",
      "file": "mansion/rooms/room_62.glb",
+     "area": "basement",
      "aabb": {
       "min": [2025, -600, -1310],
       "max": [2575, 2, 290]
@@ -661,6 +684,7 @@
      "id": 64,
      "name": "room_63",
      "file": "mansion/rooms/room_63.glb",
+     "area": "basement",
      "aabb": {
       "min": [2575, -600, -710],
       "max": [4150, -25, 290]
@@ -670,7 +694,7 @@
      "id": 65,
      "name": "room_64",
      "file": "mansion/rooms/room_64.glb",
-     "area": 2,
+     "area": "first",
      "aabb": {
       "min": [1000, 500, -2810],
       "max": [1619, 1100, -1260]
@@ -680,6 +704,7 @@
      "id": 66,
      "name": "room_65",
      "file": "mansion/rooms/room_65.glb",
+     "area": "basement",
      "aabb": {
       "min": [2575, -600, -1310],
       "max": [4150, 525, -710]
@@ -689,6 +714,7 @@
      "id": 67,
      "name": "room_66",
      "file": "mansion/rooms/room_66.glb",
+     "area": "basement",
      "aabb": {
       "min": [450, -600, -2360],
       "max": [2025, -25, -1310]
@@ -698,6 +724,7 @@
      "id": 68,
      "name": "room_67",
      "file": "mansion/rooms/room_67.glb",
+     "area": "basement",
      "aabb": {
       "min": [2575, -600, -2370],
       "max": [4150, -25, -1260]
@@ -707,6 +734,7 @@
      "id": 69,
      "name": "room_68",
      "file": "mansion/rooms/room_68.glb",
+     "area": "basement",
      "aabb": {
       "min": [1568, -600, -5510],
       "max": [3033, 2, -2310]
@@ -716,6 +744,7 @@
      "id": 70,
      "name": "room_69",
      "file": "mansion/rooms/room_69.glb",
+     "area": "basement",
      "aabb": {
       "min": [50, -600, -6510],
       "max": [1537, 38, -5510]
@@ -725,6 +754,7 @@
      "id": 71,
      "name": "room_70",
      "file": "mansion/rooms/room_70.glb",
+     "area": "basement",
      "aabb": {
       "min": [1487, -600, -7360],
       "max": [3100, 0, -5460]
@@ -734,6 +764,7 @@
      "id": 72,
      "name": "room_71",
      "file": "mansion/rooms/room_71.glb",
+     "area": "basement",
      "aabb": {
       "min": [2025, -600, -2360],
       "max": [2575, 2, -1258]
@@ -743,7 +774,7 @@
      "id": 73,
      "name": "room_72",
      "file": "mansion/rooms/room_72.glb",
-     "area": 4,
+     "area": "exterior",
      "aabb": {
       "min": [-6490, -40, -5563],
       "max": [4210, 2798, -1115]
@@ -753,7 +784,7 @@
      "id": 74,
      "name": "room_73",
      "file": "mansion/rooms/room_73.glb",
-     "area": 1,
+     "area": "ground",
      "aabb": {
       "min": [-2630, 0, -5553],
       "max": [4170, 1411, -4993]

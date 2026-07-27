@@ -281,16 +281,23 @@ func (l *Layer) IsVisible() bool { return l.Visible == nil || *l.Visible }
 func (l *Layer) DepthTests() bool { return l.DepthTest == nil || *l.DepthTest }
 
 type Rooms struct {
-	Areas  []string `json:"areas,omitempty"`
-	Stream bool     `json:"stream,omitempty"`
-	List   []Room   `json:"list"`
+	Areas  []Area `json:"areas,omitempty"`
+	Stream bool   `json:"stream,omitempty"`
+	List   []Room `json:"list"`
+}
+
+// Area is a named spatial group of rooms (a storey, a wing) driving the
+// viewer's peel toggles. Rooms reference it by id, like every cross-reference.
+type Area struct {
+	ID   string `json:"id"`
+	Name string `json:"name"`
 }
 
 type Room struct {
 	ID   int    `json:"id"`
 	Name string `json:"name,omitempty"`
 	File string `json:"file"`
-	Area int    `json:"area,omitempty"`
+	Area string `json:"area,omitempty"`
 	AABB *AABB  `json:"aabb,omitempty"`
 }
 

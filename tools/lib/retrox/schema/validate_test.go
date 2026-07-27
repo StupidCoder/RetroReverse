@@ -114,8 +114,8 @@ func validGame(t *testing.T) fstest.MapFS {
 				{ID: "streamA", File: "lv2/geo/a.glb", Mode: "exclusive:world"},
 				{ID: "streamB", File: "lv2/geo/b.glb", Mode: "exclusive:world", Visible: boolPtr(false)},
 			},
-			Rooms: &Rooms{Areas: []string{"Ground"}, List: []Room{
-				{ID: 5, File: "lv2/rooms/r05.glb", Area: 0}}},
+			Rooms: &Rooms{Areas: []Area{{ID: "ground", Name: "Ground"}}, List: []Room{
+				{ID: 5, File: "lv2/rooms/r05.glb", Area: "ground"}}},
 		},
 		Variants: []Variant{{ID: "day", Name: "Day", Default: true}, {ID: "night", Name: "Night"}},
 		Routes:   []Route{{ID: "lap", Loop: true, Points: [][]float64{{0, 0, 0}, {1, 0, 0}, {1, 0, 1}}}},

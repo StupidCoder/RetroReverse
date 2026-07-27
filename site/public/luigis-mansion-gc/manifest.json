@@ -36,18 +36,18 @@
    "file": "objects/door-10.json"
   },
   {
+   "id": "door-01",
+   "category": "object",
+   "name": "Door 01",
+   "group": "Doors",
+   "file": "objects/door-01.json"
+  },
+  {
    "id": "door-04",
    "category": "object",
    "name": "Door 04",
    "group": "Doors",
    "file": "objects/door-04.json"
-  },
-  {
-   "id": "door-03",
-   "category": "object",
-   "name": "Door 03",
-   "group": "Doors",
-   "file": "objects/door-03.json"
   },
   {
    "id": "door-12",
@@ -71,11 +71,11 @@
    "file": "objects/door-13.json"
   },
   {
-   "id": "door-01",
+   "id": "door-03",
    "category": "object",
-   "name": "Door 01",
+   "name": "Door 03",
    "group": "Doors",
-   "file": "objects/door-01.json"
+   "file": "objects/door-03.json"
   },
   {
    "id": "door-11",

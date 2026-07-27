@@ -294,11 +294,14 @@ the first is the default).
     }                                       //   (recognised roles: "collision", "sky", "water")
   ],
   "rooms": {                                // optional room-graph assembly:
-    "areas": ["Basement","Ground floor","First floor","Attic"],   // named vertical/spatial areas —
-    "stream": true,                         //   drive "peel" visibility toggles; stream = load
-    "list": [                               //   rooms progressively, nearest first
+    "areas": [                              // vertical/spatial areas — drive "peel"
+      { "id": "basement", "name": "Basement" },        //   visibility toggles
+      { "id": "ground", "name": "Ground floor" }
+    ],
+    "stream": true,                         // load rooms progressively, nearest first
+    "list": [
       { "id": 5, "name": "Foyer", "file": "ghz1/rooms/r05.glb",
-        "area": 1,                          //   index into areas
+        "area": "ground",                   //   area id (ids everywhere, names display-only)
         "aabb": { "min": [x,y,z], "max": [x,y,z] } }
     ]
   }
@@ -667,7 +670,7 @@ A conforming tree satisfies all of the following (the reference validator enforc
    within the game directory (no `..`, no absolute paths).
 4. Every id cross-reference resolves: `related`, level `music`, placement `object` /
    `anim` / `route` / `layer` / `room` / `variants` / onClick `clip` / onClick + events +
-   cutscene `sfx`, pool `object`, script actor `placement`, drive `route`.
+   cutscene `sfx`, pool `object`, script actor `placement`, drive `route`, room `area`.
 5. `tilemap`: `cells.length == width*height`; every cell id (after masking `hflipMask`)
    indexes the atlas (or `blocks`); `blocks.tiles[i].length == size*size`.
 6. `sprite2d`/`billboard3d`: the atlas PNG's dimensions are exact multiples of

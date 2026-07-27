@@ -358,6 +358,13 @@ func (c *checker) checkLevel(p string, l *Level, assets map[string]*Asset, objec
 			}
 		}
 		if l.Scene.Rooms != nil {
+			areaIDs := map[string]bool{}
+			for _, a := range l.Scene.Rooms.Areas {
+				if areaIDs[a.ID] {
+					c.errf(p, "duplicate area id %q", a.ID)
+				}
+				areaIDs[a.ID] = true
+			}
 			for _, rm := range l.Scene.Rooms.List {
 				where := fmt.Sprintf("%s: room %d", p, rm.ID)
 				if rooms[rm.ID] {
@@ -365,8 +372,8 @@ func (c *checker) checkLevel(p string, l *Level, assets map[string]*Asset, objec
 				}
 				rooms[rm.ID] = true
 				c.ref(p, rm.File)
-				if len(l.Scene.Rooms.Areas) > 0 && (rm.Area < 0 || rm.Area >= len(l.Scene.Rooms.Areas)) {
-					c.errf(where, "area %d out of range (%d areas)", rm.Area, len(l.Scene.Rooms.Areas))
+				if rm.Area != "" && !areaIDs[rm.Area] {
+					c.errf(where, "area %q is not declared", rm.Area)
 				}
 			}
 		}
