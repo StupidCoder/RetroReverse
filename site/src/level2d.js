@@ -225,10 +225,18 @@ export async function mount(ctx, doc) {
     card.querySelector('.dim').textContent = desc;
     card.querySelector('a').onclick = () => ctx.navigate(p.obj.asset.id);
     card.querySelector('.x').onclick = closeCard;
-    const r = stage.getBoundingClientRect();
-    card.style.left = `${Math.min(e.clientX - r.left + 10, r.width - 310)}px`;
-    card.style.top = `${Math.min(e.clientY - r.top + 10, r.height - 120)}px`;
     stage.appendChild(card);
+    placeCard(card, stage, e);
+  }
+
+  // placeCard positions an infocard near the click but always fully inside
+  // the stage: measure the real card (its height depends on the text), then
+  // clamp both axes.
+  function placeCard(c, host, e) {
+    const r = host.getBoundingClientRect();
+    const x = e.clientX - r.left + 10, y = e.clientY - r.top + 10;
+    c.style.left = `${Math.max(8, Math.min(x, r.width - c.offsetWidth - 8))}px`;
+    c.style.top = `${Math.max(8, Math.min(y, r.height - c.offsetHeight - 8))}px`;
   }
 
   // Cylinder wrap: the visible window may span the seam, so each object hops

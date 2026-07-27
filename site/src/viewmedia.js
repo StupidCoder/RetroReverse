@@ -21,7 +21,7 @@ function mountMusic(ctx) {
   const wrap = document.createElement('div');
   wrap.className = 'media-wrap';
   const inner = document.createElement('div');
-  inner.className = 'media-inner';
+  inner.className = 'media-inner music'; // column layout: the track list scrolls, the player bar stays put
   wrap.appendChild(inner);
   stage.appendChild(wrap);
 

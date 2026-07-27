@@ -158,8 +158,10 @@ function buildTopbar(game, asset, params) {
   }
   cat.onchange = () => navigate(game.id, game.assets(cat.value)[0].id);
 
+  // The music view is a player with its own track list, so a second track
+  // dropdown in the top bar is redundant — hide it there.
   const sel = $('assetSelect');
-  sel.hidden = false;
+  sel.hidden = asset.category === 'music';
   sel.innerHTML = '';
   let group = null, groupEl = null;
   for (const a of game.assets(asset.category)) {

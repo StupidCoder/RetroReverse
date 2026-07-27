@@ -260,6 +260,7 @@ export async function mount(ctx, doc) {
     card.querySelector('b').textContent = title || '';
     card.querySelector('.dim').textContent = body || '';
     card.querySelector('.x').onclick = closeCard;
+    placeCard(card, e);
   }
 
   function showInfo(e, pl, inst) {
@@ -273,17 +274,25 @@ export async function mount(ctx, doc) {
     card.querySelector('.mono').textContent = bits.join(' · ');
     card.querySelector('a').onclick = () => ctx.navigate(inst.asset.id);
     card.querySelector('.x').onclick = closeCard;
+    placeCard(card, e);
   }
 
   function mkCard(e, html) {
     const c = document.createElement('div');
     c.className = 'infocard';
     c.innerHTML = html;
-    const r = el.getBoundingClientRect();
-    c.style.left = `${Math.min(e.clientX - r.left + 10, r.width - 310)}px`;
-    c.style.top = `${Math.min(e.clientY - r.top + 10, r.height - 130)}px`;
     el.appendChild(c);
     return c;
+  }
+
+  // placeCard positions an infocard near the click but always fully inside
+  // the stage: measure the real card (its height depends on the text), then
+  // clamp both axes. Callers fill the card's text first.
+  function placeCard(c, e) {
+    const r = el.getBoundingClientRect();
+    const x = e.clientX - r.left + 10, y = e.clientY - r.top + 10;
+    c.style.left = `${Math.max(8, Math.min(x, r.width - c.offsetWidth - 8))}px`;
+    c.style.top = `${Math.max(8, Math.min(y, r.height - c.offsetHeight - 8))}px`;
   }
 
   // ---- cutscene scripts --------------------------------------------------------------
