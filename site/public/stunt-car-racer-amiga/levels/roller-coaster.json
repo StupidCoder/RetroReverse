@@ -1,0 +1,27 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "scene3d",
+ "camera": {
+  "mode": "fly",
+  "pos": [30.999999125772234, 6.3046875, -14],
+  "target": [31.00000104907332, 0.3046875, -36],
+  "fov": 55,
+  "near": 0.05,
+  "far": 2000,
+  "fly": {
+   "speed": 12
+  }
+ },
+ "scene": {
+  "layers": null
+ },
+ "placements": [
+  {
+   "id": 0,
+   "object": "roller-coaster-model",
+   "pos": [0, 0, 0],
+   "name": "Roller Coaster"
+  }
+ ]
+}

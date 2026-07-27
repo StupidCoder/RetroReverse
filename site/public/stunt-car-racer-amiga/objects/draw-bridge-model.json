@@ -1,0 +1,15 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "model3d",
+ "name": "Draw Bridge",
+ "animations": [
+  {
+   "id": "drawbridge",
+   "loop": "loop",
+   "description": "The bridge ramps' traced raise/lower cadence ($5A794), one morph target between the lowered and raised poses.",
+   "clip": "drawbridge"
+  }
+ ],
+ "model": "draw-bridge.glb"
+}

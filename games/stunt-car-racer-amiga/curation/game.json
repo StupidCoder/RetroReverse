@@ -1,0 +1,6 @@
+{
+ "title": "Stunt Car Racer",
+ "platform": "Amiga",
+ "year": 1989,
+ "description": "Geoff Crammond's elevated-track racer, rebuilt from the decoded game binary. All eight circuits are baked from the verified pure-Go track spine and the game's own $65BEC model — road ribbon, walls and the stroked decal lines in the pre-race preview's colours — and can be flown through from the grid at each circuit's own start rung. The Draw Bridge carries its traced morph-target bridge animation; the opponent car is the verbatim-ported $599E2 construction, and the race view's 32-silhouette horizon ring is browsable as a model."
+}

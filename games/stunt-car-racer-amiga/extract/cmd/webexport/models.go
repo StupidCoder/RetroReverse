@@ -24,11 +24,12 @@ import (
 	"fmt"
 	"math"
 	"os"
-	"path/filepath"
 
 	"retroreverse.com/games/stunt-car-racer-amiga/extract/carmodel"
 	"retroreverse.com/games/stunt-car-racer-amiga/extract/track"
 	"retroreverse.com/tools/lib/glb"
+	"retroreverse.com/tools/lib/retrox/cli"
+	"retroreverse.com/tools/lib/retrox/schema"
 )
 
 // ModelIndex is one manifest models[] entry (STANDARDS.md §4.2). Kind routes the site to the
@@ -125,19 +126,47 @@ func quadTris(mb *meshBuilder, tris *[][3]uint32, a, b, c, d uint32, outward *[3
 
 // exportModels writes models/<slug>.glb for the eight circuits and returns the
 // manifest entries.
-func exportModels(inPath, outDir string) []ModelIndex {
-	img, err := os.ReadFile(inPath)
+func exportAll(ctx *cli.Context) error {
+	b := ctx.Builder
+	img, err := os.ReadFile(ctx.In)
 	chk(err)
 	im := track.New(img)
-	chk(os.MkdirAll(filepath.Join(outDir, "models"), 0o755))
 	pal := im.Palette()
 
-	var out []ModelIndex
+	addCircuit := func(id int, name, file string, anims []schema.Animation, anchor *StartAnchor) {
+		objID := slug(name) + "-model"
+		b.AddObject(schema.Asset{ID: objID, Name: name, Group: "Courses"}, &schema.Object{
+			Type: schema.ObjectModel3D, Name: name, Model: file, Animations: anims,
+		})
+		// the fly-through level: the circuit at the origin, camera on the grid
+		cam := &schema.Camera{Mode: "fly", FOV: 55, Near: 0.05, Far: 2000, Fly: &schema.Fly{Speed: 12}}
+		if anchor != nil {
+			dx, dz := float64(math32sin(anchor.Yaw)), float64(math32cos(anchor.Yaw))
+			p, y := anchor.Pos, float64(anchor.Pos[1])
+			cam.Pos = []float64{float64(p[0]) - dx*10, y + 6, float64(p[2]) - dz*10}
+			cam.Target = []float64{float64(p[0]) + dx*12, y, float64(p[2]) + dz*12}
+		} else {
+			cam.Pos = []float64{0, 20, -40}
+			cam.Target = []float64{0, 0, 0}
+		}
+		doc := &schema.Level{
+			Type:   schema.LevelScene3D,
+			Scene:  &schema.Scene{},
+			Camera: cam,
+			Placements: []schema.Placement{{
+				ID: 0, Object: objID, Pos: []float64{0, 0, 0}, Name: name,
+			}},
+		}
+		b.AddLevel(schema.Asset{ID: slug(name), Name: name, Group: "Circuits"}, doc)
+	}
+
 	for id := 0; id < 8; id++ {
 		mb, triGroups, lineGroups := buildCircuit(im, id, pal)
 
 		name := trackNames[id]
-		file := "models/" + slug(name) + ".glb"
+		file := slug(name) + ".glb"
+		outPath, err := b.Path("objects", file)
+		chk(err)
 		anchor := startAnchor(im, id)
 		if id == track.DrawBridgeTrack {
 			// the bridge ramps are animated at runtime ($5A794): the base mesh
@@ -171,19 +200,25 @@ func exportModels(inPath, outDir string) []ModelIndex {
 				// resting pose = the game's own first preview (phase 1, tri 14)
 				Default: 14.0 / 15.0,
 			}
-			chk(glb.WriteMixedMorph(filepath.Join(outDir, file), lo.pos, loT, loL, m))
-			out = append(out, ModelIndex{Name: name, File: file, Kind: "stunt-model", Section: "Courses", Fly: true, Start: anchor})
-			fmt.Fprintf(os.Stderr, "[models] %d/10 %s (%d verts, morph)\n", id+1, filepath.Base(file), len(lo.pos))
+			chk(glb.WriteMixedMorph(outPath, lo.pos, loT, loL, m))
+			addCircuit(id, name, file, []schema.Animation{{
+				ID: "drawbridge", Clip: "drawbridge", Loop: "loop",
+				Description: "The bridge ramps' traced raise/lower cadence ($5A794), one morph target between the lowered and raised poses.",
+			}}, anchor)
+			ctx.Progress("levels", id+1, 8, fmt.Sprintf("%s (%d verts, morph)", file, len(lo.pos)))
 			continue
 		}
-		chk(glb.WriteMixed(filepath.Join(outDir, file), mb.pos, triGroups, lineGroups))
-		out = append(out, ModelIndex{Name: name, File: file, Kind: "stunt-model", Section: "Courses", Fly: true, Start: anchor})
-		fmt.Fprintf(os.Stderr, "[models] %d/10 %s (%d verts)\n", id+1, filepath.Base(file), len(mb.pos))
+		chk(glb.WriteMixed(outPath, mb.pos, triGroups, lineGroups))
+		addCircuit(id, name, file, nil, anchor)
+		ctx.Progress("levels", id+1, 8, fmt.Sprintf("%s (%d verts)", file, len(mb.pos)))
 	}
-	out = append(out, exportCar(pal, outDir))
-	out = append(out, exportHorizon(im, pal, outDir))
-	return out
+	exportCar(ctx, pal)
+	exportHorizon(ctx, im, pal)
+	return nil
 }
+
+func math32sin(v float32) float32 { return float32(math.Sin(float64(v))) }
+func math32cos(v float32) float32 { return float32(math.Cos(float64(v))) }
 
 // glbPos maps a game-world plan point (x, z) at height h to the circuit GLB's
 // coordinate space — the same transform meshBuilder.vert applies.
@@ -332,7 +367,7 @@ func buildCircuit(im *track.Image, id int, pal [16][3]uint8) (*meshBuilder, []gl
 // vertex's x maps to arc length on a cylinder of radius 8192/2pi px and its y
 // to height above the horizon plane (Y=0). Scale: 1 GLB unit = 32 px (1 yaw
 // unit), radius ~40.7 units, faces double-sided facing the viewer inside.
-func exportHorizon(im *track.Image, pal [16][3]uint8, outDir string) ModelIndex {
+func exportHorizon(ctx *cli.Context, im *track.Image, pal [16][3]uint8) {
 	place, models := im.Horizon()
 	const pxPerYaw = 32.0
 	const circle = 256 * pxPerYaw
@@ -407,10 +442,13 @@ func exportHorizon(im *track.Image, pal [16][3]uint8, outDir string) ModelIndex 
 	for i, p := range triPal {
 		groups = append(groups, glb.TriGroup{Tris: tris[i], Color: linColor(pal[p])})
 	}
-	file := "models/horizon.glb"
-	chk(glb.WriteMixed(filepath.Join(outDir, file), pos, groups, nil))
-	fmt.Fprintf(os.Stderr, "[models] 10/10 horizon.glb (%d placements, %d verts)\n", len(place), len(pos))
-	return ModelIndex{Name: "Horizon", File: file, Kind: "stunt-model", Section: "Models"}
+	outPath, err := ctx.Builder.Path("objects", "horizon.glb")
+	chk(err)
+	chk(glb.WriteMixed(outPath, pos, groups, nil))
+	ctx.Logf("horizon.glb (%d placements, %d verts)", len(place), len(pos))
+	ctx.Builder.AddObject(schema.Asset{ID: "horizon", Name: "Horizon", Group: "Models"}, &schema.Object{
+		Type: schema.ObjectModel3D, Name: "Horizon", Model: "horizon.glb",
+	})
 }
 
 // exportCar writes the opponent car's rest-pose model (carmodel.Rest — the
@@ -418,7 +456,7 @@ func exportHorizon(im *track.Image, pal [16][3]uint8, outDir string) ModelIndex 
 // models/opponent-car.glb, in the same scale and colour conventions as the
 // circuit GLBs, resting on Y=0. Faces stay double-sided: the engine's 2-D
 // fills repaint every face each frame with no facing test.
-func exportCar(pal [16][3]uint8, outDir string) ModelIndex {
+func exportCar(ctx *cli.Context, pal [16][3]uint8) {
 	m := carmodel.Rest()
 	minY := m.Verts[0].Y
 	for _, v := range m.Verts {
@@ -450,8 +488,10 @@ func exportCar(pal [16][3]uint8, outDir string) ModelIndex {
 	for i, p := range carPal {
 		groups = append(groups, glb.TriGroup{Tris: tris[i], Color: linColor(pal[p])})
 	}
-	file := "models/opponent-car.glb"
-	chk(glb.WriteMixed(filepath.Join(outDir, file), pos, groups, nil))
-	fmt.Fprintf(os.Stderr, "[models] 9/10 opponent-car.glb (%d verts)\n", len(pos))
-	return ModelIndex{Name: "Opponent Car", File: file, Kind: "stunt-model", Section: "Models"}
+	outPath, err := ctx.Builder.Path("objects", "opponent-car.glb")
+	chk(err)
+	chk(glb.WriteMixed(outPath, pos, groups, nil))
+	ctx.Builder.AddObject(schema.Asset{ID: "opponent-car", Name: "Opponent Car", Group: "Models"}, &schema.Object{
+		Type: schema.ObjectModel3D, Name: "Opponent Car", Model: "opponent-car.glb",
+	})
 }

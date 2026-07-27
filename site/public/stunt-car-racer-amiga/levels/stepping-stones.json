@@ -1,0 +1,27 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "scene3d",
+ "camera": {
+  "mode": "fly",
+  "pos": [18, 6.8125, -30.999999562886117],
+  "target": [-4, 0.8125, -31.00000052453666],
+  "fov": 55,
+  "near": 0.05,
+  "far": 2000,
+  "fly": {
+   "speed": 12
+  }
+ },
+ "scene": {
+  "layers": null
+ },
+ "placements": [
+  {
+   "id": 0,
+   "object": "stepping-stones-model",
+   "pos": [0, 0, 0],
+   "name": "Stepping Stones"
+  }
+ ]
+}

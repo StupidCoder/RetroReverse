@@ -1,0 +1,27 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "scene3d",
+ "camera": {
+  "mode": "fly",
+  "pos": [1, 6.3671875, -18],
+  "target": [1, 0.3671875, 4],
+  "fov": 55,
+  "near": 0.05,
+  "far": 2000,
+  "fly": {
+   "speed": 12
+  }
+ },
+ "scene": {
+  "layers": null
+ },
+ "placements": [
+  {
+   "id": 0,
+   "object": "ski-jump-model",
+   "pos": [0, 0, 0],
+   "name": "Ski Jump"
+  }
+ ]
+}

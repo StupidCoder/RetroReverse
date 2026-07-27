@@ -1,0 +1,27 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "scene3d",
+ "camera": {
+  "mode": "fly",
+  "pos": [0.9999991257722343, 6.203125, 2],
+  "target": [1.0000010490733189, 0.203125, -20],
+  "fov": 55,
+  "near": 0.05,
+  "far": 2000,
+  "fly": {
+   "speed": 12
+  }
+ },
+ "scene": {
+  "layers": null
+ },
+ "placements": [
+  {
+   "id": 0,
+   "object": "hump-back-model",
+   "pos": [0, 0, 0],
+   "name": "Hump Back"
+  }
+ ]
+}

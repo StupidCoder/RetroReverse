@@ -1,44 +1,49 @@
-// webexport reconstructs Stunt Car Racer's web assets from the decoded game binary
-// and writes the common format-2 asset tree (see FORMAT2.md / STANDARDS.md §4)
-// under the output root:
+// webexport builds Stunt Car Racer's Retro-X game tree from the decoded game
+// binary. Every circuit is baked as one GLB (road ribbon, walls and stroked
+// decal LINES, coloured as the pre-race preview renders them) and served two
+// ways: as a browsable model3d object and as a fly-through scene3d level whose
+// camera starts on the grid at the circuit's own start rung. The opponent car
+// (the verbatim-ported $599E2 construction) and the race view's horizon ring
+// are objects; the Draw Bridge circuit carries its traced morph-target bridge
+// animation.
 //
-//	manifest.json               game index: native res, tick rate, the models[] list
-//	models/<slug>.glb           one baked GLB per asset: the eight circuits (road ribbon,
-//	                            walls and stroked decal LINES, coloured as the pre-race
-//	                            preview renders them), the opponent car and the horizon ring
+// Usage (from games/stunt-car-racer-amiga/):
 //
-// Every asset is a GLB driven by the site's "stunt-model" viewer, indexed under
-// manifest.models[] (the circuits under section "Courses", the opponent car + horizon
-// under "Models"). The geometry is the verified pure-Go spine + baked $65BEC model
-// (package track) coloured byte-exact by cmd/coloracle; cmd/trackjson still emits the
-// standalone per-circuit JSON if the decoded geometry is wanted outside the site.
-//
-// Usage: webexport [-in <game.dec.bin>] [-o <outdir>]
+//	go run ./extract/cmd/webexport -in extracted/game.dec.bin
 package main
 
 import (
-	"encoding/json"
-	"flag"
 	"fmt"
 	"os"
-	"path/filepath"
 	"strings"
+
+	"retroreverse.com/tools/lib/retrox/cli"
+	"retroreverse.com/tools/lib/retrox/schema"
 )
 
-// Manifest is the format-2 game index (STANDARDS.md §4.2). Sections gated out by
-// -only stay empty and omitempty drops them, so a partial run is self-consistent.
-// Every asset is a baked GLB under models[] (the eight circuits + the opponent car +
-// the horizon), driven by the site's stunt-model viewer.
-type Manifest struct {
-	Format   int            `json:"format"`
-	Game     string         `json:"game"`
-	Platform string         `json:"platform"`
-	Native   map[string]int `json:"native"`
-	TickHz   int            `json:"tickHz"`
-	Models   []ModelIndex   `json:"models,omitempty"`
+func main() {
+	cli.Main("stunt-car-racer-amiga", run)
 }
 
-// slug turns a circuit name into a stable kebab-case file stem ("Roller Coaster" ->
+func run(ctx *cli.Context) error {
+	if ctx.In == "" {
+		return fmt.Errorf("usage: webexport -in extracted/game.dec.bin [-o DIR]")
+	}
+	b := ctx.Builder
+	b.SetTitle("Stunt Car Racer")
+	b.SetPlatform("Amiga")
+	b.SetYear(1989)
+	b.SetDisplay(schema.Display{
+		Native: schema.Size{W: 320, H: 200},
+		TickHz: 50,
+		Filter: "crt",
+	})
+	ctx.Stage("objects")
+	ctx.Stage("levels")
+	return exportAll(ctx)
+}
+
+// slug turns a circuit name into a stable kebab-case id ("Roller Coaster" ->
 // "roller-coaster"). Circuit names are unique, so the slug is a stable identity.
 func slug(name string) string {
 	var b strings.Builder
@@ -63,25 +68,4 @@ func chk(err error) {
 		fmt.Fprintln(os.Stderr, "webexport:", err)
 		os.Exit(1)
 	}
-}
-
-func writeJSON(path string, v any) {
-	b, err := json.Marshal(v)
-	chk(err)
-	chk(os.WriteFile(path, b, 0o644))
-}
-
-func main() {
-	in := flag.String("in", "../extracted/game.dec.bin", "input decoded game binary (game.dec.bin)")
-	outdir := flag.String("o", "../../site/public/stunt-car-racer-amiga", "output asset root")
-	flag.Parse()
-	chk(os.MkdirAll(*outdir, 0o755))
-
-	man := Manifest{
-		Format: 2, Game: "stunt-car-racer-amiga", Platform: "Amiga",
-		Native: map[string]int{"w": 320, "h": 200}, TickHz: 50,
-	}
-	man.Models = exportModels(*in, *outdir)
-	writeJSON(filepath.Join(*outdir, "manifest.json"), man)
-	fmt.Fprintf(os.Stderr, "[manifest] %d models -> %s\n", len(man.Models), *outdir)
 }
