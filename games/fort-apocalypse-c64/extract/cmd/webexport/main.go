@@ -63,8 +63,8 @@ var (
 		{{0, -8, 0x4A}, {0, 0, 0x3E}},
 		{{0, -8, 0x4A}, {0, 0, 0x3D}},
 	}
-	tankAimLeft  = []stamp{{0, 0, 0x6C}, {8, 0, 0x6D}, {16, 0, 0x6E}, {8, -8, 0x6F}}
-	tankAimRight = []stamp{{0, 0, 0x6C}, {8, 0, 0x6D}, {16, 0, 0x6E}, {8, -8, 0x70}}
+	tankAimRight = []stamp{{0, 0, 0x6C}, {8, 0, 0x6D}, {16, 0, 0x6E}, {8, -8, 0x6F}}
+	tankAimLeft  = []stamp{{0, 0, 0x6C}, {8, 0, 0x6D}, {16, 0, 0x6E}, {8, -8, 0x70}}
 	// The $963C char pairs are the SAME 26-pixel mine at four sub-cell
 	// positions (blob centres 4.5/6.5/8.5/10.5 px within the 2-cell pair) —
 	// the engine's slide phases become a ping-pong creep animation.
@@ -208,14 +208,14 @@ func exportObjects(ctx *cli.Context, game *fortgfx.Game) (map[string]string, err
 		}
 		if out["tank"], err = pack("Tank",
 			[]atlas.Animation{
-				{ID: "main", Frames: []atlas.Frame{frame(tankAimLeft)}},
-				{ID: "aim-right", Frames: []atlas.Frame{frame(tankAimRight)}},
+				{ID: "main", Frames: []atlas.Frame{frame(tankAimRight)}},
+				{ID: "aim-left", Frames: []atlas.Frame{frame(tankAimLeft)}},
 			},
 			[]schema.Animation{
-				{ID: "main", Name: "Turret left", Row: 0, Frames: 1, Loop: "hold",
-					Description: "Body $6C $6D $6E with the $6F turret; in play the turret always aims at the player."},
-				{ID: "aim-right", Name: "Turret right", Row: 1, Frames: 1, Loop: "hold",
-					Description: "The mirrored $70 turret pose."},
+				{ID: "main", Name: "Turret right", Row: 0, Frames: 1, Loop: "hold",
+					Description: "Body $6C $6D $6E with the $6F turret (right-facing); in play the turret always aims at the player."},
+				{ID: "aim-left", Name: "Turret left", Row: 1, Frames: 1, Loop: "hold",
+					Description: "The mirrored $70 turret pose (left-facing)."},
 			}); err != nil {
 			return nil, err
 		}

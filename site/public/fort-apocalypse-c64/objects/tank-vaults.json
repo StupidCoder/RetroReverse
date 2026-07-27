@@ -12,16 +12,16 @@
  "animations": [
   {
    "id": "main",
-   "name": "Turret left",
+   "name": "Turret right",
    "loop": "hold",
-   "description": "Body $6C $6D $6E with the $6F turret; in play the turret always aims at the player.",
+   "description": "Body $6C $6D $6E with the $6F turret (right-facing); in play the turret always aims at the player.",
    "frames": 1
   },
   {
-   "id": "aim-right",
-   "name": "Turret right",
+   "id": "aim-left",
+   "name": "Turret left",
    "loop": "hold",
-   "description": "The mirrored $70 turret pose.",
+   "description": "The mirrored $70 turret pose (left-facing).",
    "row": 1,
    "frames": 1
   }
