@@ -62,6 +62,10 @@ type Display struct {
 	Native Size   `json:"native"`
 	TickHz int    `json:"tickHz"`
 	Filter string `json:"filter,omitempty"`
+	// TexFilter is how the platform's rasterizer sampled textures:
+	// "linear" (N64/GC-style bilinear) or "nearest" (PSX-style point
+	// sampling). Empty leaves the viewer's default behaviour.
+	TexFilter string `json:"texFilter,omitempty"`
 }
 
 type Size struct {

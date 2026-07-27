@@ -99,6 +99,9 @@ func run(ctx *cli.Context) error {
 		Native: schema.Size{W: 320, H: 240},
 		TickHz: 60,
 		Filter: "crt",
+		// The RDP samples textures bilinearly (3-point); point sampling
+		// would misrepresent the hardware.
+		TexFilter: "linear",
 	})
 
 	a, err := pwad.Open(rom.Data)

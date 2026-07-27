@@ -12,7 +12,8 @@
    "h": 240
   },
   "tickHz": 60,
-  "filter": "crt"
+  "filter": "crt",
+  "texFilter": "linear"
  },
  "assets": [
   {
