@@ -1,0 +1,16 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "model3d",
+ "name": "HOME Menu Banner",
+ "animations": [
+  {
+   "id": "banner",
+   "loop": "loop",
+   "clip": "banner",
+   "fps": 30
+  }
+ ],
+ "model": "banner.glb",
+ "skinnedClone": true
+}

@@ -1,18 +1,27 @@
 {
- "format": 2,
- "game": "super-mario-3d-land-3ds",
- "models": [
-  {
-   "file": "models/banner.glb",
-   "kind": "mesh3d",
-   "name": "HOME Menu Banner",
-   "section": "Banner"
-  }
- ],
- "native": {
-  "h": 240,
-  "w": 400
- },
+ "format": "retro-x",
+ "version": 1,
+ "id": "super-mario-3d-land-3ds",
+ "title": "Super Mario 3D Land",
  "platform": "Nintendo 3DS",
- "tickHz": 60
+ "year": 2011,
+ "description": "The repo's first 3DS target — the console whose PICA200 GPU our oracle emulates at the register level, playing the game to its file-select screen. The Studio carries what's decoded for the web so far: the cartridge's animated HOME Menu banner, decompressed from its CBMD container (LZ11) and rebuilt from the CGFX scene with its skeletal animation intact.",
+ "display": {
+  "native": {
+   "w": 400,
+   "h": 240
+  },
+  "tickHz": 60,
+  "filter": "ds",
+  "texFilter": "linear"
+ },
+ "assets": [
+  {
+   "id": "banner",
+   "category": "object",
+   "name": "HOME Menu Banner",
+   "group": "Banner",
+   "file": "objects/banner.json"
+  }
+ ]
 }

@@ -1,0 +1,6 @@
+{
+ "title": "Super Mario 3D Land",
+ "platform": "Nintendo 3DS",
+ "year": 2011,
+ "description": "The repo's first 3DS target — the console whose PICA200 GPU our oracle emulates at the register level, playing the game to its file-select screen. The Studio carries what's decoded for the web so far: the cartridge's animated HOME Menu banner, decompressed from its CBMD container (LZ11) and rebuilt from the CGFX scene with its skeletal animation intact."
+}

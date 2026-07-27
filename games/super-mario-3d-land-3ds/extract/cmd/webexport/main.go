@@ -26,8 +26,6 @@
 package main
 
 import (
-	"encoding/json"
-	"flag"
 	"fmt"
 	"image"
 	"image/png"
@@ -35,24 +33,47 @@ import (
 	"path/filepath"
 
 	"retroreverse.com/tools/lib/glb"
+	"retroreverse.com/tools/lib/retrox/cli"
+	"retroreverse.com/tools/lib/retrox/schema"
 	"retroreverse.com/tools/platform/n3ds"
 )
 
 const fps = 30 // NW4C animations are authored at 30 frames/second
 
 func main() {
-	in := flag.String("in", "", "3DS cartridge image (decrypted .cci)")
-	out := flag.String("o", "../../site/public/super-mario-3d-land-3ds", "output root")
-	texdump := flag.String("texdump", "", "also write each decoded texture as PNG into this directory")
-	flag.Parse()
-	if *in == "" {
-		fmt.Fprintln(os.Stderr, "usage: webexport -in game.cci [-o DIR] [-texdump DIR]")
-		os.Exit(2)
+	cli.Main("super-mario-3d-land-3ds", runCLI)
+}
+
+func runCLI(ctx *cli.Context) error {
+	if ctx.In == "" {
+		return fmt.Errorf("usage: webexport -in game.cci [-o DIR]")
 	}
-	if err := run(*in, *out, *texdump); err != nil {
-		fmt.Fprintln(os.Stderr, "webexport:", err)
-		os.Exit(1)
+	b := ctx.Builder
+	b.SetTitle("Super Mario 3D Land")
+	b.SetPlatform("Nintendo 3DS")
+	b.SetYear(2011)
+	b.SetDisplay(schema.Display{
+		Native: schema.Size{W: 400, H: 240},
+		TickHz: 60,
+		// the 3DS's backlit TFT + PICA200's bilinear sampling
+		Filter:    "ds",
+		TexFilter: "linear",
+	})
+	ctx.Stage("objects")
+	out, err := b.Path("objects", "banner.glb")
+	if err != nil {
+		return err
 	}
+	if err := run(ctx.In, out, ""); err != nil {
+		return err
+	}
+	b.AddObject(schema.Asset{ID: "banner", Name: "HOME Menu Banner", Group: "Banner"}, &schema.Object{
+		Type: schema.ObjectModel3D, Name: "HOME Menu Banner", Model: "banner.glb",
+		SkinnedClone: true,
+		Animations:   []schema.Animation{{ID: "banner", Clip: "banner", FPS: 30, Loop: "loop"}},
+	})
+	ctx.Progress("objects", 1, 1, "banner.glb")
+	return nil
 }
 
 func run(in, out, texdump string) error {
@@ -89,13 +110,7 @@ func run(in, out, texdump string) error {
 		return err
 	}
 
-	if err := os.MkdirAll(filepath.Join(out, "models"), 0o755); err != nil {
-		return err
-	}
-	if err := exportBanner(g, filepath.Join(out, "models", "banner.glb"), texdump); err != nil {
-		return err
-	}
-	return writeManifest(out)
+	return exportBanner(g, out, texdump)
 }
 
 func exportBanner(g *n3ds.CGFX, path, texdump string) error {
@@ -399,25 +414,4 @@ func addTrack(s *glb.Scene, node int, bone n3ds.Bone, m n3ds.BoneAnim) error {
 		s.AddTranslationTrack(node, times, vals, tans, tans)
 	}
 	return nil
-}
-
-func writeManifest(out string) error {
-	m := map[string]any{
-		"format":   2,
-		"game":     "super-mario-3d-land-3ds",
-		"platform": "Nintendo 3DS",
-		"native":   map[string]int{"w": 400, "h": 240},
-		"tickHz":   60,
-		"models": []map[string]any{{
-			"name":    "HOME Menu Banner",
-			"file":    "models/banner.glb",
-			"kind":    "mesh3d",
-			"section": "Banner",
-		}},
-	}
-	b, err := json.MarshalIndent(m, "", " ")
-	if err != nil {
-		return err
-	}
-	return os.WriteFile(filepath.Join(out, "manifest.json"), append(b, '\n'), 0o644)
 }
