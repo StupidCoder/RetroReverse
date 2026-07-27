@@ -78,7 +78,9 @@ body {
 /* ---- stage ---- */
 #stage { position: fixed; inset: var(--bar-h) 0 0 0; }
 #stage.render2d canvas.pixi { image-rendering: pixelated; }
-#stage > canvas, #stage canvas.fill { position: absolute; inset: 0; width: 100%; height: 100%; }
+/* touch-action none: the viewers own their drag/pinch gestures — without it
+   Android claims the touches for page gestures and pointercancels the pan */
+#stage > canvas, #stage canvas.fill { position: absolute; inset: 0; width: 100%; height: 100%; touch-action: none; }
 #stage.dragging { cursor: grabbing; }
 #screenfx { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 10; }
 
